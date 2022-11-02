@@ -4,18 +4,20 @@ import (
 	"context"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/walker"
-	"github.com/iotaledger/hive.go/core/kvstore"
-	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/core/syncutils"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
+	"github.com/iotaledger/goshimmer/packages/storage"
+	"github.com/iotaledger/goshimmer/packages/storage/models"
 )
 
 // region Ledger ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -25,6 +27,9 @@ import (
 type Ledger struct {
 	// Events is a dictionary for Ledger related events.
 	Events *Events
+
+	// ChainStorage is used to access storage for the ledger state.
+	ChainStorage *storage.Storage
 
 	// Storage is a dictionary for storage related API endpoints.
 	Storage *Storage
@@ -46,9 +51,6 @@ type Ledger struct {
 
 	// optsVM contains the virtual machine that is used to execute Transactions.
 	optsVM vm.VM
-
-	// optsStore contains the KVStore that is used to persist data.
-	optsStore kvstore.KVStore
 
 	// optsCacheTimeProvider contains the CacheTimeProvider that overrides the local cache times.
 	optsCacheTimeProvider *database.CacheTimeProvider
@@ -79,10 +81,11 @@ type Ledger struct {
 }
 
 // New returns a new Ledger from the given optionsLedger.
-func New(opts ...options.Option[Ledger]) (ledger *Ledger) {
+func New(chainStorage *storage.Storage, opts ...options.Option[Ledger]) (ledger *Ledger) {
 	ledger = options.Apply(&Ledger{
-		Events:                          NewEvents(),
-		optsStore:                       mapdb.NewMapDB(),
+		Events:       NewEvents(),
+		ChainStorage: chainStorage,
+
 		optsCacheTimeProvider:           database.NewCacheTimeProvider(0),
 		optsVM:                          NewMockedVM(),
 		optsTransactionCacheTime:        10 * time.Second,
@@ -94,25 +97,21 @@ func New(opts ...options.Option[Ledger]) (ledger *Ledger) {
 	}, opts)
 
 	ledger.ConflictDAG = conflictdag.New[utxo.TransactionID, utxo.OutputID](append([]conflictdag.Option{
-		conflictdag.WithStore(ledger.optsStore),
+		conflictdag.WithStore(chainStorage.UnspentOutputs),
 		conflictdag.WithCacheTimeProvider(ledger.optsCacheTimeProvider),
 	}, ledger.optConflictDAG...)...)
 
 	ledger.Events.ConflictDAG = ledger.ConflictDAG.Events
 
-	ledger.Storage = newStorage(ledger)
+	ledger.Storage = newStorage(ledger, chainStorage.UnspentOutputs)
 	ledger.validator = newValidator(ledger)
 	ledger.booker = newBooker(ledger)
 	ledger.dataFlow = newDataFlow(ledger)
 	ledger.Utils = newUtils(ledger)
 
-	ledger.ConflictDAG.Events.ConflictAccepted.Attach(event.NewClosure(func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
-		ledger.propagateAcceptanceToIncludedTransactions(event.ID)
-	}))
+	ledger.ConflictDAG.Events.ConflictAccepted.Attach(event.NewClosure(ledger.propagateAcceptanceToIncludedTransactions))
 
-	ledger.ConflictDAG.Events.ConflictRejected.Attach(event.NewClosure(func(event *conflictdag.ConflictRejectedEvent[utxo.TransactionID]) {
-		ledger.propagatedRejectionToTransactions(event.ID)
-	}))
+	ledger.ConflictDAG.Events.ConflictRejected.Attach(event.NewClosure(ledger.propagatedRejectionToTransactions))
 
 	ledger.Events.TransactionBooked.Attach(event.NewClosure(func(event *TransactionBookedEvent) {
 		ledger.processConsumingTransactions(event.Outputs.IDs())
@@ -123,45 +122,6 @@ func New(opts ...options.Option[Ledger]) (ledger *Ledger) {
 	}))
 
 	return ledger
-}
-
-// LoadOutputsWithMetadata loads OutputWithMetadata from a snapshot file to the storage.
-func (l *Ledger) LoadOutputsWithMetadata(outputsWithMetadata []*OutputWithMetadata) {
-	for _, outputWithMetadata := range outputsWithMetadata {
-		newOutputMetadata := NewOutputMetadata(outputWithMetadata.ID())
-		newOutputMetadata.SetAccessManaPledgeID(outputWithMetadata.AccessManaPledgeID())
-		newOutputMetadata.SetConsensusManaPledgeID(outputWithMetadata.ConsensusManaPledgeID())
-		newOutputMetadata.SetConfirmationState(confirmation.Confirmed)
-
-		l.Storage.outputStorage.Store(outputWithMetadata.Output()).Release()
-		l.Storage.outputMetadataStorage.Store(newOutputMetadata).Release()
-
-		l.Events.OutputCreated.Trigger(outputWithMetadata.ID())
-	}
-}
-
-// LoadEpochDiff loads EpochDiff from a snapshot file to the storage.
-func (l *Ledger) LoadEpochDiff(epochDiff *EpochDiff) error {
-	for _, spent := range epochDiff.Spent() {
-		l.Storage.outputStorage.Delete(spent.ID().Bytes())
-		l.Storage.outputMetadataStorage.Delete(spent.ID().Bytes())
-
-		l.Events.OutputSpent.Trigger(spent.ID())
-	}
-
-	for _, created := range epochDiff.Created() {
-		outputMetadata := NewOutputMetadata(created.ID())
-		outputMetadata.SetAccessManaPledgeID(created.AccessManaPledgeID())
-		outputMetadata.SetConsensusManaPledgeID(created.ConsensusManaPledgeID())
-		outputMetadata.SetConfirmationState(confirmation.Confirmed)
-
-		l.Storage.outputStorage.Store(created.Output()).Release()
-		l.Storage.outputMetadataStorage.Store(outputMetadata).Release()
-
-		l.Events.OutputCreated.Trigger(created.ID())
-	}
-
-	return nil
 }
 
 // SetTransactionInclusionTime sets the inclusion timestamp of a Transaction.
@@ -178,8 +138,12 @@ func (l *Ledger) SetTransactionInclusionTime(txID utxo.TransactionID, inclusionT
 			PreviousInclusionTime: previousInclusionTime,
 		})
 
-		if previousInclusionTime.IsZero() && l.ConflictDAG.ConfirmationState(txMetadata.ConflictIDs()).IsAccepted() {
-			l.triggerAcceptedEvent(txMetadata)
+		if l.ConflictDAG.ConfirmationState(txMetadata.ConflictIDs()).IsAccepted() {
+			l.rollbackTransactionInEpochDiff(txMetadata, previousInclusionTime, inclusionTime)
+
+			if previousInclusionTime.IsZero() {
+				l.triggerAcceptedEvent(txMetadata)
+			}
 		}
 	})
 }
@@ -248,15 +212,83 @@ func (l *Ledger) triggerAcceptedEvent(txMetadata *TransactionMetadata) (triggere
 
 	l.Storage.CachedTransaction(txMetadata.ID()).Consume(func(tx utxo.Transaction) {
 		for it := l.Utils.ResolveInputs(tx.Inputs()).Iterator(); it.HasNext(); {
-			l.Events.OutputSpent.Trigger(it.Next())
+			inputID := it.Next()
+			l.Events.OutputSpent.Trigger(inputID)
+			// TODO: inputs should be marked as deleted or spent
+			// l.Storage.outputStorage.Delete(lo.PanicOnErr(inputID.Bytes()))
 		}
 	})
 
-	l.Events.TransactionAccepted.Trigger(&TransactionAcceptedEvent{
-		TransactionID: txMetadata.ID(),
-	})
+	l.storeTransactionInEpochDiff(txMetadata)
+
+	l.Events.TransactionAccepted.Trigger(txMetadata)
 
 	return true
+}
+
+func (l *Ledger) storeTransactionInEpochDiff(txMeta *TransactionMetadata) {
+	txEpoch := epoch.IndexFromTime(txMeta.InclusionTime())
+
+	l.Storage.CachedTransaction(txMeta.ID()).Consume(func(tx utxo.Transaction) {
+		// Mark every input as a spent output in the epoch diff
+		for it := l.Utils.ResolveInputs(tx.Inputs()).Iterator(); it.HasNext(); {
+			inputID := it.Next()
+			l.Storage.CachedOutput(inputID).Consume(func(output utxo.Output) {
+				l.Storage.CachedOutputMetadata(inputID).Consume(func(outputMetadata *OutputMetadata) {
+					if err := l.storeOutputInDiff(txEpoch, inputID, output, outputMetadata, l.ChainStorage.LedgerStateDiffs.StoreSpentOutput); err != nil {
+						l.Events.Error.Trigger(errors.Errorf("could not store spent output in diff: %w", err))
+					}
+				})
+			})
+		}
+
+		// Mark every output as created output in the epoch diff
+		for it := txMeta.OutputIDs().Iterator(); it.HasNext(); {
+			outputID := it.Next()
+			l.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
+				l.Storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *OutputMetadata) {
+					if err := l.storeOutputInDiff(txEpoch, outputID, output, outputMetadata, l.ChainStorage.LedgerStateDiffs.StoreCreatedOutput); err != nil {
+						l.Events.Error.Trigger(errors.Errorf("could not store created output in diff: %w", err))
+					}
+				})
+			})
+		}
+
+		if txEpoch > l.ChainStorage.Settings.LatestStateMutationEpoch() {
+			if err := l.ChainStorage.Settings.SetLatestStateMutationEpoch(txEpoch); err != nil {
+				l.Events.Error.Trigger(errors.Errorf("failed to update latest state mutation epoch: %w", err))
+			}
+		}
+	})
+}
+
+func (l *Ledger) rollbackTransactionInEpochDiff(txMeta *TransactionMetadata, previousInclusionTime, inclusionTime time.Time) {
+	oldEpoch := epoch.IndexFromTime(previousInclusionTime)
+	newEpoch := epoch.IndexFromTime(inclusionTime)
+
+	if oldEpoch == 0 || oldEpoch == newEpoch {
+		return
+	}
+
+	if oldEpoch <= l.ChainStorage.Settings.LatestCommitment().Index() || newEpoch <= l.ChainStorage.Settings.LatestCommitment().Index() {
+		l.Events.Error.Trigger(errors.Errorf("inclusion time of transaction changed for already committed epoch: previous Index %d, new Index %d", oldEpoch, newEpoch))
+		return
+	}
+
+	l.Storage.CachedTransaction(txMeta.ID()).Consume(func(tx utxo.Transaction) {
+		l.ChainStorage.LedgerStateDiffs.DeleteSpentOutputs(oldEpoch, l.Utils.ResolveInputs(tx.Inputs()))
+	})
+
+	l.ChainStorage.LedgerStateDiffs.DeleteCreatedOutputs(oldEpoch, txMeta.OutputIDs())
+}
+
+func (l *Ledger) storeOutputInDiff(txEpoch epoch.Index, outputID utxo.OutputID, output utxo.Output, outputMetadata *OutputMetadata, storeFunc func(*models.OutputWithMetadata) error) (err error) {
+	outputWithMetadata := models.NewOutputWithMetadata(
+		txEpoch, outputID, output, outputMetadata.CreationTime(),
+		outputMetadata.ConsensusManaPledgeID(),
+		outputMetadata.AccessManaPledgeID(),
+	)
+	return storeFunc(outputWithMetadata)
 }
 
 // triggerRejectedEvent triggers the TransactionRejected event if the Transaction was rejected.
@@ -272,9 +304,7 @@ func (l *Ledger) triggerRejectedEvent(txMetadata *TransactionMetadata) (triggere
 		})
 	}
 
-	l.Events.TransactionRejected.Trigger(&TransactionRejectedEvent{
-		TransactionID: txMetadata.ID(),
-	})
+	l.Events.TransactionRejected.Trigger(txMetadata)
 
 	return true
 }
@@ -327,14 +357,6 @@ func (l *Ledger) propagatedRejectionToTransactions(txID utxo.TransactionID) {
 func WithVM(vm vm.VM) (option options.Option[Ledger]) {
 	return func(l *Ledger) {
 		l.optsVM = vm
-	}
-}
-
-// WithStore is an Option for the Ledger that allows to configure which KVStore is supposed to be used to persist data
-// (the default option is to use a MapDB).
-func WithStore(store kvstore.KVStore) (option options.Option[Ledger]) {
-	return func(options *Ledger) {
-		options.optsStore = store
 	}
 }
 

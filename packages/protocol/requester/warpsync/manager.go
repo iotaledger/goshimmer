@@ -1,16 +1,12 @@
 package warpsync
 
 import (
-	"context"
 	"sync"
 
-	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/iotaledger/hive.go/core/typeutils"
 
-	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/network/warpsync"
@@ -44,8 +40,6 @@ type Manager struct {
 
 	validationInProgress bool
 	validationLock       sync.RWMutex
-	commitmentsChan      chan *neighborCommitment
-	commitmentsStopChan  chan struct{}
 
 	syncingInProgress bool
 	syncingLock       sync.RWMutex
@@ -75,8 +69,6 @@ func NewManager(blockLoaderFunc LoadBlockFunc, blockProcessorFunc ProcessBlockFu
 
 	options.Apply(m, opts)
 
-	m.protocol.Events.EpochCommitmentReceived.Attach(event.NewClosure(m.onEpochCommittmentReceived))
-
 	return m
 }
 
@@ -94,6 +86,7 @@ func WithBlockBatchSize(blockBatchSize int) options.Option[Manager] {
 	}
 }
 
+/*
 func (m *Manager) WarpRange(ctx context.Context, start, end epoch.Index, startEC commitment.ID, endPrevEC commitment.ID) (err error) {
 	if m.IsStopped() {
 		return errors.Errorf("warpsync manager is stopped")
@@ -118,10 +111,6 @@ func (m *Manager) WarpRange(ctx context.Context, start, end epoch.Index, startEC
 
 	m.log.Infof("warpsyncing range %d-%d on chain %s -> %s", start, end, startEC.Base58(), endPrevEC.Base58())
 
-	ecChain, validPeers, validateErr := m.validateBackwards(ctx, start, end, startEC, endPrevEC)
-	if validateErr != nil {
-		return errors.Wrapf(validateErr, "failed to validate range %d-%d", start, end)
-	}
 	lowestProcessedEpoch, syncRangeErr := m.syncRange(ctx, start, end, startEC, ecChain, validPeers)
 	if syncRangeErr != nil {
 		return errors.Wrapf(syncRangeErr, "failed to sync range %d-%d with peers %s", start, end, validPeers)
@@ -133,6 +122,7 @@ func (m *Manager) WarpRange(ctx context.Context, start, end epoch.Index, startEC
 
 	return nil
 }
+*/
 
 // IsStopped returns true if the manager is stopped.
 func (m *Manager) IsStopped() bool {

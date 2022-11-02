@@ -6,6 +6,7 @@ import (
 	"math"
 	"testing"
 
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/require"
@@ -295,5 +296,5 @@ func TestManaApis(t *testing.T) {
 }
 
 func fullID(id identity.ID) string {
-	return base58.Encode(id.Bytes())
+	return base58.Encode(lo.PanicOnErr(id.Bytes()))
 }

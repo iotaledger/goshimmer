@@ -83,12 +83,12 @@ func sendBlockSchedulerRecord(block *scheduler.Block, recordType string) {
 	_ = deps.RemoteLogger.Send(record)
 }
 
-func onTransactionConfirmed(transactionID utxo.TransactionID) {
+func onTransactionConfirmed(txMeta *ledger.TransactionMetadata) {
 	if !deps.Protocol.Engine().IsSynced() {
 		return
 	}
 
-	earliestAttachment := deps.Protocol.Engine().Tangle.GetEarliestAttachment(transactionID)
+	earliestAttachment := deps.Protocol.Engine().Tangle.GetEarliestAttachment(txMeta.ID())
 
 	onBlockFinalized(earliestAttachment.ModelsBlock)
 }

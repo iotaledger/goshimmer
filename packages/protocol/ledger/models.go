@@ -12,6 +12,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/storage/models"
 )
 
 // region TransactionMetadata //////////////////////////////////////////////////////////////////////////////////////////
@@ -303,7 +304,7 @@ func (o *OutputMetadata) SetCreationTime(creationTime time.Time) (updated bool) 
 	o.Lock()
 	defer o.Unlock()
 
-	if o.M.CreationTime == creationTime {
+	if o.M.CreationTime.Equal(creationTime) {
 		return false
 	}
 
@@ -557,12 +558,12 @@ type EpochDiff struct {
 
 type epochDiffModel struct {
 	Index   epoch.Index
-	Spent   []*OutputWithMetadata `serix:"0"`
-	Created []*OutputWithMetadata `serix:"1"`
+	Spent   []*models.OutputWithMetadata `serix:"0"`
+	Created []*models.OutputWithMetadata `serix:"1"`
 }
 
 // NewEpochDiff returns a new EpochDiff object.
-func NewEpochDiff(spent []*OutputWithMetadata, created []*OutputWithMetadata) (new *EpochDiff) {
+func NewEpochDiff(spent []*models.OutputWithMetadata, created []*models.OutputWithMetadata) (new *EpochDiff) {
 	return model.NewImmutable[EpochDiff](&epochDiffModel{
 		Spent:   spent,
 		Created: created,
@@ -570,12 +571,12 @@ func NewEpochDiff(spent []*OutputWithMetadata, created []*OutputWithMetadata) (n
 }
 
 // Spent returns the outputs spent for this epoch diff.
-func (e *EpochDiff) Spent() []*OutputWithMetadata {
+func (e *EpochDiff) Spent() []*models.OutputWithMetadata {
 	return e.M.Spent
 }
 
 // Created returns the outputs created for this epoch diff.
-func (e *EpochDiff) Created() []*OutputWithMetadata {
+func (e *EpochDiff) Created() []*models.OutputWithMetadata {
 	return e.M.Created
 }
 
@@ -585,131 +586,6 @@ func (e *EpochDiff) Index() epoch.Index {
 
 func (e *EpochDiff) SetIndex(index epoch.Index) {
 	e.M.Index = index
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region OutputWithMetadata ///////////////////////////////////////////////////////////////////////////////////////////
-
-// OutputWithMetadata represents an Output with its associated metadata fields that are needed for epoch management.
-type OutputWithMetadata struct {
-	model.Storable[utxo.OutputID, OutputWithMetadata, *OutputWithMetadata, outputWithMetadataModel] `serix:"0"`
-}
-
-type outputWithMetadataModel struct {
-	OutputID              utxo.OutputID `serix:"0"`
-	Output                utxo.Output   `serix:"1"`
-	CreationTime          time.Time     `serix:"2"`
-	ConsensusManaPledgeID identity.ID   `serix:"3"`
-	AccessManaPledgeID    identity.ID   `serix:"4"`
-}
-
-// String returns a human-readable version of the OutputWithMetadata.
-func (o *OutputWithMetadata) String() string {
-	structBuilder := stringify.NewStructBuilder("OutputWithMetadata")
-	structBuilder.AddField(stringify.NewStructField("OutputID", o.ID()))
-	structBuilder.AddField(stringify.NewStructField("Output", o.Output()))
-	structBuilder.AddField(stringify.NewStructField("CreationTime", o.CreationTime()))
-	structBuilder.AddField(stringify.NewStructField("ConsensusPledgeID", o.ConsensusManaPledgeID()))
-	structBuilder.AddField(stringify.NewStructField("AccessPledgeID", o.AccessManaPledgeID()))
-
-	return structBuilder.String()
-}
-
-// NewOutputWithMetadata returns a new OutputWithMetadata object.
-func NewOutputWithMetadata(outputID utxo.OutputID, output utxo.Output, creationTime time.Time, consensusManaPledgeID, accessManaPledgeID identity.ID) (new *OutputWithMetadata) {
-	new = model.NewStorable[utxo.OutputID, OutputWithMetadata](&outputWithMetadataModel{
-		OutputID:              outputID,
-		Output:                output,
-		CreationTime:          creationTime,
-		ConsensusManaPledgeID: consensusManaPledgeID,
-		AccessManaPledgeID:    accessManaPledgeID,
-	})
-	new.SetID(outputID)
-	return
-}
-
-// FromObjectStorage creates an OutputWithMetadata from sequences of key and bytes.
-func (o *OutputWithMetadata) FromObjectStorage(key, value []byte) error {
-	err := o.Storable.FromObjectStorage(key, value)
-	o.M.Output.SetID(o.ID())
-
-	return err
-}
-
-// FromBytes unmarshals an OutputWithMetadata from a sequence of bytes.
-func (o *OutputWithMetadata) FromBytes(data []byte) error {
-	_, err := o.Storable.FromBytes(data)
-	o.M.Output.SetID(o.ID())
-
-	return err
-}
-
-// Output returns the Output field.
-func (o *OutputWithMetadata) Output() (output utxo.Output) {
-	o.RLock()
-	defer o.RUnlock()
-
-	return o.M.Output
-}
-
-// SetOutput sets the Output field.
-func (o *OutputWithMetadata) SetOutput(output utxo.Output) {
-	o.Lock()
-	defer o.Unlock()
-
-	o.M.Output = output
-	o.SetModified()
-
-	return
-}
-
-// CreationTime returns the CreationTime field.
-func (o *OutputWithMetadata) CreationTime() (creationTime time.Time) {
-	o.RLock()
-	defer o.RUnlock()
-
-	return o.M.CreationTime
-}
-
-// SetCreationTime sets the CreationTime field.
-func (o *OutputWithMetadata) SetCreationTime(creationTime time.Time) {
-	o.Lock()
-	defer o.Unlock()
-
-	o.M.CreationTime = creationTime
-}
-
-// ConsensusManaPledgeID returns the consensus pledge id of the output.
-func (o *OutputWithMetadata) ConsensusManaPledgeID() (consensuPledgeID identity.ID) {
-	o.RLock()
-	defer o.RUnlock()
-
-	return o.M.ConsensusManaPledgeID
-}
-
-// SetConsensusManaPledgeID sets the consensus pledge id of the output.
-func (o *OutputWithMetadata) SetConsensusManaPledgeID(consensusPledgeID identity.ID) {
-	o.Lock()
-	defer o.Unlock()
-
-	o.M.ConsensusManaPledgeID = consensusPledgeID
-}
-
-// AccessManaPledgeID returns the access pledge id of the output.
-func (o *OutputWithMetadata) AccessManaPledgeID() (consensuPledgeID identity.ID) {
-	o.RLock()
-	defer o.RUnlock()
-
-	return o.M.AccessManaPledgeID
-}
-
-// SetAccessManaPledgeID sets the access pledge id of the output.
-func (o *OutputWithMetadata) SetAccessManaPledgeID(accessPledgeID identity.ID) {
-	o.Lock()
-	defer o.Unlock()
-
-	o.M.AccessManaPledgeID = accessPledgeID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

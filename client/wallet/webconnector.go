@@ -2,6 +2,7 @@ package wallet
 
 import (
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 
 	"github.com/iotaledger/goshimmer/client"
@@ -162,7 +163,7 @@ func colorFromString(colorStr string) (color devnetvm.Color) {
 	} else {
 		var t utxo.TransactionID
 		_ = t.FromBase58(colorStr)
-		color, _, _ = devnetvm.ColorFromBytes(t.Bytes())
+		color, _, _ = devnetvm.ColorFromBytes(lo.PanicOnErr(t.Bytes()))
 	}
 	return
 }

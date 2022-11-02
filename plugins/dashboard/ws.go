@@ -149,9 +149,6 @@ func broadcastWsBlock(blk interface{}, dontDrop ...bool) {
 }
 
 func sendInitialData(ws *websocket.Conn) error {
-	if err := ManaBufferInstance().SendEvents(ws); err != nil {
-		return err
-	}
 	if err := ManaBufferInstance().SendValueBlks(ws); err != nil {
 		return err
 	}

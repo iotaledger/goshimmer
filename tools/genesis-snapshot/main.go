@@ -3,11 +3,9 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 
-	"github.com/iotaledger/goshimmer/packages/core/activitylog"
-	"github.com/iotaledger/goshimmer/packages/core/snapshot/creator"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/mr-tron/base58"
 
@@ -15,6 +13,14 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
+	"github.com/iotaledger/goshimmer/packages/core/snapshot/creator"
+	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/storage"
+	ledgerModels "github.com/iotaledger/goshimmer/packages/storage/models"
 )
 
 const (
@@ -57,11 +63,11 @@ const (
 // 	"Xv5Kmv9uZfNME4KD2zBoHZ3kVqovJN59ec62rH3AeLA",  // entrynode
 // 	"EUq4re4sZBMbmzdKo8LJF8uVQhbS24ZNeLRf7AntGH7b", // bootstrap_01
 // 	"6PqeR7gpR9KtVt7ZgxrEnTj76TS7S439R1gmmzLLrBcU", // vanilla_01
-// 	"DmKUMcbs6go8sMhJLfZxL8NKXHtYdxQMwVjyacsw4c6C", // drng_01
-// 	"GCvqziTVeHHvM4SvSeLBobY2KYTNiyB1miS9giVDgJbk", // drng_02
-// 	"64RCLnQC7ECpHGpq7dWp3Xtpc79uVi61XYBv5fgXsD9h", // drng_03
-// 	"Amkmn4nt8qwboUGPmFhCoM9ogeCbvS3eBSTjuoE3a5ci", // drng_04
-// 	"4FJbEsv448BoXeRo1a5Cq9xizkP2AkRBcx9W4PwDt2GL", // drng_05
+// 	"DmKUMcbs6go8sMhJLfZxL8NKXHtYdxQMwVjyacsw4c6C", // node_01
+// 	"GCvqziTVeHHvM4SvSeLBobY2KYTNiyB1miS9giVDgJbk", // node_02
+// 	"64RCLnQC7ECpHGpq7dWp3Xtpc79uVi61XYBv5fgXsD9h", // node_03
+// 	"Amkmn4nt8qwboUGPmFhCoM9ogeCbvS3eBSTjuoE3a5ci", // node_04
+// 	"4FJbEsv448BoXeRo1a5Cq9xizkP2AkRBcx9W4PwDt2GL", // node_05
 // 	"GbkZ3CoiTuUPUAYjgZLM8Y1VgvUbPujHVxmYmPVY2GDC", // faucet_01
 // }
 
@@ -98,16 +104,13 @@ func main() {
 
 	manaDistribution := createManaDistribution(totalTokensToPledge)
 
-	err = creator.CreateSnapshot(snapshotFileName, genesisTokenAmount, genesisSeed, manaDistribution)
-	if err != nil {
-		log.Fatal(fmt.Errorf("failed to create snapshot: %w", err))
-		return
-	}
+	creator.CreateSnapshot(createTempStorage(), snapshotFileName, genesisTokenAmount, genesisSeed, manaDistribution)
 
-	err = readSnapshotFromFile(snapshotFileName)
-	if err != nil {
-		log.Fatal(fmt.Errorf("failed to read snapshot: %w", err))
-	}
+	diagnosticPrintSnapshotFromFile(snapshotFileName)
+}
+
+func createTempStorage() (s *storage.Storage) {
+	return storage.New(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), protocol.DatabaseVersion)
 }
 
 func createManaDistribution(totalTokensToPledge uint64) (manaDistribution map[identity.ID]uint64) {
@@ -136,24 +139,44 @@ func init() {
 	}
 }
 
-func readSnapshotFromFile(filePath string) (err error) {
-	outputWithMetadataConsumer := func(outputWithMetadatas []*ledger.OutputWithMetadata) {
-		fmt.Println(outputWithMetadatas)
-	}
-	epochDiffConsumer := func(epochDiffs *ledger.EpochDiff) {
-		fmt.Println(epochDiffs)
-	}
-	headerConsumer := func(h *ledger.SnapshotHeader) {
-		fmt.Println(h)
-	}
-	activityLogConsumer := func(activity activitylog.SnapshotEpochActivity) {
-		fmt.Println(activity)
-	}
-	sepsConsumer := func(s *snapshot.SolidEntryPoints) {
-		fmt.Println(s)
-	}
+func diagnosticPrintSnapshotFromFile(filePath string) {
+	s := createTempStorage()
+	e := engine.New(s)
+	fileHandle := lo.PanicOnErr(os.Open(filePath))
 
-	err = snapshot.LoadSnapshot(filePath, headerConsumer, sepsConsumer, outputWithMetadataConsumer, epochDiffConsumer, activityLogConsumer)
+	snapshot.ReadSnapshot(fileHandle, e)
 
-	return
+	fmt.Println("--- Settings ---")
+	fmt.Printf("%+v\n", s.Settings)
+
+	fmt.Println("--- Commitments ---")
+	fmt.Printf("%+v\n", lo.PanicOnErr(s.Commitments.Load(0)))
+
+	fmt.Println("--- Ledgerstate ---")
+	e.Ledger.Storage.ForEachOutputID(func(outputID utxo.OutputID) bool {
+		e.Ledger.Storage.CachedOutput(outputID).Consume(func(o utxo.Output) {
+			e.Ledger.Storage.CachedOutputMetadata(outputID).Consume(func(m *ledger.OutputMetadata) {
+				fmt.Printf("%+v\n%#v\n", o, m)
+			})
+		})
+		return true
+	})
+
+	fmt.Println("--- SEPs ---")
+	e.Storage.EntryPoints.Stream(0, func(blockID models.BlockID) {
+		fmt.Printf("%+v\n", blockID)
+	})
+
+	fmt.Println("--- ActivityLog ---")
+	e.Storage.ActiveNodes.Stream(0, func(id identity.ID) {
+		fmt.Printf("%d: %+v\n", 0, id)
+	})
+
+	fmt.Println("--- Diffs ---")
+	e.Storage.LedgerStateDiffs.StreamSpentOutputs(0, func(owm *ledgerModels.OutputWithMetadata) {
+		fmt.Printf("%d: %+v\n", 0, owm)
+	})
+	e.Storage.LedgerStateDiffs.StreamCreatedOutputs(0, func(owm *ledgerModels.OutputWithMetadata) {
+		fmt.Printf("%d: %+v\n", 0, owm)
+	})
 }

@@ -523,7 +523,7 @@ func (s *SigLockedColoredOutput) UpdateMintingColor() (updatedOutput Output) {
 	coloredBalances := s.Balances().Map()
 	if mintedCoins, mintedCoinsExist := coloredBalances[ColorMint]; mintedCoinsExist {
 		delete(coloredBalances, ColorMint)
-		coloredBalances[Color(blake2b.Sum256(s.ID().Bytes()))] = mintedCoins
+		coloredBalances[Color(blake2b.Sum256(lo.PanicOnErr(s.ID().Bytes())))] = mintedCoins
 	}
 	updatedOutput = NewSigLockedColoredOutput(NewColoredBalances(coloredBalances), s.Address())
 	updatedOutput.SetID(s.ID())
@@ -740,7 +740,7 @@ func (a *AliasOutput) FromObjectStorage(key, data []byte) (err error) {
 
 // ObjectStorageKey a key.
 func (a *AliasOutput) ObjectStorageKey() []byte {
-	return a.ID().Bytes()
+	return lo.PanicOnErr(a.ID().Bytes())
 }
 
 // ObjectStorageValue binary form.
@@ -871,7 +871,7 @@ func (a *AliasOutput) GetAliasAddress() *AliasAddress {
 	a.mutex.RLock()
 	defer a.mutex.RUnlock()
 	if a.aliasAddress.IsNil() {
-		return NewAliasAddress(a.ID().Bytes())
+		return NewAliasAddress(lo.PanicOnErr(a.ID().Bytes()))
 	}
 	return &a.aliasAddress
 }
@@ -1247,14 +1247,14 @@ func (a *AliasOutput) UpdateMintingColor() Output {
 	coloredBalances := a.Balances().Map()
 	if mintedCoins, mintedCoinsExist := coloredBalances[ColorMint]; mintedCoinsExist {
 		delete(coloredBalances, ColorMint)
-		coloredBalances[Color(blake2b.Sum256(a.ID().Bytes()))] = mintedCoins
+		coloredBalances[Color(blake2b.Sum256(lo.PanicOnErr(a.ID().Bytes())))] = mintedCoins
 	}
 	updatedOutput := a.clone()
 	_ = updatedOutput.SetBalances(coloredBalances)
 	updatedOutput.SetID(a.ID())
 
 	if a.IsOrigin() {
-		updatedOutput.SetAliasAddress(NewAliasAddress(a.ID().Bytes()))
+		updatedOutput.SetAliasAddress(NewAliasAddress(lo.PanicOnErr(a.ID().Bytes())))
 	}
 
 	return updatedOutput
@@ -1667,7 +1667,7 @@ func (o *ExtendedLockedOutput) FromObjectStorage(key, value []byte) (err error) 
 
 // ObjectStorageKey a key.
 func (o *ExtendedLockedOutput) ObjectStorageKey() []byte {
-	return o.ID().Bytes()
+	return lo.PanicOnErr(o.ID().Bytes())
 }
 
 // ObjectStorageValue binary form.
@@ -1892,7 +1892,7 @@ func (o *ExtendedLockedOutput) UpdateMintingColor() Output {
 	coloredBalances := o.Balances().Map()
 	if mintedCoins, mintedCoinsExist := coloredBalances[ColorMint]; mintedCoinsExist {
 		delete(coloredBalances, ColorMint)
-		coloredBalances[Color(blake2b.Sum256(o.ID().Bytes()))] = mintedCoins
+		coloredBalances[Color(blake2b.Sum256(lo.PanicOnErr(o.ID().Bytes())))] = mintedCoins
 	}
 	updatedOutput := NewExtendedLockedOutput(coloredBalances, o.Address()).
 		WithFallbackOptions(o.fallbackAddress, o.fallbackDeadline).

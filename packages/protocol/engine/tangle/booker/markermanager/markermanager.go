@@ -225,7 +225,8 @@ func (m *MarkerManager[IndexedID, MappedEntity]) ForEachMarkerReferencingMarker(
 
 // BlockFromMarker retrieves the Block of the given Marker.
 func (m *MarkerManager[IndexedID, MappedEntity]) BlockFromMarker(marker markers.Marker) (block MappedEntity, exists bool) {
-	return m.markerBlockMapping.Get(marker)
+	block, exists = m.markerBlockMapping.Get(marker)
+	return
 }
 
 // addMarkerBlockMapping associates a Block with the given Marker.

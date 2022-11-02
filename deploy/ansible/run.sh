@@ -26,5 +26,6 @@ goshimmerDockerImage=$GOSHIMMER_DOCKER_IMAGE
 goshimmerDockerTag=$GOSHIMMER_DOCKER_TAG
 snapshotterBucket=$SNAPSHOTTER_BUCKET
 snapshotterAccessKey=$SNAPSHOTTER_ACCESS_KEY
+GENESIS_TIME=$(date +%s)
 snapshotterSecretKey=$SNAPSHOTTER_SECRET_KEY" \
   ${ARGS[@]:2} deploy/ansible/"${2:-deploy.yml}"

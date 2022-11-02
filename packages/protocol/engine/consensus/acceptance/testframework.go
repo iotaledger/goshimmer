@@ -17,9 +17,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
 // region TestFramework //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -36,7 +36,7 @@ type TestFramework struct {
 	optsGadgetOptions   []options.Option[Gadget]
 	optsLedger          *ledger.Ledger
 	optsLedgerOptions   []options.Option[ledger.Ledger]
-	optsEvictionManager *eviction.Manager[models.BlockID]
+	optsEvictionManager *eviction.State[models.BlockID]
 	optsValidatorSet    *validator.Set
 	optsTangle          *tangle.Tangle
 	optsTangleOptions   []options.Option[tangle.Tangle]
@@ -45,17 +45,18 @@ type TestFramework struct {
 }
 
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t *TestFramework) {
+	chainStorage := storage.New(test.TempDir(), 1)
 	return options.Apply(&TestFramework{
 		test: test,
 	}, opts, func(t *TestFramework) {
 		if t.Gadget == nil {
 			if t.optsTangle == nil {
 				if t.optsLedger == nil {
-					t.optsLedger = ledger.New(t.optsLedgerOptions...)
+					t.optsLedger = ledger.New(chainStorage, t.optsLedgerOptions...)
 				}
 
 				if t.optsEvictionManager == nil {
-					t.optsEvictionManager = eviction.NewManager[models.BlockID]()
+					t.optsEvictionManager = eviction.NewState[models.BlockID]()
 				}
 
 				if t.optsValidatorSet == nil {
@@ -90,16 +91,16 @@ func (t *TestFramework) setupEvents() {
 		atomic.AddUint32(&(t.reorgCount), 1)
 	}))
 
-	t.ConflictDAG().Events.ConflictAccepted.Hook(event.NewClosure(func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
+	t.ConflictDAG().Events.ConflictAccepted.Hook(event.NewClosure(func(conflictID utxo.TransactionID) {
 		if debug.GetEnabled() {
-			t.test.Logf("CONFLICT ACCEPTED: %s", event.ID)
+			t.test.Logf("CONFLICT ACCEPTED: %s", conflictID)
 		}
 		atomic.AddUint32(&(t.conflictsAccepted), 1)
 	}))
 
-	t.ConflictDAG().Events.ConflictRejected.Hook(event.NewClosure(func(event *conflictdag.ConflictRejectedEvent[utxo.TransactionID]) {
+	t.ConflictDAG().Events.ConflictRejected.Hook(event.NewClosure(func(conflictID utxo.TransactionID) {
 		if debug.GetEnabled() {
-			t.test.Logf("CONFLICT REJECTED: %s", event.ID)
+			t.test.Logf("CONFLICT REJECTED: %s", conflictID)
 		}
 
 		atomic.AddUint32(&(t.conflictsRejected), 1)
@@ -192,7 +193,7 @@ func WithLedgerOptions(opts ...options.Option[ledger.Ledger]) options.Option[Tes
 	}
 }
 
-func WithEvictionManager(evictionManager *eviction.Manager[models.BlockID]) options.Option[TestFramework] {
+func WithEvictionManager(evictionManager *eviction.State[models.BlockID]) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.optsEvictionManager = evictionManager
 	}
@@ -210,7 +211,7 @@ func WithValidatorSet(validatorSet *validator.Set) options.Option[TestFramework]
 
 // MockAcceptanceGadget mocks ConfirmationOracle marking all blocks as confirmed.
 type MockAcceptanceGadget struct {
-	BlockAcceptedEvent *event.Linkable[*Block, Events, *Events]
+	BlockAcceptedEvent *event.Linkable[*Block]
 	AcceptedBlocks     models.BlockIDs
 	AcceptedMarkers    *markers.Markers
 
@@ -219,7 +220,7 @@ type MockAcceptanceGadget struct {
 
 func NewMockAcceptanceGadget() *MockAcceptanceGadget {
 	return &MockAcceptanceGadget{
-		BlockAcceptedEvent: event.NewLinkable[*Block, Events, *Events](),
+		BlockAcceptedEvent: event.NewLinkable[*Block](),
 		AcceptedBlocks:     models.NewBlockIDs(),
 		AcceptedMarkers:    markers.NewMarkers(),
 	}

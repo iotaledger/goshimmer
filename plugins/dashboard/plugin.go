@@ -209,12 +209,8 @@ const (
 	MsgTypeManaMapOnline
 	// MsgTypeManaAllowedPledge defines a block containing a list of allowed mana pledge nodeIDs.
 	MsgTypeManaAllowedPledge
-	// MsgTypeManaPledge defines a block that is sent when mana was pledged to the node.
-	MsgTypeManaPledge
 	// MsgTypeManaInitPledge defines a block that is sent when initial pledge events are sent to the dashboard.
 	MsgTypeManaInitPledge
-	// MsgTypeManaRevoke defines a block that is sent when mana was revoked from a node.
-	MsgTypeManaRevoke
 	// MsgTypeManaInitRevoke defines a block that is sent when initial revoke events are sent to the dashboard.
 	MsgTypeManaInitRevoke
 	// MsgTypeManaInitDone defines a block that is sent when all initial values are sent.

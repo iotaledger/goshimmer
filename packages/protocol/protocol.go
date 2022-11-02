@@ -4,18 +4,15 @@ import (
 	"fmt"
 	"os"
 	"sync"
-	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
@@ -24,9 +21,14 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
+	"github.com/iotaledger/goshimmer/packages/storage"
+)
+
+const (
+	mainBaseDir      = "main"
+	candidateBaseDir = "candidate"
 )
 
 // region Protocol /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -39,11 +41,14 @@ type Protocol struct {
 	dispatcher           network.Endpoint
 	networkProtocol      *network.Protocol
 	disk                 *diskutil.DiskUtil
-	settings             *Settings
 	chainManager         *chainmanager.Manager
-	activeInstance       *engine.Engine
-	activeInstanceMutex  sync.RWMutex
-	instancesByChainID   map[commitment.ID]*engine.Engine
+	activeEngineMutex    sync.RWMutex
+	engine               *engine.Engine
+	candidateEngine      *engine.Engine
+	storage              *storage.Storage
+	candidateStorage     *storage.Storage
+	mainChain            commitment.ID
+	candidateChain       commitment.ID
 	optsBaseDirectory    string
 	optsSettingsFileName string
 	optsSnapshotPath     string
@@ -59,45 +64,38 @@ func New(dispatcher network.Endpoint, opts ...options.Option[Protocol]) (protoco
 	return options.Apply(&Protocol{
 		Events: NewEvents(),
 
-		dispatcher:         dispatcher,
-		instancesByChainID: make(map[commitment.ID]*engine.Engine),
+		dispatcher: dispatcher,
 
 		optsBaseDirectory:    "",
 		optsSettingsFileName: "settings.bin",
-		optsSnapshotPath:     "./snapshot.bin",
 	}, opts,
 		(*Protocol).initDisk,
-		(*Protocol).initSettings,
 		(*Protocol).initCongestionControl,
-		(*Protocol).importSnapshot,
+		(*Protocol).initMainChainStorage,
+		(*Protocol).initMainEngine,
+		(*Protocol).initChainManager,
+		(*Protocol).initTipManager,
 	)
 }
 
 func (p *Protocol) Run() {
-	p.initEngines()
-	p.initChainManager()
+	p.activateEngine(p.engine)
 	p.initNetworkProtocol()
-	p.initTipManager()
+	p.importSnapshotFile(p.optsSnapshotPath)
 }
 
 func (p *Protocol) initDisk() {
 	p.disk = diskutil.New(p.optsBaseDirectory)
 }
 
-func (p *Protocol) initSettings() {
-	p.settings = NewSettings(p.disk.Path(p.optsSettingsFileName))
+func (p *Protocol) initMainChainStorage() {
+	p.storage = storage.New(p.disk.Path(mainBaseDir), DatabaseVersion)
 }
 
 func (p *Protocol) initCongestionControl() {
 	p.CongestionControl = congestioncontrol.New(p.optsCongestionControlOptions...)
 
 	p.Events.CongestionControl = p.CongestionControl.Events
-}
-
-func (p *Protocol) importSnapshot() {
-	if err := p.importSnapshotFile(p.optsSnapshotPath); err != nil {
-		panic(err)
-	}
 }
 
 func (p *Protocol) initNetworkProtocol() {
@@ -118,7 +116,7 @@ func (p *Protocol) initNetworkProtocol() {
 	}))
 
 	p.networkProtocol.Events.EpochCommitmentRequestReceived.Attach(event.NewClosure(func(event *network.EpochCommitmentRequestReceivedEvent) {
-		if commitment, _ := p.chainManager.Commitment(event.CommitmentID); commitment != nil {
+		if commitment, _ := p.chainManager.Commitment(event.CommitmentID); commitment != nil && commitment.Commitment() != nil {
 			p.networkProtocol.SendEpochCommitment(commitment.Commitment(), event.Source)
 		}
 	}))
@@ -136,25 +134,25 @@ func (p *Protocol) initNetworkProtocol() {
 	}))
 }
 
-func (p *Protocol) initEngines() {
-	if p.instantiateEngines() == 0 {
-		panic("no chains found (please provide a snapshot file)")
-	}
-
-	if err := p.activateMainEngine(); err != nil {
-		panic(err)
-	}
+func (p *Protocol) initMainEngine() {
+	p.engine = engine.New(p.storage, p.optsEngineOptions...)
 }
 
 func (p *Protocol) initChainManager() {
-	p.chainManager = chainmanager.NewManager(p.Engine().GenesisCommitment)
+	p.chainManager = chainmanager.NewManager(p.Engine().Storage.Settings.LatestCommitment())
+
+	p.Events.Engine.NotarizationManager.EpochCommitted.Attach(event.NewClosure(func(commitment *commitment.Commitment) {
+		p.chainManager.ProcessCommitment(commitment)
+	}))
 }
 
 func (p *Protocol) initTipManager() {
 	// TODO: SWITCH ENGINE SIMILAR TO REQUESTER
-	p.TipManager = tipmanager.New(p.Engine().Tangle, p.Engine().Consensus.Gadget, p.CongestionControl.Block, p.Engine().Clock.AcceptedTime, p.Engine().IsBootstrapped, p.optsTipManagerOptions...)
+	p.TipManager = tipmanager.New(p.CongestionControl.Block, p.optsTipManagerOptions...)
 
-	p.Events.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(p.TipManager.AddTip))
+	p.Events.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
+		p.TipManager.AddTip(block)
+	}))
 
 	p.Events.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
 		p.TipManager.RemoveStrongParents(block.ModelsBlock)
@@ -166,113 +164,77 @@ func (p *Protocol) initTipManager() {
 		}
 	}))
 
-	// TODO: enable once this event is implemented
-	// t.tangle.TipManager.Events.AllChildrenOrphaned.Hook(event.NewClosure(func(block *Block) {
-	// 	if clock.Since(block.IssuingTime()) > tipLifeGracePeriod {
-	// 		return
-	// 	}
-	//
-	// 	t.addTip(block)
-	// }))
+	p.Events.Engine.Tangle.BlockDAG.BlockUnorphaned.Hook(event.NewClosure(func(block *blockdag.Block) {
+		if schedulerBlock, exists := p.CongestionControl.Block(block.ID()); exists {
+			p.TipManager.AddTip(schedulerBlock)
+		}
+	}))
+
+	p.Events.Engine.Tangle.BlockDAG.AllChildrenOrphaned.Hook(event.NewClosure(func(block *blockdag.Block) {
+		schedulerBlock, exists := p.CongestionControl.Scheduler().Block(block.ID())
+		if exists {
+			fmt.Println("Add tip because all children orphaned", block.ID())
+			p.TipManager.AddTip(schedulerBlock)
+		}
+	}))
 
 	p.Events.TipManager = p.TipManager.Events
 }
 
 func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) {
-	// // TODO: this is wrong
-	// isSolid, chain, _ := p.chainManager.ProcessCommitment(p.Engine().GenesisCommitment)
-	// if !isSolid {
-	//	fmt.Println("commitment not solid", block.ID())
-	//	return
-	// }
-	if block.ID().EpochIndex < epoch.IndexFromTime(time.Now())-5 {
-		fmt.Println("Received an old block", block.ID(), block.IssuingTime(), "issuer id", block.IssuerID(), "neighbor", src)
+	isSolid, chain, _ := p.chainManager.ProcessCommitment(block.Commitment())
+	if !isSolid {
+		return
 	}
-	if targetInstance, exists := p.instancesByChainID[p.Engine().GenesisCommitment.ID()]; exists {
-		targetInstance.ProcessBlockFromPeer(block, src)
+
+	if mainChain := p.storage.Settings.ChainID(); chain.ForkingPoint.ID() == mainChain {
+		p.Engine().ProcessBlockFromPeer(block, src)
+	}
+
+	if candidateEngine, candidateStorage := p.CandidateEngine(), p.CandidateStorage(); candidateEngine != nil && candidateStorage != nil {
+		if candidateChain := candidateStorage.Settings.ChainID(); chain.ForkingPoint.ID() == candidateChain {
+			candidateEngine.ProcessBlockFromPeer(block, src)
+		}
 	}
 }
 
 func (p *Protocol) Engine() (instance *engine.Engine) {
-	p.activeInstanceMutex.RLock()
-	defer p.activeInstanceMutex.RUnlock()
+	p.activeEngineMutex.RLock()
+	defer p.activeEngineMutex.RUnlock()
 
-	return p.activeInstance
+	return p.engine
 }
 
-func (p *Protocol) importSnapshotFile(filePath string) (err error) {
-	var snapshotHeader *ledger.SnapshotHeader
+func (p *Protocol) CandidateEngine() (instance *engine.Engine) {
+	p.activeEngineMutex.RLock()
+	defer p.activeEngineMutex.RUnlock()
 
-	if err = p.disk.WithFile(filePath, func(file *os.File) (err error) {
-		snapshotHeader, err = snapshot.ReadSnapshotHeader(file)
+	return p.candidateEngine
+}
 
-		return
+func (p *Protocol) CandidateStorage() (chainstorage *storage.Storage) {
+	p.activeEngineMutex.RLock()
+	defer p.activeEngineMutex.RUnlock()
+
+	return p.candidateStorage
+}
+
+func (p *Protocol) importSnapshotFile(filePath string) {
+	if err := p.disk.WithFile(filePath, func(fileHandle *os.File) {
+		snapshot.ReadSnapshot(fileHandle, p.Engine())
 	}); err != nil {
 		if os.IsNotExist(err) {
-			return nil
+			return
 		}
 
-		return errors.Errorf("failed to read snapshot header from file '%s': %w", filePath, err)
+		panic(errors.Errorf("failed to read snapshot from file '%s': %w", filePath, err))
 	}
-
-	chainID := snapshotHeader.LatestECRecord.ID()
-	chainDirectory := p.disk.Path(fmt.Sprintf("%x", lo.PanicOnErr(chainID.Bytes())))
-
-	if !p.disk.Exists(chainDirectory) {
-		if err = p.disk.CreateDir(chainDirectory); err != nil {
-			return errors.Errorf("failed to create chain directory '%s': %w", chainDirectory, err)
-		}
-	}
-
-	if p.disk.CopyFile(filePath, diskutil.New(chainDirectory).Path("snapshot.bin")) != nil {
-		return errors.Errorf("failed to copy snapshot file '%s' to chain directory '%s': %w", filePath, chainDirectory, err)
-	}
-	// TODO: we can't move the file because it might be mounted through Docker
-	// if err = diskutil.ReplaceFile(filePath, diskutil.New(chainDirectory).Path("snapshot.bin")); err != nil {
-	// 	return errors.Errorf("failed to move snapshot file '%s' to chain directory '%s': %w", filePath, chainDirectory, err)
-	// }
-
-	p.settings.AddChain(chainID)
-	p.settings.SetMainChainID(chainID)
-	p.settings.Persist()
-
-	return
 }
 
-func (p *Protocol) readSnapshotHeader(snapshotFile string) (snapshotHeader *ledger.SnapshotHeader, err error) {
-	if err = p.disk.WithFile(snapshotFile, func(file *os.File) (err error) {
-		snapshotHeader, err = snapshot.ReadSnapshotHeader(file)
-		return
-	}); err != nil {
-		err = errors.Errorf("failed to read snapshot header from file '%s': %w", snapshotFile, err)
-	}
-
-	return snapshotHeader, err
-}
-
-func (p *Protocol) instantiateEngines() (chainCount int) {
-	for chains := p.settings.Chains().Iterator(); chains.HasNext(); {
-		chainID := chains.Next()
-
-		p.instancesByChainID[chainID] = engine.New(DatabaseVersion, p.disk.Path(fmt.Sprintf("%x", lo.PanicOnErr(chainID.Bytes()))), p.Logger, p.optsEngineOptions...)
-	}
-
-	return len(p.instancesByChainID)
-}
-
-func (p *Protocol) activateMainEngine() (err error) {
-	chainID := p.settings.MainChainID()
-
-	mainInstance, exists := p.instancesByChainID[chainID]
-	if !exists {
-		return errors.Errorf("instance for chain '%s' does not exist", chainID)
-	}
-
-	p.activeInstance = mainInstance
-	p.Events.Engine.LinkTo(mainInstance.Events)
-	p.CongestionControl.LinkTo(mainInstance)
-
-	p.activeInstance.Run()
+func (p *Protocol) activateEngine(engine *engine.Engine) (err error) {
+	p.TipManager.ActivateEngine(engine)
+	p.Events.Engine.LinkTo(engine.Events)
+	p.CongestionControl.LinkTo(engine)
 
 	return
 }
@@ -290,12 +252,6 @@ func WithBaseDirectory(baseDirectory string) options.Option[Protocol] {
 func WithSnapshotPath(snapshot string) options.Option[Protocol] {
 	return func(n *Protocol) {
 		n.optsSnapshotPath = snapshot
-	}
-}
-
-func WithSettingsFileName(settings string) options.Option[Protocol] {
-	return func(n *Protocol) {
-		n.optsSettingsFileName = settings
 	}
 }
 

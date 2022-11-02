@@ -16,7 +16,7 @@ import (
 type Manager struct {
 	Events              *Events
 	SnapshotCommitment  *Commitment
-	EvictionManager     *eviction.Manager[commitment.ID]
+	EvictionManager     *eviction.State[commitment.ID]
 	CommitmentRequester *eventticker.EventTicker[commitment.ID]
 
 	commitmentsByID map[commitment.ID]*Commitment
@@ -29,13 +29,14 @@ type Manager struct {
 func NewManager(snapshot *commitment.Commitment) (manager *Manager) {
 	manager = &Manager{
 		Events:          NewEvents(),
-		EvictionManager: eviction.NewManager[commitment.ID](),
+		EvictionManager: eviction.NewState[commitment.ID](),
 
 		commitmentsByID: make(map[commitment.ID]*Commitment),
 	}
 
 	manager.SnapshotCommitment, _ = manager.Commitment(snapshot.ID(), true)
 	manager.SnapshotCommitment.PublishCommitment(snapshot)
+	manager.SnapshotCommitment.SetSolid(true)
 	manager.SnapshotCommitment.publishChain(NewChain(manager.SnapshotCommitment))
 
 	manager.CommitmentRequester = eventticker.New(manager.EvictionManager, manager.optsCommitmentRequester...)
@@ -48,6 +49,7 @@ func NewManager(snapshot *commitment.Commitment) (manager *Manager) {
 }
 
 func (c *Manager) ProcessCommitment(commitment *commitment.Commitment) (isSolid bool, chain *Chain, wasForked bool) {
+	// TODO: do not extend the main chain if the commitment doesn't come from myself, after I am bootstrapped.
 	chainCommitment, created := c.Commitment(commitment.ID(), true)
 	if !chainCommitment.PublishCommitment(commitment) {
 		return chainCommitment.IsSolid(), chainCommitment.Chain(), false
@@ -77,7 +79,7 @@ func (c *Manager) ProcessCommitment(commitment *commitment.Commitment) (isSolid 
 
 	if isSolid {
 		if children := chainCommitment.Children(); len(children) != 0 {
-			for childWalker := walker.New[*Commitment]().Push(children[0]); childWalker.HasNext(); {
+			for childWalker := walker.New[*Commitment]().PushAll(children...); childWalker.HasNext(); {
 				childWalker.PushAll(c.propagateSolidity(childWalker.Next())...)
 			}
 		}

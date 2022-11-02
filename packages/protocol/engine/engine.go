@@ -1,24 +1,21 @@
 package engine
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/kvstore"
-	"github.com/iotaledger/hive.go/core/logger"
 
-	"github.com/iotaledger/goshimmer/packages/core/activitylog"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/database"
-	"github.com/iotaledger/goshimmer/packages/core/diskutil"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/eventticker"
 	"github.com/iotaledger/goshimmer/packages/core/eviction"
-	"github.com/iotaledger/goshimmer/packages/core/memstorage"
-	"github.com/iotaledger/goshimmer/packages/core/snapshot"
+	"github.com/iotaledger/goshimmer/packages/storage"
+
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
@@ -39,28 +36,25 @@ import (
 // region Engine /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Engine struct {
-	Events              *Events
-	Ledger              *ledger.Ledger
-	GenesisCommitment   *commitment.Commitment
-	BlockStorage        *database.PersistentEpochStorage[models.BlockID, models.Block, *models.BlockID, *models.Block]
-	Inbox               *inbox.Inbox
-	SnapshotManager     *snapshot.Manager
-	EvictionManager     *eviction.Manager[models.BlockID]
+	Events  *Events
+	Storage *storage.Storage
+	Ledger  *ledger.Ledger
+	Inbox   *inbox.Inbox
+	// SnapshotManager     *snapshot.Manager
+	EvictionState       *eviction.State[models.BlockID]
+	EntryPointsManager  *EntryPointsManager
 	BlockRequester      *eventticker.EventTicker[models.BlockID]
 	ManaTracker         *mana.Tracker
 	NotarizationManager *notarization.Manager
 	Tangle              *tangle.Tangle
 	Consensus           *consensus.Consensus
-	TSCManager          *tsc.TSCManager
+	TSCManager          *tsc.Manager
 	Clock               *clock.Clock
 	SybilProtection     *sybilprotection.SybilProtection
 	ValidatorSet        *validator.Set
 
-	databaseVersion                database.Version
-	chainDirectory                 string
-	DBManager                      *database.Manager
-	logger                         *logger.Logger
 	optsBootstrappedThreshold      time.Duration
+	optsEntryPointsDepth           int
 	optsSnapshotFile               string
 	optsSnapshotDepth              int
 	optsLedgerOptions              []options.Option[ledger.Ledger]
@@ -69,28 +63,27 @@ type Engine struct {
 	optsTangleOptions              []options.Option[tangle.Tangle]
 	optsConsensusOptions           []options.Option[consensus.Consensus]
 	optsSybilProtectionOptions     []options.Option[sybilprotection.SybilProtection]
-	optsTSCManagerOptions          []options.Option[tsc.TSCManager]
+	optsTSCManagerOptions          []options.Option[tsc.Manager]
 	optsDatabaseManagerOptions     []options.Option[database.Manager]
 	optsBlockRequester             []options.Option[eventticker.EventTicker[models.BlockID]]
 }
 
-func New(databaseVersion database.Version, chainDirectory string, logger *logger.Logger, opts ...options.Option[Engine]) (engine *Engine) {
+func New(storageInstance *storage.Storage, opts ...options.Option[Engine]) (engine *Engine) {
 	return options.Apply(
 		&Engine{
-			databaseVersion: databaseVersion,
-			Clock:           clock.New(),
-			Events:          NewEvents(),
-			ValidatorSet:    validator.NewSet(),
-			EvictionManager: eviction.NewManager[models.BlockID](),
+			Clock:              clock.New(),
+			Events:             NewEvents(),
+			ValidatorSet:       validator.NewSet(),
+			EvictionState:      eviction.NewState[models.BlockID](),
+			EntryPointsManager: NewEntryPointsManager(storageInstance),
+			Storage:            storageInstance,
 
-			chainDirectory:            chainDirectory,
-			logger:                    logger,
+			optsEntryPointsDepth:      3,
 			optsBootstrappedThreshold: 10 * time.Second,
 			optsSnapshotFile:          "snapshot.bin",
 			optsSnapshotDepth:         5,
 		}, opts,
 		(*Engine).initInbox,
-		(*Engine).initDatabaseManager,
 		(*Engine).initLedger,
 		(*Engine).initTangle,
 		(*Engine).initConsensus,
@@ -99,10 +92,10 @@ func New(databaseVersion database.Version, chainDirectory string, logger *logger
 		(*Engine).initBlockStorage,
 		(*Engine).initNotarizationManager,
 		(*Engine).initManaTracker,
-		(*Engine).initSnapshotManager,
 		(*Engine).initSybilProtection,
 		(*Engine).initEvictionManager,
 		(*Engine).initBlockRequester,
+		(*Engine).initSolidEntryPointsManager,
 	)
 }
 
@@ -115,26 +108,34 @@ func (e *Engine) IsSynced() (isBootstrapped bool) {
 	return e.IsBootstrapped() && time.Since(e.Clock.AcceptedTime()) < e.optsBootstrappedThreshold
 }
 
+func (e *Engine) Evict(index epoch.Index) {
+	solidEntryPoints := set.NewAdvancedSet[models.BlockID]()
+	for i := index; i > index-epoch.Index(e.optsEntryPointsDepth); i-- {
+		solidEntryPoints.AddAll(e.EntryPointsManager.LoadAll(i))
+	}
+
+	e.EvictionState.EvictUntil(index, solidEntryPoints)
+}
+
+func (e *Engine) Shutdown() {
+	e.Ledger.Shutdown()
+	e.Storage.Shutdown()
+}
+
 func (e *Engine) initInbox() {
 	e.Inbox = inbox.New()
 
 	e.Events.Inbox = e.Inbox.Events
 }
 
-func (e *Engine) initDatabaseManager() {
-	e.optsDatabaseManagerOptions = append(e.optsDatabaseManagerOptions, database.WithBaseDir(e.chainDirectory))
-
-	e.DBManager = database.NewManager(e.databaseVersion, e.optsDatabaseManagerOptions...)
-}
-
 func (e *Engine) initLedger() {
-	e.Ledger = ledger.New(append(e.optsLedgerOptions, ledger.WithStore(e.DBManager.PermanentStorage()))...)
+	e.Ledger = ledger.New(e.Storage, e.optsLedgerOptions...)
 
 	e.Events.Ledger = e.Ledger.Events
 }
 
 func (e *Engine) initTangle() {
-	e.Tangle = tangle.New(e.Ledger, e.EvictionManager, e.ValidatorSet, e.optsTangleOptions...)
+	e.Tangle = tangle.New(e.Ledger, e.EvictionState, e.ValidatorSet, e.optsTangleOptions...)
 
 	e.Events.Inbox.BlockReceived.Attach(event.NewClosure(func(block *models.Block) {
 		if _, _, err := e.Tangle.Attach(block); err != nil {
@@ -170,100 +171,86 @@ func (e *Engine) initTSCManager() {
 }
 
 func (e *Engine) initBlockStorage() {
-	e.BlockStorage = database.NewPersistentEpochStorage[models.BlockID, models.Block](e.DBManager, kvstore.Realm{0x09})
-
-	e.Events.Consensus.Acceptance.EpochClosed.Hook(event.NewClosure(func(storage *memstorage.Storage[models.BlockID, *acceptance.Block]) {
-		storage.ForEach(func(blockID models.BlockID, block *acceptance.Block) bool {
-			if block.IsAccepted() && !block.IsOrphaned() {
-				e.BlockStorage.Set(block.ID(), block.ModelsBlock)
-			}
-			return true
-		})
+	e.Events.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
+		if err := e.Storage.Blocks.Store(block.ModelsBlock); err != nil {
+			e.Events.Error.Trigger(errors.Errorf("failed to store block with %s: %w", block.ID(), err))
+		}
 	}))
 
 	e.Events.Tangle.BlockDAG.BlockOrphaned.Attach(event.NewClosure(func(block *blockdag.Block) {
-		e.BlockStorage.Delete(block.ID())
+		if err := e.Storage.Blocks.Delete(block.ID()); err != nil {
+			e.Events.Error.Trigger(errors.Errorf("failed to delete block with %s: %w", block.ID(), err))
+		}
 	}))
 }
 
 func (e *Engine) initNotarizationManager() {
-	e.NotarizationManager = notarization.NewManager(
-		e.Clock,
-		e.Tangle,
-		e.Ledger,
-		e.Consensus,
-		notarization.NewCommitmentFactory(e.DBManager.PermanentStorage(), e.optsSnapshotDepth),
-		append(e.optsNotarizationManagerOptions, notarization.ManaEpochDelay(mana.EpochDelay))...,
-	)
+	e.NotarizationManager = notarization.NewManager(e.Storage)
 
-	e.Tangle.Events.BlockDAG.BlockAttached.Attach(event.NewClosure(e.NotarizationManager.OnBlockAttached))
-	e.Consensus.Gadget.Events.BlockAccepted.Attach(onlyIfBootstrapped(e, e.NotarizationManager.OnBlockAccepted))
-	e.Tangle.Events.BlockDAG.BlockOrphaned.Attach(onlyIfBootstrapped(e, e.NotarizationManager.OnBlockOrphaned))
-	e.Ledger.Events.TransactionAccepted.Attach(onlyIfBootstrapped(e, e.NotarizationManager.OnTransactionAccepted))
-	e.Ledger.Events.TransactionInclusionUpdated.Attach(onlyIfBootstrapped(e, e.NotarizationManager.OnTransactionInclusionUpdated))
-	e.Ledger.ConflictDAG.Events.ConflictAccepted.Attach(onlyIfBootstrapped(e, func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
-		e.NotarizationManager.OnConflictAccepted(event.ID)
+	e.Consensus.Gadget.Events.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
+		if err := e.NotarizationManager.AddAcceptedBlock(block.ModelsBlock); err != nil {
+			e.Events.Error.Trigger(errors.Errorf("failed to add accepted block %s to epoch: %w", block.ID(), err))
+		}
 	}))
-	e.Ledger.ConflictDAG.Events.ConflictCreated.Attach(onlyIfBootstrapped(e, func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
-		e.NotarizationManager.OnConflictCreated(event.ID)
+	e.Tangle.Events.BlockDAG.BlockOrphaned.Attach(event.NewClosure(func(block *blockdag.Block) {
+		if err := e.NotarizationManager.RemoveAcceptedBlock(block.ModelsBlock); err != nil {
+			e.Events.Error.Trigger(errors.Errorf("failed to remove orphaned block %s from epoch: %w", block.ID(), err))
+		}
 	}))
-	e.Ledger.ConflictDAG.Events.ConflictRejected.Attach(onlyIfBootstrapped(e, func(event *conflictdag.ConflictRejectedEvent[utxo.TransactionID]) {
-		e.NotarizationManager.OnConflictRejected(event.ID)
+
+	e.Ledger.Events.TransactionAccepted.Attach(event.NewClosure(func(txMeta *ledger.TransactionMetadata) {
+		if err := e.NotarizationManager.AddAcceptedTransaction(txMeta); err != nil {
+			e.Events.Error.Trigger(errors.Errorf("failed to add accepted transaction %s to epoch: %w", txMeta.ID(), err))
+		}
 	}))
-	e.Clock.Events.AcceptanceTimeUpdated.Attach(onlyIfBootstrapped(e, func(event *clock.TimeUpdate) {
-		e.NotarizationManager.OnAcceptanceTimeUpdated(event.NewTime)
+	e.Ledger.Events.TransactionInclusionUpdated.Attach(event.NewClosure(func(event *ledger.TransactionInclusionUpdatedEvent) {
+		if err := e.NotarizationManager.UpdateTransactionInclusion(event.TransactionID, epoch.IndexFromTime(event.PreviousInclusionTime), epoch.IndexFromTime(event.InclusionTime)); err != nil {
+			e.Events.Error.Trigger(errors.Errorf("failed to update transaction inclusion time %s in epoch: %w", event.TransactionID, err))
+		}
+	}))
+	// TODO: add transaction orphaned event
+
+	e.Ledger.ConflictDAG.Events.ConflictCreated.Hook(event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
+		e.NotarizationManager.IncreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.GetEarliestAttachment(event.ID).IssuingTime()))
+	}))
+	e.Ledger.ConflictDAG.Events.ConflictAccepted.Hook(event.NewClosure(func(conflictID utxo.TransactionID) {
+		e.NotarizationManager.DecreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.GetEarliestAttachment(conflictID).IssuingTime()))
+	}))
+	e.Ledger.ConflictDAG.Events.ConflictRejected.Hook(event.NewClosure(func(conflictID utxo.TransactionID) {
+		e.NotarizationManager.DecreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.GetEarliestAttachment(conflictID).IssuingTime()))
+	}))
+
+	// Epochs are committed whenever ATT advances, start committing only when bootstrapped.
+	e.Clock.Events.AcceptanceTimeUpdated.Attach(event.NewClosure(func(event *clock.TimeUpdate) {
+		e.NotarizationManager.SetAcceptanceTime(event.NewTime)
 	}))
 
 	e.Events.NotarizationManager = e.NotarizationManager.Events
 }
 
 func (e *Engine) initManaTracker() {
-	e.ManaTracker = mana.NewTracker(e.Ledger, e.optsManaTrackerOptions...)
+	e.ManaTracker = mana.NewTracker(e.Ledger, e.Storage, e.optsManaTrackerOptions...)
 
-	e.NotarizationManager.Events.ManaVectorUpdate.Attach(e.ManaTracker.OnManaVectorToUpdateClosure)
-
-	e.Events.ManaTracker = e.ManaTracker.Events
-}
-
-func (e *Engine) initSnapshotManager() {
-	e.SnapshotManager = snapshot.NewManager(e.NotarizationManager, 5)
-
-	e.Events.Tangle.BlockDAG.BlockOrphaned.Attach(event.NewClosure(func(block *blockdag.Block) {
-		e.SnapshotManager.RemoveSolidEntryPoint(block.ModelsBlock)
-	}))
-
-	e.Events.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
-		block.ForEachParentByType(models.StrongParentType, func(parent models.BlockID) bool {
-			if parent.EpochIndex < block.ID().EpochIndex {
-				e.SnapshotManager.InsertSolidEntryPoint(parent)
-			}
-
-			return true
-		})
-	}))
-
-	e.NotarizationManager.Events.EpochCommittable.Attach(event.NewClosure(func(event *notarization.EpochCommittableEvent) {
-		fmt.Println(">>>>> EpochCommittableEvent", event.EI)
-		e.SnapshotManager.AdvanceSolidEntryPoints(event.EI)
-	}))
+	e.Ledger.Events.TransactionAccepted.Attach(event.NewClosure(e.ManaTracker.UpdateMana))
 }
 
 func (e *Engine) initSybilProtection() {
-	e.SybilProtection = sybilprotection.New(e.ValidatorSet, e.Clock.RelativeAcceptedTime, e.ManaTracker.GetConsensusMana, e.optsSybilProtectionOptions...)
+	e.SybilProtection = sybilprotection.New(e.ValidatorSet, e.Clock.RelativeAcceptedTime, e.optsSybilProtectionOptions...)
 
+	e.Storage.Permanent.Events.ConsensusWeightsUpdated.Hook(event.NewClosure(e.SybilProtection.UpdateConsensusWeights))
 	e.Events.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(e.SybilProtection.TrackActiveValidators))
 }
 
 func (e *Engine) initEvictionManager() {
-	e.NotarizationManager.Events.EpochCommittable.Attach(event.NewClosure(func(event *notarization.EpochCommittableEvent) {
-		e.EvictionManager.EvictUntil(event.EI, e.SnapshotManager.SolidEntryPoints(event.EI))
+	e.NotarizationManager.Events.EpochCommitted.Attach(event.NewClosure(func(commitment *commitment.Commitment) {
+		e.EvictionState.EvictUntil(commitment.Index(), e.EntryPointsManager.LoadAll(commitment.Index()))
 	}))
 
-	e.Events.EvictionManager = e.EvictionManager.Events
+	e.Events.EvictionManager = e.EvictionState.Events
 }
 
 func (e *Engine) initBlockRequester() {
-	e.BlockRequester = eventticker.New(e.EvictionManager, e.optsBlockRequester...)
+	e.BlockRequester = eventticker.New(e.EvictionState, e.optsBlockRequester...)
 
 	// We need to hook to make sure that the request is created before the block arrives to avoid a race condition
 	// where we try to delete the request again before it is created. Thus, continuing to request forever.
@@ -278,52 +265,14 @@ func (e *Engine) initBlockRequester() {
 	e.Events.BlockRequester = e.BlockRequester.Events
 }
 
-func (e *Engine) Run() {
-	e.loadSnapshot()
-}
+func (e *Engine) initSolidEntryPointsManager() {
+	e.Events.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
+		e.EntryPointsManager.Insert(block.ID())
+	}))
 
-func (e *Engine) loadSnapshot() {
-	if err := snapshot.LoadSnapshot(
-		diskutil.New(e.chainDirectory).Path("snapshot.bin"),
-		func(header *ledger.SnapshotHeader) {
-			e.GenesisCommitment = header.LatestECRecord
-
-			e.NotarizationManager.LoadECandEIs(header)
-
-			e.ManaTracker.LoadSnapshotHeader(header)
-
-			// We need to set the acceptance time here because it is needed when setting active validators from SnapshotEpochActivity.
-			e.Clock.SetAcceptedTime(e.GenesisCommitment.Index().EndTime())
-		},
-		e.SnapshotManager.LoadSolidEntryPoints,
-		func(outputsWithMetadata []*ledger.OutputWithMetadata) {
-			e.NotarizationManager.LoadOutputsWithMetadata(outputsWithMetadata)
-
-			e.Ledger.LoadOutputsWithMetadata(outputsWithMetadata)
-
-			e.ManaTracker.LoadOutputsWithMetadata(outputsWithMetadata)
-		},
-		func(epochDiffs *ledger.EpochDiff) {
-			e.NotarizationManager.LoadEpochDiff(epochDiffs)
-
-			if err := e.Ledger.LoadEpochDiff(epochDiffs); err != nil {
-				panic(err)
-			}
-
-			e.ManaTracker.LoadEpochDiff(epochDiffs)
-		},
-		func(activityLogs activitylog.SnapshotEpochActivity) {
-			for epoch, activityLog := range activityLogs {
-				for issuerID, _ := range activityLog.NodesLog() {
-					e.SybilProtection.AddValidator(issuerID, epoch.EndTime())
-				}
-			}
-		},
-	); err != nil {
-		panic(err)
-	}
-
-	e.EvictionManager.EvictUntil(e.GenesisCommitment.Index(), e.SnapshotManager.SolidEntryPoints(e.GenesisCommitment.Index()))
+	e.Events.Tangle.BlockDAG.BlockOrphaned.Attach(event.NewClosure(func(block *blockdag.Block) {
+		e.EntryPointsManager.Remove(block.ID())
+	}))
 }
 
 func (e *Engine) ProcessBlockFromPeer(block *models.Block, source identity.ID) {
@@ -331,28 +280,25 @@ func (e *Engine) ProcessBlockFromPeer(block *models.Block, source identity.ID) {
 }
 
 func (e *Engine) Block(id models.BlockID) (block *models.Block, exists bool) {
-	if e.EvictionManager.IsRootBlock(id) {
-		return e.BlockStorage.Get(id)
+	var err error
+	if e.EvictionState.IsRootBlock(id) {
+		block, err = e.Storage.Blocks.Load(id)
+		exists = block != nil && err == nil
+		return
 	}
 
 	if cachedBlock, cachedBlockExists := e.Tangle.BlockDAG.Block(id); cachedBlockExists {
 		return cachedBlock.ModelsBlock, !cachedBlock.IsMissing()
 	}
 
-	if id.Index() > e.EvictionManager.MaxEvictedEpoch() {
+	if id.Index() > e.EvictionState.MaxEvictedEpoch() {
 		return nil, false
 	}
 
-	return e.BlockStorage.Get(id)
-}
+	block, err = e.Storage.Blocks.Load(id)
+	exists = block != nil && err == nil
 
-func onlyIfBootstrapped[E any](engine *Engine, handler func(event E)) *event.Closure[E] {
-	return event.NewClosure(func(event E) {
-		if !engine.IsBootstrapped() {
-			return
-		}
-		handler(event)
-	})
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -383,7 +329,13 @@ func WithConsensusOptions(opts ...options.Option[consensus.Consensus]) options.O
 	}
 }
 
-func WithTSCManagerOptions(opts ...options.Option[tsc.TSCManager]) options.Option[Engine] {
+func WithEntryPointsDepth(entryPointsDepth int) options.Option[Engine] {
+	return func(engine *Engine) {
+		engine.optsEntryPointsDepth = entryPointsDepth
+	}
+}
+
+func WithTSCManagerOptions(opts ...options.Option[tsc.Manager]) options.Option[Engine] {
 	return func(e *Engine) {
 		e.optsTSCManagerOptions = opts
 	}

@@ -69,3 +69,6 @@ services:
       --blockIssuer.ignoreBootstrappedFlag=true
       {% endif %}
       --protocol.bootstrapWindow=20s
+      {% if genesisTime|default(None) %}
+      --protocol.genesisTime={{ genesisTime }}
+      {% endif %}

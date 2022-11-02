@@ -9,14 +9,12 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/daemon"
-	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/workerpool"
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
 )
 
@@ -45,26 +43,13 @@ func configureManaFeed() {
 			sendManaMapOverall()
 		case MsgTypeManaMapOnline:
 			sendManaMapOnline()
-		case MsgTypeManaPledge:
-			sendManaPledge(task.Param(1).(*mana.PledgedEvent))
-		case MsgTypeManaRevoke:
-			sendManaRevoke(task.Param(1).(*mana.RevokedEvent))
 		}
 		task.Return(nil)
 	}, workerpool.WorkerCount(manaFeedWorkerCount), workerpool.QueueSize(manaFeedWorkerQueueSize))
 }
 
 func runManaFeed() {
-	notifyManaPledge := event.NewClosure(func(ev *mana.PledgedEvent) {
-		manaFeedWorkerPool.TrySubmit(MsgTypeManaPledge, ev)
-	})
-	notifyManaRevoke := event.NewClosure(func(ev *mana.RevokedEvent) {
-		manaFeedWorkerPool.TrySubmit(MsgTypeManaRevoke, ev)
-	})
 	if err := daemon.BackgroundWorker("Dashboard[ManaUpdater]", func(ctx context.Context) {
-		// TODO: use linkable events on protocol level
-		deps.Protocol.Events.Engine.ManaTracker.Pledged.Attach(notifyManaPledge)
-		deps.Protocol.Events.Engine.ManaTracker.Revoked.Attach(notifyManaRevoke)
 		manaTicker := time.NewTicker(10 * time.Second)
 		for {
 			select {
@@ -88,20 +73,16 @@ func runManaFeed() {
 // region Websocket block sending handlers (live updates)
 func sendManaValue() {
 	ownID := deps.Local.ID()
-	access, _, err := deps.Protocol.Engine().ManaTracker.GetAccessMana(ownID)
+	access, exists := deps.Protocol.Engine().ManaTracker.Mana(ownID)
 	// if issuer not found, returned value is 0.0
-	if err != nil && !errors.Is(err, manamodels.ErrIssuerNotFoundInBaseManaVector) && !errors.Is(err, manamodels.ErrQueryNotAllowed) {
-		log.Errorf("failed to get own access mana: %s ", err.Error())
+	if !exists {
+		log.Errorf("failed to get own access mana: %s ", ownID)
 	}
-	consensus, _, err := deps.Protocol.Engine().ManaTracker.GetConsensusMana(ownID)
-	// if issuer not found, returned value is 0.0
-	if err != nil && !errors.Is(err, manamodels.ErrIssuerNotFoundInBaseManaVector) && !errors.Is(err, manamodels.ErrQueryNotAllowed) {
-		log.Errorf("failed to get own consensus mana: %s ", err.Error())
-	}
+	consensus := deps.Protocol.Engine().SybilProtection.Weights()
 	blkData := &ManaValueBlkData{
 		IssuerID:  ownID.String(),
 		Access:    access,
-		Consensus: consensus,
+		Consensus: consensus[ownID],
 		Time:      time.Now().Unix(),
 	}
 	broadcastWsBlock(&wsblk{
@@ -112,7 +93,7 @@ func sendManaValue() {
 }
 
 func sendManaMapOverall() {
-	accessManaList, _, err := deps.Protocol.Engine().ManaTracker.GetHighestManaIssuers(manamodels.AccessMana, 0)
+	accessManaList, _, err := manamodels.GetHighestManaIssuers(0, deps.Protocol.Engine().ManaTracker.ManaMap())
 	if err != nil && !errors.Is(err, manamodels.ErrQueryNotAllowed) {
 		log.Errorf("failed to get list of n highest access mana issuers: %s ", err.Error())
 	}
@@ -127,7 +108,7 @@ func sendManaMapOverall() {
 		Type: MsgTypeManaMapOverall,
 		Data: accessPayload,
 	})
-	consensusManaList, _, err := deps.Protocol.Engine().ManaTracker.GetHighestManaIssuers(manamodels.ConsensusMana, 0)
+	consensusManaList, _, err := manamodels.GetHighestManaIssuers(0, deps.Protocol.Engine().SybilProtection.Weights())
 	if err != nil && !errors.Is(err, manamodels.ErrQueryNotAllowed) {
 		log.Errorf("failed to get list of n highest consensus mana issuers: %s ", err.Error())
 	}
@@ -151,10 +132,7 @@ func sendManaMapOnline() {
 		return
 	}
 	knownPeers := deps.Discover.GetVerifiedPeers()
-	manaMap, _, err := deps.Protocol.Engine().ManaTracker.GetManaMap(manamodels.AccessMana)
-	if err != nil && !errors.Is(err, manamodels.ErrQueryNotAllowed) {
-		log.Errorf("failed to get list of online access mana issuers: %s", err)
-	}
+	manaMap := deps.Protocol.Engine().ManaTracker.ManaMap()
 	accessPayload := &ManaNetworkListBlkData{ManaType: manamodels.AccessMana.String()}
 	var totalAccessMana int64
 	for _, peerID := range append(lo.Map(knownPeers, func(p *peer.Peer) identity.ID { return p.ID() }), deps.Local.ID()) {
@@ -165,7 +143,7 @@ func sendManaMapOnline() {
 
 		accessPayload.Issuers = append(accessPayload.Issuers, manamodels.IssuerStr{
 			ShortIssuerID: peerID.String(),
-			IssuerID:      base58.Encode(peerID.Bytes()),
+			IssuerID:      base58.Encode(lo.PanicOnErr(peerID.Bytes())),
 			Mana:          manaValue,
 		})
 		totalAccessMana += manaValue
@@ -196,22 +174,6 @@ func sendManaMapOnline() {
 		Data: consensusPayload,
 	})
 	ManaBufferInstance().StoreMapOnline(accessPayload, consensusPayload)
-}
-
-func sendManaPledge(ev *mana.PledgedEvent) {
-	ManaBufferInstance().StoreEvent(ev)
-	broadcastWsBlock(&wsblk{
-		Type: MsgTypeManaPledge,
-		Data: ev.ToJSONSerializable(),
-	})
-}
-
-func sendManaRevoke(ev *mana.RevokedEvent) {
-	ManaBufferInstance().StoreEvent(ev)
-	broadcastWsBlock(&wsblk{
-		Type: MsgTypeManaRevoke,
-		Data: ev.ToJSONSerializable(),
-	})
 }
 
 // endregion

@@ -8,12 +8,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
 
-type PersistentEpochStorage[K, V any, KPtr IndexedKey[K], VPtr constraints.Serializable[V]] struct {
+type PersistentEpochStorage[K, V any, KPtr IndexedKey[K], VPtr constraints.MarshalablePtr[V]] struct {
 	dbManager *Manager
 	realm     Realm
 }
 
-func NewPersistentEpochStorage[K, V any, KPtr IndexedKey[K], VPtr constraints.Serializable[V]](dbManager *Manager, realm Realm) *PersistentEpochStorage[K, V, KPtr, VPtr] {
+func NewPersistentEpochStorage[K, V any, KPtr IndexedKey[K], VPtr constraints.MarshalablePtr[V]](dbManager *Manager, realm Realm) *PersistentEpochStorage[K, V, KPtr, VPtr] {
 	return &PersistentEpochStorage[K, V, KPtr, VPtr]{
 		dbManager: dbManager,
 		realm:     realm,
@@ -41,5 +41,5 @@ func (p *PersistentEpochStorage[K, V, KPtr, VPtr]) Iterate(index epoch.Index, ca
 
 type IndexedKey[A any] interface {
 	epoch.IndexedID
-	constraints.Serializable[A]
+	constraints.MarshalablePtr[A]
 }

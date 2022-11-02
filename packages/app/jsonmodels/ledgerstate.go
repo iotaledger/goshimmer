@@ -490,8 +490,10 @@ type OutputMetadata struct {
 // NewOutputMetadata returns the OutputMetadata from the given ledger.OutputMetadata.
 func NewOutputMetadata(outputMetadata *ledger.OutputMetadata, confirmedConsumerID utxo.TransactionID) *OutputMetadata {
 	return &OutputMetadata{
-		OutputID:              NewOutputID(outputMetadata.ID()),
-		ConflictIDs:           lo.Map(lo.Map(outputMetadata.ConflictIDs().Slice(), utxo.TransactionID.Bytes), base58.Encode),
+		OutputID: NewOutputID(outputMetadata.ID()),
+		ConflictIDs: lo.Map(lo.Map(outputMetadata.ConflictIDs().Slice(), func(t utxo.TransactionID) []byte {
+			return lo.PanicOnErr(t.Bytes())
+		}), base58.Encode),
 		FirstConsumer:         outputMetadata.FirstConsumer().Base58(),
 		ConfirmedConsumer:     confirmedConsumerID.Base58(),
 		ConfirmationState:     outputMetadata.ConfirmationState(),
@@ -633,8 +635,8 @@ func NewTransaction(transaction *devnetvm.Transaction) *Transaction {
 	return &Transaction{
 		Version:           transaction.Essence().Version(),
 		Timestamp:         transaction.Essence().Timestamp().Unix(),
-		AccessPledgeID:    base58.Encode(transaction.Essence().AccessPledgeID().Bytes()),
-		ConsensusPledgeID: base58.Encode(transaction.Essence().ConsensusPledgeID().Bytes()),
+		AccessPledgeID:    base58.Encode(lo.PanicOnErr(transaction.Essence().AccessPledgeID().Bytes())),
+		ConsensusPledgeID: base58.Encode(lo.PanicOnErr(transaction.Essence().ConsensusPledgeID().Bytes())),
 		Inputs:            inputs,
 		Outputs:           outputs,
 		UnlockBlocks:      unlockBlocks,
@@ -735,7 +737,9 @@ type TransactionMetadata struct {
 func NewTransactionMetadata(transactionMetadata *ledger.TransactionMetadata) *TransactionMetadata {
 	return &TransactionMetadata{
 		TransactionID:         transactionMetadata.ID().Base58(),
-		ConflictIDs:           lo.Map(lo.Map(transactionMetadata.ConflictIDs().Slice(), utxo.TransactionID.Bytes), base58.Encode),
+		ConflictIDs:           lo.Map(lo.Map(transactionMetadata.ConflictIDs().Slice(), func(t utxo.TransactionID) []byte {
+			return lo.PanicOnErr(t.Bytes())
+		}), base58.Encode),
 		Booked:                transactionMetadata.IsBooked(),
 		BookedTime:            transactionMetadata.BookingTime().Unix(),
 		ConfirmationState:     transactionMetadata.ConfirmationState(),

@@ -18,7 +18,7 @@ import (
 // CausalOrder represents an order where an Entity is ordered after its causal dependencies (parents) have been ordered.
 type CausalOrder[ID epoch.IndexedID, Entity OrderedEntity[ID]] struct {
 	// evictionManager contains the local manager used to orchestrate the eviction of old Entities.
-	evictionManager *eviction.LockableManager[ID]
+	evictionManager *eviction.LockableState[ID]
 
 	// entityProvider contains a function that provides the Entity that belongs to a given ID.
 	entityProvider func(id ID) (entity Entity, exists bool)
@@ -52,7 +52,7 @@ type CausalOrder[ID epoch.IndexedID, Entity OrderedEntity[ID]] struct {
 }
 
 // New returns a new CausalOrderer instance with the given parameters.
-func New[ID epoch.IndexedID, Entity OrderedEntity[ID]](evictionManager *eviction.Manager[ID],
+func New[ID epoch.IndexedID, Entity OrderedEntity[ID]](evictionManager *eviction.State[ID],
 	entityProvider func(id ID) (entity Entity, exists bool),
 	isOrdered func(entity Entity) (isOrdered bool),
 	orderedCallback func(entity Entity) (err error),
@@ -150,7 +150,6 @@ func (c *CausalOrder[ID, Entity]) registerUnorderedChild(entityID ID, child Enti
 	unorderedChildrenStorage := c.unorderedChildren.Get(entityID.Index(), true)
 	entityChildren, _ := unorderedChildrenStorage.Get(entityID)
 	unorderedChildrenStorage.Set(entityID, append(entityChildren, child))
-
 }
 
 // setUnorderedParentsCounter sets the unordered parents counter of the given Entity to the given value.

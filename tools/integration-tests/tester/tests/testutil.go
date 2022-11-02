@@ -351,7 +351,7 @@ func SendTransaction(t *testing.T, from *framework.Node, to *framework.Node, col
 	outputColor := color
 	if color == devnetvm.ColorMint {
 		mintOutput := txn.Essence().Outputs()[OutputIndex(txn, outputAddr)]
-		outputColor = blake2b.Sum256(mintOutput.ID().Bytes())
+		outputColor = blake2b.Sum256(lo.PanicOnErr(mintOutput.ID().Bytes()))
 	}
 
 	// send transaction

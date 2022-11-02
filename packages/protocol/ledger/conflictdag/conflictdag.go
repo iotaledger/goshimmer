@@ -42,7 +42,7 @@ func New[ConflictIDType, ResourceIDType comparable](options ...Option) (new *Con
 
 // CreateConflict creates a new Conflict in the ConflictDAG and returns true if the Conflict was new.
 func (b *ConflictDAG[ConflictIDType, ResourceIDType]) CreateConflict(id ConflictIDType, parents *set.AdvancedSet[ConflictIDType], conflictingResources *set.AdvancedSet[ResourceIDType]) (created bool) {
-	b.RLock()
+	b.Lock()
 	b.Storage.CachedConflict(id, func(ConflictIDType) (conflict *Conflict[ConflictIDType, ResourceIDType]) {
 		conflict = NewConflict(id, parents, set.NewAdvancedSet[ResourceIDType]())
 
@@ -57,7 +57,7 @@ func (b *ConflictDAG[ConflictIDType, ResourceIDType]) CreateConflict(id Conflict
 
 		return conflict
 	}).Release()
-	b.RUnlock()
+	b.Unlock()
 
 	if created {
 		b.Events.ConflictCreated.Trigger(&ConflictCreatedEvent[ConflictIDType, ResourceIDType]{
@@ -150,9 +150,7 @@ func (b *ConflictDAG[ConflictID, ConflictingResourceID]) SetConflictAccepted(con
 				return
 			}
 
-			b.Events.ConflictAccepted.Trigger(&ConflictAcceptedEvent[ConflictID]{
-				ID: conflict.ID(),
-			})
+			b.Events.ConflictAccepted.Trigger(conflict.ID())
 
 			confirmationWalker.PushAll(conflict.Parents().Slice()...)
 
@@ -169,9 +167,7 @@ func (b *ConflictDAG[ConflictID, ConflictingResourceID]) SetConflictAccepted(con
 				return
 			}
 
-			b.Events.ConflictRejected.Trigger(&ConflictRejectedEvent[ConflictID]{
-				ID: conflict.ID(),
-			})
+			b.Events.ConflictRejected.Trigger(conflict.ID())
 
 			b.Storage.CachedChildConflicts(conflict.ID()).Consume(func(childConflict *ChildConflict[ConflictID]) {
 				rejectionWalker.Push(childConflict.ChildConflictID())

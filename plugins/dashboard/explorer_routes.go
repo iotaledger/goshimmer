@@ -96,9 +96,9 @@ func createExplorerBlock(block *models.Block, blockMetadata *retainer.BlockMetad
 		WeakChildren:            blockMetadata.M.WeakChildren.Base58(),
 		LikedInsteadChildren:    blockMetadata.M.LikedInsteadChildren.Base58(),
 		Solid:                   blockMetadata.M.Solid,
-		ConflictIDs:             lo.Map(lo.Map(blockMetadata.M.ConflictIDs.Slice(), utxo.TransactionID.Bytes), base58.Encode),
-		AddedConflictIDs:        lo.Map(lo.Map(blockMetadata.M.AddedConflictIDs.Slice(), utxo.TransactionID.Bytes), base58.Encode),
-		SubtractedConflictIDs:   lo.Map(lo.Map(blockMetadata.M.SubtractedConflictIDs.Slice(), utxo.TransactionID.Bytes), base58.Encode),
+		ConflictIDs:             lo.Map(lo.Map(blockMetadata.M.ConflictIDs.Slice(), packTransactionID), base58.Encode),
+		AddedConflictIDs:        lo.Map(lo.Map(blockMetadata.M.AddedConflictIDs.Slice(), packTransactionID), base58.Encode),
+		SubtractedConflictIDs:   lo.Map(lo.Map(blockMetadata.M.SubtractedConflictIDs.Slice(), packTransactionID), base58.Encode),
 		Scheduled:               blockMetadata.M.Scheduled,
 		Booked:                  blockMetadata.M.Booked,
 		ObjectivelyInvalid:      blockMetadata.M.Invalid,
@@ -122,6 +122,10 @@ func createExplorerBlock(block *models.Block, blockMetadata *retainer.BlockMetad
 	}
 
 	return t
+}
+
+func packTransactionID(txID utxo.TransactionID) []byte {
+	return lo.PanicOnErr(txID.Bytes())
 }
 
 func prepareParentReferences(blk *models.Block) map[string][]string {

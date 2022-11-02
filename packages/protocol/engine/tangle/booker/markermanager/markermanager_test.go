@@ -24,7 +24,7 @@ func Test_PruneMarkerBlockMapping(t *testing.T) {
 
 	tf := blockdag.NewTestFramework(t)
 
-	tf.BlockDAG.EvictionManager.Events.EpochEvicted.Attach(event.NewClosure(markerManager.EvictEpoch))
+	tf.BlockDAG.EvictionState.Events.EpochEvicted.Attach(event.NewClosure(markerManager.EvictEpoch))
 
 	// create a helper function that creates the blocks
 	createNewBlock := func(idx int, prefix string) (block *blockdag.Block, alias string) {
@@ -54,12 +54,12 @@ func Test_PruneMarkerBlockMapping(t *testing.T) {
 
 	validateBlockMarkerMappingPruning(t, markerBlockMapping, markerManager, 0)
 
-	tf.BlockDAG.EvictionManager.EvictUntil(epochCount/2, set.NewAdvancedSet[models.BlockID]())
+	tf.BlockDAG.EvictionState.EvictUntil(epochCount/2, set.NewAdvancedSet[models.BlockID]())
 	event.Loop.WaitUntilAllTasksProcessed()
 
 	validateBlockMarkerMappingPruning(t, markerBlockMapping, markerManager, epochCount/2)
 
-	tf.BlockDAG.EvictionManager.EvictUntil(epochCount, set.NewAdvancedSet[models.BlockID]())
+	tf.BlockDAG.EvictionState.EvictUntil(epochCount, set.NewAdvancedSet[models.BlockID]())
 	event.Loop.WaitUntilAllTasksProcessed()
 
 	validateBlockMarkerMappingPruning(t, markerBlockMapping, markerManager, epochCount)
@@ -89,11 +89,12 @@ func Test_PruneSequences(t *testing.T) {
 			structureDetails := markers.NewStructureDetails()
 			structureDetails.SetPastMarkerGap(100)
 
-			if expectedSequenceID == 0 {
+			switch expectedSequenceID {
+			case 0:
 				structureDetails.SetPastMarkers(markers.NewMarkers())
-			} else if expectedSequenceID == 1 {
+			case 1:
 				structureDetails.SetPastMarkers(markers.NewMarkers(markers.NewMarker(0, 1)))
-			} else {
+			default:
 				structureDetails.SetPastMarkers(markers.NewMarkers(
 					markers.NewMarker(expectedSequenceID-1, 1),
 					markers.NewMarker(expectedSequenceID-2, 1),

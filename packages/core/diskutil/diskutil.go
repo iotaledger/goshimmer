@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/iotaledger/hive.go/core/ioutils"
 	"github.com/natefinch/atomic"
 )
 
@@ -19,7 +20,10 @@ type DiskUtil struct {
 	basePath string
 }
 
-func New(basePath string) (newDiskUtil *DiskUtil) {
+func New(basePath string, createIfAbsent ...bool) (newDiskUtil *DiskUtil) {
+	if len(createIfAbsent) > 0 && createIfAbsent[0] {
+		ioutils.CreateDirectory(basePath, 0o755)
+	}
 	return &DiskUtil{
 		basePath: basePath,
 	}
@@ -57,16 +61,8 @@ func (d *DiskUtil) Exists(path string) (exists bool) {
 	return true
 }
 
-func (d *DiskUtil) CreateDir(directoryPath string, perm ...os.FileMode) (err error) {
-	if len(perm) > 0 {
-		return os.MkdirAll(directoryPath, perm[0])
-	}
-
-	return os.MkdirAll(directoryPath, 0755)
-}
-
 func (d *DiskUtil) WriteFile(path string, data []byte) (err error) {
-	return ioutil.WriteFile(path, data, 0666)
+	return ioutil.WriteFile(path, data, 0o666)
 }
 
 func (d *DiskUtil) Path(relativePathElements ...string) (path string) {
@@ -93,12 +89,14 @@ func (d *DiskUtil) FileChecksum(filePath string, hash ...hash.Hash) (checksum [3
 	return
 }
 
-func (d *DiskUtil) WithFile(filePath string, f func(file *os.File) error) (err error) {
+func (d *DiskUtil) WithFile(filePath string, f func(file *os.File)) (err error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return
 	}
 	defer file.Close()
 
-	return f(file)
+	f(file)
+
+	return
 }

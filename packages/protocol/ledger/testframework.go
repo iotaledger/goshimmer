@@ -23,6 +23,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
+	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
 func init() {
@@ -68,13 +69,16 @@ type TestFramework struct {
 // NewTestFramework creates a new instance of the TestFramework with one default output "Genesis" which has to be
 // consumed by the first transaction.
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (newTestFramework *TestFramework) {
+	tmpDir := test.TempDir()
+	chainStorage := storage.New(tmpDir, 1)
+
 	return options.Apply(&TestFramework{
 		test:                test,
 		transactionsByAlias: make(map[string]*MockedTransaction),
 		outputIDsByAlias:    make(map[string]utxo.OutputID),
 	}, opts, func(t *TestFramework) {
 		if t.Ledger == nil {
-			t.Ledger = New(t.optsLedger...)
+			t.Ledger = New(chainStorage, t.optsLedger...)
 		}
 
 		genesisOutput := NewMockedOutput(utxo.EmptyTransactionID, 0)

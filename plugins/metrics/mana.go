@@ -6,7 +6,6 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"go.uber.org/atomic"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
 )
 
@@ -144,34 +143,21 @@ func AveragePledgeAccess() manamodels.IssuerMap {
 	return result
 }
 
-// addPledge populates the pledge logs for the issuer.
-func addPledge(event *mana.PledgedEvent) {
-	pledgesLock.Lock()
-	defer pledgesLock.Unlock()
-	pledgeLog := pledges[event.IssuerID]
-	if pledgeLog == nil {
-		pledgeLog = &PledgeLog{}
-	}
-	switch event.ManaType {
-	case manamodels.AccessMana:
-		pledgeLog.AddAccess(event.Amount)
-	case manamodels.ConsensusMana:
-		pledgeLog.AddConsensus(event.Amount)
-	}
-	pledges[event.IssuerID] = pledgeLog
-}
-
 func measureMana() {
-	tmp, _ := deps.Protocol.Engine().ManaTracker.GetAllManaMaps()
+	tmpAccessMap := deps.Protocol.Engine().ManaTracker.ManaMap()
+	tmpConsensusMap := deps.Protocol.Engine().SybilProtection.Weights()
+
 	accessLock.Lock()
 	defer accessLock.Unlock()
-	accessMap = tmp[manamodels.AccessMana]
-	aPer, _ := accessMap.GetPercentile(deps.Local.ID())
-	accessPercentile.Store(aPer)
+	accessMap = tmpAccessMap
+
 	consensusLock.Lock()
 	defer consensusLock.Unlock()
-	consensusMap = tmp[manamodels.ConsensusMana]
-	cPer, _ := consensusMap.GetPercentile(deps.Local.ID())
+	consensusMap = tmpConsensusMap
+
+	aPer := manamodels.Percentile(deps.Local.ID(), tmpAccessMap)
+	accessPercentile.Store(aPer)
+	cPer := manamodels.Percentile(deps.Local.ID(), tmpConsensusMap)
 	consensusPercentile.Store(cPer)
 
 	neighbors := deps.P2Pmgr.AllNeighbors()
@@ -180,13 +166,13 @@ func measureMana() {
 	var accessAvg, consensusAvg float64
 
 	for _, neighbor := range neighbors {
-		neighborAMana, _, _ := deps.Protocol.Engine().ManaTracker.GetAccessMana(neighbor.ID())
+		neighborAMana, _ := deps.Protocol.Engine().ManaTracker.Mana(neighbor.ID())
 		if neighborAMana > 0 {
 			accessCount++
 			accessSum += neighborAMana
 		}
 
-		neighborCMana, _, _ := deps.Protocol.Engine().ManaTracker.GetConsensusMana(neighbor.ID())
+		neighborCMana, _ := deps.Protocol.Engine().SybilProtection.Weight(neighbor.ID())
 		if neighborCMana > 0 {
 			consensusCount++
 			consensusSum += neighborCMana

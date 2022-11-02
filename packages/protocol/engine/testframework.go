@@ -3,18 +3,19 @@ package engine
 import (
 	"testing"
 
-	"github.com/iotaledger/hive.go/core/configuration"
 	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/logger"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
+	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
 
-type TangleTestFramework = tangle.TestFramework
-type AcceptanceTestFramework = acceptance.TestFramework
+type (
+	TangleTestFramework     = tangle.TestFramework
+	AcceptanceTestFramework = acceptance.TestFramework
+)
 
 type TestFramework struct {
 	Engine *Engine
@@ -28,15 +29,12 @@ type TestFramework struct {
 }
 
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (testFramework *TestFramework) {
-	_ = logger.InitGlobalLogger(configuration.New())
-
-	log := logger.NewLogger(test.Name())
-
+	chainStorage := storage.New(test.TempDir(), 1)
 	return options.Apply(&TestFramework{
 		test: test,
 	}, opts, func(t *TestFramework) {
 		if t.Engine == nil {
-			t.Engine = New(0, test.TempDir(), log, t.optsEngineOptions...)
+			t.Engine = New(chainStorage, t.optsEngineOptions...)
 		}
 
 		t.Tangle = tangle.NewTestFramework(test, tangle.WithTangle(t.Engine.Tangle))

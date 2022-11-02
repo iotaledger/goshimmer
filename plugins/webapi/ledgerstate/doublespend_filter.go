@@ -7,6 +7,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 )
 
 // DoubleSpendFilter keeps a log of recently submitted transactions and their consumed outputs.
@@ -97,7 +98,7 @@ func (d *DoubleSpendFilter) CleanUp() {
 func (d *DoubleSpendFilter) remove(txID utxo.TransactionID) {
 	// remove all outputs
 	for outputID, storedTxID := range d.recentMap {
-		if bytes.Equal(txID.Bytes(), storedTxID.Bytes()) {
+		if bytes.Equal(lo.PanicOnErr(txID.Bytes()), lo.PanicOnErr(storedTxID.Bytes())) {
 			delete(d.recentMap, outputID)
 		}
 	}

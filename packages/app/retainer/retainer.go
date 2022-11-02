@@ -35,7 +35,7 @@ func NewRetainer(protocol *protocol.Protocol, dbManager *database.Manager, opts 
 		protocol:       protocol,
 		optsRealm:      []byte("retainer"),
 	}, opts, (*Retainer).setupEvents, func(r *Retainer) {
-		r.blockStorage = database.NewPersistentEpochStorage[models.BlockID, BlockMetadata, *models.BlockID, *BlockMetadata](dbManager, r.optsRealm)
+		r.blockStorage = database.NewPersistentEpochStorage[models.BlockID, BlockMetadata](dbManager, r.optsRealm)
 	})
 }
 

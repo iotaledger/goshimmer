@@ -63,6 +63,7 @@ type Block struct {
 	model.Storable[BlockID, Block, *Block, block] `serix:"0"`
 	payload                                       payload.Payload
 	issuerID                                      *identity.ID
+	size                                          *int
 }
 
 type block struct {
@@ -98,11 +99,10 @@ func NewBlock(opts ...options.Option[Block]) *Block {
 }
 
 func NewEmptyBlock(id BlockID, opts ...options.Option[Block]) (newBlock *Block) {
-	newBlock = model.NewStorable[BlockID, Block](&block{})
-	newBlock.SetID(id)
-	newBlock.M.PayloadBytes = lo.PanicOnErr(payload.NewGenericDataPayload([]byte("")).Bytes())
-
-	return options.Apply(newBlock, opts)
+	return options.Apply(model.NewStorable[BlockID, Block](&block{}), opts, func(b *Block) {
+		b.SetID(id)
+		b.M.PayloadBytes = lo.PanicOnErr(payload.NewGenericDataPayload([]byte("")).Bytes())
+	})
 }
 
 // VerifySignature verifies the Signature of the block.
@@ -236,20 +236,41 @@ func (b *Block) SetSignature(signature ed25519.Signature) {
 	b.M.Signature = signature
 }
 
-// DetermineID calculates and sets the block's BlockID.
+// DetermineID calculates and sets the block's BlockID and size.
 func (b *Block) DetermineID() (err error) {
 	buf, err := b.Bytes()
 	if err != nil {
 		return errors.Errorf("failed to determine block ID: %w", err)
 	}
 
-	b.SetID(NewBlockID(blake2b.Sum256(buf), epoch.IndexFromTime(b.IssuingTime())))
+	b.DetermineIDFromBytes(buf)
 	return nil
+}
+
+// DetermineIDFromBytes calculates and sets the block's BlockID and size.
+func (b *Block) DetermineIDFromBytes(buf []byte) {
+	b.SetID(NewBlockID(blake2b.Sum256(buf), epoch.IndexFromTime(b.IssuingTime())))
+
+	b.Lock()
+	defer b.Unlock()
+	l := len(buf)
+	b.size = &l
+}
+
+func (b *Block) SetSize(size int) {
+	b.size = &size
 }
 
 // Size returns the block size in bytes.
 func (b *Block) Size() int {
-	return len(lo.PanicOnErr(b.Bytes()))
+	b.RLock()
+	defer b.RUnlock()
+
+	if b.size == nil {
+		panic(fmt.Sprintf("size is not set for %s", b.ID()))
+	}
+
+	return *b.size
 }
 
 func (b *Block) String() string {
@@ -270,6 +291,7 @@ func (b *Block) String() string {
 	builder.AddField(stringify.NewStructField("SequenceNumber", b.SequenceNumber()))
 	builder.AddField(stringify.NewStructField("Payload", b.Payload()))
 	builder.AddField(stringify.NewStructField("Nonce", b.Nonce()))
+	builder.AddField(stringify.NewStructField("Commitment", b.Commitment()))
 	builder.AddField(stringify.NewStructField("Signature", b.Signature()))
 	return builder.String()
 }

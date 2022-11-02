@@ -41,7 +41,7 @@ var ErrNotRunning = errors.New("scheduler stopped")
 type Scheduler struct {
 	Events *Events
 
-	EvictionManager *eviction.LockableManager[models.BlockID]
+	EvictionManager *eviction.LockableState[models.BlockID]
 
 	blocks        *memstorage.EpochStorage[models.BlockID, *Block]
 	ticker        *time.Ticker
@@ -65,7 +65,7 @@ type Scheduler struct {
 }
 
 // New returns a new Scheduler.
-func New(evictionManager *eviction.Manager[models.BlockID], isBlockAccepted func(models.BlockID) bool, accessManaMapRetrieverFunc func() map[identity.ID]int64, totalAccessManaRetrieveFunc func() int64, opts ...options.Option[Scheduler]) *Scheduler {
+func New(evictionManager *eviction.State[models.BlockID], isBlockAccepted func(models.BlockID) bool, accessManaMapRetrieverFunc func() map[identity.ID]int64, totalAccessManaRetrieveFunc func() int64, opts ...options.Option[Scheduler]) *Scheduler {
 	return options.Apply(&Scheduler{
 		Events:          NewEvents(),
 		EvictionManager: evictionManager.Lockable(),
@@ -84,9 +84,7 @@ func New(evictionManager *eviction.Manager[models.BlockID], isBlockAccepted func
 	}, opts, func(s *Scheduler) {
 		s.ticker = time.NewTicker(s.optsRate)
 		s.buffer = NewBufferQueue(s.optsMaxBufferSize)
-
 	}, (*Scheduler).setupEvents)
-
 }
 
 func (s *Scheduler) setupEvents() {
@@ -373,8 +371,9 @@ func (s *Scheduler) submit(block *Block) error {
 
 func (s *Scheduler) markAsDropped(droppedBlocks []*Block) {
 	for _, droppedBlock := range droppedBlocks {
-		droppedBlock.SetDropped()
-		s.Events.BlockDropped.Trigger(droppedBlock)
+		if droppedBlock.SetDropped() {
+			s.Events.BlockDropped.Trigger(droppedBlock)
+		}
 	}
 }
 
@@ -470,7 +469,7 @@ func (s *Scheduler) schedule() *Block {
 }
 
 func (s *Scheduler) selectIssuer(start *IssuerQueue) (rounds *big.Rat, schedulingIssuer *IssuerQueue) {
-	rounds = new(big.Rat).SetInt64(math.MaxInt64)
+	rounds = new(big.Rat).SetFloat64(math.MaxFloat64)
 
 	for q := start; ; {
 		block := q.Front()

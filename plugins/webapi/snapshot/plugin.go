@@ -1,5 +1,7 @@
 package snapshot
 
+/*
+
 import (
 	"net/http"
 
@@ -9,7 +11,6 @@ import (
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 )
 
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -21,8 +22,8 @@ const (
 type dependencies struct {
 	dig.In
 
-	Server      *echo.Echo
-	SnapshotMgr *snapshot.Manager
+	Server *echo.Echo
+	// SnapshotMgr *snapshot.Manager
 }
 
 var (
@@ -59,5 +60,6 @@ func DumpCurrentLedger(c echo.Context) (err error) {
 
 	return c.Attachment(snapshotFileName, snapshotFileName)
 }
+*/
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

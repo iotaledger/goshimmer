@@ -1,54 +1,48 @@
 package ledger
 
 import (
-	"github.com/iotaledger/hive.go/core/stringify"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/types/confirmation"
 
-	"github.com/iotaledger/goshimmer/packages/core/activitylog"
-	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/storage/models"
 )
 
-// Snapshot represents a snapshot of the current ledger state.
-type Snapshot struct {
-	Header              *SnapshotHeader                   `serix:"0"`
-	OutputsWithMetadata []*OutputWithMetadata             `serix:"1,lengthPrefixType=uint32"`
-	EpochDiffs          map[epoch.Index]*EpochDiff        `serix:"2,lengthPrefixType=uint32"`
-	EpochActiveNodes    activitylog.SnapshotEpochActivity `serix:"3,lengthPrefixType=uint32"`
-}
+// LoadOutputsWithMetadata loads OutputWithMetadata from a snapshot file to the storage.
+func (l *Ledger) LoadOutputsWithMetadata(outputsWithMetadata []*models.OutputWithMetadata) {
+	for _, outputWithMetadata := range outputsWithMetadata {
+		newOutputMetadata := NewOutputMetadata(outputWithMetadata.ID())
+		newOutputMetadata.SetAccessManaPledgeID(outputWithMetadata.AccessManaPledgeID())
+		newOutputMetadata.SetConsensusManaPledgeID(outputWithMetadata.ConsensusManaPledgeID())
+		newOutputMetadata.SetConfirmationState(confirmation.Confirmed)
 
-// SnapshotHeader represents the info of a snapshot.
-type SnapshotHeader struct {
-	OutputWithMetadataCount uint64                 `serix:"0"`
-	FullEpochIndex          epoch.Index            `serix:"1"`
-	DiffEpochIndex          epoch.Index            `serix:"2"`
-	LatestECRecord          *commitment.Commitment `serix:"3"`
-}
+		l.Storage.outputStorage.Store(outputWithMetadata.Output()).Release()
+		l.Storage.outputMetadataStorage.Store(newOutputMetadata).Release()
 
-// NewSnapshot creates a new Snapshot from the given details.
-func NewSnapshot(outputsWithMetadata []*OutputWithMetadata, activeNodes activitylog.SnapshotEpochActivity) (new *Snapshot) {
-	return &Snapshot{
-		Header:              &SnapshotHeader{OutputWithMetadataCount: uint64(len(outputsWithMetadata))},
-		OutputsWithMetadata: outputsWithMetadata,
-		EpochActiveNodes:    activeNodes,
+		l.Events.OutputCreated.Trigger(outputWithMetadata.ID())
 	}
 }
 
-// String returns a human-readable version of the Snapshot.
-func (s *Snapshot) String() (humanReadable string) {
-	structBuilder := stringify.NewStructBuilder("Snapshot")
-	structBuilder.AddField(stringify.NewStructField("SnapshotHeader", s.Header))
-	structBuilder.AddField(stringify.NewStructField("OutputsWithMetadata", s.OutputsWithMetadata))
-	structBuilder.AddField(stringify.NewStructField("EpochDiffs", s.EpochDiffs))
-	structBuilder.AddField(stringify.NewStructField("EpochActiveNodes", s.EpochActiveNodes))
-	return structBuilder.String()
+// ApplySpentDiff applies the spent output to the Ledgerstate.
+func (l *Ledger) ApplySpentDiff(spentOutputs []*models.OutputWithMetadata) {
+	for _, spent := range spentOutputs {
+		l.Storage.outputStorage.Delete(lo.PanicOnErr(spent.ID().Bytes()))
+		l.Storage.outputMetadataStorage.Delete(lo.PanicOnErr(spent.ID().Bytes()))
+
+		l.Events.OutputSpent.Trigger(spent.ID())
+	}
 }
 
-// String returns a human-readable version of the SnapshotHeader.
-func (h *SnapshotHeader) String() (humanReadable string) {
-	return stringify.Struct("SnapshotHeader",
-		stringify.NewStructField("OutputWithMetadataCount", h.OutputWithMetadataCount),
-		stringify.NewStructField("FullEpochIndex", h.FullEpochIndex),
-		stringify.NewStructField("DiffEpochIndex", h.DiffEpochIndex),
-		stringify.NewStructField("LatestECRecord", h.LatestECRecord),
-	)
+// ApplyCreatedDiff applies the created output to the Ledgerstate.
+func (l *Ledger) ApplyCreatedDiff(createdOutputs []*models.OutputWithMetadata) {
+	for _, created := range createdOutputs {
+		outputMetadata := NewOutputMetadata(created.ID())
+		outputMetadata.SetAccessManaPledgeID(created.AccessManaPledgeID())
+		outputMetadata.SetConsensusManaPledgeID(created.ConsensusManaPledgeID())
+		outputMetadata.SetConfirmationState(confirmation.Confirmed)
+
+		l.Storage.outputStorage.Store(created.Output()).Release()
+		l.Storage.outputMetadataStorage.Store(outputMetadata).Release()
+
+		l.Events.OutputCreated.Trigger(created.ID())
+	}
 }

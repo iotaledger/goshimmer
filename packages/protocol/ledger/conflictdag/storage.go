@@ -6,6 +6,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/cerrors"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/objectstorage"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
@@ -32,19 +33,19 @@ type Storage[ConflictID comparable, ConflictSetID comparable] struct {
 func newStorage[ConflictID comparable, ConflictSetID comparable](options *optionsConflictDAG) (storage *Storage[ConflictID, ConflictSetID]) {
 	storage = &Storage[ConflictID, ConflictSetID]{
 		conflictStorage: objectstorage.NewStructStorage[Conflict[ConflictID, ConflictSetID]](
-			objectstorage.NewStoreWithRealm(options.store, database.PrefixConflictDAG, PrefixConflictStorage),
+			lo.PanicOnErr(options.store.WithExtendedRealm([]byte{database.PrefixConflictDAG, PrefixConflictStorage})),
 			options.cacheTimeProvider.CacheTime(options.conflictCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 		),
 		childConflictStorage: objectstorage.NewStructStorage[ChildConflict[ConflictID]](
-			objectstorage.NewStoreWithRealm(options.store, database.PrefixConflictDAG, PrefixChildConflictStorage),
+			lo.PanicOnErr(options.store.WithExtendedRealm([]byte{database.PrefixConflictDAG, PrefixChildConflictStorage})),
 			objectstorage.PartitionKey(new(ChildConflict[ConflictID]).KeyPartitions()...),
 			options.cacheTimeProvider.CacheTime(options.childConflictCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 			objectstorage.StoreOnCreation(true),
 		),
 		conflictMemberStorage: objectstorage.NewStructStorage[ConflictMember[ConflictSetID, ConflictID]](
-			objectstorage.NewStoreWithRealm(options.store, database.PrefixConflictDAG, PrefixConflictMemberStorage),
+			lo.PanicOnErr(options.store.WithExtendedRealm([]byte{database.PrefixConflictDAG, PrefixConflictMemberStorage})),
 			objectstorage.PartitionKey(new(ConflictMember[ConflictSetID, ConflictID]).KeyPartitions()...),
 			options.cacheTimeProvider.CacheTime(options.conflictMemberCacheTime),
 			objectstorage.LeakDetectionEnabled(false),

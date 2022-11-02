@@ -3,9 +3,11 @@ package info
 import (
 	"net/http"
 	"sort"
+	"time"
 
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/node"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58/base58"
@@ -132,13 +134,13 @@ func getInfo(c echo.Context) error {
 		RCTT:             tm.RelativeConfirmedTime().UnixNano(),
 	}
 
-	accessMana, tAccess, _ := deps.Protocol.Engine().ManaTracker.GetAccessMana(deps.Local.ID())
-	consensusMana, tConsensus, _ := deps.Protocol.Engine().ManaTracker.GetConsensusMana(deps.Local.ID())
+	accessMana, _ := deps.Protocol.Engine().ManaTracker.Mana(deps.Local.ID())
+	consensusMana, _ := deps.Protocol.Engine().SybilProtection.Weight(deps.Local.ID())
 	nodeMana := jsonmodels.Mana{
 		Access:             accessMana,
-		AccessTimestamp:    tAccess,
+		AccessTimestamp:    time.Now(),
 		Consensus:          consensusMana,
-		ConsensusTimestamp: tConsensus,
+		ConsensusTimestamp: time.Now(),
 	}
 
 	issuerQueueSizes := make(map[string]int)
@@ -152,7 +154,7 @@ func getInfo(c echo.Context) error {
 		Version:               banner.AppVersion,
 		NetworkVersion:        discovery.Parameters.NetworkVersion,
 		TangleTime:            tangleTime,
-		IdentityID:            base58.Encode(deps.Local.Identity.ID().Bytes()),
+		IdentityID:            base58.Encode(lo.PanicOnErr(deps.Local.Identity.ID().Bytes())),
 		IdentityIDShort:       deps.Local.Identity.ID().String(),
 		PublicKey:             deps.Local.PublicKey().String(),
 		BlockRequestQueueSize: int(metrics.BlockRequestQueueSize()),

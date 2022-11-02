@@ -1,5 +1,6 @@
 package firewall
 
+/*
 import (
 	"net/http"
 
@@ -27,3 +28,5 @@ func getPeerFaultinessCountHandler(c echo.Context) error {
 	count := deps.Firewall.GetPeerFaultinessCount(peerID)
 	return c.JSON(http.StatusOK, count)
 }
+
+*/

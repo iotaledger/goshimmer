@@ -37,7 +37,7 @@ type Booker struct {
 	markerManager   *markermanager.MarkerManager[models.BlockID, *Block]
 	bookingMutex    *syncutils.DAGMutex[models.BlockID]
 	sequenceMutex   *syncutils.DAGMutex[markers.SequenceID]
-	evictionManager *eviction.LockableManager[models.BlockID]
+	evictionManager *eviction.LockableState[models.BlockID]
 
 	optsMarkerManager []options.Option[markermanager.MarkerManager[models.BlockID, *Block]]
 
@@ -51,14 +51,14 @@ func New(blockDAG *blockdag.BlockDAG, ledger *ledger.Ledger, opts ...options.Opt
 		blocks:            memstorage.NewEpochStorage[models.BlockID, *Block](),
 		bookingMutex:      syncutils.NewDAGMutex[models.BlockID](),
 		sequenceMutex:     syncutils.NewDAGMutex[markers.SequenceID](),
-		evictionManager:   blockDAG.EvictionManager.Lockable(),
+		evictionManager:   blockDAG.EvictionState.Lockable(),
 		optsMarkerManager: make([]options.Option[markermanager.MarkerManager[models.BlockID, *Block]], 0),
 		Ledger:            ledger,
 		BlockDAG:          blockDAG,
 	}, opts, func(b *Booker) {
 		b.markerManager = markermanager.NewMarkerManager(b.optsMarkerManager...)
 		b.bookingOrder = causalorder.New(
-			blockDAG.EvictionManager.Manager,
+			blockDAG.EvictionState.State,
 			b.Block,
 			(*Block).IsBooked,
 			b.book,
@@ -386,7 +386,7 @@ func (b *Booker) blockBookingDetails(block *Block) (pastMarkersConflictIDs, bloc
 
 func (b *Booker) strongChildren(block *Block) []*Block {
 	return lo.Filter(lo.Map(block.StrongChildren(), func(blockDAGChild *blockdag.Block) (bookerChild *Block) {
-		bookerChild, exists := b.Block(blockDAGChild.ID())
+		bookerChild, exists := b.block(blockDAGChild.ID())
 		if !exists {
 			return nil
 		}

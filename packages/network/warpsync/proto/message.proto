@@ -28,9 +28,7 @@ message EpochBlocksBatch {
 message EpochBlocksEnd {
   int64 EI = 1;
   bytes EC = 2;
-  bytes stateMutationRoot = 3;
-  bytes stateRoot = 4;
-  bytes manaRoot = 5;
+  bytes roots = 3;
 }
 
 message EpochBlocksRequest {

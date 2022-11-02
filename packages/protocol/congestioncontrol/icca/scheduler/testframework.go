@@ -40,9 +40,9 @@ type TestFramework struct {
 	optsTangle              []options.Option[tangle.Tangle]
 	optsGadget              []options.Option[acceptance.Gadget]
 	optsValidatorSet        *validator.Set
-	optsEvictionManager     *eviction.Manager[models.BlockID]
+	optsEvictionManager     *eviction.State[models.BlockID]
 	optsIsBlockAcceptedFunc func(models.BlockID) bool
-	optsBlockAcceptedEvent  *event.Linkable[*acceptance.Block, acceptance.Events, *acceptance.Events]
+	optsBlockAcceptedEvent  *event.Linkable[*acceptance.Block]
 	*TangleTestFramework
 }
 
@@ -54,7 +54,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		mockAcceptance: acceptance.NewMockAcceptanceGadget(),
 	}, opts, func(t *TestFramework) {
 		if t.optsEvictionManager == nil {
-			t.optsEvictionManager = eviction.NewManager[models.BlockID]()
+			t.optsEvictionManager = eviction.NewState[models.BlockID]()
 		}
 		if t.optsValidatorSet == nil {
 			t.optsValidatorSet = validator.NewSet()
@@ -64,7 +64,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 			test,
 			tangle.WithTangleOptions(t.optsTangle...),
 			tangle.WithValidatorSet(t.optsValidatorSet),
-			tangle.WithEvictionManager(t.optsEvictionManager),
+			tangle.WithEvictionState(t.optsEvictionManager),
 		)
 
 		if t.optsIsBlockAcceptedFunc == nil {
@@ -75,9 +75,8 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		}
 
 		if t.Scheduler == nil {
-			t.Scheduler = New(t.TangleTestFramework.BlockDAG.EvictionManager.Manager, t.optsIsBlockAcceptedFunc, t.ManaMap, t.TotalMana, t.optsScheduler...)
+			t.Scheduler = New(t.TangleTestFramework.BlockDAG.EvictionState.State, t.optsIsBlockAcceptedFunc, t.ManaMap, t.TotalMana, t.optsScheduler...)
 		}
-
 	}, (*TestFramework).setupEvents)
 }
 
@@ -168,6 +167,7 @@ func (t *TestFramework) TotalMana() (totalMana int64) {
 	}
 	return
 }
+
 func (t *TestFramework) ManaMap() map[identity.ID]int64 {
 	return t.issuersMana
 }
@@ -237,18 +237,19 @@ func WithTangleOptions(opts ...options.Option[tangle.Tangle]) options.Option[Tes
 	}
 }
 
-func WithBlockAcceptedEvent(blockAcceptedEvent *event.Linkable[*acceptance.Block, acceptance.Events, *acceptance.Events]) options.Option[TestFramework] {
+func WithBlockAcceptedEvent(blockAcceptedEvent *event.Linkable[*acceptance.Block]) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
 		tf.optsBlockAcceptedEvent = blockAcceptedEvent
 	}
 }
+
 func WithIsBlockAcceptedFunc(isBlockAcceptedFunc func(id models.BlockID) bool) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
 		tf.optsIsBlockAcceptedFunc = isBlockAcceptedFunc
 	}
 }
 
-func WithEvictionManager(evictionManager *eviction.Manager[models.BlockID]) options.Option[TestFramework] {
+func WithEvictionManager(evictionManager *eviction.State[models.BlockID]) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.optsEvictionManager = evictionManager
 	}

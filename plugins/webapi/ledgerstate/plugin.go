@@ -63,7 +63,7 @@ var (
 	doubleSpendFilterOnce sync.Once
 
 	// closure to be executed on transaction confirmation.
-	onTransactionAccepted *event.Closure[*ledger.TransactionAcceptedEvent]
+	onTransactionAccepted *event.Closure[*ledger.TransactionMetadata]
 
 	log *logger.Logger
 )
@@ -107,8 +107,8 @@ func configure(_ *node.Plugin) {
 	filterEnabled = webapi.Parameters.EnableDSFilter
 	if filterEnabled {
 		doubleSpendFilter = Filter()
-		onTransactionAccepted = event.NewClosure(func(event *ledger.TransactionAcceptedEvent) {
-			doubleSpendFilter.Remove(event.TransactionID)
+		onTransactionAccepted = event.NewClosure(func(txMeta *ledger.TransactionMetadata) {
+			doubleSpendFilter.Remove(txMeta.ID())
 		})
 	}
 	deps.Protocol.Events.Engine.Ledger.TransactionAccepted.Attach(onTransactionAccepted)
@@ -559,10 +559,10 @@ func PostTransaction(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.PostTransactionResponse{Error: err.Error()})
 	}
-	//add tx to double spend doubleSpendFilter
+	// add tx to double spend doubleSpendFilter
 	FilterAdd(tx)
 	if err = deps.BlockIssuer.IssueBlockAndAwaitBlockToBeBooked(block, maxBookedAwaitTime); err != nil {
-		//if we failed to issue the transaction, we remove it
+		// if we failed to issue the transaction, we remove it
 		FilterRemove(tx.ID())
 		return c.JSON(http.StatusBadRequest, jsonmodels.PostTransactionResponse{Error: err.Error()})
 	}

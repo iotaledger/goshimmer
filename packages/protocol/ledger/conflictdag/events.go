@@ -10,19 +10,19 @@ import (
 // Events is a container that acts as a dictionary for the events of a ConflictDAG.
 type Events[ConflictID, ConflictingResourceID comparable] struct {
 	// ConflictCreated is an event that gets triggered whenever a new Conflict is created.
-	ConflictCreated *event.Linkable[*ConflictCreatedEvent[ConflictID, ConflictingResourceID], Events[ConflictID, ConflictingResourceID], *Events[ConflictID, ConflictingResourceID]]
+	ConflictCreated *event.Linkable[*ConflictCreatedEvent[ConflictID, ConflictingResourceID]]
 
 	// ConflictConflictsUpdated is an event that gets triggered whenever the ConflictIDs of a Conflict are updated.
-	ConflictConflictsUpdated *event.Linkable[*ConflictConflictsUpdatedEvent[ConflictID, ConflictingResourceID], Events[ConflictID, ConflictingResourceID], *Events[ConflictID, ConflictingResourceID]]
+	ConflictConflictsUpdated *event.Linkable[*ConflictConflictsUpdatedEvent[ConflictID, ConflictingResourceID]]
 
 	// ConflictParentsUpdated is an event that gets triggered whenever the parent ConflictIDs of a Conflict are updated.
-	ConflictParentsUpdated *event.Linkable[*ConflictParentsUpdatedEvent[ConflictID, ConflictingResourceID], Events[ConflictID, ConflictingResourceID], *Events[ConflictID, ConflictingResourceID]]
+	ConflictParentsUpdated *event.Linkable[*ConflictParentsUpdatedEvent[ConflictID, ConflictingResourceID]]
 
 	// ConflictAccepted is an event that gets triggered whenever a Conflict is confirmed.
-	ConflictAccepted *event.Linkable[*ConflictAcceptedEvent[ConflictID], Events[ConflictID, ConflictingResourceID], *Events[ConflictID, ConflictingResourceID]]
+	ConflictAccepted *event.Linkable[ConflictID]
 
 	// ConflictRejected is an event that gets triggered whenever a Conflict is rejected.
-	ConflictRejected *event.Linkable[*ConflictRejectedEvent[ConflictID], Events[ConflictID, ConflictingResourceID], *Events[ConflictID, ConflictingResourceID]]
+	ConflictRejected *event.Linkable[ConflictID]
 
 	event.LinkableCollection[Events[ConflictID, ConflictingResourceID], *Events[ConflictID, ConflictingResourceID]]
 }
@@ -31,11 +31,11 @@ type Events[ConflictID, ConflictingResourceID comparable] struct {
 func NewEvents[ConflictID, ConflictingResourceID comparable](optsLinkTarget ...*Events[ConflictID, ConflictingResourceID]) (events *Events[ConflictID, ConflictingResourceID]) {
 	return event.LinkableConstructor(func() (self *Events[ConflictID, ConflictingResourceID]) {
 		return &Events[ConflictID, ConflictingResourceID]{
-			ConflictCreated:          event.NewLinkable[*ConflictCreatedEvent[ConflictID, ConflictingResourceID], Events[ConflictID, ConflictingResourceID], *Events[ConflictID, ConflictingResourceID]](),
-			ConflictConflictsUpdated: event.NewLinkable[*ConflictConflictsUpdatedEvent[ConflictID, ConflictingResourceID], Events[ConflictID, ConflictingResourceID], *Events[ConflictID, ConflictingResourceID]](),
-			ConflictParentsUpdated:   event.NewLinkable[*ConflictParentsUpdatedEvent[ConflictID, ConflictingResourceID], Events[ConflictID, ConflictingResourceID], *Events[ConflictID, ConflictingResourceID]](),
-			ConflictAccepted:         event.NewLinkable[*ConflictAcceptedEvent[ConflictID], Events[ConflictID, ConflictingResourceID], *Events[ConflictID, ConflictingResourceID]](),
-			ConflictRejected:         event.NewLinkable[*ConflictRejectedEvent[ConflictID], Events[ConflictID, ConflictingResourceID], *Events[ConflictID, ConflictingResourceID]](),
+			ConflictCreated:          event.NewLinkable[*ConflictCreatedEvent[ConflictID, ConflictingResourceID]](),
+			ConflictConflictsUpdated: event.NewLinkable[*ConflictConflictsUpdatedEvent[ConflictID, ConflictingResourceID]](),
+			ConflictParentsUpdated:   event.NewLinkable[*ConflictParentsUpdatedEvent[ConflictID, ConflictingResourceID]](),
+			ConflictAccepted:         event.NewLinkable[ConflictID](),
+			ConflictRejected:         event.NewLinkable[ConflictID](),
 		}
 	})(optsLinkTarget...)
 }
@@ -88,26 +88,6 @@ type ConflictParentsUpdatedEvent[ConflictID, ConflictingResourceID comparable] s
 
 	// ParentsConflictIDs contains the updated list of parent ConflictIDs.
 	ParentsConflictIDs *set.AdvancedSet[ConflictID]
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region ConflictAcceptedEvent /////////////////////////////////////////////////////////////////////////////////////////
-
-// ConflictAcceptedEvent is a container that acts as a dictionary for the ConflictAccepted event related parameters.
-type ConflictAcceptedEvent[ConflictID comparable] struct {
-	// ID contains the identifier of the confirmed Conflict.
-	ID ConflictID
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region ConflictRejectedEvent //////////////////////////////////////////////////////////////////////////////////////////
-
-// ConflictRejectedEvent is a container that acts as a dictionary for the ConflictRejected event related parameters.
-type ConflictRejectedEvent[ConflictID comparable] struct {
-	// ID contains the identifier of the rejected Conflict.
-	ID ConflictID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

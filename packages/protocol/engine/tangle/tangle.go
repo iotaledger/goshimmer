@@ -29,7 +29,7 @@ type Tangle struct {
 }
 
 // New is the constructor for a new Tangle.
-func New(ledger *ledger.Ledger, evictionManager *eviction.Manager[models.BlockID], validatorSet *validator.Set, opts ...options.Option[Tangle]) (newTangle *Tangle) {
+func New(ledger *ledger.Ledger, evictionManager *eviction.State[models.BlockID], validatorSet *validator.Set, opts ...options.Option[Tangle]) (newTangle *Tangle) {
 	return options.Apply(new(Tangle), opts, func(t *Tangle) {
 		t.BlockDAG = blockdag.New(evictionManager, t.optsBlockDAG...)
 		t.Booker = booker.New(t.BlockDAG, ledger, t.optsBooker...)

@@ -59,7 +59,7 @@ docker logs --follow CONTAINERNAME
 
 A snapshot tool is provided in the tools folder. The snapshot file that is created must be moved into the `integration-tests/assets` folder. There, rename and replace the existing bin file (`7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin`). After restarting the docker network the snapshot file will be loaded.
 
-Docker Compose uses the `SNAPSHOT_FILE` environment variable to determine the location of the snapshot. Once you have a new snapshot you can simply set `SNAPSHOT_FILE` to the location of your new snapshot and Docker Compose will use your snapshot the next time you run `docker-compose up`.
+Docker Compose uses the `SNAPSHOT_FILE` environment variable to determine the location of the snapshot. Once you have a new snapshot you can simply set `SNAPSHOT_FILE` to the location of your new snapshot and Docker Compose will use your snapshot the next time you run `docker compose up`.
 
 ## How to Use Block Approval Check Tool
 
@@ -124,22 +124,22 @@ Here is an example config that can be added:
   }}
 ```
 
-## Running With `docker-compose` Directly
+## Running With `docker compose` Directly
 
 To get an instance up and running on your machine make sure you have [Docker Compose](https://docs.docker.com/compose/install/) installed.
 
 Then you just need to run this command:
 
 ```shell
-docker-compose build
-docker-compose --profile grafana up -d
+docker compose build
+docker compose --profile grafana up -d
 ```
 
 > Note: Docker will build the GoShimmer image which can take several minutes.
 
 ### Base Components
 
-These services that are created by default with `docker-compose up -d`.
+These services that are created by default with `docker compose up -d`.
 
 #### Configuration
 
@@ -152,7 +152,7 @@ These services that are created by default with `docker-compose up -d`.
 You can set the environment variable configuration inline as seen in this example.
 
 ```shell
-GOSHIMMER_TAG=develop docker-compose up -d
+GOSHIMMER_TAG=develop docker compose up -d
 ```
 
 #### Peer master
@@ -161,7 +161,7 @@ A node that is used to expose ports via the host and to have a single attachment
 
 ##### Volumes
 
-Docker Compose creates a `mainnetdb` volume to maintain a tangle even after tearing down the containers. Run `docker-compose down -v` to clear the volume.
+Docker Compose creates a `mainnetdb` volume to maintain a tangle even after tearing down the containers. Run `docker compose down -v` to clear the volume.
 
 ##### Ports
 
@@ -203,7 +203,7 @@ A set of containers to enable dashboards and monitoring.
 
 ##### Profile
 
-In order to enable these containers you must set the `--profile grafana` flag when running `docker-compose`.
+In order to enable these containers you must set the `--profile grafana` flag when running `docker compose`.
 
 ##### Configuration
 
@@ -214,7 +214,7 @@ In order to enable these containers you must set the `--profile grafana` flag wh
 You can set the environment variable configuration inline as seen in this example.
 
 ```shell
-docker-compose --profile grafana up -d
+docker compose --profile grafana up -d
 ```
 
 ##### Ports

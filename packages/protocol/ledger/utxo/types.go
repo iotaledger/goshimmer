@@ -8,6 +8,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/byteutils"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/orderedmap"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/serix"
@@ -29,6 +30,16 @@ func NewTransactionID(txData []byte) (newTransactionID TransactionID) {
 	return TransactionID{
 		types.NewIdentifier(txData),
 	}
+}
+
+// Bytes returns a serialized version of the TransactionID.
+func (t TransactionID) Bytes() (serialized []byte, err error) {
+	return t.Identifier.Bytes(), nil
+}
+
+// FromBytes un-serializes a TransactionID from a []byte.
+func (t *TransactionID) FromBytes(data []byte) (consumedBytes int, err error) {
+	return t.Identifier.Decode(data)
 }
 
 // Length returns the byte length of a serialized TransactionID.
@@ -101,12 +112,25 @@ func (o *OutputID) FromRandomness() (err error) {
 	return nil
 }
 
-// FromBytes un-serializes an OutputID from a []byte.
-func (o *OutputID) FromBytes(outputBytes []byte) (err error) {
-	if _, err := serix.DefaultAPI.Decode(context.Background(), outputBytes, o, serix.WithValidation()); err != nil {
-		return errors.Errorf("Fail to parse outputID from bytes: %w", err)
+// Bytes returns a serialized version of the OutputID.
+func (o OutputID) Bytes() (serialized []byte, err error) {
+	serialized, err = o.TransactionID.Bytes()
+	if err != nil {
+		return nil, errors.Errorf("could not serialize TransactionID: %w", err)
 	}
-	return nil
+
+	b := make([]byte, serializer.UInt16ByteSize)
+	binary.LittleEndian.PutUint16(b, o.Index)
+
+	return byteutils.ConcatBytes(serialized, b), nil
+}
+
+// FromBytes un-serializes an OutputID from a []byte.
+func (o *OutputID) FromBytes(outputBytes []byte) (consumedBytes int, err error) {
+	if consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), outputBytes, o, serix.WithValidation()); err != nil {
+		return consumedBytes, errors.Errorf("Fail to parse outputID from bytes: %w", err)
+	}
+	return
 }
 
 // RegisterAlias allows to register a human-readable alias for the OutputID which will be used as a replacement for the
@@ -140,22 +164,12 @@ func (o OutputID) UnregisterAlias() {
 
 // Base58 returns a base58 encoded version of the OutputID.
 func (o OutputID) Base58() (base58Encoded string) {
-	return base58.Encode(o.Bytes())
+	return base58.Encode(lo.PanicOnErr(o.Bytes()))
 }
 
 // Length returns number of bytes of OutputID
 func (o OutputID) Length() int {
 	return o.TransactionID.Length() + serializer.UInt16ByteSize
-}
-
-// Bytes returns a serialized version of the OutputID.
-func (o OutputID) Bytes() (serialized []byte) {
-	serialized = o.TransactionID.Bytes()
-
-	b := make([]byte, serializer.UInt16ByteSize)
-	binary.LittleEndian.PutUint16(b, o.Index)
-
-	return byteutils.ConcatBytes(serialized, b)
 }
 
 // String returns a human-readable version of the OutputID.

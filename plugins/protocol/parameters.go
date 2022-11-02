@@ -22,6 +22,8 @@ type ParametersDefinition struct {
 	Snapshot struct {
 		// Path is the path to the snapshot file.
 		Path string `default:"./snapshot.bin" usage:"the path of the snapshot file"`
+		// Depth defines how many epoch diffs are stored in the snapshot, starting from the full ledgerstate
+		Depth int `default:"5" usage:"defines how many epoch diffs are stored in the snapshot, starting from the full ledgerstate"`
 	}
 }
 
@@ -39,10 +41,6 @@ type SchedulerParametersDefinition struct {
 type NotarizationParametersDefinition struct {
 	// MinEpochCommittableAge defines the min age of a committable epoch.
 	MinEpochCommittableAge time.Duration `default:"1m" usage:"min age of a committable epoch"`
-	// BootstrapWindow when notarization manager is considered to be bootstrapped
-	BootstrapWindow time.Duration `default:"2m" usage:"when notarization manager is considered to be bootstrapped"`
-	// SnapshotDepth defines how many epoch diffs are stored in the snapshot, starting from the full ledgerstate
-	SnapshotDepth int `default:"5" usage:"defines how many epoch diffs are stored in the snapshot, starting from the full ledgerstate"`
 }
 
 // DatabaseParametersDefinition contains the definition of configuration parameters used by the storage layer.

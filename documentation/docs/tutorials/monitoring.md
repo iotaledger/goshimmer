@@ -26,7 +26,7 @@ To enable the **Monitoring Dashboard** for a GoShimmer node running from a VPS a
    TODO
 3. Create Grafana config.
    TODO
-4. Run `docker-compose up`.
+4. Run `docker compose up`.
    TODO
 
 # Setting Up (Run GoShimmer From Your Home Machine)
@@ -56,7 +56,7 @@ One of the easiest ways to run a node is to use [Docker](https://www.docker.com/
    ```
 4. From the root of the repo, start GoShimmer with:
    ```shell
-   $ docker-compose up
+   $ docker compose up
    ```
 
 You should be able to reach the Monitoring Dashboard via browser at [localhost:3000](http://localhost:3000). Default login credentials are:

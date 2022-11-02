@@ -97,14 +97,14 @@ func registerTangleEvents() {
 		storeWsBlock(wsBlk)
 	})
 
-	txAcceptedClosure := event.NewClosure(func(event *ledger.TransactionAcceptedEvent) {
-		attachmentBlock := deps.Protocol.Engine().Tangle.GetEarliestAttachment(event.TransactionID)
+	txAcceptedClosure := event.NewClosure(func(txMeta *ledger.TransactionMetadata) {
+		attachmentBlock := deps.Protocol.Engine().Tangle.GetEarliestAttachment(txMeta.ID())
 
 		wsBlk := &wsBlock{
 			Type: BlkTypeTangleTxConfirmationState,
 			Data: &tangleTxConfirmationStateChanged{
 				ID:          attachmentBlock.ID().Base58(),
-				IsConfirmed: deps.Protocol.Engine().Ledger.Utils.TransactionConfirmationState(event.TransactionID).IsAccepted(),
+				IsConfirmed: deps.Protocol.Engine().Ledger.Utils.TransactionConfirmationState(txMeta.ID()).IsAccepted(),
 			},
 		}
 		visualizerWorkerPool.TrySubmit(wsBlk)
@@ -147,21 +147,18 @@ func registerUTXOEvents() {
 		}
 	})
 
-	txAcceptedClosure := event.NewClosure(func(event *ledger.TransactionAcceptedEvent) {
-		txID := event.TransactionID
-		deps.Protocol.Engine().Ledger.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *ledger.TransactionMetadata) {
-			wsBlk := &wsBlock{
-				Type: BlkTypeUTXOConfirmationStateChanged,
-				Data: &utxoConfirmationStateChanged{
-					ID:                    txID.Base58(),
-					ConfirmationState:     txMetadata.ConfirmationState().String(),
-					ConfirmationStateTime: txMetadata.ConfirmationStateTime().UnixNano(),
-					IsConfirmed:           txMetadata.ConfirmationState().IsAccepted(),
-				},
-			}
-			visualizerWorkerPool.TrySubmit(wsBlk)
-			storeWsBlock(wsBlk)
-		})
+	txAcceptedClosure := event.NewClosure(func(txMeta *ledger.TransactionMetadata) {
+		wsBlk := &wsBlock{
+			Type: BlkTypeUTXOConfirmationStateChanged,
+			Data: &utxoConfirmationStateChanged{
+				ID:                    txMeta.ID().Base58(),
+				ConfirmationState:     txMeta.ConfirmationState().String(),
+				ConfirmationStateTime: txMeta.ConfirmationStateTime().UnixNano(),
+				IsConfirmed:           txMeta.ConfirmationState().IsAccepted(),
+			},
+		}
+		visualizerWorkerPool.TrySubmit(wsBlk)
+		storeWsBlock(wsBlk)
 	})
 
 	deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Attach(storeClosure)
@@ -192,11 +189,11 @@ func registerConflictEvents() {
 		storeWsBlock(wsBlk)
 	})
 
-	conflictConfirmedClosure := event.NewClosure(func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
+	conflictConfirmedClosure := event.NewClosure(func(conflictID utxo.TransactionID) {
 		wsBlk := &wsBlock{
 			Type: BlkTypeConflictConfirmationStateChanged,
 			Data: &conflictConfirmationStateChanged{
-				ID:                event.ID.Base58(),
+				ID:                conflictID.Base58(),
 				ConfirmationState: confirmation.Accepted.String(),
 				IsConfirmed:       true,
 			},

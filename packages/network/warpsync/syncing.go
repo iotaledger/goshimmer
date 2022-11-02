@@ -6,7 +6,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	wp "github.com/iotaledger/goshimmer/packages/network/warpsync/proto"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
@@ -14,11 +13,10 @@ import (
 func (p *Protocol) RequestEpochBlocks(ei epoch.Index, ec commitment.ID, to ...identity.ID) {
 	epochBlocksReq := &wp.EpochBlocksRequest{
 		EI: int64(ei),
-		// TODO: should we handle the error differently?
 		EC: lo.PanicOnErr(ec.Bytes()),
 	}
 	packet := &wp.Packet{Body: &wp.Packet_EpochBlocksRequest{EpochBlocksRequest: epochBlocksReq}}
-	p.p2pManager.Send(packet, protocolID, to...)
+	p.networkEndpoint.Send(packet, protocolID, to...)
 
 	p.log.Debugw("sent epoch blocks request", "Index", ei, "EC", ec.Base58())
 }
@@ -31,7 +29,7 @@ func (p *Protocol) SendEpochStarter(ei epoch.Index, ec commitment.ID, blocksCoun
 	}
 	packet := &wp.Packet{Body: &wp.Packet_EpochBlocksStart{EpochBlocksStart: epochStartRes}}
 
-	p.p2pManager.Send(packet, protocolID, to...)
+	p.networkEndpoint.Send(packet, protocolID, to...)
 }
 
 func (p *Protocol) SendBlocksBatch(ei epoch.Index, ec commitment.ID, blocks []*models.Block, to ...identity.ID) {
@@ -53,52 +51,51 @@ func (p *Protocol) SendBlocksBatch(ei epoch.Index, ec commitment.ID, blocks []*m
 	}
 	packet := &wp.Packet{Body: &wp.Packet_EpochBlocksBatch{EpochBlocksBatch: blocksBatchRes}}
 
-	p.p2pManager.Send(packet, protocolID, to...)
+	p.networkEndpoint.Send(packet, protocolID, to...)
 }
 
 func (p *Protocol) SendEpochEnd(ei epoch.Index, ec commitment.ID, roots *commitment.Roots, to ...identity.ID) {
 	epochBlocksEnd := &wp.EpochBlocksEnd{
-		EI:                int64(ei),
-		EC:                lo.PanicOnErr(ec.Bytes()),
-		StateMutationRoot: roots.StateMutationRoot().Bytes(),
-		StateRoot:         roots.StateRoot().Bytes(),
-		ManaRoot:          roots.ManaRoot().Bytes(),
+		EI:    int64(ei),
+		EC:    lo.PanicOnErr(ec.Bytes()),
+		Roots: lo.PanicOnErr(roots.Bytes()),
 	}
 	packet := &wp.Packet{Body: &wp.Packet_EpochBlocksEnd{EpochBlocksEnd: epochBlocksEnd}}
 
-	p.p2pManager.Send(packet, protocolID, to...)
+	p.networkEndpoint.Send(packet, protocolID, to...)
 }
 
-func (p *Protocol) processEpochBlocksRequestPacket(packetEpochRequest *wp.Packet_EpochBlocksRequest, nbr *p2p.Neighbor) {
+func (p *Protocol) processEpochBlocksRequestPacket(packetEpochRequest *wp.Packet_EpochBlocksRequest, id identity.ID) {
 	ei := epoch.Index(packetEpochRequest.EpochBlocksRequest.GetEI())
-	//ec := commitment.NewMerkleRoot(packetEpochRequest.EpochBlocksRequest.GetEC())
+	ec := new(commitment.Commitment)
+	ec.FromBytes(packetEpochRequest.EpochBlocksRequest.GetEC())
 
-	//p.log.Debugw("received epoch blocks request", "peer", nbr.Peer.ID(), "Index", ei, "EC", ec)
+	p.log.Debugw("received epoch blocks request", "peer", id, "Index", ei, "EC", ec)
 
 	p.Events.EpochBlocksRequestReceived.Trigger(&EpochBlocksRequestReceivedEvent{
-		Neighbor: nbr,
-		EI:       ei,
+		ID: id,
+		EI: ei,
 	})
 }
 
-func (p *Protocol) processEpochBlocksStartPacket(packetEpochBlocksStart *wp.Packet_EpochBlocksStart, nbr *p2p.Neighbor) {
+func (p *Protocol) processEpochBlocksStartPacket(packetEpochBlocksStart *wp.Packet_EpochBlocksStart, id identity.ID) {
 	epochBlocksStart := packetEpochBlocksStart.EpochBlocksStart
 	ei := epoch.Index(epochBlocksStart.GetEI())
 
-	p.log.Debugw("received epoch blocks start", "peer", nbr.Peer.ID(), "Index", ei, "blocksCount", epochBlocksStart.GetBlocksCount())
+	p.log.Debugw("received epoch blocks start", "peer", id, "Index", ei, "blocksCount", epochBlocksStart.GetBlocksCount())
 
 	p.Events.EpochBlocksStart.Trigger(&EpochBlocksStartEvent{
-		Neighbor: nbr,
-		EI:       ei,
+		ID: id,
+		EI: ei,
 	})
 }
 
-func (p *Protocol) processEpochBlocksBatchPacket(packetEpochBlocksBatch *wp.Packet_EpochBlocksBatch, nbr *p2p.Neighbor) {
+func (p *Protocol) processEpochBlocksBatchPacket(packetEpochBlocksBatch *wp.Packet_EpochBlocksBatch, id identity.ID) {
 	epochBlocksBatch := packetEpochBlocksBatch.EpochBlocksBatch
 	ei := epoch.Index(epochBlocksBatch.GetEI())
 
 	blocksBytes := epochBlocksBatch.GetBlocks()
-	p.log.Debugw("received epoch blocks", "peer", nbr.Peer.ID(), "Index", ei, "blocksLen", len(blocksBytes))
+	p.log.Debugw("received epoch blocks", "peer", id, "Index", ei, "blocksLen", len(blocksBytes))
 
 	// TODO: TRIGGER UNPARSED BLOCK INSTEAD
 	// for _, blockBytes := range blocksBytes {
@@ -115,18 +112,22 @@ func (p *Protocol) processEpochBlocksBatchPacket(packetEpochBlocksBatch *wp.Pack
 	// }
 }
 
-func (p *Protocol) processEpochBlocksEndPacket(packetEpochBlocksEnd *wp.Packet_EpochBlocksEnd, nbr *p2p.Neighbor) {
+func (p *Protocol) processEpochBlocksEndPacket(packetEpochBlocksEnd *wp.Packet_EpochBlocksEnd, id identity.ID) {
 	epochBlocksBatch := packetEpochBlocksEnd.EpochBlocksEnd
 	ei := epoch.Index(epochBlocksBatch.GetEI())
 
-	p.log.Debugw("received epoch blocks end", "peer", nbr.Peer.ID(), "Index", ei)
+	p.log.Debugw("received epoch blocks end", "peer", id, "Index", ei)
 
-	p.Events.EpochBlocksEnd.Trigger(&EpochBlocksEndEvent{
-		Neighbor: nbr,
-		EI:       ei,
-		//EC:                commitment.NewMerkleRoot(packetEpochBlocksEnd.EpochBlocksEnd.GetEC()),
-		//StateMutationRoot: commitment.NewMerkleRoot(packetEpochBlocksEnd.EpochBlocksEnd.GetStateMutationRoot()),
-		//StateRoot:         commitment.NewMerkleRoot(packetEpochBlocksEnd.EpochBlocksEnd.GetStateRoot()),
-		//ManaRoot:          commitment.NewMerkleRoot(packetEpochBlocksEnd.EpochBlocksEnd.GetManaRoot()),
-	})
+	ec := new(commitment.Commitment)
+	ec.FromBytes(packetEpochBlocksEnd.EpochBlocksEnd.GetEC())
+
+	eventToTrigger := &EpochBlocksEndEvent{
+		ID:    id,
+		EI:    ei,
+		EC:    ec.ID(),
+		Roots: new(commitment.Roots),
+	}
+	eventToTrigger.Roots.FromBytes(packetEpochBlocksEnd.EpochBlocksEnd.GetRoots())
+
+	p.Events.EpochBlocksEnd.Trigger(eventToTrigger)
 }

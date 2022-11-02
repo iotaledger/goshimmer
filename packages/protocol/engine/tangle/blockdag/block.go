@@ -233,6 +233,7 @@ func (b *Block) update(data *models.Block) (wasPublished bool) {
 
 	b.missing = false
 	b.M = data.M
+	b.SetSize(data.Size())
 
 	return true
 }

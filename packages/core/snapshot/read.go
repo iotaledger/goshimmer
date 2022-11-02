@@ -1,252 +1,129 @@
 package snapshot
 
 import (
-	"bufio"
-	"context"
 	"encoding/binary"
 	"io"
+	"os"
 
-	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/core/serix"
+	"github.com/iotaledger/hive.go/core/generics/constraints"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/identity"
 
-	"github.com/iotaledger/goshimmer/packages/core/activitylog"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	storageModels "github.com/iotaledger/goshimmer/packages/storage/models"
 )
 
-// streamSnapshotDataFrom consumes a snapshot from the given reader.
-func streamSnapshotDataFrom(
-	reader io.ReadSeeker,
-	headerConsumer HeaderConsumerFunc,
-	sepsConsumer SolidEntryPointsConsumerFunc,
-	outputConsumer UTXOStatesConsumerFunc,
-	epochDiffsConsumer EpochDiffsConsumerFunc,
-	activityLogConsumer ActivityLogConsumerFunc) error {
-
-	header, err := ReadSnapshotHeader(reader)
-	if err != nil {
-		return errors.Wrap(err, "failed to stream snapshot header from snapshot")
+func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {
+	// Settings
+	{
+		var settingsSize uint32
+		binary.Read(fileHandle, binary.LittleEndian, &settingsSize)
+		settingsBytes := make([]byte, settingsSize)
+		binary.Read(fileHandle, binary.LittleEndian, settingsBytes)
+		engine.Storage.Settings.FromBytes(settingsBytes)
 	}
-	headerConsumer(header)
 
-	// read solid entry points
-	for i := header.FullEpochIndex; i <= header.DiffEpochIndex; i++ {
-		seps, solidErr := readSolidEntryPoints(reader)
-		if solidErr != nil {
-			return errors.Wrap(solidErr, "failed to stream solid entry points from snapshot")
+	// Committments
+	{
+		ProcessChunks(NewChunkedReader[commitment.Commitment](fileHandle), func(chunk []*commitment.Commitment) {
+			for _, commitment := range chunk {
+				if err := engine.Storage.Commitments.Store(commitment.Index(), commitment); err != nil {
+					panic(err)
+				}
+			}
+		})
+	}
+
+	if err := engine.Storage.Settings.SetChainID(engine.Storage.Settings.LatestCommitment().ID()); err != nil {
+		panic(err)
+	}
+
+	// Ledgerstate
+	{
+		stateDiff := storageModels.NewMemoryStateDiff()
+		ProcessChunks(NewChunkedReader[storageModels.OutputWithMetadata](fileHandle),
+			engine.Ledger.LoadOutputsWithMetadata,
+			engine.ManaTracker.LoadOutputsWithMetadata,
+			lo.Void(stateDiff.ApplyCreatedOutputs),
+		)
+		engine.Storage.ApplyStateDiff(engine.Storage.Settings.LatestStateMutationEpoch(), stateDiff)
+	}
+
+	// Solid Entry Points
+	{
+		ProcessChunks(NewChunkedReader[models.BlockID](fileHandle), func(chunk []*models.BlockID) {
+			for _, blockID := range chunk {
+				if err := engine.Storage.EntryPoints.Store(*blockID); err != nil {
+					panic(err)
+				}
+			}
+		})
+	}
+
+	// Activity Log
+	{
+		var numEpochs uint32
+		binary.Read(fileHandle, binary.LittleEndian, &numEpochs)
+
+		for i := uint32(0); i < numEpochs; i++ {
+			ProcessChunks(NewChunkedReader[identity.ID](fileHandle), func(chunk []*identity.ID) {
+				for _, id := range chunk {
+					if err := engine.Storage.ActiveNodes.Store(epoch.Index(i), *id); err != nil {
+						panic(err)
+					}
+					engine.SybilProtection.AddValidator(*id, epoch.Index(i).EndTime())
+				}
+			})
 		}
-		sepsConsumer(seps)
 	}
 
-	// read outputWithMetadata
-	for i := 0; uint64(i) < header.OutputWithMetadataCount; {
-		outputs, outErr := readOutputsWithMetadatas(reader)
-		if outErr != nil {
-			return errors.Wrap(outErr, "failed to stream output with metadata from snapshot")
+	// Epoch Diffs -- must be in reverse order to rollback the Ledger
+	{
+		var numEpochs uint32
+		binary.Read(fileHandle, binary.LittleEndian, &numEpochs)
+
+		for i := uint32(1); i <= numEpochs; i++ {
+			var epochIndex epoch.Index
+			binary.Read(fileHandle, binary.LittleEndian, &epochIndex)
+
+			diff := storageModels.NewMemoryStateDiff()
+
+			// Created
+			ProcessChunks(NewChunkedReader[storageModels.OutputWithMetadata](fileHandle),
+				func(createdChunk []*storageModels.OutputWithMetadata) {
+					diff.ApplyCreatedOutputs(createdChunk)
+				},
+				engine.Ledger.ApplySpentDiff,
+			)
+
+			// Spent
+			ProcessChunks(NewChunkedReader[storageModels.OutputWithMetadata](fileHandle),
+				func(spentChunk []*storageModels.OutputWithMetadata) {
+					diff.ApplyDeletedOutputs(spentChunk)
+				},
+				engine.Ledger.ApplyCreatedDiff,
+			)
+
+			engine.Storage.RollbackStateDiff(engine.Storage.Settings.LatestStateMutationEpoch()-epoch.Index(i), diff)
 		}
-		i += len(outputs)
-		outputConsumer(outputs)
 	}
-
-	// read epochDiffs
-	for ei := header.FullEpochIndex + 1; ei <= header.DiffEpochIndex; ei++ {
-		epochDiff, epochErr := readEpochDiff(reader)
-		if epochErr != nil {
-			return errors.Wrapf(epochErr, "failed to parse epochDiff from bytes")
-		}
-		epochDiff.SetIndex(ei)
-		epochDiffsConsumer(epochDiff)
-	}
-
-	activityLog, err := readActivityLog(reader)
-	if err != nil {
-		return errors.Wrap(err, "failed to parse activity log from bytes")
-	}
-	activityLogConsumer(activityLog)
-
-	return nil
 }
 
-func ReadSnapshotHeader(reader io.ReadSeeker) (*ledger.SnapshotHeader, error) {
-	header := &ledger.SnapshotHeader{}
-
-	if err := binary.Read(reader, binary.LittleEndian, &header.OutputWithMetadataCount); err != nil {
-		return nil, errors.Wrap(err, "unable to read outputWithMetadata length")
-	}
-
-	var index int64
-	if err := binary.Read(reader, binary.LittleEndian, &index); err != nil {
-		return nil, errors.Wrap(err, "unable to read fullEpochIndex")
-	}
-	header.FullEpochIndex = epoch.Index(index)
-
-	if err := binary.Read(reader, binary.LittleEndian, &index); err != nil {
-		return nil, errors.Wrap(err, "unable to read diffEpochIndex")
-	}
-	header.DiffEpochIndex = epoch.Index(index)
-
-	ecRecordBytes := make([]byte, commitment.Size)
-	if err := binary.Read(reader, binary.LittleEndian, ecRecordBytes); err != nil {
-		return nil, errors.Errorf("unable to read latest ECRecord: %w", err)
-	}
-	header.LatestECRecord = new(commitment.Commitment)
-	if _, err := header.LatestECRecord.FromBytes(ecRecordBytes); err != nil {
-		return nil, err
-	}
-
-	return header, nil
-}
-
-func readSolidEntryPoints(reader io.ReadSeeker) (seps *SolidEntryPoints, err error) {
-	seps = &SolidEntryPoints{}
-	blkIDs := make([]models.BlockID, 0)
-
-	// read seps Index
-	var index int64
-	if err := binary.Read(reader, binary.LittleEndian, &index); err != nil {
-		return nil, errors.Errorf("unable to read epoch index: %w", err)
-	}
-	seps.EI = epoch.Index(index)
-
-	// read numbers of solid entry point
-	var sepsLen int64
-	if err := binary.Read(reader, binary.LittleEndian, &sepsLen); err != nil {
-		return nil, errors.Errorf("unable to read seps len: %w", err)
-	}
-
-	for i := 0; i < int(sepsLen); {
-		var sepsBytesLen int64
-		if err := binary.Read(reader, binary.LittleEndian, &sepsBytesLen); err != nil {
-			return nil, errors.Errorf("unable to read seps bytes len: %w", err)
-		}
-
-		sepsBytes := make([]byte, sepsBytesLen)
-		if err := binary.Read(reader, binary.LittleEndian, sepsBytes); err != nil {
-			return nil, errors.Errorf("unable to read solid entry points: %w", err)
-		}
-
-		ids := make([]models.BlockID, 0)
-		_, err = serix.DefaultAPI.Decode(context.Background(), sepsBytes, &ids, serix.WithValidation())
+func ProcessChunks[A any, B constraints.MarshalablePtr[A]](chunkedReader *ChunkedReader[A, B], chunkConsumers ...func([]B)) {
+	for !chunkedReader.IsFinished() {
+		chunk, err := chunkedReader.ReadChunk()
 		if err != nil {
-			return nil, err
+			if err == io.EOF {
+				break
+			}
+			panic(err)
 		}
-		blkIDs = append(blkIDs, ids...)
-		i += len(ids)
-	}
 
-	seps.Seps = blkIDs
-
-	return seps, nil
-}
-
-// readOutputsWithMetadatas consumes less or equal chunkSize of OutputWithMetadatas from the given reader.
-func readOutputsWithMetadatas(reader io.ReadSeeker) (outputMetadatas []*ledger.OutputWithMetadata, err error) {
-	var outputsLen int64
-	if err := binary.Read(reader, binary.LittleEndian, &outputsLen); err != nil {
-		return nil, errors.Errorf("unable to read outputsWithMetadata bytes len: %w", err)
-	}
-
-	outputsBytes := make([]byte, outputsLen)
-	if err := binary.Read(reader, binary.LittleEndian, outputsBytes); err != nil {
-		return nil, errors.Errorf("unable to read outputsWithMetadata: %w", err)
-	}
-
-	outputMetadatas = make([]*ledger.OutputWithMetadata, 0)
-	_, err = serix.DefaultAPI.Decode(context.Background(), outputsBytes, &outputMetadatas, serix.WithValidation())
-	if err != nil {
-		return nil, err
-	}
-
-	for _, o := range outputMetadatas {
-		o.SetID(o.M.OutputID)
-		o.Output().SetID(o.M.OutputID)
-	}
-
-	return
-}
-
-// readEpochDiff consumes an EpochDiff of an epoch from the given reader.
-func readEpochDiff(reader io.ReadSeeker) (epochDiff *ledger.EpochDiff, err error) {
-	spent := make([]*ledger.OutputWithMetadata, 0)
-	created := make([]*ledger.OutputWithMetadata, 0)
-
-	// read spent
-	var spentLen int64
-	if err := binary.Read(reader, binary.LittleEndian, &spentLen); err != nil {
-		return nil, errors.Errorf("unable to read epochDiff spent len: %w", err)
-	}
-
-	for i := 0; i < int(spentLen); {
-		s, err := readOutputsWithMetadatas(reader)
-		if err != nil {
-			return nil, errors.Errorf("unable to read epochDiff spent: %w", err)
+		for _, chunkConsumer := range chunkConsumers {
+			chunkConsumer(chunk)
 		}
-		spent = append(spent, s...)
-		i += len(s)
 	}
-
-	// read created
-	var createdLen int64
-	if err := binary.Read(reader, binary.LittleEndian, &createdLen); err != nil {
-		return nil, errors.Errorf("unable to read epochDiff created len: %w", err)
-	}
-
-	for i := 0; i < int(createdLen); {
-		c, err := readOutputsWithMetadatas(reader)
-		if err != nil {
-			return nil, errors.Errorf("unable to read epochDiff created: %w", err)
-		}
-		created = append(created, c...)
-		i += len(c)
-	}
-
-	epochDiff = ledger.NewEpochDiff(spent, created)
-
-	return
-}
-
-// readECRecord consumes the latest ECRecord from the given reader.
-func readECRecord(scanner *bufio.Scanner) (ecRecord *commitment.Commitment, err error) {
-	scanner.Scan()
-
-	ecRecord = &commitment.Commitment{}
-	_, err = ecRecord.FromBytes(scanner.Bytes())
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse epochDiffs from bytes")
-	}
-
-	return
-}
-
-// readActivityLog consumes the ActivityLog from the given reader.
-func readActivityLog(reader io.ReadSeeker) (activityLogs activitylog.SnapshotEpochActivity, err error) {
-	var activityLen int64
-	if lenErr := binary.Read(reader, binary.LittleEndian, &activityLen); lenErr != nil {
-		return nil, errors.Wrap(lenErr, "unable to read activity len")
-	}
-
-	activityLogs = activitylog.NewSnapshotEpochActivity()
-
-	for i := 0; i < int(activityLen); i++ {
-		var epochIndex epoch.Index
-		if eiErr := binary.Read(reader, binary.LittleEndian, &epochIndex); eiErr != nil {
-			return nil, errors.Errorf("unable to read epoch index: %w", eiErr)
-		}
-		var activityBytesLen int64
-		if activityLenErr := binary.Read(reader, binary.LittleEndian, &activityBytesLen); activityLenErr != nil {
-			return nil, errors.Errorf("unable to read activity log length: %w", activityLenErr)
-		}
-		activityLogBytes := make([]byte, activityBytesLen)
-		if alErr := binary.Read(reader, binary.LittleEndian, activityLogBytes); alErr != nil {
-			return nil, errors.Errorf("unable to read activity log: %w", alErr)
-		}
-		activityLog := new(activitylog.SnapshotNodeActivity)
-		activityLog.FromBytes(activityLogBytes)
-
-		activityLogs[epochIndex] = activityLog
-	}
-
-	return
 }

@@ -19,7 +19,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
@@ -231,11 +230,10 @@ func registerLocalMetrics() {
 		orphanedBlocks.Inc()
 	}))
 
-	deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictAccepted.Attach(event.NewClosure(func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
+	deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictAccepted.Attach(event.NewClosure(func(conflictID utxo.TransactionID) {
 		activeConflictsMutex.Lock()
 		defer activeConflictsMutex.Unlock()
 
-		conflictID := event.ID
 		if _, exists := activeConflicts[conflictID]; !exists {
 			return
 		}
@@ -283,10 +281,5 @@ func registerLocalMetrics() {
 		deps.Selection.Events().OutgoingPeering.Hook(onAutopeeringSelection)
 	}
 
-	// mana pledge events
-	deps.Protocol.Events.Engine.ManaTracker.Pledged.Attach(event.NewClosure(func(ev *mana.PledgedEvent) {
-		addPledge(ev)
-	}))
-
-	deps.Protocol.Events.Engine.NotarizationManager.EpochCommittable.Attach(onEpochCommitted)
+	deps.Protocol.Events.Engine.NotarizationManager.EpochCommitted.Attach(onEpochCommitted)
 }
