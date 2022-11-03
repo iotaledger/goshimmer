@@ -68,7 +68,7 @@ func SchedulerIssuerAManaAmount() map[string]int64 {
 	// copy the original map
 	clone := make(map[string]int64)
 	for key := range issuerQueueSizes {
-		clone[key.String()], _, _ = deps.Protocol.Engine().ManaTracker.GetAccessMana(key)
+		clone[key.String()], _ = deps.Protocol.Engine().ManaTracker.Mana(key)
 	}
 
 	return clone

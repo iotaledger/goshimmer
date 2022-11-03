@@ -1,43 +1,37 @@
 package mana
 
 import (
+	"sync"
+
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/storage"
-	"github.com/iotaledger/goshimmer/packages/storage/models"
 )
 
 type Tracker struct {
-	ledger              *ledger.Ledger
-	chainStorage        *storage.Storage
-	accessManaVector    *manamodels.ManaBaseVector
-	consensusManaVector *manamodels.ManaBaseVector
+	ledger       *ledger.Ledger
+	chainStorage *storage.Storage
+	manaByID     *shrinkingmap.ShrinkingMap[identity.ID, int64]
+	totalMana    int64
 
 	cManaTargetEpoch epoch.Index
+
+	sync.RWMutex
 }
 
 func NewTracker(l *ledger.Ledger, chainStorage *storage.Storage, opts ...options.Option[Tracker]) (manaTracker *Tracker) {
 	return options.Apply(&Tracker{
-		ledger:              l,
-		chainStorage:        chainStorage,
-		accessManaVector:    manamodels.NewManaBaseVector(manamodels.AccessMana),
-		consensusManaVector: manamodels.NewManaBaseVector(manamodels.ConsensusMana),
+		ledger:       l,
+		chainStorage: chainStorage,
+		manaByID:     shrinkingmap.New[identity.ID, int64](),
 	}, opts)
-}
-
-func (t *Tracker) UpdateConsensusWeights(weightUpdates map[identity.ID]*models.TimedBalance) {
-	t.consensusManaVector.Lock()
-	defer t.consensusManaVector.Unlock()
-
-	for id, updateMana := range weightUpdates {
-		t.consensusManaVector.SetMana(id, manamodels.NewManaBase(updateMana.Balance))
-	}
 }
 
 func (t *Tracker) UpdateMana(txMeta *ledger.TransactionMetadata) {
@@ -45,56 +39,60 @@ func (t *Tracker) UpdateMana(txMeta *ledger.TransactionMetadata) {
 		devnetTransaction := transaction.(*devnetvm.Transaction)
 
 		// process transaction object to build txInfo
-		totalAmount, inputInfos := t.gatherInputInfos(devnetTransaction.Essence().Inputs())
+		pledgeFrom := t.gatherInputInfos(devnetTransaction.Essence().Inputs())
 
 		// only book AccessMana
-		t.bookAccessMana(&manamodels.TxInfo{
-			TimeStamp:     devnetTransaction.Essence().Timestamp(),
-			TransactionID: txMeta.ID(),
-			TotalBalance:  totalAmount,
-			PledgeID: map[manamodels.Type]identity.ID{
-				manamodels.AccessMana:    devnetTransaction.Essence().AccessPledgeID(),
-				manamodels.ConsensusMana: devnetTransaction.Essence().ConsensusPledgeID(),
-			},
-			InputInfos: inputInfos,
-		})
+		t.bookAccessMana(devnetTransaction.Essence().AccessPledgeID(), pledgeFrom)
 	})
 }
 
-func (t *Tracker) gatherInputInfos(inputs devnetvm.Inputs) (totalAmount int64, inputInfos []manamodels.InputInfo) {
-	inputInfos = make([]manamodels.InputInfo, 0)
+func (t *Tracker) ManaMap() (manaMap map[identity.ID]int64) {
+	t.RLock()
+	defer t.RUnlock()
+
+	return t.manaByID.AsMap()
+}
+
+func (t *Tracker) Mana(id identity.ID) (mana int64, exists bool) {
+	t.RLock()
+	defer t.RUnlock()
+
+	return t.manaByID.Get(id)
+}
+
+func (t *Tracker) TotalMana() (totalMana int64) {
+	return t.totalMana
+}
+
+func (t *Tracker) gatherInputInfos(inputs devnetvm.Inputs) (pledgeFrom map[identity.ID]int64) {
+	pledgeFrom = make(map[identity.ID]int64)
 	for _, input := range inputs {
-		var inputInfo manamodels.InputInfo
-
-		outputID := input.(*devnetvm.UTXOInput).ReferencedOutputID()
-		t.ledger.Storage.CachedOutput(outputID).Consume(func(o utxo.Output) {
-			inputInfo.InputID = o.ID()
-
-			// first, sum balances of the input, calculate total amount as well for later
-			if amount, exists := o.(devnetvm.Output).Balances().Get(devnetvm.ColorIOTA); exists {
-				inputInfo.Amount = int64(amount)
-				totalAmount += int64(amount)
-			}
-
+		t.ledger.Storage.CachedOutput(input.(*devnetvm.UTXOInput).ReferencedOutputID()).Consume(func(o utxo.Output) {
 			// look into the transaction, we need timestamp and access & consensus pledge IDs
-			t.ledger.Storage.CachedOutputMetadata(outputID).Consume(func(metadata *ledger.OutputMetadata) {
-				inputInfo.PledgeID = map[manamodels.Type]identity.ID{
-					manamodels.AccessMana:    metadata.AccessManaPledgeID(),
-					manamodels.ConsensusMana: metadata.ConsensusManaPledgeID(),
+			t.ledger.Storage.CachedOutputMetadata(o.ID()).Consume(func(metadata *ledger.OutputMetadata) {
+				if amount, exists := o.(devnetvm.Output).Balances().Get(devnetvm.ColorIOTA); exists {
+					pledgeFrom[metadata.AccessManaPledgeID()] += int64(amount)
 				}
 			})
 		})
-		inputInfos = append(inputInfos, inputInfo)
 	}
-	return totalAmount, inputInfos
+	return
 }
 
-func (t *Tracker) bookAccessMana(txInfo *manamodels.TxInfo) {
-	t.accessManaVector.Lock()
-	defer t.accessManaVector.Unlock()
+func (t *Tracker) bookAccessMana(pledgeID identity.ID, pledgeFrom map[identity.ID]int64) {
+	t.Lock()
+	defer t.Unlock()
 
-	for _, inputInfo := range txInfo.InputInfos {
-		t.accessManaVector.GetOldManaAndRevoke(inputInfo.PledgeID[manamodels.AccessMana], inputInfo.Amount)
+	pledgedAmount := int64(0)
+	for revokeID, revokedAmount := range pledgeFrom {
+		if newBalance := lo.Return1(t.manaByID.Get(revokeID)) - revokedAmount; newBalance < 0 {
+			t.manaByID.Delete(revokeID)
+		} else {
+			t.manaByID.Set(revokeID, newBalance)
+		}
+
+		pledgedAmount += revokedAmount
 	}
-	t.accessManaVector.GetOldManaAndPledge(txInfo.PledgeID[manamodels.AccessMana], txInfo.TotalBalance)
+
+	t.manaByID.Set(pledgeID, lo.Return1(t.manaByID.Get(pledgeID))+pledgedAmount)
 }

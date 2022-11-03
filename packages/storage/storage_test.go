@@ -19,23 +19,23 @@ func Test(t *testing.T) {
 	emptyBlock := models.NewBlock(models.WithStrongParents(models.NewBlockIDs(models.EmptyBlockID)))
 	require.NoError(t, emptyBlock.DetermineID())
 
-	chainStorage := New(storageDirectory, 1)
-	chainStorage.Settings.SetLatestStateMutationEpoch(10)
+	storage := New(storageDirectory, 1)
+	storage.Settings.SetLatestStateMutationEpoch(10)
 	genesisCommitment := commitment.New(0, commitment.ID{}, types.Identifier{}, 0)
-	chainStorage.Commitments.Store(0, genesisCommitment)
-	chainStorage.Commitments.Store(1, commitment.New(1, genesisCommitment.ID(), types.Identifier{}, 0))
-	chainStorage.Blocks.Store(emptyBlock)
-	fmt.Println(chainStorage.Blocks.Load(emptyBlock.ID()))
+	storage.Commitments.Store(0, genesisCommitment)
+	storage.Commitments.Store(1, commitment.New(1, genesisCommitment.ID(), types.Identifier{}, 0))
+	storage.Blocks.Store(emptyBlock)
+	fmt.Println(storage.Blocks.Load(emptyBlock.ID()))
 
-	chainStorage.database.Flush(0)
+	storage.database.Flush(0)
 
-	chainStorage.Shutdown()
+	storage.Shutdown()
 
-	chainStorage = New(storageDirectory, 1)
-	fmt.Println(lo.PanicOnErr(chainStorage.Commitments.Load(0)), lo.PanicOnErr(chainStorage.Commitments.Load(1)))
-	require.Equal(t, epoch.Index(10), chainStorage.Settings.LatestStateMutationEpoch())
+	storage = New(storageDirectory, 1)
+	fmt.Println(lo.PanicOnErr(storage.Commitments.Load(0)), lo.PanicOnErr(storage.Commitments.Load(1)))
+	require.Equal(t, epoch.Index(10), storage.Settings.LatestStateMutationEpoch())
 
-	fmt.Println(chainStorage.Blocks.Load(emptyBlock.ID()))
+	fmt.Println(storage.Blocks.Load(emptyBlock.ID()))
 
-	chainStorage.Shutdown()
+	storage.Shutdown()
 }

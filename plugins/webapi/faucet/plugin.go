@@ -10,7 +10,6 @@ import (
 
 	faucetpkg "github.com/iotaledger/goshimmer/packages/app/faucet"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 
 	"github.com/iotaledger/goshimmer/plugins/faucet"
@@ -63,8 +62,8 @@ func processFaucetRequest(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, jsonmodels.FaucetAPIResponse{Error: "Invalid consensus mana node ID"})
 	}
 
-	consensusManaPledgeID, err = manamodels.IDFromStr(request.ConsensusManaPledgeID)
-	accessManaPledgeID, err = manamodels.IDFromStr(request.AccessManaPledgeID)
+	consensusManaPledgeID, err = identity.DecodeIDBase58(request.ConsensusManaPledgeID)
+	accessManaPledgeID, err = identity.DecodeIDBase58(request.AccessManaPledgeID)
 
 	faucetPayload := faucetpkg.NewRequest(addr, accessManaPledgeID, consensusManaPledgeID, request.Nonce)
 

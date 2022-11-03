@@ -101,7 +101,7 @@ func WriteSnapshot(filePath string, s *storage.Storage, l *ledger.Ledger, depth 
 	{
 		var solidEntryPointsCount uint32
 		for epochIndex := snapshotStart; epochIndex <= snapshotEpoch; epochIndex++ {
-			solidEntryPointsCount += uint32(s.SolidEntryPoints.LoadAll(epochIndex).Size())
+			solidEntryPointsCount += uint32(s.EntryPoints.LoadAll(epochIndex).Size())
 		}
 
 		// Solid Entry Points count
@@ -111,8 +111,8 @@ func WriteSnapshot(filePath string, s *storage.Storage, l *ledger.Ledger, depth 
 		binary.Write(fileHandle, binary.LittleEndian, uint32(len(lo.PanicOnErr(dummyBlock.Bytes()))))
 
 		for epochIndex := snapshotStart; epochIndex <= snapshotEpoch; epochIndex++ {
-			s.SolidEntryPoints.Stream(epochIndex, func(block *models.Block) {
-				binary.Write(fileHandle, binary.LittleEndian, lo.PanicOnErr(block.Bytes()))
+			s.EntryPoints.Stream(epochIndex, func(blockID models.BlockID) {
+				binary.Write(fileHandle, binary.LittleEndian, lo.PanicOnErr(blockID.Bytes()))
 			})
 		}
 	}

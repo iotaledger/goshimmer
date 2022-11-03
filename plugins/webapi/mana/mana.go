@@ -2,14 +2,14 @@ package mana
 
 import (
 	"net/http"
+	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
 	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/identity"
 )
 
 // getManaHandler handles the request.
@@ -18,7 +18,7 @@ func getManaHandler(c echo.Context) error {
 	if err := c.Bind(&request); err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetManaResponse{Error: err.Error()})
 	}
-	ID, err := manamodels.IDFromStr(request.IssuerID)
+	ID, err := identity.DecodeIDBase58(request.IssuerID)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetManaResponse{Error: err.Error()})
 	}
@@ -26,29 +26,15 @@ func getManaHandler(c echo.Context) error {
 		ID = deps.Local.ID()
 	}
 
-	accessMana, tAccess, err := deps.Protocol.Engine().ManaTracker.GetAccessMana(ID)
-	if err != nil {
-		if errors.Is(err, manamodels.ErrIssuerNotFoundInBaseManaVector) {
-			accessMana = 0
-		} else {
-			return c.JSON(http.StatusBadRequest, jsonmodels.GetManaResponse{Error: err.Error()})
-		}
-	}
-	consensusMana, tConsensus, err := deps.Protocol.Engine().ManaTracker.GetConsensusMana(ID)
-	if err != nil {
-		if errors.Is(err, manamodels.ErrIssuerNotFoundInBaseManaVector) {
-			consensusMana = 0
-		} else {
-			return c.JSON(http.StatusBadRequest, jsonmodels.GetManaResponse{Error: err.Error()})
-		}
-	}
+	accessMana, _ := deps.Protocol.Engine().ManaTracker.Mana(ID)
+	consensusMana, _ := deps.Protocol.Engine().SybilProtection.Weight(ID)
 
 	return c.JSON(http.StatusOK, jsonmodels.GetManaResponse{
 		ShortIssuerID:      ID.String(),
 		IssuerID:           base58.Encode(lo.PanicOnErr(ID.Bytes())),
 		Access:             accessMana,
-		AccessTimestamp:    tAccess.Unix(),
+		AccessTimestamp:    time.Now().Unix(),
 		Consensus:          consensusMana,
-		ConsensusTimestamp: tConsensus.Unix(),
+		ConsensusTimestamp: time.Now().Unix(),
 	})
 }

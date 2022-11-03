@@ -41,7 +41,7 @@ var ErrNotRunning = errors.New("scheduler stopped")
 type Scheduler struct {
 	Events *Events
 
-	EvictionManager *eviction.LockableManager[models.BlockID]
+	EvictionManager *eviction.LockableState[models.BlockID]
 
 	blocks        *memstorage.EpochStorage[models.BlockID, *Block]
 	ticker        *time.Ticker
@@ -84,9 +84,7 @@ func New(evictionManager *eviction.State[models.BlockID], isBlockAccepted func(m
 	}, opts, func(s *Scheduler) {
 		s.ticker = time.NewTicker(s.optsRate)
 		s.buffer = NewBufferQueue(s.optsMaxBufferSize)
-
 	}, (*Scheduler).setupEvents)
-
 }
 
 func (s *Scheduler) setupEvents() {

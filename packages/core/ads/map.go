@@ -1,6 +1,8 @@
 package ads
 
 import (
+	"errors"
+
 	"github.com/celestiaorg/smt"
 	"github.com/iotaledger/hive.go/core/generics/constraints"
 	"github.com/iotaledger/hive.go/core/generics/lo"
@@ -60,9 +62,15 @@ func (m *Map[K, V, VPtr]) Has(key K) (has bool) {
 
 // Get returns the value for the given key.
 func (m *Map[K, V, VPtr]) Get(key K) (value VPtr, exists bool) {
-	valueBytes := lo.PanicOnErr(m.tree.Get(lo.PanicOnErr(key.Bytes())))
+	valueBytes, err := m.tree.Get(lo.PanicOnErr(key.Bytes()))
+	if errors.Is(err, kvstore.ErrKeyNotFound) {
+		return nil, false
+	}
+	if err != nil {
+		panic(err)
+	}
 	if len(valueBytes) == 0 {
-		return value, false
+		return nil, false
 	}
 
 	value = new(V)

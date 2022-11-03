@@ -1,6 +1,9 @@
 package manamodels
 
 import (
+	"sort"
+	"time"
+
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/mr-tron/base58"
@@ -33,9 +36,6 @@ func (n Issuer) ToIssuerStr() IssuerStr {
 // IssuerMap is a map of issuerID and mana value.
 type IssuerMap map[identity.ID]int64
 
-// IssuerMapStr is a IssuerMap but with string id.
-type IssuerMapStr map[string]int64
-
 // ToIssuerStrList converts a IssuerMap to list of IssuerStr.
 func (n IssuerMap) ToIssuerStrList() []IssuerStr {
 	var list []IssuerStr
@@ -49,21 +49,52 @@ func (n IssuerMap) ToIssuerStrList() []IssuerStr {
 	return list
 }
 
-// GetPercentile returns the top percentile the issuer belongs to relative to the network in terms of mana.
-func (n IssuerMap) GetPercentile(issuer identity.ID) (float64, error) {
-	if len(n) == 0 {
-		return 0, nil
+// Percentile returns the top percentile the issuer belongs to relative to the network in terms of mana.
+func Percentile(id identity.ID, m map[identity.ID]int64) (percentileValue float64) {
+	if len(m) == 0 {
+		return 0
 	}
-	value, ok := n[issuer]
+	value, ok := m[id]
 	if !ok {
-		return 0, ErrIssuerNotFoundInBaseManaVector
+		return 0
 	}
 	nBelow := 0.0
-	for _, val := range n {
+	for _, val := range m {
 		if val < value {
 			nBelow++
 		}
 	}
 
-	return (nBelow / float64(len(n))) * 100, nil
+	return (nBelow / float64(len(m))) * 100
 }
+
+// GetHighestManaIssuers return the n-highest mana issuers in descending order.
+// It also updates the mana values for each issuer.
+// If n is zero, it returns all issuers.
+func GetHighestManaIssuers(n uint, m map[identity.ID]int64) (res []Issuer, t time.Time, err error) {
+	t = time.Now()
+	err = func() error {
+		// don't lock the vector after this func returns
+		for id, mana := range m {
+			res = append(res, Issuer{
+				ID:   id,
+				Mana: mana,
+			})
+		}
+		return nil
+	}()
+	if err != nil {
+		return nil, t, err
+	}
+
+	sort.Slice(res, func(i, j int) bool {
+		return res[i].Mana > res[j].Mana
+	})
+
+	if n == 0 || int(n) >= len(res) {
+		return
+	}
+	res = res[:n]
+	return
+}
+

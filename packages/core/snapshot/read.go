@@ -43,21 +43,20 @@ func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {
 
 	// Ledgerstate
 	{
+		stateDiff := storageModels.NewMemoryStateDiff()
 		ProcessChunks(NewChunkedReader[storageModels.OutputWithMetadata](fileHandle),
 			engine.Ledger.LoadOutputsWithMetadata,
 			engine.ManaTracker.LoadOutputsWithMetadata,
-			func(chunk []*storageModels.OutputWithMetadata) {
-				engine.Storage.UnspentOutputIDs.Import(lo.Map(chunk, (*storageModels.OutputWithMetadata).ID))
-			},
+			lo.Void(stateDiff.ApplyCreatedOutputs),
 		)
+		engine.Storage.ApplyStateDiff(engine.Storage.Settings.LatestStateMutationEpoch(), stateDiff)
 	}
 
 	// Solid Entry Points
 	{
-		ProcessChunks(NewChunkedReader[models.Block](fileHandle), func(chunk []*models.Block) {
-			for _, block := range chunk {
-				block.DetermineID()
-				if err := engine.Storage.SolidEntryPoints.Store(block); err != nil {
+		ProcessChunks(NewChunkedReader[models.BlockID](fileHandle), func(chunk []*models.BlockID) {
+			for _, blockID := range chunk {
+				if err := engine.Storage.EntryPoints.Store(*blockID); err != nil {
 					panic(err)
 				}
 			}
@@ -75,6 +74,7 @@ func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {
 					if err := engine.Storage.ActiveNodes.Store(epoch.Index(i), *id); err != nil {
 						panic(err)
 					}
+					engine.SybilProtection.AddValidator(*id, epoch.Index(i).EndTime())
 				}
 			})
 		}

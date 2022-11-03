@@ -10,21 +10,24 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
 type EntryPointsManager struct {
 	entryPoints *shrinkingmap.ShrinkingMap[epoch.Index, models.BlockIDs]
+	storage     *storage.Storage
 
 	sync.RWMutex
 }
 
-func NewEntryPointsManager() *EntryPointsManager {
+func NewEntryPointsManager(s *storage.Storage) *EntryPointsManager {
 	return &EntryPointsManager{
 		entryPoints: shrinkingmap.New[epoch.Index, models.BlockIDs](),
+		storage:     s,
 	}
 }
 
-func (e *EntryPointsManager) SolidEntryPoints(index epoch.Index) (entryPoints *set.AdvancedSet[models.BlockID]) {
+func (e *EntryPointsManager) LoadAll(index epoch.Index) (entryPoints *set.AdvancedSet[models.BlockID]) {
 	e.RLock()
 	defer e.RUnlock()
 
@@ -38,8 +41,8 @@ func (e *EntryPointsManager) SolidEntryPoints(index epoch.Index) (entryPoints *s
 	return
 }
 
-// EvictSolidEntryPoints remove seps of old epoch when confirmed epoch advanced.
-func (e *EntryPointsManager) EvictSolidEntryPoints(ei epoch.Index) {
+// Evict remove seps of old epoch when confirmed epoch advanced.
+func (e *EntryPointsManager) Evict(ei epoch.Index) {
 	e.Lock()
 	defer e.Unlock()
 
@@ -47,8 +50,8 @@ func (e *EntryPointsManager) EvictSolidEntryPoints(ei epoch.Index) {
 	e.entryPoints.Delete(ei)
 }
 
-// InsertSolidEntryPoint inserts a solid entry point to the seps map.
-func (e *EntryPointsManager) InsertSolidEntryPoint(id models.BlockID) {
+// Insert inserts a solid entry point to the seps map.
+func (e *EntryPointsManager) Insert(id models.BlockID) {
 	e.Lock()
 	defer e.Unlock()
 
@@ -59,19 +62,21 @@ func (e *EntryPointsManager) InsertSolidEntryPoint(id models.BlockID) {
 
 	sep[id] = types.Void
 	e.entryPoints.Set(id.EpochIndex, sep)
+	e.storage.EntryPoints.Store(id)
 }
 
-// RemoveSolidEntryPoint removes a solid entry points from the map.
-func (e *EntryPointsManager) RemoveSolidEntryPoint(b *models.Block) (err error) {
+// Remove removes a solid entry points from the map.
+func (e *EntryPointsManager) Remove(id models.BlockID) (err error) {
 	e.Lock()
 	defer e.Unlock()
 
-	epochSeps, exists := e.entryPoints.Get(b.ID().EpochIndex)
+	epochSeps, exists := e.entryPoints.Get(id.Index())
 	if !exists {
 		return errors.New("solid entry point of the epoch does not exist")
 	}
 
-	delete(epochSeps, b.ID())
+	delete(epochSeps, id)
+	e.storage.EntryPoints.Delete(id)
 
 	return
 }

@@ -15,7 +15,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -74,20 +73,8 @@ func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opt
 
 		i.RateSetter = ratesetter.New(
 			i.protocol,
-			func() map[identity.ID]int64 {
-				manaMap, _, err := i.protocol.Engine().ManaTracker.GetManaMap(manamodels.AccessMana)
-				if err != nil {
-					return make(map[identity.ID]int64)
-				}
-				return manaMap
-			},
-			func() int64 {
-				totalMana, _, err := i.protocol.Engine().ManaTracker.GetTotalMana(manamodels.AccessMana)
-				if err != nil {
-					return 0
-				}
-				return totalMana
-			},
+			i.protocol.Engine().ManaTracker.ManaMap,
+			i.protocol.Engine().ManaTracker.TotalMana,
 			i.identity.ID(),
 			i.optsRateSetterOptions...,
 		)

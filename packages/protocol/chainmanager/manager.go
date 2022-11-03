@@ -49,11 +49,12 @@ func NewManager(snapshot *commitment.Commitment) (manager *Manager) {
 }
 
 func (c *Manager) ProcessCommitment(commitment *commitment.Commitment) (isSolid bool, chain *Chain, wasForked bool) {
+	// TODO: do not extend the main chain if the commitment doesn't come from myself, after I am bootstrapped.
 	chainCommitment, created := c.Commitment(commitment.ID(), true)
 	if !chainCommitment.PublishCommitment(commitment) {
 		return chainCommitment.IsSolid(), chainCommitment.Chain(), false
 	}
-	
+
 	if !created {
 		c.Events.MissingCommitmentReceived.Trigger(chainCommitment.ID())
 	}

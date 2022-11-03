@@ -27,7 +27,7 @@ type VirtualVoting struct {
 	conflictTracker *conflicttracker.ConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower]
 	sequenceTracker *sequencetracker.SequenceTracker[BlockVotePower]
 	epochTracker    *epochtracker.EpochTracker
-	evictionManager *eviction.LockableManager[models.BlockID]
+	evictionManager *eviction.LockableState[models.BlockID]
 
 	optsSequenceCutoffCallback func(markers.SequenceID) markers.Index
 	optsEpochCutoffCallback    func() epoch.Index
@@ -39,7 +39,7 @@ func New(booker *booker.Booker, validatorSet *validator.Set, opts ...options.Opt
 	return options.Apply(&VirtualVoting{
 		ValidatorSet:    validatorSet,
 		blocks:          memstorage.NewEpochStorage[models.BlockID, *Block](),
-		evictionManager: booker.BlockDAG.EvictionManager.Lockable(),
+		evictionManager: booker.BlockDAG.EvictionState.Lockable(),
 		Booker:          booker,
 		optsSequenceCutoffCallback: func(sequenceID markers.SequenceID) markers.Index {
 			return 1

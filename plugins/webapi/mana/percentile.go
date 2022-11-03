@@ -2,6 +2,7 @@ package mana
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/labstack/echo"
@@ -10,6 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
 	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/identity"
 )
 
 // getPercentileHandler handles the request.
@@ -18,7 +20,7 @@ func getPercentileHandler(c echo.Context) error {
 	if err := c.Bind(&request); err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetPercentileResponse{Error: err.Error()})
 	}
-	ID, err := manamodels.IDFromStr(request.IssuerID)
+	ID, err := identity.DecodeIDBase58(request.IssuerID)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetPercentileResponse{Error: err.Error()})
 	}
@@ -26,23 +28,8 @@ func getPercentileHandler(c echo.Context) error {
 		ID = deps.Local.ID()
 	}
 
-	access, tAccess, err := deps.Protocol.Engine().ManaTracker.GetManaMap(manamodels.AccessMana)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.GetPercentileResponse{Error: err.Error()})
-	}
-	accessPercentile, err := access.GetPercentile(ID)
-	if err != nil {
-		if errors.Is(err, manamodels.ErrIssuerNotFoundInBaseManaVector) {
-			accessPercentile = 0
-		} else {
-			return c.JSON(http.StatusBadRequest, jsonmodels.GetManaResponse{Error: err.Error()})
-		}
-	}
-	consensus, tConsensus, err := deps.Protocol.Engine().ManaTracker.GetManaMap(manamodels.ConsensusMana)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.GetPercentileResponse{Error: err.Error()})
-	}
-	consensusPercentile, err := consensus.GetPercentile(ID)
+	accessPercentile := manamodels.Percentile(ID, deps.Protocol.CandidateEngine().ManaTracker.ManaMap())
+	consensusPercentile := manamodels.Percentile(ID, deps.Protocol.CandidateEngine().SybilProtection.Weights())
 	if err != nil {
 		if errors.Is(err, manamodels.ErrIssuerNotFoundInBaseManaVector) {
 			consensusPercentile = 0
@@ -54,8 +41,8 @@ func getPercentileHandler(c echo.Context) error {
 		ShortIssuerID:      ID.String(),
 		IssuerID:           base58.Encode(lo.PanicOnErr(ID.Bytes())),
 		Access:             accessPercentile,
-		AccessTimestamp:    tAccess.Unix(),
+		AccessTimestamp:    time.Now().Unix(),
 		Consensus:          consensusPercentile,
-		ConsensusTimestamp: tConsensus.Unix(),
+		ConsensusTimestamp: time.Now().Unix(),
 	})
 }

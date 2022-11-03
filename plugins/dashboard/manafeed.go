@@ -73,20 +73,16 @@ func runManaFeed() {
 // region Websocket block sending handlers (live updates)
 func sendManaValue() {
 	ownID := deps.Local.ID()
-	access, _, err := deps.Protocol.Engine().ManaTracker.GetAccessMana(ownID)
+	access, exists := deps.Protocol.Engine().ManaTracker.Mana(ownID)
 	// if issuer not found, returned value is 0.0
-	if err != nil && !errors.Is(err, manamodels.ErrIssuerNotFoundInBaseManaVector) && !errors.Is(err, manamodels.ErrQueryNotAllowed) {
-		log.Errorf("failed to get own access mana: %s ", err.Error())
+	if !exists {
+		log.Errorf("failed to get own access mana: %s ", ownID)
 	}
-	consensus, _, err := deps.Protocol.Engine().ManaTracker.GetConsensusMana(ownID)
-	// if issuer not found, returned value is 0.0
-	if err != nil && !errors.Is(err, manamodels.ErrIssuerNotFoundInBaseManaVector) && !errors.Is(err, manamodels.ErrQueryNotAllowed) {
-		log.Errorf("failed to get own consensus mana: %s ", err.Error())
-	}
+	consensus := deps.Protocol.Engine().SybilProtection.Weights()
 	blkData := &ManaValueBlkData{
 		IssuerID:  ownID.String(),
 		Access:    access,
-		Consensus: consensus,
+		Consensus: consensus[ownID],
 		Time:      time.Now().Unix(),
 	}
 	broadcastWsBlock(&wsblk{
@@ -97,7 +93,7 @@ func sendManaValue() {
 }
 
 func sendManaMapOverall() {
-	accessManaList, _, err := deps.Protocol.Engine().ManaTracker.GetHighestManaIssuers(manamodels.AccessMana, 0)
+	accessManaList, _, err := manamodels.GetHighestManaIssuers(0, deps.Protocol.Engine().ManaTracker.ManaMap())
 	if err != nil && !errors.Is(err, manamodels.ErrQueryNotAllowed) {
 		log.Errorf("failed to get list of n highest access mana issuers: %s ", err.Error())
 	}
@@ -112,7 +108,7 @@ func sendManaMapOverall() {
 		Type: MsgTypeManaMapOverall,
 		Data: accessPayload,
 	})
-	consensusManaList, _, err := deps.Protocol.Engine().ManaTracker.GetHighestManaIssuers(manamodels.ConsensusMana, 0)
+	consensusManaList, _, err := manamodels.GetHighestManaIssuers(0, deps.Protocol.Engine().SybilProtection.Weights())
 	if err != nil && !errors.Is(err, manamodels.ErrQueryNotAllowed) {
 		log.Errorf("failed to get list of n highest consensus mana issuers: %s ", err.Error())
 	}
@@ -136,10 +132,7 @@ func sendManaMapOnline() {
 		return
 	}
 	knownPeers := deps.Discover.GetVerifiedPeers()
-	manaMap, _, err := deps.Protocol.Engine().ManaTracker.GetManaMap(manamodels.AccessMana)
-	if err != nil && !errors.Is(err, manamodels.ErrQueryNotAllowed) {
-		log.Errorf("failed to get list of online access mana issuers: %s", err)
-	}
+	manaMap := deps.Protocol.Engine().ManaTracker.ManaMap()
 	accessPayload := &ManaNetworkListBlkData{ManaType: manamodels.AccessMana.String()}
 	var totalAccessMana int64
 	for _, peerID := range append(lo.Map(knownPeers, func(p *peer.Peer) identity.ID { return p.ID() }), deps.Local.ID()) {
