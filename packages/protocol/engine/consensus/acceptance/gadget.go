@@ -124,7 +124,7 @@ func (a *Gadget) GetOrRegisterBlock(blockID models.BlockID) (block *Block, exist
 func (a *Gadget) RefreshSequenceAcceptance(sequenceID markers.SequenceID, newMaxSupportedIndex, prevMaxSupportedIndex markers.Index) {
 	a.evictionState.RLock()
 
-	var queuedBlocks []*Block
+	var acceptedBlocks, confirmedBlocks []*Block
 
 	totalWeight, err := a.totalWeightCallback()
 	if err != nil {
@@ -142,20 +142,19 @@ func (a *Gadget) RefreshSequenceAcceptance(sequenceID markers.SequenceID, newMax
 		if validator.IsThresholdReached(totalWeight, a.tangle.ValidatorSet.TotalWeight(), a.optsConfirmationThreshold) {
 			// we have enough weight to confirm based on total weight
 			if validator.IsThresholdReached(totalWeight, markerVoters.TotalWeight(), a.optsConfirmationThreshold) && a.setMarkerAccepted(marker) {
-				a.propagateAcceptance(marker, true)
+				acceptedBlocks, confirmedBlocks = a.propagateAcceptance(marker, true)
 			}
 		} else if a.tangle.ValidatorSet.IsThresholdReached(markerVoters.TotalWeight(), a.optsMarkerAcceptanceThreshold) && a.setMarkerAccepted(marker) {
-			a.propagateAcceptance(marker, false)
-			// TODO: use queued blocks
-			//if a.tangle.ValidatorSet.IsThresholdReached(markerVoters.TotalWeight(), a.optsMarkerAcceptanceThreshold) && a.setMarkerAccepted(marker) {
-			//	queuedBlocks = append(queuedBlocks, a.propagateAcceptance(marker)...)
-			//}
+			acceptedBlocks, _ = a.propagateAcceptance(marker, false)
 		}
 	}
 	a.evictionState.RUnlock()
 	// EVICTION
-	for _, block := range queuedBlocks {
+	for _, block := range acceptedBlocks {
 		a.acceptanceOrder.Queue(block)
+	}
+	for _, block := range confirmedBlocks {
+		a.confirmationOrder.Queue(block)
 	}
 }
 
@@ -186,7 +185,7 @@ func (a *Gadget) block(id models.BlockID) (block *Block, exists bool) {
 	return storage.Get(id)
 }
 
-func (a *Gadget) propagateAcceptance(marker markers.Marker, confirmed bool) (queuedBlocks []*Block) {
+func (a *Gadget) propagateAcceptance(marker markers.Marker, confirmed bool) (acceptedBlocks, confirmedBlocks []*Block) {
 	bookerBlock, blockExists := a.tangle.BlockFromMarker(marker)
 	if !blockExists {
 		return
@@ -204,18 +203,17 @@ func (a *Gadget) propagateAcceptance(marker markers.Marker, confirmed bool) (que
 
 		var acceptanceQueued, confirmationQueued bool
 		if acceptanceQueued = walkerBlock.SetAcceptanceQueued(); acceptanceQueued {
-			a.acceptanceOrder.Queue(walkerBlock)
+			acceptedBlocks = append(acceptedBlocks, walkerBlock)
+
 		}
 		if confirmationQueued = walkerBlock.SetConfirmationQueued(); confirmationQueued {
-			a.confirmationOrder.Queue(walkerBlock)
+			confirmedBlocks = append(confirmedBlocks, walkerBlock)
 		}
 
 		if !acceptanceQueued && !confirmationQueued {
 			continue
 		}
 
-		queuedBlocks = append(queuedBlocks, walkerBlock)
-	// TODO: returned queued confirmed blocks and refactor this allitle
 		for _, parentBlockID := range walkerBlock.Parents() {
 			if !confirmed && a.isBlockAccepted(parentBlockID) || confirmed && a.isBlockConfirmed(parentBlockID) {
 				continue
@@ -256,20 +254,6 @@ func (a *Gadget) markAsAccepted(block *Block) (err error) {
 func (a *Gadget) markAsConfirmed(block *Block) (err error) {
 	if a.evictionState.IsTooOld(block.ID()) {
 		return errors.Errorf("block with %s belongs to an evicted epoch", block.ID())
-	}
-
-	if block.SetAccepted() {
-		// If block has been orphaned before acceptance, remove the flag from the block. Otherwise, remove the block from TimedHeap.
-		if block.IsExplicitlyOrphaned() {
-			a.tangle.SetOrphaned(block.Block.Block.Block, false)
-		}
-
-		a.Events.BlockAccepted.Trigger(block)
-
-		// set ConfirmationState of payload (applicable only to transactions)
-		if tx, ok := block.Payload().(*devnetvm.Transaction); ok {
-			a.tangle.Ledger.SetTransactionInclusionTime(tx.ID(), block.IssuingTime())
-		}
 	}
 
 	if block.SetConfirmed() {
