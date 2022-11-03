@@ -6,7 +6,7 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"go.uber.org/atomic"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/manatracker/manamodels"
 )
 
 // PledgeLog is a log of base mana 1 and 2 pledges.
@@ -144,7 +144,7 @@ func AveragePledgeAccess() manamodels.IssuerMap {
 }
 
 func measureMana() {
-	tmpAccessMap := deps.Protocol.Engine().ManaTracker.ManaByID()
+	tmpAccessMap := deps.Protocol.Engine().ManaTracker.ManaByIDs()
 	tmpConsensusMap := deps.Protocol.Engine().SybilProtection.Weights()
 
 	accessLock.Lock()

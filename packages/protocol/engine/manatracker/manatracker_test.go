@@ -1,4 +1,4 @@
-package mana
+package manatracker
 
 /*
 
@@ -118,7 +118,7 @@ func randIssuerID() identity.ID {
 
 func TestTracker_BookTransaction(t *testing.T) {
 	tf := ledger.NewTestFramework(t)
-	tracker := NewTracker(tf.Ledger)
+	tracker := New(tf.Ledger)
 	// hold information about which events triggered
 	var (
 		updateEvents []*UpdatedEvent
@@ -201,7 +201,7 @@ func TestTracker_BookTransaction(t *testing.T) {
 
 func TestTracker_BookEpoch(t *testing.T) {
 	tf := ledger.NewTestFramework(t)
-	tracker := NewTracker(tf.Ledger)
+	tracker := New(tf.Ledger)
 	// hold information about which events triggered
 	var (
 		updateEvents []*UpdatedEvent

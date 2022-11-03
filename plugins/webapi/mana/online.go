@@ -12,7 +12,7 @@ import (
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/manatracker/manamodels"
 )
 
 func getOnlineAccessHandler(c echo.Context) error {
@@ -27,7 +27,7 @@ func getOnlineConsensusHandler(c echo.Context) error {
 func getOnlineHandler(c echo.Context, manaType manamodels.Type) error {
 	var manaMap map[identity.ID]int64
 	if manaType == manamodels.AccessMana {
-		manaMap = deps.Protocol.Engine().ManaTracker.ManaByID()
+		manaMap = deps.Protocol.Engine().ManaTracker.ManaByIDs()
 	} else {
 		manaMap = deps.Protocol.Engine().SybilProtection.Weights()
 	}

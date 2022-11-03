@@ -1,4 +1,4 @@
-package mana
+package manatracker
 
 import (
 	"sync"
@@ -14,7 +14,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/storage/models"
 )
 
-type Tracker struct {
+// ManaTracker is the manager that tracks the mana balances of identities.
+type ManaTracker struct {
 	totalMana int64
 	manaByID  *shrinkingmap.ShrinkingMap[identity.ID, int64]
 	ledger    *ledger.Ledger
@@ -22,14 +23,16 @@ type Tracker struct {
 	sync.RWMutex
 }
 
-func NewTracker(ledger *ledger.Ledger, opts ...options.Option[Tracker]) (manaTracker *Tracker) {
-	return options.Apply(&Tracker{
+// New creates a new ManaTracker.
+func New(ledgerInstance *ledger.Ledger, opts ...options.Option[ManaTracker]) (manaTracker *ManaTracker) {
+	return options.Apply(&ManaTracker{
 		manaByID: shrinkingmap.New[identity.ID, int64](),
-		ledger:   ledger,
+		ledger:   ledgerInstance,
 	}, opts)
 }
 
-func (t *Tracker) ProcessAcceptedTransaction(metadata *ledger.TransactionMetadata) {
+// ProcessAcceptedTransaction processes the accepted transaction and updates the mana according to the pledges.
+func (t *ManaTracker) ProcessAcceptedTransaction(metadata *ledger.TransactionMetadata) {
 	t.ledger.Storage.CachedTransaction(metadata.ID()).Consume(func(transaction utxo.Transaction) {
 		txEssence := transaction.(*devnetvm.Transaction).Essence()
 
@@ -37,33 +40,39 @@ func (t *Tracker) ProcessAcceptedTransaction(metadata *ledger.TransactionMetadat
 	})
 }
 
-func (t *Tracker) Mana(id identity.ID) (mana int64, exists bool) {
+// Mana returns the mana balance of an identity.
+func (t *ManaTracker) Mana(id identity.ID) (mana int64, exists bool) {
 	t.RLock()
 	defer t.RUnlock()
 
 	return t.manaByID.Get(id)
 }
 
-func (t *Tracker) ManaByID() (manaByID map[identity.ID]int64) {
+// ManaByIDs returns the mana balances of all identities.
+func (t *ManaTracker) ManaByIDs() (manaByID map[identity.ID]int64) {
 	t.RLock()
 	defer t.RUnlock()
 
 	return t.manaByID.AsMap()
 }
 
-func (t *Tracker) TotalMana() (totalMana int64) {
+// TotalMana returns the total amount of mana.
+func (t *ManaTracker) TotalMana() (totalMana int64) {
 	return t.totalMana
 }
 
-func (t *Tracker) ImportOutputsFromSnapshot(outputs []*models.OutputWithMetadata) {
+// ImportOutputsFromSnapshot imports the outputs from a snapshot and updates the mana balances and the total mana.
+func (t *ManaTracker) ImportOutputsFromSnapshot(outputs []*models.OutputWithMetadata) {
 	t.totalMana += t.processOutputsFromSnapshot(outputs, true)
 }
 
-func (t *Tracker) RollbackOutputsFromSnapshot(outputs []*models.OutputWithMetadata, areCreated bool) {
+// RollbackOutputsFromSnapshot rolls back the outputs from a snapshot and updates the mana balances.
+func (t *ManaTracker) RollbackOutputsFromSnapshot(outputs []*models.OutputWithMetadata, areCreated bool) {
 	t.processOutputsFromSnapshot(outputs, !areCreated)
 }
 
-func (t *Tracker) updateMana(id identity.ID, diff int64) {
+// updateMana adds the diff to the current mana balance of an identity .
+func (t *ManaTracker) updateMana(id identity.ID, diff int64) {
 	t.Lock()
 	defer t.Unlock()
 
@@ -74,7 +83,8 @@ func (t *Tracker) updateMana(id identity.ID, diff int64) {
 	}
 }
 
-func (t *Tracker) revokeManaFromInputs(inputs devnetvm.Inputs) (totalRevoked int64) {
+// revokeManaFromInputs revokes the mana from the inputs of a transaction and returns the total amount that was revoked.
+func (t *ManaTracker) revokeManaFromInputs(inputs devnetvm.Inputs) (totalRevoked int64) {
 	for _, input := range inputs {
 		t.ledger.Storage.CachedOutput(input.(*devnetvm.UTXOInput).ReferencedOutputID()).Consume(func(o utxo.Output) {
 			t.ledger.Storage.CachedOutputMetadata(o.ID()).Consume(func(metadata *ledger.OutputMetadata) {
@@ -90,7 +100,8 @@ func (t *Tracker) revokeManaFromInputs(inputs devnetvm.Inputs) (totalRevoked int
 	return
 }
 
-func (t *Tracker) processOutputsFromSnapshot(outputs []*models.OutputWithMetadata, areCreated bool) (totalDiff int64) {
+// processOutputsFromSnapshot processes the outputs from a snapshot and updates the mana balances.
+func (t *ManaTracker) processOutputsFromSnapshot(outputs []*models.OutputWithMetadata, areCreated bool) (totalDiff int64) {
 	for _, output := range outputs {
 		if iotaBalance, exists := output.Output().(devnetvm.Output).Balances().Get(devnetvm.ColorIOTA); exists {
 			diff := lo.Cond(areCreated, int64(iotaBalance), -int64(iotaBalance))
