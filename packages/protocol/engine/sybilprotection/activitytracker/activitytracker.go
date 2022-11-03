@@ -1,7 +1,6 @@
 package activitytracker
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -50,14 +49,14 @@ func (a *ActivityTracker) Update(activeValidator *validator.Validator, activityT
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
-	fmt.Printf("Update activity %s: %s\n", activeValidator.ID(), activityTime)
+	//fmt.Printf("Update activity %s: %s\n", activeValidator.ID(), activityTime)
 
 	issuerLastActivity, exists := a.lastActiveMap.Get(activeValidator.ID())
 	if exists && issuerLastActivity.After(activityTime) {
 		return
 	}
 
-	fmt.Printf("Update activity %s: %s - last activity: %s - executing task in: %s, window: %s, RAT: %s\n", activeValidator.ID(), activityTime, issuerLastActivity, activityTime.Add(a.optsActivityWindow).Sub(a.timeRetrieverFunc()), a.optsActivityWindow, a.timeRetrieverFunc())
+	//fmt.Printf("Update activity %s: %s - last activity: %s - executing task in: %s, window: %s, RAT: %s\n", activeValidator.ID(), activityTime, issuerLastActivity, activityTime.Add(a.optsActivityWindow).Sub(a.timeRetrieverFunc()), a.optsActivityWindow, a.timeRetrieverFunc())
 
 	a.lastActiveMap.Set(activeValidator.ID(), activityTime)
 	a.validatorSet.Add(activeValidator)

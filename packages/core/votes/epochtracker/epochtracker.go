@@ -72,9 +72,10 @@ func (c *EpochTracker) TrackVotes(epochIndex epoch.Index, voterID identity.ID, p
 
 func (c *EpochTracker) Voters(epochIndex epoch.Index) (voters *validator.Set) {
 	voters = validator.NewSet()
-	epochVoters := c.epochVoters(epochIndex)
-	if epochVoters.IsEmpty() {
-		return
+
+	epochVoters, exists := c.votersPerEpoch.Get(epochIndex)
+	if !exists {
+		return voters
 	}
 
 	epochVoters.ForEach(func(identityID identity.ID) error {
@@ -85,7 +86,7 @@ func (c *EpochTracker) Voters(epochIndex epoch.Index) (voters *validator.Set) {
 		return nil
 	})
 
-	return
+	return voters
 }
 
 func (c *EpochTracker) EvictEpoch(indexToEvict epoch.Index) {

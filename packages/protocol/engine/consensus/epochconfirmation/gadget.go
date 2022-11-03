@@ -1,7 +1,6 @@
 package epochconfirmation
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -19,14 +18,14 @@ type Gadget struct {
 
 	tangle              *tangle.Tangle
 	lastConfirmedEpoch  epoch.Index
-	totalWeightCallback func() (int64, error)
+	totalWeightCallback func() int64
 
 	optsEpochConfirmationThreshold float64
 
 	sync.RWMutex
 }
 
-func New(tangle *tangle.Tangle, lastConfirmedEpoch epoch.Index, totalWeightCallback func() (int64, error), opts ...options.Option[Gadget]) (gadget *Gadget) {
+func New(tangle *tangle.Tangle, lastConfirmedEpoch epoch.Index, totalWeightCallback func() int64, opts ...options.Option[Gadget]) (gadget *Gadget) {
 	return options.Apply(&Gadget{
 		optsEpochConfirmationThreshold: 0.67,
 	}, opts, func(a *Gadget) {
@@ -54,17 +53,14 @@ func (g *Gadget) setup() {
 func (g *Gadget) refreshEpochConfirmation(previousLatestEpochIndex epoch.Index, newLatestEpochIndex epoch.Index) {
 	g.Lock()
 	defer g.Unlock()
-	totalWeight, err := g.totalWeightCallback()
-	if err != nil {
-		panic(err)
-	}
+	totalWeight := g.totalWeightCallback()
 
 	for i := lo.Max(g.lastConfirmedEpoch+1, previousLatestEpochIndex); i <= newLatestEpochIndex; i++ {
-		if validator.IsThresholdReached(totalWeight, g.tangle.VirtualVoting.EpochVoters(i).TotalWeight(), g.optsEpochConfirmationThreshold) {
-			g.lastConfirmedEpoch = i
-			g.Events.EpochConfirmed.Trigger(i)
-			fmt.Println(">> EpochConfirmed: ", i)
+		if !validator.IsThresholdReached(totalWeight, g.tangle.VirtualVoting.EpochVoters(i).TotalWeight(), g.optsEpochConfirmationThreshold) {
+			break
 		}
+		g.lastConfirmedEpoch = i
+		g.Events.EpochConfirmed.Trigger(i)
 	}
 }
 

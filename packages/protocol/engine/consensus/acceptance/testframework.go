@@ -72,8 +72,8 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 				}, t.optsTangleOptions...)
 			}
 
-			t.Gadget = New(t.optsTangle, func() (int64, error) {
-				return t.ValidatorSet.TotalWeight(), nil
+			t.Gadget = New(t.optsTangle, func() int64 {
+				return t.ValidatorSet.TotalWeight()
 			}, t.optsGadgetOptions...)
 		}
 

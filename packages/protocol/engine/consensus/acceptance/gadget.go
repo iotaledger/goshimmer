@@ -30,11 +30,11 @@ type Gadget struct {
 	Events *Events
 
 	tangle                  *tangle.Tangle
-	evictionState         *eviction.LockableState[models.BlockID]
+	evictionState           *eviction.LockableState[models.BlockID]
 	blocks                  *memstorage.EpochStorage[models.BlockID, *Block]
 	lastAcceptedMarker      *memstorage.Storage[markers.SequenceID, markers.Index]
 	lastAcceptedMarkerMutex sync.Mutex
-	totalWeightCallback     func() (int64, error)
+	totalWeightCallback     func() int64
 
 	optsMarkerAcceptanceThreshold   float64
 	optsConfirmationThreshold       float64
@@ -43,7 +43,7 @@ type Gadget struct {
 	confirmationOrder               *causalorder.CausalOrder[models.BlockID, *Block]
 }
 
-func New(tangle *tangle.Tangle, totalWeightCallback func() (int64, error), opts ...options.Option[Gadget]) (gadget *Gadget) {
+func New(tangle *tangle.Tangle, totalWeightCallback func() int64, opts ...options.Option[Gadget]) (gadget *Gadget) {
 	return options.Apply(&Gadget{
 		optsMarkerAcceptanceThreshold:   0.67,
 		optsConfirmationThreshold:       0.67,
@@ -126,10 +126,7 @@ func (a *Gadget) RefreshSequenceAcceptance(sequenceID markers.SequenceID, newMax
 
 	var acceptedBlocks, confirmedBlocks []*Block
 
-	totalWeight, err := a.totalWeightCallback()
-	if err != nil {
-		panic(err)
-	}
+	totalWeight := a.totalWeightCallback()
 
 	for markerIndex := prevMaxSupportedIndex; markerIndex <= newMaxSupportedIndex; markerIndex++ {
 		if markerIndex == 0 {
@@ -139,13 +136,19 @@ func (a *Gadget) RefreshSequenceAcceptance(sequenceID markers.SequenceID, newMax
 		marker := markers.NewMarker(sequenceID, markerIndex)
 
 		markerVoters := a.tangle.VirtualVoting.MarkerVoters(marker)
+
 		if validator.IsThresholdReached(totalWeight, a.tangle.ValidatorSet.TotalWeight(), a.optsConfirmationThreshold) {
 			// we have enough weight to confirm based on total weight
 			if validator.IsThresholdReached(totalWeight, markerVoters.TotalWeight(), a.optsConfirmationThreshold) && a.setMarkerAccepted(marker) {
-				acceptedBlocks, confirmedBlocks = a.propagateAcceptance(marker, true)
+				blocksToAccept, blocksToConfirm := a.propagateAcceptance(marker, true)
+				acceptedBlocks = append(acceptedBlocks, blocksToAccept...)
+				confirmedBlocks = append(acceptedBlocks, blocksToConfirm...)
+
 			}
 		} else if a.tangle.ValidatorSet.IsThresholdReached(markerVoters.TotalWeight(), a.optsMarkerAcceptanceThreshold) && a.setMarkerAccepted(marker) {
-			acceptedBlocks, _ = a.propagateAcceptance(marker, false)
+			blocksToAccept, _ := a.propagateAcceptance(marker, false)
+			acceptedBlocks = append(acceptedBlocks, blocksToAccept...)
+
 		}
 	}
 	a.evictionState.RUnlock()
@@ -202,12 +205,15 @@ func (a *Gadget) propagateAcceptance(marker markers.Marker, confirmed bool) (acc
 		walkerBlock := pastConeWalker.Next()
 
 		var acceptanceQueued, confirmationQueued bool
+
 		if acceptanceQueued = walkerBlock.SetAcceptanceQueued(); acceptanceQueued {
 			acceptedBlocks = append(acceptedBlocks, walkerBlock)
-
 		}
-		if confirmationQueued = walkerBlock.SetConfirmationQueued(); confirmationQueued {
-			confirmedBlocks = append(confirmedBlocks, walkerBlock)
+
+		if confirmed {
+			if confirmationQueued = walkerBlock.SetConfirmationQueued(); confirmationQueued {
+				confirmedBlocks = append(confirmedBlocks, walkerBlock)
+			}
 		}
 
 		if !acceptanceQueued && !confirmationQueued {

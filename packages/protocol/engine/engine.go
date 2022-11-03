@@ -164,13 +164,16 @@ func (e *Engine) initTangle() {
 }
 
 func (e *Engine) initConsensus() {
-	e.Consensus = consensus.New(e.Tangle, e.Storage.Permanent.Settings.LatestConfirmedEpoch(), func() (int64, error) {
+	e.Consensus = consensus.New(e.Tangle, e.Storage.Permanent.Settings.LatestConfirmedEpoch(), func() int64 {
 		weights := e.SybilProtection.Weights()
+		var zeroID identity.ID
 		var totalWeight int64
-		for _, weight := range weights {
-			totalWeight += weight
+		for id, weight := range weights {
+			if id != zeroID {
+				totalWeight += weight
+			}
 		}
-		return totalWeight, nil
+		return totalWeight
 	}, e.optsConsensusOptions...)
 
 	e.Events.Consensus = e.Consensus.Events
@@ -180,6 +183,8 @@ func (e *Engine) initConsensus() {
 		if err != nil {
 			panic(err)
 		}
+
+		e.Tangle.VirtualVoting.EvictEpochTracker(epochIndex)
 	}))
 }
 

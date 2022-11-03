@@ -165,6 +165,13 @@ func (o *VirtualVoting) evictSequence(sequenceID markers.SequenceID) {
 	o.sequenceTracker.EvictSequence(sequenceID)
 }
 
+func (o *VirtualVoting) EvictEpochTracker(epochIndex epoch.Index) {
+	o.evictionManager.Lock()
+	defer o.evictionManager.Unlock()
+
+	o.epochTracker.EvictEpoch(epochIndex)
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Forking logic ////////////////////////////////////////////////////////////////////////////////////////////////
