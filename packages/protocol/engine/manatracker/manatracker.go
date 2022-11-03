@@ -16,11 +16,10 @@ import (
 
 // ManaTracker is the manager that tracks the mana balances of identities.
 type ManaTracker struct {
-	totalMana int64
-	manaByID  *shrinkingmap.ShrinkingMap[identity.ID, int64]
-	ledger    *ledger.Ledger
-
-	sync.RWMutex
+	manaByID      *shrinkingmap.ShrinkingMap[identity.ID, int64]
+	manaByIDMutex sync.RWMutex
+	totalMana     int64
+	ledger        *ledger.Ledger
 }
 
 // New creates a new ManaTracker.
@@ -42,16 +41,16 @@ func (t *ManaTracker) ProcessAcceptedTransaction(metadata *ledger.TransactionMet
 
 // Mana returns the mana balance of an identity.
 func (t *ManaTracker) Mana(id identity.ID) (mana int64, exists bool) {
-	t.RLock()
-	defer t.RUnlock()
+	t.manaByIDMutex.RLock()
+	defer t.manaByIDMutex.RUnlock()
 
 	return t.manaByID.Get(id)
 }
 
 // ManaByIDs returns the mana balances of all identities.
 func (t *ManaTracker) ManaByIDs() (manaByID map[identity.ID]int64) {
-	t.RLock()
-	defer t.RUnlock()
+	t.manaByIDMutex.RLock()
+	defer t.manaByIDMutex.RUnlock()
 
 	return t.manaByID.AsMap()
 }
@@ -73,8 +72,8 @@ func (t *ManaTracker) RollbackOutputsFromSnapshot(outputs []*models.OutputWithMe
 
 // updateMana adds the diff to the current mana balance of an identity .
 func (t *ManaTracker) updateMana(id identity.ID, diff int64) {
-	t.Lock()
-	defer t.Unlock()
+	t.manaByIDMutex.Lock()
+	defer t.manaByIDMutex.Unlock()
 
 	if newBalance := lo.Return1(t.manaByID.Get(id)) + diff; newBalance != 0 {
 		t.manaByID.Set(id, newBalance)
@@ -86,9 +85,9 @@ func (t *ManaTracker) updateMana(id identity.ID, diff int64) {
 // revokeManaFromInputs revokes the mana from the inputs of a transaction and returns the total amount that was revoked.
 func (t *ManaTracker) revokeManaFromInputs(inputs devnetvm.Inputs) (totalRevoked int64) {
 	for _, input := range inputs {
-		t.ledger.Storage.CachedOutput(input.(*devnetvm.UTXOInput).ReferencedOutputID()).Consume(func(o utxo.Output) {
-			t.ledger.Storage.CachedOutputMetadata(o.ID()).Consume(func(metadata *ledger.OutputMetadata) {
-				if amount, exists := o.(devnetvm.Output).Balances().Get(devnetvm.ColorIOTA); exists {
+		t.ledger.Storage.CachedOutput(input.(*devnetvm.UTXOInput).ReferencedOutputID()).Consume(func(output utxo.Output) {
+			t.ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(metadata *ledger.OutputMetadata) {
+				if amount, exists := output.(devnetvm.Output).Balances().Get(devnetvm.ColorIOTA); exists {
 					t.updateMana(metadata.AccessManaPledgeID(), -int64(amount))
 
 					totalRevoked += int64(amount)
