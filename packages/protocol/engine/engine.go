@@ -14,7 +14,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/eventticker"
 	"github.com/iotaledger/goshimmer/packages/core/eviction"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/storage"
 
@@ -166,14 +165,21 @@ func (e *Engine) initTangle() {
 
 func (e *Engine) initConsensus() {
 	e.Consensus = consensus.New(e.Tangle, e.Storage.Permanent.Settings.LatestConfirmedEpoch(), func() (int64, error) {
-		totalMana, _, err := e.ManaTracker.GetTotalMana(manamodels.ConsensusMana)
-		return totalMana, err
+		weights := e.SybilProtection.Weights()
+		var totalWeight int64
+		for _, weight := range weights {
+			totalWeight += weight
+		}
+		return totalWeight, nil
 	}, e.optsConsensusOptions...)
 
 	e.Events.Consensus = e.Consensus.Events
 
 	e.Events.Consensus.EpochConfirmation.EpochConfirmed.Attach(event.NewClosure(func(epochIndex epoch.Index) {
-		e.Storage.Permanent.Settings.SetLatestConfirmedEpoch(epochIndex)
+		err := e.Storage.Permanent.Settings.SetLatestConfirmedEpoch(epochIndex)
+		if err != nil {
+			panic(err)
+		}
 	}))
 }
 
@@ -268,7 +274,7 @@ func (e *Engine) initManaTracker() {
 }
 
 func (e *Engine) initSybilProtection() {
-	e.SybilProtection = sybilprotection.New(e.ValidatorSet, e.Clock.RelativeAcceptedTime,  e.optsSybilProtectionOptions...)
+	e.SybilProtection = sybilprotection.New(e.ValidatorSet, e.Clock.RelativeAcceptedTime, e.optsSybilProtectionOptions...)
 
 	e.Storage.Permanent.Events.ConsensusWeightsUpdated.Hook(event.NewClosure(e.SybilProtection.UpdateConsensusWeights))
 	e.Events.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(e.SybilProtection.TrackActiveValidators))
