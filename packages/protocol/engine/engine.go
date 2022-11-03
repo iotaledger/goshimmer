@@ -229,9 +229,9 @@ func (e *Engine) initNotarizationManager() {
 }
 
 func (e *Engine) initManaTracker() {
-	e.ManaTracker = mana.NewTracker(e.Ledger, e.Storage, e.optsManaTrackerOptions...)
+	e.ManaTracker = mana.NewTracker(e.Ledger, e.optsManaTrackerOptions...)
 
-	e.Ledger.Events.TransactionAccepted.Attach(event.NewClosure(e.ManaTracker.UpdateMana))
+	e.Ledger.Events.TransactionAccepted.Attach(event.NewClosure(e.ManaTracker.ProcessAcceptedTransaction))
 }
 
 func (e *Engine) initSybilProtection() {

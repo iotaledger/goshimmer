@@ -13,7 +13,7 @@ import (
 
 // getAllManaHandler handles the request.
 func getAllManaHandler(c echo.Context) error {
-	access := deps.Protocol.Engine().ManaTracker.ManaMap()
+	access := deps.Protocol.Engine().ManaTracker.ManaByID()
 	accessList := manamodels.IssuerMap(access).ToIssuerStrList()
 	sort.Slice(accessList, func(i, j int) bool {
 		return accessList[i].Mana > accessList[j].Mana
