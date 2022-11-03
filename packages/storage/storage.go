@@ -3,6 +3,7 @@ package storage
 import (
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/storage/permanent"
 	"github.com/iotaledger/goshimmer/packages/storage/prunable"
 )
@@ -29,6 +30,11 @@ func New(directory string, version database.Version) (newStorage *Storage) {
 
 		database: database,
 	}
+}
+
+// PruneUntilEpoch prunes storage epochs less than and equal to the given index.
+func (c *Storage) PruneUntilEpoch(epochIndex epoch.Index) {
+	c.database.PruneUntilEpoch(epochIndex)
 }
 
 // Shutdown shuts down the storage.
