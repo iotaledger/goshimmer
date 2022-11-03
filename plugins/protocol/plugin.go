@@ -1,6 +1,8 @@
 package protocol
 
 import (
+	"fmt"
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/node"
 	"go.uber.org/dig"
@@ -124,12 +126,12 @@ func configureLogging(*node.Plugin) {
 	}))
 
 	deps.Protocol.Events.CongestionControl.Scheduler.BlockDropped.Attach(event.NewClosure(func(block *scheduler.Block) {
-		Plugin.LogDebugf("Block %s dropped", block.ID())
-	}))
 
-	// deps.Protocol.Events.Engine.NotarizationManager.EpochCommittable.Attach(event.NewClosure(func(e *notarization.EpochCommittableEvent) {
-	// 	fmt.Println("EpochCommittableEvent", e.EI)
-	// }))
+		Plugin.LogDebugf("Block %s dropped, issuer %s, commitment %s", block.ID(), block.IssuerID().String(), block.Commitment().String())
+	}))
+	deps.Protocol.Events.Engine.NotarizationManager.EpochCommitted.Attach(event.NewClosure(func(commitment *commitment.Commitment) {
+		fmt.Printf("EpochCommittableEvent, our commitment: %s, EI: %d, root: %s\n", commitment.ID().String(), commitment.Index(), commitment.RootsID().String())
+	}))
 
 	// deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(func(block *blockdag.Block) {
 	// 	fmt.Println(">>>>>>> BlockMissing", block.ID())
