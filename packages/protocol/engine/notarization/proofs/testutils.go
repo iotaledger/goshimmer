@@ -9,12 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-<<<<<<<< HEAD:packages/protocol/engine/notarization/testutils.go
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana"
-========
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
->>>>>>>> develop:packages/protocol/engine/notarization/proofs/testutils.go
 )
 
 const (
