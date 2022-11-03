@@ -230,8 +230,6 @@ func (e *Engine) initNotarizationManager() {
 
 func (e *Engine) initManaTracker() {
 	e.ManaTracker = manatracker.New(e.Ledger, e.optsManaTrackerOptions...)
-
-	e.Ledger.Events.TransactionAccepted.Attach(event.NewClosure(e.ManaTracker.ProcessAcceptedTransaction))
 }
 
 func (e *Engine) initSybilProtection() {

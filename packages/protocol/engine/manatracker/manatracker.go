@@ -3,6 +3,7 @@ package manatracker
 import (
 	"sync"
 
+	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
@@ -27,7 +28,9 @@ func New(ledgerInstance *ledger.Ledger, opts ...options.Option[ManaTracker]) (ma
 	return options.Apply(&ManaTracker{
 		manaByID: shrinkingmap.New[identity.ID, int64](),
 		ledger:   ledgerInstance,
-	}, opts)
+	}, opts, func(m *ManaTracker) {
+		ledgerInstance.Events.TransactionAccepted.Attach(event.NewClosure(m.ProcessAcceptedTransaction))
+	})
 }
 
 // ProcessAcceptedTransaction processes the accepted transaction and updates the mana according to the pledges.
