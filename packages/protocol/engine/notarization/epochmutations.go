@@ -20,6 +20,8 @@ import (
 
 // EpochMutations is an in-memory data structure that enables the collection of mutations for uncommitted epochs.
 type EpochMutations struct {
+	Events *EpochMutationsEvents
+
 	// acceptedBlocksByEpoch stores the accepted blocks per epoch.
 	acceptedBlocksByEpoch *memstorage.Storage[epoch.Index, *ads.Set[models.BlockID]]
 
@@ -41,6 +43,7 @@ type EpochMutations struct {
 // NewEpochMutations creates a new EpochMutations instance.
 func NewEpochMutations(lastCommittedEpoch epoch.Index) (newMutationFactory *EpochMutations) {
 	return &EpochMutations{
+		Events:                      NewEpochMutationsEvents(),
 		acceptedBlocksByEpoch:       memstorage.New[epoch.Index, *ads.Set[models.BlockID]](),
 		acceptedTransactionsByEpoch: memstorage.New[epoch.Index, *ads.Set[utxo.TransactionID]](),
 		activeValidatorsByEpoch:     memstorage.New[epoch.Index, *ads.Set[identity.ID]](),
@@ -79,6 +82,7 @@ func (m *EpochMutations) RemoveAcceptedBlock(block *models.Block) (err error) {
 	m.acceptedBlocks(blockID.Index()).Delete(blockID)
 	m.removeBlockByIssuer(blockID, block.IssuerID())
 
+	m.Events.AcceptedBlockRemoved.Trigger(blockID)
 	return
 }
 

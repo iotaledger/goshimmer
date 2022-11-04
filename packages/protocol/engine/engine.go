@@ -226,6 +226,7 @@ func (e *Engine) initNotarizationManager() {
 	}))
 
 	e.Events.NotarizationManager = e.NotarizationManager.Events
+	e.Events.EpochMutations = e.NotarizationManager.EpochMutations.Events
 }
 
 func (e *Engine) initManaTracker() {

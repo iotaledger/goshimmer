@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
@@ -261,6 +262,12 @@ func registerLocalMetrics() {
 			conflictTotalCountDB.Inc()
 			activeConflicts[conflictID] = types.Void
 		}
+	}))
+
+	// Orphaned block counter that is removed successfully
+	deps.Protocol.Events.Engine.EpochMutations.AcceptedBlockRemoved.Attach(event.NewClosure(func(blkID models.BlockID) {
+		increaseRemovedBlockCounter(blkID)
+		fmt.Println("block is orphaned from epoch!")
 	}))
 
 	metrics.Events.AnalysisOutboundBytes.Attach(event.NewClosure(func(event *metrics.AnalysisOutboundBytesEvent) {
