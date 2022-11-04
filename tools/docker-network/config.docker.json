@@ -31,7 +31,8 @@
     "devBindAddress": "dagsvisualizer-dev-docker:3000"
   },
   "database": {
-    "directory": "mainnetdb"
+    "directory": "mainnetdb",
+    "pruningThreshold": 6
   },
   "p2p": {
     "port": 14666
