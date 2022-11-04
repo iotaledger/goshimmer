@@ -12,7 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/core/workerpool"
 	"github.com/labstack/echo"
 
-	"github.com/iotaledger/goshimmer/packages/node/shutdown"
+	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 )
 
@@ -52,7 +52,7 @@ func configureWebSocketWorkerPool() {
 			broadcastWsBlock(&wsblk{MsgTypeNodeStatus, currentNodeStatus()})
 			broadcastWsBlock(&wsblk{MsgTypeNeighborMetric, neighborMetrics()})
 			broadcastWsBlock(&wsblk{MsgTypeTipsMetric, &tipsInfo{
-				TotalTips: deps.Tangle.TipManager.TipCount(),
+				TotalTips: deps.Protocol.TipManager.TipCount(),
 			}})
 		case *componentsmetric:
 			broadcastWsBlock(&wsblk{MsgTypeComponentCounterMetric, x})
@@ -149,12 +149,6 @@ func broadcastWsBlock(blk interface{}, dontDrop ...bool) {
 }
 
 func sendInitialData(ws *websocket.Conn) error {
-	if err := sendAllowedManaPledge(ws); err != nil {
-		return err
-	}
-	if err := ManaBufferInstance().SendEvents(ws); err != nil {
-		return err
-	}
 	if err := ManaBufferInstance().SendValueBlks(ws); err != nil {
 		return err
 	}

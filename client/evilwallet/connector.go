@@ -10,8 +10,8 @@ import (
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
 
 type ServersStatus []*wallet.ServerStatus

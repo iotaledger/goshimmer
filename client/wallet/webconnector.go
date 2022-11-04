@@ -2,13 +2,13 @@ package wallet
 
 import (
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/core/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
 
 // WebConnector implements a connector that uses the web API to connect to a node to implement the required functions
@@ -127,20 +127,6 @@ func (webConnector WebConnector) GetTransactionConfirmationState(txID utxo.Trans
 	return txmeta.ConfirmationState, nil
 }
 
-// GetAllowedPledgeIDs gets the list of nodeIDs that the node accepts as pledgeIDs in a transaction.
-func (webConnector WebConnector) GetAllowedPledgeIDs() (pledgeIDMap map[mana.Type][]string, err error) {
-	res, err := webConnector.client.GetAllowedManaPledgeNodeIDs()
-	if err != nil {
-		return
-	}
-	pledgeIDMap = map[mana.Type][]string{
-		mana.AccessMana:    res.Access.Allowed,
-		mana.ConsensusMana: res.Consensus.Allowed,
-	}
-
-	return
-}
-
 // GetUnspentAliasOutput returns the current unspent alias output that belongs to a given alias address.
 func (webConnector WebConnector) GetUnspentAliasOutput(addr *devnetvm.AliasAddress) (output *devnetvm.AliasOutput, err error) {
 	res, err := webConnector.client.GetAddressUnspentOutputs(addr.Base58())
@@ -177,7 +163,7 @@ func colorFromString(colorStr string) (color devnetvm.Color) {
 	} else {
 		var t utxo.TransactionID
 		_ = t.FromBase58(colorStr)
-		color, _, _ = devnetvm.ColorFromBytes(t.Bytes())
+		color, _, _ = devnetvm.ColorFromBytes(lo.PanicOnErr(t.Bytes()))
 	}
 	return
 }

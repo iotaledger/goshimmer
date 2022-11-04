@@ -15,10 +15,11 @@ func registerEpochCommittmentMetrics() {
 	})
 	registry.MustRegister(lastCommittedEpoch)
 
-	addCollect(collectEpochCommittmentMetrics)
+	// TODO: uncomment when commitments work
+	//addCollect(collectEpochCommittmentMetrics)
 }
 
 func collectEpochCommittmentMetrics() {
-	ecRecord := metrics.LastCommittedEpoch()
-	lastCommittedEpoch.Set(float64(ecRecord.EI()))
+	commitment := metrics.LastCommittedEpoch()
+	lastCommittedEpoch.Set(float64(commitment.Index()))
 }

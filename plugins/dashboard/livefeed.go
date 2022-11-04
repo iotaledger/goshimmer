@@ -7,9 +7,9 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/workerpool"
 
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
-
-	"github.com/iotaledger/goshimmer/packages/node/shutdown"
+	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 var (
@@ -20,24 +20,24 @@ var (
 
 func configureLiveFeed() {
 	liveFeedWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
-		block := task.Param(0).(*tangleold.Block)
+		block := task.Param(0).(*models.Block)
 
-		broadcastWsBlock(&wsblk{MsgTypeBlock, &blk{block.ID().Base58(), 0, uint32(block.Payload().Type())}})
+		broadcastWsBlock(&wsblk{MsgTypeBlock, &blk{block.ID().Base58(), 0, block.Payload().Type()}})
 
 		task.Return(nil)
 	}, workerpool.WorkerCount(liveFeedWorkerCount), workerpool.QueueSize(liveFeedWorkerQueueSize))
 }
 
 func runLiveFeed() {
-	notifyNewBlk := event.NewClosure(func(event *tangleold.BlockStoredEvent) {
-		liveFeedWorkerPool.TrySubmit(event.Block)
+	notifyNewBlk := event.NewClosure(func(block *blockdag.Block) {
+		liveFeedWorkerPool.TrySubmit(block.ModelsBlock)
 	})
 
 	if err := daemon.BackgroundWorker("Dashboard[BlkUpdater]", func(ctx context.Context) {
-		deps.Tangle.Storage.Events.BlockStored.Attach(notifyNewBlk)
+		deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Attach(notifyNewBlk)
 		<-ctx.Done()
 		log.Info("Stopping Dashboard[BlkUpdater] ...")
-		deps.Tangle.Storage.Events.BlockStored.Detach(notifyNewBlk)
+		deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Detach(notifyNewBlk)
 		liveFeedWorkerPool.Stop()
 		log.Info("Stopping Dashboard[BlkUpdater] ... done")
 	}, shutdown.PriorityDashboard); err != nil {

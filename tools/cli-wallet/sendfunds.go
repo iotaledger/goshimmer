@@ -11,7 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/sendoptions"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
 
 func execSendFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {

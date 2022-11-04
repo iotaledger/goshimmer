@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
@@ -98,7 +98,7 @@ func TestConflictSpamAndMergeToMaster(t *testing.T) {
 	t.Logf("Verifying that %s is on MasterConflict", blkID)
 	blockMetadata, err := peer1.GetBlockMetadata(blkID)
 	require.NoError(t, err)
-	require.Empty(t, blockMetadata.ConflictIDs)
+	require.Empty(t, blockMetadata.M.ConflictIDs)
 }
 
 // determineOutputSlice will extract sub-slices from outputs of a certain size.

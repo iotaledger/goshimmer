@@ -35,7 +35,7 @@ var (
 	}
 
 	// GenesisTime provides the genesis time for the tests, to start close to epoch 0.
-	GenesisTime = time.Now().Unix()
+	GenesisTime = time.Now().Add(-time.Minute).Unix()
 )
 
 // CreateNetworkConfig is the config for optional plugins passed through NewNetwork.
@@ -60,26 +60,18 @@ func PeerConfig() config.GoShimmer {
 
 	c.Image = "iotaledger/goshimmer"
 
-	c.DisabledPlugins = []string{"portcheck", "analysisClient", "profiling", "clock", "remotelogmetrics", "remotemetrics", "epochStorage", "WebAPIEpochEndpoint", "ManaInitializer", "Warpsync"}
-
-	c.GenesisTime = GenesisTime
+	c.DisabledPlugins = []string{"portcheck", "analysisClient", "profiling", "remotelogmetrics", "remotemetrics", "WebAPIEpochEndpoint", "ManaInitializer", "Warpsync"}
 
 	c.Network.Enabled = true
 
 	c.Dashboard.Enabled = true
+
 	c.Dashboard.BindAddress = fmt.Sprintf("0.0.0.0:%d", dashboardPort)
 
 	c.Dagsvisualizer.Enabled = true
 	c.Dagsvisualizer.BindAddress = fmt.Sprintf("0.0.0.0:%d", dagVizPort)
 
-	c.Database.Enabled = true
-	c.Database.ForceCacheTime = 0 // disable caching for tests
-
 	c.P2P.Enabled = true
-	c.Gossip.Enabled = true
-
-	c.POW.Enabled = true
-	c.POW.Difficulty = 1
 
 	c.WebAPI.Enabled = true
 	c.WebAPI.BindAddress = fmt.Sprintf(":%d", apiPort)
@@ -88,23 +80,20 @@ func PeerConfig() config.GoShimmer {
 	c.AutoPeering.BindAddress = fmt.Sprintf(":%d", peeringPort)
 	c.AutoPeering.EntryNodes = nil
 
-	c.BlockLayer.Enabled = true
-	c.BlockLayer.Snapshot.GenesisNode = "" // use the default time based approach
+	c.Protocol.Enabled = true
+	c.Protocol.Snapshot.Path = "" // snapshot path is set individually in each test
+	c.Protocol.GenesisTime = GenesisTime
 
 	c.Notarization.Enabled = true
 	c.Notarization.BootstrapWindow = 0 // disable bootstrap window for tests
 	c.Notarization.MinEpochCommittableAge = 10 * time.Second
 
-	c.RateSetter.Enabled = true
-	c.RateSetter.RateSetterParametersDefinition.Enable = false
+	c.BlockIssuer.Enabled = true
+	c.BlockIssuer.RateSetter.Enable = false
 
 	c.Faucet.Enabled = false
 	c.Faucet.Seed = base58.Encode(GenesisSeedBytes)
 	c.Faucet.PowDifficulty = 1
-
-	c.Mana.Enabled = true
-
-	c.Consensus.Enabled = false
 
 	c.Activity.Enabled = false
 	c.Activity.BroadcastInterval = time.Second // increase frequency to speedup tests
@@ -116,19 +105,18 @@ func PeerConfig() config.GoShimmer {
 func EntryNodeConfig() config.GoShimmer {
 	c := PeerConfig()
 
-	c.DisabledPlugins = append(c.DisabledPlugins, "issuer", "metrics", "valuetransfers", "consensus",
+	c.DisabledPlugins = append(c.DisabledPlugins, "metrics",
 		"manualpeering", "chat", "WebAPIDataEndpoint", "WebAPIFaucetRequestEndpoint", "WebAPIBlockEndpoint",
-		"Snapshot", "WebAPIWeightProviderEndpoint", "WebAPIInfoEndpoint", "WebAPIRateSetterEndpoint", "WebAPISchedulerEndpoint",
-		"WebAPIEpochEndpoint", "EpochStorage", "remotelog", "remotelogmetrics", "DAGsVisualizer", "Notarization",
-		"Firewall", "WebAPILedgerstateEndpoint", "BootstrapManager", "Warpsync")
+		"WebAPIWeightProviderEndpoint", "WebAPIInfoEndpoint", "WebAPIRateSetterEndpoint", "WebAPISchedulerEndpoint", "WebAPIHealthzEndpoint",
+		"WebAPIManaEndpoint", "WebAPIEpochEndpoint", "remotelog", "remotelogmetrics", "DAGsVisualizer",
+		"Firewall", "WebAPILedgerstateEndpoint", "Warpsync", "retainer", "indexer", "WebAPIManaEndpoint")
 	c.P2P.Enabled = false
-	c.Gossip.Enabled = false
-	c.POW.Enabled = false
+	c.Activity.Enabled = false
+	c.BlockIssuer.Enabled = false
 	c.AutoPeering.Enabled = true
-	c.BlockLayer.Enabled = false
+	c.Protocol.Enabled = false
 	c.Faucet.Enabled = false
-	c.Mana.Enabled = false
-	c.Consensus.Enabled = false
+	c.Network.Enabled = false
 	c.Activity.Enabled = false
 	c.Dashboard.Enabled = false
 	c.Dagsvisualizer.Enabled = false

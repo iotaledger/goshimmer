@@ -13,13 +13,10 @@ import (
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/iotaledger/hive.go/core/workerpool"
 
-	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
-	"github.com/iotaledger/goshimmer/packages/node/clock"
-
-	"github.com/iotaledger/goshimmer/packages/node/shutdown"
+	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
 
 var (
@@ -115,16 +112,16 @@ func runConflictLiveFeed() {
 		onConflictCreatedClosure := event.NewClosure(onConflictCreated)
 		onConflictAcceptedClosure := event.NewClosure(onConflictAccepted)
 		onConflictRejectedClosure := event.NewClosure(onConflictRejected)
-		deps.Tangle.Ledger.ConflictDAG.Events.ConflictCreated.Attach(onConflictCreatedClosure)
-		deps.Tangle.Ledger.ConflictDAG.Events.ConflictAccepted.Attach(onConflictAcceptedClosure)
-		deps.Tangle.Ledger.ConflictDAG.Events.ConflictRejected.Attach(onConflictRejectedClosure)
+		deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictCreated.Attach(onConflictCreatedClosure)
+		deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictAccepted.Attach(onConflictAcceptedClosure)
+		deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictRejected.Attach(onConflictRejectedClosure)
 
 		<-ctx.Done()
 
 		log.Info("Stopping Dashboard[ConflictsLiveFeed] ...")
-		deps.Tangle.Ledger.ConflictDAG.Events.ConflictCreated.Detach(onConflictCreatedClosure)
-		deps.Tangle.Ledger.ConflictDAG.Events.ConflictAccepted.Detach(onConflictAcceptedClosure)
-		deps.Tangle.Ledger.ConflictDAG.Events.ConflictRejected.Detach(onConflictRejectedClosure)
+		deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictCreated.Detach(onConflictCreatedClosure)
+		deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictAccepted.Detach(onConflictAcceptedClosure)
+		deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictRejected.Detach(onConflictRejectedClosure)
 		log.Info("Stopping Dashboard[ConflictsLiveFeed] ... done")
 	}, shutdown.PriorityDashboard); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
@@ -135,10 +132,10 @@ func onConflictCreated(event *conflictdag.ConflictCreatedEvent[utxo.TransactionI
 	conflictID := event.ID
 	b := &conflict{
 		ConflictID:  conflictID,
-		UpdatedTime: clock.SyncedTime(),
+		UpdatedTime: time.Now(),
 	}
 
-	deps.Tangle.Ledger.Storage.CachedTransaction(conflictID).Consume(func(transaction utxo.Transaction) {
+	deps.Protocol.Engine().Ledger.Storage.CachedTransaction(conflictID).Consume(func(transaction utxo.Transaction) {
 		if tx, ok := transaction.(*devnetvm.Transaction); ok {
 			b.IssuingTime = tx.Essence().Timestamp()
 		}
@@ -151,7 +148,7 @@ func onConflictCreated(event *conflictdag.ConflictCreatedEvent[utxo.TransactionI
 	mu.Lock()
 	defer mu.Unlock()
 
-	deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflict(conflictID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	deps.Protocol.Engine().Ledger.ConflictDAG.Storage.CachedConflict(conflictID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		b.ConflictSetIDs = conflict.ConflictSetIDs()
 	})
 
@@ -162,14 +159,14 @@ func onConflictCreated(event *conflictdag.ConflictCreatedEvent[utxo.TransactionI
 		if !exists {
 			c := &conflictSet{
 				ConflictSetID: conflictID,
-				ArrivalTime:   clock.SyncedTime(),
-				UpdatedTime:   clock.SyncedTime(),
+				ArrivalTime:   time.Now(),
+				UpdatedTime:   time.Now(),
 			}
 			conflicts.addConflictSet(c)
 		}
 
 		// update all existing conflicts with a possible new conflictSet membership
-		deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.OutputID, utxo.TransactionID]) {
+		deps.Protocol.Engine().Ledger.ConflictDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.OutputID, utxo.TransactionID]) {
 			conflicts.addConflictMember(conflictMember.ConflictID(), conflictID)
 		})
 	}
@@ -177,13 +174,13 @@ func onConflictCreated(event *conflictdag.ConflictCreatedEvent[utxo.TransactionI
 	conflicts.addConflict(b)
 }
 
-func onConflictAccepted(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
+func onConflictAccepted(conflictID utxo.TransactionID) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	b, exists := conflicts.conflict(event.ID)
+	b, exists := conflicts.conflict(conflictID)
 	if !exists {
-		log.Warnf("conflict %s did not yet exist", event.ID)
+		log.Warnf("conflict %s did not yet exist", conflictID)
 		return
 	}
 
@@ -194,7 +191,7 @@ func onConflictAccepted(event *conflictdag.ConflictAcceptedEvent[utxo.Transactio
 	}
 
 	b.ConfirmationState = confirmation.Accepted
-	b.UpdatedTime = clock.SyncedTime()
+	b.UpdatedTime = time.Now()
 	conflicts.addConflict(b)
 
 	for it := b.ConflictSetIDs.Iterator(); it.HasNext(); {
@@ -203,13 +200,13 @@ func onConflictAccepted(event *conflictdag.ConflictAcceptedEvent[utxo.Transactio
 	}
 }
 
-func onConflictRejected(event *conflictdag.ConflictRejectedEvent[utxo.TransactionID]) {
+func onConflictRejected(conflictID utxo.TransactionID) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	b, exists := conflicts.conflict(event.ID)
+	b, exists := conflicts.conflict(conflictID)
 	if !exists {
-		log.Warnf("conflict %s did not yet exist", event.ID)
+		log.Warnf("conflict %s did not yet exist", conflictID)
 		return
 	}
 
@@ -220,7 +217,7 @@ func onConflictRejected(event *conflictdag.ConflictRejectedEvent[utxo.Transactio
 	}
 
 	b.ConfirmationState = confirmation.Rejected
-	b.UpdatedTime = clock.SyncedTime()
+	b.UpdatedTime = time.Now()
 	conflicts.addConflict(b)
 }
 
@@ -232,15 +229,10 @@ func sendAllConflicts() {
 }
 
 func issuerOfOldestAttachment(conflictID utxo.TransactionID) (id identity.ID) {
-	var oldestAttachmentTime time.Time
-	deps.Tangle.Storage.Attachments(utxo.TransactionID(conflictID)).Consume(func(attachment *tangleold.Attachment) {
-		deps.Tangle.Storage.Block(attachment.BlockID()).Consume(func(block *tangleold.Block) {
-			if oldestAttachmentTime.IsZero() || block.IssuingTime().Before(oldestAttachmentTime) {
-				oldestAttachmentTime = block.IssuingTime()
-				id = identity.New(block.IssuerPublicKey()).ID()
-			}
-		})
-	})
+	block := deps.Protocol.Engine().Tangle.GetEarliestAttachment(conflictID)
+	if block != nil {
+		return block.IssuerID()
+	}
 	return
 }
 
@@ -312,8 +304,8 @@ func (b *boundedConflictMap) addConflictSet(c *conflictSet) {
 func (b *boundedConflictMap) resolveConflict(conflictID utxo.OutputID) {
 	if c, exists := b.conflictSets[conflictID]; exists && !c.Resolved {
 		c.Resolved = true
-		c.TimeToResolve = clock.Since(c.ArrivalTime)
-		c.UpdatedTime = clock.SyncedTime()
+		c.TimeToResolve = time.Since(c.ArrivalTime)
+		c.UpdatedTime = time.Now()
 		b.conflictSets[conflictID] = c
 		sendConflictSetUpdate(c)
 	}
@@ -336,7 +328,7 @@ func (b *boundedConflictMap) addConflict(br *conflict) {
 func (b *boundedConflictMap) addConflictMember(conflictID utxo.TransactionID, resourceID utxo.OutputID) {
 	if _, exists := b.conflicts[conflictID]; exists {
 		b.conflicts[conflictID].ConflictSetIDs.Add(resourceID)
-		b.conflicts[conflictID].UpdatedTime = clock.SyncedTime()
+		b.conflicts[conflictID].UpdatedTime = time.Now()
 		sendConflictUpdate(b.conflicts[conflictID])
 	}
 }

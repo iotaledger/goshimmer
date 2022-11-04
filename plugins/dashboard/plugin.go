@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/core/autopeering/discover"
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/core/autopeering/selection"
@@ -21,12 +22,19 @@ import (
 	"github.com/labstack/echo/middleware"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm/indexer"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+	"github.com/iotaledger/goshimmer/packages/app/retainer"
+	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 
 	"github.com/iotaledger/goshimmer/packages/app/chat"
-	"github.com/iotaledger/goshimmer/packages/node/p2p"
-	"github.com/iotaledger/goshimmer/packages/node/shutdown"
+	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 )
@@ -44,7 +52,9 @@ var (
 	log    *logger.Logger
 	server *echo.Echo
 
-	nodeStartAt = time.Now()
+	nodeStartAt        = time.Now()
+	lastAcceptedBlock  *acceptance.Block
+	lastConfirmedBlock *acceptance.Block
 )
 
 type dependencies struct {
@@ -52,7 +62,9 @@ type dependencies struct {
 
 	Node       *configuration.Configuration
 	Local      *peer.Local
-	Tangle     *tangleold.Tangle
+	Retainer   *retainer.Retainer
+	Protocol   *protocol.Protocol
+	Discover   *discover.Protocol  `optional:"true"`
 	Selection  *selection.Protocol `optional:"true"`
 	P2PManager *p2p.Manager        `optional:"true"`
 	Chat       *chat.Chat          `optional:"true"`
@@ -65,6 +77,25 @@ func init() {
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(plugin.Name)
+
+	lastAcceptedBlock = &acceptance.Block{
+		Block: &virtualvoting.Block{
+			Block: &booker.Block{
+				Block: &blockdag.Block{
+					ModelsBlock: models.NewEmptyBlock(models.EmptyBlockID),
+				},
+			},
+		},
+	}
+	lastConfirmedBlock = lastAcceptedBlock
+
+	deps.Protocol.Events.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
+		if lastAcceptedBlock.IssuingTime().Before(block.IssuingTime()) {
+			lastAcceptedBlock = block
+			lastConfirmedBlock = block
+		}
+	}))
+
 	configureWebSocketWorkerPool()
 	configureLiveFeed()
 	configureChatLiveFeed()
@@ -178,12 +209,8 @@ const (
 	MsgTypeManaMapOnline
 	// MsgTypeManaAllowedPledge defines a block containing a list of allowed mana pledge nodeIDs.
 	MsgTypeManaAllowedPledge
-	// MsgTypeManaPledge defines a block that is sent when mana was pledged to the node.
-	MsgTypeManaPledge
 	// MsgTypeManaInitPledge defines a block that is sent when initial pledge events are sent to the dashboard.
 	MsgTypeManaInitPledge
-	// MsgTypeManaRevoke defines a block that is sent when mana was revoked from a node.
-	MsgTypeManaRevoke
 	// MsgTypeManaInitRevoke defines a block that is sent when initial revoke events are sent to the dashboard.
 	MsgTypeManaInitRevoke
 	// MsgTypeManaInitDone defines a block that is sent when all initial values are sent.
@@ -206,9 +233,9 @@ type wsblk struct {
 }
 
 type blk struct {
-	ID          string `json:"id"`
-	Value       int64  `json:"value"`
-	PayloadType uint32 `json:"payload_type"`
+	ID          string       `json:"id"`
+	Value       int64        `json:"value"`
+	PayloadType payload.Type `json:"payload_type"`
 }
 
 type nodestatus struct {
@@ -335,25 +362,25 @@ func currentNodeStatus() *nodestatus {
 	}
 
 	// get TangleTime
-	tm := deps.Tangle.TimeManager
+	tm := deps.Protocol.Engine().Clock
 	status.TangleTime = tangleTime{
-		Synced:           tm.Synced(),
-		Bootstrapped:     tm.Bootstrapped(),
-		AcceptedBlockID:  tm.LastAcceptedBlock().BlockID.Base58(),
-		ConfirmedBlockID: tm.LastConfirmedBlock().BlockID.Base58(),
-		ATT:              tm.ATT().UnixNano(),
-		RATT:             tm.RATT().UnixNano(),
-		CTT:              tm.CTT().UnixNano(),
-		RCTT:             tm.RCTT().UnixNano(),
+		Synced:           deps.Protocol.Engine().IsSynced(),
+		Bootstrapped:     deps.Protocol.Engine().IsBootstrapped(),
+		AcceptedBlockID:  lastAcceptedBlock.ID().Base58(),
+		ConfirmedBlockID: lastConfirmedBlock.ID().Base58(),
+		ATT:              tm.AcceptedTime().UnixNano(),
+		RATT:             tm.RelativeAcceptedTime().UnixNano(),
+		CTT:              tm.ConfirmedTime().UnixNano(),
+		RCTT:             tm.RelativeConfirmedTime().UnixNano(),
 	}
 
-	deficit, _ := deps.Tangle.Scheduler.GetDeficit(deps.Local.ID()).Float64()
+	deficit, _ := deps.Protocol.CongestionControl.Scheduler().Deficit(deps.Local.ID()).Float64()
 
 	status.Scheduler = schedulerMetric{
-		Running:           deps.Tangle.Scheduler.Running(),
-		Rate:              deps.Tangle.Scheduler.Rate().String(),
-		MaxBufferSize:     deps.Tangle.Scheduler.MaxBufferSize(),
-		CurrentBufferSize: deps.Tangle.Scheduler.BufferSize(),
+		Running:           deps.Protocol.CongestionControl.Scheduler().Running(),
+		Rate:              deps.Protocol.CongestionControl.Scheduler().Rate().String(),
+		MaxBufferSize:     deps.Protocol.CongestionControl.Scheduler().MaxBufferSize(),
+		CurrentBufferSize: deps.Protocol.CongestionControl.Scheduler().BufferSize(),
 		Deficit:           deficit,
 	}
 	return status

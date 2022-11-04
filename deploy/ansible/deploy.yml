@@ -1,5 +1,8 @@
 ---
 ## This playbook deploys new changes to the environment.
+- hosts: all
+  roles:
+    - exporter
 
 - hosts: metrics
   vars:

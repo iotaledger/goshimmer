@@ -18,8 +18,8 @@ func (api *GoShimmerAPI) ToggleSpammer(enable bool, rate int, unit, imif string)
 		imif = "uniform"
 	}
 	// set default time unit in case of incorrect unit value
-	if unit != "mpm" {
-		unit = "mps"
+	if unit != "BPM" {
+		unit = "BPS"
 	}
 	res := &jsonmodels.SpammerResponse{}
 	if err := api.do(http.MethodGet, func() string {

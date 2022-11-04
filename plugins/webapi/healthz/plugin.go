@@ -9,9 +9,8 @@ import (
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/core/bootstrapmanager"
-
-	"github.com/iotaledger/goshimmer/packages/node/shutdown"
+	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/protocol"
 )
 
 // PluginName is the name of the web API healthz endpoint plugin.
@@ -20,8 +19,8 @@ const PluginName = "WebAPIHealthzEndpoint"
 type dependencies struct {
 	dig.In
 
-	Server           *echo.Echo
-	BootstrapManager *bootstrapmanager.Manager `optional:"true"`
+	Server   *echo.Echo
+	Protocol *protocol.Protocol
 }
 
 var (
@@ -50,7 +49,7 @@ func worker(ctx context.Context) {
 }
 
 func getHealthz(c echo.Context) error {
-	if deps.BootstrapManager != nil && !deps.BootstrapManager.Bootstrapped() {
+	if deps.Protocol.Engine().IsBootstrapped() {
 		return c.NoContent(http.StatusServiceUnavailable)
 	}
 	return c.NoContent(http.StatusOK)

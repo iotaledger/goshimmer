@@ -10,10 +10,10 @@ import (
 	"github.com/iotaledger/hive.go/core/timeutil"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
-
-	"github.com/iotaledger/goshimmer/packages/node/shutdown"
+	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
+	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 )
 
 var (
@@ -24,7 +24,8 @@ var (
 
 type dependencies struct {
 	dig.In
-	Tangle *tangleold.Tangle
+	BlockIssuer *blockissuer.BlockIssuer
+	Protocol    *protocol.Protocol
 }
 
 func init() {
@@ -39,12 +40,8 @@ func configure(plugin *node.Plugin) {
 func broadcastActivityBlock() {
 	activityPayload := payload.NewGenericDataPayload([]byte("activity"))
 
-	// sleep some time according to rate setter estimate
-	if deps.Tangle.Options.RateSetterParams.Enabled {
-		time.Sleep(deps.Tangle.RateSetter.Estimate())
-	}
-
-	blk, err := deps.Tangle.IssuePayload(activityPayload, Parameters.ParentsCount)
+	time.Sleep(deps.BlockIssuer.Estimate())
+	blk, err := deps.BlockIssuer.IssuePayload(activityPayload, Parameters.ParentsCount)
 	if err != nil {
 		Plugin.LogWarnf("error issuing activity block: %s", err)
 		return

@@ -9,10 +9,9 @@ import (
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
-
+	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	"github.com/iotaledger/goshimmer/packages/app/spammer"
-	"github.com/iotaledger/goshimmer/packages/node/shutdown"
+	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 )
 
 var blockSpammer *spammer.Spammer
@@ -30,8 +29,8 @@ var (
 type dependencies struct {
 	dig.In
 
-	Tangle *tangleold.Tangle
-	Server *echo.Echo
+	BlockIssuer *blockissuer.BlockIssuer
+	Server      *echo.Echo
 }
 
 func init() {
@@ -41,7 +40,7 @@ func init() {
 func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
 
-	blockSpammer = spammer.New(deps.Tangle.IssuePayload, log, deps.Tangle.RateSetter.Estimate)
+	blockSpammer = spammer.New(deps.BlockIssuer.IssuePayload, log, deps.BlockIssuer.Estimate)
 	deps.Server.GET("spammer", handleRequest)
 }
 

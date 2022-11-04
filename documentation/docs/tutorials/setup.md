@@ -70,54 +70,7 @@ apt update && apt dist-upgrade -y
 
 #### Install Docker
 
-Install needed dependencies:
-
-```shell
-apt-get install \
-     apt-transport-https \
-     ca-certificates \
-     curl \
-     gnupg-agent \
-     software-properties-common
-```
-
-Add Docker’s official GPG key:
-
-```shell
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
-```
-
-Verify that the GPG key matches:
-
-```shell
-apt-key fingerprint 0EBFCD88
-pub   rsa4096 2017-02-22 [SCEA]
-      9DC8 5822 9FC7 DD38 854A  E2D8 8D81 803C 0EBF CD88
-uid           [ unknown] Docker Release (CE deb) <docker@docker.com>
-sub   rsa4096 2017-02-22 [S]
-
-```
-
-Add the actual repository:
-
-```shell
-add-apt-repository \
-   "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
-   $(lsb_release -cs) \
-   stable"
-```
-
-Update the package index:
-
-```shell
-apt-get update
-```
-
-And finally, install docker:
-
-```shell
-apt-get install docker-ce docker-ce-cli containerd.io
-```
+Follow the official [Docker installation guide](https://docs.docker.com/engine/install/ubuntu/)
 
 On windows-subsystem for Linux (WSL2) it may be necessary to start docker seperately:
 ```
@@ -139,20 +92,14 @@ Docker compose gives us the ability to define our services with `docker-compose.
 Download docker compose:
 
 ```shell
-curl -L "https://github.com/docker/compose/releases/download/1.26.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-```
-
-Make it executable:
-
-```shell
-chmod +x /usr/local/bin/docker-compose
+apt-get install docker-compose-plugin
 ```
 
 Check that docker compose works:
 
 ```shell
-docker-compose --version
-docker-compose version 1.26.0, build d4451659
+docker compose --version
+Docker Compose version v2.10.2
 ```
 
 ### Define the docker-compose.yml
@@ -271,7 +218,7 @@ If the UDP NAT mapping is not configured correctly, GoShimmer will terminate wit
 Within the `/opt/goshimmer` folder where the `docker-compose.yml` resides, simply execute:
 
 ```shell
-docker-compose up -d
+docker compose up -d
 Pulling goshimmer (iotaledger/goshimmer:0.2.0)...
 ...
 ```
@@ -350,13 +297,13 @@ GoShimmer also exposes an HTTP API. To check whether that works correctly, you c
 ### Stopping the Node
 
 ```shell
-docker-compose stop
+docker compose stop
 ```
 
 ### Resetting the Node
 
 ```shell
-docker-compose down
+docker compose down
 ```
 
 ### Upgrading the Node
@@ -364,10 +311,10 @@ docker-compose down
 **Ensure that the image version in the `docker-compose.yml` is `latest`** then execute following commands:
 
 ```shell
-docker-compose down
+docker compose down
 rm db/*
-docker-compose pull
-docker-compose up -d
+docker compose pull
+docker compose up -d
 ```
 
 ### Following Log Output
@@ -541,7 +488,7 @@ chmod -R 777 grafana
 #### Run GoShimmer with Prometheus and Grafana:
 
 ```shell
-docker-compose up -d
+docker compose up -d
 ```
 
 The Grafana dashboard should be accessible at `http://<your-ip>:3000`.
