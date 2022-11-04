@@ -7,10 +7,8 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
 
-	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/eventticker"
@@ -82,7 +80,6 @@ func New(storageInstance *storage.Storage, opts ...options.Option[Engine]) (engi
 			EntryPointsManager: NewEntryPointsManager(storageInstance),
 			Storage:            storageInstance,
 
-			optsEntryPointsDepth:      3,
 			optsBootstrappedThreshold: 10 * time.Second,
 			optsSnapshotFile:          "snapshot.bin",
 			optsSnapshotDepth:         5,
@@ -123,12 +120,10 @@ func (e *Engine) IsSynced() (isBootstrapped bool) {
 }
 
 func (e *Engine) Evict(index epoch.Index) {
-	solidEntryPoints := set.NewAdvancedSet[models.BlockID]()
 	for i := index; i > index-epoch.Index(e.optsEntryPointsDepth); i-- {
-		solidEntryPoints.AddAll(e.EntryPointsManager.LoadAll(i))
+		e.EvictionState.EvictUntil(index, e.EntryPointsManager.LoadAll(i))
+		e.EntryPointsManager.Evict(i)
 	}
-
-	e.EvictionState.EvictUntil(index, solidEntryPoints)
 }
 
 func (e *Engine) Shutdown() {
@@ -254,10 +249,6 @@ func (e *Engine) initSybilProtection() {
 }
 
 func (e *Engine) initEvictionManager() {
-	e.NotarizationManager.Events.EpochCommitted.Attach(event.NewClosure(func(commitment *commitment.Commitment) {
-		e.EvictionState.EvictUntil(commitment.Index(), e.EntryPointsManager.LoadAll(commitment.Index()))
-	}))
-
 	e.Events.EvictionManager = e.EvictionState.Events
 }
 

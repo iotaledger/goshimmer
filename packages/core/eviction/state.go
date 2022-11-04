@@ -2,10 +2,10 @@ package eviction
 
 import (
 	"sync"
-
-	"github.com/iotaledger/hive.go/core/generics/set"
+	"time"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
 // region Manager //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -13,19 +13,20 @@ import (
 type State[ID epoch.IndexedID] struct {
 	Events *Events
 
-	maxEvictedEpoch epoch.Index
-	rootBlocks      *set.AdvancedSet[ID]
+	maxEvictedEpoch    epoch.Index
+	entryPointsManager *RootBlocksManager
+	isRootBlockFunc    func(ID) bool
+
+	optsTimeSinceConfirmationThreshold time.Duration
 
 	sync.RWMutex
 }
 
-func NewState[ID epoch.IndexedID]() (newState *State[ID]) {
-	var emptyID ID
-
+func NewState[ID epoch.IndexedID](storage *storage.Storage) (newState *State[ID]) {
 	return &State[ID]{
-		Events:          NewEvents(),
-		rootBlocks:      set.NewAdvancedSet(emptyID),
-		maxEvictedEpoch: 0,
+		Events:             NewEvents(),
+		entryPointsManager: NewEntryPointsManager(storage),
+		maxEvictedEpoch:    0,
 	}
 }
 
@@ -37,12 +38,16 @@ func (m *State[ID]) Lockable() (newLockableState *LockableState[ID]) {
 	}
 }
 
-func (m *State[ID]) EvictUntil(epochIndex epoch.Index, rootBlocks *set.AdvancedSet[ID]) {
-	previousEvicted := m.setEvictedEpochAndUpdateRootBlocks(epochIndex, rootBlocks)
+func (m *State[ID]) EvictUntil(epochIndex epoch.Index) {
+	m.Lock()
+	defer m.Unlock()
 
+	previousEvicted := m.maxEvictedEpoch
 	for currentIndex := previousEvicted + 1; currentIndex <= epochIndex; currentIndex++ {
 		m.Events.EpochEvicted.Trigger(currentIndex)
 	}
+
+	m.maxEvictedEpoch = epochIndex
 }
 
 // IsTooOld checks if the Block associated with the given id is too old (in a pruned epoch).
@@ -50,21 +55,14 @@ func (m *State[ID]) IsTooOld(id ID) (isTooOld bool) {
 	m.RLock()
 	defer m.RUnlock()
 
-	return id.Index() <= m.maxEvictedEpoch && !m.isRootBlock(id)
+	return id.Index() <= m.maxEvictedEpoch && !m.isRootBlockFunc(id)
 }
 
 func (m *State[ID]) IsRootBlock(id ID) (isRootBlock bool) {
 	m.RLock()
 	defer m.RUnlock()
 
-	return m.isRootBlock(id)
-}
-
-func (m *State[ID]) RootBlocks() (rootBlocks *set.AdvancedSet[ID]) {
-	m.RLock()
-	defer m.RUnlock()
-
-	return m.rootBlocks.Clone()
+	return m.isRootBlockFunc(id)
 }
 
 func (m *State[ID]) MaxEvictedEpoch() epoch.Index {
@@ -72,25 +70,6 @@ func (m *State[ID]) MaxEvictedEpoch() epoch.Index {
 	defer m.RUnlock()
 
 	return m.maxEvictedEpoch
-}
-
-func (m *State[ID]) isRootBlock(id ID) (isRootBlock bool) {
-	return m.rootBlocks.Has(id)
-}
-
-// setEvictedEpochAndUpdateRootBlocks atomically increases maxEvictedEpoch and updates the root blocks for the epoch.
-func (m *State[ID]) setEvictedEpochAndUpdateRootBlocks(index epoch.Index, rootBlocks *set.AdvancedSet[ID]) (old epoch.Index) {
-	m.Lock()
-	defer m.Unlock()
-
-	if old = m.maxEvictedEpoch; old >= index {
-		return
-	}
-
-	m.maxEvictedEpoch = index
-	m.rootBlocks = rootBlocks
-
-	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
