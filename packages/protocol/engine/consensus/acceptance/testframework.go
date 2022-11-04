@@ -35,13 +35,14 @@ type TestFramework struct {
 	conflictsRejected uint32
 	reorgCount        uint32
 
-	optsGadgetOptions   []options.Option[Gadget]
-	optsLedger          *ledger.Ledger
-	optsLedgerOptions   []options.Option[ledger.Ledger]
-	optsEvictionManager *eviction.State[models.BlockID]
-	optsValidatorSet    *validator.Set
-	optsTangle          *tangle.Tangle
-	optsTangleOptions   []options.Option[tangle.Tangle]
+	optsGadgetOptions       []options.Option[Gadget]
+	optsLedger              *ledger.Ledger
+	optsLedgerOptions       []options.Option[ledger.Ledger]
+	optsEvictionManager     *eviction.State[models.BlockID]
+	optsValidatorSet        *validator.Set
+	optsTangle              *tangle.Tangle
+	optsTangleOptions       []options.Option[tangle.Tangle]
+	optsTotalWeightCallback func() int64
 
 	*TangleTestFramework
 }
@@ -50,6 +51,9 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 	chainStorage := storage.New(test.TempDir(), 1)
 	return options.Apply(&TestFramework{
 		test: test,
+		optsTotalWeightCallback: func() int64 {
+			return t.ValidatorSet.TotalWeight()
+		},
 	}, opts, func(t *TestFramework) {
 		if t.Gadget == nil {
 			if t.optsTangle == nil {
@@ -72,9 +76,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 				}, t.optsTangleOptions...)
 			}
 
-			t.Gadget = New(t.optsTangle, func() int64 {
-				return t.ValidatorSet.TotalWeight()
-			}, t.optsGadgetOptions...)
+			t.Gadget = New(t.optsTangle, t.optsTotalWeightCallback, t.optsGadgetOptions...)
 		}
 
 		if t.TangleTestFramework == nil {
@@ -154,7 +156,7 @@ func (t *TestFramework) ValidateAcceptedBlocks(expectedAcceptedBlocks map[string
 func (t *TestFramework) ValidateConfirmedBlocks(expectedConfirmedBlocks map[string]bool) {
 	for blockID, blockExpectedConfirmed := range expectedConfirmedBlocks {
 		actualBlockConfirmed := t.Gadget.isBlockConfirmed(t.Block(blockID).ID())
-		assert.Equal(t.test, blockExpectedConfirmed, actualBlockConfirmed, "Block %s should be accepted=%t but is %t", blockID, blockExpectedConfirmed, actualBlockConfirmed)
+		assert.Equal(t.test, blockExpectedConfirmed, actualBlockConfirmed, "Block %s should be confirmed=%t but is %t", blockID, blockExpectedConfirmed, actualBlockConfirmed)
 	}
 }
 
@@ -181,6 +183,12 @@ type TangleTestFramework = tangle.TestFramework
 func WithGadget(gadget *Gadget) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
 		tf.Gadget = gadget
+	}
+}
+
+func WithTotalWeightCallback(totalWeightCallback func() int64) options.Option[TestFramework] {
+	return func(tf *TestFramework) {
+		tf.optsTotalWeightCallback = totalWeightCallback
 	}
 }
 

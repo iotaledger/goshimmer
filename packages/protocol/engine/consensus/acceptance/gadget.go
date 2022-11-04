@@ -29,12 +29,14 @@ import (
 type Gadget struct {
 	Events *Events
 
-	tangle                  *tangle.Tangle
-	evictionState           *eviction.LockableState[models.BlockID]
-	blocks                  *memstorage.EpochStorage[models.BlockID, *Block]
-	lastAcceptedMarker      *memstorage.Storage[markers.SequenceID, markers.Index]
-	lastAcceptedMarkerMutex sync.Mutex
-	totalWeightCallback     func() int64
+	tangle                   *tangle.Tangle
+	evictionState            *eviction.LockableState[models.BlockID]
+	blocks                   *memstorage.EpochStorage[models.BlockID, *Block]
+	lastAcceptedMarker       *memstorage.Storage[markers.SequenceID, markers.Index]
+	lastAcceptedMarkerMutex  sync.Mutex
+	lastConfirmedMarker      *memstorage.Storage[markers.SequenceID, markers.Index]
+	lastConfirmedMarkerMutex sync.Mutex
+	totalWeightCallback      func() int64
 
 	optsMarkerAcceptanceThreshold   float64
 	optsConfirmationThreshold       float64
@@ -55,6 +57,7 @@ func New(tangle *tangle.Tangle, totalWeightCallback func() int64, opts ...option
 		a.totalWeightCallback = totalWeightCallback
 		a.evictionState = tangle.EvictionState.Lockable()
 		a.lastAcceptedMarker = memstorage.New[markers.SequenceID, markers.Index]()
+		a.lastConfirmedMarker = memstorage.New[markers.SequenceID, markers.Index]()
 		a.blocks = memstorage.NewEpochStorage[models.BlockID, *Block]()
 
 		a.acceptanceOrder = causalorder.New(a.evictionState.State, a.GetOrRegisterBlock, (*Block).IsAccepted, a.markAsAccepted, a.acceptanceFailed)
@@ -68,6 +71,14 @@ func (a *Gadget) IsMarkerAccepted(marker markers.Marker) (accepted bool) {
 	defer a.evictionState.RUnlock()
 
 	return a.isMarkerAccepted(marker)
+}
+
+// IsMarkerConfirmed returns whether the given marker is confirmed.
+func (a *Gadget) IsMarkerConfirmed(marker markers.Marker) (confirmed bool) {
+	a.evictionState.RLock()
+	defer a.evictionState.RUnlock()
+
+	return a.isMarkerConfirmed(marker)
 }
 
 // IsBlockAccepted returns whether the given block is accepted.
@@ -97,6 +108,15 @@ func (a *Gadget) isMarkerAccepted(marker markers.Marker) bool {
 	return exists && lastAcceptedIndex >= marker.Index()
 }
 
+func (a *Gadget) isMarkerConfirmed(marker markers.Marker) bool {
+	if marker.Index() == 0 {
+		return true
+	}
+
+	lastConfirmedIndex, exists := a.lastConfirmedMarker.Get(marker.SequenceID())
+	return exists && lastConfirmedIndex >= marker.Index()
+}
+
 func (a *Gadget) FirstUnacceptedIndex(sequenceID markers.SequenceID) (firstUnacceptedIndex markers.Index) {
 	lastAcceptedIndex, exists := a.lastAcceptedMarker.Get(sequenceID)
 	if !exists {
@@ -104,6 +124,15 @@ func (a *Gadget) FirstUnacceptedIndex(sequenceID markers.SequenceID) (firstUnacc
 	}
 
 	return lastAcceptedIndex + 1
+}
+
+func (a *Gadget) FirstUnconfirmedIndex(sequenceID markers.SequenceID) (firstUnconfirmedIndex markers.Index) {
+	lastConfirmedIndex, exists := a.lastConfirmedMarker.Get(sequenceID)
+	if !exists {
+		return 1
+	}
+
+	return lastConfirmedIndex + 1
 }
 
 // Block retrieves a Block with metadata from the in-memory storage of the Gadget.
@@ -138,12 +167,16 @@ func (a *Gadget) RefreshSequenceAcceptance(sequenceID markers.SequenceID, newMax
 		markerVoters := a.tangle.VirtualVoting.MarkerVoters(marker)
 
 		if validator.IsThresholdReached(totalWeight, a.tangle.ValidatorSet.TotalWeight(), a.optsConfirmationThreshold) {
-			// we have enough weight to confirm based on total weight
-			if validator.IsThresholdReached(totalWeight, markerVoters.TotalWeight(), a.optsConfirmationThreshold) && a.setMarkerAccepted(marker) {
-				blocksToAccept, blocksToConfirm := a.propagateAcceptance(marker, true)
-				acceptedBlocks = append(acceptedBlocks, blocksToAccept...)
-				confirmedBlocks = append(acceptedBlocks, blocksToConfirm...)
-
+			// have enough weight to confirm based on total weight
+			if validator.IsThresholdReached(totalWeight, markerVoters.TotalWeight(), a.optsConfirmationThreshold) {
+				// need to mark outside of if statement, otherwise only the first part would be executed
+				markerAccepted := a.setMarkerAccepted(marker)
+				markerConfirmed := a.setMarkerConfirmed(marker)
+				if markerAccepted || markerConfirmed {
+					blocksToAccept, blocksToConfirm := a.propagateAcceptance(marker, true)
+					acceptedBlocks = append(acceptedBlocks, blocksToAccept...)
+					confirmedBlocks = append(confirmedBlocks, blocksToConfirm...)
+				}
 			}
 		} else if a.tangle.ValidatorSet.IsThresholdReached(markerVoters.TotalWeight(), a.optsMarkerAcceptanceThreshold) && a.setMarkerAccepted(marker) {
 			blocksToAccept, _ := a.propagateAcceptance(marker, false)
@@ -291,7 +324,11 @@ func (a *Gadget) evictSequence(sequenceID markers.SequenceID) {
 	defer a.evictionState.Unlock()
 
 	if !a.lastAcceptedMarker.Delete(sequenceID) {
-		a.Events.Error.Trigger(errors.Errorf("could not evict sequenceID=%s", sequenceID))
+		a.Events.Error.Trigger(errors.Errorf("could not evict last accepted marker of sequenceID=%s", sequenceID))
+	}
+
+	if !a.lastConfirmedMarker.Delete(sequenceID) {
+		a.Events.Error.Trigger(errors.Errorf("could not evict last confirmed marker of sequenceID=%s", sequenceID))
 	}
 }
 
@@ -376,6 +413,16 @@ func (a *Gadget) setMarkerAccepted(marker markers.Marker) (wasUpdated bool) {
 
 	if index, exists := a.lastAcceptedMarker.Get(marker.SequenceID()); !exists || index < marker.Index() {
 		a.lastAcceptedMarker.Set(marker.SequenceID(), marker.Index())
+		return true
+	}
+	return false
+}
+func (a *Gadget) setMarkerConfirmed(marker markers.Marker) (wasUpdated bool) {
+	a.lastConfirmedMarkerMutex.Lock()
+	defer a.lastConfirmedMarkerMutex.Unlock()
+
+	if index, exists := a.lastConfirmedMarker.Get(marker.SequenceID()); !exists || index < marker.Index() {
+		a.lastConfirmedMarker.Set(marker.SequenceID(), marker.Index())
 		return true
 	}
 	return false
