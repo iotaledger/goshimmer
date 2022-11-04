@@ -15,7 +15,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
@@ -98,47 +97,32 @@ type DeficitRateSetter struct {
 	totalAccessManaRetrieveFunc func() int64
 	accessManaMapRetrieverFunc  func() map[identity.ID]int64
 
-	issuingQueue   *IssuerQueue
-	issueChan      chan *models.Block
-	deficitChan    chan float64
-	excessDeficit  *atomic.Float64
-	ownRate        *atomic.Float64
-	maxRate        float64
-	shutdownSignal chan struct{}
-	shutdownOnce   sync.Once
-	initOnce       sync.Once
-	schedulerRate  time.Duration
+	issuingQueue      *IssuerQueue
+	issueChan         chan *models.Block
+	deficitChan       chan float64
+	excessDeficit     *atomic.Float64
+	ownRate           *atomic.Float64
+	maxRate           float64
+	shutdownSignal    chan struct{}
+	shutdownOnce      sync.Once
+	initOnce          sync.Once
+	optsSchedulerRate time.Duration
 }
 
 func NewDeficit(protocol *protocol.Protocol, selfIdentity identity.ID, opts ...options.Option[DeficitRateSetter]) *DeficitRateSetter {
 
-	accessManaMapRetrieverFunc := func() map[identity.ID]int64 {
-		manaMap, _, err := protocol.Engine().ManaTracker.GetManaMap(manamodels.AccessMana)
-		if err != nil {
-			return make(map[identity.ID]int64)
-		}
-		return manaMap
-	}
-	totalAccessManaRetrieveFunc := func() int64 {
-		totalMana, _, err := protocol.Engine().ManaTracker.GetTotalMana(manamodels.AccessMana)
-		if err != nil {
-			return 0
-		}
-		return totalMana
-	}
 	return options.Apply(&DeficitRateSetter{
 		events:                      newEvents(),
 		protocol:                    protocol,
 		self:                        selfIdentity,
-		accessManaMapRetrieverFunc:  accessManaMapRetrieverFunc,
-		totalAccessManaRetrieveFunc: totalAccessManaRetrieveFunc,
+		accessManaMapRetrieverFunc:  protocol.Engine().ManaTracker.ManaMap,
+		totalAccessManaRetrieveFunc: protocol.Engine().ManaTracker.TotalMana,
 		issuingQueue:                NewIssuerQueue(),
 		deficitChan:                 make(chan float64),
 		issueChan:                   make(chan *models.Block),
 		excessDeficit:               atomic.NewFloat64(0),
 		ownRate:                     atomic.NewFloat64(0),
 		shutdownSignal:              make(chan struct{}),
-		schedulerRate:               protocol.CongestionControl.Scheduler().Rate(),
 	}, opts, func(r *DeficitRateSetter) {
 		go r.issuerLoop()
 	})
@@ -257,11 +241,12 @@ loop:
 func (r *DeficitRateSetter) setupEvents() {
 
 	// TODO: update deficit-based rate setting if own deficit is modified
-	/*
-		r.protocol.CongestionControl.Scheduler().Events.OwnDeficitUpdated.Attach(event.NewClosure(func(event *OwnDeficitUpdatedEvent) {
-			r.deficitChan <- event.Deficit
-		}))
-	*/
+	r.protocol.CongestionControl.Scheduler().Events.OwnDeficitUpdated.Attach(event.NewClosure(func(issuerID identity.ID) {
+		if issuerID == r.self {
+			r.deficitChan <- r.protocol.CongestionControl.Scheduler().GetExcessDeficit(issuerID)
+		}
+	}))
+
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -294,26 +279,12 @@ type AIMDRateSetter struct {
 // New returns a new AIMDRateSetter.
 func NewAIMD(protocol *protocol.Protocol, selfIdentity identity.ID, opts ...options.Option[AIMDRateSetter]) *AIMDRateSetter {
 
-	accessManaMapRetrieverFunc := func() map[identity.ID]int64 {
-		manaMap, _, err := protocol.Engine().ManaTracker.GetManaMap(manamodels.AccessMana)
-		if err != nil {
-			return make(map[identity.ID]int64)
-		}
-		return manaMap
-	}
-	totalAccessManaRetrieveFunc := func() int64 {
-		totalMana, _, err := protocol.Engine().ManaTracker.GetTotalMana(manamodels.AccessMana)
-		if err != nil {
-			return 0
-		}
-		return totalMana
-	}
 	return options.Apply(&AIMDRateSetter{
 		events:                      newEvents(),
 		protocol:                    protocol,
 		self:                        selfIdentity,
-		accessManaMapRetrieverFunc:  accessManaMapRetrieverFunc,
-		totalAccessManaRetrieveFunc: totalAccessManaRetrieveFunc,
+		accessManaMapRetrieverFunc:  protocol.Engine().ManaTracker.ManaMap,
+		totalAccessManaRetrieveFunc: protocol.Engine().ManaTracker.TotalMana,
 		issuingQueue:                NewIssuerQueue(),
 		issueChan:                   make(chan *models.Block),
 		ownRate:                     atomic.NewFloat64(0),
@@ -540,6 +511,18 @@ func WithInitialRate(initialRate float64) options.Option[AIMDRateSetter] {
 func WithPause(pause time.Duration) options.Option[AIMDRateSetter] {
 	return func(rateSetter *AIMDRateSetter) {
 		rateSetter.optsPause = pause
+	}
+}
+
+func WithSchedulerRateAIMD(rate time.Duration) options.Option[AIMDRateSetter] {
+	return func(rateSetter *AIMDRateSetter) {
+		rateSetter.optsSchedulerRate = rate
+	}
+}
+
+func WithSchedulerRateDeficit(rate time.Duration) options.Option[DeficitRateSetter] {
+	return func(rateSetter *DeficitRateSetter) {
+		rateSetter.optsSchedulerRate = rate
 	}
 }
 

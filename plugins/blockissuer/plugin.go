@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer/blockfactory"
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer/ratesetter"
 	"github.com/iotaledger/goshimmer/packages/protocol"
+	protocolParams "github.com/iotaledger/goshimmer/plugins/protocol"
 )
 
 // PluginName is the name of the spammer plugin.
@@ -53,9 +54,12 @@ func createBlockIssuer(local *peer.Local, protocol *protocol.Protocol) *blockiss
 		rateSetter = ratesetter.NewAIMD(protocol, local.LocalIdentity().ID(),
 			ratesetter.WithPause(Parameters.RateSetter.Pause),
 			ratesetter.WithInitialRate(Parameters.RateSetter.Initial),
+			ratesetter.WithSchedulerRateAIMD(protocolParams.SchedulerParameters.Rate),
 		)
 	case ratesetter.DeficitMode:
-		rateSetter = ratesetter.NewDeficit(protocol, local.LocalIdentity().ID())
+		rateSetter = ratesetter.NewDeficit(protocol, local.LocalIdentity().ID(),
+			ratesetter.WithSchedulerRateDeficit(protocolParams.SchedulerParameters.Rate),
+		)
 	default:
 		rateSetter = ratesetter.NewDisabled(protocol, local.LocalIdentity().ID())
 	}

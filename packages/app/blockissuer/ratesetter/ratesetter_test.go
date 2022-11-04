@@ -1,42 +1,41 @@
 package ratesetter
 
-//
 // import (
 // 	"testing"
 // 	"time"
-//
+
 // 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 // 	"github.com/iotaledger/hive.go/core/generics/event"
 // 	"github.com/iotaledger/hive.go/core/identity"
 // 	"github.com/stretchr/testify/assert"
-//
+
 // 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 // )
-//
+
 // var (
-// 	testInitial = 5.0
+// testInitial = 5.0
 // )
-//
+
 // func TestRateSetter_StartStop(t *testing.T) {
 // 	localID := identity.GenerateLocalIdentity()
-//
+
 // 	rateSetter := New()
 // 	defer tangle.Shutdown()
 // 	time.Sleep(10 * time.Millisecond)
 // }
-//
+
 // func TestRateSetter_Submit(t *testing.T) {
 // 	localID := identity.GenerateLocalIdentity()
 // 	localNode := identity.New(localID.PublicKey())
-//
+
 // 	tangle := NewTestTangle(Identity(localID), RateSetterConfig(testRateSetterParams))
 // 	defer tangle.Shutdown()
 // 	rateSetter := New(tangle)
 // 	defer rateSetter.Shutdown()
-//
+
 // 	blockIssued := make(chan *Block, 1)
 // 	rateSetter.Events.BlockIssued.Attach(event.NewClosure(func(event *BlockConstructedEvent) { blockIssued <- event.Block }))
-//
+
 // 	blk := newBlock(localNode.PublicKey())
 // 	assert.NoError(t, rateSetter.IssueBlock(blk))
 // 	assert.Eventually(t, func() bool {
@@ -48,16 +47,16 @@ package ratesetter
 // 		}
 // 	}, 1*time.Second, 10*time.Millisecond)
 // }
-//
+
 // func TestRateSetter_ErrorHandling(t *testing.T) {
 // 	localID := identity.GenerateLocalIdentity()
 // 	localNode := identity.New(localID.PublicKey())
-//
+
 // 	tangle := NewTestTangle(Identity(localID), RateSetterConfig(testRateSetterParams))
 // 	defer tangle.Shutdown()
 // 	rateSetter := New(tangle)
 // 	defer rateSetter.Shutdown()
-//
+
 // 	blockDiscarded := make(chan BlockID, MaxLocalQueueSize*2)
 // 	discardedCounter := event.NewClosure(func(event *BlockDiscardedEvent) { blockDiscarded <- event.BlockID })
 // 	rateSetter.Events.BlockDiscarded.Hook(discardedCounter)
@@ -76,7 +75,7 @@ package ratesetter
 // 		assert.NoError(t, blk.DetermineID())
 // 		assert.NoError(t, rateSetter.IssueBlock(blk))
 // 	}
-//
+
 // 	assert.Eventually(t, func() bool {
 // 		select {
 // 		case <-blockDiscarded:

@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/identity"
 )
 
 // region SchedulerEvents /////////////////////////////////////////////////////////////////////////////////////////////
@@ -15,7 +16,7 @@ type Events struct {
 	// BlockSkipped is triggered when a block is confirmed before it's scheduled, and is skipped by the scheduler.
 	BlockSkipped *event.Linkable[*Block]
 	// OwnDeficitUpdated is triggered when a node's own deficit is updated by its own scheduler.
-	OwnDeficitUpdated *event.Linkable[float64]
+	OwnDeficitUpdated *event.Linkable[identity.ID]
 	Error             *event.Linkable[error]
 
 	event.LinkableCollection[Events, *Events]
@@ -26,7 +27,7 @@ var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 		BlockScheduled:    event.NewLinkable[*Block](),
 		BlockDropped:      event.NewLinkable[*Block](),
 		BlockSkipped:      event.NewLinkable[*Block](),
-		OwnDeficitUpdated: event.NewLinkable[float64](),
+		OwnDeficitUpdated: event.NewLinkable[identity.ID](),
 		Error:             event.NewLinkable[error](),
 	}
 })
