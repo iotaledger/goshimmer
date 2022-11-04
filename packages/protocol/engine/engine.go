@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -53,6 +54,9 @@ type Engine struct {
 	SybilProtection     *sybilprotection.SybilProtection
 	ValidatorSet        *validator.Set
 
+	isBootstrapped      bool
+	isBootstrappedMutex sync.Mutex
+
 	optsBootstrappedThreshold      time.Duration
 	optsEntryPointsDepth           int
 	optsSnapshotFile               string
@@ -100,8 +104,18 @@ func New(storageInstance *storage.Storage, opts ...options.Option[Engine]) (engi
 }
 
 func (e *Engine) IsBootstrapped() (isBootstrapped bool) {
-	// TODO: add bootstrapped flag from notarization
-	return time.Since(e.Clock.RelativeAcceptedTime()) < e.optsBootstrappedThreshold
+	e.isBootstrappedMutex.Lock()
+	defer e.isBootstrappedMutex.Unlock()
+
+	if e.isBootstrapped {
+		return true
+	}
+
+	if isBootstrapped = time.Since(e.Clock.RelativeAcceptedTime()) < e.optsBootstrappedThreshold && e.NotarizationManager.IsFullyCommitted(); isBootstrapped {
+		e.isBootstrapped = true
+	}
+
+	return isBootstrapped
 }
 
 func (e *Engine) IsSynced() (isBootstrapped bool) {
