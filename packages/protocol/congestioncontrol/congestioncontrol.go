@@ -37,19 +37,19 @@ func (c *CongestionControl) LinkTo(engine *engine.Engine) {
 	c.scheduler = scheduler.New(
 		engine.EvictionState,
 		engine.Consensus.AcceptanceGadget.IsBlockAccepted,
-		engine.ManaTracker.ManaMap,
+		engine.ManaTracker.ManaByIDs,
 		engine.ManaTracker.TotalMana,
 		c.optsSchedulerOptions...,
 	)
 
 	engine.Tangle.Events.VirtualVoting.BlockTracked.Attach(event.NewClosure(c.scheduler.AddBlock))
-	//engine.Tangle.Events.VirtualVoting.BlockTracked.Attach(event.NewClosure(func(block *virtualvoting.Block) {
+	// engine.Tangle.Events.VirtualVoting.BlockTracked.Attach(event.NewClosure(func(block *virtualvoting.Block) {
 	//	registerBlock, err := c.scheduler.GetOrRegisterBlock(block)
 	//	if err != nil {
 	//		panic(err)
 	//	}
 	//	c.Events.Scheduler.BlockScheduled.Trigger(registerBlock)
-	//}))
+	// }))
 	engine.Tangle.Events.BlockDAG.BlockOrphaned.Attach(event.NewClosure(c.scheduler.HandleOrphanedBlock))
 	engine.Consensus.Events.Acceptance.BlockAccepted.Attach(event.NewClosure(c.scheduler.HandleAcceptedBlock))
 

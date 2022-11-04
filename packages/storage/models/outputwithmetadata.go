@@ -1,8 +1,6 @@
 package models
 
 import (
-	"time"
-
 	"github.com/iotaledger/hive.go/core/generics/model"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/stringify"
@@ -23,7 +21,6 @@ type outputWithMetadataModel struct {
 	Index                 epoch.Index   `serix:"0"`
 	OutputID              utxo.OutputID `serix:"1"`
 	Output                utxo.Output   `serix:"2"`
-	CreationTime          time.Time     `serix:"3"`
 	ConsensusManaPledgeID identity.ID   `serix:"4"`
 	AccessManaPledgeID    identity.ID   `serix:"5"`
 }
@@ -33,7 +30,6 @@ func (o *OutputWithMetadata) String() string {
 	structBuilder := stringify.NewStructBuilder("OutputWithMetadata")
 	structBuilder.AddField(stringify.NewStructField("OutputID", o.ID()))
 	structBuilder.AddField(stringify.NewStructField("Output", o.Output()))
-	structBuilder.AddField(stringify.NewStructField("CreationTime", o.CreationTime()))
 	structBuilder.AddField(stringify.NewStructField("ConsensusPledgeID", o.ConsensusManaPledgeID()))
 	structBuilder.AddField(stringify.NewStructField("AccessPledgeID", o.AccessManaPledgeID()))
 
@@ -41,12 +37,11 @@ func (o *OutputWithMetadata) String() string {
 }
 
 // NewOutputWithMetadata returns a new OutputWithMetadata object.
-func NewOutputWithMetadata(index epoch.Index, outputID utxo.OutputID, output utxo.Output, creationTime time.Time, consensusManaPledgeID, accessManaPledgeID identity.ID) (new *OutputWithMetadata) {
+func NewOutputWithMetadata(index epoch.Index, outputID utxo.OutputID, output utxo.Output, consensusManaPledgeID, accessManaPledgeID identity.ID) (new *OutputWithMetadata) {
 	new = model.NewStorable[utxo.OutputID, OutputWithMetadata](&outputWithMetadataModel{
 		Index:                 index,
 		OutputID:              outputID,
 		Output:                output,
-		CreationTime:          creationTime,
 		ConsensusManaPledgeID: consensusManaPledgeID,
 		AccessManaPledgeID:    accessManaPledgeID,
 	})
@@ -104,22 +99,6 @@ func (o *OutputWithMetadata) SetOutput(output utxo.Output) {
 
 	o.M.Output = output
 	o.SetModified()
-}
-
-// CreationTime returns the CreationTime field.
-func (o *OutputWithMetadata) CreationTime() (creationTime time.Time) {
-	o.RLock()
-	defer o.RUnlock()
-
-	return o.M.CreationTime
-}
-
-// SetCreationTime sets the CreationTime field.
-func (o *OutputWithMetadata) SetCreationTime(creationTime time.Time) {
-	o.Lock()
-	defer o.Unlock()
-
-	o.M.CreationTime = creationTime
 }
 
 // ConsensusManaPledgeID returns the consensus pledge id of the output.

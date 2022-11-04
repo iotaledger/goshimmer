@@ -46,7 +46,7 @@ func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {
 		stateDiff := storageModels.NewMemoryStateDiff()
 		ProcessChunks(NewChunkedReader[storageModels.OutputWithMetadata](fileHandle),
 			engine.Ledger.LoadOutputsWithMetadata,
-			engine.ManaTracker.LoadOutputsWithMetadata,
+			engine.ManaTracker.ImportOutputsFromSnapshot,
 			lo.Void(stateDiff.ApplyCreatedOutputs),
 		)
 		engine.Storage.ApplyStateDiff(engine.Storage.Settings.LatestStateMutationEpoch(), stateDiff)
