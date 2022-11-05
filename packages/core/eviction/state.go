@@ -2,7 +2,6 @@ package eviction
 
 import (
 	"sync"
-	"time"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
@@ -14,8 +13,6 @@ type State[ID epoch.IndexedID] struct {
 
 	maxEvictedEpoch epoch.Index
 	isRootBlockFunc func(ID) bool
-
-	optsTimeSinceConfirmationThreshold time.Duration
 
 	sync.RWMutex
 }
