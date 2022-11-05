@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
 // region Manager //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -13,20 +12,18 @@ import (
 type State[ID epoch.IndexedID] struct {
 	Events *Events
 
-	maxEvictedEpoch    epoch.Index
-	entryPointsManager *RootBlocksManager
-	isRootBlockFunc    func(ID) bool
+	maxEvictedEpoch epoch.Index
+	isRootBlockFunc func(ID) bool
 
 	optsTimeSinceConfirmationThreshold time.Duration
 
 	sync.RWMutex
 }
 
-func NewState[ID epoch.IndexedID](storage *storage.Storage) (newState *State[ID]) {
+func NewState[ID epoch.IndexedID]() (newState *State[ID]) {
 	return &State[ID]{
-		Events:             NewEvents(),
-		entryPointsManager: NewEntryPointsManager(storage),
-		maxEvictedEpoch:    0,
+		Events:          NewEvents(),
+		maxEvictedEpoch: 0,
 	}
 }
 

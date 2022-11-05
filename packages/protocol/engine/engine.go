@@ -41,7 +41,7 @@ type Engine struct {
 	Inbox   *inbox.Inbox
 	// SnapshotManager     *snapshot.Manager
 	EvictionState       *eviction.State[models.BlockID]
-	EntryPointsManager  *EntryPointsManager
+	EntryPointsManager  *RootBlocksManager
 	BlockRequester      *eventticker.EventTicker[models.BlockID]
 	ManaTracker         *manatracker.ManaTracker
 	NotarizationManager *notarization.Manager
@@ -121,7 +121,7 @@ func (e *Engine) IsSynced() (isBootstrapped bool) {
 
 func (e *Engine) Evict(index epoch.Index) {
 	for i := index; i > index-epoch.Index(e.optsEntryPointsDepth); i-- {
-		e.EvictionState.EvictUntil(index, e.EntryPointsManager.LoadAll(i))
+		e.EvictionState.EvictUntil(index)
 		e.EntryPointsManager.Evict(i)
 	}
 }
