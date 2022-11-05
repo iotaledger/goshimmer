@@ -23,7 +23,7 @@ type RootBlocksManager struct {
 	sync.RWMutex
 }
 
-func NewEntryPointsManager(s *storage.Storage) *RootBlocksManager {
+func NewRootBlocksManager(s *storage.Storage) *RootBlocksManager {
 	return &RootBlocksManager{
 		cache:   memstorage.New[epoch.Index, *set.AdvancedSet[models.BlockID]](),
 		storage: s,

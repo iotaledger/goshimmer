@@ -73,12 +73,12 @@ type Engine struct {
 func New(storageInstance *storage.Storage, opts ...options.Option[Engine]) (engine *Engine) {
 	return options.Apply(
 		&Engine{
-			Clock:             clock.New(),
 			Events:            NewEvents(),
+			Storage:           storageInstance,
+			Clock:             clock.New(),
 			ValidatorSet:      validator.NewSet(),
 			EvictionState:     eviction.NewState[models.BlockID](),
-			RootBlocksManager: NewEntryPointsManager(storageInstance),
-			Storage:           storageInstance,
+			RootBlocksManager: NewRootBlocksManager(storageInstance),
 
 			optsBootstrappedThreshold: 10 * time.Second,
 			optsSnapshotFile:          "snapshot.bin",
