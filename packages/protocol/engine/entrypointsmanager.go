@@ -55,17 +55,14 @@ func (e *RootBlocksManager) Remove(id models.BlockID) {
 	e.Lock()
 	defer e.Unlock()
 
-	var deleted bool
-	if rootBlocksForEpoch, exists := e.cache.Get(id.Index()); exists {
-		deleted = rootBlocksForEpoch.Delete(id)
+	if rootBlocksForEpoch, exists := e.cache.Get(id.Index()); !exists || !rootBlocksForEpoch.Delete(id) {
+		return
 	}
 
-	if !deleted {
-		e.storage.RootBlocks.Delete(id)
-	}
+	e.storage.RootBlocks.Delete(id)
 }
 
-func (e *RootBlocksManager) Has(id models.BlockID) (has bool) {
+func (e *RootBlocksManager) IsRootBlock(id models.BlockID) (has bool) {
 	e.RLock()
 	defer e.RUnlock()
 

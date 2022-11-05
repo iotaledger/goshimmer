@@ -41,7 +41,7 @@ type Engine struct {
 	Inbox   *inbox.Inbox
 	// SnapshotManager     *snapshot.Manager
 	EvictionState       *eviction.State[models.BlockID]
-	EntryPointsManager  *RootBlocksManager
+	RootBlocksManager   *RootBlocksManager
 	BlockRequester      *eventticker.EventTicker[models.BlockID]
 	ManaTracker         *manatracker.ManaTracker
 	NotarizationManager *notarization.Manager
@@ -73,12 +73,12 @@ type Engine struct {
 func New(storageInstance *storage.Storage, opts ...options.Option[Engine]) (engine *Engine) {
 	return options.Apply(
 		&Engine{
-			Clock:              clock.New(),
-			Events:             NewEvents(),
-			ValidatorSet:       validator.NewSet(),
-			EvictionState:      eviction.NewState[models.BlockID](),
-			EntryPointsManager: NewEntryPointsManager(storageInstance),
-			Storage:            storageInstance,
+			Clock:             clock.New(),
+			Events:            NewEvents(),
+			ValidatorSet:      validator.NewSet(),
+			EvictionState:     eviction.NewState[models.BlockID](),
+			RootBlocksManager: NewEntryPointsManager(storageInstance),
+			Storage:           storageInstance,
 
 			optsBootstrappedThreshold: 10 * time.Second,
 			optsSnapshotFile:          "snapshot.bin",
@@ -122,7 +122,7 @@ func (e *Engine) IsSynced() (isBootstrapped bool) {
 func (e *Engine) Evict(index epoch.Index) {
 	for i := index; i > index-epoch.Index(e.optsEntryPointsDepth); i-- {
 		e.EvictionState.EvictUntil(index)
-		e.EntryPointsManager.Evict(i)
+		e.RootBlocksManager.Evict(i)
 	}
 }
 
@@ -270,11 +270,12 @@ func (e *Engine) initBlockRequester() {
 
 func (e *Engine) initSolidEntryPointsManager() {
 	e.Events.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
-		e.EntryPointsManager.Insert(block.ID())
+		// TODO: CHECK PARENTS?
+		e.RootBlocksManager.Insert(block.ID())
 	}))
 
 	e.Events.Tangle.BlockDAG.BlockOrphaned.Attach(event.NewClosure(func(block *blockdag.Block) {
-		e.EntryPointsManager.Remove(block.ID())
+		e.RootBlocksManager.Remove(block.ID())
 	}))
 }
 
