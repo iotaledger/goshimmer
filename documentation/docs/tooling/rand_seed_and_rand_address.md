@@ -19,10 +19,15 @@ You can use the `rand-address` tool to generate a random address by running the 
 ```shell
 cd tools/rand-address
 go run main.go
-13n6HnqiLQVaE2sp8BExM51C2z1BLw7SrFjNAUK439YCC
 ```
 
-Right after the execution, you will have a new randomly generated address.
+### Expected Output
+
+The script will output a Base58 string representing the newly generated address, for example:
+
+```shell
+13n6HnqiLQVaE2sp8BExM51C2z1BLw7SrFjNAUK439YCC
+```
 
 ## Rand Seed
 
