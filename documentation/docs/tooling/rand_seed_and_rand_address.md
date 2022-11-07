@@ -12,9 +12,9 @@ keywords:
 
 You can use the [`rand-address`](#rand-address) and [`rand-seed`](#rand-seed) tools to generate addresses and seeds in a single command.
 
-## Rand address
+## Rand Address
 
-Rand address is a tool realized through a Go script that let you generate a random address. Its execution is pretty simple:
+You can use the `rand-address` tool to generate a random address by running the following command from the `tools/rand-address` directory:
 
 ```shell
 cd tools/rand-address
