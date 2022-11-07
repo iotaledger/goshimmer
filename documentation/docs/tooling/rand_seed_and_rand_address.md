@@ -24,7 +24,7 @@ go run main.go
 
 Right after the execution, you will have a new randomly generated address.
 
-## Rand seed
+## Rand Seed
 
 The rand seed tool is a CLI script a bit more complete than the previous one. It let you generate in a text file a seed (encoded in base58 and base64), its relative identity and its public key. The execution is still simple:
 
