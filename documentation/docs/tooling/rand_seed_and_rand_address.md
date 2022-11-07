@@ -44,14 +44,14 @@ cd tools/rand-seed
 go run main.go
 ```
 
-The script will generate a `.txt` file containing, for example, the following:
+### Expected Output
 
-```shell
+The script will generate a `random-seed.txt` file in the current working directory, for example:
+
+```plaintext
 base64:ri9C8oAT3IPsus2j+IllMbW2B3nOqe4uC56zfr344zY=
 base58:CiwjnjMRwEbCGiATWjNsrVptBTNH13AHrVNmG31KK9cy
 Identity - base58:BCUnRc6c
 Identity - base58:BCUnRc6cv4YVnB3Rw5DDfdsFuVVUW97MyLEBzWxHqfQj
 Public Key - base58:Ht9VR8qAgmruDPzsQbak3AJvXcJY6q6Mxyaz4pDicDEw
 ```
-
-These tools are useful if you have to run, for example, a Docker Private Network and you want to setup the exact nodes running in the network.
