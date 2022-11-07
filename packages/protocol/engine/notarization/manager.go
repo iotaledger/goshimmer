@@ -1,7 +1,6 @@
 package notarization
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -142,7 +141,6 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 	}
 
 	m.Events.EpochCommitted.Trigger(newCommitment)
-	fmt.Println("commitment created for epoch", index, " with cumulative weight", m.lastCommittedEpochCumulativeWeight, newCommitment.String())
 	return true
 }
 
