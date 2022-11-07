@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/randommap"
-	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -375,7 +374,7 @@ func TestBlockDAG_AttachInvalid(t *testing.T) {
 	}
 
 	// Prune BlockDAG.
-	tf.BlockDAG.EvictionState.EvictUntil(epochCount/2, set.NewAdvancedSet[models.BlockID](models.EmptyBlockID))
+	tf.BlockDAG.EvictionState.EvictUntil(epochCount / 2)
 	tf.WaitUntilAllTasksProcessed()
 	assert.EqualValues(t, epochCount/2, tf.BlockDAG.EvictionState.MaxEvictedEpoch(), "maxDroppedEpoch should be epochCount/2")
 
@@ -506,7 +505,7 @@ func TestBlockDAG_Prune(t *testing.T) {
 
 	validateState(tf, 0, epochCount)
 
-	tf.BlockDAG.EvictionState.EvictUntil(epochCount/4, set.NewAdvancedSet[models.BlockID](models.EmptyBlockID))
+	tf.BlockDAG.EvictionState.EvictUntil(epochCount / 4)
 	tf.WaitUntilAllTasksProcessed()
 
 	assert.EqualValues(t, epochCount/4, tf.BlockDAG.EvictionState.MaxEvictedEpoch(), "maxDroppedEpoch should be epochCount/4")
@@ -514,11 +513,11 @@ func TestBlockDAG_Prune(t *testing.T) {
 	// All orphan blocks should be marked as invalid due to invalidity propagation.
 	tf.AssertInvalidCount(epochCount, "should have invalid blocks")
 
-	tf.BlockDAG.EvictionState.EvictUntil(epochCount/10, set.NewAdvancedSet[models.BlockID](models.EmptyBlockID))
+	tf.BlockDAG.EvictionState.EvictUntil(epochCount / 10)
 	tf.WaitUntilAllTasksProcessed()
-	assert.EqualValues(t, epochCount/4, tf.BlockDAG.EvictionState.MaxEvictedEpoch(), "maxDroppedEpoch should be epochCount/4")
+	assert.EqualValues(t, epochCount/10, tf.BlockDAG.EvictionState.MaxEvictedEpoch(), "maxDroppedEpoch should be epochCount/4")
 
-	tf.BlockDAG.EvictionState.EvictUntil(epochCount/2, set.NewAdvancedSet[models.BlockID](models.EmptyBlockID))
+	tf.BlockDAG.EvictionState.EvictUntil(epochCount / 2)
 	tf.WaitUntilAllTasksProcessed()
 	assert.EqualValues(t, epochCount/2, tf.BlockDAG.EvictionState.MaxEvictedEpoch(), "maxDroppedEpoch should be epochCount/2")
 

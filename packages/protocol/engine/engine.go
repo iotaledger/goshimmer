@@ -77,13 +77,13 @@ func New(storageInstance *storage.Storage, opts ...options.Option[Engine]) (engi
 			Storage:           storageInstance,
 			Clock:             clock.New(),
 			ValidatorSet:      validator.NewSet(),
-			EvictionState:     eviction.NewState[models.BlockID](),
 			RootBlocksManager: NewRootBlocksManager(storageInstance),
 
 			optsBootstrappedThreshold: 10 * time.Second,
 			optsSnapshotFile:          "snapshot.bin",
 			optsSnapshotDepth:         5,
 		}, opts,
+		(*Engine).initEvictionState,
 		(*Engine).initInbox,
 		(*Engine).initLedger,
 		(*Engine).initTangle,
@@ -94,7 +94,6 @@ func New(storageInstance *storage.Storage, opts ...options.Option[Engine]) (engi
 		(*Engine).initNotarizationManager,
 		(*Engine).initManaTracker,
 		(*Engine).initSybilProtection,
-		(*Engine).initEvictionManager,
 		(*Engine).initBlockRequester,
 		(*Engine).initSolidEntryPointsManager,
 	)
@@ -129,6 +128,12 @@ func (e *Engine) Evict(index epoch.Index) {
 func (e *Engine) Shutdown() {
 	e.Ledger.Shutdown()
 	e.Storage.Shutdown()
+}
+
+func (e *Engine) initEvictionState() {
+	e.EvictionState = eviction.NewState[models.BlockID](e.RootBlocksManager.IsRootBlock)
+
+	e.Events.EvictionState = e.EvictionState.Events
 }
 
 func (e *Engine) initInbox() {
@@ -246,10 +251,6 @@ func (e *Engine) initSybilProtection() {
 
 	e.Storage.Permanent.Events.ConsensusWeightsUpdated.Hook(event.NewClosure(e.SybilProtection.UpdateConsensusWeights))
 	e.Events.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(e.SybilProtection.TrackActiveValidators))
-}
-
-func (e *Engine) initEvictionManager() {
-	e.Events.EvictionManager = e.EvictionState.Events
 }
 
 func (e *Engine) initBlockRequester() {

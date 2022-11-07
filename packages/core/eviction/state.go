@@ -17,10 +17,11 @@ type State[ID epoch.IndexedID] struct {
 	sync.RWMutex
 }
 
-func NewState[ID epoch.IndexedID]() (newState *State[ID]) {
+func NewState[ID epoch.IndexedID](isRootBlockFunc func(ID) bool) (newState *State[ID]) {
 	return &State[ID]{
 		Events:          NewEvents(),
 		maxEvictedEpoch: 0,
+		isRootBlockFunc: isRootBlockFunc,
 	}
 }
 

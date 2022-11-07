@@ -82,7 +82,7 @@ func (r *Retainer) setupEvents() {
 		cm.setAcceptanceBlock(block)
 	}))
 
-	r.protocol.Events.Engine.EvictionManager.EpochEvicted.Attach(event.NewClosure(r.storeAndEvictEpoch))
+	r.protocol.Events.Engine.EvictionState.EpochEvicted.Attach(event.NewClosure(r.storeAndEvictEpoch))
 }
 
 func (r *Retainer) createOrGetCachedMetadata(id models.BlockID) *cachedMetadata {

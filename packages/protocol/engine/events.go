@@ -22,7 +22,7 @@ type Events struct {
 	Tangle              *tangle.Events
 	Consensus           *consensus.Events
 	Clock               *clock.Events
-	EvictionManager     *eviction.Events
+	EvictionState       *eviction.Events
 	NotarizationManager *notarization.Events
 	BlockRequester      *eventticker.Events[models.BlockID]
 
@@ -39,7 +39,7 @@ var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 		Tangle:              tangle.NewEvents(),
 		Consensus:           consensus.NewEvents(),
 		Clock:               clock.NewEvents(),
-		EvictionManager:     eviction.NewEvents(),
+		EvictionState:       eviction.NewEvents(),
 		NotarizationManager: notarization.NewEvents(),
 		BlockRequester:      eventticker.NewEvents[models.BlockID](),
 	}
