@@ -31,8 +31,6 @@ The script will output a Base58 string representing the newly generated address,
 
 ## Rand Seed
 
-## Rand Seed
-
 You can use the `rand-address` tool to generate a text file with the following:
 
 * A [seed](/../tutorials/send_transaction#seed), represented in Base64 and Base58.
