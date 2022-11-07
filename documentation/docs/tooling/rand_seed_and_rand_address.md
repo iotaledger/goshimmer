@@ -1,5 +1,5 @@
 ---
-description: Running these tools let you generate random seeds and addresses through a simple command.
+description: 'You can use the rand-address and rand-seed tools to generate random seeds and addresses through a simple command.'
 keywords:
 - address
 - seed
