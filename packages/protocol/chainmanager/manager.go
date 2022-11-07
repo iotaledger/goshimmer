@@ -29,7 +29,7 @@ type Manager struct {
 func NewManager(snapshot *commitment.Commitment) (manager *Manager) {
 	manager = &Manager{
 		Events:          NewEvents(),
-		EvictionManager: eviction.NewState[commitment.ID](),
+		EvictionManager: eviction.NewState[commitment.ID](func(id commitment.ID) bool { return id == snapshot.ID() }),
 
 		commitmentsByID: make(map[commitment.ID]*Commitment),
 	}
