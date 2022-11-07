@@ -8,7 +8,6 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -142,7 +141,7 @@ func (t *TestFramework) EntityIDs(aliases ...string) (entityIDs []MockedEntityID
 
 // EvictEpoch evicts all Entities that are older than the given epoch.
 func (t *TestFramework) EvictEpoch(index epoch.Index) {
-	t.evictionManager.EvictUntil(index, set.NewAdvancedSet[MockedEntityID]())
+	t.evictionManager.EvictUntil(index)
 	t.CausalOrder.EvictEpoch(index)
 }
 

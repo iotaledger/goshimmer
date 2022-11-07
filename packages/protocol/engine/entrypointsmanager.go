@@ -73,6 +73,13 @@ func (e *RootBlocksManager) IsRootBlock(id models.BlockID) (has bool) {
 	return false
 }
 
+func (e *RootBlocksManager) LatestRootBlockID() models.BlockID {
+	e.RLock()
+	defer e.RUnlock()
+
+	return models.EmptyBlockID
+}
+
 // WithTimeSinceConfirmationThreshold sets the time since confirmation threshold.
 func WithTimeSinceConfirmationThreshold[ID epoch.IndexedID](threshold time.Duration) options.Option[RootBlocksManager] {
 	return func(e *RootBlocksManager) {
