@@ -50,3 +50,6 @@ func (c *Commitment) Index() (index epoch.Index) {
 func (c *Commitment) RootsID() (rootsID types.Identifier) {
 	return c.M.RootsID
 }
+func (c *Commitment) CumulativeWeight() (cumulativeWeight uint64) {
+	return c.M.CumulativeWeight
+}
