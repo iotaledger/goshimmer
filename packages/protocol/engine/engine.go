@@ -78,7 +78,7 @@ func New(storageInstance *storage.Storage, opts ...options.Option[Engine]) (engi
 			Clock:              clock.New(),
 			Events:             NewEvents(),
 			ValidatorSet:       validator.NewSet(),
-			EvictionState:      eviction.NewState[models.BlockID](),
+			EvictionState:      eviction.NewState[models.BlockID](storageInstance.Settings.LatestConfirmedEpoch()),
 			EntryPointsManager: NewEntryPointsManager(storageInstance),
 			Storage:            storageInstance,
 

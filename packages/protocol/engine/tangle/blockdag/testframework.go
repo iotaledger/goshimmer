@@ -45,7 +45,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 	}, opts, func(t *TestFramework) {
 		if t.BlockDAG == nil {
 			if t.evictionManager == nil {
-				t.evictionManager = eviction.NewState[models.BlockID]()
+				t.evictionManager = eviction.NewState[models.BlockID](0)
 			}
 
 			t.BlockDAG = New(t.evictionManager, t.optsBlockDAG...)

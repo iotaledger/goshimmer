@@ -29,7 +29,7 @@ type Gadget struct {
 	Events *Events
 
 	tangle                  *tangle.Tangle
-	evictionState         *eviction.LockableState[models.BlockID]
+	evictionState           *eviction.LockableState[models.BlockID]
 	blocks                  *memstorage.EpochStorage[models.BlockID, *Block]
 	lastAcceptedMarker      *memstorage.Storage[markers.SequenceID, markers.Index]
 	lastAcceptedMarkerMutex sync.Mutex

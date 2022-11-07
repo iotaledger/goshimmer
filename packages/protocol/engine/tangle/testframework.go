@@ -20,11 +20,11 @@ type TestFramework struct {
 
 	test *testing.T
 
-	optsLedger          *ledger.Ledger
-	optsLedgerOptions   []options.Option[ledger.Ledger]
+	optsLedger        *ledger.Ledger
+	optsLedgerOptions []options.Option[ledger.Ledger]
 	optsEvictionState *eviction.State[models.BlockID]
-	optsValidatorSet    *validator.Set
-	optsTangle          []options.Option[Tangle]
+	optsValidatorSet  *validator.Set
+	optsTangle        []options.Option[Tangle]
 
 	*VirtualVotingTestFramework
 }
@@ -40,7 +40,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 			}
 
 			if t.optsEvictionState == nil {
-				t.optsEvictionState = eviction.NewState[models.BlockID]()
+				t.optsEvictionState = eviction.NewState[models.BlockID](0)
 			}
 
 			if t.optsValidatorSet == nil {

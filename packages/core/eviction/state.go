@@ -19,13 +19,13 @@ type State[ID epoch.IndexedID] struct {
 	sync.RWMutex
 }
 
-func NewState[ID epoch.IndexedID]() (newState *State[ID]) {
+func NewState[ID epoch.IndexedID](maxEvictedEpoch epoch.Index) (newState *State[ID]) {
 	var emptyID ID
 
 	return &State[ID]{
 		Events:          NewEvents(),
 		rootBlocks:      set.NewAdvancedSet(emptyID),
-		maxEvictedEpoch: 0,
+		maxEvictedEpoch: maxEvictedEpoch,
 	}
 }
 

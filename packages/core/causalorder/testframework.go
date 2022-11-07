@@ -40,7 +40,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 		evictedEntities: make(map[string]*MockedOrderedEntity),
 	}, opts, func(t *TestFramework) {
 		t.CausalOrder = New[MockedEntityID, *MockedOrderedEntity](
-			eviction.NewState[MockedEntityID](),
+			eviction.NewState[MockedEntityID](0),
 			func(id MockedEntityID) (entity *MockedOrderedEntity, exists bool) {
 				return t.Get(id.alias)
 			}, (*MockedOrderedEntity).IsOrdered,
