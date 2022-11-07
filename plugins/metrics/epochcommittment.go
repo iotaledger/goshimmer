@@ -42,10 +42,14 @@ func RemovedBlocksOfEpoch() map[epoch.Index]int {
 
 	// copy the original map
 	clone := make(map[epoch.Index]int)
-	orphanedBlkRemoved.ForEach(func(ei epoch.Index, count int) bool {
-		clone[ei] = count
-		return true
-	})
+	endEpoch := oldestEpoch + epoch.Index(orphanedBlkRemoved.Size())
+	for ei := oldestEpoch; ei <= endEpoch; ei++ {
+		num, exists := orphanedBlkRemoved.Get(ei)
+		if !exists {
+			num = 0
+		}
+		clone[ei] = num
+	}
 
 	return clone
 }
@@ -62,7 +66,8 @@ func increaseRemovedBlockCounter(blkID models.BlockID) {
 	}
 
 	if orphanedBlkRemoved.Size() > maxEpochsPreserved {
-		for ei := oldestEpoch; ei <= oldestEpoch+epoch.Index(numEpochsToRemove); ei++ {
+		endEpoch := oldestEpoch + epoch.Index(numEpochsToRemove)
+		for ei := oldestEpoch; ei <= endEpoch; ei++ {
 			orphanedBlkRemoved.Delete(ei)
 		}
 
