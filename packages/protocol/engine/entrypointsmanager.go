@@ -43,9 +43,7 @@ func (e *RootBlocksManager) Insert(id models.BlockID) {
 	e.Lock()
 	defer e.Unlock()
 
-	if lo.Return1(e.cache.RetrieveOrCreate(id.Index(), func() *set.AdvancedSet[models.BlockID] {
-		return set.NewAdvancedSet[models.BlockID]()
-	})).Add(id) {
+	if lo.Return1(e.cache.RetrieveOrCreate(id.Index(), func() *set.AdvancedSet[models.BlockID] { return set.NewAdvancedSet[models.BlockID]() })).Add(id) {
 		e.storage.RootBlocks.Store(id)
 	}
 }
@@ -55,27 +53,25 @@ func (e *RootBlocksManager) Remove(id models.BlockID) {
 	e.Lock()
 	defer e.Unlock()
 
-	if rootBlocksForEpoch, exists := e.cache.Get(id.Index()); !exists || !rootBlocksForEpoch.Delete(id) {
-		return
+	if rootBlocksForEpoch, exists := e.cache.Get(id.Index()); exists && rootBlocksForEpoch.Delete(id) {
+		e.storage.RootBlocks.Delete(id)
 	}
-
-	e.storage.RootBlocks.Delete(id)
 }
 
 func (e *RootBlocksManager) IsRootBlock(id models.BlockID) (has bool) {
 	e.RLock()
 	defer e.RUnlock()
 
-	if rootBlocksForEpoch, exists := e.cache.Get(id.Index()); exists {
-		return rootBlocksForEpoch.Has(id)
-	}
+	epochBlocks, epochExists := e.cache.Get(id.Index())
 
-	return false
+	return epochExists && epochBlocks.Has(id)
 }
 
 func (e *RootBlocksManager) LatestRootBlockID() models.BlockID {
 	e.RLock()
 	defer e.RUnlock()
+
+	// TODO: implement
 
 	return models.EmptyBlockID
 }

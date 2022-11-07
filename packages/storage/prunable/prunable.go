@@ -21,7 +21,7 @@ type Prunable struct {
 func New(database *database.Manager) (newPrunable *Prunable) {
 	return &Prunable{
 		Blocks:           NewBlocks(database, blocksPrefix),
-		RootBlocks:       NewSolidEntryPoints(database, rootBlocksPrefix),
+		RootBlocks:       NewRootBlocks(database, rootBlocksPrefix),
 		ActiveNodes:      NewActiveNodes(database, activityLogPrefix),
 		LedgerStateDiffs: NewLedgerStateDiffs(database, ledgerStateDiffsPrefix),
 	}

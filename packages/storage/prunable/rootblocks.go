@@ -15,7 +15,7 @@ type RootBlocks struct {
 	Storage func(index epoch.Index) kvstore.KVStore
 }
 
-func NewSolidEntryPoints(database *database.Manager, storagePrefix byte) (newSolidEntryPoints *RootBlocks) {
+func NewRootBlocks(database *database.Manager, storagePrefix byte) (newRootBlocks *RootBlocks) {
 	return &RootBlocks{
 		Storage: lo.Bind([]byte{storagePrefix}, database.Get),
 	}
