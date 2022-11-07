@@ -21,4 +21,4 @@ We provide a documentation for the following tools:
 - The [integration tests](integration_tests.md) spins up a `tester` container within which every test can specify its own GoShimmer network with Docker.
 - The [cli-wallet](../tutorials/wallet_library.md) is described as part of the tutorial section.
 - The [DAGs Visualizer](dags_visualizer.md) is the all-round tool for visualizing DAGs.
-- The [rand-seed and rand-address](rand_seed_and_random_address.md) are used to randomly generate a seed, with the relative public key, or a random address.
+- The [rand-seed and rand-address](rand_seed_and_rand_address.md) to randomly generate a seed, with the relative public key, or a random address.
