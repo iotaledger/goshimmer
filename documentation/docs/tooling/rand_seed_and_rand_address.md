@@ -8,7 +8,9 @@ keywords:
 - generate
 - generation
 ---
-# Rand seed and rand address
+# Rand Seed and Rand Address
+
+You can use the [`rand-address`](#rand-address) and [`rand-seed`](#rand-seed) tools to generate addresses and seeds in a single command.
 
 ## Rand address
 
