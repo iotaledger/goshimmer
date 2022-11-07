@@ -12,8 +12,8 @@ import (
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
@@ -33,13 +33,13 @@ type TestFramework struct {
 	conflictsRejected uint32
 	reorgCount        uint32
 
-	optsGadgetOptions   []options.Option[Gadget]
-	optsLedger          *ledger.Ledger
-	optsLedgerOptions   []options.Option[ledger.Ledger]
-	optsEvictionManager *eviction.State[models.BlockID]
-	optsValidatorSet    *validator.Set
-	optsTangle          *tangle.Tangle
-	optsTangleOptions   []options.Option[tangle.Tangle]
+	optsGadgetOptions []options.Option[Gadget]
+	optsLedger        *ledger.Ledger
+	optsLedgerOptions []options.Option[ledger.Ledger]
+	optsEvictionState *eviction.State
+	optsValidatorSet  *validator.Set
+	optsTangle        *tangle.Tangle
+	optsTangleOptions []options.Option[tangle.Tangle]
 
 	*TangleTestFramework
 }
@@ -55,18 +55,18 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 					t.optsLedger = ledger.New(chainStorage, t.optsLedgerOptions...)
 				}
 
-				if t.optsEvictionManager == nil {
-					t.optsEvictionManager = eviction.NewState[models.BlockID](func(id models.BlockID) bool { return id == models.EmptyBlockID })
+				if t.optsEvictionState == nil {
+					t.optsEvictionState = eviction.NewState(chainStorage)
 				}
 
 				if t.optsValidatorSet == nil {
 					t.optsValidatorSet = validator.NewSet()
 				}
 
-				t.optsTangle = tangle.New(t.optsLedger, t.optsEvictionManager, t.optsValidatorSet, t.optsTangleOptions...)
+				t.optsTangle = tangle.New(t.optsLedger, t.optsEvictionState, t.optsValidatorSet, t.optsTangleOptions...)
 			}
 
-			t.Gadget = New(t.optsTangle, t.optsGadgetOptions...)
+			t.Gadget = New(t.optsTangle, t.optsEvictionState, t.optsGadgetOptions...)
 		}
 
 		if t.TangleTestFramework == nil {
@@ -193,9 +193,9 @@ func WithLedgerOptions(opts ...options.Option[ledger.Ledger]) options.Option[Tes
 	}
 }
 
-func WithEvictionManager(evictionManager *eviction.State[models.BlockID]) options.Option[TestFramework] {
+func WithEvictionState(evictionState *eviction.State) options.Option[TestFramework] {
 	return func(t *TestFramework) {
-		t.optsEvictionManager = evictionManager
+		t.optsEvictionState = evictionState
 	}
 }
 

@@ -21,7 +21,7 @@ type Storage struct {
 
 // New creates a new storage instance with the named database version in the given directory.
 func New(directory string, version database.Version) (newStorage *Storage) {
-	database := database.NewManager(version, database.WithBaseDir(directory), database.WithGranularity(1), database.WithDBProvider(database.NewDB))
+	database := database.NewManager(version, database.WithBaseDir(directory), database.WithGranularity(1), database.WithDBProvider(database.NewMemDB))
 
 	return &Storage{
 		Permanent: permanent.New(diskutil.New(directory, true), database),

@@ -203,7 +203,7 @@ func (m *EpochMutations) evict(index epoch.Index) {
 		m.acceptedBlocksByEpoch.Delete(index)
 		m.acceptedTransactionsByEpoch.Delete(index)
 		m.activeValidatorsByEpoch.Delete(index)
-		m.issuerBlocksByEpoch.EvictEpoch(index)
+		m.issuerBlocksByEpoch.Evict(index)
 	}
 
 	m.latestCommittedIndex = index

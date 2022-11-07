@@ -1,4 +1,4 @@
-package inbox
+package filter
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"

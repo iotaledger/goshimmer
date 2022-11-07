@@ -14,9 +14,9 @@ import (
 	"github.com/iotaledger/hive.go/core/typeutils"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -41,7 +41,7 @@ var ErrNotRunning = errors.New("scheduler stopped")
 type Scheduler struct {
 	Events *Events
 
-	EvictionManager *eviction.LockableState[models.BlockID]
+	evictionState *eviction.State
 
 	blocks        *memstorage.EpochStorage[models.BlockID, *Block]
 	ticker        *time.Ticker
@@ -49,6 +49,7 @@ type Scheduler struct {
 	buffer        *BufferQueue
 	deficitsMutex sync.RWMutex
 	deficits      *shrinkingmap.ShrinkingMap[identity.ID, *big.Rat]
+	evictionMutex sync.RWMutex
 
 	totalAccessManaRetrieveFunc func() int64
 	accessManaMapRetrieverFunc  func() map[identity.ID]int64
@@ -65,11 +66,11 @@ type Scheduler struct {
 }
 
 // New returns a new Scheduler.
-func New(evictionManager *eviction.State[models.BlockID], isBlockAccepted func(models.BlockID) bool, accessManaMapRetrieverFunc func() map[identity.ID]int64, totalAccessManaRetrieveFunc func() int64, opts ...options.Option[Scheduler]) *Scheduler {
+func New(evictionState *eviction.State, isBlockAccepted func(models.BlockID) bool, accessManaMapRetrieverFunc func() map[identity.ID]int64, totalAccessManaRetrieveFunc func() int64, opts ...options.Option[Scheduler]) *Scheduler {
 	return options.Apply(&Scheduler{
-		Events:          NewEvents(),
-		EvictionManager: evictionManager.Lockable(),
+		Events: NewEvents(),
 
+		evictionState:               evictionState,
 		isBlockAcceptedFunc:         isBlockAccepted,
 		accessManaMapRetrieverFunc:  accessManaMapRetrieverFunc,
 		totalAccessManaRetrieveFunc: totalAccessManaRetrieveFunc,
@@ -90,7 +91,7 @@ func New(evictionManager *eviction.State[models.BlockID], isBlockAccepted func(m
 func (s *Scheduler) setupEvents() {
 	s.Events.BlockScheduled.Hook(event.NewClosure(s.UpdateChildren))
 
-	s.EvictionManager.Events.EpochEvicted.Attach(event.NewClosure(s.evictEpoch))
+	s.evictionState.Events.EpochEvicted.Attach(event.NewClosure(s.evictEpoch))
 }
 
 // Start starts the scheduler.
@@ -112,8 +113,8 @@ func (s *Scheduler) Rate() time.Duration {
 
 // IssuerQueueSize returns the size of the IssuerIDs queue.
 func (s *Scheduler) IssuerQueueSize(issuerID identity.ID) int {
-	s.EvictionManager.RLock()
-	defer s.EvictionManager.RUnlock()
+	s.evictionMutex.RLock()
+	defer s.evictionMutex.RUnlock()
 	s.bufferMutex.RLock()
 	defer s.bufferMutex.RUnlock()
 
@@ -126,8 +127,8 @@ func (s *Scheduler) IssuerQueueSize(issuerID identity.ID) int {
 
 // IssuerQueueSizes returns the size for each issuer queue.
 func (s *Scheduler) IssuerQueueSizes() map[identity.ID]int {
-	s.EvictionManager.RLock()
-	defer s.EvictionManager.RUnlock()
+	s.evictionMutex.RLock()
+	defer s.evictionMutex.RUnlock()
 	s.bufferMutex.RLock()
 	defer s.bufferMutex.RUnlock()
 
@@ -141,8 +142,8 @@ func (s *Scheduler) IssuerQueueSizes() map[identity.ID]int {
 
 // MaxBufferSize returns the max size of the buffer.
 func (s *Scheduler) MaxBufferSize() int {
-	s.EvictionManager.RLock()
-	defer s.EvictionManager.RUnlock()
+	s.evictionMutex.RLock()
+	defer s.evictionMutex.RUnlock()
 	s.bufferMutex.RLock()
 	defer s.bufferMutex.RUnlock()
 
@@ -151,8 +152,8 @@ func (s *Scheduler) MaxBufferSize() int {
 
 // BufferSize returns the size of the buffer.
 func (s *Scheduler) BufferSize() int {
-	s.EvictionManager.RLock()
-	defer s.EvictionManager.RUnlock()
+	s.evictionMutex.RLock()
+	defer s.evictionMutex.RUnlock()
 	s.bufferMutex.RLock()
 	defer s.bufferMutex.RUnlock()
 
@@ -161,8 +162,8 @@ func (s *Scheduler) BufferSize() int {
 
 // ReadyBlocksCount returns the size buffer.
 func (s *Scheduler) ReadyBlocksCount() int {
-	s.EvictionManager.RLock()
-	defer s.EvictionManager.RUnlock()
+	s.evictionMutex.RLock()
+	defer s.evictionMutex.RUnlock()
 	s.bufferMutex.RLock()
 	defer s.bufferMutex.RUnlock()
 
@@ -171,8 +172,8 @@ func (s *Scheduler) ReadyBlocksCount() int {
 
 // TotalBlocksCount returns the size buffer.
 func (s *Scheduler) TotalBlocksCount() int {
-	s.EvictionManager.RLock()
-	defer s.EvictionManager.RUnlock()
+	s.evictionMutex.RLock()
+	defer s.evictionMutex.RUnlock()
 	s.bufferMutex.RLock()
 	defer s.bufferMutex.RUnlock()
 
@@ -207,15 +208,15 @@ func (s *Scheduler) Shutdown() {
 
 // Block retrieves the Block with given id from the mem-storage.
 func (s *Scheduler) Block(id models.BlockID) (block *Block, exists bool) {
-	s.EvictionManager.RLock()
-	defer s.EvictionManager.RUnlock()
+	s.evictionMutex.RLock()
+	defer s.evictionMutex.RUnlock()
 
 	return s.block(id)
 }
 
 func (s *Scheduler) AddBlock(sourceBlock *virtualvoting.Block) {
-	s.EvictionManager.RLock()
-	defer s.EvictionManager.RUnlock()
+	s.evictionMutex.RLock()
+	defer s.evictionMutex.RUnlock()
 
 	block, _ := s.GetOrRegisterBlock(sourceBlock)
 
@@ -235,8 +236,8 @@ func (s *Scheduler) AddBlock(sourceBlock *virtualvoting.Block) {
 }
 
 func (s *Scheduler) HandleOrphanedBlock(orphanedBlock *blockdag.Block) {
-	s.EvictionManager.RLock()
-	defer s.EvictionManager.RUnlock()
+	s.evictionMutex.RLock()
+	defer s.evictionMutex.RUnlock()
 	block, exists := s.block(orphanedBlock.ID())
 	if !exists || block.IsDropped() || block.IsSkipped() || block.IsScheduled() {
 		return
@@ -248,8 +249,8 @@ func (s *Scheduler) HandleOrphanedBlock(orphanedBlock *blockdag.Block) {
 }
 
 func (s *Scheduler) HandleAcceptedBlock(acceptedBlock *acceptance.Block) {
-	s.EvictionManager.RLock()
-	defer s.EvictionManager.RUnlock()
+	s.evictionMutex.RLock()
+	defer s.evictionMutex.RUnlock()
 
 	block, err := s.GetOrRegisterBlock(acceptedBlock.Block)
 	if err != nil {
@@ -273,8 +274,8 @@ func (s *Scheduler) HandleAcceptedBlock(acceptedBlock *acceptance.Block) {
 // UpdateChildren iterates over the direct children of the given blockID and
 // tries to mark them as ready.
 func (s *Scheduler) UpdateChildren(block *Block) {
-	s.EvictionManager.RLock()
-	defer s.EvictionManager.RUnlock()
+	s.evictionMutex.RLock()
+	defer s.evictionMutex.RUnlock()
 	s.updateChildren(block)
 }
 
@@ -391,7 +392,7 @@ func (s *Scheduler) ready(block *Block) {
 
 // block retrieves the Block with given id from the mem-storage.
 func (s *Scheduler) block(id models.BlockID) (block *Block, exists bool) {
-	if s.EvictionManager.IsRootBlock(id) {
+	if s.evictionState.IsRootBlock(id) {
 		return NewRootBlock(id), true
 	}
 
@@ -427,8 +428,8 @@ loop:
 }
 
 func (s *Scheduler) schedule() *Block {
-	s.EvictionManager.RLock()
-	defer s.EvictionManager.RUnlock()
+	s.evictionMutex.RLock()
+	defer s.evictionMutex.RUnlock()
 	s.bufferMutex.Lock()
 	defer s.bufferMutex.Unlock()
 
@@ -560,7 +561,7 @@ func (s *Scheduler) updateDeficit(issuerID identity.ID, d *big.Rat) {
 }
 
 func (s *Scheduler) GetOrRegisterBlock(virtualVotingBlock *virtualvoting.Block) (block *Block, err error) {
-	if s.EvictionManager.IsTooOld(virtualVotingBlock.ID()) {
+	if s.evictionState.InEvictedEpoch(virtualVotingBlock.ID()) {
 		return nil, errors.Errorf("block %s belongs to an evicted epoch", virtualVotingBlock.ID())
 	}
 	block, exists := s.block(virtualVotingBlock.ID())
@@ -586,10 +587,10 @@ func (s *Scheduler) getAccessMana(id identity.ID) int64 {
 }
 
 func (s *Scheduler) evictEpoch(index epoch.Index) {
-	s.EvictionManager.Lock()
-	defer s.EvictionManager.Unlock()
+	s.evictionMutex.Lock()
+	defer s.evictionMutex.Unlock()
 
-	s.blocks.EvictEpoch(index)
+	s.blocks.Evict(index)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

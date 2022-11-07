@@ -5,6 +5,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/conflictresolver"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
@@ -20,9 +21,9 @@ type Consensus struct {
 	optsAcceptanceGadget []options.Option[acceptance.Gadget]
 }
 
-func New(tangle *tangle.Tangle, opts ...options.Option[Consensus]) *Consensus {
+func New(tangle *tangle.Tangle, evictionState *eviction.State, opts ...options.Option[Consensus]) *Consensus {
 	return options.Apply(new(Consensus), opts, func(c *Consensus) {
-		c.Gadget = acceptance.New(tangle, c.optsAcceptanceGadget...)
+		c.Gadget = acceptance.New(tangle, evictionState, c.optsAcceptanceGadget...)
 		c.ConflictResolver = conflictresolver.New(tangle.Ledger.ConflictDAG, func(conflictID utxo.TransactionID) (weight int64) {
 			return tangle.VirtualVoting.ConflictVoters(conflictID).TotalWeight()
 		})

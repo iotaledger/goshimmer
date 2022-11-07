@@ -10,8 +10,7 @@ import (
 
 type EpochStorage[K comparable, V any] struct {
 	cache *shrinkingmap.ShrinkingMap[epoch.Index, *Storage[K, V]]
-
-	sync.RWMutex
+	mutex sync.Mutex
 }
 
 func NewEpochStorage[K comparable, V any]() *EpochStorage[K, V] {
@@ -20,16 +19,22 @@ func NewEpochStorage[K comparable, V any]() *EpochStorage[K, V] {
 	}
 }
 
-func (e *EpochStorage[K, V]) EvictEpoch(index epoch.Index) {
-	e.Lock()
-	defer e.Unlock()
+func (e *EpochStorage[K, V]) Evict(index epoch.Index) (evictedStorage *Storage[K, V]) {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
 
-	e.cache.Delete(index)
+	if storage, exists := e.cache.Get(index); exists {
+		evictedStorage = storage
+
+		e.cache.Delete(index)
+	}
+
+	return
 }
 
 func (e *EpochStorage[K, V]) Get(index epoch.Index, createIfMissing ...bool) (storage *Storage[K, V]) {
-	e.Lock()
-	defer e.Unlock()
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
 
 	storage, exists := e.cache.Get(index)
 	if exists {

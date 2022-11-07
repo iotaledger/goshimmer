@@ -3,6 +3,7 @@ package memstorage
 import (
 	"sync"
 
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 )
 
@@ -22,6 +23,13 @@ func (s *Storage[K, V]) Get(key K) (value V, exists bool) {
 	defer s.RUnlock()
 
 	return s.storage.Get(key)
+}
+
+func (s *Storage[K, V]) Has(key K) (has bool) {
+	s.RLock()
+	defer s.RUnlock()
+
+	return lo.Return2(s.storage.Get(key))
 }
 
 func (s *Storage[K, V]) Delete(key K) (deleted bool) {
@@ -63,7 +71,7 @@ func (s *Storage[K, V]) ForEach(callback func(K, V) bool) {
 	s.storage.ForEach(callback)
 }
 
-func (s *Storage[K, V]) Set(key K, value V) (exists bool) {
+func (s *Storage[K, V]) Set(key K, value V) (updated bool) {
 	s.Lock()
 	defer s.Unlock()
 

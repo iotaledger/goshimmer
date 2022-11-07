@@ -5,11 +5,10 @@ import (
 
 	"github.com/iotaledger/hive.go/core/generics/options"
 
-	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
@@ -22,7 +21,7 @@ type TestFramework struct {
 
 	optsLedger        *ledger.Ledger
 	optsLedgerOptions []options.Option[ledger.Ledger]
-	optsEvictionState *eviction.State[models.BlockID]
+	optsEvictionState *eviction.State
 	optsValidatorSet  *validator.Set
 	optsTangle        []options.Option[Tangle]
 
@@ -40,7 +39,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 			}
 
 			if t.optsEvictionState == nil {
-				t.optsEvictionState = eviction.NewState[models.BlockID](func(id models.BlockID) bool { return id == models.EmptyBlockID })
+				t.optsEvictionState = eviction.NewState(chainStorage)
 			}
 
 			if t.optsValidatorSet == nil {
@@ -86,7 +85,7 @@ func WithLedgerOptions(opts ...options.Option[ledger.Ledger]) options.Option[Tes
 	}
 }
 
-func WithEvictionState(evictionState *eviction.State[models.BlockID]) options.Option[TestFramework] {
+func WithEvictionState(evictionState *eviction.State) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.optsEvictionState = evictionState
 	}

@@ -12,8 +12,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/core/eviction"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -24,7 +25,7 @@ type TestFramework struct {
 	BlockDAG *BlockDAG
 
 	test                *testing.T
-	evictionManager     *eviction.State[models.BlockID]
+	evictionState       *eviction.State
 	solidBlocks         int32
 	missingBlocks       int32
 	invalidBlocks       int32
@@ -44,11 +45,11 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 		orphanedBlocks: models.NewBlockIDs(),
 	}, opts, func(t *TestFramework) {
 		if t.BlockDAG == nil {
-			if t.evictionManager == nil {
-				t.evictionManager = eviction.NewState[models.BlockID](func(id models.BlockID) bool { return id == models.EmptyBlockID })
+			if t.evictionState == nil {
+				t.evictionState = eviction.NewState(storage.New(test.TempDir(), 1))
 			}
 
-			t.BlockDAG = New(t.evictionManager, t.optsBlockDAG...)
+			t.BlockDAG = New(t.evictionState, t.optsBlockDAG...)
 		}
 
 		t.ModelsTestFramework = models.NewTestFramework(
@@ -222,9 +223,9 @@ type ModelsTestFramework = models.TestFramework
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithEvictionManager(evictionManager *eviction.State[models.BlockID]) options.Option[TestFramework] {
+func WithEvictionState(evictionState *eviction.State) options.Option[TestFramework] {
 	return func(t *TestFramework) {
-		t.evictionManager = evictionManager
+		t.evictionState = evictionState
 	}
 }
 

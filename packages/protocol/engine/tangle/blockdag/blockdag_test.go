@@ -376,7 +376,7 @@ func TestBlockDAG_AttachInvalid(t *testing.T) {
 	// Prune BlockDAG.
 	tf.BlockDAG.EvictionState.EvictUntil(epochCount / 2)
 	tf.WaitUntilAllTasksProcessed()
-	assert.EqualValues(t, epochCount/2, tf.BlockDAG.EvictionState.MaxEvictedEpoch(), "maxDroppedEpoch should be epochCount/2")
+	assert.EqualValues(t, epochCount/2, tf.BlockDAG.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch should be epochCount/2")
 
 	blocks := make([]*models.Block, epochCount)
 	expectedMissing := make(map[string]bool, epochCount)
@@ -402,7 +402,7 @@ func TestBlockDAG_AttachInvalid(t *testing.T) {
 	{
 		for i := len(blocks) - 11; i >= 0; i-- {
 			_, wasAttached, err := tf.BlockDAG.Attach(blocks[i])
-			if blocks[i].ID().Index()-1 > tf.BlockDAG.EvictionState.MaxEvictedEpoch() {
+			if blocks[i].ID().Index()-1 > tf.BlockDAG.EvictionState.LastEvictedEpoch() {
 				assert.True(t, wasAttached, "block should be attached")
 				assert.NoError(t, err, "should not be able to attach a block after shutdown")
 				continue
@@ -505,21 +505,21 @@ func TestBlockDAG_Prune(t *testing.T) {
 
 	validateState(tf, 0, epochCount)
 
-	tf.BlockDAG.EvictionState.EvictUntil(epochCount / 4)
+	tf.BlockDAG.evictEpoch(epochCount / 4)
 	tf.WaitUntilAllTasksProcessed()
 
-	assert.EqualValues(t, epochCount/4, tf.BlockDAG.EvictionState.MaxEvictedEpoch(), "maxDroppedEpoch should be epochCount/4")
+	assert.EqualValues(t, epochCount/4, tf.BlockDAG.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch should be epochCount/4")
 
 	// All orphan blocks should be marked as invalid due to invalidity propagation.
 	tf.AssertInvalidCount(epochCount, "should have invalid blocks")
 
 	tf.BlockDAG.EvictionState.EvictUntil(epochCount / 10)
 	tf.WaitUntilAllTasksProcessed()
-	assert.EqualValues(t, epochCount/10, tf.BlockDAG.EvictionState.MaxEvictedEpoch(), "maxDroppedEpoch should be epochCount/4")
+	assert.EqualValues(t, epochCount/10, tf.BlockDAG.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch should be epochCount/4")
 
 	tf.BlockDAG.EvictionState.EvictUntil(epochCount / 2)
 	tf.WaitUntilAllTasksProcessed()
-	assert.EqualValues(t, epochCount/2, tf.BlockDAG.EvictionState.MaxEvictedEpoch(), "maxDroppedEpoch should be epochCount/2")
+	assert.EqualValues(t, epochCount/2, tf.BlockDAG.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch should be epochCount/2")
 
 	validateState(tf, epochCount/2, epochCount)
 }

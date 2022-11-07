@@ -9,17 +9,18 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
 
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/eventticker"
-	"github.com/iotaledger/goshimmer/packages/core/eviction"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/storage"
 
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/inbox"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/filter"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/manatracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
@@ -38,10 +39,9 @@ type Engine struct {
 	Events  *Events
 	Storage *storage.Storage
 	Ledger  *ledger.Ledger
-	Inbox   *inbox.Inbox
+	Filter  *filter.Filter
 	// SnapshotManager     *snapshot.Manager
-	EvictionState       *eviction.State[models.BlockID]
-	RootBlocksManager   *RootBlocksManager
+	EvictionState       *eviction.State
 	BlockRequester      *eventticker.EventTicker[models.BlockID]
 	ManaTracker         *manatracker.ManaTracker
 	NotarizationManager *notarization.Manager
@@ -73,18 +73,17 @@ type Engine struct {
 func New(storageInstance *storage.Storage, opts ...options.Option[Engine]) (engine *Engine) {
 	return options.Apply(
 		&Engine{
-			Events:            NewEvents(),
-			Storage:           storageInstance,
-			Clock:             clock.New(),
-			ValidatorSet:      validator.NewSet(),
-			RootBlocksManager: NewRootBlocksManager(storageInstance),
+			Events:        NewEvents(),
+			Storage:       storageInstance,
+			Clock:         clock.New(),
+			ValidatorSet:  validator.NewSet(),
+			EvictionState: eviction.NewState(storageInstance),
 
 			optsBootstrappedThreshold: 10 * time.Second,
 			optsSnapshotFile:          "snapshot.bin",
 			optsSnapshotDepth:         5,
 		}, opts,
-		(*Engine).initEvictionState,
-		(*Engine).initInbox,
+		(*Engine).initFilter,
 		(*Engine).initLedger,
 		(*Engine).initTangle,
 		(*Engine).initConsensus,
@@ -95,7 +94,7 @@ func New(storageInstance *storage.Storage, opts ...options.Option[Engine]) (engi
 		(*Engine).initManaTracker,
 		(*Engine).initSybilProtection,
 		(*Engine).initBlockRequester,
-		(*Engine).initSolidEntryPointsManager,
+		(*Engine).initEvictionState,
 	)
 }
 
@@ -120,8 +119,7 @@ func (e *Engine) IsSynced() (isBootstrapped bool) {
 
 func (e *Engine) Evict(index epoch.Index) {
 	for i := index; i > index-epoch.Index(e.optsEntryPointsDepth); i-- {
-		e.EvictionState.EvictUntil(index)
-		e.RootBlocksManager.Evict(i)
+		e.EvictionState.EvictUntil(i)
 	}
 }
 
@@ -130,16 +128,10 @@ func (e *Engine) Shutdown() {
 	e.Storage.Shutdown()
 }
 
-func (e *Engine) initEvictionState() {
-	e.EvictionState = eviction.NewState[models.BlockID](e.RootBlocksManager.IsRootBlock)
+func (e *Engine) initFilter() {
+	e.Filter = filter.New()
 
-	e.Events.EvictionState = e.EvictionState.Events
-}
-
-func (e *Engine) initInbox() {
-	e.Inbox = inbox.New()
-
-	e.Events.Inbox = e.Inbox.Events
+	e.Events.Filter = e.Filter.Events
 }
 
 func (e *Engine) initLedger() {
@@ -151,7 +143,7 @@ func (e *Engine) initLedger() {
 func (e *Engine) initTangle() {
 	e.Tangle = tangle.New(e.Ledger, e.EvictionState, e.ValidatorSet, e.optsTangleOptions...)
 
-	e.Events.Inbox.BlockReceived.Attach(event.NewClosure(func(block *models.Block) {
+	e.Events.Filter.BlockReceived.Attach(event.NewClosure(func(block *models.Block) {
 		if _, _, err := e.Tangle.Attach(block); err != nil {
 			e.Events.Error.Trigger(errors.Errorf("failed to attach block with %s (issuerID: %s): %w", block.ID(), block.IssuerID(), err))
 		}
@@ -161,7 +153,7 @@ func (e *Engine) initTangle() {
 }
 
 func (e *Engine) initConsensus() {
-	e.Consensus = consensus.New(e.Tangle, e.optsConsensusOptions...)
+	e.Consensus = consensus.New(e.Tangle, e.EvictionState, e.optsConsensusOptions...)
 
 	e.Events.Consensus = e.Consensus.Events
 }
@@ -254,7 +246,7 @@ func (e *Engine) initSybilProtection() {
 }
 
 func (e *Engine) initBlockRequester() {
-	e.BlockRequester = eventticker.New(e.EvictionState, e.optsBlockRequester...)
+	e.BlockRequester = eventticker.New(e.optsBlockRequester...)
 
 	// We need to hook to make sure that the request is created before the block arrives to avoid a race condition
 	// where we try to delete the request again before it is created. Thus, continuing to request forever.
@@ -269,19 +261,23 @@ func (e *Engine) initBlockRequester() {
 	e.Events.BlockRequester = e.BlockRequester.Events
 }
 
-func (e *Engine) initSolidEntryPointsManager() {
+func (e *Engine) initEvictionState() {
 	e.Events.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
 		// TODO: CHECK PARENTS?
-		e.RootBlocksManager.Insert(block.ID())
+		e.EvictionState.AddRootBlock(block.ID())
 	}))
 
 	e.Events.Tangle.BlockDAG.BlockOrphaned.Attach(event.NewClosure(func(block *blockdag.Block) {
-		e.RootBlocksManager.Remove(block.ID())
+		e.EvictionState.RemoveRootBlock(block.ID())
+	}))
+
+	e.NotarizationManager.Events.EpochCommitted.Attach(event.NewClosure(func(commitment *commitment.Commitment) {
+		e.EvictionState.EvictUntil(commitment.Index())
 	}))
 }
 
 func (e *Engine) ProcessBlockFromPeer(block *models.Block, source identity.ID) {
-	e.Inbox.ProcessReceivedBlock(block, source)
+	e.Filter.ProcessReceivedBlock(block, source)
 }
 
 func (e *Engine) Block(id models.BlockID) (block *models.Block, exists bool) {
@@ -296,7 +292,7 @@ func (e *Engine) Block(id models.BlockID) (block *models.Block, exists bool) {
 		return cachedBlock.ModelsBlock, !cachedBlock.IsMissing()
 	}
 
-	if id.Index() > e.EvictionState.MaxEvictedEpoch() {
+	if id.Index() > e.Storage.Settings.LatestCommitment().Index() {
 		return nil, false
 	}
 

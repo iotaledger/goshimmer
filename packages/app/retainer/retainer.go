@@ -106,7 +106,7 @@ func (r *Retainer) storeAndEvictEpoch(epochIndex epoch.Index) {
 	// anymore it is already written to disk.
 	r.evictionLock.Lock()
 	defer r.evictionLock.Unlock()
-	r.cachedMetadata.EvictEpoch(epochIndex)
+	r.cachedMetadata.Evict(epochIndex)
 }
 
 func (r *Retainer) createStorableBlockMetadata(epochIndex epoch.Index) (metas []*BlockMetadata) {

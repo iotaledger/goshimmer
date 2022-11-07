@@ -155,7 +155,7 @@ func (t *TipManager) selectTips(count int) (parents models.BlockIDs) {
 	if len(tips) == 0 {
 		fmt.Println("selecting genesis block because tip pool empty")
 
-		return parents.Add(t.engine.RootBlocksManager.LatestRootBlockID())
+		return parents.Add(t.engine.EvictionState.LatestRootBlock())
 	}
 
 	// at least one tip is returned

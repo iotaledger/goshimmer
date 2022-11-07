@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/eviction"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -39,7 +38,6 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 		evictedEntities: make(map[string]*MockedOrderedEntity),
 	}, opts, func(t *TestFramework) {
 		t.CausalOrder = New[MockedEntityID, *MockedOrderedEntity](
-			eviction.NewState[MockedEntityID](func(MockedEntityID) bool { return false }),
 			func(id MockedEntityID) (entity *MockedOrderedEntity, exists bool) {
 				return t.Get(id.alias)
 			}, (*MockedOrderedEntity).IsOrdered,
@@ -141,8 +139,7 @@ func (t *TestFramework) EntityIDs(aliases ...string) (entityIDs []MockedEntityID
 
 // EvictEpoch evicts all Entities that are older than the given epoch.
 func (t *TestFramework) EvictEpoch(index epoch.Index) {
-	t.evictionManager.EvictUntil(index)
-	t.CausalOrder.EvictEpoch(index)
+	t.CausalOrder.EvictUntil(index)
 }
 
 // AssertOrdered asserts that the given Entities are ordered.

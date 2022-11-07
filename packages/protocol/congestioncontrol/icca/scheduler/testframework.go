@@ -11,15 +11,16 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
 // region TestFramework //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -35,12 +36,12 @@ type TestFramework struct {
 	scheduledBlocksCount uint32
 	skippedBlocksCount   uint32
 	droppedBlocksCount   uint32
+	evictionState        *eviction.State
 
 	optsScheduler           []options.Option[Scheduler]
 	optsTangle              []options.Option[tangle.Tangle]
 	optsGadget              []options.Option[acceptance.Gadget]
 	optsValidatorSet        *validator.Set
-	optsEvictionManager     *eviction.State[models.BlockID]
 	optsIsBlockAcceptedFunc func(models.BlockID) bool
 	optsBlockAcceptedEvent  *event.Linkable[*acceptance.Block]
 	*TangleTestFramework
@@ -53,8 +54,9 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		issuersByAlias: make(map[string]*identity.Identity),
 		mockAcceptance: acceptance.NewMockAcceptanceGadget(),
 	}, opts, func(t *TestFramework) {
-		if t.optsEvictionManager == nil {
-			t.optsEvictionManager = eviction.NewState[models.BlockID](func(id models.BlockID) bool { return id == models.EmptyBlockID })
+		if t.evictionState == nil {
+			t.evictionState = eviction.NewState(storage.New(test.TempDir(), 1))
+			t.evictionState.AddRootBlock(models.EmptyBlockID)
 		}
 		if t.optsValidatorSet == nil {
 			t.optsValidatorSet = validator.NewSet()
@@ -64,7 +66,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 			test,
 			tangle.WithTangleOptions(t.optsTangle...),
 			tangle.WithValidatorSet(t.optsValidatorSet),
-			tangle.WithEvictionState(t.optsEvictionManager),
+			tangle.WithEvictionState(t.evictionState),
 		)
 
 		if t.optsIsBlockAcceptedFunc == nil {
@@ -75,7 +77,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		}
 
 		if t.Scheduler == nil {
-			t.Scheduler = New(t.TangleTestFramework.BlockDAG.EvictionState.State, t.optsIsBlockAcceptedFunc, t.ManaMap, t.TotalMana, t.optsScheduler...)
+			t.Scheduler = New(t.TangleTestFramework.BlockDAG.EvictionState, t.optsIsBlockAcceptedFunc, t.ManaMap, t.TotalMana, t.optsScheduler...)
 		}
 	}, (*TestFramework).setupEvents)
 }
@@ -249,9 +251,9 @@ func WithIsBlockAcceptedFunc(isBlockAcceptedFunc func(id models.BlockID) bool) o
 	}
 }
 
-func WithEvictionManager(evictionManager *eviction.State[models.BlockID]) options.Option[TestFramework] {
+func WithEvictionState(evictionState *eviction.State) options.Option[TestFramework] {
 	return func(t *TestFramework) {
-		t.optsEvictionManager = evictionManager
+		t.evictionState = evictionState
 	}
 }
 

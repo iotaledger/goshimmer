@@ -1,4 +1,4 @@
-package inbox
+package filter
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/options"
@@ -7,17 +7,17 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
-type Inbox struct {
+type Filter struct {
 	Events *Events
 }
 
-func New(opts ...options.Option[Inbox]) (inbox *Inbox) {
-	return options.Apply(&Inbox{
+func New(opts ...options.Option[Filter]) (inbox *Filter) {
+	return options.Apply(&Filter{
 		Events: NewEvents(),
 	}, opts)
 }
 
-func (i Inbox) ProcessReceivedBlock(block *models.Block, source identity.ID) {
+func (i *Filter) ProcessReceivedBlock(block *models.Block, source identity.ID) {
 	// fill heuristic + check if block is valid
 	// ...
 

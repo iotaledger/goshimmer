@@ -24,7 +24,7 @@ func Test_PruneMarkerBlockMapping(t *testing.T) {
 
 	tf := blockdag.NewTestFramework(t)
 
-	tf.BlockDAG.EvictionState.Events.EpochEvicted.Attach(event.NewClosure(markerManager.EvictEpoch))
+	tf.BlockDAG.EvictionState.Events.EpochEvicted.Attach(event.NewClosure(markerManager.Evict))
 
 	// create a helper function that creates the blocks
 	createNewBlock := func(idx int, prefix string) (block *blockdag.Block, alias string) {
@@ -135,7 +135,7 @@ func Test_PruneSequences(t *testing.T) {
 	// verify that the pruning is correct
 	{
 		for pruningEpoch := 0; pruningEpoch < 5; pruningEpoch++ {
-			markerManager.EvictEpoch(epoch.Index(pruningEpoch))
+			markerManager.Evict(epoch.Index(pruningEpoch))
 
 			startingSequence := markers.SequenceID((pruningEpoch + 1) * sequenceCount)
 
