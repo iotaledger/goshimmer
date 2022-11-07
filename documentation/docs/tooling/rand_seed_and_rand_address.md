@@ -31,7 +31,13 @@ The script will output a Base58 string representing the newly generated address,
 
 ## Rand Seed
 
-The rand seed tool is a CLI script a bit more complete than the previous one. It let you generate in a text file a seed (encoded in base58 and base64), its relative identity and its public key. The execution is still simple:
+## Rand Seed
+
+You can use the `rand-address` tool to generate a text file with the following:
+
+* A [seed](/../tutorials/send_transaction#seed), represented in Base64 and Base58.
+* The seed's relative identity, as a Base58 string. 
+* The relative identity's public, key in Base58.
 
 ```shell
 cd tools/rand-seed
