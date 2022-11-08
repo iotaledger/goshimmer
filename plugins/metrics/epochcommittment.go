@@ -2,6 +2,8 @@ package metrics
 
 import (
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
@@ -14,6 +16,10 @@ import (
 var (
 	lastCommittedEpoch      = new(commitment.Commitment)
 	lastCommittedEpochMutex sync.RWMutex
+
+	acceptedBlksMutex sync.RWMutex
+	numBlkOfEpoch     atomic.Int32
+	currentEI         epoch.Index
 
 	orphanedBlkRemovedMutex sync.RWMutex
 	oldestEpoch             = epoch.Index(0)
@@ -36,17 +42,39 @@ func LastCommittedEpoch() *commitment.Commitment {
 	return lastCommittedEpoch
 }
 
+func BlocksOfEpoch() (ei epoch.Index, num int32) {
+	acceptedBlksMutex.Lock()
+	defer acceptedBlksMutex.Unlock()
+
+	return currentEI, numBlkOfEpoch.Load()
+}
+
+func updateBlkOfEpoch(ei epoch.Index, num int32) {
+	acceptedBlksMutex.Lock()
+	defer acceptedBlksMutex.Unlock()
+
+	currentEI = ei
+	numBlkOfEpoch.Store(num)
+}
+
 func RemovedBlocksOfEpoch() map[epoch.Index]int {
-	orphanedBlkRemovedMutex.RLock()
-	defer orphanedBlkRemovedMutex.RUnlock()
+	orphanedBlkRemovedMutex.Lock()
+	defer orphanedBlkRemovedMutex.Unlock()
+
+	checkLimit()
 
 	// copy the original map
 	clone := make(map[epoch.Index]int)
 	endEpoch := oldestEpoch + epoch.Index(orphanedBlkRemoved.Size())
+	if endEpoch == 0 {
+		endEpoch = epoch.IndexFromTime(time.Now())
+	}
+
 	for ei := oldestEpoch; ei <= endEpoch; ei++ {
 		num, exists := orphanedBlkRemoved.Get(ei)
 		if !exists {
 			num = 0
+			orphanedBlkRemoved.Set(ei, 0)
 		}
 		clone[ei] = num
 	}
@@ -65,6 +93,10 @@ func increaseRemovedBlockCounter(blkID models.BlockID) {
 		orphanedBlkRemoved.Set(blkID.EpochIndex, 1)
 	}
 
+	checkLimit()
+}
+
+func checkLimit() {
 	if orphanedBlkRemoved.Size() > maxEpochsPreserved {
 		endEpoch := oldestEpoch + epoch.Index(numEpochsToRemove)
 		for ei := oldestEpoch; ei <= endEpoch; ei++ {

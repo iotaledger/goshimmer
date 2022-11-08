@@ -86,6 +86,14 @@ func (m *EpochMutations) RemoveAcceptedBlock(block *models.Block) (err error) {
 	return
 }
 
+// TotalAcceptedBlocks returns the number of accepted blocks of given epoch.
+func (m *EpochMutations) TotalAcceptedBlocks(ei epoch.Index) (total int) {
+	m.Lock()
+	defer m.Unlock()
+
+	return m.acceptedBlocks(ei).Size()
+}
+
 // AddAcceptedTransaction adds the given transaction to the set of accepted transactions.
 func (m *EpochMutations) AddAcceptedTransaction(metadata *ledger.TransactionMetadata) (err error) {
 	m.Lock()

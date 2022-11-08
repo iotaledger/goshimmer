@@ -15,6 +15,7 @@ import (
 	"github.com/iotaledger/hive.go/core/types"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol"
@@ -268,6 +269,12 @@ func registerLocalMetrics() {
 	deps.Protocol.Events.Engine.EpochMutations.AcceptedBlockRemoved.Attach(event.NewClosure(func(blkID models.BlockID) {
 		increaseRemovedBlockCounter(blkID)
 		fmt.Println("block is orphaned from epoch!")
+	}))
+
+	deps.Protocol.Events.Engine.NotarizationManager.EpochCommitted.Attach(event.NewClosure(func(c *commitment.Commitment) {
+		num := deps.Protocol.Engine().NotarizationManager.EpochMutations.TotalAcceptedBlocks(c.Index())
+		fmt.Println(">>>> epoch committed", c.Index(), num)
+		updateBlkOfEpoch(c.Index(), int32(num))
 	}))
 
 	metrics.Events.AnalysisOutboundBytes.Attach(event.NewClosure(func(event *metrics.AnalysisOutboundBytesEvent) {
