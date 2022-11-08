@@ -55,7 +55,7 @@ func (g *Gadget) refreshEpochConfirmation(previousLatestEpochIndex epoch.Index, 
 	defer g.Unlock()
 	totalWeight := g.totalWeightCallback()
 
-	for i := lo.Max(g.lastConfirmedEpoch+1, previousLatestEpochIndex); i <= newLatestEpochIndex; i++ {
+	for i := lo.Max(g.lastConfirmedEpoch, previousLatestEpochIndex) + 1; i <= newLatestEpochIndex; i++ {
 		if !validator.IsThresholdReached(totalWeight, g.tangle.VirtualVoting.EpochVoters(i).TotalWeight(), g.optsEpochConfirmationThreshold) {
 			break
 		}

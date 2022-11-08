@@ -55,12 +55,13 @@ func (c *EpochTracker) TrackVotes(epochIndex epoch.Index, voterID identity.ID, p
 		return latestvotes.NewLatestVotes[epoch.Index, EpochVotePower](voter)
 	})
 
-	_, previousHighestIndex := votersVotes.Store(epochIndex, power)
-	for i := lo.Max(c.cutoffIndexCallback(), previousHighestIndex+1); i <= epochIndex; i++ {
-		if !c.epochVoters(i).Add(voterID) {
-			// Already voted for the epoch index, so no need to continue further
-			break
-		}
+	updated, previousHighestIndex := votersVotes.Store(epochIndex, power)
+	if !updated || previousHighestIndex == epochIndex {
+		return
+	}
+
+	for i := lo.Max(c.cutoffIndexCallback(), previousHighestIndex) + 1; i <= epochIndex; i++ {
+		c.epochVoters(i).Add(voterID)
 	}
 
 	c.Events.VotersUpdated.Trigger(&VoterUpdatedEvent{
