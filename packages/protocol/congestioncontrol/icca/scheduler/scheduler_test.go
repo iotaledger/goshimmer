@@ -131,7 +131,7 @@ func TestScheduler_Dropped(t *testing.T) {
 
 	for i := 0; i < numBlocks; i++ {
 		alias := fmt.Sprintf("blk-%d", i)
-		tf.CreateBlock(alias, models.WithIssuer(tf.Issuer("nomana").PublicKey()), models.WithStrongParents(models.NewBlockIDs(tf.TangleTestFramework.Block("Genesis").ID())))
+		tf.CreateBlock(alias, models.WithIssuer(tf.Issuer("nomana").PublicKey()), models.WithStrongParents(models.NewBlockIDs(tf.Block("Genesis").ID())))
 		tf.IssueBlocks(alias).WaitUntilAllTasksProcessed()
 	}
 	droppedCounter := 0

@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
@@ -40,6 +41,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 
 			if t.optsEvictionState == nil {
 				t.optsEvictionState = eviction.NewState(chainStorage)
+				t.optsEvictionState.AddRootBlock(models.EmptyBlockID)
 			}
 
 			if t.optsValidatorSet == nil {

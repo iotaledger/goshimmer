@@ -24,14 +24,18 @@ type State struct {
 	optsTimeSinceConfirmationThreshold time.Duration
 }
 
-func NewState(storageInstance *storage.Storage) *State {
-	return &State{
+func NewState(storageInstance *storage.Storage) (state *State) {
+	state = &State{
 		Events: NewEvents(),
 
 		cache:            memstorage.NewEpochStorage[models.BlockID, bool](),
 		storage:          storageInstance,
 		lastEvictedEpoch: -1,
 	}
+
+	state.AddRootBlock(models.EmptyBlockID)
+
+	return state
 }
 
 func (r *State) EvictUntil(index epoch.Index) {
@@ -43,6 +47,7 @@ func (r *State) EvictUntil(index epoch.Index) {
 
 		r.cache.Evict(currentIndex)
 	}
+	r.lastEvictedEpoch = index
 }
 
 func (r *State) LastEvictedEpoch() (lastEvictedEpoch epoch.Index) {
