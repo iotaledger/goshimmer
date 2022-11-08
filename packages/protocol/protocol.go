@@ -144,17 +144,6 @@ func (p *Protocol) initChainManager() {
 	p.Events.Engine.NotarizationManager.EpochCommitted.Attach(event.NewClosure(func(commitment *commitment.Commitment) {
 		p.ChainManager.ProcessCommitment(commitment)
 	}))
-	// TODO remove later those prints
-	p.chainManager.Events.CommitmentMissing.Attach(event.NewClosure(func(commitmentID commitment.ID) {
-		p.Logger.Infof("CommitmentMissing: %s", commitmentID.String())
-	}))
-	p.chainManager.Events.MissingCommitmentReceived.Attach(event.NewClosure(func(commitmentID commitment.ID) {
-		p.Logger.Infof("MissingCommitmentReceived: %s", commitmentID.String())
-	}))
-	p.chainManager.Events.ForkDetected.Attach(event.NewClosure(func(chain *chainmanager.Chain) {
-		p.Logger.Infof("ForkDetected, forking point: %s", chain.ForkingPoint)
-	}))
-
 }
 
 func (p *Protocol) initTipManager() {
