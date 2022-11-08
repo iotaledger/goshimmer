@@ -28,7 +28,6 @@ type Manager struct {
 	storage                    *storage.Storage
 	pendingConflictsCounters   *shrinkingmap.ShrinkingMap[epoch.Index, uint64]
 	acceptanceTime             time.Time
-	sybilProtection            *sybilprotection.SybilProtection
 	optsMinCommittableEpochAge time.Duration
 
 	sync.RWMutex
