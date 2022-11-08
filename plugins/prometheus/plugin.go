@@ -47,10 +47,10 @@ func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(plugin.Name)
 
 	if Parameters.GoMetrics {
-		registry.MustRegister(prometheus.NewGoCollector())
+		registry.MustRegister(collectors.NewGoCollector())
 	}
 	if Parameters.ProcessMetrics {
-		registry.MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
+		registry.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
 	}
 
 	if metrics.Parameters.Local {
