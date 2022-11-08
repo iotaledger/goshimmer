@@ -1,39 +1,35 @@
 package ratesetter
 
-// import (
-// 	"testing"
-// 	"time"
-
-// 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
-// 	"github.com/iotaledger/hive.go/core/generics/event"
-// 	"github.com/iotaledger/hive.go/core/identity"
-// 	"github.com/stretchr/testify/assert"
-
-// 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
-// )
+import (
+	"testing"
+	"time"
+	// "github.com/iotaledger/hive.go/core/crypto/ed25519"
+	// "github.com/iotaledger/hive.go/core/generics/event"
+	// "github.com/iotaledger/hive.go/core/identity"
+	// 	"github.com/stretchr/testify/assert"
+	// 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
+	// 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+)
 
 // var (
-// testInitial = 5.0
+// 	testInitial = 5.0
 // )
 
-// func TestRateSetter_StartStop(t *testing.T) {
+func TestRateSetter_StartStop_Disabled(t *testing.T) {
+	//localID := identity.GenerateLocalIdentity()
+
+	rateSetter := NewDisabled()
+	defer rateSetter.Shutdown()
+	time.Sleep(10 * time.Millisecond)
+}
+
+// func TestRateSetter_Submit_Disabled(t *testing.T) {
 // 	localID := identity.GenerateLocalIdentity()
 
-// 	rateSetter := New()
-// 	defer tangle.Shutdown()
-// 	time.Sleep(10 * time.Millisecond)
-// }
-
-// func TestRateSetter_Submit(t *testing.T) {
-// 	localID := identity.GenerateLocalIdentity()
-// 	localNode := identity.New(localID.PublicKey())
-
-// 	tangle := NewTestTangle(Identity(localID), RateSetterConfig(testRateSetterParams))
-// 	defer tangle.Shutdown()
-// 	rateSetter := New(tangle)
+// 	rateSetter := NewDisabled(localID.ID())
 // 	defer rateSetter.Shutdown()
 
-// 	blockIssued := make(chan *Block, 1)
+// 	blockIssued := make(chan *models.Block, 1)
 // 	rateSetter.Events.BlockIssued.Attach(event.NewClosure(func(event *BlockConstructedEvent) { blockIssued <- event.Block }))
 
 // 	blk := newBlock(localNode.PublicKey())

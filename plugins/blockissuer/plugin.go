@@ -61,7 +61,7 @@ func createBlockIssuer(local *peer.Local, protocol *protocol.Protocol) *blockiss
 			ratesetter.WithSchedulerRateDeficit(protocolParams.SchedulerParameters.Rate),
 		)
 	default:
-		rateSetter = ratesetter.NewDisabled(protocol, local.LocalIdentity().ID())
+		rateSetter = ratesetter.NewDisabled()
 	}
 
 	return blockissuer.New(protocol, local.LocalIdentity(),

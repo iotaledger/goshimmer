@@ -77,9 +77,6 @@ func (i *BlockIssuer) setupEvents() {
 	i.RateSetter.Events().BlockIssued.Attach(event.NewClosure[*models.Block](func(block *models.Block) {
 		i.protocol.ProcessBlock(block, i.identity.ID())
 	}))
-	i.Factory.Events.BlockConstructed.Attach(event.NewClosure(func(block *models.Block) {
-		i.RateSetter.Events().BlockIssued.Trigger(block) // blocks immediately issued rather than added to issuing queue
-	}))
 }
 
 // IssuePayload creates a new block including sequence number and tip selection and returns it.

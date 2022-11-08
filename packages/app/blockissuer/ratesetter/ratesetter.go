@@ -463,16 +463,12 @@ func (r *AIMDRateSetter) initializeRate() {
 
 type DisabledRateSetter struct {
 	events       *Events
-	protocol     *protocol.Protocol
-	self         identity.ID
 	issuingQueue *IssuerQueue
 }
 
-func NewDisabled(protocol *protocol.Protocol, selfIdentity identity.ID) *DisabledRateSetter {
+func NewDisabled() *DisabledRateSetter {
 	return &DisabledRateSetter{
-		events:   newEvents(),
-		protocol: protocol,
-		self:     selfIdentity,
+		events: newEvents(),
 	}
 }
 
