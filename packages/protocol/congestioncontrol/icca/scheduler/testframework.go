@@ -56,7 +56,6 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 	}, opts, func(t *TestFramework) {
 		if t.evictionState == nil {
 			t.evictionState = eviction.NewState(storage.New(test.TempDir(), 1))
-			t.evictionState.AddRootBlock(models.EmptyBlockID)
 		}
 		if t.optsValidatorSet == nil {
 			t.optsValidatorSet = validator.NewSet()
