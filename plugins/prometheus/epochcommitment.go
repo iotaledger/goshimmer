@@ -41,9 +41,9 @@ func collectEpochCommittmentMetrics() {
 }
 
 func collectRemovedBlockMetrics() {
-	fmt.Println(">>>>>> removed block from epoch triggered!!!")
 	blockCounts := metrics.RemovedBlocksOfEpoch()
 	for ei, count := range blockCounts {
-		numberOfBlockRemoved.WithLabelValues(ei.String()).Set(float64(count))
+		eiStr := fmt.Sprint(uint64(ei))
+		numberOfBlockRemoved.WithLabelValues(eiStr).Set(float64(count))
 	}
 }
