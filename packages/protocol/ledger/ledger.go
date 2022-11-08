@@ -284,7 +284,7 @@ func (l *Ledger) rollbackTransactionInEpochDiff(txMeta *TransactionMetadata, pre
 
 func (l *Ledger) storeOutputInDiff(txEpoch epoch.Index, outputID utxo.OutputID, output utxo.Output, outputMetadata *OutputMetadata, storeFunc func(*models.OutputWithMetadata) error) (err error) {
 	outputWithMetadata := models.NewOutputWithMetadata(
-		txEpoch, outputID, output, outputMetadata.CreationTime(),
+		txEpoch, outputID, output,
 		outputMetadata.ConsensusManaPledgeID(),
 		outputMetadata.AccessManaPledgeID(),
 	)

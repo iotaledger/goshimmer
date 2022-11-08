@@ -3,7 +3,6 @@ package snapshot
 import (
 	"encoding/binary"
 	"os"
-	"time"
 
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
@@ -75,7 +74,7 @@ func WriteSnapshot(filePath string, s *storage.Storage, l *ledger.Ledger, depth 
 		binary.Write(fileHandle, binary.LittleEndian, outputCount)
 
 		// OutputWithMetadata size
-		dummyOutputWithMetadata := storageModels.NewOutputWithMetadata(0, dummyOutput.ID(), dummyOutput, time.Unix(epoch.GenesisTime, 0), identity.ID{}, identity.ID{})
+		dummyOutputWithMetadata := storageModels.NewOutputWithMetadata(0, dummyOutput.ID(), dummyOutput, identity.ID{}, identity.ID{})
 		outputWithMetadataSize = uint32(len(lo.PanicOnErr(dummyOutputWithMetadata.Bytes())))
 		binary.Write(fileHandle, binary.LittleEndian, outputWithMetadataSize)
 
@@ -86,7 +85,6 @@ func WriteSnapshot(filePath string, s *storage.Storage, l *ledger.Ledger, depth 
 						epoch.IndexFromTime(outputMetadata.CreationTime()),
 						outputID,
 						output,
-						outputMetadata.CreationTime(),
 						outputMetadata.ConsensusManaPledgeID(),
 						outputMetadata.AccessManaPledgeID(),
 					)

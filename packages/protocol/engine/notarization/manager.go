@@ -29,7 +29,7 @@ type Manager struct {
 	acceptanceTime             time.Time
 	optsMinCommittableEpochAge time.Duration
 
-	sync.Mutex
+	sync.RWMutex
 }
 
 func NewManager(storage *storage.Storage, opts ...options.Option[Manager]) (new *Manager) {
@@ -39,6 +39,7 @@ func NewManager(storage *storage.Storage, opts ...options.Option[Manager]) (new 
 
 		storage:                    storage,
 		pendingConflictsCounters:   shrinkingmap.New[epoch.Index, uint64](),
+		acceptanceTime:             storage.Settings.LatestCommitment().Index().EndTime(),
 		optsMinCommittableEpochAge: defaultMinEpochCommittableAge,
 	}, opts)
 }
@@ -80,6 +81,14 @@ func (m *Manager) SetAcceptanceTime(acceptanceTime time.Time) {
 	if index := epoch.IndexFromTime(acceptanceTime); index > m.storage.Settings.LatestCommitment().Index() {
 		m.tryCommitEpoch(index)
 	}
+}
+
+// IsFullyCommitted returns if the Manager finished committing all pending epochs up to the current acceptance time.
+func (m *Manager) IsFullyCommitted() bool {
+	m.RLock()
+	defer m.RUnlock()
+
+	return m.acceptanceTime.Sub((m.storage.Settings.LatestCommitment().Index() + 1).EndTime()) < m.optsMinCommittableEpochAge
 }
 
 func (m *Manager) tryCommitEpoch(index epoch.Index) {

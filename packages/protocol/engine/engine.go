@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -21,7 +22,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/inbox"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/manatracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
@@ -44,7 +45,7 @@ type Engine struct {
 	EvictionState       *eviction.State[models.BlockID]
 	EntryPointsManager  *EntryPointsManager
 	BlockRequester      *eventticker.EventTicker[models.BlockID]
-	ManaTracker         *mana.Tracker
+	ManaTracker         *manatracker.ManaTracker
 	NotarizationManager *notarization.Manager
 	Tangle              *tangle.Tangle
 	Consensus           *consensus.Consensus
@@ -53,12 +54,15 @@ type Engine struct {
 	SybilProtection     *sybilprotection.SybilProtection
 	ValidatorSet        *validator.Set
 
+	isBootstrapped      bool
+	isBootstrappedMutex sync.Mutex
+
 	optsBootstrappedThreshold      time.Duration
 	optsEntryPointsDepth           int
 	optsSnapshotFile               string
 	optsSnapshotDepth              int
 	optsLedgerOptions              []options.Option[ledger.Ledger]
-	optsManaTrackerOptions         []options.Option[mana.Tracker]
+	optsManaTrackerOptions         []options.Option[manatracker.ManaTracker]
 	optsNotarizationManagerOptions []options.Option[notarization.Manager]
 	optsTangleOptions              []options.Option[tangle.Tangle]
 	optsConsensusOptions           []options.Option[consensus.Consensus]
@@ -100,8 +104,18 @@ func New(storageInstance *storage.Storage, opts ...options.Option[Engine]) (engi
 }
 
 func (e *Engine) IsBootstrapped() (isBootstrapped bool) {
-	// TODO: add bootstrapped flag from notarization
-	return time.Since(e.Clock.RelativeAcceptedTime()) < e.optsBootstrappedThreshold
+	e.isBootstrappedMutex.Lock()
+	defer e.isBootstrappedMutex.Unlock()
+
+	if e.isBootstrapped {
+		return true
+	}
+
+	if isBootstrapped = time.Since(e.Clock.RelativeAcceptedTime()) < e.optsBootstrappedThreshold && e.NotarizationManager.IsFullyCommitted(); isBootstrapped {
+		e.isBootstrapped = true
+	}
+
+	return isBootstrapped
 }
 
 func (e *Engine) IsSynced() (isBootstrapped bool) {
@@ -230,9 +244,7 @@ func (e *Engine) initNotarizationManager() {
 }
 
 func (e *Engine) initManaTracker() {
-	e.ManaTracker = mana.NewTracker(e.Ledger, e.Storage, e.optsManaTrackerOptions...)
-
-	e.Ledger.Events.TransactionAccepted.Attach(event.NewClosure(e.ManaTracker.UpdateMana))
+	e.ManaTracker = manatracker.New(e.Ledger, e.optsManaTrackerOptions...)
 }
 
 func (e *Engine) initSybilProtection() {
