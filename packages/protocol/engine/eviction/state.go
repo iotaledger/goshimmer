@@ -20,6 +20,7 @@ type State struct {
 	storage          *storage.Storage
 	lastEvictedEpoch epoch.Index
 	evictionMutex    sync.RWMutex
+	triggerMutex     sync.Mutex
 
 	optsTimeSinceConfirmationThreshold time.Duration
 }
@@ -40,14 +41,24 @@ func NewState(storageInstance *storage.Storage) (state *State) {
 
 func (r *State) EvictUntil(index epoch.Index) {
 	r.evictionMutex.Lock()
-	defer r.evictionMutex.Unlock()
+	r.triggerMutex.Lock()
+	defer r.triggerMutex.Unlock()
 
-	for currentIndex := r.lastEvictedEpoch + 1; currentIndex <= index; currentIndex++ {
-		r.Events.EpochEvicted.Trigger(currentIndex)
+	lastEvictedEpoch := r.lastEvictedEpoch
+	if index <= lastEvictedEpoch {
+		r.evictionMutex.Unlock()
+		return
+	}
 
+	for currentIndex := lastEvictedEpoch + 1; currentIndex <= index; currentIndex++ {
 		r.cache.Evict(currentIndex)
 	}
 	r.lastEvictedEpoch = index
+	r.evictionMutex.Unlock()
+
+	for currentIndex := lastEvictedEpoch + 1; currentIndex <= index; currentIndex++ {
+		r.Events.EpochEvicted.Trigger(currentIndex)
+	}
 }
 
 func (r *State) LastEvictedEpoch() (lastEvictedEpoch epoch.Index) {

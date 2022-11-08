@@ -512,21 +512,17 @@ func TestBlockDAG_Prune(t *testing.T) {
 	tf.AssertSolidCount(epochCount, "should have all solid blocks")
 
 	validateState(tf, 0, epochCount)
-	fmt.Println("evicting")
 	tf.BlockDAG.EvictionState.EvictUntil(epochCount / 4)
-	fmt.Println("evicting DONE")
 	tf.WaitUntilAllTasksProcessed()
-	fmt.Println("evicting DONE1")
 
 	assert.EqualValues(t, epochCount/4, tf.BlockDAG.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch should be epochCount/4")
 
 	// All orphan blocks should be marked as invalid due to invalidity propagation.
 	tf.AssertInvalidCount(epochCount, "should have invalid blocks")
 
-	fmt.Println("evicting1")
-	tf.BlockDAG.EvictionState.EvictUntil(epochCount / 10)
+	tf.BlockDAG.EvictionState.EvictUntil(epochCount / 4)
 	tf.WaitUntilAllTasksProcessed()
-	assert.EqualValues(t, epochCount/10, tf.BlockDAG.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch should be epochCount/4")
+	assert.EqualValues(t, epochCount/4, tf.BlockDAG.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch should be epochCount/4")
 
 	tf.BlockDAG.EvictionState.EvictUntil(epochCount / 2)
 	tf.WaitUntilAllTasksProcessed()
