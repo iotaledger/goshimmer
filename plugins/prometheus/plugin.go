@@ -2,6 +2,7 @@ package prometheus
 
 import (
 	"context"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	"net/http"
 	"time"
 
@@ -64,7 +65,7 @@ func configure(plugin *node.Plugin) {
 		registerManaMetrics()
 		registerSchedulerMetrics()
 		registerRateSetterMetrics()
-		registerEpochCommittmentMetrics()
+		registerEpochCommitmentMetrics()
 	}
 
 	if metrics.Parameters.Global {

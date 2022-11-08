@@ -69,10 +69,10 @@ func TestProtocol(t *testing.T) {
 	protocol2 := New(endpoint2, WithBaseDirectory(diskUtil2.Path()), WithSnapshotPath(diskUtil2.Path("snapshot.bin")))
 	protocol2.Run()
 
-	protocol2.chainManager.Events.CommitmentMissing.Hook(event.NewClosure(func(id commitment.ID) {
+	protocol2.ChainManager.Events.CommitmentMissing.Hook(event.NewClosure(func(id commitment.ID) {
 		fmt.Println("MISSING", id)
 	}))
-	protocol2.chainManager.Events.MissingCommitmentReceived.Hook(event.NewClosure(func(id commitment.ID) {
+	protocol2.ChainManager.Events.MissingCommitmentReceived.Hook(event.NewClosure(func(id commitment.ID) {
 		fmt.Println("MISSING RECEIVED", id)
 	}))
 

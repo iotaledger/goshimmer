@@ -37,11 +37,11 @@ type Protocol struct {
 	Events            *Events
 	CongestionControl *congestioncontrol.CongestionControl
 	TipManager        *tipmanager.TipManager
+	ChainManager      *chainmanager.Manager
 
 	dispatcher           network.Endpoint
 	networkProtocol      *network.Protocol
 	disk                 *diskutil.DiskUtil
-	chainManager         *chainmanager.Manager
 	activeEngineMutex    sync.RWMutex
 	engine               *engine.Engine
 	candidateEngine      *engine.Engine
@@ -112,12 +112,12 @@ func (p *Protocol) initNetworkProtocol() {
 	}))
 
 	p.networkProtocol.Events.EpochCommitmentReceived.Attach(event.NewClosure(func(event *network.EpochCommitmentReceivedEvent) {
-		p.chainManager.ProcessCommitment(event.Commitment)
+		p.ChainManager.ProcessCommitment(event.Commitment)
 	}))
 
 	p.networkProtocol.Events.EpochCommitmentRequestReceived.Attach(event.NewClosure(func(event *network.EpochCommitmentRequestReceivedEvent) {
-		if commitment, _ := p.chainManager.Commitment(event.CommitmentID); commitment != nil && commitment.Commitment() != nil {
-			p.networkProtocol.SendEpochCommitment(commitment.Commitment(), event.Source)
+		if comm, _ := p.ChainManager.Commitment(event.CommitmentID); comm != nil && comm.Commitment() != nil {
+			p.networkProtocol.SendEpochCommitment(comm.Commitment(), event.Source)
 		}
 	}))
 
@@ -129,7 +129,7 @@ func (p *Protocol) initNetworkProtocol() {
 		p.networkProtocol.RequestBlock(blockID)
 	}))
 
-	p.chainManager.CommitmentRequester.Events.Tick.Attach(event.NewClosure(func(commitmentID commitment.ID) {
+	p.ChainManager.CommitmentRequester.Events.Tick.Attach(event.NewClosure(func(commitmentID commitment.ID) {
 		p.networkProtocol.RequestCommitment(commitmentID)
 	}))
 }
@@ -139,10 +139,10 @@ func (p *Protocol) initMainEngine() {
 }
 
 func (p *Protocol) initChainManager() {
-	p.chainManager = chainmanager.NewManager(p.Engine().Storage.Settings.LatestCommitment())
+	p.ChainManager = chainmanager.NewManager(p.Engine().Storage.Settings.LatestCommitment())
 
 	p.Events.Engine.NotarizationManager.EpochCommitted.Attach(event.NewClosure(func(commitment *commitment.Commitment) {
-		p.chainManager.ProcessCommitment(commitment)
+		p.ChainManager.ProcessCommitment(commitment)
 	}))
 	// TODO remove later those prints
 	p.chainManager.Events.CommitmentMissing.Attach(event.NewClosure(func(commitmentID commitment.ID) {
@@ -193,7 +193,7 @@ func (p *Protocol) initTipManager() {
 }
 
 func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) {
-	isSolid, chain, _ := p.chainManager.ProcessCommitment(block.Commitment())
+	isSolid, chain, _ := p.ChainManager.ProcessCommitment(block.Commitment())
 	if !isSolid {
 		return
 	}

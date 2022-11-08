@@ -296,4 +296,8 @@ func registerLocalMetrics() {
 	}
 
 	deps.Protocol.Events.Engine.NotarizationManager.EpochCommitted.Attach(onEpochCommitted)
+	deps.Protocol.ChainManager.Events.MissingCommitmentReceived.Attach(onMissingCommitmentReceived)
+	deps.Protocol.ChainManager.Events.CommitmentMissing.Attach(onCommitmentMissing)
+	deps.Protocol.ChainManager.Events.ForkDetected.Attach(onForkDetected)
+
 }
