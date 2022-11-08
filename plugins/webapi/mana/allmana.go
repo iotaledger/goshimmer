@@ -8,12 +8,12 @@ import (
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/manatracker/manamodels"
 )
 
 // getAllManaHandler handles the request.
 func getAllManaHandler(c echo.Context) error {
-	access := deps.Protocol.Engine().ManaTracker.ManaMap()
+	access := deps.Protocol.Engine().ManaTracker.ManaByIDs()
 	accessList := manamodels.IssuerMap(access).ToIssuerStrList()
 	sort.Slice(accessList, func(i, j int) bool {
 		return accessList[i].Mana > accessList[j].Mana
