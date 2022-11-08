@@ -91,6 +91,9 @@ func (m *EpochMutations) TotalAcceptedBlocks(ei epoch.Index) (total int) {
 	m.Lock()
 	defer m.Unlock()
 
+	if m.acceptedBlocks(ei) == nil {
+		return 0
+	}
 	return m.acceptedBlocks(ei).Size()
 }
 
@@ -105,7 +108,6 @@ func (m *EpochMutations) AddAcceptedTransaction(metadata *ledger.TransactionMeta
 	}
 
 	m.acceptedTransactions(epochIndex, true).Add(metadata.ID())
-
 	return
 }
 
