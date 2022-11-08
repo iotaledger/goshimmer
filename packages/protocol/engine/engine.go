@@ -263,8 +263,12 @@ func (e *Engine) initBlockRequester() {
 
 func (e *Engine) initEvictionState() {
 	e.Events.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
-		// TODO: CHECK PARENTS?
-		e.EvictionState.AddRootBlock(block.ID())
+		block.ForEachParent(func(parent models.Parent) {
+			// TODO: ONLY ADD STRONG PARENTS AFTER NOT DOWNLOADING PAST WEAK ARROWS
+			if parent.ID.Index() < block.ID().Index() {
+				e.EvictionState.AddRootBlock(parent.ID)
+			}
+		})
 	}))
 
 	e.Events.Tangle.BlockDAG.BlockOrphaned.Attach(event.NewClosure(func(block *blockdag.Block) {

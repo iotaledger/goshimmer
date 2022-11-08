@@ -16,30 +16,39 @@ import (
 type State struct {
 	Events *Events
 
-	cache            *memstorage.EpochStorage[models.BlockID, bool]
+	rootBlocks       *memstorage.EpochStorage[models.BlockID, bool]
 	storage          *storage.Storage
 	lastEvictedEpoch epoch.Index
 	evictionMutex    sync.RWMutex
 	triggerMutex     sync.Mutex
 
-	optsRootBlockEvictionDelay         int
+	optsRootBlockEvictionDelay         epoch.Index
 	optsTimeSinceConfirmationThreshold time.Duration
 }
 
-func NewState(storageInstance *storage.Storage) (state *State) {
-	state = &State{
-		Events: NewEvents(),
-
-		cache:            memstorage.NewEpochStorage[models.BlockID, bool](),
+func NewState(storageInstance *storage.Storage, opts ...options.Option[State]) (state *State) {
+	return options.Apply(&State{
+		Events:           NewEvents(),
+		rootBlocks:       memstorage.NewEpochStorage[models.BlockID, bool](),
 		storage:          storageInstance,
 		lastEvictedEpoch: storageInstance.Settings.LatestCommitment().Index(),
+	}, opts, func(s *State) {
+		if s.importRootBlocksFromStorage() == 0 {
+			s.rootBlocks.Get(0, true).Set(models.EmptyBlockID, true)
+		}
+	})
+}
+
+func (r *State) importRootBlocksFromStorage() (importedBlocks int) {
+	for currentEpoch := r.lastEvictedEpoch; currentEpoch >= 0 && currentEpoch > r.delayedBlockEvictionThreshold(r.lastEvictedEpoch); currentEpoch-- {
+		r.storage.RootBlocks.Stream(currentEpoch, func(rootBlockID models.BlockID) {
+			r.rootBlocks.Get(rootBlockID.Index(), true).Set(rootBlockID, true)
+
+			importedBlocks++
+		})
 	}
 
-	state.cache.Get(0, true).Set(models.EmptyBlockID, true)
-	state.AddRootBlock(models.EmptyBlockID)
-	state.lastEvictedEpoch = 0
-
-	return state
+	return
 }
 
 func (r *State) EvictUntil(index epoch.Index) {
@@ -53,8 +62,10 @@ func (r *State) EvictUntil(index epoch.Index) {
 		return
 	}
 
-	for currentIndex := lastEvictedEpoch + 1; currentIndex <= index; currentIndex++ {
-		r.cache.Evict(currentIndex)
+	for currentIndex := lastEvictedEpoch; currentIndex < index; currentIndex++ {
+		if delayedIndex := r.delayedBlockEvictionThreshold(currentIndex); delayedIndex >= 0 {
+			r.rootBlocks.Evict(delayedIndex)
+		}
 	}
 	r.lastEvictedEpoch = index
 	r.evictionMutex.Unlock()
@@ -84,15 +95,19 @@ func (r *State) AddRootBlock(id models.BlockID) {
 	r.evictionMutex.Lock()
 	defer r.evictionMutex.Unlock()
 
-	if id.Index() <= r.lastEvictedEpoch {
+	if id.Index() <= r.delayedBlockEvictionThreshold(r.lastEvictedEpoch) {
 		return
 	}
 
-	if r.cache.Get(id.Index(), true).Set(id, true) {
+	if r.rootBlocks.Get(id.Index(), true).Set(id, true) {
 		if err := r.storage.RootBlocks.Store(id); err != nil {
 			panic(errors.Errorf("failed to store root block %s: %w", id, err))
 		}
 	}
+}
+
+func (r *State) delayedBlockEvictionThreshold(index epoch.Index) (threshold epoch.Index) {
+	return index - r.optsRootBlockEvictionDelay - 1
 }
 
 // RemoveRootBlock removes a solid entry points from the map.
@@ -100,7 +115,7 @@ func (r *State) RemoveRootBlock(id models.BlockID) {
 	r.evictionMutex.Lock()
 	defer r.evictionMutex.Unlock()
 
-	if rootBlocks := r.cache.Get(id.Index()); rootBlocks != nil && rootBlocks.Delete(id) {
+	if rootBlocks := r.rootBlocks.Get(id.Index()); rootBlocks != nil && rootBlocks.Delete(id) {
 		if err := r.storage.RootBlocks.Delete(id); err != nil {
 			panic(err)
 		}
@@ -111,7 +126,7 @@ func (r *State) IsRootBlock(id models.BlockID) (has bool) {
 	r.evictionMutex.RLock()
 	defer r.evictionMutex.RUnlock()
 
-	epochBlocks := r.cache.Get(id.Index(), false)
+	epochBlocks := r.rootBlocks.Get(id.Index(), false)
 
 	return epochBlocks != nil && epochBlocks.Has(id)
 }
@@ -125,9 +140,9 @@ func (r *State) LatestRootBlock() models.BlockID {
 	return models.EmptyBlockID
 }
 
-// WithTimeSinceConfirmationThreshold sets the time since confirmation threshold.
-func WithTimeSinceConfirmationThreshold[ID epoch.IndexedID](threshold time.Duration) options.Option[State] {
+// WithRootBlocksEvictionDelay sets the time since confirmation threshold.
+func WithRootBlocksEvictionDelay(delay epoch.Index) options.Option[State] {
 	return func(e *State) {
-		e.optsTimeSinceConfirmationThreshold = threshold
+		e.optsRootBlockEvictionDelay = delay
 	}
 }
