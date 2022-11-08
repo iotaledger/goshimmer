@@ -9,7 +9,6 @@ import (
 
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -756,7 +755,7 @@ func Test_Prune(t *testing.T) {
 
 	validateState(tf, 0, epochCount)
 
-	tf.BlockDAG.EvictionState.EvictUntil(epochCount/4, set.NewAdvancedSet(models.EmptyBlockID))
+	tf.BlockDAG.EvictionState.EvictUntil(epochCount / 4)
 	event.Loop.WaitUntilAllTasksProcessed()
 
 	require.EqualValues(t, epochCount/4, tf.BlockDAG.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/4")
@@ -764,12 +763,12 @@ func Test_Prune(t *testing.T) {
 	// All orphan blocks should be marked as invalid due to invalidity propagation.
 	tf.AssertInvalidCount(0, "should have invalid blocks")
 
-	tf.BlockDAG.EvictionState.EvictUntil(epochCount/10, set.NewAdvancedSet(models.EmptyBlockID))
+	tf.BlockDAG.EvictionState.EvictUntil(epochCount / 10)
 	event.Loop.WaitUntilAllTasksProcessed()
 
 	require.EqualValues(t, epochCount/4, tf.BlockDAG.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/4")
 
-	tf.BlockDAG.EvictionState.EvictUntil(epochCount/2, set.NewAdvancedSet(models.EmptyBlockID))
+	tf.BlockDAG.EvictionState.EvictUntil(epochCount / 2)
 	event.Loop.WaitUntilAllTasksProcessed()
 
 	require.EqualValues(t, epochCount/2, tf.BlockDAG.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/2")

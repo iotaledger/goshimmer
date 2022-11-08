@@ -22,6 +22,7 @@ type State struct {
 	evictionMutex    sync.RWMutex
 	triggerMutex     sync.Mutex
 
+	optsRootBlockEvictionDelay         int
 	optsTimeSinceConfirmationThreshold time.Duration
 }
 
@@ -31,10 +32,12 @@ func NewState(storageInstance *storage.Storage) (state *State) {
 
 		cache:            memstorage.NewEpochStorage[models.BlockID, bool](),
 		storage:          storageInstance,
-		lastEvictedEpoch: -1,
+		lastEvictedEpoch: storageInstance.Settings.LatestCommitment().Index(),
 	}
 
+	state.cache.Get(0, true).Set(models.EmptyBlockID, true)
 	state.AddRootBlock(models.EmptyBlockID)
+	state.lastEvictedEpoch = 0
 
 	return state
 }
