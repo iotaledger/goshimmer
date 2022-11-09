@@ -1,6 +1,7 @@
 package acceptance
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/cockroachdb/errors"
@@ -132,6 +133,7 @@ func (a *Gadget) RefreshSequenceAcceptance(sequenceID markers.SequenceID, newMax
 }
 
 func (a *Gadget) EvictUntil(index epoch.Index) {
+	fmt.Println("Evict!")
 	a.acceptanceOrder.EvictUntil(index)
 
 	a.evictionMutex.Lock()

@@ -186,7 +186,7 @@ func (l *Ledger) processTransaction(tx utxo.Transaction) (err error) {
 func (l *Ledger) processConsumingTransactions(outputIDs utxo.OutputIDs) {
 	for it := l.Utils.UnprocessedConsumingTransactions(outputIDs).Iterator(); it.HasNext(); {
 		txID := it.Next()
-		event.Loop.Submit(func() {
+		go event.Loop.Submit(func() {
 			l.Storage.CachedTransaction(txID).Consume(func(tx utxo.Transaction) {
 				_ = l.processTransaction(tx)
 			})

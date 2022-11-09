@@ -64,5 +64,5 @@ func warpSyncPacketFactory() proto.Message {
 }
 
 func submitTask[P any](packetProcessor func(packet P, id identity.ID), packet P, id identity.ID) {
-	event.Loop.Submit(func() { packetProcessor(packet, id) })
+	go event.Loop.Submit(func() { packetProcessor(packet, id) })
 }

@@ -67,13 +67,13 @@ func (p *Protocol) Unregister() {
 func (p *Protocol) handlePacket(nbr identity.ID, packet proto.Message) (err error) {
 	switch packetBody := packet.(*Packet).GetBody().(type) {
 	case *Packet_Block:
-		event.Loop.Submit(func() { p.onBlock(packetBody.Block.GetBytes(), nbr) })
+		go event.Loop.Submit(func() { p.onBlock(packetBody.Block.GetBytes(), nbr) })
 	case *Packet_BlockRequest:
-		event.Loop.Submit(func() { p.onBlockRequest(packetBody.BlockRequest.GetBytes(), nbr) })
+		go event.Loop.Submit(func() { p.onBlockRequest(packetBody.BlockRequest.GetBytes(), nbr) })
 	case *Packet_EpochCommitment:
-		event.Loop.Submit(func() { p.onEpochCommitment(packetBody.EpochCommitment.GetBytes(), nbr) })
+		go event.Loop.Submit(func() { p.onEpochCommitment(packetBody.EpochCommitment.GetBytes(), nbr) })
 	case *Packet_EpochCommitmentRequest:
-		event.Loop.Submit(func() { p.onEpochCommitmentRequest(packetBody.EpochCommitmentRequest.GetBytes(), nbr) })
+		go event.Loop.Submit(func() { p.onEpochCommitmentRequest(packetBody.EpochCommitmentRequest.GetBytes(), nbr) })
 	default:
 		return errors.Errorf("unsupported packet; packet=%+v, packetBody=%T-%+v", packet, packetBody, packetBody)
 	}
