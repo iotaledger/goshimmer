@@ -57,7 +57,9 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		if t.evictionState == nil {
 			storage := storage.New(test.TempDir(), 1)
 			test.Cleanup(func() {
-				storage.Shutdown()
+				if err := storage.Shutdown(); err != nil {
+					test.Fatal(err)
+				}
 			})
 
 			t.evictionState = eviction.NewState(storage)

@@ -84,11 +84,11 @@ func (m *MockedEndpoint) Send(packet proto.Message, protocolID string, to ...ide
 	return nil
 }
 
-func (m *MockedEndpoint) handler(protocolId string) (handler func(identity.ID, proto.Message) error, exists bool) {
+func (m *MockedEndpoint) handler(protocolID string) (handler func(identity.ID, proto.Message) error, exists bool) {
 	m.handlersMutex.RLock()
 	defer m.handlersMutex.RUnlock()
 
-	handler, exists = m.handlers[protocolId]
+	handler, exists = m.handlers[protocolID]
 
 	return
 }

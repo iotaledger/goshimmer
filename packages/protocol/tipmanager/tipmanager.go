@@ -44,6 +44,7 @@ type TipManager struct {
 	optsWidth                          int
 }
 
+// New creates a new TipManager.
 func New(schedulerBlockRetrieverFunc blockRetrieverFunc, opts ...options.Option[TipManager]) *TipManager {
 	return options.Apply(&TipManager{
 		Events: NewEvents(),

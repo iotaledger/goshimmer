@@ -45,13 +45,15 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 		orphanedBlocks: models.NewBlockIDs(),
 	}, opts, func(t *TestFramework) {
 		if t.BlockDAG == nil {
-			storage := storage.New(test.TempDir(), 1)
+			storageInstance := storage.New(test.TempDir(), 1)
 			test.Cleanup(func() {
-				storage.Shutdown()
+				if err := storageInstance.Shutdown(); err != nil {
+					test.Fatal(err)
+				}
 			})
 
 			if t.evictionState == nil {
-				t.evictionState = eviction.NewState(storage)
+				t.evictionState = eviction.NewState(storageInstance)
 			}
 
 			t.BlockDAG = New(t.evictionState, t.optsBlockDAG...)

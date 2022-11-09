@@ -15,25 +15,25 @@ type Storage struct {
 	// Prunable is the section of the storage that is pruned regularly (holds the history of the ledger state).
 	*prunable.Prunable
 
-	// Manager is the database manager that manages the underlying database instances.
-	database *database.Manager
+	// databaseManager is the database manager.
+	databaseManager *database.Manager
 }
 
 // New creates a new storage instance with the named database version in the given directory.
 func New(directory string, version database.Version) (newStorage *Storage) {
-	database := database.NewManager(version, database.WithBaseDir(directory), database.WithGranularity(1), database.WithDBProvider(database.NewMemDB))
+	databaseManager := database.NewManager(version, database.WithBaseDir(directory), database.WithGranularity(1), database.WithDBProvider(database.NewMemDB))
 
 	return &Storage{
-		Permanent: permanent.New(diskutil.New(directory, true), database),
-		Prunable:  prunable.New(database),
+		Permanent: permanent.New(diskutil.New(directory, true), databaseManager),
+		Prunable:  prunable.New(databaseManager),
 
-		database: database,
+		databaseManager: databaseManager,
 	}
 }
 
 // Shutdown shuts down the storage.
 func (c *Storage) Shutdown() (err error) {
-	defer c.database.Shutdown()
+	defer c.databaseManager.Shutdown()
 
 	return c.Permanent.Shutdown()
 }
