@@ -148,6 +148,8 @@ func (e *Engine) initTangle() {
 func (e *Engine) initConsensus() {
 	e.Consensus = consensus.New(e.Tangle, e.EvictionState, e.optsConsensusOptions...)
 
+	e.Events.EvictionState.EpochEvicted.Hook(event.NewClosure(e.Consensus.Gadget.EvictUntil))
+
 	e.Events.Consensus = e.Consensus.Events
 }
 
