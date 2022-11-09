@@ -278,6 +278,8 @@ func (e *Engine) initEvictionState() {
 	e.NotarizationManager.Events.EpochCommitted.Attach(event.NewClosure(func(commitment *commitment.Commitment) {
 		e.EvictionState.EvictUntil(commitment.Index())
 	}))
+
+	e.Events.EvictionState.EpochEvicted = e.EvictionState.Events.EpochEvicted
 }
 
 func (e *Engine) ProcessBlockFromPeer(block *models.Block, source identity.ID) {
