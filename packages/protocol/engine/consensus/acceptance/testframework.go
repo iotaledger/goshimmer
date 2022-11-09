@@ -105,7 +105,6 @@ func (t *TestFramework) setupEvents() {
 
 		atomic.AddUint32(&(t.conflictsRejected), 1)
 	}))
-	return
 }
 
 func (t *TestFramework) AssertBlockAccepted(blocksAccepted uint32) {

@@ -37,7 +37,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 		orderedEntities: make(map[string]*MockedOrderedEntity),
 		evictedEntities: make(map[string]*MockedOrderedEntity),
 	}, opts, func(t *TestFramework) {
-		t.CausalOrder = New[MockedEntityID, *MockedOrderedEntity](
+		t.CausalOrder = New(
 			func(id MockedEntityID) (entity *MockedOrderedEntity, exists bool) {
 				return t.Get(id.alias)
 			}, (*MockedOrderedEntity).IsOrdered,
@@ -68,7 +68,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 				t.evictedEntities[entity.id.alias] = entity
 				t.evictedEntitiesMutex.Unlock()
 			},
-			WithReferenceValidator[MockedEntityID, *MockedOrderedEntity](func(entity, parent *MockedOrderedEntity) (err error) {
+			WithReferenceValidator[MockedEntityID](func(entity, parent *MockedOrderedEntity) (err error) {
 				if entity.IsInvalid() {
 					return errors.Errorf("entity %s is invalid", entity.id.alias)
 				}
@@ -77,7 +77,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 					return errors.Errorf("parent %s of entity %s is invalid", parent.id.alias, entity.id.alias)
 				}
 
-				return checkReference[MockedEntityID, *MockedOrderedEntity](entity, parent)
+				return checkReference[MockedEntityID](entity, parent)
 			}),
 		)
 
