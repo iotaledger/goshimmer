@@ -41,14 +41,13 @@ var ErrNotRunning = errors.New("scheduler stopped")
 type Scheduler struct {
 	Events *Events
 
-	evictionState *eviction.State
-
 	blocks        *memstorage.EpochStorage[models.BlockID, *Block]
 	ticker        *time.Ticker
 	bufferMutex   sync.RWMutex
 	buffer        *BufferQueue
 	deficitsMutex sync.RWMutex
 	deficits      *shrinkingmap.ShrinkingMap[identity.ID, *big.Rat]
+	evictionState *eviction.State
 	evictionMutex sync.RWMutex
 
 	totalAccessManaRetrieveFunc func() int64

@@ -43,14 +43,14 @@ type CausalOrder[ID epoch.IndexedID, Entity OrderedEntity[ID]] struct {
 	// unorderedChildrenMutex contains a mutex used to synchronize access to the unorderedChildren.
 	unorderedChildrenMutex sync.Mutex
 
-	// dagMutex contains a mutex used to synchronize access to Entities.
-	dagMutex *syncutils.DAGMutex[ID]
-
 	// lastEvictedEpoch contains the last evicted epoch.
 	lastEvictedIndex epoch.Index
 
 	// evictionMutex contains the local manager used to orchestrate the eviction of old Entities.
 	evictionMutex sync.RWMutex
+
+	// dagMutex contains a mutex used to synchronize access to Entities.
+	dagMutex *syncutils.DAGMutex[ID]
 }
 
 // New returns a new CausalOrderer instance with the given parameters.
@@ -83,7 +83,7 @@ func (c *CausalOrder[ID, Entity]) Queue(entity Entity) {
 
 // EvictUntil removes all Entities that are older than the given epoch from the CausalOrderer.
 func (c *CausalOrder[ID, Entity]) EvictUntil(index epoch.Index) {
-	for _, evictedEntity := range c.evictEpochs(index) {
+	for _, evictedEntity := range c.evictUntil(index) {
 		c.evictionCallback(evictedEntity, errors.Errorf("entity evicted from %s", index))
 	}
 }
@@ -99,7 +99,7 @@ func (c *CausalOrder[ID, Entity]) triggerOrderedIfReady(entity Entity) {
 		return
 	}
 
-	if c.maxEvictedEpochIndex() >= entity.ID().Index() {
+	if c.lastEvictedEpochIndex() >= entity.ID().Index() {
 		c.evictionCallback(entity, errors.Errorf("entity %s below max evicted epoch", entity.ID()))
 
 		return
@@ -112,7 +112,8 @@ func (c *CausalOrder[ID, Entity]) triggerOrderedIfReady(entity Entity) {
 	c.triggerOrderedCallback(entity)
 }
 
-func (c *CausalOrder[ID, Entity]) maxEvictedEpochIndex() (maxEvictedEpoch epoch.Index) {
+// lastEvictedEpochIndex returns the maximum evicted epoch index.
+func (c *CausalOrder[ID, Entity]) lastEvictedEpochIndex() (lastEvictedEpoch epoch.Index) {
 	c.evictionMutex.RLock()
 	defer c.evictionMutex.RUnlock()
 
@@ -252,8 +253,8 @@ func (c *CausalOrder[ID, Entity]) entity(blockID ID) (entity Entity) {
 	return entity
 }
 
-// evictEpochs evicts the given Epoch from the CausalOrder and returns the evicted Entities.
-func (c *CausalOrder[ID, Entity]) evictEpochs(epochIndex epoch.Index) (evictedEntities map[ID]Entity) {
+// evictUntil evicts the given Epoch from the CausalOrder and returns the evicted Entities.
+func (c *CausalOrder[ID, Entity]) evictUntil(epochIndex epoch.Index) (evictedEntities map[ID]Entity) {
 	c.evictionMutex.Lock()
 	defer c.evictionMutex.Unlock()
 

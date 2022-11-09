@@ -21,7 +21,7 @@ type EventTicker[T epoch.IndexedID] struct {
 	timedExecutor        *timed.Executor
 	scheduledTickers     *memstorage.EpochStorage[T, *timed.ScheduledTask]
 	scheduledTickerCount int
-	maxEvictedEpoch      epoch.Index
+	lastEvictedEpoch     epoch.Index
 	evictionMutex        sync.RWMutex
 
 	optsRetryInterval       time.Duration
@@ -67,11 +67,11 @@ func (r *EventTicker[T]) EvictUntil(epochIndex epoch.Index) {
 	r.evictionMutex.Lock()
 	defer r.evictionMutex.Unlock()
 
-	if epochIndex <= r.maxEvictedEpoch {
+	if epochIndex <= r.lastEvictedEpoch {
 		return
 	}
 
-	for currentIndex := r.maxEvictedEpoch + 1; currentIndex <= epochIndex; currentIndex++ {
+	for currentIndex := r.lastEvictedEpoch + 1; currentIndex <= epochIndex; currentIndex++ {
 		if evictedStorage := r.scheduledTickers.Evict(currentIndex); evictedStorage != nil {
 			evictedStorage.ForEach(func(id T, scheduledTask *timed.ScheduledTask) bool {
 				scheduledTask.Cancel()
@@ -82,7 +82,7 @@ func (r *EventTicker[T]) EvictUntil(epochIndex epoch.Index) {
 			r.scheduledTickerCount -= evictedStorage.Size()
 		}
 	}
-	r.maxEvictedEpoch = epochIndex
+	r.lastEvictedEpoch = epochIndex
 }
 
 func (r *EventTicker[T]) Shutdown() {
@@ -93,7 +93,7 @@ func (r *EventTicker[T]) addTickerToQueue(id T) (added bool) {
 	r.evictionMutex.RLock()
 	defer r.evictionMutex.RUnlock()
 
-	if id.Index() <= r.maxEvictedEpoch {
+	if id.Index() <= r.lastEvictedEpoch {
 		return false
 	}
 
@@ -112,9 +112,8 @@ func (r *EventTicker[T]) addTickerToQueue(id T) (added bool) {
 }
 
 func (r *EventTicker[T]) stopTicker(id T) (stopped bool) {
-	// TODO: RLock enough?
-	r.evictionMutex.Lock()
-	defer r.evictionMutex.Unlock()
+	r.evictionMutex.RLock()
+	defer r.evictionMutex.RUnlock()
 
 	storage := r.scheduledTickers.Get(id.Index())
 	if storage == nil {
@@ -138,8 +137,8 @@ func (r *EventTicker[T]) reSchedule(id T, count int) {
 	r.Events.Tick.Trigger(id)
 
 	// as we schedule a request at most once per id we do not need to make the trigger and the re-schedule atomic
-	r.evictionMutex.Lock()
-	defer r.evictionMutex.Unlock()
+	r.evictionMutex.RLock()
+	defer r.evictionMutex.RUnlock()
 
 	// reschedule, if the request has not been stopped in the meantime
 

@@ -2,7 +2,6 @@ package eviction
 
 import (
 	"sync"
-	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/options"
@@ -13,36 +12,131 @@ import (
 	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
+// State represents the state of the eviction and keeps track of the root blocks.
 type State struct {
 	Events *Events
 
-	rootBlocks       *memstorage.EpochStorage[models.BlockID, bool]
-	storage          *storage.Storage
-	lastEvictedEpoch epoch.Index
-	evictionMutex    sync.RWMutex
-	triggerMutex     sync.Mutex
+	rootBlocks           *memstorage.EpochStorage[models.BlockID, bool]
+	latestRootBlock      models.BlockID
+	latestRootBlockMutex sync.RWMutex
+	storage              *storage.Storage
+	lastEvictedEpoch     epoch.Index
+	evictionMutex        sync.RWMutex
+	triggerMutex         sync.Mutex
 
-	optsRootBlockEvictionDelay         epoch.Index
-	optsTimeSinceConfirmationThreshold time.Duration
+	optsRootBlocksEvictionDelay epoch.Index
 }
 
+// NewState creates a new eviction State.
 func NewState(storageInstance *storage.Storage, opts ...options.Option[State]) (state *State) {
 	return options.Apply(&State{
 		Events:           NewEvents(),
 		rootBlocks:       memstorage.NewEpochStorage[models.BlockID, bool](),
+		latestRootBlock:  models.EmptyBlockID,
 		storage:          storageInstance,
 		lastEvictedEpoch: storageInstance.Settings.LatestCommitment().Index(),
 	}, opts, func(s *State) {
 		if s.importRootBlocksFromStorage() == 0 {
-			s.rootBlocks.Get(0, true).Set(models.EmptyBlockID, true)
+			s.AddRootBlock(models.EmptyBlockID)
 		}
 	})
 }
 
-func (r *State) importRootBlocksFromStorage() (importedBlocks int) {
-	for currentEpoch := r.lastEvictedEpoch; currentEpoch >= 0 && currentEpoch > r.delayedBlockEvictionThreshold(r.lastEvictedEpoch); currentEpoch-- {
-		r.storage.RootBlocks.Stream(currentEpoch, func(rootBlockID models.BlockID) {
-			r.rootBlocks.Get(rootBlockID.Index(), true).Set(rootBlockID, true)
+// EvictUntil triggers the EpochEvicted event for every evicted epoch and evicts all root blocks until the delayed
+// root blocks eviction threshold.
+func (s *State) EvictUntil(index epoch.Index) {
+	s.evictionMutex.Lock()
+	s.triggerMutex.Lock()
+	defer s.triggerMutex.Unlock()
+
+	lastEvictedEpoch := s.lastEvictedEpoch
+	if index <= lastEvictedEpoch {
+		s.evictionMutex.Unlock()
+		return
+	}
+
+	for currentIndex := lastEvictedEpoch; currentIndex < index; currentIndex++ {
+		if delayedIndex := s.delayedBlockEvictionThreshold(currentIndex); delayedIndex >= 0 {
+			s.rootBlocks.Evict(delayedIndex)
+		}
+	}
+	s.lastEvictedEpoch = index
+	s.evictionMutex.Unlock()
+
+	for currentIndex := lastEvictedEpoch + 1; currentIndex <= index; currentIndex++ {
+		s.Events.EpochEvicted.Trigger(currentIndex)
+	}
+}
+
+// LastEvictedEpoch returns the last evicted epoch.
+func (s *State) LastEvictedEpoch() (lastEvictedEpoch epoch.Index) {
+	s.evictionMutex.RLock()
+	defer s.evictionMutex.RUnlock()
+
+	return s.lastEvictedEpoch
+}
+
+// InEvictedEpoch checks if the Block associated with the given id is too old (in a pruned epoch).
+func (s *State) InEvictedEpoch(id models.BlockID) (inEvictedEpoch bool) {
+	s.evictionMutex.RLock()
+	defer s.evictionMutex.RUnlock()
+
+	return id.Index() <= s.lastEvictedEpoch
+}
+
+// AddRootBlock inserts a solid entry point to the seps map.
+func (s *State) AddRootBlock(id models.BlockID) {
+	s.evictionMutex.RLock()
+	defer s.evictionMutex.RUnlock()
+
+	if id.Index() <= s.delayedBlockEvictionThreshold(s.lastEvictedEpoch) {
+		return
+	}
+
+	if s.rootBlocks.Get(id.Index(), true).Set(id, true) {
+		if err := s.storage.RootBlocks.Store(id); err != nil {
+			panic(errors.Errorf("failed to store root block %s: %w", id, err))
+		}
+	}
+
+	s.updateLatestRootBlock(id)
+}
+
+// RemoveRootBlock removes a solid entry points from the map.
+func (s *State) RemoveRootBlock(id models.BlockID) {
+	s.evictionMutex.Lock()
+	defer s.evictionMutex.Unlock()
+
+	if rootBlocks := s.rootBlocks.Get(id.Index()); rootBlocks != nil && rootBlocks.Delete(id) {
+		if err := s.storage.RootBlocks.Delete(id); err != nil {
+			panic(err)
+		}
+	}
+}
+
+// IsRootBlock returns true if the given block is a root block.
+func (s *State) IsRootBlock(id models.BlockID) (has bool) {
+	s.evictionMutex.RLock()
+	defer s.evictionMutex.RUnlock()
+
+	epochBlocks := s.rootBlocks.Get(id.Index(), false)
+
+	return epochBlocks != nil && epochBlocks.Has(id)
+}
+
+// LatestRootBlock returns the latest root block.
+func (s *State) LatestRootBlock() models.BlockID {
+	s.latestRootBlockMutex.RLock()
+	defer s.latestRootBlockMutex.RUnlock()
+
+	return s.latestRootBlock
+}
+
+// importRootBlocksFromStorage imports the root blocks from the storage into the cache.
+func (s *State) importRootBlocksFromStorage() (importedBlocks int) {
+	for currentEpoch := s.lastEvictedEpoch; currentEpoch >= 0 && currentEpoch > s.delayedBlockEvictionThreshold(s.lastEvictedEpoch); currentEpoch-- {
+		s.storage.RootBlocks.Stream(currentEpoch, func(rootBlockID models.BlockID) {
+			s.AddRootBlock(rootBlockID)
 
 			importedBlocks++
 		})
@@ -51,98 +145,24 @@ func (r *State) importRootBlocksFromStorage() (importedBlocks int) {
 	return
 }
 
-func (r *State) EvictUntil(index epoch.Index) {
-	r.evictionMutex.Lock()
-	r.triggerMutex.Lock()
-	defer r.triggerMutex.Unlock()
+// updateLatestRootBlock updates the latest root block.
+func (s *State) updateLatestRootBlock(id models.BlockID) {
+	s.latestRootBlockMutex.Lock()
+	defer s.latestRootBlockMutex.Unlock()
 
-	lastEvictedEpoch := r.lastEvictedEpoch
-	if index <= lastEvictedEpoch {
-		r.evictionMutex.Unlock()
-		return
-	}
-
-	for currentIndex := lastEvictedEpoch; currentIndex < index; currentIndex++ {
-		if delayedIndex := r.delayedBlockEvictionThreshold(currentIndex); delayedIndex >= 0 {
-			r.rootBlocks.Evict(delayedIndex)
-		}
-	}
-	r.lastEvictedEpoch = index
-	r.evictionMutex.Unlock()
-
-	for currentIndex := lastEvictedEpoch + 1; currentIndex <= index; currentIndex++ {
-		r.Events.EpochEvicted.Trigger(currentIndex)
+	if id.Index() >= s.latestRootBlock.Index() {
+		s.latestRootBlock = id
 	}
 }
 
-func (r *State) LastEvictedEpoch() (lastEvictedEpoch epoch.Index) {
-	r.evictionMutex.RLock()
-	defer r.evictionMutex.RUnlock()
-
-	return r.lastEvictedEpoch
-}
-
-// InEvictedEpoch checks if the Block associated with the given id is too old (in a pruned epoch).
-func (r *State) InEvictedEpoch(id models.BlockID) (inEvictedEpoch bool) {
-	r.evictionMutex.RLock()
-	defer r.evictionMutex.RUnlock()
-
-	return id.Index() <= r.lastEvictedEpoch
-}
-
-// AddRootBlock inserts a solid entry point to the seps map.
-func (r *State) AddRootBlock(id models.BlockID) {
-	r.evictionMutex.Lock()
-	defer r.evictionMutex.Unlock()
-
-	if id.Index() <= r.delayedBlockEvictionThreshold(r.lastEvictedEpoch) {
-		return
-	}
-
-	if r.rootBlocks.Get(id.Index(), true).Set(id, true) {
-		if err := r.storage.RootBlocks.Store(id); err != nil {
-			panic(errors.Errorf("failed to store root block %s: %w", id, err))
-		}
-	}
-}
-
-func (r *State) delayedBlockEvictionThreshold(index epoch.Index) (threshold epoch.Index) {
-	return index - r.optsRootBlockEvictionDelay - 1
-}
-
-// RemoveRootBlock removes a solid entry points from the map.
-func (r *State) RemoveRootBlock(id models.BlockID) {
-	r.evictionMutex.Lock()
-	defer r.evictionMutex.Unlock()
-
-	if rootBlocks := r.rootBlocks.Get(id.Index()); rootBlocks != nil && rootBlocks.Delete(id) {
-		if err := r.storage.RootBlocks.Delete(id); err != nil {
-			panic(err)
-		}
-	}
-}
-
-func (r *State) IsRootBlock(id models.BlockID) (has bool) {
-	r.evictionMutex.RLock()
-	defer r.evictionMutex.RUnlock()
-
-	epochBlocks := r.rootBlocks.Get(id.Index(), false)
-
-	return epochBlocks != nil && epochBlocks.Has(id)
-}
-
-func (r *State) LatestRootBlock() models.BlockID {
-	r.evictionMutex.RLock()
-	defer r.evictionMutex.RUnlock()
-
-	// TODO: implement
-
-	return models.EmptyBlockID
+// delayedBlockEvictionThreshold returns the epoch index that is the threshold for delayed rootblocks eviction.
+func (s *State) delayedBlockEvictionThreshold(index epoch.Index) (threshold epoch.Index) {
+	return index - s.optsRootBlocksEvictionDelay - 1
 }
 
 // WithRootBlocksEvictionDelay sets the time since confirmation threshold.
 func WithRootBlocksEvictionDelay(delay epoch.Index) options.Option[State] {
-	return func(e *State) {
-		e.optsRootBlockEvictionDelay = delay
+	return func(s *State) {
+		s.optsRootBlocksEvictionDelay = delay
 	}
 }
