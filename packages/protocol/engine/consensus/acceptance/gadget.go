@@ -29,7 +29,7 @@ type Gadget struct {
 	Events *Events
 
 	tangle                  *tangle.Tangle
-	evictionState         *eviction.LockableState[models.BlockID]
+	evictionState           *eviction.LockableState[models.BlockID]
 	blocks                  *memstorage.EpochStorage[models.BlockID, *Block]
 	lastAcceptedMarker      *memstorage.Storage[markers.SequenceID, markers.Index]
 	lastAcceptedMarkerMutex sync.Mutex
@@ -164,7 +164,7 @@ func (a *Gadget) propagateAcceptance(marker markers.Marker) (queuedBlocks []*Blo
 		return
 	}
 
-	block, blockExists := a.GetOrRegisterBlock(bookerBlock.ID())
+	block, blockExists := a.getOrRegisterBlock(bookerBlock.ID())
 	if !blockExists || block.IsAccepted() {
 		// this can happen when block was a root block and while processing this method, the root blocks method has already been replaced
 		return
