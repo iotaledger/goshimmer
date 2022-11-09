@@ -10,10 +10,10 @@ import (
 	"github.com/iotaledger/hive.go/core/types"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 )
 
 func TestRequest(t *testing.T) {
@@ -48,36 +48,28 @@ func TestIsFaucetReq(t *testing.T) {
 
 	faucetRequest := NewRequest(address, emptyID, emptyID, 0)
 
-	faucetBlk := tangleold.NewBlock(
-		map[tangleold.ParentsType]tangleold.BlockIDs{
-			tangleold.StrongParentType: {
-				tangleold.EmptyBlockID: types.Void,
-			},
-		},
-		time.Now(),
-		local.PublicKey(),
-		0,
-		faucetRequest,
-		0,
-		ed25519.EmptySignature,
-		0,
-		epoch.NewECRecord(0),
+	faucetBlk := models.NewBlock(
+		models.WithStrongParents(models.NewBlockIDs(models.EmptyBlockID)),
+		models.WithIssuingTime(time.Now()),
+		models.WithIssuer(local.PublicKey()),
+		models.WithSequenceNumber(0),
+		models.WithPayload(faucetRequest),
+		models.WithNonce(0),
+		models.WithSignature(ed25519.EmptySignature),
+		models.WithLatestConfirmedEpoch(0),
+		models.WithCommitment(commitment.New(0, commitment.ID{}, types.Identifier{}, 0)),
 	)
 
-	dataBlk := tangleold.NewBlock(
-		map[tangleold.ParentsType]tangleold.BlockIDs{
-			tangleold.StrongParentType: {
-				tangleold.EmptyBlockID: types.Void,
-			},
-		},
-		time.Now(),
-		local.PublicKey(),
-		0,
-		payload.NewGenericDataPayload([]byte("data")),
-		0,
-		ed25519.EmptySignature,
-		0,
-		epoch.NewECRecord(0),
+	dataBlk := models.NewBlock(
+		models.WithStrongParents(models.NewBlockIDs(models.EmptyBlockID)),
+		models.WithIssuingTime(time.Now()),
+		models.WithIssuer(local.PublicKey()),
+		models.WithSequenceNumber(0),
+		models.WithPayload(payload.NewGenericDataPayload([]byte("data"))),
+		models.WithNonce(0),
+		models.WithSignature(ed25519.EmptySignature),
+		models.WithLatestConfirmedEpoch(0),
+		models.WithCommitment(commitment.New(0, commitment.ID{}, types.Identifier{}, 0)),
 	)
 
 	assert.Equal(t, true, IsFaucetReq(faucetBlk))

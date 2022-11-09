@@ -9,16 +9,14 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/activity"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
-	"github.com/iotaledger/goshimmer/plugins/blocklayer"
+	"github.com/iotaledger/goshimmer/plugins/blockissuer"
 	"github.com/iotaledger/goshimmer/plugins/dagsvisualizer"
 	"github.com/iotaledger/goshimmer/plugins/dashboard"
-	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/goshimmer/plugins/faucet"
-	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/p2p"
-	"github.com/iotaledger/goshimmer/plugins/pow"
 	"github.com/iotaledger/goshimmer/plugins/profiling"
 	"github.com/iotaledger/goshimmer/plugins/prometheus"
+	"github.com/iotaledger/goshimmer/plugins/protocol"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 )
 
@@ -41,21 +39,17 @@ type GoShimmer struct {
 	// individual plugin configurations
 	Database
 	P2P
-	Gossip
-	POW
 	WebAPI
+	BlockIssuer
 	AutoPeering
-	BlockLayer
+	Protocol
 	Faucet
-	Mana
-	Consensus
 	Activity
 	Prometheus
 	Profiling
 	Dashboard
 	Dagsvisualizer
 	Notarization
-	RateSetter
 }
 
 // NewGoShimmer creates a GoShimmer config initialized with default values.
@@ -73,7 +67,7 @@ type Network struct {
 type Database struct {
 	Enabled bool
 
-	database.ParametersDefinition
+	protocol.DatabaseParametersDefinition
 }
 
 // P2P defines the parameters of the gossip plugin.
@@ -81,20 +75,6 @@ type P2P struct {
 	Enabled bool
 
 	p2p.ParametersDefinition
-}
-
-// Gossip defines the parameters of the gossip plugin.
-type Gossip struct {
-	Enabled bool
-
-	gossip.ParametersDefinition
-}
-
-// POW defines the parameters of the PoW plugin.
-type POW struct {
-	Enabled bool
-
-	pow.ParametersDefinition
 }
 
 // WebAPI defines the parameters of the Web API plugin.
@@ -119,23 +99,11 @@ type Faucet struct {
 	faucet.ParametersDefinition
 }
 
-// Mana defines the parameters of the Mana plugin.
-type Mana struct {
+// Protocol defines the parameters used by the block layer.
+type Protocol struct {
 	Enabled bool
 
-	blocklayer.ManaParametersDefinition
-}
-
-// BlockLayer defines the parameters used by the block layer.
-type BlockLayer struct {
-	Enabled bool
-
-	blocklayer.ParametersDefinition
-}
-
-// Consensus defines the parameters of the consensus plugin.
-type Consensus struct {
-	Enabled bool
+	protocol.ParametersDefinition
 }
 
 // Activity defines the parameters of the activity plugin.
@@ -145,11 +113,11 @@ type Activity struct {
 	activity.ParametersDefinition
 }
 
-// RateSetter defines the parameters of the RateSetter plugin.
-type RateSetter struct {
+// BlockIssuer defines the parameters of the BlockIssuer plugin.
+type BlockIssuer struct {
 	Enabled bool
 
-	blocklayer.RateSetterParametersDefinition
+	blockissuer.ParametersDefinition
 }
 
 // Prometheus defines the parameters of the Prometheus plugin.
@@ -184,7 +152,7 @@ type Dagsvisualizer struct {
 type Notarization struct {
 	Enabled bool
 
-	blocklayer.NotarizationParametersDefinition
+	protocol.NotarizationParametersDefinition
 }
 
 // CreateIdentity returns an identity based on the config.

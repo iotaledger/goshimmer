@@ -36,7 +36,7 @@ func SendChatBlock(c echo.Context) error {
 	}
 
 	chatPayload := chat.NewPayload(req.From, req.To, req.Block)
-	blk, err := deps.Tangle.IssuePayload(chatPayload)
+	blk, err := deps.BlockIssuer.IssuePayload(chatPayload)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}

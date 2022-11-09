@@ -1,0 +1,279 @@
+package retainer
+
+import (
+	"context"
+	"sync"
+	"time"
+
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/model"
+	"github.com/iotaledger/hive.go/core/serix"
+
+	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
+)
+
+// region cachedMetadata ///////////////////////////////////////////////////////////////////////////////////////////////
+
+type cachedMetadata struct {
+	BlockDAG *blockWithTime[*blockdag.Block]
+	Booker   *blockWithTime[*booker.Block]
+	// calculated property
+	ConflictIDs   utxo.TransactionIDs
+	VirtualVoting *blockWithTime[*virtualvoting.Block]
+	Scheduler     *blockWithTime[*scheduler.Block]
+	Acceptance    *blockWithTime[*acceptance.Block]
+
+	sync.RWMutex
+}
+
+func newCachedMetadata() *cachedMetadata {
+	return &cachedMetadata{}
+}
+
+func (c *cachedMetadata) setBlockDAGBlock(block *blockdag.Block) {
+	c.Lock()
+	defer c.Unlock()
+	c.BlockDAG = newBlockWithTime(block)
+}
+
+func (c *cachedMetadata) setBookerBlock(block *booker.Block) {
+	c.Lock()
+	defer c.Unlock()
+	c.Booker = newBlockWithTime(block)
+}
+
+func (c *cachedMetadata) setVirtualVotingBlock(block *virtualvoting.Block) {
+	c.Lock()
+	defer c.Unlock()
+	c.VirtualVoting = newBlockWithTime(block)
+}
+
+func (c *cachedMetadata) setAcceptanceBlock(block *acceptance.Block) {
+	c.Lock()
+	defer c.Unlock()
+	c.Acceptance = newBlockWithTime(block)
+}
+
+func (c *cachedMetadata) setSchedulerBlock(block *scheduler.Block) {
+	c.Lock()
+	defer c.Unlock()
+	c.Scheduler = newBlockWithTime(block)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region blockWithTime ////////////////////////////////////////////////////////////////////////////////////////////////
+
+type blockWithTime[BlockType any] struct {
+	Block BlockType
+	Time  time.Time
+}
+
+func newBlockWithTime[BlockType any](block BlockType) *blockWithTime[BlockType] {
+	return &blockWithTime[BlockType]{
+		Block: block,
+		Time:  time.Now(),
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region cachedMetadata ///////////////////////////////////////////////////////////////////////////////////////////////
+
+// BlockMetadata stores block metadata generated during processing of the block.
+type BlockMetadata struct {
+	model.Storable[models.BlockID, BlockMetadata, *BlockMetadata, blockMetadataModel] `serix:"0"`
+}
+
+type blockMetadataModel struct {
+	Id models.BlockID `serix:"0"`
+
+	// blockdag.Block
+	Missing                  bool            `serix:"1"`
+	Solid                    bool            `serix:"2"`
+	Invalid                  bool            `serix:"3"`
+	Orphaned                 bool            `serix:"4"`
+	OrphanedBlocksInPastCone models.BlockIDs `serix:"5"`
+	StrongChildren           models.BlockIDs `serix:"6"`
+	WeakChildren             models.BlockIDs `serix:"7"`
+	LikedInsteadChildren     models.BlockIDs `serix:"8"`
+	SolidTime                time.Time       `serix:"9"`
+
+	// booker.Block
+	Booked                bool                `serix:"10"`
+	StructureDetails      *structureDetails   `serix:"11,optional"`
+	AddedConflictIDs      utxo.TransactionIDs `serix:"12"`
+	SubtractedConflictIDs utxo.TransactionIDs `serix:"13"`
+	// conflictIDs is a computed property at the time a block is booked.
+	ConflictIDs utxo.TransactionIDs `serix:"14"`
+	BookedTime  time.Time           `serix:"15"`
+
+	// virtualvoting.Block
+	Tracked             bool      `serix:"16"`
+	SubjectivelyInvalid bool      `serix:"17"`
+	TrackedTime         time.Time `serix:"18"`
+
+	// scheduler.Block
+	Scheduled     bool      `serix:"19"`
+	Skipped       bool      `serix:"20"`
+	Dropped       bool      `serix:"21"`
+	SchedulerTime time.Time `serix:"22"`
+
+	// acceptance.Block
+	Accepted     bool      `serix:"23"`
+	AcceptedTime time.Time `serix:"24"`
+}
+
+// NewBlockMetadata creates a new BlockMetadata instance. It does not set the ID, as it is not known at this point.
+func NewBlockMetadata() (b *BlockMetadata) {
+	return model.NewStorable[models.BlockID, BlockMetadata](&blockMetadataModel{})
+}
+
+func (b *BlockMetadata) Encode() ([]byte, error) {
+	return serix.DefaultAPI.Encode(context.Background(), b.M)
+}
+
+func (b *BlockMetadata) Decode(bytes []byte) (int, error) {
+	return serix.DefaultAPI.Decode(context.Background(), bytes, &b.M)
+}
+
+func (b *BlockMetadata) MarshalJSON() ([]byte, error) {
+	return serix.DefaultAPI.JSONEncode(context.Background(), b.M)
+}
+
+func (b *BlockMetadata) UnmarshalJSON(bytes []byte) error {
+	return serix.DefaultAPI.JSONDecode(context.Background(), bytes, &b.M)
+}
+
+func newBlockMetadata(cm *cachedMetadata) (b *BlockMetadata) {
+	if cm == nil {
+		b = model.NewStorable[models.BlockID, BlockMetadata](&blockMetadataModel{})
+		b.SetID(models.EmptyBlockID)
+		return b
+	}
+
+	cm.RLock()
+	defer cm.RUnlock()
+
+	b = model.NewStorable[models.BlockID, BlockMetadata](&blockMetadataModel{})
+
+	if cm.BlockDAG != nil {
+		b.M.Id = cm.BlockDAG.Block.ID()
+		b.SetID(cm.BlockDAG.Block.ID())
+		copyFromBlockDAGBlock(cm.BlockDAG, b)
+	}
+
+	if cm.Booker != nil {
+		copyFromBookerBlock(cm.Booker, b)
+		b.M.ConflictIDs = cm.ConflictIDs
+	}
+
+	if cm.VirtualVoting != nil {
+		copyFromVirtualVotingBlock(cm.VirtualVoting, b)
+	}
+
+	if cm.Scheduler != nil {
+		copyFromSchedulerBlock(cm.Scheduler, b)
+	}
+
+	if cm.Acceptance != nil {
+		copyFromAcceptanceBlock(cm.Acceptance, b)
+	}
+
+	return b
+}
+
+func copyFromBlockDAGBlock(blockWithTime *blockWithTime[*blockdag.Block], blockMetadata *BlockMetadata) {
+	block := blockWithTime.Block
+	block.RLock()
+	defer block.RUnlock()
+
+	blockMetadata.M.Missing = block.IsMissing()
+	blockMetadata.M.Solid = block.IsSolid()
+	blockMetadata.M.Invalid = block.IsInvalid()
+	blockMetadata.M.Orphaned = block.IsOrphaned()
+	blockMetadata.M.OrphanedBlocksInPastCone = block.OrphanedBlocksInPastCone()
+	blockMetadata.M.StrongChildren = blocksToBlockIDs(block.StrongChildren())
+	blockMetadata.M.WeakChildren = blocksToBlockIDs(block.WeakChildren())
+	blockMetadata.M.LikedInsteadChildren = blocksToBlockIDs(block.LikedInsteadChildren())
+	blockMetadata.M.SolidTime = blockWithTime.Time
+}
+
+func copyFromBookerBlock(blockWithTime *blockWithTime[*booker.Block], blockMetadata *BlockMetadata) {
+	block := blockWithTime.Block
+	block.RLock()
+	defer block.RUnlock()
+
+	blockMetadata.M.Booked = block.IsBooked()
+	if structDetails := block.StructureDetails(); structDetails != nil {
+		pastMarkers := make(map[markers.SequenceID]markers.Index)
+		structDetails.PastMarkers().ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
+			pastMarkers[sequenceID] = index
+			return true
+		})
+
+		blockMetadata.M.StructureDetails = &structureDetails{
+			Rank:          structDetails.Rank(),
+			PastMarkerGap: structDetails.PastMarkerGap(),
+			IsPastMarker:  structDetails.IsPastMarker(),
+			PastMarkers:   pastMarkers,
+		}
+	}
+	blockMetadata.M.AddedConflictIDs = block.AddedConflictIDs().Clone()
+	blockMetadata.M.SubtractedConflictIDs = block.SubtractedConflictIDs().Clone()
+	blockMetadata.M.BookedTime = blockWithTime.Time
+}
+
+func copyFromVirtualVotingBlock(blockWithTime *blockWithTime[*virtualvoting.Block], blockMetadata *BlockMetadata) {
+	block := blockWithTime.Block
+	block.RLock()
+	defer block.RUnlock()
+
+	blockMetadata.M.Tracked = true
+	blockMetadata.M.SubjectivelyInvalid = block.IsSubjectivelyInvalid()
+	blockMetadata.M.TrackedTime = blockWithTime.Time
+}
+
+func copyFromSchedulerBlock(blockWithTime *blockWithTime[*scheduler.Block], blockMetadata *BlockMetadata) {
+	block := blockWithTime.Block
+	block.RLock()
+	defer block.RUnlock()
+
+	blockMetadata.M.Scheduled = block.IsScheduled()
+	blockMetadata.M.Skipped = block.IsSkipped()
+	blockMetadata.M.Dropped = block.IsDropped()
+	blockMetadata.M.SchedulerTime = blockWithTime.Time
+}
+
+func copyFromAcceptanceBlock(blockWithTime *blockWithTime[*acceptance.Block], blockMetadata *BlockMetadata) {
+	block := blockWithTime.Block
+	block.RLock()
+	defer block.RUnlock()
+
+	blockMetadata.M.Accepted = block.IsAccepted()
+	blockMetadata.M.AcceptedTime = blockWithTime.Time
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region structureDetails ///////////////////////////////////////////////////////////////////////////////////////////////
+
+type structureDetails struct {
+	Rank          uint64                               `serix:"1"`
+	PastMarkerGap uint64                               `serix:"2"`
+	IsPastMarker  bool                                 `serix:"3"`
+	PastMarkers   map[markers.SequenceID]markers.Index `serix:"4,lengthPrefixType=byte"`
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func blocksToBlockIDs(blocks []*blockdag.Block) models.BlockIDs {
+	return models.NewBlockIDs(lo.Map(blocks, func(block *blockdag.Block) models.BlockID { return block.ID() })...)
+}

@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/node/manualpeering"
+	"github.com/iotaledger/goshimmer/packages/network/manualpeering"
 )
 
 const (

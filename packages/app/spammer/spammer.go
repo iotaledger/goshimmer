@@ -10,8 +10,9 @@ import (
 	"github.com/iotaledger/hive.go/core/typeutils"
 	"go.uber.org/atomic"
 
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
+	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 )
 
 const (
@@ -20,7 +21,7 @@ const (
 )
 
 // IssuePayloadFunc is a function which issues a payload.
-type IssuePayloadFunc = func(payload payload.Payload, parentsCount ...int) (*tangleold.Block, error)
+type IssuePayloadFunc = func(payload payload.Payload, parentsCount ...int) (*models.Block, error)
 
 // EstimateFunc returns the time estimate required for the block to be issued by the rate setter.
 type EstimateFunc = func() time.Duration
@@ -96,7 +97,7 @@ func (s *Spammer) run(rate int, timeUnit time.Duration, imif string) {
 				defer s.goroutinesCount.Add(-1)
 				// we don't care about errors or the actual issued block
 				_, err := s.issuePayloadFunc(payload.NewGenericDataPayload([]byte("SPAM")))
-				if errors.Is(err, tangleold.ErrNotBootstrapped) {
+				if errors.Is(err, blockissuer.ErrNotBootstraped) {
 					s.log.Info("Stopped spamming blocks because node lost sync")
 					s.signalShutdown()
 					return

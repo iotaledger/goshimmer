@@ -6,8 +6,8 @@ import (
 	"github.com/iotaledger/hive.go/core/types"
 	"go.uber.org/atomic"
 
-	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
 var (
@@ -63,15 +63,15 @@ func measureInitialConflictStats() {
 	defer activeConflictsMutex.Unlock()
 	activeConflicts = make(map[utxo.TransactionID]types.Empty)
 	conflictsToRemove := make([]utxo.TransactionID, 0)
-	deps.Tangle.Ledger.ConflictDAG.Utils.ForEachConflict(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	deps.Protocol.Engine().Ledger.ConflictDAG.Utils.ForEachConflict(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		switch conflict.ID() {
 		case utxo.EmptyTransactionID:
 			return
 		default:
 			initialConflictTotalCountDB++
 			activeConflicts[conflict.ID()] = types.Void
-			if deps.Tangle.Ledger.ConflictDAG.ConfirmationState(utxo.NewTransactionIDs(conflict.ID())).IsAccepted() {
-				deps.Tangle.Ledger.ConflictDAG.Utils.ForEachConflictingConflictID(conflict.ID(), func(conflictingConflictID utxo.TransactionID) bool {
+			if deps.Protocol.Engine().Ledger.ConflictDAG.ConfirmationState(utxo.NewTransactionIDs(conflict.ID())).IsAccepted() {
+				deps.Protocol.Engine().Ledger.ConflictDAG.Utils.ForEachConflictingConflictID(conflict.ID(), func(conflictingConflictID utxo.TransactionID) bool {
 					if conflictingConflictID != conflict.ID() {
 						initialFinalizedConflictCountDB++
 					}
@@ -86,7 +86,7 @@ func measureInitialConflictStats() {
 
 	// remove finalized conflicts from the map in separate loop when all conflicting conflicts are known
 	for _, conflictID := range conflictsToRemove {
-		deps.Tangle.Ledger.ConflictDAG.Utils.ForEachConflictingConflictID(conflictID, func(conflictingConflictID utxo.TransactionID) bool {
+		deps.Protocol.Engine().Ledger.ConflictDAG.Utils.ForEachConflictingConflictID(conflictID, func(conflictingConflictID utxo.TransactionID) bool {
 			if conflictingConflictID != conflictID {
 				delete(activeConflicts, conflictingConflictID)
 			}

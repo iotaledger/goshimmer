@@ -3,8 +3,6 @@ package metrics
 import (
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/core/tangleold/schedulerutils"
-
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/syncutils"
 )
@@ -27,61 +25,56 @@ var (
 	// maxBufferSize maximum number of blocks can be stored in the buffer.
 	maxBufferSize int
 
-	// nodeQueueSizes current size of each node's queue.
-	nodeQueueSizes map[identity.ID]int
-	// nodeQueueSizes current amount of aMana of each node in the queue.
-	nodeAccessMana *schedulerutils.AccessManaCache
-	// nodeQueueSizesMutex protect map from concurrent read/write.
-	nodeQueueSizesMutex syncutils.RWMutex
+	// issuerQueueSizes current size of each issuer's queue.
+	issuerQueueSizes map[identity.ID]int
+	// issuerQueueSizesMutex protect map from concurrent read/write.
+	issuerQueueSizesMutex syncutils.RWMutex
 )
 
 func measureSchedulerMetrics() {
-	nodeQueueSizesMutex.Lock()
-	defer nodeQueueSizesMutex.Unlock()
-	nodeQueueSizes = make(map[identity.ID]int)
-	for k, v := range deps.Tangle.Scheduler.NodeQueueSizes() {
-		nodeQueueSizes[k] = v
+	issuerQueueSizesMutex.Lock()
+	defer issuerQueueSizesMutex.Unlock()
+	issuerQueueSizes = make(map[identity.ID]int)
+	for k, v := range deps.Protocol.CongestionControl.Scheduler().IssuerQueueSizes() {
+		issuerQueueSizes[k] = v
 	}
-	if nodeAccessMana == nil {
-		nodeAccessMana = deps.Tangle.Scheduler.AccessManaCache()
-	}
-	bufferSize = deps.Tangle.Scheduler.BufferSize()
-	maxBufferSize = deps.Tangle.Options.SchedulerParams.MaxBufferSize
-	schedulerDeficit, _ = deps.Tangle.Scheduler.GetDeficit(deps.Local.ID()).Float64()
-	schedulerRate = deps.Tangle.Scheduler.Rate()
-	readyBlocksCount = deps.Tangle.Scheduler.ReadyBlocksCount()
-	totalBlocksCount = deps.Tangle.Scheduler.TotalBlocksCount()
+	bufferSize = deps.Protocol.CongestionControl.Scheduler().BufferSize()
+	maxBufferSize = deps.Protocol.CongestionControl.Scheduler().MaxBufferSize()
+	schedulerDeficit, _ = deps.Protocol.CongestionControl.Scheduler().Deficit(deps.Local.ID()).Float64()
+	schedulerRate = deps.Protocol.CongestionControl.Scheduler().Rate()
+	readyBlocksCount = deps.Protocol.CongestionControl.Scheduler().ReadyBlocksCount()
+	totalBlocksCount = deps.Protocol.CongestionControl.Scheduler().TotalBlocksCount()
 }
 
-// SchedulerNodeQueueSizes current size of each node's queue.
-func SchedulerNodeQueueSizes() map[string]int {
-	nodeQueueSizesMutex.RLock()
-	defer nodeQueueSizesMutex.RUnlock()
+// SchedulerIssuerQueueSizes current size of each issuer's queue.
+func SchedulerIssuerQueueSizes() map[string]int {
+	issuerQueueSizesMutex.RLock()
+	defer issuerQueueSizesMutex.RUnlock()
 
 	// copy the original map
 	clone := make(map[string]int)
-	for key, element := range nodeQueueSizes {
+	for key, element := range issuerQueueSizes {
 		clone[key.String()] = element
 	}
 
 	return clone
 }
 
-// SchedulerNodeAManaAmount current aMana value for each node in the queue.
-func SchedulerNodeAManaAmount() map[string]float64 {
-	nodeQueueSizesMutex.RLock()
-	defer nodeQueueSizesMutex.RUnlock()
+// SchedulerIssuerAManaAmount current aMana value for each issuer in the queue.
+func SchedulerIssuerAManaAmount() map[string]int64 {
+	issuerQueueSizesMutex.RLock()
+	defer issuerQueueSizesMutex.RUnlock()
 
 	// copy the original map
-	clone := make(map[string]float64)
-	for key := range nodeQueueSizes {
-		clone[key.String()] = nodeAccessMana.GetCachedMana(key)
+	clone := make(map[string]int64)
+	for key := range issuerQueueSizes {
+		clone[key.String()], _ = deps.Protocol.Engine().ManaTracker.Mana(key)
 	}
 
 	return clone
 }
 
-// SchedulerTotalBufferBlocksCount returns if the node is synced based on tangle time.
+// SchedulerTotalBufferBlocksCount returns if the issuer is synced based on tangle time.
 func SchedulerTotalBufferBlocksCount() int {
 	return totalBlocksCount
 }
@@ -96,7 +89,7 @@ func SchedulerMaxBufferSize() int {
 	return maxBufferSize
 }
 
-// SchedulerDeficit local node's deficit value.
+// SchedulerDeficit local issuer's deficit value.
 func SchedulerDeficit() float64 {
 	return schedulerDeficit
 }

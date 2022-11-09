@@ -18,11 +18,11 @@ export default class ManaLeaderboard extends React.Component<Props, any> {
                     <Card.Body style={{'overflow':'auto', 'height':'90%', 'padding':'0px 0px 20px 0px'}}>
                         <Table>
                             <thead>
-                            <tr>
-                                <th style={{'position': 'sticky', 'top': 0,'background': 'white'}}>Rank</th>
-                                <th style={{'position': 'sticky', 'top': 0,'background': 'white'}}>NodeID</th>
-                                <th style={{'position': 'sticky', 'top': 0,'background': 'white'}}>Mana</th>
-                                <th style={{'position': 'sticky', 'top': 0,'background': 'white'}}>% of All</th>
+                            <tr key={'header'}>
+                                <th style={{'position': 'sticky', 'top': 0, 'background': 'white'}}>Rank</th>
+                                <th style={{'position': 'sticky', 'top': 0, 'background': 'white'}}>NodeID</th>
+                                <th style={{'position': 'sticky', 'top': 0, 'background': 'white'}}>Mana</th>
+                                <th style={{'position': 'sticky', 'top': 0, 'background': 'white'}}>% of All</th>
                             </tr>
                             </thead>
                             <tbody>

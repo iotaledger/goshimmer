@@ -46,20 +46,14 @@ services:
       --faucet.seed={{ faucetSeed }}
       --faucet.tokensPerRequest=1000000
       {% endif %}
-      --pow.numThreads=7
-      --pow.timeout=60s
-     {% if powDifficulty|default(None) %}
-      --pow.difficulty={{ powDifficulty }}
-     {% endif %}
       --logger.level={{ logLevel }}
       --logger.outputPaths=stdout
       --logger.disableEvents=false
       --logger.remotelog.serverAddress={{ remoteLoggerHost }}:5213
       --remotemetrics.metricsLevel=0
       {% if faucet|default(false) %}
-      --blockLayer.startSynced=false
+      --blockIssuer.ignoreBootstrappedFlag=false
       {% else %}
-      --blockLayer.startSynced=true
+      --blockIssuer.ignoreBootstrappedFlag=true
       {% endif %}
-      --blockLayer.tangleTimeWindow=10m
-      --blockLayer.snapshot.genesisNode={{ bootstrapNodePubKey }}
+      --protocol.bootstrapWindow=20s

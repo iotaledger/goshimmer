@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
 
-	"github.com/iotaledger/goshimmer/packages/node/p2p"
+	"github.com/iotaledger/goshimmer/packages/network/p2p"
 )
 
 // Firewall is a object responsible for taking actions on faulty peers.

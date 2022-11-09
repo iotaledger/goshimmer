@@ -34,6 +34,8 @@ go.work.sum
 mainnetdb/
 objectsdb/
 peerdb/
+db/
+retainer/
 
 # OSX related files
 .DS_Store
