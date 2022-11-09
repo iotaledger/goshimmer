@@ -5,6 +5,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
 	"github.com/iotaledger/goshimmer/packages/storage/permanent"
 	"github.com/iotaledger/goshimmer/packages/storage/prunable"
+	"github.com/iotaledger/hive.go/core/generics/event"
 )
 
 // Storage is an abstraction around the storage layer of the node.
@@ -33,6 +34,8 @@ func New(directory string, version database.Version) (newStorage *Storage) {
 
 // Shutdown shuts down the storage.
 func (c *Storage) Shutdown() (err error) {
+	event.Loop.WaitUntilAllTasksProcessed()
+
 	defer c.databaseManager.Shutdown()
 
 	return c.Permanent.Shutdown()

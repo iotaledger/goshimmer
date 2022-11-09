@@ -35,6 +35,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 		if t.Tangle == nil {
 			storage := storage.New(test.TempDir(), 1)
 			test.Cleanup(func() {
+				t.optsLedger.Shutdown()
 				if err := storage.Shutdown(); err != nil {
 					test.Fatal(err)
 				}
