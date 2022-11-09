@@ -125,7 +125,6 @@ func (e *Engine) Evict(index epoch.Index) {
 
 func (e *Engine) Shutdown() {
 	e.Ledger.Shutdown()
-	e.Storage.Shutdown()
 }
 
 func (e *Engine) initFilter() {

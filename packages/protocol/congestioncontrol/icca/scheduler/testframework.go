@@ -54,8 +54,14 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		issuersByAlias: make(map[string]*identity.Identity),
 		mockAcceptance: acceptance.NewMockAcceptanceGadget(),
 	}, opts, func(t *TestFramework) {
+		storage := storage.New(test.TempDir(), 1)
+
+		test.Cleanup(func() {
+			storage.Shutdown()
+		})
+
 		if t.evictionState == nil {
-			t.evictionState = eviction.NewState(storage.New(test.TempDir(), 1))
+			t.evictionState = eviction.NewState(storage)
 		}
 		if t.optsValidatorSet == nil {
 			t.optsValidatorSet = validator.NewSet()
@@ -111,8 +117,6 @@ func (t *TestFramework) setupEvents() {
 		}
 		atomic.AddUint32(&(t.droppedBlocksCount), 1)
 	}))
-
-	return
 }
 
 func (t *TestFramework) CreateIssuer(alias string, issuerMana int64) {

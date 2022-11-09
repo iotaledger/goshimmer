@@ -18,7 +18,6 @@ import (
 // This test checks if the internal metadata is correct i.e. that children are assigned correctly and that all the flags are correct.
 func TestBlockDAG_AttachBlock(t *testing.T) {
 	tf := NewTestFramework(t)
-	defer tf.Shutdown()
 
 	tf.CreateBlock("block1")
 	tf.CreateBlock("block2", models.WithStrongParents(tf.BlockIDs("block1")))
@@ -202,7 +201,6 @@ func TestBlockDAG_AttachBlock(t *testing.T) {
 
 func TestBlockDAG_SetOrphaned(t *testing.T) {
 	tf := NewTestFramework(t)
-	defer tf.Shutdown()
 
 	tf.CreateBlock("block1")
 	tf.CreateBlock("block2")
@@ -247,7 +245,6 @@ func TestBlockDAG_SetOrphaned(t *testing.T) {
 
 func TestBlockDAG_AttachBlockTwice_1(t *testing.T) {
 	tf := NewTestFramework(t)
-	defer tf.Shutdown()
 
 	tf.CreateBlock("block1")
 	tf.CreateBlock("block2", models.WithStrongParents(tf.BlockIDs("block1")))
@@ -292,7 +289,6 @@ func TestBlockDAG_AttachBlockTwice_1(t *testing.T) {
 
 func TestBlockDAG_AttachBlockTwice_2(t *testing.T) {
 	tf := NewTestFramework(t)
-	defer tf.Shutdown()
 
 	tf.CreateBlock("block1")
 	tf.CreateBlock("block2", models.WithStrongParents(tf.BlockIDs("block1")))
@@ -312,7 +308,6 @@ func TestBlockDAG_AttachBlockTwice_2(t *testing.T) {
 
 func TestBlockDAG_Attach_InvalidTimestamp(t *testing.T) {
 	tf := NewTestFramework(t)
-	defer tf.Shutdown()
 
 	now := time.Now()
 	tf.CreateBlock("block1", models.WithIssuingTime(now.Add(-5*time.Second)))
@@ -362,7 +357,6 @@ func TestBlockDAG_AttachInvalid(t *testing.T) {
 	epoch.GenesisTime = time.Now().Unix() - epochCount*epoch.Duration
 
 	tf := NewTestFramework(t)
-	defer tf.Shutdown()
 
 	// create a helper function that creates the blocks
 	createNewBlock := func(idx int, prefix string) (block *models.Block, alias string) {
@@ -449,7 +443,6 @@ func TestBlockDAG_Prune(t *testing.T) {
 	epoch.GenesisTime = time.Now().Unix() - epochCount*epoch.Duration
 
 	tf := NewTestFramework(t)
-	defer tf.Shutdown()
 
 	// create a helper function that creates the blocks
 	createNewBlock := func(idx int, prefix string) (block *models.Block, alias string) {
@@ -559,7 +552,6 @@ func TestBlockDAG_MissingBlocks(t *testing.T) {
 	)
 
 	tf := NewTestFramework(t)
-	defer tf.Shutdown()
 
 	// map to keep track of the tips
 	tips := randommap.New[models.BlockID, models.BlockID]()

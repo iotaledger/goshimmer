@@ -43,16 +43,21 @@ type TestFramework struct {
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (newTestFramework *TestFramework) {
 	return options.Apply(&TestFramework{
 		test:           test,
-		storage:        storage.New(test.TempDir(), 1),
 		orphanedBlocks: models.NewBlockIDs(),
 	}, opts, func(t *TestFramework) {
+		storage := storage.New(test.TempDir(), 1)
+
 		if t.BlockDAG == nil {
 			if t.evictionState == nil {
-				t.evictionState = eviction.NewState(t.storage)
+				t.evictionState = eviction.NewState(storage)
 			}
 
 			t.BlockDAG = New(t.evictionState, t.optsBlockDAG...)
 		}
+
+		test.Cleanup(func() {
+			storage.Shutdown()
+		})
 
 		t.ModelsTestFramework = models.NewTestFramework(
 			models.WithBlock("Genesis", models.NewEmptyBlock(models.EmptyBlockID)),
@@ -157,12 +162,6 @@ func (t *TestFramework) AssertLikedInsteadChildren(m map[string][]string) {
 		t.AssertBlock(alias, func(block *Block) {
 			assert.Equal(t.test, t.BlockIDs(children...), models.NewBlockIDs(lo.Map(block.likedInsteadChildren, (*Block).ID)...))
 		})
-	}
-}
-
-func (t *TestFramework) Shutdown() {
-	if err := t.storage.Shutdown(); err != nil {
-		panic(err)
 	}
 }
 

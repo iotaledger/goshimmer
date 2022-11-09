@@ -84,6 +84,19 @@ func (p *Protocol) Run() {
 	p.importSnapshotFile(p.optsSnapshotPath)
 }
 
+func (p *Protocol) Shutdown() {
+	p.engine.Shutdown()
+	p.storage.Shutdown()
+
+	if p.candidateEngine != nil {
+		p.candidateEngine.Shutdown()
+	}
+
+	if p.candidateStorage != nil {
+		p.candidateStorage.Shutdown()
+	}
+}
+
 func (p *Protocol) initDisk() {
 	p.disk = diskutil.New(p.optsBaseDirectory)
 }

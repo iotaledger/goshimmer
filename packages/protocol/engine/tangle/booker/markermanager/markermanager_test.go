@@ -23,7 +23,6 @@ func Test_PruneMarkerBlockMapping(t *testing.T) {
 	markerManager := NewMarkerManager[models.BlockID, *blockdag.Block]()
 
 	tf := blockdag.NewTestFramework(t)
-	defer tf.Shutdown()
 
 	tf.BlockDAG.EvictionState.Events.EpochEvicted.Attach(event.NewClosure(markerManager.Evict))
 
