@@ -17,9 +17,9 @@ func New(opts ...options.Option[Filter]) (inbox *Filter) {
 	}, opts)
 }
 
-func (i *Filter) ProcessReceivedBlock(block *models.Block, source identity.ID) {
+func (f *Filter) ProcessReceivedBlock(block *models.Block, source identity.ID) {
 	// fill heuristic + check if block is valid
 	// ...
 
-	i.Events.BlockReceived.Trigger(block)
+	f.Events.BlockReceived.Trigger(block)
 }

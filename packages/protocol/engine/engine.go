@@ -262,7 +262,7 @@ func (e *Engine) initEvictionState() {
 func (e *Engine) initBlockRequester() {
 	e.BlockRequester = eventticker.New(e.optsBlockRequester...)
 
-	e.Events.EvictionState.EpochEvicted.Attach(event.NewClosure(e.BlockRequester.EvictUntil))
+	e.Events.EvictionState.EpochEvicted.Hook(event.NewClosure(e.BlockRequester.EvictUntil))
 
 	// We need to hook to make sure that the request is created before the block arrives to avoid a race condition
 	// where we try to delete the request again before it is created. Thus, continuing to request forever.

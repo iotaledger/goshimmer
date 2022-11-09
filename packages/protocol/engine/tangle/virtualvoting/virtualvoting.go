@@ -90,7 +90,7 @@ func (o *VirtualVoting) setupEvents() {
 		o.processForkedMarker(event.Marker, event.ConflictID, event.ParentConflictIDs)
 	}))
 
-	o.EvictionState.Events.EpochEvicted.Attach(event.NewClosure(o.evictEpoch))
+	o.EvictionState.Events.EpochEvicted.Hook(event.NewClosure(o.evictEpoch))
 }
 
 func (o *VirtualVoting) track(block *Block) (tracked bool) {

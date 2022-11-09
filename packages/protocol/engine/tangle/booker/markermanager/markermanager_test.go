@@ -24,7 +24,7 @@ func Test_PruneMarkerBlockMapping(t *testing.T) {
 
 	tf := blockdag.NewTestFramework(t)
 
-	tf.BlockDAG.EvictionState.Events.EpochEvicted.Attach(event.NewClosure(markerManager.Evict))
+	tf.BlockDAG.EvictionState.Events.EpochEvicted.Hook(event.NewClosure(markerManager.Evict))
 
 	// create a helper function that creates the blocks
 	createNewBlock := func(idx int, prefix string) (block *blockdag.Block, alias string) {
