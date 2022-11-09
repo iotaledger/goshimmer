@@ -72,7 +72,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		}
 
 		t.TipManager.ActivateEngine(t.engine)
-		// TODO: FIX t.TipManager.AcceptanceGadget = t.mockAcceptance
+		t.TipManager.acceptanceGadget = t.mockAcceptance
 
 		t.SetAcceptedTime(t.optsGenesisTime)
 

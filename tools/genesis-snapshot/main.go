@@ -163,7 +163,7 @@ func diagnosticPrintSnapshotFromFile(filePath string) {
 	})
 
 	fmt.Println("--- SEPs ---")
-	e.Storage.EntryPoints.Stream(0, func(blockID models.BlockID) {
+	e.Storage.RootBlocks.Stream(0, func(blockID models.BlockID) {
 		fmt.Printf("%+v\n", blockID)
 	})
 
