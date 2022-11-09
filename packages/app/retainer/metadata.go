@@ -192,8 +192,6 @@ func newBlockMetadata(cm *cachedMetadata) (b *BlockMetadata) {
 
 func copyFromBlockDAGBlock(blockWithTime *blockWithTime[*blockdag.Block], blockMetadata *BlockMetadata) {
 	block := blockWithTime.Block
-	block.RLock()
-	defer block.RUnlock()
 
 	blockMetadata.M.Missing = block.IsMissing()
 	blockMetadata.M.Solid = block.IsSolid()
