@@ -93,8 +93,8 @@ func New(storageInstance *storage.Storage, opts ...options.Option[Engine]) (engi
 		(*Engine).initNotarizationManager,
 		(*Engine).initManaTracker,
 		(*Engine).initSybilProtection,
-		(*Engine).initBlockRequester,
 		(*Engine).initEvictionState,
+		(*Engine).initBlockRequester,
 	)
 }
 
@@ -115,12 +115,6 @@ func (e *Engine) IsBootstrapped() (isBootstrapped bool) {
 
 func (e *Engine) IsSynced() (isBootstrapped bool) {
 	return e.IsBootstrapped() && time.Since(e.Clock.AcceptedTime()) < e.optsBootstrappedThreshold
-}
-
-func (e *Engine) Evict(index epoch.Index) {
-	for i := index; i > index-epoch.Index(e.optsEntryPointsDepth); i-- {
-		e.EvictionState.EvictUntil(i)
-	}
 }
 
 func (e *Engine) Shutdown() {
@@ -244,22 +238,6 @@ func (e *Engine) initSybilProtection() {
 	e.Events.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(e.SybilProtection.TrackActiveValidators))
 }
 
-func (e *Engine) initBlockRequester() {
-	e.BlockRequester = eventticker.New(e.optsBlockRequester...)
-
-	// We need to hook to make sure that the request is created before the block arrives to avoid a race condition
-	// where we try to delete the request again before it is created. Thus, continuing to request forever.
-	e.Events.Tangle.BlockDAG.BlockMissing.Hook(event.NewClosure(func(block *blockdag.Block) {
-		// TODO: ONLY START REQUESTING WHEN NOT IN WARPSYNC RANGE (or just not attach outside)?
-		e.BlockRequester.StartTicker(block.ID())
-	}))
-	e.Events.Tangle.BlockDAG.MissingBlockAttached.Attach(event.NewClosure(func(block *blockdag.Block) {
-		e.BlockRequester.StopTicker(block.ID())
-	}))
-
-	e.Events.BlockRequester = e.BlockRequester.Events
-}
-
 func (e *Engine) initEvictionState() {
 	e.Events.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
 		block.ForEachParent(func(parent models.Parent) {
@@ -279,6 +257,24 @@ func (e *Engine) initEvictionState() {
 	}))
 
 	e.Events.EvictionState.EpochEvicted = e.EvictionState.Events.EpochEvicted
+}
+
+func (e *Engine) initBlockRequester() {
+	e.BlockRequester = eventticker.New(e.optsBlockRequester...)
+
+	e.Events.EvictionState.EpochEvicted.Attach(event.NewClosure(e.BlockRequester.EvictUntil))
+
+	// We need to hook to make sure that the request is created before the block arrives to avoid a race condition
+	// where we try to delete the request again before it is created. Thus, continuing to request forever.
+	e.Events.Tangle.BlockDAG.BlockMissing.Hook(event.NewClosure(func(block *blockdag.Block) {
+		// TODO: ONLY START REQUESTING WHEN NOT IN WARPSYNC RANGE (or just not attach outside)?
+		e.BlockRequester.StartTicker(block.ID())
+	}))
+	e.Events.Tangle.BlockDAG.MissingBlockAttached.Attach(event.NewClosure(func(block *blockdag.Block) {
+		e.BlockRequester.StopTicker(block.ID())
+	}))
+
+	e.Events.BlockRequester = e.BlockRequester.Events
 }
 
 func (e *Engine) ProcessBlockFromPeer(block *models.Block, source identity.ID) {

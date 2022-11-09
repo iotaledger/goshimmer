@@ -54,13 +54,12 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		issuersByAlias: make(map[string]*identity.Identity),
 		mockAcceptance: acceptance.NewMockAcceptanceGadget(),
 	}, opts, func(t *TestFramework) {
-		storage := storage.New(test.TempDir(), 1)
-
-		test.Cleanup(func() {
-			storage.Shutdown()
-		})
-
 		if t.evictionState == nil {
+			storage := storage.New(test.TempDir(), 1)
+			test.Cleanup(func() {
+				storage.Shutdown()
+			})
+
 			t.evictionState = eviction.NewState(storage)
 		}
 		if t.optsValidatorSet == nil {

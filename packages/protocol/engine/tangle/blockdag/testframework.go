@@ -25,7 +25,6 @@ type TestFramework struct {
 	BlockDAG *BlockDAG
 
 	test                *testing.T
-	storage             *storage.Storage
 	evictionState       *eviction.State
 	solidBlocks         int32
 	missingBlocks       int32
@@ -45,19 +44,18 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 		test:           test,
 		orphanedBlocks: models.NewBlockIDs(),
 	}, opts, func(t *TestFramework) {
-		storage := storage.New(test.TempDir(), 1)
-
 		if t.BlockDAG == nil {
+			storage := storage.New(test.TempDir(), 1)
+			test.Cleanup(func() {
+				storage.Shutdown()
+			})
+
 			if t.evictionState == nil {
 				t.evictionState = eviction.NewState(storage)
 			}
 
 			t.BlockDAG = New(t.evictionState, t.optsBlockDAG...)
 		}
-
-		test.Cleanup(func() {
-			storage.Shutdown()
-		})
 
 		t.ModelsTestFramework = models.NewTestFramework(
 			models.WithBlock("Genesis", models.NewEmptyBlock(models.EmptyBlockID)),

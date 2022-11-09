@@ -45,18 +45,22 @@ type TestFramework struct {
 }
 
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t *TestFramework) {
-	chainStorage := storage.New(test.TempDir(), 1)
 	return options.Apply(&TestFramework{
 		test: test,
 	}, opts, func(t *TestFramework) {
 		if t.Gadget == nil {
 			if t.optsTangle == nil {
+				storage := storage.New(test.TempDir(), 1)
+				test.Cleanup(func() {
+					storage.Shutdown()
+				})
+
 				if t.optsLedger == nil {
-					t.optsLedger = ledger.New(chainStorage, t.optsLedgerOptions...)
+					t.optsLedger = ledger.New(storage, t.optsLedgerOptions...)
 				}
 
 				if t.optsEvictionState == nil {
-					t.optsEvictionState = eviction.NewState(chainStorage)
+					t.optsEvictionState = eviction.NewState(storage)
 				}
 
 				if t.optsValidatorSet == nil {
