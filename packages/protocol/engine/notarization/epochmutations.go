@@ -97,6 +97,28 @@ func (m *EpochMutations) TotalAcceptedBlocks(ei epoch.Index) (total int) {
 	return m.acceptedBlocks(ei).Size()
 }
 
+// TotalAcceptedTransactions returns the number of accepted transactions of given epoch.
+func (m *EpochMutations) TotalAcceptedTransactions(ei epoch.Index) (total int) {
+	m.Lock()
+	defer m.Unlock()
+
+	if m.acceptedTransactions(ei) == nil {
+		return 0
+	}
+	return m.acceptedTransactions(ei).Size()
+}
+
+// TotalActiveValidators returns the number of active validators of given epoch.
+func (m *EpochMutations) TotalActiveValidators(ei epoch.Index) (total int) {
+	m.Lock()
+	defer m.Unlock()
+
+	if m.activeValidators(ei) == nil {
+		return 0
+	}
+	return m.activeValidators(ei).Size()
+}
+
 // AddAcceptedTransaction adds the given transaction to the set of accepted transactions.
 func (m *EpochMutations) AddAcceptedTransaction(metadata *ledger.TransactionMetadata) (err error) {
 	m.Lock()

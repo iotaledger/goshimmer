@@ -12,7 +12,7 @@ var (
 	numberOfSeenOtherCommitments     prometheus.Gauge
 	missingCommitmentsRequested      prometheus.Gauge
 	numberMissingCommitmentsReceived prometheus.Gauge
-	acceptedBlksOfEpoch              *prometheus.GaugeVec
+	epochDetailsCounts               *prometheus.GaugeVec
 	numberOfBlockRemoved             *prometheus.GaugeVec
 )
 
@@ -46,23 +46,23 @@ func registerEpochCommitmentMetrics() {
 			"epoch",
 		})
 
-	acceptedBlksOfEpoch = prometheus.NewGaugeVec(
+	epochDetailsCounts = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "accepted_blks_of_epoch",
-			Help: "Number of accepted blocks in an epoch",
+			Name: "epoch_counters",
+			Help: "Metrics about last committed epoch: number of accepted blocks, number of transactions, number of active validators",
 		}, []string{
-			"epoch",
+			"accepted_blocks", "transactions", "active_validators",
 		})
 	registry.MustRegister(lastCommitment)
 	registry.MustRegister(numberOfSeenOtherCommitments)
 	registry.MustRegister(missingCommitmentsRequested)
 	registry.MustRegister(numberMissingCommitmentsReceived)
 	registry.MustRegister(numberOfBlockRemoved)
-	registry.MustRegister(acceptedBlksOfEpoch)
+	registry.MustRegister(epochDetailsCounts)
 
 	addCollect(collectEpochCommitmentMetrics)
 	addCollect(collectRemovedBlockMetrics)
-	addCollect(collectNumOfAcceptedBlkMetrics)
+	addCollect(collectEpochDetailsMetrics)
 }
 
 func collectEpochCommitmentMetrics() {
@@ -87,8 +87,10 @@ func collectRemovedBlockMetrics() {
 	}
 }
 
-func collectNumOfAcceptedBlkMetrics() {
-	ei, num := metrics.BlocksOfEpoch()
-	eiStr := fmt.Sprint(uint64(ei))
-	acceptedBlksOfEpoch.WithLabelValues(eiStr).Set(float64(num))
+func collectEpochDetailsMetrics() {
+	ei, blocksCount, txCount, activeValCount := metrics.BlocksOfEpoch()
+	blocksCountStr := strconv.Itoa(int(blocksCount))
+	txCountStr := strconv.Itoa(int(txCount))
+	activeValCountStr := strconv.Itoa(int(activeValCount))
+	epochDetailsCounts.WithLabelValues(blocksCountStr, txCountStr, activeValCountStr).Set(float64(ei))
 }

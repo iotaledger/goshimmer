@@ -1,6 +1,7 @@
 package notarization
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -123,6 +124,16 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 
 	m.pendingConflictsCounters.Delete(index)
 
+	blocksCount := m.EpochMutations.TotalAcceptedBlocks(index)
+	txsCount := m.EpochMutations.TotalAcceptedTransactions(index)
+	validatorsCount := m.EpochMutations.TotalActiveValidators(index)
+	epochDetails := &EvictedEpochDetails{
+		Index:                     index,
+		AcceptedBlocksCount:       blocksCount,
+		AcceptedTransactionsCount: txsCount,
+		ActiveValidatorsCount:     validatorsCount,
+	}
+	fmt.Println("epochDetails", epochDetails)
 	acceptedBlocks, acceptedTransactions, activeValidators, err := m.EpochMutations.Commit(index)
 	if err != nil {
 		m.Events.Error.Trigger(errors.Errorf("failed to commit mutations: %w", err))
@@ -139,6 +150,9 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 	}
 
 	m.Events.EpochCommitted.Trigger(newCommitment)
+	if epochDetails != nil {
+		m.Events.EvictedEpochDetails.Trigger(epochDetails)
+	}
 
 	return true
 }

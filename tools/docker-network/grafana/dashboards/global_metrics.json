@@ -24,12 +24,12 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 5,
+  "id": 3,
   "links": [],
   "liveNow": false,
   "panels": [
     {
-      "collapsed": true,
+      "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -37,109 +37,8 @@
         "y": 0
       },
       "id": 55,
-      "panels": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 0,
-            "y": 25
-          },
-          "id": 53,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "PBFA97CFB590B2093"
-              },
-              "refId": "A"
-            }
-          ],
-          "title": "Issuance rate per node",
-          "type": "timeseries"
-        }
-      ],
-      "title": "Processing, BPS",
-      "type": "row"
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 1
-      },
-      "id": 63,
       "panels": [],
-      "title": "Epoch metrics",
+      "title": "General",
       "type": "row"
     },
     {
@@ -153,23 +52,6 @@
             "fixedColor": "semi-dark-blue",
             "mode": "fixed"
           },
-          "custom": {
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "fillOpacity": 41,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineWidth": 1,
-            "scaleDistribution": {
-              "type": "linear"
-            }
-          },
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -197,37 +79,29 @@
         ]
       },
       "gridPos": {
-        "h": 6,
-        "w": 24,
+        "h": 3,
+        "w": 8,
         "x": 0,
-        "y": 2
+        "y": 1
       },
       "id": 107,
       "options": {
-        "barRadius": 0,
-        "barWidth": 0.97,
-        "colorByField": "instance",
-        "groupWidth": 0.7,
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": false
-        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
         "orientation": "auto",
-        "showValue": "always",
-        "stacking": "none",
-        "text": {
-          "valueSize": 40
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
         },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        },
-        "xTickLabelRotation": 0,
-        "xTickLabelSpacing": 200
+        "textMode": "auto"
       },
       "pluginVersion": "9.2.4",
+      "repeat": "instance",
+      "repeatDirection": "h",
       "targets": [
         {
           "datasource": {
@@ -244,7 +118,7 @@
           "refId": "A"
         }
       ],
-      "title": "Last commitmed epoch",
+      "title": "Last commitmed epoch $instance",
       "transformations": [
         {
           "id": "convertFieldType",
@@ -291,7 +165,7 @@
           }
         }
       ],
-      "type": "barchart"
+      "type": "stat"
     },
     {
       "datasource": {
@@ -305,23 +179,6 @@
             "fixedColor": "semi-dark-orange",
             "mode": "fixed"
           },
-          "custom": {
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "fillOpacity": 41,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineWidth": 1,
-            "scaleDistribution": {
-              "type": "linear"
-            }
-          },
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -349,37 +206,29 @@
         ]
       },
       "gridPos": {
-        "h": 6,
-        "w": 24,
+        "h": 3,
+        "w": 8,
         "x": 0,
-        "y": 8
+        "y": 4
       },
       "id": 96,
       "options": {
-        "barRadius": 0,
-        "barWidth": 0.97,
-        "colorByField": "instance",
-        "groupWidth": 0.7,
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": false
-        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
         "orientation": "auto",
-        "showValue": "always",
-        "stacking": "none",
-        "text": {
-          "valueSize": 40
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
         },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        },
-        "xTickLabelRotation": 0,
-        "xTickLabelSpacing": 200
+        "textMode": "auto"
       },
       "pluginVersion": "9.2.4",
+      "repeat": "instance",
+      "repeatDirection": "h",
       "targets": [
         {
           "datasource": {
@@ -396,7 +245,7 @@
           "refId": "A"
         }
       ],
-      "title": "Last confirmed epoch",
+      "title": "Last confirmed epoch $instance",
       "transformations": [
         {
           "id": "convertFieldType",
@@ -443,24 +292,38 @@
           }
         }
       ],
-      "type": "barchart"
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 7
+      },
+      "id": 63,
+      "panels": [],
+      "title": "Epoch metrics",
+      "type": "row"
     },
     {
       "datasource": {
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
+      "description": "",
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "continuous-YlBl"
+            "mode": "thresholds"
           },
           "custom": {
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
-            "fillOpacity": 72,
+            "fillOpacity": 65,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -487,13 +350,26 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "instance"
+              "options": "Epoch Index"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "EI"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Accepted Blocks"
             },
             "properties": [
               {
                 "id": "color",
                 "value": {
-                  "mode": "palette-classic"
+                  "fixedColor": "semi-dark-blue",
+                  "mode": "fixed"
                 }
               }
             ]
@@ -501,12 +377,30 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "epoch"
+              "options": "Accepted Transactions"
             },
             "properties": [
               {
-                "id": "unit",
-                "value": "EI"
+                "id": "color",
+                "value": {
+                  "fixedColor": "semi-dark-green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Active validators"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "semi-dark-yellow",
+                  "mode": "fixed"
+                }
               }
             ]
           }
@@ -516,33 +410,31 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 14
+        "y": 8
       },
-      "id": 67,
+      "id": 115,
       "options": {
         "barRadius": 0,
-        "barWidth": 0.93,
-        "colorByField": "Accepted blocks",
+        "barWidth": 0.97,
         "groupWidth": 0.7,
         "legend": {
           "calcs": [],
           "displayMode": "list",
           "placement": "bottom",
-          "showLegend": false
+          "showLegend": true
         },
         "orientation": "auto",
         "showValue": "auto",
         "stacking": "none",
-        "text": {},
         "tooltip": {
           "mode": "single",
           "sort": "none"
         },
-        "xField": "epoch",
-        "xTickLabelMaxLength": 12,
+        "xField": "Epoch Index",
         "xTickLabelRotation": -45,
         "xTickLabelSpacing": 0
       },
+      "pluginVersion": "9.2.4",
       "repeat": "instance",
       "repeatDirection": "v",
       "targets": [
@@ -552,36 +444,34 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "exemplar": false,
-          "expr": "accepted_blks_of_epoch{instance=\"$instance\"}",
+          "expr": "epoch_counters{instance=\"$instance\"}",
           "format": "table",
-          "instant": true,
-          "legendFormat": "{{epoch}}, {{instance}}",
-          "range": false,
+          "legendFormat": "__auto",
+          "range": true,
           "refId": "A"
         }
       ],
-      "title": "Blocks accepted per epoch $instance",
+      "title": "Epoch size metrics $instance",
       "transformations": [
         {
           "id": "organize",
           "options": {
-            "excludeByName": {
-              "Time": true,
-              "__name__": true,
-              "epoch": false,
-              "job": true
-            },
+            "excludeByName": {},
             "indexByName": {
               "Time": 0,
-              "Value": 3,
+              "Value": 7,
               "__name__": 1,
-              "epoch": 2,
-              "instance": 4,
-              "job": 5
+              "accepted_blocks": 2,
+              "active_validators": 4,
+              "instance": 5,
+              "job": 6,
+              "transactions": 3
             },
             "renameByName": {
-              "Value": "Accepted blocks"
+              "Value": "Epoch Index",
+              "accepted_blocks": "Accepted Blocks",
+              "active_validators": "Active validators",
+              "transactions": "Accepted Transactions"
             }
           }
         },
@@ -591,7 +481,15 @@
             "conversions": [
               {
                 "destinationType": "number",
-                "targetField": "epoch"
+                "targetField": "Accepted Blocks"
+              },
+              {
+                "destinationType": "number",
+                "targetField": "Active validators"
+              },
+              {
+                "destinationType": "number",
+                "targetField": "Accepted Transactions"
               }
             ],
             "fields": {}
@@ -604,7 +502,7 @@
             "sort": [
               {
                 "desc": true,
-                "field": "epoch"
+                "field": "Epoch Index"
               }
             ]
           }
@@ -612,18 +510,7 @@
         {
           "id": "limit",
           "options": {
-            "limitField": 15
-          }
-        },
-        {
-          "id": "sortBy",
-          "options": {
-            "fields": {},
-            "sort": [
-              {
-                "field": "epoch"
-              }
-            ]
+            "limitField": 10
           }
         }
       ],
@@ -691,7 +578,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 14
+        "y": 8
       },
       "id": 75,
       "interval": "30s",
@@ -800,7 +687,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 38
+        "y": 32
       },
       "id": 33,
       "panels": [],
@@ -892,7 +779,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 39
+        "y": 33
       },
       "id": 39,
       "maxPerRow": 4,
@@ -1023,7 +910,7 @@
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 47
+        "y": 41
       },
       "id": 47,
       "options": {
@@ -1084,7 +971,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 53
+        "y": 47
       },
       "id": 59,
       "panels": [],
@@ -1139,7 +1026,7 @@
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 54
+        "y": 48
       },
       "id": 49,
       "options": {
@@ -1242,7 +1129,7 @@
         "h": 6,
         "w": 12,
         "x": 12,
-        "y": 54
+        "y": 48
       },
       "id": 48,
       "options": {
@@ -1370,8 +1257,8 @@
     ]
   },
   "timezone": "",
-  "title": "Global nodes view",
+  "title": "Global Nodes View",
   "uid": "JKcc02v4k",
-  "version": 5,
+  "version": 2,
   "weekStart": ""
 }

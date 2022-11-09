@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"context"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"time"
 
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
@@ -14,7 +15,6 @@ import (
 	"github.com/iotaledger/hive.go/core/types"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol"
@@ -269,9 +269,8 @@ func registerLocalMetrics() {
 		increaseRemovedBlockCounter(blkID)
 	}))
 
-	deps.Protocol.Events.Engine.NotarizationManager.EpochCommitted.Attach(event.NewClosure(func(c *commitment.Commitment) {
-		num := deps.Protocol.Engine().NotarizationManager.EpochMutations.TotalAcceptedBlocks(c.Index())
-		updateBlkOfEpoch(c.Index(), int32(num))
+	deps.Protocol.Events.Engine.NotarizationManager.EvictedEpochDetails.Attach(event.NewClosure(func(d *notarization.EvictedEpochDetails) {
+		updateBlkOfEpoch(d.Index, int32(d.AcceptedBlocksCount), int32(d.AcceptedTransactionsCount), int32(d.ActiveValidatorsCount))
 	}))
 
 	metrics.Events.AnalysisOutboundBytes.Attach(event.NewClosure(func(event *metrics.AnalysisOutboundBytesEvent) {

@@ -16,12 +16,13 @@ import (
 
 var (
 	lastCommitment          = new(commitment.Commitment)
-	prevLastCommitmentID    = ""
 	lastCommittedEpochMutex sync.RWMutex
 
-	acceptedBlksMutex sync.RWMutex
-	numBlkOfEpoch     atomic.Int32
-	currentEI         epoch.Index
+	acceptedBlocksCount       atomic.Int32
+	acceptedTransactionsCount atomic.Int32
+	activeValidatorsCount     atomic.Int32
+	currentEI                 epoch.Index
+	epochCountsMutex          sync.RWMutex
 
 	numberOfSeenOtherCommitments = 0
 	seenOtherCommitmentsMutex    sync.RWMutex
@@ -70,11 +71,6 @@ func LastCommittedEpoch() *commitment.Commitment {
 	lastCommittedEpochMutex.RLock()
 	defer lastCommittedEpochMutex.RUnlock()
 
-	if prevLastCommitmentID == lastCommitment.ID().Base58() {
-		return lastCommitment
-	}
-	prevLastCommitmentID = lastCommitment.ID().Base58()
-
 	return lastCommitment
 }
 
@@ -103,19 +99,21 @@ func MissingCommitmentsReceived() int {
 }
 
 // BlocksOfEpoch returns the number of blocks in the current epoch.
-func BlocksOfEpoch() (ei epoch.Index, num int32) {
-	acceptedBlksMutex.Lock()
-	defer acceptedBlksMutex.Unlock()
+func BlocksOfEpoch() (ei epoch.Index, accBlocks int32, accTxs int32, activeValidators int32) {
+	epochCountsMutex.Lock()
+	defer epochCountsMutex.Unlock()
 
-	return currentEI, numBlkOfEpoch.Load()
+	return currentEI, acceptedBlocksCount.Load(), acceptedTransactionsCount.Load(), activeValidatorsCount.Load()
 }
 
-func updateBlkOfEpoch(ei epoch.Index, num int32) {
-	acceptedBlksMutex.Lock()
-	defer acceptedBlksMutex.Unlock()
+func updateBlkOfEpoch(ei epoch.Index, accBlocks int32, accTxs int32, activeValidators int32) {
+	epochCountsMutex.Lock()
+	defer epochCountsMutex.Unlock()
 
 	currentEI = ei
-	numBlkOfEpoch.Store(num)
+	acceptedBlocksCount.Store(accBlocks)
+	acceptedTransactionsCount.Store(accTxs)
+	activeValidatorsCount.Store(activeValidators)
 }
 
 // RemovedBlocksOfEpoch returns the number of orphaned blocks in the given epoch.
