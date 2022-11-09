@@ -21,16 +21,16 @@ func NewRootBlocks(database *database.Manager, storagePrefix byte) (newRootBlock
 	}
 }
 
-func (s *RootBlocks) Store(id models.BlockID) (err error) {
-	if err = s.Storage(id.Index()).Set(lo.PanicOnErr(id.Bytes()), []byte{1}); err != nil {
+func (r *RootBlocks) Store(id models.BlockID) (err error) {
+	if err = r.Storage(id.Index()).Set(lo.PanicOnErr(id.Bytes()), []byte{1}); err != nil {
 		return errors.Errorf("failed to store solid entry point block %s: %w", id, err)
 	}
 
 	return nil
 }
 
-func (s *RootBlocks) Has(blockID models.BlockID) (has bool, err error) {
-	has, err = s.Storage(blockID.Index()).Has(lo.PanicOnErr(blockID.Bytes()))
+func (r *RootBlocks) Has(blockID models.BlockID) (has bool, err error) {
+	has, err = r.Storage(blockID.Index()).Has(lo.PanicOnErr(blockID.Bytes()))
 	if err != nil {
 		return false, errors.Errorf("failed to delete solid entry point block %s: %w", blockID, err)
 	}
@@ -38,30 +38,30 @@ func (s *RootBlocks) Has(blockID models.BlockID) (has bool, err error) {
 	return has, nil
 }
 
-func (s *RootBlocks) Delete(blockID models.BlockID) (err error) {
-	if err = s.Storage(blockID.Index()).Delete(lo.PanicOnErr(blockID.Bytes())); err != nil {
+func (r *RootBlocks) Delete(blockID models.BlockID) (err error) {
+	if err = r.Storage(blockID.Index()).Delete(lo.PanicOnErr(blockID.Bytes())); err != nil {
 		return errors.Errorf("failed to delete solid entry point block %s: %w", blockID, err)
 	}
 
 	return nil
 }
 
-func (s *RootBlocks) LoadAll(index epoch.Index) (solidEntryPoints *set.AdvancedSet[models.BlockID]) {
+func (r *RootBlocks) LoadAll(index epoch.Index) (solidEntryPoints *set.AdvancedSet[models.BlockID]) {
 	solidEntryPoints = set.NewAdvancedSet[models.BlockID]()
-	s.Stream(index, func(id models.BlockID) {
+	r.Stream(index, func(id models.BlockID) {
 		solidEntryPoints.Add(id)
 	})
 	return
 }
 
-func (s *RootBlocks) StoreAll(solidEntryPoints *set.AdvancedSet[models.BlockID]) {
+func (r *RootBlocks) StoreAll(solidEntryPoints *set.AdvancedSet[models.BlockID]) {
 	for it := solidEntryPoints.Iterator(); it.HasNext(); {
-		s.Store(it.Next())
+		r.Store(it.Next())
 	}
 }
 
-func (s *RootBlocks) Stream(index epoch.Index, callback func(models.BlockID)) {
-	s.Storage(index).Iterate([]byte{}, func(blockIDBytes kvstore.Key, _ kvstore.Value) bool {
+func (r *RootBlocks) Stream(index epoch.Index, callback func(models.BlockID)) {
+	r.Storage(index).Iterate([]byte{}, func(blockIDBytes kvstore.Key, _ kvstore.Value) bool {
 		blockID := new(models.BlockID)
 		blockID.FromBytes(blockIDBytes)
 		callback(*blockID)

@@ -34,7 +34,7 @@ type TipManager struct {
 	engine           *engine.Engine
 	acceptanceGadget acceptanceGadget
 
-	blockRetrieverFunc blockRetrieverFunc
+	schedulerBlockRetrieverFunc blockRetrieverFunc
 
 	tips *randommap.RandomMap[*scheduler.Block, *scheduler.Block]
 	// TODO: reintroduce TipsConflictTracker
@@ -48,7 +48,7 @@ func New(schedulerBlockRetrieverFunc blockRetrieverFunc, opts ...options.Option[
 	return options.Apply(&TipManager{
 		Events: NewEvents(),
 
-		blockRetrieverFunc: schedulerBlockRetrieverFunc,
+		schedulerBlockRetrieverFunc: schedulerBlockRetrieverFunc,
 
 		tips: randommap.New[*scheduler.Block, *scheduler.Block](),
 		// TODO: reintroduce TipsConflictTracker
@@ -114,7 +114,7 @@ func (t *TipManager) checkMonotonicity(block *scheduler.Block) (anyScheduledOrAc
 			return true
 		}
 
-		if childBlock, exists := t.blockRetrieverFunc(child.ID()); exists {
+		if childBlock, exists := t.schedulerBlockRetrieverFunc(child.ID()); exists {
 			if childBlock.IsScheduled() {
 				return true
 			}
@@ -131,7 +131,7 @@ func (t *TipManager) RemoveStrongParents(block *models.Block) {
 		// if t.isLastTipForConflict(parentBlockID) {
 		// 	return true
 		// }
-		if parentBlock, exists := t.blockRetrieverFunc(parent.ID); exists {
+		if parentBlock, exists := t.schedulerBlockRetrieverFunc(parent.ID); exists {
 			t.DeleteTip(parentBlock)
 		}
 	})
@@ -385,7 +385,7 @@ func (t *TipManager) checkBlock(block *booker.Block, blockWalker *walker.Walker[
 
 	// if block is younger than TSC and not accepted, walk through strong parents' past cones
 	for parentID := range block.ParentsByType(models.StrongParentType) {
-		parentBlock, exists := t.blockRetrieverFunc(parentID)
+		parentBlock, exists := t.schedulerBlockRetrieverFunc(parentID)
 		if exists {
 			blockWalker.Push(parentBlock.Block.Block)
 		}
