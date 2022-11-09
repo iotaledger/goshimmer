@@ -99,7 +99,7 @@ func (c *CausalOrder[ID, Entity]) triggerOrderedIfReady(entity Entity) {
 		return
 	}
 
-	if c.lastEvictedEpochIndex() >= entity.ID().Index() {
+	if c.lastEvictedIndex >= entity.ID().Index() {
 		c.evictionCallback(entity, errors.Errorf("entity %s below max evicted epoch", entity.ID()))
 
 		return
@@ -110,14 +110,6 @@ func (c *CausalOrder[ID, Entity]) triggerOrderedIfReady(entity Entity) {
 	}
 
 	c.triggerOrderedCallback(entity)
-}
-
-// lastEvictedEpochIndex returns the maximum evicted epoch index.
-func (c *CausalOrder[ID, Entity]) lastEvictedEpochIndex() (lastEvictedEpoch epoch.Index) {
-	c.evictionMutex.RLock()
-	defer c.evictionMutex.RUnlock()
-
-	return c.lastEvictedIndex
 }
 
 // allParentsOrdered returns true if all parents of the given Entity are ordered.
