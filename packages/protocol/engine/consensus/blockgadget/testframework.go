@@ -1,4 +1,4 @@
-package acceptance
+package blockgadget
 
 import (
 	"sync"

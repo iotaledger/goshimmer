@@ -16,7 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/banner"
@@ -39,8 +39,8 @@ var (
 	// Plugin is the plugin instance of the web API info endpoint plugin.
 	Plugin             *node.Plugin
 	deps               = new(dependencies)
-	lastAcceptedBlock  *acceptance.Block
-	lastConfirmedBlock *acceptance.Block
+	lastAcceptedBlock  *blockgadget.Block
+	lastConfirmedBlock *blockgadget.Block
 )
 
 func init() {
@@ -48,12 +48,12 @@ func init() {
 }
 
 func configure(_ *node.Plugin) {
-	deps.Protocol.Events.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
+	deps.Protocol.Events.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
 		if lastAcceptedBlock == nil || lastAcceptedBlock.IssuingTime().Before(block.IssuingTime()) {
 			lastAcceptedBlock = block
 		}
 	}))
-	deps.Protocol.Events.Engine.Consensus.Acceptance.BlockConfirmed.Attach(event.NewClosure(func(block *acceptance.Block) {
+	deps.Protocol.Events.Engine.Consensus.Acceptance.BlockConfirmed.Attach(event.NewClosure(func(block *blockgadget.Block) {
 		if lastConfirmedBlock == nil || lastConfirmedBlock.IssuingTime().Before(block.IssuingTime()) {
 			lastConfirmedBlock = block
 		}

@@ -16,7 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
@@ -31,7 +31,7 @@ import (
 type TestFramework struct {
 	TipManager           *TipManager
 	engine               *engine.Engine
-	mockAcceptance       *acceptance.MockAcceptanceGadget
+	mockAcceptance       *blockgadget.MockAcceptanceGadget
 	scheduledBlocks      *shrinkingmap.ShrinkingMap[models.BlockID, *scheduler.Block]
 	storage              *storage.Storage
 	scheduledBlocksMutex sync.RWMutex
@@ -49,7 +49,7 @@ type TestFramework struct {
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t *TestFramework) {
 	return options.Apply(&TestFramework{
 		test:            test,
-		mockAcceptance:  acceptance.NewMockAcceptanceGadget(),
+		mockAcceptance:  blockgadget.NewMockAcceptanceGadget(),
 		scheduledBlocks: shrinkingmap.New[models.BlockID, *scheduler.Block](),
 		storage:         storage.New(test.TempDir(), 1),
 		optsGenesisTime: time.Now().Add(-1 * time.Hour),

@@ -1,4 +1,4 @@
-package epochconfirmation
+package epochgadget
 
 import (
 	"sync"

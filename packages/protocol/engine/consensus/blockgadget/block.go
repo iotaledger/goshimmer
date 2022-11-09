@@ -1,4 +1,4 @@
-package acceptance
+package blockgadget
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/options"

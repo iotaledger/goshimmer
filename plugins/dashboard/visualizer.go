@@ -12,7 +12,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -92,7 +92,7 @@ func runVisualizer() {
 		processBlock(block.ModelsBlock, false)
 	})
 
-	notifyNewBlkAccepted := event.NewClosure(func(block *acceptance.Block) {
+	notifyNewBlkAccepted := event.NewClosure(func(block *blockgadget.Block) {
 		processBlock(block.ModelsBlock, block.IsAccepted())
 	})
 

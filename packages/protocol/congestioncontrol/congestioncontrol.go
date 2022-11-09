@@ -36,7 +36,7 @@ func (c *CongestionControl) LinkTo(engine *engine.Engine) {
 
 	c.scheduler = scheduler.New(
 		engine.EvictionState,
-		engine.Consensus.AcceptanceGadget.IsBlockAccepted,
+		engine.Consensus.BlockGadget.IsBlockAccepted,
 		engine.ManaTracker.ManaByIDs,
 		engine.ManaTracker.TotalMana,
 		c.optsSchedulerOptions...,

@@ -10,7 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/core/serix"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
@@ -28,8 +28,8 @@ type cachedMetadata struct {
 	ConflictIDs   utxo.TransactionIDs
 	VirtualVoting *blockWithTime[*virtualvoting.Block]
 	Scheduler     *blockWithTime[*scheduler.Block]
-	Acceptance    *blockWithTime[*acceptance.Block]
-	Confirmation  *blockWithTime[*acceptance.Block]
+	Acceptance    *blockWithTime[*blockgadget.Block]
+	Confirmation  *blockWithTime[*blockgadget.Block]
 
 	sync.RWMutex
 }
@@ -56,13 +56,13 @@ func (c *cachedMetadata) setVirtualVotingBlock(block *virtualvoting.Block) {
 	c.VirtualVoting = newBlockWithTime(block)
 }
 
-func (c *cachedMetadata) setAcceptanceBlock(block *acceptance.Block) {
+func (c *cachedMetadata) setAcceptanceBlock(block *blockgadget.Block) {
 	c.Lock()
 	defer c.Unlock()
 	c.Acceptance = newBlockWithTime(block)
 }
 
-func (c *cachedMetadata) setConfirmationBlock(block *acceptance.Block) {
+func (c *cachedMetadata) setConfirmationBlock(block *blockgadget.Block) {
 	c.Lock()
 	defer c.Unlock()
 	c.Confirmation = newBlockWithTime(block)
@@ -133,7 +133,7 @@ type blockMetadataModel struct {
 	Dropped       bool      `serix:"21"`
 	SchedulerTime time.Time `serix:"22"`
 
-	// acceptance.Block
+	// blockgadget.Block
 	Accepted     bool      `serix:"23"`
 	AcceptedTime time.Time `serix:"24"`
 
@@ -267,7 +267,7 @@ func copyFromSchedulerBlock(blockWithTime *blockWithTime[*scheduler.Block], bloc
 	blockMetadata.M.SchedulerTime = blockWithTime.Time
 }
 
-func copyFromAcceptanceBlock(blockWithTime *blockWithTime[*acceptance.Block], blockMetadata *BlockMetadata) {
+func copyFromAcceptanceBlock(blockWithTime *blockWithTime[*blockgadget.Block], blockMetadata *BlockMetadata) {
 	block := blockWithTime.Block
 	block.RLock()
 	defer block.RUnlock()
@@ -276,7 +276,7 @@ func copyFromAcceptanceBlock(blockWithTime *blockWithTime[*acceptance.Block], bl
 	blockMetadata.M.AcceptedTime = blockWithTime.Time
 }
 
-func copyFromConfirmedBlock(blockWithTime *blockWithTime[*acceptance.Block], blockMetadata *BlockMetadata) {
+func copyFromConfirmedBlock(blockWithTime *blockWithTime[*blockgadget.Block], blockMetadata *BlockMetadata) {
 	block := blockWithTime.Block
 	blockMetadata.M.Confirmed = block.IsConfirmed()
 	blockMetadata.M.ConfirmedTime = blockWithTime.Time

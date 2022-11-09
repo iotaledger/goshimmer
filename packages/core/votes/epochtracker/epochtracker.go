@@ -56,7 +56,7 @@ func (c *EpochTracker) TrackVotes(epochIndex epoch.Index, voterID identity.ID, p
 	})
 
 	updated, previousHighestIndex := votersVotes.Store(epochIndex, power)
-	if !updated || previousHighestIndex == epochIndex {
+	if !updated || previousHighestIndex >= epochIndex {
 		return
 	}
 
