@@ -202,6 +202,11 @@ func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) {
 	//fmt.Println(">> checkchain", p.storage.Settings.ChainID(), chain.ForkingPoint.ID())
 	if mainChain := p.storage.Settings.ChainID(); chain.ForkingPoint.ID() == mainChain {
 		p.Engine().ProcessBlockFromPeer(block, src)
+		return
+	}
+
+	if p.Engine().IsBootstrapped() {
+		panic(fmt.Sprintln("different commitment", block))
 	}
 
 	if candidateEngine, candidateStorage := p.CandidateEngine(), p.CandidateStorage(); candidateEngine != nil && candidateStorage != nil {

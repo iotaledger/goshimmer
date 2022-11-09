@@ -251,7 +251,11 @@ func (s *Scheduler) HandleAcceptedBlock(acceptedBlock *acceptance.Block) {
 	s.EvictionManager.RLock()
 	defer s.EvictionManager.RUnlock()
 
-	block, _ := s.GetOrRegisterBlock(acceptedBlock.Block)
+	block, err := s.GetOrRegisterBlock(acceptedBlock.Block)
+	if err != nil {
+		s.Events.Error.Trigger(errors.Wrap(err, "failed to get or register block"))
+		return
+	}
 
 	if block.IsScheduled() || block.IsDropped() || block.IsSkipped() {
 		return

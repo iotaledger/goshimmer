@@ -9,6 +9,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/iotaledger/hive.go/core/daemon"
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/workerpool"
 	"github.com/labstack/echo"
 
@@ -116,31 +117,29 @@ func registerWSClient() (uint64, *wsclient) {
 
 // removes the websocket client with the given id.
 func removeWsClient(clientID uint64) {
-	wsClientsMu.RLock()
-	wsClient := wsClients[clientID]
-	close(wsClient.exit)
-	wsClientsMu.RUnlock()
-
 	wsClientsMu.Lock()
 	defer wsClientsMu.Unlock()
+
+	close(wsClients[clientID].exit)
 	delete(wsClients, clientID)
-	close(wsClient.channel)
 }
 
 // broadcasts the given block to all connected websocket clients.
 func broadcastWsBlock(blk interface{}, dontDrop ...bool) {
 	wsClientsMu.RLock()
-	defer wsClientsMu.RUnlock()
-	for _, wsClient := range wsClients {
+	wsClientsCopy := lo.MergeMaps(make(map[uint64]*wsclient), wsClients)
+	wsClientsMu.RUnlock()
+	for _, wsClient := range wsClientsCopy {
 		if len(dontDrop) > 0 {
 			select {
-			case wsClient.channel <- blk:
 			case <-wsClient.exit:
-				// get unblocked if the websocket connection just got closed
+			case wsClient.channel <- blk:
 			}
-			continue
+			return
 		}
+
 		select {
+		case <-wsClient.exit:
 		case wsClient.channel <- blk:
 		default:
 			// potentially drop if slow consumer
@@ -189,7 +188,13 @@ func websocketRoute(c echo.Context) error {
 	}
 
 	for {
-		blk := <-wsClient.channel
+		var blk interface{}
+		select {
+		case <-wsClient.exit:
+			return nil
+		case blk = <-wsClient.channel:
+		}
+
 		if err := ws.WriteJSON(blk); err != nil {
 			break
 		}
