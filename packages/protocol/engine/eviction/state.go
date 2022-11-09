@@ -45,9 +45,10 @@ func NewState(storageInstance *storage.Storage, opts ...options.Option[State]) (
 // EvictUntil triggers the EpochEvicted event for every evicted epoch and evicts all root blocks until the delayed
 // root blocks eviction threshold.
 func (s *State) EvictUntil(index epoch.Index) {
-	s.evictionMutex.Lock()
 	s.triggerMutex.Lock()
 	defer s.triggerMutex.Unlock()
+
+	s.evictionMutex.Lock()
 
 	lastEvictedEpoch := s.lastEvictedEpoch
 	if index <= lastEvictedEpoch {
@@ -104,8 +105,8 @@ func (s *State) AddRootBlock(id models.BlockID) {
 
 // RemoveRootBlock removes a solid entry points from the map.
 func (s *State) RemoveRootBlock(id models.BlockID) {
-	s.evictionMutex.Lock()
-	defer s.evictionMutex.Unlock()
+	s.evictionMutex.RLock()
+	defer s.evictionMutex.RUnlock()
 
 	if rootBlocks := s.rootBlocks.Get(id.Index()); rootBlocks != nil && rootBlocks.Delete(id) {
 		if err := s.storage.RootBlocks.Delete(id); err != nil {
