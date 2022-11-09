@@ -91,11 +91,11 @@ type RateSetter interface {
 // region DeficitRateSetter ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 type DeficitRateSetter struct {
-	events                      *Events
-	protocol                    *protocol.Protocol
-	self                        identity.ID
-	totalAccessManaRetrieveFunc func() int64
-	accessManaMapRetrieverFunc  func() map[identity.ID]int64
+	events                *Events
+	protocol              *protocol.Protocol
+	self                  identity.ID
+	totalManaRetrieveFunc func() int64
+	manaRetrieveFunc      func() map[identity.ID]int64
 
 	issuingQueue      *IssuerQueue
 	issueChan         chan *models.Block
@@ -112,17 +112,17 @@ type DeficitRateSetter struct {
 func NewDeficit(protocol *protocol.Protocol, selfIdentity identity.ID, opts ...options.Option[DeficitRateSetter]) *DeficitRateSetter {
 
 	return options.Apply(&DeficitRateSetter{
-		events:                      newEvents(),
-		protocol:                    protocol,
-		self:                        selfIdentity,
-		accessManaMapRetrieverFunc:  protocol.Engine().ManaTracker.ManaMap,
-		totalAccessManaRetrieveFunc: protocol.Engine().ManaTracker.TotalMana,
-		issuingQueue:                NewIssuerQueue(),
-		deficitChan:                 make(chan float64),
-		issueChan:                   make(chan *models.Block),
-		excessDeficit:               atomic.NewFloat64(0),
-		ownRate:                     atomic.NewFloat64(0),
-		shutdownSignal:              make(chan struct{}),
+		events:                newEvents(),
+		protocol:              protocol,
+		self:                  selfIdentity,
+		manaRetrieveFunc:      protocol.Engine().ManaTracker.ManaByIDs,
+		totalManaRetrieveFunc: protocol.Engine().ManaTracker.TotalMana,
+		issuingQueue:          NewIssuerQueue(),
+		deficitChan:           make(chan float64),
+		issueChan:             make(chan *models.Block),
+		excessDeficit:         atomic.NewFloat64(0),
+		ownRate:               atomic.NewFloat64(0),
+		shutdownSignal:        make(chan struct{}),
 	}, opts, func(r *DeficitRateSetter) {
 		go r.issuerLoop()
 	})
@@ -171,8 +171,8 @@ func (r *DeficitRateSetter) IssueBlock(block *models.Block) error {
 	}
 }
 func (r *DeficitRateSetter) initializeRate() {
-	ownMana := float64(lo.Max(r.accessManaMapRetrieverFunc()[r.self], scheduler.MinMana))
-	totalMana := float64(r.totalAccessManaRetrieveFunc())
+	ownMana := float64(lo.Max(r.manaRetrieveFunc()[r.self], scheduler.MinMana))
+	totalMana := float64(r.totalManaRetrieveFunc())
 	r.ownRate.Store(math.Max(ownMana/totalMana*r.maxRate, 1))
 }
 
@@ -255,11 +255,11 @@ func (r *DeficitRateSetter) setupEvents() {
 
 // AIMDRateSetter sets the issue rate of the block issuer using an AIMD-based algorithm.
 type AIMDRateSetter struct {
-	events                      *Events
-	protocol                    *protocol.Protocol
-	self                        identity.ID
-	totalAccessManaRetrieveFunc func() int64
-	accessManaMapRetrieverFunc  func() map[identity.ID]int64
+	events                *Events
+	protocol              *protocol.Protocol
+	self                  identity.ID
+	totalManaRetrieveFunc func() int64
+	manaRetrieveFunc      func() map[identity.ID]int64
 
 	issuingQueue        *IssuerQueue
 	issueChan           chan *models.Block
@@ -280,15 +280,15 @@ type AIMDRateSetter struct {
 func NewAIMD(protocol *protocol.Protocol, selfIdentity identity.ID, opts ...options.Option[AIMDRateSetter]) *AIMDRateSetter {
 
 	return options.Apply(&AIMDRateSetter{
-		events:                      newEvents(),
-		protocol:                    protocol,
-		self:                        selfIdentity,
-		accessManaMapRetrieverFunc:  protocol.Engine().ManaTracker.ManaMap,
-		totalAccessManaRetrieveFunc: protocol.Engine().ManaTracker.TotalMana,
-		issuingQueue:                NewIssuerQueue(),
-		issueChan:                   make(chan *models.Block),
-		ownRate:                     atomic.NewFloat64(0),
-		shutdownSignal:              make(chan struct{}),
+		events:                newEvents(),
+		protocol:              protocol,
+		self:                  selfIdentity,
+		manaRetrieveFunc:      protocol.Engine().ManaTracker.ManaByIDs,
+		totalManaRetrieveFunc: protocol.Engine().ManaTracker.TotalMana,
+		issuingQueue:          NewIssuerQueue(),
+		issueChan:             make(chan *models.Block),
+		ownRate:               atomic.NewFloat64(0),
+		shutdownSignal:        make(chan struct{}),
 	}, opts, func(r *AIMDRateSetter) {
 		r.initialPauseUpdates = uint(r.optsPause / r.optsSchedulerRate)
 		r.maxRate = float64(time.Second / r.optsSchedulerRate)
@@ -369,9 +369,9 @@ func (r *AIMDRateSetter) Estimate() time.Duration {
 // rateSetting updates the rate ownRate at which blocks can be issued by the node.
 func (r *AIMDRateSetter) rateSetting() {
 	// Return access mana or MinMana to allow zero mana nodes issue.
-	ownMana := float64(lo.Max(r.accessManaMapRetrieverFunc()[r.self], scheduler.MinMana))
-	maxManaValue := float64(lo.Max(append(lo.Values(r.accessManaMapRetrieverFunc()), scheduler.MinMana)...))
-	totalMana := float64(r.totalAccessManaRetrieveFunc())
+	ownMana := float64(lo.Max(r.manaRetrieveFunc()[r.self], scheduler.MinMana))
+	maxManaValue := float64(lo.Max(append(lo.Values(r.manaRetrieveFunc()), scheduler.MinMana)...))
+	totalMana := float64(r.totalManaRetrieveFunc())
 
 	ownRate := r.ownRate.Load()
 
@@ -451,8 +451,8 @@ func (r *AIMDRateSetter) initializeRate() {
 	if r.optsInitialRate > 0.0 {
 		r.ownRate.Store(r.optsInitialRate)
 	} else {
-		ownMana := float64(lo.Max(r.accessManaMapRetrieverFunc()[r.self], scheduler.MinMana))
-		totalMana := float64(r.totalAccessManaRetrieveFunc())
+		ownMana := float64(lo.Max(r.manaRetrieveFunc()[r.self], scheduler.MinMana))
+		totalMana := float64(r.totalManaRetrieveFunc())
 		r.ownRate.Store(math.Max(ownMana/totalMana*r.maxRate, 1))
 	}
 }
