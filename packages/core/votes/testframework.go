@@ -95,7 +95,7 @@ type MockedVotePower struct {
 	VotePower int
 }
 
-func (p MockedVotePower) CompareTo(other MockedVotePower) int {
+func (p MockedVotePower) Compare(other MockedVotePower) int {
 	if p.VotePower-other.VotePower < 0 {
 		return -1
 	} else if p.VotePower-other.VotePower > 0 {

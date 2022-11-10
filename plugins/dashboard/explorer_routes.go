@@ -74,6 +74,7 @@ type ExplorerBlock struct {
 	EI                   uint64 `json:"ei"`
 	CommitmentRootsID    string `json:"ecr"`
 	PreviousCommitmentID string `json:"prevEC"`
+	CumulativeWeight     uint64 `json:"cumulativeWeight"`
 	LatestConfirmedEpoch uint64 `json:"latestConfirmedEpoch"`
 }
 
@@ -111,6 +112,7 @@ func createExplorerBlock(block *models.Block, blockMetadata *retainer.BlockMetad
 		EI:                      uint64(block.Commitment().Index()),
 		CommitmentRootsID:       block.Commitment().RootsID().Base58(),
 		PreviousCommitmentID:    block.Commitment().PrevID().Base58(),
+		CumulativeWeight:        block.Commitment().CumulativeWeight(),
 		LatestConfirmedEpoch:    uint64(block.LatestConfirmedEpoch()),
 	}
 

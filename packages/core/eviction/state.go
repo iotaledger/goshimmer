@@ -23,8 +23,9 @@ func NewState[ID epoch.IndexedID]() (newState *State[ID]) {
 	var emptyID ID
 
 	return &State[ID]{
-		Events:          NewEvents(),
-		rootBlocks:      set.NewAdvancedSet(emptyID),
+		Events:     NewEvents(),
+		rootBlocks: set.NewAdvancedSet(emptyID),
+		// TODO: set max evicted epoch to the epoch from the snapshot or database when initializing
 		maxEvictedEpoch: 0,
 	}
 }

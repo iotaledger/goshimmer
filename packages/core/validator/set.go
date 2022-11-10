@@ -119,7 +119,11 @@ func (s *Set) Slice() (validators []*Validator) {
 }
 
 func (s *Set) IsThresholdReached(otherWeight int64, threshold float64) bool {
-	return otherWeight > int64(float64(s.TotalWeight())*threshold)
+	return IsThresholdReached(s.TotalWeight(), otherWeight, threshold)
+}
+
+func IsThresholdReached(weight, otherWeight int64, threshold float64) bool {
+	return otherWeight > int64(float64(weight)*threshold)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

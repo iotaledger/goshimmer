@@ -3,6 +3,7 @@ package conflicttracker
 import (
 	"fmt"
 
+	"github.com/iotaledger/hive.go/core/generics/constraints"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
 
@@ -12,7 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 )
 
-type ConflictTracker[ConflictIDType, ResourceIDType comparable, VotePowerType votes.VotePower[VotePowerType]] struct {
+type ConflictTracker[ConflictIDType, ResourceIDType comparable, VotePowerType constraints.Comparable[VotePowerType]] struct {
 	votes *memstorage.Storage[ConflictIDType, *votes.Votes[ConflictIDType, VotePowerType]]
 
 	conflictDAG  *conflictdag.ConflictDAG[ConflictIDType, ResourceIDType]
@@ -20,7 +21,7 @@ type ConflictTracker[ConflictIDType, ResourceIDType comparable, VotePowerType vo
 	Events       *Events[ConflictIDType]
 }
 
-func NewConflictTracker[ConflictIDType, ResourceIDType comparable, VotePowerType votes.VotePower[VotePowerType]](conflictDAG *conflictdag.ConflictDAG[ConflictIDType, ResourceIDType], validatorSet *validator.Set) *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType] {
+func NewConflictTracker[ConflictIDType, ResourceIDType comparable, VotePowerType constraints.Comparable[VotePowerType]](conflictDAG *conflictdag.ConflictDAG[ConflictIDType, ResourceIDType], validatorSet *validator.Set) *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType] {
 	return &ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]{
 		votes:        memstorage.New[ConflictIDType, *votes.Votes[ConflictIDType, VotePowerType]](),
 		conflictDAG:  conflictDAG,
@@ -140,7 +141,7 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) revokeC
 			return false
 		}
 
-		if existingVote.VotePower.CompareTo(vote.VotePower) >= 0 && existingVote.Opinion == votes.Like {
+		if existingVote.VotePower.Compare(vote.VotePower) >= 0 && existingVote.Opinion == votes.Like {
 			revokeInstead = true
 			votePower = existingVote.VotePower
 			return false

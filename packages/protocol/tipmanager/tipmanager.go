@@ -64,7 +64,7 @@ func New(blockRetriever blockRetrieverFunc, opts ...options.Option[TipManager]) 
 func (t *TipManager) ActivateEngine(engine *engine.Engine) {
 	t.tips = randommap.New[*scheduler.Block, *scheduler.Block]()
 	t.tangle = engine.Tangle
-	t.AcceptanceGadget = engine.Consensus.Gadget
+	t.AcceptanceGadget = engine.Consensus.BlockGadget
 	t.timeRetrieverFunc = engine.Clock.AcceptedTime
 	t.isBootstrappedFunc = engine.IsBootstrapped
 }

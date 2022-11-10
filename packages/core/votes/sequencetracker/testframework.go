@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/iotaledger/hive.go/core/debug"
+	"github.com/iotaledger/hive.go/core/generics/constraints"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
@@ -17,7 +18,7 @@ import (
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
 
-type TestFramework[VotePowerType votes.VotePower[VotePowerType]] struct {
+type TestFramework[VotePowerType constraints.Comparable[VotePowerType]] struct {
 	SequenceTracker *SequenceTracker[VotePowerType]
 	sequenceManager *markers.SequenceManager
 
@@ -28,7 +29,7 @@ type TestFramework[VotePowerType votes.VotePower[VotePowerType]] struct {
 }
 
 // NewTestFramework is the constructor of the TestFramework.
-func NewTestFramework[VotePowerType votes.VotePower[VotePowerType]](test *testing.T, opts ...options.Option[TestFramework[VotePowerType]]) (newTestFramework *TestFramework[VotePowerType]) {
+func NewTestFramework[VotePowerType constraints.Comparable[VotePowerType]](test *testing.T, opts ...options.Option[TestFramework[VotePowerType]]) (newTestFramework *TestFramework[VotePowerType]) {
 	return options.Apply(&TestFramework[VotePowerType]{
 		test: test,
 	}, opts, func(t *TestFramework[VotePowerType]) {
@@ -39,7 +40,7 @@ func NewTestFramework[VotePowerType votes.VotePower[VotePowerType]](test *testin
 		t.MarkersTestFramework = markers.NewTestFramework(t.test, markers.WithSequenceManager(t.sequenceManager))
 
 		if t.SequenceTracker == nil {
-			t.SequenceTracker = NewSequenceTracker[VotePowerType](t.ValidatorSet, t.SequenceManager().Sequence, func(sequenceID markers.SequenceID) markers.Index { return 0 })
+			t.SequenceTracker = NewSequenceTracker[VotePowerType](t.ValidatorSet, t.SequenceManager().Sequence, func(sequenceID markers.SequenceID) markers.Index { return 1 })
 		}
 
 		t.SequenceTracker.Events.VotersUpdated.Hook(event.NewClosure(func(evt *VoterUpdatedEvent) {
@@ -69,7 +70,7 @@ type MarkersTestFramework = markers.TestFramework
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithVotesTestFramework[VotePowerType votes.VotePower[VotePowerType]](votesTestFramework *votes.TestFramework) options.Option[TestFramework[VotePowerType]] {
+func WithVotesTestFramework[VotePowerType constraints.Comparable[VotePowerType]](votesTestFramework *votes.TestFramework) options.Option[TestFramework[VotePowerType]] {
 	return func(tf *TestFramework[VotePowerType]) {
 		if tf.VotesTestFramework != nil {
 			panic("VotesTestFramework already set")
@@ -79,7 +80,7 @@ func WithVotesTestFramework[VotePowerType votes.VotePower[VotePowerType]](votesT
 	}
 }
 
-func WithValidatorSet[VotePowerType votes.VotePower[VotePowerType]](validatorSet *validator.Set) options.Option[TestFramework[VotePowerType]] {
+func WithValidatorSet[VotePowerType constraints.Comparable[VotePowerType]](validatorSet *validator.Set) options.Option[TestFramework[VotePowerType]] {
 	return func(tf *TestFramework[VotePowerType]) {
 		if tf.ValidatorSet != nil {
 			panic("validator set already set")
@@ -88,7 +89,7 @@ func WithValidatorSet[VotePowerType votes.VotePower[VotePowerType]](validatorSet
 	}
 }
 
-func WithSequenceTracker[VotePowerType votes.VotePower[VotePowerType]](sequenceTracker *SequenceTracker[VotePowerType]) options.Option[TestFramework[VotePowerType]] {
+func WithSequenceTracker[VotePowerType constraints.Comparable[VotePowerType]](sequenceTracker *SequenceTracker[VotePowerType]) options.Option[TestFramework[VotePowerType]] {
 	return func(tf *TestFramework[VotePowerType]) {
 		if tf.SequenceTracker != nil {
 			panic("sequence tracker already set")
@@ -97,7 +98,7 @@ func WithSequenceTracker[VotePowerType votes.VotePower[VotePowerType]](sequenceT
 	}
 }
 
-func WithSequenceManager[VotePowerType votes.VotePower[VotePowerType]](sequenceManager *markers.SequenceManager) options.Option[TestFramework[VotePowerType]] {
+func WithSequenceManager[VotePowerType constraints.Comparable[VotePowerType]](sequenceManager *markers.SequenceManager) options.Option[TestFramework[VotePowerType]] {
 	return func(tf *TestFramework[VotePowerType]) {
 		if tf.sequenceManager != nil {
 			panic("sequence manager already set")

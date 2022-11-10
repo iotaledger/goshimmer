@@ -18,7 +18,7 @@ func NewBlockVotePower(id models.BlockID, time time.Time) BlockVotePower {
 	}
 }
 
-func (v BlockVotePower) CompareTo(other BlockVotePower) int {
+func (v BlockVotePower) Compare(other BlockVotePower) int {
 	if v.time.Before(other.time) {
 		return -1
 	} else if v.time.After(other.time) {
