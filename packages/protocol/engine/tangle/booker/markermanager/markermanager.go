@@ -68,7 +68,7 @@ func (m *MarkerManager[IndexedID, MappedEntity]) ProcessBlock(block MappedEntity
 	return
 }
 
-func (m *MarkerManager[IndexedID, MappedEntity]) EvictEpoch(epochIndex epoch.Index) {
+func (m *MarkerManager[IndexedID, MappedEntity]) Evict(epochIndex epoch.Index) {
 	m.evictMarkerBlockMapping(epochIndex)
 	m.evictSequences(epochIndex)
 }

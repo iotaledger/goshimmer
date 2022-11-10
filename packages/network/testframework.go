@@ -1,6 +1,9 @@
 package network
 
 import (
+	"fmt"
+	"sync"
+
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 	"google.golang.org/protobuf/proto"
@@ -31,9 +34,10 @@ func (m *MockedNetwork) Join(identity identity.ID) (endpoint *MockedEndpoint) {
 // region MockedEndpoint ///////////////////////////////////////////////////////////////////////////////////////////////
 
 type MockedEndpoint struct {
-	id       identity.ID
-	network  *MockedNetwork
-	handlers map[string]func(identity.ID, proto.Message) error
+	id            identity.ID
+	network       *MockedNetwork
+	handlers      map[string]func(identity.ID, proto.Message) error
+	handlersMutex sync.RWMutex
 }
 
 func NewMockedEndpoint(id identity.ID, network *MockedNetwork) (newMockedNetwork *MockedEndpoint) {
@@ -45,10 +49,16 @@ func NewMockedEndpoint(id identity.ID, network *MockedNetwork) (newMockedNetwork
 }
 
 func (m *MockedEndpoint) RegisterProtocol(protocolID string, newMessage func() proto.Message, handler func(identity.ID, proto.Message) error) {
+	m.handlersMutex.Lock()
+	defer m.handlersMutex.Unlock()
+
 	m.handlers[protocolID] = handler
 }
 
 func (m *MockedEndpoint) UnregisterProtocol(protocolID string) {
+	m.handlersMutex.Lock()
+	defer m.handlersMutex.Unlock()
+
 	delete(m.handlers, protocolID)
 }
 
@@ -63,13 +73,24 @@ func (m *MockedEndpoint) Send(packet proto.Message, protocolID string, to ...ide
 		}
 
 		if dispatcher, exists := m.network.dispatchers[id]; exists {
-			if protocolHandler, exists := dispatcher.handlers[protocolID]; exists {
-				protocolHandler(m.id, packet)
+			if protocolHandler, exists := dispatcher.handler(protocolID); exists {
+				if err := protocolHandler(m.id, packet); err != nil {
+					fmt.Println("ERROR: ", err)
+				}
 			}
 		}
 	}
 
 	return nil
+}
+
+func (m *MockedEndpoint) handler(protocolID string) (handler func(identity.ID, proto.Message) error, exists bool) {
+	m.handlersMutex.RLock()
+	defer m.handlersMutex.RUnlock()
+
+	handler, exists = m.handlers[protocolID]
+
+	return
 }
 
 var _ Endpoint = &MockedEndpoint{}

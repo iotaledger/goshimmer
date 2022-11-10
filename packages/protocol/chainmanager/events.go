@@ -4,7 +4,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/eviction"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 )
 
 type Events struct {

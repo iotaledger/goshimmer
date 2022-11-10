@@ -163,9 +163,11 @@ func diagnosticPrintSnapshotFromFile(filePath string) {
 	})
 
 	fmt.Println("--- SEPs ---")
-	e.Storage.EntryPoints.Stream(0, func(blockID models.BlockID) {
+	if err := e.Storage.RootBlocks.Stream(0, func(blockID models.BlockID) {
 		fmt.Printf("%+v\n", blockID)
-	})
+	}); err != nil {
+		panic(err)
+	}
 
 	fmt.Println("--- ActivityLog ---")
 	e.Storage.ActiveNodes.Stream(0, func(id identity.ID) {

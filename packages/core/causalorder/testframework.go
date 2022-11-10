@@ -8,11 +8,9 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/eviction"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -39,8 +37,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 		orderedEntities: make(map[string]*MockedOrderedEntity),
 		evictedEntities: make(map[string]*MockedOrderedEntity),
 	}, opts, func(t *TestFramework) {
-		t.CausalOrder = New[MockedEntityID, *MockedOrderedEntity](
-			eviction.NewState[MockedEntityID](),
+		t.CausalOrder = New(
 			func(id MockedEntityID) (entity *MockedOrderedEntity, exists bool) {
 				return t.Get(id.alias)
 			}, (*MockedOrderedEntity).IsOrdered,
@@ -71,7 +68,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 				t.evictedEntities[entity.id.alias] = entity
 				t.evictedEntitiesMutex.Unlock()
 			},
-			WithReferenceValidator[MockedEntityID, *MockedOrderedEntity](func(entity, parent *MockedOrderedEntity) (err error) {
+			WithReferenceValidator[MockedEntityID](func(entity, parent *MockedOrderedEntity) (err error) {
 				if entity.IsInvalid() {
 					return errors.Errorf("entity %s is invalid", entity.id.alias)
 				}
@@ -80,7 +77,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 					return errors.Errorf("parent %s of entity %s is invalid", parent.id.alias, entity.id.alias)
 				}
 
-				return checkReference[MockedEntityID, *MockedOrderedEntity](entity, parent)
+				return checkReference[MockedEntityID](entity, parent)
 			}),
 		)
 
@@ -142,8 +139,7 @@ func (t *TestFramework) EntityIDs(aliases ...string) (entityIDs []MockedEntityID
 
 // EvictEpoch evicts all Entities that are older than the given epoch.
 func (t *TestFramework) EvictEpoch(index epoch.Index) {
-	t.evictionManager.EvictUntil(index, set.NewAdvancedSet[MockedEntityID]())
-	t.CausalOrder.EvictEpoch(index)
+	t.CausalOrder.EvictUntil(index)
 }
 
 // AssertOrdered asserts that the given Entities are ordered.

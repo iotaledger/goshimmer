@@ -81,10 +81,31 @@ func New(dispatcher network.Endpoint, opts ...options.Option[Protocol]) (protoco
 	)
 }
 
+// Run runs the protocol.
 func (p *Protocol) Run() {
 	p.activateEngine(p.engine)
 	p.initNetworkProtocol()
 	p.importSnapshotFile(p.optsSnapshotPath)
+}
+
+// Shutdown shuts down the protocol.
+func (p *Protocol) Shutdown() (err error) {
+	p.engine.Shutdown()
+	if err = p.storage.Shutdown(); err != nil {
+		return errors.Errorf("failed to shutdown main engine storage: %w", err)
+	}
+
+	if p.candidateEngine != nil {
+		p.candidateEngine.Shutdown()
+	}
+
+	if p.candidateStorage != nil {
+		if err = p.candidateStorage.Shutdown(); err != nil {
+			return errors.Errorf("failed to shutdown candidate engine storage: %w", err)
+		}
+	}
+
+	return nil
 }
 
 func (p *Protocol) initDisk() {
@@ -151,10 +172,6 @@ func (p *Protocol) initChainManager() {
 	p.Events.Engine.NotarizationManager.EpochCommitted.Attach(event.NewClosure(func(commitment *commitment.Commitment) {
 		p.chainManager.ProcessCommitment(commitment)
 	}))
-
-	p.Events.Engine.Consensus.EpochGadget.EpochConfirmed.Attach(event.NewClosure(func(epochIndex epoch.Index) {
-		p.chainManager.EvictionState.EvictUntil(epochIndex, nil)
-	}))
 }
 
 func (p *Protocol) initTipManager() {
@@ -194,12 +211,12 @@ func (p *Protocol) initTipManager() {
 
 func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) {
 	isSolid, chain, _ := p.chainManager.ProcessCommitment(block.Commitment())
-	//fmt.Println(">> ProcessBlock", block, isSolid, chain)
+	// fmt.Println(">> ProcessBlock", block, isSolid, chain)
 	if !isSolid {
 		return
 	}
 
-	//fmt.Println(">> checkchain", p.storage.Settings.ChainID(), chain.ForkingPoint.ID())
+	// fmt.Println(">> checkchain", p.storage.Settings.ChainID(), chain.ForkingPoint.ID())
 	if mainChain := p.storage.Settings.ChainID(); chain.ForkingPoint.ID() == mainChain {
 		p.Engine().ProcessBlockFromPeer(block, src)
 		return
@@ -253,8 +270,6 @@ func (p *Protocol) activateEngine(engine *engine.Engine) {
 	p.TipManager.ActivateEngine(engine)
 	p.Events.Engine.LinkTo(engine.Events)
 	p.CongestionControl.LinkTo(engine)
-
-	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -266,6 +281,7 @@ func WithBaseDirectory(baseDirectory string) options.Option[Protocol] {
 		n.optsBaseDirectory = baseDirectory
 	}
 }
+
 func WithPruningThreshold(pruningThreshold uint64) options.Option[Protocol] {
 	return func(n *Protocol) {
 		n.optsPruningThreshold = pruningThreshold

@@ -11,11 +11,11 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/causalorder"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
@@ -30,8 +30,9 @@ type Gadget struct {
 	Events *Events
 
 	tangle        *tangle.Tangle
-	evictionState *eviction.LockableState[models.BlockID]
 	blocks        *memstorage.EpochStorage[models.BlockID, *Block]
+	evictionState *eviction.State
+	evictionMutex sync.RWMutex
 
 	optsConflictAcceptanceThreshold float64
 
@@ -48,46 +49,50 @@ type Gadget struct {
 	confirmationOrder               *causalorder.CausalOrder[models.BlockID, *Block]
 }
 
-func New(tangle *tangle.Tangle, totalWeightCallback func() int64, opts ...options.Option[Gadget]) (gadget *Gadget) {
+func New(tangleInstance *tangle.Tangle, evictionState *eviction.State, totalWeightCallback func() int64, opts ...options.Option[Gadget]) (gadget *Gadget) {
 	return options.Apply(&Gadget{
+		Events:                          NewEvents(),
+		tangle:                          tangleInstance,
+		blocks:                          memstorage.NewEpochStorage[models.BlockID, *Block](),
+		lastAcceptedMarker:              memstorage.New[markers.SequenceID, markers.Index](),
+		evictionState:                   evictionState,
 		optsMarkerAcceptanceThreshold:   0.67,
 		optsMarkerConfirmationThreshold: 0.67,
 		optsConflictAcceptanceThreshold: 0.67,
 	}, opts, func(a *Gadget) {
 		a.Events = NewEvents()
 
-		a.tangle = tangle
+		a.tangle = tangleInstance
 		a.totalWeightCallback = totalWeightCallback
-		a.evictionState = tangle.EvictionState.Lockable()
 		a.lastAcceptedMarker = memstorage.New[markers.SequenceID, markers.Index]()
 		a.lastConfirmedMarker = memstorage.New[markers.SequenceID, markers.Index]()
 		a.blocks = memstorage.NewEpochStorage[models.BlockID, *Block]()
 
-		a.acceptanceOrder = causalorder.New(a.evictionState.State, a.GetOrRegisterBlock, (*Block).IsAccepted, a.markAsAccepted, a.acceptanceFailed)
-		a.confirmationOrder = causalorder.New(a.evictionState.State, a.GetOrRegisterBlock, (*Block).IsConfirmed, a.markAsConfirmed, a.acceptanceFailed)
+		a.acceptanceOrder = causalorder.New(a.GetOrRegisterBlock, (*Block).IsAccepted, a.markAsAccepted, a.acceptanceFailed)
+		a.confirmationOrder = causalorder.New(a.GetOrRegisterBlock, (*Block).IsConfirmed, a.markAsConfirmed, a.acceptanceFailed)
 	}, (*Gadget).setup)
 }
 
 // IsMarkerAccepted returns whether the given marker is accepted.
 func (a *Gadget) IsMarkerAccepted(marker markers.Marker) (accepted bool) {
-	a.evictionState.RLock()
-	defer a.evictionState.RUnlock()
+	a.evictionMutex.RLock()
+	defer a.evictionMutex.RUnlock()
 
 	return a.isMarkerAccepted(marker)
 }
 
 // IsMarkerConfirmed returns whether the given marker is confirmed.
 func (a *Gadget) IsMarkerConfirmed(marker markers.Marker) (confirmed bool) {
-	a.evictionState.RLock()
-	defer a.evictionState.RUnlock()
+	a.evictionMutex.RLock()
+	defer a.evictionMutex.RUnlock()
 
 	return a.isMarkerConfirmed(marker)
 }
 
 // IsBlockAccepted returns whether the given block is accepted.
 func (a *Gadget) IsBlockAccepted(blockID models.BlockID) (accepted bool) {
-	a.evictionState.RLock()
-	defer a.evictionState.RUnlock()
+	a.evictionMutex.RLock()
+	defer a.evictionMutex.RUnlock()
 
 	return a.isBlockAccepted(blockID)
 }
@@ -140,21 +145,21 @@ func (a *Gadget) FirstUnconfirmedIndex(sequenceID markers.SequenceID) (firstUnco
 
 // Block retrieves a Block with metadata from the in-memory storage of the Gadget.
 func (a *Gadget) Block(id models.BlockID) (block *Block, exists bool) {
-	a.evictionState.RLock()
-	defer a.evictionState.RUnlock()
+	a.evictionMutex.RLock()
+	defer a.evictionMutex.RUnlock()
 
 	return a.block(id)
 }
 
 func (a *Gadget) GetOrRegisterBlock(blockID models.BlockID) (block *Block, exists bool) {
-	a.evictionState.RLock()
-	defer a.evictionState.RUnlock()
+	a.evictionMutex.RLock()
+	defer a.evictionMutex.RUnlock()
 
 	return a.getOrRegisterBlock(blockID)
 }
 
 func (a *Gadget) RefreshSequence(sequenceID markers.SequenceID, newMaxSupportedIndex, prevMaxSupportedIndex markers.Index) {
-	a.evictionState.RLock()
+	a.evictionMutex.RLock()
 
 	var acceptedBlocks, confirmedBlocks []*Block
 
@@ -172,7 +177,7 @@ func (a *Gadget) RefreshSequence(sequenceID markers.SequenceID, newMaxSupportedI
 		confirmedBlocks = append(confirmedBlocks, blocksToConfirm...)
 	}
 
-	a.evictionState.RUnlock()
+	a.evictionMutex.RUnlock()
 	// EVICTION
 	for _, block := range acceptedBlocks {
 		a.acceptanceOrder.Queue(block)
@@ -207,6 +212,17 @@ func (a *Gadget) tryConfirmOrAccept(totalWeight int64, marker markers.Marker) (b
 	return
 }
 
+func (a *Gadget) EvictUntil(index epoch.Index) {
+	a.acceptanceOrder.EvictUntil(index)
+
+	a.evictionMutex.Lock()
+	defer a.evictionMutex.Unlock()
+
+	if evictedStorage := a.blocks.Evict(index); evictedStorage != nil {
+		a.Events.EpochClosed.Trigger(evictedStorage)
+	}
+}
+
 func (a *Gadget) setup() {
 	a.tangle.VirtualVoting.Events.SequenceTracker.VotersUpdated.Attach(event.NewClosure(func(evt *sequencetracker.VoterUpdatedEvent) {
 		a.RefreshSequence(evt.SequenceID, evt.NewMaxSupportedIndex, evt.PrevMaxSupportedIndex)
@@ -217,8 +233,6 @@ func (a *Gadget) setup() {
 	}))
 
 	a.tangle.Booker.Events.SequenceEvicted.Attach(event.NewClosure(a.evictSequence))
-
-	a.evictionState.Events.EpochEvicted.Attach(event.NewClosure(a.evictEpoch))
 }
 
 func (a *Gadget) block(id models.BlockID) (block *Block, exists bool) {
@@ -282,7 +296,11 @@ func (a *Gadget) propagateAcceptanceConfirmation(marker markers.Marker, confirme
 }
 
 func (a *Gadget) markAsAccepted(block *Block) (err error) {
-	if a.evictionState.IsTooOld(block.ID()) {
+	if a.evictionState.IsRootBlock(block.ID()) {
+		return
+	}
+
+	if a.evictionState.InEvictedEpoch(block.ID()) {
 		return errors.Errorf("block with %s belongs to an evicted epoch", block.ID())
 	}
 
@@ -304,7 +322,7 @@ func (a *Gadget) markAsAccepted(block *Block) (err error) {
 }
 
 func (a *Gadget) markAsConfirmed(block *Block) (err error) {
-	if a.evictionState.IsTooOld(block.ID()) {
+	if a.evictionState.InEvictedEpoch(block.ID()) {
 		return errors.Errorf("block with %s belongs to an evicted epoch", block.ID())
 	}
 
@@ -341,23 +359,9 @@ func (a *Gadget) acceptanceFailed(block *Block, err error) {
 	a.Events.Error.Trigger(errors.Wrapf(err, "could not mark block %s as accepted", block.ID()))
 }
 
-func (a *Gadget) evictEpoch(index epoch.Index) {
-	a.acceptanceOrder.EvictEpoch(index)
-	a.confirmationOrder.EvictEpoch(index)
-
-	a.evictionState.Lock()
-	defer a.evictionState.Unlock()
-
-	storage := a.blocks.Get(index, false)
-	if storage != nil {
-		a.Events.EpochClosed.Trigger(storage)
-	}
-	a.blocks.EvictEpoch(index)
-}
-
 func (a *Gadget) evictSequence(sequenceID markers.SequenceID) {
-	a.evictionState.Lock()
-	defer a.evictionState.Unlock()
+	a.evictionMutex.Lock()
+	defer a.evictionMutex.Unlock()
 
 	if !a.lastAcceptedMarker.Delete(sequenceID) {
 		a.Events.Error.Trigger(errors.Errorf("could not evict last accepted marker of sequenceID=%s", sequenceID))
@@ -387,7 +391,7 @@ func (a *Gadget) getOrRegisterBlock(blockID models.BlockID) (block *Block, exist
 }
 
 func (a *Gadget) registerBlock(virtualVotingBlock *virtualvoting.Block) (block *Block, err error) {
-	if a.evictionState.IsTooOld(virtualVotingBlock.ID()) {
+	if a.evictionState.InEvictedEpoch(virtualVotingBlock.ID()) {
 		return nil, errors.Errorf("block %s belongs to an evicted epoch", virtualVotingBlock.ID())
 	}
 

@@ -6,12 +6,11 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
@@ -22,27 +21,34 @@ type TestFramework struct {
 
 	test *testing.T
 
-	optsLedger          *ledger.Ledger
-	optsLedgerOptions   []options.Option[ledger.Ledger]
-	optsEvictionState *eviction.State[models.BlockID]
-	optsValidatorSet    *validator.Set
-	optsTangle          []options.Option[Tangle]
+	optsLedger        *ledger.Ledger
+	optsLedgerOptions []options.Option[ledger.Ledger]
+	optsEvictionState *eviction.State
+	optsValidatorSet  *validator.Set
+	optsTangle        []options.Option[Tangle]
 
 	*VirtualVotingTestFramework
 }
 
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (newTestFramework *TestFramework) {
-	chainStorage := storage.New(test.TempDir(), 1)
 	return options.Apply(&TestFramework{
 		test: test,
 	}, opts, func(t *TestFramework) {
 		if t.Tangle == nil {
+			storageInstance := storage.New(test.TempDir(), 1)
+			test.Cleanup(func() {
+				t.optsLedger.Shutdown()
+				if err := storageInstance.Shutdown(); err != nil {
+					test.Fatal(err)
+				}
+			})
+
 			if t.optsLedger == nil {
-				t.optsLedger = ledger.New(chainStorage, t.optsLedgerOptions...)
+				t.optsLedger = ledger.New(storageInstance, t.optsLedgerOptions...)
 			}
 
 			if t.optsEvictionState == nil {
-				t.optsEvictionState = eviction.NewState[models.BlockID]()
+				t.optsEvictionState = eviction.NewState(storageInstance)
 			}
 
 			if t.optsValidatorSet == nil {
@@ -72,6 +78,7 @@ type VirtualVotingTestFramework = virtualvoting.TestFramework
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// WithLedger sets the ledger that is used by the Tangle.
 func WithLedger(ledger *ledger.Ledger) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		if t.optsLedgerOptions != nil {
@@ -82,6 +89,7 @@ func WithLedger(ledger *ledger.Ledger) options.Option[TestFramework] {
 	}
 }
 
+// WithLedgerOptions sets the ledger options that are used to create the ledger that is used by the Tangle.
 func WithLedgerOptions(opts ...options.Option[ledger.Ledger]) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		if t.optsLedger != nil {
@@ -92,24 +100,28 @@ func WithLedgerOptions(opts ...options.Option[ledger.Ledger]) options.Option[Tes
 	}
 }
 
-func WithEvictionState(evictionState *eviction.State[models.BlockID]) options.Option[TestFramework] {
+// WithEvictionState sets the eviction state that is used by the Tangle.
+func WithEvictionState(evictionState *eviction.State) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.optsEvictionState = evictionState
 	}
 }
 
+// WithValidatorSet sets the validator set that is used by the Tangle.
 func WithValidatorSet(validatorSet *validator.Set) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.optsValidatorSet = validatorSet
 	}
 }
 
+// WithTangle sets the Tangle that is used by the TestFramework.
 func WithTangle(tangle *Tangle) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.Tangle = tangle
 	}
 }
 
+// WithTangleOptions sets the Tangle options that are used to create the Tangle that is used by the TestFramework.
 func WithTangleOptions(opts ...options.Option[Tangle]) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.optsTangle = opts

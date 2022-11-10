@@ -10,13 +10,11 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/eventticker"
-	"github.com/iotaledger/goshimmer/packages/core/eviction"
 )
 
 type Manager struct {
 	Events              *Events
 	SnapshotCommitment  *Commitment
-	EvictionState       *eviction.State[commitment.ID]
 	CommitmentRequester *eventticker.EventTicker[commitment.ID]
 
 	commitmentsByID map[commitment.ID]*Commitment
@@ -28,19 +26,17 @@ type Manager struct {
 
 func NewManager(snapshot *commitment.Commitment) (manager *Manager) {
 	manager = &Manager{
-		Events:        NewEvents(),
-		EvictionState: eviction.NewState[commitment.ID](),
+		Events: NewEvents(),
 
 		commitmentsByID: make(map[commitment.ID]*Commitment),
 	}
-	manager.Events.EvictionState = manager.EvictionState.Events
 
 	manager.SnapshotCommitment, _ = manager.Commitment(snapshot.ID(), true)
 	manager.SnapshotCommitment.PublishCommitment(snapshot)
 	manager.SnapshotCommitment.SetSolid(true)
 	manager.SnapshotCommitment.publishChain(NewChain(manager.SnapshotCommitment))
 
-	manager.CommitmentRequester = eventticker.New(manager.EvictionState, manager.optsCommitmentRequester...)
+	manager.CommitmentRequester = eventticker.New(manager.optsCommitmentRequester...)
 	manager.Events.CommitmentMissing.Attach(event.NewClosure(manager.CommitmentRequester.StartTicker))
 	manager.Events.MissingCommitmentReceived.Attach(event.NewClosure(manager.CommitmentRequester.StopTicker))
 

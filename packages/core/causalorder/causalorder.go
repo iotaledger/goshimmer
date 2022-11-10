@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/hive.go/core/syncutils"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 )
 
@@ -17,9 +16,6 @@ import (
 
 // CausalOrder represents an order where an Entity is ordered after its causal dependencies (parents) have been ordered.
 type CausalOrder[ID epoch.IndexedID, Entity OrderedEntity[ID]] struct {
-	// evictionManager contains the local manager used to orchestrate the eviction of old Entities.
-	evictionManager *eviction.LockableState[ID]
-
 	// entityProvider contains a function that provides the Entity that belongs to a given ID.
 	entityProvider func(id ID) (entity Entity, exists bool)
 
@@ -47,12 +43,18 @@ type CausalOrder[ID epoch.IndexedID, Entity OrderedEntity[ID]] struct {
 	// unorderedChildrenMutex contains a mutex used to synchronize access to the unorderedChildren.
 	unorderedChildrenMutex sync.Mutex
 
+	// lastEvictedEpoch contains the last evicted epoch.
+	lastEvictedIndex epoch.Index
+
+	// evictionMutex contains the local manager used to orchestrate the eviction of old Entities.
+	evictionMutex sync.RWMutex
+
 	// dagMutex contains a mutex used to synchronize access to Entities.
 	dagMutex *syncutils.DAGMutex[ID]
 }
 
 // New returns a new CausalOrderer instance with the given parameters.
-func New[ID epoch.IndexedID, Entity OrderedEntity[ID]](evictionManager *eviction.State[ID],
+func New[ID epoch.IndexedID, Entity OrderedEntity[ID]](
 	entityProvider func(id ID) (entity Entity, exists bool),
 	isOrdered func(entity Entity) (isOrdered bool),
 	orderedCallback func(entity Entity) (err error),
@@ -60,7 +62,6 @@ func New[ID epoch.IndexedID, Entity OrderedEntity[ID]](evictionManager *eviction
 	opts ...options.Option[CausalOrder[ID, Entity]],
 ) (newCausalOrder *CausalOrder[ID, Entity]) {
 	return options.Apply(&CausalOrder[ID, Entity]{
-		evictionManager:         evictionManager.Lockable(),
 		entityProvider:          entityProvider,
 		isOrdered:               isOrdered,
 		orderedCallback:         orderedCallback,
@@ -74,15 +75,15 @@ func New[ID epoch.IndexedID, Entity OrderedEntity[ID]](evictionManager *eviction
 
 // Queue adds the given Entity to the CausalOrderer and triggers it when it's ready.
 func (c *CausalOrder[ID, Entity]) Queue(entity Entity) {
-	c.evictionManager.RLock()
-	defer c.evictionManager.RUnlock()
+	c.evictionMutex.RLock()
+	defer c.evictionMutex.RUnlock()
 
 	c.triggerOrderedIfReady(entity)
 }
 
-// EvictEpoch removes all Entities that are older than the given epoch from the CausalOrderer.
-func (c *CausalOrder[ID, Entity]) EvictEpoch(index epoch.Index) {
-	for _, evictedEntity := range c.evictEpoch(index) {
+// EvictUntil removes all Entities that are older than the given epoch from the CausalOrderer.
+func (c *CausalOrder[ID, Entity]) EvictUntil(index epoch.Index) {
+	for _, evictedEntity := range c.evictUntil(index) {
 		c.evictionCallback(evictedEntity, errors.Errorf("entity evicted from %s", index))
 	}
 }
@@ -98,7 +99,7 @@ func (c *CausalOrder[ID, Entity]) triggerOrderedIfReady(entity Entity) {
 		return
 	}
 
-	if c.evictionManager.MaxEvictedEpoch() >= entity.ID().Index() {
+	if c.lastEvictedIndex >= entity.ID().Index() {
 		c.evictionCallback(entity, errors.Errorf("entity %s below max evicted epoch", entity.ID()))
 
 		return
@@ -226,8 +227,8 @@ func (c *CausalOrder[ID, Entity]) propagateOrderToChildren(id ID) {
 		currentChild := child
 
 		event.Loop.Submit(func() {
-			c.evictionManager.RLock()
-			defer c.evictionManager.RUnlock()
+			c.evictionMutex.RLock()
+			defer c.evictionMutex.RUnlock()
 
 			c.triggerChildIfReady(currentChild)
 		})
@@ -244,17 +245,24 @@ func (c *CausalOrder[ID, Entity]) entity(blockID ID) (entity Entity) {
 	return entity
 }
 
-// evictEpoch evicts the given Epoch from the CausalOrder and returns the evicted Entities.
-func (c *CausalOrder[ID, Entity]) evictEpoch(epochIndex epoch.Index) (evictedEntities map[ID]Entity) {
-	c.evictionManager.Lock()
-	defer c.evictionManager.Unlock()
+// evictUntil evicts the given Epoch from the CausalOrder and returns the evicted Entities.
+func (c *CausalOrder[ID, Entity]) evictUntil(epochIndex epoch.Index) (evictedEntities map[ID]Entity) {
+	c.evictionMutex.Lock()
+	defer c.evictionMutex.Unlock()
+
+	if epochIndex <= c.lastEvictedIndex {
+		return
+	}
 
 	evictedEntities = make(map[ID]Entity)
-	c.evictEntitiesFromEpoch(epochIndex, func(id ID) {
-		if _, exists := evictedEntities[id]; !exists {
-			evictedEntities[id] = c.entity(id)
-		}
-	})
+	for currentIndex := c.lastEvictedIndex + 1; currentIndex <= epochIndex; currentIndex++ {
+		c.evictEntitiesFromEpoch(currentIndex, func(id ID) {
+			if _, exists := evictedEntities[id]; !exists {
+				evictedEntities[id] = c.entity(id)
+			}
+		})
+	}
+	c.lastEvictedIndex = epochIndex
 
 	return evictedEntities
 }
@@ -267,7 +275,7 @@ func (c *CausalOrder[ID, Entity]) evictEntitiesFromEpoch(epochIndex epoch.Index,
 
 			return true
 		})
-		c.unorderedChildren.EvictEpoch(epochIndex)
+		c.unorderedChildren.Evict(epochIndex)
 	}
 
 	if unorderedParentsCountStorage := c.unorderedParentsCounter.Get(epochIndex); unorderedParentsCountStorage != nil {
@@ -276,7 +284,7 @@ func (c *CausalOrder[ID, Entity]) evictEntitiesFromEpoch(epochIndex epoch.Index,
 
 			return true
 		})
-		c.unorderedParentsCounter.EvictEpoch(epochIndex)
+		c.unorderedParentsCounter.Evict(epochIndex)
 	}
 }
 
