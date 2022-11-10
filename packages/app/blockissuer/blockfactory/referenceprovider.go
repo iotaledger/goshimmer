@@ -5,7 +5,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/walker"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -16,14 +16,15 @@ import (
 
 // ReferenceProvider is a component that takes care of creating the correct references when selecting tips.
 type ReferenceProvider struct {
-	engineCallback           func() *engine.Engine
+	protocol *protocol.Protocol
+
 	latestEpochIndexCallback func() epoch.Index
 }
 
 // NewReferenceProvider creates a new ReferenceProvider instance.
-func NewReferenceProvider(engineCallback func() *engine.Engine, latestEpochIndexCallback func() epoch.Index) (newInstance *ReferenceProvider) {
+func NewReferenceProvider(protocol *protocol.Protocol, latestEpochIndexCallback func() epoch.Index) (newInstance *ReferenceProvider) {
 	return &ReferenceProvider{
-		engineCallback:           engineCallback,
+		protocol:                 protocol,
 		latestEpochIndexCallback: latestEpochIndexCallback,
 	}
 }
@@ -70,7 +71,7 @@ func (r *ReferenceProvider) References(payload payload.Payload, strongParents mo
 
 func (r *ReferenceProvider) weakParentsFromUnacceptedInputs(payload payload.Payload) (weakParents models.BlockIDs, err error) {
 	weakParents = models.NewBlockIDs()
-	engineInstance := r.engineCallback()
+	engineInstance := r.protocol.Engine()
 	// If the payload is a transaction we will weakly reference unconfirmed transactions it is consuming.
 	tx, isTx := payload.(utxo.Transaction)
 	if !isTx {
@@ -106,7 +107,7 @@ func (r *ReferenceProvider) weakParentsFromUnacceptedInputs(payload payload.Payl
 
 // addedReferenceForBlock returns the reference that is necessary to correct our opinion on the given block.
 func (r *ReferenceProvider) addedReferencesForBlock(blockID models.BlockID, excludedConflictIDs utxo.TransactionIDs) (addedReferences models.ParentBlockIDs, success bool) {
-	engineInstance := r.engineCallback()
+	engineInstance := r.protocol.Engine()
 
 	block, exists := engineInstance.Tangle.Booker.Block(blockID)
 	if !exists {
@@ -121,8 +122,8 @@ func (r *ReferenceProvider) addedReferencesForBlock(blockID models.BlockID, excl
 
 	var err error
 	if addedReferences, err = r.addedReferencesForConflicts(blockConflicts, excludedConflictIDs); err != nil {
-		if !engineInstance.Consensus.BlockGadget.IsBlockAccepted(blockID) {
-			engineInstance.Tangle.BlockDAG.SetOrphaned(block.Block, true)
+		if schedulerBlock, schedulerBlockExists := r.protocol.CongestionControl.Scheduler().Block(blockID); schedulerBlockExists {
+			r.protocol.TipManager.DeleteTip(schedulerBlock)
 		}
 		return nil, false
 	}
@@ -158,7 +159,7 @@ func (r *ReferenceProvider) addedReferencesForConflicts(conflictIDs utxo.Transac
 
 // adjustOpinion returns the reference that is necessary to correct our opinion on the given conflict.
 func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, excludedConflictIDs utxo.TransactionIDs) (adjust bool, blkID models.BlockID, err error) {
-	engineInstance := r.engineCallback()
+	engineInstance := r.protocol.Engine()
 
 	for w := walker.New[utxo.TransactionID](false).Push(conflictID); w.HasNext(); {
 		currentConflictID := w.Next()
@@ -189,9 +190,9 @@ func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, exclude
 
 // firstValidAttachment returns the first valid attachment of the given transaction.
 func (r *ReferenceProvider) firstValidAttachment(txID utxo.TransactionID) (blockID models.BlockID, err error) {
-	block := r.engineCallback().Tangle.Booker.GetEarliestAttachment(txID)
+	block := r.protocol.Engine().Tangle.Booker.GetEarliestAttachment(txID)
 
-	if committableEpoch := r.latestEpochIndexCallback(); block.ID().Index() <= r.latestEpochIndexCallback() {
+	if committableEpoch := r.latestEpochIndexCallback(); block.ID().Index() <= committableEpoch {
 		return models.EmptyBlockID, errors.Errorf("attachment of %s with %s is too far in the past as current committable epoch is %d", txID, block.ID(), committableEpoch)
 	}
 
@@ -200,7 +201,7 @@ func (r *ReferenceProvider) firstValidAttachment(txID utxo.TransactionID) (block
 
 // payloadLiked checks if the payload of a Block is liked.
 func (r *ReferenceProvider) payloadLiked(blockID models.BlockID) (liked bool) {
-	engineInstance := r.engineCallback()
+	engineInstance := r.protocol.Engine()
 
 	block, exists := engineInstance.Tangle.Booker.Block(blockID)
 	if !exists {
