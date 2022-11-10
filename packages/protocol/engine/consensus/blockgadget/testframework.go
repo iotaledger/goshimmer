@@ -56,19 +56,19 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 	}, opts, func(t *TestFramework) {
 		if t.Gadget == nil {
 			if t.optsTangle == nil {
-				storage := storage.New(test.TempDir(), 1)
+				storageInstance := storage.New(test.TempDir(), 1)
 				test.Cleanup(func() {
-					if err := storage.Shutdown(); err != nil {
+					if err := storageInstance.Shutdown(); err != nil {
 						test.Fatal(err)
 					}
 				})
 
 				if t.optsLedger == nil {
-					t.optsLedger = ledger.New(storage, t.optsLedgerOptions...)
+					t.optsLedger = ledger.New(storageInstance, t.optsLedgerOptions...)
 				}
 
 				if t.optsEvictionState == nil {
-					t.optsEvictionState = eviction.NewState(storage)
+					t.optsEvictionState = eviction.NewState(storageInstance)
 				}
 
 				if t.optsValidatorSet == nil {

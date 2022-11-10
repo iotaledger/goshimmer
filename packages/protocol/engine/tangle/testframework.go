@@ -35,20 +35,20 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 		test: test,
 	}, opts, func(t *TestFramework) {
 		if t.Tangle == nil {
-			storage := storage.New(test.TempDir(), 1)
+			storageInstance := storage.New(test.TempDir(), 1)
 			test.Cleanup(func() {
 				t.optsLedger.Shutdown()
-				if err := storage.Shutdown(); err != nil {
+				if err := storageInstance.Shutdown(); err != nil {
 					test.Fatal(err)
 				}
 			})
 
 			if t.optsLedger == nil {
-				t.optsLedger = ledger.New(storage, t.optsLedgerOptions...)
+				t.optsLedger = ledger.New(storageInstance, t.optsLedgerOptions...)
 			}
 
 			if t.optsEvictionState == nil {
-				t.optsEvictionState = eviction.NewState(storage)
+				t.optsEvictionState = eviction.NewState(storageInstance)
 			}
 
 			if t.optsValidatorSet == nil {

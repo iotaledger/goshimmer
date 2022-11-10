@@ -53,9 +53,11 @@ func (r *RootBlocks) Delete(blockID models.BlockID) (err error) {
 // LoadAll loads all root blocks for an epoch index.
 func (r *RootBlocks) LoadAll(index epoch.Index) (solidEntryPoints *set.AdvancedSet[models.BlockID]) {
 	solidEntryPoints = set.NewAdvancedSet[models.BlockID]()
-	r.Stream(index, func(id models.BlockID) {
+	if err := r.Stream(index, func(id models.BlockID) {
 		solidEntryPoints.Add(id)
-	})
+	}); err != nil {
+		panic(errors.Errorf("failed to load all rootblocks for epoch %d: %w", index, err))
+	}
 	return
 }
 

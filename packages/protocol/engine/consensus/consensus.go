@@ -6,8 +6,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/conflictresolver"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/epochgadget"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
@@ -25,12 +25,12 @@ type Consensus struct {
 	optsEpochConfirmationGadget []options.Option[epochgadget.Gadget]
 }
 
-func New(tangle *tangle.Tangle, evictionState *eviction.State, lastConfirmedEpoch epoch.Index, totalWeightCallback func() int64, opts ...options.Option[Consensus]) *Consensus {
+func New(tangleInstance *tangle.Tangle, evictionState *eviction.State, lastConfirmedEpoch epoch.Index, totalWeightCallback func() int64, opts ...options.Option[Consensus]) *Consensus {
 	return options.Apply(new(Consensus), opts, func(c *Consensus) {
-		c.BlockGadget = blockgadget.New(tangle, evictionState, totalWeightCallback, c.optsAcceptanceGadget...)
-		c.EpochGadget = epochgadget.New(tangle, lastConfirmedEpoch, totalWeightCallback, c.optsEpochConfirmationGadget...)
-		c.ConflictResolver = conflictresolver.New(tangle.Ledger.ConflictDAG, func(conflictID utxo.TransactionID) (weight int64) {
-			return tangle.VirtualVoting.ConflictVoters(conflictID).TotalWeight()
+		c.BlockGadget = blockgadget.New(tangleInstance, evictionState, totalWeightCallback, c.optsAcceptanceGadget...)
+		c.EpochGadget = epochgadget.New(tangleInstance, lastConfirmedEpoch, totalWeightCallback, c.optsEpochConfirmationGadget...)
+		c.ConflictResolver = conflictresolver.New(tangleInstance.Ledger.ConflictDAG, func(conflictID utxo.TransactionID) (weight int64) {
+			return tangleInstance.VirtualVoting.ConflictVoters(conflictID).TotalWeight()
 		})
 
 		c.Events = NewEvents()

@@ -136,11 +136,13 @@ func (s *State) LatestRootBlock() models.BlockID {
 // importRootBlocksFromStorage imports the root blocks from the storage into the cache.
 func (s *State) importRootBlocksFromStorage() (importedBlocks int) {
 	for currentEpoch := s.lastEvictedEpoch; currentEpoch >= 0 && currentEpoch > s.delayedBlockEvictionThreshold(s.lastEvictedEpoch); currentEpoch-- {
-		s.storage.RootBlocks.Stream(currentEpoch, func(rootBlockID models.BlockID) {
+		if err := s.storage.RootBlocks.Stream(currentEpoch, func(rootBlockID models.BlockID) {
 			s.AddRootBlock(rootBlockID)
 
 			importedBlocks++
-		})
+		}); err != nil {
+			panic(errors.Errorf("failed importing root blocks from storage: %w", err))
+		}
 	}
 
 	return
