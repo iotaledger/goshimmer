@@ -24,7 +24,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 3,
+  "id": 7,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -362,7 +362,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Accepted Blocks"
+              "options": "Accepted Blocka"
             },
             "properties": [
               {
@@ -377,7 +377,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Accepted Transactions"
+              "options": "Accepted Txs"
             },
             "properties": [
               {
@@ -392,7 +392,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Active validators"
+              "options": "Active Validators"
             },
             "properties": [
               {
@@ -444,7 +444,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "epoch_counters{instance=\"$instance\"}",
+          "expr": "epoch_counters{instance=\"$instance\"}\n",
           "format": "table",
           "legendFormat": "__auto",
           "range": true,
@@ -453,6 +453,106 @@
       ],
       "title": "Epoch size metrics $instance",
       "transformations": [
+        {
+          "id": "convertFieldType",
+          "options": {
+            "conversions": [
+              {
+                "destinationType": "number",
+                "targetField": "accepted_blocks"
+              },
+              {
+                "destinationType": "number",
+                "targetField": "transactions"
+              },
+              {
+                "destinationType": "number",
+                "targetField": "active_validators"
+              }
+            ],
+            "fields": {}
+          }
+        },
+        {
+          "id": "groupBy",
+          "options": {
+            "fields": {
+              "Accepted Blocks": {
+                "aggregations": [
+                  "lastNotNull"
+                ],
+                "operation": "aggregate"
+              },
+              "Accepted Transactions": {
+                "aggregations": [
+                  "lastNotNull"
+                ],
+                "operation": "aggregate"
+              },
+              "Active validators": {
+                "aggregations": [
+                  "lastNotNull"
+                ],
+                "operation": "aggregate"
+              },
+              "Epoch Index": {
+                "aggregations": [],
+                "operation": "groupby"
+              },
+              "Value": {
+                "aggregations": [],
+                "operation": "groupby"
+              },
+              "accepted_blocks": {
+                "aggregations": [
+                  "lastNotNull"
+                ],
+                "operation": "aggregate"
+              },
+              "active_validators": {
+                "aggregations": [
+                  "lastNotNull"
+                ],
+                "operation": "aggregate"
+              },
+              "transactions": {
+                "aggregations": [
+                  "lastNotNull"
+                ],
+                "operation": "aggregate"
+              }
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "desc": true,
+                "field": "Value"
+              }
+            ]
+          }
+        },
+        {
+          "id": "limit",
+          "options": {
+            "limitField": 10
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "field": "Value"
+              }
+            ]
+          }
+        },
         {
           "id": "organize",
           "options": {
@@ -470,47 +570,12 @@
             "renameByName": {
               "Value": "Epoch Index",
               "accepted_blocks": "Accepted Blocks",
+              "accepted_blocks (lastNotNull)": "Accepted Blocka",
               "active_validators": "Active validators",
-              "transactions": "Accepted Transactions"
+              "active_validators (lastNotNull)": "Active Validators",
+              "transactions": "Accepted Transactions",
+              "transactions (lastNotNull)": "Accepted Txs"
             }
-          }
-        },
-        {
-          "id": "convertFieldType",
-          "options": {
-            "conversions": [
-              {
-                "destinationType": "number",
-                "targetField": "Accepted Blocks"
-              },
-              {
-                "destinationType": "number",
-                "targetField": "Active validators"
-              },
-              {
-                "destinationType": "number",
-                "targetField": "Accepted Transactions"
-              }
-            ],
-            "fields": {}
-          }
-        },
-        {
-          "id": "sortBy",
-          "options": {
-            "fields": {},
-            "sort": [
-              {
-                "desc": true,
-                "field": "Epoch Index"
-              }
-            ]
-          }
-        },
-        {
-          "id": "limit",
-          "options": {
-            "limitField": 10
           }
         }
       ],
@@ -1257,8 +1322,8 @@
     ]
   },
   "timezone": "",
-  "title": "Global Nodes View",
-  "uid": "JKcc02v4k",
+  "title": "Global Nodes View 2",
+  "uid": "JKcc02v4d",
   "version": 2,
   "weekStart": ""
 }
