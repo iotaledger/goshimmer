@@ -18,11 +18,12 @@ import (
 type EventTicker[T epoch.IndexedID] struct {
 	Events *Events[T]
 
-	timedExecutor        *timed.Executor
-	scheduledTickers     *memstorage.EpochStorage[T, *timed.ScheduledTask]
-	scheduledTickerCount int
-	lastEvictedEpoch     epoch.Index
-	evictionMutex        sync.RWMutex
+	timedExecutor             *timed.Executor
+	scheduledTickers          *memstorage.EpochStorage[T, *timed.ScheduledTask]
+	scheduledTickerCount      int
+	scheduledTickerCountMutex sync.RWMutex
+	lastEvictedEpoch          epoch.Index
+	evictionMutex             sync.RWMutex
 
 	optsRetryInterval       time.Duration
 	optsRetryJitter         time.Duration
@@ -57,8 +58,8 @@ func (r *EventTicker[T]) StopTicker(id T) {
 }
 
 func (r *EventTicker[T]) QueueSize() int {
-	r.evictionMutex.RLock()
-	defer r.evictionMutex.RUnlock()
+	r.scheduledTickerCountMutex.RLock()
+	defer r.scheduledTickerCountMutex.RUnlock()
 
 	return r.scheduledTickerCount
 }
@@ -79,7 +80,7 @@ func (r *EventTicker[T]) EvictUntil(epochIndex epoch.Index) {
 				return true
 			})
 
-			r.scheduledTickerCount -= evictedStorage.Size()
+			r.updateScheduledTickerCount(-evictedStorage.Size())
 		}
 	}
 	r.lastEvictedEpoch = epochIndex
@@ -106,7 +107,7 @@ func (r *EventTicker[T]) addTickerToQueue(id T) (added bool) {
 	// schedule the next request and trigger the event
 	queue.Set(id, r.timedExecutor.ExecuteAfter(r.createReScheduler(id, 0), r.optsRetryInterval+time.Duration(crypto.Randomness.Float64()*float64(r.optsRetryJitter))))
 
-	r.scheduledTickerCount++
+	r.updateScheduledTickerCount(1)
 
 	return true
 }
@@ -128,7 +129,7 @@ func (r *EventTicker[T]) stopTicker(id T) (stopped bool) {
 	timer.Cancel()
 	storage.Delete(id)
 
-	r.scheduledTickerCount--
+	r.updateScheduledTickerCount(-1)
 
 	return true
 }
@@ -155,7 +156,7 @@ func (r *EventTicker[T]) reSchedule(id T, count int) {
 		if count > r.optsMaxRequestThreshold {
 			tickerStorage.Delete(id)
 
-			r.scheduledTickerCount--
+			r.updateScheduledTickerCount(-1)
 
 			r.Events.TickerFailed.Trigger(id)
 			return
@@ -170,6 +171,13 @@ func (r *EventTicker[T]) createReScheduler(blkID T, count int) func() {
 	return func() {
 		r.reSchedule(blkID, count)
 	}
+}
+
+func (r *EventTicker[T]) updateScheduledTickerCount(diff int) {
+	r.scheduledTickerCountMutex.Lock()
+	defer r.scheduledTickerCountMutex.Unlock()
+
+	r.scheduledTickerCount += diff
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
