@@ -94,7 +94,7 @@ func (p *Protocol) initDisk() {
 func (p *Protocol) initMainChainStorage() {
 	p.storage = storage.New(p.disk.Path(mainBaseDir), DatabaseVersion)
 
-	p.Events.Engine.Consensus.EpochConfirmation.EpochConfirmed.Attach(event.NewClosure(func(epochIndex epoch.Index) {
+	p.Events.Engine.Consensus.EpochGadget.EpochConfirmed.Attach(event.NewClosure(func(epochIndex epoch.Index) {
 		p.storage.PruneUntilEpoch(epochIndex - epoch.Index(p.optsPruningThreshold))
 	}))
 }
@@ -152,7 +152,7 @@ func (p *Protocol) initChainManager() {
 		p.chainManager.ProcessCommitment(commitment)
 	}))
 
-	p.Events.Engine.Consensus.EpochConfirmation.EpochConfirmed.Attach(event.NewClosure(func(epochIndex epoch.Index) {
+	p.Events.Engine.Consensus.EpochGadget.EpochConfirmed.Attach(event.NewClosure(func(epochIndex epoch.Index) {
 		p.chainManager.EvictionState.EvictUntil(epochIndex, nil)
 	}))
 }
@@ -165,7 +165,7 @@ func (p *Protocol) initTipManager() {
 		p.TipManager.AddTip(block)
 	}))
 
-	p.Events.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
+	p.Events.Engine.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
 		p.TipManager.RemoveStrongParents(block.ModelsBlock)
 	}))
 

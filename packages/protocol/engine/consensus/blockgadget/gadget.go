@@ -343,6 +343,7 @@ func (a *Gadget) acceptanceFailed(block *Block, err error) {
 
 func (a *Gadget) evictEpoch(index epoch.Index) {
 	a.acceptanceOrder.EvictEpoch(index)
+	a.confirmationOrder.EvictEpoch(index)
 
 	a.evictionState.Lock()
 	defer a.evictionState.Unlock()
@@ -405,6 +406,7 @@ func (a *Gadget) registerBlock(virtualVotingBlock *virtualvoting.Block) (block *
 func (a *Gadget) RefreshConflictAcceptance(conflictID utxo.TransactionID) {
 	conflictVoters := a.tangle.VirtualVoting.ConflictVoters(conflictID)
 	conflictWeight := conflictVoters.TotalWeight()
+
 	if !a.tangle.ValidatorSet.IsThresholdReached(conflictWeight, a.optsConflictAcceptanceThreshold) {
 		return
 	}
@@ -422,7 +424,7 @@ func (a *Gadget) RefreshConflictAcceptance(conflictID utxo.TransactionID) {
 
 		conflictingConflictVoters := a.tangle.VirtualVoting.ConflictVoters(conflictingConflictID)
 
-		// if 66% ahead of ALL conflicting conflicts, then set accepted
+		// if the conflict is less than 66% ahead, then don't mark as accepted
 		if conflictingConflictWeight := conflictingConflictVoters.TotalWeight(); !a.tangle.ValidatorSet.IsThresholdReached(conflictWeight-conflictingConflictWeight, a.optsConflictAcceptanceThreshold) {
 			markAsAccepted = false
 		}

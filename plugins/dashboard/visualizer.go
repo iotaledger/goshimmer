@@ -107,8 +107,8 @@ func runVisualizer() {
 	if err := daemon.BackgroundWorker("Dashboard[Visualizer]", func(ctx context.Context) {
 		deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Attach(notifyNewBlkStored)
 		defer deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Detach(notifyNewBlkStored)
-		deps.Protocol.Events.Engine.Consensus.Acceptance.BlockAccepted.Attach(notifyNewBlkAccepted)
-		defer deps.Protocol.Events.Engine.Consensus.Acceptance.BlockAccepted.Detach(notifyNewBlkAccepted)
+		deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Attach(notifyNewBlkAccepted)
+		defer deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Detach(notifyNewBlkAccepted)
 		deps.Protocol.Events.TipManager.TipAdded.Attach(notifyNewTip)
 		defer deps.Protocol.Events.TipManager.TipAdded.Detach(notifyNewTip)
 		deps.Protocol.Events.TipManager.TipRemoved.Attach(notifyDeletedTip)

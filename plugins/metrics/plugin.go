@@ -204,7 +204,7 @@ func registerLocalMetrics() {
 		sumTimesSinceIssued[SchedulerSkipped] += time.Since(block.IssuingTime())
 	}))
 
-	deps.Protocol.Events.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
+	deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
 		blockType := DataBlock
 		if block.Payload().Type() == devnetvm.TransactionType {
 			blockType = Transaction

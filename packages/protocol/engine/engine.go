@@ -192,7 +192,11 @@ func (e *Engine) initConsensus() {
 
 	e.Events.Consensus = e.Consensus.Events
 
-	e.Events.Consensus.EpochConfirmation.EpochConfirmed.Attach(event.NewClosure(func(epochIndex epoch.Index) {
+	e.Events.Consensus.BlockGadget.Error.Hook(event.NewClosure(func(err error) {
+		e.Events.Error.Trigger(err)
+	}))
+
+	e.Events.Consensus.EpochGadget.EpochConfirmed.Attach(event.NewClosure(func(epochIndex epoch.Index) {
 		err := e.Storage.Permanent.Settings.SetLatestConfirmedEpoch(epochIndex)
 		if err != nil {
 			panic(err)
@@ -203,15 +207,15 @@ func (e *Engine) initConsensus() {
 }
 
 func (e *Engine) initClock() {
-	e.Events.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
+	e.Events.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
 		e.Clock.SetAcceptedTime(block.IssuingTime())
 	}))
 
-	e.Events.Consensus.Acceptance.BlockConfirmed.Attach(event.NewClosure(func(block *blockgadget.Block) {
+	e.Events.Consensus.BlockGadget.BlockConfirmed.Attach(event.NewClosure(func(block *blockgadget.Block) {
 		e.Clock.SetConfirmedTime(block.IssuingTime())
 	}))
 
-	e.Events.Consensus.EpochConfirmation.EpochConfirmed.Attach(event.NewClosure(func(epochIndex epoch.Index) {
+	e.Events.Consensus.EpochGadget.EpochConfirmed.Attach(event.NewClosure(func(epochIndex epoch.Index) {
 		e.Clock.SetConfirmedTime(epochIndex.EndTime())
 	}))
 
@@ -229,7 +233,7 @@ func (e *Engine) initTSCManager() {
 }
 
 func (e *Engine) initBlockStorage() {
-	e.Events.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
+	e.Events.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
 		if err := e.Storage.Blocks.Store(block.ModelsBlock); err != nil {
 			e.Events.Error.Trigger(errors.Errorf("failed to store block with %s: %w", block.ID(), err))
 		}
@@ -322,7 +326,7 @@ func (e *Engine) initBlockRequester() {
 }
 
 func (e *Engine) initSolidEntryPointsManager() {
-	e.Events.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
+	e.Events.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
 		e.EntryPointsManager.Insert(block.ID())
 	}))
 

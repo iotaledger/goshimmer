@@ -113,7 +113,7 @@ func registerTangleEvents() {
 
 	deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Attach(storeClosure)
 	deps.Protocol.Events.Engine.Tangle.Booker.BlockBooked.Attach(bookedClosure)
-	deps.Protocol.Events.Engine.Consensus.Acceptance.BlockAccepted.Attach(blkAcceptedClosure)
+	deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Attach(blkAcceptedClosure)
 	deps.Protocol.Events.Engine.Ledger.TransactionAccepted.Attach(txAcceptedClosure)
 }
 

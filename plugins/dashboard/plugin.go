@@ -89,13 +89,13 @@ func configure(plugin *node.Plugin) {
 	}
 	lastConfirmedBlock = lastAcceptedBlock
 
-	deps.Protocol.Events.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
+	deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
 		if lastAcceptedBlock.IssuingTime().Before(block.IssuingTime()) {
 			lastAcceptedBlock = block
 		}
 	}))
 
-	deps.Protocol.Events.Engine.Consensus.Acceptance.BlockConfirmed.Attach(event.NewClosure(func(block *blockgadget.Block) {
+	deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockConfirmed.Attach(event.NewClosure(func(block *blockgadget.Block) {
 		if lastConfirmedBlock.IssuingTime().Before(block.IssuingTime()) {
 			lastConfirmedBlock = block
 		}

@@ -33,8 +33,8 @@ func New(tangle *tangle.Tangle, lastConfirmedEpoch epoch.Index, totalWeightCallb
 		})
 
 		c.Events = NewEvents()
-		c.Events.Acceptance = c.BlockGadget.Events
-		c.Events.EpochConfirmation = c.EpochGadget.Events
+		c.Events.BlockGadget = c.BlockGadget.Events
+		c.Events.EpochGadget = c.EpochGadget.Events
 	})
 }
 
