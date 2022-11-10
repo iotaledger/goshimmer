@@ -94,7 +94,7 @@ func (b *Block) OrphanedBlocksInPastCone() (orphanedBlocks models.BlockIDs) {
 	b.RLock()
 	defer b.RUnlock()
 
-	return b.orphanedBlocksInPastCone
+	return b.orphanedBlocksInPastCone.Clone()
 }
 
 // Children returns the children of the Block.

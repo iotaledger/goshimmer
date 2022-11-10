@@ -296,6 +296,12 @@ module.exports = {
         label: 'Evil Spammer',
         id: 'tooling/evil_spammer',
       },
+
+      {
+        type: 'doc',
+        label: 'Rand Seed and Rand Address',
+        id: 'tooling/rand_seed_and_rand_address',
+      },
     ],
   },
   {
