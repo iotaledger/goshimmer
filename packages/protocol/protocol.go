@@ -153,7 +153,7 @@ func (p *Protocol) initChainManager() {
 	}))
 
 	p.Events.Engine.Consensus.EpochGadget.EpochConfirmed.Attach(event.NewClosure(func(epochIndex epoch.Index) {
-		p.chainManager.EvictionState.EvictUntil(epochIndex, nil)
+		p.ChainManager.EvictionState.EvictUntil(epochIndex, nil)
 	}))
 }
 
