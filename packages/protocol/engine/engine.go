@@ -94,9 +94,9 @@ func New(storageInstance *storage.Storage, opts ...options.Option[Engine]) (engi
 		(*Engine).initClock,
 		(*Engine).initTSCManager,
 		(*Engine).initBlockStorage,
+		(*Engine).initSybilProtection,
 		(*Engine).initNotarizationManager,
 		(*Engine).initManaTracker,
-		(*Engine).initSybilProtection,
 		(*Engine).initEvictionManager,
 		(*Engine).initBlockRequester,
 		(*Engine).initSolidEntryPointsManager,
@@ -199,7 +199,7 @@ func (e *Engine) initBlockStorage() {
 }
 
 func (e *Engine) initNotarizationManager() {
-	e.NotarizationManager = notarization.NewManager(e.Storage)
+	e.NotarizationManager = notarization.NewManager(e.Storage, e.SybilProtection)
 
 	e.Consensus.Gadget.Events.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
 		if err := e.NotarizationManager.AddAcceptedBlock(block.ModelsBlock); err != nil {
