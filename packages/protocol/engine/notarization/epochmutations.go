@@ -20,6 +20,8 @@ import (
 
 // EpochMutations is an in-memory data structure that enables the collection of mutations for uncommitted epochs.
 type EpochMutations struct {
+	validatorWeightFunc func(identity.ID) (int64, bool)
+
 	// acceptedBlocksByEpoch stores the accepted blocks per epoch.
 	acceptedBlocksByEpoch *memstorage.Storage[epoch.Index, *ads.Set[models.BlockID]]
 
@@ -35,12 +37,17 @@ type EpochMutations struct {
 	// latestCommittedIndex stores the index of the latest committed epoch.
 	latestCommittedIndex epoch.Index
 
+	//lastCommittedEpochCumulativeWeight stores the cumulative weight of the last committed epoch
+	lastCommittedEpochCumulativeWeight uint64
+
 	sync.Mutex
 }
 
 // NewEpochMutations creates a new EpochMutations instance.
-func NewEpochMutations(lastCommittedEpoch epoch.Index) (newMutationFactory *EpochMutations) {
+func NewEpochMutations(validatorWeightFunc func(id identity.ID) (int64, bool), lastCommittedEpoch epoch.Index) (newMutationFactory *EpochMutations) {
 	return &EpochMutations{
+		validatorWeightFunc: validatorWeightFunc,
+
 		acceptedBlocksByEpoch:       memstorage.New[epoch.Index, *ads.Set[models.BlockID]](),
 		acceptedTransactionsByEpoch: memstorage.New[epoch.Index, *ads.Set[utxo.TransactionID]](),
 		activeValidatorsByEpoch:     memstorage.New[epoch.Index, *ads.Set[identity.ID]](),
@@ -132,17 +139,19 @@ func (m *EpochMutations) UpdateTransactionInclusion(txID utxo.TransactionID, old
 }
 
 // Commit evicts the given epoch and returns the corresponding mutation sets.
-func (m *EpochMutations) Commit(index epoch.Index) (acceptedBlocks *ads.Set[models.BlockID], acceptedTransactions *ads.Set[utxo.TransactionID], activeValidators *ads.Set[identity.ID], err error) {
+func (m *EpochMutations) Commit(index epoch.Index) (acceptedBlocks *ads.Set[models.BlockID], acceptedTransactions *ads.Set[utxo.TransactionID], activeValidators *ads.Set[identity.ID], cumulativeWeight uint64, err error) {
 	m.Lock()
 	defer m.Unlock()
 
 	if index <= m.latestCommittedIndex {
-		return nil, nil, nil, errors.Errorf("cannot commit epoch %d: already committed", index)
+		return nil, nil, nil, 0, errors.Errorf("cannot commit epoch %d: already committed", index)
 	}
 
 	defer m.evict(index)
 
-	return m.acceptedBlocks(index), m.acceptedTransactions(index), m.activeValidators(index), nil
+	m.lastCommittedEpochCumulativeWeight += m.epochWeight(index)
+
+	return m.acceptedBlocks(index), m.acceptedTransactions(index), m.activeValidators(index), m.lastCommittedEpochCumulativeWeight, nil
 }
 
 // acceptedBlocks returns the set of accepted blocks for the given epoch.
@@ -170,6 +179,21 @@ func (m *EpochMutations) activeValidators(index epoch.Index, createIfMissing ...
 	}
 
 	return lo.Return1(m.activeValidatorsByEpoch.Get(index))
+}
+
+func (m *EpochMutations) epochWeight(index epoch.Index) (epochWeight uint64) {
+	storage := m.issuerBlocksByEpoch.Get(index, false)
+	if storage == nil {
+		return 0
+	}
+	storage.ForEachKey(func(issuerID identity.ID) bool {
+		if weight, exists := m.validatorWeightFunc(issuerID); exists {
+			epochWeight += uint64(weight)
+		}
+		return true
+	})
+
+	return epochWeight
 }
 
 // addBlockByIssuer adds the given block to the set of blocks issued by the given issuer.
