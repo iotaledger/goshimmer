@@ -15,12 +15,13 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/eventticker"
 	"github.com/iotaledger/goshimmer/packages/core/eviction"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/storage"
 
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/inbox"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/manatracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
@@ -136,6 +137,22 @@ func (e *Engine) Shutdown() {
 	e.Storage.Shutdown()
 }
 
+func (e *Engine) LastConfirmedEpoch() epoch.Index {
+	if e.Consensus == nil {
+		return 0
+	}
+
+	return e.Consensus.EpochGadget.LastConfirmedEpoch()
+}
+
+func (e *Engine) FirstUnacceptedMarker(sequenceID markers.SequenceID) markers.Index {
+	if e.Consensus == nil {
+		return 1
+	}
+
+	return e.Consensus.BlockGadget.FirstUnacceptedIndex(sequenceID)
+}
+
 func (e *Engine) initInbox() {
 	e.Inbox = inbox.New()
 
@@ -149,7 +166,7 @@ func (e *Engine) initLedger() {
 }
 
 func (e *Engine) initTangle() {
-	e.Tangle = tangle.New(e.Ledger, e.EvictionState, e.ValidatorSet, e.optsTangleOptions...)
+	e.Tangle = tangle.New(e.Ledger, e.EvictionState, e.ValidatorSet, e.LastConfirmedEpoch, e.FirstUnacceptedMarker, e.optsTangleOptions...)
 
 	e.Events.Inbox.BlockReceived.Attach(event.NewClosure(func(block *models.Block) {
 		if _, _, err := e.Tangle.Attach(block); err != nil {
@@ -161,21 +178,52 @@ func (e *Engine) initTangle() {
 }
 
 func (e *Engine) initConsensus() {
-	e.Consensus = consensus.New(e.Tangle, e.optsConsensusOptions...)
+	e.Consensus = consensus.New(e.Tangle, e.Storage.Permanent.Settings.LatestConfirmedEpoch(), func() int64 {
+		weights := e.SybilProtection.Weights()
+		var zeroID identity.ID
+		var totalWeight int64
+		for id, weight := range weights {
+			if id != zeroID {
+				totalWeight += weight
+			}
+		}
+		return totalWeight
+	}, e.optsConsensusOptions...)
 
 	e.Events.Consensus = e.Consensus.Events
+
+	e.Events.Consensus.BlockGadget.Error.Hook(event.NewClosure(func(err error) {
+		e.Events.Error.Trigger(err)
+	}))
+
+	e.Events.Consensus.EpochGadget.EpochConfirmed.Attach(event.NewClosure(func(epochIndex epoch.Index) {
+		err := e.Storage.Permanent.Settings.SetLatestConfirmedEpoch(epochIndex)
+		if err != nil {
+			panic(err)
+		}
+
+		e.Tangle.VirtualVoting.EvictEpochTracker(epochIndex)
+	}))
 }
 
 func (e *Engine) initClock() {
-	e.Events.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
+	e.Events.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
 		e.Clock.SetAcceptedTime(block.IssuingTime())
+	}))
+
+	e.Events.Consensus.BlockGadget.BlockConfirmed.Attach(event.NewClosure(func(block *blockgadget.Block) {
+		e.Clock.SetConfirmedTime(block.IssuingTime())
+	}))
+
+	e.Events.Consensus.EpochGadget.EpochConfirmed.Attach(event.NewClosure(func(epochIndex epoch.Index) {
+		e.Clock.SetConfirmedTime(epochIndex.EndTime())
 	}))
 
 	e.Events.Clock = e.Clock.Events
 }
 
 func (e *Engine) initTSCManager() {
-	e.TSCManager = tsc.New(e.Consensus.IsBlockAccepted, e.Tangle, e.optsTSCManagerOptions...)
+	e.TSCManager = tsc.New(e.Consensus.BlockGadget.IsBlockAccepted, e.Tangle, e.optsTSCManagerOptions...)
 
 	e.Events.Tangle.Booker.BlockBooked.Attach(event.NewClosure(e.TSCManager.AddBlock))
 
@@ -185,7 +233,7 @@ func (e *Engine) initTSCManager() {
 }
 
 func (e *Engine) initBlockStorage() {
-	e.Events.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
+	e.Events.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
 		if err := e.Storage.Blocks.Store(block.ModelsBlock); err != nil {
 			e.Events.Error.Trigger(errors.Errorf("failed to store block with %s: %w", block.ID(), err))
 		}
@@ -201,7 +249,7 @@ func (e *Engine) initBlockStorage() {
 func (e *Engine) initNotarizationManager() {
 	e.NotarizationManager = notarization.NewManager(e.Storage, e.SybilProtection)
 
-	e.Consensus.Gadget.Events.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
+	e.Consensus.BlockGadget.Events.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
 		if err := e.NotarizationManager.AddAcceptedBlock(block.ModelsBlock); err != nil {
 			e.Events.Error.Trigger(errors.Errorf("failed to add accepted block %s to epoch: %w", block.ID(), err))
 		}
@@ -278,7 +326,7 @@ func (e *Engine) initBlockRequester() {
 }
 
 func (e *Engine) initSolidEntryPointsManager() {
-	e.Events.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
+	e.Events.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
 		e.EntryPointsManager.Insert(block.ID())
 	}))
 

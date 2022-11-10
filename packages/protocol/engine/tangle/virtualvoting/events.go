@@ -4,6 +4,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 
 	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
+	"github.com/iotaledger/goshimmer/packages/core/votes/epochtracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
@@ -13,6 +14,7 @@ type Events struct {
 
 	ConflictTracker *conflicttracker.Events[utxo.TransactionID]
 	SequenceTracker *sequencetracker.Events
+	EpochTracker    *epochtracker.Events
 
 	event.LinkableCollection[Events, *Events]
 }
@@ -23,6 +25,7 @@ var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 		BlockTracked:    event.NewLinkable[*Block](),
 		ConflictTracker: conflicttracker.NewEvents[utxo.TransactionID](),
 		SequenceTracker: sequencetracker.NewEvents(),
+		EpochTracker:    epochtracker.NewEvents(),
 	}
 })
 

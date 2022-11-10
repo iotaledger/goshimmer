@@ -4,12 +4,14 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/core/eviction"
 )
 
 type Events struct {
 	CommitmentMissing         *event.Linkable[commitment.ID]
 	MissingCommitmentReceived *event.Linkable[commitment.ID]
 	ForkDetected              *event.Linkable[*Chain]
+	EvictionState             *eviction.Events
 
 	event.LinkableCollection[Events, *Events]
 }

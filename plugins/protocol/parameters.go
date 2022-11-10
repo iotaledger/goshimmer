@@ -51,8 +51,9 @@ type DatabaseParametersDefinition struct {
 	// InMemory defines whether to use an in-memory database.
 	InMemory bool `default:"false" usage:"whether the database is only kept in memory and not persisted"`
 
-	MaxOpenDBs  int   `default:"10" usage:"maximum number of open database instances"`
-	Granularity int64 `default:"10" usage:"granularity of the epoch/bucketed database"`
+	MaxOpenDBs       int    `default:"10" usage:"maximum number of open database instances"`
+	Granularity      int64  `default:"10" usage:"granularity of the epoch/bucketed database"`
+	PruningThreshold uint64 `default:"360" usage:"number of epochs before last confirmed epoch that should be pruned"`
 
 	// ForceCacheTime is a new global cache time in seconds for object storage.
 	ForceCacheTime time.Duration `default:"-1s" usage:"interval of time for which objects should remain in memory. Zero time means no caching, negative value means use defaults"`

@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -17,21 +17,21 @@ import (
 
 type TestFramework struct {
 	Manager        *Manager
-	mockAcceptance *acceptance.MockAcceptanceGadget
+	mockAcceptance *blockgadget.MockAcceptanceGadget
 
 	test *testing.T
 
 	optsTSCManager          []options.Option[Manager]
 	optsTangle              []options.Option[tangle.Tangle]
 	optsIsBlockAcceptedFunc func(models.BlockID) bool
-	optsBlockAcceptedEvent  *event.Linkable[*acceptance.Block]
+	optsBlockAcceptedEvent  *event.Linkable[*blockgadget.Block]
 	*tangle.TestFramework
 }
 
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t *TestFramework) {
 	return options.Apply(&TestFramework{
 		test:           test,
-		mockAcceptance: acceptance.NewMockAcceptanceGadget(),
+		mockAcceptance: blockgadget.NewMockAcceptanceGadget(),
 	}, opts, func(t *TestFramework) {
 		t.TestFramework = tangle.NewTestFramework(
 			test,
@@ -77,7 +77,7 @@ func WithTangleOptions(opts ...options.Option[tangle.Tangle]) options.Option[Tes
 	}
 }
 
-func WithBlockAcceptedEvent(blockAcceptedEvent *event.Linkable[*acceptance.Block]) options.Option[TestFramework] {
+func WithBlockAcceptedEvent(blockAcceptedEvent *event.Linkable[*blockgadget.Block]) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
 		tf.optsBlockAcceptedEvent = blockAcceptedEvent
 	}

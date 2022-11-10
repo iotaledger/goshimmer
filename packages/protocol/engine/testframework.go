@@ -5,7 +5,7 @@ import (
 
 	"github.com/iotaledger/hive.go/core/generics/options"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/storage"
 )
@@ -14,7 +14,7 @@ import (
 
 type (
 	TangleTestFramework     = tangle.TestFramework
-	AcceptanceTestFramework = acceptance.TestFramework
+	AcceptanceTestFramework = blockgadget.TestFramework
 )
 
 type TestFramework struct {
@@ -38,7 +38,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		}
 
 		t.Tangle = tangle.NewTestFramework(test, tangle.WithTangle(t.Engine.Tangle))
-		t.Acceptance = acceptance.NewTestFramework(test, acceptance.WithTangle(t.Engine.Tangle), acceptance.WithTangleTestFramework(t.Tangle))
+		t.Acceptance = blockgadget.NewTestFramework(test, blockgadget.WithTangle(t.Engine.Tangle), blockgadget.WithTangleTestFramework(t.Tangle))
 	})
 }
 

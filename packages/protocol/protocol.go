@@ -13,13 +13,14 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
@@ -52,6 +53,7 @@ type Protocol struct {
 	optsBaseDirectory    string
 	optsSettingsFileName string
 	optsSnapshotPath     string
+	optsPruningThreshold uint64
 	// optsSolidificationOptions []options.Option[solidification.Requester]
 	optsCongestionControlOptions []options.Option[congestioncontrol.CongestionControl]
 	optsEngineOptions            []options.Option[engine.Engine]
@@ -68,6 +70,7 @@ func New(dispatcher network.Endpoint, opts ...options.Option[Protocol]) (protoco
 
 		optsBaseDirectory:    "",
 		optsSettingsFileName: "settings.bin",
+		optsPruningThreshold: 6 * 60, // 1 hour given that epoch duration is 10 seconds
 	}, opts,
 		(*Protocol).initDisk,
 		(*Protocol).initCongestionControl,
@@ -90,6 +93,10 @@ func (p *Protocol) initDisk() {
 
 func (p *Protocol) initMainChainStorage() {
 	p.storage = storage.New(p.disk.Path(mainBaseDir), DatabaseVersion)
+
+	p.Events.Engine.Consensus.EpochGadget.EpochConfirmed.Attach(event.NewClosure(func(epochIndex epoch.Index) {
+		p.storage.PruneUntilEpoch(epochIndex - epoch.Index(p.optsPruningThreshold))
+	}))
 }
 
 func (p *Protocol) initCongestionControl() {
@@ -116,8 +123,8 @@ func (p *Protocol) initNetworkProtocol() {
 	}))
 
 	p.networkProtocol.Events.EpochCommitmentRequestReceived.Attach(event.NewClosure(func(event *network.EpochCommitmentRequestReceivedEvent) {
-		if commitment, _ := p.chainManager.Commitment(event.CommitmentID); commitment != nil && commitment.Commitment() != nil {
-			p.networkProtocol.SendEpochCommitment(commitment.Commitment(), event.Source)
+		if requestedCommitment, _ := p.chainManager.Commitment(event.CommitmentID); requestedCommitment != nil && requestedCommitment.Commitment() != nil {
+			p.networkProtocol.SendEpochCommitment(requestedCommitment.Commitment(), event.Source)
 		}
 	}))
 
@@ -144,6 +151,10 @@ func (p *Protocol) initChainManager() {
 	p.Events.Engine.NotarizationManager.EpochCommitted.Attach(event.NewClosure(func(commitment *commitment.Commitment) {
 		p.chainManager.ProcessCommitment(commitment)
 	}))
+
+	p.Events.Engine.Consensus.EpochGadget.EpochConfirmed.Attach(event.NewClosure(func(epochIndex epoch.Index) {
+		p.chainManager.EvictionState.EvictUntil(epochIndex, nil)
+	}))
 }
 
 func (p *Protocol) initTipManager() {
@@ -154,7 +165,7 @@ func (p *Protocol) initTipManager() {
 		p.TipManager.AddTip(block)
 	}))
 
-	p.Events.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
+	p.Events.Engine.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
 		p.TipManager.RemoveStrongParents(block.ModelsBlock)
 	}))
 
@@ -183,10 +194,12 @@ func (p *Protocol) initTipManager() {
 
 func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) {
 	isSolid, chain, _ := p.chainManager.ProcessCommitment(block.Commitment())
+	//fmt.Println(">> ProcessBlock", block, isSolid, chain)
 	if !isSolid {
 		return
 	}
 
+	//fmt.Println(">> checkchain", p.storage.Settings.ChainID(), chain.ForkingPoint.ID())
 	if mainChain := p.storage.Settings.ChainID(); chain.ForkingPoint.ID() == mainChain {
 		p.Engine().ProcessBlockFromPeer(block, src)
 		return
@@ -236,7 +249,7 @@ func (p *Protocol) importSnapshotFile(filePath string) {
 	}
 }
 
-func (p *Protocol) activateEngine(engine *engine.Engine) (err error) {
+func (p *Protocol) activateEngine(engine *engine.Engine) {
 	p.TipManager.ActivateEngine(engine)
 	p.Events.Engine.LinkTo(engine.Events)
 	p.CongestionControl.LinkTo(engine)
@@ -251,6 +264,11 @@ func (p *Protocol) activateEngine(engine *engine.Engine) (err error) {
 func WithBaseDirectory(baseDirectory string) options.Option[Protocol] {
 	return func(n *Protocol) {
 		n.optsBaseDirectory = baseDirectory
+	}
+}
+func WithPruningThreshold(pruningThreshold uint64) options.Option[Protocol] {
+	return func(n *Protocol) {
+		n.optsPruningThreshold = pruningThreshold
 	}
 }
 

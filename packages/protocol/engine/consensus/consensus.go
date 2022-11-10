@@ -3,8 +3,10 @@ package consensus
 import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/conflictresolver"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/epochgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
@@ -14,21 +16,25 @@ import (
 type Consensus struct {
 	Events *Events
 
-	*acceptance.Gadget
+	BlockGadget *blockgadget.Gadget
+	EpochGadget *epochgadget.Gadget
 	*conflictresolver.ConflictResolver
 
-	optsAcceptanceGadget []options.Option[acceptance.Gadget]
+	optsAcceptanceGadget        []options.Option[blockgadget.Gadget]
+	optsEpochConfirmationGadget []options.Option[epochgadget.Gadget]
 }
 
-func New(tangle *tangle.Tangle, opts ...options.Option[Consensus]) *Consensus {
+func New(tangle *tangle.Tangle, lastConfirmedEpoch epoch.Index, totalWeightCallback func() int64, opts ...options.Option[Consensus]) *Consensus {
 	return options.Apply(new(Consensus), opts, func(c *Consensus) {
-		c.Gadget = acceptance.New(tangle, c.optsAcceptanceGadget...)
+		c.BlockGadget = blockgadget.New(tangle, totalWeightCallback, c.optsAcceptanceGadget...)
+		c.EpochGadget = epochgadget.New(tangle, lastConfirmedEpoch, totalWeightCallback, c.optsEpochConfirmationGadget...)
 		c.ConflictResolver = conflictresolver.New(tangle.Ledger.ConflictDAG, func(conflictID utxo.TransactionID) (weight int64) {
 			return tangle.VirtualVoting.ConflictVoters(conflictID).TotalWeight()
 		})
 
 		c.Events = NewEvents()
-		c.Events.Acceptance = c.Gadget.Events
+		c.Events.BlockGadget = c.BlockGadget.Events
+		c.Events.EpochGadget = c.EpochGadget.Events
 	})
 }
 
@@ -36,9 +42,15 @@ func New(tangle *tangle.Tangle, opts ...options.Option[Consensus]) *Consensus {
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithAcceptanceGadgetOptions(opts ...options.Option[acceptance.Gadget]) options.Option[Consensus] {
+func WithAcceptanceGadgetOptions(opts ...options.Option[blockgadget.Gadget]) options.Option[Consensus] {
 	return func(c *Consensus) {
 		c.optsAcceptanceGadget = opts
+	}
+}
+
+func WithEpochConfirmationGadgetOptions(opts ...options.Option[epochgadget.Gadget]) options.Option[Consensus] {
+	return func(c *Consensus) {
+		c.optsEpochConfirmationGadget = opts
 	}
 }
 
