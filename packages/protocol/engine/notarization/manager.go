@@ -1,7 +1,6 @@
 package notarization
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -134,7 +133,6 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 		AcceptedTransactionsCount: txsCount,
 		ActiveValidatorsCount:     validatorsCount,
 	}
-	fmt.Println("epochDetails", epochDetails)
 
 	stateRoot, manaRoot := m.storage.ApplyStateDiff(index, m.storage.LedgerStateDiffs.StateDiff(index))
 	acceptedBlocks, acceptedTransactions, activeValidators, cumulativeWeight, err := m.EpochMutations.Commit(index)
