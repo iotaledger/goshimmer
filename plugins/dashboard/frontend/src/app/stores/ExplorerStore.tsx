@@ -48,6 +48,7 @@ export class Block {
     ei: number;
     ecr: string;
     prevEC: string;
+    cumulativeWeight: number;
     latestConfirmedEpoch: number;
 }
 

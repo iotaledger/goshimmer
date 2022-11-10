@@ -31,8 +31,8 @@ type blockRetrieverFunc func(id models.BlockID) (block *scheduler.Block, exists 
 type TipManager struct {
 	Events *Events
 
-	engine           *engine.Engine
-	acceptanceGadget acceptanceGadget
+	engine                *engine.Engine
+	blockAcceptanceGadget acceptanceGadget
 
 	schedulerBlockRetrieverFunc blockRetrieverFunc
 
@@ -63,7 +63,7 @@ func New(schedulerBlockRetrieverFunc blockRetrieverFunc, opts ...options.Option[
 func (t *TipManager) ActivateEngine(engine *engine.Engine) {
 	t.tips = randommap.New[*scheduler.Block, *scheduler.Block]()
 	t.engine = engine
-	t.acceptanceGadget = engine.Consensus.Gadget
+	t.blockAcceptanceGadget = engine.Consensus.BlockGadget
 }
 
 func (t *TipManager) AddTip(block *scheduler.Block) {
@@ -111,7 +111,7 @@ func (t *TipManager) checkMonotonicity(block *scheduler.Block) (anyScheduledOrAc
 			continue
 		}
 
-		if t.acceptanceGadget.IsBlockAccepted(child.ID()) {
+		if t.blockAcceptanceGadget.IsBlockAccepted(child.ID()) {
 			return true
 		}
 
@@ -221,7 +221,7 @@ func (t *TipManager) isPastConeTimestampCorrect(block *booker.Block) (timestampV
 		return false
 	}
 
-	if t.acceptanceGadget.IsBlockAccepted(block.ID()) {
+	if t.blockAcceptanceGadget.IsBlockAccepted(block.ID()) {
 		// return true if block is accepted and has valid timestamp
 		return true
 	}
@@ -278,7 +278,7 @@ func (t *TipManager) checkMarker(marker markers.Marker, previousBlock *booker.Bl
 	// marker before minSupportedTimestamp
 	if block.IssuingTime().Before(minSupportedTimestamp) {
 		// marker before minSupportedTimestamp
-		if !t.acceptanceGadget.IsMarkerAccepted(marker) {
+		if !t.blockAcceptanceGadget.IsMarkerAccepted(marker) {
 			// if not accepted, then incorrect
 			markerWalker.StopWalk()
 			return nil, false
@@ -288,7 +288,7 @@ func (t *TipManager) checkMarker(marker markers.Marker, previousBlock *booker.Bl
 		return block, true
 	}
 	// accepted after minSupportedTimestamp
-	if t.acceptanceGadget.IsMarkerAccepted(marker) {
+	if t.blockAcceptanceGadget.IsMarkerAccepted(marker) {
 		return block, true
 	}
 
@@ -350,7 +350,7 @@ func (t *TipManager) isMarkerOldAndAccepted(previousMarker markers.Marker, minSu
 		return false
 	}
 
-	if t.acceptanceGadget.IsMarkerAccepted(previousMarker) && block.IssuingTime().Before(minSupportedTimestamp) {
+	if t.blockAcceptanceGadget.IsMarkerAccepted(previousMarker) && block.IssuingTime().Before(minSupportedTimestamp) {
 		return true
 	}
 
@@ -380,7 +380,7 @@ func (t *TipManager) checkBlock(block *booker.Block, blockWalker *walker.Walker[
 	}
 
 	// if block is younger than TSC and accepted, then return timestampValid=true
-	if t.acceptanceGadget.IsBlockAccepted(block.ID()) {
+	if t.blockAcceptanceGadget.IsBlockAccepted(block.ID()) {
 		return true
 	}
 
@@ -398,7 +398,7 @@ func (t *TipManager) checkBlock(block *booker.Block, blockWalker *walker.Walker[
 // firstUnacceptedMarker is similar to acceptance.FirstUnacceptedIndex, except it skips any marker gaps and returns
 // an existing marker.
 func (t *TipManager) firstUnacceptedMarker(pastMarker markers.Marker) (firstUnacceptedMarker markers.Marker) {
-	firstUnacceptedIndex := t.acceptanceGadget.FirstUnacceptedIndex(pastMarker.SequenceID())
+	firstUnacceptedIndex := t.blockAcceptanceGadget.FirstUnacceptedIndex(pastMarker.SequenceID())
 	// skip any gaps in marker indices
 	for ; firstUnacceptedIndex <= pastMarker.Index(); firstUnacceptedIndex++ {
 		firstUnacceptedMarker = markers.NewMarker(pastMarker.SequenceID(), firstUnacceptedIndex)

@@ -10,7 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/core/serix"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
@@ -28,7 +28,8 @@ type cachedMetadata struct {
 	ConflictIDs   utxo.TransactionIDs
 	VirtualVoting *blockWithTime[*virtualvoting.Block]
 	Scheduler     *blockWithTime[*scheduler.Block]
-	Acceptance    *blockWithTime[*acceptance.Block]
+	Acceptance    *blockWithTime[*blockgadget.Block]
+	Confirmation  *blockWithTime[*blockgadget.Block]
 
 	sync.RWMutex
 }
@@ -55,10 +56,16 @@ func (c *cachedMetadata) setVirtualVotingBlock(block *virtualvoting.Block) {
 	c.VirtualVoting = newBlockWithTime(block)
 }
 
-func (c *cachedMetadata) setAcceptanceBlock(block *acceptance.Block) {
+func (c *cachedMetadata) setAcceptanceBlock(block *blockgadget.Block) {
 	c.Lock()
 	defer c.Unlock()
 	c.Acceptance = newBlockWithTime(block)
+}
+
+func (c *cachedMetadata) setConfirmationBlock(block *blockgadget.Block) {
+	c.Lock()
+	defer c.Unlock()
+	c.Confirmation = newBlockWithTime(block)
 }
 
 func (c *cachedMetadata) setSchedulerBlock(block *scheduler.Block) {
@@ -126,9 +133,14 @@ type blockMetadataModel struct {
 	Dropped       bool      `serix:"21"`
 	SchedulerTime time.Time `serix:"22"`
 
-	// acceptance.Block
+	// blockgadget.Block
 	Accepted     bool      `serix:"23"`
 	AcceptedTime time.Time `serix:"24"`
+
+	// confirmation.Block
+	Confirmed        bool      `serix:"25"`
+	ConfirmedTime    time.Time `serix:"26"`
+	ConfirmedByEpoch bool      `serix:"27"`
 }
 
 // NewBlockMetadata creates a new BlockMetadata instance. It does not set the ID, as it is not known at this point.
@@ -187,6 +199,9 @@ func newBlockMetadata(cm *cachedMetadata) (b *BlockMetadata) {
 		copyFromAcceptanceBlock(cm.Acceptance, b)
 	}
 
+	if cm.Confirmation != nil {
+		copyFromConfirmedBlock(cm.Confirmation, b)
+	}
 	return b
 }
 
@@ -250,13 +265,19 @@ func copyFromSchedulerBlock(blockWithTime *blockWithTime[*scheduler.Block], bloc
 	blockMetadata.M.SchedulerTime = blockWithTime.Time
 }
 
-func copyFromAcceptanceBlock(blockWithTime *blockWithTime[*acceptance.Block], blockMetadata *BlockMetadata) {
+func copyFromAcceptanceBlock(blockWithTime *blockWithTime[*blockgadget.Block], blockMetadata *BlockMetadata) {
 	block := blockWithTime.Block
 	block.RLock()
 	defer block.RUnlock()
 
 	blockMetadata.M.Accepted = block.IsAccepted()
 	blockMetadata.M.AcceptedTime = blockWithTime.Time
+}
+
+func copyFromConfirmedBlock(blockWithTime *blockWithTime[*blockgadget.Block], blockMetadata *BlockMetadata) {
+	block := blockWithTime.Block
+	blockMetadata.M.Confirmed = block.IsConfirmed()
+	blockMetadata.M.ConfirmedTime = blockWithTime.Time
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

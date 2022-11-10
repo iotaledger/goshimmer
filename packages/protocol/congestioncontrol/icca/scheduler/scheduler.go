@@ -15,7 +15,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
@@ -247,7 +247,7 @@ func (s *Scheduler) HandleOrphanedBlock(orphanedBlock *blockdag.Block) {
 	s.Events.BlockDropped.Trigger(block)
 }
 
-func (s *Scheduler) HandleAcceptedBlock(acceptedBlock *acceptance.Block) {
+func (s *Scheduler) HandleAcceptedBlock(acceptedBlock *blockgadget.Block) {
 	s.evictionMutex.RLock()
 	defer s.evictionMutex.RUnlock()
 

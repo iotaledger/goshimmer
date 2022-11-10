@@ -17,7 +17,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
@@ -84,7 +84,7 @@ func registerTangleEvents() {
 		storeWsBlock(wsBlk)
 	})
 
-	blkAcceptedClosure := event.NewClosure(func(block *acceptance.Block) {
+	blkAcceptedClosure := event.NewClosure(func(block *blockgadget.Block) {
 		wsBlk := &wsBlock{
 			Type: BlkTypeTangleConfirmed,
 			Data: &tangleConfirmed{
@@ -113,7 +113,7 @@ func registerTangleEvents() {
 
 	deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Attach(storeClosure)
 	deps.Protocol.Events.Engine.Tangle.Booker.BlockBooked.Attach(bookedClosure)
-	deps.Protocol.Events.Engine.Consensus.Acceptance.BlockAccepted.Attach(blkAcceptedClosure)
+	deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Attach(blkAcceptedClosure)
 	deps.Protocol.Events.Engine.Ledger.TransactionAccepted.Attach(txAcceptedClosure)
 }
 

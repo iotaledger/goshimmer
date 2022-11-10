@@ -76,7 +76,7 @@ func sendManaValue() {
 	access, exists := deps.Protocol.Engine().ManaTracker.Mana(ownID)
 	// if issuer not found, returned value is 0.0
 	if !exists {
-		log.Errorf("failed to get own access mana: %s ", ownID)
+		log.Debugf("no mana available for local identity: %s ", ownID.String())
 	}
 	consensus := deps.Protocol.Engine().SybilProtection.Weights()
 	blkData := &ManaValueBlkData{
