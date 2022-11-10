@@ -226,7 +226,7 @@ func (c *CausalOrder[ID, Entity]) propagateOrderToChildren(id ID) {
 	for _, child := range c.popUnorderedChildren(id) {
 		currentChild := child
 
-		go event.Loop.Submit(func() {
+		event.Loop.Submit(func() {
 			c.evictionMutex.RLock()
 			defer c.evictionMutex.RUnlock()
 

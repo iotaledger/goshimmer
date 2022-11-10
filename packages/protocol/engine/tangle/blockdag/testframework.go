@@ -70,7 +70,7 @@ func (t *TestFramework) IssueBlocks(blockAliases ...string) *TestFramework {
 	for _, alias := range blockAliases {
 		currentBlock := t.ModelsTestFramework.Block(alias)
 
-		go event.Loop.Submit(func() {
+		event.Loop.Submit(func() {
 			_, _, _ = t.BlockDAG.Attach(currentBlock)
 		})
 	}
