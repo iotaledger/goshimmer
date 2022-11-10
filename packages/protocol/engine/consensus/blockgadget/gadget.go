@@ -306,7 +306,7 @@ func (a *Gadget) markAsAccepted(block *Block) (err error) {
 
 	if block.SetAccepted() {
 		// If block has been orphaned before acceptance, remove the flag from the block. Otherwise, remove the block from TimedHeap.
-		if block.IsExplicitlyOrphaned() {
+		if block.IsOrphaned() {
 			a.tangle.SetOrphaned(block.Block.Block.Block, false)
 		}
 

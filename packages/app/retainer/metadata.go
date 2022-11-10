@@ -103,15 +103,14 @@ type blockMetadataModel struct {
 	Id models.BlockID `serix:"0"`
 
 	// blockdag.Block
-	Missing                  bool            `serix:"1"`
-	Solid                    bool            `serix:"2"`
-	Invalid                  bool            `serix:"3"`
-	Orphaned                 bool            `serix:"4"`
-	OrphanedBlocksInPastCone models.BlockIDs `serix:"5"`
-	StrongChildren           models.BlockIDs `serix:"6"`
-	WeakChildren             models.BlockIDs `serix:"7"`
-	LikedInsteadChildren     models.BlockIDs `serix:"8"`
-	SolidTime                time.Time       `serix:"9"`
+	Missing              bool            `serix:"1"`
+	Solid                bool            `serix:"2"`
+	Invalid              bool            `serix:"3"`
+	Orphaned             bool            `serix:"4"`
+	StrongChildren       models.BlockIDs `serix:"6"`
+	WeakChildren         models.BlockIDs `serix:"7"`
+	LikedInsteadChildren models.BlockIDs `serix:"8"`
+	SolidTime            time.Time       `serix:"9"`
 
 	// booker.Block
 	Booked                bool                `serix:"10"`
@@ -212,7 +211,6 @@ func copyFromBlockDAGBlock(blockWithTime *blockWithTime[*blockdag.Block], blockM
 	blockMetadata.M.Solid = block.IsSolid()
 	blockMetadata.M.Invalid = block.IsInvalid()
 	blockMetadata.M.Orphaned = block.IsOrphaned()
-	blockMetadata.M.OrphanedBlocksInPastCone = block.OrphanedBlocksInPastCone()
 	blockMetadata.M.StrongChildren = blocksToBlockIDs(block.StrongChildren())
 	blockMetadata.M.WeakChildren = blocksToBlockIDs(block.WeakChildren())
 	blockMetadata.M.LikedInsteadChildren = blocksToBlockIDs(block.LikedInsteadChildren())
