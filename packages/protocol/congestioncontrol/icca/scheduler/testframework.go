@@ -55,14 +55,14 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		mockAcceptance: blockgadget.NewMockAcceptanceGadget(),
 	}, opts, func(t *TestFramework) {
 		if t.evictionState == nil {
-			storage := storage.New(test.TempDir(), 1)
+			storageInstance := storage.New(test.TempDir(), 1)
 			test.Cleanup(func() {
-				if err := storage.Shutdown(); err != nil {
+				if err := storageInstance.Shutdown(); err != nil {
 					test.Fatal(err)
 				}
 			})
 
-			t.evictionState = eviction.NewState(storage)
+			t.evictionState = eviction.NewState(storageInstance)
 		}
 		if t.optsValidatorSet == nil {
 			t.optsValidatorSet = validator.NewSet()

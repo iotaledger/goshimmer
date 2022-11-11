@@ -37,14 +37,14 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 	}, opts, func(t *TestFramework) {
 		diskUtil := diskutil.New(test.TempDir())
 
-		storage := storage.New(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), DatabaseVersion)
+		storageInstance := storage.New(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), DatabaseVersion)
 		test.Cleanup(func() {
-			if err := storage.Shutdown(); err != nil {
+			if err := storageInstance.Shutdown(); err != nil {
 				test.Fatal(err)
 			}
 		})
 
-		creator.CreateSnapshot(storage, diskUtil.Path("snapshot.bin"), 100, make([]byte, 32, 32), map[identity.ID]uint64{
+		creator.CreateSnapshot(storageInstance, diskUtil.Path("snapshot.bin"), 100, make([]byte, 32, 32), map[identity.ID]uint64{
 			identity.GenerateIdentity().ID(): 100,
 		})
 

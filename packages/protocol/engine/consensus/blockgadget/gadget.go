@@ -49,10 +49,10 @@ type Gadget struct {
 	confirmationOrder               *causalorder.CausalOrder[models.BlockID, *Block]
 }
 
-func New(tangle *tangle.Tangle, evictionState *eviction.State, totalWeightCallback func() int64, opts ...options.Option[Gadget]) (gadget *Gadget) {
+func New(tangleInstance *tangle.Tangle, evictionState *eviction.State, totalWeightCallback func() int64, opts ...options.Option[Gadget]) (gadget *Gadget) {
 	return options.Apply(&Gadget{
 		Events:                          NewEvents(),
-		tangle:                          tangle,
+		tangle:                          tangleInstance,
 		blocks:                          memstorage.NewEpochStorage[models.BlockID, *Block](),
 		lastAcceptedMarker:              memstorage.New[markers.SequenceID, markers.Index](),
 		evictionState:                   evictionState,
@@ -62,7 +62,7 @@ func New(tangle *tangle.Tangle, evictionState *eviction.State, totalWeightCallba
 	}, opts, func(a *Gadget) {
 		a.Events = NewEvents()
 
-		a.tangle = tangle
+		a.tangle = tangleInstance
 		a.totalWeightCallback = totalWeightCallback
 		a.lastAcceptedMarker = memstorage.New[markers.SequenceID, markers.Index]()
 		a.lastConfirmedMarker = memstorage.New[markers.SequenceID, markers.Index]()

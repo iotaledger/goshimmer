@@ -54,16 +54,16 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 	}, opts, func(t *TestFramework) {
 		epoch.GenesisTime = t.optsGenesisTime.Unix()
 
-		storage := storage.New(test.TempDir(), 1)
+		storageInstance := storage.New(test.TempDir(), 1)
 		test.Cleanup(func() {
 			event.Loop.WaitUntilAllTasksProcessed()
 			t.engine.Shutdown()
-			if err := storage.Shutdown(); err != nil {
+			if err := storageInstance.Shutdown(); err != nil {
 				test.Fatal(err)
 			}
 		})
 
-		t.engine = engine.New(storage, engine.WithTangleOptions(t.optsTangleOptions...))
+		t.engine = engine.New(storageInstance, engine.WithTangleOptions(t.optsTangleOptions...))
 
 		t.TestFramework = tangle.NewTestFramework(
 			test,
