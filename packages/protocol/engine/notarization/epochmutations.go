@@ -225,7 +225,6 @@ func (m *EpochMutations) removeBlockByIssuer(blockID models.BlockID, issuer iden
 // evictUntil removes all data for epochs that are older than the given epoch.
 func (m *EpochMutations) evictUntil(index epoch.Index) {
 	for i := m.latestCommittedIndex + 1; i <= index; i++ {
-		fmt.Println("evicting mutations", i)
 		m.acceptedBlocksByEpoch.Delete(i)
 		m.acceptedTransactionsByEpoch.Delete(i)
 		m.activeValidatorsByEpoch.Delete(i)

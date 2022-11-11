@@ -57,7 +57,6 @@ func (s *SybilProtection) TrackActiveValidators(block *blockdag.Block) {
 func (s *SybilProtection) AddValidator(issuerID identity.ID, activityTime time.Time) {
 	weight, exists := s.consensusManaVector.Get(issuerID)
 	if !exists {
-		fmt.Println("AddValidator: error while retrieving weight", issuerID)
 		return
 	}
 	s.activityTracker.Update(validator.New(issuerID, validator.WithWeight(weight)), activityTime)
