@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"os"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
@@ -99,7 +100,7 @@ func WriteSnapshot(filePath string, s *storage.Storage, l *ledger.Ledger, depth 
 	{
 		var solidEntryPointsCount uint32
 		for epochIndex := snapshotStart; epochIndex <= snapshotEpoch; epochIndex++ {
-			solidEntryPointsCount += uint32(s.EntryPoints.LoadAll(epochIndex).Size())
+			solidEntryPointsCount += uint32(s.RootBlocks.LoadAll(epochIndex).Size())
 		}
 
 		// Solid Entry Points count
@@ -109,9 +110,11 @@ func WriteSnapshot(filePath string, s *storage.Storage, l *ledger.Ledger, depth 
 		binary.Write(fileHandle, binary.LittleEndian, uint32(len(lo.PanicOnErr(dummyBlock.Bytes()))))
 
 		for epochIndex := snapshotStart; epochIndex <= snapshotEpoch; epochIndex++ {
-			s.EntryPoints.Stream(epochIndex, func(blockID models.BlockID) {
+			if err := s.RootBlocks.Stream(epochIndex, func(blockID models.BlockID) {
 				binary.Write(fileHandle, binary.LittleEndian, lo.PanicOnErr(blockID.Bytes()))
-			})
+			}); err != nil {
+				panic(errors.Errorf("failed streaming root blocks for snaphot: %w", err))
+			}
 		}
 	}
 

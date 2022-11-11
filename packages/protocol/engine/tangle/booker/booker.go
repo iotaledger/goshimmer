@@ -3,6 +3,7 @@ package booker
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/cerrors"
@@ -14,7 +15,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/causalorder"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markermanager"
@@ -37,7 +37,7 @@ type Booker struct {
 	markerManager   *markermanager.MarkerManager[models.BlockID, *Block]
 	bookingMutex    *syncutils.DAGMutex[models.BlockID]
 	sequenceMutex   *syncutils.DAGMutex[markers.SequenceID]
-	evictionManager *eviction.LockableState[models.BlockID]
+	evictionManager sync.RWMutex
 
 	optsMarkerManager []options.Option[markermanager.MarkerManager[models.BlockID, *Block]]
 
@@ -51,20 +51,20 @@ func New(blockDAG *blockdag.BlockDAG, ledger *ledger.Ledger, opts ...options.Opt
 		blocks:            memstorage.NewEpochStorage[models.BlockID, *Block](),
 		bookingMutex:      syncutils.NewDAGMutex[models.BlockID](),
 		sequenceMutex:     syncutils.NewDAGMutex[markers.SequenceID](),
-		evictionManager:   blockDAG.EvictionState.Lockable(),
 		optsMarkerManager: make([]options.Option[markermanager.MarkerManager[models.BlockID, *Block]], 0),
 		Ledger:            ledger,
 		BlockDAG:          blockDAG,
 	}, opts, func(b *Booker) {
 		b.markerManager = markermanager.NewMarkerManager(b.optsMarkerManager...)
 		b.bookingOrder = causalorder.New(
-			blockDAG.EvictionState.State,
 			b.Block,
 			(*Block).IsBooked,
 			b.book,
 			b.markInvalid,
 			causalorder.WithReferenceValidator[models.BlockID](isReferenceValid),
 		)
+
+		blockDAG.EvictionState.Events.EpochEvicted.Hook(event.NewClosure(b.evict))
 
 		b.Events.MarkerManager = b.markerManager.Events
 	}, (*Booker).setupEvents)
@@ -82,7 +82,7 @@ func (b *Booker) queue(block *Block) (wasQueued bool, err error) {
 	b.evictionManager.RLock()
 	defer b.evictionManager.RUnlock()
 
-	if b.evictionManager.IsTooOld(block.ID()) {
+	if b.EvictionState.InEvictedEpoch(block.ID()) {
 		return false, nil
 	}
 
@@ -113,7 +113,7 @@ func (b *Booker) BlockBookingDetails(block *Block) (pastMarkersConflictIDs, bloc
 
 // PayloadConflictIDs returns the ConflictIDs of the payload contained in the given Block.
 func (b *Booker) PayloadConflictIDs(block *Block) (conflictIDs utxo.TransactionIDs) {
-	if b.evictionManager.IsTooOld(block.ID()) {
+	if b.EvictionState.InEvictedEpoch(block.ID()) {
 		return utxo.NewTransactionIDs()
 	}
 
@@ -142,7 +142,7 @@ func (b *Booker) BlockFromMarker(marker markers.Marker) (block *Block, exists bo
 	b.evictionManager.RLock()
 	defer b.evictionManager.RUnlock()
 	if marker.Index() == 0 {
-		rootBlock := NewRootBlock(models.EmptyBlockID, models.WithIssuingTime(b.evictionManager.MaxEvictedEpoch().EndTime()))
+		rootBlock := NewRootBlock(models.EmptyBlockID, models.WithIssuingTime(b.EvictionState.LastEvictedEpoch().EndTime()))
 		rootBlock.StructureDetails().SetPastMarkers(markers.NewMarkers(marker))
 
 		return rootBlock, true
@@ -165,15 +165,15 @@ func (b *Booker) GetAllAttachments(txID utxo.TransactionID) (attachments Blocks)
 	return NewBlocks(b.attachments.Get(txID)...)
 }
 
-func (b *Booker) evictEpoch(epochIndex epoch.Index) {
-	b.bookingOrder.EvictEpoch(epochIndex)
+func (b *Booker) evict(epochIndex epoch.Index) {
+	b.bookingOrder.EvictUntil(epochIndex)
 
 	b.evictionManager.Lock()
 	defer b.evictionManager.Unlock()
 
-	b.attachments.EvictEpoch(epochIndex)
-	b.markerManager.EvictEpoch(epochIndex)
-	b.blocks.EvictEpoch(epochIndex)
+	b.attachments.Evict(epochIndex)
+	b.markerManager.Evict(epochIndex)
+	b.blocks.Evict(epochIndex)
 }
 
 func (b *Booker) isPayloadSolid(block *Block) (isPayloadSolid bool, err error) {
@@ -195,7 +195,7 @@ func (b *Booker) isPayloadSolid(block *Block) (isPayloadSolid bool, err error) {
 
 // block retrieves the Block with given id from the mem-storage.
 func (b *Booker) block(id models.BlockID) (block *Block, exists bool) {
-	if b.evictionManager.IsRootBlock(id) {
+	if b.EvictionState.IsRootBlock(id) {
 		return NewRootBlock(id), true
 	}
 
@@ -213,7 +213,7 @@ func (b *Booker) book(block *Block) (err error) {
 		return errors.Errorf("block with %s was marked as invalid", block.ID())
 	}
 
-	if b.evictionManager.IsTooOld(block.ID()) {
+	if b.EvictionState.InEvictedEpoch(block.ID()) {
 		return errors.Errorf("block with %s belongs to an evicted epoch", block.ID())
 	}
 
@@ -290,7 +290,7 @@ func (b *Booker) collectStrongParentsBookingDetails(block *Block) (parentsStruct
 	parentsConflictIDs = utxo.NewTransactionIDs()
 
 	block.ForEachParentByType(models.StrongParentType, func(parentBlockID models.BlockID) bool {
-		if b.evictionManager.IsRootBlock(parentBlockID) {
+		if b.EvictionState.IsRootBlock(parentBlockID) {
 			return true
 		}
 
@@ -418,8 +418,6 @@ func (b *Booker) setupEvents() {
 			}
 		}
 	}))
-
-	b.evictionManager.Events.EpochEvicted.Attach(event.NewClosure(b.evictEpoch))
 }
 
 // region FORK LOGIC ///////////////////////////////////////////////////////////////////////////////////////////////////

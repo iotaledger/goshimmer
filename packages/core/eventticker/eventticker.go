@@ -1,15 +1,14 @@
 package eventticker
 
 import (
+	"sync"
 	"time"
 
 	"github.com/iotaledger/hive.go/core/crypto"
-	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/timed"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 )
 
@@ -19,10 +18,12 @@ import (
 type EventTicker[T epoch.IndexedID] struct {
 	Events *Events[T]
 
-	evictionManager      *eviction.LockableState[T]
-	timedExecutor        *timed.Executor
-	scheduledTickers     *memstorage.EpochStorage[T, *timed.ScheduledTask]
-	scheduledTickerCount int
+	timedExecutor             *timed.Executor
+	scheduledTickers          *memstorage.EpochStorage[T, *timed.ScheduledTask]
+	scheduledTickerCount      int
+	scheduledTickerCountMutex sync.RWMutex
+	lastEvictedEpoch          epoch.Index
+	evictionMutex             sync.RWMutex
 
 	optsRetryInterval       time.Duration
 	optsRetryJitter         time.Duration
@@ -30,20 +31,17 @@ type EventTicker[T epoch.IndexedID] struct {
 }
 
 // New creates a new block requester.
-func New[T epoch.IndexedID](evictionManager *eviction.State[T], opts ...options.Option[EventTicker[T]]) *EventTicker[T] {
+func New[T epoch.IndexedID](opts ...options.Option[EventTicker[T]]) *EventTicker[T] {
 	return options.Apply(&EventTicker[T]{
 		Events: NewEvents[T](),
 
-		evictionManager:  evictionManager.Lockable(),
 		timedExecutor:    timed.NewExecutor(1),
 		scheduledTickers: memstorage.NewEpochStorage[T, *timed.ScheduledTask](),
 
 		optsRetryInterval:       10 * time.Second,
 		optsRetryJitter:         5 * time.Second,
 		optsMaxRequestThreshold: 100,
-	}, opts, func(r *EventTicker[T]) {
-		r.setup()
-	})
+	}, opts)
 }
 
 func (r *EventTicker[T]) StartTicker(id T) {
@@ -60,26 +58,43 @@ func (r *EventTicker[T]) StopTicker(id T) {
 }
 
 func (r *EventTicker[T]) QueueSize() int {
-	r.evictionManager.RLock()
-	defer r.evictionManager.RUnlock()
+	r.scheduledTickerCountMutex.RLock()
+	defer r.scheduledTickerCountMutex.RUnlock()
 
 	return r.scheduledTickerCount
+}
+
+func (r *EventTicker[T]) EvictUntil(epochIndex epoch.Index) {
+	r.evictionMutex.Lock()
+	defer r.evictionMutex.Unlock()
+
+	if epochIndex <= r.lastEvictedEpoch {
+		return
+	}
+
+	for currentIndex := r.lastEvictedEpoch + 1; currentIndex <= epochIndex; currentIndex++ {
+		if evictedStorage := r.scheduledTickers.Evict(currentIndex); evictedStorage != nil {
+			evictedStorage.ForEach(func(id T, scheduledTask *timed.ScheduledTask) bool {
+				scheduledTask.Cancel()
+
+				return true
+			})
+
+			r.updateScheduledTickerCount(-evictedStorage.Size())
+		}
+	}
+	r.lastEvictedEpoch = epochIndex
 }
 
 func (r *EventTicker[T]) Shutdown() {
 	r.timedExecutor.Shutdown(timed.CancelPendingElements)
 }
 
-func (r *EventTicker[T]) setup() {
-	r.evictionManager.Events.EpochEvicted.Attach(event.NewClosure(r.evictEpoch))
-}
-
 func (r *EventTicker[T]) addTickerToQueue(id T) (added bool) {
-	// TODO: RLock enough?
-	r.evictionManager.Lock()
-	defer r.evictionManager.Unlock()
+	r.evictionMutex.RLock()
+	defer r.evictionMutex.RUnlock()
 
-	if r.evictionManager.IsTooOld(id) {
+	if id.Index() <= r.lastEvictedEpoch {
 		return false
 	}
 
@@ -92,15 +107,14 @@ func (r *EventTicker[T]) addTickerToQueue(id T) (added bool) {
 	// schedule the next request and trigger the event
 	queue.Set(id, r.timedExecutor.ExecuteAfter(r.createReScheduler(id, 0), r.optsRetryInterval+time.Duration(crypto.Randomness.Float64()*float64(r.optsRetryJitter))))
 
-	r.scheduledTickerCount++
+	r.updateScheduledTickerCount(1)
 
 	return true
 }
 
 func (r *EventTicker[T]) stopTicker(id T) (stopped bool) {
-	// TODO: RLock enough?
-	r.evictionManager.Lock()
-	defer r.evictionManager.Unlock()
+	r.evictionMutex.RLock()
+	defer r.evictionMutex.RUnlock()
 
 	storage := r.scheduledTickers.Get(id.Index())
 	if storage == nil {
@@ -115,7 +129,7 @@ func (r *EventTicker[T]) stopTicker(id T) (stopped bool) {
 	timer.Cancel()
 	storage.Delete(id)
 
-	r.scheduledTickerCount--
+	r.updateScheduledTickerCount(-1)
 
 	return true
 }
@@ -124,8 +138,8 @@ func (r *EventTicker[T]) reSchedule(id T, count int) {
 	r.Events.Tick.Trigger(id)
 
 	// as we schedule a request at most once per id we do not need to make the trigger and the re-schedule atomic
-	r.evictionManager.Lock()
-	defer r.evictionManager.Unlock()
+	r.evictionMutex.RLock()
+	defer r.evictionMutex.RUnlock()
 
 	// reschedule, if the request has not been stopped in the meantime
 
@@ -142,7 +156,7 @@ func (r *EventTicker[T]) reSchedule(id T, count int) {
 		if count > r.optsMaxRequestThreshold {
 			tickerStorage.Delete(id)
 
-			r.scheduledTickerCount--
+			r.updateScheduledTickerCount(-1)
 
 			r.Events.TickerFailed.Trigger(id)
 			return
@@ -159,15 +173,11 @@ func (r *EventTicker[T]) createReScheduler(blkID T, count int) func() {
 	}
 }
 
-func (r *EventTicker[T]) evictEpoch(epochIndex epoch.Index) {
-	r.evictionManager.Lock()
-	defer r.evictionManager.Unlock()
+func (r *EventTicker[T]) updateScheduledTickerCount(diff int) {
+	r.scheduledTickerCountMutex.Lock()
+	defer r.scheduledTickerCountMutex.Unlock()
 
-	if requestStorage := r.scheduledTickers.Get(epochIndex); requestStorage != nil {
-		r.scheduledTickers.EvictEpoch(epochIndex)
-		// TODO: cancel all tasks from an epoch
-		r.scheduledTickerCount -= requestStorage.Size()
-	}
+	r.scheduledTickerCount += diff
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

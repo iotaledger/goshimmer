@@ -26,6 +26,7 @@ func NewBlock(virtualVotingBlock *virtualvoting.Block, opts ...options.Option[Bl
 	}, opts)
 }
 
+// IsAccepted returns true if the Block was accepted.
 func (b *Block) IsAccepted() bool {
 	b.RLock()
 	defer b.RUnlock()
@@ -33,6 +34,7 @@ func (b *Block) IsAccepted() bool {
 	return b.accepted
 }
 
+// SetAccepted sets the Block as accepted.
 func (b *Block) SetAccepted() (wasUpdated bool) {
 	b.Lock()
 	defer b.Unlock()

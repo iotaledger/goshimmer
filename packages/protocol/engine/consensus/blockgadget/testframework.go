@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
@@ -38,7 +38,7 @@ type TestFramework struct {
 	optsGadgetOptions       []options.Option[Gadget]
 	optsLedger              *ledger.Ledger
 	optsLedgerOptions       []options.Option[ledger.Ledger]
-	optsEvictionManager     *eviction.State[models.BlockID]
+	optsEvictionState       *eviction.State
 	optsValidatorSet        *validator.Set
 	optsTangle              *tangle.Tangle
 	optsTangleOptions       []options.Option[tangle.Tangle]
@@ -48,7 +48,6 @@ type TestFramework struct {
 }
 
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t *TestFramework) {
-	chainStorage := storage.New(test.TempDir(), 1)
 	return options.Apply(&TestFramework{
 		test: test,
 		optsTotalWeightCallback: func() int64 {
@@ -57,26 +56,34 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 	}, opts, func(t *TestFramework) {
 		if t.Gadget == nil {
 			if t.optsTangle == nil {
+				storageInstance := storage.New(test.TempDir(), 1)
+				test.Cleanup(func() {
+					t.optsLedger.Shutdown()
+					if err := storageInstance.Shutdown(); err != nil {
+						test.Fatal(err)
+					}
+				})
+
 				if t.optsLedger == nil {
-					t.optsLedger = ledger.New(chainStorage, t.optsLedgerOptions...)
+					t.optsLedger = ledger.New(storageInstance, t.optsLedgerOptions...)
 				}
 
-				if t.optsEvictionManager == nil {
-					t.optsEvictionManager = eviction.NewState[models.BlockID]()
+				if t.optsEvictionState == nil {
+					t.optsEvictionState = eviction.NewState(storageInstance)
 				}
 
 				if t.optsValidatorSet == nil {
 					t.optsValidatorSet = validator.NewSet()
 				}
 
-				t.optsTangle = tangle.New(t.optsLedger, t.optsEvictionManager, t.optsValidatorSet, func() epoch.Index {
+				t.optsTangle = tangle.New(t.optsLedger, t.optsEvictionState, t.optsValidatorSet, func() epoch.Index {
 					return 0
 				}, func(id markers.SequenceID) markers.Index {
 					return 1
 				}, t.optsTangleOptions...)
 			}
 
-			t.Gadget = New(t.optsTangle, t.optsTotalWeightCallback, t.optsGadgetOptions...)
+			t.Gadget = New(t.optsTangle, t.optsEvictionState, t.optsTotalWeightCallback, t.optsGadgetOptions...)
 		}
 
 		if t.TangleTestFramework == nil {
@@ -123,7 +130,6 @@ func (t *TestFramework) setupEvents() {
 
 		atomic.AddUint32(&(t.conflictsRejected), 1)
 	}))
-	return
 }
 
 func (t *TestFramework) AssertBlockAccepted(blocksAccepted uint32) {
@@ -228,9 +234,9 @@ func WithLedgerOptions(opts ...options.Option[ledger.Ledger]) options.Option[Tes
 	}
 }
 
-func WithEvictionManager(evictionManager *eviction.State[models.BlockID]) options.Option[TestFramework] {
+func WithEvictionState(evictionState *eviction.State) options.Option[TestFramework] {
 	return func(t *TestFramework) {
-		t.optsEvictionManager = evictionManager
+		t.optsEvictionState = evictionState
 	}
 }
 
