@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Builds both the node's and the analysis dashboard and runs pkger afterwards.
+# Builds both the node's and the analysis dashboard.
 
 echo "::: Building /plugins/dashboard/frontend :::"
 docker run -it --rm \
