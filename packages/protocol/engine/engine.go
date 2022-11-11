@@ -177,6 +177,8 @@ func (e *Engine) initConsensus() {
 
 	e.Events.EvictionState.EpochEvicted.Hook(event.NewClosure(e.Consensus.BlockGadget.EvictUntil))
 
+	e.Events.EvictionState.EpochEvicted.Hook(event.NewClosure(e.Consensus.BlockGadget.EvictUntil))
+
 	e.Events.Consensus.LinkTo(e.Consensus.Events)
 
 	e.Events.Consensus.BlockGadget.Error.Hook(event.NewClosure(func(err error) {
@@ -326,7 +328,6 @@ func (e *Engine) initBlockRequester() {
 
 	e.Events.BlockRequester.LinkTo(e.BlockRequester.Events)
 }
-
 func (e *Engine) ProcessBlockFromPeer(block *models.Block, source identity.ID) {
 	e.Filter.ProcessReceivedBlock(block, source)
 }
