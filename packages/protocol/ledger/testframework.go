@@ -186,7 +186,7 @@ func (t *TestFramework) IssueTransaction(txAlias string) (err error) {
 
 func (t *TestFramework) WaitUntilAllTasksProcessed() (self *TestFramework) {
 	// time.Sleep(100 * time.Millisecond)
-	event.Loop.WaitUntilAllTasksProcessed()
+	event.Loop.PendingTasksCounter.WaitIsZero()
 	return t
 }
 
