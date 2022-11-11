@@ -40,7 +40,7 @@ func (c *Storage) PruneUntilEpoch(epochIndex epoch.Index) {
 
 // Shutdown shuts down the storage.
 func (c *Storage) Shutdown() (err error) {
-	event.Loop.WaitUntilAllTasksProcessed()
+	event.Loop.PendingTasksCounter.WaitIsZero()
 
 	defer c.databaseManager.Shutdown()
 

@@ -141,13 +141,13 @@ func (e *Engine) FirstUnacceptedMarker(sequenceID markers.SequenceID) markers.In
 func (e *Engine) initFilter() {
 	e.Filter = filter.New()
 
-	e.Events.Filter = e.Filter.Events
+	e.Events.Filter.LinkTo(e.Filter.Events)
 }
 
 func (e *Engine) initLedger() {
 	e.Ledger = ledger.New(e.Storage, e.optsLedgerOptions...)
 
-	e.Events.Ledger = e.Ledger.Events
+	e.Events.Ledger.LinkTo(e.Ledger.Events)
 }
 
 func (e *Engine) initTangle() {
@@ -159,7 +159,7 @@ func (e *Engine) initTangle() {
 		}
 	}))
 
-	e.Events.Tangle = e.Tangle.Events
+	e.Events.Tangle.LinkTo(e.Tangle.Events)
 }
 
 func (e *Engine) initConsensus() {
@@ -177,7 +177,7 @@ func (e *Engine) initConsensus() {
 
 	e.Events.EvictionState.EpochEvicted.Hook(event.NewClosure(e.Consensus.BlockGadget.EvictUntil))
 
-	e.Events.Consensus = e.Consensus.Events
+	e.Events.Consensus.LinkTo(e.Consensus.Events)
 
 	e.Events.Consensus.BlockGadget.Error.Hook(event.NewClosure(func(err error) {
 		e.Events.Error.Trigger(err)
@@ -206,7 +206,7 @@ func (e *Engine) initClock() {
 		e.Clock.SetConfirmedTime(epochIndex.EndTime())
 	}))
 
-	e.Events.Clock = e.Clock.Events
+	e.Events.Clock.LinkTo(e.Clock.Events)
 }
 
 func (e *Engine) initTSCManager() {
@@ -274,7 +274,7 @@ func (e *Engine) initNotarizationManager() {
 		e.NotarizationManager.SetAcceptanceTime(event.NewTime)
 	}))
 
-	e.Events.NotarizationManager = e.NotarizationManager.Events
+	e.Events.NotarizationManager.LinkTo(e.NotarizationManager.Events)
 }
 
 func (e *Engine) initManaTracker() {
@@ -306,7 +306,7 @@ func (e *Engine) initEvictionState() {
 		e.EvictionState.EvictUntil(commitment.Index())
 	}))
 
-	e.Events.EvictionState.EpochEvicted = e.EvictionState.Events.EpochEvicted
+	e.Events.EvictionState.LinkTo(e.EvictionState.Events)
 }
 
 func (e *Engine) initBlockRequester() {
@@ -324,7 +324,7 @@ func (e *Engine) initBlockRequester() {
 		e.BlockRequester.StopTicker(block.ID())
 	}))
 
-	e.Events.BlockRequester = e.BlockRequester.Events
+	e.Events.BlockRequester.LinkTo(e.BlockRequester.Events)
 }
 
 func (e *Engine) ProcessBlockFromPeer(block *models.Block, source identity.ID) {
