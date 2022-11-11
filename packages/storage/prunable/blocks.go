@@ -21,7 +21,12 @@ func NewBlocks(database *database.Manager, storagePrefix byte) (newBlocks *Block
 }
 
 func (b *Blocks) Load(id models.BlockID) (block *models.Block, err error) {
-	blockBytes, err := b.Storage(id.Index()).Get(lo.PanicOnErr(id.Bytes()))
+	storage := b.Storage(id.Index())
+	if storage == nil {
+		return nil, errors.Errorf("storage does not exist for epoch %s", id.Index())
+	}
+
+	blockBytes, err := storage.Get(lo.PanicOnErr(id.Bytes()))
 	if err != nil {
 		if errors.Is(err, kvstore.ErrKeyNotFound) {
 			return nil, nil
@@ -40,7 +45,12 @@ func (b *Blocks) Load(id models.BlockID) (block *models.Block, err error) {
 }
 
 func (b *Blocks) Store(block *models.Block) (err error) {
-	if err = b.Storage(block.ID().Index()).Set(lo.PanicOnErr(block.ID().Bytes()), lo.PanicOnErr(block.Bytes())); err != nil {
+	storage := b.Storage(block.ID().Index())
+	if storage == nil {
+		return errors.Errorf("storage does not exist for epoch %s", block.ID().Index())
+	}
+
+	if err = storage.Set(lo.PanicOnErr(block.ID().Bytes()), lo.PanicOnErr(block.Bytes())); err != nil {
 		return errors.Errorf("failed to store block %s: %w", block.ID, err)
 	}
 
@@ -48,7 +58,12 @@ func (b *Blocks) Store(block *models.Block) (err error) {
 }
 
 func (b *Blocks) Delete(id models.BlockID) (err error) {
-	if err = b.Storage(id.Index()).Delete(lo.PanicOnErr(id.Bytes())); err != nil {
+	storage := b.Storage(id.Index())
+	if storage == nil {
+		return errors.Errorf("storage does not exist for epoch %s", id.Index())
+	}
+
+	if err = storage.Delete(lo.PanicOnErr(id.Bytes())); err != nil {
 		return errors.Errorf("failed to delete block %s: %w", id, err)
 	}
 

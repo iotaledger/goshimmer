@@ -22,6 +22,7 @@ type TestFramework struct {
 	test               *testing.T
 	transactionsByID   map[string]*ledger.TransactionMetadata
 	issuersByID        map[string]ed25519.PublicKey
+	issuersWeight      map[identity.ID]int64
 	blocksByID         map[string]*models.Block
 	epochEntityCounter map[epoch.Index]int
 
@@ -29,18 +30,23 @@ type TestFramework struct {
 }
 
 func NewTestFramework(test *testing.T) *TestFramework {
-	return &TestFramework{
-		MutationFactory: NewEpochMutations(0),
-
+	tf := &TestFramework{
 		test:               test,
 		transactionsByID:   make(map[string]*ledger.TransactionMetadata),
 		issuersByID:        make(map[string]ed25519.PublicKey),
+		issuersWeight:      make(map[identity.ID]int64),
 		blocksByID:         make(map[string]*models.Block),
 		epochEntityCounter: make(map[epoch.Index]int),
 	}
+	tf.MutationFactory = NewEpochMutations(func(id identity.ID) (int64, bool) {
+		weight, exists := tf.issuersWeight[id]
+		return weight, exists
+	}, 0)
+
+	return tf
 }
 
-func (t *TestFramework) CreateIssuer(alias string) (issuer ed25519.PublicKey) {
+func (t *TestFramework) CreateIssuer(alias string, issuerWeight ...int64) (issuer ed25519.PublicKey) {
 	t.Lock()
 	defer t.Unlock()
 
@@ -51,7 +57,9 @@ func (t *TestFramework) CreateIssuer(alias string) (issuer ed25519.PublicKey) {
 	issuer = ed25519.GenerateKeyPair().PublicKey
 
 	t.issuersByID[alias] = issuer
-
+	if len(issuerWeight) == 1 {
+		t.issuersWeight[identity.NewID(issuer)] = issuerWeight[0]
+	}
 	return issuer
 }
 
@@ -160,8 +168,8 @@ func (t *TestFramework) UpdateTransactionInclusion(alias string, oldEpoch, newEp
 	return t.MutationFactory.UpdateTransactionInclusion(tx.ID(), oldEpoch, newEpoch)
 }
 
-func (t *TestFramework) AssertCommit(index epoch.Index, expectedBlocks []string, expectedTransactions []string, expectedValidators []string, optShouldError ...bool) {
-	acceptedBlocks, acceptedTransactions, activeValidators, err := t.MutationFactory.Commit(index)
+func (t *TestFramework) AssertCommit(index epoch.Index, expectedBlocks []string, expectedTransactions []string, expectedValidators []string, expectedCumulativeWeight uint64, optShouldError ...bool) {
+	acceptedBlocks, acceptedTransactions, activeValidators, cumulativeWeight, err := t.MutationFactory.Commit(index)
 	if len(optShouldError) > 0 && optShouldError[0] {
 		require.Error(t.test, err)
 	}
@@ -192,6 +200,9 @@ func (t *TestFramework) AssertCommit(index epoch.Index, expectedBlocks []string,
 			require.True(t.test, activeValidators.Has(identity.NewID(t.Issuer(expectedValidator))))
 		}
 	}
+
+	require.Equal(t.test, expectedCumulativeWeight, cumulativeWeight)
+
 }
 
 func (t *TestFramework) increaseEpochEntityCounter(index epoch.Index) (nextBlockCounter int) {

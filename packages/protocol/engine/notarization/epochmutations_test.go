@@ -18,10 +18,10 @@ func TestMutationFactory(t *testing.T) {
 	tf.CreateTransaction("tx3.1", 3)
 
 	// create issuers
-	tf.CreateIssuer("Batman")
-	tf.CreateIssuer("Robin")
-	tf.CreateIssuer("Joker")
-	tf.CreateIssuer("Superman")
+	tf.CreateIssuer("Batman", 10)
+	tf.CreateIssuer("Robin", 10)
+	tf.CreateIssuer("Joker", 10)
+	tf.CreateIssuer("Superman", 10)
 
 	// create blocks
 	tf.CreateBlock("1.1", 1)
@@ -32,14 +32,14 @@ func TestMutationFactory(t *testing.T) {
 	tf.CreateBlock("3.2", 3, models.WithIssuer(tf.Issuer("Superman")))
 
 	// commit epoch 1 (empty)
-	tf.AssertCommit(1, nil, nil, nil)
+	tf.AssertCommit(1, nil, nil, nil, 0)
 
 	// mutate epoch 1 (errors expected)
 	require.Error(t, tf.AddAcceptedBlock("1.1"))
 	require.Error(t, tf.RemoveAcceptedBlock("1.1"))
 	require.NoError(t, tf.UpdateTransactionInclusion("tx1.1", 3, 5))
 	require.Error(t, tf.UpdateTransactionInclusion("tx3.1", 2, 1))
-	tf.AssertCommit(1, nil, nil, nil, true)
+	tf.AssertCommit(1, nil, nil, nil, 0, true)
 
 	// mutate epoch 2
 	require.NoError(t, tf.AddAcceptedBlock("2.1"))
@@ -57,8 +57,8 @@ func TestMutationFactory(t *testing.T) {
 	require.NoError(t, tf.RemoveAcceptedBlock("3.2"))
 
 	// assert commitment of epoch 2
-	tf.AssertCommit(2, []string{"2.1", "2.2", "2.3"}, []string{"tx2.1", "tx3.1"}, []string{"Batman", "Robin", "Joker"}, false)
+	tf.AssertCommit(2, []string{"2.1", "2.2", "2.3"}, []string{"tx2.1", "tx3.1"}, []string{"Batman", "Robin", "Joker"}, 30, false)
 
 	// assert commitment of epoch 3
-	tf.AssertCommit(3, []string{"3.1"}, []string{}, []string{"Batman"}, false)
+	tf.AssertCommit(3, []string{"3.1"}, []string{}, []string{"Batman"}, 50, false)
 }

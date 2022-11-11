@@ -11,22 +11,23 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
 // region TestFramework //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type TestFramework struct {
 	Scheduler      *Scheduler
-	mockAcceptance *acceptance.MockAcceptanceGadget
+	mockAcceptance *blockgadget.MockAcceptanceGadget
 	issuersByAlias map[string]*identity.Identity
 	issuersMana    map[identity.ID]int64
 
@@ -35,14 +36,14 @@ type TestFramework struct {
 	scheduledBlocksCount uint32
 	skippedBlocksCount   uint32
 	droppedBlocksCount   uint32
+	evictionState        *eviction.State
 
 	optsScheduler           []options.Option[Scheduler]
 	optsTangle              []options.Option[tangle.Tangle]
-	optsGadget              []options.Option[acceptance.Gadget]
+	optsGadget              []options.Option[blockgadget.Gadget]
 	optsValidatorSet        *validator.Set
-	optsEvictionManager     *eviction.State[models.BlockID]
 	optsIsBlockAcceptedFunc func(models.BlockID) bool
-	optsBlockAcceptedEvent  *event.Linkable[*acceptance.Block]
+	optsBlockAcceptedEvent  *event.Linkable[*blockgadget.Block]
 	*TangleTestFramework
 }
 
@@ -51,10 +52,17 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		test:           test,
 		issuersMana:    make(map[identity.ID]int64),
 		issuersByAlias: make(map[string]*identity.Identity),
-		mockAcceptance: acceptance.NewMockAcceptanceGadget(),
+		mockAcceptance: blockgadget.NewMockAcceptanceGadget(),
 	}, opts, func(t *TestFramework) {
-		if t.optsEvictionManager == nil {
-			t.optsEvictionManager = eviction.NewState[models.BlockID]()
+		if t.evictionState == nil {
+			storageInstance := storage.New(test.TempDir(), 1)
+			test.Cleanup(func() {
+				if err := storageInstance.Shutdown(); err != nil {
+					test.Fatal(err)
+				}
+			})
+
+			t.evictionState = eviction.NewState(storageInstance)
 		}
 		if t.optsValidatorSet == nil {
 			t.optsValidatorSet = validator.NewSet()
@@ -64,7 +72,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 			test,
 			tangle.WithTangleOptions(t.optsTangle...),
 			tangle.WithValidatorSet(t.optsValidatorSet),
-			tangle.WithEvictionState(t.optsEvictionManager),
+			tangle.WithEvictionState(t.evictionState),
 		)
 
 		if t.optsIsBlockAcceptedFunc == nil {
@@ -75,14 +83,14 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		}
 
 		if t.Scheduler == nil {
-			t.Scheduler = New(t.TangleTestFramework.BlockDAG.EvictionState.State, t.optsIsBlockAcceptedFunc, t.ManaMap, t.TotalMana, t.optsScheduler...)
+			t.Scheduler = New(t.TangleTestFramework.BlockDAG.EvictionState, t.optsIsBlockAcceptedFunc, t.ManaMap, t.TotalMana, t.optsScheduler...)
 		}
 	}, (*TestFramework).setupEvents)
 }
 
 type TangleTestFramework = tangle.TestFramework
 
-type GadgetTestFramework = acceptance.TestFramework
+type GadgetTestFramework = blockgadget.TestFramework
 
 func (t *TestFramework) setupEvents() {
 	t.mockAcceptance.BlockAcceptedEvent.Attach(event.NewClosure(t.Scheduler.HandleAcceptedBlock))
@@ -110,8 +118,6 @@ func (t *TestFramework) setupEvents() {
 		}
 		atomic.AddUint32(&(t.droppedBlocksCount), 1)
 	}))
-
-	return
 }
 
 func (t *TestFramework) CreateIssuer(alias string, issuerMana int64) {
@@ -225,7 +231,7 @@ func WithSchedulerOptions(opts ...options.Option[Scheduler]) options.Option[Test
 	}
 }
 
-func WithGadgetOptions(opts ...options.Option[acceptance.Gadget]) options.Option[TestFramework] {
+func WithGadgetOptions(opts ...options.Option[blockgadget.Gadget]) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
 		tf.optsGadget = opts
 	}
@@ -237,7 +243,7 @@ func WithTangleOptions(opts ...options.Option[tangle.Tangle]) options.Option[Tes
 	}
 }
 
-func WithBlockAcceptedEvent(blockAcceptedEvent *event.Linkable[*acceptance.Block]) options.Option[TestFramework] {
+func WithBlockAcceptedEvent(blockAcceptedEvent *event.Linkable[*blockgadget.Block]) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
 		tf.optsBlockAcceptedEvent = blockAcceptedEvent
 	}
@@ -249,9 +255,9 @@ func WithIsBlockAcceptedFunc(isBlockAcceptedFunc func(id models.BlockID) bool) o
 	}
 }
 
-func WithEvictionManager(evictionManager *eviction.State[models.BlockID]) options.Option[TestFramework] {
+func WithEvictionState(evictionState *eviction.State) options.Option[TestFramework] {
 	return func(t *TestFramework) {
-		t.optsEvictionManager = evictionManager
+		t.evictionState = evictionState
 	}
 }
 

@@ -25,7 +25,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/app/retainer"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
@@ -53,8 +53,8 @@ var (
 	server *echo.Echo
 
 	nodeStartAt        = time.Now()
-	lastAcceptedBlock  *acceptance.Block
-	lastConfirmedBlock *acceptance.Block
+	lastAcceptedBlock  *blockgadget.Block
+	lastConfirmedBlock *blockgadget.Block
 )
 
 type dependencies struct {
@@ -78,7 +78,7 @@ func init() {
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(plugin.Name)
 
-	lastAcceptedBlock = &acceptance.Block{
+	lastAcceptedBlock = &blockgadget.Block{
 		Block: &virtualvoting.Block{
 			Block: &booker.Block{
 				Block: &blockdag.Block{
@@ -89,9 +89,14 @@ func configure(plugin *node.Plugin) {
 	}
 	lastConfirmedBlock = lastAcceptedBlock
 
-	deps.Protocol.Events.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
+	deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
 		if lastAcceptedBlock.IssuingTime().Before(block.IssuingTime()) {
 			lastAcceptedBlock = block
+		}
+	}))
+
+	deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockConfirmed.Attach(event.NewClosure(func(block *blockgadget.Block) {
+		if lastConfirmedBlock.IssuingTime().Before(block.IssuingTime()) {
 			lastConfirmedBlock = block
 		}
 	}))
@@ -257,6 +262,7 @@ type tangleTime struct {
 
 	AcceptedBlockID  string `json:"acceptedBlockID"`
 	ConfirmedBlockID string `json:"confirmedBlockID"`
+	ConfirmedEpoch   int64  `json:"confirmedEpoch"`
 }
 
 type memmetrics struct {
@@ -368,6 +374,7 @@ func currentNodeStatus() *nodestatus {
 		Bootstrapped:     deps.Protocol.Engine().IsBootstrapped(),
 		AcceptedBlockID:  lastAcceptedBlock.ID().Base58(),
 		ConfirmedBlockID: lastConfirmedBlock.ID().Base58(),
+		ConfirmedEpoch:   int64(deps.Protocol.Engine().LastConfirmedEpoch()),
 		ATT:              tm.AcceptedTime().UnixNano(),
 		RATT:             tm.RelativeAcceptedTime().UnixNano(),
 		CTT:              tm.ConfirmedTime().UnixNano(),

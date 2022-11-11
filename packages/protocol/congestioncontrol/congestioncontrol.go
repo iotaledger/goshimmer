@@ -36,7 +36,7 @@ func (c *CongestionControl) LinkTo(engine *engine.Engine) {
 
 	c.scheduler = scheduler.New(
 		engine.EvictionState,
-		engine.Consensus.IsBlockAccepted,
+		engine.Consensus.BlockGadget.IsBlockAccepted,
 		engine.ManaTracker.ManaByIDs,
 		engine.ManaTracker.TotalMana,
 		c.optsSchedulerOptions...,
@@ -51,7 +51,7 @@ func (c *CongestionControl) LinkTo(engine *engine.Engine) {
 	//	c.Events.Scheduler.BlockScheduled.Trigger(registerBlock)
 	// }))
 	engine.Tangle.Events.BlockDAG.BlockOrphaned.Attach(event.NewClosure(c.scheduler.HandleOrphanedBlock))
-	engine.Consensus.Events.Acceptance.BlockAccepted.Attach(event.NewClosure(c.scheduler.HandleAcceptedBlock))
+	engine.Consensus.Events.BlockGadget.BlockAccepted.Attach(event.NewClosure(c.scheduler.HandleAcceptedBlock))
 
 	c.Events.Scheduler.LinkTo(c.scheduler.Events)
 

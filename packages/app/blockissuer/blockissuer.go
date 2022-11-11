@@ -14,7 +14,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -44,7 +43,7 @@ func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opt
 		Events:   NewEvents(),
 		identity: localIdentity,
 		protocol: protocol,
-		referenceProvider: blockfactory.NewReferenceProvider(func() *engine.Engine { return protocol.Engine() }, func() epoch.Index {
+		referenceProvider: blockfactory.NewReferenceProvider(protocol, func() epoch.Index {
 			return protocol.Engine().Storage.Settings.LatestCommitment().Index()
 		}),
 	}, opts, func(i *BlockIssuer) {

@@ -10,6 +10,7 @@ import (
 
 // region Block ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// Block represents a Block that is scheduled by the scheduler.
 type Block struct {
 	scheduled bool
 	skipped   bool
@@ -25,6 +26,7 @@ func NewBlock(virtualVotingBlock *virtualvoting.Block, opts ...options.Option[Bl
 	}, opts)
 }
 
+// NewRootBlock creates a new root Block.
 func NewRootBlock(id models.BlockID) (rootBlock *Block) {
 	return NewBlock(
 		virtualvoting.NewRootBlock(id),
@@ -34,6 +36,7 @@ func NewRootBlock(id models.BlockID) (rootBlock *Block) {
 	)
 }
 
+// IsScheduled returns true if the Block is scheduled.
 func (b *Block) IsScheduled() bool {
 	b.RLock()
 	defer b.RUnlock()
@@ -41,6 +44,7 @@ func (b *Block) IsScheduled() bool {
 	return b.scheduled
 }
 
+// SetScheduled sets the scheduled flag of the Block.
 func (b *Block) SetScheduled() (wasUpdated bool) {
 	b.Lock()
 	defer b.Unlock()
@@ -52,6 +56,7 @@ func (b *Block) SetScheduled() (wasUpdated bool) {
 	return
 }
 
+// IsDropped returns true if the Block is dropped.
 func (b *Block) IsDropped() bool {
 	b.RLock()
 	defer b.RUnlock()
@@ -59,6 +64,7 @@ func (b *Block) IsDropped() bool {
 	return b.dropped
 }
 
+// SetDropped sets the dropped flag of the Block.
 func (b *Block) SetDropped() (wasUpdated bool) {
 	b.Lock()
 	defer b.Unlock()
@@ -70,6 +76,7 @@ func (b *Block) SetDropped() (wasUpdated bool) {
 	return
 }
 
+// IsSkipped returns true if the Block is skipped.
 func (b *Block) IsSkipped() bool {
 	b.RLock()
 	defer b.RUnlock()
@@ -77,6 +84,7 @@ func (b *Block) IsSkipped() bool {
 	return b.skipped
 }
 
+// SetSkipped sets the skipped flag of the Block.
 func (b *Block) SetSkipped() (wasUpdated bool) {
 	b.Lock()
 	defer b.Unlock()
@@ -92,18 +100,21 @@ func (b *Block) SetSkipped() (wasUpdated bool) {
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// WithScheduled sets the scheduled flag of the Block.
 func WithScheduled(scheduled bool) options.Option[Block] {
 	return func(b *Block) {
 		b.scheduled = scheduled
 	}
 }
 
+// WithDiscarded sets the discarded flag of the Block.
 func WithDiscarded(discarded bool) options.Option[Block] {
 	return func(b *Block) {
 		b.dropped = discarded
 	}
 }
 
+// WithSkipped sets the skipped flag of the Block.
 func WithSkipped(skipped bool) options.Option[Block] {
 	return func(b *Block) {
 		b.skipped = skipped

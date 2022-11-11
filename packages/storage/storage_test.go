@@ -27,7 +27,7 @@ func Test(t *testing.T) {
 	storage.Blocks.Store(emptyBlock)
 	fmt.Println(storage.Blocks.Load(emptyBlock.ID()))
 
-	storage.database.Flush(0)
+	storage.databaseManager.Flush(0)
 
 	storage.Shutdown()
 

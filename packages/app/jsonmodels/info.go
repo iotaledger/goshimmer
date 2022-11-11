@@ -44,6 +44,7 @@ type InfoResponse struct {
 type TangleTime struct {
 	AcceptedBlockID  string `json:"blockID"`
 	ConfirmedBlockID string `json:"confirmedBlockID"`
+	ConfirmedEpoch   int64  `json:"confirmedEpoch"`
 	ATT              int64  `json:"ATT"`
 	RATT             int64  `json:"RATT"`
 	CTT              int64  `json:"CTT"`

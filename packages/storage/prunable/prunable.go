@@ -6,14 +6,14 @@ import (
 
 const (
 	blocksPrefix byte = iota
-	entryPointsPrefix
+	rootBlocksPrefix
 	activityLogPrefix
 	ledgerStateDiffsPrefix
 )
 
 type Prunable struct {
 	Blocks           *Blocks
-	EntryPoints      *EntryPoints
+	RootBlocks       *RootBlocks
 	ActiveNodes      *ActiveNodes
 	LedgerStateDiffs *LedgerStateDiffs
 }
@@ -21,7 +21,7 @@ type Prunable struct {
 func New(database *database.Manager) (newPrunable *Prunable) {
 	return &Prunable{
 		Blocks:           NewBlocks(database, blocksPrefix),
-		EntryPoints:      NewSolidEntryPoints(database, entryPointsPrefix),
+		RootBlocks:       NewRootBlocks(database, rootBlocksPrefix),
 		ActiveNodes:      NewActiveNodes(database, activityLogPrefix),
 		LedgerStateDiffs: NewLedgerStateDiffs(database, ledgerStateDiffsPrefix),
 	}

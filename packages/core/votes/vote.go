@@ -3,13 +3,14 @@ package votes
 import (
 	"sync"
 
+	"github.com/iotaledger/hive.go/core/generics/constraints"
 	"github.com/iotaledger/hive.go/core/generics/orderedmap"
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 )
 
-type Vote[ConflictIDType comparable, VotePowerType VotePower[VotePowerType]] struct {
+type Vote[ConflictIDType comparable, VotePowerType constraints.Comparable[VotePowerType]] struct {
 	Voter      *validator.Validator
 	ConflictID ConflictIDType
 	Opinion    Opinion
@@ -17,7 +18,7 @@ type Vote[ConflictIDType comparable, VotePowerType VotePower[VotePowerType]] str
 }
 
 // NewVote derives a Vote for th.
-func NewVote[ConflictIDType comparable, VotePowerType VotePower[VotePowerType]](voter *validator.Validator, votePower VotePowerType, opinion Opinion) (voteWithOpinion *Vote[ConflictIDType, VotePowerType]) {
+func NewVote[ConflictIDType comparable, VotePowerType constraints.Comparable[VotePowerType]](voter *validator.Validator, votePower VotePowerType, opinion Opinion) (voteWithOpinion *Vote[ConflictIDType, VotePowerType]) {
 	return &Vote[ConflictIDType, VotePowerType]{
 		Voter:     voter,
 		VotePower: votePower,
@@ -57,13 +58,13 @@ func (v *Vote[ConflictIDType, VotePowerType]) WithVotePower(power VotePowerType)
 
 // region Votes ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-type Votes[ConflictIDType comparable, VotePowerType VotePower[VotePowerType]] struct {
+type Votes[ConflictIDType comparable, VotePowerType constraints.Comparable[VotePowerType]] struct {
 	o orderedmap.OrderedMap[identity.ID, *Vote[ConflictIDType, VotePowerType]]
 
 	m sync.RWMutex
 }
 
-func NewVotes[ConflictIDType comparable, VotePowerType VotePower[VotePowerType]]() *Votes[ConflictIDType, VotePowerType] {
+func NewVotes[ConflictIDType comparable, VotePowerType constraints.Comparable[VotePowerType]]() *Votes[ConflictIDType, VotePowerType] {
 	return &Votes[ConflictIDType, VotePowerType]{
 		o: *orderedmap.New[identity.ID, *Vote[ConflictIDType, VotePowerType]](),
 	}
@@ -77,7 +78,7 @@ func (v *Votes[ConflictIDType, VotePowerType]) Add(vote *Vote[ConflictIDType, Vo
 	if !exists {
 		return v.o.Set(vote.Voter.ID(), vote), true
 	}
-	if vote.VotePower.CompareTo(previousVote.VotePower) <= 0 {
+	if vote.VotePower.Compare(previousVote.VotePower) <= 0 {
 		return false, false
 	}
 
@@ -115,14 +116,6 @@ func (v *Votes[ConflictIDType, VotePowerType]) Vote(voter *validator.Validator) 
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// VotePower is used to establish an absolute order of votes, regardless of their arrival order.
-// Currently, the used VotePower is the SequenceNumber embedded in the Block Layout, so that, regardless
-// of the order in which votes are received, the same conclusion is computed.
-// Alternatively, the objective timestamp of a Block could be used.
-type VotePower[T any] interface {
-	CompareTo(other T) int
-}
 
 // region Opinion //////////////////////////////////////////////////////////////////////////////////////////////////////
 

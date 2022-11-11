@@ -12,7 +12,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -92,7 +92,7 @@ func runVisualizer() {
 		processBlock(block.ModelsBlock, false)
 	})
 
-	notifyNewBlkAccepted := event.NewClosure(func(block *acceptance.Block) {
+	notifyNewBlkAccepted := event.NewClosure(func(block *blockgadget.Block) {
 		processBlock(block.ModelsBlock, block.IsAccepted())
 	})
 
@@ -107,8 +107,8 @@ func runVisualizer() {
 	if err := daemon.BackgroundWorker("Dashboard[Visualizer]", func(ctx context.Context) {
 		deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Attach(notifyNewBlkStored)
 		defer deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Detach(notifyNewBlkStored)
-		deps.Protocol.Events.Engine.Consensus.Acceptance.BlockAccepted.Attach(notifyNewBlkAccepted)
-		defer deps.Protocol.Events.Engine.Consensus.Acceptance.BlockAccepted.Detach(notifyNewBlkAccepted)
+		deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Attach(notifyNewBlkAccepted)
+		defer deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Detach(notifyNewBlkAccepted)
 		deps.Protocol.Events.TipManager.TipAdded.Attach(notifyNewTip)
 		defer deps.Protocol.Events.TipManager.TipAdded.Detach(notifyNewTip)
 		deps.Protocol.Events.TipManager.TipRemoved.Attach(notifyDeletedTip)

@@ -38,7 +38,7 @@ func (a *attachments) Get(txID utxo.TransactionID) (attachments []*Block) {
 	return
 }
 
-func (a *attachments) EvictEpoch(epochIndex epoch.Index) {
+func (a *attachments) Evict(epochIndex epoch.Index) {
 	if txIDs, exists := a.evictionMap.Get(epochIndex); exists {
 		a.evictionMap.Delete(epochIndex)
 
