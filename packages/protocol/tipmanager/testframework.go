@@ -56,7 +56,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 
 		storageInstance := storage.New(test.TempDir(), 1)
 		test.Cleanup(func() {
-			event.Loop.WaitUntilAllTasksProcessed()
+			event.Loop.PendingTasksCounter.WaitIsZero()
 			t.engine.Shutdown()
 			if err := storageInstance.Shutdown(); err != nil {
 				test.Fatal(err)
