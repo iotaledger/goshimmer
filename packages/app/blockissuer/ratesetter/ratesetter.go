@@ -81,6 +81,7 @@ type RateSetter interface {
 	Rate() float64
 	Estimate() time.Duration
 	Size() int
+	//events
 	Events() *Events
 	// block issuer
 	IssueBlock(*models.Block) error
