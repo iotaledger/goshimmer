@@ -1,6 +1,7 @@
 package blockgadget
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/cockroachdb/errors"
@@ -219,6 +220,7 @@ func (a *Gadget) EvictUntil(index epoch.Index) {
 	defer a.evictionMutex.Unlock()
 
 	if evictedStorage := a.blocks.Evict(index); evictedStorage != nil {
+		fmt.Println("evict", index)
 		a.Events.EpochClosed.Trigger(evictedStorage)
 	}
 }
