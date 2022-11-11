@@ -18,7 +18,6 @@ require (
 	github.com/libp2p/go-libp2p v0.15.0
 	github.com/libp2p/go-libp2p-core v0.9.0
 	github.com/magiconair/properties v1.8.6
-	github.com/markbates/pkger v0.17.1
 	github.com/mr-tron/base58 v1.2.0
 	github.com/multiformats/go-multiaddr v0.4.1
 	github.com/multiformats/go-varint v0.0.6
