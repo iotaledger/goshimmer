@@ -1,8 +1,6 @@
 package markermanager
 
 import (
-	"fmt"
-
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
 
@@ -70,7 +68,7 @@ func (m *MarkerManager[IndexedID, MappedEntity]) ProcessBlock(block MappedEntity
 	return
 }
 
-func (m *MarkerManager[IndexedID, MappedEntity]) EvictEpoch(epochIndex epoch.Index) {
+func (m *MarkerManager[IndexedID, MappedEntity]) Evict(epochIndex epoch.Index) {
 	m.evictMarkerBlockMapping(epochIndex)
 	m.evictSequences(epochIndex)
 }
@@ -80,10 +78,7 @@ func (m *MarkerManager[IndexedID, MappedEntity]) evictSequences(epochIndex epoch
 		m.sequenceEviction.Delete(epochIndex)
 
 		sequenceSet.ForEach(func(sequenceID markers.SequenceID) {
-			lastUsed, exists := m.sequenceLastUsed.Get(sequenceID)
-			fmt.Println("iterating sequences", epochIndex, sequenceID, lastUsed, exists)
 			if lastUsed, exists := m.sequenceLastUsed.Get(sequenceID); exists && lastUsed <= epochIndex {
-				fmt.Println("delete sequence ", sequenceID)
 				m.sequenceLastUsed.Delete(sequenceID)
 				m.markerIndexConflictIDMapping.Delete(sequenceID)
 				m.SequenceManager.Delete(sequenceID)

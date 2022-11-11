@@ -16,7 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
@@ -31,9 +31,8 @@ import (
 type TestFramework struct {
 	TipManager           *TipManager
 	engine               *engine.Engine
-	mockAcceptance       *acceptance.MockAcceptanceGadget
+	mockAcceptance       *blockgadget.MockAcceptanceGadget
 	scheduledBlocks      *shrinkingmap.ShrinkingMap[models.BlockID, *scheduler.Block]
-	storage              *storage.Storage
 	scheduledBlocksMutex sync.RWMutex
 
 	test       *testing.T
@@ -49,14 +48,22 @@ type TestFramework struct {
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t *TestFramework) {
 	return options.Apply(&TestFramework{
 		test:            test,
-		mockAcceptance:  acceptance.NewMockAcceptanceGadget(),
+		mockAcceptance:  blockgadget.NewMockAcceptanceGadget(),
 		scheduledBlocks: shrinkingmap.New[models.BlockID, *scheduler.Block](),
-		storage:         storage.New(test.TempDir(), 1),
 		optsGenesisTime: time.Now().Add(-1 * time.Hour),
 	}, opts, func(t *TestFramework) {
 		epoch.GenesisTime = t.optsGenesisTime.Unix()
 
-		t.engine = engine.New(t.storage, engine.WithTangleOptions(t.optsTangleOptions...))
+		storageInstance := storage.New(test.TempDir(), 1)
+		test.Cleanup(func() {
+			event.Loop.WaitUntilAllTasksProcessed()
+			t.engine.Shutdown()
+			if err := storageInstance.Shutdown(); err != nil {
+				test.Fatal(err)
+			}
+		})
+
+		t.engine = engine.New(storageInstance, engine.WithTangleOptions(t.optsTangleOptions...))
 
 		t.TestFramework = tangle.NewTestFramework(
 			test,
@@ -72,7 +79,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		}
 
 		t.TipManager.ActivateEngine(t.engine)
-		t.TipManager.AcceptanceGadget = t.mockAcceptance
+		t.TipManager.blockAcceptanceGadget = t.mockAcceptance
 
 		t.SetAcceptedTime(t.optsGenesisTime)
 
@@ -188,11 +195,6 @@ func (t *TestFramework) AssertTips(actualTips, expectedTips models.BlockIDs) {
 
 func (t *TestFramework) AssertTipCount(expectedTipCount int) {
 	assert.Equal(t.test, expectedTipCount, t.TipManager.TipCount(), "expected %d tip count but got %d", t.TipManager.TipCount(), expectedTipCount)
-}
-
-func (t *TestFramework) Shutdown() {
-	event.Loop.WaitUntilAllTasksProcessed()
-	t.engine.Shutdown()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

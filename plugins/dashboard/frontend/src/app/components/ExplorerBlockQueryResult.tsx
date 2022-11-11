@@ -219,6 +219,9 @@ export class ExplorerBlockQueryResult extends React.Component<Props, any> {
                                                 <ListGroup.Item>
                                                     PrevEC: {blk.prevEC}
                                                 </ListGroup.Item>
+                                                <ListGroup.Item>
+                                                    Cumulative Weight: {blk.cumulativeWeight}
+                                                </ListGroup.Item>
                                             </ListGroup>
                                         </ListGroup.Item>
                                         <ListGroup.Item>

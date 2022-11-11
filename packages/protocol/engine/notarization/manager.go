@@ -11,6 +11,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
@@ -29,16 +30,17 @@ type Manager struct {
 	acceptanceTime             time.Time
 	optsMinCommittableEpochAge time.Duration
 
-	sync.Mutex
+	sync.RWMutex
 }
 
-func NewManager(storage *storage.Storage, opts ...options.Option[Manager]) (new *Manager) {
+func NewManager(storage *storage.Storage, sybilProtection *sybilprotection.SybilProtection, opts ...options.Option[Manager]) (new *Manager) {
 	return options.Apply(&Manager{
 		Events:         NewEvents(),
-		EpochMutations: NewEpochMutations(storage.Settings.LatestCommitment().Index()),
+		EpochMutations: NewEpochMutations(sybilProtection.Weight, storage.Settings.LatestCommitment().Index()),
 
 		storage:                    storage,
 		pendingConflictsCounters:   shrinkingmap.New[epoch.Index, uint64](),
+		acceptanceTime:             storage.Settings.LatestCommitment().Index().EndTime(),
 		optsMinCommittableEpochAge: defaultMinEpochCommittableAge,
 	}, opts)
 }
@@ -82,6 +84,14 @@ func (m *Manager) SetAcceptanceTime(acceptanceTime time.Time) {
 	}
 }
 
+// IsFullyCommitted returns if the Manager finished committing all pending epochs up to the current acceptance time.
+func (m *Manager) IsFullyCommitted() bool {
+	m.RLock()
+	defer m.RUnlock()
+
+	return m.acceptanceTime.Sub((m.storage.Settings.LatestCommitment().Index() + 1).EndTime()) < m.optsMinCommittableEpochAge
+}
+
 func (m *Manager) tryCommitEpoch(index epoch.Index) {
 	for i := m.storage.Settings.LatestCommitment().Index() + 1; i <= index; i++ {
 		if !m.isCommittable(i) || !m.createCommitment(i) {
@@ -114,23 +124,22 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 
 	m.pendingConflictsCounters.Delete(index)
 
-	acceptedBlocks, acceptedTransactions, activeValidators, err := m.EpochMutations.Commit(index)
+	stateRoot, manaRoot := m.storage.ApplyStateDiff(index, m.storage.LedgerStateDiffs.StateDiff(index))
+
+	acceptedBlocks, acceptedTransactions, activeValidators, cumulativeWeight, err := m.EpochMutations.Commit(index)
 	if err != nil {
 		m.Events.Error.Trigger(errors.Errorf("failed to commit mutations: %w", err))
 
 		return false
 	}
-	stateRoot, manaRoot := m.storage.ApplyStateDiff(index, m.storage.LedgerStateDiffs.StateDiff(index))
 
-	// TODO: obtain and commit to cumulative weight
-	newCommitment := commitment.New(index, latestCommitment.ID(), commitment.NewRoots(acceptedBlocks.Root(), acceptedTransactions.Root(), activeValidators.Root(), stateRoot, manaRoot).ID(), 0)
+	newCommitment := commitment.New(index, latestCommitment.ID(), commitment.NewRoots(acceptedBlocks.Root(), acceptedTransactions.Root(), activeValidators.Root(), stateRoot, manaRoot).ID(), cumulativeWeight)
 
 	if err = m.storage.Settings.SetLatestCommitment(newCommitment); err != nil {
 		m.Events.Error.Trigger(errors.Errorf("failed to set latest commitment: %w", err))
 	}
 
 	m.Events.EpochCommitted.Trigger(newCommitment)
-
 	return true
 }
 

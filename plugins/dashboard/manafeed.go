@@ -15,7 +15,7 @@ import (
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/manatracker/manamodels"
 )
 
 var (
@@ -76,7 +76,7 @@ func sendManaValue() {
 	access, exists := deps.Protocol.Engine().ManaTracker.Mana(ownID)
 	// if issuer not found, returned value is 0.0
 	if !exists {
-		log.Errorf("failed to get own access mana: %s ", ownID)
+		log.Debugf("no mana available for local identity: %s ", ownID.String())
 	}
 	consensus := deps.Protocol.Engine().SybilProtection.Weights()
 	blkData := &ManaValueBlkData{
@@ -93,7 +93,7 @@ func sendManaValue() {
 }
 
 func sendManaMapOverall() {
-	accessManaList, _, err := manamodels.GetHighestManaIssuers(0, deps.Protocol.Engine().ManaTracker.ManaMap())
+	accessManaList, _, err := manamodels.GetHighestManaIssuers(0, deps.Protocol.Engine().ManaTracker.ManaByIDs())
 	if err != nil && !errors.Is(err, manamodels.ErrQueryNotAllowed) {
 		log.Errorf("failed to get list of n highest access mana issuers: %s ", err.Error())
 	}
@@ -132,7 +132,7 @@ func sendManaMapOnline() {
 		return
 	}
 	knownPeers := deps.Discover.GetVerifiedPeers()
-	manaMap := deps.Protocol.Engine().ManaTracker.ManaMap()
+	manaMap := deps.Protocol.Engine().ManaTracker.ManaByIDs()
 	accessPayload := &ManaNetworkListBlkData{ManaType: manamodels.AccessMana.String()}
 	var totalAccessMana int64
 	for _, peerID := range append(lo.Map(knownPeers, func(p *peer.Peer) identity.ID { return p.ID() }), deps.Local.ID()) {

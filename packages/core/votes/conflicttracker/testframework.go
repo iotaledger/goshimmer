@@ -3,9 +3,11 @@ package conflicttracker
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
+	"github.com/iotaledger/hive.go/core/generics/constraints"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
@@ -15,7 +17,7 @@ import (
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
 
-type TestFramework[VotePowerType votes.VotePower[VotePowerType]] struct {
+type TestFramework[VotePowerType constraints.Comparable[VotePowerType]] struct {
 	ConflictTracker *ConflictTracker[utxo.TransactionID, utxo.OutputID, VotePowerType]
 
 	test                         *testing.T
@@ -26,7 +28,7 @@ type TestFramework[VotePowerType votes.VotePower[VotePowerType]] struct {
 }
 
 // NewTestFramework is the constructor of the TestFramework.
-func NewTestFramework[VotePowerType votes.VotePower[VotePowerType]](test *testing.T, opts ...options.Option[TestFramework[VotePowerType]]) (newTestFramework *TestFramework[VotePowerType]) {
+func NewTestFramework[VotePowerType constraints.Comparable[VotePowerType]](test *testing.T, opts ...options.Option[TestFramework[VotePowerType]]) (newTestFramework *TestFramework[VotePowerType]) {
 	return options.Apply(&TestFramework[VotePowerType]{
 		test: test,
 	}, opts, func(t *TestFramework[VotePowerType]) {
@@ -58,7 +60,7 @@ type ConflictDAGTestFramework = conflictdag.TestFramework
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithVotesTestFramework[VotePowerType votes.VotePower[VotePowerType]](votesTestFramework *votes.TestFramework) options.Option[TestFramework[VotePowerType]] {
+func WithVotesTestFramework[VotePowerType constraints.Comparable[VotePowerType]](votesTestFramework *votes.TestFramework) options.Option[TestFramework[VotePowerType]] {
 	return func(tf *TestFramework[VotePowerType]) {
 		if tf.VotesTestFramework != nil {
 			panic("VotesTestFramework already set")
@@ -68,7 +70,7 @@ func WithVotesTestFramework[VotePowerType votes.VotePower[VotePowerType]](votesT
 	}
 }
 
-func WithConflictTracker[VotePowerType votes.VotePower[VotePowerType]](conflictTracker *ConflictTracker[utxo.TransactionID, utxo.OutputID, VotePowerType]) options.Option[TestFramework[VotePowerType]] {
+func WithConflictTracker[VotePowerType constraints.Comparable[VotePowerType]](conflictTracker *ConflictTracker[utxo.TransactionID, utxo.OutputID, VotePowerType]) options.Option[TestFramework[VotePowerType]] {
 	return func(tf *TestFramework[VotePowerType]) {
 		if tf.ConflictTracker != nil {
 			panic("conflict tracker already set")
@@ -78,7 +80,7 @@ func WithConflictTracker[VotePowerType votes.VotePower[VotePowerType]](conflictT
 	}
 }
 
-func WithConflictDAG[VotePowerType votes.VotePower[VotePowerType]](conflictDAG *conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID]) options.Option[TestFramework[VotePowerType]] {
+func WithConflictDAG[VotePowerType constraints.Comparable[VotePowerType]](conflictDAG *conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID]) options.Option[TestFramework[VotePowerType]] {
 	return func(t *TestFramework[VotePowerType]) {
 		if t.optsConflictDAGTestFramework == nil {
 			t.optsConflictDAGTestFramework = make([]options.Option[conflictdag.TestFramework], 0)

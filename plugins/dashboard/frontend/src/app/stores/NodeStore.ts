@@ -25,7 +25,7 @@ class TangleTime {
     RCTT: number;
     acceptedBlockID: string;
     confirmedBlockID: string;
-
+    confirmedEpoch: number;
 }
 
 class MemoryMetrics {
@@ -62,7 +62,7 @@ class SchedulerMetric {
     rate: string;
     maxBufferSize: number;
     currentBufferSize: number;
-    deficit : number;
+    deficit: number;
     ts: string;
 
 }

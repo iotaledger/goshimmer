@@ -13,7 +13,7 @@ import (
 	"github.com/iotaledger/hive.go/core/types"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
@@ -306,7 +306,7 @@ func TestScheduler_SkipConfirmed(t *testing.T) {
 		blkUnreadyConfirmedNew.ID(): types.Void,
 	})
 
-	tf.mockAcceptance.BlockAcceptedEvent.Trigger(acceptance.NewBlock(blkUnreadyConfirmedNew.Block, acceptance.WithAccepted(true)))
+	tf.mockAcceptance.BlockAcceptedEvent.Trigger(blockgadget.NewBlock(blkUnreadyConfirmedNew.Block, blockgadget.WithAccepted(true)))
 
 	// make sure that the block was not unsubmitted
 	assert.Equal(t, tf.Scheduler.buffer.IssuerQueue(tf.Issuer("peer").ID()).IDs()[0], blkUnreadyConfirmedNew.ID())
@@ -347,7 +347,7 @@ func TestScheduler_SkipConfirmed(t *testing.T) {
 		blkUnreadyConfirmedOld.ID(): types.Void,
 	})
 
-	tf.mockAcceptance.BlockAcceptedEvent.Trigger(acceptance.NewBlock(blkUnreadyConfirmedOld.Block, acceptance.WithAccepted(true)))
+	tf.mockAcceptance.BlockAcceptedEvent.Trigger(blockgadget.NewBlock(blkUnreadyConfirmedOld.Block, blockgadget.WithAccepted(true)))
 
 	assert.Eventually(t, func() bool {
 		select {
@@ -442,7 +442,7 @@ func TestScheduler_Issue(t *testing.T) {
 		lo.MergeMaps(tf.mockAcceptance.AcceptedBlocks, map[models.BlockID]types.Empty{
 			block.ID(): types.Void,
 		})
-		tf.mockAcceptance.BlockAcceptedEvent.Trigger(acceptance.NewBlock(block.Block, acceptance.WithAccepted(true)))
+		tf.mockAcceptance.BlockAcceptedEvent.Trigger(blockgadget.NewBlock(block.Block, blockgadget.WithAccepted(true)))
 	}
 
 	tf.AssertBlocksSkipped(0)

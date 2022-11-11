@@ -1,4 +1,4 @@
-package acceptance
+package blockgadget
 
 import (
 	"sync"
@@ -12,8 +12,9 @@ import (
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/packages/core/eviction"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
@@ -29,44 +30,60 @@ type TestFramework struct {
 
 	test              *testing.T
 	acceptedBlocks    uint32
+	confirmedBlocks   uint32
 	conflictsAccepted uint32
 	conflictsRejected uint32
 	reorgCount        uint32
 
-	optsGadgetOptions   []options.Option[Gadget]
-	optsLedger          *ledger.Ledger
-	optsLedgerOptions   []options.Option[ledger.Ledger]
-	optsEvictionManager *eviction.State[models.BlockID]
-	optsValidatorSet    *validator.Set
-	optsTangle          *tangle.Tangle
-	optsTangleOptions   []options.Option[tangle.Tangle]
+	optsGadgetOptions       []options.Option[Gadget]
+	optsLedger              *ledger.Ledger
+	optsLedgerOptions       []options.Option[ledger.Ledger]
+	optsEvictionState       *eviction.State
+	optsValidatorSet        *validator.Set
+	optsTangle              *tangle.Tangle
+	optsTangleOptions       []options.Option[tangle.Tangle]
+	optsTotalWeightCallback func() int64
 
 	*TangleTestFramework
 }
 
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t *TestFramework) {
-	chainStorage := storage.New(test.TempDir(), 1)
 	return options.Apply(&TestFramework{
 		test: test,
+		optsTotalWeightCallback: func() int64 {
+			return t.ValidatorSet.TotalWeight()
+		},
 	}, opts, func(t *TestFramework) {
 		if t.Gadget == nil {
 			if t.optsTangle == nil {
+				storageInstance := storage.New(test.TempDir(), 1)
+				test.Cleanup(func() {
+					t.optsLedger.Shutdown()
+					if err := storageInstance.Shutdown(); err != nil {
+						test.Fatal(err)
+					}
+				})
+
 				if t.optsLedger == nil {
-					t.optsLedger = ledger.New(chainStorage, t.optsLedgerOptions...)
+					t.optsLedger = ledger.New(storageInstance, t.optsLedgerOptions...)
 				}
 
-				if t.optsEvictionManager == nil {
-					t.optsEvictionManager = eviction.NewState[models.BlockID]()
+				if t.optsEvictionState == nil {
+					t.optsEvictionState = eviction.NewState(storageInstance)
 				}
 
 				if t.optsValidatorSet == nil {
 					t.optsValidatorSet = validator.NewSet()
 				}
 
-				t.optsTangle = tangle.New(t.optsLedger, t.optsEvictionManager, t.optsValidatorSet, t.optsTangleOptions...)
+				t.optsTangle = tangle.New(t.optsLedger, t.optsEvictionState, t.optsValidatorSet, func() epoch.Index {
+					return 0
+				}, func(id markers.SequenceID) markers.Index {
+					return 1
+				}, t.optsTangleOptions...)
 			}
 
-			t.Gadget = New(t.optsTangle, t.optsGadgetOptions...)
+			t.Gadget = New(t.optsTangle, t.optsEvictionState, t.optsTotalWeightCallback, t.optsGadgetOptions...)
 		}
 
 		if t.TangleTestFramework == nil {
@@ -82,6 +99,14 @@ func (t *TestFramework) setupEvents() {
 		}
 
 		atomic.AddUint32(&(t.acceptedBlocks), 1)
+	}))
+
+	t.Gadget.Events.BlockConfirmed.Hook(event.NewClosure(func(metadata *Block) {
+		if debug.GetEnabled() {
+			t.test.Logf("CONFIRMED: %s", metadata.ID())
+		}
+
+		atomic.AddUint32(&(t.confirmedBlocks), 1)
 	}))
 
 	t.Gadget.Events.Reorg.Hook(event.NewClosure(func(conflictID utxo.TransactionID) {
@@ -105,11 +130,14 @@ func (t *TestFramework) setupEvents() {
 
 		atomic.AddUint32(&(t.conflictsRejected), 1)
 	}))
-	return
 }
 
 func (t *TestFramework) AssertBlockAccepted(blocksAccepted uint32) {
 	assert.Equal(t.test, blocksAccepted, atomic.LoadUint32(&t.acceptedBlocks), "expected %d blocks to be accepted but got %d", blocksAccepted, atomic.LoadUint32(&t.acceptedBlocks))
+}
+
+func (t *TestFramework) AssertBlockConfirmed(blocksConfirmed uint32) {
+	assert.Equal(t.test, blocksConfirmed, atomic.LoadUint32(&t.confirmedBlocks), "expected %d blocks to be accepted but got %d", blocksConfirmed, atomic.LoadUint32(&t.confirmedBlocks))
 }
 
 func (t *TestFramework) AssertConflictsAccepted(conflictsAccepted uint32) {
@@ -124,10 +152,17 @@ func (t *TestFramework) AssertReorgs(reorgCount uint32) {
 	assert.Equal(t.test, reorgCount, atomic.LoadUint32(&t.reorgCount), "expected %d reorgs but got %d", reorgCount, atomic.LoadUint32(&t.reorgCount))
 }
 
-func (t *TestFramework) ValidateAcceptedBlocks(expectedConflictIDs map[string]bool) {
-	for blockID, blockExpectedAccepted := range expectedConflictIDs {
+func (t *TestFramework) ValidateAcceptedBlocks(expectedAcceptedBlocks map[string]bool) {
+	for blockID, blockExpectedAccepted := range expectedAcceptedBlocks {
 		actualBlockAccepted := t.Gadget.IsBlockAccepted(t.Block(blockID).ID())
 		assert.Equal(t.test, blockExpectedAccepted, actualBlockAccepted, "Block %s should be accepted=%t but is %t", blockID, blockExpectedAccepted, actualBlockAccepted)
+	}
+}
+
+func (t *TestFramework) ValidateConfirmedBlocks(expectedConfirmedBlocks map[string]bool) {
+	for blockID, blockExpectedConfirmed := range expectedConfirmedBlocks {
+		actualBlockConfirmed := t.Gadget.isBlockConfirmed(t.Block(blockID).ID())
+		assert.Equal(t.test, blockExpectedConfirmed, actualBlockConfirmed, "Block %s should be confirmed=%t but is %t", blockID, blockExpectedConfirmed, actualBlockConfirmed)
 	}
 }
 
@@ -154,6 +189,12 @@ type TangleTestFramework = tangle.TestFramework
 func WithGadget(gadget *Gadget) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
 		tf.Gadget = gadget
+	}
+}
+
+func WithTotalWeightCallback(totalWeightCallback func() int64) options.Option[TestFramework] {
+	return func(tf *TestFramework) {
+		tf.optsTotalWeightCallback = totalWeightCallback
 	}
 }
 
@@ -193,9 +234,9 @@ func WithLedgerOptions(opts ...options.Option[ledger.Ledger]) options.Option[Tes
 	}
 }
 
-func WithEvictionManager(evictionManager *eviction.State[models.BlockID]) options.Option[TestFramework] {
+func WithEvictionState(evictionState *eviction.State) options.Option[TestFramework] {
 	return func(t *TestFramework) {
-		t.optsEvictionManager = evictionManager
+		t.optsEvictionState = evictionState
 	}
 }
 

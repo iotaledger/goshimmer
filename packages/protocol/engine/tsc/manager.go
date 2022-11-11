@@ -20,9 +20,9 @@ import (
 
 // Manager is a manager that tracks orphaned blocks.
 type Manager struct {
-	unconfirmedBlocks generalheap.Heap[timed.HeapKey, *blockdag.Block]
-	tangle            *tangle.Tangle
-	isBlockAccepted   func(models.BlockID) bool
+	unacceptedBlocks generalheap.Heap[timed.HeapKey, *blockdag.Block]
+	tangle           *tangle.Tangle
+	isBlockAccepted  func(models.BlockID) bool
 
 	optsTimeSinceConfirmationThreshold time.Duration
 
@@ -49,19 +49,19 @@ func (o *Manager) AddBlock(block *booker.Block) {
 	o.Lock()
 	defer o.Unlock()
 
-	heap.Push(&o.unconfirmedBlocks, &generalheap.HeapElement[timed.HeapKey, *blockdag.Block]{Value: block.Block, Key: timed.HeapKey(block.IssuingTime())})
+	heap.Push(&o.unacceptedBlocks, &generalheap.HeapElement[timed.HeapKey, *blockdag.Block]{Value: block.Block, Key: timed.HeapKey(block.IssuingTime())})
 }
 
 // orphanBeforeTSC removes all elements with key time earlier than the given time. If a block is not accepted by this time, it becomes orphaned.
 func (o *Manager) orphanBeforeTSC(minAllowedTime time.Time) {
-	unconfirmedBlocksCount := o.unconfirmedBlocks.Len()
-	for i := 0; i < unconfirmedBlocksCount; i++ {
-		if minAllowedTime.Before(time.Time(o.unconfirmedBlocks[0].Key)) {
+	unacceptedBlocksCount := o.unacceptedBlocks.Len()
+	for i := 0; i < unacceptedBlocksCount; i++ {
+		if minAllowedTime.Before(time.Time(o.unacceptedBlocks[0].Key)) {
 			return
 		}
 
-		blockToOrphan := o.unconfirmedBlocks[0].Value
-		heap.Pop(&o.unconfirmedBlocks)
+		blockToOrphan := o.unacceptedBlocks[0].Value
+		heap.Pop(&o.unacceptedBlocks)
 		if !o.isBlockAccepted(blockToOrphan.ID()) {
 			fmt.Println("orphan block due to TSC", blockToOrphan.ID())
 			o.tangle.SetOrphaned(blockToOrphan, true)
