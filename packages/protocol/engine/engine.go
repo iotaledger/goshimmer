@@ -177,6 +177,8 @@ func (e *Engine) initConsensus() {
 
 	e.Events.EvictionState.EpochEvicted.Hook(event.NewClosure(e.Consensus.BlockGadget.EvictUntil))
 
+	e.Events.EvictionState.EpochEvicted.Hook(event.NewClosure(e.Consensus.BlockGadget.EvictUntil))
+
 	e.Events.Consensus.LinkTo(e.Consensus.Events)
 
 	e.Events.Consensus.BlockGadget.Error.Hook(event.NewClosure(func(err error) {
