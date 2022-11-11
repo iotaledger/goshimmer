@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
+
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/stretchr/testify/assert"
@@ -33,8 +35,9 @@ func TestRateSetter_IssueBlock(t *testing.T) {
 
 		blockIssued := make(chan *models.Block, 1)
 		tf.RateSetter.Events().BlockIssued.Attach(event.NewClosure(func(block *models.Block) { blockIssued <- block }))
-
-		blk := models.NewBlock(models.WithIssuer(localIdentity.PublicKey()))
+		pay := payload.NewGenericDataPayload([]byte("test"))
+		blk := models.NewBlock(models.WithIssuer(localIdentity.PublicKey()), models.WithPayload(pay))
+		blk.DetermineID()
 		assert.NoError(t, tf.RateSetter.IssueBlock(blk))
 		assert.Eventually(t, func() bool {
 			select {
