@@ -242,7 +242,7 @@ loop:
 func (r *DeficitRateSetter) setupEvents() {
 
 	// TODO: update deficit-based rate setting if own deficit is modified
-	r.protocol.CongestionControl.Scheduler().Events.OwnDeficitUpdated.Attach(event.NewClosure(func(issuerID identity.ID) {
+	r.protocol.Events.CongestionControl.Scheduler.OwnDeficitUpdated.Attach(event.NewClosure(func(issuerID identity.ID) {
 		if issuerID == r.self {
 			r.deficitChan <- r.protocol.CongestionControl.Scheduler().GetExcessDeficit(issuerID)
 		}
