@@ -126,7 +126,7 @@ func NewDeficit(protocol *protocol.Protocol, selfIdentity identity.ID, opts ...o
 		shutdownSignal:        make(chan struct{}),
 	}, opts, func(r *DeficitRateSetter) {
 		go r.issuerLoop()
-	})
+	}, (*DeficitRateSetter).setupEvents)
 
 }
 

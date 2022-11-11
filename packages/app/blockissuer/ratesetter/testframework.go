@@ -3,6 +3,7 @@ package ratesetter
 import (
 	"os"
 	"testing"
+	"time"
 
 	"github.com/iotaledger/hive.go/core/configuration"
 	"github.com/iotaledger/hive.go/core/generics/lo"
@@ -25,6 +26,8 @@ type TestFramework struct {
 	localID    identity.ID
 }
 
+var schedulerRate time.Duration = 10 * time.Millisecond
+
 func NewTestFramework(test *testing.T, localID identity.ID, mode RateSetterModeType, opts ...options.Option[TestFramework]) (newTestFramework *TestFramework) {
 	_ = logger.InitGlobalLogger(configuration.New())
 	var rateSetter RateSetter
@@ -40,11 +43,15 @@ func NewTestFramework(test *testing.T, localID identity.ID, mode RateSetterModeT
 
 	switch mode {
 	case AIMDMode:
-		rateSetter = NewAIMD(protocol, localID)
+		rateSetter = NewAIMD(protocol, localID,
+			WithSchedulerRateAIMD(schedulerRate),
+		)
 	case DisabledMode:
 		rateSetter = NewDisabled()
 	default:
-		rateSetter = NewDeficit(protocol, localID)
+		rateSetter = NewDeficit(protocol, localID,
+			WithSchedulerRateDeficit(schedulerRate),
+		)
 	}
 	return &TestFramework{
 		RateSetter: rateSetter,
