@@ -1,7 +1,6 @@
 package blockgadget
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/cockroachdb/errors"

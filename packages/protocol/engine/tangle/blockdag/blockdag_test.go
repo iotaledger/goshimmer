@@ -518,7 +518,6 @@ func TestBlockDAG_Prune(t *testing.T) {
 	validateState(tf, 0, epochCount)
 	tf.BlockDAG.EvictionState.EvictUntil(epochCount / 4)
 	event.Loop.PendingTasksCounter.WaitIsZero()
-
 	assert.EqualValues(t, epochCount/4, tf.BlockDAG.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch should be epochCount/4")
 
 	// All orphan blocks should be marked as invalid due to invalidity propagation.

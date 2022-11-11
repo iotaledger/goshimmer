@@ -1,7 +1,6 @@
 package sybilprotection
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/iotaledger/hive.go/core/generics/options"

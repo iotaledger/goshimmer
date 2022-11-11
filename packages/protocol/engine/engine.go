@@ -326,7 +326,6 @@ func (e *Engine) initBlockRequester() {
 
 	e.Events.BlockRequester.LinkTo(e.BlockRequester.Events)
 }
-
 func (e *Engine) ProcessBlockFromPeer(block *models.Block, source identity.ID) {
 	e.Filter.ProcessReceivedBlock(block, source)
 }
