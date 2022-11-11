@@ -22,7 +22,8 @@ func TestRateSetter_StartStop(t *testing.T) {
 }
 
 func TestRateSetter_IssueBlock(t *testing.T) {
-	localID := identity.GenerateIdentity().ID()
+	localIdentity := identity.GenerateIdentity()
+	localID := localIdentity.ID()
 	allModes := []RateSetterModeType{AIMDMode, DeficitMode, DisabledMode}
 
 	for _, mode := range allModes {
@@ -33,7 +34,7 @@ func TestRateSetter_IssueBlock(t *testing.T) {
 		blockIssued := make(chan *models.Block, 1)
 		tf.RateSetter.Events().BlockIssued.Attach(event.NewClosure(func(block *models.Block) { blockIssued <- block }))
 
-		blk := models.NewBlock()
+		blk := models.NewBlock(models.WithIssuer(localIdentity.PublicKey()))
 		assert.NoError(t, tf.RateSetter.IssueBlock(blk))
 		assert.Eventually(t, func() bool {
 			select {
