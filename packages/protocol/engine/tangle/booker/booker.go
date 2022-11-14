@@ -294,7 +294,7 @@ func (b *Booker) collectStrongParentsBookingDetails(block *Block) (parentsStruct
 			return true
 		}
 
-		parentBlock, exists := b.Block(parentBlockID)
+		parentBlock, exists := b.block(parentBlockID)
 		if !exists {
 			// This should never happen.
 			panic(fmt.Sprintf("parent %s does not exist", parentBlockID))
