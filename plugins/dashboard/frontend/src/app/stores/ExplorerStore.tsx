@@ -33,6 +33,7 @@ export class Block {
     subtractedConflictIDs: Array<string>;
     scheduled: boolean;
     booked: boolean;
+    orphaned: boolean;
     objectivelyInvalid: boolean;
     subjectivelyInvalid: boolean;
     confirmationState: number;
