@@ -115,8 +115,12 @@ func (b *Block) VerifySignature() (valid bool, err error) {
 	signature := b.Signature()
 
 	contentHash := blake2b.Sum256(blkBytes[:len(blkBytes)-len(signature)])
+	issuingTimeBytes, err := serix.DefaultAPI.Encode(context.Background(), b.IssuingTime(), serix.WithValidation())
+	if err != nil {
+		panic(err)
+	}
 
-	return b.M.IssuerPublicKey.VerifySignature(byteutils.ConcatBytes(lo.PanicOnErr(b.Commitment().ID().Bytes()), contentHash[:]), signature), nil
+	return b.M.IssuerPublicKey.VerifySignature(byteutils.ConcatBytes(issuingTimeBytes, lo.PanicOnErr(b.Commitment().ID().Bytes()), contentHash[:]), signature), nil
 }
 
 // Version returns the block Version.

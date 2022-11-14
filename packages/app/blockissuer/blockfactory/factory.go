@@ -1,6 +1,7 @@
 package blockfactory
 
 import (
+	"context"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -9,6 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/minio/blake2b-simd"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
@@ -216,8 +218,12 @@ func (f *Factory) sign(block *models.Block) (ed25519.Signature, error) {
 	}
 
 	contentHash := blake2b.Sum256(bytes[:len(bytes)-len(block.Signature())])
+	issuingTimeBytes, err := serix.DefaultAPI.Encode(context.Background(), block.IssuingTime(), serix.WithValidation())
+	if err != nil {
+		panic(err)
+	}
 
-	return f.identity.Sign(byteutils.ConcatBytes(lo.PanicOnErr(block.Commitment().ID().Bytes()), contentHash[:])), nil
+	return f.identity.Sign(byteutils.ConcatBytes(issuingTimeBytes, lo.PanicOnErr(block.Commitment().ID().Bytes()), contentHash[:])), nil
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

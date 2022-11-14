@@ -1,16 +1,22 @@
 package notarization
 
 import (
+	"context"
 	"sync"
+	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/constraints"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
+	"github.com/iotaledger/hive.go/core/serix"
+	"github.com/iotaledger/hive.go/core/types"
 
 	"github.com/iotaledger/goshimmer/packages/core/ads"
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
@@ -29,7 +35,7 @@ type EpochMutations struct {
 	acceptedTransactionsByEpoch *memstorage.Storage[epoch.Index, *ads.Set[utxo.TransactionID]]
 
 	// activeValidatorsByEpoch stores the active validators per epoch.
-	activeValidatorsByEpoch *memstorage.Storage[epoch.Index, *ads.Set[identity.ID]]
+	activeValidatorsByEpoch *memstorage.Storage[epoch.Index, *ads.Map[identity.ID, SignedCommitment, *SignedCommitment]]
 
 	// issuerBlocksByEpoch stores the blocks issued by a validator per epoch.
 	issuerBlocksByEpoch *memstorage.EpochStorage[identity.ID, *set.AdvancedSet[models.BlockID]]
@@ -50,7 +56,7 @@ func NewEpochMutations(validatorWeightFunc func(id identity.ID) (int64, bool), l
 
 		acceptedBlocksByEpoch:       memstorage.New[epoch.Index, *ads.Set[models.BlockID]](),
 		acceptedTransactionsByEpoch: memstorage.New[epoch.Index, *ads.Set[utxo.TransactionID]](),
-		activeValidatorsByEpoch:     memstorage.New[epoch.Index, *ads.Set[identity.ID]](),
+		activeValidatorsByEpoch:     memstorage.New[epoch.Index, *ads.Map[identity.ID, SignedCommitment, *SignedCommitment]](),
 		issuerBlocksByEpoch:         memstorage.NewEpochStorage[identity.ID, *set.AdvancedSet[models.BlockID]](),
 
 		latestCommittedIndex: lastCommittedEpoch,
@@ -236,4 +242,27 @@ func (m *EpochMutations) evictUntil(index epoch.Index) {
 // newSet is a generic constructor for a new ads.Set.
 func newSet[A constraints.Serializable]() *ads.Set[A] {
 	return ads.NewSet[A](mapdb.NewMapDB())
+}
+
+type SignedCommitment struct {
+	IssuingTime      time.Time         `serix:"1"`
+	CommitmentID     commitment.ID     `serix:"0"`
+	BlockContentHash types.Identifier  `serix:"2"`
+	Signature        ed25519.Signature `serix:"3"`
+}
+
+func NewWeightProofEntry(issuingTime time.Time, commitmentID commitment.ID, blockContentHash types.Identifier, signature ed25519.Signature) *SignedCommitment {
+	return &SignedCommitment{
+		IssuingTime:      issuingTime,
+		BlockContentHash: blockContentHash,
+		Signature:        signature,
+	}
+}
+
+func (w SignedCommitment) Bytes() (bytes []byte, err error) {
+	return serix.DefaultAPI.Encode(context.Background(), w, serix.WithValidation())
+}
+
+func (w *SignedCommitment) FromBytes(bytes []byte) (consumedBytes int, err error) {
+	return serix.DefaultAPI.Decode(context.Background(), bytes, w, serix.WithValidation())
 }
