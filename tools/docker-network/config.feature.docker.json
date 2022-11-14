@@ -1,0 +1,84 @@
+{
+  "analysis": {
+    "client": {
+      "serverAddress": "peer_master:1888"
+    },
+    "server": {
+      "bindAddress": "0.0.0.0:1888"
+    },
+    "dashboard": {
+      "bindAddress": "0.0.0.0:9000",
+      "dev": false
+    }
+  },
+  "autoPeering": {
+    "entryNodes": [
+      "BYpRNA5aCuyym8SRFbEATraY4yr9oyuXCsCFVcEM8Fm4@bootstrap:14626"
+    ],
+    "bindAddress": "0.0.0.0:14626"
+  },
+  "dashboard": {
+    "bindAddress": "0.0.0.0:8081",
+    "dev": false,
+    "basicAuth": {
+      "enabled": false,
+      "username": "goshimmer",
+      "password": "goshimmer"
+    }
+  },
+  "dagsvisualizer": {
+    "dev": false,
+    "devBindAddress": "dagsvisualizer-dev-docker:3000"
+  },
+  "database": {
+    "directory": "mainnetdb"
+  },
+  "p2p": {
+    "port": 14666
+  },
+  "logger": {
+    "level": "info",
+    "disableCaller": false,
+    "disableStacktrace": false,
+    "encoding": "console",
+    "outputPaths": [
+      "stdout"
+    ],
+    "disableEvents": true
+  },
+  "remotemetrics": {
+    "metricsLevel": 0
+  },
+  "metrics": {
+    "manaUpdateInterval": "5s"
+  },
+  "network": {
+    "bindAddress": "0.0.0.0",
+    "externalAddress": "auto"
+  },
+  "node": {
+    "disablePlugins": "portcheck",
+    "enablePlugins": []
+  },
+  "pow": {
+    "difficulty": 2,
+    "numThreads": 1,
+    "timeout": "10s",
+    "parentsRefreshInterval": "300ms"
+  },
+  "webAPI": {
+    "basicAuth": {
+      "enabled": false,
+      "username": "goshimmer",
+      "password": "goshimmer"
+    },
+    "bindAddress": "0.0.0.0:8080"
+  },
+  "faucet": {
+    "powDifficulty": 12
+  },
+  "manaInitializer": {
+    "FaucetAPI": "http://faucet:8080"
+  }
+}
+
