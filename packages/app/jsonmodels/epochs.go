@@ -5,8 +5,8 @@ import (
 )
 
 type EpochInfo struct {
-	EI     uint64 `json:"Index"`
-	ECR    string `json:"RootsID"`
+	EI     uint64 `json:"index"`
+	ECR    string `json:"rootsID"`
 	PrevEC string `json:"prevEC"`
 }
 
