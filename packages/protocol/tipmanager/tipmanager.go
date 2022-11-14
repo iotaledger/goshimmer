@@ -152,38 +152,41 @@ func (t *TipManager) Tips(countParents int) (parents models.BlockIDs) {
 
 func (t *TipManager) selectTips(count int) (parents models.BlockIDs) {
 	parents = models.NewBlockIDs()
+	for {
+		tips := t.tips.RandomUniqueEntries(count)
 
-	tips := t.tips.RandomUniqueEntries(count)
+		// only add genesis if no tips are available
+		if len(tips) == 0 {
+			fmt.Println("selecting genesis block because tip pool empty")
 
-	// only add genesis if no tips are available
-	if len(tips) == 0 {
-		fmt.Println("selecting genesis block because tip pool empty")
+			return parents.Add(t.engine.EvictionState.LatestRootBlock())
+		}
 
-		return parents.Add(t.engine.EvictionState.LatestRootBlock())
-	}
+		// at least one tip is returned
+		for _, tip := range tips {
+			if t.isPastConeTimestampCorrect(tip.Block.Block) {
+				parents.Add(tip.ID())
+				// } else {
+				//	fmt.Printf("cannot select tip due to TSC condition tip issuing time (%s), time (%s), min supported time (%s), block id (%s), tip pool size %d\n", tip.IssuingTime(), t.timeRetrieverFunc(), t.timeRetrieverFunc().Add(-t.optsTimeSinceConfirmationThreshold), tip.ID().Base58(), t.tips.Size())
+				//	fmt.Println(tip.IsScheduled(), "Orphaned", tip.IsOrphaned(), "accepted", t.acceptanceGadget.IsBlockAccepted(tip.ID()))
+				//	tip.ForEachParent(func(parent models.Parent) {
+				//		fmt.Println("parent block id", parent.ID.Base58())
+				//		if parentBlock, exists := t.blockRetrieverFunc(parent.ID); exists {
+				//			fmt.Println(parentBlock.IssuingTime(), parentBlock.IsScheduled())
+				//		}
+				//		if t.acceptanceGadget.IsBlockAccepted(parent.ID) {
+				//			fmt.Println("parent block accepted")
+				//		}
+				//	})
+			} else {
+				t.DeleteTip(tip)
+			}
+		}
 
-	// at least one tip is returned
-	for _, tip := range tips {
-		if t.isPastConeTimestampCorrect(tip.Block.Block) {
-			parents.Add(tip.ID())
-			// } else {
-			//	fmt.Printf("cannot select tip due to TSC condition tip issuing time (%s), time (%s), min supported time (%s), block id (%s), tip pool size %d\n", tip.IssuingTime(), t.timeRetrieverFunc(), t.timeRetrieverFunc().Add(-t.optsTimeSinceConfirmationThreshold), tip.ID().Base58(), t.tips.Size())
-			//	fmt.Println(tip.IsScheduled(), "Orphaned", tip.IsOrphaned(), "accepted", t.acceptanceGadget.IsBlockAccepted(tip.ID()))
-			//	tip.ForEachParent(func(parent models.Parent) {
-			//		fmt.Println("parent block id", parent.ID.Base58())
-			//		if parentBlock, exists := t.blockRetrieverFunc(parent.ID); exists {
-			//			fmt.Println(parentBlock.IssuingTime(), parentBlock.IsScheduled())
-			//		}
-			//		if t.acceptanceGadget.IsBlockAccepted(parent.ID) {
-			//			fmt.Println("parent block accepted")
-			//		}
-			//	})
+		if len(parents) > 0 {
+			return parents
 		}
 	}
-
-	// TODO: should we retry if no valid tip is left?
-
-	return parents
 }
 
 // AllTips returns a list of all tips that are stored in the TipManger.
@@ -229,10 +232,11 @@ func (t *TipManager) isPastConeTimestampCorrect(block *booker.Block) (timestampV
 	markerWalker := walker.New[markers.Marker](false)
 	blockWalker := walker.New[*booker.Block](false)
 
-	t.processInitialBlock(block, blockWalker, markerWalker)
+	processInitialBlock(block, blockWalker, markerWalker)
 
 	previousBlock := block
 	for markerWalker.HasNext() {
+		// TODO: potentially incorrect previousBlock
 		previousBlock, timestampValid = t.checkMarker(markerWalker.Next(), previousBlock, blockWalker, markerWalker, minSupportedTimestamp)
 		if !timestampValid {
 			return false
@@ -248,7 +252,7 @@ func (t *TipManager) isPastConeTimestampCorrect(block *booker.Block) (timestampV
 	return true
 }
 
-func (t *TipManager) processInitialBlock(block *booker.Block, blockWalker *walker.Walker[*booker.Block], markerWalker *walker.Walker[markers.Marker]) {
+func processInitialBlock(block *booker.Block, blockWalker *walker.Walker[*booker.Block], markerWalker *walker.Walker[markers.Marker]) {
 	if block.StructureDetails() == nil || block.StructureDetails().PastMarkers().Size() == 0 {
 		// need to walk blocks
 		// should never go here
@@ -280,7 +284,6 @@ func (t *TipManager) checkMarker(marker markers.Marker, previousBlock *booker.Bl
 		// marker before minSupportedTimestamp
 		if !t.blockAcceptanceGadget.IsMarkerAccepted(marker) {
 			// if not accepted, then incorrect
-			markerWalker.StopWalk()
 			return nil, false
 		}
 		// if closest past marker is accepted and before minSupportedTimestamp, then need to walk block past cone of the previously marker block
@@ -375,13 +378,16 @@ func (t *TipManager) processMarker(pastMarker markers.Marker, minSupportedTimest
 func (t *TipManager) checkBlock(block *booker.Block, blockWalker *walker.Walker[*booker.Block], minSupportedTimestamp time.Time) (timestampValid bool) {
 	// if block is older than TSC then it's incorrect no matter the confirmation status
 	if block.IssuingTime().Before(minSupportedTimestamp) {
-		blockWalker.StopWalk()
 		return false
 	}
 
 	// if block is younger than TSC and accepted, then return timestampValid=true
 	if t.blockAcceptanceGadget.IsBlockAccepted(block.ID()) {
 		return true
+	}
+
+	if block.IsOrphaned() {
+		return false
 	}
 
 	// if block is younger than TSC and not accepted, walk through strong parents' past cones

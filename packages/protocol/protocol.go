@@ -198,14 +198,6 @@ func (p *Protocol) initTipManager() {
 		}
 	}))
 
-	p.Events.Engine.Tangle.BlockDAG.AllChildrenOrphaned.Hook(event.NewClosure(func(block *blockdag.Block) {
-		schedulerBlock, exists := p.CongestionControl.Scheduler().Block(block.ID())
-		if exists {
-			fmt.Println("Add tip because all children orphaned", block.ID())
-			p.TipManager.AddTip(schedulerBlock)
-		}
-	}))
-
 	p.Events.TipManager = p.TipManager.Events
 }
 

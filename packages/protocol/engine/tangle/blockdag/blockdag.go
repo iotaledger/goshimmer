@@ -133,10 +133,6 @@ func (b *BlockDAG) markSolid(block *Block) (err error) {
 
 	block.setSolid()
 
-	// TODO: maybe this should not be orphanage but rather a precursor like eligibility that prevents a block being added to the tip pool.
-	//  Actual orphanage then only happens via the TSC manager for each block individually.
-	b.inheritOrphanage(block)
-
 	b.Events.BlockSolid.Trigger(block)
 
 	return nil
@@ -247,19 +243,6 @@ func (b *BlockDAG) walkFutureCone(blocks []*Block, callback func(currentBlock *B
 	for childWalker := walker.New[*Block](false).PushAll(blocks...); childWalker.HasNext(); {
 		childWalker.PushAll(callback(childWalker.Next())...)
 	}
-}
-
-// inheritOrphanage inherits the orphanage state of the parents to the given Block.
-func (b *BlockDAG) inheritOrphanage(block *Block) {
-	block.ForEachParentByType(models.StrongParentType, func(parentID models.BlockID) bool {
-		if parentBlock, parentExists := b.Block(parentID); parentExists {
-			if parentBlock.IsOrphaned() {
-				block.setOrphaned(true)
-				return false
-			}
-		}
-		return true
-	})
 }
 
 // checkReference checks if the reference between the child and its parent is valid.
