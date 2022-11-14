@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/core/logger"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
@@ -51,13 +52,14 @@ type Protocol struct {
 	mainChain            commitment.ID
 	candidateChain       commitment.ID
 	optsBaseDirectory    string
-	optsSettingsFileName string
 	optsSnapshotPath     string
 	optsPruningThreshold uint64
+
 	// optsSolidificationOptions []options.Option[solidification.Requester]
-	optsCongestionControlOptions []options.Option[congestioncontrol.CongestionControl]
-	optsEngineOptions            []options.Option[engine.Engine]
-	optsTipManagerOptions        []options.Option[tipmanager.TipManager]
+	optsCongestionControlOptions      []options.Option[congestioncontrol.CongestionControl]
+	optsEngineOptions                 []options.Option[engine.Engine]
+	optsTipManagerOptions             []options.Option[tipmanager.TipManager]
+	optsStorageDatabaseManagerOptions []options.Option[database.Manager]
 
 	*logger.Logger
 }
@@ -69,7 +71,6 @@ func New(dispatcher network.Endpoint, opts ...options.Option[Protocol]) (protoco
 		dispatcher: dispatcher,
 
 		optsBaseDirectory:    "",
-		optsSettingsFileName: "settings.bin",
 		optsPruningThreshold: 6 * 60, // 1 hour given that epoch duration is 10 seconds
 	}, opts,
 		(*Protocol).initDisk,
@@ -113,7 +114,8 @@ func (p *Protocol) initDisk() {
 }
 
 func (p *Protocol) initMainChainStorage() {
-	p.storage = storage.New(p.disk.Path(mainBaseDir), DatabaseVersion)
+
+	p.storage = storage.New(p.disk.Path(mainBaseDir), DatabaseVersion, append([]options.Option[database.Manager]{database.WithGranularity(1)}, p.optsStorageDatabaseManagerOptions...)...)
 
 	p.Events.Engine.Consensus.EpochGadget.EpochConfirmed.Attach(event.NewClosure(func(epochIndex epoch.Index) {
 		p.storage.PruneUntilEpoch(epochIndex - epoch.Index(p.optsPruningThreshold))
@@ -307,6 +309,12 @@ func WithTipManagerOptions(opts ...options.Option[tipmanager.TipManager]) option
 func WithEngineOptions(opts ...options.Option[engine.Engine]) options.Option[Protocol] {
 	return func(n *Protocol) {
 		n.optsEngineOptions = opts
+	}
+}
+
+func WithStorageDatabaseManagerOptions(opts ...options.Option[database.Manager]) options.Option[Protocol] {
+	return func(p *Protocol) {
+		p.optsStorageDatabaseManagerOptions = opts
 	}
 }
 
