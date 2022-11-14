@@ -203,6 +203,11 @@ func (t *TipManager) TipCount() int {
 
 // region TSC to prevent lazy tips /////////////////////////////////////////////////////////////////////////////////////
 
+type markerPreviousBlockPair struct {
+	Marker        markers.Marker
+	PreviousBlock *booker.Block
+}
+
 // isPastConeTimestampCorrect performs the TSC check for the given tip.
 // Conceptually, this involves the following steps:
 //  1. Collect all accepted blocks in the tip's past cone at the boundary of accepted/unaccapted.
@@ -229,15 +234,13 @@ func (t *TipManager) isPastConeTimestampCorrect(block *booker.Block) (timestampV
 		return true
 	}
 
-	markerWalker := walker.New[markers.Marker](false)
+	markerWalker := walker.New[markerPreviousBlockPair](false)
 	blockWalker := walker.New[*booker.Block](false)
 
 	processInitialBlock(block, blockWalker, markerWalker)
 
-	previousBlock := block
 	for markerWalker.HasNext() {
-		// TODO: potentially incorrect previousBlock
-		previousBlock, timestampValid = t.checkMarker(markerWalker.Next(), previousBlock, blockWalker, markerWalker, minSupportedTimestamp)
+		timestampValid = t.checkPair(markerWalker.Next(), blockWalker, markerWalker, minSupportedTimestamp)
 		if !timestampValid {
 			return false
 		}
@@ -252,7 +255,7 @@ func (t *TipManager) isPastConeTimestampCorrect(block *booker.Block) (timestampV
 	return true
 }
 
-func processInitialBlock(block *booker.Block, blockWalker *walker.Walker[*booker.Block], markerWalker *walker.Walker[markers.Marker]) {
+func processInitialBlock(block *booker.Block, blockWalker *walker.Walker[*booker.Block], markerWalker *walker.Walker[markerPreviousBlockPair]) {
 	if block.StructureDetails() == nil || block.StructureDetails().PastMarkers().Size() == 0 {
 		// need to walk blocks
 		// should never go here
@@ -268,44 +271,44 @@ func processInitialBlock(block *booker.Block, blockWalker *walker.Walker[*booker
 			return false
 		}
 
-		markerWalker.Push(markers.NewMarker(sequenceID, index))
+		markerWalker.Push(markerPreviousBlockPair{Marker: markers.NewMarker(sequenceID, index), PreviousBlock: block})
 		return true
 	})
 }
 
-func (t *TipManager) checkMarker(marker markers.Marker, previousBlock *booker.Block, blockWalker *walker.Walker[*booker.Block], markerWalker *walker.Walker[markers.Marker], minSupportedTimestamp time.Time) (block *booker.Block, timestampValid bool) {
-	block, exists := t.engine.Tangle.BlockFromMarker(marker)
+func (t *TipManager) checkPair(pair markerPreviousBlockPair, blockWalker *walker.Walker[*booker.Block], markerWalker *walker.Walker[markerPreviousBlockPair], minSupportedTimestamp time.Time) (timestampValid bool) {
+	block, exists := t.engine.Tangle.BlockFromMarker(pair.Marker)
 	if !exists {
-		return nil, false
+		return false
 	}
 
 	// marker before minSupportedTimestamp
 	if block.IssuingTime().Before(minSupportedTimestamp) {
 		// marker before minSupportedTimestamp
-		if !t.blockAcceptanceGadget.IsMarkerAccepted(marker) {
+		if !t.blockAcceptanceGadget.IsMarkerAccepted(pair.Marker) {
 			// if not accepted, then incorrect
-			return nil, false
+			return false
 		}
 		// if closest past marker is accepted and before minSupportedTimestamp, then need to walk block past cone of the previously marker block
-		blockWalker.Push(previousBlock)
-		return block, true
+		blockWalker.Push(pair.PreviousBlock)
+		return true
 	}
 	// accepted after minSupportedTimestamp
-	if t.blockAcceptanceGadget.IsMarkerAccepted(marker) {
-		return block, true
+	if t.blockAcceptanceGadget.IsMarkerAccepted(pair.Marker) {
+		return true
 	}
 
 	// unaccepted after minSupportedTimestamp
 
 	// check oldest unaccepted marker time without walking sequence DAG
-	firstUnacceptedMarker := t.firstUnacceptedMarker(marker)
-	if timestampValid = t.processMarker(marker, minSupportedTimestamp, firstUnacceptedMarker); !timestampValid {
-		return nil, false
+	firstUnacceptedMarker := t.firstUnacceptedMarker(pair.Marker)
+	if timestampValid = t.processMarker(pair.Marker, minSupportedTimestamp, firstUnacceptedMarker); !timestampValid {
+		return false
 	}
 
-	sequence, exists := t.engine.Tangle.Booker.Sequence(marker.SequenceID())
+	sequence, exists := t.engine.Tangle.Booker.Sequence(pair.Marker.SequenceID())
 	if !exists {
-		return nil, false
+		return false
 	}
 
 	// If there is a accepted marker before the oldest unaccepted marker, and it's older than minSupportedTimestamp, need to walk block past cone of firstUnacceptedMarker.
@@ -318,7 +321,7 @@ func (t *TipManager) checkMarker(marker markers.Marker, previousBlock *booker.Bl
 	}
 
 	// process markers from different sequences that are referenced by current marker's sequence, i.e., walk the sequence DAG
-	sequence.ReferencedMarkers(marker.Index()).ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
+	sequence.ReferencedMarkers(pair.Marker.Index()).ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
 		// Ignore Marker(0, 0) as it sometimes occurs in the past marker cone. Marker mysteries.
 		// This should not be necessary anymore?
 		if index == 0 {
@@ -330,7 +333,7 @@ func (t *TipManager) checkMarker(marker markers.Marker, previousBlock *booker.Bl
 
 		// if referenced marker is accepted and older than minSupportedTimestamp, walk unaccepted block past cone of firstUnacceptedMarker
 		if t.isMarkerOldAndAccepted(referencedMarker, minSupportedTimestamp) {
-			referencedMarkerBlock, referencedMarkerBlockExists := t.engine.Tangle.BlockFromMarker(marker)
+			referencedMarkerBlock, referencedMarkerBlockExists := t.engine.Tangle.BlockFromMarker(pair.Marker)
 			if !referencedMarkerBlockExists {
 				return false
 			}
@@ -339,11 +342,11 @@ func (t *TipManager) checkMarker(marker markers.Marker, previousBlock *booker.Bl
 		}
 
 		// otherwise, process the referenced marker
-		markerWalker.Push(referencedMarker)
+		markerWalker.Push(markerPreviousBlockPair{Marker: referencedMarker, PreviousBlock: block})
 		return true
 	})
 
-	return block, true
+	return true
 }
 
 // isMarkerOldAndAccepted check whether previousMarker is accepted and older than minSupportedTimestamp. It is used to check whether to walk blocks in the past cone of the current marker.
