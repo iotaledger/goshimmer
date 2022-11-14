@@ -54,6 +54,7 @@ type ExplorerBlock struct {
 	SubtractedConflictIDs []string           `json:"subtractedConflictIDs"`
 	Scheduled             bool               `json:"scheduled"`
 	Booked                bool               `json:"booked"`
+	Orphaned              bool               `json:"orphaned"`
 	ObjectivelyInvalid    bool               `json:"objectivelyInvalid"`
 	SubjectivelyInvalid   bool               `json:"subjectivelyInvalid"`
 	ConfirmationState     confirmation.State `json:"confirmationState"`
@@ -84,6 +85,9 @@ func createExplorerBlock(block *models.Block, blockMetadata *retainer.BlockMetad
 	if blockMetadata.M.Accepted {
 		confirmationState = confirmation.Accepted
 	}
+	if blockMetadata.M.Confirmed || blockMetadata.M.ConfirmedByEpoch {
+		confirmationState = confirmation.Confirmed
+	}
 	t := &ExplorerBlock{
 		ID:                      block.ID().Base58(),
 		SolidificationTimestamp: blockMetadata.M.SolidTime.Unix(),
@@ -102,6 +106,7 @@ func createExplorerBlock(block *models.Block, blockMetadata *retainer.BlockMetad
 		SubtractedConflictIDs:   lo.Map(lo.Map(blockMetadata.M.SubtractedConflictIDs.Slice(), packTransactionID), base58.Encode),
 		Scheduled:               blockMetadata.M.Scheduled,
 		Booked:                  blockMetadata.M.Booked,
+		Orphaned:                blockMetadata.M.Orphaned,
 		ObjectivelyInvalid:      blockMetadata.M.Invalid,
 		SubjectivelyInvalid:     blockMetadata.M.SubjectivelyInvalid,
 		ConfirmationState:       confirmationState,

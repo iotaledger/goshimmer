@@ -185,6 +185,9 @@ export class ExplorerBlockQueryResult extends React.Component<Props, any> {
                                         Booked: {blk.booked ? 'Yes' : 'No'}
                                     </ListGroup.Item>
                                     <ListGroup.Item>
+                                        Orphaned: {blk.orphaned ? 'Yes' : 'No'}
+                                    </ListGroup.Item>
+                                    <ListGroup.Item>
                                         Objectively Invalid: {blk.objectivelyInvalid ? 'Yes' : 'No'}
                                     </ListGroup.Item>
                                     <ListGroup.Item>
