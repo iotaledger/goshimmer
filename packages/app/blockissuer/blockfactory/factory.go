@@ -4,9 +4,12 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/minio/blake2b-simd"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -212,8 +215,9 @@ func (f *Factory) sign(block *models.Block) (ed25519.Signature, error) {
 		return ed25519.EmptySignature, err
 	}
 
-	contentLength := len(bytes) - len(block.Signature())
-	return f.identity.Sign(bytes[:contentLength]), nil
+	contentHash := blake2b.Sum256(bytes[:len(bytes)-len(block.Signature())])
+
+	return f.identity.Sign(byteutils.ConcatBytes(lo.PanicOnErr(block.Commitment().ID().Bytes()), contentHash[:])), nil
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/model"
@@ -113,10 +114,9 @@ func (b *Block) VerifySignature() (valid bool, err error) {
 	}
 	signature := b.Signature()
 
-	contentLength := len(blkBytes) - len(signature)
-	content := blkBytes[:contentLength]
+	contentHash := blake2b.Sum256(blkBytes[:len(blkBytes)-len(signature)])
 
-	return b.M.IssuerPublicKey.VerifySignature(content, signature), nil
+	return b.M.IssuerPublicKey.VerifySignature(byteutils.ConcatBytes(lo.PanicOnErr(b.Commitment().ID().Bytes()), contentHash[:]), signature), nil
 }
 
 // Version returns the block Version.
