@@ -4,14 +4,13 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 // region Tangle ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -33,14 +32,14 @@ type Tangle struct {
 // New is the constructor for a new Tangle.
 func New(
 	ledger *ledger.Ledger,
-	evictionManager *eviction.State[models.BlockID],
+	evictionState *eviction.State,
 	validatorSet *validator.Set,
 	epochCutoffCallback func() epoch.Index,
 	sequenceCutoffCallback func(id markers.SequenceID) markers.Index,
 	opts ...options.Option[Tangle],
 ) (newTangle *Tangle) {
 	return options.Apply(new(Tangle), opts, func(t *Tangle) {
-		t.BlockDAG = blockdag.New(evictionManager, t.optsBlockDAG...)
+		t.BlockDAG = blockdag.New(evictionState, t.optsBlockDAG...)
 		t.Booker = booker.New(t.BlockDAG, ledger, t.optsBooker...)
 		t.VirtualVoting = virtualvoting.New(t.Booker, validatorSet, append(t.optsVirtualVoting, virtualvoting.WithEpochCutoffCallback(epochCutoffCallback), virtualvoting.WithSequenceCutoffCallback(sequenceCutoffCallback))...)
 

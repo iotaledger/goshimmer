@@ -2,6 +2,7 @@ package blockdag
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -11,8 +12,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/causalorder"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
@@ -23,8 +24,8 @@ type BlockDAG struct {
 	// Events contains the Events of the BlockDAG.
 	Events *Events
 
-	// EvictionState contains the local manager used to orchestrate the eviction of old Blocks inside the BlockDAG.
-	EvictionState *eviction.LockableState[models.BlockID]
+	// EvictionState contains information about the current eviction state.
+	EvictionState *eviction.State
 
 	// memStorage contains the in-memory storage of the BlockDAG.
 	memStorage *memstorage.EpochStorage[models.BlockID, *Block]
@@ -34,18 +35,20 @@ type BlockDAG struct {
 
 	// orphanageMutex is a mutex that is used to synchronize updates to the orphanage flags.
 	orphanageMutex *syncutils.DAGMutex[models.BlockID]
+
+	// evictionMutex is a mutex that is used to synchronize the eviction of elements from the BlockDAG.
+	evictionMutex sync.RWMutex
 }
 
 // New is the constructor for the BlockDAG and creates a new BlockDAG instance.
-func New(evictionManager *eviction.State[models.BlockID], opts ...options.Option[BlockDAG]) (newBlockDAG *BlockDAG) {
+func New(evictionState *eviction.State, opts ...options.Option[BlockDAG]) (newBlockDAG *BlockDAG) {
 	return options.Apply(&BlockDAG{
 		Events:         NewEvents(),
-		EvictionState:  evictionManager.Lockable(),
+		EvictionState:  evictionState,
 		memStorage:     memstorage.NewEpochStorage[models.BlockID, *Block](),
 		orphanageMutex: syncutils.NewDAGMutex[models.BlockID](),
 	}, opts, func(b *BlockDAG) {
 		b.solidifier = causalorder.New(
-			evictionManager,
 			b.Block,
 			(*Block).IsSolid,
 			b.markSolid,
@@ -53,7 +56,7 @@ func New(evictionManager *eviction.State[models.BlockID], opts ...options.Option
 			causalorder.WithReferenceValidator[models.BlockID](checkReference),
 		)
 
-		b.EvictionState.Events.EpochEvicted.Attach(event.NewClosure(b.evictEpoch))
+		evictionState.Events.EpochEvicted.Hook(event.NewClosure(b.evictEpoch))
 	})
 }
 
@@ -70,8 +73,8 @@ func (b *BlockDAG) Attach(data *models.Block) (block *Block, wasAttached bool, e
 
 // Block retrieves a Block with metadata from the in-memory storage of the BlockDAG.
 func (b *BlockDAG) Block(id models.BlockID) (block *Block, exists bool) {
-	b.EvictionState.RLock()
-	defer b.EvictionState.RUnlock()
+	b.evictionMutex.RLock()
+	defer b.evictionMutex.RUnlock()
 
 	return b.block(id)
 }
@@ -125,14 +128,14 @@ func (b *BlockDAG) SetOrphaned(block *Block, orphaned bool) (updated bool, statu
 	return
 }
 
-// evictEpoch is used to evictEpoch the BlockDAG of all Blocks that are too old.
-func (b *BlockDAG) evictEpoch(epochIndex epoch.Index) {
-	b.solidifier.EvictEpoch(epochIndex)
+// evictEpoch is used to evict Blocks from committed epochs from the BlockDAG.
+func (b *BlockDAG) evictEpoch(index epoch.Index) {
+	b.solidifier.EvictUntil(index)
 
-	b.EvictionState.Lock()
-	defer b.EvictionState.Unlock()
+	b.evictionMutex.Lock()
+	defer b.evictionMutex.Unlock()
 
-	b.memStorage.EvictEpoch(epochIndex)
+	b.memStorage.Evict(index)
 }
 
 func (b *BlockDAG) markSolid(block *Block) (err error) {
@@ -165,8 +168,8 @@ func (b *BlockDAG) markInvalid(block *Block, reason error) {
 
 // attach tries to attach the given Block to the BlockDAG.
 func (b *BlockDAG) attach(data *models.Block) (block *Block, wasAttached bool, err error) {
-	b.EvictionState.RLock()
-	defer b.EvictionState.RUnlock()
+	b.evictionMutex.RLock()
+	defer b.evictionMutex.RUnlock()
 
 	if block, wasAttached, err = b.canAttach(data); !wasAttached {
 		return
@@ -189,7 +192,7 @@ func (b *BlockDAG) attach(data *models.Block) (block *Block, wasAttached bool, e
 
 // canAttach determines if the Block can be attached (does not exist and addresses a recent epoch).
 func (b *BlockDAG) canAttach(data *models.Block) (block *Block, canAttach bool, err error) {
-	if b.EvictionState.IsTooOld(data.ID()) {
+	if b.EvictionState.InEvictedEpoch(data.ID()) && !b.EvictionState.IsRootBlock(data.ID()) {
 		return nil, false, errors.Errorf("block data with %s is too old (issued at: %s)", data.ID(), data.IssuingTime())
 	}
 
@@ -205,7 +208,7 @@ func (b *BlockDAG) canAttach(data *models.Block) (block *Block, canAttach bool, 
 // this condition but exists as a missing entry, we mark it as invalid.
 func (b *BlockDAG) canAttachToParents(storedBlock *Block, data *models.Block) (block *Block, canAttach bool, err error) {
 	for _, parentID := range data.Parents() {
-		if b.EvictionState.IsTooOld(parentID) {
+		if b.EvictionState.InEvictedEpoch(parentID) && !b.EvictionState.IsRootBlock(parentID) {
 			if storedBlock != nil {
 				b.SetInvalid(storedBlock, errors.Errorf("block with %s references too old parent %s", data.ID(), parentID))
 			}

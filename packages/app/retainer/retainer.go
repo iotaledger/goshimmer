@@ -93,7 +93,7 @@ func (r *Retainer) setupEvents() {
 		cm.setConfirmationBlock(block)
 	}))
 
-	r.protocol.Events.Engine.EvictionManager.EpochEvicted.Attach(event.NewClosure(r.storeAndEvictEpoch))
+	r.protocol.Events.Engine.EvictionState.EpochEvicted.Hook(event.NewClosure(r.storeAndEvictEpoch))
 }
 
 func (r *Retainer) createOrGetCachedMetadata(id models.BlockID) *cachedMetadata {
@@ -117,7 +117,7 @@ func (r *Retainer) storeAndEvictEpoch(epochIndex epoch.Index) {
 	// anymore it is already written to disk.
 	r.evictionLock.Lock()
 	defer r.evictionLock.Unlock()
-	r.cachedMetadata.EvictEpoch(epochIndex)
+	r.cachedMetadata.Evict(epochIndex)
 }
 
 func (r *Retainer) createStorableBlockMetadata(epochIndex epoch.Index) (metas []*BlockMetadata) {

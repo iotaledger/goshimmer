@@ -39,7 +39,7 @@ type EpochMutations struct {
 	// latestCommittedIndex stores the index of the latest committed epoch.
 	latestCommittedIndex epoch.Index
 
-	//lastCommittedEpochCumulativeWeight stores the cumulative weight of the last committed epoch
+	// lastCommittedEpochCumulativeWeight stores the cumulative weight of the last committed epoch
 	lastCommittedEpochCumulativeWeight uint64
 
 	sync.Mutex
@@ -183,7 +183,7 @@ func (m *EpochMutations) Commit(index epoch.Index) (acceptedBlocks *ads.Set[mode
 		return nil, nil, nil, 0, errors.Errorf("cannot commit epoch %d: already committed", index)
 	}
 
-	defer m.evict(index)
+	defer m.evictUntil(index)
 
 	m.lastCommittedEpochCumulativeWeight += m.epochWeight(index)
 
@@ -257,13 +257,13 @@ func (m *EpochMutations) removeBlockByIssuer(blockID models.BlockID, issuer iden
 	m.activeValidators(blockID.Index()).Delete(issuer)
 }
 
-// evict removes all data for epochs that are older than the given epoch.
-func (m *EpochMutations) evict(index epoch.Index) {
-	for i := m.latestCommittedIndex; i < index; i++ {
-		m.acceptedBlocksByEpoch.Delete(index)
-		m.acceptedTransactionsByEpoch.Delete(index)
-		m.activeValidatorsByEpoch.Delete(index)
-		m.issuerBlocksByEpoch.EvictEpoch(index)
+// evictUntil removes all data for epochs that are older than the given epoch.
+func (m *EpochMutations) evictUntil(index epoch.Index) {
+	for i := m.latestCommittedIndex + 1; i <= index; i++ {
+		m.acceptedBlocksByEpoch.Delete(i)
+		m.acceptedTransactionsByEpoch.Delete(i)
+		m.activeValidatorsByEpoch.Delete(i)
+		m.issuerBlocksByEpoch.Evict(i)
 	}
 
 	m.latestCommittedIndex = index

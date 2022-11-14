@@ -11,14 +11,13 @@ require (
 	github.com/gin-gonic/gin v1.7.7
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/gorilla/websocket v1.5.0
-	github.com/iotaledger/hive.go/core v1.0.0-rc.1.0.20221101151625-db6fb01f0052
+	github.com/iotaledger/hive.go/core v1.0.0-rc.1.0.20221111124009-3b0407622ba4
 	github.com/iotaledger/hive.go/serializer/v2 v2.0.0-rc.1
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0
 	github.com/libp2p/go-libp2p v0.15.0
 	github.com/libp2p/go-libp2p-core v0.9.0
 	github.com/magiconair/properties v1.8.6
-	github.com/markbates/pkger v0.17.1
 	github.com/mr-tron/base58 v1.2.0
 	github.com/multiformats/go-multiaddr v0.4.1
 	github.com/multiformats/go-varint v0.0.6

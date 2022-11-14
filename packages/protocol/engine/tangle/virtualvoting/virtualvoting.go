@@ -1,11 +1,12 @@
 package virtualvoting
 
 import (
+	"sync"
+
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
@@ -27,7 +28,7 @@ type VirtualVoting struct {
 	conflictTracker *conflicttracker.ConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower]
 	sequenceTracker *sequencetracker.SequenceTracker[BlockVotePower]
 	epochTracker    *epochtracker.EpochTracker
-	evictionManager *eviction.LockableState[models.BlockID]
+	evictionMutex   sync.RWMutex
 
 	optsSequenceCutoffCallback func(markers.SequenceID) markers.Index
 	optsEpochCutoffCallback    func() epoch.Index
@@ -37,10 +38,9 @@ type VirtualVoting struct {
 
 func New(booker *booker.Booker, validatorSet *validator.Set, opts ...options.Option[VirtualVoting]) (newVirtualVoting *VirtualVoting) {
 	return options.Apply(&VirtualVoting{
-		ValidatorSet:    validatorSet,
-		blocks:          memstorage.NewEpochStorage[models.BlockID, *Block](),
-		evictionManager: booker.BlockDAG.EvictionState.Lockable(),
-		Booker:          booker,
+		ValidatorSet: validatorSet,
+		blocks:       memstorage.NewEpochStorage[models.BlockID, *Block](),
+		Booker:       booker,
 		optsSequenceCutoffCallback: func(sequenceID markers.SequenceID) markers.Index {
 			return 1
 		},
@@ -67,32 +67,32 @@ func (o *VirtualVoting) Track(block *Block) {
 
 // Block retrieves a Block with metadata from the in-memory storage of the Booker.
 func (o *VirtualVoting) Block(id models.BlockID) (block *Block, exists bool) {
-	o.evictionManager.RLock()
-	defer o.evictionManager.RUnlock()
+	o.evictionMutex.RLock()
+	defer o.evictionMutex.RUnlock()
 
 	return o.block(id)
 }
 
 // MarkerVoters retrieves Validators supporting a given marker.
 func (o *VirtualVoting) MarkerVoters(marker markers.Marker) (voters *validator.Set) {
-	o.evictionManager.RLock()
-	defer o.evictionManager.RUnlock()
+	o.evictionMutex.RLock()
+	defer o.evictionMutex.RUnlock()
 
 	return o.sequenceTracker.Voters(marker)
 }
 
 // EpochVoters retrieves Validators supporting an epoch index.
 func (o *VirtualVoting) EpochVoters(epochIndex epoch.Index) (voters *validator.Set) {
-	o.evictionManager.RLock()
-	defer o.evictionManager.RUnlock()
+	o.evictionMutex.RLock()
+	defer o.evictionMutex.RUnlock()
 
 	return o.epochTracker.Voters(epochIndex)
 }
 
 // ConflictVoters retrieves Validators voting for a given conflict.
 func (o *VirtualVoting) ConflictVoters(conflictID utxo.TransactionID) (voters *validator.Set) {
-	o.evictionManager.RLock()
-	defer o.evictionManager.RUnlock()
+	o.evictionMutex.RLock()
+	defer o.evictionMutex.RUnlock()
 
 	return o.conflictTracker.Voters(conflictID)
 }
@@ -109,14 +109,14 @@ func (o *VirtualVoting) setupEvents() {
 		o.processForkedMarker(event.Marker, event.ConflictID, event.ParentConflictIDs)
 	}))
 	o.Booker.Events.SequenceEvicted.Attach(event.NewClosure(o.evictSequence))
-	o.evictionManager.Events.EpochEvicted.Attach(event.NewClosure(o.evictEpoch))
+	o.EvictionState.Events.EpochEvicted.Hook(event.NewClosure(o.evictEpoch))
 }
 
 func (o *VirtualVoting) track(block *Block) (tracked bool) {
-	o.evictionManager.RLock()
-	defer o.evictionManager.RUnlock()
+	o.evictionMutex.RLock()
+	defer o.evictionMutex.RUnlock()
 
-	if o.evictionManager.IsTooOld(block.ID()) {
+	if o.EvictionState.InEvictedEpoch(block.ID()) {
 		return false
 	}
 
@@ -135,7 +135,7 @@ func (o *VirtualVoting) track(block *Block) (tracked bool) {
 
 // block retrieves the Block with given id from the mem-storage.
 func (o *VirtualVoting) block(id models.BlockID) (block *Block, exists bool) {
-	if o.evictionManager.IsRootBlock(id) {
+	if o.EvictionState.IsRootBlock(id) {
 		bookerBlock, _ := o.Booker.Block(id)
 
 		return NewBlock(bookerBlock), true
@@ -150,24 +150,22 @@ func (o *VirtualVoting) block(id models.BlockID) (block *Block, exists bool) {
 }
 
 func (o *VirtualVoting) evictEpoch(epochIndex epoch.Index) {
-	o.evictionManager.Lock()
-	defer o.evictionManager.Unlock()
+	o.evictionMutex.Lock()
+	defer o.evictionMutex.Unlock()
 
-	//TODO: add conflicttracker eviction
-
-	o.blocks.EvictEpoch(epochIndex)
+	o.blocks.Evict(epochIndex)
 }
 
 func (o *VirtualVoting) evictSequence(sequenceID markers.SequenceID) {
-	o.evictionManager.Lock()
-	defer o.evictionManager.Unlock()
+	o.evictionMutex.Lock()
+	defer o.evictionMutex.Unlock()
 
 	o.sequenceTracker.EvictSequence(sequenceID)
 }
 
 func (o *VirtualVoting) EvictEpochTracker(epochIndex epoch.Index) {
-	o.evictionManager.Lock()
-	defer o.evictionManager.Unlock()
+	o.evictionMutex.Lock()
+	defer o.evictionMutex.Unlock()
 
 	o.epochTracker.EvictEpoch(epochIndex)
 }
