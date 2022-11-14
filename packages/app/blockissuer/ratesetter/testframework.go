@@ -40,6 +40,7 @@ func NewTestFramework(test *testing.T, localID identity.ID, mode RateSetterModeT
 	})
 
 	protocol := protocol.New(network.NewMockedNetwork().Join(localID), protocol.WithSnapshotPath(diskUtil.Path("snapshot.bin")), protocol.WithBaseDirectory(diskUtil.Path()))
+	protocol.Run()
 
 	switch mode {
 	case AIMDMode:

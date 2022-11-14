@@ -388,7 +388,7 @@ func (r *AIMDRateSetter) rateSetting() {
 
 func (r *AIMDRateSetter) issuerLoop() {
 	var (
-		issueTimer    = time.NewTimer(0) // setting this to 0 will cause a trigger right away
+		issueTimer    = time.NewTimer(10 * time.Millisecond) // setting this to 0 will cause a trigger right away
 		timerStopped  = false
 		lastIssueTime = time.Now()
 	)

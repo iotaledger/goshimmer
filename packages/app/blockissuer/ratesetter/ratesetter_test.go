@@ -37,8 +37,10 @@ func TestRateSetter_IssueBlock(t *testing.T) {
 		tf.RateSetter.Events().BlockIssued.Attach(event.NewClosure(func(block *models.Block) { blockIssued <- block }))
 		pay := payload.NewGenericDataPayload([]byte("test"))
 		parents := models.NewParentBlockIDs()
-		blk := models.NewBlock(models.WithIssuer(localIdentity.PublicKey()), models.WithPayload(pay), models.WithParents(parents))
-		blk.DetermineID()
+		parents.AddStrong(models.EmptyBlockID)
+		blk := models.NewBlock(models.WithIssuer(localIdentity.PublicKey()), models.WithParents(parents), models.WithPayload(pay))
+		assert.NoError(t, blk.DetermineID())
+
 		assert.NoError(t, tf.RateSetter.IssueBlock(blk))
 		assert.Eventually(t, func() bool {
 			select {
