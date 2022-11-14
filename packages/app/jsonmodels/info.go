@@ -33,7 +33,7 @@ type InfoResponse struct {
 	// Scheduler is the scheduler.
 	Scheduler Scheduler `json:"scheduler"`
 	// LastCommittedEpoch contains information about the last committed epoch.
-	LastCommittedEpoch EpochInfo
+	LastCommittedEpoch EpochInfo `json:"lastCommittedEpoch"`
 	// RateSetter is the rate setter.
 	RateSetter RateSetter `json:"rateSetter"`
 	// error of the response
