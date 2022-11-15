@@ -217,7 +217,8 @@ func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) {
 	}
 
 	if p.Engine().IsBootstrapped() {
-		panic(fmt.Sprintln("different commitment", block))
+		fmt.Println("different commitment", block)
+		return
 	}
 
 	if candidateEngine, candidateStorage := p.CandidateEngine(), p.CandidateStorage(); candidateEngine != nil && candidateStorage != nil {

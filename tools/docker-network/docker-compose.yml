@@ -52,7 +52,7 @@ services:
     command: >
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/app/mainnetdb
-      --node.enablePlugins="webapi tools endpoint",spammer,prometheus
+      --node.enablePlugins="webapi tools endpoint",spammer,prometheus,activity
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog
       --node.overwriteStoredSeed=true
       --protocol.snapshot.path=./snapshot.bin

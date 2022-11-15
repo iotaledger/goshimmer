@@ -115,10 +115,10 @@ type blockMetadataModel struct {
 	// booker.Block
 	Booked                bool                `serix:"10"`
 	StructureDetails      *structureDetails   `serix:"11,optional"`
-	AddedConflictIDs      utxo.TransactionIDs `serix:"12"`
-	SubtractedConflictIDs utxo.TransactionIDs `serix:"13"`
+	AddedConflictIDs      utxo.TransactionIDs `serix:"12,optional"`
+	SubtractedConflictIDs utxo.TransactionIDs `serix:"13,optional"`
 	// conflictIDs is a computed property at the time a block is booked.
-	ConflictIDs utxo.TransactionIDs `serix:"14"`
+	ConflictIDs utxo.TransactionIDs `serix:"14,optional"`
 	BookedTime  time.Time           `serix:"15"`
 
 	// virtualvoting.Block

@@ -120,6 +120,8 @@ services:
       - goshimmer.config.json
     volumes:
       - ./docker-network.feature.snapshot:/app/snapshot.bin
+      - ./vanilla/db:/app/db
+      - ./vanilla/retainer:/app/retainer
       - "/etc/timezone:/etc/timezone:ro"
       - "/etc/localtime:/etc/localtime:ro"
     ports:
@@ -161,6 +163,7 @@ services:
       - ./docker-network.feature.snapshot:/app/snapshot.bin
     ports:
       - "8001:8080/tcp" # web API
+      - "8011:8081/tcp" # dashboard
     networks:
       - shimmer
     depends_on:
@@ -196,6 +199,7 @@ services:
       - ./docker-network.feature.snapshot:/app/snapshot.bin
     ports:
       - "8002:8080/tcp" # web API
+      - "8012:8081/tcp" # dashboard
     networks:
       - shimmer
     depends_on:
@@ -233,6 +237,7 @@ services:
       - "/etc/localtime:/etc/localtime:ro"
     ports:
       - "8003:8080/tcp" # web API
+      - "8013:8081/tcp" # dashboard
     networks:
       - shimmer
     depends_on:
@@ -270,6 +275,7 @@ services:
       - "/etc/localtime:/etc/localtime:ro"
     ports:
       - "8004:8080/tcp" # web API
+      - "8014:8081/tcp" # dashboard
     networks:
       - shimmer
     depends_on:
@@ -307,6 +313,7 @@ services:
       - "/etc/localtime:/etc/localtime:ro"
     ports:
       - "8005:8080/tcp" # web API
+      - "8015:8081/tcp" # dashboard
     networks:
       - shimmer
     depends_on:

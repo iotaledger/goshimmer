@@ -1,6 +1,7 @@
 package retainer
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -16,6 +17,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
@@ -58,6 +60,39 @@ func (r *Retainer) BlockMetadata(blockID models.BlockID) (metadata *BlockMetadat
 }
 
 func (r *Retainer) setupEvents() {
+	r.protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Attach(event.NewClosure(func(block *blockdag.Block) {
+		cm := r.createOrGetCachedMetadata(block.ID())
+		cm.setBlockDAGBlock(block)
+	}))
+
+	r.protocol.Events.Engine.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(func(block *blockdag.Block) {
+		fmt.Println("block missing", block.ID())
+	}))
+
+	r.protocol.Events.Engine.BlockRequester.TickerStarted.Attach(event.NewClosure(func(blockID models.BlockID) {
+		fmt.Println("requested started for", blockID)
+	}))
+
+	r.protocol.Events.Engine.BlockRequester.Tick.Attach(event.NewClosure(func(blockID models.BlockID) {
+		fmt.Println("tick for", blockID)
+	}))
+
+	r.protocol.Events.Engine.BlockRequester.TickerStopped.Attach(event.NewClosure(func(blockID models.BlockID) {
+		fmt.Println("requested stopped for", blockID)
+	}))
+
+	r.protocol.Events.Engine.BlockRequester.TickerFailed.Attach(event.NewClosure(func(blockID models.BlockID) {
+		fmt.Println("ticker failed for", blockID)
+	}))
+	r.protocol.Events.Engine.Tangle.BlockDAG.MissingBlockAttached.Attach(event.NewClosure(func(block *blockdag.Block) {
+		fmt.Println("missing block attached", block.ID())
+	}))
+
+	r.protocol.Events.Engine.Tangle.BlockDAG.BlockInvalid.Hook(event.NewClosure(func(event *blockdag.BlockInvalidEvent) {
+		fmt.Println("block invalid", event.Block.ID(), "reason", event.Reason)
+
+	}))
+
 	r.protocol.Events.Engine.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(func(block *blockdag.Block) {
 		cm := r.createOrGetCachedMetadata(block.ID())
 		cm.setBlockDAGBlock(block)
@@ -132,7 +167,11 @@ func (r *Retainer) createStorableBlockMetadata(epochIndex epoch.Index) (metas []
 	metas = make([]*BlockMetadata, 0, storage.Size())
 	storage.ForEach(func(blockID models.BlockID, cm *cachedMetadata) bool {
 		blockMetadata := newBlockMetadata(cm)
-		blockMetadata.M.ConflictIDs = r.protocol.Engine().Tangle.BlockConflicts(cm.Booker.Block)
+		if cm.Booker != nil {
+			blockMetadata.M.ConflictIDs = r.protocol.Engine().Tangle.BlockConflicts(cm.Booker.Block)
+		} else {
+			blockMetadata.M.ConflictIDs = utxo.NewTransactionIDs()
+		}
 
 		metas = append(metas, blockMetadata)
 		return true
