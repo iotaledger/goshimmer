@@ -67,7 +67,7 @@ func (s *Set) Add(validator *Validator) {
 	s.totalWeight += validator.Weight()
 
 	if s.optTrackEvents {
-		validator.Events.WeightUpdated.Hook(event.NewClosure[*WeightUpdatedEvent](s.handleWeightUpdatedEvent))
+		validator.Events.WeightUpdated.Hook(event.NewClosure(s.handleWeightUpdatedEvent))
 	}
 }
 
@@ -75,7 +75,9 @@ func (s *Set) Delete(validator *Validator) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	s.validators.Delete(validator.ID())
+	if !s.validators.Delete(validator.ID()) {
+		return
+	}
 
 	s.totalWeight -= validator.Weight()
 

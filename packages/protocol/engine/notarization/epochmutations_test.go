@@ -1,12 +1,12 @@
 package notarization
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/identity"
 )
@@ -63,11 +63,15 @@ func TestMutationFactory(t *testing.T) {
 	tf.AssertCommit(2, []string{"2.1", "2.2", "2.3"}, []string{"tx2.1", "tx3.1"}, []string{"Batman", "Robin", "Joker"}, 30, false)
 
 	// assert commitment of epoch 3
-	tf.AssertCommit(3, []string{"3.1"}, []string{}, []string{"Batman"}, 50, false)
+	tf.AssertCommit(3, []string{"3.1"}, []string{}, []string{"Batman"}, 40, false)
 }
 
 func TestMutationFactory_AddAcceptedBlock(t *testing.T) {
-	mutationFactory := NewEpochMutations(func(id identity.ID) (int64, bool) { return 1, true }, 2)
+	mutationFactory := NewEpochMutations(func(epoch.Index) *validator.Set {
+		attestors := validator.NewSet()
+		attestors.Add(validator.New(identity.ID{}, validator.WithWeight(1)))
+		return attestors
+	}, 2)
 
 	block := models.NewBlock(
 		models.WithIssuingTime(epoch.Index(3).EndTime()),
@@ -78,8 +82,6 @@ func TestMutationFactory_AddAcceptedBlock(t *testing.T) {
 	require.NoError(t, mutationFactory.AddAcceptedBlock(block))
 	require.True(t, mutationFactory.acceptedBlocks(3).Has(block.ID()))
 
-	acceptedBlocks, acceptedTransactions, activeValidators, _, err := mutationFactory.Commit(3)
+	_, _, _, _, err := mutationFactory.Commit(3)
 	require.NoError(t, err)
-	fmt.Println(acceptedBlocks.Root(), acceptedTransactions.Root(), activeValidators.Root())
-	fmt.Println(activeValidators.Has(block.IssuerID()))
 }

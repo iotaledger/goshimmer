@@ -1,5 +1,15 @@
 package sybilprotection
 
+import (
+	"context"
+	"time"
+
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/serix"
+	"github.com/iotaledger/hive.go/core/types"
+)
+
 type Attestation struct {
 	IssuingTime      time.Time         `serix:"0"`
 	CommitmentID     commitment.ID     `serix:"1"`

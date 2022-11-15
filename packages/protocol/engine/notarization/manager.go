@@ -11,7 +11,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
+	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
@@ -33,10 +33,10 @@ type Manager struct {
 	sync.RWMutex
 }
 
-func NewManager(storage *storage.Storage, sybilProtection *sybilprotection.SybilProtection, opts ...options.Option[Manager]) (new *Manager) {
+func NewManager(storage *storage.Storage, attestorsInEpochFunc func(epoch.Index) *validator.Set, opts ...options.Option[Manager]) (new *Manager) {
 	return options.Apply(&Manager{
 		Events:         NewEvents(),
-		EpochMutations: NewEpochMutations(sybilProtection.Weight, storage.Settings.LatestCommitment().Index()),
+		EpochMutations: NewEpochMutations(attestorsInEpochFunc, storage.Settings.LatestCommitment().Index()),
 
 		storage:                    storage,
 		pendingConflictsCounters:   shrinkingmap.New[epoch.Index, uint64](),

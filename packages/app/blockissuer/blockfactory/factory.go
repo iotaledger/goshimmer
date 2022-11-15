@@ -10,8 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/serix"
-	"github.com/minio/blake2b-simd"
+	"github.com/iotaledger/hive.go/core/serix"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -212,15 +211,14 @@ func (f *Factory) tips(p payload.Payload, parentsCount int) (parents models.Bloc
 }
 
 func (f *Factory) sign(block *models.Block) (ed25519.Signature, error) {
-	bytes, err := block.Bytes()
+	contentHash, err := block.ContentHash()
 	if err != nil {
-		return ed25519.EmptySignature, err
+		return ed25519.EmptySignature, errors.Errorf("failed to obtain block content's hash: %w", err)
 	}
 
-	contentHash := blake2b.Sum256(bytes[:len(bytes)-len(block.Signature())])
 	issuingTimeBytes, err := serix.DefaultAPI.Encode(context.Background(), block.IssuingTime(), serix.WithValidation())
 	if err != nil {
-		panic(err)
+		return ed25519.EmptySignature, errors.Errorf("failed to serialize block's issuing time: %w", err)
 	}
 
 	return f.identity.Sign(byteutils.ConcatBytes(issuingTimeBytes, lo.PanicOnErr(block.Commitment().ID().Bytes()), contentHash[:])), nil

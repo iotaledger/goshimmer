@@ -170,7 +170,7 @@ func diagnosticPrintSnapshotFromFile(filePath string) {
 	}
 
 	fmt.Println("--- ActivityLog ---")
-	e.Storage.ActiveNodes.Stream(0, func(id identity.ID) {
+	e.Storage.Attestors.Stream(0, func(id identity.ID) {
 		fmt.Printf("%d: %+v\n", 0, id)
 	})
 

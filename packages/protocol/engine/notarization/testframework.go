@@ -7,10 +7,12 @@ import (
 
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -25,6 +27,7 @@ type TestFramework struct {
 	issuersWeight      map[identity.ID]int64
 	blocksByID         map[string]*models.Block
 	epochEntityCounter map[epoch.Index]int
+	attestorsByEpoch   map[epoch.Index]map[identity.ID]*set.AdvancedSet[models.BlockID]
 
 	sync.RWMutex
 }
@@ -37,10 +40,14 @@ func NewTestFramework(test *testing.T) *TestFramework {
 		issuersWeight:      make(map[identity.ID]int64),
 		blocksByID:         make(map[string]*models.Block),
 		epochEntityCounter: make(map[epoch.Index]int),
+		attestorsByEpoch:   make(map[epoch.Index]map[identity.ID]*set.AdvancedSet[models.BlockID]),
 	}
-	tf.MutationFactory = NewEpochMutations(func(id identity.ID) (int64, bool) {
-		weight, exists := tf.issuersWeight[id]
-		return weight, exists
+	tf.MutationFactory = NewEpochMutations(func(index epoch.Index) *validator.Set {
+		attestors := validator.NewSet()
+		for id := range tf.attestorsByEpoch[index] {
+			attestors.Add(validator.New(id, validator.WithWeight(tf.issuersWeight[id])))
+		}
+		return attestors
 	}, 0)
 
 	return tf
@@ -129,6 +136,19 @@ func (t *TestFramework) AddAcceptedBlock(alias string) (err error) {
 		panic("block does not exist")
 	}
 
+	attestorsInEpoch, exists := t.attestorsByEpoch[block.ID().Index()]
+	if !exists {
+		attestorsInEpoch = make(map[identity.ID]*set.AdvancedSet[models.BlockID])
+		t.attestorsByEpoch[block.ID().Index()] = attestorsInEpoch
+	}
+
+	blocksByID, exists := attestorsInEpoch[block.IssuerID()]
+	if !exists {
+		blocksByID = set.NewAdvancedSet[models.BlockID]()
+		attestorsInEpoch[block.IssuerID()] = blocksByID
+	}
+
+	blocksByID.Add(block.ID())
 	return t.MutationFactory.AddAcceptedBlock(block)
 }
 
@@ -136,6 +156,15 @@ func (t *TestFramework) RemoveAcceptedBlock(alias string) (err error) {
 	block := t.Block(alias)
 	if block == nil {
 		panic("block does not exist")
+	}
+
+	if attestorsInEpoch, exists := t.attestorsByEpoch[block.ID().Index()]; exists {
+		if blocksByID, exists := attestorsInEpoch[block.IssuerID()]; exists {
+			blocksByID.Delete(block.ID())
+			if blocksByID.IsEmpty() {
+				delete(attestorsInEpoch, block.IssuerID())
+			}
+		}
 	}
 
 	return t.MutationFactory.RemoveAcceptedBlock(block)
@@ -168,7 +197,7 @@ func (t *TestFramework) UpdateTransactionInclusion(alias string, oldEpoch, newEp
 	return t.MutationFactory.UpdateTransactionInclusion(tx.ID(), oldEpoch, newEpoch)
 }
 
-func (t *TestFramework) AssertCommit(index epoch.Index, expectedBlocks []string, expectedTransactions []string, expectedValidators []string, expectedCumulativeWeight uint64, optShouldError ...bool) {
+func (t *TestFramework) AssertCommit(index epoch.Index, expectedBlocks []string, expectedTransactions []string, expectedValidators []string, expectedCumulativeWeight int64, optShouldError ...bool) {
 	acceptedBlocks, acceptedTransactions, activeValidators, cumulativeWeight, err := t.MutationFactory.Commit(index)
 	if len(optShouldError) > 0 && optShouldError[0] {
 		require.Error(t.test, err)
@@ -202,7 +231,6 @@ func (t *TestFramework) AssertCommit(index epoch.Index, expectedBlocks []string,
 	}
 
 	require.Equal(t.test, expectedCumulativeWeight, cumulativeWeight)
-
 }
 
 func (t *TestFramework) increaseEpochEntityCounter(index epoch.Index) (nextBlockCounter int) {

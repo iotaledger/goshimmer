@@ -1,6 +1,7 @@
 package sybilprotection
 
 import (
+	"sync"
 	"time"
 
 	"github.com/iotaledger/hive.go/core/generics/lo"
@@ -14,6 +15,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/activitytracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	protocolModels "github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/goshimmer/packages/storage/models"
 )
 
@@ -22,24 +24,28 @@ type SybilProtection struct {
 	activityTracker     *activitytracker.ActivityTracker
 	validatorSet        *validator.Set
 	// attestationsByEpoch stores the blocks issued by a validator per epoch.
-	attestationsByEpoch        *memstorage.EpochStorage[identity.ID, *shrinkingmap.ShrinkingMap[protocolModels.BlockID, *Attestation]]
+	attestationsByEpoch        *memstorage.EpochStorage[identity.ID, *memstorage.Storage[protocolModels.BlockID, *Attestation]]
+	storageInstance            *storage.Storage
+	lastEvictedEpoch           epoch.Index
+	evictionMutex              sync.RWMutex
 	optsActivityTrackerOptions []options.Option[activitytracker.ActivityTracker]
 }
 
-func New(validatorSet *validator.Set, retrieverFunc activitytracker.TimeRetrieverFunc, opts ...options.Option[SybilProtection]) (sybilProtection *SybilProtection) {
+func New(validatorSet *validator.Set, storageInstance *storage.Storage, timeRetrieverFunc activitytracker.TimeRetrieverFunc, opts ...options.Option[SybilProtection]) (sybilProtection *SybilProtection) {
 	return options.Apply(&SybilProtection{
 		consensusManaVector: shrinkingmap.New[identity.ID, int64](),
 		validatorSet:        validatorSet,
-		attestationsByEpoch: memstorage.NewEpochStorage[identity.ID, *shrinkingmap.ShrinkingMap[protocolModels.BlockID, *Attestation]](),
+		attestationsByEpoch: memstorage.NewEpochStorage[identity.ID, *memstorage.Storage[protocolModels.BlockID, *Attestation]](),
+		storageInstance:     storageInstance,
 	}, opts, func(s *SybilProtection) {
-		s.activityTracker = activitytracker.New(validatorSet, retrieverFunc, s.optsActivityTrackerOptions...)
+		s.activityTracker = activitytracker.New(validatorSet, timeRetrieverFunc, s.optsActivityTrackerOptions...)
 	})
 }
 
 func (s *SybilProtection) Attestors(index epoch.Index) (attestors *validator.Set) {
 	attestors = validator.NewSet()
 	if storage := s.attestationsByEpoch.Get(index, false); storage != nil {
-		storage.ForEach(func(attestorID identity.ID, attestations *shrinkingmap.ShrinkingMap[protocolModels.BlockID, *Attestation]) bool {
+		storage.ForEach(func(attestorID identity.ID, _ *memstorage.Storage[protocolModels.BlockID, *Attestation]) bool {
 			attestors.Add(validator.New(attestorID, validator.WithWeight(lo.Return1(s.consensusManaVector.Get(attestorID)))))
 
 			return true
@@ -47,6 +53,39 @@ func (s *SybilProtection) Attestors(index epoch.Index) (attestors *validator.Set
 	}
 
 	return attestors
+}
+
+func (s *SybilProtection) AddBlockFromAttestor(block *protocolModels.Block) {
+	s.evictionMutex.RLock()
+	defer s.evictionMutex.RUnlock()
+
+	attestationsByIssuer, added := s.attestationsByEpoch.Get(block.ID().Index(), true).RetrieveOrCreate(block.IssuerID(), func() *memstorage.Storage[protocolModels.BlockID, *Attestation] {
+		return memstorage.New[protocolModels.BlockID, *Attestation]()
+	})
+
+	if added {
+		s.storageInstance.Attestors.Store(block.ID().Index(), block.IssuerID())
+	}
+
+	attestationsByIssuer.Set(block.ID(), &Attestation{
+		IssuingTime:      block.IssuingTime(),
+		CommitmentID:     block.Commitment().ID(),
+		BlockContentHash: lo.PanicOnErr(block.ContentHash()),
+		Signature:        block.Signature(),
+	})
+}
+
+func (s *SybilProtection) RemoveBlockFromAttestor(block *protocolModels.Block) {
+	s.evictionMutex.RLock()
+	defer s.evictionMutex.RUnlock()
+
+	if attestationStorage := s.attestationsByEpoch.Get(block.ID().Index(), false); attestationStorage != nil {
+		if attestationsByIssuer, exists := attestationStorage.Get(block.IssuerID()); exists {
+			if attestationsByIssuer.Delete(block.ID()); attestationsByIssuer.IsEmpty() {
+				s.storageInstance.Attestors.Delete(block.ID().Index(), block.IssuerID())
+			}
+		}
+	}
 }
 
 func (s *SybilProtection) UpdateConsensusWeights(weightUpdates map[identity.ID]*models.TimedBalance) {
@@ -87,6 +126,15 @@ func (s *SybilProtection) Weights() map[identity.ID]int64 {
 
 func (s *SybilProtection) Weight(id identity.ID) (weight int64, exists bool) {
 	return s.consensusManaVector.Get(id)
+}
+
+func (s *SybilProtection) Evict(index epoch.Index) {
+	s.evictionMutex.Lock()
+	defer s.evictionMutex.Unlock()
+
+	s.attestationsByEpoch.Evict(index)
+
+	s.lastEvictedEpoch = index
 }
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////

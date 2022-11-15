@@ -6,15 +6,13 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/constraints"
 	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
-	"github.com/iotaledger/hive.go/core/types"
 
 	"github.com/iotaledger/goshimmer/packages/core/ads"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
+	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -22,16 +20,13 @@ import (
 
 // EpochMutations is an in-memory data structure that enables the collection of mutations for uncommitted epochs.
 type EpochMutations struct {
-	sybilProtection *sybilprotection.SybilProtection
+	attestorsInEpochFunc func(epoch.Index) *validator.Set
 
 	// acceptedBlocksByEpoch stores the accepted blocks per epoch.
 	acceptedBlocksByEpoch *memstorage.Storage[epoch.Index, *ads.Set[models.BlockID]]
 
 	// acceptedTransactionsByEpoch stores the accepted transactions per epoch.
 	acceptedTransactionsByEpoch *memstorage.Storage[epoch.Index, *ads.Set[utxo.TransactionID]]
-
-	// activeValidatorsByEpoch stores the active validators per epoch.
-	activeValidatorsByEpoch *memstorage.Storage[epoch.Index, *ads.Set[identity.ID]]
 
 	// latestCommittedIndex stores the index of the latest committed epoch.
 	latestCommittedIndex epoch.Index
@@ -43,13 +38,12 @@ type EpochMutations struct {
 }
 
 // NewEpochMutations creates a new EpochMutations instance.
-func NewEpochMutations(sybilProtection *sybilprotection.SybilProtection, lastCommittedEpoch epoch.Index) (newMutationFactory *EpochMutations) {
+func NewEpochMutations(attestorsInEpochFunc func(epoch.Index) *validator.Set, lastCommittedEpoch epoch.Index) (newMutationFactory *EpochMutations) {
 	return &EpochMutations{
-		sybilProtection: sybilProtection,
+		attestorsInEpochFunc: attestorsInEpochFunc,
 
 		acceptedBlocksByEpoch:       memstorage.New[epoch.Index, *ads.Set[models.BlockID]](),
 		acceptedTransactionsByEpoch: memstorage.New[epoch.Index, *ads.Set[utxo.TransactionID]](),
-		activeValidatorsByEpoch:     memstorage.New[epoch.Index, *ads.Set[identity.ID]](),
 
 		latestCommittedIndex: lastCommittedEpoch,
 	}
@@ -66,7 +60,6 @@ func (m *EpochMutations) AddAcceptedBlock(block *models.Block) (err error) {
 	}
 
 	m.acceptedBlocks(blockID.Index(), true).Add(blockID)
-	m.addBlockByIssuer(block)
 
 	return
 }
@@ -82,7 +75,6 @@ func (m *EpochMutations) RemoveAcceptedBlock(block *models.Block) (err error) {
 	}
 
 	m.acceptedBlocks(blockID.Index()).Delete(blockID)
-	m.removeBlockByIssuer(blockID, block.IssuerID())
 
 	return
 }
@@ -137,7 +129,7 @@ func (m *EpochMutations) UpdateTransactionInclusion(txID utxo.TransactionID, old
 }
 
 // Commit evicts the given epoch and returns the corresponding mutation sets.
-func (m *EpochMutations) Commit(index epoch.Index) (acceptedBlocks *ads.Set[models.BlockID], acceptedTransactions *ads.Set[utxo.TransactionID], activeValidators *ads.Set[identity.ID], cumulativeWeight int64, err error) {
+func (m *EpochMutations) Commit(index epoch.Index) (acceptedBlocks *ads.Set[models.BlockID], acceptedTransactions *ads.Set[utxo.TransactionID], attestors *ads.Set[identity.ID], cumulativeWeight int64, err error) {
 	m.Lock()
 	defer m.Unlock()
 
@@ -147,9 +139,16 @@ func (m *EpochMutations) Commit(index epoch.Index) (acceptedBlocks *ads.Set[mode
 
 	defer m.evictUntil(index)
 
-	m.lastCommittedEpochCumulativeWeight += m.sybilProtection.Attestors(index).TotalWeight()
+	epochAttestors := m.attestorsInEpochFunc(index)
+	m.lastCommittedEpochCumulativeWeight += epochAttestors.TotalWeight()
 
-	return m.acceptedBlocks(index), m.acceptedTransactions(index), m.activeValidators(index), m.lastCommittedEpochCumulativeWeight, nil
+	adsAttestors := newSet[identity.ID]()
+	epochAttestors.ForEachKey(func(id identity.ID) bool {
+		adsAttestors.Add(id)
+		return true
+	})
+
+	return m.acceptedBlocks(index), m.acceptedTransactions(index), adsAttestors, m.lastCommittedEpochCumulativeWeight, nil
 }
 
 // acceptedBlocks returns the set of accepted blocks for the given epoch.
@@ -170,56 +169,11 @@ func (m *EpochMutations) acceptedTransactions(index epoch.Index, createIfMissing
 	return lo.Return1(m.acceptedTransactionsByEpoch.Get(index))
 }
 
-// activeValidators returns the set of active validators for the given epoch.
-func (m *EpochMutations) activeValidators(index epoch.Index, createIfMissing ...bool) *ads.Set[identity.ID] {
-	if len(createIfMissing) > 0 && createIfMissing[0] {
-		return lo.Return1(m.activeValidatorsByEpoch.RetrieveOrCreate(index, newSet[identity.ID]))
-	}
-
-	return lo.Return1(m.activeValidatorsByEpoch.Get(index))
-}
-
-// addBlockByIssuer adds the given block to the set of blocks issued by the given issuer.
-func (m *EpochMutations) addBlockByIssuer(block *models.Block) {
-	issuerID := block.IssuerID()
-
-	blocksByIssuer, isNewIssuer := m.attestationsByEpoch.Get(block.ID().Index(), true).RetrieveOrCreate(issuerID, func() *shrinkingmap.ShrinkingMap[models.BlockID, *Attestation] {
-		return shrinkingmap.New[models.BlockID, *Attestation]()
-	})
-	if isNewIssuer {
-		m.activeValidators(block.ID().Index(), true).Add(issuerID)
-	}
-
-	blocksByIssuer.Set(block.ID(), &Attestation{
-		IssuingTime:      block.IssuingTime(),
-		CommitmentID:     block.Commitment().ID(),
-		BlockContentHash: types.Identifier{},
-		Signature:        block.Signature(),
-	})
-}
-
-// removeBlockByIssuer removes the given block from the set of blocks issued by the given issuer.
-func (m *EpochMutations) removeBlockByIssuer(blockID models.BlockID, issuer identity.ID) {
-	epochBlocks := m.attestationsByEpoch.Get(blockID.Index())
-	if epochBlocks == nil {
-		return
-	}
-
-	blocksByIssuer, exists := epochBlocks.Get(issuer)
-	if !exists || !blocksByIssuer.Delete(blockID) || !blocksByIssuer.IsEmpty() {
-		return
-	}
-
-	m.activeValidators(blockID.Index()).Delete(issuer)
-}
-
 // evictUntil removes all data for epochs that are older than the given epoch.
 func (m *EpochMutations) evictUntil(index epoch.Index) {
 	for i := m.latestCommittedIndex + 1; i <= index; i++ {
 		m.acceptedBlocksByEpoch.Delete(i)
 		m.acceptedTransactionsByEpoch.Delete(i)
-		m.activeValidatorsByEpoch.Delete(i)
-		m.attestationsByEpoch.Evict(i)
 	}
 
 	m.latestCommittedIndex = index

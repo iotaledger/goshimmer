@@ -74,7 +74,7 @@ type ExplorerBlock struct {
 	EI                   uint64 `json:"ei"`
 	CommitmentRootsID    string `json:"ecr"`
 	PreviousCommitmentID string `json:"prevEC"`
-	CumulativeWeight     uint64 `json:"cumulativeWeight"`
+	CumulativeWeight     int64  `json:"cumulativeWeight"`
 	LatestConfirmedEpoch uint64 `json:"latestConfirmedEpoch"`
 }
 

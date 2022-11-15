@@ -108,3 +108,10 @@ func (s *Storage[K, V]) Size() (size int) {
 
 	return s.storage.Size()
 }
+
+func (s *Storage[K, V]) IsEmpty() (isEmpty bool) {
+	s.RLock()
+	defer s.RUnlock()
+
+	return s.storage.Size() == 0
+}

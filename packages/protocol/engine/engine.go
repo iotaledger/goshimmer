@@ -234,7 +234,7 @@ func (e *Engine) initBlockStorage() {
 }
 
 func (e *Engine) initNotarizationManager() {
-	e.NotarizationManager = notarization.NewManager(e.Storage, e.SybilProtection)
+	e.NotarizationManager = notarization.NewManager(e.Storage, e.SybilProtection.Attestors)
 
 	e.Consensus.BlockGadget.Events.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
 		if err := e.NotarizationManager.AddAcceptedBlock(block.ModelsBlock); err != nil {
@@ -282,10 +282,13 @@ func (e *Engine) initManaTracker() {
 }
 
 func (e *Engine) initSybilProtection() {
-	e.SybilProtection = sybilprotection.New(e.ValidatorSet, e.Clock.RelativeAcceptedTime, e.optsSybilProtectionOptions...)
+	e.SybilProtection = sybilprotection.New(e.ValidatorSet, e.Storage, e.Clock.RelativeAcceptedTime, e.optsSybilProtectionOptions...)
 
 	e.Storage.Permanent.Events.ConsensusWeightsUpdated.Hook(event.NewClosure(e.SybilProtection.UpdateConsensusWeights))
 	e.Events.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(e.SybilProtection.TrackActiveValidators))
+
+	e.Events.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) { e.SybilProtection.AddBlockFromAttestor(block.ModelsBlock) }))
+	e.Events.Tangle.BlockDAG.BlockOrphaned.Attach(event.NewClosure(func(block *blockdag.Block) { e.SybilProtection.RemoveBlockFromAttestor(block.ModelsBlock) }))
 }
 
 func (e *Engine) initEvictionState() {
