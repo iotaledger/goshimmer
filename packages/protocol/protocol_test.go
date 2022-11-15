@@ -45,17 +45,17 @@ func TestProtocol(t *testing.T) {
 
 	protocol1.networkProtocol.Events.EpochCommitmentReceived.Trigger(&network.EpochCommitmentReceivedEvent{
 		Commitment: commitments["1"],
-		Neighbor:   identity.ID{},
+		Source:     identity.ID{},
 	})
 
 	protocol1.networkProtocol.Events.EpochCommitmentReceived.Trigger(&network.EpochCommitmentReceivedEvent{
 		Commitment: commitments["2"],
-		Neighbor:   identity.ID{},
+		Source:     identity.ID{},
 	})
 
 	protocol1.networkProtocol.Events.EpochCommitmentReceived.Trigger(&network.EpochCommitmentReceivedEvent{
 		Commitment: commitments["3"],
-		Neighbor:   identity.ID{},
+		Source:     identity.ID{},
 	})
 
 	endpoint2 := testNetwork.Join(identity.GenerateIdentity().ID())
@@ -78,7 +78,7 @@ func TestProtocol(t *testing.T) {
 
 	protocol2.networkProtocol.Events.EpochCommitmentReceived.Trigger(&network.EpochCommitmentReceivedEvent{
 		Commitment: commitments["3"],
-		Neighbor:   identity.ID{},
+		Source:     identity.ID{},
 	})
 
 	tf1 := engine.NewTestFramework(t, engine.WithEngine(protocol1.Engine()))

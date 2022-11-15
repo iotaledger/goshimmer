@@ -67,12 +67,7 @@ func (s *SybilProtection) AddBlockFromAttestor(block *protocolModels.Block) {
 		s.storageInstance.Attestors.Store(block.ID().Index(), block.IssuerID())
 	}
 
-	attestationsByIssuer.Set(block.ID(), &Attestation{
-		IssuingTime:      block.IssuingTime(),
-		CommitmentID:     block.Commitment().ID(),
-		BlockContentHash: lo.PanicOnErr(block.ContentHash()),
-		Signature:        block.Signature(),
-	})
+	attestationsByIssuer.Set(block.ID(), NewAttestation(block.IssuerID(), block.IssuingTime(), block.Commitment().ID(), lo.PanicOnErr(block.ContentHash()), block.Signature()))
 }
 
 func (s *SybilProtection) RemoveBlockFromAttestor(block *protocolModels.Block) {

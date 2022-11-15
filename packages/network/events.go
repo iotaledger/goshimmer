@@ -5,6 +5,8 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
@@ -15,6 +17,8 @@ type Events struct {
 	BlockRequestReceived           *event.Linkable[*BlockRequestReceivedEvent]
 	EpochCommitmentReceived        *event.Linkable[*EpochCommitmentReceivedEvent]
 	EpochCommitmentRequestReceived *event.Linkable[*EpochCommitmentRequestReceivedEvent]
+	AttestationsReceived           *event.Linkable[*AttestationsReceivedEvent]
+	AttestationsRequestReceived    *event.Linkable[*AttestationsRequestReceivedEvent]
 	Error                          *event.Linkable[*ErrorEvent]
 
 	event.LinkableCollection[Events, *Events]
@@ -57,7 +61,8 @@ type BlockRequestReceivedEvent struct {
 
 type EpochCommitmentReceivedEvent struct {
 	Commitment *commitment.Commitment
-	Neighbor   identity.ID
+
+	Source     identity.ID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -66,7 +71,28 @@ type EpochCommitmentReceivedEvent struct {
 
 type EpochCommitmentRequestReceivedEvent struct {
 	CommitmentID commitment.ID
+
 	Source       identity.ID
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region AttestationsReceivedEvent ////////////////////////////////////////////////////////////////////////////////////
+
+type AttestationsReceivedEvent struct {
+	Attestations []*sybilprotection.Attestation
+
+	Source       identity.ID
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region AttestationsRequestReceivedEvent /////////////////////////////////////////////////////////////////////////////
+
+type AttestationsRequestReceivedEvent struct {
+	Index  epoch.Index
+
+	Source identity.ID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -75,6 +101,7 @@ type EpochCommitmentRequestReceivedEvent struct {
 
 type ErrorEvent struct {
 	Error  error
+
 	Source identity.ID
 }
 

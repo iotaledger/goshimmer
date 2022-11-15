@@ -6,19 +6,22 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/types"
 )
 
 type Attestation struct {
-	IssuingTime      time.Time         `serix:"0"`
-	CommitmentID     commitment.ID     `serix:"1"`
-	BlockContentHash types.Identifier  `serix:"2"`
-	Signature        ed25519.Signature `serix:"3"`
+	IssuerID         identity.ID       `serix:"0"`
+	IssuingTime      time.Time         `serix:"1"`
+	CommitmentID     commitment.ID     `serix:"2"`
+	BlockContentHash types.Identifier  `serix:"3"`
+	Signature        ed25519.Signature `serix:"4"`
 }
 
-func NewWeightProofEntry(issuingTime time.Time, commitmentID commitment.ID, blockContentHash types.Identifier, signature ed25519.Signature) *Attestation {
+func NewAttestation(issuerID identity.ID, issuingTime time.Time, commitmentID commitment.ID, blockContentHash types.Identifier, signature ed25519.Signature) *Attestation {
 	return &Attestation{
+		IssuerID:         issuerID,
 		IssuingTime:      issuingTime,
 		CommitmentID:     commitmentID,
 		BlockContentHash: blockContentHash,
@@ -26,10 +29,10 @@ func NewWeightProofEntry(issuingTime time.Time, commitmentID commitment.ID, bloc
 	}
 }
 
-func (w Attestation) Bytes() (bytes []byte, err error) {
-	return serix.DefaultAPI.Encode(context.Background(), w, serix.WithValidation())
+func (a Attestation) Bytes() (bytes []byte, err error) {
+	return serix.DefaultAPI.Encode(context.Background(), a, serix.WithValidation())
 }
 
-func (w *Attestation) FromBytes(bytes []byte) (consumedBytes int, err error) {
-	return serix.DefaultAPI.Decode(context.Background(), bytes, w, serix.WithValidation())
+func (a *Attestation) FromBytes(bytes []byte) (consumedBytes int, err error) {
+	return serix.DefaultAPI.Decode(context.Background(), bytes, a, serix.WithValidation())
 }

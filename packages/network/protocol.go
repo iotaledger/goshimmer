@@ -10,7 +10,9 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	. "github.com/iotaledger/goshimmer/packages/network/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
@@ -74,6 +76,10 @@ func (p *Protocol) handlePacket(nbr identity.ID, packet proto.Message) (err erro
 		event.Loop.Submit(func() { p.onEpochCommitment(packetBody.EpochCommitment.GetBytes(), nbr) })
 	case *Packet_EpochCommitmentRequest:
 		event.Loop.Submit(func() { p.onEpochCommitmentRequest(packetBody.EpochCommitmentRequest.GetBytes(), nbr) })
+	case *Packet_Attestations:
+		event.Loop.Submit(func() { p.onAttestations(packetBody.Attestations.GetBytes(), nbr) })
+	case *Packet_AttestationsRequest:
+		event.Loop.Submit(func() { p.onAttestationsRequest(packetBody.AttestationsRequest.GetBytes(), nbr) })
 	default:
 		return errors.Errorf("unsupported packet; packet=%+v, packetBody=%T-%+v", packet, packetBody, packetBody)
 	}
@@ -132,8 +138,8 @@ func (p *Protocol) onEpochCommitment(commitmentBytes []byte, id identity.ID) {
 	}
 
 	p.Events.EpochCommitmentReceived.Trigger(&EpochCommitmentReceivedEvent{
-		Neighbor:   id,
 		Commitment: &receivedCommitment,
+		Source:     id,
 	})
 }
 
@@ -151,6 +157,46 @@ func (p *Protocol) onEpochCommitmentRequest(idBytes []byte, id identity.ID) {
 	p.Events.EpochCommitmentRequestReceived.Trigger(&EpochCommitmentRequestReceivedEvent{
 		CommitmentID: receivedCommitmentID,
 		Source:       id,
+	})
+}
+
+func (p *Protocol) onAttestations(attestationsBytes [][]byte, id identity.ID) {
+	attestations := make([]*sybilprotection.Attestation, len(attestationsBytes))
+
+	for i, attestationBytes := range attestationsBytes {
+		attestation := new(sybilprotection.Attestation)
+		if _, err := attestation.FromBytes(attestationBytes); err != nil {
+			p.Events.Error.Trigger(&ErrorEvent{
+				Error:  errors.Errorf("failed to deserialize attestation: %w", err),
+				Source: id,
+			})
+
+			return
+		}
+
+		attestations[i] = attestation
+	}
+
+	p.Events.AttestationsReceived.Trigger(&AttestationsReceivedEvent{
+		Attestations: attestations,
+		Source:       id,
+	})
+}
+
+func (p *Protocol) onAttestationsRequest(epochIndexBytes []byte, id identity.ID) {
+	epochIndex, _, err := epoch.IndexFromBytes(epochIndexBytes)
+	if err != nil {
+		p.Events.Error.Trigger(&ErrorEvent{
+			Error:  errors.Errorf("failed to deserialize epoch index: %w", err),
+			Source: id,
+		})
+
+		return
+	}
+
+	p.Events.AttestationsRequestReceived.Trigger(&AttestationsRequestReceivedEvent{
+		Index:  epochIndex,
+		Source: id,
 	})
 }
 
