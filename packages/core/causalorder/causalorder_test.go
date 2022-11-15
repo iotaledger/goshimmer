@@ -17,27 +17,27 @@ func TestCausalOrder_Queue(t *testing.T) {
 	tf.CreateEntity("E", WithParents(tf.EntityIDs("C", "D")), WithEpoch(1))
 
 	tf.Queue(tf.Entity("A"))
-	event.Loop.WaitUntilAllTasksProcessed()
+	event.Loop.PendingTasksCounter.WaitIsZero()
 	tf.AssertOrdered("A")
 
 	tf.Queue(tf.Entity("A"))
-	event.Loop.WaitUntilAllTasksProcessed()
+	event.Loop.PendingTasksCounter.WaitIsZero()
 	tf.AssertOrdered("A")
 
 	tf.Queue(tf.Entity("D"))
-	event.Loop.WaitUntilAllTasksProcessed()
+	event.Loop.PendingTasksCounter.WaitIsZero()
 	tf.AssertOrdered("A")
 
 	tf.Queue(tf.Entity("E"))
-	event.Loop.WaitUntilAllTasksProcessed()
+	event.Loop.PendingTasksCounter.WaitIsZero()
 	tf.AssertOrdered("A")
 
 	tf.Queue(tf.Entity("C"))
-	event.Loop.WaitUntilAllTasksProcessed()
+	event.Loop.PendingTasksCounter.WaitIsZero()
 	tf.AssertOrdered("A")
 
 	tf.Queue(tf.Entity("B"))
-	event.Loop.WaitUntilAllTasksProcessed()
+	event.Loop.PendingTasksCounter.WaitIsZero()
 	tf.AssertOrdered("A", "B", "C", "D", "E")
 }
 
@@ -54,47 +54,47 @@ func TestCausalOrder_EvictEpoch(t *testing.T) {
 	tf.CreateEntity("H", WithParents(tf.EntityIDs("G")), WithEpoch(2))
 
 	tf.Queue(tf.Entity("A"))
-	event.Loop.WaitUntilAllTasksProcessed()
+	event.Loop.PendingTasksCounter.WaitIsZero()
 	tf.AssertOrdered("A")
 	tf.AssertEvicted()
 
 	tf.Queue(tf.Entity("D"))
-	event.Loop.WaitUntilAllTasksProcessed()
+	event.Loop.PendingTasksCounter.WaitIsZero()
 	tf.AssertOrdered("A")
 	tf.AssertEvicted()
 
 	tf.Queue(tf.Entity("E"))
-	event.Loop.WaitUntilAllTasksProcessed()
+	event.Loop.PendingTasksCounter.WaitIsZero()
 	tf.AssertOrdered("A")
 	tf.AssertEvicted()
 
 	tf.Queue(tf.Entity("C"))
-	event.Loop.WaitUntilAllTasksProcessed()
+	event.Loop.PendingTasksCounter.WaitIsZero()
 	tf.AssertOrdered("A")
 	tf.AssertEvicted()
 
 	tf.Queue(tf.Entity("B"))
-	event.Loop.WaitUntilAllTasksProcessed()
+	event.Loop.PendingTasksCounter.WaitIsZero()
 	tf.AssertOrdered("A", "B", "C", "D", "E")
 	tf.AssertEvicted()
 
 	tf.Queue(tf.Entity("G"))
-	event.Loop.WaitUntilAllTasksProcessed()
+	event.Loop.PendingTasksCounter.WaitIsZero()
 	tf.AssertOrdered("A", "B", "C", "D", "E")
 	tf.AssertEvicted()
 
 	tf.EvictEpoch(1)
-	event.Loop.WaitUntilAllTasksProcessed()
+	event.Loop.PendingTasksCounter.WaitIsZero()
 	tf.AssertOrdered("A", "B", "C", "D", "E")
 	tf.AssertEvicted("F", "G")
 
 	tf.Queue(tf.Entity("F"))
-	event.Loop.WaitUntilAllTasksProcessed()
+	event.Loop.PendingTasksCounter.WaitIsZero()
 	tf.AssertOrdered("A", "B", "C", "D", "E")
 	tf.AssertEvicted("F", "G")
 
 	tf.Queue(tf.Entity("H"))
-	event.Loop.WaitUntilAllTasksProcessed()
+	event.Loop.PendingTasksCounter.WaitIsZero()
 	tf.AssertOrdered("A", "B", "C", "D", "E")
 	tf.AssertEvicted("F", "G", "H")
 }
@@ -110,7 +110,7 @@ func TestCausalOrder_UnexpectedCases(t *testing.T) {
 	// test queueing an entity with non-existing parents
 	tf.RemoveEntity("A")
 	tf.Queue(tf.Entity("B"))
-	event.Loop.WaitUntilAllTasksProcessed()
+	event.Loop.PendingTasksCounter.WaitIsZero()
 	tf.AssertOrdered()
 	tf.AssertEvicted("B")
 
@@ -118,7 +118,7 @@ func TestCausalOrder_UnexpectedCases(t *testing.T) {
 	tf.RemoveEntity("C")
 	defer func() {
 		require.NotNil(t, recover())
-		event.Loop.WaitUntilAllTasksProcessed()
+		event.Loop.PendingTasksCounter.WaitIsZero()
 		tf.AssertOrdered()
 		tf.AssertEvicted("B")
 	}()

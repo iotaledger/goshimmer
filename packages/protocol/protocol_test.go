@@ -89,5 +89,5 @@ func TestProtocol(t *testing.T) {
 
 	time.Sleep(4 * time.Second)
 
-	event.Loop.WaitUntilAllTasksProcessed()
+	event.Loop.PendingTasksCounter.WaitIsZero()
 }

@@ -1,14 +1,14 @@
 package dashboard
 
 import (
+	"embed"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
-	"os"
 
 	"github.com/cockroachdb/errors"
 	"github.com/labstack/echo"
-	"github.com/markbates/pkger"
 )
 
 // ErrInvalidParameter defines the invalid parameter error.
@@ -23,13 +23,17 @@ var ErrNotFound = errors.New("not found")
 // ErrForbidden defines the forbidden error.
 var ErrForbidden = errors.New("forbidden")
 
+//go:embed frontend/build frontend/src/assets
+var staticFS embed.FS
+
 const (
-	app    = "/plugins/dashboard/frontend/build"
-	assets = "/plugins/dashboard/frontend/src/assets"
+	app    = "frontend/build"
+	assets = "frontend/src/assets"
 )
 
 func indexRoute(e echo.Context) error {
 	if Parameters.Dev {
+		fmt.Println("in dev mode")
 		req, err := http.NewRequestWithContext(e.Request().Context(), "GET", Parameters.DevDashboardAddress, nil /* body */)
 		if err != nil {
 			return err
@@ -46,7 +50,7 @@ func indexRoute(e echo.Context) error {
 		return e.HTMLBlob(http.StatusOK, devIndexHTML)
 	}
 
-	index, err := pkger.Open(app + "/index.html")
+	index, err := staticFS.Open(app + "/index.html")
 	if err != nil {
 		return err
 	}
@@ -56,6 +60,7 @@ func indexRoute(e echo.Context) error {
 	if err != nil {
 		return err
 	}
+
 	return e.HTMLBlob(http.StatusOK, indexHTML)
 }
 
@@ -63,22 +68,19 @@ func setupRoutes(e *echo.Echo) {
 	if Parameters.Dev {
 		e.Static("/assets", "./plugins/dashboard/frontend/src/assets")
 	} else {
-		// load assets from pkger: either from within the binary or actual disk
-		pkger.Walk(app, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			e.GET("/app/"+info.Name(), echo.WrapHandler(http.StripPrefix("/app", http.FileServer(pkger.Dir(app)))))
-			return nil
-		})
+		staticfsys := fs.FS(staticFS)
 
-		pkger.Walk(assets, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			e.GET("/assets/"+info.Name(), echo.WrapHandler(http.StripPrefix("/assets", http.FileServer(pkger.Dir(assets)))))
-			return nil
-		})
+		appfs, _ := fs.Sub(staticfsys, app)
+		dirEntries, _ := staticFS.ReadDir(app)
+		for _, de := range dirEntries {
+			e.GET("/app/"+de.Name(), echo.WrapHandler(http.StripPrefix("/app", http.FileServer(http.FS(appfs)))))
+		}
+
+		assetsfs, _ := fs.Sub(staticfsys, assets)
+		dirEntries, _ = staticFS.ReadDir(assets)
+		for _, de := range dirEntries {
+			e.GET("/assets/"+de.Name(), echo.WrapHandler(http.StripPrefix("/assets", http.FileServer(http.FS(assetsfs)))))
+		}
 	}
 
 	e.GET("/ws", websocketRoute)
