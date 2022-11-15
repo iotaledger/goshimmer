@@ -33,7 +33,7 @@ services:
     secrets:
       - goshimmer.config.json
     volumes:
-      - ./snapshot-feature.bin:/app/snapshot.bin
+      - ./docker-network.feature.snapshot:/app/snapshot.bin
     ports:
       - "8080:8080/tcp" # web API
       - "8081:8081/tcp" # dashboard
@@ -69,7 +69,7 @@ services:
     secrets:
       - goshimmer.config.json
     volumes:
-      - ./snapshot-feature.bin:/app/snapshot.bin
+      - ./docker-network.feature.snapshot:/app/snapshot.bin
     ports:
       - "8090:8080/tcp" # web API
       - "8051:8061/tcp" # dags visualizer
@@ -103,7 +103,7 @@ services:
     secrets:
       - goshimmer.config.json
     volumes:
-      - ./snapshot-feature.bin:/app/snapshot.bin
+      - ./docker-network.feature.snapshot:/app/snapshot.bin
     ports:
       - "8070:8080/tcp" # web API
       - "8071:8081/tcp" # dashboard
@@ -136,7 +136,7 @@ services:
     secrets:
       - goshimmer.config.json
     volumes:
-      - ./snapshot-feature.bin:/app/snapshot.bin
+      - ./docker-network.feature.snapshot:/app/snapshot.bin
     ports:
       - "8001:8080/tcp" # web API
     networks:
@@ -167,7 +167,7 @@ services:
     secrets:
       - goshimmer.config.json
     volumes:
-      - ./snapshot-feature.bin:/app/snapshot.bin
+      - ./docker-network.feature.snapshot:/app/snapshot.bin
     ports:
       - "8002:8080/tcp" # web API
     networks:
@@ -198,7 +198,7 @@ services:
     secrets:
       - goshimmer.config.json
     volumes:
-      - ./snapshot-feature.bin:/app/snapshot.bin
+      - ./docker-network.feature.snapshot:/app/snapshot.bin
     ports:
       - "8003:8080/tcp" # web API
     networks:
@@ -229,7 +229,7 @@ services:
     secrets:
       - goshimmer.config.json
     volumes:
-      - ./snapshot-feature.bin:/app/snapshot.bin
+      - ./docker-network.feature.snapshot:/app/snapshot.bin
     ports:
       - "8004:8080/tcp" # web API
     networks:
@@ -260,7 +260,7 @@ services:
     secrets:
       - goshimmer.config.json
     volumes:
-      - ./snapshot-feature.bin:/app/snapshot.bin
+      - ./docker-network.feature.snapshot:/app/snapshot.bin
     ports:
       - "8005:8080/tcp" # web API
     networks:
