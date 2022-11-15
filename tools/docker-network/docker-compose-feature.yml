@@ -38,6 +38,8 @@ services:
       - goshimmer.config.json
     volumes:
       - ./docker-network.feature.snapshot:/app/snapshot.bin
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
     ports:
       - "8080:8080/tcp" # web API
       - "8081:8081/tcp" # dashboard
@@ -78,6 +80,8 @@ services:
       - goshimmer.config.json
     volumes:
       - ./docker-network.feature.snapshot:/app/snapshot.bin
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
     ports:
       - "8090:8080/tcp" # web API
       - "8051:8061/tcp" # dags visualizer
@@ -116,8 +120,8 @@ services:
       - goshimmer.config.json
     volumes:
       - ./docker-network.feature.snapshot:/app/snapshot.bin
-      - ./vanilla/db:/app/db
-      - ./vanilla/retainer:/app/retainer
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
     ports:
       - "8070:8080/tcp" # web API
       - "8071:8081/tcp" # dashboard
@@ -225,6 +229,8 @@ services:
       - goshimmer.config.json
     volumes:
       - ./docker-network.feature.snapshot:/app/snapshot.bin
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
     ports:
       - "8003:8080/tcp" # web API
     networks:
@@ -260,6 +266,8 @@ services:
       - goshimmer.config.json
     volumes:
       - ./docker-network.feature.snapshot:/app/snapshot.bin
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
     ports:
       - "8004:8080/tcp" # web API
     networks:
@@ -295,6 +303,8 @@ services:
       - goshimmer.config.json
     volumes:
       - ./docker-network.feature.snapshot:/app/snapshot.bin
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
     ports:
       - "8005:8080/tcp" # web API
     networks:
