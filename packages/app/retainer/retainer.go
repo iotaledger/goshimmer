@@ -66,6 +66,11 @@ func (r *Retainer) setupEvents() {
 	}))
 
 	r.protocol.Events.Engine.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(func(block *blockdag.Block) {
+		cm := r.createOrGetCachedMetadata(block.ID())
+		cm.setBlockDAGBlock(block)
+	}))
+
+	r.protocol.Events.Engine.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(func(block *blockdag.Block) {
 		fmt.Println("block missing", block.ID())
 	}))
 
