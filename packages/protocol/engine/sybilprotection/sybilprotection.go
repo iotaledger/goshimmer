@@ -45,14 +45,27 @@ func New(validatorSet *validator.Set, storageInstance *storage.Storage, timeRetr
 func (s *SybilProtection) Attestors(index epoch.Index) (attestors *validator.Set) {
 	attestors = validator.NewSet()
 	if storage := s.attestationsByEpoch.Get(index, false); storage != nil {
-		storage.ForEach(func(attestorID identity.ID, _ *memstorage.Storage[protocolModels.BlockID, *Attestation]) bool {
+		storage.ForEachKey(func(attestorID identity.ID) bool {
 			attestors.Add(validator.New(attestorID, validator.WithWeight(lo.Return1(s.consensusManaVector.Get(attestorID)))))
 
 			return true
 		})
 	}
 
-	return attestors
+	return
+}
+
+func (s *SybilProtection) Attestations(index epoch.Index) (attestations []*Attestation) {
+	attestations = make([]*Attestation, 0)
+	if storage := s.attestationsByEpoch.Get(index, false); storage != nil {
+		storage.ForEach(func(_ identity.ID, attestationsStorage *memstorage.Storage[protocolModels.BlockID, *Attestation]) bool {
+			attestations = append(attestations, lo.Return2(attestationsStorage.First()))
+
+			return true
+		})
+	}
+
+	return
 }
 
 func (s *SybilProtection) AddBlockFromAttestor(block *protocolModels.Block) {
