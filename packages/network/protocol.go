@@ -4,12 +4,14 @@ import (
 	"fmt"
 
 	"github.com/cockroachdb/errors"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/iotaledger/hive.go/core/bytesfilter"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	. "github.com/iotaledger/goshimmer/packages/network/models"
@@ -25,6 +27,8 @@ type Protocol struct {
 
 	network                   Endpoint
 	duplicateBlockBytesFilter *bytesfilter.BytesFilter
+
+	requestedBlocks set.Set[models.BlockID]
 }
 
 func NewProtocol(network Endpoint, opts ...options.Option[Protocol]) (protocol *Protocol) {
@@ -33,6 +37,7 @@ func NewProtocol(network Endpoint, opts ...options.Option[Protocol]) (protocol *
 
 		network:                   network,
 		duplicateBlockBytesFilter: bytesfilter.New(100000),
+		requestedBlocks:           set.New[models.BlockID](true),
 	}, opts, func(p *Protocol) {
 		network.RegisterProtocol(protocolID, newPacket, p.handlePacket)
 	})
@@ -45,6 +50,7 @@ func (p *Protocol) SendBlock(block *models.Block, to ...identity.ID) {
 }
 
 func (p *Protocol) RequestBlock(id models.BlockID, to ...identity.ID) {
+	p.requestedBlocks.Add(id)
 	p.network.Send(&Packet{Body: &Packet_BlockRequest{BlockRequest: &BlockRequest{
 		Bytes: lo.PanicOnErr(id.Bytes()),
 	}}}, protocolID, to...)
@@ -84,7 +90,6 @@ func (p *Protocol) handlePacket(nbr identity.ID, packet proto.Message) (err erro
 }
 
 func (p *Protocol) onBlock(blockData []byte, id identity.ID) {
-
 	block := new(models.Block)
 	if _, err := block.FromBytes(blockData); err != nil {
 		p.Events.Error.Trigger(&ErrorEvent{
@@ -94,12 +99,16 @@ func (p *Protocol) onBlock(blockData []byte, id identity.ID) {
 
 		return
 	}
-	block.DetermineIDFromBytes(blockData)
 
-	if !p.duplicateBlockBytesFilter.Add(blockData) {
-		fmt.Println("duplicate block dropped", block.ID())
+	blockID := block.DetermineIDFromBytes(blockData)
+
+	requested := !p.requestedBlocks.Delete(blockID)
+
+	if !p.duplicateBlockBytesFilter.Add(lo.PanicOnErr(blockID.Bytes())) && !requested {
+		fmt.Println("duplicate block dropped", blockID)
 		return
 	}
+
 	p.Events.BlockReceived.Trigger(&BlockReceivedEvent{
 		Block:  block,
 		Source: id,
