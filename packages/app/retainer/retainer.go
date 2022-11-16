@@ -5,6 +5,7 @@ import (
 
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/kvstore"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
@@ -41,7 +42,11 @@ func NewRetainer(protocol *protocol.Protocol, dbManager *database.Manager, opts 
 }
 
 func (r *Retainer) Block(blockID models.BlockID) (block *models.Block, exists bool) {
-	return r.protocol.Engine().Block(blockID)
+	if metadata, metadataExists := r.BlockMetadata(blockID); metadataExists {
+		return metadata.M.Block, metadata.M.Block != nil
+	}
+
+	return nil, false
 }
 
 func (r *Retainer) BlockMetadata(blockID models.BlockID) (metadata *BlockMetadata, exists bool) {
@@ -50,12 +55,35 @@ func (r *Retainer) BlockMetadata(blockID models.BlockID) (metadata *BlockMetadat
 	}
 
 	metadata, exists = r.blockStorage.Get(blockID)
-	if exists && !metadata.M.Confirmed && blockID.Index() <= r.protocol.Engine().LastConfirmedEpoch() {
+	if exists && metadata.M.Accepted && !metadata.M.Confirmed && blockID.Index() <= r.protocol.Engine().LastConfirmedEpoch() {
 		metadata.M.ConfirmedByEpoch = true
 		metadata.M.ConfirmedTime = blockID.Index().EndTime()
 	}
 
 	return metadata, exists
+}
+
+func (r *Retainer) LoadAll(index epoch.Index) (ids *set.AdvancedSet[*BlockMetadata]) {
+	ids = set.NewAdvancedSet[*BlockMetadata]()
+	r.Stream(index, func(id models.BlockID, metadata *BlockMetadata) {
+		ids.Add(metadata)
+	})
+	return
+}
+
+func (r *Retainer) Stream(index epoch.Index, callback func(id models.BlockID, metadata *BlockMetadata)) {
+	if epochStorage := r.cachedMetadata.Get(index, false); epochStorage != nil {
+		epochStorage.ForEach(func(id models.BlockID, cachedMetadata *cachedMetadata) bool {
+			callback(id, newBlockMetadata(cachedMetadata))
+			return true
+		})
+		return
+	}
+
+	r.blockStorage.Iterate(index, func(id models.BlockID, metadata *BlockMetadata) bool {
+		callback(id, metadata)
+		return true
+	})
 }
 
 func (r *Retainer) setupEvents() {

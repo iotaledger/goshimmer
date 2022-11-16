@@ -137,9 +137,12 @@ type blockMetadataModel struct {
 	AcceptedTime time.Time `serix:"24"`
 
 	// confirmation.Block
-	Confirmed        bool      `serix:"25"`
-	ConfirmedTime    time.Time `serix:"26"`
-	ConfirmedByEpoch bool      `serix:"27"`
+	Confirmed            bool      `serix:"25"`
+	ConfirmedTime        time.Time `serix:"26"`
+	ConfirmedByEpoch     bool      `serix:"27"`
+	ConfirmedByEpochTime time.Time `serix:"26"`
+
+	Block *models.Block `serix:"27,optional"`
 }
 
 // NewBlockMetadata creates a new BlockMetadata instance. It does not set the ID, as it is not known at this point.
@@ -215,6 +218,7 @@ func copyFromBlockDAGBlock(blockWithTime *blockWithTime[*blockdag.Block], blockM
 	blockMetadata.M.WeakChildren = blocksToBlockIDs(block.WeakChildren())
 	blockMetadata.M.LikedInsteadChildren = blocksToBlockIDs(block.LikedInsteadChildren())
 	blockMetadata.M.SolidTime = blockWithTime.Time
+	blockMetadata.M.Block = blockWithTime.Block.ModelsBlock
 }
 
 func copyFromBookerBlock(blockWithTime *blockWithTime[*booker.Block], blockMetadata *BlockMetadata) {

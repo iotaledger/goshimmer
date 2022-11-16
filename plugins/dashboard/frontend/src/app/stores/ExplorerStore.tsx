@@ -36,8 +36,12 @@ export class Block {
     orphaned: boolean;
     objectivelyInvalid: boolean;
     subjectivelyInvalid: boolean;
-    confirmationState: number;
-    confirmationStateTime: number;
+    acceptance: boolean;
+    acceptanceTime: number;
+    confirmation: boolean;
+    confirmationTime: number;
+    confirmationByEpoch: boolean;
+    confirmationByEpochTime: number;
     payload_type: number;
     payload: any;
     rank: number;

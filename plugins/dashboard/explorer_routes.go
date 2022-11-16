@@ -48,17 +48,21 @@ type ExplorerBlock struct {
 	// LikedInsteadChildren are the shallow like children of the block.
 	LikedInsteadChildren []string `json:"shallowLikeChildren"`
 	// Solid defines the solid status of the block.
-	Solid                 bool               `json:"solid"`
-	ConflictIDs           []string           `json:"conflictIDs"`
-	AddedConflictIDs      []string           `json:"addedConflictIDs"`
-	SubtractedConflictIDs []string           `json:"subtractedConflictIDs"`
-	Scheduled             bool               `json:"scheduled"`
-	Booked                bool               `json:"booked"`
-	Orphaned              bool               `json:"orphaned"`
-	ObjectivelyInvalid    bool               `json:"objectivelyInvalid"`
-	SubjectivelyInvalid   bool               `json:"subjectivelyInvalid"`
-	ConfirmationState     confirmation.State `json:"confirmationState"`
-	ConfirmationStateTime int64              `json:"confirmationStateTime"`
+	Solid                   bool     `json:"solid"`
+	ConflictIDs             []string `json:"conflictIDs"`
+	AddedConflictIDs        []string `json:"addedConflictIDs"`
+	SubtractedConflictIDs   []string `json:"subtractedConflictIDs"`
+	Scheduled               bool     `json:"scheduled"`
+	Booked                  bool     `json:"booked"`
+	Orphaned                bool     `json:"orphaned"`
+	ObjectivelyInvalid      bool     `json:"objectivelyInvalid"`
+	SubjectivelyInvalid     bool     `json:"subjectivelyInvalid"`
+	Acceptance              bool     `json:"acceptance"`
+	AcceptanceTime          int64    `json:"acceptanceTime"`
+	Confirmation            bool     `json:"confirmation"`
+	ConfirmationTime        int64    `json:"confirmationTime"`
+	ConfirmationByEpoch     bool     `json:"confirmationByEpoch"`
+	ConfirmationByEpochTime int64    `json:"confirmationByEpochTime"`
 	// PayloadType defines the type of the payload.
 	PayloadType payload.Type `json:"payload_type"`
 	// Payload is the content of the payload.
@@ -80,14 +84,6 @@ type ExplorerBlock struct {
 }
 
 func createExplorerBlock(block *models.Block, blockMetadata *retainer.BlockMetadata) *ExplorerBlock {
-	// TODO: change this to bool flags for confirmation and acceptance
-	confirmationState := confirmation.Pending
-	if blockMetadata.M.Accepted {
-		confirmationState = confirmation.Accepted
-	}
-	if blockMetadata.M.Confirmed || blockMetadata.M.ConfirmedByEpoch {
-		confirmationState = confirmation.Confirmed
-	}
 	t := &ExplorerBlock{
 		ID:                      block.ID().Base58(),
 		SolidificationTimestamp: blockMetadata.M.SolidTime.Unix(),
@@ -109,16 +105,21 @@ func createExplorerBlock(block *models.Block, blockMetadata *retainer.BlockMetad
 		Orphaned:                blockMetadata.M.Orphaned,
 		ObjectivelyInvalid:      blockMetadata.M.Invalid,
 		SubjectivelyInvalid:     blockMetadata.M.SubjectivelyInvalid,
-		ConfirmationState:       confirmationState,
-		ConfirmationStateTime:   blockMetadata.M.AcceptedTime.Unix(),
-		PayloadType:             block.Payload().Type(),
-		Payload:                 ProcessPayload(block.Payload()),
-		CommitmentID:            block.Commitment().ID().Base58(),
-		EI:                      uint64(block.Commitment().Index()),
-		CommitmentRootsID:       block.Commitment().RootsID().Base58(),
-		PreviousCommitmentID:    block.Commitment().PrevID().Base58(),
-		CumulativeWeight:        block.Commitment().CumulativeWeight(),
-		LatestConfirmedEpoch:    uint64(block.LatestConfirmedEpoch()),
+		Acceptance:              blockMetadata.M.Accepted,
+		AcceptanceTime:          blockMetadata.M.AcceptedTime.Unix(),
+		Confirmation:            blockMetadata.M.Confirmed,
+		ConfirmationTime:        blockMetadata.M.ConfirmedTime.Unix(),
+		ConfirmationByEpoch:     blockMetadata.M.ConfirmedByEpoch,
+		ConfirmationByEpochTime: blockMetadata.M.ConfirmedByEpochTime.Unix(),
+
+		PayloadType:          block.Payload().Type(),
+		Payload:              ProcessPayload(block.Payload()),
+		CommitmentID:         block.Commitment().ID().Base58(),
+		EI:                   uint64(block.Commitment().Index()),
+		CommitmentRootsID:    block.Commitment().RootsID().Base58(),
+		PreviousCommitmentID: block.Commitment().PrevID().Base58(),
+		CumulativeWeight:     block.Commitment().CumulativeWeight(),
+		LatestConfirmedEpoch: uint64(block.LatestConfirmedEpoch()),
 	}
 
 	if d := blockMetadata.M.StructureDetails; d != nil {
