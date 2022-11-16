@@ -3,6 +3,7 @@ package dashboard
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
@@ -204,32 +205,26 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 		search := c.Param("search")
 		result := &SearchResult{}
 
-		searchInByte, err := base58.Decode(search)
-		if err != nil {
-			return fmt.Errorf("%w: search ID %s", ErrInvalidParameter, search)
-		}
-
-		switch len(searchInByte) {
-		case devnetvm.AddressLength:
-			addr, err := findAddress(search)
-			if err == nil {
-				result.Address = addr
-			}
-
-		case models.BlockIDLength:
+		switch strings.Contains(search, ":") {
+		case true:
 			var blockID models.BlockID
-			err = blockID.FromBase58(c.Param("id"))
+			err := blockID.FromBase58(search)
 			if err != nil {
 				return fmt.Errorf("%w: search ID %s", ErrInvalidParameter, search)
 			}
 
 			blk, err := findBlock(blockID)
-			if err == nil {
-				result.Block = blk
+			if err != nil {
+				return fmt.Errorf("can't find block %s: %w", search, err)
 			}
+			result.Block = blk
 
-		default:
-			return fmt.Errorf("%w: search ID %s", ErrInvalidParameter, search)
+		case false:
+			addr, err := findAddress(search)
+			if err != nil {
+				return fmt.Errorf("can't find address %s: %w", search, err)
+			}
+			result.Address = addr
 		}
 
 		return c.JSON(http.StatusOK, result)
