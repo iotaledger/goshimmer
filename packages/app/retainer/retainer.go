@@ -1,7 +1,6 @@
 package retainer
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -68,34 +67,6 @@ func (r *Retainer) setupEvents() {
 	r.protocol.Events.Engine.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(func(block *blockdag.Block) {
 		cm := r.createOrGetCachedMetadata(block.ID())
 		cm.setBlockDAGBlock(block)
-	}))
-
-	r.protocol.Events.Engine.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(func(block *blockdag.Block) {
-		fmt.Println("block missing", block.ID())
-	}))
-
-	r.protocol.Events.Engine.BlockRequester.TickerStarted.Attach(event.NewClosure(func(blockID models.BlockID) {
-		fmt.Println("requested started for", blockID)
-	}))
-
-	r.protocol.Events.Engine.BlockRequester.Tick.Attach(event.NewClosure(func(blockID models.BlockID) {
-		fmt.Println("tick for", blockID)
-	}))
-
-	r.protocol.Events.Engine.BlockRequester.TickerStopped.Attach(event.NewClosure(func(blockID models.BlockID) {
-		fmt.Println("requested stopped for", blockID)
-	}))
-
-	r.protocol.Events.Engine.BlockRequester.TickerFailed.Attach(event.NewClosure(func(blockID models.BlockID) {
-		fmt.Println("ticker failed for", blockID)
-	}))
-	r.protocol.Events.Engine.Tangle.BlockDAG.MissingBlockAttached.Attach(event.NewClosure(func(block *blockdag.Block) {
-		fmt.Println("missing block attached", block.ID())
-	}))
-
-	r.protocol.Events.Engine.Tangle.BlockDAG.BlockInvalid.Hook(event.NewClosure(func(event *blockdag.BlockInvalidEvent) {
-		fmt.Println("block invalid", event.Block.ID(), "reason", event.Reason)
-
 	}))
 
 	r.protocol.Events.Engine.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(func(block *blockdag.Block) {

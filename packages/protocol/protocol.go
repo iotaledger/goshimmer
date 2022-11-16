@@ -206,7 +206,6 @@ func (p *Protocol) initTipManager() {
 func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) {
 	isSolid, chain, _ := p.chainManager.ProcessCommitment(block.Commitment())
 	if !isSolid {
-		fmt.Println(">> ProcessBlock", block.ID(), isSolid, chain)
 		return
 	}
 
@@ -217,8 +216,7 @@ func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) {
 	}
 
 	if p.Engine().IsBootstrapped() {
-		fmt.Println("different commitment", block)
-		return
+		panic(fmt.Sprintln("different commitment", block))
 	}
 
 	if candidateEngine, candidateStorage := p.CandidateEngine(), p.CandidateStorage(); candidateEngine != nil && candidateStorage != nil {

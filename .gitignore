@@ -31,11 +31,11 @@ go.work
 go.work.sum
 
 # Database directory
-mainnetdb/
-objectsdb/
-peerdb/
-db/
-retainer/
+/mainnetdb
+/objectsdb
+/peerdb
+/db
+/retainer
 
 # OSX related files
 .DS_Store
@@ -48,3 +48,4 @@ book
 config.json
 .env
 .vscode
+

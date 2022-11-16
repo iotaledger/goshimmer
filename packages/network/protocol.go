@@ -1,8 +1,6 @@
 package network
 
 import (
-	"fmt"
-
 	"github.com/cockroachdb/errors"
 	"google.golang.org/protobuf/proto"
 
@@ -105,7 +103,6 @@ func (p *Protocol) onBlock(blockData []byte, id identity.ID) {
 	requested := !p.requestedBlocks.Delete(blockID)
 
 	if !p.duplicateBlockBytesFilter.Add(lo.PanicOnErr(blockID.Bytes())) && !requested {
-		fmt.Println("duplicate block dropped", blockID)
 		return
 	}
 
