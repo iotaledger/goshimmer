@@ -3,12 +3,14 @@ package notarization
 import (
 	"testing"
 
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/identity"
 )
 
 func TestMutationFactory(t *testing.T) {
@@ -82,6 +84,5 @@ func TestMutationFactory_AddAcceptedBlock(t *testing.T) {
 	require.NoError(t, mutationFactory.AddAcceptedBlock(block))
 	require.True(t, mutationFactory.acceptedBlocks(3).Has(block.ID()))
 
-	_, _, _, _, err := mutationFactory.Commit(3)
-	require.NoError(t, err)
+	require.NoError(t, lo.Return5(mutationFactory.Commit(3)))
 }

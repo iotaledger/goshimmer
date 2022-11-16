@@ -20,7 +20,7 @@ import (
 
 // EpochMutations is an in-memory data structure that enables the collection of mutations for uncommitted epochs.
 type EpochMutations struct {
-	attestorsInEpochFunc func(epoch.Index) *validator.Set
+	attestorsByEpoch func(epoch.Index) *validator.Set
 
 	// acceptedBlocksByEpoch stores the accepted blocks per epoch.
 	acceptedBlocksByEpoch *memstorage.Storage[epoch.Index, *ads.Set[models.BlockID]]
@@ -38,14 +38,12 @@ type EpochMutations struct {
 }
 
 // NewEpochMutations creates a new EpochMutations instance.
-func NewEpochMutations(attestorsInEpochFunc func(epoch.Index) *validator.Set, lastCommittedEpoch epoch.Index) (newMutationFactory *EpochMutations) {
+func NewEpochMutations(attestorsByEpoch func(epoch.Index) *validator.Set, lastCommittedEpoch epoch.Index) (newMutationFactory *EpochMutations) {
 	return &EpochMutations{
-		attestorsInEpochFunc: attestorsInEpochFunc,
-
 		acceptedBlocksByEpoch:       memstorage.New[epoch.Index, *ads.Set[models.BlockID]](),
 		acceptedTransactionsByEpoch: memstorage.New[epoch.Index, *ads.Set[utxo.TransactionID]](),
-
-		latestCommittedIndex: lastCommittedEpoch,
+		attestorsByEpoch:            attestorsByEpoch,
+		latestCommittedIndex:        lastCommittedEpoch,
 	}
 }
 
@@ -139,7 +137,7 @@ func (m *EpochMutations) Commit(index epoch.Index) (acceptedBlocks *ads.Set[mode
 
 	defer m.evictUntil(index)
 
-	epochAttestors := m.attestorsInEpochFunc(index)
+	epochAttestors := m.attestorsByEpoch(index)
 	m.lastCommittedEpochCumulativeWeight += epochAttestors.TotalWeight()
 
 	adsAttestors := newSet[identity.ID]()

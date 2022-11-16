@@ -61,7 +61,6 @@ type BlockRequestReceivedEvent struct {
 
 type EpochCommitmentReceivedEvent struct {
 	Commitment *commitment.Commitment
-
 	Source     identity.ID
 }
 
@@ -72,7 +71,7 @@ type EpochCommitmentReceivedEvent struct {
 type EpochCommitmentRequestReceivedEvent struct {
 	CommitmentID commitment.ID
 
-	Source       identity.ID
+	Source identity.ID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -82,7 +81,7 @@ type EpochCommitmentRequestReceivedEvent struct {
 type AttestationsReceivedEvent struct {
 	Attestations []*sybilprotection.Attestation
 
-	Source       identity.ID
+	Source identity.ID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -90,7 +89,7 @@ type AttestationsReceivedEvent struct {
 // region AttestationsRequestReceivedEvent /////////////////////////////////////////////////////////////////////////////
 
 type AttestationsRequestReceivedEvent struct {
-	Index  epoch.Index
+	Index epoch.Index
 
 	Source identity.ID
 }
@@ -101,7 +100,6 @@ type AttestationsRequestReceivedEvent struct {
 
 type ErrorEvent struct {
 	Error  error
-
 	Source identity.ID
 }
 

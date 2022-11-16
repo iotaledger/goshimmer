@@ -33,14 +33,13 @@ type Manager struct {
 	sync.RWMutex
 }
 
-func NewManager(storage *storage.Storage, attestorsInEpochFunc func(epoch.Index) *validator.Set, opts ...options.Option[Manager]) (new *Manager) {
+func NewManager(storageInstance *storage.Storage, attestorsByEpoch func(epoch.Index) *validator.Set, opts ...options.Option[Manager]) (newManager *Manager) {
 	return options.Apply(&Manager{
-		Events:         NewEvents(),
-		EpochMutations: NewEpochMutations(attestorsInEpochFunc, storage.Settings.LatestCommitment().Index()),
-
-		storage:                    storage,
+		Events:                     NewEvents(),
+		EpochMutations:             NewEpochMutations(attestorsByEpoch, storageInstance.Settings.LatestCommitment().Index()),
+		storage:                    storageInstance,
 		pendingConflictsCounters:   shrinkingmap.New[epoch.Index, uint64](),
-		acceptanceTime:             storage.Settings.LatestCommitment().Index().EndTime(),
+		acceptanceTime:             storageInstance.Settings.LatestCommitment().Index().EndTime(),
 		optsMinCommittableEpochAge: defaultMinEpochCommittableAge,
 	}, opts)
 }

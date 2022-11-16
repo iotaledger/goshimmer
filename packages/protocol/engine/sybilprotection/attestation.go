@@ -4,11 +4,12 @@ import (
 	"context"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/types"
+
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 )
 
 type Attestation struct {
