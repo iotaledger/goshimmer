@@ -3,6 +3,7 @@ package dashboard
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58/base58"
@@ -222,32 +223,26 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 		search := c.Param("search")
 		result := &SearchResult{}
 
-		searchInByte, err := base58.Decode(search)
-		if err != nil {
-			return errors.WithMessagef(ErrInvalidParameter, "search ID %s", search)
-		}
-
-		switch len(searchInByte) {
-		case devnetvm.AddressLength:
-			addr, err := findAddress(search)
-			if err == nil {
-				result.Address = addr
-			}
-
-		case models.BlockIDLength:
+		switch strings.Contains(search, ":") {
+		case true:
 			var blockID models.BlockID
-			err = blockID.FromBase58(c.Param("id"))
+			err := blockID.FromBase58(search)
 			if err != nil {
 				return errors.WithMessagef(ErrInvalidParameter, "search ID %s", search)
 			}
 
 			blk, err := findBlock(blockID)
-			if err == nil {
-				result.Block = blk
+			if err != nil {
+				return fmt.Errorf("can't find block %s: %w", search, err)
 			}
+			result.Block = blk
 
-		default:
-			return errors.WithMessagef(ErrInvalidParameter, "search ID %s", search)
+		case false:
+			addr, err := findAddress(search)
+			if err != nil {
+				return fmt.Errorf("can't find address %s: %w", search, err)
+			}
+			result.Address = addr
 		}
 
 		return c.JSON(http.StatusOK, result)
