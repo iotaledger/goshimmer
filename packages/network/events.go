@@ -31,6 +31,8 @@ var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 		BlockRequestReceived:           event.NewLinkable[*BlockRequestReceivedEvent](),
 		EpochCommitmentReceived:        event.NewLinkable[*EpochCommitmentReceivedEvent](),
 		EpochCommitmentRequestReceived: event.NewLinkable[*EpochCommitmentRequestReceivedEvent](),
+		AttestationsReceived:           event.NewLinkable[*AttestationsReceivedEvent](),
+		AttestationsRequestReceived:    event.NewLinkable[*AttestationsRequestReceivedEvent](),
 		Error:                          event.NewLinkable[*ErrorEvent](),
 	}
 })

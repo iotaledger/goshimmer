@@ -10,23 +10,24 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/activenodes"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 )
 
 type ConflictTracker[ConflictIDType, ResourceIDType comparable, VotePowerType constraints.Comparable[VotePowerType]] struct {
 	votes *memstorage.Storage[ConflictIDType, *votes.Votes[ConflictIDType, VotePowerType]]
 
-	conflictDAG  *conflictdag.ConflictDAG[ConflictIDType, ResourceIDType]
-	validatorSet *validator.Set
-	Events       *Events[ConflictIDType]
+	conflictDAG *conflictdag.ConflictDAG[ConflictIDType, ResourceIDType]
+	activeNotes *activenodes.ActiveNodes
+	Events      *Events[ConflictIDType]
 }
 
-func NewConflictTracker[ConflictIDType, ResourceIDType comparable, VotePowerType constraints.Comparable[VotePowerType]](conflictDAG *conflictdag.ConflictDAG[ConflictIDType, ResourceIDType], validatorSet *validator.Set) *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType] {
+func NewConflictTracker[ConflictIDType, ResourceIDType comparable, VotePowerType constraints.Comparable[VotePowerType]](conflictDAG *conflictdag.ConflictDAG[ConflictIDType, ResourceIDType], activeNodes *activenodes.ActiveNodes) *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType] {
 	return &ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]{
-		votes:        memstorage.New[ConflictIDType, *votes.Votes[ConflictIDType, VotePowerType]](),
-		conflictDAG:  conflictDAG,
-		validatorSet: validatorSet,
-		Events:       NewEvents[ConflictIDType](),
+		votes:       memstorage.New[ConflictIDType, *votes.Votes[ConflictIDType, VotePowerType]](),
+		conflictDAG: conflictDAG,
+		activeNotes: activeNodes,
+		Events:      NewEvents[ConflictIDType](),
 	}
 }
 
@@ -36,7 +37,7 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) TrackVo
 		return false, true
 	}
 
-	voter, exists := c.validatorSet.Get(voterID)
+	voter, exists := c.activeNotes.Get(voterID)
 	if !exists {
 		return false, false
 	}
@@ -61,7 +62,7 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) Voters(
 }
 
 func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) AddSupportToForkedConflict(forkedConflictID ConflictIDType, parentConflictIDs *set.AdvancedSet[ConflictIDType], voterID identity.ID, power VotePowerType) {
-	voter, exists := c.validatorSet.Get(voterID)
+	voter, exists := c.activeNotes.Get(voterID)
 	if !exists {
 		return
 	}

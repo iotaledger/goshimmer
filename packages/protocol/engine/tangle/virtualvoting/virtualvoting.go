@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/epochtracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/activenodes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
@@ -21,8 +22,8 @@ import (
 // region VirtualVoting ////////////////////////////////////////////////////////////////////////////////////////////////
 
 type VirtualVoting struct {
-	Events       *Events
-	ValidatorSet *validator.Set
+	Events      *Events
+	ActiveNodes *activenodes.ActiveNodes
 
 	blocks          *memstorage.EpochStorage[models.BlockID, *Block]
 	conflictTracker *conflicttracker.ConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower]
@@ -36,11 +37,11 @@ type VirtualVoting struct {
 	*booker.Booker
 }
 
-func New(booker *booker.Booker, validatorSet *validator.Set, opts ...options.Option[VirtualVoting]) (newVirtualVoting *VirtualVoting) {
+func New(booker *booker.Booker, activeNodes *activenodes.ActiveNodes, opts ...options.Option[VirtualVoting]) (newVirtualVoting *VirtualVoting) {
 	return options.Apply(&VirtualVoting{
-		ValidatorSet: validatorSet,
-		blocks:       memstorage.NewEpochStorage[models.BlockID, *Block](),
-		Booker:       booker,
+		ActiveNodes: activeNodes,
+		blocks:      memstorage.NewEpochStorage[models.BlockID, *Block](),
+		Booker:      booker,
 		optsSequenceCutoffCallback: func(sequenceID markers.SequenceID) markers.Index {
 			return 1
 		},
@@ -48,9 +49,9 @@ func New(booker *booker.Booker, validatorSet *validator.Set, opts ...options.Opt
 			return 0
 		},
 	}, opts, func(o *VirtualVoting) {
-		o.conflictTracker = conflicttracker.NewConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower](o.Booker.Ledger.ConflictDAG, validatorSet)
-		o.sequenceTracker = sequencetracker.NewSequenceTracker[BlockVotePower](validatorSet, o.Booker.Sequence, o.optsSequenceCutoffCallback)
-		o.epochTracker = epochtracker.NewEpochTracker(validatorSet, o.optsEpochCutoffCallback)
+		o.conflictTracker = conflicttracker.NewConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower](o.Booker.Ledger.ConflictDAG, activeNodes)
+		o.sequenceTracker = sequencetracker.NewSequenceTracker[BlockVotePower](activeNodes, o.Booker.Sequence, o.optsSequenceCutoffCallback)
+		o.epochTracker = epochtracker.NewEpochTracker(activeNodes, o.optsEpochCutoffCallback)
 
 		o.Events = NewEvents()
 		o.Events.ConflictTracker = o.conflictTracker.Events

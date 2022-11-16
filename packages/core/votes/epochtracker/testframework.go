@@ -36,7 +36,7 @@ func NewTestFramework[VotePowerType constraints.Comparable[VotePowerType]](test 
 		}
 
 		if t.EpochTracker == nil {
-			t.EpochTracker = NewEpochTracker(t.ValidatorSet, func() epoch.Index { return 0 })
+			t.EpochTracker = NewEpochTracker(t.VotesTestFramework.ActiveNodes, func() epoch.Index { return 0 })
 		}
 
 		t.EpochTracker.Events.VotersUpdated.Hook(event.NewClosure(func(evt *VoterUpdatedEvent) {
@@ -70,15 +70,6 @@ func WithVotesTestFramework[VotePowerType constraints.Comparable[VotePowerType]]
 		}
 
 		tf.VotesTestFramework = votesTestFramework
-	}
-}
-
-func WithValidatorSet[VotePowerType constraints.Comparable[VotePowerType]](validatorSet *validator.Set) options.Option[TestFramework] {
-	return func(tf *TestFramework) {
-		if tf.ValidatorSet != nil {
-			panic("validator set already set")
-		}
-		tf.ValidatorSet = validatorSet
 	}
 }
 

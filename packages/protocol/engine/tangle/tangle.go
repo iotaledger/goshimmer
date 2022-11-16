@@ -4,7 +4,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/validator"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/activenodes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
@@ -33,7 +33,7 @@ type Tangle struct {
 func New(
 	ledger *ledger.Ledger,
 	evictionState *eviction.State,
-	validatorSet *validator.Set,
+	activeNodes *activenodes.ActiveNodes,
 	epochCutoffCallback func() epoch.Index,
 	sequenceCutoffCallback func(id markers.SequenceID) markers.Index,
 	opts ...options.Option[Tangle],
@@ -41,7 +41,7 @@ func New(
 	return options.Apply(new(Tangle), opts, func(t *Tangle) {
 		t.BlockDAG = blockdag.New(evictionState, t.optsBlockDAG...)
 		t.Booker = booker.New(t.BlockDAG, ledger, t.optsBooker...)
-		t.VirtualVoting = virtualvoting.New(t.Booker, validatorSet, append(t.optsVirtualVoting, virtualvoting.WithEpochCutoffCallback(epochCutoffCallback), virtualvoting.WithSequenceCutoffCallback(sequenceCutoffCallback))...)
+		t.VirtualVoting = virtualvoting.New(t.Booker, activeNodes, append(t.optsVirtualVoting, virtualvoting.WithEpochCutoffCallback(epochCutoffCallback), virtualvoting.WithSequenceCutoffCallback(sequenceCutoffCallback))...)
 
 		t.Events = NewEvents()
 		t.Events.BlockDAG = t.BlockDAG.Events

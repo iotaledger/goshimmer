@@ -35,7 +35,7 @@ func (s *Set) AddAll(validators ...*Validator) *Set {
 		s.totalWeight += int64(validator.Weight())
 
 		if s.optTrackEvents {
-			eventClosure := event.NewClosure[*WeightUpdatedEvent](s.handleWeightUpdatedEvent)
+			eventClosure := event.NewClosure(s.handleWeightUpdatedEvent)
 			s.eventClosures.Set(validator.ID(), eventClosure)
 
 			validator.Events.WeightUpdated.Hook(eventClosure)
@@ -61,7 +61,7 @@ func (s *Set) Add(validator *Validator) {
 	defer s.mutex.Unlock()
 
 	if s.validators.Set(validator.ID(), validator) {
-		return
+		panic("validator already exists")
 	}
 
 	s.totalWeight += validator.Weight()
@@ -118,10 +118,6 @@ func (s *Set) Slice() (validators []*Validator) {
 		return true
 	})
 	return
-}
-
-func (s *Set) IsThresholdReached(otherWeight int64, threshold float64) bool {
-	return IsThresholdReached(s.TotalWeight(), otherWeight, threshold)
 }
 
 func IsThresholdReached(weight, otherWeight int64, threshold float64) bool {

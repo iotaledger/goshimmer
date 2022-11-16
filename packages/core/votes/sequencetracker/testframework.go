@@ -40,7 +40,7 @@ func NewTestFramework[VotePowerType constraints.Comparable[VotePowerType]](test 
 		t.MarkersTestFramework = markers.NewTestFramework(t.test, markers.WithSequenceManager(t.sequenceManager))
 
 		if t.SequenceTracker == nil {
-			t.SequenceTracker = NewSequenceTracker[VotePowerType](t.ValidatorSet, t.SequenceManager().Sequence, func(sequenceID markers.SequenceID) markers.Index { return 1 })
+			t.SequenceTracker = NewSequenceTracker[VotePowerType](t.VotesTestFramework.ActiveNodes, t.SequenceManager().Sequence, func(sequenceID markers.SequenceID) markers.Index { return 1 })
 		}
 
 		t.SequenceTracker.Events.VotersUpdated.Hook(event.NewClosure(func(evt *VoterUpdatedEvent) {
@@ -77,15 +77,6 @@ func WithVotesTestFramework[VotePowerType constraints.Comparable[VotePowerType]]
 		}
 
 		tf.VotesTestFramework = votesTestFramework
-	}
-}
-
-func WithValidatorSet[VotePowerType constraints.Comparable[VotePowerType]](validatorSet *validator.Set) options.Option[TestFramework[VotePowerType]] {
-	return func(tf *TestFramework[VotePowerType]) {
-		if tf.ValidatorSet != nil {
-			panic("validator set already set")
-		}
-		tf.ValidatorSet = validatorSet
 	}
 }
 

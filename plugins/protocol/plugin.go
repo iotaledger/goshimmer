@@ -12,9 +12,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/activenodes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/activitytracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tsc"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
@@ -78,10 +77,8 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 				ledger.WithCacheTimeProvider(cacheTimeProvider),
 			),
 			engine.WithSnapshotDepth(Parameters.Snapshot.Depth),
-			engine.WithSybilProtectionOptions(
-				sybilprotection.WithActivityTrackerOptions(
-					activitytracker.WithActivityWindow(Parameters.ValidatorActivityWindow),
-				),
+			engine.WithActiveNodesOptions(
+				activenodes.WithActivityWindow(Parameters.ValidatorActivityWindow),
 			),
 		),
 		protocol.WithTipManagerOptions(
@@ -142,7 +139,6 @@ func configureLogging(*node.Plugin) {
 	// deps.Protocol.Events.Engine.BlockRequester.Tick.Attach(event.NewClosure(func(blockID models.BlockID) {
 	// 	fmt.Println(">>>>>>> BlockRequesterTick", blockID)
 	// }))
-
 }
 
 func run(*node.Plugin) {

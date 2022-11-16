@@ -65,19 +65,13 @@ func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {
 
 	// Activity Log
 	{
-		var numEpochs uint32
-		binary.Read(fileHandle, binary.LittleEndian, &numEpochs)
-
-		for i := uint32(0); i < numEpochs; i++ {
-			ProcessChunks(NewChunkedReader[identity.ID](fileHandle), func(chunk []*identity.ID) {
-				for _, id := range chunk {
-					if err := engine.Storage.Attestors.Store(epoch.Index(i), *id); err != nil {
-						panic(err)
-					}
-					engine.SybilProtection.AddValidator(*id, epoch.Index(i).EndTime())
+		ProcessChunks(NewChunkedReader[identity.ID](fileHandle), func(chunk []*identity.ID) {
+			for _, id := range chunk {
+				if err := engine.Storage.Attestors.Store(engine.Storage.Settings.LatestCommitment().Index(), *id); err != nil {
+					panic(err)
 				}
-			})
-		}
+			}
+		})
 	}
 
 	// Epoch Diffs -- must be in reverse order to rollback the Ledger

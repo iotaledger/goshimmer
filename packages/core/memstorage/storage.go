@@ -124,5 +124,12 @@ func (s *Storage[K, V]) Size() (size int) {
 }
 
 func (s *Storage[K, V]) IsEmpty() (isEmpty bool) {
-	return s.storage.Size() == 0
+	return s.Size() == 0
+}
+
+func (s *Storage[K, V]) AsMap() map[K]V {
+	s.RLock()
+	defer s.RUnlock()
+
+	return s.storage.AsMap()
 }

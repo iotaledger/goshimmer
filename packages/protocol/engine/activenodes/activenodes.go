@@ -1,4 +1,4 @@
-package activitytracker
+package activenodes
 
 import (
 	"sync"
@@ -17,8 +17,8 @@ type TimeRetrieverFunc func() time.Time
 
 // region ActivityTracker //////////////////////////////////////////////////////////////////////////////////////////
 
-// ActivityTracker is a component that keeps track of active nodes based on their time-based activity in relation to activeTimeThreshold.
-type ActivityTracker struct {
+// ActiveNodes is a component that keeps track of active nodes based on their time-based activity in relation to activeTimeThreshold.
+type ActiveNodes struct {
 	timedExecutor     *timed.TaskExecutor[identity.ID]
 	lastActiveMap     *shrinkingmap.ShrinkingMap[identity.ID, time.Time]
 	timeRetrieverFunc TimeRetrieverFunc
@@ -31,21 +31,21 @@ type ActivityTracker struct {
 }
 
 // New creates and returns a new instance of an ActivityTracker.
-func New(validatorSet *validator.Set, timeRetrieverFunc TimeRetrieverFunc, opts ...options.Option[ActivityTracker]) (activityTracker *ActivityTracker) {
-	return options.Apply(&ActivityTracker{
+func New(timeRetrieverFunc TimeRetrieverFunc, opts ...options.Option[ActiveNodes]) (activityTracker *ActiveNodes) {
+	return options.Apply(&ActiveNodes{
 		timeRetrieverFunc: timeRetrieverFunc,
-		validatorSet:      validatorSet,
+		validatorSet:      validator.NewSet(),
 		lastActiveMap:     shrinkingmap.New[identity.ID, time.Time](),
 
 		optsWorkersCount:   1,
 		optsActivityWindow: time.Second * 30,
-	}, opts, func(a *ActivityTracker) {
+	}, opts, func(a *ActiveNodes) {
 		a.timedExecutor = timed.NewTaskExecutor[identity.ID](int(a.optsWorkersCount))
 	})
 }
 
-// Update updates the underlying data structure and keeps track of active nodes.
-func (a *ActivityTracker) Update(activeValidator *validator.Validator, activityTime time.Time) {
+// Set updates the underlying data structure and keeps track of active nodes.
+func (a *ActiveNodes) Set(activeValidator *validator.Validator, activityTime time.Time) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -54,8 +54,11 @@ func (a *ActivityTracker) Update(activeValidator *validator.Validator, activityT
 		return
 	}
 
+	if !exists {
+		a.validatorSet.Add(activeValidator)
+	}
+
 	a.lastActiveMap.Set(activeValidator.ID(), activityTime)
-	a.validatorSet.Add(activeValidator)
 
 	a.timedExecutor.ExecuteAfter(activeValidator.ID(), func() {
 		a.mutex.Lock()
@@ -66,20 +69,35 @@ func (a *ActivityTracker) Update(activeValidator *validator.Validator, activityT
 	}, activityTime.Add(a.optsActivityWindow).Sub(a.timeRetrieverFunc()))
 }
 
+func (a *ActiveNodes) Get(id identity.ID) (validator *validator.Validator, exists bool) {
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
+
+	return a.validatorSet.Get(id)
+}
+
+func (a *ActiveNodes) ForEach(callback func(id identity.ID, validator *validator.Validator) bool) {
+	a.validatorSet.ForEach(callback)
+}
+
+func (a *ActiveNodes) TotalWeight() int64 {
+	return a.validatorSet.TotalWeight()
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // WithWorkersCount sets the amount of background workers of the task executor of ActivityTracker.
-func WithWorkersCount(workersCount uint) options.Option[ActivityTracker] {
-	return func(a *ActivityTracker) {
+func WithWorkersCount(workersCount uint) options.Option[ActiveNodes] {
+	return func(a *ActiveNodes) {
 		a.optsWorkersCount = workersCount
 	}
 }
 
 // WithActivityWindow sets the duration for which a validator is recognized as active after issuing a block.
-func WithActivityWindow(activityWindow time.Duration) options.Option[ActivityTracker] {
-	return func(a *ActivityTracker) {
+func WithActivityWindow(activityWindow time.Duration) options.Option[ActiveNodes] {
+	return func(a *ActiveNodes) {
 		a.optsActivityWindow = activityWindow
 	}
 }

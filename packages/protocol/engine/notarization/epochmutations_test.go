@@ -9,7 +9,8 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/validator"
+	"github.com/iotaledger/goshimmer/packages/core/memstorage"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
@@ -69,10 +70,10 @@ func TestMutationFactory(t *testing.T) {
 }
 
 func TestMutationFactory_AddAcceptedBlock(t *testing.T) {
-	mutationFactory := NewEpochMutations(func(epoch.Index) *validator.Set {
-		attestors := validator.NewSet()
-		attestors.Add(validator.New(identity.ID{}, validator.WithWeight(1)))
-		return attestors
+	mutationFactory := NewEpochMutations(func(epoch.Index) *sybilprotection.EpochAttestations {
+		weightStorage := memstorage.New[identity.ID, int64]()
+		weightStorage.Set(identity.ID{}, 1)
+		return sybilprotection.NewEpochAttestations(weightStorage)
 	}, 2)
 
 	block := models.NewBlock(

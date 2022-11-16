@@ -13,11 +13,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/eventticker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/activenodes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/storage"
 
-	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
@@ -37,10 +37,11 @@ import (
 // region Engine /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Engine struct {
-	Events  *Events
-	Storage *storage.Storage
-	Ledger  *ledger.Ledger
-	Filter  *filter.Filter
+	Events      *Events
+	Storage     *storage.Storage
+	Ledger      *ledger.Ledger
+	Filter      *filter.Filter
+	ActiveNodes *activenodes.ActiveNodes
 	// SnapshotManager     *snapshot.Manager
 	EvictionState       *eviction.State
 	BlockRequester      *eventticker.EventTicker[models.BlockID]
@@ -51,7 +52,6 @@ type Engine struct {
 	TSCManager          *tsc.Manager
 	Clock               *clock.Clock
 	SybilProtection     *sybilprotection.SybilProtection
-	ValidatorSet        *validator.Set
 
 	isBootstrapped      bool
 	isBootstrappedMutex sync.Mutex
@@ -65,7 +65,7 @@ type Engine struct {
 	optsNotarizationManagerOptions []options.Option[notarization.Manager]
 	optsTangleOptions              []options.Option[tangle.Tangle]
 	optsConsensusOptions           []options.Option[consensus.Consensus]
-	optsSybilProtectionOptions     []options.Option[sybilprotection.SybilProtection]
+	optsActiveNodesOptions         []options.Option[activenodes.ActiveNodes]
 	optsTSCManagerOptions          []options.Option[tsc.Manager]
 	optsDatabaseManagerOptions     []options.Option[database.Manager]
 	optsBlockRequester             []options.Option[eventticker.EventTicker[models.BlockID]]
@@ -77,7 +77,6 @@ func New(storageInstance *storage.Storage, opts ...options.Option[Engine]) (engi
 			Events:        NewEvents(),
 			Storage:       storageInstance,
 			Clock:         clock.New(),
-			ValidatorSet:  validator.NewSet(),
 			EvictionState: eviction.NewState(storageInstance),
 
 			optsBootstrappedThreshold: 10 * time.Second,
@@ -85,13 +84,14 @@ func New(storageInstance *storage.Storage, opts ...options.Option[Engine]) (engi
 			optsSnapshotDepth:         5,
 		}, opts,
 		(*Engine).initFilter,
+		(*Engine).initActiveNodes,
 		(*Engine).initLedger,
+		(*Engine).initSybilProtection,
 		(*Engine).initTangle,
 		(*Engine).initConsensus,
 		(*Engine).initClock,
 		(*Engine).initTSCManager,
 		(*Engine).initBlockStorage,
-		(*Engine).initSybilProtection,
 		(*Engine).initNotarizationManager,
 		(*Engine).initManaTracker,
 		(*Engine).initEvictionState,
@@ -144,6 +144,12 @@ func (e *Engine) initFilter() {
 	e.Events.Filter.LinkTo(e.Filter.Events)
 }
 
+func (e *Engine) initActiveNodes() {
+	e.ActiveNodes = activenodes.New(e.Clock.RelativeAcceptedTime, e.optsActiveNodesOptions...)
+
+	e.Events.Filter.LinkTo(e.Filter.Events)
+}
+
 func (e *Engine) initLedger() {
 	e.Ledger = ledger.New(e.Storage, e.optsLedgerOptions...)
 
@@ -151,7 +157,7 @@ func (e *Engine) initLedger() {
 }
 
 func (e *Engine) initTangle() {
-	e.Tangle = tangle.New(e.Ledger, e.EvictionState, e.ValidatorSet, e.LastConfirmedEpoch, e.FirstUnacceptedMarker, e.optsTangleOptions...)
+	e.Tangle = tangle.New(e.Ledger, e.EvictionState, e.ActiveNodes, e.LastConfirmedEpoch, e.FirstUnacceptedMarker, e.optsTangleOptions...)
 
 	e.Events.Filter.BlockReceived.Attach(event.NewClosure(func(block *models.Block) {
 		if _, _, err := e.Tangle.Attach(block); err != nil {
@@ -163,17 +169,7 @@ func (e *Engine) initTangle() {
 }
 
 func (e *Engine) initConsensus() {
-	e.Consensus = consensus.New(e.Tangle, e.EvictionState, e.Storage.Permanent.Settings.LatestConfirmedEpoch(), func() int64 {
-		weights := e.SybilProtection.Weights()
-		var zeroID identity.ID
-		var totalWeight int64
-		for id, weight := range weights {
-			if id != zeroID {
-				totalWeight += weight
-			}
-		}
-		return totalWeight
-	}, e.optsConsensusOptions...)
+	e.Consensus = consensus.New(e.Tangle, e.EvictionState, e.Storage.Permanent.Settings.LatestConfirmedEpoch(), e.ActiveNodes.TotalWeight, e.optsConsensusOptions...)
 
 	e.Events.EvictionState.EpochEvicted.Hook(event.NewClosure(e.Consensus.BlockGadget.EvictUntil))
 
@@ -234,7 +230,7 @@ func (e *Engine) initBlockStorage() {
 }
 
 func (e *Engine) initNotarizationManager() {
-	e.NotarizationManager = notarization.NewManager(e.Storage, e.SybilProtection.Attestors)
+	e.NotarizationManager = notarization.NewManager(e.Storage, e.SybilProtection.EpochAttestations)
 
 	e.Consensus.BlockGadget.Events.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
 		if err := e.NotarizationManager.AddAcceptedBlock(block.ModelsBlock); err != nil {
@@ -282,13 +278,15 @@ func (e *Engine) initManaTracker() {
 }
 
 func (e *Engine) initSybilProtection() {
-	e.SybilProtection = sybilprotection.New(e.ValidatorSet, e.Storage, e.Clock.RelativeAcceptedTime, e.optsSybilProtectionOptions...)
+	e.SybilProtection = sybilprotection.New(e.ActiveNodes, e.Storage)
 
 	e.Storage.Permanent.Events.ConsensusWeightsUpdated.Hook(event.NewClosure(e.SybilProtection.UpdateConsensusWeights))
-	e.Events.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(e.SybilProtection.TrackActiveValidators))
+	e.Events.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(e.SybilProtection.HandleSolidBlock))
 
-	e.Events.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) { e.SybilProtection.AddBlockFromAttestor(block.ModelsBlock) }))
-	e.Events.Tangle.BlockDAG.BlockOrphaned.Attach(event.NewClosure(func(block *blockdag.Block) { e.SybilProtection.RemoveBlockFromAttestor(block.ModelsBlock) }))
+	e.Events.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) { e.SybilProtection.HandleAcceptedBlock(block.ModelsBlock) }))
+	e.Events.Tangle.BlockDAG.BlockOrphaned.Attach(event.NewClosure(func(block *blockdag.Block) { e.SybilProtection.HandledOrphanedBlock(block.ModelsBlock) }))
+
+	e.Events.EvictionState.EpochEvicted.Hook(event.NewClosure(e.SybilProtection.HandleEpochEvicted))
 }
 
 func (e *Engine) initEvictionState() {
@@ -372,9 +370,9 @@ func WithTangleOptions(opts ...options.Option[tangle.Tangle]) options.Option[Eng
 	}
 }
 
-func WithSybilProtectionOptions(opts ...options.Option[sybilprotection.SybilProtection]) options.Option[Engine] {
+func WithActiveNodesOptions(opts ...options.Option[activenodes.ActiveNodes]) options.Option[Engine] {
 	return func(e *Engine) {
-		e.optsSybilProtectionOptions = opts
+		e.optsActiveNodesOptions = opts
 	}
 }
 

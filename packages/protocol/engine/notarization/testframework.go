@@ -7,12 +7,12 @@ import (
 
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/validator"
+	"github.com/iotaledger/goshimmer/packages/core/memstorage"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -24,10 +24,10 @@ type TestFramework struct {
 	test               *testing.T
 	transactionsByID   map[string]*ledger.TransactionMetadata
 	issuersByID        map[string]ed25519.PublicKey
-	issuersWeight      map[identity.ID]int64
+	issuersWeight      *memstorage.Storage[identity.ID, int64]
 	blocksByID         map[string]*models.Block
 	epochEntityCounter map[epoch.Index]int
-	attestorsByEpoch   map[epoch.Index]map[identity.ID]*set.AdvancedSet[models.BlockID]
+	attestorsByEpoch   map[epoch.Index]*sybilprotection.EpochAttestations
 
 	sync.RWMutex
 }
@@ -37,17 +37,19 @@ func NewTestFramework(test *testing.T) *TestFramework {
 		test:               test,
 		transactionsByID:   make(map[string]*ledger.TransactionMetadata),
 		issuersByID:        make(map[string]ed25519.PublicKey),
-		issuersWeight:      make(map[identity.ID]int64),
+		issuersWeight:      memstorage.New[identity.ID, int64](),
 		blocksByID:         make(map[string]*models.Block),
 		epochEntityCounter: make(map[epoch.Index]int),
-		attestorsByEpoch:   make(map[epoch.Index]map[identity.ID]*set.AdvancedSet[models.BlockID]),
+		attestorsByEpoch:   make(map[epoch.Index]*sybilprotection.EpochAttestations),
 	}
-	tf.MutationFactory = NewEpochMutations(func(index epoch.Index) *validator.Set {
-		attestors := validator.NewSet()
-		for id := range tf.attestorsByEpoch[index] {
-			attestors.Add(validator.New(id, validator.WithWeight(tf.issuersWeight[id])))
+	tf.MutationFactory = NewEpochMutations(func(index epoch.Index) *sybilprotection.EpochAttestations {
+		epochAttestors, exists := tf.attestorsByEpoch[index]
+		if !exists {
+			tf.attestorsByEpoch[index] = sybilprotection.NewEpochAttestations(tf.issuersWeight)
+			epochAttestors = tf.attestorsByEpoch[index]
 		}
-		return attestors
+
+		return epochAttestors
 	}, 0)
 
 	return tf
@@ -65,7 +67,7 @@ func (t *TestFramework) CreateIssuer(alias string, issuerWeight ...int64) (issue
 
 	t.issuersByID[alias] = issuer
 	if len(issuerWeight) == 1 {
-		t.issuersWeight[identity.NewID(issuer)] = issuerWeight[0]
+		t.issuersWeight.Set(identity.NewID(issuer), issuerWeight[0])
 	}
 	return issuer
 }
@@ -136,19 +138,7 @@ func (t *TestFramework) AddAcceptedBlock(alias string) (err error) {
 		panic("block does not exist")
 	}
 
-	attestorsInEpoch, exists := t.attestorsByEpoch[block.ID().Index()]
-	if !exists {
-		attestorsInEpoch = make(map[identity.ID]*set.AdvancedSet[models.BlockID])
-		t.attestorsByEpoch[block.ID().Index()] = attestorsInEpoch
-	}
-
-	blocksByID, exists := attestorsInEpoch[block.IssuerID()]
-	if !exists {
-		blocksByID = set.NewAdvancedSet[models.BlockID]()
-		attestorsInEpoch[block.IssuerID()] = blocksByID
-	}
-
-	blocksByID.Add(block.ID())
+	t.MutationFactory.epochAttestations(block.ID().Index()).Add(block)
 	return t.MutationFactory.AddAcceptedBlock(block)
 }
 
@@ -158,15 +148,7 @@ func (t *TestFramework) RemoveAcceptedBlock(alias string) (err error) {
 		panic("block does not exist")
 	}
 
-	if attestorsInEpoch, exists := t.attestorsByEpoch[block.ID().Index()]; exists {
-		if blocksByID, exists := attestorsInEpoch[block.IssuerID()]; exists {
-			blocksByID.Delete(block.ID())
-			if blocksByID.IsEmpty() {
-				delete(attestorsInEpoch, block.IssuerID())
-			}
-		}
-	}
-
+	t.MutationFactory.epochAttestations(block.ID().Index()).Delete(block)
 	return t.MutationFactory.RemoveAcceptedBlock(block)
 }
 

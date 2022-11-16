@@ -15,6 +15,7 @@ import (
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/manatracker/manamodels"
 )
 
@@ -154,21 +155,24 @@ func sendManaMapOnline() {
 		Data: accessPayload,
 	})
 
-	validatorSet := deps.Protocol.Engine().Tangle.ValidatorSet
+	activeNodes := deps.Protocol.Engine().Tangle.ActiveNodes
 	consensusPayload := &ManaNetworkListBlkData{ManaType: manamodels.ConsensusMana.String()}
-	for _, validator := range validatorSet.Slice() {
+
+	activeNodes.ForEach(func(id identity.ID, validator *validator.Validator) bool {
 		n := manamodels.Issuer{
-			ID:   validator.ID(),
+			ID:   id,
 			Mana: validator.Weight(),
 		}
 		consensusPayload.Issuers = append(consensusPayload.Issuers, n.ToIssuerStr())
-	}
+
+		return true
+	})
 
 	sort.Slice(consensusPayload.Issuers, func(i, j int) bool {
 		return consensusPayload.Issuers[i].Mana > consensusPayload.Issuers[j].Mana
 	})
 
-	consensusPayload.TotalMana = validatorSet.TotalWeight()
+	consensusPayload.TotalMana = activeNodes.TotalWeight()
 	broadcastWsBlock(&wsblk{
 		Type: MsgTypeManaMapOnline,
 		Data: consensusPayload,

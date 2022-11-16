@@ -161,10 +161,6 @@ func (p *Protocol) initNetworkProtocol() {
 	p.chainManager.CommitmentRequester.Events.Tick.Attach(event.NewClosure(func(commitmentID commitment.ID) {
 		p.networkProtocol.RequestCommitment(commitmentID)
 	}))
-}
-
-func (p *Protocol) initMainEngine() {
-	p.engine = engine.New(p.storage, p.optsEngineOptions...)
 
 	p.networkProtocol.Events.AttestationsRequestReceived.Attach(event.NewClosure(func(event *network.AttestationsRequestReceivedEvent) {
 		p.ProcessAttestationsRequest(event.Index, event.Source)
@@ -173,6 +169,10 @@ func (p *Protocol) initMainEngine() {
 	p.networkProtocol.Events.AttestationsReceived.Attach(event.NewClosure(func(event *network.AttestationsReceivedEvent) {
 		p.ProcessAttestations(event.Attestations, event.Source)
 	}))
+}
+
+func (p *Protocol) initMainEngine() {
+	p.engine = engine.New(p.storage, p.optsEngineOptions...)
 }
 
 func (p *Protocol) initChainManager() {
@@ -243,9 +243,9 @@ func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) {
 }
 
 func (p *Protocol) ProcessAttestationsRequest(epochIndex epoch.Index, src identity.ID) {
-	attestations := p.Engine().SybilProtection.Attestations(epochIndex)
+	epochAttestations := p.Engine().SybilProtection.EpochAttestations(epochIndex)
 
-	p.networkProtocol.SendAttestations(attestations, src)
+	p.networkProtocol.SendAttestations(epochAttestations, src)
 }
 
 func (p *Protocol) ProcessAttestations(attestations []*sybilprotection.Attestation, src identity.ID) {

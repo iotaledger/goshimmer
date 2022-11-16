@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -18,6 +19,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/activenodes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
@@ -39,6 +41,7 @@ type TestFramework struct {
 	optsBooker          *booker.Booker
 	optsBookerOptions   []options.Option[booker.Booker]
 	optsVirtualVoting   []options.Option[VirtualVoting]
+	optsActiveNodes     *activenodes.ActiveNodes
 
 	*BookerTestFramework
 	*VotesTestFramework
@@ -58,11 +61,15 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 			lo.Cond(t.optsBooker != nil, booker.WithBooker(t.optsBooker), booker.WithBookerOptions(t.optsBookerOptions...)),
 		)
 
-		if t.VirtualVoting == nil {
-			t.VirtualVoting = New(t.Booker, validator.NewSet(), t.optsVirtualVoting...)
+		if t.optsActiveNodes == nil {
+			t.optsActiveNodes = activenodes.New(time.Now)
 		}
 
-		t.VotesTestFramework = votes.NewTestFramework(test, votes.WithValidatorSet(t.VirtualVoting.ValidatorSet))
+		if t.VirtualVoting == nil {
+			t.VirtualVoting = New(t.Booker, t.optsActiveNodes, t.optsVirtualVoting...)
+		}
+
+		t.VotesTestFramework = votes.NewTestFramework(test, votes.WithActiveNodes(t.VirtualVoting.ActiveNodes))
 		t.ConflictTrackerTestFramework = conflicttracker.NewTestFramework[BlockVotePower](test,
 			conflicttracker.WithVotesTestFramework[BlockVotePower](t.VotesTestFramework),
 			conflicttracker.WithConflictTracker(t.VirtualVoting.conflictTracker),
@@ -192,6 +199,12 @@ func WithVirtualVotingOptions(opts ...options.Option[VirtualVoting]) options.Opt
 func WithVirtualVoting(virtualVoting *VirtualVoting) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.VirtualVoting = virtualVoting
+	}
+}
+
+func WithActiveNodes(activeNodes *activenodes.ActiveNodes) options.Option[TestFramework] {
+	return func(t *TestFramework) {
+		t.optsActiveNodes = activeNodes
 	}
 }
 

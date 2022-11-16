@@ -62,7 +62,8 @@ func (p *Protocol) RequestCommitment(id commitment.ID, to ...identity.ID) {
 	}}}, protocolID, to...)
 }
 
-func (p *Protocol) SendAttestations(attestations []*sybilprotection.Attestation, to ...identity.ID) {
+func (p *Protocol) SendAttestations(attestations *sybilprotection.EpochAttestations, to ...identity.ID) {
+	/*
 	attestationsBytes := make([][]byte, len(attestations))
 
 	for i, attestation := range attestations {
@@ -72,6 +73,7 @@ func (p *Protocol) SendAttestations(attestations []*sybilprotection.Attestation,
 	p.network.Send(&Packet{Body: &Packet_Attestations{Attestations: &Attestations{
 		Bytes: attestationsBytes,
 	}}}, protocolID, to...)
+	*/
 }
 
 func (p *Protocol) RequestAttestations(epochIndex epoch.Index, to ...identity.ID) {

@@ -3,6 +3,7 @@ package votes
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
@@ -10,14 +11,14 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/validator"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/activenodes"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
 
 type TestFramework struct {
-	ValidatorSet *validator.Set
-
 	test              *testing.T
+	ActiveNodes       *activenodes.ActiveNodes
 	validatorsByAlias map[string]*validator.Validator
 }
 
@@ -25,12 +26,9 @@ type TestFramework struct {
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (newTestFramework *TestFramework) {
 	return options.Apply(&TestFramework{
 		test:              test,
+		ActiveNodes:       activenodes.New(time.Now),
 		validatorsByAlias: make(map[string]*validator.Validator),
-	}, opts, func(t *TestFramework) {
-		if t.ValidatorSet == nil {
-			t.ValidatorSet = validator.NewSet()
-		}
-	})
+	}, opts)
 }
 
 func (t *TestFramework) CreateValidator(alias string, opts ...options.Option[validator.Validator]) *validator.Validator {
@@ -41,7 +39,7 @@ func (t *TestFramework) CreateValidatorWithID(alias string, id identity.ID, opts
 	voter := validator.New(id, opts...)
 
 	t.validatorsByAlias[alias] = voter
-	t.ValidatorSet.Add(voter)
+	t.ActiveNodes.Set(voter, time.Now())
 
 	return voter
 }
@@ -77,13 +75,9 @@ func ValidatorSetToAdvancedSet(validatorSet *validator.Set) (validatorAdvancedSe
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithValidatorSet(validatorSet *validator.Set) options.Option[TestFramework] {
+func WithActiveNodes(activeNodes *activenodes.ActiveNodes) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
-		if tf.ValidatorSet != nil {
-			panic("validator set already set")
-		}
-
-		tf.ValidatorSet = validatorSet
+		tf.ActiveNodes = activeNodes
 	}
 }
 

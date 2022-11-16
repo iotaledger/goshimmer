@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes/latestvotes"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/activenodes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 )
 
@@ -19,22 +20,22 @@ type SequenceTracker[VotePowerType constraints.Comparable[VotePowerType]] struct
 	votes *memstorage.Storage[markers.SequenceID, *memstorage.Storage[identity.ID, *latestvotes.LatestVotes[markers.Index, VotePowerType]]]
 
 	sequenceCallback    func(id markers.SequenceID) (sequence *markers.Sequence, exists bool)
-	validatorSet        *validator.Set
+	activeNodes         *activenodes.ActiveNodes
 	cutoffIndexCallback func(sequenceID markers.SequenceID) markers.Index
 }
 
-func NewSequenceTracker[VotePowerType constraints.Comparable[VotePowerType]](validatorSet *validator.Set, sequenceCallback func(id markers.SequenceID) (sequence *markers.Sequence, exists bool), cutoffIndexCallback func(sequenceID markers.SequenceID) markers.Index) *SequenceTracker[VotePowerType] {
+func NewSequenceTracker[VotePowerType constraints.Comparable[VotePowerType]](activeNodes *activenodes.ActiveNodes, sequenceCallback func(id markers.SequenceID) (sequence *markers.Sequence, exists bool), cutoffIndexCallback func(sequenceID markers.SequenceID) markers.Index) *SequenceTracker[VotePowerType] {
 	return &SequenceTracker[VotePowerType]{
 		votes:               memstorage.New[markers.SequenceID, *memstorage.Storage[identity.ID, *latestvotes.LatestVotes[markers.Index, VotePowerType]]](),
 		sequenceCallback:    sequenceCallback,
-		validatorSet:        validatorSet,
+		activeNodes:         activeNodes,
 		cutoffIndexCallback: cutoffIndexCallback,
 		Events:              NewEvents(),
 	}
 }
 
 func (s *SequenceTracker[VotePowerType]) TrackVotes(pastMarkers *markers.Markers, voterID identity.ID, power VotePowerType) {
-	voter, exists := s.validatorSet.Get(voterID)
+	voter, exists := s.activeNodes.Get(voterID)
 	if !exists {
 		return
 	}
@@ -66,7 +67,7 @@ func (s *SequenceTracker[VotePowerType]) Voters(marker markers.Marker) (voters *
 			return true
 		}
 
-		voter, validatorExists := s.validatorSet.Get(identityID)
+		voter, validatorExists := s.activeNodes.Get(identityID)
 		if validatorExists {
 			voters.Add(voter)
 		}
@@ -89,7 +90,7 @@ func (s *SequenceTracker[VotePowerType]) VotersWithPower(marker markers.Marker) 
 			return true
 		}
 
-		voter, validatorExists := s.validatorSet.Get(identityID)
+		voter, validatorExists := s.activeNodes.Get(identityID)
 		if validatorExists {
 			voters[voter.ID()] = power
 		}

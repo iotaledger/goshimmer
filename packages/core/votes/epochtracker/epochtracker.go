@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes/latestvotes"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/activenodes"
 )
 
 type EpochTracker struct {
@@ -17,16 +18,16 @@ type EpochTracker struct {
 	votesPerIdentity *memstorage.Storage[identity.ID, *latestvotes.LatestVotes[epoch.Index, EpochVotePower]]
 	votersPerEpoch   *memstorage.Storage[epoch.Index, *set.AdvancedSet[identity.ID]]
 
-	validatorSet        *validator.Set
+	activeNodes         *activenodes.ActiveNodes
 	cutoffIndexCallback func() epoch.Index
 }
 
-func NewEpochTracker(validatorSet *validator.Set, cutoffIndexCallback func() epoch.Index) *EpochTracker {
+func NewEpochTracker(activeNodes *activenodes.ActiveNodes, cutoffIndexCallback func() epoch.Index) *EpochTracker {
 	return &EpochTracker{
 		votesPerIdentity: memstorage.New[identity.ID, *latestvotes.LatestVotes[epoch.Index, EpochVotePower]](),
 		votersPerEpoch:   memstorage.New[epoch.Index, *set.AdvancedSet[identity.ID]](),
 
-		validatorSet:        validatorSet,
+		activeNodes:         activeNodes,
 		cutoffIndexCallback: cutoffIndexCallback,
 		Events:              NewEvents(),
 	}
@@ -40,7 +41,7 @@ func (c *EpochTracker) epochVoters(epochIndex epoch.Index) *set.AdvancedSet[iden
 }
 
 func (c *EpochTracker) TrackVotes(epochIndex epoch.Index, voterID identity.ID, power EpochVotePower) {
-	voter, exists := c.validatorSet.Get(voterID)
+	voter, exists := c.activeNodes.Get(voterID)
 	if !exists {
 		return
 	}
@@ -80,7 +81,7 @@ func (c *EpochTracker) Voters(epochIndex epoch.Index) (voters *validator.Set) {
 	}
 
 	epochVoters.ForEach(func(identityID identity.ID) error {
-		voter, validatorExists := c.validatorSet.Get(identityID)
+		voter, validatorExists := c.activeNodes.Get(identityID)
 		if validatorExists {
 			voters.Add(voter)
 		}

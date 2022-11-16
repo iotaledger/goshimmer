@@ -3,6 +3,7 @@ package scheduler
 import (
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/debug"
@@ -11,7 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/packages/core/validator"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/activenodes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
@@ -41,7 +42,7 @@ type TestFramework struct {
 	optsScheduler           []options.Option[Scheduler]
 	optsTangle              []options.Option[tangle.Tangle]
 	optsGadget              []options.Option[blockgadget.Gadget]
-	optsValidatorSet        *validator.Set
+	optsActiveNodes         *activenodes.ActiveNodes
 	optsIsBlockAcceptedFunc func(models.BlockID) bool
 	optsBlockAcceptedEvent  *event.Linkable[*blockgadget.Block]
 	*TangleTestFramework
@@ -64,14 +65,14 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 
 			t.evictionState = eviction.NewState(storageInstance)
 		}
-		if t.optsValidatorSet == nil {
-			t.optsValidatorSet = validator.NewSet()
+		if t.optsActiveNodes == nil {
+			t.optsActiveNodes = activenodes.New(time.Now)
 		}
 
 		t.TangleTestFramework = tangle.NewTestFramework(
 			test,
 			tangle.WithTangleOptions(t.optsTangle...),
-			tangle.WithValidatorSet(t.optsValidatorSet),
+			tangle.WithActiveNodes(t.optsActiveNodes),
 			tangle.WithEvictionState(t.evictionState),
 		)
 
@@ -261,9 +262,9 @@ func WithEvictionState(evictionState *eviction.State) options.Option[TestFramewo
 	}
 }
 
-func WithValidatorSet(validatorSet *validator.Set) options.Option[TestFramework] {
+func WithActiveNodes(activeNodes *activenodes.ActiveNodes) options.Option[TestFramework] {
 	return func(t *TestFramework) {
-		t.optsValidatorSet = validatorSet
+		t.optsActiveNodes = activeNodes
 	}
 }
 

@@ -2,11 +2,12 @@ package tangle
 
 import (
 	"testing"
+	"time"
 
 	"github.com/iotaledger/hive.go/core/generics/options"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/validator"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/activenodes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
@@ -24,8 +25,8 @@ type TestFramework struct {
 	optsLedger        *ledger.Ledger
 	optsLedgerOptions []options.Option[ledger.Ledger]
 	optsEvictionState *eviction.State
-	optsValidatorSet  *validator.Set
 	optsTangle        []options.Option[Tangle]
+	optsActiveNodes   *activenodes.ActiveNodes
 
 	*VirtualVotingTestFramework
 }
@@ -51,11 +52,11 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 				t.optsEvictionState = eviction.NewState(storageInstance)
 			}
 
-			if t.optsValidatorSet == nil {
-				t.optsValidatorSet = validator.NewSet()
+			if t.optsActiveNodes == nil {
+				t.optsActiveNodes = activenodes.New(time.Now)
 			}
 
-			t.Tangle = New(t.optsLedger, t.optsEvictionState, t.optsValidatorSet, func() epoch.Index {
+			t.Tangle = New(t.optsLedger, t.optsEvictionState, t.optsActiveNodes, func() epoch.Index {
 				return 0
 			}, func(id markers.SequenceID) markers.Index {
 				return 1
@@ -68,6 +69,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 			virtualvoting.WithLedger(t.Tangle.Ledger),
 			virtualvoting.WithBooker(t.Tangle.Booker),
 			virtualvoting.WithVirtualVoting(t.Tangle.VirtualVoting),
+			virtualvoting.WithActiveNodes(t.Tangle.ActiveNodes),
 		)
 	})
 }
@@ -107,13 +109,6 @@ func WithEvictionState(evictionState *eviction.State) options.Option[TestFramewo
 	}
 }
 
-// WithValidatorSet sets the validator set that is used by the Tangle.
-func WithValidatorSet(validatorSet *validator.Set) options.Option[TestFramework] {
-	return func(t *TestFramework) {
-		t.optsValidatorSet = validatorSet
-	}
-}
-
 // WithTangle sets the Tangle that is used by the TestFramework.
 func WithTangle(tangle *Tangle) options.Option[TestFramework] {
 	return func(t *TestFramework) {
@@ -125,6 +120,13 @@ func WithTangle(tangle *Tangle) options.Option[TestFramework] {
 func WithTangleOptions(opts ...options.Option[Tangle]) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.optsTangle = opts
+	}
+}
+
+// WithTangleOptions sets the Tangle options that are used to create the Tangle that is used by the TestFramework.
+func WithActiveNodes(activeNodes *activenodes.ActiveNodes) options.Option[TestFramework] {
+	return func(t *TestFramework) {
+		t.optsActiveNodes = activeNodes
 	}
 }
 

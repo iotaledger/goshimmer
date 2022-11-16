@@ -4,6 +4,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -13,7 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/validator"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/activenodes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
@@ -39,10 +40,10 @@ type TestFramework struct {
 	optsLedger              *ledger.Ledger
 	optsLedgerOptions       []options.Option[ledger.Ledger]
 	optsEvictionState       *eviction.State
-	optsValidatorSet        *validator.Set
 	optsTangle              *tangle.Tangle
 	optsTangleOptions       []options.Option[tangle.Tangle]
 	optsTotalWeightCallback func() int64
+	optsActiveNodes         *activenodes.ActiveNodes
 
 	*TangleTestFramework
 }
@@ -51,7 +52,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 	return options.Apply(&TestFramework{
 		test: test,
 		optsTotalWeightCallback: func() int64 {
-			return t.ValidatorSet.TotalWeight()
+			return t.TangleTestFramework.ActiveNodes.TotalWeight()
 		},
 	}, opts, func(t *TestFramework) {
 		if t.Gadget == nil {
@@ -72,11 +73,11 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 					t.optsEvictionState = eviction.NewState(storageInstance)
 				}
 
-				if t.optsValidatorSet == nil {
-					t.optsValidatorSet = validator.NewSet()
+				if t.optsActiveNodes == nil {
+					t.optsActiveNodes = activenodes.New(time.Now)
 				}
 
-				t.optsTangle = tangle.New(t.optsLedger, t.optsEvictionState, t.optsValidatorSet, func() epoch.Index {
+				t.optsTangle = tangle.New(t.optsLedger, t.optsEvictionState, t.optsActiveNodes, func() epoch.Index {
 					return 0
 				}, func(id markers.SequenceID) markers.Index {
 					return 1
@@ -240,12 +241,6 @@ func WithEvictionState(evictionState *eviction.State) options.Option[TestFramewo
 	}
 }
 
-func WithValidatorSet(validatorSet *validator.Set) options.Option[TestFramework] {
-	return func(t *TestFramework) {
-		t.optsValidatorSet = validatorSet
-	}
-}
-
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -320,6 +315,12 @@ func (m *MockAcceptanceGadget) FirstUnacceptedIndex(sequenceID markers.SequenceI
 		return acceptedIndex + 1
 	}
 	return 1
+}
+
+func WithActiveNodes(activeNodes *activenodes.ActiveNodes) options.Option[TestFramework] {
+	return func(t *TestFramework) {
+		t.optsActiveNodes = activeNodes
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
