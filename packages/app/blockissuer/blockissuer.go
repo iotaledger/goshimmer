@@ -90,7 +90,7 @@ func (i *BlockIssuer) IssuePayload(p payload.Payload, parentsCount ...int) (bloc
 		return block, err
 	}
 
-	return block, i.RateSetter.IssueBlock(block)
+	return block, i.RateSetter.SubmitBlock(block)
 }
 
 // IssuePayloadWithReferences creates a new block with the references submit.
@@ -105,7 +105,7 @@ func (i *BlockIssuer) IssuePayloadWithReferences(p payload.Payload, references m
 		return nil, err
 	}
 
-	return block, i.RateSetter.IssueBlock(block)
+	return block, i.RateSetter.SubmitBlock(block)
 }
 
 // IssueBlockAndAwaitBlockToBeBooked awaits maxAwait for the given block to get booked.
@@ -133,7 +133,7 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeBooked(block *models.Block, max
 	i.protocol.Events.Engine.Tangle.Booker.BlockBooked.Attach(closure)
 	defer i.protocol.Events.Engine.Tangle.Booker.BlockBooked.Detach(closure)
 
-	err := i.RateSetter.IssueBlock(block)
+	err := i.RateSetter.SubmitBlock(block)
 
 	if err != nil {
 		return errors.Errorf("failed to issue block %s: %w", block.ID().String(), err)
@@ -169,7 +169,7 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeIssued(block *models.Block, max
 	i.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Attach(closure)
 	defer i.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Detach(closure)
 
-	err := i.RateSetter.IssueBlock(block)
+	err := i.RateSetter.SubmitBlock(block)
 
 	if err != nil {
 		return errors.Errorf("failed to issue block %s: %w", block.ID().String(), err)

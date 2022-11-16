@@ -84,7 +84,7 @@ type RateSetter interface {
 	//events
 	Events() *Events
 	// block issuer
-	IssueBlock(*models.Block) error
+	SubmitBlock(*models.Block) error
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -155,7 +155,7 @@ func (r *DeficitRateSetter) Events() *Events {
 	return r.events
 }
 
-func (r *DeficitRateSetter) IssueBlock(block *models.Block) error {
+func (r *DeficitRateSetter) SubmitBlock(block *models.Block) error {
 	if identity.NewID(block.IssuerPublicKey()) != r.self {
 		return ErrInvalidIssuer
 	}
@@ -193,9 +193,9 @@ loop:
 				blk := r.issuingQueue.PopFront()
 				r.events.BlockIssued.Trigger(blk)
 				if next := r.issuingQueue.Front(); next != nil {
-					nextBlockSize = 0.0
-				} else {
 					nextBlockSize = float64(next.Size())
+				} else {
+					nextBlockSize = 0.0
 				}
 			}
 			// update the deficit growth rate estimate
@@ -208,28 +208,23 @@ loop:
 
 		// if new block arrives, add it to the issuing queue
 		case blk := <-r.issueChan:
-			// if issuing queue is empty and we have enough deficit, issue this immediately
-			if r.excessDeficit.Load() >= float64(blk.Size()) || r.protocol.CongestionControl.Scheduler().ReadyBlocksCount() == 0 {
-				if r.Size() == 0 {
-					r.events.BlockIssued.Trigger(blk)
-					break
-				}
-				issueBlk := r.issuingQueue.PopFront()
-				r.events.BlockIssued.Trigger(issueBlk)
-			}
-			// if issuing queue is full, discard this
+			// if issuing queue is full, discard this, else enqueue
 			if r.issuingQueue.Size()+1 > MaxLocalQueueSize {
 				// drop tail
 				r.events.BlockDiscarded.Trigger(blk)
 				break
-			}
-			// add to queue
-			r.issuingQueue.Enqueue(blk)
-
-			if next := r.issuingQueue.Front(); next != nil {
-				nextBlockSize = 0.0
 			} else {
+				r.issuingQueue.Enqueue(blk)
+			}
+			// issue from the top of the queue if allowed
+			if r.excessDeficit.Load() >= float64(blk.Size()) || r.protocol.CongestionControl.Scheduler().ReadyBlocksCount() == 0 {
+				issueBlk := r.issuingQueue.PopFront()
+				r.events.BlockIssued.Trigger(issueBlk)
+			}
+			if next := r.issuingQueue.Front(); next != nil {
 				nextBlockSize = float64(next.Size())
+			} else {
+				nextBlockSize = 0.0
 			}
 
 		// on close, exit the loop
@@ -316,8 +311,8 @@ func (r *AIMDRateSetter) setupEvents() {
 	}))
 }
 
-// IssueBlock submits a block to the local issuing queue.
-func (r *AIMDRateSetter) IssueBlock(block *models.Block) error {
+// SubmitBlock submits a block to the local issuing queue.
+func (r *AIMDRateSetter) SubmitBlock(block *models.Block) error {
 
 	if identity.NewID(block.IssuerPublicKey()) != r.self {
 		return ErrInvalidIssuer
@@ -490,7 +485,7 @@ func (r *DisabledRateSetter) Events() *Events {
 	return r.events
 }
 
-func (r *DisabledRateSetter) IssueBlock(block *models.Block) error {
+func (r *DisabledRateSetter) SubmitBlock(block *models.Block) error {
 	r.events.BlockIssued.Trigger(block)
 	return nil
 }
