@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/pkg/errors"
+
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
@@ -199,7 +201,9 @@ func (r *Retainer) createStorableBlockMetadata(epochIndex epoch.Index) (metas []
 
 func (r *Retainer) storeBlockMetadata(metas []*BlockMetadata) {
 	for _, meta := range metas {
-		r.blockStorage.Set(meta.ID(), meta)
+		if err := r.blockStorage.Set(meta.ID(), meta); err != nil {
+			panic(errors.Wrapf(err, "could not save %s to block storage", meta.ID()))
+		}
 	}
 }
 
