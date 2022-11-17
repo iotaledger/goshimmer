@@ -28,10 +28,6 @@ const (
 	MinMana int64 = 1
 )
 
-// MaxDeficit is the maximum cap for accumulated deficit, i.e. max bytes that can be scheduled without waiting.
-// It must be >= MaxBlockSize.
-var MaxDeficit = new(big.Rat).SetInt64(int64(models.MaxBlockSize))
-
 // ErrNotRunning is returned when a block is submitted when the scheduler has been stopped.
 var ErrNotRunning = errors.New("scheduler stopped")
 
@@ -57,6 +53,7 @@ type Scheduler struct {
 	optsRate                           time.Duration
 	optsMaxBufferSize                  int
 	optsAcceptedBlockScheduleThreshold time.Duration
+	optsMaxDeficit                     *big.Rat
 
 	started        typeutils.AtomicBool
 	stopped        typeutils.AtomicBool
@@ -79,6 +76,7 @@ func New(evictionState *eviction.State, isBlockAccepted func(models.BlockID) boo
 		optsMaxBufferSize:                  300,
 		optsAcceptedBlockScheduleThreshold: 5 * time.Minute,
 		optsRate:                           5 * time.Millisecond,
+		optsMaxDeficit:                     new(big.Rat).SetInt64(int64(models.MaxBlockSize)), // must be >= MaxBlockSize.
 
 		shutdownSignal: make(chan struct{}),
 	}, opts, func(s *Scheduler) {
@@ -556,7 +554,7 @@ func (s *Scheduler) updateDeficit(issuerID identity.ID, d *big.Rat) {
 
 	s.deficitsMutex.Lock()
 	defer s.deficitsMutex.Unlock()
-	s.deficits.Set(issuerID, minRat(deficit, MaxDeficit))
+	s.deficits.Set(issuerID, minRat(deficit, s.optsMaxDeficit))
 
 	s.Events.OwnDeficitUpdated.Trigger(issuerID)
 	/* TODO: add local identity to scheduler to trigger only when own deficit updated
@@ -628,6 +626,12 @@ func WithMaxBufferSize(maxBufferSize int) options.Option[Scheduler] {
 func WithRate(rate time.Duration) options.Option[Scheduler] {
 	return func(s *Scheduler) {
 		s.optsRate = rate
+	}
+}
+
+func WithMaxDeficit(maxDef int) options.Option[Scheduler] {
+	return func(s *Scheduler) {
+		s.optsMaxDeficit = new(big.Rat).SetInt64(int64(maxDef))
 	}
 }
 
