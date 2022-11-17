@@ -243,17 +243,12 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 }
 
 func findBlock(blockID models.BlockID) (explorerBlk *ExplorerBlock, err error) {
-	block, exists := deps.Retainer.Block(blockID)
-	if !exists {
-		return nil, fmt.Errorf("%w: block %s", ErrNotFound, blockID.Base58())
-	}
-
 	blockMetadata, exists := deps.Retainer.BlockMetadata(blockID)
 	if !exists {
 		return nil, fmt.Errorf("%w: block metadata %s", ErrNotFound, blockID.Base58())
 	}
 
-	explorerBlk = createExplorerBlock(block, blockMetadata)
+	explorerBlk = createExplorerBlock(blockMetadata.M.Block, blockMetadata)
 
 	return
 }
