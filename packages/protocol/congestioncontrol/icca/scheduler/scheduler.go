@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"fmt"
 	"math"
 	"math/big"
 	"sync"
@@ -465,6 +466,11 @@ func (s *Scheduler) schedule() *Block {
 	// remove the block from the buffer and adjust issuer's deficit
 	block := s.buffer.PopFront()
 	issuerID := identity.NewID(block.IssuerPublicKey())
+	deficit := s.Deficit(issuerID)
+	if deficit.Cmp(new(big.Rat).SetInt64(int64(block.Size()))) < 0 {
+		errorString := fmt.Sprintf("scheduler: deficit is less than block size - %d bytes", block.Size())
+		panic(errorString)
+	}
 	s.updateDeficit(issuerID, new(big.Rat).SetInt64(-int64(block.Size())))
 
 	return block
