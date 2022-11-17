@@ -103,20 +103,26 @@ type blockMetadataModel struct {
 	Id models.BlockID `serix:"0"`
 
 	// blockdag.Block
-	Missing              bool            `serix:"1"`
-	Solid                bool            `serix:"2"`
-	Invalid              bool            `serix:"3"`
-	Orphaned             bool            `serix:"4"`
-	StrongChildren       models.BlockIDs `serix:"6"`
-	WeakChildren         models.BlockIDs `serix:"7"`
-	LikedInsteadChildren models.BlockIDs `serix:"8"`
+	Missing  bool `serix:"1"`
+	Solid    bool `serix:"2"`
+	Invalid  bool `serix:"3"`
+	Orphaned bool `serix:"4"`
+	// TODO: children need to be stored separately due to potentially unbounded size
+	StrongChildren models.BlockIDs `serix:"6,lengthPrefixType=uint32"`
+	// TODO: children need to be stored separately due to potentially unbounded size
+	WeakChildren models.BlockIDs `serix:"7,lengthPrefixType=uint32"`
+	// TODO: children need to be stored separately due to potentially unbounded size
+	LikedInsteadChildren models.BlockIDs `serix:"8,lengthPrefixType=uint32"`
 	SolidTime            time.Time       `serix:"9"`
 
 	// booker.Block
-	Booked                bool                `serix:"10"`
-	StructureDetails      *structureDetails   `serix:"11,optional"`
-	AddedConflictIDs      utxo.TransactionIDs `serix:"12,optional"`
+	Booked           bool              `serix:"10"`
+	StructureDetails *structureDetails `serix:"11,optional"`
+	// TODO: conflicts need to be stored separately due to potentially unbounded size
+	AddedConflictIDs utxo.TransactionIDs `serix:"12,optional"`
+	// TODO: conflicts need to be stored separately due to potentially unbounded size
 	SubtractedConflictIDs utxo.TransactionIDs `serix:"13,optional"`
+	// TODO: conflicts need to be stored separately due to potentially unbounded size
 	// conflictIDs is a computed property at the time a block is booked.
 	ConflictIDs utxo.TransactionIDs `serix:"14,optional"`
 	BookedTime  time.Time           `serix:"15"`

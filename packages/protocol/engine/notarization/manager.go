@@ -77,8 +77,8 @@ func (m *Manager) DecreaseConflictsCounter(index epoch.Index) {
 }
 
 func (m *Manager) AcceptanceTime() time.Time {
-	m.acceptanceTimeMutex.Lock()
-	defer m.acceptanceTimeMutex.Unlock()
+	m.acceptanceTimeMutex.RLock()
+	defer m.acceptanceTimeMutex.RUnlock()
 
 	return m.acceptanceTime
 }
@@ -148,7 +148,7 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 		m.Events.Error.Trigger(errors.Errorf("failed to set latest commitment: %w", err))
 	}
 
-	fmt.Println("epoch commited", newCommitment.Index())
+	fmt.Println("epoch commited", newCommitment.Index(), m.AcceptanceTime())
 	m.Events.EpochCommitted.Trigger(newCommitment)
 	return true
 }

@@ -237,6 +237,7 @@ func (t *TipManager) isPastConeTimestampCorrect(block *booker.Block) (timestampV
 	}
 
 	if block.IssuingTime().Before(minSupportedTimestamp) {
+		fmt.Println("block before min supported timestamp", block.ID(), "issuing time(", block.IssuingTime().String(), "), minsupportedtime(", minSupportedTimestamp, ")")
 		return false
 	}
 
@@ -251,8 +252,14 @@ func (t *TipManager) isPastConeTimestampCorrect(block *booker.Block) (timestampV
 	processInitialBlock(block, blockWalker, markerWalker)
 
 	for markerWalker.HasNext() {
-		timestampValid = t.checkPair(markerWalker.Next(), blockWalker, markerWalker, minSupportedTimestamp)
+		marker := markerWalker.Next()
+		timestampValid = t.checkPair(marker, blockWalker, markerWalker, minSupportedTimestamp)
 		if !timestampValid {
+			markerBlock, exists := t.engine.Tangle.Booker.BlockFromMarker(marker.Marker)
+			if !exists {
+				fmt.Println("marker does not exist?", marker)
+			}
+			fmt.Println("marker ", marker, markerBlock.ID(), " before min supported timestamp", block.ID(), "issuing time(", block.IssuingTime().String(), "), minsupportedtime(", minSupportedTimestamp, ")")
 			return false
 		}
 	}
@@ -260,6 +267,7 @@ func (t *TipManager) isPastConeTimestampCorrect(block *booker.Block) (timestampV
 	for blockWalker.HasNext() {
 		timestampValid = t.checkBlock(blockWalker.Next(), blockWalker, minSupportedTimestamp)
 		if !timestampValid {
+			fmt.Println("block before min supported timestamp", block.ID(), "issuing time(", block.IssuingTime().String(), "), minsupportedtime(", minSupportedTimestamp, ")")
 			return false
 		}
 	}
