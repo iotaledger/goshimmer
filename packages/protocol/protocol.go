@@ -206,10 +206,10 @@ func (p *Protocol) initTipManager() {
 func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) {
 	isSolid, chain, _ := p.chainManager.ProcessCommitment(block.Commitment())
 	if !isSolid {
+		fmt.Println(">> chain not solid", p.storage.Settings.ChainID(), block.ID())
 		return
 	}
 
-	// fmt.Println(">> checkchain", p.storage.Settings.ChainID(), chain.ForkingPoint.ID())
 	if mainChain := p.storage.Settings.ChainID(); chain.ForkingPoint.ID() == mainChain {
 		p.Engine().ProcessBlockFromPeer(block, src)
 		return

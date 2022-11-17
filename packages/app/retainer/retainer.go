@@ -1,6 +1,7 @@
 package retainer
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -98,11 +99,13 @@ func (r *Retainer) setupEvents() {
 	}))
 
 	r.protocol.Events.Engine.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(func(block *blockdag.Block) {
+		fmt.Println("BlockSolid", block.ID())
 		cm := r.createOrGetCachedMetadata(block.ID())
 		cm.setBlockDAGBlock(block)
 	}))
 
 	r.protocol.Events.Engine.Tangle.Booker.BlockBooked.Attach(event.NewClosure(func(block *booker.Block) {
+		fmt.Println("BlockBooked", block.ID())
 		cm := r.createOrGetCachedMetadata(block.ID())
 		cm.setBookerBlock(block)
 
@@ -122,7 +125,17 @@ func (r *Retainer) setupEvents() {
 	r.protocol.Events.CongestionControl.Scheduler.BlockDropped.Attach(congestionControlClosure)
 	r.protocol.Events.CongestionControl.Scheduler.BlockSkipped.Attach(congestionControlClosure)
 
+	r.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
+		fmt.Println("BlockScheduled", block.ID())
+	}))
+	r.protocol.Events.CongestionControl.Scheduler.BlockDropped.Attach(event.NewClosure(func(block *scheduler.Block) {
+		fmt.Println("BlockDropped", block.ID())
+	}))
+	r.protocol.Events.CongestionControl.Scheduler.BlockSkipped.Attach(event.NewClosure(func(block *scheduler.Block) {
+		fmt.Println("BlockSkipped", block.ID())
+	}))
 	r.protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
+		fmt.Println("Block accepted", block.ID())
 		cm := r.createOrGetCachedMetadata(block.ID())
 		cm.setAcceptanceBlock(block)
 	}))
