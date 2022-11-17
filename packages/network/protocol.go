@@ -100,7 +100,7 @@ func (p *Protocol) onBlock(blockData []byte, id identity.ID) {
 
 	blockID := block.DetermineIDFromBytes(blockData)
 
-	requested := !p.requestedBlocks.Delete(blockID)
+	requested := p.requestedBlocks.Delete(blockID)
 
 	if !p.duplicateBlockBytesFilter.Add(lo.PanicOnErr(blockID.Bytes())) && !requested {
 		return
