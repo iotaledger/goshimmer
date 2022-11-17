@@ -33,10 +33,10 @@ type Manager struct {
 	sync.RWMutex
 }
 
-func NewManager(storageInstance *storage.Storage, epochAttestations func(epoch.Index) *sybilprotection.EpochAttestations, opts ...options.Option[Manager]) (newManager *Manager) {
+func NewManager(storageInstance *storage.Storage, attestations func(epoch.Index) sybilprotection.Attestations, opts ...options.Option[Manager]) (newManager *Manager) {
 	return options.Apply(&Manager{
 		Events:                     NewEvents(),
-		EpochMutations:             NewEpochMutations(epochAttestations, storageInstance.Settings.LatestCommitment().Index()),
+		EpochMutations:             NewEpochMutations(attestations, storageInstance.Settings.LatestCommitment().Index()),
 		storage:                    storageInstance,
 		pendingConflictsCounters:   shrinkingmap.New[epoch.Index, uint64](),
 		acceptanceTime:             storageInstance.Settings.LatestCommitment().Index().EndTime(),

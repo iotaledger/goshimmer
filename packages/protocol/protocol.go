@@ -243,12 +243,10 @@ func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) {
 }
 
 func (p *Protocol) ProcessAttestationsRequest(epochIndex epoch.Index, src identity.ID) {
-	epochAttestations := p.Engine().SybilProtection.EpochAttestations(epochIndex)
-
-	p.networkProtocol.SendAttestations(epochAttestations, src)
+	p.networkProtocol.SendAttestations(p.Engine().SybilProtection.Attestations(epochIndex), src)
 }
 
-func (p *Protocol) ProcessAttestations(attestations []*sybilprotection.Attestation, src identity.ID) {
+func (p *Protocol) ProcessAttestations(attestations sybilprotection.Attestations, src identity.ID) {
 	// TODO: process attestations and evluate chain switch!
 }
 

@@ -7,11 +7,11 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/core/validator"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/impl"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/pos"
 )
 
 func TestActiveNodes_Update(t *testing.T) {
-	activityNodes := impl.New(time.Now, impl.WithActivityWindow(time.Second))
+	activityNodes := pos.NewActiveNodes(time.Now, pos.WithActivityWindow(time.Second))
 
 	tf := NewTestFramework(t, WithActiveNodes(activityNodes))
 
@@ -19,9 +19,9 @@ func TestActiveNodes_Update(t *testing.T) {
 	tf.CreateValidator("B", validator.WithWeight(1))
 	tf.CreateValidator("C", validator.WithWeight(1))
 
-	activityNodes.Set(tf.Validator("A"), time.Now())
-	activityNodes.Set(tf.Validator("B"), time.Now())
-	activityNodes.Set(tf.Validator("C"), time.Now())
+	activityNodes.MarkActive(tf.Validator("A"), time.Now())
+	activityNodes.MarkActive(tf.Validator("B"), time.Now())
+	activityNodes.MarkActive(tf.Validator("C"), time.Now())
 
 	assert.EqualValues(t, 3, tf.ActiveNodes.Weight())
 

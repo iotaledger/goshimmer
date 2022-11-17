@@ -10,7 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/impl"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 )
 
@@ -18,11 +18,11 @@ type ConflictTracker[ConflictIDType, ResourceIDType comparable, VotePowerType co
 	votes *memstorage.Storage[ConflictIDType, *votes.Votes[ConflictIDType, VotePowerType]]
 
 	conflictDAG *conflictdag.ConflictDAG[ConflictIDType, ResourceIDType]
-	activeNotes *impl.ActiveValidators
+	activeNotes sybilprotection.ActiveValidators
 	Events      *Events[ConflictIDType]
 }
 
-func NewConflictTracker[ConflictIDType, ResourceIDType comparable, VotePowerType constraints.Comparable[VotePowerType]](conflictDAG *conflictdag.ConflictDAG[ConflictIDType, ResourceIDType], activeNodes *impl.ActiveValidators) *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType] {
+func NewConflictTracker[ConflictIDType, ResourceIDType comparable, VotePowerType constraints.Comparable[VotePowerType]](conflictDAG *conflictdag.ConflictDAG[ConflictIDType, ResourceIDType], activeNodes sybilprotection.ActiveValidators) *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType] {
 	return &ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]{
 		votes:       memstorage.New[ConflictIDType, *votes.Votes[ConflictIDType, VotePowerType]](),
 		conflictDAG: conflictDAG,
@@ -37,12 +37,12 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) TrackVo
 		return false, true
 	}
 
-	voter, exists := c.activeNotes.Get(voterID)
+	weight, exists := c.activeNotes.Get(voterID)
 	if !exists {
 		return false, false
 	}
 
-	defaultVote := votes.NewVote[ConflictIDType, VotePowerType](voter, power, votes.UndefinedOpinion)
+	defaultVote := votes.NewVote[ConflictIDType, VotePowerType](validator.New(voterID, validator.WithWeight(weight)), power, votes.UndefinedOpinion)
 
 	eventsToTrigger := c.applyVotes(defaultVote.WithOpinion(votes.Dislike), revokedConflictIDs)
 	eventsToTrigger = append(eventsToTrigger, c.applyVotes(defaultVote.WithOpinion(votes.Like), addedConflictIDs)...)
@@ -62,21 +62,21 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) Voters(
 }
 
 func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) AddSupportToForkedConflict(forkedConflictID ConflictIDType, parentConflictIDs *set.AdvancedSet[ConflictIDType], voterID identity.ID, power VotePowerType) {
-	voter, exists := c.activeNotes.Get(voterID)
+	weight, exists := c.activeNotes.Get(voterID)
 	if !exists {
 		return
 	}
 
 	// We need to make sure that the voter supports all the conflict's parents.
-	if !c.voterSupportsAllConflicts(voter, parentConflictIDs) {
+	if !c.voterSupportsAllConflicts(validator.New(voterID, validator.WithWeight(weight)), parentConflictIDs) {
 		return
 	}
 
-	vote := votes.NewVote[ConflictIDType, VotePowerType](voter, power, votes.Like).WithConflictID(forkedConflictID)
+	vote := votes.NewVote[ConflictIDType, VotePowerType](validator.New(voterID, validator.WithWeight(weight)), power, votes.Like).WithConflictID(forkedConflictID)
 
 	votesObj, _ := c.votes.RetrieveOrCreate(forkedConflictID, votes.NewVotes[ConflictIDType, VotePowerType])
 	if added, opinionChanged := votesObj.Add(vote); added && opinionChanged {
-		c.Events.VoterAdded.Trigger(&VoterEvent[ConflictIDType]{Voter: voter, ConflictID: forkedConflictID})
+		c.Events.VoterAdded.Trigger(&VoterEvent[ConflictIDType]{Voter: validator.New(voterID, validator.WithWeight(weight)), ConflictID: forkedConflictID})
 	}
 
 	return

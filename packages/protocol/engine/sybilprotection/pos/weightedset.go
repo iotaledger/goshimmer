@@ -1,4 +1,4 @@
-package impl
+package pos
 
 import (
 	"sync"
@@ -6,51 +6,51 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/generictypes"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/types"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 )
 
 type WeightedSet struct {
-	source       types.WeightedActors
-	members      *set.AdvancedSet[identity.ID]
-	totalWeight  uint64
-	mutex        sync.RWMutex
-	subscription *generictypes.Subscription
+	dispose     func()
+	disposeOnce sync.Once
+	source      sybilprotection.WeightsVector
+	members     *set.AdvancedSet[identity.ID]
+	totalWeight uint64
+	mutex       sync.RWMutex
 }
 
-func NewWeightedSet(weightSource types.WeightedActors) (weightedSet *WeightedSet) {
+func NewWeightedSet(weightSource sybilprotection.WeightsVector) (weightedSet *WeightedSet) {
 	weightedSet = new(WeightedSet)
 	weightedSet.source = weightSource
 	weightedSet.members = set.NewAdvancedSet[identity.ID]()
-	weightedSet.subscription = weightSource.SubscribeWeightUpdates(weightedSet.onWeightUpdated, true)
+	weightedSet.dispose = weightSource.SubscribeWeightUpdates(weightedSet.onWeightUpdated, true)
 
 	return
 }
 
-func (w *WeightedSet) Add(identities ...identity.ID) (addedIdentities *set.AdvancedSet[identity.ID]) {
+func (w *WeightedSet) Has(id identity.ID) (has bool) {
+	w.mutex.RLock()
+	defer w.mutex.RUnlock()
+
+	return w.members.Has(id)
+}
+
+func (w *WeightedSet) Add(id identity.ID) (added bool) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
-	addedIdentities = set.NewAdvancedSet[identity.ID]()
-	for _, id := range identities {
-		if w.members.Add(id) && addedIdentities.Add(id) {
-			w.totalWeight += w.source.Weight(id)
-		}
+	if added = w.members.Add(id); added {
+		w.totalWeight += w.source.Weight(id)
 	}
 
 	return
 }
 
-func (w *WeightedSet) Remove(identities ...identity.ID) (amountRemoved int) {
+func (w *WeightedSet) Remove(id identity.ID) (removed bool) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
-	for _, id := range identities {
-		if w.members.Delete(id) {
-			w.totalWeight -= w.source.Weight(id)
-
-			amountRemoved++
-		}
+	if removed = w.members.Delete(id); removed {
+		w.totalWeight -= w.source.Weight(id)
 	}
 
 	return
@@ -72,7 +72,7 @@ func (w *WeightedSet) ForEachWeighted(callback func(id identity.ID, weight uint6
 	})
 }
 
-func (w *WeightedSet) Weight() uint64 {
+func (w *WeightedSet) TotalWeight() uint64 {
 	w.mutex.RLock()
 	defer w.mutex.RUnlock()
 
@@ -80,7 +80,7 @@ func (w *WeightedSet) Weight() uint64 {
 }
 
 func (w *WeightedSet) Dispose() {
-	w.subscription.Cancel()
+	w.disposeOnce.Do(w.dispose)
 }
 
 func (w *WeightedSet) onWeightUpdated(id identity.ID, oldValue uint64, newValue uint64) {
@@ -91,3 +91,5 @@ func (w *WeightedSet) onWeightUpdated(id identity.ID, oldValue uint64, newValue 
 		w.totalWeight += newValue - oldValue
 	}
 }
+
+var _ sybilprotection.WeightedSet = &WeightedSet{}

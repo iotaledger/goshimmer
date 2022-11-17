@@ -27,7 +27,7 @@ type TestFramework struct {
 	issuersWeight      *memstorage.Storage[identity.ID, int64]
 	blocksByID         map[string]*models.Block
 	epochEntityCounter map[epoch.Index]int
-	attestorsByEpoch   map[epoch.Index]*sybilprotection.EpochAttestations
+	attestorsByEpoch   map[epoch.Index]sybilprotection.Attestations
 
 	sync.RWMutex
 }
@@ -40,12 +40,14 @@ func NewTestFramework(test *testing.T) *TestFramework {
 		issuersWeight:      memstorage.New[identity.ID, int64](),
 		blocksByID:         make(map[string]*models.Block),
 		epochEntityCounter: make(map[epoch.Index]int),
-		attestorsByEpoch:   make(map[epoch.Index]*sybilprotection.EpochAttestations),
+		attestorsByEpoch:   make(map[epoch.Index]sybilprotection.Attestations),
 	}
-	tf.MutationFactory = NewEpochMutations(func(index epoch.Index) *sybilprotection.EpochAttestations {
+	tf.MutationFactory = NewEpochMutations(func(index epoch.Index) sybilprotection.Attestations {
 		epochAttestors, exists := tf.attestorsByEpoch[index]
 		if !exists {
-			tf.attestorsByEpoch[index] = sybilprotection.NewEpochAttestations(tf.issuersWeight)
+			/* TODO: FIX */
+			// tf.attestorsByEpoch[index] = pos.NewEpochAttestations(tf.issuersWeight)
+			tf.attestorsByEpoch[index] = nil
 			epochAttestors = tf.attestorsByEpoch[index]
 		}
 

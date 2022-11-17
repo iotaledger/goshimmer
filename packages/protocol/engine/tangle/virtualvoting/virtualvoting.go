@@ -12,7 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/epochtracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/impl"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
@@ -23,7 +23,7 @@ import (
 
 type VirtualVoting struct {
 	Events      *Events
-	ActiveNodes *impl.ActiveValidators
+	ActiveNodes sybilprotection.ActiveValidators
 
 	blocks          *memstorage.EpochStorage[models.BlockID, *Block]
 	conflictTracker *conflicttracker.ConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower]
@@ -37,7 +37,7 @@ type VirtualVoting struct {
 	*booker.Booker
 }
 
-func New(booker *booker.Booker, activeNodes *impl.ActiveValidators, opts ...options.Option[VirtualVoting]) (newVirtualVoting *VirtualVoting) {
+func New(booker *booker.Booker, activeNodes sybilprotection.ActiveValidators, opts ...options.Option[VirtualVoting]) (newVirtualVoting *VirtualVoting) {
 	return options.Apply(&VirtualVoting{
 		ActiveNodes: activeNodes,
 		blocks:      memstorage.NewEpochStorage[models.BlockID, *Block](),

@@ -1,4 +1,4 @@
-package generictypes
+package models
 
 import (
 	"context"
@@ -11,7 +11,6 @@ import (
 	"github.com/iotaledger/hive.go/core/types"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 type Attestation struct {
@@ -22,7 +21,7 @@ type Attestation struct {
 	Signature        ed25519.Signature `serix:"4"`
 }
 
-func NewAttestation(block *models.Block) *Attestation {
+func NewAttestation(block *Block) *Attestation {
 	return &Attestation{
 		block.IssuerID(),
 		block.IssuingTime(),

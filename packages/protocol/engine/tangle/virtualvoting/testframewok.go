@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -19,7 +18,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/impl"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
@@ -41,7 +40,7 @@ type TestFramework struct {
 	optsBooker          *booker.Booker
 	optsBookerOptions   []options.Option[booker.Booker]
 	optsVirtualVoting   []options.Option[VirtualVoting]
-	optsActiveNodes     *impl.ActiveValidators
+	optsActiveNodes     sybilprotection.ActiveValidators
 
 	*BookerTestFramework
 	*VotesTestFramework
@@ -62,7 +61,8 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 		)
 
 		if t.optsActiveNodes == nil {
-			t.optsActiveNodes = impl.New(time.Now)
+			/* TODO: FIX */
+			t.optsActiveNodes = nil
 		}
 
 		if t.VirtualVoting == nil {
@@ -202,7 +202,7 @@ func WithVirtualVoting(virtualVoting *VirtualVoting) options.Option[TestFramewor
 	}
 }
 
-func WithActiveNodes(activeNodes *impl.ActiveValidators) options.Option[TestFramework] {
+func WithActiveNodes(activeNodes sybilprotection.ActiveValidators) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.optsActiveNodes = activeNodes
 	}

@@ -70,10 +70,13 @@ func TestMutationFactory(t *testing.T) {
 }
 
 func TestMutationFactory_AddAcceptedBlock(t *testing.T) {
-	mutationFactory := NewEpochMutations(func(epoch.Index) *sybilprotection.EpochAttestations {
+	mutationFactory := NewEpochMutations(func(epoch.Index) sybilprotection.Attestations {
 		weightStorage := memstorage.New[identity.ID, int64]()
 		weightStorage.Set(identity.ID{}, 1)
-		return sybilprotection.NewEpochAttestations(weightStorage)
+
+		/* TODO: FIX */
+		// return pos.NewEpochAttestations(weightStorage)
+		return nil
 	}, 2)
 
 	block := models.NewBlock(

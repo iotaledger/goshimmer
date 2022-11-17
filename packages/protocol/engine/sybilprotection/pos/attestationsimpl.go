@@ -1,4 +1,4 @@
-package impl
+package pos
 
 import (
 	"sync"
@@ -7,21 +7,20 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/ads"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/generictypes"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/types"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 type AttestationsImpl struct {
-	weightedSet *WeightedSet
-	storage     *memstorage.Storage[identity.ID, *memstorage.Storage[models.BlockID, *generictypes.Attestation]]
+	weightedSet sybilprotection.WeightedSet
+	storage     *memstorage.Storage[identity.ID, *memstorage.Storage[models.BlockID, *models.Attestation]]
 	mutex       sync.RWMutex
 }
 
-func NewAttestations(weightedActors types.WeightedActors) *AttestationsImpl {
+func NewAttestations(weightedActors sybilprotection.WeightsVector) *AttestationsImpl {
 	return &AttestationsImpl{
 		weightedSet: weightedActors.NewWeightedSet(),
-		storage:     memstorage.New[identity.ID, *memstorage.Storage[models.BlockID, *generictypes.Attestation]](),
+		storage:     memstorage.New[identity.ID, *memstorage.Storage[models.BlockID, *models.Attestation]](),
 	}
 }
 
@@ -31,12 +30,12 @@ func (a *AttestationsImpl) Add(block *models.Block) (added bool) {
 
 	// TODO: CHECK IF PAST EVICTION
 
-	storage, created := a.storage.RetrieveOrCreate(block.IssuerID(), memstorage.New[models.BlockID, *generictypes.Attestation])
+	storage, created := a.storage.RetrieveOrCreate(block.IssuerID(), memstorage.New[models.BlockID, *models.Attestation])
 	if created {
 		a.weightedSet.Add(block.IssuerID())
 	}
 
-	return storage.Set(block.ID(), generictypes.NewAttestation(block))
+	return storage.Set(block.ID(), models.NewAttestation(block))
 }
 
 func (a *AttestationsImpl) Delete(block *models.Block) (deleted bool) {
@@ -70,7 +69,7 @@ func (a *AttestationsImpl) Weight() (weight uint64) {
 		return 0
 	}
 
-	return a.weightedSet.Weight()
+	return a.weightedSet.TotalWeight()
 }
 
 func (a *AttestationsImpl) Dispose() {

@@ -1,4 +1,4 @@
-package impl
+package pos
 
 import (
 	"sync"
@@ -30,8 +30,33 @@ type ActiveValidators struct {
 	mutex sync.RWMutex
 }
 
-// New creates and returns a new instance of an ActivityTracker.
-func New(timeRetrieverFunc TimeRetrieverFunc, opts ...options.Option[ActiveValidators]) (activityTracker *ActiveValidators) {
+func (a *ActiveValidators) MarkActive(id identity.ID, timestamp time.Time) {
+	// TODO implement me
+	panic("implement me")
+}
+
+func (a *ActiveValidators) Get(id identity.ID) (weight int64, exists bool) {
+	// TODO implement me
+	panic("implement me")
+}
+
+func (a *ActiveValidators) Has(id identity.ID) (has bool) {
+	// TODO implement me
+	panic("implement me")
+}
+
+func (a *ActiveValidators) ForEach(callback func(id identity.ID) error) error {
+	// TODO implement me
+	panic("implement me")
+}
+
+func (a *ActiveValidators) ForEachWeighted(callback func(id identity.ID, weight int64) (err error)) (err error) {
+	// TODO implement me
+	panic("implement me")
+}
+
+// NewActiveNodes creates and returns a new instance of an ActivityTracker.
+func NewActiveNodes(timeRetrieverFunc TimeRetrieverFunc, opts ...options.Option[ActiveValidators]) (activityTracker *ActiveValidators) {
 	return options.Apply(&ActiveValidators{
 		timeRetrieverFunc: timeRetrieverFunc,
 		validatorSet:      validator.NewSet(),
@@ -44,8 +69,8 @@ func New(timeRetrieverFunc TimeRetrieverFunc, opts ...options.Option[ActiveValid
 	})
 }
 
-// Set updates the underlying data structure and keeps track of active nodes.
-func (a *ActiveValidators) Set(activeValidator *validator.Validator, activityTime time.Time) {
+// MarkActive updates the underlying data structure and keeps track of active nodes.
+func (a *ActiveValidators) _MarkActive(activeValidator *validator.Validator, activityTime time.Time) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -69,18 +94,18 @@ func (a *ActiveValidators) Set(activeValidator *validator.Validator, activityTim
 	}, activityTime.Add(a.optsActivityWindow).Sub(a.timeRetrieverFunc()))
 }
 
-func (a *ActiveValidators) Get(id identity.ID) (validator *validator.Validator, exists bool) {
+func (a *ActiveValidators) _Get(id identity.ID) (validator *validator.Validator, exists bool) {
 	a.mutex.RLock()
 	defer a.mutex.RUnlock()
 
 	return a.validatorSet.Get(id)
 }
 
-func (a *ActiveValidators) ForEach(callback func(id identity.ID, validator *validator.Validator) bool) {
+func (a *ActiveValidators) _ForEach(callback func(id identity.ID, validator *validator.Validator) bool) {
 	a.validatorSet.ForEach(callback)
 }
 
-func (a *ActiveValidators) Weight() int64 {
+func (a *ActiveValidators) TotalWeight() int64 {
 	return a.validatorSet.TotalWeight()
 }
 
