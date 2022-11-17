@@ -63,10 +63,10 @@ services:
       --logger.disableEvents=false
       --logger.remotelog.serverAddress={{ remoteLoggerHost }}:5213
       --remotemetrics.metricsLevel=0
-      {% if faucet|default(false) %}
-      --blockIssuer.ignoreBootstrappedFlag=false
-      {% else %}
+      {% if bootstrap|default(false) %}
       --blockIssuer.ignoreBootstrappedFlag=true
+      {% else %}
+      --blockIssuer.ignoreBootstrappedFlag=false
       {% endif %}
       --protocol.bootstrapWindow=20s
       {% if genesisTime|default(None) %}
