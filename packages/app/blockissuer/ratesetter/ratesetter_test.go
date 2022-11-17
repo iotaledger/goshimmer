@@ -1,7 +1,6 @@
 package ratesetter
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -40,17 +39,15 @@ func TestRateSetter_NoSchedulerCongestion(t *testing.T) {
 	numBlocks := 100
 
 	for _, mode := range enabledModes {
-		fmt.Printf("%d\n", mode)
-		tf := NewTestFramework(t, WithRateSetterMode(mode), WithSchedulerRate(10*time.Millisecond))
+		tf := NewTestFramework(t, WithRateSetterMode(mode), WithSchedulerRate(10*time.Millisecond), WithMaxDeficit(300))
 		defer tf.RateSetter.Shutdown()
 
 		blockIssued := make(chan *models.Block, numBlocks)
 		tf.RateSetter.Events().BlockIssued.Attach(event.NewClosure(func(block *models.Block) { blockIssued <- block }))
 		tf.SubmitBlocks(numBlocks)
-		fmt.Printf("Block issued. %d blocks in the Issuer queue. %d blocks in the Scheduler queue.\n", tf.RateSetter.Size(), tf.Scheduler.BufferSize())
-		for blk := range blockIssued {
-			assert.Less(t, tf.Scheduler.BufferSize(), 2)
-			fmt.Printf("Block issued %s. %d blocks in the Issuer queue. %d blocks in the Scheduler queue.\n", blk.ID(), tf.RateSetter.Size(), tf.Scheduler.BufferSize())
+		for range blockIssued {
+			assert.Less(t, tf.Scheduler.BufferSize(), 5)
+			//fmt.Printf("Block issued with size %d. %d blocks in the Issuer queue. %d blocks in the Scheduler queue.\n", blk.Size(), tf.RateSetter.Size(), tf.Scheduler.BufferSize())
 			if tf.RateSetter.Size() == 0 {
 				break
 			}

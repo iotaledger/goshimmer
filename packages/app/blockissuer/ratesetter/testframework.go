@@ -33,6 +33,7 @@ type TestFramework struct {
 
 	optsRateSetterMode RateSetterModeType
 	optsSchedulerRate  time.Duration
+	optsMaxDeficit     int
 }
 
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (newTestFramework *TestFramework) {
@@ -55,7 +56,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 		protocol := protocol.New(network.NewMockedNetwork().Join(localID),
 			protocol.WithSnapshotPath(diskUtil.Path("snapshot.bin")),
 			protocol.WithBaseDirectory(diskUtil.Path()),
-			protocol.WithCongestionControlOptions(congestioncontrol.WithSchedulerOptions(scheduler.WithRate(t.optsSchedulerRate))),
+			protocol.WithCongestionControlOptions(congestioncontrol.WithSchedulerOptions(scheduler.WithRate(t.optsSchedulerRate), scheduler.WithMaxDeficit(t.optsMaxDeficit))),
 		)
 		protocol.Run()
 		t.Scheduler = protocol.CongestionControl.Scheduler()
@@ -106,6 +107,12 @@ func WithSchedulerRate(rate time.Duration) options.Option[TestFramework] {
 func WithRateSetterMode(mode RateSetterModeType) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
 		tf.optsRateSetterMode = mode
+	}
+}
+
+func WithMaxDeficit(maxDef int) options.Option[TestFramework] {
+	return func(tf *TestFramework) {
+		tf.optsMaxDeficit = maxDef
 	}
 }
 
