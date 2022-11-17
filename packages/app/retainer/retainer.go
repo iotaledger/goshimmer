@@ -1,7 +1,6 @@
 package retainer
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -101,13 +100,13 @@ func (r *Retainer) setupEvents() {
 	}))
 
 	r.protocol.Events.Engine.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(func(block *blockdag.Block) {
-		fmt.Println("BlockSolid", block.ID(), "issuer", block.IssuerID())
+		//fmt.Println("BlockSolid", block.ID(), "issuer", block.IssuerID())
 		cm := r.createOrGetCachedMetadata(block.ID())
 		cm.setBlockDAGBlock(block)
 	}))
 
 	r.protocol.Events.Engine.Tangle.Booker.BlockBooked.Attach(event.NewClosure(func(block *booker.Block) {
-		fmt.Println("BlockBooked", block.ID(), "issuer", block.IssuerID())
+		//fmt.Println("BlockBooked", block.ID(), "issuer", block.IssuerID())
 		cm := r.createOrGetCachedMetadata(block.ID())
 		cm.setBookerBlock(block)
 
@@ -127,17 +126,17 @@ func (r *Retainer) setupEvents() {
 	r.protocol.Events.CongestionControl.Scheduler.BlockDropped.Attach(congestionControlClosure)
 	r.protocol.Events.CongestionControl.Scheduler.BlockSkipped.Attach(congestionControlClosure)
 
-	r.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
-		fmt.Println("BlockScheduled", block.ID(), "issuer", block.IssuerID())
-	}))
-	r.protocol.Events.CongestionControl.Scheduler.BlockDropped.Attach(event.NewClosure(func(block *scheduler.Block) {
-		fmt.Println("BlockDropped", block.ID(), "issuer", block.IssuerID())
-	}))
-	r.protocol.Events.CongestionControl.Scheduler.BlockSkipped.Attach(event.NewClosure(func(block *scheduler.Block) {
-		fmt.Println("BlockSkipped", block.ID(), "issuer", block.IssuerID())
-	}))
+	//r.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
+	//	fmt.Println("BlockScheduled", block.ID(), "issuer", block.IssuerID())
+	//}))
+	//r.protocol.Events.CongestionControl.Scheduler.BlockDropped.Attach(event.NewClosure(func(block *scheduler.Block) {
+	//	fmt.Println("BlockDropped", block.ID(), "issuer", block.IssuerID())
+	//}))
+	//r.protocol.Events.CongestionControl.Scheduler.BlockSkipped.Attach(event.NewClosure(func(block *scheduler.Block) {
+	//	fmt.Println("BlockSkipped", block.ID(), "issuer", block.IssuerID())
+	//}))
 	r.protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
-		fmt.Println("Block accepted", block.ID(), "issuer", block.IssuerID())
+		//fmt.Println("Block accepted", block.ID(), "issuer", block.IssuerID())
 		cm := r.createOrGetCachedMetadata(block.ID())
 		cm.setAcceptanceBlock(block)
 	}))
