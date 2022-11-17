@@ -140,9 +140,9 @@ type blockMetadataModel struct {
 	Confirmed            bool      `serix:"25"`
 	ConfirmedTime        time.Time `serix:"26"`
 	ConfirmedByEpoch     bool      `serix:"27"`
-	ConfirmedByEpochTime time.Time `serix:"26"`
+	ConfirmedByEpochTime time.Time `serix:"28"`
 
-	Block *models.Block `serix:"27,optional"`
+	Block *models.Block `serix:"29,optional"`
 }
 
 // NewBlockMetadata creates a new BlockMetadata instance. It does not set the ID, as it is not known at this point.
