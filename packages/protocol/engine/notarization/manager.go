@@ -1,6 +1,7 @@
 package notarization
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -147,6 +148,7 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 		m.Events.Error.Trigger(errors.Errorf("failed to set latest commitment: %w", err))
 	}
 
+	fmt.Println("epoch commited", newCommitment.Index())
 	m.Events.EpochCommitted.Trigger(newCommitment)
 	return true
 }
