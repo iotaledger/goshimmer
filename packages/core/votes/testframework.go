@@ -11,14 +11,14 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/validator"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/activenodes"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/impl"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
 
 type TestFramework struct {
 	test              *testing.T
-	ActiveNodes       *activenodes.ActiveNodes
+	ActiveNodes       *impl.ActiveValidators
 	validatorsByAlias map[string]*validator.Validator
 }
 
@@ -26,7 +26,7 @@ type TestFramework struct {
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (newTestFramework *TestFramework) {
 	return options.Apply(&TestFramework{
 		test:              test,
-		ActiveNodes:       activenodes.New(time.Now),
+		ActiveNodes:       impl.New(time.Now),
 		validatorsByAlias: make(map[string]*validator.Validator),
 	}, opts)
 }
@@ -75,7 +75,7 @@ func ValidatorSetToAdvancedSet(validatorSet *validator.Set) (validatorAdvancedSe
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithActiveNodes(activeNodes *activenodes.ActiveNodes) options.Option[TestFramework] {
+func WithActiveNodes(activeNodes *impl.ActiveValidators) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
 		tf.ActiveNodes = activeNodes
 	}

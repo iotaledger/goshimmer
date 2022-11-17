@@ -4,8 +4,8 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/activenodes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/impl"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
@@ -33,7 +33,7 @@ type Tangle struct {
 func New(
 	ledger *ledger.Ledger,
 	evictionState *eviction.State,
-	activeNodes *activenodes.ActiveNodes,
+	activeNodes *impl.ActiveValidators,
 	epochCutoffCallback func() epoch.Index,
 	sequenceCutoffCallback func(id markers.SequenceID) markers.Index,
 	opts ...options.Option[Tangle],

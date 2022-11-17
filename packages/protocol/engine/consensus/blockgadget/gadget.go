@@ -195,7 +195,7 @@ func (a *Gadget) tryConfirmOrAccept(totalWeight int64, marker markers.Marker) (b
 	markerVoters := a.tangle.VirtualVoting.MarkerVoters(marker)
 
 	// check if enough weight is online to confirm based on total weight
-	if validator.IsThresholdReached(totalWeight, a.tangle.ActiveNodes.TotalWeight(), a.optsMarkerConfirmationThreshold) {
+	if validator.IsThresholdReached(totalWeight, a.tangle.ActiveNodes.Weight(), a.optsMarkerConfirmationThreshold) {
 		// check if marker weight has enough weight to be confirmed
 		if validator.IsThresholdReached(totalWeight, markerVoters.TotalWeight(), a.optsMarkerConfirmationThreshold) {
 			// need to mark outside 'if' statement, otherwise only the first condition would be executed due to lazy evaluation
@@ -205,7 +205,7 @@ func (a *Gadget) tryConfirmOrAccept(totalWeight int64, marker markers.Marker) (b
 				return a.propagateAcceptanceConfirmation(marker, true)
 			}
 		}
-	} else if validator.IsThresholdReached(a.tangle.ActiveNodes.TotalWeight(), markerVoters.TotalWeight(), a.optsMarkerAcceptanceThreshold) && a.setMarkerAccepted(marker) {
+	} else if validator.IsThresholdReached(a.tangle.ActiveNodes.Weight(), markerVoters.TotalWeight(), a.optsMarkerAcceptanceThreshold) && a.setMarkerAccepted(marker) {
 		return a.propagateAcceptanceConfirmation(marker, false)
 	}
 
@@ -411,7 +411,7 @@ func (a *Gadget) RefreshConflictAcceptance(conflictID utxo.TransactionID) {
 	conflictVoters := a.tangle.VirtualVoting.ConflictVoters(conflictID)
 	conflictWeight := conflictVoters.TotalWeight()
 
-	if !validator.IsThresholdReached(a.tangle.ActiveNodes.TotalWeight(), conflictWeight, a.optsConflictAcceptanceThreshold) {
+	if !validator.IsThresholdReached(a.tangle.ActiveNodes.Weight(), conflictWeight, a.optsConflictAcceptanceThreshold) {
 		return
 	}
 
@@ -429,7 +429,7 @@ func (a *Gadget) RefreshConflictAcceptance(conflictID utxo.TransactionID) {
 		conflictingConflictVoters := a.tangle.VirtualVoting.ConflictVoters(conflictingConflictID)
 
 		// if the conflict is less than 66% ahead, then don't mark as accepted
-		if conflictingConflictWeight := conflictingConflictVoters.TotalWeight(); !validator.IsThresholdReached(a.tangle.ActiveNodes.TotalWeight(), conflictWeight-conflictingConflictWeight, a.optsConflictAcceptanceThreshold) {
+		if conflictingConflictWeight := conflictingConflictVoters.TotalWeight(); !validator.IsThresholdReached(a.tangle.ActiveNodes.Weight(), conflictWeight-conflictingConflictWeight, a.optsConflictAcceptanceThreshold) {
 			markAsAccepted = false
 		}
 

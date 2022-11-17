@@ -13,8 +13,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/eventticker"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/activenodes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/impl"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/storage"
 
@@ -41,7 +41,7 @@ type Engine struct {
 	Storage     *storage.Storage
 	Ledger      *ledger.Ledger
 	Filter      *filter.Filter
-	ActiveNodes *activenodes.ActiveNodes
+	ActiveNodes *impl.ActiveValidators
 	// SnapshotManager     *snapshot.Manager
 	EvictionState       *eviction.State
 	BlockRequester      *eventticker.EventTicker[models.BlockID]
@@ -65,7 +65,7 @@ type Engine struct {
 	optsNotarizationManagerOptions []options.Option[notarization.Manager]
 	optsTangleOptions              []options.Option[tangle.Tangle]
 	optsConsensusOptions           []options.Option[consensus.Consensus]
-	optsActiveNodesOptions         []options.Option[activenodes.ActiveNodes]
+	optsActiveNodesOptions         []options.Option[impl.ActiveValidators]
 	optsTSCManagerOptions          []options.Option[tsc.Manager]
 	optsDatabaseManagerOptions     []options.Option[database.Manager]
 	optsBlockRequester             []options.Option[eventticker.EventTicker[models.BlockID]]
@@ -145,7 +145,7 @@ func (e *Engine) initFilter() {
 }
 
 func (e *Engine) initActiveNodes() {
-	e.ActiveNodes = activenodes.New(e.Clock.RelativeAcceptedTime, e.optsActiveNodesOptions...)
+	e.ActiveNodes = impl.New(e.Clock.RelativeAcceptedTime, e.optsActiveNodesOptions...)
 
 	e.Events.Filter.LinkTo(e.Filter.Events)
 }
@@ -169,7 +169,7 @@ func (e *Engine) initTangle() {
 }
 
 func (e *Engine) initConsensus() {
-	e.Consensus = consensus.New(e.Tangle, e.EvictionState, e.Storage.Permanent.Settings.LatestConfirmedEpoch(), e.ActiveNodes.TotalWeight, e.optsConsensusOptions...)
+	e.Consensus = consensus.New(e.Tangle, e.EvictionState, e.Storage.Permanent.Settings.LatestConfirmedEpoch(), e.ActiveNodes.Weight, e.optsConsensusOptions...)
 
 	e.Events.EvictionState.EpochEvicted.Hook(event.NewClosure(e.Consensus.BlockGadget.EvictUntil))
 
@@ -370,7 +370,7 @@ func WithTangleOptions(opts ...options.Option[tangle.Tangle]) options.Option[Eng
 	}
 }
 
-func WithActiveNodesOptions(opts ...options.Option[activenodes.ActiveNodes]) options.Option[Engine] {
+func WithActiveNodesOptions(opts ...options.Option[impl.ActiveValidators]) options.Option[Engine] {
 	return func(e *Engine) {
 		e.optsActiveNodesOptions = opts
 	}

@@ -42,8 +42,7 @@ var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 // region BlockReceivedEvent ///////////////////////////////////////////////////////////////////////////////////////////
 
 type BlockReceivedEvent struct {
-	Block *models.Block
-
+	Block  *models.Block
 	Source identity.ID
 }
 
@@ -53,8 +52,7 @@ type BlockReceivedEvent struct {
 
 type BlockRequestReceivedEvent struct {
 	BlockID models.BlockID
-
-	Source identity.ID
+	Source  identity.ID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -72,8 +70,7 @@ type EpochCommitmentReceivedEvent struct {
 
 type EpochCommitmentRequestReceivedEvent struct {
 	CommitmentID commitment.ID
-
-	Source identity.ID
+	Source       identity.ID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -82,8 +79,7 @@ type EpochCommitmentRequestReceivedEvent struct {
 
 type AttestationsReceivedEvent struct {
 	Attestations []*sybilprotection.Attestation
-
-	Source identity.ID
+	Source       identity.ID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -91,8 +87,7 @@ type AttestationsReceivedEvent struct {
 // region AttestationsRequestReceivedEvent /////////////////////////////////////////////////////////////////////////////
 
 type AttestationsRequestReceivedEvent struct {
-	Index epoch.Index
-
+	Index  epoch.Index
 	Source identity.ID
 }
 

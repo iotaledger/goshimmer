@@ -172,7 +172,7 @@ func sendManaMapOnline() {
 		return consensusPayload.Issuers[i].Mana > consensusPayload.Issuers[j].Mana
 	})
 
-	consensusPayload.TotalMana = activeNodes.TotalWeight()
+	consensusPayload.TotalMana = activeNodes.Weight()
 	broadcastWsBlock(&wsblk{
 		Type: MsgTypeManaMapOnline,
 		Data: consensusPayload,

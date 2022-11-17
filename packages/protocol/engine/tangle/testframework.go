@@ -7,8 +7,8 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/activenodes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/impl"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
@@ -26,7 +26,7 @@ type TestFramework struct {
 	optsLedgerOptions []options.Option[ledger.Ledger]
 	optsEvictionState *eviction.State
 	optsTangle        []options.Option[Tangle]
-	optsActiveNodes   *activenodes.ActiveNodes
+	optsActiveNodes   *impl.ActiveValidators
 
 	*VirtualVotingTestFramework
 }
@@ -53,7 +53,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 			}
 
 			if t.optsActiveNodes == nil {
-				t.optsActiveNodes = activenodes.New(time.Now)
+				t.optsActiveNodes = impl.New(time.Now)
 			}
 
 			t.Tangle = New(t.optsLedger, t.optsEvictionState, t.optsActiveNodes, func() epoch.Index {
@@ -124,7 +124,7 @@ func WithTangleOptions(opts ...options.Option[Tangle]) options.Option[TestFramew
 }
 
 // WithTangleOptions sets the Tangle options that are used to create the Tangle that is used by the TestFramework.
-func WithActiveNodes(activeNodes *activenodes.ActiveNodes) options.Option[TestFramework] {
+func WithActiveNodes(activeNodes *impl.ActiveValidators) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.optsActiveNodes = activeNodes
 	}

@@ -9,7 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/activenodes"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/impl"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
@@ -19,7 +19,7 @@ import (
 type SybilProtection struct {
 	weights      *memstorage.Storage[identity.ID, int64]
 	weightsMutex sync.RWMutex
-	activeNodes  *activenodes.ActiveNodes
+	activeNodes  *impl.ActiveValidators
 	// attestationsByEpoch stores the blocks issued by a validator per epoch.
 
 	attestationsByEpoch *memstorage.Storage[epoch.Index, *EpochAttestations]
@@ -27,7 +27,7 @@ type SybilProtection struct {
 	evictionMutex       sync.RWMutex
 }
 
-func New(activeNodes *activenodes.ActiveNodes, storageInstance *storage.Storage) (sybilProtection *SybilProtection) {
+func New(activeNodes *impl.ActiveValidators, storageInstance *storage.Storage) (sybilProtection *SybilProtection) {
 	sybilProtection = &SybilProtection{
 		activeNodes:         activeNodes,
 		weights:             memstorage.New[identity.ID, int64](),

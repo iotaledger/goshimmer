@@ -14,8 +14,8 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/activenodes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/impl"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
@@ -43,7 +43,7 @@ type TestFramework struct {
 	optsTangle              *tangle.Tangle
 	optsTangleOptions       []options.Option[tangle.Tangle]
 	optsTotalWeightCallback func() int64
-	optsActiveNodes         *activenodes.ActiveNodes
+	optsActiveNodes         *impl.ActiveValidators
 
 	*TangleTestFramework
 }
@@ -52,7 +52,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 	return options.Apply(&TestFramework{
 		test: test,
 		optsTotalWeightCallback: func() int64 {
-			return t.TangleTestFramework.ActiveNodes.TotalWeight()
+			return t.TangleTestFramework.ActiveNodes.Weight()
 		},
 	}, opts, func(t *TestFramework) {
 		if t.Gadget == nil {
@@ -74,7 +74,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 				}
 
 				if t.optsActiveNodes == nil {
-					t.optsActiveNodes = activenodes.New(time.Now)
+					t.optsActiveNodes = impl.New(time.Now)
 				}
 
 				t.optsTangle = tangle.New(t.optsLedger, t.optsEvictionState, t.optsActiveNodes, func() epoch.Index {
@@ -317,7 +317,7 @@ func (m *MockAcceptanceGadget) FirstUnacceptedIndex(sequenceID markers.SequenceI
 	return 1
 }
 
-func WithActiveNodes(activeNodes *activenodes.ActiveNodes) options.Option[TestFramework] {
+func WithActiveNodes(activeNodes *impl.ActiveValidators) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.optsActiveNodes = activeNodes
 	}

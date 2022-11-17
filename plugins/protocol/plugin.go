@@ -12,8 +12,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/activenodes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/impl"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tsc"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
@@ -78,7 +78,7 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 			),
 			engine.WithSnapshotDepth(Parameters.Snapshot.Depth),
 			engine.WithActiveNodesOptions(
-				activenodes.WithActivityWindow(Parameters.ValidatorActivityWindow),
+				impl.WithActivityWindow(Parameters.ValidatorActivityWindow),
 			),
 		),
 		protocol.WithTipManagerOptions(
