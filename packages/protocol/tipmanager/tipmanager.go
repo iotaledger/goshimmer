@@ -265,9 +265,10 @@ func (t *TipManager) isPastConeTimestampCorrect(block *booker.Block) (timestampV
 	}
 
 	for blockWalker.HasNext() {
-		timestampValid = t.checkBlock(blockWalker.Next(), blockWalker, minSupportedTimestamp)
+		blockW := blockWalker.Next()
+		timestampValid = t.checkBlock(blockW, blockWalker, minSupportedTimestamp)
 		if !timestampValid {
-			fmt.Println("block before min supported timestamp", block.ID(), "issuing time(", block.IssuingTime().String(), "), minsupportedtime(", minSupportedTimestamp, ")")
+			fmt.Println("walked on block before min supported timestamp", blockW.ID(), "issuing time(", blockW.IssuingTime().String(), "), minsupportedtime(", minSupportedTimestamp, ")")
 			return false
 		}
 	}
