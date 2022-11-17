@@ -468,7 +468,8 @@ func (s *Scheduler) schedule() *Block {
 	issuerID := identity.NewID(block.IssuerPublicKey())
 	deficit := s.Deficit(issuerID)
 	if deficit.Cmp(new(big.Rat).SetInt64(int64(block.Size()))) < 0 {
-		errorString := fmt.Sprintf("scheduler: deficit is less than block size - %d bytes", block.Size())
+		deficitFloat, _ := deficit.Float64()
+		errorString := fmt.Sprintf("scheduler: deficit is less than block size - Deficit is %d, block size is %d bytes, ", int(deficitFloat), block.Size())
 		panic(errorString)
 	}
 	s.updateDeficit(issuerID, new(big.Rat).SetInt64(-int64(block.Size())))
