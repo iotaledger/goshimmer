@@ -8,6 +8,8 @@ type EpochInfo struct {
 	EI     uint64 `json:"index"`
 	ECR    string `json:"rootsID"`
 	PrevEC string `json:"prevEC"`
+	Blocks uint64 `json:"blocks"`
+	Txs    uint64 `json:"txs"`
 }
 
 func EpochInfoFromRecord(c *commitment.Commitment) *EpochInfo {
