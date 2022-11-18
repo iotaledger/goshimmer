@@ -84,6 +84,16 @@ type ExplorerBlock struct {
 }
 
 func createExplorerBlock(block *models.Block, blockMetadata *retainer.BlockMetadata) *ExplorerBlock {
+	var conflictIDs, addedConflictIDs, subtractedConflictIDs []string
+	if blockMetadata.M.ConflictIDs != nil {
+		conflictIDs = lo.Map(lo.Map(blockMetadata.M.ConflictIDs.Slice(), packTransactionID), base58.Encode)
+	}
+	if blockMetadata.M.AddedConflictIDs != nil {
+		addedConflictIDs = lo.Map(lo.Map(blockMetadata.M.AddedConflictIDs.Slice(), packTransactionID), base58.Encode)
+	}
+	if blockMetadata.M.SubtractedConflictIDs != nil {
+		subtractedConflictIDs = lo.Map(lo.Map(blockMetadata.M.SubtractedConflictIDs.Slice(), packTransactionID), base58.Encode)
+	}
 	t := &ExplorerBlock{
 		ID:                      block.ID().Base58(),
 		SolidificationTimestamp: blockMetadata.M.SolidTime.Unix(),
@@ -97,9 +107,9 @@ func createExplorerBlock(block *models.Block, blockMetadata *retainer.BlockMetad
 		WeakChildren:            blockMetadata.M.WeakChildren.Base58(),
 		LikedInsteadChildren:    blockMetadata.M.LikedInsteadChildren.Base58(),
 		Solid:                   blockMetadata.M.Solid,
-		ConflictIDs:             lo.Map(lo.Map(blockMetadata.M.ConflictIDs.Slice(), packTransactionID), base58.Encode),
-		AddedConflictIDs:        lo.Map(lo.Map(blockMetadata.M.AddedConflictIDs.Slice(), packTransactionID), base58.Encode),
-		SubtractedConflictIDs:   lo.Map(lo.Map(blockMetadata.M.SubtractedConflictIDs.Slice(), packTransactionID), base58.Encode),
+		ConflictIDs:             conflictIDs,
+		AddedConflictIDs:        addedConflictIDs,
+		SubtractedConflictIDs:   subtractedConflictIDs,
 		Scheduled:               blockMetadata.M.Scheduled,
 		Booked:                  blockMetadata.M.Booked,
 		Orphaned:                blockMetadata.M.Orphaned,

@@ -258,8 +258,9 @@ func (t *TipManager) isPastConeTimestampCorrect(block *booker.Block) (timestampV
 			markerBlock, exists := t.engine.Tangle.Booker.BlockFromMarker(marker.Marker)
 			if !exists {
 				fmt.Println("marker does not exist?", marker)
+			} else {
+				fmt.Println("walked on marker ", marker, markerBlock.ID(), " before min supported timestamp issuing time(", block.IssuingTime().String(), "), minsupportedtime(", minSupportedTimestamp, ")")
 			}
-			fmt.Println("marker ", marker, markerBlock.ID(), " before min supported timestamp", block.ID(), "issuing time(", block.IssuingTime().String(), "), minsupportedtime(", minSupportedTimestamp, ")")
 			return false
 		}
 	}
