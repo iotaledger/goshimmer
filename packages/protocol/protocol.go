@@ -206,7 +206,7 @@ func (p *Protocol) initTipManager() {
 func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) {
 	isSolid, chain, _ := p.chainManager.ProcessCommitment(block.Commitment())
 	if !isSolid {
-		fmt.Println(">> chain not solid", block.Commitment(), "latest commitment", p.storage.Settings.LatestCommitment(), "blockID", block.ID())
+		fmt.Println(">> chain not solid", block.Commitment().ID(), "latest commitment", p.storage.Settings.LatestCommitment().ID(), "blockID", block.ID())
 		return
 	}
 
