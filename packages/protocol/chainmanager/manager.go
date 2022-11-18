@@ -47,23 +47,11 @@ func NewManager(snapshot *commitment.Commitment) (manager *Manager) {
 
 func (c *Manager) ProcessCommitment(commitment *commitment.Commitment) (isSolid bool, chain *Chain, wasForked bool) {
 	// TODO: do not extend the main chain if the commitment doesn't come from myself, after I am bootstrapped.
-	chainCommitment, created := c.Commitment(commitment.ID(), true)
-	if !chainCommitment.PublishCommitment(commitment) {
-		return chainCommitment.IsSolid(), chainCommitment.Chain(), false
+	isSolid, chain, wasForked, chainCommitment, commitmentPublished := c.registerCommitment(commitment)
+	if commitmentPublished || chain == nil {
+		return isSolid, chain, wasForked
 	}
 
-	if !created {
-		c.Events.MissingCommitmentReceived.Trigger(chainCommitment.ID())
-	}
-
-	parentCommitment, commitmentCreated := c.Commitment(commitment.PrevID(), true)
-	if commitmentCreated {
-		c.Events.CommitmentMissing.Trigger(parentCommitment.ID())
-	}
-
-	if isSolid, chain, wasForked = c.registerChild(parentCommitment, chainCommitment); chain == nil {
-		return
-	}
 	if wasForked {
 		c.Events.ForkDetected.Trigger(chain)
 	}
@@ -82,7 +70,30 @@ func (c *Manager) ProcessCommitment(commitment *commitment.Commitment) (isSolid 
 		}
 	}
 
-	return
+	return isSolid, chain, wasForked
+}
+
+func (c *Manager) registerCommitment(commitment *commitment.Commitment) (isSolid bool, chain *Chain, wasForked bool, chainCommitment *Commitment, commitmentPublished bool) {
+	chainCommitment, created := c.Commitment(commitment.ID(), true)
+
+	chainCommitment.lockEntity()
+	defer chainCommitment.unlockEntity()
+
+	if !chainCommitment.PublishCommitment(commitment) {
+		return chainCommitment.IsSolid(), chainCommitment.Chain(), false, chainCommitment, false
+	}
+
+	if !created {
+		c.Events.MissingCommitmentReceived.Trigger(chainCommitment.ID())
+	}
+
+	parentCommitment, commitmentCreated := c.Commitment(commitment.PrevID(), true)
+	if commitmentCreated {
+		c.Events.CommitmentMissing.Trigger(parentCommitment.ID())
+	}
+
+	isSolid, chain, wasForked = c.registerChild(parentCommitment, chainCommitment)
+	return isSolid, chain, wasForked, chainCommitment, true
 }
 
 func (c *Manager) Chain(ec commitment.ID) (chain *Chain) {
@@ -127,9 +138,6 @@ func (c *Manager) Commitments(id commitment.ID, amount int) (commitments []*Comm
 }
 
 func (c *Manager) registerChild(parent *Commitment, child *Commitment) (isSolid bool, chain *Chain, wasForked bool) {
-	child.lockEntity()
-	defer child.unlockEntity()
-
 	if isSolid, chain, wasForked = parent.registerChild(child); chain != nil {
 		chain.addCommitment(child)
 		child.publishChain(chain)
