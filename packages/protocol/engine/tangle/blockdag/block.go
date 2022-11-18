@@ -46,7 +46,7 @@ func NewRootBlock(id models.BlockID, opts ...options.Option[models.Block]) (root
 		issuingTime = id.Index().EndTime()
 	}
 	return NewBlock(
-		models.NewEmptyBlock(id, append(opts, models.WithIssuingTime(issuingTime))...),
+		models.NewEmptyBlock(id, append([]options.Option[models.Block]{models.WithIssuingTime(issuingTime)}, opts...)...),
 		WithSolid(true),
 		WithMissing(false),
 	)
