@@ -12,7 +12,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/weights"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -27,7 +27,7 @@ type TestFramework struct {
 	issuersWeight      *memstorage.Storage[identity.ID, int64]
 	blocksByID         map[string]*models.Block
 	epochEntityCounter map[epoch.Index]int
-	attestorsByEpoch   map[epoch.Index]sybilprotection.Attestations
+	attestorsByEpoch   map[epoch.Index]*weights.Set
 
 	sync.RWMutex
 }
@@ -40,9 +40,9 @@ func NewTestFramework(test *testing.T) *TestFramework {
 		issuersWeight:      memstorage.New[identity.ID, int64](),
 		blocksByID:         make(map[string]*models.Block),
 		epochEntityCounter: make(map[epoch.Index]int),
-		attestorsByEpoch:   make(map[epoch.Index]sybilprotection.Attestations),
+		attestorsByEpoch:   make(map[epoch.Index]*weights.Set),
 	}
-	tf.MutationFactory = NewEpochMutations(func(index epoch.Index) sybilprotection.Attestations {
+	tf.MutationFactory = NewEpochMutations(func(index epoch.Index) *models.Attestations {
 		epochAttestors, exists := tf.attestorsByEpoch[index]
 		if !exists {
 			/* TODO: FIX */

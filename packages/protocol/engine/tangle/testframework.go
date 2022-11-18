@@ -7,7 +7,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/weights"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
@@ -25,7 +25,7 @@ type TestFramework struct {
 	optsLedgerOptions []options.Option[ledger.Ledger]
 	optsEvictionState *eviction.State
 	optsTangle        []options.Option[Tangle]
-	optsActiveNodes   sybilprotection.ActiveValidators
+	optsActiveNodes   *weights.Set
 
 	*VirtualVotingTestFramework
 }
@@ -124,7 +124,7 @@ func WithTangleOptions(opts ...options.Option[Tangle]) options.Option[TestFramew
 }
 
 // WithTangleOptions sets the Tangle options that are used to create the Tangle that is used by the TestFramework.
-func WithActiveNodes(activeNodes sybilprotection.ActiveValidators) options.Option[TestFramework] {
+func WithActiveNodes(activeNodes *weights.Set) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.optsActiveNodes = activeNodes
 	}

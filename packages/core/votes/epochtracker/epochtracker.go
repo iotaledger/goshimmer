@@ -9,7 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes/latestvotes"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/weights"
 )
 
 type EpochTracker struct {
@@ -18,11 +18,11 @@ type EpochTracker struct {
 	votesPerIdentity *memstorage.Storage[identity.ID, *latestvotes.LatestVotes[epoch.Index, EpochVotePower]]
 	votersPerEpoch   *memstorage.Storage[epoch.Index, *set.AdvancedSet[identity.ID]]
 
-	activeNodes         sybilprotection.ActiveValidators
+	activeNodes         *weights.Set
 	cutoffIndexCallback func() epoch.Index
 }
 
-func NewEpochTracker(activeNodes sybilprotection.ActiveValidators, cutoffIndexCallback func() epoch.Index) *EpochTracker {
+func NewEpochTracker(activeNodes *weights.Set, cutoffIndexCallback func() epoch.Index) *EpochTracker {
 	return &EpochTracker{
 		votesPerIdentity: memstorage.New[identity.ID, *latestvotes.LatestVotes[epoch.Index, EpochVotePower]](),
 		votersPerEpoch:   memstorage.New[epoch.Index, *set.AdvancedSet[identity.ID]](),

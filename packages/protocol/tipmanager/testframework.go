@@ -70,7 +70,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 			tangle.WithTangle(t.engine.Tangle),
 			tangle.WithLedger(t.engine.Ledger),
 			tangle.WithEvictionState(t.engine.EvictionState),
-			tangle.WithActiveNodes(t.engine.ActiveNodes),
+			tangle.WithActiveNodes(t.engine.SybilProtection.Validators()),
 		)
 
 		if t.TipManager == nil {

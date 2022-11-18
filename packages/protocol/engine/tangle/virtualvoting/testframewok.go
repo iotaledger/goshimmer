@@ -18,7 +18,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/weights"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
@@ -40,7 +40,7 @@ type TestFramework struct {
 	optsBooker          *booker.Booker
 	optsBookerOptions   []options.Option[booker.Booker]
 	optsVirtualVoting   []options.Option[VirtualVoting]
-	optsActiveNodes     sybilprotection.ActiveValidators
+	optsActiveNodes     *weights.Set
 
 	*BookerTestFramework
 	*VotesTestFramework
@@ -202,7 +202,7 @@ func WithVirtualVoting(virtualVoting *VirtualVoting) options.Option[TestFramewor
 	}
 }
 
-func WithActiveNodes(activeNodes sybilprotection.ActiveValidators) options.Option[TestFramework] {
+func WithActiveNodes(activeNodes *weights.Set) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.optsActiveNodes = activeNodes
 	}

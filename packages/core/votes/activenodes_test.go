@@ -7,11 +7,11 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/core/validator"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/pos"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/proofofstake"
 )
 
 func TestActiveNodes_Update(t *testing.T) {
-	activityNodes := pos.NewActiveNodes(time.Now, pos.WithActivityWindow(time.Second))
+	activityNodes := proofofstake.NewActiveNodes(time.Now, proofofstake.WithActivityWindow(time.Second))
 
 	tf := NewTestFramework(t, WithActiveNodes(activityNodes))
 

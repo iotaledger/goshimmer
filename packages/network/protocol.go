@@ -12,8 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	. "github.com/iotaledger/goshimmer/packages/network/models"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/pos"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/weights"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
@@ -63,7 +62,7 @@ func (p *Protocol) RequestCommitment(id commitment.ID, to ...identity.ID) {
 	}}}, protocolID, to...)
 }
 
-func (p *Protocol) SendAttestations(attestations sybilprotection.Attestations, to ...identity.ID) {
+func (p *Protocol) SendAttestations(attestations *weights.Set, to ...identity.ID) {
 	/*
 		attestationsBytes := make([][]byte, len(attestations))
 
@@ -182,10 +181,10 @@ func (p *Protocol) onEpochCommitmentRequest(idBytes []byte, id identity.ID) {
 }
 
 func (p *Protocol) onAttestations(attestationsBytes [][]byte, id identity.ID) {
-	attestations := make([]*pos.Attestation, len(attestationsBytes))
+	attestations := make([]*models.Attestation, len(attestationsBytes))
 
 	for i, attestationBytes := range attestationsBytes {
-		attestation := new(pos.Attestation)
+		attestation := new(models.Attestation)
 		if _, err := attestation.FromBytes(attestationBytes); err != nil {
 			p.Events.Error.Trigger(&ErrorEvent{
 				Error:  errors.Errorf("failed to deserialize attestation: %w", err),

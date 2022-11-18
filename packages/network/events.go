@@ -77,7 +77,7 @@ type EpochCommitmentRequestReceivedEvent struct {
 // region AttestationsReceivedEvent ////////////////////////////////////////////////////////////////////////////////////
 
 type AttestationsReceivedEvent struct {
-	Attestations []models.Attestation
+	Attestations models.Attestations
 	Source       identity.ID
 }
 

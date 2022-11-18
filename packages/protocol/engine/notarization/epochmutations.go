@@ -12,7 +12,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/ads"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -20,7 +19,7 @@ import (
 
 // EpochMutations is an in-memory data structure that enables the collection of mutations for uncommitted epochs.
 type EpochMutations struct {
-	epochAttestations func(epoch.Index) sybilprotection.Attestations
+	epochAttestations func(epoch.Index) *models.Attestations
 
 	// acceptedBlocksByEpoch stores the accepted blocks per epoch.
 	acceptedBlocksByEpoch *memstorage.Storage[epoch.Index, *ads.Set[models.BlockID]]
@@ -38,7 +37,7 @@ type EpochMutations struct {
 }
 
 // NewEpochMutations creates a new EpochMutations instance.
-func NewEpochMutations(epochAttestations func(epoch.Index) sybilprotection.Attestations, lastCommittedEpoch epoch.Index) (newMutationFactory *EpochMutations) {
+func NewEpochMutations(epochAttestations func(epoch.Index) *models.Attestations, lastCommittedEpoch epoch.Index) (newMutationFactory *EpochMutations) {
 	return &EpochMutations{
 		acceptedBlocksByEpoch:       memstorage.New[epoch.Index, *ads.Set[models.BlockID]](),
 		acceptedTransactionsByEpoch: memstorage.New[epoch.Index, *ads.Set[utxo.TransactionID]](),
@@ -138,9 +137,9 @@ func (m *EpochMutations) Commit(index epoch.Index) (acceptedBlocks *ads.Set[mode
 	defer m.evictUntil(index)
 
 	epochAttestations := m.epochAttestations(index)
-	m.lastCommittedEpochCumulativeWeight += epochAttestations.TotalWeight()
+	m.lastCommittedEpochCumulativeWeight += epochAttestations.Weight()
 
-	return m.acceptedBlocks(index), m.acceptedTransactions(index), epochAttestations.AuthenticatedSet(), m.lastCommittedEpochCumulativeWeight, nil
+	return m.acceptedBlocks(index), m.acceptedTransactions(index), epochAttestations.Attestors(), m.lastCommittedEpochCumulativeWeight, nil
 }
 
 // acceptedBlocks returns the set of accepted blocks for the given epoch.

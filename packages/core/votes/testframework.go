@@ -3,7 +3,6 @@ package votes
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
@@ -11,14 +10,14 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/validator"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/weights"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
 
 type TestFramework struct {
 	test              *testing.T
-	ActiveNodes       sybilprotection.ActiveValidators
+	ActiveNodes       *weights.Set
 	validatorsByAlias map[string]*validator.Validator
 }
 
@@ -39,7 +38,7 @@ func (t *TestFramework) CreateValidatorWithID(alias string, id identity.ID, opts
 	voter := validator.New(id, opts...)
 
 	t.validatorsByAlias[alias] = voter
-	t.ActiveNodes.MarkActive(id, time.Now())
+	t.ActiveNodes.Add(id)
 
 	return voter
 }
@@ -75,7 +74,7 @@ func ValidatorSetToAdvancedSet(validatorSet *validator.Set) (validatorAdvancedSe
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithActiveNodes(activeNodes sybilprotection.ActiveValidators) options.Option[TestFramework] {
+func WithActiveNodes(activeNodes *weights.Set) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
 		tf.ActiveNodes = activeNodes
 	}
