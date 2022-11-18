@@ -331,7 +331,7 @@ func (t *TipManager) checkPair(pair markerPreviousBlockPair, blockWalker *walker
 		return false
 	}
 
-	// If there is a accepted marker before the oldest unaccepted marker, and it's older than minSupportedTimestamp, need to walk block past cone of firstUnacceptedMarker.
+	// If there is an accepted marker before the oldest unaccepted marker, and it's older than minSupportedTimestamp, need to walk block past cone of firstUnacceptedMarker.
 	if sequence.LowestIndex() < firstUnacceptedMarker.Index() {
 		acceptedMarker, blockOfMarker := t.previousMarkerWithBlock(sequence, firstUnacceptedMarker.Index())
 

@@ -2,12 +2,14 @@ package blockdag
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/stringify"
 	"github.com/iotaledger/hive.go/core/types"
 
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
@@ -39,8 +41,12 @@ func NewBlock(data *models.Block, opts ...options.Option[Block]) (newBlock *Bloc
 }
 
 func NewRootBlock(id models.BlockID, opts ...options.Option[models.Block]) (rootBlock *Block) {
+	issuingTime := time.Unix(epoch.GenesisTime, 0)
+	if id.Index() > 0 {
+		issuingTime = id.Index().EndTime()
+	}
 	return NewBlock(
-		models.NewEmptyBlock(id, opts...),
+		models.NewEmptyBlock(id, append(opts, models.WithIssuingTime(issuingTime))...),
 		WithSolid(true),
 		WithMissing(false),
 	)
