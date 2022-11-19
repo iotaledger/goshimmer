@@ -8,7 +8,6 @@ import (
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 )
 
@@ -38,10 +37,9 @@ func configure(_ *node.Plugin) {
 func getIssuersHandler(c echo.Context) (err error) {
 	activeValidatorsString := make([]string, 0)
 
-	deps.Protocol.Engine().Tangle.ActiveNodes.ForEach(func(id identity.ID, _ *validator.Validator) bool {
+	_ = deps.Protocol.Engine().Tangle.ActiveNodes.ForEach(func(id identity.ID) error {
 		activeValidatorsString = append(activeValidatorsString, id.String())
-
-		return true
+		return nil
 	})
 
 	return c.JSON(http.StatusOK, activeValidatorsString)
@@ -49,10 +47,9 @@ func getIssuersHandler(c echo.Context) (err error) {
 
 func getWeightsHandler(c echo.Context) (err error) {
 	weightsString := make(map[string]int64)
-	deps.Protocol.Engine().Tangle.ActiveNodes.ForEach(func(id identity.ID, validator *validator.Validator) bool {
-		weightsString[id.String()] = validator.Weight()
-
-		return true
+	_ = deps.Protocol.Engine().Tangle.ActiveNodes.ForEachWeighted(func(id identity.ID, weight int64) error {
+		weightsString[id.String()] = weight
+		return nil
 	})
 
 	resp := Weights{

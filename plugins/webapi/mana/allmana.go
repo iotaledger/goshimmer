@@ -18,8 +18,7 @@ func getAllManaHandler(c echo.Context) error {
 	sort.Slice(accessList, func(i, j int) bool {
 		return accessList[i].Mana > accessList[j].Mana
 	})
-	consensus := deps.Protocol.Engine().SybilProtection.Weights()
-	consensusList := manamodels.IssuerMap(consensus).ToIssuerStrList()
+	consensusList := manamodels.IssuerMap(deps.Protocol.Engine().SybilProtection.Weights().AsMap()).ToIssuerStrList()
 	sort.Slice(consensusList, func(i, j int) bool {
 		return consensusList[i].Mana > consensusList[j].Mana
 	})

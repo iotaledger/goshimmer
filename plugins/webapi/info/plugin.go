@@ -140,7 +140,7 @@ func getInfo(c echo.Context) error {
 	}
 
 	accessMana, _ := deps.Protocol.Engine().ManaTracker.Mana(deps.Local.ID())
-	consensusMana, _ := deps.Protocol.Engine().SybilProtection.Weight(deps.Local.ID())
+	consensusMana := deps.Protocol.Engine().SybilProtection.Weights().Weight(deps.Local.ID())
 	nodeMana := jsonmodels.Mana{
 		Access:             accessMana,
 		AccessTimestamp:    time.Now(),

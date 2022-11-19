@@ -32,7 +32,7 @@ message EpochCommitmentRequest {
 }
 
 message Attestations {
-  repeated bytes bytes = 1;
+  bytes bytes = 1;
 }
 
 message AttestationsRequest {

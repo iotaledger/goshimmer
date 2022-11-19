@@ -32,7 +32,7 @@ func nHighestHandler(c echo.Context, manaType manamodels.Type) error {
 	if manaType == manamodels.AccessMana {
 		manaMap = deps.Protocol.Engine().ManaTracker.ManaByIDs()
 	} else {
-		manaMap = deps.Protocol.Engine().SybilProtection.Weights()
+		manaMap = deps.Protocol.Engine().SybilProtection.Weights().AsMap()
 	}
 	highestNodes, t, err := manamodels.GetHighestManaIssuers(uint(number), manaMap)
 	if err != nil {

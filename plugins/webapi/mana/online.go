@@ -29,7 +29,7 @@ func getOnlineHandler(c echo.Context, manaType manamodels.Type) error {
 	if manaType == manamodels.AccessMana {
 		manaMap = deps.Protocol.Engine().ManaTracker.ManaByIDs()
 	} else {
-		manaMap = deps.Protocol.Engine().SybilProtection.Weights()
+		manaMap = deps.Protocol.Engine().SybilProtection.Weights().AsMap()
 	}
 	knownPeers := deps.Discovery.GetVerifiedPeers()
 	resp := make([]jsonmodels.OnlineIssuerStr, 0)

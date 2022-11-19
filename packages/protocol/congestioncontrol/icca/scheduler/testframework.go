@@ -3,7 +3,6 @@ package scheduler
 import (
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/debug"
@@ -14,7 +13,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/proofofstake"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/weights"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
@@ -42,7 +41,7 @@ type TestFramework struct {
 	optsScheduler           []options.Option[Scheduler]
 	optsTangle              []options.Option[tangle.Tangle]
 	optsGadget              []options.Option[blockgadget.Gadget]
-	optsActiveNodes         *proofofstake.ActiveValidators
+	optsActiveNodes         *weights.Set
 	optsIsBlockAcceptedFunc func(models.BlockID) bool
 	optsBlockAcceptedEvent  *event.Linkable[*blockgadget.Block]
 	*TangleTestFramework
@@ -66,7 +65,8 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 			t.evictionState = eviction.NewState(storageInstance)
 		}
 		if t.optsActiveNodes == nil {
-			t.optsActiveNodes = proofofstake.NewActiveNodes(time.Now)
+			// TODO: fix
+			t.optsActiveNodes = weights.NewSet(nil)
 		}
 
 		t.TangleTestFramework = tangle.NewTestFramework(
@@ -262,7 +262,7 @@ func WithEvictionState(evictionState *eviction.State) options.Option[TestFramewo
 	}
 }
 
-func WithActiveNodes(activeNodes *proofofstake.ActiveValidators) options.Option[TestFramework] {
+func WithActiveNodes(activeNodes *weights.Set) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.optsActiveNodes = activeNodes
 	}

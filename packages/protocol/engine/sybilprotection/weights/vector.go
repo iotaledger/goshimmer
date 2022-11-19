@@ -6,6 +6,7 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/syncutils"
 
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/storage/models"
 	"github.com/iotaledger/goshimmer/packages/storage/permanent"
 )
@@ -56,6 +57,18 @@ func (v *Vector) TotalWeight() int64 {
 	defer v.totalWeightMutex.RUnlock()
 
 	return v.totalWeight
+}
+
+func (v *Vector) AsMap() (weights map[identity.ID]int64) {
+	weights = make(map[identity.ID]int64)
+	if err := v.weights.Stream(func(id identity.ID, weight int64, _ epoch.Index) bool {
+		weights[id] = weight
+		return true
+	}); err != nil {
+		panic(err)
+	}
+
+	return weights
 }
 
 func (v *Vector) weight(id identity.ID) (weight int64) {

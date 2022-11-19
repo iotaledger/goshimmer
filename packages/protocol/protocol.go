@@ -21,7 +21,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
@@ -246,7 +245,7 @@ func (p *Protocol) ProcessAttestationsRequest(epochIndex epoch.Index, src identi
 	p.networkProtocol.SendAttestations(p.Engine().SybilProtection.Attestations(epochIndex), src)
 }
 
-func (p *Protocol) ProcessAttestations(attestations sybilprotection.Attestations, src identity.ID) {
+func (p *Protocol) ProcessAttestations(attestations *models.Attestations, src identity.ID) {
 	// TODO: process attestations and evluate chain switch!
 }
 

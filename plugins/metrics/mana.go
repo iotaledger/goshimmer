@@ -145,7 +145,7 @@ func AveragePledgeAccess() manamodels.IssuerMap {
 
 func measureMana() {
 	tmpAccessMap := deps.Protocol.Engine().ManaTracker.ManaByIDs()
-	tmpConsensusMap := deps.Protocol.Engine().SybilProtection.Weights()
+	tmpConsensusMap := deps.Protocol.Engine().SybilProtection.Weights().AsMap()
 
 	accessLock.Lock()
 	defer accessLock.Unlock()
@@ -172,7 +172,7 @@ func measureMana() {
 			accessSum += neighborAMana
 		}
 
-		neighborCMana, _ := deps.Protocol.Engine().SybilProtection.Weight(neighbor.ID())
+		neighborCMana := deps.Protocol.Engine().SybilProtection.Weights().Weight(neighbor.ID())
 		if neighborCMana > 0 {
 			consensusCount++
 			consensusSum += neighborCMana
