@@ -60,6 +60,7 @@ type Scheduler struct {
 	stopped        typeutils.AtomicBool
 	shutdownSignal chan struct{}
 	shutdownOnce   sync.Once
+	readyChan      chan *Block
 }
 
 // New returns a new Scheduler.
@@ -76,10 +77,11 @@ func New(evictionState *eviction.State, isBlockAccepted func(models.BlockID) boo
 		blocks:                             memstorage.NewEpochStorage[models.BlockID, *Block](),
 		optsMaxBufferSize:                  300,
 		optsAcceptedBlockScheduleThreshold: 5 * time.Minute,
-		optsRate:                           5 * time.Millisecond,
-		optsMaxDeficit:                     new(big.Rat).SetInt64(int64(models.MaxBlockSize)), // must be >= MaxBlockSize.
+		optsRate:                           5 * time.Millisecond,                              // measured in time per unit work
+		optsMaxDeficit:                     new(big.Rat).SetInt64(int64(models.MaxBlockSize)), // must be >= max block work.
 
 		shutdownSignal: make(chan struct{}),
+		readyChan:      make(chan *Block),
 	}, opts, func(s *Scheduler) {
 		s.ticker = time.NewTicker(s.optsRate)
 		s.buffer = NewBufferQueue(s.optsMaxBufferSize)
@@ -123,6 +125,20 @@ func (s *Scheduler) IssuerQueueSize(issuerID identity.ID) int {
 	return issuerQueue.Size()
 }
 
+// IssuerQueueSize returns the size of the IssuerIDs queue.
+func (s *Scheduler) IssuerQueueWork(issuerID identity.ID) int {
+	s.evictionMutex.RLock()
+	defer s.evictionMutex.RUnlock()
+	s.bufferMutex.RLock()
+	defer s.bufferMutex.RUnlock()
+
+	issuerQueue := s.buffer.IssuerQueue(issuerID)
+	if issuerQueue == nil {
+		return 0
+	}
+	return issuerQueue.Work()
+}
+
 // IssuerQueueSizes returns the size for each issuer queue.
 func (s *Scheduler) IssuerQueueSizes() map[identity.ID]int {
 	s.evictionMutex.RLock()
@@ -148,7 +164,7 @@ func (s *Scheduler) MaxBufferSize() int {
 	return s.buffer.MaxSize()
 }
 
-// BufferSize returns the size of the buffer.
+// BufferSize returns the number of blocks in the buffer.
 func (s *Scheduler) BufferSize() int {
 	s.evictionMutex.RLock()
 	defer s.evictionMutex.RUnlock()
@@ -385,7 +401,11 @@ func (s *Scheduler) unsubmit(block *Block) {
 }
 
 func (s *Scheduler) ready(block *Block) {
-	s.buffer.Ready(block)
+	if s.buffer.ReadyBlocksCount() == 0 {
+		if s.buffer.Ready(block) {
+			s.readyChan <- block
+		}
+	}
 }
 
 // block retrieves the Block with given id from the mem-storage.
@@ -411,13 +431,23 @@ loop:
 		select {
 		// every rate time units
 		case <-s.ticker.C:
-			// TODO: pause the ticker, if there are no ready blocks
 			if block := s.schedule(); block != nil {
+				s.ticker.Reset(s.optsRate * time.Duration(block.Work()))
 				if block.SetScheduled() {
 					s.Events.BlockScheduled.Trigger(block)
 				}
+			} else {
+				s.ticker.Stop() // pause the ticker until another block becomes ready
 			}
-
+		case readyBlk := <-s.readyChan:
+			if block := s.schedule(); block == readyBlk {
+				s.ticker.Reset(s.optsRate * time.Duration(block.Work()))
+				if block.SetScheduled() {
+					s.Events.BlockScheduled.Trigger(block)
+				}
+			} else {
+				panic("Should have scheduled the only ready block in the buffer")
+			}
 		// on close, exit the loop
 		case <-s.shutdownSignal:
 			break loop
@@ -467,12 +497,12 @@ func (s *Scheduler) schedule() *Block {
 	block := s.buffer.PopFront()
 	issuerID := identity.NewID(block.IssuerPublicKey())
 	deficit := s.Deficit(issuerID)
-	if deficit.Cmp(new(big.Rat).SetInt64(int64(block.Size()))) < 0 {
+	if deficit.Cmp(new(big.Rat).SetInt64(int64(block.Work()))) < 0 {
 		deficitFloat, _ := deficit.Float64()
-		errorString := fmt.Sprintf("scheduler: deficit is less than block size - Deficit is %d, block size is %d bytes, ", int(deficitFloat), block.Size())
+		errorString := fmt.Sprintf("scheduler: deficit is less than block work - Deficit is %d, block work is %d, ", int(deficitFloat), block.Work())
 		panic(errorString)
 	}
-	s.updateDeficit(issuerID, new(big.Rat).SetInt64(-int64(block.Size())))
+	s.updateDeficit(issuerID, new(big.Rat).SetInt64(-int64(block.Work())))
 
 	return block
 }
@@ -499,7 +529,7 @@ func (s *Scheduler) selectIssuer(start *IssuerQueue) (rounds *big.Rat, schedulin
 				continue
 			}
 			// compute how often the deficit needs to be incremented until the block can be scheduled
-			remainingDeficit := maxRat(new(big.Rat).Sub(big.NewRat(int64(block.Size()), 1), s.Deficit(q.IssuerID())), new(big.Rat))
+			remainingDeficit := maxRat(new(big.Rat).Sub(big.NewRat(int64(block.Work()), 1), s.Deficit(q.IssuerID())), new(big.Rat))
 			// calculate how many rounds we need to skip to accumulate enough deficit.
 			// Use for loop to account for float imprecision.
 			r := new(big.Rat).Mul(remainingDeficit, new(big.Rat).Inv(s.Quanta(q.IssuerID())))
@@ -528,7 +558,7 @@ func (s *Scheduler) updateActiveIssuersList(manaMap map[identity.ID]int64) {
 	currentIssuer := s.buffer.Current()
 	numIssuers := s.buffer.NumActiveIssuers()
 	for i := 0; i < numIssuers; i++ {
-		if issuerMana, exists := manaMap[currentIssuer.IssuerID()]; (!exists || issuerMana < MinMana) && currentIssuer.Size() == 0 {
+		if issuerMana, exists := manaMap[currentIssuer.IssuerID()]; (!exists || issuerMana < MinMana) && currentIssuer.Work() == 0 {
 			s.buffer.RemoveIssuer(currentIssuer.IssuerID())
 			s.deficits.Delete(currentIssuer.IssuerID())
 
@@ -578,7 +608,7 @@ func (s *Scheduler) GetExcessDeficit(issuerID identity.ID) float64 {
 	deficit, _ := s.deficits.Get(issuerID)
 	defer s.deficitsMutex.RUnlock()
 	deficitFloat, _ := deficit.Float64()
-	return deficitFloat - float64(s.buffer.IssuerQueue(issuerID).Size())
+	return deficitFloat - float64(s.buffer.IssuerQueue(issuerID).Work())
 }
 
 func (s *Scheduler) GetOrRegisterBlock(virtualVotingBlock *virtualvoting.Block) (block *Block, err error) {

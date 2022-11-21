@@ -51,7 +51,7 @@ func (q *IssuerQueue) Work() int {
 func (q *IssuerQueue) Enqueue(block *models.Block) bool {
 	heap.Push(&q.inbox, &generalheap.HeapElement[timed.HeapKey, *models.Block]{Value: block, Key: timed.HeapKey(block.IssuingTime())})
 	q.size.Inc()
-	q.work.Add(int64(block.Size()))
+	q.work.Add(int64(block.Work()))
 	return true
 }
 
@@ -75,7 +75,7 @@ func (q *IssuerQueue) Front() *models.Block {
 func (q *IssuerQueue) PopFront() *models.Block {
 	blk := heap.Pop(&q.inbox).(*generalheap.HeapElement[timed.HeapKey, *models.Block]).Value
 	q.size.Dec()
-	q.work.Sub(int64(blk.Size()))
+	q.work.Sub(int64(blk.Work()))
 	return blk
 }
 
