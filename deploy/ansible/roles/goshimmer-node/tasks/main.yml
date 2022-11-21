@@ -1,9 +1,7 @@
 - name: Pull docker image async
-  community.docker.docker_image:
-    name: "{{ goshimmerDockerImage }}:{{ goshimmerDockerTag }}"
-    source: pull
-    async: 300
-    poll: 5
+  shell: docker pull "{{ goshimmerDockerImage }}:{{ goshimmerDockerTag }}"
+  async: 300
+  poll: 5
 
 - name: Create node directory
   file:
