@@ -111,18 +111,17 @@ func TestRateSetter_SchedulerEstimate(t *testing.T) {
 	}
 	fmt.Println(tf.RateSetter.Size())
 	fmt.Println(tf.RateSetter.Estimate())
-	time.Sleep(tf.RateSetter.Estimate())
-
-	lastBlock := tf.CreateBlock()
 	t0 := time.Now()
+	estimate := tf.RateSetter.Estimate()
+	lastBlock := tf.CreateBlock()
 	assert.NoError(tf.test, tf.RateSetter.SubmitBlock(lastBlock))
 
 	assert.Eventually(t, func() bool {
 		select {
 		case blk := <-blockIssued:
 			if blk.ID() == lastBlock.ID() {
-				timeElapsed := time.Now().Sub(t0)
-				fmt.Println(timeElapsed)
+				timeElapsed := time.Now().Sub(t0).Abs()
+				assert.Less(t, timeElapsed, 2*estimate)
 				return true
 			}
 		default:
