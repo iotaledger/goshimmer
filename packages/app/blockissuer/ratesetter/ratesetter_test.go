@@ -2,10 +2,11 @@ package ratesetter
 
 import (
 	"fmt"
-	"github.com/iotaledger/goshimmer/packages/app/blockissuer/ratesetter/utils"
-	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"testing"
 	"time"
+
+	"github.com/iotaledger/goshimmer/packages/app/blockissuer/ratesetter/utils"
+	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 
@@ -53,7 +54,7 @@ func TestRateSetter_NoSchedulerCongestion(t *testing.T) {
 			tf.RateSetter.Events().BlockIssued.Attach(event.NewClosure(func(block *models.Block) { blockIssued <- block }))
 			tf.SubmitBlocks(numBlocks)
 			for range blockIssued {
-				assert.Less(t, tf.Protocol.CongestionControl.Scheduler().BufferSize(), 20)
+				assert.Less(t, tf.Protocol.CongestionControl.Scheduler().TotalBlocksCount(), 20)
 				//fmt.Printf("Block issued with size %d. %d blocks in the Issuer queue. %d blocks in the Scheduler queue.\n", blk.Size(), tf.RateSetter.Size(), tf.Scheduler.BufferSize())
 				if tf.RateSetter.Size() == 0 {
 					break
