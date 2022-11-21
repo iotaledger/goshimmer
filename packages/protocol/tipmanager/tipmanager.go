@@ -334,19 +334,23 @@ func (t *TipManager) checkPair(pair markerPreviousBlockPair, blockWalker *walker
 
 	// If there is an accepted marker before the oldest unaccepted marker, and it's older than minSupportedTimestamp, need to walk block past cone of firstUnacceptedMarker.
 	if sequence.LowestIndex() < firstUnacceptedMarker.Index() {
-		acceptedMarker, blockOfMarker := t.previousMarkerWithBlock(sequence, firstUnacceptedMarker.Index())
+		acceptedMarker := t.previousMarker(sequence, firstUnacceptedMarker.Index())
 
 		if t.isMarkerOldAndAccepted(acceptedMarker, minSupportedTimestamp) {
-			blockWalker.Push(blockOfMarker)
+			firstUnacceptedMarkerBlock, blockExists := t.engine.Tangle.Booker.BlockFromMarker(firstUnacceptedMarker)
+			if !blockExists {
+				return false
+			}
+			blockWalker.Push(firstUnacceptedMarkerBlock)
 		}
 	}
 
 	// process markers from different sequences that are referenced by current marker's sequence, i.e., walk the sequence DAG
 	sequence.ReferencedMarkers(pair.Marker.Index()).ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
-		// Ignore Marker(0, 0) as it sometimes occurs in the past marker cone. Marker mysteries.
+		// Ignore Marker(_, 0) as it sometimes occurs in the past marker cone. Marker mysteries.
 		// This should not be necessary anymore?
 		if index == 0 {
-			fmt.Println("ignore Marker(0, 0) during tip fishing")
+			fmt.Println("ignore Marker(_, 0) during tip fishing")
 			return true
 		}
 
@@ -372,6 +376,11 @@ func (t *TipManager) checkPair(pair markerPreviousBlockPair, blockWalker *walker
 
 // isMarkerOldAndAccepted check whether previousMarker is accepted and older than minSupportedTimestamp. It is used to check whether to walk blocks in the past cone of the current marker.
 func (t *TipManager) isMarkerOldAndAccepted(previousMarker markers.Marker, minSupportedTimestamp time.Time) bool {
+	// check if previous marker belongs to a root block,
+	if previousMarker.Index() == 0 {
+		return true
+	}
+
 	block, exists := t.engine.Tangle.Booker.BlockFromMarker(previousMarker)
 	if !exists {
 		return false
@@ -444,14 +453,19 @@ func (t *TipManager) firstUnacceptedMarker(pastMarker markers.Marker) (firstUnac
 	return firstUnacceptedMarker
 }
 
-func (t *TipManager) previousMarkerWithBlock(sequence *markers.Sequence, markerIndex markers.Index) (previousMarker markers.Marker, block *booker.Block) {
+func (t *TipManager) previousMarker(sequence *markers.Sequence, markerIndex markers.Index) (previousMarker markers.Marker) {
 	// skip any gaps in marker indices and start from marker below current one.
 	for markerIndex--; sequence.LowestIndex() <= markerIndex; markerIndex-- {
 		previousMarker = markers.NewMarker(sequence.ID(), markerIndex)
 
+		// if index=0 then it's a root block, and we don't need to check if a block exists.
+		if markerIndex == 0 {
+			return previousMarker
+		}
+
 		// Skip if there is no marker at the given index, i.e., the sequence has a gap.
-		if block, exists := t.engine.Tangle.BlockFromMarker(previousMarker); exists {
-			return previousMarker, block
+		if _, exists := t.engine.Tangle.BlockFromMarker(previousMarker); exists {
+			return previousMarker
 		}
 	}
 

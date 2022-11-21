@@ -142,11 +142,7 @@ func (b *Booker) BlockFromMarker(marker markers.Marker) (block *Block, exists bo
 	b.evictionMutex.RLock()
 	defer b.evictionMutex.RUnlock()
 	if marker.Index() == 0 {
-		// TODO: should issuing time be set to last evicted epoch? root blocks can be older than that
-		rootBlock := NewRootBlock(models.EmptyBlockID, models.WithIssuingTime(b.EvictionState.LastEvictedEpoch().EndTime()))
-		rootBlock.StructureDetails().SetPastMarkers(markers.NewMarkers(marker))
-
-		return rootBlock, true
+		panic(fmt.Sprintf("cannot retrieve block for Marker with Index(0) - %s", marker))
 	}
 
 	return b.markerManager.BlockFromMarker(marker)
