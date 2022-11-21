@@ -36,7 +36,7 @@ func NewWeights(store kvstore.KVStore, settings *permanent.Settings) (newConsens
 
 func (w *Weights) SetWeight(id identity.ID, weight *Weight) (updated bool, previousWeight *Weight) {
 	if updated, previousWeight = w.setWeight(id, weight); updated {
-		w.Events.WeightUpdated.Trigger(&WeightUpdatedEvent{
+		w.Events.WeightsUpdated.Trigger(&WeightUpdatedEvent{
 			ID:        id,
 			OldWeight: previousWeight,
 			NewWeight: weight,
@@ -53,12 +53,8 @@ func (w *Weights) Weight(id identity.ID) (weight *Weight, exists bool) {
 	return w.weights.Get(id)
 }
 
-func (w *Weights) Apply(updates WeightUpdates) {
+func (w *Weights) Apply(updates *WeightUpdates) {
 	updates.ForEach(func(id identity.ID, diff int64) {
-		if diff == 0 {
-			return
-		}
-
 		oldWeight, exists := w.Weight(id)
 		if !exists {
 			oldWeight = NewWeight(0, -1)
@@ -66,6 +62,7 @@ func (w *Weights) Apply(updates WeightUpdates) {
 			return
 		}
 
+		// We will subtract if the "direction" returned by the Compare is negative, effectively rolling back.
 		if newWeight := oldWeight.Value + diff*int64(lo.Compare(updates.TargetEpoch(), oldWeight.UpdateTime)); newWeight != 0 {
 			w.weights.Set(id, NewWeight(newWeight, updates.TargetEpoch()))
 		} else {
@@ -73,7 +70,9 @@ func (w *Weights) Apply(updates WeightUpdates) {
 		}
 	})
 
-	return
+	w.totalWeight += updates.TotalDiff()
+
+	w.Events.WeightsUpdated.Trigger(updates)
 }
 
 func (w *Weights) NewWeightedSet(members ...identity.ID) *WeightedSet {
@@ -92,7 +91,7 @@ func (w *Weights) Stream(callback func(id identity.ID, weight int64, lastUpdated
 			return false
 		}
 
-		var timedBalance = new(Weight)
+		timedBalance := new(Weight)
 		if _, err = timedBalance.FromBytes(timedBalanceBytes); err != nil {
 			return false
 		}

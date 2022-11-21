@@ -26,6 +26,6 @@ func (m *BufferedStateTransition) ProcessCreatedOutput(createdOutput *models.Out
 
 func (m *BufferedStateTransition) ProcessSpentOutput(spentOutput *models.OutputWithMetadata) {
 	if iotaBalance, exists := spentOutput.IOTABalance(); exists {
-		m.weightUpdates.ApplyDiff(spentOutput.ConsensusManaPledgeID(), int64(iotaBalance))
+		m.weightUpdates.ApplyDiff(spentOutput.ConsensusManaPledgeID(), -int64(iotaBalance))
 	}
 }

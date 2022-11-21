@@ -1,7 +1,7 @@
 package sybilprotection
 
 type SybilProtection interface {
+	Weights() (weights *Weights)
 	Validators() (validators *WeightedSet)
-	Weights() (weightedActors *Weights)
 	InitModule()
 }
