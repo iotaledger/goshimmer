@@ -1,6 +1,10 @@
 package deficit
 
 import (
+	"math"
+	"sync"
+	"time"
+
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer/ratesetter/utils"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
@@ -10,9 +14,6 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
 	"go.uber.org/atomic"
-	"math"
-	"sync"
-	"time"
 )
 
 // region RateSetter ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -51,6 +52,8 @@ func New(protocol *protocol.Protocol, selfIdentity identity.ID, opts ...options.
 		ownRate:               atomic.NewFloat64(0),
 		shutdownSignal:        make(chan struct{}),
 	}, opts, func(r *RateSetter) {
+		r.maxRate = float64(time.Second / r.optsSchedulerRate)
+	}, func(r *RateSetter) {
 		go r.issuerLoop()
 	}, (*RateSetter).setupEvents)
 
@@ -134,7 +137,7 @@ loop:
 			// update the deficit growth rate estimate
 			currentTime := float64(time.Now().Nanosecond())
 			if excessDeficit > lastDeficit {
-				r.ownRate.Store((excessDeficit - lastDeficit) / (currentTime - lastUpdateTime) * float64(time.Second.Nanoseconds()))
+				r.ownRate.Store(((excessDeficit - lastDeficit) / (currentTime - lastUpdateTime)) * float64(time.Second.Nanoseconds()))
 			}
 			lastDeficit = excessDeficit
 			lastUpdateTime = currentTime
