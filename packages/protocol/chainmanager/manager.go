@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/walker"
+	"github.com/iotaledger/hive.go/core/syncutils"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/eventticker"
@@ -17,18 +18,20 @@ type Manager struct {
 	SnapshotCommitment  *Commitment
 	CommitmentRequester *eventticker.EventTicker[commitment.ID]
 
-	commitmentsByID map[commitment.ID]*Commitment
+	commitmentsByID      map[commitment.ID]*Commitment
+	commitmentsByIDMutex sync.Mutex
 
 	optsCommitmentRequester []options.Option[eventticker.EventTicker[commitment.ID]]
 
-	sync.Mutex
+	commitmentEntityMutex *syncutils.DAGMutex[commitment.ID]
 }
 
 func NewManager(snapshot *commitment.Commitment) (manager *Manager) {
 	manager = &Manager{
 		Events: NewEvents(),
 
-		commitmentsByID: make(map[commitment.ID]*Commitment),
+		commitmentsByID:       make(map[commitment.ID]*Commitment),
+		commitmentEntityMutex: syncutils.NewDAGMutex[commitment.ID](),
 	}
 
 	manager.SnapshotCommitment, _ = manager.Commitment(snapshot.ID(), true)
@@ -74,10 +77,10 @@ func (c *Manager) ProcessCommitment(commitment *commitment.Commitment) (isSolid 
 }
 
 func (c *Manager) registerCommitment(commitment *commitment.Commitment) (isSolid bool, chain *Chain, wasForked bool, chainCommitment *Commitment, commitmentPublished bool) {
-	chainCommitment, created := c.Commitment(commitment.ID(), true)
+	c.commitmentEntityMutex.Lock(commitment.ID())
+	defer c.commitmentEntityMutex.Unlock(commitment.ID())
 
-	chainCommitment.lockEntity()
-	defer chainCommitment.unlockEntity()
+	chainCommitment, created := c.Commitment(commitment.ID(), true)
 
 	if !chainCommitment.PublishCommitment(commitment) {
 		return chainCommitment.IsSolid(), chainCommitment.Chain(), false, chainCommitment, false
@@ -105,8 +108,8 @@ func (c *Manager) Chain(ec commitment.ID) (chain *Chain) {
 }
 
 func (c *Manager) Commitment(id commitment.ID, createIfAbsent ...bool) (commitment *Commitment, created bool) {
-	c.Lock()
-	defer c.Unlock()
+	c.commitmentsByIDMutex.Lock()
+	defer c.commitmentsByIDMutex.Unlock()
 
 	commitment, exists := c.commitmentsByID[id]
 	if created = !exists && len(createIfAbsent) >= 1 && createIfAbsent[0]; created {
@@ -118,8 +121,8 @@ func (c *Manager) Commitment(id commitment.ID, createIfAbsent ...bool) (commitme
 }
 
 func (c *Manager) Commitments(id commitment.ID, amount int) (commitments []*Commitment, err error) {
-	c.Lock()
-	defer c.Unlock()
+	c.commitmentsByIDMutex.Lock()
+	defer c.commitmentsByIDMutex.Unlock()
 
 	commitments = make([]*Commitment, amount)
 
@@ -148,8 +151,8 @@ func (c *Manager) registerChild(parent *Commitment, child *Commitment) (isSolid 
 }
 
 func (c *Manager) propagateChainToFirstChild(child *Commitment, chain *Chain) (childrenToUpdate []*Commitment) {
-	child.lockEntity()
-	defer child.unlockEntity()
+	c.commitmentEntityMutex.Lock(child.ID())
+	defer c.commitmentEntityMutex.Unlock(child.ID())
 
 	if !child.publishChain(chain) {
 		return
@@ -166,8 +169,8 @@ func (c *Manager) propagateChainToFirstChild(child *Commitment, chain *Chain) (c
 }
 
 func (c *Manager) propagateSolidity(child *Commitment) (childrenToUpdate []*Commitment) {
-	child.lockEntity()
-	defer child.unlockEntity()
+	c.commitmentEntityMutex.Lock(child.ID())
+	defer c.commitmentEntityMutex.Unlock(child.ID())
 
 	if child.SetSolid(true) {
 		child.Chain().SetLastSolidIndex(child.Commitment().Index())
