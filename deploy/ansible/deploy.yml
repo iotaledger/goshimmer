@@ -5,13 +5,6 @@
   roles:
     - exporter
 
-- hosts: metrics
-  gather_facts: no
-  vars:
-    removeData: no
-  roles:
-    - metrics
-
 - hosts: supports
   gather_facts: no
   roles:
@@ -38,3 +31,10 @@
   gather_facts: no
   roles:
     - snapshotter
+
+- hosts: metrics
+  gather_facts: no
+  vars:
+    removeData: no
+  roles:
+    - metrics
