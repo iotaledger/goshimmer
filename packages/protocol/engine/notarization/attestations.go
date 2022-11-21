@@ -69,7 +69,7 @@ func (a *Attestations) Weight() (weight int64) {
 		return 0
 	}
 
-	return a.weightedSet.Weight()
+	return a.weightedSet.TotalWeight()
 }
 
 func (a *Attestations) Detach() {

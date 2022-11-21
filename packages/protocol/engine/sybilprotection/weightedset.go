@@ -10,7 +10,7 @@ import (
 
 type WeightedSet struct {
 	Weights              *Weights
-	weightUpdatesClosure *event.Closure[*WeightUpdatedEvent]
+	weightUpdatesClosure *event.Closure[*WeightUpdates]
 	members              *set.AdvancedSet[identity.ID]
 	membersMutex         sync.RWMutex
 	totalWeight          int64
@@ -33,8 +33,8 @@ func NewWeightedSet(weights *Weights, optMembers ...identity.ID) (newWeightedSet
 }
 
 func (w *WeightedSet) Add(id identity.ID) (added bool) {
-	w.Weights.mutex.RLock(id)
-	defer w.Weights.mutex.RUnlock(id)
+	w.Weights.mutex.RLock()
+	defer w.Weights.mutex.RUnlock()
 
 	w.membersMutex.Lock()
 	defer w.membersMutex.Unlock()
@@ -49,8 +49,8 @@ func (w *WeightedSet) Add(id identity.ID) (added bool) {
 }
 
 func (w *WeightedSet) Delete(id identity.ID) (removed bool) {
-	w.Weights.mutex.RLock(id)
-	defer w.Weights.mutex.RUnlock(id)
+	w.Weights.mutex.RLock()
+	defer w.Weights.mutex.RUnlock()
 
 	w.membersMutex.Lock()
 	defer w.membersMutex.Unlock()
@@ -81,7 +81,7 @@ func (w *WeightedSet) ForEach(callback func(id identity.ID) error) (err error) {
 	return
 }
 
-func (w *WeightedSet) Weight() (totalWeight int64) {
+func (w *WeightedSet) TotalWeight() (totalWeight int64) {
 	w.totalWeightMutex.RLock()
 	defer w.totalWeightMutex.RUnlock()
 
@@ -99,15 +99,15 @@ func (w *WeightedSet) Detach() {
 	w.Weights.Events.WeightsUpdated.Detach(w.weightUpdatesClosure)
 }
 
-func (w *WeightedSet) onWeightUpdated(event *WeightUpdatedEvent) {
-	if !w.members.Has(event.ID) {
+func (w *WeightedSet) onWeightUpdated(updates *WeightUpdates) {
+	if !w.members.Has(updates.ID) {
 		return
 	}
 
-	if event.OldWeight == nil {
-		w.updateTotalWeight(event.NewWeight.Value)
+	if updates.OldWeight == nil {
+		w.updateTotalWeight(updates.NewWeight.Value)
 	} else {
-		w.updateTotalWeight(event.NewWeight.Value - event.OldWeight.Value)
+		w.updateTotalWeight(updates.NewWeight.Value - updates.OldWeight.Value)
 	}
 }
 

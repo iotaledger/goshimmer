@@ -13,6 +13,7 @@ const (
 	nonEmptyLeaf         = 1
 	keyStorePrefix uint8 = iota
 	valueStorePrefix
+	rawKeyStorePrefix
 )
 
 type Set[K constraints.Serializable] struct {

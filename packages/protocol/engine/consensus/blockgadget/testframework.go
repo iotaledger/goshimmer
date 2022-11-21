@@ -51,7 +51,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 	return options.Apply(&TestFramework{
 		test: test,
 		optsTotalWeightCallback: func() int64 {
-			return t.TangleTestFramework.ActiveNodes.Weight()
+			return t.TangleTestFramework.ActiveNodes.TotalWeight()
 		},
 	}, opts, func(t *TestFramework) {
 		if t.Gadget == nil {

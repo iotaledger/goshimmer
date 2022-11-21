@@ -54,7 +54,7 @@ func getWeightsHandler(c echo.Context) (err error) {
 
 	resp := Weights{
 		Weights:     weightsString,
-		TotalWeight: deps.Protocol.Engine().Tangle.ActiveNodes.Weight(),
+		TotalWeight: deps.Protocol.Engine().Tangle.ActiveNodes.TotalWeight(),
 	}
 
 	return c.JSON(http.StatusOK, resp)

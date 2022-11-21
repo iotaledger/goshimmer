@@ -19,7 +19,6 @@ const (
 )
 
 type Permanent struct {
-	Events           *Events
 	Settings         *Settings
 	Commitments      *Commitments
 	UnspentOutputs   *UnspentOutputs
@@ -29,7 +28,6 @@ type Permanent struct {
 
 func New(disk *diskutil.DiskUtil, database *database.Manager) (p *Permanent) {
 	return &Permanent{
-		Events:           NewEvents(),
 		Settings:         NewSettings(disk.Path("settings.bin")),
 		Commitments:      NewCommitments(disk.Path("commitments.bin")),
 		UnspentOutputs:   NewUnspentOutputs(lo.PanicOnErr(database.PermanentStorage().WithRealm([]byte{unspentOutputsPrefix}))),

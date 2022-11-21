@@ -145,7 +145,7 @@ func AveragePledgeAccess() manamodels.IssuerMap {
 
 func measureMana() {
 	tmpAccessMap := deps.Protocol.Engine().ManaTracker.ManaByIDs()
-	tmpConsensusMap := deps.Protocol.Engine().SybilProtection.Weights().AsMap()
+	tmpConsensusMap := deps.Protocol.Engine().SybilProtection.Weights().Map()
 
 	accessLock.Lock()
 	defer accessLock.Unlock()

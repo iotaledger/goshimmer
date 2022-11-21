@@ -107,7 +107,7 @@ func sendManaMapOverall() {
 		Type: MsgTypeManaMapOverall,
 		Data: accessPayload,
 	})
-	consensusManaList, _, err := manamodels.GetHighestManaIssuers(0, deps.Protocol.Engine().SybilProtection.Weights().AsMap())
+	consensusManaList, _, err := manamodels.GetHighestManaIssuers(0, deps.Protocol.Engine().SybilProtection.Weights().Map())
 	if err != nil && !errors.Is(err, manamodels.ErrQueryNotAllowed) {
 		log.Errorf("failed to get list of n highest consensus mana issuers: %s ", err.Error())
 	}
@@ -169,7 +169,7 @@ func sendManaMapOnline() {
 		return consensusPayload.Issuers[i].Mana > consensusPayload.Issuers[j].Mana
 	})
 
-	consensusPayload.TotalMana = activeNodes.Weight()
+	consensusPayload.TotalMana = activeNodes.TotalWeight()
 	broadcastWsBlock(&wsblk{
 		Type: MsgTypeManaMapOnline,
 		Data: consensusPayload,

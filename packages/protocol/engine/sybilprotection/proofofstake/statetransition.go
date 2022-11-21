@@ -3,17 +3,20 @@ package proofofstake
 import (
 	"context"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/state"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/storage/models"
 )
 
 type BufferedStateTransition struct {
 	weights       *sybilprotection.Weights
-	weightUpdates sybilprotection.WeightUpdates
+	weightUpdates *sybilprotection.WeightUpdates
 }
 
+var _ state.BatchedTransition = &BufferedStateTransition{}
+
 func (m *BufferedStateTransition) Apply() (ctx context.Context) {
-	m.weights.Apply(m.weightUpdates)
+	m.weights.ApplyUpdates(m.weightUpdates)
 
 	return nil
 }
