@@ -1,6 +1,6 @@
 - name: Pull docker image async
   community.docker.docker_image:
-    name: {{ goshimmerDockerImage }}:{{ goshimmerDockerTag }}
+    name: "{{ goshimmerDockerImage }}:{{ goshimmerDockerTag }}"
     source: pull
     async: 300
     poll: 5

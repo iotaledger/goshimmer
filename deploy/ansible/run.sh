@@ -4,7 +4,7 @@ export ANSIBLE_STRATEGY=free
 export ANSIBLE_PIPELINING=true
 
 ARGS=("$@")
-ansible-playbook -u root -i deploy/ansible/hosts/"${1}" \ 
+ansible-playbook -u root -i deploy/ansible/hosts/"${1}" \
   --forks 20 --ssh-common-args "-o ControlMaster=auto -o ControlPath=/tmp/masterinstance -o ControlPersist=5m" \
   --extra-vars \
   "ANALYSISSENTRY_01_ENTRYNODE_SEED=$ANALYSISSENTRY_01_ENTRYNODE_SEED
