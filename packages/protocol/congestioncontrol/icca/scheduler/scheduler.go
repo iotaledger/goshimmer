@@ -158,7 +158,7 @@ func (s *Scheduler) BufferSize() int {
 	return s.buffer.Size()
 }
 
-// ReadyBlocksCount returns the size buffer.
+// ReadyBlocksCount returns the number of blocks that are ready to be scheduled.
 func (s *Scheduler) ReadyBlocksCount() int {
 	s.evictionMutex.RLock()
 	defer s.evictionMutex.RUnlock()
@@ -168,7 +168,7 @@ func (s *Scheduler) ReadyBlocksCount() int {
 	return s.buffer.ReadyBlocksCount()
 }
 
-// TotalBlocksCount returns the size buffer.
+// TotalBlocksCount returns the size of the buffer in number of blocks.
 func (s *Scheduler) TotalBlocksCount() int {
 	s.evictionMutex.RLock()
 	defer s.evictionMutex.RUnlock()

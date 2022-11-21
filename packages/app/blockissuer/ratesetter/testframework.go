@@ -77,9 +77,13 @@ func (tf *TestFramework) CreateBlock() *models.Block {
 }
 
 func (tf *TestFramework) SubmitBlocks(count int) {
+	blocksToIssue := make([]*models.Block, count)
 	for i := 1; i <= count; i++ {
 		blk := tf.CreateBlock()
-		assert.NoError(tf.test, tf.RateSetter.SubmitBlock(blk))
+		blocksToIssue[i-1] = blk
+	}
+	for _, block := range blocksToIssue {
+		assert.NoError(tf.test, tf.RateSetter.SubmitBlock(block))
 	}
 }
 
@@ -91,7 +95,7 @@ type SchedulerTestFramework = scheduler.TestFramework
 
 func WithRateSetterOptions(opts ...options.Option[Options]) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
-		tf.optsRateSetter = opts
+		tf.optsRateSetter = append(tf.optsRateSetter, opts...)
 	}
 }
 

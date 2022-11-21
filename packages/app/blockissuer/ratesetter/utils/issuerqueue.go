@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	// MaxLocalQueueSize is the maximum local (containing the block to be issued) queue size in bytes.
+	// MaxLocalQueueSize is the maximum local (containing the block to be issued) queue size in number of blocks.
 	MaxLocalQueueSize = 20
 )
 
