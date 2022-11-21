@@ -53,37 +53,13 @@ func TestRateSetter_NoSchedulerCongestion(t *testing.T) {
 			tf.RateSetter.Events().BlockIssued.Attach(event.NewClosure(func(block *models.Block) { blockIssued <- block }))
 			tf.SubmitBlocks(numBlocks)
 			for range blockIssued {
-				assert.Less(t, tf.Scheduler.BufferSize(), 5)
+				assert.Less(t, tf.Protocol.CongestionControl.Scheduler().BufferSize(), 20)
 				//fmt.Printf("Block issued with size %d. %d blocks in the Issuer queue. %d blocks in the Scheduler queue.\n", blk.Size(), tf.RateSetter.Size(), tf.Scheduler.BufferSize())
 				if tf.RateSetter.Size() == 0 {
 					break
 				}
 			}
 		}()
-	}
-}
-
-func TestRateSetter_Rate(t *testing.T) {
-	rate := 50 * time.Millisecond // 20 tx/s -> 1s total processing time for the full queue
-	numBlocks := 2 * utils.MaxLocalQueueSize
-	tf := NewTestFramework(t, WithRateSetterOptions(WithMode(DeficitMode), WithSchedulerRate(rate)), WithSchedulerOptions(scheduler.WithRate(rate), scheduler.WithMaxDeficit(300)))
-	defer tf.RateSetter.Shutdown()
-
-	blockIssued := make(chan *models.Block, numBlocks)
-	tf.RateSetter.Events().BlockIssued.Attach(event.NewClosure(func(block *models.Block) { blockIssued <- block }))
-	tf.SubmitBlocks(numBlocks)
-	startTime := time.Now()
-	assert.LessOrEqualf(t, tf.RateSetter.Size(), utils.MaxLocalQueueSize, "RateSetter queue size is greated than maximum allowed %d", tf.RateSetter.Size())
-
-	totalIssued := 0
-	for range blockIssued {
-		totalIssued++
-		if tf.RateSetter.Size() == 0 {
-			totalTime := time.Since(startTime)
-			avgRate := float64(totalIssued) / totalTime.Seconds()
-			assert.InEpsilon(t, 20, avgRate, .2)
-			break
-		}
 	}
 }
 

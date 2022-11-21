@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
 	"os"
 	"testing"
 
@@ -21,10 +22,12 @@ import (
 type TestFramework struct {
 	Network  *network.MockedNetwork
 	Protocol *Protocol
+	Local    *identity.Identity
 
 	test *testing.T
 
-	optsProtocolOptions []options.Option[Protocol]
+	optsProtocolOptions          []options.Option[Protocol]
+	optsCongestionControlOptions []options.Option[congestioncontrol.CongestionControl]
 }
 
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (newTestFramework *TestFramework) {
@@ -47,9 +50,27 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 		creator.CreateSnapshot(storageInstance, diskUtil.Path("snapshot.bin"), 100, make([]byte, 32, 32), map[identity.ID]uint64{
 			identity.GenerateIdentity().ID(): 100,
 		})
-
-		t.Protocol = New(t.Network.Join(identity.GenerateIdentity().ID()), append(t.optsProtocolOptions, WithSnapshotPath(diskUtil.Path("snapshot.bin")), WithBaseDirectory(diskUtil.Path()))...)
+		t.Local = identity.GenerateIdentity()
+		t.Protocol = New(
+			t.Network.Join(t.Local.ID()),
+			append(
+				t.optsProtocolOptions,
+				WithSnapshotPath(diskUtil.Path("snapshot.bin")),
+				WithBaseDirectory(diskUtil.Path()),
+				WithCongestionControlOptions(t.optsCongestionControlOptions...),
+			)...,
+		)
 	})
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func WithProtocolOptions(opts ...options.Option[Protocol]) options.Option[TestFramework] {
+	return func(t *TestFramework) {
+		t.optsProtocolOptions = opts
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
