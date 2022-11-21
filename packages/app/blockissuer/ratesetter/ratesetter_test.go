@@ -1,6 +1,7 @@
 package ratesetter
 
 import (
+	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"testing"
 	"time"
 
@@ -11,10 +12,10 @@ import (
 )
 
 func TestRateSetter_SubmitBlock(t *testing.T) {
-	allModes := []RateSetterModeType{AIMDMode, DeficitMode, DisabledMode}
+	allModes := []ModeType{AIMDMode, DeficitMode, DisabledMode}
 
 	for _, mode := range allModes {
-		tf := NewTestFramework(t, WithRateSetterMode(mode))
+		tf := NewTestFramework(t, WithRateSetterOptions(WithMode(mode)))
 
 		defer tf.RateSetter.Shutdown()
 
@@ -35,11 +36,12 @@ func TestRateSetter_SubmitBlock(t *testing.T) {
 }
 
 func TestRateSetter_NoSchedulerCongestion(t *testing.T) {
-	enabledModes := []RateSetterModeType{AIMDMode, DeficitMode}
+	enabledModes := []ModeType{DeficitMode}
 	numBlocks := 100
 
 	for _, mode := range enabledModes {
-		tf := NewTestFramework(t, WithRateSetterMode(mode), WithSchedulerRate(10*time.Millisecond), WithMaxDeficit(300))
+		rate := 10 * time.Millisecond
+		tf := NewTestFramework(t, WithRateSetterOptions(WithMode(mode), WithSchedulerRate(rate)), WithSchedulerOptions(scheduler.WithRate(rate), scheduler.WithMaxDeficit(300)))
 		defer tf.RateSetter.Shutdown()
 
 		blockIssued := make(chan *models.Block, numBlocks)
@@ -55,11 +57,18 @@ func TestRateSetter_NoSchedulerCongestion(t *testing.T) {
 	}
 }
 
+func TestRateSetter_SchedulerEstimate(t *testing.T) {
+	rate := 10 * time.Millisecond
+	tf := NewTestFramework(t, WithRateSetterOptions(WithMode(DeficitMode), WithSchedulerRate(rate)), WithSchedulerOptions(scheduler.WithRate(rate), scheduler.WithMaxDeficit(300)))
+	defer tf.RateSetter.Shutdown()
+
+}
+
 func TestRateSetter_WebAPI(t *testing.T) {
-	allModes := []RateSetterModeType{AIMDMode, DeficitMode, DisabledMode}
+	allModes := []ModeType{AIMDMode, DeficitMode, DisabledMode}
 
 	for _, mode := range allModes {
-		tf := NewTestFramework(t, WithRateSetterMode(mode))
+		tf := NewTestFramework(t, WithRateSetterOptions(WithMode(mode)))
 		tf.RateSetter.Rate()
 		tf.RateSetter.Estimate()
 		tf.RateSetter.Size()

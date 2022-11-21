@@ -1,4 +1,4 @@
-package ratesetter
+package utils
 
 import (
 	"container/heap"
@@ -8,6 +8,11 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+)
+
+const (
+	// MaxLocalQueueSize is the maximum local (containing the block to be issued) queue size in bytes.
+	MaxLocalQueueSize = 20
 )
 
 // region IssuerQueue /////////////////////////////////////////////////////////////////////////////////////////////

@@ -1,4 +1,4 @@
-package ratesetter
+package utils
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -12,7 +12,7 @@ type Events struct {
 	Error          *event.Event[error]
 }
 
-func newEvents() (new *Events) {
+func NewEvents() (new *Events) {
 	return &Events{
 		BlockDiscarded: event.New[*models.Block](),
 		BlockIssued:    event.New[*models.Block](),

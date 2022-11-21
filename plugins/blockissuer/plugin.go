@@ -47,22 +47,12 @@ func configure(_ *node.Plugin) {
 func createBlockIssuer(local *peer.Local, protocol *protocol.Protocol) *blockissuer.BlockIssuer {
 
 	rateSetterMode := ratesetter.ParseRateSetterMode(Parameters.RateSetter.Mode)
-	var rateSetter ratesetter.RateSetter
-
-	switch rateSetterMode {
-	case ratesetter.AIMDMode:
-		rateSetter = ratesetter.NewAIMD(protocol, local.LocalIdentity().ID(),
-			ratesetter.WithPause(Parameters.RateSetter.Pause),
-			ratesetter.WithInitialRate(Parameters.RateSetter.Initial),
-			ratesetter.WithSchedulerRateAIMD(protocolParams.SchedulerParameters.Rate),
-		)
-	case ratesetter.DeficitMode:
-		rateSetter = ratesetter.NewDeficit(protocol, local.LocalIdentity().ID(),
-			ratesetter.WithSchedulerRateDeficit(protocolParams.SchedulerParameters.Rate),
-		)
-	default:
-		rateSetter = ratesetter.NewDisabled()
-	}
+	rateSetter := ratesetter.New(local.ID(), protocol,
+		ratesetter.WithMode(rateSetterMode),
+		ratesetter.WithInitialRate(Parameters.RateSetter.Initial),
+		ratesetter.WithPause(Parameters.RateSetter.Pause),
+		ratesetter.WithSchedulerRate(protocolParams.SchedulerParameters.Rate),
+	)
 
 	return blockissuer.New(protocol, local.LocalIdentity(),
 		blockissuer.WithBlockFactoryOptions(

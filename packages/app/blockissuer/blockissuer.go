@@ -32,7 +32,7 @@ type BlockIssuer struct {
 	identity          *identity.LocalIdentity
 	referenceProvider *blockfactory.ReferenceProvider
 
-	optsRateSetterMode         ratesetter.RateSetterModeType
+	optsRateSetterMode         ratesetter.ModeType
 	optsBlockFactoryOptions    []options.Option[blockfactory.Factory]
 	optsIgnoreBootstrappedFlag bool
 }
@@ -190,7 +190,7 @@ func WithBlockFactoryOptions(blockFactoryOptions ...options.Option[blockfactory.
 		issuer.optsBlockFactoryOptions = blockFactoryOptions
 	}
 }
-func WithRateSetterMode(rateSetterMode ratesetter.RateSetterModeType) options.Option[BlockIssuer] {
+func WithRateSetterMode(rateSetterMode ratesetter.ModeType) options.Option[BlockIssuer] {
 	return func(issuer *BlockIssuer) {
 		issuer.optsRateSetterMode = rateSetterMode
 	}

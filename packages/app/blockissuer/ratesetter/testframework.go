@@ -31,19 +31,18 @@ type TestFramework struct {
 	test          *testing.T
 	localIdentity *identity.Identity
 
-	optsRateSetterMode RateSetterModeType
-	optsSchedulerRate  time.Duration
-	optsMaxDeficit     int
+	optsRateSetter []options.Option[Options]
+	optsScheduler  []options.Option[scheduler.Scheduler]
 }
 
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (newTestFramework *TestFramework) {
 	_ = logger.InitGlobalLogger(configuration.New())
+	rateSetterOpts := []options.Option[Options]{WithSchedulerRate(5 * time.Millisecond), WithMode(DisabledMode)}
 
 	return options.Apply(&TestFramework{
-		test:               test,
-		localIdentity:      identity.GenerateIdentity(),
-		optsSchedulerRate:  5 * time.Millisecond,
-		optsRateSetterMode: DisabledMode,
+		test:           test,
+		localIdentity:  identity.GenerateIdentity(),
+		optsRateSetter: rateSetterOpts,
 	}, opts, func(t *TestFramework) {
 		diskUtil := diskutil.New(test.TempDir())
 
@@ -53,27 +52,17 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 		})
 
 		localID := t.localIdentity.ID()
-		protocol := protocol.New(network.NewMockedNetwork().Join(localID),
+		p := protocol.New(network.NewMockedNetwork().Join(localID),
 			protocol.WithSnapshotPath(diskUtil.Path("snapshot.bin")),
 			protocol.WithBaseDirectory(diskUtil.Path()),
-			protocol.WithCongestionControlOptions(congestioncontrol.WithSchedulerOptions(scheduler.WithRate(t.optsSchedulerRate), scheduler.WithMaxDeficit(t.optsMaxDeficit))),
+			protocol.WithCongestionControlOptions(congestioncontrol.WithSchedulerOptions(t.optsScheduler...)),
 		)
-		protocol.Run()
-		t.Scheduler = protocol.CongestionControl.Scheduler()
-		switch t.optsRateSetterMode {
-		case AIMDMode:
-			t.RateSetter = NewAIMD(protocol, localID,
-				WithSchedulerRateAIMD(t.optsSchedulerRate),
-			)
-		case DisabledMode:
-			t.RateSetter = NewDisabled()
-		default:
-			t.RateSetter = NewDeficit(protocol, localID,
-				WithSchedulerRateDeficit(t.optsSchedulerRate),
-			)
-		}
+		p.Run()
+		t.Scheduler = p.CongestionControl.Scheduler()
+		t.RateSetter = New(localID, p, t.optsRateSetter...)
+
 		t.RateSetter.Events().BlockIssued.Attach(event.NewClosure(func(block *models.Block) {
-			protocol.ProcessBlock(block, t.localIdentity.ID())
+			p.ProcessBlock(block, t.localIdentity.ID())
 		}))
 	},
 	)
@@ -94,26 +83,22 @@ func (tf *TestFramework) SubmitBlocks(count int) {
 	}
 }
 
+type SchedulerTestFramework = scheduler.TestFramework
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithSchedulerRate(rate time.Duration) options.Option[TestFramework] {
+func WithRateSetterOptions(opts ...options.Option[Options]) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
-		tf.optsSchedulerRate = rate
+		tf.optsRateSetter = opts
 	}
 }
 
-func WithRateSetterMode(mode RateSetterModeType) options.Option[TestFramework] {
+func WithSchedulerOptions(opts ...options.Option[scheduler.Scheduler]) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
-		tf.optsRateSetterMode = mode
+		tf.optsScheduler = opts
 	}
 }
 
-func WithMaxDeficit(maxDef int) options.Option[TestFramework] {
-	return func(tf *TestFramework) {
-		tf.optsMaxDeficit = maxDef
-	}
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+//// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
