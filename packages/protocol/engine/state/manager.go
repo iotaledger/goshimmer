@@ -3,81 +3,78 @@ package state
 import (
 	"sync"
 
+	"github.com/cockroachdb/errors"
+
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/goshimmer/packages/storage/models"
 )
 
-type BatchedStateTransitions []BatchedTransition
-
-func (b BatchedStateTransitions) ProcessCreatedOutput(metadata *models.OutputWithMetadata) {
-	for _, stateTransition := range b {
-		stateTransition.ProcessCreatedOutput(metadata)
-	}
-}
-
-func (b BatchedStateTransitions) ProcessSpentOutput(metadata *models.OutputWithMetadata) {
-	for _, stateTransition := range b {
-		stateTransition.ProcessSpentOutput(metadata)
-	}
-}
-
-func (b BatchedStateTransitions) Apply() {
-	for _, stateTransition := range b {
-		stateTransition.Apply()
-	}
-}
-
 type Manager struct {
-	storage   *storage.Storage
-	consumers []UpdateConsumer
-	mutex     sync.RWMutex
+	storage        *storage.Storage
+	consumers      []Consumer
+	consumersMutex sync.RWMutex
 }
 
-func (s *Manager) RegisterStateUpdateConsumer(consumer UpdateConsumer) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+func NewManager(storageInstance *storage.Storage) *Manager {
+	return &Manager{
+		storage:   storageInstance,
+		consumers: make([]Consumer, 0),
+	}
+}
+
+func (s *Manager) RegisterConsumer(consumer Consumer) {
+	s.consumersMutex.Lock()
+	defer s.consumersMutex.Unlock()
 
 	s.consumers = append(s.consumers, consumer)
 }
 
-func (s *Manager) CreateBatchedStateTransitions(targetEpoch epoch.Index) (batchedStateTransitions BatchedStateTransitions) {
-	batchedStateTransitions = make([]BatchedTransition, len(s.consumers))
+func (s *Manager) ApplyStateDiff(targetEpoch epoch.Index) (err error) {
+	s.consumersMutex.RLock()
+	defer s.consumersMutex.RUnlock()
+
+	batchedTransitions := make([]BatchedTransition, len(s.consumers))
 	for i, consumer := range s.consumers {
-		batchedStateTransitions[i] = consumer.CreateBatchedStateTransition(targetEpoch)
+		batchedTransitions[i] = consumer.BatchedTransition(targetEpoch)
 	}
 
-	return batchedStateTransitions
-}
-
-func (s *Manager) ApplyStateDiff(targetEpoch epoch.Index) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	batchedStateTransitions := make(BatchedStateTransitions, len(s.consumers))
-	for i, consumer := range s.consumers {
-		batchedStateTransitions[i] = consumer.CreateBatchedStateTransition(targetEpoch)
-	}
-
-	for _, createdOutput := range []*models.OutputWithMetadata{} {
-		for i, pendingStateTransition := range batchedStateTransitions {
+	if err = s.storage.LedgerStateDiffs.StreamCreatedOutputs(targetEpoch, func(output *models.OutputWithMetadata) {
+		for i, pendingStateTransition := range batchedTransitions {
 			switch {
 			case s.consumers[i].LastConsumedEpoch() < targetEpoch:
-				pendingStateTransition.ProcessCreatedOutput(createdOutput)
+				pendingStateTransition.ProcessCreatedOutput(output)
 			case s.consumers[i].LastConsumedEpoch() > targetEpoch:
-				pendingStateTransition.ProcessSpentOutput(createdOutput)
+				pendingStateTransition.ProcessSpentOutput(output)
 			}
 		}
+	}); err != nil {
+		return errors.Errorf("failed to stream created outputs for state diff %d: %w", targetEpoch, err)
 	}
 
-	for _, spentOutput := range []*models.OutputWithMetadata{} {
-		for i, pendingStateTransition := range batchedStateTransitions {
+	if err = s.storage.LedgerStateDiffs.StreamSpentOutputs(targetEpoch, func(output *models.OutputWithMetadata) {
+		for i, pendingStateTransition := range batchedTransitions {
 			switch {
 			case s.consumers[i].LastConsumedEpoch() < targetEpoch:
-				pendingStateTransition.ProcessSpentOutput(spentOutput)
+				pendingStateTransition.ProcessSpentOutput(output)
 			case s.consumers[i].LastConsumedEpoch() > targetEpoch:
-				pendingStateTransition.ProcessCreatedOutput(spentOutput)
+				pendingStateTransition.ProcessCreatedOutput(output)
 			}
+		}
+	}); err != nil {
+		return errors.Errorf("failed to stream created outputs for state diff %d: %w", targetEpoch, err)
+	}
+
+	return nil
+}
+
+func (s *Manager) ImportOutputs(outputs []*models.OutputWithMetadata) {
+	s.consumersMutex.RLock()
+	defer s.consumersMutex.RUnlock()
+
+	for _, output := range outputs {
+		for _, consumer := range s.consumers {
+			consumer.ImportOutput(output)
 		}
 	}
 }

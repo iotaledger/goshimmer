@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"github.com/iotaledger/hive.go/core/generics/constraints"
-	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
@@ -43,13 +42,11 @@ func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {
 
 	// Ledgerstate
 	{
-		stateDiff := storageModels.NewMemoryStateDiff()
 		ProcessChunks(NewChunkedReader[storageModels.OutputWithMetadata](fileHandle),
 			engine.Ledger.LoadOutputsWithMetadata,
 			engine.ManaTracker.ImportOutputsFromSnapshot,
-			lo.Void(stateDiff.ApplyCreatedOutputs),
+			engine.StateManager.ImportOutputs,
 		)
-		engine.Storage.ApplyStateDiff(engine.Storage.Settings.LatestStateMutationEpoch(), stateDiff)
 	}
 
 	// Solid Entry Points

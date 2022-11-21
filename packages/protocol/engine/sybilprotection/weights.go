@@ -38,6 +38,23 @@ func (w *Weights) Weight(id identity.ID) (weight *Weight, exists bool) {
 	return w.weights.Get(id)
 }
 
+func (w *Weights) ImportDiff(id identity.ID, diff int64) {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
+	if oldWeight, exists := w.weights.Get(id); exists {
+		if newWeight := oldWeight.Value + diff; newWeight == 0 {
+			w.weights.Delete(id)
+		} else {
+			w.weights.Set(id, NewWeight(newWeight, w.settings.LatestCommitment().Index()))
+		}
+	} else {
+		w.weights.Set(id, NewWeight(diff, w.settings.LatestCommitment().Index()))
+	}
+
+	w.totalWeight.Value += diff
+}
+
 func (w *Weights) ApplyUpdates(updates *WeightUpdates) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
@@ -90,11 +107,11 @@ func (w *Weights) Root() types.Identifier {
 	return w.weights.Root()
 }
 
-func (w *Weights) TotalWeight() int64 {
+func (w *Weights) TotalWeight() (totalWeight *Weight) {
 	w.mutex.RLock()
 	defer w.mutex.RUnlock()
 
-	return w.totalWeight.Value
+	return w.totalWeight
 }
 
 // Stream streams the weights of all actors and when they were last updated.

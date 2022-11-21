@@ -16,9 +16,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/state"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	ledgerModels "github.com/iotaledger/goshimmer/packages/storage/models"
 )
 
 // ProofOfStake is a sybil protection module for the engine that manages the weights of actors according to their stake.
@@ -66,13 +68,26 @@ func (p *ProofOfStake) Weights() *sybilprotection.Weights {
 	return p.weights
 }
 
+func (p *ProofOfStake) ImportOutput(output *ledgerModels.OutputWithMetadata) {
+	if iotaBalance, exists := output.IOTABalance(); exists {
+		p.weights.ImportDiff(output.ConsensusManaPledgeID(), int64(iotaBalance))
+	}
+}
+
+func (p *ProofOfStake) BatchedTransition(targetEpoch epoch.Index) state.BatchedTransition {
+	return NewBatchedTransition(p.weights, targetEpoch)
+}
+
+func (p *ProofOfStake) LastConsumedEpoch() epoch.Index {
+	return p.weights.TotalWeight().UpdateTime
+}
+
 // InitModule initializes the ProofOfStake module after all the dependencies have been injected into the engine.
 func (p *ProofOfStake) InitModule() {
 	for it := p.engine.Storage.Attestors.LoadAll(p.engine.Storage.Settings.LatestCommitment().Index()).Iterator(); it.HasNext(); {
 		p.validators.Add(it.Next())
 	}
 
-	p.engine.Storage.Permanent.Events.ConsensusWeightsUpdated.Hook(event.NewClosure(p.weights.ApplyUpdates))
 	p.engine.Events.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(func(block *blockdag.Block) {
 		p.markValidatorActive(block.IssuerID(), block.IssuingTime())
 	}))

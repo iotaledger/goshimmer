@@ -100,20 +100,12 @@ func (w *WeightedSet) Detach() {
 }
 
 func (w *WeightedSet) onWeightUpdated(updates *WeightUpdates) {
-	if !w.members.Has(updates.ID) {
-		return
-	}
-
-	if updates.OldWeight == nil {
-		w.updateTotalWeight(updates.NewWeight.Value)
-	} else {
-		w.updateTotalWeight(updates.NewWeight.Value - updates.OldWeight.Value)
-	}
-}
-
-func (w *WeightedSet) updateTotalWeight(diff int64) {
 	w.totalWeightMutex.Lock()
 	defer w.totalWeightMutex.Unlock()
 
-	w.totalWeight += diff
+	updates.ForEach(func(id identity.ID, diff int64) {
+		if w.members.Has(id) {
+			w.totalWeight += diff
+		}
+	})
 }

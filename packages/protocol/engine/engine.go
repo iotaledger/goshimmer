@@ -14,6 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/eventticker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/state"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/storage"
@@ -41,6 +42,7 @@ type Engine struct {
 	Ledger  *ledger.Ledger
 	Filter  *filter.Filter
 	// SnapshotManager     *snapshot.Manager
+	StateManager        *state.Manager
 	EvictionState       *eviction.State
 	BlockRequester      *eventticker.EventTicker[models.BlockID]
 	ManaTracker         *manatracker.ManaTracker
@@ -78,6 +80,7 @@ func New(storageInstance *storage.Storage, opts ...options.Option[Engine]) (engi
 		&Engine{
 			Events:        NewEvents(),
 			Storage:       storageInstance,
+			StateManager:  state.NewManager(storageInstance),
 			Clock:         clock.New(),
 			EvictionState: eviction.NewState(storageInstance),
 
