@@ -2,7 +2,7 @@ package permanent
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/iotaledger/hive.go/core/types"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
@@ -24,7 +24,7 @@ type Permanent struct {
 	Commitments      *Commitments
 	UnspentOutputs   *UnspentOutputs
 	UnspentOutputIDs *UnspentOutputIDs
-	ConsensusWeights *ConsensusWeights
+	SybilProtection  kvstore.KVStore
 }
 
 func New(disk *diskutil.DiskUtil, database *database.Manager) (p *Permanent) {
@@ -34,7 +34,7 @@ func New(disk *diskutil.DiskUtil, database *database.Manager) (p *Permanent) {
 		Commitments:      NewCommitments(disk.Path("commitments.bin")),
 		UnspentOutputs:   NewUnspentOutputs(lo.PanicOnErr(database.PermanentStorage().WithRealm([]byte{unspentOutputsPrefix}))),
 		UnspentOutputIDs: NewUnspentOutputIDs(lo.PanicOnErr(database.PermanentStorage().WithRealm([]byte{unspentOutputIDsPrefix}))),
-		ConsensusWeights: NewConsensusWeights(lo.PanicOnErr(database.PermanentStorage().WithRealm([]byte{consensusWeightsPrefix}))),
+		SybilProtection:  lo.PanicOnErr(database.PermanentStorage().WithRealm([]byte{consensusWeightsPrefix})),
 	}
 }
 
@@ -58,35 +58,5 @@ func (p *Permanent) applyStateDiff(index epoch.Index, stateDiff *models.StateDif
 		delete(it.Next())
 	}
 
-	consensusWeightUpdates := make(map[identity.ID]*models.TimedBalance)
-
-	for id, diff := range stateDiff.ConsensusWeightUpdates {
-		if diff == 0 {
-			continue
-		}
-
-		timedBalance, exists := p.ConsensusWeights.Load(id)
-		if !exists {
-			timedBalance = &models.TimedBalance{
-				LastUpdated: -1,
-			}
-		} else if index == timedBalance.LastUpdated {
-			continue
-		}
-
-		timedBalance.Balance += diff * int64(lo.Compare(index, timedBalance.LastUpdated))
-		timedBalance.LastUpdated = index
-
-		consensusWeightUpdates[id] = timedBalance
-
-		if timedBalance.Balance == 0 {
-			p.ConsensusWeights.Delete(id)
-		} else {
-			p.ConsensusWeights.Store(id, timedBalance)
-		}
-	}
-
-	p.Events.ConsensusWeightsUpdated.Trigger(consensusWeightUpdates)
-
-	return p.UnspentOutputIDs.Root(), p.ConsensusWeights.Root()
+	return p.UnspentOutputIDs.Root(), p.SybilProtection.Root()
 }

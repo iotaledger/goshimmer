@@ -19,7 +19,7 @@ import (
 
 // EpochMutations is an in-memory data structure that enables the collection of mutations for uncommitted epochs.
 type EpochMutations struct {
-	epochAttestations func(epoch.Index) *models.Attestations
+	epochAttestations func(epoch.Index) *Attestations
 
 	// acceptedBlocksByEpoch stores the accepted blocks per epoch.
 	acceptedBlocksByEpoch *memstorage.Storage[epoch.Index, *ads.Set[models.BlockID]]
@@ -37,7 +37,7 @@ type EpochMutations struct {
 }
 
 // NewEpochMutations creates a new EpochMutations instance.
-func NewEpochMutations(epochAttestations func(epoch.Index) *models.Attestations, lastCommittedEpoch epoch.Index) (newMutationFactory *EpochMutations) {
+func NewEpochMutations(epochAttestations func(epoch.Index) *Attestations, lastCommittedEpoch epoch.Index) (newMutationFactory *EpochMutations) {
 	return &EpochMutations{
 		acceptedBlocksByEpoch:       memstorage.New[epoch.Index, *ads.Set[models.BlockID]](),
 		acceptedTransactionsByEpoch: memstorage.New[epoch.Index, *ads.Set[utxo.TransactionID]](),

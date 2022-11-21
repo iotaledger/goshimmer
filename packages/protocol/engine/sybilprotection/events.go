@@ -1,4 +1,4 @@
-package weights
+package sybilprotection
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -19,7 +19,7 @@ var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 })
 
 type WeightUpdatedEvent struct {
-	ID       identity.ID
-	OldValue int64
-	NewValue int64
+	ID        identity.ID
+	OldWeight *Weight
+	NewWeight *Weight
 }

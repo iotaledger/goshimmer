@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	. "github.com/iotaledger/goshimmer/packages/network/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
@@ -61,7 +62,7 @@ func (p *Protocol) RequestCommitment(id commitment.ID, to ...identity.ID) {
 	}}}, protocolID, to...)
 }
 
-func (p *Protocol) SendAttestations(attestations *models.Attestations, to ...identity.ID) {
+func (p *Protocol) SendAttestations(attestations *notarization.Attestations, to ...identity.ID) {
 	/*
 		attestationsBytes := make([][]byte, len(attestations))
 
@@ -180,7 +181,7 @@ func (p *Protocol) onEpochCommitmentRequest(idBytes []byte, id identity.ID) {
 }
 
 func (p *Protocol) onAttestations(attestationsBytes []byte, id identity.ID) {
-	attestations := new(models.Attestations)
+	attestations := new(notarization.Attestations)
 
 	// TODO: PARSE BYTES
 

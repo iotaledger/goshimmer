@@ -14,7 +14,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/weights"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
@@ -42,7 +42,7 @@ type TestFramework struct {
 	optsTangle              *tangle.Tangle
 	optsTangleOptions       []options.Option[tangle.Tangle]
 	optsTotalWeightCallback func() int64
-	optsActiveNodes         *weights.Set
+	optsActiveNodes         *sybilprotection.WeightedSet
 
 	*TangleTestFramework
 }
@@ -317,7 +317,7 @@ func (m *MockAcceptanceGadget) FirstUnacceptedIndex(sequenceID markers.SequenceI
 	return 1
 }
 
-func WithActiveNodes(activeNodes *weights.Set) options.Option[TestFramework] {
+func WithActiveNodes(activeNodes *sybilprotection.WeightedSet) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.optsActiveNodes = activeNodes
 	}

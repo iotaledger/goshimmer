@@ -10,14 +10,14 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/validator"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/weights"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
 
 type TestFramework struct {
 	test              *testing.T
-	ActiveNodes       *weights.Set
+	ActiveNodes       *sybilprotection.WeightedSet
 	validatorsByAlias map[string]*validator.Validator
 }
 
@@ -74,7 +74,7 @@ func ValidatorSetToAdvancedSet(validatorSet *validator.Set) (validatorAdvancedSe
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithActiveNodes(activeNodes *weights.Set) options.Option[TestFramework] {
+func WithActiveNodes(activeNodes *sybilprotection.WeightedSet) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
 		tf.ActiveNodes = activeNodes
 	}

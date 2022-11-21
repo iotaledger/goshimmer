@@ -13,7 +13,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/weights"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
@@ -41,7 +41,7 @@ type TestFramework struct {
 	optsScheduler           []options.Option[Scheduler]
 	optsTangle              []options.Option[tangle.Tangle]
 	optsGadget              []options.Option[blockgadget.Gadget]
-	optsActiveNodes         *weights.Set
+	optsActiveNodes         *sybilprotection.WeightedSet
 	optsIsBlockAcceptedFunc func(models.BlockID) bool
 	optsBlockAcceptedEvent  *event.Linkable[*blockgadget.Block]
 	*TangleTestFramework
@@ -66,7 +66,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		}
 		if t.optsActiveNodes == nil {
 			// TODO: fix
-			t.optsActiveNodes = weights.NewSet(nil)
+			t.optsActiveNodes = sybilprotection.NewWeightedSet(nil)
 		}
 
 		t.TangleTestFramework = tangle.NewTestFramework(
@@ -262,7 +262,7 @@ func WithEvictionState(evictionState *eviction.State) options.Option[TestFramewo
 	}
 }
 
-func WithActiveNodes(activeNodes *weights.Set) options.Option[TestFramework] {
+func WithActiveNodes(activeNodes *sybilprotection.WeightedSet) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.optsActiveNodes = activeNodes
 	}

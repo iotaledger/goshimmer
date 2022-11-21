@@ -1,4 +1,4 @@
-package models
+package notarization
 
 import (
 	"sync"
@@ -7,29 +7,30 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/ads"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/weights"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 type Attestations struct {
-	weightedSet *weights.Set
-	storage     *memstorage.Storage[identity.ID, *memstorage.Storage[BlockID, *Attestation]]
+	weightedSet *sybilprotection.WeightedSet
+	storage     *memstorage.Storage[identity.ID, *memstorage.Storage[models.BlockID, *Attestation]]
 	mutex       sync.RWMutex
 }
 
 func NewAttestations(weightsVector *weights.Vector) *Attestations {
 	return &Attestations{
 		weightedSet: weightsVector.NewWeightedSet(),
-		storage:     memstorage.New[identity.ID, *memstorage.Storage[BlockID, *Attestation]](),
+		storage:     memstorage.New[identity.ID, *memstorage.Storage[models.BlockID, *Attestation]](),
 	}
 }
 
-func (a *Attestations) Add(block *Block) (added bool) {
+func (a *Attestations) Add(block *models.Block) (added bool) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
 	// TODO: CHECK IF PAST EVICTION
 
-	storage, created := a.storage.RetrieveOrCreate(block.IssuerID(), memstorage.New[BlockID, *Attestation])
+	storage, created := a.storage.RetrieveOrCreate(block.IssuerID(), memstorage.New[models.BlockID, *Attestation])
 	if created {
 		a.weightedSet.Add(block.IssuerID())
 	}
@@ -37,7 +38,7 @@ func (a *Attestations) Add(block *Block) (added bool) {
 	return storage.Set(block.ID(), NewAttestation(block))
 }
 
-func (a *Attestations) Delete(block *Block) (deleted bool) {
+func (a *Attestations) Delete(block *models.Block) (deleted bool) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
