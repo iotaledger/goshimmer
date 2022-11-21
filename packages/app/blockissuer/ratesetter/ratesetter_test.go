@@ -96,7 +96,10 @@ func TestRateSetter_SchedulerEstimate(t *testing.T) {
 		select {
 		case blk := <-blockIssued:
 			if blk.ID() == lastBlock.ID() {
-				timeElapsed := time.Now().Sub(t0).Abs()
+				timeElapsed := time.Now().Sub(t0)
+				if timeElapsed < 0 {
+					timeElapsed = -timeElapsed
+				}
 				assert.Less(t, timeElapsed, 2*estimate)
 				return true
 			}
