@@ -273,6 +273,12 @@ func (b *Block) Size() int {
 	return *b.size
 }
 
+// Work returns the work units required to process this block.
+// Currently to 1 for all blocks, but could be improved.
+func (b *Block) Work() int {
+	return 1
+}
+
 func (b *Block) String() string {
 	builder := stringify.NewStructBuilder("Block", stringify.NewStructField("id", b.ID()))
 
