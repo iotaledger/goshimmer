@@ -144,7 +144,7 @@ func (c *Manager) registerChild(parent *Commitment, child *Commitment) (isSolid 
 	if isSolid, chain, wasForked = parent.registerChild(child); chain != nil {
 		chain.addCommitment(child)
 		child.publishChain(chain)
-		child.solid = isSolid
+		child.SetSolid(isSolid)
 	}
 
 	return
