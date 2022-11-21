@@ -69,7 +69,7 @@ func New(tangleInstance *tangle.Tangle, evictionState *eviction.State, totalWeig
 		a.blocks = memstorage.NewEpochStorage[models.BlockID, *Block]()
 
 		a.acceptanceOrder = causalorder.New(a.GetOrRegisterBlock, (*Block).IsAccepted, a.markAsAccepted, a.acceptanceFailed)
-		a.confirmationOrder = causalorder.New(a.GetOrRegisterBlock, (*Block).IsConfirmed, a.markAsConfirmed, a.acceptanceFailed)
+		a.confirmationOrder = causalorder.New(a.GetOrRegisterBlock, (*Block).IsConfirmed, a.markAsConfirmed, a.confirmationFailed)
 	}, (*Gadget).setup)
 }
 
@@ -215,6 +215,7 @@ func (a *Gadget) tryConfirmOrAccept(totalWeight int64, marker markers.Marker) (b
 
 func (a *Gadget) EvictUntil(index epoch.Index) {
 	a.acceptanceOrder.EvictUntil(index)
+	a.confirmationOrder.EvictUntil(index)
 
 	a.evictionMutex.Lock()
 	defer a.evictionMutex.Unlock()
@@ -358,6 +359,10 @@ func (a *Gadget) setMarkerConfirmed(marker markers.Marker) (wasUpdated bool) {
 
 func (a *Gadget) acceptanceFailed(block *Block, err error) {
 	a.Events.Error.Trigger(errors.Wrapf(err, "could not mark block %s as accepted", block.ID()))
+}
+
+func (a *Gadget) confirmationFailed(block *Block, err error) {
+	a.Events.Error.Trigger(errors.Wrapf(err, "could not mark block %s as confirmed", block.ID()))
 }
 
 func (a *Gadget) evictSequence(sequenceID markers.SequenceID) {
