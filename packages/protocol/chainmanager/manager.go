@@ -181,8 +181,6 @@ func (m *Manager) propagateSolidity(child *Commitment) (childrenToUpdate []*Comm
 	defer m.commitmentEntityMutex.Unlock(child.ID())
 
 	if child.SetSolid(true) {
-		child.Chain().SetLastSolidIndex(child.Commitment().Index())
-
 		childrenToUpdate = child.Children()
 	}
 
