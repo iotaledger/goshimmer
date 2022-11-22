@@ -1,7 +1,7 @@
 package sybilprotection
 
 import (
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/state"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 )
 
 type SybilProtection interface {
@@ -9,5 +9,6 @@ type SybilProtection interface {
 	Validators() (validators *WeightedSet)
 
 	InitModule()
-	state.Consumer
+
+	ledgerstate.DiffConsumer
 }

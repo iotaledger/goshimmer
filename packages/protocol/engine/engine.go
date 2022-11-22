@@ -14,7 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/eventticker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/state"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/storage"
@@ -37,12 +37,11 @@ import (
 // region Engine /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Engine struct {
-	Events  *Events
-	Storage *storage.Storage
-	Ledger  *ledger.Ledger
-	Filter  *filter.Filter
-	// SnapshotManager     *snapshot.Manager
-	StateManager        *state.Manager
+	Events              *Events
+	Storage             *storage.Storage
+	Ledger              *ledger.Ledger
+	LedgerState         *ledgerstate.LedgerState
+	Filter              *filter.Filter
 	EvictionState       *eviction.State
 	BlockRequester      *eventticker.EventTicker[models.BlockID]
 	ManaTracker         *manatracker.ManaTracker
@@ -80,7 +79,7 @@ func New(storageInstance *storage.Storage, opts ...options.Option[Engine]) (engi
 		&Engine{
 			Events:        NewEvents(),
 			Storage:       storageInstance,
-			StateManager:  state.NewManager(storageInstance),
+			LedgerState:   ledgerstate.New(storageInstance),
 			Clock:         clock.New(),
 			EvictionState: eviction.NewState(storageInstance),
 
@@ -240,7 +239,7 @@ func (e *Engine) initBlockStorage() {
 }
 
 func (e *Engine) initNotarizationManager() {
-	e.NotarizationManager = notarization.NewManager(e.Storage, e.SybilProtection.Attestations)
+	e.NotarizationManager = notarization.NewManager(e.Storage, e.LedgerState, e.SybilProtection)
 
 	e.Consensus.BlockGadget.Events.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
 		if err := e.NotarizationManager.AddAcceptedBlock(block.ModelsBlock); err != nil {

@@ -12,10 +12,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/state"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
-	ledgerModels "github.com/iotaledger/goshimmer/packages/storage/models"
 )
 
 // SybilProtection is a sybil protection module for the engine that manages the weights of actors according to their stake.
@@ -27,6 +25,12 @@ type SybilProtection struct {
 	lastActivities     *shrinkingmap.ShrinkingMap[identity.ID, time.Time]
 	mutex              sync.RWMutex
 	optsActivityWindow time.Duration
+
+	lastCommittedEpoch      epoch.Index
+	lastCommittedEpochMutex sync.RWMutex
+	batchedEpochIndex       epoch.Index
+	batchedEpochMutex       sync.RWMutex
+	batchedWeightUpdates    *sybilprotection.WeightUpdates
 }
 
 // NewSybilProtection creates a new ProofOfStake instance.
@@ -35,17 +39,19 @@ func NewSybilProtection(engineInstance *engine.Engine, opts ...options.Option[Sy
 		&SybilProtection{
 			engine:             engineInstance,
 			optsActivityWindow: time.Second * 30,
-		}, opts, func(p *SybilProtection) {
-			p.weights = sybilprotection.NewWeights(engineInstance.Storage.SybilProtection, engineInstance.Storage.Settings)
-			p.validators = p.weights.WeightedSet()
-			p.inactivityManager = timed.NewTaskExecutor[identity.ID](1)
-			p.lastActivities = shrinkingmap.New[identity.ID, time.Time]()
+		}, opts, func(s *SybilProtection) {
+			s.weights = sybilprotection.NewWeights(engineInstance.Storage.SybilProtection, engineInstance.Storage.Settings)
+			s.validators = s.weights.WeightedSet()
+			s.inactivityManager = timed.NewTaskExecutor[identity.ID](1)
+			s.lastActivities = shrinkingmap.New[identity.ID, time.Time]()
+
+			s.engine.LedgerState.RegisterConsumer(s)
 		})
 }
 
 // NewSybilProtectionProvider returns a new sybil protection provider that uses the ProofOfStake module.
 func NewSybilProtectionProvider(opts ...options.Option[SybilProtection]) engine.ModuleProvider[sybilprotection.SybilProtection] {
-	return engine.ProvideModule[sybilprotection.SybilProtection](func(e *engine.Engine) sybilprotection.SybilProtection {
+	return engine.ProvideModule(func(e *engine.Engine) sybilprotection.SybilProtection {
 		return NewSybilProtection(e, opts...)
 	})
 }
@@ -58,18 +64,6 @@ func (p *SybilProtection) Validators() *sybilprotection.WeightedSet {
 // Weights returns the current weights that are staked with validators.
 func (p *SybilProtection) Weights() *sybilprotection.Weights {
 	return p.weights
-}
-
-func (p *SybilProtection) ImportOutput(output *ledgerModels.OutputWithMetadata) {
-	ProcessCreatedOutput(output, p.weights.Import)
-}
-
-func (p *SybilProtection) BatchedTransition(targetEpoch epoch.Index) state.BatchedTransition {
-	return NewBatchedTransition(p.weights, targetEpoch)
-}
-
-func (p *SybilProtection) LastConsumedEpoch() epoch.Index {
-	return p.weights.TotalWeight().UpdateTime
 }
 
 // InitModule initializes the ProofOfStake module after all the dependencies have been injected into the engine.
@@ -105,6 +99,3 @@ func (p *SybilProtection) markValidatorInactive(id identity.ID) {
 	p.lastActivities.Delete(id)
 	p.validators.Delete(id)
 }
-
-// code contract (make sure the type implements all required methods)
-var _ sybilprotection.SybilProtection = &SybilProtection{}

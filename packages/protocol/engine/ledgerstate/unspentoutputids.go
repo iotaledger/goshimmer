@@ -100,3 +100,5 @@ func (u *UnspentOutputIDs) setBatchedEpoch(index epoch.Index) {
 
 	u.batchedEpochIndex = index
 }
+
+var _ DiffConsumer = &UnspentOutputIDs{}

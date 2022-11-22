@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/storage/models"
 )
 
-type StateDiffConsumer interface {
+type DiffConsumer interface {
 	Begin(committedEpoch epoch.Index)
 	Commit() (ctx context.Context)
 	ProcessCreatedOutput(output *models.OutputWithMetadata)

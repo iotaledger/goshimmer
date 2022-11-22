@@ -85,7 +85,7 @@ func (w *Weights) ApplyUpdates(updates *WeightUpdates) {
 	w.totalWeight.Value += direction * updates.TotalDiff()
 	w.totalWeight.UpdateTime = updates.TargetEpoch()
 
-	// mark as clean
+	// TODO: mark as clean
 }
 
 func (w *Weights) WeightedSet(members ...identity.ID) *WeightedSet {

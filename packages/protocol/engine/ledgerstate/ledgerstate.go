@@ -6,25 +6,30 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/goshimmer/packages/storage/models"
+	"github.com/iotaledger/hive.go/core/types"
 	"github.com/pkg/errors"
 )
 
 type LedgerState struct {
 	storage          *storage.Storage
 	unspentOutputIDs *UnspentOutputIDs
-	consumers        []StateDiffConsumer
+	consumers        []DiffConsumer
 	consumersMutex   sync.RWMutex
 }
 
-func New(storageInstance *storage.Storage) *LedgerState {
-	return &LedgerState{
+func New(storageInstance *storage.Storage) (ledgerState *LedgerState) {
+	ledgerState = &LedgerState{
 		storage:          storageInstance,
 		unspentOutputIDs: NewUnspentOutputIDs(storageInstance.UnspentOutputIDs),
-		consumers:        make([]StateDiffConsumer, 0),
+		consumers:        make([]DiffConsumer, 0),
 	}
+
+	ledgerState.RegisterConsumer(ledgerState.unspentOutputIDs)
+
+	return
 }
 
-func (l *LedgerState) RegisterConsumer(consumer StateDiffConsumer) {
+func (l *LedgerState) RegisterConsumer(consumer DiffConsumer) {
 	l.consumersMutex.Lock()
 	defer l.consumersMutex.Unlock()
 
@@ -51,35 +56,25 @@ func (l *LedgerState) ApplyStateDiff(targetEpoch epoch.Index) (err error) {
 	}
 
 	if err = l.storage.LedgerStateDiffs.StreamCreatedOutputs(targetEpoch, func(output *models.OutputWithMetadata) {
-		switch currentEpoch := l.storage.Settings.LatestCommitment().Index(); {
-		case IsApply(currentEpoch, targetEpoch):
-			l.unspentOutputIDs.Add(output.ID())
-		case IsRollback(currentEpoch, targetEpoch):
-			l.unspentOutputIDs.Delete(output.ID())
-		}
-
-		l.ProcessConsumers(targetEpoch, output, StateDiffConsumer.ProcessCreatedOutput, StateDiffConsumer.ProcessSpentOutput)
+		l.ProcessConsumers(targetEpoch, output, DiffConsumer.ProcessCreatedOutput, DiffConsumer.ProcessSpentOutput)
 	}); err != nil {
 		return errors.Errorf("failed to stream created outputs for state diff %d: %w", targetEpoch, err)
 	}
 
 	if err = l.storage.LedgerStateDiffs.StreamSpentOutputs(targetEpoch, func(output *models.OutputWithMetadata) {
-		switch currentEpoch := l.storage.Settings.LatestCommitment().Index(); {
-		case IsApply(currentEpoch, targetEpoch):
-			l.unspentOutputIDs.Delete(output.ID())
-		case IsRollback(currentEpoch, targetEpoch):
-			l.unspentOutputIDs.Add(output.ID())
-		}
-
-		l.ProcessConsumers(targetEpoch, output, StateDiffConsumer.ProcessSpentOutput, StateDiffConsumer.ProcessCreatedOutput)
+		l.ProcessConsumers(targetEpoch, output, DiffConsumer.ProcessSpentOutput, DiffConsumer.ProcessCreatedOutput)
 	}); err != nil {
 		return errors.Errorf("failed to stream created outputs for state diff %d: %w", targetEpoch, err)
+	}
+
+	for _, consumer := range l.consumers {
+		consumer.Commit()
 	}
 
 	return nil
 }
 
-func (l *LedgerState) ProcessConsumers(targetEpoch epoch.Index, output *models.OutputWithMetadata, applyFunc, rollbackFunc func(StateDiffConsumer, *models.OutputWithMetadata)) {
+func (l *LedgerState) ProcessConsumers(targetEpoch epoch.Index, output *models.OutputWithMetadata, applyFunc, rollbackFunc func(DiffConsumer, *models.OutputWithMetadata)) {
 	for _, consumer := range l.consumers {
 		switch currentEpoch := consumer.LastCommittedEpoch(); {
 		case IsApply(currentEpoch, targetEpoch):
@@ -89,6 +84,10 @@ func (l *LedgerState) ProcessConsumers(targetEpoch epoch.Index, output *models.O
 			rollbackFunc(consumer, output)
 		}
 	}
+}
+
+func (l *LedgerState) Root() types.Identifier {
+	return l.unspentOutputIDs.Root()
 }
 
 // region utility functions ////////////////////////////////////////////////////////////////////////////////////////////
