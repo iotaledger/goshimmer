@@ -81,7 +81,7 @@ func sendManaValue() {
 	blkData := &ManaValueBlkData{
 		IssuerID:  ownID.String(),
 		Access:    access,
-		Consensus: deps.Protocol.Engine().SybilProtection.Weights().Weight(ownID),
+		Consensus: lo.Return1(deps.Protocol.Engine().SybilProtection.Weights().Weight(ownID)).Value,
 		Time:      time.Now().Unix(),
 	}
 	broadcastWsBlock(&wsblk{
@@ -107,7 +107,7 @@ func sendManaMapOverall() {
 		Type: MsgTypeManaMapOverall,
 		Data: accessPayload,
 	})
-	consensusManaList, _, err := manamodels.GetHighestManaIssuers(0, deps.Protocol.Engine().SybilProtection.Weights().Map())
+	consensusManaList, _, err := manamodels.GetHighestManaIssuers(0, lo.PanicOnErr(deps.Protocol.Engine().SybilProtection.Weights().Map()))
 	if err != nil && !errors.Is(err, manamodels.ErrQueryNotAllowed) {
 		log.Errorf("failed to get list of n highest consensus mana issuers: %s ", err.Error())
 	}
@@ -156,10 +156,10 @@ func sendManaMapOnline() {
 	activeNodes := deps.Protocol.Engine().SybilProtection.Validators()
 	consensusPayload := &ManaNetworkListBlkData{ManaType: manamodels.ConsensusMana.String()}
 
-	_ = activeNodes.ForEachWeighted(func(id identity.ID, weight int64) error {
+	_ = activeNodes.ForEach(func(id identity.ID) error {
 		consensusPayload.Issuers = append(consensusPayload.Issuers, manamodels.Issuer{
 			ID:   id,
-			Mana: weight,
+			Mana: lo.Return1(deps.Protocol.Engine().SybilProtection.Weights().Weight(id)).Value,
 		}.ToIssuerStr())
 
 		return nil

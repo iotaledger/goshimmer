@@ -43,9 +43,10 @@ func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {
 	// Ledgerstate
 	{
 		ProcessChunks(NewChunkedReader[storageModels.OutputWithMetadata](fileHandle),
-			engine.Ledger.LoadOutputsWithMetadata,
-			engine.ManaTracker.ImportOutputsFromSnapshot,
-			engine.StateManager.ImportOutputs,
+			engine.Ledger.ImportOutputs,
+			engine.ManaTracker.ImportOutputs,
+			// This will import into all the consumers too: sybilprotection and ledgerState.unspentOutputIDs
+			engine.LedgerState.ImportOutputs,
 		)
 	}
 
@@ -80,25 +81,29 @@ func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {
 			var epochIndex epoch.Index
 			binary.Read(fileHandle, binary.LittleEndian, &epochIndex)
 
-			diff := storageModels.NewMemoryStateDiff()
-
 			// Created
 			ProcessChunks(NewChunkedReader[storageModels.OutputWithMetadata](fileHandle),
-				func(createdChunk []*storageModels.OutputWithMetadata) {
-					diff.ApplyCreatedOutputs(createdChunk)
-				},
 				engine.Ledger.ApplySpentDiff,
+				func(createdChunk []*storageModels.OutputWithMetadata) {
+					engine.ManaTracker.RollbackOutputs(createdChunk, true)
+					for _, createdOutput := range createdChunk {
+						engine.Storage.LedgerStateDiffs.StoreSpentOutput(createdOutput)
+					}
+				},
 			)
 
 			// Spent
 			ProcessChunks(NewChunkedReader[storageModels.OutputWithMetadata](fileHandle),
-				func(spentChunk []*storageModels.OutputWithMetadata) {
-					diff.ApplyDeletedOutputs(spentChunk)
-				},
 				engine.Ledger.ApplyCreatedDiff,
+				func(spentChunk []*storageModels.OutputWithMetadata) {
+					engine.ManaTracker.RollbackOutputs(spentChunk, false)
+					for _, createdOutput := range spentChunk {
+						engine.Storage.LedgerStateDiffs.StoreCreatedOutput(createdOutput)
+					}
+				},
 			)
 
-			engine.Storage.RollbackStateDiff(engine.Storage.Settings.LatestStateMutationEpoch()-epoch.Index(i), diff)
+			engine.LedgerState.ApplyStateDiff(epochIndex)
 		}
 	}
 }

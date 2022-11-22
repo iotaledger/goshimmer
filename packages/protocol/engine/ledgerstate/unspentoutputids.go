@@ -48,6 +48,12 @@ func (u *UnspentOutputIDs) Begin(committedEpoch epoch.Index) {
 	u.batchedSpentOutputIDs = utxo.NewOutputIDs()
 }
 
+func (u *UnspentOutputIDs) ImportOutputs(outputs []*models.OutputWithMetadata) {
+	for _, output := range outputs {
+		u.ProcessCreatedOutput(output)
+	}
+}
+
 func (u *UnspentOutputIDs) ProcessCreatedOutput(output *models.OutputWithMetadata) {
 	if u.batchedEpoch() == 0 {
 		u.Add(output.Output().ID())

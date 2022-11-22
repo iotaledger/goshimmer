@@ -41,7 +41,7 @@ type TestFramework struct {
 	optsScheduler           []options.Option[Scheduler]
 	optsTangle              []options.Option[tangle.Tangle]
 	optsGadget              []options.Option[blockgadget.Gadget]
-	optsActiveNodes         *sybilprotection.WeightedSet
+	optsValidators          *sybilprotection.WeightedSet
 	optsIsBlockAcceptedFunc func(models.BlockID) bool
 	optsBlockAcceptedEvent  *event.Linkable[*blockgadget.Block]
 	*TangleTestFramework
@@ -57,22 +57,20 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		if t.evictionState == nil {
 			storageInstance := storage.New(test.TempDir(), 1)
 			test.Cleanup(func() {
-				if err := storageInstance.Shutdown(); err != nil {
-					test.Fatal(err)
-				}
+				storageInstance.Shutdown()
 			})
 
 			t.evictionState = eviction.NewState(storageInstance)
 		}
-		if t.optsActiveNodes == nil {
+		if t.optsValidators == nil {
 			// TODO: fix
-			t.optsActiveNodes = sybilprotection.NewWeightedSet(nil)
+			t.optsValidators = sybilprotection.Validators()
 		}
 
 		t.TangleTestFramework = tangle.NewTestFramework(
 			test,
 			tangle.WithTangleOptions(t.optsTangle...),
-			tangle.WithActiveNodes(t.optsActiveNodes),
+			tangle.WithActiveNodes(t.optsValidators),
 			tangle.WithEvictionState(t.evictionState),
 		)
 
@@ -264,7 +262,7 @@ func WithEvictionState(evictionState *eviction.State) options.Option[TestFramewo
 
 func WithActiveNodes(activeNodes *sybilprotection.WeightedSet) options.Option[TestFramework] {
 	return func(t *TestFramework) {
-		t.optsActiveNodes = activeNodes
+		t.optsValidators = activeNodes
 	}
 }
 

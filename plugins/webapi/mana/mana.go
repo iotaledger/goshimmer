@@ -28,7 +28,7 @@ func getManaHandler(c echo.Context) error {
 	}
 
 	accessMana, _ := deps.Protocol.Engine().ManaTracker.Mana(ID)
-	consensusMana := deps.Protocol.Engine().SybilProtection.Weights().Weight(ID)
+	consensusMana := lo.Return1(deps.Protocol.Engine().SybilProtection.Weights().Weight(ID)).Value
 
 	return c.JSON(http.StatusOK, jsonmodels.GetManaResponse{
 		ShortIssuerID:      ID.String(),

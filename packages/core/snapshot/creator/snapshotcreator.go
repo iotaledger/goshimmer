@@ -53,7 +53,7 @@ func CreateSnapshot(s *storage.Storage, snapshotFileName string, genesisTokenAmo
 	// create ledger
 	l := ledger.New(s)
 
-	l.LoadOutputsWithMetadata(outputsWithMetadata)
+	l.ImportOutputs(outputsWithMetadata)
 
 	snapshot.WriteSnapshot(snapshotFileName, s, l, 0)
 }
@@ -91,7 +91,7 @@ func CreateSnapshotForIntegrationTest(s *storage.Storage, snapshotFileName strin
 	// create ledger
 	l := ledger.New(s)
 
-	l.LoadOutputsWithMetadata(outputsWithMetadata)
+	l.ImportOutputs(outputsWithMetadata)
 
 	snapshot.WriteSnapshot(snapshotFileName, s, l, 0)
 }

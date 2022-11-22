@@ -38,9 +38,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 			storageInstance := storage.New(test.TempDir(), 1)
 			test.Cleanup(func() {
 				t.optsLedger.Shutdown()
-				if err := storageInstance.Shutdown(); err != nil {
-					test.Fatal(err)
-				}
+				storageInstance.Shutdown()
 			})
 
 			if t.optsLedger == nil {

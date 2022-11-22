@@ -14,6 +14,12 @@ func (s *SybilProtection) Begin(committedEpoch epoch.Index) {
 	s.batchedWeightUpdates = sybilprotection.NewWeightUpdates(committedEpoch)
 }
 
+func (s *SybilProtection) ImportOutputs(outputs []*models.OutputWithMetadata) {
+	for _, output := range outputs {
+		ProcessCreatedOutput(output, s.weights.Import)
+	}
+}
+
 func (s *SybilProtection) ProcessCreatedOutput(output *models.OutputWithMetadata) {
 	if s.batchedEpoch() == 0 {
 		ProcessCreatedOutput(output, s.weights.Import)

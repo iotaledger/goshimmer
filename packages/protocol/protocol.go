@@ -90,23 +90,17 @@ func (p *Protocol) Run() {
 }
 
 // Shutdown shuts down the protocol.
-func (p *Protocol) Shutdown() (err error) {
+func (p *Protocol) Shutdown() {
 	p.engine.Shutdown()
-	if err = p.storage.Shutdown(); err != nil {
-		return errors.Errorf("failed to shutdown main engine storage: %w", err)
-	}
+	p.storage.Shutdown()
 
 	if p.candidateEngine != nil {
 		p.candidateEngine.Shutdown()
 	}
 
 	if p.candidateStorage != nil {
-		if err = p.candidateStorage.Shutdown(); err != nil {
-			return errors.Errorf("failed to shutdown candidate engine storage: %w", err)
-		}
+		p.candidateStorage.Shutdown()
 	}
-
-	return nil
 }
 
 func (p *Protocol) initDisk() {
@@ -243,7 +237,7 @@ func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) {
 }
 
 func (p *Protocol) ProcessAttestationsRequest(epochIndex epoch.Index, src identity.ID) {
-	p.networkProtocol.SendAttestations(p.Engine().SybilProtection.Attestations(epochIndex), src)
+	// p.networkProtocol.SendAttestations(p.Engine().SybilProtection.Attestations(epochIndex), src)
 }
 
 func (p *Protocol) ProcessAttestations(attestations *notarization.Attestations, src identity.ID) {

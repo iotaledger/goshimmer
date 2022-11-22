@@ -8,6 +8,7 @@ import (
 )
 
 type DiffConsumer interface {
+	ImportOutputs(outputs []*models.OutputWithMetadata)
 	Begin(committedEpoch epoch.Index)
 	Commit() (ctx context.Context)
 	ProcessCreatedOutput(output *models.OutputWithMetadata)

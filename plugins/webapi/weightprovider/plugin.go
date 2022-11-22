@@ -3,6 +3,7 @@ package weightprovider
 import (
 	"net/http"
 
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/node"
 	"github.com/labstack/echo"
@@ -47,8 +48,8 @@ func getIssuersHandler(c echo.Context) (err error) {
 
 func getWeightsHandler(c echo.Context) (err error) {
 	weightsString := make(map[string]int64)
-	_ = deps.Protocol.Engine().Tangle.ActiveNodes.ForEachWeighted(func(id identity.ID, weight int64) error {
-		weightsString[id.String()] = weight
+	_ = deps.Protocol.Engine().Tangle.ActiveNodes.ForEach(func(id identity.ID) error {
+		weightsString[id.String()] = lo.Return1(deps.Protocol.Engine().SybilProtection.Weights().Weight(id)).Value
 		return nil
 	})
 

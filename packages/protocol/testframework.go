@@ -39,9 +39,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 
 		storageInstance := storage.New(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), DatabaseVersion)
 		test.Cleanup(func() {
-			if err := storageInstance.Shutdown(); err != nil {
-				test.Fatal(err)
-			}
+			storageInstance.Shutdown()
 		})
 
 		creator.CreateSnapshot(storageInstance, diskUtil.Path("snapshot.bin"), 100, make([]byte, 32, 32), map[identity.ID]uint64{
