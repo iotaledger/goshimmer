@@ -8,7 +8,6 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
-	"github.com/iotaledger/hive.go/core/bytesfilter"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/typeutils"
@@ -42,7 +41,6 @@ func NewParser() (result *Parser) {
 	}
 
 	// add builtin filters
-	result.AddBytesFilter(NewRecentlySeenBytesFilter())
 	result.AddBlockFilter(NewBlockSignatureFilter())
 	// TODO: add transaction filter in the ledger
 	// TODO: add commitment filter. If commitment is different from the expected one, reject the block and notify notarization manager.
@@ -342,65 +340,6 @@ func powData(blkBytes []byte) ([]byte, error) {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region RecentlySeenBytesFilter //////////////////////////////////////////////////////////////////////////////////////
-
-// RecentlySeenBytesFilter filters so that bytes which were recently seen don't pass the filter.
-type RecentlySeenBytesFilter struct {
-	bytesFilter      *bytesfilter.BytesFilter
-	onAcceptCallback func(bytes []byte, peer *peer.Peer)
-	onRejectCallback func(bytes []byte, err error, peer *peer.Peer)
-
-	onAcceptCallbackMutex sync.RWMutex
-	onRejectCallbackMutex sync.RWMutex
-}
-
-// NewRecentlySeenBytesFilter creates a new recently seen bytes filter.
-func NewRecentlySeenBytesFilter() *RecentlySeenBytesFilter {
-	return &RecentlySeenBytesFilter{
-		bytesFilter: bytesfilter.New(recentlySeenBytesFilterSize),
-	}
-}
-
-// Filter filters up on the given bytes and peer and calls the acceptance callback
-// if the input passes or the rejection callback if the input is rejected.
-func (r *RecentlySeenBytesFilter) Filter(bytes []byte, p *peer.Peer) {
-	if r.bytesFilter.Add(bytes) {
-		r.getAcceptCallback()(bytes, p)
-		return
-	}
-	r.getRejectCallback()(bytes, ErrReceivedDuplicateBytes, p)
-}
-
-// OnAccept registers the given callback as the acceptance function of the filter.
-func (r *RecentlySeenBytesFilter) OnAccept(callback func(bytes []byte, peer *peer.Peer)) {
-	r.onAcceptCallbackMutex.Lock()
-	r.onAcceptCallback = callback
-	r.onAcceptCallbackMutex.Unlock()
-}
-
-// OnReject registers the given callback as the rejection function of the filter.
-func (r *RecentlySeenBytesFilter) OnReject(callback func(bytes []byte, err error, peer *peer.Peer)) {
-	r.onRejectCallbackMutex.Lock()
-	r.onRejectCallback = callback
-	r.onRejectCallbackMutex.Unlock()
-}
-
-func (r *RecentlySeenBytesFilter) getAcceptCallback() (result func(bytes []byte, peer *peer.Peer)) {
-	r.onAcceptCallbackMutex.RLock()
-	result = r.onAcceptCallback
-	r.onAcceptCallbackMutex.RUnlock()
-	return
-}
-
-func (r *RecentlySeenBytesFilter) getRejectCallback() (result func(bytes []byte, err error, peer *peer.Peer)) {
-	r.onRejectCallbackMutex.RLock()
-	result = r.onRejectCallback
-	r.onRejectCallbackMutex.RUnlock()
-	return
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region Errors ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 var (
@@ -412,9 +351,6 @@ var (
 
 	// ErrInvalidSignature is returned when a block contains an invalid signature.
 	ErrInvalidSignature = fmt.Errorf("invalid signature")
-
-	// ErrReceivedDuplicateBytes is returned when duplicated bytes are rejected.
-	ErrReceivedDuplicateBytes = fmt.Errorf("received duplicate bytes")
 )
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
