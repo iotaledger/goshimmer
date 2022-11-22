@@ -35,11 +35,11 @@ func (m *BatchedTransition) Apply() (ctx context.Context) {
 }
 
 func (m *BatchedTransition) ProcessCreatedOutput(output *models.OutputWithMetadata) {
-	onOutputCreated(output, m.weightUpdates.ApplyDiff)
+	ProcessCreatedOutput(output, m.weightUpdates.ApplyDiff)
 }
 
 func (m *BatchedTransition) ProcessSpentOutput(spentOutput *models.OutputWithMetadata) {
-	onOutputSpent(spentOutput, m.weightUpdates.ApplyDiff)
+	ProcessSpentOutput(spentOutput, m.weightUpdates.ApplyDiff)
 }
 
 // code contract (make sure the type implements all required methods)

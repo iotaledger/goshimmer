@@ -7,7 +7,7 @@ import (
 type SybilProtection interface {
 	Weights() (weights *Weights)
 	Validators() (validators *WeightedSet)
-	InitModule()
 
+	InitModule()
 	state.Consumer
 }

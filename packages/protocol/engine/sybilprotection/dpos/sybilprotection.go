@@ -69,7 +69,7 @@ func (p *SybilProtection) Weights() *sybilprotection.Weights {
 }
 
 func (p *SybilProtection) ImportOutput(output *ledgerModels.OutputWithMetadata) {
-	onOutputCreated(output, p.weights.Import)
+	ProcessCreatedOutput(output, p.weights.Import)
 }
 
 func (p *SybilProtection) BatchedTransition(targetEpoch epoch.Index) state.BatchedTransition {

@@ -6,14 +6,14 @@ import (
 	ledgerModels "github.com/iotaledger/goshimmer/packages/storage/models"
 )
 
-func onOutputCreated(output *ledgerModels.OutputWithMetadata, updateWeights func(id identity.ID, diff int64)) {
+func ProcessCreatedOutput(output *ledgerModels.OutputWithMetadata, weightUpdater func(id identity.ID, diff int64)) {
 	if iotaBalance, exists := output.IOTABalance(); exists {
-		updateWeights(output.ConsensusManaPledgeID(), int64(iotaBalance))
+		weightUpdater(output.ConsensusManaPledgeID(), int64(iotaBalance))
 	}
 }
 
-func onOutputSpent(output *ledgerModels.OutputWithMetadata, processDiff func(id identity.ID, diff int64)) {
+func ProcessSpentOutput(output *ledgerModels.OutputWithMetadata, weightUpdater func(id identity.ID, diff int64)) {
 	if iotaBalance, exists := output.IOTABalance(); exists {
-		processDiff(output.ConsensusManaPledgeID(), -int64(iotaBalance))
+		weightUpdater(output.ConsensusManaPledgeID(), -int64(iotaBalance))
 	}
 }

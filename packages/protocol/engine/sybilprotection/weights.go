@@ -111,21 +111,21 @@ func (w *Weights) Map() (weights map[identity.ID]int64, err error) {
 	return weights, nil
 }
 
-func (w *Weights) Import(id identity.ID, diff int64) {
+func (w *Weights) Import(id identity.ID, weight int64) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
 	if oldWeight, exists := w.weights.Get(id); exists {
-		if newWeight := oldWeight.Value + diff; newWeight == 0 {
+		if newWeight := oldWeight.Value + weight; newWeight == 0 {
 			w.weights.Delete(id)
 		} else {
 			w.weights.Set(id, NewWeight(newWeight, w.settings.LatestCommitment().Index()))
 		}
 	} else {
-		w.weights.Set(id, NewWeight(diff, w.settings.LatestCommitment().Index()))
+		w.weights.Set(id, NewWeight(weight, w.settings.LatestCommitment().Index()))
 	}
 
-	w.totalWeight.Value += diff
+	w.totalWeight.Value += weight
 }
 
 func (w *Weights) Export(callback func(id identity.ID, weight int64) bool) (err error) {
