@@ -248,13 +248,16 @@ func (b *Block) DetermineID() (err error) {
 }
 
 // DetermineIDFromBytes calculates and sets the block's BlockID and size.
-func (b *Block) DetermineIDFromBytes(buf []byte) {
-	b.SetID(NewBlockID(blake2b.Sum256(buf), epoch.IndexFromTime(b.IssuingTime())))
+func (b *Block) DetermineIDFromBytes(buf []byte) BlockID {
+	id := NewBlockID(blake2b.Sum256(buf), epoch.IndexFromTime(b.IssuingTime()))
+	b.SetID(id)
 
 	b.Lock()
 	defer b.Unlock()
 	l := len(buf)
 	b.size = &l
+
+	return id
 }
 
 func (b *Block) SetSize(size int) {

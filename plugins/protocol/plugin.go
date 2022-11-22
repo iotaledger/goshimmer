@@ -68,11 +68,6 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 			engine.WithTSCManagerOptions(
 				tsc.WithTimeSinceConfirmationThreshold(Parameters.TimeSinceConfirmationThreshold),
 			),
-			engine.WithDatabaseManagerOptions(
-				database.WithDBProvider(dbProvider),
-				database.WithMaxOpenDBs(DatabaseParameters.MaxOpenDBs),
-				database.WithGranularity(DatabaseParameters.Granularity),
-			),
 			engine.WithLedgerOptions(
 				ledger.WithVM(new(devnetvm.VM)),
 				ledger.WithCacheTimeProvider(cacheTimeProvider),
@@ -98,6 +93,10 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 		protocol.WithBaseDirectory(DatabaseParameters.Directory),
 		protocol.WithSnapshotPath(Parameters.Snapshot.Path),
 		protocol.WithPruningThreshold(DatabaseParameters.PruningThreshold),
+		protocol.WithStorageDatabaseManagerOptions(
+			database.WithDBProvider(dbProvider),
+			database.WithMaxOpenDBs(DatabaseParameters.MaxOpenDBs),
+		),
 	)
 
 	return p
@@ -119,7 +118,6 @@ func configureLogging(*node.Plugin) {
 	// deps.Protocol.Events.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
 	// 	Plugin.LogDebugf("Block %s scheduled", block.ID())
 	// }))
-
 	deps.Protocol.Events.Engine.Error.Attach(event.NewClosure(func(err error) {
 		Plugin.LogErrorf("Error in Engine: %s", err)
 	}))

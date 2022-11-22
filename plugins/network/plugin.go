@@ -21,11 +21,11 @@ var (
 type dependencies struct {
 	dig.In
 
-	P2PManager *p2p.Manager
+	Network *network.Protocol
 }
 
 func init() {
-	Plugin = node.NewPlugin(PluginName, deps, node.Enabled)
+	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configureLogging)
 	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
 		if err := event.Container.Provide(provide); err != nil {
 			Plugin.Panic(err)
@@ -33,6 +33,13 @@ func init() {
 	}))
 }
 
-func provide() *network.Protocol {
-	return network.NewProtocol(deps.P2PManager)
+func configureLogging(*node.Plugin) {
+	deps.Network.Events.Error.Attach(event.NewClosure(func(errorEvent *network.ErrorEvent) {
+		Plugin.LogErrorf("Error in Network: %s (source: %s)", errorEvent.Error, errorEvent.Source.String())
+	}))
+
+}
+
+func provide(p2pManager *p2p.Manager) *network.Protocol {
+	return network.NewProtocol(p2pManager)
 }

@@ -77,7 +77,6 @@ func TestRetainer_BlockMetadata_NonEvicted(t *testing.T) {
 	assert.Equal(t, meta.M.Solid, block.IsSolid())
 	assert.Equal(t, meta.M.Invalid, block.IsInvalid())
 	assert.Equal(t, meta.M.Orphaned, block.IsOrphaned())
-	assert.Equal(t, meta.M.OrphanedBlocksInPastCone, block.OrphanedBlocksInPastCone())
 	assert.Equal(t, meta.M.StrongChildren, blocksToBlockIDs(block.StrongChildren()))
 	assert.Equal(t, meta.M.WeakChildren, blocksToBlockIDs(block.WeakChildren()))
 	assert.Equal(t, meta.M.LikedInsteadChildren, blocksToBlockIDs(block.LikedInsteadChildren()))
@@ -126,7 +125,6 @@ func TestRetainer_BlockMetadata_Evicted(t *testing.T) {
 	assert.Equal(t, meta.M.Solid, block.IsSolid())
 	assert.Equal(t, meta.M.Invalid, block.IsInvalid())
 	assert.Equal(t, meta.M.Orphaned, block.IsOrphaned())
-	assert.Equal(t, meta.M.OrphanedBlocksInPastCone, block.OrphanedBlocksInPastCone())
 	assert.Equal(t, meta.M.StrongChildren, blocksToBlockIDs(block.StrongChildren()))
 	assert.Equal(t, meta.M.WeakChildren, blocksToBlockIDs(block.WeakChildren()))
 	assert.Equal(t, meta.M.LikedInsteadChildren, blocksToBlockIDs(block.LikedInsteadChildren()))
@@ -159,7 +157,6 @@ func validateDeserialized(t *testing.T, meta *BlockMetadata, metaDeserialized *B
 	assert.Equal(t, meta.M.Solid, metaDeserialized.M.Solid)
 	assert.Equal(t, meta.M.Invalid, metaDeserialized.M.Invalid)
 	assert.Equal(t, meta.M.Orphaned, metaDeserialized.M.Orphaned)
-	assert.Equal(t, meta.M.OrphanedBlocksInPastCone, metaDeserialized.M.OrphanedBlocksInPastCone)
 	assert.Equal(t, meta.M.StrongChildren, metaDeserialized.M.StrongChildren)
 	assert.Equal(t, meta.M.WeakChildren, metaDeserialized.M.WeakChildren)
 	assert.Equal(t, meta.M.LikedInsteadChildren, metaDeserialized.M.LikedInsteadChildren)
@@ -194,8 +191,6 @@ func createBlockMetadata() *BlockMetadata {
 	meta.M.Solid = true
 	meta.M.Invalid = false
 	meta.M.Orphaned = true
-	meta.M.OrphanedBlocksInPastCone = make(models.BlockIDs)
-	meta.M.OrphanedBlocksInPastCone.Add(blockID1)
 	meta.M.StrongChildren = make(models.BlockIDs)
 	meta.M.StrongChildren.Add(blockID2)
 	meta.M.WeakChildren = make(models.BlockIDs)

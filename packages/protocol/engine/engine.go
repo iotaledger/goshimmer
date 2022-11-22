@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/eventticker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
@@ -67,7 +66,6 @@ type Engine struct {
 	optsConsensusOptions           []options.Option[consensus.Consensus]
 	optsSybilProtectionOptions     []options.Option[sybilprotection.SybilProtection]
 	optsTSCManagerOptions          []options.Option[tsc.Manager]
-	optsDatabaseManagerOptions     []options.Option[database.Manager]
 	optsBlockRequester             []options.Option[eventticker.EventTicker[models.BlockID]]
 }
 
@@ -396,12 +394,6 @@ func WithTSCManagerOptions(opts ...options.Option[tsc.Manager]) options.Option[E
 func WithSnapshotFile(snapshotFile string) options.Option[Engine] {
 	return func(e *Engine) {
 		e.optsSnapshotFile = snapshotFile
-	}
-}
-
-func WithDatabaseManagerOptions(opts ...options.Option[database.Manager]) options.Option[Engine] {
-	return func(e *Engine) {
-		e.optsDatabaseManagerOptions = opts
 	}
 }
 

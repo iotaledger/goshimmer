@@ -1,6 +1,7 @@
 package notarization
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -25,12 +26,14 @@ type Manager struct {
 	Events *Events
 	*EpochMutations
 
-	storage                    *storage.Storage
-	pendingConflictsCounters   *shrinkingmap.ShrinkingMap[epoch.Index, uint64]
-	acceptanceTime             time.Time
-	optsMinCommittableEpochAge time.Duration
+	storage                  *storage.Storage
+	pendingConflictsCounters *shrinkingmap.ShrinkingMap[epoch.Index, uint64]
+	commitmentMutex          sync.RWMutex
 
-	sync.RWMutex
+	acceptanceTime      time.Time
+	acceptanceTimeMutex sync.RWMutex
+
+	optsMinCommittableEpochAge time.Duration
 }
 
 func NewManager(storage *storage.Storage, sybilProtection *sybilprotection.SybilProtection, opts ...options.Option[Manager]) (new *Manager) {
@@ -46,8 +49,8 @@ func NewManager(storage *storage.Storage, sybilProtection *sybilprotection.Sybil
 }
 
 func (m *Manager) IncreaseConflictsCounter(index epoch.Index) {
-	m.Lock()
-	defer m.Unlock()
+	m.commitmentMutex.Lock()
+	defer m.commitmentMutex.Unlock()
 
 	if index <= m.storage.Settings.LatestCommitment().Index() {
 		return
@@ -57,8 +60,8 @@ func (m *Manager) IncreaseConflictsCounter(index epoch.Index) {
 }
 
 func (m *Manager) DecreaseConflictsCounter(index epoch.Index) {
-	m.Lock()
-	defer m.Unlock()
+	m.commitmentMutex.Lock()
+	defer m.commitmentMutex.Unlock()
 
 	if index <= m.storage.Settings.LatestCommitment().Index() {
 		return
@@ -69,39 +72,45 @@ func (m *Manager) DecreaseConflictsCounter(index epoch.Index) {
 	} else {
 		m.pendingConflictsCounters.Delete(index)
 
-		m.tryCommitEpoch(index)
+		m.tryCommitEpoch(index, m.AcceptanceTime())
 	}
 }
 
-func (m *Manager) SetAcceptanceTime(acceptanceTime time.Time) {
-	m.Lock()
-	defer m.Unlock()
+func (m *Manager) AcceptanceTime() time.Time {
+	m.acceptanceTimeMutex.RLock()
+	defer m.acceptanceTimeMutex.RUnlock()
 
+	return m.acceptanceTime
+}
+
+func (m *Manager) SetAcceptanceTime(acceptanceTime time.Time) {
+	m.commitmentMutex.Lock()
+	defer m.commitmentMutex.Unlock()
+
+	m.acceptanceTimeMutex.Lock()
 	m.acceptanceTime = acceptanceTime
+	m.acceptanceTimeMutex.Unlock()
 
 	if index := epoch.IndexFromTime(acceptanceTime); index > m.storage.Settings.LatestCommitment().Index() {
-		m.tryCommitEpoch(index)
+		m.tryCommitEpoch(index, acceptanceTime)
 	}
 }
 
 // IsFullyCommitted returns if the Manager finished committing all pending epochs up to the current acceptance time.
 func (m *Manager) IsFullyCommitted() bool {
-	m.RLock()
-	defer m.RUnlock()
-
-	return m.acceptanceTime.Sub((m.storage.Settings.LatestCommitment().Index() + 1).EndTime()) < m.optsMinCommittableEpochAge
+	return m.AcceptanceTime().Sub((m.storage.Settings.LatestCommitment().Index() + 1).EndTime()) < m.optsMinCommittableEpochAge
 }
 
-func (m *Manager) tryCommitEpoch(index epoch.Index) {
+func (m *Manager) tryCommitEpoch(index epoch.Index, acceptanceTime time.Time) {
 	for i := m.storage.Settings.LatestCommitment().Index() + 1; i <= index; i++ {
-		if !m.isCommittable(i) || !m.createCommitment(i) {
+		if !m.isCommittable(i, acceptanceTime) || !m.createCommitment(i) {
 			return
 		}
 	}
 }
 
-func (m *Manager) isCommittable(ei epoch.Index) (isCommittable bool) {
-	return m.acceptanceTime.Sub(ei.EndTime()) >= m.optsMinCommittableEpochAge && m.hasNoPendingConflicts(ei)
+func (m *Manager) isCommittable(ei epoch.Index, acceptanceTime time.Time) (isCommittable bool) {
+	return acceptanceTime.Sub(ei.EndTime()) >= m.optsMinCommittableEpochAge && m.hasNoPendingConflicts(ei)
 }
 
 func (m *Manager) hasNoPendingConflicts(ei epoch.Index) (hasNoPendingConflicts bool) {
@@ -139,6 +148,7 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 		m.Events.Error.Trigger(errors.Errorf("failed to set latest commitment: %w", err))
 	}
 
+	fmt.Println("epoch commited", newCommitment.Index(), m.AcceptanceTime())
 	m.Events.EpochCommitted.Trigger(newCommitment)
 	return true
 }
