@@ -53,7 +53,7 @@ func broadcastActivityBlock() {
 		return
 	}
 
-	Plugin.LogDebugf("issued activity block %s", block.ID(), "(issuing time:", block.IssuingTime(), ")")
+	Plugin.LogDebugf("issued activity block %s (issuing time: %s)", block.ID(), block.IssuingTime().String())
 }
 
 func run(_ *node.Plugin) {
