@@ -48,7 +48,7 @@ type EpochMutations struct {
 // NewEpochMutations creates a new EpochMutations instance.
 func NewEpochMutations(validatorWeightFunc func(id identity.ID) (int64, bool), lastCommittedEpoch epoch.Index) (newMutationFactory *EpochMutations) {
 	return &EpochMutations{
-		Events:                      NewEpochMutationsEvents(),
+		Events:              NewEpochMutationsEvents(),
 		validatorWeightFunc: validatorWeightFunc,
 
 		acceptedBlocksByEpoch:       memstorage.New[epoch.Index, *ads.Set[models.BlockID]](),
@@ -183,6 +183,7 @@ func (m *EpochMutations) Commit(index epoch.Index) (acceptedBlocks *ads.Set[mode
 		return nil, nil, nil, 0, errors.Errorf("cannot commit epoch %d: already committed", index)
 	}
 
+	m.latestCommittedIndex = index
 	defer m.evictUntil(index)
 
 	m.lastCommittedEpochCumulativeWeight += m.epochWeight(index)
@@ -265,8 +266,6 @@ func (m *EpochMutations) evictUntil(index epoch.Index) {
 		m.activeValidatorsByEpoch.Delete(i)
 		m.issuerBlocksByEpoch.Evict(i)
 	}
-
-	m.latestCommittedIndex = index
 }
 
 // newSet is a generic constructor for a new ads.Set.

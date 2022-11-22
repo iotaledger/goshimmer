@@ -1,6 +1,8 @@
 package notarization
 
 import (
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
+	"github.com/iotaledger/hive.go/core/generics/event"
 	"sync"
 	"time"
 
@@ -30,10 +32,13 @@ type Manager struct {
 	acceptanceTime             time.Time
 	optsMinCommittableEpochAge time.Duration
 
+	// evictionState contains information about the current eviction state.
+	evictionState *eviction.State
+
 	sync.RWMutex
 }
 
-func NewManager(storage *storage.Storage, sybilProtection *sybilprotection.SybilProtection, opts ...options.Option[Manager]) (new *Manager) {
+func NewManager(evictionState *eviction.State, storage *storage.Storage, sybilProtection *sybilprotection.SybilProtection, opts ...options.Option[Manager]) (new *Manager) {
 	return options.Apply(&Manager{
 		Events:         NewEvents(),
 		EpochMutations: NewEpochMutations(sybilProtection.Weight, storage.Settings.LatestCommitment().Index()),
@@ -42,7 +47,13 @@ func NewManager(storage *storage.Storage, sybilProtection *sybilprotection.Sybil
 		pendingConflictsCounters:   shrinkingmap.New[epoch.Index, uint64](),
 		acceptanceTime:             storage.Settings.LatestCommitment().Index().EndTime(),
 		optsMinCommittableEpochAge: defaultMinEpochCommittableAge,
-	}, opts)
+
+		evictionState: evictionState,
+	}, opts, (*Manager).setupEvents)
+}
+
+func (m *Manager) setupEvents() {
+	m.evictionState.Events.EpochEvicted.Hook(event.NewClosure(m.evictUntil))
 }
 
 func (m *Manager) IncreaseConflictsCounter(index epoch.Index) {
@@ -124,16 +135,6 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 
 	m.pendingConflictsCounters.Delete(index)
 
-	blocksCount := m.EpochMutations.TotalAcceptedBlocks(index)
-	txsCount := m.EpochMutations.TotalAcceptedTransactions(index)
-	validatorsCount := m.EpochMutations.TotalActiveValidators(index)
-	epochDetails := &EvictedEpochDetails{
-		Index:                     index,
-		AcceptedBlocksCount:       blocksCount,
-		AcceptedTransactionsCount: txsCount,
-		ActiveValidatorsCount:     validatorsCount,
-	}
-
 	stateRoot, manaRoot := m.storage.ApplyStateDiff(index, m.storage.LedgerStateDiffs.StateDiff(index))
 	acceptedBlocks, acceptedTransactions, activeValidators, cumulativeWeight, err := m.EpochMutations.Commit(index)
 	if err != nil {
@@ -149,9 +150,6 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 	}
 
 	m.Events.EpochCommitted.Trigger(newCommitment)
-	if epochDetails != nil {
-		m.Events.EvictedEpochDetails.Trigger(epochDetails)
-	}
 
 	return true
 }
