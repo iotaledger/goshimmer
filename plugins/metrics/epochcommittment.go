@@ -18,24 +18,22 @@ var (
 	lastCommitment          = new(commitment.Commitment)
 	lastCommittedEpochMutex sync.RWMutex
 
-	acceptedBlocksCount       atomic.Int32
-	acceptedTransactionsCount atomic.Int32
-	activeValidatorsCount     atomic.Int32
+	acceptedBlocksCount       int32
+	acceptedTransactionsCount int32
+	activeValidatorsCount     int32
 	currentEI                 epoch.Index
 	epochCountsMutex          sync.RWMutex
 
-	numberOfSeenOtherCommitments = 0
-	seenOtherCommitmentsMutex    sync.RWMutex
+	numberOfSeenOtherCommitments = atomic.Int64{}
 
-	missingCommitments         = 0
-	missingCommitmentsReceived = 0
-	commitmentsMutex           sync.RWMutex
+	missingCommitments         = atomic.Int64{}
+	missingCommitmentsReceived = atomic.Int64{}
 
-	orphanedBlkRemovedMutex sync.RWMutex
 	oldestEpoch             = epoch.Index(0)
 	maxEpochsPreserved      = 20
 	numEpochsToRemove       = maxEpochsPreserved / 2
 	orphanedBlkRemoved      = shrinkingmap.New[epoch.Index, int]()
+	orphanedBlkRemovedMutex sync.RWMutex
 )
 
 var onEpochCommitted = event.NewClosure(func(commitment *commitment.Commitment) {
@@ -46,24 +44,15 @@ var onEpochCommitted = event.NewClosure(func(commitment *commitment.Commitment) 
 })
 
 var onForkDetected = event.NewClosure(func(chain *chainmanager.Chain) {
-	seenOtherCommitmentsMutex.Lock()
-	defer seenOtherCommitmentsMutex.Unlock()
-
-	numberOfSeenOtherCommitments++
+	numberOfSeenOtherCommitments.Add(1)
 })
 
 var onCommitmentMissing = event.NewClosure(func(commitment commitment.ID) {
-	commitmentsMutex.Lock()
-	defer commitmentsMutex.Unlock()
-
-	missingCommitments++
+	missingCommitments.Add(1)
 })
 
 var onMissingCommitmentReceived = event.NewClosure(func(commitment commitment.ID) {
-	commitmentsMutex.Lock()
-	defer commitmentsMutex.Unlock()
-
-	missingCommitmentsReceived++
+	missingCommitmentsReceived.Add(1)
 })
 
 // LastCommittedEpoch returns the last committed epoch.
@@ -75,27 +64,18 @@ func LastCommittedEpoch() *commitment.Commitment {
 }
 
 // NumberOfSeenOtherCommitments returns the number of commitments different from ours that were observed by the node.
-func NumberOfSeenOtherCommitments() int {
-	seenOtherCommitmentsMutex.RLock()
-	defer seenOtherCommitmentsMutex.RUnlock()
-
-	return numberOfSeenOtherCommitments
+func NumberOfSeenOtherCommitments() int64 {
+	return numberOfSeenOtherCommitments.Load()
 }
 
 // MissingCommitmentsRequested returns the number of requested missing commitments.
-func MissingCommitmentsRequested() int {
-	commitmentsMutex.RLock()
-	defer commitmentsMutex.RUnlock()
-
-	return missingCommitments
+func MissingCommitmentsRequested() int64 {
+	return missingCommitments.Load()
 }
 
 // MissingCommitmentsReceived returns the number of received missing commitments.
-func MissingCommitmentsReceived() int {
-	commitmentsMutex.RLock()
-	defer commitmentsMutex.RUnlock()
-
-	return missingCommitmentsReceived
+func MissingCommitmentsReceived() int64 {
+	return missingCommitmentsReceived.Load()
 }
 
 // BlocksOfEpoch returns the number of blocks in the current epoch.
@@ -103,7 +83,7 @@ func BlocksOfEpoch() (ei epoch.Index, accBlocks int32, accTxs int32, activeValid
 	epochCountsMutex.Lock()
 	defer epochCountsMutex.Unlock()
 
-	return currentEI, acceptedBlocksCount.Load(), acceptedTransactionsCount.Load(), activeValidatorsCount.Load()
+	return currentEI, acceptedBlocksCount, acceptedTransactionsCount, activeValidatorsCount
 }
 
 func updateBlkOfEpoch(ei epoch.Index, accBlocks int32, accTxs int32, activeValidators int32) {
@@ -111,9 +91,9 @@ func updateBlkOfEpoch(ei epoch.Index, accBlocks int32, accTxs int32, activeValid
 	defer epochCountsMutex.Unlock()
 
 	currentEI = ei
-	acceptedBlocksCount.Store(accBlocks)
-	acceptedTransactionsCount.Store(accTxs)
-	activeValidatorsCount.Store(activeValidators)
+	acceptedBlocksCount = accBlocks
+	acceptedTransactionsCount = accTxs
+	activeValidatorsCount = activeValidators
 }
 
 // RemovedBlocksOfEpoch returns the number of orphaned blocks in the given epoch.
@@ -149,8 +129,6 @@ func increaseRemovedBlockCounter(blkID models.BlockID) {
 	if count, exists := orphanedBlkRemoved.Get(blkID.EpochIndex); exists {
 		count++
 		orphanedBlkRemoved.Set(blkID.EpochIndex, count)
-	} else {
-		orphanedBlkRemoved.Set(blkID.EpochIndex, 1)
 	}
 
 	checkLimit()
