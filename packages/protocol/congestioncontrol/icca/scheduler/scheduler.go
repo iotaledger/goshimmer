@@ -77,8 +77,8 @@ func New(evictionState *eviction.State, isBlockAccepted func(models.BlockID) boo
 		blocks:                             memstorage.NewEpochStorage[models.BlockID, *Block](),
 		optsMaxBufferSize:                  300,
 		optsAcceptedBlockScheduleThreshold: 5 * time.Minute,
-		optsRate:                           5 * time.Millisecond,                              // measured in time per unit work
-		optsMaxDeficit:                     new(big.Rat).SetInt64(int64(models.MaxBlockSize)), // must be >= max block work.
+		optsRate:                           5 * time.Millisecond,      // measured in time per unit work
+		optsMaxDeficit:                     new(big.Rat).SetInt64(10), // must be >= max block work, but work is currently=1 for all blocks
 
 		shutdownSignal: make(chan struct{}),
 		readyChan:      make(chan *Block),
@@ -401,11 +401,7 @@ func (s *Scheduler) unsubmit(block *Block) {
 }
 
 func (s *Scheduler) ready(block *Block) {
-	if s.buffer.ReadyBlocksCount() == 0 {
-		if s.buffer.Ready(block) {
-			s.readyChan <- block
-		}
-	}
+	s.buffer.Ready(block)
 }
 
 // block retrieves the Block with given id from the mem-storage.
@@ -432,21 +428,10 @@ loop:
 		// every rate time units
 		case <-s.ticker.C:
 			if block := s.schedule(); block != nil {
-				s.ticker.Reset(s.optsRate * time.Duration(block.Work()))
+				//s.ticker.Reset(s.optsRate * time.Duration(block.Work()))
 				if block.SetScheduled() {
 					s.Events.BlockScheduled.Trigger(block)
 				}
-			} else {
-				s.ticker.Stop() // pause the ticker until another block becomes ready
-			}
-		case readyBlk := <-s.readyChan:
-			if block := s.schedule(); block == readyBlk {
-				s.ticker.Reset(s.optsRate * time.Duration(block.Work()))
-				if block.SetScheduled() {
-					s.Events.BlockScheduled.Trigger(block)
-				}
-			} else {
-				panic("Should have scheduled the only ready block in the buffer")
 			}
 		// on close, exit the loop
 		case <-s.shutdownSignal:
