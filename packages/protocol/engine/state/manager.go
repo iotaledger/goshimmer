@@ -40,12 +40,12 @@ func (s *Manager) ApplyStateDiff(targetEpoch epoch.Index) (err error) {
 	}
 
 	if err = s.storage.LedgerStateDiffs.StreamCreatedOutputs(targetEpoch, func(output *models.OutputWithMetadata) {
-		for i, pendingStateTransition := range batchedTransitions {
+		for i, batchedTransition := range batchedTransitions {
 			switch {
 			case s.consumers[i].LastConsumedEpoch() < targetEpoch:
-				pendingStateTransition.ProcessCreatedOutput(output)
+				batchedTransition.ProcessCreatedOutput(output)
 			case s.consumers[i].LastConsumedEpoch() > targetEpoch:
-				pendingStateTransition.ProcessSpentOutput(output)
+				batchedTransition.ProcessSpentOutput(output)
 			}
 		}
 	}); err != nil {
