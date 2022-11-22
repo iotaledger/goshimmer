@@ -17,7 +17,7 @@ type WeightedSet struct {
 	totalWeightMutex     sync.RWMutex
 }
 
-func NewWeightedSet(weights *Weights, optMembers ...identity.ID) (newWeightedSet *WeightedSet) {
+func newWeightedSet(weights *Weights, optMembers ...identity.ID) (newWeightedSet *WeightedSet) {
 	newWeightedSet = new(WeightedSet)
 	newWeightedSet.Weights = weights
 	newWeightedSet.weightUpdatesClosure = event.NewClosure(newWeightedSet.onWeightUpdated)
@@ -62,6 +62,21 @@ func (w *WeightedSet) Delete(id identity.ID) (removed bool) {
 	}
 
 	return
+}
+
+func (w *WeightedSet) Get(id identity.ID) (weight *Weight, exists bool) {
+	w.membersMutex.RLock()
+	defer w.membersMutex.RUnlock()
+
+	if !w.members.Has(id) {
+		return nil, false
+	}
+
+	if weight, exists := w.Weights.Weight(id); exists {
+		return weight, true
+	}
+
+	return NewWeight(0, -1), true
 }
 
 func (w *WeightedSet) Has(id identity.ID) (has bool) {

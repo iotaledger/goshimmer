@@ -11,7 +11,9 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/storage"
+	"github.com/iotaledger/goshimmer/packages/storage/models"
 )
 
 const (
@@ -25,6 +27,8 @@ type Manager struct {
 	*EpochMutations
 
 	storage                    *storage.Storage
+	consumers                  []StateDiffConsumer
+	consumersMutex             sync.RWMutex
 	pendingConflictsCounters   *shrinkingmap.ShrinkingMap[epoch.Index, uint64]
 	acceptanceTime             time.Time
 	optsMinCommittableEpochAge time.Duration
@@ -32,15 +36,18 @@ type Manager struct {
 	sync.RWMutex
 }
 
-func NewManager(storageInstance *storage.Storage, attestations func(epoch.Index) *Attestations, opts ...options.Option[Manager]) (newManager *Manager) {
+func NewManager(storageInstance *storage.Storage, sybilProtection sybilprotection.SybilProtection, opts ...options.Option[Manager]) (newManager *Manager) {
 	return options.Apply(&Manager{
 		Events:                     NewEvents(),
-		EpochMutations:             NewEpochMutations(attestations, storageInstance.Settings.LatestCommitment().Index()),
+		EpochMutations:             NewEpochMutations(sybilProtection, storageInstance.Settings.LatestCommitment().Index()),
 		storage:                    storageInstance,
 		pendingConflictsCounters:   shrinkingmap.New[epoch.Index, uint64](),
 		acceptanceTime:             storageInstance.Settings.LatestCommitment().Index().EndTime(),
 		optsMinCommittableEpochAge: defaultMinEpochCommittableAge,
-	}, opts)
+	}, opts, func(m *Manager) {
+		m.RegisterConsumer(NewUnspentOutputsIDs(m.storage.UnspentOutputIDs))
+
+	})
 }
 
 func (m *Manager) IncreaseConflictsCounter(index epoch.Index) {
@@ -122,16 +129,34 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 
 	m.pendingConflictsCounters.Delete(index)
 
-	stateRoot, manaRoot := m.storage.ApplyStateDiff(index, m.storage.LedgerStateDiffs.StateDiff(index))
+	if err := m.applyStateDiff(index); err != nil {
+		m.Events.Error.Trigger(errors.Errorf("failed to apply state diff for epoch %d: %w", index, err))
 
-	acceptedBlocks, acceptedTransactions, activeValidators, cumulativeWeight, err := m.EpochMutations.Commit(index)
+		return false
+	}
+
+	//
+	manaRoot := m.sybilProtection.Weights().Root()
+
+	acceptedBlocks, acceptedTransactions, attestations, err := m.EpochMutations.Evict(index)
 	if err != nil {
 		m.Events.Error.Trigger(errors.Errorf("failed to commit mutations: %w", err))
 
 		return false
 	}
 
-	newCommitment := commitment.New(index, latestCommitment.ID(), commitment.NewRoots(acceptedBlocks.Root(), acceptedTransactions.Root(), activeValidators.Root(), stateRoot, manaRoot).ID(), cumulativeWeight)
+	newCommitment := commitment.New(
+		index,
+		latestCommitment.ID(),
+		commitment.NewRoots(
+			acceptedBlocks.Root(),
+			acceptedTransactions.Root(),
+			attestations.Attestors().Root(),
+			stateRoot,
+			manaRoot,
+		).ID(),
+		m.storage.Settings.LatestCommitment().CumulativeWeight()+attestations.Weight(),
+	)
 
 	if err = m.storage.Settings.SetLatestCommitment(newCommitment); err != nil {
 		m.Events.Error.Trigger(errors.Errorf("failed to set latest commitment: %w", err))

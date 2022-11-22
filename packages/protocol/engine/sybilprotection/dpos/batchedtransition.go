@@ -38,8 +38,8 @@ func (m *BatchedTransition) ProcessCreatedOutput(output *models.OutputWithMetada
 	ProcessCreatedOutput(output, m.weightUpdates.ApplyDiff)
 }
 
-func (m *BatchedTransition) ProcessSpentOutput(spentOutput *models.OutputWithMetadata) {
-	ProcessSpentOutput(spentOutput, m.weightUpdates.ApplyDiff)
+func (m *BatchedTransition) ProcessSpentOutput(output *models.OutputWithMetadata) {
+	ProcessSpentOutput(output, m.weightUpdates.ApplyDiff)
 }
 
 // code contract (make sure the type implements all required methods)

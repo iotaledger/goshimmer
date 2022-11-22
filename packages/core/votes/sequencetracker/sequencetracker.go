@@ -50,7 +50,7 @@ func (s *SequenceTracker[VotePowerType]) TrackVotes(pastMarkers *markers.Markers
 	})
 
 	for supportWalker.HasNext() {
-		s.addVoteToMarker(supportWalker.Next(), validator.New(voterID, validator.WithWeight(weight)), power, supportWalker)
+		s.addVoteToMarker(supportWalker.Next(), validator.New(voterID, validator.WithWeight(weight.Value)), power, supportWalker)
 	}
 }
 
@@ -69,7 +69,7 @@ func (s *SequenceTracker[VotePowerType]) Voters(marker markers.Marker) (voters *
 
 		weight, validatorExists := s.activeNodes.Get(identityID)
 		if validatorExists {
-			voters.Add(validator.New(identityID, validator.WithWeight(weight)))
+			voters.Add(validator.New(identityID, validator.WithWeight(weight.Value)))
 		}
 		return true
 	})

@@ -6,12 +6,12 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/constraints"
 	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
 
 	"github.com/iotaledger/goshimmer/packages/core/ads"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -19,7 +19,7 @@ import (
 
 // EpochMutations is an in-memory data structure that enables the collection of mutations for uncommitted epochs.
 type EpochMutations struct {
-	epochAttestations func(epoch.Index) *Attestations
+	sybilProtection sybilprotection.SybilProtection
 
 	// acceptedBlocksByEpoch stores the accepted blocks per epoch.
 	acceptedBlocksByEpoch *memstorage.Storage[epoch.Index, *ads.Set[models.BlockID]]
@@ -27,29 +27,30 @@ type EpochMutations struct {
 	// acceptedTransactionsByEpoch stores the accepted transactions per epoch.
 	acceptedTransactionsByEpoch *memstorage.Storage[epoch.Index, *ads.Set[utxo.TransactionID]]
 
+	// attestationByEpoch stores the attestation per epoch.
+	attestationsByEpoch *memstorage.Storage[epoch.Index, *Attestations]
+
 	// latestCommittedIndex stores the index of the latest committed epoch.
 	latestCommittedIndex epoch.Index
 
-	// lastCommittedEpochCumulativeWeight stores the cumulative weight of the last committed epoch
-	lastCommittedEpochCumulativeWeight int64
-
-	sync.Mutex
+	evictionMutex sync.RWMutex
 }
 
 // NewEpochMutations creates a new EpochMutations instance.
-func NewEpochMutations(epochAttestations func(epoch.Index) *Attestations, lastCommittedEpoch epoch.Index) (newMutationFactory *EpochMutations) {
+func NewEpochMutations(sybilProtection sybilprotection.SybilProtection, lastCommittedEpoch epoch.Index) (newMutationFactory *EpochMutations) {
 	return &EpochMutations{
+		sybilProtection:             sybilProtection,
 		acceptedBlocksByEpoch:       memstorage.New[epoch.Index, *ads.Set[models.BlockID]](),
 		acceptedTransactionsByEpoch: memstorage.New[epoch.Index, *ads.Set[utxo.TransactionID]](),
-		epochAttestations:           epochAttestations,
+		attestationsByEpoch:         memstorage.New[epoch.Index, *Attestations](),
 		latestCommittedIndex:        lastCommittedEpoch,
 	}
 }
 
 // AddAcceptedBlock adds the given block to the set of accepted blocks.
 func (m *EpochMutations) AddAcceptedBlock(block *models.Block) (err error) {
-	m.Lock()
-	defer m.Unlock()
+	m.evictionMutex.RLock()
+	defer m.evictionMutex.RUnlock()
 
 	blockID := block.ID()
 	if blockID.Index() <= m.latestCommittedIndex {
@@ -58,13 +59,17 @@ func (m *EpochMutations) AddAcceptedBlock(block *models.Block) (err error) {
 
 	m.acceptedBlocks(blockID.Index(), true).Add(blockID)
 
+	lo.Return1(m.attestationsByEpoch.RetrieveOrCreate(block.ID().Index(), func() *Attestations {
+		return NewAttestations(m.sybilProtection.Weights())
+	})).Add(block)
+
 	return
 }
 
 // RemoveAcceptedBlock removes the given block from the set of accepted blocks.
 func (m *EpochMutations) RemoveAcceptedBlock(block *models.Block) (err error) {
-	m.Lock()
-	defer m.Unlock()
+	m.evictionMutex.RLock()
+	defer m.evictionMutex.RUnlock()
 
 	blockID := block.ID()
 	if blockID.Index() <= m.latestCommittedIndex {
@@ -73,13 +78,17 @@ func (m *EpochMutations) RemoveAcceptedBlock(block *models.Block) (err error) {
 
 	m.acceptedBlocks(blockID.Index()).Delete(blockID)
 
+	if attestations, exists := m.attestationsByEpoch.Get(blockID.Index()); exists {
+		attestations.Delete(block)
+	}
+
 	return
 }
 
 // AddAcceptedTransaction adds the given transaction to the set of accepted transactions.
 func (m *EpochMutations) AddAcceptedTransaction(metadata *ledger.TransactionMetadata) (err error) {
-	m.Lock()
-	defer m.Unlock()
+	m.evictionMutex.RLock()
+	defer m.evictionMutex.RUnlock()
 
 	epochIndex := epoch.IndexFromTime(metadata.InclusionTime())
 	if epochIndex <= m.latestCommittedIndex {
@@ -93,8 +102,8 @@ func (m *EpochMutations) AddAcceptedTransaction(metadata *ledger.TransactionMeta
 
 // RemoveAcceptedTransaction removes the given transaction from the set of accepted transactions.
 func (m *EpochMutations) RemoveAcceptedTransaction(metadata *ledger.TransactionMetadata) (err error) {
-	m.Lock()
-	defer m.Unlock()
+	m.evictionMutex.RLock()
+	defer m.evictionMutex.RUnlock()
 
 	epochIndex := epoch.IndexFromTime(metadata.InclusionTime())
 	if epochIndex <= m.latestCommittedIndex {
@@ -108,8 +117,8 @@ func (m *EpochMutations) RemoveAcceptedTransaction(metadata *ledger.TransactionM
 
 // UpdateTransactionInclusion moves a transaction from a later epoch to the given epoch.
 func (m *EpochMutations) UpdateTransactionInclusion(txID utxo.TransactionID, oldEpoch, newEpoch epoch.Index) (err error) {
-	m.Lock()
-	defer m.Unlock()
+	m.evictionMutex.RLock()
+	defer m.evictionMutex.RUnlock()
 
 	if newEpoch >= oldEpoch {
 		return
@@ -125,21 +134,26 @@ func (m *EpochMutations) UpdateTransactionInclusion(txID utxo.TransactionID, old
 	return
 }
 
-// Commit evicts the given epoch and returns the corresponding mutation sets.
-func (m *EpochMutations) Commit(index epoch.Index) (acceptedBlocks *ads.Set[models.BlockID], acceptedTransactions *ads.Set[utxo.TransactionID], attestors *ads.Set[identity.ID], cumulativeWeight int64, err error) {
-	m.Lock()
-	defer m.Unlock()
+// Evict evicts the given epoch and returns the corresponding mutation sets.
+func (m *EpochMutations) Evict(index epoch.Index) (acceptedBlocks *ads.Set[models.BlockID], acceptedTransactions *ads.Set[utxo.TransactionID], attestations *Attestations, err error) {
+	m.evictionMutex.Lock()
+	defer m.evictionMutex.Unlock()
 
 	if index <= m.latestCommittedIndex {
-		return nil, nil, nil, 0, errors.Errorf("cannot commit epoch %d: already committed", index)
+		return nil, nil, nil, errors.Errorf("cannot commit epoch %d: already committed", index)
 	}
 
 	defer m.evictUntil(index)
 
-	epochAttestations := m.epochAttestations(index)
-	m.lastCommittedEpochCumulativeWeight += epochAttestations.Weight()
+	return m.acceptedBlocks(index), m.acceptedTransactions(index), lo.Return1(m.attestationsByEpoch.Get(index)), nil
+}
 
-	return m.acceptedBlocks(index), m.acceptedTransactions(index), epochAttestations.Attestors(), m.lastCommittedEpochCumulativeWeight, nil
+// Attestations returns the attestations for the given epoch.
+func (m *EpochMutations) Attestations(index epoch.Index) (epochAttestations *Attestations) {
+	m.evictionMutex.RLock()
+	defer m.evictionMutex.RUnlock()
+
+	return lo.Return1(m.attestationsByEpoch.Get(index))
 }
 
 // acceptedBlocks returns the set of accepted blocks for the given epoch.
@@ -165,6 +179,7 @@ func (m *EpochMutations) evictUntil(index epoch.Index) {
 	for i := m.latestCommittedIndex + 1; i <= index; i++ {
 		m.acceptedBlocksByEpoch.Delete(i)
 		m.acceptedTransactionsByEpoch.Delete(i)
+		m.attestationsByEpoch.Delete(i)
 	}
 
 	m.latestCommittedIndex = index

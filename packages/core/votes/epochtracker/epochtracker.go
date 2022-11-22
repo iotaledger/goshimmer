@@ -18,16 +18,16 @@ type EpochTracker struct {
 	votesPerIdentity *memstorage.Storage[identity.ID, *latestvotes.LatestVotes[epoch.Index, EpochVotePower]]
 	votersPerEpoch   *memstorage.Storage[epoch.Index, *set.AdvancedSet[identity.ID]]
 
-	activeNodes         *sybilprotection.WeightedSet
+	validators          *sybilprotection.WeightedSet
 	cutoffIndexCallback func() epoch.Index
 }
 
-func NewEpochTracker(activeNodes *sybilprotection.WeightedSet, cutoffIndexCallback func() epoch.Index) *EpochTracker {
+func NewEpochTracker(validators *sybilprotection.WeightedSet, cutoffIndexCallback func() epoch.Index) *EpochTracker {
 	return &EpochTracker{
 		votesPerIdentity: memstorage.New[identity.ID, *latestvotes.LatestVotes[epoch.Index, EpochVotePower]](),
 		votersPerEpoch:   memstorage.New[epoch.Index, *set.AdvancedSet[identity.ID]](),
 
-		activeNodes:         activeNodes,
+		validators:          validators,
 		cutoffIndexCallback: cutoffIndexCallback,
 		Events:              NewEvents(),
 	}
@@ -41,7 +41,7 @@ func (c *EpochTracker) epochVoters(epochIndex epoch.Index) *set.AdvancedSet[iden
 }
 
 func (c *EpochTracker) TrackVotes(epochIndex epoch.Index, voterID identity.ID, power EpochVotePower) {
-	weight, exists := c.activeNodes.Get(voterID)
+	weight, exists := c.validators.Get(voterID)
 	if !exists {
 		return
 	}
@@ -53,7 +53,7 @@ func (c *EpochTracker) TrackVotes(epochIndex epoch.Index, voterID identity.ID, p
 	}
 
 	votersVotes, _ := c.votesPerIdentity.RetrieveOrCreate(voterID, func() *latestvotes.LatestVotes[epoch.Index, EpochVotePower] {
-		return latestvotes.NewLatestVotes[epoch.Index, EpochVotePower](validator.New(voterID, validator.WithWeight(weight)))
+		return latestvotes.NewLatestVotes[epoch.Index, EpochVotePower](validator.New(voterID, validator.WithWeight(weight.Value)))
 	})
 
 	updated, previousHighestIndex := votersVotes.Store(epochIndex, power)
@@ -66,7 +66,7 @@ func (c *EpochTracker) TrackVotes(epochIndex epoch.Index, voterID identity.ID, p
 	}
 
 	c.Events.VotersUpdated.Trigger(&VoterUpdatedEvent{
-		Voter:                validator.New(voterID, validator.WithWeight(weight)),
+		Voter:                validator.New(voterID, validator.WithWeight(weight.Value)),
 		NewLatestEpochIndex:  epochIndex,
 		PrevLatestEpochIndex: previousHighestIndex,
 	})
@@ -81,9 +81,9 @@ func (c *EpochTracker) Voters(epochIndex epoch.Index) (voters *validator.Set) {
 	}
 
 	epochVoters.ForEach(func(identityID identity.ID) error {
-		weight, validatorExists := c.activeNodes.Get(identityID)
+		weight, validatorExists := c.validators.Get(identityID)
 		if validatorExists {
-			voters.Add(validator.New(identityID, validator.WithWeight(weight)))
+			voters.Add(validator.New(identityID, validator.WithWeight(weight.Value)))
 		}
 		return nil
 	})

@@ -17,9 +17,9 @@ type Attestations struct {
 	mutex       sync.RWMutex
 }
 
-func NewAttestations(weightsVector *weights.Vector) *Attestations {
+func NewAttestations(weights *sybilprotection.Weights) *Attestations {
 	return &Attestations{
-		weightedSet: weightsVector.NewWeightedSet(),
+		weightedSet: weights.WeightedSet(),
 		storage:     memstorage.New[identity.ID, *memstorage.Storage[models.BlockID, *Attestation]](),
 	}
 }
