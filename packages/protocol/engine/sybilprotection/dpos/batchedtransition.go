@@ -1,4 +1,4 @@
-package proofofstake
+package dpos
 
 import (
 	"context"
@@ -24,19 +24,22 @@ func NewBatchedTransition(weights *sybilprotection.Weights, targetEpoch epoch.In
 func (m *BatchedTransition) Apply() (ctx context.Context) {
 	m.weights.ApplyUpdates(m.weightUpdates)
 
-	return nil
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	go func() {
+		// TODO: WAIT FOR WRITE COMPLETE + CLEAN
+
+		cancelFunc()
+	}()
+
+	return ctx
 }
 
-func (m *BatchedTransition) ProcessCreatedOutput(createdOutput *models.OutputWithMetadata) {
-	if iotaBalance, exists := createdOutput.IOTABalance(); exists {
-		m.weightUpdates.ApplyDiff(createdOutput.ConsensusManaPledgeID(), int64(iotaBalance))
-	}
+func (m *BatchedTransition) ProcessCreatedOutput(output *models.OutputWithMetadata) {
+	onOutputCreated(output, m.weightUpdates.ApplyDiff)
 }
 
 func (m *BatchedTransition) ProcessSpentOutput(spentOutput *models.OutputWithMetadata) {
-	if iotaBalance, exists := spentOutput.IOTABalance(); exists {
-		m.weightUpdates.ApplyDiff(spentOutput.ConsensusManaPledgeID(), -int64(iotaBalance))
-	}
+	onOutputSpent(spentOutput, m.weightUpdates.ApplyDiff)
 }
 
 // code contract (make sure the type implements all required methods)

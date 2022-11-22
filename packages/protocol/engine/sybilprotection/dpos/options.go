@@ -1,4 +1,4 @@
-package proofofstake
+package dpos
 
 import (
 	"time"
@@ -7,8 +7,8 @@ import (
 )
 
 // WithActivityWindow sets the duration for which a validator is recognized as active after issuing a block.
-func WithActivityWindow(activityWindow time.Duration) options.Option[ProofOfStake] {
-	return func(p *ProofOfStake) {
+func WithActivityWindow(activityWindow time.Duration) options.Option[SybilProtection] {
+	return func(p *SybilProtection) {
 		p.optsActivityWindow = activityWindow
 	}
 }

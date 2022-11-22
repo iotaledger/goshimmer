@@ -3,6 +3,7 @@ package sybilprotection
 import (
 	"sync"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
@@ -38,21 +39,11 @@ func (w *Weights) Weight(id identity.ID) (weight *Weight, exists bool) {
 	return w.weights.Get(id)
 }
 
-func (w *Weights) ImportDiff(id identity.ID, diff int64) {
-	w.mutex.Lock()
-	defer w.mutex.Unlock()
+func (w *Weights) TotalWeight() (totalWeight *Weight) {
+	w.mutex.RLock()
+	defer w.mutex.RUnlock()
 
-	if oldWeight, exists := w.weights.Get(id); exists {
-		if newWeight := oldWeight.Value + diff; newWeight == 0 {
-			w.weights.Delete(id)
-		} else {
-			w.weights.Set(id, NewWeight(newWeight, w.settings.LatestCommitment().Index()))
-		}
-	} else {
-		w.weights.Set(id, NewWeight(diff, w.settings.LatestCommitment().Index()))
-	}
-
-	w.totalWeight.Value += diff
+	return w.totalWeight
 }
 
 func (w *Weights) ApplyUpdates(updates *WeightUpdates) {
@@ -83,8 +74,6 @@ func (w *Weights) ApplyUpdates(updates *WeightUpdates) {
 		w.weights.Set(id, NewWeight(newWeight, updates.TargetEpoch()))
 	})
 
-	w.totalWeight.Value += direction * updates.TotalDiff()
-
 	w.Events.WeightsUpdated.Trigger(updates)
 
 	// after written to disk (remove deleted elements)
@@ -92,6 +81,9 @@ func (w *Weights) ApplyUpdates(updates *WeightUpdates) {
 		w.weights.Delete(id)
 		return nil
 	})
+
+	w.totalWeight.Value += direction * updates.TotalDiff()
+	w.totalWeight.UpdateTime = updates.TargetEpoch()
 
 	// mark as clean
 }
@@ -107,29 +99,40 @@ func (w *Weights) Root() types.Identifier {
 	return w.weights.Root()
 }
 
-func (w *Weights) TotalWeight() (totalWeight *Weight) {
-	w.mutex.RLock()
-	defer w.mutex.RUnlock()
-
-	return w.totalWeight
-}
-
-// Stream streams the weights of all actors and when they were last updated.
-func (w *Weights) Stream(callback func(id identity.ID, weight *Weight) bool) (err error) {
-	w.mutex.RLock()
-	defer w.mutex.RUnlock()
-
-	return w.weights.Stream(callback)
-}
-
-func (w *Weights) Map() (weights map[identity.ID]int64) {
+func (w *Weights) Map() (weights map[identity.ID]int64, err error) {
 	weights = make(map[identity.ID]int64)
-	if err := w.Stream(func(id identity.ID, weight *Weight) bool {
-		weights[id] = weight.Value
+	if err = w.Export(func(id identity.ID, weight int64) bool {
+		weights[id] = weight
 		return true
 	}); err != nil {
-		panic(err)
+		return nil, errors.Errorf("failed to export weights: %w", err)
 	}
 
-	return weights
+	return weights, nil
+}
+
+func (w *Weights) Import(id identity.ID, diff int64) {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
+	if oldWeight, exists := w.weights.Get(id); exists {
+		if newWeight := oldWeight.Value + diff; newWeight == 0 {
+			w.weights.Delete(id)
+		} else {
+			w.weights.Set(id, NewWeight(newWeight, w.settings.LatestCommitment().Index()))
+		}
+	} else {
+		w.weights.Set(id, NewWeight(diff, w.settings.LatestCommitment().Index()))
+	}
+
+	w.totalWeight.Value += diff
+}
+
+func (w *Weights) Export(callback func(id identity.ID, weight int64) bool) (err error) {
+	w.mutex.RLock()
+	defer w.mutex.RUnlock()
+
+	return w.weights.Stream(func(id identity.ID, weight *Weight) bool {
+		return callback(id, weight.Value)
+	})
 }

@@ -1,4 +1,4 @@
-package proofofstake
+package dpos
 
 import (
 	"sync"
@@ -23,8 +23,8 @@ import (
 	ledgerModels "github.com/iotaledger/goshimmer/packages/storage/models"
 )
 
-// ProofOfStake is a sybil protection module for the engine that manages the weights of actors according to their stake.
-type ProofOfStake struct {
+// SybilProtection is a sybil protection module for the engine that manages the weights of actors according to their stake.
+type SybilProtection struct {
 	engine              *engine.Engine
 	weights             *sybilprotection.Weights
 	validators          *sybilprotection.WeightedSet
@@ -36,13 +36,13 @@ type ProofOfStake struct {
 	optsActivityWindow  time.Duration
 }
 
-// New creates a new ProofOfStake instance.
-func New(engineInstance *engine.Engine, opts ...options.Option[ProofOfStake]) (proofOfStake *ProofOfStake) {
+// NewSybilProtection creates a new ProofOfStake instance.
+func NewSybilProtection(engineInstance *engine.Engine, opts ...options.Option[SybilProtection]) (proofOfStake *SybilProtection) {
 	return options.Apply(
-		&ProofOfStake{
+		&SybilProtection{
 			engine:             engineInstance,
 			optsActivityWindow: time.Second * 30,
-		}, opts, func(p *ProofOfStake) {
+		}, opts, func(p *SybilProtection) {
 			p.weights = sybilprotection.NewWeights(engineInstance.Storage.SybilProtection, engineInstance.Storage.Settings)
 			p.validators = p.weights.NewWeightedSet()
 			p.attestationsByEpoch = memstorage.New[epoch.Index, *notarization.Attestations]()
@@ -51,39 +51,37 @@ func New(engineInstance *engine.Engine, opts ...options.Option[ProofOfStake]) (p
 		})
 }
 
-// NewProvider returns a new sybil protection provider that uses the ProofOfStake module.
-func NewProvider(opts ...options.Option[ProofOfStake]) engine.ModuleProvider[sybilprotection.SybilProtection] {
+// NewSybilProtectionProvider returns a new sybil protection provider that uses the ProofOfStake module.
+func NewSybilProtectionProvider(opts ...options.Option[SybilProtection]) engine.ModuleProvider[sybilprotection.SybilProtection] {
 	return engine.ProvideModule[sybilprotection.SybilProtection](func(e *engine.Engine) sybilprotection.SybilProtection {
-		return New(e, opts...)
+		return NewSybilProtection(e, opts...)
 	})
 }
 
 // Validators returns the set of validators that are currently active.
-func (p *ProofOfStake) Validators() *sybilprotection.WeightedSet {
+func (p *SybilProtection) Validators() *sybilprotection.WeightedSet {
 	return p.validators
 }
 
 // Weights returns the current weights that are staked with validators.
-func (p *ProofOfStake) Weights() *sybilprotection.Weights {
+func (p *SybilProtection) Weights() *sybilprotection.Weights {
 	return p.weights
 }
 
-func (p *ProofOfStake) ImportOutput(output *ledgerModels.OutputWithMetadata) {
-	if iotaBalance, exists := output.IOTABalance(); exists {
-		p.weights.ImportDiff(output.ConsensusManaPledgeID(), int64(iotaBalance))
-	}
+func (p *SybilProtection) ImportOutput(output *ledgerModels.OutputWithMetadata) {
+	onOutputCreated(output, p.weights.Import)
 }
 
-func (p *ProofOfStake) BatchedTransition(targetEpoch epoch.Index) state.BatchedTransition {
+func (p *SybilProtection) BatchedTransition(targetEpoch epoch.Index) state.BatchedTransition {
 	return NewBatchedTransition(p.weights, targetEpoch)
 }
 
-func (p *ProofOfStake) LastConsumedEpoch() epoch.Index {
+func (p *SybilProtection) LastConsumedEpoch() epoch.Index {
 	return p.weights.TotalWeight().UpdateTime
 }
 
 // InitModule initializes the ProofOfStake module after all the dependencies have been injected into the engine.
-func (p *ProofOfStake) InitModule() {
+func (p *SybilProtection) InitModule() {
 	for it := p.engine.Storage.Attestors.LoadAll(p.engine.Storage.Settings.LatestCommitment().Index()).Iterator(); it.HasNext(); {
 		p.validators.Add(it.Next())
 	}
@@ -96,11 +94,11 @@ func (p *ProofOfStake) InitModule() {
 	p.engine.Events.EvictionState.EpochEvicted.Hook(event.NewClosure(p.HandleEpochEvicted))
 }
 
-func (p *ProofOfStake) Attestations(index epoch.Index) (epochAttestations *notarization.Attestations) {
+func (p *SybilProtection) Attestations(index epoch.Index) (epochAttestations *notarization.Attestations) {
 	return lo.Return1(p.attestationsByEpoch.Get(index))
 }
 
-func (p *ProofOfStake) markValidatorActive(id identity.ID, activityTime time.Time) {
+func (p *SybilProtection) markValidatorActive(id identity.ID, activityTime time.Time) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
@@ -115,7 +113,7 @@ func (p *ProofOfStake) markValidatorActive(id identity.ID, activityTime time.Tim
 	p.inactivityManager.ExecuteAfter(id, func() { p.markValidatorInactive(id) }, activityTime.Add(p.optsActivityWindow).Sub(p.engine.Clock.RelativeAcceptedTime()))
 }
 
-func (p *ProofOfStake) markValidatorInactive(id identity.ID) {
+func (p *SybilProtection) markValidatorInactive(id identity.ID) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
@@ -123,7 +121,7 @@ func (p *ProofOfStake) markValidatorInactive(id identity.ID) {
 	p.validators.Delete(id)
 }
 
-func (p *ProofOfStake) onBlockAccepted(block *models.Block) {
+func (p *SybilProtection) onBlockAccepted(block *models.Block) {
 	p.evictionMutex.RLock()
 	defer p.evictionMutex.RUnlock()
 
@@ -132,7 +130,7 @@ func (p *ProofOfStake) onBlockAccepted(block *models.Block) {
 	})).Add(block)
 }
 
-func (p *ProofOfStake) onBlockOrphaned(block *models.Block) {
+func (p *SybilProtection) onBlockOrphaned(block *models.Block) {
 	p.evictionMutex.RLock()
 	defer p.evictionMutex.RUnlock()
 
@@ -141,7 +139,7 @@ func (p *ProofOfStake) onBlockOrphaned(block *models.Block) {
 	}
 }
 
-func (p *ProofOfStake) HandleEpochEvicted(index epoch.Index) {
+func (p *SybilProtection) HandleEpochEvicted(index epoch.Index) {
 	p.evictionMutex.Lock()
 	defer p.evictionMutex.Unlock()
 
@@ -149,4 +147,4 @@ func (p *ProofOfStake) HandleEpochEvicted(index epoch.Index) {
 }
 
 // code contract (make sure the type implements all required methods)
-var _ sybilprotection.SybilProtection = &ProofOfStake{}
+var _ sybilprotection.SybilProtection = &SybilProtection{}
