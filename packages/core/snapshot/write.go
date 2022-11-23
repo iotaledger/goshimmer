@@ -11,7 +11,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	storageModels "github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -75,14 +75,14 @@ func WriteSnapshot(filePath string, s *storage.Storage, l *ledger.Ledger, depth 
 		binary.Write(fileHandle, binary.LittleEndian, outputCount)
 
 		// OutputWithMetadata size
-		dummyOutputWithMetadata := storageModels.NewOutputWithMetadata(0, dummyOutput.ID(), dummyOutput, identity.ID{}, identity.ID{})
+		dummyOutputWithMetadata := ledgerstate.NewOutputWithMetadata(0, dummyOutput.ID(), dummyOutput, identity.ID{}, identity.ID{})
 		outputWithMetadataSize = uint32(len(lo.PanicOnErr(dummyOutputWithMetadata.Bytes())))
 		binary.Write(fileHandle, binary.LittleEndian, outputWithMetadataSize)
 
 		l.Storage.ForEachOutputID(func(outputID utxo.OutputID) bool {
 			l.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
 				l.Storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledger.OutputMetadata) {
-					outputWithMetadata := storageModels.NewOutputWithMetadata(
+					outputWithMetadata := ledgerstate.NewOutputWithMetadata(
 						epoch.IndexFromTime(outputMetadata.CreationTime()),
 						outputID,
 						output,
@@ -140,7 +140,7 @@ func WriteSnapshot(filePath string, s *storage.Storage, l *ledger.Ledger, depth 
 			binary.Write(fileHandle, binary.LittleEndian, epochIndex)
 
 			var createdCount uint32
-			s.LedgerStateDiffs.StreamCreatedOutputs(epochIndex, func(_ *storageModels.OutputWithMetadata) {
+			s.LedgerStateDiffs.StreamCreatedOutputs(epochIndex, func(_ *ledgerstate.OutputWithMetadata) {
 				createdCount++
 			})
 
@@ -149,12 +149,12 @@ func WriteSnapshot(filePath string, s *storage.Storage, l *ledger.Ledger, depth 
 			binary.Write(fileHandle, binary.LittleEndian, createdCount)
 			// OutputWithMetadata size
 			binary.Write(fileHandle, binary.LittleEndian, outputWithMetadataSize)
-			s.LedgerStateDiffs.StreamCreatedOutputs(epochIndex, func(createdWithMetadata *storageModels.OutputWithMetadata) {
+			s.LedgerStateDiffs.StreamCreatedOutputs(epochIndex, func(createdWithMetadata *ledgerstate.OutputWithMetadata) {
 				binary.Write(fileHandle, binary.LittleEndian, lo.PanicOnErr(createdWithMetadata.Bytes()))
 			})
 
 			var spentCount uint32
-			s.LedgerStateDiffs.StreamSpentOutputs(epochIndex, func(_ *storageModels.OutputWithMetadata) {
+			s.LedgerStateDiffs.StreamSpentOutputs(epochIndex, func(_ *ledgerstate.OutputWithMetadata) {
 				spentCount++
 			})
 
@@ -163,7 +163,7 @@ func WriteSnapshot(filePath string, s *storage.Storage, l *ledger.Ledger, depth 
 			binary.Write(fileHandle, binary.LittleEndian, spentCount)
 			// OutputWithMetadata size
 			binary.Write(fileHandle, binary.LittleEndian, outputWithMetadataSize)
-			s.LedgerStateDiffs.StreamSpentOutputs(epochIndex, func(spentWithMetadata *storageModels.OutputWithMetadata) {
+			s.LedgerStateDiffs.StreamSpentOutputs(epochIndex, func(spentWithMetadata *ledgerstate.OutputWithMetadata) {
 				binary.Write(fileHandle, binary.LittleEndian, lo.PanicOnErr(spentWithMetadata.Bytes()))
 			})
 		}

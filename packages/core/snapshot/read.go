@@ -11,7 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	storageModels "github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
@@ -42,7 +42,7 @@ func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {
 
 	// Ledgerstate
 	{
-		ProcessChunks(NewChunkedReader[storageModels.OutputWithMetadata](fileHandle),
+		ProcessChunks(NewChunkedReader[ledgerstate.OutputWithMetadata](fileHandle),
 			engine.Ledger.ImportOutputs,
 			engine.ManaTracker.ImportOutputs,
 			// This will import into all the consumers too: sybilprotection and ledgerState.unspentOutputIDs
@@ -82,23 +82,23 @@ func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {
 			binary.Read(fileHandle, binary.LittleEndian, &epochIndex)
 
 			// Created
-			ProcessChunks(NewChunkedReader[storageModels.OutputWithMetadata](fileHandle),
+			ProcessChunks(NewChunkedReader[ledgerstate.OutputWithMetadata](fileHandle),
 				engine.Ledger.ApplySpentDiff,
-				func(createdChunk []*storageModels.OutputWithMetadata) {
+				func(createdChunk []*ledgerstate.OutputWithMetadata) {
 					engine.ManaTracker.RollbackOutputs(createdChunk, true)
 					for _, createdOutput := range createdChunk {
-						engine.Storage.LedgerStateDiffs.StoreSpentOutput(createdOutput)
+						engine.LedgerState.StateDiffs.StoreSpentOutput(createdOutput)
 					}
 				},
 			)
 
 			// Spent
-			ProcessChunks(NewChunkedReader[storageModels.OutputWithMetadata](fileHandle),
+			ProcessChunks(NewChunkedReader[ledgerstate.OutputWithMetadata](fileHandle),
 				engine.Ledger.ApplyCreatedDiff,
-				func(spentChunk []*storageModels.OutputWithMetadata) {
+				func(spentChunk []*ledgerstate.OutputWithMetadata) {
 					engine.ManaTracker.RollbackOutputs(spentChunk, false)
 					for _, createdOutput := range spentChunk {
-						engine.Storage.LedgerStateDiffs.StoreCreatedOutput(createdOutput)
+						engine.LedgerState.StateDiffs.StoreCreatedOutput(createdOutput)
 					}
 				},
 			)
