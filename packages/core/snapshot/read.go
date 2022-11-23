@@ -11,8 +11,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	storageModels "github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	storageModels "github.com/iotaledger/goshimmer/packages/storage/models"
 )
 
 func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {

@@ -6,7 +6,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
-	"github.com/iotaledger/goshimmer/packages/storage/models"
 )
 
 func (s *SybilProtection) Begin(committedEpoch epoch.Index) {
@@ -14,13 +13,13 @@ func (s *SybilProtection) Begin(committedEpoch epoch.Index) {
 	s.batchedWeightUpdates = sybilprotection.NewWeightUpdates(committedEpoch)
 }
 
-func (s *SybilProtection) ImportOutputs(outputs []*models.OutputWithMetadata) {
+func (s *SybilProtection) ImportOutputs(outputs []*ledgerstate.OutputWithMetadata) {
 	for _, output := range outputs {
 		ProcessCreatedOutput(output, s.weights.Import)
 	}
 }
 
-func (s *SybilProtection) ProcessCreatedOutput(output *models.OutputWithMetadata) {
+func (s *SybilProtection) ProcessCreatedOutput(output *ledgerstate.OutputWithMetadata) {
 	if s.batchedEpoch() == 0 {
 		ProcessCreatedOutput(output, s.weights.Import)
 	} else {
@@ -28,7 +27,7 @@ func (s *SybilProtection) ProcessCreatedOutput(output *models.OutputWithMetadata
 	}
 }
 
-func (s *SybilProtection) ProcessSpentOutput(output *models.OutputWithMetadata) {
+func (s *SybilProtection) ProcessSpentOutput(output *ledgerstate.OutputWithMetadata) {
 	ProcessSpentOutput(output, s.batchedWeightUpdates.ApplyDiff)
 }
 

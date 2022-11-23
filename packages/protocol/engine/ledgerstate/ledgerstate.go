@@ -3,30 +3,41 @@ package ledgerstate
 import (
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/storage"
-	"github.com/iotaledger/goshimmer/packages/storage/models"
+	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/types"
 	"github.com/pkg/errors"
+
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
 type LedgerState struct {
-	storage          *storage.Storage
-	unspentOutputIDs *UnspentOutputIDs
+	MemPool          *ledger.Ledger
+	StateDiffs       *StateDiffs
+	UnspentOutputIDs *UnspentOutputIDs
 	consumers        []DiffConsumer
 	consumersMutex   sync.RWMutex
 }
 
 func New(storageInstance *storage.Storage) (ledgerState *LedgerState) {
 	ledgerState = &LedgerState{
-		storage:          storageInstance,
-		unspentOutputIDs: NewUnspentOutputIDs(storageInstance.UnspentOutputIDs),
+		StateDiffs:       NewStateDiffs(storageInstance.LedgerStateDiffs),
+		UnspentOutputIDs: NewUnspentOutputIDs(storageInstance.UnspentOutputIDs),
 		consumers:        make([]DiffConsumer, 0),
 	}
 
-	ledgerState.RegisterConsumer(ledgerState.unspentOutputIDs)
+	ledgerState.MemPool.Events.TransactionAccepted.Hook(event.NewClosure(ledgerState.onTransactionAccepted))
+	ledgerState.RegisterConsumer(ledgerState.UnspentOutputIDs)
 
 	return
+}
+
+func (l *LedgerState) onTransactionAccepted(metadata *ledger.TransactionMetadata) {
+	if err := l.StateDiffs.addAcceptedTransaction(metadata); err != nil {
+		// TODO: handle error gracefully
+		panic(err)
+	}
 }
 
 func (l *LedgerState) RegisterConsumer(consumer DiffConsumer) {
@@ -36,7 +47,7 @@ func (l *LedgerState) RegisterConsumer(consumer DiffConsumer) {
 	l.consumers = append(l.consumers, consumer)
 }
 
-func (l *LedgerState) ImportOutputs(outputs []*models.OutputWithMetadata) {
+func (l *LedgerState) ImportOutputs(outputs []*OutputWithMetadata) {
 	l.consumersMutex.RLock()
 	defer l.consumersMutex.RUnlock()
 
@@ -55,14 +66,14 @@ func (l *LedgerState) ApplyStateDiff(targetEpoch epoch.Index) (err error) {
 		consumer.Begin(targetEpoch)
 	}
 
-	if err = l.storage.LedgerStateDiffs.StreamCreatedOutputs(targetEpoch, func(output *models.OutputWithMetadata) {
-		l.ProcessConsumers(targetEpoch, output, DiffConsumer.ProcessCreatedOutput, DiffConsumer.ProcessSpentOutput)
+	if err = l.StateDiffs.StreamCreatedOutputs(targetEpoch, func(output *OutputWithMetadata) {
+		l.processConsumers(targetEpoch, output, DiffConsumer.ProcessCreatedOutput, DiffConsumer.ProcessSpentOutput)
 	}); err != nil {
 		return errors.Errorf("failed to stream created outputs for state diff %d: %w", targetEpoch, err)
 	}
 
-	if err = l.storage.LedgerStateDiffs.StreamSpentOutputs(targetEpoch, func(output *models.OutputWithMetadata) {
-		l.ProcessConsumers(targetEpoch, output, DiffConsumer.ProcessSpentOutput, DiffConsumer.ProcessCreatedOutput)
+	if err = l.StateDiffs.StreamSpentOutputs(targetEpoch, func(output *OutputWithMetadata) {
+		l.processConsumers(targetEpoch, output, DiffConsumer.ProcessSpentOutput, DiffConsumer.ProcessCreatedOutput)
 	}); err != nil {
 		return errors.Errorf("failed to stream created outputs for state diff %d: %w", targetEpoch, err)
 	}
@@ -74,7 +85,7 @@ func (l *LedgerState) ApplyStateDiff(targetEpoch epoch.Index) (err error) {
 	return nil
 }
 
-func (l *LedgerState) ProcessConsumers(targetEpoch epoch.Index, output *models.OutputWithMetadata, applyFunc, rollbackFunc func(DiffConsumer, *models.OutputWithMetadata)) {
+func (l *LedgerState) processConsumers(targetEpoch epoch.Index, output *OutputWithMetadata, applyFunc, rollbackFunc func(DiffConsumer, *OutputWithMetadata)) {
 	for _, consumer := range l.consumers {
 		switch currentEpoch := consumer.LastCommittedEpoch(); {
 		case IsApply(currentEpoch, targetEpoch):
@@ -87,17 +98,5 @@ func (l *LedgerState) ProcessConsumers(targetEpoch epoch.Index, output *models.O
 }
 
 func (l *LedgerState) Root() types.Identifier {
-	return l.unspentOutputIDs.Root()
+	return l.UnspentOutputIDs.Root()
 }
-
-// region utility functions ////////////////////////////////////////////////////////////////////////////////////////////
-
-func IsApply(currentEpoch, targetEpoch epoch.Index) bool {
-	return currentEpoch < targetEpoch
-}
-
-func IsRollback(currentEpoch, targetEpoch epoch.Index) bool {
-	return currentEpoch > targetEpoch
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

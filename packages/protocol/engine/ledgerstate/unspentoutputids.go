@@ -4,11 +4,11 @@ import (
 	"context"
 	"sync"
 
+	"github.com/iotaledger/hive.go/core/kvstore"
+
 	"github.com/iotaledger/goshimmer/packages/core/ads"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/storage/models"
-	"github.com/iotaledger/hive.go/core/kvstore"
 )
 
 type UnspentOutputIDs struct {
@@ -48,13 +48,13 @@ func (u *UnspentOutputIDs) Begin(committedEpoch epoch.Index) {
 	u.batchedSpentOutputIDs = utxo.NewOutputIDs()
 }
 
-func (u *UnspentOutputIDs) ImportOutputs(outputs []*models.OutputWithMetadata) {
+func (u *UnspentOutputIDs) ImportOutputs(outputs []*OutputWithMetadata) {
 	for _, output := range outputs {
 		u.ProcessCreatedOutput(output)
 	}
 }
 
-func (u *UnspentOutputIDs) ProcessCreatedOutput(output *models.OutputWithMetadata) {
+func (u *UnspentOutputIDs) ProcessCreatedOutput(output *OutputWithMetadata) {
 	if u.batchedEpoch() == 0 {
 		u.Add(output.Output().ID())
 	} else if !u.batchedSpentOutputIDs.Delete(output.Output().ID()) {
@@ -62,7 +62,7 @@ func (u *UnspentOutputIDs) ProcessCreatedOutput(output *models.OutputWithMetadat
 	}
 }
 
-func (u *UnspentOutputIDs) ProcessSpentOutput(output *models.OutputWithMetadata) {
+func (u *UnspentOutputIDs) ProcessSpentOutput(output *OutputWithMetadata) {
 	if u.batchedEpoch() == 0 {
 		u.Delete(output.Output().ID())
 	} else if !u.batchedCreatedOutputIDs.Delete(output.Output().ID()) {

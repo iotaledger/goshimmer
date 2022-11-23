@@ -9,10 +9,10 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/identity"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/storage/models"
 )
 
 // ManaTracker is the manager that tracks the mana balances of identities.
@@ -64,12 +64,12 @@ func (t *ManaTracker) TotalMana() (totalMana int64) {
 }
 
 // ImportOutputs imports the outputs from a snapshot and updates the mana balances and the total mana.
-func (t *ManaTracker) ImportOutputs(outputs []*models.OutputWithMetadata) {
+func (t *ManaTracker) ImportOutputs(outputs []*ledgerstate.OutputWithMetadata) {
 	t.totalMana += t.processOutputsFromSnapshot(outputs, true)
 }
 
 // RollbackOutputs rolls back the outputs from a snapshot and updates the mana balances.
-func (t *ManaTracker) RollbackOutputs(outputs []*models.OutputWithMetadata, areCreated bool) {
+func (t *ManaTracker) RollbackOutputs(outputs []*ledgerstate.OutputWithMetadata, areCreated bool) {
 	t.processOutputsFromSnapshot(outputs, !areCreated)
 }
 
@@ -103,7 +103,7 @@ func (t *ManaTracker) revokeManaFromInputs(inputs devnetvm.Inputs) (totalRevoked
 }
 
 // processOutputsFromSnapshot processes the outputs from a snapshot and updates the mana balances.
-func (t *ManaTracker) processOutputsFromSnapshot(outputs []*models.OutputWithMetadata, areCreated bool) (totalDiff int64) {
+func (t *ManaTracker) processOutputsFromSnapshot(outputs []*ledgerstate.OutputWithMetadata, areCreated bool) (totalDiff int64) {
 	for _, output := range outputs {
 		if iotaBalance, exists := output.Output().(devnetvm.Output).Balances().Get(devnetvm.ColorIOTA); exists {
 			diff := lo.Cond(areCreated, int64(iotaBalance), -int64(iotaBalance))

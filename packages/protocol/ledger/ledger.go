@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/walker"
@@ -12,12 +11,10 @@ import (
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
 	"github.com/iotaledger/goshimmer/packages/storage"
-	"github.com/iotaledger/goshimmer/packages/storage/models"
 )
 
 // region Ledger ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -219,76 +216,9 @@ func (l *Ledger) triggerAcceptedEvent(txMetadata *TransactionMetadata) (triggere
 		}
 	})
 
-	l.storeTransactionInEpochDiff(txMetadata)
-
 	l.Events.TransactionAccepted.Trigger(txMetadata)
 
 	return true
-}
-
-func (l *Ledger) storeTransactionInEpochDiff(txMeta *TransactionMetadata) {
-	txEpoch := epoch.IndexFromTime(txMeta.InclusionTime())
-
-	l.Storage.CachedTransaction(txMeta.ID()).Consume(func(tx utxo.Transaction) {
-		// Mark every input as a spent output in the epoch diff
-		for it := l.Utils.ResolveInputs(tx.Inputs()).Iterator(); it.HasNext(); {
-			inputID := it.Next()
-			l.Storage.CachedOutput(inputID).Consume(func(output utxo.Output) {
-				l.Storage.CachedOutputMetadata(inputID).Consume(func(outputMetadata *OutputMetadata) {
-					if err := l.storeOutputInDiff(txEpoch, inputID, output, outputMetadata, l.ChainStorage.LedgerStateDiffs.StoreSpentOutput); err != nil {
-						l.Events.Error.Trigger(errors.Errorf("could not store spent output in diff: %w", err))
-					}
-				})
-			})
-		}
-
-		// Mark every output as created output in the epoch diff
-		for it := txMeta.OutputIDs().Iterator(); it.HasNext(); {
-			outputID := it.Next()
-			l.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
-				l.Storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *OutputMetadata) {
-					if err := l.storeOutputInDiff(txEpoch, outputID, output, outputMetadata, l.ChainStorage.LedgerStateDiffs.StoreCreatedOutput); err != nil {
-						l.Events.Error.Trigger(errors.Errorf("could not store created output in diff: %w", err))
-					}
-				})
-			})
-		}
-
-		if txEpoch > l.ChainStorage.Settings.LatestStateMutationEpoch() {
-			if err := l.ChainStorage.Settings.SetLatestStateMutationEpoch(txEpoch); err != nil {
-				l.Events.Error.Trigger(errors.Errorf("failed to update latest state mutation epoch: %w", err))
-			}
-		}
-	})
-}
-
-func (l *Ledger) rollbackTransactionInEpochDiff(txMeta *TransactionMetadata, previousInclusionTime, inclusionTime time.Time) {
-	oldEpoch := epoch.IndexFromTime(previousInclusionTime)
-	newEpoch := epoch.IndexFromTime(inclusionTime)
-
-	if oldEpoch == 0 || oldEpoch == newEpoch {
-		return
-	}
-
-	if oldEpoch <= l.ChainStorage.Settings.LatestCommitment().Index() || newEpoch <= l.ChainStorage.Settings.LatestCommitment().Index() {
-		l.Events.Error.Trigger(errors.Errorf("inclusion time of transaction changed for already committed epoch: previous Index %d, new Index %d", oldEpoch, newEpoch))
-		return
-	}
-
-	l.Storage.CachedTransaction(txMeta.ID()).Consume(func(tx utxo.Transaction) {
-		l.ChainStorage.LedgerStateDiffs.DeleteSpentOutputs(oldEpoch, l.Utils.ResolveInputs(tx.Inputs()))
-	})
-
-	l.ChainStorage.LedgerStateDiffs.DeleteCreatedOutputs(oldEpoch, txMeta.OutputIDs())
-}
-
-func (l *Ledger) storeOutputInDiff(txEpoch epoch.Index, outputID utxo.OutputID, output utxo.Output, outputMetadata *OutputMetadata, storeFunc func(*models.OutputWithMetadata) error) (err error) {
-	outputWithMetadata := models.NewOutputWithMetadata(
-		txEpoch, outputID, output,
-		outputMetadata.ConsensusManaPledgeID(),
-		outputMetadata.AccessManaPledgeID(),
-	)
-	return storeFunc(outputWithMetadata)
 }
 
 // triggerRejectedEvent triggers the TransactionRejected event if the Transaction was rejected.

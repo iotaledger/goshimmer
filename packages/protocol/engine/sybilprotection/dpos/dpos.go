@@ -3,7 +3,7 @@ package dpos
 import (
 	"github.com/iotaledger/hive.go/core/identity"
 
-	ledgerModels "github.com/iotaledger/goshimmer/packages/storage/models"
+	ledgerModels "github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 )
 
 func ProcessCreatedOutput(output *ledgerModels.OutputWithMetadata, weightUpdater func(id identity.ID, diff int64)) {

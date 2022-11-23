@@ -1,4 +1,4 @@
-package models
+package ledgerstate
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/model"
@@ -9,8 +9,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
-
-// region OutputWithMetadata ///////////////////////////////////////////////////////////////////////////////////////////
 
 // OutputWithMetadata represents an Output with its associated metadata fields that are needed for epoch management.
 type OutputWithMetadata struct {
@@ -132,5 +130,3 @@ func (o *OutputWithMetadata) SetAccessManaPledgeID(accessPledgeID identity.ID) {
 
 	o.M.AccessManaPledgeID = accessPledgeID
 }
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
