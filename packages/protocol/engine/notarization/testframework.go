@@ -8,13 +8,16 @@ import (
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/storage/permanent"
 )
 
 type TestFramework struct {
@@ -41,17 +44,9 @@ func NewTestFramework(test *testing.T) *TestFramework {
 		epochEntityCounter: make(map[epoch.Index]int),
 		attestorsByEpoch:   make(map[epoch.Index]*Attestations),
 	}
-	tf.MutationFactory = NewEpochMutations(func(index epoch.Index) *Attestations {
-		epochAttestors, exists := tf.attestorsByEpoch[index]
-		if !exists {
-			/* TODO: FIX */
-			// tf.attestorsByEpoch[index] = pos.NewEpochAttestations(tf.issuersWeight)
-			tf.attestorsByEpoch[index] = nil
-			epochAttestors = tf.attestorsByEpoch[index]
-		}
 
-		return epochAttestors
-	}, 0)
+	settings := permanent.NewSettings(test.TempDir() + "/settings")
+	tf.MutationFactory = NewEpochMutations(sybilprotection.NewWeights(mapdb.NewMapDB(), settings), 0)
 
 	return tf
 }
@@ -139,7 +134,7 @@ func (t *TestFramework) AddAcceptedBlock(alias string) (err error) {
 		panic("block does not exist")
 	}
 
-	t.MutationFactory.epochAttestations(block.ID().Index()).Add(block)
+	t.MutationFactory.Attestations(block.ID().Index()).Add(block)
 	return t.MutationFactory.AddAcceptedBlock(block)
 }
 
@@ -149,7 +144,7 @@ func (t *TestFramework) RemoveAcceptedBlock(alias string) (err error) {
 		panic("block does not exist")
 	}
 
-	t.MutationFactory.epochAttestations(block.ID().Index()).Delete(block)
+	t.MutationFactory.Attestations(block.ID().Index()).Delete(block)
 	return t.MutationFactory.RemoveAcceptedBlock(block)
 }
 
@@ -181,7 +176,7 @@ func (t *TestFramework) UpdateTransactionInclusion(alias string, oldEpoch, newEp
 }
 
 func (t *TestFramework) AssertCommit(index epoch.Index, expectedBlocks []string, expectedTransactions []string, expectedValidators []string, expectedCumulativeWeight int64, optShouldError ...bool) {
-	acceptedBlocks, acceptedTransactions, activeValidators, cumulativeWeight, err := t.MutationFactory.Commit(index)
+	acceptedBlocks, acceptedTransactions, attestations, err := t.MutationFactory.Evict(index)
 	if len(optShouldError) > 0 && optShouldError[0] {
 		require.Error(t.test, err)
 	}
@@ -204,16 +199,13 @@ func (t *TestFramework) AssertCommit(index epoch.Index, expectedBlocks []string,
 		}
 	}
 
-	if activeValidators == nil {
-		require.Equal(t.test, len(expectedValidators), 0)
-	} else {
-		require.Equal(t.test, len(expectedValidators), activeValidators.Size())
-		for _, expectedValidator := range expectedValidators {
-			require.True(t.test, activeValidators.Has(identity.NewID(t.Issuer(expectedValidator))))
-		}
+	attestors := attestations.Attestors()
+	require.Equal(t.test, len(expectedValidators), attestors.Size())
+	for _, expectedValidator := range expectedValidators {
+		require.True(t.test, attestors.Has(identity.NewID(t.Issuer(expectedValidator))))
 	}
 
-	require.Equal(t.test, expectedCumulativeWeight, cumulativeWeight)
+	require.Equal(t.test, expectedCumulativeWeight, attestations.Weight())
 }
 
 func (t *TestFramework) increaseEpochEntityCounter(index epoch.Index) (nextBlockCounter int) {

@@ -17,7 +17,7 @@ import (
 
 type TestFramework struct {
 	test              *testing.T
-	ActiveNodes       *sybilprotection.WeightedSet
+	Validators        *sybilprotection.WeightedSet
 	validatorsByAlias map[string]*validator.Validator
 }
 
@@ -25,7 +25,7 @@ type TestFramework struct {
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (newTestFramework *TestFramework) {
 	return options.Apply(&TestFramework{
 		test:              test,
-		ActiveNodes:       nil, /* TODO: FIX */
+		Validators:        nil, /* TODO: FIX */
 		validatorsByAlias: make(map[string]*validator.Validator),
 	}, opts)
 }
@@ -38,7 +38,7 @@ func (t *TestFramework) CreateValidatorWithID(alias string, id identity.ID, opts
 	voter := validator.New(id, opts...)
 
 	t.validatorsByAlias[alias] = voter
-	t.ActiveNodes.Add(id)
+	t.Validators.Add(id)
 
 	return voter
 }
@@ -52,7 +52,7 @@ func (t *TestFramework) Validator(alias string) (v *validator.Validator) {
 	return
 }
 
-func (t *TestFramework) Validators(aliases ...string) (validators *set.AdvancedSet[*validator.Validator]) {
+func (t *TestFramework) ValidatorsSet(aliases ...string) (validators *set.AdvancedSet[*validator.Validator]) {
 	validators = set.NewAdvancedSet[*validator.Validator]()
 	for _, alias := range aliases {
 		validators.Add(t.Validator(alias))
@@ -76,7 +76,7 @@ func ValidatorSetToAdvancedSet(validatorSet *validator.Set) (validatorAdvancedSe
 
 func WithActiveNodes(activeNodes *sybilprotection.WeightedSet) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
-		tf.ActiveNodes = activeNodes
+		tf.Validators = activeNodes
 	}
 }
 

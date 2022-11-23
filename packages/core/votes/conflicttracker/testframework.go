@@ -39,7 +39,7 @@ func NewTestFramework[VotePowerType constraints.Comparable[VotePowerType]](test 
 		t.ConflictDAGTestFramework = conflictdag.NewTestFramework(t.test, t.optsConflictDAGTestFramework...)
 
 		if t.ConflictTracker == nil {
-			t.ConflictTracker = NewConflictTracker[utxo.TransactionID, utxo.OutputID, VotePowerType](t.ConflictDAG(), t.VotesTestFramework.ActiveNodes)
+			t.ConflictTracker = NewConflictTracker[utxo.TransactionID, utxo.OutputID, VotePowerType](t.ConflictDAG(), t.VotesTestFramework.Validators)
 		}
 	})
 }

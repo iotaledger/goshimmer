@@ -12,3 +12,20 @@ type SybilProtection interface {
 
 	ledgerstate.DiffConsumer
 }
+
+/*
+type MockSybilProtection struct {
+	weights            *sybilprotection.Weights
+	validators         *sybilprotection.WeightedSet
+}
+
+func (m *MockSybilProtection) Weights() (weights *Weights) {
+	return m.weights
+}
+
+func (m *MockSybilProtection) Validators() (validators *WeightedSet) {
+	return m.validators
+}
+
+
+*/

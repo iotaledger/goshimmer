@@ -69,7 +69,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 			t.VirtualVoting = New(t.Booker, t.optsActiveNodes, t.optsVirtualVoting...)
 		}
 
-		t.VotesTestFramework = votes.NewTestFramework(test, votes.WithActiveNodes(t.VirtualVoting.ActiveNodes))
+		t.VotesTestFramework = votes.NewTestFramework(test, votes.WithActiveNodes(t.VirtualVoting.Validators))
 		t.ConflictTrackerTestFramework = conflicttracker.NewTestFramework[BlockVotePower](test,
 			conflicttracker.WithVotesTestFramework[BlockVotePower](t.VotesTestFramework),
 			conflicttracker.WithConflictTracker(t.VirtualVoting.conflictTracker),
@@ -202,7 +202,7 @@ func WithVirtualVoting(virtualVoting *VirtualVoting) options.Option[TestFramewor
 	}
 }
 
-func WithActiveNodes(activeNodes *sybilprotection.WeightedSet) options.Option[TestFramework] {
+func WithValidators(activeNodes *sybilprotection.WeightedSet) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.optsActiveNodes = activeNodes
 	}

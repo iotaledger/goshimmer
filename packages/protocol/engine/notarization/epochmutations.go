@@ -19,7 +19,7 @@ import (
 
 // EpochMutations is an in-memory data structure that enables the collection of mutations for uncommitted epochs.
 type EpochMutations struct {
-	sybilProtection sybilprotection.SybilProtection
+	weights *sybilprotection.Weights
 
 	// acceptedBlocksByEpoch stores the accepted blocks per epoch.
 	acceptedBlocksByEpoch *memstorage.Storage[epoch.Index, *ads.Set[models.BlockID]]
@@ -37,9 +37,9 @@ type EpochMutations struct {
 }
 
 // NewEpochMutations creates a new EpochMutations instance.
-func NewEpochMutations(sybilProtection sybilprotection.SybilProtection, lastCommittedEpoch epoch.Index) (newMutationFactory *EpochMutations) {
+func NewEpochMutations(weights *sybilprotection.Weights, lastCommittedEpoch epoch.Index) (newMutationFactory *EpochMutations) {
 	return &EpochMutations{
-		sybilProtection:             sybilProtection,
+		weights:                     weights,
 		acceptedBlocksByEpoch:       memstorage.New[epoch.Index, *ads.Set[models.BlockID]](),
 		acceptedTransactionsByEpoch: memstorage.New[epoch.Index, *ads.Set[utxo.TransactionID]](),
 		attestationsByEpoch:         memstorage.New[epoch.Index, *Attestations](),
@@ -60,7 +60,7 @@ func (m *EpochMutations) AddAcceptedBlock(block *models.Block) (err error) {
 	m.acceptedBlocks(blockID.Index(), true).Add(blockID)
 
 	lo.Return1(m.attestationsByEpoch.RetrieveOrCreate(block.ID().Index(), func() *Attestations {
-		return NewAttestations(m.sybilProtection.Weights())
+		return NewAttestations(m.weights)
 	})).Add(block)
 
 	return

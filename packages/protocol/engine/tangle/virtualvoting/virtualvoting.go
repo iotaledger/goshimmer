@@ -22,8 +22,8 @@ import (
 // region VirtualVoting ////////////////////////////////////////////////////////////////////////////////////////////////
 
 type VirtualVoting struct {
-	Events      *Events
-	ActiveNodes *sybilprotection.WeightedSet
+	Events     *Events
+	Validators *sybilprotection.WeightedSet
 
 	blocks          *memstorage.EpochStorage[models.BlockID, *Block]
 	conflictTracker *conflicttracker.ConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower]
@@ -37,11 +37,11 @@ type VirtualVoting struct {
 	*booker.Booker
 }
 
-func New(booker *booker.Booker, activeNodes *sybilprotection.WeightedSet, opts ...options.Option[VirtualVoting]) (newVirtualVoting *VirtualVoting) {
+func New(booker *booker.Booker, validators *sybilprotection.WeightedSet, opts ...options.Option[VirtualVoting]) (newVirtualVoting *VirtualVoting) {
 	return options.Apply(&VirtualVoting{
-		ActiveNodes: activeNodes,
-		blocks:      memstorage.NewEpochStorage[models.BlockID, *Block](),
-		Booker:      booker,
+		Validators: validators,
+		blocks:     memstorage.NewEpochStorage[models.BlockID, *Block](),
+		Booker:     booker,
 		optsSequenceCutoffCallback: func(sequenceID markers.SequenceID) markers.Index {
 			return 1
 		},
@@ -49,9 +49,9 @@ func New(booker *booker.Booker, activeNodes *sybilprotection.WeightedSet, opts .
 			return 0
 		},
 	}, opts, func(o *VirtualVoting) {
-		o.conflictTracker = conflicttracker.NewConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower](o.Booker.Ledger.ConflictDAG, activeNodes)
-		o.sequenceTracker = sequencetracker.NewSequenceTracker[BlockVotePower](activeNodes, o.Booker.Sequence, o.optsSequenceCutoffCallback)
-		o.epochTracker = epochtracker.NewEpochTracker(activeNodes, o.optsEpochCutoffCallback)
+		o.conflictTracker = conflicttracker.NewConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower](o.Booker.Ledger.ConflictDAG, validators)
+		o.sequenceTracker = sequencetracker.NewSequenceTracker[BlockVotePower](validators, o.Booker.Sequence, o.optsSequenceCutoffCallback)
+		o.epochTracker = epochtracker.NewEpochTracker(validators, o.optsEpochCutoffCallback)
 
 		o.Events = NewEvents()
 		o.Events.ConflictTracker = o.conflictTracker.Events

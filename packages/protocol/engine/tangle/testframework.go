@@ -25,7 +25,7 @@ type TestFramework struct {
 	optsLedgerOptions []options.Option[ledger.Ledger]
 	optsEvictionState *eviction.State
 	optsTangle        []options.Option[Tangle]
-	optsActiveNodes   *sybilprotection.WeightedSet
+	optsValidators    *sybilprotection.WeightedSet
 
 	*VirtualVotingTestFramework
 }
@@ -49,12 +49,12 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 				t.optsEvictionState = eviction.NewState(storageInstance)
 			}
 
-			if t.optsActiveNodes == nil {
+			if t.optsValidators == nil {
 				/* TODO: FIX */
-				t.optsActiveNodes = nil
+				t.optsValidators = nil
 			}
 
-			t.Tangle = New(t.optsLedger, t.optsEvictionState, t.optsActiveNodes, func() epoch.Index {
+			t.Tangle = New(t.optsLedger, t.optsEvictionState, t.optsValidators, func() epoch.Index {
 				return 0
 			}, func(id markers.SequenceID) markers.Index {
 				return 1
@@ -67,7 +67,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 			virtualvoting.WithLedger(t.Tangle.Ledger),
 			virtualvoting.WithBooker(t.Tangle.Booker),
 			virtualvoting.WithVirtualVoting(t.Tangle.VirtualVoting),
-			virtualvoting.WithActiveNodes(t.Tangle.ActiveNodes),
+			virtualvoting.WithValidators(t.Tangle.Validators),
 		)
 	})
 }
@@ -121,10 +121,10 @@ func WithTangleOptions(opts ...options.Option[Tangle]) options.Option[TestFramew
 	}
 }
 
-// WithTangleOptions sets the Tangle options that are used to create the Tangle that is used by the TestFramework.
-func WithActiveNodes(activeNodes *sybilprotection.WeightedSet) options.Option[TestFramework] {
+// WithValidators sets the Tangle options to receive a set of validators.
+func WithValidators(validators *sybilprotection.WeightedSet) options.Option[TestFramework] {
 	return func(t *TestFramework) {
-		t.optsActiveNodes = activeNodes
+		t.optsValidators = validators
 	}
 }
 

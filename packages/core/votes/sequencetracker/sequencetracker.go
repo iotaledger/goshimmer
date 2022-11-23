@@ -20,22 +20,22 @@ type SequenceTracker[VotePowerType constraints.Comparable[VotePowerType]] struct
 	votes *memstorage.Storage[markers.SequenceID, *memstorage.Storage[identity.ID, *latestvotes.LatestVotes[markers.Index, VotePowerType]]]
 
 	sequenceCallback    func(id markers.SequenceID) (sequence *markers.Sequence, exists bool)
-	activeNodes         *sybilprotection.WeightedSet
+	validators          *sybilprotection.WeightedSet
 	cutoffIndexCallback func(sequenceID markers.SequenceID) markers.Index
 }
 
-func NewSequenceTracker[VotePowerType constraints.Comparable[VotePowerType]](activeNodes *sybilprotection.WeightedSet, sequenceCallback func(id markers.SequenceID) (sequence *markers.Sequence, exists bool), cutoffIndexCallback func(sequenceID markers.SequenceID) markers.Index) *SequenceTracker[VotePowerType] {
+func NewSequenceTracker[VotePowerType constraints.Comparable[VotePowerType]](validators *sybilprotection.WeightedSet, sequenceCallback func(id markers.SequenceID) (sequence *markers.Sequence, exists bool), cutoffIndexCallback func(sequenceID markers.SequenceID) markers.Index) *SequenceTracker[VotePowerType] {
 	return &SequenceTracker[VotePowerType]{
 		votes:               memstorage.New[markers.SequenceID, *memstorage.Storage[identity.ID, *latestvotes.LatestVotes[markers.Index, VotePowerType]]](),
 		sequenceCallback:    sequenceCallback,
-		activeNodes:         activeNodes,
+		validators:          validators,
 		cutoffIndexCallback: cutoffIndexCallback,
 		Events:              NewEvents(),
 	}
 }
 
 func (s *SequenceTracker[VotePowerType]) TrackVotes(pastMarkers *markers.Markers, voterID identity.ID, power VotePowerType) {
-	weight, exists := s.activeNodes.Get(voterID)
+	weight, exists := s.validators.Get(voterID)
 	if !exists {
 		return
 	}
@@ -67,7 +67,7 @@ func (s *SequenceTracker[VotePowerType]) Voters(marker markers.Marker) (voters *
 			return true
 		}
 
-		weight, validatorExists := s.activeNodes.Get(identityID)
+		weight, validatorExists := s.validators.Get(identityID)
 		if validatorExists {
 			voters.Add(validator.New(identityID, validator.WithWeight(weight.Value)))
 		}
@@ -90,7 +90,7 @@ func (s *SequenceTracker[VotePowerType]) VotersWithPower(marker markers.Marker) 
 			return true
 		}
 
-		if s.activeNodes.Has(identityID) {
+		if s.validators.Has(identityID) {
 			voters[identityID] = power
 		}
 		return true

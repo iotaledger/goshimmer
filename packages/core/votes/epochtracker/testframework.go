@@ -36,7 +36,7 @@ func NewTestFramework[VotePowerType constraints.Comparable[VotePowerType]](test 
 		}
 
 		if t.EpochTracker == nil {
-			t.EpochTracker = NewEpochTracker(t.VotesTestFramework.ActiveNodes, func() epoch.Index { return 0 })
+			t.EpochTracker = NewEpochTracker(t.VotesTestFramework.Validators, func() epoch.Index { return 0 })
 		}
 
 		t.EpochTracker.Events.VotersUpdated.Hook(event.NewClosure(func(evt *VoterUpdatedEvent) {

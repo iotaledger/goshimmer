@@ -35,10 +35,10 @@ type Manager struct {
 	sync.RWMutex
 }
 
-func NewManager(storageInstance *storage.Storage, ledgerState *ledgerstate.LedgerState, sybilProtection sybilprotection.SybilProtection, opts ...options.Option[Manager]) (newManager *Manager) {
+func NewManager(storageInstance *storage.Storage, ledgerState *ledgerstate.LedgerState, weights *sybilprotection.Weights, opts ...options.Option[Manager]) (newManager *Manager) {
 	return options.Apply(&Manager{
 		Events:                     NewEvents(),
-		EpochMutations:             NewEpochMutations(sybilProtection, storageInstance.Settings.LatestCommitment().Index()),
+		EpochMutations:             NewEpochMutations(weights, storageInstance.Settings.LatestCommitment().Index()),
 		storage:                    storageInstance,
 		ledgerState:                ledgerState,
 		pendingConflictsCounters:   shrinkingmap.New[epoch.Index, uint64](),
@@ -147,7 +147,7 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 			acceptedTransactions.Root(),
 			attestations.Attestors().Root(),
 			m.ledgerState.Root(),
-			m.sybilProtection.Weights().Root(),
+			m.weights.Root(),
 		).ID(),
 		m.storage.Settings.LatestCommitment().CumulativeWeight()+attestations.Weight(),
 	)

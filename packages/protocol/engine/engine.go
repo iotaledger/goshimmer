@@ -239,7 +239,7 @@ func (e *Engine) initBlockStorage() {
 }
 
 func (e *Engine) initNotarizationManager() {
-	e.NotarizationManager = notarization.NewManager(e.Storage, e.LedgerState, e.SybilProtection)
+	e.NotarizationManager = notarization.NewManager(e.Storage, e.LedgerState, e.SybilProtection.Weights())
 
 	e.Consensus.BlockGadget.Events.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
 		if err := e.NotarizationManager.AddAcceptedBlock(block.ModelsBlock); err != nil {
@@ -358,6 +358,12 @@ func (e *Engine) Block(id models.BlockID) (block *models.Block, exists bool) {
 func WithBootstrapThreshold(threshold time.Duration) options.Option[Engine] {
 	return func(e *Engine) {
 		e.optsBootstrappedThreshold = threshold
+	}
+}
+
+func WithSybilProtectionProvider(provider func(*Engine) sybilprotection.SybilProtection) options.Option[Engine] {
+	return func(e *Engine) {
+		e.optsSybilProtectionProvider = provider
 	}
 }
 

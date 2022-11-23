@@ -38,7 +38,7 @@ func configure(_ *node.Plugin) {
 func getIssuersHandler(c echo.Context) (err error) {
 	activeValidatorsString := make([]string, 0)
 
-	_ = deps.Protocol.Engine().Tangle.ActiveNodes.ForEach(func(id identity.ID) error {
+	_ = deps.Protocol.Engine().Tangle.Validators.ForEach(func(id identity.ID) error {
 		activeValidatorsString = append(activeValidatorsString, id.String())
 		return nil
 	})
@@ -48,14 +48,14 @@ func getIssuersHandler(c echo.Context) (err error) {
 
 func getWeightsHandler(c echo.Context) (err error) {
 	weightsString := make(map[string]int64)
-	_ = deps.Protocol.Engine().Tangle.ActiveNodes.ForEach(func(id identity.ID) error {
+	_ = deps.Protocol.Engine().Tangle.Validators.ForEach(func(id identity.ID) error {
 		weightsString[id.String()] = lo.Return1(deps.Protocol.Engine().SybilProtection.Weights().Weight(id)).Value
 		return nil
 	})
 
 	resp := Weights{
 		Weights:     weightsString,
-		TotalWeight: deps.Protocol.Engine().Tangle.ActiveNodes.TotalWeight(),
+		TotalWeight: deps.Protocol.Engine().Tangle.Validators.TotalWeight(),
 	}
 
 	return c.JSON(http.StatusOK, resp)

@@ -52,29 +52,29 @@ func TestSequenceTracker_TrackVotes(t *testing.T) {
 	}
 
 	expectedVoters := map[string]*set.AdvancedSet[*validator.Validator]{
-		"0,1": tf.Validators(),
-		"0,2": tf.Validators(),
-		"0,3": tf.Validators(),
-		"0,4": tf.Validators(),
-		"1,2": tf.Validators(),
-		"1,3": tf.Validators(),
-		"1,4": tf.Validators(),
-		"1,5": tf.Validators(),
-		"2,5": tf.Validators(),
-		"2,6": tf.Validators(),
-		"2,7": tf.Validators(),
-		"2,8": tf.Validators(),
-		"3,8": tf.Validators(),
-		"4,8": tf.Validators(),
+		"0,1": tf.ValidatorsSet(),
+		"0,2": tf.ValidatorsSet(),
+		"0,3": tf.ValidatorsSet(),
+		"0,4": tf.ValidatorsSet(),
+		"1,2": tf.ValidatorsSet(),
+		"1,3": tf.ValidatorsSet(),
+		"1,4": tf.ValidatorsSet(),
+		"1,5": tf.ValidatorsSet(),
+		"2,5": tf.ValidatorsSet(),
+		"2,6": tf.ValidatorsSet(),
+		"2,7": tf.ValidatorsSet(),
+		"2,8": tf.ValidatorsSet(),
+		"3,8": tf.ValidatorsSet(),
+		"4,8": tf.ValidatorsSet(),
 	}
 	// CASE1: APPROVE MARKER(0, 3)
 	{
 		tf.SequenceTracker.TrackVotes(markers.NewMarkers(markers.NewMarker(0, 3)), tf.Validator("A").ID(), votes.MockedVotePower{0})
 
 		tf.ValidateStructureDetailsVoters(lo.MergeMaps(expectedVoters, map[string]*set.AdvancedSet[*validator.Validator]{
-			"0,1": tf.Validators("A"),
-			"0,2": tf.Validators("A"),
-			"0,3": tf.Validators("A"),
+			"0,1": tf.ValidatorsSet("A"),
+			"0,2": tf.ValidatorsSet("A"),
+			"0,3": tf.ValidatorsSet("A"),
 		}))
 	}
 	// CASE2: APPROVE MARKER(0, 4) + MARKER(2, 6)
@@ -82,12 +82,12 @@ func TestSequenceTracker_TrackVotes(t *testing.T) {
 		tf.SequenceTracker.TrackVotes(markers.NewMarkers(markers.NewMarker(0, 4), markers.NewMarker(2, 6)), tf.Validator("A").ID(), votes.MockedVotePower{1})
 
 		tf.ValidateStructureDetailsVoters(lo.MergeMaps(expectedVoters, map[string]*set.AdvancedSet[*validator.Validator]{
-			"0,4": tf.Validators("A"),
-			"1,2": tf.Validators("A"),
-			"1,3": tf.Validators("A"),
-			"1,4": tf.Validators("A"),
-			"2,5": tf.Validators("A"),
-			"2,6": tf.Validators("A"),
+			"0,4": tf.ValidatorsSet("A"),
+			"1,2": tf.ValidatorsSet("A"),
+			"1,3": tf.ValidatorsSet("A"),
+			"1,4": tf.ValidatorsSet("A"),
+			"2,5": tf.ValidatorsSet("A"),
+			"2,6": tf.ValidatorsSet("A"),
 		}))
 	}
 
@@ -96,8 +96,8 @@ func TestSequenceTracker_TrackVotes(t *testing.T) {
 		tf.SequenceTracker.TrackVotes(markers.NewMarkers(markers.NewMarker(4, 8)), tf.Validator("A").ID(), votes.MockedVotePower{2})
 
 		tf.ValidateStructureDetailsVoters(lo.MergeMaps(expectedVoters, map[string]*set.AdvancedSet[*validator.Validator]{
-			"2,7": tf.Validators("A"),
-			"4,8": tf.Validators("A"),
+			"2,7": tf.ValidatorsSet("A"),
+			"4,8": tf.ValidatorsSet("A"),
 		}))
 	}
 
@@ -106,11 +106,11 @@ func TestSequenceTracker_TrackVotes(t *testing.T) {
 		tf.SequenceTracker.TrackVotes(markers.NewMarkers(markers.NewMarker(1, 5)), tf.Validator("B").ID(), votes.MockedVotePower{3})
 
 		tf.ValidateStructureDetailsVoters(lo.MergeMaps(expectedVoters, map[string]*set.AdvancedSet[*validator.Validator]{
-			"0,1": tf.Validators("A", "B"),
-			"1,2": tf.Validators("A", "B"),
-			"1,3": tf.Validators("A", "B"),
-			"1,4": tf.Validators("A", "B"),
-			"1,5": tf.Validators("B"),
+			"0,1": tf.ValidatorsSet("A", "B"),
+			"1,2": tf.ValidatorsSet("A", "B"),
+			"1,3": tf.ValidatorsSet("A", "B"),
+			"1,4": tf.ValidatorsSet("A", "B"),
+			"1,5": tf.ValidatorsSet("B"),
 		}))
 	}
 }

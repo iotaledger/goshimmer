@@ -11,9 +11,11 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
@@ -27,6 +29,8 @@ import (
 
 type TestFramework struct {
 	Scheduler      *Scheduler
+	storage        *storage.Storage
+	engine         *engine.Engine
 	mockAcceptance *blockgadget.MockAcceptanceGadget
 	issuersByAlias map[string]*identity.Identity
 	issuersMana    map[identity.ID]int64
@@ -54,23 +58,28 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		issuersByAlias: make(map[string]*identity.Identity),
 		mockAcceptance: blockgadget.NewMockAcceptanceGadget(),
 	}, opts, func(t *TestFramework) {
-		if t.evictionState == nil {
-			storageInstance := storage.New(test.TempDir(), 1)
-			test.Cleanup(func() {
-				storageInstance.Shutdown()
-			})
+		storageInstance := storage.New(test.TempDir(), 1)
+		t.storage = storageInstance
+		test.Cleanup(func() {
+			t.storage.Shutdown()
+		})
 
-			t.evictionState = eviction.NewState(storageInstance)
+		if t.evictionState == nil {
+			t.evictionState = eviction.NewState(t.storage)
 		}
+
+		if t.engine == nil {
+			t.engine = engine.New(t.storage)
+		}
+
 		if t.optsValidators == nil {
-			// TODO: fix
-			t.optsValidators = sybilprotection.Validators()
+			t.optsValidators = dpos.NewSybilProtection(t.engine).Validators()
 		}
 
 		t.TangleTestFramework = tangle.NewTestFramework(
 			test,
 			tangle.WithTangleOptions(t.optsTangle...),
-			tangle.WithActiveNodes(t.optsValidators),
+			tangle.WithValidators(t.optsValidators),
 			tangle.WithEvictionState(t.evictionState),
 		)
 
@@ -254,15 +263,21 @@ func WithIsBlockAcceptedFunc(isBlockAcceptedFunc func(id models.BlockID) bool) o
 	}
 }
 
+func WithEngine(engine *engine.Engine) options.Option[TestFramework] {
+	return func(t *TestFramework) {
+		t.engine = engine
+	}
+}
+
 func WithEvictionState(evictionState *eviction.State) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.evictionState = evictionState
 	}
 }
 
-func WithActiveNodes(activeNodes *sybilprotection.WeightedSet) options.Option[TestFramework] {
+func WithValidators(validators *sybilprotection.WeightedSet) options.Option[TestFramework] {
 	return func(t *TestFramework) {
-		t.optsValidators = activeNodes
+		t.optsValidators = validators
 	}
 }
 

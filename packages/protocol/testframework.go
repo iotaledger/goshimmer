@@ -13,6 +13,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot/creator"
 	"github.com/iotaledger/goshimmer/packages/network"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
@@ -46,7 +48,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 			identity.GenerateIdentity().ID(): 100,
 		})
 
-		t.Protocol = New(t.Network.Join(identity.GenerateIdentity().ID()), append(t.optsProtocolOptions, WithSnapshotPath(diskUtil.Path("snapshot.bin")), WithBaseDirectory(diskUtil.Path()))...)
+		t.Protocol = New(t.Network.Join(identity.GenerateIdentity().ID()), append(t.optsProtocolOptions, WithSnapshotPath(diskUtil.Path("snapshot.bin")), WithBaseDirectory(diskUtil.Path()), WithEngineOptions(engine.WithSybilProtectionProvider(dpos.NewSybilProtectionProvider())))...)
 	})
 }
 

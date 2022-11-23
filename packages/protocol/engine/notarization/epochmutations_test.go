@@ -4,14 +4,15 @@ import (
 	"testing"
 
 	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
+	"github.com/iotaledger/hive.go/core/types"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/hive.go/core/identity"
-
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/storage/permanent"
 )
 
 func TestMutationFactory(t *testing.T) {
@@ -70,14 +71,9 @@ func TestMutationFactory(t *testing.T) {
 }
 
 func TestMutationFactory_AddAcceptedBlock(t *testing.T) {
-	mutationFactory := NewEpochMutations(func(epoch.Index) sybilprotection.Attestations {
-		weightStorage := memstorage.New[identity.ID, int64]()
-		weightStorage.Set(identity.ID{}, 1)
-
-		/* TODO: FIX */
-		// return pos.NewEpochAttestations(weightStorage)
-		return nil
-	}, 2)
+	settings := permanent.NewSettings(t.TempDir() + "/settings")
+	settings.SetLatestCommitment(commitment.New(0, commitment.NewID(0, []byte{}), types.Identifier{}, 0))
+	mutationFactory := NewEpochMutations(sybilprotection.NewWeights(mapdb.NewMapDB(), settings), 2)
 
 	block := models.NewBlock(
 		models.WithIssuingTime(epoch.Index(3).EndTime()),
@@ -88,5 +84,5 @@ func TestMutationFactory_AddAcceptedBlock(t *testing.T) {
 	require.NoError(t, mutationFactory.AddAcceptedBlock(block))
 	require.True(t, mutationFactory.acceptedBlocks(3).Has(block.ID()))
 
-	require.NoError(t, lo.Return5(mutationFactory.Commit(3)))
+	require.NoError(t, lo.Return4(mutationFactory.Evict(3)))
 }
