@@ -175,10 +175,10 @@ func diagnosticPrintSnapshotFromFile(filePath string) {
 	})
 
 	fmt.Println("--- Diffs ---")
-	e.Storage.LedgerStateDiffs.StreamSpentOutputs(0, func(owm *ledgerstate.OutputWithMetadata) {
+	e.LedgerState.StateDiffs.StreamSpentOutputs(0, func(owm *ledgerstate.OutputWithMetadata) {
 		fmt.Printf("%d: %+v\n", 0, owm)
 	})
-	e.Storage.LedgerStateDiffs.StreamCreatedOutputs(0, func(owm *ledgerstate.OutputWithMetadata) {
+	e.LedgerState.StateDiffs.StreamCreatedOutputs(0, func(owm *ledgerstate.OutputWithMetadata) {
 		fmt.Printf("%d: %+v\n", 0, owm)
 	})
 }
