@@ -95,8 +95,8 @@ func (m *EpochMutations) RemoveAcceptedBlock(block *models.Block) (err error) {
 
 // TotalAcceptedBlocks returns the number of accepted blocks of given epoch.
 func (m *EpochMutations) TotalAcceptedBlocks(ei epoch.Index) (total int) {
-	m.Lock()
-	defer m.Unlock()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	if m.acceptedBlocks(ei) == nil {
 		return 0
@@ -106,8 +106,8 @@ func (m *EpochMutations) TotalAcceptedBlocks(ei epoch.Index) (total int) {
 
 // TotalAcceptedTransactions returns the number of accepted transactions of given epoch.
 func (m *EpochMutations) TotalAcceptedTransactions(ei epoch.Index) (total int) {
-	m.Lock()
-	defer m.Unlock()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	if m.acceptedTransactions(ei) == nil {
 		return 0
@@ -117,8 +117,8 @@ func (m *EpochMutations) TotalAcceptedTransactions(ei epoch.Index) (total int) {
 
 // TotalActiveValidators returns the number of active validators of given epoch.
 func (m *EpochMutations) TotalActiveValidators(ei epoch.Index) (total int) {
-	m.Lock()
-	defer m.Unlock()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	if m.activeValidators(ei) == nil {
 		return 0
