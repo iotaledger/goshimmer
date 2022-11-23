@@ -11,10 +11,9 @@ require (
 	github.com/gin-gonic/gin v1.8.1
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/gorilla/websocket v1.5.0
-	github.com/iotaledger/hive.go/core v1.0.0-rc.1.0.20221123073018-4a6f9822f6a4
+	github.com/iotaledger/hive.go/core v1.0.0-rc.1.0.20221123111846-f65bd89a8e9d
 	github.com/iotaledger/hive.go/serializer/v2 v2.0.0-rc.1
 	github.com/labstack/echo v3.3.10+incompatible
-	github.com/labstack/gommon v0.3.1
 	github.com/libp2p/go-libp2p v0.23.4
 	github.com/magiconair/properties v1.8.6
 	github.com/mr-tron/base58 v1.2.0
@@ -51,6 +50,7 @@ require (
 	github.com/goccy/go-json v0.9.11 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/golang/mock v1.6.0 // indirect
+	github.com/labstack/gommon v0.3.1 // indirect
 	github.com/libp2p/go-cidranger v1.1.0 // indirect
 	github.com/libp2p/go-libp2p-asn-util v0.2.0 // indirect
 	github.com/libp2p/go-yamux/v4 v4.0.0 // indirect
