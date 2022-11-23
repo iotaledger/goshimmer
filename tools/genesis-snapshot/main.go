@@ -16,7 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/snapshot/creator"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	ledgerModels "github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -175,10 +175,10 @@ func diagnosticPrintSnapshotFromFile(filePath string) {
 	})
 
 	fmt.Println("--- Diffs ---")
-	e.Storage.LedgerStateDiffs.StreamSpentOutputs(0, func(owm *ledgerModels.OutputWithMetadata) {
+	e.Storage.LedgerStateDiffs.StreamSpentOutputs(0, func(owm *ledgerstate.OutputWithMetadata) {
 		fmt.Printf("%d: %+v\n", 0, owm)
 	})
-	e.Storage.LedgerStateDiffs.StreamCreatedOutputs(0, func(owm *ledgerModels.OutputWithMetadata) {
+	e.Storage.LedgerStateDiffs.StreamCreatedOutputs(0, func(owm *ledgerstate.OutputWithMetadata) {
 		fmt.Printf("%d: %+v\n", 0, owm)
 	})
 }
