@@ -51,7 +51,7 @@ func NewTransactionMetadata(txID utxo.TransactionID) (new *TransactionMetadata) 
 		ConflictIDs:       utxo.NewTransactionIDs(),
 		OutputIDs:         utxo.NewOutputIDs(),
 		ConfirmationState: confirmation.Pending,
-	})
+	}, false)
 	new.SetID(txID)
 
 	return new
@@ -239,7 +239,7 @@ func NewOutputMetadata(outputID utxo.OutputID) (new *OutputMetadata) {
 	new = model.NewStorable[utxo.OutputID, OutputMetadata](&outputMetadata{
 		ConflictIDs:       utxo.NewTransactionIDs(),
 		ConfirmationState: confirmation.Pending,
-	})
+	}, false)
 	new.SetID(outputID)
 
 	return new
