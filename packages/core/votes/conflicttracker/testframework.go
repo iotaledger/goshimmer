@@ -8,11 +8,15 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/constraints"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
 
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/storage/permanent"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -33,7 +37,9 @@ func NewTestFramework[VotePowerType constraints.Comparable[VotePowerType]](test 
 		test: test,
 	}, opts, func(t *TestFramework[VotePowerType]) {
 		if t.VotesTestFramework == nil {
-			t.VotesTestFramework = votes.NewTestFramework(test)
+			t.VotesTestFramework = votes.NewTestFramework(test, votes.WithValidators(
+				sybilprotection.NewWeights(mapdb.NewMapDB(), permanent.NewSettings(test.TempDir()+"/settings")).WeightedSet(),
+			))
 		}
 
 		t.ConflictDAGTestFramework = conflictdag.NewTestFramework(t.test, t.optsConflictDAGTestFramework...)
@@ -48,7 +54,22 @@ func (t *TestFramework[VotePowerType]) ValidateStatementResults(expectedResults 
 	for conflictIDAlias, expectedVoters := range expectedResults {
 		actualVoters := t.ConflictTracker.Voters(t.ConflictID(conflictIDAlias))
 
-		assert.Truef(t.test, expectedVoters.Equal(votes.ValidatorSetToAdvancedSet(actualVoters)), "%s expected to have %d voters but got %d", conflictIDAlias, expectedVoters.Size(), actualVoters.Size())
+		expectedVoters.ForEach(func(expectedValidator *validator.Validator) (err error) {
+			var found bool
+			actualVoters.ForEach(func(_ identity.ID, actualValidator *validator.Validator) bool {
+				if actualValidator.ID() == expectedValidator.ID() {
+					found = true
+					assert.Equalf(t.test, expectedValidator.Weight(), actualValidator.Weight(), "validator %s weight does not match: expected %s actual %s", expectedValidator.ID(), expectedValidator, actualValidator)
+				}
+				return true
+			})
+
+			if !found {
+				t.test.Fatalf("validators do not match: expected %s actual %s", expectedVoters, votes.ValidatorSetToAdvancedSet(actualVoters))
+			}
+
+			return nil
+		})
 	}
 }
 

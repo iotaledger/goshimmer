@@ -40,6 +40,10 @@ func (t *TestFramework) CreateValidatorWithID(alias string, id identity.ID, opts
 	t.validatorsByAlias[alias] = voter
 	t.Validators.Add(id)
 
+	weightUpdates := sybilprotection.NewWeightUpdates(1)
+	weightUpdates.ApplyDiff(id, voter.Weight())
+	t.Validators.Weights.ApplyUpdates(weightUpdates)
+
 	return voter
 }
 
@@ -74,9 +78,9 @@ func ValidatorSetToAdvancedSet(validatorSet *validator.Set) (validatorAdvancedSe
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithActiveNodes(activeNodes *sybilprotection.WeightedSet) options.Option[TestFramework] {
+func WithValidators(validators *sybilprotection.WeightedSet) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
-		tf.Validators = activeNodes
+		tf.Validators = validators
 	}
 }
 

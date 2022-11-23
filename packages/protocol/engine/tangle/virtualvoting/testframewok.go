@@ -40,7 +40,7 @@ type TestFramework struct {
 	optsBooker          *booker.Booker
 	optsBookerOptions   []options.Option[booker.Booker]
 	optsVirtualVoting   []options.Option[VirtualVoting]
-	optsActiveNodes     *sybilprotection.WeightedSet
+	optsValidators      *sybilprotection.WeightedSet
 
 	*BookerTestFramework
 	*VotesTestFramework
@@ -60,16 +60,16 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 			lo.Cond(t.optsBooker != nil, booker.WithBooker(t.optsBooker), booker.WithBookerOptions(t.optsBookerOptions...)),
 		)
 
-		if t.optsActiveNodes == nil {
+		if t.optsValidators == nil {
 			/* TODO: FIX */
-			t.optsActiveNodes = nil
+			t.optsValidators = nil
 		}
 
 		if t.VirtualVoting == nil {
-			t.VirtualVoting = New(t.Booker, t.optsActiveNodes, t.optsVirtualVoting...)
+			t.VirtualVoting = New(t.Booker, t.optsValidators, t.optsVirtualVoting...)
 		}
 
-		t.VotesTestFramework = votes.NewTestFramework(test, votes.WithActiveNodes(t.VirtualVoting.Validators))
+		t.VotesTestFramework = votes.NewTestFramework(test, votes.WithValidators(t.VirtualVoting.Validators))
 		t.ConflictTrackerTestFramework = conflicttracker.NewTestFramework[BlockVotePower](test,
 			conflicttracker.WithVotesTestFramework[BlockVotePower](t.VotesTestFramework),
 			conflicttracker.WithConflictTracker(t.VirtualVoting.conflictTracker),
@@ -202,9 +202,9 @@ func WithVirtualVoting(virtualVoting *VirtualVoting) options.Option[TestFramewor
 	}
 }
 
-func WithValidators(activeNodes *sybilprotection.WeightedSet) options.Option[TestFramework] {
+func WithValidators(validators *sybilprotection.WeightedSet) options.Option[TestFramework] {
 	return func(t *TestFramework) {
-		t.optsActiveNodes = activeNodes
+		t.optsValidators = validators
 	}
 }
 
