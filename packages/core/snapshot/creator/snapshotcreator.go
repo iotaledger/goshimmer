@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
@@ -50,12 +51,11 @@ func CreateSnapshot(s *storage.Storage, snapshotFileName string, genesisTokenAmo
 		}
 	}
 
-	// create ledger
-	l := ledger.New(s)
+	// create engine
+	engineInstance := engine.New(s)
+	engineInstance.Ledger.ImportOutputs(outputsWithMetadata)
 
-	l.ImportOutputs(outputsWithMetadata)
-
-	snapshot.WriteSnapshot(snapshotFileName, s, l, 0)
+	snapshot.WriteSnapshot(snapshotFileName, engineInstance, 0)
 }
 
 // CreateSnapshotForIntegrationTest creates a new snapshot. Genesis is defined by genesisTokenAmount and seedBytes, it
@@ -88,12 +88,11 @@ func CreateSnapshotForIntegrationTest(s *storage.Storage, snapshotFileName strin
 		}
 	}
 
-	// create ledger
-	l := ledger.New(s)
+	// create engine
+	engineInstance := engine.New(s)
+	engineInstance.Ledger.ImportOutputs(outputsWithMetadata)
 
-	l.ImportOutputs(outputsWithMetadata)
-
-	snapshot.WriteSnapshot(snapshotFileName, s, l, 0)
+	snapshot.WriteSnapshot(snapshotFileName, engineInstance, 0)
 }
 
 var outputCounter uint16 = 1

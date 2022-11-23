@@ -11,14 +11,14 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
-func WriteSnapshot(filePath string, s *storage.Storage, l *ledger.Ledger, ledgerState *ledgerstate.LedgerState, depth int) {
+func WriteSnapshot(filePath string, engineInstance *engine.Engine, depth int) {
 	fileHandle, err := os.Create(filePath)
 	defer fileHandle.Close()
 
@@ -26,12 +26,12 @@ func WriteSnapshot(filePath string, s *storage.Storage, l *ledger.Ledger, ledger
 		panic(err)
 	}
 
-	snapshotEpoch := s.Settings.LatestCommitment().Index()
+	snapshotEpoch := engineInstance.Storage.Settings.LatestCommitment().Index()
 	snapshotStart := snapshotEpoch - epoch.Index(depth)
 
 	// Settings
 	{
-		settingsBytes := lo.PanicOnErr(s.Settings.Bytes())
+		settingsBytes := lo.PanicOnErr(engineInstance.Storage.Settings.Bytes())
 		binary.Write(fileHandle, binary.LittleEndian, uint32(len(settingsBytes)))
 		binary.Write(fileHandle, binary.LittleEndian, settingsBytes)
 	}
@@ -43,7 +43,7 @@ func WriteSnapshot(filePath string, s *storage.Storage, l *ledger.Ledger, ledger
 		// Commitment size
 		binary.Write(fileHandle, binary.LittleEndian, uint32(len(lo.PanicOnErr((&commitment.Commitment{}).Bytes()))))
 		for epochIndex := epoch.Index(0); epochIndex <= snapshotEpoch; epochIndex++ {
-			binary.Write(fileHandle, binary.LittleEndian, lo.PanicOnErr(lo.PanicOnErr(s.Commitments.Load(epochIndex)).Bytes()))
+			binary.Write(fileHandle, binary.LittleEndian, lo.PanicOnErr(lo.PanicOnErr(engineInstance.Storage.Commitments.Load(epochIndex)).Bytes()))
 		}
 	}
 
@@ -53,8 +53,8 @@ func WriteSnapshot(filePath string, s *storage.Storage, l *ledger.Ledger, ledger
 	{
 		var outputCount uint32
 		var dummyOutput utxo.Output
-		l.Storage.ForEachOutputID(func(outputID utxo.OutputID) bool {
-			l.Storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledger.OutputMetadata) {
+		engineInstance.Ledger.Storage.ForEachOutputID(func(outputID utxo.OutputID) bool {
+			engineInstance.Ledger.Storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledger.OutputMetadata) {
 				if (outputMetadata.ConfirmationState() == confirmation.Accepted || outputMetadata.ConfirmationState() == confirmation.Confirmed) &&
 					!outputMetadata.IsSpent() {
 					outputCount++
@@ -62,7 +62,7 @@ func WriteSnapshot(filePath string, s *storage.Storage, l *ledger.Ledger, ledger
 			})
 
 			if dummyOutput == nil {
-				l.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
+				engineInstance.Ledger.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
 					dummyOutput = output
 				})
 			}
@@ -79,9 +79,9 @@ func WriteSnapshot(filePath string, s *storage.Storage, l *ledger.Ledger, ledger
 		outputWithMetadataSize = uint32(len(lo.PanicOnErr(dummyOutputWithMetadata.Bytes())))
 		binary.Write(fileHandle, binary.LittleEndian, outputWithMetadataSize)
 
-		l.Storage.ForEachOutputID(func(outputID utxo.OutputID) bool {
-			l.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
-				l.Storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledger.OutputMetadata) {
+		engineInstance.Ledger.Storage.ForEachOutputID(func(outputID utxo.OutputID) bool {
+			engineInstance.Ledger.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
+				engineInstance.Ledger.Storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledger.OutputMetadata) {
 					outputWithMetadata := ledgerstate.NewOutputWithMetadata(
 						epoch.IndexFromTime(outputMetadata.CreationTime()),
 						outputID,
@@ -100,7 +100,7 @@ func WriteSnapshot(filePath string, s *storage.Storage, l *ledger.Ledger, ledger
 	{
 		var solidEntryPointsCount uint32
 		for epochIndex := snapshotStart; epochIndex <= snapshotEpoch; epochIndex++ {
-			solidEntryPointsCount += uint32(s.RootBlocks.LoadAll(epochIndex).Size())
+			solidEntryPointsCount += uint32(engineInstance.Storage.RootBlocks.LoadAll(epochIndex).Size())
 		}
 
 		// Solid Entry Points count
@@ -110,7 +110,7 @@ func WriteSnapshot(filePath string, s *storage.Storage, l *ledger.Ledger, ledger
 		binary.Write(fileHandle, binary.LittleEndian, uint32(len(lo.PanicOnErr(dummyBlock.Bytes()))))
 
 		for epochIndex := snapshotStart; epochIndex <= snapshotEpoch; epochIndex++ {
-			if err := s.RootBlocks.Stream(epochIndex, func(blockID models.BlockID) {
+			if err := engineInstance.Storage.RootBlocks.Stream(epochIndex, func(blockID models.BlockID) {
 				binary.Write(fileHandle, binary.LittleEndian, lo.PanicOnErr(blockID.Bytes()))
 			}); err != nil {
 				panic(errors.Errorf("failed streaming root blocks for snaphot: %w", err))
@@ -121,10 +121,10 @@ func WriteSnapshot(filePath string, s *storage.Storage, l *ledger.Ledger, ledger
 	// Activity Log
 	{
 		// Activity Log count
-		binary.Write(fileHandle, binary.LittleEndian, uint32(s.Attestors.LoadAll(snapshotEpoch).Size()))
+		binary.Write(fileHandle, binary.LittleEndian, uint32(engineInstance.Storage.Attestors.LoadAll(snapshotEpoch).Size()))
 		// Activity Log size
 		binary.Write(fileHandle, binary.LittleEndian, uint32(len(lo.PanicOnErr((&identity.ID{}).Bytes()))))
-		s.Attestors.Stream(snapshotEpoch, func(id identity.ID) {
+		engineInstance.Storage.Attestors.Stream(snapshotEpoch, func(id identity.ID) {
 			binary.Write(fileHandle, binary.LittleEndian, id)
 		})
 	}
@@ -132,15 +132,15 @@ func WriteSnapshot(filePath string, s *storage.Storage, l *ledger.Ledger, ledger
 	// Epoch Diffs -- must be in reverse order to allow Ledger rollback
 	{
 		// Number of epochs
-		binary.Write(fileHandle, binary.LittleEndian, uint32(snapshotEpoch-s.Settings.LatestStateMutationEpoch()))
+		binary.Write(fileHandle, binary.LittleEndian, uint32(snapshotEpoch-engineInstance.Storage.Settings.LatestStateMutationEpoch()))
 
-		for epochIndex := s.Settings.LatestStateMutationEpoch(); epochIndex >= snapshotEpoch; epochIndex-- {
+		for epochIndex := engineInstance.Storage.Settings.LatestStateMutationEpoch(); epochIndex >= snapshotEpoch; epochIndex-- {
 
 			// Epoch Index
 			binary.Write(fileHandle, binary.LittleEndian, epochIndex)
 
 			var createdCount uint32
-			ledgerState.StateDiffs.StreamCreatedOutputs(epochIndex, func(_ *ledgerstate.OutputWithMetadata) {
+			engineInstance.LedgerState.StateDiffs.StreamCreatedOutputs(epochIndex, func(_ *ledgerstate.OutputWithMetadata) {
 				createdCount++
 			})
 			// TODO: seek back to this location instead of scanning the collection twice
@@ -148,12 +148,12 @@ func WriteSnapshot(filePath string, s *storage.Storage, l *ledger.Ledger, ledger
 			binary.Write(fileHandle, binary.LittleEndian, createdCount)
 			// OutputWithMetadata size
 			binary.Write(fileHandle, binary.LittleEndian, outputWithMetadataSize)
-			ledgerState.StateDiffs.StreamCreatedOutputs(epochIndex, func(createdWithMetadata *ledgerstate.OutputWithMetadata) {
+			engineInstance.LedgerState.StateDiffs.StreamCreatedOutputs(epochIndex, func(createdWithMetadata *ledgerstate.OutputWithMetadata) {
 				binary.Write(fileHandle, binary.LittleEndian, lo.PanicOnErr(createdWithMetadata.Bytes()))
 			})
 
 			var spentCount uint32
-			ledgerState.StateDiffs.StreamSpentOutputs(epochIndex, func(_ *ledgerstate.OutputWithMetadata) {
+			engineInstance.LedgerState.StateDiffs.StreamSpentOutputs(epochIndex, func(_ *ledgerstate.OutputWithMetadata) {
 				spentCount++
 			})
 
@@ -162,7 +162,7 @@ func WriteSnapshot(filePath string, s *storage.Storage, l *ledger.Ledger, ledger
 			binary.Write(fileHandle, binary.LittleEndian, spentCount)
 			// OutputWithMetadata size
 			binary.Write(fileHandle, binary.LittleEndian, outputWithMetadataSize)
-			ledgerState.StateDiffs.StreamSpentOutputs(epochIndex, func(spentWithMetadata *ledgerstate.OutputWithMetadata) {
+			engineInstance.LedgerState.StateDiffs.StreamSpentOutputs(epochIndex, func(spentWithMetadata *ledgerstate.OutputWithMetadata) {
 				binary.Write(fileHandle, binary.LittleEndian, lo.PanicOnErr(spentWithMetadata.Bytes()))
 			})
 		}
