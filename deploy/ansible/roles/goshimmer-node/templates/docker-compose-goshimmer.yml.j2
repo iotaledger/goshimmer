@@ -50,8 +50,8 @@ services:
      {% if networkVersion|default(None) %}
       --autoPeering.networkVersion={{ networkVersion }}
      {% endif %}
-      --node.disablePlugins=portcheck,ManaInitializer
-      --node.enablePlugins=dashboard,remotelog,networkdelay,prometheus{% if faucet|default(false) %},faucet,WebAPIFaucetEndpoint{% endif %},activity,snapshot,WebAPIToolsBlockEndpoint,"WebAPI tools Endpoint"{% if spammer|default(false) %},spammer{% endif %}
+      --node.disablePlugins=portcheck,ManaInitializer{% if !remoteLogs|default(false) %},RemoteLog,RemoteLogMetrics{% endif %}
+      --node.enablePlugins=dashboard,networkdelay,prometheus{% if faucet|default(false) %},faucet,WebAPIFaucetEndpoint{% endif %},activity,snapshot,WebAPIToolsBlockEndpoint,"WebAPI tools Endpoint"{% if spammer|default(false) %},spammer{% endif %}{% if remoteLogs|default(false) %},RemoteLog,RemoteLogMetrics{% endif %}
       --prometheus.bindAddress=0.0.0.0:9311
       --activity.broadcastInterval=1s
      {% if faucet|default(false) %}
