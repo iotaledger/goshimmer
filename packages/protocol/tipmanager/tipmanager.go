@@ -317,15 +317,14 @@ func (t *TipManager) checkPair(pair markerPreviousBlockPair, blockWalker *walker
 	}
 
 	// unaccepted after minSupportedTimestamp
-
-	// check oldest unaccepted marker time without walking sequence DAG
-	firstUnacceptedMarker := findFirstUnacceptedMarker(pair.Marker, t.engine.Tangle.BlockFromMarker, t.engine.FirstUnacceptedMarker)
-	if timestampValid = t.processMarker(pair.Marker, minSupportedTimestamp, firstUnacceptedMarker); !timestampValid {
+	sequence, exists := t.engine.Tangle.Booker.Sequence(pair.Marker.SequenceID())
+	if !exists {
 		return false
 	}
 
-	sequence, exists := t.engine.Tangle.Booker.Sequence(pair.Marker.SequenceID())
-	if !exists {
+	// check oldest unaccepted marker time without walking sequence DAG
+	firstUnacceptedMarker := findFirstUnacceptedMarker(sequence, t.engine.Tangle.BlockFromMarker, t.engine.FirstUnacceptedMarker)
+	if timestampValid = t.processMarker(pair.Marker, minSupportedTimestamp, firstUnacceptedMarker); !timestampValid {
 		return false
 	}
 
@@ -423,9 +422,10 @@ func (t *TipManager) checkBlock(block *booker.Block, blockWalker *walker.Walker[
 	// if block is younger than TSC and not accepted, walk through strong parents' past cones
 	for parentID := range block.ParentsByType(models.StrongParentType) {
 		parentBlock, exists := t.schedulerBlockRetrieverFunc(parentID)
-		if exists {
-			blockWalker.Push(parentBlock.Block.Block)
+		if !exists {
+			return false
 		}
+		blockWalker.Push(parentBlock.Block.Block)
 	}
 
 	return true
@@ -433,12 +433,12 @@ func (t *TipManager) checkBlock(block *booker.Block, blockWalker *walker.Walker[
 
 // firstUnacceptedMarker is similar to acceptance.FirstUnacceptedIndex, except it skips any marker gaps and returns
 // an existing marker.
-func findFirstUnacceptedMarker(pastMarker markers.Marker, blockFromMarkerCallback func(marker markers.Marker) (block *booker.Block, exists bool), firstUnacceptedIndexCallback func(id markers.SequenceID) markers.Index) (firstUnacceptedMarker markers.Marker) {
-	firstUnacceptedMarker = markers.NewMarker(pastMarker.SequenceID(), firstUnacceptedIndexCallback(pastMarker.SequenceID()))
+func findFirstUnacceptedMarker(sequence *markers.Sequence, blockFromMarkerCallback func(marker markers.Marker) (block *booker.Block, exists bool), firstUnacceptedIndexCallback func(id markers.SequenceID) markers.Index) (firstUnacceptedMarker markers.Marker) {
+	firstUnacceptedMarker = markers.NewMarker(sequence.ID(), firstUnacceptedIndexCallback(sequence.ID()))
 
 	// skip any gaps in marker indices
 	for {
-		if firstUnacceptedMarker.Index() >= pastMarker.Index() {
+		if firstUnacceptedMarker.Index() >= sequence.HighestIndex() {
 			return firstUnacceptedMarker
 		}
 
@@ -447,7 +447,7 @@ func findFirstUnacceptedMarker(pastMarker markers.Marker, blockFromMarkerCallbac
 			return firstUnacceptedMarker
 		}
 
-		firstUnacceptedMarker = markers.NewMarker(pastMarker.SequenceID(), firstUnacceptedMarker.Index()+1)
+		firstUnacceptedMarker = markers.NewMarker(sequence.ID(), firstUnacceptedMarker.Index()+1)
 	}
 }
 
