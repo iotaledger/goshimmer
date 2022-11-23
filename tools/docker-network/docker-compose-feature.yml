@@ -159,6 +159,8 @@ services:
       - goshimmer.config.json
     volumes:
       - ./docker-network.feature.snapshot:/app/snapshot.bin
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
     ports:
       - "8001:8080/tcp" # web API
       - "8011:8081/tcp" # dashboard
@@ -195,6 +197,8 @@ services:
       - goshimmer.config.json
     volumes:
       - ./docker-network.feature.snapshot:/app/snapshot.bin
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
     ports:
       - "8002:8080/tcp" # web API
       - "8012:8081/tcp" # dashboard
@@ -348,6 +352,8 @@ services:
     volumes:
       - ./grafana/provisioning:/var/lib/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
 # Create our own network
 networks:
   shimmer:
