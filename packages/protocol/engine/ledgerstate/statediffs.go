@@ -203,7 +203,7 @@ func (s *StateDiffs) outputWithMetadata(index epoch.Index, outputID utxo.OutputI
 	return
 }
 
-func (s *StateDiffs) rollbackTransactionInEpochDiff(txMeta *ledger.TransactionMetadata, previousInclusionTime, inclusionTime time.Time) {
+func (s *StateDiffs) moveTransactionToOtherEpoch(txMeta *ledger.TransactionMetadata, previousInclusionTime, inclusionTime time.Time) {
 	oldEpoch := epoch.IndexFromTime(previousInclusionTime)
 	newEpoch := epoch.IndexFromTime(inclusionTime)
 

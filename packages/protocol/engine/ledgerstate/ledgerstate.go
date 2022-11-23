@@ -28,6 +28,7 @@ func New(storageInstance *storage.Storage) (ledgerState *LedgerState) {
 	}
 
 	ledgerState.MemPool.Events.TransactionAccepted.Hook(event.NewClosure(ledgerState.onTransactionAccepted))
+	ledgerState.MemPool.Events.TransactionInclusionUpdated.Hook(event.NewClosure(ledgerState.onTransactionInclusionUpdated))
 	ledgerState.RegisterConsumer(ledgerState.UnspentOutputIDs)
 
 	return
@@ -37,6 +38,12 @@ func (l *LedgerState) onTransactionAccepted(metadata *ledger.TransactionMetadata
 	if err := l.StateDiffs.addAcceptedTransaction(metadata); err != nil {
 		// TODO: handle error gracefully
 		panic(err)
+	}
+}
+
+func (l *LedgerState) onTransactionInclusionUpdated(event *ledger.TransactionInclusionUpdatedEvent) {
+	if l.MemPool.ConflictDAG.ConfirmationState(event.TransactionMetadata.ConflictIDs()).IsAccepted() {
+		l.StateDiffs.moveTransactionToOtherEpoch(event.TransactionMetadata, event.PreviousInclusionTime, event.InclusionTime)
 	}
 }
 

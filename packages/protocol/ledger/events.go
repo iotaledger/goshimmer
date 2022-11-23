@@ -107,6 +107,9 @@ type TransactionInclusionUpdatedEvent struct {
 	// TransactionID contains the identifier of the booked Transaction.
 	TransactionID utxo.TransactionID
 
+	// TransactionMetadata contains the metadata of the Transaction.
+	TransactionMetadata *TransactionMetadata
+
 	// InclusionTime contains the InclusionTime after it was updated.
 	InclusionTime time.Time
 

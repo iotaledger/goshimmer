@@ -122,25 +122,22 @@ func New(chainStorage *storage.Storage, opts ...options.Option[Ledger]) (ledger 
 }
 
 // SetTransactionInclusionTime sets the inclusion timestamp of a Transaction.
-func (l *Ledger) SetTransactionInclusionTime(txID utxo.TransactionID, inclusionTime time.Time) {
-	l.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *TransactionMetadata) {
-		updated, previousInclusionTime := txMetadata.SetInclusionTime(inclusionTime)
+func (l *Ledger) SetTransactionInclusionTime(id utxo.TransactionID, inclusionTime time.Time) {
+	l.Storage.CachedTransactionMetadata(id).Consume(func(metadata *TransactionMetadata) {
+		updated, previousInclusionTime := metadata.SetInclusionTime(inclusionTime)
 		if !updated {
 			return
 		}
 
 		l.Events.TransactionInclusionUpdated.Trigger(&TransactionInclusionUpdatedEvent{
-			TransactionID:         txID,
+			TransactionID:         id,
+			TransactionMetadata:   metadata,
 			InclusionTime:         inclusionTime,
 			PreviousInclusionTime: previousInclusionTime,
 		})
 
-		if l.ConflictDAG.ConfirmationState(txMetadata.ConflictIDs()).IsAccepted() {
-			l.rollbackTransactionInEpochDiff(txMetadata, previousInclusionTime, inclusionTime)
-
-			if previousInclusionTime.IsZero() {
-				l.triggerAcceptedEvent(txMetadata)
-			}
+		if l.ConflictDAG.ConfirmationState(metadata.ConflictIDs()).IsAccepted() && previousInclusionTime.IsZero() {
+			l.triggerAcceptedEvent(metadata)
 		}
 	})
 }
