@@ -519,3 +519,26 @@ func TestTipManager_TimeSinceConfirmation_RootBlockParent(t *testing.T) {
 	tf.AssertIsPastConeTimestampCorrect("Block1", false)
 	tf.AssertIsPastConeTimestampCorrect("Block5", false)
 }
+
+func TestTipManager_previousMarker(t *testing.T) {
+	prevMarker := previousMarker(markers.NewSequence(0, markers.NewMarkers()), markers.Index(50), func(marker markers.Marker) (block *booker.Block, exists bool) {
+		return nil, true
+	})
+
+	assert.EqualValues(t, 49, prevMarker.Index())
+	assert.EqualValues(t, 0, prevMarker.SequenceID())
+
+	prevMarker2 := previousMarker(markers.NewSequence(0, markers.NewMarkers(markers.NewMarker(0, 45))), markers.Index(50), func(marker markers.Marker) (block *booker.Block, exists bool) {
+		return nil, marker.Index() == 46
+	})
+
+	assert.EqualValues(t, 46, prevMarker2.Index())
+	assert.EqualValues(t, 0, prevMarker2.SequenceID())
+
+	prevMarker3 := previousMarker(markers.NewSequence(0, markers.NewMarkers(markers.NewMarker(0, 45))), markers.Index(50), func(marker markers.Marker) (block *booker.Block, exists bool) {
+		return nil, marker.Index() <= 47
+	})
+
+	assert.EqualValues(t, 47, prevMarker3.Index())
+	assert.EqualValues(t, 0, prevMarker3.SequenceID())
+}
