@@ -18,4 +18,6 @@ type NodesMetricsResponse struct {
 	Cmanas          []manamodels.IssuerStr `json:"cmanas"`
 	ActiveManaRatio float64                `json:"activeManaRatio"`
 	OnlineNodes     int                    `json:"onlineNodes"`
+	MaxBPS          float64                `json:"maxBPS"`
+	BlockScheduled  uint64                 `json:"blockscheduled"`
 }

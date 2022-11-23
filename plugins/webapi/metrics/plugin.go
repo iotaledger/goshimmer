@@ -19,7 +19,8 @@ var (
 	// Plugin holds the singleton instance of the plugin.
 	Plugin *node.Plugin
 
-	deps = new(dependencies)
+	deps   = new(dependencies)
+	maxBPS float64
 )
 
 type dependencies struct {
@@ -68,13 +69,20 @@ func GetGlobalMetrics(c echo.Context) (err error) {
 	})
 }
 
+// GetNodesMetrics is the handler for the /metrics/nodes endpoint.
 func GetNodesMetrics(c echo.Context) (err error) {
 	cmanas := metrics.ConsensusManaMap().ToIssuerStrList()
+
+	if maxBPS == 0 {
+		maxBPS = 1 / deps.Protocol.CongestionControl.Scheduler().Rate().Seconds()
+	}
 
 	return c.JSON(http.StatusOK, jsonmodels.NodesMetricsResponse{
 		Cmanas:          cmanas,
 		ActiveManaRatio: activeManaRatio(),
 		OnlineNodes:     len(deps.Discovery.GetVerifiedPeers()),
+		MaxBPS:          maxBPS,
+		BlockScheduled:  metrics.BlockCountSinceStartPerComponentGrafana()[metrics.Scheduler],
 	})
 }
 
