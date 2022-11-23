@@ -10,8 +10,6 @@ import (
 	"github.com/iotaledger/hive.go/core/stringify"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
@@ -545,47 +543,6 @@ func (c *Consumer) SetBooked() (updated bool) {
 	updated = true
 
 	return
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region EpochDiffs ///////////////////////////////////////////////////////////////////////////////////////////////////
-
-// EpochDiff represents the collection of OutputWithMetadata objects that have been included in an epoch.
-type EpochDiff struct {
-	model.Immutable[EpochDiff, *EpochDiff, epochDiffModel] `serix:"0"`
-}
-
-type epochDiffModel struct {
-	Index   epoch.Index
-	Spent   []*ledgerstate.OutputWithMetadata `serix:"0"`
-	Created []*ledgerstate.OutputWithMetadata `serix:"1"`
-}
-
-// NewEpochDiff returns a new EpochDiff object.
-func NewEpochDiff(spent []*ledgerstate.OutputWithMetadata, created []*ledgerstate.OutputWithMetadata) (new *EpochDiff) {
-	return model.NewImmutable[EpochDiff](&epochDiffModel{
-		Spent:   spent,
-		Created: created,
-	})
-}
-
-// Spent returns the outputs spent for this epoch diff.
-func (e *EpochDiff) Spent() []*ledgerstate.OutputWithMetadata {
-	return e.M.Spent
-}
-
-// Created returns the outputs created for this epoch diff.
-func (e *EpochDiff) Created() []*ledgerstate.OutputWithMetadata {
-	return e.M.Created
-}
-
-func (e *EpochDiff) Index() epoch.Index {
-	return e.M.Index
-}
-
-func (e *EpochDiff) SetIndex(index epoch.Index) {
-	e.M.Index = index
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

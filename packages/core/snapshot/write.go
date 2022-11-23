@@ -18,7 +18,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
-func WriteSnapshot(filePath string, s *storage.Storage, l *ledger.Ledger, depth int) {
+func WriteSnapshot(filePath string, s *storage.Storage, l *ledger.Ledger, ledgerState *ledgerstate.LedgerState, depth int) {
 	fileHandle, err := os.Create(filePath)
 	defer fileHandle.Close()
 
@@ -140,21 +140,20 @@ func WriteSnapshot(filePath string, s *storage.Storage, l *ledger.Ledger, depth 
 			binary.Write(fileHandle, binary.LittleEndian, epochIndex)
 
 			var createdCount uint32
-			s.LedgerStateDiffs.StreamCreatedOutputs(epochIndex, func(_ *ledgerstate.OutputWithMetadata) {
+			ledgerState.StateDiffs.StreamCreatedOutputs(epochIndex, func(_ *ledgerstate.OutputWithMetadata) {
 				createdCount++
 			})
-
 			// TODO: seek back to this location instead of scanning the collection twice
 			// Created count
 			binary.Write(fileHandle, binary.LittleEndian, createdCount)
 			// OutputWithMetadata size
 			binary.Write(fileHandle, binary.LittleEndian, outputWithMetadataSize)
-			s.LedgerStateDiffs.StreamCreatedOutputs(epochIndex, func(createdWithMetadata *ledgerstate.OutputWithMetadata) {
+			ledgerState.StateDiffs.StreamCreatedOutputs(epochIndex, func(createdWithMetadata *ledgerstate.OutputWithMetadata) {
 				binary.Write(fileHandle, binary.LittleEndian, lo.PanicOnErr(createdWithMetadata.Bytes()))
 			})
 
 			var spentCount uint32
-			s.LedgerStateDiffs.StreamSpentOutputs(epochIndex, func(_ *ledgerstate.OutputWithMetadata) {
+			ledgerState.StateDiffs.StreamSpentOutputs(epochIndex, func(_ *ledgerstate.OutputWithMetadata) {
 				spentCount++
 			})
 
@@ -163,7 +162,7 @@ func WriteSnapshot(filePath string, s *storage.Storage, l *ledger.Ledger, depth 
 			binary.Write(fileHandle, binary.LittleEndian, spentCount)
 			// OutputWithMetadata size
 			binary.Write(fileHandle, binary.LittleEndian, outputWithMetadataSize)
-			s.LedgerStateDiffs.StreamSpentOutputs(epochIndex, func(spentWithMetadata *ledgerstate.OutputWithMetadata) {
+			ledgerState.StateDiffs.StreamSpentOutputs(epochIndex, func(spentWithMetadata *ledgerstate.OutputWithMetadata) {
 				binary.Write(fileHandle, binary.LittleEndian, lo.PanicOnErr(spentWithMetadata.Bytes()))
 			})
 		}
