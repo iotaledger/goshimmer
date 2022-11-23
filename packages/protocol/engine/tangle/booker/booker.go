@@ -142,7 +142,7 @@ func (b *Booker) BlockFromMarker(marker markers.Marker) (block *Block, exists bo
 	b.evictionMutex.RLock()
 	defer b.evictionMutex.RUnlock()
 	if marker.Index() == 0 {
-		panic(fmt.Sprintf("cannot retrieve block for Marker with Index(0) - %s", marker))
+		panic(fmt.Sprintf("cannot retrieve block for Marker with Index(0) - %#v", marker))
 	}
 
 	return b.markerManager.BlockFromMarker(marker)

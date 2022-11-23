@@ -434,32 +434,40 @@ func (t *TipManager) checkBlock(block *booker.Block, blockWalker *walker.Walker[
 	return true
 }
 
+// TODO: implement unit tests
 // firstUnacceptedMarker is similar to acceptance.FirstUnacceptedIndex, except it skips any marker gaps and returns
 // an existing marker.
 func (t *TipManager) firstUnacceptedMarker(pastMarker markers.Marker) (firstUnacceptedMarker markers.Marker) {
-	firstUnacceptedIndex := t.blockAcceptanceGadget.FirstUnacceptedIndex(pastMarker.SequenceID())
-	// skip any gaps in marker indices
-	for ; firstUnacceptedIndex <= pastMarker.Index(); firstUnacceptedIndex++ {
-		firstUnacceptedMarker = markers.NewMarker(pastMarker.SequenceID(), firstUnacceptedIndex)
+	firstUnacceptedMarker = markers.NewMarker(pastMarker.SequenceID(), t.blockAcceptanceGadget.FirstUnacceptedIndex(pastMarker.SequenceID()))
 
-		// Skip if there is no marker at the given index, i.e., the sequence has a gap.
-		if _, exists := t.engine.Tangle.Booker.BlockFromMarker(firstUnacceptedMarker); !exists {
-			continue
+	// skip any gaps in marker indices
+	for {
+		if firstUnacceptedMarker.Index() >= pastMarker.Index() {
+			return firstUnacceptedMarker
 		}
 
-		break
-	}
+		// Skip if there is no marker at the given index, i.e., the sequence has a gap.
+		if _, exists := t.engine.Tangle.Booker.BlockFromMarker(firstUnacceptedMarker); exists {
+			return firstUnacceptedMarker
+		}
 
-	return firstUnacceptedMarker
+		firstUnacceptedMarker = markers.NewMarker(pastMarker.SequenceID(), firstUnacceptedMarker.Index()+1)
+	}
 }
 
+// TODO: implement unit tests
 func (t *TipManager) previousMarker(sequence *markers.Sequence, markerIndex markers.Index) (previousMarker markers.Marker) {
-	// skip any gaps in marker indices and start from marker below current one.
-	for markerIndex--; sequence.LowestIndex() <= markerIndex; markerIndex-- {
-		previousMarker = markers.NewMarker(sequence.ID(), markerIndex)
+	previousMarker = markers.NewMarker(sequence.ID(), markerIndex-1)
 
+	// skip any gaps in marker indices and start from marker below current one.
+	for {
 		// if index=0 then it's a root block, and we don't need to check if a block exists.
-		if markerIndex == 0 {
+		if previousMarker.Index() == 0 {
+			return previousMarker
+		}
+
+		// if lowest index is reached, then do not continue
+		if previousMarker.Index() <= sequence.LowestIndex() {
 			return previousMarker
 		}
 
@@ -467,9 +475,9 @@ func (t *TipManager) previousMarker(sequence *markers.Sequence, markerIndex mark
 		if _, exists := t.engine.Tangle.BlockFromMarker(previousMarker); exists {
 			return previousMarker
 		}
-	}
 
-	return
+		previousMarker = markers.NewMarker(sequence.ID(), previousMarker.Index()-1)
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

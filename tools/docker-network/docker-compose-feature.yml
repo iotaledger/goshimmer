@@ -66,7 +66,7 @@ services:
       --metrics.global=true
       --metrics.local=true
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
-      --node.enablePlugins=prometheus,spammer,WebAPIToolsBlockEndpoint,activity
+      --node.enablePlugins=prometheus,spammer,WebAPIToolsBlockEndpoint,activity,faucet
       --prometheus.bindAddress=0.0.0.0:9311
       --prometheus.processMetrics=false
       
