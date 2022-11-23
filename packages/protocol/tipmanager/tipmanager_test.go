@@ -99,6 +99,7 @@ func TestTipManager_TimeSinceConfirmation_Unconfirmed(t *testing.T) {
 		WithTipManagerOptions(WithTimeSinceConfirmationThreshold(5*time.Minute)),
 		WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(10))))),
 	)
+	tf.engine.EvictionState.AddRootBlock(models.EmptyBlockID)
 
 	createTestTangleTSC(tf)
 
@@ -150,12 +151,11 @@ func TestTipManager_TimeSinceConfirmation_Confirmed(t *testing.T) {
 		WithTipManagerOptions(WithTimeSinceConfirmationThreshold(5*time.Minute)),
 		WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(10))))),
 	)
-
+	tf.engine.EvictionState.AddRootBlock(models.EmptyBlockID)
 	createTestTangleTSC(tf)
 
 	// Even without any confirmations, it should be possible to attach to genesis.
 	tf.AssertIsPastConeTimestampCorrect("Genesis", true)
-
 	// case 0 - only one block can attach to genesis, so there should not be two subtangles starting from the genesis, but TSC allows using such tip.
 	tf.AssertIsPastConeTimestampCorrect("7/1_2", true)
 
@@ -164,6 +164,7 @@ func TestTipManager_TimeSinceConfirmation_Confirmed(t *testing.T) {
 	tf.SetBlocksAccepted(acceptedBlockIDsAliases...)
 	tf.SetMarkersAccepted(acceptedMarkers...)
 	tf.SetAcceptedTime(tf.Block("Marker-2/3").IssuingTime())
+	assert.Eventually(t, tf.engine.IsBootstrapped, 1*time.Minute, 500*time.Millisecond)
 
 	// As we advance ATT, Genesis should be beyond TSC, and thus invalid.
 	tf.AssertIsPastConeTimestampCorrect("Genesis", false)
@@ -472,4 +473,49 @@ func issueBlocks(tf *TestFramework, blockPrefix string, blockCount int, parents 
 		blockAlias = alias
 	}
 	return blockAlias
+}
+
+func TestTipManager_TimeSinceConfirmation_RootBlockParent(t *testing.T) {
+	tf := NewTestFramework(t,
+		WithTipManagerOptions(WithTimeSinceConfirmationThreshold(30*time.Second)),
+		WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(10))))),
+	)
+	tf.engine.EvictionState.AddRootBlock(models.EmptyBlockID)
+
+	tf.CreateBlock("Block1", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithIssuingTime(time.Now().Add(-50*time.Second)))
+	tf.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
+	tf.CreateBlock("Block2", models.WithStrongParents(tf.BlockIDs("Block1")), models.WithIssuingTime(time.Now()))
+	tf.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
+	tf.CreateBlock("Block3", models.WithStrongParents(tf.BlockIDs("Block2")), models.WithIssuingTime(time.Now().Add(5*time.Second)))
+	tf.IssueBlocks("Block3").WaitUntilAllTasksProcessed()
+	tf.CreateBlock("Block4", models.WithStrongParents(tf.BlockIDs("Block3")), models.WithIssuingTime(time.Now().Add(10*time.Second)))
+	tf.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
+	tf.CheckMarkers(map[string]*markers.Markers{
+		"Block1": markers.NewMarkers(markers.NewMarker(0, 1)),
+		"Block2": markers.NewMarkers(markers.NewMarker(0, 2)),
+		"Block3": markers.NewMarkers(markers.NewMarker(0, 3)),
+		"Block4": markers.NewMarkers(markers.NewMarker(0, 4)),
+	})
+
+	acceptedBlockIDsAliases := []string{"Block1", "Block2"}
+	acceptedMarkers := []markers.Marker{markers.NewMarker(0, 1), markers.NewMarker(0, 2)}
+	tf.SetBlocksAccepted(acceptedBlockIDsAliases...)
+	tf.SetMarkersAccepted(acceptedMarkers...)
+	tf.SetAcceptedTime(tf.Block("Block2").IssuingTime())
+	tf.BlockDAG.EvictionState.AddRootBlock(tf.Block("Block1").ID())
+	tf.BlockDAG.EvictionState.EvictUntil(tf.Block("Block1").ID().Index())
+	tf.BlockDAG.EvictionState.RemoveRootBlock(models.EmptyBlockID)
+
+	assert.Eventually(t, tf.engine.IsBootstrapped, 1*time.Minute, 500*time.Millisecond)
+
+	tf.CreateBlock("Block5", models.WithStrongParents(tf.BlockIDs("Block1")), models.WithIssuingTime(time.Now()))
+	tf.IssueBlocks("Block5").WaitUntilAllTasksProcessed()
+	tf.CheckMarkers(map[string]*markers.Markers{
+		"Block5": markers.NewMarkers(markers.NewMarker(1, 1)),
+	})
+
+	tf.AssertIsPastConeTimestampCorrect("Block3", true)
+	tf.AssertIsPastConeTimestampCorrect("Block2", true)
+	tf.AssertIsPastConeTimestampCorrect("Block1", false)
+	tf.AssertIsPastConeTimestampCorrect("Block5", false)
 }
