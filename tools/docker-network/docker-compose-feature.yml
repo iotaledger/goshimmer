@@ -120,8 +120,6 @@ services:
       - goshimmer.config.json
     volumes:
       - ./docker-network.feature.snapshot:/app/snapshot.bin
-      - ./vanilla/db:/app/db
-      - ./vanilla/retainer:/app/retainer
       - "/etc/timezone:/etc/timezone:ro"
       - "/etc/localtime:/etc/localtime:ro"
     ports:
