@@ -1,7 +1,13 @@
 eval "$GOSHIMMER_SEEDS"
 
+export ANSIBLE_STRATEGY=free
+export ANSIBLE_PIPELINING=true
+export ANSIBLE_PERSISTENT_CONTROL_PATH_DIR="/tmp/"
+
 ARGS=("$@")
-ansible-playbook -u root -i deploy/ansible/hosts/"${1}" --extra-vars \
+ansible-playbook -u root -i deploy/ansible/hosts/"${1}" \
+  --forks 20 --ssh-common-args "-o ControlMaster=auto -o ControlPersist=5m" \
+  --extra-vars \
   "ANALYSISSENTRY_01_ENTRYNODE_SEED=$ANALYSISSENTRY_01_ENTRYNODE_SEED
 BOOTSTRAP_01_SEED=$BOOTSTRAP_01_SEED
 VANILLA_01_SEED=$VANILLA_01_SEED

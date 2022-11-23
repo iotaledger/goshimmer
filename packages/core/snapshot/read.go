@@ -41,6 +41,10 @@ func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {
 		panic(err)
 	}
 
+	// We need to set the genesis time before we add the activity log as otherwise the calculation is based on the empty time value.
+	engine.Clock.SetAcceptedTime(engine.Storage.Settings.LatestCommitment().Index().EndTime())
+	engine.Clock.SetConfirmedTime(engine.Storage.Settings.LatestCommitment().Index().EndTime())
+
 	// Ledgerstate
 	{
 		stateDiff := storageModels.NewMemoryStateDiff()

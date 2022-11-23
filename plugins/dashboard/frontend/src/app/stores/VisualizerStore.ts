@@ -169,11 +169,13 @@ export class VisualizerStore {
                 this.tips_count--;
             }
 
-            Object.keys(vert.parentIDsByType).map((parentType) => {
-                vert.parentIDsByType[parentType].forEach((value) => {
-                    this.deleteParentLink(value)
+            if (vert.parentIDsByType) {
+                Object.keys(vert.parentIDsByType).map((parentType) => {
+                    vert.parentIDsByType[parentType].forEach((value) => {
+                        this.deleteParentLink(value)
+                    })
                 })
-            })
+            }
         }
     }
 
@@ -201,28 +203,32 @@ export class VisualizerStore {
     }
 
     drawVertex = (vert: Vertex) => {
-        let node;
-        let existing = this.graph.getNode(vert.id);
-        if (existing) {
-            // update coloring
-            let nodeUI = this.graphics.getNodeUI(vert.id);
-            nodeUI.color = parseColor(this.colorForVertexState(vert));
-            node = existing
-        } else {
-            node = this.graph.addNode(vert.id, vert);
+        if (vert) {
+            let node;
+            let existing = this.graph.getNode(vert.id);
+            if (existing) {
+                // update coloring
+                let nodeUI = this.graphics.getNodeUI(vert.id);
+                nodeUI.color = parseColor(this.colorForVertexState(vert));
+                node = existing
+            } else {
+                node = this.graph.addNode(vert.id, vert);
+            }
+            if (vert.parentIDsByType) {
+                Object.keys(vert.parentIDsByType).map((parentType) => {
+                    vert.parentIDsByType[parentType].forEach((value) => {
+                        // if value is valid AND (links is empty OR there is no between parent and children)
+                        if (value && ((!node.links || !node.links.some(link => link.fromId === value)))) {
+                            // draw the link only when the parent exists
+                            let existing = this.graph.getNode(value);
+                            if (existing) {
+                                this.graph.addLink(value, vert.id);
+                            }
+                        }
+                    })
+                })
+            }
         }
-        Object.keys(vert.parentIDsByType).map((parentType) => {
-            vert.parentIDsByType[parentType].forEach((value) => {
-                // if value is valid AND (links is empty OR there is no between parent and children)
-                if (value && ((!node.links || !node.links.some(link => link.fromId === value)))) {
-                    // draw the link only when the parent exists
-                    let existing = this.graph.getNode(value);
-                    if (existing) {
-                        this.graph.addLink(value, vert.id);
-                    }
-                }
-            })
-        })
     }
 
     colorForVertexState = (vert: Vertex) => {

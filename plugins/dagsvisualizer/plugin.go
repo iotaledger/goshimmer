@@ -13,6 +13,7 @@ import (
 	"github.com/labstack/echo/middleware"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/app/retainer"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 )
@@ -32,6 +33,7 @@ type dependencies struct {
 	dig.In
 
 	Protocol *protocol.Protocol
+	Retainer *retainer.Retainer
 }
 
 func init() {

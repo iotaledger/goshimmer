@@ -42,7 +42,7 @@ type EpochMutations struct {
 	// lastCommittedEpochCumulativeWeight stores the cumulative weight of the last committed epoch
 	lastCommittedEpochCumulativeWeight uint64
 
-	sync.Mutex
+	mutex sync.Mutex
 }
 
 // NewEpochMutations creates a new EpochMutations instance.
@@ -62,8 +62,8 @@ func NewEpochMutations(validatorWeightFunc func(id identity.ID) (int64, bool), l
 
 // AddAcceptedBlock adds the given block to the set of accepted blocks.
 func (m *EpochMutations) AddAcceptedBlock(block *models.Block) (err error) {
-	m.Lock()
-	defer m.Unlock()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	blockID := block.ID()
 	if blockID.Index() <= m.latestCommittedIndex {
@@ -78,8 +78,8 @@ func (m *EpochMutations) AddAcceptedBlock(block *models.Block) (err error) {
 
 // RemoveAcceptedBlock removes the given block from the set of accepted blocks.
 func (m *EpochMutations) RemoveAcceptedBlock(block *models.Block) (err error) {
-	m.Lock()
-	defer m.Unlock()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	blockID := block.ID()
 	if blockID.Index() <= m.latestCommittedIndex {
@@ -128,8 +128,8 @@ func (m *EpochMutations) TotalActiveValidators(ei epoch.Index) (total int) {
 
 // AddAcceptedTransaction adds the given transaction to the set of accepted transactions.
 func (m *EpochMutations) AddAcceptedTransaction(metadata *ledger.TransactionMetadata) (err error) {
-	m.Lock()
-	defer m.Unlock()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	epochIndex := epoch.IndexFromTime(metadata.InclusionTime())
 	if epochIndex <= m.latestCommittedIndex {
@@ -142,8 +142,8 @@ func (m *EpochMutations) AddAcceptedTransaction(metadata *ledger.TransactionMeta
 
 // RemoveAcceptedTransaction removes the given transaction from the set of accepted transactions.
 func (m *EpochMutations) RemoveAcceptedTransaction(metadata *ledger.TransactionMetadata) (err error) {
-	m.Lock()
-	defer m.Unlock()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	epochIndex := epoch.IndexFromTime(metadata.InclusionTime())
 	if epochIndex <= m.latestCommittedIndex {
@@ -157,8 +157,8 @@ func (m *EpochMutations) RemoveAcceptedTransaction(metadata *ledger.TransactionM
 
 // UpdateTransactionInclusion moves a transaction from a later epoch to the given epoch.
 func (m *EpochMutations) UpdateTransactionInclusion(txID utxo.TransactionID, oldEpoch, newEpoch epoch.Index) (err error) {
-	m.Lock()
-	defer m.Unlock()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	if newEpoch >= oldEpoch {
 		return
@@ -176,8 +176,8 @@ func (m *EpochMutations) UpdateTransactionInclusion(txID utxo.TransactionID, old
 
 // Commit evicts the given epoch and returns the corresponding mutation sets.
 func (m *EpochMutations) Commit(index epoch.Index) (acceptedBlocks *ads.Set[models.BlockID], acceptedTransactions *ads.Set[utxo.TransactionID], activeValidators *ads.Set[identity.ID], cumulativeWeight uint64, err error) {
-	m.Lock()
-	defer m.Unlock()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	if index <= m.latestCommittedIndex {
 		return nil, nil, nil, 0, errors.Errorf("cannot commit epoch %d: already committed", index)

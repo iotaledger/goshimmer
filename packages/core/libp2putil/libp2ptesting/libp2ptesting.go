@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"github.com/libp2p/go-libp2p"
-	"github.com/libp2p/go-libp2p-core/network"
-	"github.com/libp2p/go-libp2p-core/peerstore"
-	"github.com/libp2p/go-libp2p-core/protocol"
+	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/core/peerstore"
+	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/stretchr/testify/require"
 )
 
@@ -15,13 +15,11 @@ import (
 func NewStreamsPipe(t testing.TB) (network.Stream, network.Stream, func()) {
 	ctx := context.Background()
 	host1, err := libp2p.New(
-		context.Background(),
 		libp2p.ListenAddrStrings("/ip4/127.0.0.1/tcp/0"),
 		libp2p.DisableRelay(),
 	)
 	require.NoError(t, err)
 	host2, err := libp2p.New(
-		context.Background(),
 		libp2p.ListenAddrStrings("/ip4/127.0.0.1/tcp/0"),
 		libp2p.DisableRelay(),
 	)

@@ -34,7 +34,7 @@ func (b BlockID) Index() epoch.Index {
 var EmptyBlockID BlockID
 
 // NewBlockID returns a new BlockID for the given data.
-func NewBlockID(identifier [32]byte, epochIndex epoch.Index) BlockID {
+func NewBlockID(identifier types.Identifier, epochIndex epoch.Index) BlockID {
 	return BlockID{
 		Identifier: identifier,
 		EpochIndex: epochIndex,
