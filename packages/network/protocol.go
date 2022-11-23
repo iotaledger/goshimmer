@@ -96,13 +96,12 @@ func (p *Protocol) handlePacket(nbr identity.ID, packet proto.Message) (err erro
 
 func (p *Protocol) onBlock(blockData []byte, id identity.ID) {
 	blockHash, isNew := p.duplicateBlockBytesFilter.Add(blockData)
-	//fmt.Println(fmt.Sprintf("%x", blockHash))
+
 	p.requestedBlockHashesMutex.Lock()
 	requested := p.requestedBlockHashes.Delete(blockHash)
 	p.requestedBlockHashesMutex.Unlock()
 
 	if !isNew && !requested {
-		//fmt.Println("isNew", isNew, "requested", requested)
 		return
 	}
 
@@ -115,7 +114,7 @@ func (p *Protocol) onBlock(blockData []byte, id identity.ID) {
 
 		return
 	}
-	block.DetermineIDFromBytes(blockData)
+	block.DetermineIDFromBytes(blockData, blockHash)
 
 	p.Events.BlockReceived.Trigger(&BlockReceivedEvent{
 		Block:  block,

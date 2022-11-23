@@ -248,14 +248,14 @@ func (b *Block) DetermineID() (err error) {
 
 // DetermineIDFromBytes calculates and sets the block's BlockID and size.
 func (b *Block) DetermineIDFromBytes(buf []byte, blockHash ...types.Identifier) {
-	//var hash types.Identifier
-	//if len(blockHash) > 0 {
-	//	hash = blockHash[0]
-	//} else {
-	//	hash = types.NewIdentifier(buf)
-	//}
+	var hash types.Identifier
+	if len(blockHash) > 0 {
+		hash = blockHash[0]
+	} else {
+		hash = types.NewIdentifier(buf)
+	}
 
-	id := NewBlockID(types.NewIdentifier(buf), epoch.IndexFromTime(b.IssuingTime()))
+	id := NewBlockID(hash, epoch.IndexFromTime(b.IssuingTime()))
 	b.SetID(id)
 
 	b.Lock()
