@@ -6,8 +6,8 @@ import (
 	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/identity"
 
-	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 )
@@ -17,8 +17,8 @@ func TestSequenceTracker_TrackVotes(t *testing.T) {
 	debug.SetEnabled(true)
 	tf := NewTestFramework[votes.MockedVotePower](t)
 
-	tf.CreateValidator("A")
-	tf.CreateValidator("B")
+	tf.CreateValidator("A", 1)
+	tf.CreateValidator("B", 1)
 
 	// build markers DAG
 	{
@@ -51,7 +51,7 @@ func TestSequenceTracker_TrackVotes(t *testing.T) {
 		tf.InheritStructureDetails("4,8", tf.StructureDetailsSet("2,7", "1,4"))
 	}
 
-	expectedVoters := map[string]*set.AdvancedSet[*validator.Validator]{
+	expectedVoters := map[string]*set.AdvancedSet[identity.ID]{
 		"0,1": tf.ValidatorsSet(),
 		"0,2": tf.ValidatorsSet(),
 		"0,3": tf.ValidatorsSet(),
@@ -69,9 +69,9 @@ func TestSequenceTracker_TrackVotes(t *testing.T) {
 	}
 	// CASE1: APPROVE MARKER(0, 3)
 	{
-		tf.SequenceTracker.TrackVotes(markers.NewMarkers(markers.NewMarker(0, 3)), tf.Validator("A").ID(), votes.MockedVotePower{0})
+		tf.SequenceTracker.TrackVotes(markers.NewMarkers(markers.NewMarker(0, 3)), tf.Validator("A"), votes.MockedVotePower{0})
 
-		tf.ValidateStructureDetailsVoters(lo.MergeMaps(expectedVoters, map[string]*set.AdvancedSet[*validator.Validator]{
+		tf.ValidateStructureDetailsVoters(lo.MergeMaps(expectedVoters, map[string]*set.AdvancedSet[identity.ID]{
 			"0,1": tf.ValidatorsSet("A"),
 			"0,2": tf.ValidatorsSet("A"),
 			"0,3": tf.ValidatorsSet("A"),
@@ -79,9 +79,9 @@ func TestSequenceTracker_TrackVotes(t *testing.T) {
 	}
 	// CASE2: APPROVE MARKER(0, 4) + MARKER(2, 6)
 	{
-		tf.SequenceTracker.TrackVotes(markers.NewMarkers(markers.NewMarker(0, 4), markers.NewMarker(2, 6)), tf.Validator("A").ID(), votes.MockedVotePower{1})
+		tf.SequenceTracker.TrackVotes(markers.NewMarkers(markers.NewMarker(0, 4), markers.NewMarker(2, 6)), tf.Validator("A"), votes.MockedVotePower{1})
 
-		tf.ValidateStructureDetailsVoters(lo.MergeMaps(expectedVoters, map[string]*set.AdvancedSet[*validator.Validator]{
+		tf.ValidateStructureDetailsVoters(lo.MergeMaps(expectedVoters, map[string]*set.AdvancedSet[identity.ID]{
 			"0,4": tf.ValidatorsSet("A"),
 			"1,2": tf.ValidatorsSet("A"),
 			"1,3": tf.ValidatorsSet("A"),
@@ -93,9 +93,9 @@ func TestSequenceTracker_TrackVotes(t *testing.T) {
 
 	// CASE3: APPROVE MARKER(4, 8)
 	{
-		tf.SequenceTracker.TrackVotes(markers.NewMarkers(markers.NewMarker(4, 8)), tf.Validator("A").ID(), votes.MockedVotePower{2})
+		tf.SequenceTracker.TrackVotes(markers.NewMarkers(markers.NewMarker(4, 8)), tf.Validator("A"), votes.MockedVotePower{2})
 
-		tf.ValidateStructureDetailsVoters(lo.MergeMaps(expectedVoters, map[string]*set.AdvancedSet[*validator.Validator]{
+		tf.ValidateStructureDetailsVoters(lo.MergeMaps(expectedVoters, map[string]*set.AdvancedSet[identity.ID]{
 			"2,7": tf.ValidatorsSet("A"),
 			"4,8": tf.ValidatorsSet("A"),
 		}))
@@ -103,9 +103,9 @@ func TestSequenceTracker_TrackVotes(t *testing.T) {
 
 	// CASE4: APPROVE MARKER(1, 5)
 	{
-		tf.SequenceTracker.TrackVotes(markers.NewMarkers(markers.NewMarker(1, 5)), tf.Validator("B").ID(), votes.MockedVotePower{3})
+		tf.SequenceTracker.TrackVotes(markers.NewMarkers(markers.NewMarker(1, 5)), tf.Validator("B"), votes.MockedVotePower{3})
 
-		tf.ValidateStructureDetailsVoters(lo.MergeMaps(expectedVoters, map[string]*set.AdvancedSet[*validator.Validator]{
+		tf.ValidateStructureDetailsVoters(lo.MergeMaps(expectedVoters, map[string]*set.AdvancedSet[identity.ID]{
 			"0,1": tf.ValidatorsSet("A", "B"),
 			"1,2": tf.ValidatorsSet("A", "B"),
 			"1,3": tf.ValidatorsSet("A", "B"),

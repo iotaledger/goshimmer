@@ -8,13 +8,12 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 )
 
 func TestLatestVotes(t *testing.T) {
-	voter := validator.New(identity.ID{})
+	voter := identity.ID{}
 
 	{
 		latestVotes := NewLatestVotes[markers.Index, votes.MockedVotePower](voter)

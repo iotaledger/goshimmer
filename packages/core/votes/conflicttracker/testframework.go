@@ -6,12 +6,12 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/hive.go/core/generics/constraints"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
 
-	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
@@ -50,22 +50,23 @@ func NewTestFramework[VotePowerType constraints.Comparable[VotePowerType]](test 
 	})
 }
 
-func (t *TestFramework[VotePowerType]) ValidateStatementResults(expectedResults map[string]*set.AdvancedSet[*validator.Validator]) {
+func (t *TestFramework[VotePowerType]) ValidateStatementResults(expectedResults map[string]*set.AdvancedSet[identity.ID]) {
 	for conflictIDAlias, expectedVoters := range expectedResults {
 		actualVoters := t.ConflictTracker.Voters(t.ConflictID(conflictIDAlias))
 
-		expectedVoters.ForEach(func(expectedValidator *validator.Validator) (err error) {
+		expectedVoters.ForEach(func(expectedID identity.ID) (err error) {
 			var found bool
-			actualVoters.ForEach(func(_ identity.ID, actualValidator *validator.Validator) bool {
-				if actualValidator.ID() == expectedValidator.ID() {
+			actualVoters.ForEachWeighted(func(actualID identity.ID, actualWeight int64) error {
+				if actualID == expectedID {
 					found = true
-					assert.Equalf(t.test, expectedValidator.Weight(), actualValidator.Weight(), "validator %s weight does not match: expected %s actual %s", expectedValidator.ID(), expectedValidator, actualValidator)
+					expectedWeight := lo.Return1(t.Validators.Weights.Weight(actualID)).Value
+					assert.Equalf(t.test, expectedWeight, actualWeight, "validator %s weight does not match: expected %d actual %d", expectedID, expectedWeight, actualWeight)
 				}
-				return true
+				return nil
 			})
 
 			if !found {
-				t.test.Fatalf("validators do not match: expected %s actual %s", expectedVoters, votes.ValidatorSetToAdvancedSet(actualVoters))
+				t.test.Fatalf("validators do not match: expected %s actual %s", expectedVoters, actualVoters.Members())
 			}
 
 			return nil

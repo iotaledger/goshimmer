@@ -8,7 +8,6 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
-	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
@@ -37,12 +36,7 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) TrackVo
 		return false, true
 	}
 
-	weight, exists := c.validators.Get(voterID)
-	if !exists {
-		return false, false
-	}
-
-	defaultVote := votes.NewVote[ConflictIDType, VotePowerType](validator.New(voterID, validator.WithWeight(weight.Value)), power, votes.UndefinedOpinion)
+	defaultVote := votes.NewVote[ConflictIDType, VotePowerType](voterID, power, votes.UndefinedOpinion)
 
 	eventsToTrigger := c.applyVotes(defaultVote.WithOpinion(votes.Dislike), revokedConflictIDs)
 	eventsToTrigger = append(eventsToTrigger, c.applyVotes(defaultVote.WithOpinion(votes.Like), addedConflictIDs)...)
@@ -52,31 +46,22 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) TrackVo
 	return true, false
 }
 
-func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) Voters(conflict ConflictIDType) (voters *validator.Set) {
-	votesObj, exists := c.votes.Get(conflict)
-	if !exists {
-		return validator.NewSet()
-	}
-
-	return votesObj.Voters()
+func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) Voters(conflict ConflictIDType) (voters *sybilprotection.WeightedSet) {
+	votesObj, _ := c.votes.Get(conflict)
+	return c.validators.Weights.WeightedSet(votesObj.Voters().Slice()...)
 }
 
 func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) AddSupportToForkedConflict(forkedConflictID ConflictIDType, parentConflictIDs *set.AdvancedSet[ConflictIDType], voterID identity.ID, power VotePowerType) {
-	weight, exists := c.validators.Get(voterID)
-	if !exists {
-		return
-	}
-
 	// We need to make sure that the voter supports all the conflict's parents.
-	if !c.voterSupportsAllConflicts(validator.New(voterID, validator.WithWeight(weight.Value)), parentConflictIDs) {
+	if !c.voterSupportsAllConflicts(voterID, parentConflictIDs) {
 		return
 	}
 
-	vote := votes.NewVote[ConflictIDType, VotePowerType](validator.New(voterID, validator.WithWeight(weight.Value)), power, votes.Like).WithConflictID(forkedConflictID)
+	vote := votes.NewVote[ConflictIDType, VotePowerType](voterID, power, votes.Like).WithConflictID(forkedConflictID)
 
 	votesObj, _ := c.votes.RetrieveOrCreate(forkedConflictID, votes.NewVotes[ConflictIDType, VotePowerType])
 	if added, opinionChanged := votesObj.Add(vote); added && opinionChanged {
-		c.Events.VoterAdded.Trigger(&VoterEvent[ConflictIDType]{Voter: validator.New(voterID, validator.WithWeight(weight.Value)), ConflictID: forkedConflictID})
+		c.Events.VoterAdded.Trigger(&VoterEvent[ConflictIDType]{Voter: voterID, ConflictID: forkedConflictID})
 	}
 
 	return
@@ -103,7 +88,7 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) applyVo
 	return collectedEvents
 }
 
-func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) voterSupportsAllConflicts(voter *validator.Validator, conflictIDs *set.AdvancedSet[ConflictIDType]) (allConflictsSupported bool) {
+func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) voterSupportsAllConflicts(voter identity.ID, conflictIDs *set.AdvancedSet[ConflictIDType]) (allConflictsSupported bool) {
 	for it := conflictIDs.Iterator(); it.HasNext(); {
 		conflictID := it.Next()
 
@@ -115,7 +100,7 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) voterSu
 	return true
 }
 
-func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) voterSupportsConflict(voter *validator.Validator, conflictID ConflictIDType) bool {
+func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) voterSupportsConflict(voter identity.ID, conflictID ConflictIDType) bool {
 	votesObj, exists := c.votes.Get(conflictID)
 	if !exists {
 		panic(fmt.Sprintf("votes for conflict %v not found", conflictID))

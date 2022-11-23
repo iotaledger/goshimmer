@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
 
-	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 )
 
@@ -18,7 +17,7 @@ import (
 type TestFramework struct {
 	test              *testing.T
 	Validators        *sybilprotection.WeightedSet
-	validatorsByAlias map[string]*validator.Validator
+	validatorsByAlias map[string]identity.ID
 }
 
 // NewTestFramework is the constructor of the TestFramework.
@@ -26,28 +25,24 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 	return options.Apply(&TestFramework{
 		test:              test,
 		Validators:        nil, /* TODO: FIX */
-		validatorsByAlias: make(map[string]*validator.Validator),
+		validatorsByAlias: make(map[string]identity.ID),
 	}, opts)
 }
 
-func (t *TestFramework) CreateValidator(alias string, opts ...options.Option[validator.Validator]) *validator.Validator {
-	return t.CreateValidatorWithID(alias, lo.PanicOnErr(identity.RandomIDInsecure()), opts...)
+func (t *TestFramework) CreateValidator(alias string, weight int64) {
+	t.CreateValidatorWithID(alias, lo.PanicOnErr(identity.RandomIDInsecure()), weight)
 }
 
-func (t *TestFramework) CreateValidatorWithID(alias string, id identity.ID, opts ...options.Option[validator.Validator]) *validator.Validator {
-	voter := validator.New(id, opts...)
-
-	t.validatorsByAlias[alias] = voter
+func (t *TestFramework) CreateValidatorWithID(alias string, id identity.ID, weight int64) {
+	t.validatorsByAlias[alias] = id
 	t.Validators.Add(id)
 
 	weightUpdates := sybilprotection.NewWeightUpdates(1)
-	weightUpdates.ApplyDiff(id, voter.Weight())
+	weightUpdates.ApplyDiff(id, weight)
 	t.Validators.Weights.ApplyUpdates(weightUpdates)
-
-	return voter
 }
 
-func (t *TestFramework) Validator(alias string) (v *validator.Validator) {
+func (t *TestFramework) Validator(alias string) (v identity.ID) {
 	v, ok := t.validatorsByAlias[alias]
 	if !ok {
 		panic(fmt.Sprintf("Validator alias %s not registered", alias))
@@ -56,22 +51,13 @@ func (t *TestFramework) Validator(alias string) (v *validator.Validator) {
 	return
 }
 
-func (t *TestFramework) ValidatorsSet(aliases ...string) (validators *set.AdvancedSet[*validator.Validator]) {
-	validators = set.NewAdvancedSet[*validator.Validator]()
+func (t *TestFramework) ValidatorsSet(aliases ...string) (validators *set.AdvancedSet[identity.ID]) {
+	validators = set.NewAdvancedSet[identity.ID]()
 	for _, alias := range aliases {
 		validators.Add(t.Validator(alias))
 	}
 
 	return
-}
-
-func ValidatorSetToAdvancedSet(validatorSet *validator.Set) (validatorAdvancedSet *set.AdvancedSet[*validator.Validator]) {
-	validatorAdvancedSet = set.NewAdvancedSet[*validator.Validator]()
-	validatorSet.ForEach(func(_ identity.ID, validator *validator.Validator) bool {
-		validatorAdvancedSet.Add(validator)
-		return true
-	})
-	return validatorAdvancedSet
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

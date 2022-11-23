@@ -8,10 +8,10 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 )
@@ -36,7 +36,7 @@ func NewTestFramework[VotePowerType constraints.Comparable[VotePowerType]](test 
 		}
 
 		if t.EpochTracker == nil {
-			t.EpochTracker = NewEpochTracker(t.VotesTestFramework.Validators, func() epoch.Index { return 0 })
+			t.EpochTracker = NewEpochTracker(func() epoch.Index { return 0 })
 		}
 
 		t.EpochTracker.Events.VotersUpdated.Hook(event.NewClosure(func(evt *VoterUpdatedEvent) {
@@ -47,11 +47,11 @@ func NewTestFramework[VotePowerType constraints.Comparable[VotePowerType]](test 
 	})
 }
 
-func (t *TestFramework) ValidateEpochVoters(expectedVoters map[epoch.Index]*set.AdvancedSet[*validator.Validator]) {
+func (t *TestFramework) ValidateEpochVoters(expectedVoters map[epoch.Index]*set.AdvancedSet[identity.ID]) {
 	for epochIndex, expectedVotersEpoch := range expectedVoters {
 		voters := t.EpochTracker.Voters(epochIndex)
 
-		assert.True(t.test, expectedVotersEpoch.Equal(votes.ValidatorSetToAdvancedSet(voters)), "epoch %s expected %d voters but got %d", epochIndex, expectedVotersEpoch.Size(), voters.Size())
+		assert.True(t.test, expectedVotersEpoch.Equal(voters), "epoch %s expected %s voters but got %s", epochIndex, expectedVotersEpoch, voters)
 	}
 }
 

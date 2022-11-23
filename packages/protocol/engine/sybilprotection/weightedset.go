@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
 )
@@ -87,8 +88,20 @@ func (w *WeightedSet) Has(id identity.ID) (has bool) {
 }
 
 func (w *WeightedSet) ForEach(callback func(id identity.ID) error) (err error) {
-	for _, member := range w.Slice() {
+	for it := w.members.Iterator(); it.HasNext(); {
+		member := it.Next()
 		if err = callback(member); err != nil {
+			return
+		}
+	}
+
+	return
+}
+
+func (w *WeightedSet) ForEachWeighted(callback func(id identity.ID, weight int64) error) (err error) {
+	for it := w.members.Iterator(); it.HasNext(); {
+		member := it.Next()
+		if err = callback(member, lo.Return1(w.Weights.Weight(member)).Value); err != nil {
 			return
 		}
 	}
@@ -103,11 +116,11 @@ func (w *WeightedSet) TotalWeight() (totalWeight int64) {
 	return w.totalWeight
 }
 
-func (w *WeightedSet) Slice() []identity.ID {
+func (w *WeightedSet) Members() *set.AdvancedSet[identity.ID] {
 	w.membersMutex.RLock()
 	defer w.membersMutex.RUnlock()
 
-	return w.members.Slice()
+	return w.members
 }
 
 func (w *WeightedSet) Detach() {

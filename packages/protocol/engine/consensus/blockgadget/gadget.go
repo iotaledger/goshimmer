@@ -12,7 +12,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/causalorder"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
-	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
@@ -195,9 +194,9 @@ func (a *Gadget) tryConfirmOrAccept(totalWeight int64, marker markers.Marker) (b
 	markerVoters := a.tangle.VirtualVoting.MarkerVoters(marker)
 
 	// check if enough weight is online to confirm based on total weight
-	if validator.IsThresholdReached(totalWeight, a.tangle.Validators.TotalWeight(), a.optsMarkerConfirmationThreshold) {
+	if IsThresholdReached(totalWeight, a.tangle.Validators.TotalWeight(), a.optsMarkerConfirmationThreshold) {
 		// check if marker weight has enough weight to be confirmed
-		if validator.IsThresholdReached(totalWeight, markerVoters.TotalWeight(), a.optsMarkerConfirmationThreshold) {
+		if IsThresholdReached(totalWeight, markerVoters.TotalWeight(), a.optsMarkerConfirmationThreshold) {
 			// need to mark outside 'if' statement, otherwise only the first condition would be executed due to lazy evaluation
 			markerAccepted := a.setMarkerAccepted(marker)
 			markerConfirmed := a.setMarkerConfirmed(marker)
@@ -205,7 +204,7 @@ func (a *Gadget) tryConfirmOrAccept(totalWeight int64, marker markers.Marker) (b
 				return a.propagateAcceptanceConfirmation(marker, true)
 			}
 		}
-	} else if validator.IsThresholdReached(a.tangle.Validators.TotalWeight(), markerVoters.TotalWeight(), a.optsMarkerAcceptanceThreshold) && a.setMarkerAccepted(marker) {
+	} else if IsThresholdReached(a.tangle.Validators.TotalWeight(), markerVoters.TotalWeight(), a.optsMarkerAcceptanceThreshold) && a.setMarkerAccepted(marker) {
 		return a.propagateAcceptanceConfirmation(marker, false)
 	}
 
@@ -411,7 +410,7 @@ func (a *Gadget) RefreshConflictAcceptance(conflictID utxo.TransactionID) {
 	conflictVoters := a.tangle.VirtualVoting.ConflictVoters(conflictID)
 	conflictWeight := conflictVoters.TotalWeight()
 
-	if !validator.IsThresholdReached(a.tangle.Validators.TotalWeight(), conflictWeight, a.optsConflictAcceptanceThreshold) {
+	if !IsThresholdReached(a.tangle.Validators.TotalWeight(), conflictWeight, a.optsConflictAcceptanceThreshold) {
 		return
 	}
 
@@ -429,7 +428,7 @@ func (a *Gadget) RefreshConflictAcceptance(conflictID utxo.TransactionID) {
 		conflictingConflictVoters := a.tangle.VirtualVoting.ConflictVoters(conflictingConflictID)
 
 		// if the conflict is less than 66% ahead, then don't mark as accepted
-		if conflictingConflictWeight := conflictingConflictVoters.TotalWeight(); !validator.IsThresholdReached(a.tangle.Validators.TotalWeight(), conflictWeight-conflictingConflictWeight, a.optsConflictAcceptanceThreshold) {
+		if conflictingConflictWeight := conflictingConflictVoters.TotalWeight(); !IsThresholdReached(a.tangle.Validators.TotalWeight(), conflictWeight-conflictingConflictWeight, a.optsConflictAcceptanceThreshold) {
 			markAsAccepted = false
 		}
 
@@ -446,6 +445,10 @@ func (a *Gadget) RefreshConflictAcceptance(conflictID utxo.TransactionID) {
 	if markAsAccepted {
 		a.tangle.Booker.Ledger.ConflictDAG.SetConflictAccepted(conflictID)
 	}
+}
+
+func IsThresholdReached(weight, otherWeight int64, threshold float64) bool {
+	return otherWeight > int64(float64(weight)*threshold)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

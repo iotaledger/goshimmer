@@ -7,9 +7,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
-	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes/latestvotes"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 )
 
 type EpochTracker struct {
@@ -18,16 +16,14 @@ type EpochTracker struct {
 	votesPerIdentity *memstorage.Storage[identity.ID, *latestvotes.LatestVotes[epoch.Index, EpochVotePower]]
 	votersPerEpoch   *memstorage.Storage[epoch.Index, *set.AdvancedSet[identity.ID]]
 
-	validators          *sybilprotection.WeightedSet
 	cutoffIndexCallback func() epoch.Index
 }
 
-func NewEpochTracker(validators *sybilprotection.WeightedSet, cutoffIndexCallback func() epoch.Index) *EpochTracker {
+func NewEpochTracker(cutoffIndexCallback func() epoch.Index) *EpochTracker {
 	return &EpochTracker{
 		votesPerIdentity: memstorage.New[identity.ID, *latestvotes.LatestVotes[epoch.Index, EpochVotePower]](),
 		votersPerEpoch:   memstorage.New[epoch.Index, *set.AdvancedSet[identity.ID]](),
 
-		validators:          validators,
 		cutoffIndexCallback: cutoffIndexCallback,
 		Events:              NewEvents(),
 	}
@@ -41,11 +37,6 @@ func (c *EpochTracker) epochVoters(epochIndex epoch.Index) *set.AdvancedSet[iden
 }
 
 func (c *EpochTracker) TrackVotes(epochIndex epoch.Index, voterID identity.ID, power EpochVotePower) {
-	weight, exists := c.validators.Get(voterID)
-	if !exists {
-		return
-	}
-
 	epochVoters := c.epochVoters(epochIndex)
 	if epochVoters.Has(voterID) {
 		// We already tracked the voter for this epoch, so no need to update anything
@@ -53,7 +44,7 @@ func (c *EpochTracker) TrackVotes(epochIndex epoch.Index, voterID identity.ID, p
 	}
 
 	votersVotes, _ := c.votesPerIdentity.RetrieveOrCreate(voterID, func() *latestvotes.LatestVotes[epoch.Index, EpochVotePower] {
-		return latestvotes.NewLatestVotes[epoch.Index, EpochVotePower](validator.New(voterID, validator.WithWeight(weight.Value)))
+		return latestvotes.NewLatestVotes[epoch.Index, EpochVotePower](voterID)
 	})
 
 	updated, previousHighestIndex := votersVotes.Store(epochIndex, power)
@@ -66,14 +57,14 @@ func (c *EpochTracker) TrackVotes(epochIndex epoch.Index, voterID identity.ID, p
 	}
 
 	c.Events.VotersUpdated.Trigger(&VoterUpdatedEvent{
-		Voter:                validator.New(voterID, validator.WithWeight(weight.Value)),
+		Voter:                voterID,
 		NewLatestEpochIndex:  epochIndex,
 		PrevLatestEpochIndex: previousHighestIndex,
 	})
 }
 
-func (c *EpochTracker) Voters(epochIndex epoch.Index) (voters *validator.Set) {
-	voters = validator.NewSet()
+func (c *EpochTracker) Voters(epochIndex epoch.Index) (voters *set.AdvancedSet[identity.ID]) {
+	voters = set.NewAdvancedSet[identity.ID]()
 
 	epochVoters, exists := c.votersPerEpoch.Get(epochIndex)
 	if !exists {
@@ -81,10 +72,7 @@ func (c *EpochTracker) Voters(epochIndex epoch.Index) (voters *validator.Set) {
 	}
 
 	epochVoters.ForEach(func(identityID identity.ID) error {
-		weight, validatorExists := c.validators.Get(identityID)
-		if validatorExists {
-			voters.Add(validator.New(identityID, validator.WithWeight(weight.Value)))
-		}
+		voters.Add(identityID)
 		return nil
 	})
 

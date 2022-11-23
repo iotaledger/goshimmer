@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
@@ -89,9 +88,9 @@ func (t *TestFramework) AssertBlock(alias string, callback func(block *Block)) {
 	callback(block)
 }
 
-func (t *TestFramework) CreateIdentity(alias string, opts ...options.Option[validator.Validator]) {
+func (t *TestFramework) CreateIdentity(alias string, weight int64) {
 	t.identitiesByAlias[alias] = identity.GenerateIdentity()
-	t.CreateValidatorWithID(alias, t.identitiesByAlias[alias].ID(), opts...)
+	t.CreateValidatorWithID(alias, t.identitiesByAlias[alias].ID(), weight)
 }
 
 func (t *TestFramework) Identity(alias string) (v *identity.Identity) {
@@ -112,19 +111,19 @@ func (t *TestFramework) Identities(aliases ...string) (identities *set.AdvancedS
 	return
 }
 
-func (t *TestFramework) ValidateMarkerVoters(expectedVoters map[markers.Marker]*set.AdvancedSet[*validator.Validator]) {
+func (t *TestFramework) ValidateMarkerVoters(expectedVoters map[markers.Marker]*set.AdvancedSet[identity.ID]) {
 	for marker, expectedVotersOfMarker := range expectedVoters {
 		voters := t.SequenceTracker.Voters(marker)
 
-		assert.True(t.test, expectedVotersOfMarker.Equal(votes.ValidatorSetToAdvancedSet(voters)), "marker %s expected %d voters but got %d", marker, expectedVotersOfMarker.Size(), voters.Size())
+		assert.True(t.test, expectedVotersOfMarker.Equal(voters.Members()), "marker %s expected %d voters but got %d", marker, expectedVotersOfMarker.Size(), voters.Members().Size())
 	}
 }
 
-func (t *TestFramework) ValidateConflictVoters(expectedVoters map[utxo.TransactionID]*set.AdvancedSet[*validator.Validator]) {
+func (t *TestFramework) ValidateConflictVoters(expectedVoters map[utxo.TransactionID]*set.AdvancedSet[identity.ID]) {
 	for conflictID, expectedVotersOfMarker := range expectedVoters {
 		voters := t.ConflictTracker.Voters(conflictID)
 
-		assert.True(t.test, expectedVotersOfMarker.Equal(votes.ValidatorSetToAdvancedSet(voters)), "conflict %s expected %d voters but got %d", conflictID, expectedVotersOfMarker.Size(), voters.Size())
+		assert.True(t.test, expectedVotersOfMarker.Equal(voters.Members()), "conflict %s expected %d voters but got %d", conflictID, expectedVotersOfMarker.Size(), voters.Members().Size())
 	}
 }
 
