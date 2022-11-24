@@ -7,13 +7,10 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
@@ -30,58 +27,13 @@ func WriteSnapshot(filePath string, engineInstance *engine.Engine, depth int) {
 
 	if err := engineInstance.Storage.Settings.WriteTo(fileHandle); err != nil {
 		panic(err)
-	} else if err := engineInstance.Storage.Commitments.WriteTo(fileHandle, snapshotEpoch); err != nil {
+	} else if err := engineInstance.Storage.Commitments.WriteTo(fileHandle, engineInstance.Storage.Settings.LatestCommitment().Index()); err != nil {
+		panic(err)
+	} else if err := engineInstance.LedgerState.WriteTo(fileHandle); err != nil {
 		panic(err)
 	}
 
 	var outputWithMetadataSize uint32
-
-	// Ledgerstate
-	{
-		var outputCount uint32
-		var dummyOutput utxo.Output
-		engineInstance.Ledger.Storage.ForEachOutputID(func(outputID utxo.OutputID) bool {
-			engineInstance.Ledger.Storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledger.OutputMetadata) {
-				if (outputMetadata.ConfirmationState() == confirmation.Accepted || outputMetadata.ConfirmationState() == confirmation.Confirmed) &&
-					!outputMetadata.IsSpent() {
-					outputCount++
-				}
-			})
-
-			if dummyOutput == nil {
-				engineInstance.Ledger.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
-					dummyOutput = output
-				})
-			}
-
-			return true
-		})
-
-		// TODO: seek back to this location instead of scanning the collection twice
-		// Output count
-		binary.Write(fileHandle, binary.LittleEndian, outputCount)
-
-		// OutputWithMetadata size
-		dummyOutputWithMetadata := ledgerstate.NewOutputWithMetadata(0, dummyOutput.ID(), dummyOutput, identity.ID{}, identity.ID{})
-		outputWithMetadataSize = uint32(len(lo.PanicOnErr(dummyOutputWithMetadata.Bytes())))
-		binary.Write(fileHandle, binary.LittleEndian, outputWithMetadataSize)
-
-		engineInstance.Ledger.Storage.ForEachOutputID(func(outputID utxo.OutputID) bool {
-			engineInstance.Ledger.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
-				engineInstance.Ledger.Storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledger.OutputMetadata) {
-					outputWithMetadata := ledgerstate.NewOutputWithMetadata(
-						epoch.IndexFromTime(outputMetadata.CreationTime()),
-						outputID,
-						output,
-						outputMetadata.ConsensusManaPledgeID(),
-						outputMetadata.AccessManaPledgeID(),
-					)
-					binary.Write(fileHandle, binary.LittleEndian, lo.PanicOnErr(outputWithMetadata.Bytes()))
-				})
-			})
-			return true
-		})
-	}
 
 	// Solid Entry Points
 	{

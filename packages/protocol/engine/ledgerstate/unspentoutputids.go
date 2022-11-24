@@ -19,7 +19,7 @@ type UnspentOutputIDs struct {
 	batchedCreatedOutputIDs utxo.OutputIDs
 	batchedSpentOutputIDs   utxo.OutputIDs
 
-	*ads.Set[utxo.OutputID]
+	*ads.Set[utxo.OutputID, *utxo.OutputID]
 }
 
 func NewUnspentOutputIDs(store kvstore.KVStore) *UnspentOutputIDs {

@@ -53,7 +53,7 @@ func (a *Attestations) Delete(block *models.Block) (deleted bool) {
 	return
 }
 
-func (a *Attestations) Attestors() (attestors *ads.Set[identity.ID]) {
+func (a *Attestations) Attestors() (attestors *ads.Set[identity.ID, *identity.ID]) {
 	attestors = ads.NewSet[identity.ID](mapdb.NewMapDB())
 
 	if a == nil {

@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/types"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/pkg/errors"
@@ -103,21 +104,39 @@ func (l *LedgerState) Root() types.Identifier {
 	return l.UnspentOutputIDs.Root()
 }
 
-func (c *LedgerState) WriteTo(writer io.WriteSeeker) (err error) {
-	writer.Seek(8, io.SeekCurrent)
+func (l *LedgerState) WriteTo(writer io.WriteSeeker) (err error) {
+	if iterationErr := l.UnspentOutputIDs.Stream(func(outputID utxo.OutputID) bool {
+		if !l.MemPool.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
+			if !l.MemPool.Storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledger.OutputMetadata) {
+				if startOffset, seekErr := writer.Seek(8, io.SeekCurrent); seekErr != nil {
+					err = errors.Errorf("failed to seek to write location of output: %w", seekErr)
+				} else if err = binary.Write(writer, binary.LittleEndian, lo.PanicOnErr(NewOutputWithMetadata(epoch.IndexFromTime(outputMetadata.CreationTime()), outputID, output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()).Bytes())); err != nil {
+					err = errors.Errorf("failed to write output: %w", err)
+				} else if endOffset, seekErr := writer.Seek(0, io.SeekCurrent); seekErr != nil {
+					err = errors.Errorf("failed to read end location of output: %w", seekErr)
+				} else if _, err = writer.Seek(startOffset-8, io.SeekStart); err != nil {
+					err = errors.Errorf("failed to seek to size of output: %w", err)
+				} else if err = binary.Write(writer, binary.LittleEndian, uint64(endOffset-startOffset)); err != nil {
+					err = errors.Errorf("failed to write output length: %w", err)
+				} else if _, err = writer.Seek(endOffset, io.SeekStart); err != nil {
+					err = errors.Errorf("failed to seek end location of output: %w", err)
+				}
+			}) {
+				err = errors.Errorf("failed to load output metadata: %w", err)
+			}
+		}) {
+			err = errors.Errorf("failed to load output: %w", err)
+		}
 
-	c.UnspentOutputIDs.Str
-	settingsBytes, err := c.settingsModel.Bytes()
-	if err != nil {
-		return errors.Errorf("failed to convert settings to bytes: %w", err)
+		return err == nil
+	}); iterationErr != nil {
+		return errors.Errorf("failed to stream unspent output IDs: %w", iterationErr)
+	} else if err != nil {
+		return err
 	}
 
-	if err = binary.Write(writer, binary.LittleEndian, uint32(len(settingsBytes))); err != nil {
-		return errors.Errorf("failed to write settings length: %w", err)
-	}
-
-	if err = binary.Write(writer, binary.LittleEndian, settingsBytes); err != nil {
-		return errors.Errorf("failed to write settings: %w", err)
+	if err = binary.Write(writer, binary.LittleEndian, uint64(0)); err != nil {
+		return errors.Errorf("failed to write end marker of outputs: %w", err)
 	}
 
 	return nil
