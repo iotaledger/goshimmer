@@ -364,8 +364,6 @@ func TestBlockDAG_Attach_InvalidTimestamp(t *testing.T) {
 func TestBlockDAG_AttachInvalid(t *testing.T) {
 	const epochCount = 100
 
-	epoch.GenesisTime = time.Now().Unix() - epochCount*epoch.Duration
-
 	tf := NewTestFramework(t)
 
 	// create a helper function that creates the blocks
@@ -450,8 +448,6 @@ func TestBlockDAG_AttachInvalid(t *testing.T) {
 // When evicting the BlockDAG, the first chain should be evicted but not marked as invalid by the causal order component, while the other should be marked as invalid.
 func TestBlockDAG_Prune(t *testing.T) {
 	const epochCount = 100
-
-	epoch.GenesisTime = time.Now().Unix() - epochCount*epoch.Duration
 
 	tf := NewTestFramework(t)
 

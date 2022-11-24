@@ -103,7 +103,6 @@ func TestRetainer_BlockMetadata_NonEvicted(t *testing.T) {
 }
 
 func TestRetainer_BlockMetadata_Evicted(t *testing.T) {
-	epoch.GenesisTime = time.Now().Add(-5 * time.Minute).Unix()
 
 	protocolTF := protocol.NewTestFramework(t)
 	protocolTF.Protocol.Run()
@@ -111,7 +110,7 @@ func TestRetainer_BlockMetadata_Evicted(t *testing.T) {
 
 	retainer := NewRetainer(protocolTF.Protocol, database.NewManager(0))
 
-	b := tangleTF.CreateBlock("A")
+	b := tangleTF.CreateBlock("A", models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0).Add(70*time.Second)))
 	tangleTF.IssueBlocks("A").WaitUntilAllTasksProcessed()
 	block, exists := protocolTF.Protocol.CongestionControl.Block(b.ID())
 	assert.True(t, exists)
