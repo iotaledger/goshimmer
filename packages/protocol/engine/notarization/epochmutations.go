@@ -22,6 +22,8 @@ import (
 type EpochMutations struct {
 	validatorWeightFunc func(identity.ID) (int64, bool)
 
+	Events *EpochMutationsEvents
+
 	// acceptedBlocksByEpoch stores the accepted blocks per epoch.
 	acceptedBlocksByEpoch *memstorage.Storage[epoch.Index, *ads.Set[models.BlockID]]
 
@@ -46,6 +48,7 @@ type EpochMutations struct {
 // NewEpochMutations creates a new EpochMutations instance.
 func NewEpochMutations(validatorWeightFunc func(id identity.ID) (int64, bool), lastCommittedEpoch epoch.Index) (newMutationFactory *EpochMutations) {
 	return &EpochMutations{
+		Events:              NewEpochMutationsEvents(),
 		validatorWeightFunc: validatorWeightFunc,
 
 		acceptedBlocksByEpoch:       memstorage.New[epoch.Index, *ads.Set[models.BlockID]](),
@@ -86,6 +89,7 @@ func (m *EpochMutations) RemoveAcceptedBlock(block *models.Block) (err error) {
 	m.acceptedBlocks(blockID.Index()).Delete(blockID)
 	m.removeBlockByIssuer(blockID, block.IssuerID())
 
+	m.Events.AcceptedBlockRemoved.Trigger(blockID)
 	return
 }
 

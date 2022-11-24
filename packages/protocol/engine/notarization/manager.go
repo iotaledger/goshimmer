@@ -9,10 +9,14 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
+	"github.com/iotaledger/hive.go/core/identity"
 
+	"github.com/iotaledger/goshimmer/packages/core/ads"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
@@ -22,6 +26,7 @@ const (
 
 // region Manager //////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// Manager is the component that manages the epoch commitments.
 type Manager struct {
 	Events *Events
 	*EpochMutations
@@ -36,6 +41,7 @@ type Manager struct {
 	optsMinCommittableEpochAge time.Duration
 }
 
+// NewManager creates a new notarization Manager.
 func NewManager(storage *storage.Storage, sybilProtection *sybilprotection.SybilProtection, opts ...options.Option[Manager]) (new *Manager) {
 	return options.Apply(&Manager{
 		Events:         NewEvents(),
@@ -48,6 +54,7 @@ func NewManager(storage *storage.Storage, sybilProtection *sybilprotection.Sybil
 	}, opts)
 }
 
+// IncreaseConflictsCounter increases the conflicts counter for the given epoch index.
 func (m *Manager) IncreaseConflictsCounter(index epoch.Index) {
 	m.commitmentMutex.Lock()
 	defer m.commitmentMutex.Unlock()
@@ -59,6 +66,7 @@ func (m *Manager) IncreaseConflictsCounter(index epoch.Index) {
 	m.pendingConflictsCounters.Set(index, lo.Return1(m.pendingConflictsCounters.Get(index))+1)
 }
 
+// DecreaseConflictsCounter decreases the conflicts counter for the given epoch index.
 func (m *Manager) DecreaseConflictsCounter(index epoch.Index) {
 	m.commitmentMutex.Lock()
 	defer m.commitmentMutex.Unlock()
@@ -76,6 +84,7 @@ func (m *Manager) DecreaseConflictsCounter(index epoch.Index) {
 	}
 }
 
+// AcceptanceTime returns the acceptance time of the Manager.
 func (m *Manager) AcceptanceTime() time.Time {
 	m.acceptanceTimeMutex.RLock()
 	defer m.acceptanceTimeMutex.RUnlock()
@@ -83,6 +92,7 @@ func (m *Manager) AcceptanceTime() time.Time {
 	return m.acceptanceTime
 }
 
+// SetAcceptanceTime sets the acceptance time of the Manager.
 func (m *Manager) SetAcceptanceTime(acceptanceTime time.Time) {
 	m.commitmentMutex.Lock()
 	defer m.commitmentMutex.Unlock()
@@ -134,7 +144,6 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 	m.pendingConflictsCounters.Delete(index)
 
 	stateRoot, manaRoot := m.storage.ApplyStateDiff(index, m.storage.LedgerStateDiffs.StateDiff(index))
-
 	acceptedBlocks, acceptedTransactions, activeValidators, cumulativeWeight, err := m.EpochMutations.Commit(index)
 	if err != nil {
 		m.Events.Error.Trigger(errors.Errorf("failed to commit mutations: %w", err))
@@ -149,8 +158,29 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 	}
 
 	fmt.Println("(time: ", time.Now(), ") epoch commited", newCommitment.Index(), m.AcceptanceTime())
-	m.Events.EpochCommitted.Trigger(newCommitment)
+	accBlocks, accTxs, valNum := m.evaluateEpochSizeDetails(acceptedBlocks, acceptedTransactions, activeValidators)
+	m.Events.EpochCommitted.Trigger(&EpochCommittedDetails{
+		Commitment:                newCommitment,
+		AcceptedBlocksCount:       accBlocks,
+		AcceptedTransactionsCount: accTxs,
+		ActiveValidatorsCount:     valNum,
+	})
+
 	return true
+}
+
+func (m *Manager) evaluateEpochSizeDetails(acceptedBlocks *ads.Set[models.BlockID], acceptedTransactions *ads.Set[utxo.TransactionID], activeValidators *ads.Set[identity.ID]) (int, int, int) {
+	var accBlocks, accTxs, valNum int
+	if acceptedBlocks != nil {
+		accBlocks = acceptedBlocks.Size()
+	}
+	if acceptedTransactions != nil {
+		accTxs = acceptedTransactions.Size()
+	}
+	if activeValidators != nil {
+		valNum = activeValidators.Size()
+	}
+	return accBlocks, accTxs, valNum
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

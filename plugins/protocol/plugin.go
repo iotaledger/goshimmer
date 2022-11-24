@@ -122,14 +122,6 @@ func configureLogging(*node.Plugin) {
 		Plugin.LogErrorf("Error in Engine: %s", err)
 	}))
 
-	deps.Protocol.Events.CongestionControl.Scheduler.BlockDropped.Attach(event.NewClosure(func(block *scheduler.Block) {
-		Plugin.LogDebugf("Block %s dropped", block.ID())
-	}))
-
-	// deps.Protocol.Events.Engine.NotarizationManager.EpochCommittable.Attach(event.NewClosure(func(e *notarization.EpochCommittableEvent) {
-	// 	fmt.Println("EpochCommittableEvent", e.EI)
-	// }))
-
 	// deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(func(block *blockdag.Block) {
 	// 	fmt.Println(">>>>>>> BlockMissing", block.ID())
 	// }))

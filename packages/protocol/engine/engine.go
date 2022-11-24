@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
 
-	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/eventticker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
@@ -273,6 +272,7 @@ func (e *Engine) initNotarizationManager() {
 	}))
 
 	e.Events.NotarizationManager.LinkTo(e.NotarizationManager.Events)
+	e.Events.EpochMutations.LinkTo(e.NotarizationManager.EpochMutations.Events)
 }
 
 func (e *Engine) initManaTracker() {
@@ -300,8 +300,8 @@ func (e *Engine) initEvictionState() {
 		e.EvictionState.RemoveRootBlock(block.ID())
 	}))
 
-	e.NotarizationManager.Events.EpochCommitted.Attach(event.NewClosure(func(commitment *commitment.Commitment) {
-		e.EvictionState.EvictUntil(commitment.Index())
+	e.NotarizationManager.Events.EpochCommitted.Attach(event.NewClosure(func(details *notarization.EpochCommittedDetails) {
+		e.EvictionState.EvictUntil(details.Commitment.Index())
 	}))
 
 	e.Events.EvictionState.LinkTo(e.EvictionState.Events)
