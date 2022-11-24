@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 
-	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
@@ -29,22 +28,10 @@ func WriteSnapshot(filePath string, engineInstance *engine.Engine, depth int) {
 	snapshotEpoch := engineInstance.Storage.Settings.LatestCommitment().Index()
 	snapshotStart := snapshotEpoch - epoch.Index(depth)
 
-	// Settings
-	{
-		settingsBytes := lo.PanicOnErr(engineInstance.Storage.Settings.Bytes())
-		binary.Write(fileHandle, binary.LittleEndian, uint32(len(settingsBytes)))
-		binary.Write(fileHandle, binary.LittleEndian, settingsBytes)
-	}
-
-	// Committments
-	{
-		// Commitments count, we dump all commitments from Genesis
-		binary.Write(fileHandle, binary.LittleEndian, uint32(snapshotEpoch+1))
-		// Commitment size
-		binary.Write(fileHandle, binary.LittleEndian, uint32(len(lo.PanicOnErr((&commitment.Commitment{}).Bytes()))))
-		for epochIndex := epoch.Index(0); epochIndex <= snapshotEpoch; epochIndex++ {
-			binary.Write(fileHandle, binary.LittleEndian, lo.PanicOnErr(lo.PanicOnErr(engineInstance.Storage.Commitments.Load(epochIndex)).Bytes()))
-		}
+	if err := engineInstance.Storage.Settings.WriteTo(fileHandle); err != nil {
+		panic(err)
+	} else if err := engineInstance.Storage.Commitments.WriteTo(fileHandle, snapshotEpoch); err != nil {
+		panic(err)
 	}
 
 	var outputWithMetadataSize uint32

@@ -1,6 +1,8 @@
 package ledgerstate
 
 import (
+	"encoding/binary"
+	"io"
 	"sync"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -99,6 +101,26 @@ func (l *LedgerState) ApplyStateDiff(targetEpoch epoch.Index) (err error) {
 
 func (l *LedgerState) Root() types.Identifier {
 	return l.UnspentOutputIDs.Root()
+}
+
+func (c *LedgerState) WriteTo(writer io.WriteSeeker) (err error) {
+	writer.Seek(8, io.SeekCurrent)
+
+	c.UnspentOutputIDs.Str
+	settingsBytes, err := c.settingsModel.Bytes()
+	if err != nil {
+		return errors.Errorf("failed to convert settings to bytes: %w", err)
+	}
+
+	if err = binary.Write(writer, binary.LittleEndian, uint32(len(settingsBytes))); err != nil {
+		return errors.Errorf("failed to write settings length: %w", err)
+	}
+
+	if err = binary.Write(writer, binary.LittleEndian, settingsBytes); err != nil {
+		return errors.Errorf("failed to write settings: %w", err)
+	}
+
+	return nil
 }
 
 func (l *LedgerState) onTransactionAccepted(metadata *ledger.TransactionMetadata) {

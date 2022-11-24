@@ -2,6 +2,8 @@ package permanent
 
 import (
 	"context"
+	"encoding/binary"
+	"io"
 	"sync"
 
 	"github.com/cockroachdb/errors"
@@ -16,7 +18,7 @@ import (
 // region Settings /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Settings struct {
-	*settingsModel
+	settingsModel *settingsModel
 
 	sync.RWMutex
 }
@@ -107,6 +109,49 @@ func (c *Settings) SetChainID(id commitment.ID) (err error) {
 
 	if err = c.settingsModel.ToFile(); err != nil {
 		return errors.Errorf("failed to persist chain ID: %w", err)
+	}
+
+	return nil
+}
+
+func (c *Settings) WriteTo(writer io.WriteSeeker) (err error) {
+	c.RLock()
+	defer c.RUnlock()
+
+	settingsBytes, err := c.settingsModel.Bytes()
+	if err != nil {
+		return errors.Errorf("failed to convert settings to bytes: %w", err)
+	}
+
+	if err = binary.Write(writer, binary.LittleEndian, uint32(len(settingsBytes))); err != nil {
+		return errors.Errorf("failed to write settings length: %w", err)
+	}
+
+	if err = binary.Write(writer, binary.LittleEndian, settingsBytes); err != nil {
+		return errors.Errorf("failed to write settings: %w", err)
+	}
+
+	return nil
+}
+
+func (c *Settings) ReadFrom(reader io.ReadSeeker) (err error) {
+	c.Lock()
+	defer c.Unlock()
+
+	var settingsSize uint32
+	if err = binary.Read(reader, binary.LittleEndian, &settingsSize); err != nil {
+		return errors.Errorf("failed to read settings length: %w", err)
+	}
+
+	settingsBytes := make([]byte, settingsSize)
+	if err = binary.Read(reader, binary.LittleEndian, settingsBytes); err != nil {
+		return errors.Errorf("failed to read settings bytes: %w", err)
+	}
+
+	if consumedBytes, err := c.settingsModel.FromBytes(settingsBytes); err != nil {
+		return errors.Errorf("failed to read settings: %w", err)
+	} else if consumedBytes != len(settingsBytes) {
+		return errors.Errorf("failed to read settings: consumed bytes (%d) != expected bytes (%d)", consumedBytes, len(settingsBytes))
 	}
 
 	return nil

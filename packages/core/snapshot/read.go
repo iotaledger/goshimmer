@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 
-	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
@@ -19,27 +18,11 @@ import (
 )
 
 func ReadSnapshot(fileHandle *os.File, engineInstance *engine.Engine) {
-	// Settings
-	{
-		var settingsSize uint32
-		binary.Read(fileHandle, binary.LittleEndian, &settingsSize)
-		settingsBytes := make([]byte, settingsSize)
-		binary.Read(fileHandle, binary.LittleEndian, settingsBytes)
-		engineInstance.Storage.Settings.FromBytes(settingsBytes)
-	}
-
-	// Committments
-	{
-		ProcessChunks(NewChunkedReader[commitment.Commitment](fileHandle), func(chunk []*commitment.Commitment) {
-			for _, commitment := range chunk {
-				if err := engineInstance.Storage.Commitments.Store(commitment.Index(), commitment); err != nil {
-					panic(err)
-				}
-			}
-		})
-	}
-
-	if err := engineInstance.Storage.Settings.SetChainID(engineInstance.Storage.Settings.LatestCommitment().ID()); err != nil {
+	if err := engineInstance.Storage.Settings.ReadFrom(fileHandle); err != nil {
+		panic(err)
+	} else if err := engineInstance.Storage.Commitments.ReadFrom(fileHandle); err != nil {
+		panic(err)
+	} else if err := engineInstance.Storage.Settings.SetChainID(engineInstance.Storage.Settings.LatestCommitment().ID()); err != nil {
 		panic(err)
 	}
 

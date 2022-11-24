@@ -30,11 +30,12 @@ type State struct {
 // NewState creates a new eviction State.
 func NewState(storageInstance *storage.Storage, opts ...options.Option[State]) (state *State) {
 	return options.Apply(&State{
-		Events:           NewEvents(),
-		rootBlocks:       memstorage.NewEpochStorage[models.BlockID, bool](),
-		latestRootBlock:  models.EmptyBlockID,
-		storage:          storageInstance,
-		lastEvictedEpoch: storageInstance.Settings.LatestCommitment().Index(),
+		Events:                      NewEvents(),
+		rootBlocks:                  memstorage.NewEpochStorage[models.BlockID, bool](),
+		latestRootBlock:             models.EmptyBlockID,
+		storage:                     storageInstance,
+		lastEvictedEpoch:            storageInstance.Settings.LatestCommitment().Index(),
+		optsRootBlocksEvictionDelay: 3,
 	}, opts, func(s *State) {
 		if s.importRootBlocksFromStorage() == 0 {
 			s.AddRootBlock(models.EmptyBlockID)
