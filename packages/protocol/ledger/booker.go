@@ -106,8 +106,8 @@ func (b *booker) storeOutputs(outputs *utxo.Outputs, conflictIDs *set.AdvancedSe
 		outputMetadata.SetConflictIDs(conflictIDs)
 		outputMetadata.SetAccessManaPledgeID(accessPledgeID)
 		outputMetadata.SetConsensusManaPledgeID(consensusPledgeID)
-		b.ledger.Storage.outputMetadataStorage.Store(outputMetadata).Release()
-		b.ledger.Storage.outputStorage.Store(output).Release()
+		b.ledger.Storage.OutputMetadataStorage.Store(outputMetadata).Release()
+		b.ledger.Storage.OutputStorage.Store(output).Release()
 
 		b.ledger.Events.OutputCreated.Trigger(output.ID())
 

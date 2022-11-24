@@ -5,10 +5,12 @@ import (
 
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
@@ -34,19 +36,6 @@ func New(storageInstance *storage.Storage) (ledgerState *LedgerState) {
 	return
 }
 
-func (l *LedgerState) onTransactionAccepted(metadata *ledger.TransactionMetadata) {
-	if err := l.StateDiffs.addAcceptedTransaction(metadata); err != nil {
-		// TODO: handle error gracefully
-		panic(err)
-	}
-}
-
-func (l *LedgerState) onTransactionInclusionUpdated(event *ledger.TransactionInclusionUpdatedEvent) {
-	if l.MemPool.ConflictDAG.ConfirmationState(event.TransactionMetadata.ConflictIDs()).IsAccepted() {
-		l.StateDiffs.moveTransactionToOtherEpoch(event.TransactionMetadata, event.PreviousInclusionTime, event.InclusionTime)
-	}
-}
-
 func (l *LedgerState) RegisterConsumer(consumer DiffConsumer) {
 	l.consumersMutex.Lock()
 	defer l.consumersMutex.Unlock()
@@ -59,6 +48,8 @@ func (l *LedgerState) ImportOutputs(outputs []*OutputWithMetadata) {
 	defer l.consumersMutex.RUnlock()
 
 	for _, output := range outputs {
+		l.importMemPoolOutput(output)
+
 		for _, consumer := range l.consumers {
 			consumer.ProcessCreatedOutput(output)
 		}
@@ -92,6 +83,37 @@ func (l *LedgerState) ApplyStateDiff(targetEpoch epoch.Index) (err error) {
 	return nil
 }
 
+func (l *LedgerState) Root() types.Identifier {
+	return l.UnspentOutputIDs.Root()
+}
+
+func (l *LedgerState) onTransactionAccepted(metadata *ledger.TransactionMetadata) {
+	if err := l.StateDiffs.addAcceptedTransaction(metadata); err != nil {
+		// TODO: handle error gracefully
+		panic(err)
+	}
+}
+
+func (l *LedgerState) onTransactionInclusionUpdated(event *ledger.TransactionInclusionUpdatedEvent) {
+	if l.MemPool.ConflictDAG.ConfirmationState(event.TransactionMetadata.ConflictIDs()).IsAccepted() {
+		l.StateDiffs.moveTransactionToOtherEpoch(event.TransactionMetadata, event.PreviousInclusionTime, event.InclusionTime)
+	}
+}
+
+func (l *LedgerState) importMemPoolOutput(output *OutputWithMetadata) {
+	l.MemPool.Storage.CachedOutput(output.ID(), func(id utxo.OutputID) utxo.Output { return output.Output() }).Release()
+	l.MemPool.Storage.CachedOutputMetadata(output.ID(), func(outputID utxo.OutputID) *ledger.OutputMetadata {
+		newOutputMetadata := ledger.NewOutputMetadata(output.ID())
+		newOutputMetadata.SetAccessManaPledgeID(output.AccessManaPledgeID())
+		newOutputMetadata.SetConsensusManaPledgeID(output.ConsensusManaPledgeID())
+		newOutputMetadata.SetConfirmationState(confirmation.Confirmed)
+
+		return newOutputMetadata
+	}).Release()
+
+	l.MemPool.Events.OutputCreated.Trigger(output.ID())
+}
+
 func (l *LedgerState) processConsumers(targetEpoch epoch.Index, output *OutputWithMetadata, applyFunc, rollbackFunc func(DiffConsumer, *OutputWithMetadata)) {
 	for _, consumer := range l.consumers {
 		switch currentEpoch := consumer.LastCommittedEpoch(); {
@@ -102,8 +124,4 @@ func (l *LedgerState) processConsumers(targetEpoch epoch.Index, output *OutputWi
 			rollbackFunc(consumer, output)
 		}
 	}
-}
-
-func (l *LedgerState) Root() types.Identifier {
-	return l.UnspentOutputIDs.Root()
 }

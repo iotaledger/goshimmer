@@ -82,13 +82,13 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 		}
 
 		genesisOutput := NewMockedOutput(utxo.EmptyTransactionID, 0)
-		cachedObject, stored := t.Ledger.Storage.outputStorage.StoreIfAbsent(genesisOutput)
+		cachedObject, stored := t.Ledger.Storage.OutputStorage.StoreIfAbsent(genesisOutput)
 		if stored {
 			cachedObject.Release()
 
 			genesisOutputMetadata := NewOutputMetadata(genesisOutput.ID())
 			genesisOutputMetadata.SetConfirmationState(confirmation.Confirmed)
-			t.Ledger.Storage.outputMetadataStorage.Store(genesisOutputMetadata).Release()
+			t.Ledger.Storage.OutputMetadataStorage.Store(genesisOutputMetadata).Release()
 
 			t.outputIDsByAlias["Genesis"] = genesisOutput.ID()
 			genesisOutput.ID().RegisterAlias("Genesis")

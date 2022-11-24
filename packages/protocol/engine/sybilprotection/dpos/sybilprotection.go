@@ -57,45 +57,45 @@ func NewSybilProtectionProvider(opts ...options.Option[SybilProtection]) engine.
 }
 
 // Validators returns the set of validators that are currently active.
-func (p *SybilProtection) Validators() *sybilprotection.WeightedSet {
-	return p.validators
+func (s *SybilProtection) Validators() *sybilprotection.WeightedSet {
+	return s.validators
 }
 
 // Weights returns the current weights that are staked with validators.
-func (p *SybilProtection) Weights() *sybilprotection.Weights {
-	return p.weights
+func (s *SybilProtection) Weights() *sybilprotection.Weights {
+	return s.weights
 }
 
 // InitModule initializes the ProofOfStake module after all the dependencies have been injected into the engine.
-func (p *SybilProtection) InitModule() {
-	for it := p.engine.Storage.Attestors.LoadAll(p.engine.Storage.Settings.LatestCommitment().Index()).Iterator(); it.HasNext(); {
-		p.validators.Add(it.Next())
+func (s *SybilProtection) InitModule() {
+	for it := s.engine.Storage.Attestors.LoadAll(s.engine.Storage.Settings.LatestCommitment().Index()).Iterator(); it.HasNext(); {
+		s.validators.Add(it.Next())
 	}
 
-	p.engine.Events.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(func(block *blockdag.Block) {
-		p.markValidatorActive(block.IssuerID(), block.IssuingTime())
+	s.engine.Events.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(func(block *blockdag.Block) {
+		s.markValidatorActive(block.IssuerID(), block.IssuingTime())
 	}))
 }
 
-func (p *SybilProtection) markValidatorActive(id identity.ID, activityTime time.Time) {
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
+func (s *SybilProtection) markValidatorActive(id identity.ID, activityTime time.Time) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
-	if lastActivity, exists := p.lastActivities.Get(id); exists && lastActivity.After(activityTime) {
+	if lastActivity, exists := s.lastActivities.Get(id); exists && lastActivity.After(activityTime) {
 		return
 	} else if !exists {
-		p.validators.Add(id)
+		s.validators.Add(id)
 	}
 
-	p.lastActivities.Set(id, activityTime)
+	s.lastActivities.Set(id, activityTime)
 
-	p.inactivityManager.ExecuteAfter(id, func() { p.markValidatorInactive(id) }, activityTime.Add(p.optsActivityWindow).Sub(p.engine.Clock.RelativeAcceptedTime()))
+	s.inactivityManager.ExecuteAfter(id, func() { s.markValidatorInactive(id) }, activityTime.Add(s.optsActivityWindow).Sub(s.engine.Clock.RelativeAcceptedTime()))
 }
 
-func (p *SybilProtection) markValidatorInactive(id identity.ID) {
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
+func (s *SybilProtection) markValidatorInactive(id identity.ID) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
-	p.lastActivities.Delete(id)
-	p.validators.Delete(id)
+	s.lastActivities.Delete(id)
+	s.validators.Delete(id)
 }

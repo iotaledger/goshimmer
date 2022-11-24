@@ -53,7 +53,7 @@ func CreateSnapshot(s *storage.Storage, snapshotFileName string, genesisTokenAmo
 
 	// create engine
 	engineInstance := engine.New(s)
-	engineInstance.Ledger.ImportOutputs(outputsWithMetadata)
+	engineInstance.LedgerState.ImportOutputs(outputsWithMetadata)
 
 	snapshot.WriteSnapshot(snapshotFileName, engineInstance, 0)
 }
@@ -90,7 +90,7 @@ func CreateSnapshotForIntegrationTest(s *storage.Storage, snapshotFileName strin
 
 	// create engine
 	engineInstance := engine.New(s)
-	engineInstance.Ledger.ImportOutputs(outputsWithMetadata)
+	engineInstance.LedgerState.ImportOutputs(outputsWithMetadata)
 
 	snapshot.WriteSnapshot(snapshotFileName, engineInstance, 0)
 }

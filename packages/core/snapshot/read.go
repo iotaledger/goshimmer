@@ -6,12 +6,15 @@ import (
 	"os"
 
 	"github.com/iotaledger/hive.go/core/generics/constraints"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/types/confirmation"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
@@ -43,7 +46,6 @@ func ReadSnapshot(fileHandle *os.File, engineInstance *engine.Engine) {
 	// Ledgerstate
 	{
 		ProcessChunks(NewChunkedReader[ledgerstate.OutputWithMetadata](fileHandle),
-			engineInstance.Ledger.ImportOutputs,
 			engineInstance.ManaTracker.ImportOutputs,
 			// This will import into all the consumers too: sybilprotection and ledgerState.unspentOutputIDs
 			engineInstance.LedgerState.ImportOutputs,
@@ -83,10 +85,15 @@ func ReadSnapshot(fileHandle *os.File, engineInstance *engine.Engine) {
 
 			// Created
 			ProcessChunks(NewChunkedReader[ledgerstate.OutputWithMetadata](fileHandle),
-				engineInstance.Ledger.ApplySpentDiff,
 				func(createdChunk []*ledgerstate.OutputWithMetadata) {
 					engineInstance.ManaTracker.RollbackOutputs(createdChunk, true)
 					for _, createdOutput := range createdChunk {
+						id := createdOutput.ID()
+						idBytes := lo.PanicOnErr(id.Bytes())
+
+						engineInstance.Ledger.Storage.OutputStorage.Delete(idBytes)
+						engineInstance.Ledger.Storage.OutputMetadataStorage.Delete(idBytes)
+						engineInstance.Ledger.Events.OutputSpent.Trigger(id)
 						engineInstance.LedgerState.StateDiffs.StoreSpentOutput(createdOutput)
 					}
 				},
@@ -94,10 +101,18 @@ func ReadSnapshot(fileHandle *os.File, engineInstance *engine.Engine) {
 
 			// Spent
 			ProcessChunks(NewChunkedReader[ledgerstate.OutputWithMetadata](fileHandle),
-				engineInstance.Ledger.ApplyCreatedDiff,
 				func(spentChunk []*ledgerstate.OutputWithMetadata) {
 					engineInstance.ManaTracker.RollbackOutputs(spentChunk, false)
 					for _, createdOutput := range spentChunk {
+						outputMetadata := ledger.NewOutputMetadata(createdOutput.ID())
+						outputMetadata.SetAccessManaPledgeID(createdOutput.AccessManaPledgeID())
+						outputMetadata.SetConsensusManaPledgeID(createdOutput.ConsensusManaPledgeID())
+						outputMetadata.SetConfirmationState(confirmation.Confirmed)
+
+						engineInstance.Ledger.Storage.OutputStorage.Store(createdOutput.Output()).Release()
+						engineInstance.Ledger.Storage.OutputMetadataStorage.Store(outputMetadata).Release()
+						engineInstance.Ledger.Events.OutputCreated.Trigger(createdOutput.ID())
+
 						engineInstance.LedgerState.StateDiffs.StoreCreatedOutput(createdOutput)
 					}
 				},
