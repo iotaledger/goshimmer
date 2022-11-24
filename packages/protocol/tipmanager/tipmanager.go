@@ -155,7 +155,7 @@ func (t *TipManager) selectTips(count int) (parents models.BlockIDs) {
 		// only add genesis if no tips are available
 		if len(tips) == 0 {
 			rootBlock := t.engine.EvictionState.LatestRootBlock()
-			fmt.Println("selecting root block because tip pool empty:", rootBlock)
+			fmt.Println("(time: ", time.Now(), ") selecting root block because tip pool empty:", rootBlock)
 
 			return parents.Add(rootBlock)
 		}
@@ -165,7 +165,8 @@ func (t *TipManager) selectTips(count int) (parents models.BlockIDs) {
 			if t.isPastConeTimestampCorrect(tip.Block.Block) {
 				parents.Add(tip.ID())
 			} else {
-				fmt.Printf("cannot select tip due to TSC condition tip issuing time (%s), time (%s), min supported time (%s), block id (%s), tip pool size (%d), scheduled: (%t), orphaned: (%t), accepted: (%t)\n",
+				fmt.Printf("(time: %s) cannot select tip due to TSC condition tip issuing time (%s), time (%s), min supported time (%s), block id (%s), tip pool size (%d), scheduled: (%t), orphaned: (%t), accepted: (%t)\n",
+					time.Now(),
 					tip.IssuingTime(),
 					t.engine.Clock.AcceptedTime(),
 					t.engine.Clock.AcceptedTime().Add(-t.optsTimeSinceConfirmationThreshold),
@@ -186,7 +187,7 @@ func (t *TipManager) selectTips(count int) (parents models.BlockIDs) {
 				// })
 				t.DeleteTip(tip)
 				if t.tips.Size() == 0 {
-					fmt.Println(">> deleted last TIP because it doesn't pass tsc check!", tip.ID())
+					fmt.Println("(time: ", time.Now(), ") >> deleted last TIP because it doesn't pass tsc check!", tip.ID())
 				}
 			}
 		}
@@ -234,7 +235,6 @@ func (t *TipManager) isPastConeTimestampCorrect(block *booker.Block) (timestampV
 	}
 
 	if block.IssuingTime().Before(minSupportedTimestamp) {
-		fmt.Println("block before min supported timestamp", block.ID(), "issuing time(", block.IssuingTime().String(), "), minsupportedtime(", minSupportedTimestamp, ")")
 		return false
 	}
 
@@ -254,9 +254,9 @@ func (t *TipManager) isPastConeTimestampCorrect(block *booker.Block) (timestampV
 		if !timestampValid {
 			markerBlock, exists := t.engine.Tangle.Booker.BlockFromMarker(marker.Marker)
 			if !exists {
-				fmt.Println("marker does not exist?", marker)
+				fmt.Println("(time: ", time.Now(), ") marker does not exist?", marker)
 			} else {
-				fmt.Println("walked on marker ", marker, markerBlock.ID(), " before min supported timestamp issuing time(", block.IssuingTime().String(), "), minsupportedtime(", minSupportedTimestamp, ")")
+				fmt.Println("(time: ", time.Now(), ") walked on marker ", marker, markerBlock.ID(), " before min supported timestamp issuing time(", block.IssuingTime().String(), "), minsupportedtime(", minSupportedTimestamp, ")")
 			}
 			return false
 		}
@@ -266,7 +266,7 @@ func (t *TipManager) isPastConeTimestampCorrect(block *booker.Block) (timestampV
 		blockW := blockWalker.Next()
 		timestampValid = t.checkBlock(blockW, blockWalker, minSupportedTimestamp)
 		if !timestampValid {
-			fmt.Println("walked on block before min supported timestamp", blockW.ID(), "issuing time(", blockW.IssuingTime().String(), "), minsupportedtime(", minSupportedTimestamp, ")")
+			fmt.Println("(time: ", time.Now(), ") walked on block before min supported timestamp", blockW.ID(), "issuing time(", blockW.IssuingTime().String(), "), minsupportedtime(", minSupportedTimestamp, ")")
 			return false
 		}
 	}
@@ -346,7 +346,7 @@ func (t *TipManager) checkPair(pair markerPreviousBlockPair, blockWalker *walker
 		// Ignore Marker(_, 0) as it sometimes occurs in the past marker cone. Marker mysteries.
 		// This should not be necessary anymore?
 		if index == 0 {
-			fmt.Println("ignore Marker(_, 0) during tip fishing")
+			fmt.Println("(time: ", time.Now(), ") ignore Marker(_, 0) during tip fishing")
 			return true
 		}
 

@@ -148,7 +148,7 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 		m.Events.Error.Trigger(errors.Errorf("failed to set latest commitment: %w", err))
 	}
 
-	fmt.Println("epoch commited", newCommitment.Index(), m.AcceptanceTime())
+	fmt.Println("(time: ", time.Now(), ") epoch commited", newCommitment.Index(), m.AcceptanceTime())
 	m.Events.EpochCommitted.Trigger(newCommitment)
 	return true
 }
