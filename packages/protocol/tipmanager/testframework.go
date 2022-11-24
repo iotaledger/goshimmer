@@ -17,6 +17,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
@@ -39,7 +40,6 @@ type TestFramework struct {
 	tipAdded   uint32
 	tipRemoved uint32
 
-	optsGenesisTime       time.Time
 	optsTipManagerOptions []options.Option[TipManager]
 	optsTangleOptions     []options.Option[tangle.Tangle]
 	*tangle.TestFramework
@@ -50,9 +50,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		test:            test,
 		mockAcceptance:  blockgadget.NewMockAcceptanceGadget(),
 		scheduledBlocks: shrinkingmap.New[models.BlockID, *scheduler.Block](),
-		optsGenesisTime: time.Now().Add(-1 * time.Hour),
 	}, opts, func(t *TestFramework) {
-		epoch.GenesisTime = t.optsGenesisTime.Unix()
 
 		storageInstance := storage.New(test.TempDir(), 1)
 		test.Cleanup(func() {
@@ -63,7 +61,8 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 			}
 		})
 
-		t.engine = engine.New(storageInstance, engine.WithTangleOptions(t.optsTangleOptions...))
+		// set MinCommittableEpochAge to genesis so nothing is commited.
+		t.engine = engine.New(storageInstance, engine.WithNotarizationManagerOptions(notarization.MinCommittableEpochAge(time.Since(time.Unix(epoch.GenesisTime, 0)))), engine.WithTangleOptions(t.optsTangleOptions...))
 
 		t.TestFramework = tangle.NewTestFramework(
 			test,
@@ -81,9 +80,9 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		t.TipManager.ActivateEngine(t.engine)
 		t.TipManager.blockAcceptanceGadget = t.mockAcceptance
 
-		t.SetAcceptedTime(t.optsGenesisTime)
+		t.SetAcceptedTime(time.Unix(epoch.GenesisTime, 0))
 
-		t.TestFramework.ModelsTestFramework.SetBlock("Genesis", models.NewEmptyBlock(models.EmptyBlockID, models.WithIssuingTime(t.optsGenesisTime)))
+		t.TestFramework.ModelsTestFramework.SetBlock("Genesis", models.NewEmptyBlock(models.EmptyBlockID, models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0))))
 	}, (*TestFramework).setupEvents, (*TestFramework).createGenesis)
 }
 
@@ -127,7 +126,7 @@ func (t *TestFramework) createGenesis() {
 		virtualvoting.NewBlock(
 			booker.NewBlock(
 				blockdag.NewBlock(
-					models.NewEmptyBlock(models.EmptyBlockID, models.WithIssuingTime(t.optsGenesisTime)),
+					models.NewEmptyBlock(models.EmptyBlockID, models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0))),
 					blockdag.WithSolid(true),
 				),
 				booker.WithBooked(true),
