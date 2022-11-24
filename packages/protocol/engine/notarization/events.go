@@ -23,6 +23,7 @@ var NewEvents = event.LinkableConstructor(func() (self *Events) {
 	}
 })
 
+// EpochMutationsEvents contains the events that are triggered when a mutation is applied to the epoch.
 type EpochMutationsEvents struct {
 	AcceptedBlockRemoved *event.Linkable[models.BlockID]
 

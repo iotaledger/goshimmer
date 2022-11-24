@@ -1,11 +1,12 @@
 package metrics
 
 import (
-	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
@@ -80,14 +81,14 @@ func MissingCommitmentsReceived() int64 {
 }
 
 // BlocksOfEpoch returns the number of blocks in the current epoch.
-func BlocksOfEpoch() (ei epoch.Index, accBlocks int32, accTxs int32, activeValidators int32) {
+func BlocksOfEpoch() (ei epoch.Index, accBlocks, accTxs, activeValidators int32) {
 	epochCountsMutex.Lock()
 	defer epochCountsMutex.Unlock()
 
 	return currentEI, acceptedBlocksCount, acceptedTransactionsCount, activeValidatorsCount
 }
 
-func updateBlkOfEpoch(ei epoch.Index, accBlocks int32, accTxs int32, activeValidators int32) {
+func updateBlkOfEpoch(ei epoch.Index, accBlocks, accTxs, activeValidators int32) {
 	epochCountsMutex.Lock()
 	defer epochCountsMutex.Unlock()
 

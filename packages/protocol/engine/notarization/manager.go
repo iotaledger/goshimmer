@@ -1,12 +1,13 @@
 package notarization
 
 import (
+	"sync"
+	"time"
+
 	"github.com/iotaledger/goshimmer/packages/core/ads"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/identity"
-	"sync"
-	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/lo"
@@ -25,6 +26,7 @@ const (
 
 // region Manager //////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// Manager is the component that manages the epoch commitments.
 type Manager struct {
 	Events *Events
 	*EpochMutations
@@ -41,6 +43,7 @@ type Manager struct {
 	sync.RWMutex
 }
 
+// NewManager creates a new notarization Manager.
 func NewManager(storage *storage.Storage, sybilProtection *sybilprotection.SybilProtection, opts ...options.Option[Manager]) (new *Manager) {
 	return options.Apply(&Manager{
 		Events:         NewEvents(),
@@ -53,6 +56,7 @@ func NewManager(storage *storage.Storage, sybilProtection *sybilprotection.Sybil
 	}, opts)
 }
 
+// IncreaseConflictsCounter increases the conflicts counter for the given epoch index.
 func (m *Manager) IncreaseConflictsCounter(index epoch.Index) {
 	m.commitmentMutex.Lock()
 	defer m.commitmentMutex.Unlock()
@@ -64,6 +68,7 @@ func (m *Manager) IncreaseConflictsCounter(index epoch.Index) {
 	m.pendingConflictsCounters.Set(index, lo.Return1(m.pendingConflictsCounters.Get(index))+1)
 }
 
+// DecreaseConflictsCounter decreases the conflicts counter for the given epoch index.
 func (m *Manager) DecreaseConflictsCounter(index epoch.Index) {
 	m.commitmentMutex.Lock()
 	defer m.commitmentMutex.Unlock()
@@ -81,6 +86,7 @@ func (m *Manager) DecreaseConflictsCounter(index epoch.Index) {
 	}
 }
 
+// AcceptanceTime returns the acceptance time of the Manager.
 func (m *Manager) AcceptanceTime() time.Time {
 	m.acceptanceTimeMutex.RLock()
 	defer m.acceptanceTimeMutex.RUnlock()
@@ -88,6 +94,7 @@ func (m *Manager) AcceptanceTime() time.Time {
 	return m.acceptanceTime
 }
 
+// SetAcceptanceTime sets the acceptance time of the Manager.
 func (m *Manager) SetAcceptanceTime(acceptanceTime time.Time) {
 	m.commitmentMutex.Lock()
 	defer m.commitmentMutex.Unlock()
