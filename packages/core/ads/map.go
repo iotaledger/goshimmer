@@ -110,6 +110,7 @@ func (m *Map[K, V, KPtr, VPtr]) Get(key K) (value VPtr, exists bool) {
 }
 
 func (m *Map[K, V, KPtr, VPtr]) Stream(callback func(key K, value VPtr) bool) (err error) {
+	// A write Lock seem to be needed to avoid m.tree.Get to fail retriving keys when accessed concurrently.
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 

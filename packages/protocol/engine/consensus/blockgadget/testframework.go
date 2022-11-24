@@ -56,6 +56,10 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 			return t.TangleTestFramework.Validators.TotalWeight()
 		},
 	}, opts, func(t *TestFramework) {
+		if t.optsValidators == nil {
+			t.optsValidators = sybilprotection.NewWeightedSet(sybilprotection.NewWeights(mapdb.NewMapDB(), permanent.NewSettings(t.test.TempDir()+"/settings")))
+		}
+
 		if t.Gadget == nil {
 			if t.optsTangle == nil {
 				storageInstance := storage.New(test.TempDir(), 1)
@@ -72,10 +76,6 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 					t.optsEvictionState = eviction.NewState(storageInstance)
 				}
 
-				if t.optsValidators == nil {
-					t.optsValidators = sybilprotection.NewWeightedSet(sybilprotection.NewWeights(mapdb.NewMapDB(), permanent.NewSettings(t.test.TempDir() + "/settings")))
-				}
-
 				t.optsTangle = tangle.New(t.optsLedger, t.optsEvictionState, t.optsValidators, func() epoch.Index {
 					return 0
 				}, func(id markers.SequenceID) markers.Index {
@@ -87,7 +87,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		}
 
 		if t.TangleTestFramework == nil {
-			t.TangleTestFramework = tangle.NewTestFramework(test, tangle.WithTangle(t.optsTangle))
+			t.TangleTestFramework = tangle.NewTestFramework(test, tangle.WithTangle(t.optsTangle), tangle.WithValidators(t.optsValidators))
 		}
 	}, (*TestFramework).setupEvents)
 }
@@ -240,6 +240,12 @@ func WithEvictionState(evictionState *eviction.State) options.Option[TestFramewo
 	}
 }
 
+func WithValidators(validators *sybilprotection.WeightedSet) options.Option[TestFramework] {
+	return func(t *TestFramework) {
+		t.optsValidators = validators
+	}
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -314,12 +320,6 @@ func (m *MockAcceptanceGadget) FirstUnacceptedIndex(sequenceID markers.SequenceI
 		return acceptedIndex + 1
 	}
 	return 1
-}
-
-func WithValidators(validators *sybilprotection.WeightedSet) options.Option[TestFramework] {
-	return func(t *TestFramework) {
-		t.optsValidators = validators
-	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

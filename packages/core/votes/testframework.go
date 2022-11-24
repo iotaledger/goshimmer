@@ -24,7 +24,7 @@ type TestFramework struct {
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (newTestFramework *TestFramework) {
 	return options.Apply(&TestFramework{
 		test:              test,
-		Validators:        nil, /* TODO: FIX */
+		Validators:        nil,
 		validatorsByAlias: make(map[string]identity.ID),
 	}, opts)
 }
@@ -35,11 +35,9 @@ func (t *TestFramework) CreateValidator(alias string, weight int64) {
 
 func (t *TestFramework) CreateValidatorWithID(alias string, id identity.ID, weight int64) {
 	t.validatorsByAlias[alias] = id
-	t.Validators.Add(id)
 
-	weightUpdates := sybilprotection.NewWeightUpdates(1)
-	weightUpdates.ApplyDiff(id, weight)
-	t.Validators.Weights.ApplyUpdates(weightUpdates)
+	t.Validators.Weights.Import(id, weight)
+	t.Validators.Add(id)
 }
 
 func (t *TestFramework) Validator(alias string) (v identity.ID) {
