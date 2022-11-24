@@ -14,7 +14,9 @@ import (
 	"github.com/iotaledger/hive.go/core/types"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
@@ -43,7 +45,9 @@ var (
 type dependencies struct {
 	dig.In
 
-	Protocol  *protocol.Protocol
+	Protocol    *protocol.Protocol
+	BlockIssuer *blockissuer.BlockIssuer
+
 	P2Pmgr    *p2p.Manager        `optional:"true"`
 	Selection *selection.Protocol `optional:"true"`
 	Local     *peer.Local
@@ -78,7 +82,7 @@ func run(_ *node.Plugin) {
 			timeutil.NewTicker(func() {
 				measureSynced()
 				measureBlockTips()
-				measureReceivedBPS()
+				measureAttachedBPS()
 				measureRequestQueueSize()
 				measureGossipTraffic()
 				measurePerComponentCounter()
@@ -119,6 +123,30 @@ func run(_ *node.Plugin) {
 func registerLocalMetrics() {
 	// // Events declared in other packages which we want to listen to here ////
 
+	// increase received BPS counter whenever we receive a block
+	deps.Protocol.Network().Events.BlockReceived.Attach(event.NewClosure(func(_ *network.BlockReceivedEvent) {
+		sumTimeMutex.Lock()
+		defer sumTimeMutex.Unlock()
+
+		increasePerComponentCounter(Received)
+	}))
+
+	// increase received BPS counter whenever a block passes filter checks
+	deps.Protocol.Events.Engine.Filter.BlockAllowed.Attach(event.NewClosure(func(_ *models.Block) {
+		sumTimeMutex.Lock()
+		defer sumTimeMutex.Unlock()
+
+		increasePerComponentCounter(Allowed)
+	}))
+
+	// increase received BPS counter whenever rate setter issues a block
+	deps.BlockIssuer.RateSetter.Events.BlockIssued.Attach(event.NewClosure(func(_ *models.Block) {
+		sumTimeMutex.Lock()
+		defer sumTimeMutex.Unlock()
+
+		increasePerComponentCounter(Issued)
+	}))
+
 	// increase received BPS counter whenever we attached a block
 	deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Attach(event.NewClosure(func(block *blockdag.Block) {
 		sumTimeMutex.Lock()
@@ -126,21 +154,21 @@ func registerLocalMetrics() {
 		increaseReceivedBPSCounter()
 		increasePerPayloadCounter(block.Payload().Type())
 
-		sumTimesSinceIssued[Store] += time.Since(block.IssuingTime())
-		increasePerComponentCounter(Store)
+		sumTimesSinceIssued[Attached] += time.Since(block.IssuingTime())
+		increasePerComponentCounter(Attached)
 	}))
 
 	// blocks can only become solid once, then they stay like that, hence no .Dec() part
 	deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(func(block *blockdag.Block) {
-		increasePerComponentCounter(Solidifier)
+		increasePerComponentCounter(Solidified)
 		sumTimeMutex.Lock()
 		defer sumTimeMutex.Unlock()
 
 		// Consume should release cachedBlockMetadata
 		if block.IsSolid() {
 			// TODO: figure out whether to use retainer to get the times
-			// sumTimesSinceReceived[Solidifier] += blkMetaData.ScheduledTime().Sub(blkMetaData.ReceivedTime())
-			sumTimesSinceIssued[Solidifier] += time.Since(block.IssuingTime())
+			// sumTimesSinceReceived[Solidified] += blkMetaData.ScheduledTime().Sub(blkMetaData.ReceivedTime())
+			sumTimesSinceIssued[Solidified] += time.Since(block.IssuingTime())
 		}
 	}))
 
@@ -156,7 +184,7 @@ func registerLocalMetrics() {
 	}))
 
 	deps.Protocol.Events.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
-		increasePerComponentCounter(Scheduler)
+		increasePerComponentCounter(Scheduled)
 		sumTimeMutex.Lock()
 		defer sumTimeMutex.Unlock()
 		schedulerTimeMutex.Lock()
@@ -165,20 +193,20 @@ func registerLocalMetrics() {
 		if block.IsScheduled() {
 			// TODO: figure out whether to use retainer to get the times
 			// sumSchedulerBookedTime += blkMetaData.ScheduledTime().Sub(blkMetaData.BookedTime())
-			// sumTimesSinceReceived[Scheduler] += blkMetaData.ScheduledTime().Sub(blkMetaData.ReceivedTime())
-			sumTimesSinceIssued[Scheduler] += time.Since(block.IssuingTime())
+			// sumTimesSinceReceived[Scheduled] += blkMetaData.ScheduledTime().Sub(blkMetaData.ReceivedTime())
+			sumTimesSinceIssued[Scheduled] += time.Since(block.IssuingTime())
 		}
 	}))
 
 	deps.Protocol.Events.Engine.Tangle.Booker.BlockBooked.Attach(event.NewClosure(func(block *booker.Block) {
-		increasePerComponentCounter(Booker)
+		increasePerComponentCounter(Booked)
 		sumTimeMutex.Lock()
 		defer sumTimeMutex.Unlock()
 
 		if block.IsBooked() {
 			// TODO: figure out whether to use retainer to get the times
-			// sumTimesSinceReceived[Booker] += blkMetaData.BookedTime().Sub(blkMetaData.ReceivedTime())
-			sumTimesSinceIssued[Booker] += time.Since(block.IssuingTime())
+			// sumTimesSinceReceived[Booked] += blkMetaData.BookedTime().Sub(blkMetaData.ReceivedTime())
+			sumTimesSinceIssued[Booked] += time.Since(block.IssuingTime())
 		}
 	}))
 

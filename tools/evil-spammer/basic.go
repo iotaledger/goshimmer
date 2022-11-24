@@ -59,18 +59,18 @@ func CustomSpam(params *CustomSpamParams) {
 				defer wg.Done()
 				SpamTransaction(wallet, params.Rates[i], params.TimeUnit, params.Durations[i], params.DeepSpam, params.EnableRateSetter)
 			}()
-		case "ds":
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				SpamDoubleSpends(wallet, params.Rates[i], params.BlkToBeSent[i], params.TimeUnit, params.Durations[i], params.DelayBetweenConflicts, params.DeepSpam, params.EnableRateSetter)
-			}()
-		case "nds":
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				SpamNDoubleSpends(wallet, params.Rates[i], params.NSpend, params.TimeUnit, params.Durations[i], params.DelayBetweenConflicts, params.DeepSpam, params.EnableRateSetter)
-			}()
+		//case "ds":
+		//	wg.Add(1)
+		//	go func() {
+		//		defer wg.Done()
+		//		SpamDoubleSpends(wallet, params.Rates[i], params.BlkToBeSent[i], params.TimeUnit, params.Durations[i], params.DelayBetweenConflicts, params.DeepSpam, params.EnableRateSetter)
+		//	}()
+		//case "nds":
+		//	wg.Add(1)
+		//	go func() {
+		//		defer wg.Done()
+		//		SpamNDoubleSpends(wallet, params.Rates[i], params.NSpend, params.TimeUnit, params.Durations[i], params.DelayBetweenConflicts, params.DeepSpam, params.EnableRateSetter)
+		//	}()
 		case "custom":
 			wg.Add(1)
 			go func() {
