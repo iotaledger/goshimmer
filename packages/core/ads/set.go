@@ -1,6 +1,8 @@
 package ads
 
 import (
+	"sync"
+
 	"github.com/celestiaorg/smt"
 	"github.com/iotaledger/hive.go/core/generics/constraints"
 	"github.com/iotaledger/hive.go/core/generics/lo"
@@ -19,6 +21,7 @@ const (
 type Set[K constraints.Serializable] struct {
 	store kvstore.KVStore
 	tree  *smt.SparseMerkleTree
+	mutex sync.RWMutex
 }
 
 func NewSet[K constraints.Serializable](store kvstore.KVStore) *Set[K] {
@@ -38,6 +41,9 @@ func (s *Set[K]) Root() (root types.Identifier) {
 		return types.Identifier{}
 	}
 
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
 	copy(root[:], s.tree.Root())
 
 	return
@@ -49,6 +55,9 @@ func (s *Set[K]) Add(key K) {
 		panic("cannot add to nil set")
 	}
 
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	if _, err := s.tree.Update(lo.PanicOnErr(key.Bytes()), []byte{nonEmptyLeaf}); err != nil {
 		panic(err)
 	}
@@ -59,6 +68,9 @@ func (s *Set[K]) Delete(key K) (deleted bool) {
 	if s == nil {
 		return
 	}
+
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
 	keyBytes := lo.PanicOnErr(key.Bytes())
 	if deleted, _ = s.tree.Has(keyBytes); deleted {
@@ -76,11 +88,17 @@ func (s *Set[K]) Has(key K) (has bool) {
 		return false
 	}
 
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
 	return lo.PanicOnErr(s.tree.Has(lo.PanicOnErr(key.Bytes())))
 }
 
 // Size returns the number of elements in the set.
 func (s *Set[K]) Size() (size int) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
 	s.store.Iterate([]byte{valueStorePrefix}, func(key, value []byte) bool {
 		size++
 		return true

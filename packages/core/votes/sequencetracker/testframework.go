@@ -25,6 +25,8 @@ type TestFramework[VotePowerType constraints.Comparable[VotePowerType]] struct {
 	SequenceTracker *SequenceTracker[VotePowerType]
 	sequenceManager *markers.SequenceManager
 
+	optsValidators *sybilprotection.WeightedSet
+
 	test *testing.T
 
 	*VotesTestFramework
@@ -36,16 +38,18 @@ func NewTestFramework[VotePowerType constraints.Comparable[VotePowerType]](test 
 	return options.Apply(&TestFramework[VotePowerType]{
 		test: test,
 	}, opts, func(t *TestFramework[VotePowerType]) {
+		if t.optsValidators == nil {
+			t.optsValidators = sybilprotection.NewWeights(mapdb.NewMapDB(), permanent.NewSettings(test.TempDir()+"/settings")).WeightedSet()
+		}
+
 		if t.VotesTestFramework == nil {
-			t.VotesTestFramework = votes.NewTestFramework(test, votes.WithValidators(
-				sybilprotection.NewWeights(mapdb.NewMapDB(), permanent.NewSettings(test.TempDir()+"/settings")).WeightedSet(),
-			))
+			t.VotesTestFramework = votes.NewTestFramework(test, votes.WithValidators(t.optsValidators))
 		}
 
 		t.MarkersTestFramework = markers.NewTestFramework(t.test, markers.WithSequenceManager(t.sequenceManager))
 
 		if t.SequenceTracker == nil {
-			t.SequenceTracker = NewSequenceTracker[VotePowerType](t.VotesTestFramework.Validators, t.SequenceManager().Sequence, func(sequenceID markers.SequenceID) markers.Index { return 1 })
+			t.SequenceTracker = NewSequenceTracker[VotePowerType](t.optsValidators, t.SequenceManager().Sequence, func(sequenceID markers.SequenceID) markers.Index { return 1 })
 		}
 
 		t.SequenceTracker.Events.VotersUpdated.Hook(event.NewClosure(func(evt *VoterUpdatedEvent) {
@@ -100,6 +104,12 @@ func WithSequenceManager[VotePowerType constraints.Comparable[VotePowerType]](se
 			panic("sequence manager already set")
 		}
 		tf.sequenceManager = sequenceManager
+	}
+}
+
+func WithValidators[VotePowerType constraints.Comparable[VotePowerType]](validators *sybilprotection.WeightedSet) options.Option[TestFramework[VotePowerType]] {
+	return func(tf *TestFramework[VotePowerType]) {
+		tf.optsValidators = validators
 	}
 }
 

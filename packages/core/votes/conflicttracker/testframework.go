@@ -25,6 +25,7 @@ type TestFramework[VotePowerType constraints.Comparable[VotePowerType]] struct {
 
 	test                         *testing.T
 	optsConflictDAGTestFramework []options.Option[conflictdag.TestFramework]
+	optsValidators               *sybilprotection.WeightedSet
 
 	*VotesTestFramework
 	*ConflictDAGTestFramework
@@ -112,6 +113,14 @@ func WithConflictDAG[VotePowerType constraints.Comparable[VotePowerType]](confli
 		}
 
 		t.optsConflictDAGTestFramework = append(t.optsConflictDAGTestFramework, conflictdag.WithConflictDAG(conflictDAG))
+	}
+}
+
+func WithValidators[VotePowerType constraints.Comparable[VotePowerType]](validators *sybilprotection.WeightedSet) options.Option[TestFramework[VotePowerType]] {
+	return func(t *TestFramework[VotePowerType]) {
+		if t.optsConflictDAGTestFramework == nil {
+			t.optsConflictDAGTestFramework = make([]options.Option[conflictdag.TestFramework], 0)
+		}
 	}
 }
 

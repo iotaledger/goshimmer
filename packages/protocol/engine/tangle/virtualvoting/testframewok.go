@@ -69,16 +69,18 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 			t.VirtualVoting = New(t.Booker, t.optsValidators, t.optsVirtualVoting...)
 		}
 
-		t.VotesTestFramework = votes.NewTestFramework(test, votes.WithValidators(t.VirtualVoting.Validators))
+		t.VotesTestFramework = votes.NewTestFramework(test, votes.WithValidators(t.optsValidators))
 		t.ConflictTrackerTestFramework = conflicttracker.NewTestFramework[BlockVotePower](test,
 			conflicttracker.WithVotesTestFramework[BlockVotePower](t.VotesTestFramework),
 			conflicttracker.WithConflictTracker(t.VirtualVoting.conflictTracker),
 			conflicttracker.WithConflictDAG[BlockVotePower](t.VirtualVoting.Booker.Ledger.ConflictDAG),
+			conflicttracker.WithValidators[BlockVotePower](t.optsValidators),
 		)
 		t.SequenceTrackerTestFramework = sequencetracker.NewTestFramework[BlockVotePower](test,
 			sequencetracker.WithVotesTestFramework[BlockVotePower](t.VotesTestFramework),
 			sequencetracker.WithSequenceTracker[BlockVotePower](t.VirtualVoting.sequenceTracker),
 			sequencetracker.WithSequenceManager[BlockVotePower](t.BookerTestFramework.SequenceManager()),
+			sequencetracker.WithValidators[BlockVotePower](t.optsValidators),
 		)
 	}, (*TestFramework).setupEvents)
 }
