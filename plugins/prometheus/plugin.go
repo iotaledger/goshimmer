@@ -2,7 +2,6 @@ package prometheus
 
 import (
 	"context"
-	"github.com/prometheus/client_golang/prometheus/collectors"
 	"net/http"
 	"time"
 
