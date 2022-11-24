@@ -1,6 +1,9 @@
 package ads
 
 import (
+	"fmt"
+	"sync"
+
 	"github.com/celestiaorg/smt"
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/constraints"
@@ -13,6 +16,7 @@ import (
 type Map[K, V constraints.Serializable, KPtr constraints.MarshalablePtr[K], VPtr constraints.MarshalablePtr[V]] struct {
 	tree    *smt.SparseMerkleTree
 	rawKeys kvstore.KVStore
+	mutex   sync.RWMutex
 }
 
 func NewMap[K, V constraints.Serializable, KPtr constraints.MarshalablePtr[K], VPtr constraints.MarshalablePtr[V]](store kvstore.KVStore) *Map[K, V, KPtr, VPtr] {
@@ -28,6 +32,9 @@ func NewMap[K, V constraints.Serializable, KPtr constraints.MarshalablePtr[K], V
 
 // Root returns the root of the state sparse merkle tree at the latest committed epoch.
 func (m *Map[K, V, KPtr, VPtr]) Root() (root types.Identifier) {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
 	copy(root[:], m.tree.Root())
 
 	return
@@ -35,6 +42,9 @@ func (m *Map[K, V, KPtr, VPtr]) Root() (root types.Identifier) {
 
 // Set sets the output to unspent outputs set.
 func (m *Map[K, V, KPtr, VPtr]) Set(key K, value VPtr) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
 	valueBytes := lo.PanicOnErr(value.Bytes())
 	if len(valueBytes) == 0 {
 		panic("value cannot be empty")
@@ -47,10 +57,15 @@ func (m *Map[K, V, KPtr, VPtr]) Set(key K, value VPtr) {
 	if err := m.rawKeys.Set(lo.PanicOnErr(key.Bytes()), []byte{}); err != nil {
 		panic(err)
 	}
+
+	fmt.Println(">> Storing key", lo.PanicOnErr(key.Bytes()))
 }
 
 // Delete removes the output ID from the ledger sparse merkle tree.
 func (m *Map[K, V, KPtr, VPtr]) Delete(key K) (deleted bool) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
 	keyBytes := lo.PanicOnErr(key.Bytes())
 	if deleted, _ = m.tree.Has(keyBytes); deleted {
 		if _, err := m.tree.Delete(keyBytes); err != nil {
@@ -67,11 +82,17 @@ func (m *Map[K, V, KPtr, VPtr]) Delete(key K) (deleted bool) {
 
 // Has returns true if the key is in the set.
 func (m *Map[K, V, KPtr, VPtr]) Has(key K) (has bool) {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
 	return lo.PanicOnErr(m.tree.Has(lo.PanicOnErr(key.Bytes())))
 }
 
 // Get returns the value for the given key.
 func (m *Map[K, V, KPtr, VPtr]) Get(key K) (value VPtr, exists bool) {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
 	valueBytes, err := m.tree.Get(lo.PanicOnErr(key.Bytes()))
 	if errors.Is(err, kvstore.ErrKeyNotFound) {
 		return nil, false
@@ -92,10 +113,15 @@ func (m *Map[K, V, KPtr, VPtr]) Get(key K) (value VPtr, exists bool) {
 }
 
 func (m *Map[K, V, KPtr, VPtr]) Stream(callback func(key K, value VPtr) bool) (err error) {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
 	if iterationErr := m.rawKeys.Iterate([]byte{}, func(key kvstore.Key, _ kvstore.Value) bool {
+		fmt.Println("<< Iterating on key", key)
 		value, valueErr := m.tree.Get(key)
 		if valueErr != nil {
 			err = errors.Errorf("failed to get value for key %s: %w", key, valueErr)
+			fmt.Println("KEY", key)
 			return false
 		}
 
