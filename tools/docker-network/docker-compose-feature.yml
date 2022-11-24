@@ -26,8 +26,8 @@ services:
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
       --node.enablePlugins=prometheus,spammer,WebAPIToolsBlockEndpoint,activity
       --prometheus.bindAddress=0.0.0.0:9311
-      --prometheus.processMetrics=false
-      
+      --prometheus.processMetrics=true
+      --prometheus.goMetrics=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
     ulimits:
@@ -68,8 +68,8 @@ services:
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
       --node.enablePlugins=prometheus,spammer,WebAPIToolsBlockEndpoint,activity,faucet
       --prometheus.bindAddress=0.0.0.0:9311
-      --prometheus.processMetrics=false
-      
+      --prometheus.processMetrics=true
+      --prometheus.goMetrics=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
     ulimits:
@@ -108,7 +108,8 @@ services:
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
       --node.enablePlugins=prometheus,spammer,WebAPIToolsBlockEndpoint,activity
       --prometheus.bindAddress=0.0.0.0:9311
-      --prometheus.processMetrics=false
+      --prometheus.processMetrics=true
+      --prometheus.goMetrics=true
       --blockIssuer.ignoreBootstrappedFlag=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
@@ -147,8 +148,8 @@ services:
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
       --node.enablePlugins=prometheus,spammer,WebAPIToolsBlockEndpoint,activity
       --prometheus.bindAddress=0.0.0.0:9311
-      --prometheus.processMetrics=false
-      
+      --prometheus.processMetrics=true
+      --prometheus.goMetrics=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
     ulimits:
@@ -185,8 +186,8 @@ services:
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
       --node.enablePlugins=prometheus,spammer,WebAPIToolsBlockEndpoint,activity
       --prometheus.bindAddress=0.0.0.0:9311
-      --prometheus.processMetrics=false
-      
+      --prometheus.processMetrics=true
+      --prometheus.goMetrics=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
     ulimits:
@@ -223,8 +224,8 @@ services:
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
       --node.enablePlugins=prometheus,spammer,WebAPIToolsBlockEndpoint,activity
       --prometheus.bindAddress=0.0.0.0:9311
-      --prometheus.processMetrics=false
-      
+      --prometheus.processMetrics=true
+      --prometheus.goMetrics=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
     ulimits:
@@ -261,8 +262,8 @@ services:
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
       --node.enablePlugins=prometheus,spammer,WebAPIToolsBlockEndpoint,activity
       --prometheus.bindAddress=0.0.0.0:9311
-      --prometheus.processMetrics=false
-      
+      --prometheus.processMetrics=true
+      --prometheus.goMetrics=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
     ulimits:
@@ -299,8 +300,8 @@ services:
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
       --node.enablePlugins=prometheus,spammer,WebAPIToolsBlockEndpoint,activity
       --prometheus.bindAddress=0.0.0.0:9311
-      --prometheus.processMetrics=false
-      
+      --prometheus.processMetrics=true
+      --prometheus.goMetrics=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
     ulimits:
