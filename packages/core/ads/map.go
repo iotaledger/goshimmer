@@ -1,7 +1,6 @@
 package ads
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/celestiaorg/smt"
@@ -57,8 +56,6 @@ func (m *Map[K, V, KPtr, VPtr]) Set(key K, value VPtr) {
 	if err := m.rawKeys.Set(lo.PanicOnErr(key.Bytes()), []byte{}); err != nil {
 		panic(err)
 	}
-
-	fmt.Println(">> Storing key", lo.PanicOnErr(key.Bytes()))
 }
 
 // Delete removes the output ID from the ledger sparse merkle tree.
@@ -113,15 +110,13 @@ func (m *Map[K, V, KPtr, VPtr]) Get(key K) (value VPtr, exists bool) {
 }
 
 func (m *Map[K, V, KPtr, VPtr]) Stream(callback func(key K, value VPtr) bool) (err error) {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	if iterationErr := m.rawKeys.Iterate([]byte{}, func(key kvstore.Key, _ kvstore.Value) bool {
-		fmt.Println("<< Iterating on key", key)
 		value, valueErr := m.tree.Get(key)
 		if valueErr != nil {
 			err = errors.Errorf("failed to get value for key %s: %w", key, valueErr)
-			fmt.Println("KEY", key)
 			return false
 		}
 
