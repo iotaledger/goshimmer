@@ -60,12 +60,12 @@ func configure(plugin *node.Plugin) {
 		registerDBMetrics()
 		registerInfoMetrics()
 		registerNetworkMetrics()
-		registerProcessMetrics()
 		registerTangleMetrics()
 		registerManaMetrics()
 		registerSchedulerMetrics()
 		registerRateSetterMetrics()
 		registerEpochCommittmentMetrics()
+		registerWorkerPoolMetrics()
 	}
 
 	if metrics.Parameters.Global {

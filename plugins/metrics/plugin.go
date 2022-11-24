@@ -76,8 +76,6 @@ func run(_ *node.Plugin) {
 			// Do not block until the Ticker is shutdown because we might want to start multiple Tickers and we can
 			// safely ignore the last execution when shutting down.
 			timeutil.NewTicker(func() {
-				measureCPUUsage()
-				measureMemUsage()
 				measureSynced()
 				measureBlockTips()
 				measureReceivedBPS()
@@ -265,12 +263,6 @@ func registerLocalMetrics() {
 
 	metrics.Events.AnalysisOutboundBytes.Attach(event.NewClosure(func(event *metrics.AnalysisOutboundBytesEvent) {
 		analysisOutboundBytes.Add(event.AmountBytes)
-	}))
-	metrics.Events.CPUUsage.Attach(event.NewClosure(func(evnet *metrics.CPUUsageEvent) {
-		cpuUsage.Store(evnet.CPUPercent)
-	}))
-	metrics.Events.MemUsage.Attach(event.NewClosure(func(event *metrics.MemUsageEvent) {
-		memUsageBytes.Store(event.MemAllocBytes)
 	}))
 
 	deps.P2Pmgr.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Attach(onNeighborRemoved)

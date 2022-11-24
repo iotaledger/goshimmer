@@ -12,8 +12,6 @@ type ParametersDefinition struct {
 	ProcessMetrics bool `default:"false" usage:"include process metrics"`
 	// PromhttpMetrics defines whether to include promhttp metrics.
 	PromhttpMetrics bool `default:"false" usage:"include promhttp metrics"`
-	// WorkerpoolMetrics defines whether to include workerpool metrics.
-	WorkerpoolMetrics bool `default:"false" usage:"include workerpool metrics"`
 }
 
 // Parameters contains the configuration used by the prometheus plugin.
