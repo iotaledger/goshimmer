@@ -2,7 +2,6 @@ package protocol
 
 import (
 	"fmt"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"os"
 	"sync"
 
@@ -23,6 +22,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
@@ -40,7 +40,7 @@ type Protocol struct {
 	Events            *Events
 	CongestionControl *congestioncontrol.CongestionControl
 	TipManager        *tipmanager.TipManager
-	ChainManager      *chainmanager.Manager
+	chainManager      *chainmanager.Manager
 
 	dispatcher           network.Endpoint
 	networkProtocol      *network.Protocol
@@ -143,11 +143,11 @@ func (p *Protocol) initNetworkProtocol() {
 	}))
 
 	p.networkProtocol.Events.EpochCommitmentReceived.Attach(event.NewClosure(func(event *network.EpochCommitmentReceivedEvent) {
-		p.ChainManager.ProcessCommitment(event.Commitment)
+		p.chainManager.ProcessCommitment(event.Commitment)
 	}))
 
 	p.networkProtocol.Events.EpochCommitmentRequestReceived.Attach(event.NewClosure(func(event *network.EpochCommitmentRequestReceivedEvent) {
-		if requestedCommitment, _ := p.ChainManager.Commitment(event.CommitmentID); requestedCommitment != nil && requestedCommitment.Commitment() != nil {
+		if requestedCommitment, _ := p.chainManager.Commitment(event.CommitmentID); requestedCommitment != nil && requestedCommitment.Commitment() != nil {
 			p.networkProtocol.SendEpochCommitment(requestedCommitment.Commitment(), event.Source)
 		}
 	}))
@@ -160,7 +160,7 @@ func (p *Protocol) initNetworkProtocol() {
 		p.networkProtocol.RequestBlock(blockID)
 	}))
 
-	p.ChainManager.CommitmentRequester.Events.Tick.Attach(event.NewClosure(func(commitmentID commitment.ID) {
+	p.chainManager.CommitmentRequester.Events.Tick.Attach(event.NewClosure(func(commitmentID commitment.ID) {
 		p.networkProtocol.RequestCommitment(commitmentID)
 	}))
 }
@@ -170,10 +170,10 @@ func (p *Protocol) initMainEngine() {
 }
 
 func (p *Protocol) initChainManager() {
-	p.ChainManager = chainmanager.NewManager(p.Engine().Storage.Settings.LatestCommitment())
+	p.chainManager = chainmanager.NewManager(p.Engine().Storage.Settings.LatestCommitment())
 
 	p.Events.Engine.NotarizationManager.EpochCommitted.Attach(event.NewClosure(func(details *notarization.EpochCommittedDetails) {
-		p.ChainManager.ProcessCommitment(details.Commitment)
+		p.chainManager.ProcessCommitment(details.Commitment)
 	}))
 }
 
@@ -205,7 +205,7 @@ func (p *Protocol) initTipManager() {
 }
 
 func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) {
-	isSolid, chain, _ := p.ChainManager.ProcessCommitment(block.Commitment())
+	isSolid, chain, _ := p.chainManager.ProcessCommitment(block.Commitment())
 	if !isSolid {
 		fmt.Println(">> chain not solid", block.Commitment().ID(), "latest commitment", p.storage.Settings.LatestCommitment().ID(), "blockID", block.ID())
 		return
@@ -232,6 +232,10 @@ func (p *Protocol) Engine() (instance *engine.Engine) {
 	defer p.activeEngineMutex.RUnlock()
 
 	return p.engine
+}
+
+func (p *Protocol) ChainManager() (instance *chainmanager.Manager) {
+	return p.chainManager
 }
 
 func (p *Protocol) CandidateEngine() (instance *engine.Engine) {
