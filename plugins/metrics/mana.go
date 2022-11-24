@@ -173,7 +173,7 @@ func measureMana() {
 			accessSum += neighborAMana
 		}
 
-		neighborCMana := lo.Return1(deps.Protocol.Engine().SybilProtection.Weights().Weight(neighbor.ID())).Value
+		neighborCMana := consensusMap[neighbor.ID()]
 		if neighborCMana > 0 {
 			consensusCount++
 			consensusSum += neighborCMana
