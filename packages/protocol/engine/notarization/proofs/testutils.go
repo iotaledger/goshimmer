@@ -79,8 +79,8 @@ func (e *EventMock) AssertExpectations(t mock.TestingT) bool {
 }
 
 // EpochCommittable is the mocked EpochCommittable event.
-func (e *EventMock) EpochCommittable(commitment *commitment.Commitment) {
-	e.Called(commitment.Index())
+func (e *EventMock) EpochCommittable(details *notarization.EpochCommittedDetails) {
+	e.Called(details.Commitment.Index())
 	atomic.AddUint64(&e.calledEvents, 1)
 }
 

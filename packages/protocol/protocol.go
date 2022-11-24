@@ -22,6 +22,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
@@ -39,11 +40,11 @@ type Protocol struct {
 	Events            *Events
 	CongestionControl *congestioncontrol.CongestionControl
 	TipManager        *tipmanager.TipManager
+	chainManager      *chainmanager.Manager
 
 	dispatcher           network.Endpoint
 	networkProtocol      *network.Protocol
 	disk                 *diskutil.DiskUtil
-	chainManager         *chainmanager.Manager
 	activeEngineMutex    sync.RWMutex
 	engine               *engine.Engine
 	candidateEngine      *engine.Engine
@@ -171,8 +172,8 @@ func (p *Protocol) initMainEngine() {
 func (p *Protocol) initChainManager() {
 	p.chainManager = chainmanager.NewManager(p.Engine().Storage.Settings.LatestCommitment())
 
-	p.Events.Engine.NotarizationManager.EpochCommitted.Attach(event.NewClosure(func(commitment *commitment.Commitment) {
-		p.chainManager.ProcessCommitment(commitment)
+	p.Events.Engine.NotarizationManager.EpochCommitted.Attach(event.NewClosure(func(details *notarization.EpochCommittedDetails) {
+		p.chainManager.ProcessCommitment(details.Commitment)
 	}))
 }
 
@@ -231,6 +232,10 @@ func (p *Protocol) Engine() (instance *engine.Engine) {
 	defer p.activeEngineMutex.RUnlock()
 
 	return p.engine
+}
+
+func (p *Protocol) ChainManager() (instance *chainmanager.Manager) {
+	return p.chainManager
 }
 
 func (p *Protocol) CandidateEngine() (instance *engine.Engine) {

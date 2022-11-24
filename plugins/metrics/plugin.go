@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
+
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/autopeering/selection"
 	"github.com/iotaledger/hive.go/core/daemon"
@@ -289,6 +291,15 @@ func registerLocalMetrics() {
 		}
 	}))
 
+	// Orphaned block counter that is removed successfully
+	deps.Protocol.Events.Engine.EpochMutations.AcceptedBlockRemoved.Attach(event.NewClosure(func(blkID models.BlockID) {
+		increaseRemovedBlockCounter(blkID)
+	}))
+
+	deps.Protocol.Events.Engine.NotarizationManager.EpochCommitted.Attach(event.NewClosure(func(d *notarization.EpochCommittedDetails) {
+		updateBlkOfEpoch(d.Commitment.Index(), int32(d.AcceptedBlocksCount), int32(d.AcceptedTransactionsCount), int32(d.ActiveValidatorsCount))
+	}))
+
 	metrics.Events.AnalysisOutboundBytes.Attach(event.NewClosure(func(event *metrics.AnalysisOutboundBytesEvent) {
 		analysisOutboundBytes.Add(event.AmountBytes)
 	}))
@@ -302,4 +313,8 @@ func registerLocalMetrics() {
 	}
 
 	deps.Protocol.Events.Engine.NotarizationManager.EpochCommitted.Attach(onEpochCommitted)
+	deps.Protocol.ChainManager().Events.MissingCommitmentReceived.Attach(onMissingCommitmentReceived)
+	deps.Protocol.ChainManager().Events.CommitmentMissing.Attach(onCommitmentMissing)
+	deps.Protocol.ChainManager().Events.ForkDetected.Attach(onForkDetected)
+
 }
