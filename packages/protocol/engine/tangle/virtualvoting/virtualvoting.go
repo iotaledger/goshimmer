@@ -8,7 +8,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
-	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/epochtracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
@@ -51,7 +50,7 @@ func New(booker *booker.Booker, validators *sybilprotection.WeightedSet, opts ..
 	}, opts, func(o *VirtualVoting) {
 		o.conflictTracker = conflicttracker.NewConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower](o.Booker.Ledger.ConflictDAG, validators)
 		o.sequenceTracker = sequencetracker.NewSequenceTracker[BlockVotePower](validators, o.Booker.Sequence, o.optsSequenceCutoffCallback)
-		o.epochTracker = epochtracker.NewEpochTracker(validators, o.optsEpochCutoffCallback)
+		o.epochTracker = epochtracker.NewEpochTracker(o.optsEpochCutoffCallback)
 
 		o.Events = NewEvents()
 		o.Events.ConflictTracker = o.conflictTracker.Events
@@ -75,23 +74,23 @@ func (o *VirtualVoting) Block(id models.BlockID) (block *Block, exists bool) {
 }
 
 // MarkerVoters retrieves Validators supporting a given marker.
-func (o *VirtualVoting) MarkerVoters(marker markers.Marker) (voters *validator.Set) {
+func (o *VirtualVoting) MarkerVoters(marker markers.Marker) (voters *sybilprotection.WeightedSet) {
 	o.evictionMutex.RLock()
 	defer o.evictionMutex.RUnlock()
 
-	return o.sequenceTracker.Voters(marker)
+	return o.Validators.Weights.WeightedSet(o.sequenceTracker.Voters(marker).Members().Slice()...)
 }
 
 // EpochVoters retrieves Validators supporting an epoch index.
-func (o *VirtualVoting) EpochVoters(epochIndex epoch.Index) (voters *validator.Set) {
+func (o *VirtualVoting) EpochVoters(epochIndex epoch.Index) (voters *sybilprotection.WeightedSet) {
 	o.evictionMutex.RLock()
 	defer o.evictionMutex.RUnlock()
 
-	return o.epochTracker.Voters(epochIndex)
+	return o.Validators.Weights.WeightedSet(o.epochTracker.Voters(epochIndex).Slice()...)
 }
 
 // ConflictVoters retrieves Validators voting for a given conflict.
-func (o *VirtualVoting) ConflictVoters(conflictID utxo.TransactionID) (voters *validator.Set) {
+func (o *VirtualVoting) ConflictVoters(conflictID utxo.TransactionID) (voters *sybilprotection.WeightedSet) {
 	o.evictionMutex.RLock()
 	defer o.evictionMutex.RUnlock()
 

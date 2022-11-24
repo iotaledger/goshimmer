@@ -8,11 +8,14 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/constraints"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
 
-	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/storage/permanent"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -33,7 +36,9 @@ func NewTestFramework[VotePowerType constraints.Comparable[VotePowerType]](test 
 		test: test,
 	}, opts, func(t *TestFramework[VotePowerType]) {
 		if t.VotesTestFramework == nil {
-			t.VotesTestFramework = votes.NewTestFramework(test)
+			t.VotesTestFramework = votes.NewTestFramework(test, votes.WithValidators(
+				sybilprotection.NewWeights(mapdb.NewMapDB(), permanent.NewSettings(test.TempDir()+"/settings")).WeightedSet(),
+			))
 		}
 
 		t.ConflictDAGTestFramework = conflictdag.NewTestFramework(t.test, t.optsConflictDAGTestFramework...)
@@ -44,11 +49,31 @@ func NewTestFramework[VotePowerType constraints.Comparable[VotePowerType]](test 
 	})
 }
 
-func (t *TestFramework[VotePowerType]) ValidateStatementResults(expectedResults map[string]*set.AdvancedSet[*validator.Validator]) {
+func (t *TestFramework[VotePowerType]) ValidateStatementResults(expectedResults map[string]*set.AdvancedSet[identity.ID]) {
 	for conflictIDAlias, expectedVoters := range expectedResults {
 		actualVoters := t.ConflictTracker.Voters(t.ConflictID(conflictIDAlias))
 
-		assert.Truef(t.test, expectedVoters.Equal(votes.ValidatorSetToAdvancedSet(actualVoters)), "%s expected to have %d voters but got %d", conflictIDAlias, expectedVoters.Size(), actualVoters.Size())
+		expectedVoters.ForEach(func(expectedID identity.ID) (err error) {
+			var found bool
+			actualVoters.ForEachWeighted(func(actualID identity.ID, actualWeight int64) error {
+				if actualID == expectedID {
+					found = true
+					validatorWeight, exists := t.Validators.Weights.Weight(actualID)
+					if !exists {
+						validatorWeight = sybilprotection.NewWeight(0, -1)
+					}
+					expectedWeight := validatorWeight.Value
+					assert.Equalf(t.test, expectedWeight, actualWeight, "validator %s weight does not match: expected %d actual %d", expectedID, expectedWeight, actualWeight)
+				}
+				return nil
+			})
+
+			if !found {
+				t.test.Fatalf("validators do not match: expected %s actual %s", expectedVoters, actualVoters.Members())
+			}
+
+			return nil
+		})
 	}
 }
 

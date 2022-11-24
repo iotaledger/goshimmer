@@ -56,32 +56,11 @@ func (l *LedgerState) ImportOutputs(outputs []*OutputWithMetadata) {
 	}
 }
 
-func (l *LedgerState) pendingConsumers(targetEpoch epoch.Index) (pendingConsumers []DiffConsumer, direction int, err error) {
-	for _, consumer := range l.consumers {
-		switch currentEpoch := consumer.LastCommittedEpoch(); {
-		case IsApply(currentEpoch, targetEpoch):
-			if direction++; direction <= 0 {
-				return nil, 0, errors.New("tried to mix apply and rollback consumers")
-			}
-		case IsRollback(currentEpoch, targetEpoch):
-			if direction--; direction >= 0 {
-				return nil, 0, errors.New("tried to mix apply and rollback consumers")
-			}
-		default:
-			continue
-		}
-
-		pendingConsumers = append(pendingConsumers, consumer)
-	}
-
-	return
-}
-
 func (l *LedgerState) ApplyStateDiff(targetEpoch epoch.Index) (err error) {
 	l.consumersMutex.RLock()
 	defer l.consumersMutex.RUnlock()
 
-	consumers, direction, err := l.pendingConsumers(targetEpoch)
+	consumers, direction, err := l.pendingStateDiffConsumers(targetEpoch)
 	if err != nil {
 		return errors.Errorf("failed to determine pending consumers: %w", err)
 	}
@@ -147,4 +126,25 @@ func (l *LedgerState) importMemPoolOutput(output *OutputWithMetadata) {
 	}).Release()
 
 	l.MemPool.Events.OutputCreated.Trigger(output.ID())
+}
+
+func (l *LedgerState) pendingStateDiffConsumers(targetEpoch epoch.Index) (pendingConsumers []DiffConsumer, direction int, err error) {
+	for _, consumer := range l.consumers {
+		switch currentEpoch := consumer.LastCommittedEpoch(); {
+		case IsApply(currentEpoch, targetEpoch):
+			if direction++; direction <= 0 {
+				return nil, 0, errors.New("tried to mix apply and rollback consumers")
+			}
+		case IsRollback(currentEpoch, targetEpoch):
+			if direction--; direction >= 0 {
+				return nil, 0, errors.New("tried to mix apply and rollback consumers")
+			}
+		default:
+			continue
+		}
+
+		pendingConsumers = append(pendingConsumers, consumer)
+	}
+
+	return
 }

@@ -153,7 +153,9 @@ func (m *EpochMutations) Attestations(index epoch.Index) (epochAttestations *Att
 	m.evictionMutex.RLock()
 	defer m.evictionMutex.RUnlock()
 
-	return lo.Return1(m.attestationsByEpoch.Get(index))
+	return lo.Return1(m.attestationsByEpoch.RetrieveOrCreate(index, func() *Attestations {
+		return NewAttestations(m.weights)
+	}))
 }
 
 // acceptedBlocks returns the set of accepted blocks for the given epoch.

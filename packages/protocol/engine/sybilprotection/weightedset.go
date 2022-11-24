@@ -17,7 +17,7 @@ type WeightedSet struct {
 	totalWeightMutex     sync.RWMutex
 }
 
-func newWeightedSet(weights *Weights, optMembers ...identity.ID) (newWeightedSet *WeightedSet) {
+func NewWeightedSet(weights *Weights, optMembers ...identity.ID) (newWeightedSet *WeightedSet) {
 	newWeightedSet = new(WeightedSet)
 	newWeightedSet.Weights = weights
 	newWeightedSet.weightUpdatesClosure = event.NewClosure(newWeightedSet.onWeightUpdated)
@@ -87,8 +87,24 @@ func (w *WeightedSet) Has(id identity.ID) (has bool) {
 }
 
 func (w *WeightedSet) ForEach(callback func(id identity.ID) error) (err error) {
-	for _, member := range w.Slice() {
+	for it := w.members.Iterator(); it.HasNext(); {
+		member := it.Next()
 		if err = callback(member); err != nil {
+			return
+		}
+	}
+
+	return
+}
+
+func (w *WeightedSet) ForEachWeighted(callback func(id identity.ID, weight int64) error) (err error) {
+	for it := w.members.Iterator(); it.HasNext(); {
+		member := it.Next()
+		memberWeight, exists := w.Weights.Weight(member)
+		if !exists {
+			memberWeight = NewWeight(0, -1)
+		}
+		if err = callback(member, memberWeight.Value); err != nil {
 			return
 		}
 	}
@@ -103,11 +119,11 @@ func (w *WeightedSet) TotalWeight() (totalWeight int64) {
 	return w.totalWeight
 }
 
-func (w *WeightedSet) Slice() []identity.ID {
+func (w *WeightedSet) Members() *set.AdvancedSet[identity.ID] {
 	w.membersMutex.RLock()
 	defer w.membersMutex.RUnlock()
 
-	return w.members.Slice()
+	return w.members
 }
 
 func (w *WeightedSet) Detach() {

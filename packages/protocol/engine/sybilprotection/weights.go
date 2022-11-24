@@ -25,10 +25,11 @@ type Weights struct {
 
 func NewWeights(store kvstore.KVStore, settings *permanent.Settings) (newConsensusWeights *Weights) {
 	return &Weights{
-		Events:   NewEvents(),
-		store:    store,
-		settings: settings,
-		weights:  ads.NewMap[identity.ID, Weight](store),
+		Events:      NewEvents(),
+		store:       store,
+		settings:    settings,
+		weights:     ads.NewMap[identity.ID, Weight](store),
+		totalWeight: NewWeight(0, -1),
 	}
 }
 
@@ -54,7 +55,7 @@ func (w *Weights) ApplyUpdates(updates *WeightUpdates) {
 	removedWeights := set.NewAdvancedSet[identity.ID]()
 
 	updates.ForEach(func(id identity.ID, diff int64) {
-		oldWeight, exists := w.Weight(id)
+		oldWeight, exists := w.weights.Get(id)
 		if !exists {
 			oldWeight = NewWeight(0, -1)
 		} else if updates.TargetEpoch() == oldWeight.UpdateTime {
@@ -89,7 +90,7 @@ func (w *Weights) ApplyUpdates(updates *WeightUpdates) {
 }
 
 func (w *Weights) WeightedSet(members ...identity.ID) *WeightedSet {
-	return newWeightedSet(w, members...)
+	return NewWeightedSet(w, members...)
 }
 
 func (w *Weights) Root() types.Identifier {

@@ -50,7 +50,6 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 			}
 
 			if t.optsValidators == nil {
-				/* TODO: FIX */
 				t.optsValidators = nil
 			}
 

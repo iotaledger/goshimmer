@@ -11,10 +11,10 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
@@ -24,6 +24,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/storage/permanent"
 )
 
 type TestFramework struct {
@@ -40,7 +41,7 @@ type TestFramework struct {
 	optsBooker          *booker.Booker
 	optsBookerOptions   []options.Option[booker.Booker]
 	optsVirtualVoting   []options.Option[VirtualVoting]
-	optsActiveNodes     *sybilprotection.WeightedSet
+	optsValidators      *sybilprotection.WeightedSet
 
 	*BookerTestFramework
 	*VotesTestFramework
@@ -60,16 +61,15 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 			lo.Cond(t.optsBooker != nil, booker.WithBooker(t.optsBooker), booker.WithBookerOptions(t.optsBookerOptions...)),
 		)
 
-		if t.optsActiveNodes == nil {
-			/* TODO: FIX */
-			t.optsActiveNodes = nil
+		if t.optsValidators == nil {
+			t.optsValidators = sybilprotection.NewWeightedSet(sybilprotection.NewWeights(mapdb.NewMapDB(), permanent.NewSettings(t.test.TempDir()+"/settings")))
 		}
 
 		if t.VirtualVoting == nil {
-			t.VirtualVoting = New(t.Booker, t.optsActiveNodes, t.optsVirtualVoting...)
+			t.VirtualVoting = New(t.Booker, t.optsValidators, t.optsVirtualVoting...)
 		}
 
-		t.VotesTestFramework = votes.NewTestFramework(test, votes.WithActiveNodes(t.VirtualVoting.Validators))
+		t.VotesTestFramework = votes.NewTestFramework(test, votes.WithValidators(t.VirtualVoting.Validators))
 		t.ConflictTrackerTestFramework = conflicttracker.NewTestFramework[BlockVotePower](test,
 			conflicttracker.WithVotesTestFramework[BlockVotePower](t.VotesTestFramework),
 			conflicttracker.WithConflictTracker(t.VirtualVoting.conflictTracker),
@@ -89,9 +89,9 @@ func (t *TestFramework) AssertBlock(alias string, callback func(block *Block)) {
 	callback(block)
 }
 
-func (t *TestFramework) CreateIdentity(alias string, opts ...options.Option[validator.Validator]) {
+func (t *TestFramework) CreateIdentity(alias string, weight int64) {
 	t.identitiesByAlias[alias] = identity.GenerateIdentity()
-	t.CreateValidatorWithID(alias, t.identitiesByAlias[alias].ID(), opts...)
+	t.CreateValidatorWithID(alias, t.identitiesByAlias[alias].ID(), weight)
 }
 
 func (t *TestFramework) Identity(alias string) (v *identity.Identity) {
@@ -112,19 +112,19 @@ func (t *TestFramework) Identities(aliases ...string) (identities *set.AdvancedS
 	return
 }
 
-func (t *TestFramework) ValidateMarkerVoters(expectedVoters map[markers.Marker]*set.AdvancedSet[*validator.Validator]) {
+func (t *TestFramework) ValidateMarkerVoters(expectedVoters map[markers.Marker]*set.AdvancedSet[identity.ID]) {
 	for marker, expectedVotersOfMarker := range expectedVoters {
 		voters := t.SequenceTracker.Voters(marker)
 
-		assert.True(t.test, expectedVotersOfMarker.Equal(votes.ValidatorSetToAdvancedSet(voters)), "marker %s expected %d voters but got %d", marker, expectedVotersOfMarker.Size(), voters.Size())
+		assert.True(t.test, expectedVotersOfMarker.Equal(voters.Members()), "marker %s expected %d voters but got %d", marker, expectedVotersOfMarker.Size(), voters.Members().Size())
 	}
 }
 
-func (t *TestFramework) ValidateConflictVoters(expectedVoters map[utxo.TransactionID]*set.AdvancedSet[*validator.Validator]) {
+func (t *TestFramework) ValidateConflictVoters(expectedVoters map[utxo.TransactionID]*set.AdvancedSet[identity.ID]) {
 	for conflictID, expectedVotersOfMarker := range expectedVoters {
 		voters := t.ConflictTracker.Voters(conflictID)
 
-		assert.True(t.test, expectedVotersOfMarker.Equal(votes.ValidatorSetToAdvancedSet(voters)), "conflict %s expected %d voters but got %d", conflictID, expectedVotersOfMarker.Size(), voters.Size())
+		assert.True(t.test, expectedVotersOfMarker.Equal(voters.Members()), "conflict %s expected %d voters but got %d", conflictID, expectedVotersOfMarker.Size(), voters.Members().Size())
 	}
 }
 
@@ -202,9 +202,9 @@ func WithVirtualVoting(virtualVoting *VirtualVoting) options.Option[TestFramewor
 	}
 }
 
-func WithValidators(activeNodes *sybilprotection.WeightedSet) options.Option[TestFramework] {
+func WithValidators(validators *sybilprotection.WeightedSet) options.Option[TestFramework] {
 	return func(t *TestFramework) {
-		t.optsActiveNodes = activeNodes
+		t.optsValidators = validators
 	}
 }
 
