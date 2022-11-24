@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
 
-	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/eventticker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
@@ -232,7 +231,7 @@ func (e *Engine) initBlockStorage() {
 }
 
 func (e *Engine) initNotarizationManager() {
-	e.NotarizationManager = notarization.NewManager(e.EvictionState, e.Storage, e.SybilProtection)
+	e.NotarizationManager = notarization.NewManager(e.Storage, e.SybilProtection)
 
 	e.Consensus.BlockGadget.Events.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
 		if err := e.NotarizationManager.AddAcceptedBlock(block.ModelsBlock); err != nil {
@@ -301,8 +300,8 @@ func (e *Engine) initEvictionState() {
 		e.EvictionState.RemoveRootBlock(block.ID())
 	}))
 
-	e.NotarizationManager.Events.EpochCommitted.Attach(event.NewClosure(func(commitment *commitment.Commitment) {
-		e.EvictionState.EvictUntil(commitment.Index())
+	e.NotarizationManager.Events.EpochCommitted.Attach(event.NewClosure(func(details *notarization.EpochCommittedDetails) {
+		e.EvictionState.EvictUntil(details.Commitment.Index())
 	}))
 
 	e.Events.EvictionState.LinkTo(e.EvictionState.Events)

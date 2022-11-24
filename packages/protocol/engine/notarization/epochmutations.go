@@ -93,39 +93,6 @@ func (m *EpochMutations) RemoveAcceptedBlock(block *models.Block) (err error) {
 	return
 }
 
-// TotalAcceptedBlocks returns the number of accepted blocks of given epoch.
-func (m *EpochMutations) TotalAcceptedBlocks(ei epoch.Index) (total int) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
-	if m.acceptedBlocks(ei) == nil {
-		return 0
-	}
-	return m.acceptedBlocks(ei).Size()
-}
-
-// TotalAcceptedTransactions returns the number of accepted transactions of given epoch.
-func (m *EpochMutations) TotalAcceptedTransactions(ei epoch.Index) (total int) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
-	if m.acceptedTransactions(ei) == nil {
-		return 0
-	}
-	return m.acceptedTransactions(ei).Size()
-}
-
-// TotalActiveValidators returns the number of active validators of given epoch.
-func (m *EpochMutations) TotalActiveValidators(ei epoch.Index) (total int) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
-	if m.activeValidators(ei) == nil {
-		return 0
-	}
-	return m.activeValidators(ei).Size()
-}
-
 // AddAcceptedTransaction adds the given transaction to the set of accepted transactions.
 func (m *EpochMutations) AddAcceptedTransaction(metadata *ledger.TransactionMetadata) (err error) {
 	m.mutex.Lock()
@@ -137,6 +104,7 @@ func (m *EpochMutations) AddAcceptedTransaction(metadata *ledger.TransactionMeta
 	}
 
 	m.acceptedTransactions(epochIndex, true).Add(metadata.ID())
+
 	return
 }
 
@@ -183,7 +151,6 @@ func (m *EpochMutations) Commit(index epoch.Index) (acceptedBlocks *ads.Set[mode
 		return nil, nil, nil, 0, errors.Errorf("cannot commit epoch %d: already committed", index)
 	}
 
-	m.latestCommittedIndex = index
 	defer m.evictUntil(index)
 
 	m.lastCommittedEpochCumulativeWeight += m.epochWeight(index)
@@ -266,6 +233,8 @@ func (m *EpochMutations) evictUntil(index epoch.Index) {
 		m.activeValidatorsByEpoch.Delete(i)
 		m.issuerBlocksByEpoch.Evict(i)
 	}
+
+	m.latestCommittedIndex = index
 }
 
 // newSet is a generic constructor for a new ads.Set.

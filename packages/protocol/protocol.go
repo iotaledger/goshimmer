@@ -2,6 +2,7 @@ package protocol
 
 import (
 	"fmt"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"os"
 	"sync"
 
@@ -171,8 +172,8 @@ func (p *Protocol) initMainEngine() {
 func (p *Protocol) initChainManager() {
 	p.ChainManager = chainmanager.NewManager(p.Engine().Storage.Settings.LatestCommitment())
 
-	p.Events.Engine.NotarizationManager.EpochCommitted.Attach(event.NewClosure(func(commitment *commitment.Commitment) {
-		p.ChainManager.ProcessCommitment(commitment)
+	p.Events.Engine.NotarizationManager.EpochCommitted.Attach(event.NewClosure(func(details *notarization.EpochCommittedDetails) {
+		p.ChainManager.ProcessCommitment(details.Commitment)
 	}))
 }
 

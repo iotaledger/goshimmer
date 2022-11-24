@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -36,11 +37,11 @@ var (
 	orphanedBlkRemovedMutex sync.RWMutex
 )
 
-var onEpochCommitted = event.NewClosure(func(commitment *commitment.Commitment) {
+var onEpochCommitted = event.NewClosure(func(details *notarization.EpochCommittedDetails) {
 	lastCommittedEpochMutex.Lock()
 	defer lastCommittedEpochMutex.Unlock()
 
-	lastCommitment = commitment
+	lastCommitment = details.Commitment
 })
 
 var onForkDetected = event.NewClosure(func(chain *chainmanager.Chain) {

@@ -1,9 +1,10 @@
 package notarization
 
 import (
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"fmt"
+	"github.com/iotaledger/goshimmer/packages/core/ads"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/core/identity"
 	"sync"
 	"time"
 
@@ -37,13 +38,10 @@ type Manager struct {
 
 	optsMinCommittableEpochAge time.Duration
 
-	// evictionState contains information about the current eviction state.
-	evictionState *eviction.State
-
 	sync.RWMutex
 }
 
-func NewManager(evictionState *eviction.State, storage *storage.Storage, sybilProtection *sybilprotection.SybilProtection, opts ...options.Option[Manager]) (new *Manager) {
+func NewManager(storage *storage.Storage, sybilProtection *sybilprotection.SybilProtection, opts ...options.Option[Manager]) (new *Manager) {
 	return options.Apply(&Manager{
 		Events:         NewEvents(),
 		EpochMutations: NewEpochMutations(sybilProtection.Weight, storage.Settings.LatestCommitment().Index()),
@@ -52,13 +50,7 @@ func NewManager(evictionState *eviction.State, storage *storage.Storage, sybilPr
 		pendingConflictsCounters:   shrinkingmap.New[epoch.Index, uint64](),
 		acceptanceTime:             storage.Settings.LatestCommitment().Index().EndTime(),
 		optsMinCommittableEpochAge: defaultMinEpochCommittableAge,
-
-		evictionState: evictionState,
-	}, opts, (*Manager).setupEvents)
-}
-
-func (m *Manager) setupEvents() {
-	m.evictionState.Events.EpochEvicted.Hook(event.NewClosure(m.evictUntil))
+	}, opts)
 }
 
 func (m *Manager) IncreaseConflictsCounter(index epoch.Index) {
@@ -160,10 +152,31 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 		m.Events.Error.Trigger(errors.Errorf("failed to set latest commitment: %w", err))
 	}
 
-	fmt.Println("epoch commited", newCommitment.Index(), m.AcceptanceTime())
-	m.Events.EpochCommitted.Trigger(newCommitment)
+	accBlocks, accTxs, valNum := m.evaluateEpochSizeDetails(acceptedBlocks, acceptedTransactions, activeValidators)
+
+	details := &EpochCommittedDetails{
+		Commitment:                newCommitment,
+		AcceptedBlocksCount:       accBlocks,
+		AcceptedTransactionsCount: accTxs,
+		ActiveValidatorsCount:     valNum,
+	}
+	m.Events.EpochCommitted.Trigger(details)
 
 	return true
+}
+
+func (m *Manager) evaluateEpochSizeDetails(acceptedBlocks *ads.Set[models.BlockID], acceptedTransactions *ads.Set[utxo.TransactionID], activeValidators *ads.Set[identity.ID]) (int, int, int) {
+	var accBlocks, accTxs, valNum int
+	if acceptedBlocks != nil {
+		accBlocks = acceptedBlocks.Size()
+	}
+	if acceptedTransactions != nil {
+		accTxs = acceptedTransactions.Size()
+	}
+	if activeValidators != nil {
+		valNum = activeValidators.Size()
+	}
+	return accBlocks, accTxs, valNum
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
