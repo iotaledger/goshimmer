@@ -10,10 +10,13 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/core/votes"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/storage/permanent"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -34,7 +37,9 @@ func NewTestFramework[VotePowerType constraints.Comparable[VotePowerType]](test 
 		test: test,
 	}, opts, func(t *TestFramework[VotePowerType]) {
 		if t.VotesTestFramework == nil {
-			t.VotesTestFramework = votes.NewTestFramework(test)
+			t.VotesTestFramework = votes.NewTestFramework(test, votes.WithValidators(
+				sybilprotection.NewWeights(mapdb.NewMapDB(), permanent.NewSettings(test.TempDir()+"/settings")).WeightedSet(),
+			))
 		}
 
 		t.MarkersTestFramework = markers.NewTestFramework(t.test, markers.WithSequenceManager(t.sequenceManager))

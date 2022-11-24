@@ -47,7 +47,11 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) TrackVo
 }
 
 func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) Voters(conflict ConflictIDType) (voters *sybilprotection.WeightedSet) {
-	votesObj, _ := c.votes.Get(conflict)
+	votesObj, exists := c.votes.Get(conflict)
+	if !exists {
+		return c.validators.Weights.WeightedSet()
+	}
+
 	return c.validators.Weights.WeightedSet(votesObj.Voters().Slice()...)
 }
 

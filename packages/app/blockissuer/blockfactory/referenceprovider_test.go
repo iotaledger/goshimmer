@@ -19,7 +19,7 @@ func TestReferenceProvider_References1(t *testing.T) {
 	tf := protocol.NewTestFramework(t)
 	tf.Protocol.Run()
 
-	tangleTF := tangle.NewTestFramework(t, tangle.WithTangle(tf.Protocol.Engine().Tangle))
+	tangleTF := tangle.NewTestFramework(t, tangle.WithTangle(tf.Protocol.Engine().Tangle), tangle.WithValidators(tf.Protocol.Engine().Tangle.Validators))
 
 	tangleTF.CreateIdentity("V1", 10)
 	tangleTF.CreateIdentity("V2", 20)
@@ -44,7 +44,7 @@ func TestBlockFactory_PrepareLikedReferences_2(t *testing.T) {
 	tf := protocol.NewTestFramework(t)
 	tf.Protocol.Run()
 
-	tangleTF := tangle.NewTestFramework(t, tangle.WithTangle(tf.Protocol.Engine().Tangle))
+	tangleTF := tangle.NewTestFramework(t, tangle.WithTangle(tf.Protocol.Engine().Tangle), tangle.WithValidators(tf.Protocol.Engine().Tangle.Validators))
 
 	tangleTF.CreateIdentity("V1", 10)
 	tangleTF.CreateIdentity("V2", 20)

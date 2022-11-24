@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/stretchr/testify/assert"
 
@@ -21,6 +22,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
+	"github.com/iotaledger/goshimmer/packages/storage/permanent"
 )
 
 // region TestFramework //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -42,7 +44,7 @@ type TestFramework struct {
 	optsTangle              *tangle.Tangle
 	optsTangleOptions       []options.Option[tangle.Tangle]
 	optsTotalWeightCallback func() int64
-	optsActiveNodes         *sybilprotection.WeightedSet
+	optsValidators          *sybilprotection.WeightedSet
 
 	*TangleTestFramework
 }
@@ -70,12 +72,11 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 					t.optsEvictionState = eviction.NewState(storageInstance)
 				}
 
-				if t.optsActiveNodes == nil {
-					/* TODO: FIX */
-					t.optsActiveNodes = nil
+				if t.optsValidators == nil {
+					t.optsValidators = sybilprotection.NewWeightedSet(sybilprotection.NewWeights(mapdb.NewMapDB(), permanent.NewSettings(t.test.TempDir() + "/settings")))
 				}
 
-				t.optsTangle = tangle.New(t.optsLedger, t.optsEvictionState, t.optsActiveNodes, func() epoch.Index {
+				t.optsTangle = tangle.New(t.optsLedger, t.optsEvictionState, t.optsValidators, func() epoch.Index {
 					return 0
 				}, func(id markers.SequenceID) markers.Index {
 					return 1
@@ -315,9 +316,9 @@ func (m *MockAcceptanceGadget) FirstUnacceptedIndex(sequenceID markers.SequenceI
 	return 1
 }
 
-func WithActiveNodes(activeNodes *sybilprotection.WeightedSet) options.Option[TestFramework] {
+func WithValidators(validators *sybilprotection.WeightedSet) options.Option[TestFramework] {
 	return func(t *TestFramework) {
-		t.optsActiveNodes = activeNodes
+		t.optsValidators = validators
 	}
 }
 

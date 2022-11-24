@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
@@ -26,10 +25,9 @@ type TestFramework struct {
 	test               *testing.T
 	transactionsByID   map[string]*ledger.TransactionMetadata
 	issuersByID        map[string]ed25519.PublicKey
-	issuersWeight      *memstorage.Storage[identity.ID, int64]
+	weights            *sybilprotection.Weights
 	blocksByID         map[string]*models.Block
 	epochEntityCounter map[epoch.Index]int
-	attestorsByEpoch   map[epoch.Index]*Attestations
 
 	sync.RWMutex
 }
@@ -39,14 +37,12 @@ func NewTestFramework(test *testing.T) *TestFramework {
 		test:               test,
 		transactionsByID:   make(map[string]*ledger.TransactionMetadata),
 		issuersByID:        make(map[string]ed25519.PublicKey),
-		issuersWeight:      memstorage.New[identity.ID, int64](),
 		blocksByID:         make(map[string]*models.Block),
 		epochEntityCounter: make(map[epoch.Index]int),
-		attestorsByEpoch:   make(map[epoch.Index]*Attestations),
 	}
 
-	settings := permanent.NewSettings(test.TempDir() + "/settings")
-	tf.MutationFactory = NewEpochMutations(sybilprotection.NewWeights(mapdb.NewMapDB(), settings), 0)
+	tf.weights = sybilprotection.NewWeights(mapdb.NewMapDB(), permanent.NewSettings(test.TempDir() + "/settings"))
+	tf.MutationFactory = NewEpochMutations(tf.weights, 0)
 
 	return tf
 }
@@ -63,7 +59,7 @@ func (t *TestFramework) CreateIssuer(alias string, issuerWeight ...int64) (issue
 
 	t.issuersByID[alias] = issuer
 	if len(issuerWeight) == 1 {
-		t.issuersWeight.Set(identity.NewID(issuer), issuerWeight[0])
+		t.weights.Import(identity.NewID(issuer), issuerWeight[0])
 	}
 	return issuer
 }
@@ -134,7 +130,6 @@ func (t *TestFramework) AddAcceptedBlock(alias string) (err error) {
 		panic("block does not exist")
 	}
 
-	t.MutationFactory.Attestations(block.ID().Index()).Add(block)
 	return t.MutationFactory.AddAcceptedBlock(block)
 }
 
@@ -144,7 +139,6 @@ func (t *TestFramework) RemoveAcceptedBlock(alias string) (err error) {
 		panic("block does not exist")
 	}
 
-	t.MutationFactory.Attestations(block.ID().Index()).Delete(block)
 	return t.MutationFactory.RemoveAcceptedBlock(block)
 }
 

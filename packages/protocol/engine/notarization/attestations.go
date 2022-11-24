@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
 
 	"github.com/iotaledger/goshimmer/packages/core/ads"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
@@ -53,6 +54,12 @@ func (a *Attestations) Delete(block *models.Block) (deleted bool) {
 }
 
 func (a *Attestations) Attestors() (attestors *ads.Set[identity.ID]) {
+	attestors = ads.NewSet[identity.ID](mapdb.NewMapDB())
+
+	if a == nil {
+		return
+	}
+
 	a.mutex.RLock()
 	defer a.mutex.RUnlock()
 

@@ -17,6 +17,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
@@ -61,7 +62,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 			storageInstance.Shutdown()
 		})
 
-		t.engine = engine.New(storageInstance, engine.WithTangleOptions(t.optsTangleOptions...))
+		t.engine = engine.New(storageInstance, engine.WithTangleOptions(t.optsTangleOptions...), engine.WithSybilProtectionProvider(dpos.NewSybilProtectionProvider()))
 
 		t.TestFramework = tangle.NewTestFramework(
 			test,

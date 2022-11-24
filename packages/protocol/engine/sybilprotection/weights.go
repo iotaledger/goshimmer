@@ -90,7 +90,7 @@ func (w *Weights) ApplyUpdates(updates *WeightUpdates) {
 }
 
 func (w *Weights) WeightedSet(members ...identity.ID) *WeightedSet {
-	return newWeightedSet(w, members...)
+	return NewWeightedSet(w, members...)
 }
 
 func (w *Weights) Root() types.Identifier {

@@ -6,7 +6,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/hive.go/core/generics/constraints"
-	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
@@ -59,7 +58,11 @@ func (t *TestFramework[VotePowerType]) ValidateStatementResults(expectedResults 
 			actualVoters.ForEachWeighted(func(actualID identity.ID, actualWeight int64) error {
 				if actualID == expectedID {
 					found = true
-					expectedWeight := lo.Return1(t.Validators.Weights.Weight(actualID)).Value
+					validatorWeight, exists := t.Validators.Weights.Weight(actualID)
+					if !exists {
+						validatorWeight = sybilprotection.NewWeight(0, -1)
+					}
+					expectedWeight := validatorWeight.Value
 					assert.Equalf(t.test, expectedWeight, actualWeight, "validator %s weight does not match: expected %d actual %d", expectedID, expectedWeight, actualWeight)
 				}
 				return nil

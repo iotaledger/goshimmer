@@ -67,7 +67,8 @@ func TestMutationFactory(t *testing.T) {
 	tf.AssertCommit(2, []string{"2.1", "2.2", "2.3"}, []string{"tx2.1", "tx3.1"}, []string{"Batman", "Robin", "Joker"}, 30, false)
 
 	// assert commitment of epoch 3
-	tf.AssertCommit(3, []string{"3.1"}, []string{}, []string{"Batman"}, 40, false)
+	// The CW is 10 because the epoch mutation does not accumulate the weights, the notarization manager does.
+	tf.AssertCommit(3, []string{"3.1"}, []string{}, []string{"Batman"}, 10, false)
 }
 
 func TestMutationFactory_AddAcceptedBlock(t *testing.T) {
