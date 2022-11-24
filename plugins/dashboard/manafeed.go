@@ -16,6 +16,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/manatracker/manamodels"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 )
 
 var (
@@ -78,12 +79,19 @@ func sendManaValue() {
 	if !exists {
 		log.Debugf("no mana available for local identity: %s ", ownID.String())
 	}
+
+	ownWeight, exists := deps.Protocol.Engine().SybilProtection.Weights().Weight(ownID)
+	if !exists {
+		ownWeight = sybilprotection.NewWeight(0, -1)
+	}
+
 	blkData := &ManaValueBlkData{
 		IssuerID:  ownID.String(),
 		Access:    access,
-		Consensus: lo.Return1(deps.Protocol.Engine().SybilProtection.Weights().Weight(ownID)).Value,
+		Consensus: ownWeight.Value,
 		Time:      time.Now().Unix(),
 	}
+
 	broadcastWsBlock(&wsblk{
 		Type: MsgTypeManaValue,
 		Data: blkData,

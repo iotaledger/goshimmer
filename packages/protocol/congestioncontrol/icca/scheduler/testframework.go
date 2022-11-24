@@ -69,7 +69,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		}
 
 		if t.engine == nil {
-			t.engine = engine.New(t.storage)
+			t.engine = engine.New(t.storage, engine.WithSybilProtectionProvider(dpos.NewSybilProtectionProvider()))
 		}
 
 		if t.optsValidators == nil {
