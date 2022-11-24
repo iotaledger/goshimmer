@@ -51,32 +51,67 @@ func (l *LedgerState) ImportOutputs(outputs []*OutputWithMetadata) {
 		l.importMemPoolOutput(output)
 
 		for _, consumer := range l.consumers {
-			consumer.ProcessCreatedOutput(output)
+			consumer.ApplyCreatedOutput(output)
 		}
 	}
+}
+
+func (l *LedgerState) pendingConsumers(targetEpoch epoch.Index) (pendingConsumers []DiffConsumer, direction int, err error) {
+	for _, consumer := range l.consumers {
+		switch currentEpoch := consumer.LastCommittedEpoch(); {
+		case IsApply(currentEpoch, targetEpoch):
+			if direction++; direction <= 0 {
+				return nil, 0, errors.New("tried to mix apply and rollback consumers")
+			}
+		case IsRollback(currentEpoch, targetEpoch):
+			if direction--; direction >= 0 {
+				return nil, 0, errors.New("tried to mix apply and rollback consumers")
+			}
+		default:
+			continue
+		}
+
+		pendingConsumers = append(pendingConsumers, consumer)
+	}
+
+	return
 }
 
 func (l *LedgerState) ApplyStateDiff(targetEpoch epoch.Index) (err error) {
 	l.consumersMutex.RLock()
 	defer l.consumersMutex.RUnlock()
 
-	for _, consumer := range l.consumers {
+	consumers, direction, err := l.pendingConsumers(targetEpoch)
+	if err != nil {
+		return errors.Errorf("failed to determine pending consumers: %w", err)
+	}
+
+	var streamOutputsFunctions []func(epoch.Index, func(*OutputWithMetadata)) error
+	var applyOutputsFunctions []func(DiffConsumer, *OutputWithMetadata)
+	switch {
+	case direction > 0:
+		streamOutputsFunctions = append(streamOutputsFunctions, l.StateDiffs.StreamCreatedOutputs, l.StateDiffs.StreamSpentOutputs)
+		applyOutputsFunctions = append(applyOutputsFunctions, DiffConsumer.ApplyCreatedOutput, DiffConsumer.ApplySpentOutput)
+	case direction < 0:
+		streamOutputsFunctions = append(streamOutputsFunctions, l.StateDiffs.StreamSpentOutputs, l.StateDiffs.StreamCreatedOutputs)
+		applyOutputsFunctions = append(applyOutputsFunctions, DiffConsumer.RollbackSpentOutput, DiffConsumer.RollbackCreatedOutput)
+	}
+
+	for _, consumer := range consumers {
 		consumer.Begin(targetEpoch)
 	}
 
-	if err = l.StateDiffs.StreamCreatedOutputs(targetEpoch, func(output *OutputWithMetadata) {
-		l.processConsumers(targetEpoch, output, DiffConsumer.ProcessCreatedOutput, DiffConsumer.ProcessSpentOutput)
-	}); err != nil {
-		return errors.Errorf("failed to stream created outputs for state diff %d: %w", targetEpoch, err)
+	for i, streamOutputs := range streamOutputsFunctions {
+		if err = streamOutputs(targetEpoch, func(output *OutputWithMetadata) {
+			for _, consumer := range consumers {
+				applyOutputsFunctions[i](consumer, output)
+			}
+		}); err != nil {
+			return errors.Errorf("failed to stream outputs for state diff %d: %w", targetEpoch, err)
+		}
 	}
 
-	if err = l.StateDiffs.StreamSpentOutputs(targetEpoch, func(output *OutputWithMetadata) {
-		l.processConsumers(targetEpoch, output, DiffConsumer.ProcessSpentOutput, DiffConsumer.ProcessCreatedOutput)
-	}); err != nil {
-		return errors.Errorf("failed to stream created outputs for state diff %d: %w", targetEpoch, err)
-	}
-
-	for _, consumer := range l.consumers {
+	for _, consumer := range consumers {
 		consumer.Commit()
 	}
 
@@ -112,16 +147,4 @@ func (l *LedgerState) importMemPoolOutput(output *OutputWithMetadata) {
 	}).Release()
 
 	l.MemPool.Events.OutputCreated.Trigger(output.ID())
-}
-
-func (l *LedgerState) processConsumers(targetEpoch epoch.Index, output *OutputWithMetadata, applyFunc, rollbackFunc func(DiffConsumer, *OutputWithMetadata)) {
-	for _, consumer := range l.consumers {
-		switch currentEpoch := consumer.LastCommittedEpoch(); {
-		case IsApply(currentEpoch, targetEpoch):
-			applyFunc(consumer, output)
-
-		case IsRollback(currentEpoch, targetEpoch):
-			rollbackFunc(consumer, output)
-		}
-	}
 }

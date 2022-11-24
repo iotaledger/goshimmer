@@ -15,20 +15,28 @@ func (s *SybilProtection) Begin(committedEpoch epoch.Index) {
 
 func (s *SybilProtection) ImportOutputs(outputs []*ledgerstate.OutputWithMetadata) {
 	for _, output := range outputs {
-		ProcessCreatedOutput(output, s.weights.Import)
+		ApplyCreatedOutput(output, s.weights.Import)
 	}
 }
 
-func (s *SybilProtection) ProcessCreatedOutput(output *ledgerstate.OutputWithMetadata) {
+func (s *SybilProtection) ApplyCreatedOutput(output *ledgerstate.OutputWithMetadata) {
 	if s.batchedEpoch() == 0 {
-		ProcessCreatedOutput(output, s.weights.Import)
+		ApplyCreatedOutput(output, s.weights.Import)
 	} else {
-		ProcessCreatedOutput(output, s.batchedWeightUpdates.ApplyDiff)
+		ApplyCreatedOutput(output, s.batchedWeightUpdates.ApplyDiff)
 	}
 }
 
-func (s *SybilProtection) ProcessSpentOutput(output *ledgerstate.OutputWithMetadata) {
-	ProcessSpentOutput(output, s.batchedWeightUpdates.ApplyDiff)
+func (s *SybilProtection) ApplySpentOutput(output *ledgerstate.OutputWithMetadata) {
+	ApplySpentOutput(output, s.batchedWeightUpdates.ApplyDiff)
+}
+
+func (s *SybilProtection) RollbackCreatedOutput(output *ledgerstate.OutputWithMetadata) {
+	s.ApplySpentOutput(output)
+}
+
+func (s *SybilProtection) RollbackSpentOutput(output *ledgerstate.OutputWithMetadata) {
+	s.ApplyCreatedOutput(output)
 }
 
 func (s *SybilProtection) Commit() (ctx context.Context) {

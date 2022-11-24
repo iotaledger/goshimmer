@@ -10,7 +10,9 @@ type DiffConsumer interface {
 	ImportOutputs(outputs []*OutputWithMetadata)
 	Begin(committedEpoch epoch.Index)
 	Commit() (ctx context.Context)
-	ProcessCreatedOutput(output *OutputWithMetadata)
-	ProcessSpentOutput(output *OutputWithMetadata)
+	ApplyCreatedOutput(output *OutputWithMetadata)
+	ApplySpentOutput(output *OutputWithMetadata)
+	RollbackCreatedOutput(output *OutputWithMetadata)
+	RollbackSpentOutput(output *OutputWithMetadata)
 	LastCommittedEpoch() epoch.Index
 }

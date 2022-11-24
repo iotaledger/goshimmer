@@ -50,11 +50,11 @@ func (u *UnspentOutputIDs) Begin(committedEpoch epoch.Index) {
 
 func (u *UnspentOutputIDs) ImportOutputs(outputs []*OutputWithMetadata) {
 	for _, output := range outputs {
-		u.ProcessCreatedOutput(output)
+		u.ApplyCreatedOutput(output)
 	}
 }
 
-func (u *UnspentOutputIDs) ProcessCreatedOutput(output *OutputWithMetadata) {
+func (u *UnspentOutputIDs) ApplyCreatedOutput(output *OutputWithMetadata) {
 	if u.batchedEpoch() == 0 {
 		u.Add(output.Output().ID())
 	} else if !u.batchedSpentOutputIDs.Delete(output.Output().ID()) {
@@ -62,12 +62,20 @@ func (u *UnspentOutputIDs) ProcessCreatedOutput(output *OutputWithMetadata) {
 	}
 }
 
-func (u *UnspentOutputIDs) ProcessSpentOutput(output *OutputWithMetadata) {
+func (u *UnspentOutputIDs) ApplySpentOutput(output *OutputWithMetadata) {
 	if u.batchedEpoch() == 0 {
 		u.Delete(output.Output().ID())
 	} else if !u.batchedCreatedOutputIDs.Delete(output.Output().ID()) {
 		u.batchedSpentOutputIDs.Add(output.Output().ID())
 	}
+}
+
+func (u *UnspentOutputIDs) RollbackCreatedOutput(output *OutputWithMetadata) {
+	u.ApplySpentOutput(output)
+}
+
+func (u *UnspentOutputIDs) RollbackSpentOutput(output *OutputWithMetadata) {
+	u.ApplyCreatedOutput(output)
 }
 
 func (u *UnspentOutputIDs) Commit() (ctx context.Context) {
