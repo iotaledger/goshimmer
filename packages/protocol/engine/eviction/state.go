@@ -1,6 +1,8 @@
 package eviction
 
 import (
+	"encoding/binary"
+	"io"
 	"sync"
 
 	"github.com/cockroachdb/errors"
@@ -132,6 +134,40 @@ func (s *State) LatestRootBlock() models.BlockID {
 	defer s.latestRootBlockMutex.RUnlock()
 
 	return s.latestRootBlock
+}
+
+func (s *State) WriteTo(writer io.WriteSeeker, targetEpoch epoch.Index) (err error) {
+	binary.Write(writer, binary.LittleEndian, targetEpoch-s.delayedBlockEvictionThreshold(targetEpoch).Max(0)+1)
+
+	for currentEpoch := targetEpoch; currentEpoch >= 0 && currentEpoch > s.delayedBlockEvictionThreshold(targetEpoch); currentEpoch-- {
+		var rootBlocksCount uint64
+
+		if err = binary.Write(writer, binary.LittleEndian, currentEpoch.Bytes()); err != nil {
+			return errors.Errorf("failed to write epoch index %d: %w", currentEpoch, err)
+		} else if idsStartOffset, seekErr := writer.Seek(8, io.SeekCurrent); seekErr != nil {
+			return errors.Errorf("failed to seek to ids start offset: %w", seekErr)
+		} else if err = s.storage.RootBlocks.Stream(currentEpoch, func(rootBlockID models.BlockID) {
+			if err != nil {
+				return
+			} else if rootBlockBytes, rootBlockErr := rootBlockID.Bytes(); rootBlockErr != nil {
+				err = rootBlockErr
+			} else if _, err = writer.Write(rootBlockBytes); err == nil {
+				rootBlocksCount++
+			}
+		}); err != nil {
+			return errors.Errorf("failed streaming root blocks from storage: %w", err)
+		} else if idsEndOffset, seekErr := writer.Seek(0, io.SeekCurrent); seekErr != nil {
+			return errors.Errorf("failed to seek to ids end offset: %w", seekErr)
+		} else if _, err = writer.Seek(idsStartOffset-8, io.SeekStart); err != nil {
+			return errors.Errorf("failed to seek to ids start offset: %w", err)
+		} else if err = binary.Write(writer, binary.LittleEndian, rootBlocksCount); err != nil {
+			return errors.Errorf("failed to write epoch size: %w", err)
+		} else if _, err = writer.Seek(idsEndOffset, io.SeekStart); err != nil {
+			return errors.Errorf("failed to seek to ids end offset: %w", err)
+		}
+	}
+
+	return
 }
 
 // importRootBlocksFromStorage imports the root blocks from the storage into the cache.

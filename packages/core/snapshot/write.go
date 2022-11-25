@@ -14,7 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
-func WriteSnapshot(filePath string, engineInstance *engine.Engine, depth int) {
+func WriteSnapshot(filePath string, engineInstance *engine.Engine, depth epoch.Index) {
 	fileHandle, err := os.Create(filePath)
 	defer fileHandle.Close()
 
@@ -22,14 +22,16 @@ func WriteSnapshot(filePath string, engineInstance *engine.Engine, depth int) {
 		panic(err)
 	}
 
-	snapshotEpoch := engineInstance.Storage.Settings.LatestCommitment().Index()
-	snapshotStart := snapshotEpoch - epoch.Index(depth)
+	currentEpoch := engineInstance.Storage.Settings.LatestCommitment().Index()
+	targetEpoch := currentEpoch - depth
 
 	if err := engineInstance.Storage.Settings.WriteTo(fileHandle); err != nil {
 		panic(err)
-	} else if err := engineInstance.Storage.Commitments.WriteTo(fileHandle, engineInstance.Storage.Settings.LatestCommitment().Index()); err != nil {
+	} else if err := engineInstance.Storage.Commitments.WriteTo(fileHandle, targetEpoch); err != nil {
 		panic(err)
 	} else if err := engineInstance.LedgerState.WriteTo(fileHandle); err != nil {
+		panic(err)
+	} else if err := engineInstance.EvictionState.WriteTo(fileHandle, targetEpoch-1); err != nil {
 		panic(err)
 	}
 
@@ -38,7 +40,7 @@ func WriteSnapshot(filePath string, engineInstance *engine.Engine, depth int) {
 	// Solid Entry Points
 	{
 		var solidEntryPointsCount uint32
-		for epochIndex := snapshotStart; epochIndex <= snapshotEpoch; epochIndex++ {
+		for epochIndex := targetEpoch; epochIndex <= currentEpoch; epochIndex++ {
 			solidEntryPointsCount += uint32(engineInstance.Storage.RootBlocks.LoadAll(epochIndex).Size())
 		}
 
@@ -48,7 +50,7 @@ func WriteSnapshot(filePath string, engineInstance *engine.Engine, depth int) {
 		dummyBlock := models.NewBlock(models.WithStrongParents(models.NewBlockIDs(models.EmptyBlockID)))
 		binary.Write(fileHandle, binary.LittleEndian, uint32(len(lo.PanicOnErr(dummyBlock.Bytes()))))
 
-		for epochIndex := snapshotStart; epochIndex <= snapshotEpoch; epochIndex++ {
+		for epochIndex := targetEpoch; epochIndex <= currentEpoch; epochIndex++ {
 			if err := engineInstance.Storage.RootBlocks.Stream(epochIndex, func(blockID models.BlockID) {
 				binary.Write(fileHandle, binary.LittleEndian, lo.PanicOnErr(blockID.Bytes()))
 			}); err != nil {
@@ -60,10 +62,10 @@ func WriteSnapshot(filePath string, engineInstance *engine.Engine, depth int) {
 	// Activity Log
 	{
 		// Activity Log count
-		binary.Write(fileHandle, binary.LittleEndian, uint32(engineInstance.Storage.Attestors.LoadAll(snapshotEpoch).Size()))
+		binary.Write(fileHandle, binary.LittleEndian, uint32(engineInstance.Storage.Attestors.LoadAll(currentEpoch).Size()))
 		// Activity Log size
 		binary.Write(fileHandle, binary.LittleEndian, uint32(len(lo.PanicOnErr((&identity.ID{}).Bytes()))))
-		engineInstance.Storage.Attestors.Stream(snapshotEpoch, func(id identity.ID) {
+		engineInstance.Storage.Attestors.Stream(currentEpoch, func(id identity.ID) {
 			binary.Write(fileHandle, binary.LittleEndian, id)
 		})
 	}
@@ -71,9 +73,9 @@ func WriteSnapshot(filePath string, engineInstance *engine.Engine, depth int) {
 	// Epoch Diffs -- must be in reverse order to allow Ledger rollback
 	{
 		// Number of epochs
-		binary.Write(fileHandle, binary.LittleEndian, uint32(snapshotEpoch-engineInstance.Storage.Settings.LatestStateMutationEpoch()))
+		binary.Write(fileHandle, binary.LittleEndian, uint32(currentEpoch-engineInstance.Storage.Settings.LatestStateMutationEpoch()))
 
-		for epochIndex := engineInstance.Storage.Settings.LatestStateMutationEpoch(); epochIndex >= snapshotEpoch; epochIndex-- {
+		for epochIndex := engineInstance.Storage.Settings.LatestStateMutationEpoch(); epochIndex >= currentEpoch; epochIndex-- {
 
 			// Epoch Index
 			binary.Write(fileHandle, binary.LittleEndian, epochIndex)
