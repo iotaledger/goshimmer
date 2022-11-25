@@ -165,9 +165,13 @@ func sendManaMapOnline() {
 	consensusPayload := &ManaNetworkListBlkData{ManaType: manamodels.ConsensusMana.String()}
 
 	_ = activeNodes.ForEach(func(id identity.ID) error {
+		weight, exists := deps.Protocol.Engine().SybilProtection.Weights().Weight(id)
+		if !exists {
+			weight = sybilprotection.NewWeight(0, -1)
+		}
 		consensusPayload.Issuers = append(consensusPayload.Issuers, manamodels.Issuer{
 			ID:   id,
-			Mana: lo.Return1(deps.Protocol.Engine().SybilProtection.Weights().Weight(id)).Value,
+			Mana: weight.Value,
 		}.ToIssuerStr())
 
 		return nil
