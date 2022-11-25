@@ -17,13 +17,13 @@ import (
 )
 
 func ReadSnapshot(fileHandle *os.File, engineInstance *engine.Engine) {
-	if err := engineInstance.Storage.Settings.ReadFrom(fileHandle); err != nil {
+	if err := engineInstance.Storage.Settings.Import(fileHandle); err != nil {
 		panic(err)
-	} else if err := engineInstance.Storage.Commitments.ReadFrom(fileHandle); err != nil {
+	} else if err := engineInstance.Storage.Commitments.Import(fileHandle); err != nil {
 		panic(err)
 	} else if err := engineInstance.Storage.Settings.SetChainID(engineInstance.Storage.Settings.LatestCommitment().ID()); err != nil {
 		panic(err)
-	} else if err := engineInstance.EvictionState.ReadFrom(fileHandle); err != nil {
+	} else if err := engineInstance.EvictionState.Import(fileHandle); err != nil {
 		panic(err)
 	} else if err := engineInstance.LedgerState.Import(fileHandle); err != nil {
 		panic(err)

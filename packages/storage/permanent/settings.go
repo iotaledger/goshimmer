@@ -134,7 +134,7 @@ func (c *Settings) Export(writer io.WriteSeeker) (err error) {
 	return nil
 }
 
-func (c *Settings) ReadFrom(reader io.ReadSeeker) (err error) {
+func (c *Settings) Import(reader io.ReadSeeker) (err error) {
 	c.Lock()
 	defer c.Unlock()
 

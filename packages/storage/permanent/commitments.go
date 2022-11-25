@@ -61,7 +61,7 @@ func (c *Commitments) Export(writer io.WriteSeeker, epochBoundary epoch.Index) (
 	return nil
 }
 
-func (c *Commitments) ReadFrom(reader io.ReadSeeker) (err error) {
+func (c *Commitments) Import(reader io.ReadSeeker) (err error) {
 	var epochBoundary int64
 	if err = binary.Read(reader, binary.LittleEndian, &epochBoundary); err != nil {
 		return errors.Errorf("failed to read epoch boundary: %w", err)

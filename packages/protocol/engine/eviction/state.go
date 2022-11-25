@@ -170,7 +170,7 @@ func (s *State) Export(writer io.WriteSeeker, evictedEpoch epoch.Index) (err err
 	return
 }
 
-func (s *State) ReadFrom(reader io.ReadSeeker) (err error) {
+func (s *State) Import(reader io.ReadSeeker) (err error) {
 	var rootBlockCount uint64
 	if err = binary.Read(reader, binary.LittleEndian, &rootBlockCount); err != nil {
 		return errors.Errorf("failed to read number of root blocks to dump: %w", err)
