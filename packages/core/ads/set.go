@@ -21,7 +21,9 @@ const (
 type Set[K constraints.Serializable] struct {
 	store kvstore.KVStore
 	tree  *smt.SparseMerkleTree
-	mutex sync.RWMutex
+
+	// A mutex is needed as reads from the smt.SparseMerkleTree can translate to writes.
+	mutex sync.Mutex
 }
 
 func NewSet[K constraints.Serializable](store kvstore.KVStore) *Set[K] {
@@ -41,8 +43,8 @@ func (s *Set[K]) Root() (root types.Identifier) {
 		return types.Identifier{}
 	}
 
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
 	copy(root[:], s.tree.Root())
 
@@ -88,16 +90,16 @@ func (s *Set[K]) Has(key K) (has bool) {
 		return false
 	}
 
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
 	return lo.PanicOnErr(s.tree.Has(lo.PanicOnErr(key.Bytes())))
 }
 
 // Size returns the number of elements in the set.
 func (s *Set[K]) Size() (size int) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
 	s.store.Iterate([]byte{valueStorePrefix}, func(key, value []byte) bool {
 		size++
