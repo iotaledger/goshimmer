@@ -104,7 +104,7 @@ func (l *LedgerState) Root() types.Identifier {
 	return l.UnspentOutputIDs.Root()
 }
 
-func (l *LedgerState) WriteTo(writer io.WriteSeeker) (err error) {
+func (l *LedgerState) WriteTo(writer io.WriteSeeker, targetEpoch epoch.Index) (err error) {
 	if iterationErr := l.UnspentOutputIDs.Stream(func(outputID utxo.OutputID) bool {
 		if !l.MemPool.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
 			if !l.MemPool.Storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledger.OutputMetadata) {
@@ -133,13 +133,15 @@ func (l *LedgerState) WriteTo(writer io.WriteSeeker) (err error) {
 		return errors.Errorf("failed to stream unspent output IDs: %w", iterationErr)
 	} else if err != nil {
 		return err
-	}
-
-	if err = binary.Write(writer, binary.LittleEndian, uint64(0)); err != nil {
+	} else if err = binary.Write(writer, binary.LittleEndian, uint64(0)); err != nil {
 		return errors.Errorf("failed to write end marker of outputs: %w", err)
 	}
 
 	return nil
+}
+
+func (l *LedgerState) ReadFrom(reader io.ReadSeeker) (err error) {
+	return
 }
 
 func (l *LedgerState) onTransactionAccepted(metadata *ledger.TransactionMetadata) {

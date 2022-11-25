@@ -4,14 +4,12 @@ import (
 	"encoding/binary"
 	"os"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 func WriteSnapshot(filePath string, engineInstance *engine.Engine, depth epoch.Index) {
@@ -29,35 +27,13 @@ func WriteSnapshot(filePath string, engineInstance *engine.Engine, depth epoch.I
 		panic(err)
 	} else if err := engineInstance.Storage.Commitments.WriteTo(fileHandle, targetEpoch); err != nil {
 		panic(err)
-	} else if err := engineInstance.LedgerState.WriteTo(fileHandle); err != nil {
+	} else if err := engineInstance.EvictionState.WriteTo(fileHandle, targetEpoch); err != nil {
 		panic(err)
-	} else if err := engineInstance.EvictionState.WriteTo(fileHandle, targetEpoch-1); err != nil {
+	} else if err := engineInstance.LedgerState.WriteTo(fileHandle, targetEpoch); err != nil {
 		panic(err)
 	}
 
 	var outputWithMetadataSize uint32
-
-	// Solid Entry Points
-	{
-		var solidEntryPointsCount uint32
-		for epochIndex := targetEpoch; epochIndex <= currentEpoch; epochIndex++ {
-			solidEntryPointsCount += uint32(engineInstance.Storage.RootBlocks.LoadAll(epochIndex).Size())
-		}
-
-		// Solid Entry Points count
-		binary.Write(fileHandle, binary.LittleEndian, solidEntryPointsCount)
-		// Solid Entry Point size
-		dummyBlock := models.NewBlock(models.WithStrongParents(models.NewBlockIDs(models.EmptyBlockID)))
-		binary.Write(fileHandle, binary.LittleEndian, uint32(len(lo.PanicOnErr(dummyBlock.Bytes()))))
-
-		for epochIndex := targetEpoch; epochIndex <= currentEpoch; epochIndex++ {
-			if err := engineInstance.Storage.RootBlocks.Stream(epochIndex, func(blockID models.BlockID) {
-				binary.Write(fileHandle, binary.LittleEndian, lo.PanicOnErr(blockID.Bytes()))
-			}); err != nil {
-				panic(errors.Errorf("failed streaming root blocks for snaphot: %w", err))
-			}
-		}
-	}
 
 	// Activity Log
 	{

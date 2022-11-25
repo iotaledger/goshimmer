@@ -14,7 +14,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 func ReadSnapshot(fileHandle *os.File, engineInstance *engine.Engine) {
@@ -23,6 +22,10 @@ func ReadSnapshot(fileHandle *os.File, engineInstance *engine.Engine) {
 	} else if err := engineInstance.Storage.Commitments.ReadFrom(fileHandle); err != nil {
 		panic(err)
 	} else if err := engineInstance.Storage.Settings.SetChainID(engineInstance.Storage.Settings.LatestCommitment().ID()); err != nil {
+		panic(err)
+	} else if err := engineInstance.EvictionState.ReadFrom(fileHandle); err != nil {
+		panic(err)
+	} else if err := engineInstance.LedgerState.ReadFrom(fileHandle); err != nil {
 		panic(err)
 	}
 
@@ -33,17 +36,6 @@ func ReadSnapshot(fileHandle *os.File, engineInstance *engine.Engine) {
 			// This will import into all the consumers too: sybilprotection and ledgerState.unspentOutputIDs
 			engineInstance.LedgerState.ImportOutputs,
 		)
-	}
-
-	// Solid Entry Points
-	{
-		ProcessChunks(NewChunkedReader[models.BlockID](fileHandle), func(chunk []*models.BlockID) {
-			for _, blockID := range chunk {
-				if err := engineInstance.Storage.RootBlocks.Store(*blockID); err != nil {
-					panic(err)
-				}
-			}
-		})
 	}
 
 	// Activity Log

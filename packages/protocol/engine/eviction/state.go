@@ -136,35 +136,60 @@ func (s *State) LatestRootBlock() models.BlockID {
 	return s.latestRootBlock
 }
 
-func (s *State) WriteTo(writer io.WriteSeeker, targetEpoch epoch.Index) (err error) {
-	binary.Write(writer, binary.LittleEndian, targetEpoch-s.delayedBlockEvictionThreshold(targetEpoch).Max(0)+1)
+func (s *State) WriteTo(writer io.WriteSeeker, evictedEpoch epoch.Index) (err error) {
+	startOffset, seekErr := writer.Seek(8, io.SeekCurrent)
+	if seekErr != nil {
+		return errors.Errorf("failed to seek to ids start offset: %w", seekErr)
+	}
 
-	for currentEpoch := targetEpoch; currentEpoch >= 0 && currentEpoch > s.delayedBlockEvictionThreshold(targetEpoch); currentEpoch-- {
-		var rootBlocksCount uint64
-
-		if err = binary.Write(writer, binary.LittleEndian, currentEpoch.Bytes()); err != nil {
-			return errors.Errorf("failed to write epoch index %d: %w", currentEpoch, err)
-		} else if idsStartOffset, seekErr := writer.Seek(8, io.SeekCurrent); seekErr != nil {
-			return errors.Errorf("failed to seek to ids start offset: %w", seekErr)
-		} else if err = s.storage.RootBlocks.Stream(currentEpoch, func(rootBlockID models.BlockID) {
+	var rootBlockCount uint64
+	for currentEpoch := s.delayedBlockEvictionThreshold(evictedEpoch) + 1; currentEpoch <= evictedEpoch; currentEpoch++ {
+		if err = s.storage.RootBlocks.Stream(currentEpoch, func(rootBlockID models.BlockID) {
 			if err != nil {
 				return
 			} else if rootBlockBytes, rootBlockErr := rootBlockID.Bytes(); rootBlockErr != nil {
 				err = rootBlockErr
 			} else if _, err = writer.Write(rootBlockBytes); err == nil {
-				rootBlocksCount++
+				rootBlockCount++
 			}
 		}); err != nil {
 			return errors.Errorf("failed streaming root blocks from storage: %w", err)
-		} else if idsEndOffset, seekErr := writer.Seek(0, io.SeekCurrent); seekErr != nil {
-			return errors.Errorf("failed to seek to ids end offset: %w", seekErr)
-		} else if _, err = writer.Seek(idsStartOffset-8, io.SeekStart); err != nil {
-			return errors.Errorf("failed to seek to ids start offset: %w", err)
-		} else if err = binary.Write(writer, binary.LittleEndian, rootBlocksCount); err != nil {
-			return errors.Errorf("failed to write epoch size: %w", err)
-		} else if _, err = writer.Seek(idsEndOffset, io.SeekStart); err != nil {
-			return errors.Errorf("failed to seek to ids end offset: %w", err)
 		}
+	}
+
+	if endOffset, seekErr := writer.Seek(0, io.SeekCurrent); seekErr != nil {
+		return errors.Errorf("failed to determine end offset: %w", seekErr)
+	} else if _, err = writer.Seek(startOffset-8, io.SeekStart); err != nil {
+		return errors.Errorf("failed to seek to start offset: %w", err)
+	} else if err = binary.Write(writer, binary.LittleEndian, rootBlockCount); err != nil {
+		return errors.Errorf("failed to write epoch size: %w", err)
+	} else if _, err = writer.Seek(endOffset, io.SeekStart); err != nil {
+		return errors.Errorf("failed to seek to end offset: %w", err)
+	}
+
+	return
+}
+
+func (s *State) ReadFrom(reader io.ReadSeeker) (err error) {
+	var rootBlockCount uint64
+	if err = binary.Read(reader, binary.LittleEndian, &rootBlockCount); err != nil {
+		return errors.Errorf("failed to read number of root blocks to dump: %w", err)
+	}
+
+	for i := uint64(0); i < rootBlockCount; i++ {
+		blockIDBytes := make([]byte, models.BlockIDLength)
+		if err = binary.Read(reader, binary.LittleEndian, blockIDBytes); err != nil {
+			return errors.Errorf("failed to read block id: %w", err)
+		}
+
+		var blockID models.BlockID
+		if consumedBytes, parseErr := blockID.FromBytes(blockIDBytes); parseErr != nil {
+			return errors.Errorf("failed to parse block id: %w", parseErr)
+		} else if consumedBytes != models.BlockIDLength {
+			return errors.Errorf("failed to parse block id: consumed bytes (%d) != expected bytes (%d)", consumedBytes, len(blockIDBytes))
+		}
+
+		s.AddRootBlock(blockID)
 	}
 
 	return
@@ -197,7 +222,7 @@ func (s *State) updateLatestRootBlock(id models.BlockID) {
 
 // delayedBlockEvictionThreshold returns the epoch index that is the threshold for delayed rootblocks eviction.
 func (s *State) delayedBlockEvictionThreshold(index epoch.Index) (threshold epoch.Index) {
-	return index - s.optsRootBlocksEvictionDelay - 1
+	return (index - s.optsRootBlocksEvictionDelay - 1).Max(0)
 }
 
 // WithRootBlocksEvictionDelay sets the time since confirmation threshold.
