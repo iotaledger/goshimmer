@@ -58,13 +58,13 @@ func (l *LedgerState) ApplyStateDiff(targetEpoch epoch.Index) (err error) {
 	if err = l.storage.LedgerStateDiffs.StreamCreatedOutputs(targetEpoch, func(output *models.OutputWithMetadata) {
 		l.ProcessConsumers(targetEpoch, output, DiffConsumer.ProcessCreatedOutput, DiffConsumer.ProcessSpentOutput)
 	}); err != nil {
-		return errors.Errorf("failed to stream created outputs for state diff %d: %w", targetEpoch, err)
+		return errors.Errorf("failed to stream created outputs for state diff %d: %s", targetEpoch, err)
 	}
 
 	if err = l.storage.LedgerStateDiffs.StreamSpentOutputs(targetEpoch, func(output *models.OutputWithMetadata) {
 		l.ProcessConsumers(targetEpoch, output, DiffConsumer.ProcessSpentOutput, DiffConsumer.ProcessCreatedOutput)
 	}); err != nil {
-		return errors.Errorf("failed to stream created outputs for state diff %d: %w", targetEpoch, err)
+		return errors.Errorf("failed to stream created outputs for state diff %d: %s", targetEpoch, err)
 	}
 
 	for _, consumer := range l.consumers {
