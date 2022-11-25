@@ -7,7 +7,10 @@ import (
 	"sort"
 	"time"
 
+	"golang.org/x/crypto/blake2b"
+
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/model"
@@ -104,18 +107,28 @@ func NewEmptyBlock(id BlockID, opts ...options.Option[Block]) (newBlock *Block) 
 	})
 }
 
-// VerifySignature verifies the Signature of the block.
-func (b *Block) VerifySignature() (valid bool, err error) {
+func (b *Block) ContentHash() (contentHash types.Identifier, err error) {
 	blkBytes, err := b.Bytes()
 	if err != nil {
-		return false, errors.Errorf("failed to create block bytes: %w", err)
+		return types.Identifier{}, errors.Errorf("failed to create block bytes: %w", err)
 	}
-	signature := b.Signature()
 
-	contentLength := len(blkBytes) - len(signature)
-	content := blkBytes[:contentLength]
+	return blake2b.Sum256(blkBytes[:len(blkBytes)-ed25519.SignatureSize]), nil
+}
 
-	return b.M.IssuerPublicKey.VerifySignature(content, signature), nil
+// VerifySignature verifies the Signature of the block.
+func (b *Block) VerifySignature() (valid bool, err error) {
+	contentHash, err := b.ContentHash()
+	if err != nil {
+		return false, err
+	}
+
+	issuingTimeBytes, err := serix.DefaultAPI.Encode(context.Background(), b.IssuingTime(), serix.WithValidation())
+	if err != nil {
+		panic(err)
+	}
+
+	return b.M.IssuerPublicKey.VerifySignature(byteutils.ConcatBytes(issuingTimeBytes, lo.PanicOnErr(b.Commitment().ID().Bytes()), contentHash[:]), b.Signature()), nil
 }
 
 // Version returns the block Version.

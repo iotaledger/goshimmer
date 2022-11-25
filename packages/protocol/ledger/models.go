@@ -149,8 +149,8 @@ func (t *TransactionMetadata) OutputIDs() (outputIDs utxo.OutputIDs) {
 
 // SetOutputIDs sets the identifiers of the Outputs that the Transaction created.
 func (t *TransactionMetadata) SetOutputIDs(outputIDs utxo.OutputIDs) (modified bool) {
-	t.RLock()
-	defer t.RUnlock()
+	t.Lock()
+	defer t.Unlock()
 
 	if t.M.OutputIDs.Equal(outputIDs) {
 		return false
