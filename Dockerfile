@@ -67,7 +67,7 @@ RUN --mount=target=. \
     else  \
     go build \
     -tags="$BUILD_TAGS" \
-    -ldflags='-w -s' \
+    -gcflags='all=-N -l' \
     -o /go/bin/goshimmer; \
     fi
 
@@ -96,7 +96,7 @@ RUN if [ "$DOWNLOAD_SNAPSHOT" -gt 0 ] && [ "$CUSTOM_SNAPSHOT_URL" = "" ] ; then 
 ############################
 # https://github.com/GoogleContainerTools/distroless/tree/master/cc
 # using distroless cc image, which includes everything in the base image (glibc, libssl and openssl)
-FROM gcr.io/distroless/cc-debian11:nonroot as prepare-runtime
+FROM golang:1.19-bullseye as prepare-runtime
 
 # Gossip
 EXPOSE 14666/tcp
@@ -115,15 +115,15 @@ EXPOSE 8061/tcp
 
 # Default directory and drop privileges
 WORKDIR /app
-USER nonroot
+#USER nonroot
 
 # Copy the Pre-built binary file from the previous stage
-COPY --chown=nonroot:nonroot --from=build /go/bin/goshimmer /app/goshimmer
+COPY --from=build /go/bin/goshimmer /app/goshimmer
 
 # Copy configuration and snapshot from the previous stage
 COPY config.default.json /app/config.json
 
-COPY --chown=nonroot:nonroot --from=build /tmp/snapshot.bin /app/snapshot.bin
+COPY --from=build /tmp/snapshot.bin /app/snapshot.bin
 
 
 # We execute this stage only if debugging is disabled, i.e REMOTE_DEBUGGIN==0
@@ -136,7 +136,7 @@ FROM prepare-runtime as debugger-enabled-1
 EXPOSE 40000
 
 # Copy the Delve binary
-COPY --chown=nonroot:nonroot --from=build /go/bin/dlv /app/dlv
+COPY --from=build /go/bin/dlv /app/dlv
 ENTRYPOINT ["/app/dlv", "--listen=:40000", "--headless", "--api-version=2", "--accept-multiclient", "exec", "--continue", "/app/goshimmer", "--", "--config=/app/config.json"]
 
 # Execute corresponding build stage depending on the REMOTE_DEBUGGING build arg.
