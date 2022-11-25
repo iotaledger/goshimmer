@@ -696,8 +696,6 @@ func checkNormalizedConflictIDsContained(t *testing.T, tf *TestFramework, expect
 func Test_Prune(t *testing.T) {
 	const epochCount = 100
 
-	epoch.GenesisTime = time.Now().Unix() - epochCount*epoch.Duration
-
 	tf := NewTestFramework(t)
 
 	// create a helper function that creates the blocks

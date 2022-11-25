@@ -68,7 +68,7 @@ func broadcastData(c echo.Context) error {
 	}
 
 	// await BlockScheduled event to be triggered.
-	err = deps.BlockIssuer.IssueBlockAndAwaitBlockToBeIssued(constructedBlock, time.Duration(request.MaxEstimate)*time.Millisecond)
+	err = deps.BlockIssuer.IssueBlockAndAwaitBlockToBeScheduled(constructedBlock, time.Duration(request.MaxEstimate)*time.Millisecond)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, jsonmodels.DataResponse{Error: err.Error()})
 	}

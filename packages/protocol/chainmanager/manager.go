@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/walker"
+	"github.com/iotaledger/hive.go/core/syncutils"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/eventticker"
@@ -17,18 +18,20 @@ type Manager struct {
 	SnapshotCommitment  *Commitment
 	CommitmentRequester *eventticker.EventTicker[commitment.ID]
 
-	commitmentsByID map[commitment.ID]*Commitment
+	commitmentsByID      map[commitment.ID]*Commitment
+	commitmentsByIDMutex sync.Mutex
 
 	optsCommitmentRequester []options.Option[eventticker.EventTicker[commitment.ID]]
 
-	sync.Mutex
+	commitmentEntityMutex *syncutils.DAGMutex[commitment.ID]
 }
 
 func NewManager(snapshot *commitment.Commitment) (manager *Manager) {
 	manager = &Manager{
 		Events: NewEvents(),
 
-		commitmentsByID: make(map[commitment.ID]*Commitment),
+		commitmentsByID:       make(map[commitment.ID]*Commitment),
+		commitmentEntityMutex: syncutils.NewDAGMutex[commitment.ID](),
 	}
 
 	manager.SnapshotCommitment, _ = manager.Commitment(snapshot.ID(), true)
@@ -45,75 +48,94 @@ func NewManager(snapshot *commitment.Commitment) (manager *Manager) {
 	return
 }
 
-func (c *Manager) ProcessCommitment(commitment *commitment.Commitment) (isSolid bool, chain *Chain, wasForked bool) {
+func (m *Manager) ProcessCommitment(commitment *commitment.Commitment) (isSolid bool, chain *Chain, wasForked bool) {
 	// TODO: do not extend the main chain if the commitment doesn't come from myself, after I am bootstrapped.
-	chainCommitment, created := c.Commitment(commitment.ID(), true)
-	if !chainCommitment.PublishCommitment(commitment) {
-		return chainCommitment.IsSolid(), chainCommitment.Chain(), false
+	isSolid, chain, wasForked, chainCommitment, commitmentPublished := m.registerCommitment(commitment)
+	if !commitmentPublished || chain == nil {
+		return isSolid, chain, wasForked
 	}
 
-	if !created {
-		c.Events.MissingCommitmentReceived.Trigger(chainCommitment.ID())
-	}
-
-	parentCommitment, commitmentCreated := c.Commitment(commitment.PrevID(), true)
-	if commitmentCreated {
-		c.Events.CommitmentMissing.Trigger(parentCommitment.ID())
-	}
-
-	if isSolid, chain, wasForked = c.registerChild(parentCommitment, chainCommitment); chain == nil {
-		return
-	}
 	if wasForked {
-		c.Events.ForkDetected.Trigger(chain)
+		m.Events.ForkDetected.Trigger(chain)
 	}
+
+	// Lock access to the chainCommitment so no children are added while we are propagating solidity
+	m.commitmentEntityMutex.Lock(chainCommitment.ID())
+	defer m.commitmentEntityMutex.Unlock(chainCommitment.ID())
 
 	if children := chainCommitment.Children(); len(children) != 0 {
 		for childWalker := walker.New[*Commitment]().Push(children[0]); childWalker.HasNext(); {
-			childWalker.PushAll(c.propagateChainToFirstChild(childWalker.Next(), chain)...)
+			childWalker.PushAll(m.propagateChainToFirstChild(childWalker.Next(), chain)...)
 		}
 	}
 
 	if isSolid {
 		if children := chainCommitment.Children(); len(children) != 0 {
 			for childWalker := walker.New[*Commitment]().PushAll(children...); childWalker.HasNext(); {
-				childWalker.PushAll(c.propagateSolidity(childWalker.Next())...)
+				childWalker.PushAll(m.propagateSolidity(childWalker.Next())...)
 			}
 		}
 	}
 
-	return
+	return isSolid, chain, wasForked
 }
 
-func (c *Manager) Chain(ec commitment.ID) (chain *Chain) {
-	if commitment, _ := c.Commitment(ec, false); commitment != nil {
+func (m *Manager) registerCommitment(commitment *commitment.Commitment) (isSolid bool, chain *Chain, wasForked bool, chainCommitment *Commitment, commitmentPublished bool) {
+	m.commitmentEntityMutex.Lock(commitment.ID())
+	defer m.commitmentEntityMutex.Unlock(commitment.ID())
+
+	chainCommitment, created := m.Commitment(commitment.ID(), true)
+
+	if !chainCommitment.PublishCommitment(commitment) {
+		return chainCommitment.IsSolid(), chainCommitment.Chain(), false, chainCommitment, false
+	}
+
+	if !created {
+		m.Events.MissingCommitmentReceived.Trigger(chainCommitment.ID())
+	}
+
+	// Lock access to the parent commitment
+	m.commitmentEntityMutex.Lock(commitment.PrevID())
+	defer m.commitmentEntityMutex.Unlock(commitment.PrevID())
+
+	parentCommitment, commitmentCreated := m.Commitment(commitment.PrevID(), true)
+	if commitmentCreated {
+		m.Events.CommitmentMissing.Trigger(parentCommitment.ID())
+	}
+
+	isSolid, chain, wasForked = m.registerChild(parentCommitment, chainCommitment)
+	return isSolid, chain, wasForked, chainCommitment, true
+}
+
+func (m *Manager) Chain(ec commitment.ID) (chain *Chain) {
+	if commitment, _ := m.Commitment(ec, false); commitment != nil {
 		return commitment.Chain()
 	}
 
 	return
 }
 
-func (c *Manager) Commitment(id commitment.ID, createIfAbsent ...bool) (commitment *Commitment, created bool) {
-	c.Lock()
-	defer c.Unlock()
+func (m *Manager) Commitment(id commitment.ID, createIfAbsent ...bool) (commitment *Commitment, created bool) {
+	m.commitmentsByIDMutex.Lock()
+	defer m.commitmentsByIDMutex.Unlock()
 
-	commitment, exists := c.commitmentsByID[id]
+	commitment, exists := m.commitmentsByID[id]
 	if created = !exists && len(createIfAbsent) >= 1 && createIfAbsent[0]; created {
 		commitment = NewCommitment(id)
-		c.commitmentsByID[id] = commitment
+		m.commitmentsByID[id] = commitment
 	}
 
 	return
 }
 
-func (c *Manager) Commitments(id commitment.ID, amount int) (commitments []*Commitment, err error) {
-	c.Lock()
-	defer c.Unlock()
+func (m *Manager) Commitments(id commitment.ID, amount int) (commitments []*Commitment, err error) {
+	m.commitmentsByIDMutex.Lock()
+	defer m.commitmentsByIDMutex.Unlock()
 
 	commitments = make([]*Commitment, amount)
 
 	for i := 0; i < amount; i++ {
-		currentCommitment, exists := c.commitmentsByID[id]
+		currentCommitment, exists := m.commitmentsByID[id]
 		if !exists {
 			return nil, errors.Errorf("not all commitments in the given range are known")
 		}
@@ -126,22 +148,19 @@ func (c *Manager) Commitments(id commitment.ID, amount int) (commitments []*Comm
 	return
 }
 
-func (c *Manager) registerChild(parent *Commitment, child *Commitment) (isSolid bool, chain *Chain, wasForked bool) {
-	child.lockEntity()
-	defer child.unlockEntity()
-
+func (m *Manager) registerChild(parent *Commitment, child *Commitment) (isSolid bool, chain *Chain, wasForked bool) {
 	if isSolid, chain, wasForked = parent.registerChild(child); chain != nil {
 		chain.addCommitment(child)
 		child.publishChain(chain)
-		child.solid = isSolid
+		child.SetSolid(isSolid)
 	}
 
 	return
 }
 
-func (c *Manager) propagateChainToFirstChild(child *Commitment, chain *Chain) (childrenToUpdate []*Commitment) {
-	child.lockEntity()
-	defer child.unlockEntity()
+func (m *Manager) propagateChainToFirstChild(child *Commitment, chain *Chain) (childrenToUpdate []*Commitment) {
+	m.commitmentEntityMutex.Lock(child.ID())
+	defer m.commitmentEntityMutex.Unlock(child.ID())
 
 	if !child.publishChain(chain) {
 		return
@@ -157,13 +176,11 @@ func (c *Manager) propagateChainToFirstChild(child *Commitment, chain *Chain) (c
 	return children[:1]
 }
 
-func (c *Manager) propagateSolidity(child *Commitment) (childrenToUpdate []*Commitment) {
-	child.lockEntity()
-	defer child.unlockEntity()
+func (m *Manager) propagateSolidity(child *Commitment) (childrenToUpdate []*Commitment) {
+	m.commitmentEntityMutex.Lock(child.ID())
+	defer m.commitmentEntityMutex.Unlock(child.ID())
 
 	if child.SetSolid(true) {
-		child.Chain().SetLastSolidIndex(child.Commitment().Index())
-
 		childrenToUpdate = child.Children()
 	}
 

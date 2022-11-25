@@ -21,6 +21,8 @@ import (
 type EpochMutations struct {
 	weights *sybilprotection.Weights
 
+	Events *EpochMutationsEvents
+
 	// acceptedBlocksByEpoch stores the accepted blocks per epoch.
 	acceptedBlocksByEpoch *memstorage.Storage[epoch.Index, *ads.Set[models.BlockID]]
 
@@ -34,11 +36,17 @@ type EpochMutations struct {
 	latestCommittedIndex epoch.Index
 
 	evictionMutex sync.RWMutex
+
+	// lastCommittedEpochCumulativeWeight stores the cumulative weight of the last committed epoch
+	lastCommittedEpochCumulativeWeight uint64
+
+	mutex sync.Mutex
 }
 
 // NewEpochMutations creates a new EpochMutations instance.
 func NewEpochMutations(weights *sybilprotection.Weights, lastCommittedEpoch epoch.Index) (newMutationFactory *EpochMutations) {
 	return &EpochMutations{
+		Events:                      NewEpochMutationsEvents(),
 		weights:                     weights,
 		acceptedBlocksByEpoch:       memstorage.New[epoch.Index, *ads.Set[models.BlockID]](),
 		acceptedTransactionsByEpoch: memstorage.New[epoch.Index, *ads.Set[utxo.TransactionID]](),
@@ -51,6 +59,9 @@ func NewEpochMutations(weights *sybilprotection.Weights, lastCommittedEpoch epoc
 func (m *EpochMutations) AddAcceptedBlock(block *models.Block) (err error) {
 	m.evictionMutex.RLock()
 	defer m.evictionMutex.RUnlock()
+
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	blockID := block.ID()
 	if blockID.Index() <= m.latestCommittedIndex {
@@ -71,6 +82,9 @@ func (m *EpochMutations) RemoveAcceptedBlock(block *models.Block) (err error) {
 	m.evictionMutex.RLock()
 	defer m.evictionMutex.RUnlock()
 
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
 	blockID := block.ID()
 	if blockID.Index() <= m.latestCommittedIndex {
 		return errors.Errorf("cannot add block %s: epoch with %d is already committed", blockID, blockID.Index())
@@ -82,6 +96,7 @@ func (m *EpochMutations) RemoveAcceptedBlock(block *models.Block) (err error) {
 		attestations.Delete(block)
 	}
 
+	m.Events.AcceptedBlockRemoved.Trigger(blockID)
 	return
 }
 
@@ -89,6 +104,9 @@ func (m *EpochMutations) RemoveAcceptedBlock(block *models.Block) (err error) {
 func (m *EpochMutations) AddAcceptedTransaction(metadata *ledger.TransactionMetadata) (err error) {
 	m.evictionMutex.RLock()
 	defer m.evictionMutex.RUnlock()
+
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	epochIndex := epoch.IndexFromTime(metadata.InclusionTime())
 	if epochIndex <= m.latestCommittedIndex {
@@ -105,6 +123,9 @@ func (m *EpochMutations) RemoveAcceptedTransaction(metadata *ledger.TransactionM
 	m.evictionMutex.RLock()
 	defer m.evictionMutex.RUnlock()
 
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
 	epochIndex := epoch.IndexFromTime(metadata.InclusionTime())
 	if epochIndex <= m.latestCommittedIndex {
 		return errors.Errorf("transaction %s accepted with issuing time %s in already committed epoch %d", metadata.ID(), metadata.InclusionTime(), epochIndex)
@@ -119,6 +140,9 @@ func (m *EpochMutations) RemoveAcceptedTransaction(metadata *ledger.TransactionM
 func (m *EpochMutations) UpdateTransactionInclusion(txID utxo.TransactionID, oldEpoch, newEpoch epoch.Index) (err error) {
 	m.evictionMutex.RLock()
 	defer m.evictionMutex.RUnlock()
+
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	if newEpoch >= oldEpoch {
 		return
@@ -138,6 +162,9 @@ func (m *EpochMutations) UpdateTransactionInclusion(txID utxo.TransactionID, old
 func (m *EpochMutations) Evict(index epoch.Index) (acceptedBlocks *ads.Set[models.BlockID], acceptedTransactions *ads.Set[utxo.TransactionID], attestations *Attestations, err error) {
 	m.evictionMutex.Lock()
 	defer m.evictionMutex.Unlock()
+
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	if index <= m.latestCommittedIndex {
 		return nil, nil, nil, errors.Errorf("cannot commit epoch %d: already committed", index)

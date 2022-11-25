@@ -17,7 +17,6 @@ import (
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/stringify"
 	"github.com/iotaledger/hive.go/core/types"
-	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -259,8 +258,16 @@ func (b *Block) DetermineID() (err error) {
 }
 
 // DetermineIDFromBytes calculates and sets the block's BlockID and size.
-func (b *Block) DetermineIDFromBytes(buf []byte) {
-	b.SetID(NewBlockID(blake2b.Sum256(buf), epoch.IndexFromTime(b.IssuingTime())))
+func (b *Block) DetermineIDFromBytes(buf []byte, blockHash ...types.Identifier) {
+	var hash types.Identifier
+	if len(blockHash) > 0 {
+		hash = blockHash[0]
+	} else {
+		hash = types.NewIdentifier(buf)
+	}
+
+	id := NewBlockID(hash, epoch.IndexFromTime(b.IssuingTime()))
+	b.SetID(id)
 
 	b.Lock()
 	defer b.Unlock()
