@@ -8,7 +8,6 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes/epochtracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 )
@@ -56,7 +55,7 @@ func (g *Gadget) refreshEpochConfirmation(previousLatestEpochIndex epoch.Index, 
 	totalWeight := g.totalWeightCallback()
 
 	for i := lo.Max(g.lastConfirmedEpoch, previousLatestEpochIndex) + 1; i <= newLatestEpochIndex; i++ {
-		if !validator.IsThresholdReached(totalWeight, g.tangle.VirtualVoting.EpochVoters(i).TotalWeight(), g.optsEpochConfirmationThreshold) {
+		if !IsThresholdReached(totalWeight, g.tangle.VirtualVoting.EpochVoters(i).TotalWeight(), g.optsEpochConfirmationThreshold) {
 			break
 		}
 		g.lastConfirmedEpoch = i
@@ -70,6 +69,10 @@ func WithEpochConfirmationThreshold(acceptanceThreshold float64) options.Option[
 	return func(gadget *Gadget) {
 		gadget.optsEpochConfirmationThreshold = acceptanceThreshold
 	}
+}
+
+func IsThresholdReached(weight, otherWeight int64, threshold float64) bool {
+	return otherWeight > int64(float64(weight)*threshold)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

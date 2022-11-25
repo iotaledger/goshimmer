@@ -21,10 +21,10 @@ type commitment struct {
 	Index            epoch.Index      `serix:"0"`
 	PrevID           ID               `serix:"1"`
 	RootsID          types.Identifier `serix:"2"`
-	CumulativeWeight uint64           `serix:"3"`
+	CumulativeWeight int64            `serix:"3"`
 }
 
-func New(index epoch.Index, prevID ID, rootsID types.Identifier, cumulativeWeight uint64) (newCommitment *Commitment) {
+func New(index epoch.Index, prevID ID, rootsID types.Identifier, cumulativeWeight int64) (newCommitment *Commitment) {
 	return model.NewImmutable[Commitment](&commitment{
 		Index:            index,
 		PrevID:           prevID,
@@ -50,6 +50,7 @@ func (c *Commitment) Index() (index epoch.Index) {
 func (c *Commitment) RootsID() (rootsID types.Identifier) {
 	return c.M.RootsID
 }
-func (c *Commitment) CumulativeWeight() (cumulativeWeight uint64) {
+
+func (c *Commitment) CumulativeWeight() (cumulativeWeight int64) {
 	return c.M.CumulativeWeight
 }

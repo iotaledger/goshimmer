@@ -16,6 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/snapshot/creator"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -141,7 +142,7 @@ func init() {
 
 func diagnosticPrintSnapshotFromFile(filePath string) {
 	s := createTempStorage()
-	e := engine.New(s)
+	e := engine.New(s, engine.WithSybilProtectionProvider(dpos.NewSybilProtectionProvider()))
 	fileHandle := lo.PanicOnErr(os.Open(filePath))
 
 	snapshot.ReadSnapshot(fileHandle, e)
@@ -170,7 +171,7 @@ func diagnosticPrintSnapshotFromFile(filePath string) {
 	}
 
 	fmt.Println("--- ActivityLog ---")
-	e.Storage.ActiveNodes.Stream(0, func(id identity.ID) {
+	e.Storage.Attestors.Stream(0, func(id identity.ID) {
 		fmt.Printf("%d: %+v\n", 0, id)
 	})
 

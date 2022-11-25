@@ -13,8 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/activitytracker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tsc"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
@@ -64,6 +63,7 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 			engine.WithNotarizationManagerOptions(
 				notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommittableAge),
 			),
+			engine.WithSybilProtectionProvider(dpos.NewSybilProtectionProvider()),
 			engine.WithBootstrapThreshold(Parameters.BootstrapWindow),
 			engine.WithTSCManagerOptions(
 				tsc.WithTimeSinceConfirmationThreshold(Parameters.TimeSinceConfirmationThreshold),
@@ -73,11 +73,10 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 				ledger.WithCacheTimeProvider(cacheTimeProvider),
 			),
 			engine.WithSnapshotDepth(Parameters.Snapshot.Depth),
-			engine.WithSybilProtectionOptions(
-				sybilprotection.WithActivityTrackerOptions(
-					activitytracker.WithActivityWindow(Parameters.ValidatorActivityWindow),
-				),
-			),
+			// TODO: FIX
+			// engine.WithActiveNodesOptions(
+			// 	pos.WithActivityWindow(Parameters.ValidatorActivityWindow),
+			// ),
 		),
 		protocol.WithTipManagerOptions(
 			tipmanager.WithWidth(Parameters.TangleWidth),
@@ -132,7 +131,6 @@ func configureLogging(*node.Plugin) {
 	// deps.Protocol.Events.Engine.BlockRequester.Tick.Attach(event.NewClosure(func(blockID models.BlockID) {
 	// 	fmt.Println(">>>>>>> BlockRequesterTick", blockID)
 	// }))
-
 }
 
 func run(*node.Plugin) {

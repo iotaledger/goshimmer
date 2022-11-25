@@ -17,6 +17,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
@@ -56,20 +57,18 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		test.Cleanup(func() {
 			event.Loop.PendingTasksCounter.WaitIsZero()
 			t.engine.Shutdown()
-			if err := storageInstance.Shutdown(); err != nil {
-				test.Fatal(err)
-			}
+			storageInstance.Shutdown()
 		})
 
 		// set MinCommittableEpochAge to genesis so nothing is commited.
-		t.engine = engine.New(storageInstance, engine.WithNotarizationManagerOptions(notarization.MinCommittableEpochAge(time.Since(time.Unix(epoch.GenesisTime, 0)))), engine.WithTangleOptions(t.optsTangleOptions...))
+		t.engine = engine.New(storageInstance, engine.WithNotarizationManagerOptions(notarization.MinCommittableEpochAge(time.Since(time.Unix(epoch.GenesisTime, 0)))), engine.WithTangleOptions(t.optsTangleOptions...), engine.WithSybilProtectionProvider(dpos.NewSybilProtectionProvider()))
 
 		t.TestFramework = tangle.NewTestFramework(
 			test,
 			tangle.WithTangle(t.engine.Tangle),
 			tangle.WithLedger(t.engine.Ledger),
 			tangle.WithEvictionState(t.engine.EvictionState),
-			tangle.WithValidatorSet(t.engine.ValidatorSet),
+			tangle.WithValidators(t.engine.SybilProtection.Validators()),
 		)
 
 		if t.TipManager == nil {

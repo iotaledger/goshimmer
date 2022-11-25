@@ -8,8 +8,8 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
-	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes/latestvotes"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 )
 
@@ -19,26 +19,21 @@ type SequenceTracker[VotePowerType constraints.Comparable[VotePowerType]] struct
 	votes *memstorage.Storage[markers.SequenceID, *memstorage.Storage[identity.ID, *latestvotes.LatestVotes[markers.Index, VotePowerType]]]
 
 	sequenceCallback    func(id markers.SequenceID) (sequence *markers.Sequence, exists bool)
-	validatorSet        *validator.Set
+	validators          *sybilprotection.WeightedSet
 	cutoffIndexCallback func(sequenceID markers.SequenceID) markers.Index
 }
 
-func NewSequenceTracker[VotePowerType constraints.Comparable[VotePowerType]](validatorSet *validator.Set, sequenceCallback func(id markers.SequenceID) (sequence *markers.Sequence, exists bool), cutoffIndexCallback func(sequenceID markers.SequenceID) markers.Index) *SequenceTracker[VotePowerType] {
+func NewSequenceTracker[VotePowerType constraints.Comparable[VotePowerType]](validators *sybilprotection.WeightedSet, sequenceCallback func(id markers.SequenceID) (sequence *markers.Sequence, exists bool), cutoffIndexCallback func(sequenceID markers.SequenceID) markers.Index) *SequenceTracker[VotePowerType] {
 	return &SequenceTracker[VotePowerType]{
 		votes:               memstorage.New[markers.SequenceID, *memstorage.Storage[identity.ID, *latestvotes.LatestVotes[markers.Index, VotePowerType]]](),
 		sequenceCallback:    sequenceCallback,
-		validatorSet:        validatorSet,
+		validators:          validators,
 		cutoffIndexCallback: cutoffIndexCallback,
 		Events:              NewEvents(),
 	}
 }
 
 func (s *SequenceTracker[VotePowerType]) TrackVotes(pastMarkers *markers.Markers, voterID identity.ID, power VotePowerType) {
-	voter, exists := s.validatorSet.Get(voterID)
-	if !exists {
-		return
-	}
-
 	// Do not revisit markers that have already been visited. With the like reference there can be cycles in the sequence DAG
 	// which results in endless walks.
 	supportWalker := walker.New[markers.Marker](false)
@@ -49,12 +44,12 @@ func (s *SequenceTracker[VotePowerType]) TrackVotes(pastMarkers *markers.Markers
 	})
 
 	for supportWalker.HasNext() {
-		s.addVoteToMarker(supportWalker.Next(), voter, power, supportWalker)
+		s.addVoteToMarker(supportWalker.Next(), voterID, power, supportWalker)
 	}
 }
 
-func (s *SequenceTracker[VotePowerType]) Voters(marker markers.Marker) (voters *validator.Set) {
-	voters = validator.NewSet()
+func (s *SequenceTracker[VotePowerType]) Voters(marker markers.Marker) (voters *sybilprotection.WeightedSet) {
+	voters = s.validators.Weights.WeightedSet()
 	votesObj, exists := s.votes.Get(marker.SequenceID())
 	if !exists {
 		return
@@ -66,10 +61,8 @@ func (s *SequenceTracker[VotePowerType]) Voters(marker markers.Marker) (voters *
 			return true
 		}
 
-		voter, validatorExists := s.validatorSet.Get(identityID)
-		if validatorExists {
-			voters.Add(voter)
-		}
+		voters.Add(identityID)
+
 		return true
 	})
 
@@ -89,9 +82,8 @@ func (s *SequenceTracker[VotePowerType]) VotersWithPower(marker markers.Marker) 
 			return true
 		}
 
-		voter, validatorExists := s.validatorSet.Get(identityID)
-		if validatorExists {
-			voters[voter.ID()] = power
+		if s.validators.Has(identityID) {
+			voters[identityID] = power
 		}
 		return true
 	})
@@ -99,7 +91,7 @@ func (s *SequenceTracker[VotePowerType]) VotersWithPower(marker markers.Marker) 
 	return
 }
 
-func (s *SequenceTracker[VotePowerType]) addVoteToMarker(marker markers.Marker, voter *validator.Validator, power VotePowerType, walk *walker.Walker[markers.Marker]) {
+func (s *SequenceTracker[VotePowerType]) addVoteToMarker(marker markers.Marker, voter identity.ID, power VotePowerType, walk *walker.Walker[markers.Marker]) {
 	// We don't add the voter and abort if the marker is already accepted/confirmed. This prevents walking too much in the sequence DAG.
 	// However, it might lead to inaccuracies when creating a new conflict once a conflict arrives, and we copy over the
 	// voters of the marker to the conflict. Since the marker is already seen as confirmed it should not matter too much though.
@@ -108,7 +100,7 @@ func (s *SequenceTracker[VotePowerType]) addVoteToMarker(marker markers.Marker, 
 	}
 
 	sequenceStorage, _ := s.votes.RetrieveOrCreate(marker.SequenceID(), memstorage.New[identity.ID, *latestvotes.LatestVotes[markers.Index, VotePowerType]])
-	latestMarkerVotes, _ := sequenceStorage.RetrieveOrCreate(voter.ID(), func() *latestvotes.LatestVotes[markers.Index, VotePowerType] {
+	latestMarkerVotes, _ := sequenceStorage.RetrieveOrCreate(voter, func() *latestvotes.LatestVotes[markers.Index, VotePowerType] {
 		return latestvotes.NewLatestVotes[markers.Index, VotePowerType](voter)
 	})
 

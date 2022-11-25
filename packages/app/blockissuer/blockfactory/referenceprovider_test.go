@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -20,10 +19,10 @@ func TestReferenceProvider_References1(t *testing.T) {
 	tf := protocol.NewTestFramework(t)
 	tf.Protocol.Run()
 
-	tangleTF := tangle.NewTestFramework(t, tangle.WithTangle(tf.Protocol.Engine().Tangle))
+	tangleTF := tangle.NewTestFramework(t, tangle.WithTangle(tf.Protocol.Engine().Tangle), tangle.WithValidators(tf.Protocol.Engine().Tangle.Validators))
 
-	tangleTF.CreateIdentity("V1", validator.WithWeight(10))
-	tangleTF.CreateIdentity("V2", validator.WithWeight(20))
+	tangleTF.CreateIdentity("V1", 10)
+	tangleTF.CreateIdentity("V2", 20)
 
 	tangleTF.CreateBlock("Block1", models.WithPayload(tangleTF.CreateTransaction("TX1", 3, "Genesis")), models.WithIssuer(tangleTF.Identity("V1").PublicKey()))
 	tangleTF.CreateBlock("Block2", models.WithPayload(tangleTF.CreateTransaction("TX2", 1, "TX1.0")), models.WithIssuer(tangleTF.Identity("V1").PublicKey()))
@@ -45,10 +44,10 @@ func TestBlockFactory_PrepareLikedReferences_2(t *testing.T) {
 	tf := protocol.NewTestFramework(t)
 	tf.Protocol.Run()
 
-	tangleTF := tangle.NewTestFramework(t, tangle.WithTangle(tf.Protocol.Engine().Tangle))
+	tangleTF := tangle.NewTestFramework(t, tangle.WithTangle(tf.Protocol.Engine().Tangle), tangle.WithValidators(tf.Protocol.Engine().Tangle.Validators))
 
-	tangleTF.CreateIdentity("V1", validator.WithWeight(10))
-	tangleTF.CreateIdentity("V2", validator.WithWeight(20))
+	tangleTF.CreateIdentity("V1", 10)
+	tangleTF.CreateIdentity("V2", 20)
 
 	tangleTF.CreateBlock("Block0", models.WithPayload(tangleTF.CreateTransaction("TX0", 2, "Genesis")), models.WithIssuer(tangleTF.Identity("V1").PublicKey()))
 	tangleTF.CreateBlock("Block1", models.WithPayload(tangleTF.CreateTransaction("TX1", 1, "TX0.0")), models.WithIssuer(tangleTF.Identity("V2").PublicKey()), models.WithIssuingTime(time.Now().Add(time.Minute)))

@@ -9,18 +9,20 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
+	"github.com/iotaledger/goshimmer/packages/storage/permanent"
 )
 
 // region TestFramework //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -39,10 +41,10 @@ type TestFramework struct {
 	optsLedger              *ledger.Ledger
 	optsLedgerOptions       []options.Option[ledger.Ledger]
 	optsEvictionState       *eviction.State
-	optsValidatorSet        *validator.Set
 	optsTangle              *tangle.Tangle
 	optsTangleOptions       []options.Option[tangle.Tangle]
 	optsTotalWeightCallback func() int64
+	optsValidators          *sybilprotection.WeightedSet
 
 	*TangleTestFramework
 }
@@ -51,17 +53,19 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 	return options.Apply(&TestFramework{
 		test: test,
 		optsTotalWeightCallback: func() int64 {
-			return t.ValidatorSet.TotalWeight()
+			return t.TangleTestFramework.Validators.TotalWeight()
 		},
 	}, opts, func(t *TestFramework) {
+		if t.optsValidators == nil {
+			t.optsValidators = sybilprotection.NewWeightedSet(sybilprotection.NewWeights(mapdb.NewMapDB(), permanent.NewSettings(t.test.TempDir()+"/settings")))
+		}
+
 		if t.Gadget == nil {
 			if t.optsTangle == nil {
 				storageInstance := storage.New(test.TempDir(), 1)
 				test.Cleanup(func() {
 					t.optsLedger.Shutdown()
-					if err := storageInstance.Shutdown(); err != nil {
-						test.Fatal(err)
-					}
+					storageInstance.Shutdown()
 				})
 
 				if t.optsLedger == nil {
@@ -72,11 +76,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 					t.optsEvictionState = eviction.NewState(storageInstance)
 				}
 
-				if t.optsValidatorSet == nil {
-					t.optsValidatorSet = validator.NewSet()
-				}
-
-				t.optsTangle = tangle.New(t.optsLedger, t.optsEvictionState, t.optsValidatorSet, func() epoch.Index {
+				t.optsTangle = tangle.New(t.optsLedger, t.optsEvictionState, t.optsValidators, func() epoch.Index {
 					return 0
 				}, func(id markers.SequenceID) markers.Index {
 					return 1
@@ -87,7 +87,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		}
 
 		if t.TangleTestFramework == nil {
-			t.TangleTestFramework = tangle.NewTestFramework(test, tangle.WithTangle(t.optsTangle))
+			t.TangleTestFramework = tangle.NewTestFramework(test, tangle.WithTangle(t.optsTangle), tangle.WithValidators(t.optsValidators))
 		}
 	}, (*TestFramework).setupEvents)
 }
@@ -240,9 +240,9 @@ func WithEvictionState(evictionState *eviction.State) options.Option[TestFramewo
 	}
 }
 
-func WithValidatorSet(validatorSet *validator.Set) options.Option[TestFramework] {
+func WithValidators(validators *sybilprotection.WeightedSet) options.Option[TestFramework] {
 	return func(t *TestFramework) {
-		t.optsValidatorSet = validatorSet
+		t.optsValidators = validators
 	}
 }
 
