@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/core/logger"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
@@ -39,11 +40,11 @@ type Protocol struct {
 	Events            *Events
 	CongestionControl *congestioncontrol.CongestionControl
 	TipManager        *tipmanager.TipManager
+	chainManager      *chainmanager.Manager
 
 	dispatcher           network.Endpoint
 	networkProtocol      *network.Protocol
 	disk                 *diskutil.DiskUtil
-	chainManager         *chainmanager.Manager
 	activeEngineMutex    sync.RWMutex
 	engine               *engine.Engine
 	candidateEngine      *engine.Engine
@@ -52,13 +53,14 @@ type Protocol struct {
 	mainChain            commitment.ID
 	candidateChain       commitment.ID
 	optsBaseDirectory    string
-	optsSettingsFileName string
 	optsSnapshotPath     string
 	optsPruningThreshold uint64
+
 	// optsSolidificationOptions []options.Option[solidification.Requester]
-	optsCongestionControlOptions []options.Option[congestioncontrol.CongestionControl]
-	optsEngineOptions            []options.Option[engine.Engine]
-	optsTipManagerOptions        []options.Option[tipmanager.TipManager]
+	optsCongestionControlOptions      []options.Option[congestioncontrol.CongestionControl]
+	optsEngineOptions                 []options.Option[engine.Engine]
+	optsTipManagerOptions             []options.Option[tipmanager.TipManager]
+	optsStorageDatabaseManagerOptions []options.Option[database.Manager]
 
 	*logger.Logger
 }
@@ -70,7 +72,6 @@ func New(dispatcher network.Endpoint, opts ...options.Option[Protocol]) (protoco
 		dispatcher: dispatcher,
 
 		optsBaseDirectory:    "",
-		optsSettingsFileName: "settings.bin",
 		optsPruningThreshold: 6 * 60, // 1 hour given that epoch duration is 10 seconds
 	}, opts,
 		(*Protocol).initDisk,
@@ -108,7 +109,8 @@ func (p *Protocol) initDisk() {
 }
 
 func (p *Protocol) initMainChainStorage() {
-	p.storage = storage.New(p.disk.Path(mainBaseDir), DatabaseVersion)
+
+	p.storage = storage.New(p.disk.Path(mainBaseDir), DatabaseVersion, append([]options.Option[database.Manager]{database.WithGranularity(1)}, p.optsStorageDatabaseManagerOptions...)...)
 
 	p.Events.Engine.Consensus.EpochGadget.EpochConfirmed.Attach(event.NewClosure(func(epochIndex epoch.Index) {
 		p.storage.PruneUntilEpoch(epochIndex - epoch.Index(p.optsPruningThreshold))
@@ -172,8 +174,8 @@ func (p *Protocol) initMainEngine() {
 func (p *Protocol) initChainManager() {
 	p.chainManager = chainmanager.NewManager(p.Engine().Storage.Settings.LatestCommitment())
 
-	p.Events.Engine.NotarizationManager.EpochCommitted.Attach(event.NewClosure(func(commitment *commitment.Commitment) {
-		p.chainManager.ProcessCommitment(commitment)
+	p.Events.Engine.NotarizationManager.EpochCommitted.Attach(event.NewClosure(func(details *notarization.EpochCommittedDetails) {
+		p.chainManager.ProcessCommitment(details.Commitment)
 	}))
 }
 
@@ -201,25 +203,16 @@ func (p *Protocol) initTipManager() {
 		}
 	}))
 
-	p.Events.Engine.Tangle.BlockDAG.AllChildrenOrphaned.Hook(event.NewClosure(func(block *blockdag.Block) {
-		schedulerBlock, exists := p.CongestionControl.Scheduler().Block(block.ID())
-		if exists {
-			fmt.Println("Add tip because all children orphaned", block.ID())
-			p.TipManager.AddTip(schedulerBlock)
-		}
-	}))
-
 	p.Events.TipManager = p.TipManager.Events
 }
 
 func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) {
 	isSolid, chain, _ := p.chainManager.ProcessCommitment(block.Commitment())
-	// fmt.Println(">> ProcessBlock", block, isSolid, chain)
 	if !isSolid {
+		fmt.Println(">> chain not solid", block.Commitment().ID(), "latest commitment", p.storage.Settings.LatestCommitment().ID(), "blockID", block.ID())
 		return
 	}
 
-	// fmt.Println(">> checkchain", p.storage.Settings.ChainID(), chain.ForkingPoint.ID())
 	if mainChain := p.storage.Settings.ChainID(); chain.ForkingPoint.ID() == mainChain {
 		p.Engine().ProcessBlockFromPeer(block, src)
 		return
@@ -249,6 +242,10 @@ func (p *Protocol) Engine() (instance *engine.Engine) {
 	defer p.activeEngineMutex.RUnlock()
 
 	return p.engine
+}
+
+func (p *Protocol) ChainManager() (instance *chainmanager.Manager) {
+	return p.chainManager
 }
 
 func (p *Protocol) CandidateEngine() (instance *engine.Engine) {
@@ -326,6 +323,12 @@ func WithTipManagerOptions(opts ...options.Option[tipmanager.TipManager]) option
 func WithEngineOptions(opts ...options.Option[engine.Engine]) options.Option[Protocol] {
 	return func(n *Protocol) {
 		n.optsEngineOptions = opts
+	}
+}
+
+func WithStorageDatabaseManagerOptions(opts ...options.Option[database.Manager]) options.Option[Protocol] {
+	return func(p *Protocol) {
+		p.optsStorageDatabaseManagerOptions = opts
 	}
 }
 

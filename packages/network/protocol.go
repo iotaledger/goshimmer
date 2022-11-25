@@ -1,13 +1,18 @@
 package network
 
 import (
+	"sync"
+
 	"github.com/cockroachdb/errors"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/iotaledger/hive.go/core/bytesfilter"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/identity"
-	"google.golang.org/protobuf/proto"
+	"github.com/iotaledger/hive.go/core/types"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -25,6 +30,9 @@ type Protocol struct {
 
 	network                   Endpoint
 	duplicateBlockBytesFilter *bytesfilter.BytesFilter
+
+	requestedBlockHashes      *shrinkingmap.ShrinkingMap[types.Identifier, types.Empty]
+	requestedBlockHashesMutex sync.Mutex
 }
 
 func NewProtocol(network Endpoint, opts ...options.Option[Protocol]) (protocol *Protocol) {
@@ -32,7 +40,8 @@ func NewProtocol(network Endpoint, opts ...options.Option[Protocol]) (protocol *
 		Events: NewEvents(),
 
 		network:                   network,
-		duplicateBlockBytesFilter: bytesfilter.New(100000),
+		duplicateBlockBytesFilter: bytesfilter.New(10000),
+		requestedBlockHashes:      shrinkingmap.New[types.Identifier, types.Empty](shrinkingmap.WithShrinkingThresholdCount(1000)),
 	}, opts, func(p *Protocol) {
 		network.RegisterProtocol(protocolID, newPacket, p.handlePacket)
 	})
@@ -45,6 +54,10 @@ func (p *Protocol) SendBlock(block *models.Block, to ...identity.ID) {
 }
 
 func (p *Protocol) RequestBlock(id models.BlockID, to ...identity.ID) {
+	p.requestedBlockHashesMutex.Lock()
+	p.requestedBlockHashes.Set(id.Identifier, types.Void)
+	p.requestedBlockHashesMutex.Unlock()
+
 	p.network.Send(&Packet{Body: &Packet_BlockRequest{BlockRequest: &BlockRequest{
 		Bytes: lo.PanicOnErr(id.Bytes()),
 	}}}, protocolID, to...)
@@ -108,7 +121,13 @@ func (p *Protocol) handlePacket(nbr identity.ID, packet proto.Message) (err erro
 }
 
 func (p *Protocol) onBlock(blockData []byte, id identity.ID) {
-	if !p.duplicateBlockBytesFilter.Add(blockData) {
+	blockHash, isNew := p.duplicateBlockBytesFilter.Add(blockData)
+
+	p.requestedBlockHashesMutex.Lock()
+	requested := p.requestedBlockHashes.Delete(blockHash)
+	p.requestedBlockHashesMutex.Unlock()
+
+	if !isNew && !requested {
 		return
 	}
 
@@ -121,7 +140,7 @@ func (p *Protocol) onBlock(blockData []byte, id identity.ID) {
 
 		return
 	}
-	block.DetermineIDFromBytes(blockData)
+	block.DetermineIDFromBytes(blockData, blockHash)
 
 	p.Events.BlockReceived.Trigger(&BlockReceivedEvent{
 		Block:  block,

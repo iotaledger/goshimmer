@@ -132,7 +132,7 @@ func (l *LedgerState) Import(reader io.ReadSeeker) (err error) {
 		l.ImportOutput(output)
 
 		if err = binary.Read(reader, binary.LittleEndian, &nextOutputSize); err != nil {
-			return errors.Errorf("failed to read size of next output: %w", err)
+			return errors.Errorf("failed to read size of next output: %s", err)
 		}
 	}
 
@@ -159,7 +159,7 @@ func (l *LedgerState) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (er
 
 		return err == nil
 	}); iterationErr != nil {
-		return errors.Errorf("failed to stream unspent output IDs: %w", iterationErr)
+		return errors.Errorf("failed to stream unspent output IDs: %s", iterationErr)
 	} else if err != nil {
 		return err
 	} else if err = binary.Write(writer, binary.LittleEndian, uint64(0)); err != nil {

@@ -1,14 +1,12 @@
 package blockdag
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/walker"
-	"github.com/iotaledger/hive.go/core/syncutils"
 
 	"github.com/iotaledger/goshimmer/packages/core/causalorder"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -33,9 +31,6 @@ type BlockDAG struct {
 	// solidifier contains the solidifier instance used to determine the solidity of Blocks.
 	solidifier *causalorder.CausalOrder[models.BlockID, *Block]
 
-	// orphanageMutex is a mutex that is used to synchronize updates to the orphanage flags.
-	orphanageMutex *syncutils.DAGMutex[models.BlockID]
-
 	// evictionMutex is a mutex that is used to synchronize the eviction of elements from the BlockDAG.
 	evictionMutex sync.RWMutex
 }
@@ -43,10 +38,9 @@ type BlockDAG struct {
 // New is the constructor for the BlockDAG and creates a new BlockDAG instance.
 func New(evictionState *eviction.State, opts ...options.Option[BlockDAG]) (newBlockDAG *BlockDAG) {
 	return options.Apply(&BlockDAG{
-		Events:         NewEvents(),
-		EvictionState:  evictionState,
-		memStorage:     memstorage.NewEpochStorage[models.BlockID, *Block](),
-		orphanageMutex: syncutils.NewDAGMutex[models.BlockID](),
+		Events:        NewEvents(),
+		EvictionState: evictionState,
+		memStorage:    memstorage.NewEpochStorage[models.BlockID, *Block](),
 	}, opts, func(b *BlockDAG) {
 		b.solidifier = causalorder.New(
 			b.Block,
@@ -105,27 +99,21 @@ func (b *BlockDAG) SetInvalid(block *Block, reason error) (wasUpdated bool) {
 }
 
 // SetOrphaned marks a Block as orphaned and propagates it to its future cone.
-func (b *BlockDAG) SetOrphaned(block *Block, orphaned bool) (updated bool, statusChanged bool) {
-	b.orphanageMutex.Lock(block.ID())
-	defer b.orphanageMutex.Unlock(block.ID())
-	if !orphaned && !block.OrphanedBlocksInPastCone().Empty() {
-		panic(fmt.Sprintf("tried to unorphan a block %s that still has orphaned parents %s", block.ID(), block.OrphanedBlocksInPastCone().String()))
-	}
+func (b *BlockDAG) SetOrphaned(block *Block, orphaned bool) (updated bool) {
+	// TODO: should we check whether the parents are not orphaned as well in case we unorphan?
+	//  should not happen because we only unorphan in the blockgadget in the causal order which should happen in-order.
 
-	updateEvent, updateFunc := b.orphanageUpdaters(orphaned)
-
-	if updated, statusChanged = block.setOrphaned(orphaned); !updated {
+	if !block.setOrphaned(orphaned) {
 		return
 	}
 
-	if statusChanged {
-		updateEvent.Trigger(block)
-		b.checkStrongParents(block)
+	if orphaned {
+		b.Events.BlockOrphaned.Trigger(block)
+	} else {
+		b.Events.BlockUnorphaned.Trigger(block)
 	}
 
-	b.propagateOrphanageUpdate(block.Children(), models.NewBlockIDs(block.ID()), updateEvent, updateFunc)
-
-	return
+	return true
 }
 
 // evictEpoch is used to evict Blocks from committed epochs from the BlockDAG.
@@ -144,8 +132,6 @@ func (b *BlockDAG) markSolid(block *Block) (err error) {
 	}
 
 	block.setSolid()
-
-	b.inheritOrphanage(block)
 
 	b.Events.BlockSolid.Trigger(block)
 
@@ -257,92 +243,6 @@ func (b *BlockDAG) walkFutureCone(blocks []*Block, callback func(currentBlock *B
 	for childWalker := walker.New[*Block](false).PushAll(blocks...); childWalker.HasNext(); {
 		childWalker.PushAll(callback(childWalker.Next())...)
 	}
-}
-
-// inheritOrphanage inherits the orphanage state of the parents to the given Block.
-func (b *BlockDAG) inheritOrphanage(block *Block) {
-	b.orphanageMutex.RLock(block.Parents()...)
-	defer b.orphanageMutex.RUnlock(block.Parents()...)
-
-	if orphanedBlocks := b.orphanedBlocksInPastCone(block); !orphanedBlocks.Empty() {
-		b.propagateOrphanageUpdate([]*Block{block}, orphanedBlocks, b.Events.BlockOrphaned, (*Block).addOrphanedBlocksInPastCone)
-	}
-}
-
-// orphanedBlocksInPastCone returns an aggregation of the orphaned Blocks of the parents of the given Block.
-func (b *BlockDAG) orphanedBlocksInPastCone(block *Block) (orphanedBlocks models.BlockIDs) {
-	orphanedBlocks = models.NewBlockIDs()
-	block.ForEachParent(func(parent models.Parent) {
-		parentBlock, exists := b.Block(parent.ID)
-		if !exists {
-			panic(fmt.Sprintf("failed to find parent block with %s", parent.ID))
-		}
-
-		orphanedBlocks.AddAll(parentBlock.OrphanedBlocksInPastCone())
-		if parentBlock.isOrphaned() {
-			orphanedBlocks.Add(parentBlock.ID())
-		}
-	})
-
-	return
-}
-
-// orphanageUpdaters returns the Event and update function used for handling the different types of orphanage updates.
-func (b *BlockDAG) orphanageUpdaters(orphaned bool) (updateEvent *event.Linkable[*Block], updateFunc func(*Block, models.BlockIDs) (bool, bool)) {
-	if !orphaned {
-		return b.Events.BlockUnorphaned, (*Block).removeOrphanedBlocksInPastCone
-	}
-
-	return b.Events.BlockOrphaned, (*Block).addOrphanedBlocksInPastCone
-}
-
-// propagateOrphanageUpdate propagates the orphanage status of a Block to its future cone.
-func (b *BlockDAG) propagateOrphanageUpdate(blocks []*Block, orphanedBlocks models.BlockIDs, updateEvent *event.Linkable[*Block], updateFunc func(*Block, models.BlockIDs) (bool, bool)) {
-	b.walkFutureCone(blocks, func(currentBlock *Block) []*Block {
-		b.orphanageMutex.Lock(currentBlock.ID())
-		defer b.orphanageMutex.Unlock(currentBlock.ID())
-
-		updated, statusChanged := updateFunc(currentBlock, orphanedBlocks)
-		if !updated {
-			return nil
-		}
-
-		if statusChanged {
-			updateEvent.Trigger(currentBlock)
-			b.checkStrongParents(currentBlock)
-		}
-
-		return currentBlock.Children()
-	})
-}
-
-func (b *BlockDAG) checkStrongParents(block *Block) {
-	if !block.IsOrphaned() {
-		return
-	}
-
-	for parentID := range block.ParentsByType(models.StrongParentType) {
-		if b.EvictionState.IsRootBlock(parentID) {
-			continue
-		}
-		parent, parentExists := b.block(parentID)
-		if !parentExists {
-			continue
-		}
-		if !parent.IsOrphaned() && areAllChildrenOrphaned(parent) {
-			fmt.Println("all children orphaned")
-			b.Events.AllChildrenOrphaned.Trigger(parent)
-		}
-	}
-}
-
-func areAllChildrenOrphaned(block *Block) (allChildrenOrphaned bool) {
-	for _, childBlock := range block.StrongChildren() {
-		if !childBlock.IsOrphaned() {
-			return false
-		}
-	}
-	return true
 }
 
 // checkReference checks if the reference between the child and its parent is valid.

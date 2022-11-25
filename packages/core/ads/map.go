@@ -15,7 +15,9 @@ import (
 type Map[K, V constraints.Serializable, KPtr constraints.MarshalablePtr[K], VPtr constraints.MarshalablePtr[V]] struct {
 	tree    *smt.SparseMerkleTree
 	rawKeys kvstore.KVStore
-	mutex   sync.RWMutex
+
+	// A mutex is needed as reads from the smt.SparseMerkleTree can translate to writes.
+	mutex sync.Mutex
 }
 
 func NewMap[K, V constraints.Serializable, KPtr constraints.MarshalablePtr[K], VPtr constraints.MarshalablePtr[V]](store kvstore.KVStore) *Map[K, V, KPtr, VPtr] {
@@ -31,8 +33,8 @@ func NewMap[K, V constraints.Serializable, KPtr constraints.MarshalablePtr[K], V
 
 // Root returns the root of the state sparse merkle tree at the latest committed epoch.
 func (m *Map[K, V, KPtr, VPtr]) Root() (root types.Identifier) {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	copy(root[:], m.tree.Root())
 
@@ -79,16 +81,16 @@ func (m *Map[K, V, KPtr, VPtr]) Delete(key K) (deleted bool) {
 
 // Has returns true if the key is in the set.
 func (m *Map[K, V, KPtr, VPtr]) Has(key K) (has bool) {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	return lo.PanicOnErr(m.tree.Has(lo.PanicOnErr(key.Bytes())))
 }
 
 // Get returns the value for the given key.
 func (m *Map[K, V, KPtr, VPtr]) Get(key K) (value VPtr, exists bool) {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	valueBytes, err := m.tree.Get(lo.PanicOnErr(key.Bytes()))
 	if errors.Is(err, kvstore.ErrKeyNotFound) {
@@ -110,7 +112,6 @@ func (m *Map[K, V, KPtr, VPtr]) Get(key K) (value VPtr, exists bool) {
 }
 
 func (m *Map[K, V, KPtr, VPtr]) Stream(callback func(key K, value VPtr) bool) (err error) {
-	// A write Lock seem to be needed to avoid m.tree.Get to fail retriving keys when accessed concurrently.
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 

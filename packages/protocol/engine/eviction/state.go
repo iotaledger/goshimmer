@@ -123,6 +123,10 @@ func (s *State) IsRootBlock(id models.BlockID) (has bool) {
 	s.evictionMutex.RLock()
 	defer s.evictionMutex.RUnlock()
 
+	if id.Index() > s.lastEvictedEpoch {
+		return false
+	}
+
 	epochBlocks := s.rootBlocks.Get(id.Index(), false)
 
 	return epochBlocks != nil && epochBlocks.Has(id)

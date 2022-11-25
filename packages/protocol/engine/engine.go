@@ -9,8 +9,6 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
 
-	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/eventticker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
@@ -66,7 +64,6 @@ type Engine struct {
 	optsTangleOptions              []options.Option[tangle.Tangle]
 	optsConsensusOptions           []options.Option[consensus.Consensus]
 	optsTSCManagerOptions          []options.Option[tsc.Manager]
-	optsDatabaseManagerOptions     []options.Option[database.Manager]
 	optsBlockRequester             []options.Option[eventticker.EventTicker[models.BlockID]]
 }
 
@@ -239,7 +236,7 @@ func (e *Engine) initBlockStorage() {
 }
 
 func (e *Engine) initNotarizationManager() {
-	e.NotarizationManager = notarization.NewManager(e.Storage, e.LedgerState, e.SybilProtection.Weights())
+	e.NotarizationManager = notarization.NewManager(e.Storage, e.LedgerState, e.SybilProtection.Weights(), e.optsNotarizationManagerOptions...)
 
 	e.Consensus.BlockGadget.Events.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
 		if err := e.NotarizationManager.AddAcceptedBlock(block.ModelsBlock); err != nil {
@@ -280,6 +277,7 @@ func (e *Engine) initNotarizationManager() {
 	}))
 
 	e.Events.NotarizationManager.LinkTo(e.NotarizationManager.Events)
+	e.Events.EpochMutations.LinkTo(e.NotarizationManager.EpochMutations.Events)
 }
 
 func (e *Engine) initManaTracker() {
@@ -300,8 +298,8 @@ func (e *Engine) initEvictionState() {
 		e.EvictionState.RemoveRootBlock(block.ID())
 	}))
 
-	e.NotarizationManager.Events.EpochCommitted.Attach(event.NewClosure(func(commitment *commitment.Commitment) {
-		e.EvictionState.EvictUntil(commitment.Index())
+	e.NotarizationManager.Events.EpochCommitted.Attach(event.NewClosure(func(details *notarization.EpochCommittedDetails) {
+		e.EvictionState.EvictUntil(details.Commitment.Index())
 	}))
 
 	e.Events.EvictionState.LinkTo(e.EvictionState.Events)
@@ -394,12 +392,6 @@ func WithTSCManagerOptions(opts ...options.Option[tsc.Manager]) options.Option[E
 func WithSnapshotFile(snapshotFile string) options.Option[Engine] {
 	return func(e *Engine) {
 		e.optsSnapshotFile = snapshotFile
-	}
-}
-
-func WithDatabaseManagerOptions(opts ...options.Option[database.Manager]) options.Option[Engine] {
-	return func(e *Engine) {
-		e.optsDatabaseManagerOptions = opts
 	}
 }
 

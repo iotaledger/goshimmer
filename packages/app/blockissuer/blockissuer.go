@@ -154,8 +154,8 @@ func (f *BlockIssuer) IssueBlockAndAwaitBlockToBeBooked(block *models.Block, max
 	}
 }
 
-// IssueBlockAndAwaitBlockToBeIssued awaits maxAwait for the given block to get issued.
-func (f *BlockIssuer) IssueBlockAndAwaitBlockToBeIssued(block *models.Block, maxAwait time.Duration) error {
+// IssueBlockAndAwaitBlockToBeScheduled awaits maxAwait for the given block to get issued.
+func (f *BlockIssuer) IssueBlockAndAwaitBlockToBeScheduled(block *models.Block, maxAwait time.Duration) error {
 	if !f.optsIgnoreBootstrappedFlag && !f.protocol.Engine().IsBootstrapped() {
 		return ErrNotBootstraped
 	}

@@ -42,7 +42,7 @@ func NewOutputWithMetadata(index epoch.Index, outputID utxo.OutputID, output utx
 		Output:                output,
 		ConsensusManaPledgeID: consensusManaPledgeID,
 		AccessManaPledgeID:    accessManaPledgeID,
-	})
+	}, false)
 	new.SetID(outputID)
 	return
 }

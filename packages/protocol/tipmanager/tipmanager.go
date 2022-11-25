@@ -21,9 +21,6 @@ type acceptanceGadget interface {
 	FirstUnacceptedIndex(sequenceID markers.SequenceID) (firstUnacceptedIndex markers.Index)
 }
 
-// TimeRetrieverFunc is a function type to retrieve the time.
-type timeRetrieverFunc func() time.Time
-
 type blockRetrieverFunc func(id models.BlockID) (block *scheduler.Block, exists bool)
 
 // region TipManager ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -152,38 +149,53 @@ func (t *TipManager) Tips(countParents int) (parents models.BlockIDs) {
 
 func (t *TipManager) selectTips(count int) (parents models.BlockIDs) {
 	parents = models.NewBlockIDs()
+	for {
+		tips := t.tips.RandomUniqueEntries(count)
 
-	tips := t.tips.RandomUniqueEntries(count)
+		// only add genesis if no tips are available
+		if len(tips) == 0 {
+			rootBlock := t.engine.EvictionState.LatestRootBlock()
+			fmt.Println("(time: ", time.Now(), ") selecting root block because tip pool empty:", rootBlock)
 
-	// only add genesis if no tips are available
-	if len(tips) == 0 {
-		fmt.Println("selecting genesis block because tip pool empty")
+			return parents.Add(rootBlock)
+		}
 
-		return parents.Add(t.engine.EvictionState.LatestRootBlock())
-	}
+		// at least one tip is returned
+		for _, tip := range tips {
+			if t.isPastConeTimestampCorrect(tip.Block.Block) {
+				parents.Add(tip.ID())
+			} else {
+				fmt.Printf("(time: %s) cannot select tip due to TSC condition tip issuing time (%s), time (%s), min supported time (%s), block id (%s), tip pool size (%d), scheduled: (%t), orphaned: (%t), accepted: (%t)\n",
+					time.Now(),
+					tip.IssuingTime(),
+					t.engine.Clock.AcceptedTime(),
+					t.engine.Clock.AcceptedTime().Add(-t.optsTimeSinceConfirmationThreshold),
+					tip.ID().Base58(),
+					t.tips.Size(),
+					tip.IsScheduled(),
+					tip.IsOrphaned(),
+					t.engine.Consensus.BlockGadget.IsBlockAccepted(tip.ID()),
+				)
+				// tip.ForEachParent(func(parent models.Parent) {
+				// 	fmt.Println("parent block id", parent.ID.Base58())
+				// 	if parentBlock, exists := t.engine.(parent.ID); exists {
+				// 		fmt.Println(parentBlock.IssuingTime(), parentBlock.IsScheduled())
+				// 	}
+				// 	if t.acceptanceGadget.IsBlockAccepted(parent.ID) {
+				// 		fmt.Println("parent block accepted")
+				// 	}
+				// })
+				t.DeleteTip(tip)
+				if t.tips.Size() == 0 {
+					fmt.Println("(time: ", time.Now(), ") >> deleted last TIP because it doesn't pass tsc check!", tip.ID())
+				}
+			}
+		}
 
-	// at least one tip is returned
-	for _, tip := range tips {
-		if t.isPastConeTimestampCorrect(tip.Block.Block) {
-			parents.Add(tip.ID())
-			// } else {
-			//	fmt.Printf("cannot select tip due to TSC condition tip issuing time (%s), time (%s), min supported time (%s), block id (%s), tip pool size %d\n", tip.IssuingTime(), t.timeRetrieverFunc(), t.timeRetrieverFunc().Add(-t.optsTimeSinceConfirmationThreshold), tip.ID().Base58(), t.tips.Size())
-			//	fmt.Println(tip.IsScheduled(), "Orphaned", tip.IsOrphaned(), "accepted", t.acceptanceGadget.IsBlockAccepted(tip.ID()))
-			//	tip.ForEachParent(func(parent models.Parent) {
-			//		fmt.Println("parent block id", parent.ID.Base58())
-			//		if parentBlock, exists := t.blockRetrieverFunc(parent.ID); exists {
-			//			fmt.Println(parentBlock.IssuingTime(), parentBlock.IsScheduled())
-			//		}
-			//		if t.acceptanceGadget.IsBlockAccepted(parent.ID) {
-			//			fmt.Println("parent block accepted")
-			//		}
-			//	})
+		if len(parents) > 0 {
+			return parents
 		}
 	}
-
-	// TODO: should we retry if no valid tip is left?
-
-	return parents
 }
 
 // AllTips returns a list of all tips that are stored in the TipManger.
@@ -199,6 +211,11 @@ func (t *TipManager) TipCount() int {
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region TSC to prevent lazy tips /////////////////////////////////////////////////////////////////////////////////////
+
+type markerPreviousBlockPair struct {
+	Marker        markers.Marker
+	PreviousBlock *booker.Block
+}
 
 // isPastConeTimestampCorrect performs the TSC check for the given tip.
 // Conceptually, this involves the following steps:
@@ -226,29 +243,37 @@ func (t *TipManager) isPastConeTimestampCorrect(block *booker.Block) (timestampV
 		return true
 	}
 
-	markerWalker := walker.New[markers.Marker](false)
+	markerWalker := walker.New[markerPreviousBlockPair](false)
 	blockWalker := walker.New[*booker.Block](false)
 
-	t.processInitialBlock(block, blockWalker, markerWalker)
+	processInitialBlock(block, blockWalker, markerWalker)
 
-	previousBlock := block
 	for markerWalker.HasNext() {
-		previousBlock, timestampValid = t.checkMarker(markerWalker.Next(), previousBlock, blockWalker, markerWalker, minSupportedTimestamp)
+		marker := markerWalker.Next()
+		timestampValid = t.checkPair(marker, blockWalker, markerWalker, minSupportedTimestamp)
 		if !timestampValid {
+			markerBlock, exists := t.engine.Tangle.Booker.BlockFromMarker(marker.Marker)
+			if !exists {
+				fmt.Println("(time: ", time.Now(), ") marker does not exist?", marker)
+			} else {
+				fmt.Println("(time: ", time.Now(), ") walked on marker ", marker, markerBlock.ID(), " before min supported timestamp issuing time(", block.IssuingTime().String(), "), minsupportedtime(", minSupportedTimestamp, ")")
+			}
 			return false
 		}
 	}
 
 	for blockWalker.HasNext() {
-		timestampValid = t.checkBlock(blockWalker.Next(), blockWalker, minSupportedTimestamp)
+		blockW := blockWalker.Next()
+		timestampValid = t.checkBlock(blockW, blockWalker, minSupportedTimestamp)
 		if !timestampValid {
+			fmt.Println("(time: ", time.Now(), ") walked on block before min supported timestamp", blockW.ID(), "issuing time(", blockW.IssuingTime().String(), "), minsupportedtime(", minSupportedTimestamp, ")")
 			return false
 		}
 	}
 	return true
 }
 
-func (t *TipManager) processInitialBlock(block *booker.Block, blockWalker *walker.Walker[*booker.Block], markerWalker *walker.Walker[markers.Marker]) {
+func processInitialBlock(block *booker.Block, blockWalker *walker.Walker[*booker.Block], markerWalker *walker.Walker[markerPreviousBlockPair]) {
 	if block.StructureDetails() == nil || block.StructureDetails().PastMarkers().Size() == 0 {
 		// need to walk blocks
 		// should never go here
@@ -264,62 +289,64 @@ func (t *TipManager) processInitialBlock(block *booker.Block, blockWalker *walke
 			return false
 		}
 
-		markerWalker.Push(markers.NewMarker(sequenceID, index))
+		markerWalker.Push(markerPreviousBlockPair{Marker: markers.NewMarker(sequenceID, index), PreviousBlock: block})
 		return true
 	})
 }
 
-func (t *TipManager) checkMarker(marker markers.Marker, previousBlock *booker.Block, blockWalker *walker.Walker[*booker.Block], markerWalker *walker.Walker[markers.Marker], minSupportedTimestamp time.Time) (block *booker.Block, timestampValid bool) {
-	block, exists := t.engine.Tangle.BlockFromMarker(marker)
+func (t *TipManager) checkPair(pair markerPreviousBlockPair, blockWalker *walker.Walker[*booker.Block], markerWalker *walker.Walker[markerPreviousBlockPair], minSupportedTimestamp time.Time) (timestampValid bool) {
+	block, exists := t.engine.Tangle.BlockFromMarker(pair.Marker)
 	if !exists {
-		return nil, false
+		return false
 	}
 
 	// marker before minSupportedTimestamp
 	if block.IssuingTime().Before(minSupportedTimestamp) {
 		// marker before minSupportedTimestamp
-		if !t.blockAcceptanceGadget.IsMarkerAccepted(marker) {
+		if !t.blockAcceptanceGadget.IsMarkerAccepted(pair.Marker) {
 			// if not accepted, then incorrect
-			markerWalker.StopWalk()
-			return nil, false
+			return false
 		}
 		// if closest past marker is accepted and before minSupportedTimestamp, then need to walk block past cone of the previously marker block
-		blockWalker.Push(previousBlock)
-		return block, true
+		blockWalker.Push(pair.PreviousBlock)
+		return true
 	}
 	// accepted after minSupportedTimestamp
-	if t.blockAcceptanceGadget.IsMarkerAccepted(marker) {
-		return block, true
+	if t.blockAcceptanceGadget.IsMarkerAccepted(pair.Marker) {
+		return true
 	}
 
 	// unaccepted after minSupportedTimestamp
+	sequence, exists := t.engine.Tangle.Booker.Sequence(pair.Marker.SequenceID())
+	if !exists {
+		return false
+	}
 
 	// check oldest unaccepted marker time without walking sequence DAG
-	firstUnacceptedMarker := t.firstUnacceptedMarker(marker)
-	if timestampValid = t.processMarker(marker, minSupportedTimestamp, firstUnacceptedMarker); !timestampValid {
-		return nil, false
+	firstUnacceptedMarker := findFirstUnacceptedMarker(sequence, t.engine.Tangle.BlockFromMarker, t.engine.FirstUnacceptedMarker)
+	if timestampValid = t.processMarker(pair.Marker, minSupportedTimestamp, firstUnacceptedMarker); !timestampValid {
+		return false
 	}
 
-	sequence, exists := t.engine.Tangle.Booker.Sequence(marker.SequenceID())
-	if !exists {
-		return nil, false
-	}
-
-	// If there is a accepted marker before the oldest unaccepted marker, and it's older than minSupportedTimestamp, need to walk block past cone of firstUnacceptedMarker.
+	// If there is an accepted marker before the oldest unaccepted marker, and it's older than minSupportedTimestamp, need to walk block past cone of firstUnacceptedMarker.
 	if sequence.LowestIndex() < firstUnacceptedMarker.Index() {
-		acceptedMarker, blockOfMarker := t.previousMarkerWithBlock(sequence, firstUnacceptedMarker.Index())
+		acceptedMarker := previousMarker(sequence, firstUnacceptedMarker.Index(), t.engine.Tangle.BlockFromMarker)
 
 		if t.isMarkerOldAndAccepted(acceptedMarker, minSupportedTimestamp) {
-			blockWalker.Push(blockOfMarker)
+			firstUnacceptedMarkerBlock, blockExists := t.engine.Tangle.Booker.BlockFromMarker(firstUnacceptedMarker)
+			if !blockExists {
+				return false
+			}
+			blockWalker.Push(firstUnacceptedMarkerBlock)
 		}
 	}
 
 	// process markers from different sequences that are referenced by current marker's sequence, i.e., walk the sequence DAG
-	sequence.ReferencedMarkers(marker.Index()).ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
-		// Ignore Marker(0, 0) as it sometimes occurs in the past marker cone. Marker mysteries.
+	sequence.ReferencedMarkers(pair.Marker.Index()).ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
+		// Ignore Marker(_, 0) as it sometimes occurs in the past marker cone. Marker mysteries.
 		// This should not be necessary anymore?
 		if index == 0 {
-			fmt.Println("ignore Marker(0, 0) during tip fishing")
+			fmt.Println("(time: ", time.Now(), ") ignore Marker(_, 0) during tip fishing")
 			return true
 		}
 
@@ -327,7 +354,7 @@ func (t *TipManager) checkMarker(marker markers.Marker, previousBlock *booker.Bl
 
 		// if referenced marker is accepted and older than minSupportedTimestamp, walk unaccepted block past cone of firstUnacceptedMarker
 		if t.isMarkerOldAndAccepted(referencedMarker, minSupportedTimestamp) {
-			referencedMarkerBlock, referencedMarkerBlockExists := t.engine.Tangle.BlockFromMarker(marker)
+			referencedMarkerBlock, referencedMarkerBlockExists := t.engine.Tangle.BlockFromMarker(pair.Marker)
 			if !referencedMarkerBlockExists {
 				return false
 			}
@@ -336,15 +363,20 @@ func (t *TipManager) checkMarker(marker markers.Marker, previousBlock *booker.Bl
 		}
 
 		// otherwise, process the referenced marker
-		markerWalker.Push(referencedMarker)
+		markerWalker.Push(markerPreviousBlockPair{Marker: referencedMarker, PreviousBlock: block})
 		return true
 	})
 
-	return block, true
+	return true
 }
 
 // isMarkerOldAndAccepted check whether previousMarker is accepted and older than minSupportedTimestamp. It is used to check whether to walk blocks in the past cone of the current marker.
 func (t *TipManager) isMarkerOldAndAccepted(previousMarker markers.Marker, minSupportedTimestamp time.Time) bool {
+	// check if previous marker belongs to a root block,
+	if previousMarker.Index() == 0 {
+		return true
+	}
+
 	block, exists := t.engine.Tangle.Booker.BlockFromMarker(previousMarker)
 	if !exists {
 		return false
@@ -375,7 +407,6 @@ func (t *TipManager) processMarker(pastMarker markers.Marker, minSupportedTimest
 func (t *TipManager) checkBlock(block *booker.Block, blockWalker *walker.Walker[*booker.Block], minSupportedTimestamp time.Time) (timestampValid bool) {
 	// if block is older than TSC then it's incorrect no matter the confirmation status
 	if block.IssuingTime().Before(minSupportedTimestamp) {
-		blockWalker.StopWalk()
 		return false
 	}
 
@@ -384,12 +415,17 @@ func (t *TipManager) checkBlock(block *booker.Block, blockWalker *walker.Walker[
 		return true
 	}
 
+	if block.IsOrphaned() {
+		return false
+	}
+
 	// if block is younger than TSC and not accepted, walk through strong parents' past cones
 	for parentID := range block.ParentsByType(models.StrongParentType) {
 		parentBlock, exists := t.schedulerBlockRetrieverFunc(parentID)
-		if exists {
-			blockWalker.Push(parentBlock.Block.Block)
+		if !exists {
+			return false
 		}
+		blockWalker.Push(parentBlock.Block.Block)
 	}
 
 	return true
@@ -397,35 +433,46 @@ func (t *TipManager) checkBlock(block *booker.Block, blockWalker *walker.Walker[
 
 // firstUnacceptedMarker is similar to acceptance.FirstUnacceptedIndex, except it skips any marker gaps and returns
 // an existing marker.
-func (t *TipManager) firstUnacceptedMarker(pastMarker markers.Marker) (firstUnacceptedMarker markers.Marker) {
-	firstUnacceptedIndex := t.blockAcceptanceGadget.FirstUnacceptedIndex(pastMarker.SequenceID())
-	// skip any gaps in marker indices
-	for ; firstUnacceptedIndex <= pastMarker.Index(); firstUnacceptedIndex++ {
-		firstUnacceptedMarker = markers.NewMarker(pastMarker.SequenceID(), firstUnacceptedIndex)
+func findFirstUnacceptedMarker(sequence *markers.Sequence, blockFromMarkerCallback func(marker markers.Marker) (block *booker.Block, exists bool), firstUnacceptedIndexCallback func(id markers.SequenceID) markers.Index) (firstUnacceptedMarker markers.Marker) {
+	firstUnacceptedMarker = markers.NewMarker(sequence.ID(), firstUnacceptedIndexCallback(sequence.ID()))
 
-		// Skip if there is no marker at the given index, i.e., the sequence has a gap.
-		if _, exists := t.engine.Tangle.Booker.BlockFromMarker(firstUnacceptedMarker); !exists {
-			continue
+	// skip any gaps in marker indices
+	for {
+		if firstUnacceptedMarker.Index() >= sequence.HighestIndex() {
+			return firstUnacceptedMarker
 		}
 
-		break
-	}
+		// Skip if there is no marker at the given index, i.e., the sequence has a gap.
+		if _, exists := blockFromMarkerCallback(firstUnacceptedMarker); exists {
+			return firstUnacceptedMarker
+		}
 
-	return firstUnacceptedMarker
+		firstUnacceptedMarker = markers.NewMarker(sequence.ID(), firstUnacceptedMarker.Index()+1)
+	}
 }
 
-func (t *TipManager) previousMarkerWithBlock(sequence *markers.Sequence, markerIndex markers.Index) (previousMarker markers.Marker, block *booker.Block) {
+func previousMarker(sequence *markers.Sequence, markerIndex markers.Index, blockFromMarkerCallback func(marker markers.Marker) (block *booker.Block, exists bool)) (previousMarker markers.Marker) {
+	previousMarker = markers.NewMarker(sequence.ID(), markerIndex-1)
+
 	// skip any gaps in marker indices and start from marker below current one.
-	for markerIndex--; sequence.LowestIndex() <= markerIndex; markerIndex-- {
-		previousMarker = markers.NewMarker(sequence.ID(), markerIndex)
+	for {
+		// if index=0 then it's a root block, and we don't need to check if a block exists.
+		if previousMarker.Index() == 0 {
+			return previousMarker
+		}
+
+		// if lowest index is reached, then do not continue
+		if previousMarker.Index() <= sequence.LowestIndex() {
+			return previousMarker
+		}
 
 		// Skip if there is no marker at the given index, i.e., the sequence has a gap.
-		if block, exists := t.engine.Tangle.BlockFromMarker(previousMarker); exists {
-			return previousMarker, block
+		if _, exists := blockFromMarkerCallback(previousMarker); exists {
+			return previousMarker
 		}
-	}
 
-	return
+		previousMarker = markers.NewMarker(sequence.ID(), previousMarker.Index()-1)
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

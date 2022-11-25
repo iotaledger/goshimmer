@@ -24,6 +24,7 @@ type Events struct {
 	Consensus           *consensus.Events
 	Clock               *clock.Events
 	NotarizationManager *notarization.Events
+	EpochMutations      *notarization.EpochMutationsEvents
 	BlockRequester      *eventticker.Events[models.BlockID]
 
 	event.LinkableCollection[Events, *Events]
@@ -40,6 +41,7 @@ var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 		Consensus:           consensus.NewEvents(),
 		Clock:               clock.NewEvents(),
 		NotarizationManager: notarization.NewEvents(),
+		EpochMutations:      notarization.NewEpochMutationsEvents(),
 		BlockRequester:      eventticker.NewEvents[models.BlockID](),
 	}
 })

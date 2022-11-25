@@ -8,9 +8,7 @@ import (
 )
 
 func TestEpoch(t *testing.T) {
-	genesisTime := time.Now()
-	GenesisTime = genesisTime.Unix()
-	Duration = 10
+	genesisTime := time.Unix(GenesisTime, 0)
 
 	{
 		// ei = 0

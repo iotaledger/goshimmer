@@ -20,10 +20,12 @@ const (
 )
 
 type Set[K any, KPtr constraints.MarshalablePtr[K]] struct {
-	store kvstore.KVStore
-	tree  *smt.SparseMerkleTree
+	store   kvstore.KVStore
+	tree    *smt.SparseMerkleTree
 	rawKeys kvstore.KVStore
-	mutex sync.RWMutex
+
+	// A mutex is needed as reads from the smt.SparseMerkleTree can translate to writes.
+	mutex sync.Mutex
 }
 
 func NewSet[K any, KPtr constraints.MarshalablePtr[K]](store kvstore.KVStore) *Set[K, KPtr] {
@@ -44,8 +46,8 @@ func (s *Set[K, KPtr]) Root() (root types.Identifier) {
 		return types.Identifier{}
 	}
 
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
 	copy(root[:], s.tree.Root())
 
@@ -99,8 +101,8 @@ func (s *Set[K, KPtr]) Has(key K) (has bool) {
 		return false
 	}
 
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
 	return lo.PanicOnErr(s.tree.Has(lo.PanicOnErr(KPtr(&key).Bytes())))
 }
@@ -110,8 +112,8 @@ func (s *Set[K, KPtr]) Stream(callback func(key K) bool) (err error) {
 		return nil
 	}
 
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
 	if iterationErr := s.rawKeys.Iterate([]byte{}, func(key kvstore.Key, _ kvstore.Value) bool {
 		var kPtr KPtr = new(K)
@@ -130,8 +132,8 @@ func (s *Set[K, KPtr]) Stream(callback func(key K) bool) (err error) {
 
 // Size returns the number of elements in the set.
 func (s *Set[K, KPtr]) Size() (size int) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
 	s.store.Iterate([]byte{valueStorePrefix}, func(key, value []byte) bool {
 		size++

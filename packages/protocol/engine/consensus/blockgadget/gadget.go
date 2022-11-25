@@ -37,11 +37,10 @@ type Gadget struct {
 
 	totalWeightCallback func() int64
 
-	lastAcceptedMarker            *memstorage.Storage[markers.SequenceID, markers.Index]
-	lastAcceptedMarkerMutex       sync.Mutex
-	optsMarkerAcceptanceThreshold float64
-	acceptanceOrder               *causalorder.CausalOrder[models.BlockID, *Block]
-
+	lastAcceptedMarker              *memstorage.Storage[markers.SequenceID, markers.Index]
+	lastAcceptedMarkerMutex         sync.Mutex
+	optsMarkerAcceptanceThreshold   float64
+	acceptanceOrder                 *causalorder.CausalOrder[models.BlockID, *Block]
 	lastConfirmedMarker             *memstorage.Storage[markers.SequenceID, markers.Index]
 	lastConfirmedMarkerMutex        sync.Mutex
 	optsMarkerConfirmationThreshold float64
@@ -68,7 +67,16 @@ func New(tangleInstance *tangle.Tangle, evictionState *eviction.State, totalWeig
 		a.blocks = memstorage.NewEpochStorage[models.BlockID, *Block]()
 
 		a.acceptanceOrder = causalorder.New(a.GetOrRegisterBlock, (*Block).IsAccepted, a.markAsAccepted, a.acceptanceFailed)
-		a.confirmationOrder = causalorder.New(a.GetOrRegisterBlock, (*Block).IsConfirmed, a.markAsConfirmed, a.acceptanceFailed)
+		a.confirmationOrder = causalorder.New(func(id models.BlockID) (entity *Block, exists bool) {
+			a.evictionMutex.RLock()
+			defer a.evictionMutex.RUnlock()
+
+			if a.evictionState.InEvictedEpoch(id) {
+				return NewRootBlock(id), true
+			}
+
+			return a.getOrRegisterBlock(id)
+		}, (*Block).IsConfirmed, a.markAsConfirmed, a.confirmationFailed)
 	}, (*Gadget).setup)
 }
 
@@ -165,6 +173,7 @@ func (a *Gadget) RefreshSequence(sequenceID markers.SequenceID, newMaxSupportedI
 	totalWeight := a.totalWeightCallback()
 
 	for markerIndex := prevMaxSupportedIndex; markerIndex <= newMaxSupportedIndex; markerIndex++ {
+		// if sequence began due to attaching to a solid entry point, then prevMaxSupportedIndex=0 which needs to be skipped.
 		if markerIndex <= 0 {
 			continue
 		}
@@ -213,6 +222,7 @@ func (a *Gadget) tryConfirmOrAccept(totalWeight int64, marker markers.Marker) (b
 
 func (a *Gadget) EvictUntil(index epoch.Index) {
 	a.acceptanceOrder.EvictUntil(index)
+	a.confirmationOrder.EvictUntil(index)
 
 	a.evictionMutex.Lock()
 	defer a.evictionMutex.Unlock()
@@ -305,7 +315,7 @@ func (a *Gadget) markAsAccepted(block *Block) (err error) {
 
 	if block.SetAccepted() {
 		// If block has been orphaned before acceptance, remove the flag from the block. Otherwise, remove the block from TimedHeap.
-		if block.IsExplicitlyOrphaned() {
+		if block.IsOrphaned() {
 			a.tangle.SetOrphaned(block.Block.Block.Block, false)
 		}
 
@@ -356,6 +366,10 @@ func (a *Gadget) setMarkerConfirmed(marker markers.Marker) (wasUpdated bool) {
 
 func (a *Gadget) acceptanceFailed(block *Block, err error) {
 	a.Events.Error.Trigger(errors.Wrapf(err, "could not mark block %s as accepted", block.ID()))
+}
+
+func (a *Gadget) confirmationFailed(block *Block, err error) {
+	a.Events.Error.Trigger(errors.Wrapf(err, "could not mark block %s as confirmed", block.ID()))
 }
 
 func (a *Gadget) evictSequence(sequenceID markers.SequenceID) {

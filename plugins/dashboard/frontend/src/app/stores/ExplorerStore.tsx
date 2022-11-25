@@ -33,10 +33,15 @@ export class Block {
     subtractedConflictIDs: Array<string>;
     scheduled: boolean;
     booked: boolean;
+    orphaned: boolean;
     objectivelyInvalid: boolean;
     subjectivelyInvalid: boolean;
-    confirmationState: number;
-    confirmationStateTime: number;
+    acceptance: boolean;
+    acceptanceTime: number;
+    confirmation: boolean;
+    confirmationTime: number;
+    confirmationByEpoch: boolean;
+    confirmationByEpochTime: number;
     payload_type: number;
     payload: any;
     rank: number;
@@ -139,6 +144,10 @@ class BlockRef {
     payload_type: number;
 }
 
+class Tips {
+    tips: Array<string>
+}
+
 const liveFeedSize = 50;
 
 enum QueryError {
@@ -164,6 +173,7 @@ export class ExplorerStore {
     @observable conflictChildren: ConflictChildren = null;
     @observable conflictConflicts: ConflictConflicts = null;
     @observable conflictVoters: ConflictVoters = null;
+    @observable tips: Tips = null;
 
     // loading
     @observable query_loading: boolean = false;
@@ -444,6 +454,19 @@ export class ExplorerStore {
         }
     }
 
+    getTips = async() => {
+        try {
+            let res = await fetch(`/api/tips`)
+            if (res.status === 404) {
+                return;
+            }
+            let tips: Tips = await res.json()
+            this.updateTips(tips)
+        } catch (err) {
+            // ignore
+        }
+    }
+
     @action
     reset = () => {
         this.blk = null;
@@ -459,6 +482,7 @@ export class ExplorerStore {
         this.conflict = null;
         this.conflictChildren = null;
         this.conflictConflicts = null;
+        this.tips = null;
     };
 
     @action
@@ -524,6 +548,11 @@ export class ExplorerStore {
     }
 
     @action
+    updateTips = (tips: Tips) => {
+        this.tips = tips;
+    }
+
+    @action
     updateBlock = (blk: Block) => {
         this.blk = blk;
         this.query_err = null;
@@ -582,6 +611,26 @@ export class ExplorerStore {
             );
         }
         return feed;
+    }
+
+    @computed
+    get tipsList() {
+        let list = [];
+        if (this.tips) {
+            for (let i = 0; i < this.tips.tips.length; i++) {
+                let blkId = this.tips.tips[i];
+                list.push(
+                    <tr key={blkId}>
+                        <td>
+                            <Link to={`/explorer/block/${blkId}`}>
+                                {blkId}
+                            </Link>
+                        </td>
+                    </tr>
+                );
+            }
+        }
+        return list;
     }
 
 }
