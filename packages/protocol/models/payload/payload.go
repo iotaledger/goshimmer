@@ -29,12 +29,10 @@ type Payload interface {
 }
 
 // FromBytes unmarshals a Payload from a sequence of bytes.
-func FromBytes(data []byte) (payloadDecoded Payload, consumedBytes int, err error) {
-	payloadDecoded = Payload(nil)
-
-	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), data, payloadDecoded, serix.WithValidation())
+func PayloadTypeFromBytes(data []byte) (payloadType Type, consumedBytes int, err error) {
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, &payloadType)
 	if err != nil {
-		err = errors.Wrap(err, "failed to parse Chat Payload")
+		err = errors.Errorf("failed to parse PayloadType (%v)", err)
 		return
 	}
 

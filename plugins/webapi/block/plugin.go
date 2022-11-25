@@ -9,6 +9,8 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
+	"github.com/iotaledger/goshimmer/packages/app/chat"
+	"github.com/iotaledger/goshimmer/packages/app/faucet"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/app/retainer"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
@@ -175,7 +177,7 @@ func PostPayload(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	parsedPayload, _, err := payload.FromBytes(request.Payload)
+	parsedPayload, err := payloadFromBytes(request.Payload)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
@@ -214,5 +216,46 @@ func blockIDFromContext(c echo.Context) (blockID models.BlockID, err error) {
 //
 //	return markers.SequenceID(sequenceIDInt), nil
 //}
+
+func payloadFromBytes(payloadBytes []byte) (parsedPayload payload.Payload, err error) {
+	dptype, _, err := payload.PayloadTypeFromBytes(payloadBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	switch dptype {
+	case payload.GenericDataPayloadType:
+		data := &payload.GenericDataPayload{}
+		_, err = data.FromBytes(payloadBytes)
+		if err != nil {
+			return nil, err
+		}
+		parsedPayload = data
+		fmt.Println(dptype, data)
+	case devnetvm.TransactionType:
+		tx := &devnetvm.Transaction{}
+		err = tx.FromBytes(payloadBytes)
+		if err != nil {
+			return nil, err
+		}
+		parsedPayload = tx
+	case faucet.RequestType:
+		req := &faucet.Payload{}
+		_, err = req.FromBytes(payloadBytes)
+		if err != nil {
+			return nil, err
+		}
+		parsedPayload = req
+	case chat.Type:
+		content := &chat.Payload{}
+		_, err = content.FromBytes(payloadBytes)
+		if err != nil {
+			return nil, err
+		}
+		parsedPayload = content
+	}
+
+	return parsedPayload, nil
+}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
