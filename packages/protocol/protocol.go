@@ -175,6 +175,10 @@ func (p *Protocol) initChainManager() {
 	p.Events.Engine.NotarizationManager.EpochCommitted.Attach(event.NewClosure(func(details *notarization.EpochCommittedDetails) {
 		p.chainManager.ProcessCommitment(details.Commitment)
 	}))
+
+	p.Events.Engine.Consensus.EpochGadget.EpochConfirmed.Attach(event.NewClosure(func(epochIndex epoch.Index) {
+		p.chainManager.CommitmentRequester.EvictUntil(epochIndex)
+	}))
 }
 
 func (p *Protocol) initTipManager() {
