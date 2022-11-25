@@ -8,7 +8,6 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
-	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/ads"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
@@ -173,7 +172,7 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 		m.Events.Error.Trigger(errors.Errorf("failed to set latest commitment: %w", err))
 	}
 
-	accBlocks, accTxs, valNum := m.evaluateEpochSizeDetails(acceptedBlocks, acceptedTransactions, activeValidators)
+	accBlocks, accTxs, valNum := m.evaluateEpochSizeDetails(acceptedBlocks, acceptedTransactions, attestations)
 	m.Events.EpochCommitted.Trigger(&EpochCommittedDetails{
 		Commitment:                newCommitment,
 		AcceptedBlocksCount:       accBlocks,
@@ -184,7 +183,7 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 	return true
 }
 
-func (m *Manager) evaluateEpochSizeDetails(acceptedBlocks *ads.Set[models.BlockID], acceptedTransactions *ads.Set[utxo.TransactionID], activeValidators *ads.Set[identity.ID]) (int, int, int) {
+func (m *Manager) evaluateEpochSizeDetails(acceptedBlocks *ads.Set[models.BlockID], acceptedTransactions *ads.Set[utxo.TransactionID], attestations *Attestations) (int, int, int) {
 	var accBlocks, accTxs, valNum int
 	if acceptedBlocks != nil {
 		accBlocks = acceptedBlocks.Size()
@@ -192,8 +191,8 @@ func (m *Manager) evaluateEpochSizeDetails(acceptedBlocks *ads.Set[models.BlockI
 	if acceptedTransactions != nil {
 		accTxs = acceptedTransactions.Size()
 	}
-	if activeValidators != nil {
-		valNum = activeValidators.Size()
+	if attestations != nil {
+		valNum = attestations.Attestors().Size()
 	}
 	return accBlocks, accTxs, valNum
 }

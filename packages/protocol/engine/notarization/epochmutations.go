@@ -208,6 +208,9 @@ func (m *EpochMutations) evictUntil(index epoch.Index) {
 	for i := m.latestCommittedIndex + 1; i <= index; i++ {
 		m.acceptedBlocksByEpoch.Delete(i)
 		m.acceptedTransactionsByEpoch.Delete(i)
+		attestations, exists := m.attestationsByEpoch.Get(i); if exists {
+			attestations.Detach()
+		}
 		m.attestationsByEpoch.Delete(i)
 	}
 

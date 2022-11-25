@@ -7,6 +7,8 @@ import (
 	"sort"
 	"time"
 
+	"golang.org/x/crypto/blake2b"
+
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
