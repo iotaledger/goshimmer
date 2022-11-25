@@ -47,7 +47,7 @@ func (c *Commitments) Close() (err error) {
 	return c.slice.Close()
 }
 
-func (c *Commitments) WriteTo(writer io.WriteSeeker, epochBoundary epoch.Index) (err error) {
+func (c *Commitments) Export(writer io.WriteSeeker, epochBoundary epoch.Index) (err error) {
 	if err = binary.Write(writer, binary.LittleEndian, int64(epochBoundary)); err != nil {
 		return errors.Errorf("failed to write epoch boundary: %w", err)
 	}

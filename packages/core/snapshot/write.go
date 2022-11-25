@@ -23,13 +23,13 @@ func WriteSnapshot(filePath string, engineInstance *engine.Engine, depth epoch.I
 	currentEpoch := engineInstance.Storage.Settings.LatestCommitment().Index()
 	targetEpoch := currentEpoch - depth
 
-	if err := engineInstance.Storage.Settings.WriteTo(fileHandle); err != nil {
+	if err := engineInstance.Storage.Settings.Export(fileHandle); err != nil {
 		panic(err)
-	} else if err := engineInstance.Storage.Commitments.WriteTo(fileHandle, targetEpoch); err != nil {
+	} else if err := engineInstance.Storage.Commitments.Export(fileHandle, targetEpoch); err != nil {
 		panic(err)
-	} else if err := engineInstance.EvictionState.WriteTo(fileHandle, targetEpoch); err != nil {
+	} else if err := engineInstance.EvictionState.Export(fileHandle, targetEpoch); err != nil {
 		panic(err)
-	} else if err := engineInstance.LedgerState.WriteTo(fileHandle, targetEpoch); err != nil {
+	} else if err := engineInstance.LedgerState.Export(fileHandle, targetEpoch); err != nil {
 		panic(err)
 	}
 

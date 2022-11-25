@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/types"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/pkg/errors"
@@ -37,26 +36,6 @@ func New(storageInstance *storage.Storage) (ledgerState *LedgerState) {
 	ledgerState.RegisterConsumer(ledgerState.UnspentOutputIDs)
 
 	return
-}
-
-func (l *LedgerState) RegisterConsumer(consumer DiffConsumer) {
-	l.consumersMutex.Lock()
-	defer l.consumersMutex.Unlock()
-
-	l.consumers = append(l.consumers, consumer)
-}
-
-func (l *LedgerState) ImportOutputs(outputs []*OutputWithMetadata) {
-	l.consumersMutex.RLock()
-	defer l.consumersMutex.RUnlock()
-
-	for _, output := range outputs {
-		l.importMemPoolOutput(output)
-
-		for _, consumer := range l.consumers {
-			consumer.ApplyCreatedOutput(output)
-		}
-	}
 }
 
 func (l *LedgerState) ApplyStateDiff(targetEpoch epoch.Index) (err error) {
@@ -104,22 +83,72 @@ func (l *LedgerState) Root() types.Identifier {
 	return l.UnspentOutputIDs.Root()
 }
 
-func (l *LedgerState) WriteTo(writer io.WriteSeeker, targetEpoch epoch.Index) (err error) {
+func (l *LedgerState) RegisterConsumer(consumer DiffConsumer) {
+	l.consumersMutex.Lock()
+	defer l.consumersMutex.Unlock()
+
+	l.consumers = append(l.consumers, consumer)
+}
+
+func (l *LedgerState) ImportOutput(output *OutputWithMetadata) {
+	l.MemPool.Storage.CachedOutput(output.ID(), func(id utxo.OutputID) utxo.Output { return output.Output() }).Release()
+	l.MemPool.Storage.CachedOutputMetadata(output.ID(), func(outputID utxo.OutputID) *ledger.OutputMetadata {
+		newOutputMetadata := ledger.NewOutputMetadata(output.ID())
+		newOutputMetadata.SetAccessManaPledgeID(output.AccessManaPledgeID())
+		newOutputMetadata.SetConsensusManaPledgeID(output.ConsensusManaPledgeID())
+		newOutputMetadata.SetConfirmationState(confirmation.Confirmed)
+
+		return newOutputMetadata
+	}).Release()
+
+	l.MemPool.Events.OutputCreated.Trigger(output.ID())
+
+	l.consumersMutex.RLock()
+	defer l.consumersMutex.RUnlock()
+
+	for _, consumer := range l.consumers {
+		consumer.ApplyCreatedOutput(output)
+	}
+}
+
+func (l *LedgerState) Import(reader io.ReadSeeker) (err error) {
+	var nextOutputSize uint64
+	if err = binary.Read(reader, binary.LittleEndian, &nextOutputSize); err != nil {
+		return errors.Errorf("failed to read size of first output: %w", err)
+	}
+
+	for nextOutputSize != 0 {
+		outputBytes := make([]byte, nextOutputSize)
+		if err = binary.Read(reader, binary.LittleEndian, &outputBytes); err != nil {
+			return errors.Errorf("failed to read output: %w", err)
+		}
+
+		output := new(OutputWithMetadata)
+		if consumedBytes, parseErr := output.FromBytes(outputBytes); parseErr != nil {
+			return errors.Errorf("failed to parse output: %w", parseErr)
+		} else if consumedBytes != int(nextOutputSize) {
+			return errors.Errorf("failed to parse output: consumed bytes (%d) != expected bytes (%d)", consumedBytes, nextOutputSize)
+		}
+		l.ImportOutput(output)
+
+		if err = binary.Read(reader, binary.LittleEndian, &nextOutputSize); err != nil {
+			return errors.Errorf("failed to read size of next output: %w", err)
+		}
+	}
+
+	return
+}
+
+func (l *LedgerState) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (err error) {
 	if iterationErr := l.UnspentOutputIDs.Stream(func(outputID utxo.OutputID) bool {
 		if !l.MemPool.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
 			if !l.MemPool.Storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledger.OutputMetadata) {
-				if startOffset, seekErr := writer.Seek(8, io.SeekCurrent); seekErr != nil {
-					err = errors.Errorf("failed to seek to write location of output: %w", seekErr)
-				} else if err = binary.Write(writer, binary.LittleEndian, lo.PanicOnErr(NewOutputWithMetadata(epoch.IndexFromTime(outputMetadata.CreationTime()), outputID, output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()).Bytes())); err != nil {
+				if outputBytes, err := NewOutputWithMetadata(epoch.IndexFromTime(outputMetadata.CreationTime()), outputID, output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()).Bytes(); err != nil {
+					err = errors.Errorf("failed to serialize output: %w", err)
+				} else if binary.Write(writer, binary.LittleEndian, uint64(len(outputBytes))) != nil {
+					err = errors.Errorf("failed to write output size: %w", err)
+				} else if _, err = writer.Write(outputBytes); err != nil {
 					err = errors.Errorf("failed to write output: %w", err)
-				} else if endOffset, seekErr := writer.Seek(0, io.SeekCurrent); seekErr != nil {
-					err = errors.Errorf("failed to read end location of output: %w", seekErr)
-				} else if _, err = writer.Seek(startOffset-8, io.SeekStart); err != nil {
-					err = errors.Errorf("failed to seek to size of output: %w", err)
-				} else if err = binary.Write(writer, binary.LittleEndian, uint64(endOffset-startOffset)); err != nil {
-					err = errors.Errorf("failed to write output length: %w", err)
-				} else if _, err = writer.Seek(endOffset, io.SeekStart); err != nil {
-					err = errors.Errorf("failed to seek end location of output: %w", err)
 				}
 			}) {
 				err = errors.Errorf("failed to load output metadata: %w", err)
@@ -140,10 +169,6 @@ func (l *LedgerState) WriteTo(writer io.WriteSeeker, targetEpoch epoch.Index) (e
 	return nil
 }
 
-func (l *LedgerState) ReadFrom(reader io.ReadSeeker) (err error) {
-	return
-}
-
 func (l *LedgerState) onTransactionAccepted(metadata *ledger.TransactionMetadata) {
 	if err := l.StateDiffs.addAcceptedTransaction(metadata); err != nil {
 		// TODO: handle error gracefully
@@ -155,20 +180,6 @@ func (l *LedgerState) onTransactionInclusionUpdated(event *ledger.TransactionInc
 	if l.MemPool.ConflictDAG.ConfirmationState(event.TransactionMetadata.ConflictIDs()).IsAccepted() {
 		l.StateDiffs.moveTransactionToOtherEpoch(event.TransactionMetadata, event.PreviousInclusionTime, event.InclusionTime)
 	}
-}
-
-func (l *LedgerState) importMemPoolOutput(output *OutputWithMetadata) {
-	l.MemPool.Storage.CachedOutput(output.ID(), func(id utxo.OutputID) utxo.Output { return output.Output() }).Release()
-	l.MemPool.Storage.CachedOutputMetadata(output.ID(), func(outputID utxo.OutputID) *ledger.OutputMetadata {
-		newOutputMetadata := ledger.NewOutputMetadata(output.ID())
-		newOutputMetadata.SetAccessManaPledgeID(output.AccessManaPledgeID())
-		newOutputMetadata.SetConsensusManaPledgeID(output.ConsensusManaPledgeID())
-		newOutputMetadata.SetConfirmationState(confirmation.Confirmed)
-
-		return newOutputMetadata
-	}).Release()
-
-	l.MemPool.Events.OutputCreated.Trigger(output.ID())
 }
 
 func (l *LedgerState) pendingStateDiffConsumers(targetEpoch epoch.Index) (pendingConsumers []DiffConsumer, direction int, err error) {

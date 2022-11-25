@@ -25,7 +25,7 @@ func ReadSnapshot(fileHandle *os.File, engineInstance *engine.Engine) {
 		panic(err)
 	} else if err := engineInstance.EvictionState.ReadFrom(fileHandle); err != nil {
 		panic(err)
-	} else if err := engineInstance.LedgerState.ReadFrom(fileHandle); err != nil {
+	} else if err := engineInstance.LedgerState.Import(fileHandle); err != nil {
 		panic(err)
 	}
 
@@ -34,7 +34,6 @@ func ReadSnapshot(fileHandle *os.File, engineInstance *engine.Engine) {
 		ProcessChunks(NewChunkedReader[ledgerstate.OutputWithMetadata](fileHandle),
 			engineInstance.ManaTracker.ImportOutputs,
 			// This will import into all the consumers too: sybilprotection and ledgerState.unspentOutputIDs
-			engineInstance.LedgerState.ImportOutputs,
 		)
 	}
 

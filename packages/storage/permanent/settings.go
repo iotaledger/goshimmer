@@ -114,7 +114,7 @@ func (c *Settings) SetChainID(id commitment.ID) (err error) {
 	return nil
 }
 
-func (c *Settings) WriteTo(writer io.WriteSeeker) (err error) {
+func (c *Settings) Export(writer io.WriteSeeker) (err error) {
 	c.RLock()
 	defer c.RUnlock()
 

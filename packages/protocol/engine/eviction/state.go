@@ -136,7 +136,7 @@ func (s *State) LatestRootBlock() models.BlockID {
 	return s.latestRootBlock
 }
 
-func (s *State) WriteTo(writer io.WriteSeeker, evictedEpoch epoch.Index) (err error) {
+func (s *State) Export(writer io.WriteSeeker, evictedEpoch epoch.Index) (err error) {
 	startOffset, seekErr := writer.Seek(8, io.SeekCurrent)
 	if seekErr != nil {
 		return errors.Errorf("failed to seek to ids start offset: %w", seekErr)
