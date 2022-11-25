@@ -231,7 +231,7 @@ func payloadFromBytes(payloadBytes []byte) (parsedPayload payload.Payload, err e
 			return nil, err
 		}
 		parsedPayload = data
-		fmt.Println(dptype, data)
+
 	case devnetvm.TransactionType:
 		tx := &devnetvm.Transaction{}
 		err = tx.FromBytes(payloadBytes)
@@ -239,6 +239,7 @@ func payloadFromBytes(payloadBytes []byte) (parsedPayload payload.Payload, err e
 			return nil, err
 		}
 		parsedPayload = tx
+
 	case faucet.RequestType:
 		req := &faucet.Payload{}
 		_, err = req.FromBytes(payloadBytes)
@@ -246,6 +247,7 @@ func payloadFromBytes(payloadBytes []byte) (parsedPayload payload.Payload, err e
 			return nil, err
 		}
 		parsedPayload = req
+
 	case chat.Type:
 		content := &chat.Payload{}
 		_, err = content.FromBytes(payloadBytes)
@@ -253,6 +255,8 @@ func payloadFromBytes(payloadBytes []byte) (parsedPayload payload.Payload, err e
 			return nil, err
 		}
 		parsedPayload = content
+	default:
+		return nil, errors.New("unknown payload type")
 	}
 
 	return parsedPayload, nil
