@@ -37,24 +37,18 @@ func CreateSnapshot(s *storage.Storage, snapshotFileName string, genesisTokenAmo
 		panic(err)
 	}
 
+	engineInstance := engine.New(s)
 	// prepare outputsWithMetadata
-	outputsWithMetadata := make([]*ledgerstate.OutputWithMetadata, 0)
 	output, outputMetadata := createOutput(seed.NewSeed(genesisSeedBytes).Address(0).Address(), genesisTokenAmount, identity.ID{}, now)
-	outputsWithMetadata = append(outputsWithMetadata, ledgerstate.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
+	engineInstance.LedgerState.ImportOutput(ledgerstate.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
 
 	for nodeID, value := range nodesToPledge {
 		// pledge to ID but send funds to random address
 		output, outputMetadata = createOutput(devnetvm.NewED25519Address(ed25519.GenerateKeyPair().PublicKey), value, nodeID, now)
-		outputsWithMetadata = append(outputsWithMetadata, ledgerstate.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
+		engineInstance.LedgerState.ImportOutput(ledgerstate.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
 		if err := s.Attestors.Store(0, nodeID); err != nil {
 			panic(err)
 		}
-	}
-
-	// create engine
-	engineInstance := engine.New(s)
-	for _, outputWithMetadata := range outputsWithMetadata {
-		engineInstance.LedgerState.ImportOutput(outputWithMetadata)
 	}
 
 	snapshot.WriteSnapshot(snapshotFileName, engineInstance, 0)
