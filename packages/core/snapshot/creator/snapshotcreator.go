@@ -70,12 +70,12 @@ func CreateSnapshot(s *storage.Storage, snapshotFileName string, genesisTokenAmo
 // | node2       | node2       |
 func CreateSnapshotForIntegrationTest(s *storage.Storage, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, genesisNodePledge []byte, nodesToPledge map[[32]byte]uint64) {
 	now := time.Now()
-	outputsWithMetadata := make([]*ledgerstate.OutputWithMetadata, 0)
+	engineInstance := engine.New(s)
 
 	// This is the same seed used to derive the faucet ID.
 	genesisPledgeID := identity.New(ed25519.PrivateKeyFromSeed(genesisNodePledge).Public()).ID()
 	output, outputMetadata := createOutput(seed.NewSeed(genesisSeedBytes).Address(0).Address(), genesisTokenAmount, genesisPledgeID, now)
-	outputsWithMetadata = append(outputsWithMetadata, ledgerstate.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
+	engineInstance.LedgerState.ImportOutput(ledgerstate.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
 
 	if err := s.Attestors.Store(0, genesisPledgeID); err != nil {
 		panic(err)
@@ -84,16 +84,10 @@ func CreateSnapshotForIntegrationTest(s *storage.Storage, snapshotFileName strin
 	for nodeSeedBytes, value := range nodesToPledge {
 		nodeID := identity.New(ed25519.PrivateKeyFromSeed(nodeSeedBytes[:]).Public()).ID()
 		output, outputMetadata = createOutput(seed.NewSeed(nodeSeedBytes[:]).Address(0).Address(), value, nodeID, now)
-		outputsWithMetadata = append(outputsWithMetadata, ledgerstate.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
+		engineInstance.LedgerState.ImportOutput(ledgerstate.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
 		if err := s.Attestors.Store(0, nodeID); err != nil {
 			panic(err)
 		}
-	}
-
-	// create engine
-	engineInstance := engine.New(s)
-	for _, outputWithMetadata := range outputsWithMetadata {
-		engineInstance.LedgerState.ImportOutput(outputWithMetadata)
 	}
 
 	snapshot.WriteSnapshot(snapshotFileName, engineInstance, 0)
