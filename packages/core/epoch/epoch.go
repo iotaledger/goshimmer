@@ -71,6 +71,7 @@ func (i Index) EndTime() time.Time {
 	return time.Unix(endUnix, 0)
 }
 
+// Max returns the maximum of the two given epochs.
 func (i Index) Max(other Index) Index {
 	if i > other {
 		return i

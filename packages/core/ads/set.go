@@ -19,15 +19,15 @@ const (
 	rawKeyStorePrefix
 )
 
+// Set is a sparse merkle tree based set.
 type Set[K any, KPtr constraints.MarshalablePtr[K]] struct {
 	store   kvstore.KVStore
 	tree    *smt.SparseMerkleTree
 	rawKeys kvstore.KVStore
-
-	// A mutex is needed as reads from the smt.SparseMerkleTree can translate to writes.
-	mutex sync.Mutex
+	mutex   sync.Mutex
 }
 
+// NewSet creates a new sparse merkle tree based set.
 func NewSet[K any, KPtr constraints.MarshalablePtr[K]](store kvstore.KVStore) *Set[K, KPtr] {
 	return &Set[K, KPtr]{
 		store: store,
@@ -107,6 +107,7 @@ func (s *Set[K, KPtr]) Has(key K) (has bool) {
 	return lo.PanicOnErr(s.tree.Has(lo.PanicOnErr(KPtr(&key).Bytes())))
 }
 
+// Stream iterates over the set and calls the callback for each element.
 func (s *Set[K, KPtr]) Stream(callback func(key K) bool) (err error) {
 	if s == nil {
 		return nil
@@ -135,10 +136,12 @@ func (s *Set[K, KPtr]) Size() (size int) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	s.store.Iterate([]byte{valueStorePrefix}, func(key, value []byte) bool {
+	if err := s.store.Iterate([]byte{valueStorePrefix}, func(key, value []byte) bool {
 		size++
 		return true
-	})
+	}); err != nil {
+		panic(err)
+	}
 
 	return
 }
