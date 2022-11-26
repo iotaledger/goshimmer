@@ -20,14 +20,16 @@ type LedgerState struct {
 	MemPool          *ledger.Ledger
 	StateDiffs       *StateDiffs
 	UnspentOutputIDs *UnspentOutputIDs
+	storage          *storage.Storage
 	consumers        []DiffConsumer
 	consumersMutex   sync.RWMutex
 }
 
 func New(storageInstance *storage.Storage) (ledgerState *LedgerState) {
 	ledgerState = &LedgerState{
-		StateDiffs:       NewStateDiffs(storageInstance.LedgerStateDiffs),
+		StateDiffs:       NewStateDiffs(storageInstance),
 		UnspentOutputIDs: NewUnspentOutputIDs(storageInstance.UnspentOutputIDs),
+		storage:          storageInstance,
 		consumers:        make([]DiffConsumer, 0),
 	}
 
@@ -47,7 +49,7 @@ func (l *LedgerState) ApplyStateDiff(targetEpoch epoch.Index) (err error) {
 		return errors.Errorf("failed to determine pending consumers: %w", err)
 	}
 
-	var streamOutputsFunctions []func(epoch.Index, func(*OutputWithMetadata)) error
+	var streamOutputsFunctions []func(epoch.Index, func(*OutputWithMetadata) error) error
 	var applyOutputsFunctions []func(DiffConsumer, *OutputWithMetadata)
 	switch {
 	case direction > 0:
@@ -63,10 +65,12 @@ func (l *LedgerState) ApplyStateDiff(targetEpoch epoch.Index) (err error) {
 	}
 
 	for i, streamOutputs := range streamOutputsFunctions {
-		if err = streamOutputs(targetEpoch, func(output *OutputWithMetadata) {
+		if err = streamOutputs(targetEpoch, func(output *OutputWithMetadata) error {
 			for _, consumer := range consumers {
 				applyOutputsFunctions[i](consumer, output)
 			}
+
+			return nil
 		}); err != nil {
 			return errors.Errorf("failed to stream outputs for state diff %d: %w", targetEpoch, err)
 		}
@@ -129,10 +133,21 @@ func (l *LedgerState) Import(reader io.ReadSeeker) (err error) {
 		} else if consumedBytes != int(nextOutputSize) {
 			return errors.Errorf("failed to parse output: consumed bytes (%d) != expected bytes (%d)", consumedBytes, nextOutputSize)
 		}
+
 		l.ImportOutput(output)
 
 		if err = binary.Read(reader, binary.LittleEndian, &nextOutputSize); err != nil {
 			return errors.Errorf("failed to read size of next output: %s", err)
+		}
+	}
+
+	if importedEpochs, importErr := l.StateDiffs.Import(reader); importErr != nil {
+		return errors.Errorf("failed to import state diffs: %w", importErr)
+	} else {
+		for _, epochIndex := range importedEpochs {
+			if err = l.ApplyStateDiff(epochIndex); err != nil {
+				return errors.Errorf("failed to apply state diff %d: %w", epochIndex, err)
+			}
 		}
 	}
 
@@ -143,12 +158,14 @@ func (l *LedgerState) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (er
 	if iterationErr := l.UnspentOutputIDs.Stream(func(outputID utxo.OutputID) bool {
 		if !l.MemPool.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
 			if !l.MemPool.Storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledger.OutputMetadata) {
-				if outputBytes, err := NewOutputWithMetadata(epoch.IndexFromTime(outputMetadata.CreationTime()), outputID, output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()).Bytes(); err != nil {
-					err = errors.Errorf("failed to serialize output: %w", err)
-				} else if binary.Write(writer, binary.LittleEndian, uint64(len(outputBytes))) != nil {
-					err = errors.Errorf("failed to write output size: %w", err)
-				} else if _, err = writer.Write(outputBytes); err != nil {
-					err = errors.Errorf("failed to write output: %w", err)
+				if err = NewOutputWithMetadata(
+					epoch.IndexFromTime(outputMetadata.CreationTime()),
+					outputID,
+					output,
+					outputMetadata.ConsensusManaPledgeID(),
+					outputMetadata.AccessManaPledgeID(),
+				).Export(writer); err != nil {
+					err = errors.Errorf("failed to export output: %w", err)
 				}
 			}) {
 				err = errors.Errorf("failed to load output metadata: %w", err)
@@ -164,6 +181,8 @@ func (l *LedgerState) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (er
 		return err
 	} else if err = binary.Write(writer, binary.LittleEndian, uint64(0)); err != nil {
 		return errors.Errorf("failed to write end marker of outputs: %w", err)
+	} else if err = l.StateDiffs.Export(writer, targetEpoch); err != nil {
+		return errors.Errorf("failed to export state diffs: %w", err)
 	}
 
 	return nil

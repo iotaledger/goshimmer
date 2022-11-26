@@ -1,6 +1,10 @@
 package ledgerstate
 
 import (
+	"encoding/binary"
+	"io"
+
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/model"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/stringify"
@@ -129,4 +133,43 @@ func (o *OutputWithMetadata) SetAccessManaPledgeID(accessPledgeID identity.ID) {
 	defer o.Unlock()
 
 	o.M.AccessManaPledgeID = accessPledgeID
+}
+
+func (o *OutputWithMetadata) Export(writer io.WriteSeeker) (err error) {
+	o.RLock()
+	defer o.RUnlock()
+
+	if outputBytes, serializationErr := o.Bytes(); serializationErr != nil {
+		return errors.Errorf("failed to marshal output: %w", serializationErr)
+	} else if err = binary.Write(writer, binary.LittleEndian, uint64(len(outputBytes))); err != nil {
+		return errors.Errorf("failed to write output size: %w", err)
+	} else if err = binary.Write(writer, binary.LittleEndian, outputBytes); err != nil {
+		return errors.Errorf("failed to write output: %w", err)
+	}
+
+	return nil
+}
+
+func (o *OutputWithMetadata) Import(reader io.ReadSeeker) (imported *OutputWithMetadata, err error) {
+	o.Lock()
+	defer o.Unlock()
+
+	var outputSize uint64
+	if err = binary.Read(reader, binary.LittleEndian, &outputSize); err != nil {
+		return nil, errors.Errorf("failed to read output size: %w", err)
+	} else if outputSize == 0 {
+		return nil, nil
+	}
+
+	outputBytes := make([]byte, outputSize)
+	if err = binary.Read(reader, binary.LittleEndian, outputBytes); err != nil {
+		return nil, errors.Errorf("failed to read output: %w", err)
+	} else if consumedBytes, parseErr := o.FromBytes(outputBytes); parseErr != nil {
+		return nil, errors.Errorf("failed to unmarshal output: %w", parseErr)
+	} else if consumedBytes != int(outputSize) {
+		return nil, errors.Errorf("failed to unmarshal output: consumed bytes (%d) != expected bytes (%d)", consumedBytes, outputSize)
+	}
+	o.SetID(o.M.OutputID)
+
+	return o, nil
 }

@@ -1,6 +1,8 @@
 package ledgerstate
 
 import (
+	"encoding/binary"
+	"io"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -10,6 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
 const (
@@ -20,18 +23,18 @@ const (
 // region StateDiffs ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 type StateDiffs struct {
-	Storage func(index epoch.Index) kvstore.KVStore
+	storage *storage.Storage
 	ledger  *ledger.Ledger
 }
 
-func NewStateDiffs(storage func(index epoch.Index) kvstore.KVStore) (newLedgerStateDiffs *StateDiffs) {
+func NewStateDiffs(storageInstance *storage.Storage) (newLedgerStateDiffs *StateDiffs) {
 	return &StateDiffs{
-		Storage: storage,
+		storage: storageInstance,
 	}
 }
 
 func (s *StateDiffs) StoreSpentOutput(outputWithMetadata *OutputWithMetadata) (err error) {
-	if spentStorage, spentStorageErr := s.Storage(outputWithMetadata.Index()).WithExtendedRealm([]byte{spentOutputsPrefix}); spentStorageErr != nil {
+	if spentStorage, spentStorageErr := s.storage.LedgerStateDiffs(outputWithMetadata.Index()).WithExtendedRealm([]byte{spentOutputsPrefix}); spentStorageErr != nil {
 		return errors.Errorf("failed to retrieve spent storage: %w", spentStorageErr)
 	} else {
 		return spentStorage.Set(lo.PanicOnErr(outputWithMetadata.ID().Bytes()), lo.PanicOnErr(outputWithMetadata.Bytes()))
@@ -39,7 +42,7 @@ func (s *StateDiffs) StoreSpentOutput(outputWithMetadata *OutputWithMetadata) (e
 }
 
 func (s *StateDiffs) StoreCreatedOutput(outputWithMetadata *OutputWithMetadata) (err error) {
-	if createdStorage, createdStorageErr := s.Storage(outputWithMetadata.Index()).WithExtendedRealm([]byte{createdOutputsPrefix}); createdStorageErr != nil {
+	if createdStorage, createdStorageErr := s.storage.LedgerStateDiffs(outputWithMetadata.Index()).WithExtendedRealm([]byte{createdOutputsPrefix}); createdStorageErr != nil {
 		return errors.Errorf("failed to retrieve created storage: %w", createdStorageErr)
 	} else {
 		return createdStorage.Set(lo.PanicOnErr(outputWithMetadata.ID().Bytes()), lo.PanicOnErr(outputWithMetadata.Bytes()))
@@ -47,7 +50,7 @@ func (s *StateDiffs) StoreCreatedOutput(outputWithMetadata *OutputWithMetadata) 
 }
 
 func (s *StateDiffs) LoadSpentOutput(index epoch.Index, outputID utxo.OutputID) (outputWithMetadata *OutputWithMetadata, err error) {
-	store, err := s.Storage(index).WithExtendedRealm([]byte{spentOutputsPrefix})
+	store, err := s.storage.LedgerStateDiffs(index).WithExtendedRealm([]byte{spentOutputsPrefix})
 	if err != nil {
 		return nil, errors.Errorf("failed to extend realm for storage: %w", err)
 	}
@@ -55,7 +58,7 @@ func (s *StateDiffs) LoadSpentOutput(index epoch.Index, outputID utxo.OutputID) 
 }
 
 func (s *StateDiffs) LoadCreatedOutput(index epoch.Index, outputID utxo.OutputID) (outputWithMetadata *OutputWithMetadata, err error) {
-	store, err := s.Storage(index).WithExtendedRealm([]byte{createdOutputsPrefix})
+	store, err := s.storage.LedgerStateDiffs(index).WithExtendedRealm([]byte{createdOutputsPrefix})
 	if err != nil {
 		return nil, errors.Errorf("failed to extend realm for storage: %w", err)
 	}
@@ -64,7 +67,7 @@ func (s *StateDiffs) LoadCreatedOutput(index epoch.Index, outputID utxo.OutputID
 }
 
 func (s *StateDiffs) DeleteSpentOutput(index epoch.Index, outputID utxo.OutputID) (err error) {
-	store, err := s.Storage(index).WithExtendedRealm([]byte{spentOutputsPrefix})
+	store, err := s.storage.LedgerStateDiffs(index).WithExtendedRealm([]byte{spentOutputsPrefix})
 	if err != nil {
 		return errors.Errorf("failed to extend realm for storage: %w", err)
 	}
@@ -73,7 +76,7 @@ func (s *StateDiffs) DeleteSpentOutput(index epoch.Index, outputID utxo.OutputID
 }
 
 func (s *StateDiffs) DeleteCreatedOutput(index epoch.Index, outputID utxo.OutputID) (err error) {
-	store, err := s.Storage(index).WithExtendedRealm([]byte{createdOutputsPrefix})
+	store, err := s.storage.LedgerStateDiffs(index).WithExtendedRealm([]byte{createdOutputsPrefix})
 	if err != nil {
 		return errors.Errorf("failed to extend realm for storage: %w", err)
 	}
@@ -101,8 +104,17 @@ func (s *StateDiffs) DeleteCreatedOutputs(index epoch.Index, outputIDs utxo.Outp
 	return nil
 }
 
-func (s *StateDiffs) StreamSpentOutputs(index epoch.Index, callback func(*OutputWithMetadata)) (err error) {
-	store, err := s.Storage(index).WithExtendedRealm([]byte{spentOutputsPrefix})
+func (s *StateDiffs) StreamSpentOutputs(index epoch.Index, callback func(*OutputWithMetadata) error) (err error) {
+	store, err := s.storage.LedgerStateDiffs(index).WithExtendedRealm([]byte{spentOutputsPrefix})
+	if err != nil {
+		return errors.Errorf("failed to extend realm for storage: %w", err)
+	}
+
+	return s.stream(store, callback)
+}
+
+func (s *StateDiffs) StreamCreatedOutputs(index epoch.Index, callback func(*OutputWithMetadata) error) (err error) {
+	store, err := s.storage.LedgerStateDiffs(index).WithExtendedRealm([]byte{createdOutputsPrefix})
 	if err != nil {
 		return errors.Errorf("failed to extend realm for storage: %w", err)
 	}
@@ -112,15 +124,75 @@ func (s *StateDiffs) StreamSpentOutputs(index epoch.Index, callback func(*Output
 	return
 }
 
-func (s *StateDiffs) StreamCreatedOutputs(index epoch.Index, callback func(*OutputWithMetadata)) (err error) {
-	store, err := s.Storage(index).WithExtendedRealm([]byte{createdOutputsPrefix})
-	if err != nil {
-		return errors.Errorf("failed to extend realm for storage: %w", err)
+func (s *StateDiffs) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (err error) {
+	if targetEpoch > s.storage.Settings.LatestCommitment().Index() {
+		return errors.Errorf("target epoch %d is not yet committed", targetEpoch)
+	} else if err = binary.Write(writer, binary.LittleEndian, s.storage.Settings.LatestCommitment().Index()-targetEpoch); err != nil {
+		return errors.Errorf("failed to write state diff count: %w", err)
 	}
 
-	s.stream(store, callback)
+	for currentEpoch := s.storage.Settings.LatestCommitment().Index() - 1; currentEpoch > targetEpoch; currentEpoch-- {
+		if err = binary.Write(writer, binary.LittleEndian, uint64(currentEpoch)); err != nil {
+			return errors.Errorf("failed to write epoch %d: %w", currentEpoch, err)
+		} else if err = s.exportOutputs(writer, currentEpoch, s.StreamCreatedOutputs); err != nil {
+			return errors.Errorf("failed to export created outputs for epoch %d: %w", currentEpoch, err)
+		} else if err = s.exportOutputs(writer, currentEpoch, s.StreamSpentOutputs); err != nil {
+			return errors.Errorf("failed to export spent outputs for epoch %d: %w", currentEpoch, err)
+		}
+	}
 
 	return
+}
+
+func (s *StateDiffs) Import(reader io.ReadSeeker) (importedEpochs []epoch.Index, err error) {
+	var epochCount uint64
+	if err = binary.Read(reader, binary.LittleEndian, &epochCount); err != nil {
+		return nil, errors.Errorf("failed to read epoch count: %w", err)
+	}
+
+	for i := uint64(0); i < epochCount; i++ {
+		var epochIndex uint64
+		if err = binary.Read(reader, binary.LittleEndian, &epochIndex); err != nil {
+			return nil, errors.Errorf("failed to read epoch index: %w", err)
+		}
+		importedEpochs = append(importedEpochs, epoch.Index(epochIndex))
+
+		if err = s.importOutputs(reader, s.StoreCreatedOutput); err != nil {
+			return nil, errors.Errorf("failed to import created outputs for epoch %d: %w", epochIndex, err)
+		} else if err = s.importOutputs(reader, s.StoreSpentOutput); err != nil {
+			return nil, errors.Errorf("failed to import spent outputs for epoch %d: %w", epochIndex, err)
+		}
+	}
+
+	return
+}
+
+func (s *StateDiffs) importOutputs(reader io.ReadSeeker, store func(*OutputWithMetadata) error) (err error) {
+	if importedOutput, importErr := new(OutputWithMetadata).Import(reader); err != importErr {
+		return errors.Errorf("failed to import output: %w", importErr)
+	} else {
+		for importedOutput != nil {
+			if err = store(importedOutput); err != nil {
+				return errors.Errorf("failed to store output: %w", err)
+			} else if importedOutput, err = importedOutput.Import(reader); err != nil {
+				return errors.Errorf("failed to import output: %w", err)
+			}
+		}
+	}
+
+	return
+}
+
+func (s *StateDiffs) exportOutputs(writer io.WriteSeeker, epoch epoch.Index, streamFunc func(index epoch.Index, callback func(*OutputWithMetadata) error) (err error)) (err error) {
+	if err = streamFunc(epoch, func(output *OutputWithMetadata) error {
+		return output.Export(writer)
+	}); err != nil {
+		return errors.Errorf("failed to export outputs: %w", err)
+	} else if err = binary.Write(writer, binary.LittleEndian, uint64(0)); err != nil {
+		return errors.Errorf("failed to write output delimiter: %w", err)
+	}
+
+	return nil
 }
 
 func (s *StateDiffs) get(store kvstore.KVStore, outputID utxo.OutputID) (outputWithMetadata *OutputWithMetadata, err error) {
@@ -142,16 +214,26 @@ func (s *StateDiffs) get(store kvstore.KVStore, outputID utxo.OutputID) (outputW
 	return
 }
 
-func (s *StateDiffs) stream(store kvstore.KVStore, callback func(*OutputWithMetadata)) {
-	store.Iterate([]byte{}, func(idBytes kvstore.Key, outputWithMetadataBytes kvstore.Value) bool {
+func (s *StateDiffs) stream(store kvstore.KVStore, callback func(*OutputWithMetadata) error) (err error) {
+	if iterationErr := store.Iterate([]byte{}, func(idBytes kvstore.Key, outputWithMetadataBytes kvstore.Value) bool {
 		outputID := new(utxo.OutputID)
-		outputID.FromBytes(idBytes)
 		outputWithMetadata := new(OutputWithMetadata)
-		outputWithMetadata.FromBytes(outputWithMetadataBytes)
-		outputWithMetadata.SetID(*outputID)
-		callback(outputWithMetadata)
-		return true
-	})
+
+		if _, err = outputID.FromBytes(idBytes); err != nil {
+			err = errors.Errorf("failed to parse output ID %s: %w", idBytes, err)
+		} else if _, err = outputWithMetadata.FromBytes(outputWithMetadataBytes); err != nil {
+			err = errors.Errorf("failed to parse output with metadata %s: %w", outputID, err)
+		} else {
+			outputWithMetadata.SetID(*outputID)
+			err = callback(outputWithMetadata)
+		}
+
+		return err == nil
+	}); iterationErr != nil {
+		err = errors.Errorf("failed to iterate over outputs: %w", iterationErr)
+	}
+
+	return
 }
 
 func (s *StateDiffs) delete(store kvstore.KVStore, outputID utxo.OutputID) (err error) {
