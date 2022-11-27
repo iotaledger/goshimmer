@@ -171,15 +171,18 @@ func diagnosticPrintSnapshotFromFile(filePath string) {
 	}
 
 	fmt.Println("--- ActivityLog ---")
-	e.Storage.Attestors.Stream(0, func(id identity.ID) {
+	e.Storage.Attestors.Stream(0, func(id identity.ID) error {
 		fmt.Printf("%d: %+v\n", 0, id)
+		return nil
 	})
 
 	fmt.Println("--- Diffs ---")
-	e.LedgerState.StateDiffs.StreamSpentOutputs(0, func(owm *ledgerstate.OutputWithMetadata) {
+	e.LedgerState.StateDiffs.StreamSpentOutputs(0, func(owm *ledgerstate.OutputWithMetadata) error {
 		fmt.Printf("%d: %+v\n", 0, owm)
+		return nil
 	})
-	e.LedgerState.StateDiffs.StreamCreatedOutputs(0, func(owm *ledgerstate.OutputWithMetadata) {
+	e.LedgerState.StateDiffs.StreamCreatedOutputs(0, func(owm *ledgerstate.OutputWithMetadata) error {
 		fmt.Printf("%d: %+v\n", 0, owm)
+		return nil
 	})
 }

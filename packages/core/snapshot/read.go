@@ -5,7 +5,6 @@ import (
 	"os"
 
 	"github.com/iotaledger/hive.go/core/generics/constraints"
-	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
@@ -19,6 +18,8 @@ func ReadSnapshot(fileHandle *os.File, engineInstance *engine.Engine) {
 	} else if err := engineInstance.Storage.Settings.SetChainID(engineInstance.Storage.Settings.LatestCommitment().ID()); err != nil {
 		panic(err)
 	} else if err := engineInstance.EvictionState.Import(fileHandle); err != nil {
+		panic(err)
+	} else if err := engineInstance.Storage.Attestors.Import(fileHandle); err != nil {
 		panic(err)
 	} else if err := engineInstance.LedgerState.Import(fileHandle); err != nil {
 		panic(err)
@@ -34,17 +35,6 @@ func ReadSnapshot(fileHandle *os.File, engineInstance *engine.Engine) {
 			engineInstance.ManaTracker.ImportOutputs,
 			// This will import into all the consumers too: sybilprotection and ledgerState.unspentOutputIDs
 		)
-	}
-
-	// Activity Log
-	{
-		ProcessChunks(NewChunkedReader[identity.ID](fileHandle), func(chunk []*identity.ID) {
-			for _, id := range chunk {
-				if err := engineInstance.Storage.Attestors.Store(engineInstance.Storage.Settings.LatestCommitment().Index(), *id); err != nil {
-					panic(err)
-				}
-			}
-		})
 	}
 }
 
