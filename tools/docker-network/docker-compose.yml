@@ -47,7 +47,7 @@ services:
       - goshimmer
 
   peer_replica:
-    image: docker-network_peer_master:latest
+    image: docker-network-peer_master:latest
     stop_grace_period: 1m
     command: >
       --config=/run/secrets/goshimmer.config.json
@@ -71,7 +71,7 @@ services:
     depends_on:
       - peer_master
   peer_master2:
-    image: docker-network_peer_master:latest
+    image: docker-network-peer_master:latest
     stop_grace_period: 1m
     command: >
       --node.seed=base58:4ata8GcTRMJ5sSv2jQJWmSYYTHct748p3tXmCFYm7wjA
@@ -101,7 +101,7 @@ services:
     depends_on:
       - peer_master
   peer_nomana:
-    image: docker-network_peer_master:latest
+    image: docker-network-peer_master:latest
     stop_grace_period: 1m
     command: >
       --config=/run/secrets/goshimmer.config.json
@@ -129,7 +129,7 @@ services:
       - faucet
 
   faucet:
-    image: docker-network_peer_master:latest
+    image: docker-network-peer_master:latest
     stop_grace_period: 1m
     command: >
       --faucet.seed=7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih
