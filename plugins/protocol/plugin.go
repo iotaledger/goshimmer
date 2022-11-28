@@ -1,12 +1,16 @@
 package protocol
 
 import (
+	"context"
+
+	"github.com/iotaledger/hive.go/core/daemon"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/node"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol"
@@ -138,6 +142,16 @@ func configureLogging(*node.Plugin) {
 
 func run(*node.Plugin) {
 	deps.Protocol.Run()
+
+	if err := daemon.BackgroundWorker("protocol", func(ctx context.Context) {
+		<-ctx.Done()
+
+		Plugin.LogInfo("Gracefully shutting down the Protocol...")
+
+		deps.Protocol.Shutdown()
+	}, shutdown.PriorityTangle); err != nil {
+		Plugin.Panicf("Error starting as daemon: %s", err)
+	}
 
 	deps.Protocol.Network().Events.Error.Attach(event.NewClosure(func(errorEvent *network.ErrorEvent) {
 		Plugin.LogErrorf("Error in Network: %s (source: %s)", errorEvent.Error, errorEvent.Source.String())
