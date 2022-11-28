@@ -1,6 +1,10 @@
 package aimd
 
 import (
+	"math"
+	"sync"
+	"time"
+
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer/ratesetter/utils"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
@@ -10,9 +14,6 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
 	"go.uber.org/atomic"
-	"math"
-	"sync"
-	"time"
 )
 
 const (
@@ -165,7 +166,7 @@ func (r *RateSetter) rateSetting() {
 
 func (r *RateSetter) issuerLoop() {
 	var (
-		issueTimer    = time.NewTimer(10 * time.Millisecond) // setting this to 0 will cause a trigger right away
+		issueTimer    = time.NewTimer(r.optsSchedulerRate) // setting this to 0 will cause a trigger right away
 		timerStopped  = false
 		lastIssueTime = time.Now()
 	)

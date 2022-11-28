@@ -111,6 +111,11 @@ func (s *Scheduler) Rate() time.Duration {
 	return s.optsRate
 }
 
+// IsUncongested checks if the issuerQueue is completely uncongested.
+func (s *Scheduler) IsUncongested(issuerID identity.ID) bool {
+	return s.IssuerQueueSize(issuerID) == 0 || s.ReadyBlocksCount() == 0
+}
+
 // IssuerQueueSize returns the size of the IssuerIDs queue.
 func (s *Scheduler) IssuerQueueSize(issuerID identity.ID) int {
 	s.evictionMutex.RLock()
@@ -385,6 +390,8 @@ func (s *Scheduler) submit(block *Block) error {
 
 	s.markAsDropped(droppedBlocks)
 
+	s.Events.BlockSubmitted.Trigger(block)
+
 	return nil
 }
 
@@ -488,7 +495,6 @@ func (s *Scheduler) schedule() *Block {
 		panic(errorString)
 	}
 	s.updateDeficit(issuerID, new(big.Rat).SetInt64(-int64(block.Work())))
-
 	return block
 }
 
@@ -578,22 +584,18 @@ func (s *Scheduler) updateDeficit(issuerID identity.ID, d *big.Rat) {
 	defer s.deficitsMutex.Unlock()
 	s.deficits.Set(issuerID, minRat(deficit, s.optsMaxDeficit))
 
-	s.Events.OwnDeficitUpdated.Trigger(issuerID)
-	/* TODO: add local identity to scheduler to trigger only when own deficit updated
-	 then send excess deficit rather than issuerID
-
-	deficitFloat, _ := deficit.Float64()
-	excessDeficit := deficitFloat - float64(s.buffer.IssuerQueue(issuerID).Size())
-	s.Events.OwnDeficitUpdated.Trigger(excessDeficit)
-	*/
 }
 
-func (s *Scheduler) GetExcessDeficit(issuerID identity.ID) float64 {
+func (s *Scheduler) GetExcessDeficit(issuerID identity.ID) (float64, error) {
+	var deficitFloat float64
 	s.deficitsMutex.RLock()
-	deficit, _ := s.deficits.Get(issuerID)
 	defer s.deficitsMutex.RUnlock()
-	deficitFloat, _ := deficit.Float64()
-	return deficitFloat - float64(s.buffer.IssuerQueue(issuerID).Work())
+	if deficit, exists := s.deficits.Get(issuerID); exists {
+		deficitFloat, _ = deficit.Float64()
+	} else {
+		return 0.0, errors.New(fmt.Sprintf("Deficit for issuer %s does not exist", issuerID))
+	}
+	return deficitFloat - float64(s.buffer.IssuerQueue(issuerID).Work()), nil
 }
 
 func (s *Scheduler) GetOrRegisterBlock(virtualVotingBlock *virtualvoting.Block) (block *Block, err error) {

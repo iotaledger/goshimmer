@@ -1,13 +1,14 @@
 package ratesetter
 
 import (
+	"strings"
+	"time"
+
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer/ratesetter/aimd"
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer/ratesetter/deficit"
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer/ratesetter/disabled"
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer/ratesetter/utils"
 	"github.com/iotaledger/hive.go/core/identity"
-	"strings"
-	"time"
 
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -90,7 +91,6 @@ type Options struct {
 	pause         time.Duration
 	initial       float64
 	schedulerRate time.Duration
-	maxDeficit    int
 }
 
 func WithMode(mode ModeType) options.Option[Options] {

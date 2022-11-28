@@ -27,13 +27,14 @@ type RateSetter struct {
 
 	issuingQueue      *utils.IssuerQueue
 	issueChan         chan *models.Block
-	deficitChan       chan float64
-	excessDeficit     *atomic.Float64
 	ownRate           *atomic.Float64
 	maxRate           float64
 	shutdownSignal    chan struct{}
 	shutdownOnce      sync.Once
 	initOnce          sync.Once
+	issueOnce         sync.Once
+	issueMutex        sync.RWMutex
+	deficitsMutex     sync.RWMutex
 	optsSchedulerRate time.Duration
 }
 
@@ -46,17 +47,21 @@ func New(protocol *protocol.Protocol, selfIdentity identity.ID, opts ...options.
 		manaRetrieveFunc:      protocol.Engine().ManaTracker.ManaByIDs,
 		totalManaRetrieveFunc: protocol.Engine().ManaTracker.TotalMana,
 		issuingQueue:          utils.NewIssuerQueue(),
-		deficitChan:           make(chan float64),
 		issueChan:             make(chan *models.Block),
-		excessDeficit:         atomic.NewFloat64(0),
 		ownRate:               atomic.NewFloat64(0),
 		shutdownSignal:        make(chan struct{}),
 	}, opts, func(r *RateSetter) {
 		r.maxRate = float64(time.Second / r.optsSchedulerRate)
 	}, func(r *RateSetter) {
 		go r.issuerLoop()
-	}, (*RateSetter).setupEvents)
+	})
+}
 
+func (r *RateSetter) getExcessDeficit() float64 {
+	r.deficitsMutex.Lock()
+	defer r.deficitsMutex.Unlock()
+	excessDeficit, _ := r.protocol.CongestionControl.Scheduler().GetExcessDeficit(r.self)
+	return excessDeficit
 }
 
 // Shutdown stops the rate setter.
@@ -73,7 +78,7 @@ func (r *RateSetter) Rate() float64 {
 
 // Estimate returns the estimated time until the next block should be issued based on own deficit in the scheduler.
 func (r *RateSetter) Estimate() time.Duration {
-	return time.Duration(lo.Max(0.0, (float64(r.work())-r.excessDeficit.Load())/r.ownRate.Load()))
+	return time.Duration(lo.Max(0.0, (float64(r.work())-r.getExcessDeficit())/r.ownRate.Load()))
 }
 
 func (r *RateSetter) work() int {
@@ -115,52 +120,45 @@ func (r *RateSetter) initializeRate() {
 
 func (r *RateSetter) issuerLoop() {
 	var (
-		nextBlockSize  = 0.0
-		lastDeficit    = 0.0
-		lastUpdateTime = float64(time.Now().Nanosecond())
+		issueTimer    = time.NewTimer(r.optsSchedulerRate)
+		nextBlockWork = 0.0
 	)
 loop:
 	for {
 		select {
-		// if own deficit changes, check if we can issue something
-		case excessDeficit := <-r.deficitChan:
-			r.excessDeficit.Store(excessDeficit)
-			if nextBlockSize > 0 && (excessDeficit >= nextBlockSize || r.protocol.CongestionControl.Scheduler().ReadyBlocksCount() == 0) {
+		case <-issueTimer.C:
+			if r.issuingQueue.Size() == 0 { // wait until something is in the issuing queue
+				issueTimer.Stop()
+				break
+			}
+			if (r.getExcessDeficit() >= nextBlockWork) || r.protocol.CongestionControl.Scheduler().IsUncongested(r.self) {
 				blk := r.issuingQueue.PopFront()
 				r.events.BlockIssued.Trigger(blk)
 				if next := r.issuingQueue.Front(); next != nil {
-					nextBlockSize = float64(next.Size())
+					nextBlockWork = float64(next.Work())
 				} else {
-					nextBlockSize = 0.0
+					nextBlockWork = 0.0
 				}
 			}
-			// update the deficit growth rate estimate
-			currentTime := float64(time.Now().Nanosecond())
-			if excessDeficit > lastDeficit {
-				r.ownRate.Store(((excessDeficit - lastDeficit) / (currentTime - lastUpdateTime)) * float64(time.Second.Nanoseconds()))
-			}
-			lastDeficit = excessDeficit
-			lastUpdateTime = currentTime
 
 		// if new block arrives, add it to the issuing queue
 		case blk := <-r.issueChan:
+			r.issueOnce.Do(func() {
+				// issue the block and wait for it to be scheduled for up to the max time to empty a scheduler buffer.
+				r.deficitsMutex.Lock()
+				maxAwait := r.optsSchedulerRate * time.Duration(r.protocol.CongestionControl.Scheduler().MaxBufferSize())
+				if err := r.issueBlockAndAwaitSchedule(blk, maxAwait); err != nil {
+					panic(err)
+				}
+				r.deficitsMutex.Unlock()
+			})
+			issueTimer.Reset(r.optsSchedulerRate)
 			// if issuing queue is full, discard this, else enqueue
 			if r.issuingQueue.Size()+1 > utils.MaxLocalQueueSize {
 				// drop tail
 				r.events.BlockDiscarded.Trigger(blk)
-				break
 			} else {
 				r.issuingQueue.Enqueue(blk)
-			}
-			// issue from the top of the queue if allowed
-			if r.excessDeficit.Load() >= float64(blk.Size()) || r.protocol.CongestionControl.Scheduler().ReadyBlocksCount() == 0 {
-				issueBlk := r.issuingQueue.PopFront()
-				r.events.BlockIssued.Trigger(issueBlk)
-			}
-			if next := r.issuingQueue.Front(); next != nil {
-				nextBlockSize = float64(next.Size())
-			} else {
-				nextBlockSize = 0.0
 			}
 
 		// on close, exit the loop
@@ -170,13 +168,28 @@ loop:
 	}
 
 }
-func (r *RateSetter) setupEvents() {
-	r.protocol.Events.CongestionControl.Scheduler.OwnDeficitUpdated.Attach(event.NewClosure(func(issuerID identity.ID) {
-		if issuerID == r.self {
-			r.deficitChan <- r.protocol.CongestionControl.Scheduler().GetExcessDeficit(issuerID)
-		}
-	}))
 
+func (r *RateSetter) issueBlockAndAwaitSchedule(block *models.Block, maxAwait time.Duration) error {
+	r.issueMutex.Lock()
+	defer r.issueMutex.Unlock()
+	scheduled := make(chan *scheduler.Block)
+	closure := event.NewClosure(func(scheduledBlock *scheduler.Block) {
+		if scheduledBlock.ID() != block.ID() {
+			return
+		}
+		scheduled <- scheduledBlock
+	})
+	r.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Hook(closure)
+	defer r.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Detach(closure)
+
+	r.events.BlockIssued.Trigger(block)
+
+	select {
+	case <-time.After(maxAwait):
+		return utils.ErrBlockWasNotScheduledInTime
+	case <-scheduled:
+		return nil
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

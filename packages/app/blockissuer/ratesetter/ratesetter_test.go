@@ -41,7 +41,7 @@ func TestRateSetter_SubmitBlock(t *testing.T) {
 }
 
 func TestRateSetter_NoSchedulerCongestion(t *testing.T) {
-	enabledModes := []ModeType{AIMDMode, DeficitMode}
+	enabledModes := []ModeType{DeficitMode}
 	numBlocks := 2 * utils.MaxLocalQueueSize
 
 	for _, mode := range enabledModes {
@@ -51,11 +51,17 @@ func TestRateSetter_NoSchedulerCongestion(t *testing.T) {
 			defer tf.RateSetter.Shutdown()
 
 			blockIssued := make(chan *models.Block, numBlocks)
-			tf.RateSetter.Events().BlockIssued.Attach(event.NewClosure(func(block *models.Block) { blockIssued <- block }))
+
+			//tf.RateSetter.Events().BlockIssued.Attach(event.NewClosure(func(block *models.Block) { blockIssued <- block }))
+			tf.Protocol.Events.CongestionControl.Scheduler.BlockSubmitted.Attach(event.NewClosure(func(block *scheduler.Block) { blockIssued <- block.ModelsBlock }))
 			tf.SubmitBlocks(numBlocks)
-			for range blockIssued {
-				assert.Less(t, tf.Protocol.CongestionControl.Scheduler().TotalBlocksCount(), 10)
-				//fmt.Printf("Block issued with size %d. %d blocks in the Issuer queue. %d blocks in the Scheduler queue.\n", blk.Size(), tf.RateSetter.Size(), tf.Protocol.CongestionControl.Scheduler().BufferSize())
+			for blk := range blockIssued {
+				if excessDeficit, err := tf.Protocol.CongestionControl.Scheduler().GetExcessDeficit(tf.localIdentity.ID()); err != nil {
+					assert.GreaterOrEqual(t, excessDeficit, 0.0)
+					fmt.Printf("Block issued with work %d. %d blocks in the Issuer queue. Excess deficit is %f.\n", blk.Work(), tf.RateSetter.Size(), excessDeficit)
+				} else {
+					fmt.Printf("Could not get excess deficit - %s\n", blk.ID())
+				}
 				if tf.RateSetter.Size() == 0 {
 					break
 				}
