@@ -3,8 +3,8 @@ package metricscollector
 import (
 	"context"
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/goshimmer/packages/app/metricscollector"
-	"github.com/iotaledger/goshimmer/packages/app/metricscollector/metrics"
+	"github.com/iotaledger/goshimmer/packages/app/collector"
+	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"net/http"
 	"time"
@@ -33,7 +33,8 @@ var (
 type dependencies struct {
 	dig.In
 
-	Local *peer.Local
+	Local    *peer.Local
+	Protocol *protocol.Protocol
 }
 
 func init() {
@@ -50,8 +51,8 @@ func configure(plugin *node.Plugin) {
 func run(*node.Plugin) {
 	log.Info("Starting Prometheus exporter ...")
 
-	collector := metricscollector.NewCollector()
-	registerMetrics(collector)
+	clctr := collector.New()
+	registerMetrics(clctr)
 
 	if err := daemon.BackgroundWorker("Prometheus exporter", func(ctx context.Context) {
 		log.Info("Starting Prometheus exporter ... done")
@@ -60,10 +61,10 @@ func run(*node.Plugin) {
 		engine.Use(gin.Recovery())
 
 		engine.GET("/metrics", func(c *gin.Context) {
-			collector.Collect()
+			clctr.Collect()
 
 			handler := promhttp.HandlerFor(
-				collector.Registry,
+				clctr.Registry,
 				promhttp.HandlerOpts{
 					EnableOpenMetrics: true,
 				},
@@ -98,8 +99,8 @@ func run(*node.Plugin) {
 	}
 }
 
-func registerMetrics(c *metricscollector.Collector) {
-	c.RegisterCollection(metrics.TangleMetrics)
-	c.RegisterCollection(metrics.ConflictMetrics)
+func registerMetrics(c *collector.Collector) {
+	c.RegisterCollection(TangleMetrics)
+	c.RegisterCollection(ConflictMetrics)
 
 }

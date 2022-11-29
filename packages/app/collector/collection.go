@@ -1,13 +1,15 @@
-package metricscollector
+package collector
 
-import "github.com/iotaledger/hive.go/core/generics/options"
+import (
+	"github.com/iotaledger/hive.go/core/generics/options"
+)
 
 type Collection struct {
 	CollectionName string
 	metrics        []*Metric
 }
 
-func NewCollection(name string) *Collection {
+func NewCollection(name string, opts ...options.Option[Collection]) *Collection {
 	return &Collection{
 		CollectionName: name,
 	}

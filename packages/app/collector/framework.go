@@ -1,4 +1,4 @@
-package metricscollector
+package collector
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
@@ -9,14 +9,14 @@ type Collector struct {
 	Registry *prometheus.Registry
 }
 
-// NewCollector creates an instance of Manger.
-func NewCollector() *Collector {
+// New creates an instance of Manger, creates new prometheus registry for the protocol metrics collection.
+func New() *Collector {
 	return &Collector{
 		Registry: prometheus.NewRegistry(),
 	}
 }
 
-func (c *Collector) RegisterCollection(m *Collection) {
+func (c *Collector) RegisterCollection(collection *Collection) {
 
 }
 
