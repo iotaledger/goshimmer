@@ -5,10 +5,23 @@ import (
 	"io"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/core/generics/constraints"
 )
 
 func Write[T any](writer io.WriteSeeker, value T) (err error) {
 	return binary.Write(writer, binary.LittleEndian, value)
+}
+
+func WriteSerializable[T constraints.Serializable](writer io.WriteSeeker, target T, size int) (err error) {
+	if targetBytes, bytesErr := target.Bytes(); bytesErr != nil {
+		return errors.Errorf("failed to serialize target: %w", bytesErr)
+	} else if len(targetBytes) != size {
+		return errors.Errorf("failed to serialize target: len(targetBytes) != size")
+	} else if err = Write(writer, targetBytes); err != nil {
+		return errors.Errorf("failed to write target: %w", err)
+	}
+
+	return
 }
 
 func WriteBlob(writer io.WriteSeeker, blob []byte) (err error) {

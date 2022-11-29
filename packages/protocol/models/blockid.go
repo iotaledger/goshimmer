@@ -3,9 +3,7 @@ package models
 import (
 	"bytes"
 	"context"
-	"encoding/binary"
 	"fmt"
-	"io"
 	"strconv"
 	"strings"
 	"sync"
@@ -147,16 +145,6 @@ func (b BlockID) String() (humanReadable string) {
 // Passing nil as other will result in a panic.
 func (b BlockID) CompareTo(other BlockID) int {
 	return bytes.Compare(lo.PanicOnErr(b.Bytes()), lo.PanicOnErr(other.Bytes()))
-}
-
-func (b BlockID) Export(writer io.WriteSeeker) (err error) {
-	if binary.Write(writer, binary.LittleEndian, b.Identifier[:]) != nil {
-		err = errors.Errorf("failed to write BlockID.Identifier: %w", err)
-	} else if binary.Write(writer, binary.LittleEndian, uint64(b.EpochIndex)) != nil {
-		err = errors.Errorf("failed to write BlockID.EpochIndex: %w", err)
-	}
-
-	return
 }
 
 // BlockIDFromContext returns the BlockID from the given context.

@@ -1,7 +1,6 @@
 package eviction
 
 import (
-	"encoding/binary"
 	"io"
 	"sync"
 
@@ -145,9 +144,11 @@ func (s *State) Export(writer io.WriteSeeker, evictedEpoch epoch.Index) (err err
 	return stream.WriteCollection(writer, func() (elementsCount uint64, err error) {
 		for currentEpoch := s.delayedBlockEvictionThreshold(evictedEpoch) + 1; currentEpoch <= evictedEpoch; currentEpoch++ {
 			if err = s.storage.RootBlocks.Stream(currentEpoch, func(rootBlockID models.BlockID) (err error) {
-				if err = rootBlockID.Export(writer); err == nil {
-					elementsCount++
+				if err = stream.WriteSerializable(writer, rootBlockID, models.BlockIDLength); err != nil {
+					return errors.Errorf("failed to write root block %s: %w", rootBlockID, err)
 				}
+
+				elementsCount++
 
 				return
 			}); err != nil {
@@ -160,28 +161,17 @@ func (s *State) Export(writer io.WriteSeeker, evictedEpoch epoch.Index) (err err
 }
 
 func (s *State) Import(reader io.ReadSeeker) (err error) {
-	var rootBlockCount uint64
-	if err = binary.Read(reader, binary.LittleEndian, &rootBlockCount); err != nil {
-		return errors.Errorf("failed to read number of root blocks to dump: %w", err)
-	}
+	var rootBlockID models.BlockID
 
-	for i := uint64(0); i < rootBlockCount; i++ {
-		blockIDBytes := make([]byte, models.BlockIDLength)
-		if err = binary.Read(reader, binary.LittleEndian, blockIDBytes); err != nil {
-			return errors.Errorf("failed to read block id: %w", err)
+	return stream.ReadCollection(reader, func(i int) error {
+		if err = stream.ReadSerializable(reader, &rootBlockID, models.BlockIDLength); err != nil {
+			return errors.Errorf("failed to read root block id %d: %w", i, err)
 		}
 
-		var blockID models.BlockID
-		if consumedBytes, parseErr := blockID.FromBytes(blockIDBytes); parseErr != nil {
-			return errors.Errorf("failed to parse block id: %w", parseErr)
-		} else if consumedBytes != models.BlockIDLength {
-			return errors.Errorf("failed to parse block id: consumed bytes (%d) != expected bytes (%d)", consumedBytes, len(blockIDBytes))
-		}
+		s.AddRootBlock(rootBlockID)
 
-		s.AddRootBlock(blockID)
-	}
-
-	return
+		return nil
+	})
 }
 
 // importRootBlocksFromStorage imports the root blocks from the storage into the cache.

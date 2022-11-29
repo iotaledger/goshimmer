@@ -5,10 +5,27 @@ import (
 	"io"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/core/generics/constraints"
 )
 
 func Read[T any](reader io.ReadSeeker) (result T, err error) {
 	return result, binary.Read(reader, binary.LittleEndian, &result)
+}
+
+func ReadSerializable[T any, TPtr constraints.MarshalablePtr[T]](reader io.ReadSeeker, target TPtr, size int) (err error) {
+	readBytes, err := ReadBytes(reader, uint64(size))
+	if err != nil {
+		return errors.Errorf("failed to read bytes of serializable: %w", size, err)
+	}
+
+	consumedBytes, err := target.FromBytes(readBytes)
+	if err != nil {
+		return errors.Errorf("failed to parse bytes of serializable: %w", err)
+	} else if consumedBytes != size {
+		return errors.Errorf("failed to parse bytes of serializable: consumedBytes != size")
+	}
+
+	return
 }
 
 func ReadBytes(reader io.ReadSeeker, size uint64) (bytes []byte, err error) {
