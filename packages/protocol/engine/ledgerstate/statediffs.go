@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/core/kvstore"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/stream"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/storage"
@@ -168,31 +169,32 @@ func (s *StateDiffs) Import(reader io.ReadSeeker) (importedEpochs []epoch.Index,
 }
 
 func (s *StateDiffs) importOutputs(reader io.ReadSeeker, store func(*OutputWithMetadata) error) (err error) {
-	if importedOutput, importErr := new(OutputWithMetadata).Import(reader); err != importErr {
-		return errors.Errorf("failed to import output: %w", importErr)
-	} else {
-		for importedOutput != nil {
-			if err = store(importedOutput); err != nil {
-				return errors.Errorf("failed to store output: %w", err)
-			} else if importedOutput, err = importedOutput.Import(reader); err != nil {
-				return errors.Errorf("failed to import output: %w", err)
-			}
+	output := new(OutputWithMetadata)
+	return stream.ReadCollection(reader, func(i int) (err error) {
+		if err = output.Import(reader); err != nil {
+			return errors.Errorf("failed to import output %d: %w", i, err)
+		} else if err = store(output); err != nil {
+			return errors.Errorf("failed to store output %d: %w", i, err)
 		}
-	}
 
-	return
+		return
+	})
 }
 
 func (s *StateDiffs) exportOutputs(writer io.WriteSeeker, epoch epoch.Index, streamFunc func(index epoch.Index, callback func(*OutputWithMetadata) error) (err error)) (err error) {
-	if err = streamFunc(epoch, func(output *OutputWithMetadata) error {
-		return output.Export(writer)
-	}); err != nil {
-		return errors.Errorf("failed to export outputs: %w", err)
-	} else if err = binary.Write(writer, binary.LittleEndian, uint64(0)); err != nil {
-		return errors.Errorf("failed to write output delimiter: %w", err)
-	}
+	return stream.WriteCollection(writer, func() (elementsCount uint64, err error) {
+		if err = streamFunc(epoch, func(output *OutputWithMetadata) (err error) {
+			if err = output.Export(writer); err == nil {
+				elementsCount++
+			}
 
-	return nil
+			return
+		}); err != nil {
+			return 0, errors.Errorf("failed to stream outputs: %w", err)
+		}
+
+		return
+	})
 }
 
 func (s *StateDiffs) get(store kvstore.KVStore, outputID utxo.OutputID) (outputWithMetadata *OutputWithMetadata, err error) {

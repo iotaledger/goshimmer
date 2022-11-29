@@ -13,30 +13,28 @@ func (s *SybilProtection) Begin(committedEpoch epoch.Index) {
 	s.batchedWeightUpdates = sybilprotection.NewWeightUpdates(committedEpoch)
 }
 
-func (s *SybilProtection) ImportOutputs(outputs []*ledgerstate.OutputWithMetadata) {
-	for _, output := range outputs {
-		ApplyCreatedOutput(output, s.weights.Import)
-	}
-}
-
-func (s *SybilProtection) ApplyCreatedOutput(output *ledgerstate.OutputWithMetadata) {
+func (s *SybilProtection) ApplyCreatedOutput(output *ledgerstate.OutputWithMetadata) (err error) {
 	if s.batchedEpoch() == 0 {
 		ApplyCreatedOutput(output, s.weights.Import)
 	} else {
 		ApplyCreatedOutput(output, s.batchedWeightUpdates.ApplyDiff)
 	}
+
+	return
 }
 
-func (s *SybilProtection) ApplySpentOutput(output *ledgerstate.OutputWithMetadata) {
+func (s *SybilProtection) ApplySpentOutput(output *ledgerstate.OutputWithMetadata) (err error) {
 	ApplySpentOutput(output, s.batchedWeightUpdates.ApplyDiff)
+
+	return
 }
 
-func (s *SybilProtection) RollbackCreatedOutput(output *ledgerstate.OutputWithMetadata) {
-	s.ApplySpentOutput(output)
+func (s *SybilProtection) RollbackCreatedOutput(output *ledgerstate.OutputWithMetadata) (err error) {
+	return s.ApplySpentOutput(output)
 }
 
-func (s *SybilProtection) RollbackSpentOutput(output *ledgerstate.OutputWithMetadata) {
-	s.ApplyCreatedOutput(output)
+func (s *SybilProtection) RollbackSpentOutput(output *ledgerstate.OutputWithMetadata) (err error) {
+	return s.ApplyCreatedOutput(output)
 }
 
 func (s *SybilProtection) Commit() (ctx context.Context) {

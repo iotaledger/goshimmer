@@ -16,7 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/snapshot/creator"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
+	models2 "github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
@@ -164,8 +164,10 @@ func diagnosticPrintSnapshotFromFile(filePath string) {
 	})
 
 	fmt.Println("--- SEPs ---")
-	if err := e.Storage.RootBlocks.Stream(0, func(blockID models.BlockID) {
+	if err := e.Storage.RootBlocks.Stream(0, func(blockID models.BlockID) (err error) {
 		fmt.Printf("%+v\n", blockID)
+
+		return
 	}); err != nil {
 		panic(err)
 	}
@@ -177,11 +179,11 @@ func diagnosticPrintSnapshotFromFile(filePath string) {
 	})
 
 	fmt.Println("--- Diffs ---")
-	e.LedgerState.StateDiffs.StreamSpentOutputs(0, func(owm *ledgerstate.OutputWithMetadata) error {
+	e.LedgerState.StateDiffs.StreamSpentOutputs(0, func(owm *models2.OutputWithMetadata) error {
 		fmt.Printf("%d: %+v\n", 0, owm)
 		return nil
 	})
-	e.LedgerState.StateDiffs.StreamCreatedOutputs(0, func(owm *ledgerstate.OutputWithMetadata) error {
+	e.LedgerState.StateDiffs.StreamCreatedOutputs(0, func(owm *models2.OutputWithMetadata) error {
 		fmt.Printf("%d: %+v\n", 0, owm)
 		return nil
 	})

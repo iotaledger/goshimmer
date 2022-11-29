@@ -1,7 +1,6 @@
 package ledgerstate
 
 import (
-	"encoding/binary"
 	"io"
 
 	"github.com/cockroachdb/errors"
@@ -10,6 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/core/stringify"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/stream"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
@@ -139,37 +139,28 @@ func (o *OutputWithMetadata) Export(writer io.WriteSeeker) (err error) {
 	o.RLock()
 	defer o.RUnlock()
 
-	if outputBytes, serializationErr := o.Bytes(); serializationErr != nil {
-		return errors.Errorf("failed to marshal output: %w", serializationErr)
-	} else if err = binary.Write(writer, binary.LittleEndian, uint64(len(outputBytes))); err != nil {
-		return errors.Errorf("failed to write output size: %w", err)
-	} else if err = binary.Write(writer, binary.LittleEndian, outputBytes); err != nil {
+	if outputBytes, err := o.Bytes(); err != nil {
+		return errors.Errorf("failed to marshal output: %w", err)
+	} else if err = stream.WriteBlob(writer, outputBytes); err != nil {
 		return errors.Errorf("failed to write output: %w", err)
 	}
 
 	return nil
 }
 
-func (o *OutputWithMetadata) Import(reader io.ReadSeeker) (imported *OutputWithMetadata, err error) {
+func (o *OutputWithMetadata) Import(reader io.ReadSeeker) (err error) {
 	o.Lock()
 	defer o.Unlock()
 
-	var outputSize uint64
-	if err = binary.Read(reader, binary.LittleEndian, &outputSize); err != nil {
-		return nil, errors.Errorf("failed to read output size: %w", err)
-	} else if outputSize == 0 {
-		return nil, nil
+	if outputBytes, err := stream.ReadBlob(reader); err != nil {
+		return errors.Errorf("failed to read output: %w", err)
+	} else if consumedBytes, err := o.FromBytes(outputBytes); err != nil {
+		return errors.Errorf("failed to unmarshal output: %w", err)
+	} else if consumedBytes != len(outputBytes) {
+		return errors.Errorf("failed to unmarshal output: only %d / %d bytes consumed", consumedBytes, len(outputBytes))
 	}
 
-	outputBytes := make([]byte, outputSize)
-	if err = binary.Read(reader, binary.LittleEndian, outputBytes); err != nil {
-		return nil, errors.Errorf("failed to read output: %w", err)
-	} else if consumedBytes, parseErr := o.FromBytes(outputBytes); parseErr != nil {
-		return nil, errors.Errorf("failed to unmarshal output: %w", parseErr)
-	} else if consumedBytes != int(outputSize) {
-		return nil, errors.Errorf("failed to unmarshal output: consumed bytes (%d) != expected bytes (%d)", consumedBytes, outputSize)
-	}
 	o.SetID(o.M.OutputID)
 
-	return o, nil
+	return
 }

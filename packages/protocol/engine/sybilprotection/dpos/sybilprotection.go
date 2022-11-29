@@ -45,7 +45,7 @@ func NewSybilProtection(engineInstance *engine.Engine, opts ...options.Option[Sy
 			s.inactivityManager = timed.NewTaskExecutor[identity.ID](1)
 			s.lastActivities = shrinkingmap.New[identity.ID, time.Time]()
 
-			s.engine.LedgerState.RegisterConsumer(s)
+			s.engine.LedgerState.UnspentOutputs.RegisterConsumer(s)
 		})
 }
 

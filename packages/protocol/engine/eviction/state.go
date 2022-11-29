@@ -10,6 +10,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
+	"github.com/iotaledger/goshimmer/packages/core/stream"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
 )
@@ -141,37 +142,21 @@ func (s *State) LatestRootBlock() models.BlockID {
 }
 
 func (s *State) Export(writer io.WriteSeeker, evictedEpoch epoch.Index) (err error) {
-	startOffset, seekErr := writer.Seek(8, io.SeekCurrent)
-	if seekErr != nil {
-		return errors.Errorf("failed to seek to ids start offset: %w", seekErr)
-	}
+	return stream.WriteCollection(writer, func() (elementsCount uint64, err error) {
+		for currentEpoch := s.delayedBlockEvictionThreshold(evictedEpoch) + 1; currentEpoch <= evictedEpoch; currentEpoch++ {
+			if err = s.storage.RootBlocks.Stream(currentEpoch, func(rootBlockID models.BlockID) (err error) {
+				if err = rootBlockID.Export(writer); err == nil {
+					elementsCount++
+				}
 
-	var rootBlockCount uint64
-	for currentEpoch := s.delayedBlockEvictionThreshold(evictedEpoch) + 1; currentEpoch <= evictedEpoch; currentEpoch++ {
-		if err = s.storage.RootBlocks.Stream(currentEpoch, func(rootBlockID models.BlockID) {
-			if err != nil {
 				return
-			} else if rootBlockBytes, rootBlockErr := rootBlockID.Bytes(); rootBlockErr != nil {
-				err = rootBlockErr
-			} else if _, err = writer.Write(rootBlockBytes); err == nil {
-				rootBlockCount++
+			}); err != nil {
+				return 0, errors.Errorf("failed to stream root blocks: %w", err)
 			}
-		}); err != nil {
-			return errors.Errorf("failed streaming root blocks from storage: %w", err)
 		}
-	}
 
-	if endOffset, seekErr := writer.Seek(0, io.SeekCurrent); seekErr != nil {
-		return errors.Errorf("failed to determine end offset: %w", seekErr)
-	} else if _, err = writer.Seek(startOffset-8, io.SeekStart); err != nil {
-		return errors.Errorf("failed to seek to start offset: %w", err)
-	} else if err = binary.Write(writer, binary.LittleEndian, rootBlockCount); err != nil {
-		return errors.Errorf("failed to write epoch size: %w", err)
-	} else if _, err = writer.Seek(endOffset, io.SeekStart); err != nil {
-		return errors.Errorf("failed to seek to end offset: %w", err)
-	}
-
-	return
+		return elementsCount, nil
+	})
 }
 
 func (s *State) Import(reader io.ReadSeeker) (err error) {
@@ -202,10 +187,12 @@ func (s *State) Import(reader io.ReadSeeker) (err error) {
 // importRootBlocksFromStorage imports the root blocks from the storage into the cache.
 func (s *State) importRootBlocksFromStorage() (importedBlocks int) {
 	for currentEpoch := s.lastEvictedEpoch; currentEpoch >= 0 && currentEpoch > s.delayedBlockEvictionThreshold(s.lastEvictedEpoch); currentEpoch-- {
-		if err := s.storage.RootBlocks.Stream(currentEpoch, func(rootBlockID models.BlockID) {
+		if err := s.storage.RootBlocks.Stream(currentEpoch, func(rootBlockID models.BlockID) (err error) {
 			s.AddRootBlock(rootBlockID)
 
 			importedBlocks++
+
+			return
 		}); err != nil {
 			panic(errors.Errorf("failed importing root blocks from storage: %w", err))
 		}

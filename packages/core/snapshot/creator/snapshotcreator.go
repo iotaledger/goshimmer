@@ -40,13 +40,17 @@ func CreateSnapshot(s *storage.Storage, snapshotFileName string, genesisTokenAmo
 	engineInstance := engine.New(s)
 	// prepare outputsWithMetadata
 	output, outputMetadata := createOutput(seed.NewSeed(genesisSeedBytes).Address(0).Address(), genesisTokenAmount, identity.ID{}, now)
-	engineInstance.LedgerState.ImportOutput(ledgerstate.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
+
+	if err := engineInstance.LedgerState.UnspentOutputs.ApplyCreatedOutput(ledgerstate.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
+		panic(err)
+	}
 
 	for nodeID, value := range nodesToPledge {
 		// pledge to ID but send funds to random address
 		output, outputMetadata = createOutput(devnetvm.NewED25519Address(ed25519.GenerateKeyPair().PublicKey), value, nodeID, now)
-		engineInstance.LedgerState.ImportOutput(ledgerstate.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
-		if err := s.Attestors.Store(0, nodeID); err != nil {
+		if err := engineInstance.LedgerState.UnspentOutputs.ApplyCreatedOutput(ledgerstate.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
+			panic(err)
+		} else if err := s.Attestors.Store(0, nodeID); err != nil {
 			panic(err)
 		}
 	}
@@ -69,17 +73,18 @@ func CreateSnapshotForIntegrationTest(s *storage.Storage, snapshotFileName strin
 	// This is the same seed used to derive the faucet ID.
 	genesisPledgeID := identity.New(ed25519.PrivateKeyFromSeed(genesisNodePledge).Public()).ID()
 	output, outputMetadata := createOutput(seed.NewSeed(genesisSeedBytes).Address(0).Address(), genesisTokenAmount, genesisPledgeID, now)
-	engineInstance.LedgerState.ImportOutput(ledgerstate.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
-
-	if err := s.Attestors.Store(0, genesisPledgeID); err != nil {
+	if err := engineInstance.LedgerState.UnspentOutputs.ApplyCreatedOutput(ledgerstate.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
+		panic(err)
+	} else if err := s.Attestors.Store(0, genesisPledgeID); err != nil {
 		panic(err)
 	}
 
 	for nodeSeedBytes, value := range nodesToPledge {
 		nodeID := identity.New(ed25519.PrivateKeyFromSeed(nodeSeedBytes[:]).Public()).ID()
 		output, outputMetadata = createOutput(seed.NewSeed(nodeSeedBytes[:]).Address(0).Address(), value, nodeID, now)
-		engineInstance.LedgerState.ImportOutput(ledgerstate.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
-		if err := s.Attestors.Store(0, nodeID); err != nil {
+		if err := engineInstance.LedgerState.UnspentOutputs.ApplyCreatedOutput(ledgerstate.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
+			panic(err)
+		} else if err := s.Attestors.Store(0, nodeID); err != nil {
 			panic(err)
 		}
 	}

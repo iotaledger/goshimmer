@@ -162,7 +162,7 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 			acceptedBlocks.Root(),
 			acceptedTransactions.Root(),
 			attestations.Attestors().Root(),
-			m.ledgerState.Root(),
+			m.ledgerState.UnspentOutputs.Root(),
 			m.weights.Root(),
 		).ID(),
 		m.storage.Settings.LatestCommitment().CumulativeWeight()+attestations.Weight(),

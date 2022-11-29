@@ -1,7 +1,6 @@
 package prunable
 
 import (
-	"encoding/binary"
 	"io"
 
 	"github.com/cockroachdb/errors"
@@ -55,10 +54,9 @@ func (a *Attestors) LoadAll(index epoch.Index) (ids *set.AdvancedSet[identity.ID
 	return
 }
 
-func (a *Attestors) Stream(index epoch.Index, callback func(identity.ID) error) (err error) {
+func (a *Attestors) Stream(index epoch.Index, callback func(attestor identity.ID) (error error)) (err error) {
 	if iterationErr := a.Storage(index).Iterate([]byte{}, func(idBytes kvstore.Key, _ kvstore.Value) bool {
 		id := new(identity.ID)
-
 		if _, err = id.FromBytes(idBytes); err != nil {
 			err = errors.Errorf("failed to parse id bytes: %w", err)
 		} else if err = callback(*id); err != nil {
@@ -67,46 +65,44 @@ func (a *Attestors) Stream(index epoch.Index, callback func(identity.ID) error) 
 
 		return err != nil
 	}); iterationErr != nil {
-		return errors.Errorf("failed to iterate over active ids: %w", iterationErr)
+		err = errors.Errorf("failed to iterate over active ids: %w", iterationErr)
 	}
 
 	return err
 }
 
 func (a *Attestors) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (err error) {
-	if err = binary.Write(writer, binary.LittleEndian, uint64(targetEpoch)); err != nil {
+	if err = stream.Write(writer, uint64(targetEpoch)); err != nil {
 		return errors.Errorf("failed to write epoch: %w", err)
 	}
 
 	return stream.WriteCollection(writer, func() (elementsCount uint64, err error) {
 		if err = a.Stream(targetEpoch, func(id identity.ID) (err error) {
-			if err = id.Export(writer); err != nil {
-				return errors.Errorf("failed to write id %s: %w", id, err)
+			if err = id.Export(writer); err == nil {
+				elementsCount++
 			}
-
-			elementsCount++
 
 			return
 		}); err != nil {
 			return 0, errors.Errorf("failed to stream attestors: %w", err)
 		}
 
-		return elementsCount, nil
+		return
 	})
 }
 
 func (a *Attestors) Import(reader io.ReadSeeker) (err error) {
-	var targetEpochUint64 uint64
-	if err = binary.Read(reader, binary.LittleEndian, &targetEpochUint64); err != nil {
+	epochIndex, err := stream.Read[uint64](reader)
+	if err != nil {
 		return errors.Errorf("failed to read epoch: %w", err)
 	}
 
+	attestor := new(identity.ID)
 	return stream.ReadCollection(reader, func(i int) error {
-		id := new(identity.ID)
-		if err = id.Import(reader); err != nil {
+		if err = attestor.Import(reader); err != nil {
 			return errors.Errorf("failed to read attestor %d: %w", i, err)
-		} else if err = a.Store(epoch.Index(targetEpochUint64), *id); err != nil {
-			return errors.Errorf("failed to store attestor %d with id %s: %w", i, id, err)
+		} else if err = a.Store(epoch.Index(epochIndex), *attestor); err != nil {
+			return errors.Errorf("failed to store attestor %d with id %s: %w", i, attestor, err)
 		}
 
 		return nil

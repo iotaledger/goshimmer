@@ -53,8 +53,9 @@ func (r *RootBlocks) Delete(blockID models.BlockID) (err error) {
 // LoadAll loads all root blocks for an epoch index.
 func (r *RootBlocks) LoadAll(index epoch.Index) (solidEntryPoints *set.AdvancedSet[models.BlockID]) {
 	solidEntryPoints = set.NewAdvancedSet[models.BlockID]()
-	if err := r.Stream(index, func(id models.BlockID) {
+	if err := r.Stream(index, func(id models.BlockID) error {
 		solidEntryPoints.Add(id)
+		return nil
 	}); err != nil {
 		panic(errors.Errorf("failed to load all rootblocks for epoch %d: %w", index, err))
 	}
@@ -72,14 +73,16 @@ func (r *RootBlocks) StoreAll(rootBlocks *set.AdvancedSet[models.BlockID]) (err 
 }
 
 // Stream streams all root blocks for an epoch index.
-func (r *RootBlocks) Stream(index epoch.Index, callback func(models.BlockID)) (err error) {
+func (r *RootBlocks) Stream(index epoch.Index, processor func(models.BlockID) error) (err error) {
 	if storageErr := r.Storage(index).Iterate([]byte{}, func(blockIDBytes kvstore.Key, _ kvstore.Value) bool {
 		blockID := new(models.BlockID)
 		if _, err = blockID.FromBytes(blockIDBytes); err != nil {
-			return false
+			err = errors.Errorf("failed to parse blockID %s: %w", blockIDBytes, err)
+		} else if err = processor(*blockID); err != nil {
+			err = errors.Errorf("failed to process root block %s: %w", blockID, err)
 		}
-		callback(*blockID)
-		return true
+
+		return err == nil
 	}); storageErr != nil {
 		return errors.Errorf("failed to iterate over rootblocks: %w", storageErr)
 	}
