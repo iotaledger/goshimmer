@@ -140,6 +140,7 @@ func (s *State) LatestRootBlock() models.BlockID {
 	return s.latestRootBlock
 }
 
+// Export exports the root blocks to the given writer.
 func (s *State) Export(writer io.WriteSeeker, evictedEpoch epoch.Index) (err error) {
 	return stream.WriteCollection(writer, func() (elementsCount uint64, err error) {
 		for currentEpoch := s.delayedBlockEvictionThreshold(evictedEpoch) + 1; currentEpoch <= evictedEpoch; currentEpoch++ {
@@ -160,6 +161,7 @@ func (s *State) Export(writer io.WriteSeeker, evictedEpoch epoch.Index) (err err
 	})
 }
 
+// Import imports the root blocks from the given reader.
 func (s *State) Import(reader io.ReadSeeker) (err error) {
 	var rootBlockID models.BlockID
 
