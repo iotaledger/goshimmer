@@ -10,5 +10,5 @@ type SybilProtection interface {
 
 	InitModule()
 
-	ledgerstate.DiffConsumer
+	ledgerstate.UnspentOutputsSubscriber
 }

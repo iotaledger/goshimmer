@@ -8,9 +8,13 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 )
 
-func (s *SybilProtection) Begin(committedEpoch epoch.Index) {
+func (s *SybilProtection) Begin(committedEpoch epoch.Index) (currentEpoch epoch.Index, err error) {
 	s.setBatchedEpoch(committedEpoch)
 	s.batchedWeightUpdates = sybilprotection.NewWeightUpdates(committedEpoch)
+
+	// TODO: FIX current epoch shenanigans
+
+	return
 }
 
 func (s *SybilProtection) ApplyCreatedOutput(output *ledgerstate.OutputWithMetadata) (err error) {
@@ -84,4 +88,4 @@ func (s *SybilProtection) setBatchedEpoch(index epoch.Index) {
 	s.batchedEpochIndex = index
 }
 
-var _ ledgerstate.DiffConsumer = &SybilProtection{}
+var _ ledgerstate.UnspentOutputsSubscriber = &SybilProtection{}

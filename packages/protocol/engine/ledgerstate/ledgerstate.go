@@ -32,29 +32,31 @@ func New(storageInstance *storage.Storage) (ledgerState *LedgerState) {
 }
 
 func (l *LedgerState) ApplyStateDiff(targetEpoch epoch.Index) (err error) {
-	direction, err := l.UnspentOutputs.Begin(targetEpoch)
+	currentEpoch, err := l.UnspentOutputs.Begin(targetEpoch)
 	if err != nil {
-		return err
+		return errors.Errorf("failed to begin unspent outputs: %w", err)
+	} else if currentEpoch == targetEpoch {
+		return
 	}
 
 	switch {
-	case direction > 0:
-		if err = l.StateDiffs.StreamCreatedOutputs(targetEpoch, l.UnspentOutputs.ApplyCreatedOutput); err != nil {
-			return errors.Errorf("failed to apply created outputs: %w", err)
-		} else if err = l.StateDiffs.StreamSpentOutputs(targetEpoch, l.UnspentOutputs.ApplySpentOutput); err != nil {
-			return errors.Errorf("failed to apply spent outputs: %w", err)
-		}
-	case direction < 0:
+	case IsRollback(currentEpoch, targetEpoch):
 		if err = l.StateDiffs.StreamSpentOutputs(targetEpoch, l.UnspentOutputs.RollbackSpentOutput); err != nil {
 			return errors.Errorf("failed to apply created outputs: %w", err)
 		} else if err = l.StateDiffs.StreamCreatedOutputs(targetEpoch, l.UnspentOutputs.RollbackCreatedOutput); err != nil {
+			return errors.Errorf("failed to apply spent outputs: %w", err)
+		}
+	default:
+		if err = l.StateDiffs.StreamCreatedOutputs(targetEpoch, l.UnspentOutputs.ApplyCreatedOutput); err != nil {
+			return errors.Errorf("failed to apply created outputs: %w", err)
+		} else if err = l.StateDiffs.StreamSpentOutputs(targetEpoch, l.UnspentOutputs.ApplySpentOutput); err != nil {
 			return errors.Errorf("failed to apply spent outputs: %w", err)
 		}
 	}
 
 	l.UnspentOutputs.Commit()
 
-	return nil
+	return
 }
 
 func (l *LedgerState) Import(reader io.ReadSeeker) (err error) {
@@ -74,13 +76,13 @@ func (l *LedgerState) Import(reader io.ReadSeeker) (err error) {
 }
 
 func (l *LedgerState) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (err error) {
-	if err = l.UnspentOutputs.Export(writer, targetEpoch); err != nil {
+	if err = l.UnspentOutputs.Export(writer); err != nil {
 		return errors.Errorf("failed to export unspent outputs: %w", err)
 	} else if err = l.StateDiffs.Export(writer, targetEpoch); err != nil {
 		return errors.Errorf("failed to export state diffs: %w", err)
 	}
 
-	return nil
+	return
 }
 
 func (l *LedgerState) onTransactionAccepted(metadata *ledger.TransactionMetadata) {
