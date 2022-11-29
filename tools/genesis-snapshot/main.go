@@ -12,8 +12,7 @@ import (
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
-	"github.com/iotaledger/goshimmer/packages/core/snapshot"
-	"github.com/iotaledger/goshimmer/packages/core/snapshot/creator"
+	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	models2 "github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
@@ -105,7 +104,7 @@ func main() {
 
 	manaDistribution := createManaDistribution(totalTokensToPledge)
 
-	creator.CreateSnapshot(createTempStorage(), snapshotFileName, genesisTokenAmount, genesisSeed, manaDistribution)
+	snapshotcreator.CreateSnapshot(createTempStorage(), snapshotFileName, genesisTokenAmount, genesisSeed, manaDistribution)
 
 	diagnosticPrintSnapshotFromFile(snapshotFileName)
 }
@@ -143,9 +142,9 @@ func init() {
 func diagnosticPrintSnapshotFromFile(filePath string) {
 	s := createTempStorage()
 	e := engine.New(s, engine.WithSybilProtectionProvider(dpos.NewSybilProtectionProvider()))
-	fileHandle := lo.PanicOnErr(os.Open(filePath))
-
-	snapshot.ReadSnapshot(fileHandle, e)
+	if err := e.Import(lo.PanicOnErr(os.Open(filePath))); err != nil {
+		panic(err)
+	}
 
 	fmt.Println("--- Settings ---")
 	fmt.Printf("%+v\n", s.Settings)

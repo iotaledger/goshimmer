@@ -1,4 +1,4 @@
-package creator
+package snapshotcreator
 
 import (
 	"time"
@@ -10,7 +10,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
@@ -55,7 +54,9 @@ func CreateSnapshot(s *storage.Storage, snapshotFileName string, genesisTokenAmo
 		}
 	}
 
-	snapshot.WriteSnapshot(snapshotFileName, engineInstance, 0)
+	if err := engineInstance.WriteSnapshot(snapshotFileName); err != nil {
+		panic(err)
+	}
 }
 
 // CreateSnapshotForIntegrationTest creates a new snapshot. Genesis is defined by genesisTokenAmount and seedBytes, it
@@ -89,7 +90,9 @@ func CreateSnapshotForIntegrationTest(s *storage.Storage, snapshotFileName strin
 		}
 	}
 
-	snapshot.WriteSnapshot(snapshotFileName, engineInstance, 0)
+	if err := engineInstance.WriteSnapshot(snapshotFileName); err != nil {
+		panic(err)
+	}
 }
 
 var outputCounter uint16 = 1

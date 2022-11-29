@@ -15,7 +15,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
@@ -264,7 +263,7 @@ func (p *Protocol) CandidateStorage() (chainstorage *storage.Storage) {
 
 func (p *Protocol) importSnapshotFile(filePath string) {
 	if err := p.disk.WithFile(filePath, func(fileHandle *os.File) {
-		snapshot.ReadSnapshot(fileHandle, p.Engine())
+		p.Engine().Import(fileHandle)
 	}); err != nil {
 		if os.IsNotExist(err) {
 			return

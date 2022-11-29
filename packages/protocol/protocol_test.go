@@ -14,7 +14,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
-	"github.com/iotaledger/goshimmer/packages/core/snapshot/creator"
+	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
@@ -31,7 +31,7 @@ func TestProtocol(t *testing.T) {
 	diskUtil1 := diskutil.New(t.TempDir())
 
 	s := storage.New(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), DatabaseVersion)
-	creator.CreateSnapshot(s, diskUtil1.Path("snapshot.bin"), 100, make([]byte, 32, 32), map[identity.ID]uint64{
+	snapshotcreator.CreateSnapshot(s, diskUtil1.Path("snapshot.bin"), 100, make([]byte, 32, 32), map[identity.ID]uint64{
 		identity.GenerateIdentity().ID(): 100,
 	})
 
@@ -63,7 +63,7 @@ func TestProtocol(t *testing.T) {
 	diskUtil2 := diskutil.New(t.TempDir())
 
 	s2 := storage.New(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), DatabaseVersion)
-	creator.CreateSnapshot(s2, diskUtil2.Path("snapshot.bin"), 100, make([]byte, 32, 32), map[identity.ID]uint64{
+	snapshotcreator.CreateSnapshot(s2, diskUtil2.Path("snapshot.bin"), 100, make([]byte, 32, 32), map[identity.ID]uint64{
 		identity.GenerateIdentity().ID(): 100,
 	})
 

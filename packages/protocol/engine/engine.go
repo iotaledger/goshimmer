@@ -1,6 +1,8 @@
 package engine
 
 import (
+	"io"
+	"os"
 	"sync"
 	"time"
 
@@ -55,7 +57,6 @@ type Engine struct {
 
 	optsBootstrappedThreshold      time.Duration
 	optsEntryPointsDepth           int
-	optsSnapshotFile               string
 	optsSnapshotDepth              int
 	optsSybilProtectionProvider    func(engine *Engine) sybilprotection.SybilProtection
 	optsLedgerOptions              []options.Option[ledger.Ledger]
@@ -82,7 +83,6 @@ func New(storageInstance *storage.Storage, opts ...options.Option[Engine]) (engi
 
 			optsSybilProtectionProvider: panicOnEmptyProvider[sybilprotection.SybilProtection],
 			optsBootstrappedThreshold:   10 * time.Second,
-			optsSnapshotFile:            "snapshot.bin",
 			optsSnapshotDepth:           5,
 		}, opts,
 		(*Engine).injectPlugins,
@@ -140,6 +140,67 @@ func (e *Engine) FirstUnacceptedMarker(sequenceID markers.SequenceID) markers.In
 	}
 
 	return e.Consensus.BlockGadget.FirstUnacceptedIndex(sequenceID)
+}
+
+func (e *Engine) WriteSnapshot(filePath string, targetEpoch ...epoch.Index) (err error) {
+	if len(targetEpoch) == 0 {
+		targetEpoch = append(targetEpoch, e.Storage.Settings.LatestCommitment().Index())
+	} else if fileHandle, err := os.Create(filePath); err != nil {
+		return errors.Errorf("failed to create snapshot file: %w", err)
+	} else if err = e.Export(fileHandle, targetEpoch[0]); err != nil {
+		return errors.Errorf("failed to write snapshot: %w", err)
+	} else if err = fileHandle.Close(); err != nil {
+		return errors.Errorf("failed to close snapshot file: %w", err)
+	}
+
+	return
+}
+
+func (e *Engine) Import(reader io.ReadSeeker) (err error) {
+	if err = e.Storage.Settings.Import(reader); err != nil {
+		return errors.Errorf("failed to import settings: %w", err)
+	} else if err = e.Storage.Commitments.Import(reader); err != nil {
+		return errors.Errorf("failed to import commitments: %w", err)
+	} else if err = e.Storage.Settings.SetChainID(e.Storage.Settings.LatestCommitment().ID()); err != nil {
+		return errors.Errorf("failed to set chainID: %w", err)
+	} else if err = e.EvictionState.Import(reader); err != nil {
+		return errors.Errorf("failed to import eviction state: %w", err)
+	} else if err = e.Storage.Attestors.Import(reader); err != nil {
+		return errors.Errorf("failed to import attestors: %w", err)
+	} else if err = e.LedgerState.Import(reader); err != nil {
+		return errors.Errorf("failed to import ledger state: %w", err)
+	}
+
+	// We need to set the genesis time before we add the activity log as otherwise the calculation is based on the empty time value.
+	e.Clock.SetAcceptedTime(e.Storage.Settings.LatestCommitment().Index().EndTime())
+	e.Clock.SetConfirmedTime(e.Storage.Settings.LatestCommitment().Index().EndTime())
+
+	// Ledgerstate
+	// TODO: FIX
+	// {
+	// 	ProcessChunks(NewChunkedReader[ledgerstate.OutputWithMetadata](fileHandle),
+	// 		e.ManaTracker.ImportOutputs,
+	// 		// This will import into all the consumers too: sybilprotection and ledgerState.unspentOutputIDs
+	// 	)
+	// }
+
+	return
+}
+
+func (e *Engine) Export(writer io.WriteSeeker, epoch epoch.Index) (err error) {
+	if err = e.Storage.Settings.Export(writer); err != nil {
+		return errors.Errorf("failed to export settings: %w", err)
+	} else if err = e.Storage.Commitments.Export(writer, epoch); err != nil {
+		return errors.Errorf("failed to export commitments: %w", err)
+	} else if err = e.EvictionState.Export(writer, epoch); err != nil {
+		return errors.Errorf("failed to export eviction state: %w", err)
+	} else if err = e.Storage.Attestors.Export(writer, epoch-1); err != nil {
+		return errors.Errorf("failed to export attestors: %w", err)
+	} else if err = e.LedgerState.Export(writer, epoch); err != nil {
+		return errors.Errorf("failed to export ledger state: %w", err)
+	}
+
+	return
 }
 
 func (e *Engine) injectPlugins() {
@@ -386,12 +447,6 @@ func WithEntryPointsDepth(entryPointsDepth int) options.Option[Engine] {
 func WithTSCManagerOptions(opts ...options.Option[tsc.Manager]) options.Option[Engine] {
 	return func(e *Engine) {
 		e.optsTSCManagerOptions = opts
-	}
-}
-
-func WithSnapshotFile(snapshotFile string) options.Option[Engine] {
-	return func(e *Engine) {
-		e.optsSnapshotFile = snapshotFile
 	}
 }
 

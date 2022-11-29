@@ -11,7 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/core/logger"
 
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
-	"github.com/iotaledger/goshimmer/packages/core/snapshot/creator"
+	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
@@ -44,7 +44,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 			t.Protocol.Shutdown()
 		})
 
-		creator.CreateSnapshot(storageInstance, diskUtil.Path("snapshot.bin"), 100, make([]byte, 32, 32), map[identity.ID]uint64{
+		snapshotcreator.CreateSnapshot(storageInstance, diskUtil.Path("snapshot.bin"), 100, make([]byte, 32, 32), map[identity.ID]uint64{
 			identity.GenerateIdentity().ID(): 100,
 		})
 

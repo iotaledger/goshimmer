@@ -14,7 +14,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/mr-tron/base58"
 
-	"github.com/iotaledger/goshimmer/packages/core/snapshot/creator"
+	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 )
@@ -159,7 +159,7 @@ func createSnapshot(snapshotInfo SnapshotInfo) error {
 		snapshotInfo.FilePath = "/assets/snapshot.bin"
 	}
 
-	err = creator.CreateSnapshotForIntegrationTest(snapshotInfo.FilePath, snapshotInfo.GenesisTokenAmount, GenesisSeedBytes, masterSeed, nodesToPledgeMap)
+	err = snapshotcreator.CreateSnapshotForIntegrationTest(snapshotInfo.FilePath, snapshotInfo.GenesisTokenAmount, GenesisSeedBytes, masterSeed, nodesToPledgeMap)
 	if err != nil {
 		return err
 	}
