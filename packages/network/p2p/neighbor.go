@@ -154,12 +154,16 @@ func (n *Neighbor) writeLoop() {
 				stream := n.GetStream(sendPacket.protocolID)
 				if stream == nil {
 					n.Log.Warnw("send error, no stream for protocol", "peer-id", n.ID(), "protocol", sendPacket.protocolID)
-					n.Close()
+					if disconnectErr := n.disconnect(); disconnectErr != nil {
+						n.Log.Warnw("Failed to disconnect", "err", disconnectErr)
+					}
 					return
 				}
 				if err := stream.WritePacket(sendPacket.packet); err != nil {
 					n.Log.Warnw("send error", "peer-id", n.ID(), "err", err)
-					n.Close()
+					if disconnectErr := n.disconnect(); disconnectErr != nil {
+						n.Log.Warnw("Failed to disconnect", "err", disconnectErr)
+					}
 					return
 				}
 			}
