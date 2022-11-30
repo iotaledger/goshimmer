@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/epochgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
 // region Consensus ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -29,9 +28,7 @@ func New(tangleInstance *tangle.Tangle, evictionState *eviction.State, lastConfi
 	return options.Apply(new(Consensus), opts, func(c *Consensus) {
 		c.BlockGadget = blockgadget.New(tangleInstance, evictionState, totalWeightCallback, c.optsAcceptanceGadget...)
 		c.EpochGadget = epochgadget.New(tangleInstance, lastConfirmedEpoch, totalWeightCallback, c.optsEpochConfirmationGadget...)
-		c.ConflictResolver = conflictresolver.New(tangleInstance.Ledger.ConflictDAG, func(conflictID utxo.TransactionID) (weight int64) {
-			return tangleInstance.VirtualVoting.ConflictVoters(conflictID).TotalWeight()
-		})
+		c.ConflictResolver = conflictresolver.New(tangleInstance.Ledger.ConflictDAG, tangleInstance.VirtualVoting.ConflictVotersTotalWeight)
 
 		c.Events = NewEvents()
 		c.Events.BlockGadget = c.BlockGadget.Events
