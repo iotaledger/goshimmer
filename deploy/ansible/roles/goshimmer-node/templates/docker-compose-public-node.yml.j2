@@ -11,10 +11,6 @@ services:
       - GOMEMLIMIT=3000MiB
       - GOGC=100
       - GODEBUG=gctrace=1
-    ulimits:
-      core:
-        soft: -1
-        hard: -1
     volumes:
       - "./db:/db"
       - "/etc/localtime:/etc/localtime:ro"

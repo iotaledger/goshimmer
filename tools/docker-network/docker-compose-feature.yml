@@ -12,9 +12,9 @@ services:
     environment:
       - GOTRACEBACK=crash
     ulimits:
-      core:
-        soft: -1
-        hard: -1
+      nofile:
+        soft: 8192
+        hard: 8192
     command: >
       --analysis.dashboard.bindAddress=0.0.0.0:9000
       --analysis.dashboard.dev=false
@@ -58,9 +58,9 @@ services:
     environment:
       - GOTRACEBACK=crash
     ulimits:
-      core:
-        soft: -1
-        hard: -1
+      nofile:
+        soft: 8192
+        hard: 8192
     command: >
       --config=/run/secrets/goshimmer.config.json
       --node.seed=base58:6TjAFDutx39cVEW7wuXVPqJ7ZrvD7WVPvEG7tMpLNivb
@@ -101,9 +101,9 @@ services:
     environment:
       - GOTRACEBACK=crash
     ulimits:
-      core:
-        soft: -1
-        hard: -1
+      nofile:
+        soft: 8192
+        hard: 8192
     command: >
       --config=/run/secrets/goshimmer.config.json
       --node.seed=base58:E2BcF5h6J2Xge4LpXPq1iz3ocibAxEeLp5G56Yt2GKGe
@@ -143,9 +143,9 @@ services:
     environment:
       - GOTRACEBACK=crash
     ulimits:
-      core:
-        soft: -1
-        hard: -1
+      nofile:
+        soft: 8192
+        hard: 8192
     command: >
       --config=/run/secrets/goshimmer.config.json
       --node.seed=base58:3CqUkp2QoJL9TSooxmsiVi5A7ZdHAagjnMAKDyrKCZUV
@@ -183,9 +183,9 @@ services:
     environment:
       - GOTRACEBACK=crash
     ulimits:
-      core:
-        soft: -1
-        hard: -1
+      nofile:
+        soft: 8192
+        hard: 8192
     command: >
       --config=/run/secrets/goshimmer.config.json
       --node.seed=base58:AMRdVcVjeouXxUgABbvJTutnbNao26X1ZoE8uujPxivn
@@ -223,9 +223,9 @@ services:
     environment:
       - GOTRACEBACK=crash
     ulimits:
-      core:
-        soft: -1
-        hard: -1
+      nofile:
+        soft: 8192
+        hard: 8192
     command: >
       --config=/run/secrets/goshimmer.config.json
       --node.seed=base58:8pD9RVFVZVsJRyqei5W5NdwdjgMFgpyE3UxQE4s3Cwqk
@@ -263,9 +263,9 @@ services:
     environment:
       - GOTRACEBACK=crash
     ulimits:
-      core:
-        soft: -1
-        hard: -1
+      nofile:
+        soft: 8192
+        hard: 8192
     command: >
       --config=/run/secrets/goshimmer.config.json
       --node.seed=base58:7ufJuibvjDeC18bNDsA34YvDTPNapWHD6WjTq1CtEHmd
@@ -303,9 +303,9 @@ services:
     environment:
       - GOTRACEBACK=crash
     ulimits:
-      core:
-        soft: -1
-        hard: -1
+      nofile:
+        soft: 8192
+        hard: 8192
     command: >
       --config=/run/secrets/goshimmer.config.json
       --node.seed=base58:B3HR25Z7APVH7xrhAnuFJVmixKxgGb73UrvoovLSG3Jd
