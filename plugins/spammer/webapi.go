@@ -40,7 +40,7 @@ func handleRequest(c echo.Context) error {
 			timeUnit = time.Second
 		}
 
-		// IMIF: Inter Block Issuing Function
+		// Default payload size set to 5 bytes.
 		if request.PayloadSize == 0 {
 			request.PayloadSize = 5
 		}
