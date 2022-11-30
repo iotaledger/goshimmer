@@ -5,12 +5,6 @@ services:
   goshimmer:
     image: {{goshimmerDockerImage}}:{{goshimmerDockerTag}}
     container_name: goshimmer
-    environment:
-      - GOTRACEBACK=crash
-    ulimits:
-      core:
-        soft: -1
-        hard: -1
     volumes:
       - "./db:/db"
       - "/etc/localtime:/etc/localtime:ro"
