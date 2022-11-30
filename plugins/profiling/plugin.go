@@ -6,6 +6,7 @@ import (
 	_ "net/http/pprof"
 	"runtime"
 
+	"github.com/felixge/fgprof"
 	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/iotaledger/hive.go/core/node"
 )
@@ -34,5 +35,9 @@ func run(_ *node.Plugin) {
 	runtime.SetBlockProfileRate(5)
 
 	log.Infof("%s started, bind-address=%s", PluginName, bindAddr)
+
+	http.DefaultServeMux.Handle("/debug/fgprof", fgprof.Handler())
+
 	go http.ListenAndServe(bindAddr, nil)
+
 }
