@@ -5,6 +5,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/goshimmer/packages/app/collector"
 	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"net/http"
 	"time"
@@ -33,12 +34,19 @@ var (
 type dependencies struct {
 	dig.In
 
-	Local    *peer.Local
-	Protocol *protocol.Protocol
+	Local     *peer.Local
+	Protocol  *protocol.Protocol
+	Collector *collector.Collector
 }
 
 func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Disabled, configure, run)
+
+	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
+		if err := event.Container.Provide(createCollector); err != nil {
+			Plugin.Panic(err)
+		}
+	}))
 }
 
 func configure(plugin *node.Plugin) {
@@ -51,8 +59,7 @@ func configure(plugin *node.Plugin) {
 func run(*node.Plugin) {
 	log.Info("Starting Prometheus exporter ...")
 
-	clctr := collector.New()
-	registerMetrics(clctr)
+	registerMetrics()
 
 	if err := daemon.BackgroundWorker("Prometheus exporter", func(ctx context.Context) {
 		log.Info("Starting Prometheus exporter ... done")
@@ -61,10 +68,10 @@ func run(*node.Plugin) {
 		engine.Use(gin.Recovery())
 
 		engine.GET("/metrics", func(c *gin.Context) {
-			clctr.Collect()
+			deps.Collector.Collect()
 
 			handler := promhttp.HandlerFor(
-				clctr.Registry,
+				deps.Collector.Registry,
 				promhttp.HandlerOpts{
 					EnableOpenMetrics: true,
 				},
@@ -99,8 +106,12 @@ func run(*node.Plugin) {
 	}
 }
 
-func registerMetrics(c *collector.Collector) {
-	c.RegisterCollection(TangleMetrics)
-	c.RegisterCollection(ConflictMetrics)
+func createCollector() *collector.Collector {
+	return collector.New()
+}
+
+func registerMetrics() {
+	deps.Collector.RegisterCollection(TangleMetrics)
+	deps.Collector.RegisterCollection(ConflictMetrics)
 
 }

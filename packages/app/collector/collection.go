@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"github.com/iotaledger/hive.go/core/generics/constraints"
 	"github.com/iotaledger/hive.go/core/generics/options"
 )
 
@@ -10,9 +11,9 @@ type Collection struct {
 }
 
 func NewCollection(name string, opts ...options.Option[Collection]) *Collection {
-	return &Collection{
+	return options.Apply(&Collection{
 		CollectionName: name,
-	}
+	}, opts)
 }
 
 // region Options ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -24,3 +25,9 @@ func WithMetric(metric *Metric) options.Option[Collection] {
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func SingleValue[T constraints.Numeric](val T) map[string]float64 {
+	return map[string]float64{
+		"value": float64(val),
+	}
+}

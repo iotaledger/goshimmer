@@ -6,7 +6,8 @@ import (
 
 // Collector is responsible for creation and collection of metrics for the prometheus.
 type Collector struct {
-	Registry *prometheus.Registry
+	Registry    *prometheus.Registry
+	collections Collections
 }
 
 // New creates an instance of Manger, creates new prometheus registry for the protocol metrics collection.
@@ -26,4 +27,11 @@ func (c *Collector) Collect() {
 
 func (c *Collector) registerLocalMetrics() {
 
+}
+
+func (c *Collector) Update(subsystem, metricName string, labelValues map[string]float64) {
+	m := c.collections.GetMetric(subsystem, metricName)
+	if m != nil {
+		m.Update(labelValues)
+	}
 }
