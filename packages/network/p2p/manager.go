@@ -94,13 +94,6 @@ func (m *Manager) Stop() {
 	m.dropAllNeighbors()
 }
 
-func (m *Manager) dropAllNeighbors() {
-	neighborsList := m.AllNeighbors()
-	for _, nbr := range neighborsList {
-		nbr.Close()
-	}
-}
-
 // NeighborGroupEvents returns the events related to the neighbor group.
 func (m *Manager) NeighborGroupEvents(group NeighborsGroup) *NeighborGroupEvents {
 	return m.neighborGroupEvents[group]
@@ -320,4 +313,11 @@ func (m *Manager) setNeighbor(nbr *Neighbor) error {
 	}
 	m.neighbors[nbr.ID()] = nbr
 	return nil
+}
+
+func (m *Manager) dropAllNeighbors() {
+	neighborsList := m.AllNeighbors()
+	for _, nbr := range neighborsList {
+		nbr.Close()
+	}
 }

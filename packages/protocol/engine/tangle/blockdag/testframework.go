@@ -47,9 +47,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 		if t.BlockDAG == nil {
 			storageInstance := storage.New(test.TempDir(), 1)
 			test.Cleanup(func() {
-				if err := storageInstance.Shutdown(); err != nil {
-					test.Fatal(err)
-				}
+				storageInstance.Shutdown()
 			})
 
 			if t.evictionState == nil {

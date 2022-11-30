@@ -31,7 +31,7 @@ jobs:
     runs-on:
       - ubuntu-latest
     container:
-      image: gohornet/goreleaser-cgo-cross-compiler:1.18.1
+      image: iotaledger/goreleaser-cgo-cross-compiler:1.19
       volumes: [/repo]
     steps:
       - name: Checkout
