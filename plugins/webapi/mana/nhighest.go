@@ -6,6 +6,7 @@ import (
 
 	"github.com/labstack/echo"
 
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
@@ -32,7 +33,7 @@ func nHighestHandler(c echo.Context, manaType manamodels.Type) error {
 	if manaType == manamodels.AccessMana {
 		manaMap = deps.Protocol.Engine().ManaTracker.ManaByIDs()
 	} else {
-		manaMap = deps.Protocol.Engine().SybilProtection.Weights()
+		manaMap = lo.PanicOnErr(deps.Protocol.Engine().SybilProtection.Weights().Map())
 	}
 	highestNodes, t, err := manamodels.GetHighestManaIssuers(uint(number), manaMap)
 	if err != nil {

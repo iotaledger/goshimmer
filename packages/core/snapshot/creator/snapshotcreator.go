@@ -45,7 +45,7 @@ func CreateSnapshot(s *storage.Storage, snapshotFileName string, genesisTokenAmo
 		// pledge to ID but send funds to random address
 		output, outputMetadata = createOutput(devnetvm.NewED25519Address(ed25519.GenerateKeyPair().PublicKey), value, nodeID, now)
 		outputsWithMetadata = append(outputsWithMetadata, models.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
-		if err := s.ActiveNodes.Store(0, nodeID); err != nil {
+		if err := s.Attestors.Store(0, nodeID); err != nil {
 			panic(err)
 		}
 	}
@@ -53,7 +53,7 @@ func CreateSnapshot(s *storage.Storage, snapshotFileName string, genesisTokenAmo
 	// create ledger
 	l := ledger.New(s)
 
-	l.LoadOutputsWithMetadata(outputsWithMetadata)
+	l.ImportOutputs(outputsWithMetadata)
 
 	snapshot.WriteSnapshot(snapshotFileName, s, l, 0)
 }
@@ -75,7 +75,7 @@ func CreateSnapshotForIntegrationTest(s *storage.Storage, snapshotFileName strin
 	output, outputMetadata := createOutput(seed.NewSeed(genesisSeedBytes).Address(0).Address(), genesisTokenAmount, genesisPledgeID, now)
 	outputsWithMetadata = append(outputsWithMetadata, models.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
 
-	if err := s.ActiveNodes.Store(0, genesisPledgeID); err != nil {
+	if err := s.Attestors.Store(0, genesisPledgeID); err != nil {
 		panic(err)
 	}
 
@@ -83,7 +83,7 @@ func CreateSnapshotForIntegrationTest(s *storage.Storage, snapshotFileName strin
 		nodeID := identity.New(ed25519.PrivateKeyFromSeed(nodeSeedBytes[:]).Public()).ID()
 		output, outputMetadata = createOutput(seed.NewSeed(nodeSeedBytes[:]).Address(0).Address(), value, nodeID, now)
 		outputsWithMetadata = append(outputsWithMetadata, models.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
-		if err := s.ActiveNodes.Store(0, nodeID); err != nil {
+		if err := s.Attestors.Store(0, nodeID); err != nil {
 			panic(err)
 		}
 	}
@@ -91,7 +91,7 @@ func CreateSnapshotForIntegrationTest(s *storage.Storage, snapshotFileName strin
 	// create ledger
 	l := ledger.New(s)
 
-	l.LoadOutputsWithMetadata(outputsWithMetadata)
+	l.ImportOutputs(outputsWithMetadata)
 
 	snapshot.WriteSnapshot(snapshotFileName, s, l, 0)
 }

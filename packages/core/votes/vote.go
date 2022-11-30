@@ -5,20 +5,19 @@ import (
 
 	"github.com/iotaledger/hive.go/core/generics/constraints"
 	"github.com/iotaledger/hive.go/core/generics/orderedmap"
+	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
-
-	"github.com/iotaledger/goshimmer/packages/core/validator"
 )
 
 type Vote[ConflictIDType comparable, VotePowerType constraints.Comparable[VotePowerType]] struct {
-	Voter      *validator.Validator
+	Voter      identity.ID
 	ConflictID ConflictIDType
 	Opinion    Opinion
 	VotePower  VotePowerType
 }
 
 // NewVote derives a Vote for th.
-func NewVote[ConflictIDType comparable, VotePowerType constraints.Comparable[VotePowerType]](voter *validator.Validator, votePower VotePowerType, opinion Opinion) (voteWithOpinion *Vote[ConflictIDType, VotePowerType]) {
+func NewVote[ConflictIDType comparable, VotePowerType constraints.Comparable[VotePowerType]](voter identity.ID, votePower VotePowerType, opinion Opinion) (voteWithOpinion *Vote[ConflictIDType, VotePowerType]) {
 	return &Vote[ConflictIDType, VotePowerType]{
 		Voter:     voter,
 		VotePower: votePower,
@@ -74,26 +73,26 @@ func (v *Votes[ConflictIDType, VotePowerType]) Add(vote *Vote[ConflictIDType, Vo
 	v.m.Lock()
 	defer v.m.Unlock()
 
-	previousVote, exists := v.o.Get(vote.Voter.ID())
+	previousVote, exists := v.o.Get(vote.Voter)
 	if !exists {
-		return v.o.Set(vote.Voter.ID(), vote), true
+		return v.o.Set(vote.Voter, vote), true
 	}
 	if vote.VotePower.Compare(previousVote.VotePower) <= 0 {
 		return false, false
 	}
 
-	return v.o.Set(vote.Voter.ID(), vote), previousVote.Opinion != vote.Opinion
+	return v.o.Set(vote.Voter, vote), previousVote.Opinion != vote.Opinion
 }
 
 func (v *Votes[ConflictIDType, VotePowerType]) Delete(vote *Vote[ConflictIDType, VotePowerType]) (deleted bool) {
 	v.m.Lock()
 	defer v.m.Unlock()
 
-	return v.o.Delete(vote.Voter.ID())
+	return v.o.Delete(vote.Voter)
 }
 
-func (v *Votes[ConflictIDType, VotePowerType]) Voters() (voters *validator.Set) {
-	voters = validator.NewSet()
+func (v *Votes[ConflictIDType, VotePowerType]) Voters() (voters *set.AdvancedSet[identity.ID]) {
+	voters = set.NewAdvancedSet[identity.ID]()
 
 	v.m.RLock()
 	defer v.m.RUnlock()
@@ -108,11 +107,11 @@ func (v *Votes[ConflictIDType, VotePowerType]) Voters() (voters *validator.Set) 
 	return
 }
 
-func (v *Votes[ConflictIDType, VotePowerType]) Vote(voter *validator.Validator) (vote *Vote[ConflictIDType, VotePowerType], exists bool) {
+func (v *Votes[ConflictIDType, VotePowerType]) Vote(voter identity.ID) (vote *Vote[ConflictIDType, VotePowerType], exists bool) {
 	v.m.RLock()
 	defer v.m.RUnlock()
 
-	return v.o.Get(voter.ID())
+	return v.o.Get(voter)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
