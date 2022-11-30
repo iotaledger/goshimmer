@@ -6,12 +6,6 @@ services:
     image: {{goshimmerDockerImage}}:{{goshimmerDockerTag}}
     container_name: goshimmer
     stop_grace_period: 2m
-    environment:
-      - GOTRACEBACK=crash
-    ulimits:
-      core:
-        soft: -1
-        hard: -1
     volumes:
       - "./db:/db"
       - "/etc/localtime:/etc/localtime:ro"

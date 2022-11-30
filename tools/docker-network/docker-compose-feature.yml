@@ -9,12 +9,6 @@ services:
   bootstrap:
     build: *goshimmer_build
     stop_grace_period: 1m
-    environment:
-      - GOTRACEBACK=crash
-    ulimits:
-      core:
-        soft: -1
-        hard: -1
     command: >
       --analysis.dashboard.bindAddress=0.0.0.0:9000
       --analysis.dashboard.dev=false
@@ -36,6 +30,10 @@ services:
       --prometheus.goMetrics=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
+    ulimits:
+      nofile:
+        soft: 8192
+        hard: 8192
     secrets:
       - goshimmer.config.json
     volumes:
@@ -55,12 +53,6 @@ services:
   faucet:
     image: docker-network-bootstrap:latest
     stop_grace_period: 1m
-    environment:
-      - GOTRACEBACK=crash
-    ulimits:
-      core:
-        soft: -1
-        hard: -1
     command: >
       --config=/run/secrets/goshimmer.config.json
       --node.seed=base58:6TjAFDutx39cVEW7wuXVPqJ7ZrvD7WVPvEG7tMpLNivb
@@ -80,6 +72,10 @@ services:
       --prometheus.goMetrics=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
+    ulimits:
+      nofile:
+        soft: 8192
+        hard: 8192
     secrets:
       - goshimmer.config.json
     volumes:
@@ -98,12 +94,6 @@ services:
   vanilla:
     image: docker-network-bootstrap:latest
     stop_grace_period: 1m
-    environment:
-      - GOTRACEBACK=crash
-    ulimits:
-      core:
-        soft: -1
-        hard: -1
     command: >
       --config=/run/secrets/goshimmer.config.json
       --node.seed=base58:E2BcF5h6J2Xge4LpXPq1iz3ocibAxEeLp5G56Yt2GKGe
@@ -123,6 +113,10 @@ services:
       --blockIssuer.ignoreBootstrappedFlag=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
+    ulimits:
+      nofile:
+        soft: 8192
+        hard: 8192
     secrets:
       - goshimmer.config.json
     volumes:
@@ -140,12 +134,6 @@ services:
   node-01:
     image: docker-network-bootstrap:latest
     stop_grace_period: 1m
-    environment:
-      - GOTRACEBACK=crash
-    ulimits:
-      core:
-        soft: -1
-        hard: -1
     command: >
       --config=/run/secrets/goshimmer.config.json
       --node.seed=base58:3CqUkp2QoJL9TSooxmsiVi5A7ZdHAagjnMAKDyrKCZUV
@@ -164,6 +152,10 @@ services:
       --prometheus.goMetrics=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
+    ulimits:
+      nofile:
+        soft: 8192
+        hard: 8192
     secrets:
       - goshimmer.config.json
     volumes:
@@ -180,12 +172,6 @@ services:
   node-02:
     image: docker-network-bootstrap:latest
     stop_grace_period: 1m
-    environment:
-      - GOTRACEBACK=crash
-    ulimits:
-      core:
-        soft: -1
-        hard: -1
     command: >
       --config=/run/secrets/goshimmer.config.json
       --node.seed=base58:AMRdVcVjeouXxUgABbvJTutnbNao26X1ZoE8uujPxivn
@@ -204,6 +190,10 @@ services:
       --prometheus.goMetrics=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
+    ulimits:
+      nofile:
+        soft: 8192
+        hard: 8192
     secrets:
       - goshimmer.config.json
     volumes:
@@ -220,12 +210,6 @@ services:
   node-03:
     image: docker-network-bootstrap:latest
     stop_grace_period: 1m
-    environment:
-      - GOTRACEBACK=crash
-    ulimits:
-      core:
-        soft: -1
-        hard: -1
     command: >
       --config=/run/secrets/goshimmer.config.json
       --node.seed=base58:8pD9RVFVZVsJRyqei5W5NdwdjgMFgpyE3UxQE4s3Cwqk
@@ -244,6 +228,10 @@ services:
       --prometheus.goMetrics=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
+    ulimits:
+      nofile:
+        soft: 8192
+        hard: 8192
     secrets:
       - goshimmer.config.json
     volumes:
@@ -260,12 +248,6 @@ services:
   node-04:
     image: docker-network-bootstrap:latest
     stop_grace_period: 1m
-    environment:
-      - GOTRACEBACK=crash
-    ulimits:
-      core:
-        soft: -1
-        hard: -1
     command: >
       --config=/run/secrets/goshimmer.config.json
       --node.seed=base58:7ufJuibvjDeC18bNDsA34YvDTPNapWHD6WjTq1CtEHmd
@@ -284,6 +266,10 @@ services:
       --prometheus.goMetrics=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
+    ulimits:
+      nofile:
+        soft: 8192
+        hard: 8192
     secrets:
       - goshimmer.config.json
     volumes:
@@ -300,12 +286,6 @@ services:
   node-05:
     image: docker-network-bootstrap:latest
     stop_grace_period: 1m
-    environment:
-      - GOTRACEBACK=crash
-    ulimits:
-      core:
-        soft: -1
-        hard: -1
     command: >
       --config=/run/secrets/goshimmer.config.json
       --node.seed=base58:B3HR25Z7APVH7xrhAnuFJVmixKxgGb73UrvoovLSG3Jd
@@ -324,6 +304,10 @@ services:
       --prometheus.goMetrics=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
+    ulimits:
+      nofile:
+        soft: 8192
+        hard: 8192
     secrets:
       - goshimmer.config.json
     volumes:
@@ -381,11 +365,3 @@ secrets:
     file: ${GOSHIMMER_CONFIG:-./config.feature.docker.json}
   prometheus.yml:
     file: ${PROMETHEUS_CONFIG:-./prometheus.yml}
-
-volumes:
-  bind-test:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /tmp/coredumps
