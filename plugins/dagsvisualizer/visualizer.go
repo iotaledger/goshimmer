@@ -206,12 +206,11 @@ func registerConflictEvents() {
 
 	conflictWeightChangedClosure := event.NewClosure(func(e *conflicttracker.VoterEvent[utxo.TransactionID]) {
 		conflictConfirmationState := deps.Protocol.Engine().Ledger.ConflictDAG.ConfirmationState(utxo.NewTransactionIDs(e.ConflictID))
-		voters := deps.Protocol.Engine().Tangle.VirtualVoting.ConflictVoters(e.ConflictID)
 		wsBlk := &wsBlock{
 			Type: BlkTypeConflictWeightChanged,
 			Data: &conflictWeightChanged{
 				ID:                e.ConflictID.Base58(),
-				Weight:            voters.TotalWeight(),
+				Weight:            deps.Protocol.Engine().Tangle.VirtualVoting.ConflictVotersTotalWeight(e.ConflictID),
 				ConfirmationState: conflictConfirmationState.String(),
 			},
 		}
@@ -390,7 +389,7 @@ func newConflictVertex(conflictID utxo.TransactionID) (ret *conflictVertex) {
 			Conflicts:         jsonmodels.NewGetConflictConflictsResponse(conflict.ID(), conflicts),
 			IsConfirmed:       confirmationState.IsAccepted(),
 			ConfirmationState: confirmationState.String(),
-			AW:                deps.Protocol.Engine().Tangle.VirtualVoting.ConflictVoters(conflictID).TotalWeight(),
+			AW:                deps.Protocol.Engine().Tangle.VirtualVoting.ConflictVotersTotalWeight(conflictID),
 		}
 	})
 	return

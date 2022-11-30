@@ -277,7 +277,7 @@ func GetConflict(c echo.Context) (err error) {
 	}
 
 	if deps.Protocol.Engine().Ledger.ConflictDAG.Storage.CachedConflict(conflictID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-		err = c.JSON(http.StatusOK, jsonmodels.NewConflictWeight(conflict, conflict.ConfirmationState(), deps.Protocol.Engine().Tangle.ConflictVoters(conflictID).TotalWeight()))
+		err = c.JSON(http.StatusOK, jsonmodels.NewConflictWeight(conflict, conflict.ConfirmationState(), deps.Protocol.Engine().Tangle.ConflictVotersTotalWeight(conflictID)))
 	}) {
 		return
 	}
@@ -342,7 +342,10 @@ func GetConflictVoters(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	return c.JSON(http.StatusOK, jsonmodels.NewGetConflictVotersResponse(conflictID, deps.Protocol.Engine().Tangle.ConflictVoters(conflictID)))
+	voters := deps.Protocol.Engine().Tangle.ConflictVoters(conflictID)
+	defer voters.Detach()
+
+	return c.JSON(http.StatusOK, jsonmodels.NewGetConflictVotersResponse(conflictID, voters))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
