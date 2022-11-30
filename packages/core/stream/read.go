@@ -8,26 +8,35 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/constraints"
 )
 
+// Read reads a generic basic type from the stream.
 func Read[T any](reader io.ReadSeeker) (result T, err error) {
 	return result, binary.Read(reader, binary.LittleEndian, &result)
 }
 
-func ReadSerializable[T any, TPtr constraints.MarshalablePtr[T]](reader io.ReadSeeker, target TPtr, size int) (err error) {
-	readBytes, err := ReadBytes(reader, uint64(size))
-	if err != nil {
-		return errors.Errorf("failed to read bytes of serializable: %w", size, err)
+// ReadSerializable reads a serializable type from the stream (if the serialized field is of fixed size, we can provide
+// the length to omit additional information about the length of the serializable).
+func ReadSerializable[T any, TPtr constraints.MarshalablePtr[T]](reader io.ReadSeeker, target TPtr, optFixedSize ...int) (err error) {
+	var readBytes []byte
+	if len(optFixedSize) == 0 {
+		if readBytes, err = ReadBlob(reader); err != nil {
+			return errors.Errorf("failed to read serialized bytes: %w", err)
+		}
+	} else {
+		if readBytes, err = ReadBytes(reader, uint64(optFixedSize[0])); err != nil {
+			return errors.Errorf("failed to read serialized bytes: %w", err)
+		}
 	}
 
-	consumedBytes, err := target.FromBytes(readBytes)
-	if err != nil {
+	if consumedBytes, err := target.FromBytes(readBytes); err != nil {
 		return errors.Errorf("failed to parse bytes of serializable: %w", err)
-	} else if consumedBytes != size {
-		return errors.Errorf("failed to parse bytes of serializable: consumedBytes != size")
+	} else if len(optFixedSize) > 1 && consumedBytes != len(readBytes) {
+		return errors.Errorf("failed to parse serializable: consumed bytes (%d) != read bytes (%d)", consumedBytes, len(readBytes))
 	}
 
 	return
 }
 
+// ReadBytes reads a byte slice of the given size from the stream.
 func ReadBytes(reader io.ReadSeeker, size uint64) (bytes []byte, err error) {
 	bytes = make([]byte, size)
 	if err = binary.Read(reader, binary.LittleEndian, &bytes); err != nil {
@@ -37,6 +46,7 @@ func ReadBytes(reader io.ReadSeeker, size uint64) (bytes []byte, err error) {
 	return
 }
 
+// ReadBlob reads a byte slice from the stream (the first 8 bytes are the length of the blob).
 func ReadBlob(reader io.ReadSeeker) (blob []byte, err error) {
 	var size uint64
 	if size, err = Read[uint64](reader); err != nil {
@@ -48,6 +58,7 @@ func ReadBlob(reader io.ReadSeeker) (blob []byte, err error) {
 	return
 }
 
+// ReadCollection reads a collection from the stream (the first 8 bytes are the length of the collection).
 func ReadCollection(reader io.ReadSeeker, readCallback func(int) error) (err error) {
 	var elementsCount uint64
 	if elementsCount, err = Read[uint64](reader); err != nil {

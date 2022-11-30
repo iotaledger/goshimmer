@@ -8,22 +8,37 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/constraints"
 )
 
+// Write writes a generic basic type from the stream.
 func Write[T any](writer io.WriteSeeker, value T) (err error) {
 	return binary.Write(writer, binary.LittleEndian, value)
 }
 
-func WriteSerializable[T constraints.Serializable](writer io.WriteSeeker, target T, size int) (err error) {
-	if targetBytes, bytesErr := target.Bytes(); bytesErr != nil {
-		return errors.Errorf("failed to serialize target: %w", bytesErr)
-	} else if len(targetBytes) != size {
-		return errors.Errorf("failed to serialize target: len(targetBytes) != size")
-	} else if err = Write(writer, targetBytes); err != nil {
+// WriteSerializable writes a serializable type to the stream (if the serialized field is of fixed size, we can provide
+// the length to omit additional information about the length of the serializable).
+func WriteSerializable[T constraints.Serializable](writer io.WriteSeeker, target T, optFixedSize ...int) (err error) {
+	serializedBytes, err := target.Bytes()
+	if err != nil {
+		return errors.Errorf("failed to serialize target: %w", err)
+	}
+
+	if len(optFixedSize) == 0 {
+		if err = WriteBlob(writer, serializedBytes); err != nil {
+			return errors.Errorf("failed to write serialized bytes: %w", err)
+		}
+
+		return
+	}
+
+	if len(serializedBytes) != optFixedSize[0] {
+		return errors.Errorf("serialized bytes length (%d) != fixed size (%d)", len(serializedBytes), optFixedSize[0])
+	} else if err = Write(writer, serializedBytes); err != nil {
 		return errors.Errorf("failed to write target: %w", err)
 	}
 
 	return
 }
 
+// WriteBlob writes a byte slice to the stream (the first 8 bytes are the length of the blob).
 func WriteBlob(writer io.WriteSeeker, blob []byte) (err error) {
 	if err = Write(writer, uint64(len(blob))); err != nil {
 		err = errors.Errorf("failed to write blob length: %w", err)
@@ -34,6 +49,7 @@ func WriteBlob(writer io.WriteSeeker, blob []byte) (err error) {
 	return
 }
 
+// WriteCollection writes a collection to the stream (the first 8 bytes are the length of the collection).
 func WriteCollection(writer io.WriteSeeker, writeCollection func() (elementsCount uint64, err error)) (err error) {
 	var elementsCount uint64
 	var startOffset, endOffset int64
