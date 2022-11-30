@@ -28,8 +28,8 @@ type SybilProtection struct {
 
 	lastCommittedEpoch      epoch.Index
 	lastCommittedEpochMutex sync.RWMutex
-	batchedEpochIndex       epoch.Index
-	batchedEpochMutex       sync.RWMutex
+	batchEpochIndex         epoch.Index
+	batchEpochMutex         sync.RWMutex
 	batchedWeightUpdates    *sybilprotection.WeightUpdates
 }
 

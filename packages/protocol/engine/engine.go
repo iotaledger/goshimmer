@@ -148,7 +148,7 @@ func (e *Engine) ReadSnapshot(filePath string) (err error) {
 		return errors.Errorf("failed to open snapshot file: %w", err)
 	}
 	defer func() {
-		if err := file.Close(); err != nil {
+		if err = file.Close(); err != nil {
 			panic(err)
 		}
 	}()
@@ -165,7 +165,9 @@ func (e *Engine) ReadSnapshot(filePath string) (err error) {
 func (e *Engine) WriteSnapshot(filePath string, targetEpoch ...epoch.Index) (err error) {
 	if len(targetEpoch) == 0 {
 		targetEpoch = append(targetEpoch, e.Storage.Settings.LatestCommitment().Index())
-	} else if fileHandle, err := os.Create(filePath); err != nil {
+	}
+	
+	if fileHandle, err := os.Create(filePath); err != nil {
 		return errors.Errorf("failed to create snapshot file: %w", err)
 	} else if err = e.Export(fileHandle, targetEpoch[0]); err != nil {
 		return errors.Errorf("failed to write snapshot: %w", err)
@@ -362,7 +364,7 @@ func (e *Engine) initNotarizationManager() {
 }
 
 func (e *Engine) initManaTracker() {
-	e.ManaTracker = manatracker.New(e.Ledger, e.optsManaTrackerOptions...)
+	e.ManaTracker = manatracker.New(e.LedgerState, e.optsManaTrackerOptions...)
 }
 
 func (e *Engine) initEvictionState() {

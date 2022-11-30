@@ -71,21 +71,21 @@ func (s *SybilProtection) SetLastCommittedEpoch(index epoch.Index) {
 }
 
 func (s *SybilProtection) batchedEpoch() epoch.Index {
-	s.batchedEpochMutex.RLock()
-	defer s.batchedEpochMutex.RUnlock()
+	s.batchEpochMutex.RLock()
+	defer s.batchEpochMutex.RUnlock()
 
-	return s.batchedEpochIndex
+	return s.batchEpochIndex
 }
 
 func (s *SybilProtection) setBatchedEpoch(index epoch.Index) {
-	s.batchedEpochMutex.Lock()
-	defer s.batchedEpochMutex.Unlock()
+	s.batchEpochMutex.Lock()
+	defer s.batchEpochMutex.Unlock()
 
-	if index != 0 && s.batchedEpochIndex != 0 {
+	if index != 0 && s.batchEpochIndex != 0 {
 		panic("a batch is already in progress")
 	}
 
-	s.batchedEpochIndex = index
+	s.batchEpochIndex = index
 }
 
-var _ ledgerstate.UnspentOutputsSubscriber = &SybilProtection{}
+var _ ledgerstate.UnspentOutputsConsumer = &SybilProtection{}

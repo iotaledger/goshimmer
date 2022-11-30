@@ -1,117 +1,161 @@
 package manatracker
 
 import (
+	"context"
+	"errors"
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/identity"
 
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
 
 // ManaTracker is the manager that tracks the mana balances of identities.
 type ManaTracker struct {
-	manaByID      *shrinkingmap.ShrinkingMap[identity.ID, int64]
-	manaByIDMutex sync.RWMutex
-	totalMana     int64
-	ledger        *ledger.Ledger
+	manaByID                     *shrinkingmap.ShrinkingMap[identity.ID, int64]
+	manaByIDMutex                sync.RWMutex
+	totalMana                    int64
+	ledgerState                  *ledgerstate.LedgerState
+	initialized                  bool
+	initializedMutex             sync.RWMutex
+	lastCommittedEpochIndex      epoch.Index
+	lastCommittedEpochIndexMutex sync.RWMutex
+	batchEpochIndex              epoch.Index
+	batchEpochIndexMutex         sync.RWMutex
 }
 
 // New creates a new ManaTracker.
-func New(ledgerInstance *ledger.Ledger, opts ...options.Option[ManaTracker]) (manaTracker *ManaTracker) {
+func New(ledgerState *ledgerstate.LedgerState, opts ...options.Option[ManaTracker]) (manaTracker *ManaTracker) {
 	return options.Apply(&ManaTracker{
-		manaByID: shrinkingmap.New[identity.ID, int64](),
-		ledger:   ledgerInstance,
+		manaByID:    shrinkingmap.New[identity.ID, int64](),
+		ledgerState: ledgerState,
 	}, opts, func(m *ManaTracker) {
-		ledgerInstance.Events.TransactionAccepted.Attach(event.NewClosure(m.ProcessAcceptedTransaction))
+		ledgerState.UnspentOutputs.Subscribe(m)
 	})
 }
 
-// ProcessAcceptedTransaction processes the accepted transaction and updates the mana according to the pledges.
-func (t *ManaTracker) ProcessAcceptedTransaction(metadata *ledger.TransactionMetadata) {
-	t.ledger.Storage.CachedTransaction(metadata.ID()).Consume(func(transaction utxo.Transaction) {
-		txEssence := transaction.(*devnetvm.Transaction).Essence()
-
-		t.updateMana(txEssence.AccessPledgeID(), t.revokeManaFromInputs(txEssence.Inputs()))
-	})
+func (m *ManaTracker) Begin(committedEpoch epoch.Index) (currentEpoch epoch.Index, err error) {
+	return m.setBatchEpoch(committedEpoch)
 }
 
-// Mana returns the mana balance of an identity.
-func (t *ManaTracker) Mana(id identity.ID) (mana int64, exists bool) {
-	t.manaByIDMutex.RLock()
-	defer t.manaByIDMutex.RUnlock()
+func (m *ManaTracker) Unsubscribe() {
+	m.initializedMutex.Lock()
+	defer m.initializedMutex.Unlock()
 
-	return t.manaByID.Get(id)
+	m.ledgerState.UnspentOutputs.Unsubscribe(m)
+	m.initialized = true
 }
 
-// ManaByIDs returns the mana balances of all identities.
-func (t *ManaTracker) ManaByIDs() (manaByID map[identity.ID]int64) {
-	t.manaByIDMutex.RLock()
-	defer t.manaByIDMutex.RUnlock()
+func (m *ManaTracker) Commit() (ctx context.Context) {
+	ctx, done := context.WithCancel(context.Background())
 
-	return t.manaByID.AsMap()
-}
+	m.setLastCommittedEpoch(m.batchEpoch())
+	m.setBatchEpoch(0)
 
-// TotalMana returns the total amount of mana.
-func (t *ManaTracker) TotalMana() (totalMana int64) {
-	return t.totalMana
-}
-
-// ImportOutputs imports the outputs from a snapshot and updates the mana balances and the total mana.
-func (t *ManaTracker) ImportOutputs(outputs []*ledgerstate.OutputWithMetadata) {
-	t.totalMana += t.processOutputsFromSnapshot(outputs, true)
-}
-
-// RollbackOutputs rolls back the outputs from a snapshot and updates the mana balances.
-func (t *ManaTracker) RollbackOutputs(outputs []*ledgerstate.OutputWithMetadata, areCreated bool) {
-	t.processOutputsFromSnapshot(outputs, !areCreated)
-}
-
-// updateMana adds the diff to the current mana balance of an identity .
-func (t *ManaTracker) updateMana(id identity.ID, diff int64) {
-	t.manaByIDMutex.Lock()
-	defer t.manaByIDMutex.Unlock()
-
-	if newBalance := lo.Return1(t.manaByID.Get(id)) + diff; newBalance != 0 {
-		t.manaByID.Set(id, newBalance)
-	} else {
-		t.manaByID.Delete(id)
-	}
-}
-
-// revokeManaFromInputs revokes the mana from the inputs of a transaction and returns the total amount that was revoked.
-func (t *ManaTracker) revokeManaFromInputs(inputs devnetvm.Inputs) (totalRevoked int64) {
-	for _, input := range inputs {
-		t.ledger.Storage.CachedOutput(input.(*devnetvm.UTXOInput).ReferencedOutputID()).Consume(func(output utxo.Output) {
-			t.ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(metadata *ledger.OutputMetadata) {
-				if amount, exists := output.(devnetvm.Output).Balances().Get(devnetvm.ColorIOTA); exists {
-					t.updateMana(metadata.AccessManaPledgeID(), -int64(amount))
-
-					totalRevoked += int64(amount)
-				}
-			})
-		})
-	}
+	done()
 
 	return
 }
 
-// processOutputsFromSnapshot processes the outputs from a snapshot and updates the mana balances.
-func (t *ManaTracker) processOutputsFromSnapshot(outputs []*ledgerstate.OutputWithMetadata, areCreated bool) (totalDiff int64) {
-	for _, output := range outputs {
-		if iotaBalance, exists := output.Output().(devnetvm.Output).Balances().Get(devnetvm.ColorIOTA); exists {
-			diff := lo.Cond(areCreated, int64(iotaBalance), -int64(iotaBalance))
-			totalDiff += diff
+func (m *ManaTracker) ApplyCreatedOutput(output *ledgerstate.OutputWithMetadata) (err error) {
+	m.initializedMutex.RLock()
+	defer m.initializedMutex.RUnlock()
 
-			t.updateMana(output.AccessManaPledgeID(), diff)
+	if iotaBalance, exists := output.IOTABalance(); exists {
+		m.updateMana(output.AccessManaPledgeID(), int64(iotaBalance))
+		if !m.initialized {
+			m.totalMana += int64(iotaBalance)
 		}
 	}
 
 	return
+}
+
+func (m *ManaTracker) ApplySpentOutput(output *ledgerstate.OutputWithMetadata) (err error) {
+	if iotaBalance, exists := output.IOTABalance(); exists {
+		m.updateMana(output.AccessManaPledgeID(), -int64(iotaBalance))
+	}
+
+	return
+}
+
+func (m *ManaTracker) RollbackCreatedOutput(output *ledgerstate.OutputWithMetadata) (err error) {
+	return m.ApplySpentOutput(output)
+}
+
+func (m *ManaTracker) RollbackSpentOutput(output *ledgerstate.OutputWithMetadata) (err error) {
+	return m.ApplyCreatedOutput(output)
+}
+
+// Mana returns the mana balance of an identity.
+func (m *ManaTracker) Mana(id identity.ID) (mana int64, exists bool) {
+	m.manaByIDMutex.RLock()
+	defer m.manaByIDMutex.RUnlock()
+
+	return m.manaByID.Get(id)
+}
+
+// ManaByIDs returns the mana balances of all identities.
+func (m *ManaTracker) ManaByIDs() (manaByID map[identity.ID]int64) {
+	m.manaByIDMutex.RLock()
+	defer m.manaByIDMutex.RUnlock()
+
+	return m.manaByID.AsMap()
+}
+
+// TotalMana returns the total amount of mana.
+func (m *ManaTracker) TotalMana() (totalMana int64) {
+	return m.totalMana
+}
+
+// updateMana adds the diff to the current mana balance of an identity .
+func (m *ManaTracker) updateMana(id identity.ID, diff int64) {
+	m.manaByIDMutex.Lock()
+	defer m.manaByIDMutex.Unlock()
+
+	if newBalance := lo.Return1(m.manaByID.Get(id)) + diff; newBalance != 0 {
+		m.manaByID.Set(id, newBalance)
+	} else {
+		m.manaByID.Delete(id)
+	}
+}
+
+func (m *ManaTracker) batchEpoch() (currentEpoch epoch.Index) {
+	m.batchEpochIndexMutex.RLock()
+	defer m.batchEpochIndexMutex.RUnlock()
+
+	return m.batchEpochIndex
+}
+
+func (m *ManaTracker) setBatchEpoch(newEpoch epoch.Index) (currentEpoch epoch.Index, err error) {
+	m.batchEpochIndexMutex.Lock()
+	defer m.batchEpochIndexMutex.Unlock()
+
+	if newEpoch != 0 && m.batchEpochIndex != 0 {
+		return 0, errors.New("batch is already in progress")
+	} else if (newEpoch - currentEpoch).Abs() > 1 {
+		return 0, errors.New("batches can only be applied in order")
+	} else if currentEpoch = m.lastCommittedEpoch(); currentEpoch != newEpoch {
+		m.batchEpochIndex = newEpoch
+	}
+
+	return
+}
+
+func (m *ManaTracker) lastCommittedEpoch() (lastCommittedEpoch epoch.Index) {
+	m.lastCommittedEpochIndexMutex.RLock()
+	defer m.lastCommittedEpochIndexMutex.RUnlock()
+
+	return m.lastCommittedEpochIndex
+}
+
+func (m *ManaTracker) setLastCommittedEpoch(index epoch.Index) {
+	m.lastCommittedEpochIndexMutex.Lock()
+	defer m.lastCommittedEpochIndexMutex.Unlock()
+
+	m.lastCommittedEpochIndex = index
 }

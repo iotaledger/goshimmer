@@ -282,6 +282,9 @@ func (p *Protocol) activateEngine(engine *engine.Engine, snapshotPath string) (e
 		}
 	}
 
+	// The ManaTracker is initialized with the snapshot, but, after, the changes are tracked live.
+	engine.ManaTracker.Unsubscribe()
+
 	return
 }
 
