@@ -1,6 +1,7 @@
 package p2p
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -42,6 +43,9 @@ type Neighbor struct {
 	disconnectOnce sync.Once
 	wg             sync.WaitGroup
 
+	loopCtx       context.Context
+	loopCtxCancel context.CancelFunc
+
 	// protocols is a map of protocol IDs to their respective PacketsStream.
 	// As it is only initialized from the Neighbor constructor, no locking is needed.
 	protocols map[protocol.ID]*PacketsStream
@@ -51,25 +55,31 @@ type Neighbor struct {
 
 // NewNeighbor creates a new neighbor from the provided peer and connection.
 func NewNeighbor(p *peer.Peer, group NeighborsGroup, protocols map[protocol.ID]*PacketsStream, log *logger.Logger) *Neighbor {
-	new := &Neighbor{
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	neighbor := &Neighbor{
 		Peer:  p,
 		Group: group,
 
 		Events: NewNeighborEvents(),
 
+		loopCtx:       ctx,
+		loopCtxCancel: cancel,
+
 		protocols: protocols,
 		sendQueue: make(chan *queuedPacket, NeighborsSendQueueSize),
 	}
 
-	conn := new.getAnyStream().Conn()
+	conn := neighbor.getAnyStream().Conn()
 
-	new.Log = log.With(
+	neighbor.Log = log.With(
 		"id", p.ID(),
 		"localAddr", conn.LocalMultiaddr(),
 		"remoteAddr", conn.RemoteMultiaddr(),
 	)
 
-	return new
+	return neighbor
 }
 
 func (n *Neighbor) Enqueue(packet proto.Message, protocolID protocol.ID) {
@@ -119,6 +129,12 @@ func (n *Neighbor) readLoop() {
 		go func(protocolID protocol.ID, stream *PacketsStream) {
 			defer n.wg.Done()
 			for {
+
+				if n.loopCtx.Err() != nil {
+					n.Log.Infof("Exit %s readLoop due to cancelled context", protocolID)
+					return
+				}
+
 				// This loop gets terminated when we encounter an error on .read() function call.
 				// The error might be caused by another goroutine closing the connection by calling .disconnect() function.
 				// Or by a problem with the connection itself.
@@ -150,6 +166,9 @@ func (n *Neighbor) writeLoop() {
 		defer n.wg.Done()
 		for {
 			select {
+			case <-n.loopCtx.Done():
+				n.Log.Info("Exit writeLoop due to cancelled context")
+				return
 			case sendPacket := <-n.sendQueue:
 				stream := n.GetStream(sendPacket.protocolID)
 				if stream == nil {
@@ -181,6 +200,10 @@ func (n *Neighbor) Close() {
 
 func (n *Neighbor) disconnect() (err error) {
 	n.disconnectOnce.Do(func() {
+		// Stop the loops
+		n.loopCtxCancel()
+
+		// Close all streams
 		for _, stream := range n.protocols {
 			if streamErr := stream.Close(); streamErr != nil {
 				err = errors.WithStack(streamErr)
