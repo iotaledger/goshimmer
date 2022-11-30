@@ -381,11 +381,3 @@ secrets:
     file: ${GOSHIMMER_CONFIG:-./config.feature.docker.json}
   prometheus.yml:
     file: ${PROMETHEUS_CONFIG:-./prometheus.yml}
-
-volumes:
-  bind-test:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /tmp/coredumps
