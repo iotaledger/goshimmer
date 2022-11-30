@@ -15,7 +15,9 @@ import (
 	"github.com/iotaledger/hive.go/core/types"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	. "github.com/iotaledger/goshimmer/packages/network/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
@@ -73,6 +75,26 @@ func (p *Protocol) RequestCommitment(id commitment.ID, to ...identity.ID) {
 	}}}, protocolID, to...)
 }
 
+func (p *Protocol) SendAttestations(attestations *notarization.Attestations, to ...identity.ID) {
+	/*
+		attestationsBytes := make([][]byte, len(attestations))
+
+		for i, attestation := range attestations {
+			attestationsBytes[i] = lo.PanicOnErr(attestation.Bytes())
+		}
+
+		p.network.Send(&Packet{Body: &Packet_Attestations{Attestations: &Attestations{
+			Bytes: attestationsBytes,
+		}}}, protocolID, to...)
+	*/
+}
+
+func (p *Protocol) RequestAttestations(epochIndex epoch.Index, to ...identity.ID) {
+	p.network.Send(&Packet{Body: &Packet_AttestationsRequest{AttestationsRequest: &AttestationsRequest{
+		Bytes: epochIndex.Bytes(),
+	}}}, protocolID, to...)
+}
+
 func (p *Protocol) Unregister() {
 	p.network.UnregisterProtocol(protocolID)
 }
@@ -87,6 +109,10 @@ func (p *Protocol) handlePacket(nbr identity.ID, packet proto.Message) (err erro
 		event.Loop.Submit(func() { p.onEpochCommitment(packetBody.EpochCommitment.GetBytes(), nbr) })
 	case *Packet_EpochCommitmentRequest:
 		event.Loop.Submit(func() { p.onEpochCommitmentRequest(packetBody.EpochCommitmentRequest.GetBytes(), nbr) })
+	case *Packet_Attestations:
+		event.Loop.Submit(func() { p.onAttestations(packetBody.Attestations.GetBytes(), nbr) })
+	case *Packet_AttestationsRequest:
+		event.Loop.Submit(func() { p.onAttestationsRequest(packetBody.AttestationsRequest.GetBytes(), nbr) })
 	default:
 		return errors.Errorf("unsupported packet; packet=%+v, packetBody=%T-%+v", packet, packetBody, packetBody)
 	}
@@ -151,8 +177,8 @@ func (p *Protocol) onEpochCommitment(commitmentBytes []byte, id identity.ID) {
 	}
 
 	p.Events.EpochCommitmentReceived.Trigger(&EpochCommitmentReceivedEvent{
-		Neighbor:   id,
 		Commitment: &receivedCommitment,
+		Source:     id,
 	})
 }
 
@@ -170,6 +196,34 @@ func (p *Protocol) onEpochCommitmentRequest(idBytes []byte, id identity.ID) {
 	p.Events.EpochCommitmentRequestReceived.Trigger(&EpochCommitmentRequestReceivedEvent{
 		CommitmentID: receivedCommitmentID,
 		Source:       id,
+	})
+}
+
+func (p *Protocol) onAttestations(attestationsBytes []byte, id identity.ID) {
+	attestations := new(notarization.Attestations)
+
+	// TODO: PARSE BYTES
+
+	p.Events.AttestationsReceived.Trigger(&AttestationsReceivedEvent{
+		Attestations: attestations,
+		Source:       id,
+	})
+}
+
+func (p *Protocol) onAttestationsRequest(epochIndexBytes []byte, id identity.ID) {
+	epochIndex, _, err := epoch.IndexFromBytes(epochIndexBytes)
+	if err != nil {
+		p.Events.Error.Trigger(&ErrorEvent{
+			Error:  errors.Errorf("failed to deserialize epoch index: %w", err),
+			Source: id,
+		})
+
+		return
+	}
+
+	p.Events.AttestationsRequestReceived.Trigger(&AttestationsRequestReceivedEvent{
+		Index:  epochIndex,
+		Source: id,
 	})
 }
 

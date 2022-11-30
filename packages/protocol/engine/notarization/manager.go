@@ -1,7 +1,6 @@
 package notarization
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -9,11 +8,11 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
-	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/ads"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -32,6 +31,7 @@ type Manager struct {
 	*EpochMutations
 
 	storage                  *storage.Storage
+	ledgerState              *ledgerstate.LedgerState
 	pendingConflictsCounters *shrinkingmap.ShrinkingMap[epoch.Index, uint64]
 	commitmentMutex          sync.RWMutex
 
@@ -42,14 +42,14 @@ type Manager struct {
 }
 
 // NewManager creates a new notarization Manager.
-func NewManager(storage *storage.Storage, sybilProtection *sybilprotection.SybilProtection, opts ...options.Option[Manager]) (new *Manager) {
+func NewManager(storageInstance *storage.Storage, ledgerState *ledgerstate.LedgerState, weights *sybilprotection.Weights, opts ...options.Option[Manager]) (newManager *Manager) {
 	return options.Apply(&Manager{
-		Events:         NewEvents(),
-		EpochMutations: NewEpochMutations(sybilProtection.Weight, storage.Settings.LatestCommitment().Index()),
-
-		storage:                    storage,
+		Events:                     NewEvents(),
+		EpochMutations:             NewEpochMutations(weights, storageInstance.Settings.LatestCommitment().Index()),
+		storage:                    storageInstance,
+		ledgerState:                ledgerState,
 		pendingConflictsCounters:   shrinkingmap.New[epoch.Index, uint64](),
-		acceptanceTime:             storage.Settings.LatestCommitment().Index().EndTime(),
+		acceptanceTime:             storageInstance.Settings.LatestCommitment().Index().EndTime(),
 		optsMinCommittableEpochAge: defaultMinEpochCommittableAge,
 	}, opts)
 }
@@ -143,22 +143,36 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 
 	m.pendingConflictsCounters.Delete(index)
 
-	stateRoot, manaRoot := m.storage.ApplyStateDiff(index, m.storage.LedgerStateDiffs.StateDiff(index))
-	acceptedBlocks, acceptedTransactions, activeValidators, cumulativeWeight, err := m.EpochMutations.Commit(index)
+	if err := m.ledgerState.ApplyStateDiff(index); err != nil {
+		m.Events.Error.Trigger(errors.Errorf("failed to apply state diff for epoch %d: %w", index, err))
+		return false
+	}
+
+	acceptedBlocks, acceptedTransactions, attestations, err := m.EpochMutations.Evict(index)
 	if err != nil {
 		m.Events.Error.Trigger(errors.Errorf("failed to commit mutations: %w", err))
 
 		return false
 	}
 
-	newCommitment := commitment.New(index, latestCommitment.ID(), commitment.NewRoots(acceptedBlocks.Root(), acceptedTransactions.Root(), activeValidators.Root(), stateRoot, manaRoot).ID(), cumulativeWeight)
+	newCommitment := commitment.New(
+		index,
+		latestCommitment.ID(),
+		commitment.NewRoots(
+			acceptedBlocks.Root(),
+			acceptedTransactions.Root(),
+			attestations.Attestors().Root(),
+			m.ledgerState.Root(),
+			m.weights.Root(),
+		).ID(),
+		m.storage.Settings.LatestCommitment().CumulativeWeight()+attestations.Weight(),
+	)
 
 	if err = m.storage.Settings.SetLatestCommitment(newCommitment); err != nil {
 		m.Events.Error.Trigger(errors.Errorf("failed to set latest commitment: %w", err))
 	}
 
-	fmt.Println("(time: ", time.Now(), ") epoch commited", newCommitment.Index(), m.AcceptanceTime())
-	accBlocks, accTxs, valNum := m.evaluateEpochSizeDetails(acceptedBlocks, acceptedTransactions, activeValidators)
+	accBlocks, accTxs, valNum := m.evaluateEpochSizeDetails(acceptedBlocks, acceptedTransactions, attestations)
 	m.Events.EpochCommitted.Trigger(&EpochCommittedDetails{
 		Commitment:                newCommitment,
 		AcceptedBlocksCount:       accBlocks,
@@ -169,7 +183,7 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 	return true
 }
 
-func (m *Manager) evaluateEpochSizeDetails(acceptedBlocks *ads.Set[models.BlockID], acceptedTransactions *ads.Set[utxo.TransactionID], activeValidators *ads.Set[identity.ID]) (int, int, int) {
+func (m *Manager) evaluateEpochSizeDetails(acceptedBlocks *ads.Set[models.BlockID], acceptedTransactions *ads.Set[utxo.TransactionID], attestations *Attestations) (int, int, int) {
 	var accBlocks, accTxs, valNum int
 	if acceptedBlocks != nil {
 		accBlocks = acceptedBlocks.Size()
@@ -177,8 +191,8 @@ func (m *Manager) evaluateEpochSizeDetails(acceptedBlocks *ads.Set[models.BlockI
 	if acceptedTransactions != nil {
 		accTxs = acceptedTransactions.Size()
 	}
-	if activeValidators != nil {
-		valNum = activeValidators.Size()
+	if attestations != nil {
+		valNum = attestations.Attestors().Size()
 	}
 	return accBlocks, accTxs, valNum
 }
