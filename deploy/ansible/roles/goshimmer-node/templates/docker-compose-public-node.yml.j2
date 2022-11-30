@@ -10,7 +10,6 @@ services:
       - GOTRACEBACK=crash
       - GOMEMLIMIT=3000MiB
       - GOGC=100
-      - GODEBUG=gctrace=1
     volumes:
       - "./db:/db"
       - "/etc/localtime:/etc/localtime:ro"
