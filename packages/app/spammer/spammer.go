@@ -49,11 +49,11 @@ func New(issuePayloadFunc IssuePayloadFunc, log *logger.Logger, estimateFunc Est
 
 // Start starts the spammer to spam with the given blocks per time unit,
 // according to a inter block issuing function (IMIF)
-func (s *Spammer) Start(rate int, timeUnit time.Duration, imif string) {
+func (s *Spammer) Start(rate int, payloadSize uint64, timeUnit time.Duration, imif string) {
 	// only start if not yet running
 	if s.running.SetToIf(false, true) {
 		s.wg.Add(1)
-		go s.run(rate, timeUnit, imif)
+		go s.run(rate, payloadSize, timeUnit, imif)
 	}
 }
 
@@ -69,8 +69,11 @@ func (s *Spammer) signalShutdown() {
 	}
 }
 
-func (s *Spammer) run(rate int, timeUnit time.Duration, imif string) {
+func (s *Spammer) run(rate int, payloadSize uint64, timeUnit time.Duration, imif string) {
 	defer s.wg.Done()
+
+	dataPayload := payload.NewGenericDataPayload(make([]byte, payloadSize))
+
 	// create ticker with interval for default imif
 	ticker := time.NewTicker(timeUnit / time.Duration(rate))
 	defer ticker.Stop()
@@ -96,7 +99,7 @@ func (s *Spammer) run(rate int, timeUnit time.Duration, imif string) {
 				s.goroutinesCount.Add(1)
 				defer s.goroutinesCount.Add(-1)
 				// we don't care about errors or the actual issued block
-				_, err := s.issuePayloadFunc(payload.NewGenericDataPayload([]byte("SPAM")))
+				_, err := s.issuePayloadFunc(dataPayload)
 				if errors.Is(err, blockissuer.ErrNotBootstraped) {
 					s.log.Info("Stopped spamming blocks because node lost sync")
 					s.signalShutdown()
