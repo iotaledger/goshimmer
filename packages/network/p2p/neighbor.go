@@ -5,13 +5,19 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/libp2p/go-libp2p/core/protocol"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/logger"
-	"github.com/libp2p/go-libp2p/core/protocol"
 )
 
 // NeighborsGroup is an enum type for various neighbors groups like auto/manual.
 type NeighborsGroup int8
+
+const (
+	NeighborsSendQueueSize = 1000
+)
 
 const (
 	// NeighborsGroupAuto represents a neighbors group that is managed automatically.
@@ -19,6 +25,11 @@ const (
 	// NeighborsGroupManual represents a neighbors group that is managed manually.
 	NeighborsGroupManual
 )
+
+type queuedPacket struct {
+	protocolID protocol.ID
+	packet     proto.Message
+}
 
 // Neighbor describes the established p2p connection to another peer.
 type Neighbor struct {
@@ -34,6 +45,8 @@ type Neighbor struct {
 	// protocols is a map of protocol IDs to their respective PacketsStream.
 	// As it is only initialized from the Neighbor constructor, no locking is needed.
 	protocols map[protocol.ID]*PacketsStream
+
+	sendQueue chan *queuedPacket
 }
 
 // NewNeighbor creates a new neighbor from the provided peer and connection.
@@ -45,6 +58,7 @@ func NewNeighbor(p *peer.Peer, group NeighborsGroup, protocols map[protocol.ID]*
 		Events: NewNeighborEvents(),
 
 		protocols: protocols,
+		sendQueue: make(chan *queuedPacket, NeighborsSendQueueSize),
 	}
 
 	conn := new.getAnyStream().Conn()
@@ -56,6 +70,14 @@ func NewNeighbor(p *peer.Peer, group NeighborsGroup, protocols map[protocol.ID]*
 	)
 
 	return new
+}
+
+func (n *Neighbor) Enqueue(packet proto.Message, protocolID protocol.ID) {
+	select {
+	case n.sendQueue <- &queuedPacket{protocolID: protocolID, packet: packet}:
+	default:
+		n.Log.Warn("Dropped packet due to SendQueue being full")
+	}
 }
 
 // GetStream returns the stream for the given protocol.
@@ -120,6 +142,29 @@ func (n *Neighbor) readLoop() {
 			}
 		}(protocolID, stream)
 	}
+}
+
+func (n *Neighbor) writeLoop() {
+	n.wg.Add(1)
+	go func() {
+		defer n.wg.Done()
+		for {
+			select {
+			case sendPacket := <-n.sendQueue:
+				stream := n.GetStream(sendPacket.protocolID)
+				if stream == nil {
+					n.Log.Warnw("send error, no stream for protocol", "peer-id", n.ID(), "protocol", sendPacket.protocolID)
+					n.Close()
+					return
+				}
+				if err := stream.WritePacket(sendPacket.packet); err != nil {
+					n.Log.Warnw("send error", "peer-id", n.ID(), "err", err)
+					n.Close()
+					return
+				}
+			}
+		}
+	}()
 }
 
 // Close closes the connection with the neighbor.
