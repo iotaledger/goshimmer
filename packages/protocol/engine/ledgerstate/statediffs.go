@@ -171,8 +171,8 @@ func (s *StateDiffs) Import(reader io.ReadSeeker) (importedEpochs []epoch.Index,
 func (s *StateDiffs) importOutputs(reader io.ReadSeeker, store func(*OutputWithMetadata) error) (err error) {
 	output := new(OutputWithMetadata)
 	return stream.ReadCollection(reader, func(i int) (err error) {
-		if err = output.Import(reader); err != nil {
-			return errors.Errorf("failed to import output %d: %w", i, err)
+		if err = stream.ReadSerializable(reader, output); err != nil {
+			return errors.Errorf("failed to read output %d: %w", i, err)
 		} else if err = store(output); err != nil {
 			return errors.Errorf("failed to store output %d: %w", i, err)
 		}
@@ -184,9 +184,11 @@ func (s *StateDiffs) importOutputs(reader io.ReadSeeker, store func(*OutputWithM
 func (s *StateDiffs) exportOutputs(writer io.WriteSeeker, epoch epoch.Index, streamFunc func(index epoch.Index, callback func(*OutputWithMetadata) error) (err error)) (err error) {
 	return stream.WriteCollection(writer, func() (elementsCount uint64, err error) {
 		if err = streamFunc(epoch, func(output *OutputWithMetadata) (err error) {
-			if err = output.Export(writer); err == nil {
-				elementsCount++
+			if err = stream.WriteSerializable(writer, output); err != nil {
+				return errors.Errorf("failed to write output: %w", err)
 			}
+
+			elementsCount++
 
 			return
 		}); err != nil {

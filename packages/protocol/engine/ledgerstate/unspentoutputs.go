@@ -167,8 +167,8 @@ func (u *UnspentOutputs) Export(writer io.WriteSeeker) (err error) {
 		if iterationErr := u.IDs.Stream(func(outputID utxo.OutputID) bool {
 			if outputWithMetadata, err = u.outputWithMetadata(outputID); err != nil {
 				err = errors.Errorf("failed to load output with metadata: %w", err)
-			} else if err = outputWithMetadata.Export(writer); err != nil {
-				err = errors.Errorf("failed to export output with metadata: %w", err)
+			} else if err = stream.WriteSerializable(writer, outputWithMetadata); err != nil {
+				err = errors.Errorf("failed to write output with metadata: %w", err)
 			} else {
 				elementsCount++
 			}
@@ -189,8 +189,8 @@ func (u *UnspentOutputs) Export(writer io.WriteSeeker) (err error) {
 func (u *UnspentOutputs) Import(reader io.ReadSeeker) (err error) {
 	outputWithMetadata := new(OutputWithMetadata)
 	if err = stream.ReadCollection(reader, func(i int) (err error) {
-		if err = outputWithMetadata.Import(reader); err != nil {
-			return errors.Errorf("failed to import output with metadata: %w", err)
+		if err = stream.ReadSerializable(reader, outputWithMetadata); err != nil {
+			return errors.Errorf("failed to read output with metadata: %w", err)
 		} else if err = u.ApplyCreatedOutput(outputWithMetadata); err != nil {
 			return errors.Errorf("failed to apply created output: %w", err)
 		}

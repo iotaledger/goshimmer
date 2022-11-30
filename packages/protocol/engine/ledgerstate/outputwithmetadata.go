@@ -1,15 +1,11 @@
 package ledgerstate
 
 import (
-	"io"
-
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/model"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/stringify"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/stream"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
@@ -62,9 +58,10 @@ func (o *OutputWithMetadata) FromObjectStorage(key, value []byte) error {
 
 // FromBytes unmarshals an OutputWithMetadata from a sequence of bytes.
 func (o *OutputWithMetadata) FromBytes(data []byte) (consumedBytes int, err error) {
-	consumedBytes, err = o.Storable.FromBytes(data)
-	o.M.Output.SetID(o.M.OutputID)
-	o.SetID(o.M.OutputID)
+	if consumedBytes, err = o.Storable.FromBytes(data); err == nil {
+		o.M.Output.SetID(o.M.OutputID)
+		o.SetID(o.M.OutputID)
+	}
 
 	return
 }
@@ -104,7 +101,7 @@ func (o *OutputWithMetadata) SetOutput(output utxo.Output) {
 }
 
 // ConsensusManaPledgeID returns the consensus pledge id of the output.
-func (o *OutputWithMetadata) ConsensusManaPledgeID() (consensuPledgeID identity.ID) {
+func (o *OutputWithMetadata) ConsensusManaPledgeID() (consensusPledgeID identity.ID) {
 	o.RLock()
 	defer o.RUnlock()
 
@@ -120,7 +117,7 @@ func (o *OutputWithMetadata) SetConsensusManaPledgeID(consensusPledgeID identity
 }
 
 // AccessManaPledgeID returns the access pledge id of the output.
-func (o *OutputWithMetadata) AccessManaPledgeID() (consensuPledgeID identity.ID) {
+func (o *OutputWithMetadata) AccessManaPledgeID() (consensusPledgeID identity.ID) {
 	o.RLock()
 	defer o.RUnlock()
 
@@ -133,34 +130,4 @@ func (o *OutputWithMetadata) SetAccessManaPledgeID(accessPledgeID identity.ID) {
 	defer o.Unlock()
 
 	o.M.AccessManaPledgeID = accessPledgeID
-}
-
-func (o *OutputWithMetadata) Export(writer io.WriteSeeker) (err error) {
-	o.RLock()
-	defer o.RUnlock()
-
-	if outputBytes, err := o.Bytes(); err != nil {
-		return errors.Errorf("failed to marshal output: %w", err)
-	} else if err = stream.WriteBlob(writer, outputBytes); err != nil {
-		return errors.Errorf("failed to write output: %w", err)
-	}
-
-	return nil
-}
-
-func (o *OutputWithMetadata) Import(reader io.ReadSeeker) (err error) {
-	o.Lock()
-	defer o.Unlock()
-
-	if outputBytes, err := stream.ReadBlob(reader); err != nil {
-		return errors.Errorf("failed to read output: %w", err)
-	} else if consumedBytes, err := o.FromBytes(outputBytes); err != nil {
-		return errors.Errorf("failed to unmarshal output: %w", err)
-	} else if consumedBytes != len(outputBytes) {
-		return errors.Errorf("failed to unmarshal output: only %d / %d bytes consumed", consumedBytes, len(outputBytes))
-	}
-
-	o.SetID(o.M.OutputID)
-
-	return
 }
