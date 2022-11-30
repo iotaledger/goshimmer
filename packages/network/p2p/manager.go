@@ -178,20 +178,22 @@ func (m *Manager) Send(packet proto.Message, protocolID string, to ...identity.I
 		neighbors = m.GetNeighborsByID(to)
 	}
 
-	for _, nbr := range neighbors {
-		stream := nbr.GetStream(protocol.ID(protocolID))
-		if stream == nil {
-			m.log.Warnw("send error, no stream for protocol", "peer-id", nbr.ID(), "protocol", protocolID)
-			nbr.Close()
-			continue
-		}
-		if err := stream.WritePacket(packet); err != nil {
-			m.log.Warnw("send error", "peer-id", nbr.ID(), "err", err)
-			nbr.Close()
-		}
+	go func() {
+		for _, nbr := range neighbors {
+			stream := nbr.GetStream(protocol.ID(protocolID))
+			if stream == nil {
+				m.log.Warnw("send error, no stream for protocol", "peer-id", nbr.ID(), "protocol", protocolID)
+				nbr.Close()
+				return
+			}
+			if err := stream.WritePacket(packet); err != nil {
+				m.log.Warnw("send error", "peer-id", nbr.ID(), "err", err)
+				nbr.Close()
+			}
 
-		receivers = append(receivers, nbr.ID())
-	}
+			receivers = append(receivers, nbr.ID())
+		}
+	}()
 
 	return
 }
