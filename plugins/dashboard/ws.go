@@ -65,16 +65,16 @@ func configureWebSocketWorkerPool() {
 }
 
 func runWebSocketStreams() {
-	updateStatus := event.NewClosure(func(event *metrics.ReceivedBPSUpdatedEvent) {
+	updateStatus := event.NewClosure(func(event *metrics.AttachedBPSUpdatedEvent) {
 		wsSendWorkerPool.TrySubmit(event.BPS)
 	})
 	updateComponentCounterStatus := event.NewClosure(func(event *metrics.ComponentCounterUpdatedEvent) {
 		componentStatus := event.ComponentStatus
 		updateStatus := &componentsmetric{
-			Store:      componentStatus[metrics.Store],
-			Solidifier: componentStatus[metrics.Solidifier],
-			Scheduler:  componentStatus[metrics.Scheduler],
-			Booker:     componentStatus[metrics.Booker],
+			Store:      componentStatus[metrics.Attached],
+			Solidifier: componentStatus[metrics.Solidified],
+			Scheduler:  componentStatus[metrics.Scheduled],
+			Booker:     componentStatus[metrics.Booked],
 		}
 		wsSendWorkerPool.TrySubmit(updateStatus)
 	})
@@ -87,12 +87,12 @@ func runWebSocketStreams() {
 	})
 
 	if err := daemon.BackgroundWorker("Dashboard[StatusUpdate]", func(ctx context.Context) {
-		metrics.Events.ReceivedBPSUpdated.Attach(updateStatus)
+		metrics.Events.AttachedBPSUpdated.Attach(updateStatus)
 		metrics.Events.ComponentCounterUpdated.Attach(updateComponentCounterStatus)
 		metrics.Events.RateSetterUpdated.Attach(updateRateSetterMetrics)
 		<-ctx.Done()
 		log.Info("Stopping Dashboard[StatusUpdate] ...")
-		metrics.Events.ReceivedBPSUpdated.Detach(updateStatus)
+		metrics.Events.AttachedBPSUpdated.Detach(updateStatus)
 		metrics.Events.RateSetterUpdated.Detach(updateRateSetterMetrics)
 		wsSendWorkerPool.Stop()
 		log.Info("Stopping Dashboard[StatusUpdate] ... done")

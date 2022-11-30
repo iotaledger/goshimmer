@@ -73,3 +73,5 @@ services:
       {% if genesisTime|default(None) %}
       --protocol.genesisTime={{ genesisTime }}
       {% endif %}
+      --prometheus.goMetrics=true
+      --prometheus.processMetrics=true

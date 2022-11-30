@@ -7,6 +7,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
@@ -135,4 +136,8 @@ func configureLogging(*node.Plugin) {
 
 func run(*node.Plugin) {
 	deps.Protocol.Run()
+
+	deps.Protocol.Network().Events.Error.Attach(event.NewClosure(func(errorEvent *network.ErrorEvent) {
+		Plugin.LogErrorf("Error in Network: %s (source: %s)", errorEvent.Error, errorEvent.Source.String())
+	}))
 }
