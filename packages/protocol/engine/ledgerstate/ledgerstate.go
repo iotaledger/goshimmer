@@ -2,6 +2,7 @@ package ledgerstate
 
 import (
 	"io"
+	"sync"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/pkg/errors"
@@ -16,6 +17,7 @@ type LedgerState struct {
 	StateDiffs     *StateDiffs
 	UnspentOutputs *UnspentOutputs
 	storage        *storage.Storage
+	mutex          sync.RWMutex
 }
 
 func New(storageInstance *storage.Storage) (ledgerState *LedgerState) {
@@ -32,6 +34,9 @@ func New(storageInstance *storage.Storage) (ledgerState *LedgerState) {
 }
 
 func (l *LedgerState) ApplyStateDiff(targetEpoch epoch.Index) (err error) {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
 	currentEpoch, err := l.UnspentOutputs.Begin(targetEpoch)
 	if err != nil {
 		return errors.Errorf("failed to begin unspent outputs: %w", err)
@@ -60,6 +65,9 @@ func (l *LedgerState) ApplyStateDiff(targetEpoch epoch.Index) (err error) {
 }
 
 func (l *LedgerState) Import(reader io.ReadSeeker) (err error) {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
 	if err = l.UnspentOutputs.Import(reader); err != nil {
 		return errors.Errorf("failed to import unspent outputs: %w", err)
 	} else if importedStateDiffs, err := l.StateDiffs.Import(reader); err != nil {
@@ -76,6 +84,9 @@ func (l *LedgerState) Import(reader io.ReadSeeker) (err error) {
 }
 
 func (l *LedgerState) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (err error) {
+	l.mutex.RLock()
+	defer l.mutex.RUnlock()
+
 	if err = l.UnspentOutputs.Export(writer); err != nil {
 		return errors.Errorf("failed to export unspent outputs: %w", err)
 	} else if err = l.StateDiffs.Export(writer, targetEpoch); err != nil {

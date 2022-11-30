@@ -1,7 +1,6 @@
 package ledgerstate
 
 import (
-	"encoding/binary"
 	"io"
 	"time"
 
@@ -128,44 +127,41 @@ func (s *StateDiffs) StreamCreatedOutputs(index epoch.Index, callback func(*Outp
 func (s *StateDiffs) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (err error) {
 	if targetEpoch > s.storage.Settings.LatestCommitment().Index() {
 		return errors.Errorf("target epoch %d is not yet committed", targetEpoch)
-	} else if err = binary.Write(writer, binary.LittleEndian, s.storage.Settings.LatestCommitment().Index()-targetEpoch); err != nil {
-		return errors.Errorf("failed to write state diff count: %w", err)
 	}
 
-	for currentEpoch := s.storage.Settings.LatestCommitment().Index() - 1; currentEpoch > targetEpoch; currentEpoch-- {
-		if err = binary.Write(writer, binary.LittleEndian, uint64(currentEpoch)); err != nil {
-			return errors.Errorf("failed to write epoch %d: %w", currentEpoch, err)
-		} else if err = s.exportOutputs(writer, currentEpoch, s.StreamCreatedOutputs); err != nil {
-			return errors.Errorf("failed to export created outputs for epoch %d: %w", currentEpoch, err)
-		} else if err = s.exportOutputs(writer, currentEpoch, s.StreamSpentOutputs); err != nil {
-			return errors.Errorf("failed to export spent outputs for epoch %d: %w", currentEpoch, err)
+	return stream.WriteCollection(writer, func() (elementsCount uint64, err error) {
+		for currentEpoch := s.storage.Settings.LatestCommitment().Index(); currentEpoch > targetEpoch; currentEpoch-- {
+			if err = stream.Write(writer, uint64(currentEpoch)); err != nil {
+				return 0, errors.Errorf("failed to write epoch %d: %w", currentEpoch, err)
+			} else if err = s.exportOutputs(writer, currentEpoch, s.StreamCreatedOutputs); err != nil {
+				return 0, errors.Errorf("failed to export created outputs for epoch %d: %w", currentEpoch, err)
+			} else if err = s.exportOutputs(writer, currentEpoch, s.StreamSpentOutputs); err != nil {
+				return 0, errors.Errorf("failed to export spent outputs for epoch %d: %w", currentEpoch, err)
+			}
+
+			elementsCount++
 		}
-	}
 
-	return
+		return
+	})
 }
 
 func (s *StateDiffs) Import(reader io.ReadSeeker) (importedEpochs []epoch.Index, err error) {
-	var epochCount uint64
-	if err = binary.Read(reader, binary.LittleEndian, &epochCount); err != nil {
-		return nil, errors.Errorf("failed to read epoch count: %w", err)
-	}
-
-	for i := uint64(0); i < epochCount; i++ {
-		var epochIndex uint64
-		if err = binary.Read(reader, binary.LittleEndian, &epochIndex); err != nil {
-			return nil, errors.Errorf("failed to read epoch index: %w", err)
+	return importedEpochs, stream.ReadCollection(reader, func(i int) (err error) {
+		epochIndex, err := stream.Read[uint64](reader)
+		if err != nil {
+			return errors.Errorf("failed to read epoch index: %w", err)
 		}
 		importedEpochs = append(importedEpochs, epoch.Index(epochIndex))
 
 		if err = s.importOutputs(reader, s.StoreCreatedOutput); err != nil {
-			return nil, errors.Errorf("failed to import created outputs for epoch %d: %w", epochIndex, err)
+			return errors.Errorf("failed to import created outputs for epoch %d: %w", epochIndex, err)
 		} else if err = s.importOutputs(reader, s.StoreSpentOutput); err != nil {
-			return nil, errors.Errorf("failed to import spent outputs for epoch %d: %w", epochIndex, err)
+			return errors.Errorf("failed to import spent outputs for epoch %d: %w", epochIndex, err)
 		}
-	}
 
-	return
+		return
+	})
 }
 
 func (s *StateDiffs) importOutputs(reader io.ReadSeeker, store func(*OutputWithMetadata) error) (err error) {

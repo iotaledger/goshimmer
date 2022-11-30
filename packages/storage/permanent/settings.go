@@ -3,6 +3,7 @@ package permanent
 import (
 	"context"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"sync"
 
@@ -32,6 +33,26 @@ func NewSettings(path string) (setting *Settings) {
 			ChainID:                  commitment.ID{},
 		}, path),
 	}
+}
+
+func (c *Settings) Initialized() (initialized bool) {
+	c.RLock()
+	defer c.RUnlock()
+
+	return c.settingsModel.Initialized
+}
+
+func (c *Settings) SetInitialized(initialized bool) (err error) {
+	c.Lock()
+	defer c.Unlock()
+
+	c.settingsModel.Initialized = initialized
+
+	if err = c.settingsModel.ToFile(); err != nil {
+		return fmt.Errorf("failed to persist initialized flag: %w", err)
+	}
+
+	return nil
 }
 
 func (c *Settings) LatestCommitment() (latestCommitment *commitment.Commitment) {
@@ -162,10 +183,11 @@ func (c *Settings) Import(reader io.ReadSeeker) (err error) {
 // region settingsModel ////////////////////////////////////////////////////////////////////////////////////////////////
 
 type settingsModel struct {
-	LatestCommitment         *commitment.Commitment `serix:"0"`
-	LatestStateMutationEpoch epoch.Index            `serix:"1"`
-	LatestConfirmedEpoch     epoch.Index            `serix:"2"`
-	ChainID                  commitment.ID          `serix:"3"`
+	Initialized              bool                   `serix:"0"`
+	LatestCommitment         *commitment.Commitment `serix:"1"`
+	LatestStateMutationEpoch epoch.Index            `serix:"2"`
+	LatestConfirmedEpoch     epoch.Index            `serix:"3"`
+	ChainID                  commitment.ID          `serix:"4"`
 
 	storable.Struct[settingsModel, *settingsModel]
 }

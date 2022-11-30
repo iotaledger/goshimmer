@@ -61,6 +61,10 @@ func (u *UnspentOutputs) Root() types.Identifier {
 }
 
 func (u *UnspentOutputs) Begin(newEpoch epoch.Index) (currentEpoch epoch.Index, err error) {
+	if currentEpoch == newEpoch {
+		return
+	}
+
 	if currentEpoch, err = u.setBatchedEpoch(newEpoch); err != nil {
 		return 0, errors.Errorf("failed to set batched epoch: %w", err)
 	}
@@ -78,27 +82,9 @@ func (u *UnspentOutputs) Begin(newEpoch epoch.Index) (currentEpoch epoch.Index, 
 
 func (u *UnspentOutputs) Commit() (ctx context.Context) {
 	var commitDone sync.WaitGroup
-
-	ctx, done := context.WithCancel(context.Background())
-	go func() {
-		for it := u.batchCreatedOutputIDs.Iterator(); it.HasNext(); {
-			u.IDs.Add(it.Next())
-		}
-		for it := u.batchSpentOutputIDs.Iterator(); it.HasNext(); {
-			u.IDs.Delete(it.Next())
-		}
-
-		commitDone.Wait()
-
-		u.setLastCommittedEpoch(u.batchedEpoch())
-		u.setBatchedEpoch(0)
-
-		done()
-	}()
+	commitDone.Add(len(u.batchConsumers))
 
 	for _, consumer := range u.batchConsumers {
-		commitDone.Add(1)
-
 		go func(ctx context.Context) {
 			select {
 			case <-ctx.Done():
@@ -107,7 +93,26 @@ func (u *UnspentOutputs) Commit() (ctx context.Context) {
 		}(consumer.Commit())
 	}
 
+	ctx, done := context.WithCancel(context.Background())
+	go u.applyBatch(&commitDone, done)
+
 	return ctx
+}
+
+func (u *UnspentOutputs) applyBatch(waitForConsumers *sync.WaitGroup, done func()) {
+	for it := u.batchCreatedOutputIDs.Iterator(); it.HasNext(); {
+		u.IDs.Add(it.Next())
+	}
+	for it := u.batchSpentOutputIDs.Iterator(); it.HasNext(); {
+		u.IDs.Delete(it.Next())
+	}
+
+	waitForConsumers.Wait()
+
+	u.setLastCommittedEpoch(u.batchedEpoch())
+	u.setBatchedEpoch(0)
+
+	done()
 }
 
 func (u *UnspentOutputs) ApplyCreatedOutput(output *OutputWithMetadata) (err error) {
@@ -120,7 +125,9 @@ func (u *UnspentOutputs) ApplyCreatedOutput(output *OutputWithMetadata) (err err
 	} else {
 		if !u.batchSpentOutputIDs.Delete(output.Output().ID()) {
 			u.batchCreatedOutputIDs.Add(output.Output().ID())
-		} else if err = u.notifyConsumers(u.batchConsumers, output, UnspentOutputsSubscriber.ApplyCreatedOutput); err != nil {
+		}
+
+		if err = u.notifyConsumers(u.batchConsumers, output, UnspentOutputsSubscriber.ApplyCreatedOutput); err != nil {
 			return errors.Errorf("failed to apply created output to batched consumers: %w", err)
 		}
 	}
@@ -138,7 +145,9 @@ func (u *UnspentOutputs) ApplySpentOutput(output *OutputWithMetadata) (err error
 	} else {
 		if !u.batchCreatedOutputIDs.Delete(output.Output().ID()) {
 			u.batchSpentOutputIDs.Add(output.Output().ID())
-		} else if err = u.notifyConsumers(u.batchConsumers, output, UnspentOutputsSubscriber.ApplyCreatedOutput); err != nil {
+		}
+
+		if err = u.notifyConsumers(u.batchConsumers, output, UnspentOutputsSubscriber.ApplySpentOutput); err != nil {
 			return errors.Errorf("failed to apply spent output to batched consumers: %w", err)
 		}
 	}
@@ -187,6 +196,7 @@ func (u *UnspentOutputs) Export(writer io.WriteSeeker) (err error) {
 }
 
 func (u *UnspentOutputs) Import(reader io.ReadSeeker) (err error) {
+
 	outputWithMetadata := new(OutputWithMetadata)
 	if err = stream.ReadCollection(reader, func(i int) (err error) {
 		if err = stream.ReadSerializable(reader, outputWithMetadata); err != nil {

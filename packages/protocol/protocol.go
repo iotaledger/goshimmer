@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/logger"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/database"
@@ -60,8 +59,6 @@ type Protocol struct {
 	optsEngineOptions                 []options.Option[engine.Engine]
 	optsTipManagerOptions             []options.Option[tipmanager.TipManager]
 	optsStorageDatabaseManagerOptions []options.Option[database.Manager]
-
-	*logger.Logger
 }
 
 func New(dispatcher network.Endpoint, opts ...options.Option[Protocol]) (protocol *Protocol) {
@@ -84,9 +81,11 @@ func New(dispatcher network.Endpoint, opts ...options.Option[Protocol]) (protoco
 
 // Run runs the protocol.
 func (p *Protocol) Run() {
-	p.activateEngine(p.engine)
+	if err := p.activateEngine(p.engine, p.optsSnapshotPath); err != nil {
+		panic(err)
+	}
+
 	p.initNetworkProtocol()
-	p.importSnapshotFile(p.optsSnapshotPath)
 }
 
 // Shutdown shuts down the protocol.
@@ -108,7 +107,6 @@ func (p *Protocol) initDisk() {
 }
 
 func (p *Protocol) initMainChainStorage() {
-
 	p.storage = storage.New(p.disk.Path(mainBaseDir), DatabaseVersion, append([]options.Option[database.Manager]{database.WithGranularity(1)}, p.optsStorageDatabaseManagerOptions...)...)
 
 	p.Events.Engine.Consensus.EpochGadget.EpochConfirmed.Attach(event.NewClosure(func(epochIndex epoch.Index) {
@@ -273,10 +271,18 @@ func (p *Protocol) importSnapshotFile(filePath string) {
 	}
 }
 
-func (p *Protocol) activateEngine(engine *engine.Engine) {
+func (p *Protocol) activateEngine(engine *engine.Engine, snapshotPath string) (err error) {
 	p.TipManager.ActivateEngine(engine)
 	p.Events.Engine.LinkTo(engine.Events)
 	p.CongestionControl.LinkTo(engine)
+
+	if !engine.Storage.Settings.Initialized() {
+		if err = engine.ReadSnapshot(snapshotPath); err != nil {
+			return errors.Errorf("failed to read snapshot from file '%s': %w", snapshotPath, err)
+		}
+	}
+
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

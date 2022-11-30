@@ -142,6 +142,26 @@ func (e *Engine) FirstUnacceptedMarker(sequenceID markers.SequenceID) markers.In
 	return e.Consensus.BlockGadget.FirstUnacceptedIndex(sequenceID)
 }
 
+func (e *Engine) ReadSnapshot(filePath string) (err error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return errors.Errorf("failed to open snapshot file: %w", err)
+	}
+	defer func() {
+		if err := file.Close(); err != nil {
+			panic(err)
+		}
+	}()
+
+	if err = e.Import(file); err != nil {
+		return errors.Errorf("failed to import snapshot: %w", err)
+	} else if err = e.Storage.Settings.SetInitialized(true); err != nil {
+		return errors.Errorf("failed to set initialized flag: %w", err)
+	}
+
+	return
+}
+
 func (e *Engine) WriteSnapshot(filePath string, targetEpoch ...epoch.Index) (err error) {
 	if len(targetEpoch) == 0 {
 		targetEpoch = append(targetEpoch, e.Storage.Settings.LatestCommitment().Index())
