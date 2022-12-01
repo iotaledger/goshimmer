@@ -5,6 +5,10 @@ services:
   goshimmer:
     image: {{goshimmerDockerImage}}:{{goshimmerDockerTag}}
     container_name: goshimmer
+    environment:
+      - GOTRACEBACK=crash
+      - GOMEMLIMIT=3000MiB
+      - GOGC=100
     volumes:
       - "./db:/db"
       - "/etc/localtime:/etc/localtime:ro"

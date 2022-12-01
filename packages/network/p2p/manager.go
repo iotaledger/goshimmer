@@ -163,7 +163,7 @@ func (m *Manager) DropNeighbor(id identity.ID, group NeighborsGroup) error {
 }
 
 // Send sends a message with the specific protocol to a set of neighbors.
-func (m *Manager) Send(packet proto.Message, protocolID string, to ...identity.ID) (receivers []identity.ID) {
+func (m *Manager) Send(packet proto.Message, protocolID string, to ...identity.ID) {
 	var neighbors []*Neighbor
 	if len(to) == 0 {
 		neighbors = m.AllNeighbors()
@@ -172,21 +172,8 @@ func (m *Manager) Send(packet proto.Message, protocolID string, to ...identity.I
 	}
 
 	for _, nbr := range neighbors {
-		stream := nbr.GetStream(protocol.ID(protocolID))
-		if stream == nil {
-			m.log.Warnw("send error, no stream for protocol", "peer-id", nbr.ID(), "protocol", protocolID)
-			nbr.Close()
-			continue
-		}
-		if err := stream.WritePacket(packet); err != nil {
-			m.log.Warnw("send error", "peer-id", nbr.ID(), "err", err)
-			nbr.Close()
-		}
-
-		receivers = append(receivers, nbr.ID())
+		nbr.Enqueue(packet, protocol.ID(protocolID))
 	}
-
-	return
 }
 
 // AllNeighbors returns all the neighbors that are currently connected.
@@ -286,6 +273,7 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 		}
 	}))
 	nbr.readLoop()
+	nbr.writeLoop()
 	nbr.Log.Info("Connection established")
 	m.neighborGroupEvents[group].NeighborAdded.Trigger(&NeighborAddedEvent{nbr})
 
