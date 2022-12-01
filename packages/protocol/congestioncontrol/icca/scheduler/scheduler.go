@@ -112,11 +112,11 @@ func (s *Scheduler) Rate() time.Duration {
 }
 
 // IsUncongested checks if the issuerQueue is completely uncongested.
-func (s *Scheduler) IsUncongested(issuerID identity.ID) bool {
-	return s.IssuerQueueSize(issuerID) == 0 || s.ReadyBlocksCount() == 0
+func (s *Scheduler) IsUncongested() bool {
+	return s.ReadyBlocksCount() == 0
 }
 
-// IssuerQueueSize returns the size of the IssuerIDs queue.
+// IssuerQueueSize returns the size of the IssuerIDs queue in number of blocks.
 func (s *Scheduler) IssuerQueueSize(issuerID identity.ID) int {
 	s.evictionMutex.RLock()
 	defer s.evictionMutex.RUnlock()
@@ -130,7 +130,7 @@ func (s *Scheduler) IssuerQueueSize(issuerID identity.ID) int {
 	return issuerQueue.Size()
 }
 
-// IssuerQueueSize returns the size of the IssuerIDs queue.
+// IssuerQueueSize returns the total work of blocks in the IssuerIDs queue.
 func (s *Scheduler) IssuerQueueWork(issuerID identity.ID) int {
 	s.evictionMutex.RLock()
 	defer s.evictionMutex.RUnlock()
@@ -595,7 +595,7 @@ func (s *Scheduler) GetExcessDeficit(issuerID identity.ID) (float64, error) {
 	} else {
 		return 0.0, errors.New(fmt.Sprintf("Deficit for issuer %s does not exist", issuerID))
 	}
-	return deficitFloat - float64(s.buffer.IssuerQueue(issuerID).Work()), nil
+	return deficitFloat - float64(s.IssuerQueueWork(issuerID)), nil
 }
 
 func (s *Scheduler) GetOrRegisterBlock(virtualVotingBlock *virtualvoting.Block) (block *Block, err error) {
