@@ -10,7 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	manamodels2 "github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana2/manamodels"
+	manamodels2 "github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1/manamodels"
 )
 
 // getNHighestAccessHandler handles a /mana/access/nhighest request.

@@ -44,7 +44,7 @@ func (u *CommitmentState) FinalizeBatchedStateTransition() {
 	u.batchEpochMutex.Lock()
 	defer u.batchEpochMutex.Unlock()
 
-	u.lastCommittedEpochIndex = u.batchEpoch
+	u.SetLastCommittedEpoch(u.batchEpoch)
 	u.batchEpoch = 0
 }
 

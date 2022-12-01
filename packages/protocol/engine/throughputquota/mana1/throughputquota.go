@@ -1,4 +1,4 @@
-package mana2
+package mana1
 
 import (
 	"context"
@@ -16,8 +16,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
 )
 
-// ManaTracker is the manager that tracks the mana balances of identities.
-type ManaTracker struct {
+// ThroughputQuota is the manager that tracks the throughput quota of identities according to mana1 (delegated pledge).
+type ThroughputQuota struct {
 	engine            *engine.Engine
 	commitmentState   *ledgerstate.CommitmentState
 	manaByID          *shrinkingmap.ShrinkingMap[identity.ID, int64]
@@ -28,14 +28,14 @@ type ManaTracker struct {
 	traits.Initializable
 }
 
-// New creates a new ManaTracker.
-func New(engineInstance *engine.Engine, opts ...options.Option[ManaTracker]) (manaTracker *ManaTracker) {
-	return options.Apply(&ManaTracker{
+// New creates a new ThroughputQuota manager.
+func New(engineInstance *engine.Engine, opts ...options.Option[ThroughputQuota]) (manaTracker *ThroughputQuota) {
+	return options.Apply(&ThroughputQuota{
 		Initializable:   traits.NewInitializable(),
 		engine:          engineInstance,
 		commitmentState: ledgerstate.NewCommitmentState(),
 		manaByID:        shrinkingmap.New[identity.ID, int64](),
-	}, opts, func(m *ManaTracker) {
+	}, opts, func(m *ThroughputQuota) {
 		m.engine.SubscribeStartup(func() {
 			m.engine.Storage.Settings.SubscribeInitialized(func() {
 				m.commitmentState.SetLastCommittedEpoch(m.engine.Storage.Settings.LatestCommitment().Index())
@@ -54,14 +54,14 @@ func New(engineInstance *engine.Engine, opts ...options.Option[ManaTracker]) (ma
 }
 
 // NewThroughputQuotaProvider returns a new throughput quota provider that uses mana1.
-func NewThroughputQuotaProvider(opts ...options.Option[ManaTracker]) engine.ModuleProvider[throughputquota.ThroughputQuota] {
+func NewThroughputQuotaProvider(opts ...options.Option[ThroughputQuota]) engine.ModuleProvider[throughputquota.ThroughputQuota] {
 	return engine.ProvideModule(func(e *engine.Engine) throughputquota.ThroughputQuota {
 		return New(e, opts...)
 	})
 }
 
 // Balance returns the balance of the given identity.
-func (m *ManaTracker) Balance(id identity.ID) (mana int64, exists bool) {
+func (m *ThroughputQuota) Balance(id identity.ID) (mana int64, exists bool) {
 	m.manaByIDMutex.RLock()
 	defer m.manaByIDMutex.RUnlock()
 
@@ -69,7 +69,7 @@ func (m *ManaTracker) Balance(id identity.ID) (mana int64, exists bool) {
 }
 
 // BalanceByIDs returns the balances of all known identities.
-func (m *ManaTracker) BalanceByIDs() (manaByID map[identity.ID]int64) {
+func (m *ThroughputQuota) BalanceByIDs() (manaByID map[identity.ID]int64) {
 	m.manaByIDMutex.RLock()
 	defer m.manaByIDMutex.RUnlock()
 
@@ -77,14 +77,14 @@ func (m *ManaTracker) BalanceByIDs() (manaByID map[identity.ID]int64) {
 }
 
 // TotalBalance returns the total amount of throughput quota.
-func (m *ManaTracker) TotalBalance() (totalMana int64) {
+func (m *ThroughputQuota) TotalBalance() (totalMana int64) {
 	m.totalBalanceMutex.RLock()
 	defer m.totalBalanceMutex.RUnlock()
 
 	return m.totalBalance
 }
 
-func (m *ManaTracker) ApplyCreatedOutput(output *ledgerstate.OutputWithMetadata) (err error) {
+func (m *ThroughputQuota) ApplyCreatedOutput(output *ledgerstate.OutputWithMetadata) (err error) {
 	if iotaBalance, exists := output.IOTABalance(); exists {
 		m.updateMana(output.AccessManaPledgeID(), int64(iotaBalance))
 
@@ -96,7 +96,7 @@ func (m *ManaTracker) ApplyCreatedOutput(output *ledgerstate.OutputWithMetadata)
 	return
 }
 
-func (m *ManaTracker) ApplySpentOutput(output *ledgerstate.OutputWithMetadata) (err error) {
+func (m *ThroughputQuota) ApplySpentOutput(output *ledgerstate.OutputWithMetadata) (err error) {
 	if iotaBalance, exists := output.IOTABalance(); exists {
 		m.updateMana(output.AccessManaPledgeID(), -int64(iotaBalance))
 	}
@@ -104,19 +104,19 @@ func (m *ManaTracker) ApplySpentOutput(output *ledgerstate.OutputWithMetadata) (
 	return
 }
 
-func (m *ManaTracker) RollbackCreatedOutput(output *ledgerstate.OutputWithMetadata) (err error) {
+func (m *ThroughputQuota) RollbackCreatedOutput(output *ledgerstate.OutputWithMetadata) (err error) {
 	return m.ApplySpentOutput(output)
 }
 
-func (m *ManaTracker) RollbackSpentOutput(output *ledgerstate.OutputWithMetadata) (err error) {
+func (m *ThroughputQuota) RollbackSpentOutput(output *ledgerstate.OutputWithMetadata) (err error) {
 	return m.ApplyCreatedOutput(output)
 }
 
-func (m *ManaTracker) BeginBatchedStateTransition(targetEpoch epoch.Index) (currentEpoch epoch.Index, err error) {
+func (m *ThroughputQuota) BeginBatchedStateTransition(targetEpoch epoch.Index) (currentEpoch epoch.Index, err error) {
 	return m.commitmentState.BeginBatchedStateTransition(targetEpoch)
 }
 
-func (m *ManaTracker) CommitBatchedStateTransition() (ctx context.Context) {
+func (m *ThroughputQuota) CommitBatchedStateTransition() (ctx context.Context) {
 	ctx, done := context.WithCancel(context.Background())
 
 	m.commitmentState.FinalizeBatchedStateTransition()
@@ -126,7 +126,7 @@ func (m *ManaTracker) CommitBatchedStateTransition() (ctx context.Context) {
 	return
 }
 
-func (m *ManaTracker) updateMana(id identity.ID, diff int64) {
+func (m *ThroughputQuota) updateMana(id identity.ID, diff int64) {
 	m.manaByIDMutex.Lock()
 	defer m.manaByIDMutex.Unlock()
 
