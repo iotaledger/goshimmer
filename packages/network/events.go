@@ -78,7 +78,7 @@ type EpochCommitmentRequestReceivedEvent struct {
 // region AttestationsReceivedEvent ////////////////////////////////////////////////////////////////////////////////////
 
 type AttestationsReceivedEvent struct {
-	Attestations *notarization.Attestations
+	Attestations *notarization.EpochAttestations
 	Source       identity.ID
 }
 

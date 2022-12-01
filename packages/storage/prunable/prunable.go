@@ -18,7 +18,7 @@ const (
 type Prunable struct {
 	Blocks           *Blocks
 	RootBlocks       *RootBlocks
-	Attestors        *Attestors
+	Attestors        func(index epoch.Index) kvstore.KVStore
 	LedgerStateDiffs func(index epoch.Index) kvstore.KVStore
 }
 
@@ -26,7 +26,7 @@ func New(database *database.Manager) (newPrunable *Prunable) {
 	return &Prunable{
 		Blocks:           NewBlocks(database, blocksPrefix),
 		RootBlocks:       NewRootBlocks(database, rootBlocksPrefix),
-		Attestors:        NewAttestors(database, activityLogPrefix),
+		Attestors:        lo.Bind([]byte{activityLogPrefix}, database.Get),
 		LedgerStateDiffs: lo.Bind([]byte{ledgerStateDiffsPrefix}, database.Get),
 	}
 }

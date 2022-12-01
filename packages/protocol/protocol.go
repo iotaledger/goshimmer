@@ -230,7 +230,7 @@ func (p *Protocol) ProcessAttestationsRequest(epochIndex epoch.Index, src identi
 	// p.networkProtocol.SendAttestations(p.Engine().SybilProtection.Attestations(epochIndex), src)
 }
 
-func (p *Protocol) ProcessAttestations(attestations *notarization.Attestations, src identity.ID) {
+func (p *Protocol) ProcessAttestations(attestations *notarization.EpochAttestations, src identity.ID) {
 	// TODO: process attestations and evluate chain switch!
 }
 

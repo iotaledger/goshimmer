@@ -75,7 +75,7 @@ func (p *Protocol) RequestCommitment(id commitment.ID, to ...identity.ID) {
 	}}}, protocolID, to...)
 }
 
-func (p *Protocol) SendAttestations(attestations *notarization.Attestations, to ...identity.ID) {
+func (p *Protocol) SendAttestations(attestations *notarization.EpochAttestations, to ...identity.ID) {
 	/*
 		attestationsBytes := make([][]byte, len(attestations))
 
@@ -200,7 +200,7 @@ func (p *Protocol) onEpochCommitmentRequest(idBytes []byte, id identity.ID) {
 }
 
 func (p *Protocol) onAttestations(attestationsBytes []byte, id identity.ID) {
-	attestations := new(notarization.Attestations)
+	attestations := new(notarization.EpochAttestations)
 
 	// TODO: PARSE BYTES
 

@@ -17,6 +17,7 @@ const (
 	keyStorePrefix uint8 = iota
 	valueStorePrefix
 	rawKeyStorePrefix
+	rootPrefix
 )
 
 // Set is a sparse merkle tree based set.

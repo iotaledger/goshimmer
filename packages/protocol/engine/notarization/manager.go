@@ -29,6 +29,7 @@ const (
 type Manager struct {
 	Events *Events
 	*EpochMutations
+	Attestations *Attestations
 
 	storage                  *storage.Storage
 	ledgerState              *ledgerstate.LedgerState
@@ -148,9 +149,16 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 		return false
 	}
 
-	acceptedBlocks, acceptedTransactions, attestations, err := m.EpochMutations.Evict(index)
+	acceptedBlocks, acceptedTransactions, epochAttestations, err := m.EpochMutations.Evict(index)
 	if err != nil {
 		m.Events.Error.Trigger(errors.Errorf("failed to commit mutations: %w", err))
+
+		return false
+	}
+
+	persistedAttestations, err := m.Attestations.Persist(epochAttestations)
+	if err != nil {
+		m.Events.Error.Trigger(errors.Errorf("failed to persist attestations: %w", err))
 
 		return false
 	}
@@ -161,18 +169,18 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 		commitment.NewRoots(
 			acceptedBlocks.Root(),
 			acceptedTransactions.Root(),
-			attestations.Attestors().Root(),
+			persistedAttestations.Root(),
 			m.ledgerState.UnspentOutputs.Root(),
 			m.weights.Root(),
 		).ID(),
-		m.storage.Settings.LatestCommitment().CumulativeWeight()+attestations.Weight(),
+		m.storage.Settings.LatestCommitment().CumulativeWeight()+epochAttestations.Weight(),
 	)
 
 	if err = m.storage.Settings.SetLatestCommitment(newCommitment); err != nil {
 		m.Events.Error.Trigger(errors.Errorf("failed to set latest commitment: %w", err))
 	}
 
-	accBlocks, accTxs, valNum := m.evaluateEpochSizeDetails(acceptedBlocks, acceptedTransactions, attestations)
+	accBlocks, accTxs, valNum := m.evaluateEpochSizeDetails(acceptedBlocks, acceptedTransactions, epochAttestations)
 	m.Events.EpochCommitted.Trigger(&EpochCommittedDetails{
 		Commitment:                newCommitment,
 		AcceptedBlocksCount:       accBlocks,
@@ -183,7 +191,7 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 	return true
 }
 
-func (m *Manager) evaluateEpochSizeDetails(acceptedBlocks *ads.Set[models.BlockID, *models.BlockID], acceptedTransactions *ads.Set[utxo.TransactionID, *utxo.TransactionID], attestations *Attestations) (int, int, int) {
+func (m *Manager) evaluateEpochSizeDetails(acceptedBlocks *ads.Set[models.BlockID, *models.BlockID], acceptedTransactions *ads.Set[utxo.TransactionID, *utxo.TransactionID], attestations *EpochAttestations) (int, int, int) {
 	var accBlocks, accTxs, valNum int
 	if acceptedBlocks != nil {
 		accBlocks = acceptedBlocks.Size()
