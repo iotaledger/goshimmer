@@ -10,7 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/initializable"
+	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
@@ -25,39 +25,38 @@ type ManaTracker struct {
 	totalBalance      int64
 	totalBalanceMutex sync.RWMutex
 
-	*initializable.Initializable
+	traits.Initializable
 }
 
 // New creates a new ManaTracker.
 func New(engineInstance *engine.Engine, opts ...options.Option[ManaTracker]) (manaTracker *ManaTracker) {
 	return options.Apply(&ManaTracker{
-		Initializable:   initializable.New(),
+		Initializable:   traits.NewInitializable(),
 		engine:          engineInstance,
 		commitmentState: ledgerstate.NewCommitmentState(),
 		manaByID:        shrinkingmap.New[identity.ID, int64](),
-	}, opts)
+	}, opts, func(m *ManaTracker) {
+		m.engine.SubscribeStartup(func() {
+			m.engine.Storage.Settings.SubscribeInitialized(func() {
+				m.commitmentState.SetLastCommittedEpoch(m.engine.Storage.Settings.LatestCommitment().Index())
+			})
+
+			m.engine.LedgerState.UnspentOutputs.Subscribe(m)
+			m.engine.LedgerState.SubscribeInitialized(func() {
+				m.engine.LedgerState.UnspentOutputs.Unsubscribe(m)
+
+				m.TriggerInitialized()
+
+				// TODO: ATTACH TO EVENTS FROM MEMPOOL
+			})
+		})
+	})
 }
 
 // NewThroughputQuotaProvider returns a new throughput quota provider that uses mana1.
 func NewThroughputQuotaProvider(opts ...options.Option[ManaTracker]) engine.ModuleProvider[throughputquota.ThroughputQuota] {
 	return engine.ProvideModule(func(e *engine.Engine) throughputquota.ThroughputQuota {
 		return New(e, opts...)
-	})
-}
-
-func (m *ManaTracker) Init() {
-	m.engine.Storage.Settings.SubscribeInitialized(func() {
-		m.commitmentState.SetLastCommittedEpoch(m.engine.Storage.Settings.LatestCommitment().Index())
-	})
-
-	m.engine.LedgerState.UnspentOutputs.Subscribe(m)
-
-	m.engine.LedgerState.SubscribeInitialized(func() {
-		m.engine.LedgerState.UnspentOutputs.Unsubscribe(m)
-
-		// TODO: ATTACH TO EVENTS FROM MEMPOOL
-
-		m.TriggerInitialized()
 	})
 }
 

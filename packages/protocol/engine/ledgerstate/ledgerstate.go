@@ -8,7 +8,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/initializable"
+	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/storage"
 )
@@ -20,12 +20,12 @@ type LedgerState struct {
 	storage        *storage.Storage
 	mutex          sync.RWMutex
 
-	*initializable.Initializable
+	traits.Initializable
 }
 
 func New(storageInstance *storage.Storage) (ledgerState *LedgerState) {
 	ledgerState = &LedgerState{
-		Initializable:  initializable.New(ledgerState.UnspentOutputs.TriggerInitialized, ledgerState.StateDiffs.TriggerInitialized),
+		Initializable:  traits.NewInitializable(ledgerState.UnspentOutputs.TriggerInitialized, ledgerState.StateDiffs.TriggerInitialized),
 		StateDiffs:     NewStateDiffs(storageInstance),
 		UnspentOutputs: NewUnspentOutputs(storageInstance.UnspentOutputIDs, ledgerState.MemPool.Storage),
 		storage:        storageInstance,

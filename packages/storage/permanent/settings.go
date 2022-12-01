@@ -13,8 +13,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/initializable"
 	"github.com/iotaledger/goshimmer/packages/core/storable"
+	"github.com/iotaledger/goshimmer/packages/core/traits"
 )
 
 // region Settings /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -23,12 +23,12 @@ type Settings struct {
 	settingsModel *settingsModel
 	mutex         sync.RWMutex
 
-	*initializable.Initializable
+	traits.Initializable
 }
 
 func NewSettings(path string) (settings *Settings) {
 	return &Settings{
-		Initializable: initializable.New(),
+		Initializable: traits.NewInitializable(),
 
 		settingsModel: storable.InitStruct(&settingsModel{
 			SnapshotImported:         false,

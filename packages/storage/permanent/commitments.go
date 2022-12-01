@@ -9,14 +9,14 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/initializable"
 	"github.com/iotaledger/goshimmer/packages/core/storable"
+	"github.com/iotaledger/goshimmer/packages/core/traits"
 )
 
 type Commitments struct {
 	slice *storable.Slice[commitment.Commitment, *commitment.Commitment]
 
-	*initializable.Initializable
+	traits.Initializable
 }
 
 func NewCommitments(path string) (newCommitment *Commitments) {
@@ -26,7 +26,7 @@ func NewCommitments(path string) (newCommitment *Commitments) {
 	}
 
 	return &Commitments{
-		Initializable: initializable.New(),
+		Initializable: traits.NewInitializable(),
 		slice:         commitmentsSlice,
 	}
 }

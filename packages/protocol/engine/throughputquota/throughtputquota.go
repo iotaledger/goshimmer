@@ -5,9 +5,6 @@ import (
 )
 
 type ThroughputQuota interface {
-	// Init initializes the ThroughputQuota plugin and is called after all remaining dependencies have been injected.
-	Init()
-
 	// Balance returns the balance of the given identity.
 	Balance(id identity.ID) (mana int64, exists bool)
 

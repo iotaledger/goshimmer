@@ -12,8 +12,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/ads"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/initializable"
 	"github.com/iotaledger/goshimmer/packages/core/stream"
+	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
@@ -38,12 +38,12 @@ type UnspentOutputs struct {
 	batchCreatedOutputIDs utxo.OutputIDs
 	batchSpentOutputIDs   utxo.OutputIDs
 
-	*initializable.Initializable
+	traits.Initializable
 }
 
 func NewUnspentOutputs(unspentOutputIDsStore kvstore.KVStore, storage *ledger.Storage) (unspentOutputs *UnspentOutputs) {
 	return &UnspentOutputs{
-		Initializable:   initializable.New(),
+		Initializable:   traits.NewInitializable(),
 		IDs:             ads.NewSet[utxo.OutputID](unspentOutputIDsStore),
 		Storage:         storage,
 		commitmentState: NewCommitmentState(),
@@ -71,7 +71,7 @@ func (u *UnspentOutputs) Root() types.Identifier {
 
 func (u *UnspentOutputs) Begin(newEpoch epoch.Index) (currentEpoch epoch.Index, err error) {
 	if currentEpoch, err = u.commitmentState.BeginBatchedStateTransition(newEpoch); err != nil {
-		return 0, errors.Errorf("failed to set batched epoch: %w", err)
+		return 0, errors.Errorf("failed to begin batched state transition: %w", err)
 	}
 
 	if currentEpoch == newEpoch {

@@ -1,9 +1,11 @@
 package dpos
 
 import (
+	"context"
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
@@ -11,7 +13,9 @@ import (
 	"github.com/iotaledger/hive.go/core/timed"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 )
@@ -26,26 +30,39 @@ type SybilProtection struct {
 	mutex              sync.RWMutex
 	optsActivityWindow time.Duration
 
-	lastCommittedEpoch      epoch.Index
-	lastCommittedEpochMutex sync.RWMutex
-	batchEpochIndex         epoch.Index
-	batchEpochMutex         sync.RWMutex
-	batchedWeightUpdates    *sybilprotection.WeightUpdates
+	commitmentState      *ledgerstate.CommitmentState
+	batchedWeightUpdates *sybilprotection.WeightUpdates
+
+	traits.Initializable
 }
 
 // NewSybilProtection creates a new ProofOfStake instance.
 func NewSybilProtection(engineInstance *engine.Engine, opts ...options.Option[SybilProtection]) (proofOfStake *SybilProtection) {
 	return options.Apply(
 		&SybilProtection{
-			engine:             engineInstance,
+			Initializable: traits.NewInitializable(),
+
+			engine:            engineInstance,
+			weights:           sybilprotection.NewWeights(engineInstance.Storage.SybilProtection, engineInstance.Storage.Settings),
+			inactivityManager: timed.NewTaskExecutor[identity.ID](1),
+			lastActivities:    shrinkingmap.New[identity.ID, time.Time](),
+
 			optsActivityWindow: time.Second * 30,
 		}, opts, func(s *SybilProtection) {
-			s.weights = sybilprotection.NewWeights(engineInstance.Storage.SybilProtection, engineInstance.Storage.Settings)
 			s.validators = s.weights.WeightedSet()
-			s.inactivityManager = timed.NewTaskExecutor[identity.ID](1)
-			s.lastActivities = shrinkingmap.New[identity.ID, time.Time]()
 
-			s.engine.LedgerState.UnspentOutputs.Subscribe(s)
+			s.engine.SubscribeStartup(func() {
+				s.engine.Events.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(func(block *blockdag.Block) {
+					s.markValidatorActive(block.IssuerID(), block.IssuingTime())
+				}))
+
+				s.engine.LedgerState.UnspentOutputs.Subscribe(s)
+
+				// TODO: MOVE TO CORRECT INITIALIZER
+				for it := s.engine.Storage.Attestors.LoadAll(s.engine.Storage.Settings.LatestCommitment().Index()).Iterator(); it.HasNext(); {
+					s.validators.Add(it.Next())
+				}
+			})
 		})
 }
 
@@ -66,17 +83,57 @@ func (s *SybilProtection) Weights() *sybilprotection.Weights {
 	return s.weights
 }
 
-// Init initializes the ProofOfStake module after all the dependencies have been injected into the engine.
-func (s *SybilProtection) Init() {
-	s.engine.Events.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(func(block *blockdag.Block) {
-		s.markValidatorActive(block.IssuerID(), block.IssuingTime())
-	}))
+func (s *SybilProtection) ApplyCreatedOutput(output *ledgerstate.OutputWithMetadata) (err error) {
+	if !s.commitmentState.BatchedStateTransitionStarted() {
+		ApplyCreatedOutput(output, s.weights.Import)
+	} else {
+		ApplyCreatedOutput(output, s.batchedWeightUpdates.ApplyDiff)
+	}
+
+	return
 }
 
-func (s *SybilProtection) Start() {
-	for it := s.engine.Storage.Attestors.LoadAll(s.engine.Storage.Settings.LatestCommitment().Index()).Iterator(); it.HasNext(); {
-		s.validators.Add(it.Next())
+func (s *SybilProtection) ApplySpentOutput(output *ledgerstate.OutputWithMetadata) (err error) {
+	if !s.commitmentState.BatchedStateTransitionStarted() {
+		ApplySpentOutput(output, s.weights.Import)
+	} else {
+		ApplySpentOutput(output, s.batchedWeightUpdates.ApplyDiff)
 	}
+
+	return
+}
+
+func (s *SybilProtection) RollbackCreatedOutput(output *ledgerstate.OutputWithMetadata) (err error) {
+	return s.ApplySpentOutput(output)
+}
+
+func (s *SybilProtection) RollbackSpentOutput(output *ledgerstate.OutputWithMetadata) (err error) {
+	return s.ApplyCreatedOutput(output)
+}
+
+func (s *SybilProtection) BeginBatchedStateTransition(newEpoch epoch.Index) (currentEpoch epoch.Index, err error) {
+	if currentEpoch, err = s.commitmentState.BeginBatchedStateTransition(newEpoch); err != nil {
+		return 0, errors.Errorf("failed to begin batched state transition: %w", err)
+	}
+
+	if currentEpoch != newEpoch {
+		s.batchedWeightUpdates = sybilprotection.NewWeightUpdates(newEpoch)
+	}
+
+	return
+}
+
+func (s *SybilProtection) CommitBatchedStateTransition() (ctx context.Context) {
+	ctx, done := context.WithCancel(context.Background())
+	go func() {
+		s.weights.ApplyUpdates(s.batchedWeightUpdates)
+
+		s.commitmentState.FinalizeBatchedStateTransition()
+
+		done()
+	}()
+
+	return ctx
 }
 
 func (s *SybilProtection) markValidatorActive(id identity.ID, activityTime time.Time) {
@@ -101,3 +158,5 @@ func (s *SybilProtection) markValidatorInactive(id identity.ID) {
 	s.lastActivities.Delete(id)
 	s.validators.Delete(id)
 }
+
+var _ ledgerstate.UnspentOutputsConsumer = &SybilProtection{}

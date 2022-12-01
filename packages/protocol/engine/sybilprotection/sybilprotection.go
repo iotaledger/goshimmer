@@ -1,14 +1,12 @@
 package sybilprotection
 
 import (
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/core/traits"
 )
 
 type SybilProtection interface {
 	Weights() (weights *Weights)
 	Validators() (validators *WeightedSet)
 
-	Init()
-
-	ledgerstate.UnspentOutputsConsumer
+	traits.Initializable
 }

@@ -1,4 +1,4 @@
-package initializable
+package traits
 
 import (
 	"sync"
@@ -6,7 +6,20 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 )
 
-type Initializable struct {
+type Initializable interface {
+	SubscribeInitialized(callback func()) (unsubscribe func())
+	TriggerInitialized()
+	WasInitialized() (wasInitialized bool)
+}
+
+func NewInitializable(optCallbacks ...func()) (newInitializable Initializable) {
+	return &initializable{
+		linkable:     event.NewLinkable[bool](),
+		optCallbacks: optCallbacks,
+	}
+}
+
+type initializable struct {
 	linkable *event.Linkable[bool]
 
 	optCallbacks              []func()
@@ -14,14 +27,7 @@ type Initializable struct {
 	initializedTriggeredMutex sync.RWMutex
 }
 
-func New(optCallbacks ...func()) (initializable *Initializable) {
-	return &Initializable{
-		linkable:     event.NewLinkable[bool](),
-		optCallbacks: optCallbacks,
-	}
-}
-
-func (c *Initializable) SubscribeInitialized(callback func()) (unsubscribe func()) {
+func (c *initializable) SubscribeInitialized(callback func()) (unsubscribe func()) {
 	closure := event.NewClosure(func(bool) {
 		callback()
 	})
@@ -33,14 +39,14 @@ func (c *Initializable) SubscribeInitialized(callback func()) (unsubscribe func(
 	}
 }
 
-func (c *Initializable) WasInitialized() (initialized bool) {
+func (c *initializable) WasInitialized() (initialized bool) {
 	c.initializedTriggeredMutex.RLock()
 	defer c.initializedTriggeredMutex.RUnlock()
 
 	return c.initializedTriggered
 }
 
-func (c *Initializable) TriggerInitialized() {
+func (c *initializable) TriggerInitialized() {
 	c.initializedTriggeredMutex.Lock()
 	defer c.initializedTriggeredMutex.Unlock()
 

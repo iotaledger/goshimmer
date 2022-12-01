@@ -9,8 +9,8 @@ import (
 	"github.com/iotaledger/hive.go/core/kvstore"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/initializable"
 	"github.com/iotaledger/goshimmer/packages/core/stream"
+	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/storage"
@@ -27,12 +27,12 @@ type StateDiffs struct {
 	storage *storage.Storage
 	ledger  *ledger.Ledger
 
-	*initializable.Initializable
+	traits.Initializable
 }
 
 func NewStateDiffs(storageInstance *storage.Storage) (newLedgerStateDiffs *StateDiffs) {
 	return &StateDiffs{
-		Initializable: initializable.New(),
+		Initializable: traits.NewInitializable(),
 		storage:       storageInstance,
 	}
 }
