@@ -11,7 +11,6 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/generics/options"
 )
 
@@ -72,14 +71,10 @@ func New(localID identity.ID, protocol *protocol.Protocol, opts ...options.Optio
 // region RateSetter interface ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 type RateSetter interface {
-	Shutdown()
-
 	Rate() float64
 	Estimate() time.Duration
-	Size() int
 	Events() *utils.Events
-
-	SubmitBlock(*models.Block) error
+	Shutdown()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
