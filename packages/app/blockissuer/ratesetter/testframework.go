@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/core/configuration"
-	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
@@ -46,9 +45,6 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 
 		t.RateSetter = New(t.localIdentity.ID(), p.Protocol, t.optsRateSetter...)
 
-		t.RateSetter.Events().BlockIssued.Attach(event.NewClosure(func(block *models.Block) {
-			p.Protocol.ProcessBlock(block, t.localIdentity.ID())
-		}))
 	},
 	)
 }
@@ -61,15 +57,16 @@ func (tf *TestFramework) CreateBlock() *models.Block {
 	return blk
 }
 
-func (tf *TestFramework) SubmitBlocks(count int) {
-	blocksToIssue := make([]*models.Block, count)
-	for i := 1; i <= count; i++ {
-		blk := tf.CreateBlock()
-		blocksToIssue[i-1] = blk
+func (tf *TestFramework) IssueBlock(block *models.Block) error {
+	for {
+		if estimate := tf.RateSetter.Estimate(); estimate > 0 {
+			time.Sleep(estimate)
+		} else {
+			tf.Protocol.ProcessBlock(block, tf.localIdentity.ID())
+			break
+		}
 	}
-	for _, block := range blocksToIssue {
-		assert.NoError(tf.test, tf.RateSetter.SubmitBlock(block))
-	}
+	return nil
 }
 
 type ProtocolTestFramework = protocol.TestFramework
