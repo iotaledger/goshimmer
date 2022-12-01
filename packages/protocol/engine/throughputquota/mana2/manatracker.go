@@ -4,13 +4,13 @@ import (
 	"context"
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/initializable"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
@@ -24,11 +24,14 @@ type ManaTracker struct {
 	manaByIDMutex     sync.RWMutex
 	totalBalance      int64
 	totalBalanceMutex sync.RWMutex
+
+	*initializable.Initializable
 }
 
 // New creates a new ManaTracker.
 func New(engineInstance *engine.Engine, opts ...options.Option[ManaTracker]) (manaTracker *ManaTracker) {
 	return options.Apply(&ManaTracker{
+		Initializable:   initializable.NewInitializable(),
 		engine:          engineInstance,
 		commitmentState: ledgerstate.NewCommitmentState(),
 		manaByID:        shrinkingmap.New[identity.ID, int64](),
@@ -43,16 +46,19 @@ func NewThroughputQuotaProvider(opts ...options.Option[ManaTracker]) engine.Modu
 }
 
 func (m *ManaTracker) Init() {
-	m.engine.Storage.Settings.Initialized.Attach(event.NewClosure(func(bool) {
+	m.engine.Storage.Settings.SubscribeInitialized(func() {
 		m.commitmentState.SetLastCommittedEpoch(m.engine.Storage.Settings.LatestCommitment().Index())
-	}))
+	})
 
 	m.engine.LedgerState.UnspentOutputs.Subscribe(m)
-	m.engine.LedgerState.Initialized.Attach(event.NewClosure(func(bool) {
+
+	m.engine.LedgerState.SubscribeInitialized(func() {
 		m.engine.LedgerState.UnspentOutputs.Unsubscribe(m)
 
 		// TODO: ATTACH TO EVENTS FROM MEMPOOL
-	}))
+
+		m.TriggerInitialized()
+	})
 }
 
 // Balance returns the balance of the given identity.
@@ -83,7 +89,7 @@ func (m *ManaTracker) ApplyCreatedOutput(output *ledgerstate.OutputWithMetadata)
 	if iotaBalance, exists := output.IOTABalance(); exists {
 		m.updateMana(output.AccessManaPledgeID(), int64(iotaBalance))
 
-		if !m.engine.LedgerState.UnspentOutputs.Initialized.WasTriggered() {
+		if !m.engine.LedgerState.UnspentOutputs.WasInitialized() {
 			m.totalBalance += int64(iotaBalance)
 		}
 	}

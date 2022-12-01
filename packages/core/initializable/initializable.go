@@ -7,7 +7,7 @@ import (
 )
 
 type Initializable struct {
-	*event.Linkable[bool]
+	linkable *event.Linkable[bool]
 
 	optCallbacks              []func()
 	initializedTriggered      bool
@@ -16,19 +16,31 @@ type Initializable struct {
 
 func NewInitializable(optCallbacks ...func()) (initializable *Initializable) {
 	return &Initializable{
-		Linkable:     event.NewLinkable[bool](),
+		linkable:     event.NewLinkable[bool](),
 		optCallbacks: optCallbacks,
 	}
 }
 
-func (c *Initializable) WasTriggered() (initialized bool) {
+func (c *Initializable) SubscribeInitialized(callback func()) (unsubscribe func()) {
+	closure := event.NewClosure(func(bool) {
+		callback()
+	})
+
+	c.linkable.Attach(closure)
+
+	return func() {
+		c.linkable.Detach(closure)
+	}
+}
+
+func (c *Initializable) WasInitialized() (initialized bool) {
 	c.initializedTriggeredMutex.RLock()
 	defer c.initializedTriggeredMutex.RUnlock()
 
 	return c.initializedTriggered
 }
 
-func (c *Initializable) Trigger() {
+func (c *Initializable) TriggerInitialized() {
 	c.initializedTriggeredMutex.Lock()
 	defer c.initializedTriggeredMutex.Unlock()
 
@@ -42,5 +54,5 @@ func (c *Initializable) Trigger() {
 		optCallback()
 	}
 
-	c.Linkable.Trigger(true)
+	c.linkable.Trigger(true)
 }

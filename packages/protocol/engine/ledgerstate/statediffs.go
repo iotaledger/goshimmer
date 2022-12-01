@@ -24,15 +24,16 @@ const (
 // region StateDiffs ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 type StateDiffs struct {
-	Initialized *initializable.Initializable
-	storage     *storage.Storage
-	ledger      *ledger.Ledger
+	storage *storage.Storage
+	ledger  *ledger.Ledger
+
+	*initializable.Initializable
 }
 
 func NewStateDiffs(storageInstance *storage.Storage) (newLedgerStateDiffs *StateDiffs) {
 	return &StateDiffs{
-		Initialized: initializable.NewInitializable(),
-		storage:     storageInstance,
+		Initializable: initializable.NewInitializable(),
+		storage:       storageInstance,
 	}
 }
 
@@ -168,7 +169,7 @@ func (s *StateDiffs) Import(reader io.ReadSeeker) (importedEpochs []epoch.Index,
 		return nil, errors.Errorf("failed to import state diffs: %w", err)
 	}
 
-	s.Initialized.Trigger()
+	s.TriggerInitialized()
 
 	return
 }

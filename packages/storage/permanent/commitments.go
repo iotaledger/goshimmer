@@ -14,9 +14,9 @@ import (
 )
 
 type Commitments struct {
-	Initialized *initializable.Initializable
-
 	slice *storable.Slice[commitment.Commitment, *commitment.Commitment]
+
+	*initializable.Initializable
 }
 
 func NewCommitments(path string) (newCommitment *Commitments) {
@@ -26,8 +26,8 @@ func NewCommitments(path string) (newCommitment *Commitments) {
 	}
 
 	return &Commitments{
-		Initialized: initializable.NewInitializable(),
-		slice:       commitmentsSlice,
+		Initializable: initializable.NewInitializable(),
+		slice:         commitmentsSlice,
 	}
 }
 
@@ -91,7 +91,7 @@ func (c *Commitments) Import(reader io.ReadSeeker) (err error) {
 		}
 	}
 
-	c.Initialized.Trigger()
+	c.TriggerInitialized()
 
 	return nil
 }

@@ -20,16 +20,15 @@ import (
 // region Settings /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Settings struct {
-	Initialized *initializable.Initializable
-
 	settingsModel *settingsModel
+	mutex         sync.RWMutex
 
-	sync.RWMutex
+	*initializable.Initializable
 }
 
 func NewSettings(path string) (settings *Settings) {
 	return &Settings{
-		Initialized: initializable.NewInitializable(),
+		Initializable: initializable.NewInitializable(),
 
 		settingsModel: storable.InitStruct(&settingsModel{
 			SnapshotImported:         false,
@@ -42,15 +41,15 @@ func NewSettings(path string) (settings *Settings) {
 }
 
 func (c *Settings) SnapshotImported() (initialized bool) {
-	c.RLock()
-	defer c.RUnlock()
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
 
 	return c.settingsModel.SnapshotImported
 }
 
 func (c *Settings) SetSnapshotImported(initialized bool) (err error) {
-	c.Lock()
-	defer c.Unlock()
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
 	c.settingsModel.SnapshotImported = initialized
 
@@ -62,15 +61,15 @@ func (c *Settings) SetSnapshotImported(initialized bool) (err error) {
 }
 
 func (c *Settings) LatestCommitment() (latestCommitment *commitment.Commitment) {
-	c.RLock()
-	defer c.RUnlock()
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
 
 	return c.settingsModel.LatestCommitment
 }
 
 func (c *Settings) SetLatestCommitment(latestCommitment *commitment.Commitment) (err error) {
-	c.Lock()
-	defer c.Unlock()
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
 	c.settingsModel.LatestCommitment = latestCommitment
 
@@ -82,15 +81,15 @@ func (c *Settings) SetLatestCommitment(latestCommitment *commitment.Commitment) 
 }
 
 func (c *Settings) LatestStateMutationEpoch() (latestStateMutationEpoch epoch.Index) {
-	c.RLock()
-	defer c.RUnlock()
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
 
 	return c.settingsModel.LatestStateMutationEpoch
 }
 
 func (c *Settings) SetLatestStateMutationEpoch(latestStateMutationEpoch epoch.Index) (err error) {
-	c.Lock()
-	defer c.Unlock()
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
 	c.settingsModel.LatestStateMutationEpoch = latestStateMutationEpoch
 
@@ -102,15 +101,15 @@ func (c *Settings) SetLatestStateMutationEpoch(latestStateMutationEpoch epoch.In
 }
 
 func (c *Settings) LatestConfirmedEpoch() (latestConfirmedEpoch epoch.Index) {
-	c.RLock()
-	defer c.RUnlock()
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
 
 	return c.settingsModel.LatestConfirmedEpoch
 }
 
 func (c *Settings) SetLatestConfirmedEpoch(latestConfirmedEpoch epoch.Index) (err error) {
-	c.Lock()
-	defer c.Unlock()
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
 	c.settingsModel.LatestConfirmedEpoch = latestConfirmedEpoch
 
@@ -122,15 +121,15 @@ func (c *Settings) SetLatestConfirmedEpoch(latestConfirmedEpoch epoch.Index) (er
 }
 
 func (c *Settings) ChainID() commitment.ID {
-	c.RLock()
-	defer c.RUnlock()
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
 
 	return c.settingsModel.ChainID
 }
 
 func (c *Settings) SetChainID(id commitment.ID) (err error) {
-	c.Lock()
-	defer c.Unlock()
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
 	c.settingsModel.ChainID = id
 
@@ -142,8 +141,8 @@ func (c *Settings) SetChainID(id commitment.ID) (err error) {
 }
 
 func (c *Settings) Export(writer io.WriteSeeker) (err error) {
-	c.RLock()
-	defer c.RUnlock()
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
 
 	settingsBytes, err := c.settingsModel.Bytes()
 	if err != nil {
@@ -162,8 +161,8 @@ func (c *Settings) Export(writer io.WriteSeeker) (err error) {
 }
 
 func (c *Settings) Import(reader io.ReadSeeker) (err error) {
-	c.Lock()
-	defer c.Unlock()
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
 	var settingsSize uint32
 	if err = binary.Read(reader, binary.LittleEndian, &settingsSize); err != nil {
@@ -187,7 +186,7 @@ func (c *Settings) Import(reader io.ReadSeeker) (err error) {
 		return errors.Errorf("failed to persist chain ID: %w", err)
 	}
 
-	c.Initialized.Trigger()
+	c.TriggerInitialized()
 
 	return nil
 }

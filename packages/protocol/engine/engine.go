@@ -106,9 +106,9 @@ func (e *Engine) Start(snapshot string) (err error) {
 		}
 	}
 
-	e.Storage.Settings.Initialized.Trigger()
-	e.Storage.Commitments.Initialized.Trigger()
-	e.LedgerState.Initialized.Trigger()
+	e.Storage.Settings.TriggerInitialized()
+	e.Storage.Commitments.TriggerInitialized()
+	e.LedgerState.TriggerInitialized()
 
 	return
 }

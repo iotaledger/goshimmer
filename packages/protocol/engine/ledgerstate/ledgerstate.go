@@ -14,20 +14,18 @@ import (
 )
 
 type LedgerState struct {
-	Initialized    *initializable.Initializable
 	MemPool        *ledger.Ledger
 	StateDiffs     *StateDiffs
 	UnspentOutputs *UnspentOutputs
 	storage        *storage.Storage
 	mutex          sync.RWMutex
+
+	*initializable.Initializable
 }
 
 func New(storageInstance *storage.Storage) (ledgerState *LedgerState) {
 	ledgerState = &LedgerState{
-		Initialized: initializable.NewInitializable(func() {
-			ledgerState.UnspentOutputs.Initialized.Trigger()
-			ledgerState.StateDiffs.Initialized.Trigger()
-		}),
+		Initializable:  initializable.NewInitializable(ledgerState.UnspentOutputs.TriggerInitialized, ledgerState.StateDiffs.TriggerInitialized),
 		StateDiffs:     NewStateDiffs(storageInstance),
 		UnspentOutputs: NewUnspentOutputs(storageInstance.UnspentOutputIDs, ledgerState.MemPool.Storage),
 		storage:        storageInstance,
@@ -104,7 +102,7 @@ func (l *LedgerState) Import(reader io.ReadSeeker) (err error) {
 		}
 	}
 
-	l.Initialized.Trigger()
+	l.TriggerInitialized()
 
 	return
 }

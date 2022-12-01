@@ -28,9 +28,8 @@ type UnspentOutputsConsumer interface {
 }
 
 type UnspentOutputs struct {
-	Initialized *initializable.Initializable
-	IDs         *ads.Set[utxo.OutputID, *utxo.OutputID]
-	Storage     *ledger.Storage
+	IDs     *ads.Set[utxo.OutputID, *utxo.OutputID]
+	Storage *ledger.Storage
 
 	commitmentState       *CommitmentState
 	consumers             map[UnspentOutputsConsumer]types.Empty
@@ -38,11 +37,13 @@ type UnspentOutputs struct {
 	batchConsumers        map[UnspentOutputsConsumer]types.Empty
 	batchCreatedOutputIDs utxo.OutputIDs
 	batchSpentOutputIDs   utxo.OutputIDs
+
+	*initializable.Initializable
 }
 
 func NewUnspentOutputs(unspentOutputIDsStore kvstore.KVStore, storage *ledger.Storage) (unspentOutputs *UnspentOutputs) {
 	return &UnspentOutputs{
-		Initialized:     initializable.NewInitializable(),
+		Initializable:   initializable.NewInitializable(),
 		IDs:             ads.NewSet[utxo.OutputID](unspentOutputIDsStore),
 		Storage:         storage,
 		commitmentState: NewCommitmentState(),
@@ -194,7 +195,7 @@ func (u *UnspentOutputs) Import(reader io.ReadSeeker) (err error) {
 		return errors.Errorf("failed to import unspent outputs: %w", err)
 	}
 
-	u.Initialized.Trigger()
+	u.TriggerInitialized()
 
 	return
 }
