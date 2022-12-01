@@ -73,12 +73,9 @@ func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opt
 }
 
 func (i *BlockIssuer) setupEvents() {
-	i.RateSetter.Events().BlockIssued.Attach(event.NewClosure(func(block *models.Block) {
-		i.protocol.ProcessBlock(block, i.identity.ID())
-	}))
 }
 
-// IssuePayload creates a new block including sequence number and tip selection and returns it.
+// IssuePayload creates a new block including sequence number and tip selection, submits it to be processed and returns it.
 func (i *BlockIssuer) IssuePayload(p payload.Payload, parentsCount ...int) (block *models.Block, err error) {
 	if !i.optsIgnoreBootstrappedFlag && !i.protocol.Engine().IsBootstrapped() {
 		return nil, ErrNotBootstraped
@@ -89,8 +86,7 @@ func (i *BlockIssuer) IssuePayload(p payload.Payload, parentsCount ...int) (bloc
 		i.Events.Error.Trigger(errors.Errorf("block could not be created: %w", err))
 		return block, err
 	}
-
-	return block, i.RateSetter.SubmitBlock(block)
+	return block, i.protocol.ProcessBlock(block, i.identity.ID())
 }
 
 // IssuePayloadWithReferences creates a new block with the references submit.
@@ -105,7 +101,7 @@ func (i *BlockIssuer) IssuePayloadWithReferences(p payload.Payload, references m
 		return nil, err
 	}
 
-	return block, i.RateSetter.SubmitBlock(block)
+	return block, i.protocol.ProcessBlock(block, i.identity.ID())
 }
 
 // IssueBlockAndAwaitBlockToBeBooked awaits maxAwait for the given block to get booked.
@@ -133,7 +129,7 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeBooked(block *models.Block, max
 	i.protocol.Events.Engine.Tangle.Booker.BlockBooked.Attach(closure)
 	defer i.protocol.Events.Engine.Tangle.Booker.BlockBooked.Detach(closure)
 
-	err := i.RateSetter.SubmitBlock(block)
+	err := i.protocol.ProcessBlock(block, i.identity.ID())
 
 	if err != nil {
 		return errors.Errorf("failed to issue block %s: %w", block.ID().String(), err)
@@ -148,7 +144,7 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeBooked(block *models.Block, max
 }
 
 // IssueBlockAndAwaitBlockToBeIssued awaits maxAwait for the given block to get issued.
-func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeIssued(block *models.Block, maxAwait time.Duration) error {
+func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeScheduled(block *models.Block, maxAwait time.Duration) error {
 	if !i.optsIgnoreBootstrappedFlag && !i.protocol.Engine().IsBootstrapped() {
 		return ErrNotBootstraped
 	}
@@ -169,7 +165,7 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeIssued(block *models.Block, max
 	i.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Attach(closure)
 	defer i.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Detach(closure)
 
-	err := i.RateSetter.SubmitBlock(block)
+	err := i.protocol.ProcessBlock(block, i.identity.ID())
 
 	if err != nil {
 		return errors.Errorf("failed to issue block %s: %w", block.ID().String(), err)
