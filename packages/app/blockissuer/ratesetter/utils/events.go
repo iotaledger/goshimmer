@@ -8,14 +8,12 @@ import (
 
 type Events struct {
 	BlockDiscarded *event.Event[*models.Block]
-	BlockIssued    *event.Event[*models.Block]
 	Error          *event.Event[error]
 }
 
 func NewEvents() (new *Events) {
 	return &Events{
 		BlockDiscarded: event.New[*models.Block](),
-		BlockIssued:    event.New[*models.Block](),
 		Error:          event.New[error](),
 	}
 }
