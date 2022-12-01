@@ -209,17 +209,17 @@ func (p *Protocol) initTipManager() {
 	p.Events.TipManager = p.TipManager.Events
 }
 
-func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) {
+func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) error {
 	isSolid, chain, _ := p.chainManager.ProcessCommitment(block.Commitment())
 	// fmt.Println(">> ProcessBlock", block, isSolid, chain)
 	if !isSolid {
-		return
+		return errors.Errorf("block %s is not solid\n", block.ID())
 	}
 
 	// fmt.Println(">> checkchain", p.storage.Settings.ChainID(), chain.ForkingPoint.ID())
 	if mainChain := p.storage.Settings.ChainID(); chain.ForkingPoint.ID() == mainChain {
 		p.Engine().ProcessBlockFromPeer(block, src)
-		return
+		return nil
 	}
 
 	if p.Engine().IsBootstrapped() {
@@ -229,8 +229,10 @@ func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) {
 	if candidateEngine, candidateStorage := p.CandidateEngine(), p.CandidateStorage(); candidateEngine != nil && candidateStorage != nil {
 		if candidateChain := candidateStorage.Settings.ChainID(); chain.ForkingPoint.ID() == candidateChain {
 			candidateEngine.ProcessBlockFromPeer(block, src)
+			return nil
 		}
 	}
+	return errors.Errorf("block was not processed.")
 }
 
 func (p *Protocol) Engine() (instance *engine.Engine) {
