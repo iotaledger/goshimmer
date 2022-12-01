@@ -57,7 +57,7 @@ func New(schedulerBlockRetrieverFunc blockRetrieverFunc, opts ...options.Option[
 	}, opts)
 }
 
-func (t *TipManager) ActivateEngine(engine *engine.Engine) {
+func (t *TipManager) LinkTo(engine *engine.Engine) {
 	t.tips = randommap.New[*scheduler.Block, *scheduler.Block]()
 	t.engine = engine
 	t.blockAcceptanceGadget = engine.Consensus.BlockGadget

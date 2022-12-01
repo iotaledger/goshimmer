@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 )
 
-func (s *SybilProtection) Begin(committedEpoch epoch.Index) (currentEpoch epoch.Index, err error) {
+func (s *SybilProtection) BeginBatchedStateTransition(committedEpoch epoch.Index) (currentEpoch epoch.Index, err error) {
 	s.setBatchedEpoch(committedEpoch)
 	s.batchedWeightUpdates = sybilprotection.NewWeightUpdates(committedEpoch)
 
@@ -41,7 +41,7 @@ func (s *SybilProtection) RollbackSpentOutput(output *ledgerstate.OutputWithMeta
 	return s.ApplyCreatedOutput(output)
 }
 
-func (s *SybilProtection) Commit() (ctx context.Context) {
+func (s *SybilProtection) CommitBatchedStateTransition() (ctx context.Context) {
 	ctx, done := context.WithCancel(context.Background())
 	go func() {
 		// TODO: WAIT FOR WRITE COMPLETE + CLEAN

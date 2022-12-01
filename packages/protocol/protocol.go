@@ -2,10 +2,8 @@ package protocol
 
 import (
 	"fmt"
-	"os"
 	"sync"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
@@ -81,7 +79,9 @@ func New(dispatcher network.Endpoint, opts ...options.Option[Protocol]) (protoco
 
 // Run runs the protocol.
 func (p *Protocol) Run() {
-	if err := p.activateEngine(p.engine, p.optsSnapshotPath); err != nil {
+	p.linkTo(p.engine)
+
+	if err := p.engine.Start(p.optsSnapshotPath); err != nil {
 		panic(err)
 	}
 
@@ -259,33 +259,10 @@ func (p *Protocol) CandidateStorage() (chainstorage *storage.Storage) {
 	return p.candidateStorage
 }
 
-func (p *Protocol) importSnapshotFile(filePath string) {
-	if err := p.disk.WithFile(filePath, func(fileHandle *os.File) {
-		p.Engine().Import(fileHandle)
-	}); err != nil {
-		if os.IsNotExist(err) {
-			return
-		}
-
-		panic(errors.Errorf("failed to read snapshot from file '%s': %w", filePath, err))
-	}
-}
-
-func (p *Protocol) activateEngine(engine *engine.Engine, snapshotPath string) (err error) {
-	p.TipManager.ActivateEngine(engine)
+func (p *Protocol) linkTo(engine *engine.Engine) {
 	p.Events.Engine.LinkTo(engine.Events)
+	p.TipManager.LinkTo(engine)
 	p.CongestionControl.LinkTo(engine)
-
-	if !engine.Storage.Settings.Initialized() {
-		if err = engine.ReadSnapshot(snapshotPath); err != nil {
-			return errors.Errorf("failed to read snapshot from file '%s': %w", snapshotPath, err)
-		}
-	}
-
-	// The ManaTracker is initialized with the snapshot, but, after, the changes are tracked live.
-	engine.ManaTracker.Unsubscribe()
-
-	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

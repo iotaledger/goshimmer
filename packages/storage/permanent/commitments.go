@@ -9,10 +9,13 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/initializable"
 	"github.com/iotaledger/goshimmer/packages/core/storable"
 )
 
 type Commitments struct {
+	Initialized *initializable.Initializable
+
 	slice *storable.Slice[commitment.Commitment, *commitment.Commitment]
 }
 
@@ -23,7 +26,8 @@ func NewCommitments(path string) (newCommitment *Commitments) {
 	}
 
 	return &Commitments{
-		slice: commitmentsSlice,
+		Initialized: initializable.NewInitializable(),
+		slice:       commitmentsSlice,
 	}
 }
 
@@ -86,6 +90,8 @@ func (c *Commitments) Import(reader io.ReadSeeker) (err error) {
 			return errors.Errorf("failed to store commitment of epoch %d: %w", epochIndex, err)
 		}
 	}
+
+	c.Initialized.Trigger()
 
 	return nil
 }

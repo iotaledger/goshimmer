@@ -139,7 +139,7 @@ func getInfo(c echo.Context) error {
 		RCTT: tm.RelativeConfirmedTime().UnixNano(),
 	}
 
-	accessMana, _ := deps.Protocol.Engine().ManaTracker.Mana(deps.Local.ID())
+	accessMana, _ := deps.Protocol.Engine().ThroughputQuota.Mana(deps.Local.ID())
 	consensusMana := lo.Return1(deps.Protocol.Engine().SybilProtection.Weights().Weight(deps.Local.ID())).Value
 	nodeMana := jsonmodels.Mana{
 		Access:             accessMana,

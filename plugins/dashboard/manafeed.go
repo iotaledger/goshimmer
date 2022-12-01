@@ -15,8 +15,8 @@ import (
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/manatracker/manamodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
+	manamodels2 "github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana2/manamodels"
 )
 
 var (
@@ -74,7 +74,7 @@ func runManaFeed() {
 // region Websocket block sending handlers (live updates)
 func sendManaValue() {
 	ownID := deps.Local.ID()
-	access, exists := deps.Protocol.Engine().ManaTracker.Mana(ownID)
+	access, exists := deps.Protocol.Engine().ThroughputQuota.Mana(ownID)
 	// if issuer not found, returned value is 0.0
 	if !exists {
 		log.Debugf("no mana available for local identity: %s ", ownID.String())
@@ -100,11 +100,11 @@ func sendManaValue() {
 }
 
 func sendManaMapOverall() {
-	accessManaList, _, err := manamodels.GetHighestManaIssuers(0, deps.Protocol.Engine().ManaTracker.ManaByIDs())
-	if err != nil && !errors.Is(err, manamodels.ErrQueryNotAllowed) {
+	accessManaList, _, err := manamodels2.GetHighestManaIssuers(0, deps.Protocol.Engine().ThroughputQuota.ManaByIDs())
+	if err != nil && !errors.Is(err, manamodels2.ErrQueryNotAllowed) {
 		log.Errorf("failed to get list of n highest access mana issuers: %s ", err.Error())
 	}
-	accessPayload := &ManaNetworkListBlkData{ManaType: manamodels.AccessMana.String()}
+	accessPayload := &ManaNetworkListBlkData{ManaType: manamodels2.AccessMana.String()}
 	totalAccessMana := int64(0)
 	for i := 0; i < len(accessManaList); i++ {
 		accessPayload.Issuers = append(accessPayload.Issuers, accessManaList[i].ToIssuerStr())
@@ -115,11 +115,11 @@ func sendManaMapOverall() {
 		Type: MsgTypeManaMapOverall,
 		Data: accessPayload,
 	})
-	consensusManaList, _, err := manamodels.GetHighestManaIssuers(0, lo.PanicOnErr(deps.Protocol.Engine().SybilProtection.Weights().Map()))
-	if err != nil && !errors.Is(err, manamodels.ErrQueryNotAllowed) {
+	consensusManaList, _, err := manamodels2.GetHighestManaIssuers(0, lo.PanicOnErr(deps.Protocol.Engine().SybilProtection.Weights().Map()))
+	if err != nil && !errors.Is(err, manamodels2.ErrQueryNotAllowed) {
 		log.Errorf("failed to get list of n highest consensus mana issuers: %s ", err.Error())
 	}
-	consensusPayload := &ManaNetworkListBlkData{ManaType: manamodels.ConsensusMana.String()}
+	consensusPayload := &ManaNetworkListBlkData{ManaType: manamodels2.ConsensusMana.String()}
 
 	var totalConsensusMana int64
 	for i := 0; i < len(consensusManaList); i++ {
@@ -139,8 +139,8 @@ func sendManaMapOnline() {
 		return
 	}
 	knownPeers := deps.Discover.GetVerifiedPeers()
-	manaMap := deps.Protocol.Engine().ManaTracker.ManaByIDs()
-	accessPayload := &ManaNetworkListBlkData{ManaType: manamodels.AccessMana.String()}
+	manaMap := deps.Protocol.Engine().ThroughputQuota.ManaByIDs()
+	accessPayload := &ManaNetworkListBlkData{ManaType: manamodels2.AccessMana.String()}
 	var totalAccessMana int64
 	for _, peerID := range append(lo.Map(knownPeers, func(p *peer.Peer) identity.ID { return p.ID() }), deps.Local.ID()) {
 		manaValue, exists := manaMap[peerID]
@@ -148,7 +148,7 @@ func sendManaMapOnline() {
 			continue
 		}
 
-		accessPayload.Issuers = append(accessPayload.Issuers, manamodels.IssuerStr{
+		accessPayload.Issuers = append(accessPayload.Issuers, manamodels2.IssuerStr{
 			ShortIssuerID: peerID.String(),
 			IssuerID:      base58.Encode(lo.PanicOnErr(peerID.Bytes())),
 			Mana:          manaValue,
@@ -162,14 +162,14 @@ func sendManaMapOnline() {
 	})
 
 	activeNodes := deps.Protocol.Engine().SybilProtection.Validators()
-	consensusPayload := &ManaNetworkListBlkData{ManaType: manamodels.ConsensusMana.String()}
+	consensusPayload := &ManaNetworkListBlkData{ManaType: manamodels2.ConsensusMana.String()}
 
 	_ = activeNodes.ForEach(func(id identity.ID) error {
 		weight, exists := deps.Protocol.Engine().SybilProtection.Weights().Weight(id)
 		if !exists {
 			weight = sybilprotection.NewWeight(0, -1)
 		}
-		consensusPayload.Issuers = append(consensusPayload.Issuers, manamodels.Issuer{
+		consensusPayload.Issuers = append(consensusPayload.Issuers, manamodels2.Issuer{
 			ID:   id,
 			Mana: weight.Value,
 		}.ToIssuerStr())
@@ -204,8 +204,8 @@ type ManaValueBlkData struct {
 // ManaNetworkListBlkData contains a list of mana values for issuers in the network.
 type ManaNetworkListBlkData struct {
 	ManaType  string                 `json:"manaType"`
-	TotalMana int64                  `json:"totalMana"`
-	Issuers   []manamodels.IssuerStr `json:"nodes"`
+	TotalMana int64                   `json:"totalMana"`
+	Issuers   []manamodels2.IssuerStr `json:"nodes"`
 }
 
 // endregion

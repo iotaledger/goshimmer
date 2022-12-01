@@ -17,13 +17,13 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
 	"github.com/iotaledger/goshimmer/packages/storage"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/filter"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/manatracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
@@ -39,37 +39,33 @@ import (
 type Engine struct {
 	Events              *Events
 	Storage             *storage.Storage
+	SybilProtection     sybilprotection.SybilProtection
+	ThroughputQuota     throughputquota.ThroughputQuota
 	Ledger              *ledger.Ledger
 	LedgerState         *ledgerstate.LedgerState
 	Filter              *filter.Filter
 	EvictionState       *eviction.State
 	BlockRequester      *eventticker.EventTicker[models.BlockID]
-	ManaTracker         *manatracker.ManaTracker
 	NotarizationManager *notarization.Manager
 	Tangle              *tangle.Tangle
 	Consensus           *consensus.Consensus
 	TSCManager          *tsc.Manager
 	Clock               *clock.Clock
-	SybilProtection     sybilprotection.SybilProtection
 
 	isBootstrapped      bool
 	isBootstrappedMutex sync.Mutex
 
+	optsSybilProtectionProvider    func(engine *Engine) sybilprotection.SybilProtection
+	optsThroughputQuotaProvider    func(engine *Engine) throughputquota.ThroughputQuota
 	optsBootstrappedThreshold      time.Duration
 	optsEntryPointsDepth           int
 	optsSnapshotDepth              int
-	optsSybilProtectionProvider    func(engine *Engine) sybilprotection.SybilProtection
 	optsLedgerOptions              []options.Option[ledger.Ledger]
-	optsManaTrackerOptions         []options.Option[manatracker.ManaTracker]
 	optsNotarizationManagerOptions []options.Option[notarization.Manager]
 	optsTangleOptions              []options.Option[tangle.Tangle]
 	optsConsensusOptions           []options.Option[consensus.Consensus]
 	optsTSCManagerOptions          []options.Option[tsc.Manager]
 	optsBlockRequester             []options.Option[eventticker.EventTicker[models.BlockID]]
-}
-
-func panicOnEmptyProvider[T any](engine *Engine) T {
-	panic("provider not set")
 }
 
 func New(storageInstance *storage.Storage, opts ...options.Option[Engine]) (engine *Engine) {
@@ -82,6 +78,7 @@ func New(storageInstance *storage.Storage, opts ...options.Option[Engine]) (engi
 			EvictionState: eviction.NewState(storageInstance),
 
 			optsSybilProtectionProvider: panicOnEmptyProvider[sybilprotection.SybilProtection],
+			optsThroughputQuotaProvider: panicOnEmptyProvider[throughputquota.ThroughputQuota],
 			optsBootstrappedThreshold:   10 * time.Second,
 			optsSnapshotDepth:           5,
 		}, opts,
@@ -95,12 +92,25 @@ func New(storageInstance *storage.Storage, opts ...options.Option[Engine]) (engi
 		(*Engine).initTSCManager,
 		(*Engine).initBlockStorage,
 		(*Engine).initNotarizationManager,
-		(*Engine).initManaTracker,
 		(*Engine).initEvictionState,
 		(*Engine).initBlockRequester,
 
 		(*Engine).initPlugins,
 	)
+}
+
+func (e *Engine) Start(snapshot string) (err error) {
+	if !e.Storage.Settings.SnapshotImported() {
+		if err = e.readSnapshot(snapshot); err != nil {
+			return errors.Errorf("failed to read snapshot from file '%s': %w", snapshot, err)
+		}
+	}
+
+	e.Storage.Settings.Initialized.Trigger()
+	e.Storage.Commitments.Initialized.Trigger()
+	e.LedgerState.Initialized.Trigger()
+
+	return
 }
 
 func (e *Engine) IsBootstrapped() (isBootstrapped bool) {
@@ -142,31 +152,11 @@ func (e *Engine) FirstUnacceptedMarker(sequenceID markers.SequenceID) markers.In
 	return e.Consensus.BlockGadget.FirstUnacceptedIndex(sequenceID)
 }
 
-func (e *Engine) ReadSnapshot(filePath string) (err error) {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return errors.Errorf("failed to open snapshot file: %w", err)
-	}
-	defer func() {
-		if err = file.Close(); err != nil {
-			panic(err)
-		}
-	}()
-
-	if err = e.Import(file); err != nil {
-		return errors.Errorf("failed to import snapshot: %w", err)
-	} else if err = e.Storage.Settings.SetInitialized(true); err != nil {
-		return errors.Errorf("failed to set initialized flag: %w", err)
-	}
-
-	return
-}
-
 func (e *Engine) WriteSnapshot(filePath string, targetEpoch ...epoch.Index) (err error) {
 	if len(targetEpoch) == 0 {
 		targetEpoch = append(targetEpoch, e.Storage.Settings.LatestCommitment().Index())
 	}
-	
+
 	if fileHandle, err := os.Create(filePath); err != nil {
 		return errors.Errorf("failed to create snapshot file: %w", err)
 	} else if err = e.Export(fileHandle, targetEpoch[0]); err != nil {
@@ -225,12 +215,40 @@ func (e *Engine) Export(writer io.WriteSeeker, epoch epoch.Index) (err error) {
 	return
 }
 
+func (e *Engine) ProcessBlockFromPeer(block *models.Block, source identity.ID) {
+	e.Filter.ProcessReceivedBlock(block, source)
+}
+
+func (e *Engine) Block(id models.BlockID) (block *models.Block, exists bool) {
+	var err error
+	if e.EvictionState.IsRootBlock(id) {
+		block, err = e.Storage.Blocks.Load(id)
+		exists = block != nil && err == nil
+		return
+	}
+
+	if cachedBlock, cachedBlockExists := e.Tangle.BlockDAG.Block(id); cachedBlockExists {
+		return cachedBlock.ModelsBlock, !cachedBlock.IsMissing()
+	}
+
+	if id.Index() > e.Storage.Settings.LatestCommitment().Index() {
+		return nil, false
+	}
+
+	block, err = e.Storage.Blocks.Load(id)
+	exists = block != nil && err == nil
+
+	return
+}
+
 func (e *Engine) injectPlugins() {
 	e.SybilProtection = e.optsSybilProtectionProvider(e)
+	e.ThroughputQuota = e.optsThroughputQuotaProvider(e)
 }
 
 func (e *Engine) initPlugins() {
-	e.SybilProtection.InitModule()
+	e.SybilProtection.Init()
+	e.ThroughputQuota.Init()
 }
 
 func (e *Engine) initFilter() {
@@ -363,10 +381,6 @@ func (e *Engine) initNotarizationManager() {
 	e.Events.EpochMutations.LinkTo(e.NotarizationManager.EpochMutations.Events)
 }
 
-func (e *Engine) initManaTracker() {
-	e.ManaTracker = manatracker.New(e.LedgerState, e.optsManaTrackerOptions...)
-}
-
 func (e *Engine) initEvictionState() {
 	e.Events.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
 		block.ForEachParent(func(parent models.Parent) {
@@ -406,28 +420,22 @@ func (e *Engine) initBlockRequester() {
 	e.Events.BlockRequester.LinkTo(e.BlockRequester.Events)
 }
 
-func (e *Engine) ProcessBlockFromPeer(block *models.Block, source identity.ID) {
-	e.Filter.ProcessReceivedBlock(block, source)
-}
-
-func (e *Engine) Block(id models.BlockID) (block *models.Block, exists bool) {
-	var err error
-	if e.EvictionState.IsRootBlock(id) {
-		block, err = e.Storage.Blocks.Load(id)
-		exists = block != nil && err == nil
-		return
+func (e *Engine) readSnapshot(filePath string) (err error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return errors.Errorf("failed to open snapshot file: %w", err)
 	}
+	defer func() {
+		if err = file.Close(); err != nil {
+			panic(err)
+		}
+	}()
 
-	if cachedBlock, cachedBlockExists := e.Tangle.BlockDAG.Block(id); cachedBlockExists {
-		return cachedBlock.ModelsBlock, !cachedBlock.IsMissing()
+	if err = e.Import(file); err != nil {
+		return errors.Errorf("failed to import snapshot: %w", err)
+	} else if err = e.Storage.Settings.SetSnapshotImported(true); err != nil {
+		return errors.Errorf("failed to set snapshot imported flag: %w", err)
 	}
-
-	if id.Index() > e.Storage.Settings.LatestCommitment().Index() {
-		return nil, false
-	}
-
-	block, err = e.Storage.Blocks.Load(id)
-	exists = block != nil && err == nil
 
 	return
 }
@@ -445,6 +453,12 @@ func WithBootstrapThreshold(threshold time.Duration) options.Option[Engine] {
 func WithSybilProtectionProvider(provider func(*Engine) sybilprotection.SybilProtection) options.Option[Engine] {
 	return func(e *Engine) {
 		e.optsSybilProtectionProvider = provider
+	}
+}
+
+func WithThroughputQuotaProvider(provider func(*Engine) throughputquota.ThroughputQuota) options.Option[Engine] {
+	return func(e *Engine) {
+		e.optsThroughputQuotaProvider = provider
 	}
 }
 
@@ -497,3 +511,7 @@ func WithRequesterOptions(opts ...options.Option[eventticker.EventTicker[models.
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func panicOnEmptyProvider[T any](engine *Engine) T {
+	panic("provider not set")
+}

@@ -8,11 +8,13 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/initializable"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
 type LedgerState struct {
+	Initialized    *initializable.Initializable
 	MemPool        *ledger.Ledger
 	StateDiffs     *StateDiffs
 	UnspentOutputs *UnspentOutputs
@@ -22,6 +24,10 @@ type LedgerState struct {
 
 func New(storageInstance *storage.Storage) (ledgerState *LedgerState) {
 	ledgerState = &LedgerState{
+		Initialized: initializable.NewInitializable(func() {
+			ledgerState.UnspentOutputs.Initialized.Trigger()
+			ledgerState.StateDiffs.Initialized.Trigger()
+		}),
 		StateDiffs:     NewStateDiffs(storageInstance),
 		UnspentOutputs: NewUnspentOutputs(storageInstance.UnspentOutputIDs, ledgerState.MemPool.Storage),
 		storage:        storageInstance,
@@ -97,6 +103,8 @@ func (l *LedgerState) Import(reader io.ReadSeeker) (err error) {
 			return errors.Errorf("failed to set latest commitment: %w", err)
 		}
 	}
+
+	l.Initialized.Trigger()
 
 	return
 }

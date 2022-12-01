@@ -17,8 +17,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
@@ -76,7 +76,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 			// TODO: need to activate it with an engine t.TipManager.Activate()
 		}
 
-		t.TipManager.ActivateEngine(t.engine)
+		t.TipManager.LinkTo(t.engine)
 		t.TipManager.blockAcceptanceGadget = t.mockAcceptance
 
 		t.SetAcceptedTime(time.Unix(epoch.GenesisTime, 0))

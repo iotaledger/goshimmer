@@ -12,40 +12,41 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/ads"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/initializable"
 	"github.com/iotaledger/goshimmer/packages/core/stream"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
 type UnspentOutputsConsumer interface {
-	Begin(committedEpoch epoch.Index) (currentEpoch epoch.Index, err error)
-	Commit() (ctx context.Context)
 	ApplyCreatedOutput(output *OutputWithMetadata) (err error)
 	ApplySpentOutput(output *OutputWithMetadata) (err error)
 	RollbackCreatedOutput(output *OutputWithMetadata) (err error)
 	RollbackSpentOutput(output *OutputWithMetadata) (err error)
+	BeginBatchedStateTransition(targetEpoch epoch.Index) (currentEpoch epoch.Index, err error)
+	CommitBatchedStateTransition() (ctx context.Context)
 }
 
 type UnspentOutputs struct {
-	IDs     *ads.Set[utxo.OutputID, *utxo.OutputID]
-	Storage *ledger.Storage
+	Initialized *initializable.Initializable
+	IDs         *ads.Set[utxo.OutputID, *utxo.OutputID]
+	Storage     *ledger.Storage
 
-	lastCommittedEpochIndex      epoch.Index
-	lastCommittedEpochIndexMutex sync.RWMutex
-	batchConsumers               map[UnspentOutputsConsumer]types.Empty
-	batchEpoch                   epoch.Index
-	batchEpochMutex              sync.RWMutex
-	batchCreatedOutputIDs        utxo.OutputIDs
-	batchSpentOutputIDs          utxo.OutputIDs
-	consumers                    map[UnspentOutputsConsumer]types.Empty
-	consumersMutex               sync.RWMutex
+	commitmentState       *CommitmentState
+	consumers             map[UnspentOutputsConsumer]types.Empty
+	consumersMutex        sync.RWMutex
+	batchConsumers        map[UnspentOutputsConsumer]types.Empty
+	batchCreatedOutputIDs utxo.OutputIDs
+	batchSpentOutputIDs   utxo.OutputIDs
 }
 
 func NewUnspentOutputs(unspentOutputIDsStore kvstore.KVStore, storage *ledger.Storage) (unspentOutputs *UnspentOutputs) {
 	return &UnspentOutputs{
-		IDs:       ads.NewSet[utxo.OutputID](unspentOutputIDsStore),
-		Storage:   storage,
-		consumers: make(map[UnspentOutputsConsumer]types.Empty),
+		Initialized:     initializable.NewInitializable(),
+		IDs:             ads.NewSet[utxo.OutputID](unspentOutputIDsStore),
+		Storage:         storage,
+		commitmentState: NewCommitmentState(),
+		consumers:       make(map[UnspentOutputsConsumer]types.Empty),
 	}
 }
 
@@ -68,7 +69,7 @@ func (u *UnspentOutputs) Root() types.Identifier {
 }
 
 func (u *UnspentOutputs) Begin(newEpoch epoch.Index) (currentEpoch epoch.Index, err error) {
-	if currentEpoch, err = u.setBatchedEpoch(newEpoch); err != nil {
+	if currentEpoch, err = u.commitmentState.BeginBatchedStateTransition(newEpoch); err != nil {
 		return 0, errors.Errorf("failed to set batched epoch: %w", err)
 	}
 
@@ -95,7 +96,7 @@ func (u *UnspentOutputs) Commit() (ctx context.Context) {
 		go func(ctx context.Context) {
 			<-ctx.Done()
 			commitDone.Done()
-		}(consumer.Commit())
+		}(consumer.CommitBatchedStateTransition())
 	}
 
 	ctx, done := context.WithCancel(context.Background())
@@ -105,40 +106,42 @@ func (u *UnspentOutputs) Commit() (ctx context.Context) {
 }
 
 func (u *UnspentOutputs) ApplyCreatedOutput(output *OutputWithMetadata) (err error) {
-	if u.batchedEpoch() == 0 {
+	var targetConsumers map[UnspentOutputsConsumer]types.Empty
+	if !u.commitmentState.BatchedStateTransitionStarted() {
 		u.IDs.Add(output.Output().ID())
 
-		if err = u.notifyConsumers(u.consumers, output, UnspentOutputsConsumer.ApplyCreatedOutput); err != nil {
-			return errors.Errorf("failed to apply created output to consumers: %w", err)
-		}
+		targetConsumers = u.consumers
 	} else {
 		if !u.batchSpentOutputIDs.Delete(output.Output().ID()) {
 			u.batchCreatedOutputIDs.Add(output.Output().ID())
 		}
 
-		if err = u.notifyConsumers(u.batchConsumers, output, UnspentOutputsConsumer.ApplyCreatedOutput); err != nil {
-			return errors.Errorf("failed to apply created output to batched consumers: %w", err)
-		}
+		targetConsumers = u.batchConsumers
+	}
+
+	if err = u.notifyConsumers(targetConsumers, output, UnspentOutputsConsumer.ApplyCreatedOutput); err != nil {
+		return errors.Errorf("failed to apply created output to consumers: %w", err)
 	}
 
 	return
 }
 
 func (u *UnspentOutputs) ApplySpentOutput(output *OutputWithMetadata) (err error) {
-	if u.batchedEpoch() == 0 {
+	var targetConsumers map[UnspentOutputsConsumer]types.Empty
+	if !u.commitmentState.BatchedStateTransitionStarted() {
 		u.IDs.Delete(output.Output().ID())
 
-		if err = u.notifyConsumers(u.consumers, output, UnspentOutputsConsumer.ApplySpentOutput); err != nil {
-			return errors.Errorf("failed to apply spent output to consumers: %w", err)
-		}
+		targetConsumers = u.consumers
 	} else {
 		if !u.batchCreatedOutputIDs.Delete(output.Output().ID()) {
 			u.batchSpentOutputIDs.Add(output.Output().ID())
 		}
 
-		if err = u.notifyConsumers(u.batchConsumers, output, UnspentOutputsConsumer.ApplySpentOutput); err != nil {
-			return errors.Errorf("failed to apply spent output to batched consumers: %w", err)
-		}
+		targetConsumers = u.batchConsumers
+	}
+
+	if err = u.notifyConsumers(targetConsumers, output, UnspentOutputsConsumer.ApplySpentOutput); err != nil {
+		return errors.Errorf("failed to apply spent output to consumers: %w", err)
 	}
 
 	return
@@ -150,13 +153,6 @@ func (u *UnspentOutputs) RollbackCreatedOutput(output *OutputWithMetadata) (err 
 
 func (u *UnspentOutputs) RollbackSpentOutput(output *OutputWithMetadata) (err error) {
 	return u.ApplyCreatedOutput(output)
-}
-
-func (u *UnspentOutputs) LastCommittedEpoch() epoch.Index {
-	u.lastCommittedEpochIndexMutex.RLock()
-	defer u.lastCommittedEpochIndexMutex.RUnlock()
-
-	return u.lastCommittedEpochIndex
 }
 
 func (u *UnspentOutputs) Export(writer io.WriteSeeker) (err error) {
@@ -198,6 +194,8 @@ func (u *UnspentOutputs) Import(reader io.ReadSeeker) (err error) {
 		return errors.Errorf("failed to import unspent outputs: %w", err)
 	}
 
+	u.Initialized.Trigger()
+
 	return
 }
 
@@ -237,15 +235,14 @@ func (u *UnspentOutputs) applyBatch(waitForConsumers *sync.WaitGroup, done func(
 
 	waitForConsumers.Wait()
 
-	u.setLastCommittedEpoch(u.batchedEpoch())
-	u.setBatchedEpoch(0)
+	u.commitmentState.FinalizeBatchedStateTransition()
 
 	done()
 }
 
 func (u *UnspentOutputs) preparePendingConsumers(currentEpoch, targetEpoch epoch.Index) (err error) {
 	for _, consumer := range u.Consumers() {
-		consumerEpoch, err := consumer.Begin(targetEpoch)
+		consumerEpoch, err := consumer.BeginBatchedStateTransition(targetEpoch)
 		if err != nil {
 			return errors.Errorf("failed to start consumer transaction: %w", err)
 		} else if consumerEpoch != currentEpoch && consumerEpoch != targetEpoch {
@@ -277,43 +274,6 @@ func (u *UnspentOutputs) outputWithMetadata(outputID utxo.OutputID) (outputWithM
 		}
 	}) {
 		err = errors.Errorf("failed to load output: %w", err)
-	}
-
-	return
-}
-
-func (u *UnspentOutputs) lastCommittedEpoch() (lastCommittedEpoch epoch.Index) {
-	u.lastCommittedEpochIndexMutex.RLock()
-	defer u.lastCommittedEpochIndexMutex.RUnlock()
-
-	return u.lastCommittedEpochIndex
-}
-
-func (u *UnspentOutputs) setLastCommittedEpoch(index epoch.Index) {
-	u.lastCommittedEpochIndexMutex.Lock()
-	defer u.lastCommittedEpochIndexMutex.Unlock()
-
-	u.lastCommittedEpochIndex = index
-}
-
-
-func (u *UnspentOutputs) batchedEpoch() epoch.Index {
-	u.batchEpochMutex.RLock()
-	defer u.batchEpochMutex.RUnlock()
-
-	return u.batchEpoch
-}
-
-func (u *UnspentOutputs) setBatchedEpoch(newEpoch epoch.Index) (currentEpoch epoch.Index, err error) {
-	u.batchEpochMutex.Lock()
-	defer u.batchEpochMutex.Unlock()
-
-	if newEpoch != 0 && u.batchEpoch != 0 {
-		return 0, errors.New("batch is already in progress")
-	} else if (newEpoch - currentEpoch).Abs() > 1 {
-		return 0, errors.New("batches can only be applied in order")
-	} else if currentEpoch = u.lastCommittedEpoch(); currentEpoch != newEpoch {
-		u.batchEpoch = newEpoch
 	}
 
 	return

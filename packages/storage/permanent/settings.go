@@ -13,20 +13,26 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/initializable"
 	"github.com/iotaledger/goshimmer/packages/core/storable"
 )
 
 // region Settings /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Settings struct {
+	Initialized *initializable.Initializable
+
 	settingsModel *settingsModel
 
 	sync.RWMutex
 }
 
-func NewSettings(path string) (setting *Settings) {
+func NewSettings(path string) (settings *Settings) {
 	return &Settings{
+		Initialized: initializable.NewInitializable(),
+
 		settingsModel: storable.InitStruct(&settingsModel{
+			SnapshotImported:         false,
 			LatestCommitment:         commitment.New(0, commitment.ID{}, types.Identifier{}, 0),
 			LatestStateMutationEpoch: 0,
 			LatestConfirmedEpoch:     0,
@@ -35,18 +41,18 @@ func NewSettings(path string) (setting *Settings) {
 	}
 }
 
-func (c *Settings) Initialized() (initialized bool) {
+func (c *Settings) SnapshotImported() (initialized bool) {
 	c.RLock()
 	defer c.RUnlock()
 
-	return c.settingsModel.Initialized
+	return c.settingsModel.SnapshotImported
 }
 
-func (c *Settings) SetInitialized(initialized bool) (err error) {
+func (c *Settings) SetSnapshotImported(initialized bool) (err error) {
 	c.Lock()
 	defer c.Unlock()
 
-	c.settingsModel.Initialized = initialized
+	c.settingsModel.SnapshotImported = initialized
 
 	if err = c.settingsModel.ToFile(); err != nil {
 		return fmt.Errorf("failed to persist initialized flag: %w", err)
@@ -175,6 +181,14 @@ func (c *Settings) Import(reader io.ReadSeeker) (err error) {
 		return errors.Errorf("failed to read settings: consumed bytes (%d) != expected bytes (%d)", consumedBytes, len(settingsBytes))
 	}
 
+	c.settingsModel.SnapshotImported = true
+
+	if err = c.settingsModel.ToFile(); err != nil {
+		return errors.Errorf("failed to persist chain ID: %w", err)
+	}
+
+	c.Initialized.Trigger()
+
 	return nil
 }
 
@@ -183,7 +197,7 @@ func (c *Settings) Import(reader io.ReadSeeker) (err error) {
 // region settingsModel ////////////////////////////////////////////////////////////////////////////////////////////////
 
 type settingsModel struct {
-	Initialized              bool                   `serix:"0"`
+	SnapshotImported         bool                   `serix:"0"`
 	LatestCommitment         *commitment.Commitment `serix:"1"`
 	LatestStateMutationEpoch epoch.Index            `serix:"2"`
 	LatestConfirmedEpoch     epoch.Index            `serix:"3"`

@@ -142,7 +142,7 @@ func init() {
 func diagnosticPrintSnapshotFromFile(filePath string) {
 	s := createTempStorage()
 	e := engine.New(s, engine.WithSybilProtectionProvider(dpos.NewSybilProtectionProvider()))
-	if err := e.Import(lo.PanicOnErr(os.Open(filePath))); err != nil {
+	if err := e.Start(filePath); err != nil {
 		panic(err)
 	}
 

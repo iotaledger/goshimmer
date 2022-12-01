@@ -66,15 +66,17 @@ func (s *SybilProtection) Weights() *sybilprotection.Weights {
 	return s.weights
 }
 
-// InitModule initializes the ProofOfStake module after all the dependencies have been injected into the engine.
-func (s *SybilProtection) InitModule() {
-	for it := s.engine.Storage.Attestors.LoadAll(s.engine.Storage.Settings.LatestCommitment().Index()).Iterator(); it.HasNext(); {
-		s.validators.Add(it.Next())
-	}
-
+// Init initializes the ProofOfStake module after all the dependencies have been injected into the engine.
+func (s *SybilProtection) Init() {
 	s.engine.Events.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(func(block *blockdag.Block) {
 		s.markValidatorActive(block.IssuerID(), block.IssuingTime())
 	}))
+}
+
+func (s *SybilProtection) Start() {
+	for it := s.engine.Storage.Attestors.LoadAll(s.engine.Storage.Settings.LatestCommitment().Index()).Iterator(); it.HasNext(); {
+		s.validators.Add(it.Next())
+	}
 }
 
 func (s *SybilProtection) markValidatorActive(id identity.ID, activityTime time.Time) {

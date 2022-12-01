@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/core/kvstore"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/initializable"
 	"github.com/iotaledger/goshimmer/packages/core/stream"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
@@ -23,13 +24,15 @@ const (
 // region StateDiffs ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 type StateDiffs struct {
-	storage *storage.Storage
-	ledger  *ledger.Ledger
+	Initialized *initializable.Initializable
+	storage     *storage.Storage
+	ledger      *ledger.Ledger
 }
 
 func NewStateDiffs(storageInstance *storage.Storage) (newLedgerStateDiffs *StateDiffs) {
 	return &StateDiffs{
-		storage: storageInstance,
+		Initialized: initializable.NewInitializable(),
+		storage:     storageInstance,
 	}
 }
 
@@ -147,7 +150,7 @@ func (s *StateDiffs) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (err
 }
 
 func (s *StateDiffs) Import(reader io.ReadSeeker) (importedEpochs []epoch.Index, err error) {
-	return importedEpochs, stream.ReadCollection(reader, func(i int) (err error) {
+	if err = stream.ReadCollection(reader, func(i int) (err error) {
 		epochIndex, err := stream.Read[uint64](reader)
 		if err != nil {
 			return errors.Errorf("failed to read epoch index: %w", err)
@@ -161,7 +164,13 @@ func (s *StateDiffs) Import(reader io.ReadSeeker) (importedEpochs []epoch.Index,
 		}
 
 		return
-	})
+	}); err != nil {
+		return nil, errors.Errorf("failed to import state diffs: %w", err)
+	}
+
+	s.Initialized.Trigger()
+
+	return
 }
 
 func (s *StateDiffs) importOutputs(reader io.ReadSeeker, store func(*OutputWithMetadata) error) (err error) {
