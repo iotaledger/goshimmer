@@ -32,7 +32,7 @@ type StateDiffs struct {
 
 func NewStateDiffs(storageInstance *storage.Storage) (newLedgerStateDiffs *StateDiffs) {
 	return &StateDiffs{
-		Initializable: initializable.NewInitializable(),
+		Initializable: initializable.New(),
 		storage:       storageInstance,
 	}
 }

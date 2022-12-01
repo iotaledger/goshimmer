@@ -31,7 +31,7 @@ func nHighestHandler(c echo.Context, manaType manamodels2.Type) error {
 	}
 	var manaMap map[identity.ID]int64
 	if manaType == manamodels2.AccessMana {
-		manaMap = deps.Protocol.Engine().ThroughputQuota.ManaByIDs()
+		manaMap = deps.Protocol.Engine().ThroughputQuota.BalanceByIDs()
 	} else {
 		manaMap = lo.PanicOnErr(deps.Protocol.Engine().SybilProtection.Weights().Map())
 	}

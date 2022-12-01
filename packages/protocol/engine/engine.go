@@ -13,6 +13,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/eventticker"
+	"github.com/iotaledger/goshimmer/packages/core/initializable"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
@@ -66,6 +67,8 @@ type Engine struct {
 	optsConsensusOptions           []options.Option[consensus.Consensus]
 	optsTSCManagerOptions          []options.Option[tsc.Manager]
 	optsBlockRequester             []options.Option[eventticker.EventTicker[models.BlockID]]
+
+	*initializable.Initializable
 }
 
 func New(storageInstance *storage.Storage, opts ...options.Option[Engine]) (engine *Engine) {
@@ -99,16 +102,14 @@ func New(storageInstance *storage.Storage, opts ...options.Option[Engine]) (engi
 	)
 }
 
-func (e *Engine) Start(snapshot string) (err error) {
+func (e *Engine) Initialize(snapshot string) (err error) {
 	if !e.Storage.Settings.SnapshotImported() {
 		if err = e.readSnapshot(snapshot); err != nil {
 			return errors.Errorf("failed to read snapshot from file '%s': %w", snapshot, err)
 		}
 	}
 
-	e.Storage.Settings.TriggerInitialized()
-	e.Storage.Commitments.TriggerInitialized()
-	e.LedgerState.TriggerInitialized()
+	e.TriggerInitialized()
 
 	return
 }
@@ -244,6 +245,12 @@ func (e *Engine) Block(id models.BlockID) (block *models.Block, exists bool) {
 func (e *Engine) injectPlugins() {
 	e.SybilProtection = e.optsSybilProtectionProvider(e)
 	e.ThroughputQuota = e.optsThroughputQuotaProvider(e)
+
+	e.Initializable = initializable.New(
+		e.Storage.Settings.TriggerInitialized,
+		e.Storage.Commitments.TriggerInitialized,
+		e.LedgerState.TriggerInitialized,
+	)
 }
 
 func (e *Engine) initPlugins() {

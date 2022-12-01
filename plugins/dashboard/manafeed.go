@@ -74,7 +74,7 @@ func runManaFeed() {
 // region Websocket block sending handlers (live updates)
 func sendManaValue() {
 	ownID := deps.Local.ID()
-	access, exists := deps.Protocol.Engine().ThroughputQuota.Mana(ownID)
+	access, exists := deps.Protocol.Engine().ThroughputQuota.Balance(ownID)
 	// if issuer not found, returned value is 0.0
 	if !exists {
 		log.Debugf("no mana available for local identity: %s ", ownID.String())
@@ -100,7 +100,7 @@ func sendManaValue() {
 }
 
 func sendManaMapOverall() {
-	accessManaList, _, err := manamodels2.GetHighestManaIssuers(0, deps.Protocol.Engine().ThroughputQuota.ManaByIDs())
+	accessManaList, _, err := manamodels2.GetHighestManaIssuers(0, deps.Protocol.Engine().ThroughputQuota.BalanceByIDs())
 	if err != nil && !errors.Is(err, manamodels2.ErrQueryNotAllowed) {
 		log.Errorf("failed to get list of n highest access mana issuers: %s ", err.Error())
 	}
@@ -139,7 +139,7 @@ func sendManaMapOnline() {
 		return
 	}
 	knownPeers := deps.Discover.GetVerifiedPeers()
-	manaMap := deps.Protocol.Engine().ThroughputQuota.ManaByIDs()
+	manaMap := deps.Protocol.Engine().ThroughputQuota.BalanceByIDs()
 	accessPayload := &ManaNetworkListBlkData{ManaType: manamodels2.AccessMana.String()}
 	var totalAccessMana int64
 	for _, peerID := range append(lo.Map(knownPeers, func(p *peer.Peer) identity.ID { return p.ID() }), deps.Local.ID()) {
@@ -203,7 +203,7 @@ type ManaValueBlkData struct {
 
 // ManaNetworkListBlkData contains a list of mana values for issuers in the network.
 type ManaNetworkListBlkData struct {
-	ManaType  string                 `json:"manaType"`
+	ManaType  string                  `json:"manaType"`
 	TotalMana int64                   `json:"totalMana"`
 	Issuers   []manamodels2.IssuerStr `json:"nodes"`
 }

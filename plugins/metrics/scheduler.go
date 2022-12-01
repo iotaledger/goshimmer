@@ -68,7 +68,7 @@ func SchedulerIssuerAManaAmount() map[string]int64 {
 	// copy the original map
 	clone := make(map[string]int64)
 	for key := range issuerQueueSizes {
-		clone[key.String()], _ = deps.Protocol.Engine().ThroughputQuota.Mana(key)
+		clone[key.String()], _ = deps.Protocol.Engine().ThroughputQuota.Balance(key)
 	}
 
 	return clone

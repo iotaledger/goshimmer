@@ -27,7 +27,7 @@ func getOnlineConsensusHandler(c echo.Context) error {
 func getOnlineHandler(c echo.Context, manaType manamodels.Type) error {
 	var manaMap map[identity.ID]int64
 	if manaType == manamodels.AccessMana {
-		manaMap = deps.Protocol.Engine().ThroughputQuota.ManaByIDs()
+		manaMap = deps.Protocol.Engine().ThroughputQuota.BalanceByIDs()
 	} else {
 		manaMap = lo.PanicOnErr(deps.Protocol.Engine().SybilProtection.Weights().Map())
 	}

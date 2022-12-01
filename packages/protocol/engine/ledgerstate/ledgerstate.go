@@ -25,7 +25,7 @@ type LedgerState struct {
 
 func New(storageInstance *storage.Storage) (ledgerState *LedgerState) {
 	ledgerState = &LedgerState{
-		Initializable:  initializable.NewInitializable(ledgerState.UnspentOutputs.TriggerInitialized, ledgerState.StateDiffs.TriggerInitialized),
+		Initializable:  initializable.New(ledgerState.UnspentOutputs.TriggerInitialized, ledgerState.StateDiffs.TriggerInitialized),
 		StateDiffs:     NewStateDiffs(storageInstance),
 		UnspentOutputs: NewUnspentOutputs(storageInstance.UnspentOutputIDs, ledgerState.MemPool.Storage),
 		storage:        storageInstance,

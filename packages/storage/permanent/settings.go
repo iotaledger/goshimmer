@@ -28,7 +28,7 @@ type Settings struct {
 
 func NewSettings(path string) (settings *Settings) {
 	return &Settings{
-		Initializable: initializable.NewInitializable(),
+		Initializable: initializable.New(),
 
 		settingsModel: storable.InitStruct(&settingsModel{
 			SnapshotImported:         false,

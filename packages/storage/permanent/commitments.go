@@ -26,7 +26,7 @@ func NewCommitments(path string) (newCommitment *Commitments) {
 	}
 
 	return &Commitments{
-		Initializable: initializable.NewInitializable(),
+		Initializable: initializable.New(),
 		slice:         commitmentsSlice,
 	}
 }

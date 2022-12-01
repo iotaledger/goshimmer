@@ -15,7 +15,7 @@ import (
 
 // getAllManaHandler handles the request.
 func getAllManaHandler(c echo.Context) error {
-	access := deps.Protocol.Engine().ThroughputQuota.ManaByIDs()
+	access := deps.Protocol.Engine().ThroughputQuota.BalanceByIDs()
 	accessList := manamodels.IssuerMap(access).ToIssuerStrList()
 	sort.Slice(accessList, func(i, j int) bool {
 		return accessList[i].Mana > accessList[j].Mana

@@ -43,7 +43,7 @@ type UnspentOutputs struct {
 
 func NewUnspentOutputs(unspentOutputIDsStore kvstore.KVStore, storage *ledger.Storage) (unspentOutputs *UnspentOutputs) {
 	return &UnspentOutputs{
-		Initializable:   initializable.NewInitializable(),
+		Initializable:   initializable.New(),
 		IDs:             ads.NewSet[utxo.OutputID](unspentOutputIDsStore),
 		Storage:         storage,
 		commitmentState: NewCommitmentState(),

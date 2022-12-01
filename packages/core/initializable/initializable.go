@@ -14,7 +14,7 @@ type Initializable struct {
 	initializedTriggeredMutex sync.RWMutex
 }
 
-func NewInitializable(optCallbacks ...func()) (initializable *Initializable) {
+func New(optCallbacks ...func()) (initializable *Initializable) {
 	return &Initializable{
 		linkable:     event.NewLinkable[bool](),
 		optCallbacks: optCallbacks,

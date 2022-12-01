@@ -31,7 +31,7 @@ type ManaTracker struct {
 // New creates a new ManaTracker.
 func New(engineInstance *engine.Engine, opts ...options.Option[ManaTracker]) (manaTracker *ManaTracker) {
 	return options.Apply(&ManaTracker{
-		Initializable:   initializable.NewInitializable(),
+		Initializable:   initializable.New(),
 		engine:          engineInstance,
 		commitmentState: ledgerstate.NewCommitmentState(),
 		manaByID:        shrinkingmap.New[identity.ID, int64](),
