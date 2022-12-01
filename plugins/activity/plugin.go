@@ -39,8 +39,14 @@ func configure(plugin *node.Plugin) {
 // broadcastActivityBlock broadcasts a sync beacon via communication layer.
 func broadcastActivityBlock() {
 	activityPayload := payload.NewGenericDataPayload([]byte("activity"))
+	for {
+		if estimate := deps.BlockIssuer.Estimate(); estimate > 0 {
+			time.Sleep(estimate)
+		} else {
+			break
+		}
+	}
 
-	time.Sleep(deps.BlockIssuer.Estimate())
 	blk, err := deps.BlockIssuer.IssuePayload(activityPayload, Parameters.ParentsCount)
 	if err != nil {
 		Plugin.LogWarnf("error issuing activity block: %s", err)
