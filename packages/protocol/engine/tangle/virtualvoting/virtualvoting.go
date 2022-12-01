@@ -73,20 +73,26 @@ func (o *VirtualVoting) Block(id models.BlockID) (block *Block, exists bool) {
 	return o.block(id)
 }
 
-// MarkerVoters retrieves Validators supporting a given marker.
-func (o *VirtualVoting) MarkerVoters(marker markers.Marker) (voters *sybilprotection.WeightedSet) {
+// MarkerVotersTotalWeight retrieves Validators supporting a given marker.
+func (o *VirtualVoting) MarkerVotersTotalWeight(marker markers.Marker) (totalWeight int64) {
 	o.evictionMutex.RLock()
 	defer o.evictionMutex.RUnlock()
 
-	return o.Validators.Weights.WeightedSet(o.sequenceTracker.Voters(marker).Members().Slice()...)
+	voters := o.sequenceTracker.Voters(marker)
+	defer voters.Detach()
+
+	return voters.TotalWeight()
 }
 
-// EpochVoters retrieves Validators supporting an epoch index.
-func (o *VirtualVoting) EpochVoters(epochIndex epoch.Index) (voters *sybilprotection.WeightedSet) {
+// EpochVotersTotalWeight retrieves the total weight of the Validators voting for a given epoch.
+func (o *VirtualVoting) EpochVotersTotalWeight(epochIndex epoch.Index) (totalWeight int64) {
 	o.evictionMutex.RLock()
 	defer o.evictionMutex.RUnlock()
 
-	return o.Validators.Weights.WeightedSet(o.epochTracker.Voters(epochIndex).Slice()...)
+	validators := o.Validators.Weights.WeightedSet(o.epochTracker.Voters(epochIndex).Slice()...)
+	defer validators.Detach()
+
+	return validators.TotalWeight()
 }
 
 // ConflictVoters retrieves Validators voting for a given conflict.
@@ -95,6 +101,17 @@ func (o *VirtualVoting) ConflictVoters(conflictID utxo.TransactionID) (voters *s
 	defer o.evictionMutex.RUnlock()
 
 	return o.conflictTracker.Voters(conflictID)
+}
+
+// ConflictVotersTotalWeight retrieves the total weight of the Validators voting for a given conflict.
+func (o *VirtualVoting) ConflictVotersTotalWeight(conflictID utxo.TransactionID) (totalWeight int64) {
+	o.evictionMutex.RLock()
+	defer o.evictionMutex.RUnlock()
+
+	voters := o.conflictTracker.Voters(conflictID)
+	defer voters.Detach()
+
+	return voters.TotalWeight()
 }
 
 func (o *VirtualVoting) setupEvents() {
