@@ -6,7 +6,6 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
-	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/libp2p/go-libp2p/core/host"
@@ -247,7 +246,21 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 	}
 
 	// create and add the neighbor
-	nbr := NewNeighbor(p, group, streams, m.log)
+	nbr := NewNeighbor(p, group, streams, m.log, func(nbr *Neighbor, protocol protocol.ID, packet proto.Message) {
+		m.registeredProtocolsMutex.RLock()
+		defer m.registeredProtocolsMutex.RUnlock()
+
+		protocolHandler, isRegistered := m.registeredProtocols[protocol]
+		if !isRegistered {
+			nbr.Log.Errorw("Can't handle packet as the protocol is not registered", "protocol", protocol, "err", err)
+		}
+		if err := protocolHandler.PacketHandler(nbr.ID(), packet); err != nil {
+			nbr.Log.Debugw("Can't handle packet", "err", err)
+		}
+	}, func(nbr *Neighbor) {
+		m.deleteNeighbor(nbr)
+		m.NeighborGroupEvents(nbr.Group).NeighborRemoved.Trigger(&NeighborRemovedEvent{nbr})
+	})
 	if err := m.setNeighbor(nbr); err != nil {
 		for _, ps := range streams {
 			if resetErr := ps.Close(); resetErr != nil {
@@ -256,22 +269,6 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 		}
 		return errors.WithStack(err)
 	}
-	nbr.Events.Disconnected.Hook(event.NewClosure(func(_ *NeighborDisconnectedEvent) {
-		m.deleteNeighbor(nbr)
-		m.NeighborGroupEvents(nbr.Group).NeighborRemoved.Trigger(&NeighborRemovedEvent{nbr})
-	}))
-	nbr.Events.PacketReceived.Attach(event.NewClosure(func(event *NeighborPacketReceivedEvent) {
-		m.registeredProtocolsMutex.RLock()
-		defer m.registeredProtocolsMutex.RUnlock()
-
-		protocolHandler, isRegistered := m.registeredProtocols[event.Protocol]
-		if !isRegistered {
-			nbr.Log.Errorw("Can't handle packet as the protocol is not registered", "protocol", event.Protocol, "err", err)
-		}
-		if err := protocolHandler.PacketHandler(event.Neighbor.ID(), event.Packet); err != nil {
-			nbr.Log.Debugw("Can't handle packet", "err", err)
-		}
-	}))
 	nbr.readLoop()
 	nbr.writeLoop()
 	nbr.Log.Info("Connection established")
