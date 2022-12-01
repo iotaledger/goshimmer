@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -290,6 +291,7 @@ func (e *Engine) initEvictionState() {
 			// TODO: ONLY ADD STRONG PARENTS AFTER NOT DOWNLOADING PAST WEAK ARROWS
 			if parent.ID.Index() < block.ID().Index() {
 				e.EvictionState.AddRootBlock(parent.ID)
+				fmt.Println("add root block")
 			}
 		})
 	}))

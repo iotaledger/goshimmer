@@ -125,7 +125,7 @@ func (o *VirtualVoting) setupEvents() {
 	o.Booker.Events.MarkerConflictAdded.Hook(event.NewClosure(func(event *booker.MarkerConflictAddedEvent) {
 		o.processForkedMarker(event.Marker, event.ConflictID, event.ParentConflictIDs)
 	}))
-	o.Booker.Events.SequenceEvicted.Attach(event.NewClosure(o.evictSequence))
+	o.Booker.Events.MarkerManager.SequenceEvicted.Attach(event.NewClosure(o.evictSequence))
 	o.EvictionState.Events.EpochEvicted.Hook(event.NewClosure(o.evictEpoch))
 }
 

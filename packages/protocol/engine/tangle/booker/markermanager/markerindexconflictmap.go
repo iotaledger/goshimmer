@@ -29,6 +29,12 @@ func (m *MarkerIndexConflictIDMapping) ConflictIDs(markerIndex markers.Index) (c
 
 	value, exists := m.t.Get(markerIndex)
 	if !exists {
+		fmt.Println("Thresholdmap contents during panic")
+		m.t.ForEach(func(elem *thresholdmap.Element[markers.Index, utxo.TransactionIDs]) bool {
+			fmt.Println("Key:", elem.String())
+			return true
+		})
+		fmt.Println("Thresholdmap contents end")
 		panic(fmt.Sprintf("tried to retrieve the ConflictID of unknown marker.%s", markerIndex))
 	}
 
