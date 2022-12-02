@@ -58,8 +58,8 @@ func NewMarkerManager[IndexedID epoch.IndexedID, MappedEntity epoch.IndexedEntit
 func (m *MarkerManager[IndexedID, MappedEntity]) ProcessBlock(block MappedEntity, structureDetails []*markers.StructureDetails, conflictIDs utxo.TransactionIDs) (newStructureDetails *markers.StructureDetails) {
 	newStructureDetails, newSequenceCreated := m.SequenceManager.InheritStructureDetails(structureDetails)
 	if newStructureDetails.IsPastMarker() {
-		m.SequenceMutex.RLock(newStructureDetails.PastMarkers().Marker().SequenceID())
-		defer m.SequenceMutex.RUnlock(newStructureDetails.PastMarkers().Marker().SequenceID())
+		m.SequenceMutex.Lock(newStructureDetails.PastMarkers().Marker().SequenceID())
+		defer m.SequenceMutex.Unlock(newStructureDetails.PastMarkers().Marker().SequenceID())
 
 		if newSequenceCreated {
 			m.SetConflictIDs(newStructureDetails.PastMarkers().Marker(), conflictIDs)
@@ -171,8 +171,10 @@ func (m *MarkerManager[IndexedID, MappedEntity]) setConflictIDMapping(marker mar
 }
 
 func (m *MarkerManager[IndexedID, MappedEntity]) deleteConflictIDMapping(marker markers.Marker) {
-	mapping, _ := m.markerIndexConflictIDMapping.RetrieveOrCreate(marker.SequenceID(), NewMarkerIndexConflictIDMapping)
-	mapping.DeleteConflictID(marker.Index())
+	mapping, exists := m.markerIndexConflictIDMapping.Get(marker.SequenceID())
+	if exists {
+		mapping.DeleteConflictID(marker.Index())
+	}
 }
 
 // floor returns the largest Index that is <= the given Marker, it's ConflictIDs and a boolean value indicating if it
