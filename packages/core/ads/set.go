@@ -29,8 +29,8 @@ type Set[K any, KPtr constraints.MarshalablePtr[K]] struct {
 }
 
 // NewSet creates a new sparse merkle tree based set.
-func NewSet[K any, KPtr constraints.MarshalablePtr[K]](store kvstore.KVStore) *Set[K, KPtr] {
-	return &Set[K, KPtr]{
+func NewSet[K any, KPtr constraints.MarshalablePtr[K]](store kvstore.KVStore) (newSet *Set[K, KPtr]) {
+	newSet = &Set[K, KPtr]{
 		store: store,
 		tree: smt.NewSparseMerkleTree(
 			lo.PanicOnErr(store.WithExtendedRealm([]byte{keyStorePrefix})),
@@ -39,6 +39,17 @@ func NewSet[K any, KPtr constraints.MarshalablePtr[K]](store kvstore.KVStore) *S
 		),
 		rawKeys: lo.PanicOnErr(store.WithExtendedRealm([]byte{rawKeyStorePrefix})),
 	}
+
+	existingRoot, err := store.Get([]byte{rootPrefix})
+	if err != nil {
+		panic(err)
+	}
+
+	if existingRoot != nil {
+		newSet.tree.SetRoot(existingRoot)
+	}
+
+	return
 }
 
 // Root returns the root of the state sparse merkle tree at the latest committed epoch.
@@ -64,7 +75,12 @@ func (s *Set[K, KPtr]) Add(key K) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	if _, err := s.tree.Update(lo.PanicOnErr(KPtr(&key).Bytes()), []byte{nonEmptyLeaf}); err != nil {
+	newRoot, err := s.tree.Update(lo.PanicOnErr(KPtr(&key).Bytes()), []byte{nonEmptyLeaf})
+	if err != nil {
+		panic(err)
+	}
+
+	if err := s.store.Set([]byte{rootPrefix}, newRoot); err != nil {
 		panic(err)
 	}
 
@@ -84,7 +100,12 @@ func (s *Set[K, KPtr]) Delete(key K) (deleted bool) {
 
 	keyBytes := lo.PanicOnErr(KPtr(&key).Bytes())
 	if deleted, _ = s.tree.Has(keyBytes); deleted {
-		if _, err := s.tree.Delete(keyBytes); err != nil {
+		newRoot, err := s.tree.Delete(keyBytes)
+		if err != nil {
+			panic(err)
+		}
+
+		if err := s.store.Set([]byte{rootPrefix}, newRoot); err != nil {
 			panic(err)
 		}
 

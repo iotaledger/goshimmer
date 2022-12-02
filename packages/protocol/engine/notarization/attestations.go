@@ -16,20 +16,20 @@ import (
 	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
-type Attestations struct {
+type AttestationsOld struct {
 	storage *storage.Storage
 
 	traits.Initializable
 }
 
-func NewAttestations(storageInstance *storage.Storage) (newActiveNodes *Attestations) {
-	return &Attestations{
+func NewAttestationsOld(storageInstance *storage.Storage) (newActiveNodes *AttestationsOld) {
+	return &AttestationsOld{
 		Initializable: traits.NewInitializable(),
 		storage:       storageInstance,
 	}
 }
 
-func (a *Attestations) Persist(attestations *EpochAttestations) (adsMap *ads.Map[identity.ID, Attestation, *identity.ID, *Attestation], err error) {
+func (a *AttestationsOld) Persist(attestations *EpochAttestations) (adsMap *ads.Map[identity.ID, Attestation, *identity.ID, *Attestation], err error) {
 	adsMap = ads.NewMap[identity.ID, Attestation](a.storage.Prunable.Attestors(attestations.Epoch))
 	attestations.ForEachUniqueAttestation(func(id identity.ID, attestation *Attestation) bool {
 		adsMap.Set(id, attestation)
@@ -39,7 +39,7 @@ func (a *Attestations) Persist(attestations *EpochAttestations) (adsMap *ads.Map
 	return
 }
 
-func (a *Attestations) Delete(index epoch.Index, id identity.ID) (err error) {
+func (a *AttestationsOld) Delete(index epoch.Index, id identity.ID) (err error) {
 	if err = a.storage.Prunable.Attestors(index).Delete(lo.PanicOnErr(id.Bytes())); err != nil {
 		return errors.Errorf("failed to delete active id %s: %w", id, err)
 	}
@@ -47,7 +47,7 @@ func (a *Attestations) Delete(index epoch.Index, id identity.ID) (err error) {
 	return nil
 }
 
-func (a *Attestations) LoadAll(index epoch.Index) (ids *set.AdvancedSet[identity.ID]) {
+func (a *AttestationsOld) LoadAll(index epoch.Index) (ids *set.AdvancedSet[identity.ID]) {
 	ids = set.NewAdvancedSet[identity.ID]()
 	a.Stream(index, func(id identity.ID) error {
 		ids.Add(id)
@@ -56,7 +56,7 @@ func (a *Attestations) LoadAll(index epoch.Index) (ids *set.AdvancedSet[identity
 	return
 }
 
-func (a *Attestations) Stream(index epoch.Index, callback func(attestor identity.ID) (error error)) (err error) {
+func (a *AttestationsOld) Stream(index epoch.Index, callback func(attestor identity.ID) (error error)) (err error) {
 	if iterationErr := a.storage.Prunable.Attestors(index).Iterate([]byte{}, func(idBytes kvstore.Key, _ kvstore.Value) bool {
 		id := new(identity.ID)
 		if _, err = id.FromBytes(idBytes); err != nil {
@@ -73,7 +73,7 @@ func (a *Attestations) Stream(index epoch.Index, callback func(attestor identity
 	return err
 }
 
-func (a *Attestations) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (err error) {
+func (a *AttestationsOld) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (err error) {
 	if err = stream.Write(writer, uint64(targetEpoch)); err != nil {
 		return errors.Errorf("failed to write epoch: %w", err)
 	}
@@ -93,7 +93,7 @@ func (a *Attestations) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (e
 	})
 }
 
-func (a *Attestations) Import(reader io.ReadSeeker) (err error) {
+func (a *AttestationsOld) Import(reader io.ReadSeeker) (err error) {
 	epochIndex, err := stream.Read[uint64](reader)
 	if err != nil {
 		return errors.Errorf("failed to read epoch: %w", err)

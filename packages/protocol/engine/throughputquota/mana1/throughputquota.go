@@ -19,26 +19,26 @@ import (
 // ThroughputQuota is the manager that tracks the throughput quota of identities according to mana1 (delegated pledge).
 type ThroughputQuota struct {
 	engine            *engine.Engine
-	commitmentState   *ledgerstate.CommitmentState
 	manaByID          *shrinkingmap.ShrinkingMap[identity.ID, int64]
 	manaByIDMutex     sync.RWMutex
 	totalBalance      int64
 	totalBalanceMutex sync.RWMutex
 
 	traits.Initializable
+	batchCommittable traits.BatchCommittable
 }
 
 // New creates a new ThroughputQuota manager.
 func New(engineInstance *engine.Engine, opts ...options.Option[ThroughputQuota]) (manaTracker *ThroughputQuota) {
 	return options.Apply(&ThroughputQuota{
-		Initializable:   traits.NewInitializable(),
-		engine:          engineInstance,
-		commitmentState: ledgerstate.NewCommitmentState(),
-		manaByID:        shrinkingmap.New[identity.ID, int64](),
+		Initializable:    traits.NewInitializable(),
+		batchCommittable: traits.NewBatchCommittable(),
+		engine:           engineInstance,
+		manaByID:         shrinkingmap.New[identity.ID, int64](),
 	}, opts, func(m *ThroughputQuota) {
 		m.engine.SubscribeStartup(func() {
 			m.engine.Storage.Settings.SubscribeInitialized(func() {
-				m.commitmentState.SetLastCommittedEpoch(m.engine.Storage.Settings.LatestCommitment().Index())
+				m.batchCommittable.SetLastCommittedEpoch(m.engine.Storage.Settings.LatestCommitment().Index())
 			})
 
 			m.engine.LedgerState.UnspentOutputs.Subscribe(m)
@@ -113,13 +113,13 @@ func (m *ThroughputQuota) RollbackSpentOutput(output *ledgerstate.OutputWithMeta
 }
 
 func (m *ThroughputQuota) BeginBatchedStateTransition(targetEpoch epoch.Index) (currentEpoch epoch.Index, err error) {
-	return m.commitmentState.BeginBatchedStateTransition(targetEpoch)
+	return m.batchCommittable.BeginBatchedStateTransition(targetEpoch)
 }
 
 func (m *ThroughputQuota) CommitBatchedStateTransition() (ctx context.Context) {
 	ctx, done := context.WithCancel(context.Background())
 
-	m.commitmentState.FinalizeBatchedStateTransition()
+	m.batchCommittable.FinalizeBatchedStateTransition()
 
 	done()
 

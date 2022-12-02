@@ -13,9 +13,9 @@ import (
 )
 
 type Map[K, V constraints.Serializable, KPtr constraints.MarshalablePtr[K], VPtr constraints.MarshalablePtr[V]] struct {
-	store        kvstore.KVStore
-	rawKeysStore kvstore.KVStore
-	tree         *smt.SparseMerkleTree
+	store     kvstore.KVStore
+	keysStore kvstore.KVStore
+	tree      *smt.SparseMerkleTree
 
 	// A mutex is needed as reads from the smt.SparseMerkleTree can translate to writes.
 	mutex sync.RWMutex
@@ -23,8 +23,8 @@ type Map[K, V constraints.Serializable, KPtr constraints.MarshalablePtr[K], VPtr
 
 func NewMap[K, V constraints.Serializable, KPtr constraints.MarshalablePtr[K], VPtr constraints.MarshalablePtr[V]](store kvstore.KVStore) (newMap *Map[K, V, KPtr, VPtr]) {
 	newMap = &Map[K, V, KPtr, VPtr]{
-		store:        store,
-		rawKeysStore: lo.PanicOnErr(store.WithExtendedRealm([]byte{rawKeyStorePrefix})),
+		store:     store,
+		keysStore: lo.PanicOnErr(store.WithExtendedRealm([]byte{rawKeyStorePrefix})),
 		tree: smt.NewSparseMerkleTree(
 			lo.PanicOnErr(store.WithExtendedRealm([]byte{keyStorePrefix})),
 			lo.PanicOnErr(store.WithExtendedRealm([]byte{valueStorePrefix})),
@@ -73,7 +73,7 @@ func (m *Map[K, V, KPtr, VPtr]) Set(key K, value VPtr) {
 		panic(err)
 	}
 
-	if err := m.rawKeysStore.Set(lo.PanicOnErr(key.Bytes()), []byte{}); err != nil {
+	if err := m.keysStore.Set(lo.PanicOnErr(key.Bytes()), []byte{}); err != nil {
 		panic(err)
 	}
 }
@@ -94,7 +94,7 @@ func (m *Map[K, V, KPtr, VPtr]) Delete(key K) (deleted bool) {
 			panic(err)
 		}
 
-		if err := m.rawKeysStore.Delete(lo.PanicOnErr(key.Bytes())); err != nil {
+		if err := m.keysStore.Delete(lo.PanicOnErr(key.Bytes())); err != nil {
 			panic(err)
 		}
 	}
@@ -138,7 +138,7 @@ func (m *Map[K, V, KPtr, VPtr]) Stream(callback func(key K, value VPtr) bool) (e
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	if iterationErr := m.rawKeysStore.Iterate([]byte{}, func(key kvstore.Key, _ kvstore.Value) bool {
+	if iterationErr := m.keysStore.Iterate([]byte{}, func(key kvstore.Key, _ kvstore.Value) bool {
 		value, valueErr := m.tree.Get(key)
 		if valueErr != nil {
 			err = errors.Errorf("failed to get value for key %s: %w", key, valueErr)

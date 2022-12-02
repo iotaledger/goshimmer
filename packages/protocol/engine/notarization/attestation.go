@@ -1,6 +1,7 @@
 package notarization
 
 import (
+	"bytes"
 	"context"
 	"time"
 
@@ -29,6 +30,23 @@ func NewAttestation(block *models.Block) *Attestation {
 		block.Commitment().ID(),
 		lo.PanicOnErr(block.ContentHash()),
 		block.Signature(),
+	}
+}
+
+func (a *Attestation) Compare(other *Attestation) int {
+	switch {
+	case a == nil && other == nil:
+		return 0
+	case a == nil:
+		return -1
+	case other == nil:
+		return 1
+	case a.IssuingTime.After(other.IssuingTime):
+		return 1
+	case other.IssuingTime.After(a.IssuingTime):
+		return -1
+	default:
+		return bytes.Compare(a.BlockContentHash[:], other.BlockContentHash[:])
 	}
 }
 

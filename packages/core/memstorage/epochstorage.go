@@ -51,3 +51,20 @@ func (e *EpochStorage[K, V]) Get(index epoch.Index, createIfMissing ...bool) (st
 	return storage
 
 }
+
+func (e *EpochStorage[K, V]) RetrieveOrCreate(index epoch.Index, createCallback func() bool) (storage *Storage[K, V], created bool) {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+
+	storage, exists := e.cache.Get(index)
+	if exists {
+		return storage, false
+	}
+
+	if created = createCallback(); created {
+		storage = New[K, V]()
+		e.cache.Set(index, storage)
+	}
+
+	return
+}

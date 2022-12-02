@@ -29,7 +29,7 @@ const (
 type Manager struct {
 	Events *Events
 	*EpochMutations
-	Attestations *Attestations
+	Attestations *AttestationsOld
 
 	storage                  *storage.Storage
 	ledgerState              *ledgerstate.LedgerState
