@@ -85,5 +85,5 @@ func TestMutationFactory_AddAcceptedBlock(t *testing.T) {
 	require.NoError(t, mutationFactory.AddAcceptedBlock(block))
 	require.True(t, mutationFactory.acceptedBlocks(3).Has(block.ID()))
 
-	require.NoError(t, lo.Return4(mutationFactory.Evict(3)))
+	require.NoError(t, lo.Return3(mutationFactory.Evict(3)))
 }
