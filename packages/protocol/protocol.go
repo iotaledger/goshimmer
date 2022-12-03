@@ -160,7 +160,7 @@ func (p *Protocol) initNetworkProtocol() {
 	}))
 
 	p.networkProtocol.Events.AttestationsReceived.Attach(event.NewClosure(func(event *network.AttestationsReceivedEvent) {
-		p.ProcessAttestations(event.Attestations, event.Source)
+		p.ProcessAttestations(event.Source)
 	}))
 }
 
@@ -230,7 +230,7 @@ func (p *Protocol) ProcessAttestationsRequest(epochIndex epoch.Index, src identi
 	// p.networkProtocol.SendAttestations(p.Engine().SybilProtection.Attestations(epochIndex), src)
 }
 
-func (p *Protocol) ProcessAttestations(attestations *notarization.EpochAttestations, src identity.ID) {
+func (p *Protocol) ProcessAttestations(src identity.ID) {
 	// TODO: process attestations and evluate chain switch!
 }
 

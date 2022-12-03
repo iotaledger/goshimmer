@@ -27,7 +27,7 @@ import (
 // | empty  | genesisSeed  |
 // | node1  | empty/burned |
 // | node2  | empty/burned |
-func CreateSnapshot(s *storage.Storage, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge map[identity.ID]uint64) {
+func CreateSnapshot(s *storage.Storage, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge map[ed25519.PublicKey]uint64) {
 	now := time.Now()
 
 	if err := s.Commitments.Store(0, &commitment.Commitment{}); err != nil {
@@ -45,16 +45,17 @@ func CreateSnapshot(s *storage.Storage, snapshotFileName string, genesisTokenAmo
 		panic(err)
 	}
 
-	for nodeID, value := range nodesToPledge {
+	for publicKey, value := range nodesToPledge {
 		randomPublicKey := ed25519.GenerateKeyPair().PublicKey
 
 		// pledge to ID but send funds to random address
-		output, outputMetadata = createOutput(devnetvm.NewED25519Address(randomPublicKey), value, nodeID, now)
+		output, outputMetadata = createOutput(devnetvm.NewED25519Address(randomPublicKey), value, identity.NewID(publicKey), now)
 		if err := engineInstance.LedgerState.UnspentOutputs.ApplyCreatedOutput(ledgerstate.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
 			panic(err)
 		} else if _, err := engineInstance.NotarizationManager.Attestations.Add(models.NewBlock(
-			// TODO: FIX
-			models.WithIssuer(randomPublicKey))); err != nil {
+			models.WithIssuingTime(now),
+			models.WithIssuer(publicKey),
+		)); err != nil {
 			panic(err)
 		}
 	}
@@ -77,20 +78,30 @@ func CreateSnapshotForIntegrationTest(s *storage.Storage, snapshotFileName strin
 	engineInstance := engine.New(s)
 
 	// This is the same seed used to derive the faucet ID.
-	genesisPledgeID := identity.New(ed25519.PrivateKeyFromSeed(genesisNodePledge).Public()).ID()
+	genesisPrivateKey := ed25519.PrivateKeyFromSeed(genesisNodePledge)
+	genesisPublicKey := genesisPrivateKey.Public()
+	genesisPledgeID := identity.New(genesisPublicKey).ID()
 	output, outputMetadata := createOutput(seed.NewSeed(genesisSeedBytes).Address(0).Address(), genesisTokenAmount, genesisPledgeID, now)
 	if err := engineInstance.LedgerState.UnspentOutputs.ApplyCreatedOutput(ledgerstate.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
 		panic(err)
-	} else if err := s.Attestors.Store(0, genesisPledgeID); err != nil {
+	} else if _, err := engineInstance.NotarizationManager.Attestations.Add(models.NewBlock(
+		models.WithIssuingTime(now),
+		models.WithIssuer(genesisPublicKey),
+	)); err != nil {
 		panic(err)
 	}
 
 	for nodeSeedBytes, value := range nodesToPledge {
-		nodeID := identity.New(ed25519.PrivateKeyFromSeed(nodeSeedBytes[:]).Public()).ID()
+		privateKey := ed25519.PrivateKeyFromSeed(nodeSeedBytes[:])
+		publicKey := privateKey.Public()
+		nodeID := identity.New(publicKey).ID()
 		output, outputMetadata = createOutput(seed.NewSeed(nodeSeedBytes[:]).Address(0).Address(), value, nodeID, now)
 		if err := engineInstance.LedgerState.UnspentOutputs.ApplyCreatedOutput(ledgerstate.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
 			panic(err)
-		} else if err := s.Attestors.Store(0, nodeID); err != nil {
+		} else if _, err := engineInstance.NotarizationManager.Attestations.Add(models.NewBlock(
+			models.WithIssuingTime(now),
+			models.WithIssuer(publicKey),
+		)); err != nil {
 			panic(err)
 		}
 	}
