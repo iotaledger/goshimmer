@@ -9,12 +9,10 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 
-	"github.com/iotaledger/goshimmer/packages/core/ads"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
 )
@@ -27,9 +25,9 @@ const (
 
 // Manager is the component that manages the epoch commitments.
 type Manager struct {
-	Events *Events
-	*EpochMutations
-	Attestations *AttestationsOld
+	Events         *Events
+	EpochMutations *EpochMutations
+	Attestations   *Attestations
 
 	storage                  *storage.Storage
 	ledgerState              *ledgerstate.LedgerState
@@ -112,6 +110,30 @@ func (m *Manager) IsFullyCommitted() bool {
 	return m.AcceptanceTime().Sub((m.storage.Settings.LatestCommitment().Index() + 1).EndTime()) < m.optsMinCommittableEpochAge
 }
 
+func (m *Manager) NotarizeAcceptedBlock(block *models.Block) (err error) {
+	if err = m.EpochMutations.AddAcceptedBlock(block); err != nil {
+		return errors.Errorf("failed to add accepted block to epoch mutations: %w", err)
+	}
+
+	if _, err = m.Attestations.Add(block); err != nil {
+		return errors.Errorf("failed to add block to attestations: %w", err)
+	}
+
+	return
+}
+
+func (m *Manager) NotarizeOrphanedBlock(block *models.Block) (err error) {
+	if err = m.EpochMutations.RemoveAcceptedBlock(block); err != nil {
+		return errors.Errorf("failed to remove accepted block from epoch mutations: %w", err)
+	}
+
+	if _, err = m.Attestations.Delete(block); err != nil {
+		return errors.Errorf("failed to delete block from attestations: %w", err)
+	}
+
+	return
+}
+
 func (m *Manager) tryCommitEpoch(index epoch.Index, acceptanceTime time.Time) {
 	for i := m.storage.Settings.LatestCommitment().Index() + 1; i <= index; i++ {
 		if !m.isCommittable(i, acceptanceTime) || !m.createCommitment(i) {
@@ -149,17 +171,15 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 		return false
 	}
 
-	acceptedBlocks, acceptedTransactions, epochAttestations, err := m.EpochMutations.Evict(index)
+	acceptedBlocks, acceptedTransactions, err := m.EpochMutations.Evict(index)
 	if err != nil {
 		m.Events.Error.Trigger(errors.Errorf("failed to commit mutations: %w", err))
-
 		return false
 	}
 
-	persistedAttestations, err := m.Attestations.Persist(epochAttestations)
+	attestations, attestationsWeight, err := m.Attestations.Commit(index)
 	if err != nil {
-		m.Events.Error.Trigger(errors.Errorf("failed to persist attestations: %w", err))
-
+		m.Events.Error.Trigger(errors.Errorf("failed to commit attestations: %w", err))
 		return false
 	}
 
@@ -169,40 +189,25 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 		commitment.NewRoots(
 			acceptedBlocks.Root(),
 			acceptedTransactions.Root(),
-			persistedAttestations.Root(),
+			attestations.Root(),
 			m.ledgerState.UnspentOutputs.Root(),
-			m.weights.Root(),
+			m.EpochMutations.weights.Root(),
 		).ID(),
-		m.storage.Settings.LatestCommitment().CumulativeWeight()+epochAttestations.Weight(),
+		m.storage.Settings.LatestCommitment().CumulativeWeight()+attestationsWeight,
 	)
 
 	if err = m.storage.Settings.SetLatestCommitment(newCommitment); err != nil {
 		m.Events.Error.Trigger(errors.Errorf("failed to set latest commitment: %w", err))
 	}
 
-	accBlocks, accTxs, valNum := m.evaluateEpochSizeDetails(acceptedBlocks, acceptedTransactions, epochAttestations)
 	m.Events.EpochCommitted.Trigger(&EpochCommittedDetails{
 		Commitment:                newCommitment,
-		AcceptedBlocksCount:       accBlocks,
-		AcceptedTransactionsCount: accTxs,
-		ActiveValidatorsCount:     valNum,
+		AcceptedBlocksCount:       acceptedBlocks.Size(),
+		AcceptedTransactionsCount: acceptedTransactions.Size(),
+		ActiveValidatorsCount:     0,
 	})
 
 	return true
-}
-
-func (m *Manager) evaluateEpochSizeDetails(acceptedBlocks *ads.Set[models.BlockID, *models.BlockID], acceptedTransactions *ads.Set[utxo.TransactionID, *utxo.TransactionID], attestations *EpochAttestations) (int, int, int) {
-	var accBlocks, accTxs, valNum int
-	if acceptedBlocks != nil {
-		accBlocks = acceptedBlocks.Size()
-	}
-	if acceptedTransactions != nil {
-		accTxs = acceptedTransactions.Size()
-	}
-	if attestations != nil {
-		valNum = attestations.Attestors().Size()
-	}
-	return accBlocks, accTxs, valNum
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

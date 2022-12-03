@@ -155,6 +155,10 @@ func (s *Set[K, KPtr]) Stream(callback func(key K) bool) (err error) {
 
 // Size returns the number of elements in the set.
 func (s *Set[K, KPtr]) Size() (size int) {
+	if s == nil {
+		return 0
+	}
+
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 

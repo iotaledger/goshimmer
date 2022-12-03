@@ -215,7 +215,7 @@ func (e *Engine) Import(reader io.ReadSeeker) (err error) {
 		return errors.Errorf("failed to set chainID: %w", err)
 	} else if err = e.EvictionState.Import(reader); err != nil {
 		return errors.Errorf("failed to import eviction state: %w", err)
-	} else if err = e.Storage.Attestors.Import(reader); err != nil {
+	} else if err = e.NotarizationManager.Attestations.Import(reader); err != nil {
 		return errors.Errorf("failed to import attestors: %w", err)
 	} else if err = e.LedgerState.Import(reader); err != nil {
 		return errors.Errorf("failed to import ledger state: %w", err)
@@ -235,7 +235,7 @@ func (e *Engine) Export(writer io.WriteSeeker, epoch epoch.Index) (err error) {
 		return errors.Errorf("failed to export commitments: %w", err)
 	} else if err = e.EvictionState.Export(writer, epoch); err != nil {
 		return errors.Errorf("failed to export eviction state: %w", err)
-	} else if err = e.Storage.Attestors.Export(writer, epoch-1); err != nil {
+	} else if err = e.NotarizationManager.Attestations.Export(writer, epoch-1); err != nil {
 		return errors.Errorf("failed to export attestors: %w", err)
 	} else if err = e.LedgerState.Export(writer, epoch); err != nil {
 		return errors.Errorf("failed to export ledger state: %w", err)
@@ -333,23 +333,23 @@ func (e *Engine) initNotarizationManager() {
 	e.NotarizationManager = notarization.NewManager(e.Storage, e.LedgerState, e.SybilProtection.Weights(), e.optsNotarizationManagerOptions...)
 
 	e.Consensus.BlockGadget.Events.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
-		if err := e.NotarizationManager.AddAcceptedBlock(block.ModelsBlock); err != nil {
+		if err := e.NotarizationManager.NotarizeAcceptedBlock(block.ModelsBlock); err != nil {
 			e.Events.Error.Trigger(errors.Errorf("failed to add accepted block %s to epoch: %w", block.ID(), err))
 		}
 	}))
 	e.Tangle.Events.BlockDAG.BlockOrphaned.Attach(event.NewClosure(func(block *blockdag.Block) {
-		if err := e.NotarizationManager.RemoveAcceptedBlock(block.ModelsBlock); err != nil {
+		if err := e.NotarizationManager.NotarizeOrphanedBlock(block.ModelsBlock); err != nil {
 			e.Events.Error.Trigger(errors.Errorf("failed to remove orphaned block %s from epoch: %w", block.ID(), err))
 		}
 	}))
 
 	e.Ledger.Events.TransactionAccepted.Attach(event.NewClosure(func(txMeta *ledger.TransactionMetadata) {
-		if err := e.NotarizationManager.AddAcceptedTransaction(txMeta); err != nil {
+		if err := e.NotarizationManager.EpochMutations.AddAcceptedTransaction(txMeta); err != nil {
 			e.Events.Error.Trigger(errors.Errorf("failed to add accepted transaction %s to epoch: %w", txMeta.ID(), err))
 		}
 	}))
 	e.Ledger.Events.TransactionInclusionUpdated.Attach(event.NewClosure(func(event *ledger.TransactionInclusionUpdatedEvent) {
-		if err := e.NotarizationManager.UpdateTransactionInclusion(event.TransactionID, epoch.IndexFromTime(event.PreviousInclusionTime), epoch.IndexFromTime(event.InclusionTime)); err != nil {
+		if err := e.NotarizationManager.EpochMutations.UpdateTransactionInclusion(event.TransactionID, epoch.IndexFromTime(event.PreviousInclusionTime), epoch.IndexFromTime(event.InclusionTime)); err != nil {
 			e.Events.Error.Trigger(errors.Errorf("failed to update transaction inclusion time %s in epoch: %w", event.TransactionID, err))
 		}
 	}))

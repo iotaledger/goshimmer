@@ -17,7 +17,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	. "github.com/iotaledger/goshimmer/packages/network/models"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
@@ -73,20 +72,6 @@ func (p *Protocol) RequestCommitment(id commitment.ID, to ...identity.ID) {
 	p.network.Send(&Packet{Body: &Packet_EpochCommitmentRequest{EpochCommitmentRequest: &EpochCommitmentRequest{
 		Bytes: lo.PanicOnErr(id.Bytes()),
 	}}}, protocolID, to...)
-}
-
-func (p *Protocol) SendAttestations(attestations *notarization.EpochAttestations, to ...identity.ID) {
-	/*
-		attestationsBytes := make([][]byte, len(attestations))
-
-		for i, attestation := range attestations {
-			attestationsBytes[i] = lo.PanicOnErr(attestation.Bytes())
-		}
-
-		p.network.Send(&Packet{Body: &Packet_Attestations{Attestations: &Attestations{
-			Bytes: attestationsBytes,
-		}}}, protocolID, to...)
-	*/
 }
 
 func (p *Protocol) RequestAttestations(epochIndex epoch.Index, to ...identity.ID) {
@@ -200,13 +185,10 @@ func (p *Protocol) onEpochCommitmentRequest(idBytes []byte, id identity.ID) {
 }
 
 func (p *Protocol) onAttestations(attestationsBytes []byte, id identity.ID) {
-	attestations := new(notarization.EpochAttestations)
-
 	// TODO: PARSE BYTES
 
 	p.Events.AttestationsReceived.Trigger(&AttestationsReceivedEvent{
-		Attestations: attestations,
-		Source:       id,
+		Source: id,
 	})
 }
 

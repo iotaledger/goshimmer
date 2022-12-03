@@ -31,7 +31,7 @@ type UnspentOutputs struct {
 	IDs     *ads.Set[utxo.OutputID, *utxo.OutputID]
 	Storage *ledger.Storage
 
-	commitmentState       *CommitmentState
+	commitmentState       traits.BatchCommittable
 	consumers             map[UnspentOutputsConsumer]types.Empty
 	consumersMutex        sync.RWMutex
 	batchConsumers        map[UnspentOutputsConsumer]types.Empty
@@ -46,7 +46,7 @@ func NewUnspentOutputs(unspentOutputIDsStore kvstore.KVStore, storage *ledger.St
 		Initializable:   traits.NewInitializable(),
 		IDs:             ads.NewSet[utxo.OutputID](unspentOutputIDsStore),
 		Storage:         storage,
-		commitmentState: NewCommitmentState(),
+		commitmentState: traits.NewBatchCommittable(),
 		consumers:       make(map[UnspentOutputsConsumer]types.Empty),
 	}
 }

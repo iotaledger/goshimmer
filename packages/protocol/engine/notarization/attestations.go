@@ -1,112 +1,255 @@
 package notarization
 
 import (
+	"encoding/binary"
 	"io"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/kvstore"
+	"github.com/iotaledger/hive.go/core/syncutils"
 
 	"github.com/iotaledger/goshimmer/packages/core/ads"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/core/stream"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
-	"github.com/iotaledger/goshimmer/packages/storage"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
-type AttestationsOld struct {
-	storage *storage.Storage
+const (
+	PrefixAttestationsLastCommittedEpoch byte = iota
+	PrefixAttestationsWeight
+	PrefixAttestationsStorage
+)
 
-	traits.Initializable
+type Attestations struct {
+	persistentStorage  kvstore.KVStore
+	bucketedStorage    func(index epoch.Index) kvstore.KVStore
+	weights            *sybilprotection.Weights
+	cachedAttestations *memstorage.EpochStorage[identity.ID, *memstorage.Storage[models.BlockID, *Attestation]]
+	mutex              *syncutils.DAGMutex[epoch.Index]
+
+	traits.Committable
 }
 
-func NewAttestationsOld(storageInstance *storage.Storage) (newActiveNodes *AttestationsOld) {
-	return &AttestationsOld{
-		Initializable: traits.NewInitializable(),
-		storage:       storageInstance,
+func NewAttestations(persistentStorage kvstore.KVStore, bucketedStorage func(index epoch.Index) kvstore.KVStore, weights *sybilprotection.Weights) *Attestations {
+	return &Attestations{
+		persistentStorage:  persistentStorage,
+		bucketedStorage:    bucketedStorage,
+		weights:            weights,
+		cachedAttestations: memstorage.NewEpochStorage[identity.ID, *memstorage.Storage[models.BlockID, *Attestation]](),
+		mutex:              syncutils.NewDAGMutex[epoch.Index](),
 	}
 }
 
-func (a *AttestationsOld) Persist(attestations *EpochAttestations) (adsMap *ads.Map[identity.ID, Attestation, *identity.ID, *Attestation], err error) {
-	adsMap = ads.NewMap[identity.ID, Attestation](a.storage.Prunable.Attestors(attestations.Epoch))
-	attestations.ForEachUniqueAttestation(func(id identity.ID, attestation *Attestation) bool {
-		adsMap.Set(id, attestation)
+func (a *Attestations) Add(block *models.Block) (added bool, err error) {
+	a.mutex.RLock(block.ID().Index())
+	defer a.mutex.RUnlock(block.ID().Index())
+
+	if block.ID().Index() <= a.LastCommittedEpoch() {
+		return false, errors.Errorf("cannot add block %s to attestations: block is from past epoch", block.ID())
+	}
+
+	epochStorage, _ := a.cachedAttestations.RetrieveOrCreate(block.ID().Index(), func() bool {
+		// TODO: PRUNE PERSISTENT STORAGE, in case of a crash, we might still have old data (or do it on startup)
+
 		return true
 	})
 
-	return
+	issuerStorage, _ := epochStorage.RetrieveOrCreate(block.IssuerID(), memstorage.New[models.BlockID, *Attestation])
+
+	return issuerStorage.Set(block.ID(), NewAttestation(block)), nil
 }
 
-func (a *AttestationsOld) Delete(index epoch.Index, id identity.ID) (err error) {
-	if err = a.storage.Prunable.Attestors(index).Delete(lo.PanicOnErr(id.Bytes())); err != nil {
-		return errors.Errorf("failed to delete active id %s: %w", id, err)
+func (a *Attestations) Delete(block *models.Block) (deleted bool, err error) {
+	a.mutex.RLock(block.ID().Index())
+	defer a.mutex.RUnlock(block.ID().Index())
+
+	if block.ID().Index() <= a.LastCommittedEpoch() {
+		return false, errors.Errorf("cannot add block %s to attestations: block is from past epoch", block.ID())
 	}
 
-	return nil
+	epochStorage := a.cachedAttestations.Get(block.ID().Index(), false)
+	if epochStorage == nil {
+		return false, errors.Errorf("cannot delete block %s from attestations: no attestations for epoch %d", block.ID(), block.ID().Index())
+	}
+
+	issuerStorage, exists := epochStorage.Get(block.IssuerID())
+	if !exists {
+		return false, errors.Errorf("cannot delete block %s from attestations: no attestations for issuer %s", block.ID(), block.IssuerID())
+	}
+
+	return issuerStorage.Delete(block.ID()), nil
 }
 
-func (a *AttestationsOld) LoadAll(index epoch.Index) (ids *set.AdvancedSet[identity.ID]) {
-	ids = set.NewAdvancedSet[identity.ID]()
-	a.Stream(index, func(id identity.ID) error {
-		ids.Add(id)
-		return nil
-	})
+func (a *Attestations) Commit(index epoch.Index) (attestations *ads.Map[identity.ID, Attestation, *identity.ID, *Attestation], weight int64, err error) {
+	a.mutex.Lock(index)
+	defer a.mutex.Unlock(index)
+
+	if attestations, weight, err = a.commit(index); err != nil {
+		return nil, 0, errors.Errorf("failed to commit attestations for epoch %d: %w", index, err)
+	}
+
+	if err = a.setWeight(index, weight); err != nil {
+		return nil, 0, errors.Errorf("failed to commit attestations for epoch %d: %w", index, err)
+	}
+
+	if err = a.persistentStorage.Set([]byte{PrefixAttestationsLastCommittedEpoch}, index.Bytes()); err != nil {
+		return nil, 0, errors.Errorf("failed to persist last committed epoch: %w", err)
+	}
+
+	if err = a.flush(index); err != nil {
+		return nil, 0, errors.Errorf("failed to flush attestations for epoch %d: %w", index, err)
+	}
+
+	a.Committable.SetLastCommittedEpoch(index)
+
 	return
 }
 
-func (a *AttestationsOld) Stream(index epoch.Index, callback func(attestor identity.ID) (error error)) (err error) {
-	if iterationErr := a.storage.Prunable.Attestors(index).Iterate([]byte{}, func(idBytes kvstore.Key, _ kvstore.Value) bool {
-		id := new(identity.ID)
-		if _, err = id.FromBytes(idBytes); err != nil {
-			err = errors.Errorf("failed to parse id bytes: %w", err)
-		} else if err = callback(*id); err != nil {
-			err = errors.Errorf("failed to process id %s: %w", *id, err)
+func (a *Attestations) Weight(index epoch.Index) (weight int64, err error) {
+	a.mutex.RLock(index)
+	defer a.mutex.RUnlock(index)
+
+	if index > a.LastCommittedEpoch() {
+		return 0, errors.Errorf("cannot compute weight of attestations for epoch %d: epoch is not committed yet", index)
+	}
+
+	return a.weight(index)
+}
+
+func (a *Attestations) Attestations(index epoch.Index) (attestations *ads.Map[identity.ID, Attestation, *identity.ID, *Attestation], err error) {
+	a.mutex.RLock(index)
+	defer a.mutex.RUnlock(index)
+
+	if index > a.LastCommittedEpoch() {
+		return nil, errors.Errorf("cannot retrieve attestations for epoch %d: epoch is not committed yet", index)
+	}
+
+	return a.attestations(index)
+}
+
+func (a *Attestations) Import(reader io.ReadSeeker) (err error) {
+	epochIndex, err := stream.Read[uint64](reader)
+	if err != nil {
+		return errors.Errorf("failed to read epoch: %w", err)
+	}
+
+	attestations, err := a.attestations(epoch.Index(epochIndex))
+	if err != nil {
+		return errors.Errorf("failed to import attestations for epoch %d: %w", epochIndex, err)
+	}
+
+	attestation := new(Attestation)
+	return stream.ReadCollection(reader, func(i int) (err error) {
+		if err = stream.ReadSerializable(reader, attestation); err != nil {
+			return errors.Errorf("failed to read attestation %d: %w", i, err)
 		}
 
-		return err != nil
-	}); iterationErr != nil {
-		err = errors.Errorf("failed to iterate over active ids: %w", iterationErr)
-	}
+		attestations.Set(attestation.IssuerID, attestation)
 
-	return err
+		return
+	})
 }
 
-func (a *AttestationsOld) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (err error) {
+func (a *Attestations) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (err error) {
 	if err = stream.Write(writer, uint64(targetEpoch)); err != nil {
 		return errors.Errorf("failed to write epoch: %w", err)
 	}
 
 	return stream.WriteCollection(writer, func() (elementsCount uint64, err error) {
-		if err = a.Stream(targetEpoch, func(id identity.ID) (err error) {
-			if err = id.Export(writer); err == nil {
+		attestations, err := a.attestations(targetEpoch)
+		if err != nil {
+			return 0, errors.Errorf("failed to export attestations for epoch %d: %w", targetEpoch, err)
+		}
+
+		if err = attestations.Stream(func(issuerID identity.ID, attestation *Attestation) bool {
+			if err = stream.WriteSerializable(writer, attestation); err != nil {
+				err = errors.Errorf("failed to write attestation for issuer %s: %w", issuerID, err)
+			} else {
 				elementsCount++
 			}
 
-			return
+			return err != nil
 		}); err != nil {
-			return 0, errors.Errorf("failed to stream attestors: %w", err)
+			return 0, errors.Errorf("failed to stream attestations of epoch %d: %w", targetEpoch, err)
 		}
 
 		return
 	})
 }
 
-func (a *AttestationsOld) Import(reader io.ReadSeeker) (err error) {
-	epochIndex, err := stream.Read[uint64](reader)
-	if err != nil {
-		return errors.Errorf("failed to read epoch: %w", err)
+func (a *Attestations) commit(index epoch.Index) (attestations *ads.Map[identity.ID, Attestation, *identity.ID, *Attestation], weight int64, err error) {
+	if attestations, err = a.attestations(index); err != nil {
+		return nil, 0, errors.Errorf("failed to get attestors for epoch %d: %w", index, err)
 	}
 
-	attestor := new(identity.ID)
-	return stream.ReadCollection(reader, func(i int) error {
-		if err = attestor.Import(reader); err != nil {
-			return errors.Errorf("failed to read attestor %d: %w", i, err)
-		} else if err = a.Store(epoch.Index(epochIndex), *attestor); err != nil {
-			return errors.Errorf("failed to store attestor %d with id %s: %w", i, attestor, err)
+	if cachedEpochStorage := a.cachedAttestations.Evict(index); cachedEpochStorage != nil {
+		cachedEpochStorage.ForEach(func(id identity.ID, attestationsOfID *memstorage.Storage[models.BlockID, *Attestation]) bool {
+			if latestAttestation := latestAttestation(attestationsOfID); latestAttestation != nil {
+				if attestorWeight, exists := a.weights.Weight(id); exists {
+					attestations.Set(id, latestAttestation)
+
+					weight += attestorWeight.Value
+				}
+			}
+
+			return true
+		})
+	}
+
+	return
+}
+
+func (a *Attestations) flush(index epoch.Index) (err error) {
+	if err = a.persistentStorage.Flush(); err != nil {
+		return errors.Errorf("failed to flush persistent storage: %w", err)
+	}
+
+	if err = a.bucketedStorage(index).Flush(); err != nil {
+		return errors.Errorf("failed to flush attestations for epoch %d: %w", index, err)
+	}
+
+	return
+}
+
+func (a *Attestations) attestations(index epoch.Index) (attestations *ads.Map[identity.ID, Attestation, *identity.ID, *Attestation], err error) {
+	if attestationsStorage, err := a.bucketedStorage(index).WithExtendedRealm([]byte{PrefixAttestationsStorage}); err != nil {
+		return nil, errors.Errorf("failed to access storage for attestors of epoch %d: %w", index, err)
+	} else {
+		return ads.NewMap[identity.ID, Attestation, *identity.ID, *Attestation](attestationsStorage), nil
+	}
+}
+
+func (a *Attestations) weight(index epoch.Index) (weight int64, err error) {
+	if value, err := a.bucketedStorage(index).Get([]byte{PrefixAttestationsWeight}); err != nil {
+		return 0, errors.Errorf("failed to retrieve weight of attestations for epoch %d: %w", index, err)
+	} else {
+		return int64(binary.LittleEndian.Uint64(value)), nil
+	}
+}
+
+func (a *Attestations) setWeight(index epoch.Index, weight int64) (err error) {
+	weightBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(weightBytes, uint64(weight))
+
+	if err = a.bucketedStorage(index).Set([]byte{PrefixAttestationsWeight}, weightBytes); err != nil {
+		return errors.Errorf("failed to store weight of attestations for epoch %d: %w", index, err)
+	}
+
+	return
+}
+
+func latestAttestation(attestations *memstorage.Storage[models.BlockID, *Attestation]) (latestAttestation *Attestation) {
+	attestations.ForEach(func(blockID models.BlockID, attestation *Attestation) bool {
+		if attestation.Compare(latestAttestation) > 0 {
+			latestAttestation = attestation
 		}
 
-		return nil
+		return true
 	})
+
+	return
 }

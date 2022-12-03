@@ -15,6 +15,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
@@ -45,11 +46,15 @@ func CreateSnapshot(s *storage.Storage, snapshotFileName string, genesisTokenAmo
 	}
 
 	for nodeID, value := range nodesToPledge {
+		randomPublicKey := ed25519.GenerateKeyPair().PublicKey
+
 		// pledge to ID but send funds to random address
-		output, outputMetadata = createOutput(devnetvm.NewED25519Address(ed25519.GenerateKeyPair().PublicKey), value, nodeID, now)
+		output, outputMetadata = createOutput(devnetvm.NewED25519Address(randomPublicKey), value, nodeID, now)
 		if err := engineInstance.LedgerState.UnspentOutputs.ApplyCreatedOutput(ledgerstate.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
 			panic(err)
-		} else if err := s.Attestors.Store(0, nodeID); err != nil {
+		} else if _, err := engineInstance.NotarizationManager.Attestations.Add(models.NewBlock(
+			// TODO: FIX
+			models.WithIssuer(randomPublicKey))); err != nil {
 			panic(err)
 		}
 	}

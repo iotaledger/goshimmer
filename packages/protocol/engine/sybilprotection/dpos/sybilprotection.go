@@ -16,6 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 )
@@ -30,7 +31,7 @@ type SybilProtection struct {
 	mutex              sync.RWMutex
 	optsActivityWindow time.Duration
 
-	commitmentState      *ledgerstate.CommitmentState
+	commitmentState      traits.BatchCommittable
 	batchedWeightUpdates *sybilprotection.WeightUpdates
 
 	traits.Initializable
@@ -40,7 +41,8 @@ type SybilProtection struct {
 func NewSybilProtection(engineInstance *engine.Engine, opts ...options.Option[SybilProtection]) (proofOfStake *SybilProtection) {
 	return options.Apply(
 		&SybilProtection{
-			Initializable: traits.NewInitializable(),
+			Initializable:   traits.NewInitializable(),
+			commitmentState: traits.NewBatchCommittable(),
 
 			engine:            engineInstance,
 			weights:           sybilprotection.NewWeights(engineInstance.Storage.SybilProtection, engineInstance.Storage.Settings),
@@ -59,8 +61,17 @@ func NewSybilProtection(engineInstance *engine.Engine, opts ...options.Option[Sy
 				s.engine.LedgerState.UnspentOutputs.Subscribe(s)
 
 				// TODO: MOVE TO CORRECT INITIALIZER
-				for it := s.engine.Storage.Attestors.LoadAll(s.engine.Storage.Settings.LatestCommitment().Index()).Iterator(); it.HasNext(); {
-					s.validators.Add(it.Next())
+				attestations, err := s.engine.NotarizationManager.Attestations.Attestations(s.engine.Storage.Settings.LatestCommitment().Index())
+				if err != nil {
+					panic(err)
+				}
+
+				if err = attestations.Stream(func(id identity.ID, attestation *notarization.Attestation) bool {
+					s.validators.Add(id)
+
+					return true
+				}); err != nil {
+					panic(err)
 				}
 			})
 		})

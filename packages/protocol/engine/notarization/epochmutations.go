@@ -29,9 +29,6 @@ type EpochMutations struct {
 	// acceptedTransactionsByEpoch stores the accepted transactions per epoch.
 	acceptedTransactionsByEpoch *memstorage.Storage[epoch.Index, *ads.Set[utxo.TransactionID, *utxo.TransactionID]]
 
-	// attestationByEpoch stores the attestation per epoch.
-	attestationsByEpoch *memstorage.Storage[epoch.Index, *EpochAttestations]
-
 	// latestCommittedIndex stores the index of the latest committed epoch.
 	latestCommittedIndex epoch.Index
 
@@ -50,7 +47,6 @@ func NewEpochMutations(weights *sybilprotection.Weights, lastCommittedEpoch epoc
 		weights:                     weights,
 		acceptedBlocksByEpoch:       memstorage.New[epoch.Index, *ads.Set[models.BlockID, *models.BlockID]](),
 		acceptedTransactionsByEpoch: memstorage.New[epoch.Index, *ads.Set[utxo.TransactionID, *utxo.TransactionID]](),
-		attestationsByEpoch:         memstorage.New[epoch.Index, *EpochAttestations](),
 		latestCommittedIndex:        lastCommittedEpoch,
 	}
 }
@@ -70,10 +66,6 @@ func (m *EpochMutations) AddAcceptedBlock(block *models.Block) (err error) {
 
 	m.acceptedBlocks(blockID.Index(), true).Add(blockID)
 
-	lo.Return1(m.attestationsByEpoch.RetrieveOrCreate(block.ID().Index(), func() *EpochAttestations {
-		return NewEpochAttestations(m.weights)
-	})).Add(block)
-
 	return
 }
 
@@ -92,11 +84,8 @@ func (m *EpochMutations) RemoveAcceptedBlock(block *models.Block) (err error) {
 
 	m.acceptedBlocks(blockID.Index()).Delete(blockID)
 
-	if attestations, exists := m.attestationsByEpoch.Get(blockID.Index()); exists {
-		attestations.Delete(block)
-	}
-
 	m.Events.AcceptedBlockRemoved.Trigger(blockID)
+
 	return
 }
 
@@ -159,7 +148,7 @@ func (m *EpochMutations) UpdateTransactionInclusion(txID utxo.TransactionID, old
 }
 
 // Evict evicts the given epoch and returns the corresponding mutation sets.
-func (m *EpochMutations) Evict(index epoch.Index) (acceptedBlocks *ads.Set[models.BlockID, *models.BlockID], acceptedTransactions *ads.Set[utxo.TransactionID, *utxo.TransactionID], attestations *EpochAttestations, err error) {
+func (m *EpochMutations) Evict(index epoch.Index) (acceptedBlocks *ads.Set[models.BlockID, *models.BlockID], acceptedTransactions *ads.Set[utxo.TransactionID, *utxo.TransactionID], err error) {
 	m.evictionMutex.Lock()
 	defer m.evictionMutex.Unlock()
 
@@ -167,22 +156,12 @@ func (m *EpochMutations) Evict(index epoch.Index) (acceptedBlocks *ads.Set[model
 	defer m.mutex.Unlock()
 
 	if index <= m.latestCommittedIndex {
-		return nil, nil, nil, errors.Errorf("cannot commit epoch %d: already committed", index)
+		return nil, nil, errors.Errorf("cannot commit epoch %d: already committed", index)
 	}
 
 	defer m.evictUntil(index)
 
-	return m.acceptedBlocks(index), m.acceptedTransactions(index), lo.Return1(m.attestationsByEpoch.Get(index)), nil
-}
-
-// EpochAttestations returns the attestations for the given epoch.
-func (m *EpochMutations) Attestations(index epoch.Index) (epochAttestations *EpochAttestations) {
-	m.evictionMutex.RLock()
-	defer m.evictionMutex.RUnlock()
-
-	return lo.Return1(m.attestationsByEpoch.RetrieveOrCreate(index, func() *EpochAttestations {
-		return NewEpochAttestations(m.weights)
-	}))
+	return m.acceptedBlocks(index), m.acceptedTransactions(index), nil
 }
 
 // acceptedBlocks returns the set of accepted blocks for the given epoch.
@@ -208,11 +187,6 @@ func (m *EpochMutations) evictUntil(index epoch.Index) {
 	for i := m.latestCommittedIndex + 1; i <= index; i++ {
 		m.acceptedBlocksByEpoch.Delete(i)
 		m.acceptedTransactionsByEpoch.Delete(i)
-		attestations, exists := m.attestationsByEpoch.Get(i)
-		if exists {
-			attestations.Detach()
-		}
-		m.attestationsByEpoch.Delete(i)
 	}
 
 	m.latestCommittedIndex = index

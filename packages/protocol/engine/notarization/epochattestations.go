@@ -1,5 +1,6 @@
 package notarization
 
+/*
 import (
 	"bytes"
 	"sync"
@@ -105,3 +106,4 @@ func (a *EpochAttestations) Weight() (weight int64) {
 func (a *EpochAttestations) Detach() {
 	a.weightedSet.Detach()
 }
+*/

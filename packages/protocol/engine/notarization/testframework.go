@@ -41,7 +41,7 @@ func NewTestFramework(test *testing.T) *TestFramework {
 		epochEntityCounter: make(map[epoch.Index]int),
 	}
 
-	tf.weights = sybilprotection.NewWeights(mapdb.NewMapDB(), permanent.NewSettings(test.TempDir() + "/settings"))
+	tf.weights = sybilprotection.NewWeights(mapdb.NewMapDB(), permanent.NewSettings(test.TempDir()+"/settings"))
 	tf.MutationFactory = NewEpochMutations(tf.weights, 0)
 
 	return tf
@@ -170,7 +170,7 @@ func (t *TestFramework) UpdateTransactionInclusion(alias string, oldEpoch, newEp
 }
 
 func (t *TestFramework) AssertCommit(index epoch.Index, expectedBlocks []string, expectedTransactions []string, expectedValidators []string, expectedCumulativeWeight int64, optShouldError ...bool) {
-	acceptedBlocks, acceptedTransactions, attestations, err := t.MutationFactory.Evict(index)
+	acceptedBlocks, acceptedTransactions, err := t.MutationFactory.Evict(index)
 	if len(optShouldError) > 0 && optShouldError[0] {
 		require.Error(t.test, err)
 	}
@@ -192,14 +192,6 @@ func (t *TestFramework) AssertCommit(index epoch.Index, expectedBlocks []string,
 			require.True(t.test, acceptedTransactions.Has(t.Transaction(expectedTransaction).ID()))
 		}
 	}
-
-	attestors := attestations.Attestors()
-	require.Equal(t.test, len(expectedValidators), attestors.Size())
-	for _, expectedValidator := range expectedValidators {
-		require.True(t.test, attestors.Has(identity.NewID(t.Issuer(expectedValidator))))
-	}
-
-	require.Equal(t.test, expectedCumulativeWeight, attestations.Weight())
 }
 
 func (t *TestFramework) increaseEpochEntityCounter(index epoch.Index) (nextBlockCounter int) {
