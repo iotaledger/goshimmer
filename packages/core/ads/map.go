@@ -50,7 +50,7 @@ func NewMap[K, V constraints.Serializable, KPtr constraints.MarshalablePtr[K], V
 // Root returns the root of the state sparse merkle tree at the latest committed epoch.
 func (m *Map[K, V, KPtr, VPtr]) Root() (root types.Identifier) {
 	m.mutex.RLock()
-	defer m.mutex.Unlock()
+	defer m.mutex.RUnlock()
 
 	copy(root[:], m.tree.Root())
 
