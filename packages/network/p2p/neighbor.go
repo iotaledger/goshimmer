@@ -32,12 +32,16 @@ type queuedPacket struct {
 	packet     proto.Message
 }
 
+type PacketReceivedFunc func(neighbor *Neighbor, protocol protocol.ID, packet proto.Message)
+type NeighborDisconnectedFunc func(neighbor *Neighbor)
+
 // Neighbor describes the established p2p connection to another peer.
 type Neighbor struct {
 	*peer.Peer
 	Group NeighborsGroup
 
-	Events *NeighborEvents
+	packetReceivedFunc PacketReceivedFunc
+	disconnectedFunc   NeighborDisconnectedFunc
 
 	Log            *logger.Logger
 	disconnectOnce sync.Once
@@ -54,7 +58,7 @@ type Neighbor struct {
 }
 
 // NewNeighbor creates a new neighbor from the provided peer and connection.
-func NewNeighbor(p *peer.Peer, group NeighborsGroup, protocols map[protocol.ID]*PacketsStream, log *logger.Logger) *Neighbor {
+func NewNeighbor(p *peer.Peer, group NeighborsGroup, protocols map[protocol.ID]*PacketsStream, log *logger.Logger, packetReceivedCallback PacketReceivedFunc, disconnectedCallback NeighborDisconnectedFunc) *Neighbor {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -62,7 +66,8 @@ func NewNeighbor(p *peer.Peer, group NeighborsGroup, protocols map[protocol.ID]*
 		Peer:  p,
 		Group: group,
 
-		Events: NewNeighborEvents(),
+		packetReceivedFunc: packetReceivedCallback,
+		disconnectedFunc:   disconnectedCallback,
 
 		loopCtx:       ctx,
 		loopCtxCancel: cancel,
@@ -150,11 +155,7 @@ func (n *Neighbor) readLoop() {
 					}
 					return
 				}
-				n.Events.PacketReceived.Trigger(&NeighborPacketReceivedEvent{
-					Neighbor: n,
-					Protocol: protocolID,
-					Packet:   packet,
-				})
+				n.packetReceivedFunc(n, protocolID, packet)
 			}
 		}(protocolID, stream)
 	}
@@ -211,7 +212,7 @@ func (n *Neighbor) disconnect() (err error) {
 			n.Log.Infow("Stream closed", "protocol", stream.Protocol())
 		}
 		n.Log.Info("Connection closed")
-		n.Events.Disconnected.Trigger(&NeighborDisconnectedEvent{})
+		n.disconnectedFunc(n)
 	})
 	return err
 }
