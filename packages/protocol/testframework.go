@@ -48,8 +48,8 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 			t.Protocol.Shutdown()
 		})
 
-		snapshotcreator.CreateSnapshot(storageInstance, diskUtil.Path("snapshot.bin"), 100, make([]byte, 32, 32), map[ed25519.PublicKey]uint64{
-			ed25519.GenerateKeyPair().PublicKey: 100,
+		snapshotcreator.CreateSnapshot(storageInstance, diskUtil.Path("snapshot.bin"), 100, make([]byte, 32), map[identity.ID]uint64{
+			identity.New(ed25519.GenerateKeyPair().PublicKey).ID(): 100,
 		})
 
 		t.Protocol = New(t.Network.Join(identity.GenerateIdentity().ID()), append(t.optsProtocolOptions, WithSnapshotPath(diskUtil.Path("snapshot.bin")), WithBaseDirectory(diskUtil.Path()))...)

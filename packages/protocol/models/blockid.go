@@ -9,11 +9,14 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/core/byteutils"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/stringify"
 	"github.com/iotaledger/hive.go/core/types"
 	"github.com/mr-tron/base58"
+	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
@@ -34,9 +37,9 @@ func (b BlockID) Index() epoch.Index {
 var EmptyBlockID BlockID
 
 // NewBlockID returns a new BlockID for the given data.
-func NewBlockID(identifier types.Identifier, epochIndex epoch.Index) BlockID {
+func NewBlockID(contentHash types.Identifier, signature ed25519.Signature, epochIndex epoch.Index) BlockID {
 	return BlockID{
-		Identifier: identifier,
+		Identifier: blake2b.Sum256(byteutils.ConcatBytes(contentHash[:], signature[:])),
 		EpochIndex: epochIndex,
 	}
 }

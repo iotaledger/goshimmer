@@ -5,7 +5,6 @@ import (
 	"log"
 	"os"
 
-	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/mr-tron/base58"
@@ -116,8 +115,8 @@ func createTempStorage() (s *storage.Storage) {
 	return storage.New(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), protocol.DatabaseVersion)
 }
 
-func createManaDistribution(totalTokensToPledge uint64) (manaDistribution map[ed25519.PublicKey]uint64) {
-	manaDistribution = make(map[ed25519.PublicKey]uint64)
+func createManaDistribution(totalTokensToPledge uint64) (manaDistribution map[identity.ID]uint64) {
+	manaDistribution = make(map[identity.ID]uint64)
 	for _, node := range nodesToPledge {
 		nodeID, err := identity.DecodeIDBase58(node)
 		if err != nil {

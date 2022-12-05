@@ -250,31 +250,17 @@ func (b *Block) SetSignature(signature ed25519.Signature) {
 
 // DetermineID calculates and sets the block's BlockID and size.
 func (b *Block) DetermineID() (err error) {
-	buf, err := b.Bytes()
+	blkBytes, err := b.Bytes()
 	if err != nil {
-		return errors.Errorf("failed to determine block ID: %w", err)
+		return errors.Errorf("failed to create block bytes: %w", err)
 	}
 
-	b.DetermineIDFromBytes(buf)
+	contentHash := blake2b.Sum256(blkBytes[:len(blkBytes)-ed25519.SignatureSize])
+	signatureBytes := blkBytes[len(blkBytes)-ed25519.SignatureSize:]
+
+	b.SetID(NewBlockID(contentHash, lo.Return1(ed25519.SignatureFromBytes(signatureBytes)), epoch.IndexFromTime(b.IssuingTime())))
+
 	return nil
-}
-
-// DetermineIDFromBytes calculates and sets the block's BlockID and size.
-func (b *Block) DetermineIDFromBytes(buf []byte, blockHash ...types.Identifier) {
-	var hash types.Identifier
-	if len(blockHash) > 0 {
-		hash = blockHash[0]
-	} else {
-		hash = types.NewIdentifier(buf)
-	}
-
-	id := NewBlockID(hash, epoch.IndexFromTime(b.IssuingTime()))
-	b.SetID(id)
-
-	b.Lock()
-	defer b.Unlock()
-	l := len(buf)
-	b.size = &l
 }
 
 func (b *Block) SetSize(size int) {

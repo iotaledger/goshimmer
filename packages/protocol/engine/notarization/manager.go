@@ -116,7 +116,7 @@ func (m *Manager) NotarizeAcceptedBlock(block *models.Block) (err error) {
 		return errors.Errorf("failed to add accepted block to epoch mutations: %w", err)
 	}
 
-	if _, err = m.Attestations.Add(block); err != nil {
+	if _, err = m.Attestations.Add(NewAttestation(block)); err != nil {
 		return errors.Errorf("failed to add block to attestations: %w", err)
 	}
 
@@ -128,7 +128,7 @@ func (m *Manager) NotarizeOrphanedBlock(block *models.Block) (err error) {
 		return errors.Errorf("failed to remove accepted block from epoch mutations: %w", err)
 	}
 
-	if _, err = m.Attestations.Delete(block); err != nil {
+	if _, err = m.Attestations.Delete(NewAttestation(block)); err != nil {
 		return errors.Errorf("failed to delete block from attestations: %w", err)
 	}
 

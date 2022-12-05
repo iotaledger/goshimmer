@@ -45,44 +45,48 @@ func NewAttestations(persistentStorage kvstore.KVStore, bucketedStorage func(ind
 	}
 }
 
-func (a *Attestations) Add(block *models.Block) (added bool, err error) {
-	a.mutex.RLock(block.ID().Index())
-	defer a.mutex.RUnlock(block.ID().Index())
+func (a *Attestations) Add(attestation *Attestation) (added bool, err error) {
+	epochIndex := epoch.IndexFromTime(attestation.IssuingTime)
 
-	if block.ID().Index() <= a.LastCommittedEpoch() {
-		return false, errors.Errorf("cannot add block %s to attestations: block is from past epoch", block.ID())
+	a.mutex.RLock(epochIndex)
+	defer a.mutex.RUnlock(epochIndex)
+
+	if epochIndex <= a.LastCommittedEpoch() {
+		return false, errors.Errorf("cannot add attestation: block is from past epoch")
 	}
 
-	epochStorage, _ := a.cachedAttestations.RetrieveOrCreate(block.ID().Index(), func() bool {
+	epochStorage, _ := a.cachedAttestations.RetrieveOrCreate(epochIndex, func() bool {
 		// TODO: PRUNE PERSISTENT STORAGE, in case of a crash, we might still have old data (or do it on startup)
 
 		return true
 	})
 
-	issuerStorage, _ := epochStorage.RetrieveOrCreate(block.IssuerID(), memstorage.New[models.BlockID, *Attestation])
+	issuerStorage, _ := epochStorage.RetrieveOrCreate(attestation.IssuerID, memstorage.New[models.BlockID, *Attestation])
 
-	return issuerStorage.Set(block.ID(), NewAttestation(block)), nil
+	return issuerStorage.Set(attestation.ID(), attestation), nil
 }
 
-func (a *Attestations) Delete(block *models.Block) (deleted bool, err error) {
-	a.mutex.RLock(block.ID().Index())
-	defer a.mutex.RUnlock(block.ID().Index())
+func (a *Attestations) Delete(attestation *Attestation) (deleted bool, err error) {
+	epochIndex := epoch.IndexFromTime(attestation.IssuingTime)
 
-	if block.ID().Index() <= a.LastCommittedEpoch() {
-		return false, errors.Errorf("cannot add block %s to attestations: block is from past epoch", block.ID())
+	a.mutex.RLock(epochIndex)
+	defer a.mutex.RUnlock(epochIndex)
+
+	if epochIndex <= a.LastCommittedEpoch() {
+		return false, errors.Errorf("cannot delete attestation from past epoch %d", epochIndex)
 	}
 
-	epochStorage := a.cachedAttestations.Get(block.ID().Index(), false)
+	epochStorage := a.cachedAttestations.Get(epochIndex, false)
 	if epochStorage == nil {
-		return false, errors.Errorf("cannot delete block %s from attestations: no attestations for epoch %d", block.ID(), block.ID().Index())
+		return false, nil
 	}
 
-	issuerStorage, exists := epochStorage.Get(block.IssuerID())
+	issuerStorage, exists := epochStorage.Get(attestation.IssuerID)
 	if !exists {
-		return false, errors.Errorf("cannot delete block %s from attestations: no attestations for issuer %s", block.ID(), block.IssuerID())
+		return false, nil
 	}
 
-	return issuerStorage.Delete(block.ID()), nil
+	return issuerStorage.Delete(attestation.ID()), nil
 }
 
 func (a *Attestations) Commit(index epoch.Index) (attestations *ads.Map[identity.ID, Attestation, *identity.ID, *Attestation], weight int64, err error) {

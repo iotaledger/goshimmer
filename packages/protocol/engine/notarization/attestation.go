@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/core/types"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
@@ -48,6 +49,10 @@ func (a *Attestation) Compare(other *Attestation) int {
 	default:
 		return bytes.Compare(a.BlockContentHash[:], other.BlockContentHash[:])
 	}
+}
+
+func (a *Attestation) ID() models.BlockID {
+	return models.NewBlockID(a.BlockContentHash, a.Signature, epoch.IndexFromTime(a.IssuingTime))
 }
 
 func (a Attestation) Bytes() (bytes []byte, err error) {
