@@ -146,8 +146,10 @@ func (f *BlockIssuer) IssueBlockAndAwaitBlockToBeBooked(block *models.Block, max
 		return errors.Errorf("failed to issue block %s: %w", block.ID().String(), err)
 	}
 
+	timer := time.NewTimer(maxAwait)
+	defer timer.Stop()
 	select {
-	case <-time.After(maxAwait):
+	case <-timer.C:
 		return ErrBlockWasNotBookedInTime
 	case <-booked:
 		return nil
@@ -181,8 +183,10 @@ func (f *BlockIssuer) IssueBlockAndAwaitBlockToBeScheduled(block *models.Block, 
 		return errors.Errorf("failed to issue block %s: %w", block.ID().String(), err)
 	}
 
+	timer := time.NewTimer(maxAwait)
+	defer timer.Stop()
 	select {
-	case <-time.After(maxAwait):
+	case <-timer.C:
 		return ErrBlockWasNotScheduledInTime
 	case <-scheduled:
 		return nil

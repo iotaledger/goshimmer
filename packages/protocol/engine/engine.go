@@ -261,7 +261,7 @@ func (e *Engine) initLedgerState() {
 func (e *Engine) initTangle() {
 	e.Tangle = tangle.New(e.Ledger, e.EvictionState, e.SybilProtection.Validators(), e.LastConfirmedEpoch, e.FirstUnacceptedMarker, e.optsTangleOptions...)
 
-	e.Events.Filter.BlockReceived.Attach(event.NewClosure(func(block *models.Block) {
+	e.Events.Filter.BlockAllowed.Attach(event.NewClosure(func(block *models.Block) {
 		if _, _, err := e.Tangle.Attach(block); err != nil {
 			e.Events.Error.Trigger(errors.Errorf("failed to attach block with %s (issuerID: %s): %w", block.ID(), block.IssuerID(), err))
 		}

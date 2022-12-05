@@ -163,10 +163,10 @@ func getInfo(c echo.Context) error {
 		IdentityIDShort:       deps.Local.Identity.ID().String(),
 		PublicKey:             deps.Local.PublicKey().String(),
 		BlockRequestQueueSize: int(metrics.BlockRequestQueueSize()),
-		SolidBlockCount: int(metrics.InitialBlockCountPerComponentGrafana()[metrics.Solidifier] +
-			metrics.BlockCountSinceStartPerComponentGrafana()[metrics.Solidifier]),
-		TotalBlockCount: int(metrics.InitialBlockCountPerComponentGrafana()[metrics.Store] +
-			metrics.BlockCountSinceStartPerComponentGrafana()[metrics.Store]),
+		SolidBlockCount: int(metrics.InitialBlockCountPerComponentGrafana()[metrics.Solidified] +
+			metrics.BlockCountSinceStartPerComponentGrafana()[metrics.Solidified]),
+		TotalBlockCount: int(metrics.InitialBlockCountPerComponentGrafana()[metrics.Attached] +
+			metrics.BlockCountSinceStartPerComponentGrafana()[metrics.Attached]),
 		EnabledPlugins:  enabledPlugins,
 		DisabledPlugins: disabledPlugins,
 		Mana:            nodeMana,
