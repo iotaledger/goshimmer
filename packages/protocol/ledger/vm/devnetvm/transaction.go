@@ -200,6 +200,9 @@ func (t *Transaction) FromObjectStorage(key, value []byte) error {
 // FromBytes unmarshals a Transaction from a sequence of bytes.
 func (t *Transaction) FromBytes(data []byte) error {
 	_, err := t.Storable.FromBytes(data)
+	if err != nil {
+		return err
+	}
 	SetOutputID(t.Essence(), t.ID())
 
 	return err
