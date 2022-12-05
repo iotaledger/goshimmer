@@ -65,7 +65,6 @@ type Block struct {
 	model.Storable[BlockID, Block, *Block, block] `serix:"0"`
 	payload                                       payload.Payload
 	issuerID                                      *identity.ID
-	size                                          *int
 }
 
 type block struct {
@@ -263,20 +262,9 @@ func (b *Block) DetermineID() (err error) {
 	return nil
 }
 
-func (b *Block) SetSize(size int) {
-	b.size = &size
-}
-
 // Size returns the block size in bytes.
 func (b *Block) Size() int {
-	b.RLock()
-	defer b.RUnlock()
-
-	if b.size == nil {
-		panic(fmt.Sprintf("size is not set for %s", b.ID()))
-	}
-
-	return *b.size
+	return len(lo.PanicOnErr(b.Bytes()))
 }
 
 func (b *Block) String() string {

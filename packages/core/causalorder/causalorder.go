@@ -1,7 +1,6 @@
 package causalorder
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/cockroachdb/errors"
@@ -95,8 +94,6 @@ func (c *CausalOrder[ID, Entity]) triggerOrderedIfReady(entity Entity) {
 	defer c.dagMutex.RUnlock(entity.Parents()...)
 	c.dagMutex.Lock(entity.ID())
 	defer c.dagMutex.Unlock(entity.ID())
-
-	fmt.Println("triggerOrderedIfReady", entity)
 
 	if c.isOrdered(entity) {
 		return
