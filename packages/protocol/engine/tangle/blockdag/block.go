@@ -188,16 +188,18 @@ func (b *Block) appendChild(child *Block, childType models.ParentsType) {
 
 // update publishes the given Block data to the underlying Block and marks it as no longer missing.
 func (b *Block) update(data *models.Block) (wasPublished bool) {
-	b.Lock()
+	b.RLock()
 	if !b.missing {
-		b.Unlock()
+		b.RUnlock()
 		return
 	}
 
-	b.missing = false
-
-	b.Unlock()
+	b.RUnlock()
 	b.ImportStorable(&data.Storable)
+
+	b.Lock()
+	b.missing = false
+	b.Unlock()
 
 	return true
 }
