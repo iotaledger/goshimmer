@@ -4,26 +4,46 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 )
 
-type EpochInfo struct {
-	EI     uint64 `json:"Index"`
-	ECR    string `json:"RootsID"`
-	PrevEC string `json:"prevEC"`
+type Epoch struct {
+	Index             uint64 `json:"index"`
+	Commitment        string `json:"commitment"`
+	StartTime         uint64 `json:"startTime"`
+	EndTime           uint64 `json:"endTime"`
+	Committed         bool   `json:"committed"`
+	CommitmentRoot    string `json:"commitmentRoot"`
+	PreviousRoot      string `json:"previousRoot"`
+	NextRoot          string `json:"nextRoot"`
+	TangleRoot        string `json:"tangleRoot"`
+	StateMutationRoot string `json:"stateMutationRoot"`
+	StateRoot         string `json:"stateRoot"`
+	ManaRoot          string `json:"manaRoot"`
+	CumulativeStake   string `json:"cumulativeStake"`
 }
 
-func EpochInfoFromRecord(c *commitment.Commitment) *EpochInfo {
-	return &EpochInfo{
-		EI:     uint64(c.Index()),
-		ECR:    c.RootsID().Base58(),
-		PrevEC: c.PrevID().Base58(),
+func EpochInfoFromRecord(c *commitment.Commitment) *Epoch {
+	return &Epoch{
+		Index:             uint64(c.Index()),
+		Commitment:        "",
+		StartTime:         0,
+		EndTime:           0,
+		Committed:         false,
+		CommitmentRoot:    "",
+		PreviousRoot:      "",
+		NextRoot:          "",
+		TangleRoot:        "",
+		StateMutationRoot: "",
+		StateRoot:         "",
+		ManaRoot:          "",
+		CumulativeStake:   "",
 	}
 }
 
 type EpochsResponse struct {
-	Epochs []*EpochInfo `json:"epochs"`
+	Epochs []*Epoch `json:"epochs"`
 }
 
 type EpochVotersWeightResponse struct {
-	VotersWeight map[string]*NodeWeight `json:"ecrVoters"`
+	VotersWeight map[string]*NodeWeight `json:"voters"`
 }
 
 type NodeWeight struct {

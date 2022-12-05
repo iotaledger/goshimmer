@@ -8,6 +8,7 @@ require (
 	github.com/capossele/asset-registry v0.0.0-20210521112927-c9d6e74574e8
 	github.com/celestiaorg/smt v0.2.1-0.20220414134126-dba215ccb884
 	github.com/cockroachdb/errors v1.9.0
+	github.com/felixge/fgprof v0.9.3
 	github.com/gin-gonic/gin v1.8.1
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/gorilla/websocket v1.5.0
@@ -38,10 +39,7 @@ require (
 	gopkg.in/src-d/go-git.v4 v4.13.1
 )
 
-require (
-	github.com/felixge/fgprof v0.9.3 // indirect
-	github.com/google/pprof v0.0.0-20211214055906-6f57359322fd // indirect
-)
+require github.com/google/pprof v0.0.0-20211214055906-6f57359322fd // indirect
 
 require (
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
