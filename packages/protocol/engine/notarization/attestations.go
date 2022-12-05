@@ -55,12 +55,7 @@ func (a *Attestations) Add(attestation *Attestation) (added bool, err error) {
 		return false, errors.Errorf("cannot add attestation: block is from past epoch")
 	}
 
-	epochStorage, _ := a.cachedAttestations.RetrieveOrCreate(epochIndex, func() bool {
-		// TODO: PRUNE PERSISTENT STORAGE, in case of a crash, we might still have old data (or do it on startup)
-
-		return true
-	})
-
+	epochStorage := a.cachedAttestations.Get(epochIndex, true)
 	issuerStorage, _ := epochStorage.RetrieveOrCreate(attestation.IssuerID, memstorage.New[models.BlockID, *Attestation])
 
 	return issuerStorage.Set(attestation.ID(), attestation), nil
