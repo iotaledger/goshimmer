@@ -36,6 +36,7 @@ type Attestations struct {
 
 func NewAttestations(persistentStorage kvstore.KVStore, bucketedStorage func(index epoch.Index) kvstore.KVStore, weights *sybilprotection.Weights) *Attestations {
 	return &Attestations{
+		Committable:        traits.NewCommittable(),
 		persistentStorage:  persistentStorage,
 		bucketedStorage:    bucketedStorage,
 		weights:            weights,
@@ -219,7 +220,7 @@ func (a *Attestations) attestations(index epoch.Index) (attestations *ads.Map[id
 	if attestationsStorage, err := a.bucketedStorage(index).WithExtendedRealm([]byte{PrefixAttestationsStorage}); err != nil {
 		return nil, errors.Errorf("failed to access storage for attestors of epoch %d: %w", index, err)
 	} else {
-		return ads.NewMap[identity.ID, Attestation, *identity.ID, *Attestation](attestationsStorage), nil
+		return ads.NewMap[identity.ID, Attestation](attestationsStorage), nil
 	}
 }
 

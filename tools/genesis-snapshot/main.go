@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/mr-tron/base58"
@@ -16,7 +17,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	models2 "github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -113,8 +116,8 @@ func createTempStorage() (s *storage.Storage) {
 	return storage.New(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), protocol.DatabaseVersion)
 }
 
-func createManaDistribution(totalTokensToPledge uint64) (manaDistribution map[identity.ID]uint64) {
-	manaDistribution = make(map[identity.ID]uint64)
+func createManaDistribution(totalTokensToPledge uint64) (manaDistribution map[ed25519.PublicKey]uint64) {
+	manaDistribution = make(map[ed25519.PublicKey]uint64)
 	for _, node := range nodesToPledge {
 		nodeID, err := identity.DecodeIDBase58(node)
 		if err != nil {
@@ -141,7 +144,7 @@ func init() {
 
 func diagnosticPrintSnapshotFromFile(filePath string) {
 	s := createTempStorage()
-	e := engine.New(s, engine.WithSybilProtectionProvider(dpos.NewSybilProtectionProvider()))
+	e := engine.New(s, dpos.NewProvider(), mana1.NewProvider())
 	if err := e.Start(filePath); err != nil {
 		panic(err)
 	}
@@ -172,9 +175,10 @@ func diagnosticPrintSnapshotFromFile(filePath string) {
 	}
 
 	fmt.Println("--- ActivityLog ---")
-	e.Storage.Attestors.Stream(0, func(id identity.ID) error {
+	lo.PanicOnErr(e.NotarizationManager.Attestations.Attestations(0)).Stream(func(id identity.ID, attestation *notarization.Attestation) bool {
 		fmt.Printf("%d: %+v\n", 0, id)
-		return nil
+		fmt.Printf("Attestation: %+v\n", 0, attestation)
+		return true
 	})
 
 	fmt.Println("--- Diffs ---")

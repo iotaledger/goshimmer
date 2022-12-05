@@ -34,6 +34,9 @@ func NewMap[K, V constraints.Serializable, KPtr constraints.MarshalablePtr[K], V
 
 	existingRoot, err := store.Get([]byte{rootPrefix})
 	if err != nil {
+		if errors.Is(err, kvstore.ErrKeyNotFound) {
+			return
+		}
 		panic(err)
 	}
 

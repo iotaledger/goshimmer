@@ -28,24 +28,24 @@ type UnspentOutputsConsumer interface {
 }
 
 type UnspentOutputs struct {
-	IDs     *ads.Set[utxo.OutputID, *utxo.OutputID]
-	Storage *ledger.Storage
+	IDs *ads.Set[utxo.OutputID, *utxo.OutputID]
 
-	commitmentState       traits.BatchCommittable
+	memPool               *ledger.Ledger
 	consumers             map[UnspentOutputsConsumer]types.Empty
 	consumersMutex        sync.RWMutex
 	batchConsumers        map[UnspentOutputsConsumer]types.Empty
 	batchCreatedOutputIDs utxo.OutputIDs
 	batchSpentOutputIDs   utxo.OutputIDs
 
+	commitmentState traits.BatchCommittable
 	traits.Initializable
 }
 
-func NewUnspentOutputs(unspentOutputIDsStore kvstore.KVStore, storage *ledger.Storage) (unspentOutputs *UnspentOutputs) {
+func NewUnspentOutputs(unspentOutputIDsStore kvstore.KVStore, memPool *ledger.Ledger) (unspentOutputs *UnspentOutputs) {
 	return &UnspentOutputs{
 		Initializable:   traits.NewInitializable(),
 		IDs:             ads.NewSet[utxo.OutputID](unspentOutputIDsStore),
-		Storage:         storage,
+		memPool:         memPool,
 		commitmentState: traits.NewBatchCommittable(),
 		consumers:       make(map[UnspentOutputsConsumer]types.Empty),
 	}
@@ -111,6 +111,8 @@ func (u *UnspentOutputs) ApplyCreatedOutput(output *OutputWithMetadata) (err err
 	if !u.commitmentState.BatchedStateTransitionStarted() {
 		u.IDs.Add(output.Output().ID())
 
+		u.importOutputIntoMemPool(output)
+
 		targetConsumers = u.consumers
 	} else {
 		if !u.batchSpentOutputIDs.Delete(output.Output().ID()) {
@@ -130,9 +132,7 @@ func (u *UnspentOutputs) ApplyCreatedOutput(output *OutputWithMetadata) (err err
 func (u *UnspentOutputs) ApplySpentOutput(output *OutputWithMetadata) (err error) {
 	var targetConsumers map[UnspentOutputsConsumer]types.Empty
 	if !u.commitmentState.BatchedStateTransitionStarted() {
-		u.IDs.Delete(output.Output().ID())
-
-		targetConsumers = u.consumers
+		panic("cannot apply a spent output without a batched state transition")
 	} else {
 		if !u.batchCreatedOutputIDs.Delete(output.Output().ID()) {
 			u.batchSpentOutputIDs.Add(output.Output().ID())
@@ -200,21 +200,6 @@ func (u *UnspentOutputs) Import(reader io.ReadSeeker) (err error) {
 	return
 }
 
-func (u *UnspentOutputs) ImportOutput(output *OutputWithMetadata) {
-	u.Storage.CachedOutput(output.ID(), func(id utxo.OutputID) utxo.Output { return output.Output() }).Release()
-	u.Storage.CachedOutputMetadata(output.ID(), func(outputID utxo.OutputID) *ledger.OutputMetadata {
-		newOutputMetadata := ledger.NewOutputMetadata(output.ID())
-		newOutputMetadata.SetAccessManaPledgeID(output.AccessManaPledgeID())
-		newOutputMetadata.SetConsensusManaPledgeID(output.ConsensusManaPledgeID())
-		newOutputMetadata.SetConfirmationState(confirmation.Confirmed)
-
-		return newOutputMetadata
-	}).Release()
-
-	// TODO: FIX TRIGGER
-	//  u.MemPool.Events.OutputCreated.Trigger(output.ID())
-}
-
 func (u *UnspentOutputs) Consumers() (consumers []UnspentOutputsConsumer) {
 	u.consumersMutex.RLock()
 	defer u.consumersMutex.RUnlock()
@@ -267,15 +252,29 @@ func (u *UnspentOutputs) notifyConsumers(consumer map[UnspentOutputsConsumer]typ
 }
 
 func (u *UnspentOutputs) outputWithMetadata(outputID utxo.OutputID) (outputWithMetadata *OutputWithMetadata, err error) {
-	if !u.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
-		if !u.Storage.CachedOutputMetadata(outputID).Consume(func(metadata *ledger.OutputMetadata) {
+	if !u.memPool.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
+		if !u.memPool.Storage.CachedOutputMetadata(outputID).Consume(func(metadata *ledger.OutputMetadata) {
 			outputWithMetadata = NewOutputWithMetadata(epoch.IndexFromTime(metadata.CreationTime()), outputID, output, metadata.ConsensusManaPledgeID(), metadata.AccessManaPledgeID())
 		}) {
 			err = errors.Errorf("failed to load output metadata: %w", err)
 		}
 	}) {
-		err = errors.Errorf("failed to load output: %w", err)
+		err = errors.Errorf("failed to load output %s", outputID)
 	}
 
 	return
+}
+
+func (u *UnspentOutputs) importOutputIntoMemPool(output *OutputWithMetadata) {
+	u.memPool.Storage.CachedOutput(output.ID(), func(id utxo.OutputID) utxo.Output { return output.Output() }).Release()
+	u.memPool.Storage.CachedOutputMetadata(output.ID(), func(outputID utxo.OutputID) *ledger.OutputMetadata {
+		newOutputMetadata := ledger.NewOutputMetadata(output.ID())
+		newOutputMetadata.SetAccessManaPledgeID(output.AccessManaPledgeID())
+		newOutputMetadata.SetConsensusManaPledgeID(output.ConsensusManaPledgeID())
+		newOutputMetadata.SetConfirmationState(confirmation.Confirmed)
+
+		return newOutputMetadata
+	}).Release()
+
+	u.memPool.Events.OutputCreated.Trigger(output.ID())
 }

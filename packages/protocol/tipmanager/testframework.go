@@ -24,6 +24,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
 )
@@ -52,7 +53,6 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		mockAcceptance:  blockgadget.NewMockAcceptanceGadget(),
 		scheduledBlocks: shrinkingmap.New[models.BlockID, *scheduler.Block](),
 	}, opts, func(t *TestFramework) {
-
 		storageInstance := storage.New(test.TempDir(), 1)
 		test.Cleanup(func() {
 			event.Loop.PendingTasksCounter.WaitIsZero()
@@ -61,7 +61,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		})
 
 		// set MinCommittableEpochAge to genesis so nothing is commited.
-		t.engine = engine.New(storageInstance, engine.WithNotarizationManagerOptions(notarization.MinCommittableEpochAge(time.Since(time.Unix(epoch.GenesisTime, 0)))), engine.WithTangleOptions(t.optsTangleOptions...), engine.WithSybilProtectionProvider(dpos.NewSybilProtectionProvider()))
+		t.engine = engine.New(storageInstance, dpos.NewProvider(), mana1.NewProvider(), engine.WithNotarizationManagerOptions(notarization.MinCommittableEpochAge(time.Since(time.Unix(epoch.GenesisTime, 0)))), engine.WithTangleOptions(t.optsTangleOptions...))
 
 		t.TestFramework = tangle.NewTestFramework(
 			test,

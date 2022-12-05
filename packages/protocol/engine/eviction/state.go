@@ -38,11 +38,7 @@ func NewState(storageInstance *storage.Storage, opts ...options.Option[State]) (
 		storage:                     storageInstance,
 		lastEvictedEpoch:            storageInstance.Settings.LatestCommitment().Index(),
 		optsRootBlocksEvictionDelay: 3,
-	}, opts, func(s *State) {
-		if s.importRootBlocksFromStorage() == 0 {
-			s.AddRootBlock(models.EmptyBlockID)
-		}
-	})
+	}, opts)
 }
 
 // EvictUntil triggers the EpochEvicted event for every evicted epoch and evicts all root blocks until the delayed
@@ -120,6 +116,10 @@ func (s *State) RemoveRootBlock(id models.BlockID) {
 
 // IsRootBlock returns true if the given block is a root block.
 func (s *State) IsRootBlock(id models.BlockID) (has bool) {
+	if id == models.EmptyBlockID {
+		return true
+	}
+
 	s.evictionMutex.RLock()
 	defer s.evictionMutex.RUnlock()
 

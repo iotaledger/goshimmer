@@ -12,6 +12,7 @@ const (
 	unspentOutputsPrefix byte = iota
 	unspentOutputIDsPrefix
 	consensusWeightsPrefix
+	attestationsPrefix
 )
 
 type Permanent struct {
@@ -20,6 +21,7 @@ type Permanent struct {
 	UnspentOutputs   *UnspentOutputs
 	UnspentOutputIDs kvstore.KVStore
 	SybilProtection  kvstore.KVStore
+	Attestations     kvstore.KVStore
 }
 
 func New(disk *diskutil.DiskUtil, database *database.Manager) (p *Permanent) {
@@ -29,5 +31,6 @@ func New(disk *diskutil.DiskUtil, database *database.Manager) (p *Permanent) {
 		UnspentOutputs:   NewUnspentOutputs(lo.PanicOnErr(database.PermanentStorage().WithRealm([]byte{unspentOutputsPrefix}))),
 		UnspentOutputIDs: lo.PanicOnErr(database.PermanentStorage().WithRealm([]byte{unspentOutputIDsPrefix})),
 		SybilProtection:  lo.PanicOnErr(database.PermanentStorage().WithRealm([]byte{consensusWeightsPrefix})),
+		Attestations:     lo.PanicOnErr(database.PermanentStorage().WithRealm([]byte{attestationsPrefix})),
 	}
 }

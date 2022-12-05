@@ -77,8 +77,8 @@ func NewSybilProtection(engineInstance *engine.Engine, opts ...options.Option[Sy
 		})
 }
 
-// NewSybilProtectionProvider returns a new sybil protection provider that uses the ProofOfStake module.
-func NewSybilProtectionProvider(opts ...options.Option[SybilProtection]) engine.ModuleProvider[sybilprotection.SybilProtection] {
+// NewProvider returns a new sybil protection provider that uses the ProofOfStake module.
+func NewProvider(opts ...options.Option[SybilProtection]) engine.ModuleProvider[sybilprotection.SybilProtection] {
 	return engine.ProvideModule(func(e *engine.Engine) sybilprotection.SybilProtection {
 		return NewSybilProtection(e, opts...)
 	})

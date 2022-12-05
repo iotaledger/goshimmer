@@ -56,8 +56,6 @@ type Engine struct {
 	isBootstrapped      bool
 	isBootstrappedMutex sync.Mutex
 
-	sybilProtectionProvider        func(engine *Engine) sybilprotection.SybilProtection
-	throughputQuotaProvider        func(engine *Engine) throughputquota.ThroughputQuota
 	optsBootstrappedThreshold      time.Duration
 	optsEntryPointsDepth           int
 	optsSnapshotDepth              int
@@ -72,24 +70,27 @@ type Engine struct {
 	traits.Initializable
 }
 
-func New(storageInstance *storage.Storage, opts ...options.Option[Engine]) (engine *Engine) {
+func New(
+	storageInstance *storage.Storage,
+	sybilProtectionProvider ModuleProvider[sybilprotection.SybilProtection],
+	throughputQuotaProvider ModuleProvider[throughputquota.ThroughputQuota],
+	opts ...options.Option[Engine],
+) (engine *Engine) {
 	return options.Apply(
 		&Engine{
 			Events:    NewEvents(),
 			Storage:   storageInstance,
 			Startable: traits.NewStartable(),
 
-			sybilProtectionProvider: panicOnEmptyProvider[sybilprotection.SybilProtection],
-			throughputQuotaProvider: panicOnEmptyProvider[throughputquota.ThroughputQuota],
-
 			optsBootstrappedThreshold: 10 * time.Second,
 			optsSnapshotDepth:         5,
 		}, opts, func(e *Engine) {
-			e.LedgerState = ledgerstate.New(storageInstance)
+			e.Ledger = ledger.New(e.Storage, e.optsLedgerOptions...)
+			e.LedgerState = ledgerstate.New(storageInstance, e.Ledger)
 			e.Clock = clock.New()
 			e.EvictionState = eviction.NewState(storageInstance)
-			e.SybilProtection = e.sybilProtectionProvider(e)
-			e.ThroughputQuota = e.throughputQuotaProvider(e)
+			e.SybilProtection = sybilProtectionProvider(e)
+			e.ThroughputQuota = throughputQuotaProvider(e)
 
 			e.Initializable = traits.NewInitializable(
 				e.Storage.Settings.TriggerInitialized,
@@ -235,7 +236,7 @@ func (e *Engine) Export(writer io.WriteSeeker, epoch epoch.Index) (err error) {
 		return errors.Errorf("failed to export commitments: %w", err)
 	} else if err = e.EvictionState.Export(writer, epoch); err != nil {
 		return errors.Errorf("failed to export eviction state: %w", err)
-	} else if err = e.NotarizationManager.Attestations.Export(writer, epoch-1); err != nil {
+	} else if err = e.NotarizationManager.Attestations.Export(writer, (epoch - 1).Max(0)); err != nil {
 		return errors.Errorf("failed to export attestors: %w", err)
 	} else if err = e.LedgerState.Export(writer, epoch); err != nil {
 		return errors.Errorf("failed to export ledger state: %w", err)
@@ -251,9 +252,10 @@ func (e *Engine) initFilter() {
 }
 
 func (e *Engine) initLedger() {
-	e.Ledger = ledger.New(e.Storage, e.optsLedgerOptions...)
-
 	e.Events.Ledger.LinkTo(e.Ledger.Events)
+}
+
+func (e *Engine) initLedgerState() {
 }
 
 func (e *Engine) initTangle() {
@@ -443,18 +445,6 @@ func WithBootstrapThreshold(threshold time.Duration) options.Option[Engine] {
 	}
 }
 
-func WithSybilProtectionProvider(provider func(*Engine) sybilprotection.SybilProtection) options.Option[Engine] {
-	return func(e *Engine) {
-		e.sybilProtectionProvider = provider
-	}
-}
-
-func WithThroughputQuotaProvider(provider func(*Engine) throughputquota.ThroughputQuota) options.Option[Engine] {
-	return func(e *Engine) {
-		e.throughputQuotaProvider = provider
-	}
-}
-
 func WithTangleOptions(opts ...options.Option[tangle.Tangle]) options.Option[Engine] {
 	return func(e *Engine) {
 		e.optsTangleOptions = opts
@@ -504,7 +494,3 @@ func WithRequesterOptions(opts ...options.Option[eventticker.EventTicker[models.
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-func panicOnEmptyProvider[T any](engine *Engine) T {
-	panic("provider not set")
-}

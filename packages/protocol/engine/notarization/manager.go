@@ -45,6 +45,7 @@ func NewManager(storageInstance *storage.Storage, ledgerState *ledgerstate.Ledge
 	return options.Apply(&Manager{
 		Events:                     NewEvents(),
 		EpochMutations:             NewEpochMutations(weights, storageInstance.Settings.LatestCommitment().Index()),
+		Attestations:               NewAttestations(storageInstance.Permanent.Attestations, storageInstance.Prunable.Attestations, weights),
 		storage:                    storageInstance,
 		ledgerState:                ledgerState,
 		pendingConflictsCounters:   shrinkingmap.New[epoch.Index, uint64](),

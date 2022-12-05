@@ -12,6 +12,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
@@ -37,7 +39,7 @@ func CreateSnapshot(s *storage.Storage, snapshotFileName string, genesisTokenAmo
 		panic(err)
 	}
 
-	engineInstance := engine.New(s)
+	engineInstance := engine.New(s, dpos.NewProvider(), mana1.NewProvider())
 	// prepare outputsWithMetadata
 	output, outputMetadata := createOutput(seed.NewSeed(genesisSeedBytes).Address(0).Address(), genesisTokenAmount, identity.ID{}, now)
 
@@ -52,10 +54,14 @@ func CreateSnapshot(s *storage.Storage, snapshotFileName string, genesisTokenAmo
 		output, outputMetadata = createOutput(devnetvm.NewED25519Address(randomPublicKey), value, identity.NewID(publicKey), now)
 		if err := engineInstance.LedgerState.UnspentOutputs.ApplyCreatedOutput(ledgerstate.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
 			panic(err)
-		} else if _, err := engineInstance.NotarizationManager.Attestations.Add(models.NewBlock(
-			models.WithIssuingTime(now),
-			models.WithIssuer(publicKey),
-		)); err != nil {
+		}
+
+		blk := models.NewBlock(models.WithStrongParents(models.NewBlockIDs(models.EmptyBlockID)), models.WithIssuingTime(now), models.WithIssuer(publicKey))
+		if err := blk.DetermineID(); err != nil {
+			panic(err)
+		}
+
+		if _, err := engineInstance.NotarizationManager.Attestations.Add(blk); err != nil {
 			panic(err)
 		}
 	}
@@ -75,7 +81,7 @@ func CreateSnapshot(s *storage.Storage, snapshotFileName string, genesisTokenAmo
 // | node2       | node2       |
 func CreateSnapshotForIntegrationTest(s *storage.Storage, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, genesisNodePledge []byte, nodesToPledge map[[32]byte]uint64) {
 	now := time.Now()
-	engineInstance := engine.New(s)
+	engineInstance := engine.New(s, dpos.NewProvider(), mana1.NewProvider())
 
 	// This is the same seed used to derive the faucet ID.
 	genesisPrivateKey := ed25519.PrivateKeyFromSeed(genesisNodePledge)
@@ -98,10 +104,14 @@ func CreateSnapshotForIntegrationTest(s *storage.Storage, snapshotFileName strin
 		output, outputMetadata = createOutput(seed.NewSeed(nodeSeedBytes[:]).Address(0).Address(), value, nodeID, now)
 		if err := engineInstance.LedgerState.UnspentOutputs.ApplyCreatedOutput(ledgerstate.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
 			panic(err)
-		} else if _, err := engineInstance.NotarizationManager.Attestations.Add(models.NewBlock(
-			models.WithIssuingTime(now),
-			models.WithIssuer(publicKey),
-		)); err != nil {
+		}
+
+		blk := models.NewBlock(models.WithStrongParents(models.NewBlockIDs(models.EmptyBlockID)), models.WithIssuingTime(now), models.WithIssuer(publicKey))
+		blk.DetermineID()
+		if err := blk.DetermineID(); err != nil {
+			panic(err)
+		}
+		if _, err := engineInstance.NotarizationManager.Attestations.Add(blk); err != nil {
 			panic(err)
 		}
 	}

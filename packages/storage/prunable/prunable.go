@@ -11,14 +11,14 @@ import (
 const (
 	blocksPrefix byte = iota
 	rootBlocksPrefix
-	activityLogPrefix
+	attestationsPrefix
 	ledgerStateDiffsPrefix
 )
 
 type Prunable struct {
 	Blocks           *Blocks
 	RootBlocks       *RootBlocks
-	Attestors        func(index epoch.Index) kvstore.KVStore
+	Attestations     func(index epoch.Index) kvstore.KVStore
 	LedgerStateDiffs func(index epoch.Index) kvstore.KVStore
 }
 
@@ -26,7 +26,7 @@ func New(database *database.Manager) (newPrunable *Prunable) {
 	return &Prunable{
 		Blocks:           NewBlocks(database, blocksPrefix),
 		RootBlocks:       NewRootBlocks(database, rootBlocksPrefix),
-		Attestors:        lo.Bind([]byte{activityLogPrefix}, database.Get),
+		Attestations:     lo.Bind([]byte{attestationsPrefix}, database.Get),
 		LedgerStateDiffs: lo.Bind([]byte{ledgerStateDiffsPrefix}, database.Get),
 	}
 }

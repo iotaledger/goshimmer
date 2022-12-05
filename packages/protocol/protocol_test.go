@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+
 	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
@@ -16,8 +18,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/network"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
 )
@@ -31,11 +31,11 @@ func TestProtocol(t *testing.T) {
 	diskUtil1 := diskutil.New(t.TempDir())
 
 	s := storage.New(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), DatabaseVersion)
-	snapshotcreator.CreateSnapshot(s, diskUtil1.Path("snapshot.bin"), 100, make([]byte, 32, 32), map[identity.ID]uint64{
-		identity.GenerateIdentity().ID(): 100,
+	snapshotcreator.CreateSnapshot(s, diskUtil1.Path("snapshot.bin"), 100, make([]byte, 32), map[ed25519.PublicKey]uint64{
+		identity.GenerateIdentity().PublicKey(): 100,
 	})
 
-	protocol1 := New(endpoint1, WithBaseDirectory(diskUtil1.Path()), WithSnapshotPath(diskUtil1.Path("snapshot.bin")), WithEngineOptions(engine.WithSybilProtectionProvider(dpos.NewSybilProtectionProvider())))
+	protocol1 := New(endpoint1, WithBaseDirectory(diskUtil1.Path()), WithSnapshotPath(diskUtil1.Path("snapshot.bin")))
 	protocol1.Run()
 
 	commitments := make(map[string]*commitment.Commitment)
@@ -63,11 +63,11 @@ func TestProtocol(t *testing.T) {
 	diskUtil2 := diskutil.New(t.TempDir())
 
 	s2 := storage.New(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), DatabaseVersion)
-	snapshotcreator.CreateSnapshot(s2, diskUtil2.Path("snapshot.bin"), 100, make([]byte, 32, 32), map[identity.ID]uint64{
-		identity.GenerateIdentity().ID(): 100,
+	snapshotcreator.CreateSnapshot(s2, diskUtil2.Path("snapshot.bin"), 100, make([]byte, 32), map[ed25519.PublicKey]uint64{
+		identity.GenerateIdentity().PublicKey(): 100,
 	})
 
-	protocol2 := New(endpoint2, WithBaseDirectory(diskUtil2.Path()), WithSnapshotPath(diskUtil2.Path("snapshot.bin")), WithEngineOptions(engine.WithSybilProtectionProvider(dpos.NewSybilProtectionProvider())))
+	protocol2 := New(endpoint2, WithBaseDirectory(diskUtil2.Path()), WithSnapshotPath(diskUtil2.Path("snapshot.bin")))
 	protocol2.Run()
 
 	protocol2.chainManager.Events.CommitmentMissing.Hook(event.NewClosure(func(id commitment.ID) {
@@ -82,8 +82,8 @@ func TestProtocol(t *testing.T) {
 		Source:     identity.ID{},
 	})
 
-	tf1 := engine.NewTestFramework(t, engine.WithEngine(protocol1.Engine()))
-	_ = engine.NewTestFramework(t, engine.WithEngine(protocol2.Engine()))
+	tf1 := NewEngineTestFramework(t, WithEngine(protocol1.Engine()))
+	_ = NewEngineTestFramework(t, WithEngine(protocol2.Engine()))
 
 	tf1.Tangle.CreateBlock("A", models.WithStrongParents(tf1.Tangle.BlockIDs("Genesis")))
 	tf1.Tangle.IssueBlocks("A")

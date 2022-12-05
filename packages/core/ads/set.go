@@ -42,6 +42,9 @@ func NewSet[K any, KPtr constraints.MarshalablePtr[K]](store kvstore.KVStore) (n
 
 	existingRoot, err := store.Get([]byte{rootPrefix})
 	if err != nil {
+		if errors.Is(err, kvstore.ErrKeyNotFound) {
+			return
+		}
 		panic(err)
 	}
 

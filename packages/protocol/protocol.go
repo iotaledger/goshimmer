@@ -19,7 +19,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
 	"github.com/iotaledger/goshimmer/packages/storage"
@@ -57,6 +61,8 @@ type Protocol struct {
 	optsEngineOptions                 []options.Option[engine.Engine]
 	optsTipManagerOptions             []options.Option[tipmanager.TipManager]
 	optsStorageDatabaseManagerOptions []options.Option[database.Manager]
+	optsSybilProtectionProvider       engine.ModuleProvider[sybilprotection.SybilProtection]
+	optsThroughputQuotaProvider       engine.ModuleProvider[throughputquota.ThroughputQuota]
 }
 
 func New(dispatcher network.Endpoint, opts ...options.Option[Protocol]) (protocol *Protocol) {
@@ -64,6 +70,8 @@ func New(dispatcher network.Endpoint, opts ...options.Option[Protocol]) (protoco
 		Events: NewEvents(),
 
 		dispatcher: dispatcher,
+		optsSybilProtectionProvider: dpos.NewProvider(),
+		optsThroughputQuotaProvider: mana1.NewProvider(),
 
 		optsBaseDirectory:    "",
 		optsPruningThreshold: 6 * 60, // 1 hour given that epoch duration is 10 seconds
@@ -165,7 +173,7 @@ func (p *Protocol) initNetworkProtocol() {
 }
 
 func (p *Protocol) initMainEngine() {
-	p.engine = engine.New(p.storage, p.optsEngineOptions...)
+	p.engine = engine.New(p.storage, p.optsSybilProtectionProvider, p.optsThroughputQuotaProvider, p.optsEngineOptions...)
 }
 
 func (p *Protocol) initChainManager() {
@@ -284,6 +292,18 @@ func WithPruningThreshold(pruningThreshold uint64) options.Option[Protocol] {
 func WithSnapshotPath(snapshot string) options.Option[Protocol] {
 	return func(n *Protocol) {
 		n.optsSnapshotPath = snapshot
+	}
+}
+
+func WithSybilProtectionProvider(sybilProtectionProvider engine.ModuleProvider[sybilprotection.SybilProtection]) options.Option[Protocol] {
+	return func(n *Protocol) {
+		n.optsSybilProtectionProvider = sybilProtectionProvider
+	}
+}
+
+func WithThroughputQuotaProvider(sybilProtectionProvider engine.ModuleProvider[throughputquota.ThroughputQuota]) options.Option[Protocol] {
+	return func(n *Protocol) {
+		n.optsThroughputQuotaProvider = sybilProtectionProvider
 	}
 }
 

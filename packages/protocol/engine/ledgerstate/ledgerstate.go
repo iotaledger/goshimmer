@@ -4,8 +4,8 @@ import (
 	"io"
 	"sync"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
@@ -23,13 +23,15 @@ type LedgerState struct {
 	traits.Initializable
 }
 
-func New(storageInstance *storage.Storage) (ledgerState *LedgerState) {
+func New(storageInstance *storage.Storage, memPool *ledger.Ledger) (ledgerState *LedgerState) {
 	ledgerState = &LedgerState{
-		Initializable:  traits.NewInitializable(ledgerState.UnspentOutputs.TriggerInitialized, ledgerState.StateDiffs.TriggerInitialized),
+		MemPool:        memPool,
 		StateDiffs:     NewStateDiffs(storageInstance),
-		UnspentOutputs: NewUnspentOutputs(storageInstance.UnspentOutputIDs, ledgerState.MemPool.Storage),
+		UnspentOutputs: NewUnspentOutputs(storageInstance.UnspentOutputIDs, memPool),
 		storage:        storageInstance,
 	}
+
+	ledgerState.Initializable = traits.NewInitializable(ledgerState.UnspentOutputs.TriggerInitialized, ledgerState.StateDiffs.TriggerInitialized)
 
 	ledgerState.MemPool.Events.TransactionAccepted.Hook(event.NewClosure(ledgerState.onTransactionAccepted))
 	ledgerState.MemPool.Events.TransactionInclusionUpdated.Hook(event.NewClosure(ledgerState.onTransactionInclusionUpdated))

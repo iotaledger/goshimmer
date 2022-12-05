@@ -53,8 +53,8 @@ func New(engineInstance *engine.Engine, opts ...options.Option[ThroughputQuota])
 	})
 }
 
-// NewThroughputQuotaProvider returns a new throughput quota provider that uses mana1.
-func NewThroughputQuotaProvider(opts ...options.Option[ThroughputQuota]) engine.ModuleProvider[throughputquota.ThroughputQuota] {
+// NewProvider returns a new throughput quota provider that uses mana1.
+func NewProvider(opts ...options.Option[ThroughputQuota]) engine.ModuleProvider[throughputquota.ThroughputQuota] {
 	return engine.ProvideModule(func(e *engine.Engine) throughputquota.ThroughputQuota {
 		return New(e, opts...)
 	})
