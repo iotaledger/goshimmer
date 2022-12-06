@@ -72,8 +72,8 @@ type Engine struct {
 
 func New(
 	storageInstance *storage.Storage,
-	sybilProtectionProvider ModuleProvider[sybilprotection.SybilProtection],
-	throughputQuotaProvider ModuleProvider[throughputquota.ThroughputQuota],
+	sybilProtection ModuleProvider[sybilprotection.SybilProtection],
+	throughputQuota ModuleProvider[throughputquota.ThroughputQuota],
 	opts ...options.Option[Engine],
 ) (engine *Engine) {
 	return options.Apply(
@@ -89,8 +89,8 @@ func New(
 			e.LedgerState = ledgerstate.New(storageInstance, e.Ledger)
 			e.Clock = clock.New()
 			e.EvictionState = eviction.NewState(storageInstance)
-			e.SybilProtection = sybilProtectionProvider(e)
-			e.ThroughputQuota = throughputQuotaProvider(e)
+			e.SybilProtection = sybilProtection(e)
+			e.ThroughputQuota = throughputQuota(e)
 			e.NotarizationManager = notarization.NewManager(e.Storage, e.LedgerState, e.SybilProtection.Weights(), e.optsNotarizationManagerOptions...)
 
 			e.Initializable = traits.NewInitializable(

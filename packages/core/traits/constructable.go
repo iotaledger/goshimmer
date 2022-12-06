@@ -47,7 +47,7 @@ func (c *constructable) SubscribeConstructed(callback func()) (unsubscribe func(
 		callback()
 	})
 
-	c.linkable.Attach(closure)
+	c.linkable.Hook(closure)
 
 	return func() {
 		c.linkable.Detach(closure)

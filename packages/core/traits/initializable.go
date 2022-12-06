@@ -47,7 +47,7 @@ func (i *initializable) SubscribeInitialized(callback func()) (unsubscribe func(
 		callback()
 	})
 
-	i.linkable.Attach(closure)
+	i.linkable.Hook(closure)
 
 	return func() {
 		i.linkable.Detach(closure)
