@@ -241,7 +241,7 @@ func (a *Gadget) setup() {
 		a.RefreshConflictAcceptance(evt.ConflictID)
 	}))
 
-	a.tangle.Booker.Events.SequenceEvicted.Attach(event.NewClosure(a.evictSequence))
+	a.tangle.Booker.Events.MarkerManager.SequenceEvicted.Attach(event.NewClosure(a.evictSequence))
 }
 
 func (a *Gadget) block(id models.BlockID) (block *Block, exists bool) {
