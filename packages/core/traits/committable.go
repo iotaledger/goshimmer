@@ -16,7 +16,7 @@ type Committable interface {
 }
 
 // NewCommittable creates a new Committable trait.
-func NewCommittable() Committable {
+func NewCommittable() (newCommittable Committable) {
 	return &committable{}
 }
 
