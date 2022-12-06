@@ -2,6 +2,7 @@ package ledger
 
 import (
 	"context"
+	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/cerrors"
@@ -68,7 +69,7 @@ func (b *booker) bookTransaction(ctx context.Context, tx utxo.Transaction, txMet
 		accessPledgeID = devnetTx.Essence().AccessPledgeID()
 	}
 
-	b.storeOutputs(outputs, conflictIDs, consensusPledgeID, accessPledgeID)
+	b.storeOutputs(outputs, txMetadata.InclusionTime(), conflictIDs, consensusPledgeID, accessPledgeID)
 
 	txMetadata.SetBooked(true)
 
@@ -100,12 +101,13 @@ func (b *booker) inheritConflictIDs(ctx context.Context, txID utxo.TransactionID
 }
 
 // storeOutputs stores the Outputs in the Ledger.
-func (b *booker) storeOutputs(outputs *utxo.Outputs, conflictIDs *set.AdvancedSet[utxo.TransactionID], consensusPledgeID, accessPledgeID identity.ID) {
+func (b *booker) storeOutputs(outputs *utxo.Outputs, txInclusionTime time.Time, conflictIDs *set.AdvancedSet[utxo.TransactionID], consensusPledgeID, accessPledgeID identity.ID) {
 	_ = outputs.ForEach(func(output utxo.Output) (err error) {
 		outputMetadata := NewOutputMetadata(output.ID())
 		outputMetadata.SetConflictIDs(conflictIDs)
 		outputMetadata.SetAccessManaPledgeID(accessPledgeID)
 		outputMetadata.SetConsensusManaPledgeID(consensusPledgeID)
+		outputMetadata.SetCreationTime(txInclusionTime)
 		b.ledger.Storage.OutputMetadataStorage.Store(outputMetadata).Release()
 		b.ledger.Storage.OutputStorage.Store(output).Release()
 

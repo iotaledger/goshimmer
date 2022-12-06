@@ -129,6 +129,12 @@ func (l *Ledger) SetTransactionInclusionTime(id utxo.TransactionID, inclusionTim
 			return
 		}
 
+		for it := metadata.OutputIDs().Iterator(); it.HasNext(); {
+			l.Storage.CachedOutputMetadata(it.Next()).Consume(func(outputMetadata *OutputMetadata) {
+				outputMetadata.SetCreationTime(inclusionTime)
+			})
+		}
+
 		l.Events.TransactionInclusionUpdated.Trigger(&TransactionInclusionUpdatedEvent{
 			TransactionID:         id,
 			TransactionMetadata:   metadata,

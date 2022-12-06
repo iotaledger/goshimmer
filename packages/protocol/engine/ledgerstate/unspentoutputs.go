@@ -111,7 +111,7 @@ func (u *UnspentOutputs) ApplyCreatedOutput(output *OutputWithMetadata) (err err
 	if !u.commitmentState.BatchedStateTransitionStarted() {
 		u.IDs.Add(output.Output().ID())
 
-		u.importOutputIntoMemPool(output)
+		u.importOutputIntoMemPoolStorage(output)
 
 		targetConsumers = u.consumers
 	} else {
@@ -265,13 +265,14 @@ func (u *UnspentOutputs) outputWithMetadata(outputID utxo.OutputID) (outputWithM
 	return
 }
 
-func (u *UnspentOutputs) importOutputIntoMemPool(output *OutputWithMetadata) {
+func (u *UnspentOutputs) importOutputIntoMemPoolStorage(output *OutputWithMetadata) {
 	u.memPool.Storage.CachedOutput(output.ID(), func(id utxo.OutputID) utxo.Output { return output.Output() }).Release()
 	u.memPool.Storage.CachedOutputMetadata(output.ID(), func(outputID utxo.OutputID) *ledger.OutputMetadata {
 		newOutputMetadata := ledger.NewOutputMetadata(output.ID())
 		newOutputMetadata.SetAccessManaPledgeID(output.AccessManaPledgeID())
 		newOutputMetadata.SetConsensusManaPledgeID(output.ConsensusManaPledgeID())
 		newOutputMetadata.SetConfirmationState(confirmation.Confirmed)
+		newOutputMetadata.SetCreationTime(output.CreationTime())
 
 		return newOutputMetadata
 	}).Release()

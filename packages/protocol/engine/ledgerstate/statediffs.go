@@ -288,7 +288,7 @@ func (s *StateDiffs) storeTransaction(index epoch.Index, transaction utxo.Transa
 func (s *StateDiffs) outputWithMetadata(index epoch.Index, outputID utxo.OutputID) (outputWithMetadata *OutputWithMetadata) {
 	s.ledger.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
 		s.ledger.Storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledger.OutputMetadata) {
-			outputWithMetadata = NewOutputWithMetadata(index, outputID, output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())
+			outputWithMetadata = NewOutputWithMetadata(index, outputID, output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID(), outputMetadata.CreationTime())
 		})
 	})
 
