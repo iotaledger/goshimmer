@@ -32,7 +32,7 @@ import (
 func CreateSnapshot(s *storage.Storage, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge map[identity.ID]uint64) {
 	now := time.Now()
 
-	if err := s.Commitments.Store(0, &commitment.Commitment{}); err != nil {
+	if err := s.Commitments.Store(&commitment.Commitment{}); err != nil {
 		panic(err)
 	}
 	if err := s.Settings.SetChainID(lo.PanicOnErr(s.Commitments.Load(0)).ID()); err != nil {

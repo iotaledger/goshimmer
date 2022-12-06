@@ -139,6 +139,11 @@ func (a *Attestations) Import(reader io.ReadSeeker) (err error) {
 		return errors.Errorf("failed to read epoch: %w", err)
 	}
 
+	weight, err := stream.Read[int64](reader)
+	if err != nil {
+		return errors.Errorf("failed to read weight for epoch: %w", err)
+	}
+
 	attestations, err := a.attestations(epoch.Index(epochIndex))
 	if err != nil {
 		return errors.Errorf("failed to import attestations for epoch %d: %w", epochIndex, err)
@@ -157,6 +162,10 @@ func (a *Attestations) Import(reader io.ReadSeeker) (err error) {
 		return errors.Errorf("failed to import attestations for epoch %d: %w", epochIndex, err)
 	}
 
+	a.setWeight(epoch.Index(epochIndex), weight)
+
+	a.SetLastCommittedEpoch(epoch.Index(epochIndex))
+
 	a.TriggerInitialized()
 
 	return
@@ -165,6 +174,12 @@ func (a *Attestations) Import(reader io.ReadSeeker) (err error) {
 func (a *Attestations) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (err error) {
 	if err = stream.Write(writer, uint64(targetEpoch)); err != nil {
 		return errors.Errorf("failed to write epoch: %w", err)
+	}
+
+	if weight, err := a.weight(targetEpoch); targetEpoch != 0 && err != nil {
+		return errors.Errorf("failed to obtain weight for epoch: %w", err)
+	} else if err = stream.Write(writer, weight); err != nil {
+		return errors.Errorf("failed to write epoch weight: %w", err)
 	}
 
 	return stream.WriteCollection(writer, func() (elementsCount uint64, err error) {

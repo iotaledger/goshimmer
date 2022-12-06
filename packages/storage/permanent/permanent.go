@@ -18,7 +18,7 @@ const (
 type Permanent struct {
 	Settings         *Settings
 	Commitments      *Commitments
-	UnspentOutputs   *UnspentOutputs
+	UnspentOutputs   kvstore.KVStore
 	UnspentOutputIDs kvstore.KVStore
 	SybilProtection  kvstore.KVStore
 	Attestations     kvstore.KVStore
@@ -28,7 +28,7 @@ func New(disk *diskutil.DiskUtil, database *database.Manager) (p *Permanent) {
 	return &Permanent{
 		Settings:         NewSettings(disk.Path("settings.bin")),
 		Commitments:      NewCommitments(disk.Path("commitments.bin")),
-		UnspentOutputs:   NewUnspentOutputs(lo.PanicOnErr(database.PermanentStorage().WithRealm([]byte{unspentOutputsPrefix}))),
+		UnspentOutputs:   lo.PanicOnErr(database.PermanentStorage().WithRealm([]byte{unspentOutputsPrefix})),
 		UnspentOutputIDs: lo.PanicOnErr(database.PermanentStorage().WithRealm([]byte{unspentOutputIDsPrefix})),
 		SybilProtection:  lo.PanicOnErr(database.PermanentStorage().WithRealm([]byte{consensusWeightsPrefix})),
 		Attestations:     lo.PanicOnErr(database.PermanentStorage().WithRealm([]byte{attestationsPrefix})),

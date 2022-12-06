@@ -84,7 +84,12 @@ func NewEngineTestFramework(test *testing.T, opts ...options.Option[EngineTestFr
 		}
 
 		t.Tangle = tangle.NewTestFramework(test, tangle.WithTangle(t.Engine.Tangle))
-		t.Acceptance = blockgadget.NewTestFramework(test, blockgadget.WithTangle(t.Engine.Tangle), blockgadget.WithTangleTestFramework(t.Tangle))
+		t.Acceptance = blockgadget.NewTestFramework(test,
+			blockgadget.WithGadget(t.Engine.Consensus.BlockGadget),
+			blockgadget.WithTangle(t.Engine.Tangle),
+			blockgadget.WithTangleTestFramework(t.Tangle),
+			blockgadget.WithEvictionState(t.Engine.EvictionState),
+		)
 	})
 }
 

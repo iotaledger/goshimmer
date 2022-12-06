@@ -231,6 +231,10 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 		m.Events.Error.Trigger(errors.Errorf("failed to set latest commitment: %w", err))
 	}
 
+	if err = m.storage.Commitments.Store(newCommitment); err != nil {
+		m.Events.Error.Trigger(errors.Errorf("failed to store latest commitment: %w", err))
+	}
+
 	m.Events.EpochCommitted.Trigger(&EpochCommittedDetails{
 		Commitment:                newCommitment,
 		AcceptedBlocksCount:       acceptedBlocks.Size(),

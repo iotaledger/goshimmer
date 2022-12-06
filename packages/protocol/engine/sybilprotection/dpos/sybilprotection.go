@@ -61,7 +61,8 @@ func NewSybilProtection(engineInstance *engine.Engine, opts ...options.Option[Sy
 				s.engine.LedgerState.UnspentOutputs.Subscribe(s)
 
 				s.engine.NotarizationManager.Attestations.SubscribeInitialized(func() {
-					attestations, err := s.engine.NotarizationManager.Attestations.Attestations(s.engine.Storage.Settings.LatestCommitment().Index())
+					// Attestations are imported up to LatestCommittedEpoch - 1
+					attestations, err := s.engine.NotarizationManager.Attestations.Attestations((s.engine.Storage.Settings.LatestCommitment().Index() - 1).Max(0))
 					if err != nil {
 						panic(err)
 					}

@@ -16,7 +16,6 @@ import (
 
 type Weights struct {
 	Events      *Events
-	store       kvstore.KVStore
 	settings    *permanent.Settings
 	weights     *ads.Map[identity.ID, Weight, *identity.ID, *Weight]
 	totalWeight *Weight
@@ -26,7 +25,6 @@ type Weights struct {
 func NewWeights(store kvstore.KVStore, settings *permanent.Settings) (newConsensusWeights *Weights) {
 	return &Weights{
 		Events:      NewEvents(),
-		store:       store,
 		settings:    settings,
 		weights:     ads.NewMap[identity.ID, Weight](store),
 		totalWeight: NewWeight(0, -1),

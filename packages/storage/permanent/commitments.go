@@ -31,9 +31,9 @@ func NewCommitments(path string) (newCommitment *Commitments) {
 	}
 }
 
-func (c *Commitments) Store(index epoch.Index, commitment *commitment.Commitment) (err error) {
-	if err = c.slice.Set(int(index), commitment); err != nil {
-		return errors.Errorf("failed to store commitment for epoch %d: %w", index, err)
+func (c *Commitments) Store(commitment *commitment.Commitment) (err error) {
+	if err = c.slice.Set(int(commitment.Index()), commitment); err != nil {
+		return errors.Errorf("failed to store commitment for epoch %d: %w", commitment.Index(), err)
 	}
 
 	return nil
@@ -86,7 +86,7 @@ func (c *Commitments) Import(reader io.ReadSeeker) (err error) {
 			return errors.Errorf("failed to read commitment of epoch %d: consumed bytes (%d) != expected bytes (%d)", epochIndex, consumedBytes, commitmentSize)
 		}
 
-		if err = c.Store(epoch.Index(epochIndex), newCommitment); err != nil {
+		if err = c.Store(newCommitment); err != nil {
 			return errors.Errorf("failed to store commitment of epoch %d: %w", epochIndex, err)
 		}
 	}

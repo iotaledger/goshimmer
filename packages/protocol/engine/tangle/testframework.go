@@ -68,7 +68,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 			virtualvoting.WithLedger(t.Tangle.Ledger),
 			virtualvoting.WithBooker(t.Tangle.Booker),
 			virtualvoting.WithVirtualVoting(t.Tangle.VirtualVoting),
-			virtualvoting.WithValidators(t.optsValidators),
+			virtualvoting.WithValidators(t.Tangle.Validators),
 		)
 	})
 }
