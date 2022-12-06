@@ -2,7 +2,6 @@ package protocol
 
 import (
 	"fmt"
-	"os"
 	"testing"
 	"time"
 
@@ -15,7 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/goshimmer/packages/storage"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
@@ -32,8 +31,7 @@ func TestProtocol(t *testing.T) {
 	endpoint1 := testNetwork.Join(identity.GenerateIdentity().ID())
 	diskUtil1 := diskutil.New(t.TempDir())
 
-	s := storage.New(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), DatabaseVersion)
-	snapshotcreator.CreateSnapshot(s, diskUtil1.Path("snapshot.bin"), 100, make([]byte, 32), map[identity.ID]uint64{
+	snapshotcreator.CreateSnapshot(DatabaseVersion, diskUtil1.Path("snapshot.bin"), 100, make([]byte, 32), map[identity.ID]uint64{
 		identity.GenerateIdentity().ID(): 100,
 	})
 
@@ -64,8 +62,7 @@ func TestProtocol(t *testing.T) {
 	endpoint2 := testNetwork.Join(identity.GenerateIdentity().ID())
 	diskUtil2 := diskutil.New(t.TempDir())
 
-	s2 := storage.New(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), DatabaseVersion)
-	snapshotcreator.CreateSnapshot(s2, diskUtil2.Path("snapshot.bin"), 100, make([]byte, 32), map[identity.ID]uint64{
+	snapshotcreator.CreateSnapshot(DatabaseVersion, diskUtil2.Path("snapshot.bin"), 100, make([]byte, 32), map[identity.ID]uint64{
 		identity.GenerateIdentity().ID(): 100,
 	})
 
@@ -106,11 +103,25 @@ func TestEngine_WriteSnapshot(t *testing.T) {
 	tf := NewEngineTestFramework(t)
 	tempDisk := diskutil.New(t.TempDir())
 
-	snapshotcreator.CreateSnapshot(tf.Engine.Storage, tempDisk.Path("genesis_snapshot.bin"), 100, make([]byte, 32), map[identity.ID]uint64{
-		identity.GenerateIdentity().ID(): 100,
-	})
+	identitiesMap := map[string]ed25519.PublicKey{
+		"A": identity.GenerateIdentity().PublicKey(),
+		"B": identity.GenerateIdentity().PublicKey(),
+		"C": identity.GenerateIdentity().PublicKey(),
+		"D": identity.GenerateIdentity().PublicKey(),
+	}
+
+	identitiesWeights := map[identity.ID]uint64{
+		identity.New(identitiesMap["A"]).ID(): 25,
+		identity.New(identitiesMap["B"]).ID(): 25,
+		identity.New(identitiesMap["C"]).ID(): 25,
+		identity.New(identitiesMap["D"]).ID(): 25,
+	}
+
+	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDisk.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights)
 
 	tf.Engine.Initialize(tempDisk.Path("genesis_snapshot.bin"))
+
+	fmt.Println("+++", lo.PanicOnErr(tf.Engine.SybilProtection.Weights().Map()))
 
 	tf.Engine.Clock.Events.AcceptanceTimeUpdated.Hook(event.NewClosure(func(event *clock.TimeUpdate) {
 		fmt.Println("> AcceptanceTimeUpdated", event.NewTime)
@@ -118,18 +129,13 @@ func TestEngine_WriteSnapshot(t *testing.T) {
 
 	acceptedBlocks := make(map[string]bool)
 
-	tf.Tangle.CreateIdentity("A", 25)
-	tf.Tangle.CreateIdentity("B", 25)
-	tf.Tangle.CreateIdentity("C", 25)
-	tf.Tangle.CreateIdentity("D", 25)
-
 	epoch1IssuingTime := time.Unix(epoch.GenesisTime+1, 0)
 
 	// Blocks in epoch 1
-	tf.Tangle.CreateBlock("A.1", models.WithStrongParents(tf.Tangle.BlockIDs("Genesis")), models.WithIssuer(tf.Tangle.Identity("A").PublicKey()), models.WithIssuingTime(epoch1IssuingTime))
-	tf.Tangle.CreateBlock("B.2", models.WithStrongParents(tf.Tangle.BlockIDs("A.1")), models.WithIssuer(tf.Tangle.Identity("B").PublicKey()), models.WithIssuingTime(epoch1IssuingTime))
-	tf.Tangle.CreateBlock("C.3", models.WithStrongParents(tf.Tangle.BlockIDs("B.2")), models.WithIssuer(tf.Tangle.Identity("C").PublicKey()), models.WithIssuingTime(epoch1IssuingTime))
-	tf.Tangle.CreateBlock("D.4", models.WithStrongParents(tf.Tangle.BlockIDs("C.3")), models.WithIssuer(tf.Tangle.Identity("D").PublicKey()), models.WithIssuingTime(epoch1IssuingTime))
+	tf.Tangle.CreateBlock("A.1", models.WithStrongParents(tf.Tangle.BlockIDs("Genesis")), models.WithIssuer(identitiesMap["A"]), models.WithIssuingTime(epoch1IssuingTime))
+	tf.Tangle.CreateBlock("B.2", models.WithStrongParents(tf.Tangle.BlockIDs("A.1")), models.WithIssuer(identitiesMap["B"]), models.WithIssuingTime(epoch1IssuingTime))
+	tf.Tangle.CreateBlock("C.3", models.WithStrongParents(tf.Tangle.BlockIDs("B.2")), models.WithIssuer(identitiesMap["C"]), models.WithIssuingTime(epoch1IssuingTime))
+	tf.Tangle.CreateBlock("D.4", models.WithStrongParents(tf.Tangle.BlockIDs("C.3")), models.WithIssuer(identitiesMap["D"]), models.WithIssuingTime(epoch1IssuingTime))
 	tf.Tangle.IssueBlocks("A.1", "B.2", "C.3", "D.4").WaitUntilAllTasksProcessed()
 
 	tf.Acceptance.AssertBlockTracked(4)
@@ -142,7 +148,7 @@ func TestEngine_WriteSnapshot(t *testing.T) {
 	}))
 
 	// Block in epoch 11
-	tf.Tangle.CreateBlock("A.5", models.WithStrongParents(tf.Tangle.BlockIDs("D.4")), models.WithIssuer(tf.Tangle.Identity("A").PublicKey()))
+	tf.Tangle.CreateBlock("A.5", models.WithStrongParents(tf.Tangle.BlockIDs("D.4")), models.WithIssuer(identitiesMap["A"]))
 	tf.Tangle.IssueBlocks("A.5").WaitUntilAllTasksProcessed()
 
 	tf.Acceptance.ValidateAcceptedBlocks(lo.MergeMaps(acceptedBlocks, map[string]bool{
@@ -155,8 +161,8 @@ func TestEngine_WriteSnapshot(t *testing.T) {
 	// Time hasn't advanced past epoch 1
 	assert.Equal(t, tf.Engine.Storage.Settings.LatestCommitment().Index(), epoch.Index(0))
 
-	tf.Tangle.CreateBlock("B.6", models.WithStrongParents(tf.Tangle.BlockIDs("A.5")), models.WithIssuer(tf.Tangle.Identity("B").PublicKey()))
-	tf.Tangle.CreateBlock("C.7", models.WithStrongParents(tf.Tangle.BlockIDs("B.6")), models.WithIssuer(tf.Tangle.Identity("C").PublicKey()))
+	tf.Tangle.CreateBlock("B.6", models.WithStrongParents(tf.Tangle.BlockIDs("A.5")), models.WithIssuer(identitiesMap["B"]))
+	tf.Tangle.CreateBlock("C.7", models.WithStrongParents(tf.Tangle.BlockIDs("B.6")), models.WithIssuer(identitiesMap["C"]))
 	tf.Tangle.IssueBlocks("B.6", "C.7").WaitUntilAllTasksProcessed()
 
 	// Some blocks got evicted and we have to restart evaluating with a new map
@@ -171,6 +177,7 @@ func TestEngine_WriteSnapshot(t *testing.T) {
 	tf.Engine.WriteSnapshot(tempDisk.Path("snapshot_epoch4.bin"))
 
 	tf2 := NewEngineTestFramework(t)
+
 	tf2.Engine.Initialize(tempDisk.Path("snapshot_epoch4.bin"))
 
 	// Settings
@@ -189,9 +196,9 @@ func TestEngine_WriteSnapshot(t *testing.T) {
 	})
 
 	// SybilProtection
-	//assert.Equal(t, lo.PanicOnErr(tf.Engine.SybilProtection.Weights().Map()), lo.PanicOnErr(tf2.Engine.SybilProtection.Weights().Map()))
-	//assert.Equal(t, tf.Engine.SybilProtection.Weights().TotalWeight(), tf2.Engine.SybilProtection.Weights().TotalWeight())
-	//assert.Equal(t, tf.Engine.SybilProtection.Weights().Root(), tf2.Engine.SybilProtection.Weights().Root())
+	assert.Equal(t, lo.PanicOnErr(tf.Engine.SybilProtection.Weights().Map()), lo.PanicOnErr(tf2.Engine.SybilProtection.Weights().Map()))
+	assert.Equal(t, tf.Engine.SybilProtection.Weights().TotalWeight(), tf2.Engine.SybilProtection.Weights().TotalWeight())
+	assert.Equal(t, tf.Engine.SybilProtection.Weights().Root(), tf2.Engine.SybilProtection.Weights().Root())
 
 	for epochIndex := epoch.Index(0); epochIndex <= 4; epochIndex++ {
 		originalCommitment, err := tf.Engine.Storage.Commitments.Load(epochIndex)

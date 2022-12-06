@@ -240,7 +240,7 @@ func (e *Engine) Export(writer io.WriteSeeker, epoch epoch.Index) (err error) {
 		return errors.Errorf("failed to export commitments: %w", err)
 	} else if err = e.EvictionState.Export(writer, epoch); err != nil {
 		return errors.Errorf("failed to export eviction state: %w", err)
-	} else if err = e.NotarizationManager.Export(writer, (epoch - 1).Max(0)); err != nil {
+	} else if err = e.NotarizationManager.Export(writer, epoch); err != nil {
 		return errors.Errorf("failed to export notarization state: %w", err)
 	} else if err = e.LedgerState.Export(writer, epoch); err != nil {
 		return errors.Errorf("failed to export ledger state: %w", err)

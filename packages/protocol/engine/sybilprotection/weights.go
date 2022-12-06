@@ -45,7 +45,7 @@ func (w *Weights) TotalWeight() (totalWeight *Weight) {
 	return w.totalWeight
 }
 
-func (w *Weights) ApplyUpdates(updates *WeightUpdates) {
+func (w *Weights) ApplyBatchUpdates(updates *WeightUpdates) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
@@ -110,21 +110,21 @@ func (w *Weights) Map() (weights map[identity.ID]int64, err error) {
 	return weights, nil
 }
 
-func (w *Weights) Import(id identity.ID, weight int64) {
+func (w *Weights) ApplyDiff(id identity.ID, diff int64) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
 	if oldWeight, exists := w.weights.Get(id); exists {
-		if newWeight := oldWeight.Value + weight; newWeight == 0 {
+		if newWeight := oldWeight.Value + diff; newWeight == 0 {
 			w.weights.Delete(id)
 		} else {
 			w.weights.Set(id, NewWeight(newWeight, w.settings.LatestCommitment().Index()))
 		}
 	} else {
-		w.weights.Set(id, NewWeight(weight, w.settings.LatestCommitment().Index()))
+		w.weights.Set(id, NewWeight(diff, w.settings.LatestCommitment().Index()))
 	}
 
-	w.totalWeight.Value += weight
+	w.totalWeight.Value += diff
 }
 
 func (w *Weights) Export(callback func(id identity.ID, weight int64) bool) (err error) {

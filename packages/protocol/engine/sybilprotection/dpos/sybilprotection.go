@@ -60,9 +60,12 @@ func NewSybilProtection(engineInstance *engine.Engine, opts ...options.Option[Sy
 
 				s.engine.LedgerState.UnspentOutputs.Subscribe(s)
 
+				s.engine.LedgerState.SubscribeInitialized(func() {
+					s.weights.TotalWeight().UpdateTime = s.engine.Storage.Settings.LatestCommitment().Index()
+				})
+
 				s.engine.NotarizationManager.Attestations.SubscribeInitialized(func() {
-					// Attestations are imported up to LatestCommittedEpoch - 1
-					attestations, err := s.engine.NotarizationManager.Attestations.Attestations((s.engine.Storage.Settings.LatestCommitment().Index() - 1).Max(0))
+					attestations, err := s.engine.NotarizationManager.Attestations.Attestations(s.engine.Storage.Settings.LatestCommitment().Index())
 					if err != nil {
 						panic(err)
 					}
@@ -98,7 +101,7 @@ func (s *SybilProtection) Weights() *sybilprotection.Weights {
 
 func (s *SybilProtection) ApplyCreatedOutput(output *ledgerstate.OutputWithMetadata) (err error) {
 	if !s.commitmentState.BatchedStateTransitionStarted() {
-		ApplyCreatedOutput(output, s.weights.Import)
+		ApplyCreatedOutput(output, s.weights.ApplyDiff)
 	} else {
 		ApplyCreatedOutput(output, s.batchedWeightUpdates.ApplyDiff)
 	}
@@ -108,7 +111,7 @@ func (s *SybilProtection) ApplyCreatedOutput(output *ledgerstate.OutputWithMetad
 
 func (s *SybilProtection) ApplySpentOutput(output *ledgerstate.OutputWithMetadata) (err error) {
 	if !s.commitmentState.BatchedStateTransitionStarted() {
-		ApplySpentOutput(output, s.weights.Import)
+		ApplySpentOutput(output, s.weights.ApplyDiff)
 	} else {
 		ApplySpentOutput(output, s.batchedWeightUpdates.ApplyDiff)
 	}
@@ -139,7 +142,7 @@ func (s *SybilProtection) BeginBatchedStateTransition(newEpoch epoch.Index) (cur
 func (s *SybilProtection) CommitBatchedStateTransition() (ctx context.Context) {
 	ctx, done := context.WithCancel(context.Background())
 	go func() {
-		s.weights.ApplyUpdates(s.batchedWeightUpdates)
+		s.weights.ApplyBatchUpdates(s.batchedWeightUpdates)
 
 		s.commitmentState.FinalizeBatchedStateTransition()
 

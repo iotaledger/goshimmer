@@ -59,7 +59,7 @@ func (t *TestFramework) CreateIssuer(alias string, issuerWeight ...int64) (issue
 
 	t.issuersByID[alias] = issuer
 	if len(issuerWeight) == 1 {
-		t.weights.Import(identity.NewID(issuer), issuerWeight[0])
+		t.weights.ApplyDiff(identity.NewID(issuer), issuerWeight[0])
 	}
 	return issuer
 }

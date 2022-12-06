@@ -1,12 +1,10 @@
 package protocol
 
 import (
-	"os"
 	"testing"
 
 	"github.com/iotaledger/hive.go/core/configuration"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
-	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
@@ -43,12 +41,11 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 	}, opts, func(t *TestFramework) {
 		diskUtil := diskutil.New(test.TempDir())
 
-		storageInstance := storage.New(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), DatabaseVersion)
 		test.Cleanup(func() {
 			t.Protocol.Shutdown()
 		})
 
-		snapshotcreator.CreateSnapshot(storageInstance, diskUtil.Path("snapshot.bin"), 100, make([]byte, 32), map[identity.ID]uint64{
+		snapshotcreator.CreateSnapshot(DatabaseVersion, diskUtil.Path("snapshot.bin"), 100, make([]byte, 32), map[identity.ID]uint64{
 			identity.New(ed25519.GenerateKeyPair().PublicKey).ID(): 100,
 		})
 

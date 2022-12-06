@@ -106,7 +106,7 @@ func main() {
 
 	manaDistribution := createManaDistribution(totalTokensToPledge)
 
-	snapshotcreator.CreateSnapshot(createTempStorage(), snapshotFileName, genesisTokenAmount, genesisSeed, manaDistribution)
+	snapshotcreator.CreateSnapshot(protocol.DatabaseVersion, snapshotFileName, genesisTokenAmount, genesisSeed, manaDistribution)
 
 	diagnosticPrintSnapshotFromFile(snapshotFileName)
 }
