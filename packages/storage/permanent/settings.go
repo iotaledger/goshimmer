@@ -161,6 +161,16 @@ func (c *Settings) Export(writer io.WriteSeeker) (err error) {
 }
 
 func (c *Settings) Import(reader io.ReadSeeker) (err error) {
+	if err = c.tryImport(reader); err != nil {
+		return errors.Errorf("failed to import settings: %w", err)
+	}
+
+	c.TriggerInitialized()
+
+	return
+}
+
+func (c *Settings) tryImport(reader io.ReadSeeker) (err error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -186,9 +196,7 @@ func (c *Settings) Import(reader io.ReadSeeker) (err error) {
 		return errors.Errorf("failed to persist chain ID: %w", err)
 	}
 
-	c.TriggerInitialized()
-
-	return nil
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
