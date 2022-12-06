@@ -31,12 +31,14 @@ type Attestations struct {
 	cachedAttestations *memstorage.EpochStorage[identity.ID, *memstorage.Storage[models.BlockID, *Attestation]]
 	mutex              *syncutils.DAGMutex[epoch.Index]
 
+	traits.Initializable
 	traits.Committable
 }
 
 func NewAttestations(persistentStorage kvstore.KVStore, bucketedStorage func(index epoch.Index) kvstore.KVStore, weights *sybilprotection.Weights) *Attestations {
 	return &Attestations{
 		Committable:        traits.NewCommittable(),
+		Initializable:      traits.NewInitializable(),
 		persistentStorage:  persistentStorage,
 		bucketedStorage:    bucketedStorage,
 		weights:            weights,
@@ -142,16 +144,22 @@ func (a *Attestations) Import(reader io.ReadSeeker) (err error) {
 		return errors.Errorf("failed to import attestations for epoch %d: %w", epochIndex, err)
 	}
 
-	attestation := new(Attestation)
-	return stream.ReadCollection(reader, func(i int) (err error) {
-		if err = stream.ReadSerializable(reader, attestation); err != nil {
+	importedAttestation := new(Attestation)
+	if err = stream.ReadCollection(reader, func(i int) (err error) {
+		if err = stream.ReadSerializable(reader, importedAttestation); err != nil {
 			return errors.Errorf("failed to read attestation %d: %w", i, err)
 		}
 
-		attestations.Set(attestation.IssuerID, attestation)
+		attestations.Set(importedAttestation.IssuerID, importedAttestation)
 
 		return
-	})
+	}); err != nil {
+		return errors.Errorf("failed to import attestations for epoch %d: %w", epochIndex, err)
+	}
+
+	a.TriggerInitialized()
+
+	return
 }
 
 func (a *Attestations) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (err error) {

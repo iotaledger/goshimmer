@@ -66,7 +66,7 @@ type Engine struct {
 	optsTSCManagerOptions          []options.Option[tsc.Manager]
 	optsBlockRequester             []options.Option[eventticker.EventTicker[models.BlockID]]
 
-	traits.Startable
+	traits.Constructable
 	traits.Initializable
 }
 
@@ -78,9 +78,9 @@ func New(
 ) (engine *Engine) {
 	return options.Apply(
 		&Engine{
-			Events:    NewEvents(),
-			Storage:   storageInstance,
-			Startable: traits.NewStartable(),
+			Events:        NewEvents(),
+			Storage:       storageInstance,
+			Constructable: traits.NewConstructable(),
 
 			optsBootstrappedThreshold: 10 * time.Second,
 			optsSnapshotDepth:         5,
@@ -95,6 +95,7 @@ func New(
 			e.Initializable = traits.NewInitializable(
 				e.Storage.Settings.TriggerInitialized,
 				e.Storage.Commitments.TriggerInitialized,
+				e.NotarizationManager.TriggerInitialized,
 				e.LedgerState.TriggerInitialized,
 			)
 		},
@@ -109,6 +110,10 @@ func New(
 		(*Engine).initNotarizationManager,
 		(*Engine).initEvictionState,
 		(*Engine).initBlockRequester,
+
+		func(e *Engine) {
+			e.TriggerConstructed()
+		},
 	)
 }
 
@@ -173,9 +178,7 @@ func (e *Engine) IsSynced() (isBootstrapped bool) {
 	return e.IsBootstrapped() && time.Since(e.Clock.AcceptedTime()) < e.optsBootstrappedThreshold
 }
 
-func (e *Engine) Start(snapshot string) (err error) {
-	e.TriggerStartup()
-
+func (e *Engine) Initialize(snapshot string) (err error) {
 	if !e.Storage.Settings.SnapshotImported() {
 		if err = e.readSnapshot(snapshot); err != nil {
 			return errors.Errorf("failed to read snapshot from file '%s': %w", snapshot, err)
@@ -216,8 +219,8 @@ func (e *Engine) Import(reader io.ReadSeeker) (err error) {
 		return errors.Errorf("failed to set chainID: %w", err)
 	} else if err = e.EvictionState.Import(reader); err != nil {
 		return errors.Errorf("failed to import eviction state: %w", err)
-	} else if err = e.NotarizationManager.Attestations.Import(reader); err != nil {
-		return errors.Errorf("failed to import attestors: %w", err)
+	} else if err = e.NotarizationManager.Import(reader); err != nil {
+		return errors.Errorf("failed to import notarization state: %w", err)
 	} else if err = e.LedgerState.Import(reader); err != nil {
 		return errors.Errorf("failed to import ledger state: %w", err)
 	}
@@ -236,8 +239,8 @@ func (e *Engine) Export(writer io.WriteSeeker, epoch epoch.Index) (err error) {
 		return errors.Errorf("failed to export commitments: %w", err)
 	} else if err = e.EvictionState.Export(writer, epoch); err != nil {
 		return errors.Errorf("failed to export eviction state: %w", err)
-	} else if err = e.NotarizationManager.Attestations.Export(writer, (epoch - 1).Max(0)); err != nil {
-		return errors.Errorf("failed to export attestors: %w", err)
+	} else if err = e.NotarizationManager.Export(writer, (epoch - 1).Max(0)); err != nil {
+		return errors.Errorf("failed to export notarization state: %w", err)
 	} else if err = e.LedgerState.Export(writer, epoch); err != nil {
 		return errors.Errorf("failed to export ledger state: %w", err)
 	}

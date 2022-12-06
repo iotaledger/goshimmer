@@ -69,7 +69,7 @@ func New(dispatcher network.Endpoint, opts ...options.Option[Protocol]) (protoco
 	return options.Apply(&Protocol{
 		Events: NewEvents(),
 
-		dispatcher: dispatcher,
+		dispatcher:                  dispatcher,
 		optsSybilProtectionProvider: dpos.NewProvider(),
 		optsThroughputQuotaProvider: mana1.NewProvider(),
 
@@ -89,7 +89,7 @@ func New(dispatcher network.Endpoint, opts ...options.Option[Protocol]) (protoco
 func (p *Protocol) Run() {
 	p.linkTo(p.engine)
 
-	if err := p.engine.Start(p.optsSnapshotPath); err != nil {
+	if err := p.engine.Initialize(p.optsSnapshotPath); err != nil {
 		panic(err)
 	}
 

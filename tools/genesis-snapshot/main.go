@@ -144,7 +144,7 @@ func init() {
 func diagnosticPrintSnapshotFromFile(filePath string) {
 	s := createTempStorage()
 	e := engine.New(s, dpos.NewProvider(), mana1.NewProvider())
-	if err := e.Start(filePath); err != nil {
+	if err := e.Initialize(filePath); err != nil {
 		panic(err)
 	}
 

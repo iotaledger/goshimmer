@@ -8,36 +8,50 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
 
+// BatchCommittable is a trait that stores the latest commitment and metadata about batched state transitions.
 type BatchCommittable interface {
+	// BeginBatchedStateTransition starts a batched state transition to the given epoch.
 	BeginBatchedStateTransition(newEpoch epoch.Index) (currentEpoch epoch.Index, err error)
-	BatchedStateTransitionStarted() (wasStarted bool)
+
+	// FinalizeBatchedStateTransition finalizes the current batched state transition.
 	FinalizeBatchedStateTransition()
 
+	// BatchedStateTransitionStarted returns true if a batched state transition is currently in progress.
+	BatchedStateTransitionStarted() (wasStarted bool)
+
+	// Committable is the underlying committable trait.
 	Committable
 }
 
-func NewBatchCommittable() (commitmentState BatchCommittable) {
+// NewBatchCommittable creates a new BatchCommittable trait.
+func NewBatchCommittable() (newBatchCommittable BatchCommittable) {
 	return &batchCommittable{
 		Committable: NewCommittable(),
 	}
 }
 
+// batchCommittable is the implementation of the BatchCommittable trait.
 type batchCommittable struct {
-	batchEpoch      epoch.Index
+	// batchEpoch is the epoch that is currently being batched.
+	batchEpoch epoch.Index
+
+	// batchEpochMutex is used to synchronize access to batchEpoch.
 	batchEpochMutex sync.RWMutex
 
+	// Committable is the underlying committable trait.
 	Committable
 }
 
-func (u *batchCommittable) BeginBatchedStateTransition(newEpoch epoch.Index) (lastCommittedEpoch epoch.Index, err error) {
-	u.batchEpochMutex.Lock()
-	defer u.batchEpochMutex.Unlock()
+// BeginBatchedStateTransition starts a batched state transition to the given epoch.
+func (b *batchCommittable) BeginBatchedStateTransition(newEpoch epoch.Index) (lastCommittedEpoch epoch.Index, err error) {
+	b.batchEpochMutex.Lock()
+	defer b.batchEpochMutex.Unlock()
 
-	if newEpoch != 0 && u.batchEpoch != 0 {
+	if newEpoch != 0 && b.batchEpoch != 0 {
 		return 0, errors.New("batch epoch already set")
 	}
 
-	if lastCommittedEpoch = u.LastCommittedEpoch(); lastCommittedEpoch == newEpoch {
+	if lastCommittedEpoch = b.LastCommittedEpoch(); lastCommittedEpoch == newEpoch {
 		return
 	}
 
@@ -45,22 +59,24 @@ func (u *batchCommittable) BeginBatchedStateTransition(newEpoch epoch.Index) (la
 		return 0, errors.New("batches can only be applied in order")
 	}
 
-	u.batchEpoch = newEpoch
+	b.batchEpoch = newEpoch
 
 	return
 }
 
-func (u *batchCommittable) FinalizeBatchedStateTransition() {
-	u.batchEpochMutex.Lock()
-	defer u.batchEpochMutex.Unlock()
+// FinalizeBatchedStateTransition finalizes the current batched state transition.
+func (b *batchCommittable) FinalizeBatchedStateTransition() {
+	b.batchEpochMutex.Lock()
+	defer b.batchEpochMutex.Unlock()
 
-	u.SetLastCommittedEpoch(u.batchEpoch)
-	u.batchEpoch = 0
+	b.SetLastCommittedEpoch(b.batchEpoch)
+	b.batchEpoch = 0
 }
 
-func (u *batchCommittable) BatchedStateTransitionStarted() bool {
-	u.batchEpochMutex.RLock()
-	defer u.batchEpochMutex.RUnlock()
+// BatchedStateTransitionStarted returns true if a batched state transition is currently in progress.
+func (b *batchCommittable) BatchedStateTransitionStarted() bool {
+	b.batchEpochMutex.RLock()
+	defer b.batchEpochMutex.RUnlock()
 
-	return u.batchEpoch != 0
+	return b.batchEpoch != 0
 }

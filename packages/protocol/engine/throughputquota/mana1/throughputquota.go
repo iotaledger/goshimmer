@@ -36,7 +36,7 @@ func New(engineInstance *engine.Engine, opts ...options.Option[ThroughputQuota])
 		engine:           engineInstance,
 		manaByID:         shrinkingmap.New[identity.ID, int64](),
 	}, opts, func(m *ThroughputQuota) {
-		m.engine.SubscribeStartup(func() {
+		m.engine.SubscribeConstructed(func() {
 			m.engine.Storage.Settings.SubscribeInitialized(func() {
 				m.batchCommittable.SetLastCommittedEpoch(m.engine.Storage.Settings.LatestCommitment().Index())
 			})

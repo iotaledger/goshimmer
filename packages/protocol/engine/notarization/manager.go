@@ -1,6 +1,7 @@
 package notarization
 
 import (
+	"io"
 	"sync"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -38,6 +40,8 @@ type Manager struct {
 	acceptanceTimeMutex sync.RWMutex
 
 	optsMinCommittableEpochAge time.Duration
+
+	traits.Initializable
 }
 
 // NewManager creates a new notarization Manager.
@@ -51,7 +55,9 @@ func NewManager(storageInstance *storage.Storage, ledgerState *ledgerstate.Ledge
 		pendingConflictsCounters:   shrinkingmap.New[epoch.Index, uint64](),
 		acceptanceTime:             storageInstance.Settings.LatestCommitment().Index().EndTime(),
 		optsMinCommittableEpochAge: defaultMinEpochCommittableAge,
-	}, opts)
+	}, opts, func(m *Manager) {
+		m.Initializable = traits.NewInitializable(m.Attestations.TriggerInitialized)
+	})
 }
 
 // IncreaseConflictsCounter increases the conflicts counter for the given epoch index.
@@ -130,6 +136,30 @@ func (m *Manager) NotarizeOrphanedBlock(block *models.Block) (err error) {
 
 	if _, err = m.Attestations.Delete(NewAttestation(block)); err != nil {
 		return errors.Errorf("failed to delete block from attestations: %w", err)
+	}
+
+	return
+}
+
+func (m *Manager) Import(reader io.ReadSeeker) (err error) {
+	m.commitmentMutex.Lock()
+	defer m.commitmentMutex.Unlock()
+
+	if err = m.Attestations.Import(reader); err != nil {
+		return errors.Errorf("failed to import attestations: %w", err)
+	}
+
+	m.TriggerInitialized()
+
+	return
+}
+
+func (m *Manager) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (err error) {
+	m.commitmentMutex.RLock()
+	defer m.commitmentMutex.RUnlock()
+
+	if err = m.Attestations.Export(writer, targetEpoch); err != nil {
+		return errors.Errorf("failed to export attestations: %w", err)
 	}
 
 	return

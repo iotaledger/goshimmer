@@ -53,26 +53,27 @@ func NewSybilProtection(engineInstance *engine.Engine, opts ...options.Option[Sy
 		}, opts, func(s *SybilProtection) {
 			s.validators = s.weights.WeightedSet()
 
-			s.engine.SubscribeStartup(func() {
+			s.engine.SubscribeConstructed(func() {
 				s.engine.Events.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(func(block *blockdag.Block) {
 					s.markValidatorActive(block.IssuerID(), block.IssuingTime())
 				}))
 
 				s.engine.LedgerState.UnspentOutputs.Subscribe(s)
 
-				// TODO: MOVE TO CORRECT INITIALIZER
-				attestations, err := s.engine.NotarizationManager.Attestations.Attestations(s.engine.Storage.Settings.LatestCommitment().Index())
-				if err != nil {
-					panic(err)
-				}
+				s.engine.NotarizationManager.Attestations.SubscribeInitialized(func() {
+					attestations, err := s.engine.NotarizationManager.Attestations.Attestations(s.engine.Storage.Settings.LatestCommitment().Index())
+					if err != nil {
+						panic(err)
+					}
 
-				if err = attestations.Stream(func(id identity.ID, attestation *notarization.Attestation) bool {
-					s.validators.Add(id)
+					if err = attestations.Stream(func(id identity.ID, attestation *notarization.Attestation) bool {
+						s.validators.Add(id)
 
-					return true
-				}); err != nil {
-					panic(err)
-				}
+						return true
+					}); err != nil {
+						panic(err)
+					}
+				})
 			})
 		})
 }

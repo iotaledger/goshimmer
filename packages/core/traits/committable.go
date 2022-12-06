@@ -6,30 +6,41 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
 
+// Committable is a trait that stores information about the latest commitment.
 type Committable interface {
+	// SetLastCommittedEpoch sets the last committed epoch.
 	SetLastCommittedEpoch(index epoch.Index)
+
+	// LastCommittedEpoch returns the last committed epoch.
 	LastCommittedEpoch() (index epoch.Index)
 }
 
+// NewCommittable creates a new Committable trait.
 func NewCommittable() Committable {
 	return &committable{}
 }
 
+// committable is the implementation of the Committable trait.
 type committable struct {
+	// lastCommittedEpoch is the last committed epoch.
 	lastCommittedEpoch epoch.Index
-	mutex              sync.RWMutex
+
+	// mutex is used to synchronize access to lastCommittedEpoch.
+	mutex sync.RWMutex
 }
 
-func (u *committable) SetLastCommittedEpoch(index epoch.Index) {
-	u.mutex.Lock()
-	defer u.mutex.Unlock()
+// SetLastCommittedEpoch sets the last committed epoch.
+func (c *committable) SetLastCommittedEpoch(index epoch.Index) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
-	u.lastCommittedEpoch = index
+	c.lastCommittedEpoch = index
 }
 
-func (u *committable) LastCommittedEpoch() epoch.Index {
-	u.mutex.RLock()
-	defer u.mutex.RUnlock()
+// LastCommittedEpoch returns the last committed epoch.
+func (c *committable) LastCommittedEpoch() epoch.Index {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
 
-	return u.lastCommittedEpoch
+	return c.lastCommittedEpoch
 }
