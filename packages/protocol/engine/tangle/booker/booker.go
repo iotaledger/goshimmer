@@ -106,17 +106,8 @@ func (b *Booker) BlockBookingDetails(block *Block) (pastMarkersConflictIDs, bloc
 	b.evictionMutex.RLock()
 	defer b.evictionMutex.RUnlock()
 
-	block.StructureDetails().PastMarkers().ForEachSorted(func(sequenceID markers.SequenceID, _ markers.Index) bool {
-		b.markerManager.SequenceMutex.RLock(sequenceID)
-		return true
-	})
-
-	defer func() {
-		block.StructureDetails().PastMarkers().ForEachSorted(func(sequenceID markers.SequenceID, _ markers.Index) bool {
-			b.markerManager.SequenceMutex.RUnlock(sequenceID)
-			return true
-		})
-	}()
+	b.rLockBlockSequences(block)
+	defer b.rUnlockBlockSequences(block)
 
 	return b.blockBookingDetails(block)
 }
@@ -379,17 +370,8 @@ func (b *Booker) collectShallowLikedParentsConflictIDs(block *Block) (collectedL
 
 // blockBookingDetails returns the Conflict and Marker related details of the given Block.
 func (b *Booker) blockBookingDetails(block *Block) (pastMarkersConflictIDs, blockConflictIDs utxo.TransactionIDs) {
-	block.StructureDetails().PastMarkers().ForEachSorted(func(sequenceID markers.SequenceID, _ markers.Index) bool {
-		b.markerManager.SequenceMutex.RLock(sequenceID)
-		return true
-	})
-
-	defer func() {
-		block.StructureDetails().PastMarkers().ForEachSorted(func(sequenceID markers.SequenceID, _ markers.Index) bool {
-			b.markerManager.SequenceMutex.RUnlock(sequenceID)
-			return true
-		})
-	}()
+	b.rLockBlockSequences(block)
+	defer b.rUnlockBlockSequences(block)
 
 	pastMarkersConflictIDs = b.markerManager.ConflictIDsFromStructureDetails(block.StructureDetails())
 
@@ -560,6 +542,22 @@ func (b *Booker) forkSingleMarker(currentMarker markers.Marker, newConflictID ut
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Utils //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func (b *Booker) rLockBlockSequences(block *Block) bool {
+	return block.StructureDetails().PastMarkers().ForEachSorted(func(sequenceID markers.SequenceID, _ markers.Index) bool {
+		b.markerManager.SequenceMutex.RLock(sequenceID)
+		return true
+	})
+}
+
+func (b *Booker) rUnlockBlockSequences(block *Block) bool {
+	return block.StructureDetails().PastMarkers().ForEachSorted(func(sequenceID markers.SequenceID, _ markers.Index) bool {
+		b.markerManager.SequenceMutex.RUnlock(sequenceID)
+		return true
+	})
+}
 
 // isReferenceValid checks if the reference between the child and its parent is valid.
 func isReferenceValid(child *Block, parent *Block) (err error) {
