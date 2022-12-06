@@ -33,6 +33,7 @@ func (o *OutputWithMetadata) String() string {
 	structBuilder.AddField(stringify.NewStructField("Output", o.Output()))
 	structBuilder.AddField(stringify.NewStructField("ConsensusPledgeID", o.ConsensusManaPledgeID()))
 	structBuilder.AddField(stringify.NewStructField("AccessPledgeID", o.AccessManaPledgeID()))
+	structBuilder.AddField(stringify.NewStructField("CreationTime", o.CreationTime()))
 
 	return structBuilder.String()
 }

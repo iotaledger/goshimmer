@@ -254,7 +254,7 @@ func (u *UnspentOutputs) notifyConsumers(consumer map[UnspentOutputsConsumer]typ
 func (u *UnspentOutputs) outputWithMetadata(outputID utxo.OutputID) (outputWithMetadata *OutputWithMetadata, err error) {
 	if !u.memPool.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
 		if !u.memPool.Storage.CachedOutputMetadata(outputID).Consume(func(metadata *ledger.OutputMetadata) {
-			outputWithMetadata = NewOutputWithMetadata(epoch.IndexFromTime(metadata.CreationTime()), outputID, output, metadata.ConsensusManaPledgeID(), metadata.AccessManaPledgeID())
+			outputWithMetadata = NewOutputWithMetadata(epoch.IndexFromTime(metadata.CreationTime()), outputID, output, metadata.ConsensusManaPledgeID(), metadata.AccessManaPledgeID(), metadata.CreationTime())
 		}) {
 			err = errors.Errorf("failed to load output metadata: %w", err)
 		}
