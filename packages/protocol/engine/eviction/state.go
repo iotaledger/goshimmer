@@ -1,7 +1,6 @@
 package eviction
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/cockroachdb/errors"
@@ -30,7 +29,6 @@ type State struct {
 
 // NewState creates a new eviction State.
 func NewState(storageInstance *storage.Storage, opts ...options.Option[State]) (state *State) {
-	fmt.Println("New eviction state")
 	return options.Apply(&State{
 		Events:           NewEvents(),
 		rootBlocks:       memstorage.NewEpochStorage[models.BlockID, bool](),
@@ -121,6 +119,7 @@ func (s *State) RemoveRootBlock(id models.BlockID) {
 func (s *State) IsRootBlock(id models.BlockID) (has bool) {
 	s.evictionMutex.RLock()
 	defer s.evictionMutex.RUnlock()
+
 	if id.Index() > s.lastEvictedEpoch {
 		return false
 	}
