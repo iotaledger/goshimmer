@@ -2,7 +2,6 @@ package ledgerstate
 
 import (
 	"io"
-	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/lo"
@@ -10,7 +9,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/stream"
-	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/storage"
@@ -26,14 +24,11 @@ const (
 type StateDiffs struct {
 	storage *storage.Storage
 	ledger  *ledger.Ledger
-
-	traits.Initializable
 }
 
 func NewStateDiffs(storageInstance *storage.Storage) (newLedgerStateDiffs *StateDiffs) {
 	return &StateDiffs{
-		Initializable: traits.NewInitializable(),
-		storage:       storageInstance,
+		storage: storageInstance,
 	}
 }
 
@@ -169,9 +164,11 @@ func (s *StateDiffs) Import(reader io.ReadSeeker) (importedEpochs []epoch.Index,
 		return nil, errors.Errorf("failed to import state diffs: %w", err)
 	}
 
-	s.TriggerInitialized()
-
 	return
+}
+
+func (s *StateDiffs) deleteEpoch(index epoch.Index) {
+	s.storage.LedgerStateDiffs(index).Clear()
 }
 
 func (s *StateDiffs) importOutputs(reader io.ReadSeeker, store func(*OutputWithMetadata) error) (err error) {
@@ -255,7 +252,7 @@ func (s *StateDiffs) delete(store kvstore.KVStore, outputID utxo.OutputID) (err 
 
 func (s *StateDiffs) addAcceptedTransaction(metadata *ledger.TransactionMetadata) (err error) {
 	if !s.ledger.Storage.CachedTransaction(metadata.ID()).Consume(func(transaction utxo.Transaction) {
-		err = s.storeTransaction(epoch.IndexFromTime(metadata.InclusionTime()), transaction, metadata)
+		err = s.storeTransaction(transaction, metadata)
 	}) {
 		err = errors.Errorf("failed to get transaction %s from cache", metadata.ID())
 	}
@@ -263,21 +260,21 @@ func (s *StateDiffs) addAcceptedTransaction(metadata *ledger.TransactionMetadata
 	return
 }
 
-func (s *StateDiffs) storeTransaction(index epoch.Index, transaction utxo.Transaction, metadata *ledger.TransactionMetadata) (err error) {
+func (s *StateDiffs) storeTransaction(transaction utxo.Transaction, metadata *ledger.TransactionMetadata) (err error) {
 	for it := s.ledger.Utils.ResolveInputs(transaction.Inputs()).Iterator(); it.HasNext(); {
-		if err = s.StoreSpentOutput(s.outputWithMetadata(index, it.Next())); err != nil {
+		if err = s.StoreSpentOutput(s.outputWithMetadata(it.Next())); err != nil {
 			return errors.Errorf("failed to storeOutput spent output: %w", err)
 		}
 	}
 
 	for it := metadata.OutputIDs().Iterator(); it.HasNext(); {
-		if err = s.StoreCreatedOutput(s.outputWithMetadata(index, it.Next())); err != nil {
+		if err = s.StoreCreatedOutput(s.outputWithMetadata(it.Next())); err != nil {
 			return errors.Errorf("failed to storeOutput created output: %w", err)
 		}
 	}
 
-	if index > s.ledger.ChainStorage.Settings.LatestStateMutationEpoch() {
-		if err = s.ledger.ChainStorage.Settings.SetLatestStateMutationEpoch(index); err != nil {
+	if metadata.InclusionEpoch() > s.ledger.ChainStorage.Settings.LatestStateMutationEpoch() {
+		if err = s.ledger.ChainStorage.Settings.SetLatestStateMutationEpoch(metadata.InclusionEpoch()); err != nil {
 			return errors.Errorf("failed to update latest state mutation epoch: %w", err)
 		}
 	}
@@ -285,24 +282,17 @@ func (s *StateDiffs) storeTransaction(index epoch.Index, transaction utxo.Transa
 	return nil
 }
 
-func (s *StateDiffs) outputWithMetadata(index epoch.Index, outputID utxo.OutputID) (outputWithMetadata *OutputWithMetadata) {
+func (s *StateDiffs) outputWithMetadata(outputID utxo.OutputID) (outputWithMetadata *OutputWithMetadata) {
 	s.ledger.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
 		s.ledger.Storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledger.OutputMetadata) {
-			outputWithMetadata = NewOutputWithMetadata(index, outputID, output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())
+			outputWithMetadata = NewOutputWithMetadata(outputMetadata.InclusionEpoch(), outputID, output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())
 		})
 	})
 
 	return
 }
 
-func (s *StateDiffs) moveTransactionToOtherEpoch(txMeta *ledger.TransactionMetadata, previousInclusionTime, inclusionTime time.Time) {
-	oldEpoch := epoch.IndexFromTime(previousInclusionTime)
-	newEpoch := epoch.IndexFromTime(inclusionTime)
-
-	if oldEpoch == 0 || oldEpoch == newEpoch {
-		return
-	}
-
+func (s *StateDiffs) moveTransactionToOtherEpoch(txMeta *ledger.TransactionMetadata, oldEpoch, newEpoch epoch.Index) {
 	if oldEpoch <= s.ledger.ChainStorage.Settings.LatestCommitment().Index() || newEpoch <= s.ledger.ChainStorage.Settings.LatestCommitment().Index() {
 		s.ledger.Events.Error.Trigger(errors.Errorf("inclusion time of transaction changed for already committed epoch: previous Index %d, new Index %d", oldEpoch, newEpoch))
 		return

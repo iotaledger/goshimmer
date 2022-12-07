@@ -32,7 +32,7 @@ type SybilProtection struct {
 	optsActivityWindow time.Duration
 
 	commitmentState      traits.BatchCommittable
-	batchedWeightUpdates *sybilprotection.WeightUpdates
+	batchedWeightUpdates *sybilprotection.WeightUpdatesBatch
 
 	traits.Initializable
 }
@@ -101,7 +101,7 @@ func (s *SybilProtection) Weights() *sybilprotection.Weights {
 
 func (s *SybilProtection) ApplyCreatedOutput(output *ledgerstate.OutputWithMetadata) (err error) {
 	if !s.commitmentState.BatchedStateTransitionStarted() {
-		ApplyCreatedOutput(output, s.weights.ApplyDiff)
+		ApplyCreatedOutput(output, s.weights.ImportDiff)
 	} else {
 		ApplyCreatedOutput(output, s.batchedWeightUpdates.ApplyDiff)
 	}
@@ -111,7 +111,7 @@ func (s *SybilProtection) ApplyCreatedOutput(output *ledgerstate.OutputWithMetad
 
 func (s *SybilProtection) ApplySpentOutput(output *ledgerstate.OutputWithMetadata) (err error) {
 	if !s.commitmentState.BatchedStateTransitionStarted() {
-		ApplySpentOutput(output, s.weights.ApplyDiff)
+		ApplySpentOutput(output, s.weights.ImportDiff)
 	} else {
 		ApplySpentOutput(output, s.batchedWeightUpdates.ApplyDiff)
 	}

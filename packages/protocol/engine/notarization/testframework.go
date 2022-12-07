@@ -59,7 +59,7 @@ func (t *TestFramework) CreateIssuer(alias string, issuerWeight ...int64) (issue
 
 	t.issuersByID[alias] = issuer
 	if len(issuerWeight) == 1 {
-		t.weights.ApplyDiff(identity.NewID(issuer), issuerWeight[0])
+		t.weights.ImportDiff(0, identity.NewID(issuer), issuerWeight[0])
 	}
 	return issuer
 }
@@ -110,7 +110,7 @@ func (t *TestFramework) CreateTransaction(alias string, index epoch.Index) (meta
 	var txID utxo.TransactionID
 	require.NoError(t.test, txID.FromRandomness())
 	metadata = ledger.NewTransactionMetadata(txID)
-	metadata.SetInclusionTime(index.StartTime().Add(time.Duration(t.increaseEpochEntityCounter(index)) * time.Millisecond))
+	metadata.SetInclusionEpoch(index)
 
 	t.transactionsByID[alias] = metadata
 

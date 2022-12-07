@@ -10,7 +10,7 @@ import (
 
 type WeightedSet struct {
 	Weights              *Weights
-	weightUpdatesClosure *event.Closure[*WeightUpdates]
+	weightUpdatesClosure *event.Closure[*WeightUpdatesBatch]
 	members              *set.AdvancedSet[identity.ID]
 	membersMutex         sync.RWMutex
 	totalWeight          int64
@@ -130,7 +130,7 @@ func (w *WeightedSet) Detach() {
 	w.Weights.Events.WeightsUpdated.Detach(w.weightUpdatesClosure)
 }
 
-func (w *WeightedSet) onWeightUpdated(updates *WeightUpdates) {
+func (w *WeightedSet) onWeightUpdated(updates *WeightUpdatesBatch) {
 	w.totalWeightMutex.Lock()
 	defer w.totalWeightMutex.Unlock()
 

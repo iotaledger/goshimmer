@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/core/stringify"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
@@ -30,8 +31,8 @@ type transactionMetadata struct {
 	// BookingTime contains the time the Transaction was Booked.
 	BookingTime time.Time `serix:"2"`
 
-	// InclusionTime contains the timestamp of the earliest included attachment of this transaction in the tangle.
-	InclusionTime time.Time `serix:"3"`
+	// InclusionEpoch contains the epoch of the earliest included attachment of this transaction in the tangle.
+	InclusionEpoch epoch.Index `serix:"3"`
 
 	// OutputIDs contains the identifiers of the Outputs that the Transaction created.
 	OutputIDs utxo.OutputIDs `serix:"4"`
@@ -113,28 +114,26 @@ func (t *TransactionMetadata) BookingTime() (bookingTime time.Time) {
 	return t.M.BookingTime
 }
 
-// SetInclusionTime sets the inclusion time of the Transaction.
-func (t *TransactionMetadata) SetInclusionTime(inclusionTime time.Time) (updated bool, previousInclusionTime time.Time) {
+// SetInclusionEpoch sets the inclusion time of the Transaction.
+func (t *TransactionMetadata) SetInclusionEpoch(inclusionEpoch epoch.Index) (updated bool, previousInclusionEpoch epoch.Index) {
 	t.Lock()
 	defer t.Unlock()
 
-	if inclusionTime.After(t.M.InclusionTime) && !t.M.InclusionTime.IsZero() {
-		return false, t.M.InclusionTime
+	previousInclusionEpoch = t.M.InclusionEpoch
+	if updated = inclusionEpoch < previousInclusionEpoch || previousInclusionEpoch == 0; updated {
+		t.M.InclusionEpoch = inclusionEpoch
+		t.SetModified()
 	}
 
-	previousInclusionTime = t.M.InclusionTime
-	t.M.InclusionTime = inclusionTime
-	t.SetModified()
-
-	return true, previousInclusionTime
+	return
 }
 
-// InclusionTime returns the inclusion time of the Transaction.
-func (t *TransactionMetadata) InclusionTime() (inclusionTime time.Time) {
+// InclusionEpoch returns the inclusion time of the Transaction.
+func (t *TransactionMetadata) InclusionEpoch() (inclusionEpoch epoch.Index) {
 	t.RLock()
 	defer t.RUnlock()
 
-	return t.M.InclusionTime
+	return t.M.InclusionEpoch
 }
 
 // OutputIDs returns the identifiers of the Outputs that the Transaction created.
@@ -213,8 +212,8 @@ type outputMetadata struct {
 	// AccessManaPledgeID contains the identifier of the node that received the access mana pledge.
 	AccessManaPledgeID identity.ID `serix:"1"`
 
-	// InclusionTime contains the time when the Output was included in the ledger.
-	InclusionTime time.Time `serix:"2"`
+	// InclusionEpoch contains the time when the Output was included in the ledger.
+	InclusionEpoch epoch.Index `serix:"2"`
 
 	// ConflictIDs contains the conflicting ConflictIDs that this Output depends on.
 	ConflictIDs *set.AdvancedSet[utxo.TransactionID] `serix:"3"`
@@ -289,24 +288,24 @@ func (o *OutputMetadata) SetAccessManaPledgeID(id identity.ID) (updated bool) {
 	return true
 }
 
-// CreationTime returns the creation time of the Output.
-func (o *OutputMetadata) CreationTime() (creationTime time.Time) {
+// InclusionEpoch returns the creation epoch of the Output.
+func (o *OutputMetadata) InclusionEpoch() (inclusionEpoch epoch.Index) {
 	o.RLock()
 	defer o.RUnlock()
 
-	return o.M.InclusionTime
+	return o.M.InclusionEpoch
 }
 
-// SetInclusionTime sets the creation time of the Output.
-func (o *OutputMetadata) SetInclusionTime(creationTime time.Time) (updated bool) {
+// SetInclusionEpoch sets the creation epoch of the Output.
+func (o *OutputMetadata) SetInclusionEpoch(inclusionEpoch epoch.Index) (updated bool) {
 	o.Lock()
 	defer o.Unlock()
 
-	if o.M.InclusionTime.Equal(creationTime) {
+	if o.M.InclusionEpoch == inclusionEpoch {
 		return false
 	}
 
-	o.M.InclusionTime = creationTime
+	o.M.InclusionEpoch = inclusionEpoch
 	o.SetModified()
 
 	return true

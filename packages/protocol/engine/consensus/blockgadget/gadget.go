@@ -323,7 +323,7 @@ func (a *Gadget) markAsAccepted(block *Block) (err error) {
 
 		// set ConfirmationState of payload (applicable only to transactions)
 		if tx, ok := block.Payload().(*devnetvm.Transaction); ok {
-			a.tangle.Ledger.SetTransactionInclusionTime(tx.ID(), block.IssuingTime())
+			a.tangle.Ledger.SetTransactionInclusionEpoch(tx.ID(), epoch.IndexFromTime(block.IssuingTime()))
 		}
 	}
 

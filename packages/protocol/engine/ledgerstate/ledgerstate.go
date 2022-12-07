@@ -31,7 +31,7 @@ func New(storageInstance *storage.Storage, memPool *ledger.Ledger) (ledgerState 
 		storage:        storageInstance,
 	}
 
-	ledgerState.Initializable = traits.NewInitializable(ledgerState.UnspentOutputs.TriggerInitialized, ledgerState.StateDiffs.TriggerInitialized)
+	ledgerState.Initializable = traits.NewInitializable(ledgerState.UnspentOutputs.TriggerInitialized)
 
 	ledgerState.MemPool.Events.TransactionAccepted.Hook(event.NewClosure(ledgerState.onTransactionAccepted))
 	ledgerState.MemPool.Events.TransactionInclusionUpdated.Hook(event.NewClosure(ledgerState.onTransactionInclusionUpdated))
@@ -102,6 +102,9 @@ func (l *LedgerState) Import(reader io.ReadSeeker) (err error) {
 		if err := l.storage.Settings.SetLatestCommitment(commitment); err != nil {
 			return errors.Errorf("failed to set latest commitment: %w", err)
 		}
+
+		// TODO: delete StateDiffs for epochIndex
+		// l.StateDiffs.D
 	}
 
 	l.TriggerInitialized()
@@ -133,6 +136,6 @@ func (l *LedgerState) onTransactionAccepted(metadata *ledger.TransactionMetadata
 
 func (l *LedgerState) onTransactionInclusionUpdated(event *ledger.TransactionInclusionUpdatedEvent) {
 	if l.MemPool.ConflictDAG.ConfirmationState(event.TransactionMetadata.ConflictIDs()).IsAccepted() {
-		l.StateDiffs.moveTransactionToOtherEpoch(event.TransactionMetadata, event.PreviousInclusionTime, event.InclusionTime)
+		l.StateDiffs.moveTransactionToOtherEpoch(event.TransactionMetadata, event.PreviousInclusionEpoch, event.InclusionEpoch)
 	}
 }

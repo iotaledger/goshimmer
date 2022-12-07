@@ -347,13 +347,13 @@ func (e *Engine) initNotarizationManager() {
 		}
 	}))
 
-	e.Ledger.Events.TransactionAccepted.Attach(event.NewClosure(func(txMeta *ledger.TransactionMetadata) {
+	e.Ledger.Events.TransactionAccepted.Hook(event.NewClosure(func(txMeta *ledger.TransactionMetadata) {
 		if err := e.NotarizationManager.EpochMutations.AddAcceptedTransaction(txMeta); err != nil {
 			e.Events.Error.Trigger(errors.Errorf("failed to add accepted transaction %s to epoch: %w", txMeta.ID(), err))
 		}
 	}))
-	e.Ledger.Events.TransactionInclusionUpdated.Attach(event.NewClosure(func(event *ledger.TransactionInclusionUpdatedEvent) {
-		if err := e.NotarizationManager.EpochMutations.UpdateTransactionInclusion(event.TransactionID, epoch.IndexFromTime(event.PreviousInclusionTime), epoch.IndexFromTime(event.InclusionTime)); err != nil {
+	e.Ledger.Events.TransactionInclusionUpdated.Hook(event.NewClosure(func(event *ledger.TransactionInclusionUpdatedEvent) {
+		if err := e.NotarizationManager.EpochMutations.UpdateTransactionInclusion(event.TransactionID, event.PreviousInclusionEpoch, event.InclusionEpoch); err != nil {
 			e.Events.Error.Trigger(errors.Errorf("failed to update transaction inclusion time %s in epoch: %w", event.TransactionID, err))
 		}
 	}))

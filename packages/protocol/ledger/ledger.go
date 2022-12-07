@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
@@ -121,28 +122,30 @@ func New(chainStorage *storage.Storage, opts ...options.Option[Ledger]) (ledger 
 	return ledger
 }
 
-// SetTransactionInclusionTime sets the inclusion timestamp of a Transaction.
-func (l *Ledger) SetTransactionInclusionTime(id utxo.TransactionID, inclusionTime time.Time) {
+// SetTransactionInclusionEpoch sets the inclusion timestamp of a Transaction.
+func (l *Ledger) SetTransactionInclusionEpoch(id utxo.TransactionID, inclusionEpoch epoch.Index) {
 	l.Storage.CachedTransactionMetadata(id).Consume(func(metadata *TransactionMetadata) {
-		updated, previousInclusionTime := metadata.SetInclusionTime(inclusionTime)
+		updated, previousInclusionEpoch := metadata.SetInclusionEpoch(inclusionEpoch)
 		if !updated {
 			return
 		}
 
 		for it := metadata.OutputIDs().Iterator(); it.HasNext(); {
 			l.Storage.CachedOutputMetadata(it.Next()).Consume(func(outputMetadata *OutputMetadata) {
-				outputMetadata.SetInclusionTime(inclusionTime)
+				outputMetadata.SetInclusionEpoch(inclusionEpoch)
 			})
 		}
 
-		l.Events.TransactionInclusionUpdated.Trigger(&TransactionInclusionUpdatedEvent{
-			TransactionID:         id,
-			TransactionMetadata:   metadata,
-			InclusionTime:         inclusionTime,
-			PreviousInclusionTime: previousInclusionTime,
-		})
+		if previousInclusionEpoch != 0 {
+			l.Events.TransactionInclusionUpdated.Trigger(&TransactionInclusionUpdatedEvent{
+				TransactionID:          id,
+				TransactionMetadata:    metadata,
+				InclusionEpoch:         inclusionEpoch,
+				PreviousInclusionEpoch: previousInclusionEpoch,
+			})
+		}
 
-		if l.ConflictDAG.ConfirmationState(metadata.ConflictIDs()).IsAccepted() && previousInclusionTime.IsZero() {
+		if l.ConflictDAG.ConfirmationState(metadata.ConflictIDs()).IsAccepted() && previousInclusionEpoch == 0 {
 			l.triggerAcceptedEvent(metadata)
 		}
 	})
@@ -196,7 +199,7 @@ func (l *Ledger) processConsumingTransactions(outputIDs utxo.OutputIDs) {
 
 // triggerAcceptedEvent triggers the TransactionAccepted event if the Transaction was accepted.
 func (l *Ledger) triggerAcceptedEvent(txMetadata *TransactionMetadata) (triggered bool) {
-	if txMetadata.InclusionTime().IsZero() {
+	if txMetadata.InclusionEpoch() == 0 {
 		return false
 	}
 

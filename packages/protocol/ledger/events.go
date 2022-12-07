@@ -2,11 +2,11 @@ package ledger
 
 import (
 	"context"
-	"time"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/set"
 
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
@@ -110,11 +110,11 @@ type TransactionInclusionUpdatedEvent struct {
 	// TransactionMetadata contains the metadata of the Transaction.
 	TransactionMetadata *TransactionMetadata
 
-	// InclusionTime contains the InclusionTime after it was updated.
-	InclusionTime time.Time
+	// InclusionEpoch contains the InclusionEpoch after it was updated.
+	InclusionEpoch epoch.Index
 
-	// PreviousInclusionTime contains the InclusionTime before it was updated.
-	PreviousInclusionTime time.Time
+	// PreviousInclusionEpoch contains the InclusionEpoch before it was updated.
+	PreviousInclusionEpoch epoch.Index
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

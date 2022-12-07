@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/core/types"
 
 	"github.com/iotaledger/goshimmer/packages/core/ads"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/storage/permanent"
 )
 
@@ -45,7 +46,7 @@ func (w *Weights) TotalWeight() (totalWeight *Weight) {
 	return w.totalWeight
 }
 
-func (w *Weights) ApplyBatchUpdates(updates *WeightUpdates) {
+func (w *Weights) ApplyBatchUpdates(updates *WeightUpdatesBatch) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
@@ -110,7 +111,7 @@ func (w *Weights) Map() (weights map[identity.ID]int64, err error) {
 	return weights, nil
 }
 
-func (w *Weights) ApplyDiff(id identity.ID, diff int64) {
+func (w *Weights) ImportDiff(index epoch.Index, id identity.ID, diff int64) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
@@ -119,10 +120,10 @@ func (w *Weights) ApplyDiff(id identity.ID, diff int64) {
 		if newWeight := oldWeight.Value + diff; newWeight == 0 {
 			w.weights.Delete(id)
 		} else {
-			w.weights.Set(id, NewWeight(newWeight, w.settings.LatestCommitment().Index()))
+			w.weights.Set(id, NewWeight(newWeight, index))
 		}
 	} else {
-		w.weights.Set(id, NewWeight(diff, w.settings.LatestCommitment().Index()))
+		w.weights.Set(id, NewWeight(diff, index))
 	}
 
 	w.totalWeight.Value += diff

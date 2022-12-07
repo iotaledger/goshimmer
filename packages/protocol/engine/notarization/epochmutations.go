@@ -86,12 +86,11 @@ func (m *EpochMutations) AddAcceptedTransaction(metadata *ledger.TransactionMeta
 	m.evictionMutex.RLock()
 	defer m.evictionMutex.RUnlock()
 
-	epochIndex := epoch.IndexFromTime(metadata.InclusionTime())
-	if epochIndex <= m.latestCommittedIndex {
-		return errors.Errorf("transaction %s accepted with issuing time %s in already committed epoch %d", metadata.ID(), metadata.InclusionTime(), epochIndex)
+	if metadata.InclusionEpoch() <= m.latestCommittedIndex {
+		return errors.Errorf("transaction %s accepted with issuing time %s in already committed epoch %d", metadata.ID(), metadata.InclusionEpoch(), metadata.InclusionEpoch())
 	}
 
-	m.acceptedTransactions(epochIndex, true).Add(metadata.ID())
+	m.acceptedTransactions(metadata.InclusionEpoch(), true).Add(metadata.ID())
 
 	return
 }
@@ -101,12 +100,11 @@ func (m *EpochMutations) RemoveAcceptedTransaction(metadata *ledger.TransactionM
 	m.evictionMutex.RLock()
 	defer m.evictionMutex.RUnlock()
 
-	epochIndex := epoch.IndexFromTime(metadata.InclusionTime())
-	if epochIndex <= m.latestCommittedIndex {
-		return errors.Errorf("transaction %s accepted with issuing time %s in already committed epoch %d", metadata.ID(), metadata.InclusionTime(), epochIndex)
+	if metadata.InclusionEpoch() <= m.latestCommittedIndex {
+		return errors.Errorf("transaction %s accepted with issuing time %s in already committed epoch %d", metadata.ID(), metadata.InclusionEpoch(), metadata.InclusionEpoch())
 	}
 
-	m.acceptedTransactions(epochIndex, false).Delete(metadata.ID())
+	m.acceptedTransactions(metadata.InclusionEpoch(), false).Delete(metadata.ID())
 
 	return
 }
@@ -115,10 +113,6 @@ func (m *EpochMutations) RemoveAcceptedTransaction(metadata *ledger.TransactionM
 func (m *EpochMutations) UpdateTransactionInclusion(txID utxo.TransactionID, oldEpoch, newEpoch epoch.Index) (err error) {
 	m.evictionMutex.RLock()
 	defer m.evictionMutex.RUnlock()
-
-	if newEpoch >= oldEpoch {
-		return
-	}
 
 	if oldEpoch <= m.latestCommittedIndex || newEpoch <= m.latestCommittedIndex {
 		return errors.Errorf("inclusion time of transaction changed for already committed epoch: previous Index %d, new Index %d", oldEpoch, newEpoch)
