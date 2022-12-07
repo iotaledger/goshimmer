@@ -115,12 +115,11 @@ func (w *Weights) ImportDiff(index epoch.Index, id identity.ID, diff int64) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
-	// TODO: we should receive the output creationtime to correctly set the value of the weight
 	if oldWeight, exists := w.weights.Get(id); exists {
 		if newWeight := oldWeight.Value + diff; newWeight == 0 {
 			w.weights.Delete(id)
 		} else {
-			w.weights.Set(id, NewWeight(newWeight, index))
+			w.weights.Set(id, NewWeight(newWeight, oldWeight.UpdateTime.Max(index)))
 		}
 	} else {
 		w.weights.Set(id, NewWeight(diff, index))
