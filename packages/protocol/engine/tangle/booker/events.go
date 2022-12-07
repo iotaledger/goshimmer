@@ -12,9 +12,7 @@ type Events struct {
 	BlockBooked         *event.Linkable[*Block]
 	BlockConflictAdded  *event.Linkable[*BlockConflictAddedEvent]
 	MarkerConflictAdded *event.Linkable[*MarkerConflictAddedEvent]
-	// TODO: trigger this somewhere
-	SequenceEvicted *event.Linkable[markers.SequenceID]
-	Error           *event.Linkable[error]
+	Error               *event.Linkable[error]
 
 	MarkerManager *markermanager.Events
 
@@ -27,7 +25,6 @@ var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 		BlockBooked:         event.NewLinkable[*Block](),
 		BlockConflictAdded:  event.NewLinkable[*BlockConflictAddedEvent](),
 		MarkerConflictAdded: event.NewLinkable[*MarkerConflictAddedEvent](),
-		SequenceEvicted:     event.NewLinkable[markers.SequenceID](),
 		Error:               event.NewLinkable[error](),
 
 		MarkerManager: markermanager.NewEvents(),

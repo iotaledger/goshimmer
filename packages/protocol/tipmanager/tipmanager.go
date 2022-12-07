@@ -84,7 +84,8 @@ func (t *TipManager) AddTip(block *scheduler.Block) {
 }
 
 func (t *TipManager) addTip(block *scheduler.Block) (added bool) {
-	if t.tips.Set(block, block) {
+	if !t.tips.Has(block) {
+		t.tips.Set(block, block)
 		// t.tipsConflictTracker.AddTip(block)
 		t.Events.TipAdded.Trigger(block)
 		return true

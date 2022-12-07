@@ -36,7 +36,6 @@ type Booker struct {
 	blocks        *memstorage.EpochStorage[models.BlockID, *Block]
 	markerManager *markermanager.MarkerManager[models.BlockID, *Block]
 	bookingMutex  *syncutils.DAGMutex[models.BlockID]
-	sequenceMutex *syncutils.DAGMutex[markers.SequenceID]
 	evictionMutex sync.RWMutex
 
 	optsMarkerManager []options.Option[markermanager.MarkerManager[models.BlockID, *Block]]
@@ -50,7 +49,6 @@ func New(blockDAG *blockdag.BlockDAG, ledger *ledger.Ledger, opts ...options.Opt
 		attachments:       newAttachments(),
 		blocks:            memstorage.NewEpochStorage[models.BlockID, *Block](),
 		bookingMutex:      syncutils.NewDAGMutex[models.BlockID](),
-		sequenceMutex:     syncutils.NewDAGMutex[markers.SequenceID](),
 		optsMarkerManager: make([]options.Option[markermanager.MarkerManager[models.BlockID, *Block]], 0),
 		Ledger:            ledger,
 		BlockDAG:          blockDAG,
@@ -107,6 +105,9 @@ func (b *Booker) BlockConflicts(block *Block) (blockConflictIDs utxo.Transaction
 func (b *Booker) BlockBookingDetails(block *Block) (pastMarkersConflictIDs, blockConflictIDs utxo.TransactionIDs) {
 	b.evictionMutex.RLock()
 	defer b.evictionMutex.RUnlock()
+
+	b.rLockBlockSequences(block)
+	defer b.rUnlockBlockSequences(block)
 
 	return b.blockBookingDetails(block)
 }
@@ -369,6 +370,9 @@ func (b *Booker) collectShallowLikedParentsConflictIDs(block *Block) (collectedL
 
 // blockBookingDetails returns the Conflict and Marker related details of the given Block.
 func (b *Booker) blockBookingDetails(block *Block) (pastMarkersConflictIDs, blockConflictIDs utxo.TransactionIDs) {
+	b.rLockBlockSequences(block)
+	defer b.rUnlockBlockSequences(block)
+
 	pastMarkersConflictIDs = b.markerManager.ConflictIDsFromStructureDetails(block.StructureDetails())
 
 	blockConflictIDs = utxo.NewTransactionIDs()
@@ -474,18 +478,6 @@ func (b *Booker) propagateForkedConflict(block *Block, addedConflictID utxo.Tran
 }
 
 func (b *Booker) updateBlockConflicts(block *Block, addedConflict utxo.TransactionID, parentConflicts utxo.TransactionIDs) (updated bool) {
-	block.StructureDetails().PastMarkers().ForEachSorted(func(sequenceID markers.SequenceID, _ markers.Index) bool {
-		b.sequenceMutex.RLock(sequenceID)
-		return true
-	})
-
-	defer func() {
-		block.StructureDetails().PastMarkers().ForEachSorted(func(sequenceID markers.SequenceID, _ markers.Index) bool {
-			b.sequenceMutex.RUnlock(sequenceID)
-			return true
-		})
-	}()
-
 	if _, conflictIDs := b.blockBookingDetails(block); !conflictIDs.HasAll(parentConflicts) {
 		return false
 	}
@@ -512,8 +504,8 @@ func (b *Booker) propagateForkedTransactionToMarkerFutureCone(marker markers.Mar
 // forkSingleMarker propagates a newly created ConflictID to a single marker and queues the next elements that need to be
 // visited.
 func (b *Booker) forkSingleMarker(currentMarker markers.Marker, newConflictID utxo.TransactionID, removedConflictIDs utxo.TransactionIDs, markerWalker *walker.Walker[markers.Marker]) (err error) {
-	b.sequenceMutex.Lock(currentMarker.SequenceID())
-	defer b.sequenceMutex.Unlock(currentMarker.SequenceID())
+	b.markerManager.SequenceMutex.Lock(currentMarker.SequenceID())
+	defer b.markerManager.SequenceMutex.Unlock(currentMarker.SequenceID())
 
 	// update ConflictID mapping
 	newConflictIDs := b.markerManager.ConflictIDs(currentMarker)
@@ -550,6 +542,22 @@ func (b *Booker) forkSingleMarker(currentMarker markers.Marker, newConflictID ut
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Utils //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func (b *Booker) rLockBlockSequences(block *Block) bool {
+	return block.StructureDetails().PastMarkers().ForEachSorted(func(sequenceID markers.SequenceID, _ markers.Index) bool {
+		b.markerManager.SequenceMutex.RLock(sequenceID)
+		return true
+	})
+}
+
+func (b *Booker) rUnlockBlockSequences(block *Block) bool {
+	return block.StructureDetails().PastMarkers().ForEachSorted(func(sequenceID markers.SequenceID, _ markers.Index) bool {
+		b.markerManager.SequenceMutex.RUnlock(sequenceID)
+		return true
+	})
+}
 
 // isReferenceValid checks if the reference between the child and its parent is valid.
 func isReferenceValid(child *Block, parent *Block) (err error) {
