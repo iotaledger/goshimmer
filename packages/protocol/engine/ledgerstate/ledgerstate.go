@@ -62,17 +62,24 @@ func (l *LedgerState) Import(reader io.ReadSeeker) (err error) {
 
 			l.StateDiffs.Delete(targetEpoch)
 		}
-		// We have statediffs up to the eventual targetEpoch, but we need to set the latest commitment to the one before.
-		targetEpoch--
+		targetEpoch-- // we rolled back epoch n to get to epoch n-1
 
 		targetEpochCommitment, errLoad := l.storage.Commitments.Load(targetEpoch)
 		if errLoad != nil {
 			return errors.Errorf("failed to load commitment for target epoch %d: %w", targetEpoch, errLoad)
 		}
 
-		l.storage.Settings.SetLatestCommitment(targetEpochCommitment)
-		l.storage.Settings.SetLatestStateMutationEpoch(targetEpoch)
-		l.storage.Settings.SetLatestConfirmedEpoch(targetEpoch)
+		if err = l.storage.Settings.SetLatestCommitment(targetEpochCommitment); err != nil {
+			return errors.Errorf("failed to set latest commitment: %w", err)
+		}
+
+		if err = l.storage.Settings.SetLatestStateMutationEpoch(targetEpoch); err != nil {
+			return errors.Errorf("failed to set latest state mutation epoch: %w", err)
+		}
+
+		if err = l.storage.Settings.SetLatestConfirmedEpoch(targetEpoch); err != nil {
+			return errors.Errorf("failed to set latest confirmed epoch: %w", err)
+		}
 	}
 
 	l.TriggerInitialized()

@@ -13,8 +13,7 @@ type Clock struct {
 	lastAcceptedTimeUpdated  time.Time
 	lastConfirmedTime        time.Time
 	lastConfirmedTimeUpdated time.Time
-
-	sync.RWMutex
+	mutex                    sync.RWMutex
 }
 
 // New creates a new Clock with the given genesisTime.
@@ -26,8 +25,8 @@ func New() (clock *Clock) {
 
 // AcceptedTime returns the time of the last accepted Block.
 func (c *Clock) AcceptedTime() (acceptedTime time.Time) {
-	c.RLock()
-	defer c.RUnlock()
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
 
 	return c.lastAcceptedTime
 }
@@ -45,16 +44,16 @@ func (c *Clock) SetAcceptedTime(acceptedTime time.Time) (updated bool) {
 
 // RelativeAcceptedTime returns the real-time adjusted version of the time of the last accepted Block.
 func (c *Clock) RelativeAcceptedTime() (relativeAcceptedTime time.Time) {
-	c.RLock()
-	defer c.RUnlock()
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
 
 	return c.lastAcceptedTime.Add(time.Since(c.lastAcceptedTimeUpdated))
 }
 
 // ConfirmedTime returns the time of the last confirmed Block.
 func (c *Clock) ConfirmedTime() (confirmedTime time.Time) {
-	c.RLock()
-	defer c.RUnlock()
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
 
 	return c.lastConfirmedTime
 }
@@ -72,16 +71,16 @@ func (c *Clock) SetConfirmedTime(confirmedTime time.Time) (updated bool) {
 
 // RelativeConfirmedTime returns the real-time adjusted version of the time of the last confirmed Block.
 func (c *Clock) RelativeConfirmedTime() (relativeConfirmedTime time.Time) {
-	c.RLock()
-	defer c.RUnlock()
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
 
 	return c.lastConfirmedTime.Add(time.Since(c.lastConfirmedTimeUpdated))
 }
 
 // updateTime updates the given time parameter if the given time larger than the current time.
 func (c *Clock) updateTime(newTime time.Time, param, updatedParam *time.Time) (updated bool) {
-	c.Lock()
-	defer c.Unlock()
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
 	// the local wall clock should never be before the accepted time unless we are eclipsed by malicious actors or our
 	// own time is clearly in the past
