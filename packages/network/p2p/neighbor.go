@@ -18,6 +18,8 @@ type NeighborsGroup int8
 
 const (
 	NeighborsSendQueueSize = 1000
+	WriteDeadline          = 10 * time.Second
+	ReadDeadline           = 60 * time.Second
 )
 
 const (
@@ -147,6 +149,16 @@ func (n *Neighbor) readLoop() {
 				// the disconnect call is protected with sync.Once, so in case another goroutine called it before us,
 				// we won't execute it twice.
 				packet := stream.packetFactory()
+
+				deadlineErr := stream.SetReadDeadline(time.Now().Add(ReadDeadline))
+				if deadlineErr != nil {
+					n.Log.Infow("Set read deadline error", "err", deadlineErr)
+					if disconnectErr := n.disconnect(); disconnectErr != nil {
+						n.Log.Warnw("Failed to disconnect", "err", disconnectErr)
+					}
+					return
+				}
+
 				err := stream.ReadPacket(packet)
 				if err != nil {
 					n.Log.Infow("Stream read packet error", "err", err)
@@ -155,6 +167,7 @@ func (n *Neighbor) readLoop() {
 					}
 					return
 				}
+
 				n.packetReceivedFunc(n, protocolID, packet)
 			}
 		}(protocolID, stream)
@@ -168,7 +181,7 @@ func (n *Neighbor) writeLoop() {
 		for {
 			select {
 			case <-n.loopCtx.Done():
-				n.Log.Info("Exit writeLoop due to cancelled context")
+				n.Log.Info("Exit writeLoop due to canceled context")
 				return
 			case sendPacket := <-n.sendQueue:
 				stream := n.GetStream(sendPacket.protocolID)
@@ -179,6 +192,16 @@ func (n *Neighbor) writeLoop() {
 					}
 					return
 				}
+
+				deadlineErr := stream.SetWriteDeadline(time.Now().Add(WriteDeadline))
+				if deadlineErr != nil {
+					n.Log.Infow("Set write deadline error", "err", deadlineErr)
+					if disconnectErr := n.disconnect(); disconnectErr != nil {
+						n.Log.Warnw("Failed to disconnect", "err", disconnectErr)
+					}
+					return
+				}
+
 				if err := stream.WritePacket(sendPacket.packet); err != nil {
 					n.Log.Warnw("send error", "peer-id", n.ID(), "err", err)
 					if disconnectErr := n.disconnect(); disconnectErr != nil {
