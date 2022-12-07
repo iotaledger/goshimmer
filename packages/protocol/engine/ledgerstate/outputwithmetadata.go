@@ -1,8 +1,6 @@
 package ledgerstate
 
 import (
-	"time"
-
 	"github.com/iotaledger/hive.go/core/generics/model"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/stringify"
@@ -23,7 +21,6 @@ type outputWithMetadataModel struct {
 	Output                utxo.Output   `serix:"2"`
 	ConsensusManaPledgeID identity.ID   `serix:"4"`
 	AccessManaPledgeID    identity.ID   `serix:"5"`
-	CreationTime          time.Time     `serix:"6"`
 }
 
 // String returns a human-readable version of the OutputWithMetadata.
@@ -33,20 +30,18 @@ func (o *OutputWithMetadata) String() string {
 	structBuilder.AddField(stringify.NewStructField("Output", o.Output()))
 	structBuilder.AddField(stringify.NewStructField("ConsensusPledgeID", o.ConsensusManaPledgeID()))
 	structBuilder.AddField(stringify.NewStructField("AccessPledgeID", o.AccessManaPledgeID()))
-	structBuilder.AddField(stringify.NewStructField("CreationTime", o.CreationTime()))
 
 	return structBuilder.String()
 }
 
 // NewOutputWithMetadata returns a new OutputWithMetadata object.
-func NewOutputWithMetadata(index epoch.Index, outputID utxo.OutputID, output utxo.Output, consensusManaPledgeID, accessManaPledgeID identity.ID, creationTime time.Time) (new *OutputWithMetadata) {
+func NewOutputWithMetadata(index epoch.Index, outputID utxo.OutputID, output utxo.Output, consensusManaPledgeID, accessManaPledgeID identity.ID) (new *OutputWithMetadata) {
 	new = model.NewStorable[utxo.OutputID, OutputWithMetadata](&outputWithMetadataModel{
 		Index:                 index,
 		OutputID:              outputID,
 		Output:                output,
 		ConsensusManaPledgeID: consensusManaPledgeID,
 		AccessManaPledgeID:    accessManaPledgeID,
-		CreationTime:          creationTime,
 	}, false)
 	new.SetID(outputID)
 	return
@@ -135,18 +130,4 @@ func (o *OutputWithMetadata) SetAccessManaPledgeID(accessPledgeID identity.ID) {
 	defer o.Unlock()
 
 	o.M.AccessManaPledgeID = accessPledgeID
-}
-
-func (o *OutputWithMetadata) CreationTime() time.Time {
-	o.RLock()
-	defer o.RUnlock()
-
-	return o.M.CreationTime
-}
-
-func (o *OutputWithMetadata) SetCreationTime(creationTime time.Time) {
-	o.Lock()
-	defer o.Unlock()
-
-	o.M.CreationTime = creationTime
 }

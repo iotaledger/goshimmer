@@ -107,7 +107,7 @@ func (b *booker) storeOutputs(outputs *utxo.Outputs, txInclusionTime time.Time, 
 		outputMetadata.SetConflictIDs(conflictIDs)
 		outputMetadata.SetAccessManaPledgeID(accessPledgeID)
 		outputMetadata.SetConsensusManaPledgeID(consensusPledgeID)
-		outputMetadata.SetCreationTime(txInclusionTime)
+		outputMetadata.SetInclusionTime(txInclusionTime)
 		b.ledger.Storage.OutputMetadataStorage.Store(outputMetadata).Release()
 		b.ledger.Storage.OutputStorage.Store(output).Release()
 

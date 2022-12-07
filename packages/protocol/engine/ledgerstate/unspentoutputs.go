@@ -254,7 +254,7 @@ func (u *UnspentOutputs) notifyConsumers(consumer map[UnspentOutputsConsumer]typ
 func (u *UnspentOutputs) outputWithMetadata(outputID utxo.OutputID) (outputWithMetadata *OutputWithMetadata, err error) {
 	if !u.memPool.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
 		if !u.memPool.Storage.CachedOutputMetadata(outputID).Consume(func(metadata *ledger.OutputMetadata) {
-			outputWithMetadata = NewOutputWithMetadata(epoch.IndexFromTime(metadata.CreationTime()), outputID, output, metadata.ConsensusManaPledgeID(), metadata.AccessManaPledgeID(), metadata.CreationTime())
+			outputWithMetadata = NewOutputWithMetadata(epoch.IndexFromTime(metadata.CreationTime()), outputID, output, metadata.ConsensusManaPledgeID(), metadata.AccessManaPledgeID())
 		}) {
 			err = errors.Errorf("failed to load output metadata: %w", err)
 		}
@@ -272,7 +272,7 @@ func (u *UnspentOutputs) importOutputIntoMemPoolStorage(output *OutputWithMetada
 		newOutputMetadata.SetAccessManaPledgeID(output.AccessManaPledgeID())
 		newOutputMetadata.SetConsensusManaPledgeID(output.ConsensusManaPledgeID())
 		newOutputMetadata.SetConfirmationState(confirmation.Confirmed)
-		newOutputMetadata.SetCreationTime(output.CreationTime())
+		newOutputMetadata.SetInclusionTime(output.Index().EndTime())
 
 		return newOutputMetadata
 	}).Release()

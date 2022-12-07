@@ -213,8 +213,8 @@ type outputMetadata struct {
 	// AccessManaPledgeID contains the identifier of the node that received the access mana pledge.
 	AccessManaPledgeID identity.ID `serix:"1"`
 
-	// CreationTime contains the time when the Output was created.
-	CreationTime time.Time `serix:"2"`
+	// InclusionTime contains the time when the Output was included in the ledger.
+	InclusionTime time.Time `serix:"2"`
 
 	// ConflictIDs contains the conflicting ConflictIDs that this Output depends on.
 	ConflictIDs *set.AdvancedSet[utxo.TransactionID] `serix:"3"`
@@ -294,19 +294,19 @@ func (o *OutputMetadata) CreationTime() (creationTime time.Time) {
 	o.RLock()
 	defer o.RUnlock()
 
-	return o.M.CreationTime
+	return o.M.InclusionTime
 }
 
-// SetCreationTime sets the creation time of the Output.
-func (o *OutputMetadata) SetCreationTime(creationTime time.Time) (updated bool) {
+// SetInclusionTime sets the creation time of the Output.
+func (o *OutputMetadata) SetInclusionTime(creationTime time.Time) (updated bool) {
 	o.Lock()
 	defer o.Unlock()
 
-	if o.M.CreationTime.Equal(creationTime) {
+	if o.M.InclusionTime.Equal(creationTime) {
 		return false
 	}
 
-	o.M.CreationTime = creationTime
+	o.M.InclusionTime = creationTime
 	o.SetModified()
 
 	return true
