@@ -105,7 +105,7 @@ func configureGossipIntegration() {
 	// link to the autopeering events
 	deps.Selection.Events().Dropped.Attach(event.NewClosure(func(ev *selection.DroppedEvent) {
 		if err := mgr.DropNeighbor(ev.DroppedID, p2p.NeighborsGroupAuto); err != nil {
-			Plugin.Logger().Debugw("error dropping neighbor", "id", ev.DroppedID, "err", err)
+			Plugin.Logger().Debugw("selection.DroppedEvent error dropping neighbor", "id", ev.DroppedID, "err", err)
 		}
 	}))
 	// We need to allocate synchronously the resources to accomodate incoming stream requests.
@@ -131,6 +131,12 @@ func configureGossipIntegration() {
 
 	mgr.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Attach(event.NewClosure(func(event *p2p.NeighborRemovedEvent) {
 		deps.Selection.RemoveNeighbor(event.Neighbor.ID())
+	}))
+
+	deps.Discovery.Events().PeerDeleted.Attach(event.NewClosure(func(ev *discover.PeerDeletedEvent) {
+		if err := mgr.DropNeighbor(ev.Peer.ID(), p2p.NeighborsGroupAuto); err != nil {
+			Plugin.Logger().Debugw("discover.PeerDeletedEvent error dropping neighbor", "id", ev.Peer.ID(), "err", err)
+		}
 	}))
 }
 
