@@ -60,12 +60,16 @@ func NewSybilProtection(engineInstance *engine.Engine, opts ...options.Option[Sy
 
 				s.engine.LedgerState.UnspentOutputs.Subscribe(s)
 
+				s.engine.LedgerState.UnspentOutputs.SubscribeInitialized(func() {
+					s.commitmentState.SetLastCommittedEpoch(s.engine.Storage.Settings.LatestCommitment().Index())
+				})
+
 				s.engine.LedgerState.SubscribeInitialized(func() {
 					s.weights.TotalWeight().UpdateTime = s.engine.Storage.Settings.LatestCommitment().Index()
 				})
 
 				s.engine.NotarizationManager.Attestations.SubscribeInitialized(func() {
-					attestations, err := s.engine.NotarizationManager.Attestations.Attestations(s.engine.Storage.Settings.LatestCommitment().Index())
+					attestations, err := s.engine.NotarizationManager.Attestations.Get(s.engine.Storage.Settings.LatestCommitment().Index())
 					if err != nil {
 						panic(err)
 					}

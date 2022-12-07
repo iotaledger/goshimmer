@@ -174,7 +174,7 @@ func diagnosticPrintSnapshotFromFile(filePath string) {
 	}
 
 	fmt.Println("--- ActivityLog ---")
-	lo.PanicOnErr(e.NotarizationManager.Attestations.Attestations(0)).Stream(func(id identity.ID, attestation *notarization.Attestation) bool {
+	lo.PanicOnErr(e.NotarizationManager.Attestations.Get(0)).Stream(func(id identity.ID, attestation *notarization.Attestation) bool {
 		fmt.Printf("%d: %+v\n", 0, id)
 		fmt.Printf("Attestation: %+v\n", attestation)
 		return true

@@ -51,12 +51,12 @@ func (c *Commitments) Close() (err error) {
 	return c.slice.Close()
 }
 
-func (c *Commitments) Export(writer io.WriteSeeker, epochBoundary epoch.Index) (err error) {
-	if err = binary.Write(writer, binary.LittleEndian, int64(epochBoundary)); err != nil {
+func (c *Commitments) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (err error) {
+	if err = binary.Write(writer, binary.LittleEndian, int64(targetEpoch)); err != nil {
 		return errors.Errorf("failed to write epoch boundary: %w", err)
 	}
 
-	for epochIndex := epoch.Index(0); epochIndex <= epochBoundary; epochIndex++ {
+	for epochIndex := epoch.Index(0); epochIndex <= targetEpoch; epochIndex++ {
 		if err = binary.Write(writer, binary.LittleEndian, lo.PanicOnErr(lo.PanicOnErr(c.Load(epochIndex)).Bytes())); err != nil {
 			return errors.Errorf("failed to write commitment for epoch %d: %w", epochIndex, err)
 		}

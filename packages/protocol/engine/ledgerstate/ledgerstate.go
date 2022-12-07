@@ -39,48 +39,11 @@ func New(storageInstance *storage.Storage, memPool *ledger.Ledger) (ledgerState 
 	return
 }
 
-func (l *LedgerState) ApplyStateDiff(targetEpoch epoch.Index) (err error) {
-	l.mutex.Lock()
-	defer l.mutex.Unlock()
-
-	currentEpoch, err := l.UnspentOutputs.Begin(targetEpoch)
-	if err != nil {
-		return errors.Errorf("failed to begin unspent outputs: %w", err)
-	}
-
-	if currentEpoch == targetEpoch {
-		return
-	}
-
-	switch {
-	case IsRollback(currentEpoch, targetEpoch):
-		if err = l.StateDiffs.StreamSpentOutputs(currentEpoch, l.UnspentOutputs.RollbackSpentOutput); err != nil {
-			return errors.Errorf("failed to apply created outputs: %w", err)
-		}
-
-		if err = l.StateDiffs.StreamCreatedOutputs(currentEpoch, l.UnspentOutputs.RollbackCreatedOutput); err != nil {
-			return errors.Errorf("failed to apply spent outputs: %w", err)
-		}
-	default:
-		if err = l.StateDiffs.StreamCreatedOutputs(targetEpoch, l.UnspentOutputs.ApplyCreatedOutput); err != nil {
-			return errors.Errorf("failed to apply created outputs: %w", err)
-		}
-
-		if err = l.StateDiffs.StreamSpentOutputs(targetEpoch, l.UnspentOutputs.ApplySpentOutput); err != nil {
-			return errors.Errorf("failed to apply spent outputs: %w", err)
-		}
-	}
-
-	<-l.UnspentOutputs.Commit().Done()
-
-	return
-}
-
 func (l *LedgerState) Import(reader io.ReadSeeker) (err error) {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
-	if err = l.UnspentOutputs.Import(reader); err != nil {
+	if err = l.UnspentOutputs.Import(reader, l.storage.Settings.LatestCommitment().Index()); err != nil {
 		return errors.Errorf("failed to import unspent outputs: %w", err)
 	}
 
@@ -89,22 +52,27 @@ func (l *LedgerState) Import(reader io.ReadSeeker) (err error) {
 		return errors.Errorf("failed to import state diffs: %w", err)
 	}
 
-	for _, epochIndex := range importedStateDiffs {
-		if err = l.ApplyStateDiff(epochIndex); err != nil {
-			return errors.Errorf("failed to apply state diff %d: %w", epochIndex, err)
+	// Apply state diffs backwards.
+	if len(importedStateDiffs) != 0 {
+		var targetEpoch epoch.Index
+		for _, targetEpoch = range importedStateDiffs {
+			if err = l.applyStateDiff(targetEpoch); err != nil {
+				return errors.Errorf("failed to apply state diff %d: %w", targetEpoch, err)
+			}
+
+			l.StateDiffs.Delete(targetEpoch)
+		}
+		// We have statediffs up to the eventual targetEpoch, but we need to set the latest commitment to the one before.
+		targetEpoch--
+
+		targetEpochCommitment, errLoad := l.storage.Commitments.Load(targetEpoch)
+		if errLoad != nil {
+			return errors.Errorf("failed to load commitment for target epoch %d: %w", targetEpoch, errLoad)
 		}
 
-		commitment, err := l.storage.Commitments.Load(epochIndex)
-		if err != nil {
-			return errors.Errorf("failed to load commitment for epoch %d: %w", epochIndex, err)
-		}
-
-		if err := l.storage.Settings.SetLatestCommitment(commitment); err != nil {
-			return errors.Errorf("failed to set latest commitment: %w", err)
-		}
-
-		// TODO: delete StateDiffs for epochIndex
-		// l.StateDiffs.D
+		l.storage.Settings.SetLatestCommitment(targetEpochCommitment)
+		l.storage.Settings.SetLatestStateMutationEpoch(targetEpoch)
+		l.storage.Settings.SetLatestConfirmedEpoch(targetEpoch)
 	}
 
 	l.TriggerInitialized()
@@ -123,6 +91,47 @@ func (l *LedgerState) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (er
 	if err = l.StateDiffs.Export(writer, targetEpoch); err != nil {
 		return errors.Errorf("failed to export state diffs: %w", err)
 	}
+
+	return
+}
+
+func (l *LedgerState) ApplyStateDiff(targetEpoch epoch.Index) (err error) {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
+	return l.applyStateDiff(targetEpoch)
+}
+
+func (l *LedgerState) applyStateDiff(targetEpoch epoch.Index) (err error) {
+	lastCommittedEpoch, err := l.UnspentOutputs.Begin(targetEpoch)
+	if err != nil {
+		return errors.Errorf("failed to begin unspent outputs: %w", err)
+	}
+
+	if lastCommittedEpoch == targetEpoch {
+		return
+	}
+
+	switch {
+	case IsRollback(lastCommittedEpoch, targetEpoch):
+		if err = l.StateDiffs.StreamSpentOutputs(lastCommittedEpoch, l.UnspentOutputs.RollbackSpentOutput); err != nil {
+			return errors.Errorf("failed to apply created outputs: %w", err)
+		}
+
+		if err = l.StateDiffs.StreamCreatedOutputs(lastCommittedEpoch, l.UnspentOutputs.RollbackCreatedOutput); err != nil {
+			return errors.Errorf("failed to apply spent outputs: %w", err)
+		}
+	default:
+		if err = l.StateDiffs.StreamCreatedOutputs(targetEpoch, l.UnspentOutputs.ApplyCreatedOutput); err != nil {
+			return errors.Errorf("failed to apply created outputs: %w", err)
+		}
+
+		if err = l.StateDiffs.StreamSpentOutputs(targetEpoch, l.UnspentOutputs.ApplySpentOutput); err != nil {
+			return errors.Errorf("failed to apply spent outputs: %w", err)
+		}
+	}
+
+	<-l.UnspentOutputs.Commit().Done()
 
 	return
 }

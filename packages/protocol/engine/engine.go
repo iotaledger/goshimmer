@@ -220,10 +220,10 @@ func (e *Engine) Import(reader io.ReadSeeker) (err error) {
 		return errors.Errorf("failed to set chainID: %w", err)
 	} else if err = e.EvictionState.Import(reader); err != nil {
 		return errors.Errorf("failed to import eviction state: %w", err)
-	} else if err = e.NotarizationManager.Import(reader); err != nil {
-		return errors.Errorf("failed to import notarization state: %w", err)
 	} else if err = e.LedgerState.Import(reader); err != nil {
 		return errors.Errorf("failed to import ledger state: %w", err)
+	} else if err = e.NotarizationManager.Import(reader); err != nil {
+		return errors.Errorf("failed to import notarization state: %w", err)
 	}
 
 	// We need to set the genesis time before we add the activity log as otherwise the calculation is based on the empty time value.
@@ -233,17 +233,17 @@ func (e *Engine) Import(reader io.ReadSeeker) (err error) {
 	return
 }
 
-func (e *Engine) Export(writer io.WriteSeeker, epoch epoch.Index) (err error) {
+func (e *Engine) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (err error) {
 	if err = e.Storage.Settings.Export(writer); err != nil {
 		return errors.Errorf("failed to export settings: %w", err)
-	} else if err = e.Storage.Commitments.Export(writer, epoch); err != nil {
+	} else if err = e.Storage.Commitments.Export(writer, targetEpoch); err != nil {
 		return errors.Errorf("failed to export commitments: %w", err)
-	} else if err = e.EvictionState.Export(writer, epoch); err != nil {
+	} else if err = e.EvictionState.Export(writer, targetEpoch); err != nil {
 		return errors.Errorf("failed to export eviction state: %w", err)
-	} else if err = e.NotarizationManager.Export(writer, epoch); err != nil {
-		return errors.Errorf("failed to export notarization state: %w", err)
-	} else if err = e.LedgerState.Export(writer, epoch); err != nil {
+	} else if err = e.LedgerState.Export(writer, targetEpoch); err != nil {
 		return errors.Errorf("failed to export ledger state: %w", err)
+	} else if err = e.NotarizationManager.Export(writer, targetEpoch); err != nil {
+		return errors.Errorf("failed to export notarization state: %w", err)
 	}
 
 	return

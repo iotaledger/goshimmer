@@ -167,7 +167,7 @@ func (s *StateDiffs) Import(reader io.ReadSeeker) (importedEpochs []epoch.Index,
 	return
 }
 
-func (s *StateDiffs) deleteEpoch(index epoch.Index) {
+func (s *StateDiffs) Delete(index epoch.Index) {
 	s.storage.LedgerStateDiffs(index).Clear()
 }
 

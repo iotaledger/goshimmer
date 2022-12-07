@@ -122,7 +122,7 @@ func (a *Attestations) Weight(index epoch.Index) (weight int64, err error) {
 	return a.weight(index)
 }
 
-func (a *Attestations) Attestations(index epoch.Index) (attestations *ads.Map[identity.ID, Attestation, *identity.ID, *Attestation], err error) {
+func (a *Attestations) Get(index epoch.Index) (attestations *ads.Map[identity.ID, Attestation, *identity.ID, *Attestation], err error) {
 	a.mutex.RLock(index)
 	defer a.mutex.RUnlock(index)
 
@@ -182,22 +182,22 @@ func (a *Attestations) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (e
 		return errors.Errorf("failed to write epoch weight: %w", err)
 	}
 
-	return stream.WriteCollection(writer, func() (elementsCount uint64, err error) {
-		attestations, err := a.attestations(targetEpoch)
-		if err != nil {
-			return 0, errors.Errorf("failed to export attestations for epoch %d: %w", targetEpoch, err)
+	return stream.WriteCollection(writer, func() (elementsCount uint64, writeErr error) {
+		attestations, writeErr := a.attestations(targetEpoch)
+		if writeErr != nil {
+			return 0, errors.Errorf("failed to export attestations for epoch %d: %w", targetEpoch, writeErr)
 		}
 
-		if err = attestations.Stream(func(issuerID identity.ID, attestation *Attestation) bool {
-			if err = stream.WriteSerializable(writer, attestation); err != nil {
-				err = errors.Errorf("failed to write attestation for issuer %s: %w", issuerID, err)
+		if streamErr := attestations.Stream(func(issuerID identity.ID, attestation *Attestation) bool {
+			if writeErr = stream.WriteSerializable(writer, attestation); writeErr != nil {
+				writeErr = errors.Errorf("failed to write attestation for issuer %s: %w", issuerID, writeErr)
 			} else {
 				elementsCount++
 			}
 
-			return err != nil
-		}); err != nil {
-			return 0, errors.Errorf("failed to stream attestations of epoch %d: %w", targetEpoch, err)
+			return writeErr == nil
+		}); streamErr != nil {
+			return 0, errors.Errorf("failed to stream attestations of epoch %d: %w", targetEpoch, streamErr)
 		}
 
 		return

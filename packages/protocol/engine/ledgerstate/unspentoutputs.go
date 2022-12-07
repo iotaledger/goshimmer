@@ -69,12 +69,12 @@ func (u *UnspentOutputs) Root() types.Identifier {
 	return u.IDs.Root()
 }
 
-func (u *UnspentOutputs) Begin(newEpoch epoch.Index) (currentEpoch epoch.Index, err error) {
-	if currentEpoch, err = u.commitmentState.BeginBatchedStateTransition(newEpoch); err != nil {
+func (u *UnspentOutputs) Begin(newEpoch epoch.Index) (lastCommittedEpoch epoch.Index, err error) {
+	if lastCommittedEpoch, err = u.commitmentState.BeginBatchedStateTransition(newEpoch); err != nil {
 		return 0, errors.Errorf("failed to begin batched state transition: %w", err)
 	}
 
-	if currentEpoch == newEpoch {
+	if lastCommittedEpoch == newEpoch {
 		return
 	}
 
@@ -82,8 +82,8 @@ func (u *UnspentOutputs) Begin(newEpoch epoch.Index) (currentEpoch epoch.Index, 
 	u.batchSpentOutputIDs = utxo.NewOutputIDs()
 	u.batchConsumers = make(map[UnspentOutputsConsumer]types.Empty)
 
-	if err = u.preparePendingConsumers(currentEpoch, newEpoch); err != nil {
-		return currentEpoch, errors.Wrap(err, "failed to get pending state diff consumers")
+	if err = u.preparePendingConsumers(lastCommittedEpoch, newEpoch); err != nil {
+		return lastCommittedEpoch, errors.Wrap(err, "failed to get pending state diff consumers")
 	}
 
 	return
@@ -181,7 +181,7 @@ func (u *UnspentOutputs) Export(writer io.WriteSeeker) (err error) {
 	return
 }
 
-func (u *UnspentOutputs) Import(reader io.ReadSeeker) (err error) {
+func (u *UnspentOutputs) Import(reader io.ReadSeeker, targetEpoch epoch.Index) (err error) {
 	outputWithMetadata := new(OutputWithMetadata)
 	if err = stream.ReadCollection(reader, func(i int) (err error) {
 		if err = stream.ReadSerializable(reader, outputWithMetadata); err != nil {
@@ -194,6 +194,10 @@ func (u *UnspentOutputs) Import(reader io.ReadSeeker) (err error) {
 	}); err != nil {
 		return errors.Errorf("failed to import unspent outputs: %w", err)
 	}
+
+	u.commitmentState.SetLastCommittedEpoch(targetEpoch)
+
+	u.TriggerInitialized()
 
 	return
 }

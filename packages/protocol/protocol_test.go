@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -12,6 +13,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
@@ -119,7 +122,7 @@ func TestEngine_WriteSnapshot(t *testing.T) {
 
 	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDisk.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights)
 
-	tf.Engine.Initialize(tempDisk.Path("genesis_snapshot.bin"))
+	require.NoError(t, tf.Engine.Initialize(tempDisk.Path("genesis_snapshot.bin")))
 
 	fmt.Println("+++", lo.PanicOnErr(tf.Engine.SybilProtection.Weights().Map()))
 
@@ -129,83 +132,172 @@ func TestEngine_WriteSnapshot(t *testing.T) {
 
 	acceptedBlocks := make(map[string]bool)
 
-	epoch1IssuingTime := time.Unix(epoch.GenesisTime+1, 0)
+	epoch1IssuingTime := time.Unix(epoch.GenesisTime, 0)
 
 	// Blocks in epoch 1
-	tf.Tangle.CreateBlock("A.1", models.WithStrongParents(tf.Tangle.BlockIDs("Genesis")), models.WithIssuer(identitiesMap["A"]), models.WithIssuingTime(epoch1IssuingTime))
-	tf.Tangle.CreateBlock("B.2", models.WithStrongParents(tf.Tangle.BlockIDs("A.1")), models.WithIssuer(identitiesMap["B"]), models.WithIssuingTime(epoch1IssuingTime))
-	tf.Tangle.CreateBlock("C.3", models.WithStrongParents(tf.Tangle.BlockIDs("B.2")), models.WithIssuer(identitiesMap["C"]), models.WithIssuingTime(epoch1IssuingTime))
-	tf.Tangle.CreateBlock("D.4", models.WithStrongParents(tf.Tangle.BlockIDs("C.3")), models.WithIssuer(identitiesMap["D"]), models.WithIssuingTime(epoch1IssuingTime))
-	tf.Tangle.IssueBlocks("A.1", "B.2", "C.3", "D.4").WaitUntilAllTasksProcessed()
+	tf.Tangle.CreateBlock("1.A", models.WithStrongParents(tf.Tangle.BlockIDs("Genesis")), models.WithIssuer(identitiesMap["A"]), models.WithIssuingTime(epoch1IssuingTime))
+	tf.Tangle.CreateBlock("1.B", models.WithStrongParents(tf.Tangle.BlockIDs("1.A")), models.WithIssuer(identitiesMap["B"]), models.WithIssuingTime(epoch1IssuingTime))
+	tf.Tangle.CreateBlock("1.C", models.WithStrongParents(tf.Tangle.BlockIDs("1.B")), models.WithIssuer(identitiesMap["C"]), models.WithIssuingTime(epoch1IssuingTime))
+	tf.Tangle.CreateBlock("1.D", models.WithStrongParents(tf.Tangle.BlockIDs("1.C")), models.WithIssuer(identitiesMap["D"]), models.WithIssuingTime(epoch1IssuingTime))
+	tf.Tangle.IssueBlocks("1.A", "1.B", "1.C", "1.D").WaitUntilAllTasksProcessed()
 
 	tf.Acceptance.AssertBlockTracked(4)
 
 	tf.Acceptance.ValidateAcceptedBlocks(lo.MergeMaps(acceptedBlocks, map[string]bool{
-		"A.1": true,
-		"B.2": true,
-		"C.3": false,
-		"D.4": false,
+		"1.A": true,
+		"1.B": true,
+		"1.C": false,
+		"1.D": false,
 	}))
+
+	epoch2IssuingTime := time.Unix(epoch.GenesisTime+epoch.Duration, 0)
+
+	// Block in epoch 2, not accepting anything new.
+	tf.Tangle.CreateBlock("2.D", models.WithStrongParents(tf.Tangle.BlockIDs("1.D")), models.WithIssuer(identitiesMap["D"]), models.WithIssuingTime(epoch2IssuingTime))
+	tf.Tangle.IssueBlocks("2.D").WaitUntilAllTasksProcessed()
 
 	// Block in epoch 11
-	tf.Tangle.CreateBlock("A.5", models.WithStrongParents(tf.Tangle.BlockIDs("D.4")), models.WithIssuer(identitiesMap["A"]))
-	tf.Tangle.IssueBlocks("A.5").WaitUntilAllTasksProcessed()
+	tf.Tangle.CreateBlock("11.A", models.WithStrongParents(tf.Tangle.BlockIDs("2.D")), models.WithIssuer(identitiesMap["A"]))
+	tf.Tangle.IssueBlocks("11.A").WaitUntilAllTasksProcessed()
 
 	tf.Acceptance.ValidateAcceptedBlocks(lo.MergeMaps(acceptedBlocks, map[string]bool{
-		"C.3": true,
-		"A.5": false,
+		"1.C":  true,
+		"2.D":  false,
+		"11.A": false,
 	}))
 
-	assert.Equal(t, epoch.IndexFromTime(tf.Tangle.Block("A.5").IssuingTime()), epoch.Index(11))
+	assert.Equal(t, epoch.IndexFromTime(tf.Tangle.Block("11.A").IssuingTime()), epoch.Index(11))
 
 	// Time hasn't advanced past epoch 1
 	assert.Equal(t, tf.Engine.Storage.Settings.LatestCommitment().Index(), epoch.Index(0))
 
-	tf.Tangle.CreateBlock("B.6", models.WithStrongParents(tf.Tangle.BlockIDs("A.5")), models.WithIssuer(identitiesMap["B"]))
-	tf.Tangle.CreateBlock("C.7", models.WithStrongParents(tf.Tangle.BlockIDs("B.6")), models.WithIssuer(identitiesMap["C"]))
-	tf.Tangle.IssueBlocks("B.6", "C.7").WaitUntilAllTasksProcessed()
+	tf.Tangle.CreateBlock("11.B", models.WithStrongParents(tf.Tangle.BlockIDs("11.A")), models.WithIssuer(identitiesMap["B"]))
+	tf.Tangle.CreateBlock("11.C", models.WithStrongParents(tf.Tangle.BlockIDs("11.B")), models.WithIssuer(identitiesMap["C"]))
+	tf.Tangle.IssueBlocks("11.B", "11.C").WaitUntilAllTasksProcessed()
 
 	// Some blocks got evicted and we have to restart evaluating with a new map
 	acceptedBlocks = make(map[string]bool)
 	tf.Acceptance.ValidateAcceptedBlocks(lo.MergeMaps(acceptedBlocks, map[string]bool{
-		"A.5": true,
+		"2.D":  true,
+		"11.A": true,
+		"11.B": false,
+		"11.C": false,
 	}))
 
 	// Time has advanced to epoch 10 because of A.5, rendering 10 - MinimumCommittableAge(6) = 4 epoch committable
 	assert.Equal(t, tf.Engine.Storage.Settings.LatestCommitment().Index(), epoch.Index(4))
 
-	tf.Engine.WriteSnapshot(tempDisk.Path("snapshot_epoch4.bin"))
+	// Dump snapshot for latest committable epoch 4 and check engine equivalence
+	{
+		tf.Engine.WriteSnapshot(tempDisk.Path("snapshot_epoch4.bin"))
 
-	tf2 := NewEngineTestFramework(t)
+		tf2 := NewEngineTestFramework(t)
 
-	tf2.Engine.Initialize(tempDisk.Path("snapshot_epoch4.bin"))
+		require.NoError(t, tf2.Engine.Initialize(tempDisk.Path("snapshot_epoch4.bin")))
 
-	// Settings
-	// The ChainID of the new engine corresponds to the target epoch of the imported snapshot.
-	assert.Equal(t, lo.PanicOnErr(tf.Engine.Storage.Commitments.Load(4)).ID(), tf2.Engine.Storage.Settings.ChainID())
-	assert.Equal(t, tf.Engine.Storage.Settings.LatestCommitment(), tf2.Engine.Storage.Settings.LatestCommitment())
-	assert.Equal(t, tf.Engine.Storage.Settings.LatestConfirmedEpoch(), tf2.Engine.Storage.Settings.LatestConfirmedEpoch())
-	assert.Equal(t, tf.Engine.Storage.Settings.LatestStateMutationEpoch(), tf2.Engine.Storage.Settings.LatestStateMutationEpoch())
+		// Settings
+		// The ChainID of the new engine corresponds to the target epoch of the imported snapshot.
+		assert.Equal(t, lo.PanicOnErr(tf.Engine.Storage.Commitments.Load(4)).ID(), tf2.Engine.Storage.Settings.ChainID())
+		assert.Equal(t, tf.Engine.Storage.Settings.LatestCommitment(), tf2.Engine.Storage.Settings.LatestCommitment())
+		assert.Equal(t, tf.Engine.Storage.Settings.LatestConfirmedEpoch(), tf2.Engine.Storage.Settings.LatestConfirmedEpoch())
+		assert.Equal(t, tf.Engine.Storage.Settings.LatestStateMutationEpoch(), tf2.Engine.Storage.Settings.LatestStateMutationEpoch())
 
-	// LedgerState
-	assert.Equal(t, tf.Engine.LedgerState.UnspentOutputs.IDs.Size(), tf2.Engine.LedgerState.UnspentOutputs.IDs.Size())
-	assert.Equal(t, tf.Engine.LedgerState.UnspentOutputs.IDs.Root(), tf2.Engine.LedgerState.UnspentOutputs.IDs.Root())
-	tf.Engine.LedgerState.UnspentOutputs.IDs.Stream(func(outputID utxo.OutputID) bool {
-		require.True(t, tf2.Engine.LedgerState.UnspentOutputs.IDs.Has(outputID))
-		return true
-	})
+		// Commitments
+		for epochIndex := epoch.Index(0); epochIndex <= 4; epochIndex++ {
+			originalCommitment, err := tf.Engine.Storage.Commitments.Load(epochIndex)
+			require.NoError(t, err)
+			importedCommitment, err := tf2.Engine.Storage.Commitments.Load(epochIndex)
+			require.NoError(t, err)
 
-	// SybilProtection
-	assert.Equal(t, lo.PanicOnErr(tf.Engine.SybilProtection.Weights().Map()), lo.PanicOnErr(tf2.Engine.SybilProtection.Weights().Map()))
-	assert.Equal(t, tf.Engine.SybilProtection.Weights().TotalWeight(), tf2.Engine.SybilProtection.Weights().TotalWeight())
-	assert.Equal(t, tf.Engine.SybilProtection.Weights().Root(), tf2.Engine.SybilProtection.Weights().Root())
+			assert.Equal(t, originalCommitment, importedCommitment)
 
-	for epochIndex := epoch.Index(0); epochIndex <= 4; epochIndex++ {
-		originalCommitment, err := tf.Engine.Storage.Commitments.Load(epochIndex)
-		require.NoError(t, err)
-		importedCommitment, err := tf2.Engine.Storage.Commitments.Load(epochIndex)
-		require.NoError(t, err)
+			// Check that StateDiffs have been cleared after snapshot import.
+			tf2.Engine.LedgerState.StateDiffs.StreamCreatedOutputs(epochIndex, func(*ledgerstate.OutputWithMetadata) error {
+				t.Fatal("StateDiffs created should be empty after snapshot import")
+				return errors.New("StateDiffs created should be empty after snapshot import")
+			})
 
-		assert.Equal(t, originalCommitment, importedCommitment)
+			tf2.Engine.LedgerState.StateDiffs.StreamSpentOutputs(epochIndex, func(*ledgerstate.OutputWithMetadata) error {
+				t.Fatal("StateDiffs spent should be empty after snapshot import")
+				return errors.New("StateDiffs spent should be empty after snapshot import")
+			})
+		}
+
+		// LedgerState
+		assert.Equal(t, tf.Engine.LedgerState.UnspentOutputs.IDs.Size(), tf2.Engine.LedgerState.UnspentOutputs.IDs.Size())
+		assert.Equal(t, tf.Engine.LedgerState.UnspentOutputs.IDs.Root(), tf2.Engine.LedgerState.UnspentOutputs.IDs.Root())
+		tf.Engine.LedgerState.UnspentOutputs.IDs.Stream(func(outputID utxo.OutputID) bool {
+			require.True(t, tf2.Engine.LedgerState.UnspentOutputs.IDs.Has(outputID))
+			return true
+		})
+
+		// SybilProtection
+		assert.Equal(t, lo.PanicOnErr(tf.Engine.SybilProtection.Weights().Map()), lo.PanicOnErr(tf2.Engine.SybilProtection.Weights().Map()))
+		assert.Equal(t, tf.Engine.SybilProtection.Weights().TotalWeight(), tf2.Engine.SybilProtection.Weights().TotalWeight())
+		assert.Equal(t, tf.Engine.SybilProtection.Weights().Root(), tf2.Engine.SybilProtection.Weights().Root())
+
+		// Attestations for the targetEpoch only
+		assert.Equal(t, lo.PanicOnErr(tf.Engine.NotarizationManager.Attestations.Get(4)).Root(), lo.PanicOnErr(tf2.Engine.NotarizationManager.Attestations.Get(4)).Root())
+		lo.PanicOnErr(tf.Engine.NotarizationManager.Attestations.Get(4)).Stream(func(key identity.ID, engine1Attestation *notarization.Attestation) bool {
+			engine2Attestations := lo.PanicOnErr(tf2.Engine.NotarizationManager.Attestations.Get(4))
+			engine2Attestation, exists := engine2Attestations.Get(key)
+			require.True(t, exists)
+			assert.Equal(t, engine1Attestation, engine2Attestation)
+
+			return true
+		})
+	}
+
+	// Dump snapshot for epoch 1 and check attestations equivalence
+	{
+		tf.Engine.WriteSnapshot(tempDisk.Path("snapshot_epoch1.bin"), 1)
+
+		tf2 := NewEngineTestFramework(t)
+
+		require.NoError(t, tf2.Engine.Initialize(tempDisk.Path("snapshot_epoch1.bin")))
+
+		assert.Equal(t, epoch.Index(4), tf.Engine.Storage.Settings.LatestCommitment().Index())
+		assert.Equal(t, epoch.Index(1), tf2.Engine.Storage.Settings.LatestCommitment().Index())
+
+		// Check that we only have attestations for epoch 1.
+		assert.Equal(t, lo.PanicOnErr(tf.Engine.NotarizationManager.Attestations.Get(1)).Root(), lo.PanicOnErr(tf2.Engine.NotarizationManager.Attestations.Get(1)).Root())
+		require.Error(t, lo.Return2(tf2.Engine.NotarizationManager.Attestations.Get(2)))
+		require.Error(t, lo.Return2(tf2.Engine.NotarizationManager.Attestations.Get(3)))
+		require.Error(t, lo.Return2(tf2.Engine.NotarizationManager.Attestations.Get(4)))
+		lo.PanicOnErr(tf.Engine.NotarizationManager.Attestations.Get(1)).Stream(func(key identity.ID, engine1Attestation *notarization.Attestation) bool {
+			engine2Attestations := lo.PanicOnErr(tf2.Engine.NotarizationManager.Attestations.Get(1))
+			engine2Attestation, exists := engine2Attestations.Get(key)
+			require.True(t, exists)
+			assert.Equal(t, engine1Attestation, engine2Attestation)
+
+			return true
+		})
+
+		fmt.Println("<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>")
+
+		// Block in epoch 2, not accepting anything new.
+		tf2.Tangle.CreateBlock("2.D", models.WithStrongParents(tf.Tangle.BlockIDs("1.D")), models.WithIssuer(identitiesMap["D"]), models.WithIssuingTime(epoch2IssuingTime))
+		tf2.Tangle.IssueBlocks("2.D").WaitUntilAllTasksProcessed()
+
+		// Block in epoch 11
+		tf2.Tangle.CreateBlock("11.A", models.WithStrongParents(tf2.Tangle.BlockIDs("2.D")), models.WithIssuer(identitiesMap["A"]))
+		tf2.Tangle.IssueBlocks("11.A").WaitUntilAllTasksProcessed()
+
+		tf2.Tangle.CreateBlock("11.B", models.WithStrongParents(tf2.Tangle.BlockIDs("11.A")), models.WithIssuer(identitiesMap["B"]))
+		tf2.Tangle.CreateBlock("11.C", models.WithStrongParents(tf2.Tangle.BlockIDs("11.B")), models.WithIssuer(identitiesMap["C"]))
+		tf2.Tangle.IssueBlocks("11.B", "11.C").WaitUntilAllTasksProcessed()
+
+		// Some blocks got evicted and we have to restart evaluating with a new map
+		acceptedBlocks = make(map[string]bool)
+		tf2.Acceptance.ValidateAcceptedBlocks(lo.MergeMaps(acceptedBlocks, map[string]bool{
+			"2.D":  true,
+			"11.A": true,
+			"11.B": false,
+			"11.C": false,
+		}))
+	}
+
+	// Dump snapshot for epoch 2 and check attestations equivalence
+	{
 	}
 }
