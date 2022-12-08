@@ -203,7 +203,7 @@ func TestEngine_WriteSnapshot(t *testing.T) {
 		assert.Equal(t, tf.Engine.Storage.Settings.LatestConfirmedEpoch(), tf2.Engine.Storage.Settings.LatestConfirmedEpoch())
 		assert.Equal(t, tf.Engine.Storage.Settings.LatestStateMutationEpoch(), tf2.Engine.Storage.Settings.LatestStateMutationEpoch())
 
-		// Commitments
+		// Bucketed Storage
 		for epochIndex := epoch.Index(0); epochIndex <= 4; epochIndex++ {
 			originalCommitment, err := tf.Engine.Storage.Commitments.Load(epochIndex)
 			require.NoError(t, err)
@@ -219,6 +219,15 @@ func TestEngine_WriteSnapshot(t *testing.T) {
 
 			require.NoError(t, tf2.Engine.LedgerState.StateDiffs.StreamSpentOutputs(epochIndex, func(*ledgerstate.OutputWithMetadata) error {
 				return errors.New("StateDiffs spent should be empty after snapshot import")
+			}))
+
+			// RootBlocks
+			require.NoError(t, tf.Engine.Storage.RootBlocks.Stream(epochIndex, func(rootBlock models.BlockID) error {
+				has, err := tf2.Engine.Storage.RootBlocks.Has(rootBlock)
+				require.NoError(t, err)
+				require.True(t, has)
+
+				return nil
 			}))
 		}
 
@@ -272,6 +281,17 @@ func TestEngine_WriteSnapshot(t *testing.T) {
 			return true
 		}))
 
+		// RootBlocks
+		for epochIndex := epoch.Index(0); epochIndex <= 1; epochIndex++ {
+			require.NoError(t, tf.Engine.Storage.RootBlocks.Stream(epochIndex, func(rootBlock models.BlockID) error {
+				has, err := tf2.Engine.Storage.RootBlocks.Has(rootBlock)
+				require.NoError(t, err)
+				require.True(t, has)
+
+				return nil
+			}))
+		}
+
 		// Block in epoch 2, not accepting anything new.
 		tf2.Tangle.CreateBlock("2.D", models.WithStrongParents(tf.Tangle.BlockIDs("1.D")), models.WithIssuer(identitiesMap["D"]), models.WithIssuingTime(epoch2IssuingTime))
 		tf2.Tangle.IssueBlocks("2.D").WaitUntilAllTasksProcessed()
@@ -284,6 +304,8 @@ func TestEngine_WriteSnapshot(t *testing.T) {
 		tf2.Tangle.CreateBlock("11.C", models.WithStrongParents(tf2.Tangle.BlockIDs("11.B")), models.WithIssuer(identitiesMap["C"]))
 		tf2.Tangle.IssueBlocks("11.B", "11.C").WaitUntilAllTasksProcessed()
 
+		assert.Equal(t, epoch.Index(4), tf2.Engine.Storage.Settings.LatestCommitment().Index())
+
 		// Some blocks got evicted, and we have to restart evaluating with a new map
 		acceptedBlocks = make(map[string]bool)
 		tf2.Acceptance.ValidateAcceptedBlocks(lo.MergeMaps(acceptedBlocks, map[string]bool{
@@ -294,7 +316,39 @@ func TestEngine_WriteSnapshot(t *testing.T) {
 		}))
 	}
 
-	// Dump snapshot for epoch 2 and check attestations equivalence
+	// Dump snapshot for epoch 2 and check equivalence.
 	{
+		require.NoError(t, tf.Engine.WriteSnapshot(tempDisk.Path("snapshot_epoch2.bin"), 2))
+
+		tf2 := NewEngineTestFramework(t)
+
+		require.NoError(t, tf2.Engine.Initialize(tempDisk.Path("snapshot_epoch2.bin")))
+
+		assert.Equal(t, epoch.Index(2), tf2.Engine.Storage.Settings.LatestCommitment().Index())
+
+		// Check that we only have attestations for epoch 2.
+		require.Nil(t, lo.Return2(tf2.Engine.NotarizationManager.Attestations.Get(1)))
+		require.NoError(t, lo.Return2(tf2.Engine.NotarizationManager.Attestations.Get(2)))
+		require.Error(t, lo.Return2(tf2.Engine.NotarizationManager.Attestations.Get(3)))
+		require.Error(t, lo.Return2(tf2.Engine.NotarizationManager.Attestations.Get(4)))
+		require.NoError(t, lo.PanicOnErr(tf.Engine.NotarizationManager.Attestations.Get(2)).Stream(func(key identity.ID, engine1Attestation *notarization.Attestation) bool {
+			engine2Attestations := lo.PanicOnErr(tf2.Engine.NotarizationManager.Attestations.Get(2))
+			engine2Attestation, exists := engine2Attestations.Get(key)
+			require.True(t, exists)
+			assert.Equal(t, engine1Attestation, engine2Attestation)
+
+			return true
+		}))
+
+		// RootBlocks
+		for epochIndex := epoch.Index(0); epochIndex <= 2; epochIndex++ {
+			require.NoError(t, tf.Engine.Storage.RootBlocks.Stream(epochIndex, func(rootBlock models.BlockID) error {
+				has, err := tf2.Engine.Storage.RootBlocks.Has(rootBlock)
+				require.NoError(t, err)
+				require.True(t, has)
+
+				return nil
+			}))
+		}
 	}
 }
