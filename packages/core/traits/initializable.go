@@ -26,6 +26,19 @@ func NewInitializable(optCallbacks ...func()) (newInitializable Initializable) {
 	}
 }
 
+func SubscribeInitialized(initializers map[Initializable]func()) (unsubscribe func()) {
+	unsubscribeCallbacks := make([]func(), 0)
+	for dependency, initCallback := range initializers {
+		unsubscribeCallbacks = append(unsubscribeCallbacks, dependency.SubscribeInitialized(initCallback))
+	}
+
+	return func() {
+		for _, unsubscribeCallback := range unsubscribeCallbacks {
+			unsubscribeCallback()
+		}
+	}
+}
+
 // initializable is the implementation of the Initializable trait.
 type initializable struct {
 	// linkable is the linkable Event that is used for the subscriptions.

@@ -27,7 +27,7 @@ type LedgerState struct {
 func New(storageInstance *storage.Storage, memPool *ledger.Ledger) (ledgerState *LedgerState) {
 	ledgerState = &LedgerState{
 		MemPool:        memPool,
-		StateDiffs:     NewStateDiffs(storageInstance),
+		StateDiffs:     NewStateDiffs(storageInstance, memPool),
 		UnspentOutputs: NewUnspentOutputs(storageInstance.UnspentOutputIDs, memPool),
 		storage:        storageInstance,
 	}
@@ -149,6 +149,7 @@ func (l *LedgerState) applyStateDiff(targetEpoch epoch.Index) (err error) {
 }
 
 func (l *LedgerState) onTransactionAccepted(metadata *ledger.TransactionMetadata) {
+	fmt.Println(">> transaction accepted")
 	if err := l.StateDiffs.addAcceptedTransaction(metadata); err != nil {
 		// TODO: handle error gracefully
 		panic(err)

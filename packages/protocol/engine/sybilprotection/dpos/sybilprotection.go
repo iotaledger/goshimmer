@@ -31,7 +31,7 @@ type SybilProtection struct {
 	mutex              sync.RWMutex
 	optsActivityWindow time.Duration
 
-	commitmentState      traits.BatchCommittable
+	committable          traits.BatchCommittable
 	batchedWeightUpdates *sybilprotection.WeightUpdatesBatch
 
 	traits.Initializable
@@ -41,8 +41,8 @@ type SybilProtection struct {
 func NewSybilProtection(engineInstance *engine.Engine, opts ...options.Option[SybilProtection]) (proofOfStake *SybilProtection) {
 	return options.Apply(
 		&SybilProtection{
-			Initializable:   traits.NewInitializable(),
-			commitmentState: traits.NewBatchCommittable(),
+			Initializable: traits.NewInitializable(),
+			committable:   traits.NewBatchCommittable(),
 
 			engine:            engineInstance,
 			weights:           sybilprotection.NewWeights(engineInstance.Storage.SybilProtection, engineInstance.Storage.Settings),
@@ -54,36 +54,42 @@ func NewSybilProtection(engineInstance *engine.Engine, opts ...options.Option[Sy
 			s.validators = s.weights.WeightedSet()
 
 			s.engine.SubscribeConstructed(func() {
-				s.engine.Events.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(func(block *blockdag.Block) {
-					s.markValidatorActive(block.IssuerID(), block.IssuingTime())
-				}))
+				traits.SubscribeInitialized(map[traits.Initializable]func(){
+					s.engine.LedgerState:                      s.initializeTotalWeight,
+					s.engine.LedgerState.UnspentOutputs:       s.initializeLatestCommitment,
+					s.engine.NotarizationManager.Attestations: s.initializeActiveValidators,
+				})
 
 				s.engine.LedgerState.UnspentOutputs.Subscribe(s)
 
-				s.engine.LedgerState.UnspentOutputs.SubscribeInitialized(func() {
-					s.commitmentState.SetLastCommittedEpoch(s.engine.Storage.Settings.LatestCommitment().Index())
-				})
-
-				s.engine.LedgerState.SubscribeInitialized(func() {
-					s.weights.TotalWeight().UpdateTime = s.engine.Storage.Settings.LatestCommitment().Index()
-				})
-
-				s.engine.NotarizationManager.Attestations.SubscribeInitialized(func() {
-					attestations, err := s.engine.NotarizationManager.Attestations.Get(s.engine.Storage.Settings.LatestCommitment().Index())
-					if err != nil {
-						panic(err)
-					}
-
-					if err = attestations.Stream(func(id identity.ID, attestation *notarization.Attestation) bool {
-						s.validators.Add(id)
-
-						return true
-					}); err != nil {
-						panic(err)
-					}
-				})
+				s.engine.Events.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(func(block *blockdag.Block) {
+					s.markValidatorActive(block.IssuerID(), block.IssuingTime())
+				}))
 			})
 		})
+}
+
+func (s *SybilProtection) initializeLatestCommitment() {
+	s.committable.SetLastCommittedEpoch(s.engine.Storage.Settings.LatestCommitment().Index())
+}
+
+func (s *SybilProtection) initializeTotalWeight() {
+	s.weights.TotalWeight().UpdateTime = s.engine.Storage.Settings.LatestCommitment().Index()
+}
+
+func (s *SybilProtection) initializeActiveValidators() {
+	attestations, err := s.engine.NotarizationManager.Attestations.Get(s.engine.Storage.Settings.LatestCommitment().Index())
+	if err != nil {
+		panic(err)
+	}
+
+	if err = attestations.Stream(func(id identity.ID, attestation *notarization.Attestation) bool {
+		s.validators.Add(id)
+
+		return true
+	}); err != nil {
+		panic(err)
+	}
 }
 
 // NewProvider returns a new sybil protection provider that uses the ProofOfStake module.
@@ -104,7 +110,7 @@ func (s *SybilProtection) Weights() *sybilprotection.Weights {
 }
 
 func (s *SybilProtection) ApplyCreatedOutput(output *ledgerstate.OutputWithMetadata) (err error) {
-	if !s.commitmentState.BatchedStateTransitionStarted() {
+	if !s.committable.BatchedStateTransitionStarted() {
 		ApplyCreatedOutput(output, s.weights.ImportDiff)
 	} else {
 		ApplyCreatedOutput(output, s.batchedWeightUpdates.ApplyDiff)
@@ -114,7 +120,7 @@ func (s *SybilProtection) ApplyCreatedOutput(output *ledgerstate.OutputWithMetad
 }
 
 func (s *SybilProtection) ApplySpentOutput(output *ledgerstate.OutputWithMetadata) (err error) {
-	if !s.commitmentState.BatchedStateTransitionStarted() {
+	if !s.committable.BatchedStateTransitionStarted() {
 		ApplySpentOutput(output, s.weights.ImportDiff)
 	} else {
 		ApplySpentOutput(output, s.batchedWeightUpdates.ApplyDiff)
@@ -132,7 +138,7 @@ func (s *SybilProtection) RollbackSpentOutput(output *ledgerstate.OutputWithMeta
 }
 
 func (s *SybilProtection) BeginBatchedStateTransition(newEpoch epoch.Index) (currentEpoch epoch.Index, err error) {
-	if currentEpoch, err = s.commitmentState.BeginBatchedStateTransition(newEpoch); err != nil {
+	if currentEpoch, err = s.committable.BeginBatchedStateTransition(newEpoch); err != nil {
 		return 0, errors.Errorf("failed to begin batched state transition: %w", err)
 	}
 
@@ -148,7 +154,7 @@ func (s *SybilProtection) CommitBatchedStateTransition() (ctx context.Context) {
 	go func() {
 		s.weights.ApplyBatchUpdates(s.batchedWeightUpdates)
 
-		s.commitmentState.FinalizeBatchedStateTransition()
+		s.committable.FinalizeBatchedStateTransition()
 
 		done()
 	}()

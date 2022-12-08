@@ -367,6 +367,10 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 	))
 	tempDisk := diskutil.New(t.TempDir())
 
+	tf.Engine.NotarizationManager.Events.Error.Attach(event.NewClosure(func(err error) {
+		panic(err)
+	}))
+
 	identitiesMap := map[string]ed25519.PublicKey{
 		"A": identity.GenerateIdentity().PublicKey(),
 		"B": identity.GenerateIdentity().PublicKey(),
