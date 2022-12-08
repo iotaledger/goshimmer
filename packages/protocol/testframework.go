@@ -73,11 +73,14 @@ type EngineTestFramework struct {
 
 func NewEngineTestFramework(test *testing.T, opts ...options.Option[EngineTestFramework]) (testFramework *EngineTestFramework) {
 	chainStorage := storage.New(test.TempDir(), 1)
+	test.Cleanup(chainStorage.Shutdown)
+
 	return options.Apply(&EngineTestFramework{
 		test: test,
 	}, opts, func(t *EngineTestFramework) {
 		if t.Engine == nil {
 			t.Engine = engine.New(chainStorage, dpos.NewProvider(), mana1.NewProvider(), t.optsEngineOptions...)
+			test.Cleanup(t.Engine.Shutdown)
 		}
 
 		t.Tangle = tangle.NewTestFramework(test, tangle.WithTangle(t.Engine.Tangle))
