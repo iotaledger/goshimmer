@@ -5,12 +5,9 @@ services:
   goshimmer:
     image: {{goshimmerDockerImage}}:{{goshimmerDockerTag}}
     container_name: goshimmer
-    environment:
-      - GOTRACEBACK=crash
-      - GOMEMLIMIT=3000MiB
-      - GOGC=100
     volumes:
       - "./db:/db"
+      - "./retainer:/retainer"
       - "/etc/localtime:/etc/localtime:ro"
     ports:
       # Autopeering
@@ -48,6 +45,9 @@ services:
       - P2P_BINDADDRESS=0.0.0.0:14666
       - WEBAPI_BINDADDRESS=0.0.0.0:8080
       - PROFILING_BINDADDRESS=0.0.0.0:6061
+      - GOTRACEBACK=crash
+      - GOMEMLIMIT=3000MiB
+      - GOGC=100
     command: >
       --skip-config=true
       --autoPeering.entryNodes={{ entryNodePubKey }}@{{ entryNodeHost }}:15626{% if communityEntryNode|default(None) %},{{ communityEntryNode }}{% endif %}
@@ -59,7 +59,7 @@ services:
       --prometheus.bindAddress=0.0.0.0:9311
       --activity.broadcastInterval=1s
      {% if faucet|default(false) %}
-      --faucet.seed={{ faucetSeed }}
+      --faucet.seed={{ faucetSeed}}
       --faucet.tokensPerRequest=1000000
      {% endif %}
       --logger.level={{ logLevel }}
