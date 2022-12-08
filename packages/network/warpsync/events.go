@@ -56,8 +56,8 @@ type EpochBlockEvent struct {
 
 // BlockReceivedEvent holds data about a block received event.
 type EpochBlocksEndEvent struct {
-	ID                identity.ID
-	EI                epoch.Index
-	EC                commitment.ID
+	ID    identity.ID
+	EI    epoch.Index
+	EC    commitment.ID
 	Roots *commitment.Roots
 }

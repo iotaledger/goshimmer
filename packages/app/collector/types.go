@@ -5,24 +5,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 )
 
-type Collections map[string]Metrics
-
-func (c *Collections) GetMetric(subsystem, metricName string) *Metric {
-	if col, exists := (*c)[subsystem]; exists {
-		return col.GetMetric(metricName)
-	}
-	return nil
-}
-
-type Metrics map[string]*Metric
-
-func (m *Metrics) GetMetric(metricName string) *Metric {
-	if metric, exists := (*m)[metricName]; exists {
-		return metric
-	}
-	return nil
-}
-
 // BlockType defines the component for the different BPS metrics.
 type BlockType byte
 

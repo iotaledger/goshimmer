@@ -2,13 +2,15 @@ package metricscollector
 
 import (
 	"context"
+	"fmt"
+	"net/http"
+	"time"
+
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/goshimmer/packages/app/collector"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
@@ -40,7 +42,7 @@ type dependencies struct {
 }
 
 func init() {
-	Plugin = node.NewPlugin(PluginName, deps, node.Disabled, configure, run)
+	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
 
 	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
 		if err := event.Container.Provide(createCollector); err != nil {
@@ -111,6 +113,7 @@ func createCollector() *collector.Collector {
 }
 
 func registerMetrics() {
+	fmt.Println(">>>> registering metrics...")
 	deps.Collector.RegisterCollection(TangleMetrics)
 	deps.Collector.RegisterCollection(ConflictMetrics)
 

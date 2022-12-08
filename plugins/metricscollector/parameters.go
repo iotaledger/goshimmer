@@ -1,6 +1,10 @@
 package metricscollector
 
-import "time"
+import (
+	"time"
+
+	"github.com/iotaledger/goshimmer/plugins/config"
+)
 
 // ParametersDefinition contains the definition of the parameters used by the metrics plugin.
 type ParametersDefinition struct {
@@ -16,3 +20,7 @@ type ParametersDefinition struct {
 
 // Parameters contains the configuration used by the metrics collector plugin.
 var Parameters = &ParametersDefinition{}
+
+func init() {
+	config.BindParameters(Parameters, "metricsCollector")
+}

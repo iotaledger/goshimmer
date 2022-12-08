@@ -35,7 +35,7 @@ type Metric struct {
 func NewMetric(name string, opts ...options.Option[Metric]) *Metric {
 	m := options.Apply(&Metric{
 		Name: name,
-	}, opts)
+	}, opts, emptyCollector)
 
 	switch m.Type {
 	case Gauge:
@@ -68,7 +68,9 @@ func NewMetric(name string, opts ...options.Option[Metric]) *Metric {
 
 func (m *Metric) Collect() {
 	valMap := m.collectFunc()
-	m.Update(valMap)
+	if valMap != nil {
+		m.Update(valMap)
+	}
 }
 
 func (m *Metric) Update(labelValues map[string]float64) {
@@ -133,3 +135,7 @@ func WithInitFunc(initFunc func()) options.Option[Metric] {
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func emptyCollector(m *Metric) {
+	m.collectFunc = func() map[string]float64 { return nil }
+}

@@ -208,9 +208,10 @@ func (m *Manager) Shutdown() {
 // getDBInstance returns the DB instance for the given baseIndex or creates a new one if it does not yet exist.
 // DBs are created as follows where each db is located in m.basedir/<starting baseIndex>/
 // (assuming a bucket granularity=2):
-//   baseIndex 0 -> db 0
-//   baseIndex 1 -> db 0
-//   baseIndex 2 -> db 2
+//
+//	baseIndex 0 -> db 0
+//	baseIndex 1 -> db 0
+//	baseIndex 2 -> db 2
 func (m *Manager) getDBInstance(index epoch.Index) (db *dbInstance) {
 	m.openDBsMutex.Lock()
 	defer m.openDBsMutex.Unlock()
@@ -228,10 +229,11 @@ func (m *Manager) getDBInstance(index epoch.Index) (db *dbInstance) {
 // getBucket returns the bucket for the given baseIndex or creates a new one if it does not yet exist.
 // A bucket is marked as dirty by default.
 // Buckets are created as follows (assuming a bucket granularity=2):
-//   baseIndex 0 -> db 0 / bucket 0
-//   baseIndex 1 -> db 0 / bucket 1
-//   baseIndex 2 -> db 2 / bucket 2
-//   baseIndex 3 -> db 2 / bucket 3
+//
+//	baseIndex 0 -> db 0 / bucket 0
+//	baseIndex 1 -> db 0 / bucket 1
+//	baseIndex 2 -> db 2 / bucket 2
+//	baseIndex 3 -> db 2 / bucket 3
 func (m *Manager) getBucket(index epoch.Index) (bucket kvstore.KVStore) {
 	_, bucket = m.getDBAndBucket(index)
 	return bucket
