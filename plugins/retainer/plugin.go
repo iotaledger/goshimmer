@@ -40,7 +40,7 @@ func init() {
 
 func configure(*node.Plugin) {
 	deps.Protocol.Events.Engine.Consensus.EpochGadget.EpochConfirmed.Attach(event.NewClosure(func(epochIndex epoch.Index) {
-		deps.Retainer.PruneUntilEpoch(epochIndex - epoch.Index(Parameters.DBPruningDelay))
+		deps.Retainer.PruneUntilEpoch(epochIndex - epoch.Index(Parameters.PruningThreshold))
 	}))
 }
 
@@ -52,5 +52,5 @@ func createRetainer(p *protocol.Protocol) *retainer.Retainer {
 		dbProvider = database.NewDB
 	}
 
-	return retainer.NewRetainer(p, database.NewManager(protocol.DatabaseVersion, database.WithDBProvider(dbProvider), database.WithBaseDir(Parameters.DBPath)))
+	return retainer.NewRetainer(p, database.NewManager(protocol.DatabaseVersion, database.WithGranularity(Parameters.DBGranularity), database.WithMaxOpenDBs(Parameters.MaxOpenDBs), database.WithDBProvider(dbProvider), database.WithBaseDir(Parameters.Directory)))
 }

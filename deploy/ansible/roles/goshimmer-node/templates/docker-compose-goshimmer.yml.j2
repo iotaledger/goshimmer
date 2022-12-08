@@ -37,6 +37,7 @@ services:
       - "0.0.0.0:9311:9311/tcp"
     environment:
       - NODE_SEED={{ seed }}
+      - RETAINER_DIRECTORY=/retainer
       - DATABASE_DIRECTORY=/db/mainnetdb
       - NODE_PEERDBDIRECTORY=/db/peerdb
       - ANALYSIS_CLIENT_SERVERADDRESS={{ analysisServerHost }}:21888
@@ -59,7 +60,7 @@ services:
       --prometheus.bindAddress=0.0.0.0:9311
       --activity.broadcastInterval=1s
      {% if faucet|default(false) %}
-      --faucet.seed={{ faucetSeed}}
+      --faucet.seed={{ faucetSeed }}
       --faucet.tokensPerRequest=1000000
      {% endif %}
       --logger.level={{ logLevel }}
