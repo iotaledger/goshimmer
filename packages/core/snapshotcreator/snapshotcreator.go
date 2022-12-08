@@ -57,12 +57,14 @@ func CreateSnapshot(databaseVersion database.Version, snapshotFileName string, g
 			panic(err)
 		}
 
+		engineInstance.NotarizationManager.Attestations.SetLastCommittedEpoch(-1)
 		if _, err := engineInstance.NotarizationManager.Attestations.Add(&notarization.Attestation{
 			IssuerID:    nodeID,
-			IssuingTime: time.Unix(epoch.GenesisTime, 0),
+			IssuingTime: time.Unix(epoch.GenesisTime-1, 0),
 		}); err != nil {
 			panic(err)
 		}
+		engineInstance.NotarizationManager.Attestations.Commit(0)
 	}
 
 	if err := engineInstance.WriteSnapshot(snapshotFileName); err != nil {
@@ -88,9 +90,10 @@ func CreateSnapshotForIntegrationTest(s *storage.Storage, snapshotFileName strin
 		panic(err)
 	}
 
+	engineInstance.NotarizationManager.Attestations.SetLastCommittedEpoch(-1)
 	if _, err := engineInstance.NotarizationManager.Attestations.Add(&notarization.Attestation{
 		IssuerID:    genesisPledgeID,
-		IssuingTime: time.Unix(epoch.GenesisTime, 0),
+		IssuingTime: time.Unix(epoch.GenesisTime-2, 0),
 	}); err != nil {
 		panic(err)
 	}
@@ -104,10 +107,11 @@ func CreateSnapshotForIntegrationTest(s *storage.Storage, snapshotFileName strin
 
 		if _, err := engineInstance.NotarizationManager.Attestations.Add(&notarization.Attestation{
 			IssuerID:    nodeID,
-			IssuingTime: time.Unix(epoch.GenesisTime, 0),
+			IssuingTime: time.Unix(epoch.GenesisTime-1, 0),
 		}); err != nil {
 			panic(err)
 		}
+		engineInstance.NotarizationManager.Attestations.Commit(0)
 	}
 
 	if err := engineInstance.WriteSnapshot(snapshotFileName); err != nil {

@@ -3,7 +3,9 @@ package conflicttracker
 import (
 	"testing"
 
+	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/constraints"
+	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
@@ -46,6 +48,12 @@ func NewTestFramework[VotePowerType constraints.Comparable[VotePowerType]](test 
 		if t.ConflictTracker == nil {
 			t.ConflictTracker = NewConflictTracker[utxo.TransactionID, utxo.OutputID, VotePowerType](t.ConflictDAG(), t.VotesTestFramework.Validators)
 		}
+
+		t.ConflictTracker.Events.VoterAdded.Attach(event.NewClosure(func(event *VoterEvent[utxo.TransactionID]) {
+			if debug.GetEnabled() {
+				t.test.Logf("CONFLICT VOTER ADDED: %v", event.ConflictID)
+			}
+		}))
 	})
 }
 

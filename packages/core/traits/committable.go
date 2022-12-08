@@ -17,7 +17,9 @@ type Committable interface {
 
 // NewCommittable creates a new Committable trait.
 func NewCommittable() (newCommittable Committable) {
-	return &committable{}
+	return &committable{
+		lastCommittedEpoch: -1,
+	}
 }
 
 // committable is the implementation of the Committable trait.

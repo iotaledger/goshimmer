@@ -13,6 +13,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
@@ -23,6 +24,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markermanager"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
@@ -96,7 +101,7 @@ func TestProtocol(t *testing.T) {
 	event.Loop.PendingTasksCounter.WaitIsZero()
 }
 
-func TestEngine_WriteSnapshot(t *testing.T) {
+func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 	debug.SetEnabled(true)
 	defer debug.SetEnabled(false)
 
@@ -124,12 +129,6 @@ func TestEngine_WriteSnapshot(t *testing.T) {
 	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDisk.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights)
 
 	require.NoError(t, tf.Engine.Initialize(tempDisk.Path("genesis_snapshot.bin")))
-
-	fmt.Println("+++", lo.PanicOnErr(tf.Engine.SybilProtection.Weights().Map()))
-
-	tf.Engine.Clock.Events.AcceptanceTimeUpdated.Hook(event.NewClosure(func(event *clock.TimeUpdate) {
-		fmt.Println("> AcceptanceTimeUpdated", event.NewTime)
-	}))
 
 	acceptedBlocks := make(map[string]bool)
 
@@ -351,4 +350,89 @@ func TestEngine_WriteSnapshot(t *testing.T) {
 			}))
 		}
 	}
+}
+
+func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
+	debug.SetEnabled(true)
+	defer debug.SetEnabled(false)
+
+	epoch.GenesisTime = time.Now().Unix() - epoch.Duration*10
+
+	tf := NewEngineTestFramework(t, WithTangleOptions(
+		tangle.WithBookerOptions(
+			booker.WithMarkerManagerOptions(
+				markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(1)),
+			),
+		),
+	))
+	tempDisk := diskutil.New(t.TempDir())
+
+	identitiesMap := map[string]ed25519.PublicKey{
+		"A": identity.GenerateIdentity().PublicKey(),
+		"B": identity.GenerateIdentity().PublicKey(),
+		"C": identity.GenerateIdentity().PublicKey(),
+		"D": identity.GenerateIdentity().PublicKey(),
+		"Z": identity.GenerateIdentity().PublicKey(),
+	}
+
+	identitiesWeights := map[identity.ID]uint64{
+		identity.New(identitiesMap["A"]).ID(): 25,
+		identity.New(identitiesMap["B"]).ID(): 25,
+		identity.New(identitiesMap["C"]).ID(): 25,
+		identity.New(identitiesMap["D"]).ID(): 25,
+		identity.New(identitiesMap["Z"]).ID(): 0,
+	}
+
+	tf.Engine.Clock.Events.AcceptanceTimeUpdated.Hook(event.NewClosure(func(event *clock.TimeUpdate) {
+		fmt.Println("> AcceptanceTimeUpdated", event.NewTime)
+	}))
+
+	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDisk.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights)
+
+	require.NoError(t, tf.Engine.Initialize(tempDisk.Path("genesis_snapshot.bin")))
+
+	assert.Equal(t, int64(100), tf.Engine.SybilProtection.Validators().TotalWeight())
+
+	acceptedBlocks := make(map[string]bool)
+	epoch1IssuingTime := time.Unix(epoch.GenesisTime, 0)
+
+	tf.Tangle.CreateBlock("1.Z", models.WithStrongParents(tf.Tangle.BlockIDs("Genesis")), models.WithPayload(tf.Tangle.CreateTransaction("Tx0", 2, "Genesis")), models.WithIssuer(identitiesMap["Z"]), models.WithIssuingTime(epoch1IssuingTime))
+	tf.Tangle.CreateBlock("1.Z*", models.WithStrongParents(tf.Tangle.BlockIDs("Genesis")), models.WithPayload(tf.Tangle.CreateTransaction("Tx0*", 2, "Genesis")), models.WithIssuer(identitiesMap["Z"]), models.WithIssuingTime(epoch1IssuingTime))
+	tf.Tangle.CreateBlock("1.A", models.WithStrongParents(tf.Tangle.BlockIDs("1.Z")), models.WithIssuer(identitiesMap["A"]), models.WithIssuingTime(epoch1IssuingTime))
+	tf.Tangle.CreateBlock("1.B", models.WithStrongParents(tf.Tangle.BlockIDs("1.A")), models.WithIssuer(identitiesMap["B"]), models.WithIssuingTime(epoch1IssuingTime))
+	tf.Tangle.CreateBlock("1.C", models.WithStrongParents(tf.Tangle.BlockIDs("1.B")), models.WithIssuer(identitiesMap["C"]), models.WithIssuingTime(epoch1IssuingTime))
+	tf.Tangle.CreateBlock("1.D", models.WithStrongParents(tf.Tangle.BlockIDs("1.C")), models.WithIssuer(identitiesMap["D"]), models.WithIssuingTime(epoch1IssuingTime))
+	tf.Tangle.IssueBlocks("1.Z", "1.Z*", "1.A", "1.B", "1.C", "1.D").WaitUntilAllTasksProcessed()
+
+	tf.Engine.LedgerState.UnspentOutputs.IDs.Stream(func(key utxo.OutputID) bool {
+		fmt.Println(key.String())
+		return true
+	})
+
+	tf.Acceptance.ValidateAcceptedBlocks(lo.MergeMaps(acceptedBlocks, map[string]bool{
+		"1.Z":  true,
+		"1.Z*": false,
+		"1.A":  true,
+		"1.B":  true,
+		"1.C":  false,
+		"1.D":  false,
+	}))
+
+	acceptedConflicts := make(map[string]confirmation.State)
+	tf.Acceptance.ValidateConflictAcceptance(lo.MergeMaps(acceptedConflicts, map[string]confirmation.State{
+		"Tx0":  confirmation.Accepted,
+		"Tx0*": confirmation.Rejected,
+	}))
+
+	tf.Tangle.CreateBlock("11.A", models.WithStrongParents(tf.Tangle.BlockIDs("1.D")), models.WithIssuer(identitiesMap["A"]))
+	tf.Tangle.CreateBlock("11.B", models.WithStrongParents(tf.Tangle.BlockIDs("11.A")), models.WithIssuer(identitiesMap["B"]))
+	tf.Tangle.CreateBlock("11.C", models.WithStrongParents(tf.Tangle.BlockIDs("11.B")), models.WithIssuer(identitiesMap["C"]))
+	tf.Tangle.IssueBlocks("11.A", "11.B", "11.C").WaitUntilAllTasksProcessed()
+
+	assert.Equal(t, epoch.Index(4), tf.Engine.Storage.Settings.LatestCommitment().Index())
+
+	tf.Engine.LedgerState.UnspentOutputs.IDs.Stream(func(key utxo.OutputID) bool {
+		fmt.Println(key.String())
+		return true
+	})
 }

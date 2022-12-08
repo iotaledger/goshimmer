@@ -1,6 +1,7 @@
 package ledgerstate
 
 import (
+	"fmt"
 	"io"
 	"sync"
 
@@ -119,8 +120,11 @@ func (l *LedgerState) applyStateDiff(targetEpoch epoch.Index) (err error) {
 		return
 	}
 
+	fmt.Println(">> applying state diff", lastCommittedEpoch, targetEpoch)
+
 	switch {
 	case IsRollback(lastCommittedEpoch, targetEpoch):
+		fmt.Println(">> rollback")
 		if err = l.StateDiffs.StreamSpentOutputs(lastCommittedEpoch, l.UnspentOutputs.RollbackSpentOutput); err != nil {
 			return errors.Errorf("failed to apply created outputs: %w", err)
 		}
@@ -129,6 +133,7 @@ func (l *LedgerState) applyStateDiff(targetEpoch epoch.Index) (err error) {
 			return errors.Errorf("failed to apply spent outputs: %w", err)
 		}
 	default:
+		fmt.Println(">> forward")
 		if err = l.StateDiffs.StreamCreatedOutputs(targetEpoch, l.UnspentOutputs.ApplyCreatedOutput); err != nil {
 			return errors.Errorf("failed to apply created outputs: %w", err)
 		}

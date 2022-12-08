@@ -65,7 +65,7 @@ type EngineTestFramework struct {
 
 	test *testing.T
 
-	optsEngineOptions []options.Option[engine.Engine]
+	optsTangleOptions []options.Option[tangle.Tangle]
 
 	Tangle     *TangleTestFramework
 	Acceptance *AcceptanceTestFramework
@@ -79,7 +79,7 @@ func NewEngineTestFramework(test *testing.T, opts ...options.Option[EngineTestFr
 		test: test,
 	}, opts, func(t *EngineTestFramework) {
 		if t.Engine == nil {
-			t.Engine = engine.New(chainStorage, dpos.NewProvider(), mana1.NewProvider(), t.optsEngineOptions...)
+			t.Engine = engine.New(chainStorage, dpos.NewProvider(), mana1.NewProvider(), engine.WithTangleOptions(t.optsTangleOptions...))
 			test.Cleanup(t.Engine.Shutdown)
 		}
 
@@ -100,6 +100,12 @@ func NewEngineTestFramework(test *testing.T, opts ...options.Option[EngineTestFr
 func WithEngine(engine *engine.Engine) options.Option[EngineTestFramework] {
 	return func(t *EngineTestFramework) {
 		t.Engine = engine
+	}
+}
+
+func WithTangleOptions(tangleOpts ...options.Option[tangle.Tangle]) options.Option[EngineTestFramework] {
+	return func(t *EngineTestFramework) {
+		t.optsTangleOptions = tangleOpts
 	}
 }
 

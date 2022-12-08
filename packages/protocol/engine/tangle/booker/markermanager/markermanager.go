@@ -1,8 +1,6 @@
 package markermanager
 
 import (
-	"fmt"
-
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/syncutils"
@@ -89,7 +87,6 @@ func (m *MarkerManager[IndexedID, MappedEntity]) evictSequences(epochIndex epoch
 
 		sequenceSet.ForEach(func(sequenceID markers.SequenceID) {
 			if lastUsed, exists := m.sequenceLastUsed.Get(sequenceID); exists && lastUsed <= epochIndex {
-				fmt.Println("eviction of sequence id", sequenceID)
 				m.sequenceLastUsed.Delete(sequenceID)
 				m.markerIndexConflictIDMapping.Delete(sequenceID)
 				m.SequenceManager.Delete(sequenceID)

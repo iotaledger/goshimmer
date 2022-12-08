@@ -1,6 +1,7 @@
 package ledgerstate
 
 import (
+	"fmt"
 	"io"
 
 	"github.com/cockroachdb/errors"
@@ -115,10 +116,13 @@ func (s *StateDiffs) StreamSpentOutputs(index epoch.Index, callback func(*Output
 func (s *StateDiffs) StreamCreatedOutputs(index epoch.Index, callback func(*OutputWithMetadata) error) (err error) {
 	store, err := s.storage.LedgerStateDiffs(index).WithExtendedRealm([]byte{createdOutputsPrefix})
 	if err != nil {
+		fmt.Println(">> stream err", err)
 		return errors.Errorf("failed to extend realm for storage: %w", err)
 	}
 
 	s.stream(store, callback)
+
+	fmt.Println(">> stream done")
 
 	return
 }

@@ -36,7 +36,7 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) TrackVo
 		return false, true
 	}
 
-	defaultVote := votes.NewVote[ConflictIDType, VotePowerType](voterID, power, votes.UndefinedOpinion)
+	defaultVote := votes.NewVote[ConflictIDType](voterID, power, votes.UndefinedOpinion)
 
 	eventsToTrigger := c.applyVotes(defaultVote.WithOpinion(votes.Dislike), revokedConflictIDs)
 	eventsToTrigger = append(eventsToTrigger, c.applyVotes(defaultVote.WithOpinion(votes.Like), addedConflictIDs)...)
@@ -61,7 +61,7 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) AddSupp
 		return
 	}
 
-	vote := votes.NewVote[ConflictIDType, VotePowerType](voterID, power, votes.Like).WithConflictID(forkedConflictID)
+	vote := votes.NewVote[ConflictIDType](voterID, power, votes.Like).WithConflictID(forkedConflictID)
 
 	votesObj, _ := c.votes.RetrieveOrCreate(forkedConflictID, votes.NewVotes[ConflictIDType, VotePowerType])
 	if added, opinionChanged := votesObj.Add(vote); added && opinionChanged {
