@@ -52,6 +52,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 			identity.GenerateIdentity().ID(): 100,
 		})
 
+		t.Local = identity.GenerateIdentity()
 		t.Protocol = New(t.Network.Join(identity.GenerateIdentity().ID()), append(t.optsProtocolOptions, WithSnapshotPath(diskUtil.Path("snapshot.bin")), WithBaseDirectory(diskUtil.Path()), WithEngineOptions(engine.WithSybilProtectionProvider(dpos.NewSybilProtectionProvider())))...)
 	})
 }
