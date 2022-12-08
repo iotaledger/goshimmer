@@ -142,7 +142,7 @@ func registerLocalMetrics() {
 	}))
 
 	// increase received BPS counter whenever rate setter issues a block
-	deps.BlockIssuer.RateSetter.Events.BlockIssued.Attach(event.NewClosure(func(_ *models.Block) {
+	deps.BlockIssuer.Events.BlockIssued.Attach(event.NewClosure(func(_ *models.Block) {
 		sumTimeMutex.Lock()
 		defer sumTimeMutex.Unlock()
 

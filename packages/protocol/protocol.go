@@ -242,14 +242,6 @@ func (p *Protocol) ProcessAttestations(attestations *notarization.Attestations, 
 	// TODO: process attestations and evluate chain switch!
 }
 
-func (p *Protocol) ProcessAttestationsRequest(epochIndex epoch.Index, src identity.ID) {
-	// p.networkProtocol.SendAttestations(p.Engine().SybilProtection.Attestations(epochIndex), src)
-}
-
-func (p *Protocol) ProcessAttestations(attestations *notarization.Attestations, src identity.ID) {
-	// TODO: process attestations and evluate chain switch!
-}
-
 func (p *Protocol) Engine() (instance *engine.Engine) {
 	p.activeEngineMutex.RLock()
 	defer p.activeEngineMutex.RUnlock()

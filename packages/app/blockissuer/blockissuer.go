@@ -86,7 +86,7 @@ func (i *BlockIssuer) IssuePayload(p payload.Payload, parentsCount ...int) (bloc
 		i.Events.Error.Trigger(errors.Errorf("block could not be created: %w", err))
 		return block, err
 	}
-	return block, i.protocol.ProcessBlock(block, i.identity.ID())
+	return block, i.issueBlock(block)
 }
 
 // IssuePayloadWithReferences creates a new block with the references submit.
@@ -101,7 +101,13 @@ func (i *BlockIssuer) IssuePayloadWithReferences(p payload.Payload, references m
 		return nil, err
 	}
 
-	return block, i.protocol.ProcessBlock(block, i.identity.ID())
+	return block, i.issueBlock(block)
+}
+
+func (i *BlockIssuer) issueBlock(block *models.Block) error {
+	err := i.protocol.ProcessBlock(block, i.identity.ID())
+	i.Events.BlockIssued.Trigger(block)
+	return err
 }
 
 // IssueBlockAndAwaitBlockToBeBooked awaits maxAwait for the given block to get booked.
@@ -129,7 +135,7 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeBooked(block *models.Block, max
 	i.protocol.Events.Engine.Tangle.Booker.BlockBooked.Attach(closure)
 	defer i.protocol.Events.Engine.Tangle.Booker.BlockBooked.Detach(closure)
 
-	err := i.protocol.ProcessBlock(block, i.identity.ID())
+	err := i.issueBlock(block)
 
 	if err != nil {
 		return errors.Errorf("failed to issue block %s: %w", block.ID().String(), err)
@@ -146,8 +152,8 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeBooked(block *models.Block, max
 }
 
 // IssueBlockAndAwaitBlockToBeScheduled awaits maxAwait for the given block to get issued.
-func (f *BlockIssuer) IssueBlockAndAwaitBlockToBeScheduled(block *models.Block, maxAwait time.Duration) error {
-	if !f.optsIgnoreBootstrappedFlag && !f.protocol.Engine().IsBootstrapped() {
+func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeScheduled(block *models.Block, maxAwait time.Duration) error {
+	if !i.optsIgnoreBootstrappedFlag && !i.protocol.Engine().IsBootstrapped() {
 		return ErrNotBootstraped
 	}
 
@@ -167,7 +173,7 @@ func (f *BlockIssuer) IssueBlockAndAwaitBlockToBeScheduled(block *models.Block, 
 	i.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Attach(closure)
 	defer i.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Detach(closure)
 
-	err := i.protocol.ProcessBlock(block, i.identity.ID())
+	err := i.issueBlock(block)
 
 	if err != nil {
 		return errors.Errorf("failed to issue block %s: %w", block.ID().String(), err)
