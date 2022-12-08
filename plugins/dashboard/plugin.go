@@ -160,9 +160,9 @@ func worker(ctx context.Context) {
 	defer wsSendWorkerPool.Stop()
 
 	// submit the mps to the worker pool when triggered
-	notifyStatus := event.NewClosure(func(event *metrics.ReceivedBPSUpdatedEvent) { wsSendWorkerPool.TrySubmit(event.BPS) })
-	metrics.Events.ReceivedBPSUpdated.Attach(notifyStatus)
-	defer metrics.Events.ReceivedBPSUpdated.Detach(notifyStatus)
+	notifyStatus := event.NewClosure(func(event *metrics.AttachedBPSUpdatedEvent) { wsSendWorkerPool.TrySubmit(event.BPS) })
+	metrics.Events.AttachedBPSUpdated.Attach(notifyStatus)
+	defer metrics.Events.AttachedBPSUpdated.Detach(notifyStatus)
 
 	stopped := make(chan struct{})
 	go func() {

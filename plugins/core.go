@@ -15,7 +15,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/manainitializer"
 	"github.com/iotaledger/goshimmer/plugins/manualpeering"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
-	"github.com/iotaledger/goshimmer/plugins/network"
 	"github.com/iotaledger/goshimmer/plugins/p2p"
 	"github.com/iotaledger/goshimmer/plugins/peer"
 	"github.com/iotaledger/goshimmer/plugins/portcheck"
@@ -39,7 +38,6 @@ var Core = node.Plugins(
 	manualpeering.Plugin,
 	profiling.Plugin,
 	p2p.Plugin,
-	network.Plugin,
 	protocol.Plugin,
 	retainer.Plugin,
 	indexer.Plugin,

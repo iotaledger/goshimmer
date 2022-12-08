@@ -6,6 +6,10 @@ services:
     image: {{goshimmerDockerImage}}:{{goshimmerDockerTag}}
     container_name: goshimmer
     stop_grace_period: 2m
+    environment:
+      - GOTRACEBACK=crash
+      - GOMEMLIMIT=3000MiB
+      - GOGC=100
     volumes:
       - "./db:/db"
       - "/etc/localtime:/etc/localtime:ro"
@@ -50,3 +54,5 @@ services:
       --remotemetrics.metricsLevel=0
       --blockIssuer.ignoreBootstrappedFlag=false
       --protocol.bootstrapWindow=20s
+      --prometheus.goMetrics=true
+      --prometheus.processMetrics=true
