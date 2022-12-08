@@ -737,9 +737,7 @@ type TransactionMetadata struct {
 func NewTransactionMetadata(transactionMetadata *ledger.TransactionMetadata) *TransactionMetadata {
 	return &TransactionMetadata{
 		TransactionID:         transactionMetadata.ID().Base58(),
-		ConflictIDs:           lo.Map(lo.Map(transactionMetadata.ConflictIDs().Slice(), func(t utxo.TransactionID) []byte {
-			return lo.PanicOnErr(t.Bytes())
-		}), base58.Encode),
+		ConflictIDs:           lo.Map(lo.Map(transactionMetadata.ConflictIDs().Slice(), func(t utxo.TransactionID) []byte { return lo.PanicOnErr(t.Bytes()) }), base58.Encode),
 		Booked:                transactionMetadata.IsBooked(),
 		BookedTime:            transactionMetadata.BookingTime().Unix(),
 		ConfirmationState:     transactionMetadata.ConfirmationState(),
