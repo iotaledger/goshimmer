@@ -175,8 +175,19 @@ func (e *Engine) initTangle() {
 }
 
 func (e *Engine) initConsensus() {
-	e.Consensus = consensus.New(e.Tangle, e.EvictionState, e.Storage.Permanent.Settings.LatestConfirmedEpoch(), func() int64 {
-		return e.SybilProtection.Weights().TotalWeight().Value
+	e.Consensus = consensus.New(e.Tangle, e.EvictionState, e.Storage.Permanent.Settings.LatestConfirmedEpoch(), func() (totalWeight int64) {
+		var zeroIdentity identity.ID
+
+		if err := e.SybilProtection.Weights().Export(func(id identity.ID, weight int64) bool {
+			if id != zeroIdentity {
+				totalWeight += weight
+			}
+			return true
+		}); err != nil {
+			panic(errors.Wrap(err, "failed to calculate total consensus weight"))
+		}
+
+		return totalWeight
 	}, e.optsConsensusOptions...)
 
 	e.Events.EvictionState.EpochEvicted.Hook(event.NewClosure(e.Consensus.BlockGadget.EvictUntil))
