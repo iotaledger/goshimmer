@@ -66,7 +66,7 @@ func (m *MockedEndpoint) UnregisterProtocol(protocolID string) {
 	delete(m.handlers, protocolID)
 }
 
-func (m *MockedEndpoint) Send(packet proto.Message, protocolID string, to ...identity.ID) []identity.ID {
+func (m *MockedEndpoint) Send(packet proto.Message, protocolID string, to ...identity.ID) {
 	m.network.dispatchersMutex.RLock()
 	defer m.network.dispatchersMutex.RUnlock()
 
@@ -87,8 +87,6 @@ func (m *MockedEndpoint) Send(packet proto.Message, protocolID string, to ...ide
 			}
 		}
 	}
-
-	return nil
 }
 
 func (m *MockedEndpoint) handler(protocolID string) (handler func(identity.ID, proto.Message) error, exists bool) {

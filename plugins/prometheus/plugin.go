@@ -2,7 +2,6 @@ package prometheus
 
 import (
 	"context"
-	"github.com/prometheus/client_golang/prometheus/collectors"
 	"net/http"
 	"time"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/iotaledger/hive.go/core/node"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/dig"
 
@@ -60,12 +60,12 @@ func configure(plugin *node.Plugin) {
 		registerDBMetrics()
 		registerInfoMetrics()
 		registerNetworkMetrics()
-		registerProcessMetrics()
 		registerTangleMetrics()
 		registerManaMetrics()
 		registerSchedulerMetrics()
 		registerRateSetterMetrics()
 		registerEpochCommitmentMetrics()
+		registerWorkerPoolMetrics()
 	}
 
 	if metrics.Parameters.Global {

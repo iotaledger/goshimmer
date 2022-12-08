@@ -8,10 +8,11 @@ require (
 	github.com/capossele/asset-registry v0.0.0-20210521112927-c9d6e74574e8
 	github.com/celestiaorg/smt v0.2.1-0.20220414134126-dba215ccb884
 	github.com/cockroachdb/errors v1.9.0
+	github.com/felixge/fgprof v0.9.3
 	github.com/gin-gonic/gin v1.8.1
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/gorilla/websocket v1.5.0
-	github.com/iotaledger/hive.go/core v1.0.0-rc.1.0.20221123143750-8df38984b5ff
+	github.com/iotaledger/hive.go/core v1.0.0-rc.1.0.20221207150149-2a9866760315
 	github.com/iotaledger/hive.go/serializer/v2 v2.0.0-rc.1
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/libp2p/go-libp2p v0.23.4
@@ -50,6 +51,7 @@ require (
 	github.com/goccy/go-json v0.9.11 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/golang/mock v1.6.0 // indirect
+	github.com/google/pprof v0.0.0-20211214055906-6f57359322fd // indirect
 	github.com/labstack/gommon v0.3.1 // indirect
 	github.com/libp2p/go-cidranger v1.1.0 // indirect
 	github.com/libp2p/go-libp2p-asn-util v0.2.0 // indirect
@@ -100,7 +102,7 @@ require (
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/huin/goupnp v1.0.3 // indirect
 	github.com/iancoleman/orderedmap v0.2.0 // indirect
-	github.com/iotaledger/grocksdb v1.7.5-0.20220808142449-1dc0b8ac4d7d // indirect
+	github.com/iotaledger/grocksdb v1.7.5-0.20221128103803-fcdb79760195 // indirect
 	github.com/ipfs/go-cid v0.3.2 // indirect
 	github.com/ipfs/go-log/v2 v2.5.1 // indirect
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect

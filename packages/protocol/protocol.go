@@ -177,6 +177,10 @@ func (p *Protocol) initChainManager() {
 	p.Events.Engine.NotarizationManager.EpochCommitted.Attach(event.NewClosure(func(details *notarization.EpochCommittedDetails) {
 		p.chainManager.ProcessCommitment(details.Commitment)
 	}))
+
+	p.Events.Engine.Consensus.EpochGadget.EpochConfirmed.Attach(event.NewClosure(func(epochIndex epoch.Index) {
+		p.chainManager.CommitmentRequester.EvictUntil(epochIndex)
+	}))
 }
 
 func (p *Protocol) initTipManager() {
@@ -238,6 +242,14 @@ func (p *Protocol) ProcessAttestations(attestations *notarization.Attestations, 
 	// TODO: process attestations and evluate chain switch!
 }
 
+func (p *Protocol) ProcessAttestationsRequest(epochIndex epoch.Index, src identity.ID) {
+	// p.networkProtocol.SendAttestations(p.Engine().SybilProtection.Attestations(epochIndex), src)
+}
+
+func (p *Protocol) ProcessAttestations(attestations *notarization.Attestations, src identity.ID) {
+	// TODO: process attestations and evluate chain switch!
+}
+
 func (p *Protocol) Engine() (instance *engine.Engine) {
 	p.activeEngineMutex.RLock()
 	defer p.activeEngineMutex.RUnlock()
@@ -279,6 +291,10 @@ func (p *Protocol) activateEngine(engine *engine.Engine) {
 	p.TipManager.ActivateEngine(engine)
 	p.Events.Engine.LinkTo(engine.Events)
 	p.CongestionControl.LinkTo(engine)
+}
+
+func (p *Protocol) Network() *network.Protocol {
+	return p.networkProtocol
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
