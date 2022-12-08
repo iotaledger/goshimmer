@@ -3,7 +3,6 @@ package chainmanager
 import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/model"
-	"github.com/iotaledger/hive.go/core/syncutils"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 )
@@ -11,16 +10,14 @@ import (
 type Commitment struct {
 	model.Storable[commitment.ID, Commitment, *Commitment, commitmentModel] `serix:"0"`
 
-	solid       bool
-	children    []*Commitment
-	chain       *Chain
-	entityMutex *syncutils.StarvingMutex
+	solid    bool
+	children []*Commitment
+	chain    *Chain
 }
 
 func NewCommitment(id commitment.ID) (newCommitment *Commitment) {
 	newCommitment = model.NewStorable[commitment.ID, Commitment](&commitmentModel{})
 	newCommitment.children = make([]*Commitment, 0)
-	newCommitment.entityMutex = syncutils.NewStarvingMutex()
 
 	newCommitment.SetID(id)
 
@@ -111,14 +108,6 @@ func (c *Commitment) PublishRoots(roots *commitment.Roots) (published bool) {
 	}
 
 	return
-}
-
-func (c *Commitment) lockEntity() {
-	c.entityMutex.Lock()
-}
-
-func (c *Commitment) unlockEntity() {
-	c.entityMutex.Unlock()
 }
 
 func (c *Commitment) registerChild(child *Commitment) (isSolid bool, chain *Chain, wasForked bool) {

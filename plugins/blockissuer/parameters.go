@@ -25,8 +25,8 @@ type ParametersDefinition struct {
 		// TipSelectionRetryInterval defines how much time to sleep after a failed tip selection attempt.
 		TipSelectionRetryInterval time.Duration `default:"200ms" usage:"how much time to sleep after a failed tip selection attempt"`
 	}
-	// TODO: change to false
-	IgnoreBootstrappedFlag bool `default:"true" usage:"whether to ignore bootstrapped flag and issue blocks regardless"`
+
+	IgnoreBootstrappedFlag bool `default:"false" usage:"whether to ignore bootstrapped flag and issue blocks regardless"`
 }
 
 // Parameters contains the configuration parameters of the p2p plugin.

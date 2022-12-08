@@ -52,7 +52,7 @@ func (e *EventMock) DetachAll() {
 
 // Expect is a proxy for Mock.On() but keeping track of num of calls.
 func (e *EventMock) Expect(eventName string, arguments ...interface{}) {
-	event.Loop.WaitUntilAllTasksProcessed()
+	event.Loop.PendingTasksCounter.WaitIsZero()
 	e.On(eventName, arguments...)
 	atomic.AddUint64(&e.expectedEvents, 1)
 }
@@ -60,7 +60,7 @@ func (e *EventMock) Expect(eventName string, arguments ...interface{}) {
 // AssertExpectations asserts expectations.
 func (e *EventMock) AssertExpectations(t mock.TestingT) bool {
 	var calledEvents, expectedEvents uint64
-	event.Loop.WaitUntilAllTasksProcessed()
+	event.Loop.PendingTasksCounter.WaitIsZero()
 
 	assert.Eventuallyf(t, func() bool {
 		calledEvents = atomic.LoadUint64(&e.calledEvents)
@@ -79,8 +79,8 @@ func (e *EventMock) AssertExpectations(t mock.TestingT) bool {
 }
 
 // EpochCommittable is the mocked EpochCommittable event.
-func (e *EventMock) EpochCommittable(commitment *commitment.Commitment) {
-	e.Called(commitment.Index())
+func (e *EventMock) EpochCommittable(details *notarization.EpochCommittedDetails) {
+	e.Called(details.Commitment.Index())
 	atomic.AddUint64(&e.calledEvents, 1)
 }
 

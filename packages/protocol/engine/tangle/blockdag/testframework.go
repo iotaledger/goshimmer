@@ -47,9 +47,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 		if t.BlockDAG == nil {
 			storageInstance := storage.New(test.TempDir(), 1)
 			test.Cleanup(func() {
-				if err := storageInstance.Shutdown(); err != nil {
-					test.Fatal(err)
-				}
+				storageInstance.Shutdown()
 			})
 
 			if t.evictionState == nil {
@@ -80,7 +78,7 @@ func (t *TestFramework) IssueBlocks(blockAliases ...string) *TestFramework {
 
 // WaitUntilAllTasksProcessed waits until all tasks are processed.
 func (t *TestFramework) WaitUntilAllTasksProcessed() (self *TestFramework) {
-	event.Loop.WaitUntilAllTasksProcessed()
+	event.Loop.PendingTasksCounter.WaitIsZero()
 	return t
 }
 

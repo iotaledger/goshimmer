@@ -99,6 +99,7 @@ func TestTipManager_TimeSinceConfirmation_Unconfirmed(t *testing.T) {
 		WithTipManagerOptions(WithTimeSinceConfirmationThreshold(5*time.Minute)),
 		WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(10))))),
 	)
+	tf.engine.EvictionState.AddRootBlock(models.EmptyBlockID)
 
 	createTestTangleTSC(tf)
 
@@ -150,12 +151,11 @@ func TestTipManager_TimeSinceConfirmation_Confirmed(t *testing.T) {
 		WithTipManagerOptions(WithTimeSinceConfirmationThreshold(5*time.Minute)),
 		WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(10))))),
 	)
-
+	tf.engine.EvictionState.AddRootBlock(models.EmptyBlockID)
 	createTestTangleTSC(tf)
 
 	// Even without any confirmations, it should be possible to attach to genesis.
 	tf.AssertIsPastConeTimestampCorrect("Genesis", true)
-
 	// case 0 - only one block can attach to genesis, so there should not be two subtangles starting from the genesis, but TSC allows using such tip.
 	tf.AssertIsPastConeTimestampCorrect("7/1_2", true)
 
@@ -164,6 +164,7 @@ func TestTipManager_TimeSinceConfirmation_Confirmed(t *testing.T) {
 	tf.SetBlocksAccepted(acceptedBlockIDsAliases...)
 	tf.SetMarkersAccepted(acceptedMarkers...)
 	tf.SetAcceptedTime(tf.Block("Marker-2/3").IssuingTime())
+	assert.Eventually(t, tf.engine.IsBootstrapped, 1*time.Minute, 500*time.Millisecond)
 
 	// As we advance ATT, Genesis should be beyond TSC, and thus invalid.
 	tf.AssertIsPastConeTimestampCorrect("Genesis", false)
@@ -472,4 +473,124 @@ func issueBlocks(tf *TestFramework, blockPrefix string, blockCount int, parents 
 		blockAlias = alias
 	}
 	return blockAlias
+}
+
+func TestTipManager_TimeSinceConfirmation_RootBlockParent(t *testing.T) {
+	tf := NewTestFramework(t,
+		WithTipManagerOptions(WithTimeSinceConfirmationThreshold(30*time.Second)),
+		WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(10))))),
+	)
+	tf.engine.EvictionState.AddRootBlock(models.EmptyBlockID)
+
+	tf.CreateBlock("Block1", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithIssuingTime(time.Now().Add(-50*time.Second)))
+	tf.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
+	tf.CreateBlock("Block2", models.WithStrongParents(tf.BlockIDs("Block1")), models.WithIssuingTime(time.Now()))
+	tf.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
+	tf.CreateBlock("Block3", models.WithStrongParents(tf.BlockIDs("Block2")), models.WithIssuingTime(time.Now().Add(5*time.Second)))
+	tf.IssueBlocks("Block3").WaitUntilAllTasksProcessed()
+	tf.CreateBlock("Block4", models.WithStrongParents(tf.BlockIDs("Block3")), models.WithIssuingTime(time.Now().Add(10*time.Second)))
+	tf.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
+	tf.CheckMarkers(map[string]*markers.Markers{
+		"Block1": markers.NewMarkers(markers.NewMarker(0, 1)),
+		"Block2": markers.NewMarkers(markers.NewMarker(0, 2)),
+		"Block3": markers.NewMarkers(markers.NewMarker(0, 3)),
+		"Block4": markers.NewMarkers(markers.NewMarker(0, 4)),
+	})
+
+	acceptedBlockIDsAliases := []string{"Block1", "Block2"}
+	acceptedMarkers := []markers.Marker{markers.NewMarker(0, 1), markers.NewMarker(0, 2)}
+	tf.SetBlocksAccepted(acceptedBlockIDsAliases...)
+	tf.SetMarkersAccepted(acceptedMarkers...)
+	tf.SetAcceptedTime(tf.Block("Block2").IssuingTime())
+	tf.BlockDAG.EvictionState.AddRootBlock(tf.Block("Block1").ID())
+	tf.BlockDAG.EvictionState.EvictUntil(tf.Block("Block1").ID().Index())
+	tf.BlockDAG.EvictionState.RemoveRootBlock(models.EmptyBlockID)
+
+	assert.Eventually(t, tf.engine.IsBootstrapped, 1*time.Minute, 500*time.Millisecond)
+
+	tf.CreateBlock("Block5", models.WithStrongParents(tf.BlockIDs("Block1")), models.WithIssuingTime(time.Now()))
+	tf.IssueBlocks("Block5").WaitUntilAllTasksProcessed()
+	tf.CheckMarkers(map[string]*markers.Markers{
+		"Block5": markers.NewMarkers(markers.NewMarker(1, 1)),
+	})
+
+	tf.AssertIsPastConeTimestampCorrect("Block3", true)
+	tf.AssertIsPastConeTimestampCorrect("Block2", true)
+	tf.AssertIsPastConeTimestampCorrect("Block1", false)
+	tf.AssertIsPastConeTimestampCorrect("Block5", false)
+}
+
+func TestTipManager_previousMarker(t *testing.T) {
+	prevMarker := previousMarker(markers.NewSequence(0, markers.NewMarkers()), markers.Index(50), func(marker markers.Marker) (block *booker.Block, exists bool) {
+		return nil, true
+	})
+
+	assert.EqualValues(t, 49, prevMarker.Index())
+	assert.EqualValues(t, 0, prevMarker.SequenceID())
+
+	prevMarker2 := previousMarker(markers.NewSequence(0, markers.NewMarkers(markers.NewMarker(0, 45))), markers.Index(50), func(marker markers.Marker) (block *booker.Block, exists bool) {
+		return nil, marker.Index() == 46
+	})
+
+	assert.EqualValues(t, 46, prevMarker2.Index())
+	assert.EqualValues(t, 0, prevMarker2.SequenceID())
+
+	prevMarker3 := previousMarker(markers.NewSequence(0, markers.NewMarkers(markers.NewMarker(0, 45))), markers.Index(50), func(marker markers.Marker) (block *booker.Block, exists bool) {
+		return nil, marker.Index() <= 47
+	})
+
+	assert.EqualValues(t, 47, prevMarker3.Index())
+	assert.EqualValues(t, 0, prevMarker3.SequenceID())
+
+	prevMarker4 := previousMarker(markers.NewSequence(0, markers.NewMarkers(markers.NewMarker(0, 45))), markers.Index(100), func(marker markers.Marker) (block *booker.Block, exists bool) {
+		return nil, false
+	})
+
+	assert.EqualValues(t, 46, prevMarker4.Index())
+	assert.EqualValues(t, 0, prevMarker4.SequenceID())
+
+	prevMarker5 := previousMarker(markers.NewSequence(0, markers.NewMarkers(markers.NewMarker(0, 45))), markers.Index(4), func(marker markers.Marker) (block *booker.Block, exists bool) {
+		return nil, false
+	})
+
+	assert.EqualValues(t, 3, prevMarker5.Index())
+	assert.EqualValues(t, 0, prevMarker5.SequenceID())
+}
+
+func TestTipManager_findFirstUnacceptedMarker(t *testing.T) {
+	firstUnacceptedMarker := findFirstUnacceptedMarker(markers.NewSequence(0, markers.NewMarkers(markers.NewMarker(0, 45), markers.NewMarker(0, 70))), func(marker markers.Marker) (block *booker.Block, exists bool) {
+		return nil, true
+	}, func(id markers.SequenceID) markers.Index {
+		return 50
+	})
+
+	assert.EqualValues(t, 50, firstUnacceptedMarker.Index())
+	assert.EqualValues(t, 0, firstUnacceptedMarker.SequenceID())
+
+	firstUnacceptedMarker2 := findFirstUnacceptedMarker(markers.NewSequence(0, markers.NewMarkers(markers.NewMarker(0, 10), markers.NewMarker(0, 50))), func(marker markers.Marker) (block *booker.Block, exists bool) {
+		return nil, marker.Index() >= 40
+	}, func(id markers.SequenceID) markers.Index {
+		return 60
+	})
+
+	assert.EqualValues(t, 60, firstUnacceptedMarker2.Index())
+	assert.EqualValues(t, 0, firstUnacceptedMarker2.SequenceID())
+
+	firstUnacceptedMarker3 := findFirstUnacceptedMarker(markers.NewSequence(0, markers.NewMarkers(markers.NewMarker(0, 10), markers.NewMarker(0, 100))), func(marker markers.Marker) (block *booker.Block, exists bool) {
+		return nil, marker.Index() >= 70
+	}, func(id markers.SequenceID) markers.Index {
+		return 60
+	})
+
+	assert.EqualValues(t, 70, firstUnacceptedMarker3.Index())
+	assert.EqualValues(t, 0, firstUnacceptedMarker3.SequenceID())
+
+	firstUnacceptedMarker4 := findFirstUnacceptedMarker(markers.NewSequence(0, markers.NewMarkers(markers.NewMarker(0, 10), markers.NewMarker(0, 65))), func(marker markers.Marker) (block *booker.Block, exists bool) {
+		return nil, false
+	}, func(id markers.SequenceID) markers.Index {
+		return 60
+	})
+
+	assert.EqualValues(t, 66, firstUnacceptedMarker4.Index(), firstUnacceptedMarker4.Index())
+	assert.EqualValues(t, 0, firstUnacceptedMarker4.SequenceID())
 }

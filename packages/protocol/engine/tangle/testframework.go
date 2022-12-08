@@ -4,14 +4,16 @@ import (
 	"testing"
 
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/storage"
+	"github.com/iotaledger/goshimmer/packages/storage/permanent"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -24,8 +26,8 @@ type TestFramework struct {
 	optsLedger        *ledger.Ledger
 	optsLedgerOptions []options.Option[ledger.Ledger]
 	optsEvictionState *eviction.State
-	optsValidatorSet  *validator.Set
 	optsTangle        []options.Option[Tangle]
+	optsValidators    *sybilprotection.WeightedSet
 
 	*VirtualVotingTestFramework
 }
@@ -38,9 +40,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 			storageInstance := storage.New(test.TempDir(), 1)
 			test.Cleanup(func() {
 				t.optsLedger.Shutdown()
-				if err := storageInstance.Shutdown(); err != nil {
-					test.Fatal(err)
-				}
+				storageInstance.Shutdown()
 			})
 
 			if t.optsLedger == nil {
@@ -51,11 +51,11 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 				t.optsEvictionState = eviction.NewState(storageInstance)
 			}
 
-			if t.optsValidatorSet == nil {
-				t.optsValidatorSet = validator.NewSet()
+			if t.optsValidators == nil {
+				t.optsValidators = sybilprotection.NewWeightedSet(sybilprotection.NewWeights(mapdb.NewMapDB(), permanent.NewSettings(t.test.TempDir()+"/settings")))
 			}
 
-			t.Tangle = New(t.optsLedger, t.optsEvictionState, t.optsValidatorSet, func() epoch.Index {
+			t.Tangle = New(t.optsLedger, t.optsEvictionState, t.optsValidators, func() epoch.Index {
 				return 0
 			}, func(id markers.SequenceID) markers.Index {
 				return 1
@@ -68,6 +68,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 			virtualvoting.WithLedger(t.Tangle.Ledger),
 			virtualvoting.WithBooker(t.Tangle.Booker),
 			virtualvoting.WithVirtualVoting(t.Tangle.VirtualVoting),
+			virtualvoting.WithValidators(t.optsValidators),
 		)
 	})
 }
@@ -107,13 +108,6 @@ func WithEvictionState(evictionState *eviction.State) options.Option[TestFramewo
 	}
 }
 
-// WithValidatorSet sets the validator set that is used by the Tangle.
-func WithValidatorSet(validatorSet *validator.Set) options.Option[TestFramework] {
-	return func(t *TestFramework) {
-		t.optsValidatorSet = validatorSet
-	}
-}
-
 // WithTangle sets the Tangle that is used by the TestFramework.
 func WithTangle(tangle *Tangle) options.Option[TestFramework] {
 	return func(t *TestFramework) {
@@ -125,6 +119,13 @@ func WithTangle(tangle *Tangle) options.Option[TestFramework] {
 func WithTangleOptions(opts ...options.Option[Tangle]) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.optsTangle = opts
+	}
+}
+
+// WithValidators sets the Tangle options to receive a set of validators.
+func WithValidators(validators *sybilprotection.WeightedSet) options.Option[TestFramework] {
+	return func(t *TestFramework) {
+		t.optsValidators = validators
 	}
 }
 

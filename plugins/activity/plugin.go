@@ -47,13 +47,13 @@ func broadcastActivityBlock() {
 		}
 	}
 
-	blk, err := deps.BlockIssuer.IssuePayload(activityPayload, Parameters.ParentsCount)
+	block, err := deps.BlockIssuer.IssuePayload(activityPayload, Parameters.ParentsCount)
 	if err != nil {
 		Plugin.LogWarnf("error issuing activity block: %s", err)
 		return
 	}
 
-	Plugin.LogDebugf("issued activity block %s", blk.ID())
+	Plugin.LogDebugf("issued activity block %s (issuing time: %s)", block.ID(), block.IssuingTime().String())
 }
 
 func run(_ *node.Plugin) {

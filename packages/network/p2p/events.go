@@ -2,7 +2,7 @@ package p2p
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/libp2p/go-libp2p-core/protocol"
+	"github.com/libp2p/go-libp2p/core/protocol"
 	"google.golang.org/protobuf/proto"
 )
 

@@ -1,9 +1,10 @@
 package protocol
 
 import (
-	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
 	"os"
 	"testing"
+
+	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
 
 	"github.com/iotaledger/hive.go/core/configuration"
 	"github.com/iotaledger/hive.go/core/generics/lo"
@@ -14,6 +15,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot/creator"
 	"github.com/iotaledger/goshimmer/packages/network"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
@@ -42,24 +45,14 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 
 		storageInstance := storage.New(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), DatabaseVersion)
 		test.Cleanup(func() {
-			if err := storageInstance.Shutdown(); err != nil {
-				test.Fatal(err)
-			}
+			t.Protocol.Shutdown()
 		})
 
 		creator.CreateSnapshot(storageInstance, diskUtil.Path("snapshot.bin"), 100, make([]byte, 32, 32), map[identity.ID]uint64{
 			identity.GenerateIdentity().ID(): 100,
 		})
-		t.Local = identity.GenerateIdentity()
-		t.Protocol = New(
-			t.Network.Join(t.Local.ID()),
-			append(
-				t.optsProtocolOptions,
-				WithSnapshotPath(diskUtil.Path("snapshot.bin")),
-				WithBaseDirectory(diskUtil.Path()),
-				WithCongestionControlOptions(t.optsCongestionControlOptions...),
-			)...,
-		)
+
+		t.Protocol = New(t.Network.Join(identity.GenerateIdentity().ID()), append(t.optsProtocolOptions, WithSnapshotPath(diskUtil.Path("snapshot.bin")), WithBaseDirectory(diskUtil.Path()), WithEngineOptions(engine.WithSybilProtectionProvider(dpos.NewSybilProtectionProvider())))...)
 	})
 }
 

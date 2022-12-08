@@ -12,7 +12,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/causalorder"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
-	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
@@ -38,11 +37,10 @@ type Gadget struct {
 
 	totalWeightCallback func() int64
 
-	lastAcceptedMarker            *memstorage.Storage[markers.SequenceID, markers.Index]
-	lastAcceptedMarkerMutex       sync.Mutex
-	optsMarkerAcceptanceThreshold float64
-	acceptanceOrder               *causalorder.CausalOrder[models.BlockID, *Block]
-
+	lastAcceptedMarker              *memstorage.Storage[markers.SequenceID, markers.Index]
+	lastAcceptedMarkerMutex         sync.Mutex
+	optsMarkerAcceptanceThreshold   float64
+	acceptanceOrder                 *causalorder.CausalOrder[models.BlockID, *Block]
 	lastConfirmedMarker             *memstorage.Storage[markers.SequenceID, markers.Index]
 	lastConfirmedMarkerMutex        sync.Mutex
 	optsMarkerConfirmationThreshold float64
@@ -69,7 +67,16 @@ func New(tangleInstance *tangle.Tangle, evictionState *eviction.State, totalWeig
 		a.blocks = memstorage.NewEpochStorage[models.BlockID, *Block]()
 
 		a.acceptanceOrder = causalorder.New(a.GetOrRegisterBlock, (*Block).IsAccepted, a.markAsAccepted, a.acceptanceFailed)
-		a.confirmationOrder = causalorder.New(a.GetOrRegisterBlock, (*Block).IsConfirmed, a.markAsConfirmed, a.acceptanceFailed)
+		a.confirmationOrder = causalorder.New(func(id models.BlockID) (entity *Block, exists bool) {
+			a.evictionMutex.RLock()
+			defer a.evictionMutex.RUnlock()
+
+			if a.evictionState.InEvictedEpoch(id) {
+				return NewRootBlock(id), true
+			}
+
+			return a.getOrRegisterBlock(id)
+		}, (*Block).IsConfirmed, a.markAsConfirmed, a.confirmationFailed)
 	}, (*Gadget).setup)
 }
 
@@ -166,6 +173,7 @@ func (a *Gadget) RefreshSequence(sequenceID markers.SequenceID, newMaxSupportedI
 	totalWeight := a.totalWeightCallback()
 
 	for markerIndex := prevMaxSupportedIndex; markerIndex <= newMaxSupportedIndex; markerIndex++ {
+		// if sequence began due to attaching to a solid entry point, then prevMaxSupportedIndex=0 which needs to be skipped.
 		if markerIndex <= 0 {
 			continue
 		}
@@ -195,9 +203,9 @@ func (a *Gadget) tryConfirmOrAccept(totalWeight int64, marker markers.Marker) (b
 	markerVoters := a.tangle.VirtualVoting.MarkerVoters(marker)
 
 	// check if enough weight is online to confirm based on total weight
-	if validator.IsThresholdReached(totalWeight, a.tangle.ValidatorSet.TotalWeight(), a.optsMarkerConfirmationThreshold) {
+	if IsThresholdReached(totalWeight, a.tangle.Validators.TotalWeight(), a.optsMarkerConfirmationThreshold) {
 		// check if marker weight has enough weight to be confirmed
-		if validator.IsThresholdReached(totalWeight, markerVoters.TotalWeight(), a.optsMarkerConfirmationThreshold) {
+		if IsThresholdReached(totalWeight, markerVoters.TotalWeight(), a.optsMarkerConfirmationThreshold) {
 			// need to mark outside 'if' statement, otherwise only the first condition would be executed due to lazy evaluation
 			markerAccepted := a.setMarkerAccepted(marker)
 			markerConfirmed := a.setMarkerConfirmed(marker)
@@ -205,7 +213,7 @@ func (a *Gadget) tryConfirmOrAccept(totalWeight int64, marker markers.Marker) (b
 				return a.propagateAcceptanceConfirmation(marker, true)
 			}
 		}
-	} else if a.tangle.ValidatorSet.IsThresholdReached(markerVoters.TotalWeight(), a.optsMarkerAcceptanceThreshold) && a.setMarkerAccepted(marker) {
+	} else if IsThresholdReached(a.tangle.Validators.TotalWeight(), markerVoters.TotalWeight(), a.optsMarkerAcceptanceThreshold) && a.setMarkerAccepted(marker) {
 		return a.propagateAcceptanceConfirmation(marker, false)
 	}
 
@@ -214,6 +222,7 @@ func (a *Gadget) tryConfirmOrAccept(totalWeight int64, marker markers.Marker) (b
 
 func (a *Gadget) EvictUntil(index epoch.Index) {
 	a.acceptanceOrder.EvictUntil(index)
+	a.confirmationOrder.EvictUntil(index)
 
 	a.evictionMutex.Lock()
 	defer a.evictionMutex.Unlock()
@@ -306,7 +315,7 @@ func (a *Gadget) markAsAccepted(block *Block) (err error) {
 
 	if block.SetAccepted() {
 		// If block has been orphaned before acceptance, remove the flag from the block. Otherwise, remove the block from TimedHeap.
-		if block.IsExplicitlyOrphaned() {
+		if block.IsOrphaned() {
 			a.tangle.SetOrphaned(block.Block.Block.Block, false)
 		}
 
@@ -357,6 +366,10 @@ func (a *Gadget) setMarkerConfirmed(marker markers.Marker) (wasUpdated bool) {
 
 func (a *Gadget) acceptanceFailed(block *Block, err error) {
 	a.Events.Error.Trigger(errors.Wrapf(err, "could not mark block %s as accepted", block.ID()))
+}
+
+func (a *Gadget) confirmationFailed(block *Block, err error) {
+	a.Events.Error.Trigger(errors.Wrapf(err, "could not mark block %s as confirmed", block.ID()))
 }
 
 func (a *Gadget) evictSequence(sequenceID markers.SequenceID) {
@@ -411,7 +424,7 @@ func (a *Gadget) RefreshConflictAcceptance(conflictID utxo.TransactionID) {
 	conflictVoters := a.tangle.VirtualVoting.ConflictVoters(conflictID)
 	conflictWeight := conflictVoters.TotalWeight()
 
-	if !a.tangle.ValidatorSet.IsThresholdReached(conflictWeight, a.optsConflictAcceptanceThreshold) {
+	if !IsThresholdReached(a.tangle.Validators.TotalWeight(), conflictWeight, a.optsConflictAcceptanceThreshold) {
 		return
 	}
 
@@ -429,7 +442,7 @@ func (a *Gadget) RefreshConflictAcceptance(conflictID utxo.TransactionID) {
 		conflictingConflictVoters := a.tangle.VirtualVoting.ConflictVoters(conflictingConflictID)
 
 		// if the conflict is less than 66% ahead, then don't mark as accepted
-		if conflictingConflictWeight := conflictingConflictVoters.TotalWeight(); !a.tangle.ValidatorSet.IsThresholdReached(conflictWeight-conflictingConflictWeight, a.optsConflictAcceptanceThreshold) {
+		if conflictingConflictWeight := conflictingConflictVoters.TotalWeight(); !IsThresholdReached(a.tangle.Validators.TotalWeight(), conflictWeight-conflictingConflictWeight, a.optsConflictAcceptanceThreshold) {
 			markAsAccepted = false
 		}
 
@@ -446,6 +459,10 @@ func (a *Gadget) RefreshConflictAcceptance(conflictID utxo.TransactionID) {
 	if markAsAccepted {
 		a.tangle.Booker.Ledger.ConflictDAG.SetConflictAccepted(conflictID)
 	}
+}
+
+func IsThresholdReached(weight, otherWeight int64, threshold float64) bool {
+	return otherWeight > int64(float64(weight)*threshold)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -9,9 +9,9 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
-	"github.com/libp2p/go-libp2p-core/host"
-	libp2ppeer "github.com/libp2p/go-libp2p-core/peer"
-	"github.com/libp2p/go-libp2p-core/protocol"
+	"github.com/libp2p/go-libp2p/core/host"
+	libp2ppeer "github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/protocol"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -92,13 +92,6 @@ func (m *Manager) Stop() {
 	}
 	m.isStopped = true
 	m.dropAllNeighbors()
-}
-
-func (m *Manager) dropAllNeighbors() {
-	neighborsList := m.AllNeighbors()
-	for _, nbr := range neighborsList {
-		nbr.Close()
-	}
 }
 
 // NeighborGroupEvents returns the events related to the neighbor group.
@@ -320,4 +313,11 @@ func (m *Manager) setNeighbor(nbr *Neighbor) error {
 	}
 	m.neighbors[nbr.ID()] = nbr
 	return nil
+}
+
+func (m *Manager) dropAllNeighbors() {
+	neighborsList := m.AllNeighbors()
+	for _, nbr := range neighborsList {
+		nbr.Close()
+	}
 }

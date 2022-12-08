@@ -51,6 +51,8 @@ func (s *SequenceManager) InheritStructureDetails(referencedStructureDetails []*
 	inheritedStructureDetails.SetPastMarkers(s.normalizeMarkers(inheritedStructureDetails.PastMarkers()))
 
 	if inheritedStructureDetails.PastMarkers().Size() == 0 {
+		// call createSequence without any past markers just so the sequence is created for later use.
+		// pastMarkers of inheritedStructureDetails will be overridden with the actual marker later.
 		inheritedStructureDetails.SetPastMarkers(NewMarkers(s.createSequence(NewMarkers())))
 		newSequenceCreated = true
 	}

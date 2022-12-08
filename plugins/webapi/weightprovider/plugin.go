@@ -3,6 +3,8 @@ package weightprovider
 import (
 	"net/http"
 
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/node"
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
@@ -34,27 +36,26 @@ func configure(_ *node.Plugin) {
 }
 
 func getIssuersHandler(c echo.Context) (err error) {
-	activeValidators := deps.Protocol.Engine().ValidatorSet
-
 	activeValidatorsString := make([]string, 0)
 
-	for _, validator := range activeValidators.Slice() {
-		activeValidatorsString = append(activeValidatorsString, validator.ID().String())
-	}
+	_ = deps.Protocol.Engine().Tangle.Validators.ForEach(func(id identity.ID) error {
+		activeValidatorsString = append(activeValidatorsString, id.String())
+		return nil
+	})
 
 	return c.JSON(http.StatusOK, activeValidatorsString)
 }
 
 func getWeightsHandler(c echo.Context) (err error) {
-	validatorSet := deps.Protocol.Engine().Tangle.ValidatorSet
-
 	weightsString := make(map[string]int64)
-	for _, validator := range validatorSet.Slice() {
-		weightsString[validator.ID().String()] = validator.Weight()
-	}
+	_ = deps.Protocol.Engine().Tangle.Validators.ForEach(func(id identity.ID) error {
+		weightsString[id.String()] = lo.Return1(deps.Protocol.Engine().SybilProtection.Weights().Weight(id)).Value
+		return nil
+	})
+
 	resp := Weights{
 		Weights:     weightsString,
-		TotalWeight: validatorSet.TotalWeight(),
+		TotalWeight: deps.Protocol.Engine().Tangle.Validators.TotalWeight(),
 	}
 
 	return c.JSON(http.StatusOK, resp)

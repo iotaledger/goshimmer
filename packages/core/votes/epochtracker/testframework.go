@@ -8,12 +8,15 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/storage/permanent"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -32,11 +35,13 @@ func NewTestFramework[VotePowerType constraints.Comparable[VotePowerType]](test 
 		test: test,
 	}, opts, func(t *TestFramework) {
 		if t.VotesTestFramework == nil {
-			t.VotesTestFramework = votes.NewTestFramework(test)
+			t.VotesTestFramework = votes.NewTestFramework(test, votes.WithValidators(
+				sybilprotection.NewWeights(mapdb.NewMapDB(), permanent.NewSettings(test.TempDir()+"/settings")).WeightedSet(),
+			))
 		}
 
 		if t.EpochTracker == nil {
-			t.EpochTracker = NewEpochTracker(t.ValidatorSet, func() epoch.Index { return 0 })
+			t.EpochTracker = NewEpochTracker(func() epoch.Index { return 0 })
 		}
 
 		t.EpochTracker.Events.VotersUpdated.Hook(event.NewClosure(func(evt *VoterUpdatedEvent) {
@@ -47,11 +52,11 @@ func NewTestFramework[VotePowerType constraints.Comparable[VotePowerType]](test 
 	})
 }
 
-func (t *TestFramework) ValidateEpochVoters(expectedVoters map[epoch.Index]*set.AdvancedSet[*validator.Validator]) {
+func (t *TestFramework) ValidateEpochVoters(expectedVoters map[epoch.Index]*set.AdvancedSet[identity.ID]) {
 	for epochIndex, expectedVotersEpoch := range expectedVoters {
 		voters := t.EpochTracker.Voters(epochIndex)
 
-		assert.True(t.test, expectedVotersEpoch.Equal(votes.ValidatorSetToAdvancedSet(voters)), "epoch %s expected %d voters but got %d", epochIndex, expectedVotersEpoch.Size(), voters.Size())
+		assert.True(t.test, expectedVotersEpoch.Equal(voters), "epoch %s expected %s voters but got %s", epochIndex, expectedVotersEpoch, voters)
 	}
 }
 
@@ -70,15 +75,6 @@ func WithVotesTestFramework[VotePowerType constraints.Comparable[VotePowerType]]
 		}
 
 		tf.VotesTestFramework = votesTestFramework
-	}
-}
-
-func WithValidatorSet[VotePowerType constraints.Comparable[VotePowerType]](validatorSet *validator.Set) options.Option[TestFramework] {
-	return func(tf *TestFramework) {
-		if tf.ValidatorSet != nil {
-			panic("validator set already set")
-		}
-		tf.ValidatorSet = validatorSet
 	}
 }
 
