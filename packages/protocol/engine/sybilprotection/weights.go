@@ -47,6 +47,18 @@ func (w *Weights) TotalWeight() (totalWeight *Weight) {
 	return w.totalWeight
 }
 
+func (w *Weights) TotalAvailableWeight() int64 {
+	w.mutex.RLock()
+	defer w.mutex.RUnlock()
+
+	var zeroIdentity identity.ID
+	if zeroIdentityWeight, exists := w.weights.Get(zeroIdentity); exists {
+		return w.totalWeight.Value - zeroIdentityWeight.Value
+	}
+
+	return w.totalWeight.Value
+}
+
 func (w *Weights) ApplyUpdates(updates *WeightUpdates) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
