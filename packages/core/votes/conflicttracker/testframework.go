@@ -3,13 +3,12 @@ package conflicttracker
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	"github.com/iotaledger/hive.go/core/generics/constraints"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
@@ -53,26 +52,10 @@ func NewTestFramework[VotePowerType constraints.Comparable[VotePowerType]](test 
 func (t *TestFramework[VotePowerType]) ValidateStatementResults(expectedResults map[string]*set.AdvancedSet[identity.ID]) {
 	for conflictIDAlias, expectedVoters := range expectedResults {
 		actualVoters := t.ConflictTracker.Voters(t.ConflictID(conflictIDAlias))
+		defer actualVoters.Detach()
 
 		expectedVoters.ForEach(func(expectedID identity.ID) (err error) {
-			var found bool
-			actualVoters.ForEachWeighted(func(actualID identity.ID, actualWeight int64) error {
-				if actualID == expectedID {
-					found = true
-					validatorWeight, exists := t.Validators.Weights.Weight(actualID)
-					if !exists {
-						validatorWeight = sybilprotection.NewWeight(0, -1)
-					}
-					expectedWeight := validatorWeight.Value
-					assert.Equalf(t.test, expectedWeight, actualWeight, "validator %s weight does not match: expected %d actual %d", expectedID, expectedWeight, actualWeight)
-				}
-				return nil
-			})
-
-			if !found {
-				t.test.Fatalf("validators do not match: expected %s actual %s", expectedVoters, actualVoters.Members())
-			}
-
+			require.Truef(t.test, actualVoters.Has(expectedID), "expected voter %s to be in the set of voters of conflict %s", expectedID, conflictIDAlias)
 			return nil
 		})
 	}

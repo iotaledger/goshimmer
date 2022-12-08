@@ -8,6 +8,7 @@ services:
     stop_grace_period: 2m
     volumes:
       - "./db:/db"
+      - "./retainer:/retainer"
       - "/etc/localtime:/etc/localtime:ro"
     ports:
       # Autopeering
@@ -25,6 +26,7 @@ services:
       # prometheus
       - "0.0.0.0:9311:9311/tcp"
     environment:
+      - RETAINER_DIRECTORY=/retainer
       - DATABASE_DIRECTORY=/db/mainnetdb
       - NODE_PEERDBDIRECTORY=/db/peerdb
       - ANALYSIS_CLIENT_SERVERADDRESS={{ analysisServerHost }}:21888
@@ -33,6 +35,9 @@ services:
       - P2P_BINDADDRESS=0.0.0.0:14666
       - WEBAPI_BINDADDRESS=0.0.0.0:8080
       - PROFILING_BINDADDRESS=0.0.0.0:6061
+      - GOTRACEBACK=crash
+      - GOMEMLIMIT=3000MiB
+      - GOGC=100
     command: >
       --skip-config=true
       --autoPeering.entryNodes={{ entryNodePubKey }}@{{ entryNodeHost }}:15626{% if communityEntryNode|default(None) %},{{ communityEntryNode }}{% endif %}
@@ -50,3 +55,5 @@ services:
       --remotemetrics.metricsLevel=0
       --blockIssuer.ignoreBootstrappedFlag=false
       --protocol.bootstrapWindow=20s
+      --prometheus.goMetrics=true
+      --prometheus.processMetrics=true

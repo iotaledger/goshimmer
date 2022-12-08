@@ -24,5 +24,5 @@ func (f *Filter) ProcessReceivedBlock(block *models.Block, source identity.ID) {
 	// fill heuristic + check if block is valid
 	// ...
 
-	f.Events.BlockReceived.Trigger(block)
+	f.Events.BlockAllowed.Trigger(block)
 }

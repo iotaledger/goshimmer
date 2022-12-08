@@ -25,8 +25,6 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 4,
-  "iteration": 1657028365706,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -94,7 +92,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.5.3",
+      "pluginVersion": "9.2.6",
       "targets": [
         {
           "expr": "iota_info_app{instance=\"$instance\"}",
@@ -159,7 +157,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.5.3",
+      "pluginVersion": "9.2.6",
       "targets": [
         {
           "exemplar": true,
@@ -226,7 +224,7 @@
         "text": {},
         "textMode": "value"
       },
-      "pluginVersion": "8.5.3",
+      "pluginVersion": "9.2.6",
       "targets": [
         {
           "exemplar": true,
@@ -295,7 +293,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.5.3",
+      "pluginVersion": "9.2.6",
       "targets": [
         {
           "expr": "tangleTimeSynced{instance=\"$instance\"}",
@@ -356,7 +354,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.5.3",
+      "pluginVersion": "9.2.6",
       "targets": [
         {
           "exemplar": true,
@@ -413,7 +411,7 @@
         "text": {},
         "textMode": "value"
       },
-      "pluginVersion": "8.5.3",
+      "pluginVersion": "9.2.6",
       "targets": [
         {
           "expr": "mana_access{instance=\"$instance\",nodeID=\"$NodeID\"}",
@@ -469,7 +467,7 @@
         "text": {},
         "textMode": "value"
       },
-      "pluginVersion": "8.5.3",
+      "pluginVersion": "9.2.6",
       "targets": [
         {
           "datasource": {
@@ -536,7 +534,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.5.3",
+      "pluginVersion": "9.2.6",
       "targets": [
         {
           "expr": "process_cpu_usage{instance=\"$instance\"}",
@@ -596,7 +594,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.5.3",
+      "pluginVersion": "9.2.6",
       "targets": [
         {
           "expr": "db_size_bytes{instance=\"$instance\"}/1024/1024",
@@ -652,7 +650,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.5.3",
+      "pluginVersion": "9.2.6",
       "targets": [
         {
           "expr": "process_mem_usage_bytes{instance=\"$instance\"}/1024/1024",
@@ -708,7 +706,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.5.3",
+      "pluginVersion": "9.2.6",
       "targets": [
         {
           "datasource": {
@@ -760,7 +758,7 @@
             "h": 11,
             "w": 11,
             "x": 0,
-            "y": 4
+            "y": 28
           },
           "hiddenSeries": false,
           "id": 32,
@@ -780,7 +778,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "8.3.3",
+          "pluginVersion": "9.2.6",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -850,7 +848,7 @@
             "h": 11,
             "w": 13,
             "x": 11,
-            "y": 4
+            "y": 28
           },
           "hiddenSeries": false,
           "id": 111,
@@ -870,7 +868,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "8.3.3",
+          "pluginVersion": "9.2.6",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -940,7 +938,7 @@
             "h": 10,
             "w": 11,
             "x": 0,
-            "y": 15
+            "y": 39
           },
           "hiddenSeries": false,
           "id": 52,
@@ -960,7 +958,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "8.3.3",
+          "pluginVersion": "9.2.6",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -1027,7 +1025,7 @@
             "h": 8,
             "w": 13,
             "x": 11,
-            "y": 15
+            "y": 39
           },
           "hiddenSeries": false,
           "id": 4,
@@ -1047,7 +1045,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "8.3.3",
+          "pluginVersion": "9.2.6",
           "pointradius": 0.5,
           "points": true,
           "renderer": "flot",
@@ -1134,7 +1132,7 @@
             "h": 3,
             "w": 3,
             "x": 11,
-            "y": 23
+            "y": 47
           },
           "id": 6,
           "options": {
@@ -1189,7 +1187,7 @@
             "h": 3,
             "w": 4,
             "x": 14,
-            "y": 23
+            "y": 47
           },
           "id": 2,
           "options": {
@@ -1247,7 +1245,7 @@
             "h": 3,
             "w": 3,
             "x": 18,
-            "y": 23
+            "y": 47
           },
           "id": 8,
           "options": {
@@ -1305,7 +1303,7 @@
             "h": 3,
             "w": 3,
             "x": 21,
-            "y": 23
+            "y": 47
           },
           "id": 10,
           "options": {
@@ -1357,7 +1355,7 @@
             "h": 8,
             "w": 5,
             "x": 0,
-            "y": 25
+            "y": 49
           },
           "hiddenSeries": false,
           "id": 77,
@@ -1446,7 +1444,7 @@
             "h": 8,
             "w": 6,
             "x": 5,
-            "y": 25
+            "y": 49
           },
           "hiddenSeries": false,
           "id": 148,
@@ -1534,7 +1532,7 @@
             "h": 9,
             "w": 7,
             "x": 11,
-            "y": 26
+            "y": 50
           },
           "hiddenSeries": false,
           "id": 16,
@@ -1624,7 +1622,7 @@
             "h": 9,
             "w": 6,
             "x": 18,
-            "y": 26
+            "y": 50
           },
           "hiddenSeries": false,
           "id": 18,
@@ -1713,7 +1711,7 @@
             "h": 8,
             "w": 11,
             "x": 0,
-            "y": 33
+            "y": 57
           },
           "hiddenSeries": false,
           "id": 147,
@@ -1801,7 +1799,7 @@
             "h": 10,
             "w": 13,
             "x": 11,
-            "y": 35
+            "y": 59
           },
           "hiddenSeries": false,
           "id": 73,
@@ -1907,7 +1905,7 @@
             "h": 8,
             "w": 11,
             "x": 0,
-            "y": 41
+            "y": 65
           },
           "hiddenSeries": false,
           "id": 69,
@@ -1999,7 +1997,7 @@
             "h": 9,
             "w": 13,
             "x": 11,
-            "y": 45
+            "y": 69
           },
           "hiddenSeries": false,
           "id": 75,
@@ -2095,7 +2093,7 @@
             "h": 7,
             "w": 11,
             "x": 0,
-            "y": 49
+            "y": 73
           },
           "hiddenSeries": false,
           "id": 26,
@@ -2221,7 +2219,7 @@
             "h": 2,
             "w": 2,
             "x": 11,
-            "y": 54
+            "y": 78
           },
           "id": 59,
           "options": {
@@ -2275,7 +2273,7 @@
             "h": 2,
             "w": 2,
             "x": 13,
-            "y": 54
+            "y": 78
           },
           "id": 67,
           "options": {
@@ -2329,7 +2327,7 @@
             "h": 2,
             "w": 3,
             "x": 15,
-            "y": 54
+            "y": 78
           },
           "id": 66,
           "options": {
@@ -2383,7 +2381,7 @@
             "h": 2,
             "w": 3,
             "x": 18,
-            "y": 54
+            "y": 78
           },
           "id": 63,
           "options": {
@@ -2437,7 +2435,7 @@
             "h": 2,
             "w": 3,
             "x": 21,
-            "y": 54
+            "y": 78
           },
           "id": 62,
           "options": {
@@ -2510,7 +2508,7 @@
             "h": 3,
             "w": 4,
             "x": 0,
-            "y": 57
+            "y": 89
           },
           "id": 85,
           "options": {
@@ -2579,7 +2577,7 @@
             "h": 3,
             "w": 3,
             "x": 4,
-            "y": 57
+            "y": 89
           },
           "id": 101,
           "options": {
@@ -2641,7 +2639,7 @@
             "h": 3,
             "w": 4,
             "x": 7,
-            "y": 57
+            "y": 89
           },
           "id": 95,
           "options": {
@@ -2702,7 +2700,7 @@
             "h": 3,
             "w": 3,
             "x": 11,
-            "y": 57
+            "y": 89
           },
           "id": 96,
           "options": {
@@ -2765,7 +2763,7 @@
             "h": 3,
             "w": 4,
             "x": 14,
-            "y": 57
+            "y": 89
           },
           "id": 109,
           "options": {
@@ -2825,7 +2823,7 @@
             "h": 15,
             "w": 6,
             "x": 18,
-            "y": 57
+            "y": 89
           },
           "hiddenSeries": false,
           "id": 89,
@@ -2920,7 +2918,7 @@
             "h": 12,
             "w": 9,
             "x": 0,
-            "y": 60
+            "y": 92
           },
           "hiddenSeries": false,
           "id": 98,
@@ -3016,7 +3014,7 @@
             "h": 12,
             "w": 9,
             "x": 9,
-            "y": 60
+            "y": 92
           },
           "hiddenSeries": false,
           "id": 99,
@@ -3113,7 +3111,7 @@
             "h": 9,
             "w": 8,
             "x": 0,
-            "y": 72
+            "y": 104
           },
           "hiddenSeries": false,
           "id": 83,
@@ -3204,7 +3202,7 @@
             "h": 9,
             "w": 8,
             "x": 8,
-            "y": 72
+            "y": 104
           },
           "hiddenSeries": false,
           "id": 90,
@@ -3300,7 +3298,7 @@
             "h": 9,
             "w": 8,
             "x": 16,
-            "y": 72
+            "y": 104
           },
           "id": 92,
           "links": [],
@@ -3309,6 +3307,7 @@
             "legend": {
               "displayMode": "list",
               "placement": "right",
+              "showLegend": true,
               "values": []
             },
             "pieType": "pie",
@@ -3360,7 +3359,7 @@
             "h": 9,
             "w": 8,
             "x": 0,
-            "y": 81
+            "y": 113
           },
           "hiddenSeries": false,
           "id": 84,
@@ -3451,7 +3450,7 @@
             "h": 9,
             "w": 8,
             "x": 8,
-            "y": 81
+            "y": 113
           },
           "hiddenSeries": false,
           "id": 91,
@@ -3548,7 +3547,7 @@
             "h": 9,
             "w": 8,
             "x": 16,
-            "y": 81
+            "y": 113
           },
           "id": 93,
           "links": [],
@@ -3557,6 +3556,7 @@
             "legend": {
               "displayMode": "list",
               "placement": "right",
+              "showLegend": true,
               "values": []
             },
             "pieType": "pie",
@@ -3606,7 +3606,7 @@
             "h": 11,
             "w": 9,
             "x": 0,
-            "y": 90
+            "y": 122
           },
           "hiddenSeries": false,
           "id": 103,
@@ -3703,7 +3703,7 @@
             "h": 11,
             "w": 7,
             "x": 9,
-            "y": 90
+            "y": 122
           },
           "hiddenSeries": false,
           "id": 107,
@@ -3792,7 +3792,7 @@
             "h": 11,
             "w": 7,
             "x": 16,
-            "y": 90
+            "y": 122
           },
           "hiddenSeries": false,
           "id": 114,
@@ -3881,7 +3881,7 @@
             "h": 10,
             "w": 9,
             "x": 0,
-            "y": 101
+            "y": 133
           },
           "hiddenSeries": false,
           "id": 110,
@@ -3988,7 +3988,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 6
+            "y": 38
           },
           "hiddenSeries": false,
           "id": 118,
@@ -4080,7 +4080,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 6
+            "y": 38
           },
           "hiddenSeries": false,
           "id": 119,
@@ -4169,7 +4169,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 14
+            "y": 46
           },
           "hiddenSeries": false,
           "id": 121,
@@ -4267,7 +4267,7 @@
             "h": 4,
             "w": 6,
             "x": 12,
-            "y": 14
+            "y": 46
           },
           "id": 123,
           "options": {
@@ -4329,7 +4329,7 @@
             "h": 4,
             "w": 6,
             "x": 18,
-            "y": 14
+            "y": 46
           },
           "id": 125,
           "options": {
@@ -4391,7 +4391,7 @@
             "h": 4,
             "w": 6,
             "x": 12,
-            "y": 18
+            "y": 50
           },
           "id": 124,
           "options": {
@@ -4453,7 +4453,7 @@
             "h": 4,
             "w": 6,
             "x": 18,
-            "y": 18
+            "y": 50
           },
           "id": 126,
           "options": {
@@ -4519,8 +4519,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               },
@@ -4532,7 +4531,7 @@
             "h": 6,
             "w": 15,
             "x": 0,
-            "y": 7
+            "y": 39
           },
           "id": 146,
           "options": {
@@ -4581,8 +4580,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               },
@@ -4594,7 +4592,7 @@
             "h": 3,
             "w": 3,
             "x": 15,
-            "y": 7
+            "y": 39
           },
           "id": 132,
           "options": {
@@ -4641,8 +4639,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               }
@@ -4653,7 +4650,7 @@
             "h": 3,
             "w": 3,
             "x": 18,
-            "y": 7
+            "y": 39
           },
           "id": 142,
           "options": {
@@ -4702,8 +4699,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               }
@@ -4714,7 +4710,7 @@
             "h": 3,
             "w": 3,
             "x": 21,
-            "y": 7
+            "y": 39
           },
           "id": 149,
           "options": {
@@ -4762,8 +4758,7 @@
                 "mode": "percentage",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               },
@@ -4775,7 +4770,7 @@
             "h": 3,
             "w": 3,
             "x": 15,
-            "y": 10
+            "y": 42
           },
           "id": 143,
           "options": {
@@ -4823,8 +4818,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               }
@@ -4835,7 +4829,7 @@
             "h": 3,
             "w": 3,
             "x": 18,
-            "y": 10
+            "y": 42
           },
           "id": 140,
           "options": {
@@ -4882,8 +4876,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               }
@@ -4894,7 +4887,7 @@
             "h": 3,
             "w": 3,
             "x": 21,
-            "y": 10
+            "y": 42
           },
           "id": 154,
           "options": {
@@ -4945,8 +4938,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               },
@@ -4958,7 +4950,7 @@
             "h": 6,
             "w": 15,
             "x": 0,
-            "y": 13
+            "y": 45
           },
           "id": 145,
           "options": {
@@ -5013,8 +5005,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               },
@@ -5026,7 +5017,7 @@
             "h": 3,
             "w": 3,
             "x": 15,
-            "y": 13
+            "y": 45
           },
           "id": 130,
           "options": {
@@ -5073,8 +5064,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               }
@@ -5085,7 +5075,7 @@
             "h": 3,
             "w": 3,
             "x": 18,
-            "y": 13
+            "y": 45
           },
           "id": 134,
           "options": {
@@ -5132,8 +5122,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               },
@@ -5145,7 +5134,7 @@
             "h": 3,
             "w": 3,
             "x": 21,
-            "y": 13
+            "y": 45
           },
           "id": 153,
           "options": {
@@ -5196,8 +5185,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               }
@@ -5208,7 +5196,7 @@
             "h": 3,
             "w": 3,
             "x": 15,
-            "y": 16
+            "y": 48
           },
           "id": 138,
           "options": {
@@ -5274,8 +5262,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               },
@@ -5287,7 +5274,7 @@
             "h": 3,
             "w": 3,
             "x": 18,
-            "y": 16
+            "y": 48
           },
           "id": 151,
           "options": {
@@ -5338,8 +5325,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               }
@@ -5350,7 +5336,7 @@
             "h": 3,
             "w": 3,
             "x": 21,
-            "y": 16
+            "y": 48
           },
           "id": 136,
           "options": {
@@ -5397,8 +5383,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               },
@@ -5410,7 +5395,7 @@
             "h": 3,
             "w": 3,
             "x": 15,
-            "y": 19
+            "y": 51
           },
           "id": 152,
           "options": {
@@ -5461,8 +5446,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               },
@@ -5474,7 +5458,7 @@
             "h": 3,
             "w": 3,
             "x": 18,
-            "y": 19
+            "y": 51
           },
           "id": 155,
           "options": {
@@ -5513,10 +5497,176 @@
       ],
       "title": "Scheduler metrics",
       "type": "row"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 7
+      },
+      "id": 157,
+      "panels": [],
+      "title": "Event loop",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 3,
+        "x": 0,
+        "y": 8
+      },
+      "id": 159,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "9.2.6",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "workerpool_eventloop_workers{instance=\"$instance\"}",
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Event loop workers",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 21,
+        "x": 3,
+        "y": 8
+      },
+      "id": 161,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "workerpool_eventloop_tasks_pending{instance=\"$instance\"}",
+          "legendFormat": "{{instance}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Event loop pending tasks",
+      "type": "timeseries"
     }
   ],
   "refresh": "10s",
-  "schemaVersion": 36,
+  "schemaVersion": 37,
   "style": "dark",
   "tags": [],
   "templating": {
@@ -5524,8 +5674,8 @@
       {
         "current": {
           "selected": false,
-          "text": "peer_nomana:9311",
-          "value": "peer_nomana:9311"
+          "text": "node-05.feature.shimmer.iota.cafe:9311",
+          "value": "node-05.feature.shimmer.iota.cafe:9311"
         },
         "datasource": {
           "type": "prometheus",
@@ -5554,8 +5704,8 @@
       {
         "current": {
           "selected": false,
-          "text": "FZ6xmPZX",
-          "value": "FZ6xmPZX"
+          "text": "EUq4re4s",
+          "value": "EUq4re4s"
         },
         "datasource": {
           "type": "prometheus",
@@ -5603,6 +5753,6 @@
   "timezone": "",
   "title": "GoShimmer Local Metrics",
   "uid": "R-T27yW7k",
-  "version": 3,
+  "version": 1,
   "weekStart": ""
 }

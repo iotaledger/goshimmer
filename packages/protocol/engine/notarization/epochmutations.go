@@ -39,8 +39,6 @@ type EpochMutations struct {
 
 	// lastCommittedEpochCumulativeWeight stores the cumulative weight of the last committed epoch
 	lastCommittedEpochCumulativeWeight uint64
-
-	mutex sync.Mutex
 }
 
 // NewEpochMutations creates a new EpochMutations instance.
@@ -60,9 +58,6 @@ func (m *EpochMutations) AddAcceptedBlock(block *models.Block) (err error) {
 	m.evictionMutex.RLock()
 	defer m.evictionMutex.RUnlock()
 
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
 	blockID := block.ID()
 	if blockID.Index() <= m.latestCommittedIndex {
 		return errors.Errorf("cannot add block %s: epoch with %d is already committed", blockID, blockID.Index())
@@ -81,9 +76,6 @@ func (m *EpochMutations) AddAcceptedBlock(block *models.Block) (err error) {
 func (m *EpochMutations) RemoveAcceptedBlock(block *models.Block) (err error) {
 	m.evictionMutex.RLock()
 	defer m.evictionMutex.RUnlock()
-
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
 
 	blockID := block.ID()
 	if blockID.Index() <= m.latestCommittedIndex {
@@ -105,9 +97,6 @@ func (m *EpochMutations) AddAcceptedTransaction(metadata *ledger.TransactionMeta
 	m.evictionMutex.RLock()
 	defer m.evictionMutex.RUnlock()
 
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
 	epochIndex := epoch.IndexFromTime(metadata.InclusionTime())
 	if epochIndex <= m.latestCommittedIndex {
 		return errors.Errorf("transaction %s accepted with issuing time %s in already committed epoch %d", metadata.ID(), metadata.InclusionTime(), epochIndex)
@@ -123,9 +112,6 @@ func (m *EpochMutations) RemoveAcceptedTransaction(metadata *ledger.TransactionM
 	m.evictionMutex.RLock()
 	defer m.evictionMutex.RUnlock()
 
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
 	epochIndex := epoch.IndexFromTime(metadata.InclusionTime())
 	if epochIndex <= m.latestCommittedIndex {
 		return errors.Errorf("transaction %s accepted with issuing time %s in already committed epoch %d", metadata.ID(), metadata.InclusionTime(), epochIndex)
@@ -140,9 +126,6 @@ func (m *EpochMutations) RemoveAcceptedTransaction(metadata *ledger.TransactionM
 func (m *EpochMutations) UpdateTransactionInclusion(txID utxo.TransactionID, oldEpoch, newEpoch epoch.Index) (err error) {
 	m.evictionMutex.RLock()
 	defer m.evictionMutex.RUnlock()
-
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
 
 	if newEpoch >= oldEpoch {
 		return
@@ -162,9 +145,6 @@ func (m *EpochMutations) UpdateTransactionInclusion(txID utxo.TransactionID, old
 func (m *EpochMutations) Evict(index epoch.Index) (acceptedBlocks *ads.Set[models.BlockID], acceptedTransactions *ads.Set[utxo.TransactionID], attestations *Attestations, err error) {
 	m.evictionMutex.Lock()
 	defer m.evictionMutex.Unlock()
-
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
 
 	if index <= m.latestCommittedIndex {
 		return nil, nil, nil, errors.Errorf("cannot commit epoch %d: already committed", index)

@@ -110,7 +110,7 @@ func (p *Protocol) initDisk() {
 
 func (p *Protocol) initMainChainStorage() {
 
-	p.storage = storage.New(p.disk.Path(mainBaseDir), DatabaseVersion, append([]options.Option[database.Manager]{database.WithGranularity(1)}, p.optsStorageDatabaseManagerOptions...)...)
+	p.storage = storage.New(p.disk.Path(mainBaseDir), DatabaseVersion, p.optsStorageDatabaseManagerOptions...)
 
 	p.Events.Engine.Consensus.EpochGadget.EpochConfirmed.Attach(event.NewClosure(func(epochIndex epoch.Index) {
 		p.storage.PruneUntilEpoch(epochIndex - epoch.Index(p.optsPruningThreshold))
@@ -176,6 +176,10 @@ func (p *Protocol) initChainManager() {
 
 	p.Events.Engine.NotarizationManager.EpochCommitted.Attach(event.NewClosure(func(details *notarization.EpochCommittedDetails) {
 		p.chainManager.ProcessCommitment(details.Commitment)
+	}))
+
+	p.Events.Engine.Consensus.EpochGadget.EpochConfirmed.Attach(event.NewClosure(func(epochIndex epoch.Index) {
+		p.chainManager.CommitmentRequester.EvictUntil(epochIndex)
 	}))
 }
 
@@ -278,6 +282,10 @@ func (p *Protocol) activateEngine(engine *engine.Engine) {
 	p.TipManager.ActivateEngine(engine)
 	p.Events.Engine.LinkTo(engine.Events)
 	p.CongestionControl.LinkTo(engine)
+}
+
+func (p *Protocol) Network() *network.Protocol {
+	return p.networkProtocol
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

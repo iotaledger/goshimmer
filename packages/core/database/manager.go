@@ -58,7 +58,10 @@ func NewManager(version Version, opts ...options.Option[Manager]) *Manager {
 
 		m.openDBs = cache.New[epoch.Index, *dbInstance](m.optsMaxOpenDBs)
 		m.openDBs.SetEvictCallback(func(baseIndex epoch.Index, db *dbInstance) {
-			db.instance.Close()
+			err := db.instance.Close()
+			if err != nil {
+				panic(err)
+			}
 		})
 	})
 
@@ -156,11 +159,14 @@ func (m *Manager) Get(index epoch.Index, realm kvstore.Realm) kvstore.KVStore {
 func (m *Manager) Flush(index epoch.Index) {
 	// Flushing works on DB level
 	db := m.getDBInstance(index)
-	db.store.Flush()
+	err := db.store.Flush()
+	if err != nil {
+		panic(err)
+	}
 
 	// Mark as healthy.
 	bucket := m.getBucket(index)
-	err := bucket.Set(healthKey, []byte{1})
+	err = bucket.Set(healthKey, []byte{1})
 	if err != nil {
 		panic(err)
 	}
@@ -199,10 +205,16 @@ func (m *Manager) Shutdown() {
 	defer m.openDBsMutex.Unlock()
 
 	m.openDBs.Each(func(index epoch.Index, db *dbInstance) {
-		db.instance.Close()
+		err := db.instance.Close()
+		if err != nil {
+			panic(err)
+		}
 	})
 
-	m.permanentStorage.Close()
+	err := m.permanentStorage.Close()
+	if err != nil {
+		panic(err)
+	}
 }
 
 // getDBInstance returns the DB instance for the given baseIndex or creates a new one if it does not yet exist.
@@ -281,7 +293,15 @@ func (m *Manager) removeDBInstance(dbBaseIndex epoch.Index) {
 	m.openDBsMutex.Lock()
 	defer m.openDBsMutex.Unlock()
 
-	m.openDBs.Remove(dbBaseIndex)
+	db, exists := m.openDBs.Get(dbBaseIndex)
+	if exists {
+		err := db.instance.Close()
+		if err != nil {
+			panic(err)
+		}
+		m.openDBs.Remove(dbBaseIndex)
+	}
+
 	if err := os.RemoveAll(dbPathFromIndex(m.bucketedBaseDir, dbBaseIndex)); err != nil {
 		panic(err)
 	}

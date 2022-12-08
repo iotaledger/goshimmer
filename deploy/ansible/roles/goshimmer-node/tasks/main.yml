@@ -27,15 +27,27 @@
     project_src: /opt/{{ nodeType }}
     state: absent
 
-- name: Create enrtynode db directory
+- name: Create DB directory
   file:
     path: /opt/{{ nodeType }}/db
     state: directory
     mode: '0777'
 
+- name: Create Retainer directory
+  file:
+    path: /opt/{{ nodeType }}/retainer
+    state: directory
+    mode: '0777'
+
+
 - name: Remove DB
   shell:
     cmd: rm -rf /opt/{{ nodeType }}/db/*
+    warn: false
+
+- name: Remove Retainer contents
+  shell:
+    cmd: rm -rf /opt/{{ nodeType }}/retainer/*
     warn: false
 
 - name: Clean conntrack

@@ -25,7 +25,8 @@ services:
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,RemoteLogMetrics
       --node.enablePlugins=analysisServer,analysisDashboard,prometheus,spammer,WebAPIToolsBlockEndpoint,activity,snapshot
       --prometheus.bindAddress=0.0.0.0:9311
-      --prometheus.processMetrics=false
+      --prometheus.processMetrics=true
+      --prometheus.goMetrics=true
       --blockIssuer.ignoreBootstrappedFlag=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
@@ -59,7 +60,8 @@ services:
       --blockIssuer.rateSetter.enable=false
       --prometheus.bindAddress=0.0.0.0:9311
       --protocol.genesisTime=${GENESIS_TIME}
-      --prometheus.processMetrics=false
+      --prometheus.processMetrics=true
+      --prometheus.goMetrics=true
     deploy:
       replicas: ${GOSHIMMER_PEER_REPLICAS:-1}
     secrets:
@@ -84,7 +86,8 @@ services:
       --protocol.snapshot.path=./snapshot.bin
       --blockIssuer.rateSetter.enable=false
       --prometheus.bindAddress=0.0.0.0:9311
-      --prometheus.processMetrics=false
+      --prometheus.processMetrics=true
+      --prometheus.goMetrics=true
       --blockIssuer.ignoreBootstrappedFlag=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
@@ -113,7 +116,8 @@ services:
       --blockIssuer.rateSetter.enable=false
       --prometheus.bindAddress=0.0.0.0:9311
       --protocol.genesisTime=${GENESIS_TIME}
-      --prometheus.processMetrics=false
+      --prometheus.processMetrics=true
+      --prometheus.goMetrics=true
     secrets:
       - goshimmer.config.json
     volumes:
@@ -142,7 +146,8 @@ services:
       --protocol.snapshot.path=./snapshot.bin
       --blockIssuer.rateSetter.enable=false
       --prometheus.bindAddress=0.0.0.0:9311
-      --prometheus.processMetrics=false
+      --prometheus.processMetrics=true
+      --prometheus.goMetrics=true
       --blockIssuer.ignoreBootstrappedFlag=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061

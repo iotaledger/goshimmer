@@ -10,5 +10,5 @@ type Endpoint interface {
 
 	UnregisterProtocol(protocolID string)
 
-	Send(packet proto.Message, protocolID string, to ...identity.ID) []identity.ID
+	Send(packet proto.Message, protocolID string, to ...identity.ID)
 }
