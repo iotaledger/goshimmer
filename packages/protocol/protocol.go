@@ -259,6 +259,7 @@ func (p *Protocol) CandidateEngine() (instance *engine.Engine) {
 	return p.candidateEngine
 }
 
+// MainStorage returns the underlying storage of the main chain.
 func (p *Protocol) MainStorage() (mainStorage *storage.Storage) {
 	return p.storage
 }

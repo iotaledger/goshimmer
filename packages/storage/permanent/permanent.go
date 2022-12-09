@@ -34,6 +34,7 @@ func New(disk *diskutil.DiskUtil, database *database.Manager) (p *Permanent) {
 	}
 }
 
+// SettingsAndCommitmentsSize returns the total size of the binary files.
 func (p *Permanent) SettingsAndCommitmentsSize() int64 {
 	var sum int64
 

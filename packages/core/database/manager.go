@@ -234,10 +234,12 @@ func (m *Manager) Shutdown() {
 	}
 }
 
+// TotalStorageSize returns the combined size of the permanent and prunable storage.
 func (m *Manager) TotalStorageSize() int64 {
 	return m.PermanentStorageSize() + m.PrunableStorageSize()
 }
 
+// PermanentStorageSize returns the size of the permanent storage.
 func (m *Manager) PermanentStorageSize() int64 {
 	size, err := dbDirectorySize(m.permanentBaseDir)
 	if err != nil {
@@ -247,6 +249,7 @@ func (m *Manager) PermanentStorageSize() int64 {
 	return size
 }
 
+// PrunableStorageSize returns the size of the prunable storage containing all db instances.
 func (m *Manager) PrunableStorageSize() int64 {
 	m.openDBsMutex.Lock()
 	defer m.openDBsMutex.Unlock()

@@ -46,6 +46,6 @@ func (c *Commitments) Close() (err error) {
 }
 
 // FilePath returns the path that this is associated to.
-func (s *Commitments) FilePath() (filePath string) {
-	return s.filePath
+func (c *Commitments) FilePath() (filePath string) {
+	return c.filePath
 }

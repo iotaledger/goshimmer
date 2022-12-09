@@ -39,12 +39,12 @@ func (s *Storage) PruneUntilEpoch(epochIndex epoch.Index) {
 	s.databaseManager.PruneUntilEpoch(epochIndex)
 }
 
-// PrunableDatabaseSize returns the size of the underlying prunable databases
+// PrunableDatabaseSize returns the size of the underlying prunable databases.
 func (s *Storage) PrunableDatabaseSize() int64 {
 	return s.databaseManager.PrunableStorageSize()
 }
 
-// PermanentDatabaseSize returns the size of the underlying permanent database and files
+// PermanentDatabaseSize returns the size of the underlying permanent database and files.
 func (s *Storage) PermanentDatabaseSize() int64 {
 	return s.Permanent.SettingsAndCommitmentsSize() + s.databaseManager.PermanentStorageSize()
 }
@@ -53,5 +53,5 @@ func (s *Storage) PermanentDatabaseSize() int64 {
 func (s *Storage) Shutdown() {
 	event.Loop.PendingTasksCounter.WaitIsZero()
 
-	defer s.databaseManager.Shutdown()
+	s.databaseManager.Shutdown()
 }
