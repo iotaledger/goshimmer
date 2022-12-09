@@ -96,8 +96,8 @@ func New(
 			e.Initializable = traits.NewInitializable(
 				e.Storage.Settings.TriggerInitialized,
 				e.Storage.Commitments.TriggerInitialized,
-				e.NotarizationManager.TriggerInitialized,
 				e.LedgerState.TriggerInitialized,
+				e.NotarizationManager.TriggerInitialized,
 			)
 		},
 
