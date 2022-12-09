@@ -106,7 +106,7 @@ func (a *Attestations) Commit(index epoch.Index) (attestations *ads.Map[identity
 		return nil, 0, errors.Errorf("failed to flush attestations for epoch %d: %w", index, err)
 	}
 
-	a.Committable.SetLastCommittedEpoch(index)
+	a.SetLastCommittedEpoch(index)
 
 	return
 }

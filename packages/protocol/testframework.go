@@ -8,8 +8,10 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
@@ -91,6 +93,16 @@ func NewEngineTestFramework(test *testing.T, opts ...options.Option[EngineTestFr
 			blockgadget.WithEvictionState(t.Engine.EvictionState),
 		)
 	})
+}
+
+func (e *EngineTestFramework) AssertEpochState(index epoch.Index) {
+	require.Equal(e.test, index, e.Engine.Storage.Settings.LatestCommitment().Index())
+	require.Equal(e.test, index, e.Engine.NotarizationManager.Attestations.LastCommittedEpoch())
+	require.Equal(e.test, index, e.Engine.LedgerState.UnspentOutputs.LastCommittedEpoch())
+	require.Equal(e.test, index, e.Engine.SybilProtection.(*dpos.SybilProtection).LastCommittedEpoch())
+	require.Equal(e.test, index, e.Engine.SybilProtection.(*dpos.SybilProtection).LastCommittedEpoch())
+	require.Equal(e.test, index, e.Engine.ThroughputQuota.(*mana1.ThroughputQuota).LastCommittedEpoch())
+	require.Equal(e.test, index, e.Engine.EvictionState.LastEvictedEpoch())
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

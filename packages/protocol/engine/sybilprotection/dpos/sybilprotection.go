@@ -31,18 +31,18 @@ type SybilProtection struct {
 	mutex              sync.RWMutex
 	optsActivityWindow time.Duration
 
-	committable          traits.BatchCommittable
 	batchedWeightUpdates *sybilprotection.WeightUpdatesBatch
 
 	traits.Initializable
+	traits.BatchCommittable
 }
 
 // NewSybilProtection creates a new ProofOfStake instance.
 func NewSybilProtection(engineInstance *engine.Engine, opts ...options.Option[SybilProtection]) (proofOfStake *SybilProtection) {
 	return options.Apply(
 		&SybilProtection{
-			Initializable: traits.NewInitializable(),
-			committable:   traits.NewBatchCommittable(),
+			Initializable:    traits.NewInitializable(),
+			BatchCommittable: traits.NewBatchCommittable(),
 
 			engine:            engineInstance,
 			weights:           sybilprotection.NewWeights(engineInstance.Storage.SybilProtection, engineInstance.Storage.Settings),
@@ -70,7 +70,7 @@ func NewSybilProtection(engineInstance *engine.Engine, opts ...options.Option[Sy
 }
 
 func (s *SybilProtection) initializeLatestCommitment() {
-	s.committable.SetLastCommittedEpoch(s.engine.Storage.Settings.LatestCommitment().Index())
+	s.SetLastCommittedEpoch(s.engine.Storage.Settings.LatestCommitment().Index())
 }
 
 func (s *SybilProtection) initializeTotalWeight() {
@@ -110,7 +110,7 @@ func (s *SybilProtection) Weights() *sybilprotection.Weights {
 }
 
 func (s *SybilProtection) ApplyCreatedOutput(output *ledgerstate.OutputWithMetadata) (err error) {
-	if !s.committable.BatchedStateTransitionStarted() {
+	if !s.BatchedStateTransitionStarted() {
 		ApplyCreatedOutput(output, s.weights.ImportDiff)
 	} else {
 		ApplyCreatedOutput(output, s.batchedWeightUpdates.ApplyDiff)
@@ -120,7 +120,7 @@ func (s *SybilProtection) ApplyCreatedOutput(output *ledgerstate.OutputWithMetad
 }
 
 func (s *SybilProtection) ApplySpentOutput(output *ledgerstate.OutputWithMetadata) (err error) {
-	if !s.committable.BatchedStateTransitionStarted() {
+	if !s.BatchedStateTransitionStarted() {
 		ApplySpentOutput(output, s.weights.ImportDiff)
 	} else {
 		ApplySpentOutput(output, s.batchedWeightUpdates.ApplyDiff)
@@ -138,7 +138,7 @@ func (s *SybilProtection) RollbackSpentOutput(output *ledgerstate.OutputWithMeta
 }
 
 func (s *SybilProtection) BeginBatchedStateTransition(newEpoch epoch.Index) (currentEpoch epoch.Index, err error) {
-	if currentEpoch, err = s.committable.BeginBatchedStateTransition(newEpoch); err != nil {
+	if currentEpoch, err = s.BatchCommittable.BeginBatchedStateTransition(newEpoch); err != nil {
 		return 0, errors.Errorf("failed to begin batched state transition: %w", err)
 	}
 
@@ -154,7 +154,7 @@ func (s *SybilProtection) CommitBatchedStateTransition() (ctx context.Context) {
 	go func() {
 		s.weights.ApplyBatchUpdates(s.batchedWeightUpdates)
 
-		s.committable.FinalizeBatchedStateTransition()
+		s.FinalizeBatchedStateTransition()
 
 		done()
 	}()

@@ -201,6 +201,8 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 		assert.Equal(t, tf.Engine.Storage.Settings.LatestConfirmedEpoch(), tf2.Engine.Storage.Settings.LatestConfirmedEpoch())
 		assert.Equal(t, tf.Engine.Storage.Settings.LatestStateMutationEpoch(), tf2.Engine.Storage.Settings.LatestStateMutationEpoch())
 
+		tf2.AssertEpochState(4)
+
 		// Bucketed Storage
 		for epochIndex := epoch.Index(0); epochIndex <= 4; epochIndex++ {
 			originalCommitment, err := tf.Engine.Storage.Commitments.Load(epochIndex)
@@ -263,7 +265,8 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 		require.NoError(t, tf2.Engine.Initialize(tempDisk.Path("snapshot_epoch1.bin")))
 
 		assert.Equal(t, epoch.Index(4), tf.Engine.Storage.Settings.LatestCommitment().Index())
-		assert.Equal(t, epoch.Index(1), tf2.Engine.Storage.Settings.LatestCommitment().Index())
+
+		tf2.AssertEpochState(1)
 
 		// Check that we only have attestations for epoch 1.
 		assert.Equal(t, lo.PanicOnErr(tf.Engine.NotarizationManager.Attestations.Get(1)).Root(), lo.PanicOnErr(tf2.Engine.NotarizationManager.Attestations.Get(1)).Root())
@@ -323,6 +326,8 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 		require.NoError(t, tf2.Engine.Initialize(tempDisk.Path("snapshot_epoch2.bin")))
 
 		assert.Equal(t, epoch.Index(2), tf2.Engine.Storage.Settings.LatestCommitment().Index())
+
+		tf2.AssertEpochState(2)
 
 		// Check that we only have attestations for epoch 2.
 		require.Nil(t, lo.Return2(tf2.Engine.NotarizationManager.Attestations.Get(1)))

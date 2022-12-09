@@ -37,7 +37,7 @@ type UnspentOutputs struct {
 	batchCreatedOutputIDs utxo.OutputIDs
 	batchSpentOutputIDs   utxo.OutputIDs
 
-	commitmentState traits.BatchCommittable
+	traits.BatchCommittable
 	traits.Initializable
 }
 
@@ -46,7 +46,7 @@ func NewUnspentOutputs(unspentOutputIDsStore kvstore.KVStore, memPool *ledger.Le
 		Initializable:   traits.NewInitializable(),
 		IDs:             ads.NewSet[utxo.OutputID](unspentOutputIDsStore),
 		memPool:         memPool,
-		commitmentState: traits.NewBatchCommittable(),
+		BatchCommittable: traits.NewBatchCommittable(),
 		consumers:       make(map[UnspentOutputsConsumer]types.Empty),
 	}
 }
@@ -70,7 +70,7 @@ func (u *UnspentOutputs) Root() types.Identifier {
 }
 
 func (u *UnspentOutputs) Begin(newEpoch epoch.Index) (lastCommittedEpoch epoch.Index, err error) {
-	if lastCommittedEpoch, err = u.commitmentState.BeginBatchedStateTransition(newEpoch); err != nil {
+	if lastCommittedEpoch, err = u.BeginBatchedStateTransition(newEpoch); err != nil {
 		return 0, errors.Errorf("failed to begin batched state transition: %w", err)
 	}
 
@@ -108,7 +108,7 @@ func (u *UnspentOutputs) Commit() (ctx context.Context) {
 
 func (u *UnspentOutputs) ApplyCreatedOutput(output *OutputWithMetadata) (err error) {
 	var targetConsumers map[UnspentOutputsConsumer]types.Empty
-	if !u.commitmentState.BatchedStateTransitionStarted() {
+	if !u.BatchedStateTransitionStarted() {
 		u.IDs.Add(output.Output().ID())
 
 		u.importOutputIntoMemPoolStorage(output)
@@ -131,7 +131,7 @@ func (u *UnspentOutputs) ApplyCreatedOutput(output *OutputWithMetadata) (err err
 
 func (u *UnspentOutputs) ApplySpentOutput(output *OutputWithMetadata) (err error) {
 	var targetConsumers map[UnspentOutputsConsumer]types.Empty
-	if !u.commitmentState.BatchedStateTransitionStarted() {
+	if !u.BatchedStateTransitionStarted() {
 		panic("cannot apply a spent output without a batched state transition")
 	} else {
 		if !u.batchCreatedOutputIDs.Delete(output.Output().ID()) {
@@ -195,7 +195,7 @@ func (u *UnspentOutputs) Import(reader io.ReadSeeker, targetEpoch epoch.Index) (
 		return errors.Errorf("failed to import unspent outputs: %w", err)
 	}
 
-	u.commitmentState.SetLastCommittedEpoch(targetEpoch)
+	u.SetLastCommittedEpoch(targetEpoch)
 
 	u.TriggerInitialized()
 
@@ -225,7 +225,7 @@ func (u *UnspentOutputs) applyBatch(waitForConsumers *sync.WaitGroup, done func(
 
 	waitForConsumers.Wait()
 
-	u.commitmentState.FinalizeBatchedStateTransition()
+	u.FinalizeBatchedStateTransition()
 
 	done()
 }

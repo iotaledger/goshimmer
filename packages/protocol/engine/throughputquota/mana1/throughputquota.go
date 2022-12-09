@@ -25,20 +25,20 @@ type ThroughputQuota struct {
 	totalBalanceMutex sync.RWMutex
 
 	traits.Initializable
-	batchCommittable traits.BatchCommittable
+	traits.BatchCommittable
 }
 
 // New creates a new ThroughputQuota manager.
 func New(engineInstance *engine.Engine, opts ...options.Option[ThroughputQuota]) (manaTracker *ThroughputQuota) {
 	return options.Apply(&ThroughputQuota{
+		BatchCommittable: traits.NewBatchCommittable(),
 		Initializable:    traits.NewInitializable(),
-		batchCommittable: traits.NewBatchCommittable(),
 		engine:           engineInstance,
 		manaByID:         shrinkingmap.New[identity.ID, int64](),
 	}, opts, func(m *ThroughputQuota) {
 		m.engine.SubscribeConstructed(func() {
 			m.engine.Storage.Settings.SubscribeInitialized(func() {
-				m.batchCommittable.SetLastCommittedEpoch(m.engine.Storage.Settings.LatestCommitment().Index())
+				m.SetLastCommittedEpoch(m.engine.Storage.Settings.LatestCommitment().Index())
 			})
 
 			m.engine.LedgerState.UnspentOutputs.Subscribe(m)
@@ -113,13 +113,13 @@ func (m *ThroughputQuota) RollbackSpentOutput(output *ledgerstate.OutputWithMeta
 }
 
 func (m *ThroughputQuota) BeginBatchedStateTransition(targetEpoch epoch.Index) (currentEpoch epoch.Index, err error) {
-	return m.batchCommittable.BeginBatchedStateTransition(targetEpoch)
+	return m.BatchCommittable.BeginBatchedStateTransition(targetEpoch)
 }
 
 func (m *ThroughputQuota) CommitBatchedStateTransition() (ctx context.Context) {
 	ctx, done := context.WithCancel(context.Background())
 
-	m.batchCommittable.FinalizeBatchedStateTransition()
+	m.FinalizeBatchedStateTransition()
 
 	done()
 

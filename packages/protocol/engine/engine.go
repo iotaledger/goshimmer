@@ -396,6 +396,10 @@ func (e *Engine) initEvictionState() {
 		e.EvictionState.EvictUntil(details.Commitment.Index())
 	}))
 
+	e.LedgerState.SubscribeInitialized(func() {
+		e.EvictionState.EvictUntil(e.Storage.Settings.LatestCommitment().Index())
+	})
+
 	e.Events.EvictionState.LinkTo(e.EvictionState.Events)
 }
 
