@@ -261,7 +261,9 @@ func (s *StateDiffs) addAcceptedTransaction(metadata *ledger.TransactionMetadata
 
 func (s *StateDiffs) storeTransaction(transaction utxo.Transaction, metadata *ledger.TransactionMetadata) (err error) {
 	for it := s.ledger.Utils.ResolveInputs(transaction.Inputs()).Iterator(); it.HasNext(); {
-		if err = s.StoreSpentOutput(s.outputWithMetadata(it.Next())); err != nil {
+		inputWithMetadata := s.outputWithMetadata(it.Next())
+		inputWithMetadata.SetIndex(metadata.InclusionEpoch())
+		if err = s.StoreSpentOutput(inputWithMetadata); err != nil {
 			return errors.Errorf("failed to storeOutput spent output: %w", err)
 		}
 	}
