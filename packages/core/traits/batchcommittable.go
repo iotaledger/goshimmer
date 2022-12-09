@@ -48,7 +48,7 @@ func (b *batchCommittable) BeginBatchedStateTransition(newEpoch epoch.Index) (la
 	defer b.batchEpochMutex.Unlock()
 
 	if newEpoch != 0 && b.batchEpoch != 0 {
-		return 0, errors.New("batch epoch already set")
+		return 0, errors.Errorf("batch epoch already set: previous=%d, new=%d", b.batchEpoch, newEpoch)
 	}
 
 	if lastCommittedEpoch = b.LastCommittedEpoch(); lastCommittedEpoch == newEpoch {

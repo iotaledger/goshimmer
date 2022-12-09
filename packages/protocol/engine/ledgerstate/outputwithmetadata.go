@@ -17,8 +17,9 @@ type OutputWithMetadata struct {
 
 type outputWithMetadataModel struct {
 	Index                 epoch.Index   `serix:"0"`
-	OutputID              utxo.OutputID `serix:"1"`
-	Output                utxo.Output   `serix:"2"`
+	SpentInEpoch          epoch.Index   `serix:"1"`
+	OutputID              utxo.OutputID `serix:"2"`
+	Output                utxo.Output   `serix:"3"`
 	ConsensusManaPledgeID identity.ID   `serix:"4"`
 	AccessManaPledgeID    identity.ID   `serix:"5"`
 }
@@ -26,6 +27,8 @@ type outputWithMetadataModel struct {
 // String returns a human-readable version of the OutputWithMetadata.
 func (o *OutputWithMetadata) String() string {
 	structBuilder := stringify.NewStructBuilder("OutputWithMetadata")
+	structBuilder.AddField(stringify.NewStructField("Index", o.Index()))
+	structBuilder.AddField(stringify.NewStructField("SpentInEpoch", o.SpentInEpoch()))
 	structBuilder.AddField(stringify.NewStructField("OutputID", o.ID()))
 	structBuilder.AddField(stringify.NewStructField("Output", o.Output()))
 	structBuilder.AddField(stringify.NewStructField("ConsensusPledgeID", o.ConsensusManaPledgeID()))
@@ -72,6 +75,21 @@ func (o *OutputWithMetadata) Index() epoch.Index {
 	defer o.RUnlock()
 
 	return o.M.Index
+}
+
+func (o *OutputWithMetadata) SpentInEpoch() epoch.Index {
+	o.RLock()
+	defer o.RUnlock()
+
+	return o.M.SpentInEpoch
+}
+
+// SetIndex sets the index of the output.
+func (o *OutputWithMetadata) SetSpentInEpoch(index epoch.Index) {
+	o.Lock()
+	defer o.Unlock()
+
+	o.M.SpentInEpoch = index
 }
 
 // Output returns the Output field.

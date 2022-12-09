@@ -34,7 +34,7 @@ func NewStateDiffs(storageInstance *storage.Storage, ledgerInstance *ledger.Ledg
 }
 
 func (s *StateDiffs) StoreSpentOutput(outputWithMetadata *OutputWithMetadata) (err error) {
-	if spentStorage, spentStorageErr := s.storage.LedgerStateDiffs(outputWithMetadata.Index()).WithExtendedRealm([]byte{spentOutputsPrefix}); spentStorageErr != nil {
+	if spentStorage, spentStorageErr := s.storage.LedgerStateDiffs(outputWithMetadata.SpentInEpoch()).WithExtendedRealm([]byte{spentOutputsPrefix}); spentStorageErr != nil {
 		return errors.Errorf("failed to retrieve spent storage: %w", spentStorageErr)
 	} else {
 		return spentStorage.Set(lo.PanicOnErr(outputWithMetadata.ID().Bytes()), lo.PanicOnErr(outputWithMetadata.Bytes()))
@@ -262,7 +262,7 @@ func (s *StateDiffs) addAcceptedTransaction(metadata *ledger.TransactionMetadata
 func (s *StateDiffs) storeTransaction(transaction utxo.Transaction, metadata *ledger.TransactionMetadata) (err error) {
 	for it := s.ledger.Utils.ResolveInputs(transaction.Inputs()).Iterator(); it.HasNext(); {
 		inputWithMetadata := s.outputWithMetadata(it.Next())
-		inputWithMetadata.SetIndex(metadata.InclusionEpoch())
+		inputWithMetadata.SetSpentInEpoch(metadata.InclusionEpoch())
 		if err = s.StoreSpentOutput(inputWithMetadata); err != nil {
 			return errors.Errorf("failed to storeOutput spent output: %w", err)
 		}
@@ -303,11 +303,15 @@ func (s *StateDiffs) moveTransactionToOtherEpoch(txMeta *ledger.TransactionMetad
 		if err := s.DeleteSpentOutputs(oldEpoch, s.ledger.Utils.ResolveInputs(tx.Inputs())); err != nil {
 			s.ledger.Events.Error.Trigger(errors.Errorf("failed to delete spent outputs of transaction %s: %w", txMeta.ID(), err))
 		}
-	})
 
-	if err := s.DeleteCreatedOutputs(oldEpoch, txMeta.OutputIDs()); err != nil {
-		s.ledger.Events.Error.Trigger(errors.Errorf("failed to delete created outputs of transaction %s: %w", txMeta.ID(), err))
-	}
+		if err := s.DeleteCreatedOutputs(oldEpoch, txMeta.OutputIDs()); err != nil {
+			s.ledger.Events.Error.Trigger(errors.Errorf("failed to delete created outputs of transaction %s: %w", txMeta.ID(), err))
+		}
+
+		if err := s.storeTransaction(tx, txMeta); err != nil {
+			s.ledger.Events.Error.Trigger(errors.Errorf("failed to store transaction %s when moving from epoch %d to %d: %w", txMeta.ID(), oldEpoch, newEpoch, err))
+		}
+	})
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

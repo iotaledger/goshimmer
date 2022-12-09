@@ -21,7 +21,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/network"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
@@ -356,7 +355,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 	debug.SetEnabled(true)
 	defer debug.SetEnabled(false)
 
-	epoch.GenesisTime = time.Now().Unix() - epoch.Duration*10
+	epoch.GenesisTime = time.Now().Unix() - epoch.Duration*15
 
 	tf := NewEngineTestFramework(t, WithTangleOptions(
 		tangle.WithBookerOptions(
@@ -387,10 +386,6 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		identity.New(identitiesMap["Z"]).ID(): 0,
 	}
 
-	tf.Engine.Clock.Events.AcceptanceTimeUpdated.Hook(event.NewClosure(func(event *clock.TimeUpdate) {
-		fmt.Println("> AcceptanceTimeUpdated", event.NewTime)
-	}))
-
 	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDisk.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights)
 
 	require.NoError(t, tf.Engine.Initialize(tempDisk.Path("genesis_snapshot.bin")))
@@ -400,33 +395,83 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 	acceptedBlocks := make(map[string]bool)
 	epoch1IssuingTime := time.Unix(epoch.GenesisTime, 0)
 
-	tf.Tangle.CreateBlock("1.Z", models.WithStrongParents(tf.Tangle.BlockIDs("Genesis")), models.WithPayload(tf.Tangle.CreateTransaction("Tx0", 2, "Genesis")), models.WithIssuer(identitiesMap["Z"]), models.WithIssuingTime(epoch1IssuingTime))
-	tf.Tangle.CreateBlock("1.Z*", models.WithStrongParents(tf.Tangle.BlockIDs("Genesis")), models.WithPayload(tf.Tangle.CreateTransaction("Tx0*", 2, "Genesis")), models.WithIssuer(identitiesMap["Z"]), models.WithIssuingTime(epoch1IssuingTime))
-	tf.Tangle.CreateBlock("1.A", models.WithStrongParents(tf.Tangle.BlockIDs("1.Z")), models.WithIssuer(identitiesMap["A"]), models.WithIssuingTime(epoch1IssuingTime))
-	tf.Tangle.CreateBlock("1.B", models.WithStrongParents(tf.Tangle.BlockIDs("1.A")), models.WithIssuer(identitiesMap["B"]), models.WithIssuingTime(epoch1IssuingTime))
-	tf.Tangle.CreateBlock("1.C", models.WithStrongParents(tf.Tangle.BlockIDs("1.B")), models.WithIssuer(identitiesMap["C"]), models.WithIssuingTime(epoch1IssuingTime))
-	tf.Tangle.CreateBlock("1.D", models.WithStrongParents(tf.Tangle.BlockIDs("1.C")), models.WithIssuer(identitiesMap["D"]), models.WithIssuingTime(epoch1IssuingTime))
-	tf.Tangle.IssueBlocks("1.Z", "1.Z*", "1.A", "1.B", "1.C", "1.D").WaitUntilAllTasksProcessed()
+	{
+		tf.Tangle.CreateBlock("1.Z", models.WithStrongParents(tf.Tangle.BlockIDs("Genesis")), models.WithPayload(tf.Tangle.CreateTransaction("Tx1", 2, "Genesis")), models.WithIssuer(identitiesMap["Z"]), models.WithIssuingTime(epoch1IssuingTime))
+		tf.Tangle.CreateBlock("1.Z*", models.WithStrongParents(tf.Tangle.BlockIDs("Genesis")), models.WithPayload(tf.Tangle.CreateTransaction("Tx1*", 2, "Genesis")), models.WithIssuer(identitiesMap["Z"]), models.WithIssuingTime(epoch1IssuingTime))
+		tf.Tangle.CreateBlock("1.A", models.WithStrongParents(tf.Tangle.BlockIDs("1.Z")), models.WithIssuer(identitiesMap["A"]), models.WithIssuingTime(epoch1IssuingTime))
+		tf.Tangle.CreateBlock("1.B", models.WithStrongParents(tf.Tangle.BlockIDs("1.A")), models.WithIssuer(identitiesMap["B"]), models.WithIssuingTime(epoch1IssuingTime))
+		tf.Tangle.CreateBlock("1.C", models.WithStrongParents(tf.Tangle.BlockIDs("1.B")), models.WithIssuer(identitiesMap["C"]), models.WithIssuingTime(epoch1IssuingTime))
+		tf.Tangle.CreateBlock("1.D", models.WithStrongParents(tf.Tangle.BlockIDs("1.C")), models.WithIssuer(identitiesMap["D"]), models.WithIssuingTime(epoch1IssuingTime))
+		tf.Tangle.IssueBlocks("1.Z", "1.Z*", "1.A", "1.B", "1.C", "1.D").WaitUntilAllTasksProcessed()
 
-	tf.Acceptance.ValidateAcceptedBlocks(lo.MergeMaps(acceptedBlocks, map[string]bool{
-		"1.Z":  true,
-		"1.Z*": false,
-		"1.A":  true,
-		"1.B":  true,
-		"1.C":  false,
-		"1.D":  false,
-	}))
+		tf.Acceptance.ValidateAcceptedBlocks(lo.MergeMaps(acceptedBlocks, map[string]bool{
+			"1.Z":  true,
+			"1.Z*": false,
+			"1.A":  true,
+			"1.B":  true,
+			"1.C":  false,
+			"1.D":  false,
+		}))
 
-	acceptedConflicts := make(map[string]confirmation.State)
-	tf.Acceptance.ValidateConflictAcceptance(lo.MergeMaps(acceptedConflicts, map[string]confirmation.State{
-		"Tx0":  confirmation.Accepted,
-		"Tx0*": confirmation.Rejected,
-	}))
+		acceptedConflicts := make(map[string]confirmation.State)
+		tf.Acceptance.ValidateConflictAcceptance(lo.MergeMaps(acceptedConflicts, map[string]confirmation.State{
+			"Tx1":  confirmation.Accepted,
+			"Tx1*": confirmation.Rejected,
+		}))
+	}
 
-	tf.Tangle.CreateBlock("11.A", models.WithStrongParents(tf.Tangle.BlockIDs("1.D")), models.WithIssuer(identitiesMap["A"]))
-	tf.Tangle.CreateBlock("11.B", models.WithStrongParents(tf.Tangle.BlockIDs("11.A")), models.WithIssuer(identitiesMap["B"]))
-	tf.Tangle.CreateBlock("11.C", models.WithStrongParents(tf.Tangle.BlockIDs("11.B")), models.WithIssuer(identitiesMap["C"]))
-	tf.Tangle.IssueBlocks("11.A", "11.B", "11.C").WaitUntilAllTasksProcessed()
+	/////////////////////////////////////////////////////////////
+	// Accept a Block in epoch 11 -> Epoch 4 becomes committable.
+	/////////////////////////////////////////////////////////////
 
-	assert.Equal(t, epoch.Index(4), tf.Engine.Storage.Settings.LatestCommitment().Index())
+	{
+		epoch11IssuingTime := time.Unix(epoch.GenesisTime+epoch.Duration*10, 0)
+		tf.Tangle.CreateBlock("11.A", models.WithStrongParents(tf.Tangle.BlockIDs("1.D")), models.WithIssuer(identitiesMap["A"]), models.WithIssuingTime(epoch11IssuingTime))
+		tf.Tangle.CreateBlock("11.B", models.WithStrongParents(tf.Tangle.BlockIDs("11.A")), models.WithIssuer(identitiesMap["B"]), models.WithIssuingTime(epoch11IssuingTime))
+		tf.Tangle.CreateBlock("11.C", models.WithStrongParents(tf.Tangle.BlockIDs("11.B")), models.WithIssuer(identitiesMap["C"]), models.WithIssuingTime(epoch11IssuingTime))
+		tf.Tangle.IssueBlocks("11.A", "11.B", "11.C").WaitUntilAllTasksProcessed()
+
+		assert.Equal(t, epoch.Index(4), tf.Engine.Storage.Settings.LatestCommitment().Index())
+	}
+
+	/////////////////////////////////////////////////////////////
+	// Issue a transaction on epoch 5, spending something created on epoch 1.
+	/////////////////////////////////////////////////////////////
+
+	{
+		epocht5IssuingTime := time.Unix(epoch.GenesisTime+epoch.Duration*4, 0)
+		tf.Tangle.CreateBlock("5.Z", models.WithStrongParents(tf.Tangle.BlockIDs("1.D")), models.WithPayload(tf.Tangle.CreateTransaction("Tx5", 2, "Tx1.0")), models.WithIssuer(identitiesMap["Z"]), models.WithIssuingTime(epocht5IssuingTime))
+	}
+
+	/////////////////////////////////////////////////////////////
+	// Accept a Block in epoch 12 -> Epoch 5 becomes committable.
+	/////////////////////////////////////////////////////////////
+
+	{
+		epoch12IssuingTime := time.Unix(epoch.GenesisTime+epoch.Duration*11, 0)
+		tf.Tangle.CreateBlock("12.A.2", models.WithStrongParents(tf.Tangle.BlockIDs("5.Z")), models.WithIssuer(identitiesMap["A"]), models.WithIssuingTime(epoch12IssuingTime))
+		tf.Tangle.CreateBlock("12.B.2", models.WithStrongParents(tf.Tangle.BlockIDs("12.A.2")), models.WithIssuer(identitiesMap["B"]), models.WithIssuingTime(epoch12IssuingTime))
+		tf.Tangle.CreateBlock("12.C.2", models.WithStrongParents(tf.Tangle.BlockIDs("12.B.2")), models.WithIssuer(identitiesMap["C"]), models.WithIssuingTime(epoch12IssuingTime))
+		tf.Tangle.IssueBlocks("5.Z", "12.A.2", "12.B.2", "12.C.2").WaitUntilAllTasksProcessed()
+
+		assert.Equal(t, epoch.Index(5), tf.Engine.Storage.Settings.LatestCommitment().Index())
+	}
+
+	/////////////////////////////////////////////////////////////
+	// Rollback and Engine to epoch 1, the spent outputs for epoch 2 should be available again.
+	/////////////////////////////////////////////////////////////
+
+	{
+		require.NoError(t, tf.Engine.WriteSnapshot(tempDisk.Path("snapshot_epoch1.bin"), 1))
+
+		tf2 := NewEngineTestFramework(t)
+		require.NoError(t, tf2.Engine.Initialize(tempDisk.Path("snapshot_epoch1.bin")))
+
+		assert.Equal(t, epoch.Index(1), tf2.Engine.Storage.Settings.LatestCommitment().Index())
+
+		require.True(t, tf2.Engine.LedgerState.UnspentOutputs.IDs.Has(tf.Tangle.OutputID("Tx1.0")))
+		require.True(t, tf2.Engine.LedgerState.UnspentOutputs.IDs.Has(tf.Tangle.OutputID("Tx1.1")))
+		require.False(t, tf2.Engine.LedgerState.UnspentOutputs.IDs.Has(tf.Tangle.OutputID("Tx5.0")))
+		require.False(t, tf2.Engine.LedgerState.UnspentOutputs.IDs.Has(tf.Tangle.OutputID("Tx5.1")))
+	}
 }
