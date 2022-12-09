@@ -1,8 +1,7 @@
 package database
 
 import (
-	"io/fs"
-	"io/ioutil"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -392,20 +391,20 @@ type dbInstanceFileInfo struct {
 }
 
 func getSortedDBInstancesFromDisk(baseDir string) (dbInfos []*dbInstanceFileInfo) {
-	files, err := ioutil.ReadDir(baseDir)
+	files, err := os.ReadDir(baseDir)
 	if err != nil {
 		panic(err)
 	}
 
-	files = lo.Filter(files, func(f fs.FileInfo) bool { return f.IsDir() })
-	dbInfos = lo.Map(files, func(f fs.FileInfo) *dbInstanceFileInfo {
-		atoi, convErr := strconv.Atoi(f.Name())
+	files = lo.Filter(files, func(e os.DirEntry) bool { return e.IsDir() })
+	dbInfos = lo.Map(files, func(e os.DirEntry) *dbInstanceFileInfo {
+		atoi, convErr := strconv.Atoi(e.Name())
 		if convErr != nil {
 			return nil
 		}
 		return &dbInstanceFileInfo{
 			baseIndex: epoch.Index(atoi),
-			path:      filepath.Join(baseDir, f.Name()),
+			path:      filepath.Join(baseDir, e.Name()),
 		}
 	})
 	dbInfos = lo.Filter(dbInfos, func(info *dbInstanceFileInfo) bool { return info != nil })
