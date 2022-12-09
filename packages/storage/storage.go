@@ -35,13 +35,18 @@ func New(directory string, version database.Version, opts ...options.Option[data
 }
 
 // PruneUntilEpoch prunes storage epochs less than and equal to the given index.
-func (c *Storage) PruneUntilEpoch(epochIndex epoch.Index) {
-	c.databaseManager.PruneUntilEpoch(epochIndex)
+func (s *Storage) PruneUntilEpoch(epochIndex epoch.Index) {
+	s.databaseManager.PruneUntilEpoch(epochIndex)
+}
+
+// DatabaseSize returns the size of the underlying databases
+func (s *Storage) DatabaseSize() int64 {
+	return s.databaseManager.TotalStorageSize()
 }
 
 // Shutdown shuts down the storage.
-func (c *Storage) Shutdown() {
+func (s *Storage) Shutdown() {
 	event.Loop.PendingTasksCounter.WaitIsZero()
 
-	defer c.databaseManager.Shutdown()
+	defer s.databaseManager.Shutdown()
 }

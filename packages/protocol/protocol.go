@@ -259,6 +259,10 @@ func (p *Protocol) CandidateEngine() (instance *engine.Engine) {
 	return p.candidateEngine
 }
 
+func (p *Protocol) MainStorage() (mainStorage *storage.Storage) {
+	return p.storage
+}
+
 func (p *Protocol) CandidateStorage() (chainstorage *storage.Storage) {
 	p.activeEngineMutex.RLock()
 	defer p.activeEngineMutex.RUnlock()
