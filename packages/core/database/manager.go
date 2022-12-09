@@ -265,7 +265,7 @@ func (m *Manager) PrunableStorageSize() int64 {
 			fmt.Println("dbPrunableDirectorySize failed for", m.bucketedBaseDir, key, ":", err)
 			return
 		}
-		size += sum
+		sum += size
 	})
 
 	return sum
