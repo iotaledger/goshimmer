@@ -67,6 +67,7 @@ type EngineTestFramework struct {
 
 	test *testing.T
 
+	optsStorage       *storage.Storage
 	optsTangleOptions []options.Option[tangle.Tangle]
 
 	Tangle     *TangleTestFramework
@@ -74,14 +75,16 @@ type EngineTestFramework struct {
 }
 
 func NewEngineTestFramework(test *testing.T, opts ...options.Option[EngineTestFramework]) (testFramework *EngineTestFramework) {
-	chainStorage := storage.New(test.TempDir(), 1)
-	test.Cleanup(chainStorage.Shutdown)
-
 	return options.Apply(&EngineTestFramework{
 		test: test,
 	}, opts, func(t *EngineTestFramework) {
 		if t.Engine == nil {
-			t.Engine = engine.New(chainStorage, dpos.NewProvider(), mana1.NewProvider(), engine.WithTangleOptions(t.optsTangleOptions...))
+			if t.optsStorage == nil {
+				t.optsStorage = storage.New(t.test.TempDir(), 1)
+				test.Cleanup(t.optsStorage.Shutdown)
+			}
+
+			t.Engine = engine.New(t.optsStorage, dpos.NewProvider(), mana1.NewProvider(), engine.WithTangleOptions(t.optsTangleOptions...))
 			test.Cleanup(t.Engine.Shutdown)
 		}
 
@@ -112,6 +115,12 @@ func (e *EngineTestFramework) AssertEpochState(index epoch.Index) {
 func WithEngine(engine *engine.Engine) options.Option[EngineTestFramework] {
 	return func(t *EngineTestFramework) {
 		t.Engine = engine
+	}
+}
+
+func WithStorage(storageInstance *storage.Storage) options.Option[EngineTestFramework] {
+	return func(t *EngineTestFramework) {
+		t.optsStorage = storageInstance
 	}
 }
 

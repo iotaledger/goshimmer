@@ -29,6 +29,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
 func TestProtocol(t *testing.T) {
@@ -362,7 +363,10 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 
 	epoch.GenesisTime = time.Now().Unix() - epoch.Duration*15
 
-	tf := NewEngineTestFramework(t, WithTangleOptions(
+	storageDir := t.TempDir()
+	storageInstance := storage.New(storageDir, DatabaseVersion)
+
+	tf := NewEngineTestFramework(t, WithStorage(storageInstance), WithTangleOptions(
 		tangle.WithBookerOptions(
 			booker.WithMarkerManagerOptions(
 				markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(1)),
@@ -479,4 +483,80 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		require.False(t, tf2.Engine.LedgerState.UnspentOutputs.IDs.Has(tf.Tangle.OutputID("Tx5.0")))
 		require.False(t, tf2.Engine.LedgerState.UnspentOutputs.IDs.Has(tf.Tangle.OutputID("Tx5.1")))
 	}
+
+	/////////////////////////////////////////////////////////////
+	// Stop and start the main engine.
+	/////////////////////////////////////////////////////////////
+
+	{
+		tf.Engine.Shutdown()
+		storageInstance.Shutdown()
+
+		storageInstance = storage.New(storageDir, DatabaseVersion)
+
+		tf2 := NewEngineTestFramework(t, WithStorage(storageInstance), WithTangleOptions(tf.optsTangleOptions...))
+		require.NoError(t, tf2.Engine.Initialize(""))
+
+		tf2.AssertEpochState(5)
+
+		require.False(t, tf2.Engine.LedgerState.UnspentOutputs.IDs.Has(tf.Tangle.OutputID("Tx1.0")))
+		require.True(t, tf2.Engine.LedgerState.UnspentOutputs.IDs.Has(tf.Tangle.OutputID("Tx1.1")))
+		require.True(t, tf2.Engine.LedgerState.UnspentOutputs.IDs.Has(tf.Tangle.OutputID("Tx5.0")))
+		require.True(t, tf2.Engine.LedgerState.UnspentOutputs.IDs.Has(tf.Tangle.OutputID("Tx5.1")))
+	}
+}
+
+func TestEngine_ShutdownResume(t *testing.T) {
+	debug.SetEnabled(true)
+	defer debug.SetEnabled(false)
+
+	epoch.GenesisTime = time.Now().Unix() - epoch.Duration*15
+
+	storageDir := t.TempDir()
+	storageInstance := storage.New(storageDir, DatabaseVersion)
+
+	tf := NewEngineTestFramework(t, WithStorage(storageInstance), WithTangleOptions(
+		tangle.WithBookerOptions(
+			booker.WithMarkerManagerOptions(
+				markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(1)),
+			),
+		),
+	))
+	tempDisk := diskutil.New(t.TempDir())
+
+	tf.Engine.NotarizationManager.Events.Error.Attach(event.NewClosure(func(err error) {
+		panic(err)
+	}))
+
+	identitiesMap := map[string]ed25519.PublicKey{
+		"A": identity.GenerateIdentity().PublicKey(),
+		"B": identity.GenerateIdentity().PublicKey(),
+		"C": identity.GenerateIdentity().PublicKey(),
+		"D": identity.GenerateIdentity().PublicKey(),
+		"Z": identity.GenerateIdentity().PublicKey(),
+	}
+
+	identitiesWeights := map[identity.ID]uint64{
+		identity.New(identitiesMap["A"]).ID(): 25,
+		identity.New(identitiesMap["B"]).ID(): 25,
+		identity.New(identitiesMap["C"]).ID(): 25,
+		identity.New(identitiesMap["D"]).ID(): 25,
+		identity.New(identitiesMap["Z"]).ID(): 0,
+	}
+
+	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDisk.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights)
+
+	require.NoError(t, tf.Engine.Initialize(tempDisk.Path("genesis_snapshot.bin")))
+
+	assert.Equal(t, int64(100), tf.Engine.SybilProtection.Validators().TotalWeight())
+
+	tf.Engine.Shutdown()
+	storageInstance.Shutdown()
+
+	storageInstance = storage.New(storageDir, DatabaseVersion)
+
+	tf2 := NewEngineTestFramework(t, WithStorage(storageInstance), WithTangleOptions(tf.optsTangleOptions...))
+	require.NoError(t, tf2.Engine.Initialize(""))
+
+	tf2.AssertEpochState(0)
 }
