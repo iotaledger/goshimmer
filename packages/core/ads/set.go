@@ -129,7 +129,12 @@ func (s *Set[K, KPtr]) Has(key K) (has bool) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	return lo.PanicOnErr(s.tree.Has(lo.PanicOnErr(KPtr(&key).Bytes())))
+	has, err := s.tree.Has(lo.PanicOnErr(KPtr(&key).Bytes()))
+	if err != nil && !errors.Is(err, kvstore.ErrKeyNotFound) {
+		panic(err)
+	}
+
+	return
 }
 
 // Stream iterates over the set and calls the callback for each element.
