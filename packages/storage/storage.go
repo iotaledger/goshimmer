@@ -41,7 +41,7 @@ func (s *Storage) PruneUntilEpoch(epochIndex epoch.Index) {
 
 // DatabaseSize returns the size of the underlying databases
 func (s *Storage) DatabaseSize() int64 {
-	return s.databaseManager.TotalStorageSize()
+	return s.Permanent.SettingsAndCommitmentsSize() + s.databaseManager.TotalStorageSize()
 }
 
 // Shutdown shuts down the storage.
