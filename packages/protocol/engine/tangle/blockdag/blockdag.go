@@ -1,7 +1,6 @@
 package blockdag
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/cockroachdb/errors"
@@ -76,7 +75,6 @@ func (b *BlockDAG) Block(id models.BlockID) (block *Block, exists bool) {
 
 // SetInvalid marks a Block as invalid and propagates the invalidity to its future cone.
 func (b *BlockDAG) SetInvalid(block *Block, reason error) (wasUpdated bool) {
-	fmt.Println("SetInvalid", block, reason)
 	if wasUpdated = block.setInvalid(); wasUpdated {
 		b.Events.BlockInvalid.Trigger(&BlockInvalidEvent{
 			Block:  block,

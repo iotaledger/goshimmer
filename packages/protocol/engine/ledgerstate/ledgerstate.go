@@ -1,7 +1,6 @@
 package ledgerstate
 
 import (
-	"fmt"
 	"io"
 	"sync"
 
@@ -61,7 +60,9 @@ func (l *LedgerState) Import(reader io.ReadSeeker) (err error) {
 				return errors.Errorf("failed to apply state diff %d: %w", targetEpoch, err)
 			}
 
-			l.StateDiffs.Delete(targetEpoch)
+			if err = l.StateDiffs.Delete(targetEpoch); err != nil {
+				return errors.Errorf("failed to delete state diff %d: %w", targetEpoch, err)
+			}
 		}
 		targetEpoch-- // we rolled back epoch n to get to epoch n-1
 
@@ -120,11 +121,8 @@ func (l *LedgerState) applyStateDiff(targetEpoch epoch.Index) (err error) {
 		return
 	}
 
-	fmt.Println(">> applying state diff", lastCommittedEpoch, targetEpoch)
-
 	switch {
 	case IsRollback(lastCommittedEpoch, targetEpoch):
-		fmt.Println(">> rollback")
 		if err = l.StateDiffs.StreamSpentOutputs(lastCommittedEpoch, l.UnspentOutputs.RollbackSpentOutput); err != nil {
 			return errors.Errorf("failed to apply created outputs: %w", err)
 		}
@@ -133,7 +131,6 @@ func (l *LedgerState) applyStateDiff(targetEpoch epoch.Index) (err error) {
 			return errors.Errorf("failed to apply spent outputs: %w", err)
 		}
 	default:
-		fmt.Println(">> forward")
 		if err = l.StateDiffs.StreamCreatedOutputs(targetEpoch, l.UnspentOutputs.ApplyCreatedOutput); err != nil {
 			return errors.Errorf("failed to apply created outputs: %w", err)
 		}
@@ -149,7 +146,6 @@ func (l *LedgerState) applyStateDiff(targetEpoch epoch.Index) (err error) {
 }
 
 func (l *LedgerState) onTransactionAccepted(metadata *ledger.TransactionMetadata) {
-	fmt.Println(">> transaction accepted")
 	if err := l.StateDiffs.addAcceptedTransaction(metadata); err != nil {
 		// TODO: handle error gracefully
 		panic(err)

@@ -88,7 +88,12 @@ func (o *OutputWithMetadata) IOTABalance() (balance uint64, exists bool) {
 	o.RLock()
 	defer o.RUnlock()
 
-	return o.Output().(devnetvm.Output).Balances().Get(devnetvm.ColorIOTA)
+	devnetVMOutput, ok := o.Output().(devnetvm.Output)
+	if !ok {
+		return 0, false
+	}
+
+	return devnetVMOutput.Balances().Get(devnetvm.ColorIOTA)
 }
 
 // SetOutput sets the Output field.

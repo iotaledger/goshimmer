@@ -408,11 +408,6 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 	tf.Tangle.CreateBlock("1.D", models.WithStrongParents(tf.Tangle.BlockIDs("1.C")), models.WithIssuer(identitiesMap["D"]), models.WithIssuingTime(epoch1IssuingTime))
 	tf.Tangle.IssueBlocks("1.Z", "1.Z*", "1.A", "1.B", "1.C", "1.D").WaitUntilAllTasksProcessed()
 
-	tf.Engine.LedgerState.UnspentOutputs.IDs.Stream(func(key utxo.OutputID) bool {
-		fmt.Println(key.String())
-		return true
-	})
-
 	tf.Acceptance.ValidateAcceptedBlocks(lo.MergeMaps(acceptedBlocks, map[string]bool{
 		"1.Z":  true,
 		"1.Z*": false,
@@ -434,9 +429,4 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 	tf.Tangle.IssueBlocks("11.A", "11.B", "11.C").WaitUntilAllTasksProcessed()
 
 	assert.Equal(t, epoch.Index(4), tf.Engine.Storage.Settings.LatestCommitment().Index())
-
-	tf.Engine.LedgerState.UnspentOutputs.IDs.Stream(func(key utxo.OutputID) bool {
-		fmt.Println(key.String())
-		return true
-	})
 }

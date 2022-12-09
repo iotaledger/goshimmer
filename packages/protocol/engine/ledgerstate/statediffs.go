@@ -1,7 +1,6 @@
 package ledgerstate
 
 import (
-	"fmt"
 	"io"
 
 	"github.com/cockroachdb/errors"
@@ -46,8 +45,6 @@ func (s *StateDiffs) StoreCreatedOutput(outputWithMetadata *OutputWithMetadata) 
 	if createdStorage, createdStorageErr := s.storage.LedgerStateDiffs(outputWithMetadata.Index()).WithExtendedRealm([]byte{createdOutputsPrefix}); createdStorageErr != nil {
 		return errors.Errorf("failed to retrieve created storage: %w", createdStorageErr)
 	} else {
-		fmt.Println("STORE CREATED", lo.PanicOnErr(outputWithMetadata.ID().Bytes()), lo.PanicOnErr(outputWithMetadata.Bytes()))
-
 		return createdStorage.Set(lo.PanicOnErr(outputWithMetadata.ID().Bytes()), lo.PanicOnErr(outputWithMetadata.Bytes()))
 	}
 }
@@ -119,11 +116,8 @@ func (s *StateDiffs) StreamSpentOutputs(index epoch.Index, callback func(*Output
 func (s *StateDiffs) StreamCreatedOutputs(index epoch.Index, callback func(*OutputWithMetadata) error) (err error) {
 	store, err := s.storage.LedgerStateDiffs(index).WithExtendedRealm([]byte{createdOutputsPrefix})
 	if err != nil {
-		fmt.Println(">> stream err", err)
 		return errors.Errorf("failed to extend realm for storage: %w", err)
 	}
-
-	defer fmt.Println(">> stream done")
 
 	return s.stream(store, callback)
 }
@@ -172,8 +166,8 @@ func (s *StateDiffs) Import(reader io.ReadSeeker) (importedEpochs []epoch.Index,
 	return
 }
 
-func (s *StateDiffs) Delete(index epoch.Index) {
-	s.storage.LedgerStateDiffs(index).Clear()
+func (s *StateDiffs) Delete(index epoch.Index) (err error) {
+	return s.storage.LedgerStateDiffs(index).Clear()
 }
 
 func (s *StateDiffs) importOutputs(reader io.ReadSeeker, store func(*OutputWithMetadata) error) (err error) {
@@ -227,30 +221,23 @@ func (s *StateDiffs) get(store kvstore.KVStore, outputID utxo.OutputID) (outputW
 }
 
 func (s *StateDiffs) stream(store kvstore.KVStore, callback func(*OutputWithMetadata) error) (err error) {
-	fmt.Println("STREAM1")
 	if iterationErr := store.Iterate([]byte{}, func(idBytes kvstore.Key, outputWithMetadataBytes kvstore.Value) bool {
-		fmt.Println("STREAM2")
 		outputID := new(utxo.OutputID)
 		outputWithMetadata := new(OutputWithMetadata)
 
 		if _, err = outputID.FromBytes(idBytes); err != nil {
-			fmt.Println("STREAM3")
 			err = errors.Errorf("failed to parse output ID %s: %w", idBytes, err)
 		} else if _, err = outputWithMetadata.FromBytes(outputWithMetadataBytes); err != nil {
-			fmt.Println("STREAM4")
 			err = errors.Errorf("failed to parse output with metadata %s: %w", outputID, err)
 		} else {
-			fmt.Println("STREAM5")
 			outputWithMetadata.SetID(*outputID)
 			err = callback(outputWithMetadata)
-			fmt.Println("STREAM6")
 		}
 
 		return err == nil
 	}); iterationErr != nil {
 		err = errors.Errorf("failed to iterate over outputs: %w", iterationErr)
 	}
-	fmt.Println("STREAM7")
 
 	return
 }
@@ -263,7 +250,6 @@ func (s *StateDiffs) delete(store kvstore.KVStore, outputID utxo.OutputID) (err 
 }
 
 func (s *StateDiffs) addAcceptedTransaction(metadata *ledger.TransactionMetadata) (err error) {
-	fmt.Println("ADD ACCEPTED TX")
 	if !s.ledger.Storage.CachedTransaction(metadata.ID()).Consume(func(transaction utxo.Transaction) {
 		err = s.storeTransaction(transaction, metadata)
 	}) {
@@ -274,29 +260,20 @@ func (s *StateDiffs) addAcceptedTransaction(metadata *ledger.TransactionMetadata
 }
 
 func (s *StateDiffs) storeTransaction(transaction utxo.Transaction, metadata *ledger.TransactionMetadata) (err error) {
-	fmt.Println("HERE1")
 	for it := s.ledger.Utils.ResolveInputs(transaction.Inputs()).Iterator(); it.HasNext(); {
-		fmt.Println("HERE2")
 		if err = s.StoreSpentOutput(s.outputWithMetadata(it.Next())); err != nil {
-			fmt.Println("HERE3")
 			return errors.Errorf("failed to storeOutput spent output: %w", err)
 		}
 	}
 
-	fmt.Println("HERE4")
 	for it := metadata.OutputIDs().Iterator(); it.HasNext(); {
-		fmt.Println("HERE5")
 		if err = s.StoreCreatedOutput(s.outputWithMetadata(it.Next())); err != nil {
-			fmt.Println("HERE6")
 			return errors.Errorf("failed to storeOutput created output: %w", err)
 		}
 	}
 
-	fmt.Println("HERE7")
 	if metadata.InclusionEpoch() > s.storage.Settings.LatestStateMutationEpoch() {
-		fmt.Println("HERE8")
 		if err = s.storage.Settings.SetLatestStateMutationEpoch(metadata.InclusionEpoch()); err != nil {
-			fmt.Println("HERE9")
 			return errors.Errorf("failed to update latest state mutation epoch: %w", err)
 		}
 	}
@@ -321,10 +298,14 @@ func (s *StateDiffs) moveTransactionToOtherEpoch(txMeta *ledger.TransactionMetad
 	}
 
 	s.ledger.Storage.CachedTransaction(txMeta.ID()).Consume(func(tx utxo.Transaction) {
-		s.DeleteSpentOutputs(oldEpoch, s.ledger.Utils.ResolveInputs(tx.Inputs()))
+		if err := s.DeleteSpentOutputs(oldEpoch, s.ledger.Utils.ResolveInputs(tx.Inputs())); err != nil {
+			s.ledger.Events.Error.Trigger(errors.Errorf("failed to delete spent outputs of transaction %s: %w", txMeta.ID(), err))
+		}
 	})
 
-	s.DeleteCreatedOutputs(oldEpoch, txMeta.OutputIDs())
+	if err := s.DeleteCreatedOutputs(oldEpoch, txMeta.OutputIDs()); err != nil {
+		s.ledger.Events.Error.Trigger(errors.Errorf("failed to delete created outputs of transaction %s: %w", txMeta.ID(), err))
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

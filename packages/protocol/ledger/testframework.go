@@ -22,6 +22,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 	"github.com/iotaledger/goshimmer/packages/storage"
 )
@@ -35,6 +36,16 @@ func init() {
 	err = serix.DefaultAPI.RegisterInterfaceObjects((*payload.Payload)(nil), new(MockedTransaction))
 	if err != nil {
 		panic(fmt.Errorf("error registering GenericDataPayload as Payload interface: %w", err))
+	}
+
+	err = serix.DefaultAPI.RegisterTypeSettings(MockedOutput{}, serix.TypeSettings{}.WithObjectType(uint8(devnetvm.ExtendedLockedOutputType+1)))
+	if err != nil {
+		panic(fmt.Errorf("error registering ExtendedLockedOutput type settings: %w", err))
+	}
+
+	err = serix.DefaultAPI.RegisterInterfaceObjects((*utxo.Output)(nil), new(MockedOutput))
+	if err != nil {
+		panic(fmt.Errorf("error registering utxo.Output interface implementations: %w", err))
 	}
 }
 

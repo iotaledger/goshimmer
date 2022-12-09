@@ -2,7 +2,6 @@ package ledgerstate
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"sync"
 
@@ -110,14 +109,12 @@ func (u *UnspentOutputs) Commit() (ctx context.Context) {
 func (u *UnspentOutputs) ApplyCreatedOutput(output *OutputWithMetadata) (err error) {
 	var targetConsumers map[UnspentOutputsConsumer]types.Empty
 	if !u.commitmentState.BatchedStateTransitionStarted() {
-		fmt.Println(">> ApplyCreatedOutput NONBATCHED", output)
 		u.IDs.Add(output.Output().ID())
 
 		u.importOutputIntoMemPoolStorage(output)
 
 		targetConsumers = u.consumers
 	} else {
-		fmt.Println(">> ApplyCreatedOutput BATCHED", output)
 		if !u.batchSpentOutputIDs.Delete(output.Output().ID()) {
 			u.batchCreatedOutputIDs.Add(output.Output().ID())
 		}
@@ -219,12 +216,10 @@ func (u *UnspentOutputs) Consumers() (consumers []UnspentOutputsConsumer) {
 func (u *UnspentOutputs) applyBatch(waitForConsumers *sync.WaitGroup, done func()) {
 	for it := u.batchCreatedOutputIDs.Iterator(); it.HasNext(); {
 		output := it.Next()
-		fmt.Println(">> add", output)
 		u.IDs.Add(output)
 	}
 	for it := u.batchSpentOutputIDs.Iterator(); it.HasNext(); {
 		output := it.Next()
-		fmt.Println(">> delete", output)
 		u.IDs.Delete(output)
 	}
 

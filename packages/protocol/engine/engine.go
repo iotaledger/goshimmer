@@ -423,8 +423,8 @@ func (e *Engine) readSnapshot(filePath string) (err error) {
 		return errors.Errorf("failed to open snapshot file: %w", err)
 	}
 	defer func() {
-		if err = file.Close(); err != nil {
-			panic(err)
+		if closeErr := file.Close(); closeErr != nil {
+			panic(closeErr)
 		}
 	}()
 

@@ -57,6 +57,10 @@ func NewManager(storageInstance *storage.Storage, ledgerState *ledgerstate.Ledge
 		optsMinCommittableEpochAge: defaultMinEpochCommittableAge,
 	}, opts, func(m *Manager) {
 		m.Initializable = traits.NewInitializable(m.Attestations.TriggerInitialized)
+
+		ledgerState.SubscribeInitialized(func() {
+			m.Attestations.SetLastCommittedEpoch(storageInstance.Settings.LatestCommitment().Index())
+		})
 	})
 }
 

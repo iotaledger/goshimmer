@@ -50,6 +50,7 @@ func CreateSnapshot(databaseVersion database.Version, snapshotFileName string, g
 		panic(err)
 	}
 
+	engineInstance.NotarizationManager.Attestations.SetLastCommittedEpoch(-1)
 	for nodeID, value := range nodesToPledge {
 		// pledge to ID but send funds to random address
 		output, outputMetadata = createOutput(devnetvm.NewED25519Address(ed25519.GenerateKeyPair().PublicKey), value, nodeID, 0)
@@ -57,14 +58,16 @@ func CreateSnapshot(databaseVersion database.Version, snapshotFileName string, g
 			panic(err)
 		}
 
-		engineInstance.NotarizationManager.Attestations.SetLastCommittedEpoch(-1)
 		if _, err := engineInstance.NotarizationManager.Attestations.Add(&notarization.Attestation{
 			IssuerID:    nodeID,
 			IssuingTime: time.Unix(epoch.GenesisTime-1, 0),
 		}); err != nil {
 			panic(err)
 		}
-		engineInstance.NotarizationManager.Attestations.Commit(0)
+	}
+
+	if _, _, err := engineInstance.NotarizationManager.Attestations.Commit(0); err != nil {
+		panic(err)
 	}
 
 	if err := engineInstance.WriteSnapshot(snapshotFileName); err != nil {
@@ -111,7 +114,9 @@ func CreateSnapshotForIntegrationTest(s *storage.Storage, snapshotFileName strin
 		}); err != nil {
 			panic(err)
 		}
-		engineInstance.NotarizationManager.Attestations.Commit(0)
+		if _, _, err := engineInstance.NotarizationManager.Attestations.Commit(0); err != nil {
+			panic(err)
+		}
 	}
 
 	if err := engineInstance.WriteSnapshot(snapshotFileName); err != nil {
