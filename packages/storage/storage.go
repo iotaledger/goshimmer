@@ -39,9 +39,14 @@ func (s *Storage) PruneUntilEpoch(epochIndex epoch.Index) {
 	s.databaseManager.PruneUntilEpoch(epochIndex)
 }
 
-// DatabaseSize returns the size of the underlying databases
-func (s *Storage) DatabaseSize() int64 {
-	return s.Permanent.SettingsAndCommitmentsSize() + s.databaseManager.TotalStorageSize()
+// PrunableDatabaseSize returns the size of the underlying prunable databases
+func (s *Storage) PrunableDatabaseSize() int64 {
+	return s.databaseManager.PrunableStorageSize()
+}
+
+// PermanentDatabaseSize returns the size of the underlying permanent database and files
+func (s *Storage) PermanentDatabaseSize() int64 {
+	return s.Permanent.SettingsAndCommitmentsSize() + s.databaseManager.PermanentStorageSize()
 }
 
 // Shutdown shuts down the storage.

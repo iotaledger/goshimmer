@@ -27,7 +27,8 @@ func registerDBMetrics() {
 }
 
 func collectStorageDBSize() {
-	dbSizes.WithLabelValues("storage").Set(float64(deps.Protocol.MainStorage().DatabaseSize()))
+	dbSizes.WithLabelValues("storage_permanent").Set(float64(deps.Protocol.MainStorage().PermanentDatabaseSize()))
+	dbSizes.WithLabelValues("storage_prunable").Set(float64(deps.Protocol.MainStorage().PrunableDatabaseSize()))
 }
 
 func collectRetainerDBSize() {
