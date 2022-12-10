@@ -21,6 +21,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 )
 
+const (
+	PrefixLastCommittedEpoch byte = iota
+	PrefixWeights
+)
+
 // SybilProtection is a sybil protection module for the engine that manages the weights of actors according to their stake.
 type SybilProtection struct {
 	engine             *engine.Engine
@@ -42,10 +47,10 @@ func NewSybilProtection(engineInstance *engine.Engine, opts ...options.Option[Sy
 	return options.Apply(
 		&SybilProtection{
 			Initializable:    traits.NewInitializable(),
-			BatchCommittable: traits.NewBatchCommittable(),
+			BatchCommittable: traits.NewBatchCommittable(engineInstance.Storage.SybilProtection(PrefixLastCommittedEpoch)),
 
 			engine:            engineInstance,
-			weights:           sybilprotection.NewWeights(engineInstance.Storage.SybilProtection, engineInstance.Storage.Settings),
+			weights:           sybilprotection.NewWeights(engineInstance.Storage.SybilProtection(PrefixWeights), engineInstance.Storage.Settings),
 			inactivityManager: timed.NewTaskExecutor[identity.ID](1),
 			lastActivities:    shrinkingmap.New[identity.ID, time.Time](),
 

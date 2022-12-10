@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/core/kvstore"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
@@ -24,9 +25,9 @@ type BatchCommittable interface {
 }
 
 // NewBatchCommittable creates a new BatchCommittable trait.
-func NewBatchCommittable() (newBatchCommittable BatchCommittable) {
+func NewBatchCommittable(store kvstore.KVStore) (newBatchCommittable BatchCommittable) {
 	return &batchCommittable{
-		Committable: NewCommittable(),
+		Committable: NewCommittable(store),
 	}
 }
 

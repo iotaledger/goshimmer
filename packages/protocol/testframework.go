@@ -103,7 +103,6 @@ func (e *EngineTestFramework) AssertEpochState(index epoch.Index) {
 	require.Equal(e.test, index, e.Engine.NotarizationManager.Attestations.LastCommittedEpoch())
 	require.Equal(e.test, index, e.Engine.LedgerState.UnspentOutputs.LastCommittedEpoch())
 	require.Equal(e.test, index, e.Engine.SybilProtection.(*dpos.SybilProtection).LastCommittedEpoch())
-	require.Equal(e.test, index, e.Engine.SybilProtection.(*dpos.SybilProtection).LastCommittedEpoch())
 	require.Equal(e.test, index, e.Engine.ThroughputQuota.(*mana1.ThroughputQuota).LastCommittedEpoch())
 	require.Equal(e.test, index, e.Engine.EvictionState.LastEvictedEpoch())
 }

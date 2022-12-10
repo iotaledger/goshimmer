@@ -16,6 +16,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
 )
 
+const (
+	PrefixLastCommittedEpoch byte = iota
+)
+
 // ThroughputQuota is the manager that tracks the throughput quota of identities according to mana1 (delegated pledge).
 type ThroughputQuota struct {
 	engine            *engine.Engine
@@ -31,7 +35,7 @@ type ThroughputQuota struct {
 // New creates a new ThroughputQuota manager.
 func New(engineInstance *engine.Engine, opts ...options.Option[ThroughputQuota]) (manaTracker *ThroughputQuota) {
 	return options.Apply(&ThroughputQuota{
-		BatchCommittable: traits.NewBatchCommittable(),
+		BatchCommittable: traits.NewBatchCommittable(engineInstance.Storage.ThroughputQuota(PrefixLastCommittedEpoch)),
 		Initializable:    traits.NewInitializable(),
 		engine:           engineInstance,
 		manaByID:         shrinkingmap.New[identity.ID, int64](),

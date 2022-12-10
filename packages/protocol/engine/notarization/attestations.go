@@ -19,13 +19,13 @@ import (
 )
 
 const (
-	PrefixAttestationsLastCommittedEpoch byte = iota
+	PrefixAttestations byte = iota
+	PrefixAttestationsLastCommittedEpoch
 	PrefixAttestationsWeight
-	PrefixAttestationsStorage
 )
 
 type Attestations struct {
-	persistentStorage  kvstore.KVStore
+	persistentStorage  func(optRealm ...byte) kvstore.KVStore
 	bucketedStorage    func(index epoch.Index) kvstore.KVStore
 	weights            *sybilprotection.Weights
 	cachedAttestations *memstorage.EpochStorage[identity.ID, *memstorage.Storage[models.BlockID, *Attestation]]
@@ -35,9 +35,9 @@ type Attestations struct {
 	traits.Committable
 }
 
-func NewAttestations(persistentStorage kvstore.KVStore, bucketedStorage func(index epoch.Index) kvstore.KVStore, weights *sybilprotection.Weights) *Attestations {
+func NewAttestations(persistentStorage func(optRealm ...byte) kvstore.KVStore, bucketedStorage func(index epoch.Index) kvstore.KVStore, weights *sybilprotection.Weights) *Attestations {
 	return &Attestations{
-		Committable:        traits.NewCommittable(),
+		Committable:        traits.NewCommittable(persistentStorage(PrefixAttestationsLastCommittedEpoch)),
 		Initializable:      traits.NewInitializable(),
 		persistentStorage:  persistentStorage,
 		bucketedStorage:    bucketedStorage,
@@ -98,15 +98,11 @@ func (a *Attestations) Commit(index epoch.Index) (attestations *ads.Map[identity
 		return nil, 0, errors.Errorf("failed to commit attestations for epoch %d: %w", index, err)
 	}
 
-	if err = a.persistentStorage.Set([]byte{PrefixAttestationsLastCommittedEpoch}, index.Bytes()); err != nil {
-		return nil, 0, errors.Errorf("failed to persist last committed epoch: %w", err)
-	}
+	a.SetLastCommittedEpoch(index)
 
 	if err = a.flush(index); err != nil {
 		return nil, 0, errors.Errorf("failed to flush attestations for epoch %d: %w", index, err)
 	}
-
-	a.SetLastCommittedEpoch(index)
 
 	return
 }
@@ -162,7 +158,9 @@ func (a *Attestations) Import(reader io.ReadSeeker) (err error) {
 		return errors.Errorf("failed to import attestations for epoch %d: %w", epochIndex, err)
 	}
 
-	a.setWeight(epoch.Index(epochIndex), weight)
+	if err = a.setWeight(epoch.Index(epochIndex), weight); err != nil {
+		return errors.Errorf("failed to set attestations weight of epoch %d: %w", epochIndex, err)
+	}
 
 	a.SetLastCommittedEpoch(epoch.Index(epochIndex))
 
@@ -227,7 +225,7 @@ func (a *Attestations) commit(index epoch.Index) (attestations *ads.Map[identity
 }
 
 func (a *Attestations) flush(index epoch.Index) (err error) {
-	if err = a.persistentStorage.Flush(); err != nil {
+	if err = a.persistentStorage().Flush(); err != nil {
 		return errors.Errorf("failed to flush persistent storage: %w", err)
 	}
 
@@ -239,7 +237,7 @@ func (a *Attestations) flush(index epoch.Index) (err error) {
 }
 
 func (a *Attestations) attestations(index epoch.Index) (attestations *ads.Map[identity.ID, Attestation, *identity.ID, *Attestation], err error) {
-	if attestationsStorage, err := a.bucketedStorage(index).WithExtendedRealm([]byte{PrefixAttestationsStorage}); err != nil {
+	if attestationsStorage, err := a.bucketedStorage(index).WithExtendedRealm([]byte{PrefixAttestations}); err != nil {
 		return nil, errors.Errorf("failed to access storage for attestors of epoch %d: %w", index, err)
 	} else {
 		return ads.NewMap[identity.ID, Attestation](attestationsStorage), nil
@@ -248,6 +246,10 @@ func (a *Attestations) attestations(index epoch.Index) (attestations *ads.Map[id
 
 func (a *Attestations) weight(index epoch.Index) (weight int64, err error) {
 	if value, err := a.bucketedStorage(index).Get([]byte{PrefixAttestationsWeight}); err != nil {
+		if errors.Is(err, kvstore.ErrKeyNotFound) {
+			return 0, nil
+		}
+
 		return 0, errors.Errorf("failed to retrieve weight of attestations for epoch %d: %w", index, err)
 	} else {
 		return int64(binary.LittleEndian.Uint64(value)), nil

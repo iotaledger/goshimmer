@@ -365,6 +365,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 
 	storageDir := t.TempDir()
 	storageInstance := storage.New(storageDir, DatabaseVersion)
+	t.Cleanup(storageInstance.Shutdown)
 
 	tf := NewEngineTestFramework(t, WithStorage(storageInstance), WithTangleOptions(
 		tangle.WithBookerOptions(
@@ -429,9 +430,9 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		}))
 	}
 
-	/////////////////////////////////////////////////////////////
+	// ///////////////////////////////////////////////////////////
 	// Accept a Block in epoch 11 -> Epoch 4 becomes committable.
-	/////////////////////////////////////////////////////////////
+	// ///////////////////////////////////////////////////////////
 
 	{
 		epoch11IssuingTime := time.Unix(epoch.GenesisTime+epoch.Duration*10, 0)
@@ -443,18 +444,18 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		assert.Equal(t, epoch.Index(4), tf.Engine.Storage.Settings.LatestCommitment().Index())
 	}
 
-	/////////////////////////////////////////////////////////////
+	// ///////////////////////////////////////////////////////////
 	// Issue a transaction on epoch 5, spending something created on epoch 1.
-	/////////////////////////////////////////////////////////////
+	// ///////////////////////////////////////////////////////////
 
 	{
 		epocht5IssuingTime := time.Unix(epoch.GenesisTime+epoch.Duration*4, 0)
 		tf.Tangle.CreateBlock("5.Z", models.WithStrongParents(tf.Tangle.BlockIDs("1.D")), models.WithPayload(tf.Tangle.CreateTransaction("Tx5", 2, "Tx1.0")), models.WithIssuer(identitiesMap["Z"]), models.WithIssuingTime(epocht5IssuingTime))
 	}
 
-	/////////////////////////////////////////////////////////////
+	// ///////////////////////////////////////////////////////////
 	// Accept a Block in epoch 12 -> Epoch 5 becomes committable.
-	/////////////////////////////////////////////////////////////
+	// ///////////////////////////////////////////////////////////
 
 	{
 		epoch12IssuingTime := time.Unix(epoch.GenesisTime+epoch.Duration*11, 0)
@@ -466,9 +467,9 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		assert.Equal(t, epoch.Index(5), tf.Engine.Storage.Settings.LatestCommitment().Index())
 	}
 
-	/////////////////////////////////////////////////////////////
+	// ///////////////////////////////////////////////////////////
 	// Rollback and Engine to epoch 1, the spent outputs for epoch 2 should be available again.
-	/////////////////////////////////////////////////////////////
+	// ///////////////////////////////////////////////////////////
 
 	{
 		require.NoError(t, tf.Engine.WriteSnapshot(tempDisk.Path("snapshot_epoch1.bin"), 1))
@@ -484,15 +485,12 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		require.False(t, tf2.Engine.LedgerState.UnspentOutputs.IDs.Has(tf.Tangle.OutputID("Tx5.1")))
 	}
 
-	/////////////////////////////////////////////////////////////
+	// ///////////////////////////////////////////////////////////
 	// Stop and start the main engine.
-	/////////////////////////////////////////////////////////////
+	// ///////////////////////////////////////////////////////////
 
 	{
 		tf.Engine.Shutdown()
-		storageInstance.Shutdown()
-
-		storageInstance = storage.New(storageDir, DatabaseVersion)
 
 		tf2 := NewEngineTestFramework(t, WithStorage(storageInstance), WithTangleOptions(tf.optsTangleOptions...))
 		require.NoError(t, tf2.Engine.Initialize(""))

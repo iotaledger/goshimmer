@@ -41,13 +41,18 @@ type UnspentOutputs struct {
 	traits.Initializable
 }
 
-func NewUnspentOutputs(unspentOutputIDsStore kvstore.KVStore, memPool *ledger.Ledger) (unspentOutputs *UnspentOutputs) {
+const (
+	PrefixUnspentOutputsSettings byte = iota
+	PrefixUnspentOutputsIDs
+)
+
+func NewUnspentOutputs(store func(optRealm ...byte) kvstore.KVStore, memPool *ledger.Ledger) (unspentOutputs *UnspentOutputs) {
 	return &UnspentOutputs{
-		Initializable:   traits.NewInitializable(),
-		IDs:             ads.NewSet[utxo.OutputID](unspentOutputIDsStore),
-		memPool:         memPool,
-		BatchCommittable: traits.NewBatchCommittable(),
-		consumers:       make(map[UnspentOutputsConsumer]types.Empty),
+		Initializable:    traits.NewInitializable(),
+		BatchCommittable: traits.NewBatchCommittable(store(PrefixUnspentOutputsSettings)),
+		IDs:              ads.NewSet[utxo.OutputID](store(PrefixUnspentOutputsIDs)),
+		memPool:          memPool,
+		consumers:        make(map[UnspentOutputsConsumer]types.Empty),
 	}
 }
 
