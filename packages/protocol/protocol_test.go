@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
@@ -364,8 +365,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 	epoch.GenesisTime = time.Now().Unix() - epoch.Duration*15
 
 	storageDir := t.TempDir()
-	storageInstance := storage.New(storageDir, DatabaseVersion)
-	t.Cleanup(storageInstance.Shutdown)
+	storageInstance := storage.New(storageDir, DatabaseVersion, database.WithDBProvider(database.NewDB))
 
 	tf := NewEngineTestFramework(t, WithStorage(storageInstance), WithTangleOptions(
 		tangle.WithBookerOptions(
@@ -491,6 +491,12 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 
 	{
 		tf.Engine.Shutdown()
+		storageInstance.Shutdown()
+
+		storageInstance := storage.New(storageDir, DatabaseVersion, database.WithDBProvider(database.NewDB))
+		t.Cleanup(storageInstance.Shutdown)
+
+		fmt.Println("============================= Start Engine =============================")
 
 		tf2 := NewEngineTestFramework(t, WithStorage(storageInstance), WithTangleOptions(tf.optsTangleOptions...))
 		require.NoError(t, tf2.Engine.Initialize(""))

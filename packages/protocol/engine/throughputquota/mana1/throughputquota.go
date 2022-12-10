@@ -2,6 +2,7 @@ package mana1
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/iotaledger/hive.go/core/generics/lo"
@@ -42,7 +43,11 @@ func New(engineInstance *engine.Engine, opts ...options.Option[ThroughputQuota])
 	}, opts, func(m *ThroughputQuota) {
 		m.engine.SubscribeConstructed(func() {
 			m.engine.Storage.Settings.SubscribeInitialized(func() {
+				fmt.Println(m.engine.Storage.Settings.LatestCommitment().Index())
+
 				m.SetLastCommittedEpoch(m.engine.Storage.Settings.LatestCommitment().Index())
+
+				fmt.Println(m.LastCommittedEpoch())
 			})
 
 			m.engine.LedgerState.UnspentOutputs.Subscribe(m)
@@ -121,9 +126,13 @@ func (m *ThroughputQuota) BeginBatchedStateTransition(targetEpoch epoch.Index) (
 }
 
 func (m *ThroughputQuota) CommitBatchedStateTransition() (ctx context.Context) {
+	fmt.Println("BEFORE COMMIT", m.LastCommittedEpoch())
+
 	ctx, done := context.WithCancel(context.Background())
 
 	m.FinalizeBatchedStateTransition()
+
+	fmt.Println(" AFTER COMMIT", m.LastCommittedEpoch())
 
 	done()
 
