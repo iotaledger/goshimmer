@@ -98,6 +98,7 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 		protocol.WithStorageDatabaseManagerOptions(
 			database.WithDBProvider(dbProvider),
 			database.WithMaxOpenDBs(DatabaseParameters.MaxOpenDBs),
+			database.WithGranularity(DatabaseParameters.DBGranularity),
 		),
 	)
 

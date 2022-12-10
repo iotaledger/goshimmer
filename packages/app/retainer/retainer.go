@@ -27,6 +27,7 @@ type Retainer struct {
 	cachedMetadata *memstorage.EpochStorage[models.BlockID, *cachedMetadata]
 	blockStorage   *database.PersistentEpochStorage[models.BlockID, BlockMetadata, *models.BlockID, *BlockMetadata]
 
+	dbManager    *database.Manager
 	protocol     *protocol.Protocol
 	evictionLock sync.RWMutex
 
@@ -37,6 +38,7 @@ func NewRetainer(protocol *protocol.Protocol, dbManager *database.Manager, opts 
 	return options.Apply(&Retainer{
 		cachedMetadata: memstorage.NewEpochStorage[models.BlockID, *cachedMetadata](),
 		protocol:       protocol,
+		dbManager:      dbManager,
 		optsRealm:      []byte("retainer"),
 	}, opts, (*Retainer).setupEvents, func(r *Retainer) {
 		r.blockStorage = database.NewPersistentEpochStorage[models.BlockID, BlockMetadata](dbManager, r.optsRealm)
@@ -47,7 +49,6 @@ func (r *Retainer) Block(blockID models.BlockID) (block *models.Block, exists bo
 	if metadata, metadataExists := r.BlockMetadata(blockID); metadataExists {
 		return metadata.M.Block, metadata.M.Block != nil
 	}
-
 	return nil, false
 }
 
@@ -86,6 +87,11 @@ func (r *Retainer) Stream(index epoch.Index, callback func(id models.BlockID, me
 		callback(id, metadata)
 		return true
 	})
+}
+
+// PruneUntilEpoch prunes storage epochs less than and equal to the given index.
+func (r *Retainer) PruneUntilEpoch(epochIndex epoch.Index) {
+	r.dbManager.PruneUntilEpoch(epochIndex)
 }
 
 func (r *Retainer) setupEvents() {
