@@ -74,7 +74,7 @@
   ansible.builtin.cron:
     name: "dump pprof profile"
     minute: "*"
-    job: "docker run -v /opt/pprof/:/root/pprof/ --add-host host.docker.internal:host-gateway -it --rm golang:1.19-bullseye go tool pprof -proto \"host.docker.internal:6061/debug/pprof/heap\""
+    job: "docker run -v /opt/pprof/:/root/pprof/ --add-host host.docker.internal:host-gateway --rm golang:1.19-bullseye go tool pprof -proto \"host.docker.internal:6061/debug/pprof/heap\""
 
 - name: Cronjob to clean old pprof dumps
   ansible.builtin.cron:
