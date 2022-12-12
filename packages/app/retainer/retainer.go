@@ -57,7 +57,8 @@ func (r *Retainer) BlockMetadata(blockID models.BlockID) (metadata *BlockMetadat
 		return blockMetadata, blockExists
 	}
 
-	metadata, exists = r.blockStorage.Get(blockID)
+	metadata = new(BlockMetadata)
+	*metadata, exists = r.blockStorage.Get(blockID)
 	if exists && metadata.M.Accepted && !metadata.M.Confirmed && blockID.Index() <= r.protocol.Engine().LastConfirmedEpoch() {
 		metadata.M.ConfirmedByEpoch = true
 		metadata.M.ConfirmedByEpochTime = blockID.Index().EndTime()
@@ -83,8 +84,8 @@ func (r *Retainer) Stream(index epoch.Index, callback func(id models.BlockID, me
 		return
 	}
 
-	r.blockStorage.Iterate(index, func(id models.BlockID, metadata *BlockMetadata) bool {
-		callback(id, metadata)
+	r.blockStorage.Iterate(index, func(id models.BlockID, metadata BlockMetadata) bool {
+		callback(id, &metadata)
 		return true
 	})
 }
@@ -206,7 +207,7 @@ func (r *Retainer) createStorableBlockMetadata(epochIndex epoch.Index) (metas []
 
 func (r *Retainer) storeBlockMetadata(metas []*BlockMetadata) {
 	for _, meta := range metas {
-		if err := r.blockStorage.Set(meta.ID(), meta); err != nil {
+		if err := r.blockStorage.Set(meta.ID(), *meta); err != nil {
 			panic(errors.Wrapf(err, "could not save %s to block storage", meta.ID()))
 		}
 	}

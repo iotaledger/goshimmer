@@ -156,8 +156,8 @@ func (l *LedgerState) rollbackStateDiff(index epoch.Index) (err error) {
 	return
 }
 
-func (l *LedgerState) onTransactionAccepted(metadata *ledger.TransactionMetadata) {
-	if err := l.StateDiffs.addAcceptedTransaction(metadata); err != nil {
+func (l *LedgerState) onTransactionAccepted(event *ledger.TransactionEvent) {
+	if err := l.StateDiffs.addAcceptedTransaction(event.Metadata); err != nil {
 		// TODO: handle error gracefully
 		panic(err)
 	}

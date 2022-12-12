@@ -19,10 +19,10 @@ import (
 )
 
 type UnspentOutputsConsumer interface {
-	ApplyCreatedOutput(output *OutputWithMetadata) (err error)
-	ApplySpentOutput(output *OutputWithMetadata) (err error)
-	RollbackCreatedOutput(output *OutputWithMetadata) (err error)
-	RollbackSpentOutput(output *OutputWithMetadata) (err error)
+	ApplyCreatedOutput(output *ledger.OutputWithMetadata) (err error)
+	ApplySpentOutput(output *ledger.OutputWithMetadata) (err error)
+	RollbackCreatedOutput(output *ledger.OutputWithMetadata) (err error)
+	RollbackSpentOutput(output *ledger.OutputWithMetadata) (err error)
 	BeginBatchedStateTransition(targetEpoch epoch.Index) (currentEpoch epoch.Index, err error)
 	CommitBatchedStateTransition() (ctx context.Context)
 }
@@ -111,7 +111,7 @@ func (u *UnspentOutputs) Commit() (ctx context.Context) {
 	return ctx
 }
 
-func (u *UnspentOutputs) ApplyCreatedOutput(output *OutputWithMetadata) (err error) {
+func (u *UnspentOutputs) ApplyCreatedOutput(output *ledger.OutputWithMetadata) (err error) {
 	var targetConsumers map[UnspentOutputsConsumer]types.Empty
 	if !u.BatchedStateTransitionStarted() {
 		u.IDs.Add(output.Output().ID())
@@ -134,7 +134,7 @@ func (u *UnspentOutputs) ApplyCreatedOutput(output *OutputWithMetadata) (err err
 	return
 }
 
-func (u *UnspentOutputs) ApplySpentOutput(output *OutputWithMetadata) (err error) {
+func (u *UnspentOutputs) ApplySpentOutput(output *ledger.OutputWithMetadata) (err error) {
 	var targetConsumers map[UnspentOutputsConsumer]types.Empty
 	if !u.BatchedStateTransitionStarted() {
 		panic("cannot apply a spent output without a batched state transition")
@@ -153,17 +153,17 @@ func (u *UnspentOutputs) ApplySpentOutput(output *OutputWithMetadata) (err error
 	return
 }
 
-func (u *UnspentOutputs) RollbackCreatedOutput(output *OutputWithMetadata) (err error) {
+func (u *UnspentOutputs) RollbackCreatedOutput(output *ledger.OutputWithMetadata) (err error) {
 	return u.ApplySpentOutput(output)
 }
 
-func (u *UnspentOutputs) RollbackSpentOutput(output *OutputWithMetadata) (err error) {
+func (u *UnspentOutputs) RollbackSpentOutput(output *ledger.OutputWithMetadata) (err error) {
 	return u.ApplyCreatedOutput(output)
 }
 
 func (u *UnspentOutputs) Export(writer io.WriteSeeker) (err error) {
 	if err = stream.WriteCollection(writer, func() (elementsCount uint64, err error) {
-		var outputWithMetadata *OutputWithMetadata
+		var outputWithMetadata *ledger.OutputWithMetadata
 		if iterationErr := u.IDs.Stream(func(outputID utxo.OutputID) bool {
 			if outputWithMetadata, err = u.outputWithMetadata(outputID); err != nil {
 				err = errors.Errorf("failed to load output with metadata: %w", err)
@@ -187,7 +187,7 @@ func (u *UnspentOutputs) Export(writer io.WriteSeeker) (err error) {
 }
 
 func (u *UnspentOutputs) Import(reader io.ReadSeeker, targetEpoch epoch.Index) (err error) {
-	outputWithMetadata := new(OutputWithMetadata)
+	outputWithMetadata := new(ledger.OutputWithMetadata)
 	if err = stream.ReadCollection(reader, func(i int) (err error) {
 		if err = stream.ReadSerializable(reader, outputWithMetadata); err != nil {
 			return errors.Errorf("failed to read output with metadata: %w", err)
@@ -250,7 +250,7 @@ func (u *UnspentOutputs) preparePendingConsumers(currentEpoch, targetEpoch epoch
 	return
 }
 
-func (u *UnspentOutputs) notifyConsumers(consumer map[UnspentOutputsConsumer]types.Empty, output *OutputWithMetadata, callback func(self UnspentOutputsConsumer, output *OutputWithMetadata) (err error)) (err error) {
+func (u *UnspentOutputs) notifyConsumers(consumer map[UnspentOutputsConsumer]types.Empty, output *ledger.OutputWithMetadata, callback func(self UnspentOutputsConsumer, output *ledger.OutputWithMetadata) (err error)) (err error) {
 	for consumer := range consumer {
 		if err = callback(consumer, output); err != nil {
 			return errors.Errorf("failed to apply changes to consumer: %w", err)
@@ -260,10 +260,10 @@ func (u *UnspentOutputs) notifyConsumers(consumer map[UnspentOutputsConsumer]typ
 	return
 }
 
-func (u *UnspentOutputs) outputWithMetadata(outputID utxo.OutputID) (outputWithMetadata *OutputWithMetadata, err error) {
+func (u *UnspentOutputs) outputWithMetadata(outputID utxo.OutputID) (outputWithMetadata *ledger.OutputWithMetadata, err error) {
 	if !u.memPool.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
 		if !u.memPool.Storage.CachedOutputMetadata(outputID).Consume(func(metadata *ledger.OutputMetadata) {
-			outputWithMetadata = NewOutputWithMetadata(metadata.InclusionEpoch(), outputID, output, metadata.ConsensusManaPledgeID(), metadata.AccessManaPledgeID())
+			outputWithMetadata = ledger.NewOutputWithMetadata(metadata.InclusionEpoch(), outputID, output, metadata.ConsensusManaPledgeID(), metadata.AccessManaPledgeID())
 		}) {
 			err = errors.Errorf("failed to load output metadata: %w", err)
 		}
@@ -274,7 +274,7 @@ func (u *UnspentOutputs) outputWithMetadata(outputID utxo.OutputID) (outputWithM
 	return
 }
 
-func (u *UnspentOutputs) importOutputIntoMemPoolStorage(output *OutputWithMetadata) {
+func (u *UnspentOutputs) importOutputIntoMemPoolStorage(output *ledger.OutputWithMetadata) {
 	u.memPool.Storage.CachedOutput(output.ID(), func(id utxo.OutputID) utxo.Output { return output.Output() }).Release()
 	u.memPool.Storage.CachedOutputMetadata(output.ID(), func(outputID utxo.OutputID) *ledger.OutputMetadata {
 		newOutputMetadata := ledger.NewOutputMetadata(output.ID())

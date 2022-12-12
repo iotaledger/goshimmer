@@ -351,9 +351,9 @@ func (e *Engine) initNotarizationManager() {
 		}
 	}))
 
-	e.Ledger.Events.TransactionAccepted.Hook(event.NewClosure(func(txMeta *ledger.TransactionMetadata) {
-		if err := e.NotarizationManager.EpochMutations.AddAcceptedTransaction(txMeta); err != nil {
-			e.Events.Error.Trigger(errors.Errorf("failed to add accepted transaction %s to epoch: %w", txMeta.ID(), err))
+	e.Ledger.Events.TransactionAccepted.Hook(event.NewClosure(func(event *ledger.TransactionEvent) {
+		if err := e.NotarizationManager.EpochMutations.AddAcceptedTransaction(event.Metadata); err != nil {
+			e.Events.Error.Trigger(errors.Errorf("failed to add accepted transaction %s to epoch: %w", event.Metadata.ID(), err))
 		}
 	}))
 	e.Ledger.Events.TransactionInclusionUpdated.Hook(event.NewClosure(func(event *ledger.TransactionInclusionUpdatedEvent) {

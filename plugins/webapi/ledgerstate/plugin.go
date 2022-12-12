@@ -63,7 +63,7 @@ var (
 	doubleSpendFilterOnce sync.Once
 
 	// closure to be executed on transaction confirmation.
-	onTransactionAccepted *event.Closure[*ledger.TransactionMetadata]
+	onTransactionAccepted *event.Closure[*ledger.TransactionEvent]
 
 	log *logger.Logger
 )
@@ -107,8 +107,8 @@ func configure(_ *node.Plugin) {
 	filterEnabled = webapi.Parameters.EnableDSFilter
 	if filterEnabled {
 		doubleSpendFilter = Filter()
-		onTransactionAccepted = event.NewClosure(func(txMeta *ledger.TransactionMetadata) {
-			doubleSpendFilter.Remove(txMeta.ID())
+		onTransactionAccepted = event.NewClosure(func(event *ledger.TransactionEvent) {
+			doubleSpendFilter.Remove(event.Metadata.ID())
 		})
 	}
 	deps.Protocol.Events.Engine.Ledger.TransactionAccepted.Attach(onTransactionAccepted)

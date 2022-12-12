@@ -99,14 +99,14 @@ func registerTangleEvents() {
 		storeWsBlock(wsBlk)
 	})
 
-	txAcceptedClosure := event.NewClosure(func(txMeta *ledger.TransactionMetadata) {
-		attachmentBlock := deps.Protocol.Engine().Tangle.GetEarliestAttachment(txMeta.ID())
+	txAcceptedClosure := event.NewClosure(func(event *ledger.TransactionEvent) {
+		attachmentBlock := deps.Protocol.Engine().Tangle.GetEarliestAttachment(event.Metadata.ID())
 
 		wsBlk := &wsBlock{
 			Type: BlkTypeTangleTxConfirmationState,
 			Data: &tangleTxConfirmationStateChanged{
 				ID:          attachmentBlock.ID().Base58(),
-				IsConfirmed: deps.Protocol.Engine().Ledger.Utils.TransactionConfirmationState(txMeta.ID()).IsAccepted(),
+				IsConfirmed: deps.Protocol.Engine().Ledger.Utils.TransactionConfirmationState(event.Metadata.ID()).IsAccepted(),
 			},
 		}
 		visualizerWorkerPool.TrySubmit(wsBlk)
@@ -149,7 +149,8 @@ func registerUTXOEvents() {
 		}
 	})
 
-	txAcceptedClosure := event.NewClosure(func(txMeta *ledger.TransactionMetadata) {
+	txAcceptedClosure := event.NewClosure(func(event *ledger.TransactionEvent) {
+		txMeta := event.Metadata
 		wsBlk := &wsBlock{
 			Type: BlkTypeUTXOConfirmationStateChanged,
 			Data: &utxoConfirmationStateChanged{

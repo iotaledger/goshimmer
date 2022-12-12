@@ -207,22 +207,46 @@ func (l *Ledger) triggerAcceptedEvent(txMetadata *TransactionMetadata) (triggere
 		return false
 	}
 
+	transactionEvent := &TransactionEvent{
+		Metadata:       txMetadata,
+		CreatedOutputs: make([]*OutputWithMetadata, 0),
+		SpentOutputs:   make([]*OutputWithMetadata, 0),
+	}
+
 	for it := txMetadata.OutputIDs().Iterator(); it.HasNext(); {
-		l.Storage.CachedOutputMetadata(it.Next()).Consume(func(outputMetadata *OutputMetadata) {
+		outputID := it.Next()
+		l.Storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *OutputMetadata) {
 			outputMetadata.SetConfirmationState(confirmation.Accepted)
+			l.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
+				transactionEvent.CreatedOutputs = append(transactionEvent.CreatedOutputs, NewOutputWithMetadata(
+					outputMetadata.InclusionEpoch(),
+					outputID,
+					output,
+					outputMetadata.ConsensusManaPledgeID(),
+					outputMetadata.AccessManaPledgeID(),
+				))
+			})
 		})
 	}
 
 	l.Storage.CachedTransaction(txMetadata.ID()).Consume(func(tx utxo.Transaction) {
 		for it := l.Utils.ResolveInputs(tx.Inputs()).Iterator(); it.HasNext(); {
 			inputID := it.Next()
-			l.Events.OutputSpent.Trigger(inputID)
-			// TODO: inputs should be marked as deleted or spent
-			// l.Storage.outputStorage.Delete(lo.PanicOnErr(inputID.Bytes()))
+			l.Storage.CachedOutputMetadata(inputID).Consume(func(outputMetadata *OutputMetadata) {
+				l.Storage.CachedOutput(inputID).Consume(func(output utxo.Output) {
+					transactionEvent.SpentOutputs = append(transactionEvent.CreatedOutputs, NewOutputWithMetadata(
+						outputMetadata.InclusionEpoch(),
+						inputID,
+						output,
+						outputMetadata.ConsensusManaPledgeID(),
+						outputMetadata.AccessManaPledgeID(),
+					))
+				})
+			})
 		}
 	})
 
-	l.Events.TransactionAccepted.Trigger(txMetadata)
+	l.Events.TransactionAccepted.Trigger(transactionEvent)
 
 	return true
 }

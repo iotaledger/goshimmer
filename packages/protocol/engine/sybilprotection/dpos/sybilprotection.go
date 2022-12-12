@@ -19,6 +19,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 )
 
 const (
@@ -120,7 +121,7 @@ func (s *SybilProtection) Weights() *sybilprotection.Weights {
 	return s.weights
 }
 
-func (s *SybilProtection) ApplyCreatedOutput(output *ledgerstate.OutputWithMetadata) (err error) {
+func (s *SybilProtection) ApplyCreatedOutput(output *ledger.OutputWithMetadata) (err error) {
 	if !s.BatchedStateTransitionStarted() {
 		ApplyCreatedOutput(output, s.weights.ImportDiff)
 	} else {
@@ -130,7 +131,7 @@ func (s *SybilProtection) ApplyCreatedOutput(output *ledgerstate.OutputWithMetad
 	return
 }
 
-func (s *SybilProtection) ApplySpentOutput(output *ledgerstate.OutputWithMetadata) (err error) {
+func (s *SybilProtection) ApplySpentOutput(output *ledger.OutputWithMetadata) (err error) {
 	if !s.BatchedStateTransitionStarted() {
 		ApplySpentOutput(output, s.weights.ImportDiff)
 	} else {
@@ -140,11 +141,11 @@ func (s *SybilProtection) ApplySpentOutput(output *ledgerstate.OutputWithMetadat
 	return
 }
 
-func (s *SybilProtection) RollbackCreatedOutput(output *ledgerstate.OutputWithMetadata) (err error) {
+func (s *SybilProtection) RollbackCreatedOutput(output *ledger.OutputWithMetadata) (err error) {
 	return s.ApplySpentOutput(output)
 }
 
-func (s *SybilProtection) RollbackSpentOutput(output *ledgerstate.OutputWithMetadata) (err error) {
+func (s *SybilProtection) RollbackSpentOutput(output *ledger.OutputWithMetadata) (err error) {
 	return s.ApplyCreatedOutput(output)
 }
 
