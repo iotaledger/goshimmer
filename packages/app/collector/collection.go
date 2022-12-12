@@ -5,6 +5,8 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 )
 
+const singleValLabel = "value"
+
 type Collection struct {
 	CollectionName string
 	metrics        map[string]*Metric
@@ -14,7 +16,12 @@ func NewCollection(name string, opts ...options.Option[Collection]) *Collection 
 	return options.Apply(&Collection{
 		CollectionName: name,
 		metrics:        make(map[string]*Metric),
-	}, opts)
+	}, opts, func(c *Collection) {
+		for _, m := range c.metrics {
+			m.Namespace = c.CollectionName
+			m.initPromMetric()
+		}
+	})
 }
 
 func (c *Collection) GetMetric(metricName string) *Metric {
@@ -42,6 +49,6 @@ func WithMetric(metric *Metric) options.Option[Collection] {
 
 func SingleValue[T constraints.Numeric](val T) map[string]float64 {
 	return map[string]float64{
-		"value": float64(val),
+		singleValLabel: float64(val),
 	}
 }

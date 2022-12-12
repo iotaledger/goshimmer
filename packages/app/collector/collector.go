@@ -21,7 +21,10 @@ func New() *Collector {
 func (c *Collector) RegisterCollection(coll *Collection) {
 	c.collections[coll.CollectionName] = coll
 	for _, m := range coll.metrics {
-		c.Registry.MustRegister(m.promMetric)
+		c.Registry.MustRegister(m.PromMetric)
+		if m.initValueFunc != nil {
+			m.Update(m.initValueFunc())
+		}
 		if m.initFunc != nil {
 			m.initFunc()
 		}
@@ -36,6 +39,14 @@ func (c *Collector) Collect() {
 	}
 }
 
+func (c *Collector) getMetric(subsystem, metricName string) *Metric {
+	col := c.getCollection(subsystem)
+	if col != nil {
+		return col.GetMetric(metricName)
+	}
+	return nil
+}
+
 func (c *Collector) getCollection(subsystem string) *Collection {
 	if collection, exists := c.collections[subsystem]; exists {
 		return collection
@@ -44,11 +55,22 @@ func (c *Collector) getCollection(subsystem string) *Collection {
 }
 
 func (c *Collector) Update(subsystem, metricName string, labelValues map[string]float64) {
-	col := c.getCollection(subsystem)
-	if col != nil {
-		m := col.GetMetric(metricName)
-		if m != nil {
-			m.Update(labelValues)
-		}
+	m := c.getMetric(subsystem, metricName)
+	if m != nil {
+		m.Update(labelValues)
+	}
+}
+
+func (c *Collector) Increment(subsystem, metricName string, labels ...string) {
+	m := c.getMetric(subsystem, metricName)
+	if m != nil {
+		m.Increment(labels...)
+	}
+}
+
+func (c *Collector) ResetMetric(namespace string, node string) {
+	m := c.getMetric(namespace, node)
+	if m != nil {
+		m.Reset()
 	}
 }
