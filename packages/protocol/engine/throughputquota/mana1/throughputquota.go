@@ -2,7 +2,6 @@ package mana1
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/cockroachdb/errors"
@@ -67,11 +66,7 @@ func New(engineInstance *engine.Engine, opts ...options.Option[ThroughputQuota])
 
 		m.engine.SubscribeConstructed(func() {
 			m.engine.Storage.Settings.SubscribeInitialized(func() {
-				fmt.Println(m.engine.Storage.Settings.LatestCommitment().Index())
-
 				m.SetLastCommittedEpoch(m.engine.Storage.Settings.LatestCommitment().Index())
-
-				fmt.Println(m.LastCommittedEpoch())
 			})
 
 			m.engine.LedgerState.UnspentOutputs.Subscribe(m)
