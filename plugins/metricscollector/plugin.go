@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/app/collector"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/hive.go/core/autopeering/selection"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
@@ -41,7 +42,8 @@ type dependencies struct {
 	Local       *peer.Local
 	Protocol    *protocol.Protocol
 	BlockIssuer *blockissuer.BlockIssuer
-	P2Pmgr      *p2p.Manager `optional:"true"`
+	P2Pmgr      *p2p.Manager        `optional:"true"`
+	Selection   *selection.Protocol `optional:"true"`
 
 	Collector *collector.Collector
 }

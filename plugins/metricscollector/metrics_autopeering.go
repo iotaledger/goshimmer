@@ -5,6 +5,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/app/collector"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
+	"github.com/iotaledger/hive.go/core/autopeering/selection"
 	"github.com/iotaledger/hive.go/core/generics/event"
 )
 
@@ -13,11 +14,12 @@ const (
 
 	neighborDropCount = "neighbor_drop_count"
 	connectionsCount  = "neighbor_connections_count"
-	// add utility functions about distance directly to autopeering package, or utils for autopeering
+	// todo calculate avg, max, min directly in grafana
 	distance                    = "distance"
 	neighborConnectionLifetimeS = "neighbor_connection_lifetime_s"
 )
 
+// AutopeeringMetrics is the collection of metrics for autopeering component.
 var AutopeeringMetrics = collector.NewCollection(autopeeringNamespace,
 	collector.WithMetric(collector.NewMetric(neighborDropCount,
 		collector.WithType(collector.Counter),
@@ -45,6 +47,19 @@ var AutopeeringMetrics = collector.NewCollection(autopeeringNamespace,
 				neighborConnectionsLifeTime := time.Since(event.Neighbor.ConnectionEstablished())
 				deps.Collector.Update(autopeeringNamespace, neighborConnectionLifetimeS, collector.SingleValue(neighborConnectionsLifeTime.Seconds()))
 			}))
+		}),
+	)),
+	collector.WithMetric(collector.NewMetric(distance,
+		collector.WithType(collector.Gauge),
+		collector.WithHelp("A relative distance between the node and the neighbor"),
+		collector.WithInitFunc(func() {
+			var onAutopeeringSelection = event.NewClosure(func(event *selection.PeeringEvent) {
+				deps.Collector.Update(autopeeringNamespace, distance, collector.SingleValue(float64(event.Distance)))
+			})
+			if deps.Selection != nil {
+				deps.Selection.Events().IncomingPeering.Hook(onAutopeeringSelection)
+				deps.Selection.Events().OutgoingPeering.Hook(onAutopeeringSelection)
+			}
 		}),
 	)),
 )
