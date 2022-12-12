@@ -89,6 +89,11 @@ func (r *Retainer) Stream(index epoch.Index, callback func(id models.BlockID, me
 	})
 }
 
+// DatabaseSize returns the size of the underlying databases.
+func (r *Retainer) DatabaseSize() int64 {
+	return r.dbManager.TotalStorageSize()
+}
+
 // PruneUntilEpoch prunes storage epochs less than and equal to the given index.
 func (r *Retainer) PruneUntilEpoch(epochIndex epoch.Index) {
 	r.dbManager.PruneUntilEpoch(epochIndex)

@@ -9,7 +9,8 @@ import (
 )
 
 type Commitments struct {
-	slice *storable.Slice[commitment.Commitment, *commitment.Commitment]
+	slice    *storable.Slice[commitment.Commitment, *commitment.Commitment]
+	filePath string
 }
 
 func NewCommitments(path string) (newCommitment *Commitments) {
@@ -19,7 +20,8 @@ func NewCommitments(path string) (newCommitment *Commitments) {
 	}
 
 	return &Commitments{
-		slice: commitmentsSlice,
+		slice:    commitmentsSlice,
+		filePath: path,
 	}
 }
 
@@ -41,4 +43,9 @@ func (c *Commitments) Load(index epoch.Index) (commitment *commitment.Commitment
 
 func (c *Commitments) Close() (err error) {
 	return c.slice.Close()
+}
+
+// FilePath returns the path that this is associated to.
+func (c *Commitments) FilePath() (filePath string) {
+	return c.filePath
 }
