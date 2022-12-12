@@ -19,12 +19,13 @@ import (
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
 
 type TestFramework struct {
-	RateSetter    RateSetter
 	test          *testing.T
-	localIdentity *identity.Identity
+	localIdentity []*identity.Identity
+	RateSetter    []RateSetter
 
 	optsRateSetter []options.Option[Options]
 	optsScheduler  []options.Option[scheduler.Scheduler]
+	optsNumIssuers int
 
 	*ProtocolTestFramework
 }
@@ -36,37 +37,49 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 	return options.Apply(&TestFramework{
 		test:           test,
 		optsRateSetter: rateSetterOpts,
+		optsNumIssuers: 1,
 	}, opts, func(t *TestFramework) {
 		p := protocol.NewTestFramework(t.test, protocol.WithProtocolOptions(protocol.WithCongestionControlOptions(congestioncontrol.WithSchedulerOptions(t.optsScheduler...))))
 		t.ProtocolTestFramework = p
-		t.localIdentity = p.Local
-
 		p.Protocol.Run()
-
-		t.RateSetter = New(t.localIdentity.ID(), p.Protocol, t.optsRateSetter...)
+		for i := 0; i < t.optsNumIssuers; i++ {
+			localID := identity.GenerateIdentity()
+			t.localIdentity = append(t.localIdentity, localID)
+			t.RateSetter = append(t.RateSetter, New(localID.ID(), p.Protocol, t.optsRateSetter...))
+		}
 
 	},
 	)
 }
 
-func (tf *TestFramework) CreateBlock() *models.Block {
+func (tf *TestFramework) CreateBlock(issuer int) *models.Block {
 	parents := models.NewParentBlockIDs()
 	parents.AddStrong(models.EmptyBlockID)
-	blk := models.NewBlock(models.WithIssuer(tf.localIdentity.PublicKey()), models.WithParents(parents))
+	blk := models.NewBlock(models.WithIssuer(tf.localIdentity[issuer].PublicKey()), models.WithParents(parents))
 	assert.NoError(tf.test, blk.DetermineID())
 	return blk
 }
 
-func (tf *TestFramework) IssueBlock(block *models.Block) error {
+func (tf *TestFramework) IssueBlock(block *models.Block, issuer int) error {
 	for {
-		if estimate := tf.RateSetter.Estimate(); estimate > 0 {
+		if estimate := tf.RateSetter[issuer].Estimate(); estimate > 0 {
 			time.Sleep(estimate)
 		} else {
-			tf.Protocol.ProcessBlock(block, tf.localIdentity.ID())
+			tf.Protocol.ProcessBlock(block, tf.localIdentity[issuer].ID())
 			break
 		}
 	}
 	return nil
+}
+
+func (tf *TestFramework) IssueBlocks(numBlocks int, issuer int) map[models.BlockID]*models.Block {
+	blocks := make(map[models.BlockID]*models.Block, numBlocks)
+	for i := 0; i < numBlocks; i++ {
+		blk := tf.CreateBlock(issuer)
+		blocks[blk.ID()] = blk
+		assert.NoError(tf.test, tf.IssueBlock(blocks[blk.ID()], issuer))
+	}
+	return blocks
 }
 
 type ProtocolTestFramework = protocol.TestFramework
@@ -84,6 +97,12 @@ func WithRateSetterOptions(opts ...options.Option[Options]) options.Option[TestF
 func WithSchedulerOptions(opts ...options.Option[scheduler.Scheduler]) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
 		tf.optsScheduler = opts
+	}
+}
+
+func WithNumIssuers(numIssuers int) options.Option[TestFramework] {
+	return func(tf *TestFramework) {
+		tf.optsNumIssuers = numIssuers
 	}
 }
 
