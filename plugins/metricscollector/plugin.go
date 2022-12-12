@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	"github.com/iotaledger/goshimmer/packages/app/collector"
+	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -36,8 +38,11 @@ var (
 type dependencies struct {
 	dig.In
 
-	Local     *peer.Local
-	Protocol  *protocol.Protocol
+	Local       *peer.Local
+	Protocol    *protocol.Protocol
+	BlockIssuer *blockissuer.BlockIssuer
+	P2Pmgr      *p2p.Manager `optional:"true"`
+
 	Collector *collector.Collector
 }
 

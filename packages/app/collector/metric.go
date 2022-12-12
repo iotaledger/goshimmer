@@ -90,21 +90,21 @@ func (m *Metric) Update(labelValues map[string]float64) {
 	switch m.Type {
 	case Gauge:
 		for _, val := range labelValues {
-			m.promMetric.(prometheus.Gauge).Set(val)
+			m.PromMetric.(prometheus.Gauge).Set(val)
 			break
 		}
 	case GaugeVec:
 		for label, val := range labelValues {
-			m.promMetric.(*prometheus.GaugeVec).WithLabelValues(label).Set(val)
+			m.PromMetric.(*prometheus.GaugeVec).WithLabelValues(label).Set(val)
 		}
 	case Counter:
 		for _, val := range labelValues {
-			m.promMetric.(prometheus.Counter).Add(val)
+			m.PromMetric.(prometheus.Counter).Add(val)
 			break
 		}
 	case CounterVec:
 		for label, val := range labelValues {
-			m.promMetric.(*prometheus.CounterVec).WithLabelValues(label).Add(val)
+			m.PromMetric.(*prometheus.CounterVec).WithLabelValues(label).Add(val)
 		}
 	}
 }
