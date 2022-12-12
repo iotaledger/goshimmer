@@ -77,6 +77,15 @@ func (u *Utils[ConflictID, ConflictSetID]) ForEachConnectedConflictingConflictID
 	traversedConflicts.ForEach(callback)
 }
 
+// ConflictCount returns the number of Conflicts that are currently stored in the ConflictDAG.
+func (u *Utils[ConflictID, ConflictSetID]) ConflictCount() int {
+	conflictCount := 0
+	u.ForEachConflict(func(conflict *Conflict[ConflictID, ConflictSetID]) {
+		conflictCount++
+	})
+	return conflictCount
+}
+
 // forEachConflictingConflictID executes the callback for each Conflict that is conflicting with the named Conflict.
 func (u *Utils[ConflictID, ConflictSetID]) forEachConflictingConflictID(conflict *Conflict[ConflictID, ConflictSetID], callback func(conflictingConflictID ConflictID) bool) {
 	for it := conflict.ConflictSetIDs().Iterator(); it.HasNext(); {
