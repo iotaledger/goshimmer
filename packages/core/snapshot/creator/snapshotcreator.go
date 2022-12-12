@@ -68,6 +68,14 @@ func CreateSnapshot(s *storage.Storage, snapshotFileName string, genesisTokenAmo
 // | node2       | node2       |
 func CreateSnapshotForIntegrationTest(s *storage.Storage, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, genesisNodePledge []byte, nodesToPledge map[[32]byte]uint64) {
 	now := time.Now()
+
+	if err := s.Commitments.Store(0, &commitment.Commitment{}); err != nil {
+		panic(err)
+	}
+	if err := s.Settings.SetChainID(lo.PanicOnErr(s.Commitments.Load(0)).ID()); err != nil {
+		panic(err)
+	}
+
 	outputsWithMetadata := make([]*models.OutputWithMetadata, 0)
 
 	// This is the same seed used to derive the faucet ID.
