@@ -68,6 +68,7 @@ type Engine struct {
 
 	traits.Constructable
 	traits.Initializable
+	traits.Stoppable
 }
 
 func New(
@@ -81,6 +82,7 @@ func New(
 			Events:        NewEvents(),
 			Storage:       storageInstance,
 			Constructable: traits.NewConstructable(),
+			Stoppable:     traits.NewStoppable(),
 
 			optsBootstrappedThreshold: 10 * time.Second,
 			optsSnapshotDepth:         5,
@@ -193,6 +195,8 @@ func (e *Engine) Initialize(snapshot string) (err error) {
 
 func (e *Engine) Shutdown() {
 	e.Ledger.Shutdown()
+
+	e.TriggerStopped()
 }
 
 func (e *Engine) WriteSnapshot(filePath string, targetEpoch ...epoch.Index) (err error) {

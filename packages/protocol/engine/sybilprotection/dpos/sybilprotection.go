@@ -71,6 +71,8 @@ func NewSybilProtection(engineInstance *engine.Engine, opts ...options.Option[Sy
 					s.markValidatorActive(block.IssuerID(), block.IssuingTime())
 				}))
 			})
+
+			s.engine.SubscribeStopped(s.stopInactivityManager)
 		})
 }
 
@@ -95,6 +97,10 @@ func (s *SybilProtection) initializeActiveValidators() {
 	}); err != nil {
 		panic(err)
 	}
+}
+
+func (s *SybilProtection) stopInactivityManager() {
+	s.inactivityManager.Shutdown(timed.CancelPendingElements)
 }
 
 // NewProvider returns a new sybil protection provider that uses the ProofOfStake module.
