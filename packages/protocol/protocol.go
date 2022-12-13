@@ -264,6 +264,11 @@ func (p *Protocol) CandidateEngine() (instance *engine.Engine) {
 	return p.candidateEngine
 }
 
+// MainStorage returns the underlying storage of the main chain.
+func (p *Protocol) MainStorage() (mainStorage *storage.Storage) {
+	return p.storage
+}
+
 func (p *Protocol) CandidateStorage() (chainstorage *storage.Storage) {
 	p.activeEngineMutex.RLock()
 	defer p.activeEngineMutex.RUnlock()

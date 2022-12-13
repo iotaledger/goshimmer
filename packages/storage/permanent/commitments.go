@@ -5,16 +5,17 @@ import (
 	"io"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/core/generics/lo"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/storable"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 )
 
 type Commitments struct {
-	slice *storable.Slice[commitment.Commitment, *commitment.Commitment]
+	slice    *storable.Slice[commitment.Commitment, *commitment.Commitment]
+	filePath string
 
 	traits.Initializable
 }
@@ -26,8 +27,9 @@ func NewCommitments(path string) (newCommitment *Commitments) {
 	}
 
 	return &Commitments{
-		Initializable: traits.NewInitializable(),
 		slice:         commitmentsSlice,
+		filePath:      path,
+		Initializable: traits.NewInitializable(),
 	}
 }
 
@@ -49,6 +51,11 @@ func (c *Commitments) Load(index epoch.Index) (commitment *commitment.Commitment
 
 func (c *Commitments) Close() (err error) {
 	return c.slice.Close()
+}
+
+// FilePath returns the path that this is associated to.
+func (c *Commitments) FilePath() (filePath string) {
+	return c.filePath
 }
 
 func (c *Commitments) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (err error) {
