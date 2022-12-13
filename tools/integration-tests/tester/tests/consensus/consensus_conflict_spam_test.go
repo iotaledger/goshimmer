@@ -39,13 +39,17 @@ func TestConflictSpamAndMergeToMaster(t *testing.T) {
 	snapshotInfo := tests.EqualSnapshotDetails
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
 		Faucet:      true,
-		StartSynced: true,
+		StartSynced: false,
 		Activity:    false,
 		PeerMaster:  true,
 		Snapshot:    snapshotInfo,
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
+
+	log.Println("Bootstrapping network...")
+	tests.BootstrapNetwork(t, n)
+	log.Println("Bootstrapping network... done")
 
 	faucet, peer1 := n.Peers()[0], n.Peers()[1]
 	tokensPerRequest = faucet.Config().TokensPerRequest

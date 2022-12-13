@@ -2,6 +2,7 @@ package consensus
 
 import (
 	"context"
+	"log"
 	"testing"
 	"time"
 
@@ -40,7 +41,7 @@ func TestSimpleDoubleSpend(t *testing.T) {
 	defer cancel()
 	n, err := f.CreateNetworkNoAutomaticManualPeering(ctx, "test_simple_double_spend", 2,
 		framework.CreateNetworkConfig{
-			StartSynced: true,
+			StartSynced: false,
 			Faucet:      false,
 			Activity:    false,
 			Autopeering: false,
@@ -56,6 +57,10 @@ func TestSimpleDoubleSpend(t *testing.T) {
 
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
+
+	log.Println("Bootstrapping network...")
+	tests.BootstrapNetwork(t, n)
+	log.Println("Bootstrapping network... done")
 
 	const delayBetweenDataBlocks = 100 * time.Millisecond
 	dataBlocksAmount := len(n.Peers()) * 10

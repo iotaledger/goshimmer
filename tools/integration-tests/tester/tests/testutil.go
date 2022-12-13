@@ -38,7 +38,7 @@ const (
 
 // OrphanageSnapshotDetails defines info for orphanage test scenario.
 var OrphanageSnapshotDetails = framework.SnapshotInfo{
-	FilePath:           "/assets/dynamic_snapshots/equal_snapshot.bin",
+	FilePath:           "/assets/dynamic_snapshots/orphanage_snapshot.bin",
 	MasterSeed:         "3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E", // FZ6xmPZX
 	GenesisTokenAmount: 0,
 	PeersSeedBase58: []string{
@@ -143,6 +143,22 @@ func Bootstrapped(t *testing.T, node *framework.Node) bool {
 	info, err := node.Info()
 	require.NoError(t, err)
 	return info.TangleTime.Bootstrapped
+}
+
+func BootstrapNetwork(t *testing.T, n *framework.Network) {
+	require.Eventually(t, func() bool {
+		bootstrappedPeers := lo.Filter(n.Peers(), func(p *framework.Node) bool {
+			return p.Config().IgnoreBootstrappedFlag || Bootstrapped(t, p)
+		})
+		fmt.Println("issuing blocks", len(bootstrappedPeers))
+		SendDataBlocks(t, bootstrappedPeers, len(bootstrappedPeers))
+		for _, p := range n.Peers() {
+			if !Bootstrapped(t, p) {
+				return false
+			}
+		}
+		return true
+	}, Timeout*2, Tick)
 }
 
 // Mana returns the mana reported by node.

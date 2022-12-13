@@ -143,7 +143,7 @@ func TestManaApis(t *testing.T) {
 	defer cancel()
 	snapshotInfo := tests.EqualSnapshotDetails
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
-		StartSynced: true,
+		StartSynced: false,
 		Faucet:      true,
 		Autopeering: true, // we need to discover online peers
 		Activity:    true, // we need to issue regular activity blocks
@@ -152,6 +152,10 @@ func TestManaApis(t *testing.T) {
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
+
+	log.Println("Bootstrapping network...")
+	tests.BootstrapNetwork(t, n)
+	log.Println("Bootstrapping network... done")
 
 	peers := n.Peers()
 	faucet := peers[0]

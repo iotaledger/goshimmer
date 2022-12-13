@@ -109,10 +109,11 @@ func (r *Retainer) setupEvents() {
 		cm.setBlockDAGBlock(block)
 	}))
 
-	r.protocol.Events.Engine.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(func(block *blockdag.Block) {
-		cm := r.createOrGetCachedMetadata(block.ID())
-		cm.setBlockDAGBlock(block)
-	}))
+	// TODO: missing blocks make the node fail due to empty strong parents
+	//r.protocol.Events.Engine.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(func(block *blockdag.Block) {
+	//	cm := r.createOrGetCachedMetadata(block.ID())
+	//	cm.setBlockDAGBlock(block)
+	//}))
 
 	r.protocol.Events.Engine.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(func(block *blockdag.Block) {
 		//fmt.Println("BlockSolid", block.ID(), "issuer", block.IssuerID())
