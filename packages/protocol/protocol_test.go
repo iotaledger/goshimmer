@@ -102,6 +102,60 @@ func TestProtocol(t *testing.T) {
 	event.Loop.PendingTasksCounter.WaitIsZero()
 }
 
+func TestEngine_NonEmptyInitialValidators(t *testing.T) {
+	debug.SetEnabled(true)
+	defer debug.SetEnabled(false)
+
+	epoch.GenesisTime = time.Now().Unix()
+
+	tf := NewEngineTestFramework(t)
+	tempDisk := diskutil.New(t.TempDir())
+
+	identitiesMap := map[string]ed25519.PublicKey{
+		"A": identity.GenerateIdentity().PublicKey(),
+		"B": identity.GenerateIdentity().PublicKey(),
+		"C": identity.GenerateIdentity().PublicKey(),
+		"D": identity.GenerateIdentity().PublicKey(),
+	}
+
+	identitiesWeights := map[identity.ID]uint64{
+		identity.New(identitiesMap["A"]).ID(): 30,
+		identity.New(identitiesMap["B"]).ID(): 30,
+		identity.New(identitiesMap["C"]).ID(): 30,
+		identity.New(identitiesMap["D"]).ID(): 10,
+	}
+
+	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDisk.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights)
+
+	require.NoError(t, tf.Engine.Initialize(tempDisk.Path("genesis_snapshot.bin")))
+
+	tf.Tangle.CreateBlock("1.A", models.WithStrongParents(tf.Tangle.BlockIDs("Genesis")), models.WithIssuer(identitiesMap["A"]))
+	tf.Tangle.IssueBlocks("1.A").WaitUntilAllTasksProcessed()
+
+	// If the list of validators would be empty, this block will be accepted right away.
+	tf.Acceptance.ValidateAcceptedBlocks(map[string]bool{
+		"1.A": false,
+	})
+
+	tf.Tangle.CreateBlock("1.B", models.WithStrongParents(tf.Tangle.BlockIDs("1.A")), models.WithIssuer(identitiesMap["B"]))
+	tf.Tangle.IssueBlocks("1.B").WaitUntilAllTasksProcessed()
+
+	tf.Acceptance.ValidateAcceptedBlocks(map[string]bool{
+		"1.A": false,
+		"1.B": false,
+	})
+
+	tf.Tangle.CreateBlock("1.C", models.WithStrongParents(tf.Tangle.BlockIDs("1.B")), models.WithIssuer(identitiesMap["C"]))
+	tf.Tangle.IssueBlocks("1.C").WaitUntilAllTasksProcessed()
+
+	// ...but it get accepted only when 67% of the active weight is reached.
+	tf.Acceptance.ValidateAcceptedBlocks(map[string]bool{
+		"1.A": true,
+		"1.B": false,
+		"1.C": false,
+	})
+}
+
 func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 	debug.SetEnabled(true)
 	defer debug.SetEnabled(false)
