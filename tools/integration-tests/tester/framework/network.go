@@ -421,9 +421,7 @@ func (n *Network) createPeers(ctx context.Context, numPeers int, networkConfig C
 			masterConfig = cfgAlterFunc[0](0, true, masterConfig)
 		}
 
-		if !networkConfig.StartSynced {
-			masterConfig.IgnoreBootstrappedFlag = true
-		}
+		masterConfig.IgnoreBootstrappedFlag = true
 
 		log.Printf("Starting peer master...")
 		if _, err := n.CreatePeer(ctx, masterConfig); err != nil {
@@ -434,7 +432,7 @@ func (n *Network) createPeers(ctx context.Context, numPeers int, networkConfig C
 	}
 	log.Printf("Starting %d peers...", numPeers)
 	for i := 0; i < numPeers; i++ {
-		if !networkConfig.PeerMaster && !networkConfig.StartSynced && i == 0 {
+		if !networkConfig.PeerMaster && !networkConfig.StartSynced && i == 0 || networkConfig.StartSynced {
 			conf.IgnoreBootstrappedFlag = true
 		} else {
 			conf.IgnoreBootstrappedFlag = false

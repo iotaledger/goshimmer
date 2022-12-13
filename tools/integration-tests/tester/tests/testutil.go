@@ -73,8 +73,10 @@ var ConsensusSnapshotDetails = framework.SnapshotInfo{
 	PeersSeedBase58: []string{
 		"Bk69VaYsRuiAaKn8hK6KxUj45X5dED3ueRtxfYnsh4Q8",
 		"HUH4rmxUxMZBBtHJ4QM5Ts6s8DP3HnFpChejntnCxto2",
+		"CmFVE14Yh9rqn2FrXD8s7ybRoRN5mUnqQxLAuD5HF2em", // JHxvcap7xhv
+		"DuJuWE3hisFrFK1HmrXkd9FSsNNWbw58JcQnKdBn6TdN", // 7rRpyEGU7Sf
 	},
-	PeersAmountsPledged: []uint64{1_600_000, 800_000},
+	PeersAmountsPledged: []uint64{1_600_000, 800_000, 800_000, 800_000},
 }
 
 // GetIdentSeed returns decoded seed bytes for the supplied SnapshotInfo and peer index
@@ -150,7 +152,6 @@ func BootstrapNetwork(t *testing.T, n *framework.Network) {
 		bootstrappedPeers := lo.Filter(n.Peers(), func(p *framework.Node) bool {
 			return p.Config().IgnoreBootstrappedFlag || Bootstrapped(t, p)
 		})
-		fmt.Println("issuing blocks", len(bootstrappedPeers))
 		SendDataBlocks(t, bootstrappedPeers, len(bootstrappedPeers))
 		for _, p := range n.Peers() {
 			if !Bootstrapped(t, p) {
