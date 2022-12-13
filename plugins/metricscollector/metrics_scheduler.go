@@ -7,11 +7,11 @@ import (
 const (
 	schedulerNamespace = "scheduler"
 
-	queueSizePerNode      = "queue_size_per_node"
+	queueSizePerNode      = "queue_size_per_node_bytes"
 	manaAmountPerNode     = "mana_amount_per_node"
-	bufferTotalBlockCount = "buffer_total_block_count"
-	bufferReadyBlockCount = "buffer_ready_block_count"
-	bufferTotalSize       = "buffer_total_size"
+	bufferTotalBlockCount = "buffer_block_total"
+	bufferReadyBlockCount = "buffer_ready_block_total"
+	bufferTotalSize       = "buffer_size_bytes_total"
 	bufferMaxSize         = "buffer_max_size"
 	deficit               = "deficit"
 	// todo implement smarter than in prev version

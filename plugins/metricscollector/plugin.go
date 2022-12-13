@@ -1,5 +1,13 @@
 package metricscollector
 
+// metricsCollector is the plugin instance responsible for collection of prometheus metrics.
+// All metrics should be defined in metrics_namespace.go files with different namespace for each new collection.
+// Metrics naming should follow the guidelines from: https://prometheus.io/docs/practices/naming/
+// In short:
+// 	all metrics should be in base units, do not mix units,
+// 	add suffix describing the unit,
+// 	use 'total' suffix for accumulating counter
+
 import (
 	"context"
 	"fmt"
@@ -16,11 +24,13 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/gin-gonic/gin"
+	"github.com/iotaledger/goshimmer/packages/app/retainer"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/daemon"
 	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/iotaledger/hive.go/core/node"
+
 	"go.uber.org/dig"
 )
 
@@ -44,6 +54,7 @@ type dependencies struct {
 	BlockIssuer *blockissuer.BlockIssuer
 	P2Pmgr      *p2p.Manager        `optional:"true"`
 	Selection   *selection.Protocol `optional:"true"`
+	Retainer    *retainer.Retainer  `optional:"true"`
 
 	Collector *collector.Collector
 }

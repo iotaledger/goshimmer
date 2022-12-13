@@ -15,15 +15,15 @@ const (
 	tangleNamespace = "tangle"
 
 	tipsCount               = "tips_count"
-	blockPerTypeCount       = "block_per_type_count"
-	missingBlocksCount      = "missing_block_count"
-	parentPerTypeCount      = "parent_per_type_count"
-	blocksPerComponentCount = "blocks_per_component_count"
+	blockPerTypeCount       = "block_per_type_total"
+	missingBlocksCount      = "missing_block_total"
+	parentPerTypeCount      = "parent_per_type_total"
+	blocksPerComponentCount = "blocks_per_component_total"
 	// todo finish dbStatsResult in /prometheus/block.go that were commented out due to ???
-	timeSinceReceivedPerComponent = "time_since_received_per_component"
+	timeSinceReceivedPerComponent = "time_since_received_per_component_seconds"
 	// todo finish measureRequestQueueSize when requester done: requestQueueSize
 	requestQueueSize    = "request_queue_size"
-	blocksOrphanedCount = "blocks_orphaned_count"
+	blocksOrphanedCount = "blocks_orphaned_total"
 	acceptedBlocksCount = "accepted_blocks_count"
 )
 
