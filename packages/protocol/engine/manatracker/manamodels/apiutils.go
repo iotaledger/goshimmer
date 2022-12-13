@@ -4,6 +4,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/mr-tron/base58"
@@ -68,6 +69,17 @@ func Percentile(id identity.ID, m map[identity.ID]int64) (percentileValue float6
 	return (nBelow / float64(len(m))) * 100
 }
 
+// NeighborsAverageMana returns the average mana of the eighbors, based on provided mana vector and neighbors list.
+func NeighborsAverageMana(m map[identity.ID]int64, neighbors []*p2p.Neighbor) (avg float64) {
+	if len(m) == 0 {
+		return 0
+	}
+	for _, n := range neighbors {
+		avg += float64(m[n.Peer.ID()])
+	}
+	return avg / float64(len(m))
+}
+
 // GetHighestManaIssuers return the n-highest mana issuers in descending order.
 // It also updates the mana values for each issuer.
 // If n is zero, it returns all issuers.
@@ -97,4 +109,3 @@ func GetHighestManaIssuers(n uint, m map[identity.ID]int64) (res []Issuer, t tim
 	res = res[:n]
 	return
 }
-

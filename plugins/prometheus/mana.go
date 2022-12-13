@@ -19,6 +19,7 @@ var (
 )
 
 func registerManaMetrics() {
+	// todo done
 	accessManaMap = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "mana_access",
@@ -27,13 +28,13 @@ func registerManaMetrics() {
 		[]string{
 			"nodeID",
 		})
-
+	// todo done
 	accessPercentile = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "mana_access_percentile",
 			Help: "Top percentile node belongs to in terms of access mana.",
 		})
-
+	// todo done
 	consensusManaMap = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "mana_consensus",
@@ -42,13 +43,13 @@ func registerManaMetrics() {
 		[]string{
 			"nodeID",
 		})
-
+	// todo done
 	consensusPercentile = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "mana_consensus_percentile",
 			Help: "Top percentile node belongs to in terms of consensus mana.",
 		})
-
+	// todo not exist, no event
 	averageAccessPledge = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "mana_average_access_pledge",
@@ -58,7 +59,7 @@ func registerManaMetrics() {
 			"nodeID",
 			"type",
 		})
-
+	// todo not exist, no event
 	averageConsensusPledge = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "mana_average_consensus_pledge",
@@ -74,13 +75,13 @@ func registerManaMetrics() {
 			Name: "mana_average_neighbors_access",
 			Help: "Average access mana of all neighbors.",
 		})
-
+	// todo done
 	averageNeighborsConsensus = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "mana_average_neighbors_consensus",
 			Help: "Average consensus mana of all neighbors.",
 		})
-
+	// todo not used
 	delegatedMana = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "mana_delegated_amount",

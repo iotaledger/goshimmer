@@ -10,8 +10,12 @@ import (
 type MetricType uint8
 
 const (
+	// Gauge is a metric that represents a single numerical value that can arbitrarily go up and down.
+	// during metric Update the collected value is set, thus previous value is overwritten.
 	Gauge MetricType = iota
 	GaugeVec
+	// Counter is a cumulative metric that represents a single numerical value that only ever goes up.
+	// during metric Update the collected value is added to its current value.
 	Counter
 	CounterVec
 )
@@ -78,6 +82,8 @@ func (m *Metric) initPromMetric() {
 
 }
 
+// Collect calls the collectFunc and updates the metric value, for Gauge/GaugeVec values are set,
+// for Counter/CounterVec values are added.
 func (m *Metric) Collect() {
 	valMap := m.collectFunc()
 	if valMap != nil {
@@ -85,7 +91,6 @@ func (m *Metric) Collect() {
 	}
 }
 
-// todo separate update from add
 func (m *Metric) Update(labelValues map[string]float64) {
 	switch m.Type {
 	case Gauge:
@@ -179,12 +184,6 @@ func WithResetBeforeCollecting(resetEnabled bool) options.Option[Metric] {
 func WithCollectFunc(collectFunc func() map[string]float64) options.Option[Metric] {
 	return func(m *Metric) {
 		m.collectFunc = collectFunc
-	}
-}
-
-func WithUpdateOnEvent(updateFunc func()) options.Option[Metric] {
-	return func(m *Metric) {
-		m.updateFunc = updateFunc
 	}
 }
 

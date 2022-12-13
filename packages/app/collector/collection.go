@@ -52,3 +52,14 @@ func SingleValue[T constraints.Numeric](val T) map[string]float64 {
 		singleValLabel: float64(val),
 	}
 }
+
+func MultiValue[T constraints.Numeric](labels []string, values ...T) map[string]float64 {
+	if len(labels) != len(values) {
+		return nil
+	}
+	m := make(map[string]float64)
+	for i, label := range labels {
+		m[label] = float64(values[i])
+	}
+	return m
+}
