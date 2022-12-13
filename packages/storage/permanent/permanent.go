@@ -31,12 +31,12 @@ func New(disk *diskutil.DiskUtil, database *database.Manager) (p *Permanent) {
 	return &Permanent{
 		Settings:       NewSettings(disk.Path("settings.bin")),
 		Commitments:    NewCommitments(disk.Path("commitments.bin")),
-		UnspentOutputs: lo.PanicOnErr(database.PermanentStorage().WithRealm([]byte{unspentOutputsPrefix})),
+		UnspentOutputs: lo.PanicOnErr(database.PermanentStorage().WithExtendedRealm([]byte{unspentOutputsPrefix})),
 
-		unspentOutputIDs: lo.PanicOnErr(database.PermanentStorage().WithRealm([]byte{unspentOutputIDsPrefix})),
-		attestations:     lo.PanicOnErr(database.PermanentStorage().WithRealm([]byte{attestationsPrefix})),
-		sybilProtection:  lo.PanicOnErr(database.PermanentStorage().WithRealm([]byte{consensusWeightsPrefix})),
-		throughputQuota:  lo.PanicOnErr(database.PermanentStorage().WithRealm([]byte{throughputQuotaPrefix})),
+		unspentOutputIDs: lo.PanicOnErr(database.PermanentStorage().WithExtendedRealm([]byte{unspentOutputIDsPrefix})),
+		attestations:     lo.PanicOnErr(database.PermanentStorage().WithExtendedRealm([]byte{attestationsPrefix})),
+		sybilProtection:  lo.PanicOnErr(database.PermanentStorage().WithExtendedRealm([]byte{consensusWeightsPrefix})),
+		throughputQuota:  lo.PanicOnErr(database.PermanentStorage().WithExtendedRealm([]byte{throughputQuotaPrefix})),
 	}
 }
 

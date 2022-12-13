@@ -172,7 +172,7 @@ func initPeerDB() (*peer.DB, kvstore.KVStore, bool, error) {
 		return nil, nil, false, fmt.Errorf("error creating peer database: %s", err)
 	}
 
-	peerDBKVStore, err := db.NewStore().WithRealm([]byte{database.PrefixPeer})
+	peerDBKVStore, err := db.NewStore().WithExtendedRealm([]byte{database.PrefixPeer})
 	if err != nil {
 		return nil, nil, false, fmt.Errorf("error creating peer store: %w", err)
 	}
