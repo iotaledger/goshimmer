@@ -21,7 +21,7 @@ import (
 
 type Settings struct {
 	*settingsModel
-	mutex         sync.RWMutex
+	mutex sync.RWMutex
 
 	traits.Initializable
 }
