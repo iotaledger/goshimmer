@@ -15,7 +15,7 @@ import (
 )
 
 func getOnlineAccessHandler(c echo.Context) error {
-	resp := make([]jsonmodels.OnlineIssuerStr, 0)
+	resp := make([]*jsonmodels.OnlineIssuerStr, 0)
 	manaMap := deps.Protocol.Engine().ManaTracker.ManaByIDs()
 	var knownPeers *set.AdvancedSet[identity.ID]
 	if deps.Discovery != nil {
@@ -25,11 +25,11 @@ func getOnlineAccessHandler(c echo.Context) error {
 	}
 
 	for p, manaValue := range manaMap {
-		if knownPeers != nil && knownPeers.Has(p) {
+		if knownPeers != nil && !knownPeers.Has(p) && p != deps.Local.ID() {
 			continue
 		}
 
-		resp = append(resp, jsonmodels.OnlineIssuerStr{
+		resp = append(resp, &jsonmodels.OnlineIssuerStr{
 			ShortID: p.String(),
 			ID:      p.EncodeBase58(),
 			Mana:    manaValue,
@@ -37,7 +37,7 @@ func getOnlineAccessHandler(c echo.Context) error {
 	}
 
 	sort.Slice(resp, func(i, j int) bool {
-		return resp[i].Mana > resp[j].Mana
+		return resp[i].Mana > resp[j].Mana || (resp[i].Mana == resp[j].Mana && resp[i].ID > resp[j].ID)
 	})
 	for rank, onlineIssuer := range resp {
 		onlineIssuer.OnlineRank = rank + 1
@@ -50,10 +50,10 @@ func getOnlineAccessHandler(c echo.Context) error {
 }
 
 func getOnlineConsensusHandler(c echo.Context) error {
-	resp := make([]jsonmodels.OnlineIssuerStr, 0)
+	resp := make([]*jsonmodels.OnlineIssuerStr, 0)
 	manaMap := lo.PanicOnErr(deps.Protocol.Engine().SybilProtection.Validators().Weights.Map())
 	for p, manaValue := range manaMap {
-		resp = append(resp, jsonmodels.OnlineIssuerStr{
+		resp = append(resp, &jsonmodels.OnlineIssuerStr{
 			ShortID: p.String(),
 			ID:      p.EncodeBase58(),
 			Mana:    manaValue,
@@ -61,7 +61,7 @@ func getOnlineConsensusHandler(c echo.Context) error {
 	}
 
 	sort.Slice(resp, func(i, j int) bool {
-		return resp[i].Mana > resp[j].Mana
+		return resp[i].Mana > resp[j].Mana || resp[i].ID > resp[j].ID
 	})
 	for rank, onlineIssuer := range resp {
 		onlineIssuer.OnlineRank = rank + 1
