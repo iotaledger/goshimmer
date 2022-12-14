@@ -58,9 +58,13 @@ func (r *Retainer) BlockMetadata(blockID models.BlockID) (metadata *BlockMetadat
 	}
 
 	metadata, exists = r.blockStorage.Get(blockID)
-	if exists && metadata.M.Accepted && !metadata.M.Confirmed && blockID.Index() <= r.protocol.Engine().LastConfirmedEpoch() {
-		metadata.M.ConfirmedByEpoch = true
-		metadata.M.ConfirmedByEpochTime = blockID.Index().EndTime()
+	if exists {
+		metadata.SetID(metadata.M.Id)
+
+		if metadata.M.Accepted && !metadata.M.Confirmed && blockID.Index() <= r.protocol.Engine().LastConfirmedEpoch() {
+			metadata.M.ConfirmedByEpoch = true
+			metadata.M.ConfirmedByEpochTime = blockID.Index().EndTime()
+		}
 	}
 
 	return metadata, exists
@@ -105,10 +109,11 @@ func (r *Retainer) setupEvents() {
 		cm.setBlockDAGBlock(block)
 	}))
 
-	r.protocol.Events.Engine.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(func(block *blockdag.Block) {
-		cm := r.createOrGetCachedMetadata(block.ID())
-		cm.setBlockDAGBlock(block)
-	}))
+	// TODO: missing blocks make the node fail due to empty strong parents
+	//r.protocol.Events.Engine.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(func(block *blockdag.Block) {
+	//	cm := r.createOrGetCachedMetadata(block.ID())
+	//	cm.setBlockDAGBlock(block)
+	//}))
 
 	r.protocol.Events.Engine.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(func(block *blockdag.Block) {
 		//fmt.Println("BlockSolid", block.ID(), "issuer", block.IssuerID())

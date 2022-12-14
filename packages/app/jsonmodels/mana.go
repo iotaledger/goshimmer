@@ -52,9 +52,9 @@ type GetNHighestResponse struct {
 
 // GetOnlineResponse is the response to an online mana request.
 type GetOnlineResponse struct {
-	Online    []OnlineIssuerStr `json:"online"`
-	Error     string            `json:"error,omitempty"`
-	Timestamp int64             `json:"timestamp"`
+	Online    []*OnlineIssuerStr `json:"online"`
+	Error     string             `json:"error,omitempty"`
+	Timestamp int64              `json:"timestamp"`
 }
 
 // OnlineIssuerStr holds information about online rank, nodeID and mana.

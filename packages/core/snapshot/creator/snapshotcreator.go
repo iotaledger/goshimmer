@@ -59,29 +59,40 @@ func CreateSnapshot(s *storage.Storage, snapshotFileName string, genesisTokenAmo
 }
 
 // CreateSnapshotForIntegrationTest creates a new snapshot. Genesis is defined by genesisTokenAmount and seedBytes, it
-// is pledged to the node that is derived from the same seed. The amount to pledge to each node is defined by
+// is pledged to the ZeroID. The amount to pledge to each node is defined by
 // nodesToPledge map (seedBytes->amount), the funds of each pledge is sent to the same seed.
+// If you want master/faucet to receive pledge, add it to nodesToPledge map.
 // | Pledge      | Funds       |
 // | ----------- | ----------- |
-// | genesisSeed | genesisSeed |
+// | zeroID      | genesisSeed |
 // | node1       | node1       |
 // | node2       | node2       |
 func CreateSnapshotForIntegrationTest(s *storage.Storage, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, genesisNodePledge []byte, nodesToPledge map[[32]byte]uint64) {
 	now := time.Now()
+
+	if err := s.Commitments.Store(0, &commitment.Commitment{}); err != nil {
+		panic(err)
+	}
+	if err := s.Settings.SetChainID(lo.PanicOnErr(s.Commitments.Load(0)).ID()); err != nil {
+		panic(err)
+	}
+
 	outputsWithMetadata := make([]*models.OutputWithMetadata, 0)
 
-	// This is the same seed used to derive the faucet ID.
-	genesisPledgeID := identity.New(ed25519.PrivateKeyFromSeed(genesisNodePledge).Public()).ID()
-	output, outputMetadata := createOutput(seed.NewSeed(genesisSeedBytes).Address(0).Address(), genesisTokenAmount, genesisPledgeID, now)
-	outputsWithMetadata = append(outputsWithMetadata, models.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
+	if genesisTokenAmount > 0 {
+		// This is the same seed used to derive the faucet ID.
+		var genesisPledgeID identity.ID
+		output, outputMetadata := createOutput(seed.NewSeed(genesisSeedBytes).Address(0).Address(), genesisTokenAmount, genesisPledgeID, now)
+		outputsWithMetadata = append(outputsWithMetadata, models.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
 
-	if err := s.Attestors.Store(0, genesisPledgeID); err != nil {
-		panic(err)
+		if err := s.Attestors.Store(0, genesisPledgeID); err != nil {
+			panic(err)
+		}
 	}
 
 	for nodeSeedBytes, value := range nodesToPledge {
 		nodeID := identity.New(ed25519.PrivateKeyFromSeed(nodeSeedBytes[:]).Public()).ID()
-		output, outputMetadata = createOutput(seed.NewSeed(nodeSeedBytes[:]).Address(0).Address(), value, nodeID, now)
+		output, outputMetadata := createOutput(seed.NewSeed(nodeSeedBytes[:]).Address(0).Address(), value, nodeID, now)
 		outputsWithMetadata = append(outputsWithMetadata, models.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
 		if err := s.Attestors.Store(0, nodeID); err != nil {
 			panic(err)

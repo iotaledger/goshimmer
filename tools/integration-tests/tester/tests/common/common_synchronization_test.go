@@ -30,12 +30,16 @@ func TestCommonSynchronization(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), initialPeers, framework.CreateNetworkConfig{
-		StartSynced: true,
+		StartSynced: false,
 		Snapshot:    snapshotInfo,
 		PeerMaster:  true,
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
+
+	log.Println("Bootstrapping network...")
+	tests.BootstrapNetwork(t, n)
+	log.Println("Bootstrapping network... done")
 
 	// 1. issue data blocks
 	log.Printf("Issuing %d blocks to sync...", numBlocks)
@@ -120,6 +124,11 @@ func TestFirewall(t *testing.T) {
 	})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
+
+	log.Println("Bootstrapping network...")
+	tests.BootstrapNetwork(t, n)
+	log.Println("Bootstrapping network... done")
+
 	peer1, peer2 := n.Peers()[0], n.Peers()[1]
 	got1, err := peer1.GetPeerFaultinessCount(peer2.ID())
 	require.NoError(t, err)
@@ -148,8 +157,8 @@ func TestConfirmBlock(t *testing.T) {
 
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
-	n, err := f.CreateNetwork(ctx, t.Name(), 2, framework.CreateNetworkConfig{
-		StartSynced: true,
+	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
+		StartSynced: false,
 		Snapshot:    snapshotInfo,
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo, func(peerIndex int, isPeerMaster bool, conf config.GoShimmer) config.GoShimmer {
 		conf.UseNodeSeedAsWalletSeed = true
@@ -157,6 +166,10 @@ func TestConfirmBlock(t *testing.T) {
 	}))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
+
+	log.Println("Bootstrapping network...")
+	tests.BootstrapNetwork(t, n)
+	log.Println("Bootstrapping network... done")
 
 	// Send a block and wait for it to be confirmed.
 	peers := n.Peers()

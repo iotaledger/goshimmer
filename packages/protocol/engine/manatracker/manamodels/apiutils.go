@@ -73,22 +73,16 @@ func Percentile(id identity.ID, m map[identity.ID]int64) (percentileValue float6
 // If n is zero, it returns all issuers.
 func GetHighestManaIssuers(n uint, m map[identity.ID]int64) (res []Issuer, t time.Time, err error) {
 	t = time.Now()
-	err = func() error {
-		// don't lock the vector after this func returns
-		for id, mana := range m {
-			res = append(res, Issuer{
-				ID:   id,
-				Mana: mana,
-			})
-		}
-		return nil
-	}()
-	if err != nil {
-		return nil, t, err
+	// don't lock the vector after this func returns
+	for id, mana := range m {
+		res = append(res, Issuer{
+			ID:   id,
+			Mana: mana,
+		})
 	}
 
 	sort.Slice(res, func(i, j int) bool {
-		return res[i].Mana > res[j].Mana
+		return res[i].Mana > res[j].Mana || (res[i].Mana == res[j].Mana && res[i].ID.EncodeBase58() > res[j].ID.EncodeBase58())
 	})
 
 	if n == 0 || int(n) >= len(res) {
@@ -97,4 +91,3 @@ func GetHighestManaIssuers(n uint, m map[identity.ID]int64) (res []Issuer, t tim
 	res = res[:n]
 	return
 }
-
