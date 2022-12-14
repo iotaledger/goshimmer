@@ -209,7 +209,7 @@ func TestManaApis(t *testing.T) {
 		require.NoError(t, err)
 		t.Logf("/mana/percentile %+v", percResp)
 		require.Equal(t, fullID(faucet.ID()), percResp.IssuerID)
-		require.InDelta(t, 0, percResp.Access, 0.01)
+		require.InDelta(t, 20, percResp.Access, 0.01)
 	})
 
 	// Test /mana/access/online
