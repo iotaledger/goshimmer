@@ -67,11 +67,12 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 			engine.WithNotarizationManagerOptions(
 				notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommittableAge),
 			),
-			engine.WithSybilProtectionProvider(
-				dpos.NewSybilProtectionProvider(
-					dpos.WithActivityWindow(Parameters.ValidatorActivityWindow),
-				),
-			),
+			// TODO: We need to be able to pass optsActivityWindow
+			// engine.WithSybilProtectionProvider(
+			// 	dpos.NewSybilProtectionProvider(
+			// 		dpos.WithActivityWindow(Parameters.ValidatorActivityWindow),
+			// 	),
+			// ),
 			engine.WithBootstrapThreshold(Parameters.BootstrapWindow),
 			engine.WithTSCManagerOptions(
 				tsc.WithTimeSinceConfirmationThreshold(Parameters.TimeSinceConfirmationThreshold),
