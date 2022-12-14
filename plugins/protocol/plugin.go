@@ -67,6 +67,11 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 			engine.WithNotarizationManagerOptions(
 				notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommittableAge),
 			),
+			engine.WithSybilProtectionProvider(
+				dpos.NewSybilProtectionProvider(
+					dpos.WithActivityWindow(Parameters.ValidatorActivityWindow),
+				),
+			),
 			engine.WithBootstrapThreshold(Parameters.BootstrapWindow),
 			engine.WithTSCManagerOptions(
 				tsc.WithTimeSinceConfirmationThreshold(Parameters.TimeSinceConfirmationThreshold),
@@ -76,10 +81,6 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 				ledger.WithCacheTimeProvider(cacheTimeProvider),
 			),
 			engine.WithSnapshotDepth(Parameters.Snapshot.Depth),
-			// TODO: FIX
-			// engine.WithActiveNodesOptions(
-			// 	pos.WithActivityWindow(Parameters.ValidatorActivityWindow),
-			// ),
 		),
 		protocol.WithTipManagerOptions(
 			tipmanager.WithWidth(Parameters.TangleWidth),

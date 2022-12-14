@@ -178,7 +178,7 @@ func sendManaMapOnline() {
 	})
 
 	sort.Slice(consensusPayload.Issuers, func(i, j int) bool {
-		return consensusPayload.Issuers[i].Mana > consensusPayload.Issuers[j].Mana
+		return consensusPayload.Issuers[i].Mana > consensusPayload.Issuers[j].Mana || (consensusPayload.Issuers[i].Mana == consensusPayload.Issuers[j].Mana && consensusPayload.Issuers[i].IssuerID > consensusPayload.Issuers[j].IssuerID)
 	})
 
 	consensusPayload.TotalMana = activeNodes.TotalWeight()
