@@ -10,36 +10,36 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	manamodels2 "github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1/manamodels"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1/manamodels"
 )
 
 // getNHighestAccessHandler handles a /mana/access/nhighest request.
 func getNHighestAccessHandler(c echo.Context) error {
-	return nHighestHandler(c, manamodels2.AccessMana)
+	return nHighestHandler(c, manamodels.AccessMana)
 }
 
 // getNHighestConsensusHandler handles a /mana/consensus/nhighest request.
 func getNHighestConsensusHandler(c echo.Context) error {
-	return nHighestHandler(c, manamodels2.ConsensusMana)
+	return nHighestHandler(c, manamodels.ConsensusMana)
 }
 
 // nHighestHandler handles the request.
-func nHighestHandler(c echo.Context, manaType manamodels2.Type) error {
+func nHighestHandler(c echo.Context, manaType manamodels.Type) error {
 	number, err := strconv.ParseUint(c.QueryParam("number"), 10, 32)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetNHighestResponse{Error: err.Error()})
 	}
 	var manaMap map[identity.ID]int64
-	if manaType == manamodels2.AccessMana {
+	if manaType == manamodels.AccessMana {
 		manaMap = deps.Protocol.Engine().ThroughputQuota.BalanceByIDs()
 	} else {
 		manaMap = lo.PanicOnErr(deps.Protocol.Engine().SybilProtection.Weights().Map())
 	}
-	highestNodes, t, err := manamodels2.GetHighestManaIssuers(uint(number), manaMap)
+	highestNodes, t, err := manamodels.GetHighestManaIssuers(uint(number), manaMap)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetNHighestResponse{Error: err.Error()})
 	}
-	var res []manamodels2.IssuerStr
+	var res []manamodels.IssuerStr
 	for _, n := range highestNodes {
 		res = append(res, n.ToIssuerStr())
 	}
