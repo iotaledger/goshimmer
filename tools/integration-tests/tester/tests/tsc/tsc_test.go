@@ -31,7 +31,6 @@ func TestOrphanageTSC(t *testing.T) {
 			Faucet:      false,
 			Activity:    true,
 			Autopeering: false,
-			PeerMaster:  false,
 			Snapshot:    snapshotInfo,
 		}, tests.CommonSnapshotConfigFunc(t, snapshotInfo, func(peerIndex int, isPeerMaster bool, conf config.GoShimmer) config.GoShimmer {
 			conf.UseNodeSeedAsWalletSeed = true

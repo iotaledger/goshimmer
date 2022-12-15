@@ -31,7 +31,6 @@ func TestValueTransactionPersistence(t *testing.T) {
 		Faucet:      true,
 		Activity:    true, // we need to issue regular activity blocks
 		Snapshot:    snapshotInfo,
-		PeerMaster:  true,
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
@@ -125,7 +124,6 @@ func TestValueAliasPersistence(t *testing.T) {
 		StartSynced: false,
 		Faucet:      true,
 		Activity:    true, // we need to issue regular activity blocks
-		PeerMaster:  true,
 		Snapshot:    snapshotInfo,
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)

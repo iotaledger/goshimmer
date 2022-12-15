@@ -41,7 +41,6 @@ func TestConflictSpamAndMergeToMaster(t *testing.T) {
 		Faucet:      true,
 		StartSynced: false,
 		Activity:    false,
-		PeerMaster:  true,
 		Snapshot:    snapshotInfo,
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)

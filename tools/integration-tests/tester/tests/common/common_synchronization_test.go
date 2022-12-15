@@ -32,7 +32,6 @@ func TestCommonSynchronization(t *testing.T) {
 	n, err := f.CreateNetwork(ctx, t.Name(), initialPeers, framework.CreateNetworkConfig{
 		StartSynced: false,
 		Snapshot:    snapshotInfo,
-		PeerMaster:  true,
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
@@ -49,7 +48,7 @@ func TestCommonSynchronization(t *testing.T) {
 	// 2. spawn peer without knowledge of previous blocks
 	log.Println("Spawning new node to sync...")
 
-	cfg := createNewPeerConfig(t, snapshotInfo, 2)
+	cfg := createNewPeerConfig(t, snapshotInfo, 3)
 	newPeer, err := n.CreatePeer(ctx, cfg)
 	require.NoError(t, err)
 	err = n.DoManualPeering(ctx)
@@ -62,7 +61,7 @@ func TestCommonSynchronization(t *testing.T) {
 	log.Println("Issuing blocks... done")
 
 	// 4. check whether all issued blocks are available on to the new peer
-	tests.RequireBlocksAvailable(t, []*framework.Node{newPeer}, ids, time.Minute, tests.Tick)
+	tests.RequireBlocksAvailable(t, n.Peers(), ids, time.Minute, tests.Tick)
 	tests.RequireBlocksEqual(t, []*framework.Node{newPeer}, ids, time.Minute, tests.Tick)
 
 	require.True(t, tests.Synced(t, newPeer))
