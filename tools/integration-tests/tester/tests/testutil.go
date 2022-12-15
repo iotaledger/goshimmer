@@ -299,8 +299,13 @@ func SendDataBlocks(t *testing.T, peers []*framework.Node, numBlocks int, idsMap
 
 // SendDataBlocksWithDelay sends a total of numBlocks data blocks, each after a delay interval, and saves the sent block to a map.
 // It chooses the peers to send the blocks from in a round-robin fashion.
-func SendDataBlocksWithDelay(t *testing.T, peers []*framework.Node, numBlocks int, delay time.Duration) (result map[string]DataBlockSent) {
-	result = make(map[string]DataBlockSent, numBlocks)
+func SendDataBlocksWithDelay(t *testing.T, peers []*framework.Node, numBlocks int, delay time.Duration, idsMap ...map[string]DataBlockSent) (result map[string]DataBlockSent) {
+	if len(idsMap) > 0 {
+		result = idsMap[0]
+	} else {
+		result = make(map[string]DataBlockSent, numBlocks)
+	}
+
 	ticker := time.NewTicker(delay)
 	defer ticker.Stop()
 

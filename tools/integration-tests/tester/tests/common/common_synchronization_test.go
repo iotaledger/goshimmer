@@ -42,7 +42,7 @@ func TestCommonSynchronization(t *testing.T) {
 
 	// 1. issue data blocks
 	log.Printf("Issuing %d blocks to sync...", numBlocks)
-	ids := tests.SendDataBlocks(t, n.Peers(), numBlocks)
+	ids := tests.SendDataBlocksWithDelay(t, n.Peers(), numBlocks, time.Millisecond*10)
 	log.Println("Issuing blocks... done")
 
 	// 2. spawn peer without knowledge of previous blocks
@@ -57,7 +57,7 @@ func TestCommonSynchronization(t *testing.T) {
 
 	// 3. issue some blocks on old peers so that new peer can solidify
 	log.Printf("Issuing %d blocks on the %d initial peers...", numSyncBlocks, initialPeers)
-	ids = tests.SendDataBlocks(t, n.Peers()[:initialPeers], numSyncBlocks, ids)
+	ids = tests.SendDataBlocksWithDelay(t, n.Peers()[:initialPeers], numSyncBlocks, time.Millisecond*10, ids)
 	log.Println("Issuing blocks... done")
 
 	// 4. check whether all issued blocks are available on to the new peer
@@ -72,7 +72,7 @@ func TestCommonSynchronization(t *testing.T) {
 	log.Println("Stopping new node... done")
 
 	log.Printf("Issuing %d blocks and waiting until they have old tangle time...", numBlocks)
-	ids = tests.SendDataBlocks(t, n.Peers()[:initialPeers], numBlocks, ids)
+	ids = tests.SendDataBlocksWithDelay(t, n.Peers()[:initialPeers], numBlocks, 10*time.Millisecond, ids)
 	// wait to assure that the new peer is actually out of sync when starting
 	log.Printf("Sleeping %s to make sure new peer is out of sync when starting...", newPeer.Config().Protocol.BootstrapWindow.String())
 	time.Sleep(newPeer.Config().Protocol.BootstrapWindow)
