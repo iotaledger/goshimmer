@@ -106,10 +106,12 @@ func (p *Protocol) handlePacket(nbr identity.ID, packet proto.Message) (err erro
 }
 
 func (p *Protocol) onBlock(blockData []byte, id identity.ID) {
-	blockHash, isNew := p.duplicateBlockBytesFilter.Add(blockData)
+	blockIdentifier := models.DetermineID(blockData, 0).Identifier
+
+	isNew := p.duplicateBlockBytesFilter.AddIdentifier(blockIdentifier)
 
 	p.requestedBlockHashesMutex.Lock()
-	requested := p.requestedBlockHashes.Delete(blockHash)
+	requested := p.requestedBlockHashes.Delete(blockIdentifier)
 	p.requestedBlockHashesMutex.Unlock()
 
 	if !isNew && !requested {
@@ -125,7 +127,15 @@ func (p *Protocol) onBlock(blockData []byte, id identity.ID) {
 
 		return
 	}
-	block.DetermineID()
+	err := block.DetermineID(blockIdentifier)
+	if err != nil {
+		p.Events.Error.Trigger(&ErrorEvent{
+			Error:  errors.Wrap(err, "error while determining received block's ID"),
+			Source: id,
+		})
+
+		return
+	}
 
 	p.Events.BlockReceived.Trigger(&BlockReceivedEvent{
 		Block:  block,
