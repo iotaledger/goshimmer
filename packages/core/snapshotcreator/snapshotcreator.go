@@ -83,6 +83,13 @@ func CreateSnapshot(databaseVersion database.Version, snapshotFileName string, g
 // | node1       | node1       |
 // | node2       | node2       |
 func CreateSnapshotForIntegrationTest(s *storage.Storage, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, genesisNodePledge []byte, nodesToPledge map[identity.ID]uint64) {
+	if err := s.Commitments.Store(&commitment.Commitment{}); err != nil {
+		panic(err)
+	}
+	if err := s.Settings.SetChainID(lo.PanicOnErr(s.Commitments.Load(0)).ID()); err != nil {
+		panic(err)
+	}
+
 	engineInstance := engine.New(s, dpos.NewProvider(), mana1.NewProvider())
 
 	if genesisTokenAmount > 0 {
@@ -115,9 +122,9 @@ func CreateSnapshotForIntegrationTest(s *storage.Storage, snapshotFileName strin
 		}); err != nil {
 			panic(err)
 		}
-		if _, _, err := engineInstance.NotarizationManager.Attestations.Commit(0); err != nil {
-			panic(err)
-		}
+	}
+	if _, _, err := engineInstance.NotarizationManager.Attestations.Commit(0); err != nil {
+		panic(err)
 	}
 
 	if err := engineInstance.WriteSnapshot(snapshotFileName); err != nil {
