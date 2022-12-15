@@ -64,7 +64,8 @@ var EqualSnapshotDetails = framework.SnapshotInfo{
 
 // ConsensusSnapshotDetails defines info for consensus integration test snapshot
 var ConsensusSnapshotDetails = framework.SnapshotInfo{
-	FilePath: "/assets/dynamic_snapshots/consensus_snapshot.bin",
+	FilePath:           "/assets/dynamic_snapshots/consensus_snapshot.bin",
+	GenesisTokenAmount: 800_000, // pledged to peer master
 	PeersSeedBase58: []string{
 		"Bk69VaYsRuiAaKn8hK6KxUj45X5dED3ueRtxfYnsh4Q8", // jnaC6ZyWuw
 		"HUH4rmxUxMZBBtHJ4QM5Ts6s8DP3HnFpChejntnCxto2", // iNvPFvkfSDp
@@ -141,7 +142,7 @@ func BootstrapNetwork(t *testing.T, n *framework.Network) {
 		bootstrappedPeers := lo.Filter(n.Peers(), func(p *framework.Node) bool {
 			return p.Config().IgnoreBootstrappedFlag || Bootstrapped(t, p)
 		})
-		fmt.Println("send blocks to", len(bootstrappedPeers), bootstrappedPeers, bootstrappedPeers[0].ID().EncodeBase58())
+
 		SendDataBlocks(t, bootstrappedPeers, len(bootstrappedPeers))
 		for _, p := range n.Peers() {
 			if !Bootstrapped(t, p) {
