@@ -1,6 +1,8 @@
 package permanent
 
 import (
+	"os"
+
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/kvstore"
 
@@ -31,12 +33,12 @@ func New(disk *diskutil.DiskUtil, database *database.Manager) (p *Permanent) {
 	return &Permanent{
 		Settings:       NewSettings(disk.Path("settings.bin")),
 		Commitments:    NewCommitments(disk.Path("commitments.bin")),
-		UnspentOutputs: lo.PanicOnErr(database.PermanentStorage().WithRealm([]byte{unspentOutputsPrefix})),
+		UnspentOutputs: lo.PanicOnErr(database.PermanentStorage().WithExtendedRealm([]byte{unspentOutputsPrefix})),
 
-		unspentOutputIDs: lo.PanicOnErr(database.PermanentStorage().WithRealm([]byte{unspentOutputIDsPrefix})),
-		attestations:     lo.PanicOnErr(database.PermanentStorage().WithRealm([]byte{attestationsPrefix})),
-		sybilProtection:  lo.PanicOnErr(database.PermanentStorage().WithRealm([]byte{consensusWeightsPrefix})),
-		throughputQuota:  lo.PanicOnErr(database.PermanentStorage().WithRealm([]byte{throughputQuotaPrefix})),
+		unspentOutputIDs: lo.PanicOnErr(database.PermanentStorage().WithExtendedRealm([]byte{unspentOutputIDsPrefix})),
+		attestations:     lo.PanicOnErr(database.PermanentStorage().WithExtendedRealm([]byte{attestationsPrefix})),
+		sybilProtection:  lo.PanicOnErr(database.PermanentStorage().WithExtendedRealm([]byte{consensusWeightsPrefix})),
+		throughputQuota:  lo.PanicOnErr(database.PermanentStorage().WithExtendedRealm([]byte{throughputQuotaPrefix})),
 	}
 }
 
@@ -74,4 +76,29 @@ func (p *Permanent) ThroughputQuota(optRealm ...byte) kvstore.KVStore {
 	}
 
 	return lo.PanicOnErr(p.throughputQuota.WithExtendedRealm(optRealm))
+}
+
+// SettingsAndCommitmentsSize returns the total size of the binary files.
+func (p *Permanent) SettingsAndCommitmentsSize() int64 {
+	var sum int64
+
+	files := []string{p.Settings.FilePath(), p.Commitments.FilePath()}
+	for _, file := range files {
+		size, err := fileSize(file)
+		if err != nil {
+			panic(err)
+		}
+		sum += size
+	}
+
+	return sum
+}
+
+func fileSize(path string) (int64, error) {
+	s, err := os.Stat(path)
+	if err != nil {
+		return 0, err
+	}
+
+	return s.Size(), nil
 }

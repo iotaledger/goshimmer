@@ -20,8 +20,8 @@ import (
 // region Settings /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Settings struct {
-	settingsModel *settingsModel
-	mutex         sync.RWMutex
+	*settingsModel
+	mutex sync.RWMutex
 
 	traits.Initializable
 }
@@ -53,7 +53,7 @@ func (c *Settings) SetSnapshotImported(initialized bool) (err error) {
 
 	c.settingsModel.SnapshotImported = initialized
 
-	if err = c.settingsModel.ToFile(); err != nil {
+	if err = c.ToFile(); err != nil {
 		return fmt.Errorf("failed to persist initialized flag: %w", err)
 	}
 
@@ -73,7 +73,7 @@ func (c *Settings) SetLatestCommitment(latestCommitment *commitment.Commitment) 
 
 	c.settingsModel.LatestCommitment = latestCommitment
 
-	if err = c.settingsModel.ToFile(); err != nil {
+	if err = c.ToFile(); err != nil {
 		return errors.Errorf("failed to persist latest commitment: %w", err)
 	}
 
@@ -93,7 +93,7 @@ func (c *Settings) SetLatestStateMutationEpoch(latestStateMutationEpoch epoch.In
 
 	c.settingsModel.LatestStateMutationEpoch = latestStateMutationEpoch
 
-	if err = c.settingsModel.ToFile(); err != nil {
+	if err = c.ToFile(); err != nil {
 		return errors.Errorf("failed to persist latest state mutation epoch: %w", err)
 	}
 
@@ -113,7 +113,7 @@ func (c *Settings) SetLatestConfirmedEpoch(latestConfirmedEpoch epoch.Index) (er
 
 	c.settingsModel.LatestConfirmedEpoch = latestConfirmedEpoch
 
-	if err = c.settingsModel.ToFile(); err != nil {
+	if err = c.ToFile(); err != nil {
 		return errors.Errorf("failed to persist latest confirmed epoch: %w", err)
 	}
 
@@ -133,7 +133,7 @@ func (c *Settings) SetChainID(id commitment.ID) (err error) {
 
 	c.settingsModel.ChainID = id
 
-	if err = c.settingsModel.ToFile(); err != nil {
+	if err = c.ToFile(); err != nil {
 		return errors.Errorf("failed to persist chain ID: %w", err)
 	}
 
@@ -144,7 +144,7 @@ func (c *Settings) Export(writer io.WriteSeeker) (err error) {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
-	settingsBytes, err := c.settingsModel.Bytes()
+	settingsBytes, err := c.Bytes()
 	if err != nil {
 		return errors.Errorf("failed to convert settings to bytes: %w", err)
 	}
@@ -184,7 +184,7 @@ func (c *Settings) tryImport(reader io.ReadSeeker) (err error) {
 		return errors.Errorf("failed to read settings bytes: %w", err)
 	}
 
-	if consumedBytes, err := c.settingsModel.FromBytes(settingsBytes); err != nil {
+	if consumedBytes, err := c.FromBytes(settingsBytes); err != nil {
 		return errors.Errorf("failed to read settings: %w", err)
 	} else if consumedBytes != len(settingsBytes) {
 		return errors.Errorf("failed to read settings: consumed bytes (%d) != expected bytes (%d)", consumedBytes, len(settingsBytes))

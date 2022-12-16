@@ -2,7 +2,6 @@ package tsc
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"testing"
 	"time"
@@ -26,13 +25,12 @@ func TestOrphanageTSC(t *testing.T) {
 
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
-	n, err := f.CreateNetworkNoAutomaticManualPeering(ctx, "test_orphanage_tsc", 4,
+	n, err := f.CreateNetwork(ctx, t.Name(), 4,
 		framework.CreateNetworkConfig{
-			StartSynced: true,
+			StartSynced: false,
 			Faucet:      false,
 			Activity:    true,
 			Autopeering: false,
-			PeerMaster:  false,
 			Snapshot:    snapshotInfo,
 		}, tests.CommonSnapshotConfigFunc(t, snapshotInfo, func(peerIndex int, isPeerMaster bool, conf config.GoShimmer) config.GoShimmer {
 			conf.UseNodeSeedAsWalletSeed = true
@@ -44,6 +42,10 @@ func TestOrphanageTSC(t *testing.T) {
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
+	log.Println("Bootstrapping network...")
+	tests.BootstrapNetwork(t, n)
+	log.Println("Bootstrapping network... done")
+
 	const delayBetweenDataMessages = 500 * time.Millisecond
 
 	var (
@@ -53,19 +55,6 @@ func TestOrphanageTSC(t *testing.T) {
 		node4 = n.Peers()[3]
 	)
 
-	// merge partitions
-	err = n.DoManualPeering(ctx)
-	require.NoError(t, err)
-	log.Println("Waiting for nodes to become bootstrapped...")
-	require.Eventually(t, func() bool {
-		bootstrapped := true
-		for _, peer := range n.Peers() {
-			bootstrapped = bootstrapped && tests.Bootstrapped(t, peer)
-		}
-
-		return bootstrapped
-	}, tests.Timeout, tests.Tick)
-	log.Println("Waiting for nodes to become bootstrapped... done")
 	log.Printf("Sending %d data blocks to the whole network", 10)
 	tests.SendDataBlocksWithDelay(t, n.Peers(), 10, delayBetweenDataMessages)
 
@@ -96,12 +85,10 @@ func TestOrphanageTSC(t *testing.T) {
 	require.NoError(t, err)
 
 	// sleep 10 seconds to make sure that TSC threshold is exceeded
-	time.Sleep(tscThreshold)
+	time.Sleep(tscThreshold + time.Second)
 
 	log.Printf("Sending %d data messages to make sure that all nodes share the same view", 30)
 	tests.SendDataBlocksWithDelay(t, n.Peers(), 30, delayBetweenDataMessages)
-
-	fmt.Println(blocksToOrphan)
 
 	tests.RequireBlocksAvailable(t, n.Peers(), blocksToConfirm, time.Minute, tests.Tick, true)
 	tests.RequireBlocksOrphaned(t, partition1, blocksToOrphan, time.Minute, tests.Tick)

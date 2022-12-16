@@ -248,16 +248,19 @@ func (b *Block) SetSignature(signature ed25519.Signature) {
 }
 
 // DetermineID calculates and sets the block's BlockID and size.
-func (b *Block) DetermineID() (err error) {
+func (b *Block) DetermineID(blockIdentifier ...types.Identifier) (err error) {
 	blkBytes, err := b.Bytes()
 	if err != nil {
 		return errors.Errorf("failed to create block bytes: %w", err)
 	}
-
-	contentHash := blake2b.Sum256(blkBytes[:len(blkBytes)-ed25519.SignatureSize])
-	signatureBytes := blkBytes[len(blkBytes)-ed25519.SignatureSize:]
-
-	b.SetID(NewBlockID(contentHash, lo.Return1(ed25519.SignatureFromBytes(signatureBytes)), epoch.IndexFromTime(b.IssuingTime())))
+	if len(blockIdentifier) > 0 {
+		b.SetID(BlockID{
+			Identifier: blockIdentifier[0],
+			EpochIndex: epoch.IndexFromTime(b.IssuingTime()),
+		})
+	} else {
+		b.SetID(DetermineID(blkBytes, epoch.IndexFromTime(b.IssuingTime())))
+	}
 
 	return nil
 }
@@ -287,7 +290,16 @@ func (b *Block) String() string {
 	builder.AddField(stringify.NewStructField("Nonce", b.Nonce()))
 	builder.AddField(stringify.NewStructField("Commitment", b.Commitment()))
 	builder.AddField(stringify.NewStructField("Signature", b.Signature()))
+
 	return builder.String()
+}
+
+// DetermineID calculates the block's BlockID.
+func DetermineID(blkBytes []byte, epochIndex epoch.Index) BlockID {
+	contentHash := blake2b.Sum256(blkBytes[:len(blkBytes)-ed25519.SignatureSize])
+	signatureBytes := blkBytes[len(blkBytes)-ed25519.SignatureSize:]
+
+	return NewBlockID(contentHash, lo.Return1(ed25519.SignatureFromBytes(signatureBytes)), epochIndex)
 }
 
 // sortParents sorts given parents and returns a new slice with sorted parents.

@@ -27,14 +27,17 @@ func TestValueTransactionPersistence(t *testing.T) {
 	defer cancel()
 	snapshotInfo := tests.EqualSnapshotDetails
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
-		StartSynced: true,
+		StartSynced: false,
 		Faucet:      true,
 		Activity:    true, // we need to issue regular activity blocks
 		Snapshot:    snapshotInfo,
-		PeerMaster:  true,
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
+
+	log.Println("Bootstrapping network...")
+	tests.BootstrapNetwork(t, n)
+	log.Println("Bootstrapping network... done")
 
 	for i, p := range n.Peers() {
 		resp, _ := p.Info()
@@ -118,14 +121,17 @@ func TestValueAliasPersistence(t *testing.T) {
 	defer cancel()
 	snapshotInfo := tests.EqualSnapshotDetails
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
-		StartSynced: true,
+		StartSynced: false,
 		Faucet:      true,
 		Activity:    true, // we need to issue regular activity blocks
-		PeerMaster:  true,
 		Snapshot:    snapshotInfo,
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
+
+	log.Println("Bootstrapping network...")
+	tests.BootstrapNetwork(t, n)
+	log.Println("Bootstrapping network... done")
 
 	faucet, nonFaucetPeers := n.Peers()[0], n.Peers()[1:]
 

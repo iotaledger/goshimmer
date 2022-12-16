@@ -143,15 +143,18 @@ func TestManaApis(t *testing.T) {
 	defer cancel()
 	snapshotInfo := tests.EqualSnapshotDetails
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
-		StartSynced: true,
+		StartSynced: false,
 		Faucet:      true,
 		Autopeering: true, // we need to discover online peers
 		Activity:    true, // we need to issue regular activity blocks
-		PeerMaster:  true,
 		Snapshot:    snapshotInfo,
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
+
+	log.Println("Bootstrapping network...")
+	tests.BootstrapNetwork(t, n)
+	log.Println("Bootstrapping network... done")
 
 	peers := n.Peers()
 	faucet := peers[0]
@@ -205,7 +208,7 @@ func TestManaApis(t *testing.T) {
 		require.NoError(t, err)
 		t.Logf("/mana/percentile %+v", percResp)
 		require.Equal(t, fullID(faucet.ID()), percResp.IssuerID)
-		require.InDelta(t, 0, percResp.Access, 0.01)
+		require.InDelta(t, 20, percResp.Access, 0.01)
 	})
 
 	// Test /mana/access/online

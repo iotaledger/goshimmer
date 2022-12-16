@@ -23,6 +23,8 @@ func TestManager_Get(t *testing.T) {
 
 	m := NewManager(1, WithGranularity(granularity), WithDBProvider(NewDB), WithBaseDir(baseDir), WithMaxOpenDBs(2))
 
+	dbSize := m.PrunableStorageSize()
+
 	// Create and write data to buckets.
 	{
 		for i := granularity; i < bucketsCount; i++ {
@@ -41,6 +43,9 @@ func TestManager_Get(t *testing.T) {
 			}
 		}
 	}
+
+	// dbSize should have increased with new buckets
+	assert.Greater(t, m.PrunableStorageSize(), dbSize)
 
 	// Read data from buckets.
 	{
@@ -84,6 +89,8 @@ func TestManager_Get(t *testing.T) {
 		assert.ElementsMatch(t, expected, actual)
 	}
 
+	dbSize = m.PrunableStorageSize()
+
 	// Prune some stuff.
 	expectedFirstBucket := epoch.Index(5) + 1
 	{
@@ -107,6 +114,9 @@ func TestManager_Get(t *testing.T) {
 			}
 		}
 	}
+
+	// After pruning the dbSize should be smaller
+	assert.Less(t, m.PrunableStorageSize(), dbSize)
 
 	// Insert into buckets but DO NOT mark as clean. When restoring from disk they should not be healthy and thus be
 	// deleted.

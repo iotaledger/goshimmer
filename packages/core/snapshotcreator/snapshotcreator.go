@@ -6,6 +6,7 @@ import (
 
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/orderedmap"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 
@@ -79,43 +80,53 @@ func CreateSnapshot(databaseVersion database.Version, snapshotFileName string, g
 // nodesToPledge map (seedBytes->amount), the funds of each pledge is sent to the same seed.
 // | Pledge      | Funds       |
 // | ----------- | ----------- |
-// | genesisSeed | genesisSeed |
+// | empty       | genesisSeed  |
 // | node1       | node1       |
 // | node2       | node2       |
-func CreateSnapshotForIntegrationTest(s *storage.Storage, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, genesisNodePledge []byte, nodesToPledge map[identity.ID]uint64) {
+func CreateSnapshotForIntegrationTest(s *storage.Storage, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge *orderedmap.OrderedMap[identity.ID, uint64], startSynced bool) {
+	if err := s.Commitments.Store(&commitment.Commitment{}); err != nil {
+		panic(err)
+	}
+	if err := s.Settings.SetChainID(lo.PanicOnErr(s.Commitments.Load(0)).ID()); err != nil {
+		panic(err)
+	}
+
 	engineInstance := engine.New(s, dpos.NewProvider(), mana1.NewProvider())
 
-	// This is the same seed used to derive the faucet ID.
-	genesisPledgeID := identity.New(ed25519.PrivateKeyFromSeed(genesisNodePledge).Public()).ID()
-	output, outputMetadata := createOutput(seed.NewSeed(genesisSeedBytes).Address(0).Address(), genesisTokenAmount, genesisPledgeID, 0)
-	if err := engineInstance.LedgerState.UnspentOutputs.ApplyCreatedOutput(ledger.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
-		panic(err)
-	}
-
 	engineInstance.NotarizationManager.Attestations.SetLastCommittedEpoch(-1)
-	if _, err := engineInstance.NotarizationManager.Attestations.Add(&notarization.Attestation{
-		IssuerID:    genesisPledgeID,
-		IssuingTime: time.Unix(epoch.GenesisTime-2, 0),
-	}); err != nil {
-		panic(err)
+
+	if genesisTokenAmount > 0 {
+		// create faucet funds and do not pledge mana to any identity
+		var genesisPledgeID identity.ID
+		output, outputMetadata := createOutput(seed.NewSeed(genesisSeedBytes).Address(0).Address(), genesisTokenAmount, genesisPledgeID, 0)
+		if err := engineInstance.LedgerState.UnspentOutputs.ApplyCreatedOutput(ledger.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
+			panic(err)
+		}
 	}
 
-	for nodeSeedBytes, value := range nodesToPledge {
+	i := 0
+	nodesToPledge.ForEach(func(nodeSeedBytes identity.ID, value uint64) bool {
 		nodeID := identity.New(ed25519.PrivateKeyFromSeed(nodeSeedBytes[:]).Public()).ID()
-		output, outputMetadata = createOutput(seed.NewSeed(nodeSeedBytes[:]).Address(0).Address(), value, nodeID, 0)
+		output, outputMetadata := createOutput(seed.NewSeed(nodeSeedBytes[:]).Address(0).Address(), value, nodeID, 0)
 		if err := engineInstance.LedgerState.UnspentOutputs.ApplyCreatedOutput(ledger.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
 			panic(err)
 		}
 
-		if _, err := engineInstance.NotarizationManager.Attestations.Add(&notarization.Attestation{
-			IssuerID:    nodeID,
-			IssuingTime: time.Unix(epoch.GenesisTime-1, 0),
-		}); err != nil {
-			panic(err)
+		if i == 0 || startSynced {
+			// Add attestation to commitment only for first peer, so that it can issue blocks and bootstraps the network.
+			if _, err := engineInstance.NotarizationManager.Attestations.Add(&notarization.Attestation{
+				IssuerID:    nodeID,
+				IssuingTime: time.Unix(epoch.GenesisTime-1, 0),
+			}); err != nil {
+				panic(err)
+			}
 		}
-		if _, _, err := engineInstance.NotarizationManager.Attestations.Commit(0); err != nil {
-			panic(err)
-		}
+
+		i++
+		return true
+	})
+	if _, _, err := engineInstance.NotarizationManager.Attestations.Commit(0); err != nil {
+		panic(err)
 	}
 
 	if err := engineInstance.WriteSnapshot(snapshotFileName); err != nil {
