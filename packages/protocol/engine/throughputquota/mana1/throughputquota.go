@@ -185,7 +185,7 @@ func (m *ThroughputQuota) updateMana(id identity.ID, diff int64) {
 	m.quotaByIDMutex.Lock()
 	defer m.quotaByIDMutex.Unlock()
 
-	if newBalance := lo.Return1(m.quotaByIDCache.Get(id)) + diff; newBalance != 0 {
+	if newBalance := lo.Return1(m.quotaByIDCache.Get(id)) + diff; newBalance > 0 {
 		m.quotaByIDCache.Set(id, newBalance)
 		m.quotaByIDStorage.Set(id, storable.SerializableInt64(newBalance))
 	} else {
