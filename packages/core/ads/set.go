@@ -46,6 +46,10 @@ func NewSet[K any, KPtr constraints.MarshalablePtr[K]](store kvstore.KVStore) (n
 		size: typedkey.NewNumber[uint64](store, PrefixSizeKey),
 	}
 
+	if root := newSet.root.Get(); len(root) != 0 {
+		newSet.tree.SetRoot(root)
+	}
+
 	return
 }
 
