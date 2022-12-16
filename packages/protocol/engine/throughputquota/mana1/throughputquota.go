@@ -32,7 +32,7 @@ type ThroughputQuota struct {
 	engine              *engine.Engine
 	quotaByIDStorage    *typedkvstore.TypedStore[identity.ID, storable.SerializableInt64, *identity.ID, *storable.SerializableInt64]
 	quotaByIDCache      *shrinkingmap.ShrinkingMap[identity.ID, int64]
-	quotaByIDMutex      sync.RWMutex
+	quotaByIDMutex      sync.RWMutex // TODO: replace this lock with DAG mutex so each entity is individually locked
 	totalBalanceStorage kvstore.KVStore
 	totalBalance        int64
 	totalBalanceMutex   sync.RWMutex
@@ -52,6 +52,9 @@ func New(engineInstance *engine.Engine, opts ...options.Option[ThroughputQuota])
 		quotaByIDCache:      shrinkingmap.New[identity.ID, int64](),
 	}, opts, func(m *ThroughputQuota) {
 		m.quotaByIDStorage.Iterate([]byte{}, func(key identity.ID, value storable.SerializableInt64) (advance bool) {
+			m.quotaByIDMutex.Lock()
+			defer m.quotaByIDMutex.Unlock()
+
 			m.updateMana(key, int64(value))
 			return true
 		})
@@ -76,22 +79,27 @@ func New(engineInstance *engine.Engine, opts ...options.Option[ThroughputQuota])
 				m.TriggerInitialized()
 
 				m.engine.Ledger.Events.TransactionAccepted.Attach(event.NewClosure(func(event *ledger.TransactionEvent) {
+					m.quotaByIDMutex.Lock()
+					defer m.quotaByIDMutex.Unlock()
 					for _, createdOutput := range event.CreatedOutputs {
-						m.ApplyCreatedOutput(createdOutput)
+						m.applyCreatedOutput(createdOutput)
 					}
 
 					for _, spentOutput := range event.SpentOutputs {
-						m.ApplySpentOutput(spentOutput)
+						m.applySpentOutput(spentOutput)
 					}
 				}))
 
 				m.engine.Ledger.Events.TransactionOrphaned.Attach(event.NewClosure(func(event *ledger.TransactionEvent) {
+					m.quotaByIDMutex.Lock()
+					defer m.quotaByIDMutex.Unlock()
+
 					for _, createdOutput := range event.CreatedOutputs {
-						m.ApplySpentOutput(createdOutput)
+						m.applySpentOutput(createdOutput)
 					}
 
 					for _, spentOutput := range event.SpentOutputs {
-						m.ApplyCreatedOutput(spentOutput)
+						m.applyCreatedOutput(spentOutput)
 					}
 				}))
 			})
@@ -131,6 +139,13 @@ func (m *ThroughputQuota) TotalBalance() (totalMana int64) {
 }
 
 func (m *ThroughputQuota) ApplyCreatedOutput(output *ledger.OutputWithMetadata) (err error) {
+	m.quotaByIDMutex.Lock()
+	defer m.quotaByIDMutex.Unlock()
+
+	return m.applyCreatedOutput(output)
+}
+
+func (m *ThroughputQuota) applyCreatedOutput(output *ledger.OutputWithMetadata) (err error) {
 	if iotaBalance, exists := output.IOTABalance(); exists {
 		m.updateMana(output.AccessManaPledgeID(), int64(iotaBalance))
 
@@ -150,6 +165,13 @@ func (m *ThroughputQuota) ApplyCreatedOutput(output *ledger.OutputWithMetadata) 
 }
 
 func (m *ThroughputQuota) ApplySpentOutput(output *ledger.OutputWithMetadata) (err error) {
+	m.quotaByIDMutex.Lock()
+	defer m.quotaByIDMutex.Unlock()
+
+	return m.applySpentOutput(output)
+}
+
+func (m *ThroughputQuota) applySpentOutput(output *ledger.OutputWithMetadata) (err error) {
 	if iotaBalance, exists := output.IOTABalance(); exists {
 		m.updateMana(output.AccessManaPledgeID(), -int64(iotaBalance))
 	}
@@ -180,10 +202,7 @@ func (m *ThroughputQuota) CommitBatchedStateTransition() (ctx context.Context) {
 }
 
 func (m *ThroughputQuota) updateMana(id identity.ID, diff int64) {
-	m.quotaByIDMutex.Lock()
-	defer m.quotaByIDMutex.Unlock()
-
-	if newBalance := lo.Return1(m.quotaByIDCache.Get(id)) + diff; newBalance > 0 {
+	if newBalance := lo.Return1(m.quotaByIDCache.Get(id)) + diff; newBalance != 0 {
 		m.quotaByIDCache.Set(id, newBalance)
 		m.quotaByIDStorage.Set(id, storable.SerializableInt64(newBalance))
 	} else {
