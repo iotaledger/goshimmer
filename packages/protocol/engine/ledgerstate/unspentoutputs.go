@@ -41,15 +41,20 @@ type UnspentOutputs struct {
 	traits.Initializable
 }
 
+type StoragePrefix struct {
+	UnspentOutputs *StoragePrefix
+	Bla            *StoragePrefix
+}
+
 const (
-	PrefixUnspentOutputsSettings byte = iota
+	PrefixUnspentOutputsLatestCommittedIndex byte = iota
 	PrefixUnspentOutputsIDs
 )
 
 func NewUnspentOutputs(store func(optRealm ...byte) kvstore.KVStore, memPool *ledger.Ledger) (unspentOutputs *UnspentOutputs) {
 	return &UnspentOutputs{
 		Initializable:    traits.NewInitializable(),
-		BatchCommittable: traits.NewBatchCommittable(store(PrefixUnspentOutputsSettings)),
+		BatchCommittable: traits.NewBatchCommittable(store(), PrefixUnspentOutputsLatestCommittedIndex),
 		IDs:              ads.NewSet[utxo.OutputID](store(PrefixUnspentOutputsIDs)),
 		memPool:          memPool,
 		consumers:        make(map[UnspentOutputsConsumer]types.Empty),

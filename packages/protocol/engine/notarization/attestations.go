@@ -37,7 +37,7 @@ type Attestations struct {
 
 func NewAttestations(persistentStorage func(optRealm ...byte) kvstore.KVStore, bucketedStorage func(index epoch.Index) kvstore.KVStore, weights *sybilprotection.Weights) *Attestations {
 	return &Attestations{
-		Committable:        traits.NewCommittable(persistentStorage(PrefixAttestationsLastCommittedEpoch)),
+		Committable:        traits.NewCommittable(persistentStorage(), PrefixAttestationsLastCommittedEpoch),
 		Initializable:      traits.NewInitializable(),
 		persistentStorage:  persistentStorage,
 		bucketedStorage:    bucketedStorage,

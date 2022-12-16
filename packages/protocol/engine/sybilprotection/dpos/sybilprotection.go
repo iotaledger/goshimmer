@@ -48,7 +48,7 @@ func NewSybilProtection(engineInstance *engine.Engine, opts ...options.Option[Sy
 	return options.Apply(
 		&SybilProtection{
 			Initializable:    traits.NewInitializable(),
-			BatchCommittable: traits.NewBatchCommittable(engineInstance.Storage.SybilProtection(PrefixLastCommittedEpoch)),
+			BatchCommittable: traits.NewBatchCommittable(engineInstance.Storage.SybilProtection(), PrefixLastCommittedEpoch),
 
 			engine:            engineInstance,
 			weights:           sybilprotection.NewWeights(engineInstance.Storage.SybilProtection(PrefixWeights), engineInstance.Storage.Settings),

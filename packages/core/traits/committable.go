@@ -20,15 +20,22 @@ type Committable interface {
 }
 
 // NewCommittable creates a new Committable trait.
-func NewCommittable(store kvstore.KVStore) (newCommittable Committable) {
+func NewCommittable(store kvstore.KVStore, keyBytes ...byte) (newCommittable Committable) {
+	if len(keyBytes) == 0 {
+		panic("keyBytes must not be empty")
+	}
+
 	return (&committable{
-		store: store,
+		store:    store,
+		keyBytes: keyBytes,
 	}).init()
 }
 
 // committable is the implementation of the Committable trait.
 type committable struct {
 	store kvstore.KVStore
+
+	keyBytes []byte
 
 	// lastCommittedEpoch is the last committed epoch.
 	lastCommittedEpoch epoch.Index
@@ -72,7 +79,7 @@ func (c *committable) init() (self *committable) {
 }
 
 func (c *committable) loadLastCommittedEpoch() (lastCommittedEpoch epoch.Index, err error) {
-	lastCommittedEpochBytes, err := c.store.Get(kvstore.Key("lastCommittedEpoch"))
+	lastCommittedEpochBytes, err := c.store.Get(c.keyBytes)
 	if err != nil {
 		return 0, lo.Cond(errors.Is(err, kvstore.ErrKeyNotFound), nil, errors.Errorf("failed to load last committed epoch: %w", err))
 	}
@@ -85,7 +92,7 @@ func (c *committable) loadLastCommittedEpoch() (lastCommittedEpoch epoch.Index, 
 }
 
 func (c *committable) storeLastCommittedEpoch(index epoch.Index) (err error) {
-	if err = c.store.Set(kvstore.Key("lastCommittedEpoch"), index.Bytes()); err != nil {
+	if err = c.store.Set(c.keyBytes, index.Bytes()); err != nil {
 		return errors.Errorf("failed to store weight of attestations for epoch %d: %w", index, err)
 	}
 

@@ -44,7 +44,7 @@ type ThroughputQuota struct {
 // New creates a new ThroughputQuota manager.
 func New(engineInstance *engine.Engine, opts ...options.Option[ThroughputQuota]) (manaTracker *ThroughputQuota) {
 	return options.Apply(&ThroughputQuota{
-		BatchCommittable:    traits.NewBatchCommittable(engineInstance.Storage.ThroughputQuota(PrefixLastCommittedEpoch)),
+		BatchCommittable:    traits.NewBatchCommittable(engineInstance.Storage.ThroughputQuota(), PrefixLastCommittedEpoch),
 		Initializable:       traits.NewInitializable(),
 		engine:              engineInstance,
 		totalBalanceStorage: engineInstance.Storage.ThroughputQuota(PrefixTotalBalance),

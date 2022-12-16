@@ -25,9 +25,9 @@ type BatchCommittable interface {
 }
 
 // NewBatchCommittable creates a new BatchCommittable trait.
-func NewBatchCommittable(store kvstore.KVStore) (newBatchCommittable BatchCommittable) {
+func NewBatchCommittable(store kvstore.KVStore, keyBytes ...byte) (newBatchCommittable BatchCommittable) {
 	return &batchCommittable{
-		Committable: NewCommittable(store),
+		Committable: NewCommittable(store, keyBytes...),
 	}
 }
 
