@@ -11,19 +11,18 @@ import (
 type LatestBlockTracker struct {
 	blockID models.BlockID
 	time    time.Time
-
-	m sync.RWMutex
+	mutex   sync.RWMutex
 }
 
 // New return a new LatestBlockTracker.
 func New() (newLatestBlockTracker *LatestBlockTracker) {
-	return &LatestBlockTracker{}
+	return new(LatestBlockTracker)
 }
 
 // Update updates the latest seen Block.
 func (t *LatestBlockTracker) Update(block *models.Block) {
-	t.m.Lock()
-	defer t.m.Unlock()
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
 
 	if t.time.After(block.IssuingTime()) {
 		return
@@ -35,8 +34,8 @@ func (t *LatestBlockTracker) Update(block *models.Block) {
 
 // BlockID returns the ID of the latest seen Block.
 func (t *LatestBlockTracker) BlockID() (blockID models.BlockID) {
-	t.m.RLock()
-	defer t.m.RUnlock()
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
 
 	return t.blockID
 }
