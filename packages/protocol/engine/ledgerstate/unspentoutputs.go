@@ -41,11 +41,6 @@ type UnspentOutputs struct {
 	traits.Initializable
 }
 
-type StoragePrefix struct {
-	UnspentOutputs *StoragePrefix
-	Bla            *StoragePrefix
-}
-
 const (
 	PrefixUnspentOutputsLatestCommittedIndex byte = iota
 	PrefixUnspentOutputsIDs
