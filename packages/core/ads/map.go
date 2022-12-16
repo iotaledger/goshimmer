@@ -24,15 +24,15 @@ type Map[K, V constraints.Serializable, KPtr constraints.MarshalablePtr[K], VPtr
 func NewMap[K, V constraints.Serializable, KPtr constraints.MarshalablePtr[K], VPtr constraints.MarshalablePtr[V]](store kvstore.KVStore) (newMap *Map[K, V, KPtr, VPtr]) {
 	newMap = &Map[K, V, KPtr, VPtr]{
 		store:     store,
-		keysStore: lo.PanicOnErr(store.WithExtendedRealm([]byte{rawKeyStorePrefix})),
+		keysStore: lo.PanicOnErr(store.WithExtendedRealm([]byte{PrefixRawKeysStorage})),
 		tree: smt.NewSparseMerkleTree(
-			lo.PanicOnErr(store.WithExtendedRealm([]byte{keyStorePrefix})),
-			lo.PanicOnErr(store.WithExtendedRealm([]byte{valueStorePrefix})),
+			lo.PanicOnErr(store.WithExtendedRealm([]byte{PrefixSMTKeysStorage})),
+			lo.PanicOnErr(store.WithExtendedRealm([]byte{PrefixSMTValuesStorage})),
 			lo.PanicOnErr(blake2b.New256(nil)),
 		),
 	}
 
-	existingRoot, err := store.Get([]byte{rootPrefix})
+	existingRoot, err := store.Get([]byte{PrefixRootKey})
 	if err != nil {
 		if errors.Is(err, kvstore.ErrKeyNotFound) {
 			return
@@ -72,7 +72,7 @@ func (m *Map[K, V, KPtr, VPtr]) Set(key K, value VPtr) {
 		panic(err)
 	}
 
-	if err := m.store.Set([]byte{rootPrefix}, newRoot); err != nil {
+	if err := m.store.Set([]byte{PrefixRootKey}, newRoot); err != nil {
 		panic(err)
 	}
 
@@ -93,7 +93,7 @@ func (m *Map[K, V, KPtr, VPtr]) Delete(key K) (deleted bool) {
 			panic(err)
 		}
 
-		if err := m.store.Set([]byte{rootPrefix}, newRoot); err != nil {
+		if err := m.store.Set([]byte{PrefixRootKey}, newRoot); err != nil {
 			panic(err)
 		}
 

@@ -16,7 +16,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
-	manamodels2 "github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1/manamodels"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1/manamodels"
 )
 
 var (
@@ -100,11 +100,11 @@ func sendManaValue() {
 }
 
 func sendManaMapOverall() {
-	accessManaList, _, err := manamodels2.GetHighestManaIssuers(0, deps.Protocol.Engine().ThroughputQuota.BalanceByIDs())
-	if err != nil && !errors.Is(err, manamodels2.ErrQueryNotAllowed) {
+	accessManaList, _, err := manamodels.GetHighestManaIssuers(0, deps.Protocol.Engine().ThroughputQuota.BalanceByIDs())
+	if err != nil && !errors.Is(err, manamodels.ErrQueryNotAllowed) {
 		log.Errorf("failed to get list of n highest access mana issuers: %s ", err.Error())
 	}
-	accessPayload := &ManaNetworkListBlkData{ManaType: manamodels2.AccessMana.String()}
+	accessPayload := &ManaNetworkListBlkData{ManaType: manamodels.AccessMana.String()}
 	totalAccessMana := int64(0)
 	for i := 0; i < len(accessManaList); i++ {
 		accessPayload.Issuers = append(accessPayload.Issuers, accessManaList[i].ToIssuerStr())
@@ -115,11 +115,11 @@ func sendManaMapOverall() {
 		Type: MsgTypeManaMapOverall,
 		Data: accessPayload,
 	})
-	consensusManaList, _, err := manamodels2.GetHighestManaIssuers(0, lo.PanicOnErr(deps.Protocol.Engine().SybilProtection.Weights().Map()))
-	if err != nil && !errors.Is(err, manamodels2.ErrQueryNotAllowed) {
+	consensusManaList, _, err := manamodels.GetHighestManaIssuers(0, lo.PanicOnErr(deps.Protocol.Engine().SybilProtection.Weights().Map()))
+	if err != nil && !errors.Is(err, manamodels.ErrQueryNotAllowed) {
 		log.Errorf("failed to get list of n highest consensus mana issuers: %s ", err.Error())
 	}
-	consensusPayload := &ManaNetworkListBlkData{ManaType: manamodels2.ConsensusMana.String()}
+	consensusPayload := &ManaNetworkListBlkData{ManaType: manamodels.ConsensusMana.String()}
 
 	var totalConsensusMana int64
 	for i := 0; i < len(consensusManaList); i++ {
@@ -140,7 +140,7 @@ func sendManaMapOnline() {
 	}
 	knownPeers := deps.Discover.GetVerifiedPeers()
 	manaMap := deps.Protocol.Engine().ThroughputQuota.BalanceByIDs()
-	accessPayload := &ManaNetworkListBlkData{ManaType: manamodels2.AccessMana.String()}
+	accessPayload := &ManaNetworkListBlkData{ManaType: manamodels.AccessMana.String()}
 	var totalAccessMana int64
 	for _, peerID := range append(lo.Map(knownPeers, func(p *peer.Peer) identity.ID { return p.ID() }), deps.Local.ID()) {
 		manaValue, exists := manaMap[peerID]
@@ -148,7 +148,7 @@ func sendManaMapOnline() {
 			continue
 		}
 
-		accessPayload.Issuers = append(accessPayload.Issuers, manamodels2.IssuerStr{
+		accessPayload.Issuers = append(accessPayload.Issuers, manamodels.IssuerStr{
 			ShortIssuerID: peerID.String(),
 			IssuerID:      base58.Encode(lo.PanicOnErr(peerID.Bytes())),
 			Mana:          manaValue,
@@ -162,14 +162,14 @@ func sendManaMapOnline() {
 	})
 
 	activeNodes := deps.Protocol.Engine().SybilProtection.Validators()
-	consensusPayload := &ManaNetworkListBlkData{ManaType: manamodels2.ConsensusMana.String()}
+	consensusPayload := &ManaNetworkListBlkData{ManaType: manamodels.ConsensusMana.String()}
 
 	_ = activeNodes.ForEach(func(id identity.ID) error {
 		weight, exists := deps.Protocol.Engine().SybilProtection.Weights().Weight(id)
 		if !exists {
 			weight = sybilprotection.NewWeight(0, -1)
 		}
-		consensusPayload.Issuers = append(consensusPayload.Issuers, manamodels2.Issuer{
+		consensusPayload.Issuers = append(consensusPayload.Issuers, manamodels.Issuer{
 			ID:   id,
 			Mana: weight.Value,
 		}.ToIssuerStr())
@@ -203,9 +203,9 @@ type ManaValueBlkData struct {
 
 // ManaNetworkListBlkData contains a list of mana values for issuers in the network.
 type ManaNetworkListBlkData struct {
-	ManaType  string                  `json:"manaType"`
-	TotalMana int64                   `json:"totalMana"`
-	Issuers   []manamodels2.IssuerStr `json:"nodes"`
+	ManaType  string                 `json:"manaType"`
+	TotalMana int64                  `json:"totalMana"`
+	Issuers   []manamodels.IssuerStr `json:"nodes"`
 }
 
 // endregion

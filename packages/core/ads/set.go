@@ -10,46 +10,40 @@ import (
 	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/iotaledger/hive.go/core/types"
 	"golang.org/x/crypto/blake2b"
+
+	"github.com/iotaledger/goshimmer/packages/storage/typedkey"
 )
 
 const (
-	nonEmptyLeaf         = 1
-	keyStorePrefix uint8 = iota
-	valueStorePrefix
-	rawKeyStorePrefix
-	rootPrefix
+	PrefixRawKeysStorage uint8 = iota
+	PrefixSMTKeysStorage
+	PrefixSMTValuesStorage
+	PrefixRootKey
+	PrefixSizeKey
+
+	nonEmptyLeaf = 1
 )
 
 // Set is a sparse merkle tree based set.
 type Set[K any, KPtr constraints.MarshalablePtr[K]] struct {
-	store   kvstore.KVStore
-	tree    *smt.SparseMerkleTree
-	rawKeys kvstore.KVStore
-	mutex   sync.Mutex
+	rawKeysStore kvstore.KVStore
+	tree         *smt.SparseMerkleTree
+	root         *typedkey.Bytes
+	size         *typedkey.Number[uint64]
+	mutex        sync.Mutex
 }
 
 // NewSet creates a new sparse merkle tree based set.
 func NewSet[K any, KPtr constraints.MarshalablePtr[K]](store kvstore.KVStore) (newSet *Set[K, KPtr]) {
 	newSet = &Set[K, KPtr]{
-		store: store,
+		rawKeysStore: lo.PanicOnErr(store.WithExtendedRealm([]byte{PrefixRawKeysStorage})),
 		tree: smt.NewSparseMerkleTree(
-			lo.PanicOnErr(store.WithExtendedRealm([]byte{keyStorePrefix})),
-			lo.PanicOnErr(store.WithExtendedRealm([]byte{valueStorePrefix})),
+			lo.PanicOnErr(store.WithExtendedRealm([]byte{PrefixSMTKeysStorage})),
+			lo.PanicOnErr(store.WithExtendedRealm([]byte{PrefixSMTValuesStorage})),
 			lo.PanicOnErr(blake2b.New256(nil)),
 		),
-		rawKeys: lo.PanicOnErr(store.WithExtendedRealm([]byte{rawKeyStorePrefix})),
-	}
-
-	existingRoot, err := store.Get([]byte{rootPrefix})
-	if err != nil {
-		if errors.Is(err, kvstore.ErrKeyNotFound) {
-			return
-		}
-		panic(err)
-	}
-
-	if existingRoot != nil {
-		newSet.tree.SetRoot(existingRoot)
+		root: typedkey.NewBytes(store, PrefixRootKey),
+		size: typedkey.NewNumber[uint64](store, PrefixSizeKey),
 	}
 
 	return
@@ -69,7 +63,7 @@ func (s *Set[K, KPtr]) Root() (root types.Identifier) {
 	return
 }
 
-// Add adds the output to unspent outputs set.
+// Add adds the key to the set.
 func (s *Set[K, KPtr]) Add(key K) {
 	if s == nil {
 		panic("cannot add to nil set")
@@ -78,21 +72,20 @@ func (s *Set[K, KPtr]) Add(key K) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	newRoot, err := s.tree.Update(lo.PanicOnErr(KPtr(&key).Bytes()), []byte{nonEmptyLeaf})
-	if err != nil {
-		panic(err)
+	keyBytes := lo.PanicOnErr(KPtr(&key).Bytes())
+	if s.has(keyBytes) {
+		return
 	}
 
-	if err := s.store.Set([]byte{rootPrefix}, newRoot); err != nil {
-		panic(err)
-	}
+	s.root.Set(lo.PanicOnErr(s.tree.Update(keyBytes, []byte{nonEmptyLeaf})))
+	s.size.Inc()
 
-	if err := s.rawKeys.Set(lo.PanicOnErr(KPtr(&key).Bytes()), []byte{}); err != nil {
+	if err := s.rawKeysStore.Set(keyBytes, []byte{}); err != nil {
 		panic(err)
 	}
 }
 
-// Delete removes the output ID from the ledger sparse merkle tree.
+// Delete removes the key from the set.
 func (s *Set[K, KPtr]) Delete(key K) (deleted bool) {
 	if s == nil {
 		return
@@ -102,19 +95,15 @@ func (s *Set[K, KPtr]) Delete(key K) (deleted bool) {
 	defer s.mutex.Unlock()
 
 	keyBytes := lo.PanicOnErr(KPtr(&key).Bytes())
-	if deleted, _ = s.tree.Has(keyBytes); deleted {
-		newRoot, err := s.tree.Delete(keyBytes)
-		if err != nil {
-			panic(err)
-		}
+	if deleted = s.has(keyBytes); !deleted {
+		return
+	}
 
-		if err := s.store.Set([]byte{rootPrefix}, newRoot); err != nil {
-			panic(err)
-		}
+	s.root.Set(lo.PanicOnErr(s.tree.Delete(keyBytes)))
+	s.size.Dec()
 
-		if err := s.rawKeys.Delete(lo.PanicOnErr(KPtr(&key).Bytes())); err != nil {
-			panic(err)
-		}
+	if err := s.rawKeysStore.Delete(keyBytes); err != nil {
+		panic(err)
 	}
 
 	return
@@ -122,19 +111,10 @@ func (s *Set[K, KPtr]) Delete(key K) (deleted bool) {
 
 // Has returns true if the key is in the set.
 func (s *Set[K, KPtr]) Has(key K) (has bool) {
-	if s == nil {
-		return false
-	}
-
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	has, err := s.tree.Has(lo.PanicOnErr(KPtr(&key).Bytes()))
-	if err != nil && !errors.Is(err, kvstore.ErrKeyNotFound) {
-		panic(err)
-	}
-
-	return
+	return s.has(lo.PanicOnErr(KPtr(&key).Bytes()))
 }
 
 // Stream iterates over the set and calls the callback for each element.
@@ -146,7 +126,7 @@ func (s *Set[K, KPtr]) Stream(callback func(key K) bool) (err error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	if iterationErr := s.rawKeys.Iterate([]byte{}, func(key kvstore.Key, _ kvstore.Value) bool {
+	if iterationErr := s.rawKeysStore.Iterate([]byte{}, func(key kvstore.Key, _ kvstore.Value) bool {
 		var kPtr KPtr = new(K)
 		if _, keyErr := kPtr.FromBytes(key); keyErr != nil {
 			err = errors.Errorf("failed to deserialize key %s: %w", key, keyErr)
@@ -167,13 +147,21 @@ func (s *Set[K, KPtr]) Size() (size int) {
 		return 0
 	}
 
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	return int(s.size.Get())
+}
 
-	if err := s.store.Iterate([]byte{valueStorePrefix}, func(key, value []byte) bool {
-		size++
-		return true
-	}); err != nil {
+// has returns true if the key is in the set.
+func (s *Set[K, KPtr]) has(key []byte) (has bool) {
+	if s == nil {
+		return false
+	}
+
+	has, err := s.tree.Has(key)
+	if err != nil {
+		if errors.Is(err, kvstore.ErrKeyNotFound) {
+			return false
+		}
+
 		panic(err)
 	}
 
