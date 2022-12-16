@@ -15,8 +15,8 @@ import (
 
 type LedgerState struct {
 	MemPool        *ledger.Ledger
-	StateDiffs     *StateDiffs
 	UnspentOutputs *UnspentOutputs
+	StateDiffs     *StateDiffs
 	storage        *storage.Storage
 	mutex          sync.RWMutex
 
@@ -24,14 +24,16 @@ type LedgerState struct {
 }
 
 func New(storageInstance *storage.Storage, memPool *ledger.Ledger) (ledgerState *LedgerState) {
+	unspentOutputs := NewUnspentOutputs(storageInstance.UnspentOutputIDs, memPool)
+
 	ledgerState = &LedgerState{
 		MemPool:        memPool,
+		UnspentOutputs: unspentOutputs,
 		StateDiffs:     NewStateDiffs(storageInstance, memPool),
-		UnspentOutputs: NewUnspentOutputs(storageInstance.UnspentOutputIDs, memPool),
-		storage:        storageInstance,
-	}
+		Initializable:  traits.NewInitializable(unspentOutputs.TriggerInitialized),
 
-	ledgerState.Initializable = traits.NewInitializable(ledgerState.UnspentOutputs.TriggerInitialized)
+		storage: storageInstance,
+	}
 
 	ledgerState.MemPool.Events.TransactionAccepted.Hook(event.NewClosure(ledgerState.onTransactionAccepted))
 	ledgerState.MemPool.Events.TransactionInclusionUpdated.Hook(event.NewClosure(ledgerState.onTransactionInclusionUpdated))
