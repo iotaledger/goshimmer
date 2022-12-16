@@ -90,6 +90,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 			t.Ledger = New(chainStorage, t.optsLedger...)
 
 			test.Cleanup(func() {
+				t.WaitUntilAllTasksProcessed()
 				t.Ledger.Shutdown()
 				chainStorage.Shutdown()
 			})
