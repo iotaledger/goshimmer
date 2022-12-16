@@ -18,8 +18,9 @@ type LedgerState struct {
 	MemPool        *ledger.Ledger
 	UnspentOutputs *UnspentOutputs
 	StateDiffs     *StateDiffs
-	storage        *storage.Storage
-	mutex          sync.RWMutex
+
+	storage *storage.Storage
+	mutex   sync.RWMutex
 
 	traits.Initializable
 }
