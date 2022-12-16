@@ -65,7 +65,7 @@ var EqualSnapshotDetails = framework.SnapshotInfo{
 // ConsensusSnapshotDetails defines info for consensus integration test snapshot
 var ConsensusSnapshotDetails = framework.SnapshotInfo{
 	FilePath:           "/assets/dynamic_snapshots/consensus_snapshot.bin",
-	GenesisTokenAmount: 800_000, // pledged to peer master
+	GenesisTokenAmount: 800_000, // pledged to peer 0
 	PeersSeedBase58: []string{
 		"Bk69VaYsRuiAaKn8hK6KxUj45X5dED3ueRtxfYnsh4Q8", // jnaC6ZyWuw
 		"HUH4rmxUxMZBBtHJ4QM5Ts6s8DP3HnFpChejntnCxto2", // iNvPFvkfSDp

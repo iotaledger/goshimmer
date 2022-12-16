@@ -234,7 +234,7 @@ func (l *Ledger) triggerAcceptedEvent(txMetadata *TransactionMetadata) (triggere
 			inputID := it.Next()
 			l.Storage.CachedOutputMetadata(inputID).Consume(func(outputMetadata *OutputMetadata) {
 				l.Storage.CachedOutput(inputID).Consume(func(output utxo.Output) {
-					transactionEvent.SpentOutputs = append(transactionEvent.CreatedOutputs, NewOutputWithMetadata(
+					transactionEvent.SpentOutputs = append(transactionEvent.SpentOutputs, NewOutputWithMetadata(
 						outputMetadata.InclusionEpoch(),
 						inputID,
 						output,
