@@ -15,7 +15,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/core/lastblock"
+	"github.com/iotaledger/goshimmer/packages/core/latestblocktracker"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -40,8 +40,8 @@ var (
 	// Plugin is the plugin instance of the web API info endpoint plugin.
 	Plugin             *node.Plugin
 	deps               = new(dependencies)
-	lastAcceptedBlock  = lastblock.NewTracker()
-	lastConfirmedBlock = lastblock.NewTracker()
+	lastAcceptedBlock  = latestblocktracker.New()
+	lastConfirmedBlock = latestblocktracker.New()
 )
 
 func init() {

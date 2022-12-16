@@ -22,7 +22,7 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/app/retainer"
-	"github.com/iotaledger/goshimmer/packages/core/lastblock"
+	"github.com/iotaledger/goshimmer/packages/core/latestblocktracker"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
@@ -48,8 +48,8 @@ var (
 	server *echo.Echo
 
 	nodeStartAt        = time.Now()
-	lastAcceptedBlock  = lastblock.NewTracker()
-	lastConfirmedBlock = lastblock.NewTracker()
+	lastAcceptedBlock  = latestblocktracker.New()
+	lastConfirmedBlock = latestblocktracker.New()
 )
 
 type dependencies struct {
