@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
-// LatestBlockTracker is a component that tracks ID of the latest seen Block.
+// LatestBlockTracker is a component that tracks the ID of the latest Block.
 type LatestBlockTracker struct {
 	blockID models.BlockID
 	time    time.Time
