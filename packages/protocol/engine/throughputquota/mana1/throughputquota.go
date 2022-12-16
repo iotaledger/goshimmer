@@ -135,9 +135,7 @@ func (m *ThroughputQuota) ApplyCreatedOutput(output *ledger.OutputWithMetadata) 
 		m.updateMana(output.AccessManaPledgeID(), int64(iotaBalance))
 
 		if !m.engine.LedgerState.UnspentOutputs.WasInitialized() {
-			m.totalBalance += int64(iotaBalance)
-			serializableTotalBalance := storable.SerializableInt64(m.totalBalance)
-			totalBalanceBytes, serializationErr := serializableTotalBalance.Bytes()
+			totalBalanceBytes, serializationErr := storable.SerializableInt64(m.updateTotalBalance(int64(iotaBalance))).Bytes()
 			if serializationErr != nil {
 				return errors.Errorf("failed to serialize total balance: %w", serializationErr)
 			}
@@ -192,4 +190,14 @@ func (m *ThroughputQuota) updateMana(id identity.ID, diff int64) {
 		m.quotaByIDCache.Delete(id)
 		m.quotaByIDStorage.Delete(id)
 	}
+}
+
+func (m *ThroughputQuota) updateTotalBalance(delta int64) (newTotalBalance int64) {
+	m.totalBalanceMutex.Lock()
+	defer m.totalBalanceMutex.Unlock()
+
+	newTotalBalance = m.totalBalance + delta
+	m.totalBalance = newTotalBalance
+
+	return
 }
