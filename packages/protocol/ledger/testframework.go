@@ -87,9 +87,12 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 	}, opts, func(t *TestFramework) {
 		if t.Ledger == nil {
 			chainStorage := storage.New(test.TempDir(), 1)
-			test.Cleanup(chainStorage.Shutdown)
-
 			t.Ledger = New(chainStorage, t.optsLedger...)
+
+			test.Cleanup(func() {
+				t.Ledger.Shutdown()
+				chainStorage.Shutdown()
+			})
 		}
 
 		genesisOutput := NewMockedOutput(utxo.EmptyTransactionID, 0)
