@@ -13,6 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
+// LedgerState represents the state of the ledger.
 type LedgerState struct {
 	MemPool        *ledger.Ledger
 	UnspentOutputs *UnspentOutputs
@@ -23,6 +24,7 @@ type LedgerState struct {
 	traits.Initializable
 }
 
+// New creates a new ledger state.
 func New(storageInstance *storage.Storage, memPool *ledger.Ledger) (ledgerState *LedgerState) {
 	unspentOutputs := NewUnspentOutputs(storageInstance.UnspentOutputIDs, memPool)
 
@@ -41,6 +43,32 @@ func New(storageInstance *storage.Storage, memPool *ledger.Ledger) (ledgerState 
 	return
 }
 
+// ApplyStateDiff applies the state diff of the given epoch to the ledger state.
+func (l *LedgerState) ApplyStateDiff(index epoch.Index) (err error) {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
+	lastCommittedEpoch, err := l.UnspentOutputs.Begin(index)
+	if err != nil {
+		return errors.Errorf("failed to begin unspent outputs: %w", err)
+	} else if lastCommittedEpoch == index {
+		return
+	}
+
+	if err = l.StateDiffs.StreamCreatedOutputs(index, l.UnspentOutputs.ApplyCreatedOutput); err != nil {
+		return errors.Errorf("failed to apply created outputs: %w", err)
+	}
+
+	if err = l.StateDiffs.StreamSpentOutputs(index, l.UnspentOutputs.ApplySpentOutput); err != nil {
+		return errors.Errorf("failed to apply spent outputs: %w", err)
+	}
+
+	<-l.UnspentOutputs.Commit().Done()
+
+	return
+}
+
+// Import imports the ledger state from the given reader.
 func (l *LedgerState) Import(reader io.ReadSeeker) (err error) {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
@@ -91,6 +119,7 @@ func (l *LedgerState) Import(reader io.ReadSeeker) (err error) {
 	return
 }
 
+// Export exports the ledger state to the given writer.
 func (l *LedgerState) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (err error) {
 	l.mutex.RLock()
 	defer l.mutex.RUnlock()
@@ -102,35 +131,6 @@ func (l *LedgerState) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (er
 	if err = l.StateDiffs.Export(writer, targetEpoch); err != nil {
 		return errors.Errorf("failed to export state diffs: %w", err)
 	}
-
-	return
-}
-
-func (l *LedgerState) ApplyStateDiff(targetEpoch epoch.Index) (err error) {
-	l.mutex.Lock()
-	defer l.mutex.Unlock()
-
-	return l.applyStateDiff(targetEpoch)
-}
-
-// applyStateDiff applies the stateDiff for the given index to get to that epoch.
-func (l *LedgerState) applyStateDiff(index epoch.Index) (err error) {
-	lastCommittedEpoch, err := l.UnspentOutputs.Begin(index)
-	if err != nil {
-		return errors.Errorf("failed to begin unspent outputs: %w", err)
-	} else if lastCommittedEpoch == index {
-		return
-	}
-
-	if err = l.StateDiffs.StreamCreatedOutputs(index, l.UnspentOutputs.ApplyCreatedOutput); err != nil {
-		return errors.Errorf("failed to apply created outputs: %w", err)
-	}
-
-	if err = l.StateDiffs.StreamSpentOutputs(index, l.UnspentOutputs.ApplySpentOutput); err != nil {
-		return errors.Errorf("failed to apply spent outputs: %w", err)
-	}
-
-	<-l.UnspentOutputs.Commit().Done()
 
 	return
 }
@@ -158,6 +158,7 @@ func (l *LedgerState) rollbackStateDiff(index epoch.Index) (err error) {
 	return
 }
 
+// onTransactionAccepted is triggered when a transaction is accepted by the mempool.
 func (l *LedgerState) onTransactionAccepted(event *ledger.TransactionEvent) {
 	if err := l.StateDiffs.addAcceptedTransaction(event.Metadata); err != nil {
 		// TODO: handle error gracefully
@@ -165,6 +166,7 @@ func (l *LedgerState) onTransactionAccepted(event *ledger.TransactionEvent) {
 	}
 }
 
+// onTransactionInclusionUpdated is triggered when a transaction inclusion state is updated.
 func (l *LedgerState) onTransactionInclusionUpdated(event *ledger.TransactionInclusionUpdatedEvent) {
 	if l.MemPool.ConflictDAG.ConfirmationState(event.TransactionMetadata.ConflictIDs()).IsAccepted() {
 		l.StateDiffs.moveTransactionToOtherEpoch(event.TransactionMetadata, event.PreviousInclusionEpoch, event.InclusionEpoch)
