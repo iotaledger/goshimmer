@@ -16,11 +16,13 @@ const (
 	cfgEnable  = "enable"
 	cfgImif    = "imif"
 	cfgUnit    = "unit"
+
+	defaultRate = 100
 )
 
 func init() {
 	flag.StringSlice(cfgNodeURI, []string{"http://127.0.0.1:8080"}, "the URI of the node APIs")
-	flag.Int(cfgRate, 100, "spam count in blocks per time unit")
+	flag.Int(cfgRate, defaultRate, "spam count in blocks per time unit")
 	flag.Bool(cfgEnable, false, "enable/disable spammer")
 	flag.String(cfgImif, "uniform", "inter block issuing function: uniform or poisson")
 	flag.String(cfgUnit, "mps", "time unit of the spam rate: mpm or mps")

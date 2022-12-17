@@ -157,14 +157,13 @@ func readPeerIP() (net.IP, error) {
 }
 
 // inits the peer database, returns a bool indicating whether the database is new.
-func initPeerDB() (*peer.DB, kvstore.KVStore, bool, error) {
-	if err := checkValidPeerDBPath(); err != nil {
-		return nil, nil, false, err
+func initPeerDB() (peerDB *peer.DB, peerDBKVStore kvstore.KVStore, isNewDB bool, err error) {
+	if err = checkValidPeerDBPath(); err != nil {
+		return nil, nil, false, fmt.Errorf("invalid peer database path: %w", err)
 	}
 
-	isNewDB, err := isPeerDBNew()
-	if err != nil {
-		return nil, nil, false, err
+	if isNewDB, err = isPeerDBNew(); err != nil {
+		return nil, nil, false, fmt.Errorf("unable to check whether peer database is new: %w", err)
 	}
 
 	db, err := database.NewDB(Parameters.PeerDBDirectory)
@@ -172,19 +171,19 @@ func initPeerDB() (*peer.DB, kvstore.KVStore, bool, error) {
 		return nil, nil, false, fmt.Errorf("error creating peer database: %s", err)
 	}
 
-	peerDBKVStore, err := db.NewStore().WithExtendedRealm([]byte{database.PrefixPeer})
-	if err != nil {
+	if peerDBKVStore, err = db.NewStore().WithExtendedRealm([]byte{database.PrefixPeer}); err != nil {
 		return nil, nil, false, fmt.Errorf("error creating peer store: %w", err)
 	}
-	peerDB, err := peer.NewDB(peerDBKVStore)
-	if err != nil {
+
+	if peerDB, err = peer.NewDB(peerDBKVStore); err != nil {
 		return nil, nil, false, fmt.Errorf("error creating peer database: %w", err)
 	}
+
 	if db == nil {
 		return nil, nil, false, fmt.Errorf("couldn't create peer database; nil")
 	}
 
-	return peerDB, peerDBKVStore, isNewDB, nil
+	return
 }
 
 // checks whether the peer database is new by examining whether the directory

@@ -222,24 +222,28 @@ func (t *TestFramework) setupEvents() {
 	}))
 }
 
+// ModelsTestFramework is an alias that it is used to be able to embed a named version of the TestFramework.
 type ModelsTestFramework = models.TestFramework
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// WithEvictionState returns an option that sets the eviction state of the TestFramework.
 func WithEvictionState(evictionState *eviction.State) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.evictionState = evictionState
 	}
 }
 
+// WithBlockDAGOptions returns an option that sets the BlockDAGOptions of the TestFramework.
 func WithBlockDAGOptions(opts ...options.Option[BlockDAG]) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.optsBlockDAG = opts
 	}
 }
 
+// WithBlockDAG returns an option that allows you to provide a BlockDAG instance to the TestFramework.
 func WithBlockDAG(blockDAG *BlockDAG) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.BlockDAG = blockDAG

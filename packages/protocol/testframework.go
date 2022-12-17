@@ -24,6 +24,8 @@ import (
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
 
+const genesisTokenAmount = 100
+
 type TestFramework struct {
 	Network  *network.MockedNetwork
 	Protocol *Protocol
@@ -47,8 +49,8 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 			t.Protocol.Shutdown()
 		})
 
-		snapshotcreator.CreateSnapshot(DatabaseVersion, diskUtil.Path("snapshot.bin"), 100, make([]byte, 32), map[identity.ID]uint64{
-			identity.New(ed25519.GenerateKeyPair().PublicKey).ID(): 100,
+		snapshotcreator.CreateSnapshot(DatabaseVersion, diskUtil.Path("snapshot.bin"), genesisTokenAmount, make([]byte, ed25519.SeedSize), map[identity.ID]uint64{
+			identity.New(ed25519.GenerateKeyPair().PublicKey).ID(): genesisTokenAmount,
 		})
 
 		t.Protocol = New(t.Network.Join(identity.GenerateIdentity().ID()), append(t.optsProtocolOptions, WithSnapshotPath(diskUtil.Path("snapshot.bin")), WithBaseDirectory(diskUtil.Path()))...)
