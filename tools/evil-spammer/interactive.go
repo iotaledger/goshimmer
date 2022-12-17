@@ -689,7 +689,7 @@ func (m *Mode) updateSentStatistic(spammer *evilspammer.Spammer, id int) {
 	m.scenariosSent.Add(scenariosCreated)
 }
 
-// load the config file
+// load the config file.
 func (m *Mode) loadConfig() {
 	// open config file
 	file, err := os.Open("config.json")

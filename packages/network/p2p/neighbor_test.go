@@ -76,7 +76,6 @@ func TestNeighborWrite(t *testing.T) {
 }
 
 func newTestNeighbor(name string, stream network.Stream, packetReceivedFunc ...PacketReceivedFunc) *Neighbor {
-
 	var packetReceived PacketReceivedFunc
 	if len(packetReceivedFunc) > 0 {
 		packetReceived = packetReceivedFunc[0]

@@ -71,7 +71,7 @@ func runManaFeed() {
 	}
 }
 
-// region Websocket block sending handlers (live updates)
+// region Websocket block sending handlers (live updates).
 func sendManaValue() {
 	ownID := deps.Local.ID()
 	access, exists := deps.Protocol.Engine().ThroughputQuota.Balance(ownID)

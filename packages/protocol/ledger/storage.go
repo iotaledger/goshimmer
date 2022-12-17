@@ -275,7 +275,6 @@ func (s *Storage) pruneTransaction(txID utxo.TransactionID, pruneFutureCone bool
 
 				s.OutputStorage.Delete(outputIDBytes)
 				s.OutputMetadataStorage.Delete(outputIDBytes)
-
 			}
 
 			if pruneFutureCone {

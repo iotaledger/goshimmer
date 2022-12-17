@@ -60,7 +60,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 			storageInstance.Shutdown()
 		})
 
-		// set MinCommittableEpochAge to genesis so nothing is commited.
+		// set MinCommittableEpochAge to genesis so nothing is committed.
 		t.engine = engine.New(storageInstance, dpos.NewProvider(), mana1.NewProvider(), engine.WithNotarizationManagerOptions(notarization.MinCommittableEpochAge(time.Since(time.Unix(epoch.GenesisTime, 0)))), engine.WithTangleOptions(t.optsTangleOptions...))
 
 		t.TestFramework = tangle.NewTestFramework(

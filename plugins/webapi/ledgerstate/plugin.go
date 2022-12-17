@@ -498,7 +498,7 @@ func GetTransactionAttachments(c echo.Context) (err error) {
 
 // conflictIDFromContext determines the ConflictID from the conflictID parameter in an echo.Context. It expects it to either
 // be a base58 encoded string or one of the builtin aliases (MasterConflictID, LazyBookedConflictsConflictID or
-// InvalidConflictID)
+// InvalidConflictID).
 func conflictIDFromContext(c echo.Context) (conflictID utxo.TransactionID, err error) {
 	switch conflictIDString := c.Param("conflictID"); conflictIDString {
 	case "MasterConflictID":

@@ -249,7 +249,7 @@ func (t *TestFramework) AssertConflictDAG(expectedParents map[string][]string) {
 
 // AssertConflicts asserts conflict membership from conflictID -> conflicts but also the reverse mapping conflict -> conflictIDs.
 // expectedConflictAliases should be specified as
-// "output.0": {"conflict1", "conflict2"}
+// "output.0": {"conflict1", "conflict2"}.
 func (t *TestFramework) AssertConflicts(expectedConflictsAliases map[string][]string) {
 	// Conflict -> conflictIDs.
 	ConflictResources := make(map[utxo.TransactionID]*set.AdvancedSet[utxo.OutputID])
@@ -468,8 +468,10 @@ func (m *MockedTransaction) Type() payload.Type {
 }
 
 // code contract (make sure the struct implements all required methods).
-var _ utxo.Transaction = new(MockedTransaction)
-var _ payload.Payload = new(MockedTransaction)
+var (
+	_ utxo.Transaction = new(MockedTransaction)
+	_ payload.Payload  = new(MockedTransaction)
+)
 
 // _uniqueEssenceCounter contains a counter that is used to generate unique TransactionIDs.
 var _uniqueEssenceCounter uint64

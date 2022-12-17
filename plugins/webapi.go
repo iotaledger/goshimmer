@@ -32,7 +32,7 @@ var WebAPI = node.Plugins(
 	epoch.Plugin,
 	mana.Plugin,
 	ledgerstate.Plugin,
-	//snapshot.Plugin,
+	// snapshot.Plugin,
 	weightprovider.Plugin,
 	ratesetter.Plugin,
 	scheduler.Plugin,

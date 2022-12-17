@@ -51,7 +51,6 @@ func TestScheduler_AddBlock(t *testing.T) {
 	assert.True(t, schedulerBlock.IsDropped(), "block should be dropped")
 	tf.AssertBlocksDropped(1)
 	tf.AssertBlocksSkipped(0)
-
 }
 
 func TestScheduler_Submit(t *testing.T) {

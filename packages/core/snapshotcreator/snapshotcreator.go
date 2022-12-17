@@ -31,7 +31,7 @@ import (
 // | ------ | ------------ |
 // | empty  | genesisSeed  |
 // | node1  | empty/burned |
-// | node2  | empty/burned |
+// | node2  | empty/burned |.
 func CreateSnapshot(databaseVersion database.Version, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge map[identity.ID]uint64) {
 	s := storage.New(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), databaseVersion)
 
@@ -82,7 +82,7 @@ func CreateSnapshot(databaseVersion database.Version, snapshotFileName string, g
 // | ----------- | ----------- |
 // | empty       | genesisSeed  |
 // | node1       | node1       |
-// | node2       | node2       |
+// | node2       | node2       |.
 func CreateSnapshotForIntegrationTest(s *storage.Storage, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge *orderedmap.OrderedMap[identity.ID, uint64], startSynced bool) {
 	if err := s.Commitments.Store(&commitment.Commitment{}); err != nil {
 		panic(err)

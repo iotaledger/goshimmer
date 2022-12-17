@@ -128,7 +128,7 @@ func TestLedger_BookInOrder(t *testing.T) {
 	}
 }
 
-// See scenario at img/ledger_test_SetConflictConfirmed.png
+// See scenario at img/ledger_test_SetConflictConfirmed.png.
 func TestLedger_SetConflictConfirmed(t *testing.T) {
 	testFramework := NewTestFramework(t)
 

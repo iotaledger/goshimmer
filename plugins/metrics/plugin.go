@@ -316,5 +316,4 @@ func registerLocalMetrics() {
 	deps.Protocol.ChainManager().Events.MissingCommitmentReceived.Attach(onMissingCommitmentReceived)
 	deps.Protocol.ChainManager().Events.CommitmentMissing.Attach(onCommitmentMissing)
 	deps.Protocol.ChainManager().Events.ForkDetected.Attach(onForkDetected)
-
 }

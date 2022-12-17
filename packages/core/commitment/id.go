@@ -24,7 +24,7 @@ type ID struct {
 
 func NewID(index epoch.Index, idBytes []byte) (newCommitmentID ID) {
 	newCommitmentID.EpochIndex = index
-	copy(newCommitmentID.Identifier[:], idBytes[:])
+	copy(newCommitmentID.Identifier[:], idBytes)
 
 	return
 }

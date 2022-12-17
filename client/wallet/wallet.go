@@ -1818,7 +1818,7 @@ func (wallet *Wallet) WaitForTxAcceptance(txID utxo.TransactionID, optionalCtx .
 	for {
 		select {
 		case <-ctx.Done():
-			return errors.Errorf("context cancelled")
+			return errors.Errorf("context canceled")
 		case <-ticker.C:
 			timeoutCounter += wallet.ConfirmationPollInterval
 			confirmationState, fetchErr := wallet.connector.GetTransactionConfirmationState(txID)

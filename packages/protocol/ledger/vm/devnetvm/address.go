@@ -15,7 +15,7 @@ import (
 	"github.com/iotaledger/hive.go/core/stringify"
 )
 
-//nolint:dupl
+
 func init() {
 	err := serix.DefaultAPI.RegisterTypeSettings(ED25519Address{}, serix.TypeSettings{}.WithObjectType(uint8(new(ED25519Address).Type())))
 	if err != nil {
@@ -225,7 +225,7 @@ func (e *ED25519Address) String() string {
 	)
 }
 
-// code contract (make sure the struct implements all required methods)
+// code contract (make sure the struct implements all required methods).
 var _ Address = &ED25519Address{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -315,7 +315,7 @@ func (b *BLSAddress) String() string {
 	)
 }
 
-// code contract (make sure the struct implements all required methods)
+// code contract (make sure the struct implements all required methods).
 var _ Address = &BLSAddress{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

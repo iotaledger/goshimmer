@@ -17,7 +17,7 @@ type QuickTestParams struct {
 	EnableRateSetter      bool
 }
 
-// QuickTest runs short spamming periods with stable mps
+// QuickTest runs short spamming periods with stable mps.
 func QuickTest(params *QuickTestParams) {
 	evilWallet := evilwallet.NewEvilWallet(params.ClientUrls...)
 	counter := evilspammer.NewErrorCount()

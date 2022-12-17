@@ -199,7 +199,7 @@ func (s *SequenceManager) createSequenceIfNecessary(structureDetails *StructureD
 	return true, s.createSequence(structureDetails.PastMarkers())
 }
 
-// createSequenceIfNecessary is an internal utility function that creates a new Sequence
+// createSequenceIfNecessary is an internal utility function that creates a new Sequence.
 func (s *SequenceManager) createSequence(referencedMarkers *Markers) (firstMarker Marker) {
 	s.sequenceIDCounterMutex.Lock()
 	newSequence := NewSequence(s.sequenceIDCounter, referencedMarkers)

@@ -6,11 +6,12 @@ import (
 
 	"github.com/cockroachdb/errors"
 
+	"github.com/iotaledger/hive.go/core/generics/lo"
+
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/storable"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
-	"github.com/iotaledger/hive.go/core/generics/lo"
 )
 
 type Commitments struct {

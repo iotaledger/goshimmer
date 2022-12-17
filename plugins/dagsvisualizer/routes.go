@@ -36,7 +36,7 @@ const (
 
 func indexRoute(e echo.Context) error {
 	if Parameters.Dev {
-		req, err := http.NewRequestWithContext(e.Request().Context(), "GET", "http://"+Parameters.DevBindAddress, nil)
+		req, err := http.NewRequestWithContext(e.Request().Context(), "GET", "http://"+Parameters.DevBindAddress, http.NoBody)
 		if err != nil {
 			return err
 		}

@@ -108,7 +108,7 @@ func configureGossipIntegration() {
 			Plugin.Logger().Debugw("error dropping neighbor", "id", ev.DroppedID, "err", err)
 		}
 	}))
-	// We need to allocate synchronously the resources to accomodate incoming stream requests.
+	// We need to allocate synchronously the resources to accommodate incoming stream requests.
 	deps.Selection.Events().IncomingPeering.Hook(event.NewClosure(func(ev *selection.PeeringEvent) {
 		if !ev.Status {
 			return // ignore rejected peering

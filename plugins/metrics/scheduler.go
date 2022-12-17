@@ -20,7 +20,7 @@ var (
 	// bufferSize number of bytes waiting to be scheduled.
 	bufferSize int
 
-	// schedulerDeficit deficit value
+	// schedulerDeficit deficit value.
 	schedulerDeficit float64
 	// maxBufferSize maximum number of blocks can be stored in the buffer.
 	maxBufferSize int

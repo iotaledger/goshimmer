@@ -158,11 +158,10 @@ func createTestTangleOrphanage(tf *TestFramework) {
 		tf.IssueBlocks("Marker-0/1").WaitUntilAllTasksProcessed()
 		lastMsgAlias = issueBlocks(tf, "0/1-preTSC", 10, []string{"Marker-0/1"}, time.Minute*6)
 		lastMsgAlias = issueBlocks(tf, "0/1-postTSC", 1, []string{lastMsgAlias}, 0)
-
 	}
 
 	// SEQUENCE 1
-	{ //nolint:dupl
+	{ 
 		lastMsgAlias = issueBlocks(tf, "0/1-preTSCSeq1", 10, []string{"Marker-0/1"}, time.Minute*6)
 		lastMsgAlias = issueBlocks(tf, "0/1-postTSCSeq1", 5, []string{lastMsgAlias}, time.Second*15)
 	}

@@ -368,7 +368,7 @@ func WithConsumerCacheTime(consumerCacheTime time.Duration) (option options.Opti
 	}
 }
 
-// WithConflictDAGOptions is an Option for the Ledger that allows to configure the optionsLedger for the ConflictDAG
+// WithConflictDAGOptions is an Option for the Ledger that allows to configure the optionsLedger for the ConflictDAG.
 func WithConflictDAGOptions(conflictDAGOptions ...conflictdag.Option) (option options.Option[Ledger]) {
 	return func(options *Ledger) {
 		options.optConflictDAG = conflictDAGOptions

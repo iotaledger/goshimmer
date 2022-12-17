@@ -199,7 +199,7 @@ func (m *Manager) PruneUntilEpoch(index epoch.Index) {
 
 	currentPrunedIndex := m.setMaxPruned(baseIndexToPrune)
 	for currentPrunedIndex+epoch.Index(m.optsGranularity) <= baseIndexToPrune {
-		currentPrunedIndex = currentPrunedIndex + epoch.Index(m.optsGranularity)
+		currentPrunedIndex += epoch.Index(m.optsGranularity)
 		m.prune(currentPrunedIndex)
 	}
 }

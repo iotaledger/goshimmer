@@ -153,7 +153,7 @@ func ParseHeartbeat(data []byte) (*Heartbeat, error) {
 }
 
 // NewHeartbeatBlock serializes the given heartbeat into a byte slice and adds a tlv header to the packet.
-// block = tlv header + serialized packet
+// block = tlv header + serialized packet.
 func NewHeartbeatBlock(hb *Heartbeat) ([]byte, error) {
 	if len(hb.NetworkID) > HeartbeatPacketMaxNetworkIDBytesSize {
 		return nil, fmt.Errorf("%w: heartbeat exceeds maximum length of NetworkID of %d ", ErrInvalidHeartbeat, HeartbeatPacketMaxNetworkIDBytesSize)

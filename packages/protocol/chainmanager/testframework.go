@@ -104,7 +104,6 @@ func (t *TestFramework) AssertChainState(chains map[string]string) {
 
 		require.NotNil(t.test, chain)
 		require.Equal(t.test, t.EC(chainAlias), chain.ForkingPoint.ID())
-
 	}
 
 	for chainAlias, commitmentAliases := range commitmentsByChainAlias {

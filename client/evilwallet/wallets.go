@@ -18,12 +18,14 @@ import (
 type walletID int
 
 // WalletType is the type of the wallet.
-type WalletType int8
-type WalletStatus int8
+type (
+	WalletType   int8
+	WalletStatus int8
+)
 
 const (
 	Other WalletType = iota
-	// Fresh is used for automatic Faucet Requests, outputs are returned one by one
+	// Fresh is used for automatic Faucet Requests, outputs are returned one by one.
 	Fresh
 	// Reuse stores resulting outputs of double spends or transactions issued by the evilWallet,
 	// outputs from this wallet are reused in spamming scenario with flag reuse set to true and no RestrictedReuse wallet provided.
@@ -145,7 +147,7 @@ func (w *Wallets) addReuseWallet(wallet *Wallet) {
 	w.reuseWallets[wallet.ID] = false
 }
 
-// GetUnspentOutput gets first found unspent output for a given walletType
+// GetUnspentOutput gets first found unspent output for a given walletType.
 func (w *Wallets) GetUnspentOutput(wallet *Wallet) *Output {
 	if wallet == nil {
 		return nil

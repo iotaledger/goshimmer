@@ -399,7 +399,7 @@ func (e *EvilWallet) CreateTransaction(options ...Option) (tx *devnetvm.Transact
 	return
 }
 
-// addOutputsToOutputManager adds output to the OutputManager if
+// addOutputsToOutputManager adds output to the OutputManager if.
 func (e *EvilWallet) addOutputsToOutputManager(tx *devnetvm.Transaction, outWallet, tmpWallet *Wallet, tempAddresses map[devnetvm.Address]types.Empty) {
 	for _, o := range tx.Essence().Outputs() {
 		if _, ok := tempAddresses[o.Address()]; ok {
@@ -615,7 +615,6 @@ func (e *EvilWallet) updateOutputBalances(buildOptions *Options) (err error) {
 	}
 	totalBalance := uint64(0)
 	if !buildOptions.isBalanceProvided() {
-
 		if buildOptions.areInputsProvidedWithoutAliases() {
 			for _, input := range buildOptions.inputs {
 				// get balance from output manager

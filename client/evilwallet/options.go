@@ -13,7 +13,7 @@ import (
 
 // region Options ///////////////////////////////////////////////////////////////////////////
 
-// Options is a struct that represents a collection of options that can be set when creating a block
+// Options is a struct that represents a collection of options that can be set when creating a block.
 type Options struct {
 	aliasInputs            map[string]types.Empty
 	inputs                 []utxo.OutputID

@@ -218,7 +218,7 @@ func (m *Manager) processEpochBlocksRequestPacket(packetEpochRequest *wp.Packet_
 	ec.FromBytes(packetEpochRequest.EpochBlocksRequest.GetEC())
 	ecID := ec.ID()
 
-	//m.log.Debugw("received epoch blocks request", "peer", nbr.Peer.ID(), "Index", ei, "ID", ec)
+	// m.log.Debugw("received epoch blocks request", "peer", nbr.Peer.ID(), "Index", ei, "ID", ec)
 
 	commitment, _ := m.commitmentManager.Commitment(ecID)
 	if commitment == nil {

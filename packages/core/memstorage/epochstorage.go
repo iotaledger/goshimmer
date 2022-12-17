@@ -49,5 +49,4 @@ func (e *EpochStorage[K, V]) Get(index epoch.Index, createIfMissing ...bool) (st
 	e.cache.Set(index, storage)
 
 	return storage
-
 }

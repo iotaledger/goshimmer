@@ -107,7 +107,6 @@ func TestRetainer_BlockMetadata_NonEvicted(t *testing.T) {
 }
 
 func TestRetainer_BlockMetadata_Evicted(t *testing.T) {
-
 	protocolTF := protocol.NewTestFramework(t)
 	protocolTF.Protocol.Run()
 	tangleTF := tangle.NewTestFramework(t, tangle.WithTangle(protocolTF.Protocol.Engine().Tangle))

@@ -24,7 +24,7 @@ type IssuerStr struct {
 	Mana          int64  `json:"mana"`
 }
 
-// ToIssuerStr converts a Issuer to a Nodestr
+// ToIssuerStr converts a Issuer to a Nodestr.
 func (n Issuer) ToIssuerStr() IssuerStr {
 	return IssuerStr{
 		ShortIssuerID: n.ID.String(),

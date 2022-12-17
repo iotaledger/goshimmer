@@ -2,9 +2,8 @@ package prometheus
 
 import (
 	"fmt"
-	"github.com/iotaledger/goshimmer/plugins/metrics"
-	"github.com/prometheus/client_golang/prometheus"
 	"strconv"
+
 )
 
 var (

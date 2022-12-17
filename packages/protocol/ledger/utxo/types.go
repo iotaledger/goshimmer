@@ -167,7 +167,7 @@ func (o OutputID) Base58() (base58Encoded string) {
 	return base58.Encode(lo.PanicOnErr(o.Bytes()))
 }
 
-// Length returns number of bytes of OutputID
+// Length returns number of bytes of OutputID.
 func (o OutputID) Length() int {
 	return o.TransactionID.Length() + serializer.UInt16ByteSize
 }

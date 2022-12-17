@@ -11,7 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/core/stringify"
 )
 
-//nolint:dupl
+
 func init() {
 	err := serix.DefaultAPI.RegisterTypeSettings(AliasUnlockBlock{}, serix.TypeSettings{}.WithObjectType(uint8(new(AliasUnlockBlock).Type())))
 	if err != nil {
@@ -38,7 +38,7 @@ func init() {
 	}
 }
 
-// region UnlockBlockType. //////////////////////////////////////////////////////////////////////////////////////////////
+// region UnlockBlockType. //////////////////////////////////////////////////////////////////////////////////////////////.
 const (
 	// SignatureUnlockBlockType represents the type of a SignatureUnlockBlock.
 	SignatureUnlockBlockType UnlockBlockType = iota
@@ -152,7 +152,7 @@ func (s *SignatureUnlockBlock) Signature() Signature {
 	return s.M.Signature
 }
 
-// code contract (make sure the type implements all required methods)
+// code contract (make sure the type implements all required methods).
 var _ UnlockBlock = &SignatureUnlockBlock{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -195,7 +195,7 @@ func (r *ReferenceUnlockBlock) Type() UnlockBlockType {
 	return ReferenceUnlockBlockType
 }
 
-// code contract (make sure the type implements all required methods)
+// code contract (make sure the type implements all required methods).
 var _ UnlockBlock = &ReferenceUnlockBlock{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

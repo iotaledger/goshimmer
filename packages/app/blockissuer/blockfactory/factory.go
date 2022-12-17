@@ -181,7 +181,7 @@ func (f *Factory) issuingTime(parents models.ParentBlockIDs) time.Time {
 	issuingTime := time.Now()
 
 	parents.ForEach(func(parent models.Parent) {
-		if parentBlock, exists := f.blockRetriever(parent.ID); exists && !parentBlock.IssuingTime().Before(issuingTime) {
+		if parentBlock, exists := f.blockRetriever(parent.ID); exists && parentBlock.IssuingTime().After(issuingTime) {
 			// TODO: this depends on the time resolution that we serialize to. If nanoseconds we could add a nanosecond.
 			issuingTime = parentBlock.IssuingTime().Add(time.Second)
 		}

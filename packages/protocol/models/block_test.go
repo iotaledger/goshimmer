@@ -86,7 +86,6 @@ func BenchmarkSerixMemLeak(b *testing.B) {
 		runtime.GC()
 		PrintMemUsage("final")
 	}
-
 }
 
 func MemStats() runtime.MemStats {

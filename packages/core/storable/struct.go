@@ -35,7 +35,6 @@ func (s *Struct[A, B]) FromFile(fileName ...string) (err error) {
 	filePath := s.filePath
 	if len(fileName) > 0 {
 		filePath = fileName[0]
-
 	}
 
 	readBytes, err := ioutil.ReadFile(filePath)

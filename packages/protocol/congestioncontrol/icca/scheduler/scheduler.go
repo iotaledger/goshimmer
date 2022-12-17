@@ -485,7 +485,7 @@ func (s *Scheduler) selectIssuer(start *IssuerQueue, manaMap map[identity.ID]int
 	for q := start; ; {
 		block := q.Front()
 
-		for block != nil && !time.Now().Before(block.IssuingTime()) {
+		for block != nil && time.Now().After(block.IssuingTime()) {
 			if s.isBlockAcceptedFunc(block.ID()) && time.Since(block.IssuingTime()) > s.optsAcceptedBlockScheduleThreshold {
 				block.SetSkipped()
 				s.Events.BlockSkipped.Trigger(block)
