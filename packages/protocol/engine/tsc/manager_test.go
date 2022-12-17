@@ -21,11 +21,9 @@ func TestOrphanageManager_orphanBeforeTSC(t *testing.T) {
 	tf := NewTestFramework(t, WithTSCManagerOptions(WithTimeSinceConfirmationThreshold(30*time.Second)))
 
 	now := time.Now()
-	blocks := make([]*blockdag.Block, 0, 20)
 	for i := 0; i < 20; i++ {
 		alias := fmt.Sprintf("blk-%d", i)
 		block := blockdag.NewBlock(tf.CreateBlock(alias, models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithIssuingTime(now.Add(time.Duration(i)*time.Second))), blockdag.WithSolid(true))
-		blocks = append(blocks, block)
 		heap.Push(&tf.Manager.unacceptedBlocks, &generalheap.HeapElement[timed.HeapKey, *blockdag.Block]{Key: timed.HeapKey(block.IssuingTime()), Value: block})
 	}
 
@@ -161,7 +159,7 @@ func createTestTangleOrphanage(tf *TestFramework) {
 	}
 
 	// SEQUENCE 1
-	{ 
+	{
 		lastMsgAlias = issueBlocks(tf, "0/1-preTSCSeq1", 10, []string{"Marker-0/1"}, time.Minute*6)
 		lastMsgAlias = issueBlocks(tf, "0/1-postTSCSeq1", 5, []string{lastMsgAlias}, time.Second*15)
 	}

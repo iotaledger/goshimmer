@@ -1812,9 +1812,9 @@ func (o *ExtendedLockedOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBl
 
 	switch blk := unlockBlock.(type) {
 	case *SignatureUnlockBlock:
-		txBytes, err := tx.Essence().Bytes()
-		if err != nil {
-			return false, errors.Wrap(err, "could not get essence bytes")
+		txBytes, txBytesErr := tx.Essence().Bytes()
+		if txBytesErr != nil {
+			return false, errors.Wrap(txBytesErr, "could not get essence bytes")
 		}
 		// unlocking by signature
 		unlockValid = blk.AddressSignatureValid(addr, txBytes)

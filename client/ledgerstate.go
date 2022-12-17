@@ -2,7 +2,6 @@ package client
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 )

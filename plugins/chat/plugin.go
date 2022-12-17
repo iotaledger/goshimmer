@@ -48,22 +48,13 @@ func configure(_ *node.Plugin) {
 }
 
 func onReceiveBlockFromBlockLayer(block *booker.Block) {
-	var chatEvent *chat.BlockReceivedEvent
-	if block.Payload().Type() != chat.Type {
-		return
+	if chatPayload, ok := block.Payload().(*chat.Payload); ok {
+		deps.Chat.Events.BlockReceived.Trigger(&chat.BlockReceivedEvent{
+			From:      chatPayload.From(),
+			To:        chatPayload.To(),
+			Block:     chatPayload.Block(),
+			Timestamp: block.IssuingTime(),
+			BlockID:   block.ID().Base58(),
+		})
 	}
-	chatPayload := block.Payload().(*chat.Payload)
-	chatEvent = &chat.BlockReceivedEvent{
-		From:      chatPayload.From(),
-		To:        chatPayload.To(),
-		Block:     chatPayload.Block(),
-		Timestamp: block.IssuingTime(),
-		BlockID:   block.ID().Base58(),
-	}
-
-	if chatEvent == nil {
-		return
-	}
-
-	deps.Chat.Events.BlockReceived.Trigger(chatEvent)
 }

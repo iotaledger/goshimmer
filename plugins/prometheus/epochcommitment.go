@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/iotaledger/goshimmer/plugins/metrics"
 )
 
 var (
