@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 
 	"github.com/mr-tron/base58"
@@ -48,7 +48,7 @@ func execCreateNFTCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 		}
 		defer file.Close()
 
-		data, err = ioutil.ReadAll(file)
+		data, err = io.ReadAll(file)
 		if err != nil {
 			printUsage(command, err.Error())
 		}

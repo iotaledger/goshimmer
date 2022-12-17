@@ -62,15 +62,17 @@ func processFaucetRequest(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, jsonmodels.FaucetAPIResponse{Error: "Invalid consensus mana node ID"})
 	}
 
-	consensusManaPledgeID, err = identity.DecodeIDBase58(request.ConsensusManaPledgeID)
-	accessManaPledgeID, err = identity.DecodeIDBase58(request.AccessManaPledgeID)
-
-	faucetPayload := faucetpkg.NewRequest(addr, accessManaPledgeID, consensusManaPledgeID, request.Nonce)
-
-	err = faucet.OnWebAPIRequest(faucetPayload)
-
-	if err != nil {
+	if consensusManaPledgeID, err = identity.DecodeIDBase58(request.ConsensusManaPledgeID); err != nil {
 		return c.JSON(http.StatusOK, jsonmodels.FaucetAPIResponse{Success: false, Error: err.Error()})
 	}
+
+	if accessManaPledgeID, err = identity.DecodeIDBase58(request.AccessManaPledgeID); err != nil {
+		return c.JSON(http.StatusOK, jsonmodels.FaucetAPIResponse{Success: false, Error: err.Error()})
+	}
+
+	if err = faucet.OnWebAPIRequest(faucetpkg.NewRequest(addr, accessManaPledgeID, consensusManaPledgeID, request.Nonce)); err != nil {
+		return c.JSON(http.StatusOK, jsonmodels.FaucetAPIResponse{Success: false, Error: err.Error()})
+	}
+
 	return c.JSON(http.StatusOK, jsonmodels.FaucetAPIResponse{Success: true})
 }

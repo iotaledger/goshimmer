@@ -62,12 +62,12 @@ func (p *Printer) printBanner() {
 
 func (p *Printer) EvilWalletStatus() {
 	p.PrintTopLine()
-	p.Println(p.colorString("Evil Wallet status:", "cyan"), 2)
-	p.PrintlnPoint(fmt.Sprintf("Available faucet outputs: %d", p.mode.evilWallet.UnspentOutputsLeft(evilwallet.Fresh)), 2)
-	p.PrintlnPoint(fmt.Sprintf("Available reuse outputs: %d", p.mode.evilWallet.UnspentOutputsLeft(evilwallet.Reuse)), 2)
-	p.PrintlnPoint(fmt.Sprintf("Spammed blocks: %d", p.mode.blkSent.Load()), 2)
-	p.PrintlnPoint(fmt.Sprintf("Spammed transactions: %d", p.mode.txSent.Load()), 2)
-	p.PrintlnPoint(fmt.Sprintf("Spammed scenario batches: %d", p.mode.scenariosSent.Load()), 2)
+	p.Println(p.colorString("Evil Wallet status:", "cyan"), indentationWidth)
+	p.PrintlnPoint(fmt.Sprintf("Available faucet outputs: %d", p.mode.evilWallet.UnspentOutputsLeft(evilwallet.Fresh)), indentationWidth)
+	p.PrintlnPoint(fmt.Sprintf("Available reuse outputs: %d", p.mode.evilWallet.UnspentOutputsLeft(evilwallet.Reuse)), indentationWidth)
+	p.PrintlnPoint(fmt.Sprintf("Spammed blocks: %d", p.mode.blkSent.Load()), indentationWidth)
+	p.PrintlnPoint(fmt.Sprintf("Spammed transactions: %d", p.mode.txSent.Load()), indentationWidth)
+	p.PrintlnPoint(fmt.Sprintf("Spammed scenario batches: %d", p.mode.scenariosSent.Load()), indentationWidth)
 
 	p.PrintLine()
 	fmt.Println()
@@ -80,10 +80,10 @@ func (p *Printer) SpammerSettings() {
 	}
 	p.PrintTopLine()
 	p.Println(p.colorString("Current settings:", "cyan"), 1)
-	p.PrintlnPoint(fmt.Sprintf("Scenario: %s", p.mode.Config.Scenario), 2)
-	p.PrintlnPoint(fmt.Sprintf("Deep: %v, Reuse: %v", p.mode.Config.Deep, p.mode.Config.Reuse), 2)
-	p.PrintlnPoint(fmt.Sprintf("Use rate-setter: %v", p.mode.Config.UseRateSetter), 2)
-	p.PrintlnPoint(fmt.Sprintf("Rate: %d%s, Duration: %d[s]", p.mode.Config.Rate, rateUnit, int(p.mode.Config.duration.Seconds())), 2)
+	p.PrintlnPoint(fmt.Sprintf("Scenario: %s", p.mode.Config.Scenario), indentationWidth)
+	p.PrintlnPoint(fmt.Sprintf("Deep: %v, Reuse: %v", p.mode.Config.Deep, p.mode.Config.Reuse), indentationWidth)
+	p.PrintlnPoint(fmt.Sprintf("Use rate-setter: %v", p.mode.Config.UseRateSetter), indentationWidth)
+	p.PrintlnPoint(fmt.Sprintf("Rate: %d%s, Duration: %d[s]", p.mode.Config.Rate, rateUnit, int(p.mode.Config.duration.Seconds())), indentationWidth)
 	p.PrintLine()
 	fmt.Println()
 }
@@ -97,21 +97,21 @@ func (p *Printer) FarewellBlock() {
 func (p *Printer) FundsWarning() {
 	p.Println(p.colorString("Not enough fresh faucet outputs in the wallet to spam!", "red"), 1)
 	if p.mode.preparingFunds {
-		p.PrintlnPoint(p.colorString("Funds are currently prepared, wait until outputs will be available.", "yellow"), 2)
+		p.PrintlnPoint(p.colorString("Funds are currently prepared, wait until outputs will be available.", "yellow"), indentationWidth)
 	} else {
-		p.PrintlnPoint(p.colorString("Request more outputs manually with 'Prepare faucet funds' option in main menu.", "yellow"), 2)
-		p.PrintlnPoint(p.colorString("You can also enable auto funds requesting in the settings.", "yellow"), 2)
+		p.PrintlnPoint(p.colorString("Request more outputs manually with 'Prepare faucet funds' option in main menu.", "yellow"), indentationWidth)
+		p.PrintlnPoint(p.colorString("You can also enable auto funds requesting in the settings.", "yellow"), indentationWidth)
 	}
 	fmt.Println()
 }
 
 func (p *Printer) UrlWarning() {
-	p.Println(p.colorString("Could not connect to provided API endpoint, client not added.", "yellow"), 2)
+	p.Println(p.colorString("Could not connect to provided API endpoint, client not added.", "yellow"), indentationWidth)
 	fmt.Println()
 }
 
 func (p *Printer) UrlExists() {
-	p.Println(p.colorString("The url already exists.", "red"), 2)
+	p.Println(p.colorString("The url already exists.", "red"), indentationWidth)
 	fmt.Println()
 }
 
@@ -122,14 +122,14 @@ func (p *Printer) DevNetFundsWarning() {
 }
 
 func (p *Printer) NotEnoughClientsWarning(numOfClient int) {
-	p.Println(p.colorString(fmt.Sprintf("Warning: At least %d clients is recommended if double spends are not allowed from the same node.", numOfClient), "red"), 2)
+	p.Println(p.colorString(fmt.Sprintf("Warning: At least %d clients is recommended if double spends are not allowed from the same node.", numOfClient), "red"), indentationWidth)
 	fmt.Println()
 }
 
 func (p *Printer) clients() {
 	p.Println(p.colorString("Provided clients:", "cyan"), 1)
 	for url := range p.mode.Config.clientUrls {
-		p.PrintlnPoint(url, 2)
+		p.PrintlnPoint(url, indentationWidth)
 	}
 }
 
@@ -161,9 +161,9 @@ func (p *Printer) Settings() {
 }
 
 func (p *Printer) MaxSpamWarning() {
-	p.Println("", 2)
+	p.Println("", indentationWidth)
 	p.Println(p.colorString("Cannot spam. Maximum number of concurrent spams achieved.", "red"), 1)
-	p.Println("", 2)
+	p.Println("", indentationWidth)
 	fmt.Println()
 }
 
@@ -176,7 +176,7 @@ func (p *Printer) CurrentSpams() {
 		details := p.mode.spammerLog.SpamDetails(id)
 		startTime := p.mode.spammerLog.StartTime(id)
 		endTime := startTime.Add(details.duration)
-		timeLeft := int(endTime.Sub(time.Now()).Seconds())
+		timeLeft := int(time.Until(endTime).Seconds())
 		lines = append(lines, fmt.Sprintf("ID: %d, scenario: %s, time left: %d [s]", id, details.Scenario, timeLeft))
 	}
 	if len(lines) == 0 {
@@ -185,7 +185,7 @@ func (p *Printer) CurrentSpams() {
 	}
 	p.Println(p.colorString("Currently active spammers:", "green"), 1)
 	for _, line := range lines {
-		p.PrintlnPoint(line, 2)
+		p.PrintlnPoint(line, indentationWidth)
 	}
 	p.PrintLine()
 	fmt.Println()
@@ -200,54 +200,56 @@ func (p *Printer) History() {
 }
 
 func (p *Printer) ClientNotFoundWarning(id int) {
-	p.Println("", 2)
+	p.Println("", indentationWidth)
 	p.Println(p.colorString(fmt.Sprintf("No spam with id %d found. Nothing removed.", id), "red"), 1)
-	p.Println("", 2)
+	p.Println("", indentationWidth)
 
 	fmt.Println()
 }
 
 func (p *Printer) NoActiveSpammer() {
-	p.Println("", 2)
-	p.Println(p.colorString(fmt.Sprintf("No active spammers."), "red"), 1)
-	p.Println("", 2)
+	p.Println("", indentationWidth)
+	p.Println(p.colorString("No active spammers.", "red"), 1)
+	p.Println("", indentationWidth)
 
 	fmt.Println()
 }
 
 func (p *Printer) FundsCurrentlyPreparedWarning() {
-	p.Println("", 2)
+	p.Println("", indentationWidth)
 	p.Println(p.colorString("Funds are currently prepared. Try again later.", "red"), 1)
-	p.Println("", 2)
+	p.Println("", indentationWidth)
 	fmt.Println()
 }
 
 func (p *Printer) StartedPreparingBlock(numToPrepareStr string) {
-	p.Println("", 2)
+	p.Println("", indentationWidth)
 	p.Println(p.colorString("Start preparing "+numToPrepareStr+" faucet outputs.", "green"), 1)
-	p.Println("", 2)
+	p.Println("", indentationWidth)
 	fmt.Println()
 }
 
 func (p *Printer) SpammerStartedBlock() {
-	p.Println("", 2)
+	p.Println("", indentationWidth)
 	p.Println(p.colorString("Spammer started", "green"), 1)
-	p.Println("", 2)
+	p.Println("", indentationWidth)
 	fmt.Println()
 }
 
 func (p *Printer) AutoRequestingEnabled() {
-	p.Println("", 2)
+	p.Println("", indentationWidth)
 	p.Println(p.colorString(fmt.Sprintf("Automatic funds requesting enabled. %s outputs will be requested whenever output amout will go below %d.", p.mode.Config.AutoRequestingAmount, minSpamOutputs), "green"), 1)
 	p.Println(p.colorString("The size of the request can be changed in the config file. Possible values: '100', '10000'", "yellow"), 1)
-	p.Println("", 2)
+	p.Println("", indentationWidth)
 }
 
 func (p *Printer) RateSetterEnabled() {
-	p.Println("", 2)
-	p.Println(p.colorString(fmt.Sprintf("Enable waiting the rate-setter estimate."), "green"), 1)
+	p.Println("", indentationWidth)
+	p.Println(p.colorString("Enable waiting the rate-setter estimate.", "green"), 1)
 	p.Println(p.colorString(" Enabling this will force the spammer to sleep certain amount of time based on node's rate-setter estimate.", "yellow"), 1)
-	p.Println("", 2)
+	p.Println("", indentationWidth)
 }
+
+const indentationWidth = 2
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

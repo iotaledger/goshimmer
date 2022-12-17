@@ -862,7 +862,6 @@ func (s *SpammerLog) LogHistory(lastLines int, writer io.Writer) {
 			spam.Deep, spam.Deep, spam.Rate, int(spam.duration.Seconds()))
 	}
 	w.Flush()
-	return
 }
 
 func (s *SpammerLog) LogSelected(lines []int, writer io.Writer) {
@@ -877,7 +876,6 @@ func (s *SpammerLog) LogSelected(lines []int, writer io.Writer) {
 			spam.Deep, spam.Deep, spam.Rate, int(spam.duration.Seconds()))
 	}
 	w.Flush()
-	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

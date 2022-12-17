@@ -1,7 +1,6 @@
 package evilspammer
 
 import (
-	"fmt"
 	"math/rand"
 	"sync"
 	"time"
@@ -19,7 +18,7 @@ func DataSpammingFunction(s *Spammer) {
 	if err := evilwallet.RateSetterSleep(clt, s.UseRateSetter); err != nil {
 		s.ErrCounter.CountError(err)
 	}
-	blkID, err := clt.PostData([]byte(fmt.Sprintf("SPAM")))
+	blkID, err := clt.PostData([]byte("SPAM"))
 	if err != nil {
 		s.ErrCounter.CountError(ErrFailSendDataBlock)
 	}

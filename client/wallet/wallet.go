@@ -988,6 +988,7 @@ func (wallet Wallet) SweepNFTOwnedFunds(options ...sweepnftownedoptions.SweepNFT
 	}
 	if _, has := stateControlled[*sweepOptions.Alias]; !has {
 		err = errors.Errorf("nft %s is not state controlled by the wallet", sweepOptions.Alias.Base58())
+		return
 	}
 	// look up if we have the alias output. Only the state controller can modify balances in aliases.
 	walletAlias, err := wallet.findStateControlledAliasOutputByAliasID(sweepOptions.Alias)
@@ -1134,6 +1135,7 @@ func (wallet *Wallet) SweepNFTOwnedNFTs(options ...sweepnftownednftsoptions.Swee
 	}
 	if _, has := stateControlled[*sweepOptions.Alias]; !has {
 		err = errors.Errorf("nft %s is not state controlled by the wallet", sweepOptions.Alias.Base58())
+		return
 	}
 	// look up if we have the alias output. Only the state controller can modify balances in aliases.
 	walletAlias, err := wallet.findStateControlledAliasOutputByAliasID(sweepOptions.Alias)
@@ -1147,6 +1149,7 @@ func (wallet *Wallet) SweepNFTOwnedNFTs(options ...sweepnftownednftsoptions.Swee
 	}
 	if len(owned) == 0 {
 		err = errors.Errorf("no owned outputs with funds are found on nft %s", sweepOptions.Alias.Base58())
+		return
 	}
 	toBeConsumed := devnetvm.Outputs{}
 	// owned contains all outputs that are owned by nft. we want to filter out non alias outputs

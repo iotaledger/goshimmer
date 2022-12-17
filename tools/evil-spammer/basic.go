@@ -208,9 +208,8 @@ func SpamNestedConflicts(wallet *evilwallet.EvilWallet, rate int, timeUnit, dura
 		evilspammer.WithRateSetter(enableRateSetter),
 		evilspammer.WithEvilScenario(scenario),
 	}
-	spammer = evilspammer.NewSpammer(options...)
 
-	return
+	return evilspammer.NewSpammer(options...)
 }
 
 func SpamBlocks(wallet *evilwallet.EvilWallet, rate int, timeUnit, duration time.Duration, numBlkToSend int, enableRateSetter bool) *evilspammer.Spammer {

@@ -224,7 +224,6 @@ func (s *Spammer) PostTransaction(tx *devnetvm.Transaction, clt evilwallet.Clien
 
 	count := s.State.txSent.Add(1)
 	s.log.Debugf("Last transaction sent, ID: %s, txCount: %d", txID.String(), count)
-	return
 }
 
 func (s *Spammer) handleSolidityForReuseOutputs(clt evilwallet.Client, tx *devnetvm.Transaction) (ok bool) {

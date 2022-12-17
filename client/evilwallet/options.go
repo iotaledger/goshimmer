@@ -135,9 +135,7 @@ func WithInputs(inputs interface{}) Option {
 		case utxo.OutputID:
 			options.inputs = append(options.inputs, in)
 		case []utxo.OutputID:
-			for _, input := range in {
-				options.inputs = append(options.inputs, input)
-			}
+			options.inputs = append(options.inputs, in...)
 		}
 	}
 }

@@ -35,7 +35,6 @@ func (a *AliasManager) AddOutputAlias(output devnetvm.Output, aliasName string) 
 	defer a.mu.Unlock()
 
 	a.outputMap[aliasName] = output
-	return
 }
 
 // AddInputAlias adds an input alias.
@@ -44,7 +43,6 @@ func (a *AliasManager) AddInputAlias(input devnetvm.Input, aliasName string) {
 	defer a.mu.Unlock()
 
 	a.inputMap[aliasName] = input
-	return
 }
 
 // GetInput returns the input for the alias specified.
