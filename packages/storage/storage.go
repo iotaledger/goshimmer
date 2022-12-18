@@ -5,10 +5,10 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
-	"github.com/iotaledger/goshimmer/packages/core/diskutil"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/storage/permanent"
 	"github.com/iotaledger/goshimmer/packages/storage/prunable"
+	"github.com/iotaledger/goshimmer/packages/storage/utils"
 )
 
 // Storage is an abstraction around the storage layer of the node.
@@ -28,7 +28,7 @@ func New(directory string, version database.Version, opts ...options.Option[data
 	databaseManager := database.NewManager(version, append(opts, database.WithBaseDir(directory))...)
 
 	return &Storage{
-		Permanent: permanent.New(diskutil.New(directory, true), databaseManager),
+		Permanent: permanent.New(utils.NewDirectory(directory, true), databaseManager),
 		Prunable:  prunable.New(databaseManager),
 
 		databaseManager: databaseManager,

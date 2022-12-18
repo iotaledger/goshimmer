@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/core/kvstore"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
-	"github.com/iotaledger/goshimmer/packages/core/diskutil"
+	"github.com/iotaledger/goshimmer/packages/storage/utils"
 )
 
 const (
@@ -29,10 +29,10 @@ type Permanent struct {
 	throughputQuota  kvstore.KVStore
 }
 
-func New(disk *diskutil.DiskUtil, database *database.Manager) (p *Permanent) {
+func New(dir *utils.Directory, database *database.Manager) (p *Permanent) {
 	return &Permanent{
-		Settings:       NewSettings(disk.Path("settings.bin")),
-		Commitments:    NewCommitments(disk.Path("commitments.bin")),
+		Settings:       NewSettings(dir.Path("settings.bin")),
+		Commitments:    NewCommitments(dir.Path("commitments.bin")),
 		UnspentOutputs: lo.PanicOnErr(database.PermanentStorage().WithExtendedRealm([]byte{unspentOutputsPrefix})),
 
 		unspentOutputIDs: lo.PanicOnErr(database.PermanentStorage().WithExtendedRealm([]byte{unspentOutputIDsPrefix})),
