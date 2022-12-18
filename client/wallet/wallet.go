@@ -229,15 +229,15 @@ func (wallet *Wallet) ConsolidateFunds(options ...consolidateoptions.Consolidate
 
 		tx := devnetvm.NewTransaction(txEssence, unlockBlocks)
 
-		txBytes, txBytesErr := tx.Bytes()
-		if txBytesErr != nil {
-			return nil, txBytesErr
+		txBytes, bytesErr := tx.Bytes()
+		if bytesErr != nil {
+			return nil, bytesErr
 		}
 
 		// check syntactical validity by marshaling an unmarshalling
 		tx = new(devnetvm.Transaction)
-		if err = tx.FromBytes(txBytes); err != nil {
-			return nil, err
+		if fromBytesErr := tx.FromBytes(txBytes); fromBytesErr != nil {
+			return nil, fromBytesErr
 		}
 		// check tx validity (balances, unlock blocks)
 		ok, cErr := checkBalancesAndUnlocks(inputsAsOutputsInOrder, tx)
@@ -249,18 +249,19 @@ func (wallet *Wallet) ConsolidateFunds(options ...consolidateoptions.Consolidate
 		}
 
 		wallet.markOutputsAndAddressesSpent(consumedOutputs)
-		if err = wallet.connector.SendTransaction(tx); err != nil {
-			return nil, err
+		if sendErr := wallet.connector.SendTransaction(tx); sendErr != nil {
+			return nil, sendErr
 		}
+
 		txs = append(txs, tx)
 		if consolidateOptions.WaitForConfirmation {
-			if err = wallet.WaitForTxAcceptance(tx.ID()); err != nil {
-				return txs, err
+			if acceptanceErr := wallet.WaitForTxAcceptance(tx.ID()); acceptanceErr != nil {
+				return txs, acceptanceErr
 			}
 		}
 	}
 
-	return txs, err
+	return txs, nil
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

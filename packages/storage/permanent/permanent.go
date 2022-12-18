@@ -29,16 +29,16 @@ type Permanent struct {
 	throughputQuota  kvstore.KVStore
 }
 
-func New(dir *utils.Directory, database *database.Manager) (p *Permanent) {
+func New(dir *utils.Directory, db *database.Manager) (p *Permanent) {
 	return &Permanent{
 		Settings:       NewSettings(dir.Path("settings.bin")),
 		Commitments:    NewCommitments(dir.Path("commitments.bin")),
-		UnspentOutputs: lo.PanicOnErr(database.PermanentStorage().WithExtendedRealm([]byte{unspentOutputsPrefix})),
+		UnspentOutputs: lo.PanicOnErr(db.PermanentStorage().WithExtendedRealm([]byte{unspentOutputsPrefix})),
 
-		unspentOutputIDs: lo.PanicOnErr(database.PermanentStorage().WithExtendedRealm([]byte{unspentOutputIDsPrefix})),
-		attestations:     lo.PanicOnErr(database.PermanentStorage().WithExtendedRealm([]byte{attestationsPrefix})),
-		sybilProtection:  lo.PanicOnErr(database.PermanentStorage().WithExtendedRealm([]byte{consensusWeightsPrefix})),
-		throughputQuota:  lo.PanicOnErr(database.PermanentStorage().WithExtendedRealm([]byte{throughputQuotaPrefix})),
+		unspentOutputIDs: lo.PanicOnErr(db.PermanentStorage().WithExtendedRealm([]byte{unspentOutputIDsPrefix})),
+		attestations:     lo.PanicOnErr(db.PermanentStorage().WithExtendedRealm([]byte{attestationsPrefix})),
+		sybilProtection:  lo.PanicOnErr(db.PermanentStorage().WithExtendedRealm([]byte{consensusWeightsPrefix})),
+		throughputQuota:  lo.PanicOnErr(db.PermanentStorage().WithExtendedRealm([]byte{throughputQuotaPrefix})),
 	}
 }
 

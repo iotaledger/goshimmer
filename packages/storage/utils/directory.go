@@ -14,7 +14,7 @@ type Directory struct {
 // NewDirectory creates a new directory at the given path.
 func NewDirectory(path string, createIfMissing ...bool) (newDirectory *Directory) {
 	if len(createIfMissing) > 0 && createIfMissing[0] {
-		if err := ioutils.CreateDirectory(path, 0o755); err != nil {
+		if err := ioutils.CreateDirectory(path, defaultPermissions); err != nil {
 			panic(err)
 		}
 	}
@@ -28,3 +28,5 @@ func NewDirectory(path string, createIfMissing ...bool) (newDirectory *Directory
 func (d *Directory) Path(relativePathElements ...string) (path string) {
 	return filepath.Join(append([]string{d.path}, relativePathElements...)...)
 }
+
+const defaultPermissions = 0o755
