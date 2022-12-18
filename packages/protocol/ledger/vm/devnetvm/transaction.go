@@ -26,7 +26,7 @@ import (
 var TransactionType payload.Type
 
 func init() {
-	TransactionType = payload.NewType(1337, "TransactionType")
+	TransactionType = payload.NewType(payload.TypeTransaction, "TransactionType")
 
 	err := serix.DefaultAPI.RegisterTypeSettings(Transaction{}, serix.TypeSettings{}.WithObjectType(uint32(new(Transaction).Type())))
 	if err != nil {

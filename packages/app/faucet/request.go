@@ -27,8 +27,7 @@ func init() {
 
 const (
 	// ObjectName defines the name of the faucet object (payload).
-	ObjectName  = "faucet"
-	payloadType = 2
+	ObjectName = "faucet"
 )
 
 // Payload represents a faucet request which contains an address for the faucet to send funds to.
@@ -46,7 +45,7 @@ type requestModel struct {
 
 // RequestType represents the identifier for the faucet Payload type.
 var (
-	RequestType = payload.NewType(payloadType, ObjectName)
+	RequestType = payload.NewType(payload.TypeFaucetRequest, ObjectName)
 )
 
 // NewRequest is the constructor of a Payload and creates a new Payload object from the given details.

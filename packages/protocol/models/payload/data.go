@@ -20,7 +20,7 @@ func init() {
 }
 
 // GenericDataPayloadType is the Type of a generic GenericDataPayload.
-var GenericDataPayloadType = NewType(0, "GenericDataPayloadType")
+var GenericDataPayloadType = NewType(TypeGenericData, "GenericDataPayloadType")
 
 // GenericDataPayload represents a payload which just contains a blob of data.
 type GenericDataPayload struct {

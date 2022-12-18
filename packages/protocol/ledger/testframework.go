@@ -425,6 +425,26 @@ var _ utxo.Output = new(MockedOutput)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// region MockedTransactionType ////////////////////////////////////////////////////////////////////////////////////////
+
+// MockedTransactionType represents the payload Type of mocked Transactions.
+var MockedTransactionType payload.Type
+
+func init() {
+	MockedTransactionType = payload.NewType(payload.TypeMockedTransaction, "MockedTransactionType")
+
+	err := serix.DefaultAPI.RegisterTypeSettings(MockedTransaction{}, serix.TypeSettings{}.WithObjectType(uint32(new(MockedTransaction).Type())))
+	if err != nil {
+		panic(fmt.Errorf("error registering Transaction type settings: %w", err))
+	}
+	err = serix.DefaultAPI.RegisterInterfaceObjects((*payload.Payload)(nil), new(MockedTransaction))
+	if err != nil {
+		panic(fmt.Errorf("error registering Transaction as Payload interface: %w", err))
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // region MockedTransaction ////////////////////////////////////////////////////////////////////////////////////////////
 
 // MockedTransaction is the type that is used to describe instructions how to modify the ledger state for MockedVM.
@@ -464,7 +484,7 @@ func (m *MockedTransaction) Inputs() (inputs []utxo.Input) {
 
 // Type returns the type of the Transaction.
 func (m *MockedTransaction) Type() payload.Type {
-	return 44
+	return MockedTransactionType
 }
 
 // code contract (make sure the struct implements all required methods).

@@ -51,8 +51,6 @@ func (t *TestFramework) SetBlock(alias string, block *Block) {
 	block.ID().RegisterAlias(alias)
 
 	t.blocksByAlias[alias] = block
-
-	return
 }
 
 // Block retrieves the Blocks that is associated with the given alias.
