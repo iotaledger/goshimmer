@@ -67,8 +67,6 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) AddSupp
 	if added, opinionChanged := votesObj.Add(vote); added && opinionChanged {
 		c.Events.VoterAdded.Trigger(&VoterEvent[ConflictIDType]{Voter: voterID, ConflictID: forkedConflictID})
 	}
-
-	return
 }
 
 func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) applyVotes(defaultVote *votes.Vote[ConflictIDType, VotePowerType], conflictIDs *set.AdvancedSet[ConflictIDType]) (collectedEvents []*VoterEvent[ConflictIDType]) {
