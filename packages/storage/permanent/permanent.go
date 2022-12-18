@@ -29,6 +29,7 @@ type Permanent struct {
 	throughputQuota  kvstore.KVStore
 }
 
+// New returns a new permanent storage instance.
 func New(dir *utils.Directory, db *database.Manager) (p *Permanent) {
 	return &Permanent{
 		Settings:       NewSettings(dir.Path("settings.bin")),

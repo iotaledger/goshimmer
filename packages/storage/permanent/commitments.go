@@ -88,8 +88,8 @@ func (c *Commitments) Import(reader io.ReadSeeker) (err error) {
 		}
 
 		newCommitment := new(commitment.Commitment)
-		if consumedBytes, err := newCommitment.FromBytes(commitmentBytes); err != nil {
-			return errors.Errorf("failed to parse commitment of epoch %d: %w", epochIndex, err)
+		if consumedBytes, fromBytesErr := newCommitment.FromBytes(commitmentBytes); fromBytesErr != nil {
+			return errors.Errorf("failed to parse commitment of epoch %d: %w", epochIndex, fromBytesErr)
 		} else if consumedBytes != commitmentSize {
 			return errors.Errorf("failed to read commitment of epoch %d: consumed bytes (%d) != expected bytes (%d)", epochIndex, consumedBytes, commitmentSize)
 		}

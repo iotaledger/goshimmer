@@ -250,7 +250,9 @@ func (p *Printer) RateSetterEnabled() {
 	p.Println("", level2)
 }
 
-const level1 = 1
-const level2 = 2
+const (
+	level1 = 1
+	level2 = 2
+)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
