@@ -61,13 +61,13 @@ func TestFactory_IssuePayload(t *testing.T) {
 	assert.Equal(t, localIdentity.PublicKey(), createdBlock.IssuerPublicKey())
 	// issuingTime
 	assert.Equal(t, createdBlock.IssuingTime(), block1.IssuingTime().Add(time.Second))
-	assert.EqualValues(t, 1337, createdBlock.SequenceNumber())
+	assert.EqualValues(t, 0, createdBlock.SequenceNumber())
 	assert.Equal(t, lo.PanicOnErr(pay.Bytes()), lo.PanicOnErr(createdBlock.Payload().Bytes()))
 	assert.Equal(t, ecRecord.Index(), createdBlock.Commitment().Index())
 	assert.Equal(t, ecRecord.RootsID(), createdBlock.Commitment().RootsID())
 	assert.Equal(t, ecRecord.PrevID(), createdBlock.Commitment().PrevID())
 	assert.Equal(t, confirmedEpochIndex, createdBlock.LatestConfirmedEpoch())
-	assert.EqualValues(t, 42, createdBlock.Nonce())
+	assert.EqualValues(t, 0, createdBlock.Nonce())
 
 	signatureValid, err := createdBlock.VerifySignature()
 	require.NoError(t, err)
