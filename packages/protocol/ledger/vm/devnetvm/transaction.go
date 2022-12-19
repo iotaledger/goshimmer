@@ -18,6 +18,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
+	"github.com/iotaledger/goshimmer/packages/protocol/models/payloadtype"
 )
 
 // region TransactionType //////////////////////////////////////////////////////////////////////////////////////////////
@@ -26,7 +27,7 @@ import (
 var TransactionType payload.Type
 
 func init() {
-	TransactionType = payload.NewType(payload.TypeTransaction, "TransactionType")
+	TransactionType = payload.NewType(payloadtype.Transaction, "TransactionType")
 
 	err := serix.DefaultAPI.RegisterTypeSettings(Transaction{}, serix.TypeSettings{}.WithObjectType(uint32(new(Transaction).Type())))
 	if err != nil {

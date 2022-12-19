@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
+	"github.com/iotaledger/goshimmer/packages/protocol/models/payloadtype"
 )
 
 func init() {
@@ -45,7 +46,7 @@ type requestModel struct {
 
 // RequestType represents the identifier for the faucet Payload type.
 var (
-	RequestType = payload.NewType(payload.TypeFaucetRequest, ObjectName)
+	RequestType = payload.NewType(payloadtype.FaucetRequest, ObjectName)
 )
 
 // NewRequest is the constructor of a Payload and creates a new Payload object from the given details.

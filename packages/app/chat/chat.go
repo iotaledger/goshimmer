@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/core/serix"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
+	"github.com/iotaledger/goshimmer/packages/protocol/models/payloadtype"
 )
 
 func init() {
@@ -59,7 +60,7 @@ func NewPayload(from, to, block string) *Payload {
 }
 
 // Type represents the identifier which addresses the chat payload type.
-var Type = payload.NewType(payload.TypeChat, PayloadName)
+var Type = payload.NewType(payloadtype.Chat, PayloadName)
 
 // Type returns the type of the Payload.
 func (p *Payload) Type() payload.Type {

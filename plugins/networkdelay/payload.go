@@ -9,6 +9,7 @@ import (
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
+	"github.com/iotaledger/goshimmer/packages/protocol/models/payloadtype"
 )
 
 func init() {
@@ -71,7 +72,7 @@ func (p *Payload) SentTime() int64 {
 // region Payload implementation ///////////////////////////////////////////////////////////////////////////////////////
 
 // Type represents the identifier which addresses the network delay Payload type.
-var Type = payload.NewType(payload.TypeNetworkDelay, PayloadName)
+var Type = payload.NewType(payloadtype.NetworkDelay, PayloadName)
 
 // Type returns the type of the Payload.
 func (p *Payload) Type() payload.Type {

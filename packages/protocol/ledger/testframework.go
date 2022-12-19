@@ -24,6 +24,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
+	"github.com/iotaledger/goshimmer/packages/protocol/models/payloadtype"
 	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
@@ -536,7 +537,7 @@ func WithLedger(ledger *Ledger) options.Option[TestFramework] {
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 func init() {
-	MockedTransactionType = payload.NewType(payload.TypeMockedTransaction, "MockedTransactionType")
+	MockedTransactionType = payload.NewType(payloadtype.MockedTransaction, "MockedTransactionType")
 
 	if err := serix.DefaultAPI.RegisterTypeSettings(MockedTransaction{}, serix.TypeSettings{}.WithObjectType(uint32(new(MockedTransaction).Type()))); err != nil {
 		panic(fmt.Errorf("error registering Transaction type settings: %w", err))
