@@ -41,9 +41,11 @@ func TestProtocol(t *testing.T) {
 	endpoint1 := testNetwork.Join(identity.GenerateIdentity().ID())
 	diskUtil1 := diskutil.New(t.TempDir())
 
-	snapshotcreator.CreateSnapshot(DatabaseVersion, diskUtil1.Path("snapshot.bin"), 100, make([]byte, 32), map[identity.ID]uint64{
+	identitiesWeights := map[identity.ID]uint64{
 		identity.GenerateIdentity().ID(): 100,
-	})
+	}
+
+	snapshotcreator.CreateSnapshot(DatabaseVersion, diskUtil1.Path("snapshot.bin"), 100, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights))
 
 	protocol1 := New(endpoint1, WithBaseDirectory(diskUtil1.Path()), WithSnapshotPath(diskUtil1.Path("snapshot.bin")))
 	protocol1.Run()
@@ -72,9 +74,7 @@ func TestProtocol(t *testing.T) {
 	endpoint2 := testNetwork.Join(identity.GenerateIdentity().ID())
 	diskUtil2 := diskutil.New(t.TempDir())
 
-	snapshotcreator.CreateSnapshot(DatabaseVersion, diskUtil2.Path("snapshot.bin"), 100, make([]byte, 32), map[identity.ID]uint64{
-		identity.GenerateIdentity().ID(): 100,
-	})
+	snapshotcreator.CreateSnapshot(DatabaseVersion, diskUtil2.Path("snapshot.bin"), 100, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights))
 
 	protocol2 := New(endpoint2, WithBaseDirectory(diskUtil2.Path()), WithSnapshotPath(diskUtil2.Path("snapshot.bin")))
 	protocol2.Run()
@@ -125,7 +125,7 @@ func TestEngine_NonEmptyInitialValidators(t *testing.T) {
 		identity.New(identitiesMap["D"]).ID(): 10,
 	}
 
-	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDisk.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights)
+	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDisk.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights))
 
 	require.NoError(t, tf.Engine.Initialize(tempDisk.Path("genesis_snapshot.bin")))
 
@@ -181,7 +181,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 		identity.New(identitiesMap["D"]).ID(): 25,
 	}
 
-	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDisk.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights)
+	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDisk.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights))
 
 	require.NoError(t, tf.Engine.Initialize(tempDisk.Path("genesis_snapshot.bin")))
 
@@ -454,7 +454,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		identity.New(identitiesMap["Z"]).ID(): 0,
 	}
 
-	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDisk.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights)
+	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDisk.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights))
 
 	require.NoError(t, tf.Engine.Initialize(tempDisk.Path("genesis_snapshot.bin")))
 
@@ -613,7 +613,7 @@ func TestEngine_ShutdownResume(t *testing.T) {
 		identity.New(identitiesMap["Z"]).ID(): 0,
 	}
 
-	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDisk.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights)
+	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDisk.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights))
 
 	require.NoError(t, tf.Engine.Initialize(tempDisk.Path("genesis_snapshot.bin")))
 

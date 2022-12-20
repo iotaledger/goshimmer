@@ -5,6 +5,7 @@ import (
 
 	"github.com/iotaledger/hive.go/core/configuration"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
@@ -47,9 +48,10 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 			t.Protocol.Shutdown()
 		})
 
-		snapshotcreator.CreateSnapshot(DatabaseVersion, diskUtil.Path("snapshot.bin"), 100, make([]byte, 32), map[identity.ID]uint64{
+		identitiesWeights := map[identity.ID]uint64{
 			identity.New(ed25519.GenerateKeyPair().PublicKey).ID(): 100,
-		})
+		}
+		snapshotcreator.CreateSnapshot(DatabaseVersion, diskUtil.Path("snapshot.bin"), 100, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights))
 
 		t.Protocol = New(t.Network.Join(identity.GenerateIdentity().ID()), append(t.optsProtocolOptions, WithSnapshotPath(diskUtil.Path("snapshot.bin")), WithBaseDirectory(diskUtil.Path()))...)
 	})
