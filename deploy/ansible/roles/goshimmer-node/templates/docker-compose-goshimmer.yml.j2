@@ -69,7 +69,11 @@ services:
       --logger.remotelog.serverAddress={{ remoteLoggerHost }}:5213
       --remotemetrics.metricsLevel=0
       --blockIssuer.rateSetter.enable=false
+      {% if bootstrap|default(false) %}
       --blockIssuer.ignoreBootstrappedFlag=true
+      {% else %}
+      --blockIssuer.ignoreBootstrappedFlag=false
+      {% endif %}
       --protocol.bootstrapWindow=20s
       {% if genesisTime|default(None) %}
       --protocol.genesisTime={{ genesisTime }}

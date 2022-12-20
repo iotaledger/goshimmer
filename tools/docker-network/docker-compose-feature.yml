@@ -78,7 +78,6 @@ services:
       --prometheus.bindAddress=0.0.0.0:9311
       --prometheus.processMetrics=true
       --prometheus.goMetrics=true
-      --blockIssuer.ignoreBootstrappedFlag=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
     secrets:
@@ -163,7 +162,6 @@ services:
       --prometheus.bindAddress=0.0.0.0:9311
       --prometheus.processMetrics=true
       --prometheus.goMetrics=true
-      --blockIssuer.ignoreBootstrappedFlag=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
     secrets:
@@ -204,7 +202,6 @@ services:
       --prometheus.bindAddress=0.0.0.0:9311
       --prometheus.processMetrics=true
       --prometheus.goMetrics=true
-      --blockIssuer.ignoreBootstrappedFlag=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
     secrets:
@@ -245,7 +242,6 @@ services:
       --prometheus.bindAddress=0.0.0.0:9311
       --prometheus.processMetrics=true
       --prometheus.goMetrics=true
-      --blockIssuer.ignoreBootstrappedFlag=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
     secrets:
@@ -286,7 +282,6 @@ services:
       --prometheus.bindAddress=0.0.0.0:9311
       --prometheus.processMetrics=true
       --prometheus.goMetrics=true
-      --blockIssuer.ignoreBootstrappedFlag=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
     secrets:
@@ -327,7 +322,6 @@ services:
       --prometheus.bindAddress=0.0.0.0:9311
       --prometheus.processMetrics=true
       --prometheus.goMetrics=true
-      --blockIssuer.ignoreBootstrappedFlag=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
     secrets:
