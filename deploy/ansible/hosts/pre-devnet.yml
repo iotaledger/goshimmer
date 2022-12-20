@@ -15,7 +15,6 @@ goshimmers:
       hosts:
         bootstrap-01.pre-devnet.shimmer.iota.cafe:
           seed: "{{ BOOTSTRAP_01_SEED }}"
-          bootstrap: true
         vanilla-01.pre-devnet.shimmer.iota.cafe:
           seed: "{{ VANILLA_01_SEED }}"
         node-01.pre-devnet.shimmer.iota.cafe:
