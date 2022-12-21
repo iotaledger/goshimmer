@@ -54,7 +54,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 			identity.New(ed25519.GenerateKeyPair().PublicKey).ID(): 100,
 		}
 
-		snapshotcreator.CreateSnapshot(DatabaseVersion, tempDir.Path("snapshot.bin"), genesisTokenAmount, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights))
+		snapshotcreator.CreateSnapshot(DatabaseVersion, tempDir.Path("snapshot.bin"), genesisTokenAmount, make([]byte, ed25519.SeedSize), identitiesWeights, lo.Keys(identitiesWeights))
 
 		t.Protocol = New(t.Network.Join(identity.GenerateIdentity().ID()), append(t.optsProtocolOptions, WithSnapshotPath(tempDir.Path("snapshot.bin")), WithBaseDirectory(tempDir.Path()))...)
 	})
