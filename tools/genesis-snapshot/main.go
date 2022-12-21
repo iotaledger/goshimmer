@@ -33,45 +33,22 @@ const (
 	defaultGenesisTokenAmount = 1000000000000000
 )
 
-// // consensus integration test snapshot, use with cfgGenesisTokenAmount=800000 for mana distribution: 50%, 25%, 25%
-// var nodesToPledge = map[string]Pledge{
-//	// peer master
-//	"EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP": {Genesis: true},
-//	// "CHfU1NUf6ZvUKDQHTG2df53GR7CvuMFtyt7YymJ6DwS3": {}, // faucet
-//	// base58:Bk69VaYsRuiAaKn8hK6KxUj45X5dED3ueRtxfYnsh4Q8
-//	"3kwsHfLDb7ifuxLbyMZneXq3s5heRWnXKKGPAARJDaUE": func() Pledge {
-//		seedBase58 := "CFE7T9hjePFwg2P3Mqf5ELH3syFMReVbWai6qc4rJsff"
-//		seedBytes, err := base58.Decode(seedBase58)
-//		must(err)
-//		return Pledge{
-//			Address: seed.NewSeed(seedBytes).Address(0).Address(),
-//			Amount:  1600000,
-//		}
-//	}(),
-//	// base58:HUH4rmxUxMZBBtHJ4QM5Ts6s8DP3HnFpChejntnCxto2
-//	"9fC9crffh3xYuw3M114ZtxRFxxCFceG8vdq2RAjDVQCK": func() Pledge {
-//		seedBase58 := "5qm7UPdKKv3GqHyUQgHX3eS1VwdNsWEr2JWqe2GjDZx3"
-//		seedBytes, err := base58.Decode(seedBase58)
-//		must(err)
-//		return Pledge{
-//			Address: seed.NewSeed(seedBytes).Address(0).Address(),
-//			Amount:  800000,
-//		}
-//	}(),
-// }
-
 // Feature network.
-// var nodesToPledge = []string{
-// 	"Xv5Kmv9uZfNME4KD2zBoHZ3kVqovJN59ec62rH3AeLA",  // entrynode
-// 	"EUq4re4sZBMbmzdKo8LJF8uVQhbS24ZNeLRf7AntGH7b", // bootstrap_01
-// 	"6PqeR7gpR9KtVt7ZgxrEnTj76TS7S439R1gmmzLLrBcU", // vanilla_01
-// 	"DmKUMcbs6go8sMhJLfZxL8NKXHtYdxQMwVjyacsw4c6C", // node_01
-// 	"GCvqziTVeHHvM4SvSeLBobY2KYTNiyB1miS9giVDgJbk", // node_02
-// 	"64RCLnQC7ECpHGpq7dWp3Xtpc79uVi61XYBv5fgXsD9h", // node_03
-// 	"Amkmn4nt8qwboUGPmFhCoM9ogeCbvS3eBSTjuoE3a5ci", // node_04
-// 	"4FJbEsv448BoXeRo1a5Cq9xizkP2AkRBcx9W4PwDt2GL", // node_05
-// 	"GbkZ3CoiTuUPUAYjgZLM8Y1VgvUbPujHVxmYmPVY2GDC", // faucet_01
-// }
+var nodesToPledge = []string{
+	"Xv5Kmv9uZfNME4KD2zBoHZ3kVqovJN59ec62rH3AeLA",  // entrynode
+	"EUq4re4sZBMbmzdKo8LJF8uVQhbS24ZNeLRf7AntGH7b", // bootstrap_01
+	"6PqeR7gpR9KtVt7ZgxrEnTj76TS7S439R1gmmzLLrBcU", // vanilla_01
+	"DmKUMcbs6go8sMhJLfZxL8NKXHtYdxQMwVjyacsw4c6C", // node_01
+	"GCvqziTVeHHvM4SvSeLBobY2KYTNiyB1miS9giVDgJbk", // node_02
+	"64RCLnQC7ECpHGpq7dWp3Xtpc79uVi61XYBv5fgXsD9h", // node_03
+	"Amkmn4nt8qwboUGPmFhCoM9ogeCbvS3eBSTjuoE3a5ci", // node_04
+	"4FJbEsv448BoXeRo1a5Cq9xizkP2AkRBcx9W4PwDt2GL", // node_05
+	"GbkZ3CoiTuUPUAYjgZLM8Y1VgvUbPujHVxmYmPVY2GDC", // faucet_01
+}
+
+var initialAttestations = []string{
+	"EUq4re4sZBMbmzdKo8LJF8uVQhbS24ZNeLRf7AntGH7b", // bootstrap_01
+}
 
 // Devnet
 // var nodesToPledge = []string{
@@ -85,13 +62,21 @@ const (
 // 	"HGiFs4jR74yxDMCN8K1Z16QPdwchXokXzYhBLqKW2ssW", // node_05
 // 	"5heLsHxMRdTewXooaaDFGpAoj5c41ah5wTmpMukjdvi7", // faucet_01
 // }
+//
+//var initialAttestations = []string{
+//		"AuQXPFmRu9nKNtUq3g1RLqVgSmxNrYeogt6uRwqYLGvK", // bootstrap_01
+//}
 
 // Docker network.
-var nodesToPledge = []string{
-	"2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5", // peer_master
-	"AXSoTPcN6SNwH64tywpz4k2XfAc24NR7ckKX8wPjeUZD", // peer_master2
-	"FZ6xmPZXRs2M8z9m9ETTQok4PCga4X8FRHwQE6uYm4rV", // faucet
-}
+//var nodesToPledge = []string{
+//	"2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5", // peer_master
+//	"AXSoTPcN6SNwH64tywpz4k2XfAc24NR7ckKX8wPjeUZD", // peer_master2
+//	"FZ6xmPZXRs2M8z9m9ETTQok4PCga4X8FRHwQE6uYm4rV", // faucet
+//}
+//
+//var initialAttestations = []string{
+//	"2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5", // peer_master
+//}
 
 func main() {
 	snapshotFileName := viper.GetString(cfgSnapshotFileName)
@@ -105,8 +90,9 @@ func main() {
 	}
 
 	manaDistribution := createManaDistribution(totalTokensToPledge)
+	initialAttestationsSlice := createInitialAttestations()
 
-	snapshotcreator.CreateSnapshot(protocol.DatabaseVersion, snapshotFileName, genesisTokenAmount, genesisSeed, manaDistribution)
+	snapshotcreator.CreateSnapshot(protocol.DatabaseVersion, snapshotFileName, genesisTokenAmount, genesisSeed, manaDistribution, initialAttestationsSlice)
 
 	diagnosticPrintSnapshotFromFile(snapshotFileName)
 }
@@ -127,6 +113,19 @@ func createManaDistribution(totalTokensToPledge uint64) (manaDistribution map[id
 	}
 
 	return manaDistribution
+}
+
+func createInitialAttestations() (parsed []identity.ID) {
+	for _, node := range initialAttestations {
+		nodeID, err := identity.DecodeIDBase58(node)
+		if err != nil {
+			panic("failed to decode node id: " + err.Error())
+		}
+
+		parsed = append(parsed, nodeID)
+	}
+
+	return parsed
 }
 
 func init() {
