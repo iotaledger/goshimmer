@@ -320,7 +320,7 @@ func (e *Engine) initTSCManager() {
 
 	e.Events.Tangle.Booker.BlockBooked.Attach(event.NewClosure(e.TSCManager.AddBlock))
 
-	e.Events.Clock.AcceptanceTimeUpdated.Attach(event.NewClosure(func(event *clock.TimeUpdate) {
+	e.Events.Clock.AcceptanceTimeUpdated.Attach(event.NewClosure(func(event *clock.TimeUpdateEvent) {
 		e.TSCManager.HandleTimeUpdate(event.NewTime)
 	}))
 }
@@ -374,7 +374,7 @@ func (e *Engine) initNotarizationManager() {
 	}))
 
 	// Epochs are committed whenever ATT advances, start committing only when bootstrapped.
-	e.Clock.Events.AcceptanceTimeUpdated.Attach(event.NewClosure(func(event *clock.TimeUpdate) {
+	e.Clock.Events.AcceptanceTimeUpdated.Attach(event.NewClosure(func(event *clock.TimeUpdateEvent) {
 		e.NotarizationManager.SetAcceptanceTime(event.NewTime)
 	}))
 

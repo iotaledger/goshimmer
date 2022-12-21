@@ -7,6 +7,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/kvstore"
+	"github.com/iotaledger/hive.go/core/marshalutil"
 	"github.com/iotaledger/hive.go/core/syncutils"
 
 	"github.com/iotaledger/goshimmer/packages/core/ads"
@@ -257,7 +258,7 @@ func (a *Attestations) weight(index epoch.Index) (weight int64, err error) {
 }
 
 func (a *Attestations) setWeight(index epoch.Index, weight int64) (err error) {
-	weightBytes := make([]byte, 8)
+	weightBytes := make([]byte, marshalutil.Uint64Size)
 	binary.LittleEndian.PutUint64(weightBytes, uint64(weight))
 
 	if err = a.bucketedStorage(index).Set([]byte{PrefixAttestationsWeight}, weightBytes); err != nil {

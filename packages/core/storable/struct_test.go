@@ -14,7 +14,7 @@ import (
 // region Tests ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 func TestStruct(t *testing.T) {
-	filePath := filepath.Join(t.TempDir(), "/node.settings")
+	filePath := filepath.Join(filepath.Join(t.TempDir(), "node.settings"))
 
 	settings := NewSettings(filePath)
 	require.Equal(t, uint64(123), settings.Number)

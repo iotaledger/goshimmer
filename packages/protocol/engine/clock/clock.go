@@ -35,7 +35,7 @@ func (c *Clock) AcceptedTime() (acceptedTime time.Time) {
 func (c *Clock) SetAcceptedTime(acceptedTime time.Time) (updated bool) {
 	now := time.Now()
 	if updated = c.updateTime(now, acceptedTime, &c.lastAcceptedTime, &c.lastAcceptedTimeUpdated); updated {
-		c.Events.AcceptanceTimeUpdated.Trigger(&TimeUpdate{
+		c.Events.AcceptanceTimeUpdated.Trigger(&TimeUpdateEvent{
 			NewTime:    acceptedTime,
 			UpdateTime: now,
 		})
@@ -64,7 +64,7 @@ func (c *Clock) ConfirmedTime() (confirmedTime time.Time) {
 func (c *Clock) SetConfirmedTime(confirmedTime time.Time) (updated bool) {
 	now := time.Now()
 	if updated = c.updateTime(now, confirmedTime, &c.lastConfirmedTime, &c.lastConfirmedTimeUpdated); updated {
-		c.Events.ConfirmedTimeUpdated.Trigger(&TimeUpdate{
+		c.Events.ConfirmedTimeUpdated.Trigger(&TimeUpdateEvent{
 			NewTime:    confirmedTime,
 			UpdateTime: now,
 		})

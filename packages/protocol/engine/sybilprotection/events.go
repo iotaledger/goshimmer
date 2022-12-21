@@ -4,9 +4,12 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 )
 
+// Events is a collection of events that can be triggered by the SybilProtection.
 type Events struct {
+	// WeightUpdated is triggered when a weight of a node is updated.
 	WeightsUpdated *event.Linkable[*WeightUpdatesBatch]
 
+	// LinkableCollection is a generic trait that allows to link multiple collections of events together.
 	event.LinkableCollection[Events, *Events]
 }
 
