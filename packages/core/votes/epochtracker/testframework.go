@@ -36,7 +36,7 @@ func NewTestFramework[VotePowerType constraints.Comparable[VotePowerType]](test 
 	}, opts, func(t *TestFramework) {
 		if t.VotesTestFramework == nil {
 			t.VotesTestFramework = votes.NewTestFramework(test, votes.WithValidators(
-				sybilprotection.NewWeights(mapdb.NewMapDB(), permanent.NewSettings(test.TempDir()+"/settings")).WeightedSet(),
+				sybilprotection.NewWeights(mapdb.NewMapDB(), permanent.NewSettings(test.TempDir()+"/settings")).NewWeightedSet(),
 			))
 		}
 

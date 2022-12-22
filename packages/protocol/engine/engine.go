@@ -279,7 +279,13 @@ func (e *Engine) initTangle() {
 }
 
 func (e *Engine) initConsensus() {
-	e.Consensus = consensus.New(e.Tangle, e.EvictionState, e.Storage.Permanent.Settings.LatestConfirmedEpoch(), e.SybilProtection.Weights().TotalAvailableWeight, e.optsConsensusOptions...)
+	e.Consensus = consensus.New(e.Tangle, e.EvictionState, e.Storage.Permanent.Settings.LatestConfirmedEpoch(), func() (totalWeight int64) {
+		if zeroIdentityWeight, exists := e.SybilProtection.Weights().Get(identity.ID{}); exists {
+			totalWeight -= zeroIdentityWeight.Value
+		}
+
+		return totalWeight + e.SybilProtection.Weights().TotalWeight().Value
+	}, e.optsConsensusOptions...)
 
 	e.Events.EvictionState.EpochEvicted.Hook(event.NewClosure(e.Consensus.BlockGadget.EvictUntil))
 
