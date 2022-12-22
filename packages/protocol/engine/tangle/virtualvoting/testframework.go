@@ -24,7 +24,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/storage/permanent"
 )
 
 type TestFramework struct {
@@ -62,7 +61,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 		)
 
 		if t.optsValidators == nil {
-			t.optsValidators = sybilprotection.NewWeightedSet(sybilprotection.NewWeights(mapdb.NewMapDB(), permanent.NewSettings(t.test.TempDir()+"/settings")))
+			t.optsValidators = sybilprotection.NewWeightedSet(sybilprotection.NewWeights(mapdb.NewMapDB()))
 		}
 
 		if t.VirtualVoting == nil {

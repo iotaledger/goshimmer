@@ -6,20 +6,20 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
 
-type WeightUpdatesBatch struct {
+type WeightsBatch struct {
 	targetEpoch epoch.Index
 	diffs       map[identity.ID]int64
 	totalDiff   int64
 }
 
-func NewWeightUpdates(targetEpoch epoch.Index) (newWeightUpdatesBatch *WeightUpdatesBatch) {
-	return &WeightUpdatesBatch{
+func NewWeightsBatch(targetEpoch epoch.Index) (newWeightDiffs *WeightsBatch) {
+	return &WeightsBatch{
 		targetEpoch: targetEpoch,
 		diffs:       make(map[identity.ID]int64),
 	}
 }
 
-func (w *WeightUpdatesBatch) ApplyDiff(index epoch.Index, id identity.ID, diff int64) {
+func (w *WeightsBatch) Update(id identity.ID, diff int64) {
 	if w.diffs[id] += diff; w.diffs[id] == 0 {
 		delete(w.diffs, id)
 	}
@@ -27,16 +27,16 @@ func (w *WeightUpdatesBatch) ApplyDiff(index epoch.Index, id identity.ID, diff i
 	w.totalDiff += diff
 }
 
-func (w *WeightUpdatesBatch) TargetEpoch() (targetEpoch epoch.Index) {
+func (w *WeightsBatch) TargetEpoch() (targetEpoch epoch.Index) {
 	return w.targetEpoch
 }
 
-func (w *WeightUpdatesBatch) ForEach(consumer func(id identity.ID, diff int64)) {
+func (w *WeightsBatch) ForEach(consumer func(id identity.ID, diff int64)) {
 	for id, diff := range w.diffs {
 		consumer(id, diff)
 	}
 }
 
-func (w *WeightUpdatesBatch) TotalDiff() (totalDiff int64) {
+func (w *WeightsBatch) TotalDiff() (totalDiff int64) {
 	return w.totalDiff
 }

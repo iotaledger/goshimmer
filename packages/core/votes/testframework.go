@@ -36,7 +36,7 @@ func (t *TestFramework) CreateValidator(alias string, weight int64) {
 func (t *TestFramework) CreateValidatorWithID(alias string, id identity.ID, weight int64) {
 	t.validatorsByAlias[alias] = id
 
-	t.Validators.Weights.ImportDiff(0, id, weight)
+	t.Validators.Weights.Update(id, sybilprotection.NewWeight(weight, 0))
 	t.Validators.Add(id)
 }
 

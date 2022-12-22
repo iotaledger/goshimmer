@@ -211,7 +211,7 @@ func (a *Attestations) commit(index epoch.Index) (attestations *ads.Map[identity
 	if cachedEpochStorage := a.cachedAttestations.Evict(index); cachedEpochStorage != nil {
 		cachedEpochStorage.ForEach(func(id identity.ID, attestationsOfID *memstorage.Storage[models.BlockID, *Attestation]) bool {
 			if latestAttestation := latestAttestation(attestationsOfID); latestAttestation != nil {
-				if attestorWeight, exists := a.weights.Weight(id); exists {
+				if attestorWeight, exists := a.weights.Get(id); exists {
 					attestations.Set(id, latestAttestation)
 
 					weight += attestorWeight.Value

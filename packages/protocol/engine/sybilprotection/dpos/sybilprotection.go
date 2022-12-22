@@ -29,15 +29,15 @@ const (
 
 // SybilProtection is a sybil protection module for the engine that manages the weights of actors according to their stake.
 type SybilProtection struct {
-	engine             *engine.Engine
-	weights            *sybilprotection.Weights
-	validators         *sybilprotection.WeightedSet
-	inactivityManager  *timed.TaskExecutor[identity.ID]
-	lastActivities     *shrinkingmap.ShrinkingMap[identity.ID, time.Time]
-	mutex              sync.RWMutex
-	optsActivityWindow time.Duration
+	engine            *engine.Engine
+	weights           *sybilprotection.Weights
+	validators        *sybilprotection.WeightedSet
+	inactivityManager *timed.TaskExecutor[identity.ID]
+	lastActivities    *shrinkingmap.ShrinkingMap[identity.ID, time.Time]
+	weightsBatch      *sybilprotection.WeightsBatch
+	mutex             sync.RWMutex
 
-	batchedWeightUpdates *sybilprotection.WeightUpdatesBatch
+	optsActivityWindow time.Duration
 
 	traits.Initializable
 	traits.BatchCommittable
@@ -51,13 +51,13 @@ func NewSybilProtection(engineInstance *engine.Engine, opts ...options.Option[Sy
 			BatchCommittable: traits.NewBatchCommittable(engineInstance.Storage.SybilProtection(), PrefixLastCommittedEpoch),
 
 			engine:            engineInstance,
-			weights:           sybilprotection.NewWeights(engineInstance.Storage.SybilProtection(PrefixWeights), engineInstance.Storage.Settings),
+			weights:           sybilprotection.NewWeights(engineInstance.Storage.SybilProtection(PrefixWeights)),
 			inactivityManager: timed.NewTaskExecutor[identity.ID](1),
 			lastActivities:    shrinkingmap.New[identity.ID, time.Time](),
 
 			optsActivityWindow: time.Second * 30,
 		}, opts, func(s *SybilProtection) {
-			s.validators = s.weights.WeightedSet()
+			s.validators = s.weights.NewWeightedSet()
 
 			s.engine.SubscribeConstructed(func() {
 				traits.SubscribeInitialized(map[traits.Initializable]func(){
@@ -122,20 +122,24 @@ func (s *SybilProtection) Weights() *sybilprotection.Weights {
 }
 
 func (s *SybilProtection) ApplyCreatedOutput(output *ledger.OutputWithMetadata) (err error) {
-	if !s.BatchedStateTransitionStarted() {
-		ApplyCreatedOutput(output, s.weights.ImportDiff)
-	} else {
-		ApplyCreatedOutput(output, s.batchedWeightUpdates.ApplyDiff)
+	if iotaBalance, exists := output.IOTABalance(); exists {
+		if s.BatchedStateTransitionStarted() {
+			s.weightsBatch.Update(output.ConsensusManaPledgeID(), int64(iotaBalance))
+		} else {
+			s.weights.Update(output.ConsensusManaPledgeID(), sybilprotection.NewWeight(int64(iotaBalance), output.Index()))
+		}
 	}
 
 	return
 }
 
 func (s *SybilProtection) ApplySpentOutput(output *ledger.OutputWithMetadata) (err error) {
-	if !s.BatchedStateTransitionStarted() {
-		ApplySpentOutput(output, s.weights.ImportDiff)
-	} else {
-		ApplySpentOutput(output, s.batchedWeightUpdates.ApplyDiff)
+	if iotaBalance, exists := output.IOTABalance(); exists {
+		if s.BatchedStateTransitionStarted() {
+			s.weightsBatch.Update(output.ConsensusManaPledgeID(), -int64(iotaBalance))
+		} else {
+			s.weights.Update(output.ConsensusManaPledgeID(), sybilprotection.NewWeight(-int64(iotaBalance), output.Index()))
+		}
 	}
 
 	return
@@ -155,7 +159,7 @@ func (s *SybilProtection) BeginBatchedStateTransition(newEpoch epoch.Index) (cur
 	}
 
 	if currentEpoch != newEpoch {
-		s.batchedWeightUpdates = sybilprotection.NewWeightUpdates(newEpoch)
+		s.weightsBatch = sybilprotection.NewWeightsBatch(newEpoch)
 	}
 
 	return
@@ -164,7 +168,7 @@ func (s *SybilProtection) BeginBatchedStateTransition(newEpoch epoch.Index) (cur
 func (s *SybilProtection) CommitBatchedStateTransition() (ctx context.Context) {
 	ctx, done := context.WithCancel(context.Background())
 	go func() {
-		s.weights.ApplyBatchUpdates(s.batchedWeightUpdates)
+		s.weights.BatchUpdate(s.weightsBatch)
 
 		s.FinalizeBatchedStateTransition()
 
