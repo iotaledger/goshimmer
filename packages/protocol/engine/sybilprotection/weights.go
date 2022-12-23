@@ -122,7 +122,7 @@ func (w *Weights) TotalWeight() (totalWeight *Weight) {
 	return w.totalWeight
 }
 
-// Root returns the root of the merkle tree of the stored weights
+// Root returns the root of the merkle tree of the stored weights.
 func (w *Weights) Root() (root types.Identifier) {
 	w.mutex.RLock()
 	defer w.mutex.RUnlock()
