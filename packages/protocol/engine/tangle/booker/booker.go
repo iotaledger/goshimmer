@@ -267,6 +267,13 @@ func (b *Booker) inheritConflictIDs(block *Block) (err error) {
 		return errors.Errorf("failed to inherit conflict IDs: %w", err)
 	}
 
+	defer func() {
+		// recover from panic if one occured. Set err to nil otherwise.
+		if panicErr := recover(); panicErr != nil {
+			panic(fmt.Sprintf("%s: error while inheriting conflict IDs. Last evicted epoch: %d \n Offending block: \n %s \n Inherited structure details: %+v", panicErr, b.EvictionState.LastEvictedEpoch(), block.String(), parentsStructureDetails))
+		}
+	}()
+
 	newStructureDetails := b.markerManager.ProcessBlock(block, parentsStructureDetails, inheritedConflictIDs)
 	block.setStructureDetails(newStructureDetails)
 
