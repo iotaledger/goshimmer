@@ -1,10 +1,6 @@
 package retainer
 
 import (
-	"fmt"
-	"sync"
-	"time"
-
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/syncutils"
 
@@ -183,7 +179,6 @@ func (r *Retainer) createOrGetCachedMetadata(id models.BlockID) *cachedMetadata 
 }
 
 func (r *Retainer) storeAndEvictEpoch(epochIndex epoch.Index) {
-	now := time.Now()
 	// First we read the data from storage.
 	metas := r.createStorableBlockMetadata(epochIndex)
 
@@ -197,9 +192,6 @@ func (r *Retainer) storeAndEvictEpoch(epochIndex epoch.Index) {
 	defer r.evictionLock.Unlock(epochIndex)
 
 	r.cachedMetadata.Evict(epochIndex)
-	if dur := time.Since(now); dur > time.Second {
-		fmt.Println("retainer eviction slow", dur)
-	}
 }
 
 func (r *Retainer) createStorableBlockMetadata(epochIndex epoch.Index) (metas []*BlockMetadata) {
