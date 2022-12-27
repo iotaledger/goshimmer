@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/cerrors"
@@ -182,6 +183,7 @@ func (b *Booker) GetAllAttachments(txID utxo.TransactionID) (attachments Blocks)
 }
 
 func (b *Booker) evict(epochIndex epoch.Index) {
+	now := time.Now()
 	b.bookingOrder.EvictUntil(epochIndex)
 
 	b.evictionMutex.Lock()
@@ -190,6 +192,9 @@ func (b *Booker) evict(epochIndex epoch.Index) {
 	b.attachments.Evict(epochIndex)
 	b.markerManager.Evict(epochIndex)
 	b.blocks.Evict(epochIndex)
+	if dur := time.Since(now); dur > time.Second {
+		fmt.Println("booker eviction slow", dur)
+	}
 }
 
 func (b *Booker) isPayloadSolid(block *Block) (isPayloadSolid bool, err error) {

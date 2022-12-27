@@ -1,7 +1,9 @@
 package blockgadget
 
 import (
+	"fmt"
 	"sync"
+	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -220,6 +222,7 @@ func (a *Gadget) tryConfirmOrAccept(totalWeight int64, marker markers.Marker) (b
 }
 
 func (a *Gadget) EvictUntil(index epoch.Index) {
+	now := time.Now()
 	a.acceptanceOrder.EvictUntil(index)
 	a.confirmationOrder.EvictUntil(index)
 
@@ -228,6 +231,9 @@ func (a *Gadget) EvictUntil(index epoch.Index) {
 
 	if evictedStorage := a.blocks.Evict(index); evictedStorage != nil {
 		a.Events.EpochClosed.Trigger(evictedStorage, "epoch closed")
+	}
+	if dur := time.Since(now); dur > time.Second {
+		fmt.Println("blockgadget eviction slow", dur)
 	}
 }
 

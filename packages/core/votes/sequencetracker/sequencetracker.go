@@ -65,7 +65,7 @@ func (s *SequenceTracker[VotePowerType]) Voters(marker markers.Marker) (voters *
 		}
 		now := time.Now()
 		voters.Add(identityID)
-		if duration := time.Since(now); duration > time.Second {
+		if duration := time.Since(now); duration > 100*time.Millisecond {
 			fmt.Println("Adding voter identity took more than one second:", duration)
 		}
 		return true

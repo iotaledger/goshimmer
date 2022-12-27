@@ -1,7 +1,9 @@
 package virtualvoting
 
 import (
+	"fmt"
 	"sync"
+	"time"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
@@ -182,10 +184,14 @@ func (o *VirtualVoting) block(id models.BlockID) (block *Block, exists bool) {
 }
 
 func (o *VirtualVoting) evictEpoch(epochIndex epoch.Index) {
+	now := time.Now()
 	o.evictionMutex.Lock()
 	defer o.evictionMutex.Unlock()
 
 	o.blocks.Evict(epochIndex)
+	if dur := time.Since(now); dur > time.Second {
+		fmt.Println("virtualvoting eviction slow", dur)
+	}
 }
 
 func (o *VirtualVoting) evictSequence(sequenceID markers.SequenceID) {

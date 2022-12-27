@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"fmt"
 	"math"
 	"math/big"
 	"sync"
@@ -597,10 +598,15 @@ func (s *Scheduler) getAccessMana(id identity.ID) int64 {
 }
 
 func (s *Scheduler) evictEpoch(index epoch.Index) {
+	now := time.Now()
 	s.evictionMutex.Lock()
 	defer s.evictionMutex.Unlock()
 
 	s.blocks.Evict(index)
+	if dur := time.Since(now); dur > time.Second {
+		fmt.Println("scheduler eviction slow", dur)
+	}
+
 }
 
 func quanta(issuerID identity.ID, manaMap map[identity.ID]int64, totalMana int64) *big.Rat {

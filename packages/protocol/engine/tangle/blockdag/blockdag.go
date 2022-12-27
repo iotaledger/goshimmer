@@ -1,7 +1,9 @@
 package blockdag
 
 import (
+	"fmt"
 	"sync"
+	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -118,12 +120,17 @@ func (b *BlockDAG) SetOrphaned(block *Block, orphaned bool) (updated bool) {
 
 // evictEpoch is used to evict Blocks from committed epochs from the BlockDAG.
 func (b *BlockDAG) evictEpoch(index epoch.Index) {
+	now := time.Now()
 	b.solidifier.EvictUntil(index)
 
 	b.evictionMutex.Lock()
 	defer b.evictionMutex.Unlock()
 
 	b.memStorage.Evict(index)
+
+	if dur := time.Since(now); dur > time.Second {
+		fmt.Println("blockdag eviction slow", dur)
+	}
 }
 
 func (b *BlockDAG) markSolid(block *Block) (err error) {
