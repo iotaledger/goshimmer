@@ -76,7 +76,7 @@ func (m *EpochMutations) RemoveAcceptedBlock(block *models.Block) (err error) {
 
 	m.acceptedBlocks(blockID.Index()).Delete(blockID)
 
-	m.Events.AcceptedBlockRemoved.Trigger(blockID)
+	m.Events.AcceptedBlockRemoved.Trigger(blockID, "accepted block removed")
 
 	return
 }

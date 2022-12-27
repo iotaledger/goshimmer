@@ -57,7 +57,7 @@ func New(evictionState *eviction.State, opts ...options.Option[BlockDAG]) (newBl
 // Attach is used to attach new Blocks to the BlockDAG. It is the main function of the BlockDAG that triggers Events.
 func (b *BlockDAG) Attach(data *models.Block) (block *Block, wasAttached bool, err error) {
 	if block, wasAttached, err = b.attach(data); wasAttached {
-		b.Events.BlockAttached.Trigger(block)
+		b.Events.BlockAttached.Trigger(block, "block attached")
 
 		b.solidifier.Queue(block)
 	}
@@ -79,7 +79,7 @@ func (b *BlockDAG) SetInvalid(block *Block, reason error) (wasUpdated bool) {
 		b.Events.BlockInvalid.Trigger(&BlockInvalidEvent{
 			Block:  block,
 			Reason: reason,
-		})
+		}, "block invalid")
 
 		b.walkFutureCone(block.Children(), func(currentBlock *Block) []*Block {
 			if !currentBlock.setInvalid() {
@@ -89,7 +89,7 @@ func (b *BlockDAG) SetInvalid(block *Block, reason error) (wasUpdated bool) {
 			b.Events.BlockInvalid.Trigger(&BlockInvalidEvent{
 				Block:  currentBlock,
 				Reason: reason,
-			})
+			}, "block invlaid")
 
 			return currentBlock.Children()
 		})
@@ -108,9 +108,9 @@ func (b *BlockDAG) SetOrphaned(block *Block, orphaned bool) (updated bool) {
 	}
 
 	if orphaned {
-		b.Events.BlockOrphaned.Trigger(block)
+		b.Events.BlockOrphaned.Trigger(block, "block orphaned")
 	} else {
-		b.Events.BlockUnorphaned.Trigger(block)
+		b.Events.BlockUnorphaned.Trigger(block, "block unorphaned")
 	}
 
 	return true
@@ -133,7 +133,7 @@ func (b *BlockDAG) markSolid(block *Block) (err error) {
 
 	block.setSolid()
 
-	b.Events.BlockSolid.Trigger(block)
+	b.Events.BlockSolid.Trigger(block, "block solid")
 
 	return nil
 }
@@ -166,7 +166,7 @@ func (b *BlockDAG) attach(data *models.Block) (block *Block, wasAttached bool, e
 			return
 		}
 
-		b.Events.MissingBlockAttached.Trigger(block)
+		b.Events.MissingBlockAttached.Trigger(block, "missing block attached")
 	}
 
 	block.ForEachParent(func(parent models.Parent) {
@@ -216,7 +216,7 @@ func (b *BlockDAG) registerChild(child *Block, parent models.Parent) {
 	parentBlock, _ := b.memStorage.Get(parent.ID.Index(), true).RetrieveOrCreate(parent.ID, func() (newBlock *Block) {
 		newBlock = NewBlock(models.NewEmptyBlock(parent.ID), WithMissing(true))
 
-		b.Events.BlockMissing.Trigger(newBlock)
+		b.Events.BlockMissing.Trigger(newBlock, "block missing")
 
 		return
 	})

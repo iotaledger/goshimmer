@@ -64,7 +64,7 @@ func (s *State) EvictUntil(index epoch.Index) {
 	s.evictionMutex.Unlock()
 
 	for currentIndex := lastEvictedEpoch + 1; currentIndex <= index; currentIndex++ {
-		s.Events.EpochEvicted.Trigger(currentIndex)
+		s.Events.EpochEvicted.Trigger(currentIndex, "epoch evicteddd")
 	}
 }
 

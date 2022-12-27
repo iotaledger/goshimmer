@@ -2,6 +2,7 @@ package sequencetracker
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/iotaledger/hive.go/core/generics/constraints"
 	"github.com/iotaledger/hive.go/core/generics/set"
@@ -62,9 +63,11 @@ func (s *SequenceTracker[VotePowerType]) Voters(marker markers.Marker) (voters *
 		if !voteExists {
 			return true
 		}
-
+		now := time.Now()
 		voters.Add(identityID)
-
+		if duration := time.Since(now); duration > time.Second {
+			fmt.Println("Adding voter identity took more than one second:", duration)
+		}
 		return true
 	})
 
@@ -121,7 +124,7 @@ func (s *SequenceTracker[VotePowerType]) addVoteToMarker(marker markers.Marker, 
 		NewMaxSupportedIndex:  marker.Index(),
 		PrevMaxSupportedIndex: previousHighestIndex,
 		SequenceID:            marker.SequenceID(),
-	})
+	}, "sequence voter added")
 
 	// Walk the SequenceDAG to propagate votes to referenced sequences.
 	sequence, exists := s.sequenceCallback(marker.SequenceID())

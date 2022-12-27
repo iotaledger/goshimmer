@@ -259,7 +259,7 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 		}
 	}, func(nbr *Neighbor) {
 		m.deleteNeighbor(nbr)
-		m.NeighborGroupEvents(nbr.Group).NeighborRemoved.Trigger(&NeighborRemovedEvent{nbr})
+		m.NeighborGroupEvents(nbr.Group).NeighborRemoved.Trigger(&NeighborRemovedEvent{nbr}, "neigbbor removed")
 	})
 	if err := m.setNeighbor(nbr); err != nil {
 		for _, ps := range streams {
@@ -272,7 +272,7 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 	nbr.readLoop()
 	nbr.writeLoop()
 	nbr.Log.Info("Connection established")
-	m.neighborGroupEvents[group].NeighborAdded.Trigger(&NeighborAddedEvent{nbr})
+	m.neighborGroupEvents[group].NeighborAdded.Trigger(&NeighborAddedEvent{nbr}, "neighbor added")
 
 	return nil
 }

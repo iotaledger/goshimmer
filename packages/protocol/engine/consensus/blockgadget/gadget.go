@@ -227,7 +227,7 @@ func (a *Gadget) EvictUntil(index epoch.Index) {
 	defer a.evictionMutex.Unlock()
 
 	if evictedStorage := a.blocks.Evict(index); evictedStorage != nil {
-		a.Events.EpochClosed.Trigger(evictedStorage)
+		a.Events.EpochClosed.Trigger(evictedStorage, "epoch closed")
 	}
 }
 
@@ -318,7 +318,7 @@ func (a *Gadget) markAsAccepted(block *Block) (err error) {
 			a.tangle.SetOrphaned(block.Block.Block.Block, false)
 		}
 
-		a.Events.BlockAccepted.Trigger(block)
+		a.Events.BlockAccepted.Trigger(block, "block accepted")
 
 		// set ConfirmationState of payload (applicable only to transactions)
 		if tx, ok := block.Payload().(utxo.Transaction); ok {
@@ -335,7 +335,7 @@ func (a *Gadget) markAsConfirmed(block *Block) (err error) {
 	}
 
 	if block.SetConfirmed() {
-		a.Events.BlockConfirmed.Trigger(block)
+		a.Events.BlockConfirmed.Trigger(block, "block confirmed")
 	}
 
 	return nil

@@ -102,7 +102,7 @@ func (w *Weights) BatchUpdate(batch *WeightsBatch) {
 		w.weights.Set(id, NewWeight(newWeight, batch.TargetEpoch()))
 	})
 
-	w.Events.WeightsUpdated.Trigger(batch)
+	w.Events.WeightsUpdated.Trigger(batch, "weights updated")
 
 	// after written to disk (remove deleted elements)
 	_ = removedWeights.ForEach(func(id identity.ID) error {

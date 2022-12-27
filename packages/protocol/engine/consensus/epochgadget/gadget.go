@@ -62,7 +62,7 @@ func (g *Gadget) refreshEpochConfirmation(previousLatestEpochIndex epoch.Index, 
 		// while this method holds WriteLock on EpochGadget lock and is waiting for ReadLock on VirtualVoting.
 		g.Lock()
 		g.lastConfirmedEpoch = i
-		g.Events.EpochConfirmed.Trigger(i)
+		g.Events.EpochConfirmed.Trigger(i, "epoch confirmed")
 		g.Unlock()
 	}
 }

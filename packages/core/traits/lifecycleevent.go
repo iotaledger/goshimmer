@@ -57,7 +57,7 @@ func (s *lifecycleEvent) Trigger() {
 		optCallback()
 	}
 
-	s.event.Trigger(true)
+	s.event.Trigger(true, "some lifecycle event")
 }
 
 // WasTriggered returns true if the event was triggered.

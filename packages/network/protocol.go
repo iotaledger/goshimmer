@@ -140,7 +140,7 @@ func (p *Protocol) onBlock(blockData []byte, id identity.ID) {
 	p.Events.BlockReceived.Trigger(&BlockReceivedEvent{
 		Block:  block,
 		Source: id,
-	})
+	}, "block received")
 }
 
 func (p *Protocol) onBlockRequest(idBytes []byte, id identity.ID) {
@@ -157,7 +157,7 @@ func (p *Protocol) onBlockRequest(idBytes []byte, id identity.ID) {
 	p.Events.BlockRequestReceived.Trigger(&BlockRequestReceivedEvent{
 		BlockID: blockID,
 		Source:  id,
-	})
+	}, "block request received")
 }
 
 func (p *Protocol) onEpochCommitment(commitmentBytes []byte, id identity.ID) {
@@ -174,7 +174,7 @@ func (p *Protocol) onEpochCommitment(commitmentBytes []byte, id identity.ID) {
 	p.Events.EpochCommitmentReceived.Trigger(&EpochCommitmentReceivedEvent{
 		Commitment: &receivedCommitment,
 		Source:     id,
-	})
+	}, "epoch commitment received")
 }
 
 func (p *Protocol) onEpochCommitmentRequest(idBytes []byte, id identity.ID) {
@@ -191,7 +191,7 @@ func (p *Protocol) onEpochCommitmentRequest(idBytes []byte, id identity.ID) {
 	p.Events.EpochCommitmentRequestReceived.Trigger(&EpochCommitmentRequestReceivedEvent{
 		CommitmentID: receivedCommitmentID,
 		Source:       id,
-	})
+	}, "epoch commitment request received")
 }
 
 func (p *Protocol) onAttestations(attestationsBytes []byte, id identity.ID) {
@@ -199,7 +199,7 @@ func (p *Protocol) onAttestations(attestationsBytes []byte, id identity.ID) {
 
 	p.Events.AttestationsReceived.Trigger(&AttestationsReceivedEvent{
 		Source: id,
-	})
+	}, "attestations received")
 }
 
 func (p *Protocol) onAttestationsRequest(epochIndexBytes []byte, id identity.ID) {
@@ -216,7 +216,7 @@ func (p *Protocol) onAttestationsRequest(epochIndexBytes []byte, id identity.ID)
 	p.Events.AttestationsRequestReceived.Trigger(&AttestationsRequestReceivedEvent{
 		Index:  epochIndex,
 		Source: id,
-	})
+	}, "attestations request received")
 }
 
 func newPacket() proto.Message {

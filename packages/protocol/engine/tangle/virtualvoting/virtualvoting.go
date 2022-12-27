@@ -62,7 +62,7 @@ func New(booker *booker.Booker, validators *sybilprotection.WeightedSet, opts ..
 
 func (o *VirtualVoting) Track(block *Block) {
 	if o.track(block) {
-		o.Events.BlockTracked.Trigger(block)
+		o.Events.BlockTracked.Trigger(block, "block tracked")
 	}
 }
 

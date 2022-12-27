@@ -60,7 +60,7 @@ func (c *EpochTracker) TrackVotes(epochIndex epoch.Index, voterID identity.ID, p
 		Voter:                voterID,
 		NewLatestEpochIndex:  epochIndex,
 		PrevLatestEpochIndex: previousHighestIndex,
-	})
+	}, "epoch voters updated")
 }
 
 func (c *EpochTracker) Voters(epochIndex epoch.Index) (voters *set.AdvancedSet[identity.ID]) {

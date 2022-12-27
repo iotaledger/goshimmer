@@ -247,7 +247,7 @@ func (b *Booker) book(block *Block) (err error) {
 		return err
 	}
 
-	b.Events.BlockBooked.Trigger(block)
+	b.Events.BlockBooked.Trigger(block, "block booked")
 
 	return nil
 }

@@ -46,7 +46,7 @@ func sendHeartbeat(w io.Writer, hb *packet.Heartbeat) {
 		log.Debugw("Error while writing to connection", "Description", err)
 	}
 	// trigger AnalysisOutboundBytes event
-	metrics.Events.AnalysisOutboundBytes.Trigger(&metrics.AnalysisOutboundBytesEvent{AmountBytes: uint64(len(data))})
+	metrics.Events.AnalysisOutboundBytes.Trigger(&metrics.AnalysisOutboundBytesEvent{AmountBytes: uint64(len(data))}, "analysis send heartbeat")
 }
 
 func createHeartbeat() *packet.Heartbeat {

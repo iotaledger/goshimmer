@@ -223,7 +223,7 @@ func (s *Scheduler) AddBlock(sourceBlock *virtualvoting.Block) {
 
 	if block.IsOrphaned() {
 		if block.SetDropped() {
-			s.Events.BlockDropped.Trigger(block)
+			s.Events.BlockDropped.Trigger(block, "block dropped 1")
 		}
 
 		return
@@ -247,7 +247,7 @@ func (s *Scheduler) HandleOrphanedBlock(orphanedBlock *blockdag.Block) {
 
 	s.Unsubmit(block)
 	if block.SetDropped() {
-		s.Events.BlockDropped.Trigger(block)
+		s.Events.BlockDropped.Trigger(block, "block dropped 2")
 	}
 }
 
@@ -268,7 +268,7 @@ func (s *Scheduler) HandleAcceptedBlock(acceptedBlock *blockgadget.Block) {
 	if time.Since(block.IssuingTime()) > s.optsAcceptedBlockScheduleThreshold {
 		s.Unsubmit(block)
 		block.SetSkipped()
-		s.Events.BlockSkipped.Trigger(block)
+		s.Events.BlockSkipped.Trigger(block, "block skipped 1")
 	}
 
 	s.updateChildren(block)
@@ -380,7 +380,7 @@ func (s *Scheduler) submit(block *Block) error {
 func (s *Scheduler) markAsDropped(droppedBlocks []*Block) {
 	for _, droppedBlock := range droppedBlocks {
 		if droppedBlock.SetDropped() {
-			s.Events.BlockDropped.Trigger(droppedBlock)
+			s.Events.BlockDropped.Trigger(droppedBlock, "block dropped 3")
 		}
 	}
 }
@@ -419,7 +419,7 @@ loop:
 			// TODO: pause the ticker, if there are no ready blocks
 			if block := s.schedule(); block != nil {
 				if block.SetScheduled() {
-					s.Events.BlockScheduled.Trigger(block)
+					s.Events.BlockScheduled.Trigger(block, "block scheduled")
 				}
 			}
 
@@ -488,7 +488,7 @@ func (s *Scheduler) selectIssuer(start *IssuerQueue, manaMap map[identity.ID]int
 		for block != nil && time.Now().After(block.IssuingTime()) {
 			if s.isBlockAcceptedFunc(block.ID()) && time.Since(block.IssuingTime()) > s.optsAcceptedBlockScheduleThreshold {
 				block.SetSkipped()
-				s.Events.BlockSkipped.Trigger(block)
+				s.Events.BlockSkipped.Trigger(block, "block skipped 2")
 				s.buffer.PopFront()
 
 				block = q.Front()

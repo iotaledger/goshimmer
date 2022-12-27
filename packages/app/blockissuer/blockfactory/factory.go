@@ -68,7 +68,7 @@ func (f *Factory) CreateBlockWithReferences(p payload.Payload, references models
 		return nil, err
 	}
 
-	f.Events.BlockConstructed.Trigger(block)
+	f.Events.BlockConstructed.Trigger(block, "block constructed")
 	return block, nil
 }
 

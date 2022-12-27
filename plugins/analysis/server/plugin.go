@@ -160,5 +160,5 @@ func processMetricHeartbeatPacket(data []byte) {
 		}
 		return
 	}
-	Events.MetricHeartbeat.Trigger(&MetricHeartbeatEvent{hb})
+	Events.MetricHeartbeat.Trigger(&MetricHeartbeatEvent{hb}, "metric heartbeat")
 }

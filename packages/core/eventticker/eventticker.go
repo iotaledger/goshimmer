@@ -47,7 +47,7 @@ func New[T epoch.IndexedID](opts ...options.Option[EventTicker[T]]) *EventTicker
 func (r *EventTicker[T]) StartTicker(id T) {
 	if r.addTickerToQueue(id) {
 		r.Events.TickerStarted.Trigger(id)
-		r.Events.Tick.Trigger(id)
+		r.Events.Tick.Trigger(id, "start ticker")
 	}
 }
 
@@ -135,7 +135,7 @@ func (r *EventTicker[T]) stopTicker(id T) (stopped bool) {
 }
 
 func (r *EventTicker[T]) reSchedule(id T, count int) {
-	r.Events.Tick.Trigger(id)
+	r.Events.Tick.Trigger(id, "re schedule ticker")
 
 	// as we schedule a request at most once per id we do not need to make the trigger and the re-schedule atomic
 	r.evictionMutex.RLock()

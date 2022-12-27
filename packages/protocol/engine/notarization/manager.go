@@ -240,7 +240,7 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 		AcceptedBlocksCount:       acceptedBlocks.Size(),
 		AcceptedTransactionsCount: acceptedTransactions.Size(),
 		ActiveValidatorsCount:     0,
-	})
+	}, "epoch commited")
 
 	return true
 }

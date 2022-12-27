@@ -100,7 +100,7 @@ func (m *MarkerManager[IndexedID, MappedEntity]) evictSequences(epochIndex epoch
 				m.SequenceManager.Delete(sequenceID)
 
 				fmt.Println("sequence eviction", sequenceID, "last used", lastUsed, "evictedEpoch", epochIndex)
-				m.Events.SequenceEvicted.Trigger(sequenceID)
+				m.Events.SequenceEvicted.Trigger(sequenceID, "marker sequence evicted")
 			}
 		})
 	}

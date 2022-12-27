@@ -39,7 +39,7 @@ func (c *Clock) SetAcceptedTime(acceptedTime time.Time) (updated bool) {
 		c.Events.AcceptanceTimeUpdated.Trigger(&TimeUpdateEvent{
 			NewTime:    acceptedTime,
 			UpdateTime: now,
-		})
+		}, "acceptance time updated")
 	}
 
 	return
@@ -68,7 +68,7 @@ func (c *Clock) SetConfirmedTime(confirmedTime time.Time) (updated bool) {
 		c.Events.ConfirmedTimeUpdated.Trigger(&TimeUpdateEvent{
 			NewTime:    confirmedTime,
 			UpdateTime: now,
-		})
+		}, "confirmed time updated")
 	}
 
 	return

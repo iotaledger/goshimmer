@@ -91,7 +91,7 @@ func (m *Manager) registerCommitment(commitment *commitment.Commitment) (isSolid
 	}
 
 	if !created {
-		m.Events.MissingCommitmentReceived.Trigger(chainCommitment.ID())
+		m.Events.MissingCommitmentReceived.Trigger(chainCommitment.ID(), "missing commitment received")
 	}
 
 	// Lock access to the parent commitment
@@ -100,7 +100,7 @@ func (m *Manager) registerCommitment(commitment *commitment.Commitment) (isSolid
 
 	parentCommitment, commitmentCreated := m.Commitment(commitment.PrevID(), true)
 	if commitmentCreated {
-		m.Events.CommitmentMissing.Trigger(parentCommitment.ID())
+		m.Events.CommitmentMissing.Trigger(parentCommitment.ID(), "commitment missing")
 	}
 
 	isSolid, chain, wasForked = m.registerChild(parentCommitment, chainCommitment)

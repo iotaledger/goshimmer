@@ -77,7 +77,7 @@ func (nm *NetworkMap) update(hb *packet.Heartbeat) {
 
 	// when node is new, add to graph
 	if _, isAlready := nm.nodes[nodeIDString]; !isAlready {
-		Events.AddNode.Trigger(&AddNodeEvent{NetworkVersion: nm.version, NodeID: nodeIDString})
+		Events.AddNode.Trigger(&AddNodeEvent{NetworkVersion: nm.version, NodeID: nodeIDString}, "autopeering adddnode")
 	}
 	// save it + update timestamp
 	nm.nodes[nodeIDString] = timestamp
@@ -89,7 +89,7 @@ func (nm *NetworkMap) update(hb *packet.Heartbeat) {
 		// if no, add it and set it online
 		if _, isAlready := nm.nodes[outgoingNeighborString]; !isAlready {
 			// first time we see this particular node
-			Events.AddNode.Trigger(&AddNodeEvent{NetworkVersion: nm.version, NodeID: outgoingNeighborString})
+			Events.AddNode.Trigger(&AddNodeEvent{NetworkVersion: nm.version, NodeID: outgoingNeighborString}, "autopeering add node")
 		}
 		// we have indirectly heard about the neighbor.
 		nm.nodes[outgoingNeighborString] = timestamp
@@ -102,7 +102,7 @@ func (nm *NetworkMap) update(hb *packet.Heartbeat) {
 
 		// update graph when connection hasn't been seen before
 		if _, isAlready := nm.links[nodeIDString][outgoingNeighborString]; !isAlready {
-			Events.ConnectNodes.Trigger(&ConnectNodesEvent{NetworkVersion: nm.version, SourceID: nodeIDString, TargetID: outgoingNeighborString})
+			Events.ConnectNodes.Trigger(&ConnectNodesEvent{NetworkVersion: nm.version, SourceID: nodeIDString, TargetID: outgoingNeighborString}, "autopeering connect nodes")
 		}
 		// update links
 		nm.links[nodeIDString][outgoingNeighborString] = timestamp
@@ -115,7 +115,7 @@ func (nm *NetworkMap) update(hb *packet.Heartbeat) {
 		// if no, add it and set it online
 		if _, isAlready := nm.nodes[incomingNeighborString]; !isAlready {
 			// First time we see this particular node
-			Events.AddNode.Trigger(&AddNodeEvent{NetworkVersion: nm.version, NodeID: incomingNeighborString})
+			Events.AddNode.Trigger(&AddNodeEvent{NetworkVersion: nm.version, NodeID: incomingNeighborString}, "add node33")
 		}
 		// we have indirectly heard about the neighbor.
 		nm.nodes[incomingNeighborString] = timestamp
@@ -128,7 +128,7 @@ func (nm *NetworkMap) update(hb *packet.Heartbeat) {
 
 		// update graph when connection hasn't been seen before
 		if _, isAlready := nm.links[incomingNeighborString][nodeIDString]; !isAlready {
-			Events.ConnectNodes.Trigger(&ConnectNodesEvent{NetworkVersion: nm.version, SourceID: incomingNeighborString, TargetID: nodeIDString})
+			Events.ConnectNodes.Trigger(&ConnectNodesEvent{NetworkVersion: nm.version, SourceID: incomingNeighborString, TargetID: nodeIDString}, "connect nodes 333")
 		}
 		// update links map
 		nm.links[incomingNeighborString][nodeIDString] = timestamp
