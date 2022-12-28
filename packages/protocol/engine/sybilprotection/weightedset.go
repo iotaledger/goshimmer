@@ -23,7 +23,7 @@ func NewWeightedSet(weights *Weights, optMembers ...identity.ID) (newWeightedSet
 	newWeightedSet.weightUpdatesClosure = event.NewClosure(newWeightedSet.onWeightUpdated)
 	newWeightedSet.members = set.NewAdvancedSet[identity.ID]()
 
-	weights.Events.WeightsUpdated.Attach(newWeightedSet.weightUpdatesClosure)
+	//weights.Events.WeightsUpdated.Attach(newWeightedSet.weightUpdatesClosure)
 
 	for _, member := range optMembers {
 		newWeightedSet.Add(member)
@@ -127,7 +127,7 @@ func (w *WeightedSet) Members() *set.AdvancedSet[identity.ID] {
 }
 
 func (w *WeightedSet) Detach() {
-	w.Weights.Events.WeightsUpdated.Detach(w.weightUpdatesClosure)
+	//w.Weights.Events.WeightsUpdated.Detach(w.weightUpdatesClosure)
 }
 
 func (w *WeightedSet) onWeightUpdated(updates *WeightsBatch) {
