@@ -51,20 +51,6 @@ func (w *Weights) Get(id identity.ID) (weight *Weight, exists bool) {
 	return w.get(id)
 }
 
-// Get returns the weight of the given identity.
-func (w *Weights) get(id identity.ID) (weight *Weight, exists bool) {
-	if weight, exists = w.weightsCache.Get(id); exists {
-		return weight, exists
-	}
-
-	weight, exists = w.get(id)
-	if exists {
-		w.weightsCache.Put(id, weight)
-	}
-
-	return weight, exists
-}
-
 // Update updates the weight of the given identity.
 func (w *Weights) Update(id identity.ID, weightDiff *Weight) {
 	w.mutex.Lock()
