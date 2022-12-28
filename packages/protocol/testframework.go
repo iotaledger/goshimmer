@@ -11,7 +11,6 @@ import (
 	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/core/diskutil"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/network"
@@ -21,9 +20,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
 	"github.com/iotaledger/goshimmer/packages/storage"
+	"github.com/iotaledger/goshimmer/packages/storage/utils"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
+
+const genesisTokenAmount = 100
 
 type TestFramework struct {
 	Network  *network.MockedNetwork
@@ -42,7 +44,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 
 		test: test,
 	}, opts, func(t *TestFramework) {
-		diskUtil := diskutil.New(test.TempDir())
+		tempDir := utils.NewDirectory(test.TempDir())
 
 		test.Cleanup(func() {
 			t.Protocol.Shutdown()
@@ -51,9 +53,10 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 		identitiesWeights := map[identity.ID]uint64{
 			identity.New(ed25519.GenerateKeyPair().PublicKey).ID(): 100,
 		}
-		snapshotcreator.CreateSnapshot(DatabaseVersion, diskUtil.Path("snapshot.bin"), 100, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights))
 
-		t.Protocol = New(t.Network.Join(identity.GenerateIdentity().ID()), append(t.optsProtocolOptions, WithSnapshotPath(diskUtil.Path("snapshot.bin")), WithBaseDirectory(diskUtil.Path()))...)
+		snapshotcreator.CreateSnapshot(DatabaseVersion, tempDir.Path("snapshot.bin"), genesisTokenAmount, make([]byte, ed25519.SeedSize), identitiesWeights, lo.Keys(identitiesWeights))
+
+		t.Protocol = New(t.Network.Join(identity.GenerateIdentity().ID()), append(t.optsProtocolOptions, WithSnapshotPath(tempDir.Path("snapshot.bin")), WithBaseDirectory(tempDir.Path()))...)
 	})
 }
 

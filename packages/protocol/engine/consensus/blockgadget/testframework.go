@@ -22,7 +22,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
-	"github.com/iotaledger/goshimmer/packages/storage/permanent"
 )
 
 // region TestFramework //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -57,7 +56,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		},
 	}, opts, func(t *TestFramework) {
 		if t.optsValidators == nil {
-			t.optsValidators = sybilprotection.NewWeightedSet(sybilprotection.NewWeights(mapdb.NewMapDB(), permanent.NewSettings(t.test.TempDir()+"/settings")))
+			t.optsValidators = sybilprotection.NewWeightedSet(sybilprotection.NewWeights(mapdb.NewMapDB()))
 		}
 
 		if t.Gadget == nil {

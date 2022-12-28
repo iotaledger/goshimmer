@@ -137,7 +137,7 @@ func getInfo(c echo.Context) error {
 	}
 
 	accessMana, _ := deps.Protocol.Engine().ThroughputQuota.Balance(deps.Local.ID())
-	consensusMana := lo.Return1(deps.Protocol.Engine().SybilProtection.Weights().Weight(deps.Local.ID())).Value
+	consensusMana := lo.Return1(deps.Protocol.Engine().SybilProtection.Weights().Get(deps.Local.ID())).Value
 	nodeMana := jsonmodels.Mana{
 		Access:             accessMana,
 		AccessTimestamp:    time.Now(),

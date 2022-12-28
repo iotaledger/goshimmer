@@ -279,7 +279,13 @@ func (e *Engine) initTangle() {
 }
 
 func (e *Engine) initConsensus() {
-	e.Consensus = consensus.New(e.Tangle, e.EvictionState, e.Storage.Permanent.Settings.LatestConfirmedEpoch(), e.SybilProtection.Weights().TotalAvailableWeight, e.optsConsensusOptions...)
+	e.Consensus = consensus.New(e.Tangle, e.EvictionState, e.Storage.Permanent.Settings.LatestConfirmedEpoch(), func() (totalWeight int64) {
+		if zeroIdentityWeight, exists := e.SybilProtection.Weights().Get(identity.ID{}); exists {
+			totalWeight -= zeroIdentityWeight.Value
+		}
+
+		return totalWeight + e.SybilProtection.Weights().TotalWeight().Value
+	}, e.optsConsensusOptions...)
 
 	e.Events.EvictionState.EpochEvicted.Hook(event.NewClosure(e.Consensus.BlockGadget.EvictUntil))
 
@@ -320,7 +326,7 @@ func (e *Engine) initTSCManager() {
 
 	e.Events.Tangle.Booker.BlockBooked.Attach(event.NewClosure(e.TSCManager.AddBlock))
 
-	e.Events.Clock.AcceptanceTimeUpdated.Attach(event.NewClosure(func(event *clock.TimeUpdate) {
+	e.Events.Clock.AcceptanceTimeUpdated.Attach(event.NewClosure(func(event *clock.TimeUpdateEvent) {
 		e.TSCManager.HandleTimeUpdate(event.NewTime)
 	}))
 }
@@ -374,7 +380,7 @@ func (e *Engine) initNotarizationManager() {
 	}))
 
 	// Epochs are committed whenever ATT advances, start committing only when bootstrapped.
-	e.Clock.Events.AcceptanceTimeUpdated.Attach(event.NewClosure(func(event *clock.TimeUpdate) {
+	e.Clock.Events.AcceptanceTimeUpdated.Attach(event.NewClosure(func(event *clock.TimeUpdateEvent) {
 		e.NotarizationManager.SetAcceptanceTime(event.NewTime)
 	}))
 

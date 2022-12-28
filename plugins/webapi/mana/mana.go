@@ -28,7 +28,7 @@ func getManaHandler(c echo.Context) error {
 	}
 
 	accessMana, _ := deps.Protocol.Engine().ThroughputQuota.Balance(ID)
-	consensusMana := lo.Return1(deps.Protocol.Engine().SybilProtection.Weights().Weight(ID)).Value
+	consensusMana := lo.Return1(deps.Protocol.Engine().SybilProtection.Weights().Get(ID)).Value
 
 	return c.JSON(http.StatusOK, jsonmodels.GetManaResponse{
 		ShortIssuerID:      ID.String(),

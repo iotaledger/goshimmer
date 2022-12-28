@@ -89,7 +89,7 @@ func (o *VirtualVoting) EpochVotersTotalWeight(epochIndex epoch.Index) (totalWei
 	o.evictionMutex.RLock()
 	defer o.evictionMutex.RUnlock()
 
-	validators := o.Validators.Weights.WeightedSet(o.epochTracker.Voters(epochIndex).Slice()...)
+	validators := o.Validators.Weights.NewWeightedSet(o.epochTracker.Voters(epochIndex).Slice()...)
 	defer validators.Detach()
 
 	return validators.TotalWeight()

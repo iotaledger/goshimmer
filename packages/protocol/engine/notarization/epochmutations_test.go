@@ -5,14 +5,11 @@ import (
 
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
-	"github.com/iotaledger/hive.go/core/types"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/goshimmer/packages/storage/permanent"
 )
 
 func TestMutationFactory(t *testing.T) {
@@ -72,9 +69,7 @@ func TestMutationFactory(t *testing.T) {
 }
 
 func TestMutationFactory_AddAcceptedBlock(t *testing.T) {
-	settings := permanent.NewSettings(t.TempDir() + "/settings")
-	settings.SetLatestCommitment(commitment.New(0, commitment.NewID(0, []byte{}), types.Identifier{}, 0))
-	mutationFactory := NewEpochMutations(sybilprotection.NewWeights(mapdb.NewMapDB(), settings), 2)
+	mutationFactory := NewEpochMutations(sybilprotection.NewWeights(mapdb.NewMapDB()), 2)
 
 	block := models.NewBlock(
 		models.WithIssuingTime(epoch.Index(3).EndTime()),

@@ -17,8 +17,8 @@ import (
 
 type walletID int
 
-// WalletType is the type of the wallet.
 type (
+	// WalletType is the type of the wallet.
 	WalletType   int8
 	WalletStatus int8
 )
@@ -194,7 +194,6 @@ func (w *Wallets) removeFreshWallet() {
 		w.faucetWallets = w.faucetWallets[1:]
 		delete(w.wallets, removedID)
 	}
-	return
 }
 
 // removeWallet removes wallet, for Fresh wallet it will be the first wallet in a queue.
@@ -203,7 +202,6 @@ func (w *Wallets) removeReuseWallet(walletID walletID) {
 		delete(w.reuseWallets, walletID)
 		delete(w.wallets, walletID)
 	}
-	return
 }
 
 // SetWalletReady makes wallet ready to use, Fresh wallet is added to freshWallets queue.

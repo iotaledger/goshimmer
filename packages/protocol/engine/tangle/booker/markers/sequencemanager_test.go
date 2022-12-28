@@ -341,8 +341,6 @@ func inheritPastMarkers(block *block, manager *SequenceManager, blockDB map[stri
 	}
 
 	block.structureDetails, _ = manager.InheritStructureDetails(pastMarkers)
-
-	return
 }
 
 func makeBlockDB(blocks ...*block) (blockDB map[string]*block) {

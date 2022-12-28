@@ -25,11 +25,12 @@ import (
 )
 
 const (
-	cfgGenesisTokenAmount   = "token-amount"
-	cfgPledgeTokenAmount    = "plege-token-amount"
-	cfgSnapshotFileName     = "snapshot-file"
-	cfgSnapshotGenesisSeed  = "seed"
-	defaultSnapshotFileName = "./snapshot.bin"
+	cfgGenesisTokenAmount     = "token-amount"
+	cfgPledgeTokenAmount      = "plege-token-amount"
+	cfgSnapshotFileName       = "snapshot-file"
+	cfgSnapshotGenesisSeed    = "seed"
+	defaultSnapshotFileName   = "./snapshot.bin"
+	defaultGenesisTokenAmount = 1000000000000000
 )
 
 // Feature network.
@@ -128,10 +129,10 @@ func createInitialAttestations() (parsed []identity.ID) {
 }
 
 func init() {
-	flag.Uint64(cfgGenesisTokenAmount, 1000000000000000, "the amount of tokens to add to the genesis output") // this amount is pledged to the empty nodeID.
+	flag.Uint64(cfgGenesisTokenAmount, defaultGenesisTokenAmount, "the amount of tokens to add to the genesis output") // this amount is pledged to the empty nodeID.
 	flag.String(cfgSnapshotFileName, defaultSnapshotFileName, "the name of the generated snapshot file")
 	flag.String(cfgSnapshotGenesisSeed, "7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih", "the genesis seed")
-	flag.Uint(cfgPledgeTokenAmount, 1000000000000000, "the amount of tokens to pledge to defined nodes (other than genesis)")
+	flag.Uint(cfgPledgeTokenAmount, defaultGenesisTokenAmount, "the amount of tokens to pledge to defined nodes (other than genesis)")
 
 	flag.Parse()
 	if err := viper.BindPFlags(flag.CommandLine); err != nil {

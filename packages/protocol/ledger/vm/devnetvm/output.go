@@ -367,9 +367,9 @@ func (s *SigLockedSingleOutput) UnlockValid(tx *Transaction, unlockBlock UnlockB
 	switch blk := unlockBlock.(type) {
 	case *SignatureUnlockBlock:
 		// unlocking by signature
-		txBytes, err := tx.Essence().Bytes()
-		if err != nil {
-			return false, errors.Wrap(err, "could not get essence bytes")
+		txBytes, bytesErr := tx.Essence().Bytes()
+		if bytesErr != nil {
+			return false, errors.Wrap(bytesErr, "could not get essence bytes")
 		}
 		unlockValid = blk.AddressSignatureValid(s.M.Address, txBytes)
 
@@ -465,9 +465,9 @@ func (s *SigLockedColoredOutput) Balances() *ColoredBalances {
 func (s *SigLockedColoredOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inputs []Output) (unlockValid bool, err error) {
 	switch blk := unlockBlock.(type) {
 	case *SignatureUnlockBlock:
-		txBytes, err := tx.Essence().Bytes()
-		if err != nil {
-			return false, errors.Wrap(err, "could not get essence bytes")
+		txBytes, bytesErr := tx.Essence().Bytes()
+		if bytesErr != nil {
+			return false, errors.Wrap(bytesErr, "could not get essence bytes")
 		}
 		// unlocking by signature
 		unlockValid = blk.AddressSignatureValid(s.M.Address, txBytes)

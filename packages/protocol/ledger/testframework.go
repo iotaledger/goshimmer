@@ -24,30 +24,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
+	"github.com/iotaledger/goshimmer/packages/protocol/models/payloadtype"
 	"github.com/iotaledger/goshimmer/packages/storage"
 )
-
-func init() {
-	err := serix.DefaultAPI.RegisterTypeSettings(MockedTransaction{}, serix.TypeSettings{}.WithObjectType(uint32(new(MockedTransaction).Type())))
-	if err != nil {
-		panic(fmt.Errorf("error registering GenericDataPayload type settings: %w", err))
-	}
-
-	err = serix.DefaultAPI.RegisterInterfaceObjects((*payload.Payload)(nil), new(MockedTransaction))
-	if err != nil {
-		panic(fmt.Errorf("error registering GenericDataPayload as Payload interface: %w", err))
-	}
-
-	err = serix.DefaultAPI.RegisterTypeSettings(MockedOutput{}, serix.TypeSettings{}.WithObjectType(uint8(devnetvm.ExtendedLockedOutputType+1)))
-	if err != nil {
-		panic(fmt.Errorf("error registering ExtendedLockedOutput type settings: %w", err))
-	}
-
-	err = serix.DefaultAPI.RegisterInterfaceObjects((*utxo.Output)(nil), new(MockedOutput))
-	if err != nil {
-		panic(fmt.Errorf("error registering utxo.Output interface implementations: %w", err))
-	}
-}
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -427,6 +406,9 @@ var _ utxo.Output = new(MockedOutput)
 
 // region MockedTransaction ////////////////////////////////////////////////////////////////////////////////////////////
 
+// MockedTransactionType represents the payload Type of mocked Transactions.
+var MockedTransactionType payload.Type
+
 // MockedTransaction is the type that is used to describe instructions how to modify the ledger state for MockedVM.
 type MockedTransaction struct {
 	model.Storable[utxo.TransactionID, MockedTransaction, *MockedTransaction, mockedTransaction] `serix:"0"`
@@ -464,7 +446,7 @@ func (m *MockedTransaction) Inputs() (inputs []utxo.Input) {
 
 // Type returns the type of the Transaction.
 func (m *MockedTransaction) Type() payload.Type {
-	return 44
+	return MockedTransactionType
 }
 
 // code contract (make sure the struct implements all required methods).
@@ -553,3 +535,23 @@ func WithLedger(ledger *Ledger) options.Option[TestFramework] {
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func init() {
+	MockedTransactionType = payload.NewType(payloadtype.MockedTransaction, "MockedTransactionType")
+
+	if err := serix.DefaultAPI.RegisterTypeSettings(MockedTransaction{}, serix.TypeSettings{}.WithObjectType(uint32(new(MockedTransaction).Type()))); err != nil {
+		panic(fmt.Errorf("error registering Transaction type settings: %w", err))
+	}
+
+	if err := serix.DefaultAPI.RegisterInterfaceObjects((*payload.Payload)(nil), new(MockedTransaction)); err != nil {
+		panic(fmt.Errorf("error registering Transaction as Payload interface: %w", err))
+	}
+
+	if err := serix.DefaultAPI.RegisterTypeSettings(MockedOutput{}, serix.TypeSettings{}.WithObjectType(uint8(devnetvm.ExtendedLockedOutputType+1))); err != nil {
+		panic(fmt.Errorf("error registering ExtendedLockedOutput type settings: %w", err))
+	}
+
+	if err := serix.DefaultAPI.RegisterInterfaceObjects((*utxo.Output)(nil), new(MockedOutput)); err != nil {
+		panic(fmt.Errorf("error registering utxo.Output interface implementations: %w", err))
+	}
+}

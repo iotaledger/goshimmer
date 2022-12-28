@@ -156,13 +156,6 @@ func (b *Block) setInvalid() (wasUpdated bool) {
 	return true
 }
 
-func (b *Block) isOrphaned() (isOrphaned bool) {
-	b.mutex.RLock()
-	defer b.mutex.RUnlock()
-
-	return b.orphaned
-}
-
 // setOrphaned sets the orphaned flag of the Block.
 func (b *Block) setOrphaned(orphaned bool) (wasUpdated bool) {
 	b.mutex.Lock()

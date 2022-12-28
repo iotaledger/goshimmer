@@ -105,7 +105,7 @@ func execSweepNFTOwnedNFTsCommand(command *flag.FlagSet, cliWallet *wallet.Walle
 
 	fmt.Println()
 	for _, sweptNFT := range sweptNFTs {
-		fmt.Println(fmt.Sprintf("Swept NFT %s into the wallet", sweptNFT.Base58()))
+		fmt.Printf("Swept NFT %s into the wallet\n", sweptNFT.Base58())
 	}
 	fmt.Println("Sweeping NFT owned NFTs... [DONE]")
 }

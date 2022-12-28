@@ -16,7 +16,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/goshimmer/packages/storage/permanent"
 )
 
 type TestFramework struct {
@@ -41,7 +40,7 @@ func NewTestFramework(test *testing.T) *TestFramework {
 		epochEntityCounter: make(map[epoch.Index]int),
 	}
 
-	tf.weights = sybilprotection.NewWeights(mapdb.NewMapDB(), permanent.NewSettings(test.TempDir()+"/settings"))
+	tf.weights = sybilprotection.NewWeights(mapdb.NewMapDB())
 	tf.MutationFactory = NewEpochMutations(tf.weights, 0)
 
 	return tf
@@ -59,7 +58,7 @@ func (t *TestFramework) CreateIssuer(alias string, issuerWeight ...int64) (issue
 
 	t.issuersByID[alias] = issuer
 	if len(issuerWeight) == 1 {
-		t.weights.ImportDiff(0, identity.NewID(issuer), issuerWeight[0])
+		t.weights.Update(identity.NewID(issuer), sybilprotection.NewWeight(issuerWeight[0], 0))
 	}
 	return issuer
 }

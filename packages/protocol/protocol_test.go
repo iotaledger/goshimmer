@@ -18,7 +18,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/database"
-	"github.com/iotaledger/goshimmer/packages/core/diskutil"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/network"
@@ -31,6 +30,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
+	"github.com/iotaledger/goshimmer/packages/storage/utils"
 )
 
 func TestProtocol(t *testing.T) {
@@ -39,15 +39,15 @@ func TestProtocol(t *testing.T) {
 	testNetwork := network.NewMockedNetwork()
 
 	endpoint1 := testNetwork.Join(identity.GenerateIdentity().ID())
-	diskUtil1 := diskutil.New(t.TempDir())
+	tempDir := utils.NewDirectory(t.TempDir())
 
 	identitiesWeights := map[identity.ID]uint64{
 		identity.GenerateIdentity().ID(): 100,
 	}
 
-	snapshotcreator.CreateSnapshot(DatabaseVersion, diskUtil1.Path("snapshot.bin"), 100, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights))
+	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDir.Path("snapshot.bin"), 100, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights))
 
-	protocol1 := New(endpoint1, WithBaseDirectory(diskUtil1.Path()), WithSnapshotPath(diskUtil1.Path("snapshot.bin")))
+	protocol1 := New(endpoint1, WithBaseDirectory(tempDir.Path()), WithSnapshotPath(tempDir.Path("snapshot.bin")))
 	protocol1.Run()
 
 	commitments := make(map[string]*commitment.Commitment)
@@ -72,11 +72,11 @@ func TestProtocol(t *testing.T) {
 	})
 
 	endpoint2 := testNetwork.Join(identity.GenerateIdentity().ID())
-	diskUtil2 := diskutil.New(t.TempDir())
+	tempDir2 := utils.NewDirectory(t.TempDir())
 
-	snapshotcreator.CreateSnapshot(DatabaseVersion, diskUtil2.Path("snapshot.bin"), 100, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights))
+	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDir2.Path("snapshot.bin"), 100, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights))
 
-	protocol2 := New(endpoint2, WithBaseDirectory(diskUtil2.Path()), WithSnapshotPath(diskUtil2.Path("snapshot.bin")))
+	protocol2 := New(endpoint2, WithBaseDirectory(tempDir2.Path()), WithSnapshotPath(tempDir2.Path("snapshot.bin")))
 	protocol2.Run()
 
 	protocol2.chainManager.Events.CommitmentMissing.Hook(event.NewClosure(func(id commitment.ID) {
@@ -109,7 +109,7 @@ func TestEngine_NonEmptyInitialValidators(t *testing.T) {
 	epoch.GenesisTime = time.Now().Unix()
 
 	tf := NewEngineTestFramework(t)
-	tempDisk := diskutil.New(t.TempDir())
+	tempDir := utils.NewDirectory(t.TempDir())
 
 	identitiesMap := map[string]ed25519.PublicKey{
 		"A": identity.GenerateIdentity().PublicKey(),
@@ -125,9 +125,9 @@ func TestEngine_NonEmptyInitialValidators(t *testing.T) {
 		identity.New(identitiesMap["D"]).ID(): 10,
 	}
 
-	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDisk.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights))
+	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDir.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights))
 
-	require.NoError(t, tf.Engine.Initialize(tempDisk.Path("genesis_snapshot.bin")))
+	require.NoError(t, tf.Engine.Initialize(tempDir.Path("genesis_snapshot.bin")))
 
 	tf.Tangle.CreateBlock("1.A", models.WithStrongParents(tf.Tangle.BlockIDs("Genesis")), models.WithIssuer(identitiesMap["A"]))
 	tf.Tangle.IssueBlocks("1.A").WaitUntilAllTasksProcessed()
@@ -165,7 +165,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 	fmt.Println("> GenesisTime", time.Unix(epoch.GenesisTime, 0))
 
 	tf := NewEngineTestFramework(t)
-	tempDisk := diskutil.New(t.TempDir())
+	tempDir := utils.NewDirectory(t.TempDir())
 
 	identitiesMap := map[string]ed25519.PublicKey{
 		"A": identity.GenerateIdentity().PublicKey(),
@@ -181,9 +181,9 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 		identity.New(identitiesMap["D"]).ID(): 25,
 	}
 
-	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDisk.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights))
+	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDir.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights))
 
-	require.NoError(t, tf.Engine.Initialize(tempDisk.Path("genesis_snapshot.bin")))
+	require.NoError(t, tf.Engine.Initialize(tempDir.Path("genesis_snapshot.bin")))
 
 	acceptedBlocks := make(map[string]bool)
 
@@ -244,11 +244,11 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 
 	// Dump snapshot for latest committable epoch 4 and check engine equivalence
 	{
-		require.NoError(t, tf.Engine.WriteSnapshot(tempDisk.Path("snapshot_epoch4.bin")))
+		require.NoError(t, tf.Engine.WriteSnapshot(tempDir.Path("snapshot_epoch4.bin")))
 
 		tf2 := NewEngineTestFramework(t)
 
-		require.NoError(t, tf2.Engine.Initialize(tempDisk.Path("snapshot_epoch4.bin")))
+		require.NoError(t, tf2.Engine.Initialize(tempDir.Path("snapshot_epoch4.bin")))
 
 		// Settings
 		// The ChainID of the new engine corresponds to the target epoch of the imported snapshot.
@@ -318,11 +318,11 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 
 	// Dump snapshot for epoch 1 and check attestations equivalence
 	{
-		require.NoError(t, tf.Engine.WriteSnapshot(tempDisk.Path("snapshot_epoch1.bin"), 1))
+		require.NoError(t, tf.Engine.WriteSnapshot(tempDir.Path("snapshot_epoch1.bin"), 1))
 
 		tf2 := NewEngineTestFramework(t)
 
-		require.NoError(t, tf2.Engine.Initialize(tempDisk.Path("snapshot_epoch1.bin")))
+		require.NoError(t, tf2.Engine.Initialize(tempDir.Path("snapshot_epoch1.bin")))
 
 		assert.Equal(t, epoch.Index(4), tf.Engine.Storage.Settings.LatestCommitment().Index())
 
@@ -379,11 +379,11 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 
 	// Dump snapshot for epoch 2 and check equivalence.
 	{
-		require.NoError(t, tf.Engine.WriteSnapshot(tempDisk.Path("snapshot_epoch2.bin"), 2))
+		require.NoError(t, tf.Engine.WriteSnapshot(tempDir.Path("snapshot_epoch2.bin"), 2))
 
 		tf2 := NewEngineTestFramework(t)
 
-		require.NoError(t, tf2.Engine.Initialize(tempDisk.Path("snapshot_epoch2.bin")))
+		require.NoError(t, tf2.Engine.Initialize(tempDir.Path("snapshot_epoch2.bin")))
 
 		assert.Equal(t, epoch.Index(2), tf2.Engine.Storage.Settings.LatestCommitment().Index())
 
@@ -432,7 +432,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 			),
 		),
 	))
-	tempDisk := diskutil.New(t.TempDir())
+	tempDir := utils.NewDirectory(t.TempDir())
 
 	tf.Engine.NotarizationManager.Events.Error.Attach(event.NewClosure(func(err error) {
 		panic(err)
@@ -454,9 +454,9 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		identity.New(identitiesMap["Z"]).ID(): 0,
 	}
 
-	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDisk.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights))
+	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDir.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights))
 
-	require.NoError(t, tf.Engine.Initialize(tempDisk.Path("genesis_snapshot.bin")))
+	require.NoError(t, tf.Engine.Initialize(tempDir.Path("genesis_snapshot.bin")))
 
 	assert.Equal(t, int64(100), tf.Engine.SybilProtection.Validators().TotalWeight())
 
@@ -530,10 +530,10 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 	// ///////////////////////////////////////////////////////////
 
 	{
-		require.NoError(t, tf.Engine.WriteSnapshot(tempDisk.Path("snapshot_epoch1.bin"), 1))
+		require.NoError(t, tf.Engine.WriteSnapshot(tempDir.Path("snapshot_epoch1.bin"), 1))
 
 		tf2 := NewEngineTestFramework(t)
-		require.NoError(t, tf2.Engine.Initialize(tempDisk.Path("snapshot_epoch1.bin")))
+		require.NoError(t, tf2.Engine.Initialize(tempDir.Path("snapshot_epoch1.bin")))
 
 		assert.Equal(t, epoch.Index(1), tf2.Engine.Storage.Settings.LatestCommitment().Index())
 
@@ -591,7 +591,7 @@ func TestEngine_ShutdownResume(t *testing.T) {
 			),
 		),
 	))
-	tempDisk := diskutil.New(t.TempDir())
+	tempDir := utils.NewDirectory(t.TempDir())
 
 	tf.Engine.NotarizationManager.Events.Error.Attach(event.NewClosure(func(err error) {
 		panic(err)
@@ -613,9 +613,9 @@ func TestEngine_ShutdownResume(t *testing.T) {
 		identity.New(identitiesMap["Z"]).ID(): 0,
 	}
 
-	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDisk.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights))
+	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDir.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights))
 
-	require.NoError(t, tf.Engine.Initialize(tempDisk.Path("genesis_snapshot.bin")))
+	require.NoError(t, tf.Engine.Initialize(tempDir.Path("genesis_snapshot.bin")))
 
 	assert.Equal(t, int64(100), tf.Engine.SybilProtection.Validators().TotalWeight())
 

@@ -552,10 +552,10 @@ func PostTransaction(c echo.Context) error {
 
 	// if transaction is in the future we wait until the time arrives
 	if tx.Essence().Timestamp().After(time.Now()) {
-		if tx.Essence().Timestamp().Sub(time.Now()) > time.Minute {
+		if time.Until(tx.Essence().Timestamp()) > time.Minute {
 			return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: "transaction timestamp is in the future and cannot be issued; please readjust local clock"})
 		}
-		time.Sleep(tx.Essence().Timestamp().Sub(time.Now()) + 1*time.Nanosecond)
+		time.Sleep(time.Until(tx.Essence().Timestamp()) + 1*time.Nanosecond)
 	}
 
 	block, err := deps.BlockIssuer.CreateBlock(tx)

@@ -443,7 +443,6 @@ func (e *EvilWallet) registerOutputAliases(outputs devnetvm.Outputs, addrAliasMa
 		input := devnetvm.NewUTXOInput(output.ID())
 		e.aliasManager.AddInputAlias(input, addrAliasMap[output.Address()])
 	}
-	return
 }
 
 func (e *EvilWallet) prepareInputs(buildOptions *Options) (inputs []devnetvm.Input, err error) {
@@ -693,16 +692,13 @@ func (e *EvilWallet) getAddressFromInput(input devnetvm.Input) (addr devnetvm.Ad
 }
 
 func (e *EvilWallet) PrepareCustomConflictsSpam(scenario *EvilScenario) (txs [][]*devnetvm.Transaction, allAliases ScenarioAlias, err error) {
-	conflicts, allAliases, err := e.prepareConflictSliceForScenario(scenario)
-	if err != nil {
-		return
-	}
+	conflicts, allAliases := e.prepareConflictSliceForScenario(scenario)
 	txs, err = e.PrepareCustomConflicts(conflicts)
 
 	return
 }
 
-func (e *EvilWallet) prepareConflictSliceForScenario(scenario *EvilScenario) (conflictSlice []ConflictSlice, allAliases ScenarioAlias, err error) {
+func (e *EvilWallet) prepareConflictSliceForScenario(scenario *EvilScenario) (conflictSlice []ConflictSlice, allAliases ScenarioAlias) {
 	genOutputOptions := func(aliases []string) []*OutputOption {
 		outputOptions := make([]*OutputOption, 0)
 		for _, o := range aliases {

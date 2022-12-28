@@ -1,11 +1,11 @@
 package dagsvisualizer
 
 import (
+	"context"
 	"embed"
 	"fmt"
 	"io"
 	"io/fs"
-	"io/ioutil"
 	"net/http"
 
 	"github.com/cockroachdb/errors"
@@ -66,9 +66,7 @@ func indexRoute(e echo.Context) error {
 }
 
 func setupRoutes(e *echo.Echo) {
-	if err := prepareSources(e); err != nil {
-		return
-	}
+	prepareSources(e)
 
 	e.GET("/ws", websocketRoute)
 	e.GET("/", indexRoute)
@@ -125,16 +123,21 @@ func setupRoutes(e *echo.Echo) {
 	}
 }
 
-func prepareSources(e *echo.Echo) error {
+func prepareSources(e *echo.Echo) {
 	if Parameters.Dev {
 		e.GET("/static/*", func(e echo.Context) error {
-			res, err := http.Get("http://" + Parameters.DevBindAddress + e.Request().URL.Path)
+			req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://"+Parameters.DevBindAddress+e.Request().URL.Path, http.NoBody)
+			if err != nil {
+				return err
+			}
+
+			res, err := http.DefaultClient.Do(req)
 			if err != nil {
 				return err
 			}
 			defer res.Body.Close()
 
-			devIndexHTML, err := ioutil.ReadAll(res.Body)
+			devIndexHTML, err := io.ReadAll(res.Body)
 			if err != nil {
 				return err
 			}
@@ -167,5 +170,4 @@ func prepareSources(e *echo.Echo) error {
 			e.GET("/static/media/"+de.Name(), echo.WrapHandler(http.StripPrefix("/static/media/", http.FileServer(http.FS(mediafs)))))
 		}
 	}
-	return nil
 }

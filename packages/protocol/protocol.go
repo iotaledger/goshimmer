@@ -10,7 +10,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/database"
-	"github.com/iotaledger/goshimmer/packages/core/diskutil"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
@@ -27,6 +26,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
 	"github.com/iotaledger/goshimmer/packages/storage"
+	"github.com/iotaledger/goshimmer/packages/storage/utils"
 )
 
 const (
@@ -44,7 +44,7 @@ type Protocol struct {
 
 	dispatcher           network.Endpoint
 	networkProtocol      *network.Protocol
-	disk                 *diskutil.DiskUtil
+	directory            *utils.Directory
 	activeEngineMutex    sync.RWMutex
 	engine               *engine.Engine
 	candidateEngine      *engine.Engine
@@ -76,7 +76,7 @@ func New(dispatcher network.Endpoint, opts ...options.Option[Protocol]) (protoco
 		optsBaseDirectory:    "",
 		optsPruningThreshold: 6 * 60, // 1 hour given that epoch duration is 10 seconds
 	}, opts,
-		(*Protocol).initDisk,
+		(*Protocol).initDirectory,
 		(*Protocol).initCongestionControl,
 		(*Protocol).initMainChainStorage,
 		(*Protocol).initMainEngine,
@@ -110,12 +110,12 @@ func (p *Protocol) Shutdown() {
 	}
 }
 
-func (p *Protocol) initDisk() {
-	p.disk = diskutil.New(p.optsBaseDirectory)
+func (p *Protocol) initDirectory() {
+	p.directory = utils.NewDirectory(p.optsBaseDirectory)
 }
 
 func (p *Protocol) initMainChainStorage() {
-	p.storage = storage.New(p.disk.Path(mainBaseDir), DatabaseVersion, p.optsStorageDatabaseManagerOptions...)
+	p.storage = storage.New(p.directory.Path(mainBaseDir), DatabaseVersion, p.optsStorageDatabaseManagerOptions...)
 
 	p.Events.Engine.Consensus.EpochGadget.EpochConfirmed.Attach(event.NewClosure(func(epochIndex epoch.Index) {
 		p.storage.PruneUntilEpoch(epochIndex - epoch.Index(p.optsPruningThreshold))

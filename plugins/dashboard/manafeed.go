@@ -80,7 +80,7 @@ func sendManaValue() {
 		log.Debugf("no mana available for local identity: %s ", ownID.String())
 	}
 
-	ownWeight, exists := deps.Protocol.Engine().SybilProtection.Weights().Weight(ownID)
+	ownWeight, exists := deps.Protocol.Engine().SybilProtection.Weights().Get(ownID)
 	if !exists {
 		ownWeight = sybilprotection.NewWeight(0, -1)
 	}
@@ -165,7 +165,7 @@ func sendManaMapOnline() {
 	consensusPayload := &ManaNetworkListBlkData{ManaType: manamodels.ConsensusMana.String()}
 
 	_ = activeNodes.ForEach(func(id identity.ID) error {
-		weight, exists := deps.Protocol.Engine().SybilProtection.Weights().Weight(id)
+		weight, exists := deps.Protocol.Engine().SybilProtection.Weights().Get(id)
 		if !exists {
 			weight = sybilprotection.NewWeight(0, -1)
 		}
