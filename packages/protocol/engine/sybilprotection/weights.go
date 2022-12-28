@@ -47,8 +47,16 @@ func (w *Weights) NewWeightedSet(members ...identity.ID) (newWeightedSet *Weight
 func (w *Weights) Get(id identity.ID) (weight *Weight, exists bool) {
 	w.mutex.RLock()
 	defer w.mutex.RUnlock()
+	if weight, exists = w.weightsCache.Get(id); exists {
+		return weight, exists
+	}
 
-	return w.get(id)
+	weight, exists = w.get(id)
+	if exists {
+		w.weightsCache.Put(id, weight)
+	}
+
+	return weight, exists
 }
 
 // Update updates the weight of the given identity.
