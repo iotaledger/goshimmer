@@ -165,34 +165,34 @@ func (t *TipManager) selectTips(count int) (parents models.BlockIDs) {
 
 		// at least one tip is returned
 		for _, tip := range tips {
-			if t.isPastConeTimestampCorrect(tip.Block.Block) {
-				parents.Add(tip.ID())
-			} else {
-				fmt.Printf("(time: %s) cannot select tip due to TSC condition tip issuing time (%s), time (%s), min supported time (%s), block id (%s), tip pool size (%d), scheduled: (%t), orphaned: (%t), accepted: (%t)\n",
-					time.Now(),
-					tip.IssuingTime(),
-					t.engine.Clock.AcceptedTime(),
-					t.engine.Clock.AcceptedTime().Add(-t.optsTimeSinceConfirmationThreshold),
-					tip.ID().Base58(),
-					t.tips.Size(),
-					tip.IsScheduled(),
-					tip.IsOrphaned(),
-					t.engine.Consensus.BlockGadget.IsBlockAccepted(tip.ID()),
-				)
-				// tip.ForEachParent(func(parent models.Parent) {
-				// 	fmt.Println("parent block id", parent.ID.Base58())
-				// 	if parentBlock, exists := t.engine.(parent.ID); exists {
-				// 		fmt.Println(parentBlock.IssuingTime(), parentBlock.IsScheduled())
-				// 	}
-				// 	if t.acceptanceGadget.IsBlockAccepted(parent.ID) {
-				// 		fmt.Println("parent block accepted")
-				// 	}
-				// })
-				t.DeleteTip(tip)
-				if t.tips.Size() == 0 {
-					fmt.Println("(time: ", time.Now(), ") >> deleted last TIP because it doesn't pass tsc check!", tip.ID())
-				}
-			}
+			//if t.isPastConeTimestampCorrect(tip.Block.Block) {
+			parents.Add(tip.ID())
+			//} else {
+			//	fmt.Printf("(time: %s) cannot select tip due to TSC condition tip issuing time (%s), time (%s), min supported time (%s), block id (%s), tip pool size (%d), scheduled: (%t), orphaned: (%t), accepted: (%t)\n",
+			//		time.Now(),
+			//		tip.IssuingTime(),
+			//		t.engine.Clock.AcceptedTime(),
+			//		t.engine.Clock.AcceptedTime().Add(-t.optsTimeSinceConfirmationThreshold),
+			//		tip.ID().Base58(),
+			//		t.tips.Size(),
+			//		tip.IsScheduled(),
+			//		tip.IsOrphaned(),
+			//		t.engine.Consensus.BlockGadget.IsBlockAccepted(tip.ID()),
+			//	)
+			//	// tip.ForEachParent(func(parent models.Parent) {
+			//	// 	fmt.Println("parent block id", parent.ID.Base58())
+			//	// 	if parentBlock, exists := t.engine.(parent.ID); exists {
+			//	// 		fmt.Println(parentBlock.IssuingTime(), parentBlock.IsScheduled())
+			//	// 	}
+			//	// 	if t.acceptanceGadget.IsBlockAccepted(parent.ID) {
+			//	// 		fmt.Println("parent block accepted")
+			//	// 	}
+			//	// })
+			//	t.DeleteTip(tip)
+			//	if t.tips.Size() == 0 {
+			//		fmt.Println("(time: ", time.Now(), ") >> deleted last TIP because it doesn't pass tsc check!", tip.ID())
+			//	}
+			//}
 		}
 
 		if len(parents) > 0 {
