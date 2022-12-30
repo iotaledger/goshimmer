@@ -231,10 +231,10 @@ type markerPreviousBlockPair struct {
 func (t *TipManager) isPastConeTimestampCorrect(block *booker.Block) (timestampValid bool) {
 	now := time.Now()
 	markersWalked, blocksWalked := 0, 0
-	blocksTime, markersTime := time.Duration(0), time.Duration(0)
+	blocksTime, markersTime, durationUntilLoops := time.Duration(0), time.Duration(0), time.Duration(0)
 	defer func() {
 		if time.Since(now) > 100*time.Millisecond {
-			fmt.Printf("TSC check taking long time (%s) markersWalked(%d, %s) blocksWalked(%d, %s), time \n", time.Since(now), markersWalked, markersTime, blocksWalked, blocksTime)
+			fmt.Printf("TSC check taking long time (%s) timeUntilLoops(%s), markersWalked(%d, %s) blocksWalked(%d, %s), time \n", time.Since(now), durationUntilLoops, markersWalked, markersTime, blocksWalked, blocksTime)
 		}
 	}()
 	minSupportedTimestamp := t.engine.Clock.AcceptedTime().Add(-t.optsTimeSinceConfirmationThreshold)
@@ -258,9 +258,10 @@ func (t *TipManager) isPastConeTimestampCorrect(block *booker.Block) (timestampV
 	blockWalker := walker.New[*booker.Block](false)
 
 	processInitialBlock(block, blockWalker, markerWalker)
-
+	durationUntilLoops = time.Since(now)
 	markersNow := time.Now()
 	for markerWalker.HasNext() {
+		markersWalked++
 		marker := markerWalker.Next()
 		timestampValid = t.checkPair(marker, blockWalker, markerWalker, minSupportedTimestamp)
 		if !timestampValid {
@@ -279,6 +280,7 @@ func (t *TipManager) isPastConeTimestampCorrect(block *booker.Block) (timestampV
 
 	blocksNow := time.Now()
 	for blockWalker.HasNext() {
+		blocksWalked++
 		blockW := blockWalker.Next()
 		timestampValid = t.checkBlock(blockW, blockWalker, minSupportedTimestamp)
 		if !timestampValid {

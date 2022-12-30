@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/core/generics/constraints"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/generics/walker"
 	"github.com/iotaledger/hive.go/core/identity"
@@ -57,13 +58,19 @@ func (s *SequenceTracker[VotePowerType]) Voters(marker markers.Marker) (voters *
 	if !exists {
 		return
 	}
+	loopCounter := 0
+	outerNow := time.Now()
 
 	votesObj.ForEach(func(identityID identity.ID, validatorVotes *latestvotes.LatestVotes[markers.Index, VotePowerType]) bool {
+		loopCounter++
+		now := time.Now()
 		_, voteExists := validatorVotes.Power(marker.Index())
 		if !voteExists {
+			if duration := time.Since(now); duration > 100*time.Millisecond {
+				fmt.Println("Adding voter identity took more than one second:", duration)
+			}
 			return true
 		}
-		now := time.Now()
 		voters.Add(identityID)
 		if duration := time.Since(now); duration > 100*time.Millisecond {
 			fmt.Println("Adding voter identity took more than one second:", duration)
@@ -71,6 +78,9 @@ func (s *SequenceTracker[VotePowerType]) Voters(marker markers.Marker) (voters *
 		return true
 	})
 
+	if duration := time.Since(outerNow); loopCounter > 10 || duration > 100*time.Millisecond {
+		fmt.Println("Loop counter:", loopCounter, "loop duration:", duration, "len(votesObj)", votesObj.Size(), "votesObj (should contain 9 entries):", lo.Keys(votesObj.AsMap()))
+	}
 	return
 }
 
