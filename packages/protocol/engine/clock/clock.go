@@ -1,6 +1,7 @@
 package clock
 
 import (
+	"fmt"
 	"sync"
 	"time"
 )
@@ -89,10 +90,11 @@ func (c *Clock) updateTime(now, newTime time.Time, param, updatedParam *time.Tim
 	// the local wall clock should never be before the accepted time unless we are eclipsed by malicious actors or our
 	// own time is clearly in the past
 	if now.Before(newTime) {
-		panic("accepted time is in the future")
+		panic(fmt.Sprintf("tried to set time is in the future. now: %s, newTime: %s", now.String(), newTime.String()))
 	}
 
-	if updated = newTime.After(*param); updated {
+	//if updated = newTime.After(*param); updated {
+	if updated = newTime.Unix() > (*param).Unix(); updated {
 		*param = newTime
 		*updatedParam = now
 	}
