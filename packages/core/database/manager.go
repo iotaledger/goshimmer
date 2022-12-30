@@ -28,7 +28,7 @@ type Manager struct {
 	openDBs         *cache.Cache[epoch.Index, *dbInstance]
 	bucketedBaseDir string
 	dbSizes         *memstorage.Storage[epoch.Index, int64]
-	openDBsMutex    sync.RWMutex
+	openDBsMutex    sync.Mutex
 
 	maxPruned      epoch.Index
 	maxPrunedMutex sync.RWMutex
@@ -279,19 +279,11 @@ func (m *Manager) PrunableStorageSize() int64 {
 //	baseIndex 2 -> db 2
 func (m *Manager) getDBInstance(index epoch.Index) (db *dbInstance) {
 	baseIndex := m.computeDBBaseIndex(index)
-	m.openDBsMutex.RLock()
-	db, exists := m.openDBs.Get(baseIndex)
-	if exists {
-		m.openDBsMutex.RUnlock()
-		return db
-	}
-	m.openDBsMutex.RUnlock()
-
 	m.openDBsMutex.Lock()
 	defer m.openDBsMutex.Unlock()
 
 	// check if exists again, as other goroutine might have created it in parallel
-	db, exists = m.openDBs.Get(baseIndex)
+	db, exists := m.openDBs.Get(baseIndex)
 	if !exists {
 		db = m.createDBInstance(baseIndex)
 
