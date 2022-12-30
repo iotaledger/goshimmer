@@ -250,9 +250,6 @@ func (m *Manager) PermanentStorageSize() int64 {
 
 // PrunableStorageSize returns the size of the prunable storage containing all db instances.
 func (m *Manager) PrunableStorageSize() int64 {
-	m.openDBsMutex.Lock()
-	defer m.openDBsMutex.Unlock()
-
 	// Sum up all the evicted databases
 	var sum int64
 	m.dbSizes.ForEach(func(index epoch.Index, i int64) bool {
@@ -261,14 +258,14 @@ func (m *Manager) PrunableStorageSize() int64 {
 	})
 
 	// Add up all the open databases
-	m.openDBs.Each(func(key epoch.Index, val *dbInstance) {
-		size, err := dbPrunableDirectorySize(m.bucketedBaseDir, key)
-		if err != nil {
-			fmt.Println("dbPrunableDirectorySize failed for", m.bucketedBaseDir, key, ":", err)
-			return
-		}
-		sum += size
-	})
+	//m.openDBs.Each(func(key epoch.Index, val *dbInstance) {
+	//	size, err := dbPrunableDirectorySize(m.bucketedBaseDir, key)
+	//	if err != nil {
+	//		fmt.Println("dbPrunableDirectorySize failed for", m.bucketedBaseDir, key, ":", err)
+	//		return
+	//	}
+	//	sum += size
+	//})
 
 	return sum
 }
