@@ -98,16 +98,13 @@ func (b *Booker) Block(id models.BlockID) (block *Block, exists bool) {
 }
 
 func (b *Booker) BlockConflicts(block *Block) (blockConflictIDs utxo.TransactionIDs) {
-	_, blockConflictIDs = b.blockBookingDetails(block)
+	_, blockConflictIDs = b.BlockBookingDetails(block)
 	return
 }
 
 func (b *Booker) BlockBookingDetails(block *Block) (pastMarkersConflictIDs, blockConflictIDs utxo.TransactionIDs) {
 	b.evictionMutex.RLock()
 	defer b.evictionMutex.RUnlock()
-
-	b.rLockBlockSequences(block)
-	defer b.rUnlockBlockSequences(block)
 
 	return b.blockBookingDetails(block)
 }
