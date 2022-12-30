@@ -328,6 +328,8 @@ func validateReferencedMarkers(t *testing.T, sequence *markers.Sequence, sequenc
 func validateBlockMarkerMappingPruning(t *testing.T, markerBlockMapping map[markers.Marker]*blockdag.Block, markerManager *MarkerManager[models.BlockID, *blockdag.Block], prunedEpochs int) {
 	for marker, expectedBlock := range markerBlockMapping {
 		mappedBlock, exists := markerManager.BlockFromMarker(marker)
+		assert.Equal(t, marker, lo.Return1(markerManager.BlockCeiling(marker)), "expected Ceiling to return the marker")
+		assert.Equal(t, marker, lo.Return1(markerManager.BlockFloor(marker)), "expected Floor to return the marker")
 		if expectedBlock.ID().EpochIndex <= epoch.Index(prunedEpochs) {
 			assert.False(t, exists, "expected block %s with marker %s to be pruned", expectedBlock.ID(), marker)
 			continue
