@@ -93,8 +93,7 @@ func (c *Clock) updateTime(now, newTime time.Time, param, updatedParam *time.Tim
 		panic(fmt.Sprintf("tried to set time is in the future. now: %s, newTime: %s", now.String(), newTime.String()))
 	}
 
-	//if updated = newTime.After(*param); updated {
-	if updated = newTime.Unix() > (*param).Unix(); updated {
+	if updated = newTime.Unix() > param.Unix(); updated {
 		*param = newTime
 		*updatedParam = now
 	}
