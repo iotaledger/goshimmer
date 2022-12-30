@@ -46,13 +46,13 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) TrackVo
 	return true, false
 }
 
-func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) Voters(conflict ConflictIDType) (voters *sybilprotection.WeightedSet) {
+func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) Voters(conflict ConflictIDType) (voters *set.AdvancedSet[identity.ID]) {
 	votesObj, exists := c.votes.Get(conflict)
 	if !exists {
-		return c.validators.Weights.NewWeightedSet()
+		return set.NewAdvancedSet[identity.ID]()
 	}
 
-	return c.validators.Weights.NewWeightedSet(votesObj.Voters().Slice()...)
+	return votesObj.Voters()
 }
 
 func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) AddSupportToForkedConflict(forkedConflictID ConflictIDType, parentConflictIDs *set.AdvancedSet[ConflictIDType], voterID identity.ID, power VotePowerType) {
