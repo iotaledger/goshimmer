@@ -23,7 +23,7 @@ type Weights struct {
 
 	weights      *ads.Map[identity.ID, Weight, *identity.ID, *Weight]
 	weightsCache *cache.Cache[identity.ID, *Weight]
-	cacheMutex   sync.RWMutex
+	cacheMutex   sync.Mutex
 	totalWeight  *Weight
 	mutex        sync.RWMutex
 }
@@ -168,8 +168,8 @@ func (w *Weights) get(id identity.ID) (weight *Weight, exists bool) {
 }
 
 func (w *Weights) getFromCache(id identity.ID) (weight *Weight, exists bool) {
-	w.cacheMutex.RLock()
-	defer w.cacheMutex.RUnlock()
+	w.cacheMutex.Lock()
+	defer w.cacheMutex.Unlock()
 
 	return w.weightsCache.Get(id)
 }
