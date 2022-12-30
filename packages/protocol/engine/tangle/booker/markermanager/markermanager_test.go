@@ -85,30 +85,30 @@ func Test_BlockMarkerCeilingFloor(t *testing.T) {
 	tf := blockdag.NewTestFramework(t)
 
 	// create a helper function that creates the blocks
-	createNewBlock := func(idx int, prefix string) (block *blockdag.Block, alias string) {
-		alias = fmt.Sprintf("blk%s-%d", prefix, idx)
+	createNewBlock := func(idx int, prefix string) (block *blockdag.Block) {
+		alias := fmt.Sprintf("blk%s-%d", prefix, idx)
 		if idx == 1 {
 			return blockdag.NewBlock(tf.CreateBlock(
 				alias,
 				models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0)),
-			)), alias
+			))
 		}
 		return blockdag.NewBlock(tf.CreateBlock(
 			alias,
 			models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk%s-%d", prefix, idx-1))),
 			models.WithIssuingTime(time.Unix(epoch.GenesisTime+int64(idx-1)*epoch.Duration, 0)),
-		)), alias
+		))
 	}
 
 	markerBlockMapping := make(map[markers.Marker]*blockdag.Block, blockCount)
 	for i := 1; i <= blockCount; i++ {
-		blk, _ := createNewBlock(i, "")
+		blk := createNewBlock(i, "")
 		markerBlockMapping[markers.NewMarker(1, markers.Index(i))] = blk
 		markerManager.addMarkerBlockMapping(markers.NewMarker(1, markers.Index(i)), blk)
 	}
 
 	for i := blockCount + markerGap; i <= 2*blockCount+markerGap; i++ {
-		blk, _ := createNewBlock(i-markerGap, "")
+		blk := createNewBlock(i-markerGap, "")
 		markerBlockMapping[markers.NewMarker(1, markers.Index(i))] = blk
 		markerManager.addMarkerBlockMapping(markers.NewMarker(1, markers.Index(i)), blk)
 	}
