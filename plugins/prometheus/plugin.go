@@ -42,8 +42,8 @@ type dependencies struct {
 	dig.In
 	AutopeeringPlugin     *node.Plugin `name:"autopeering" optional:"true"`
 	Local                 *peer.Local
-	AutoPeeringConnMetric *net.ConnMetric `optional:"true"`
-	Protocol              *protocol.Protocol
+	AutoPeeringConnMetric *net.ConnMetric    `optional:"true"`
+	Protocol              *protocol.Protocol `optional:"true"`
 	Retainer              *retainer.Retainer `optional:"true"`
 }
 
