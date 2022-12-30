@@ -392,6 +392,7 @@ func (e *Engine) initEvictionState() {
 	e.Events.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
 		block.ForEachParent(func(parent models.Parent) {
 			// TODO: ONLY ADD STRONG PARENTS AFTER NOT DOWNLOADING PAST WEAK ARROWS
+			// TODO: is this correct? could this lock acceptance in some extreme corner case? something like this happened, that confirmation is correctly advancing per block, but acceptance does not. I think it might have something to do with root blocks
 			if parent.ID.Index() < block.ID().Index() {
 				e.EvictionState.AddRootBlock(parent.ID)
 			}
