@@ -40,7 +40,7 @@ func (w *WeightedSet) Add(id identity.ID) (added bool) {
 	defer w.membersMutex.Unlock()
 
 	if added = w.members.Add(id); added {
-		if weight, exists := w.Weights.weights.Get(id); exists {
+		if weight, exists := w.Weights.get(id); exists {
 			w.totalWeight += weight.Value
 		}
 	}
@@ -56,7 +56,7 @@ func (w *WeightedSet) Delete(id identity.ID) (removed bool) {
 	defer w.membersMutex.Unlock()
 
 	if removed = w.members.Delete(id); removed {
-		if weight, exists := w.Weights.weights.Get(id); exists {
+		if weight, exists := w.Weights.get(id); exists {
 			w.totalWeight -= weight.Value
 		}
 	}
@@ -72,7 +72,7 @@ func (w *WeightedSet) Get(id identity.ID) (weight *Weight, exists bool) {
 		return nil, false
 	}
 
-	if weight, exists := w.Weights.Get(id); exists {
+	if weight, exists = w.Weights.Get(id); exists {
 		return weight, true
 	}
 
