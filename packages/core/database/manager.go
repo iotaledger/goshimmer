@@ -13,10 +13,10 @@ import (
 
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/kvstore"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 )
 
 // region Manager //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -27,8 +27,8 @@ type Manager struct {
 
 	openDBs         *cache.Cache[epoch.Index, *dbInstance]
 	bucketedBaseDir string
-	dbSizes         *shrinkingmap.ShrinkingMap[epoch.Index, int64]
-	openDBsMutex    sync.Mutex
+	dbSizes         *memstorage.Storage[epoch.Index, int64]
+	openDBsMutex    sync.RWMutex
 
 	maxPruned      epoch.Index
 	maxPrunedMutex sync.RWMutex
@@ -70,7 +70,7 @@ func NewManager(version Version, opts ...options.Option[Manager]) *Manager {
 			m.dbSizes.Set(baseIndex, size)
 		})
 
-		m.dbSizes = shrinkingmap.New[epoch.Index, int64]()
+		m.dbSizes = memstorage.New[epoch.Index, int64]()
 	})
 
 	if err := m.checkVersion(version); err != nil {
@@ -281,11 +281,20 @@ func (m *Manager) PrunableStorageSize() int64 {
 //	baseIndex 1 -> db 0
 //	baseIndex 2 -> db 2
 func (m *Manager) getDBInstance(index epoch.Index) (db *dbInstance) {
+	baseIndex := m.computeDBBaseIndex(index)
+	m.openDBsMutex.RLock()
+	db, exists := m.openDBs.Get(baseIndex)
+	if exists {
+		m.openDBsMutex.RUnlock()
+		return db
+	}
+	m.openDBsMutex.RUnlock()
+
 	m.openDBsMutex.Lock()
 	defer m.openDBsMutex.Unlock()
 
-	baseIndex := m.computeDBBaseIndex(index)
-	db, exists := m.openDBs.Get(baseIndex)
+	// check if exists again, as other goroutine might have created it in parallel
+	db, exists = m.openDBs.Get(baseIndex)
 	if !exists {
 		db = m.createDBInstance(baseIndex)
 

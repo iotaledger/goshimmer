@@ -71,7 +71,7 @@ func (c *EpochTracker) Voters(epochIndex epoch.Index) (voters *set.AdvancedSet[i
 		return voters
 	}
 
-	epochVoters.ForEach(func(identityID identity.ID) error {
+	_ = epochVoters.ForEach(func(identityID identity.ID) error {
 		voters.Add(identityID)
 		return nil
 	})
