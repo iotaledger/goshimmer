@@ -5,6 +5,7 @@ import (
 
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
@@ -78,10 +79,15 @@ func (o *VirtualVoting) MarkerVotersTotalWeight(marker markers.Marker) (totalWei
 	o.evictionMutex.RLock()
 	defer o.evictionMutex.RUnlock()
 
-	voters := o.sequenceTracker.Voters(marker)
-	defer voters.Detach()
+	_ = o.sequenceTracker.Voters(marker).ForEach(func(id identity.ID) error {
+		if weight, exists := o.Validators.Get(id); exists {
+			totalWeight += weight.Value
+		}
 
-	return voters.TotalWeight()
+		return nil
+	})
+
+	return totalWeight
 }
 
 // EpochVotersTotalWeight retrieves the total weight of the Validators voting for a given epoch.
@@ -89,10 +95,15 @@ func (o *VirtualVoting) EpochVotersTotalWeight(epochIndex epoch.Index) (totalWei
 	o.evictionMutex.RLock()
 	defer o.evictionMutex.RUnlock()
 
-	validators := o.Validators.Weights.NewWeightedSet(o.epochTracker.Voters(epochIndex).Slice()...)
-	defer validators.Detach()
+	_ = o.epochTracker.Voters(epochIndex).ForEach(func(id identity.ID) error {
+		if weight, exists := o.Validators.Get(id); exists {
+			totalWeight += weight.Value
+		}
 
-	return validators.TotalWeight()
+		return nil
+	})
+
+	return totalWeight
 }
 
 // ConflictVoters retrieves Validators voting for a given conflict.
@@ -100,7 +111,7 @@ func (o *VirtualVoting) ConflictVoters(conflictID utxo.TransactionID) (voters *s
 	o.evictionMutex.RLock()
 	defer o.evictionMutex.RUnlock()
 
-	return o.conflictTracker.Voters(conflictID)
+	return o.Validators.Weights.NewWeightedSet(o.conflictTracker.Voters(conflictID).Slice()...)
 }
 
 // ConflictVotersTotalWeight retrieves the total weight of the Validators voting for a given conflict.
@@ -108,10 +119,14 @@ func (o *VirtualVoting) ConflictVotersTotalWeight(conflictID utxo.TransactionID)
 	o.evictionMutex.RLock()
 	defer o.evictionMutex.RUnlock()
 
-	voters := o.conflictTracker.Voters(conflictID)
-	defer voters.Detach()
+	_ = o.conflictTracker.Voters(conflictID).ForEach(func(id identity.ID) error {
+		if weight, exists := o.Validators.Get(id); exists {
+			totalWeight += weight.Value
+		}
 
-	return voters.TotalWeight()
+		return nil
+	})
+	return totalWeight
 }
 
 func (o *VirtualVoting) setupEvents() {
