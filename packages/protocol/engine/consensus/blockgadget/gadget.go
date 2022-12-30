@@ -174,12 +174,15 @@ func (a *Gadget) RefreshSequence(sequenceID markers.SequenceID, newMaxSupportedI
 	totalWeight := a.totalWeightCallback()
 
 	for markerIndex := prevMaxSupportedIndex; markerIndex <= newMaxSupportedIndex; markerIndex++ {
-		// if sequence began due to attaching to a solid entry point, then prevMaxSupportedIndex=0 which needs to be skipped.
-		if markerIndex <= 0 {
-			continue
+		marker, markerExists := a.tangle.Booker.BlockCeiling(markers.NewMarker(sequenceID, markerIndex))
+		if !markerExists {
+			// bigger marker index does not exist, stop iterating. Usually this should not be the case.
+			break
 		}
 
-		marker := markers.NewMarker(sequenceID, markerIndex)
+		// in case there was a gap in the indices, and it was jumped over, update markerIndex to current marker
+		// if there was no gap then new value is the same as the old one
+		markerIndex = marker.Index()
 
 		blocksToAccept, blocksToConfirm := a.tryConfirmOrAccept(totalWeight, marker)
 		acceptedBlocks = append(acceptedBlocks, blocksToAccept...)
