@@ -60,7 +60,6 @@ type Scheduler struct {
 	stopped        typeutils.AtomicBool
 	shutdownSignal chan struct{}
 	shutdownOnce   sync.Once
-	readyChan      chan *Block
 }
 
 // New returns a new Scheduler.
@@ -81,7 +80,6 @@ func New(evictionState *eviction.State, isBlockAccepted func(models.BlockID) boo
 		optsMaxDeficit:                     new(big.Rat).SetInt64(10), // must be >= max block work, but work is currently=1 for all blocks
 
 		shutdownSignal: make(chan struct{}),
-		readyChan:      make(chan *Block),
 	}, opts, func(s *Scheduler) {
 		s.ticker = time.NewTicker(s.optsRate)
 		s.buffer = NewBufferQueue(s.optsMaxBufferSize)
@@ -435,9 +433,9 @@ loop:
 		// every rate time units
 		case <-s.ticker.C:
 			if block := s.schedule(); block != nil {
-// TODO: make this operate in units of work, with a variable pause between scheduling depending on work scheduled.
-	// TODO: don't use a ticker. Switch to a simple timer instead, and use a flag when ready to schedule something if there is nothing ready to be scheduled yet.
-	// TODO: implement a token bucket for the scheduler to account for bursty arrivals.
+				// TODO: make this operate in units of work, with a variable pause between scheduling depending on work scheduled.
+				// TODO: don't use a ticker. Switch to a simple timer instead, and use a flag when ready to schedule something if there is nothing ready to be scheduled yet.
+				// TODO: implement a token bucket for the scheduler to account for bursty arrivals.
 				if block.SetScheduled() {
 					s.Events.BlockScheduled.Trigger(block)
 				}
