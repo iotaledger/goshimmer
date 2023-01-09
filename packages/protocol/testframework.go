@@ -4,8 +4,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
-
 	"github.com/iotaledger/hive.go/core/configuration"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
@@ -15,6 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot/creator"
 	"github.com/iotaledger/goshimmer/packages/network"
+	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/storage"
