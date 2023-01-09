@@ -7,7 +7,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer/ratesetter/aimd"
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer/ratesetter/deficit"
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer/ratesetter/disabled"
-	"github.com/iotaledger/goshimmer/packages/app/blockissuer/ratesetter/utils"
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/protocol"
@@ -73,7 +72,6 @@ func New(localID identity.ID, protocol *protocol.Protocol, opts ...options.Optio
 type RateSetter interface {
 	Rate() float64
 	Estimate() time.Duration
-	Events() *utils.Events
 	Shutdown()
 }
 

@@ -2,20 +2,14 @@ package disabled
 
 import (
 	"time"
-
-	"github.com/iotaledger/goshimmer/packages/app/blockissuer/ratesetter/utils"
 )
 
 // region DisabledRateSetter ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-type RateSetter struct {
-	events *utils.Events
-}
+type RateSetter struct{}
 
 func New() *RateSetter {
-	return &RateSetter{
-		events: utils.NewEvents(),
-	}
+	return &RateSetter{}
 }
 
 func (r *RateSetter) Shutdown() {
@@ -27,9 +21,6 @@ func (r *RateSetter) Rate() float64 {
 }
 func (r *RateSetter) Estimate() time.Duration {
 	return time.Duration(0)
-}
-func (r *RateSetter) Events() *utils.Events {
-	return r.events
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

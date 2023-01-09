@@ -4,7 +4,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/app/blockissuer/ratesetter/utils"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -17,7 +16,6 @@ import (
 // region RateSetter ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 type RateSetter struct {
-	events                *utils.Events
 	protocol              *protocol.Protocol
 	self                  identity.ID
 	totalManaRetrieveFunc func() int64
@@ -33,7 +31,6 @@ type RateSetter struct {
 func New(protocol *protocol.Protocol, selfIdentity identity.ID, opts ...options.Option[RateSetter]) *RateSetter {
 
 	return options.Apply(&RateSetter{
-		events:                utils.NewEvents(),
 		protocol:              protocol,
 		self:                  selfIdentity,
 		manaRetrieveFunc:      protocol.Engine().ManaTracker.ManaByIDs,
@@ -70,11 +67,6 @@ func (r *RateSetter) Estimate() time.Duration {
 		expectedWork := models.MaxBlockWork
 		return time.Duration(lo.Max(0.0, (float64(expectedWork)-r.getExcessDeficit())/r.ownRate.Load()))
 	}
-}
-
-// Events returns the events of the Disabled rate setter.
-func (r *RateSetter) Events() *utils.Events {
-	return r.events
 }
 
 func (r *RateSetter) initializeRate() {
