@@ -59,7 +59,6 @@ func createBlockIssuer(local *peer.Local, protocol *protocol.Protocol) *blockiss
 			blockfactory.WithTipSelectionRetryInterval(Parameters.BlockFactory.TipSelectionRetryInterval),
 			blockfactory.WithTipSelectionTimeout(Parameters.BlockFactory.TipSelectionTimeout),
 		),
-		blockissuer.WithRateSetterMode(rateSetterMode),
 		blockissuer.WithRateSetter(rateSetter),
 		blockissuer.WithIgnoreBootstrappedFlag(Parameters.IgnoreBootstrappedFlag),
 	)

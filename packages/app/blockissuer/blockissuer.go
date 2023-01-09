@@ -32,7 +32,6 @@ type BlockIssuer struct {
 	identity          *identity.LocalIdentity
 	referenceProvider *blockfactory.ReferenceProvider
 
-	optsRateSetterMode         ratesetter.ModeType
 	optsBlockFactoryOptions    []options.Option[blockfactory.Factory]
 	optsIgnoreBootstrappedFlag bool
 }
@@ -194,11 +193,6 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeScheduled(block *models.Block, 
 func WithBlockFactoryOptions(blockFactoryOptions ...options.Option[blockfactory.Factory]) options.Option[BlockIssuer] {
 	return func(issuer *BlockIssuer) {
 		issuer.optsBlockFactoryOptions = blockFactoryOptions
-	}
-}
-func WithRateSetterMode(rateSetterMode ratesetter.ModeType) options.Option[BlockIssuer] {
-	return func(issuer *BlockIssuer) {
-		issuer.optsRateSetterMode = rateSetterMode
 	}
 }
 func WithRateSetter(rateSetter ratesetter.RateSetter) options.Option[BlockIssuer] {
