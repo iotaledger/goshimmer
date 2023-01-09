@@ -40,12 +40,12 @@ func TestRateSetter_IssueBlocksAndAwaitScheduleMultipleIssuers(t *testing.T) {
 	allModes := []ModeType{DeficitMode, DisabledMode}
 	numIssuers := 5
 	numBlocksPerIssuer := 10
-	schedulerRate := 100
+	schedulerRate := time.Duration(100) // 100 nanoseconds between scheduling each block.
 
 	allBlocks := make(map[models.BlockID]*models.Block)
 
 	for _, mode := range allModes {
-		tf := NewTestFramework(t, WithRateSetterOptions(WithMode(mode)), WithSchedulerOptions(scheduler.WithRate(time.Duration(schedulerRate))), WithNumIssuers(numIssuers))
+		tf := NewTestFramework(t, WithRateSetterOptions(WithMode(mode)), WithSchedulerOptions(scheduler.WithRate(schedulerRate)), WithNumIssuers(numIssuers))
 		blockScheduled := make(chan *models.Block, 1)
 		tf.Protocol.CongestionControl.Scheduler().Events.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) { blockScheduled <- block.ModelsBlock }))
 
