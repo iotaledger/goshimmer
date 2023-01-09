@@ -154,6 +154,7 @@ func (m *EpochMutations) Evict(index epoch.Index) (acceptedBlocks *ads.Set[model
 
 	return m.acceptedBlocks(index), m.acceptedTransactions(index), lo.Return1(m.attestationsByEpoch.Get(index)), nil
 }
+
 // Attestations returns the attestations for the given epoch.
 func (m *EpochMutations) Attestations(index epoch.Index) (epochAttestations *Attestations) {
 	m.evictionMutex.RLock()
