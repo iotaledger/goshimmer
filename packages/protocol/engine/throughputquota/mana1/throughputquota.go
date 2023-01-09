@@ -80,45 +80,6 @@ func New(engineInstance *engine.Engine, opts ...options.Option[ThroughputQuota])
 	})
 }
 
-func (m *ThroughputQuota) init() {
-	m.engine.LedgerState.UnspentOutputs.Unsubscribe(m)
-
-	m.TriggerInitialized()
-
-	m.engine.Ledger.Events.TransactionAccepted.Attach(event.NewClosure(func(event *ledger.TransactionEvent) {
-		m.quotaByIDMutex.Lock()
-		defer m.quotaByIDMutex.Unlock()
-		for _, createdOutput := range event.CreatedOutputs {
-			if createdOutputErr := m.applyCreatedOutput(createdOutput); createdOutputErr != nil {
-				panic(createdOutputErr)
-			}
-		}
-
-		for _, spentOutput := range event.SpentOutputs {
-			if spentOutputErr := m.applySpentOutput(spentOutput); spentOutputErr != nil {
-				panic(spentOutputErr)
-			}
-		}
-	}))
-
-	m.engine.Ledger.Events.TransactionOrphaned.Attach(event.NewClosure(func(event *ledger.TransactionEvent) {
-		m.quotaByIDMutex.Lock()
-		defer m.quotaByIDMutex.Unlock()
-
-		for _, createdOutput := range event.CreatedOutputs {
-			if spentOutputErr := m.applySpentOutput(createdOutput); spentOutputErr != nil {
-				panic(spentOutputErr)
-			}
-		}
-
-		for _, spentOutput := range event.SpentOutputs {
-			if createdOutputErr := m.applyCreatedOutput(spentOutput); createdOutputErr != nil {
-				panic(createdOutputErr)
-			}
-		}
-	}))
-}
-
 // NewProvider returns a new throughput quota provider that uses mana1.
 func NewProvider(opts ...options.Option[ThroughputQuota]) engine.ModuleProvider[throughputquota.ThroughputQuota] {
 	return engine.ProvideModule(func(e *engine.Engine) throughputquota.ThroughputQuota {
@@ -211,6 +172,45 @@ func (m *ThroughputQuota) CommitBatchedStateTransition() (ctx context.Context) {
 	done()
 
 	return
+}
+
+func (m *ThroughputQuota) init() {
+	m.engine.LedgerState.UnspentOutputs.Unsubscribe(m)
+
+	m.TriggerInitialized()
+
+	m.engine.Ledger.Events.TransactionAccepted.Attach(event.NewClosure(func(event *ledger.TransactionEvent) {
+		m.quotaByIDMutex.Lock()
+		defer m.quotaByIDMutex.Unlock()
+		for _, createdOutput := range event.CreatedOutputs {
+			if createdOutputErr := m.applyCreatedOutput(createdOutput); createdOutputErr != nil {
+				panic(createdOutputErr)
+			}
+		}
+
+		for _, spentOutput := range event.SpentOutputs {
+			if spentOutputErr := m.applySpentOutput(spentOutput); spentOutputErr != nil {
+				panic(spentOutputErr)
+			}
+		}
+	}))
+
+	m.engine.Ledger.Events.TransactionOrphaned.Attach(event.NewClosure(func(event *ledger.TransactionEvent) {
+		m.quotaByIDMutex.Lock()
+		defer m.quotaByIDMutex.Unlock()
+
+		for _, createdOutput := range event.CreatedOutputs {
+			if spentOutputErr := m.applySpentOutput(createdOutput); spentOutputErr != nil {
+				panic(spentOutputErr)
+			}
+		}
+
+		for _, spentOutput := range event.SpentOutputs {
+			if createdOutputErr := m.applyCreatedOutput(spentOutput); createdOutputErr != nil {
+				panic(createdOutputErr)
+			}
+		}
+	}))
 }
 
 func (m *ThroughputQuota) updateMana(id identity.ID, diff int64) {
