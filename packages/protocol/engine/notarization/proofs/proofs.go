@@ -31,11 +31,7 @@ func (m *Manager) GetBlockInclusionProof(blockID models.BlockID) (*CommitmentPro
 	}
 	t := block.IssuingTime()
 	ei = epoch.IndexFromTime(t)
-<<<<<<<< HEAD:packages/protocol/engine/notarization/proofs.go
-	proof, err := m.epochCommitmentFactory.ProofTangleRoot(ei, blockID)
-========
 	proof, err := m.commitmentFactory.ProofTangleRoot(ei, blockID)
->>>>>>>> develop:packages/protocol/engine/notarization/proofs/proofs.go
 	if err != nil {
 		return nil, err
 	}
@@ -55,20 +51,12 @@ func (m *Manager) GetTransactionInclusionProof(transactionID utxo.TransactionID)
 	return proof, nil
 }
 
-<<<<<<<< HEAD:packages/protocol/engine/notarization/proofs.go
-func (f *CommitmentFactory) verifyRoot(proof CommitmentProof, key []byte, value []byte) bool {
-========
 func (f *commitmentFactory) verifyRoot(proof CommitmentProof, key []byte, value []byte) bool {
->>>>>>>> develop:packages/protocol/engine/notarization/proofs/proofs.go
 	return smt.VerifyProof(proof.proof, proof.root, key, value, lo.PanicOnErr(blake2b.New256(nil)))
 }
 
 // ProofStateRoot returns the merkle proof for the outputID against the state root.
-<<<<<<<< HEAD:packages/protocol/engine/notarization/proofs.go
-func (f *CommitmentFactory) ProofStateRoot(ei epoch.Index, outID utxo.OutputID) (*CommitmentProof, error) {
-========
 func (f *commitmentFactory) ProofStateRoot(ei epoch.Index, outID utxo.OutputID) (*CommitmentProof, error) {
->>>>>>>> develop:packages/protocol/engine/notarization/proofs/proofs.go
 	key := outID.Bytes()
 	root, exists := f.commitmentTrees.Get(ei)
 	if !exists {
@@ -83,11 +71,7 @@ func (f *commitmentFactory) ProofStateRoot(ei epoch.Index, outID utxo.OutputID) 
 }
 
 // ProofStateMutationRoot returns the merkle proof for the transactionID against the state mutation root.
-<<<<<<<< HEAD:packages/protocol/engine/notarization/proofs.go
-func (f *CommitmentFactory) ProofStateMutationRoot(ei epoch.Index, txID utxo.TransactionID) (*CommitmentProof, error) {
-========
 func (f *commitmentFactory) ProofStateMutationRoot(ei epoch.Index, txID utxo.TransactionID) (*CommitmentProof, error) {
->>>>>>>> develop:packages/protocol/engine/notarization/proofs/proofs.go
 	committmentTrees, err := f.getCommitmentTrees(ei)
 	if err != nil {
 		return nil, errors.Wrapf(err, "cannot get commitment trees for epoch %d", ei)
@@ -103,11 +87,7 @@ func (f *commitmentFactory) ProofStateMutationRoot(ei epoch.Index, txID utxo.Tra
 }
 
 // ProofTangleRoot returns the merkle proof for the blockID against the tangle root.
-<<<<<<<< HEAD:packages/protocol/engine/notarization/proofs.go
-func (f *CommitmentFactory) ProofTangleRoot(ei epoch.Index, blockID models.BlockID) (*CommitmentProof, error) {
-========
 func (f *commitmentFactory) ProofTangleRoot(ei epoch.Index, blockID models.BlockID) (*CommitmentProof, error) {
->>>>>>>> develop:packages/protocol/engine/notarization/proofs/proofs.go
 	committmentTrees, err := f.getCommitmentTrees(ei)
 	if err != nil {
 		return nil, errors.Wrapf(err, "cannot get commitment trees for epoch %d", ei)
@@ -123,21 +103,13 @@ func (f *commitmentFactory) ProofTangleRoot(ei epoch.Index, blockID models.Block
 }
 
 // VerifyTangleRoot verify the provided merkle proof against the tangle root.
-<<<<<<<< HEAD:packages/protocol/engine/notarization/proofs.go
-func (f *CommitmentFactory) VerifyTangleRoot(proof CommitmentProof, blockID models.BlockID) bool {
-========
 func (f *commitmentFactory) VerifyTangleRoot(proof CommitmentProof, blockID models.BlockID) bool {
->>>>>>>> develop:packages/protocol/engine/notarization/proofs/proofs.go
 	key, _ := blockID.Bytes()
 	return f.verifyRoot(proof, key, key)
 }
 
 // VerifyStateMutationRoot verify the provided merkle proof against the state mutation root.
-<<<<<<<< HEAD:packages/protocol/engine/notarization/proofs.go
-func (f *CommitmentFactory) VerifyStateMutationRoot(proof CommitmentProof, transactionID utxo.TransactionID) bool {
-========
 func (f *commitmentFactory) VerifyStateMutationRoot(proof CommitmentProof, transactionID utxo.TransactionID) bool {
->>>>>>>> develop:packages/protocol/engine/notarization/proofs/proofs.go
 	key := transactionID.Bytes()
 	return f.verifyRoot(proof, key, key)
 }
