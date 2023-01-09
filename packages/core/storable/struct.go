@@ -2,7 +2,7 @@ package storable
 
 import (
 	"bytes"
-	"io/ioutil"
+	"os"
 
 	"github.com/cockroachdb/errors"
 	"github.com/natefinch/atomic"
@@ -37,7 +37,7 @@ func (s *Struct[A, B]) FromFile(fileName ...string) (err error) {
 		filePath = fileName[0]
 	}
 
-	readBytes, err := ioutil.ReadFile(filePath)
+	readBytes, err := os.ReadFile(filePath)
 	if err != nil {
 		return errors.Errorf("failed to read file %s: %s", filePath, err)
 	}

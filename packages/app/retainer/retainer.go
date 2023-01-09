@@ -60,7 +60,7 @@ func (r *Retainer) BlockMetadata(blockID models.BlockID) (metadata *BlockMetadat
 	metadata = new(BlockMetadata)
 	*metadata, exists = r.blockStorage.Get(blockID)
 	if exists {
-		metadata.SetID(metadata.M.Id)
+		metadata.SetID(metadata.M.ID)
 
 		if metadata.M.Accepted && !metadata.M.Confirmed && blockID.Index() <= r.protocol.Engine().LastConfirmedEpoch() {
 			metadata.M.ConfirmedByEpoch = true
@@ -88,7 +88,7 @@ func (r *Retainer) Stream(index epoch.Index, callback func(id models.BlockID, me
 		return
 	}
 
-	r.blockStorage.Iterate(index, func(id models.BlockID, metadata BlockMetadata) bool {
+	_ = r.blockStorage.Iterate(index, func(id models.BlockID, metadata BlockMetadata) bool {
 		callback(id, &metadata)
 		return true
 	})

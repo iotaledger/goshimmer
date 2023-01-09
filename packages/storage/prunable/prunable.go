@@ -22,11 +22,11 @@ type Prunable struct {
 	LedgerStateDiffs func(index epoch.Index) kvstore.KVStore
 }
 
-func New(database *database.Manager) (newPrunable *Prunable) {
+func New(dbManager *database.Manager) (newPrunable *Prunable) {
 	return &Prunable{
-		Blocks:           NewBlocks(database, blocksPrefix),
-		RootBlocks:       NewRootBlocks(database, rootBlocksPrefix),
-		Attestations:     lo.Bind([]byte{attestationsPrefix}, database.Get),
-		LedgerStateDiffs: lo.Bind([]byte{ledgerStateDiffsPrefix}, database.Get),
+		Blocks:           NewBlocks(dbManager, blocksPrefix),
+		RootBlocks:       NewRootBlocks(dbManager, rootBlocksPrefix),
+		Attestations:     lo.Bind([]byte{attestationsPrefix}, dbManager.Get),
+		LedgerStateDiffs: lo.Bind([]byte{ledgerStateDiffsPrefix}, dbManager.Get),
 	}
 }

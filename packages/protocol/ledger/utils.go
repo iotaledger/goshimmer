@@ -19,7 +19,7 @@ type Utils struct {
 }
 
 // newUtils returns a new Utils instance for the given Ledger.
-func newUtils(ledger *Ledger) (new *Utils) {
+func newUtils(ledger *Ledger) *Utils {
 	return &Utils{
 		ledger: ledger,
 	}

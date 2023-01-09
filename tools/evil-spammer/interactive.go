@@ -46,7 +46,7 @@ type InteractiveConfig struct {
 
 	duration   time.Duration
 	timeUnit   time.Duration
-	clientUrls map[string]types.Empty
+	clientURLs map[string]types.Empty
 }
 
 var configJSON = `{
@@ -64,7 +64,7 @@ var configJSON = `{
 }`
 
 var defaultConfig = InteractiveConfig{
-	clientUrls: map[string]types.Empty{
+	clientURLs: map[string]types.Empty{
 		"http://localhost:8080": types.Void,
 		"http://localhost:8090": types.Void,
 	},
@@ -112,12 +112,12 @@ var spamMenuOptions = []string{startSpam, spamScenario, spamDetails, spamType, b
 
 const (
 	settingPreparation   = "Auto funds requesting"
-	settingAddUrls       = "Add client API url"
-	settingRemoveUrls    = "Remove client API urls"
+	settingAddURLs       = "Add client API url"
+	settingRemoveURLs    = "Remove client API urls"
 	settingUseRateSetter = "Enable/disable rate setter"
 )
 
-var settingsMenuOptions = []string{settingPreparation, settingAddUrls, settingRemoveUrls, settingUseRateSetter, back}
+var settingsMenuOptions = []string{settingPreparation, settingAddURLs, settingRemoveURLs, settingUseRateSetter, back}
 
 const (
 	currentSpamRemove = "Cancel spam"
@@ -319,7 +319,7 @@ func (m *Mode) prepareFunds() {
 		printer.FundsCurrentlyPreparedWarning()
 		return
 	}
-	if len(m.Config.clientUrls) == 0 {
+	if len(m.Config.clientURLs) == 0 {
 		printer.NotEnoughClientsWarning(1)
 	}
 	numToPrepareStr := ""
@@ -485,20 +485,20 @@ func (m *Mode) settingsSubMenu(menuType string) {
 		}
 		m.onFundsCreation(answer)
 
-	case settingAddUrls:
+	case settingAddURLs:
 		var url string
-		err := survey.AskOne(addUrlQuestion, &url)
+		err := survey.AskOne(addURLQuestion, &url)
 		if err != nil {
 			fmt.Println(err.Error())
 			m.mainMenu <- types.Void
 			return
 		}
-		m.validateAndAddUrl(url)
+		m.validateAndAddURL(url)
 
-	case settingRemoveUrls:
+	case settingRemoveURLs:
 		answer := make([]string, 0)
 		urlsList := m.urlMapToList()
-		err := survey.AskOne(removeUrlQuestion(urlsList), &answer)
+		err := survey.AskOne(removeURLQuestion(urlsList), &answer)
 		if err != nil {
 			fmt.Println(err.Error())
 			m.mainMenu <- types.Void
@@ -523,17 +523,17 @@ func (m *Mode) settingsSubMenu(menuType string) {
 	m.action <- actionSettings
 }
 
-func (m *Mode) validateAndAddUrl(url string) {
+func (m *Mode) validateAndAddURL(url string) {
 	url = "http://" + url
-	ok := validateUrl(url)
+	ok := validateURL(url)
 	if !ok {
-		printer.UrlWarning()
+		printer.URLWarning()
 	} else {
-		if _, ok := m.Config.clientUrls[url]; ok {
-			printer.UrlExists()
+		if _, ok := m.Config.clientURLs[url]; ok {
+			printer.URLExists()
 			return
 		}
-		m.Config.clientUrls[url] = types.Void
+		m.Config.clientURLs[url] = types.Void
 		m.evilWallet.AddClient(url)
 	}
 }
@@ -598,7 +598,7 @@ func (m *Mode) currentSpamsSubMenu(menuType string) {
 				m.mainMenu <- types.Void
 				return
 			}
-			m.parseIdToRemove(answer)
+			m.parseIDToRemove(answer)
 		}
 
 		m.action <- actionCurrent
@@ -643,21 +643,21 @@ func (m *Mode) parseScenario(scenario string) {
 
 func (m *Mode) removeUrls(urls []string) {
 	for _, url := range urls {
-		if _, ok := m.Config.clientUrls[url]; ok {
-			delete(m.Config.clientUrls, url)
+		if _, ok := m.Config.clientURLs[url]; ok {
+			delete(m.Config.clientURLs, url)
 			m.evilWallet.RemoveClient(url)
 		}
 	}
 }
 
 func (m *Mode) urlMapToList() (list []string) {
-	for url := range m.Config.clientUrls {
+	for url := range m.Config.clientURLs {
 		list = append(list, url)
 	}
 	return
 }
 
-func (m *Mode) parseIdToRemove(answer string) {
+func (m *Mode) parseIDToRemove(answer string) {
 	m.spamMutex.Lock()
 	defer m.spamMutex.Unlock()
 
@@ -698,6 +698,7 @@ func (m *Mode) loadConfig() {
 			panic(err)
 		}
 
+		//nolint:gosec // users should be able to read the file
 		if err = os.WriteFile("config.json", []byte(configJSON), 0o644); err != nil {
 			panic(err)
 		}
@@ -714,13 +715,13 @@ func (m *Mode) loadConfig() {
 	// convert urls array to map
 	if len(m.Config.WebAPI) > 0 {
 		// rewrite default value
-		for url := range m.Config.clientUrls {
+		for url := range m.Config.clientURLs {
 			m.evilWallet.RemoveClient(url)
 		}
-		m.Config.clientUrls = make(map[string]types.Empty)
+		m.Config.clientURLs = make(map[string]types.Empty)
 	}
 	for _, url := range m.Config.WebAPI {
-		m.Config.clientUrls[url] = types.Void
+		m.Config.clientURLs[url] = types.Void
 		m.evilWallet.AddClient(url)
 	}
 	// parse duration
@@ -746,7 +747,7 @@ func (m *Mode) saveConfigsToFile() {
 
 	// update client urls
 	m.Config.WebAPI = []string{}
-	for url := range m.Config.clientUrls {
+	for url := range m.Config.clientURLs {
 		m.Config.WebAPI = append(m.Config.WebAPI, url)
 	}
 
@@ -757,6 +758,8 @@ func (m *Mode) saveConfigsToFile() {
 	m.Config.TimeUnitStr = m.Config.timeUnit.String()
 
 	jsonConfigs, _ := json.MarshalIndent(m.Config, "", "    ")
+
+	//nolint:gosec // users should be able to read the file
 	if err = os.WriteFile("config.json", jsonConfigs, 0o644); err != nil {
 		panic(err)
 	}
@@ -773,7 +776,7 @@ func boolToEnable(b bool) string {
 	return "disable"
 }
 
-func validateUrl(url string) (ok bool) {
+func validateURL(url string) (ok bool) {
 	clt := client.NewGoShimmerAPI(url)
 	_, err := clt.Info()
 	if err != nil {
@@ -818,15 +821,15 @@ func NewSpammerLog() *SpammerLog {
 	}
 }
 
-func (s *SpammerLog) SpamDetails(spamId int) *InteractiveConfig {
-	return &s.spamDetails[spamId]
+func (s *SpammerLog) SpamDetails(spamID int) *InteractiveConfig {
+	return &s.spamDetails[spamID]
 }
 
-func (s *SpammerLog) StartTime(spamId int) time.Time {
-	return s.spamStartTime[spamId]
+func (s *SpammerLog) StartTime(spamID int) time.Time {
+	return s.spamStartTime[spamID]
 }
 
-func (s *SpammerLog) AddSpam(config InteractiveConfig) (spamId int) {
+func (s *SpammerLog) AddSpam(config InteractiveConfig) (spamID int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -836,11 +839,11 @@ func (s *SpammerLog) AddSpam(config InteractiveConfig) (spamId int) {
 	return len(s.spamDetails) - 1
 }
 
-func (s *SpammerLog) SetSpamEndTime(spamId int) {
+func (s *SpammerLog) SetSpamEndTime(spamID int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.spamStopTime[spamId] = time.Now()
+	s.spamStopTime[spamID] = time.Now()
 }
 
 func newTabWriter(writer io.Writer) *tabwriter.Writer {

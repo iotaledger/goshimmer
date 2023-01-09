@@ -137,6 +137,7 @@ func writeWalletStateFile(wallet *wallet.Wallet, filename string) {
 		}
 	}
 
+	//nolint:gosec // users should be able to read the file
 	err = os.WriteFile(filename, wallet.ExportState(), 0o644)
 	if err != nil {
 		panic(err)

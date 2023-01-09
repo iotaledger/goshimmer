@@ -108,7 +108,7 @@ func TestManager(t *testing.T) {
 	{
 		commitments, err := tf.Manager.Commitments(tf.EC("4*"), 6)
 		require.Error(t, err)
-		require.EqualValues(t, ([]*Commitment)(nil), commitments)
+		require.EqualValues(t, []*Commitment(nil), commitments)
 	}
 
 	{

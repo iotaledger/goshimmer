@@ -24,7 +24,7 @@ type EventsStruct struct {
 	MetricHeartbeat *event.Event[*MetricHeartbeatEvent]
 }
 
-func newEvents() (new *EventsStruct) {
+func newEvents() *EventsStruct {
 	return &EventsStruct{
 		AddNode:         event.New[*AddNodeEvent](),
 		RemoveNode:      event.New[*RemoveNodeEvent](),

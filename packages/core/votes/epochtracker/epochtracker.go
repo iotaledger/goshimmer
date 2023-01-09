@@ -71,7 +71,7 @@ func (c *EpochTracker) Voters(epochIndex epoch.Index) (voters *set.AdvancedSet[i
 		return voters
 	}
 
-	epochVoters.ForEach(func(identityID identity.ID) error {
+	_ = epochVoters.ForEach(func(identityID identity.ID) error {
 		voters.Add(identityID)
 		return nil
 	})
@@ -86,7 +86,7 @@ func (c *EpochTracker) EvictEpoch(indexToEvict epoch.Index) {
 	}
 
 	var identitiesToPrune []identity.ID
-	identities.ForEach(func(identity identity.ID) error {
+	_ = identities.ForEach(func(identity identity.ID) error {
 		votesForIdentity, has := c.votesPerIdentity.Get(identity)
 		if !has {
 			return nil

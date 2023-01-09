@@ -124,6 +124,9 @@ func setupRoutes(e *echo.Echo) {
 		}
 
 		block = fmt.Sprintf("%s, error: %+v", block, err)
-		c.String(statusCode, block)
+		resErr := c.String(statusCode, block)
+		if resErr != nil {
+			log.Warnf("Failed to send error response: %s", resErr)
+		}
 	}
 }

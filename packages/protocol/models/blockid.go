@@ -23,6 +23,8 @@ import (
 
 // region BlockID ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+const BlockIDContextKey = "blockID"
+
 // BlockID identifies a block via its BLAKE2b-256 hash of its bytes.
 type BlockID struct {
 	Identifier types.Identifier `serix:"0"`
@@ -152,7 +154,7 @@ func (b BlockID) CompareTo(other BlockID) int {
 
 // BlockIDFromContext returns the BlockID from the given context.
 func BlockIDFromContext(ctx context.Context) BlockID {
-	blockID, ok := ctx.Value("blockID").(BlockID)
+	blockID, ok := ctx.Value(BlockIDContextKey).(BlockID)
 	if !ok {
 		return EmptyBlockID
 	}
@@ -161,7 +163,8 @@ func BlockIDFromContext(ctx context.Context) BlockID {
 
 // BlockIDToContext adds the BlockID to the given context.
 func BlockIDToContext(ctx context.Context, blockID BlockID) context.Context {
-	return context.WithValue(ctx, "blockID", blockID)
+	//nolint:staticcheck // we are not expecting collisions due to using a string type for the key
+	return context.WithValue(ctx, BlockIDContextKey, blockID)
 }
 
 func IsEmptyBlockID(blockID BlockID) bool {

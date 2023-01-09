@@ -885,10 +885,8 @@ func (wallet *Wallet) DepositFundsToNFT(options ...deposittonftoptions.DepositFu
 		}
 		return nil, err
 	}
-	// build inputs from consumed outputs
-	inputsFromConsumedOutputs := wallet.buildInputs(consumedOutputs)
-	// add the alias
-	unsortedInputs := append(inputsFromConsumedOutputs, alias.Input())
+	// build inputs from consumed outputs annd add the alias
+	unsortedInputs := append(wallet.buildInputs(consumedOutputs), alias.Input())
 	// sort all inputs
 	inputs := devnetvm.NewInputs(unsortedInputs...)
 	// aggregate all the funds we consume from inputs used to fund the deposit (there is the alias input as well)
