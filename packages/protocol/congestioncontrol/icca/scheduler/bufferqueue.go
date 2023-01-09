@@ -39,7 +39,7 @@ func (b *BufferQueue) NumActiveIssuers() int {
 	return b.activeIssuers.Size()
 }
 
-// MaxSize returns the max number of blocks in b.
+// MaxSize returns the max number of blocks in BufferQueue.
 func (b *BufferQueue) MaxSize() int {
 	return b.maxBuffer
 }
