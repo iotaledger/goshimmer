@@ -435,7 +435,9 @@ loop:
 		// every rate time units
 		case <-s.ticker.C:
 			if block := s.schedule(); block != nil {
-				//s.ticker.Reset(s.optsRate * time.Duration(block.Work()))
+// TODO: make this operate in units of work, with a variable pause between scheduling depending on work scheduled.
+	// TODO: don't use a ticker. Switch to a simple timer instead, and use a flag when ready to schedule something if there is nothing ready to be scheduled yet.
+	// TODO: implement a token bucket for the scheduler to account for bursty arrivals.
 				if block.SetScheduled() {
 					s.Events.BlockScheduled.Trigger(block)
 				}
