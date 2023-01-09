@@ -586,16 +586,16 @@ func (s *Scheduler) updateDeficit(issuerID identity.ID, d *big.Rat) {
 
 }
 
-func (s *Scheduler) GetExcessDeficit(issuerID identity.ID) (float64, error) {
-	var deficitFloat float64
+func (s *Scheduler) GetExcessDeficit(issuerID identity.ID) (deficitFloat float64, err error) {
 	s.deficitsMutex.RLock()
 	defer s.deficitsMutex.RUnlock()
-	if deficit, exists := s.deficits.Get(issuerID); exists {
+
+	if deficit, exists := s.deficits.Get(issuerID); !exists {
 		deficitFloat, _ = deficit.Float64()
-	} else {
-		return 0.0, errors.New(fmt.Sprintf("Deficit for issuer %s does not exist", issuerID))
+		return deficitFloat - float64(s.IssuerQueueWork(issuerID)), nil
 	}
-	return deficitFloat - float64(s.IssuerQueueWork(issuerID)), nil
+
+	return 0.0, errors.New(fmt.Sprintf("Deficit for issuer %s does not exist", issuerID))
 }
 
 func (s *Scheduler) GetOrRegisterBlock(virtualVotingBlock *virtualvoting.Block) (block *Block, err error) {
