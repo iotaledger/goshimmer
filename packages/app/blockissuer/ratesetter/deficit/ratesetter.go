@@ -24,7 +24,6 @@ type RateSetter struct {
 	ownRate           *atomic.Float64
 	maxRate           float64
 	initOnce          sync.Once
-	deficitsMutex     sync.RWMutex
 	optsSchedulerRate time.Duration
 }
 
@@ -42,8 +41,6 @@ func New(protocol *protocol.Protocol, selfIdentity identity.ID, opts ...options.
 }
 
 func (r *RateSetter) getExcessDeficit() float64 {
-	r.deficitsMutex.Lock()
-	defer r.deficitsMutex.Unlock()
 	excessDeficit, _ := r.protocol.CongestionControl.Scheduler().GetExcessDeficit(r.self)
 	return excessDeficit
 }

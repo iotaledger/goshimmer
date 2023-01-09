@@ -17,8 +17,7 @@ func TestRateSetter_IssueBlockAndAwaitSchedule(t *testing.T) {
 
 	for _, mode := range allModes {
 		tf := NewTestFramework(t, WithRateSetterOptions(WithMode(mode)))
-
-		defer tf.RateSetter[0].Shutdown()
+		defer tf.Shutdown()
 
 		blockScheduled := make(chan *models.Block, 1)
 		tf.Protocol.CongestionControl.Scheduler().Events.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) { blockScheduled <- block.ModelsBlock }))
@@ -40,17 +39,17 @@ func TestRateSetter_IssueBlocksAndAwaitScheduleMultipleIssuers(t *testing.T) {
 	allModes := []ModeType{DeficitMode, DisabledMode}
 	numIssuers := 5
 	numBlocksPerIssuer := 10
-	schedulerRate := time.Duration(100) // 100 nanoseconds between scheduling each block.
+	schedulerRate := time.Duration(100) * time.Nanosecond // 100 nanoseconds between scheduling each block.
 
 	allBlocks := make(map[models.BlockID]*models.Block)
 
 	for _, mode := range allModes {
 		tf := NewTestFramework(t, WithRateSetterOptions(WithMode(mode)), WithSchedulerOptions(scheduler.WithRate(schedulerRate)), WithNumIssuers(numIssuers))
+		defer tf.Shutdown()
 		blockScheduled := make(chan *models.Block, 1)
 		tf.Protocol.CongestionControl.Scheduler().Events.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) { blockScheduled <- block.ModelsBlock }))
 
 		for i := 0; i < numIssuers; i++ {
-			defer tf.RateSetter[i].Shutdown()
 			blocks := tf.IssueBlocks(numBlocksPerIssuer, i)
 			for blkID, blk := range blocks {
 				allBlocks[blkID] = blk

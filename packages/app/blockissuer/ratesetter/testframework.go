@@ -78,6 +78,12 @@ func (tf *TestFramework) IssueBlocks(numBlocks int, issuer int) map[models.Block
 	return blocks
 }
 
+func (tf *TestFramework) Shutdown() {
+	for _, rateSetter := range tf.RateSetter {
+		rateSetter.Shutdown()
+	}
+}
+
 type ProtocolTestFramework = protocol.TestFramework
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
