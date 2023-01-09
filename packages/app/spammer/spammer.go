@@ -84,12 +84,8 @@ func (s *Spammer) run(rate int, payloadSize uint64, timeUnit time.Duration, imif
 			return
 		case <-ticker.C:
 			// TODO: only sleep if estimate > some threshold.
-			for {
-				if estimatedDuration := s.estimateFunc(); estimatedDuration > 0 {
-					time.Sleep(estimatedDuration)
-				} else {
-					break
-				}
+			for estimatedDuration := s.estimateFunc(); estimatedDuration > 0; estimatedDuration = s.estimateFunc() {
+				time.Sleep(estimatedDuration)
 			}
 
 			// adjust the ticker interval for the poisson imif
