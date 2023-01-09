@@ -61,15 +61,11 @@ func (tf *TestFramework) CreateBlock(issuer int) *models.Block {
 }
 
 func (tf *TestFramework) IssueBlock(block *models.Block, issuer int) error {
-	for {
-		if estimate := tf.RateSetter[issuer].Estimate(); estimate > 0 {
-			time.Sleep(estimate)
-		} else {
-			tf.Protocol.ProcessBlock(block, tf.localIdentity[issuer].ID())
-			break
-		}
+	for estimate := tf.RateSetter[issuer].Estimate(); estimate > 0; estimate = tf.RateSetter[issuer].Estimate() {
+		time.Sleep(estimate)
 	}
-	return nil
+
+	return tf.Protocol.ProcessBlock(block, tf.localIdentity[issuer].ID())
 }
 
 func (tf *TestFramework) IssueBlocks(numBlocks int, issuer int) map[models.BlockID]*models.Block {
