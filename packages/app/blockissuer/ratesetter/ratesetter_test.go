@@ -61,16 +61,12 @@ func TestRateSetter_IssueBlocksAndAwaitScheduleMultipleIssuers(t *testing.T) {
 			}
 
 			assert.Eventually(t, func() bool {
-				for {
-					select {
-					case blk := <-blockScheduled:
-						delete(allBlocks, blk.ID())
-						if len(allBlocks) == 0 {
-							return true
-						}
-					default:
-						return false
-					}
+			        select {
+				case blk := <-blockScheduled:
+					delete(allBlocks, blk.ID())
+					return len(allBlocks) == 0
+				default:
+					return false
 				}
 			}, 1*time.Second, 10*time.Millisecond)
 		}()
