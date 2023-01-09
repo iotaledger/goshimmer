@@ -51,13 +51,15 @@ func New(engineInstance *engine.Engine, opts ...options.Option[ThroughputQuota])
 		quotaByIDStorage:    typedkvstore.NewTypedStore[identity.ID, storable.SerializableInt64](engineInstance.Storage.ThroughputQuota(PrefixQuotasByID)),
 		quotaByIDCache:      shrinkingmap.New[identity.ID, int64](),
 	}, opts, func(m *ThroughputQuota) {
-		m.quotaByIDStorage.Iterate([]byte{}, func(key identity.ID, value storable.SerializableInt64) (advance bool) {
+		if iterationErr := m.quotaByIDStorage.Iterate([]byte{}, func(key identity.ID, value storable.SerializableInt64) (advance bool) {
 			m.quotaByIDMutex.Lock()
 			defer m.quotaByIDMutex.Unlock()
 
 			m.updateMana(key, int64(value))
 			return true
-		})
+		}); iterationErr != nil {
+			panic(iterationErr)
+		}
 
 		if totalBalanceBytes, err := m.totalBalanceStorage.Get([]byte{0}); err == nil {
 			totalBalance := new(storable.SerializableInt64)
@@ -73,38 +75,48 @@ func New(engineInstance *engine.Engine, opts ...options.Option[ThroughputQuota])
 			})
 
 			m.engine.LedgerState.UnspentOutputs.Subscribe(m)
-			m.engine.LedgerState.SubscribeInitialized(func() {
-				m.engine.LedgerState.UnspentOutputs.Unsubscribe(m)
-
-				m.TriggerInitialized()
-
-				m.engine.Ledger.Events.TransactionAccepted.Attach(event.NewClosure(func(event *ledger.TransactionEvent) {
-					m.quotaByIDMutex.Lock()
-					defer m.quotaByIDMutex.Unlock()
-					for _, createdOutput := range event.CreatedOutputs {
-						m.applyCreatedOutput(createdOutput)
-					}
-
-					for _, spentOutput := range event.SpentOutputs {
-						m.applySpentOutput(spentOutput)
-					}
-				}))
-
-				m.engine.Ledger.Events.TransactionOrphaned.Attach(event.NewClosure(func(event *ledger.TransactionEvent) {
-					m.quotaByIDMutex.Lock()
-					defer m.quotaByIDMutex.Unlock()
-
-					for _, createdOutput := range event.CreatedOutputs {
-						m.applySpentOutput(createdOutput)
-					}
-
-					for _, spentOutput := range event.SpentOutputs {
-						m.applyCreatedOutput(spentOutput)
-					}
-				}))
-			})
+			m.engine.LedgerState.SubscribeInitialized(m.init)
 		})
 	})
+}
+
+func (m *ThroughputQuota) init() {
+	m.engine.LedgerState.UnspentOutputs.Unsubscribe(m)
+
+	m.TriggerInitialized()
+
+	m.engine.Ledger.Events.TransactionAccepted.Attach(event.NewClosure(func(event *ledger.TransactionEvent) {
+		m.quotaByIDMutex.Lock()
+		defer m.quotaByIDMutex.Unlock()
+		for _, createdOutput := range event.CreatedOutputs {
+			if createdOutputErr := m.applyCreatedOutput(createdOutput); createdOutputErr != nil {
+				panic(createdOutputErr)
+			}
+		}
+
+		for _, spentOutput := range event.SpentOutputs {
+			if spentOutputErr := m.applySpentOutput(spentOutput); spentOutputErr != nil {
+				panic(spentOutputErr)
+			}
+		}
+	}))
+
+	m.engine.Ledger.Events.TransactionOrphaned.Attach(event.NewClosure(func(event *ledger.TransactionEvent) {
+		m.quotaByIDMutex.Lock()
+		defer m.quotaByIDMutex.Unlock()
+
+		for _, createdOutput := range event.CreatedOutputs {
+			if spentOutputErr := m.applySpentOutput(createdOutput); spentOutputErr != nil {
+				panic(spentOutputErr)
+			}
+		}
+
+		for _, spentOutput := range event.SpentOutputs {
+			if createdOutputErr := m.applyCreatedOutput(spentOutput); createdOutputErr != nil {
+				panic(createdOutputErr)
+			}
+		}
+	}))
 }
 
 // NewProvider returns a new throughput quota provider that uses mana1.
@@ -204,10 +216,15 @@ func (m *ThroughputQuota) CommitBatchedStateTransition() (ctx context.Context) {
 func (m *ThroughputQuota) updateMana(id identity.ID, diff int64) {
 	if newBalance := lo.Return1(m.quotaByIDCache.Get(id)) + diff; newBalance != 0 {
 		m.quotaByIDCache.Set(id, newBalance)
-		m.quotaByIDStorage.Set(id, storable.SerializableInt64(newBalance))
+
+		if err := m.quotaByIDStorage.Set(id, storable.SerializableInt64(newBalance)); err != nil {
+			panic(err)
+		}
 	} else {
 		m.quotaByIDCache.Delete(id)
-		m.quotaByIDStorage.Delete(id)
+		if err := m.quotaByIDStorage.Delete(id); err != nil {
+			panic(err)
+		}
 	}
 }
 
