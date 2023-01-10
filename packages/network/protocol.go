@@ -16,7 +16,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	. "github.com/iotaledger/goshimmer/packages/network/models"
+	nwmodels "github.com/iotaledger/goshimmer/packages/network/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
@@ -47,7 +47,7 @@ func NewProtocol(network Endpoint, opts ...options.Option[Protocol]) (protocol *
 }
 
 func (p *Protocol) SendBlock(block *models.Block, to ...identity.ID) {
-	p.network.Send(&Packet{Body: &Packet_Block{Block: &Block{
+	p.network.Send(&nwmodels.Packet{Body: &nwmodels.Packet_Block{Block: &nwmodels.Block{
 		Bytes: lo.PanicOnErr(block.Bytes()),
 	}}}, protocolID, to...)
 }
@@ -57,26 +57,26 @@ func (p *Protocol) RequestBlock(id models.BlockID, to ...identity.ID) {
 	p.requestedBlockHashes.Set(id.Identifier, types.Void)
 	p.requestedBlockHashesMutex.Unlock()
 
-	p.network.Send(&Packet{Body: &Packet_BlockRequest{BlockRequest: &BlockRequest{
+	p.network.Send(&nwmodels.Packet{Body: &nwmodels.Packet_BlockRequest{BlockRequest: &nwmodels.BlockRequest{
 		Bytes: lo.PanicOnErr(id.Bytes()),
 	}}}, protocolID, to...)
 }
 
-func (p *Protocol) SendEpochCommitment(commitment *commitment.Commitment, to ...identity.ID) {
-	p.network.Send(&Packet{Body: &Packet_EpochCommitment{EpochCommitment: &EpochCommitment{
-		Bytes: lo.PanicOnErr(commitment.Bytes()),
+func (p *Protocol) SendEpochCommitment(cm *commitment.Commitment, to ...identity.ID) {
+	p.network.Send(&nwmodels.Packet{Body: &nwmodels.Packet_EpochCommitment{EpochCommitment: &nwmodels.EpochCommitment{
+		Bytes: lo.PanicOnErr(cm.Bytes()),
 	}}}, protocolID, to...)
 }
 
 func (p *Protocol) RequestCommitment(id commitment.ID, to ...identity.ID) {
-	p.network.Send(&Packet{Body: &Packet_EpochCommitmentRequest{EpochCommitmentRequest: &EpochCommitmentRequest{
+	p.network.Send(&nwmodels.Packet{Body: &nwmodels.Packet_EpochCommitmentRequest{EpochCommitmentRequest: &nwmodels.EpochCommitmentRequest{
 		Bytes: lo.PanicOnErr(id.Bytes()),
 	}}}, protocolID, to...)
 }
 
-func (p *Protocol) RequestAttestations(epochIndex epoch.Index, to ...identity.ID) {
-	p.network.Send(&Packet{Body: &Packet_AttestationsRequest{AttestationsRequest: &AttestationsRequest{
-		Bytes: epochIndex.Bytes(),
+func (p *Protocol) RequestAttestations(index epoch.Index, to ...identity.ID) {
+	p.network.Send(&nwmodels.Packet{Body: &nwmodels.Packet_AttestationsRequest{AttestationsRequest: &nwmodels.AttestationsRequest{
+		Bytes: index.Bytes(),
 	}}}, protocolID, to...)
 }
 
@@ -85,18 +85,18 @@ func (p *Protocol) Unregister() {
 }
 
 func (p *Protocol) handlePacket(nbr identity.ID, packet proto.Message) (err error) {
-	switch packetBody := packet.(*Packet).GetBody().(type) {
-	case *Packet_Block:
+	switch packetBody := packet.(*nwmodels.Packet).GetBody().(type) {
+	case *nwmodels.Packet_Block:
 		event.Loop.Submit(func() { p.onBlock(packetBody.Block.GetBytes(), nbr) })
-	case *Packet_BlockRequest:
+	case *nwmodels.Packet_BlockRequest:
 		event.Loop.Submit(func() { p.onBlockRequest(packetBody.BlockRequest.GetBytes(), nbr) })
-	case *Packet_EpochCommitment:
+	case *nwmodels.Packet_EpochCommitment:
 		event.Loop.Submit(func() { p.onEpochCommitment(packetBody.EpochCommitment.GetBytes(), nbr) })
-	case *Packet_EpochCommitmentRequest:
+	case *nwmodels.Packet_EpochCommitmentRequest:
 		event.Loop.Submit(func() { p.onEpochCommitmentRequest(packetBody.EpochCommitmentRequest.GetBytes(), nbr) })
-	case *Packet_Attestations:
+	case *nwmodels.Packet_Attestations:
 		event.Loop.Submit(func() { p.onAttestations(packetBody.Attestations.GetBytes(), nbr) })
-	case *Packet_AttestationsRequest:
+	case *nwmodels.Packet_AttestationsRequest:
 		event.Loop.Submit(func() { p.onAttestationsRequest(packetBody.AttestationsRequest.GetBytes(), nbr) })
 	default:
 		return errors.Errorf("unsupported packet; packet=%+v, packetBody=%T-%+v", packet, packetBody, packetBody)
@@ -220,5 +220,5 @@ func (p *Protocol) onAttestationsRequest(epochIndexBytes []byte, id identity.ID)
 }
 
 func newPacket() proto.Message {
-	return &Packet{}
+	return &nwmodels.Packet{}
 }

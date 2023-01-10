@@ -45,15 +45,15 @@ type transactionMetadata struct {
 }
 
 // NewTransactionMetadata returns new TransactionMetadata for the given TransactionID.
-func NewTransactionMetadata(txID utxo.TransactionID) (new *TransactionMetadata) {
-	new = model.NewStorable[utxo.TransactionID, TransactionMetadata](&transactionMetadata{
+func NewTransactionMetadata(txID utxo.TransactionID) (metadata *TransactionMetadata) {
+	metadata = model.NewStorable[utxo.TransactionID, TransactionMetadata](&transactionMetadata{
 		ConflictIDs:       utxo.NewTransactionIDs(),
 		OutputIDs:         utxo.NewOutputIDs(),
 		ConfirmationState: confirmation.Pending,
 	}, false)
-	new.SetID(txID)
+	metadata.SetID(txID)
 
-	return new
+	return metadata
 }
 
 // ConflictIDs returns the conflicting ConflictIDs that the Transaction depends on.
@@ -232,14 +232,14 @@ type outputMetadata struct {
 }
 
 // NewOutputMetadata returns new OutputMetadata for the given OutputID.
-func NewOutputMetadata(outputID utxo.OutputID) (new *OutputMetadata) {
-	new = model.NewStorable[utxo.OutputID, OutputMetadata](&outputMetadata{
+func NewOutputMetadata(outputID utxo.OutputID) (metadata *OutputMetadata) {
+	metadata = model.NewStorable[utxo.OutputID, OutputMetadata](&outputMetadata{
 		ConflictIDs:       utxo.NewTransactionIDs(),
 		ConfirmationState: confirmation.Pending,
 	}, false)
-	new.SetID(outputID)
+	metadata.SetID(outputID)
 
-	return new
+	return metadata
 }
 
 // ConsensusManaPledgeID returns the identifier of the node that received the consensus mana pledge.
@@ -413,13 +413,13 @@ type OutputsMetadata struct {
 }
 
 // NewOutputsMetadata returns a new OutputMetadata collection with the given elements.
-func NewOutputsMetadata(outputsMetadata ...*OutputMetadata) (new *OutputsMetadata) {
-	new = &OutputsMetadata{*orderedmap.New[utxo.OutputID, *OutputMetadata]()}
+func NewOutputsMetadata(outputsMetadata ...*OutputMetadata) (metadata *OutputsMetadata) {
+	metadata = &OutputsMetadata{*orderedmap.New[utxo.OutputID, *OutputMetadata]()}
 	for _, outputMeta := range outputsMetadata {
-		new.Set(outputMeta.ID(), outputMeta)
+		metadata.Set(outputMeta.ID(), outputMeta)
 	}
 
-	return new
+	return metadata
 }
 
 // Get returns the OutputMetadata object for the given OutputID.
@@ -506,7 +506,7 @@ type consumer struct {
 }
 
 // NewConsumer return a new Consumer reference from the named Output to the named Transaction.
-func NewConsumer(consumedInput utxo.OutputID, transactionID utxo.TransactionID) (new *Consumer) {
+func NewConsumer(consumedInput utxo.OutputID, transactionID utxo.TransactionID) *Consumer {
 	return model.NewStorableReferenceWithMetadata[Consumer](consumedInput, transactionID, &consumer{})
 }
 

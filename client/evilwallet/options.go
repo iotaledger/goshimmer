@@ -49,12 +49,12 @@ func NewOptions(options ...Option) (option *Options, err error) {
 	}
 
 	// check if alias and non-alias are mixed in use.
-	if err = option.checkInputsAndOutputs(); err != nil {
+	if err := option.checkInputsAndOutputs(); err != nil {
 		return nil, err
 	}
 
 	// input and output wallets must be provided if inputs/outputs are not aliases.
-	if err = option.isWalletProvidedForInputsOutputs(); err != nil {
+	if err := option.isWalletProvidedForInputsOutputs(); err != nil {
 		return nil, err
 	}
 

@@ -48,8 +48,8 @@ type EvilWallet struct {
 }
 
 // NewEvilWallet creates an EvilWallet instance.
-func NewEvilWallet(clientsUrls ...string) *EvilWallet {
-	urls := clientsUrls
+func NewEvilWallet(clientsURLs ...string) *EvilWallet {
+	urls := clientsURLs
 	if len(urls) == 0 {
 		urls = append(urls, defaultClientsURLs...)
 	}
@@ -92,12 +92,12 @@ func (e *EvilWallet) NumOfClient() int {
 	return len(clts)
 }
 
-func (e *EvilWallet) AddClient(clientUrl string) {
-	e.connector.AddClient(clientUrl)
+func (e *EvilWallet) AddClient(clientURL string) {
+	e.connector.AddClient(clientURL)
 }
 
-func (e *EvilWallet) RemoveClient(clientUrl string) {
-	e.connector.RemoveClient(clientUrl)
+func (e *EvilWallet) RemoveClient(clientURL string) {
+	e.connector.RemoveClient(clientURL)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -106,7 +106,7 @@ func (e *EvilWallet) RemoveClient(clientUrl string) {
 
 // RequestFundsFromFaucet requests funds from the faucet, then track the confirmed status of unspent output,
 // also register the alias name for the unspent output if provided.
-func (e *EvilWallet) RequestFundsFromFaucet(options ...FaucetRequestOption) (err error, initWallet *Wallet) {
+func (e *EvilWallet) RequestFundsFromFaucet(options ...FaucetRequestOption) (initWallet *Wallet, err error) {
 	initWallet = e.NewWallet(Fresh)
 	buildOptions := NewFaucetRequestOptions(options...)
 

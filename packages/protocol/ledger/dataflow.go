@@ -18,7 +18,7 @@ type dataFlow struct {
 }
 
 // newDataFlow returns a new dataFlow instance for the given Ledger.
-func newDataFlow(ledger *Ledger) (new *dataFlow) {
+func newDataFlow(ledger *Ledger) *dataFlow {
 	return &dataFlow{
 		ledger,
 	}
@@ -101,7 +101,7 @@ type dataFlowParams struct {
 }
 
 // newDataFlowParams returns a new dataFlowParams instance for the given Transaction.
-func newDataFlowParams(ctx context.Context, tx utxo.Transaction) (new *dataFlowParams) {
+func newDataFlowParams(ctx context.Context, tx utxo.Transaction) *dataFlowParams {
 	return &dataFlowParams{
 		Context:     ctx,
 		Transaction: tx,

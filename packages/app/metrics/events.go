@@ -8,7 +8,7 @@ type CollectionEvents struct {
 	AnalysisOutboundBytes *event.Event[*AnalysisOutboundBytesEvent]
 }
 
-func newCollectionEvents() (new *CollectionEvents) {
+func newCollectionEvents() *CollectionEvents {
 	return &CollectionEvents{
 		AnalysisOutboundBytes: event.New[*AnalysisOutboundBytesEvent](),
 	}

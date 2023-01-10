@@ -29,13 +29,13 @@ type ConflictDAG[ConflictIDType, ResourceIDType comparable] struct {
 }
 
 // New returns a new ConflictDAG with the given options.
-func New[ConflictIDType, ResourceIDType comparable](options ...Option) (new *ConflictDAG[ConflictIDType, ResourceIDType]) {
-	new = &ConflictDAG[ConflictIDType, ResourceIDType]{
+func New[ConflictIDType, ResourceIDType comparable](options ...Option) (dag *ConflictDAG[ConflictIDType, ResourceIDType]) {
+	dag = &ConflictDAG[ConflictIDType, ResourceIDType]{
 		Events:  NewEvents[ConflictIDType, ResourceIDType](),
 		options: newOptions(options...),
 	}
-	new.Storage = newStorage[ConflictIDType, ResourceIDType](new.options)
-	new.Utils = newUtils(new)
+	dag.Storage = newStorage[ConflictIDType, ResourceIDType](dag.options)
+	dag.Utils = newUtils(dag)
 
 	return
 }

@@ -20,7 +20,7 @@ type EventsStruct struct {
 	RateSetterUpdated *event.Event[*RateSetterMetric]
 }
 
-func newEvents() (new *EventsStruct) {
+func newEvents() *EventsStruct {
 	return &EventsStruct{
 		AttachedBPSUpdated:      event.New[*AttachedBPSUpdatedEvent](),
 		ReceivedTPSUpdated:      event.New[*ReceivedTPSUpdatedEvent](),

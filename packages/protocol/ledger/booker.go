@@ -22,7 +22,7 @@ type booker struct {
 }
 
 // newBooker returns a new booker instance for the given Ledger.
-func newBooker(ledger *Ledger) (new *booker) {
+func newBooker(ledger *Ledger) *booker {
 	return &booker{
 		ledger: ledger,
 	}

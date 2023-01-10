@@ -160,16 +160,16 @@ func (l *LedgerState) rollbackStateDiff(index epoch.Index) (err error) {
 }
 
 // onTransactionAccepted is triggered when a transaction is accepted by the mempool.
-func (l *LedgerState) onTransactionAccepted(event *ledger.TransactionEvent) {
-	if err := l.StateDiffs.addAcceptedTransaction(event.Metadata); err != nil {
+func (l *LedgerState) onTransactionAccepted(transactionEvent *ledger.TransactionEvent) {
+	if err := l.StateDiffs.addAcceptedTransaction(transactionEvent.Metadata); err != nil {
 		// TODO: handle error gracefully
 		panic(err)
 	}
 }
 
 // onTransactionInclusionUpdated is triggered when a transaction inclusion state is updated.
-func (l *LedgerState) onTransactionInclusionUpdated(event *ledger.TransactionInclusionUpdatedEvent) {
-	if l.MemPool.ConflictDAG.ConfirmationState(event.TransactionMetadata.ConflictIDs()).IsAccepted() {
-		l.StateDiffs.moveTransactionToOtherEpoch(event.TransactionMetadata, event.PreviousInclusionEpoch, event.InclusionEpoch)
+func (l *LedgerState) onTransactionInclusionUpdated(inclusionUpdatedEvent *ledger.TransactionInclusionUpdatedEvent) {
+	if l.MemPool.ConflictDAG.ConfirmationState(inclusionUpdatedEvent.TransactionMetadata.ConflictIDs()).IsAccepted() {
+		l.StateDiffs.moveTransactionToOtherEpoch(inclusionUpdatedEvent.TransactionMetadata, inclusionUpdatedEvent.PreviousInclusionEpoch, inclusionUpdatedEvent.InclusionEpoch)
 	}
 }
