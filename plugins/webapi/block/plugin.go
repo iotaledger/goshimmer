@@ -222,7 +222,7 @@ func sequenceIDFromContext(c echo.Context) (id markers.SequenceID, err error) {
 }
 
 func payloadFromBytes(payloadBytes []byte) (parsedPayload payload.Payload, err error) {
-	dptype, _, err := payload.PayloadTypeFromBytes(payloadBytes)
+	dptype, _, err := payload.TypeFromBytes(payloadBytes)
 	if err != nil {
 		return nil, err
 	}
