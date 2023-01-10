@@ -442,6 +442,16 @@ github.com/iotaledger/grocksdb v1.7.5-0.20221128103803-fcdb79760195 h1:W5v+7oSXt
 github.com/iotaledger/grocksdb v1.7.5-0.20221128103803-fcdb79760195/go.mod h1:AoAM7v6lyWRQzrmmegOEq759o1PgvvKvn2bEe1A1mc8=
 github.com/iotaledger/hive.go/core v1.0.0-rc.1.0.20221215123443-a3f702c8d714 h1:g0rFqA8gg3znz5f8B/f8ki1rmNGY3d55F06T+YtaZts=
 github.com/iotaledger/hive.go/core v1.0.0-rc.1.0.20221215123443-a3f702c8d714/go.mod h1:POmRNWlS/NWFCrMowt+CcE4H8GAVe1BotWLN9QD6FLE=
+github.com/iotaledger/hive.go/core v1.0.0-rc.2.0.20230109211700-3b15d1b50090 h1:kyVmeTy/Fwq8JS7b1TPmKpsTPaIS9/zQRmEtzzBMhjE=
+github.com/iotaledger/hive.go/core v1.0.0-rc.2.0.20230109211700-3b15d1b50090/go.mod h1:POmRNWlS/NWFCrMowt+CcE4H8GAVe1BotWLN9QD6FLE=
+github.com/iotaledger/hive.go/core v1.0.0-rc.2.0.20230109220442-664d266570fa h1:nHNswxKRkoyFYemNoMvUo0FUxBGfcoy94Auj+XwWbco=
+github.com/iotaledger/hive.go/core v1.0.0-rc.2.0.20230109220442-664d266570fa/go.mod h1:POmRNWlS/NWFCrMowt+CcE4H8GAVe1BotWLN9QD6FLE=
+github.com/iotaledger/hive.go/core v1.0.0-rc.2.0.20230109222935-43ff516b6805 h1:K0JGAGFXFtB+nwYlk7GXH6Od5BxR8m+Vh3WbbKNPVO0=
+github.com/iotaledger/hive.go/core v1.0.0-rc.2.0.20230109222935-43ff516b6805/go.mod h1:POmRNWlS/NWFCrMowt+CcE4H8GAVe1BotWLN9QD6FLE=
+github.com/iotaledger/hive.go/core v1.0.0-rc.2.0.20230110143444-02276c9236b2 h1:Yd+foS26+FEGkaOPM2YvnHbc1AahHBt3HnTASHA/eFU=
+github.com/iotaledger/hive.go/core v1.0.0-rc.2.0.20230110143444-02276c9236b2/go.mod h1:POmRNWlS/NWFCrMowt+CcE4H8GAVe1BotWLN9QD6FLE=
+github.com/iotaledger/hive.go/core v1.0.0-rc.2.0.20230110152711-02063266eb24 h1:HiZNj4cCgqiCNolYk6qCF9FaYdUcTThufV/O9h+gTqI=
+github.com/iotaledger/hive.go/core v1.0.0-rc.2.0.20230110152711-02063266eb24/go.mod h1:POmRNWlS/NWFCrMowt+CcE4H8GAVe1BotWLN9QD6FLE=
 github.com/iotaledger/hive.go/serializer/v2 v2.0.0-rc.1 h1:x3xsI32h+1wTIzLWInC+AcwrUyk9/l7z2RFMQiuua2E=
 github.com/iotaledger/hive.go/serializer/v2 v2.0.0-rc.1/go.mod h1:jkV//O5d+HHm32qDmTy6AWZUgxuZaXazTUVqox+5z4g=
 github.com/ipfs/go-cid v0.3.2 h1:OGgOd+JCFM+y1DjWPmVH+2/4POtpDzwcr7VgnB7mZXc=

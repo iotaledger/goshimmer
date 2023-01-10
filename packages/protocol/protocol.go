@@ -5,8 +5,10 @@ import (
 	"sync"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/database"
@@ -108,6 +110,12 @@ func (p *Protocol) Shutdown() {
 	if p.candidateStorage != nil {
 		p.candidateStorage.Shutdown()
 	}
+}
+
+func (p *Protocol) WorkerPools() map[string]*workerpool.UnboundedWorkerPool {
+	wps := make(map[string]*workerpool.UnboundedWorkerPool)
+	wps["CongestionControl"] = p.CongestionControl.WorkerPool()
+	return lo.MergeMaps(wps, p.engine.WorkerPools())
 }
 
 func (p *Protocol) initDirectory() {
