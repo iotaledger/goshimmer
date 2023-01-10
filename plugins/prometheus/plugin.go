@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/iotaledger/hive.go/core/node"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/dig"
 
@@ -46,10 +47,10 @@ func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(plugin.Name)
 
 	if Parameters.GoMetrics {
-		registry.MustRegister(prometheus.NewGoCollector())
+		registry.MustRegister(collectors.NewGoCollector())
 	}
 	if Parameters.ProcessMetrics {
-		registry.MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
+		registry.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
 	}
 
 	if metrics.Parameters.Local {
@@ -59,12 +60,12 @@ func configure(plugin *node.Plugin) {
 		registerDBMetrics()
 		registerInfoMetrics()
 		registerNetworkMetrics()
-		registerProcessMetrics()
 		registerTangleMetrics()
 		registerManaMetrics()
 		registerSchedulerMetrics()
 		registerRateSetterMetrics()
-		registerEpochCommittmentMetrics()
+		registerEpochCommitmentMetrics()
+		registerWorkerPoolMetrics()
 	}
 
 	if metrics.Parameters.Global {

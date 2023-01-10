@@ -146,16 +146,18 @@ func (f *BlockIssuer) IssueBlockAndAwaitBlockToBeBooked(block *models.Block, max
 		return errors.Errorf("failed to issue block %s: %w", block.ID().String(), err)
 	}
 
+	timer := time.NewTimer(maxAwait)
+	defer timer.Stop()
 	select {
-	case <-time.After(maxAwait):
+	case <-timer.C:
 		return ErrBlockWasNotBookedInTime
 	case <-booked:
 		return nil
 	}
 }
 
-// IssueBlockAndAwaitBlockToBeIssued awaits maxAwait for the given block to get issued.
-func (f *BlockIssuer) IssueBlockAndAwaitBlockToBeIssued(block *models.Block, maxAwait time.Duration) error {
+// IssueBlockAndAwaitBlockToBeScheduled awaits maxAwait for the given block to get issued.
+func (f *BlockIssuer) IssueBlockAndAwaitBlockToBeScheduled(block *models.Block, maxAwait time.Duration) error {
 	if !f.optsIgnoreBootstrappedFlag && !f.protocol.Engine().IsBootstrapped() {
 		return ErrNotBootstraped
 	}
@@ -181,8 +183,10 @@ func (f *BlockIssuer) IssueBlockAndAwaitBlockToBeIssued(block *models.Block, max
 		return errors.Errorf("failed to issue block %s: %w", block.ID().String(), err)
 	}
 
+	timer := time.NewTimer(maxAwait)
+	defer timer.Stop()
 	select {
-	case <-time.After(maxAwait):
+	case <-timer.C:
 		return ErrBlockWasNotScheduledInTime
 	case <-scheduled:
 		return nil

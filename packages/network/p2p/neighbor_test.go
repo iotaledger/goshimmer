@@ -9,11 +9,10 @@ import (
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
-	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
-	"github.com/libp2p/go-libp2p-core/network"
-	"github.com/libp2p/go-libp2p-core/protocol"
+	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -51,23 +50,20 @@ func TestNeighborWrite(t *testing.T) {
 	a, b, teardown := libp2ptesting.NewStreamsPipe(t)
 	defer teardown()
 
-	neighborA := newTestNeighbor("A", a)
-	defer neighborA.disconnect()
 	var countA uint32
-	neighborA.Events.PacketReceived.Hook(event.NewClosure(func(event *NeighborPacketReceivedEvent) {
-		_ = event.Packet.(*p2pproto.Negotiation)
+	neighborA := newTestNeighbor("A", a, func(neighbor *Neighbor, protocol protocol.ID, packet proto.Message) {
+		_ = packet.(*p2pproto.Negotiation)
 		atomic.AddUint32(&countA, 1)
-	}))
+	})
+	defer neighborA.disconnect()
 	neighborA.readLoop()
 
-	neighborB := newTestNeighbor("B", b)
-	defer neighborB.disconnect()
-
 	var countB uint32
-	neighborB.Events.PacketReceived.Hook(event.NewClosure(func(event *NeighborPacketReceivedEvent) {
-		_ = event.Packet.(*p2pproto.Negotiation)
+	neighborB := newTestNeighbor("B", b, func(neighbor *Neighbor, protocol protocol.ID, packet proto.Message) {
+		_ = packet.(*p2pproto.Negotiation)
 		atomic.AddUint32(&countB, 1)
-	}))
+	})
+	defer neighborB.disconnect()
 	neighborB.readLoop()
 
 	err := neighborA.protocols[protocolID].WritePacket(testPacket1)
@@ -79,8 +75,16 @@ func TestNeighborWrite(t *testing.T) {
 	assert.Eventually(t, func() bool { return atomic.LoadUint32(&countB) == 1 }, time.Second, 10*time.Millisecond)
 }
 
-func newTestNeighbor(name string, stream network.Stream) *Neighbor {
-	return NewNeighbor(newTestPeer(name), NeighborsGroupAuto, map[protocol.ID]*PacketsStream{protocolID: NewPacketsStream(stream, packetFactory)}, log.Named(name))
+func newTestNeighbor(name string, stream network.Stream, packetReceivedFunc ...PacketReceivedFunc) *Neighbor {
+
+	var packetReceived PacketReceivedFunc
+	if len(packetReceivedFunc) > 0 {
+		packetReceived = packetReceivedFunc[0]
+	} else {
+		packetReceived = func(neighbor *Neighbor, protocol protocol.ID, packet proto.Message) {}
+	}
+
+	return NewNeighbor(newTestPeer(name), NeighborsGroupAuto, map[protocol.ID]*PacketsStream{protocolID: NewPacketsStream(stream, packetFactory)}, log.Named(name), packetReceived, func(neighbor *Neighbor) {})
 }
 
 func packetFactory() proto.Message {

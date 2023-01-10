@@ -574,7 +574,7 @@ package gossipold
 //
 // 	e.network.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborAdded.Hook(event.NewClosure(e.neighborAdded))
 // 	e.network.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Hook(event.NewClosure(e.neighborRemoved))
-// 	e.Events.BlockReceived.Hook(event.NewClosure(e.blockReceived))
+// 	e.Events.BlockAllowed.Hook(event.NewClosure(e.blockReceived))
 // 	e.Events.BlockRequestReceived.Hook(event.NewClosure(e.blockRequestReceived))
 //
 // 	return e

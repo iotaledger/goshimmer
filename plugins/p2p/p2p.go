@@ -34,7 +34,6 @@ func createManager(lPeer *peer.Local) *p2p.Manager {
 		Plugin.LogFatalfAndExit("Could not build libp2p identity from local peer: %s", err)
 	}
 	libp2pHost, err := libp2p.New(
-		context.Background(),
 		libp2p.ListenAddrStrings(fmt.Sprintf("/ip4/%s/tcp/%d", localAddr.IP, localAddr.Port)),
 		libp2pIdentity,
 		libp2p.NATPortMap(),

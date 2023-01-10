@@ -1,17 +1,24 @@
 package p2p
 
 import (
+	"context"
 	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/libp2p/go-libp2p/core/protocol"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/logger"
-	"github.com/libp2p/go-libp2p-core/protocol"
 )
 
 // NeighborsGroup is an enum type for various neighbors groups like auto/manual.
 type NeighborsGroup int8
+
+const (
+	NeighborsSendQueueSize = 1000
+)
 
 const (
 	// NeighborsGroupAuto represents a neighbors group that is managed automatically.
@@ -20,42 +27,72 @@ const (
 	NeighborsGroupManual
 )
 
+type queuedPacket struct {
+	protocolID protocol.ID
+	packet     proto.Message
+}
+
+type PacketReceivedFunc func(neighbor *Neighbor, protocol protocol.ID, packet proto.Message)
+type NeighborDisconnectedFunc func(neighbor *Neighbor)
+
 // Neighbor describes the established p2p connection to another peer.
 type Neighbor struct {
 	*peer.Peer
 	Group NeighborsGroup
 
-	Events *NeighborEvents
+	packetReceivedFunc PacketReceivedFunc
+	disconnectedFunc   NeighborDisconnectedFunc
 
 	Log            *logger.Logger
 	disconnectOnce sync.Once
 	wg             sync.WaitGroup
 
+	loopCtx       context.Context
+	loopCtxCancel context.CancelFunc
+
 	// protocols is a map of protocol IDs to their respective PacketsStream.
 	// As it is only initialized from the Neighbor constructor, no locking is needed.
 	protocols map[protocol.ID]*PacketsStream
+
+	sendQueue chan *queuedPacket
 }
 
 // NewNeighbor creates a new neighbor from the provided peer and connection.
-func NewNeighbor(p *peer.Peer, group NeighborsGroup, protocols map[protocol.ID]*PacketsStream, log *logger.Logger) *Neighbor {
-	new := &Neighbor{
+func NewNeighbor(p *peer.Peer, group NeighborsGroup, protocols map[protocol.ID]*PacketsStream, log *logger.Logger, packetReceivedCallback PacketReceivedFunc, disconnectedCallback NeighborDisconnectedFunc) *Neighbor {
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	neighbor := &Neighbor{
 		Peer:  p,
 		Group: group,
 
-		Events: NewNeighborEvents(),
+		packetReceivedFunc: packetReceivedCallback,
+		disconnectedFunc:   disconnectedCallback,
+
+		loopCtx:       ctx,
+		loopCtxCancel: cancel,
 
 		protocols: protocols,
+		sendQueue: make(chan *queuedPacket, NeighborsSendQueueSize),
 	}
 
-	conn := new.getAnyStream().Conn()
+	conn := neighbor.getAnyStream().Conn()
 
-	new.Log = log.With(
+	neighbor.Log = log.With(
 		"id", p.ID(),
 		"localAddr", conn.LocalMultiaddr(),
 		"remoteAddr", conn.RemoteMultiaddr(),
 	)
 
-	return new
+	return neighbor
+}
+
+func (n *Neighbor) Enqueue(packet proto.Message, protocolID protocol.ID) {
+	select {
+	case n.sendQueue <- &queuedPacket{protocolID: protocolID, packet: packet}:
+	default:
+		n.Log.Warn("Dropped packet due to SendQueue being full")
+	}
 }
 
 // GetStream returns the stream for the given protocol.
@@ -97,6 +134,12 @@ func (n *Neighbor) readLoop() {
 		go func(protocolID protocol.ID, stream *PacketsStream) {
 			defer n.wg.Done()
 			for {
+
+				if n.loopCtx.Err() != nil {
+					n.Log.Infof("Exit %s readLoop due to cancelled context", protocolID)
+					return
+				}
+
 				// This loop gets terminated when we encounter an error on .read() function call.
 				// The error might be caused by another goroutine closing the connection by calling .disconnect() function.
 				// Or by a problem with the connection itself.
@@ -112,14 +155,40 @@ func (n *Neighbor) readLoop() {
 					}
 					return
 				}
-				n.Events.PacketReceived.Trigger(&NeighborPacketReceivedEvent{
-					Neighbor: n,
-					Protocol: protocolID,
-					Packet:   packet,
-				})
+				n.packetReceivedFunc(n, protocolID, packet)
 			}
 		}(protocolID, stream)
 	}
+}
+
+func (n *Neighbor) writeLoop() {
+	n.wg.Add(1)
+	go func() {
+		defer n.wg.Done()
+		for {
+			select {
+			case <-n.loopCtx.Done():
+				n.Log.Info("Exit writeLoop due to cancelled context")
+				return
+			case sendPacket := <-n.sendQueue:
+				stream := n.GetStream(sendPacket.protocolID)
+				if stream == nil {
+					n.Log.Warnw("send error, no stream for protocol", "peer-id", n.ID(), "protocol", sendPacket.protocolID)
+					if disconnectErr := n.disconnect(); disconnectErr != nil {
+						n.Log.Warnw("Failed to disconnect", "err", disconnectErr)
+					}
+					return
+				}
+				if err := stream.WritePacket(sendPacket.packet); err != nil {
+					n.Log.Warnw("send error", "peer-id", n.ID(), "err", err)
+					if disconnectErr := n.disconnect(); disconnectErr != nil {
+						n.Log.Warnw("Failed to disconnect", "err", disconnectErr)
+					}
+					return
+				}
+			}
+		}
+	}()
 }
 
 // Close closes the connection with the neighbor.
@@ -132,6 +201,10 @@ func (n *Neighbor) Close() {
 
 func (n *Neighbor) disconnect() (err error) {
 	n.disconnectOnce.Do(func() {
+		// Stop the loops
+		n.loopCtxCancel()
+
+		// Close all streams
 		for _, stream := range n.protocols {
 			if streamErr := stream.Close(); streamErr != nil {
 				err = errors.WithStack(streamErr)
@@ -139,7 +212,7 @@ func (n *Neighbor) disconnect() (err error) {
 			n.Log.Infow("Stream closed", "protocol", stream.Protocol())
 		}
 		n.Log.Info("Connection closed")
-		n.Events.Disconnected.Trigger(&NeighborDisconnectedEvent{})
+		n.disconnectedFunc(n)
 	})
 	return err
 }

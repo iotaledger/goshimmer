@@ -10,6 +10,8 @@ message Packet {
     BlockRequest blockRequest = 2;
     EpochCommitment epochCommitment = 3;
     EpochCommitmentRequest epochCommitmentRequest = 4;
+    Attestations attestations = 5;
+    AttestationsRequest attestationsRequest = 6;
   }
 }
 
@@ -26,5 +28,13 @@ message EpochCommitment {
 }
 
 message EpochCommitmentRequest {
+  bytes bytes = 1;
+}
+
+message Attestations {
+  bytes bytes = 1;
+}
+
+message AttestationsRequest {
   bytes bytes = 1;
 }

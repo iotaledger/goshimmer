@@ -53,10 +53,10 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 	})
 }
 
-func (t *TestFramework) AssertExplicitlyOrphaned(expectedState map[string]bool) {
+func (t *TestFramework) AssertOrphaned(expectedState map[string]bool) {
 	for alias, expectedOrphanage := range expectedState {
 		t.BookerTestFramework.AssertBlock(alias, func(block *booker.Block) {
-			assert.Equal(t.test, expectedOrphanage, block.IsExplicitlyOrphaned(), "block %s is incorrectly orphaned", block.ID())
+			assert.Equal(t.test, expectedOrphanage, block.IsOrphaned(), "block %s is incorrectly orphaned", block.ID())
 		})
 	}
 }

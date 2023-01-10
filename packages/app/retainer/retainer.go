@@ -3,8 +3,11 @@ package retainer
 import (
 	"sync"
 
+	"github.com/pkg/errors"
+
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/kvstore"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
@@ -16,6 +19,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
@@ -40,7 +44,11 @@ func NewRetainer(protocol *protocol.Protocol, dbManager *database.Manager, opts 
 }
 
 func (r *Retainer) Block(blockID models.BlockID) (block *models.Block, exists bool) {
-	return r.protocol.Engine().Block(blockID)
+	if metadata, metadataExists := r.BlockMetadata(blockID); metadataExists {
+		return metadata.M.Block, metadata.M.Block != nil
+	}
+
+	return nil, false
 }
 
 func (r *Retainer) BlockMetadata(blockID models.BlockID) (metadata *BlockMetadata, exists bool) {
@@ -49,21 +57,56 @@ func (r *Retainer) BlockMetadata(blockID models.BlockID) (metadata *BlockMetadat
 	}
 
 	metadata, exists = r.blockStorage.Get(blockID)
-	if exists && !metadata.M.Confirmed && blockID.Index() <= r.protocol.Engine().LastConfirmedEpoch() {
-		metadata.M.Confirmed = true
-		metadata.M.ConfirmedTime = blockID.Index().EndTime()
+	if exists && metadata.M.Accepted && !metadata.M.Confirmed && blockID.Index() <= r.protocol.Engine().LastConfirmedEpoch() {
+		metadata.M.ConfirmedByEpoch = true
+		metadata.M.ConfirmedByEpochTime = blockID.Index().EndTime()
 	}
 
 	return metadata, exists
 }
 
+func (r *Retainer) LoadAll(index epoch.Index) (ids *set.AdvancedSet[*BlockMetadata]) {
+	ids = set.NewAdvancedSet[*BlockMetadata]()
+	r.Stream(index, func(id models.BlockID, metadata *BlockMetadata) {
+		ids.Add(metadata)
+	})
+	return
+}
+
+func (r *Retainer) Stream(index epoch.Index, callback func(id models.BlockID, metadata *BlockMetadata)) {
+	if epochStorage := r.cachedMetadata.Get(index, false); epochStorage != nil {
+		epochStorage.ForEach(func(id models.BlockID, cachedMetadata *cachedMetadata) bool {
+			callback(id, newBlockMetadata(cachedMetadata))
+			return true
+		})
+		return
+	}
+
+	r.blockStorage.Iterate(index, func(id models.BlockID, metadata *BlockMetadata) bool {
+		callback(id, metadata)
+		return true
+	})
+}
+
 func (r *Retainer) setupEvents() {
+	r.protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Attach(event.NewClosure(func(block *blockdag.Block) {
+		cm := r.createOrGetCachedMetadata(block.ID())
+		cm.setBlockDAGBlock(block)
+	}))
+
+	r.protocol.Events.Engine.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(func(block *blockdag.Block) {
+		cm := r.createOrGetCachedMetadata(block.ID())
+		cm.setBlockDAGBlock(block)
+	}))
+
 	r.protocol.Events.Engine.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(func(block *blockdag.Block) {
+		//fmt.Println("BlockSolid", block.ID(), "issuer", block.IssuerID())
 		cm := r.createOrGetCachedMetadata(block.ID())
 		cm.setBlockDAGBlock(block)
 	}))
 
 	r.protocol.Events.Engine.Tangle.Booker.BlockBooked.Attach(event.NewClosure(func(block *booker.Block) {
+		//fmt.Println("BlockBooked", block.ID(), "issuer", block.IssuerID())
 		cm := r.createOrGetCachedMetadata(block.ID())
 		cm.setBookerBlock(block)
 
@@ -83,7 +126,17 @@ func (r *Retainer) setupEvents() {
 	r.protocol.Events.CongestionControl.Scheduler.BlockDropped.Attach(congestionControlClosure)
 	r.protocol.Events.CongestionControl.Scheduler.BlockSkipped.Attach(congestionControlClosure)
 
+	//r.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
+	//	fmt.Println("BlockScheduled", block.ID(), "issuer", block.IssuerID())
+	//}))
+	//r.protocol.Events.CongestionControl.Scheduler.BlockDropped.Attach(event.NewClosure(func(block *scheduler.Block) {
+	//	fmt.Println("BlockDropped", block.ID(), "issuer", block.IssuerID())
+	//}))
+	//r.protocol.Events.CongestionControl.Scheduler.BlockSkipped.Attach(event.NewClosure(func(block *scheduler.Block) {
+	//	fmt.Println("BlockSkipped", block.ID(), "issuer", block.IssuerID())
+	//}))
 	r.protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
+		//fmt.Println("Block accepted", block.ID(), "issuer", block.IssuerID())
 		cm := r.createOrGetCachedMetadata(block.ID())
 		cm.setAcceptanceBlock(block)
 	}))
@@ -132,7 +185,11 @@ func (r *Retainer) createStorableBlockMetadata(epochIndex epoch.Index) (metas []
 	metas = make([]*BlockMetadata, 0, storage.Size())
 	storage.ForEach(func(blockID models.BlockID, cm *cachedMetadata) bool {
 		blockMetadata := newBlockMetadata(cm)
-		blockMetadata.M.ConflictIDs = r.protocol.Engine().Tangle.BlockConflicts(cm.Booker.Block)
+		if cm.Booker != nil {
+			blockMetadata.M.ConflictIDs = r.protocol.Engine().Tangle.BlockConflicts(cm.Booker.Block)
+		} else {
+			blockMetadata.M.ConflictIDs = utxo.NewTransactionIDs()
+		}
 
 		metas = append(metas, blockMetadata)
 		return true
@@ -143,7 +200,9 @@ func (r *Retainer) createStorableBlockMetadata(epochIndex epoch.Index) (metas []
 
 func (r *Retainer) storeBlockMetadata(metas []*BlockMetadata) {
 	for _, meta := range metas {
-		r.blockStorage.Set(meta.ID(), meta)
+		if err := r.blockStorage.Set(meta.ID(), meta); err != nil {
+			panic(errors.Wrapf(err, "could not save %s to block storage", meta.ID()))
+		}
 	}
 }
 

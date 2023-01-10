@@ -3,6 +3,7 @@ package metrics
 import (
 	"sync"
 
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 	"go.uber.org/atomic"
 
@@ -145,7 +146,7 @@ func AveragePledgeAccess() manamodels.IssuerMap {
 
 func measureMana() {
 	tmpAccessMap := deps.Protocol.Engine().ManaTracker.ManaByIDs()
-	tmpConsensusMap := deps.Protocol.Engine().SybilProtection.Weights()
+	tmpConsensusMap := lo.PanicOnErr(deps.Protocol.Engine().SybilProtection.Weights().Map())
 
 	accessLock.Lock()
 	defer accessLock.Unlock()
@@ -172,7 +173,7 @@ func measureMana() {
 			accessSum += neighborAMana
 		}
 
-		neighborCMana, _ := deps.Protocol.Engine().SybilProtection.Weight(neighbor.ID())
+		neighborCMana := consensusMap[neighbor.ID()]
 		if neighborCMana > 0 {
 			consensusCount++
 			consensusSum += neighborCMana

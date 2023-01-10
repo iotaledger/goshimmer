@@ -43,7 +43,7 @@ func configure(_ *node.Plugin) {
 
 // GetGlobalMetrics is the handler for the /metrics/global endpoint.
 func GetGlobalMetrics(c echo.Context) (err error) {
-	blkStored := metrics.BlockCountSinceStartPerComponentGrafana()[metrics.Store]
+	blkStored := metrics.BlockCountSinceStartPerComponentGrafana()[metrics.Attached]
 
 	var finalizedBlk uint64
 	for _, num := range metrics.FinalizedBlockCountPerType() {
@@ -82,7 +82,7 @@ func GetNodesMetrics(c echo.Context) (err error) {
 		ActiveManaRatio: activeManaRatio(),
 		OnlineNodes:     len(deps.Discovery.GetVerifiedPeers()),
 		MaxBPS:          maxBPS,
-		BlockScheduled:  metrics.BlockCountSinceStartPerComponentGrafana()[metrics.Scheduler],
+		BlockScheduled:  metrics.BlockCountSinceStartPerComponentGrafana()[metrics.Scheduled],
 	})
 }
 

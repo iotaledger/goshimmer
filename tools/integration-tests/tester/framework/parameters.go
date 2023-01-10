@@ -85,7 +85,6 @@ func PeerConfig() config.GoShimmer {
 	c.Protocol.GenesisTime = GenesisTime
 
 	c.Notarization.Enabled = true
-	c.Notarization.BootstrapWindow = 0 // disable bootstrap window for tests
 	c.Notarization.MinEpochCommittableAge = 10 * time.Second
 
 	c.BlockIssuer.Enabled = true

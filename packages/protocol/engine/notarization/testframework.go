@@ -8,12 +8,15 @@ import (
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/storage/permanent"
 )
 
 type TestFramework struct {
@@ -22,7 +25,7 @@ type TestFramework struct {
 	test               *testing.T
 	transactionsByID   map[string]*ledger.TransactionMetadata
 	issuersByID        map[string]ed25519.PublicKey
-	issuersWeight      map[identity.ID]int64
+	weights            *sybilprotection.Weights
 	blocksByID         map[string]*models.Block
 	epochEntityCounter map[epoch.Index]int
 
@@ -34,14 +37,12 @@ func NewTestFramework(test *testing.T) *TestFramework {
 		test:               test,
 		transactionsByID:   make(map[string]*ledger.TransactionMetadata),
 		issuersByID:        make(map[string]ed25519.PublicKey),
-		issuersWeight:      make(map[identity.ID]int64),
 		blocksByID:         make(map[string]*models.Block),
 		epochEntityCounter: make(map[epoch.Index]int),
 	}
-	tf.MutationFactory = NewEpochMutations(func(id identity.ID) (int64, bool) {
-		weight, exists := tf.issuersWeight[id]
-		return weight, exists
-	}, 0)
+
+	tf.weights = sybilprotection.NewWeights(mapdb.NewMapDB(), permanent.NewSettings(test.TempDir() + "/settings"))
+	tf.MutationFactory = NewEpochMutations(tf.weights, 0)
 
 	return tf
 }
@@ -58,7 +59,7 @@ func (t *TestFramework) CreateIssuer(alias string, issuerWeight ...int64) (issue
 
 	t.issuersByID[alias] = issuer
 	if len(issuerWeight) == 1 {
-		t.issuersWeight[identity.NewID(issuer)] = issuerWeight[0]
+		t.weights.Import(identity.NewID(issuer), issuerWeight[0])
 	}
 	return issuer
 }
@@ -168,8 +169,8 @@ func (t *TestFramework) UpdateTransactionInclusion(alias string, oldEpoch, newEp
 	return t.MutationFactory.UpdateTransactionInclusion(tx.ID(), oldEpoch, newEpoch)
 }
 
-func (t *TestFramework) AssertCommit(index epoch.Index, expectedBlocks []string, expectedTransactions []string, expectedValidators []string, expectedCumulativeWeight uint64, optShouldError ...bool) {
-	acceptedBlocks, acceptedTransactions, activeValidators, cumulativeWeight, err := t.MutationFactory.Commit(index)
+func (t *TestFramework) AssertCommit(index epoch.Index, expectedBlocks []string, expectedTransactions []string, expectedValidators []string, expectedCumulativeWeight int64, optShouldError ...bool) {
+	acceptedBlocks, acceptedTransactions, attestations, err := t.MutationFactory.Evict(index)
 	if len(optShouldError) > 0 && optShouldError[0] {
 		require.Error(t.test, err)
 	}
@@ -192,17 +193,13 @@ func (t *TestFramework) AssertCommit(index epoch.Index, expectedBlocks []string,
 		}
 	}
 
-	if activeValidators == nil {
-		require.Equal(t.test, len(expectedValidators), 0)
-	} else {
-		require.Equal(t.test, len(expectedValidators), activeValidators.Size())
-		for _, expectedValidator := range expectedValidators {
-			require.True(t.test, activeValidators.Has(identity.NewID(t.Issuer(expectedValidator))))
-		}
+	attestors := attestations.Attestors()
+	require.Equal(t.test, len(expectedValidators), attestors.Size())
+	for _, expectedValidator := range expectedValidators {
+		require.True(t.test, attestors.Has(identity.NewID(t.Issuer(expectedValidator))))
 	}
 
-	require.Equal(t.test, expectedCumulativeWeight, cumulativeWeight)
-
+	require.Equal(t.test, expectedCumulativeWeight, attestations.Weight())
 }
 
 func (t *TestFramework) increaseEpochEntityCounter(index epoch.Index) (nextBlockCounter int) {

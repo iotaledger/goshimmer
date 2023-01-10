@@ -86,7 +86,7 @@ export class BlockInfo extends React.Component<Props, any> {
                                 <ListGroup.Item>
                                     ConflictIDs:{' '}
                                     <ListGroup>
-                                        {selectedBlk.conflictIDs.map(
+                                        {selectedBlk.conflictIDs && selectedBlk.conflictIDs.map(
                                             (b, i) => (
                                                 <ListGroup.Item key={i}>
                                                     <LinkToDashboard

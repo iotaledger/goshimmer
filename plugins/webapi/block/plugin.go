@@ -6,9 +6,10 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/iotaledger/hive.go/core/node"
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
+
+	"github.com/iotaledger/hive.go/core/node"
 
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	"github.com/iotaledger/goshimmer/packages/app/chat"
@@ -121,6 +122,8 @@ func GetBlock(c echo.Context) (err error) {
 
 	return c.JSON(http.StatusOK, jsonmodels.Block{
 		ID:                   blockMetadata.ID().Base58(),
+		Version:              int64(block.Version()),
+		Nonce:                strconv.FormatUint(block.Nonce(), 10),
 		StrongParents:        block.ParentsByType(models.StrongParentType).Base58(),
 		WeakParents:          block.ParentsByType(models.WeakParentType).Base58(),
 		ShallowLikeParents:   block.ParentsByType(models.ShallowLikeParentType).Base58(),

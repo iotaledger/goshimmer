@@ -75,8 +75,6 @@ func Test_PruneSequences(t *testing.T) {
 	const totalSequences = sequenceCount * epochCount
 	const permanentSequenceID = markers.SequenceID(2)
 
-	epoch.GenesisTime = time.Now().Unix() - epochCount*epoch.Duration
-
 	markerManager := NewMarkerManager[models.BlockID, *blockdag.Block]()
 
 	// Create the sequence structure for the test. We creatte sequenceCount sequences for each of epochCount epochs.

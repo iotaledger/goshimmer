@@ -5,8 +5,7 @@ import (
 
 	"github.com/iotaledger/hive.go/core/generics/constraints"
 	"github.com/iotaledger/hive.go/core/generics/thresholdmap"
-
-	"github.com/iotaledger/goshimmer/packages/core/validator"
+	"github.com/iotaledger/hive.go/core/identity"
 )
 
 // LatestVotes keeps track of the most up-to-date for a certain Voter casted on a specific Index.
@@ -14,14 +13,14 @@ import (
 // Due to the nature of a Sequence, a vote casted for a certain Index clobbers votes for every lower index.
 // Similarly, if a vote for an Index is casted and an existing vote for an higher Index exists, the operation has no effect.
 type LatestVotes[EntityIndex constraints.Integer, VotePowerType constraints.Comparable[VotePowerType]] struct {
-	voter *validator.Validator
+	voter identity.ID
 	t     *thresholdmap.ThresholdMap[EntityIndex, VotePowerType]
 
 	m sync.RWMutex
 }
 
 // NewLatestVotes creates a new NewLatestVotes instance associated with the given details.
-func NewLatestVotes[EntityIndex constraints.Integer, VotePowerType constraints.Comparable[VotePowerType]](voter *validator.Validator) (newLatestMarkerVotes *LatestVotes[EntityIndex, VotePowerType]) {
+func NewLatestVotes[EntityIndex constraints.Integer, VotePowerType constraints.Comparable[VotePowerType]](voter identity.ID) (newLatestMarkerVotes *LatestVotes[EntityIndex, VotePowerType]) {
 	return &LatestVotes[EntityIndex, VotePowerType]{
 		voter: voter,
 		t:     thresholdmap.New[EntityIndex, VotePowerType](thresholdmap.UpperThresholdMode),
@@ -34,7 +33,7 @@ func (l *LatestVotes[EntityIndex, VotePowerType]) ForEach(iterator func(node *th
 }
 
 // Voter returns the Voter for the LatestVotes.
-func (l *LatestVotes[EntityIndex, VotePowerType]) Voter() *validator.Validator {
+func (l *LatestVotes[EntityIndex, VotePowerType]) Voter() identity.ID {
 	l.m.RLock()
 	defer l.m.RUnlock()
 

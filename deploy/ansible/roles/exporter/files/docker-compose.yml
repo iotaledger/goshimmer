@@ -14,8 +14,23 @@ services:
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest
     container_name: cadvisor
+    privileged: true
     ports:
       - "9111:8080"
+    command:
+      - --housekeeping_interval=30s    # kubernetes default args
+      - --max_housekeeping_interval=35s
+      - --event_storage_event_limit=default=0
+      - --event_storage_age_limit=default=0
+      - --store_container_labels=false
+      - --global_housekeeping_interval=30s
+      - --event_storage_event_limit=default=0
+      - --event_storage_age_limit=default=0
+      - --disable_metrics=accelerator,advtcp,cpu_topology,disk,hugetlb,memory_numa,percpu,referenced_memory,resctrl,sched,tcp,udp
+      - --enable_load_reader=true
+      - --docker_only=true          # only show stats for docker containers
+      - --allow_dynamic_housekeeping=true
+      - --storage_duration=1m0s
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:rw

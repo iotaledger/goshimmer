@@ -49,16 +49,21 @@ type ExplorerBlock struct {
 	// LikedInsteadChildren are the shallow like children of the block.
 	LikedInsteadChildren []string `json:"shallowLikeChildren"`
 	// Solid defines the solid status of the block.
-	Solid                 bool               `json:"solid"`
-	ConflictIDs           []string           `json:"conflictIDs"`
-	AddedConflictIDs      []string           `json:"addedConflictIDs"`
-	SubtractedConflictIDs []string           `json:"subtractedConflictIDs"`
-	Scheduled             bool               `json:"scheduled"`
-	Booked                bool               `json:"booked"`
-	ObjectivelyInvalid    bool               `json:"objectivelyInvalid"`
-	SubjectivelyInvalid   bool               `json:"subjectivelyInvalid"`
-	ConfirmationState     confirmation.State `json:"confirmationState"`
-	ConfirmationStateTime int64              `json:"confirmationStateTime"`
+	Solid                   bool     `json:"solid"`
+	ConflictIDs             []string `json:"conflictIDs"`
+	AddedConflictIDs        []string `json:"addedConflictIDs"`
+	SubtractedConflictIDs   []string `json:"subtractedConflictIDs"`
+	Scheduled               bool     `json:"scheduled"`
+	Booked                  bool     `json:"booked"`
+	Orphaned                bool     `json:"orphaned"`
+	ObjectivelyInvalid      bool     `json:"objectivelyInvalid"`
+	SubjectivelyInvalid     bool     `json:"subjectivelyInvalid"`
+	Acceptance              bool     `json:"acceptance"`
+	AcceptanceTime          int64    `json:"acceptanceTime"`
+	Confirmation            bool     `json:"confirmation"`
+	ConfirmationTime        int64    `json:"confirmationTime"`
+	ConfirmationByEpoch     bool     `json:"confirmationByEpoch"`
+	ConfirmationByEpochTime int64    `json:"confirmationByEpochTime"`
 	// PayloadType defines the type of the payload.
 	PayloadType payload.Type `json:"payload_type"`
 	// Payload is the content of the payload.
@@ -75,15 +80,20 @@ type ExplorerBlock struct {
 	EI                   uint64 `json:"ei"`
 	CommitmentRootsID    string `json:"ecr"`
 	PreviousCommitmentID string `json:"prevEC"`
-	CumulativeWeight     uint64 `json:"cumulativeWeight"`
+	CumulativeWeight     int64  `json:"cumulativeWeight"`
 	LatestConfirmedEpoch uint64 `json:"latestConfirmedEpoch"`
 }
 
 func createExplorerBlock(block *models.Block, blockMetadata *retainer.BlockMetadata) *ExplorerBlock {
-	// TODO: change this to bool flags for confirmation and acceptance
-	confirmationState := confirmation.Pending
-	if blockMetadata.M.Accepted {
-		confirmationState = confirmation.Accepted
+	var conflictIDs, addedConflictIDs, subtractedConflictIDs []string
+	if blockMetadata.M.ConflictIDs != nil {
+		conflictIDs = lo.Map(lo.Map(blockMetadata.M.ConflictIDs.Slice(), packTransactionID), base58.Encode)
+	}
+	if blockMetadata.M.AddedConflictIDs != nil {
+		addedConflictIDs = lo.Map(lo.Map(blockMetadata.M.AddedConflictIDs.Slice(), packTransactionID), base58.Encode)
+	}
+	if blockMetadata.M.SubtractedConflictIDs != nil {
+		subtractedConflictIDs = lo.Map(lo.Map(blockMetadata.M.SubtractedConflictIDs.Slice(), packTransactionID), base58.Encode)
 	}
 	t := &ExplorerBlock{
 		ID:                      block.ID().Base58(),
@@ -98,23 +108,29 @@ func createExplorerBlock(block *models.Block, blockMetadata *retainer.BlockMetad
 		WeakChildren:            blockMetadata.M.WeakChildren.Base58(),
 		LikedInsteadChildren:    blockMetadata.M.LikedInsteadChildren.Base58(),
 		Solid:                   blockMetadata.M.Solid,
-		ConflictIDs:             lo.Map(lo.Map(blockMetadata.M.ConflictIDs.Slice(), packTransactionID), base58.Encode),
-		AddedConflictIDs:        lo.Map(lo.Map(blockMetadata.M.AddedConflictIDs.Slice(), packTransactionID), base58.Encode),
-		SubtractedConflictIDs:   lo.Map(lo.Map(blockMetadata.M.SubtractedConflictIDs.Slice(), packTransactionID), base58.Encode),
+		ConflictIDs:             conflictIDs,
+		AddedConflictIDs:        addedConflictIDs,
+		SubtractedConflictIDs:   subtractedConflictIDs,
 		Scheduled:               blockMetadata.M.Scheduled,
 		Booked:                  blockMetadata.M.Booked,
+		Orphaned:                blockMetadata.M.Orphaned,
 		ObjectivelyInvalid:      blockMetadata.M.Invalid,
 		SubjectivelyInvalid:     blockMetadata.M.SubjectivelyInvalid,
-		ConfirmationState:       confirmationState,
-		ConfirmationStateTime:   blockMetadata.M.AcceptedTime.Unix(),
-		PayloadType:             block.Payload().Type(),
-		Payload:                 ProcessPayload(block.Payload()),
-		CommitmentID:            block.Commitment().ID().Base58(),
-		EI:                      uint64(block.Commitment().Index()),
-		CommitmentRootsID:       block.Commitment().RootsID().Base58(),
-		PreviousCommitmentID:    block.Commitment().PrevID().Base58(),
-		CumulativeWeight:        block.Commitment().CumulativeWeight(),
-		LatestConfirmedEpoch:    uint64(block.LatestConfirmedEpoch()),
+		Acceptance:              blockMetadata.M.Accepted,
+		AcceptanceTime:          blockMetadata.M.AcceptedTime.Unix(),
+		Confirmation:            blockMetadata.M.Confirmed,
+		ConfirmationTime:        blockMetadata.M.ConfirmedTime.Unix(),
+		ConfirmationByEpoch:     blockMetadata.M.ConfirmedByEpoch,
+		ConfirmationByEpochTime: blockMetadata.M.ConfirmedByEpochTime.Unix(),
+
+		PayloadType:          block.Payload().Type(),
+		Payload:              ProcessPayload(block.Payload()),
+		CommitmentID:         block.Commitment().ID().Base58(),
+		EI:                   uint64(block.Commitment().Index()),
+		CommitmentRootsID:    block.Commitment().RootsID().Base58(),
+		PreviousCommitmentID: block.Commitment().PrevID().Base58(),
+		CumulativeWeight:     block.Commitment().CumulativeWeight(),
+		LatestConfirmedEpoch: uint64(block.LatestConfirmedEpoch()),
 	}
 
 	if d := blockMetadata.M.StructureDetails; d != nil {
@@ -232,17 +248,12 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 }
 
 func findBlock(blockID models.BlockID) (explorerBlk *ExplorerBlock, err error) {
-	block, exists := deps.Retainer.Block(blockID)
-	if !exists {
-		return nil, fmt.Errorf("%w: block %s", ErrNotFound, blockID.Base58())
-	}
-
 	blockMetadata, exists := deps.Retainer.BlockMetadata(blockID)
 	if !exists {
 		return nil, fmt.Errorf("%w: block metadata %s", ErrNotFound, blockID.Base58())
 	}
 
-	explorerBlk = createExplorerBlock(block, blockMetadata)
+	explorerBlk = createExplorerBlock(blockMetadata.M.Block, blockMetadata)
 
 	return
 }

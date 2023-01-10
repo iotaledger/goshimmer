@@ -121,14 +121,6 @@ func (s *LedgerStateDiffs) StreamCreatedOutputs(index epoch.Index, callback func
 	return
 }
 
-func (s *LedgerStateDiffs) StateDiff(index epoch.Index) (diff *models.StateDiff) {
-	diff = models.NewMemoryStateDiff()
-	s.StreamCreatedOutputs(index, diff.ApplyCreatedOutput)
-	s.StreamSpentOutputs(index, diff.ApplyDeletedOutput)
-
-	return diff
-}
-
 func (s *LedgerStateDiffs) SpentStorage(index epoch.Index) (storage kvstore.KVStore, err error) {
 	return s.Storage(index).WithExtendedRealm([]byte{spentOutputsPrefix})
 }

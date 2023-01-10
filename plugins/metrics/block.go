@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/iotaledger/hive.go/core/syncutils"
@@ -36,37 +37,49 @@ func (c BlockType) String() string {
 type ComponentType byte
 
 const (
-	// Store denotes blocks stored by the block store.
-	Store ComponentType = iota
-	// Solidifier denotes blocks solidified by the solidifier.
-	Solidifier
-	// Scheduler denotes blocks scheduled by the scheduler.
-	Scheduler
+	// Received denotes blocks received from the network.
+	Received ComponentType = iota
+	// Issued denotes blocks that the node itself issued.
+	Issued
+	// Allowed denotes blocks that passed the filter checks.
+	Allowed
+	// Attached denotes blocks stored by the block store.
+	Attached
+	// Solidified denotes blocks solidified by the solidifier.
+	Solidified
+	// Scheduled denotes blocks scheduled by the scheduler.
+	Scheduled
 	// SchedulerDropped denotes blocks dropped by the scheduler.
 	SchedulerDropped
 	// SchedulerSkipped denotes confirmed blocks skipped by the scheduler.
 	SchedulerSkipped
-	// Booker denotes blocks booked by the booker.
-	Booker
+	// Booked denotes blocks booked by the booker.
+	Booked
 )
 
 // String returns the stringified component type.
 func (c ComponentType) String() string {
 	switch c {
-	case Store:
-		return "Store"
-	case Solidifier:
-		return "Solidifier"
-	case Scheduler:
-		return "Scheduler"
+	case Received:
+		return "Received"
+	case Issued:
+		return "Issued"
+	case Allowed:
+		return "Allowed"
+	case Attached:
+		return "Attached"
+	case Solidified:
+		return "Solidified"
+	case Scheduled:
+		return "Scheduled"
 	case SchedulerDropped:
 		return "SchedulerDropped"
 	case SchedulerSkipped:
 		return "SchedulerSkipped"
-	case Booker:
-		return "booker"
+	case Booked:
+		return "Booked"
 	default:
-		return "Unknown"
+		return fmt.Sprintf("Unknown (%d)", c)
 	}
 }
 
@@ -144,7 +157,7 @@ var (
 	solidificationRequests atomic.Uint64
 
 	// counter for the received BPS (for dashboard).
-	mpsReceivedSinceLastMeasurement atomic.Uint64
+	mpsAttachedSinceLastMeasurement atomic.Uint64
 )
 
 // //// Exported functions to obtain metrics from outside //////
@@ -397,39 +410,39 @@ func measureBlockTips() {
 
 // increases the received BPS counter
 func increaseReceivedBPSCounter() {
-	mpsReceivedSinceLastMeasurement.Inc()
+	mpsAttachedSinceLastMeasurement.Inc()
 }
 
 // measures the received BPS value
-func measureReceivedBPS() {
+func measureAttachedBPS() {
 	// sample the current counter value into a measured BPS value
-	sampledBPS := mpsReceivedSinceLastMeasurement.Load()
+	sampledBPS := mpsAttachedSinceLastMeasurement.Load()
 
 	// reset the counter
-	mpsReceivedSinceLastMeasurement.Store(0)
+	mpsAttachedSinceLastMeasurement.Store(0)
 
 	// trigger events for outside listeners
-	Events.ReceivedBPSUpdated.Trigger(&ReceivedBPSUpdatedEvent{BPS: sampledBPS})
+	Events.AttachedBPSUpdated.Trigger(&AttachedBPSUpdatedEvent{BPS: sampledBPS})
 }
 
 func measureRequestQueueSize() {
 	// TODO: finish when requester is done
 	// size := int64(deps.Protocol.Engine().Requester.RequestQueueSize())
-	// requestQueueSize.Store(size)
+	// requestQueueSize.Attached(size)
 }
 
 func measureInitialDBStats() {
 	// TODO: finish when Database is finished
 	// dbStatsResult := deps.Protocol.Engine()..Storage.DBStats()
 	//
-	// initialBlockCountPerComponentDB[Store] = uint64(dbStatsResult.StoredCount)
-	// initialBlockCountPerComponentDB[Solidifier] = uint64(dbStatsResult.SolidCount)
-	// initialBlockCountPerComponentDB[Booker] = uint64(dbStatsResult.BookedCount)
-	// initialBlockCountPerComponentDB[Scheduler] = uint64(dbStatsResult.ScheduledCount)
+	// initialBlockCountPerComponentDB[Attached] = uint64(dbStatsResult.StoredCount)
+	// initialBlockCountPerComponentDB[Solidified] = uint64(dbStatsResult.SolidCount)
+	// initialBlockCountPerComponentDB[Booked] = uint64(dbStatsResult.BookedCount)
+	// initialBlockCountPerComponentDB[Scheduled] = uint64(dbStatsResult.ScheduledCount)
 	//
-	// initialSumTimeSinceReceived[Solidifier] = dbStatsResult.SumSolidificationReceivedTime
-	// initialSumTimeSinceReceived[Booker] = dbStatsResult.SumBookedReceivedTime
-	// initialSumTimeSinceReceived[Scheduler] = dbStatsResult.SumSchedulerReceivedTime
+	// initialSumTimeSinceReceived[Solidified] = dbStatsResult.SumSolidificationReceivedTime
+	// initialSumTimeSinceReceived[Booked] = dbStatsResult.SumBookedReceivedTime
+	// initialSumTimeSinceReceived[Scheduled] = dbStatsResult.SumSchedulerReceivedTime
 	//
 	// initialSumSchedulerBookedTime = dbStatsResult.SumSchedulerBookedTime
 	//

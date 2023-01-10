@@ -1,12 +1,12 @@
-import { action, makeObservable, observable } from 'mobx';
-import moment, { Moment } from 'moment';
+import {action, makeObservable, observable} from 'mobx';
+import moment, {Moment} from 'moment';
 import TangleStore from './TangleStore';
-import { tangleVertex } from 'models/tangle';
+import {tangleVertex} from 'models/tangle';
 import UTXOStore from './UTXOStore';
-import { utxoVertex } from 'models/utxo';
+import {utxoVertex} from 'models/utxo';
 import ConflictStore from './ConflictStore';
-import { conflictVertex } from 'models/conflict';
-import { DEFAULT_DASHBOARD_URL } from 'utils/constants';
+import {conflictVertex} from 'models/conflict';
+import {DEFAULT_DASHBOARD_URL} from 'utils/constants';
 
 export class searchResult {
     blocks: Array<tangleVertex>;
@@ -155,9 +155,9 @@ export class GlobalStore {
 
     @action
     updatePreviewResponseSize = (response: searchResult) => {
-        const numOfConflicts = response.conflicts.length;
-        const numOfBlocks = response.blocks.length;
-        const numOfTransactions = response.txs.length;
+        const numOfConflicts = !response.conflicts ? 0 : response.conflicts.length;
+        const numOfBlocks = !response.blocks ? 0 : response.blocks.length;
+        const numOfTransactions = !response.txs ? 0 : response.txs.length;
         this.updatePreviewSearchResponse(`Found: blocks: ${numOfBlocks};
             transactions: ${numOfTransactions};
             conflicts: ${numOfConflicts};`);
@@ -167,9 +167,7 @@ export class GlobalStore {
     searchAndDrawResults = async () => {
         try {
             const res = await fetch(
-                `/api/dagsvisualizer/search/${this.searchStartingTime}/${
-                    this.searchEndingTime
-                }`
+                `/api/dagsvisualizer/search/${this.searchStartingTime}/${this.searchEndingTime}`
             );
             const result: searchResult = await res.json();
             if (res.status !== 200) {
@@ -180,7 +178,7 @@ export class GlobalStore {
                 this.updatePreviewResponseSize(result);
             }
 
-            if (result.blocks.length === 0) {
+            if ((!result.blocks ? 0 : result.blocks.length) === 0) {
                 this.updateSearchResponse('no blocks found!');
                 return;
             }

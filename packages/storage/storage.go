@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/storage/permanent"
 	"github.com/iotaledger/goshimmer/packages/storage/prunable"
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/options"
 )
 
 // Storage is an abstraction around the storage layer of the node.
@@ -22,8 +23,8 @@ type Storage struct {
 }
 
 // New creates a new storage instance with the named database version in the given directory.
-func New(directory string, version database.Version) (newStorage *Storage) {
-	databaseManager := database.NewManager(version, database.WithBaseDir(directory), database.WithGranularity(1), database.WithDBProvider(database.NewMemDB))
+func New(directory string, version database.Version, opts ...options.Option[database.Manager]) (newStorage *Storage) {
+	databaseManager := database.NewManager(version, append(opts, database.WithBaseDir(directory))...)
 
 	return &Storage{
 		Permanent: permanent.New(diskutil.New(directory, true), databaseManager),
@@ -39,10 +40,8 @@ func (c *Storage) PruneUntilEpoch(epochIndex epoch.Index) {
 }
 
 // Shutdown shuts down the storage.
-func (c *Storage) Shutdown() (err error) {
+func (c *Storage) Shutdown() {
 	event.Loop.PendingTasksCounter.WaitIsZero()
 
 	defer c.databaseManager.Shutdown()
-
-	return c.Permanent.Shutdown()
 }

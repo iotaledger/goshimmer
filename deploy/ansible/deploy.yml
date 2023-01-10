@@ -1,16 +1,12 @@
 ---
 ## This playbook deploys new changes to the environment.
 - hosts: all
+  gather_facts: no
   roles:
     - exporter
 
-- hosts: metrics
-  vars:
-    removeData: no
-  roles:
-    - metrics
-
 - hosts: supports
+  gather_facts: no
   roles:
     - role: goshimmer-node
       nodeType: entrynode
@@ -18,17 +14,27 @@
       nodeType: analysis-server
 
 - hosts: goshimmers:&internal_nodes
+  gather_facts: no
   vars:
     nodeType: goshimmer
   roles:
     - goshimmer-node
 
 - hosts: goshimmers:&public_nodes
+  gather_facts: no
   vars:
     nodeType: public-node
   roles:
     - goshimmer-node
 
 - hosts: vanilla-01*
+  gather_facts: no
   roles:
     - snapshotter
+
+- hosts: metrics
+  gather_facts: no
+  vars:
+    removeData: no
+  roles:
+    - metrics

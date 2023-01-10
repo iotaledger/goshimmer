@@ -62,8 +62,8 @@ func TestOrphanageManager_HandleTimeUpdate(t *testing.T) {
 
 	tf.BlockDAGTestFramework.WaitUntilAllTasksProcessed()
 
-	tf.AssertOrphanedCount(15, "expected %d orphaned blocks", 15)
-	tf.AssertExplicitlyOrphaned(map[string]bool{
+	tf.AssertOrphanedCount(10, "expected %d orphaned blocks", 10)
+	tf.AssertOrphaned(map[string]bool{
 		"0/1-preTSCSeq1_0":  true,
 		"0/1-preTSCSeq1_1":  true,
 		"0/1-preTSCSeq1_2":  true,
@@ -129,7 +129,7 @@ func TestOrphanageManager_HandleTimeUpdate(t *testing.T) {
 		tf.BlockDAGTestFramework.WaitUntilAllTasksProcessed()
 
 		tf.AssertOrphanedCount(0, "expected %d orphaned blocks", 0)
-		tf.AssertExplicitlyOrphaned(map[string]bool{
+		tf.AssertOrphaned(map[string]bool{
 			"0/1-preTSCSeq1_0":  false,
 			"0/1-preTSCSeq1_1":  false,
 			"0/1-preTSCSeq1_2":  false,

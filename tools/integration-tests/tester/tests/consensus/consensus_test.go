@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/core/bitmask"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/require"
@@ -131,8 +132,8 @@ func TestSimpleDoubleSpend(t *testing.T) {
 func sendConflictingTx(t *testing.T, wallet *wallet.Wallet, targetAddr address.Address, actualGenesisTokenAmount uint64, node *framework.Node) *devnetvm.Transaction {
 	tx, err := wallet.SendFunds(
 		sendoptions.Destination(targetAddr, actualGenesisTokenAmount),
-		sendoptions.ConsensusManaPledgeID(base58.Encode(node.ID().Bytes())),
-		sendoptions.AccessManaPledgeID(base58.Encode(node.ID().Bytes())),
+		sendoptions.ConsensusManaPledgeID(base58.Encode(lo.PanicOnErr(node.ID().Bytes()))),
+		sendoptions.AccessManaPledgeID(base58.Encode(lo.PanicOnErr(node.ID().Bytes()))),
 		sendoptions.UsePendingOutputs(true))
 	require.NoError(t, err)
 

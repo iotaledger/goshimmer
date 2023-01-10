@@ -7,7 +7,10 @@ import (
 	"sort"
 	"time"
 
+	"golang.org/x/crypto/blake2b"
+
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/model"
@@ -16,7 +19,6 @@ import (
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/stringify"
 	"github.com/iotaledger/hive.go/core/types"
-	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -105,18 +107,28 @@ func NewEmptyBlock(id BlockID, opts ...options.Option[Block]) (newBlock *Block) 
 	})
 }
 
-// VerifySignature verifies the Signature of the block.
-func (b *Block) VerifySignature() (valid bool, err error) {
+func (b *Block) ContentHash() (contentHash types.Identifier, err error) {
 	blkBytes, err := b.Bytes()
 	if err != nil {
-		return false, errors.Errorf("failed to create block bytes: %w", err)
+		return types.Identifier{}, errors.Errorf("failed to create block bytes: %w", err)
 	}
-	signature := b.Signature()
 
-	contentLength := len(blkBytes) - len(signature)
-	content := blkBytes[:contentLength]
+	return blake2b.Sum256(blkBytes[:len(blkBytes)-ed25519.SignatureSize]), nil
+}
 
-	return b.M.IssuerPublicKey.VerifySignature(content, signature), nil
+// VerifySignature verifies the Signature of the block.
+func (b *Block) VerifySignature() (valid bool, err error) {
+	contentHash, err := b.ContentHash()
+	if err != nil {
+		return false, err
+	}
+
+	issuingTimeBytes, err := serix.DefaultAPI.Encode(context.Background(), b.IssuingTime(), serix.WithValidation())
+	if err != nil {
+		panic(err)
+	}
+
+	return b.M.IssuerPublicKey.VerifySignature(byteutils.ConcatBytes(issuingTimeBytes, lo.PanicOnErr(b.Commitment().ID().Bytes()), contentHash[:]), b.Signature()), nil
 }
 
 // Version returns the block Version.
@@ -248,8 +260,16 @@ func (b *Block) DetermineID() (err error) {
 }
 
 // DetermineIDFromBytes calculates and sets the block's BlockID and size.
-func (b *Block) DetermineIDFromBytes(buf []byte) {
-	b.SetID(NewBlockID(blake2b.Sum256(buf), epoch.IndexFromTime(b.IssuingTime())))
+func (b *Block) DetermineIDFromBytes(buf []byte, blockHash ...types.Identifier) {
+	var hash types.Identifier
+	if len(blockHash) > 0 {
+		hash = blockHash[0]
+	} else {
+		hash = types.NewIdentifier(buf)
+	}
+
+	id := NewBlockID(hash, epoch.IndexFromTime(b.IssuingTime()))
+	b.SetID(id)
 
 	b.Lock()
 	defer b.Unlock()

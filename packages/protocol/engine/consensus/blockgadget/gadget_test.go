@@ -8,7 +8,6 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 
-	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markermanager"
@@ -34,11 +33,11 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 			),
 		),
 	)
-	tf.CreateIdentity("A", validator.WithWeight(30))
-	tf.CreateIdentity("B", validator.WithWeight(15))
-	tf.CreateIdentity("C", validator.WithWeight(25))
-	tf.CreateIdentity("D", validator.WithWeight(20))
-	tf.CreateIdentity("E", validator.WithWeight(10))
+	tf.CreateIdentity("A", 30)
+	tf.CreateIdentity("B", 15)
+	tf.CreateIdentity("C", 25)
+	tf.CreateIdentity("D", 20)
+	tf.CreateIdentity("E", 10)
 
 	initialAcceptedBlocks := make(map[string]bool)
 	initialAcceptedConflicts := make(map[string]confirmation.State)
@@ -343,8 +342,8 @@ func TestGadget_update_multipleSequences(t *testing.T) {
 	defer debug.SetEnabled(false)
 
 	tf := NewTestFramework(t, WithGadgetOptions(WithMarkerAcceptanceThreshold(0.66), WithConfirmationThreshold(0.66)), WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(3))))))
-	tf.CreateIdentity("A", validator.WithWeight(20))
-	tf.CreateIdentity("B", validator.WithWeight(30))
+	tf.CreateIdentity("A", 20)
+	tf.CreateIdentity("B", 30)
 
 	initialAcceptedBlocks := make(map[string]bool)
 	initialAcceptedMarkers := make(map[markers.Marker]bool)
@@ -487,8 +486,8 @@ func TestGadget_update_multipleSequences_onlyAcceptThenConfirm(t *testing.T) {
 	tf := NewTestFramework(t, WithTotalWeightCallback(func() int64 {
 		return 100
 	}), WithGadgetOptions(WithMarkerAcceptanceThreshold(0.66), WithConfirmationThreshold(0.66)), WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(3))))))
-	tf.CreateIdentity("A", validator.WithWeight(20))
-	tf.CreateIdentity("B", validator.WithWeight(30))
+	tf.CreateIdentity("A", 20)
+	tf.CreateIdentity("B", 30)
 
 	initialAcceptedBlocks := make(map[string]bool)
 	initialConfirmedBlocks := make(map[string]bool)
@@ -625,7 +624,7 @@ func TestGadget_update_multipleSequences_onlyAcceptThenConfirm(t *testing.T) {
 	}
 
 	// Add identity to start confirming blocks
-	tf.CreateIdentity("C", validator.WithWeight(50))
+	tf.CreateIdentity("C", 50)
 
 	tf.CreateBlock("Block19", models.WithStrongParents(tf.BlockIDs("Block15")), models.WithIssuer(tf.Identity("C").PublicKey()))
 	tf.IssueBlocks("Block19").WaitUntilAllTasksProcessed()
@@ -681,7 +680,6 @@ func TestGadget_update_multipleSequences_onlyAcceptThenConfirm(t *testing.T) {
 		tf.AssertBlockAccepted(15)
 		tf.AssertBlockConfirmed(15)
 	}
-
 }
 
 func TestGadget_update_reorg(t *testing.T) {
@@ -689,8 +687,8 @@ func TestGadget_update_reorg(t *testing.T) {
 	defer debug.SetEnabled(false)
 
 	tf := NewTestFramework(t, WithGadgetOptions(WithMarkerAcceptanceThreshold(0.66)), WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(3))))))
-	tf.CreateIdentity("A", validator.WithWeight(20))
-	tf.CreateIdentity("B", validator.WithWeight(30))
+	tf.CreateIdentity("A", 20)
+	tf.CreateIdentity("B", 30)
 
 	initialAcceptedBlocks := make(map[string]bool)
 	initialAcceptedConflicts := make(map[string]confirmation.State)
@@ -776,8 +774,8 @@ func TestGadget_unorphan(t *testing.T) {
 	defer debug.SetEnabled(false)
 
 	tf := NewTestFramework(t, WithGadgetOptions(WithMarkerAcceptanceThreshold(0.66), WithConfirmationThreshold(0.66)), WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(3))))))
-	tf.CreateIdentity("A", validator.WithWeight(20))
-	tf.CreateIdentity("B", validator.WithWeight(30))
+	tf.CreateIdentity("A", 20)
+	tf.CreateIdentity("B", 30)
 
 	initialAcceptedBlocks := make(map[string]bool)
 	initialAcceptedMarkers := make(map[markers.Marker]bool)

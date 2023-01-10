@@ -29,7 +29,7 @@ func NewConflict[ConflictID comparable, ConflictSetID comparable](id ConflictID,
 		Parents:           parents,
 		ConflictSetIDs:    conflictSetIDs,
 		ConfirmationState: confirmation.Pending,
-	})
+	}, false)
 	new.SetID(id)
 
 	return new

@@ -51,7 +51,7 @@ func NewTransactionMetadata(txID utxo.TransactionID) (new *TransactionMetadata) 
 		ConflictIDs:       utxo.NewTransactionIDs(),
 		OutputIDs:         utxo.NewOutputIDs(),
 		ConfirmationState: confirmation.Pending,
-	})
+	}, false)
 	new.SetID(txID)
 
 	return new
@@ -149,8 +149,8 @@ func (t *TransactionMetadata) OutputIDs() (outputIDs utxo.OutputIDs) {
 
 // SetOutputIDs sets the identifiers of the Outputs that the Transaction created.
 func (t *TransactionMetadata) SetOutputIDs(outputIDs utxo.OutputIDs) (modified bool) {
-	t.RLock()
-	defer t.RUnlock()
+	t.Lock()
+	defer t.Unlock()
 
 	if t.M.OutputIDs.Equal(outputIDs) {
 		return false
@@ -239,7 +239,7 @@ func NewOutputMetadata(outputID utxo.OutputID) (new *OutputMetadata) {
 	new = model.NewStorable[utxo.OutputID, OutputMetadata](&outputMetadata{
 		ConflictIDs:       utxo.NewTransactionIDs(),
 		ConfirmationState: confirmation.Pending,
-	})
+	}, false)
 	new.SetID(outputID)
 
 	return new

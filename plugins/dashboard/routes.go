@@ -93,6 +93,7 @@ func setupRoutes(e *echo.Echo) {
 
 	setupExplorerRoutes(apiRoutes)
 	setupVisualizerRoutes(apiRoutes)
+	setupTipsRoutes(apiRoutes)
 
 	e.HTTPErrorHandler = func(err error, c echo.Context) {
 		log.Warnf("Request failed: %s", err)

@@ -16,6 +16,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/manatracker/manamodels"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 )
 
 var (
@@ -78,13 +79,19 @@ func sendManaValue() {
 	if !exists {
 		log.Debugf("no mana available for local identity: %s ", ownID.String())
 	}
-	consensus := deps.Protocol.Engine().SybilProtection.Weights()
+
+	ownWeight, exists := deps.Protocol.Engine().SybilProtection.Weights().Weight(ownID)
+	if !exists {
+		ownWeight = sybilprotection.NewWeight(0, -1)
+	}
+
 	blkData := &ManaValueBlkData{
 		IssuerID:  ownID.String(),
 		Access:    access,
-		Consensus: consensus[ownID],
+		Consensus: ownWeight.Value,
 		Time:      time.Now().Unix(),
 	}
+
 	broadcastWsBlock(&wsblk{
 		Type: MsgTypeManaValue,
 		Data: blkData,
@@ -108,7 +115,7 @@ func sendManaMapOverall() {
 		Type: MsgTypeManaMapOverall,
 		Data: accessPayload,
 	})
-	consensusManaList, _, err := manamodels.GetHighestManaIssuers(0, deps.Protocol.Engine().SybilProtection.Weights())
+	consensusManaList, _, err := manamodels.GetHighestManaIssuers(0, lo.PanicOnErr(deps.Protocol.Engine().SybilProtection.Weights().Map()))
 	if err != nil && !errors.Is(err, manamodels.ErrQueryNotAllowed) {
 		log.Errorf("failed to get list of n highest consensus mana issuers: %s ", err.Error())
 	}
@@ -154,21 +161,27 @@ func sendManaMapOnline() {
 		Data: accessPayload,
 	})
 
-	validatorSet := deps.Protocol.Engine().Tangle.ValidatorSet
+	activeNodes := deps.Protocol.Engine().SybilProtection.Validators()
 	consensusPayload := &ManaNetworkListBlkData{ManaType: manamodels.ConsensusMana.String()}
-	for _, validator := range validatorSet.Slice() {
-		n := manamodels.Issuer{
-			ID:   validator.ID(),
-			Mana: validator.Weight(),
+
+	_ = activeNodes.ForEach(func(id identity.ID) error {
+		weight, exists := deps.Protocol.Engine().SybilProtection.Weights().Weight(id)
+		if !exists {
+			weight = sybilprotection.NewWeight(0, -1)
 		}
-		consensusPayload.Issuers = append(consensusPayload.Issuers, n.ToIssuerStr())
-	}
+		consensusPayload.Issuers = append(consensusPayload.Issuers, manamodels.Issuer{
+			ID:   id,
+			Mana: weight.Value,
+		}.ToIssuerStr())
+
+		return nil
+	})
 
 	sort.Slice(consensusPayload.Issuers, func(i, j int) bool {
 		return consensusPayload.Issuers[i].Mana > consensusPayload.Issuers[j].Mana
 	})
 
-	consensusPayload.TotalMana = validatorSet.TotalWeight()
+	consensusPayload.TotalMana = activeNodes.TotalWeight()
 	broadcastWsBlock(&wsblk{
 		Type: MsgTypeManaMapOnline,
 		Data: consensusPayload,

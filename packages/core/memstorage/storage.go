@@ -71,6 +71,20 @@ func (s *Storage[K, V]) ForEach(callback func(K, V) bool) {
 	s.storage.ForEach(callback)
 }
 
+func (s *Storage[K, V]) First() (key K, value V) {
+	s.RLock()
+	defer s.RUnlock()
+
+	s.storage.ForEach(func(k K, v V) bool {
+		key = k
+		value = v
+
+		return false
+	})
+
+	return
+}
+
 func (s *Storage[K, V]) Set(key K, value V) (updated bool) {
 	s.Lock()
 	defer s.Unlock()
@@ -107,4 +121,15 @@ func (s *Storage[K, V]) Size() (size int) {
 	defer s.RUnlock()
 
 	return s.storage.Size()
+}
+
+func (s *Storage[K, V]) IsEmpty() (isEmpty bool) {
+	return s.Size() == 0
+}
+
+func (s *Storage[K, V]) AsMap() map[K]V {
+	s.RLock()
+	defer s.RUnlock()
+
+	return s.storage.AsMap()
 }

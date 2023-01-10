@@ -14,7 +14,7 @@ const (
 type Prunable struct {
 	Blocks           *Blocks
 	RootBlocks       *RootBlocks
-	ActiveNodes      *ActiveNodes
+	Attestors        *Attestors
 	LedgerStateDiffs *LedgerStateDiffs
 }
 
@@ -22,7 +22,7 @@ func New(database *database.Manager) (newPrunable *Prunable) {
 	return &Prunable{
 		Blocks:           NewBlocks(database, blocksPrefix),
 		RootBlocks:       NewRootBlocks(database, rootBlocksPrefix),
-		ActiveNodes:      NewActiveNodes(database, activityLogPrefix),
+		Attestors:        NewAttestors(database, activityLogPrefix),
 		LedgerStateDiffs: NewLedgerStateDiffs(database, ledgerStateDiffsPrefix),
 	}
 }

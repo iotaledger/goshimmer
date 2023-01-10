@@ -2,9 +2,9 @@ package epochtracker
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/validator"
 )
 
 type Events struct {
@@ -21,7 +21,7 @@ var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 })
 
 type VoterUpdatedEvent struct {
-	Voter                *validator.Validator
+	Voter                identity.ID
 	NewLatestEpochIndex  epoch.Index
 	PrevLatestEpochIndex epoch.Index
 }

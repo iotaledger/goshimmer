@@ -91,10 +91,6 @@ RUN if [ "$DOWNLOAD_SNAPSHOT" -gt 0 ] && [ "$CUSTOM_SNAPSHOT_URL" = "" ] ; then 
       touch /tmp/snapshot.bin ; \
     fi
 
-RUN mkdir -p /tmp/db/mainnetdb /tmp/db/peerdb
-# 65532:65532 is the UID:GUID of nonroot user of distroless image
-RUN chown 65532:65532 /tmp/db/mainnetdb /tmp/db/peerdb
-
 ############################
 # Image
 ############################
@@ -126,10 +122,6 @@ COPY --chown=nonroot:nonroot --from=build /go/bin/goshimmer /app/goshimmer
 
 # Copy configuration and snapshot from the previous stage
 COPY config.default.json /app/config.json
-
-
-# Fix permission issue when mounting volumes
-COPY --chown=nonroot:nonroot --from=build /tmp/db/ /app/db/
 
 COPY --chown=nonroot:nonroot --from=build /tmp/snapshot.bin /app/snapshot.bin
 

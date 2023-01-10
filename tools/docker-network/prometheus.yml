@@ -6,3 +6,14 @@ scrape_configs:
           - peer_master:9311
           - faucet:9311
           - peer_master2:9311
+          - peer_nomana:9311
+    dns_sd_configs:
+      - names:
+          - 'peer_replica'
+        type: 'A'
+        port: 9311
+    relabel_configs:
+      - source_labels: [ __address__ ]
+        target_label: instance
+        regex: '[0-9]+.[0-9]+.[0-9]+.([0-9]+):[0-9]+'
+        replacement: peer_replica:$1

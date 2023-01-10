@@ -1,9 +1,11 @@
 package jsonmodels
 
 import (
+	"strconv"
+
 	"github.com/iotaledger/hive.go/core/identity"
 
-	"github.com/iotaledger/goshimmer/packages/core/validator"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
@@ -115,14 +117,14 @@ type GetConflictVotersResponse struct {
 }
 
 // NewGetConflictVotersResponse returns a GetConflictVotersResponse from the given details.
-func NewGetConflictVotersResponse(conflictID utxo.TransactionID, voters *validator.Set) *GetConflictVotersResponse {
+func NewGetConflictVotersResponse(conflictID utxo.TransactionID, voters *sybilprotection.WeightedSet) *GetConflictVotersResponse {
 	return &GetConflictVotersResponse{
 		ConflictID: conflictID.Base58(),
 		Voters: func() (votersStr []string) {
 			votersStr = make([]string, 0)
-			voters.ForEach(func(_ identity.ID, voter *validator.Validator) bool {
-				votersStr = append(votersStr, voter.String())
-				return true
+			voters.ForEachWeighted(func(id identity.ID, weight int64) error {
+				votersStr = append(votersStr, id.String()+", "+strconv.FormatInt(weight, 10))
+				return nil
 			})
 			return
 		}(),

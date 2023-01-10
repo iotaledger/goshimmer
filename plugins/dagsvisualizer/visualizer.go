@@ -15,6 +15,8 @@ import (
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/app/retainer"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
@@ -204,12 +206,11 @@ func registerConflictEvents() {
 
 	conflictWeightChangedClosure := event.NewClosure(func(e *conflicttracker.VoterEvent[utxo.TransactionID]) {
 		conflictConfirmationState := deps.Protocol.Engine().Ledger.ConflictDAG.ConfirmationState(utxo.NewTransactionIDs(e.ConflictID))
-		voters := deps.Protocol.Engine().Tangle.VirtualVoting.ConflictVoters(e.ConflictID)
 		wsBlk := &wsBlock{
 			Type: BlkTypeConflictWeightChanged,
 			Data: &conflictWeightChanged{
 				ID:                e.ConflictID.Base58(),
-				Weight:            voters.TotalWeight(),
+				Weight:            deps.Protocol.Engine().Tangle.VirtualVoting.ConflictVotersTotalWeight(e.ConflictID),
 				ConfirmationState: conflictConfirmationState.String(),
 			},
 		}
@@ -251,58 +252,49 @@ func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
 		if !reqValid {
 			return c.JSON(http.StatusBadRequest, searchResult{Error: "invalid timestamp range"})
 		}
-		// startEpoch := epoch.IndexFromTime(startTimestamp)
-		// endEpoch := epoch.IndexFromTime(endTimestamp)
-		//
-		// var blocks []*tangleVertex
-		// var txs []*utxoVertex
-		// var conflicts []*conflictVertex
-		// conflictMap := set.NewAdvancedSet[utxo.TransactionID]()
-		// entryBlks := models.NewBlockIDs()
-		// TODO: use retainer and optimize to use data locality
+		startEpoch := epoch.IndexFromTime(startTimestamp)
+		endEpoch := epoch.IndexFromTime(endTimestamp)
 
-		// deps.Tangle.Utils.WalkBlockID(func(blockID tangleold.BlockID, walker *walker.Walker[tangleold.BlockID]) {
-		//	deps.Tangle.Storage.Block(blockID).Consume(func(blk *tangleold.Block) {
-		//		// only keep blocks that is issued in the given time interval
-		//		if blk.IssuingTime().After(startTimestamp) && blk.IssuingTime().Before(endTimestamp) {
-		//			// add block
-		//			tangleNode := newTangleVertex(blk)
-		//			blocks = append(blocks, tangleNode)
-		//
-		//			// add tx
-		//			if tangleNode.IsTx {
-		//				utxoNode := newUTXOVertex(blk.ID(), blk.Payload().(*devnetvm.Transaction))
-		//				txs = append(txs, utxoNode)
-		//			}
-		//
-		//			// add conflict
-		//			conflictIDs, err := deps.Tangle.Booker.BlockConflictIDs(blk.ID())
-		//			if err != nil {
-		//				conflictIDs = set.NewAdvancedSet[utxo.TransactionID]()
-		//			}
-		//			for it := conflictIDs.Iterator(); it.HasNext(); {
-		//				conflictID := it.Next()
-		//				if conflictMap.Has(conflictID) {
-		//					continue
-		//				}
-		//
-		//				conflictMap.Add(conflictID)
-		//				conflicts = append(conflicts, newConflictVertex(conflictID))
-		//			}
-		//		}
-		//
-		//		// continue walking if the block is issued before endTimestamp
-		//		if blk.IssuingTime().Before(endTimestamp) {
-		//			deps.Tangle.Storage.Children(blockID).Consume(func(child *tangleold.Child) {
-		//				walker.Push(child.ChildBlockID())
-		//			})
-		//		}
-		//	})
-		// }, entryBlks)
-
-		// return c.JSON(http.StatusOK, searchResult{Blocks: blocks, Txs: txs, Conflicts: conflicts})
-		return c.JSON(http.StatusBadRequest, searchResult{Error: "invalid timestamp range"})
+		var blocks []*tangleVertex
+		var txs []*utxoVertex
+		var conflicts []*conflictVertex
+		conflictMap := utxo.NewTransactionIDs()
+		for i := startEpoch; i <= endEpoch; i++ {
+			deps.Retainer.Stream(i, func(id models.BlockID, metadata *retainer.BlockMetadata) {
+				if metadata.M.Block.IssuingTime().After(startTimestamp) && metadata.M.Block.IssuingTime().Before(endTimestamp) {
+					tangleNode, utxoNode, blockConflicts := processMetadata(metadata, conflictMap)
+					blocks = append(blocks, tangleNode)
+					if utxoNode != nil {
+						txs = append(txs, utxoNode)
+					}
+					conflicts = append(conflicts, blockConflicts...)
+				}
+			})
+		}
+		return c.JSON(http.StatusOK, searchResult{Blocks: blocks, Txs: txs, Conflicts: conflicts})
 	})
+}
+
+func processMetadata(metadata *retainer.BlockMetadata, conflictMap utxo.TransactionIDs) (tangleNode *tangleVertex, utxoNode *utxoVertex, conflicts []*conflictVertex) {
+	// add block
+	tangleNode = newTangleVertex(metadata.M.Block)
+
+	// add tx
+	if tangleNode.IsTx {
+		utxoNode = newUTXOVertex(metadata.ID(), metadata.M.Block.Payload().(*devnetvm.Transaction))
+	}
+
+	// add conflict
+	if metadata.M.ConflictIDs != nil {
+		for it := metadata.M.ConflictIDs.Iterator(); it.HasNext(); {
+			conflictID := it.Next()
+			if conflictMap.Add(conflictID) {
+				conflicts = append(conflicts, newConflictVertex(conflictID))
+			}
+		}
+	}
+
+	return tangleNode, utxoNode, conflicts
 }
 
 func parseStringToTimestamp(str string) (t time.Time) {
@@ -397,7 +389,7 @@ func newConflictVertex(conflictID utxo.TransactionID) (ret *conflictVertex) {
 			Conflicts:         jsonmodels.NewGetConflictConflictsResponse(conflict.ID(), conflicts),
 			IsConfirmed:       confirmationState.IsAccepted(),
 			ConfirmationState: confirmationState.String(),
-			AW:                deps.Protocol.Engine().Tangle.VirtualVoting.ConflictVoters(conflictID).TotalWeight(),
+			AW:                deps.Protocol.Engine().Tangle.VirtualVoting.ConflictVotersTotalWeight(conflictID),
 		}
 	})
 	return

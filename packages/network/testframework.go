@@ -12,7 +12,8 @@ import (
 // region MockedNetwork ////////////////////////////////////////////////////////////////////////////////////////////////
 
 type MockedNetwork struct {
-	dispatchers map[identity.ID]*MockedEndpoint
+	dispatchers      map[identity.ID]*MockedEndpoint
+	dispatchersMutex sync.RWMutex
 }
 
 func NewMockedNetwork() (mockedNetwork *MockedNetwork) {
@@ -22,6 +23,9 @@ func NewMockedNetwork() (mockedNetwork *MockedNetwork) {
 }
 
 func (m *MockedNetwork) Join(identity identity.ID) (endpoint *MockedEndpoint) {
+	m.dispatchersMutex.Lock()
+	defer m.dispatchersMutex.Unlock()
+
 	endpoint = NewMockedEndpoint(identity, m)
 
 	m.dispatchers[identity] = endpoint
@@ -62,7 +66,10 @@ func (m *MockedEndpoint) UnregisterProtocol(protocolID string) {
 	delete(m.handlers, protocolID)
 }
 
-func (m *MockedEndpoint) Send(packet proto.Message, protocolID string, to ...identity.ID) []identity.ID {
+func (m *MockedEndpoint) Send(packet proto.Message, protocolID string, to ...identity.ID) {
+	m.network.dispatchersMutex.RLock()
+	defer m.network.dispatchersMutex.RUnlock()
+
 	if len(to) == 0 {
 		to = lo.Keys(m.network.dispatchers)
 	}
@@ -80,8 +87,6 @@ func (m *MockedEndpoint) Send(packet proto.Message, protocolID string, to ...ide
 			}
 		}
 	}
-
-	return nil
 }
 
 func (m *MockedEndpoint) handler(protocolID string) (handler func(identity.ID, proto.Message) error, exists bool) {

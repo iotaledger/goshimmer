@@ -63,7 +63,7 @@ func (o *Manager) orphanBeforeTSC(minAllowedTime time.Time) {
 		blockToOrphan := o.unacceptedBlocks[0].Value
 		heap.Pop(&o.unacceptedBlocks)
 		if !o.isBlockAccepted(blockToOrphan.ID()) {
-			fmt.Println("orphan block due to TSC", blockToOrphan.ID())
+			fmt.Println("(time: ", time.Now(), ") orphan block due to TSC", blockToOrphan.ID())
 			o.tangle.SetOrphaned(blockToOrphan, true)
 		}
 	}

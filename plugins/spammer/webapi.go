@@ -40,8 +40,13 @@ func handleRequest(c echo.Context) error {
 			timeUnit = time.Second
 		}
 
+		// Default payload size set to 5 bytes.
+		if request.PayloadSize == 0 {
+			request.PayloadSize = 5
+		}
+
 		blockSpammer.Shutdown()
-		blockSpammer.Start(request.Rate, timeUnit, request.IMIF)
+		blockSpammer.Start(request.Rate, request.PayloadSize, timeUnit, request.IMIF)
 		log.Infof("Started spamming blocks with %d %s and %s inter-block issuing function", request.Rate, strings.ReplaceAll(request.Unit, "\n", ""), strings.ReplaceAll(request.IMIF, "\n", ""))
 		return c.JSON(http.StatusOK, jsonmodels.SpammerResponse{Block: "started spamming blocks"})
 	case "stop":

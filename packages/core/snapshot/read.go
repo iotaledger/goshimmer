@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"github.com/iotaledger/hive.go/core/generics/constraints"
-	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
@@ -41,15 +40,18 @@ func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {
 		panic(err)
 	}
 
+	// We need to set the genesis time before we add the activity log as otherwise the calculation is based on the empty time value.
+	engine.Clock.SetAcceptedTime(engine.Storage.Settings.LatestCommitment().Index().EndTime())
+	engine.Clock.SetConfirmedTime(engine.Storage.Settings.LatestCommitment().Index().EndTime())
+
 	// Ledgerstate
 	{
-		stateDiff := storageModels.NewMemoryStateDiff()
 		ProcessChunks(NewChunkedReader[storageModels.OutputWithMetadata](fileHandle),
-			engine.Ledger.LoadOutputsWithMetadata,
-			engine.ManaTracker.ImportOutputsFromSnapshot,
-			lo.Void(stateDiff.ApplyCreatedOutputs),
+			engine.Ledger.ImportOutputs,
+			engine.ManaTracker.ImportOutputs,
+			// This will import into all the consumers too: sybilprotection and ledgerState.unspentOutputIDs
+			engine.LedgerState.ImportOutputs,
 		)
-		engine.Storage.ApplyStateDiff(engine.Storage.Settings.LatestStateMutationEpoch(), stateDiff)
 	}
 
 	// Solid Entry Points
@@ -65,19 +67,13 @@ func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {
 
 	// Activity Log
 	{
-		var numEpochs uint32
-		binary.Read(fileHandle, binary.LittleEndian, &numEpochs)
-
-		for i := uint32(0); i < numEpochs; i++ {
-			ProcessChunks(NewChunkedReader[identity.ID](fileHandle), func(chunk []*identity.ID) {
-				for _, id := range chunk {
-					if err := engine.Storage.ActiveNodes.Store(epoch.Index(i), *id); err != nil {
-						panic(err)
-					}
-					engine.SybilProtection.AddValidator(*id, epoch.Index(i).EndTime())
+		ProcessChunks(NewChunkedReader[identity.ID](fileHandle), func(chunk []*identity.ID) {
+			for _, id := range chunk {
+				if err := engine.Storage.Attestors.Store(engine.Storage.Settings.LatestCommitment().Index(), *id); err != nil {
+					panic(err)
 				}
-			})
-		}
+			}
+		})
 	}
 
 	// Epoch Diffs -- must be in reverse order to rollback the Ledger
@@ -89,25 +85,29 @@ func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {
 			var epochIndex epoch.Index
 			binary.Read(fileHandle, binary.LittleEndian, &epochIndex)
 
-			diff := storageModels.NewMemoryStateDiff()
-
 			// Created
 			ProcessChunks(NewChunkedReader[storageModels.OutputWithMetadata](fileHandle),
-				func(createdChunk []*storageModels.OutputWithMetadata) {
-					diff.ApplyCreatedOutputs(createdChunk)
-				},
 				engine.Ledger.ApplySpentDiff,
+				func(createdChunk []*storageModels.OutputWithMetadata) {
+					engine.ManaTracker.RollbackOutputs(createdChunk, true)
+					for _, createdOutput := range createdChunk {
+						engine.Storage.LedgerStateDiffs.StoreSpentOutput(createdOutput)
+					}
+				},
 			)
 
 			// Spent
 			ProcessChunks(NewChunkedReader[storageModels.OutputWithMetadata](fileHandle),
-				func(spentChunk []*storageModels.OutputWithMetadata) {
-					diff.ApplyDeletedOutputs(spentChunk)
-				},
 				engine.Ledger.ApplyCreatedDiff,
+				func(spentChunk []*storageModels.OutputWithMetadata) {
+					engine.ManaTracker.RollbackOutputs(spentChunk, false)
+					for _, createdOutput := range spentChunk {
+						engine.Storage.LedgerStateDiffs.StoreCreatedOutput(createdOutput)
+					}
+				},
 			)
 
-			engine.Storage.RollbackStateDiff(engine.Storage.Settings.LatestStateMutationEpoch()-epoch.Index(i), diff)
+			engine.LedgerState.ApplyStateDiff(epochIndex)
 		}
 	}
 }

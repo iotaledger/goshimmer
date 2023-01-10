@@ -9,11 +9,14 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/storage/permanent"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -21,6 +24,8 @@ import (
 type TestFramework[VotePowerType constraints.Comparable[VotePowerType]] struct {
 	SequenceTracker *SequenceTracker[VotePowerType]
 	sequenceManager *markers.SequenceManager
+
+	optsValidators *sybilprotection.WeightedSet
 
 	test *testing.T
 
@@ -33,14 +38,18 @@ func NewTestFramework[VotePowerType constraints.Comparable[VotePowerType]](test 
 	return options.Apply(&TestFramework[VotePowerType]{
 		test: test,
 	}, opts, func(t *TestFramework[VotePowerType]) {
+		if t.optsValidators == nil {
+			t.optsValidators = sybilprotection.NewWeights(mapdb.NewMapDB(), permanent.NewSettings(test.TempDir()+"/settings")).WeightedSet()
+		}
+
 		if t.VotesTestFramework == nil {
-			t.VotesTestFramework = votes.NewTestFramework(test)
+			t.VotesTestFramework = votes.NewTestFramework(test, votes.WithValidators(t.optsValidators))
 		}
 
 		t.MarkersTestFramework = markers.NewTestFramework(t.test, markers.WithSequenceManager(t.sequenceManager))
 
 		if t.SequenceTracker == nil {
-			t.SequenceTracker = NewSequenceTracker[VotePowerType](t.ValidatorSet, t.SequenceManager().Sequence, func(sequenceID markers.SequenceID) markers.Index { return 1 })
+			t.SequenceTracker = NewSequenceTracker[VotePowerType](t.optsValidators, t.SequenceManager().Sequence, func(sequenceID markers.SequenceID) markers.Index { return 1 })
 		}
 
 		t.SequenceTracker.Events.VotersUpdated.Hook(event.NewClosure(func(evt *VoterUpdatedEvent) {
@@ -51,14 +60,15 @@ func NewTestFramework[VotePowerType constraints.Comparable[VotePowerType]](test 
 	})
 }
 
-func (t *TestFramework[VotePowerType]) ValidateStructureDetailsVoters(expectedVoters map[string]*set.AdvancedSet[*validator.Validator]) {
+func (t *TestFramework[VotePowerType]) ValidateStructureDetailsVoters(expectedVoters map[string]*set.AdvancedSet[identity.ID]) {
 	for markerAlias, expectedVotersOfMarker := range expectedVoters {
 		// sanity check
 		assert.Equal(t.test, markerAlias, fmt.Sprintf("%d,%d", t.StructureDetails(markerAlias).PastMarkers().Marker().SequenceID(), t.StructureDetails(markerAlias).PastMarkers().Marker().Index()))
 
 		voters := t.SequenceTracker.Voters(t.StructureDetails(markerAlias).PastMarkers().Marker())
+		defer voters.Detach()
 
-		assert.True(t.test, expectedVotersOfMarker.Equal(votes.ValidatorSetToAdvancedSet(voters)), "marker %s expected %d voters but got %d", markerAlias, expectedVotersOfMarker.Size(), voters.Size())
+		assert.True(t.test, expectedVotersOfMarker.Equal(voters.Members()), "marker %s expected %d voters but got %d", markerAlias, expectedVotersOfMarker.Size(), voters.Members().Size())
 	}
 }
 
@@ -80,15 +90,6 @@ func WithVotesTestFramework[VotePowerType constraints.Comparable[VotePowerType]]
 	}
 }
 
-func WithValidatorSet[VotePowerType constraints.Comparable[VotePowerType]](validatorSet *validator.Set) options.Option[TestFramework[VotePowerType]] {
-	return func(tf *TestFramework[VotePowerType]) {
-		if tf.ValidatorSet != nil {
-			panic("validator set already set")
-		}
-		tf.ValidatorSet = validatorSet
-	}
-}
-
 func WithSequenceTracker[VotePowerType constraints.Comparable[VotePowerType]](sequenceTracker *SequenceTracker[VotePowerType]) options.Option[TestFramework[VotePowerType]] {
 	return func(tf *TestFramework[VotePowerType]) {
 		if tf.SequenceTracker != nil {
@@ -104,6 +105,12 @@ func WithSequenceManager[VotePowerType constraints.Comparable[VotePowerType]](se
 			panic("sequence manager already set")
 		}
 		tf.sequenceManager = sequenceManager
+	}
+}
+
+func WithValidators[VotePowerType constraints.Comparable[VotePowerType]](validators *sybilprotection.WeightedSet) options.Option[TestFramework[VotePowerType]] {
+	return func(tf *TestFramework[VotePowerType]) {
+		tf.optsValidators = validators
 	}
 }
 

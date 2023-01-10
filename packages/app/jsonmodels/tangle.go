@@ -5,6 +5,8 @@ package jsonmodels
 // Block represents the JSON model of a tangleold.Block.
 type Block struct {
 	ID                   string   `json:"id"`
+	Version              int64    `json:"version"`
+	Nonce                string   `json:"nonce"`
 	StrongParents        []string `json:"strongParents"`
 	WeakParents          []string `json:"weakParents"`
 	ShallowLikeParents   []string `json:"shallowLikeParents"`

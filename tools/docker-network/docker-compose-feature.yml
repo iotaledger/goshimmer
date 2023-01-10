@@ -1,0 +1,383 @@
+version: "3.9"
+# Create a custom build that can be re-used within Docker network
+x-build-goshimmer: &goshimmer_build
+  context: ../../
+  args:
+    DOWNLOAD_SNAPSHOT: 0
+
+services:
+  bootstrap:
+    build: *goshimmer_build
+    stop_grace_period: 1m
+    environment:
+      - GOTRACEBACK=crash
+    ulimits:
+      nofile:
+        soft: 8192
+        hard: 8192
+    command: >
+      --analysis.dashboard.bindAddress=0.0.0.0:9000
+      --analysis.dashboard.dev=false
+      --analysis.server.bindAddress=0.0.0.0:1888
+      --autoPeering.entryNodes=
+      --node.seed=base58:DyXtTNRpXRxsu8WDEjk5CCBXQ96bdsofmXiHbGtFTkh5
+      --node.overwriteStoredSeed=true
+      --config=/run/secrets/goshimmer.config.json
+      --database.directory=/app/db
+      --protocol.snapshot.path=./snapshot.bin
+      --blockIssuer.rateSetter.enable=false
+      --node.peerDBDirectory=/app/peerdb
+      --metrics.global=true
+      --metrics.local=true
+      --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
+      --node.enablePlugins=prometheus,spammer,WebAPIToolsBlockEndpoint,activity
+      --prometheus.bindAddress=0.0.0.0:9311
+      --prometheus.processMetrics=true
+      --prometheus.goMetrics=true
+      --protocol.genesisTime=${GENESIS_TIME}
+      --profiling.bindAddress=0.0.0.0:6061
+    secrets:
+      - goshimmer.config.json
+    volumes:
+      - ./docker-network.feature.snapshot:/app/snapshot.bin
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
+    ports:
+      - "8080:8080/tcp" # web API
+      - "8081:8081/tcp" # dashboard
+      - "8061:8061/tcp" # dags visualizer
+      - "9000:9000/tcp" # analysis dashboard
+      - "6081:6061/tcp" # pprof
+    expose:
+      - 1888/tcp # analysis server
+    networks:
+      - shimmer
+  faucet:
+    image: docker-network-bootstrap:latest
+    stop_grace_period: 1m
+    environment:
+      - GOTRACEBACK=crash
+    ulimits:
+      nofile:
+        soft: 8192
+        hard: 8192
+    command: >
+      --config=/run/secrets/goshimmer.config.json
+      --node.seed=base58:6TjAFDutx39cVEW7wuXVPqJ7ZrvD7WVPvEG7tMpLNivb
+      --faucet.seed=FTbSrJ3D5XY9LyqpzHUzxhcHcn3sRhzBEcJb2jHmY9GB
+      --node.overwriteStoredSeed=true
+      --config=/run/secrets/goshimmer.config.json
+      --database.directory=/app/db
+      --protocol.snapshot.path=./snapshot.bin
+      --blockIssuer.rateSetter.enable=false
+      --node.peerDBDirectory=/app/peerdb
+      --metrics.global=true
+      --metrics.local=true
+      --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
+      --node.enablePlugins=prometheus,spammer,WebAPIToolsBlockEndpoint,activity,faucet
+      --prometheus.bindAddress=0.0.0.0:9311
+      --prometheus.processMetrics=true
+      --prometheus.goMetrics=true
+      --protocol.genesisTime=${GENESIS_TIME}
+      --profiling.bindAddress=0.0.0.0:6061
+    secrets:
+      - goshimmer.config.json
+    volumes:
+      - ./docker-network.feature.snapshot:/app/snapshot.bin
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
+    ports:
+      - "8090:8080/tcp" # web API
+      - "8051:8061/tcp" # dags visualizer
+      - "8091:8081/tcp" # dashboard
+      - "6091:6061/tcp" # pprof
+    networks:
+      - shimmer
+    depends_on:
+      - bootstrap
+  vanilla:
+    image: docker-network-bootstrap:latest
+    stop_grace_period: 1m
+    environment:
+      - GOTRACEBACK=crash
+    ulimits:
+      nofile:
+        soft: 8192
+        hard: 8192
+    command: >
+      --config=/run/secrets/goshimmer.config.json
+      --node.seed=base58:E2BcF5h6J2Xge4LpXPq1iz3ocibAxEeLp5G56Yt2GKGe
+      --node.overwriteStoredSeed=true
+      --config=/run/secrets/goshimmer.config.json
+      --database.directory=/app/db
+      --protocol.snapshot.path=./snapshot.bin
+      --blockIssuer.rateSetter.enable=false
+      --node.peerDBDirectory=/app/peerdb
+      --metrics.global=true
+      --metrics.local=true
+      --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
+      --node.enablePlugins=prometheus,spammer,WebAPIToolsBlockEndpoint,activity
+      --prometheus.bindAddress=0.0.0.0:9311
+      --prometheus.processMetrics=true
+      --prometheus.goMetrics=true
+      --blockIssuer.ignoreBootstrappedFlag=true
+      --protocol.genesisTime=${GENESIS_TIME}
+      --profiling.bindAddress=0.0.0.0:6061
+    secrets:
+      - goshimmer.config.json
+    volumes:
+      - ./docker-network.feature.snapshot:/app/snapshot.bin
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
+    ports:
+      - "8070:8080/tcp" # web API
+      - "8071:8081/tcp" # dashboard
+      - "6071:6061/tcp" # pprof
+    networks:
+      - shimmer
+    depends_on:
+      - bootstrap
+  node-01:
+    image: docker-network-bootstrap:latest
+    stop_grace_period: 1m
+    environment:
+      - GOTRACEBACK=crash
+    ulimits:
+      nofile:
+        soft: 8192
+        hard: 8192
+    command: >
+      --config=/run/secrets/goshimmer.config.json
+      --node.seed=base58:3CqUkp2QoJL9TSooxmsiVi5A7ZdHAagjnMAKDyrKCZUV
+      --node.overwriteStoredSeed=true
+      --config=/run/secrets/goshimmer.config.json
+      --database.directory=/app/db
+      --protocol.snapshot.path=./snapshot.bin
+      --blockIssuer.rateSetter.enable=false
+      --node.peerDBDirectory=/app/peerdb
+      --metrics.global=true
+      --metrics.local=true
+      --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
+      --node.enablePlugins=prometheus,spammer,WebAPIToolsBlockEndpoint,activity
+      --prometheus.bindAddress=0.0.0.0:9311
+      --prometheus.processMetrics=true
+      --prometheus.goMetrics=true
+      --protocol.genesisTime=${GENESIS_TIME}
+      --profiling.bindAddress=0.0.0.0:6061
+    secrets:
+      - goshimmer.config.json
+    volumes:
+      - ./docker-network.feature.snapshot:/app/snapshot.bin
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
+    ports:
+      - "8001:8080/tcp" # web API
+      - "8011:8081/tcp" # dashboard
+    networks:
+      - shimmer
+    depends_on:
+      - bootstrap
+  node-02:
+    image: docker-network-bootstrap:latest
+    stop_grace_period: 1m
+    environment:
+      - GOTRACEBACK=crash
+    ulimits:
+      nofile:
+        soft: 8192
+        hard: 8192
+    command: >
+      --config=/run/secrets/goshimmer.config.json
+      --node.seed=base58:AMRdVcVjeouXxUgABbvJTutnbNao26X1ZoE8uujPxivn
+      --node.overwriteStoredSeed=true
+      --config=/run/secrets/goshimmer.config.json
+      --database.directory=/app/db
+      --protocol.snapshot.path=./snapshot.bin
+      --blockIssuer.rateSetter.enable=false
+      --node.peerDBDirectory=/app/peerdb
+      --metrics.global=true
+      --metrics.local=true
+      --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
+      --node.enablePlugins=prometheus,spammer,WebAPIToolsBlockEndpoint,activity
+      --prometheus.bindAddress=0.0.0.0:9311
+      --prometheus.processMetrics=true
+      --prometheus.goMetrics=true
+      --protocol.genesisTime=${GENESIS_TIME}
+      --profiling.bindAddress=0.0.0.0:6061
+    secrets:
+      - goshimmer.config.json
+    volumes:
+      - ./docker-network.feature.snapshot:/app/snapshot.bin
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
+    ports:
+      - "8002:8080/tcp" # web API
+      - "8012:8081/tcp" # dashboard
+    networks:
+      - shimmer
+    depends_on:
+      - bootstrap
+  node-03:
+    image: docker-network-bootstrap:latest
+    stop_grace_period: 1m
+    environment:
+      - GOTRACEBACK=crash
+    ulimits:
+      nofile:
+        soft: 8192
+        hard: 8192
+    command: >
+      --config=/run/secrets/goshimmer.config.json
+      --node.seed=base58:8pD9RVFVZVsJRyqei5W5NdwdjgMFgpyE3UxQE4s3Cwqk
+      --node.overwriteStoredSeed=true
+      --config=/run/secrets/goshimmer.config.json
+      --database.directory=/app/db
+      --protocol.snapshot.path=./snapshot.bin
+      --blockIssuer.rateSetter.enable=false
+      --node.peerDBDirectory=/app/peerdb
+      --metrics.global=true
+      --metrics.local=true
+      --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
+      --node.enablePlugins=prometheus,spammer,WebAPIToolsBlockEndpoint,activity
+      --prometheus.bindAddress=0.0.0.0:9311
+      --prometheus.processMetrics=true
+      --prometheus.goMetrics=true
+      --protocol.genesisTime=${GENESIS_TIME}
+      --profiling.bindAddress=0.0.0.0:6061
+    secrets:
+      - goshimmer.config.json
+    volumes:
+      - ./docker-network.feature.snapshot:/app/snapshot.bin
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
+    ports:
+      - "8003:8080/tcp" # web API
+      - "8013:8081/tcp" # dashboard
+    networks:
+      - shimmer
+    depends_on:
+      - bootstrap
+  node-04:
+    image: docker-network-bootstrap:latest
+    stop_grace_period: 1m
+    environment:
+      - GOTRACEBACK=crash
+    ulimits:
+      nofile:
+        soft: 8192
+        hard: 8192
+    command: >
+      --config=/run/secrets/goshimmer.config.json
+      --node.seed=base58:7ufJuibvjDeC18bNDsA34YvDTPNapWHD6WjTq1CtEHmd
+      --node.overwriteStoredSeed=true
+      --config=/run/secrets/goshimmer.config.json
+      --database.directory=/app/db
+      --protocol.snapshot.path=./snapshot.bin
+      --blockIssuer.rateSetter.enable=false
+      --node.peerDBDirectory=/app/peerdb
+      --metrics.global=true
+      --metrics.local=true
+      --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
+      --node.enablePlugins=prometheus,spammer,WebAPIToolsBlockEndpoint,activity
+      --prometheus.bindAddress=0.0.0.0:9311
+      --prometheus.processMetrics=true
+      --prometheus.goMetrics=true
+      --protocol.genesisTime=${GENESIS_TIME}
+      --profiling.bindAddress=0.0.0.0:6061
+    secrets:
+      - goshimmer.config.json
+    volumes:
+      - ./docker-network.feature.snapshot:/app/snapshot.bin
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
+    ports:
+      - "8004:8080/tcp" # web API
+      - "8014:8081/tcp" # dashboard
+    networks:
+      - shimmer
+    depends_on:
+      - bootstrap
+  node-05:
+    image: docker-network-bootstrap:latest
+    stop_grace_period: 1m
+    environment:
+      - GOTRACEBACK=crash
+    ulimits:
+      nofile:
+        soft: 8192
+        hard: 8192
+    command: >
+      --config=/run/secrets/goshimmer.config.json
+      --node.seed=base58:B3HR25Z7APVH7xrhAnuFJVmixKxgGb73UrvoovLSG3Jd
+      --node.overwriteStoredSeed=true
+      --config=/run/secrets/goshimmer.config.json
+      --database.directory=/app/db
+      --protocol.snapshot.path=./snapshot.bin
+      --blockIssuer.rateSetter.enable=false
+      --node.peerDBDirectory=/app/peerdb
+      --metrics.global=true
+      --metrics.local=true
+      --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
+      --node.enablePlugins=prometheus,spammer,WebAPIToolsBlockEndpoint,activity
+      --prometheus.bindAddress=0.0.0.0:9311
+      --prometheus.processMetrics=true
+      --prometheus.goMetrics=true
+      --protocol.genesisTime=${GENESIS_TIME}
+      --profiling.bindAddress=0.0.0.0:6061
+    secrets:
+      - goshimmer.config.json
+    volumes:
+      - ./docker-network.feature.snapshot:/app/snapshot.bin
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
+    ports:
+      - "8005:8080/tcp" # web API
+      - "8015:8081/tcp" # dashboard
+    networks:
+      - shimmer
+    depends_on:
+      - bootstrap
+  prometheus:
+    image: prom/prometheus:latest
+    profiles:
+      - grafana
+    ports:
+      - "9090:9090"
+    command:
+      - --config.file=/run/secrets/prometheus.yml
+    secrets:
+      - prometheus.yml
+    networks:
+      - shimmer
+    depends_on:
+      - bootstrap
+  grafana:
+    image: grafana/grafana:latest
+    profiles:
+      - grafana
+    environment:
+      # path to provisioning definitions can only be defined as
+      # environment variables for grafana within docker
+      - GF_PATHS_PROVISIONING=/var/lib/grafana/provisioning
+      - GF_ALERTING_ENABLED=true
+      - GF_UNIFIED_ALERTING_ENABLED=false
+    networks:
+      - shimmer
+    ports:
+      - "3000:3000"
+    user: "104"
+    volumes:
+      - ./grafana/provisioning:/var/lib/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
+# Create our own network
+networks:
+  shimmer:
+    driver: bridge
+# read only files to load in the containers that may be shared across containers
+secrets:
+  goshimmer.config.json:
+    file: ${GOSHIMMER_CONFIG:-./config.feature.docker.json}
+  prometheus.yml:
+    file: ${PROMETHEUS_CONFIG:-./prometheus.yml}

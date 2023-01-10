@@ -74,6 +74,8 @@ type Sequence struct {
 // NewSequence creates a new Sequence from the given details.
 func NewSequence(id SequenceID, referencedMarkers *Markers) (s *Sequence) {
 	initialIndex := referencedMarkers.HighestIndex() + 1
+
+	// if no referenced markers passed, it means that the block attached to one of the solid entry points and lowestIndex=Index(0) signifies that.
 	if referencedMarkers.Size() == 0 {
 		initialIndex--
 	}

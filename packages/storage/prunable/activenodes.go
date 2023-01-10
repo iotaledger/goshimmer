@@ -11,17 +11,17 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
 
-type ActiveNodes struct {
+type Attestors struct {
 	Storage func(index epoch.Index) kvstore.KVStore
 }
 
-func NewActiveNodes(database *database.Manager, storagePrefix byte) (newActiveNodes *ActiveNodes) {
-	return &ActiveNodes{
+func NewAttestors(database *database.Manager, storagePrefix byte) (newActiveNodes *Attestors) {
+	return &Attestors{
 		Storage: lo.Bind([]byte{storagePrefix}, database.Get),
 	}
 }
 
-func (a *ActiveNodes) Store(index epoch.Index, id identity.ID) (err error) {
+func (a *Attestors) Store(index epoch.Index, id identity.ID) (err error) {
 	idBytes, err := id.Bytes()
 	if err != nil {
 		return errors.Errorf("failed to get id bytes: %w", err)
@@ -34,7 +34,7 @@ func (a *ActiveNodes) Store(index epoch.Index, id identity.ID) (err error) {
 	return nil
 }
 
-func (a *ActiveNodes) Delete(index epoch.Index, id identity.ID) (err error) {
+func (a *Attestors) Delete(index epoch.Index, id identity.ID) (err error) {
 	if err = a.Storage(index).Delete(lo.PanicOnErr(id.Bytes())); err != nil {
 		return errors.Errorf("failed to delete active id %s: %w", id, err)
 	}
@@ -42,7 +42,7 @@ func (a *ActiveNodes) Delete(index epoch.Index, id identity.ID) (err error) {
 	return nil
 }
 
-func (a *ActiveNodes) LoadAll(index epoch.Index) (ids *set.AdvancedSet[identity.ID]) {
+func (a *Attestors) LoadAll(index epoch.Index) (ids *set.AdvancedSet[identity.ID]) {
 	ids = set.NewAdvancedSet[identity.ID]()
 	a.Stream(index, func(id identity.ID) {
 		ids.Add(id)
@@ -50,7 +50,7 @@ func (a *ActiveNodes) LoadAll(index epoch.Index) (ids *set.AdvancedSet[identity.
 	return
 }
 
-func (a *ActiveNodes) Stream(index epoch.Index, callback func(identity.ID)) {
+func (a *Attestors) Stream(index epoch.Index, callback func(identity.ID)) {
 	a.Storage(index).Iterate([]byte{}, func(idBytes kvstore.Key, _ kvstore.Value) bool {
 		id := new(identity.ID)
 		id.FromBytes(idBytes)

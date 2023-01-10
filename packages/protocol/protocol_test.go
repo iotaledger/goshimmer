@@ -17,6 +17,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/snapshot/creator"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
 )
@@ -34,7 +35,7 @@ func TestProtocol(t *testing.T) {
 		identity.GenerateIdentity().ID(): 100,
 	})
 
-	protocol1 := New(endpoint1, WithBaseDirectory(diskUtil1.Path()), WithSnapshotPath(diskUtil1.Path("snapshot.bin")))
+	protocol1 := New(endpoint1, WithBaseDirectory(diskUtil1.Path()), WithSnapshotPath(diskUtil1.Path("snapshot.bin")), WithEngineOptions(engine.WithSybilProtectionProvider(dpos.NewSybilProtectionProvider())))
 	protocol1.Run()
 
 	commitments := make(map[string]*commitment.Commitment)
@@ -45,17 +46,17 @@ func TestProtocol(t *testing.T) {
 
 	protocol1.networkProtocol.Events.EpochCommitmentReceived.Trigger(&network.EpochCommitmentReceivedEvent{
 		Commitment: commitments["1"],
-		Neighbor:   identity.ID{},
+		Source:     identity.ID{},
 	})
 
 	protocol1.networkProtocol.Events.EpochCommitmentReceived.Trigger(&network.EpochCommitmentReceivedEvent{
 		Commitment: commitments["2"],
-		Neighbor:   identity.ID{},
+		Source:     identity.ID{},
 	})
 
 	protocol1.networkProtocol.Events.EpochCommitmentReceived.Trigger(&network.EpochCommitmentReceivedEvent{
 		Commitment: commitments["3"],
-		Neighbor:   identity.ID{},
+		Source:     identity.ID{},
 	})
 
 	endpoint2 := testNetwork.Join(identity.GenerateIdentity().ID())
@@ -66,7 +67,7 @@ func TestProtocol(t *testing.T) {
 		identity.GenerateIdentity().ID(): 100,
 	})
 
-	protocol2 := New(endpoint2, WithBaseDirectory(diskUtil2.Path()), WithSnapshotPath(diskUtil2.Path("snapshot.bin")))
+	protocol2 := New(endpoint2, WithBaseDirectory(diskUtil2.Path()), WithSnapshotPath(diskUtil2.Path("snapshot.bin")), WithEngineOptions(engine.WithSybilProtectionProvider(dpos.NewSybilProtectionProvider())))
 	protocol2.Run()
 
 	protocol2.chainManager.Events.CommitmentMissing.Hook(event.NewClosure(func(id commitment.ID) {
@@ -78,7 +79,7 @@ func TestProtocol(t *testing.T) {
 
 	protocol2.networkProtocol.Events.EpochCommitmentReceived.Trigger(&network.EpochCommitmentReceivedEvent{
 		Commitment: commitments["3"],
-		Neighbor:   identity.ID{},
+		Source:     identity.ID{},
 	})
 
 	tf1 := engine.NewTestFramework(t, engine.WithEngine(protocol1.Engine()))

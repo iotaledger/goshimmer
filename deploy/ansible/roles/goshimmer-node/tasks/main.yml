@@ -1,3 +1,8 @@
+- name: Pull docker image async
+  shell: docker pull "{{ goshimmerDockerImage }}:{{ goshimmerDockerTag }}"
+  async: 300
+  poll: 5
+
 - name: Create node directory
   file:
     path: /opt/{{ nodeType }}

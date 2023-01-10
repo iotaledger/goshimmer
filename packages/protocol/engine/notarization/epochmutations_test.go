@@ -3,9 +3,16 @@ package notarization
 import (
 	"testing"
 
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
+	"github.com/iotaledger/hive.go/core/types"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/storage/permanent"
 )
 
 func TestMutationFactory(t *testing.T) {
@@ -60,5 +67,23 @@ func TestMutationFactory(t *testing.T) {
 	tf.AssertCommit(2, []string{"2.1", "2.2", "2.3"}, []string{"tx2.1", "tx3.1"}, []string{"Batman", "Robin", "Joker"}, 30, false)
 
 	// assert commitment of epoch 3
-	tf.AssertCommit(3, []string{"3.1"}, []string{}, []string{"Batman"}, 50, false)
+	// The CW is 10 because the epoch mutation does not accumulate the weights, the notarization manager does.
+	tf.AssertCommit(3, []string{"3.1"}, []string{}, []string{"Batman"}, 10, false)
+}
+
+func TestMutationFactory_AddAcceptedBlock(t *testing.T) {
+	settings := permanent.NewSettings(t.TempDir() + "/settings")
+	settings.SetLatestCommitment(commitment.New(0, commitment.NewID(0, []byte{}), types.Identifier{}, 0))
+	mutationFactory := NewEpochMutations(sybilprotection.NewWeights(mapdb.NewMapDB(), settings), 2)
+
+	block := models.NewBlock(
+		models.WithIssuingTime(epoch.Index(3).EndTime()),
+		models.WithStrongParents(models.NewBlockIDs(models.EmptyBlockID)),
+	)
+	require.NoError(t, block.DetermineID())
+
+	require.NoError(t, mutationFactory.AddAcceptedBlock(block))
+	require.True(t, mutationFactory.acceptedBlocks(3).Has(block.ID()))
+
+	require.NoError(t, lo.Return4(mutationFactory.Evict(3)))
 }

@@ -8,10 +8,10 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
-	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/epochtracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
@@ -21,8 +21,8 @@ import (
 // region VirtualVoting ////////////////////////////////////////////////////////////////////////////////////////////////
 
 type VirtualVoting struct {
-	Events       *Events
-	ValidatorSet *validator.Set
+	Events     *Events
+	Validators *sybilprotection.WeightedSet
 
 	blocks          *memstorage.EpochStorage[models.BlockID, *Block]
 	conflictTracker *conflicttracker.ConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower]
@@ -36,11 +36,11 @@ type VirtualVoting struct {
 	*booker.Booker
 }
 
-func New(booker *booker.Booker, validatorSet *validator.Set, opts ...options.Option[VirtualVoting]) (newVirtualVoting *VirtualVoting) {
+func New(booker *booker.Booker, validators *sybilprotection.WeightedSet, opts ...options.Option[VirtualVoting]) (newVirtualVoting *VirtualVoting) {
 	return options.Apply(&VirtualVoting{
-		ValidatorSet: validatorSet,
-		blocks:       memstorage.NewEpochStorage[models.BlockID, *Block](),
-		Booker:       booker,
+		Validators: validators,
+		blocks:     memstorage.NewEpochStorage[models.BlockID, *Block](),
+		Booker:     booker,
 		optsSequenceCutoffCallback: func(sequenceID markers.SequenceID) markers.Index {
 			return 1
 		},
@@ -48,9 +48,9 @@ func New(booker *booker.Booker, validatorSet *validator.Set, opts ...options.Opt
 			return 0
 		},
 	}, opts, func(o *VirtualVoting) {
-		o.conflictTracker = conflicttracker.NewConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower](o.Booker.Ledger.ConflictDAG, validatorSet)
-		o.sequenceTracker = sequencetracker.NewSequenceTracker[BlockVotePower](validatorSet, o.Booker.Sequence, o.optsSequenceCutoffCallback)
-		o.epochTracker = epochtracker.NewEpochTracker(validatorSet, o.optsEpochCutoffCallback)
+		o.conflictTracker = conflicttracker.NewConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower](o.Booker.Ledger.ConflictDAG, validators)
+		o.sequenceTracker = sequencetracker.NewSequenceTracker[BlockVotePower](validators, o.Booker.Sequence, o.optsSequenceCutoffCallback)
+		o.epochTracker = epochtracker.NewEpochTracker(o.optsEpochCutoffCallback)
 
 		o.Events = NewEvents()
 		o.Events.ConflictTracker = o.conflictTracker.Events
@@ -73,28 +73,45 @@ func (o *VirtualVoting) Block(id models.BlockID) (block *Block, exists bool) {
 	return o.block(id)
 }
 
-// MarkerVoters retrieves Validators supporting a given marker.
-func (o *VirtualVoting) MarkerVoters(marker markers.Marker) (voters *validator.Set) {
+// MarkerVotersTotalWeight retrieves Validators supporting a given marker.
+func (o *VirtualVoting) MarkerVotersTotalWeight(marker markers.Marker) (totalWeight int64) {
 	o.evictionMutex.RLock()
 	defer o.evictionMutex.RUnlock()
 
-	return o.sequenceTracker.Voters(marker)
+	voters := o.sequenceTracker.Voters(marker)
+	defer voters.Detach()
+
+	return voters.TotalWeight()
 }
 
-// EpochVoters retrieves Validators supporting an epoch index.
-func (o *VirtualVoting) EpochVoters(epochIndex epoch.Index) (voters *validator.Set) {
+// EpochVotersTotalWeight retrieves the total weight of the Validators voting for a given epoch.
+func (o *VirtualVoting) EpochVotersTotalWeight(epochIndex epoch.Index) (totalWeight int64) {
 	o.evictionMutex.RLock()
 	defer o.evictionMutex.RUnlock()
 
-	return o.epochTracker.Voters(epochIndex)
+	validators := o.Validators.Weights.WeightedSet(o.epochTracker.Voters(epochIndex).Slice()...)
+	defer validators.Detach()
+
+	return validators.TotalWeight()
 }
 
 // ConflictVoters retrieves Validators voting for a given conflict.
-func (o *VirtualVoting) ConflictVoters(conflictID utxo.TransactionID) (voters *validator.Set) {
+func (o *VirtualVoting) ConflictVoters(conflictID utxo.TransactionID) (voters *sybilprotection.WeightedSet) {
 	o.evictionMutex.RLock()
 	defer o.evictionMutex.RUnlock()
 
 	return o.conflictTracker.Voters(conflictID)
+}
+
+// ConflictVotersTotalWeight retrieves the total weight of the Validators voting for a given conflict.
+func (o *VirtualVoting) ConflictVotersTotalWeight(conflictID utxo.TransactionID) (totalWeight int64) {
+	o.evictionMutex.RLock()
+	defer o.evictionMutex.RUnlock()
+
+	voters := o.conflictTracker.Voters(conflictID)
+	defer voters.Detach()
+
+	return voters.TotalWeight()
 }
 
 func (o *VirtualVoting) setupEvents() {

@@ -1,20 +1,24 @@
 package protocol
 
 import (
+	"context"
+
+	"github.com/iotaledger/hive.go/core/daemon"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/node"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/activitytracker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tsc"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
@@ -64,25 +68,20 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 			engine.WithNotarizationManagerOptions(
 				notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommittableAge),
 			),
+			engine.WithSybilProtectionProvider(dpos.NewSybilProtectionProvider()),
 			engine.WithBootstrapThreshold(Parameters.BootstrapWindow),
 			engine.WithTSCManagerOptions(
 				tsc.WithTimeSinceConfirmationThreshold(Parameters.TimeSinceConfirmationThreshold),
-			),
-			engine.WithDatabaseManagerOptions(
-				database.WithDBProvider(dbProvider),
-				database.WithMaxOpenDBs(DatabaseParameters.MaxOpenDBs),
-				database.WithGranularity(DatabaseParameters.Granularity),
 			),
 			engine.WithLedgerOptions(
 				ledger.WithVM(new(devnetvm.VM)),
 				ledger.WithCacheTimeProvider(cacheTimeProvider),
 			),
 			engine.WithSnapshotDepth(Parameters.Snapshot.Depth),
-			engine.WithSybilProtectionOptions(
-				sybilprotection.WithActivityTrackerOptions(
-					activitytracker.WithActivityWindow(Parameters.ValidatorActivityWindow),
-				),
-			),
+			// TODO: FIX
+			// engine.WithActiveNodesOptions(
+			// 	pos.WithActivityWindow(Parameters.ValidatorActivityWindow),
+			// ),
 		),
 		protocol.WithTipManagerOptions(
 			tipmanager.WithWidth(Parameters.TangleWidth),
@@ -98,6 +97,10 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 		protocol.WithBaseDirectory(DatabaseParameters.Directory),
 		protocol.WithSnapshotPath(Parameters.Snapshot.Path),
 		protocol.WithPruningThreshold(DatabaseParameters.PruningThreshold),
+		protocol.WithStorageDatabaseManagerOptions(
+			database.WithDBProvider(dbProvider),
+			database.WithMaxOpenDBs(DatabaseParameters.MaxOpenDBs),
+		),
 	)
 
 	return p
@@ -119,18 +122,9 @@ func configureLogging(*node.Plugin) {
 	// deps.Protocol.Events.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
 	// 	Plugin.LogDebugf("Block %s scheduled", block.ID())
 	// }))
-
 	deps.Protocol.Events.Engine.Error.Attach(event.NewClosure(func(err error) {
 		Plugin.LogErrorf("Error in Engine: %s", err)
 	}))
-
-	deps.Protocol.Events.CongestionControl.Scheduler.BlockDropped.Attach(event.NewClosure(func(block *scheduler.Block) {
-		Plugin.LogDebugf("Block %s dropped", block.ID())
-	}))
-
-	// deps.Protocol.Events.Engine.NotarizationManager.EpochCommittable.Attach(event.NewClosure(func(e *notarization.EpochCommittableEvent) {
-	// 	fmt.Println("EpochCommittableEvent", e.EI)
-	// }))
 
 	// deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(func(block *blockdag.Block) {
 	// 	fmt.Println(">>>>>>> BlockMissing", block.ID())
@@ -142,9 +136,22 @@ func configureLogging(*node.Plugin) {
 	// deps.Protocol.Events.Engine.BlockRequester.Tick.Attach(event.NewClosure(func(blockID models.BlockID) {
 	// 	fmt.Println(">>>>>>> BlockRequesterTick", blockID)
 	// }))
-
 }
 
 func run(*node.Plugin) {
 	deps.Protocol.Run()
+
+	if err := daemon.BackgroundWorker("protocol", func(ctx context.Context) {
+		<-ctx.Done()
+
+		Plugin.LogInfo("Gracefully shutting down the Protocol...")
+
+		deps.Protocol.Shutdown()
+	}, shutdown.PriorityTangle); err != nil {
+		Plugin.Panicf("Error starting as daemon: %s", err)
+	}
+
+	deps.Protocol.Network().Events.Error.Attach(event.NewClosure(func(errorEvent *network.ErrorEvent) {
+		Plugin.LogErrorf("Error in Network: %s (source: %s)", errorEvent.Error, errorEvent.Source.String())
+	}))
 }

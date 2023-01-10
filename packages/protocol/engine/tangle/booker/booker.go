@@ -30,14 +30,14 @@ type Booker struct {
 	// Events contains the Events of Booker.
 	Events *Events
 
-	Ledger          *ledger.Ledger
-	bookingOrder    *causalorder.CausalOrder[models.BlockID, *Block]
-	attachments     *attachments
-	blocks          *memstorage.EpochStorage[models.BlockID, *Block]
-	markerManager   *markermanager.MarkerManager[models.BlockID, *Block]
-	bookingMutex    *syncutils.DAGMutex[models.BlockID]
-	sequenceMutex   *syncutils.DAGMutex[markers.SequenceID]
-	evictionManager sync.RWMutex
+	Ledger        *ledger.Ledger
+	bookingOrder  *causalorder.CausalOrder[models.BlockID, *Block]
+	attachments   *attachments
+	blocks        *memstorage.EpochStorage[models.BlockID, *Block]
+	markerManager *markermanager.MarkerManager[models.BlockID, *Block]
+	bookingMutex  *syncutils.DAGMutex[models.BlockID]
+	sequenceMutex *syncutils.DAGMutex[markers.SequenceID]
+	evictionMutex sync.RWMutex
 
 	optsMarkerManager []options.Option[markermanager.MarkerManager[models.BlockID, *Block]]
 
@@ -79,8 +79,8 @@ func (b *Booker) Queue(block *Block) (wasQueued bool, err error) {
 }
 
 func (b *Booker) queue(block *Block) (wasQueued bool, err error) {
-	b.evictionManager.RLock()
-	defer b.evictionManager.RUnlock()
+	b.evictionMutex.RLock()
+	defer b.evictionMutex.RUnlock()
 
 	if b.EvictionState.InEvictedEpoch(block.ID()) {
 		return false, nil
@@ -93,8 +93,8 @@ func (b *Booker) queue(block *Block) (wasQueued bool, err error) {
 
 // Block retrieves a Block with metadata from the in-memory storage of the Booker.
 func (b *Booker) Block(id models.BlockID) (block *Block, exists bool) {
-	b.evictionManager.RLock()
-	defer b.evictionManager.RUnlock()
+	b.evictionMutex.RLock()
+	defer b.evictionMutex.RUnlock()
 
 	return b.block(id)
 }
@@ -105,8 +105,8 @@ func (b *Booker) BlockConflicts(block *Block) (blockConflictIDs utxo.Transaction
 }
 
 func (b *Booker) BlockBookingDetails(block *Block) (pastMarkersConflictIDs, blockConflictIDs utxo.TransactionIDs) {
-	b.evictionManager.RLock()
-	defer b.evictionManager.RUnlock()
+	b.evictionMutex.RLock()
+	defer b.evictionMutex.RUnlock()
 
 	return b.blockBookingDetails(block)
 }
@@ -132,20 +132,17 @@ func (b *Booker) PayloadConflictIDs(block *Block) (conflictIDs utxo.TransactionI
 }
 
 func (b *Booker) Sequence(id markers.SequenceID) (sequence *markers.Sequence, exists bool) {
-	b.evictionManager.RLock()
-	defer b.evictionManager.RUnlock()
+	b.evictionMutex.RLock()
+	defer b.evictionMutex.RUnlock()
 
 	return b.markerManager.SequenceManager.Sequence(id)
 }
 
 func (b *Booker) BlockFromMarker(marker markers.Marker) (block *Block, exists bool) {
-	b.evictionManager.RLock()
-	defer b.evictionManager.RUnlock()
+	b.evictionMutex.RLock()
+	defer b.evictionMutex.RUnlock()
 	if marker.Index() == 0 {
-		rootBlock := NewRootBlock(models.EmptyBlockID, models.WithIssuingTime(b.EvictionState.LastEvictedEpoch().EndTime()))
-		rootBlock.StructureDetails().SetPastMarkers(markers.NewMarkers(marker))
-
-		return rootBlock, true
+		panic(fmt.Sprintf("cannot retrieve block for Marker with Index(0) - %#v", marker))
 	}
 
 	return b.markerManager.BlockFromMarker(marker)
@@ -168,8 +165,8 @@ func (b *Booker) GetAllAttachments(txID utxo.TransactionID) (attachments Blocks)
 func (b *Booker) evict(epochIndex epoch.Index) {
 	b.bookingOrder.EvictUntil(epochIndex)
 
-	b.evictionManager.Lock()
-	defer b.evictionManager.Unlock()
+	b.evictionMutex.Lock()
+	defer b.evictionMutex.Unlock()
 
 	b.attachments.Evict(epochIndex)
 	b.markerManager.Evict(epochIndex)
@@ -213,12 +210,22 @@ func (b *Booker) book(block *Block) (err error) {
 		return errors.Errorf("block with %s was marked as invalid", block.ID())
 	}
 
-	if b.EvictionState.InEvictedEpoch(block.ID()) {
-		return errors.Errorf("block with %s belongs to an evicted epoch", block.ID())
+	tryInheritConflictIDs := func() error {
+		b.evictionMutex.RLock()
+		defer b.evictionMutex.RUnlock()
+
+		if b.EvictionState.InEvictedEpoch(block.ID()) {
+			return errors.Errorf("block with %s belongs to an evicted epoch", block.ID())
+		}
+
+		if err = b.inheritConflictIDs(block); err != nil {
+			return errors.Errorf("error inheriting conflict IDs: %w", err)
+		}
+		return nil
 	}
 
-	if err = b.inheritConflictIDs(block); err != nil {
-		return errors.Errorf("error inheriting conflict IDs: %w", err)
+	if err = tryInheritConflictIDs(); err != nil {
+		return err
 	}
 
 	b.Events.BlockBooked.Trigger(block)
@@ -231,9 +238,6 @@ func (b *Booker) markInvalid(block *Block, reason error) {
 }
 
 func (b *Booker) inheritConflictIDs(block *Block) (err error) {
-	b.evictionManager.RLock()
-	defer b.evictionManager.RUnlock()
-
 	b.bookingMutex.RLock(block.Parents()...)
 	defer b.bookingMutex.RUnlock(block.Parents()...)
 	b.bookingMutex.Lock(block.ID())
@@ -294,7 +298,7 @@ func (b *Booker) collectStrongParentsBookingDetails(block *Block) (parentsStruct
 			return true
 		}
 
-		parentBlock, exists := b.Block(parentBlockID)
+		parentBlock, exists := b.block(parentBlockID)
 		if !exists {
 			// This should never happen.
 			panic(fmt.Sprintf("parent %s does not exist", parentBlockID))

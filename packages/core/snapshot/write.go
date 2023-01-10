@@ -120,18 +120,13 @@ func WriteSnapshot(filePath string, s *storage.Storage, l *ledger.Ledger, depth 
 
 	// Activity Log
 	{
-		// Number of epochs
-		binary.Write(fileHandle, binary.LittleEndian, uint32(snapshotEpoch-snapshotStart+1))
-
-		for epochIndex := snapshotStart; epochIndex <= snapshotEpoch; epochIndex++ {
-			// Activity Log count
-			binary.Write(fileHandle, binary.LittleEndian, uint32(s.ActiveNodes.LoadAll(epochIndex).Size()))
-			// Activity Log size
-			binary.Write(fileHandle, binary.LittleEndian, uint32(len(lo.PanicOnErr((&identity.ID{}).Bytes()))))
-			s.ActiveNodes.Stream(epochIndex, func(id identity.ID) {
-				binary.Write(fileHandle, binary.LittleEndian, id)
-			})
-		}
+		// Activity Log count
+		binary.Write(fileHandle, binary.LittleEndian, uint32(s.Attestors.LoadAll(snapshotEpoch).Size()))
+		// Activity Log size
+		binary.Write(fileHandle, binary.LittleEndian, uint32(len(lo.PanicOnErr((&identity.ID{}).Bytes()))))
+		s.Attestors.Stream(snapshotEpoch, func(id identity.ID) {
+			binary.Write(fileHandle, binary.LittleEndian, id)
+		})
 	}
 
 	// Epoch Diffs -- must be in reverse order to allow Ledger rollback

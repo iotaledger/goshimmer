@@ -140,7 +140,7 @@ func getInfo(c echo.Context) error {
 	}
 
 	accessMana, _ := deps.Protocol.Engine().ManaTracker.Mana(deps.Local.ID())
-	consensusMana, _ := deps.Protocol.Engine().SybilProtection.Weight(deps.Local.ID())
+	consensusMana := lo.Return1(deps.Protocol.Engine().SybilProtection.Weights().Weight(deps.Local.ID())).Value
 	nodeMana := jsonmodels.Mana{
 		Access:             accessMana,
 		AccessTimestamp:    time.Now(),
@@ -163,10 +163,10 @@ func getInfo(c echo.Context) error {
 		IdentityIDShort:       deps.Local.Identity.ID().String(),
 		PublicKey:             deps.Local.PublicKey().String(),
 		BlockRequestQueueSize: int(metrics.BlockRequestQueueSize()),
-		SolidBlockCount: int(metrics.InitialBlockCountPerComponentGrafana()[metrics.Solidifier] +
-			metrics.BlockCountSinceStartPerComponentGrafana()[metrics.Solidifier]),
-		TotalBlockCount: int(metrics.InitialBlockCountPerComponentGrafana()[metrics.Store] +
-			metrics.BlockCountSinceStartPerComponentGrafana()[metrics.Store]),
+		SolidBlockCount: int(metrics.InitialBlockCountPerComponentGrafana()[metrics.Solidified] +
+			metrics.BlockCountSinceStartPerComponentGrafana()[metrics.Solidified]),
+		TotalBlockCount: int(metrics.InitialBlockCountPerComponentGrafana()[metrics.Attached] +
+			metrics.BlockCountSinceStartPerComponentGrafana()[metrics.Attached]),
 		EnabledPlugins:  enabledPlugins,
 		DisabledPlugins: disabledPlugins,
 		Mana:            nodeMana,

@@ -7,8 +7,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/storage/models"
 )
 
-// LoadOutputsWithMetadata loads OutputWithMetadata from a snapshot file to the storage.
-func (l *Ledger) LoadOutputsWithMetadata(outputsWithMetadata []*models.OutputWithMetadata) {
+// ImportOutputs loads OutputWithMetadata from a snapshot file to the storage.
+func (l *Ledger) ImportOutputs(outputsWithMetadata []*models.OutputWithMetadata) {
 	for _, outputWithMetadata := range outputsWithMetadata {
 		newOutputMetadata := NewOutputMetadata(outputWithMetadata.ID())
 		newOutputMetadata.SetAccessManaPledgeID(outputWithMetadata.AccessManaPledgeID())

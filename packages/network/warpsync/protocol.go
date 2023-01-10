@@ -7,7 +7,6 @@ import (
 	"github.com/iotaledger/hive.go/core/logger"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotaledger/goshimmer/packages/core/parser"
 	"github.com/iotaledger/goshimmer/packages/network"
 	wp "github.com/iotaledger/goshimmer/packages/network/warpsync/proto"
 )
@@ -20,15 +19,13 @@ type Protocol struct {
 	Events *Events
 
 	networkEndpoint network.Endpoint
-	parser          *parser.Parser
 	log             *logger.Logger
 }
 
-func New(networkEndpoing network.Endpoint, parser *parser.Parser, log *logger.Logger) (new *Protocol) {
+func New(networkEndpoing network.Endpoint, log *logger.Logger) (new *Protocol) {
 	new = &Protocol{
 		Events:          NewEvents(),
 		networkEndpoint: networkEndpoing,
-		parser:          parser,
 		log:             log,
 	}
 

@@ -2,8 +2,8 @@ package conflicttracker
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/identity"
 
-	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 )
 
@@ -24,7 +24,7 @@ func NewEvents[ConflictIDType comparable](optLinkTargets ...*Events[ConflictIDTy
 }
 
 type VoterEvent[ConflictIDType comparable] struct {
-	Voter      *validator.Validator
+	Voter      identity.ID
 	ConflictID ConflictIDType
 	Opinion    votes.Opinion
 }

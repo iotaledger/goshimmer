@@ -30,7 +30,7 @@ func getPercentileHandler(c echo.Context) error {
 	}
 
 	accessPercentile := manamodels.Percentile(ID, deps.Protocol.CandidateEngine().ManaTracker.ManaByIDs())
-	consensusPercentile := manamodels.Percentile(ID, deps.Protocol.CandidateEngine().SybilProtection.Weights())
+	consensusPercentile := manamodels.Percentile(ID, lo.PanicOnErr(deps.Protocol.CandidateEngine().SybilProtection.Weights().Map()))
 	if err != nil {
 		if errors.Is(err, manamodels.ErrIssuerNotFoundInBaseManaVector) {
 			consensusPercentile = 0

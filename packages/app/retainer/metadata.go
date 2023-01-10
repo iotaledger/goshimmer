@@ -103,23 +103,28 @@ type blockMetadataModel struct {
 	Id models.BlockID `serix:"0"`
 
 	// blockdag.Block
-	Missing                  bool            `serix:"1"`
-	Solid                    bool            `serix:"2"`
-	Invalid                  bool            `serix:"3"`
-	Orphaned                 bool            `serix:"4"`
-	OrphanedBlocksInPastCone models.BlockIDs `serix:"5"`
-	StrongChildren           models.BlockIDs `serix:"6"`
-	WeakChildren             models.BlockIDs `serix:"7"`
-	LikedInsteadChildren     models.BlockIDs `serix:"8"`
-	SolidTime                time.Time       `serix:"9"`
+	Missing  bool `serix:"1"`
+	Solid    bool `serix:"2"`
+	Invalid  bool `serix:"3"`
+	Orphaned bool `serix:"4"`
+	// TODO: children need to be stored separately due to potentially unbounded size
+	StrongChildren models.BlockIDs `serix:"6,lengthPrefixType=uint32"`
+	// TODO: children need to be stored separately due to potentially unbounded size
+	WeakChildren models.BlockIDs `serix:"7,lengthPrefixType=uint32"`
+	// TODO: children need to be stored separately due to potentially unbounded size
+	LikedInsteadChildren models.BlockIDs `serix:"8,lengthPrefixType=uint32"`
+	SolidTime            time.Time       `serix:"9"`
 
 	// booker.Block
-	Booked                bool                `serix:"10"`
-	StructureDetails      *structureDetails   `serix:"11,optional"`
-	AddedConflictIDs      utxo.TransactionIDs `serix:"12"`
-	SubtractedConflictIDs utxo.TransactionIDs `serix:"13"`
+	Booked           bool              `serix:"10"`
+	StructureDetails *structureDetails `serix:"11,optional"`
+	// TODO: conflicts need to be stored separately due to potentially unbounded size
+	AddedConflictIDs utxo.TransactionIDs `serix:"12,optional"`
+	// TODO: conflicts need to be stored separately due to potentially unbounded size
+	SubtractedConflictIDs utxo.TransactionIDs `serix:"13,optional"`
+	// TODO: conflicts need to be stored separately due to potentially unbounded size
 	// conflictIDs is a computed property at the time a block is booked.
-	ConflictIDs utxo.TransactionIDs `serix:"14"`
+	ConflictIDs utxo.TransactionIDs `serix:"14,optional"`
 	BookedTime  time.Time           `serix:"15"`
 
 	// virtualvoting.Block
@@ -138,9 +143,12 @@ type blockMetadataModel struct {
 	AcceptedTime time.Time `serix:"24"`
 
 	// confirmation.Block
-	Confirmed        bool      `serix:"25"`
-	ConfirmedTime    time.Time `serix:"26"`
-	ConfirmedByEpoch bool      `serix:"27"`
+	Confirmed            bool      `serix:"25"`
+	ConfirmedTime        time.Time `serix:"26"`
+	ConfirmedByEpoch     bool      `serix:"27"`
+	ConfirmedByEpochTime time.Time `serix:"28"`
+
+	Block *models.Block `serix:"29,optional"`
 }
 
 // NewBlockMetadata creates a new BlockMetadata instance. It does not set the ID, as it is not known at this point.
@@ -212,11 +220,11 @@ func copyFromBlockDAGBlock(blockWithTime *blockWithTime[*blockdag.Block], blockM
 	blockMetadata.M.Solid = block.IsSolid()
 	blockMetadata.M.Invalid = block.IsInvalid()
 	blockMetadata.M.Orphaned = block.IsOrphaned()
-	blockMetadata.M.OrphanedBlocksInPastCone = block.OrphanedBlocksInPastCone()
 	blockMetadata.M.StrongChildren = blocksToBlockIDs(block.StrongChildren())
 	blockMetadata.M.WeakChildren = blocksToBlockIDs(block.WeakChildren())
 	blockMetadata.M.LikedInsteadChildren = blocksToBlockIDs(block.LikedInsteadChildren())
 	blockMetadata.M.SolidTime = blockWithTime.Time
+	blockMetadata.M.Block = blockWithTime.Block.ModelsBlock
 }
 
 func copyFromBookerBlock(blockWithTime *blockWithTime[*booker.Block], blockMetadata *BlockMetadata) {

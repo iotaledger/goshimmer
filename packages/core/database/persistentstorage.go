@@ -25,8 +25,8 @@ func (p *PersistentEpochStorage[K, V, KPtr, VPtr]) Get(key K) (value VPtr, exist
 	return value, err == nil
 }
 
-func (p *PersistentEpochStorage[K, V, KPtr, VPtr]) Set(key K, value VPtr) (success bool) {
-	return kvstore.NewTypedStore[K, V, KPtr, VPtr](p.dbManager.Get((KPtr)(&key).Index(), p.realm)).Set(key, value) == nil
+func (p *PersistentEpochStorage[K, V, KPtr, VPtr]) Set(key K, value VPtr) (err error) {
+	return kvstore.NewTypedStore[K, V, KPtr, VPtr](p.dbManager.Get((KPtr)(&key).Index(), p.realm)).Set(key, value)
 }
 
 func (p *PersistentEpochStorage[K, V, KPtr, VPtr]) Delete(key K) (success bool) {

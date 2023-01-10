@@ -63,13 +63,13 @@ func (t *ManaTracker) TotalMana() (totalMana int64) {
 	return t.totalMana
 }
 
-// ImportOutputsFromSnapshot imports the outputs from a snapshot and updates the mana balances and the total mana.
-func (t *ManaTracker) ImportOutputsFromSnapshot(outputs []*models.OutputWithMetadata) {
+// ImportOutputs imports the outputs from a snapshot and updates the mana balances and the total mana.
+func (t *ManaTracker) ImportOutputs(outputs []*models.OutputWithMetadata) {
 	t.totalMana += t.processOutputsFromSnapshot(outputs, true)
 }
 
-// RollbackOutputsFromSnapshot rolls back the outputs from a snapshot and updates the mana balances.
-func (t *ManaTracker) RollbackOutputsFromSnapshot(outputs []*models.OutputWithMetadata, areCreated bool) {
+// RollbackOutputs rolls back the outputs from a snapshot and updates the mana balances.
+func (t *ManaTracker) RollbackOutputs(outputs []*models.OutputWithMetadata, areCreated bool) {
 	t.processOutputsFromSnapshot(outputs, !areCreated)
 }
 

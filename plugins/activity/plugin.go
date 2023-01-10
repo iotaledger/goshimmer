@@ -41,13 +41,19 @@ func broadcastActivityBlock() {
 	activityPayload := payload.NewGenericDataPayload([]byte("activity"))
 
 	time.Sleep(deps.BlockIssuer.Estimate())
-	blk, err := deps.BlockIssuer.IssuePayload(activityPayload, Parameters.ParentsCount)
+
+	block, err := deps.BlockIssuer.CreateBlock(activityPayload, Parameters.ParentsCount)
+	if err != nil {
+		Plugin.LogWarnf("error creating activity block: %s", err)
+		return
+	}
+	err = deps.BlockIssuer.IssueBlockAndAwaitBlockToBeScheduled(block, Parameters.BroadcastInterval)
 	if err != nil {
 		Plugin.LogWarnf("error issuing activity block: %s", err)
 		return
 	}
 
-	Plugin.LogDebugf("issued activity block %s", blk.ID())
+	Plugin.LogDebugf("issued activity block %s (issuing time: %s)", block.ID(), block.IssuingTime().String())
 }
 
 func run(_ *node.Plugin) {
