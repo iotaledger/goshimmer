@@ -38,7 +38,7 @@ const (
 
 // OrphanageSnapshotDetails defines info for orphanage test scenario.
 var OrphanageSnapshotDetails = framework.SnapshotInfo{
-	FilePath:           "/assets/dynamic_snapshots/equal_snapshot.bin",
+	FilePath:           "/assets/dynamic_snapshots/orphanage_snapshot.bin",
 	MasterSeed:         "3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E", // FZ6xmPZX
 	GenesisTokenAmount: 0,
 	PeersSeedBase58: []string{
@@ -59,8 +59,9 @@ var EqualSnapshotDetails = framework.SnapshotInfo{
 		"GtKSdqanb4mokUBjAf9JZmsSqWzWjzzw57mRR56LjfBL", // H6jzPnLbjsh
 		"CmFVE14Yh9rqn2FrXD8s7ybRoRN5mUnqQxLAuD5HF2em", // JHxvcap7xhv
 		"DuJuWE3hisFrFK1HmrXkd9FSsNNWbw58JcQnKdBn6TdN", // 7rRpyEGU7Sf
+		"3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E", // FZ6xmPZX
 	},
-	PeersAmountsPledged: []uint64{2_500_000_000_000_000, 2_500_000_000_000_000, 2_500_000_000_000_000},
+	PeersAmountsPledged: []uint64{2_500_000_000_000_000, 2_500_000_000_000_000, 2_500_000_000_000_000, 2_500_000_000_000_000},
 }
 
 // ConsensusSnapshotDetails defines info for consensus integration test snapshot
@@ -73,8 +74,10 @@ var ConsensusSnapshotDetails = framework.SnapshotInfo{
 	PeersSeedBase58: []string{
 		"Bk69VaYsRuiAaKn8hK6KxUj45X5dED3ueRtxfYnsh4Q8",
 		"HUH4rmxUxMZBBtHJ4QM5Ts6s8DP3HnFpChejntnCxto2",
+		"CmFVE14Yh9rqn2FrXD8s7ybRoRN5mUnqQxLAuD5HF2em", // JHxvcap7xhv
+		"DuJuWE3hisFrFK1HmrXkd9FSsNNWbw58JcQnKdBn6TdN", // 7rRpyEGU7Sf
 	},
-	PeersAmountsPledged: []uint64{1_600_000, 800_000},
+	PeersAmountsPledged: []uint64{1_600_000, 800_000, 800_000, 800_000},
 }
 
 // GetIdentSeed returns decoded seed bytes for the supplied SnapshotInfo and peer index
@@ -143,6 +146,21 @@ func Bootstrapped(t *testing.T, node *framework.Node) bool {
 	info, err := node.Info()
 	require.NoError(t, err)
 	return info.TangleTime.Bootstrapped
+}
+
+func BootstrapNetwork(t *testing.T, n *framework.Network) {
+	require.Eventually(t, func() bool {
+		bootstrappedPeers := lo.Filter(n.Peers(), func(p *framework.Node) bool {
+			return p.Config().IgnoreBootstrappedFlag || Bootstrapped(t, p)
+		})
+		SendDataBlocks(t, bootstrappedPeers, len(bootstrappedPeers))
+		for _, p := range n.Peers() {
+			if !Bootstrapped(t, p) {
+				return false
+			}
+		}
+		return true
+	}, Timeout*2, Tick)
 }
 
 // Mana returns the mana reported by node.

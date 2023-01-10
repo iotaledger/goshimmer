@@ -200,9 +200,8 @@ func TestScheduler_HandleOrphanedBlock_Ready(t *testing.T) {
 			return false
 		}
 	}, 1*time.Second, 10*time.Millisecond)
-	tf.AssertBlocksScheduled(0)
 	tf.AssertBlocksDropped(1)
-
+	tf.AssertBlocksScheduled(0)
 }
 
 func TestScheduler_HandleOrphanedBlock_Scheduled(t *testing.T) {

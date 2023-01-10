@@ -602,9 +602,10 @@ func TestBlockDAG_MissingBlocks(t *testing.T) {
 	}))
 
 	// issue tips to start solidification
-	tips.ForEach(func(key models.BlockID, _ models.BlockID) {
+	tips.ForEach(func(key models.BlockID, _ models.BlockID) bool {
 		_, _, err := tf.BlockDAG.Attach(blocks[key])
 		assert.NoError(t, err, "should be able to attach a block")
+		return true
 	})
 
 	// wait until all blocks are solidified

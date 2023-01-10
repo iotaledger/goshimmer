@@ -1,8 +1,11 @@
 package markermanager
 
 import (
+	"fmt"
+
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/syncutils"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
@@ -21,6 +24,8 @@ type MarkerManager[IndexedID epoch.IndexedID, MappedEntity epoch.IndexedEntity[I
 	sequenceLastUsed *memstorage.Storage[markers.SequenceID, epoch.Index]
 	sequenceEviction *memstorage.Storage[epoch.Index, set.Set[markers.SequenceID]]
 
+	SequenceMutex *syncutils.DAGMutex[markers.SequenceID]
+
 	optsSequenceManager []options.Option[markers.SequenceManager]
 }
 
@@ -33,7 +38,10 @@ func NewMarkerManager[IndexedID epoch.IndexedID, MappedEntity epoch.IndexedEntit
 		markerIndexConflictIDMapping: memstorage.New[markers.SequenceID, *MarkerIndexConflictIDMapping](),
 		sequenceLastUsed:             memstorage.New[markers.SequenceID, epoch.Index](),
 		sequenceEviction:             memstorage.New[epoch.Index, set.Set[markers.SequenceID]](),
-		optsSequenceManager:          make([]options.Option[markers.SequenceManager], 0),
+
+		SequenceMutex: syncutils.NewDAGMutex[markers.SequenceID](),
+
+		optsSequenceManager: make([]options.Option[markers.SequenceManager], 0),
 	}, opts)
 	manager.SequenceManager = markers.NewSequenceManager(manager.optsSequenceManager...)
 
@@ -49,12 +57,14 @@ func NewMarkerManager[IndexedID epoch.IndexedID, MappedEntity epoch.IndexedEntit
 // strong and like parents.
 func (m *MarkerManager[IndexedID, MappedEntity]) ProcessBlock(block MappedEntity, structureDetails []*markers.StructureDetails, conflictIDs utxo.TransactionIDs) (newStructureDetails *markers.StructureDetails) {
 	newStructureDetails, newSequenceCreated := m.SequenceManager.InheritStructureDetails(structureDetails)
-
-	if newSequenceCreated {
-		m.SetConflictIDs(newStructureDetails.PastMarkers().Marker(), conflictIDs)
-	}
-
 	if newStructureDetails.IsPastMarker() {
+		m.SequenceMutex.Lock(newStructureDetails.PastMarkers().Marker().SequenceID())
+		defer m.SequenceMutex.Unlock(newStructureDetails.PastMarkers().Marker().SequenceID())
+
+		if newSequenceCreated {
+			m.SetConflictIDs(newStructureDetails.PastMarkers().Marker(), conflictIDs)
+		}
+
 		// if all conflictIDs are the same, they are already stored for the sequence. There is no need to explicitly set conflictIDs for the marker,
 		// because thresholdmap is lowerbound and the conflictIDs are automatically set for the new marker.
 		if !m.ConflictIDs(newStructureDetails.PastMarkers().Marker()).Equal(conflictIDs) {
@@ -79,6 +89,7 @@ func (m *MarkerManager[IndexedID, MappedEntity]) evictSequences(epochIndex epoch
 
 		sequenceSet.ForEach(func(sequenceID markers.SequenceID) {
 			if lastUsed, exists := m.sequenceLastUsed.Get(sequenceID); exists && lastUsed <= epochIndex {
+				fmt.Println("eviction of sequence id", sequenceID)
 				m.sequenceLastUsed.Delete(sequenceID)
 				m.markerIndexConflictIDMapping.Delete(sequenceID)
 				m.SequenceManager.Delete(sequenceID)
@@ -160,8 +171,10 @@ func (m *MarkerManager[IndexedID, MappedEntity]) setConflictIDMapping(marker mar
 }
 
 func (m *MarkerManager[IndexedID, MappedEntity]) deleteConflictIDMapping(marker markers.Marker) {
-	mapping, _ := m.markerIndexConflictIDMapping.RetrieveOrCreate(marker.SequenceID(), NewMarkerIndexConflictIDMapping)
-	mapping.DeleteConflictID(marker.Index())
+	mapping, exists := m.markerIndexConflictIDMapping.Get(marker.SequenceID())
+	if exists {
+		mapping.DeleteConflictID(marker.Index())
+	}
 }
 
 // floor returns the largest Index that is <= the given Marker, it's ConflictIDs and a boolean value indicating if it

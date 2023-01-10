@@ -12,13 +12,12 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/docker/docker/client"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/core/snapshot/creator"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/storage"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 )
 

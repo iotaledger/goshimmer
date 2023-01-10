@@ -243,8 +243,9 @@ func (s *Scheduler) HandleOrphanedBlock(orphanedBlock *blockdag.Block) {
 	}
 
 	s.Unsubmit(block)
-	block.SetDropped()
-	s.Events.BlockDropped.Trigger(block)
+	if block.SetDropped() {
+		s.Events.BlockDropped.Trigger(block)
+	}
 }
 
 func (s *Scheduler) HandleAcceptedBlock(acceptedBlock *blockgadget.Block) {
@@ -488,7 +489,7 @@ func (s *Scheduler) selectIssuer(start *IssuerQueue) (rounds *big.Rat, schedulin
 				continue
 			}
 
-			if block.IsDropped() {
+			if block.IsDropped() || block.IsOrphaned() {
 				s.buffer.PopFront()
 				block = q.Front()
 				continue

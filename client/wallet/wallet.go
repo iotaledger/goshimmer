@@ -1907,12 +1907,17 @@ func (wallet *Wallet) waitForStateAliasBalanceConfirmation(preStateAliasBalance 
 // derivePledgeIDs returns the mana pledge IDs from the provided options.
 func (wallet *Wallet) derivePledgeIDs(aIDFromOptions, cIDFromOptions string) (aID, cID identity.ID, err error) {
 	// determine pledge IDs
-	aID, err = identity.DecodeIDBase58(aIDFromOptions)
-	if err != nil {
-		return
+	if aIDFromOptions != "" {
+		aID, err = identity.DecodeIDBase58(aIDFromOptions)
+		if err != nil {
+			return
+		}
 	}
 
-	cID, err = identity.DecodeIDBase58(cIDFromOptions)
+	if cIDFromOptions != "" {
+		cID, err = identity.DecodeIDBase58(cIDFromOptions)
+	}
+
 	return
 }
 

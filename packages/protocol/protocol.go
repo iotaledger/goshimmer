@@ -110,7 +110,7 @@ func (p *Protocol) initDisk() {
 
 func (p *Protocol) initMainChainStorage() {
 
-	p.storage = storage.New(p.disk.Path(mainBaseDir), DatabaseVersion, append([]options.Option[database.Manager]{database.WithGranularity(1)}, p.optsStorageDatabaseManagerOptions...)...)
+	p.storage = storage.New(p.disk.Path(mainBaseDir), DatabaseVersion, p.optsStorageDatabaseManagerOptions...)
 
 	p.Events.Engine.Consensus.EpochGadget.EpochConfirmed.Attach(event.NewClosure(func(epochIndex epoch.Index) {
 		p.storage.PruneUntilEpoch(epochIndex - epoch.Index(p.optsPruningThreshold))
@@ -257,6 +257,11 @@ func (p *Protocol) CandidateEngine() (instance *engine.Engine) {
 	defer p.activeEngineMutex.RUnlock()
 
 	return p.candidateEngine
+}
+
+// MainStorage returns the underlying storage of the main chain.
+func (p *Protocol) MainStorage() (mainStorage *storage.Storage) {
+	return p.storage
 }
 
 func (p *Protocol) CandidateStorage() (chainstorage *storage.Storage) {
