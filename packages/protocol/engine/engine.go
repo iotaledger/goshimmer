@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/eventticker"
@@ -53,6 +54,8 @@ type Engine struct {
 	TSCManager          *tsc.Manager
 	Clock               *clock.Clock
 
+	workerPools map[string]*workerpool.UnboundedWorkerPool
+
 	isBootstrapped      bool
 	isBootstrappedMutex sync.Mutex
 
@@ -83,6 +86,8 @@ func New(
 			Storage:       storageInstance,
 			Constructable: traits.NewConstructable(),
 			Stoppable:     traits.NewStoppable(),
+
+			workerPools: map[string]*workerpool.UnboundedWorkerPool{},
 
 			optsBootstrappedThreshold: 10 * time.Second,
 			optsSnapshotDepth:         5,
@@ -118,6 +123,10 @@ func New(
 			e.TriggerConstructed()
 		},
 	)
+}
+
+func (e *Engine) WorkerPools() map[string]*workerpool.UnboundedWorkerPool {
+	return e.workerPools
 }
 
 func (e *Engine) ProcessBlockFromPeer(block *models.Block, source identity.ID) {
@@ -306,13 +315,13 @@ func (e *Engine) initConsensus() {
 }
 
 func (e *Engine) initClock() {
-	e.Events.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
+	e.workerPools["Clock.SetAcceptedTime"] = e.Events.Consensus.BlockGadget.BlockAccepted.AttachWithNewWorkerPool(event.NewClosure(func(block *blockgadget.Block) {
 		e.Clock.SetAcceptedTime(block.IssuingTime())
-	}))
+	}), 1)
 
-	e.Events.Consensus.BlockGadget.BlockConfirmed.Attach(event.NewClosure(func(block *blockgadget.Block) {
+	e.workerPools["Clock.SetConfirmedTime"] = e.Events.Consensus.BlockGadget.BlockConfirmed.AttachWithNewWorkerPool(event.NewClosure(func(block *blockgadget.Block) {
 		e.Clock.SetConfirmedTime(block.IssuingTime())
-	}))
+	}), 1)
 
 	e.Events.Consensus.EpochGadget.EpochConfirmed.Attach(event.NewClosure(func(epochIndex epoch.Index) {
 		e.Clock.SetConfirmedTime(epochIndex.EndTime())
@@ -346,17 +355,19 @@ func (e *Engine) initBlockStorage() {
 }
 
 func (e *Engine) initNotarizationManager() {
-	e.Consensus.BlockGadget.Events.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
+	wp := e.Consensus.BlockGadget.Events.BlockAccepted.AttachWithNewWorkerPool(event.NewClosure(func(block *blockgadget.Block) {
 		if err := e.NotarizationManager.NotarizeAcceptedBlock(block.ModelsBlock); err != nil {
 			e.Events.Error.Trigger(errors.Errorf("failed to add accepted block %s to epoch: %w", block.ID(), err))
 		}
-	}))
-	e.Tangle.Events.BlockDAG.BlockOrphaned.Attach(event.NewClosure(func(block *blockdag.Block) {
+	}), 1)
+	e.Tangle.Events.BlockDAG.BlockOrphaned.AttachWithWorkerPool(event.NewClosure(func(block *blockdag.Block) {
 		if err := e.NotarizationManager.NotarizeOrphanedBlock(block.ModelsBlock); err != nil {
 			e.Events.Error.Trigger(errors.Errorf("failed to remove orphaned block %s from epoch: %w", block.ID(), err))
 		}
-	}))
+	}), wp)
+	e.workerPools["NotarizationManager.Blocks"] = wp
 
+	// TODO: Why is it hooked?
 	e.Ledger.Events.TransactionAccepted.Hook(event.NewClosure(func(event *ledger.TransactionEvent) {
 		if err := e.NotarizationManager.EpochMutations.AddAcceptedTransaction(event.Metadata); err != nil {
 			e.Events.Error.Trigger(errors.Errorf("failed to add accepted transaction %s to epoch: %w", event.Metadata.ID(), err))
@@ -369,20 +380,21 @@ func (e *Engine) initNotarizationManager() {
 	}))
 	// TODO: add transaction orphaned event
 
-	e.Ledger.ConflictDAG.Events.ConflictCreated.Hook(event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
-		e.NotarizationManager.IncreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.GetEarliestAttachment(event.ID).IssuingTime()))
-	}))
-	e.Ledger.ConflictDAG.Events.ConflictAccepted.Hook(event.NewClosure(func(conflictID utxo.TransactionID) {
-		e.NotarizationManager.DecreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.GetEarliestAttachment(conflictID).IssuingTime()))
-	}))
-	e.Ledger.ConflictDAG.Events.ConflictRejected.Hook(event.NewClosure(func(conflictID utxo.TransactionID) {
-		e.NotarizationManager.DecreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.GetEarliestAttachment(conflictID).IssuingTime()))
-	}))
-
 	// Epochs are committed whenever ATT advances, start committing only when bootstrapped.
-	e.Clock.Events.AcceptanceTimeUpdated.Attach(event.NewClosure(func(event *clock.TimeUpdateEvent) {
+	wp = e.Clock.Events.AcceptanceTimeUpdated.AttachWithNewWorkerPool(event.NewClosure(func(event *clock.TimeUpdateEvent) {
 		e.NotarizationManager.SetAcceptanceTime(event.NewTime)
-	}))
+	}), 1)
+
+	e.Ledger.ConflictDAG.Events.ConflictCreated.AttachWithWorkerPool(event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
+		e.NotarizationManager.IncreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.GetEarliestAttachment(event.ID).IssuingTime()))
+	}), wp)
+	e.Ledger.ConflictDAG.Events.ConflictAccepted.AttachWithWorkerPool(event.NewClosure(func(conflictID utxo.TransactionID) {
+		e.NotarizationManager.DecreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.GetEarliestAttachment(conflictID).IssuingTime()))
+	}), wp)
+	e.Ledger.ConflictDAG.Events.ConflictRejected.AttachWithWorkerPool(event.NewClosure(func(conflictID utxo.TransactionID) {
+		e.NotarizationManager.DecreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.GetEarliestAttachment(conflictID).IssuingTime()))
+	}), wp)
+	e.workerPools["NotarizationManager.Commitments"] = wp
 
 	e.Events.NotarizationManager.LinkTo(e.NotarizationManager.Events)
 	e.Events.EpochMutations.LinkTo(e.NotarizationManager.EpochMutations.Events)
@@ -392,6 +404,7 @@ func (e *Engine) initEvictionState() {
 	e.Events.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
 		block.ForEachParent(func(parent models.Parent) {
 			// TODO: ONLY ADD STRONG PARENTS AFTER NOT DOWNLOADING PAST WEAK ARROWS
+			// TODO: is this correct? could this lock acceptance in some extreme corner case? something like this happened, that confirmation is correctly advancing per block, but acceptance does not. I think it might have something to do with root blocks
 			if parent.ID.Index() < block.ID().Index() {
 				e.EvictionState.AddRootBlock(parent.ID)
 			}

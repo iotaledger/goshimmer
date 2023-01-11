@@ -116,16 +116,16 @@ func (t *TestFramework) Identities(aliases ...string) (identities *set.AdvancedS
 func (t *TestFramework) ValidateMarkerVoters(expectedVoters map[markers.Marker]*set.AdvancedSet[identity.ID]) {
 	for marker, expectedVotersOfMarker := range expectedVoters {
 		voters := t.SequenceTracker.Voters(marker)
-		assert.True(t.test, expectedVotersOfMarker.Equal(voters.Members()), "marker %s expected %d voters but got %d", marker, expectedVotersOfMarker.Size(), voters.Members().Size())
-		voters.Detach()
+
+		assert.True(t.test, expectedVotersOfMarker.Equal(voters), "marker %s expected %d voters but got %d", marker, expectedVotersOfMarker.Size(), voters.Size())
 	}
 }
 
 func (t *TestFramework) ValidateConflictVoters(expectedVoters map[utxo.TransactionID]*set.AdvancedSet[identity.ID]) {
 	for conflictID, expectedVotersOfMarker := range expectedVoters {
 		voters := t.ConflictTracker.Voters(conflictID)
-		assert.True(t.test, expectedVotersOfMarker.Equal(voters.Members()), "conflict %s expected %d voters but got %d", conflictID, expectedVotersOfMarker.Size(), voters.Members().Size())
-		voters.Detach()
+
+		assert.True(t.test, expectedVotersOfMarker.Equal(voters), "conflict %s expected %d voters but got %d", conflictID, expectedVotersOfMarker.Size(), voters.Size())
 	}
 }
 

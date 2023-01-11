@@ -68,6 +68,7 @@ func New(blockDAG *blockdag.BlockDAG, ledger *ledger.Ledger, opts ...options.Opt
 	}, (*Booker).setupEvents)
 }
 
+// Queue checks if payload is solid and then adds the block to a Booker's CausalOrder.
 func (b *Booker) Queue(block *Block) (wasQueued bool, err error) {
 	if wasQueued, err = b.queue(block); wasQueued {
 		b.bookingOrder.Queue(block)
@@ -97,17 +98,16 @@ func (b *Booker) Block(id models.BlockID) (block *Block, exists bool) {
 	return b.block(id)
 }
 
+// BlockConflicts returns the Conflict related details of the given Block.
 func (b *Booker) BlockConflicts(block *Block) (blockConflictIDs utxo.TransactionIDs) {
-	_, blockConflictIDs = b.blockBookingDetails(block)
+	_, blockConflictIDs = b.BlockBookingDetails(block)
 	return
 }
 
+// BlockBookingDetails returns the Conflict and Marker related details of the given Block.
 func (b *Booker) BlockBookingDetails(block *Block) (pastMarkersConflictIDs, blockConflictIDs utxo.TransactionIDs) {
 	b.evictionMutex.RLock()
 	defer b.evictionMutex.RUnlock()
-
-	b.rLockBlockSequences(block)
-	defer b.rUnlockBlockSequences(block)
 
 	return b.blockBookingDetails(block)
 }
@@ -132,6 +132,7 @@ func (b *Booker) PayloadConflictIDs(block *Block) (conflictIDs utxo.TransactionI
 	return
 }
 
+// Sequence retrieves a Sequence by its ID.
 func (b *Booker) Sequence(id markers.SequenceID) (sequence *markers.Sequence, exists bool) {
 	b.evictionMutex.RLock()
 	defer b.evictionMutex.RUnlock()
@@ -139,6 +140,7 @@ func (b *Booker) Sequence(id markers.SequenceID) (sequence *markers.Sequence, ex
 	return b.markerManager.SequenceManager.Sequence(id)
 }
 
+// BlockFromMarker retrieves the Block of the given Marker.
 func (b *Booker) BlockFromMarker(marker markers.Marker) (block *Block, exists bool) {
 	b.evictionMutex.RLock()
 	defer b.evictionMutex.RUnlock()
@@ -147,6 +149,22 @@ func (b *Booker) BlockFromMarker(marker markers.Marker) (block *Block, exists bo
 	}
 
 	return b.markerManager.BlockFromMarker(marker)
+}
+
+// BlockCeiling returns the smallest Index that is >= the given Marker and a boolean value indicating if it exists.
+func (b *Booker) BlockCeiling(marker markers.Marker) (ceilingMarker markers.Marker, exists bool) {
+	b.evictionMutex.RLock()
+	defer b.evictionMutex.RUnlock()
+
+	return b.markerManager.BlockCeiling(marker)
+}
+
+// BlockFloor returns the largest Index that is <= the given Marker and a boolean value indicating if it exists.
+func (b *Booker) BlockFloor(marker markers.Marker) (floorMarker markers.Marker, exists bool) {
+	b.evictionMutex.RLock()
+	defer b.evictionMutex.RUnlock()
+
+	return b.markerManager.BlockFloor(marker)
 }
 
 // GetEarliestAttachment returns the earliest attachment for a given transaction ID.
@@ -431,7 +449,7 @@ func (b *Booker) setupEvents() {
 // region FORK LOGIC ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // PropagateForkedConflict propagates the forked ConflictID to the future cone of the attachments of the given Transaction.
-func (b *Booker) PropagateForkedConflict(transactionID utxo.TransactionID, addedConflictID utxo.TransactionID, removedConflictIDs utxo.TransactionIDs) (err error) {
+func (b *Booker) PropagateForkedConflict(transactionID, addedConflictID utxo.TransactionID, removedConflictIDs utxo.TransactionIDs) (err error) {
 	for blockWalker := walker.New[*Block]().PushAll(b.attachments.Get(transactionID)...); blockWalker.HasNext(); {
 		block := blockWalker.Next()
 
