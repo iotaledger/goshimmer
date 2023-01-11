@@ -47,19 +47,30 @@ func WithMetric(metric *Metric) options.Option[Collection] {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// SingleValue is a helper function to create a map of labels and values for a single value, where the label will be "value".
 func SingleValue[T constraints.Numeric](val T) map[string]float64 {
 	return map[string]float64{
 		singleValLabel: float64(val),
 	}
 }
 
-func MultiValue[T constraints.Numeric](labels []string, values ...T) map[string]float64 {
+// MultiLabelsValues is a helper function to create a map of labels and values for given labels and values.
+func MultiLabelsValues[T constraints.Numeric](labels []string, values ...T) map[string]float64 {
 	if len(labels) != len(values) {
 		return nil
 	}
 	m := make(map[string]float64)
 	for i, label := range labels {
 		m[label] = float64(values[i])
+	}
+	return m
+}
+
+// MultiLabels is a helper function to create a map of labels and values for given labels, where each value will be set to 1.
+func MultiLabels(labels ...string) map[string]float64 {
+	m := make(map[string]float64)
+	for _, label := range labels {
+		m[label] = 1
 	}
 	return m
 }

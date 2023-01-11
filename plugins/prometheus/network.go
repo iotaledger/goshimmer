@@ -36,10 +36,6 @@ func registerNetworkMetrics() {
 		Help: "traffic_Analysis client TX network traffic [bytes].",
 	})
 
-	if deps.AutoPeeringConnMetric != nil {
-		registry.MustRegister(autopeeringInboundBytes)
-		registry.MustRegister(autopeeringOutboundBytes)
-	}
 	registry.MustRegister(analysisOutboundBytes)
 	registry.MustRegister(gossipInboundPackets)
 	registry.MustRegister(gossipOutboundPackets)
@@ -48,10 +44,6 @@ func registerNetworkMetrics() {
 }
 
 func collectNetworkMetrics() {
-	if deps.AutoPeeringConnMetric != nil && deps.AutoPeeringConnMetric.UDPConn != nil {
-		autopeeringInboundBytes.Set(float64(deps.AutoPeeringConnMetric.RXBytes()))
-		autopeeringOutboundBytes.Set(float64(deps.AutoPeeringConnMetric.TXBytes()))
-	}
 	analysisOutboundBytes.Set(float64(metrics.AnalysisOutboundBytes()))
 	gossipInboundPackets.Set(float64(metrics.GossipInboundPackets()))
 	gossipOutboundPackets.Set(float64(metrics.GossipOutboundPackets()))

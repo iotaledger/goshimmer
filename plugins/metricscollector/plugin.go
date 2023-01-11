@@ -19,6 +19,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/app/collector"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/hive.go/core/autopeering/selection"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -49,12 +50,13 @@ var (
 type dependencies struct {
 	dig.In
 
-	Local       *peer.Local
-	Protocol    *protocol.Protocol
-	BlockIssuer *blockissuer.BlockIssuer
-	P2Pmgr      *p2p.Manager        `optional:"true"`
-	Selection   *selection.Protocol `optional:"true"`
-	Retainer    *retainer.Retainer  `optional:"true"`
+	Local                 *peer.Local
+	Protocol              *protocol.Protocol
+	BlockIssuer           *blockissuer.BlockIssuer
+	P2Pmgr                *p2p.Manager        `optional:"true"`
+	Selection             *selection.Protocol `optional:"true"`
+	Retainer              *retainer.Retainer  `optional:"true"`
+	AutoPeeringConnMetric *autopeering.UDPConnTraffic
 
 	Collector *collector.Collector
 }
@@ -134,5 +136,12 @@ func registerMetrics() {
 	fmt.Println(">>>> registering metrics...")
 	deps.Collector.RegisterCollection(TangleMetrics)
 	deps.Collector.RegisterCollection(ConflictMetrics)
+	deps.Collector.RegisterCollection(InfoMetrics)
+	deps.Collector.RegisterCollection(DBMetrics)
+	deps.Collector.RegisterCollection(ManaMetrics)
+	deps.Collector.RegisterCollection(AutopeeringMetrics)
+	deps.Collector.RegisterCollection(RateSetterMetrics)
+	deps.Collector.RegisterCollection(SchedulerMetrics)
+	deps.Collector.RegisterCollection(CommitmentsMetrics)
 
 }

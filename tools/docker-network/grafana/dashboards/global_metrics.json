@@ -1273,7 +1273,7 @@
           "type": "prometheus",
           "uid": "PBFA97CFB590B2093"
         },
-        "definition": "label_values(iota_info_app, instance)",
+        "definition": "label_values(info_app, instance)",
         "hide": 0,
         "includeAll": true,
         "label": "Instance",
@@ -1281,7 +1281,7 @@
         "name": "instance",
         "options": [],
         "query": {
-          "query": "label_values(iota_info_app, instance)",
+          "query": "label_values(info_app, instance)",
           "refId": "StandardVariableQuery"
         },
         "refresh": 1,

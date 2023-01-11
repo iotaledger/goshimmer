@@ -18,7 +18,7 @@ var DBMetrics = collector.NewCollection(dbNamespace,
 		collector.WithHelp("DB size in bytes for permanent, prunable storage and retainer plugin"),
 		collector.WithLabels(storagePermanentSizeLabel, storagePrunableSizeLabel, retainerSizeLabel),
 		collector.WithCollectFunc(func() map[string]float64 {
-			return collector.MultiValue(
+			return collector.MultiLabelsValues(
 				[]string{storagePermanentSizeLabel, storagePrunableSizeLabel, retainerSizeLabel},
 				deps.Protocol.MainStorage().PermanentDatabaseSize(),
 				deps.Protocol.MainStorage().PrunableDatabaseSize(),

@@ -16,7 +16,7 @@ var (
 func registerInfoMetrics() {
 	infoApp = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "iota_info_app",
+			Name: "info_app",
 			Help: "Node software name and version.",
 		},
 		[]string{"name", "version", "nodeID"},

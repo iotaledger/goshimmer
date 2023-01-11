@@ -11,8 +11,8 @@ const (
 
 	manaPerNode        = "access_per_node"
 	weightPerNode      = "consensus_per_node"
-	nodeManaPercentile = "node_mana_percentile"
-	neighborsMana      = "neighbors_mana"
+	nodeManaPercentile = "node_percentile"
+	neighborsMana      = "neighbors"
 )
 
 var ManaMetrics = collector.NewCollection(manaNamespace,
@@ -54,7 +54,7 @@ var ManaMetrics = collector.NewCollection(manaNamespace,
 			consensus := lo.PanicOnErr(deps.Protocol.Engine().SybilProtection.Weights().Map())
 			conPerc := manamodels.Percentile(deps.Local.ID(), consensus)
 
-			return collector.MultiValue([]string{"access", "consensus"}, accPerc, conPerc)
+			return collector.MultiLabelsValues([]string{"access", "consensus"}, accPerc, conPerc)
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(neighborsMana,
@@ -68,7 +68,7 @@ var ManaMetrics = collector.NewCollection(manaNamespace,
 
 			accAvg := manamodels.NeighborsAverageMana(accessMap, neighbors)
 			conAvg := manamodels.NeighborsAverageMana(consensus, neighbors)
-			return collector.MultiValue([]string{"access", "consensus"}, accAvg, conAvg)
+			return collector.MultiLabelsValues([]string{"access", "consensus"}, accAvg, conAvg)
 		}),
 	)),
 )

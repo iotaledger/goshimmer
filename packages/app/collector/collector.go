@@ -54,6 +54,7 @@ func (c *Collector) getCollection(subsystem string) *Collection {
 	return nil
 }
 
+// Update updates the value of the existing metric defined by the subsystem and metricName.
 func (c *Collector) Update(subsystem, metricName string, labelValues map[string]float64) {
 	m := c.getMetric(subsystem, metricName)
 	if m != nil {

@@ -2,9 +2,10 @@ package prometheus
 
 import (
 	"fmt"
+	"strconv"
+
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/prometheus/client_golang/prometheus"
-	"strconv"
 )
 
 var (
@@ -21,7 +22,7 @@ func registerEpochCommitmentMetrics() {
 		Name: "last_commitment",
 		Help: "Info about last commitment",
 	}, []string{
-		"epoch", "commitment",
+		"commitment",
 	})
 
 	numberOfSeenOtherCommitments = prometheus.NewGauge(prometheus.GaugeOpts{

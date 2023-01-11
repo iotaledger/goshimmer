@@ -8,8 +8,7 @@ const (
 	schedulerNamespace = "scheduler"
 
 	queueSizePerNode      = "queue_size_per_node_bytes"
-	manaAmountPerNode     = "mana_amount_per_node"
-	bufferTotalBlockCount = "buffer_block_total"
+	manaAmountPerNode     = "mana_per_node"
 	bufferReadyBlockCount = "buffer_ready_block_total"
 	bufferTotalSize       = "buffer_size_bytes_total"
 	bufferMaxSize         = "buffer_max_size"

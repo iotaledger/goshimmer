@@ -16,7 +16,9 @@ const (
 	connectionsCount  = "neighbor_connections_total"
 	// todo calculate avg, max, min directly in grafana
 	distance                      = "distance"
-	neighborConnectionLifetimeSec = "neighbor_connection_lifetime_seconds_total"
+	neighborConnectionLifetimeSec = "autopeering_neighbor_connection_lifetime_seconds_total"
+	trafficInboundBytes           = "traffic_inbound_total_bytes"
+	trafficOutboundBytes          = "traffic_outbound_total_bytes"
 )
 
 // AutopeeringMetrics is the collection of metrics for autopeering component.
@@ -53,13 +55,28 @@ var AutopeeringMetrics = collector.NewCollection(autopeeringNamespace,
 		collector.WithType(collector.Gauge),
 		collector.WithHelp("A relative distance between the node and the neighbor"),
 		collector.WithInitFunc(func() {
-			var onAutopeeringSelection = event.NewClosure(func(event *selection.PeeringEvent) {
-				deps.Collector.Update(autopeeringNamespace, distance, collector.SingleValue(float64(event.Distance)))
-			})
+			var onAutopeeringSelection = event.NewClosure(
+				func(event *selection.PeeringEvent) {
+					deps.Collector.Update(autopeeringNamespace, distance, collector.SingleValue(float64(event.Distance)))
+				})
 			if deps.Selection != nil {
 				deps.Selection.Events().IncomingPeering.Hook(onAutopeeringSelection)
 				deps.Selection.Events().OutgoingPeering.Hook(onAutopeeringSelection)
 			}
+		}),
+	)),
+	collector.WithMetric(collector.NewMetric(trafficInboundBytes,
+		collector.WithType(collector.Counter),
+		collector.WithHelp("Inbound network autopeering traffic in bytes"),
+		collector.WithCollectFunc(func() map[string]float64 {
+			return collector.SingleValue(deps.AutoPeeringConnMetric.RXBytes())
+		}),
+	)),
+	collector.WithMetric(collector.NewMetric(trafficOutboundBytes,
+		collector.WithType(collector.Counter),
+		collector.WithHelp("Outbound network autopeering traffic in bytes"),
+		collector.WithCollectFunc(func() map[string]float64 {
+			return collector.SingleValue(deps.AutoPeeringConnMetric.TXBytes())
 		}),
 	)),
 )

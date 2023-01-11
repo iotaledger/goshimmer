@@ -16,7 +16,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/app/metrics/net"
 	"github.com/iotaledger/goshimmer/packages/app/retainer"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/protocol"
@@ -40,11 +39,10 @@ var (
 
 type dependencies struct {
 	dig.In
-	AutopeeringPlugin     *node.Plugin `name:"autopeering" optional:"true"`
-	Local                 *peer.Local
-	AutoPeeringConnMetric *net.ConnMetric `optional:"true"`
-	Protocol              *protocol.Protocol
-	Retainer              *retainer.Retainer `optional:"true"`
+	AutopeeringPlugin *node.Plugin `name:"autopeering" optional:"true"`
+	Local             *peer.Local
+	Protocol          *protocol.Protocol
+	Retainer          *retainer.Retainer `optional:"true"`
 }
 
 func configure(plugin *node.Plugin) {

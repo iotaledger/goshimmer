@@ -20,7 +20,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/manatracker/manamodels"
 
-	netPkg "github.com/iotaledger/goshimmer/packages/app/metrics/net"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 )
 
@@ -43,7 +42,7 @@ type dependencies struct {
 	Local                 *peer.Local
 	P2PMgr                *p2p.Manager                 `optional:"true"`
 	ManaFunc              manamodels.ManaRetrievalFunc `optional:"true" name:"manaFunc"`
-	AutoPeeringConnMetric *netPkg.ConnMetric
+	AutoPeeringConnMetric *UDPConnTraffic
 }
 
 func init() {
@@ -64,8 +63,8 @@ func init() {
 			Plugin.Panic(err)
 		}
 
-		if err := event.Container.Provide(func() *netPkg.ConnMetric {
-			return &netPkg.ConnMetric{}
+		if err := event.Container.Provide(func() *UDPConnTraffic {
+			return &UDPConnTraffic{}
 		}); err != nil {
 			Plugin.Panic(err)
 		}
@@ -171,7 +170,7 @@ func start(ctx context.Context) {
 	}
 	defer conn.Close()
 
-	// ideally this would happen during provide()
+	// use wrapped UDPConn to allow metrics collection
 	deps.AutoPeeringConnMetric.UDPConn = conn
 
 	lPeer := deps.Local
