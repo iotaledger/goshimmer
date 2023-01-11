@@ -229,6 +229,14 @@ type markerPreviousBlockPair struct {
 //
 //	If there's any unaccepted block >TSC threshold, then the oldest accepted block will be >TSC threshold, too.
 func (t *TipManager) isPastConeTimestampCorrect(block *booker.Block) (timestampValid bool) {
+	now := time.Now()
+	markersWalked, blocksWalked := 0, 0
+	blocksTime, markersTime, durationUntilLoops := time.Duration(0), time.Duration(0), time.Duration(0)
+	defer func() {
+		if time.Since(now) > 1*time.Millisecond {
+			fmt.Printf("TSC check taking long time (%s) timeUntilLoops(%s), markersWalked(%d, %s) blocksWalked(%d, %s), time \n", time.Since(now), durationUntilLoops, markersWalked, markersTime, blocksWalked, blocksTime)
+		}
+	}()
 	minSupportedTimestamp := t.engine.Clock.AcceptedTime().Add(-t.optsTimeSinceConfirmationThreshold)
 
 	if !t.engine.IsBootstrapped() {
@@ -250,8 +258,10 @@ func (t *TipManager) isPastConeTimestampCorrect(block *booker.Block) (timestampV
 	blockWalker := walker.New[*booker.Block](false)
 
 	processInitialBlock(block, blockWalker, markerWalker)
-
+	durationUntilLoops = time.Since(now)
+	markersNow := time.Now()
 	for markerWalker.HasNext() {
+		markersWalked++
 		marker := markerWalker.Next()
 		timestampValid = t.checkPair(marker, blockWalker, markerWalker, minSupportedTimestamp)
 		if !timestampValid {
@@ -261,18 +271,25 @@ func (t *TipManager) isPastConeTimestampCorrect(block *booker.Block) (timestampV
 			} else {
 				fmt.Println("(time: ", time.Now(), ") walked on marker ", marker, markerBlock.ID(), " before min supported timestamp issuing time(", block.IssuingTime().String(), "), minsupportedtime(", minSupportedTimestamp, ")")
 			}
+			markersTime = time.Since(markersNow)
+
 			return false
 		}
 	}
+	markersTime = time.Since(markersNow)
 
+	blocksNow := time.Now()
 	for blockWalker.HasNext() {
+		blocksWalked++
 		blockW := blockWalker.Next()
 		timestampValid = t.checkBlock(blockW, blockWalker, minSupportedTimestamp)
 		if !timestampValid {
+			blocksTime = time.Since(blocksNow)
 			fmt.Println("(time: ", time.Now(), ") walked on block before min supported timestamp", blockW.ID(), "issuing time(", blockW.IssuingTime().String(), "), minsupportedtime(", minSupportedTimestamp, ")")
 			return false
 		}
 	}
+	blocksTime = time.Since(blocksNow)
 	return true
 }
 
