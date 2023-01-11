@@ -39,12 +39,12 @@ var enableRateSetterQuestion = &survey.Select{
 	Default: "enable",
 }
 
-var addUrlQuestion = &survey.Input{
+var addURLQuestion = &survey.Input{
 	Message: "http://",
 	Default: "enable",
 }
 
-var removeUrlQuestion = func(urls []string) *survey.MultiSelect {
+var removeURLQuestion = func(urls []string) *survey.MultiSelect {
 	return &survey.MultiSelect{
 		Message: "Select urls that should be removed.",
 		Options: urls,

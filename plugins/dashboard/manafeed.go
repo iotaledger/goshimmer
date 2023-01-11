@@ -108,7 +108,7 @@ func sendManaMapOverall() {
 	totalAccessMana := int64(0)
 	for i := 0; i < len(accessManaList); i++ {
 		accessPayload.Issuers = append(accessPayload.Issuers, accessManaList[i].ToIssuerStr())
-		totalAccessMana += int64(accessManaList[i].Mana)
+		totalAccessMana += accessManaList[i].Mana
 	}
 	accessPayload.TotalMana = totalAccessMana
 	broadcastWsBlock(&wsblk{

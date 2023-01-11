@@ -28,33 +28,33 @@ var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 	}
 })
 
-// BlockReceivedEvent holds data about a block received event.
+// EpochCommitmentReceivedEvent holds data about an epoch commitment received event.
 type EpochCommitmentReceivedEvent struct {
 	ID       identity.ID
 	ECRecord *commitment.Commitment
 }
 
-// BlockReceivedEvent holds data about a block received event.
+// EpochBlocksRequestReceivedEvent holds data about an epoc blocks request received event.
 type EpochBlocksRequestReceivedEvent struct {
 	ID identity.ID
 	EI epoch.Index
 	EC commitment.ID
 }
 
-// BlockReceivedEvent holds data about a block received event.
+// EpochBlocksStartEvent holds data about an epoch blocks start event.
 type EpochBlocksStartEvent struct {
 	ID identity.ID
 	EI epoch.Index
 }
 
-// BlockReceivedEvent holds data about a block received event.
+// EpochBlockEvent holds data about an epoch block event.
 type EpochBlockEvent struct {
 	ID    identity.ID
 	EI    epoch.Index
 	Block *models.Block
 }
 
-// BlockReceivedEvent holds data about a block received event.
+// EpochBlocksEndEvent holds data about an epoch blocks end event.
 type EpochBlocksEndEvent struct {
 	ID    identity.ID
 	EI    epoch.Index

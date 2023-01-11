@@ -266,7 +266,7 @@ Below is an runnable example to send `guava` scenario:
 ```go
 evilwallet := NewEvilWallet()
 
-err, wallet := evilwallet.RequestFundsFromFaucet(WithOutputAlias("1"))
+wallet, err := evilwallet.RequestFundsFromFaucet(WithOutputAlias("1"))
 
 err = evilwallet.SendCustomConflicts([]ConflictSlice{
     {

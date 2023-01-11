@@ -299,7 +299,7 @@ func (o *OutputManager) AwaitOutputToBeSolid(outID string, clt Client, waitFor t
 	var solid bool
 
 	for ; time.Since(s) < waitFor; time.Sleep(awaitSolidificationSleep) {
-		solid = o.IssuerSolidOutIDMap(clt.Url(), outID)
+		solid = o.IssuerSolidOutIDMap(clt.URL(), outID)
 		if solid {
 			break
 		}

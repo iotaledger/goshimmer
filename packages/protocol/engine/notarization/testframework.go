@@ -84,7 +84,9 @@ func (t *TestFramework) CreateBlock(alias string, index epoch.Index, blockOpts .
 			models.NewBlockIDs(models.EmptyBlockID),
 		),
 	}, blockOpts...)...)
-	block.DetermineID()
+	if err := block.DetermineID(); err != nil {
+		panic(err)
+	}
 
 	t.blocksByID[alias] = block
 

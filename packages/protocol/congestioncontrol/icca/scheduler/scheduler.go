@@ -316,7 +316,7 @@ func (s *Scheduler) SubmitAndReady(block *Block) (err error) {
 	s.bufferMutex.Lock()
 	defer s.bufferMutex.Unlock()
 
-	if err = s.submit(block); err != nil {
+	if err := s.submit(block); err != nil {
 		return err
 	}
 

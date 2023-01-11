@@ -166,7 +166,7 @@ func (c *WebClients) SetPledgeID(id *identity.ID) {
 
 type Client interface {
 	// Url returns a client API url.
-	Url() (cltID string)
+	URL() (cltID string)
 	// GetRateSetterEstimate returns a rate setter estimate.
 	GetRateSetterEstimate() (estimate time.Duration, err error)
 	// SleepRateSetterEstimate sleeps for rate setter estimate.
@@ -201,8 +201,8 @@ type WebClient struct {
 	url string
 }
 
-// Url returns a client API Url.
-func (c *WebClient) Url() string {
+// URL returns a client API Url.
+func (c *WebClient) URL() string {
 	return c.url
 }
 

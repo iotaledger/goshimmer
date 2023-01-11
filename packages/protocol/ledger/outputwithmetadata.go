@@ -38,15 +38,15 @@ func (o *OutputWithMetadata) String() string {
 }
 
 // NewOutputWithMetadata returns a new OutputWithMetadata object.
-func NewOutputWithMetadata(index epoch.Index, outputID utxo.OutputID, output utxo.Output, consensusManaPledgeID, accessManaPledgeID identity.ID) (new *OutputWithMetadata) {
-	new = model.NewStorable[utxo.OutputID, OutputWithMetadata](&outputWithMetadataModel{
+func NewOutputWithMetadata(index epoch.Index, outputID utxo.OutputID, output utxo.Output, consensusManaPledgeID, accessManaPledgeID identity.ID) (o *OutputWithMetadata) {
+	o = model.NewStorable[utxo.OutputID, OutputWithMetadata](&outputWithMetadataModel{
 		Index:                 index,
 		OutputID:              outputID,
 		Output:                output,
 		ConsensusManaPledgeID: consensusManaPledgeID,
 		AccessManaPledgeID:    accessManaPledgeID,
 	}, false)
-	new.SetID(outputID)
+	o.SetID(outputID)
 	return
 }
 
@@ -84,7 +84,7 @@ func (o *OutputWithMetadata) SpentInEpoch() epoch.Index {
 	return o.M.SpentInEpoch
 }
 
-// SetIndex sets the index of the output.
+// SetSpentInEpoch sets the index of the epoc the output was spent in.
 func (o *OutputWithMetadata) SetSpentInEpoch(index epoch.Index) {
 	o.Lock()
 	defer o.Unlock()
@@ -100,8 +100,8 @@ func (o *OutputWithMetadata) Output() (output utxo.Output) {
 	return o.M.Output
 }
 
-// TODO: don't make the ledger depend on devnetvm
 // IOTABalance returns the IOTA balance of the Output.
+// TODO: don't make the ledger depend on devnetvm
 func (o *OutputWithMetadata) IOTABalance() (balance uint64, exists bool) {
 	o.RLock()
 	defer o.RUnlock()

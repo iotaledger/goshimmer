@@ -40,6 +40,7 @@ func loadConfig() {
 			panic(err)
 		}
 
+		//nolint:gosec // users should be able to read the file
 		if err = os.WriteFile("config.json", []byte(configJSON), 0o644); err != nil {
 			panic(err)
 		}

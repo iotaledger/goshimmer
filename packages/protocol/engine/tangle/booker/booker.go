@@ -242,13 +242,13 @@ func (b *Booker) book(block *Block) (err error) {
 			return errors.Errorf("block with %s belongs to an evicted epoch", block.ID())
 		}
 
-		if err = b.inheritConflictIDs(block); err != nil {
+		if err := b.inheritConflictIDs(block); err != nil {
 			return errors.Errorf("error inheriting conflict IDs: %w", err)
 		}
 		return nil
 	}
 
-	if err = tryInheritConflictIDs(); err != nil {
+	if err := tryInheritConflictIDs(); err != nil {
 		return err
 	}
 

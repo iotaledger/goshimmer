@@ -38,7 +38,7 @@ func (m *Marshalable[V, VPtr]) Set(value V) {
 
 	m.value = value
 
-	if err := m.store.Set(m.key, lo.PanicOnErr((VPtr)(&m.value).Bytes())); err != nil {
+	if err := m.store.Set(m.key, lo.PanicOnErr(VPtr(&m.value).Bytes())); err != nil {
 		panic(err)
 	}
 }

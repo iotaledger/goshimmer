@@ -13,10 +13,11 @@ import (
 
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
+	"github.com/iotaledger/hive.go/core/ioutils"
 	"github.com/iotaledger/hive.go/core/kvstore"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 )
 
 // region Manager //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -27,7 +28,7 @@ type Manager struct {
 
 	openDBs         *cache.Cache[epoch.Index, *dbInstance]
 	bucketedBaseDir string
-	dbSizes         *memstorage.Storage[epoch.Index, int64]
+	dbSizes         *shrinkingmap.ShrinkingMap[epoch.Index, int64]
 	openDBsMutex    sync.Mutex
 
 	maxPruned      epoch.Index
@@ -70,7 +71,7 @@ func NewManager(version Version, opts ...options.Option[Manager]) *Manager {
 			m.dbSizes.Set(baseIndex, size)
 		})
 
-		m.dbSizes = memstorage.New[epoch.Index, int64]()
+		m.dbSizes = shrinkingmap.New[epoch.Index, int64]()
 	})
 
 	if err := m.checkVersion(version); err != nil {
@@ -250,6 +251,9 @@ func (m *Manager) PermanentStorageSize() int64 {
 
 // PrunableStorageSize returns the size of the prunable storage containing all db instances.
 func (m *Manager) PrunableStorageSize() int64 {
+	m.openDBsMutex.Lock()
+	defer m.openDBsMutex.Unlock()
+
 	// Sum up all the evicted databases
 	var sum int64
 	m.dbSizes.ForEach(func(index epoch.Index, i int64) bool {
@@ -258,14 +262,14 @@ func (m *Manager) PrunableStorageSize() int64 {
 	})
 
 	// Add up all the open databases
-	//m.openDBs.Each(func(key epoch.Index, val *dbInstance) {
-	//	size, err := dbPrunableDirectorySize(m.bucketedBaseDir, key)
-	//	if err != nil {
-	//		fmt.Println("dbPrunableDirectorySize failed for", m.bucketedBaseDir, key, ":", err)
-	//		return
-	//	}
-	//	sum += size
-	//})
+	m.openDBs.Each(func(key epoch.Index, val *dbInstance) {
+		size, err := dbPrunableDirectorySize(m.bucketedBaseDir, key)
+		if err != nil {
+			fmt.Println("dbPrunableDirectorySize failed for", m.bucketedBaseDir, key, ":", err)
+			return
+		}
+		sum += size
+	})
 
 	return sum
 }
@@ -482,17 +486,7 @@ func dbPrunableDirectorySize(base string, index epoch.Index) (int64, error) {
 }
 
 func dbDirectorySize(path string) (int64, error) {
-	var size int64
-	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if !info.IsDir() {
-			size += info.Size()
-		}
-		return err
-	})
-	return size, err
+	return ioutils.FolderSize(path)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

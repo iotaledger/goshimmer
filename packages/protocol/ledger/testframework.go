@@ -352,7 +352,7 @@ type MockedInput struct {
 }
 
 // NewMockedInput creates a new MockedInput from an utxo.OutputID.
-func NewMockedInput(outputID utxo.OutputID) (new *MockedInput) {
+func NewMockedInput(outputID utxo.OutputID) *MockedInput {
 	return &MockedInput{OutputID: outputID}
 }
 

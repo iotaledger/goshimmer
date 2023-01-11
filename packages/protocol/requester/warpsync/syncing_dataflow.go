@@ -69,7 +69,9 @@ func (m *Manager) epochBlockCommand(params *syncingFlowParams, next dataflow.Nex
 
 			m.log.Debugw("read block", "peer", params.neighbor, "Index", epochBlock.ei, "blockID", block.ID())
 
-			params.tangleTree.Update(lo.PanicOnErr(block.ID().Bytes()), lo.PanicOnErr(block.ID().Bytes()))
+			if _, err := params.tangleTree.Update(lo.PanicOnErr(block.ID().Bytes()), lo.PanicOnErr(block.ID().Bytes())); err != nil {
+				return errors.Wrap(err, "error updating tangleTree")
+			}
 			params.epochBlocks[block.ID()] = block
 			params.epochBlocksLeft--
 
