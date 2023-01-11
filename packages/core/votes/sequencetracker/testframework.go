@@ -67,7 +67,6 @@ func (t *TestFramework[VotePowerType]) ValidateStructureDetailsVoters(expectedVo
 		voters := t.SequenceTracker.Voters(t.StructureDetails(markerAlias).PastMarkers().Marker())
 
 		assert.True(t.test, expectedVotersOfMarker.Equal(voters), "marker %s expected %d voters but got %d", markerAlias, expectedVotersOfMarker.Size(), voters.Size())
-		voters.Detach()
 	}
 }
 
