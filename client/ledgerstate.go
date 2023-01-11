@@ -36,17 +36,6 @@ func (api *GoShimmerAPI) GetAddressOutputs(base58EncodedAddress string) (*jsonmo
 	return res, nil
 }
 
-// GetAddressUnspentOutputs gets the unspent outputs of an address.
-func (api *GoShimmerAPI) GetAddressUnspentOutputs(base58EncodedAddress string) (*jsonmodels.GetAddressResponse, error) {
-	res := &jsonmodels.GetAddressResponse{}
-	if err := api.do(http.MethodGet, func() string {
-		return strings.Join([]string{routeGetAddresses, base58EncodedAddress, pathUnspentOutputs}, "")
-	}(), nil, res); err != nil {
-		return nil, err
-	}
-	return res, nil
-}
-
 // PostAddressUnspentOutputs gets the unspent outputs of several addresses.
 func (api *GoShimmerAPI) PostAddressUnspentOutputs(base58EncodedAddresses []string) (*jsonmodels.PostAddressesUnspentOutputsResponse, error) {
 	res := &jsonmodels.PostAddressesUnspentOutputsResponse{}

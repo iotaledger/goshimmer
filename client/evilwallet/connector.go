@@ -267,11 +267,11 @@ func (c *WebClient) PostData(data []byte) (blkID string, err error) {
 }
 
 func (c *WebClient) GetAddressUnspentOutputs(address string) (outputIDs []utxo.OutputID, err error) {
-	res, err := c.api.GetAddressUnspentOutputs(address)
+	res, err := c.api.GetAddressOutputs(address)
 	if err != nil {
 		return
 	}
-	outputIDs = getOutputIDsByJSON(res.Outputs)
+	outputIDs = getOutputIDsByJSON(res.UnspentOutputs)
 	return
 }
 

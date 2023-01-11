@@ -17,24 +17,28 @@ import (
 
 // GetAddressResponse represents the JSON model of a response from the GetAddress endpoint.
 type GetAddressResponse struct {
-	Address *Address  `json:"address"`
-	Outputs []*Output `json:"outputs"`
+	Address        *Address  `json:"address"`
+	SpentOutputs   []*Output `json:"spentOutputs"`
+	UnspentOutputs []*Output `json:"unspentOutputs"`
 }
 
 // NewGetAddressResponse returns a GetAddressResponse from the given details.
-func NewGetAddressResponse(address devnetvm.Address, outputs devnetvm.Outputs) *GetAddressResponse {
-	return &GetAddressResponse{
-		Address: NewAddress(address),
-		Outputs: func() (mappedOutputs []*Output) {
-			mappedOutputs = make([]*Output, 0)
-			for _, output := range outputs {
-				if output != nil {
-					mappedOutputs = append(mappedOutputs, NewOutput(output))
-				}
+func NewGetAddressResponse(address devnetvm.Address, spent, unspent devnetvm.Outputs) *GetAddressResponse {
+	mappedOutput := func(outputs devnetvm.Outputs) (mappedOutputs []*Output) {
+		mappedOutputs = make([]*Output, 0)
+		for _, output := range outputs {
+			if output != nil {
+				mappedOutputs = append(mappedOutputs, NewOutput(output))
 			}
+		}
 
-			return
-		}(),
+		return
+	}
+
+	return &GetAddressResponse{
+		Address:        NewAddress(address),
+		SpentOutputs:   mappedOutput(spent),
+		UnspentOutputs: mappedOutput(unspent),
 	}
 }
 

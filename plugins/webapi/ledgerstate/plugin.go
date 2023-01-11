@@ -124,7 +124,6 @@ func run(*node.Plugin) {
 
 	// register endpoints
 	deps.Server.GET("ledgerstate/addresses/:address", GetAddress)
-	deps.Server.GET("ledgerstate/addresses/:address/unspentOutputs", GetAddressUnspentOutputs)
 	deps.Server.POST("ledgerstate/addresses/unspentOutputs", PostAddressUnspentOutputs)
 	deps.Server.GET("ledgerstate/conflicts/:conflictID", GetConflict)
 	deps.Server.GET("ledgerstate/conflicts/:conflictID/children", GetConflictChildren)
@@ -181,30 +180,18 @@ func GetAddress(c echo.Context) error {
 	}
 
 	outputs := outputsOnAddress(address)
-
-	return c.JSON(http.StatusOK, jsonmodels.NewGetAddressResponse(address, outputs))
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region GetAddressUnspentOutputs /////////////////////////////////////////////////////////////////////////////////////
-
-// GetAddressUnspentOutputs is the handler for the /ledgerstate/addresses/:address/unspentOutputs endpoint.
-func GetAddressUnspentOutputs(c echo.Context) error {
-	address, err := devnetvm.AddressFromBase58EncodedString(c.Param("address"))
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	spentOutputs, unspentOutputs := devnetvm.Outputs{}, devnetvm.Outputs{}
+	for _, output := range outputs {
+		deps.Protocol.Engine().Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
+			if outputMetadata.IsSpent() {
+				spentOutputs = append(spentOutputs, output)
+				return
+			}
+			unspentOutputs = append(unspentOutputs, output)
+		})
 	}
 
-	outputs := outputsOnAddress(address)
-
-	return c.JSON(http.StatusOK, jsonmodels.NewGetAddressResponse(address, outputs.Filter(func(output devnetvm.Output) (isUnspent bool) {
-		deps.Protocol.Engine().Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
-			isUnspent = !outputMetadata.IsSpent()
-		})
-
-		return
-	})))
+	return c.JSON(http.StatusOK, jsonmodels.NewGetAddressResponse(address, spentOutputs, unspentOutputs))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
