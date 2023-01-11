@@ -6,7 +6,6 @@ import (
 )
 
 var (
-	// workerCount  prometheus.Gauge
 	pendingTasks *prometheus.GaugeVec
 	workerCount  *prometheus.GaugeVec
 )
