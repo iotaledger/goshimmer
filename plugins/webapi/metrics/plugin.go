@@ -1,10 +1,12 @@
 package metrics
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
 	"github.com/iotaledger/hive.go/core/autopeering/discover"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/node"
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
@@ -12,6 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/app/retainer"
 	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1/manamodels"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 )
 
@@ -91,5 +94,15 @@ func activeManaRatio() float64 {
 	for _, am := range metrics.ConsensusManaMap() {
 		totalActive += am
 	}
-	return float64(totalActive / deps.Protocol.Engine().ManaTracker.TotalMana())
+
+	consensusManaList, _, err := manamodels.GetHighestManaIssuers(0, lo.PanicOnErr(deps.Protocol.Engine().SybilProtection.Weights().Map()))
+	if err != nil && !errors.Is(err, manamodels.ErrQueryNotAllowed) {
+		return 0
+	}
+
+	var totalConsensusMana int64
+	for i := 0; i < len(consensusManaList); i++ {
+		totalConsensusMana += consensusManaList[i].Mana
+	}
+	return float64(totalActive / totalConsensusMana)
 }

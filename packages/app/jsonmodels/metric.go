@@ -1,6 +1,6 @@
 package jsonmodels
 
-import "github.com/iotaledger/goshimmer/packages/protocol/engine/manatracker/manamodels"
+import "github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1/manamodels"
 
 // GlobalMetricsResponse contains global metrics for explorer.
 type GlobalMetricsResponse struct {
