@@ -10,7 +10,7 @@ import (
 
 type WeightedSet struct {
 	Weights              *Weights
-	weightUpdatesClosure *event.Closure[*WeightUpdates]
+	weightUpdatesClosure *event.Closure[*WeightsBatch]
 	members              *set.AdvancedSet[identity.ID]
 	membersMutex         sync.RWMutex
 	totalWeight          int64
@@ -72,7 +72,7 @@ func (w *WeightedSet) Get(id identity.ID) (weight *Weight, exists bool) {
 		return nil, false
 	}
 
-	if weight, exists := w.Weights.Weight(id); exists {
+	if weight, exists := w.Weights.Get(id); exists {
 		return weight, true
 	}
 
@@ -100,7 +100,7 @@ func (w *WeightedSet) ForEach(callback func(id identity.ID) error) (err error) {
 func (w *WeightedSet) ForEachWeighted(callback func(id identity.ID, weight int64) error) (err error) {
 	for it := w.members.Iterator(); it.HasNext(); {
 		member := it.Next()
-		memberWeight, exists := w.Weights.Weight(member)
+		memberWeight, exists := w.Weights.Get(member)
 		if !exists {
 			memberWeight = NewWeight(0, -1)
 		}
@@ -130,7 +130,7 @@ func (w *WeightedSet) Detach() {
 	w.Weights.Events.WeightsUpdated.Detach(w.weightUpdatesClosure)
 }
 
-func (w *WeightedSet) onWeightUpdated(updates *WeightUpdates) {
+func (w *WeightedSet) onWeightUpdated(updates *WeightsBatch) {
 	w.totalWeightMutex.Lock()
 	defer w.totalWeightMutex.Unlock()
 

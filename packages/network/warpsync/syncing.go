@@ -68,7 +68,10 @@ func (p *Protocol) SendEpochEnd(ei epoch.Index, ec commitment.ID, roots *commitm
 func (p *Protocol) processEpochBlocksRequestPacket(packetEpochRequest *wp.Packet_EpochBlocksRequest, id identity.ID) {
 	ei := epoch.Index(packetEpochRequest.EpochBlocksRequest.GetEI())
 	ec := new(commitment.Commitment)
-	ec.FromBytes(packetEpochRequest.EpochBlocksRequest.GetEC())
+	if _, err := ec.FromBytes(packetEpochRequest.EpochBlocksRequest.GetEC()); err != nil {
+		p.log.Errorw("received epoch blocks request: unable to deserialize commitment", "peer", id, "Index", ei, "err", err)
+		return
+	}
 
 	p.log.Debugw("received epoch blocks request", "peer", id, "Index", ei, "EC", ec)
 
@@ -116,10 +119,13 @@ func (p *Protocol) processEpochBlocksEndPacket(packetEpochBlocksEnd *wp.Packet_E
 	epochBlocksBatch := packetEpochBlocksEnd.EpochBlocksEnd
 	ei := epoch.Index(epochBlocksBatch.GetEI())
 
-	p.log.Debugw("received epoch blocks end", "peer", id, "Index", ei)
-
 	ec := new(commitment.Commitment)
-	ec.FromBytes(packetEpochBlocksEnd.EpochBlocksEnd.GetEC())
+	if _, err := ec.FromBytes(packetEpochBlocksEnd.EpochBlocksEnd.GetEC()); err != nil {
+		p.log.Errorw("received epoch blocks end: unable to deserialize commitment", "peer", id, "Index", ei, "err", err)
+		return
+	}
+
+	p.log.Debugw("received epoch blocks end", "peer", id, "Index", ei)
 
 	eventToTrigger := &EpochBlocksEndEvent{
 		ID:    id,
@@ -127,7 +133,10 @@ func (p *Protocol) processEpochBlocksEndPacket(packetEpochBlocksEnd *wp.Packet_E
 		EC:    ec.ID(),
 		Roots: new(commitment.Roots),
 	}
-	eventToTrigger.Roots.FromBytes(packetEpochBlocksEnd.EpochBlocksEnd.GetRoots())
+	if _, err := eventToTrigger.Roots.FromBytes(packetEpochBlocksEnd.EpochBlocksEnd.GetRoots()); err != nil {
+		p.log.Errorw("received epoch blocks end: unable to deserialize roots", "peer", id, "Index", ei, "err", err)
+		return
+	}
 
 	p.Events.EpochBlocksEnd.Trigger(eventToTrigger)
 }

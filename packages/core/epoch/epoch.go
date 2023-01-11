@@ -71,6 +71,24 @@ func (i Index) EndTime() time.Time {
 	return time.Unix(endUnix, 0)
 }
 
+// Max returns the maximum of the two given epochs.
+func (i Index) Max(other Index) Index {
+	if i > other {
+		return i
+	}
+
+	return other
+}
+
+// Abs returns the absolute value of the Index.
+func (i Index) Abs() (absolute Index) {
+	if i < 0 {
+		return -i
+	}
+
+	return i
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region IndexedID ////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -12,7 +12,7 @@ type Events struct {
 }
 
 // newEvents returns a new Events object.
-func newEvents() (new *Events) {
+func newEvents() *Events {
 	return &Events{
 		BlockReceived: event.New[*BlockReceivedEvent](),
 	}

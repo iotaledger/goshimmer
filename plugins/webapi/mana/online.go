@@ -16,7 +16,7 @@ import (
 
 func getOnlineAccessHandler(c echo.Context) error {
 	resp := make([]*jsonmodels.OnlineIssuerStr, 0)
-	manaMap := deps.Protocol.Engine().ManaTracker.ManaByIDs()
+	manaMap := deps.Protocol.Engine().ThroughputQuota.BalanceByIDs()
 	var knownPeers *set.AdvancedSet[identity.ID]
 	if deps.Discovery != nil {
 		knownPeers = set.NewAdvancedSet[identity.ID](lo.Map(deps.Discovery.GetVerifiedPeers(), func(p *peer.Peer) identity.ID {

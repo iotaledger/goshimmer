@@ -13,7 +13,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/storage"
-	"github.com/iotaledger/goshimmer/packages/storage/permanent"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -52,7 +51,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 			}
 
 			if t.optsValidators == nil {
-				t.optsValidators = sybilprotection.NewWeightedSet(sybilprotection.NewWeights(mapdb.NewMapDB(), permanent.NewSettings(t.test.TempDir()+"/settings")))
+				t.optsValidators = sybilprotection.NewWeightedSet(sybilprotection.NewWeights(mapdb.NewMapDB()))
 			}
 
 			t.Tangle = New(t.optsLedger, t.optsEvictionState, t.optsValidators, func() epoch.Index {
@@ -68,7 +67,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 			virtualvoting.WithLedger(t.Tangle.Ledger),
 			virtualvoting.WithBooker(t.Tangle.Booker),
 			virtualvoting.WithVirtualVoting(t.Tangle.VirtualVoting),
-			virtualvoting.WithValidators(t.optsValidators),
+			virtualvoting.WithValidators(t.Tangle.Validators),
 		)
 	})
 }

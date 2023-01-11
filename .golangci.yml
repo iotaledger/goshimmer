@@ -50,6 +50,11 @@ linters-settings:
             - octalLiteral
             - whyNoLint
             - wrapperFunc
+            # The next checks are disabled temporary, but should be re-enabled later on
+            - paramTypeCombine
+            - exposedSyncMutex
+            - importShadow
+            - evalOrder
     goimports:
         local-prefixes: github.com/iotaledger/goshimmer
     gomnd:
@@ -59,8 +64,11 @@ linters-settings:
                 checks: argument,case,condition,return
     govet:
         check-shadowing: true
-    golint:
+    revive:
         min-confidence: 0.5
+        rules:
+            - name: exported # check if exported functions have documentation
+              disabled: true
     misspell:
         locale: US
     nolintlint:
@@ -70,40 +78,36 @@ linters:
     disable-all: true
     enable:
         - bodyclose # Checks whether HTTP response body is closed successfully.
-        - deadcode # Finds unused code.
-        - dogsled # Checks assignments with too many blank identifiers (e.g. x, , , _, := f()).
-        - dupl # Tool for code clone detection.
+        # - dogsled # Checks assignments with too many blank identifiers (e.g. x, , , _, := f()).
+        # - dupl # Tool for code clone detection.
         # Errcheck is a program for checking for unchecked errors in go programs.
         # These unchecked errors can be critical bugs in some cases
         - errcheck
         - exportloopref # Checks for pointers to enclosing loop variables.
-        - funlen # Tool for detection of long functions.
-        - goconst # Finds repeated strings that could be replaced by a constant.
+        # - funlen # Tool for detection of long functions.
+        # - goconst # Finds repeated strings that could be replaced by a constant.
         - gocritic # Provides many diagnostics that check for bugs, performance and style issues.
         - gocyclo # Computes and checks the cyclomatic complexity of functions.
         - goerr113 # Golang linter to check the errors handling expressions.
         - gofmt # Gofmt checks whether code was gofmt-ed. By default this tool runs with -s option to check for code simplification.
-        - gofumpt # Gofumpt checks whether code was gofumpt-ed. A more strict version of gofmt.
         - goimports # Sorts and format imports.
-        - golint # golint checks style mistakes.
-        - godot # Check if comments end in a period [fast: true, auto-fix: true]
-        - gomnd # An analyzer to detect magic numbers.
+        - revive # code style checks.
+        # - godot # Check if comments end in a period [fast: true, auto-fix: true]
+        # - gomnd # An analyzer to detect magic numbers.
         - goprintffuncname # Checks that printf-like functions are named with f at the end.
         - gosec # Inspects source code for security problems.
         - gosimple # Linter for Go source code that specializes in simplifying a code.
         - govet # Vet examines Go source code and reports suspicious constructs.
         - ineffassign # Detects when assignments to existing variables are not used.
         - misspell # Finds commonly misspelled English words in comments.
-        - nakedret # Finds naked returns in functions greater than a specified function length.
+        # - nakedret # Finds naked returns in functions greater than a specified function length.
         - noctx # noctx finds sending http request without context.Context.
         - nolintlint # Reports ill-formed or insufficient nolint directives.
         - staticcheck # Staticcheck is a go vet on steroids, applying a ton of static analysis checks.
-        - structcheck # Finds unused struct fields.
         - stylecheck # Stylecheck is a replacement for golint.
         - unconvert # Remove unnecessary type conversions.
-        - unparam # Reports unused function parameters.
-        - unused # Checks Go code for unused constants, variables, functions and types.
-        - varcheck # Finds unused global variables and constants.
+        # - unparam # Reports unused function parameters.
+        # - unused # Checks Go code for unused constants, variables, functions and types.
         - whitespace # Tool for detection of leading and trailing whitespace.
 
 

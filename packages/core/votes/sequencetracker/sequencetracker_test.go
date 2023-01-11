@@ -69,7 +69,7 @@ func TestSequenceTracker_TrackVotes(t *testing.T) {
 	}
 	// CASE1: APPROVE MARKER(0, 3)
 	{
-		tf.SequenceTracker.TrackVotes(markers.NewMarkers(markers.NewMarker(0, 3)), tf.Validator("A"), votes.MockedVotePower{0})
+		tf.SequenceTracker.TrackVotes(markers.NewMarkers(markers.NewMarker(0, 3)), tf.Validator("A"), votes.MockedVotePower{VotePower: 0})
 
 		tf.ValidateStructureDetailsVoters(lo.MergeMaps(expectedVoters, map[string]*set.AdvancedSet[identity.ID]{
 			"0,1": tf.ValidatorsSet("A"),
@@ -79,7 +79,7 @@ func TestSequenceTracker_TrackVotes(t *testing.T) {
 	}
 	// CASE2: APPROVE MARKER(0, 4) + MARKER(2, 6)
 	{
-		tf.SequenceTracker.TrackVotes(markers.NewMarkers(markers.NewMarker(0, 4), markers.NewMarker(2, 6)), tf.Validator("A"), votes.MockedVotePower{1})
+		tf.SequenceTracker.TrackVotes(markers.NewMarkers(markers.NewMarker(0, 4), markers.NewMarker(2, 6)), tf.Validator("A"), votes.MockedVotePower{VotePower: 1})
 
 		tf.ValidateStructureDetailsVoters(lo.MergeMaps(expectedVoters, map[string]*set.AdvancedSet[identity.ID]{
 			"0,4": tf.ValidatorsSet("A"),
@@ -93,7 +93,7 @@ func TestSequenceTracker_TrackVotes(t *testing.T) {
 
 	// CASE3: APPROVE MARKER(4, 8)
 	{
-		tf.SequenceTracker.TrackVotes(markers.NewMarkers(markers.NewMarker(4, 8)), tf.Validator("A"), votes.MockedVotePower{2})
+		tf.SequenceTracker.TrackVotes(markers.NewMarkers(markers.NewMarker(4, 8)), tf.Validator("A"), votes.MockedVotePower{VotePower: 2})
 
 		tf.ValidateStructureDetailsVoters(lo.MergeMaps(expectedVoters, map[string]*set.AdvancedSet[identity.ID]{
 			"2,7": tf.ValidatorsSet("A"),
@@ -103,7 +103,7 @@ func TestSequenceTracker_TrackVotes(t *testing.T) {
 
 	// CASE4: APPROVE MARKER(1, 5)
 	{
-		tf.SequenceTracker.TrackVotes(markers.NewMarkers(markers.NewMarker(1, 5)), tf.Validator("B"), votes.MockedVotePower{3})
+		tf.SequenceTracker.TrackVotes(markers.NewMarkers(markers.NewMarker(1, 5)), tf.Validator("B"), votes.MockedVotePower{VotePower: 3})
 
 		tf.ValidateStructureDetailsVoters(lo.MergeMaps(expectedVoters, map[string]*set.AdvancedSet[identity.ID]{
 			"0,1": tf.ValidatorsSet("A", "B"),

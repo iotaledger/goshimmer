@@ -30,8 +30,8 @@ func getManaHandler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetManaResponse{Error: err.Error()})
 	}
 
-	accessMana, _ := deps.Protocol.Engine().ManaTracker.Mana(ID)
-	consensusMana := lo.Return1(deps.Protocol.Engine().SybilProtection.Weights().Weight(ID)).Value
+	accessMana, _ := deps.Protocol.Engine().ThroughputQuota.Balance(ID)
+	consensusMana := lo.Return1(deps.Protocol.Engine().SybilProtection.Weights().Get(ID)).Value
 
 	return c.JSON(http.StatusOK, jsonmodels.GetManaResponse{
 		ShortIssuerID:      ID.String(),

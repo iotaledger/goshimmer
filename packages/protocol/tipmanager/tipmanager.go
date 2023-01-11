@@ -57,7 +57,7 @@ func New(schedulerBlockRetrieverFunc blockRetrieverFunc, opts ...options.Option[
 	}, opts)
 }
 
-func (t *TipManager) ActivateEngine(engine *engine.Engine) {
+func (t *TipManager) LinkTo(engine *engine.Engine) {
 	t.tips = randommap.New[*scheduler.Block, *scheduler.Block]()
 	t.engine = engine
 	t.blockAcceptanceGadget = engine.Consensus.BlockGadget
@@ -123,6 +123,7 @@ func (t *TipManager) checkMonotonicity(block *scheduler.Block) (anyScheduledOrAc
 	return false
 }
 
+// RemoveStrongParents removes all tips that are parents of the given block.
 func (t *TipManager) RemoveStrongParents(block *models.Block) {
 	block.ForEachParent(func(parent models.Parent) {
 		// TODO: reintroduce TipsConflictTracker
@@ -480,12 +481,14 @@ func previousMarker(sequence *markers.Sequence, markerIndex markers.Index, block
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// WithTimeSinceConfirmationThreshold returns an option that sets the time since confirmation threshold.
 func WithTimeSinceConfirmationThreshold(timeSinceConfirmationThreshold time.Duration) options.Option[TipManager] {
 	return func(o *TipManager) {
 		o.optsTimeSinceConfirmationThreshold = timeSinceConfirmationThreshold
 	}
 }
 
+// WithWidth returns an option that configures the TipManager to maintain a certain width of the tangle.
 func WithWidth(maxWidth int) options.Option[TipManager] {
 	return func(t *TipManager) {
 		t.optsWidth = maxWidth

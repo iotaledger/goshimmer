@@ -72,8 +72,8 @@ func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opt
 
 		i.RateSetter = ratesetter.New(
 			i.protocol,
-			i.protocol.Engine().ManaTracker.ManaByIDs,
-			i.protocol.Engine().ManaTracker.TotalMana,
+			i.protocol.Engine().ThroughputQuota.BalanceByIDs,
+			i.protocol.Engine().ThroughputQuota.TotalBalance,
 			i.identity.ID(),
 			i.optsRateSetterOptions...,
 		)

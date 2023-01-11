@@ -14,7 +14,6 @@ func setupTipsRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/tips", func(c echo.Context) (err error) {
 		return c.JSON(http.StatusOK, tips())
 	})
-
 }
 
 func tips() *TipsResponse {

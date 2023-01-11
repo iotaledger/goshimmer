@@ -12,7 +12,7 @@ import (
 var ErrMalformedPacket = errors.New("malformed packet")
 
 var (
-	// analysisBlkRegistry holds all block definitions for analysis server related blocks
+	// analysisBlkRegistry holds all block definitions for analysis server related blocks.
 	analysisBlkRegistry *message.Registry
 	heartBeatOnce       sync.Once
 )

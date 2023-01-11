@@ -16,7 +16,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
-	"github.com/iotaledger/goshimmer/packages/storage/permanent"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -39,7 +38,7 @@ func NewTestFramework[VotePowerType constraints.Comparable[VotePowerType]](test 
 		test: test,
 	}, opts, func(t *TestFramework[VotePowerType]) {
 		if t.optsValidators == nil {
-			t.optsValidators = sybilprotection.NewWeights(mapdb.NewMapDB(), permanent.NewSettings(test.TempDir()+"/settings")).WeightedSet()
+			t.optsValidators = sybilprotection.NewWeights(mapdb.NewMapDB()).NewWeightedSet()
 		}
 
 		if t.VotesTestFramework == nil {
@@ -66,9 +65,8 @@ func (t *TestFramework[VotePowerType]) ValidateStructureDetailsVoters(expectedVo
 		assert.Equal(t.test, markerAlias, fmt.Sprintf("%d,%d", t.StructureDetails(markerAlias).PastMarkers().Marker().SequenceID(), t.StructureDetails(markerAlias).PastMarkers().Marker().Index()))
 
 		voters := t.SequenceTracker.Voters(t.StructureDetails(markerAlias).PastMarkers().Marker())
-		defer voters.Detach()
-
 		assert.True(t.test, expectedVotersOfMarker.Equal(voters.Members()), "marker %s expected %d voters but got %d", markerAlias, expectedVotersOfMarker.Size(), voters.Members().Size())
+		voters.Detach()
 	}
 }
 
@@ -80,6 +78,7 @@ type MarkersTestFramework = markers.TestFramework
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// WithVotesTestFramework returns an option that sets the embedded votes TestFramework of the TestFramework.
 func WithVotesTestFramework[VotePowerType constraints.Comparable[VotePowerType]](votesTestFramework *votes.TestFramework) options.Option[TestFramework[VotePowerType]] {
 	return func(tf *TestFramework[VotePowerType]) {
 		if tf.VotesTestFramework != nil {
@@ -90,6 +89,7 @@ func WithVotesTestFramework[VotePowerType constraints.Comparable[VotePowerType]]
 	}
 }
 
+// WithSequenceTracker returns an option that sets the SequenceTracker of the TestFramework.
 func WithSequenceTracker[VotePowerType constraints.Comparable[VotePowerType]](sequenceTracker *SequenceTracker[VotePowerType]) options.Option[TestFramework[VotePowerType]] {
 	return func(tf *TestFramework[VotePowerType]) {
 		if tf.SequenceTracker != nil {
@@ -99,6 +99,7 @@ func WithSequenceTracker[VotePowerType constraints.Comparable[VotePowerType]](se
 	}
 }
 
+// WithSequenceManager returns an option that sets the SequenceManager of the TestFramework.
 func WithSequenceManager[VotePowerType constraints.Comparable[VotePowerType]](sequenceManager *markers.SequenceManager) options.Option[TestFramework[VotePowerType]] {
 	return func(tf *TestFramework[VotePowerType]) {
 		if tf.sequenceManager != nil {
@@ -108,6 +109,7 @@ func WithSequenceManager[VotePowerType constraints.Comparable[VotePowerType]](se
 	}
 }
 
+// WithValidators returns an option that sets the validators that are used by the TestFramework.
 func WithValidators[VotePowerType constraints.Comparable[VotePowerType]](validators *sybilprotection.WeightedSet) options.Option[TestFramework[VotePowerType]] {
 	return func(tf *TestFramework[VotePowerType]) {
 		tf.optsValidators = validators

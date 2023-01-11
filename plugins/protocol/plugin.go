@@ -64,14 +64,14 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 		dbProvider = database.NewDB
 	}
 	p = protocol.New(n,
+		protocol.WithSybilProtectionProvider(
+			dpos.NewProvider(
+				dpos.WithActivityWindow(Parameters.ValidatorActivityWindow),
+			),
+		),
 		protocol.WithEngineOptions(
 			engine.WithNotarizationManagerOptions(
 				notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommittableAge),
-			),
-			engine.WithSybilProtectionProvider(
-				dpos.NewSybilProtectionProvider(
-					dpos.WithActivityWindow(Parameters.ValidatorActivityWindow),
-				),
 			),
 			engine.WithBootstrapThreshold(Parameters.BootstrapWindow),
 			engine.WithTSCManagerOptions(

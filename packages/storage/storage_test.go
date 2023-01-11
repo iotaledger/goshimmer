@@ -22,8 +22,8 @@ func Test(t *testing.T) {
 	storage := New(storageDirectory, 1)
 	storage.Settings.SetLatestStateMutationEpoch(10)
 	genesisCommitment := commitment.New(0, commitment.ID{}, types.Identifier{}, 0)
-	storage.Commitments.Store(0, genesisCommitment)
-	storage.Commitments.Store(1, commitment.New(1, genesisCommitment.ID(), types.Identifier{}, 0))
+	storage.Commitments.Store(genesisCommitment)
+	storage.Commitments.Store(commitment.New(1, genesisCommitment.ID(), types.Identifier{}, 0))
 	storage.Blocks.Store(emptyBlock)
 	fmt.Println(storage.Blocks.Load(emptyBlock.ID()))
 

@@ -78,7 +78,7 @@ func TestManager_Get(t *testing.T) {
 		}
 
 		actual := make([][]byte, 0)
-		for i := granularity; i < bucketsCount; i = i + granularity {
+		for i := granularity; i < bucketsCount; i += granularity {
 			db := m.getDBInstance(epoch.Index(i))
 			require.NoError(t, db.store.Iterate(kvstore.EmptyPrefix, func(key kvstore.Key, value kvstore.Value) bool {
 				actual = append(actual, byteutils.ConcatBytes(key, value))

@@ -39,9 +39,10 @@ func (c *Chain) BlocksCount(index epoch.Index) (blocksCount int) {
 }
 
 func (c *Chain) StreamEpochBlocks(index epoch.Index, callback func(blocks []*models.Block), batchSize int) (err error) {
-	c.RLock()
-	defer c.RUnlock()
 	/*
+		c.RLock()
+		defer c.RUnlock()
+
 		if index > c.latestCommittableEpoch {
 			return errors.Errorf("cannot stream blocks of epoch %d: not committable yet", index)
 		}

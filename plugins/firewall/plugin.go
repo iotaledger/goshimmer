@@ -1,6 +1,5 @@
 package firewall
 
-
 /*
 import (
 	"github.com/iotaledger/hive.go/core/node"

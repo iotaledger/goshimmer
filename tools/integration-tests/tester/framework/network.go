@@ -409,33 +409,18 @@ func (n *Network) createPeers(ctx context.Context, numPeers int, networkConfig C
 	}
 	conf.Snapshot.Path = networkConfig.Snapshot.FilePath
 
-	// the first peer is the peer master, it uses a special conf
-	if networkConfig.PeerMaster {
-		masterConfig := conf
-		if networkConfig.Faucet {
-			masterConfig.Faucet.Enabled = true
-		}
-		masterConfig.Seed, _ = base58.Decode("8q491c3YWjbPwLmF2WD95YmCgh61j2kenCKHfGfByoWi")
-
-		if len(cfgAlterFunc) > 0 && cfgAlterFunc[0] != nil {
-			masterConfig = cfgAlterFunc[0](0, true, masterConfig)
-		}
-
-		masterConfig.IgnoreBootstrappedFlag = true
-
-		log.Printf("Starting peer master...")
-		if _, err := n.CreatePeer(ctx, masterConfig); err != nil {
-			return err
-		}
-		// peer master counts as peer
-		numPeers--
-	}
 	log.Printf("Starting %d peers...", numPeers)
 	for i := 0; i < numPeers; i++ {
-		if !networkConfig.PeerMaster && !networkConfig.StartSynced && i == 0 || networkConfig.StartSynced {
+		if !networkConfig.StartSynced && i == 0 || networkConfig.StartSynced {
 			conf.IgnoreBootstrappedFlag = true
 		} else {
 			conf.IgnoreBootstrappedFlag = false
+		}
+
+		if i == 0 && networkConfig.Faucet {
+			conf.Faucet.Enabled = true
+		} else {
+			conf.Faucet.Enabled = false
 		}
 
 		if len(cfgAlterFunc) > 0 && cfgAlterFunc[0] != nil {

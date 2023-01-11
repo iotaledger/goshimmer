@@ -22,14 +22,14 @@ type Protocol struct {
 	log             *logger.Logger
 }
 
-func New(networkEndpoing network.Endpoint, log *logger.Logger) (new *Protocol) {
-	new = &Protocol{
+func New(networkEndpoing network.Endpoint, log *logger.Logger) (protocol *Protocol) {
+	protocol = &Protocol{
 		Events:          NewEvents(),
 		networkEndpoint: networkEndpoing,
 		log:             log,
 	}
 
-	new.networkEndpoint.RegisterProtocol(protocolID, warpSyncPacketFactory, new.handlePacket)
+	protocol.networkEndpoint.RegisterProtocol(protocolID, warpSyncPacketFactory, protocol.handlePacket)
 
 	return
 }

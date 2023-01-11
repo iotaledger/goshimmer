@@ -42,7 +42,7 @@ var Core = node.Plugins(
 	retainer.Plugin,
 	indexer.Plugin,
 	warpsync.Plugin,
-	//firewall.Plugin,
+	// firewall.Plugin,
 	faucet.Plugin,
 	metrics.Plugin,
 	spammer.Plugin,

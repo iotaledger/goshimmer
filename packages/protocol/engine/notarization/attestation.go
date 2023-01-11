@@ -1,6 +1,7 @@
 package notarization
 
 import (
+	"bytes"
 	"context"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/core/types"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
@@ -30,6 +32,27 @@ func NewAttestation(block *models.Block) *Attestation {
 		lo.PanicOnErr(block.ContentHash()),
 		block.Signature(),
 	}
+}
+
+func (a *Attestation) Compare(other *Attestation) int {
+	switch {
+	case a == nil && other == nil:
+		return 0
+	case a == nil:
+		return -1
+	case other == nil:
+		return 1
+	case a.IssuingTime.After(other.IssuingTime):
+		return 1
+	case other.IssuingTime.After(a.IssuingTime):
+		return -1
+	default:
+		return bytes.Compare(a.BlockContentHash[:], other.BlockContentHash[:])
+	}
+}
+
+func (a *Attestation) ID() models.BlockID {
+	return models.NewBlockID(a.BlockContentHash, a.Signature, epoch.IndexFromTime(a.IssuingTime))
 }
 
 func (a Attestation) Bytes() (bytes []byte, err error) {

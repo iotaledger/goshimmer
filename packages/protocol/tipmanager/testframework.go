@@ -17,13 +17,14 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
 )
@@ -52,7 +53,6 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		mockAcceptance:  blockgadget.NewMockAcceptanceGadget(),
 		scheduledBlocks: shrinkingmap.New[models.BlockID, *scheduler.Block](),
 	}, opts, func(t *TestFramework) {
-
 		storageInstance := storage.New(test.TempDir(), 1)
 		test.Cleanup(func() {
 			event.Loop.PendingTasksCounter.WaitIsZero()
@@ -60,8 +60,8 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 			storageInstance.Shutdown()
 		})
 
-		// set MinCommittableEpochAge to genesis so nothing is commited.
-		t.engine = engine.New(storageInstance, engine.WithNotarizationManagerOptions(notarization.MinCommittableEpochAge(time.Since(time.Unix(epoch.GenesisTime, 0)))), engine.WithTangleOptions(t.optsTangleOptions...), engine.WithSybilProtectionProvider(dpos.NewSybilProtectionProvider()))
+		// set MinCommittableEpochAge to genesis so nothing is committed.
+		t.engine = engine.New(storageInstance, dpos.NewProvider(), mana1.NewProvider(), engine.WithNotarizationManagerOptions(notarization.MinCommittableEpochAge(time.Since(time.Unix(epoch.GenesisTime, 0)))), engine.WithTangleOptions(t.optsTangleOptions...))
 
 		t.TestFramework = tangle.NewTestFramework(
 			test,
@@ -76,7 +76,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 			// TODO: need to activate it with an engine t.TipManager.Activate()
 		}
 
-		t.TipManager.ActivateEngine(t.engine)
+		t.TipManager.LinkTo(t.engine)
 		t.TipManager.blockAcceptanceGadget = t.mockAcceptance
 
 		t.SetAcceptedTime(time.Unix(epoch.GenesisTime, 0))

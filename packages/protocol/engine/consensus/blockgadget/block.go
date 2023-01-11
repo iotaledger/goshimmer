@@ -121,6 +121,7 @@ func WithConfirmed(confirmed bool) options.Option[Block] {
 		b.confirmed = confirmed
 	}
 }
+
 func WithQueued(queued bool) options.Option[Block] {
 	return func(b *Block) {
 		b.acceptanceQueued = queued

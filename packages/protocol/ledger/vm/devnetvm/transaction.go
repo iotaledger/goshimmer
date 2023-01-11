@@ -18,6 +18,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
+	"github.com/iotaledger/goshimmer/packages/protocol/models/payloadtype"
 )
 
 // region TransactionType //////////////////////////////////////////////////////////////////////////////////////////////
@@ -26,7 +27,7 @@ import (
 var TransactionType payload.Type
 
 func init() {
-	TransactionType = payload.NewType(1337, "TransactionType")
+	TransactionType = payload.NewType(payloadtype.Transaction, "TransactionType")
 
 	err := serix.DefaultAPI.RegisterTypeSettings(Transaction{}, serix.TypeSettings{}.WithObjectType(uint32(new(Transaction).Type())))
 	if err != nil {
@@ -222,7 +223,7 @@ func (t *Transaction) UnlockBlocks() UnlockBlocks {
 	return t.M.UnlockBlocks
 }
 
-// SetOutputID assigns TransactionID to all outputs in TransactionEssence
+// SetOutputID assigns TransactionID to all outputs in TransactionEssence.
 func SetOutputID(essence *TransactionEssence, transactionID utxo.TransactionID) {
 	for i, output := range essence.Outputs() {
 		// the first call of transaction.ID() will also create a transaction id
@@ -244,7 +245,7 @@ func SetOutputID(essence *TransactionEssence, transactionID utxo.TransactionID) 
 	}
 }
 
-// code contract (make sure the struct implements all required methods)
+// code contract (make sure the struct implements all required methods).
 var _ payload.Payload = new(Transaction)
 
 var _ utxo.Transaction = new(Transaction)

@@ -6,7 +6,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
@@ -78,8 +77,7 @@ type EpochCommitmentRequestReceivedEvent struct {
 // region AttestationsReceivedEvent ////////////////////////////////////////////////////////////////////////////////////
 
 type AttestationsReceivedEvent struct {
-	Attestations *notarization.Attestations
-	Source       identity.ID
+	Source identity.ID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

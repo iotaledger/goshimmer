@@ -14,9 +14,9 @@ type Blocks struct {
 	Storage func(index epoch.Index) kvstore.KVStore
 }
 
-func NewBlocks(database *database.Manager, storagePrefix byte) (newBlocks *Blocks) {
+func NewBlocks(dbManager *database.Manager, storagePrefix byte) (newBlocks *Blocks) {
 	return &Blocks{
-		Storage: lo.Bind([]byte{storagePrefix}, database.Get),
+		Storage: lo.Bind([]byte{storagePrefix}, dbManager.Get),
 	}
 }
 

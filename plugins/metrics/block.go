@@ -365,7 +365,7 @@ func ParentCountPerType() map[models.ParentsType]uint64 {
 	return clone
 }
 
-// OrphanedBlocks returns number of orphaned blocks
+// OrphanedBlocks returns number of orphaned blocks.
 func OrphanedBlocks() uint32 {
 	return orphanedBlocks.Load()
 }
@@ -421,12 +421,12 @@ func increaseBookedTransactionCounter() {
 	bookedTransactions.Inc()
 }
 
-// increases the received BPS counter
+// increases the received BPS counter.
 func increaseReceivedBPSCounter() {
 	mpsAttachedSinceLastMeasurement.Inc()
 }
 
-// measures the received BPS value
+// measures the received BPS value.
 func measureAttachedBPS() {
 	// sample the current counter value into a measured BPS value
 	sampledBPS := mpsAttachedSinceLastMeasurement.Load()

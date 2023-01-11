@@ -108,7 +108,7 @@ type optionsConflictDAG struct {
 
 // newOptions returns a new options object that corresponds to the handed in options and which is derived from the
 // default options.
-func newOptions(option ...Option) (new *optionsConflictDAG) {
+func newOptions(option ...Option) *optionsConflictDAG {
 	return (&optionsConflictDAG{
 		store:                   mapdb.NewMapDB(),
 		cacheTimeProvider:       database.NewCacheTimeProvider(0),

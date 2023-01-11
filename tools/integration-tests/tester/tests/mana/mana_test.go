@@ -147,7 +147,6 @@ func TestManaApis(t *testing.T) {
 		Faucet:      true,
 		Autopeering: true, // we need to discover online peers
 		Activity:    true, // we need to issue regular activity blocks
-		PeerMaster:  true,
 		Snapshot:    snapshotInfo,
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)

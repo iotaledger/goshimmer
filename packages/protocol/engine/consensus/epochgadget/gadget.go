@@ -50,16 +50,20 @@ func (g *Gadget) setup() {
 }
 
 func (g *Gadget) refreshEpochConfirmation(previousLatestEpochIndex epoch.Index, newLatestEpochIndex epoch.Index) {
-	g.Lock()
-	defer g.Unlock()
 	totalWeight := g.totalWeightCallback()
 
 	for i := lo.Max(g.lastConfirmedEpoch, previousLatestEpochIndex) + 1; i <= newLatestEpochIndex; i++ {
 		if !IsThresholdReached(totalWeight, g.tangle.VirtualVoting.EpochVotersTotalWeight(i), g.optsEpochConfirmationThreshold) {
 			break
 		}
+
+		// Lock here, so that EpochVotersTotalWeight is not inside the lock. Otherwise, it might cause a deadlock,
+		// because one thread owns write-lock on VirtualVoting lock and needs read lock on EpochGadget lock,
+		// while this method holds WriteLock on EpochGadget lock and is waiting for ReadLock on VirtualVoting.
+		g.Lock()
 		g.lastConfirmedEpoch = i
 		g.Events.EpochConfirmed.Trigger(i)
+		g.Unlock()
 	}
 }
 

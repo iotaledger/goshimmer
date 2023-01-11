@@ -14,7 +14,7 @@ type NeighborGroupEvents struct {
 }
 
 // NewNeighborGroupEvents returns a new instance of NeighborGroupEvents.
-func NewNeighborGroupEvents() (new *NeighborGroupEvents) {
+func NewNeighborGroupEvents() *NeighborGroupEvents {
 	return &NeighborGroupEvents{
 		NeighborAdded:   event.New[*NeighborAddedEvent](),
 		NeighborRemoved: event.New[*NeighborRemovedEvent](),

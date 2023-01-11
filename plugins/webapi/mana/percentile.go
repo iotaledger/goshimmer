@@ -12,7 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/manatracker/manamodels"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1/manamodels"
 )
 
 // getPercentileHandler handles the request.
@@ -29,7 +29,7 @@ func getPercentileHandler(c echo.Context) error {
 		ID = deps.Local.ID()
 	}
 
-	accessPercentile := manamodels.Percentile(ID, deps.Protocol.Engine().ManaTracker.ManaByIDs())
+	accessPercentile := manamodels.Percentile(ID, deps.Protocol.Engine().ThroughputQuota.BalanceByIDs())
 	consensusPercentile := manamodels.Percentile(ID, lo.PanicOnErr(deps.Protocol.Engine().SybilProtection.Weights().Map()))
 	if err != nil {
 		if errors.Is(err, manamodels.ErrIssuerNotFoundInBaseManaVector) {

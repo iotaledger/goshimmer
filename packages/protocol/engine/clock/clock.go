@@ -13,8 +13,7 @@ type Clock struct {
 	lastAcceptedTimeUpdated  time.Time
 	lastConfirmedTime        time.Time
 	lastConfirmedTimeUpdated time.Time
-
-	sync.RWMutex
+	mutex                    sync.RWMutex
 }
 
 // New creates a new Clock with the given genesisTime.
@@ -26,72 +25,76 @@ func New() (clock *Clock) {
 
 // AcceptedTime returns the time of the last accepted Block.
 func (c *Clock) AcceptedTime() (acceptedTime time.Time) {
-	c.RLock()
-	defer c.RUnlock()
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
 
 	return c.lastAcceptedTime
 }
 
 // SetAcceptedTime sets the time of the last accepted Block.
 func (c *Clock) SetAcceptedTime(acceptedTime time.Time) (updated bool) {
-	if updated = c.updateTime(acceptedTime, &c.lastAcceptedTime, &c.lastAcceptedTimeUpdated); updated {
-		c.Events.AcceptanceTimeUpdated.Trigger(&TimeUpdate{
-			NewTime:    c.lastAcceptedTime,
-			UpdateTime: c.lastAcceptedTimeUpdated,
+	now := time.Now()
+	if updated = c.updateTime(now, acceptedTime, &c.lastAcceptedTime, &c.lastAcceptedTimeUpdated); updated {
+		c.Events.AcceptanceTimeUpdated.Trigger(&TimeUpdateEvent{
+			NewTime:    acceptedTime,
+			UpdateTime: now,
 		})
 	}
-	return updated
+
+	return
 }
 
 // RelativeAcceptedTime returns the real-time adjusted version of the time of the last accepted Block.
 func (c *Clock) RelativeAcceptedTime() (relativeAcceptedTime time.Time) {
-	c.RLock()
-	defer c.RUnlock()
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
 
 	return c.lastAcceptedTime.Add(time.Since(c.lastAcceptedTimeUpdated))
 }
 
 // ConfirmedTime returns the time of the last confirmed Block.
 func (c *Clock) ConfirmedTime() (confirmedTime time.Time) {
-	c.RLock()
-	defer c.RUnlock()
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
 
 	return c.lastConfirmedTime
 }
 
 // SetConfirmedTime sets the time of the last confirmed Block.
 func (c *Clock) SetConfirmedTime(confirmedTime time.Time) (updated bool) {
-	if updated = c.updateTime(confirmedTime, &c.lastConfirmedTime, &c.lastConfirmedTimeUpdated); updated {
-		c.Events.ConfirmedTimeUpdated.Trigger(&TimeUpdate{
-			NewTime:    c.lastConfirmedTime,
-			UpdateTime: c.lastConfirmedTimeUpdated,
+	now := time.Now()
+	if updated = c.updateTime(now, confirmedTime, &c.lastConfirmedTime, &c.lastConfirmedTimeUpdated); updated {
+		c.Events.ConfirmedTimeUpdated.Trigger(&TimeUpdateEvent{
+			NewTime:    confirmedTime,
+			UpdateTime: now,
 		})
 	}
-	return updated
+
+	return
 }
 
 // RelativeConfirmedTime returns the real-time adjusted version of the time of the last confirmed Block.
 func (c *Clock) RelativeConfirmedTime() (relativeConfirmedTime time.Time) {
-	c.RLock()
-	defer c.RUnlock()
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
 
 	return c.lastConfirmedTime.Add(time.Since(c.lastConfirmedTimeUpdated))
 }
 
 // updateTime updates the given time parameter if the given time larger than the current time.
-func (c *Clock) updateTime(newTime time.Time, param, updatedParam *time.Time) (updated bool) {
-	c.Lock()
-	defer c.Unlock()
+func (c *Clock) updateTime(now, newTime time.Time, param, updatedParam *time.Time) (updated bool) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
 	// the local wall clock should never be before the accepted time unless we are eclipsed by malicious actors or our
 	// own time is clearly in the past
-	if time.Now().Before(newTime) {
+	if now.Before(newTime) {
 		panic("accepted time is in the future")
 	}
 
 	if updated = newTime.After(*param); updated {
 		*param = newTime
-		*updatedParam = time.Now()
+		*updatedParam = now
 	}
 
 	return

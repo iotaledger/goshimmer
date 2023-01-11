@@ -61,7 +61,7 @@ func (i *Indexer) RemoveAddressOutputMapping(address devnetvm.Address, outputID 
 	i.addressOutputMappingStorage.Delete(NewAddressOutputMapping(address, outputID).ObjectStorageKey())
 }
 
-// CachedAddressOutputMappings retrieves all AddressOutputMappings for a particular address
+// CachedAddressOutputMappings retrieves all AddressOutputMappings for a particular address.
 func (i *Indexer) CachedAddressOutputMappings(address devnetvm.Address) (cachedAddressOutputMappings objectstorage.CachedObjects[*AddressOutputMapping]) {
 	i.addressOutputMappingStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*AddressOutputMapping]) bool {
 		cachedAddressOutputMappings = append(cachedAddressOutputMappings, cachedObject)

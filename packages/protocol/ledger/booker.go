@@ -22,7 +22,7 @@ type booker struct {
 }
 
 // newBooker returns a new booker instance for the given Ledger.
-func newBooker(ledger *Ledger) (new *booker) {
+func newBooker(ledger *Ledger) *booker {
 	return &booker{
 		ledger: ledger,
 	}
@@ -106,8 +106,8 @@ func (b *booker) storeOutputs(outputs *utxo.Outputs, conflictIDs *set.AdvancedSe
 		outputMetadata.SetConflictIDs(conflictIDs)
 		outputMetadata.SetAccessManaPledgeID(accessPledgeID)
 		outputMetadata.SetConsensusManaPledgeID(consensusPledgeID)
-		b.ledger.Storage.outputMetadataStorage.Store(outputMetadata).Release()
-		b.ledger.Storage.outputStorage.Store(output).Release()
+		b.ledger.Storage.OutputMetadataStorage.Store(outputMetadata).Release()
+		b.ledger.Storage.OutputStorage.Store(output).Release()
 
 		b.ledger.Events.OutputCreated.Trigger(output.ID())
 

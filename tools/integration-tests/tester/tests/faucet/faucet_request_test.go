@@ -26,7 +26,6 @@ func TestFaucetRequest(t *testing.T) {
 		StartSynced: false,
 		Faucet:      true,
 		Activity:    true,
-		PeerMaster:  true,
 		Snapshot:    snapshotInfo,
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)

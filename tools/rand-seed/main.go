@@ -11,6 +11,7 @@ import (
 	"github.com/mr-tron/base58"
 )
 
+//nolint:errcheck // this small tool does not need thorough error checking
 func main() {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {

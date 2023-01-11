@@ -20,7 +20,7 @@ var (
 	// bufferSize number of bytes waiting to be scheduled.
 	bufferSize int
 
-	// schedulerDeficit deficit value
+	// schedulerDeficit deficit value.
 	schedulerDeficit float64
 	// maxBufferSize maximum number of blocks can be stored in the buffer.
 	maxBufferSize int
@@ -68,7 +68,7 @@ func SchedulerIssuerAManaAmount() map[string]int64 {
 	// copy the original map
 	clone := make(map[string]int64)
 	for key := range issuerQueueSizes {
-		clone[key.String()], _ = deps.Protocol.Engine().ManaTracker.Mana(key)
+		clone[key.String()], _ = deps.Protocol.Engine().ThroughputQuota.Balance(key)
 	}
 
 	return clone
