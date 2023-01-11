@@ -2,11 +2,11 @@ package ledger
 
 import (
 	"context"
-	"time"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/set"
 
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
@@ -24,8 +24,11 @@ type Events struct {
 	// TransactionInclusionUpdated is an event that gets triggered whenever the inclusion time of a Transaction changes.
 	TransactionInclusionUpdated *event.Linkable[*TransactionInclusionUpdatedEvent]
 
-	// TransactionAccepted is an event that gets triggered whenever a Transaction is confirmed.
-	TransactionAccepted *event.Linkable[*TransactionMetadata]
+	// TransactionAccepted is an event that gets triggered whenever a Transaction is accepted.
+	TransactionAccepted *event.Linkable[*TransactionEvent]
+
+	// TransactionOrphaned is an event that gets triggered whenever a Transaction is orphaned.
+	TransactionOrphaned *event.Linkable[*TransactionEvent]
 
 	// TransactionRejected is an event that gets triggered whenever a Transaction is rejected.
 	TransactionRejected *event.Linkable[*TransactionMetadata]
@@ -57,7 +60,8 @@ var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 		TransactionStored:            event.NewLinkable[*TransactionStoredEvent](),
 		TransactionBooked:            event.NewLinkable[*TransactionBookedEvent](),
 		TransactionInclusionUpdated:  event.NewLinkable[*TransactionInclusionUpdatedEvent](),
-		TransactionAccepted:          event.NewLinkable[*TransactionMetadata](),
+		TransactionAccepted:          event.NewLinkable[*TransactionEvent](),
+		TransactionOrphaned:          event.NewLinkable[*TransactionEvent](),
 		TransactionRejected:          event.NewLinkable[*TransactionMetadata](),
 		TransactionForked:            event.NewLinkable[*TransactionForkedEvent](),
 		TransactionConflictIDUpdated: event.NewLinkable[*TransactionConflictIDUpdatedEvent](),
@@ -107,11 +111,14 @@ type TransactionInclusionUpdatedEvent struct {
 	// TransactionID contains the identifier of the booked Transaction.
 	TransactionID utxo.TransactionID
 
-	// InclusionTime contains the InclusionTime after it was updated.
-	InclusionTime time.Time
+	// TransactionMetadata contains the metadata of the Transaction.
+	TransactionMetadata *TransactionMetadata
 
-	// PreviousInclusionTime contains the InclusionTime before it was updated.
-	PreviousInclusionTime time.Time
+	// InclusionEpoch contains the InclusionEpoch after it was updated.
+	InclusionEpoch epoch.Index
+
+	// PreviousInclusionEpoch contains the InclusionEpoch before it was updated.
+	PreviousInclusionEpoch epoch.Index
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -167,3 +174,9 @@ type TransactionInvalidEvent struct {
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+type TransactionEvent struct {
+	Metadata       *TransactionMetadata
+	CreatedOutputs []*OutputWithMetadata
+	SpentOutputs   []*OutputWithMetadata
+}

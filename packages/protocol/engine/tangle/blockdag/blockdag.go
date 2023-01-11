@@ -127,7 +127,7 @@ func (b *BlockDAG) evictEpoch(index epoch.Index) {
 }
 
 func (b *BlockDAG) markSolid(block *Block) (err error) {
-	if err = b.checkTimestampMonotonicity(block); err != nil {
+	if err := b.checkTimestampMonotonicity(block); err != nil {
 		return err
 	}
 

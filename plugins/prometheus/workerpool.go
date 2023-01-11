@@ -5,8 +5,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-var workerCount prometheus.Gauge
-var pendingTasks prometheus.Gauge
+var (
+	workerCount  prometheus.Gauge
+	pendingTasks prometheus.Gauge
+)
 
 func registerWorkerPoolMetrics() {
 	workerCount = prometheus.NewGauge(

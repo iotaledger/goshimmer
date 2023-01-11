@@ -68,7 +68,7 @@ func Test_PruneMarkerBlockMapping(t *testing.T) {
 	assert.Equal(t, 0, markerManager.markerBlockMappingEviction.Size(), "expected the marker block pruning map to be empty")
 }
 
-// We create sequences for an epoch X, each epoch contains sequences <X; X+5>
+// We create sequences for an epoch X, each epoch contains sequences <X; X+5>.
 func Test_PruneSequences(t *testing.T) {
 	const epochCount = 5
 	const sequenceCount = 5

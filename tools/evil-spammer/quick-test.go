@@ -8,7 +8,7 @@ import (
 )
 
 type QuickTestParams struct {
-	ClientUrls            []string
+	ClientURLs            []string
 	Rate                  int
 	Duration              time.Duration
 	TimeUnit              time.Duration
@@ -17,9 +17,9 @@ type QuickTestParams struct {
 	EnableRateSetter      bool
 }
 
-// QuickTest runs short spamming periods with stable mps
+// QuickTest runs short spamming periods with stable mps.
 func QuickTest(params *QuickTestParams) {
-	evilWallet := evilwallet.NewEvilWallet(params.ClientUrls...)
+	evilWallet := evilwallet.NewEvilWallet(params.ClientURLs...)
 	counter := evilspammer.NewErrorCount()
 	log.Info("Starting quick test")
 
@@ -35,6 +35,8 @@ func QuickTest(params *QuickTestParams) {
 		evilspammer.WithErrorCounter(counter),
 		evilspammer.WithEvilWallet(evilWallet),
 	}
+
+	//nolint:gocritic // we want a copy here
 	blkOptions := append(baseOptions,
 		evilspammer.WithSpammingFunc(evilspammer.DataSpammingFunction),
 	)
@@ -43,6 +45,7 @@ func QuickTest(params *QuickTestParams) {
 		evilwallet.WithScenarioCustomConflicts(evilwallet.DoubleSpendBatch(2)),
 	)
 
+	//nolint:gocritic // we want a copy here
 	dsOptions := append(baseOptions,
 		evilspammer.WithEvilScenario(dsScenario),
 	)

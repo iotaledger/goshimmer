@@ -5,6 +5,8 @@ import (
 
 	"github.com/iotaledger/hive.go/core/generics/model"
 	"github.com/iotaledger/hive.go/core/serix"
+
+	"github.com/iotaledger/goshimmer/packages/protocol/models/payloadtype"
 )
 
 func init() {
@@ -20,7 +22,7 @@ func init() {
 }
 
 // GenericDataPayloadType is the Type of a generic GenericDataPayload.
-var GenericDataPayloadType = NewType(0, "GenericDataPayloadType")
+var GenericDataPayloadType = NewType(payloadtype.GenericData, "GenericDataPayloadType")
 
 // GenericDataPayload represents a payload which just contains a blob of data.
 type GenericDataPayload struct {

@@ -19,26 +19,26 @@ var (
 	autoPeeringWorkerPool      *workerpool.NonBlockingQueuedWorkerPool
 )
 
-// JSON encoded websocket block for adding a node
+// JSON encoded websocket block for adding a node.
 type addNode struct {
 	NetworkVersion string `json:"networkVersion"`
 	ID             string `json:"id"`
 }
 
-// JSON encoded websocket block for removing a node
+// JSON encoded websocket block for removing a node.
 type removeNode struct {
 	NetworkVersion string `json:"networkVersion"`
 	ID             string `json:"id"`
 }
 
-// JSON encoded websocket block for connecting two nodes
+// JSON encoded websocket block for connecting two nodes.
 type connectNodes struct {
 	NetworkVersion string `json:"networkVersion"`
 	Source         string `json:"source"`
 	Target         string `json:"target"`
 }
 
-// JSON encoded websocket block for disconnecting two nodes
+// JSON encoded websocket block for disconnecting two nodes.
 type disconnectNodes struct {
 	NetworkVersion string `json:"networkVersion"`
 	Source         string `json:"source"`
@@ -66,7 +66,7 @@ func configureAutopeeringWorkerPool() {
 	}, workerpool.WorkerCount(autoPeeringWorkerCount), workerpool.QueueSize(autoPeeringWorkerQueueSize))
 }
 
-// send and addNode blk to all connected ws clients
+// send and addNode blk to all connected ws clients.
 func sendAddNode(eventStruct *analysisserver.AddNodeEvent) {
 	broadcastWsBlock(&wsblk{
 		Type: BlkTypeAddNode,
@@ -77,7 +77,7 @@ func sendAddNode(eventStruct *analysisserver.AddNodeEvent) {
 	}, true)
 }
 
-// send a removeNode blk to all connected ws clients
+// send a removeNode blk to all connected ws clients.
 func sendRemoveNode(eventStruct *analysisserver.RemoveNodeEvent) {
 	broadcastWsBlock(&wsblk{
 		Type: BlkTypeRemoveNode,
@@ -88,7 +88,7 @@ func sendRemoveNode(eventStruct *analysisserver.RemoveNodeEvent) {
 	}, true)
 }
 
-// send a connectNodes blk to all connected ws clients
+// send a connectNodes blk to all connected ws clients.
 func sendConnectNodes(eventStruct *analysisserver.ConnectNodesEvent) {
 	broadcastWsBlock(&wsblk{
 		Type: BlkTypeConnectNodes,

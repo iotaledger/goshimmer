@@ -11,7 +11,6 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/zyedidia/generic/cache"
 
-	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
@@ -165,7 +164,7 @@ func (m *Manager) Get(index epoch.Index, realm kvstore.Realm) kvstore.KVStore {
 	}
 
 	bucket := m.getBucket(index)
-	withRealm, err := bucket.WithRealm(byteutils.ConcatBytes(bucket.Realm(), realm))
+	withRealm, err := bucket.WithExtendedRealm(realm)
 	if err != nil {
 		panic(err)
 	}
@@ -200,7 +199,7 @@ func (m *Manager) PruneUntilEpoch(index epoch.Index) {
 
 	currentPrunedIndex := m.setMaxPruned(baseIndexToPrune)
 	for currentPrunedIndex+epoch.Index(m.optsGranularity) <= baseIndexToPrune {
-		currentPrunedIndex = currentPrunedIndex + epoch.Index(m.optsGranularity)
+		currentPrunedIndex += epoch.Index(m.optsGranularity)
 		m.prune(currentPrunedIndex)
 	}
 }
@@ -333,7 +332,7 @@ func (m *Manager) createDBInstance(index epoch.Index) (newDBInstance *dbInstance
 
 // createBucket creates a new bucket for the given baseIndex. It uses the baseIndex as a realm on the underlying DB.
 func (m *Manager) createBucket(db *dbInstance, index epoch.Index) (bucket kvstore.KVStore) {
-	bucket, err := db.store.WithRealm(indexToRealm(index))
+	bucket, err := db.store.WithExtendedRealm(indexToRealm(index))
 	if err != nil {
 		panic(err)
 	}

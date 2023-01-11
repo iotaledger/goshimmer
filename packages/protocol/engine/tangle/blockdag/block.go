@@ -2,6 +2,7 @@ package blockdag
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/iotaledger/hive.go/core/generics/lo"
@@ -24,6 +25,7 @@ type Block struct {
 	strongChildren       []*Block
 	weakChildren         []*Block
 	likedInsteadChildren []*Block
+	mutex                sync.RWMutex
 
 	*ModelsBlock
 }
@@ -54,24 +56,24 @@ func NewRootBlock(id models.BlockID, opts ...options.Option[models.Block]) (root
 
 // IsMissing returns a flag that indicates if the underlying Block data hasn't been stored, yet.
 func (b *Block) IsMissing() (isMissing bool) {
-	b.RLock()
-	defer b.RUnlock()
+	b.mutex.RLock()
+	defer b.mutex.RUnlock()
 
 	return b.missing
 }
 
 // IsSolid returns true if the Block is solid (the entire causal history is known).
 func (b *Block) IsSolid() (isSolid bool) {
-	b.RLock()
-	defer b.RUnlock()
+	b.mutex.RLock()
+	defer b.mutex.RUnlock()
 
 	return b.solid
 }
 
 // IsInvalid returns true if the Block was marked as invalid.
 func (b *Block) IsInvalid() (isInvalid bool) {
-	b.RLock()
-	defer b.RUnlock()
+	b.mutex.RLock()
+	defer b.mutex.RUnlock()
 
 	return b.invalid
 }
@@ -79,16 +81,16 @@ func (b *Block) IsInvalid() (isInvalid bool) {
 // IsOrphaned returns true if the Block is orphaned (either due to being marked as orphaned itself or because it has
 // orphaned Blocks in its past cone).
 func (b *Block) IsOrphaned() (isOrphaned bool) {
-	b.RLock()
-	defer b.RUnlock()
+	b.mutex.RLock()
+	defer b.mutex.RUnlock()
 
 	return b.orphaned
 }
 
 // Children returns the children of the Block.
 func (b *Block) Children() (children []*Block) {
-	b.RLock()
-	defer b.RUnlock()
+	b.mutex.RLock()
+	defer b.mutex.RUnlock()
 
 	seenBlockIDs := make(map[models.BlockID]types.Empty)
 	for _, parentsByType := range [][]*Block{
@@ -108,27 +110,30 @@ func (b *Block) Children() (children []*Block) {
 }
 
 func (b *Block) StrongChildren() []*Block {
-	b.RLock()
-	defer b.RUnlock()
+	b.mutex.RLock()
+	defer b.mutex.RUnlock()
+
 	return lo.CopySlice(b.strongChildren)
 }
 
 func (b *Block) WeakChildren() []*Block {
-	b.RLock()
-	defer b.RUnlock()
+	b.mutex.RLock()
+	defer b.mutex.RUnlock()
+
 	return lo.CopySlice(b.weakChildren)
 }
 
 func (b *Block) LikedInsteadChildren() []*Block {
-	b.RLock()
-	defer b.RUnlock()
+	b.mutex.RLock()
+	defer b.mutex.RUnlock()
+
 	return lo.CopySlice(b.likedInsteadChildren)
 }
 
 // setSolid marks the Block as solid.
 func (b *Block) setSolid() (wasUpdated bool) {
-	b.Lock()
-	defer b.Unlock()
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 
 	if wasUpdated = !b.solid; wasUpdated {
 		b.solid = true
@@ -139,8 +144,8 @@ func (b *Block) setSolid() (wasUpdated bool) {
 
 // setInvalid marks the Block as invalid.
 func (b *Block) setInvalid() (wasUpdated bool) {
-	b.Lock()
-	defer b.Unlock()
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 
 	if b.invalid {
 		return false
@@ -151,17 +156,10 @@ func (b *Block) setInvalid() (wasUpdated bool) {
 	return true
 }
 
-func (b *Block) isOrphaned() (isOrphaned bool) {
-	b.RLock()
-	defer b.RUnlock()
-
-	return b.orphaned
-}
-
 // setOrphaned sets the orphaned flag of the Block.
 func (b *Block) setOrphaned(orphaned bool) (wasUpdated bool) {
-	b.Lock()
-	defer b.Unlock()
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 
 	if b.orphaned == orphaned {
 		return false
@@ -173,8 +171,8 @@ func (b *Block) setOrphaned(orphaned bool) (wasUpdated bool) {
 
 // appendChild adds a child of the corresponding type to the Block.
 func (b *Block) appendChild(child *Block, childType models.ParentsType) {
-	b.Lock()
-	defer b.Unlock()
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 
 	switch childType {
 	case models.StrongParentType:
@@ -188,23 +186,24 @@ func (b *Block) appendChild(child *Block, childType models.ParentsType) {
 
 // update publishes the given Block data to the underlying Block and marks it as no longer missing.
 func (b *Block) update(data *models.Block) (wasPublished bool) {
-	b.Lock()
-	defer b.Unlock()
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 
 	if !b.missing {
 		return
 	}
 
+	b.ImportStorable(&data.Storable)
 	b.missing = false
-	b.M = data.M
-	b.SetSize(data.Size())
 
 	return true
 }
 
 func (b *Block) String() string {
-	builder := stringify.NewStructBuilder("BlockDAG.Block", stringify.NewStructField("id", b.ID()))
+	b.mutex.RLock()
+	defer b.mutex.RUnlock()
 
+	builder := stringify.NewStructBuilder("BlockDAG.Block", stringify.NewStructField("id", b.ID()))
 	builder.AddField(stringify.NewStructField("Missing", b.missing))
 	builder.AddField(stringify.NewStructField("Solid", b.solid))
 	builder.AddField(stringify.NewStructField("Invalid", b.invalid))

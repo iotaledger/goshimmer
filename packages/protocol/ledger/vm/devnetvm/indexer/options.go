@@ -62,7 +62,7 @@ type options struct {
 
 // newOptions returns a new options object that corresponds to the handed in options and which is derived from the
 // default options.
-func newOptions(option ...Option) (new *options) {
+func newOptions(option ...Option) *options {
 	return (&options{
 		store:                         mapdb.NewMapDB(),
 		cacheTimeProvider:             database.NewCacheTimeProvider(0),

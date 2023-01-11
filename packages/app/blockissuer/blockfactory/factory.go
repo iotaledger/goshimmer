@@ -105,10 +105,6 @@ func (f *Factory) createBlockWithPayload(p payload.Payload, references models.Pa
 		models.WithLatestConfirmedEpoch(lastConfirmedEpochIndex),
 		models.WithCommitment(epochCommitment),
 		models.WithSignature(ed25519.EmptySignature), // placeholder will be set after signing
-
-		// jUsT4fUn
-		models.WithSequenceNumber(1337),
-		models.WithNonce(42),
 	)
 
 	// create the signature
@@ -181,7 +177,7 @@ func (f *Factory) issuingTime(parents models.ParentBlockIDs) time.Time {
 	issuingTime := time.Now()
 
 	parents.ForEach(func(parent models.Parent) {
-		if parentBlock, exists := f.blockRetriever(parent.ID); exists && !parentBlock.IssuingTime().Before(issuingTime) {
+		if parentBlock, exists := f.blockRetriever(parent.ID); exists && parentBlock.IssuingTime().After(issuingTime) {
 			// TODO: this depends on the time resolution that we serialize to. If nanoseconds we could add a nanosecond.
 			issuingTime = parentBlock.IssuingTime().Add(time.Second)
 		}

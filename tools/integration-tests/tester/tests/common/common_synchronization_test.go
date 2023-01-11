@@ -32,7 +32,6 @@ func TestCommonSynchronization(t *testing.T) {
 	n, err := f.CreateNetwork(ctx, t.Name(), initialPeers, framework.CreateNetworkConfig{
 		StartSynced: false,
 		Snapshot:    snapshotInfo,
-		PeerMaster:  true,
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
@@ -43,13 +42,13 @@ func TestCommonSynchronization(t *testing.T) {
 
 	// 1. issue data blocks
 	log.Printf("Issuing %d blocks to sync...", numBlocks)
-	ids := tests.SendDataBlocks(t, n.Peers(), numBlocks)
+	ids := tests.SendDataBlocksWithDelay(t, n.Peers(), numBlocks, time.Millisecond*10)
 	log.Println("Issuing blocks... done")
 
 	// 2. spawn peer without knowledge of previous blocks
 	log.Println("Spawning new node to sync...")
 
-	cfg := createNewPeerConfig(t, snapshotInfo, 2)
+	cfg := createNewPeerConfig(t, snapshotInfo, 3)
 	newPeer, err := n.CreatePeer(ctx, cfg)
 	require.NoError(t, err)
 	err = n.DoManualPeering(ctx)
@@ -58,11 +57,11 @@ func TestCommonSynchronization(t *testing.T) {
 
 	// 3. issue some blocks on old peers so that new peer can solidify
 	log.Printf("Issuing %d blocks on the %d initial peers...", numSyncBlocks, initialPeers)
-	ids = tests.SendDataBlocks(t, n.Peers()[:initialPeers], numSyncBlocks, ids)
+	ids = tests.SendDataBlocksWithDelay(t, n.Peers()[:initialPeers], numSyncBlocks, time.Millisecond*10, ids)
 	log.Println("Issuing blocks... done")
 
 	// 4. check whether all issued blocks are available on to the new peer
-	tests.RequireBlocksAvailable(t, []*framework.Node{newPeer}, ids, time.Minute, tests.Tick)
+	tests.RequireBlocksAvailable(t, n.Peers(), ids, time.Minute, tests.Tick)
 	tests.RequireBlocksEqual(t, []*framework.Node{newPeer}, ids, time.Minute, tests.Tick)
 
 	require.True(t, tests.Synced(t, newPeer))
@@ -73,7 +72,7 @@ func TestCommonSynchronization(t *testing.T) {
 	log.Println("Stopping new node... done")
 
 	log.Printf("Issuing %d blocks and waiting until they have old tangle time...", numBlocks)
-	ids = tests.SendDataBlocks(t, n.Peers()[:initialPeers], numBlocks, ids)
+	ids = tests.SendDataBlocksWithDelay(t, n.Peers()[:initialPeers], numBlocks, 10*time.Millisecond, ids)
 	// wait to assure that the new peer is actually out of sync when starting
 	log.Printf("Sleeping %s to make sure new peer is out of sync when starting...", newPeer.Config().Protocol.BootstrapWindow.String())
 	time.Sleep(newPeer.Config().Protocol.BootstrapWindow)

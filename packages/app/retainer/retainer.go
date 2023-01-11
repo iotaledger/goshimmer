@@ -3,7 +3,7 @@ package retainer
 import (
 	"sync"
 
-	"github.com/pkg/errors"
+	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
@@ -57,9 +57,10 @@ func (r *Retainer) BlockMetadata(blockID models.BlockID) (metadata *BlockMetadat
 		return blockMetadata, blockExists
 	}
 
-	metadata, exists = r.blockStorage.Get(blockID)
+	metadata = new(BlockMetadata)
+	*metadata, exists = r.blockStorage.Get(blockID)
 	if exists {
-		metadata.SetID(metadata.M.Id)
+		metadata.SetID(metadata.M.ID)
 
 		if metadata.M.Accepted && !metadata.M.Confirmed && blockID.Index() <= r.protocol.Engine().LastConfirmedEpoch() {
 			metadata.M.ConfirmedByEpoch = true
@@ -87,8 +88,8 @@ func (r *Retainer) Stream(index epoch.Index, callback func(id models.BlockID, me
 		return
 	}
 
-	r.blockStorage.Iterate(index, func(id models.BlockID, metadata *BlockMetadata) bool {
-		callback(id, metadata)
+	_ = r.blockStorage.Iterate(index, func(id models.BlockID, metadata BlockMetadata) bool {
+		callback(id, &metadata)
 		return true
 	})
 }
@@ -116,13 +117,11 @@ func (r *Retainer) setupEvents() {
 	//}))
 
 	r.protocol.Events.Engine.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(func(block *blockdag.Block) {
-		//fmt.Println("BlockSolid", block.ID(), "issuer", block.IssuerID())
 		cm := r.createOrGetCachedMetadata(block.ID())
 		cm.setBlockDAGBlock(block)
 	}))
 
 	r.protocol.Events.Engine.Tangle.Booker.BlockBooked.Attach(event.NewClosure(func(block *booker.Block) {
-		//fmt.Println("BlockBooked", block.ID(), "issuer", block.IssuerID())
 		cm := r.createOrGetCachedMetadata(block.ID())
 		cm.setBookerBlock(block)
 
@@ -142,17 +141,7 @@ func (r *Retainer) setupEvents() {
 	r.protocol.Events.CongestionControl.Scheduler.BlockDropped.Attach(congestionControlClosure)
 	r.protocol.Events.CongestionControl.Scheduler.BlockSkipped.Attach(congestionControlClosure)
 
-	//r.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
-	//	fmt.Println("BlockScheduled", block.ID(), "issuer", block.IssuerID())
-	//}))
-	//r.protocol.Events.CongestionControl.Scheduler.BlockDropped.Attach(event.NewClosure(func(block *scheduler.Block) {
-	//	fmt.Println("BlockDropped", block.ID(), "issuer", block.IssuerID())
-	//}))
-	//r.protocol.Events.CongestionControl.Scheduler.BlockSkipped.Attach(event.NewClosure(func(block *scheduler.Block) {
-	//	fmt.Println("BlockSkipped", block.ID(), "issuer", block.IssuerID())
-	//}))
 	r.protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
-		//fmt.Println("Block accepted", block.ID(), "issuer", block.IssuerID())
 		cm := r.createOrGetCachedMetadata(block.ID())
 		cm.setAcceptanceBlock(block)
 	}))
@@ -216,7 +205,7 @@ func (r *Retainer) createStorableBlockMetadata(epochIndex epoch.Index) (metas []
 
 func (r *Retainer) storeBlockMetadata(metas []*BlockMetadata) {
 	for _, meta := range metas {
-		if err := r.blockStorage.Set(meta.ID(), meta); err != nil {
+		if err := r.blockStorage.Set(meta.ID(), *meta); err != nil {
 			panic(errors.Wrapf(err, "could not save %s to block storage", meta.ID()))
 		}
 	}

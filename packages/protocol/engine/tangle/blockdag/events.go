@@ -4,7 +4,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 )
 
-// Events is a collection of Tangle related Events
+// Events is a collection of Tangle related Events.
 type Events struct {
 	// BlockAttached is triggered when a previously unknown Block is attached.
 	BlockAttached *event.Linkable[*Block]

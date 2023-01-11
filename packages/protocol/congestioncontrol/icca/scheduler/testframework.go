@@ -21,6 +21,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
 )
@@ -69,7 +70,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		}
 
 		if t.engine == nil {
-			t.engine = engine.New(t.storage, engine.WithSybilProtectionProvider(dpos.NewSybilProtectionProvider()))
+			t.engine = engine.New(t.storage, dpos.NewProvider(), mana1.NewProvider())
 		}
 
 		if t.optsValidators == nil {

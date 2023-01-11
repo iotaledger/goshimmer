@@ -34,7 +34,7 @@ const (
 func indexRoute(e echo.Context) error {
 	if Parameters.Dev {
 		fmt.Println("in dev mode")
-		req, err := http.NewRequestWithContext(e.Request().Context(), "GET", Parameters.DevDashboardAddress, nil /* body */)
+		req, err := http.NewRequestWithContext(e.Request().Context(), "GET", Parameters.DevDashboardAddress, http.NoBody)
 		if err != nil {
 			return err
 		}
@@ -132,6 +132,9 @@ func setupRoutes(e *echo.Echo) {
 		}
 
 		block = fmt.Sprintf("%s, error: %+v", block, err)
-		c.String(statusCode, block)
+		resErr := c.String(statusCode, block)
+		if resErr != nil {
+			log.Warnf("Failed to send error response: %s", resErr)
+		}
 	}
 }

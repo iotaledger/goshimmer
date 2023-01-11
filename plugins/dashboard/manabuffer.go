@@ -6,7 +6,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/gorilla/websocket"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/manatracker/manamodels"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1/manamodels"
 )
 
 const (

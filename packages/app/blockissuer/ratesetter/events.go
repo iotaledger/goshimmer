@@ -12,7 +12,7 @@ type Events struct {
 	Error          *event.Event[error]
 }
 
-func newEvents() (new *Events) {
+func newEvents() *Events {
 	return &Events{
 		BlockDiscarded: event.New[*models.Block](),
 		BlockIssued:    event.New[*models.Block](),

@@ -13,7 +13,7 @@ import (
 
 // region Options ///////////////////////////////////////////////////////////////////////////
 
-// Options is a struct that represents a collection of options that can be set when creating a block
+// Options is a struct that represents a collection of options that can be set when creating a block.
 type Options struct {
 	aliasInputs            map[string]types.Empty
 	inputs                 []utxo.OutputID
@@ -49,12 +49,12 @@ func NewOptions(options ...Option) (option *Options, err error) {
 	}
 
 	// check if alias and non-alias are mixed in use.
-	if err = option.checkInputsAndOutputs(); err != nil {
+	if err := option.checkInputsAndOutputs(); err != nil {
 		return nil, err
 	}
 
 	// input and output wallets must be provided if inputs/outputs are not aliases.
-	if err = option.isWalletProvidedForInputsOutputs(); err != nil {
+	if err := option.isWalletProvidedForInputsOutputs(); err != nil {
 		return nil, err
 	}
 
@@ -135,9 +135,7 @@ func WithInputs(inputs interface{}) Option {
 		case utxo.OutputID:
 			options.inputs = append(options.inputs, in)
 		case []utxo.OutputID:
-			for _, input := range in {
-				options.inputs = append(options.inputs, input)
-			}
+			options.inputs = append(options.inputs, in...)
 		}
 	}
 }

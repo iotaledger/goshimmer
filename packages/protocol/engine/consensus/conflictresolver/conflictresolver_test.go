@@ -1325,7 +1325,7 @@ var (
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{7}},
 			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
 			Conflicting:     set.NewAdvancedSet(conflictID4),
-			ApprovalWeight:  02,
+			ApprovalWeight:  2,
 		},
 		"G": {
 			Order:           1,

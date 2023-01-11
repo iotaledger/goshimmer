@@ -33,7 +33,7 @@ type State struct {
 // Spammer is a utility object for new spammer creations, can be modified by passing options.
 // Mandatory options: WithClients, WithSpammingFunc
 // Not mandatory options, if not provided spammer will use default settings:
-// WithSpamDetails, WithEvilWallet, WithErrorCounter, WithLogTickerInterval
+// WithSpamDetails, WithEvilWallet, WithErrorCounter, WithLogTickerInterval.
 type Spammer struct {
 	SpamDetails   *SpamDetails
 	State         *State
@@ -141,7 +141,7 @@ func (s *Spammer) initLogTicker() *time.Ticker {
 	return time.NewTicker(s.State.logTickTime)
 }
 
-// Spam runs the spammer. Function will stop after maxDuration time will pass or when maxBlkSent will be exceeded
+// Spam runs the spammer. Function will stop after maxDuration time will pass or when maxBlkSent will be exceeded.
 func (s *Spammer) Spam() {
 	s.log.Infof("Start spamming transactions with %d rate", s.SpamDetails.Rate)
 
@@ -185,7 +185,7 @@ func (s *Spammer) CheckIfAllSent() {
 	}
 }
 
-// StopSpamming finishes tasks before shutting down the spammer
+// StopSpamming finishes tasks before shutting down the spammer.
 func (s *Spammer) StopSpamming() {
 	s.State.spamDuration = time.Since(s.State.spamStartTime)
 	s.State.spamTicker.Stop()
@@ -219,12 +219,11 @@ func (s *Spammer) PostTransaction(tx *devnetvm.Transaction, clt evilwallet.Clien
 		return
 	}
 	if s.EvilScenario.OutputWallet.Type() == evilwallet.Reuse {
-		s.EvilWallet.SetTxOutputsSolid(tx.Essence().Outputs(), clt.Url())
+		s.EvilWallet.SetTxOutputsSolid(tx.Essence().Outputs(), clt.URL())
 	}
 
 	count := s.State.txSent.Add(1)
 	s.log.Debugf("Last transaction sent, ID: %s, txCount: %d", txID.String(), count)
-	return
 }
 
 func (s *Spammer) handleSolidityForReuseOutputs(clt evilwallet.Client, tx *devnetvm.Transaction) (ok bool) {

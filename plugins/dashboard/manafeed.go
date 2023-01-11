@@ -15,8 +15,8 @@ import (
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/manatracker/manamodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1/manamodels"
 )
 
 var (
@@ -71,16 +71,16 @@ func runManaFeed() {
 	}
 }
 
-// region Websocket block sending handlers (live updates)
+// region Websocket block sending handlers (live updates).
 func sendManaValue() {
 	ownID := deps.Local.ID()
-	access, exists := deps.Protocol.Engine().ManaTracker.Mana(ownID)
+	access, exists := deps.Protocol.Engine().ThroughputQuota.Balance(ownID)
 	// if issuer not found, returned value is 0.0
 	if !exists {
 		log.Debugf("no mana available for local identity: %s ", ownID.String())
 	}
 
-	ownWeight, exists := deps.Protocol.Engine().SybilProtection.Weights().Weight(ownID)
+	ownWeight, exists := deps.Protocol.Engine().SybilProtection.Weights().Get(ownID)
 	if !exists {
 		ownWeight = sybilprotection.NewWeight(0, -1)
 	}
@@ -100,7 +100,7 @@ func sendManaValue() {
 }
 
 func sendManaMapOverall() {
-	accessManaList, _, err := manamodels.GetHighestManaIssuers(0, deps.Protocol.Engine().ManaTracker.ManaByIDs())
+	accessManaList, _, err := manamodels.GetHighestManaIssuers(0, deps.Protocol.Engine().ThroughputQuota.BalanceByIDs())
 	if err != nil && !errors.Is(err, manamodels.ErrQueryNotAllowed) {
 		log.Errorf("failed to get list of n highest access mana issuers: %s ", err.Error())
 	}
@@ -108,7 +108,7 @@ func sendManaMapOverall() {
 	totalAccessMana := int64(0)
 	for i := 0; i < len(accessManaList); i++ {
 		accessPayload.Issuers = append(accessPayload.Issuers, accessManaList[i].ToIssuerStr())
-		totalAccessMana += int64(accessManaList[i].Mana)
+		totalAccessMana += accessManaList[i].Mana
 	}
 	accessPayload.TotalMana = totalAccessMana
 	broadcastWsBlock(&wsblk{
@@ -139,7 +139,7 @@ func sendManaMapOnline() {
 		return
 	}
 	knownPeers := deps.Discover.GetVerifiedPeers()
-	manaMap := deps.Protocol.Engine().ManaTracker.ManaByIDs()
+	manaMap := deps.Protocol.Engine().ThroughputQuota.BalanceByIDs()
 	accessPayload := &ManaNetworkListBlkData{ManaType: manamodels.AccessMana.String()}
 	var totalAccessMana int64
 	for _, peerID := range append(lo.Map(knownPeers, func(p *peer.Peer) identity.ID { return p.ID() }), deps.Local.ID()) {
@@ -165,7 +165,7 @@ func sendManaMapOnline() {
 	consensusPayload := &ManaNetworkListBlkData{ManaType: manamodels.ConsensusMana.String()}
 
 	_ = activeNodes.ForEach(func(id identity.ID) error {
-		weight, exists := deps.Protocol.Engine().SybilProtection.Weights().Weight(id)
+		weight, exists := deps.Protocol.Engine().SybilProtection.Weights().Get(id)
 		if !exists {
 			weight = sybilprotection.NewWeight(0, -1)
 		}

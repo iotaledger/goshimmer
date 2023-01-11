@@ -2,6 +2,7 @@ package consensus
 
 import (
 	"context"
+	"log"
 	"testing"
 	"time"
 
@@ -44,7 +45,6 @@ func TestSimpleDoubleSpend(t *testing.T) {
 			Faucet:      false,
 			Activity:    false,
 			Autopeering: false,
-			PeerMaster:  false,
 			Snapshot:    snapshotInfo,
 		}, tests.CommonSnapshotConfigFunc(t, snapshotInfo, func(peerIndex int, isPeerMaster bool, conf config.GoShimmer) config.GoShimmer {
 			conf.UseNodeSeedAsWalletSeed = true
@@ -70,8 +70,9 @@ func TestSimpleDoubleSpend(t *testing.T) {
 		genesis2Wallet = createGenesisWallet(node2)
 	)
 
-	// issue blocks from a single node, so only one node attaches to the genesis
-	tests.SendDataBlocks(t, []*framework.Node{node4}, 50)
+	log.Println("Bootstrapping network...")
+	tests.BootstrapNetwork(t, n)
+	log.Println("Bootstrapping network... done")
 
 	// issue blocks on all nodes
 	tests.SendDataBlocks(t, n.Peers(), 50)

@@ -24,7 +24,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/storage/permanent"
 )
 
 type TestFramework struct {
@@ -62,7 +61,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 		)
 
 		if t.optsValidators == nil {
-			t.optsValidators = sybilprotection.NewWeightedSet(sybilprotection.NewWeights(mapdb.NewMapDB(), permanent.NewSettings(t.test.TempDir()+"/settings")))
+			t.optsValidators = sybilprotection.NewWeightedSet(sybilprotection.NewWeights(mapdb.NewMapDB()))
 		}
 
 		if t.VirtualVoting == nil {
@@ -117,18 +116,16 @@ func (t *TestFramework) Identities(aliases ...string) (identities *set.AdvancedS
 func (t *TestFramework) ValidateMarkerVoters(expectedVoters map[markers.Marker]*set.AdvancedSet[identity.ID]) {
 	for marker, expectedVotersOfMarker := range expectedVoters {
 		voters := t.SequenceTracker.Voters(marker)
-		defer voters.Detach()
-
 		assert.True(t.test, expectedVotersOfMarker.Equal(voters.Members()), "marker %s expected %d voters but got %d", marker, expectedVotersOfMarker.Size(), voters.Members().Size())
+		voters.Detach()
 	}
 }
 
 func (t *TestFramework) ValidateConflictVoters(expectedVoters map[utxo.TransactionID]*set.AdvancedSet[identity.ID]) {
 	for conflictID, expectedVotersOfMarker := range expectedVoters {
 		voters := t.ConflictTracker.Voters(conflictID)
-		voters.Detach()
-
 		assert.True(t.test, expectedVotersOfMarker.Equal(voters.Members()), "conflict %s expected %d voters but got %d", conflictID, expectedVotersOfMarker.Size(), voters.Members().Size())
+		voters.Detach()
 	}
 }
 

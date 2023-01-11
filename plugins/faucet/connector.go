@@ -1,8 +1,8 @@
 package faucet
 
 import (
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
-	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
@@ -43,7 +43,7 @@ func (f *Connector) UnspentOutputs(addresses ...address.Address) (unspentOutputs
 								ConfirmationStateReached: outputMetadata.ConfirmationState().IsAccepted(),
 								Spent:                    false,
 								Metadata: wallet.OutputMetadata{
-									Timestamp: outputMetadata.CreationTime(),
+									Timestamp: outputMetadata.InclusionEpoch().EndTime(),
 								},
 							}
 

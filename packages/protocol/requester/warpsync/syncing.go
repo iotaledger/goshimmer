@@ -86,7 +86,7 @@ func (m *Manager) syncEpochFunc(errCtx context.Context, eg *errgroup.Group, vali
 
 				m.protocol.RequestEpochBlocks(targetEpoch, ecChain[targetEpoch], peerID)
 
-				dataflow.New(
+				err = dataflow.New(
 					m.epochStartCommand,
 					m.epochBlockCommand,
 					m.epochEndCommand,
@@ -215,18 +215,21 @@ func (m *Manager) endEpochSyncing(ei epoch.Index) {
 func (m *Manager) processEpochBlocksRequestPacket(packetEpochRequest *wp.Packet_EpochBlocksRequest, nbr *p2p.Neighbor) {
 	ei := epoch.Index(packetEpochRequest.EpochBlocksRequest.GetEI())
 	ec := new(commitment.Commitment)
-	ec.FromBytes(packetEpochRequest.EpochBlocksRequest.GetEC())
+	if _, err := ec.FromBytes(packetEpochRequest.EpochBlocksRequest.GetEC()); err != nil {
+		m.log.Errorw("epoch blocks request rejected: unable to deserialize commitment", "err", err)
+		return
+	}
 	ecID := ec.ID()
 
-	//m.log.Debugw("received epoch blocks request", "peer", nbr.Peer.ID(), "Index", ei, "ID", ec)
+	// m.log.Debugw("received epoch blocks request", "peer", nbr.Peer.ID(), "Index", ei, "ID", ec)
 
-	commitment, _ := m.commitmentManager.Commitment(ecID)
-	if commitment == nil {
+	cm, _ := m.commitmentManager.Commitment(ecID)
+	if cm == nil {
 		m.log.Debugw("epoch blocks request rejected: unknown commitment", "peer", nbr.Peer.ID(), "Index", ei, "ID", ec)
 		return
 	}
 
-	chain := commitment.Chain()
+	chain := cm.Chain()
 	if chain == nil {
 		m.log.Debugw("epoch blocks request rejected: unknown chain", "peer", nbr.Peer.ID(), "Index", ei, "ID", ec)
 		return
@@ -270,7 +273,10 @@ func (m *Manager) processEpochBlocksStartPacket(packetEpochBlocksStart *wp.Packe
 	m.log.Debugw("received epoch blocks start", "peer", nbr.Peer.ID(), "Index", ei, "blocksCount", epochBlocksStart.GetBlocksCount())
 
 	ec := new(commitment.Commitment)
-	ec.FromBytes(epochBlocksStart.GetEC())
+	if _, err := ec.FromBytes(epochBlocksStart.GetEC()); err != nil {
+		m.log.Errorw("received epoch blocks start: unable to deserialize commitment", "err", err)
+		return
+	}
 
 	epochChannels.startChan <- &epochSyncStart{
 		ei:          ei,
@@ -306,7 +312,10 @@ func (m *Manager) processEpochBlocksBatchPacket(packetEpochBlocksBatch *wp.Packe
 		}
 
 		ec := new(commitment.Commitment)
-		ec.FromBytes(epochBlocksBatch.GetEC())
+		if _, err := ec.FromBytes(epochBlocksBatch.GetEC()); err != nil {
+			m.log.Errorw("failed to deserialize commitment", "peer", nbr.Peer.ID(), "err", err)
+			return
+		}
 
 		select {
 		case <-epochChannels.stopChan:
@@ -340,7 +349,10 @@ func (m *Manager) processEpochBlocksEndPacket(packetEpochBlocksEnd *wp.Packet_Ep
 	m.log.Debugw("received epoch blocks end", "peer", nbr.Peer.ID(), "Index", ei)
 
 	ec := new(commitment.Commitment)
-	ec.FromBytes(packetEpochBlocksEnd.EpochBlocksEnd.GetEC())
+	if _, err := ec.FromBytes(packetEpochBlocksEnd.EpochBlocksEnd.GetEC()); err != nil {
+		m.log.Errorw("received epoch blocks end: unable to deserialize commitment", "err", err)
+		return
+	}
 
 	epochSyncEnd := &epochSyncEnd{
 		ei:    ei,
@@ -348,7 +360,10 @@ func (m *Manager) processEpochBlocksEndPacket(packetEpochBlocksEnd *wp.Packet_Ep
 		roots: new(commitment.Roots),
 	}
 
-	epochSyncEnd.roots.FromBytes(packetEpochBlocksEnd.EpochBlocksEnd.GetRoots())
+	if _, err := epochSyncEnd.roots.FromBytes(packetEpochBlocksEnd.EpochBlocksEnd.GetRoots()); err != nil {
+		m.log.Errorw("received epoch blocks end: unable to deserialize roots", "err", err)
+		return
+	}
 
 	epochChannels.endChan <- epochSyncEnd
 }

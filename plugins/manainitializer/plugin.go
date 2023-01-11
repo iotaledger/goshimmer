@@ -1,7 +1,7 @@
 package manainitializer
 
 import (
-	// import required to profile
+	// import required to profile.
 	_ "net/http/pprof"
 
 	"github.com/iotaledger/hive.go/core/autopeering/peer"

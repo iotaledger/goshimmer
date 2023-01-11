@@ -16,7 +16,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/goshimmer/packages/storage/permanent"
 )
 
 type TestFramework struct {
@@ -41,7 +40,7 @@ func NewTestFramework(test *testing.T) *TestFramework {
 		epochEntityCounter: make(map[epoch.Index]int),
 	}
 
-	tf.weights = sybilprotection.NewWeights(mapdb.NewMapDB(), permanent.NewSettings(test.TempDir() + "/settings"))
+	tf.weights = sybilprotection.NewWeights(mapdb.NewMapDB())
 	tf.MutationFactory = NewEpochMutations(tf.weights, 0)
 
 	return tf
@@ -59,7 +58,7 @@ func (t *TestFramework) CreateIssuer(alias string, issuerWeight ...int64) (issue
 
 	t.issuersByID[alias] = issuer
 	if len(issuerWeight) == 1 {
-		t.weights.Import(identity.NewID(issuer), issuerWeight[0])
+		t.weights.Update(identity.NewID(issuer), sybilprotection.NewWeight(issuerWeight[0], 0))
 	}
 	return issuer
 }
@@ -85,7 +84,9 @@ func (t *TestFramework) CreateBlock(alias string, index epoch.Index, blockOpts .
 			models.NewBlockIDs(models.EmptyBlockID),
 		),
 	}, blockOpts...)...)
-	block.DetermineID()
+	if err := block.DetermineID(); err != nil {
+		panic(err)
+	}
 
 	t.blocksByID[alias] = block
 
@@ -110,7 +111,7 @@ func (t *TestFramework) CreateTransaction(alias string, index epoch.Index) (meta
 	var txID utxo.TransactionID
 	require.NoError(t.test, txID.FromRandomness())
 	metadata = ledger.NewTransactionMetadata(txID)
-	metadata.SetInclusionTime(index.StartTime().Add(time.Duration(t.increaseEpochEntityCounter(index)) * time.Millisecond))
+	metadata.SetInclusionEpoch(index)
 
 	t.transactionsByID[alias] = metadata
 
@@ -170,7 +171,7 @@ func (t *TestFramework) UpdateTransactionInclusion(alias string, oldEpoch, newEp
 }
 
 func (t *TestFramework) AssertCommit(index epoch.Index, expectedBlocks []string, expectedTransactions []string, expectedValidators []string, expectedCumulativeWeight int64, optShouldError ...bool) {
-	acceptedBlocks, acceptedTransactions, attestations, err := t.MutationFactory.Evict(index)
+	acceptedBlocks, acceptedTransactions, err := t.MutationFactory.Evict(index)
 	if len(optShouldError) > 0 && optShouldError[0] {
 		require.Error(t.test, err)
 	}
@@ -192,14 +193,6 @@ func (t *TestFramework) AssertCommit(index epoch.Index, expectedBlocks []string,
 			require.True(t.test, acceptedTransactions.Has(t.Transaction(expectedTransaction).ID()))
 		}
 	}
-
-	attestors := attestations.Attestors()
-	require.Equal(t.test, len(expectedValidators), attestors.Size())
-	for _, expectedValidator := range expectedValidators {
-		require.True(t.test, attestors.Has(identity.NewID(t.Issuer(expectedValidator))))
-	}
-
-	require.Equal(t.test, expectedCumulativeWeight, attestations.Weight())
 }
 
 func (t *TestFramework) increaseEpochEntityCounter(index epoch.Index) (nextBlockCounter int) {
