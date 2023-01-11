@@ -92,6 +92,7 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 				scheduler.WithMaxBufferSize(SchedulerParameters.MaxBufferSize),
 				scheduler.WithAcceptedBlockScheduleThreshold(SchedulerParameters.ConfirmedBlockThreshold),
 				scheduler.WithRate(SchedulerParameters.Rate),
+				scheduler.WithMaxDeficit(SchedulerParameters.MaxDeficit),
 			),
 		),
 		protocol.WithBaseDirectory(DatabaseParameters.Directory),
