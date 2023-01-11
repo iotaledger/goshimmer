@@ -209,6 +209,9 @@ func registerLocalMetrics() {
 			// TODO: figure out whether to use retainer to get the times
 			// sumTimesSinceReceived[Booked] += blkMetaData.BookedTime().Sub(blkMetaData.ReceivedTime())
 			sumTimesSinceIssued[Booked] += time.Since(block.IssuingTime())
+			if block.Payload().Type() == devnetvm.TransactionType {
+				increaseBookedTransactionCounter()
+			}
 		}
 	}))
 

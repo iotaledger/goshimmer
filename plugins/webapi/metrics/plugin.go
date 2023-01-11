@@ -51,21 +51,21 @@ func GetGlobalMetrics(c echo.Context) (err error) {
 	}
 	inclusionRate := finalizedBlk / blkStored
 
-	var totalDelay, typeLen uint64
+	var totalDelay uint64
 	for _, t := range metrics.BlockFinalizationTotalTimeSinceIssuedPerType() {
 		totalDelay += t
-		typeLen++
 	}
-	confirmationDelay := time.Duration(totalDelay / typeLen)
+	confirmationDelay := time.Duration(totalDelay / finalizedBlk)
 
 	return c.JSON(http.StatusOK, jsonmodels.GlobalMetricsResponse{
-		BlockStored:       blkStored,
-		InclusionRate:     float64(inclusionRate),
-		ConfirmationDelay: confirmationDelay.String(),
-		ActiveManaRatio:   activeManaRatio(),
-		OnlineNodes:       len(deps.Discovery.GetVerifiedPeers()),
-		ConflictsResolved: metrics.FinalizedConflictCountDB(),
-		TotalConflicts:    metrics.TotalConflictCountDB(),
+		BlockStored:        blkStored,
+		BookedTransactions: metrics.BookedTransactions(),
+		InclusionRate:      float64(inclusionRate),
+		ConfirmationDelay:  confirmationDelay.String(),
+		ActiveManaRatio:    activeManaRatio(),
+		OnlineNodes:        len(deps.Discovery.GetVerifiedPeers()),
+		ConflictsResolved:  metrics.FinalizedConflictCountDB(),
+		TotalConflicts:     metrics.TotalConflictCountDB(),
 	})
 }
 

@@ -128,6 +128,9 @@ var (
 
 // other metrics stored since the start of a node.
 var (
+	// total number of booked transactions.
+	bookedTransactions atomic.Uint64
+
 	// current number of finalized blocks.
 	finalizedBlockCount      = make(map[BlockType]uint64)
 	finalizedBlockCountMutex syncutils.RWMutex
@@ -216,6 +219,11 @@ func BlockCountSinceStartPerComponentDashboard() map[ComponentType]uint64 {
 	}
 
 	return clone
+}
+
+// BlockTips returns the actual number of tips in the block tangle.
+func BookedTransactions() uint64 {
+	return bookedTransactions.Load()
 }
 
 // BlockTips returns the actual number of tips in the block tangle.
@@ -406,6 +414,11 @@ func measurePerComponentCounter() {
 
 func measureBlockTips() {
 	blockTips.Store(uint64(deps.Protocol.TipManager.TipCount()))
+}
+
+// increases the booked transaction counter
+func increaseBookedTransactionCounter() {
+	bookedTransactions.Inc()
 }
 
 // increases the received BPS counter
