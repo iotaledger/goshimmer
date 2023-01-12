@@ -68,6 +68,14 @@ func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opt
 				return latestCommitment, confirmedEpochIndex, nil
 			},
 			i.optsBlockFactoryOptions...)
+
+		i.RateSetter = ratesetter.New(
+			i.protocol,
+			i.protocol.Engine().ThroughputQuota.BalanceByIDs,
+			i.protocol.Engine().ThroughputQuota.TotalBalance,
+			i.identity.ID(),
+			i.optsRateSetterOptions...,
+		)
 	}, (*BlockIssuer).setupEvents)
 }
 

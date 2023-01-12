@@ -195,7 +195,7 @@ func (e *ED25519Signature) String() string {
 	)
 }
 
-// code contract (make sure the type implements all required methods)
+// code contract (make sure the type implements all required methods).
 var _ Signature = &ED25519Signature{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -271,7 +271,7 @@ func (b *BLSSignature) String() string {
 	)
 }
 
-// code contract (make sure the type implements all required methods)
+// code contract (make sure the type implements all required methods).
 var _ Signature = &BLSSignature{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

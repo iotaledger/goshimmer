@@ -9,21 +9,18 @@ services:
     build: *goshimmer_build
     stop_grace_period: 1m
     command: >
-      --analysis.dashboard.bindAddress=0.0.0.0:9000
-      --analysis.dashboard.dev=false
-      --analysis.server.bindAddress=0.0.0.0:1888
       --autoPeering.entryNodes=
       --node.seed=base58:8q491c3YWjbPwLmF2WD95YmCgh61j2kenCKHfGfByoWi
       --node.overwriteStoredSeed=true
+      --node.enablePlugins="webapitoolsendpoint",spammer,prometheus,WebAPIToolsBlockEndpoint,activity,snapshot
+      --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
       --config=/run/secrets/goshimmer.config.json
+      --node.peerDBDirectory=/app/peerdb
       --database.directory=/app/db
       --protocol.snapshot.path=./snapshot.bin
-      --blockIssuer.rateSetter.mode=disabled
-      --node.peerDBDirectory=/app/peerdb
+      --blockIssuer.rateSetter.enable=false
       --metrics.global=true
       --metrics.local=true
-      --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,RemoteLogMetrics
-      --node.enablePlugins=analysisServer,analysisDashboard,prometheus,spammer,WebAPIToolsBlockEndpoint,activity,snapshot
       --prometheus.bindAddress=0.0.0.0:9311
       --prometheus.processMetrics=true
       --prometheus.goMetrics=true
@@ -54,7 +51,7 @@ services:
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/app/mainnetdb
       --node.enablePlugins="webapi tools endpoint",spammer,prometheus,activity
-      --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog
+      --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
       --node.overwriteStoredSeed=true
       --protocol.snapshot.path=./snapshot.bin
       --blockIssuer.rateSetter.mode=deficit
@@ -78,17 +75,18 @@ services:
     command: >
       --node.seed=base58:4ata8GcTRMJ5sSv2jQJWmSYYTHct748p3tXmCFYm7wjA
       --node.overwriteStoredSeed=true
-      --node.enablePlugins="webapi tools endpoint",activity,spammer,prometheus
-      --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog
+      --node.enablePlugins="webapitoolsendpoint",activity,spammer,prometheus
+      --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
       --config=/run/secrets/goshimmer.config.json
       --node.peerDBDirectory=/app/peerdb
       --database.directory=/app/db
       --protocol.snapshot.path=./snapshot.bin
-      --blockIssuer.rateSetter.mode=deficit
+      --blockIssuer.rateSetter.enable=false
+      --metrics.global=true
+      --metrics.local=true
       --prometheus.bindAddress=0.0.0.0:9311
       --prometheus.processMetrics=true
       --prometheus.goMetrics=true
-      --blockIssuer.ignoreBootstrappedFlag=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
     secrets:
@@ -107,17 +105,20 @@ services:
     image: docker-network-peer_master:latest
     stop_grace_period: 1m
     command: >
+      --node.enablePlugins="webapitoolsendpoint",spammer,prometheus
+      --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
+      --node.peerDBDirectory=/app/peerdb
+      --database.directory=/app/db
       --config=/run/secrets/goshimmer.config.json
-      --database.directory=/app/mainnetdb
-      --node.enablePlugins="webapi tools endpoint",spammer,prometheus
-      --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog
-      --node.overwriteStoredSeed=true
       --protocol.snapshot.path=./snapshot.bin
-      --blockIssuer.rateSetter.mode=disabled
+      --blockIssuer.rateSetter.enable=false
+      --metrics.global=true
+      --metrics.local=true
       --prometheus.bindAddress=0.0.0.0:9311
       --protocol.genesisTime=${GENESIS_TIME}
       --prometheus.processMetrics=true
       --prometheus.goMetrics=true
+      --profiling.bindAddress=0.0.0.0:6061
     secrets:
       - goshimmer.config.json
     volumes:
@@ -139,16 +140,17 @@ services:
       --faucet.seed=7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih
       --node.seed=base58:3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E
       --node.overwriteStoredSeed=true
-      --node.enablePlugins=bootstrap,"webAPIToolsEndpoint",faucet,activity,prometheus,spammer,"WebAPIFaucetEndpoint"
-      --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog
+      --node.enablePlugins="webAPIToolsEndpoint",faucet,activity,prometheus,spammer,"WebAPIFaucetEndpoint"
+      --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/app/db
+      --metrics.global=true
+      --metrics.local=true
       --protocol.snapshot.path=./snapshot.bin
       --blockIssuer.rateSetter.mode=disabled
       --prometheus.bindAddress=0.0.0.0:9311
       --prometheus.processMetrics=true
       --prometheus.goMetrics=true
-      --blockIssuer.ignoreBootstrappedFlag=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
     secrets:

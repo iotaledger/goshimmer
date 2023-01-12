@@ -25,8 +25,8 @@ func createManager(lPeer *peer.Local) *p2p.Manager {
 	}
 
 	// announce the service
-	if err := lPeer.UpdateService(service.P2PKey, localAddr.Network(), localAddr.Port); err != nil {
-		Plugin.LogFatalfAndExit("could not update services: %s", err)
+	if serviceErr := lPeer.UpdateService(service.P2PKey, localAddr.Network(), localAddr.Port); serviceErr != nil {
+		Plugin.LogFatalfAndExit("could not update services: %s", serviceErr)
 	}
 
 	libp2pIdentity, err := libp2putil.GetLibp2pIdentity(lPeer)

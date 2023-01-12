@@ -148,7 +148,7 @@ func (i Inputs) Strings() (result []string) {
 	for _, input := range i {
 		if input.Type() == UTXOInputType {
 			outputID := input.(*UTXOInput).ReferencedOutputID()
-			result = append(result, fmt.Sprintf("%s", outputID))
+			result = append(result, outputID.String())
 		}
 	}
 
@@ -195,7 +195,7 @@ func (u *UTXOInput) Compare(other Input) int {
 	return bytes.Compare(lo.PanicOnErr(u.Bytes()), lo.PanicOnErr(other.Bytes()))
 }
 
-// code contract (make sure the struct implements all required methods)
+// code contract (make sure the struct implements all required methods).
 var _ Input = &UTXOInput{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

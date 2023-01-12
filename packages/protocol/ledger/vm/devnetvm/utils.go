@@ -60,8 +60,8 @@ func UnlockBlocksValid(inputs Outputs, transaction *Transaction) (valid bool) {
 // AliasInitialStateValid is an internal utility function that checks if aliases are created by the transaction with
 // valid initial states.
 // Initial state of an alias is valid, if and only if:
-//  - there is no "chained" alias with the same ID on the input side
-//  - the alias itself has the origin flag set, and state index is 0.
+//   - there is no "chained" alias with the same ID on the input side
+//   - the alias itself has the origin flag set, and state index is 0.
 func AliasInitialStateValid(inputs Outputs, transaction *Transaction) bool {
 	// are there any aliases present on the output side?
 	outputAliases := make(map[AliasAddress]*AliasOutput)

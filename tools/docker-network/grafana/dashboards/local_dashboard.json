@@ -25,6 +25,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
+  "id": 4,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -92,7 +93,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.2.6",
+      "pluginVersion": "9.2.0",
       "targets": [
         {
           "expr": "iota_info_app{instance=\"$instance\"}",
@@ -157,7 +158,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.2.6",
+      "pluginVersion": "9.2.0",
       "targets": [
         {
           "exemplar": true,
@@ -224,7 +225,7 @@
         "text": {},
         "textMode": "value"
       },
-      "pluginVersion": "9.2.6",
+      "pluginVersion": "9.2.0",
       "targets": [
         {
           "exemplar": true,
@@ -293,7 +294,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.2.6",
+      "pluginVersion": "9.2.0",
       "targets": [
         {
           "expr": "tangleTimeSynced{instance=\"$instance\"}",
@@ -354,13 +355,19 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.2.6",
+      "pluginVersion": "9.2.0",
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
           "exemplar": true,
-          "expr": "irate(tangle_blocks_per_component_count{component=\"Store\",instance=\"$instance\"}[5m])",
+          "expr": "irate(tangle_blocks_per_component_count{component=\"Attached\",instance=\"$instance\"}[5m])",
           "interval": "",
           "legendFormat": "Total BPS",
+          "range": true,
           "refId": "A"
         }
       ],
@@ -411,7 +418,7 @@
         "text": {},
         "textMode": "value"
       },
-      "pluginVersion": "9.2.6",
+      "pluginVersion": "9.2.0",
       "targets": [
         {
           "expr": "mana_access{instance=\"$instance\",nodeID=\"$NodeID\"}",
@@ -467,7 +474,7 @@
         "text": {},
         "textMode": "value"
       },
-      "pluginVersion": "9.2.6",
+      "pluginVersion": "9.2.0",
       "targets": [
         {
           "datasource": {
@@ -489,12 +496,10 @@
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
-      "description": "Current CPU usage of the node.",
+      "description": "Size of the ledger database.",
       "fieldConfig": {
         "defaults": {
           "mappings": [],
-          "max": 100,
-          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -508,7 +513,7 @@
               }
             ]
           },
-          "unit": "percent"
+          "unit": "decmbytes"
         },
         "overrides": []
       },
@@ -518,7 +523,7 @@
         "x": 16,
         "y": 1
       },
-      "id": 53,
+      "id": 58,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -534,16 +539,22 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.2.6",
+      "pluginVersion": "9.2.0",
       "targets": [
         {
-          "expr": "process_cpu_usage{instance=\"$instance\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "sum(db_size{instance=\"$instance\"}) /1024/1024",
           "interval": "",
           "legendFormat": "",
+          "range": true,
           "refId": "A"
         }
       ],
-      "title": "CPU Usage",
+      "title": "Total Database Size",
       "type": "stat"
     },
     {
@@ -578,7 +589,7 @@
         "x": 18,
         "y": 1
       },
-      "id": 58,
+      "id": 162,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -594,16 +605,22 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.2.6",
+      "pluginVersion": "9.2.0",
       "targets": [
         {
-          "expr": "db_size_bytes{instance=\"$instance\"}/1024/1024",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "sum(db_size{type=\"storage_permanent\", instance=\"$instance\"}) /1024/1024",
           "interval": "",
           "legendFormat": "",
+          "range": true,
           "refId": "A"
         }
       ],
-      "title": "Database Size",
+      "title": "Permanent DB Size",
       "type": "stat"
     },
     {
@@ -611,7 +628,7 @@
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
-      "description": "Memory consumed by the node.",
+      "description": "Size of the ledger database.",
       "fieldConfig": {
         "defaults": {
           "mappings": [],
@@ -621,6 +638,10 @@
               {
                 "color": "green",
                 "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
               }
             ]
           },
@@ -634,7 +655,7 @@
         "x": 20,
         "y": 1
       },
-      "id": 20,
+      "id": 164,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -650,16 +671,22 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.2.6",
+      "pluginVersion": "9.2.0",
       "targets": [
         {
-          "expr": "process_mem_usage_bytes{instance=\"$instance\"}/1024/1024",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "sum(db_size{type=\"storage_prunable\", instance=\"$instance\"}) /1024/1024",
           "interval": "",
           "legendFormat": "",
+          "range": true,
           "refId": "A"
         }
       ],
-      "title": "Memory Consumption",
+      "title": "Prunable DB size",
       "type": "stat"
     },
     {
@@ -667,7 +694,7 @@
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
-      "description": "Memory consumed by the node.",
+      "description": "Size of the ledger database.",
       "fieldConfig": {
         "defaults": {
           "mappings": [],
@@ -677,10 +704,14 @@
               {
                 "color": "green",
                 "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
               }
             ]
           },
-          "unit": "none"
+          "unit": "decmbytes"
         },
         "overrides": []
       },
@@ -690,7 +721,7 @@
         "x": 22,
         "y": 1
       },
-      "id": 150,
+      "id": 163,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -706,21 +737,22 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.2.6",
+      "pluginVersion": "9.2.0",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "exemplar": true,
-          "expr": "up{instance=\"$instance\"}",
+          "editorMode": "code",
+          "expr": "sum(db_size{instance=\"$instance\", type=\"retainer\"}) /1024/1024",
           "interval": "",
           "legendFormat": "",
+          "range": true,
           "refId": "A"
         }
       ],
-      "title": "Node up",
+      "title": "Retainer DB size",
       "type": "stat"
     },
     {
@@ -758,7 +790,7 @@
             "h": 11,
             "w": 11,
             "x": 0,
-            "y": 28
+            "y": 4
           },
           "hiddenSeries": false,
           "id": 32,
@@ -848,7 +880,7 @@
             "h": 11,
             "w": 13,
             "x": 11,
-            "y": 28
+            "y": 4
           },
           "hiddenSeries": false,
           "id": 111,
@@ -938,7 +970,7 @@
             "h": 10,
             "w": 11,
             "x": 0,
-            "y": 39
+            "y": 15
           },
           "hiddenSeries": false,
           "id": 52,
@@ -1025,7 +1057,7 @@
             "h": 8,
             "w": 13,
             "x": 11,
-            "y": 39
+            "y": 15
           },
           "hiddenSeries": false,
           "id": 4,
@@ -1132,7 +1164,7 @@
             "h": 3,
             "w": 3,
             "x": 11,
-            "y": 47
+            "y": 23
           },
           "id": 6,
           "options": {
@@ -1150,7 +1182,7 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "8.3.3",
+          "pluginVersion": "9.2.6",
           "targets": [
             {
               "expr": "autopeering_neighbor_connections_count{instance=\"$instance\"} - autopeering_neighbor_drop_count{instance=\"$instance\"}",
@@ -1187,7 +1219,7 @@
             "h": 3,
             "w": 4,
             "x": 14,
-            "y": 47
+            "y": 23
           },
           "id": 2,
           "options": {
@@ -1205,7 +1237,7 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "8.3.3",
+          "pluginVersion": "9.2.6",
           "targets": [
             {
               "expr": "autopeering_avg_neighbor_connection_lifetime{instance=\"$instance\"}",
@@ -1245,7 +1277,7 @@
             "h": 3,
             "w": 3,
             "x": 18,
-            "y": 47
+            "y": 23
           },
           "id": 8,
           "options": {
@@ -1263,7 +1295,7 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "8.3.3",
+          "pluginVersion": "9.2.6",
           "targets": [
             {
               "expr": "autopeering_neighbor_connections_count{instance=\"$instance\"}",
@@ -1303,7 +1335,7 @@
             "h": 3,
             "w": 3,
             "x": 21,
-            "y": 47
+            "y": 23
           },
           "id": 10,
           "options": {
@@ -1321,7 +1353,7 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "8.3.3",
+          "pluginVersion": "9.2.6",
           "targets": [
             {
               "expr": "autopeering_neighbor_drop_count{instance=\"$instance\"}",
@@ -1355,7 +1387,7 @@
             "h": 8,
             "w": 5,
             "x": 0,
-            "y": 49
+            "y": 25
           },
           "hiddenSeries": false,
           "id": 77,
@@ -1375,7 +1407,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "8.3.3",
+          "pluginVersion": "9.2.6",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -1444,7 +1476,7 @@
             "h": 8,
             "w": 6,
             "x": 5,
-            "y": 49
+            "y": 25
           },
           "hiddenSeries": false,
           "id": 148,
@@ -1464,7 +1496,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "8.3.3",
+          "pluginVersion": "9.2.6",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -1512,565 +1544,274 @@
           }
         },
         {
-          "aliasColors": {},
-          "bars": false,
-          "dashLength": 10,
-          "dashes": false,
           "datasource": {
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
           "fieldConfig": {
             "defaults": {
-              "links": []
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  }
+                ]
+              },
+              "unit": "decbytes"
             },
             "overrides": []
           },
-          "fill": 1,
-          "fillGradient": 0,
           "gridPos": {
-            "h": 9,
-            "w": 7,
+            "h": 2,
+            "w": 2,
             "x": 11,
-            "y": 50
+            "y": 26
           },
-          "hiddenSeries": false,
-          "id": 16,
-          "legend": {
-            "avg": false,
-            "current": false,
-            "max": false,
-            "min": false,
-            "show": true,
-            "total": false,
-            "values": false
-          },
-          "lines": true,
-          "linewidth": 1,
-          "nullPointMode": "null",
+          "id": 59,
           "options": {
-            "alertThreshold": true
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "text": {},
+            "textMode": "auto"
           },
-          "percentage": false,
-          "pluginVersion": "8.3.3",
-          "pointradius": 2,
-          "points": false,
-          "renderer": "flot",
-          "seriesOverrides": [],
-          "spaceLength": 10,
-          "stack": false,
-          "steppedLine": false,
+          "pluginVersion": "9.2.6",
           "targets": [
             {
-              "expr": "process_cpu_usage{instance=\"$instance\"}",
-              "interval": "",
-              "legendFormat": "CPU Usage",
-              "refId": "A"
-            }
-          ],
-          "thresholds": [],
-          "timeRegions": [],
-          "title": "CPU Usage",
-          "tooltip": {
-            "shared": true,
-            "sort": 0,
-            "value_type": "individual"
-          },
-          "type": "graph",
-          "xaxis": {
-            "mode": "time",
-            "show": true,
-            "values": []
-          },
-          "yaxes": [
-            {
-              "format": "percent",
-              "label": "",
-              "logBase": 1,
-              "max": "100",
-              "min": "0",
-              "show": true
-            },
-            {
-              "format": "short",
-              "logBase": 1,
-              "show": true
-            }
-          ],
-          "yaxis": {
-            "align": false
-          }
-        },
-        {
-          "aliasColors": {},
-          "bars": false,
-          "dashLength": 10,
-          "dashes": false,
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "links": []
-            },
-            "overrides": []
-          },
-          "fill": 1,
-          "fillGradient": 0,
-          "gridPos": {
-            "h": 9,
-            "w": 6,
-            "x": 18,
-            "y": 50
-          },
-          "hiddenSeries": false,
-          "id": 18,
-          "legend": {
-            "avg": false,
-            "current": false,
-            "max": false,
-            "min": false,
-            "show": true,
-            "total": false,
-            "values": false
-          },
-          "lines": true,
-          "linewidth": 1,
-          "nullPointMode": "null",
-          "options": {
-            "alertThreshold": true
-          },
-          "percentage": false,
-          "pluginVersion": "8.3.3",
-          "pointradius": 2,
-          "points": false,
-          "renderer": "flot",
-          "seriesOverrides": [],
-          "spaceLength": 10,
-          "stack": false,
-          "steppedLine": false,
-          "targets": [
-            {
-              "expr": "process_mem_usage_bytes{instance=\"$instance\"}/1024/1024",
-              "interval": "",
-              "legendFormat": "Memory Consumption",
-              "refId": "A"
-            }
-          ],
-          "thresholds": [],
-          "timeRegions": [],
-          "title": "Memory Consumption",
-          "tooltip": {
-            "shared": true,
-            "sort": 0,
-            "value_type": "individual"
-          },
-          "type": "graph",
-          "xaxis": {
-            "mode": "time",
-            "show": true,
-            "values": []
-          },
-          "yaxes": [
-            {
-              "format": "decmbytes",
-              "label": "",
-              "logBase": 1,
-              "show": true
-            },
-            {
-              "format": "short",
-              "logBase": 1,
-              "show": false
-            }
-          ],
-          "yaxis": {
-            "align": false
-          }
-        },
-        {
-          "aliasColors": {},
-          "bars": false,
-          "dashLength": 10,
-          "dashes": false,
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "description": "Number of blocks in missingBlockStore. These are the block the node knows it doesn't have and tries to requests them.",
-          "fieldConfig": {
-            "defaults": {
-              "links": []
-            },
-            "overrides": []
-          },
-          "fill": 1,
-          "fillGradient": 0,
-          "gridPos": {
-            "h": 8,
-            "w": 11,
-            "x": 0,
-            "y": 57
-          },
-          "hiddenSeries": false,
-          "id": 147,
-          "legend": {
-            "avg": false,
-            "current": false,
-            "max": false,
-            "min": false,
-            "show": true,
-            "total": false,
-            "values": false
-          },
-          "lines": true,
-          "linewidth": 1,
-          "nullPointMode": "null",
-          "options": {
-            "alertThreshold": true
-          },
-          "percentage": false,
-          "pluginVersion": "8.3.3",
-          "pointradius": 2,
-          "points": false,
-          "renderer": "flot",
-          "seriesOverrides": [],
-          "spaceLength": 10,
-          "stack": false,
-          "steppedLine": false,
-          "targets": [
-            {
-              "expr": "tangle_block_missing_count_db{instance=\"$instance\"}",
-              "interval": "",
-              "legendFormat": "Missing Blocks",
-              "refId": "A"
-            }
-          ],
-          "thresholds": [],
-          "timeRegions": [],
-          "title": "Missing Blocks",
-          "tooltip": {
-            "shared": true,
-            "sort": 0,
-            "value_type": "individual"
-          },
-          "type": "graph",
-          "xaxis": {
-            "mode": "time",
-            "show": true,
-            "values": []
-          },
-          "yaxes": [
-            {
-              "format": "short",
-              "logBase": 1,
-              "show": true
-            },
-            {
-              "format": "short",
-              "logBase": 1,
-              "show": true
-            }
-          ],
-          "yaxis": {
-            "align": false
-          }
-        },
-        {
-          "aliasColors": {},
-          "bars": false,
-          "dashLength": 10,
-          "dashes": false,
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "description": "Describes the amount of total, solid and not solid blocks in the node's database.",
-          "fieldConfig": {
-            "defaults": {
-              "links": []
-            },
-            "overrides": []
-          },
-          "fill": 1,
-          "fillGradient": 0,
-          "gridPos": {
-            "h": 10,
-            "w": 13,
-            "x": 11,
-            "y": 59
-          },
-          "hiddenSeries": false,
-          "id": 73,
-          "legend": {
-            "alignAsTable": true,
-            "avg": false,
-            "current": true,
-            "max": false,
-            "min": false,
-            "rightSide": true,
-            "show": true,
-            "total": false,
-            "values": true
-          },
-          "lines": true,
-          "linewidth": 1,
-          "nullPointMode": "null",
-          "options": {
-            "alertThreshold": true
-          },
-          "percentage": false,
-          "pluginVersion": "8.3.3",
-          "pointradius": 2,
-          "points": false,
-          "renderer": "flot",
-          "seriesOverrides": [],
-          "spaceLength": 10,
-          "stack": false,
-          "steppedLine": false,
-          "targets": [
-            {
-              "exemplar": true,
-              "expr": "tangle_blocks_per_component_count{component=\"Solidifier\",instance=\"$instance\"}",
-              "interval": "",
-              "legendFormat": "Solid Blocks in DB",
-              "refId": "A"
-            },
-            {
-              "exemplar": true,
-              "expr": "tangle_blocks_per_component_count{component=\"Store\",instance=\"$instance\"} - tangle_blocks_per_component_count{component=\"Solidifier\",instance=\"$instance\"}",
-              "interval": "",
-              "legendFormat": "Not Solid Blocks in DB",
-              "refId": "B"
-            },
-            {
-              "exemplar": true,
-              "expr": "tangle_blocks_per_component_count{component=\"Store\",instance=\"$instance\"}",
-              "interval": "",
-              "legendFormat": "Total Blocks in DB",
-              "refId": "C"
-            }
-          ],
-          "thresholds": [],
-          "timeRegions": [],
-          "title": "Blocks in Database",
-          "tooltip": {
-            "shared": true,
-            "sort": 0,
-            "value_type": "individual"
-          },
-          "type": "graph",
-          "xaxis": {
-            "mode": "time",
-            "show": true,
-            "values": []
-          },
-          "yaxes": [
-            {
-              "format": "short",
-              "logBase": 1,
-              "min": "0",
-              "show": true
-            },
-            {
-              "format": "short",
-              "logBase": 1,
-              "show": true
-            }
-          ],
-          "yaxis": {
-            "align": false
-          }
-        },
-        {
-          "aliasColors": {},
-          "bars": false,
-          "dashLength": 10,
-          "dashes": false,
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "description": "Number of blocks currently requested by the block tangle.",
-          "fieldConfig": {
-            "defaults": {
-              "links": []
-            },
-            "overrides": []
-          },
-          "fill": 1,
-          "fillGradient": 0,
-          "gridPos": {
-            "h": 8,
-            "w": 11,
-            "x": 0,
-            "y": 65
-          },
-          "hiddenSeries": false,
-          "id": 69,
-          "legend": {
-            "avg": false,
-            "current": false,
-            "max": false,
-            "min": false,
-            "show": true,
-            "total": false,
-            "values": false
-          },
-          "lines": true,
-          "linewidth": 1,
-          "nullPointMode": "null",
-          "options": {
-            "alertThreshold": true
-          },
-          "percentage": false,
-          "pluginVersion": "8.3.3",
-          "pointradius": 2,
-          "points": false,
-          "renderer": "flot",
-          "seriesOverrides": [],
-          "spaceLength": 10,
-          "stack": false,
-          "steppedLine": false,
-          "targets": [
-            {
-              "exemplar": true,
-              "expr": "tangle_block_request_queue_size{instance=\"$instance\"}",
-              "interval": "",
-              "legendFormat": "Block Request Queue Size",
-              "refId": "A"
-            }
-          ],
-          "thresholds": [],
-          "timeRegions": [],
-          "title": "Block Request Queue Size",
-          "tooltip": {
-            "shared": true,
-            "sort": 0,
-            "value_type": "individual"
-          },
-          "type": "graph",
-          "xaxis": {
-            "mode": "time",
-            "show": true,
-            "values": []
-          },
-          "yaxes": [
-            {
-              "format": "short",
-              "logBase": 1,
-              "min": "0",
-              "show": true
-            },
-            {
-              "format": "short",
-              "logBase": 1,
-              "min": "0",
-              "show": false
-            }
-          ],
-          "yaxis": {
-            "align": false
-          }
-        },
-        {
-          "aliasColors": {},
-          "bars": false,
-          "dashLength": 10,
-          "dashes": false,
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "description": "Average time it takes to solidify blocks.",
-          "fieldConfig": {
-            "defaults": {
-              "links": [],
-              "unit": "ms"
-            },
-            "overrides": []
-          },
-          "fill": 1,
-          "fillGradient": 0,
-          "gridPos": {
-            "h": 9,
-            "w": 13,
-            "x": 11,
-            "y": 69
-          },
-          "hiddenSeries": false,
-          "id": 75,
-          "legend": {
-            "avg": false,
-            "current": false,
-            "max": false,
-            "min": false,
-            "show": true,
-            "total": false,
-            "values": false
-          },
-          "lines": true,
-          "linewidth": 1,
-          "nullPointMode": "null",
-          "options": {
-            "alertThreshold": true
-          },
-          "percentage": false,
-          "pluginVersion": "8.3.3",
-          "pointradius": 2,
-          "points": false,
-          "renderer": "flot",
-          "seriesOverrides": [],
-          "spaceLength": 10,
-          "stack": false,
-          "steppedLine": false,
-          "targets": [
-            {
-              "exemplar": true,
-              "expr": "rate(tangle_block_total_time_since_received{component=\"Solidifier\",instance=\"$instance\"}[5m])/rate(tangle_blocks_per_component_count{component=\"Solidifier\",instance=\"$instance\"}[5m])",
-              "interval": "",
-              "legendFormat": "Avg Solidification Time",
-              "refId": "A"
-            },
-            {
-              "exemplar": true,
-              "expr": "",
-              "hide": false,
+              "expr": "traffic_analysis_outbound_bytes{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "",
-              "refId": "B"
+              "refId": "A"
             }
           ],
-          "thresholds": [],
-          "timeRegions": [],
-          "title": "Average Solidification Time",
-          "tooltip": {
-            "shared": true,
-            "sort": 0,
-            "value_type": "individual"
+          "title": "Analysis",
+          "type": "stat"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
           },
-          "type": "graph",
-          "xaxis": {
-            "mode": "time",
-            "show": true,
-            "values": []
-          },
-          "yaxes": [
-            {
-              "format": "ms",
-              "logBase": 1,
-              "show": true
+          "fieldConfig": {
+            "defaults": {
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  }
+                ]
+              },
+              "unit": "decbytes"
             },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 2,
+            "w": 2,
+            "x": 13,
+            "y": 26
+          },
+          "id": 67,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "text": {},
+            "textMode": "auto"
+          },
+          "pluginVersion": "9.2.6",
+          "targets": [
             {
-              "format": "short",
-              "logBase": 1,
-              "show": true
+              "expr": "traffic_gossip_outbound_packets{instance=\"$instance\"}",
+              "interval": "",
+              "legendFormat": "",
+              "refId": "A"
             }
           ],
-          "yaxis": {
-            "align": false
-          }
+          "title": "Gossip TX",
+          "type": "stat"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  }
+                ]
+              },
+              "unit": "decbytes"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 2,
+            "w": 3,
+            "x": 15,
+            "y": 26
+          },
+          "id": 66,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "text": {},
+            "textMode": "auto"
+          },
+          "pluginVersion": "9.2.6",
+          "targets": [
+            {
+              "expr": "traffic_gossip_inbound_packets{instance=\"$instance\"}",
+              "interval": "",
+              "legendFormat": "",
+              "refId": "A"
+            }
+          ],
+          "title": "Gossip RX",
+          "type": "stat"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  }
+                ]
+              },
+              "unit": "decbytes"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 2,
+            "w": 3,
+            "x": 18,
+            "y": 26
+          },
+          "id": 63,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "text": {},
+            "textMode": "auto"
+          },
+          "pluginVersion": "9.2.6",
+          "targets": [
+            {
+              "expr": "traffic_autopeering_outbound_bytes{instance=\"$instance\"}",
+              "interval": "",
+              "legendFormat": "",
+              "refId": "A"
+            }
+          ],
+          "title": "Autopeering TX",
+          "type": "stat"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  }
+                ]
+              },
+              "unit": "decbytes"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 2,
+            "w": 3,
+            "x": 21,
+            "y": 26
+          },
+          "id": 62,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "text": {},
+            "textMode": "auto"
+          },
+          "pluginVersion": "9.2.6",
+          "targets": [
+            {
+              "expr": "traffic_autopeering_inbound_bytes{instance=\"$instance\"}",
+              "interval": "",
+              "legendFormat": "",
+              "refId": "A"
+            }
+          ],
+          "title": "Autopeering RX",
+          "type": "stat"
         },
         {
           "aliasColors": {},
@@ -2091,9 +1832,9 @@
           "fillGradient": 0,
           "gridPos": {
             "h": 7,
-            "w": 11,
-            "x": 0,
-            "y": 73
+            "w": 13,
+            "x": 11,
+            "y": 28
           },
           "hiddenSeries": false,
           "id": 26,
@@ -2113,7 +1854,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "8.3.3",
+          "pluginVersion": "9.2.6",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -2196,274 +1937,387 @@
           }
         },
         {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
           "datasource": {
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
+          "description": "Number of blocks in missingBlockStore. These are the block the node knows it doesn't have and tries to requests them.",
           "fieldConfig": {
             "defaults": {
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  }
-                ]
-              },
-              "unit": "decbytes"
+              "links": []
             },
             "overrides": []
           },
+          "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
-            "h": 2,
-            "w": 2,
+            "h": 8,
+            "w": 11,
+            "x": 0,
+            "y": 33
+          },
+          "hiddenSeries": false,
+          "id": 147,
+          "legend": {
+            "avg": false,
+            "current": false,
+            "max": false,
+            "min": false,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 1,
+          "nullPointMode": "null",
+          "options": {
+            "alertThreshold": true
+          },
+          "percentage": false,
+          "pluginVersion": "9.2.6",
+          "pointradius": 2,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "tangle_block_missing_count_db{instance=\"$instance\"}",
+              "interval": "",
+              "legendFormat": "Missing Blocks",
+              "refId": "A"
+            }
+          ],
+          "thresholds": [],
+          "timeRegions": [],
+          "title": "Missing Blocks",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "mode": "time",
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "short",
+              "logBase": 1,
+              "show": true
+            },
+            {
+              "format": "short",
+              "logBase": 1,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false
+          }
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "description": "Describes the amount of total, solid and not solid blocks in the node's database.",
+          "fieldConfig": {
+            "defaults": {
+              "links": []
+            },
+            "overrides": []
+          },
+          "fill": 1,
+          "fillGradient": 0,
+          "gridPos": {
+            "h": 7,
+            "w": 13,
             "x": 11,
-            "y": 78
+            "y": 35
           },
-          "id": 59,
+          "hiddenSeries": false,
+          "id": 73,
+          "legend": {
+            "alignAsTable": true,
+            "avg": false,
+            "current": true,
+            "max": false,
+            "min": false,
+            "rightSide": true,
+            "show": true,
+            "total": false,
+            "values": true
+          },
+          "lines": true,
+          "linewidth": 1,
+          "nullPointMode": "null",
           "options": {
-            "colorMode": "value",
-            "graphMode": "none",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "text": {},
-            "textMode": "auto"
+            "alertThreshold": true
           },
-          "pluginVersion": "8.3.3",
+          "percentage": false,
+          "pluginVersion": "9.2.6",
+          "pointradius": 2,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
           "targets": [
             {
-              "expr": "traffic_analysis_outbound_bytes{instance=\"$instance\"}",
+              "exemplar": true,
+              "expr": "tangle_blocks_per_component_count{component=\"Solidifier\",instance=\"$instance\"}",
               "interval": "",
-              "legendFormat": "",
+              "legendFormat": "Solid Blocks in DB",
               "refId": "A"
+            },
+            {
+              "exemplar": true,
+              "expr": "tangle_blocks_per_component_count{component=\"Store\",instance=\"$instance\"} - tangle_blocks_per_component_count{component=\"Solidifier\",instance=\"$instance\"}",
+              "interval": "",
+              "legendFormat": "Not Solid Blocks in DB",
+              "refId": "B"
+            },
+            {
+              "exemplar": true,
+              "expr": "tangle_blocks_per_component_count{component=\"Store\",instance=\"$instance\"}",
+              "interval": "",
+              "legendFormat": "Total Blocks in DB",
+              "refId": "C"
             }
           ],
-          "title": "Analysis",
-          "type": "stat"
+          "thresholds": [],
+          "timeRegions": [],
+          "title": "Blocks in Database",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "mode": "time",
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "short",
+              "logBase": 1,
+              "min": "0",
+              "show": true
+            },
+            {
+              "format": "short",
+              "logBase": 1,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false
+          }
         },
         {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
           "datasource": {
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
+          "description": "Number of blocks currently requested by the block tangle.",
           "fieldConfig": {
             "defaults": {
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  }
-                ]
-              },
-              "unit": "decbytes"
+              "links": []
             },
             "overrides": []
           },
+          "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
-            "h": 2,
-            "w": 2,
-            "x": 13,
-            "y": 78
+            "h": 9,
+            "w": 11,
+            "x": 0,
+            "y": 41
           },
-          "id": 67,
+          "hiddenSeries": false,
+          "id": 69,
+          "legend": {
+            "avg": false,
+            "current": false,
+            "max": false,
+            "min": false,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 1,
+          "nullPointMode": "null",
           "options": {
-            "colorMode": "value",
-            "graphMode": "none",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "text": {},
-            "textMode": "auto"
+            "alertThreshold": true
           },
-          "pluginVersion": "8.3.3",
+          "percentage": false,
+          "pluginVersion": "9.2.6",
+          "pointradius": 2,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
           "targets": [
             {
-              "expr": "traffic_gossip_outbound_packets{instance=\"$instance\"}",
+              "exemplar": true,
+              "expr": "tangle_block_request_queue_size{instance=\"$instance\"}",
               "interval": "",
-              "legendFormat": "",
+              "legendFormat": "Block Request Queue Size",
               "refId": "A"
             }
           ],
-          "title": "Gossip TX",
-          "type": "stat"
+          "thresholds": [],
+          "timeRegions": [],
+          "title": "Block Request Queue Size",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "mode": "time",
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "short",
+              "logBase": 1,
+              "min": "0",
+              "show": true
+            },
+            {
+              "format": "short",
+              "logBase": 1,
+              "min": "0",
+              "show": false
+            }
+          ],
+          "yaxis": {
+            "align": false
+          }
         },
         {
+          "aliasColors": {},
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
           "datasource": {
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
+          "description": "Average time it takes to solidify blocks.",
           "fieldConfig": {
             "defaults": {
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  }
-                ]
-              },
-              "unit": "decbytes"
+              "links": [],
+              "unit": "ms"
             },
             "overrides": []
           },
+          "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
-            "h": 2,
-            "w": 3,
-            "x": 15,
-            "y": 78
+            "h": 8,
+            "w": 13,
+            "x": 11,
+            "y": 42
           },
-          "id": 66,
+          "hiddenSeries": false,
+          "id": 75,
+          "legend": {
+            "avg": false,
+            "current": false,
+            "max": false,
+            "min": false,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 1,
+          "nullPointMode": "null",
           "options": {
-            "colorMode": "value",
-            "graphMode": "none",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "text": {},
-            "textMode": "auto"
+            "alertThreshold": true
           },
-          "pluginVersion": "8.3.3",
+          "percentage": false,
+          "pluginVersion": "9.2.6",
+          "pointradius": 2,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
           "targets": [
             {
-              "expr": "traffic_gossip_inbound_packets{instance=\"$instance\"}",
+              "exemplar": true,
+              "expr": "rate(tangle_block_total_time_since_received{component=\"Solidifier\",instance=\"$instance\"}[5m])/rate(tangle_blocks_per_component_count{component=\"Solidifier\",instance=\"$instance\"}[5m])",
               "interval": "",
-              "legendFormat": "",
+              "legendFormat": "Avg Solidification Time",
               "refId": "A"
-            }
-          ],
-          "title": "Gossip RX",
-          "type": "stat"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  }
-                ]
-              },
-              "unit": "decbytes"
             },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 2,
-            "w": 3,
-            "x": 18,
-            "y": 78
-          },
-          "id": 63,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "none",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "text": {},
-            "textMode": "auto"
-          },
-          "pluginVersion": "8.3.3",
-          "targets": [
             {
-              "expr": "traffic_autopeering_outbound_bytes{instance=\"$instance\"}",
+              "exemplar": true,
+              "expr": "",
+              "hide": false,
               "interval": "",
               "legendFormat": "",
-              "refId": "A"
+              "refId": "B"
             }
           ],
-          "title": "Autopeering TX",
-          "type": "stat"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+          "thresholds": [],
+          "timeRegions": [],
+          "title": "Average Solidification Time",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
           },
-          "fieldConfig": {
-            "defaults": {
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  }
-                ]
-              },
-              "unit": "decbytes"
-            },
-            "overrides": []
+          "type": "graph",
+          "xaxis": {
+            "mode": "time",
+            "show": true,
+            "values": []
           },
-          "gridPos": {
-            "h": 2,
-            "w": 3,
-            "x": 21,
-            "y": 78
-          },
-          "id": 62,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "none",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "text": {},
-            "textMode": "auto"
-          },
-          "pluginVersion": "8.3.3",
-          "targets": [
+          "yaxes": [
             {
-              "expr": "traffic_autopeering_inbound_bytes{instance=\"$instance\"}",
-              "interval": "",
-              "legendFormat": "",
-              "refId": "A"
+              "format": "ms",
+              "logBase": 1,
+              "show": true
+            },
+            {
+              "format": "short",
+              "logBase": 1,
+              "show": true
             }
           ],
-          "title": "Autopeering RX",
-          "type": "stat"
+          "yaxis": {
+            "align": false
+          }
         }
       ],
       "title": "BPS, Autopeering, Traffic, Resources",
@@ -2508,7 +2362,7 @@
             "h": 3,
             "w": 4,
             "x": 0,
-            "y": 89
+            "y": 5
           },
           "id": 85,
           "options": {
@@ -2526,7 +2380,7 @@
             "text": {},
             "textMode": "value_and_name"
           },
-          "pluginVersion": "8.3.3",
+          "pluginVersion": "9.2.6",
           "targets": [
             {
               "exemplar": true,
@@ -2577,7 +2431,7 @@
             "h": 3,
             "w": 3,
             "x": 4,
-            "y": 89
+            "y": 5
           },
           "id": 101,
           "options": {
@@ -2595,7 +2449,7 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "8.3.3",
+          "pluginVersion": "9.2.6",
           "targets": [
             {
               "exemplar": true,
@@ -2639,7 +2493,7 @@
             "h": 3,
             "w": 4,
             "x": 7,
-            "y": 89
+            "y": 5
           },
           "id": 95,
           "options": {
@@ -2657,7 +2511,7 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "8.3.3",
+          "pluginVersion": "9.2.6",
           "targets": [
             {
               "expr": "avg(mana_access{instance=\"$instance\"})",
@@ -2700,7 +2554,7 @@
             "h": 3,
             "w": 3,
             "x": 11,
-            "y": 89
+            "y": 5
           },
           "id": 96,
           "options": {
@@ -2718,7 +2572,7 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "8.3.3",
+          "pluginVersion": "9.2.6",
           "targets": [
             {
               "exemplar": true,
@@ -2763,7 +2617,7 @@
             "h": 3,
             "w": 4,
             "x": 14,
-            "y": 89
+            "y": 5
           },
           "id": 109,
           "options": {
@@ -2781,7 +2635,7 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "8.3.3",
+          "pluginVersion": "9.2.6",
           "targets": [
             {
               "expr": "mana_average_neighbors_access{instance=\"$instance\"}",
@@ -2823,7 +2677,7 @@
             "h": 15,
             "w": 6,
             "x": 18,
-            "y": 89
+            "y": 5
           },
           "hiddenSeries": false,
           "id": 89,
@@ -2844,7 +2698,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "8.3.3",
+          "pluginVersion": "9.2.6",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -2918,7 +2772,7 @@
             "h": 12,
             "w": 9,
             "x": 0,
-            "y": 92
+            "y": 8
           },
           "hiddenSeries": false,
           "id": 98,
@@ -2940,7 +2794,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "8.3.3",
+          "pluginVersion": "9.2.6",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -3014,7 +2868,7 @@
             "h": 12,
             "w": 9,
             "x": 9,
-            "y": 92
+            "y": 8
           },
           "hiddenSeries": false,
           "id": 99,
@@ -3036,7 +2890,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "8.3.3",
+          "pluginVersion": "9.2.6",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -3111,7 +2965,7 @@
             "h": 9,
             "w": 8,
             "x": 0,
-            "y": 104
+            "y": 20
           },
           "hiddenSeries": false,
           "id": 83,
@@ -3133,7 +2987,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "8.3.3",
+          "pluginVersion": "9.2.6",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -3202,7 +3056,7 @@
             "h": 9,
             "w": 8,
             "x": 8,
-            "y": 104
+            "y": 20
           },
           "hiddenSeries": false,
           "id": 90,
@@ -3226,7 +3080,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "8.3.3",
+          "pluginVersion": "9.2.6",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -3298,7 +3152,7 @@
             "h": 9,
             "w": 8,
             "x": 16,
-            "y": 104
+            "y": 20
           },
           "id": 92,
           "links": [],
@@ -3320,7 +3174,8 @@
             },
             "text": {},
             "tooltip": {
-              "mode": "single"
+              "mode": "single",
+              "sort": "none"
             }
           },
           "pluginVersion": "7.5.6",
@@ -3359,7 +3214,7 @@
             "h": 9,
             "w": 8,
             "x": 0,
-            "y": 113
+            "y": 29
           },
           "hiddenSeries": false,
           "id": 84,
@@ -3381,7 +3236,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "8.3.3",
+          "pluginVersion": "9.2.6",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -3450,7 +3305,7 @@
             "h": 9,
             "w": 8,
             "x": 8,
-            "y": 113
+            "y": 29
           },
           "hiddenSeries": false,
           "id": 91,
@@ -3474,7 +3329,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "8.3.3",
+          "pluginVersion": "9.2.6",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -3547,7 +3402,7 @@
             "h": 9,
             "w": 8,
             "x": 16,
-            "y": 113
+            "y": 29
           },
           "id": 93,
           "links": [],
@@ -3569,7 +3424,8 @@
             },
             "text": {},
             "tooltip": {
-              "mode": "single"
+              "mode": "single",
+              "sort": "none"
             }
           },
           "pluginVersion": "7.1.1",
@@ -3604,9 +3460,9 @@
           "fillGradient": 0,
           "gridPos": {
             "h": 11,
-            "w": 9,
+            "w": 8,
             "x": 0,
-            "y": 122
+            "y": 38
           },
           "hiddenSeries": false,
           "id": 103,
@@ -3628,7 +3484,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "8.3.3",
+          "pluginVersion": "9.2.6",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -3701,9 +3557,9 @@
           "fillGradient": 0,
           "gridPos": {
             "h": 11,
-            "w": 7,
-            "x": 9,
-            "y": 122
+            "w": 8,
+            "x": 8,
+            "y": 38
           },
           "hiddenSeries": false,
           "id": 107,
@@ -3723,7 +3579,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "8.3.3",
+          "pluginVersion": "9.2.6",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -3790,9 +3646,9 @@
           "fillGradient": 0,
           "gridPos": {
             "h": 11,
-            "w": 7,
+            "w": 8,
             "x": 16,
-            "y": 122
+            "y": 38
           },
           "hiddenSeries": false,
           "id": 114,
@@ -3812,7 +3668,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "8.3.3",
+          "pluginVersion": "9.2.6",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -3879,9 +3735,9 @@
           "fillGradient": 0,
           "gridPos": {
             "h": 10,
-            "w": 9,
+            "w": 8,
             "x": 0,
-            "y": 133
+            "y": 49
           },
           "hiddenSeries": false,
           "id": 110,
@@ -3901,7 +3757,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "8.3.3",
+          "pluginVersion": "9.2.6",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -3988,7 +3844,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 38
+            "y": 106
           },
           "hiddenSeries": false,
           "id": 118,
@@ -4008,7 +3864,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "7.5.6",
+          "pluginVersion": "9.2.6",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -4080,7 +3936,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 38
+            "y": 106
           },
           "hiddenSeries": false,
           "id": 119,
@@ -4100,7 +3956,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "7.5.6",
+          "pluginVersion": "9.2.6",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -4159,17 +4015,13 @@
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "fieldConfig": {
-            "defaults": {},
-            "overrides": []
-          },
           "fill": 1,
           "fillGradient": 0,
           "gridPos": {
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 46
+            "y": 114
           },
           "hiddenSeries": false,
           "id": 121,
@@ -4189,7 +4041,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "7.5.6",
+          "pluginVersion": "9.2.6",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -4267,7 +4119,7 @@
             "h": 4,
             "w": 6,
             "x": 12,
-            "y": 46
+            "y": 114
           },
           "id": 123,
           "options": {
@@ -4285,7 +4137,7 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "7.5.6",
+          "pluginVersion": "9.2.6",
           "targets": [
             {
               "exemplar": true,
@@ -4329,7 +4181,7 @@
             "h": 4,
             "w": 6,
             "x": 18,
-            "y": 46
+            "y": 114
           },
           "id": 125,
           "options": {
@@ -4347,7 +4199,7 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "7.5.6",
+          "pluginVersion": "9.2.6",
           "targets": [
             {
               "exemplar": true,
@@ -4391,7 +4243,7 @@
             "h": 4,
             "w": 6,
             "x": 12,
-            "y": 50
+            "y": 118
           },
           "id": 124,
           "options": {
@@ -4409,7 +4261,7 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "7.5.6",
+          "pluginVersion": "9.2.6",
           "targets": [
             {
               "exemplar": true,
@@ -4453,7 +4305,7 @@
             "h": 4,
             "w": 6,
             "x": 18,
-            "y": 50
+            "y": 118
           },
           "id": 126,
           "options": {
@@ -4471,7 +4323,7 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "7.5.6",
+          "pluginVersion": "9.2.6",
           "targets": [
             {
               "exemplar": true,
@@ -4531,7 +4383,7 @@
             "h": 6,
             "w": 15,
             "x": 0,
-            "y": 39
+            "y": 123
           },
           "id": 146,
           "options": {
@@ -4549,7 +4401,7 @@
             "showUnfilled": true,
             "text": {}
           },
-          "pluginVersion": "8.5.3",
+          "pluginVersion": "9.2.6",
           "targets": [
             {
               "exemplar": true,
@@ -4592,7 +4444,7 @@
             "h": 3,
             "w": 3,
             "x": 15,
-            "y": 39
+            "y": 123
           },
           "id": 132,
           "options": {
@@ -4610,7 +4462,7 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "8.5.3",
+          "pluginVersion": "9.2.6",
           "targets": [
             {
               "exemplar": true,
@@ -4650,7 +4502,7 @@
             "h": 3,
             "w": 3,
             "x": 18,
-            "y": 39
+            "y": 123
           },
           "id": 142,
           "options": {
@@ -4668,7 +4520,7 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "8.5.3",
+          "pluginVersion": "9.2.6",
           "targets": [
             {
               "exemplar": true,
@@ -4710,7 +4562,7 @@
             "h": 3,
             "w": 3,
             "x": 21,
-            "y": 39
+            "y": 123
           },
           "id": 149,
           "options": {
@@ -4728,7 +4580,7 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "8.5.3",
+          "pluginVersion": "9.2.6",
           "targets": [
             {
               "exemplar": true,
@@ -4770,7 +4622,7 @@
             "h": 3,
             "w": 3,
             "x": 15,
-            "y": 42
+            "y": 126
           },
           "id": 143,
           "options": {
@@ -4788,7 +4640,7 @@
             "text": {},
             "textMode": "value"
           },
-          "pluginVersion": "8.5.3",
+          "pluginVersion": "9.2.6",
           "targets": [
             {
               "exemplar": false,
@@ -4829,7 +4681,7 @@
             "h": 3,
             "w": 3,
             "x": 18,
-            "y": 42
+            "y": 126
           },
           "id": 140,
           "options": {
@@ -4847,7 +4699,7 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "8.5.3",
+          "pluginVersion": "9.2.6",
           "targets": [
             {
               "exemplar": true,
@@ -4887,7 +4739,7 @@
             "h": 3,
             "w": 3,
             "x": 21,
-            "y": 42
+            "y": 126
           },
           "id": 154,
           "options": {
@@ -4905,7 +4757,7 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "8.5.3",
+          "pluginVersion": "9.2.6",
           "targets": [
             {
               "datasource": {
@@ -4950,7 +4802,7 @@
             "h": 6,
             "w": 15,
             "x": 0,
-            "y": 45
+            "y": 129
           },
           "id": 145,
           "options": {
@@ -4968,7 +4820,7 @@
             "showUnfilled": true,
             "text": {}
           },
-          "pluginVersion": "8.5.3",
+          "pluginVersion": "9.2.6",
           "targets": [
             {
               "datasource": {
@@ -5017,7 +4869,7 @@
             "h": 3,
             "w": 3,
             "x": 15,
-            "y": 45
+            "y": 129
           },
           "id": 130,
           "options": {
@@ -5035,7 +4887,7 @@
             "text": {},
             "textMode": "value"
           },
-          "pluginVersion": "8.5.3",
+          "pluginVersion": "9.2.6",
           "targets": [
             {
               "exemplar": false,
@@ -5075,7 +4927,7 @@
             "h": 3,
             "w": 3,
             "x": 18,
-            "y": 45
+            "y": 129
           },
           "id": 134,
           "options": {
@@ -5093,7 +4945,7 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "8.5.3",
+          "pluginVersion": "9.2.6",
           "targets": [
             {
               "exemplar": true,
@@ -5134,7 +4986,7 @@
             "h": 3,
             "w": 3,
             "x": 21,
-            "y": 45
+            "y": 129
           },
           "id": 153,
           "options": {
@@ -5152,7 +5004,7 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "8.5.3",
+          "pluginVersion": "9.2.6",
           "targets": [
             {
               "datasource": {
@@ -5196,7 +5048,7 @@
             "h": 3,
             "w": 3,
             "x": 15,
-            "y": 48
+            "y": 132
           },
           "id": 138,
           "options": {
@@ -5214,7 +5066,7 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "8.5.3",
+          "pluginVersion": "9.2.6",
           "targets": [
             {
               "datasource": {
@@ -5274,7 +5126,7 @@
             "h": 3,
             "w": 3,
             "x": 18,
-            "y": 48
+            "y": 132
           },
           "id": 151,
           "options": {
@@ -5292,7 +5144,7 @@
             "text": {},
             "textMode": "value"
           },
-          "pluginVersion": "8.5.3",
+          "pluginVersion": "9.2.6",
           "targets": [
             {
               "datasource": {
@@ -5336,7 +5188,7 @@
             "h": 3,
             "w": 3,
             "x": 21,
-            "y": 48
+            "y": 132
           },
           "id": 136,
           "options": {
@@ -5354,7 +5206,7 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "8.5.3",
+          "pluginVersion": "9.2.6",
           "targets": [
             {
               "exemplar": true,
@@ -5395,7 +5247,7 @@
             "h": 3,
             "w": 3,
             "x": 15,
-            "y": 51
+            "y": 135
           },
           "id": 152,
           "options": {
@@ -5413,7 +5265,7 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "8.5.3",
+          "pluginVersion": "9.2.6",
           "targets": [
             {
               "datasource": {
@@ -5458,7 +5310,7 @@
             "h": 3,
             "w": 3,
             "x": 18,
-            "y": 51
+            "y": 135
           },
           "id": 155,
           "options": {
@@ -5476,7 +5328,7 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "8.5.3",
+          "pluginVersion": "9.2.6",
           "targets": [
             {
               "datasource": {
@@ -5508,7 +5360,7 @@
       },
       "id": 157,
       "panels": [],
-      "title": "Event loop",
+      "title": "Workerpools",
       "type": "row"
     },
     {
@@ -5555,7 +5407,7 @@
         },
         "textMode": "auto"
       },
-      "pluginVersion": "9.2.6",
+      "pluginVersion": "9.2.0",
       "targets": [
         {
           "datasource": {
@@ -5563,13 +5415,13 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "workerpool_eventloop_workers{instance=\"$instance\"}",
-          "legendFormat": "__auto",
+          "expr": "workerpool_workers{instance=\"$instance\"}",
+          "legendFormat": "{{type}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Event loop workers",
+      "title": "Workers",
       "type": "stat"
     },
     {
@@ -5655,13 +5507,13 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "workerpool_eventloop_tasks_pending{instance=\"$instance\"}",
-          "legendFormat": "{{instance}}",
+          "expr": "workerpool_tasks_pending{instance=\"$instance\"}",
+          "legendFormat": "{{type}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Event loop pending tasks",
+      "title": "Pending Tasks",
       "type": "timeseries"
     }
   ],
@@ -5674,8 +5526,8 @@
       {
         "current": {
           "selected": false,
-          "text": "node-05.feature.shimmer.iota.cafe:9311",
-          "value": "node-05.feature.shimmer.iota.cafe:9311"
+          "text": "faucet:9311",
+          "value": "faucet:9311"
         },
         "datasource": {
           "type": "prometheus",
@@ -5704,8 +5556,8 @@
       {
         "current": {
           "selected": false,
-          "text": "EUq4re4s",
-          "value": "EUq4re4s"
+          "text": "FZ6xmPZX",
+          "value": "FZ6xmPZX"
         },
         "datasource": {
           "type": "prometheus",
@@ -5753,6 +5605,6 @@
   "timezone": "",
   "title": "GoShimmer Local Metrics",
   "uid": "R-T27yW7k",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }

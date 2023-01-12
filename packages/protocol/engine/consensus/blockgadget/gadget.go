@@ -19,7 +19,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
@@ -322,8 +321,8 @@ func (a *Gadget) markAsAccepted(block *Block) (err error) {
 		a.Events.BlockAccepted.Trigger(block)
 
 		// set ConfirmationState of payload (applicable only to transactions)
-		if tx, ok := block.Payload().(*devnetvm.Transaction); ok {
-			a.tangle.Ledger.SetTransactionInclusionTime(tx.ID(), block.IssuingTime())
+		if tx, ok := block.Payload().(utxo.Transaction); ok {
+			a.tangle.Ledger.SetTransactionInclusionEpoch(tx.ID(), epoch.IndexFromTime(block.IssuingTime()))
 		}
 	}
 

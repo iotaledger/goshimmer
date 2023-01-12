@@ -8,13 +8,14 @@ import (
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/manatracker/manamodels"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1/manamodels"
+
 	"github.com/iotaledger/hive.go/core/generics/lo"
 )
 
 // getAllManaHandler handles the request.
 func getAllManaHandler(c echo.Context) error {
-	access := deps.Protocol.Engine().ManaTracker.ManaByIDs()
+	access := deps.Protocol.Engine().ThroughputQuota.BalanceByIDs()
 	accessList := manamodels.IssuerMap(access).ToIssuerStrList()
 	sort.Slice(accessList, func(i, j int) bool {
 		return accessList[i].Mana > accessList[j].Mana

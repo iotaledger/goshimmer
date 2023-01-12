@@ -15,6 +15,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/core/latestblocktracker"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -39,8 +40,8 @@ var (
 	// Plugin is the plugin instance of the web API info endpoint plugin.
 	Plugin             *node.Plugin
 	deps               = new(dependencies)
-	lastAcceptedBlock  *blockgadget.Block
-	lastConfirmedBlock *blockgadget.Block
+	lastAcceptedBlock  = latestblocktracker.New()
+	lastConfirmedBlock = latestblocktracker.New()
 )
 
 func init() {
@@ -49,14 +50,10 @@ func init() {
 
 func configure(_ *node.Plugin) {
 	deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
-		if lastAcceptedBlock == nil || lastAcceptedBlock.IssuingTime().Before(block.IssuingTime()) {
-			lastAcceptedBlock = block
-		}
+		lastAcceptedBlock.Update(block.ModelsBlock)
 	}))
 	deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockConfirmed.Attach(event.NewClosure(func(block *blockgadget.Block) {
-		if lastConfirmedBlock == nil || lastConfirmedBlock.IssuingTime().Before(block.IssuingTime()) {
-			lastConfirmedBlock = block
-		}
+		lastConfirmedBlock.Update(block.ModelsBlock)
 	}))
 	deps.Server.GET("info", getInfo)
 }
@@ -120,10 +117,10 @@ func getInfo(c echo.Context) error {
 	lastConfirmedBlockID := models.EmptyBlockID
 
 	if lastAcceptedBlock != nil {
-		lastAcceptedBlockID = lastAcceptedBlock.ID()
+		lastAcceptedBlockID = lastAcceptedBlock.BlockID()
 	}
 	if lastConfirmedBlock != nil {
-		lastConfirmedBlockID = lastConfirmedBlock.ID()
+		lastConfirmedBlockID = lastConfirmedBlock.BlockID()
 	}
 
 	tangleTime := jsonmodels.TangleTime{
@@ -139,8 +136,8 @@ func getInfo(c echo.Context) error {
 		RCTT: tm.RelativeConfirmedTime().UnixNano(),
 	}
 
-	accessMana, _ := deps.Protocol.Engine().ManaTracker.Mana(deps.Local.ID())
-	consensusMana := lo.Return1(deps.Protocol.Engine().SybilProtection.Weights().Weight(deps.Local.ID())).Value
+	accessMana, _ := deps.Protocol.Engine().ThroughputQuota.Balance(deps.Local.ID())
+	consensusMana := lo.Return1(deps.Protocol.Engine().SybilProtection.Weights().Get(deps.Local.ID())).Value
 	nodeMana := jsonmodels.Mana{
 		Access:             accessMana,
 		AccessTimestamp:    time.Now(),

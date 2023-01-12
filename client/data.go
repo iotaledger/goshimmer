@@ -17,7 +17,6 @@ func (api *GoShimmerAPI) Data(data []byte, maxWait ...time.Duration) (string, er
 	dataRequest := &jsonmodels.DataRequest{Data: data}
 	if len(maxWait) > 0 {
 		dataRequest = &jsonmodels.DataRequest{Data: data, MaxEstimate: maxWait[0].Milliseconds()}
-
 	}
 	if err := api.do(http.MethodPost, routeData, dataRequest, res); err != nil {
 		return "", err

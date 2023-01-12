@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/iotaledger/hive.go/core/generics/constraints"
+	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/generics/walker"
 	"github.com/iotaledger/hive.go/core/identity"
 
@@ -48,8 +49,9 @@ func (s *SequenceTracker[VotePowerType]) TrackVotes(pastMarkers *markers.Markers
 	}
 }
 
-func (s *SequenceTracker[VotePowerType]) Voters(marker markers.Marker) (voters *sybilprotection.WeightedSet) {
-	voters = s.validators.Weights.WeightedSet()
+func (s *SequenceTracker[VotePowerType]) Voters(marker markers.Marker) (voters *set.AdvancedSet[identity.ID]) {
+	voters = set.NewAdvancedSet[identity.ID]()
+
 	votesObj, exists := s.votes.Get(marker.SequenceID())
 	if !exists {
 		return

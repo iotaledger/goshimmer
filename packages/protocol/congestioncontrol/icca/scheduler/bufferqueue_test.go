@@ -52,7 +52,6 @@ func TestBufferQueue_Unsubmit(t *testing.T) {
 
 	blocks := make([]*Block, numBlocks)
 	for i := range blocks {
-
 		blocks[i] = newTestBlock(models.WithIssuer(identity.GenerateIdentity().PublicKey()))
 		elements, err := b.Submit(blocks[i], mockAccessManaRetriever)
 		assert.Empty(t, elements)
@@ -299,7 +298,6 @@ func newTestBlock(opts ...options.Option[models.Block]) *Block {
 	}
 
 	return blk
-
 }
 
 // mockAccessManaRetriever returns mocked access mana value for a node.

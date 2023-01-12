@@ -167,7 +167,7 @@ func (o OutputID) Base58() (base58Encoded string) {
 	return base58.Encode(lo.PanicOnErr(o.Bytes()))
 }
 
-// Length returns number of bytes of OutputID
+// Length returns number of bytes of OutputID.
 func (o OutputID) Length() int {
 	return o.TransactionID.Length() + serializer.UInt16ByteSize
 }
@@ -249,7 +249,7 @@ func (o *Outputs) ForEach(callback func(output Output) error) (err error) {
 	return err
 }
 
-// Strings returns a human-readable version of the Outputs.
+// String returns a human-readable version of the Outputs.
 func (o *Outputs) String() (humanReadable string) {
 	structBuilder := stringify.NewStructBuilder("Outputs")
 	_ = o.ForEach(func(output Output) error {

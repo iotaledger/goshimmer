@@ -39,5 +39,4 @@ func run(_ *node.Plugin) {
 	http.DefaultServeMux.Handle("/debug/fgprof", fgprof.Handler())
 
 	go http.ListenAndServe(bindAddr, nil)
-
 }

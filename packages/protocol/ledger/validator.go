@@ -15,7 +15,7 @@ type validator struct {
 }
 
 // newValidator returns a new validator instance for the given Ledger.
-func newValidator(ledger *Ledger) (new *validator) {
+func newValidator(ledger *Ledger) *validator {
 	return &validator{
 		ledger: ledger,
 	}

@@ -18,7 +18,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/manatracker/manamodels"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1/manamodels"
 
 	netPkg "github.com/iotaledger/goshimmer/packages/app/metrics/net"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
@@ -108,7 +108,7 @@ func configureGossipIntegration() {
 			Plugin.Logger().Debugw("error dropping neighbor", "id", ev.DroppedID, "err", err)
 		}
 	}))
-	// We need to allocate synchronously the resources to accomodate incoming stream requests.
+	// We need to allocate synchronously the resources to accommodate incoming stream requests.
 	deps.Selection.Events().IncomingPeering.Hook(event.NewClosure(func(ev *selection.PeeringEvent) {
 		if !ev.Status {
 			return // ignore rejected peering

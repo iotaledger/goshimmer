@@ -24,13 +24,10 @@ type EpochMutations struct {
 	Events *EpochMutationsEvents
 
 	// acceptedBlocksByEpoch stores the accepted blocks per epoch.
-	acceptedBlocksByEpoch *memstorage.Storage[epoch.Index, *ads.Set[models.BlockID]]
+	acceptedBlocksByEpoch *memstorage.Storage[epoch.Index, *ads.Set[models.BlockID, *models.BlockID]]
 
 	// acceptedTransactionsByEpoch stores the accepted transactions per epoch.
-	acceptedTransactionsByEpoch *memstorage.Storage[epoch.Index, *ads.Set[utxo.TransactionID]]
-
-	// attestationByEpoch stores the attestation per epoch.
-	attestationsByEpoch *memstorage.Storage[epoch.Index, *Attestations]
+	acceptedTransactionsByEpoch *memstorage.Storage[epoch.Index, *ads.Set[utxo.TransactionID, *utxo.TransactionID]]
 
 	// latestCommittedIndex stores the index of the latest committed epoch.
 	latestCommittedIndex epoch.Index
@@ -46,9 +43,8 @@ func NewEpochMutations(weights *sybilprotection.Weights, lastCommittedEpoch epoc
 	return &EpochMutations{
 		Events:                      NewEpochMutationsEvents(),
 		weights:                     weights,
-		acceptedBlocksByEpoch:       memstorage.New[epoch.Index, *ads.Set[models.BlockID]](),
-		acceptedTransactionsByEpoch: memstorage.New[epoch.Index, *ads.Set[utxo.TransactionID]](),
-		attestationsByEpoch:         memstorage.New[epoch.Index, *Attestations](),
+		acceptedBlocksByEpoch:       memstorage.New[epoch.Index, *ads.Set[models.BlockID, *models.BlockID]](),
+		acceptedTransactionsByEpoch: memstorage.New[epoch.Index, *ads.Set[utxo.TransactionID, *utxo.TransactionID]](),
 		latestCommittedIndex:        lastCommittedEpoch,
 	}
 }
@@ -65,10 +61,6 @@ func (m *EpochMutations) AddAcceptedBlock(block *models.Block) (err error) {
 
 	m.acceptedBlocks(blockID.Index(), true).Add(blockID)
 
-	lo.Return1(m.attestationsByEpoch.RetrieveOrCreate(block.ID().Index(), func() *Attestations {
-		return NewAttestations(m.weights)
-	})).Add(block)
-
 	return
 }
 
@@ -84,11 +76,8 @@ func (m *EpochMutations) RemoveAcceptedBlock(block *models.Block) (err error) {
 
 	m.acceptedBlocks(blockID.Index()).Delete(blockID)
 
-	if attestations, exists := m.attestationsByEpoch.Get(blockID.Index()); exists {
-		attestations.Delete(block)
-	}
-
 	m.Events.AcceptedBlockRemoved.Trigger(blockID)
+
 	return
 }
 
@@ -97,12 +86,11 @@ func (m *EpochMutations) AddAcceptedTransaction(metadata *ledger.TransactionMeta
 	m.evictionMutex.RLock()
 	defer m.evictionMutex.RUnlock()
 
-	epochIndex := epoch.IndexFromTime(metadata.InclusionTime())
-	if epochIndex <= m.latestCommittedIndex {
-		return errors.Errorf("transaction %s accepted with issuing time %s in already committed epoch %d", metadata.ID(), metadata.InclusionTime(), epochIndex)
+	if metadata.InclusionEpoch() <= m.latestCommittedIndex {
+		return errors.Errorf("transaction %s accepted with issuing time %s in already committed epoch %d", metadata.ID(), metadata.InclusionEpoch(), metadata.InclusionEpoch())
 	}
 
-	m.acceptedTransactions(epochIndex, true).Add(metadata.ID())
+	m.acceptedTransactions(metadata.InclusionEpoch(), true).Add(metadata.ID())
 
 	return
 }
@@ -112,12 +100,11 @@ func (m *EpochMutations) RemoveAcceptedTransaction(metadata *ledger.TransactionM
 	m.evictionMutex.RLock()
 	defer m.evictionMutex.RUnlock()
 
-	epochIndex := epoch.IndexFromTime(metadata.InclusionTime())
-	if epochIndex <= m.latestCommittedIndex {
-		return errors.Errorf("transaction %s accepted with issuing time %s in already committed epoch %d", metadata.ID(), metadata.InclusionTime(), epochIndex)
+	if metadata.InclusionEpoch() <= m.latestCommittedIndex {
+		return errors.Errorf("transaction %s accepted with issuing time %s in already committed epoch %d", metadata.ID(), metadata.InclusionEpoch(), metadata.InclusionEpoch())
 	}
 
-	m.acceptedTransactions(epochIndex, false).Delete(metadata.ID())
+	m.acceptedTransactions(metadata.InclusionEpoch(), false).Delete(metadata.ID())
 
 	return
 }
@@ -126,10 +113,6 @@ func (m *EpochMutations) RemoveAcceptedTransaction(metadata *ledger.TransactionM
 func (m *EpochMutations) UpdateTransactionInclusion(txID utxo.TransactionID, oldEpoch, newEpoch epoch.Index) (err error) {
 	m.evictionMutex.RLock()
 	defer m.evictionMutex.RUnlock()
-
-	if newEpoch >= oldEpoch {
-		return
-	}
 
 	if oldEpoch <= m.latestCommittedIndex || newEpoch <= m.latestCommittedIndex {
 		return errors.Errorf("inclusion time of transaction changed for already committed epoch: previous Index %d, new Index %d", oldEpoch, newEpoch)
@@ -142,40 +125,30 @@ func (m *EpochMutations) UpdateTransactionInclusion(txID utxo.TransactionID, old
 }
 
 // Evict evicts the given epoch and returns the corresponding mutation sets.
-func (m *EpochMutations) Evict(index epoch.Index) (acceptedBlocks *ads.Set[models.BlockID], acceptedTransactions *ads.Set[utxo.TransactionID], attestations *Attestations, err error) {
+func (m *EpochMutations) Evict(index epoch.Index) (acceptedBlocks *ads.Set[models.BlockID, *models.BlockID], acceptedTransactions *ads.Set[utxo.TransactionID, *utxo.TransactionID], err error) {
 	m.evictionMutex.Lock()
 	defer m.evictionMutex.Unlock()
 
 	if index <= m.latestCommittedIndex {
-		return nil, nil, nil, errors.Errorf("cannot commit epoch %d: already committed", index)
+		return nil, nil, errors.Errorf("cannot commit epoch %d: already committed", index)
 	}
 
 	defer m.evictUntil(index)
 
-	return m.acceptedBlocks(index), m.acceptedTransactions(index), lo.Return1(m.attestationsByEpoch.Get(index)), nil
-}
-
-// Attestations returns the attestations for the given epoch.
-func (m *EpochMutations) Attestations(index epoch.Index) (epochAttestations *Attestations) {
-	m.evictionMutex.RLock()
-	defer m.evictionMutex.RUnlock()
-
-	return lo.Return1(m.attestationsByEpoch.RetrieveOrCreate(index, func() *Attestations {
-		return NewAttestations(m.weights)
-	}))
+	return m.acceptedBlocks(index), m.acceptedTransactions(index), nil
 }
 
 // acceptedBlocks returns the set of accepted blocks for the given epoch.
-func (m *EpochMutations) acceptedBlocks(index epoch.Index, createIfMissing ...bool) *ads.Set[models.BlockID] {
+func (m *EpochMutations) acceptedBlocks(index epoch.Index, createIfMissing ...bool) *ads.Set[models.BlockID, *models.BlockID] {
 	if len(createIfMissing) > 0 && createIfMissing[0] {
-		return lo.Return1(m.acceptedBlocksByEpoch.RetrieveOrCreate(index, newSet[models.BlockID]))
+		return lo.Return1(m.acceptedBlocksByEpoch.RetrieveOrCreate(index, newSet[models.BlockID, *models.BlockID]))
 	}
 
 	return lo.Return1(m.acceptedBlocksByEpoch.Get(index))
 }
 
 // acceptedTransactions returns the set of accepted transactions for the given epoch.
-func (m *EpochMutations) acceptedTransactions(index epoch.Index, createIfMissing ...bool) *ads.Set[utxo.TransactionID] {
+func (m *EpochMutations) acceptedTransactions(index epoch.Index, createIfMissing ...bool) *ads.Set[utxo.TransactionID, *utxo.TransactionID] {
 	if len(createIfMissing) > 0 && createIfMissing[0] {
 		return lo.Return1(m.acceptedTransactionsByEpoch.RetrieveOrCreate(index, newSet[utxo.TransactionID]))
 	}
@@ -188,18 +161,12 @@ func (m *EpochMutations) evictUntil(index epoch.Index) {
 	for i := m.latestCommittedIndex + 1; i <= index; i++ {
 		m.acceptedBlocksByEpoch.Delete(i)
 		m.acceptedTransactionsByEpoch.Delete(i)
-
-		attestations, exists := m.attestationsByEpoch.Get(i)
-		if exists {
-			attestations.Detach()
-		}
-		m.attestationsByEpoch.Delete(i)
 	}
 
 	m.latestCommittedIndex = index
 }
 
 // newSet is a generic constructor for a new ads.Set.
-func newSet[A constraints.Serializable]() *ads.Set[A] {
-	return ads.NewSet[A](mapdb.NewMapDB())
+func newSet[K any, KPtr constraints.MarshalablePtr[K]]() *ads.Set[K, KPtr] {
+	return ads.NewSet[K, KPtr](mapdb.NewMapDB())
 }

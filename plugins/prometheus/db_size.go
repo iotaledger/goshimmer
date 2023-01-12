@@ -1,46 +1,38 @@
 package prometheus
 
 import (
-	"os"
-	"path/filepath"
-
 	"github.com/prometheus/client_golang/prometheus"
-
-	"github.com/iotaledger/goshimmer/plugins/protocol"
 )
 
-var dbSize prometheus.Gauge
+var dbSizes *prometheus.GaugeVec
 
 func registerDBMetrics() {
-	dbSize = prometheus.NewGauge(
+	dbSizes = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "db_size_bytes",
-			Help: "DB size in bytes.",
+			Namespace: "db",
+			Name:      "size",
+			Help:      "DB size in bytes.",
+		},
+		[]string{
+			"type",
 		},
 	)
 
-	registry.MustRegister(dbSize)
+	registry.MustRegister(dbSizes)
 
-	addCollect(collectDBSize)
-}
-
-func collectDBSize() {
-	size, err := directorySize(protocol.DatabaseParameters.Directory)
-	if err == nil {
-		dbSize.Set(float64(size))
+	addCollect(collectStorageDBSize)
+	if deps.Retainer != nil {
+		addCollect(collectRetainerDBSize)
 	}
 }
 
-func directorySize(path string) (int64, error) {
-	var size int64
-	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if !info.IsDir() {
-			size += info.Size()
-		}
-		return err
-	})
-	return size, err
+func collectStorageDBSize() {
+	if deps.Protocol != nil {
+		dbSizes.WithLabelValues("storage_permanent").Set(float64(deps.Protocol.MainStorage().PermanentDatabaseSize()))
+		dbSizes.WithLabelValues("storage_prunable").Set(float64(deps.Protocol.MainStorage().PrunableDatabaseSize()))
+	}
+}
+
+func collectRetainerDBSize() {
+	dbSizes.WithLabelValues("retainer").Set(float64(deps.Retainer.DatabaseSize()))
 }

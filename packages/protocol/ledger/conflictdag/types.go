@@ -24,15 +24,15 @@ type conflict[ConflictID, ConflictSetID comparable] struct {
 	ConfirmationState confirmation.State `serix:"2"`
 }
 
-func NewConflict[ConflictID comparable, ConflictSetID comparable](id ConflictID, parents *set.AdvancedSet[ConflictID], conflictSetIDs *set.AdvancedSet[ConflictSetID]) (new *Conflict[ConflictID, ConflictSetID]) {
-	new = model.NewStorable[ConflictID, Conflict[ConflictID, ConflictSetID]](&conflict[ConflictID, ConflictSetID]{
+func NewConflict[ConflictID comparable, ConflictSetID comparable](id ConflictID, parents *set.AdvancedSet[ConflictID], conflictSetIDs *set.AdvancedSet[ConflictSetID]) (c *Conflict[ConflictID, ConflictSetID]) {
+	c = model.NewStorable[ConflictID, Conflict[ConflictID, ConflictSetID]](&conflict[ConflictID, ConflictSetID]{
 		Parents:           parents,
 		ConflictSetIDs:    conflictSetIDs,
 		ConfirmationState: confirmation.Pending,
 	}, false)
-	new.SetID(id)
+	c.SetID(id)
 
-	return new
+	return c
 }
 
 // Parents returns the parent ConflictIDs that this Conflict depends on.
@@ -50,8 +50,6 @@ func (c *Conflict[ConflictID, ConflictSetID]) SetParents(parents *set.AdvancedSe
 
 	c.M.Parents = parents
 	c.SetModified()
-
-	return
 }
 
 // ConflictSetIDs returns the identifiers of the conflict sets that this Conflict is part of.
@@ -131,7 +129,7 @@ type ConflictMember[ConflictSetID comparable, ConflictID comparable] struct {
 }
 
 // NewConflictMember return a new ConflictMember reference from the named conflict to the named Conflict.
-func NewConflictMember[ConflictSetID comparable, ConflictID comparable](conflictSetID ConflictSetID, conflictID ConflictID) (new *ConflictMember[ConflictSetID, ConflictID]) {
+func NewConflictMember[ConflictSetID comparable, ConflictID comparable](conflictSetID ConflictSetID, conflictID ConflictID) *ConflictMember[ConflictSetID, ConflictID] {
 	return model.NewStorableReference[ConflictMember[ConflictSetID, ConflictID]](conflictSetID, conflictID)
 }
 

@@ -169,7 +169,8 @@ func (c *CausalOrder[ID, Entity]) decreaseUnorderedParentsCounter(metadata Entit
 
 	unorderedParentsCounterStorage := c.unorderedParentsCounter.Get(metadata.ID().Index())
 	newUnorderedParentsCounter, _ = unorderedParentsCounterStorage.Get(metadata.ID())
-	if newUnorderedParentsCounter--; newUnorderedParentsCounter == 0 {
+	newUnorderedParentsCounter--
+	if newUnorderedParentsCounter == 0 {
 		unorderedParentsCounterStorage.Delete(metadata.ID())
 
 		return

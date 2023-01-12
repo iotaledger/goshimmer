@@ -3,7 +3,10 @@
     "list": [
       {
         "builtIn": 1,
-        "datasource": "-- Grafana --",
+        "datasource": {
+          "type": "datasource",
+          "uid": "grafana"
+        },
         "enable": true,
         "hide": true,
         "iconColor": "rgba(0, 211, 255, 1)",
@@ -27,6 +30,7 @@
     {
       "alert": {
         "alertRuleTags": {},
+        "block": "Some of the GoShimmer instances are out of sync. Please fix ASAP! Below is the list of the nodes currently out of sync.",
         "conditions": [
           {
             "evaluator": {
@@ -56,7 +60,6 @@
         "for": "5m",
         "frequency": "1m",
         "handler": 1,
-        "block": "Some of the GoShimmer instances are out of sync. Please fix ASAP! Below is the list of the nodes currently out of sync.",
         "name": "GoShimmer Sync Monitoring",
         "noDataState": "alerting",
         "notifications": []
@@ -71,6 +74,8 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
@@ -126,10 +131,12 @@
         "legend": {
           "calcs": [],
           "displayMode": "list",
-          "placement": "bottom"
+          "placement": "bottom",
+          "showLegend": true
         },
         "tooltip": {
-          "mode": "single"
+          "mode": "single",
+          "sort": "none"
         }
       },
       "targets": [
@@ -159,6 +166,7 @@
     {
       "alert": {
         "alertRuleTags": {},
+        "block": "Some of the GoShimmer instances went down. Please fix ASAP! Below is the list of the nodes currently down.",
         "conditions": [
           {
             "evaluator": {
@@ -188,7 +196,6 @@
         "for": "5m",
         "frequency": "1m",
         "handler": 1,
-        "block": "Some of the GoShimmer instances went down. Please fix ASAP! Below is the list of the nodes currently down.",
         "name": "GoShimmer Node Monitoring alert",
         "noDataState": "alerting",
         "notifications": []
@@ -204,6 +211,8 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
@@ -259,10 +268,12 @@
         "legend": {
           "calcs": [],
           "displayMode": "list",
-          "placement": "bottom"
+          "placement": "bottom",
+          "showLegend": true
         },
         "tooltip": {
-          "mode": "single"
+          "mode": "single",
+          "sort": "none"
         }
       },
       "pluginVersion": "8.3.3",
@@ -272,10 +283,12 @@
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
+          "editorMode": "code",
           "exemplar": true,
-          "expr": "up",
+          "expr": "up{job=\"analysis_server\"}",
           "interval": "",
           "legendFormat": "{{instance}}",
+          "range": true,
           "refId": "A"
         }
       ],
@@ -292,20 +305,20 @@
     }
   ],
   "refresh": "10s",
-  "schemaVersion": 34,
+  "schemaVersion": 37,
   "style": "dark",
   "tags": [],
   "templating": {
     "list": []
   },
   "time": {
-    "from": "now-30m",
+    "from": "now-24h",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
   "title": "Node Monitoring",
   "uid": "ok_NLw17k",
-  "version": 2,
+  "version": 1,
   "weekStart": ""
 }
