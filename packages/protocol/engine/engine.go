@@ -108,9 +108,9 @@ func New(
 			)
 		},
 
-		(*Engine).initFilter,
 		(*Engine).initLedger,
 		(*Engine).initTangle,
+		(*Engine).initFilter,
 		(*Engine).initConsensus,
 		(*Engine).initClock,
 		(*Engine).initTSCManager,
