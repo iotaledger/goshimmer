@@ -208,7 +208,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "global_nodes_info_cpu",
+          "expr": "info_cpu_usage",
           "interval": "",
           "legendFormat": "{{nodeID}}",
           "refId": "A"
@@ -306,7 +306,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "global_nodes_info_mem/1024/1024",
+          "expr": "info_memory_usage_bytes/1024/1024",
           "interval": "",
           "legendFormat": "{{nodeID}}",
           "refId": "A"

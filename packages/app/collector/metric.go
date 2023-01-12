@@ -98,25 +98,16 @@ func (m *Metric) Collect() {
 func (m *Metric) Update(values map[string]float64) {
 	if m.labelValuesCollectionEnabled {
 		value := float64(0)
-		labelValues := make([]string, 0)
-		for label, val := range values {
-			labelValues = append(labelValues, label)
-			value = val
-		}
-		if len(labelValues) != len(m.labels) {
-			fmt.Println("nothing updated, label values and labels length mismatch when updating metric", m.Name)
+		if len(values) != len(m.labels) {
+			fmt.Println("Warning! Nothing updated, label values and labels length mismatch when updating metric", m.Name)
 			return
+		}
+		labelValues := make([]string, len(m.labels))
+		for label, order := range values {
+			labelValues[int(order)] = label
 		}
 		m.updateWithLabels(labelValues, value)
 	} else {
-		for _, label := range m.labels {
-			if _, ok := values[label]; ok {
-				// we allow to provide only values for previously defined labels, to keep data cardinality under control
-				// to set string values by adding new labels use WithLabelValuesCollection option.
-				fmt.Println("Metric", m.Name, "tries to set value for a label that is not defined in metric options, metric not updated")
-				return
-			}
-		}
 		m.updateWithValues(values)
 	}
 }
@@ -124,7 +115,6 @@ func (m *Metric) Update(values map[string]float64) {
 // updateWithValues updates the metric value, for Gauge/GaugeVec values are set, for Counter/CounterVec values are added.
 // To set metrics labels string values, enable use WithLabelValuesCollection option.
 func (m *Metric) updateWithValues(values map[string]float64) {
-	fmt.Println("updateWithValues metric", m.Name, "with values", values)
 	switch m.Type {
 	case Gauge:
 		for _, val := range values {
@@ -150,7 +140,6 @@ func (m *Metric) updateWithValues(values map[string]float64) {
 // UpdateWithLabels allows to add new label values (string) and set/add value for them for correspondingly GaugeVec/CounterVec.
 // Provided label values should be ordered correspondingly to m.labels provided with WithLabels option.
 func (m *Metric) updateWithLabels(labelValues []string, val float64) {
-	fmt.Println("updateWithLabels metric", m.Name, "with labels", labelValues)
 	switch m.Type {
 	case Gauge:
 	case GaugeVec:
@@ -161,8 +150,8 @@ func (m *Metric) updateWithLabels(labelValues []string, val float64) {
 	}
 }
 
+// Increment increments the metric value by 1, for any type of metric.
 func (m *Metric) Increment(labels ...string) {
-	fmt.Println("Incrementing metric", m.Name)
 	if len(labels) == 0 {
 		switch m.Type {
 		case Gauge:

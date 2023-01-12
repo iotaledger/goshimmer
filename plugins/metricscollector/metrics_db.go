@@ -1,6 +1,8 @@
 package metricscollector
 
-import "github.com/iotaledger/goshimmer/packages/app/collector"
+import (
+	"github.com/iotaledger/goshimmer/packages/app/collector"
+)
 
 const (
 	dbNamespace = "db"
@@ -16,7 +18,7 @@ var DBMetrics = collector.NewCollection(dbNamespace,
 	collector.WithMetric(collector.NewMetric(sizeBytes,
 		collector.WithType(collector.GaugeVec),
 		collector.WithHelp("DB size in bytes for permanent, prunable storage and retainer plugin"),
-		collector.WithLabels(storagePermanentSizeLabel, storagePrunableSizeLabel, retainerSizeLabel),
+		collector.WithLabels("type"),
 		collector.WithCollectFunc(func() map[string]float64 {
 			return collector.MultiLabelsValues(
 				[]string{storagePermanentSizeLabel, storagePrunableSizeLabel, retainerSizeLabel},

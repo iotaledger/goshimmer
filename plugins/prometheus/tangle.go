@@ -113,7 +113,7 @@ func registerTangleMetrics() {
 	})
 
 	initialMissingBlocksCountDB = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "tangle_block_missing_count_db",
+		Name: "missing_block_total",
 		Help: "number of missing blocks in the node's database since the start of the node",
 	})
 
@@ -123,13 +123,13 @@ func registerTangleMetrics() {
 	})
 
 	orphanedBlocksCount = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "tangle_blocks_orphaned_size",
+		Name: "tangle_blocks_orphaned_total",
 		Help: "current number of orphaned blocks",
 	})
 
 	blockFinalizationTotalTimeSinceReceived = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "tangle_block_finalization_time_since_received",
+			Name: "conflict_resolution_time_seconds",
 			Help: "total number of milliseconds taken for blocks to finalize since block received",
 		}, []string{
 			"blockType",
@@ -151,7 +151,7 @@ func registerTangleMetrics() {
 		})
 
 	conflictConfirmationTotalTime = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "tangle_conflict_confirmation_time",
+		Name: "conflict_resolution_time_seconds",
 		Help: "total number of milliseconds taken for conflict to finalize",
 	})
 

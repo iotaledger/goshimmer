@@ -10,7 +10,6 @@ package metricscollector
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -22,6 +21,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/hive.go/core/autopeering/selection"
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/gin-gonic/gin"
@@ -74,8 +74,12 @@ func init() {
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(plugin.Name)
 
-	// TODO do we need GoMetrics, ProcessMetrics, PromhttpMetrics
-
+	if Parameters.GoMetrics {
+		deps.Collector.Registry.MustRegister(collectors.NewGoCollector())
+	}
+	if Parameters.ProcessMetrics {
+		deps.Collector.Registry.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
+	}
 }
 
 func run(*node.Plugin) {
@@ -98,6 +102,9 @@ func run(*node.Plugin) {
 					EnableOpenMetrics: true,
 				},
 			)
+			if Parameters.PromhttpMetrics {
+				handler = promhttp.InstrumentMetricHandler(deps.Collector.Registry, handler)
+			}
 			handler.ServeHTTP(c.Writer, c.Request)
 		})
 		bindAddr := Parameters.BindAddress
@@ -133,7 +140,6 @@ func createCollector() *collector.Collector {
 }
 
 func registerMetrics() {
-	fmt.Println(">>>> registering metrics...")
 	deps.Collector.RegisterCollection(TangleMetrics)
 	deps.Collector.RegisterCollection(ConflictMetrics)
 	deps.Collector.RegisterCollection(InfoMetrics)

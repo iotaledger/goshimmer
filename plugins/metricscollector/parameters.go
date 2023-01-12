@@ -16,6 +16,12 @@ type ParametersDefinition struct {
 	Global bool `default:"false" usage:"include global metrics"`
 	// ManaUpdateInterval defines interval between mana metrics refreshes.
 	ManaUpdateInterval time.Duration `default:"30s" usage:"mana metrics update interval"`
+	// GoMetrics defines whether to include Go metrics.
+	GoMetrics bool `default:"false" usage:"include go metrics"`
+	// ProcessMetrics defines whether to include process metrics.
+	ProcessMetrics bool `default:"false" usage:"include process metrics"`
+	// PromhttpMetrics defines whether to include promhttp metrics.
+	PromhttpMetrics bool `default:"false" usage:"include promhttp metrics"`
 }
 
 // Parameters contains the configuration used by the metrics collector plugin.

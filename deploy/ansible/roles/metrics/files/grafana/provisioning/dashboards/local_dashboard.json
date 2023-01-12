@@ -297,7 +297,7 @@
       "pluginVersion": "9.2.6",
       "targets": [
         {
-          "expr": "tangleTimeSynced{instance=\"$instance\"}",
+          "expr": "info_sync_status{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -547,7 +547,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "sum(db_size{instance=\"$instance\"}) /1024/1024",
+          "expr": "sum(db_size_bytes{instance=\"$instance\"}) /1024/1024",
           "interval": "",
           "legendFormat": "",
           "range": true,
@@ -613,7 +613,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "sum(db_size{type=\"storage_permanent\", instance=\"$instance\"}) /1024/1024",
+          "expr": "sum(db_size_bytes{type=\"storage_permanent\", instance=\"$instance\"}) /1024/1024",
           "interval": "",
           "legendFormat": "",
           "range": true,
@@ -679,7 +679,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "sum(db_size{type=\"storage_prunable\", instance=\"$instance\"}) /1024/1024",
+          "expr": "sum(db_size_bytes{type=\"storage_prunable\", instance=\"$instance\"}) /1024/1024",
           "interval": "",
           "legendFormat": "",
           "range": true,
@@ -745,7 +745,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "sum(db_size{instance=\"$instance\", type=\"retainer\"}) /1024/1024",
+          "expr": "sum(db_size_bytes{instance=\"$instance\", type=\"retainer\"}) /1024/1024",
           "interval": "",
           "legendFormat": "",
           "range": true,
@@ -1087,19 +1087,19 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "autopeering_distance{instance=\"$instance\"}",
+              "expr": "avg_over_time(autopeering_distance{instance=\"$instance\"}[$__range])",
               "interval": "",
               "legendFormat": "Average",
               "refId": "A"
             },
             {
-              "expr": "autopeering_distance{instance=\"$instance\"}",
+              "expr": "max_over_time(autopeering_distance{instance=\"$instance\"}[$__range])",
               "interval": "",
               "legendFormat": "Max",
               "refId": "B"
             },
             {
-              "expr": "autopeering_distance{instance=\"$instance\"}",
+              "expr": "min_over_time(autopeering_distance{instance=\"$instance\"}[$__range])",
               "interval": "",
               "legendFormat": "Min",
               "refId": "C"
@@ -1997,7 +1997,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "tangle_block_missing_count_db{instance=\"$instance\"}",
+              "expr": "tangle_missing_block_total{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "Missing Blocks",
               "refId": "A"
@@ -2088,14 +2088,14 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "tangle_blocks_per_component_total{component=\"Solidifier\",instance=\"$instance\"}",
+              "expr": "tangle_blocks_per_component_total{component=\"Solidified\",instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "Solid Blocks in DB",
               "refId": "A"
             },
             {
               "exemplar": true,
-              "expr": "tangle_blocks_per_component_total{component=\"Store\",instance=\"$instance\"} - tangle_blocks_per_component_total{component=\"Solidifier\",instance=\"$instance\"}",
+              "expr": "tangle_blocks_per_component_total{component=\"Attached\",instance=\"$instance\"} - tangle_blocks_per_component_total{component=\"Solidified\",instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "Not Solid Blocks in DB",
               "refId": "B"
@@ -2284,7 +2284,7 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "rate(tangle_block_total_time_since_received{component=\"Solidifier\",instance=\"$instance\"}[5m])/rate(tangle_blocks_per_component_total{component=\"Solidifier\",instance=\"$instance\"}[5m])",
+              "expr": "rate(tangle_block_total_time_since_received{component=\"Solidified\",instance=\"$instance\"}[5m])/rate(tangle_blocks_per_component_total{component=\"Solidified\",instance=\"$instance\"}[5m])",
               "interval": "",
               "legendFormat": "Avg Solidification Time",
               "refId": "A"
@@ -2464,13 +2464,13 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "mana_node_percentile{instance=\"$instance\"}",
+              "expr": "mana_node_percentile{instance=\"$instance\",type=\"access\"}",
               "interval": "",
               "legendFormat": "Access",
               "refId": "A"
             },
             {
-              "expr": "mana_node_percentile{instance=\"$instance\"}",
+              "expr": "mana_node_percentile{instance=\"$instance\",type=\"consensus\"}",
               "interval": "",
               "legendFormat": "Consensus",
               "refId": "B"
@@ -2818,7 +2818,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "mana_access_per_node{instance=\"$instance\"}",
+              "expr": "mana_access_per_node{}",
               "instant": true,
               "interval": "",
               "legendFormat": "",
@@ -2914,7 +2914,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "mana_consensus_per_node{instance=\"$instance\"}",
+              "expr": "mana_consensus_per_node{}",
               "instant": true,
               "interval": "",
               "legendFormat": "",
@@ -3508,13 +3508,13 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "mana_node_percentile{instance=\"$instance\"}",
+              "expr": "mana_node_percentile{instance=\"$instance\",type=\"access\"}",
               "interval": "",
               "legendFormat": "Access Percentile",
               "refId": "A"
             },
             {
-              "expr": "mana_node_percentile{instance=\"$instance\"}",
+              "expr": "mana_node_percentile{instance=\"$instance\",type=\"consensus\"}",
               "interval": "",
               "legendFormat": "Consensus Percentile",
               "refId": "B"
@@ -3889,7 +3889,7 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "irate(tangle_block_finalization_time_since_received{instance=\"$instance\"}[1m]) / irate(tangle_block_finalized_count{instance=\"$instance\"}[1m])",
+              "expr": "irate(conflict_resolution_time_seconds_total{instance=\"$instance\"}[1m]) / irate(conflict_resolved_total{instance=\"$instance\"}[1m])",
               "interval": "",
               "legendFormat": "{{blockType}} avg. finalization time",
               "queryType": "randomWalk",
@@ -3981,7 +3981,7 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "irate(tangle_conflict_confirmation_time{instance=\"$instance\"}[30s]) / rate(tangle_conflict_confirmed_count{instance=\"$instance\"}[30s])",
+              "expr": "irate(conflict_resolution_time_seconds_total{instance=\"$instance\"}[30s]) / rate(tangle_conflict_confirmed_count{instance=\"$instance\"}[30s])",
               "interval": "",
               "legendFormat": "Average conflict confirmation time",
               "queryType": "randomWalk",
@@ -4066,7 +4066,7 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "sum(irate(tangle_parent_per_type_total{instance=\"$instance\"}[1m])) by (type,instance) / on(instance) group_left() sum(irate(tangle_block_finalized_count{instance=\"$instance\"}[1m])) by (instance)",
+              "expr": "sum(irate(tangle_parent_per_type_total{instance=\"$instance\"}[1m])) by (type,instance) / on(instance) group_left() sum(irate(tangle_accepted_blocks_count{instance=\"$instance\"}[1m])) by (instance)",
               "hide": false,
               "interval": "",
               "legendFormat": "{{type}}",
@@ -4156,7 +4156,7 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "tangle_conflict_total_count_db{instance=\"$instance\"}",
+              "expr": "conflict_created_total{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "",
               "queryType": "randomWalk",
@@ -4219,7 +4219,7 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "tangle_conflict_total_count_db{instance=\"$instance\"} - tangle_conflict_finalized_count_db{instance=\"$instance\"}",
+              "expr": "conflict_created_total{instance=\"$instance\"} - conflict_resolved_total{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "",
               "queryType": "randomWalk",
@@ -4545,7 +4545,7 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "tangle_blocks_per_component_total{component=\"Scheduler\",instance=\"$instance\"}",
+              "expr": "tangle_blocks_per_component_total{component=\"Scheduled\",instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "",
               "queryType": "randomWalk",
@@ -4918,7 +4918,7 @@
           "targets": [
             {
               "exemplar": false,
-              "expr": "scheduler_buffer_total_size{instance=\"$instance\"}",
+              "expr": "scheduler_buffer_size_bytes_total{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "",
               "queryType": "randomWalk",
@@ -5370,7 +5370,7 @@
                 "uid": "PBFA97CFB590B2093"
               },
               "exemplar": true,
-              "expr": "tangle_blocks_orphaned_size{instance=\"$instance\"}",
+              "expr": "tangle_blocks_orphaned_total{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "",
               "queryType": "randomWalk",

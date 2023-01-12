@@ -1,6 +1,8 @@
 package metricscollector
 
 import (
+	"time"
+
 	"github.com/iotaledger/goshimmer/packages/app/collector"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
@@ -14,17 +16,15 @@ import (
 const (
 	tangleNamespace = "tangle"
 
-	tipsCount               = "tips_count"
-	blockPerTypeCount       = "block_per_type_total"
-	missingBlocksCount      = "missing_block_total"
-	parentPerTypeCount      = "parent_per_type_total"
-	blocksPerComponentCount = "blocks_per_component_total"
-	// todo finish dbStatsResult in /prometheus/block.go that were commented out due to ???
+	tipsCount                     = "tips_count"
+	blockPerTypeCount             = "block_per_type_total"
+	missingBlocksCount            = "missing_block_total"
+	parentPerTypeCount            = "parent_per_type_total"
+	blocksPerComponentCount       = "blocks_per_component_total"
 	timeSinceReceivedPerComponent = "time_since_received_per_component_seconds"
-	// todo finish measureRequestQueueSize when requester done: requestQueueSize
-	requestQueueSize    = "request_queue_size"
-	blocksOrphanedCount = "blocks_orphaned_total"
-	acceptedBlocksCount = "accepted_blocks_count"
+	requestQueueSize              = "request_queue_size"
+	blocksOrphanedCount           = "blocks_orphaned_total"
+	acceptedBlocksCount           = "accepted_blocks_count"
 )
 
 var TangleMetrics = collector.NewCollection(tangleNamespace,
@@ -57,8 +57,9 @@ var TangleMetrics = collector.NewCollection(tangleNamespace,
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(parentPerTypeCount,
-		collector.WithType(collector.Counter),
+		collector.WithType(collector.CounterVec),
 		collector.WithHelp("Number of parents of the block per its type"),
+		collector.WithLabels("type"),
 		collector.WithInitFunc(func() {
 			deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
 				blockType := collector.NewBlockType(block.Payload().Type()).String()
@@ -118,6 +119,25 @@ var TangleMetrics = collector.NewCollection(tangleNamespace,
 			deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
 				deps.Collector.Increment(tangleNamespace, acceptedBlocksCount)
 			}))
+		}),
+	)),
+	collector.WithMetric(collector.NewMetric(timeSinceReceivedPerComponent,
+		collector.WithType(collector.CounterVec),
+		collector.WithHelp("Time since the block was received per component"),
+		collector.WithLabels("component"),
+		collector.WithInitFunc(func() {
+			deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
+				blockType := collector.NewBlockType(block.Payload().Type()).String()
+				timeSince := float64(time.Since(block.IssuingTime()).Milliseconds())
+				deps.Collector.Update(tangleNamespace, timeSinceReceivedPerComponent, collector.MultiLabelsValues([]string{blockType}, timeSince))
+			}))
+		}),
+	)),
+	collector.WithMetric(collector.NewMetric(requestQueueSize,
+		collector.WithType(collector.Gauge),
+		collector.WithHelp("Number of blocks in the request queue"),
+		collector.WithCollectFunc(func() map[string]float64 {
+			return collector.SingleValue(float64(deps.Protocol.Engine().BlockRequester.QueueSize()))
 		}),
 	)),
 )

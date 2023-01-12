@@ -506,7 +506,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "tangle_block_missing_count_db{instance=~\"$instance\"}",
+          "expr": "tangle_missing_block_total{instance=~\"$instance\"}",
           "interval": "",
           "legendFormat": "Missing Blocks {{instance}}",
           "refId": "A"

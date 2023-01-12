@@ -50,7 +50,7 @@ func registerSchedulerMetrics() {
 	})
 
 	bufferSize = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "scheduler_buffer_total_size",
+		Name: "buffer_size_bytes_total",
 		Help: "number of bytes waiting to be scheduled.",
 	})
 

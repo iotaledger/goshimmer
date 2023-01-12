@@ -12,11 +12,10 @@ import (
 const (
 	autopeeringNamespace = "autopeering"
 
-	neighborDropCount = "neighbor_drop_total"
-	connectionsCount  = "neighbor_connections_total"
-	// todo calculate avg, max, min directly in grafana
+	neighborDropCount             = "neighbor_drop_total"
+	connectionsCount              = "neighbor_connections_total"
 	distance                      = "distance"
-	neighborConnectionLifetimeSec = "autopeering_neighbor_connection_lifetime_seconds_total"
+	neighborConnectionLifetimeSec = "neighbor_connection_lifetime_seconds_total"
 	trafficInboundBytes           = "traffic_inbound_total_bytes"
 	trafficOutboundBytes          = "traffic_outbound_total_bytes"
 )
@@ -43,7 +42,7 @@ var AutopeeringMetrics = collector.NewCollection(autopeeringNamespace,
 	)),
 	collector.WithMetric(collector.NewMetric(neighborConnectionLifetimeSec,
 		collector.WithType(collector.Counter),
-		collector.WithHelp("Time since neighbor connection establishment"),
+		collector.WithHelp("Time since a neighbor connection establishment"),
 		collector.WithInitFunc(func() {
 			deps.P2Pmgr.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Attach(event.NewClosure(func(event *p2p.NeighborRemovedEvent) {
 				neighborConnectionsLifeTime := time.Since(event.Neighbor.ConnectionEstablished())

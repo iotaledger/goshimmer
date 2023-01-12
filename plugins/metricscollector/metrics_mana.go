@@ -18,7 +18,7 @@ const (
 var ManaMetrics = collector.NewCollection(manaNamespace,
 	collector.WithMetric(collector.NewMetric(manaPerNode,
 		collector.WithType(collector.GaugeVec),
-		collector.WithLabels("node_id"),
+		collector.WithLabels("nodeID"),
 		collector.WithResetBeforeCollecting(true),
 		collector.WithHelp("Current amount of aMana of each node in the network."),
 		collector.WithCollectFunc(func() map[string]float64 {
@@ -32,7 +32,7 @@ var ManaMetrics = collector.NewCollection(manaNamespace,
 	)),
 	collector.WithMetric(collector.NewMetric(weightPerNode,
 		collector.WithType(collector.GaugeVec),
-		collector.WithLabels("node_id"),
+		collector.WithLabels("nodeID"),
 		collector.WithResetBeforeCollecting(true),
 		collector.WithHelp("Current amount of cMana of each node in the network."),
 		collector.WithCollectFunc(func() map[string]float64 {
@@ -46,7 +46,7 @@ var ManaMetrics = collector.NewCollection(manaNamespace,
 	)),
 	collector.WithMetric(collector.NewMetric(nodeManaPercentile,
 		collector.WithType(collector.GaugeVec),
-		collector.WithLabels("access", "consensus"),
+		collector.WithLabels("type"),
 		collector.WithHelp("Current percentile of the local node in terms of aMana."),
 		collector.WithCollectFunc(func() map[string]float64 {
 			accessMap := deps.Protocol.Engine().ManaTracker.ManaByIDs()
@@ -59,7 +59,7 @@ var ManaMetrics = collector.NewCollection(manaNamespace,
 	)),
 	collector.WithMetric(collector.NewMetric(neighborsMana,
 		collector.WithType(collector.GaugeVec),
-		collector.WithLabels("access", "consensus"),
+		collector.WithLabels("type"),
 		collector.WithHelp(""),
 		collector.WithCollectFunc(func() map[string]float64 {
 			neighbors := deps.P2Pmgr.AllNeighbors()

@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/app/collector"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/hive.go/core/generics/event"
 )
@@ -11,14 +12,15 @@ import (
 const (
 	conflictNamespace = "conflict"
 
-	resolutionTime        = "resolution_time_seconds"
+	resolutionTime        = "resolution_time_seconds_total"
+	allConflictCounts     = "created_total"
 	resolvedConflictCount = "resolved_total"
 	activeConflicts       = "active_conflicts"
-	// todo finish: do we need conflicts in DB?
 )
 
 var ConflictMetrics = collector.NewCollection(conflictNamespace,
 	collector.WithMetric(collector.NewMetric(resolutionTime,
+		collector.WithType(collector.Counter),
 		collector.WithHelp("Time since transaction issuance to the conflict acceptance"),
 		collector.WithInitFunc(func() {
 			deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictAccepted.Attach(event.NewClosure(func(conflictID utxo.TransactionID) {
@@ -30,6 +32,7 @@ var ConflictMetrics = collector.NewCollection(conflictNamespace,
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(resolvedConflictCount,
+		collector.WithType(collector.Counter),
 		collector.WithHelp("Number of resolved (accepted) conflicts"),
 		collector.WithInitValue(func() map[string]float64 {
 			return collector.SingleValue(deps.Protocol.Engine().Ledger.ConflictDAG.Utils.ConflictCount())
@@ -38,6 +41,17 @@ var ConflictMetrics = collector.NewCollection(conflictNamespace,
 			deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictAccepted.Attach(event.NewClosure(func(conflictID utxo.TransactionID) {
 				deps.Collector.Increment(conflictNamespace, resolvedConflictCount)
 			}))
+		}),
+	)),
+	collector.WithMetric(collector.NewMetric(allConflictCounts,
+		collector.WithType(collector.Counter),
+		collector.WithHelp("Number of created conflicts"),
+		collector.WithInitFunc(func() {
+			deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictCreated.Attach(
+				event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
+					deps.Collector.Increment(conflictNamespace, allConflictCounts)
+				},
+				))
 		}),
 	)),
 )
