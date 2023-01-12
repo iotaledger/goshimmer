@@ -226,7 +226,7 @@ func (p *Protocol) initTipManager() {
 func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) error {
 	isSolid, chain, _ := p.chainManager.ProcessCommitment(block.Commitment())
 	if !isSolid {
-		return errors.Errorf(">> chain not solid", block.Commitment().ID(), "latest commitment", p.storage.Settings.LatestCommitment().ID(), "blockID", block.ID())
+		return errors.Errorf("Chain is not solid: ", block.Commitment().ID(), "\nLatest commitment: ", p.storage.Settings.LatestCommitment().ID(), "\nBlock ID: ", block.ID())
 	}
 
 	if mainChain := p.storage.Settings.ChainID(); chain.ForkingPoint.ID() == mainChain {
