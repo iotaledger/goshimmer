@@ -76,11 +76,11 @@ func (c *CachedMap[K, V, KPtr, VPtr]) Get(key K) (value VPtr, exists bool) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	if writtenValue, exists := c.writeCache.Get(keyString); exists {
+	if writtenValue, writtenValueExists := c.writeCache.Get(keyString); writtenValueExists {
 		return writtenValue, writtenValue != nil
 	}
 
-	if readValue, exists := c.readCache.Get(keyString); exists {
+	if readValue, readValueExists := c.readCache.Get(keyString); readValueExists {
 		return readValue, readValue != nil
 	}
 
