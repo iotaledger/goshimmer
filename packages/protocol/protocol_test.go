@@ -130,7 +130,8 @@ func TestEngine_NonEmptyInitialValidators(t *testing.T) {
 	require.NoError(t, tf.Engine.Initialize(tempDir.Path("genesis_snapshot.bin")))
 
 	tf.Tangle.CreateBlock("1.A", models.WithStrongParents(tf.Tangle.BlockIDs("Genesis")), models.WithIssuer(identitiesMap["A"]))
-	tf.Tangle.IssueBlocks("1.A").WaitUntilAllTasksProcessed()
+	tf.Tangle.IssueBlocks("1.A")
+	tf.WaitUntilAllTasksProcessed()
 
 	// If the list of validators would be empty, this block will be accepted right away.
 	tf.Acceptance.ValidateAcceptedBlocks(map[string]bool{
@@ -138,7 +139,8 @@ func TestEngine_NonEmptyInitialValidators(t *testing.T) {
 	})
 
 	tf.Tangle.CreateBlock("1.B", models.WithStrongParents(tf.Tangle.BlockIDs("1.A")), models.WithIssuer(identitiesMap["B"]))
-	tf.Tangle.IssueBlocks("1.B").WaitUntilAllTasksProcessed()
+	tf.Tangle.IssueBlocks("1.B")
+	tf.WaitUntilAllTasksProcessed()
 
 	tf.Acceptance.ValidateAcceptedBlocks(map[string]bool{
 		"1.A": false,
@@ -146,7 +148,8 @@ func TestEngine_NonEmptyInitialValidators(t *testing.T) {
 	})
 
 	tf.Tangle.CreateBlock("1.C", models.WithStrongParents(tf.Tangle.BlockIDs("1.B")), models.WithIssuer(identitiesMap["C"]))
-	tf.Tangle.IssueBlocks("1.C").WaitUntilAllTasksProcessed()
+	tf.Tangle.IssueBlocks("1.C")
+	tf.WaitUntilAllTasksProcessed()
 
 	// ...but it get accepted only when 67% of the active weight is reached.
 	tf.Acceptance.ValidateAcceptedBlocks(map[string]bool{
@@ -194,7 +197,8 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 	tf.Tangle.CreateBlock("1.B", models.WithStrongParents(tf.Tangle.BlockIDs("1.A")), models.WithIssuer(identitiesMap["B"]), models.WithIssuingTime(epoch1IssuingTime))
 	tf.Tangle.CreateBlock("1.C", models.WithStrongParents(tf.Tangle.BlockIDs("1.B")), models.WithIssuer(identitiesMap["C"]), models.WithIssuingTime(epoch1IssuingTime))
 	tf.Tangle.CreateBlock("1.D", models.WithStrongParents(tf.Tangle.BlockIDs("1.C")), models.WithIssuer(identitiesMap["D"]), models.WithIssuingTime(epoch1IssuingTime))
-	tf.Tangle.IssueBlocks("1.A", "1.B", "1.C", "1.D").WaitUntilAllTasksProcessed()
+	tf.Tangle.IssueBlocks("1.A", "1.B", "1.C", "1.D")
+	tf.WaitUntilAllTasksProcessed()
 
 	tf.Acceptance.AssertBlockTracked(4)
 
@@ -209,11 +213,13 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 
 	// Block in epoch 2, not accepting anything new.
 	tf.Tangle.CreateBlock("2.D", models.WithStrongParents(tf.Tangle.BlockIDs("1.D")), models.WithIssuer(identitiesMap["D"]), models.WithIssuingTime(epoch2IssuingTime))
-	tf.Tangle.IssueBlocks("2.D").WaitUntilAllTasksProcessed()
+	tf.Tangle.IssueBlocks("2.D")
+	tf.WaitUntilAllTasksProcessed()
 
 	// Block in epoch 11
 	tf.Tangle.CreateBlock("11.A", models.WithStrongParents(tf.Tangle.BlockIDs("2.D")), models.WithIssuer(identitiesMap["A"]))
-	tf.Tangle.IssueBlocks("11.A").WaitUntilAllTasksProcessed()
+	tf.Tangle.IssueBlocks("11.A")
+	tf.WaitUntilAllTasksProcessed()
 
 	tf.Acceptance.ValidateAcceptedBlocks(lo.MergeMaps(acceptedBlocks, map[string]bool{
 		"1.C":  true,
@@ -228,7 +234,8 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 
 	tf.Tangle.CreateBlock("11.B", models.WithStrongParents(tf.Tangle.BlockIDs("11.A")), models.WithIssuer(identitiesMap["B"]))
 	tf.Tangle.CreateBlock("11.C", models.WithStrongParents(tf.Tangle.BlockIDs("11.B")), models.WithIssuer(identitiesMap["C"]))
-	tf.Tangle.IssueBlocks("11.B", "11.C").WaitUntilAllTasksProcessed()
+	tf.Tangle.IssueBlocks("11.B", "11.C")
+	tf.WaitUntilAllTasksProcessed()
 
 	// Some blocks got evicted, and we have to restart evaluating with a new map
 	acceptedBlocks = make(map[string]bool)
@@ -355,15 +362,18 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 
 		// Block in epoch 2, not accepting anything new.
 		tf2.Tangle.CreateBlock("2.D", models.WithStrongParents(tf.Tangle.BlockIDs("1.D")), models.WithIssuer(identitiesMap["D"]), models.WithIssuingTime(epoch2IssuingTime))
-		tf2.Tangle.IssueBlocks("2.D").WaitUntilAllTasksProcessed()
+		tf2.Tangle.IssueBlocks("2.D")
+		tf2.WaitUntilAllTasksProcessed()
 
 		// Block in epoch 11
 		tf2.Tangle.CreateBlock("11.A", models.WithStrongParents(tf2.Tangle.BlockIDs("2.D")), models.WithIssuer(identitiesMap["A"]))
-		tf2.Tangle.IssueBlocks("11.A").WaitUntilAllTasksProcessed()
+		tf2.Tangle.IssueBlocks("11.A")
+		tf2.WaitUntilAllTasksProcessed()
 
 		tf2.Tangle.CreateBlock("11.B", models.WithStrongParents(tf2.Tangle.BlockIDs("11.A")), models.WithIssuer(identitiesMap["B"]))
 		tf2.Tangle.CreateBlock("11.C", models.WithStrongParents(tf2.Tangle.BlockIDs("11.B")), models.WithIssuer(identitiesMap["C"]))
-		tf2.Tangle.IssueBlocks("11.B", "11.C").WaitUntilAllTasksProcessed()
+		tf2.Tangle.IssueBlocks("11.B", "11.C")
+		tf2.WaitUntilAllTasksProcessed()
 
 		assert.Equal(t, epoch.Index(4), tf2.Engine.Storage.Settings.LatestCommitment().Index())
 
@@ -470,7 +480,8 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		tf.Tangle.CreateBlock("1.B", models.WithStrongParents(tf.Tangle.BlockIDs("1.A")), models.WithIssuer(identitiesMap["B"]), models.WithIssuingTime(epoch1IssuingTime))
 		tf.Tangle.CreateBlock("1.C", models.WithStrongParents(tf.Tangle.BlockIDs("1.B")), models.WithIssuer(identitiesMap["C"]), models.WithIssuingTime(epoch1IssuingTime))
 		tf.Tangle.CreateBlock("1.D", models.WithStrongParents(tf.Tangle.BlockIDs("1.C")), models.WithIssuer(identitiesMap["D"]), models.WithIssuingTime(epoch1IssuingTime))
-		tf.Tangle.IssueBlocks("1.Z", "1.Z*", "1.A", "1.B", "1.C", "1.D").WaitUntilAllTasksProcessed()
+		tf.Tangle.IssueBlocks("1.Z", "1.Z*", "1.A", "1.B", "1.C", "1.D")
+		tf.WaitUntilAllTasksProcessed()
 
 		tf.Acceptance.ValidateAcceptedBlocks(lo.MergeMaps(acceptedBlocks, map[string]bool{
 			"1.Z":  true,
@@ -497,7 +508,8 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		tf.Tangle.CreateBlock("11.A", models.WithStrongParents(tf.Tangle.BlockIDs("1.D")), models.WithIssuer(identitiesMap["A"]), models.WithIssuingTime(epoch11IssuingTime))
 		tf.Tangle.CreateBlock("11.B", models.WithStrongParents(tf.Tangle.BlockIDs("11.A")), models.WithIssuer(identitiesMap["B"]), models.WithIssuingTime(epoch11IssuingTime))
 		tf.Tangle.CreateBlock("11.C", models.WithStrongParents(tf.Tangle.BlockIDs("11.B")), models.WithIssuer(identitiesMap["C"]), models.WithIssuingTime(epoch11IssuingTime))
-		tf.Tangle.IssueBlocks("11.A", "11.B", "11.C").WaitUntilAllTasksProcessed()
+		tf.Tangle.IssueBlocks("11.A", "11.B", "11.C")
+		tf.WaitUntilAllTasksProcessed()
 
 		assert.Equal(t, epoch.Index(4), tf.Engine.Storage.Settings.LatestCommitment().Index())
 	}
@@ -520,7 +532,8 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		tf.Tangle.CreateBlock("12.A.2", models.WithStrongParents(tf.Tangle.BlockIDs("5.Z")), models.WithIssuer(identitiesMap["A"]), models.WithIssuingTime(epoch12IssuingTime))
 		tf.Tangle.CreateBlock("12.B.2", models.WithStrongParents(tf.Tangle.BlockIDs("12.A.2")), models.WithIssuer(identitiesMap["B"]), models.WithIssuingTime(epoch12IssuingTime))
 		tf.Tangle.CreateBlock("12.C.2", models.WithStrongParents(tf.Tangle.BlockIDs("12.B.2")), models.WithIssuer(identitiesMap["C"]), models.WithIssuingTime(epoch12IssuingTime))
-		tf.Tangle.IssueBlocks("5.Z", "12.A.2", "12.B.2", "12.C.2").WaitUntilAllTasksProcessed()
+		tf.Tangle.IssueBlocks("5.Z", "12.A.2", "12.B.2", "12.C.2")
+		tf.WaitUntilAllTasksProcessed()
 
 		assert.Equal(t, epoch.Index(5), tf.Engine.Storage.Settings.LatestCommitment().Index())
 	}

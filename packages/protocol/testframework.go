@@ -5,6 +5,7 @@ import (
 
 	"github.com/iotaledger/hive.go/core/configuration"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
@@ -110,6 +111,15 @@ func (e *EngineTestFramework) AssertEpochState(index epoch.Index) {
 	require.Equal(e.test, index, e.Engine.SybilProtection.(*dpos.SybilProtection).LastCommittedEpoch())
 	require.Equal(e.test, index, e.Engine.ThroughputQuota.(*mana1.ThroughputQuota).LastCommittedEpoch())
 	require.Equal(e.test, index, e.Engine.EvictionState.LastEvictedEpoch())
+}
+
+// WaitUntilAllTasksProcessed waits until all tasks are processed.
+func (e *EngineTestFramework) WaitUntilAllTasksProcessed() (self *EngineTestFramework) {
+	event.Loop.PendingTasksCounter.WaitIsZero()
+	for _, pool := range e.Engine.WorkerPools() {
+		pool.PendingTasksCounter.WaitIsZero()
+	}
+	return e
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
