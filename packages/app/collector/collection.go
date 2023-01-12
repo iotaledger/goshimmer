@@ -66,11 +66,11 @@ func MultiLabelsValues[T constraints.Numeric](labels []string, values ...T) map[
 	return m
 }
 
-// MultiLabels is a helper function to create a map of labels and values for given labels, where each value will be set to 1.
+// MultiLabels is a helper function to create a map of labels with preserved order when WithLabelValuesCollection is enabled for metric.
 func MultiLabels(labels ...string) map[string]float64 {
 	m := make(map[string]float64)
-	for _, label := range labels {
-		m[label] = 1
+	for order, label := range labels {
+		m[label] = float64(order)
 	}
 	return m
 }

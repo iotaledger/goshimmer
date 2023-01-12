@@ -203,24 +203,30 @@ func (m *Metric) Reset() {
 
 // region Options ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// WithType sets the metric type: Gauge, GaugeVec, Counter, CounterVec.
 func WithType(t MetricType) options.Option[Metric] {
 	return func(m *Metric) {
 		m.Type = t
 	}
 }
 
+// WithHelp sets the help text for the metric.
 func WithHelp(help string) options.Option[Metric] {
 	return func(m *Metric) {
 		m.help = help
 	}
 }
 
+// WithLabels allows to define labels for GaugeVec/CounterVec metric types and should be provided only for them.
 func WithLabels(labels ...string) options.Option[Metric] {
 	return func(m *Metric) {
 		m.labels = labels
 	}
 }
 
+// WithLabelValuesCollection allows to set metrics labels string values.
+// New label values need to be provided as keys in map[string]float64 values map.
+// Values should correspond to m.labels place in slice. Consider using MultiLabels helper function.
 func WithLabelValuesCollection() options.Option[Metric] {
 	return func(m *Metric) {
 		m.labelValuesCollectionEnabled = true
@@ -235,18 +241,24 @@ func WithResetBeforeCollecting(resetEnabled bool) options.Option[Metric] {
 	}
 }
 
+// WithCollectFunc allows to define a function that will be called each time when prometheus will scrap the data.
+// Should be used when metric value can be read at any time and we don't need to attach to an event.
 func WithCollectFunc(collectFunc func() map[string]float64) options.Option[Metric] {
 	return func(m *Metric) {
 		m.collectFunc = collectFunc
 	}
 }
 
+// WithInitFunc allows to define a function that will be called once when metric is created. Should be used instead of WithCollectFunc
+// when metric value needs to be collected on event. With this type of collection we need to make sure that we call one
+// of update methods of collector e.g.: Increment, Update.
 func WithInitFunc(initFunc func()) options.Option[Metric] {
 	return func(m *Metric) {
 		m.initFunc = initFunc
 	}
 }
 
+// WithInitValue allows to set initial value for a metric.
 func WithInitValue(initValueFunc func() map[string]float64) options.Option[Metric] {
 	return func(m *Metric) {
 		m.initValueFunc = initValueFunc
