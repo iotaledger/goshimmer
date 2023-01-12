@@ -378,10 +378,10 @@ func WithSequenceNumber(sequenceNumber uint64) options.Option[Block] {
 	}
 }
 
-func WithPayload(payload payload.Payload) options.Option[Block] {
+func WithPayload(p payload.Payload) options.Option[Block] {
 	return func(m *Block) {
-		m.payload = payload
-		m.M.PayloadBytes = lo.PanicOnErr(payload.Bytes())
+		m.payload = p
+		m.M.PayloadBytes = lo.PanicOnErr(p.Bytes())
 	}
 }
 
@@ -397,15 +397,15 @@ func WithNonce(nonce uint64) options.Option[Block] {
 	}
 }
 
-func WithLatestConfirmedEpoch(epoch epoch.Index) options.Option[Block] {
+func WithLatestConfirmedEpoch(epochIndex epoch.Index) options.Option[Block] {
 	return func(b *Block) {
-		b.M.LatestConfirmedEpoch = epoch
+		b.M.LatestConfirmedEpoch = epochIndex
 	}
 }
 
-func WithCommitment(commitment *commitment.Commitment) options.Option[Block] {
+func WithCommitment(cm *commitment.Commitment) options.Option[Block] {
 	return func(b *Block) {
-		b.M.EpochCommitment = commitment
+		b.M.EpochCommitment = cm
 	}
 }
 

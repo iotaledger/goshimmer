@@ -11,7 +11,6 @@ import (
 	"github.com/iotaledger/hive.go/core/stringify"
 )
 
-
 func init() {
 	err := serix.DefaultAPI.RegisterTypeSettings(AliasUnlockBlock{}, serix.TypeSettings{}.WithObjectType(uint8(new(AliasUnlockBlock).Type())))
 	if err != nil {

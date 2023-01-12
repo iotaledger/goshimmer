@@ -173,19 +173,26 @@ func diagnosticPrintSnapshotFromFile(filePath string) {
 	}
 
 	fmt.Println("--- ActivityLog ---")
-	lo.PanicOnErr(e.NotarizationManager.Attestations.Get(0)).Stream(func(id identity.ID, attestation *notarization.Attestation) bool {
+	if err := lo.PanicOnErr(e.NotarizationManager.Attestations.Get(0)).Stream(func(id identity.ID, attestation *notarization.Attestation) bool {
 		fmt.Printf("%d: %+v\n", 0, id)
 		fmt.Printf("Attestation: %+v\n", attestation)
 		return true
-	})
+	}); err != nil {
+		panic(err)
+	}
 
 	fmt.Println("--- Diffs ---")
-	e.LedgerState.StateDiffs.StreamSpentOutputs(0, func(owm *ledger.OutputWithMetadata) error {
+	if err := e.LedgerState.StateDiffs.StreamSpentOutputs(0, func(owm *ledger.OutputWithMetadata) error {
 		fmt.Printf("%d: %+v\n", 0, owm)
 		return nil
-	})
-	e.LedgerState.StateDiffs.StreamCreatedOutputs(0, func(owm *ledger.OutputWithMetadata) error {
+	}); err != nil {
+		panic(err)
+	}
+
+	if err := e.LedgerState.StateDiffs.StreamCreatedOutputs(0, func(owm *ledger.OutputWithMetadata) error {
 		fmt.Printf("%d: %+v\n", 0, owm)
 		return nil
-	})
+	}); err != nil {
+		panic(err)
+	}
 }

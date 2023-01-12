@@ -16,7 +16,7 @@ var (
 	Script = "basic"
 
 	customSpamParams = CustomSpamParams{
-		ClientUrls:            urls,
+		ClientURLs:            urls,
 		SpamTypes:             []string{"blk"},
 		Rates:                 []int{1},
 		Durations:             []time.Duration{time.Second * 20},
@@ -28,7 +28,7 @@ var (
 		EnableRateSetter:      true,
 	}
 	quickTest = QuickTestParams{
-		ClientUrls:            urls,
+		ClientURLs:            urls,
 		Rate:                  100,
 		Duration:              time.Second * 30,
 		TimeUnit:              time.Second,

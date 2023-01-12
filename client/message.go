@@ -42,7 +42,7 @@ func (api *GoShimmerAPI) GetBlockMetadata(base58EncodedID string) (*retainer.Blo
 		return nil, err
 	}
 
-	res.SetID(res.M.Id)
+	res.SetID(res.M.ID)
 
 	return res, nil
 }

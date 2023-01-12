@@ -219,7 +219,7 @@ func (s *Spammer) PostTransaction(tx *devnetvm.Transaction, clt evilwallet.Clien
 		return
 	}
 	if s.EvilScenario.OutputWallet.Type() == evilwallet.Reuse {
-		s.EvilWallet.SetTxOutputsSolid(tx.Essence().Outputs(), clt.Url())
+		s.EvilWallet.SetTxOutputsSolid(tx.Essence().Outputs(), clt.URL())
 	}
 
 	count := s.State.txSent.Add(1)

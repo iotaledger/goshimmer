@@ -9,7 +9,7 @@ import (
 )
 
 type CustomSpamParams struct {
-	ClientUrls            []string
+	ClientURLs            []string
 	SpamTypes             []string
 	Rates                 []int
 	Durations             []time.Duration
@@ -23,7 +23,7 @@ type CustomSpamParams struct {
 }
 
 func CustomSpam(params *CustomSpamParams) {
-	wallet := evilwallet.NewEvilWallet(params.ClientUrls...)
+	wallet := evilwallet.NewEvilWallet(params.ClientURLs...)
 	wg := sync.WaitGroup{}
 
 	fundsNeeded := false
@@ -189,11 +189,9 @@ func SpamNestedConflicts(wallet *evilwallet.EvilWallet, rate int, timeUnit, dura
 			evilwallet.WithScenarioReuseOutputWallet(outWallet),
 			evilwallet.WithScenarioInputWalletForDeepSpam(outWallet),
 		)
-	} else {
-		if reuseOutputs {
-			outWallet := wallet.NewWallet(evilwallet.Reuse)
-			scenarioOptions = append(scenarioOptions, evilwallet.WithScenarioReuseOutputWallet(outWallet))
-		}
+	} else if reuseOutputs {
+		outWallet := wallet.NewWallet(evilwallet.Reuse)
+		scenarioOptions = append(scenarioOptions, evilwallet.WithScenarioReuseOutputWallet(outWallet))
 	}
 	scenario := evilwallet.NewEvilScenario(scenarioOptions...)
 	if scenario.NumOfClientsNeeded > wallet.NumOfClient() {

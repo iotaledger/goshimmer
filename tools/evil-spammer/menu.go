@@ -105,12 +105,12 @@ func (p *Printer) FundsWarning() {
 	fmt.Println()
 }
 
-func (p *Printer) UrlWarning() {
+func (p *Printer) URLWarning() {
 	p.Println(p.colorString("Could not connect to provided API endpoint, client not added.", "yellow"), level2)
 	fmt.Println()
 }
 
-func (p *Printer) UrlExists() {
+func (p *Printer) URLExists() {
 	p.Println(p.colorString("The url already exists.", "red"), level2)
 	fmt.Println()
 }
@@ -128,7 +128,7 @@ func (p *Printer) NotEnoughClientsWarning(numOfClient int) {
 
 func (p *Printer) clients() {
 	p.Println(p.colorString("Provided clients:", "cyan"), level1)
-	for url := range p.mode.Config.clientUrls {
+	for url := range p.mode.Config.clientURLs {
 		p.PrintlnPoint(url, level2)
 	}
 }
