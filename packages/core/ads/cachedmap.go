@@ -17,8 +17,9 @@ type CachedMap[K, V constraints.Serializable, KPtr constraints.MarshalablePtr[K]
 	writeCache *shrinkingmap.ShrinkingMap[string, VPtr]
 	readCache  *lru.Cache[string, VPtr]
 
-	mutex           sync.RWMutex
-	elementsToWrite *sync.Cond
+	mutex           sync.Mutex
+	newElements     *sync.Cond
+	writeCacheEmpty *sync.Cond
 }
 
 func NewCachedMap[K, V constraints.Serializable, KPtr constraints.MarshalablePtr[K], VPtr constraints.MarshalablePtr[V]](store kvstore.KVStore, cacheSize int) (newMap *CachedMap[K, V, KPtr, VPtr]) {
@@ -28,7 +29,11 @@ func NewCachedMap[K, V constraints.Serializable, KPtr constraints.MarshalablePtr
 		readCache:  lo.PanicOnErr(lru.New[string, VPtr](cacheSize)),
 	}
 
-	newMap.elementsToWrite = &sync.Cond{
+	newMap.newElements = &sync.Cond{
+		L: &newMap.mutex,
+	}
+
+	newMap.writeCacheEmpty = &sync.Cond{
 		L: &newMap.mutex,
 	}
 
@@ -43,8 +48,8 @@ func (c *CachedMap[K, V, KPtr, VPtr]) Set(key K, value VPtr) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	if c.writeCache.Set(keyString, value) {
-		// increase pending writes counter
+	if c.writeCache.Set(keyString, value) && c.writeCache.Size() == 1 {
+		c.newElements.Signal()
 	}
 
 	c.readCache.Remove(keyString)
@@ -89,7 +94,9 @@ func (c *CachedMap[K, V, KPtr, VPtr]) writeLoop() {
 	for {
 		c.mutex.Lock()
 		for c.writeCache.Size() == 0 {
-			c.elementsToWrite.Wait()
+			c.writeCacheEmpty.Broadcast()
+
+			c.newElements.Wait()
 		}
 
 		keyToWrite, valueToWrite, exists := c.writeCache.Pop()
@@ -97,6 +104,7 @@ func (c *CachedMap[K, V, KPtr, VPtr]) writeLoop() {
 			panic("writeCache should not be empty")
 		}
 
+		c.readCache.Add(keyToWrite, valueToWrite)
 		c.mutex.Unlock()
 
 		if valueToWrite == nil {
