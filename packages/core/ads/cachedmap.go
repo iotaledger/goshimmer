@@ -32,6 +32,8 @@ func NewCachedMap[K, V constraints.Serializable, KPtr constraints.MarshalablePtr
 		L: &newMap.mutex,
 	}
 
+	go newMap.writeLoop()
+
 	return
 }
 
@@ -83,14 +85,18 @@ func (c *CachedMap[K, V, KPtr, VPtr]) Get(key K) (value VPtr, exists bool) {
 	return
 }
 
-func (c *CachedMap[K, V, KPtr, VPtr]) write() {
+func (c *CachedMap[K, V, KPtr, VPtr]) writeLoop() {
 	for {
 		c.mutex.Lock()
 		for c.writeCache.Size() == 0 {
 			c.elementsToWrite.Wait()
 		}
 
-		keyToWrite, valueToWrite := c.popFromWriteCache()
+		keyToWrite, valueToWrite, exists := c.writeCache.Pop()
+		if !exists {
+			panic("writeCache should not be empty")
+		}
+
 		c.mutex.Unlock()
 
 		if valueToWrite == nil {
@@ -99,17 +105,4 @@ func (c *CachedMap[K, V, KPtr, VPtr]) write() {
 			c.storedMap.set(typeutils.StringToBytes(keyToWrite), lo.PanicOnErr(valueToWrite.Bytes()))
 		}
 	}
-}
-
-func (c *CachedMap[K, V, KPtr, VPtr]) popFromWriteCache() (key string, value VPtr) {
-	c.writeCache.ForEach(func(randomKey string, randomValue VPtr) bool {
-		key = randomKey
-		value = randomValue
-
-		c.writeCache.Delete(key)
-
-		return false
-	})
-
-	return
 }
