@@ -19,30 +19,30 @@ func TestLatestVotes(t *testing.T) {
 		latestVotes := NewLatestVotes[markers.Index, votes.MockedVotePower](voter)
 		latestVotes.Store(1, votes.MockedVotePower{VotePower: 8})
 		validateLatestVotes(t, latestVotes, map[markers.Index]votes.MockedVotePower{
-			1: {8},
+			1: {VotePower: 8},
 		})
 		latestVotes.Store(2, votes.MockedVotePower{VotePower: 10})
 		validateLatestVotes(t, latestVotes, map[markers.Index]votes.MockedVotePower{
-			2: {10},
+			2: {VotePower: 10},
 		})
 		latestVotes.Store(3, votes.MockedVotePower{VotePower: 7})
 		validateLatestVotes(t, latestVotes, map[markers.Index]votes.MockedVotePower{
-			2: {10},
-			3: {7},
+			2: {VotePower: 10},
+			3: {VotePower: 7},
 		})
 		latestVotes.Store(4, votes.MockedVotePower{VotePower: 9})
 		validateLatestVotes(t, latestVotes, map[markers.Index]votes.MockedVotePower{
-			2: {10},
-			4: {9},
+			2: {VotePower: 10},
+			4: {VotePower: 9},
 		})
 		latestVotes.Store(4, votes.MockedVotePower{VotePower: 11})
 		validateLatestVotes(t, latestVotes, map[markers.Index]votes.MockedVotePower{
-			4: {11},
+			4: {VotePower: 11},
 		})
 		latestVotes.Store(1, votes.MockedVotePower{VotePower: 15})
 		validateLatestVotes(t, latestVotes, map[markers.Index]votes.MockedVotePower{
-			1: {15},
-			4: {11},
+			1: {VotePower: 15},
+			4: {VotePower: 11},
 		})
 	}
 
@@ -55,8 +55,8 @@ func TestLatestVotes(t *testing.T) {
 		latestVotes.Store(1, votes.MockedVotePower{VotePower: 15})
 		latestVotes.Store(4, votes.MockedVotePower{VotePower: 11})
 		validateLatestVotes(t, latestVotes, map[markers.Index]votes.MockedVotePower{
-			1: {15},
-			4: {11},
+			1: {VotePower: 15},
+			4: {VotePower: 11},
 		})
 	}
 }

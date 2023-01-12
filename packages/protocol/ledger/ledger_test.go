@@ -128,7 +128,7 @@ func TestLedger_BookInOrder(t *testing.T) {
 	}
 }
 
-// See scenario at img/ledger_test_SetConflictConfirmed.png
+// See scenario at img/ledger_test_SetConflictConfirmed.png.
 func TestLedger_SetConflictConfirmed(t *testing.T) {
 	testFramework := NewTestFramework(t)
 
@@ -404,11 +404,11 @@ func TestLedger_SolidifyAndForkMultiThreaded(t *testing.T) {
 					consumedAliases = append(consumedAliases, fmt.Sprintf("G.%d", txNum))
 
 					// Fork bottom layer.
-					txAlias := fmt.Sprintf("TX-0-%d*", txNum)
-					createdAliases = append(createdAliases, txAlias)
-					testFramework.CreateTransaction(txAlias, 10, consumedAliases...)
+					genesisTxAlias := fmt.Sprintf("TX-0-%d*", txNum)
+					createdAliases = append(createdAliases, genesisTxAlias)
+					testFramework.CreateTransaction(genesisTxAlias, 10, consumedAliases...)
 
-					bookedAliases[txAlias] = true
+					bookedAliases[genesisTxAlias] = true
 				} else {
 					for inputConsumed := 0; inputConsumed < 10; inputConsumed++ {
 						consumedAliases = append(consumedAliases, fmt.Sprintf("TX-%d-%d.%d", layer-1, txNum, inputConsumed))

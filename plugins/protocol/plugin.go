@@ -64,11 +64,15 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 		dbProvider = database.NewDB
 	}
 	p = protocol.New(n,
+		protocol.WithSybilProtectionProvider(
+			dpos.NewProvider(
+				dpos.WithActivityWindow(Parameters.ValidatorActivityWindow),
+			),
+		),
 		protocol.WithEngineOptions(
 			engine.WithNotarizationManagerOptions(
 				notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommittableAge),
 			),
-			engine.WithSybilProtectionProvider(dpos.NewSybilProtectionProvider()),
 			engine.WithBootstrapThreshold(Parameters.BootstrapWindow),
 			engine.WithTSCManagerOptions(
 				tsc.WithTimeSinceConfirmationThreshold(Parameters.TimeSinceConfirmationThreshold),
@@ -78,10 +82,6 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 				ledger.WithCacheTimeProvider(cacheTimeProvider),
 			),
 			engine.WithSnapshotDepth(Parameters.Snapshot.Depth),
-			// TODO: FIX
-			// engine.WithActiveNodesOptions(
-			// 	pos.WithActivityWindow(Parameters.ValidatorActivityWindow),
-			// ),
 		),
 		protocol.WithTipManagerOptions(
 			tipmanager.WithWidth(Parameters.TangleWidth),
@@ -100,6 +100,7 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 		protocol.WithStorageDatabaseManagerOptions(
 			database.WithDBProvider(dbProvider),
 			database.WithMaxOpenDBs(DatabaseParameters.MaxOpenDBs),
+			database.WithGranularity(DatabaseParameters.DBGranularity),
 		),
 	)
 

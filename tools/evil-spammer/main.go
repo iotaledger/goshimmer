@@ -84,7 +84,7 @@ func parseBasicSpamFlags() {
 
 	if *urls != "" {
 		parsedUrls := parseCommaSepString(*urls)
-		quickTest.ClientUrls = parsedUrls
+		quickTest.ClientURLs = parsedUrls
 	}
 	if *spamTypes != "" {
 		parsedSpamTypes := parseCommaSepString(*spamTypes)
@@ -133,7 +133,7 @@ func parseQuickTestFlags() {
 
 	if *urls != "" {
 		parsedUrls := parseCommaSepString(*urls)
-		quickTest.ClientUrls = parsedUrls
+		quickTest.ClientURLs = parsedUrls
 	}
 	quickTest.Rate = *rate
 	quickTest.Duration = *duration

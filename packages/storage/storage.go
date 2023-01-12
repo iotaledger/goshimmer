@@ -1,13 +1,14 @@
 package storage
 
 import (
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/options"
+
 	"github.com/iotaledger/goshimmer/packages/core/database"
-	"github.com/iotaledger/goshimmer/packages/core/diskutil"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/storage/permanent"
 	"github.com/iotaledger/goshimmer/packages/storage/prunable"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/goshimmer/packages/storage/utils"
 )
 
 // Storage is an abstraction around the storage layer of the node.
@@ -27,7 +28,7 @@ func New(directory string, version database.Version, opts ...options.Option[data
 	databaseManager := database.NewManager(version, append(opts, database.WithBaseDir(directory))...)
 
 	return &Storage{
-		Permanent: permanent.New(diskutil.New(directory, true), databaseManager),
+		Permanent: permanent.New(utils.NewDirectory(directory, true), databaseManager),
 		Prunable:  prunable.New(databaseManager),
 
 		databaseManager: databaseManager,
@@ -35,13 +36,27 @@ func New(directory string, version database.Version, opts ...options.Option[data
 }
 
 // PruneUntilEpoch prunes storage epochs less than and equal to the given index.
-func (c *Storage) PruneUntilEpoch(epochIndex epoch.Index) {
-	c.databaseManager.PruneUntilEpoch(epochIndex)
+func (s *Storage) PruneUntilEpoch(epochIndex epoch.Index) {
+	s.databaseManager.PruneUntilEpoch(epochIndex)
+}
+
+// PrunableDatabaseSize returns the size of the underlying prunable databases.
+func (s *Storage) PrunableDatabaseSize() int64 {
+	return s.databaseManager.PrunableStorageSize()
+}
+
+// PermanentDatabaseSize returns the size of the underlying permanent database and files.
+func (s *Storage) PermanentDatabaseSize() int64 {
+	return s.Permanent.SettingsAndCommitmentsSize() + s.databaseManager.PermanentStorageSize()
 }
 
 // Shutdown shuts down the storage.
-func (c *Storage) Shutdown() {
+func (s *Storage) Shutdown() {
 	event.Loop.PendingTasksCounter.WaitIsZero()
 
-	defer c.databaseManager.Shutdown()
+	if err := s.Permanent.Commitments.Close(); err != nil {
+		panic(err)
+	}
+
+	s.databaseManager.Shutdown()
 }

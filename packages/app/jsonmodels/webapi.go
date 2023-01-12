@@ -122,7 +122,7 @@ func NewGetConflictVotersResponse(conflictID utxo.TransactionID, voters *sybilpr
 		ConflictID: conflictID.Base58(),
 		Voters: func() (votersStr []string) {
 			votersStr = make([]string, 0)
-			voters.ForEachWeighted(func(id identity.ID, weight int64) error {
+			_ = voters.ForEachWeighted(func(id identity.ID, weight int64) error {
 				votersStr = append(votersStr, id.String()+", "+strconv.FormatInt(weight, 10))
 				return nil
 			})

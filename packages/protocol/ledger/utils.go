@@ -19,7 +19,7 @@ type Utils struct {
 }
 
 // newUtils returns a new Utils instance for the given Ledger.
-func newUtils(ledger *Ledger) (new *Utils) {
+func newUtils(ledger *Ledger) *Utils {
 	return &Utils{
 		ledger: ledger,
 	}
@@ -166,6 +166,7 @@ func (u *Utils) OutputConfirmationState(outputID utxo.OutputID) (confirmationSta
 	})
 	return
 }
+
 func (u *Utils) ConfirmedConsumer(outputID utxo.OutputID) (consumerID utxo.TransactionID) {
 	// default to no consumer, i.e. Genesis
 	consumerID = utxo.EmptyTransactionID

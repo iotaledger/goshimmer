@@ -34,9 +34,9 @@ func broadcastNetworkDelayPayload(c echo.Context) error {
 	//	return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	//}
 
-	//sendPoWInfo(payload, time.Since(nowWithoutClock))
+	// sendPoWInfo(payload, time.Since(nowWithoutClock))
 
-	//return c.JSON(http.StatusOK, Response{ID: blk.ID().Base58()})
+	// return c.JSON(http.StatusOK, Response{ID: blk.ID().Base58()})
 	return nil
 }
 

@@ -85,7 +85,6 @@ func (q *IssuerQueue) Ready(block *Block) bool {
 
 // IDs returns the IDs of all submitted blocks (ready or not).
 func (q *IssuerQueue) IDs() (ids []models.BlockID) {
-
 	q.submitted.ForEachKey(func(id models.BlockID) bool {
 		ids = append(ids, id)
 		return true

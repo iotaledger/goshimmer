@@ -9,7 +9,7 @@ import (
 )
 
 type CustomSpamParams struct {
-	ClientUrls            []string
+	ClientURLs            []string
 	SpamTypes             []string
 	Rates                 []int
 	Durations             []time.Duration
@@ -23,7 +23,7 @@ type CustomSpamParams struct {
 }
 
 func CustomSpam(params *CustomSpamParams) {
-	wallet := evilwallet.NewEvilWallet(params.ClientUrls...)
+	wallet := evilwallet.NewEvilWallet(params.ClientURLs...)
 	wg := sync.WaitGroup{}
 
 	fundsNeeded := false
@@ -59,13 +59,13 @@ func CustomSpam(params *CustomSpamParams) {
 				defer wg.Done()
 				SpamTransaction(wallet, params.Rates[i], params.TimeUnit, params.Durations[i], params.DeepSpam, params.EnableRateSetter)
 			}()
-		//case "ds":
+		// case "ds":
 		//	wg.Add(1)
 		//	go func() {
 		//		defer wg.Done()
 		//		SpamDoubleSpends(wallet, params.Rates[i], params.BlkToBeSent[i], params.TimeUnit, params.Durations[i], params.DelayBetweenConflicts, params.DeepSpam, params.EnableRateSetter)
 		//	}()
-		//case "nds":
+		// case "nds":
 		//	wg.Add(1)
 		//	go func() {
 		//		defer wg.Done()
@@ -189,11 +189,9 @@ func SpamNestedConflicts(wallet *evilwallet.EvilWallet, rate int, timeUnit, dura
 			evilwallet.WithScenarioReuseOutputWallet(outWallet),
 			evilwallet.WithScenarioInputWalletForDeepSpam(outWallet),
 		)
-	} else {
-		if reuseOutputs {
-			outWallet := wallet.NewWallet(evilwallet.Reuse)
-			scenarioOptions = append(scenarioOptions, evilwallet.WithScenarioReuseOutputWallet(outWallet))
-		}
+	} else if reuseOutputs {
+		outWallet := wallet.NewWallet(evilwallet.Reuse)
+		scenarioOptions = append(scenarioOptions, evilwallet.WithScenarioReuseOutputWallet(outWallet))
 	}
 	scenario := evilwallet.NewEvilScenario(scenarioOptions...)
 	if scenario.NumOfClientsNeeded > wallet.NumOfClient() {
@@ -208,9 +206,8 @@ func SpamNestedConflicts(wallet *evilwallet.EvilWallet, rate int, timeUnit, dura
 		evilspammer.WithRateSetter(enableRateSetter),
 		evilspammer.WithEvilScenario(scenario),
 	}
-	spammer = evilspammer.NewSpammer(options...)
 
-	return
+	return evilspammer.NewSpammer(options...)
 }
 
 func SpamBlocks(wallet *evilwallet.EvilWallet, rate int, timeUnit, duration time.Duration, numBlkToSend int, enableRateSetter bool) *evilspammer.Spammer {

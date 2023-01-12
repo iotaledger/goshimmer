@@ -48,7 +48,7 @@ func New(issuePayloadFunc IssuePayloadFunc, log *logger.Logger, estimateFunc Est
 }
 
 // Start starts the spammer to spam with the given blocks per time unit,
-// according to a inter block issuing function (IMIF)
+// according to a inter block issuing function (IMIF).
 func (s *Spammer) Start(rate int, payloadSize uint64, timeUnit time.Duration, imif string) {
 	// only start if not yet running
 	if s.running.SetToIf(false, true) {

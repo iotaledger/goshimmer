@@ -229,15 +229,15 @@ func (wallet *Wallet) ConsolidateFunds(options ...consolidateoptions.Consolidate
 
 		tx := devnetvm.NewTransaction(txEssence, unlockBlocks)
 
-		txBytes, err := tx.Bytes()
-		if err != nil {
-			return nil, err
+		txBytes, bytesErr := tx.Bytes()
+		if bytesErr != nil {
+			return nil, bytesErr
 		}
+
 		// check syntactical validity by marshaling an unmarshalling
 		tx = new(devnetvm.Transaction)
-		err = tx.FromBytes(txBytes)
-		if err != nil {
-			return nil, err
+		if fromBytesErr := tx.FromBytes(txBytes); fromBytesErr != nil {
+			return nil, fromBytesErr
 		}
 		// check tx validity (balances, unlock blocks)
 		ok, cErr := checkBalancesAndUnlocks(inputsAsOutputsInOrder, tx)
@@ -249,20 +249,19 @@ func (wallet *Wallet) ConsolidateFunds(options ...consolidateoptions.Consolidate
 		}
 
 		wallet.markOutputsAndAddressesSpent(consumedOutputs)
-		err = wallet.connector.SendTransaction(tx)
-		if err != nil {
-			return nil, err
+		if sendErr := wallet.connector.SendTransaction(tx); sendErr != nil {
+			return nil, sendErr
 		}
+
 		txs = append(txs, tx)
 		if consolidateOptions.WaitForConfirmation {
-			err = wallet.WaitForTxAcceptance(tx.ID())
-			if err != nil {
-				return txs, err
+			if acceptanceErr := wallet.WaitForTxAcceptance(tx.ID()); acceptanceErr != nil {
+				return txs, acceptanceErr
 			}
 		}
 	}
 
-	return txs, err
+	return txs, nil
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -886,10 +885,8 @@ func (wallet *Wallet) DepositFundsToNFT(options ...deposittonftoptions.DepositFu
 		}
 		return nil, err
 	}
-	// build inputs from consumed outputs
-	inputsFromConsumedOutputs := wallet.buildInputs(consumedOutputs)
-	// add the alias
-	unsortedInputs := append(inputsFromConsumedOutputs, alias.Input())
+	// build inputs from consumed outputs annd add the alias
+	unsortedInputs := append(wallet.buildInputs(consumedOutputs), alias.Input())
 	// sort all inputs
 	inputs := devnetvm.NewInputs(unsortedInputs...)
 	// aggregate all the funds we consume from inputs used to fund the deposit (there is the alias input as well)
@@ -988,6 +985,7 @@ func (wallet Wallet) SweepNFTOwnedFunds(options ...sweepnftownedoptions.SweepNFT
 	}
 	if _, has := stateControlled[*sweepOptions.Alias]; !has {
 		err = errors.Errorf("nft %s is not state controlled by the wallet", sweepOptions.Alias.Base58())
+		return
 	}
 	// look up if we have the alias output. Only the state controller can modify balances in aliases.
 	walletAlias, err := wallet.findStateControlledAliasOutputByAliasID(sweepOptions.Alias)
@@ -1134,6 +1132,7 @@ func (wallet *Wallet) SweepNFTOwnedNFTs(options ...sweepnftownednftsoptions.Swee
 	}
 	if _, has := stateControlled[*sweepOptions.Alias]; !has {
 		err = errors.Errorf("nft %s is not state controlled by the wallet", sweepOptions.Alias.Base58())
+		return
 	}
 	// look up if we have the alias output. Only the state controller can modify balances in aliases.
 	walletAlias, err := wallet.findStateControlledAliasOutputByAliasID(sweepOptions.Alias)
@@ -1147,6 +1146,7 @@ func (wallet *Wallet) SweepNFTOwnedNFTs(options ...sweepnftownednftsoptions.Swee
 	}
 	if len(owned) == 0 {
 		err = errors.Errorf("no owned outputs with funds are found on nft %s", sweepOptions.Alias.Base58())
+		return
 	}
 	toBeConsumed := devnetvm.Outputs{}
 	// owned contains all outputs that are owned by nft. we want to filter out non alias outputs
@@ -1818,7 +1818,7 @@ func (wallet *Wallet) WaitForTxAcceptance(txID utxo.TransactionID, optionalCtx .
 	for {
 		select {
 		case <-ctx.Done():
-			return errors.Errorf("context cancelled")
+			return errors.Errorf("context canceled")
 		case <-ticker.C:
 			timeoutCounter += wallet.ConfirmationPollInterval
 			confirmationState, fetchErr := wallet.connector.GetTransactionConfirmationState(txID)
@@ -1907,12 +1907,17 @@ func (wallet *Wallet) waitForStateAliasBalanceConfirmation(preStateAliasBalance 
 // derivePledgeIDs returns the mana pledge IDs from the provided options.
 func (wallet *Wallet) derivePledgeIDs(aIDFromOptions, cIDFromOptions string) (aID, cID identity.ID, err error) {
 	// determine pledge IDs
-	aID, err = identity.DecodeIDBase58(aIDFromOptions)
-	if err != nil {
-		return
+	if aIDFromOptions != "" {
+		aID, err = identity.DecodeIDBase58(aIDFromOptions)
+		if err != nil {
+			return
+		}
 	}
 
-	cID, err = identity.DecodeIDBase58(cIDFromOptions)
+	if cIDFromOptions != "" {
+		cID, err = identity.DecodeIDBase58(cIDFromOptions)
+	}
+
 	return
 }
 

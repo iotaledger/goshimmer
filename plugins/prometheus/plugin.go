@@ -17,7 +17,9 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/app/metrics/net"
+	"github.com/iotaledger/goshimmer/packages/app/retainer"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 )
 
@@ -40,7 +42,9 @@ type dependencies struct {
 	dig.In
 	AutopeeringPlugin     *node.Plugin `name:"autopeering" optional:"true"`
 	Local                 *peer.Local
-	AutoPeeringConnMetric *net.ConnMetric `optional:"true"`
+	AutoPeeringConnMetric *net.ConnMetric    `optional:"true"`
+	Protocol              *protocol.Protocol `optional:"true"`
+	Retainer              *retainer.Retainer `optional:"true"`
 }
 
 func configure(plugin *node.Plugin) {

@@ -2,7 +2,6 @@ package client
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 )
@@ -29,7 +28,7 @@ const (
 func (api *GoShimmerAPI) GetAddressOutputs(base58EncodedAddress string) (*jsonmodels.GetAddressResponse, error) {
 	res := &jsonmodels.GetAddressResponse{}
 	if err := api.do(http.MethodGet, func() string {
-		return strings.Join([]string{routeGetAddresses, base58EncodedAddress}, "")
+		return routeGetAddresses + base58EncodedAddress
 	}(), nil, res); err != nil {
 		return nil, err
 	}
@@ -40,7 +39,7 @@ func (api *GoShimmerAPI) GetAddressOutputs(base58EncodedAddress string) (*jsonmo
 func (api *GoShimmerAPI) GetAddressUnspentOutputs(base58EncodedAddress string) (*jsonmodels.GetAddressResponse, error) {
 	res := &jsonmodels.GetAddressResponse{}
 	if err := api.do(http.MethodGet, func() string {
-		return strings.Join([]string{routeGetAddresses, base58EncodedAddress, pathUnspentOutputs}, "")
+		return routeGetAddresses + base58EncodedAddress + pathUnspentOutputs
 	}(), nil, res); err != nil {
 		return nil, err
 	}
@@ -51,7 +50,7 @@ func (api *GoShimmerAPI) GetAddressUnspentOutputs(base58EncodedAddress string) (
 func (api *GoShimmerAPI) PostAddressUnspentOutputs(base58EncodedAddresses []string) (*jsonmodels.PostAddressesUnspentOutputsResponse, error) {
 	res := &jsonmodels.PostAddressesUnspentOutputsResponse{}
 	if err := api.do(http.MethodPost, func() string {
-		return strings.Join([]string{routeGetAddresses, "unspentOutputs"}, "")
+		return routeGetAddresses + "unspentOutputs"
 	}(), &jsonmodels.PostAddressesUnspentOutputsRequest{Addresses: base58EncodedAddresses}, res); err != nil {
 		return nil, err
 	}
@@ -62,7 +61,7 @@ func (api *GoShimmerAPI) PostAddressUnspentOutputs(base58EncodedAddresses []stri
 func (api *GoShimmerAPI) GetConflict(base58EncodedConflictID string) (*jsonmodels.Conflict, error) {
 	res := &jsonmodels.Conflict{}
 	if err := api.do(http.MethodGet, func() string {
-		return strings.Join([]string{routeGetConflicts, base58EncodedConflictID}, "")
+		return routeGetConflicts + base58EncodedConflictID
 	}(), nil, res); err != nil {
 		return nil, err
 	}
@@ -73,7 +72,7 @@ func (api *GoShimmerAPI) GetConflict(base58EncodedConflictID string) (*jsonmodel
 func (api *GoShimmerAPI) GetConflictChildren(base58EncodedConflictID string) (*jsonmodels.GetConflictChildrenResponse, error) {
 	res := &jsonmodels.GetConflictChildrenResponse{}
 	if err := api.do(http.MethodGet, func() string {
-		return strings.Join([]string{routeGetConflicts, base58EncodedConflictID, pathChildren}, "")
+		return routeGetConflicts + base58EncodedConflictID + pathChildren
 	}(), nil, res); err != nil {
 		return nil, err
 	}
@@ -84,7 +83,7 @@ func (api *GoShimmerAPI) GetConflictChildren(base58EncodedConflictID string) (*j
 func (api *GoShimmerAPI) GetConflictConflicts(base58EncodedConflictID string) (*jsonmodels.GetConflictConflictsResponse, error) {
 	res := &jsonmodels.GetConflictConflictsResponse{}
 	if err := api.do(http.MethodGet, func() string {
-		return strings.Join([]string{routeGetConflicts, base58EncodedConflictID, pathConflicts}, "")
+		return routeGetConflicts + base58EncodedConflictID + pathConflicts
 	}(), nil, res); err != nil {
 		return nil, err
 	}
@@ -95,7 +94,7 @@ func (api *GoShimmerAPI) GetConflictConflicts(base58EncodedConflictID string) (*
 func (api *GoShimmerAPI) GetConflictVoters(base58EncodedConflictID string) (*jsonmodels.GetConflictVotersResponse, error) {
 	res := &jsonmodels.GetConflictVotersResponse{}
 	if err := api.do(http.MethodGet, func() string {
-		return strings.Join([]string{routeGetConflicts, base58EncodedConflictID, pathVoters}, "")
+		return routeGetConflicts + base58EncodedConflictID + pathVoters
 	}(), nil, res); err != nil {
 		return nil, err
 	}
@@ -106,7 +105,7 @@ func (api *GoShimmerAPI) GetConflictVoters(base58EncodedConflictID string) (*jso
 func (api *GoShimmerAPI) GetOutput(base58EncodedOutputID string) (*jsonmodels.Output, error) {
 	res := &jsonmodels.Output{}
 	if err := api.do(http.MethodGet, func() string {
-		return strings.Join([]string{routeGetOutputs, base58EncodedOutputID}, "")
+		return routeGetOutputs + base58EncodedOutputID
 	}(), nil, res); err != nil {
 		return nil, err
 	}
@@ -117,7 +116,7 @@ func (api *GoShimmerAPI) GetOutput(base58EncodedOutputID string) (*jsonmodels.Ou
 func (api *GoShimmerAPI) GetOutputConsumers(base58EncodedOutputID string) (*jsonmodels.GetOutputConsumersResponse, error) {
 	res := &jsonmodels.GetOutputConsumersResponse{}
 	if err := api.do(http.MethodGet, func() string {
-		return strings.Join([]string{routeGetOutputs, base58EncodedOutputID, pathConsumers}, "")
+		return routeGetOutputs + base58EncodedOutputID + pathConsumers
 	}(), nil, res); err != nil {
 		return nil, err
 	}
@@ -128,7 +127,7 @@ func (api *GoShimmerAPI) GetOutputConsumers(base58EncodedOutputID string) (*json
 func (api *GoShimmerAPI) GetOutputMetadata(base58EncodedOutputID string) (*jsonmodels.OutputMetadata, error) {
 	res := &jsonmodels.OutputMetadata{}
 	if err := api.do(http.MethodGet, func() string {
-		return strings.Join([]string{routeGetOutputs, base58EncodedOutputID, pathMetadata}, "")
+		return routeGetOutputs + base58EncodedOutputID + pathMetadata
 	}(), nil, res); err != nil {
 		return nil, err
 	}
@@ -139,7 +138,7 @@ func (api *GoShimmerAPI) GetOutputMetadata(base58EncodedOutputID string) (*jsonm
 func (api *GoShimmerAPI) GetTransaction(base58EncodedTransactionID string) (*jsonmodels.Transaction, error) {
 	res := &jsonmodels.Transaction{}
 	if err := api.do(http.MethodGet, func() string {
-		return strings.Join([]string{routeGetTransactions, base58EncodedTransactionID}, "")
+		return routeGetTransactions + base58EncodedTransactionID
 	}(), nil, res); err != nil {
 		return nil, err
 	}
@@ -150,7 +149,7 @@ func (api *GoShimmerAPI) GetTransaction(base58EncodedTransactionID string) (*jso
 func (api *GoShimmerAPI) GetTransactionMetadata(base58EncodedTransactionID string) (*jsonmodels.TransactionMetadata, error) {
 	res := &jsonmodels.TransactionMetadata{}
 	if err := api.do(http.MethodGet, func() string {
-		return strings.Join([]string{routeGetTransactions, base58EncodedTransactionID, pathMetadata}, "")
+		return routeGetTransactions + base58EncodedTransactionID + pathMetadata
 	}(), nil, res); err != nil {
 		return nil, err
 	}
@@ -161,7 +160,7 @@ func (api *GoShimmerAPI) GetTransactionMetadata(base58EncodedTransactionID strin
 func (api *GoShimmerAPI) GetTransactionAttachments(base58EncodedTransactionID string) (*jsonmodels.GetTransactionAttachmentsResponse, error) {
 	res := &jsonmodels.GetTransactionAttachmentsResponse{}
 	if err := api.do(http.MethodGet, func() string {
-		return strings.Join([]string{routeGetTransactions, base58EncodedTransactionID, pathAttachments}, "")
+		return routeGetTransactions + base58EncodedTransactionID + pathAttachments
 	}(), nil, res); err != nil {
 		return nil, err
 	}

@@ -70,8 +70,12 @@ func TestRetainer_BlockMetadata_NonEvicted(t *testing.T) {
 	tangleTF.IssueBlocks("A").WaitUntilAllTasksProcessed()
 	block, exists := protocolTF.Protocol.CongestionControl.Block(b.ID())
 	assert.True(t, exists)
-	meta, exists := retainer.BlockMetadata(block.ID())
-	assert.True(t, exists)
+	var meta *BlockMetadata
+	require.Eventuallyf(t, func() (exists bool) {
+		meta, exists = retainer.BlockMetadata(block.ID())
+
+		return exists && meta.M.Scheduled
+	}, 5*time.Second, 10*time.Millisecond, "block metadata should be available")
 
 	assert.Equal(t, meta.M.Missing, block.IsMissing())
 	assert.Equal(t, meta.M.Solid, block.IsSolid())
@@ -103,7 +107,6 @@ func TestRetainer_BlockMetadata_NonEvicted(t *testing.T) {
 }
 
 func TestRetainer_BlockMetadata_Evicted(t *testing.T) {
-
 	protocolTF := protocol.NewTestFramework(t)
 	protocolTF.Protocol.Run()
 	tangleTF := tangle.NewTestFramework(t, tangle.WithTangle(protocolTF.Protocol.Engine().Tangle))

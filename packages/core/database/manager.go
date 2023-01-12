@@ -1,8 +1,7 @@
 package database
 
 import (
-	"io/fs"
-	"io/ioutil"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -12,9 +11,10 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/zyedidia/generic/cache"
 
-	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
+	"github.com/iotaledger/hive.go/core/ioutils"
 	"github.com/iotaledger/hive.go/core/kvstore"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -28,6 +28,7 @@ type Manager struct {
 
 	openDBs         *cache.Cache[epoch.Index, *dbInstance]
 	bucketedBaseDir string
+	dbSizes         *shrinkingmap.ShrinkingMap[epoch.Index, int64]
 	openDBsMutex    sync.Mutex
 
 	maxPruned      epoch.Index
@@ -62,7 +63,15 @@ func NewManager(version Version, opts ...options.Option[Manager]) *Manager {
 			if err != nil {
 				panic(err)
 			}
+			size, err := dbPrunableDirectorySize(m.bucketedBaseDir, baseIndex)
+			if err != nil {
+				panic(err)
+			}
+
+			m.dbSizes.Set(baseIndex, size)
 		})
+
+		m.dbSizes = shrinkingmap.New[epoch.Index, int64]()
 	})
 
 	if err := m.checkVersion(version); err != nil {
@@ -104,6 +113,14 @@ func (m *Manager) RestoreFromDisk() (latestBucketIndex epoch.Index) {
 	dbInfos := getSortedDBInstancesFromDisk(m.bucketedBaseDir)
 
 	// TODO: what to do if dbInfos is empty? -> start with a fresh DB?
+
+	for _, dbInfo := range dbInfos {
+		size, err := dbPrunableDirectorySize(m.bucketedBaseDir, dbInfo.baseIndex)
+		if err != nil {
+			panic(err)
+		}
+		m.dbSizes.Set(dbInfo.baseIndex, size)
+	}
 
 	m.maxPrunedMutex.Lock()
 	m.maxPruned = dbInfos[len(dbInfos)-1].baseIndex - 1
@@ -148,7 +165,7 @@ func (m *Manager) Get(index epoch.Index, realm kvstore.Realm) kvstore.KVStore {
 	}
 
 	bucket := m.getBucket(index)
-	withRealm, err := bucket.WithRealm(byteutils.ConcatBytes(bucket.Realm(), realm))
+	withRealm, err := bucket.WithExtendedRealm(realm)
 	if err != nil {
 		panic(err)
 	}
@@ -183,7 +200,7 @@ func (m *Manager) PruneUntilEpoch(index epoch.Index) {
 
 	currentPrunedIndex := m.setMaxPruned(baseIndexToPrune)
 	for currentPrunedIndex+epoch.Index(m.optsGranularity) <= baseIndexToPrune {
-		currentPrunedIndex = currentPrunedIndex + epoch.Index(m.optsGranularity)
+		currentPrunedIndex += epoch.Index(m.optsGranularity)
 		m.prune(currentPrunedIndex)
 	}
 }
@@ -217,6 +234,46 @@ func (m *Manager) Shutdown() {
 	}
 }
 
+// TotalStorageSize returns the combined size of the permanent and prunable storage.
+func (m *Manager) TotalStorageSize() int64 {
+	return m.PermanentStorageSize() + m.PrunableStorageSize()
+}
+
+// PermanentStorageSize returns the size of the permanent storage.
+func (m *Manager) PermanentStorageSize() int64 {
+	size, err := dbDirectorySize(m.permanentBaseDir)
+	if err != nil {
+		fmt.Println("dbDirectorySize failed for", m.permanentBaseDir, ":", err)
+		return 0
+	}
+	return size
+}
+
+// PrunableStorageSize returns the size of the prunable storage containing all db instances.
+func (m *Manager) PrunableStorageSize() int64 {
+	m.openDBsMutex.Lock()
+	defer m.openDBsMutex.Unlock()
+
+	// Sum up all the evicted databases
+	var sum int64
+	m.dbSizes.ForEach(func(index epoch.Index, i int64) bool {
+		sum += i
+		return true
+	})
+
+	// Add up all the open databases
+	m.openDBs.Each(func(key epoch.Index, val *dbInstance) {
+		size, err := dbPrunableDirectorySize(m.bucketedBaseDir, key)
+		if err != nil {
+			fmt.Println("dbPrunableDirectorySize failed for", m.bucketedBaseDir, key, ":", err)
+			return
+		}
+		sum += size
+	})
+
+	return sum
+}
+
 // getDBInstance returns the DB instance for the given baseIndex or creates a new one if it does not yet exist.
 // DBs are created as follows where each db is located in m.basedir/<starting baseIndex>/
 // (assuming a bucket granularity=2):
@@ -225,13 +282,17 @@ func (m *Manager) Shutdown() {
 //	baseIndex 1 -> db 0
 //	baseIndex 2 -> db 2
 func (m *Manager) getDBInstance(index epoch.Index) (db *dbInstance) {
+	baseIndex := m.computeDBBaseIndex(index)
 	m.openDBsMutex.Lock()
 	defer m.openDBsMutex.Unlock()
 
-	baseIndex := m.computeDBBaseIndex(index)
+	// check if exists again, as other goroutine might have created it in parallel
 	db, exists := m.openDBs.Get(baseIndex)
 	if !exists {
 		db = m.createDBInstance(baseIndex)
+
+		// Remove the cached db size since we will open the db
+		m.dbSizes.Delete(baseIndex)
 		m.openDBs.Put(baseIndex, db)
 	}
 
@@ -273,7 +334,7 @@ func (m *Manager) createDBInstance(index epoch.Index) (newDBInstance *dbInstance
 
 // createBucket creates a new bucket for the given baseIndex. It uses the baseIndex as a realm on the underlying DB.
 func (m *Manager) createBucket(db *dbInstance, index epoch.Index) (bucket kvstore.KVStore) {
-	bucket, err := db.store.WithRealm(indexToRealm(index))
+	bucket, err := db.store.WithExtendedRealm(indexToRealm(index))
 	if err != nil {
 		panic(err)
 	}
@@ -305,6 +366,9 @@ func (m *Manager) removeDBInstance(dbBaseIndex epoch.Index) {
 	if err := os.RemoveAll(dbPathFromIndex(m.bucketedBaseDir, dbBaseIndex)); err != nil {
 		panic(err)
 	}
+
+	// Delete the db size since we pruned the whole directory
+	m.dbSizes.Delete(dbBaseIndex)
 }
 
 func (m *Manager) removeBucket(bucket kvstore.KVStore) {
@@ -392,20 +456,20 @@ type dbInstanceFileInfo struct {
 }
 
 func getSortedDBInstancesFromDisk(baseDir string) (dbInfos []*dbInstanceFileInfo) {
-	files, err := ioutil.ReadDir(baseDir)
+	files, err := os.ReadDir(baseDir)
 	if err != nil {
 		panic(err)
 	}
 
-	files = lo.Filter(files, func(f fs.FileInfo) bool { return f.IsDir() })
-	dbInfos = lo.Map(files, func(f fs.FileInfo) *dbInstanceFileInfo {
-		atoi, convErr := strconv.Atoi(f.Name())
+	files = lo.Filter(files, func(e os.DirEntry) bool { return e.IsDir() })
+	dbInfos = lo.Map(files, func(e os.DirEntry) *dbInstanceFileInfo {
+		atoi, convErr := strconv.Atoi(e.Name())
 		if convErr != nil {
 			return nil
 		}
 		return &dbInstanceFileInfo{
 			baseIndex: epoch.Index(atoi),
-			path:      filepath.Join(baseDir, f.Name()),
+			path:      filepath.Join(baseDir, e.Name()),
 		}
 	})
 	dbInfos = lo.Filter(dbInfos, func(info *dbInstanceFileInfo) bool { return info != nil })
@@ -415,6 +479,14 @@ func getSortedDBInstancesFromDisk(baseDir string) (dbInfos []*dbInstanceFileInfo
 	})
 
 	return dbInfos
+}
+
+func dbPrunableDirectorySize(base string, index epoch.Index) (int64, error) {
+	return dbDirectorySize(dbPathFromIndex(base, index))
+}
+
+func dbDirectorySize(path string) (int64, error) {
+	return ioutils.FolderSize(path)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

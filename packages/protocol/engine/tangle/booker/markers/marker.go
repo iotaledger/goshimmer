@@ -61,8 +61,7 @@ type Markers struct {
 	markers      map[SequenceID]Index
 	highestIndex Index
 	lowestIndex  Index
-
-	sync.RWMutex
+	mutex        sync.RWMutex
 }
 
 // NewMarkers creates a new collection of Markers.
@@ -80,8 +79,8 @@ func NewMarkers(markers ...Marker) (m *Markers) {
 
 // Marker type casts the Markers to a Marker if it contains only 1 element.
 func (m *Markers) Marker() (marker Marker) {
-	m.RLock()
-	defer m.RUnlock()
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 
 	switch len(m.markers) {
 	case 0:
@@ -99,8 +98,8 @@ func (m *Markers) Marker() (marker Marker) {
 
 // Get returns the Index of the Marker with the given Sequence and a flag that indicates if the Marker exists.
 func (m *Markers) Get(sequenceID SequenceID) (index Index, exists bool) {
-	m.RLock()
-	defer m.RUnlock()
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 
 	index, exists = m.markers[sequenceID]
 	return
@@ -109,8 +108,8 @@ func (m *Markers) Get(sequenceID SequenceID) (index Index, exists bool) {
 // Set adds a new Marker to the collection and updates the Index of an existing entry if it is higher than a possible
 // previously stored one. The method returns two boolean flags that indicate if an entry was updated and/or added.
 func (m *Markers) Set(sequenceID SequenceID, index Index) (updated, added bool) {
-	m.Lock()
-	defer m.Unlock()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	if index > m.highestIndex {
 		m.highestIndex = index
@@ -148,8 +147,8 @@ func (m *Markers) Set(sequenceID SequenceID, index Index) (updated, added bool) 
 // Delete removes the Marker with the given SequenceID from the collection and returns a boolean flag that indicates if
 // the element existed.
 func (m *Markers) Delete(sequenceID SequenceID) (existed bool) {
-	m.Lock()
-	defer m.Unlock()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	existingIndex, existed := m.markers[sequenceID]
 	delete(m.markers, sequenceID)
@@ -229,24 +228,24 @@ func (m *Markers) Merge(markers *Markers) {
 
 // LowestIndex returns the lowest Index of all Markers in the collection.
 func (m *Markers) LowestIndex() (lowestIndex Index) {
-	m.RLock()
-	defer m.RUnlock()
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 
 	return m.lowestIndex
 }
 
 // HighestIndex returns the highest Index of all Markers in the collection.
 func (m *Markers) HighestIndex() (highestIndex Index) {
-	m.RLock()
-	defer m.RUnlock()
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 
 	return m.highestIndex
 }
 
 // Size returns the amount of Markers in the collection.
 func (m *Markers) Size() (size int) {
-	m.RLock()
-	defer m.RUnlock()
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 
 	return len(m.markers)
 }
@@ -273,8 +272,8 @@ func (m *Markers) Equals(other *Markers) (equals bool) {
 
 // Clone creates a deep copy of the Markers.
 func (m *Markers) Clone() (cloned *Markers) {
-	m.RLock()
-	defer m.RUnlock()
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 
 	cloned = NewMarkers()
 	for sequenceID, index := range m.markers {

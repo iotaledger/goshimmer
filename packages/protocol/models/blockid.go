@@ -9,16 +9,21 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/core/byteutils"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/stringify"
 	"github.com/iotaledger/hive.go/core/types"
 	"github.com/mr-tron/base58"
+	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
 
 // region BlockID ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+const BlockIDContextKey = "blockID"
 
 // BlockID identifies a block via its BLAKE2b-256 hash of its bytes.
 type BlockID struct {
@@ -34,9 +39,9 @@ func (b BlockID) Index() epoch.Index {
 var EmptyBlockID BlockID
 
 // NewBlockID returns a new BlockID for the given data.
-func NewBlockID(identifier types.Identifier, epochIndex epoch.Index) BlockID {
+func NewBlockID(contentHash types.Identifier, signature ed25519.Signature, epochIndex epoch.Index) BlockID {
 	return BlockID{
-		Identifier: identifier,
+		Identifier: blake2b.Sum256(byteutils.ConcatBytes(contentHash[:], signature[:])),
 		EpochIndex: epochIndex,
 	}
 }
@@ -149,7 +154,7 @@ func (b BlockID) CompareTo(other BlockID) int {
 
 // BlockIDFromContext returns the BlockID from the given context.
 func BlockIDFromContext(ctx context.Context) BlockID {
-	blockID, ok := ctx.Value("blockID").(BlockID)
+	blockID, ok := ctx.Value(BlockIDContextKey).(BlockID)
 	if !ok {
 		return EmptyBlockID
 	}
@@ -158,7 +163,8 @@ func BlockIDFromContext(ctx context.Context) BlockID {
 
 // BlockIDToContext adds the BlockID to the given context.
 func BlockIDToContext(ctx context.Context, blockID BlockID) context.Context {
-	return context.WithValue(ctx, "blockID", blockID)
+	//nolint:staticcheck // we are not expecting collisions due to using a string type for the key
+	return context.WithValue(ctx, BlockIDContextKey, blockID)
 }
 
 func IsEmptyBlockID(blockID BlockID) bool {

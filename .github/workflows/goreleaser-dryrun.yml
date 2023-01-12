@@ -12,7 +12,7 @@ jobs:
     runs-on:
       - ubuntu-latest
     container:
-      image: iotaledger/goreleaser-cgo-cross-compiler:1.19
+      image: iotaledger/goreleaser-cgo-cross-compiler:1.19.4
       volumes: [/repo]
     steps:
       - name: Checkout

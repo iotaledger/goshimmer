@@ -2,20 +2,17 @@ package protocol
 
 import (
 	"fmt"
-	"os"
 	"sync"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/logger"
+	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/database"
-	"github.com/iotaledger/goshimmer/packages/core/diskutil"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
@@ -23,10 +20,15 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
 	"github.com/iotaledger/goshimmer/packages/storage"
+	"github.com/iotaledger/goshimmer/packages/storage/utils"
 )
 
 const (
@@ -44,7 +46,7 @@ type Protocol struct {
 
 	dispatcher           network.Endpoint
 	networkProtocol      *network.Protocol
-	disk                 *diskutil.DiskUtil
+	directory            *utils.Directory
 	activeEngineMutex    sync.RWMutex
 	engine               *engine.Engine
 	candidateEngine      *engine.Engine
@@ -61,20 +63,22 @@ type Protocol struct {
 	optsEngineOptions                 []options.Option[engine.Engine]
 	optsTipManagerOptions             []options.Option[tipmanager.TipManager]
 	optsStorageDatabaseManagerOptions []options.Option[database.Manager]
-
-	*logger.Logger
+	optsSybilProtectionProvider       engine.ModuleProvider[sybilprotection.SybilProtection]
+	optsThroughputQuotaProvider       engine.ModuleProvider[throughputquota.ThroughputQuota]
 }
 
 func New(dispatcher network.Endpoint, opts ...options.Option[Protocol]) (protocol *Protocol) {
 	return options.Apply(&Protocol{
 		Events: NewEvents(),
 
-		dispatcher: dispatcher,
+		dispatcher:                  dispatcher,
+		optsSybilProtectionProvider: dpos.NewProvider(),
+		optsThroughputQuotaProvider: mana1.NewProvider(),
 
 		optsBaseDirectory:    "",
 		optsPruningThreshold: 6 * 60, // 1 hour given that epoch duration is 10 seconds
 	}, opts,
-		(*Protocol).initDisk,
+		(*Protocol).initDirectory,
 		(*Protocol).initCongestionControl,
 		(*Protocol).initMainChainStorage,
 		(*Protocol).initMainEngine,
@@ -85,9 +89,13 @@ func New(dispatcher network.Endpoint, opts ...options.Option[Protocol]) (protoco
 
 // Run runs the protocol.
 func (p *Protocol) Run() {
-	p.activateEngine(p.engine)
+	p.linkTo(p.engine)
+
+	if err := p.engine.Initialize(p.optsSnapshotPath); err != nil {
+		panic(err)
+	}
+
 	p.initNetworkProtocol()
-	p.importSnapshotFile(p.optsSnapshotPath)
 }
 
 // Shutdown shuts down the protocol.
@@ -104,13 +112,18 @@ func (p *Protocol) Shutdown() {
 	}
 }
 
-func (p *Protocol) initDisk() {
-	p.disk = diskutil.New(p.optsBaseDirectory)
+func (p *Protocol) WorkerPools() map[string]*workerpool.UnboundedWorkerPool {
+	wps := make(map[string]*workerpool.UnboundedWorkerPool)
+	wps["CongestionControl"] = p.CongestionControl.WorkerPool()
+	return lo.MergeMaps(wps, p.engine.WorkerPools())
+}
+
+func (p *Protocol) initDirectory() {
+	p.directory = utils.NewDirectory(p.optsBaseDirectory)
 }
 
 func (p *Protocol) initMainChainStorage() {
-
-	p.storage = storage.New(p.disk.Path(mainBaseDir), DatabaseVersion, append([]options.Option[database.Manager]{database.WithGranularity(1)}, p.optsStorageDatabaseManagerOptions...)...)
+	p.storage = storage.New(p.directory.Path(mainBaseDir), DatabaseVersion, p.optsStorageDatabaseManagerOptions...)
 
 	p.Events.Engine.Consensus.EpochGadget.EpochConfirmed.Attach(event.NewClosure(func(epochIndex epoch.Index) {
 		p.storage.PruneUntilEpoch(epochIndex - epoch.Index(p.optsPruningThreshold))
@@ -163,12 +176,12 @@ func (p *Protocol) initNetworkProtocol() {
 	}))
 
 	p.networkProtocol.Events.AttestationsReceived.Attach(event.NewClosure(func(event *network.AttestationsReceivedEvent) {
-		p.ProcessAttestations(event.Attestations, event.Source)
+		p.ProcessAttestations(event.Source)
 	}))
 }
 
 func (p *Protocol) initMainEngine() {
-	p.engine = engine.New(p.storage, p.optsEngineOptions...)
+	p.engine = engine.New(p.storage, p.optsSybilProtectionProvider, p.optsThroughputQuotaProvider, p.optsEngineOptions...)
 }
 
 func (p *Protocol) initChainManager() {
@@ -237,7 +250,7 @@ func (p *Protocol) ProcessAttestationsRequest(epochIndex epoch.Index, src identi
 	// p.networkProtocol.SendAttestations(p.Engine().SybilProtection.Attestations(epochIndex), src)
 }
 
-func (p *Protocol) ProcessAttestations(attestations *notarization.Attestations, src identity.ID) {
+func (p *Protocol) ProcessAttestations(src identity.ID) {
 	// TODO: process attestations and evluate chain switch!
 }
 
@@ -259,6 +272,11 @@ func (p *Protocol) CandidateEngine() (instance *engine.Engine) {
 	return p.candidateEngine
 }
 
+// MainStorage returns the underlying storage of the main chain.
+func (p *Protocol) MainStorage() (mainStorage *storage.Storage) {
+	return p.storage
+}
+
 func (p *Protocol) CandidateStorage() (chainstorage *storage.Storage) {
 	p.activeEngineMutex.RLock()
 	defer p.activeEngineMutex.RUnlock()
@@ -266,21 +284,9 @@ func (p *Protocol) CandidateStorage() (chainstorage *storage.Storage) {
 	return p.candidateStorage
 }
 
-func (p *Protocol) importSnapshotFile(filePath string) {
-	if err := p.disk.WithFile(filePath, func(fileHandle *os.File) {
-		snapshot.ReadSnapshot(fileHandle, p.Engine())
-	}); err != nil {
-		if os.IsNotExist(err) {
-			return
-		}
-
-		panic(errors.Errorf("failed to read snapshot from file '%s': %w", filePath, err))
-	}
-}
-
-func (p *Protocol) activateEngine(engine *engine.Engine) {
-	p.TipManager.ActivateEngine(engine)
+func (p *Protocol) linkTo(engine *engine.Engine) {
 	p.Events.Engine.LinkTo(engine.Events)
+	p.TipManager.LinkTo(engine)
 	p.CongestionControl.LinkTo(engine)
 }
 
@@ -307,6 +313,18 @@ func WithPruningThreshold(pruningThreshold uint64) options.Option[Protocol] {
 func WithSnapshotPath(snapshot string) options.Option[Protocol] {
 	return func(n *Protocol) {
 		n.optsSnapshotPath = snapshot
+	}
+}
+
+func WithSybilProtectionProvider(sybilProtectionProvider engine.ModuleProvider[sybilprotection.SybilProtection]) options.Option[Protocol] {
+	return func(n *Protocol) {
+		n.optsSybilProtectionProvider = sybilProtectionProvider
+	}
+}
+
+func WithThroughputQuotaProvider(sybilProtectionProvider engine.ModuleProvider[throughputquota.ThroughputQuota]) options.Option[Protocol] {
+	return func(n *Protocol) {
+		n.optsThroughputQuotaProvider = sybilProtectionProvider
 	}
 }
 

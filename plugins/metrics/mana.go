@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"go.uber.org/atomic"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/manatracker/manamodels"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1/manamodels"
 )
 
 // PledgeLog is a log of base mana 1 and 2 pledges.
@@ -145,7 +145,7 @@ func AveragePledgeAccess() manamodels.IssuerMap {
 }
 
 func measureMana() {
-	tmpAccessMap := deps.Protocol.Engine().ManaTracker.ManaByIDs()
+	tmpAccessMap := deps.Protocol.Engine().ThroughputQuota.BalanceByIDs()
 	tmpConsensusMap := lo.PanicOnErr(deps.Protocol.Engine().SybilProtection.Weights().Map())
 
 	accessLock.Lock()
@@ -167,7 +167,7 @@ func measureMana() {
 	var accessAvg, consensusAvg float64
 
 	for _, neighbor := range neighbors {
-		neighborAMana, _ := deps.Protocol.Engine().ManaTracker.Mana(neighbor.ID())
+		neighborAMana, _ := deps.Protocol.Engine().ThroughputQuota.Balance(neighbor.ID())
 		if neighborAMana > 0 {
 			accessCount++
 			accessSum += neighborAMana

@@ -52,7 +52,7 @@ func (i *Slice[A, B]) Set(index int, entry B) (err error) {
 		return errors.Errorf("failed to serialize entry: %w", err)
 	}
 
-	if i.startOffset == int(SliceOffsetAuto) {
+	if i.startOffset == SliceOffsetAuto {
 		i.startOffset = index
 
 		if err = i.writeHeader(); err != nil {
@@ -111,7 +111,7 @@ func (i *Slice[A, B]) readHeader() (err error) {
 		return errors.Errorf("failed to decode start offset: %w", err)
 	}
 
-	if i.startOffset != 0 && i.startOffset != int(SliceOffsetAuto) {
+	if i.startOffset != 0 && i.startOffset != SliceOffsetAuto {
 		if int(startOffset) != i.startOffset {
 			return errors.Errorf("start offset %d does not match existing offset %d in file", i.startOffset, startOffset)
 		}

@@ -20,18 +20,16 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v2
-      with:
-        fetch-depth: 2
-
-    - run: git checkout HEAD^2
-      if: ${{ github.event_name == 'pull_request' }}
+      uses: actions/checkout@v3
 
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@v1
+      uses: github/codeql-action/init@v2
       with:
         languages: ${{ matrix.language }}
-        config-file: ./.github/codeql/codeql-config.yml
+        queries: security-and-quality
+
+    - name: Autobuild
+      uses: github/codeql-action/autobuild@v2
 
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v1
+      uses: github/codeql-action/analyze@v2

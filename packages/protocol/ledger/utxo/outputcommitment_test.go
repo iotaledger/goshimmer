@@ -36,7 +36,7 @@ type mockedOutput struct {
 }
 
 // NewMockedOutput creates a new MockedOutput based on the utxo.TransactionID and its index within the MockedTransaction.
-func NewMockedOutput() (new *MockedOutput) {
+func NewMockedOutput() *MockedOutput {
 	return model.NewStorable[OutputID, MockedOutput](&mockedOutput{
 		UniqueEssence: atomic.AddUint64(&_uniqueEssenceCounter, 1),
 	})

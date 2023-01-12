@@ -3,11 +3,11 @@ package retainer
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/node"
-	"github.com/labstack/echo"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/app/retainer"
 	"github.com/iotaledger/goshimmer/packages/core/database"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	protocolplugin "github.com/iotaledger/goshimmer/plugins/protocol"
 )
@@ -25,11 +25,11 @@ type dependencies struct {
 	dig.In
 
 	Protocol *protocol.Protocol
-	Server   *echo.Echo
+	Retainer *retainer.Retainer
 }
 
 func init() {
-	Plugin = node.NewPlugin(PluginName, deps, node.Enabled)
+	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure)
 
 	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
 		if err := event.Container.Provide(createRetainer); err != nil {
@@ -38,8 +38,13 @@ func init() {
 	}))
 }
 
-func createRetainer() *retainer.Retainer {
-	// TODO: retainer db needs to be be pruned (create configuration)
+func configure(*node.Plugin) {
+	deps.Protocol.Events.Engine.Consensus.EpochGadget.EpochConfirmed.AttachWithWorkerPool(event.NewClosure(func(epochIndex epoch.Index) {
+		deps.Retainer.PruneUntilEpoch(epochIndex - epoch.Index(Parameters.PruningThreshold))
+	}), deps.Retainer.WorkerPool())
+}
+
+func createRetainer(p *protocol.Protocol) *retainer.Retainer {
 	var dbProvider database.DBProvider
 	if protocolplugin.DatabaseParameters.InMemory {
 		dbProvider = database.NewMemDB
@@ -47,5 +52,5 @@ func createRetainer() *retainer.Retainer {
 		dbProvider = database.NewDB
 	}
 
-	return retainer.NewRetainer(deps.Protocol, database.NewManager(protocol.DatabaseVersion, database.WithDBProvider(dbProvider), database.WithBaseDir(Parameters.DBPath)))
+	return retainer.NewRetainer(p, database.NewManager(protocol.DatabaseVersion, database.WithGranularity(Parameters.DBGranularity), database.WithMaxOpenDBs(Parameters.MaxOpenDBs), database.WithDBProvider(dbProvider), database.WithBaseDir(Parameters.Directory)))
 }

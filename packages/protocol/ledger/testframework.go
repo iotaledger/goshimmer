@@ -22,21 +22,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
+	"github.com/iotaledger/goshimmer/packages/protocol/models/payloadtype"
 	"github.com/iotaledger/goshimmer/packages/storage"
 )
-
-func init() {
-	err := serix.DefaultAPI.RegisterTypeSettings(MockedTransaction{}, serix.TypeSettings{}.WithObjectType(uint32(new(MockedTransaction).Type())))
-	if err != nil {
-		panic(fmt.Errorf("error registering GenericDataPayload type settings: %w", err))
-	}
-
-	err = serix.DefaultAPI.RegisterInterfaceObjects((*payload.Payload)(nil), new(MockedTransaction))
-	if err != nil {
-		panic(fmt.Errorf("error registering GenericDataPayload as Payload interface: %w", err))
-	}
-}
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -69,26 +59,30 @@ type TestFramework struct {
 // NewTestFramework creates a new instance of the TestFramework with one default output "Genesis" which has to be
 // consumed by the first transaction.
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (newTestFramework *TestFramework) {
-	tmpDir := test.TempDir()
-	chainStorage := storage.New(tmpDir, 1)
-
 	return options.Apply(&TestFramework{
 		test:                test,
 		transactionsByAlias: make(map[string]*MockedTransaction),
 		outputIDsByAlias:    make(map[string]utxo.OutputID),
 	}, opts, func(t *TestFramework) {
 		if t.Ledger == nil {
+			chainStorage := storage.New(test.TempDir(), 1)
 			t.Ledger = New(chainStorage, t.optsLedger...)
+
+			test.Cleanup(func() {
+				t.WaitUntilAllTasksProcessed()
+				t.Ledger.Shutdown()
+				chainStorage.Shutdown()
+			})
 		}
 
 		genesisOutput := NewMockedOutput(utxo.EmptyTransactionID, 0)
-		cachedObject, stored := t.Ledger.Storage.outputStorage.StoreIfAbsent(genesisOutput)
+		cachedObject, stored := t.Ledger.Storage.OutputStorage.StoreIfAbsent(genesisOutput)
 		if stored {
 			cachedObject.Release()
 
 			genesisOutputMetadata := NewOutputMetadata(genesisOutput.ID())
 			genesisOutputMetadata.SetConfirmationState(confirmation.Confirmed)
-			t.Ledger.Storage.outputMetadataStorage.Store(genesisOutputMetadata).Release()
+			t.Ledger.Storage.OutputMetadataStorage.Store(genesisOutputMetadata).Release()
 
 			t.outputIDsByAlias["Genesis"] = genesisOutput.ID()
 			genesisOutput.ID().RegisterAlias("Genesis")
@@ -234,7 +228,7 @@ func (t *TestFramework) AssertConflictDAG(expectedParents map[string][]string) {
 
 // AssertConflicts asserts conflict membership from conflictID -> conflicts but also the reverse mapping conflict -> conflictIDs.
 // expectedConflictAliases should be specified as
-// "output.0": {"conflict1", "conflict2"}
+// "output.0": {"conflict1", "conflict2"}.
 func (t *TestFramework) AssertConflicts(expectedConflictsAliases map[string][]string) {
 	// Conflict -> conflictIDs.
 	ConflictResources := make(map[utxo.TransactionID]*set.AdvancedSet[utxo.OutputID])
@@ -358,7 +352,7 @@ type MockedInput struct {
 }
 
 // NewMockedInput creates a new MockedInput from an utxo.OutputID.
-func NewMockedInput(outputID utxo.OutputID) (new *MockedInput) {
+func NewMockedInput(outputID utxo.OutputID) *MockedInput {
 	return &MockedInput{OutputID: outputID}
 }
 
@@ -412,6 +406,9 @@ var _ utxo.Output = new(MockedOutput)
 
 // region MockedTransaction ////////////////////////////////////////////////////////////////////////////////////////////
 
+// MockedTransactionType represents the payload Type of mocked Transactions.
+var MockedTransactionType payload.Type
+
 // MockedTransaction is the type that is used to describe instructions how to modify the ledger state for MockedVM.
 type MockedTransaction struct {
 	model.Storable[utxo.TransactionID, MockedTransaction, *MockedTransaction, mockedTransaction] `serix:"0"`
@@ -449,12 +446,14 @@ func (m *MockedTransaction) Inputs() (inputs []utxo.Input) {
 
 // Type returns the type of the Transaction.
 func (m *MockedTransaction) Type() payload.Type {
-	return 44
+	return MockedTransactionType
 }
 
 // code contract (make sure the struct implements all required methods).
-var _ utxo.Transaction = new(MockedTransaction)
-var _ payload.Payload = new(MockedTransaction)
+var (
+	_ utxo.Transaction = new(MockedTransaction)
+	_ payload.Payload  = new(MockedTransaction)
+)
 
 // _uniqueEssenceCounter contains a counter that is used to generate unique TransactionIDs.
 var _uniqueEssenceCounter uint64
@@ -536,3 +535,23 @@ func WithLedger(ledger *Ledger) options.Option[TestFramework] {
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func init() {
+	MockedTransactionType = payload.NewType(payloadtype.MockedTransaction, "MockedTransactionType")
+
+	if err := serix.DefaultAPI.RegisterTypeSettings(MockedTransaction{}, serix.TypeSettings{}.WithObjectType(uint32(new(MockedTransaction).Type()))); err != nil {
+		panic(fmt.Errorf("error registering Transaction type settings: %w", err))
+	}
+
+	if err := serix.DefaultAPI.RegisterInterfaceObjects((*payload.Payload)(nil), new(MockedTransaction)); err != nil {
+		panic(fmt.Errorf("error registering Transaction as Payload interface: %w", err))
+	}
+
+	if err := serix.DefaultAPI.RegisterTypeSettings(MockedOutput{}, serix.TypeSettings{}.WithObjectType(uint8(devnetvm.ExtendedLockedOutputType+1))); err != nil {
+		panic(fmt.Errorf("error registering ExtendedLockedOutput type settings: %w", err))
+	}
+
+	if err := serix.DefaultAPI.RegisterInterfaceObjects((*utxo.Output)(nil), new(MockedOutput)); err != nil {
+		panic(fmt.Errorf("error registering utxo.Output interface implementations: %w", err))
+	}
+}

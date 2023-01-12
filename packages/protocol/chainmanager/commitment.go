@@ -29,8 +29,8 @@ type commitmentModel struct {
 	Roots      *commitment.Roots      `serix:"1,optional"`
 }
 
-// TODO: this is just a temporary fix
 // FromObjectStorage deserializes a model from the object storage.
+// TODO: this is just a temporary fix
 func (c *Commitment) FromObjectStorage(key, data []byte) (err error) {
 	if _, err = c.FromBytes(data); err != nil {
 		return errors.Errorf("failed to decode Model: %w", err)
@@ -40,8 +40,8 @@ func (c *Commitment) FromObjectStorage(key, data []byte) (err error) {
 	return nil
 }
 
-// TODO: this is just a temporary fix
 // ObjectStorageKey returns the bytes, that are used as a key to store the object in the k/v store.
+// TODO: this is just a temporary fix
 func (c *Commitment) ObjectStorageKey() (key []byte) {
 	return c.Commitment().Index().Bytes()
 }
