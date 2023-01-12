@@ -18,7 +18,6 @@ services:
       --node.peerDBDirectory=/app/peerdb
       --database.directory=/app/db
       --protocol.snapshot.path=./snapshot.bin
-      --blockIssuer.rateSetter.enable=false
       --metrics.global=true
       --metrics.local=true
       --prometheus.bindAddress=0.0.0.0:9311
@@ -54,7 +53,6 @@ services:
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
       --node.overwriteStoredSeed=true
       --protocol.snapshot.path=./snapshot.bin
-      --blockIssuer.rateSetter.mode=deficit
       --prometheus.bindAddress=0.0.0.0:9311
       --protocol.genesisTime=${GENESIS_TIME}
       --prometheus.processMetrics=true
@@ -81,7 +79,6 @@ services:
       --node.peerDBDirectory=/app/peerdb
       --database.directory=/app/db
       --protocol.snapshot.path=./snapshot.bin
-      --blockIssuer.rateSetter.enable=false
       --metrics.global=true
       --metrics.local=true
       --prometheus.bindAddress=0.0.0.0:9311
@@ -111,7 +108,6 @@ services:
       --database.directory=/app/db
       --config=/run/secrets/goshimmer.config.json
       --protocol.snapshot.path=./snapshot.bin
-      --blockIssuer.rateSetter.enable=false
       --metrics.global=true
       --metrics.local=true
       --prometheus.bindAddress=0.0.0.0:9311
@@ -147,7 +143,6 @@ services:
       --metrics.global=true
       --metrics.local=true
       --protocol.snapshot.path=./snapshot.bin
-      --blockIssuer.rateSetter.mode=disabled
       --prometheus.bindAddress=0.0.0.0:9311
       --prometheus.processMetrics=true
       --prometheus.goMetrics=true
