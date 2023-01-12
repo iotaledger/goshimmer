@@ -205,6 +205,10 @@ func (e *Engine) Initialize(snapshot string) (err error) {
 func (e *Engine) Shutdown() {
 	e.Ledger.Shutdown()
 
+	for _, pool := range e.workerPools {
+		pool.Shutdown()
+	}
+
 	e.TriggerStopped()
 }
 
