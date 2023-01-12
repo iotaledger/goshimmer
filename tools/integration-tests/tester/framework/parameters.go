@@ -87,6 +87,7 @@ func PeerConfig() config.GoShimmer {
 
 	c.BlockIssuer.Enabled = true
 	c.BlockIssuer.RateSetter.Mode = 'disabled'
+	
 	c.Faucet.Enabled = false
 	c.Faucet.Seed = base58.Encode(GenesisSeedBytes)
 	c.Faucet.PowDifficulty = 1
