@@ -28,9 +28,15 @@ func New(opts ...options.Option[CongestionControl]) (congestionControl *Congesti
 		workerPool: workerpool.NewUnboundedWorkerPool(1),
 	}, opts)
 
-	congestionControl.workerPool.Start()
-
 	return congestionControl
+}
+
+func (c *CongestionControl) Run() {
+	c.workerPool.Start()
+}
+
+func (c *CongestionControl) Shutdown() {
+	c.workerPool.Shutdown()
 }
 
 func (c *CongestionControl) LinkTo(engine *engine.Engine) {
