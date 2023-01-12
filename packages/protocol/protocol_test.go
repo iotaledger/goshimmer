@@ -92,14 +92,13 @@ func TestProtocol(t *testing.T) {
 	})
 
 	tf1 := NewEngineTestFramework(t, WithEngine(protocol1.Engine()))
-	_ = NewEngineTestFramework(t, WithEngine(protocol2.Engine()))
+	tf2 := NewEngineTestFramework(t, WithEngine(protocol2.Engine()))
 
 	tf1.Tangle.CreateBlock("A", models.WithStrongParents(tf1.Tangle.BlockIDs("Genesis")))
 	tf1.Tangle.IssueBlocks("A")
 
-	time.Sleep(4 * time.Second)
-
-	event.Loop.PendingTasksCounter.WaitIsZero()
+	tf1.WaitUntilAllTasksProcessed()
+	tf2.WaitUntilAllTasksProcessed()
 }
 
 func TestEngine_NonEmptyInitialValidators(t *testing.T) {
@@ -157,6 +156,8 @@ func TestEngine_NonEmptyInitialValidators(t *testing.T) {
 		"1.B": false,
 		"1.C": false,
 	})
+
+	tf.WaitUntilAllTasksProcessed()
 }
 
 func TestEngine_BlocksForwardAndRollback(t *testing.T) {
@@ -385,6 +386,8 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 			"11.B": false,
 			"11.C": false,
 		}))
+
+		tf2.WaitUntilAllTasksProcessed()
 	}
 
 	// Dump snapshot for epoch 2 and check equivalence.
@@ -423,6 +426,8 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 				return nil
 			}))
 		}
+
+		tf2.WaitUntilAllTasksProcessed()
 	}
 }
 
@@ -554,6 +559,8 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		require.True(t, tf2.Engine.LedgerState.UnspentOutputs.IDs.Has(tf.Tangle.OutputID("Tx1.1")))
 		require.False(t, tf2.Engine.LedgerState.UnspentOutputs.IDs.Has(tf.Tangle.OutputID("Tx5.0")))
 		require.False(t, tf2.Engine.LedgerState.UnspentOutputs.IDs.Has(tf.Tangle.OutputID("Tx5.1")))
+
+		tf2.WaitUntilAllTasksProcessed()
 	}
 
 	// ///////////////////////////////////////////////////////////
@@ -561,9 +568,11 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 	// ///////////////////////////////////////////////////////////
 
 	{
+		tf.WaitUntilAllTasksProcessed()
+
 		expectedBalanceByIDs := tf.Engine.ThroughputQuota.BalanceByIDs()
 		expectedTotalBalance := tf.Engine.ThroughputQuota.TotalBalance()
-
+		
 		tf.Engine.Shutdown()
 		storageInstance.Shutdown()
 
@@ -585,6 +594,8 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		// ThroughputQuota
 		assert.Equal(t, expectedBalanceByIDs, tf2.Engine.ThroughputQuota.BalanceByIDs())
 		assert.Equal(t, expectedTotalBalance, tf2.Engine.ThroughputQuota.TotalBalance())
+
+		tf2.WaitUntilAllTasksProcessed()
 	}
 }
 
