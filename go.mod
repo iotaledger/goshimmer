@@ -10,7 +10,6 @@ require (
 	github.com/cockroachdb/errors v1.9.0
 	github.com/felixge/fgprof v0.9.3
 	github.com/gin-gonic/gin v1.8.1
-	github.com/go-playground/assert/v2 v2.0.1
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/gorilla/websocket v1.5.0
 	github.com/iotaledger/hive.go/core v1.0.0-rc.2.0.20230110152711-02063266eb24

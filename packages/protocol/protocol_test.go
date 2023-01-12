@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-playground/assert/v2"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -233,10 +232,10 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 		"11.A": false,
 	}))
 
-	assert.Equal(t, epoch.IndexFromTime(tf.Tangle.Block("11.A").IssuingTime()), epoch.Index(11))
+	require.Equal(t, epoch.IndexFromTime(tf.Tangle.Block("11.A").IssuingTime()), epoch.Index(11))
 
 	// Time hasn't advanced past epoch 1
-	assert.Equal(t, tf.Engine.Storage.Settings.LatestCommitment().Index(), epoch.Index(0))
+	require.Equal(t, tf.Engine.Storage.Settings.LatestCommitment().Index(), epoch.Index(0))
 
 	tf.Tangle.CreateBlock("11.B", models.WithStrongParents(tf.Tangle.BlockIDs("11.A")), models.WithIssuer(identitiesMap["B"]))
 	tf.Tangle.CreateBlock("11.C", models.WithStrongParents(tf.Tangle.BlockIDs("11.B")), models.WithIssuer(identitiesMap["C"]))
@@ -253,7 +252,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 	}))
 
 	// Time has advanced to epoch 10 because of A.5, rendering 10 - MinimumCommittableAge(6) = 4 epoch committable
-	assert.Equal(t, tf.Engine.Storage.Settings.LatestCommitment().Index(), epoch.Index(4))
+	require.Equal(t, tf.Engine.Storage.Settings.LatestCommitment().Index(), epoch.Index(4))
 
 	// Dump snapshot for latest committable epoch 4 and check engine equivalence
 	{
@@ -265,10 +264,10 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 
 		// Settings
 		// The ChainID of the new engine corresponds to the target epoch of the imported snapshot.
-		assert.Equal(t, lo.PanicOnErr(tf.Engine.Storage.Commitments.Load(4)).ID(), tf2.Engine.Storage.Settings.ChainID())
-		assert.Equal(t, tf.Engine.Storage.Settings.LatestCommitment(), tf2.Engine.Storage.Settings.LatestCommitment())
-		assert.Equal(t, tf.Engine.Storage.Settings.LatestConfirmedEpoch(), tf2.Engine.Storage.Settings.LatestConfirmedEpoch())
-		assert.Equal(t, tf.Engine.Storage.Settings.LatestStateMutationEpoch(), tf2.Engine.Storage.Settings.LatestStateMutationEpoch())
+		require.Equal(t, lo.PanicOnErr(tf.Engine.Storage.Commitments.Load(4)).ID(), tf2.Engine.Storage.Settings.ChainID())
+		require.Equal(t, tf.Engine.Storage.Settings.LatestCommitment(), tf2.Engine.Storage.Settings.LatestCommitment())
+		require.Equal(t, tf.Engine.Storage.Settings.LatestConfirmedEpoch(), tf2.Engine.Storage.Settings.LatestConfirmedEpoch())
+		require.Equal(t, tf.Engine.Storage.Settings.LatestStateMutationEpoch(), tf2.Engine.Storage.Settings.LatestStateMutationEpoch())
 
 		tf2.AssertEpochState(4)
 
@@ -279,7 +278,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 			importedCommitment, err := tf2.Engine.Storage.Commitments.Load(epochIndex)
 			require.NoError(t, err)
 
-			assert.Equal(t, originalCommitment, importedCommitment)
+			require.Equal(t, originalCommitment, importedCommitment)
 
 			// Check that StateDiffs have been cleared after snapshot import.
 			require.NoError(t, tf2.Engine.LedgerState.StateDiffs.StreamCreatedOutputs(epochIndex, func(*ledger.OutputWithMetadata) error {
@@ -301,29 +300,29 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 		}
 
 		// LedgerState
-		assert.Equal(t, tf.Engine.LedgerState.UnspentOutputs.IDs.Size(), tf2.Engine.LedgerState.UnspentOutputs.IDs.Size())
-		assert.Equal(t, tf.Engine.LedgerState.UnspentOutputs.IDs.Root(), tf2.Engine.LedgerState.UnspentOutputs.IDs.Root())
+		require.Equal(t, tf.Engine.LedgerState.UnspentOutputs.IDs.Size(), tf2.Engine.LedgerState.UnspentOutputs.IDs.Size())
+		require.Equal(t, tf.Engine.LedgerState.UnspentOutputs.IDs.Root(), tf2.Engine.LedgerState.UnspentOutputs.IDs.Root())
 		require.NoError(t, tf.Engine.LedgerState.UnspentOutputs.IDs.Stream(func(outputID utxo.OutputID) bool {
 			require.True(t, tf2.Engine.LedgerState.UnspentOutputs.IDs.Has(outputID))
 			return true
 		}))
 
 		// SybilProtection
-		assert.Equal(t, lo.PanicOnErr(tf.Engine.SybilProtection.Weights().Map()), lo.PanicOnErr(tf2.Engine.SybilProtection.Weights().Map()))
-		assert.Equal(t, tf.Engine.SybilProtection.Weights().TotalWeight(), tf2.Engine.SybilProtection.Weights().TotalWeight())
-		assert.Equal(t, tf.Engine.SybilProtection.Weights().Root(), tf2.Engine.SybilProtection.Weights().Root())
+		require.Equal(t, lo.PanicOnErr(tf.Engine.SybilProtection.Weights().Map()), lo.PanicOnErr(tf2.Engine.SybilProtection.Weights().Map()))
+		require.Equal(t, tf.Engine.SybilProtection.Weights().TotalWeight(), tf2.Engine.SybilProtection.Weights().TotalWeight())
+		require.Equal(t, tf.Engine.SybilProtection.Weights().Root(), tf2.Engine.SybilProtection.Weights().Root())
 
 		// ThroughputQuota
-		assert.Equal(t, tf.Engine.ThroughputQuota.BalanceByIDs(), tf2.Engine.ThroughputQuota.BalanceByIDs())
-		assert.Equal(t, tf.Engine.ThroughputQuota.TotalBalance(), tf2.Engine.ThroughputQuota.TotalBalance())
+		require.Equal(t, tf.Engine.ThroughputQuota.BalanceByIDs(), tf2.Engine.ThroughputQuota.BalanceByIDs())
+		require.Equal(t, tf.Engine.ThroughputQuota.TotalBalance(), tf2.Engine.ThroughputQuota.TotalBalance())
 
 		// Attestations for the targetEpoch only
-		assert.Equal(t, lo.PanicOnErr(tf.Engine.NotarizationManager.Attestations.Get(4)).Root(), lo.PanicOnErr(tf2.Engine.NotarizationManager.Attestations.Get(4)).Root())
+		require.Equal(t, lo.PanicOnErr(tf.Engine.NotarizationManager.Attestations.Get(4)).Root(), lo.PanicOnErr(tf2.Engine.NotarizationManager.Attestations.Get(4)).Root())
 		require.NoError(t, lo.PanicOnErr(tf.Engine.NotarizationManager.Attestations.Get(4)).Stream(func(key identity.ID, engine1Attestation *notarization.Attestation) bool {
 			engine2Attestations := lo.PanicOnErr(tf2.Engine.NotarizationManager.Attestations.Get(4))
 			engine2Attestation, exists := engine2Attestations.Get(key)
 			require.True(t, exists)
-			assert.Equal(t, engine1Attestation, engine2Attestation)
+			require.Equal(t, engine1Attestation, engine2Attestation)
 
 			return true
 		}))
@@ -337,12 +336,12 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 
 		require.NoError(t, tf2.Engine.Initialize(tempDir.Path("snapshot_epoch1.bin")))
 
-		assert.Equal(t, epoch.Index(4), tf.Engine.Storage.Settings.LatestCommitment().Index())
+		require.Equal(t, epoch.Index(4), tf.Engine.Storage.Settings.LatestCommitment().Index())
 
 		tf2.AssertEpochState(1)
 
 		// Check that we only have attestations for epoch 1.
-		assert.Equal(t, lo.PanicOnErr(tf.Engine.NotarizationManager.Attestations.Get(1)).Root(), lo.PanicOnErr(tf2.Engine.NotarizationManager.Attestations.Get(1)).Root())
+		require.Equal(t, lo.PanicOnErr(tf.Engine.NotarizationManager.Attestations.Get(1)).Root(), lo.PanicOnErr(tf2.Engine.NotarizationManager.Attestations.Get(1)).Root())
 		require.Error(t, lo.Return2(tf2.Engine.NotarizationManager.Attestations.Get(2)))
 		require.Error(t, lo.Return2(tf2.Engine.NotarizationManager.Attestations.Get(3)))
 		require.Error(t, lo.Return2(tf2.Engine.NotarizationManager.Attestations.Get(4)))
@@ -350,7 +349,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 			engine2Attestations := lo.PanicOnErr(tf2.Engine.NotarizationManager.Attestations.Get(1))
 			engine2Attestation, exists := engine2Attestations.Get(key)
 			require.True(t, exists)
-			assert.Equal(t, engine1Attestation, engine2Attestation)
+			require.Equal(t, engine1Attestation, engine2Attestation)
 
 			return true
 		}))
@@ -381,7 +380,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 		tf2.Tangle.IssueBlocks("11.B", "11.C")
 		tf2.WaitUntilAllTasksProcessed()
 
-		assert.Equal(t, epoch.Index(4), tf2.Engine.Storage.Settings.LatestCommitment().Index())
+		require.Equal(t, epoch.Index(4), tf2.Engine.Storage.Settings.LatestCommitment().Index())
 
 		// Some blocks got evicted, and we have to restart evaluating with a new map
 		acceptedBlocks = make(map[string]bool)
@@ -403,7 +402,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 
 		require.NoError(t, tf2.Engine.Initialize(tempDir.Path("snapshot_epoch2.bin")))
 
-		assert.Equal(t, epoch.Index(2), tf2.Engine.Storage.Settings.LatestCommitment().Index())
+		require.Equal(t, epoch.Index(2), tf2.Engine.Storage.Settings.LatestCommitment().Index())
 
 		tf2.AssertEpochState(2)
 
@@ -416,7 +415,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 			engine2Attestations := lo.PanicOnErr(tf2.Engine.NotarizationManager.Attestations.Get(2))
 			engine2Attestation, exists := engine2Attestations.Get(key)
 			require.True(t, exists)
-			assert.Equal(t, engine1Attestation, engine2Attestation)
+			require.Equal(t, engine1Attestation, engine2Attestation)
 
 			return true
 		}))
@@ -478,7 +477,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 
 	require.NoError(t, tf.Engine.Initialize(tempDir.Path("genesis_snapshot.bin")))
 
-	assert.Equal(t, int64(100), tf.Engine.SybilProtection.Validators().TotalWeight())
+	require.Equal(t, int64(100), tf.Engine.SybilProtection.Validators().TotalWeight())
 
 	acceptedBlocks := make(map[string]bool)
 	epoch1IssuingTime := time.Unix(epoch.GenesisTime, 0)
@@ -521,7 +520,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		tf.Tangle.IssueBlocks("11.A", "11.B", "11.C")
 		tf.WaitUntilAllTasksProcessed()
 
-		assert.Equal(t, epoch.Index(4), tf.Engine.Storage.Settings.LatestCommitment().Index())
+		require.Equal(t, epoch.Index(4), tf.Engine.Storage.Settings.LatestCommitment().Index())
 	}
 
 	// ///////////////////////////////////////////////////////////
@@ -545,7 +544,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		tf.Tangle.IssueBlocks("5.Z", "12.A.2", "12.B.2", "12.C.2")
 		tf.WaitUntilAllTasksProcessed()
 
-		assert.Equal(t, epoch.Index(5), tf.Engine.Storage.Settings.LatestCommitment().Index())
+		require.Equal(t, epoch.Index(5), tf.Engine.Storage.Settings.LatestCommitment().Index())
 	}
 
 	// ///////////////////////////////////////////////////////////
@@ -558,7 +557,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		tf2 := NewEngineTestFramework(t)
 		require.NoError(t, tf2.Engine.Initialize(tempDir.Path("snapshot_epoch1.bin")))
 
-		assert.Equal(t, epoch.Index(1), tf2.Engine.Storage.Settings.LatestCommitment().Index())
+		require.Equal(t, epoch.Index(1), tf2.Engine.Storage.Settings.LatestCommitment().Index())
 
 		require.True(t, tf2.Engine.LedgerState.UnspentOutputs.IDs.Has(tf.Tangle.OutputID("Tx1.0")))
 		require.True(t, tf2.Engine.LedgerState.UnspentOutputs.IDs.Has(tf.Tangle.OutputID("Tx1.1")))
@@ -577,7 +576,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 
 		expectedBalanceByIDs := tf.Engine.ThroughputQuota.BalanceByIDs()
 		expectedTotalBalance := tf.Engine.ThroughputQuota.TotalBalance()
-		
+
 		tf.Engine.Shutdown()
 		storageInstance.Shutdown()
 
@@ -597,8 +596,8 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		require.True(t, tf2.Engine.LedgerState.UnspentOutputs.IDs.Has(tf.Tangle.OutputID("Tx5.1")))
 
 		// ThroughputQuota
-		assert.Equal(t, expectedBalanceByIDs, tf2.Engine.ThroughputQuota.BalanceByIDs())
-		assert.Equal(t, expectedTotalBalance, tf2.Engine.ThroughputQuota.TotalBalance())
+		require.Equal(t, expectedBalanceByIDs, tf2.Engine.ThroughputQuota.BalanceByIDs())
+		require.Equal(t, expectedTotalBalance, tf2.Engine.ThroughputQuota.TotalBalance())
 
 		tf2.WaitUntilAllTasksProcessed()
 	}
@@ -646,7 +645,7 @@ func TestEngine_ShutdownResume(t *testing.T) {
 
 	require.NoError(t, tf.Engine.Initialize(tempDir.Path("genesis_snapshot.bin")))
 
-	assert.Equal(t, int64(100), tf.Engine.SybilProtection.Validators().TotalWeight())
+	require.Equal(t, int64(100), tf.Engine.SybilProtection.Validators().TotalWeight())
 
 	tf.Engine.Shutdown()
 	storageInstance.Shutdown()
