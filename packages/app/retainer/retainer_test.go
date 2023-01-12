@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/core/serix"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
@@ -25,12 +24,12 @@ func TestRetainer_BlockMetadata_Serialization(t *testing.T) {
 	meta := createBlockMetadata()
 
 	serializedBytes, err := meta.Bytes()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	metaDeserialized := newBlockMetadata(nil)
 	decodedBytes, err := metaDeserialized.FromBytes(serializedBytes)
-	assert.NoError(t, err)
-	assert.Equal(t, len(serializedBytes), decodedBytes)
+	require.NoError(t, err)
+	require.Equal(t, len(serializedBytes), decodedBytes)
 
 	validateDeserialized(t, meta, metaDeserialized)
 }
@@ -43,7 +42,7 @@ func TestRetainer_BlockMetadata_JSON(t *testing.T) {
 
 	metaDeserialized := newBlockMetadata(nil)
 	err = serix.DefaultAPI.JSONDecode(context.Background(), out, &metaDeserialized.M)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	validateDeserialized(t, meta, metaDeserialized)
 }
 
@@ -56,7 +55,7 @@ func TestRetainer_BlockMetadata_JSON_optional(t *testing.T) {
 
 	metaDeserialized := newBlockMetadata(nil)
 	err = serix.DefaultAPI.JSONDecode(context.Background(), out, &metaDeserialized.M)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	validateDeserialized(t, meta, metaDeserialized)
 }
 
@@ -69,7 +68,7 @@ func TestRetainer_BlockMetadata_NonEvicted(t *testing.T) {
 	b := tangleTF.CreateBlock("A")
 	tangleTF.IssueBlocks("A").WaitUntilAllTasksProcessed()
 	block, exists := protocolTF.Protocol.CongestionControl.Block(b.ID())
-	assert.True(t, exists)
+	require.True(t, exists)
 	var meta *BlockMetadata
 	require.Eventuallyf(t, func() (exists bool) {
 		meta, exists = retainer.BlockMetadata(block.ID())
@@ -77,33 +76,33 @@ func TestRetainer_BlockMetadata_NonEvicted(t *testing.T) {
 		return exists && meta.M.Scheduled
 	}, 5*time.Second, 10*time.Millisecond, "block metadata should be available")
 
-	assert.Equal(t, meta.M.Missing, block.IsMissing())
-	assert.Equal(t, meta.M.Solid, block.IsSolid())
-	assert.Equal(t, meta.M.Invalid, block.IsInvalid())
-	assert.Equal(t, meta.M.Orphaned, block.IsOrphaned())
-	assert.Equal(t, meta.M.StrongChildren, blocksToBlockIDs(block.StrongChildren()))
-	assert.Equal(t, meta.M.WeakChildren, blocksToBlockIDs(block.WeakChildren()))
-	assert.Equal(t, meta.M.LikedInsteadChildren, blocksToBlockIDs(block.LikedInsteadChildren()))
-	assert.Equal(t, meta.M.Booked, block.IsBooked())
-	assert.EqualValues(t, meta.M.StructureDetails.IsPastMarker, block.StructureDetails().IsPastMarker())
-	assert.EqualValues(t, meta.M.StructureDetails.Rank, block.StructureDetails().Rank())
-	assert.EqualValues(t, meta.M.StructureDetails.PastMarkerGap, block.StructureDetails().PastMarkerGap())
+	require.Equal(t, meta.M.Missing, block.IsMissing())
+	require.Equal(t, meta.M.Solid, block.IsSolid())
+	require.Equal(t, meta.M.Invalid, block.IsInvalid())
+	require.Equal(t, meta.M.Orphaned, block.IsOrphaned())
+	require.Equal(t, meta.M.StrongChildren, blocksToBlockIDs(block.StrongChildren()))
+	require.Equal(t, meta.M.WeakChildren, blocksToBlockIDs(block.WeakChildren()))
+	require.Equal(t, meta.M.LikedInsteadChildren, blocksToBlockIDs(block.LikedInsteadChildren()))
+	require.Equal(t, meta.M.Booked, block.IsBooked())
+	require.EqualValues(t, meta.M.StructureDetails.IsPastMarker, block.StructureDetails().IsPastMarker())
+	require.EqualValues(t, meta.M.StructureDetails.Rank, block.StructureDetails().Rank())
+	require.EqualValues(t, meta.M.StructureDetails.PastMarkerGap, block.StructureDetails().PastMarkerGap())
 
 	pastMarkers := markers.NewMarkers()
 	for sequenceID, index := range meta.M.StructureDetails.PastMarkers {
 		pastMarkers.Set(sequenceID, index)
 	}
-	assert.EqualValues(t, pastMarkers, block.StructureDetails().PastMarkers())
-	assert.Equal(t, meta.M.AddedConflictIDs, block.AddedConflictIDs())
-	assert.Equal(t, meta.M.SubtractedConflictIDs, block.SubtractedConflictIDs())
-	assert.Equal(t, meta.M.ConflictIDs, protocolTF.Protocol.Engine().Tangle.BlockConflicts(block.Block.Block))
+	require.EqualValues(t, pastMarkers, block.StructureDetails().PastMarkers())
+	require.Equal(t, meta.M.AddedConflictIDs, block.AddedConflictIDs())
+	require.Equal(t, meta.M.SubtractedConflictIDs, block.SubtractedConflictIDs())
+	require.Equal(t, meta.M.ConflictIDs, protocolTF.Protocol.Engine().Tangle.BlockConflicts(block.Block.Block))
 
-	assert.Equal(t, meta.M.Tracked, true)
-	assert.Equal(t, meta.M.SubjectivelyInvalid, block.IsSubjectivelyInvalid())
-	assert.Equal(t, meta.M.Scheduled, block.IsScheduled())
-	assert.Equal(t, meta.M.Skipped, block.IsSkipped())
-	assert.Equal(t, meta.M.Dropped, block.IsDropped())
-	assert.Equal(t, meta.M.Accepted, false)
+	require.Equal(t, meta.M.Tracked, true)
+	require.Equal(t, meta.M.SubjectivelyInvalid, block.IsSubjectivelyInvalid())
+	require.Equal(t, meta.M.Scheduled, block.IsScheduled())
+	require.Equal(t, meta.M.Skipped, block.IsSkipped())
+	require.Equal(t, meta.M.Dropped, block.IsDropped())
+	require.Equal(t, meta.M.Accepted, false)
 }
 
 func TestRetainer_BlockMetadata_Evicted(t *testing.T) {
@@ -116,69 +115,69 @@ func TestRetainer_BlockMetadata_Evicted(t *testing.T) {
 	b := tangleTF.CreateBlock("A", models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0).Add(70*time.Second)))
 	tangleTF.IssueBlocks("A").WaitUntilAllTasksProcessed()
 	block, exists := protocolTF.Protocol.CongestionControl.Block(b.ID())
-	assert.True(t, exists)
+	require.True(t, exists)
 	protocolTF.Protocol.Engine().EvictionState.EvictUntil(b.ID().EpochIndex + 1)
 	tangleTF.BlockDAGTestFramework.WaitUntilAllTasksProcessed()
 
 	meta, exists := retainer.BlockMetadata(block.ID())
-	assert.True(t, exists)
+	require.True(t, exists)
 
-	assert.Equal(t, meta.M.Missing, block.IsMissing())
-	assert.Equal(t, meta.M.Solid, block.IsSolid())
-	assert.Equal(t, meta.M.Invalid, block.IsInvalid())
-	assert.Equal(t, meta.M.Orphaned, block.IsOrphaned())
-	assert.Equal(t, meta.M.StrongChildren, blocksToBlockIDs(block.StrongChildren()))
-	assert.Equal(t, meta.M.WeakChildren, blocksToBlockIDs(block.WeakChildren()))
-	assert.Equal(t, meta.M.LikedInsteadChildren, blocksToBlockIDs(block.LikedInsteadChildren()))
-	assert.Equal(t, meta.M.Booked, block.IsBooked())
+	require.Equal(t, meta.M.Missing, block.IsMissing())
+	require.Equal(t, meta.M.Solid, block.IsSolid())
+	require.Equal(t, meta.M.Invalid, block.IsInvalid())
+	require.Equal(t, meta.M.Orphaned, block.IsOrphaned())
+	require.Equal(t, meta.M.StrongChildren, blocksToBlockIDs(block.StrongChildren()))
+	require.Equal(t, meta.M.WeakChildren, blocksToBlockIDs(block.WeakChildren()))
+	require.Equal(t, meta.M.LikedInsteadChildren, blocksToBlockIDs(block.LikedInsteadChildren()))
+	require.Equal(t, meta.M.Booked, block.IsBooked())
 	if meta.M.StructureDetails != nil {
-		assert.EqualValues(t, meta.M.StructureDetails.IsPastMarker, block.StructureDetails().IsPastMarker())
-		assert.EqualValues(t, meta.M.StructureDetails.Rank, block.StructureDetails().Rank())
-		assert.EqualValues(t, meta.M.StructureDetails.PastMarkerGap, block.StructureDetails().PastMarkerGap())
+		require.EqualValues(t, meta.M.StructureDetails.IsPastMarker, block.StructureDetails().IsPastMarker())
+		require.EqualValues(t, meta.M.StructureDetails.Rank, block.StructureDetails().Rank())
+		require.EqualValues(t, meta.M.StructureDetails.PastMarkerGap, block.StructureDetails().PastMarkerGap())
 	}
 
 	pastMarkers := markers.NewMarkers()
 	for sequenceID, index := range meta.M.StructureDetails.PastMarkers {
 		pastMarkers.Set(sequenceID, index)
 	}
-	assert.EqualValues(t, pastMarkers, block.StructureDetails().PastMarkers())
-	assert.Equal(t, meta.M.AddedConflictIDs, block.AddedConflictIDs())
-	assert.Equal(t, meta.M.SubtractedConflictIDs, block.SubtractedConflictIDs())
-	assert.Equal(t, meta.M.ConflictIDs, protocolTF.Protocol.Engine().Tangle.BlockConflicts(block.Block.Block))
-	assert.Equal(t, meta.M.Tracked, true)
-	assert.Equal(t, meta.M.SubjectivelyInvalid, block.IsSubjectivelyInvalid())
+	require.EqualValues(t, pastMarkers, block.StructureDetails().PastMarkers())
+	require.Equal(t, meta.M.AddedConflictIDs, block.AddedConflictIDs())
+	require.Equal(t, meta.M.SubtractedConflictIDs, block.SubtractedConflictIDs())
+	require.Equal(t, meta.M.ConflictIDs, protocolTF.Protocol.Engine().Tangle.BlockConflicts(block.Block.Block))
+	require.Equal(t, meta.M.Tracked, true)
+	require.Equal(t, meta.M.SubjectivelyInvalid, block.IsSubjectivelyInvalid())
 	// You cannot really test this as the scheduler might have scheduled the block after its metadata was retained.
-	// assert.Equal(t, meta.M.Scheduled, block.IsScheduled())
-	assert.Equal(t, meta.M.Skipped, block.IsSkipped())
-	assert.Equal(t, meta.M.Dropped, block.IsDropped())
-	assert.Equal(t, meta.M.Accepted, false)
+	// require.Equal(t, meta.M.Scheduled, block.IsScheduled())
+	require.Equal(t, meta.M.Skipped, block.IsSkipped())
+	require.Equal(t, meta.M.Dropped, block.IsDropped())
+	require.Equal(t, meta.M.Accepted, false)
 }
 
 func validateDeserialized(t *testing.T, meta *BlockMetadata, metaDeserialized *BlockMetadata) {
-	assert.Equal(t, meta.M.Missing, metaDeserialized.M.Missing)
-	assert.Equal(t, meta.M.Solid, metaDeserialized.M.Solid)
-	assert.Equal(t, meta.M.Invalid, metaDeserialized.M.Invalid)
-	assert.Equal(t, meta.M.Orphaned, metaDeserialized.M.Orphaned)
-	assert.Equal(t, meta.M.StrongChildren, metaDeserialized.M.StrongChildren)
-	assert.Equal(t, meta.M.WeakChildren, metaDeserialized.M.WeakChildren)
-	assert.Equal(t, meta.M.LikedInsteadChildren, metaDeserialized.M.LikedInsteadChildren)
-	assert.Equal(t, meta.M.SolidTime.Unix(), metaDeserialized.M.SolidTime.Unix())
-	assert.Equal(t, meta.M.Booked, metaDeserialized.M.Booked)
-	assert.EqualValues(t, meta.M.StructureDetails, metaDeserialized.M.StructureDetails)
+	require.Equal(t, meta.M.Missing, metaDeserialized.M.Missing)
+	require.Equal(t, meta.M.Solid, metaDeserialized.M.Solid)
+	require.Equal(t, meta.M.Invalid, metaDeserialized.M.Invalid)
+	require.Equal(t, meta.M.Orphaned, metaDeserialized.M.Orphaned)
+	require.Equal(t, meta.M.StrongChildren, metaDeserialized.M.StrongChildren)
+	require.Equal(t, meta.M.WeakChildren, metaDeserialized.M.WeakChildren)
+	require.Equal(t, meta.M.LikedInsteadChildren, metaDeserialized.M.LikedInsteadChildren)
+	require.Equal(t, meta.M.SolidTime.Unix(), metaDeserialized.M.SolidTime.Unix())
+	require.Equal(t, meta.M.Booked, metaDeserialized.M.Booked)
+	require.EqualValues(t, meta.M.StructureDetails, metaDeserialized.M.StructureDetails)
 	// TODO: implement JSON serialization for AdvancedSet or OrderedMap
-	// assert.Equal(t, meta.M.AddedConflictIDs, metaDeserialized.M.AddedConflictIDs)
-	// assert.Equal(t, meta.M.SubtractedConflictIDs, metaDeserialized.M.SubtractedConflictIDs)
-	// assert.Equal(t, meta.M.ConflictIDs, metaDeserialized.M.ConflictIDs)
-	assert.Equal(t, meta.M.BookedTime.Unix(), metaDeserialized.M.BookedTime.Unix())
-	assert.Equal(t, meta.M.Tracked, metaDeserialized.M.Tracked)
-	assert.Equal(t, meta.M.SubjectivelyInvalid, metaDeserialized.M.SubjectivelyInvalid)
-	assert.Equal(t, meta.M.TrackedTime.Unix(), metaDeserialized.M.TrackedTime.Unix())
-	assert.Equal(t, meta.M.Scheduled, metaDeserialized.M.Scheduled)
-	assert.Equal(t, meta.M.Skipped, metaDeserialized.M.Skipped)
-	assert.Equal(t, meta.M.Dropped, metaDeserialized.M.Dropped)
-	assert.Equal(t, meta.M.SchedulerTime.Unix(), metaDeserialized.M.SchedulerTime.Unix())
-	assert.Equal(t, meta.M.Accepted, metaDeserialized.M.Accepted)
-	assert.Equal(t, meta.M.AcceptedTime.Unix(), metaDeserialized.M.AcceptedTime.Unix())
+	// require.Equal(t, meta.M.AddedConflictIDs, metaDeserialized.M.AddedConflictIDs)
+	// require.Equal(t, meta.M.SubtractedConflictIDs, metaDeserialized.M.SubtractedConflictIDs)
+	// require.Equal(t, meta.M.ConflictIDs, metaDeserialized.M.ConflictIDs)
+	require.Equal(t, meta.M.BookedTime.Unix(), metaDeserialized.M.BookedTime.Unix())
+	require.Equal(t, meta.M.Tracked, metaDeserialized.M.Tracked)
+	require.Equal(t, meta.M.SubjectivelyInvalid, metaDeserialized.M.SubjectivelyInvalid)
+	require.Equal(t, meta.M.TrackedTime.Unix(), metaDeserialized.M.TrackedTime.Unix())
+	require.Equal(t, meta.M.Scheduled, metaDeserialized.M.Scheduled)
+	require.Equal(t, meta.M.Skipped, metaDeserialized.M.Skipped)
+	require.Equal(t, meta.M.Dropped, metaDeserialized.M.Dropped)
+	require.Equal(t, meta.M.SchedulerTime.Unix(), metaDeserialized.M.SchedulerTime.Unix())
+	require.Equal(t, meta.M.Accepted, metaDeserialized.M.Accepted)
+	require.Equal(t, meta.M.AcceptedTime.Unix(), metaDeserialized.M.AcceptedTime.Unix())
 }
 
 func createBlockMetadata() *BlockMetadata {

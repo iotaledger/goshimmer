@@ -5,10 +5,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/hive.go/core/generics/event"
+	
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 )
@@ -62,7 +63,7 @@ func (e *EventMock) AssertExpectations(t mock.TestingT) bool {
 	var calledEvents, expectedEvents uint64
 	event.Loop.PendingTasksCounter.WaitIsZero()
 
-	assert.Eventuallyf(t, func() bool {
+	require.Eventuallyf(t, func() bool {
 		calledEvents = atomic.LoadUint64(&e.calledEvents)
 		expectedEvents = atomic.LoadUint64(&e.expectedEvents)
 		return calledEvents == expectedEvents

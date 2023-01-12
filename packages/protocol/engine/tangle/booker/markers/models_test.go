@@ -3,7 +3,7 @@ package markers
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestReferencedMarkers(t *testing.T) {
@@ -26,25 +26,25 @@ func TestReferencedMarkers(t *testing.T) {
 		NewMarker(2, 10),
 	))
 
-	assert.Equal(t, NewMarkers(
+	require.Equal(t, NewMarkers(
 		NewMarker(1, 3),
 		NewMarker(2, 7),
 		NewMarker(4, 9),
 	), referencedMarkers.Get(8))
 
-	assert.Equal(t, NewMarkers(
+	require.Equal(t, NewMarkers(
 		NewMarker(1, 5),
 		NewMarker(2, 8),
 		NewMarker(4, 9),
 	), referencedMarkers.Get(10))
 
-	assert.Equal(t, NewMarkers(
+	require.Equal(t, NewMarkers(
 		NewMarker(1, 5),
 		NewMarker(2, 8),
 		NewMarker(4, 9),
 	), referencedMarkers.Get(11))
 
-	assert.Equal(t, NewMarkers(
+	require.Equal(t, NewMarkers(
 		NewMarker(1, 7),
 		NewMarker(2, 10),
 		NewMarker(4, 9),
@@ -60,7 +60,7 @@ func TestReferencedMarkersPanic(t *testing.T) {
 		NewMarker(4, 9),
 	))
 
-	assert.Equal(t, NewMarkers(
+	require.Equal(t, NewMarkers(
 		NewMarker(1, 3),
 	), referencedMarkers.Get(4))
 }
@@ -72,30 +72,30 @@ func TestReferencingMarkers(t *testing.T) {
 	referencingMarkers.Add(12, NewMarker(1, 7))
 	referencingMarkers.Add(12, NewMarker(2, 10))
 
-	assert.Equal(t, NewMarkers(
+	require.Equal(t, NewMarkers(
 		NewMarker(1, 5),
 		NewMarker(2, 10),
 		NewMarker(3, 4),
 	), referencingMarkers.Get(8))
 
-	assert.Equal(t, NewMarkers(
+	require.Equal(t, NewMarkers(
 		NewMarker(1, 5),
 		NewMarker(2, 10),
 		NewMarker(3, 4),
 	), referencingMarkers.Get(9))
 
-	assert.Equal(t, NewMarkers(
+	require.Equal(t, NewMarkers(
 		NewMarker(1, 7),
 		NewMarker(2, 10),
 		NewMarker(3, 4),
 	), referencingMarkers.Get(10))
 
-	assert.Equal(t, NewMarkers(
+	require.Equal(t, NewMarkers(
 		NewMarker(1, 7),
 		NewMarker(2, 10),
 	), referencingMarkers.Get(12))
 
-	assert.Equal(t, NewMarkers(), referencingMarkers.Get(13))
+	require.Equal(t, NewMarkers(), referencingMarkers.Get(13))
 }
 
 func TestSequence(t *testing.T) {
@@ -104,6 +104,6 @@ func TestSequence(t *testing.T) {
 		NewMarker(2, 6),
 	))
 
-	assert.Equal(t, SequenceID(1337), sequence.ID())
-	assert.Equal(t, Index(7), sequence.HighestIndex())
+	require.Equal(t, SequenceID(1337), sequence.ID())
+	require.Equal(t, Index(7), sequence.HighestIndex())
 }

@@ -3,8 +3,9 @@ package devnetvm
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestUnlockBlockFromBytes(t *testing.T) {
@@ -19,9 +20,9 @@ func TestUnlockBlockFromBytes(t *testing.T) {
 		marshaledUnlockBlocks := unlockBlocks.Bytes()
 		parsedUnlockBlocks, consumedBytes, err := UnlockBlocksFromBytes(marshaledUnlockBlocks)
 
-		assert.NoError(t, err)
-		assert.Equal(t, len(marshaledUnlockBlocks), consumedBytes)
-		assert.Equal(t, unlockBlocks, parsedUnlockBlocks)
+		require.NoError(t, err)
+		require.Equal(t, len(marshaledUnlockBlocks), consumedBytes)
+		require.Equal(t, unlockBlocks, parsedUnlockBlocks)
 	}
 
 	// test an invalid set of UnlockBlocks
@@ -32,6 +33,6 @@ func TestUnlockBlockFromBytes(t *testing.T) {
 	// 		NewSignatureUnlockBlock(NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign([]byte("testdata")))),
 	// 	}
 	// 	_, _, err := UnlockBlocksFromBytes(unlockBlocks.Bytes())
-	// 	assert.Error(t, err)
+	// 	require.Error(t, err)
 	// }
 }

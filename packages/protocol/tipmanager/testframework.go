@@ -7,12 +7,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
-	"github.com/stretchr/testify/assert"
-
+	
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
@@ -172,27 +173,27 @@ func (t *TestFramework) AssertIsPastConeTimestampCorrect(blockAlias string, expe
 		panic(fmt.Sprintf("block with %s not found", blockAlias))
 	}
 	actual := t.TipManager.isPastConeTimestampCorrect(block.Block.Block)
-	assert.Equal(t.test, expected, actual, "isPastConeTimestampCorrect: %s should be %t but is %t", blockAlias, expected, actual)
+	require.Equal(t.test, expected, actual, "isPastConeTimestampCorrect: %s should be %t but is %t", blockAlias, expected, actual)
 }
 
 func (t *TestFramework) AssertTipsAdded(count uint32) {
-	assert.Equal(t.test, count, atomic.LoadUint32(&t.tipAdded), "expected %d tips to be added but got %d", count, atomic.LoadUint32(&t.tipAdded))
+	require.Equal(t.test, count, atomic.LoadUint32(&t.tipAdded), "expected %d tips to be added but got %d", count, atomic.LoadUint32(&t.tipAdded))
 }
 
 func (t *TestFramework) AssertTipsRemoved(count uint32) {
-	assert.Equal(t.test, count, atomic.LoadUint32(&t.tipRemoved), "expected %d tips to be removed but got %d", count, atomic.LoadUint32(&t.tipRemoved))
+	require.Equal(t.test, count, atomic.LoadUint32(&t.tipRemoved), "expected %d tips to be removed but got %d", count, atomic.LoadUint32(&t.tipRemoved))
 }
 
 func (t *TestFramework) AssertTips(actualTips, expectedTips models.BlockIDs) {
-	assert.Equal(t.test, len(expectedTips), len(actualTips), "expected %d tips but got %d", len(actualTips), len(actualTips))
+	require.Equal(t.test, len(expectedTips), len(actualTips), "expected %d tips but got %d", len(actualTips), len(actualTips))
 	for expectedBlockID := range expectedTips {
 		_, exists := actualTips[expectedBlockID]
-		assert.True(t.test, exists, "expected tip %s", expectedBlockID)
+		require.True(t.test, exists, "expected tip %s", expectedBlockID)
 	}
 }
 
 func (t *TestFramework) AssertTipCount(expectedTipCount int) {
-	assert.Equal(t.test, expectedTipCount, t.TipManager.TipCount(), "expected %d tip count but got %d", t.TipManager.TipCount(), expectedTipCount)
+	require.Equal(t.test, expectedTipCount, t.TipManager.TipCount(), "expected %d tip count but got %d", t.TipManager.TipCount(), expectedTipCount)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

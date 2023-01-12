@@ -5,11 +5,12 @@ import (
 	"testing"
 
 	"github.com/cockroachdb/errors"
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
@@ -188,45 +189,45 @@ func (t *TestFramework) ManaMap() map[identity.ID]int64 {
 }
 
 func (t *TestFramework) AssertBlocksScheduled(blocksScheduled uint32) {
-	assert.Equal(t.test, blocksScheduled, atomic.LoadUint32(&t.scheduledBlocksCount), "expected %d blocks to be scheduled but got %d", blocksScheduled, atomic.LoadUint32(&t.scheduledBlocksCount))
+	require.Equal(t.test, blocksScheduled, atomic.LoadUint32(&t.scheduledBlocksCount), "expected %d blocks to be scheduled but got %d", blocksScheduled, atomic.LoadUint32(&t.scheduledBlocksCount))
 }
 
 func (t *TestFramework) AssertBlocksSkipped(blocksSkipped uint32) {
-	assert.Equal(t.test, blocksSkipped, atomic.LoadUint32(&t.skippedBlocksCount), "expected %d blocks to be skipped but got %d", blocksSkipped, atomic.LoadUint32(&t.skippedBlocksCount))
+	require.Equal(t.test, blocksSkipped, atomic.LoadUint32(&t.skippedBlocksCount), "expected %d blocks to be skipped but got %d", blocksSkipped, atomic.LoadUint32(&t.skippedBlocksCount))
 }
 
 func (t *TestFramework) AssertBlocksDropped(blocksDropped uint32) {
-	assert.Equal(t.test, blocksDropped, atomic.LoadUint32(&t.droppedBlocksCount), "expected %d blocks to be dropped but got %d", blocksDropped, atomic.LoadUint32(&t.droppedBlocksCount))
+	require.Equal(t.test, blocksDropped, atomic.LoadUint32(&t.droppedBlocksCount), "expected %d blocks to be dropped but got %d", blocksDropped, atomic.LoadUint32(&t.droppedBlocksCount))
 }
 
 func (t *TestFramework) ValidateScheduledBlocks(expectedState map[string]bool) {
 	for blockID, expected := range expectedState {
 		block, exists := t.Scheduler.Block(t.Block(blockID).ID())
-		assert.Truef(t.test, exists, "block %s not registered", blockID)
+		require.Truef(t.test, exists, "block %s not registered", blockID)
 
 		actual := block.IsScheduled()
-		assert.Equal(t.test, expected, actual, "Block %s should be scheduled=%t but is %t", blockID, expected, actual)
+		require.Equal(t.test, expected, actual, "Block %s should be scheduled=%t but is %t", blockID, expected, actual)
 	}
 }
 
 func (t *TestFramework) ValidateSkippedBlocks(expectedState map[string]bool) {
 	for blockID, expected := range expectedState {
 		block, exists := t.Scheduler.Block(t.Block(blockID).ID())
-		assert.Truef(t.test, exists, "block %s not registered", blockID)
+		require.Truef(t.test, exists, "block %s not registered", blockID)
 
 		actual := block.IsSkipped()
 
-		assert.Equal(t.test, expected, actual, "Block %s should be skipped=%t but is %t", blockID, expected, actual)
+		require.Equal(t.test, expected, actual, "Block %s should be skipped=%t but is %t", blockID, expected, actual)
 	}
 }
 
 func (t *TestFramework) ValidateDroppedBlocks(expectedState map[string]bool) {
 	for blockID, expected := range expectedState {
 		block, exists := t.Scheduler.Block(t.Block(blockID).ID())
-		assert.Truef(t.test, exists, "block %s not registered", blockID)
+		require.Truef(t.test, exists, "block %s not registered", blockID)
 
 		actual := block.IsDropped()
-		assert.Equal(t.test, expected, actual, "Block %s should be dropped=%t but is %t", blockID, expected, actual)
+		require.Equal(t.test, expected, actual, "Block %s should be dropped=%t but is %t", blockID, expected, actual)
 	}
 }
 

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/mr-tron/base58"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
@@ -131,24 +130,24 @@ func TestFirewall(t *testing.T) {
 	peer1, peer2 := n.Peers()[0], n.Peers()[1]
 	got1, err := peer1.GetPeerFaultinessCount(peer2.ID())
 	require.NoError(t, err)
-	assert.Equal(t, 0, got1)
+	require.Equal(t, 0, got1)
 	got2, err := peer2.GetPeerFaultinessCount(peer1.ID())
 	require.NoError(t, err)
-	assert.Equal(t, 0, got2)
+	require.Equal(t, 0, got2)
 
 	// Start spamming blocks from peer2 to peer1.
 	for i := 0; i < 51; i++ {
 		tests.SendDataBlock(t, peer2, []byte(fmt.Sprintf("Test %d", i)), i)
 		require.NoError(t, err)
 	}
-	assert.Eventually(t, func() bool {
+	require.Eventually(t, func() bool {
 		got1, err = peer1.GetPeerFaultinessCount(peer2.ID())
 		require.NoError(t, err)
 		return got1 != 0
 	}, tests.Timeout, tests.Tick)
 	got2, err = peer2.GetPeerFaultinessCount(peer1.ID())
 	require.NoError(t, err)
-	assert.Equal(t, 0, got2)
+	require.Equal(t, 0, got2)
 }
 
 func TestConfirmBlock(t *testing.T) {
