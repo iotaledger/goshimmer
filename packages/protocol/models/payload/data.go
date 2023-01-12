@@ -1,7 +1,7 @@
 package payload
 
 import (
-	"fmt"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/hive.go/core/generics/model"
 	"github.com/iotaledger/hive.go/core/serix"
@@ -12,12 +12,12 @@ import (
 func init() {
 	err := serix.DefaultAPI.RegisterTypeSettings(GenericDataPayload{}, serix.TypeSettings{}.WithObjectType(uint32(new(GenericDataPayload).Type())))
 	if err != nil {
-		panic(fmt.Errorf("error registering GenericDataPayload type settings: %w", err))
+		panic(errors.Wrap(err, "error registering GenericDataPayload type settings"))
 	}
 
 	err = serix.DefaultAPI.RegisterInterfaceObjects((*Payload)(nil), new(GenericDataPayload))
 	if err != nil {
-		panic(fmt.Errorf("error registering GenericDataPayload as Payload interface: %w", err))
+		panic(errors.Wrap(err, "error registering GenericDataPayload as Payload interface"))
 	}
 }
 

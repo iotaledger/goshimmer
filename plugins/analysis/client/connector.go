@@ -5,10 +5,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/netutil"
 	"github.com/iotaledger/hive.go/core/network"
+	"github.com/pkg/errors"
 )
 
 // errors returned by the Connector

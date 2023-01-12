@@ -4,7 +4,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/cockroachdb/errors"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/hive.go/core/debug"

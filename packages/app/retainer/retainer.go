@@ -1,9 +1,9 @@
 package retainer
 
 import (
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/syncutils"
 	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"

@@ -8,8 +8,8 @@ import (
 	"io/fs"
 	"net/http"
 
-	"github.com/cockroachdb/errors"
 	"github.com/labstack/echo"
+	"github.com/pkg/errors"
 )
 
 // ErrInvalidParameter defines the invalid parameter error.

@@ -12,7 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/typeutils"
 
-	"github.com/cockroachdb/errors"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"

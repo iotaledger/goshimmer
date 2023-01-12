@@ -3,9 +3,9 @@ package devnetvm
 import (
 	"context"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/cerrors"
 	"github.com/iotaledger/hive.go/core/serix"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
@@ -14,7 +14,7 @@ import (
 func OutputFromBytes(data []byte) (output utxo.Output, err error) {
 	_, err = serix.DefaultAPI.Decode(context.Background(), data, &output, serix.WithValidation())
 	if err != nil {
-		return nil, errors.Errorf("failed to parse Output (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return nil, errors.WithMessagef(cerrors.ErrParseBytesFailed, "failed to parse Output: %s", err.Error())
 	}
 
 	return output, nil

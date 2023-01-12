@@ -106,11 +106,11 @@ github.com/cncf/udpa/go v0.0.0-20201120205902-5459f2c99403/go.mod h1:WmhPx2Nbnht
 github.com/cockroachdb/datadriven v1.0.0/go.mod h1:5Ib8Meh+jk1RlHIXej6Pzevx/NLlNvQB9pmSBZErGA4=
 github.com/cockroachdb/datadriven v1.0.1-0.20211007161720-b558070c3be0/go.mod h1:5Ib8Meh+jk1RlHIXej6Pzevx/NLlNvQB9pmSBZErGA4=
 github.com/cockroachdb/datadriven v1.0.1-0.20220214170620-9913f5bc19b7/go.mod h1:hi0MtSY3AYDQNDi83kDkMH5/yqM/CsIrsOITkSoH7KI=
-github.com/cockroachdb/errors v1.6.1/go.mod h1:tm6FTP5G81vwJ5lC0SizQo374JNCOPrHyXGitRJoDqM=
-github.com/cockroachdb/errors v1.8.4/go.mod h1:GScl7wnuvY335l6h0jbkHIKJ+8uEmUmJRVWKnenUbfI=
-github.com/cockroachdb/errors v1.8.8/go.mod h1:z6VnEL3hZ/2ONZEvG7S5Ym0bU2AqPcEKnIiA1wbsSu0=
-github.com/cockroachdb/errors v1.9.0 h1:B48dYem5SlAY7iU8AKsgedb4gH6mo+bDkbtLIvM/a88=
-github.com/cockroachdb/errors v1.9.0/go.mod h1:vaNcEYYqbIqB5JhKBhFV9CneUqeuEbB2OYJBK4GBNYQ=
+github.com/pkg/errors v1.6.1/go.mod h1:tm6FTP5G81vwJ5lC0SizQo374JNCOPrHyXGitRJoDqM=
+github.com/pkg/errors v1.8.4/go.mod h1:GScl7wnuvY335l6h0jbkHIKJ+8uEmUmJRVWKnenUbfI=
+github.com/pkg/errors v1.8.8/go.mod h1:z6VnEL3hZ/2ONZEvG7S5Ym0bU2AqPcEKnIiA1wbsSu0=
+github.com/pkg/errors v1.9.0 h1:B48dYem5SlAY7iU8AKsgedb4gH6mo+bDkbtLIvM/a88=
+github.com/pkg/errors v1.9.0/go.mod h1:vaNcEYYqbIqB5JhKBhFV9CneUqeuEbB2OYJBK4GBNYQ=
 github.com/cockroachdb/logtags v0.0.0-20190617123548-eb05cc24525f/go.mod h1:i/u985jwjWRlyHXQbwatDASoW0RMlZ/3i9yJHE2xLkI=
 github.com/cockroachdb/logtags v0.0.0-20211118104740-dabe8e521a4f h1:6jduT9Hfc0njg5jJ1DdKCFPdMBrp/mdZfCpa5h+WM74=
 github.com/cockroachdb/logtags v0.0.0-20211118104740-dabe8e521a4f/go.mod h1:Vz9DsVWQQhf3vs21MhPMZpMGSht7O/2vFW2xusFUVOs=

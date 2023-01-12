@@ -1,6 +1,6 @@
 package models
 
-import "github.com/cockroachdb/errors"
+import "github.com/pkg/errors"
 
 var (
 	// ErrNoStrongParents is triggered if there no strong parents.

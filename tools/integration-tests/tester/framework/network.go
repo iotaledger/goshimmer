@@ -7,11 +7,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/mr-tron/base58"
+	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
@@ -139,7 +139,7 @@ func (n *Network) DoManualPeering(ctx context.Context, nodes ...*Node) error {
 // CreatePartitionsManualPeering blocks until all connections are established or the ctx has expired.
 func (n *Network) CreatePartitionsManualPeering(ctx context.Context, partitions ...[]*Node) error {
 	if len(partitions) == 0 {
-		return errors.Errorf("no partitions provided")
+		return errors.New("no partitions provided")
 	}
 
 	if err := n.dropManualPeers(n.Peers()); err != nil {
@@ -294,7 +294,7 @@ func (n *Network) Shutdown(ctx context.Context) error {
 	// check exit codes of containers
 	for name, status := range exitStatus {
 		if status != 0 {
-			return fmt.Errorf("container %s exited with code %d", name, status)
+			return errors.Errorf("container %s exited with code %d", name, status)
 		}
 	}
 	return nil

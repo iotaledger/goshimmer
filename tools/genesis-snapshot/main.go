@@ -5,12 +5,13 @@ import (
 	"log"
 	"os"
 
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/mr-tron/base58"
-
+	"github.com/pkg/errors"
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
+
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/protocol"
@@ -86,7 +87,7 @@ func main() {
 	totalTokensToPledge := viper.GetUint64(cfgPledgeTokenAmount)
 	genesisSeed, err := base58.Decode(viper.GetString(cfgSnapshotGenesisSeed))
 	if err != nil {
-		log.Fatal(fmt.Errorf("failed to decode base58 seed: %w", err))
+		log.Fatal(errors.Wrap(err, "failed to decode base58 seed"))
 	}
 
 	manaDistribution := createManaDistribution(totalTokensToPledge)

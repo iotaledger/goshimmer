@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -540,18 +541,18 @@ func init() {
 	MockedTransactionType = payload.NewType(payloadtype.MockedTransaction, "MockedTransactionType")
 
 	if err := serix.DefaultAPI.RegisterTypeSettings(MockedTransaction{}, serix.TypeSettings{}.WithObjectType(uint32(new(MockedTransaction).Type()))); err != nil {
-		panic(fmt.Errorf("error registering Transaction type settings: %w", err))
+		panic(errors.Wrap(err, "error registering Transaction type settings"))
 	}
 
 	if err := serix.DefaultAPI.RegisterInterfaceObjects((*payload.Payload)(nil), new(MockedTransaction)); err != nil {
-		panic(fmt.Errorf("error registering Transaction as Payload interface: %w", err))
+		panic(errors.Wrap(err, "error registering Transaction as Payload interface"))
 	}
 
 	if err := serix.DefaultAPI.RegisterTypeSettings(MockedOutput{}, serix.TypeSettings{}.WithObjectType(uint8(devnetvm.ExtendedLockedOutputType+1))); err != nil {
-		panic(fmt.Errorf("error registering ExtendedLockedOutput type settings: %w", err))
+		panic(errors.Wrap(err, "error registering ExtendedLockedOutput type settings"))
 	}
 
 	if err := serix.DefaultAPI.RegisterInterfaceObjects((*utxo.Output)(nil), new(MockedOutput)); err != nil {
-		panic(fmt.Errorf("error registering utxo.Output interface implementations: %w", err))
+		panic(errors.Wrap(err, "error registering utxo.Output interface implementations"))
 	}
 }

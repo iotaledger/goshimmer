@@ -3,7 +3,6 @@ module github.com/iotaledger/goshimmer/tools/integration-tests/tester
 go 1.19
 
 require (
-	github.com/cockroachdb/errors v1.9.0
 	github.com/docker/docker v1.13.1
 	github.com/docker/go-connections v0.4.0
 	github.com/iotaledger/goshimmer v0.1.3
