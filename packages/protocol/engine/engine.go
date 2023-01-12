@@ -263,7 +263,7 @@ func (e *Engine) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (err err
 }
 
 func (e *Engine) initFilter() {
-	e.Filter = filter.New()
+	e.Filter = filter.New(e.Tangle.BlockDAG.Block)
 
 	e.Events.Filter.LinkTo(e.Filter.Events)
 }
