@@ -35,6 +35,7 @@ import (
 
 func TestProtocol(t *testing.T) {
 	debug.SetEnabled(true)
+	defer debug.SetEnabled(false)
 
 	testNetwork := network.NewMockedNetwork()
 
@@ -49,6 +50,10 @@ func TestProtocol(t *testing.T) {
 
 	protocol1 := New(endpoint1, WithBaseDirectory(tempDir.Path()), WithSnapshotPath(tempDir.Path("snapshot.bin")))
 	protocol1.Run()
+
+	t.Cleanup(func() {
+		protocol1.Shutdown()
+	})
 
 	commitments := make(map[string]*commitment.Commitment)
 	commitments["0"] = commitment.New(0, commitment.ID{}, types.Identifier{}, 0)
