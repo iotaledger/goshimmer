@@ -14,7 +14,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markermanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
@@ -675,14 +674,14 @@ func checkNormalizedConflictIDsContained(t *testing.T, tf *TestFramework, expect
 
 		normalizedRetrievedConflictIDs := blockConflictIDs.Clone()
 		for it := blockConflictIDs.Iterator(); it.HasNext(); {
-			tf.Booker.Ledger.ConflictDAG.Storage.CachedConflict(it.Next()).Consume(func(b *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+			tf.Booker.Ledger.ConflictDAG.Storage.CachedConflict(it.Next()).Consume(func(b *conflictdagOld.Conflict[utxo.TransactionID, utxo.OutputID]) {
 				normalizedRetrievedConflictIDs.DeleteAll(b.Parents())
 			})
 		}
 
 		normalizedExpectedConflictIDs := blockExpectedConflictIDs.Clone()
 		for it := blockExpectedConflictIDs.Iterator(); it.HasNext(); {
-			tf.Booker.Ledger.ConflictDAG.Storage.CachedConflict(it.Next()).Consume(func(b *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+			tf.Booker.Ledger.ConflictDAG.Storage.CachedConflict(it.Next()).Consume(func(b *conflictdagOld.Conflict[utxo.TransactionID, utxo.OutputID]) {
 				normalizedExpectedConflictIDs.DeleteAll(b.Parents())
 			})
 		}

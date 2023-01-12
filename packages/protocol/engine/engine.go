@@ -31,7 +31,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tsc"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
@@ -385,7 +384,7 @@ func (e *Engine) initNotarizationManager() {
 		e.NotarizationManager.SetAcceptanceTime(event.NewTime)
 	}), 1)
 
-	e.Ledger.ConflictDAG.Events.ConflictCreated.AttachWithWorkerPool(event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
+	e.Ledger.ConflictDAG.Events.ConflictCreated.AttachWithWorkerPool(event.NewClosure(func(event *conflictdagOld.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
 		e.NotarizationManager.IncreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.GetEarliestAttachment(event.ID).IssuingTime()))
 	}), wp)
 	e.Ledger.ConflictDAG.Events.ConflictAccepted.AttachWithWorkerPool(event.NewClosure(func(conflictID utxo.TransactionID) {

@@ -9,7 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/walker"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdagOld"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
@@ -18,12 +18,12 @@ type WeightFunc func(conflictID utxo.TransactionID) (weight int64)
 // ConflictResolver is a generalized form of Nakamoto consensus for the parallel-reality-based ledger state where the
 // heaviest conflict according to approval weight is liked by any given node.
 type ConflictResolver struct {
-	conflictDAG *conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID]
+	conflictDAG *conflictdagOld.ConflictDAG[utxo.TransactionID, utxo.OutputID]
 	weightFunc  WeightFunc
 }
 
 // New is the constructor for ConflictResolver.
-func New(conflictDAG *conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID], weightFunc WeightFunc) *ConflictResolver {
+func New(conflictDAG *conflictdagOld.ConflictDAG[utxo.TransactionID, utxo.OutputID], weightFunc WeightFunc) *ConflictResolver {
 	return &ConflictResolver{
 		conflictDAG: conflictDAG,
 		weightFunc:  weightFunc,
@@ -75,7 +75,7 @@ func (o *ConflictResolver) conflictPreferred(conflictID utxo.TransactionID, like
 		return
 	}
 
-	o.conflictDAG.Storage.CachedConflict(conflictID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	o.conflictDAG.Storage.CachedConflict(conflictID).Consume(func(conflict *conflictdagOld.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		switch conflict.ConfirmationState() {
 		case confirmation.Rejected:
 			preferred = false
@@ -113,7 +113,7 @@ func (o *ConflictResolver) dislikedConnectedConflictingConflicts(currentConflict
 
 			dislikedConflicts.Add(rejectedConflictID)
 
-			o.conflictDAG.Storage.CachedChildConflicts(rejectedConflictID).Consume(func(childConflict *conflictdag.ChildConflict[utxo.TransactionID]) {
+			o.conflictDAG.Storage.CachedChildConflicts(rejectedConflictID).Consume(func(childConflict *conflictdagOld.ChildConflict[utxo.TransactionID]) {
 				rejectionWalker.Push(childConflict.ChildConflictID())
 			})
 		}

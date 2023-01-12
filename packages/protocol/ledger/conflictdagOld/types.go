@@ -1,4 +1,4 @@
-package conflictdag
+package conflictdagOld
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/model"

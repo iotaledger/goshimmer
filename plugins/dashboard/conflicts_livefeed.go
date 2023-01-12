@@ -14,7 +14,6 @@ import (
 	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
@@ -128,7 +127,7 @@ func runConflictLiveFeed() {
 	}
 }
 
-func onConflictCreated(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
+func onConflictCreated(event *conflictdagOld.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
 	conflictID := event.ID
 	b := &conflict{
 		ConflictID:  conflictID,
@@ -148,7 +147,7 @@ func onConflictCreated(event *conflictdag.ConflictCreatedEvent[utxo.TransactionI
 	mu.Lock()
 	defer mu.Unlock()
 
-	deps.Protocol.Engine().Ledger.ConflictDAG.Storage.CachedConflict(conflictID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	deps.Protocol.Engine().Ledger.ConflictDAG.Storage.CachedConflict(conflictID).Consume(func(conflict *conflictdagOld.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		b.ConflictSetIDs = conflict.ConflictSetIDs()
 	})
 
@@ -166,7 +165,7 @@ func onConflictCreated(event *conflictdag.ConflictCreatedEvent[utxo.TransactionI
 		}
 
 		// update all existing conflicts with a possible new conflictSet membership
-		deps.Protocol.Engine().Ledger.ConflictDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.OutputID, utxo.TransactionID]) {
+		deps.Protocol.Engine().Ledger.ConflictDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *conflictdagOld.ConflictMember[utxo.OutputID, utxo.TransactionID]) {
 			conflicts.addConflictMember(conflictMember.ConflictID(), conflictID)
 		})
 	}

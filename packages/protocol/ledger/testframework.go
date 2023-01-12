@@ -19,7 +19,6 @@ import (
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/stringify"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
@@ -202,7 +201,7 @@ func (t *TestFramework) AssertConflictDAG(expectedParents map[string][]string) {
 		expectedConflictIDs := t.ConflictIDs(expectedParentAliases...)
 
 		// Verify child -> parent references.
-		t.ConsumeConflict(currentConflictID, func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+		t.ConsumeConflict(currentConflictID, func(conflict *conflictdagOld.Conflict[utxo.TransactionID, utxo.OutputID]) {
 			assert.Truef(t.test, expectedConflictIDs.Equal(conflict.Parents()), "Conflict(%s): expected parents %s are not equal to actual parents %s", currentConflictID, expectedConflictIDs, conflict.Parents())
 		})
 
@@ -221,7 +220,7 @@ func (t *TestFramework) AssertConflictDAG(expectedParents map[string][]string) {
 		cachedChildConflicts.Release()
 
 		for _, childConflictID := range childConflictIDs.Slice() {
-			assert.Truef(t.test, t.Ledger.ConflictDAG.Storage.CachedChildConflict(parentConflictID, childConflictID).Consume(func(childConflict *conflictdag.ChildConflict[utxo.TransactionID]) {}), "could not load ChildConflict %s,%s", parentConflictID, childConflictID)
+			assert.Truef(t.test, t.Ledger.ConflictDAG.Storage.CachedChildConflict(parentConflictID, childConflictID).Consume(func(childConflict *conflictdagOld.ChildConflict[utxo.TransactionID]) {}), "could not load ChildConflict %s,%s", parentConflictID, childConflictID)
 		}
 	}
 }
@@ -244,7 +243,7 @@ func (t *TestFramework) AssertConflicts(expectedConflictsAliases map[string][]st
 
 		// Verify that all named conflicts are stored as conflict members (conflictID -> conflictIDs).
 		for _, conflictID := range expectedConflictMembers.Slice() {
-			assert.Truef(t.test, t.Ledger.ConflictDAG.Storage.CachedConflictMember(resourceID, conflictID).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.OutputID, utxo.TransactionID]) {}), "could not load ConflictMember %s,%s", resourceID, conflictID)
+			assert.Truef(t.test, t.Ledger.ConflictDAG.Storage.CachedConflictMember(resourceID, conflictID).Consume(func(conflictMember *conflictdagOld.ConflictMember[utxo.OutputID, utxo.TransactionID]) {}), "could not load ConflictMember %s,%s", resourceID, conflictID)
 
 			if _, exists := ConflictResources[conflictID]; !exists {
 				ConflictResources[conflictID] = set.NewAdvancedSet[utxo.OutputID]()
@@ -255,7 +254,7 @@ func (t *TestFramework) AssertConflicts(expectedConflictsAliases map[string][]st
 
 	// Make sure that all conflicts have all specified conflictIDs (reverse mapping).
 	for conflictID, expectedConflicts := range ConflictResources {
-		t.ConsumeConflict(conflictID, func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+		t.ConsumeConflict(conflictID, func(conflict *conflictdagOld.Conflict[utxo.TransactionID, utxo.OutputID]) {
 			assert.Truef(t.test, expectedConflicts.Equal(conflict.ConflictSetIDs()), "%s: conflicts expected=%s, actual=%s", conflictID, expectedConflicts, conflict.ConflictSetIDs())
 		})
 	}
@@ -311,7 +310,7 @@ func (t *TestFramework) AllBooked(txAliases ...string) (allBooked bool) {
 }
 
 // ConsumeConflict loads and consumes conflictdag.Conflict. Asserts that the loaded entity exists.
-func (t *TestFramework) ConsumeConflict(conflictID utxo.TransactionID, consumer func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID])) {
+func (t *TestFramework) ConsumeConflict(conflictID utxo.TransactionID, consumer func(conflict *conflictdagOld.Conflict[utxo.TransactionID, utxo.OutputID])) {
 	assert.Truef(t.test, t.Ledger.ConflictDAG.Storage.CachedConflict(conflictID).Consume(consumer), "failed to load conflict %s", conflictID)
 }
 

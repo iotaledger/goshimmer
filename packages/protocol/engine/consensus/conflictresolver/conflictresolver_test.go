@@ -12,7 +12,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/storage"
 )
@@ -887,7 +886,7 @@ func (s *Scenario) ConflictIDs(aliases ...string) *set.AdvancedSet[utxo.Transact
 }
 
 // CreateConflicts orders and creates the conflicts for the scenario.
-func (s *Scenario) CreateConflicts(t *testing.T, conflictDAG *conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID]) {
+func (s *Scenario) CreateConflicts(t *testing.T, conflictDAG *conflictdagOld.ConflictDAG[utxo.TransactionID, utxo.OutputID]) {
 	type order struct {
 		order int
 		name  string
@@ -909,7 +908,7 @@ func (s *Scenario) CreateConflicts(t *testing.T, conflictDAG *conflictdag.Confli
 }
 
 // creates a conflict and registers a ConflictIDAlias with the name specified in conflictMeta.
-func createTestConflict(t *testing.T, conflictDAG *conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID], alias string, conflictMeta *ConflictMeta) bool {
+func createTestConflict(t *testing.T, conflictDAG *conflictdagOld.ConflictDAG[utxo.TransactionID, utxo.OutputID], alias string, conflictMeta *ConflictMeta) bool {
 	var newConflictCreated bool
 
 	if conflictMeta.ConflictID == utxo.EmptyTransactionID {
@@ -917,7 +916,7 @@ func createTestConflict(t *testing.T, conflictDAG *conflictdag.ConflictDAG[utxo.
 	}
 	newConflictCreated = conflictDAG.CreateConflict(conflictMeta.ConflictID, conflictMeta.ParentConflicts, conflictMeta.Conflicting)
 	require.True(t, newConflictCreated)
-	conflictDAG.Storage.CachedConflict(conflictMeta.ConflictID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	conflictDAG.Storage.CachedConflict(conflictMeta.ConflictID).Consume(func(conflict *conflictdagOld.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		conflictMeta.ConflictID = conflict.ID()
 	})
 	conflictMeta.ConflictID.RegisterAlias(alias)

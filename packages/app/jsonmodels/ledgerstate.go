@@ -11,7 +11,6 @@ import (
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
@@ -531,7 +530,7 @@ type ConflictWeight struct {
 }
 
 // NewConflictWeight returns a Conflict from the given ledger.Conflict.
-func NewConflictWeight(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID], confirmationState confirmation.State, aw int64) ConflictWeight {
+func NewConflictWeight(conflict *conflictdagOld.Conflict[utxo.TransactionID, utxo.OutputID], confirmationState confirmation.State, aw int64) ConflictWeight {
 	return ConflictWeight{
 		ID: conflict.ID().Base58(),
 		Parents: func() []string {
@@ -563,7 +562,7 @@ type ChildConflict struct {
 }
 
 // NewChildConflict returns a ChildConflict from the given ledger.ChildConflict.
-func NewChildConflict(childConflict *conflictdag.ChildConflict[utxo.TransactionID]) *ChildConflict {
+func NewChildConflict(childConflict *conflictdagOld.ChildConflict[utxo.TransactionID]) *ChildConflict {
 	return &ChildConflict{
 		ConflictID: childConflict.ChildConflictID().Base58(),
 	}
