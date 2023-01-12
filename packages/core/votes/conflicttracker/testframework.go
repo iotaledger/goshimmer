@@ -61,7 +61,6 @@ func (t *TestFramework[VotePowerType]) ValidateStatementResults(expectedResults 
 		actualVoters := t.ConflictTracker.Voters(t.ConflictID(conflictIDAlias))
 
 		_ = expectedVoters.ForEach(func(expectedID identity.ID) (err error) {
-
 			require.Truef(t.test, actualVoters.Has(expectedID), "expected voter %s to be in the set of voters of conflict %s", expectedID, conflictIDAlias)
 			return nil
 		})
