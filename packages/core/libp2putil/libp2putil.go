@@ -1,12 +1,12 @@
 package libp2putil
 
 import (
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/libp2p/go-libp2p"
 	libp2pcrypto "github.com/libp2p/go-libp2p/core/crypto"
 	libp2ppeer "github.com/libp2p/go-libp2p/core/peer"
+	"github.com/pkg/errors"
 )
 
 // GetLibp2pIdentity returns libp2p Host option for Identity from local peer object.

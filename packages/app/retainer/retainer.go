@@ -1,9 +1,9 @@
 package retainer
 
 import (
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/syncutils"
 	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
@@ -46,6 +46,10 @@ func NewRetainer(protocol *protocol.Protocol, dbManager *database.Manager, opts 
 		r.blockStorage = database.NewPersistentEpochStorage[models.BlockID, BlockMetadata](dbManager, r.optsRealm)
 		r.evictionLock = syncutils.NewDAGMutex[epoch.Index]()
 	})
+}
+
+func (r *Retainer) Shutdown() {
+	r.workerPool.Shutdown()
 }
 
 func (r *Retainer) Block(blockID models.BlockID) (block *models.Block, exists bool) {
@@ -142,7 +146,9 @@ func (r *Retainer) setupEvents() {
 	r.protocol.Events.Engine.Tangle.Booker.BlockBooked.AttachWithWorkerPool(event.NewClosure(func(block *booker.Block) {
 		if cm := r.createOrGetCachedMetadata(block.ID()); cm != nil {
 			cm.setBookerBlock(block)
+			cm.Lock()
 			cm.ConflictIDs = r.protocol.Engine().Tangle.BlockConflicts(block)
+			cm.Unlock()
 		}
 	}), r.workerPool)
 

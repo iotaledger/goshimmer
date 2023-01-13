@@ -5,12 +5,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/timed"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
@@ -155,7 +155,7 @@ func (s *SybilProtection) RollbackSpentOutput(output *ledger.OutputWithMetadata)
 
 func (s *SybilProtection) BeginBatchedStateTransition(newEpoch epoch.Index) (currentEpoch epoch.Index, err error) {
 	if currentEpoch, err = s.BatchCommittable.BeginBatchedStateTransition(newEpoch); err != nil {
-		return 0, errors.Errorf("failed to begin batched state transition: %w", err)
+		return 0, errors.Wrap(err, "failed to begin batched state transition")
 	}
 
 	if currentEpoch != newEpoch {

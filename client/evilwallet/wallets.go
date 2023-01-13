@@ -3,8 +3,8 @@ package evilwallet
 import (
 	"sync"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/hive.go/core/types"
 	"go.uber.org/atomic"
@@ -427,7 +427,7 @@ func (w *Wallet) UpdateUnspentOutputID(addr string, outputID utxo.OutputID) erro
 	walletOutput, ok := w.unspentOutputs[addr]
 	w.RUnlock()
 	if !ok {
-		return errors.Newf("could not find unspent output under provided address in the wallet, outID:%s, addr: %s", outputID.Base58(), addr)
+		return errors.Errorf("could not find unspent output under provided address in the wallet, outID:%s, addr: %s", outputID.Base58(), addr)
 	}
 	w.Lock()
 	walletOutput.OutputID = outputID

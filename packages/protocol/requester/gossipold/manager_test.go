@@ -61,13 +61,13 @@ package gossipold
 // 	go func() {
 // 		defer wg.Done()
 // 		err := mgrA.network.AddInbound(context.Background(), peerB, p2p.NeighborsGroupAuto)
-// 		assert.NoError(t, err)
+// 		require.NoError(t, err)
 // 	}()
 // 	time.Sleep(graceTime)
 // 	go func() {
 // 		defer wg.Done()
 // 		err := mgrB.network.AddOutbound(context.Background(), peerA, p2p.NeighborsGroupAuto)
-// 		assert.NoError(t, err)
+// 		require.NoError(t, err)
 // 	}()
 //
 // 	// wait for the connections to establish
@@ -102,13 +102,13 @@ package gossipold
 // 	go func() {
 // 		defer wg.Done()
 // 		err := mgrA.network.AddInbound(context.Background(), peerB, p2p.NeighborsGroupAuto)
-// 		assert.NoError(t, err)
+// 		require.NoError(t, err)
 // 	}()
 // 	time.Sleep(graceTime)
 // 	go func() {
 // 		defer wg.Done()
 // 		err := mgrB.network.AddOutbound(context.Background(), peerA, p2p.NeighborsGroupAuto)
-// 		assert.NoError(t, err)
+// 		require.NoError(t, err)
 // 	}()
 //
 // 	// wait for the connections to establish
@@ -152,13 +152,13 @@ package gossipold
 // 	go func() {
 // 		defer wg.Done()
 // 		err := mgrA.network.AddInbound(context.Background(), peerB, p2p.NeighborsGroupAuto)
-// 		assert.NoError(t, err)
+// 		require.NoError(t, err)
 // 	}()
 // 	time.Sleep(graceTime)
 // 	go func() {
 // 		defer wg.Done()
 // 		err := mgrB.network.AddOutbound(context.Background(), peerA, p2p.NeighborsGroupAuto)
-// 		assert.NoError(t, err)
+// 		require.NoError(t, err)
 // 	}()
 //
 // 	// wait for the connections to establish
@@ -206,23 +206,23 @@ package gossipold
 // 	go func() {
 // 		defer wg.Done()
 // 		err := mgrA.network.AddInbound(context.Background(), peerB, p2p.NeighborsGroupAuto)
-// 		assert.NoError(t, err)
+// 		require.NoError(t, err)
 // 	}()
 // 	go func() {
 // 		defer wg.Done()
 // 		err := mgrA.network.AddInbound(context.Background(), peerC, p2p.NeighborsGroupAuto)
-// 		assert.NoError(t, err)
+// 		require.NoError(t, err)
 // 	}()
 // 	time.Sleep(graceTime)
 // 	go func() {
 // 		defer wg.Done()
 // 		err := mgrB.network.AddOutbound(context.Background(), peerA, p2p.NeighborsGroupAuto)
-// 		assert.NoError(t, err)
+// 		require.NoError(t, err)
 // 	}()
 // 	go func() {
 // 		defer wg.Done()
 // 		err := mgrC.network.AddOutbound(context.Background(), peerA, p2p.NeighborsGroupAuto)
-// 		assert.NoError(t, err)
+// 		require.NoError(t, err)
 // 	}()
 //
 // 	// wait for the connections to establish
@@ -267,23 +267,23 @@ package gossipold
 // 	go func() {
 // 		defer wg.Done()
 // 		err := mgrA.network.AddInbound(context.Background(), peerB, p2p.NeighborsGroupAuto)
-// 		assert.NoError(t, err)
+// 		require.NoError(t, err)
 // 	}()
 // 	go func() {
 // 		defer wg.Done()
 // 		err := mgrA.network.AddInbound(context.Background(), peerC, p2p.NeighborsGroupAuto)
-// 		assert.NoError(t, err)
+// 		require.NoError(t, err)
 // 	}()
 // 	time.Sleep(graceTime)
 // 	go func() {
 // 		defer wg.Done()
 // 		err := mgrB.network.AddOutbound(context.Background(), peerA, p2p.NeighborsGroupAuto)
-// 		assert.NoError(t, err)
+// 		require.NoError(t, err)
 // 	}()
 // 	go func() {
 // 		defer wg.Done()
 // 		err := mgrC.network.AddOutbound(context.Background(), peerA, p2p.NeighborsGroupAuto)
-// 		assert.NoError(t, err)
+// 		require.NoError(t, err)
 // 	}()
 //
 // 	// wait for the connections to establish
@@ -319,7 +319,7 @@ package gossipold
 // 	defer closeB()
 //
 // 	err := mgrA.network.AddInbound(context.Background(), peerB, p2p.NeighborsGroupAuto)
-// 	assert.Error(t, err)
+// 	require.Error(t, err)
 //
 // 	mgrA.AssertExpectations(t)
 // 	mgrB.AssertExpectations(t)
@@ -341,13 +341,13 @@ package gossipold
 // 	go func() {
 // 		defer wg.Done()
 // 		err := mgrA.network.AddInbound(context.Background(), peerB, p2p.NeighborsGroupAuto)
-// 		assert.NoError(t, err)
+// 		require.NoError(t, err)
 // 	}()
 // 	time.Sleep(graceTime)
 // 	go func() {
 // 		defer wg.Done()
 // 		err := mgrB.network.AddOutbound(context.Background(), peerA, p2p.NeighborsGroupAuto)
-// 		assert.NoError(t, err)
+// 		require.NoError(t, err)
 // 	}()
 //
 // 	// wait for the connections to establish
@@ -391,11 +391,11 @@ package gossipold
 // 		defer mgrB.network.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborAdded.Detach(signalB)
 //
 // 		go func() {
-// 			assert.NoError(t, mgrA.network.AddInbound(context.Background(), peerB, p2p.NeighborsGroupAuto))
+// 			require.NoError(t, mgrA.network.AddInbound(context.Background(), peerB, p2p.NeighborsGroupAuto))
 // 		}()
 // 		time.Sleep(graceTime)
 // 		go func() {
-// 			assert.NoError(t, mgrB.network.AddOutbound(context.Background(), peerA, p2p.NeighborsGroupAuto))
+// 			require.NoError(t, mgrB.network.AddOutbound(context.Background(), peerA, p2p.NeighborsGroupAuto))
 // 		}()
 // 		wg.Wait() // wait until the events were triggered and the peers are connected
 // 	}
@@ -428,11 +428,11 @@ package gossipold
 // 	// drop and connect many many times
 // 	for i := 0; i < 100; i++ {
 // 		connect()
-// 		assert.NotEmpty(t, mgrA.network.AllNeighbors())
-// 		assert.NotEmpty(t, mgrB.network.AllNeighbors())
+// 		require.NotEmpty(t, mgrA.network.AllNeighbors())
+// 		require.NotEmpty(t, mgrB.network.AllNeighbors())
 // 		disconnect()
-// 		assert.Empty(t, mgrA.network.AllNeighbors())
-// 		assert.Empty(t, mgrB.network.AllNeighbors())
+// 		require.Empty(t, mgrA.network.AllNeighbors())
+// 		require.Empty(t, mgrB.network.AllNeighbors())
 // 	}
 // }
 //
@@ -457,11 +457,11 @@ package gossipold
 // 		defer mgrB.network.NeighborGroupEvents(p2p.NeighborsGroupManual).NeighborAdded.Detach(signal)
 //
 // 		go func() {
-// 			assert.NoError(t, mgrA.network.AddInbound(context.Background(), peerB, p2p.NeighborsGroupManual))
+// 			require.NoError(t, mgrA.network.AddInbound(context.Background(), peerB, p2p.NeighborsGroupManual))
 // 		}()
 // 		time.Sleep(graceTime)
 // 		go func() {
-// 			assert.NoError(t, mgrB.network.AddOutbound(context.Background(), peerA, p2p.NeighborsGroupManual))
+// 			require.NoError(t, mgrB.network.AddOutbound(context.Background(), peerA, p2p.NeighborsGroupManual))
 // 		}()
 // 		wg.Wait() // wait until the events were triggered and the peers are connected
 // 	}
@@ -481,13 +481,13 @@ package gossipold
 // 		wg.Wait() // wait until the events were triggered and the go routines are done
 // 	}
 // 	connect()
-// 	assert.NotEmpty(t, mgrA.network.AllNeighbors())
-// 	assert.NotEmpty(t, mgrB.network.AllNeighbors())
+// 	require.NotEmpty(t, mgrA.network.AllNeighbors())
+// 	require.NotEmpty(t, mgrB.network.AllNeighbors())
 // 	// drop many many times
 // 	for i := 0; i < 100; i++ {
 // 		disconnect()
-// 		assert.NotEmpty(t, mgrA.network.AllNeighbors())
-// 		assert.NotEmpty(t, mgrB.network.AllNeighbors())
+// 		require.NotEmpty(t, mgrA.network.AllNeighbors())
+// 		require.NotEmpty(t, mgrB.network.AllNeighbors())
 // 	}
 // }
 //

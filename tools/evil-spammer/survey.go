@@ -4,7 +4,7 @@ import (
 	"strconv"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/cockroachdb/errors"
+	"github.com/pkg/errors"
 )
 
 // region survey  //////////////////////////////////////////////////////////////////////////////////////////////

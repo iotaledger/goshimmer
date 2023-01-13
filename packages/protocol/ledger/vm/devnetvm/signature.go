@@ -3,30 +3,30 @@ package devnetvm
 import (
 	"bytes"
 	"context"
-	"fmt"
 
-	"github.com/cockroachdb/errors"
+	"github.com/mr-tron/base58"
+	"github.com/pkg/errors"
+	"golang.org/x/crypto/blake2b"
+
 	"github.com/iotaledger/hive.go/core/cerrors"
 	"github.com/iotaledger/hive.go/core/crypto/bls"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/stringify"
-	"github.com/mr-tron/base58"
-	"golang.org/x/crypto/blake2b"
 )
 
 func init() {
 	err := serix.DefaultAPI.RegisterTypeSettings(BLSSignature{}, serix.TypeSettings{}.WithObjectType(uint8(new(BLSSignature).Type())))
 	if err != nil {
-		panic(fmt.Errorf("error registering BLSSignature type settings: %w", err))
+		panic(errors.Wrap(err, "error registering BLSSignature type settings"))
 	}
 	err = serix.DefaultAPI.RegisterTypeSettings(ED25519Signature{}, serix.TypeSettings{}.WithObjectType(uint8(new(ED25519Signature).Type())))
 	if err != nil {
-		panic(fmt.Errorf("error registering ED25519Signature type settings: %w", err))
+		panic(errors.Wrap(err, "error registering ED25519Signature type settings"))
 	}
 	err = serix.DefaultAPI.RegisterInterfaceObjects((*Signature)(nil), new(BLSSignature), new(ED25519Signature))
 	if err != nil {
-		panic(fmt.Errorf("error registering Signature interface implementations: %w", err))
+		panic(errors.Wrap(err, "error registering Signature interface implementations"))
 	}
 }
 
@@ -81,23 +81,23 @@ func SignatureFromBytes(data []byte) (signature Signature, consumedBytes int, er
 	var signatureType SignatureType
 	_, err = serix.DefaultAPI.Decode(context.Background(), data, &signatureType)
 	if err != nil {
-		err = errors.Errorf("failed to parse SignatureType (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.WithMessagef(cerrors.ErrParseBytesFailed, "failed to parse SignatureType: %s", err.Error())
 		return
 	}
 
 	switch signatureType {
 	case ED25519SignatureType:
 		if signature, consumedBytes, err = ED25519SignatureFromBytes(data); err != nil {
-			err = errors.Errorf("failed to parse ED25519Signature: %w", err)
+			err = errors.Wrap(err, "failed to parse ED25519Signature")
 			return
 		}
 	case BLSSignatureType:
 		if signature, consumedBytes, err = BLSSignatureFromBytes(data); err != nil {
-			err = errors.Errorf("failed to parse BLSSignature: %w", err)
+			err = errors.Wrap(err, "failed to parse BLSSignature")
 			return
 		}
 	default:
-		err = errors.Errorf("unsupported SignatureType (%X): %w", signatureType, cerrors.ErrParseBytesFailed)
+		err = errors.WithMessagef(cerrors.ErrParseBytesFailed, "unsupported SignatureType: %X", signatureType)
 		return
 	}
 
@@ -108,12 +108,12 @@ func SignatureFromBytes(data []byte) (signature Signature, consumedBytes int, er
 func SignatureFromBase58EncodedString(base58String string) (signature Signature, err error) {
 	decodedBytes, err := base58.Decode(base58String)
 	if err != nil {
-		err = errors.Errorf("error while decoding base58 encoded Signature (%v): %w", err, cerrors.ErrBase58DecodeFailed)
+		err = errors.WithMessagef(cerrors.ErrBase58DecodeFailed, "error while decoding base58 encoded Signature: %s", err.Error())
 		return
 	}
 
 	if signature, _, err = SignatureFromBytes(decodedBytes); err != nil {
-		err = errors.Errorf("failed to parse Signature from bytes: %w", err)
+		err = errors.Wrap(err, "failed to parse Signature from bytes")
 		return
 	}
 

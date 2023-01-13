@@ -14,6 +14,7 @@ import (
 	"github.com/docker/docker/api/types/strslice"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 )
@@ -58,7 +59,7 @@ func NewDockerContainerFromExisting(ctx context.Context, c *client.Client, name 
 		}
 	}
 
-	return nil, fmt.Errorf("could not find container with name '%s'", name)
+	return nil, errors.Errorf("could not find container with name '%s'", name)
 }
 
 // CreateNode creates a new GoShimmer container.
@@ -70,7 +71,7 @@ func (d *DockerContainer) CreateNode(ctx context.Context, conf config.GoShimmer)
 	cmd = append(cmd, conf.CreateFlags()...)
 
 	if conf.Image == "" {
-		return fmt.Errorf("docker image must be provided as part of the configuration")
+		return errors.New("docker image must be provided as part of the configuration")
 	}
 
 	// configure GoShimmer container instance
@@ -259,7 +260,7 @@ func (d *DockerContainer) IP(ctx context.Context, network string) (string, error
 		}
 	}
 
-	return "", fmt.Errorf("IP address in %s could not be determined", network)
+	return "", errors.Errorf("IP address in %s could not be determined", network)
 }
 
 // Logs returns the logs of the container as io.ReadCloser.

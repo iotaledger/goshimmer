@@ -5,10 +5,10 @@ import (
 	"time"
 
 	"github.com/ReneKroon/ttlcache/v2"
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/paulbellamy/ratecounter"
+	"github.com/pkg/errors"
 	"go.uber.org/atomic"
 )
 

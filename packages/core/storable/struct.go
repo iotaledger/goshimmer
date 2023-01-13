@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"os"
 
-	"github.com/cockroachdb/errors"
 	"github.com/natefinch/atomic"
+	"github.com/pkg/errors"
 )
 
 // Struct contains logic that can be embedded in other structs to make them persist-able to disk.
@@ -53,7 +53,7 @@ func (s *Struct[A, B]) FromFile(fileName ...string) (err error) {
 func (s *Struct[A, B]) ToFile(fileName ...string) (err error) {
 	bytesToWrite, err := s.object.Bytes()
 	if err != nil {
-		return errors.Errorf("failed to serialize object: %w", err)
+		return errors.Wrap(err, "failed to serialize object")
 	}
 
 	if len(fileName) != 0 {

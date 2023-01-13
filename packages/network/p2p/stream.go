@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/autopeering/peer/service"
 	"github.com/libp2p/go-libp2p/core/network"
@@ -18,6 +17,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peerstore"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/multiformats/go-multiaddr"
+	"github.com/pkg/errors"
 	"go.uber.org/atomic"
 	"google.golang.org/protobuf/proto"
 
@@ -185,7 +185,7 @@ func (m *Manager) initiateStream(ctx context.Context, libp2pID libp2ppeer.ID, pr
 	ps := NewPacketsStream(stream, protocolHandler.PacketFactory)
 	if err := ps.sendNegotiation(); err != nil {
 		err = errors.Wrap(err, "failed to send negotiation block")
-		err = errors.CombineErrors(err, stream.Close())
+		stream.Close()
 		return nil, err
 	}
 	return ps, nil

@@ -12,7 +12,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/cockroachdb/errors"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -99,7 +99,7 @@ type errorresponse struct {
 func interpretBody(res *http.Response, decodeTo interface{}) error {
 	resBody, err := io.ReadAll(res.Body)
 	if err != nil {
-		return fmt.Errorf("unable to read response body: %w", err)
+		return errors.Wrap(err, "unable to read response body")
 	}
 	defer res.Body.Close()
 
@@ -111,28 +111,28 @@ func interpretBody(res *http.Response, decodeTo interface{}) error {
 			*decodeTo.(*csv.Reader) = *csv.NewReader(bufio.NewReader(bytes.NewReader(resBody)))
 			return nil
 		default:
-			return fmt.Errorf("can't decode %s content-type", contType)
+			return errors.Errorf("can't decode %s content-type", contType)
 		}
 	}
 	errRes := &errorresponse{}
 	if err := json.Unmarshal(resBody, errRes); err != nil {
-		return fmt.Errorf("unable to read error from response body: %w repsonseBody: %s", err, resBody)
+		return errors.Wrapf(err, "unable to read error from response body: %s", resBody)
 	}
 
 	switch res.StatusCode {
 	case http.StatusInternalServerError:
-		return fmt.Errorf("%w: %s", ErrInternalServerError, errRes.Error)
+		return errors.WithMessage(ErrInternalServerError, errRes.Error)
 	case http.StatusNotFound:
-		return fmt.Errorf("%w: %s", ErrNotFound, res.Request.URL.String())
+		return errors.WithMessage(ErrNotFound, res.Request.URL.String())
 	case http.StatusBadRequest:
-		return fmt.Errorf("%w: %s", ErrBadRequest, errRes.Error)
+		return errors.WithMessage(ErrBadRequest, errRes.Error)
 	case http.StatusUnauthorized:
-		return fmt.Errorf("%w: %s", ErrUnauthorized, errRes.Error)
+		return errors.WithMessage(ErrUnauthorized, errRes.Error)
 	case http.StatusNotImplemented:
-		return fmt.Errorf("%w: %s", ErrNotImplemented, errRes.Error)
+		return errors.WithMessage(ErrNotImplemented, errRes.Error)
 	}
 
-	return fmt.Errorf("%w: %s", ErrUnknownError, errRes.Error)
+	return errors.WithMessage(ErrUnknownError, errRes.Error)
 }
 
 func (api *GoShimmerAPI) do(method string, route string, reqObj interface{}, resObj interface{}) error {

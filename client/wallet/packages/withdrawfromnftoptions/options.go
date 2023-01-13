@@ -1,7 +1,7 @@
 package withdrawfromnftoptions
 
 import (
-	"github.com/cockroachdb/errors"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
@@ -87,7 +87,7 @@ func Build(options ...WithdrawFundsFromNFTOption) (result *WithdrawFundsFromNFTO
 		}
 	}
 	if result.Alias == nil {
-		return nil, errors.Errorf("an alias identifier must be specified for withdrawal")
+		return nil, errors.New("an alias identifier must be specified for withdrawal")
 	}
 
 	return

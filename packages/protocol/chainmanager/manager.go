@@ -3,11 +3,11 @@ package chainmanager
 import (
 	"sync"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/walker"
 	"github.com/iotaledger/hive.go/core/syncutils"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/eventticker"
@@ -137,7 +137,7 @@ func (m *Manager) Commitments(id commitment.ID, amount int) (commitments []*Comm
 	for i := 0; i < amount; i++ {
 		currentCommitment, exists := m.commitmentsByID[id]
 		if !exists {
-			return nil, errors.Errorf("not all commitments in the given range are known")
+			return nil, errors.New("not all commitments in the given range are known")
 		}
 
 		commitments[i] = currentCommitment
