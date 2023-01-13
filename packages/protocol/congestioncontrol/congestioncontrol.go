@@ -32,10 +32,17 @@ func New(opts ...options.Option[CongestionControl]) (congestionControl *Congesti
 }
 
 func (c *CongestionControl) Run() {
+	c.schedulerMutex.RLock()
+	defer c.schedulerMutex.RUnlock()
+
 	c.workerPool.Start()
 }
 
 func (c *CongestionControl) Shutdown() {
+	c.schedulerMutex.RLock()
+	defer c.schedulerMutex.RUnlock()
+	
+	c.scheduler.Shutdown()
 	c.workerPool.Shutdown()
 }
 
