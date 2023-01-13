@@ -106,7 +106,7 @@ func (c *Conflict[ConflictIDType, ResourceIDType]) addChild(child *Conflict[Conf
 	return c.children.Add(child)
 }
 
-func (c *Conflict[ConflictIDType, ResourceIDType]) forEachConflictingConflictID(consumer func(conflictingConflictID *Conflict[ConflictIDType, ResourceIDType]) bool) {
+func (c *Conflict[ConflictIDType, ResourceIDType]) ForEachConflictingConflict(consumer func(conflictingConflict *Conflict[ConflictIDType, ResourceIDType]) bool) {
 	for it := c.ConflictSets().Iterator(); it.HasNext(); {
 		conflictSet := it.Next()
 		for itConflictSets := conflictSet.Conflicts().Iterator(); itConflictSets.HasNext(); {

@@ -10,11 +10,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/core/database"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdagOld"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
 func TestOnTangleVoting_LikedInstead(t *testing.T) {
@@ -822,11 +819,10 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ls := ledger.New(storage.New(t.TempDir(), 1), ledger.WithCacheTimeProvider(database.NewCacheTimeProvider(0)))
-			defer ls.Shutdown()
+			tf := conflictdag.NewTestFramework(t)
 
-			tt.test.Scenario.CreateConflicts(t, ls.ConflictDAG)
-			o := New(ls.ConflictDAG, tt.test.WeightFunc)
+			tt.test.Scenario.CreateConflicts(t, tf.ConflictDAG)
+			o := New(tf.ConflictDAG, tt.test.WeightFunc)
 
 			for _, e := range tt.test.executions {
 				liked, conflictMembers := o.LikedConflictMember(tt.test.Scenario.ConflictID(e.conflictAlias))
@@ -887,7 +883,7 @@ func (s *Scenario) ConflictIDs(aliases ...string) *set.AdvancedSet[utxo.Transact
 }
 
 // CreateConflicts orders and creates the conflicts for the scenario.
-func (s *Scenario) CreateConflicts(t *testing.T, conflictDAG *conflictdagOld.ConflictDAG[utxo.TransactionID, utxo.OutputID]) {
+func (s *Scenario) CreateConflicts(t *testing.T, conflictDAG *conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID]) {
 	type order struct {
 		order int
 		name  string
@@ -909,7 +905,7 @@ func (s *Scenario) CreateConflicts(t *testing.T, conflictDAG *conflictdagOld.Con
 }
 
 // creates a conflict and registers a ConflictIDAlias with the name specified in conflictMeta.
-func createTestConflict(t *testing.T, conflictDAG *conflictdagOld.ConflictDAG[utxo.TransactionID, utxo.OutputID], alias string, conflictMeta *ConflictMeta) bool {
+func createTestConflict(t *testing.T, conflictDAG *conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID], alias string, conflictMeta *ConflictMeta) bool {
 	var newConflictCreated bool
 
 	if conflictMeta.ConflictID == utxo.EmptyTransactionID {
@@ -917,9 +913,7 @@ func createTestConflict(t *testing.T, conflictDAG *conflictdagOld.ConflictDAG[ut
 	}
 	newConflictCreated = conflictDAG.CreateConflict(conflictMeta.ConflictID, conflictMeta.ParentConflicts, conflictMeta.Conflicting)
 	require.True(t, newConflictCreated)
-	conflictDAG.Storage.CachedConflict(conflictMeta.ConflictID).Consume(func(conflict *conflictdagOld.Conflict[utxo.TransactionID, utxo.OutputID]) {
-		conflictMeta.ConflictID = conflict.ID()
-	})
+
 	conflictMeta.ConflictID.RegisterAlias(alias)
 	return newConflictCreated
 }

@@ -180,7 +180,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) SetConflictAccepted(confli
 
 		confirmationWalker.PushAll(conflict.Parents().Slice()...)
 
-		conflict.forEachConflictingConflictID(func(conflictingConflict *Conflict[ConflictIDType, ResourceIDType]) bool {
+		conflict.ForEachConflictingConflict(func(conflictingConflict *Conflict[ConflictIDType, ResourceIDType]) bool {
 			rejectionWalker.Push(conflictingConflict.ID())
 			return true
 		})
@@ -274,7 +274,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) determineConflictsToRevoke
 			continue
 		}
 
-		conflict.forEachConflictingConflictID(func(conflictingConflict *Conflict[ConflictIDType, ResourceIDType]) bool {
+		conflict.ForEachConflictingConflict(func(conflictingConflict *Conflict[ConflictIDType, ResourceIDType]) bool {
 			subTractionWalker.Push(conflictingConflict.ID())
 
 			return true
@@ -319,7 +319,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) anyParentRejected(parents 
 
 // anyConflictingConflictAccepted checks if any conflicting Conflict is Accepted/Confirmed.
 func (c *ConflictDAG[ConflictIDType, ResourceIDType]) anyConflictingConflictAccepted(conflict *Conflict[ConflictIDType, ResourceIDType]) (anyAccepted bool) {
-	conflict.forEachConflictingConflictID(func(conflictingConflict *Conflict[ConflictIDType, ResourceIDType]) bool {
+	conflict.ForEachConflictingConflict(func(conflictingConflict *Conflict[ConflictIDType, ResourceIDType]) bool {
 		anyAccepted = conflictingConflict.ConfirmationState().IsAccepted()
 		return !anyAccepted
 	})
@@ -350,4 +350,30 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) confirmationState(conflict
 	}
 
 	return confirmationState
+}
+
+// ForEachConnectedConflictingConflictID executes the callback for each Conflict that is directly or indirectly connected to
+// the named Conflict through a chain of intersecting conflicts.
+func (c *ConflictDAG[ConflictIDType, ResourceIDType]) ForEachConnectedConflictingConflictID(rootConflict *Conflict[ConflictIDType, ResourceIDType], callback func(conflictingConflict *Conflict[ConflictIDType, ResourceIDType])) {
+	traversedConflicts := set.New[*Conflict[ConflictIDType, ResourceIDType]]()
+	conflictSetsWalker := walker.New[*ConflictSet[ConflictIDType, ResourceIDType]]()
+
+	processConflictAndQueueConflictSets := func(conflict *Conflict[ConflictIDType, ResourceIDType]) {
+		if !traversedConflicts.Add(conflict) {
+			return
+		}
+
+		conflictSetsWalker.PushAll(conflict.ConflictSets().Slice()...)
+	}
+
+	processConflictAndQueueConflictSets(rootConflict)
+	for conflictSetsWalker.HasNext() {
+		conflictSet := conflictSetsWalker.Next()
+		for it := conflictSet.Conflicts().Iterator(); it.HasNext(); {
+			conflict := it.Next()
+			processConflictAndQueueConflictSets(conflict)
+		}
+	}
+
+	traversedConflicts.ForEach(callback)
 }
