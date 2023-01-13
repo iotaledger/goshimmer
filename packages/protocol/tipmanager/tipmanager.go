@@ -71,6 +71,10 @@ func (t *TipManager) AddTip(block *scheduler.Block) {
 		return
 	}
 
+	if t.isCommitmentOld(block) {
+		return
+	}
+
 	if !t.addTip(block) {
 		return
 	}
@@ -84,44 +88,12 @@ func (t *TipManager) AddTip(block *scheduler.Block) {
 	t.RemoveStrongParents(block.ModelsBlock)
 }
 
-func (t *TipManager) addTip(block *scheduler.Block) (added bool) {
-	if !t.tips.Has(block) {
-		t.tips.Set(block, block)
-		// t.tipsConflictTracker.AddTip(block)
-		t.Events.TipAdded.Trigger(block)
-		return true
-	}
-
-	return false
-}
-
 func (t *TipManager) DeleteTip(block *scheduler.Block) (deleted bool) {
 	if _, deleted = t.tips.Delete(block); deleted {
 		// t.tipsConflictTracker.RemoveTip(block)
 		t.Events.TipRemoved.Trigger(block)
 	}
 	return
-}
-
-// checkMonotonicity returns true if the block has any accepted or scheduled child.
-func (t *TipManager) checkMonotonicity(block *scheduler.Block) (anyScheduledOrAccepted bool) {
-	for _, child := range block.Children() {
-		if child.IsOrphaned() {
-			continue
-		}
-
-		if t.blockAcceptanceGadget.IsBlockAccepted(child.ID()) {
-			return true
-		}
-
-		if childBlock, exists := t.schedulerBlockRetrieverFunc(child.ID()); exists {
-			if childBlock.IsScheduled() {
-				return true
-			}
-		}
-	}
-
-	return false
 }
 
 // RemoveStrongParents removes all tips that are parents of the given block.
@@ -218,6 +190,42 @@ func (t *TipManager) TipCount() int {
 type markerPreviousBlockPair struct {
 	Marker        markers.Marker
 	PreviousBlock *booker.Block
+}
+
+func (t *TipManager) addTip(block *scheduler.Block) (added bool) {
+	if !t.tips.Has(block) {
+		t.tips.Set(block, block)
+		// t.tipsConflictTracker.AddTip(block)
+		t.Events.TipAdded.Trigger(block)
+		return true
+	}
+
+	return false
+}
+
+// checkMonotonicity returns true if the block has any accepted or scheduled child.
+func (t *TipManager) checkMonotonicity(block *scheduler.Block) (anyScheduledOrAccepted bool) {
+	for _, child := range block.Children() {
+		if child.IsOrphaned() {
+			continue
+		}
+
+		if t.blockAcceptanceGadget.IsBlockAccepted(child.ID()) {
+			return true
+		}
+
+		if childBlock, exists := t.schedulerBlockRetrieverFunc(child.ID()); exists {
+			if childBlock.IsScheduled() {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func (t *TipManager) isCommitmentOld(block *scheduler.Block) (isOld bool) {
+	return block.Commitment().Index() < t.engine.Storage.Settings.LatestCommitment().Index()-1
 }
 
 // isPastConeTimestampCorrect performs the TSC check for the given tip.
