@@ -14,6 +14,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdagOld"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 

@@ -15,6 +15,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdagOld"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 
 	"github.com/iotaledger/goshimmer/packages/app/remotemetrics"

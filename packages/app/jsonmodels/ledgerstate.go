@@ -11,6 +11,7 @@ import (
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdagOld"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )

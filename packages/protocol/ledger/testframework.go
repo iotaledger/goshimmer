@@ -19,6 +19,7 @@ import (
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/stringify"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdagOld"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"

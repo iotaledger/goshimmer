@@ -14,6 +14,7 @@ import (
 	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdagOld"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )

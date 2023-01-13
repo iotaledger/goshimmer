@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdagOld"
 
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/autopeering/selection"
