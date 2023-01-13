@@ -49,6 +49,10 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 
 		test.Cleanup(func() {
 			t.Protocol.Shutdown()
+			t.Protocol.CongestionControl.WorkerPool().ShutdownComplete.Wait()
+			for _, pool := range t.Protocol.Engine().WorkerPools() {
+				pool.ShutdownComplete.Wait()
+			}
 		})
 
 		identitiesWeights := map[identity.ID]uint64{
@@ -100,7 +104,12 @@ func NewEngineTestFramework(test *testing.T, opts ...options.Option[EngineTestFr
 			}
 
 			t.Engine = engine.New(t.optsStorage, dpos.NewProvider(), mana1.NewProvider(), engine.WithTangleOptions(t.optsTangleOptions...))
-			test.Cleanup(t.Engine.Shutdown)
+			test.Cleanup(func() {
+				t.Engine.Shutdown()
+				for _, pool := range t.Engine.WorkerPools() {
+					pool.ShutdownComplete.Wait()
+				}
+			})
 		}
 
 		t.Tangle = tangle.NewTestFramework(test, tangle.WithTangle(t.Engine.Tangle))

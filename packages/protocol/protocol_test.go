@@ -52,6 +52,10 @@ func TestProtocol(t *testing.T) {
 
 	t.Cleanup(func() {
 		protocol1.Shutdown()
+		protocol1.CongestionControl.WorkerPool().ShutdownComplete.Wait()
+		for _, pool := range protocol1.Engine().WorkerPools() {
+			pool.ShutdownComplete.Wait()
+		}
 	})
 
 	commitments := make(map[string]*commitment.Commitment)
