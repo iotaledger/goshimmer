@@ -56,10 +56,14 @@ func broadcastData(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: "no data provided"})
 	}
 
-	if request.MaxEstimate > 0 && deps.BlockIssuer.Estimate().Milliseconds() > request.MaxEstimate {
-		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{
-			Error: fmt.Sprintf("issuance estimate greater than %d ms", request.MaxEstimate),
-		})
+	maxAwaitTime := maxIssuedAwaitTime
+	if request.MaxEstimate > 0 {
+		maxAwaitTime = time.Duration(time.Duration(request.MaxEstimate).Milliseconds())
+		if deps.BlockIssuer.Estimate().Milliseconds() > request.MaxEstimate {
+			return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{
+				Error: fmt.Sprintf("issuance estimate greater than %d ms", request.MaxEstimate),
+			})
+		}
 	}
 
 	constructedBlock, err := deps.BlockIssuer.CreateBlock(payload.NewGenericDataPayload(request.Data))
@@ -68,7 +72,7 @@ func broadcastData(c echo.Context) error {
 	}
 
 	// await BlockScheduled event to be triggered.
-	err = deps.BlockIssuer.IssueBlockAndAwaitBlockToBeScheduled(constructedBlock, time.Duration(request.MaxEstimate)*time.Millisecond)
+	err = deps.BlockIssuer.IssueBlockAndAwaitBlockToBeScheduled(constructedBlock, maxAwaitTime)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, jsonmodels.DataResponse{Error: err.Error()})
 	}
