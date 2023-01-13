@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cockroachdb/errors"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/client/evilwallet"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
@@ -34,8 +34,8 @@ func DataSpammingFunction(s *Spammer) {
 func CustomConflictSpammingFunc(s *Spammer) {
 	conflictBatch, aliases, err := s.EvilWallet.PrepareCustomConflictsSpam(s.EvilScenario)
 	if err != nil {
-		s.log.Debugf(errors.Newf("%v: %w", ErrFailToPrepareBatch, err).Error())
-		s.ErrCounter.CountError(errors.Newf("%v: %w", ErrFailToPrepareBatch, err))
+		s.log.Debugf(errors.WithMessage(ErrFailToPrepareBatch, err.Error()).Error())
+		s.ErrCounter.CountError(errors.WithMessage(ErrFailToPrepareBatch, err.Error()))
 	}
 
 	for _, txs := range conflictBatch {

@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
@@ -85,7 +84,7 @@ func (t *TestFramework) WaitUntilAllTasksProcessed() (self *TestFramework) {
 func (t *TestFramework) AssertMissing(expectedValues map[string]bool) {
 	for alias, isMissing := range expectedValues {
 		t.AssertBlock(alias, func(block *Block) {
-			assert.Equal(t.test, isMissing, block.IsMissing(), "block %s has incorrect missing flag", alias)
+			require.Equal(t.test, isMissing, block.IsMissing(), "block %s has incorrect missing flag", alias)
 		})
 	}
 }
@@ -93,7 +92,7 @@ func (t *TestFramework) AssertMissing(expectedValues map[string]bool) {
 func (t *TestFramework) AssertInvalid(expectedValues map[string]bool) {
 	for alias, isInvalid := range expectedValues {
 		t.AssertBlock(alias, func(block *Block) {
-			assert.Equal(t.test, isInvalid, block.IsInvalid(), "block %s has incorrect invalid flag", alias)
+			require.Equal(t.test, isInvalid, block.IsInvalid(), "block %s has incorrect invalid flag", alias)
 		})
 	}
 }
@@ -101,7 +100,7 @@ func (t *TestFramework) AssertInvalid(expectedValues map[string]bool) {
 func (t *TestFramework) AssertSolid(expectedValues map[string]bool) {
 	for alias, isSolid := range expectedValues {
 		t.AssertBlock(alias, func(block *Block) {
-			assert.Equal(t.test, isSolid, block.IsSolid(), "block %s has incorrect solid flag", alias)
+			require.Equal(t.test, isSolid, block.IsSolid(), "block %s has incorrect solid flag", alias)
 		})
 	}
 }
@@ -110,27 +109,27 @@ func (t *TestFramework) AssertOrphanedBlocks(orphanedBlocks models.BlockIDs, msg
 	t.orphanedBlocksMutex.Lock()
 	defer t.orphanedBlocksMutex.Unlock()
 
-	assert.EqualValues(t.test, orphanedBlocks, t.orphanedBlocks, msgAndArgs...)
+	require.EqualValues(t.test, orphanedBlocks, t.orphanedBlocks, msgAndArgs...)
 }
 
 func (t *TestFramework) AssertSolidCount(solidCount int32, msgAndArgs ...interface{}) {
-	assert.EqualValues(t.test, solidCount, atomic.LoadInt32(&(t.solidBlocks)), msgAndArgs...)
+	require.EqualValues(t.test, solidCount, atomic.LoadInt32(&(t.solidBlocks)), msgAndArgs...)
 }
 
 func (t *TestFramework) AssertInvalidCount(invalidCount int32, msgAndArgs ...interface{}) {
-	assert.EqualValues(t.test, invalidCount, atomic.LoadInt32(&(t.invalidBlocks)), msgAndArgs...)
+	require.EqualValues(t.test, invalidCount, atomic.LoadInt32(&(t.invalidBlocks)), msgAndArgs...)
 }
 
 func (t *TestFramework) AssertMissingCount(missingCount int32, msgAndArgs ...interface{}) {
-	assert.EqualValues(t.test, missingCount, atomic.LoadInt32(&(t.missingBlocks)), msgAndArgs...)
+	require.EqualValues(t.test, missingCount, atomic.LoadInt32(&(t.missingBlocks)), msgAndArgs...)
 }
 
 func (t *TestFramework) AssertStoredCount(storedCount int32, msgAndArgs ...interface{}) {
-	assert.EqualValues(t.test, storedCount, atomic.LoadInt32(&(t.attachedBlocks)), msgAndArgs...)
+	require.EqualValues(t.test, storedCount, atomic.LoadInt32(&(t.attachedBlocks)), msgAndArgs...)
 }
 
 func (t *TestFramework) AssertOrphanedCount(storedCount int32, msgAndArgs ...interface{}) {
-	assert.EqualValues(t.test, storedCount, len(t.orphanedBlocks), msgAndArgs...)
+	require.EqualValues(t.test, storedCount, len(t.orphanedBlocks), msgAndArgs...)
 }
 
 func (t *TestFramework) AssertBlock(alias string, callback func(block *Block)) {
@@ -142,7 +141,7 @@ func (t *TestFramework) AssertBlock(alias string, callback func(block *Block)) {
 func (t *TestFramework) AssertStrongChildren(m map[string][]string) {
 	for alias, children := range m {
 		t.AssertBlock(alias, func(block *Block) {
-			assert.Equal(t.test, t.BlockIDs(children...), models.NewBlockIDs(lo.Map(block.strongChildren, (*Block).ID)...))
+			require.Equal(t.test, t.BlockIDs(children...), models.NewBlockIDs(lo.Map(block.strongChildren, (*Block).ID)...))
 		})
 	}
 }
@@ -150,7 +149,7 @@ func (t *TestFramework) AssertStrongChildren(m map[string][]string) {
 func (t *TestFramework) AssertWeakChildren(m map[string][]string) {
 	for alias, children := range m {
 		t.AssertBlock(alias, func(block *Block) {
-			assert.Equal(t.test, t.BlockIDs(children...), models.NewBlockIDs(lo.Map(block.weakChildren, (*Block).ID)...))
+			require.Equal(t.test, t.BlockIDs(children...), models.NewBlockIDs(lo.Map(block.weakChildren, (*Block).ID)...))
 		})
 	}
 }
@@ -158,7 +157,7 @@ func (t *TestFramework) AssertWeakChildren(m map[string][]string) {
 func (t *TestFramework) AssertLikedInsteadChildren(m map[string][]string) {
 	for alias, children := range m {
 		t.AssertBlock(alias, func(block *Block) {
-			assert.Equal(t.test, t.BlockIDs(children...), models.NewBlockIDs(lo.Map(block.likedInsteadChildren, (*Block).ID)...))
+			require.Equal(t.test, t.BlockIDs(children...), models.NewBlockIDs(lo.Map(block.likedInsteadChildren, (*Block).ID)...))
 		})
 	}
 }

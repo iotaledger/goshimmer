@@ -2,9 +2,9 @@ package faucet
 
 import (
 	"context"
-	"fmt"
 
-	"github.com/cockroachdb/errors"
+	"github.com/pkg/errors"
+
 	"github.com/iotaledger/hive.go/core/generics/model"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/serix"
@@ -18,11 +18,11 @@ import (
 func init() {
 	err := serix.DefaultAPI.RegisterTypeSettings(Payload{}, serix.TypeSettings{}.WithObjectType(uint32(new(Payload).Type())))
 	if err != nil {
-		panic(fmt.Errorf("error registering Transaction type settings: %w", err))
+		panic(errors.Wrap(err, "error registering Transaction type settings"))
 	}
 	err = serix.DefaultAPI.RegisterInterfaceObjects((*payload.Payload)(nil), new(Payload))
 	if err != nil {
-		panic(fmt.Errorf("error registering Transaction as Payload interface: %w", err))
+		panic(errors.Wrap(err, "error registering Transaction as Payload interface"))
 	}
 }
 
@@ -71,7 +71,7 @@ func FromBytes(data []byte) (payloadDecoded *Payload, consumedBytes int, err err
 
 	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), data, payloadDecoded, serix.WithValidation())
 	if err != nil {
-		err = errors.Errorf("failed to parse Request: %w", err)
+		err = errors.Wrap(err, "failed to parse Request")
 		return
 	}
 

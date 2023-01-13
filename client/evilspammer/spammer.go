@@ -3,7 +3,7 @@ package evilspammer
 import (
 	"time"
 
-	"github.com/cockroachdb/errors"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/client/evilwallet"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
@@ -203,7 +203,7 @@ func (s *Spammer) PostTransaction(tx *devnetvm.Transaction, clt evilwallet.Clien
 	allSolid := s.handleSolidityForReuseOutputs(clt, tx)
 	if !allSolid {
 		s.log.Debug(ErrInputsNotSolid)
-		s.ErrCounter.CountError(errors.Errorf("%v, txID: %s", ErrInputsNotSolid, tx.ID().Base58()))
+		s.ErrCounter.CountError(errors.WithMessagef(ErrInputsNotSolid, "txID: %s", tx.ID().Base58()))
 		return
 	}
 
@@ -215,7 +215,7 @@ func (s *Spammer) PostTransaction(tx *devnetvm.Transaction, clt evilwallet.Clien
 	txID, err = clt.PostTransaction(tx)
 	if err != nil {
 		s.log.Debug(ErrFailPostTransaction)
-		s.ErrCounter.CountError(errors.Newf("%s: %w", ErrFailPostTransaction, err))
+		s.ErrCounter.CountError(errors.WithMessage(ErrFailPostTransaction, err.Error()))
 		return
 	}
 	if s.EvilScenario.OutputWallet.Type() == evilwallet.Reuse {

@@ -3,11 +3,11 @@ package conflictdag
 import (
 	"sync"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/cerrors"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/objectstorage"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
 )
@@ -124,7 +124,7 @@ func (s *Storage[ConflictID, ConflictSetID]) Prune() (err error) {
 		s.conflictMemberStorage.Prune,
 	} {
 		if err = storagePrune(); err != nil {
-			err = errors.Errorf("failed to prune the object storage (%v): %w", err, cerrors.ErrFatal)
+			err = errors.WithMessagef(cerrors.ErrFatal, "failed to prune the object storage: %s", err.Error())
 			return
 		}
 	}

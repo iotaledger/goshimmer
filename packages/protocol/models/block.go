@@ -9,7 +9,6 @@ import (
 
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/lo"
@@ -19,6 +18,7 @@ import (
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/stringify"
 	"github.com/iotaledger/hive.go/core/types"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -109,7 +109,7 @@ func NewEmptyBlock(id BlockID, opts ...options.Option[Block]) (newBlock *Block) 
 func (b *Block) ContentHash() (contentHash types.Identifier, err error) {
 	blkBytes, err := b.Bytes()
 	if err != nil {
-		return types.Identifier{}, errors.Errorf("failed to create block bytes: %w", err)
+		return types.Identifier{}, errors.Wrap(err, "failed to create block bytes")
 	}
 
 	return blake2b.Sum256(blkBytes[:len(blkBytes)-ed25519.SignatureSize]), nil
@@ -251,7 +251,7 @@ func (b *Block) SetSignature(signature ed25519.Signature) {
 func (b *Block) DetermineID(blockIdentifier ...types.Identifier) (err error) {
 	blkBytes, err := b.Bytes()
 	if err != nil {
-		return errors.Errorf("failed to create block bytes: %w", err)
+		return errors.Wrap(err, "failed to create block bytes")
 	}
 	if len(blockIdentifier) > 0 {
 		b.SetID(BlockID{

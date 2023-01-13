@@ -4,13 +4,13 @@ import (
 	"context"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/serix"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -78,7 +78,7 @@ func (f *Factory) CreateBlockWithReferences(p payload.Payload, references models
 func (f *Factory) createBlockWithPayload(p payload.Payload, references models.ParentBlockIDs, strongParentsCount int) (*models.Block, error) {
 	payloadBytes, err := p.Bytes()
 	if err != nil {
-		return nil, errors.Errorf("could not serialize payload: %w", err)
+		return nil, errors.Wrap(err, "could not serialize payload")
 	}
 
 	if payloadLen := len(payloadBytes); payloadLen > payload.MaxSize {
@@ -87,13 +87,13 @@ func (f *Factory) createBlockWithPayload(p payload.Payload, references models.Pa
 
 	epochCommitment, lastConfirmedEpochIndex, err := f.commitmentFunc()
 	if err != nil {
-		return nil, errors.Errorf("cannot retrieve epoch commitment: %w", err)
+		return nil, errors.Wrap(err, "cannot retrieve epoch commitment")
 	}
 
 	if references.IsEmpty() {
 		references, err = f.tryGetReferences(p, strongParentsCount)
 		if err != nil {
-			return nil, errors.Errorf("error while trying to get references: %w", err)
+			return nil, errors.Wrap(err, "error while trying to get references")
 		}
 	}
 
@@ -110,12 +110,12 @@ func (f *Factory) createBlockWithPayload(p payload.Payload, references models.Pa
 	// create the signature
 	signature, err := f.sign(block)
 	if err != nil {
-		return nil, errors.Errorf("signing failed: %w", err)
+		return nil, errors.Wrap(err, "signing failed")
 	}
 	block.SetSignature(signature)
 
 	if err = block.DetermineID(); err != nil {
-		return nil, errors.Errorf("there is a problem with the block syntax: %w", err)
+		return nil, errors.Wrap(err, "there is a problem with the block syntax")
 	}
 
 	return block, nil
@@ -126,7 +126,7 @@ func (f *Factory) tryGetReferences(p payload.Payload, parentsCount int) (referen
 	if err == nil {
 		return references, nil
 	}
-	f.Events.Error.Trigger(errors.Errorf("could not get references: %w", err))
+	f.Events.Error.Trigger(errors.Wrap(err, "could not get references"))
 
 	timeout := time.NewTimer(f.optsTipSelectionTimeout)
 	interval := time.NewTicker(f.optsTipSelectionRetryInterval)
@@ -135,7 +135,7 @@ func (f *Factory) tryGetReferences(p payload.Payload, parentsCount int) (referen
 		case <-interval.C:
 			references, err = f.getReferences(p, parentsCount)
 			if err != nil {
-				f.Events.Error.Trigger(errors.Errorf("could not get references: %w", err))
+				f.Events.Error.Trigger(errors.Wrap(err, "could not get references"))
 				continue
 			}
 
@@ -155,7 +155,7 @@ func (f *Factory) getReferences(p payload.Payload, parentsCount int) (references
 	references, err = f.referencesFunc(p, strongParents)
 	// If none of the strong parents are possible references, we have to try again.
 	if err != nil {
-		return nil, errors.Errorf("references could not be created: %w", err)
+		return nil, errors.Wrap(err, "references could not be created")
 	}
 
 	// fill up weak references with weak references to liked missing conflicts
@@ -209,12 +209,12 @@ func (f *Factory) tips(p payload.Payload, parentsCount int) (parents models.Bloc
 func (f *Factory) sign(block *models.Block) (ed25519.Signature, error) {
 	contentHash, err := block.ContentHash()
 	if err != nil {
-		return ed25519.EmptySignature, errors.Errorf("failed to obtain block content's hash: %w", err)
+		return ed25519.EmptySignature, errors.Wrap(err, "failed to obtain block content's hash")
 	}
 
 	issuingTimeBytes, err := serix.DefaultAPI.Encode(context.Background(), block.IssuingTime(), serix.WithValidation())
 	if err != nil {
-		return ed25519.EmptySignature, errors.Errorf("failed to serialize block's issuing time: %w", err)
+		return ed25519.EmptySignature, errors.Wrap(err, "failed to serialize block's issuing time")
 	}
 
 	return f.identity.Sign(byteutils.ConcatBytes(issuingTimeBytes, lo.PanicOnErr(block.Commitment().ID().Bytes()), contentHash[:])), nil

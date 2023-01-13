@@ -4,11 +4,11 @@ import (
 	"sync"
 
 	"github.com/celestiaorg/smt"
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/constraints"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/iotaledger/hive.go/core/types"
+	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/storage/typedkey"
@@ -133,25 +133,25 @@ func (m *Map[K, V, KPtr, VPtr]) Stream(callback func(key K, value VPtr) bool) (e
 	if iterationErr := m.rawKeysStore.Iterate([]byte{}, func(key kvstore.Key, _ kvstore.Value) bool {
 		value, valueErr := m.tree.Get(key)
 		if valueErr != nil {
-			err = errors.Errorf("failed to get value for key %s: %w", key, valueErr)
+			err = errors.Wrapf(valueErr, "failed to get value for key %s", key)
 			return false
 		}
 
 		var kPtr KPtr = new(K)
 		if _, keyErr := kPtr.FromBytes(key); keyErr != nil {
-			err = errors.Errorf("failed to deserialize key %s: %w", key, keyErr)
+			err = errors.Wrapf(keyErr, "failed to deserialize key %s", key)
 			return false
 		}
 
 		var valuePtr VPtr = new(V)
 		if _, valueErr := valuePtr.FromBytes(value); valueErr != nil {
-			err = errors.Errorf("failed to deserialize value %s: %w", value, valueErr)
+			err = errors.Wrapf(valueErr, "failed to deserialize value %s", value)
 			return false
 		}
 
 		return callback(*kPtr, valuePtr)
 	}); iterationErr != nil {
-		err = errors.Errorf("failed to iterate over raw keys: %w", iterationErr)
+		err = errors.Wrapf(iterationErr, "failed to iterate over raw keys")
 	}
 
 	return

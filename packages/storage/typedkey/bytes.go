@@ -3,8 +3,8 @@ package typedkey
 import (
 	"sync"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/kvstore"
+	"github.com/pkg/errors"
 )
 
 type Bytes struct {

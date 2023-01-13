@@ -5,10 +5,10 @@ import (
 	"io"
 	"sync"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/iotaledger/hive.go/core/types"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/ads"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -76,7 +76,7 @@ func (u *UnspentOutputs) Root() types.Identifier {
 
 func (u *UnspentOutputs) Begin(newEpoch epoch.Index) (lastCommittedEpoch epoch.Index, err error) {
 	if lastCommittedEpoch, err = u.BeginBatchedStateTransition(newEpoch); err != nil {
-		return 0, errors.Errorf("failed to begin batched state transition: %w", err)
+		return 0, errors.Wrap(err, "failed to begin batched state transition")
 	}
 
 	if lastCommittedEpoch == newEpoch {
@@ -128,7 +128,7 @@ func (u *UnspentOutputs) ApplyCreatedOutput(output *ledger.OutputWithMetadata) (
 	}
 
 	if err = u.notifyConsumers(targetConsumers, output, UnspentOutputsConsumer.ApplyCreatedOutput); err != nil {
-		return errors.Errorf("failed to apply created output to consumers: %w", err)
+		return errors.Wrap(err, "failed to apply created output to consumers")
 	}
 
 	return
@@ -147,7 +147,7 @@ func (u *UnspentOutputs) ApplySpentOutput(output *ledger.OutputWithMetadata) (er
 	}
 
 	if err = u.notifyConsumers(targetConsumers, output, UnspentOutputsConsumer.ApplySpentOutput); err != nil {
-		return errors.Errorf("failed to apply spent output to consumers: %w", err)
+		return errors.Wrap(err, "failed to apply spent output to consumers")
 	}
 
 	return
@@ -166,9 +166,9 @@ func (u *UnspentOutputs) Export(writer io.WriteSeeker) (err error) {
 		var outputWithMetadata *ledger.OutputWithMetadata
 		if iterationErr := u.IDs.Stream(func(outputID utxo.OutputID) bool {
 			if outputWithMetadata, err = u.outputWithMetadata(outputID); err != nil {
-				err = errors.Errorf("failed to load output with metadata: %w", err)
+				err = errors.Wrap(err, "failed to load output with metadata")
 			} else if err = stream.WriteSerializable(writer, outputWithMetadata); err != nil {
-				err = errors.Errorf("failed to write output with metadata: %w", err)
+				err = errors.Wrap(err, "failed to write output with metadata")
 			} else {
 				elementsCount++
 			}
@@ -180,7 +180,7 @@ func (u *UnspentOutputs) Export(writer io.WriteSeeker) (err error) {
 
 		return
 	}); err != nil {
-		return errors.Errorf("failed to export unspent outputs: %w", err)
+		return errors.Wrap(err, "failed to export unspent outputs")
 	}
 
 	return
@@ -190,14 +190,14 @@ func (u *UnspentOutputs) Import(reader io.ReadSeeker, targetEpoch epoch.Index) (
 	outputWithMetadata := new(ledger.OutputWithMetadata)
 	if err = stream.ReadCollection(reader, func(i int) (err error) {
 		if err = stream.ReadSerializable(reader, outputWithMetadata); err != nil {
-			return errors.Errorf("failed to read output with metadata: %w", err)
+			return errors.Wrap(err, "failed to read output with metadata")
 		} else if err = u.ApplyCreatedOutput(outputWithMetadata); err != nil {
-			return errors.Errorf("failed to apply created output: %w", err)
+			return errors.Wrap(err, "failed to apply created output")
 		}
 
 		return
 	}); err != nil {
-		return errors.Errorf("failed to import unspent outputs: %w", err)
+		return errors.Wrap(err, "failed to import unspent outputs")
 	}
 
 	u.SetLastCommittedEpoch(targetEpoch)
@@ -239,7 +239,7 @@ func (u *UnspentOutputs) preparePendingConsumers(currentEpoch, targetEpoch epoch
 	for _, consumer := range u.Consumers() {
 		consumerEpoch, err := consumer.BeginBatchedStateTransition(targetEpoch)
 		if err != nil {
-			return errors.Errorf("failed to start consumer transaction: %w", err)
+			return errors.Wrap(err, "failed to start consumer transaction")
 		} else if consumerEpoch != currentEpoch && consumerEpoch != targetEpoch {
 			return errors.Errorf("consumer in unexpected epoch: %d", consumerEpoch)
 		} else if consumerEpoch != targetEpoch {
@@ -253,7 +253,7 @@ func (u *UnspentOutputs) preparePendingConsumers(currentEpoch, targetEpoch epoch
 func (u *UnspentOutputs) notifyConsumers(consumer map[UnspentOutputsConsumer]types.Empty, output *ledger.OutputWithMetadata, callback func(self UnspentOutputsConsumer, output *ledger.OutputWithMetadata) (err error)) (err error) {
 	for consumer := range consumer {
 		if err = callback(consumer, output); err != nil {
-			return errors.Errorf("failed to apply changes to consumer: %w", err)
+			return errors.Wrap(err, "failed to apply changes to consumer")
 		}
 	}
 
@@ -265,7 +265,7 @@ func (u *UnspentOutputs) outputWithMetadata(outputID utxo.OutputID) (outputWithM
 		if !u.memPool.Storage.CachedOutputMetadata(outputID).Consume(func(metadata *ledger.OutputMetadata) {
 			outputWithMetadata = ledger.NewOutputWithMetadata(metadata.InclusionEpoch(), outputID, output, metadata.ConsensusManaPledgeID(), metadata.AccessManaPledgeID())
 		}) {
-			err = errors.Errorf("failed to load output metadata: %w", err)
+			err = errors.Wrap(err, "failed to load output metadata")
 		}
 	}) {
 		err = errors.Errorf("failed to load output %s", outputID)

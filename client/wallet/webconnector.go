@@ -1,9 +1,9 @@
 package wallet
 
 import (
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
@@ -144,7 +144,7 @@ func (webConnector WebConnector) GetUnspentAliasOutput(addr *devnetvm.AliasAddre
 		}
 		alias, ok := uncastedOutput.(*devnetvm.AliasOutput)
 		if !ok {
-			err = errors.Errorf("alias output received from api cannot be casted to ledgerstate representation")
+			err = errors.New("alias output received from api cannot be casted to ledgerstate representation")
 			return
 		}
 		if alias.GetAliasAddress().Equals(addr) {

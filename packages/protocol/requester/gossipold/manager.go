@@ -5,7 +5,7 @@ package gossipold
 // 	"fmt"
 // 	"sync"
 //
-// 	"github.com/cockroachdb/errors"
+// 	"github.com/pkg/errors"
 // 	"github.com/iotaledger/hive.go/core/generics/event"
 // 	"github.com/iotaledger/hive.go/core/identity"
 // 	"github.com/iotaledger/hive.go/core/logger"
@@ -103,16 +103,16 @@ package gossipold
 // 	switch packetBody := gpPacket.GetBody().(type) {
 // 	case *gp.Packet_Block:
 // 		if added := event.Loop.TrySubmit(func() { m.processBlockPacket(packetBody, id); m.pendingCount.Dec() }); !added {
-// 			return fmt.Errorf("blockWorkerPool full: packet block discarded")
+// 			return errors.New("blockWorkerPool full: packet block discarded")
 // 		}
 // 		m.pendingCount.Inc()
 // 	case *gp.Packet_BlockRequest:
 // 		if added := event.Loop.TrySubmit(func() { m.processBlockRequestPacket(packetBody, id); m.requesterPendingCount.Dec() }); !added {
-// 			return fmt.Errorf("blockRequestWorkerPool full: block request discarded")
+// 			return errors.New("blockRequestWorkerPool full: block request discarded")
 // 		}
 // 		m.requesterPendingCount.Inc()
 // 	default:
-// 		return errors.Newf("unsupported packet; packet=%+v, packetBody=%T-%+v", gpPacket, packetBody, packetBody)
+// 		return errors.Errorf("unsupported packet; packet=%+v, packetBody=%T-%+v", gpPacket, packetBody, packetBody)
 // 	}
 //
 // 	return nil

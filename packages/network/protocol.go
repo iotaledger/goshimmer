@@ -3,7 +3,7 @@ package network
 import (
 	"sync"
 
-	"github.com/cockroachdb/errors"
+	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotaledger/hive.go/core/bytesfilter"
@@ -121,7 +121,7 @@ func (p *Protocol) onBlock(blockData []byte, id identity.ID) {
 	block := new(models.Block)
 	if _, err := block.FromBytes(blockData); err != nil {
 		p.Events.Error.Trigger(&ErrorEvent{
-			Error:  errors.Errorf("failed to deserialize block: %w", err),
+			Error:  errors.Wrap(err, "failed to deserialize block"),
 			Source: id,
 		})
 
@@ -147,7 +147,7 @@ func (p *Protocol) onBlockRequest(idBytes []byte, id identity.ID) {
 	var blockID models.BlockID
 	if _, err := blockID.FromBytes(idBytes); err != nil {
 		p.Events.Error.Trigger(&ErrorEvent{
-			Error:  errors.Errorf("failed to deserialize block request: %w", err),
+			Error:  errors.Wrap(err, "failed to deserialize block request"),
 			Source: id,
 		})
 
@@ -164,7 +164,7 @@ func (p *Protocol) onEpochCommitment(commitmentBytes []byte, id identity.ID) {
 	var receivedCommitment commitment.Commitment
 	if _, err := receivedCommitment.FromBytes(commitmentBytes); err != nil {
 		p.Events.Error.Trigger(&ErrorEvent{
-			Error:  errors.Errorf("failed to deserialize epoch commitment: %w", err),
+			Error:  errors.Wrap(err, "failed to deserialize epoch commitment"),
 			Source: id,
 		})
 
@@ -181,7 +181,7 @@ func (p *Protocol) onEpochCommitmentRequest(idBytes []byte, id identity.ID) {
 	var receivedCommitmentID commitment.ID
 	if _, err := receivedCommitmentID.FromBytes(idBytes); err != nil {
 		p.Events.Error.Trigger(&ErrorEvent{
-			Error:  errors.Errorf("failed to deserialize epoch commitment request: %w", err),
+			Error:  errors.Wrap(err, "failed to deserialize epoch commitment request"),
 			Source: id,
 		})
 
@@ -206,7 +206,7 @@ func (p *Protocol) onAttestationsRequest(epochIndexBytes []byte, id identity.ID)
 	epochIndex, _, err := epoch.IndexFromBytes(epochIndexBytes)
 	if err != nil {
 		p.Events.Error.Trigger(&ErrorEvent{
-			Error:  errors.Errorf("failed to deserialize epoch index: %w", err),
+			Error:  errors.Wrap(err, "failed to deserialize epoch index"),
 			Source: id,
 		})
 

@@ -4,9 +4,9 @@ import (
 	"context"
 	"sync"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/iotaledger/hive.go/core/serix"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/cerrors"
@@ -193,7 +193,7 @@ func (s *Storage) Prune() (err error) {
 		s.consumerStorage.Prune,
 	} {
 		if err = storagePrune(); err != nil {
-			err = errors.Errorf("failed to prune the object storage (%v): %w", err, cerrors.ErrFatal)
+			err = errors.WithMessagef(cerrors.ErrFatal, "failed to prune the object storage (%v)", err)
 			return
 		}
 	}
@@ -229,7 +229,7 @@ func (s *Storage) storeTransactionCommand(params *dataFlowParams, next dataflow.
 			return nil
 		}
 
-		return errors.Errorf("%s is an unsolid reattachment: %w", params.Transaction.ID(), ErrTransactionUnsolid)
+		return errors.WithMessagef(ErrTransactionUnsolid, "%s is an unsolid reattachment", params.Transaction.ID())
 	}
 
 	params.InputIDs = s.ledger.Utils.ResolveInputs(params.Transaction.Inputs())

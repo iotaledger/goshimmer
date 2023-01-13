@@ -1,13 +1,12 @@
 package evilwallet
 
 import (
-	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/types"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
@@ -288,7 +287,7 @@ func (o *OutputManager) AwaitTransactionToBeAccepted(txID string, waitFor time.D
 		}
 	}
 	if !accepted {
-		return fmt.Errorf("transaction %s not accepted in time", txID)
+		return errors.Errorf("transaction %s not accepted in time", txID)
 	}
 	return nil
 }
@@ -309,7 +308,7 @@ func (o *OutputManager) AwaitOutputToBeSolid(outID string, clt Client, waitFor t
 		}
 	}
 	if !solid {
-		return errors.Newf("output %s not solidified in time", outID)
+		return errors.Errorf("output %s not solidified in time", outID)
 	}
 	return nil
 }

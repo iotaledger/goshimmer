@@ -3,13 +3,13 @@ package ledger
 import (
 	"context"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/cerrors"
 	"github.com/iotaledger/hive.go/core/generics/dataflow"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/generics/walker"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
@@ -36,7 +36,7 @@ func (b *booker) checkAlreadyBookedCommand(params *dataFlowParams, next dataflow
 
 		transactionMetadata, exists := cachedTransactionMetadata.Unwrap()
 		if !exists {
-			return errors.Errorf("failed to load metadata of %s: %w", params.Transaction.ID(), cerrors.ErrFatal)
+			return errors.WithMessagef(cerrors.ErrFatal, "failed to load metadata of %s", params.Transaction.ID())
 		}
 		params.TransactionMetadata = transactionMetadata
 	}
