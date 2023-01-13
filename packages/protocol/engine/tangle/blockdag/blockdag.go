@@ -131,6 +131,10 @@ func (b *BlockDAG) markSolid(block *Block) (err error) {
 		return err
 	}
 
+	if err := b.checkCommitmentMonotonicity(block); err != nil {
+		return err
+	}
+
 	block.setSolid()
 
 	b.Events.BlockSolid.Trigger(block)
@@ -143,6 +147,15 @@ func (b *BlockDAG) checkTimestampMonotonicity(block *Block) error {
 		parent, parentExists := b.Block(parentID)
 		if parentExists && parent.IssuingTime().After(block.IssuingTime()) {
 			return errors.Errorf("timestamp monotonicity check failed for parent %s with timestamp %s. block timestamp %s", parent.ID(), parent.IssuingTime(), block.IssuingTime())
+		}
+	}
+	return nil
+}
+
+func (b *BlockDAG) checkCommitmentMonotonicity(block *Block) error {
+	for _, parentID := range block.Parents() {
+		if parent, exists := b.Block(parentID); exists && parent.Commitment().Index() > block.Commitment().Index() {
+			return errors.Errorf("commitment monotonicity check failed for parent %s with commitment index %d. block commitment index %d", parentID, parent.Commitment().Index(), block.Commitment().Index())
 		}
 	}
 	return nil
