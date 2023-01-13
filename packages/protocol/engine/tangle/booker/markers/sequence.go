@@ -5,11 +5,11 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/marshalutil"
 	"github.com/iotaledger/hive.go/core/serix"
+	"github.com/pkg/errors"
 )
 
 // region SequenceID ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -21,7 +21,7 @@ type SequenceID uint64
 func (s *SequenceID) FromBytes(data []byte) (err error) {
 	_, err = serix.DefaultAPI.Decode(context.Background(), data, s, serix.WithValidation())
 	if err != nil {
-		return errors.Errorf("failed to parse SequenceID: %w", err)
+		return errors.Wrap(err, "failed to parse SequenceID")
 	}
 
 	return nil

@@ -1,7 +1,7 @@
 package sweepnftownedoptions
 
 import (
-	"github.com/cockroachdb/errors"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
@@ -79,7 +79,7 @@ func Build(options ...SweepNFTOwnedFundsOption) (result *SweepNFTOwnedFundsOptio
 	}
 
 	if result.Alias == nil {
-		return nil, errors.Errorf("an nft identifier must be specified to sweep funds from")
+		return nil, errors.New("an nft identifier must be specified to sweep funds from")
 	}
 
 	return

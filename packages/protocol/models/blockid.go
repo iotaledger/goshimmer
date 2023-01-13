@@ -8,7 +8,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/lo"
@@ -16,6 +15,7 @@ import (
 	"github.com/iotaledger/hive.go/core/stringify"
 	"github.com/iotaledger/hive.go/core/types"
 	"github.com/mr-tron/base58"
+	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -68,15 +68,15 @@ func (b *BlockID) FromBase58(base58EncodedString string) (err error) {
 	s := strings.Split(base58EncodedString, ":")
 	decodedBytes, err := base58.Decode(s[0])
 	if err != nil {
-		return errors.Errorf("could not decode base58 encoded BlockID.Identifier: %w", err)
+		return errors.Wrap(err, "could not decode base58 encoded BlockID.Identifier")
 	}
 	epochIndex, err := strconv.ParseInt(s[1], 10, 64)
 	if err != nil {
-		return errors.Errorf("could not decode BlockID.EpochIndex from string: %w", err)
+		return errors.Wrap(err, "could not decode BlockID.EpochIndex from string")
 	}
 
 	if _, err = serix.DefaultAPI.Decode(context.Background(), decodedBytes, &b.Identifier, serix.WithValidation()); err != nil {
-		return errors.Errorf("failed to decode BlockID: %w", err)
+		return errors.Wrap(err, "failed to decode BlockID")
 	}
 	b.EpochIndex = epoch.Index(epochIndex)
 
@@ -86,7 +86,7 @@ func (b *BlockID) FromBase58(base58EncodedString string) (err error) {
 // FromRandomness generates a random BlockID.
 func (b *BlockID) FromRandomness(optionalEpoch ...epoch.Index) (err error) {
 	if err = b.Identifier.FromRandomness(); err != nil {
-		return errors.Errorf("could not create Identifier from randomness: %w", err)
+		return errors.Wrap(err, "could not create Identifier from randomness")
 	}
 
 	if len(optionalEpoch) >= 1 {

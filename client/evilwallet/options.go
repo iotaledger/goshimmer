@@ -3,7 +3,7 @@ package evilwallet
 import (
 	"time"
 
-	"github.com/cockroachdb/errors"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/hive.go/core/types"
 

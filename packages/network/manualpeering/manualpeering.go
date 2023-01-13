@@ -12,11 +12,11 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/typeutils"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 )
@@ -101,7 +101,7 @@ func (m *Manager) AddPeer(peers ...*KnownPeerToAdd) error {
 	var resultErr error
 	for _, p := range peers {
 		if err := m.addPeer(p); err != nil {
-			resultErr = errors.CombineErrors(resultErr, err)
+			resultErr = err
 		}
 	}
 	return resultErr
@@ -112,7 +112,7 @@ func (m *Manager) RemovePeer(keys ...ed25519.PublicKey) error {
 	var resultErr error
 	for _, key := range keys {
 		if err := m.removePeer(key); err != nil {
-			resultErr = errors.CombineErrors(resultErr, err)
+			resultErr = err
 		}
 	}
 	return resultErr
@@ -283,7 +283,7 @@ func (m *Manager) removeAllKnownPeers() error {
 	var resultErr error
 	for peerID := range m.knownPeers {
 		if err := m.removePeerByID(peerID); err != nil {
-			resultErr = errors.CombineErrors(resultErr, err)
+			resultErr = err
 		}
 	}
 	return resultErr
@@ -372,7 +372,7 @@ func (m *Manager) connectionDirection(peerPK ed25519.PublicKey) (ConnectionDirec
 	} else if result > 0 {
 		return ConnDirectionInbound, nil
 	} else {
-		return "", errors.Newf(
+		return "", errors.Errorf(
 			"manual peering: provided neighbor public key %s is the same as the local %s: can't compare lexicographically",
 			peerPK,
 			m.local.PublicKey(),

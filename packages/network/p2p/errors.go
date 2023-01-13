@@ -1,6 +1,6 @@
 package p2p
 
-import "github.com/cockroachdb/errors"
+import "github.com/pkg/errors"
 
 var (
 	// ErrNotRunning is returned when a neighbor is added to a stopped or not yet started p2p manager.

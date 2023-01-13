@@ -11,7 +11,6 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
 
@@ -58,21 +57,21 @@ func testCount(t testing.TB, prl *ratelimiter.PeerRateLimiter, testPeer *peer.Pe
 		p := event.Source
 		rl := event.RateLimit
 		eventCalled.Inc()
-		assert.Equal(t, int32(expectedActivity), activityCount.Load())
-		assert.Equal(t, testPeer.ID(), p)
-		assert.Equal(t, defaultTestInterval, rl.Interval)
-		assert.Equal(t, testLimit, rl.Limit)
+		require.Equal(t, int32(expectedActivity), activityCount.Load())
+		require.Equal(t, testPeer.ID(), p)
+		require.Equal(t, defaultTestInterval, rl.Interval)
+		require.Equal(t, testLimit, rl.Limit)
 	}))
 	for i := 0; i < expectedActivity; i++ {
 		activityCount.Inc()
 		prl.Count(testPeer.ID())
 	}
-	assert.Eventually(t, func() bool { return eventCalled.Load() == 1 }, time.Second, time.Millisecond)
+	require.Eventually(t, func() bool { return eventCalled.Load() == 1 }, time.Second, time.Millisecond)
 	for i := 0; i < expectedActivity; i++ {
 		activityCount.Inc()
 		prl.Count(testPeer.ID())
 	}
-	assert.Never(t, func() bool { return eventCalled.Load() > 1 }, time.Second, time.Millisecond)
+	require.Never(t, func() bool { return eventCalled.Load() > 1 }, time.Second, time.Millisecond)
 }
 
 func newTestRateLimiter(t testing.TB) *ratelimiter.PeerRateLimiter {

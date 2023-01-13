@@ -3,7 +3,7 @@ package evilwallet
 import (
 	"sync"
 
-	"github.com/cockroachdb/errors"
+	"github.com/pkg/errors"
 	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"

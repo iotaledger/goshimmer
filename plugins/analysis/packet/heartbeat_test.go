@@ -4,9 +4,8 @@ import (
 	"crypto/sha256"
 	"testing"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/protocol/tlv"
-	"github.com/stretchr/testify/assert"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	. "github.com/iotaledger/goshimmer/plugins/analysis/packet"
@@ -120,22 +119,22 @@ func TestNewHeartbeatBlock(t *testing.T) {
 		}
 
 		require.NoError(t, err, "heartbeat should have been serialized successfully")
-		assert.EqualValues(t, MessageTypeHeartbeat, serializedHb[0], "expected heartbeat block type tlv header value as first byte")
-		assert.EqualValues(t, len(networkID), int(serializedHb[tlvHeaderLength]), "expected network id to have length %d", len(networkID))
+		require.EqualValues(t, MessageTypeHeartbeat, serializedHb[0], "expected heartbeat block type tlv header value as first byte")
+		require.EqualValues(t, len(networkID), int(serializedHb[tlvHeaderLength]), "expected network id to have length %d", len(networkID))
 		ownIDOffset := tlvHeaderLength + HeartbeatPacketNetworkIDBytesCountSize + len(networkID)
-		assert.EqualValues(t, hb.OwnID, serializedHb[ownIDOffset:ownIDOffset+HeartbeatPacketPeerIDSize], "expected own peer id to be within range of %d:%d", ownIDOffset, ownIDOffset+HeartbeatPacketPeerIDSize)
-		assert.EqualValues(t, len(hb.OutboundIDs), serializedHb[ownIDOffset+HeartbeatPacketPeerIDSize], "expected outbound IDs count of %d", len(hb.OutboundIDs))
+		require.EqualValues(t, hb.OwnID, serializedHb[ownIDOffset:ownIDOffset+HeartbeatPacketPeerIDSize], "expected own peer id to be within range of %d:%d", ownIDOffset, ownIDOffset+HeartbeatPacketPeerIDSize)
+		require.EqualValues(t, len(hb.OutboundIDs), serializedHb[ownIDOffset+HeartbeatPacketPeerIDSize], "expected outbound IDs count of %d", len(hb.OutboundIDs))
 
 		// after the outbound IDs count, the outbound IDs are serialized
 		offset := tlvHeaderLength + HeartbeatPacketMinSize + len(networkID)
 		for i := 0; i < len(hb.OutboundIDs); i++ {
-			assert.EqualValues(t, hb.OutboundIDs[i], serializedHb[offset+i*HeartbeatPacketPeerIDSize:offset+(i+1)*HeartbeatPacketPeerIDSize], "outbound ID at the given position doesn't match")
+			require.EqualValues(t, hb.OutboundIDs[i], serializedHb[offset+i*HeartbeatPacketPeerIDSize:offset+(i+1)*HeartbeatPacketPeerIDSize], "outbound ID at the given position doesn't match")
 		}
 
 		// shift to offset after outbound IDs
 		offset += len(hb.OutboundIDs) * HeartbeatPacketPeerIDSize
 		for i := 0; i < len(hb.InboundIDs); i++ {
-			assert.EqualValues(t, hb.InboundIDs[i], serializedHb[offset+i*HeartbeatPacketPeerIDSize:offset+(i+1)*HeartbeatPacketPeerIDSize], "inbound ID at the given position doesn't match")
+			require.EqualValues(t, hb.InboundIDs[i], serializedHb[offset+i*HeartbeatPacketPeerIDSize:offset+(i+1)*HeartbeatPacketPeerIDSize], "inbound ID at the given position doesn't match")
 		}
 	}
 }
@@ -287,6 +286,6 @@ func TestParseHeartbeat(t *testing.T) {
 			continue
 		}
 		require.NoError(t, err, "heartbeat should have been parsed successfully")
-		assert.EqualValues(t, *testCase.expected, *hb, "expected heartbeats to be equal")
+		require.EqualValues(t, *testCase.expected, *hb, "expected heartbeats to be equal")
 	}
 }

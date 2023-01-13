@@ -2,10 +2,10 @@ package libp2putil
 
 import (
 	"bufio"
-	"fmt"
 	"io"
 
 	"github.com/multiformats/go-varint"
+	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -56,7 +56,7 @@ func (ur *UvarintReader) ReadBlk(blk proto.Message) error {
 		return err
 	}
 	if length64 > models.MaxBlockSize {
-		return fmt.Errorf("max block size exceeded: %d", length64)
+		return errors.Errorf("max block size exceeded: %d", length64)
 	}
 	buf := make([]byte, length64)
 	if _, err := io.ReadFull(ur.r, buf); err != nil {

@@ -6,10 +6,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/randommap"
-	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -50,7 +51,7 @@ func TestBlockDAG_AttachBlock(t *testing.T) {
 		})
 
 		tf.AssertBlock("block1", func(block *Block) {
-			assert.True(t, block.ModelsBlock.IssuingTime().IsZero(), "block should not be attached")
+			require.True(t, block.ModelsBlock.IssuingTime().IsZero(), "block should not be attached")
 		})
 	}
 
@@ -80,7 +81,7 @@ func TestBlockDAG_AttachBlock(t *testing.T) {
 		})
 
 		tf.AssertBlock("block1", func(block *Block) {
-			assert.False(t, block.ModelsBlock.IssuingTime().IsZero(), "block should be attached")
+			require.False(t, block.ModelsBlock.IssuingTime().IsZero(), "block should be attached")
 		})
 	}
 
@@ -118,7 +119,7 @@ func TestBlockDAG_AttachBlock(t *testing.T) {
 		})
 
 		tf.AssertBlock("block3", func(block *Block) {
-			assert.True(t, block.ModelsBlock.IssuingTime().IsZero(), "block should not be attached")
+			require.True(t, block.ModelsBlock.IssuingTime().IsZero(), "block should not be attached")
 		})
 	}
 
@@ -160,7 +161,7 @@ func TestBlockDAG_AttachBlock(t *testing.T) {
 		})
 
 		tf.AssertBlock("block3", func(block *Block) {
-			assert.True(t, block.ModelsBlock.IssuingTime().IsZero(), "block should not be attached")
+			require.True(t, block.ModelsBlock.IssuingTime().IsZero(), "block should not be attached")
 		})
 	}
 
@@ -202,7 +203,7 @@ func TestBlockDAG_AttachBlock(t *testing.T) {
 		})
 
 		tf.AssertBlock("block3", func(block *Block) {
-			assert.False(t, block.ModelsBlock.IssuingTime().IsZero(), "block should be attached")
+			require.False(t, block.ModelsBlock.IssuingTime().IsZero(), "block should be attached")
 		})
 	}
 }
@@ -284,16 +285,16 @@ func TestBlockDAG_AttachBlockTwice_1(t *testing.T) {
 
 	event.Loop.PendingTasksCounter.WaitIsZero()
 
-	assert.Eventually(t, func() bool {
+	require.Eventually(t, func() bool {
 		startMutex.RLock()
 		defer startMutex.RUnlock()
 
 		return started == 2
 	}, time.Second*10, time.Millisecond*10)
 
-	assert.NoError(t, err1, "should not return an error")
-	assert.NoError(t, err2, "should not return an error")
-	assert.True(t, wasAttached1 != wasAttached2, "only one of the two should have been attached")
+	require.NoError(t, err1, "should not return an error")
+	require.NoError(t, err2, "should not return an error")
+	require.True(t, wasAttached1 != wasAttached2, "only one of the two should have been attached")
 }
 
 func TestBlockDAG_AttachBlockTwice_2(t *testing.T) {
@@ -303,16 +304,16 @@ func TestBlockDAG_AttachBlockTwice_2(t *testing.T) {
 	tf.CreateBlock("block2", models.WithStrongParents(tf.BlockIDs("block1")))
 
 	_, wasAttached, err := tf.BlockDAG.Attach(tf.Block("block2"))
-	assert.NoError(t, err, "should not return an error")
-	assert.True(t, wasAttached, "should have been attached")
+	require.NoError(t, err, "should not return an error")
+	require.True(t, wasAttached, "should have been attached")
 
 	_, wasAttached, err = tf.BlockDAG.Attach(tf.Block("block2"))
-	assert.NoError(t, err, "should not return an error")
-	assert.False(t, wasAttached, "should not have been attached")
+	require.NoError(t, err, "should not return an error")
+	require.False(t, wasAttached, "should not have been attached")
 
 	event.Loop.PendingTasksCounter.WaitIsZero()
 
-	assert.NoError(t, err, "should not return an error")
+	require.NoError(t, err, "should not return an error")
 }
 
 func TestBlockDAG_Attach_InvalidTimestamp(t *testing.T) {
@@ -324,12 +325,12 @@ func TestBlockDAG_Attach_InvalidTimestamp(t *testing.T) {
 	tf.CreateBlock("block3", models.WithStrongParents(tf.BlockIDs("block1", "block2")), models.WithIssuingTime(now))
 
 	_, wasAttached, err := tf.BlockDAG.Attach(tf.Block("block1"))
-	assert.NoError(t, err, "should not return an error")
-	assert.True(t, wasAttached, "should have been attached")
+	require.NoError(t, err, "should not return an error")
+	require.True(t, wasAttached, "should have been attached")
 
 	_, wasAttached, err = tf.BlockDAG.Attach(tf.Block("block2"))
-	assert.NoError(t, err, "should not return an error")
-	assert.True(t, wasAttached, "should have been attached")
+	require.NoError(t, err, "should not return an error")
+	require.True(t, wasAttached, "should have been attached")
 
 	event.Loop.PendingTasksCounter.WaitIsZero()
 
@@ -346,8 +347,8 @@ func TestBlockDAG_Attach_InvalidTimestamp(t *testing.T) {
 		"block2": false,
 	}))
 	_, wasAttached, err = tf.BlockDAG.Attach(tf.Block("block3"))
-	assert.NoError(t, err, "should not return an error")
-	assert.True(t, wasAttached, "should have been attached")
+	require.NoError(t, err, "should not return an error")
+	require.True(t, wasAttached, "should have been attached")
 	event.Loop.PendingTasksCounter.WaitIsZero()
 
 	tf.AssertSolid(lo.MergeMaps(expectedSolidState, map[string]bool{
@@ -386,7 +387,7 @@ func TestBlockDAG_AttachInvalid(t *testing.T) {
 	tf.BlockDAG.EvictionState.EvictUntil(epochCount / 2)
 	event.Loop.PendingTasksCounter.WaitIsZero()
 
-	assert.EqualValues(t, epochCount/2, tf.BlockDAG.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch should be epochCount/2")
+	require.EqualValues(t, epochCount/2, tf.BlockDAG.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch should be epochCount/2")
 
 	blocks := make([]*models.Block, epochCount)
 	expectedMissing := make(map[string]bool, epochCount)
@@ -413,13 +414,13 @@ func TestBlockDAG_AttachInvalid(t *testing.T) {
 		for i := len(blocks) - 11; i >= 0; i-- {
 			_, wasAttached, err := tf.BlockDAG.Attach(blocks[i])
 			if blocks[i].ID().Index()-1 > tf.BlockDAG.EvictionState.LastEvictedEpoch() {
-				assert.True(t, wasAttached, "block should be attached")
-				assert.NoError(t, err, "should not be able to attach a block after shutdown")
+				require.True(t, wasAttached, "block should be attached")
+				require.NoError(t, err, "should not be able to attach a block after shutdown")
 				continue
 			}
 
-			assert.False(t, wasAttached, "block should not be attached")
-			assert.Error(t, err, "should not be able to attach a block to a pruned epoch")
+			require.False(t, wasAttached, "block should not be attached")
+			require.Error(t, err, "should not be able to attach a block to a pruned epoch")
 		}
 		event.Loop.PendingTasksCounter.WaitIsZero()
 
@@ -431,8 +432,8 @@ func TestBlockDAG_AttachInvalid(t *testing.T) {
 	{
 		for i := len(blocks) - 1; i >= len(blocks)-10; i-- {
 			_, wasAttached, err := tf.BlockDAG.Attach(blocks[i])
-			assert.True(t, wasAttached, "block should be attached")
-			assert.NoError(t, err, "should not be able to attach a block after shutdown")
+			require.True(t, wasAttached, "block should be attached")
+			require.NoError(t, err, "should not be able to attach a block after shutdown")
 		}
 		event.Loop.PendingTasksCounter.WaitIsZero()
 
@@ -485,8 +486,8 @@ func TestBlockDAG_Prune(t *testing.T) {
 			expectedSolid[alias] = true
 		}
 
-		assert.True(t, wasAttached, "block should be attached")
-		assert.NoError(t, err, "should not be able to attach a block after shutdown")
+		require.True(t, wasAttached, "block should be attached")
+		require.NoError(t, err, "should not be able to attach a block after shutdown")
 	}
 
 	// Attach a blocks that are not solid (skip the first one in the chain)
@@ -504,8 +505,8 @@ func TestBlockDAG_Prune(t *testing.T) {
 			expectedSolid[alias] = false
 		}
 
-		assert.True(t, wasAttached, "block should be attached")
-		assert.NoError(t, err, "should not be able to attach a block after shutdown")
+		require.True(t, wasAttached, "block should be attached")
+		require.NoError(t, err, "should not be able to attach a block after shutdown")
 	}
 	event.Loop.PendingTasksCounter.WaitIsZero()
 
@@ -514,18 +515,18 @@ func TestBlockDAG_Prune(t *testing.T) {
 	validateState(tf, 0, epochCount)
 	tf.BlockDAG.EvictionState.EvictUntil(epochCount / 4)
 	event.Loop.PendingTasksCounter.WaitIsZero()
-	assert.EqualValues(t, epochCount/4, tf.BlockDAG.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch should be epochCount/4")
+	require.EqualValues(t, epochCount/4, tf.BlockDAG.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch should be epochCount/4")
 
 	// All orphan blocks should be marked as invalid due to invalidity propagation.
 	tf.AssertInvalidCount(epochCount, "should have invalid blocks")
 
 	tf.BlockDAG.EvictionState.EvictUntil(epochCount / 10)
 	event.Loop.PendingTasksCounter.WaitIsZero()
-	assert.EqualValues(t, epochCount/4, tf.BlockDAG.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch should be epochCount/4")
+	require.EqualValues(t, epochCount/4, tf.BlockDAG.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch should be epochCount/4")
 
 	tf.BlockDAG.EvictionState.EvictUntil(epochCount / 2)
 	event.Loop.PendingTasksCounter.WaitIsZero()
-	assert.EqualValues(t, epochCount/2, tf.BlockDAG.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch should be epochCount/2")
+	require.EqualValues(t, epochCount/2, tf.BlockDAG.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch should be epochCount/2")
 
 	validateState(tf, epochCount/2, epochCount)
 }
@@ -535,18 +536,18 @@ func validateState(tf *TestFramework, maxDroppedEpoch, epochCount int) {
 		blkID := tf.Block(fmt.Sprintf("blk-%d", i)).ID()
 
 		_, exists := tf.BlockDAG.Block(blkID)
-		assert.False(tf.test, exists, "block %s should not be in the BlockDAG", blkID)
+		require.False(tf.test, exists, "block %s should not be in the BlockDAG", blkID)
 
-		assert.Nil(tf.test, tf.BlockDAG.memStorage.Get(blkID.Index()), "epoch %s should not be in the memStorage", blkID.Index())
+		require.Nil(tf.test, tf.BlockDAG.memStorage.Get(blkID.Index()), "epoch %s should not be in the memStorage", blkID.Index())
 	}
 
 	for i := maxDroppedEpoch + 1; i <= epochCount; i++ {
 		blkID := tf.Block(fmt.Sprintf("blk-%d", i)).ID()
 
 		_, exists := tf.BlockDAG.Block(blkID)
-		assert.True(tf.test, exists, "block %s should be in the BlockDAG", blkID)
+		require.True(tf.test, exists, "block %s should be in the BlockDAG", blkID)
 
-		assert.NotNil(tf.test, tf.BlockDAG.memStorage.Get(blkID.Index()), "epoch %s should be in the memStorage", blkID.Index())
+		require.NotNil(tf.test, tf.BlockDAG.memStorage.Get(blkID.Index()), "epoch %s should be in the memStorage", blkID.Index())
 	}
 }
 
@@ -598,13 +599,13 @@ func TestBlockDAG_MissingBlocks(t *testing.T) {
 		time.Sleep(storeDelay)
 
 		_, _, err := tf.BlockDAG.Attach(blocks[metadata.ID()])
-		assert.NoError(t, err, "should be able to attach a block")
+		require.NoError(t, err, "should be able to attach a block")
 	}))
 
 	// issue tips to start solidification
 	tips.ForEach(func(key models.BlockID, _ models.BlockID) bool {
 		_, _, err := tf.BlockDAG.Attach(blocks[key])
-		assert.NoError(t, err, "should be able to attach a block")
+		require.NoError(t, err, "should be able to attach a block")
 		return true
 	})
 

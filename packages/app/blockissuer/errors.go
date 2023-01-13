@@ -1,7 +1,7 @@
 package blockissuer
 
 import (
-	"github.com/cockroachdb/errors"
+	"github.com/pkg/errors"
 )
 
 var (

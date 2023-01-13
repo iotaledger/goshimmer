@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/cockroachdb/errors"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/constants"
@@ -121,7 +121,7 @@ func UsePendingOutputs(usePendingOutputs bool) SendFundsOption {
 func LockUntil(until time.Time) SendFundsOption {
 	return func(options *SendFundsOptions) error {
 		if until.Before(time.Now()) {
-			return errors.Errorf("can't timelock funds in the past")
+			return errors.New("can't timelock funds in the past")
 		}
 		if until.After(constants.MaxRepresentableTime) {
 			return errors.Errorf("invalid timelock: %s is later, than max representable time %s",
@@ -137,7 +137,7 @@ func LockUntil(until time.Time) SendFundsOption {
 func Fallback(addy devnetvm.Address, deadline time.Time) SendFundsOption {
 	return func(options *SendFundsOptions) error {
 		if addy == nil {
-			return errors.Errorf("empty fallback address provided")
+			return errors.New("empty fallback address provided")
 		}
 		if deadline.Before(time.Now()) {
 			return errors.Errorf("invalid fallback deadline: %s is in the past", deadline.String())

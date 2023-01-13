@@ -1,6 +1,6 @@
 package manamodels
 
-import "github.com/cockroachdb/errors"
+import "github.com/pkg/errors"
 
 var (
 	// ErrUnknownManaType is returned if mana type could not be identified.

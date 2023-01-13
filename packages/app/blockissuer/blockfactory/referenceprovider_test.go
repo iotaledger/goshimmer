@@ -28,7 +28,8 @@ func TestReferenceProvider_References1(t *testing.T) {
 	tangleTF.CreateBlock("Block2", models.WithPayload(tangleTF.CreateTransaction("TX2", 1, "TX1.0")), models.WithIssuer(tangleTF.Identity("V1").PublicKey()))
 	tangleTF.CreateBlock("Block3", models.WithPayload(tangleTF.CreateTransaction("TX3", 1, "TX1.1")), models.WithIssuer(tangleTF.Identity("V1").PublicKey()))
 	tangleTF.CreateBlock("Block4", models.WithPayload(tangleTF.CreateTransaction("TX4", 1, "TX1.0", "TX1.1")), models.WithIssuer(tangleTF.Identity("V2").PublicKey()))
-	tangleTF.IssueBlocks("Block1", "Block2", "Block3", "Block4").WaitUntilAllTasksProcessed()
+	tangleTF.IssueBlocks("Block1", "Block2", "Block3", "Block4")
+	tf.WaitUntilAllTasksProcessed()
 
 	rp := NewReferenceProvider(tf.Protocol, func() epoch.Index {
 		return 0
@@ -54,7 +55,8 @@ func TestBlockFactory_PrepareLikedReferences_2(t *testing.T) {
 	tangleTF.CreateBlock("Block2", models.WithPayload(tangleTF.CreateTransaction("TX2", 1, "TX0.1")), models.WithIssuer(tangleTF.Identity("V2").PublicKey()))
 	tangleTF.CreateBlock("Block3", models.WithPayload(tangleTF.CreateTransaction("TX3", 1, "TX0.1")), models.WithIssuer(tangleTF.Identity("V1").PublicKey()))
 	tangleTF.CreateBlock("Block4", models.WithPayload(tangleTF.CreateTransaction("TX4", 1, "TX0.0")), models.WithIssuer(tangleTF.Identity("V1").PublicKey()))
-	tangleTF.IssueBlocks("Block0", "Block1", "Block2", "Block3", "Block4").WaitUntilAllTasksProcessed()
+	tangleTF.IssueBlocks("Block0", "Block1", "Block2", "Block3", "Block4")
+	tf.WaitUntilAllTasksProcessed()
 
 	rp := NewReferenceProvider(tf.Protocol, func() epoch.Index {
 		return 0
@@ -87,7 +89,8 @@ func TestBlockFactory_PrepareLikedReferences_2(t *testing.T) {
 	// Add reattachment that is older than the original block and verify that it is selected with a like reference.
 	{
 		tangleTF.CreateBlock("Block5", models.WithPayload(tangleTF.Transaction("TX1")))
-		tangleTF.IssueBlocks("Block5").WaitUntilAllTasksProcessed()
+		tangleTF.IssueBlocks("Block5")
+		tf.WaitUntilAllTasksProcessed()
 
 		checkReferences(t, rp, nil, tangleTF.BlockIDs("Block3", "Block4"), map[models.ParentsType]models.BlockIDs{
 			models.StrongParentType:      tangleTF.BlockIDs("Block3", "Block4"),
@@ -107,7 +110,8 @@ func TestBlockFactory_WeakReferencesConsumed(t *testing.T) {
 	tangleTF.CreateBlock("Block2", models.WithPayload(tangleTF.CreateTransaction("TX2", 1, "TX1.0")))
 	tangleTF.CreateBlock("Block3", models.WithPayload(tangleTF.CreateTransaction("TX3", 1, "TX1.1")))
 	tangleTF.CreateBlock("Block4", models.WithPayload(tangleTF.CreateTransaction("TX4", 1, "TX2.0", "TX3.0")))
-	tangleTF.IssueBlocks("Block1", "Block2", "Block3", "Block4").WaitUntilAllTasksProcessed()
+	tangleTF.IssueBlocks("Block1", "Block2", "Block3", "Block4")
+	tf.WaitUntilAllTasksProcessed()
 
 	rp := NewReferenceProvider(tf.Protocol, func() epoch.Index {
 		return 0
@@ -136,7 +140,8 @@ func TestBlockFactory_WeakReferencesConsumed(t *testing.T) {
 
 	// IssueBlock reattachment of TX3 (Block5) and make sure it is referenced in favor of Block3 (earliest attachment).
 	tangleTF.CreateBlock("Block5", models.WithPayload(tangleTF.Transaction("TX3")))
-	tangleTF.IssueBlocks("Block5").WaitUntilAllTasksProcessed()
+	tangleTF.IssueBlocks("Block5")
+	tf.WaitUntilAllTasksProcessed()
 
 	{
 		checkReferences(t, rp, tangleTF.Block("Block4").Payload(), tangleTF.BlockIDs("Block1"), map[models.ParentsType]models.BlockIDs{
