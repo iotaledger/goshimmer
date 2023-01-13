@@ -238,14 +238,6 @@ func (t *TipManager) TipCount() int {
 //
 //	If there's any unaccepted block >TSC threshold, then the oldest accepted block will be >TSC threshold, too.
 func (t *TipManager) isPastConeTimestampCorrect(block *booker.Block) (timestampValid bool) {
-	now := time.Now()
-	markersWalked, blocksWalked := 0, 0
-	blocksTime, markersTime, durationUntilLoops := time.Duration(0), time.Duration(0), time.Duration(0)
-	defer func() {
-		if time.Since(now) > 5*time.Millisecond {
-			fmt.Printf("TSC check taking long time (%s) timeUntilLoops(%s), markersWalked(%d, %s) blocksWalked(%d, %s), time \n", time.Since(now), durationUntilLoops, markersWalked, markersTime, blocksWalked, blocksTime)
-		}
-	}()
 	minSupportedTimestamp := t.engine.Clock.AcceptedTime().Add(-t.optsTimeSinceConfirmationThreshold)
 
 	if !t.engine.IsBootstrapped() {
@@ -263,18 +255,15 @@ func (t *TipManager) isPastConeTimestampCorrect(block *booker.Block) (timestampV
 		return true
 	}
 
-	blocksNow := time.Now()
-
 	t.evictionMutex.RLock()
 	defer t.evictionMutex.RUnlock()
 
-	timestampValid = t.checkBlockRecursive(block, minSupportedTimestamp, &blocksWalked)
+	timestampValid = t.checkBlockRecursive(block, minSupportedTimestamp)
 
-	blocksTime = time.Since(blocksNow)
 	return
 }
 
-func (t *TipManager) checkBlockRecursive(block *booker.Block, minSupportedTimestamp time.Time, i *int) (timestampValid bool) {
+func (t *TipManager) checkBlockRecursive(block *booker.Block, minSupportedTimestamp time.Time) (timestampValid bool) {
 	if storage := t.walkerCache.Get(block.ID().Index(), false); storage != nil {
 		if _, exists := storage.Get(block.ID()); exists {
 			return true
@@ -302,8 +291,7 @@ func (t *TipManager) checkBlockRecursive(block *booker.Block, minSupportedTimest
 			return false
 		}
 
-		*i++
-		if !t.checkBlockRecursive(parentBlock.Block.Block, minSupportedTimestamp, i) {
+		if !t.checkBlockRecursive(parentBlock.Block.Block, minSupportedTimestamp) {
 			return false
 		}
 

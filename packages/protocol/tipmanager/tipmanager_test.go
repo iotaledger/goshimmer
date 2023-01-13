@@ -167,7 +167,7 @@ func TestTipManager_TimeSinceConfirmation_Confirmed(t *testing.T) {
 	assert.Eventually(t, tf.engine.IsBootstrapped, 1*time.Minute, 500*time.Millisecond)
 
 	// As we advance ATT, Genesis should be beyond TSC, and thus invalid.
-	//tf.AssertIsPastConeTimestampCorrect("Genesis", false)
+	tf.AssertIsPastConeTimestampCorrect("Genesis", false)
 
 	// case 0 - only one block can attach to genesis, so there should not be two subtangles starting from the genesis, but TSC allows using such tip.
 	tf.AssertIsPastConeTimestampCorrect("7/1_2", false)
