@@ -87,20 +87,26 @@ func (t *TestFramework) setupEvents() {
 	}))
 }
 
-func (t *TestFramework) CreateConflict(conflictSetAlias, conflictAlias string, parentConflictIDs utxo.TransactionIDs) {
-	if _, exists := t.resourceByAlias[conflictSetAlias]; !exists {
-		t.resourceByAlias[conflictSetAlias] = t.randomResourceID()
-		t.resourceByAlias[conflictSetAlias].RegisterAlias(conflictSetAlias)
+func (t *TestFramework) CreateConflict(conflictAlias string, parentConflictIDs utxo.TransactionIDs, conflictSetAliases ...string) {
+	for _, conflictSetAlias := range conflictSetAliases {
+		if _, exists := t.resourceByAlias[conflictSetAlias]; !exists {
+			t.resourceByAlias[conflictSetAlias] = t.randomResourceID()
+			t.resourceByAlias[conflictSetAlias].RegisterAlias(conflictSetAlias)
+		}
 	}
 
 	t.conflictIDsByAlias[conflictAlias] = t.randomConflictID()
 	t.conflictIDsByAlias[conflictAlias].RegisterAlias(conflictAlias)
 
-	t.ConflictDAG.CreateConflict(t.ConflictID(conflictAlias), parentConflictIDs, t.ConflictSetIDs(conflictSetAlias))
+	t.ConflictDAG.CreateConflict(t.ConflictID(conflictAlias), parentConflictIDs, t.ConflictSetIDs(conflictSetAliases...))
 }
 
 func (t *TestFramework) UpdateConflictingResources(conflictAlias string, conflictingResourcesAliases ...string) {
 	t.ConflictDAG.UpdateConflictingResources(t.ConflictID(conflictAlias), t.ConflictSetIDs(conflictingResourcesAliases...))
+}
+
+func (t *TestFramework) SetConflictAccepted(conflictAlias string) {
+	t.ConflictDAG.SetConflictAccepted(t.ConflictID(conflictAlias))
 }
 
 func (t *TestFramework) ConflictID(alias string) (conflictID utxo.TransactionID) {

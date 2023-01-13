@@ -5,6 +5,7 @@ import (
 
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/generics/walker"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
@@ -56,23 +57,29 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) ConflictSet(resourceID Res
 func (c *ConflictDAG[ConflictIDType, ResourceIDType]) CreateConflict(id ConflictIDType, parentIDs *set.AdvancedSet[ConflictIDType], conflictingResourceIDs *set.AdvancedSet[ResourceIDType]) (created bool) {
 	c.mutex.Lock()
 
+	conflictParents := set.NewAdvancedSet[*Conflict[ConflictIDType, ResourceIDType]]()
+
+	for it := parentIDs.Iterator(); it.HasNext(); {
+		parentID := it.Next()
+		parent, exists := c.conflicts.Get(parentID)
+		if !exists {
+			// TODO: what do we do? does it mean the parent has been evicted already?
+			continue
+		}
+		conflictParents.Add(parent)
+	}
+
 	conflict, created := c.conflicts.RetrieveOrCreate(id, func() (newConflict *Conflict[ConflictIDType, ResourceIDType]) {
 		newConflict = NewConflict[ConflictIDType, ResourceIDType](id, parentIDs, set.NewAdvancedSet[*ConflictSet[ConflictIDType, ResourceIDType]]())
 
 		c.registerConflictWithConflictSet(newConflict, conflictingResourceIDs)
 
 		// create parent references to newly created conflict
-		for it := parentIDs.Iterator(); it.HasNext(); {
-			parentID := it.Next()
-			parent, exists := c.conflicts.Get(parentID)
-			if !exists {
-				// TODO: what do we do? does it mean the parent has been evicted already?
-				continue
-			}
-			parent.addChild(newConflict)
+		for it := conflictParents.Iterator(); it.HasNext(); {
+			it.Next().addChild(newConflict)
 		}
 
-		if c.anyParentRejected(newConflict) || c.anyConflictingConflictAccepted(newConflict) {
+		if c.anyParentRejected(conflictParents) || c.anyConflictingConflictAccepted(newConflict) {
 			newConflict.setConfirmationState(confirmation.Rejected)
 		}
 
@@ -86,6 +93,39 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) CreateConflict(id Conflict
 	}
 
 	return created
+}
+
+// UpdateConflictParents changes the parents of a Conflict after a fork (also updating the corresponding references).
+func (c *ConflictDAG[ConflictIDType, ResourceIDType]) UpdateConflictParents(id ConflictIDType, removedConflictIDs *set.AdvancedSet[ConflictIDType], addedConflictID ConflictIDType) (updated bool) {
+	c.mutex.RLock()
+
+	var parentConflictIDs *set.AdvancedSet[ConflictIDType]
+	conflict, exists := c.Conflict(id)
+	if !exists {
+		return false
+	}
+
+	parentConflictIDs = conflict.Parents()
+	if !parentConflictIDs.Add(addedConflictID) {
+		return
+	}
+	parentConflictIDs.DeleteAll(removedConflictIDs)
+
+	conflict.setParents(parentConflictIDs)
+	updated = true
+
+	c.mutex.RUnlock()
+
+	if updated {
+		c.Events.ConflictParentsUpdated.Trigger(&ConflictParentsUpdatedEvent[ConflictIDType, ResourceIDType]{
+			ConflictIDType:         id,
+			AddedConflict:          addedConflictID,
+			RemovedConflicts:       removedConflictIDs,
+			ParentsConflictIDTypes: parentConflictIDs,
+		})
+	}
+
+	return updated
 }
 
 // UpdateConflictingResources adds the Conflict to the given ConflictSets - it returns true if the conflict membership was modified during this operation.
@@ -106,11 +146,170 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) UpdateConflictingResources
 	return updated
 }
 
+// UnconfirmedConflicts takes a set of ConflictIDs and removes all the Accepted/Confirmed Conflicts (leaving only the
+// pending or rejected ones behind).
+func (c *ConflictDAG[ConflictIDType, ResourceIDType]) UnconfirmedConflicts(conflictIDs *set.AdvancedSet[ConflictIDType]) (pendingConflictIDs *set.AdvancedSet[ConflictIDType]) {
+	pendingConflictIDs = set.NewAdvancedSet[ConflictIDType]()
+	for conflictWalker := conflictIDs.Iterator(); conflictWalker.HasNext(); {
+		if currentConflictID := conflictWalker.Next(); !c.confirmationState(currentConflictID).IsAccepted() {
+			pendingConflictIDs.Add(currentConflictID)
+		}
+	}
+
+	return pendingConflictIDs
+}
+
+// SetConflictAccepted sets the ConfirmationState of the given Conflict to be Accepted - it automatically sets also the
+// conflicting conflicts to be rejected.
+func (c *ConflictDAG[ConflictIDType, ResourceIDType]) SetConflictAccepted(conflictID ConflictIDType) (modified bool) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	rejectionWalker := walker.New[ConflictIDType]()
+	for confirmationWalker := set.NewAdvancedSet(conflictID).Iterator(); confirmationWalker.HasNext(); {
+		conflict, exists := c.Conflict(confirmationWalker.Next())
+		if !exists {
+			continue
+		}
+
+		if modified = conflict.setConfirmationState(confirmation.Accepted); !modified {
+			return
+		}
+
+		c.Events.ConflictAccepted.Trigger(conflict)
+
+		confirmationWalker.PushAll(conflict.Parents().Slice()...)
+
+		conflict.forEachConflictingConflictID(func(conflictingConflict *Conflict[ConflictIDType, ResourceIDType]) bool {
+			rejectionWalker.Push(conflictingConflict.ID())
+			return true
+		})
+	}
+
+	for rejectionWalker.HasNext() {
+		conflict, exists := c.Conflict(rejectionWalker.Next())
+		if !exists {
+			continue
+		}
+
+		if modified = conflict.setConfirmationState(confirmation.Rejected); !modified {
+			return
+		}
+
+		c.Events.ConflictRejected.Trigger(conflict)
+
+		_ = conflict.Children().ForEach(func(childConflict *Conflict[ConflictIDType, ResourceIDType]) error {
+			rejectionWalker.Push(childConflict.ID())
+			return nil
+		})
+	}
+
+	return modified
+}
+
+// ConfirmationState returns the ConfirmationState of the given ConflictIDs.
+func (c *ConflictDAG[ConflictIDType, ResourceIDType]) ConfirmationState(conflictIDs *set.AdvancedSet[ConflictIDType]) (confirmationState confirmation.State) {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	confirmationState = confirmation.Confirmed
+	for it := conflictIDs.Iterator(); it.HasNext(); {
+		if confirmationState = confirmationState.Aggregate(c.confirmationState(it.Next())); confirmationState.IsRejected() {
+			return confirmation.Rejected
+		}
+	}
+
+	return confirmationState
+}
+
+// DetermineVotes iterates over a set of conflicts and, taking into account the opinion a Voter expressed previously,
+// computes the conflicts that will receive additional weight, the ones that will see their weight revoked, and if the
+// result constitutes an overall valid state transition.
+func (c *ConflictDAG[ConflictIDType, ResourceIDType]) DetermineVotes(conflictIDs *set.AdvancedSet[ConflictIDType]) (addedConflicts, revokedConflicts *set.AdvancedSet[ConflictIDType], isInvalid bool) {
+	addedConflicts = set.NewAdvancedSet[ConflictIDType]()
+	for it := conflictIDs.Iterator(); it.HasNext(); {
+		votedConflictID := it.Next()
+
+		// The starting conflicts should not be considered as having common Parents, hence we treat them separately.
+		conflictAddedConflicts, _ := c.determineConflictsToAdd(set.NewAdvancedSet(votedConflictID))
+		addedConflicts.AddAll(conflictAddedConflicts)
+	}
+	revokedConflicts, isInvalid = c.determineConflictsToRevoke(addedConflicts)
+
+	return
+}
+
+// determineConflictsToAdd iterates through the past cone of the given Conflicts and determines the ConflictIDs that
+// are affected by the Vote.
+func (c *ConflictDAG[ConflictIDType, ResourceIDType]) determineConflictsToAdd(conflictIDs *set.AdvancedSet[ConflictIDType]) (addedConflicts *set.AdvancedSet[ConflictIDType], allParentsAdded bool) {
+	addedConflicts = set.NewAdvancedSet[ConflictIDType]()
+
+	for it := conflictIDs.Iterator(); it.HasNext(); {
+		currentConflictID := it.Next()
+
+		conflict, exists := c.Conflict(currentConflictID)
+		if !exists {
+			continue
+		}
+
+		addedConflictsOfCurrentConflict, allParentsOfCurrentConflictAdded := c.determineConflictsToAdd(conflict.Parents())
+		allParentsAdded = allParentsAdded && allParentsOfCurrentConflictAdded
+
+		addedConflicts.AddAll(addedConflictsOfCurrentConflict)
+
+		addedConflicts.Add(currentConflictID)
+	}
+
+	return
+}
+
+// determineConflictsToRevoke determines which Conflicts of the conflicting future cone of the added Conflicts are affected
+// by the vote and if the vote is valid (not voting for conflicting Conflicts).
+func (c *ConflictDAG[ConflictIDType, ResourceIDType]) determineConflictsToRevoke(addedConflicts *set.AdvancedSet[ConflictIDType]) (revokedConflicts *set.AdvancedSet[ConflictIDType], isInvalid bool) {
+	revokedConflicts = set.NewAdvancedSet[ConflictIDType]()
+	subTractionWalker := walker.New[ConflictIDType]()
+	for it := addedConflicts.Iterator(); it.HasNext(); {
+		conflict, exists := c.Conflict(it.Next())
+		if !exists {
+			continue
+		}
+
+		conflict.forEachConflictingConflictID(func(conflictingConflict *Conflict[ConflictIDType, ResourceIDType]) bool {
+			subTractionWalker.Push(conflictingConflict.ID())
+
+			return true
+		})
+	}
+
+	for subTractionWalker.HasNext() {
+		// currentVote := vote.WithConflictID(subTractionWalker.Next())
+		//
+		// if isInvalid = addedConflicts.Has(currentVote.ConflictID()) || votedConflicts.Has(currentVote.ConflictID()); isInvalid {
+		//	return
+		// }
+		currentConflictID := subTractionWalker.Next()
+
+		revokedConflicts.Add(currentConflictID)
+
+		currentConflict, exists := c.Conflict(currentConflictID)
+		if !exists {
+			continue
+		}
+
+		_ = currentConflict.Children().ForEach(func(childConflict *Conflict[ConflictIDType, ResourceIDType]) error {
+			subTractionWalker.Push(childConflict.ID())
+			return nil
+		})
+	}
+
+	return
+}
+
 // anyParentRejected checks if any of a Conflicts parents is Rejected.
-func (c *ConflictDAG[ConflictIDType, ResourceIDType]) anyParentRejected(conflict *Conflict[ConflictIDType, ResourceIDType]) (rejected bool) {
-	for it := conflict.Parents().Iterator(); it.HasNext(); {
-		parent, exists := c.conflicts.Get(it.Next())
-		if exists && parent.ConfirmationState().IsRejected() {
+func (c *ConflictDAG[ConflictIDType, ResourceIDType]) anyParentRejected(parents *set.AdvancedSet[*Conflict[ConflictIDType, ResourceIDType]]) (rejected bool) {
+	for it := parents.Iterator(); it.HasNext(); {
+		parent := it.Next()
+		if parent.ConfirmationState().IsRejected() {
 			return true
 		}
 	}
@@ -142,4 +341,13 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) registerConflictWithConfli
 	}
 
 	return added
+}
+
+// confirmationState returns the ConfirmationState of the Conflict with the given ConflictID.
+func (c *ConflictDAG[ConflictIDType, ResourceIDType]) confirmationState(conflictID ConflictIDType) (confirmationState confirmation.State) {
+	if conflict, exists := c.Conflict(conflictID); exists {
+		confirmationState = conflict.ConfirmationState()
+	}
+
+	return confirmationState
 }
