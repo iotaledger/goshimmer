@@ -21,6 +21,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/network"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/filter"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
@@ -628,4 +629,45 @@ func TestEngine_ShutdownResume(t *testing.T) {
 	require.NoError(t, tf2.Engine.Initialize(""))
 
 	tf2.AssertEpochState(0)
+}
+
+func TestBlockDAG_MonotonicCommitments(t *testing.T) {
+	tf := NewEngineTestFramework(t)
+
+	filteredBlocks := models.NewBlockIDs()
+	tf.Engine.Events.Filter.BlockFiltered.Hook(event.NewClosure(func(blockFilteredEvent *filter.BlockFilteredEvent) {
+		filteredBlocks.Add(blockFilteredEvent.Block.ID())
+	}))
+
+	block1 := tf.Tangle.CreateBlock("1", models.WithStrongParents(tf.Tangle.BlockIDs("Genesis")), models.WithCommitment(commitment.New(0, commitment.ID{}, types.Identifier{}, 0)))
+	tf.Engine.ProcessBlockFromPeer(block1, identity.GenerateIdentity().ID())
+	event.Loop.PendingTasksCounter.WaitIsZero()
+
+	block2 := tf.Tangle.CreateBlock("2", models.WithStrongParents(tf.Tangle.BlockIDs("1")), models.WithCommitment(commitment.New(1, commitment.ID{}, types.Identifier{}, 0)))
+	tf.Engine.ProcessBlockFromPeer(block2, identity.GenerateIdentity().ID())
+	event.Loop.PendingTasksCounter.WaitIsZero()
+
+	block3 := tf.Tangle.CreateBlock("3", models.WithStrongParents(tf.Tangle.BlockIDs("2")), models.WithCommitment(commitment.New(0, commitment.ID{}, types.Identifier{}, 0)))
+	tf.Engine.ProcessBlockFromPeer(block3, identity.GenerateIdentity().ID())
+	event.Loop.PendingTasksCounter.WaitIsZero()
+
+	require.EqualValues(t, tf.Tangle.BlockIDs("3"), filteredBlocks)
+
+	block4 := tf.Tangle.CreateBlock("4", models.WithStrongParents(tf.Tangle.BlockIDs("2")), models.WithCommitment(commitment.New(2, commitment.ID{}, types.Identifier{}, 0)))
+	tf.Engine.ProcessBlockFromPeer(block4, identity.GenerateIdentity().ID())
+	event.Loop.PendingTasksCounter.WaitIsZero()
+
+	block4b := tf.Tangle.CreateBlock("4b", models.WithStrongParents(tf.Tangle.BlockIDs("2")), models.WithCommitment(commitment.New(1, commitment.ID{}, types.Identifier{}, 0)))
+	tf.Engine.ProcessBlockFromPeer(block4b, identity.GenerateIdentity().ID())
+	event.Loop.PendingTasksCounter.WaitIsZero()
+
+	block5 := tf.Tangle.CreateBlock("5", models.WithStrongParents(tf.Tangle.BlockIDs("4")), models.WithCommitment(commitment.New(10, commitment.ID{}, types.Identifier{}, 0)))
+	tf.Engine.ProcessBlockFromPeer(block5, identity.GenerateIdentity().ID())
+	event.Loop.PendingTasksCounter.WaitIsZero()
+
+	block6 := tf.Tangle.CreateBlock("6", models.WithStrongParents(tf.Tangle.BlockIDs("5")), models.WithCommitment(commitment.New(7, commitment.ID{}, types.Identifier{}, 0)))
+	tf.Engine.ProcessBlockFromPeer(block6, identity.GenerateIdentity().ID())
+	event.Loop.PendingTasksCounter.WaitIsZero()
+
+	require.Equal(t, tf.Tangle.BlockIDs("3", "6"), filteredBlocks)
 }

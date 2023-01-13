@@ -103,6 +103,7 @@ func NewEmptyBlock(id BlockID, opts ...options.Option[Block]) (newBlock *Block) 
 	return options.Apply(model.NewStorable[BlockID, Block](&block{}), opts, func(b *Block) {
 		b.SetID(id)
 		b.M.PayloadBytes = lo.PanicOnErr(payload.NewGenericDataPayload([]byte("")).Bytes())
+		b.M.EpochCommitment = commitment.New(0, commitment.ID{}, types.Identifier{}, 0)
 	})
 }
 
