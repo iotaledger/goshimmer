@@ -62,7 +62,11 @@ func TestRetainer_BlockMetadata_JSON_optional(t *testing.T) {
 func TestRetainer_BlockMetadata_NonEvicted(t *testing.T) {
 	protocolTF := protocol.NewTestFramework(t)
 	protocolTF.Protocol.Run()
+
 	retainer := NewRetainer(protocolTF.Protocol, database.NewManager(0))
+	t.Cleanup(func() {
+		retainer.Shutdown()
+	})
 
 	tangleTF := tangle.NewTestFramework(t, tangle.WithTangle(protocolTF.Protocol.Engine().Tangle))
 	b := tangleTF.CreateBlock("A")
@@ -108,10 +112,13 @@ func TestRetainer_BlockMetadata_NonEvicted(t *testing.T) {
 func TestRetainer_BlockMetadata_Evicted(t *testing.T) {
 	protocolTF := protocol.NewTestFramework(t)
 	protocolTF.Protocol.Run()
-	tangleTF := tangle.NewTestFramework(t, tangle.WithTangle(protocolTF.Protocol.Engine().Tangle))
 
 	retainer := NewRetainer(protocolTF.Protocol, database.NewManager(0))
+	t.Cleanup(func() {
+		retainer.Shutdown()
+	})
 
+	tangleTF := tangle.NewTestFramework(t, tangle.WithTangle(protocolTF.Protocol.Engine().Tangle))
 	b := tangleTF.CreateBlock("A", models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0).Add(70*time.Second)))
 	tangleTF.IssueBlocks("A").WaitUntilAllTasksProcessed()
 	block, exists := protocolTF.Protocol.CongestionControl.Block(b.ID())

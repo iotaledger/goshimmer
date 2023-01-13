@@ -48,6 +48,10 @@ func NewRetainer(protocol *protocol.Protocol, dbManager *database.Manager, opts 
 	})
 }
 
+func (r *Retainer) Shutdown() {
+	r.workerPool.Shutdown()
+}
+
 func (r *Retainer) Block(blockID models.BlockID) (block *models.Block, exists bool) {
 	if metadata, metadataExists := r.BlockMetadata(blockID); metadataExists {
 		return metadata.M.Block, metadata.M.Block != nil
