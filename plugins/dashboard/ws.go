@@ -78,22 +78,13 @@ func runWebSocketStreams() {
 		}
 		wsSendWorkerPool.TrySubmit(updateStatus)
 	})
-	updateRateSetterMetrics := event.NewClosure(func(metric *metrics.RateSetterMetric) {
-		wsSendWorkerPool.TrySubmit(&rateSetterMetric{
-			Size:     metric.Size,
-			Estimate: metric.Estimate.String(),
-			Rate:     metric.Rate,
-		})
-	})
 
 	if err := daemon.BackgroundWorker("Dashboard[StatusUpdate]", func(ctx context.Context) {
 		metrics.Events.AttachedBPSUpdated.Attach(updateStatus)
 		metrics.Events.ComponentCounterUpdated.Attach(updateComponentCounterStatus)
-		metrics.Events.RateSetterUpdated.Attach(updateRateSetterMetrics)
 		<-ctx.Done()
 		log.Info("Stopping Dashboard[StatusUpdate] ...")
 		metrics.Events.AttachedBPSUpdated.Detach(updateStatus)
-		metrics.Events.RateSetterUpdated.Detach(updateRateSetterMetrics)
 		wsSendWorkerPool.Stop()
 		log.Info("Stopping Dashboard[StatusUpdate] ... done")
 	}, shutdown.PriorityDashboard); err != nil {
