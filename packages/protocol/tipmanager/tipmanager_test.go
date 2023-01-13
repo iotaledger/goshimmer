@@ -221,7 +221,7 @@ func TestTipManager_TimeSinceConfirmation_MultipleParents(t *testing.T) {
 	tf.SetBlocksAccepted(acceptedBlockIDsAliases...)
 	tf.SetMarkersAccepted(acceptedMarkers...)
 	tf.SetAcceptedTime(tf.Block("Marker-0/3").IssuingTime())
-	assert.Eventually(t, tf.engine.IsBootstrapped, 1*time.Minute, 500*time.Millisecond)
+	require.Eventually(t, tf.engine.IsBootstrapped, 1*time.Minute, 500*time.Millisecond)
 
 	// As we advance ATT, Genesis should be beyond TSC, and thus invalid.
 	tf.AssertIsPastConeTimestampCorrect("Genesis", false)
