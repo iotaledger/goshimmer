@@ -95,7 +95,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) CreateConflict(id Conflict
 	return created
 }
 
-// UpdateConflictParents changes the parents of a Conflict after a fork (also updating the corresponding references).
+// UpdateConflictParents changes the parents of a Conflict after a fork.
 func (c *ConflictDAG[ConflictIDType, ResourceIDType]) UpdateConflictParents(id ConflictIDType, removedConflictIDs *set.AdvancedSet[ConflictIDType], addedConflictID ConflictIDType) (updated bool) {
 	c.mutex.RLock()
 
@@ -109,10 +109,28 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) UpdateConflictParents(id C
 	if !parentConflictIDs.Add(addedConflictID) {
 		return
 	}
+
 	parentConflictIDs.DeleteAll(removedConflictIDs)
 
 	conflict.setParents(parentConflictIDs)
 	updated = true
+
+	// create child reference in new parent
+	if addedParent, parentExists := c.Conflict(addedConflictID); parentExists {
+		addedParent.addChild(conflict)
+
+		if addedParent.ConfirmationState().IsRejected() && conflict.setConfirmationState(confirmation.Rejected) {
+			c.Events.ConflictRejected.Trigger(conflict)
+		}
+	}
+
+	// remove child references in deleted parents
+	_ = removedConflictIDs.ForEach(func(conflictID ConflictIDType) (err error) {
+		if removedParent, removedParentExists := c.Conflict(conflictID); removedParentExists {
+			removedParent.deleteChild(conflict)
+		}
+		return nil
+	})
 
 	c.mutex.RUnlock()
 

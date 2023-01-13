@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/stretchr/testify/assert"
 
@@ -105,8 +106,24 @@ func (t *TestFramework) UpdateConflictingResources(conflictAlias string, conflic
 	t.ConflictDAG.UpdateConflictingResources(t.ConflictID(conflictAlias), t.ConflictSetIDs(conflictingResourcesAliases...))
 }
 
+func (t *TestFramework) UpdateConflictParents(conflictAlias string, addedConflictAlias string, removedConflictAliases ...string) {
+	t.ConflictDAG.UpdateConflictParents(t.ConflictID(conflictAlias), t.ConflictIDs(removedConflictAliases...), t.ConflictID(addedConflictAlias))
+}
+
+func (t *TestFramework) UnconfirmedConflicts(conflictAliases ...string) *set.AdvancedSet[utxo.TransactionID] {
+	return t.ConflictDAG.UnconfirmedConflicts(t.ConflictIDs(conflictAliases...))
+}
+
 func (t *TestFramework) SetConflictAccepted(conflictAlias string) {
 	t.ConflictDAG.SetConflictAccepted(t.ConflictID(conflictAlias))
+}
+
+func (t *TestFramework) ConfirmationState(conflictAliases ...string) confirmation.State {
+	return t.ConflictDAG.ConfirmationState(t.ConflictIDs(conflictAliases...))
+}
+
+func (t *TestFramework) DetermineVotes(conflictAliases ...string) (addedConflicts, revokedConflicts *set.AdvancedSet[utxo.TransactionID], isInvalid bool) {
+	return t.ConflictDAG.DetermineVotes(t.ConflictIDs(conflictAliases...))
 }
 
 func (t *TestFramework) ConflictID(alias string) (conflictID utxo.TransactionID) {
