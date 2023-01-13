@@ -2,7 +2,7 @@ package metricscollector
 
 import (
 	"github.com/iotaledger/goshimmer/packages/app/collector"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/manatracker/manamodels"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1/manamodels"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 )
 
@@ -22,7 +22,7 @@ var ManaMetrics = collector.NewCollection(manaNamespace,
 		collector.WithResetBeforeCollecting(true),
 		collector.WithHelp("Current amount of aMana of each node in the network."),
 		collector.WithCollectFunc(func() map[string]float64 {
-			access := deps.Protocol.Engine().ManaTracker.ManaByIDs()
+			access := deps.Protocol.Engine().ThroughputQuota.BalanceByIDs()
 			res := make(map[string]float64)
 			for id, val := range access {
 				res[id.String()] = float64(val)
@@ -49,8 +49,8 @@ var ManaMetrics = collector.NewCollection(manaNamespace,
 		collector.WithLabels("type"),
 		collector.WithHelp("Current percentile of the local node in terms of aMana."),
 		collector.WithCollectFunc(func() map[string]float64 {
-			accessMap := deps.Protocol.Engine().ManaTracker.ManaByIDs()
-			accPerc := manamodels.Percentile(deps.Local.ID(), accessMap)
+			access := deps.Protocol.Engine().ThroughputQuota.BalanceByIDs()
+			accPerc := manamodels.Percentile(deps.Local.ID(), access)
 			consensus := lo.PanicOnErr(deps.Protocol.Engine().SybilProtection.Weights().Map())
 			conPerc := manamodels.Percentile(deps.Local.ID(), consensus)
 
@@ -63,10 +63,10 @@ var ManaMetrics = collector.NewCollection(manaNamespace,
 		collector.WithHelp(""),
 		collector.WithCollectFunc(func() map[string]float64 {
 			neighbors := deps.P2Pmgr.AllNeighbors()
-			accessMap := deps.Protocol.Engine().ManaTracker.ManaByIDs()
+			access := deps.Protocol.Engine().ThroughputQuota.BalanceByIDs()
 			consensus := lo.PanicOnErr(deps.Protocol.Engine().SybilProtection.Weights().Map())
 
-			accAvg := manamodels.NeighborsAverageMana(accessMap, neighbors)
+			accAvg := manamodels.NeighborsAverageMana(access, neighbors)
 			conAvg := manamodels.NeighborsAverageMana(consensus, neighbors)
 			return collector.MultiLabelsValues([]string{"access", "consensus"}, accAvg, conAvg)
 		}),
