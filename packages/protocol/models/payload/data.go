@@ -1,26 +1,28 @@
 package payload
 
 import (
-	"fmt"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/hive.go/core/generics/model"
 	"github.com/iotaledger/hive.go/core/serix"
+
+	"github.com/iotaledger/goshimmer/packages/protocol/models/payloadtype"
 )
 
 func init() {
 	err := serix.DefaultAPI.RegisterTypeSettings(GenericDataPayload{}, serix.TypeSettings{}.WithObjectType(uint32(new(GenericDataPayload).Type())))
 	if err != nil {
-		panic(fmt.Errorf("error registering GenericDataPayload type settings: %w", err))
+		panic(errors.Wrap(err, "error registering GenericDataPayload type settings"))
 	}
 
 	err = serix.DefaultAPI.RegisterInterfaceObjects((*Payload)(nil), new(GenericDataPayload))
 	if err != nil {
-		panic(fmt.Errorf("error registering GenericDataPayload as Payload interface: %w", err))
+		panic(errors.Wrap(err, "error registering GenericDataPayload as Payload interface"))
 	}
 }
 
 // GenericDataPayloadType is the Type of a generic GenericDataPayload.
-var GenericDataPayloadType = NewType(0, "GenericDataPayloadType")
+var GenericDataPayloadType = NewType(payloadtype.GenericData, "GenericDataPayloadType")
 
 // GenericDataPayload represents a payload which just contains a blob of data.
 type GenericDataPayload struct {

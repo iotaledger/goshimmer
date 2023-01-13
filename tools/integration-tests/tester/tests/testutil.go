@@ -7,13 +7,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/mr-tron/base58"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/blake2b"
 
@@ -38,14 +38,13 @@ const (
 
 // OrphanageSnapshotDetails defines info for orphanage test scenario.
 var OrphanageSnapshotDetails = framework.SnapshotInfo{
-	FilePath:           "/assets/dynamic_snapshots/equal_snapshot.bin",
-	MasterSeed:         "3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E", // FZ6xmPZX
+	FilePath:           "/assets/dynamic_snapshots/orphanage_snapshot.bin",
 	GenesisTokenAmount: 0,
 	PeersSeedBase58: []string{
+		"3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E", // FZ6xmPZX
 		"GtKSdqanb4mokUBjAf9JZmsSqWzWjzzw57mRR56LjfBL", // H6jzPnLbjsh
 		"CmFVE14Yh9rqn2FrXD8s7ybRoRN5mUnqQxLAuD5HF2em", // JHxvcap7xhv
 		"DuJuWE3hisFrFK1HmrXkd9FSsNNWbw58JcQnKdBn6TdN", // 7rRpyEGU7Sf
-		"HUH4rmxUxMZBBtHJ4QM5Ts6s8DP3HnFpChejntnCxto2",
 	},
 	PeersAmountsPledged: []uint64{2_500_000_000_000_000, 2_500_000_000_000_000, 2_500_000_000_000_000, 10},
 }
@@ -53,28 +52,27 @@ var OrphanageSnapshotDetails = framework.SnapshotInfo{
 // EqualSnapshotDetails defines info for equally distributed consensus mana.
 var EqualSnapshotDetails = framework.SnapshotInfo{
 	FilePath:           "/assets/dynamic_snapshots/equal_snapshot.bin",
-	MasterSeed:         "3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E", // FZ6xmPZX
 	GenesisTokenAmount: 2_500_000_000_000_000,
 	PeersSeedBase58: []string{
 		"GtKSdqanb4mokUBjAf9JZmsSqWzWjzzw57mRR56LjfBL", // H6jzPnLbjsh
 		"CmFVE14Yh9rqn2FrXD8s7ybRoRN5mUnqQxLAuD5HF2em", // JHxvcap7xhv
 		"DuJuWE3hisFrFK1HmrXkd9FSsNNWbw58JcQnKdBn6TdN", // 7rRpyEGU7Sf
+		"3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E", // FZ6xmPZX
 	},
-	PeersAmountsPledged: []uint64{2_500_000_000_000_000, 2_500_000_000_000_000, 2_500_000_000_000_000},
+	PeersAmountsPledged: []uint64{2_500_000_000_000_000, 2_500_000_000_000_000, 2_500_000_000_000_000, 2_500_000_000_000_000},
 }
 
 // ConsensusSnapshotDetails defines info for consensus integration test snapshot
 var ConsensusSnapshotDetails = framework.SnapshotInfo{
-	FilePath: "/assets/dynamic_snapshots/consensus_snapshot.bin",
-	// node ID: 2GtxMQD9
-	MasterSeed:         "EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP",
-	GenesisTokenAmount: 800_000, // pledged to peer master
-	// peer IDs: jnaC6ZyWuw, iNvPFvkfSDp
+	FilePath:           "/assets/dynamic_snapshots/consensus_snapshot.bin",
+	GenesisTokenAmount: 800_000, // pledged to peer 0
 	PeersSeedBase58: []string{
-		"Bk69VaYsRuiAaKn8hK6KxUj45X5dED3ueRtxfYnsh4Q8",
-		"HUH4rmxUxMZBBtHJ4QM5Ts6s8DP3HnFpChejntnCxto2",
+		"Bk69VaYsRuiAaKn8hK6KxUj45X5dED3ueRtxfYnsh4Q8", // jnaC6ZyWuw
+		"HUH4rmxUxMZBBtHJ4QM5Ts6s8DP3HnFpChejntnCxto2", // iNvPFvkfSDp
+		"CmFVE14Yh9rqn2FrXD8s7ybRoRN5mUnqQxLAuD5HF2em", // JHxvcap7xhv
+		"DuJuWE3hisFrFK1HmrXkd9FSsNNWbw58JcQnKdBn6TdN", // 7rRpyEGU7Sf
 	},
-	PeersAmountsPledged: []uint64{1_600_000, 800_000},
+	PeersAmountsPledged: []uint64{1_600_000, 800_000, 800_000, 800_000, 800_000},
 }
 
 // GetIdentSeed returns decoded seed bytes for the supplied SnapshotInfo and peer index
@@ -89,18 +87,12 @@ func GetIdentSeed(t *testing.T, snapshotInfo framework.SnapshotInfo, peerIndex i
 func CommonSnapshotConfigFunc(t *testing.T, snaphotInfo framework.SnapshotInfo, cfgFunc ...framework.CfgAlterFunc) framework.CfgAlterFunc {
 	return func(peerIndex int, isPeerMaster bool, conf config.GoShimmer) config.GoShimmer {
 		conf.Protocol.Snapshot.Path = snaphotInfo.FilePath
-		if isPeerMaster {
-			seedBytes, err := base58.Decode(snaphotInfo.MasterSeed)
-			require.NoError(t, err)
-			conf.Seed = seedBytes
-			return conf
-		}
 
 		require.Lessf(t, peerIndex, len(snaphotInfo.PeersSeedBase58), "index=%d out of range for peerSeeds=%d", peerIndex, len(snaphotInfo.PeersSeedBase58))
 		conf.Seed = GetIdentSeed(t, snaphotInfo, peerIndex)
 
 		if len(cfgFunc) > 0 {
-			conf = cfgFunc[0](peerIndex, isPeerMaster, conf)
+			conf = cfgFunc[0](peerIndex, isPeerMaster && peerIndex == 0, conf)
 		}
 
 		return conf
@@ -143,6 +135,22 @@ func Bootstrapped(t *testing.T, node *framework.Node) bool {
 	info, err := node.Info()
 	require.NoError(t, err)
 	return info.TangleTime.Bootstrapped
+}
+
+func BootstrapNetwork(t *testing.T, n *framework.Network) {
+	require.Eventually(t, func() bool {
+		bootstrappedPeers := lo.Filter(n.Peers(), func(p *framework.Node) bool {
+			return p.Config().IgnoreBootstrappedFlag || Bootstrapped(t, p)
+		})
+
+		SendDataBlocks(t, bootstrappedPeers, len(bootstrappedPeers))
+		for _, p := range n.Peers() {
+			if !Bootstrapped(t, p) {
+				return false
+			}
+		}
+		return true
+	}, Timeout*2, Tick)
 }
 
 // Mana returns the mana reported by node.
@@ -292,8 +300,13 @@ func SendDataBlocks(t *testing.T, peers []*framework.Node, numBlocks int, idsMap
 
 // SendDataBlocksWithDelay sends a total of numBlocks data blocks, each after a delay interval, and saves the sent block to a map.
 // It chooses the peers to send the blocks from in a round-robin fashion.
-func SendDataBlocksWithDelay(t *testing.T, peers []*framework.Node, numBlocks int, delay time.Duration) (result map[string]DataBlockSent) {
-	result = make(map[string]DataBlockSent, numBlocks)
+func SendDataBlocksWithDelay(t *testing.T, peers []*framework.Node, numBlocks int, delay time.Duration, idsMap ...map[string]DataBlockSent) (result map[string]DataBlockSent) {
+	if len(idsMap) > 0 {
+		result = idsMap[0]
+	} else {
+		result = make(map[string]DataBlockSent, numBlocks)
+	}
+
 	ticker := time.NewTicker(delay)
 	defer ticker.Stop()
 
@@ -386,7 +399,10 @@ func RequireBlocksAvailable(t *testing.T, nodes []*framework.Node, blockIDs map[
 
 	condition := func() bool {
 		for _, node := range nodes {
-			nodeMissing := missing[node.ID()]
+			nodeMissing, exists := missing[node.ID()]
+			if !exists {
+				continue
+			}
 			for it := nodeMissing.Iterator(); it.HasNext(); {
 				blockID := it.Next()
 				blk, err := node.GetBlockMetadata(blockID)

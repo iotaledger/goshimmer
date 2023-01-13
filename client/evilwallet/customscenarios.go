@@ -103,7 +103,7 @@ func Scenario1() EvilBatch {
 	}
 }
 
-// Scenario2 is a reflection of UTXO unit test scenario example B - packages/ledgerstate/utxo_dag_test_exampleB.png
+// Scenario2 is a reflection of UTXO unit test scenario example B - packages/ledgerstate/utxo_dag_test_exampleB.png.
 func Scenario2() EvilBatch {
 	return EvilBatch{
 		[]ScenarioAlias{
@@ -120,7 +120,7 @@ func Scenario2() EvilBatch {
 	}
 }
 
-// Scenario3 is a reflection of UTXO unit test scenario example C - packages/ledgerstate/utxo_dag_test_exampleC.png
+// Scenario3 is a reflection of UTXO unit test scenario example C - packages/ledgerstate/utxo_dag_test_exampleC.png.
 func Scenario3() EvilBatch {
 	return EvilBatch{
 		[]ScenarioAlias{
@@ -137,7 +137,7 @@ func Scenario3() EvilBatch {
 	}
 }
 
-// Scenario4 is a reflection of ledgerstate unit test for conflict confirmation - packages/ledgerstate/ledgerstate_test_SetConflictConfirmed.png
+// Scenario4 is a reflection of ledgerstate unit test for conflict confirmation - packages/ledgerstate/ledgerstate_test_SetConflictConfirmed.png.
 func Scenario4() EvilBatch {
 	return EvilBatch{
 		[]ScenarioAlias{

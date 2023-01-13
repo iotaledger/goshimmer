@@ -1,12 +1,12 @@
 package ledger
 
 import (
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/cerrors"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/generics/walker"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
@@ -19,7 +19,7 @@ type Utils struct {
 }
 
 // newUtils returns a new Utils instance for the given Ledger.
-func newUtils(ledger *Ledger) (new *Utils) {
+func newUtils(ledger *Ledger) *Utils {
 	return &Utils{
 		ledger: ledger,
 	}
@@ -118,7 +118,7 @@ func (u *Utils) TransactionConflictIDs(txID utxo.TransactionID) (conflictIDs *se
 	if !u.ledger.Storage.CachedTransactionMetadata(txID).Consume(func(metadata *TransactionMetadata) {
 		conflictIDs = metadata.ConflictIDs()
 	}) {
-		return nil, errors.Errorf("failed to load TransactionMetadata with %s: %w", txID, cerrors.ErrFatal)
+		return nil, errors.WithMessagef(cerrors.ErrFatal, "failed to load TransactionMetadata with %s", txID)
 	}
 
 	return conflictIDs, nil
@@ -166,6 +166,7 @@ func (u *Utils) OutputConfirmationState(outputID utxo.OutputID) (confirmationSta
 	})
 	return
 }
+
 func (u *Utils) ConfirmedConsumer(outputID utxo.OutputID) (consumerID utxo.TransactionID) {
 	// default to no consumer, i.e. Genesis
 	consumerID = utxo.EmptyTransactionID

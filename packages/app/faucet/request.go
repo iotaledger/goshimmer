@@ -2,9 +2,9 @@ package faucet
 
 import (
 	"context"
-	"fmt"
 
-	"github.com/cockroachdb/errors"
+	"github.com/pkg/errors"
+
 	"github.com/iotaledger/hive.go/core/generics/model"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/serix"
@@ -12,23 +12,23 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
+	"github.com/iotaledger/goshimmer/packages/protocol/models/payloadtype"
 )
 
 func init() {
 	err := serix.DefaultAPI.RegisterTypeSettings(Payload{}, serix.TypeSettings{}.WithObjectType(uint32(new(Payload).Type())))
 	if err != nil {
-		panic(fmt.Errorf("error registering Transaction type settings: %w", err))
+		panic(errors.Wrap(err, "error registering Transaction type settings"))
 	}
 	err = serix.DefaultAPI.RegisterInterfaceObjects((*payload.Payload)(nil), new(Payload))
 	if err != nil {
-		panic(fmt.Errorf("error registering Transaction as Payload interface: %w", err))
+		panic(errors.Wrap(err, "error registering Transaction as Payload interface"))
 	}
 }
 
 const (
 	// ObjectName defines the name of the faucet object (payload).
-	ObjectName  = "faucet"
-	payloadType = 2
+	ObjectName = "faucet"
 )
 
 // Payload represents a faucet request which contains an address for the faucet to send funds to.
@@ -46,7 +46,7 @@ type requestModel struct {
 
 // RequestType represents the identifier for the faucet Payload type.
 var (
-	RequestType = payload.NewType(payloadType, ObjectName)
+	RequestType = payload.NewType(payloadtype.FaucetRequest, ObjectName)
 )
 
 // NewRequest is the constructor of a Payload and creates a new Payload object from the given details.
@@ -71,7 +71,7 @@ func FromBytes(data []byte) (payloadDecoded *Payload, consumedBytes int, err err
 
 	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), data, payloadDecoded, serix.WithValidation())
 	if err != nil {
-		err = errors.Errorf("failed to parse Request: %w", err)
+		err = errors.Wrap(err, "failed to parse Request")
 		return
 	}
 

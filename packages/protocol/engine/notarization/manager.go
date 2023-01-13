@@ -1,20 +1,20 @@
 package notarization
 
 import (
+	"io"
 	"sync"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
+	"github.com/pkg/errors"
 
-	"github.com/iotaledger/goshimmer/packages/core/ads"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
 )
@@ -27,8 +27,9 @@ const (
 
 // Manager is the component that manages the epoch commitments.
 type Manager struct {
-	Events *Events
-	*EpochMutations
+	Events         *Events
+	EpochMutations *EpochMutations
+	Attestations   *Attestations
 
 	storage                  *storage.Storage
 	ledgerState              *ledgerstate.LedgerState
@@ -39,6 +40,8 @@ type Manager struct {
 	acceptanceTimeMutex sync.RWMutex
 
 	optsMinCommittableEpochAge time.Duration
+
+	traits.Initializable
 }
 
 // NewManager creates a new notarization Manager.
@@ -46,12 +49,15 @@ func NewManager(storageInstance *storage.Storage, ledgerState *ledgerstate.Ledge
 	return options.Apply(&Manager{
 		Events:                     NewEvents(),
 		EpochMutations:             NewEpochMutations(weights, storageInstance.Settings.LatestCommitment().Index()),
+		Attestations:               NewAttestations(storageInstance.Permanent.Attestations, storageInstance.Prunable.Attestations, weights),
 		storage:                    storageInstance,
 		ledgerState:                ledgerState,
 		pendingConflictsCounters:   shrinkingmap.New[epoch.Index, uint64](),
 		acceptanceTime:             storageInstance.Settings.LatestCommitment().Index().EndTime(),
 		optsMinCommittableEpochAge: defaultMinEpochCommittableAge,
-	}, opts)
+	}, opts, func(m *Manager) {
+		m.Initializable = traits.NewInitializable(m.Attestations.TriggerInitialized)
+	})
 }
 
 // IncreaseConflictsCounter increases the conflicts counter for the given epoch index.
@@ -111,6 +117,54 @@ func (m *Manager) IsFullyCommitted() bool {
 	return m.AcceptanceTime().Sub((m.storage.Settings.LatestCommitment().Index() + 1).EndTime()) < m.optsMinCommittableEpochAge
 }
 
+func (m *Manager) NotarizeAcceptedBlock(block *models.Block) (err error) {
+	if err = m.EpochMutations.AddAcceptedBlock(block); err != nil {
+		return errors.Wrap(err, "failed to add accepted block to epoch mutations")
+	}
+
+	if _, err = m.Attestations.Add(NewAttestation(block)); err != nil {
+		return errors.Wrap(err, "failed to add block to attestations")
+	}
+
+	return
+}
+
+func (m *Manager) NotarizeOrphanedBlock(block *models.Block) (err error) {
+	if err = m.EpochMutations.RemoveAcceptedBlock(block); err != nil {
+		return errors.Wrap(err, "failed to remove accepted block from epoch mutations")
+	}
+
+	if _, err = m.Attestations.Delete(NewAttestation(block)); err != nil {
+		return errors.Wrap(err, "failed to delete block from attestations")
+	}
+
+	return
+}
+
+func (m *Manager) Import(reader io.ReadSeeker) (err error) {
+	m.commitmentMutex.Lock()
+	defer m.commitmentMutex.Unlock()
+
+	if err = m.Attestations.Import(reader); err != nil {
+		return errors.Wrap(err, "failed to import attestations")
+	}
+
+	m.TriggerInitialized()
+
+	return
+}
+
+func (m *Manager) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (err error) {
+	m.commitmentMutex.RLock()
+	defer m.commitmentMutex.RUnlock()
+
+	if err = m.Attestations.Export(writer, targetEpoch); err != nil {
+		return errors.Wrap(err, "failed to export attestations")
+	}
+
+	return
+}
+
 func (m *Manager) tryCommitEpoch(index epoch.Index, acceptanceTime time.Time) {
 	for i := m.storage.Settings.LatestCommitment().Index() + 1; i <= index; i++ {
 		if !m.isCommittable(i, acceptanceTime) || !m.createCommitment(i) {
@@ -144,14 +198,19 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 	m.pendingConflictsCounters.Delete(index)
 
 	if err := m.ledgerState.ApplyStateDiff(index); err != nil {
-		m.Events.Error.Trigger(errors.Errorf("failed to apply state diff for epoch %d: %w", index, err))
+		m.Events.Error.Trigger(errors.Wrapf(err, "failed to apply state diff for epoch %d", index))
 		return false
 	}
 
-	acceptedBlocks, acceptedTransactions, attestations, err := m.EpochMutations.Evict(index)
+	acceptedBlocks, acceptedTransactions, err := m.EpochMutations.Evict(index)
 	if err != nil {
-		m.Events.Error.Trigger(errors.Errorf("failed to commit mutations: %w", err))
+		m.Events.Error.Trigger(errors.Wrap(err, "failed to commit mutations"))
+		return false
+	}
 
+	attestations, attestationsWeight, err := m.Attestations.Commit(index)
+	if err != nil {
+		m.Events.Error.Trigger(errors.Wrap(err, "failed to commit attestations"))
 		return false
 	}
 
@@ -161,40 +220,29 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 		commitment.NewRoots(
 			acceptedBlocks.Root(),
 			acceptedTransactions.Root(),
-			attestations.Attestors().Root(),
-			m.ledgerState.Root(),
-			m.weights.Root(),
+			attestations.Root(),
+			m.ledgerState.UnspentOutputs.Root(),
+			m.EpochMutations.weights.Root(),
 		).ID(),
-		m.storage.Settings.LatestCommitment().CumulativeWeight()+attestations.Weight(),
+		m.storage.Settings.LatestCommitment().CumulativeWeight()+attestationsWeight,
 	)
 
 	if err = m.storage.Settings.SetLatestCommitment(newCommitment); err != nil {
-		m.Events.Error.Trigger(errors.Errorf("failed to set latest commitment: %w", err))
+		m.Events.Error.Trigger(errors.Wrap(err, "failed to set latest commitment"))
 	}
 
-	accBlocks, accTxs, valNum := m.evaluateEpochSizeDetails(acceptedBlocks, acceptedTransactions, attestations)
+	if err = m.storage.Commitments.Store(newCommitment); err != nil {
+		m.Events.Error.Trigger(errors.Wrap(err, "failed to store latest commitment"))
+	}
+
 	m.Events.EpochCommitted.Trigger(&EpochCommittedDetails{
 		Commitment:                newCommitment,
-		AcceptedBlocksCount:       accBlocks,
-		AcceptedTransactionsCount: accTxs,
-		ActiveValidatorsCount:     valNum,
+		AcceptedBlocksCount:       acceptedBlocks.Size(),
+		AcceptedTransactionsCount: acceptedTransactions.Size(),
+		ActiveValidatorsCount:     0,
 	})
 
 	return true
-}
-
-func (m *Manager) evaluateEpochSizeDetails(acceptedBlocks *ads.Set[models.BlockID], acceptedTransactions *ads.Set[utxo.TransactionID], attestations *Attestations) (int, int, int) {
-	var accBlocks, accTxs, valNum int
-	if acceptedBlocks != nil {
-		accBlocks = acceptedBlocks.Size()
-	}
-	if acceptedTransactions != nil {
-		accTxs = acceptedTransactions.Size()
-	}
-	if attestations != nil {
-		valNum = attestations.Attestors().Size()
-	}
-	return accBlocks, accTxs, valNum
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

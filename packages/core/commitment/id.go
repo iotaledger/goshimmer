@@ -8,11 +8,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/types"
 	"github.com/mr-tron/base58"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
@@ -24,7 +24,7 @@ type ID struct {
 
 func NewID(index epoch.Index, idBytes []byte) (newCommitmentID ID) {
 	newCommitmentID.EpochIndex = index
-	copy(newCommitmentID.Identifier[:], idBytes[:])
+	copy(newCommitmentID.Identifier[:], idBytes)
 
 	return
 }
@@ -55,15 +55,15 @@ func (b *ID) FromBase58(base58EncodedString string) (err error) {
 	s := strings.Split(base58EncodedString, ":")
 	decodedBytes, err := base58.Decode(s[0])
 	if err != nil {
-		return errors.Errorf("could not decode base58 encoded ID.Identifier: %w", err)
+		return errors.Wrap(err, "could not decode base58 encoded ID.Identifier")
 	}
 	epochIndex, err := strconv.ParseInt(s[1], 10, 64)
 	if err != nil {
-		return errors.Errorf("could not decode ID.EpochIndex from string: %w", err)
+		return errors.Wrap(err, "could not decode ID.EpochIndex from string")
 	}
 
 	if _, err = serix.DefaultAPI.Decode(context.Background(), decodedBytes, &b.Identifier, serix.WithValidation()); err != nil {
-		return errors.Errorf("failed to decode ID: %w", err)
+		return errors.Wrap(err, "failed to decode ID")
 	}
 	b.EpochIndex = epoch.Index(epochIndex)
 
@@ -73,7 +73,7 @@ func (b *ID) FromBase58(base58EncodedString string) (err error) {
 // FromRandomness generates a random ID.
 func (b *ID) FromRandomness(optionalEpoch ...epoch.Index) (err error) {
 	if err = b.Identifier.FromRandomness(); err != nil {
-		return errors.Errorf("could not create Identifier from randomness: %w", err)
+		return errors.Wrap(err, "could not create Identifier from randomness")
 	}
 
 	if len(optionalEpoch) >= 1 {

@@ -17,7 +17,7 @@ type Utils[ConflictID comparable, ConflictSetID comparable] struct {
 }
 
 // newUtils returns a new Utils instance for the given ConflictDAG.
-func newUtils[ConflictID comparable, ConflictSetID comparable](conflictDAG *ConflictDAG[ConflictID, ConflictSetID]) (new *Utils[ConflictID, ConflictSetID]) {
+func newUtils[ConflictID comparable, ConflictSetID comparable](conflictDAG *ConflictDAG[ConflictID, ConflictSetID]) *Utils[ConflictID, ConflictSetID] {
 	return &Utils[ConflictID, ConflictSetID]{
 		conflictDAG: conflictDAG,
 	}

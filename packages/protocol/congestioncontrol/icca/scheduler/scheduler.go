@@ -6,12 +6,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/typeutils"
+
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
@@ -121,6 +122,7 @@ func (s *Scheduler) IssuerQueueSize(issuerID identity.ID) int {
 	if issuerQueue == nil {
 		return 0
 	}
+
 	return issuerQueue.Size()
 }
 
@@ -180,7 +182,7 @@ func (s *Scheduler) TotalBlocksCount() int {
 }
 
 func (s *Scheduler) Quanta(issuerID identity.ID) *big.Rat {
-	return big.NewRat(s.getAccessMana(issuerID), s.totalAccessManaRetrieveFunc())
+	return quanta(issuerID, s.accessManaMapRetrieverFunc(), s.totalAccessManaRetrieveFunc())
 }
 
 func (s *Scheduler) Deficit(issuerID identity.ID) *big.Rat {
@@ -227,6 +229,7 @@ func (s *Scheduler) AddBlock(sourceBlock *virtualvoting.Block) {
 		if block.SetDropped() {
 			s.Events.BlockDropped.Trigger(block)
 		}
+
 		return
 	}
 
@@ -247,8 +250,9 @@ func (s *Scheduler) HandleOrphanedBlock(orphanedBlock *blockdag.Block) {
 	}
 
 	s.Unsubmit(block)
-	block.SetDropped()
-	s.Events.BlockDropped.Trigger(block)
+	if block.SetDropped() {
+		s.Events.BlockDropped.Trigger(block)
+	}
 }
 
 func (s *Scheduler) HandleAcceptedBlock(acceptedBlock *blockgadget.Block) {
@@ -315,7 +319,7 @@ func (s *Scheduler) SubmitAndReady(block *Block) (err error) {
 	s.bufferMutex.Lock()
 	defer s.bufferMutex.Unlock()
 
-	if err = s.submit(block); err != nil {
+	if err := s.submit(block); err != nil {
 		return err
 	}
 
@@ -436,7 +440,10 @@ func (s *Scheduler) schedule() *Block {
 	s.bufferMutex.Lock()
 	defer s.bufferMutex.Unlock()
 
-	s.updateActiveIssuersList(s.accessManaMapRetrieverFunc())
+	manaMap := s.accessManaMapRetrieverFunc()
+	totalMana := s.totalAccessManaRetrieveFunc()
+
+	s.updateActiveIssuersList(manaMap)
 
 	start := s.buffer.Current()
 	// no blocks submitted
@@ -444,7 +451,7 @@ func (s *Scheduler) schedule() *Block {
 		return nil
 	}
 
-	rounds, schedulingIssuer := s.selectIssuer(start)
+	rounds, schedulingIssuer := s.selectIssuer(start, manaMap, totalMana)
 
 	// if there is no issuer with a ready block, we cannot schedule anything
 	if schedulingIssuer == nil {
@@ -454,7 +461,7 @@ func (s *Scheduler) schedule() *Block {
 	if rounds.Sign() > 0 {
 		// increment every issuer's deficit for the required number of rounds
 		for q := start; ; {
-			s.updateDeficit(q.IssuerID(), new(big.Rat).Mul(s.Quanta(q.IssuerID()), rounds))
+			s.updateDeficit(q.IssuerID(), new(big.Rat).Mul(quanta(q.IssuerID(), manaMap, totalMana), rounds))
 
 			q = s.buffer.Next()
 			if q == start {
@@ -465,7 +472,7 @@ func (s *Scheduler) schedule() *Block {
 
 	// increment the deficit for all issuers before schedulingIssuer one more time
 	for q := start; q != schedulingIssuer; q = s.buffer.Next() {
-		s.updateDeficit(q.IssuerID(), s.Quanta(q.IssuerID()))
+		s.updateDeficit(q.IssuerID(), quanta(q.IssuerID(), manaMap, totalMana))
 	}
 
 	// remove the block from the buffer and adjust issuer's deficit
@@ -476,37 +483,40 @@ func (s *Scheduler) schedule() *Block {
 	return block
 }
 
-func (s *Scheduler) selectIssuer(start *IssuerQueue) (rounds *big.Rat, schedulingIssuer *IssuerQueue) {
+func (s *Scheduler) selectIssuer(start *IssuerQueue, manaMap map[identity.ID]int64, totalMana int64) (rounds *big.Rat, schedulingIssuer *IssuerQueue) {
 	rounds = new(big.Rat).SetFloat64(math.MaxFloat64)
 
 	for q := start; ; {
 		block := q.Front()
 
-		for block != nil && !time.Now().Before(block.IssuingTime()) {
+		for block != nil && time.Now().After(block.IssuingTime()) {
 			if s.isBlockAcceptedFunc(block.ID()) && time.Since(block.IssuingTime()) > s.optsAcceptedBlockScheduleThreshold {
 				block.SetSkipped()
 				s.Events.BlockSkipped.Trigger(block)
 				s.buffer.PopFront()
 
 				block = q.Front()
+
 				continue
 			}
 
-			if block.IsDropped() {
+			if block.IsDropped() || block.IsOrphaned() {
 				s.buffer.PopFront()
 				block = q.Front()
+
 				continue
 			}
 			// compute how often the deficit needs to be incremented until the block can be scheduled
 			remainingDeficit := maxRat(new(big.Rat).Sub(big.NewRat(int64(block.Size()), 1), s.Deficit(q.IssuerID())), new(big.Rat))
 			// calculate how many rounds we need to skip to accumulate enough deficit.
 			// Use for loop to account for float imprecision.
-			r := new(big.Rat).Mul(remainingDeficit, new(big.Rat).Inv(s.Quanta(q.IssuerID())))
+			r := new(big.Rat).Mul(remainingDeficit, new(big.Rat).Inv(quanta(q.IssuerID(), manaMap, totalMana)))
 			// find the first issuer that will be allowed to schedule a block
 			if r.Cmp(rounds) < 0 {
 				rounds = r
 				schedulingIssuer = q
 			}
+
 			break
 		}
 
@@ -515,6 +525,7 @@ func (s *Scheduler) selectIssuer(start *IssuerQueue) (rounds *big.Rat, schedulin
 			break
 		}
 	}
+
 	return rounds, schedulingIssuer
 }
 
@@ -554,7 +565,6 @@ func (s *Scheduler) updateDeficit(issuerID identity.ID, d *big.Rat) {
 	deficit := new(big.Rat).Add(s.Deficit(issuerID), d)
 	if deficit.Sign() < 0 {
 		// this will never happen and is just here for debugging purposes
-		// TODO: remove print
 		panic("scheduler: deficit is less than 0")
 	}
 
@@ -584,6 +594,7 @@ func (s *Scheduler) GetOrRegisterBlock(virtualVotingBlock *virtualvoting.Block) 
 func (s *Scheduler) getAccessMana(id identity.ID) int64 {
 	mana := s.accessManaMapRetrieverFunc()[id]
 	if mana == 0 {
+		// TODO: when removing zero mana issuers, remove this
 		return MinMana
 	}
 	return mana
@@ -594,6 +605,15 @@ func (s *Scheduler) evictEpoch(index epoch.Index) {
 	defer s.evictionMutex.Unlock()
 
 	s.blocks.Evict(index)
+}
+
+func quanta(issuerID identity.ID, manaMap map[identity.ID]int64, totalMana int64) *big.Rat {
+	if manaValue, exists := manaMap[issuerID]; exists {
+		return big.NewRat(manaValue, totalMana)
+	}
+
+	// TODO: when removing the zero mana issuer solution, return zero
+	return big.NewRat(MinMana, totalMana)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

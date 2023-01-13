@@ -7,8 +7,8 @@ import (
 	"io/fs"
 	"net/http"
 
-	"github.com/cockroachdb/errors"
 	"github.com/labstack/echo"
+	"github.com/pkg/errors"
 )
 
 // ErrInvalidParameter defines the invalid parameter error.
@@ -95,7 +95,9 @@ func setupRoutes(e *echo.Echo) {
 
 		switch errors.Unwrap(err) {
 		case echo.ErrNotFound:
-			c.Redirect(http.StatusSeeOther, "/")
+			if redirectErr := c.Redirect(http.StatusSeeOther, "/"); redirectErr != nil {
+				log.Warnf("failed to redirect request: %s", redirectErr.Error())
+			}
 			return
 
 		case echo.ErrUnauthorized:
@@ -124,6 +126,9 @@ func setupRoutes(e *echo.Echo) {
 		}
 
 		block = fmt.Sprintf("%s, error: %+v", block, err)
-		c.String(statusCode, block)
+		resErr := c.String(statusCode, block)
+		if resErr != nil {
+			log.Warnf("Failed to send error response: %s", resErr)
+		}
 	}
 }

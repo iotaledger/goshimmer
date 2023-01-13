@@ -3,7 +3,9 @@ package conflicttracker
 import (
 	"testing"
 
+	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/constraints"
+	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
@@ -14,7 +16,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/storage/permanent"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -37,7 +38,7 @@ func NewTestFramework[VotePowerType constraints.Comparable[VotePowerType]](test 
 	}, opts, func(t *TestFramework[VotePowerType]) {
 		if t.VotesTestFramework == nil {
 			t.VotesTestFramework = votes.NewTestFramework(test, votes.WithValidators(
-				sybilprotection.NewWeights(mapdb.NewMapDB(), permanent.NewSettings(test.TempDir()+"/settings")).WeightedSet(),
+				sybilprotection.NewWeights(mapdb.NewMapDB()).NewWeightedSet(),
 			))
 		}
 
@@ -46,15 +47,20 @@ func NewTestFramework[VotePowerType constraints.Comparable[VotePowerType]](test 
 		if t.ConflictTracker == nil {
 			t.ConflictTracker = NewConflictTracker[utxo.TransactionID, utxo.OutputID, VotePowerType](t.ConflictDAG(), t.VotesTestFramework.Validators)
 		}
+
+		t.ConflictTracker.Events.VoterAdded.Attach(event.NewClosure(func(event *VoterEvent[utxo.TransactionID]) {
+			if debug.GetEnabled() {
+				t.test.Logf("CONFLICT VOTER ADDED: %v", event.ConflictID)
+			}
+		}))
 	})
 }
 
 func (t *TestFramework[VotePowerType]) ValidateStatementResults(expectedResults map[string]*set.AdvancedSet[identity.ID]) {
 	for conflictIDAlias, expectedVoters := range expectedResults {
 		actualVoters := t.ConflictTracker.Voters(t.ConflictID(conflictIDAlias))
-		defer actualVoters.Detach()
 
-		expectedVoters.ForEach(func(expectedID identity.ID) (err error) {
+		_ = expectedVoters.ForEach(func(expectedID identity.ID) (err error) {
 			require.Truef(t.test, actualVoters.Has(expectedID), "expected voter %s to be in the set of voters of conflict %s", expectedID, conflictIDAlias)
 			return nil
 		})

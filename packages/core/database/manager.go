@@ -8,13 +8,13 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/cockroachdb/errors"
+	"github.com/pkg/errors"
 	"github.com/zyedidia/generic/cache"
 
-	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
+	"github.com/iotaledger/hive.go/core/ioutils"
 	"github.com/iotaledger/hive.go/core/kvstore"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -165,7 +165,7 @@ func (m *Manager) Get(index epoch.Index, realm kvstore.Realm) kvstore.KVStore {
 	}
 
 	bucket := m.getBucket(index)
-	withRealm, err := bucket.WithRealm(byteutils.ConcatBytes(bucket.Realm(), realm))
+	withRealm, err := bucket.WithExtendedRealm(realm)
 	if err != nil {
 		panic(err)
 	}
@@ -200,7 +200,7 @@ func (m *Manager) PruneUntilEpoch(index epoch.Index) {
 
 	currentPrunedIndex := m.setMaxPruned(baseIndexToPrune)
 	for currentPrunedIndex+epoch.Index(m.optsGranularity) <= baseIndexToPrune {
-		currentPrunedIndex = currentPrunedIndex + epoch.Index(m.optsGranularity)
+		currentPrunedIndex += epoch.Index(m.optsGranularity)
 		m.prune(currentPrunedIndex)
 	}
 }
@@ -282,10 +282,11 @@ func (m *Manager) PrunableStorageSize() int64 {
 //	baseIndex 1 -> db 0
 //	baseIndex 2 -> db 2
 func (m *Manager) getDBInstance(index epoch.Index) (db *dbInstance) {
+	baseIndex := m.computeDBBaseIndex(index)
 	m.openDBsMutex.Lock()
 	defer m.openDBsMutex.Unlock()
 
-	baseIndex := m.computeDBBaseIndex(index)
+	// check if exists again, as other goroutine might have created it in parallel
 	db, exists := m.openDBs.Get(baseIndex)
 	if !exists {
 		db = m.createDBInstance(baseIndex)
@@ -333,7 +334,7 @@ func (m *Manager) createDBInstance(index epoch.Index) (newDBInstance *dbInstance
 
 // createBucket creates a new bucket for the given baseIndex. It uses the baseIndex as a realm on the underlying DB.
 func (m *Manager) createBucket(db *dbInstance, index epoch.Index) (bucket kvstore.KVStore) {
-	bucket, err := db.store.WithRealm(indexToRealm(index))
+	bucket, err := db.store.WithExtendedRealm(indexToRealm(index))
 	if err != nil {
 		panic(err)
 	}
@@ -485,17 +486,7 @@ func dbPrunableDirectorySize(base string, index epoch.Index) (int64, error) {
 }
 
 func dbDirectorySize(path string) (int64, error) {
-	var size int64
-	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if !info.IsDir() {
-			size += info.Size()
-		}
-		return err
-	})
-	return size, err
+	return ioutils.FolderSize(path)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

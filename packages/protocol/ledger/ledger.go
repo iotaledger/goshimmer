@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/walker"
@@ -17,7 +16,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
 	"github.com/iotaledger/goshimmer/packages/storage"
-	"github.com/iotaledger/goshimmer/packages/storage/models"
 )
 
 // region Ledger ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -124,26 +122,31 @@ func New(chainStorage *storage.Storage, opts ...options.Option[Ledger]) (ledger 
 	return ledger
 }
 
-// SetTransactionInclusionTime sets the inclusion timestamp of a Transaction.
-func (l *Ledger) SetTransactionInclusionTime(txID utxo.TransactionID, inclusionTime time.Time) {
-	l.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *TransactionMetadata) {
-		updated, previousInclusionTime := txMetadata.SetInclusionTime(inclusionTime)
+// SetTransactionInclusionEpoch sets the inclusion timestamp of a Transaction.
+func (l *Ledger) SetTransactionInclusionEpoch(id utxo.TransactionID, inclusionEpoch epoch.Index) {
+	l.Storage.CachedTransactionMetadata(id).Consume(func(metadata *TransactionMetadata) {
+		updated, previousInclusionEpoch := metadata.SetInclusionEpoch(inclusionEpoch)
 		if !updated {
 			return
 		}
 
-		l.Events.TransactionInclusionUpdated.Trigger(&TransactionInclusionUpdatedEvent{
-			TransactionID:         txID,
-			InclusionTime:         inclusionTime,
-			PreviousInclusionTime: previousInclusionTime,
-		})
+		for it := metadata.OutputIDs().Iterator(); it.HasNext(); {
+			l.Storage.CachedOutputMetadata(it.Next()).Consume(func(outputMetadata *OutputMetadata) {
+				outputMetadata.SetInclusionEpoch(inclusionEpoch)
+			})
+		}
 
-		if l.ConflictDAG.ConfirmationState(txMetadata.ConflictIDs()).IsAccepted() {
-			l.rollbackTransactionInEpochDiff(txMetadata, previousInclusionTime, inclusionTime)
+		if previousInclusionEpoch != 0 {
+			l.Events.TransactionInclusionUpdated.Trigger(&TransactionInclusionUpdatedEvent{
+				TransactionID:          id,
+				TransactionMetadata:    metadata,
+				InclusionEpoch:         inclusionEpoch,
+				PreviousInclusionEpoch: previousInclusionEpoch,
+			})
+		}
 
-			if previousInclusionTime.IsZero() {
-				l.triggerAcceptedEvent(txMetadata)
-			}
+		if l.ConflictDAG.ConfirmationState(metadata.ConflictIDs()).IsAccepted() && previousInclusionEpoch == 0 {
+			l.triggerAcceptedEvent(metadata)
 		}
 	})
 }
@@ -196,7 +199,7 @@ func (l *Ledger) processConsumingTransactions(outputIDs utxo.OutputIDs) {
 
 // triggerAcceptedEvent triggers the TransactionAccepted event if the Transaction was accepted.
 func (l *Ledger) triggerAcceptedEvent(txMetadata *TransactionMetadata) (triggered bool) {
-	if txMetadata.InclusionTime().IsZero() {
+	if txMetadata.InclusionEpoch() == 0 {
 		return false
 	}
 
@@ -204,91 +207,48 @@ func (l *Ledger) triggerAcceptedEvent(txMetadata *TransactionMetadata) (triggere
 		return false
 	}
 
+	transactionEvent := &TransactionEvent{
+		Metadata:       txMetadata,
+		CreatedOutputs: make([]*OutputWithMetadata, 0),
+		SpentOutputs:   make([]*OutputWithMetadata, 0),
+	}
+
 	for it := txMetadata.OutputIDs().Iterator(); it.HasNext(); {
-		l.Storage.CachedOutputMetadata(it.Next()).Consume(func(outputMetadata *OutputMetadata) {
+		outputID := it.Next()
+		l.Storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *OutputMetadata) {
 			outputMetadata.SetConfirmationState(confirmation.Accepted)
+			l.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
+				transactionEvent.CreatedOutputs = append(transactionEvent.CreatedOutputs, NewOutputWithMetadata(
+					outputMetadata.InclusionEpoch(),
+					outputID,
+					output,
+					outputMetadata.ConsensusManaPledgeID(),
+					outputMetadata.AccessManaPledgeID(),
+				))
+			})
 		})
 	}
 
 	l.Storage.CachedTransaction(txMetadata.ID()).Consume(func(tx utxo.Transaction) {
 		for it := l.Utils.ResolveInputs(tx.Inputs()).Iterator(); it.HasNext(); {
 			inputID := it.Next()
-			l.Events.OutputSpent.Trigger(inputID)
-			// TODO: inputs should be marked as deleted or spent
-			// l.Storage.outputStorage.Delete(lo.PanicOnErr(inputID.Bytes()))
+			l.Storage.CachedOutputMetadata(inputID).Consume(func(outputMetadata *OutputMetadata) {
+				l.Storage.CachedOutput(inputID).Consume(func(output utxo.Output) {
+					transactionEvent.SpentOutputs = append(transactionEvent.SpentOutputs, NewOutputWithMetadata(
+						outputMetadata.InclusionEpoch(),
+						inputID,
+						output,
+						outputMetadata.ConsensusManaPledgeID(),
+						outputMetadata.AccessManaPledgeID(),
+					))
+				})
+			})
 		}
 	})
 
-	l.storeTransactionInEpochDiff(txMetadata)
-
-	l.Events.TransactionAccepted.Trigger(txMetadata)
+	l.Events.TransactionAccepted.Trigger(transactionEvent)
 
 	return true
-}
-
-func (l *Ledger) storeTransactionInEpochDiff(txMeta *TransactionMetadata) {
-	txEpoch := epoch.IndexFromTime(txMeta.InclusionTime())
-
-	l.Storage.CachedTransaction(txMeta.ID()).Consume(func(tx utxo.Transaction) {
-		// Mark every input as a spent output in the epoch diff
-		for it := l.Utils.ResolveInputs(tx.Inputs()).Iterator(); it.HasNext(); {
-			inputID := it.Next()
-			l.Storage.CachedOutput(inputID).Consume(func(output utxo.Output) {
-				l.Storage.CachedOutputMetadata(inputID).Consume(func(outputMetadata *OutputMetadata) {
-					if err := l.storeOutputInDiff(txEpoch, inputID, output, outputMetadata, l.ChainStorage.LedgerStateDiffs.StoreSpentOutput); err != nil {
-						l.Events.Error.Trigger(errors.Errorf("could not store spent output in diff: %w", err))
-					}
-				})
-			})
-		}
-
-		// Mark every output as created output in the epoch diff
-		for it := txMeta.OutputIDs().Iterator(); it.HasNext(); {
-			outputID := it.Next()
-			l.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
-				l.Storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *OutputMetadata) {
-					if err := l.storeOutputInDiff(txEpoch, outputID, output, outputMetadata, l.ChainStorage.LedgerStateDiffs.StoreCreatedOutput); err != nil {
-						l.Events.Error.Trigger(errors.Errorf("could not store created output in diff: %w", err))
-					}
-				})
-			})
-		}
-
-		if txEpoch > l.ChainStorage.Settings.LatestStateMutationEpoch() {
-			if err := l.ChainStorage.Settings.SetLatestStateMutationEpoch(txEpoch); err != nil {
-				l.Events.Error.Trigger(errors.Errorf("failed to update latest state mutation epoch: %w", err))
-			}
-		}
-	})
-}
-
-func (l *Ledger) rollbackTransactionInEpochDiff(txMeta *TransactionMetadata, previousInclusionTime, inclusionTime time.Time) {
-	oldEpoch := epoch.IndexFromTime(previousInclusionTime)
-	newEpoch := epoch.IndexFromTime(inclusionTime)
-
-	if oldEpoch == 0 || oldEpoch == newEpoch {
-		return
-	}
-
-	if oldEpoch <= l.ChainStorage.Settings.LatestCommitment().Index() || newEpoch <= l.ChainStorage.Settings.LatestCommitment().Index() {
-		l.Events.Error.Trigger(errors.Errorf("inclusion time of transaction changed for already committed epoch: previous Index %d, new Index %d", oldEpoch, newEpoch))
-		return
-	}
-
-	l.Storage.CachedTransaction(txMeta.ID()).Consume(func(tx utxo.Transaction) {
-		l.ChainStorage.LedgerStateDiffs.DeleteSpentOutputs(oldEpoch, l.Utils.ResolveInputs(tx.Inputs()))
-	})
-
-	l.ChainStorage.LedgerStateDiffs.DeleteCreatedOutputs(oldEpoch, txMeta.OutputIDs())
-}
-
-func (l *Ledger) storeOutputInDiff(txEpoch epoch.Index, outputID utxo.OutputID, output utxo.Output, outputMetadata *OutputMetadata, storeFunc func(*models.OutputWithMetadata) error) (err error) {
-	outputWithMetadata := models.NewOutputWithMetadata(
-		txEpoch, outputID, output,
-		outputMetadata.ConsensusManaPledgeID(),
-		outputMetadata.AccessManaPledgeID(),
-	)
-	return storeFunc(outputWithMetadata)
 }
 
 // triggerRejectedEvent triggers the TransactionRejected event if the Transaction was rejected.
@@ -408,7 +368,7 @@ func WithConsumerCacheTime(consumerCacheTime time.Duration) (option options.Opti
 	}
 }
 
-// WithConflictDAGOptions is an Option for the Ledger that allows to configure the optionsLedger for the ConflictDAG
+// WithConflictDAGOptions is an Option for the Ledger that allows to configure the optionsLedger for the ConflictDAG.
 func WithConflictDAGOptions(conflictDAGOptions ...conflictdag.Option) (option options.Option[Ledger]) {
 	return func(options *Ledger) {
 		options.optConflictDAG = conflictDAGOptions

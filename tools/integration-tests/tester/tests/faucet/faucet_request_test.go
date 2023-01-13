@@ -2,6 +2,7 @@ package faucet
 
 import (
 	"context"
+	"log"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -22,14 +23,17 @@ func TestFaucetRequest(t *testing.T) {
 	defer cancel()
 	snapshotInfo := tests.EqualSnapshotDetails
 	n, err := f.CreateNetwork(ctx, t.Name(), numPeers, framework.CreateNetworkConfig{
-		StartSynced: true,
+		StartSynced: false,
 		Faucet:      true,
 		Activity:    true,
-		PeerMaster:  true,
 		Snapshot:    snapshotInfo,
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
+
+	log.Println("Bootstrapping network...")
+	tests.BootstrapNetwork(t, n)
+	log.Println("Bootstrapping network... done")
 
 	faucet, nonFaucetPeers := n.Peers()[0], n.Peers()[1:]
 

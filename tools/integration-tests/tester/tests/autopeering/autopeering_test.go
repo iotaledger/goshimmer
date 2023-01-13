@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
@@ -35,7 +34,7 @@ func TestAutopeeringNetworkSplit(t *testing.T) {
 
 			// check that all neighbors are indeed in the same partition
 			for _, n := range append(resp.Accepted, resp.Chosen...) {
-				assert.Containsf(t, partition.PeerIDs(), n.ID,
+				require.Containsf(t, partition.PeerIDs(), n.ID,
 					"peer '%s' has a neighbor outside it's partition", peer)
 			}
 		}

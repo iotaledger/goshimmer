@@ -2,6 +2,7 @@ package consensus
 
 import (
 	"context"
+	"log"
 	"testing"
 	"time"
 
@@ -38,13 +39,12 @@ func TestSimpleDoubleSpend(t *testing.T) {
 
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
-	n, err := f.CreateNetworkNoAutomaticManualPeering(ctx, "test_simple_double_spend", 2,
+	n, err := f.CreateNetwork(ctx, t.Name(), 4,
 		framework.CreateNetworkConfig{
 			StartSynced: true,
 			Faucet:      false,
 			Activity:    false,
 			Autopeering: false,
-			PeerMaster:  false,
 			Snapshot:    snapshotInfo,
 		}, tests.CommonSnapshotConfigFunc(t, snapshotInfo, func(peerIndex int, isPeerMaster bool, conf config.GoShimmer) config.GoShimmer {
 			conf.UseNodeSeedAsWalletSeed = true
@@ -63,24 +63,29 @@ func TestSimpleDoubleSpend(t *testing.T) {
 	var (
 		node1 = n.Peers()[0]
 		node2 = n.Peers()[1]
+		node3 = n.Peers()[2]
+		node4 = n.Peers()[3]
 
 		genesis1Wallet = createGenesisWallet(node1)
 		genesis2Wallet = createGenesisWallet(node2)
 	)
 
-	// merge partitions
-	err = n.DoManualPeering(ctx)
-	require.NoError(t, err)
+	log.Println("Bootstrapping network...")
+	tests.BootstrapNetwork(t, n)
+	log.Println("Bootstrapping network... done")
 
+	// issue blocks on all nodes
 	tests.SendDataBlocks(t, n.Peers(), 50)
 
 	// split partitions
-	err = n.CreatePartitionsManualPeering(ctx, []*framework.Node{node1}, []*framework.Node{node2})
+	err = n.CreatePartitionsManualPeering(ctx, []*framework.Node{node1}, []*framework.Node{node2}, []*framework.Node{node3, node4})
 	require.NoError(t, err)
 
 	// check consensus mana
 	require.EqualValues(t, snapshotInfo.PeersAmountsPledged[0], tests.Mana(t, node1).Consensus)
 	require.EqualValues(t, snapshotInfo.PeersAmountsPledged[1], tests.Mana(t, node2).Consensus)
+	require.EqualValues(t, snapshotInfo.PeersAmountsPledged[2], tests.Mana(t, node3).Consensus)
+	require.EqualValues(t, snapshotInfo.PeersAmountsPledged[3], tests.Mana(t, node4).Consensus)
 
 	var txs1 []*devnetvm.Transaction
 	var txs2 []*devnetvm.Transaction
@@ -109,7 +114,7 @@ func TestSimpleDoubleSpend(t *testing.T) {
 		res2, err := node2.GetTransactionMetadata(txs2[0].ID().Base58())
 		require.NoError(t, err)
 		return len(res1.ConflictIDs) > 0 && len(res2.ConflictIDs) > 0
-	}, tests.Timeout*2, tests.Tick)
+	}, tests.Timeout, tests.Tick)
 
 	// we issue blks on both nodes so the txs' ConfirmationState can change, given that they are dependent on their
 	// attachments' ConfirmationState. if blks would only be issued on node 2 or 1, they weight would never surpass 50%.
@@ -125,7 +130,7 @@ func TestSimpleDoubleSpend(t *testing.T) {
 				ConfirmationState: confirmation.Rejected,
 				Solid:             tests.True(),
 			},
-		}, time.Minute*2, tests.Tick)
+		}, time.Minute, tests.Tick)
 	}
 }
 

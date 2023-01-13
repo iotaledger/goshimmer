@@ -2,10 +2,10 @@ package storable
 
 import (
 	"bytes"
-	"io/ioutil"
+	"os"
 
-	"github.com/cockroachdb/errors"
 	"github.com/natefinch/atomic"
+	"github.com/pkg/errors"
 )
 
 // Struct contains logic that can be embedded in other structs to make them persist-able to disk.
@@ -35,10 +35,9 @@ func (s *Struct[A, B]) FromFile(fileName ...string) (err error) {
 	filePath := s.filePath
 	if len(fileName) > 0 {
 		filePath = fileName[0]
-
 	}
 
-	readBytes, err := ioutil.ReadFile(filePath)
+	readBytes, err := os.ReadFile(filePath)
 	if err != nil {
 		return errors.Errorf("failed to read file %s: %s", filePath, err)
 	}
@@ -54,7 +53,7 @@ func (s *Struct[A, B]) FromFile(fileName ...string) (err error) {
 func (s *Struct[A, B]) ToFile(fileName ...string) (err error) {
 	bytesToWrite, err := s.object.Bytes()
 	if err != nil {
-		return errors.Errorf("failed to serialize object: %w", err)
+		return errors.Wrap(err, "failed to serialize object")
 	}
 
 	if len(fileName) != 0 {

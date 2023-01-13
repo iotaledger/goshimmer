@@ -11,20 +11,17 @@ jobs:
     name: Unit tests
     runs-on: ubuntu-latest
     steps:
-      
-      - name: Setup dependencies
-        run: sudo apt-get install libgflags-dev libsnappy-dev zlib1g-dev libbz2-dev liblz4-dev libzstd-dev
 
-      - name: Setup Go 1.19.3
+      - name: Setup Go 1.19.4
         uses: actions/setup-go@v1
         with:
-          go-version: 1.19.3
+          go-version: 1.19.4
 
       - name: Checkout repository
         uses: actions/checkout@v2
 
       - name: Cache Go build and dependencies
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: |
             ~/.cache/go-build
@@ -44,19 +41,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-      - name: Setup dependencies
-        run: sudo apt-get install libgflags-dev libsnappy-dev zlib1g-dev libbz2-dev liblz4-dev libzstd-dev
-
-      - name: Setup Go 1.19.3
+      - name: Setup Go 1.19.4
         uses: actions/setup-go@v1
         with:
-          go-version: 1.19.3
+          go-version: 1.19.4
 
       - name: Checkout repository
         uses: actions/checkout@v2
 
       - name: Cache Go build and dependencies
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: |
             ~/.cache/go-build

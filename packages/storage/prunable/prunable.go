@@ -1,28 +1,32 @@
 package prunable
 
 import (
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/kvstore"
+
 	"github.com/iotaledger/goshimmer/packages/core/database"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
 
 const (
 	blocksPrefix byte = iota
 	rootBlocksPrefix
-	activityLogPrefix
+	attestationsPrefix
 	ledgerStateDiffsPrefix
 )
 
 type Prunable struct {
 	Blocks           *Blocks
 	RootBlocks       *RootBlocks
-	Attestors        *Attestors
-	LedgerStateDiffs *LedgerStateDiffs
+	Attestations     func(index epoch.Index) kvstore.KVStore
+	LedgerStateDiffs func(index epoch.Index) kvstore.KVStore
 }
 
-func New(database *database.Manager) (newPrunable *Prunable) {
+func New(dbManager *database.Manager) (newPrunable *Prunable) {
 	return &Prunable{
-		Blocks:           NewBlocks(database, blocksPrefix),
-		RootBlocks:       NewRootBlocks(database, rootBlocksPrefix),
-		Attestors:        NewAttestors(database, activityLogPrefix),
-		LedgerStateDiffs: NewLedgerStateDiffs(database, ledgerStateDiffsPrefix),
+		Blocks:           NewBlocks(dbManager, blocksPrefix),
+		RootBlocks:       NewRootBlocks(dbManager, rootBlocksPrefix),
+		Attestations:     lo.Bind([]byte{attestationsPrefix}, dbManager.Get),
+		LedgerStateDiffs: lo.Bind([]byte{ledgerStateDiffsPrefix}, dbManager.Get),
 	}
 }

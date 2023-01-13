@@ -459,7 +459,6 @@ func TestGadget_update_multipleSequences(t *testing.T) {
 		}))
 		tf.AssertBlockAccepted(14)
 		tf.AssertBlockConfirmed(14)
-
 	}
 
 	tf.CreateBlock("Block18", models.WithStrongParents(tf.BlockIDs("Block5")), models.WithIssuer(tf.Identity("B").PublicKey()))
@@ -604,7 +603,6 @@ func TestGadget_update_multipleSequences_onlyAcceptThenConfirm(t *testing.T) {
 		tf.ValidateConfirmedBlocks(initialConfirmedBlocks)
 		tf.AssertBlockAccepted(14)
 		tf.AssertBlockConfirmed(0)
-
 	}
 
 	tf.CreateBlock("Block18", models.WithStrongParents(tf.BlockIDs("Block5")), models.WithIssuer(tf.Identity("B").PublicKey()))
@@ -808,7 +806,6 @@ func TestGadget_unorphan(t *testing.T) {
 
 		tf.AssertBlockAccepted(0)
 		tf.AssertBlockConfirmed(0)
-
 	}
 
 	for _, alias := range []string{"Block1", "Block2", "Block3", "Block4", "Block5"} {

@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/labstack/echo"
+	"github.com/mr-tron/base58/base58"
+	"github.com/pkg/errors"
+
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
-	"github.com/labstack/echo"
-	"github.com/mr-tron/base58/base58"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/app/retainer"
@@ -222,7 +224,7 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 
 		searchInByte, err := base58.Decode(search)
 		if err != nil {
-			return fmt.Errorf("%w: search ID %s", ErrInvalidParameter, search)
+			return errors.WithMessagef(ErrInvalidParameter, "search ID %s", search)
 		}
 
 		switch len(searchInByte) {
@@ -236,7 +238,7 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 			var blockID models.BlockID
 			err = blockID.FromBase58(c.Param("id"))
 			if err != nil {
-				return fmt.Errorf("%w: search ID %s", ErrInvalidParameter, search)
+				return errors.WithMessagef(ErrInvalidParameter, "search ID %s", search)
 			}
 
 			blk, err := findBlock(blockID)
@@ -245,7 +247,7 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 			}
 
 		default:
-			return fmt.Errorf("%w: search ID %s", ErrInvalidParameter, search)
+			return errors.WithMessagef(ErrInvalidParameter, "search ID %s", search)
 		}
 
 		return c.JSON(http.StatusOK, result)
@@ -255,7 +257,7 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 func findBlock(blockID models.BlockID) (explorerBlk *ExplorerBlock, err error) {
 	blockMetadata, exists := deps.Retainer.BlockMetadata(blockID)
 	if !exists {
-		return nil, fmt.Errorf("%w: block metadata %s", ErrNotFound, blockID.Base58())
+		return nil, errors.WithMessagef(ErrNotFound, "block metadata %s", blockID.Base58())
 	}
 
 	explorerBlk = createExplorerBlock(blockMetadata.M.Block, blockMetadata)
@@ -266,7 +268,7 @@ func findBlock(blockID models.BlockID) (explorerBlk *ExplorerBlock, err error) {
 func findAddress(strAddress string) (*ExplorerAddress, error) {
 	address, err := devnetvm.AddressFromBase58EncodedString(strAddress)
 	if err != nil {
-		return nil, fmt.Errorf("%w: address %s", ErrNotFound, strAddress)
+		return nil, errors.WithMessagef(ErrNotFound, "address %s", strAddress)
 	}
 
 	outputs := make([]ExplorerOutput, 0)
@@ -309,7 +311,7 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 	})
 
 	if len(outputs) == 0 {
-		return nil, fmt.Errorf("%w: address %s", ErrNotFound, strAddress)
+		return nil, errors.WithMessagef(ErrNotFound, "address %s", strAddress)
 	}
 
 	return &ExplorerAddress{

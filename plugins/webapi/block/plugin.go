@@ -1,18 +1,16 @@
 package block
 
 import (
-	"fmt"
 	"net/http"
-	"strconv"
 
 	"github.com/iotaledger/hive.go/core/node"
 	"github.com/labstack/echo"
+	"github.com/pkg/errors"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/app/retainer"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
@@ -72,7 +70,7 @@ func configure(_ *node.Plugin) {
 //		return
 //	}
 //
-//	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load Sequence with %s", sequenceID)))
+//	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load Sequence with %s", sequenceID)))
 // }
 //
 // // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -92,7 +90,7 @@ func configure(_ *node.Plugin) {
 //		return
 //	}
 //
-//	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load MarkerIndexConflictIDMapping of %s", sequenceID)))
+//	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load MarkerIndexConflictIDMapping of %s", sequenceID)))
 // }
 //
 // // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -105,42 +103,44 @@ func GetBlock(c echo.Context) (err error) {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
-	block, exists := deps.Retainer.Block(blockID)
-	if !exists {
-		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load Block with %s", blockID)))
-	}
+
 	blockMetadata, exists := deps.Retainer.BlockMetadata(blockID)
 	if !exists {
-		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load BlockMetadata with %s", blockID)))
+		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load BlockMetadata with %s", blockID)))
 	}
+
 	var payloadBytes []byte
-	payloadBytes, err = block.Payload().Bytes()
+	payloadBytes, err = blockMetadata.M.Block.Payload().Bytes()
+
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, jsonmodels.NewErrorResponse(errors.Wrap(err, "failed to load payload bytes")))
+	}
 
 	return c.JSON(http.StatusOK, jsonmodels.Block{
 		ID:                   blockMetadata.ID().Base58(),
-		StrongParents:        block.ParentsByType(models.StrongParentType).Base58(),
-		WeakParents:          block.ParentsByType(models.WeakParentType).Base58(),
-		ShallowLikeParents:   block.ParentsByType(models.ShallowLikeParentType).Base58(),
+		StrongParents:        blockMetadata.M.Block.ParentsByType(models.StrongParentType).Base58(),
+		WeakParents:          blockMetadata.M.Block.ParentsByType(models.WeakParentType).Base58(),
+		ShallowLikeParents:   blockMetadata.M.Block.ParentsByType(models.ShallowLikeParentType).Base58(),
 		StrongChildren:       blockMetadata.M.StrongChildren.Base58(),
 		WeakChildren:         blockMetadata.M.WeakChildren.Base58(),
 		LikedInsteadChildren: blockMetadata.M.LikedInsteadChildren.Base58(),
-		IssuerPublicKey:      block.IssuerPublicKey().String(),
-		IssuingTime:          block.IssuingTime().Unix(),
-		SequenceNumber:       block.SequenceNumber(),
-		PayloadType:          block.Payload().Type().String(),
+		IssuerPublicKey:      blockMetadata.M.Block.IssuerPublicKey().String(),
+		IssuingTime:          blockMetadata.M.Block.IssuingTime().Unix(),
+		SequenceNumber:       blockMetadata.M.Block.SequenceNumber(),
+		PayloadType:          blockMetadata.M.Block.Payload().Type().String(),
 		TransactionID: func() string {
-			if block.Payload().Type() == devnetvm.TransactionType {
-				return block.Payload().(*devnetvm.Transaction).ID().Base58()
+			if blockMetadata.M.Block.Payload().Type() == devnetvm.TransactionType {
+				return blockMetadata.M.Block.Payload().(*devnetvm.Transaction).ID().Base58()
 			}
 			return ""
 		}(),
-		CommitmentID:         block.Commitment().ID().Base58(),
-		EpochIndex:           uint64(block.Commitment().Index()),
-		CommitmentRootsID:    block.Commitment().RootsID().Base58(),
-		PrevCommitmentID:     block.Commitment().PrevID().Base58(),
+		CommitmentID:         blockMetadata.M.Block.Commitment().ID().Base58(),
+		EpochIndex:           uint64(blockMetadata.M.Block.Commitment().Index()),
+		CommitmentRootsID:    blockMetadata.M.Block.Commitment().RootsID().Base58(),
+		PrevCommitmentID:     blockMetadata.M.Block.Commitment().PrevID().Base58(),
 		Payload:              payloadBytes,
-		Signature:            block.Signature().String(),
-		LatestConfirmedEpoch: uint64(block.LatestConfirmedEpoch()),
+		Signature:            blockMetadata.M.Block.Signature().String(),
+		LatestConfirmedEpoch: uint64(blockMetadata.M.Block.LatestConfirmedEpoch()),
 	})
 }
 
@@ -157,7 +157,7 @@ func GetBlockMetadata(c echo.Context) (err error) {
 
 	blockMetadata, exists := deps.Retainer.BlockMetadata(blockID)
 	if !exists {
-		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load BlockMetadata with %s", blockID)))
+		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load BlockMetadata with %s", blockID)))
 	}
 
 	return c.JSON(http.StatusOK, blockMetadata)
@@ -206,13 +206,13 @@ func blockIDFromContext(c echo.Context) (blockID models.BlockID, err error) {
 }
 
 // sequenceIDFromContext determines the sequenceID from the sequenceID parameter in an echo.Context.
-func sequenceIDFromContext(c echo.Context) (id markers.SequenceID, err error) {
-	sequenceIDInt, err := strconv.Atoi(c.Param("sequenceID"))
-	if err != nil {
-		return
-	}
-
-	return markers.SequenceID(sequenceIDInt), nil
-}
+//func sequenceIDFromContext(c echo.Context) (id markers.SequenceID, err error) {
+//	sequenceIDInt, err := strconv.Atoi(c.Param("sequenceID"))
+//	if err != nil {
+//		return
+//	}
+//
+//	return markers.SequenceID(sequenceIDInt), nil
+//}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

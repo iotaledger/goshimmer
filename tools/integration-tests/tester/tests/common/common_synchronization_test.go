@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/mr-tron/base58"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
@@ -30,22 +29,25 @@ func TestCommonSynchronization(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), initialPeers, framework.CreateNetworkConfig{
-		StartSynced: true,
+		StartSynced: false,
 		Snapshot:    snapshotInfo,
-		PeerMaster:  true,
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
+	log.Println("Bootstrapping network...")
+	tests.BootstrapNetwork(t, n)
+	log.Println("Bootstrapping network... done")
+
 	// 1. issue data blocks
 	log.Printf("Issuing %d blocks to sync...", numBlocks)
-	ids := tests.SendDataBlocks(t, n.Peers(), numBlocks)
+	ids := tests.SendDataBlocksWithDelay(t, n.Peers(), numBlocks, time.Millisecond*10)
 	log.Println("Issuing blocks... done")
 
 	// 2. spawn peer without knowledge of previous blocks
 	log.Println("Spawning new node to sync...")
 
-	cfg := createNewPeerConfig(t, snapshotInfo, 2)
+	cfg := createNewPeerConfig(t, snapshotInfo, 3)
 	newPeer, err := n.CreatePeer(ctx, cfg)
 	require.NoError(t, err)
 	err = n.DoManualPeering(ctx)
@@ -54,11 +56,11 @@ func TestCommonSynchronization(t *testing.T) {
 
 	// 3. issue some blocks on old peers so that new peer can solidify
 	log.Printf("Issuing %d blocks on the %d initial peers...", numSyncBlocks, initialPeers)
-	ids = tests.SendDataBlocks(t, n.Peers()[:initialPeers], numSyncBlocks, ids)
+	ids = tests.SendDataBlocksWithDelay(t, n.Peers()[:initialPeers], numSyncBlocks, time.Millisecond*10, ids)
 	log.Println("Issuing blocks... done")
 
 	// 4. check whether all issued blocks are available on to the new peer
-	tests.RequireBlocksAvailable(t, []*framework.Node{newPeer}, ids, time.Minute, tests.Tick)
+	tests.RequireBlocksAvailable(t, n.Peers(), ids, time.Minute, tests.Tick)
 	tests.RequireBlocksEqual(t, []*framework.Node{newPeer}, ids, time.Minute, tests.Tick)
 
 	require.True(t, tests.Synced(t, newPeer))
@@ -69,7 +71,7 @@ func TestCommonSynchronization(t *testing.T) {
 	log.Println("Stopping new node... done")
 
 	log.Printf("Issuing %d blocks and waiting until they have old tangle time...", numBlocks)
-	ids = tests.SendDataBlocks(t, n.Peers()[:initialPeers], numBlocks, ids)
+	ids = tests.SendDataBlocksWithDelay(t, n.Peers()[:initialPeers], numBlocks, 10*time.Millisecond, ids)
 	// wait to assure that the new peer is actually out of sync when starting
 	log.Printf("Sleeping %s to make sure new peer is out of sync when starting...", newPeer.Config().Protocol.BootstrapWindow.String())
 	time.Sleep(newPeer.Config().Protocol.BootstrapWindow)
@@ -120,27 +122,32 @@ func TestFirewall(t *testing.T) {
 	})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
+
+	log.Println("Bootstrapping network...")
+	tests.BootstrapNetwork(t, n)
+	log.Println("Bootstrapping network... done")
+
 	peer1, peer2 := n.Peers()[0], n.Peers()[1]
 	got1, err := peer1.GetPeerFaultinessCount(peer2.ID())
 	require.NoError(t, err)
-	assert.Equal(t, 0, got1)
+	require.Equal(t, 0, got1)
 	got2, err := peer2.GetPeerFaultinessCount(peer1.ID())
 	require.NoError(t, err)
-	assert.Equal(t, 0, got2)
+	require.Equal(t, 0, got2)
 
 	// Start spamming blocks from peer2 to peer1.
 	for i := 0; i < 51; i++ {
 		tests.SendDataBlock(t, peer2, []byte(fmt.Sprintf("Test %d", i)), i)
 		require.NoError(t, err)
 	}
-	assert.Eventually(t, func() bool {
+	require.Eventually(t, func() bool {
 		got1, err = peer1.GetPeerFaultinessCount(peer2.ID())
 		require.NoError(t, err)
 		return got1 != 0
 	}, tests.Timeout, tests.Tick)
 	got2, err = peer2.GetPeerFaultinessCount(peer1.ID())
 	require.NoError(t, err)
-	assert.Equal(t, 0, got2)
+	require.Equal(t, 0, got2)
 }
 
 func TestConfirmBlock(t *testing.T) {
@@ -148,8 +155,8 @@ func TestConfirmBlock(t *testing.T) {
 
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
-	n, err := f.CreateNetwork(ctx, t.Name(), 2, framework.CreateNetworkConfig{
-		StartSynced: true,
+	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
+		StartSynced: false,
 		Snapshot:    snapshotInfo,
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo, func(peerIndex int, isPeerMaster bool, conf config.GoShimmer) config.GoShimmer {
 		conf.UseNodeSeedAsWalletSeed = true
@@ -157,6 +164,10 @@ func TestConfirmBlock(t *testing.T) {
 	}))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
+
+	log.Println("Bootstrapping network...")
+	tests.BootstrapNetwork(t, n)
+	log.Println("Bootstrapping network... done")
 
 	// Send a block and wait for it to be confirmed.
 	peers := n.Peers()

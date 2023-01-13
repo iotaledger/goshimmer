@@ -4,9 +4,9 @@ import (
 	"context"
 
 	"github.com/celestiaorg/smt"
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/dataflow"
 	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -41,7 +41,7 @@ func (m *Manager) epochStartCommand(params *syncingFlowParams, next dataflow.Nex
 		params.epochBlocksLeft = epochStart.blocksCount
 		m.log.Debugw("read epoch block count", "Index", epochStart.ei, "blocksCount", params.epochBlocksLeft)
 	case <-params.ctx.Done():
-		return errors.Errorf("cancelled while receiving epoch %d start: %s", params.targetEpoch, params.ctx.Err())
+		return errors.Errorf("canceled while receiving epoch %d start: %s", params.targetEpoch, params.ctx.Err())
 	}
 
 	return next(params)
@@ -69,13 +69,15 @@ func (m *Manager) epochBlockCommand(params *syncingFlowParams, next dataflow.Nex
 
 			m.log.Debugw("read block", "peer", params.neighbor, "Index", epochBlock.ei, "blockID", block.ID())
 
-			params.tangleTree.Update(lo.PanicOnErr(block.ID().Bytes()), lo.PanicOnErr(block.ID().Bytes()))
+			if _, err := params.tangleTree.Update(lo.PanicOnErr(block.ID().Bytes()), lo.PanicOnErr(block.ID().Bytes())); err != nil {
+				return errors.Wrap(err, "error updating tangleTree")
+			}
 			params.epochBlocks[block.ID()] = block
 			params.epochBlocksLeft--
 
 			m.log.Debugf("epoch %d: %d blocks left", params.targetEpoch, params.epochBlocksLeft)
 		case <-params.ctx.Done():
-			return errors.Errorf("cancelled while receiving blocks for epoch %d: %s", params.targetEpoch, params.ctx.Err())
+			return errors.Errorf("canceled while receiving blocks for epoch %d: %s", params.targetEpoch, params.ctx.Err())
 		}
 	}
 
@@ -96,7 +98,7 @@ func (m *Manager) epochEndCommand(params *syncingFlowParams, next dataflow.Next[
 
 		m.log.Debugw("read epoch end", "Index", params.targetEpoch)
 	case <-params.ctx.Done():
-		return errors.Errorf("cancelled while ending epoch %d: %s", params.targetEpoch, params.ctx.Err())
+		return errors.Errorf("canceled while ending epoch %d: %s", params.targetEpoch, params.ctx.Err())
 	}
 
 	return next(params)

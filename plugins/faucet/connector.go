@@ -43,7 +43,7 @@ func (f *Connector) UnspentOutputs(addresses ...address.Address) (unspentOutputs
 								ConfirmationStateReached: outputMetadata.ConfirmationState().IsAccepted(),
 								Spent:                    false,
 								Metadata: wallet.OutputMetadata{
-									Timestamp: outputMetadata.CreationTime(),
+									Timestamp: outputMetadata.InclusionEpoch().EndTime(),
 								},
 							}
 
@@ -64,12 +64,12 @@ func (f *Connector) UnspentOutputs(addresses ...address.Address) (unspentOutputs
 func (f *Connector) SendTransaction(tx *devnetvm.Transaction) (err error) {
 	block, err := f.blockIssuer.CreateBlock(tx)
 	if err != nil {
-		return errors.Errorf("%v: tx %s", err, tx.ID().String())
+		return errors.Wrapf(err, "error sending tx %s", tx.ID().String())
 	}
 
 	err = f.blockIssuer.IssueBlockAndAwaitBlockToBeBooked(block, Parameters.MaxTransactionBookedAwaitTime)
 	if err != nil {
-		return errors.Errorf("%v: tx %s", err, tx.ID().String())
+		return errors.Wrapf(err, "error sending tx %s", tx.ID().String())
 	}
 
 	return nil

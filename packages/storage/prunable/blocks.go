@@ -1,9 +1,9 @@
 package prunable
 
 import (
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/kvstore"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -14,9 +14,9 @@ type Blocks struct {
 	Storage func(index epoch.Index) kvstore.KVStore
 }
 
-func NewBlocks(database *database.Manager, storagePrefix byte) (newBlocks *Blocks) {
+func NewBlocks(dbManager *database.Manager, storagePrefix byte) (newBlocks *Blocks) {
 	return &Blocks{
-		Storage: lo.Bind([]byte{storagePrefix}, database.Get),
+		Storage: lo.Bind([]byte{storagePrefix}, dbManager.Get),
 	}
 }
 
@@ -32,12 +32,12 @@ func (b *Blocks) Load(id models.BlockID) (block *models.Block, err error) {
 			return nil, nil
 		}
 
-		return nil, errors.Errorf("failed to get block %s: %w", id, err)
+		return nil, errors.Wrapf(err, "failed to get block %s", id)
 	}
 
 	block = new(models.Block)
 	if _, err = block.FromBytes(blockBytes); err != nil {
-		return nil, errors.Errorf("failed to parse block %s: %w", id, err)
+		return nil, errors.Wrapf(err, "failed to parse block %s", id)
 	}
 	block.SetID(id)
 
@@ -51,7 +51,7 @@ func (b *Blocks) Store(block *models.Block) (err error) {
 	}
 
 	if err = storage.Set(lo.PanicOnErr(block.ID().Bytes()), lo.PanicOnErr(block.Bytes())); err != nil {
-		return errors.Errorf("failed to store block %s: %w", block.ID, err)
+		return errors.Wrapf(err, "failed to store block %s", block.ID())
 	}
 
 	return nil
@@ -64,7 +64,7 @@ func (b *Blocks) Delete(id models.BlockID) (err error) {
 	}
 
 	if err = storage.Delete(lo.PanicOnErr(id.Bytes())); err != nil {
-		return errors.Errorf("failed to delete block %s: %w", id, err)
+		return errors.Wrapf(err, "failed to delete block %s", id)
 	}
 
 	return nil

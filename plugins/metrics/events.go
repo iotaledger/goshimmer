@@ -16,7 +16,7 @@ type EventsStruct struct {
 	ComponentCounterUpdated *event.Event[*ComponentCounterUpdatedEvent]
 }
 
-func newEvents() (new *EventsStruct) {
+func newEvents() *EventsStruct {
 	return &EventsStruct{
 		AttachedBPSUpdated:      event.New[*AttachedBPSUpdatedEvent](),
 		ComponentCounterUpdated: event.New[*ComponentCounterUpdatedEvent](),

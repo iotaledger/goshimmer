@@ -4,9 +4,9 @@ import (
 	"context"
 	"sync"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/iotaledger/hive.go/core/serix"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/cerrors"
@@ -30,11 +30,11 @@ type Storage struct {
 	// transactionMetadataStorage is an object storage used to persist TransactionMetadata objects.
 	transactionMetadataStorage *objectstorage.ObjectStorage[*TransactionMetadata]
 
-	// outputStorage is an object storage used to persist Output objects.
-	outputStorage *objectstorage.ObjectStorage[utxo.Output]
+	// OutputStorage is an object storage used to persist Output objects.
+	OutputStorage *objectstorage.ObjectStorage[utxo.Output]
 
-	// outputMetadataStorage is an object storage used to persist OutputMetadata objects.
-	outputMetadataStorage *objectstorage.ObjectStorage[*OutputMetadata]
+	// OutputMetadataStorage is an object storage used to persist OutputMetadata objects.
+	OutputMetadataStorage *objectstorage.ObjectStorage[*OutputMetadata]
 
 	// consumerStorage is an object storage used to persist Consumer objects.
 	consumerStorage *objectstorage.ObjectStorage[*Consumer]
@@ -61,14 +61,14 @@ func newStorage(ledger *Ledger, baseStore kvstore.KVStore) (storage *Storage) {
 			ledger.optsCacheTimeProvider.CacheTime(ledger.optTransactionMetadataCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 		),
-		outputStorage: objectstorage.NewInterfaceStorage[utxo.Output](
+		OutputStorage: objectstorage.NewInterfaceStorage[utxo.Output](
 			lo.PanicOnErr(baseStore.WithExtendedRealm([]byte{database.PrefixLedger, PrefixOutputStorage})),
 			outputFactory(ledger.optsVM),
 			ledger.optsCacheTimeProvider.CacheTime(ledger.optsOutputCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 			objectstorage.StoreOnCreation(true),
 		),
-		outputMetadataStorage: objectstorage.NewStructStorage[OutputMetadata](
+		OutputMetadataStorage: objectstorage.NewStructStorage[OutputMetadata](
 			lo.PanicOnErr(baseStore.WithExtendedRealm([]byte{database.PrefixLedger, PrefixOutputMetadataStorage})),
 			ledger.optsCacheTimeProvider.CacheTime(ledger.optsOutputMetadataCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
@@ -112,12 +112,12 @@ func (s *Storage) CachedTransactionMetadata(transactionID utxo.TransactionID, co
 // used to dynamically initialize a non-existing Output.
 func (s *Storage) CachedOutput(outputID utxo.OutputID, computeIfAbsentCallback ...func(outputID utxo.OutputID) utxo.Output) (cachedOutput *objectstorage.CachedObject[utxo.Output]) {
 	if len(computeIfAbsentCallback) >= 1 {
-		return s.outputStorage.ComputeIfAbsent(lo.PanicOnErr(outputID.Bytes()), func(key []byte) utxo.Output {
+		return s.OutputStorage.ComputeIfAbsent(lo.PanicOnErr(outputID.Bytes()), func(key []byte) utxo.Output {
 			return computeIfAbsentCallback[0](outputID)
 		})
 	}
 
-	return s.outputStorage.Load(lo.PanicOnErr(outputID.Bytes()))
+	return s.OutputStorage.Load(lo.PanicOnErr(outputID.Bytes()))
 }
 
 // CachedOutputs retrieves the CachedObjects containing the named Outputs.
@@ -134,12 +134,12 @@ func (s *Storage) CachedOutputs(outputIDs utxo.OutputIDs) (cachedOutputs objects
 // computeIfAbsentCallback can be used to dynamically initialize a non-existing OutputMetadata.
 func (s *Storage) CachedOutputMetadata(outputID utxo.OutputID, computeIfAbsentCallback ...func(outputID utxo.OutputID) *OutputMetadata) (cachedOutputMetadata *objectstorage.CachedObject[*OutputMetadata]) {
 	if len(computeIfAbsentCallback) >= 1 {
-		return s.outputMetadataStorage.ComputeIfAbsent(lo.PanicOnErr(outputID.Bytes()), func(key []byte) *OutputMetadata {
+		return s.OutputMetadataStorage.ComputeIfAbsent(lo.PanicOnErr(outputID.Bytes()), func(key []byte) *OutputMetadata {
 			return computeIfAbsentCallback[0](outputID)
 		})
 	}
 
-	return s.outputMetadataStorage.Load(lo.PanicOnErr(outputID.Bytes()))
+	return s.OutputMetadataStorage.Load(lo.PanicOnErr(outputID.Bytes()))
 }
 
 // CachedOutputsMetadata retrieves the CachedObjects containing the named OutputMetadata.
@@ -176,9 +176,9 @@ func (s *Storage) CachedConsumers(outputID utxo.OutputID) (cachedConsumers objec
 }
 
 func (s *Storage) ForEachOutputID(callback func(utxo.OutputID) bool) {
-	s.outputStorage.ForEach(func(key []byte, _ *objectstorage.CachedObject[utxo.Output]) bool {
+	s.OutputStorage.ForEach(func(key []byte, _ *objectstorage.CachedObject[utxo.Output]) bool {
 		outputID := new(utxo.OutputID)
-		outputID.FromBytes(key)
+		_ = lo.PanicOnErr(outputID.FromBytes(key))
 		return callback(*outputID)
 	})
 }
@@ -188,12 +188,12 @@ func (s *Storage) Prune() (err error) {
 	for _, storagePrune := range []func() error{
 		s.transactionStorage.Prune,
 		s.transactionMetadataStorage.Prune,
-		s.outputStorage.Prune,
-		s.outputMetadataStorage.Prune,
+		s.OutputStorage.Prune,
+		s.OutputMetadataStorage.Prune,
 		s.consumerStorage.Prune,
 	} {
 		if err = storagePrune(); err != nil {
-			err = errors.Errorf("failed to prune the object storage (%v): %w", err, cerrors.ErrFatal)
+			err = errors.WithMessagef(cerrors.ErrFatal, "failed to prune the object storage (%v)", err)
 			return
 		}
 	}
@@ -206,8 +206,8 @@ func (s *Storage) Shutdown() {
 	s.shutdownOnce.Do(func() {
 		s.transactionStorage.Shutdown()
 		s.transactionMetadataStorage.Shutdown()
-		s.outputStorage.Shutdown()
-		s.outputMetadataStorage.Shutdown()
+		s.OutputStorage.Shutdown()
+		s.OutputMetadataStorage.Shutdown()
 		s.consumerStorage.Shutdown()
 	})
 }
@@ -229,7 +229,7 @@ func (s *Storage) storeTransactionCommand(params *dataFlowParams, next dataflow.
 			return nil
 		}
 
-		return errors.Errorf("%s is an unsolid reattachment: %w", params.Transaction.ID(), ErrTransactionUnsolid)
+		return errors.WithMessagef(ErrTransactionUnsolid, "%s is an unsolid reattachment", params.Transaction.ID())
 	}
 
 	params.InputIDs = s.ledger.Utils.ResolveInputs(params.Transaction.Inputs())
@@ -273,9 +273,8 @@ func (s *Storage) pruneTransaction(txID utxo.TransactionID, pruneFutureCone bool
 			for it := createdOutputIDs.Iterator(); it.HasNext(); {
 				outputIDBytes := lo.PanicOnErr(it.Next().Bytes())
 
-				s.outputStorage.Delete(outputIDBytes)
-				s.outputMetadataStorage.Delete(outputIDBytes)
-
+				s.OutputStorage.Delete(outputIDBytes)
+				s.OutputMetadataStorage.Delete(outputIDBytes)
 			}
 
 			if pruneFutureCone {

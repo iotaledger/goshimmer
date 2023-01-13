@@ -46,8 +46,6 @@ type CreateNetworkConfig struct {
 	Autopeering bool
 	// Faucet specifies whether the first peer should have the faucet enabled.
 	Faucet bool
-	// PeerMaster specifies whether the network should include the peer master.
-	PeerMaster bool
 	// Activity specifies whether nodes schedule activity blocks in regular intervals.
 	Activity bool
 	// Snapshot to be generated and rendered available for the network.
@@ -85,8 +83,7 @@ func PeerConfig() config.GoShimmer {
 	c.Protocol.GenesisTime = GenesisTime
 
 	c.Notarization.Enabled = true
-	c.Notarization.BootstrapWindow = 0 // disable bootstrap window for tests
-	c.Notarization.MinEpochCommittableAge = 10 * time.Second
+	c.Notarization.MinEpochCommittableAge = 60 * time.Second
 
 	c.BlockIssuer.Enabled = true
 	c.BlockIssuer.RateSetter.Enable = false

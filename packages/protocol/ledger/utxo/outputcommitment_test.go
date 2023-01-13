@@ -4,8 +4,9 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotaledger/hive.go/core/generics/model"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestOutputCommitment(t *testing.T) {
@@ -15,13 +16,13 @@ func TestOutputCommitment(t *testing.T) {
 	output2.SetID(NewOutputID(NewTransactionID([]byte{1, 2, 3}), 1))
 
 	outputCommitment := new(OutputCommitment)
-	assert.NoError(t, outputCommitment.FromOutputs(output1, output2))
+	require.NoError(t, outputCommitment.FromOutputs(output1, output2))
 
 	proof, err := outputCommitment.Proof(0)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = proof.Validate(output1)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 // region MockedOutput /////////////////////////////////////////////////////////////////////////////////////////////////
@@ -36,7 +37,7 @@ type mockedOutput struct {
 }
 
 // NewMockedOutput creates a new MockedOutput based on the utxo.TransactionID and its index within the MockedTransaction.
-func NewMockedOutput() (new *MockedOutput) {
+func NewMockedOutput() *MockedOutput {
 	return model.NewStorable[OutputID, MockedOutput](&mockedOutput{
 		UniqueEssence: atomic.AddUint64(&_uniqueEssenceCounter, 1),
 	})

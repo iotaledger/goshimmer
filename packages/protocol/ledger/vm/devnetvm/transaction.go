@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/cerrors"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/model"
@@ -15,9 +14,11 @@ import (
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/types"
 	"github.com/iotaledger/hive.go/serializer/v2"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
+	"github.com/iotaledger/goshimmer/packages/protocol/models/payloadtype"
 )
 
 // region TransactionType //////////////////////////////////////////////////////////////////////////////////////////////
@@ -26,20 +27,20 @@ import (
 var TransactionType payload.Type
 
 func init() {
-	TransactionType = payload.NewType(1337, "TransactionType")
+	TransactionType = payload.NewType(payloadtype.Transaction, "TransactionType")
 
 	err := serix.DefaultAPI.RegisterTypeSettings(Transaction{}, serix.TypeSettings{}.WithObjectType(uint32(new(Transaction).Type())))
 	if err != nil {
-		panic(fmt.Errorf("error registering Transaction type settings: %w", err))
+		panic(errors.Wrap(err, "error registering Transaction type settings"))
 	}
 	err = serix.DefaultAPI.RegisterInterfaceObjects((*payload.Payload)(nil), new(Transaction))
 	if err != nil {
-		panic(fmt.Errorf("error registering Transaction as Payload interface: %w", err))
+		panic(errors.Wrap(err, "error registering Transaction as Payload interface"))
 	}
 
 	err = serix.DefaultAPI.RegisterValidators(TransactionEssenceVersion(byte(0)), validateTransactionEssenceVersionBytes, validateTransactionEssenceVersion)
 	if err != nil {
-		panic(fmt.Errorf("error registering TransactionEssenceVersion validators: %w", err))
+		panic(errors.Wrap(err, "error registering TransactionEssenceVersion validators"))
 	}
 
 	InputsArrayRules := &serix.ArrayRules{
@@ -49,7 +50,7 @@ func init() {
 	}
 	err = serix.DefaultAPI.RegisterTypeSettings(make(Inputs, 0), serix.TypeSettings{}.WithLengthPrefixType(serix.LengthPrefixTypeAsUint16).WithLexicalOrdering(true).WithArrayRules(InputsArrayRules))
 	if err != nil {
-		panic(fmt.Errorf("error registering Inputs type settings: %w", err))
+		panic(errors.Wrap(err, "error registering Inputs type settings"))
 	}
 
 	OutputsArrayRules := &serix.ArrayRules{
@@ -59,18 +60,18 @@ func init() {
 	}
 	err = serix.DefaultAPI.RegisterTypeSettings(make(Outputs, 0), serix.TypeSettings{}.WithLengthPrefixType(serix.LengthPrefixTypeAsUint16).WithLexicalOrdering(true).WithArrayRules(OutputsArrayRules))
 	if err != nil {
-		panic(fmt.Errorf("error registering Outputs type settings: %w", err))
+		panic(errors.Wrap(err, "error registering Outputs type settings"))
 	}
 
 	err = serix.DefaultAPI.RegisterValidators(Transaction{}, validateTransactionBytes, validateTransaction)
 	if err != nil {
-		panic(fmt.Errorf("error registering TransactionEssence validators: %w", err))
+		panic(errors.Wrap(err, "error registering TransactionEssence validators"))
 	}
 }
 
 func validateTransactionEssenceVersion(_ context.Context, version TransactionEssenceVersion) (err error) {
 	if version != 0 {
-		err = errors.Errorf("failed to parse TransactionEssenceVersion (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.WithMessagef(cerrors.ErrParseBytesFailed, "failed to parse TransactionEssenceVersion: %s", err.Error())
 		return
 	}
 	return nil
@@ -219,7 +220,7 @@ func (t *Transaction) UnlockBlocks() UnlockBlocks {
 	return t.M.UnlockBlocks
 }
 
-// SetOutputID assigns TransactionID to all outputs in TransactionEssence
+// SetOutputID assigns TransactionID to all outputs in TransactionEssence.
 func SetOutputID(essence *TransactionEssence, transactionID utxo.TransactionID) {
 	for i, output := range essence.Outputs() {
 		// the first call of transaction.ID() will also create a transaction id
@@ -241,7 +242,7 @@ func SetOutputID(essence *TransactionEssence, transactionID utxo.TransactionID) 
 	}
 }
 
-// code contract (make sure the struct implements all required methods)
+// code contract (make sure the struct implements all required methods).
 var _ payload.Payload = new(Transaction)
 
 var _ utxo.Transaction = new(Transaction)
@@ -293,7 +294,7 @@ func TransactionEssenceFromBytes(data []byte) (transactionEssence *TransactionEs
 	transactionEssence = new(TransactionEssence)
 	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), data, transactionEssence, serix.WithValidation())
 	if err != nil {
-		err = errors.Errorf("failed to parse TransactionEssence: %w", err)
+		err = errors.Wrap(err, "failed to parse TransactionEssence")
 		return
 	}
 	return

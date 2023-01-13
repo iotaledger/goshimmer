@@ -2,17 +2,16 @@ package ledgerstate
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"sync"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/daemon"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/iotaledger/hive.go/core/node"
 	"github.com/labstack/echo"
+	"github.com/pkg/errors"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
@@ -63,7 +62,7 @@ var (
 	doubleSpendFilterOnce sync.Once
 
 	// closure to be executed on transaction confirmation.
-	onTransactionAccepted *event.Closure[*ledger.TransactionMetadata]
+	onTransactionAccepted *event.Closure[*ledger.TransactionEvent]
 
 	log *logger.Logger
 )
@@ -107,8 +106,8 @@ func configure(_ *node.Plugin) {
 	filterEnabled = webapi.Parameters.EnableDSFilter
 	if filterEnabled {
 		doubleSpendFilter = Filter()
-		onTransactionAccepted = event.NewClosure(func(txMeta *ledger.TransactionMetadata) {
-			doubleSpendFilter.Remove(txMeta.ID())
+		onTransactionAccepted = event.NewClosure(func(event *ledger.TransactionEvent) {
+			doubleSpendFilter.Remove(event.Metadata.ID())
 		})
 	}
 	deps.Protocol.Events.Engine.Ledger.TransactionAccepted.Attach(onTransactionAccepted)
@@ -282,7 +281,7 @@ func GetConflict(c echo.Context) (err error) {
 		return
 	}
 
-	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load Conflict with %s", conflictID)))
+	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load Conflict with %s", conflictID)))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -328,7 +327,7 @@ func GetConflictConflicts(c echo.Context) (err error) {
 		return
 	}
 
-	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load Conflict with %s", conflictID)))
+	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load Conflict with %s", conflictID)))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -498,7 +497,7 @@ func GetTransactionAttachments(c echo.Context) (err error) {
 
 // conflictIDFromContext determines the ConflictID from the conflictID parameter in an echo.Context. It expects it to either
 // be a base58 encoded string or one of the builtin aliases (MasterConflictID, LazyBookedConflictsConflictID or
-// InvalidConflictID)
+// InvalidConflictID).
 func conflictIDFromContext(c echo.Context) (conflictID utxo.TransactionID, err error) {
 	switch conflictIDString := c.Param("conflictID"); conflictIDString {
 	case "MasterConflictID":
@@ -552,10 +551,10 @@ func PostTransaction(c echo.Context) error {
 
 	// if transaction is in the future we wait until the time arrives
 	if tx.Essence().Timestamp().After(time.Now()) {
-		if tx.Essence().Timestamp().Sub(time.Now()) > time.Minute {
+		if time.Until(tx.Essence().Timestamp()) > time.Minute {
 			return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: "transaction timestamp is in the future and cannot be issued; please readjust local clock"})
 		}
-		time.Sleep(tx.Essence().Timestamp().Sub(time.Now()) + 1*time.Nanosecond)
+		time.Sleep(time.Until(tx.Essence().Timestamp()) + 1*time.Nanosecond)
 	}
 
 	block, err := deps.BlockIssuer.CreateBlock(tx)

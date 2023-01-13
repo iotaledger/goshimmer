@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/libp2p/go-libp2p/core/protocol"
+	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
@@ -32,8 +32,10 @@ type queuedPacket struct {
 	packet     proto.Message
 }
 
-type PacketReceivedFunc func(neighbor *Neighbor, protocol protocol.ID, packet proto.Message)
-type NeighborDisconnectedFunc func(neighbor *Neighbor)
+type (
+	PacketReceivedFunc       func(neighbor *Neighbor, protocol protocol.ID, packet proto.Message)
+	NeighborDisconnectedFunc func(neighbor *Neighbor)
+)
 
 // Neighbor describes the established p2p connection to another peer.
 type Neighbor struct {
@@ -59,7 +61,6 @@ type Neighbor struct {
 
 // NewNeighbor creates a new neighbor from the provided peer and connection.
 func NewNeighbor(p *peer.Peer, group NeighborsGroup, protocols map[protocol.ID]*PacketsStream, log *logger.Logger, packetReceivedCallback PacketReceivedFunc, disconnectedCallback NeighborDisconnectedFunc) *Neighbor {
-
 	ctx, cancel := context.WithCancel(context.Background())
 
 	neighbor := &Neighbor{
@@ -134,9 +135,8 @@ func (n *Neighbor) readLoop() {
 		go func(protocolID protocol.ID, stream *PacketsStream) {
 			defer n.wg.Done()
 			for {
-
 				if n.loopCtx.Err() != nil {
-					n.Log.Infof("Exit %s readLoop due to cancelled context", protocolID)
+					n.Log.Infof("Exit %s readLoop due to canceled context", protocolID)
 					return
 				}
 
@@ -168,7 +168,7 @@ func (n *Neighbor) writeLoop() {
 		for {
 			select {
 			case <-n.loopCtx.Done():
-				n.Log.Info("Exit writeLoop due to cancelled context")
+				n.Log.Info("Exit writeLoop due to canceled context")
 				return
 			case sendPacket := <-n.sendQueue:
 				stream := n.GetStream(sendPacket.protocolID)

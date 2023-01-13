@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/randommap"
 	"github.com/iotaledger/hive.go/core/generics/walker"
@@ -57,7 +58,7 @@ func New(schedulerBlockRetrieverFunc blockRetrieverFunc, opts ...options.Option[
 	}, opts)
 }
 
-func (t *TipManager) ActivateEngine(engine *engine.Engine) {
+func (t *TipManager) LinkTo(engine *engine.Engine) {
 	t.tips = randommap.New[*scheduler.Block, *scheduler.Block]()
 	t.engine = engine
 	t.blockAcceptanceGadget = engine.Consensus.BlockGadget
@@ -123,6 +124,7 @@ func (t *TipManager) checkMonotonicity(block *scheduler.Block) (anyScheduledOrAc
 	return false
 }
 
+// RemoveStrongParents removes all tips that are parents of the given block.
 func (t *TipManager) RemoveStrongParents(block *models.Block) {
 	block.ForEachParent(func(parent models.Parent) {
 		// TODO: reintroduce TipsConflictTracker
@@ -324,14 +326,17 @@ func (t *TipManager) checkPair(pair markerPreviousBlockPair, blockWalker *walker
 	}
 
 	// check oldest unaccepted marker time without walking sequence DAG
-	firstUnacceptedMarker := findFirstUnacceptedMarker(sequence, t.engine.Tangle.BlockFromMarker, t.engine.FirstUnacceptedMarker)
+	firstUnacceptedMarker := findFirstUnacceptedMarker(sequence, t.engine.Tangle.BlockCeiling, t.engine.FirstUnacceptedMarker)
 	if timestampValid = t.processMarker(pair.Marker, minSupportedTimestamp, firstUnacceptedMarker); !timestampValid {
 		return false
 	}
 
 	// If there is an accepted marker before the oldest unaccepted marker, and it's older than minSupportedTimestamp, need to walk block past cone of firstUnacceptedMarker.
 	if sequence.LowestIndex() < firstUnacceptedMarker.Index() {
-		acceptedMarker := previousMarker(sequence, firstUnacceptedMarker.Index(), t.engine.Tangle.BlockFromMarker)
+		acceptedMarker, acceptedMarkerExists := t.engine.Tangle.BlockFloor(markers.NewMarker(sequence.ID(), firstUnacceptedMarker.Index()-1))
+		if !acceptedMarkerExists {
+			acceptedMarker = markers.NewMarker(sequence.ID(), sequence.LowestIndex())
+		}
 
 		if t.isMarkerOldAndAccepted(acceptedMarker, minSupportedTimestamp) {
 			firstUnacceptedMarkerBlock, blockExists := t.engine.Tangle.Booker.BlockFromMarker(firstUnacceptedMarker)
@@ -434,58 +439,30 @@ func (t *TipManager) checkBlock(block *booker.Block, blockWalker *walker.Walker[
 
 // firstUnacceptedMarker is similar to acceptance.FirstUnacceptedIndex, except it skips any marker gaps and returns
 // an existing marker.
-func findFirstUnacceptedMarker(sequence *markers.Sequence, blockFromMarkerCallback func(marker markers.Marker) (block *booker.Block, exists bool), firstUnacceptedIndexCallback func(id markers.SequenceID) markers.Index) (firstUnacceptedMarker markers.Marker) {
-	firstUnacceptedMarker = markers.NewMarker(sequence.ID(), firstUnacceptedIndexCallback(sequence.ID()))
+func findFirstUnacceptedMarker(sequence *markers.Sequence, blockCeilingCallback func(marker markers.Marker) (ceilingMarker markers.Marker, exists bool), firstUnacceptedIndexCallback func(id markers.SequenceID) markers.Index) (firstUnacceptedMarker markers.Marker) {
+	unacceptedMarker := lo.Max(sequence.LowestIndex(), firstUnacceptedIndexCallback(sequence.ID()))
+	firstUnacceptedMarker = markers.NewMarker(sequence.ID(), unacceptedMarker)
 
-	// skip any gaps in marker indices
-	for {
-		if firstUnacceptedMarker.Index() >= sequence.HighestIndex() {
-			return firstUnacceptedMarker
-		}
-
-		// Skip if there is no marker at the given index, i.e., the sequence has a gap.
-		if _, exists := blockFromMarkerCallback(firstUnacceptedMarker); exists {
-			return firstUnacceptedMarker
-		}
-
-		firstUnacceptedMarker = markers.NewMarker(sequence.ID(), firstUnacceptedMarker.Index()+1)
+	// If ceiling for the marker exists, then return it, otherwise return non-existing marker.
+	if nextMarker, exists := blockCeilingCallback(firstUnacceptedMarker); exists {
+		return nextMarker
 	}
-}
 
-func previousMarker(sequence *markers.Sequence, markerIndex markers.Index, blockFromMarkerCallback func(marker markers.Marker) (block *booker.Block, exists bool)) (previousMarker markers.Marker) {
-	previousMarker = markers.NewMarker(sequence.ID(), markerIndex-1)
-
-	// skip any gaps in marker indices and start from marker below current one.
-	for {
-		// if index=0 then it's a root block, and we don't need to check if a block exists.
-		if previousMarker.Index() == 0 {
-			return previousMarker
-		}
-
-		// if lowest index is reached, then do not continue
-		if previousMarker.Index() <= sequence.LowestIndex() {
-			return previousMarker
-		}
-
-		// Skip if there is no marker at the given index, i.e., the sequence has a gap.
-		if _, exists := blockFromMarkerCallback(previousMarker); exists {
-			return previousMarker
-		}
-
-		previousMarker = markers.NewMarker(sequence.ID(), previousMarker.Index()-1)
-	}
+	return firstUnacceptedMarker
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// WithTimeSinceConfirmationThreshold returns an option that sets the time since confirmation threshold.
 func WithTimeSinceConfirmationThreshold(timeSinceConfirmationThreshold time.Duration) options.Option[TipManager] {
 	return func(o *TipManager) {
 		o.optsTimeSinceConfirmationThreshold = timeSinceConfirmationThreshold
 	}
 }
 
+// WithWidth returns an option that configures the TipManager to maintain a certain width of the tangle.
 func WithWidth(maxWidth int) options.Option[TipManager] {
 	return func(t *TipManager) {
 		t.optsWidth = maxWidth

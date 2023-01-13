@@ -7,21 +7,21 @@ import (
 	"io/fs"
 	"net/http"
 
-	"github.com/cockroachdb/errors"
 	"github.com/labstack/echo"
+	"github.com/pkg/errors"
 )
 
 // ErrInvalidParameter defines the invalid parameter error.
-var ErrInvalidParameter = errors.New("invalid parameter")
+var ErrInvalidParameter = echo.NewHTTPError(http.StatusBadRequest, "invalid parameter")
 
 // ErrInternalError defines the internal error.
-var ErrInternalError = errors.New("internal error")
+var ErrInternalError = echo.ErrInternalServerError
 
 // ErrNotFound defines the not found error.
-var ErrNotFound = errors.New("not found")
+var ErrNotFound = echo.ErrNotFound
 
 // ErrForbidden defines the forbidden error.
-var ErrForbidden = errors.New("forbidden")
+var ErrForbidden = echo.ErrForbidden
 
 //go:embed frontend/build frontend/src/assets
 var staticFS embed.FS
@@ -34,7 +34,7 @@ const (
 func indexRoute(e echo.Context) error {
 	if Parameters.Dev {
 		fmt.Println("in dev mode")
-		req, err := http.NewRequestWithContext(e.Request().Context(), "GET", Parameters.DevDashboardAddress, nil /* body */)
+		req, err := http.NewRequestWithContext(e.Request().Context(), "GET", Parameters.DevDashboardAddress, http.NoBody)
 		if err != nil {
 			return err
 		}
@@ -99,39 +99,27 @@ func setupRoutes(e *echo.Echo) {
 		log.Warnf("Request failed: %s", err)
 
 		var statusCode int
-		var block string
+		var message string
 
-		switch errors.UnwrapAll(err) {
-		case echo.ErrNotFound:
-			c.Redirect(http.StatusSeeOther, "/")
-			return
+		var e *echo.HTTPError
+		if errors.As(err, &e) {
+			if e.Code == http.StatusNotFound {
+				if redirectErr := c.Redirect(http.StatusSeeOther, "/"); redirectErr != nil {
+					log.Warnf("failed to redirect request: %s", redirectErr.Error())
+				}
+				return
+			}
 
-		case echo.ErrUnauthorized:
-			statusCode = http.StatusUnauthorized
-			block = "unauthorized"
-
-		case ErrForbidden:
-			statusCode = http.StatusForbidden
-			block = "access forbidden"
-
-		case ErrInternalError:
+			statusCode = e.Code
+			message = fmt.Sprintf("%s, error: %s", e.Message, err)
+		} else {
 			statusCode = http.StatusInternalServerError
-			block = "internal server error"
-
-		case ErrNotFound:
-			statusCode = http.StatusNotFound
-			block = "not found"
-
-		case ErrInvalidParameter:
-			statusCode = http.StatusBadRequest
-			block = "bad request"
-
-		default:
-			statusCode = http.StatusInternalServerError
-			block = "internal server error"
+			message = fmt.Sprintf("internal server error. error: %s", err)
 		}
 
-		block = fmt.Sprintf("%s, error: %+v", block, err)
-		c.String(statusCode, block)
+		resErr := c.String(statusCode, message)
+		if resErr != nil {
+			log.Warnf("Failed to send error response: %s", resErr)
+		}
 	}
 }

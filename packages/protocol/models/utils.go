@@ -2,7 +2,8 @@ package models
 
 import (
 	"context"
-	"fmt"
+
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/serializer/v2"
@@ -16,7 +17,7 @@ func init() {
 	}
 	err := serix.DefaultAPI.RegisterTypeSettings(BlockIDs{}, serix.TypeSettings{}.WithLengthPrefixType(serix.LengthPrefixTypeAsByte).WithArrayRules(blockIDsArrayRules))
 	if err != nil {
-		panic(fmt.Errorf("error registering BlockIDs type settings: %w", err))
+		panic(errors.Wrap(err, "error registering BlockIDs type settings"))
 	}
 	parentsBlockIDsArrayRules := &serix.ArrayRules{
 		Min:            MinParentsBlocksCount,
@@ -29,12 +30,12 @@ func init() {
 	}
 	err = serix.DefaultAPI.RegisterTypeSettings(ParentBlockIDs{}, serix.TypeSettings{}.WithLengthPrefixType(serix.LengthPrefixTypeAsByte).WithArrayRules(parentsBlockIDsArrayRules))
 	if err != nil {
-		panic(fmt.Errorf("error registering ParentBlockIDs type settings: %w", err))
+		panic(errors.Wrap(err, "error registering ParentBlockIDs type settings"))
 	}
 	err = serix.DefaultAPI.RegisterValidators(ParentBlockIDs{}, validateParentBlockIDsBytes, validateParentBlockIDs)
 
 	if err != nil {
-		panic(fmt.Errorf("error registering ParentBlockIDs validators: %w", err))
+		panic(errors.Wrap(err, "error registering ParentBlockIDs validators"))
 	}
 }
 

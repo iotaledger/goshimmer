@@ -3,10 +3,10 @@ package blockdag
 import (
 	"sync"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/walker"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/causalorder"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -127,7 +127,7 @@ func (b *BlockDAG) evictEpoch(index epoch.Index) {
 }
 
 func (b *BlockDAG) markSolid(block *Block) (err error) {
-	if err = b.checkTimestampMonotonicity(block); err != nil {
+	if err := b.checkTimestampMonotonicity(block); err != nil {
 		return err
 	}
 

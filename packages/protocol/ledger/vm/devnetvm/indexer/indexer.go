@@ -1,7 +1,7 @@
 package indexer
 
 import (
-	"github.com/cockroachdb/errors"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/hive.go/core/cerrors"
 	"github.com/iotaledger/hive.go/core/generics/objectstorage"
@@ -61,7 +61,7 @@ func (i *Indexer) RemoveAddressOutputMapping(address devnetvm.Address, outputID 
 	i.addressOutputMappingStorage.Delete(NewAddressOutputMapping(address, outputID).ObjectStorageKey())
 }
 
-// CachedAddressOutputMappings retrieves all AddressOutputMappings for a particular address
+// CachedAddressOutputMappings retrieves all AddressOutputMappings for a particular address.
 func (i *Indexer) CachedAddressOutputMappings(address devnetvm.Address) (cachedAddressOutputMappings objectstorage.CachedObjects[*AddressOutputMapping]) {
 	i.addressOutputMappingStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*AddressOutputMapping]) bool {
 		cachedAddressOutputMappings = append(cachedAddressOutputMappings, cachedObject)
@@ -77,7 +77,7 @@ func (i *Indexer) Prune() (err error) {
 		i.addressOutputMappingStorage.Prune,
 	} {
 		if err = storagePrune(); err != nil {
-			return errors.Errorf("failed to prune the object storage (%v): %w", err, cerrors.ErrFatal)
+			return errors.WithMessagef(cerrors.ErrFatal, "failed to prune the object storage: %s", err.Error())
 		}
 	}
 

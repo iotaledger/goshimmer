@@ -8,17 +8,22 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/core/byteutils"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/stringify"
 	"github.com/iotaledger/hive.go/core/types"
 	"github.com/mr-tron/base58"
+	"github.com/pkg/errors"
+	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
 
 // region BlockID ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+const BlockIDContextKey = "blockID"
 
 // BlockID identifies a block via its BLAKE2b-256 hash of its bytes.
 type BlockID struct {
@@ -34,9 +39,9 @@ func (b BlockID) Index() epoch.Index {
 var EmptyBlockID BlockID
 
 // NewBlockID returns a new BlockID for the given data.
-func NewBlockID(identifier types.Identifier, epochIndex epoch.Index) BlockID {
+func NewBlockID(contentHash types.Identifier, signature ed25519.Signature, epochIndex epoch.Index) BlockID {
 	return BlockID{
-		Identifier: identifier,
+		Identifier: blake2b.Sum256(byteutils.ConcatBytes(contentHash[:], signature[:])),
 		EpochIndex: epochIndex,
 	}
 }
@@ -63,15 +68,15 @@ func (b *BlockID) FromBase58(base58EncodedString string) (err error) {
 	s := strings.Split(base58EncodedString, ":")
 	decodedBytes, err := base58.Decode(s[0])
 	if err != nil {
-		return errors.Errorf("could not decode base58 encoded BlockID.Identifier: %w", err)
+		return errors.Wrap(err, "could not decode base58 encoded BlockID.Identifier")
 	}
 	epochIndex, err := strconv.ParseInt(s[1], 10, 64)
 	if err != nil {
-		return errors.Errorf("could not decode BlockID.EpochIndex from string: %w", err)
+		return errors.Wrap(err, "could not decode BlockID.EpochIndex from string")
 	}
 
 	if _, err = serix.DefaultAPI.Decode(context.Background(), decodedBytes, &b.Identifier, serix.WithValidation()); err != nil {
-		return errors.Errorf("failed to decode BlockID: %w", err)
+		return errors.Wrap(err, "failed to decode BlockID")
 	}
 	b.EpochIndex = epoch.Index(epochIndex)
 
@@ -81,7 +86,7 @@ func (b *BlockID) FromBase58(base58EncodedString string) (err error) {
 // FromRandomness generates a random BlockID.
 func (b *BlockID) FromRandomness(optionalEpoch ...epoch.Index) (err error) {
 	if err = b.Identifier.FromRandomness(); err != nil {
-		return errors.Errorf("could not create Identifier from randomness: %w", err)
+		return errors.Wrap(err, "could not create Identifier from randomness")
 	}
 
 	if len(optionalEpoch) >= 1 {
@@ -149,7 +154,7 @@ func (b BlockID) CompareTo(other BlockID) int {
 
 // BlockIDFromContext returns the BlockID from the given context.
 func BlockIDFromContext(ctx context.Context) BlockID {
-	blockID, ok := ctx.Value("blockID").(BlockID)
+	blockID, ok := ctx.Value(BlockIDContextKey).(BlockID)
 	if !ok {
 		return EmptyBlockID
 	}
@@ -158,7 +163,8 @@ func BlockIDFromContext(ctx context.Context) BlockID {
 
 // BlockIDToContext adds the BlockID to the given context.
 func BlockIDToContext(ctx context.Context, blockID BlockID) context.Context {
-	return context.WithValue(ctx, "blockID", blockID)
+	//nolint:staticcheck // we are not expecting collisions due to using a string type for the key
+	return context.WithValue(ctx, BlockIDContextKey, blockID)
 }
 
 func IsEmptyBlockID(blockID BlockID) bool {

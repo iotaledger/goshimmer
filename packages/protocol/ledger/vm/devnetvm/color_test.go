@@ -3,7 +3,6 @@ package devnetvm
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/blake2b"
 )
@@ -24,8 +23,8 @@ func TestNewColoredBalances(t *testing.T) {
 
 		return true
 	})
-	assert.Equal(t, []Color{{0}, {1}, {2}, {3}}, orderedKeys)
-	assert.Equal(t, []uint64{200, 300, 400, 100}, orderedBalances)
+	require.Equal(t, []Color{{0}, {1}, {2}, {3}}, orderedKeys)
+	require.Equal(t, []uint64{200, 300, 400, 100}, orderedBalances)
 }
 
 func TestColoredBalancesFromBytes(t *testing.T) {
@@ -39,25 +38,25 @@ func TestColoredBalancesFromBytes(t *testing.T) {
 
 	clonedColoredBalances, consumedBytes, err := ColoredBalancesFromBytes(marshaledColoredBalances)
 	require.NoError(t, err)
-	assert.Equal(t, len(marshaledColoredBalances), consumedBytes)
-	assert.Equal(t, clonedColoredBalances.Size(), coloredBalances.Size())
-	assert.Equal(t, clonedColoredBalances.Bytes(), coloredBalances.Bytes())
+	require.Equal(t, len(marshaledColoredBalances), consumedBytes)
+	require.Equal(t, clonedColoredBalances.Size(), coloredBalances.Size())
+	require.Equal(t, clonedColoredBalances.Bytes(), coloredBalances.Bytes())
 
 	color0Balance, color0Exists := clonedColoredBalances.Get(Color{0})
-	assert.True(t, color0Exists)
-	assert.Equal(t, uint64(200), color0Balance)
+	require.True(t, color0Exists)
+	require.Equal(t, uint64(200), color0Balance)
 
 	color1Balance, color1Exists := clonedColoredBalances.Get(Color{1})
-	assert.True(t, color1Exists)
-	assert.Equal(t, uint64(300), color1Balance)
+	require.True(t, color1Exists)
+	require.Equal(t, uint64(300), color1Balance)
 
 	color2Balance, color2Exists := clonedColoredBalances.Get(Color{2})
-	assert.True(t, color2Exists)
-	assert.Equal(t, uint64(400), color2Balance)
+	require.True(t, color2Exists)
+	require.Equal(t, uint64(400), color2Balance)
 
 	color3Balance, color3Exists := clonedColoredBalances.Get(Color{3})
-	assert.True(t, color3Exists)
-	assert.Equal(t, uint64(100), color3Balance)
+	require.True(t, color3Exists)
+	require.Equal(t, uint64(100), color3Balance)
 }
 
 func TestColoredBalances_String(t *testing.T) {
@@ -66,7 +65,7 @@ func TestColoredBalances_String(t *testing.T) {
 		ColorMint: 120,
 	})
 
-	assert.Equal(t, "ColoredBalances {\n    IOTA: 100\n    MINT: 120\n}", coloredBalances.String())
+	require.Equal(t, "ColoredBalances {\n    IOTA: 100\n    MINT: 120\n}", coloredBalances.String())
 }
 
 func TestNonExistentColor(t *testing.T) {

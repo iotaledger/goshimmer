@@ -1,22 +1,23 @@
 package chat
 
 import (
-	"fmt"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/hive.go/core/generics/model"
 	"github.com/iotaledger/hive.go/core/serix"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
+	"github.com/iotaledger/goshimmer/packages/protocol/models/payloadtype"
 )
 
 func init() {
 	err := serix.DefaultAPI.RegisterTypeSettings(Payload{}, serix.TypeSettings{}.WithObjectType(uint32(new(Payload).Type())))
 	if err != nil {
-		panic(fmt.Errorf("error registering Chat type settings: %w", err))
+		panic(errors.Wrap(err, "error registering Chat type settings"))
 	}
 	err = serix.DefaultAPI.RegisterInterfaceObjects((*payload.Payload)(nil), new(Payload))
 	if err != nil {
-		panic(fmt.Errorf("error registering Chat as Payload interface: %w", err))
+		panic(errors.Wrap(err, "error registering Chat as Payload interface"))
 	}
 }
 
@@ -35,7 +36,6 @@ type Chat struct {
 const (
 	// PayloadName defines the name of the chat payload.
 	PayloadName = "chat"
-	payloadType = 989
 )
 
 // Payload represents the chat payload type.
@@ -60,7 +60,7 @@ func NewPayload(from, to, block string) *Payload {
 }
 
 // Type represents the identifier which addresses the chat payload type.
-var Type = payload.NewType(payloadType, PayloadName)
+var Type = payload.NewType(payloadtype.Chat, PayloadName)
 
 // Type returns the type of the Payload.
 func (p *Payload) Type() payload.Type {

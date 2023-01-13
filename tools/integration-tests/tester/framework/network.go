@@ -7,11 +7,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/mr-tron/base58"
+	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
@@ -139,7 +139,7 @@ func (n *Network) DoManualPeering(ctx context.Context, nodes ...*Node) error {
 // CreatePartitionsManualPeering blocks until all connections are established or the ctx has expired.
 func (n *Network) CreatePartitionsManualPeering(ctx context.Context, partitions ...[]*Node) error {
 	if len(partitions) == 0 {
-		return errors.Errorf("no partitions provided")
+		return errors.New("no partitions provided")
 	}
 
 	if err := n.dropManualPeers(n.Peers()); err != nil {
@@ -294,7 +294,7 @@ func (n *Network) Shutdown(ctx context.Context) error {
 	// check exit codes of containers
 	for name, status := range exitStatus {
 		if status != 0 {
-			return fmt.Errorf("container %s exited with code %d", name, status)
+			return errors.Errorf("container %s exited with code %d", name, status)
 		}
 	}
 	return nil
@@ -409,26 +409,20 @@ func (n *Network) createPeers(ctx context.Context, numPeers int, networkConfig C
 	}
 	conf.Snapshot.Path = networkConfig.Snapshot.FilePath
 
-	// the first peer is the peer master, it uses a special conf
-	if networkConfig.PeerMaster {
-		masterConfig := conf
-		if networkConfig.Faucet {
-			masterConfig.Faucet.Enabled = true
-		}
-		masterConfig.Seed, _ = base58.Decode("8q491c3YWjbPwLmF2WD95YmCgh61j2kenCKHfGfByoWi")
-
-		if len(cfgAlterFunc) > 0 && cfgAlterFunc[0] != nil {
-			masterConfig = cfgAlterFunc[0](0, true, masterConfig)
-		}
-		log.Printf("Starting peer master...")
-		if _, err := n.CreatePeer(ctx, masterConfig); err != nil {
-			return err
-		}
-		// peer master counts as peer
-		numPeers--
-	}
 	log.Printf("Starting %d peers...", numPeers)
 	for i := 0; i < numPeers; i++ {
+		if !networkConfig.StartSynced && i == 0 || networkConfig.StartSynced {
+			conf.IgnoreBootstrappedFlag = true
+		} else {
+			conf.IgnoreBootstrappedFlag = false
+		}
+
+		if i == 0 && networkConfig.Faucet {
+			conf.Faucet.Enabled = true
+		} else {
+			conf.Faucet.Enabled = false
+		}
+
 		if len(cfgAlterFunc) > 0 && cfgAlterFunc[0] != nil {
 			if _, err := n.CreatePeer(ctx, cfgAlterFunc[0](i, false, conf)); err != nil {
 				return err

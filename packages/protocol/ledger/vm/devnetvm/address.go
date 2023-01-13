@@ -3,35 +3,33 @@ package devnetvm
 import (
 	"bytes"
 	"context"
-	"fmt"
 
-	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/mr-tron/base58"
+	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/hive.go/core/cerrors"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/stringify"
 )
 
-//nolint:dupl
 func init() {
 	err := serix.DefaultAPI.RegisterTypeSettings(ED25519Address{}, serix.TypeSettings{}.WithObjectType(uint8(new(ED25519Address).Type())))
 	if err != nil {
-		panic(fmt.Errorf("error registering ED25519Address type settings: %w", err))
+		panic(errors.Wrap(err, "error registering ED25519Address type settings"))
 	}
 	err = serix.DefaultAPI.RegisterTypeSettings(BLSAddress{}, serix.TypeSettings{}.WithObjectType(uint8(new(BLSAddress).Type())))
 	if err != nil {
-		panic(fmt.Errorf("error registering BLSAddress type settings: %w", err))
+		panic(errors.Wrap(err, "error registering BLSAddress type settings"))
 	}
 	err = serix.DefaultAPI.RegisterTypeSettings(AliasAddress{}, serix.TypeSettings{}.WithObjectType(uint8(new(AliasAddress).Type())))
 	if err != nil {
-		panic(fmt.Errorf("error registering AliasAddress type settings: %w", err))
+		panic(errors.Wrap(err, "error registering AliasAddress type settings"))
 	}
 	err = serix.DefaultAPI.RegisterInterfaceObjects((*Address)(nil), new(ED25519Address), new(BLSAddress), new(AliasAddress))
 	if err != nil {
-		panic(fmt.Errorf("error registering Address interface implementations: %w", err))
+		panic(errors.Wrap(err, "error registering Address interface implementations"))
 	}
 }
 
@@ -54,7 +52,7 @@ const AddressLength = 33
 // AddressType represents the type of the Address (different types encode different signature schemes).
 type AddressType byte
 
-// String returns a human readable representation of the AddressType.
+// String returns a human-readable representation of the AddressType.
 func (a AddressType) String() string {
 	return [...]string{
 		"AddressTypeED25519",
@@ -99,7 +97,7 @@ func AddressFromBytes(bytes []byte) (address Address, consumedBytes int, err err
 	var addressType AddressType
 	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, &addressType)
 	if err != nil {
-		err = errors.Errorf("failed to parse AddressType (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.WithMessagef(cerrors.ErrParseBytesFailed, "failed to parse AddressType: %s", err.Error())
 		return
 	}
 	switch addressType {
@@ -110,7 +108,7 @@ func AddressFromBytes(bytes []byte) (address Address, consumedBytes int, err err
 	case AliasAddressType:
 		return AliasAddressFromBytes(bytes)
 	default:
-		err = errors.Errorf("unsupported address type (%X): %w", addressType, cerrors.ErrParseBytesFailed)
+		err = errors.WithMessagef(cerrors.ErrParseBytesFailed, "unsupported address type (%X)", addressType)
 		return
 	}
 }
@@ -119,12 +117,12 @@ func AddressFromBytes(bytes []byte) (address Address, consumedBytes int, err err
 func AddressFromBase58EncodedString(base58String string) (address Address, err error) {
 	bytes, err := base58.Decode(base58String)
 	if err != nil {
-		err = errors.Errorf("error while decoding base58 encoded Address (%v): %w", err, cerrors.ErrBase58DecodeFailed)
+		err = errors.WithMessagef(cerrors.ErrBase58DecodeFailed, "error while decoding base58 encoded Address: %s", err.Error())
 		return
 	}
 
 	if address, _, err = AddressFromBytes(bytes); err != nil {
-		err = errors.Errorf("failed to parse Address from bytes: %w", err)
+		err = errors.Wrap(err, "failed to parse Address from bytes")
 		return
 	}
 
@@ -225,7 +223,7 @@ func (e *ED25519Address) String() string {
 	)
 }
 
-// code contract (make sure the struct implements all required methods)
+// code contract (make sure the struct implements all required methods).
 var _ Address = &ED25519Address{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -315,7 +313,7 @@ func (b *BLSAddress) String() string {
 	)
 }
 
-// code contract (make sure the struct implements all required methods)
+// code contract (make sure the struct implements all required methods).
 var _ Address = &BLSAddress{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -358,12 +356,12 @@ func AliasAddressFromBytes(data []byte) (address *AliasAddress, consumedBytes in
 func AliasAddressFromBase58EncodedString(base58String string) (address *AliasAddress, err error) {
 	data, err := base58.Decode(base58String)
 	if err != nil {
-		err = errors.Errorf("error while decoding base58 encoded AliasAddress (%v): %w", err, cerrors.ErrBase58DecodeFailed)
+		err = errors.WithMessagef(cerrors.ErrBase58DecodeFailed, "error while decoding base58 encoded AliasAddress: %s", err.Error())
 		return
 	}
 
 	if address, _, err = AliasAddressFromBytes(data); err != nil {
-		err = errors.Errorf("failed to parse AliasAddress from data: %w", err)
+		err = errors.Wrap(err, "failed to parse AliasAddress from data")
 		return
 	}
 

@@ -1,13 +1,15 @@
 package eviction
 
 import (
+	"io"
 	"sync"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
+	"github.com/iotaledger/goshimmer/packages/core/stream"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
 )
@@ -30,16 +32,13 @@ type State struct {
 // NewState creates a new eviction State.
 func NewState(storageInstance *storage.Storage, opts ...options.Option[State]) (state *State) {
 	return options.Apply(&State{
-		Events:           NewEvents(),
-		rootBlocks:       memstorage.NewEpochStorage[models.BlockID, bool](),
-		latestRootBlock:  models.EmptyBlockID,
-		storage:          storageInstance,
-		lastEvictedEpoch: storageInstance.Settings.LatestCommitment().Index(),
-	}, opts, func(s *State) {
-		if s.importRootBlocksFromStorage() == 0 {
-			s.AddRootBlock(models.EmptyBlockID)
-		}
-	})
+		Events:                      NewEvents(),
+		rootBlocks:                  memstorage.NewEpochStorage[models.BlockID, bool](),
+		latestRootBlock:             models.EmptyBlockID,
+		storage:                     storageInstance,
+		lastEvictedEpoch:            storageInstance.Settings.LatestCommitment().Index(),
+		optsRootBlocksEvictionDelay: 3,
+	}, opts)
 }
 
 // EvictUntil triggers the EpochEvicted event for every evicted epoch and evicts all root blocks until the delayed
@@ -96,7 +95,7 @@ func (s *State) AddRootBlock(id models.BlockID) {
 
 	if s.rootBlocks.Get(id.Index(), true).Set(id, true) {
 		if err := s.storage.RootBlocks.Store(id); err != nil {
-			panic(errors.Errorf("failed to store root block %s: %w", id, err))
+			panic(errors.Wrapf(err, "failed to store root block %s", id))
 		}
 	}
 
@@ -117,10 +116,14 @@ func (s *State) RemoveRootBlock(id models.BlockID) {
 
 // IsRootBlock returns true if the given block is a root block.
 func (s *State) IsRootBlock(id models.BlockID) (has bool) {
+	if id == models.EmptyBlockID {
+		return true
+	}
+
 	s.evictionMutex.RLock()
 	defer s.evictionMutex.RUnlock()
 
-	if id.Index() > s.lastEvictedEpoch {
+	if id.Index() <= s.delayedBlockEvictionThreshold(s.lastEvictedEpoch) {
 		return false
 	}
 
@@ -137,15 +140,53 @@ func (s *State) LatestRootBlock() models.BlockID {
 	return s.latestRootBlock
 }
 
+// Export exports the root blocks to the given writer.
+func (s *State) Export(writer io.WriteSeeker, evictedEpoch epoch.Index) (err error) {
+	return stream.WriteCollection(writer, func() (elementsCount uint64, err error) {
+		for currentEpoch := s.delayedBlockEvictionThreshold(evictedEpoch) + 1; currentEpoch <= evictedEpoch; currentEpoch++ {
+			if err = s.storage.RootBlocks.Stream(currentEpoch, func(rootBlockID models.BlockID) (err error) {
+				if err = stream.WriteSerializable(writer, rootBlockID, models.BlockIDLength); err != nil {
+					return errors.Wrapf(err, "failed to write root block %s", rootBlockID)
+				}
+
+				elementsCount++
+
+				return
+			}); err != nil {
+				return 0, errors.Wrap(err, "failed to stream root blocks")
+			}
+		}
+
+		return elementsCount, nil
+	})
+}
+
+// Import imports the root blocks from the given reader.
+func (s *State) Import(reader io.ReadSeeker) (err error) {
+	var rootBlockID models.BlockID
+
+	return stream.ReadCollection(reader, func(i int) error {
+		if err = stream.ReadSerializable(reader, &rootBlockID, models.BlockIDLength); err != nil {
+			return errors.Wrapf(err, "failed to read root block id %d", i)
+		}
+
+		s.AddRootBlock(rootBlockID)
+
+		return nil
+	})
+}
+
 // importRootBlocksFromStorage imports the root blocks from the storage into the cache.
 func (s *State) importRootBlocksFromStorage() (importedBlocks int) {
 	for currentEpoch := s.lastEvictedEpoch; currentEpoch >= 0 && currentEpoch > s.delayedBlockEvictionThreshold(s.lastEvictedEpoch); currentEpoch-- {
-		if err := s.storage.RootBlocks.Stream(currentEpoch, func(rootBlockID models.BlockID) {
+		if err := s.storage.RootBlocks.Stream(currentEpoch, func(rootBlockID models.BlockID) (err error) {
 			s.AddRootBlock(rootBlockID)
 
 			importedBlocks++
+
+			return
 		}); err != nil {
-			panic(errors.Errorf("failed importing root blocks from storage: %w", err))
+			panic(errors.Wrap(err, "failed importing root blocks from storage"))
 		}
 	}
 
@@ -164,7 +205,7 @@ func (s *State) updateLatestRootBlock(id models.BlockID) {
 
 // delayedBlockEvictionThreshold returns the epoch index that is the threshold for delayed rootblocks eviction.
 func (s *State) delayedBlockEvictionThreshold(index epoch.Index) (threshold epoch.Index) {
-	return index - s.optsRootBlocksEvictionDelay - 1
+	return (index - s.optsRootBlocksEvictionDelay - 1).Max(0)
 }
 
 // WithRootBlocksEvictionDelay sets the time since confirmation threshold.

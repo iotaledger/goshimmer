@@ -8,35 +8,30 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/autopeering/discover"
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/core/autopeering/selection"
-	"github.com/iotaledger/hive.go/core/configuration"
 	"github.com/iotaledger/hive.go/core/daemon"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/iotaledger/hive.go/core/node"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
+	"github.com/pkg/errors"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/app/retainer"
+	"github.com/iotaledger/goshimmer/packages/core/latestblocktracker"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
-	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 
 	"github.com/iotaledger/goshimmer/packages/app/chat"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/plugins/banner"
-	"github.com/iotaledger/goshimmer/plugins/metrics"
 )
 
 // TODO: mana visualization + metrics
@@ -53,14 +48,13 @@ var (
 	server *echo.Echo
 
 	nodeStartAt        = time.Now()
-	lastAcceptedBlock  *blockgadget.Block
-	lastConfirmedBlock *blockgadget.Block
+	lastAcceptedBlock  = latestblocktracker.New()
+	lastConfirmedBlock = latestblocktracker.New()
 )
 
 type dependencies struct {
 	dig.In
 
-	Node       *configuration.Configuration
 	Local      *peer.Local
 	Retainer   *retainer.Retainer
 	Protocol   *protocol.Protocol
@@ -78,27 +72,12 @@ func init() {
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(plugin.Name)
 
-	lastAcceptedBlock = &blockgadget.Block{
-		Block: &virtualvoting.Block{
-			Block: &booker.Block{
-				Block: &blockdag.Block{
-					ModelsBlock: models.NewEmptyBlock(models.EmptyBlockID),
-				},
-			},
-		},
-	}
-	lastConfirmedBlock = lastAcceptedBlock
-
 	deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
-		if lastAcceptedBlock.IssuingTime().Before(block.IssuingTime()) {
-			lastAcceptedBlock = block
-		}
+		lastAcceptedBlock.Update(block.ModelsBlock)
 	}))
 
 	deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockConfirmed.Attach(event.NewClosure(func(block *blockgadget.Block) {
-		if lastConfirmedBlock.IssuingTime().Before(block.IssuingTime()) {
-			lastConfirmedBlock = block
-		}
+		lastConfirmedBlock.Update(block.ModelsBlock)
 	}))
 
 	configureWebSocketWorkerPool()
@@ -158,11 +137,6 @@ func worker(ctx context.Context) {
 	defer log.Infof("Stopping %s ... done", PluginName)
 
 	defer wsSendWorkerPool.Stop()
-
-	// submit the mps to the worker pool when triggered
-	notifyStatus := event.NewClosure(func(event *metrics.AttachedBPSUpdatedEvent) { wsSendWorkerPool.TrySubmit(event.BPS) })
-	metrics.Events.AttachedBPSUpdated.Attach(notifyStatus)
-	defer metrics.Events.AttachedBPSUpdated.Detach(notifyStatus)
 
 	stopped := make(chan struct{})
 	go func() {
@@ -372,8 +346,8 @@ func currentNodeStatus() *nodestatus {
 	status.TangleTime = tangleTime{
 		Synced:           deps.Protocol.Engine().IsSynced(),
 		Bootstrapped:     deps.Protocol.Engine().IsBootstrapped(),
-		AcceptedBlockID:  lastAcceptedBlock.ID().Base58(),
-		ConfirmedBlockID: lastConfirmedBlock.ID().Base58(),
+		AcceptedBlockID:  lastAcceptedBlock.BlockID().Base58(),
+		ConfirmedBlockID: lastConfirmedBlock.BlockID().Base58(),
 		ConfirmedEpoch:   int64(deps.Protocol.Engine().LastConfirmedEpoch()),
 		ATT:              tm.AcceptedTime().UnixNano(),
 		RATT:             tm.RelativeAcceptedTime().UnixNano(),

@@ -8,35 +8,26 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
-	"github.com/stretchr/testify/assert"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/model"
+	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/stringify"
+	"github.com/iotaledger/hive.go/core/types/confirmation"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
+	"github.com/iotaledger/goshimmer/packages/protocol/models/payloadtype"
 	"github.com/iotaledger/goshimmer/packages/storage"
 )
-
-func init() {
-	err := serix.DefaultAPI.RegisterTypeSettings(MockedTransaction{}, serix.TypeSettings{}.WithObjectType(uint32(new(MockedTransaction).Type())))
-	if err != nil {
-		panic(fmt.Errorf("error registering GenericDataPayload type settings: %w", err))
-	}
-
-	err = serix.DefaultAPI.RegisterInterfaceObjects((*payload.Payload)(nil), new(MockedTransaction))
-	if err != nil {
-		panic(fmt.Errorf("error registering GenericDataPayload as Payload interface: %w", err))
-	}
-}
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -69,26 +60,30 @@ type TestFramework struct {
 // NewTestFramework creates a new instance of the TestFramework with one default output "Genesis" which has to be
 // consumed by the first transaction.
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (newTestFramework *TestFramework) {
-	tmpDir := test.TempDir()
-	chainStorage := storage.New(tmpDir, 1)
-
 	return options.Apply(&TestFramework{
 		test:                test,
 		transactionsByAlias: make(map[string]*MockedTransaction),
 		outputIDsByAlias:    make(map[string]utxo.OutputID),
 	}, opts, func(t *TestFramework) {
 		if t.Ledger == nil {
+			chainStorage := storage.New(test.TempDir(), 1)
 			t.Ledger = New(chainStorage, t.optsLedger...)
+
+			test.Cleanup(func() {
+				t.WaitUntilAllTasksProcessed()
+				t.Ledger.Shutdown()
+				chainStorage.Shutdown()
+			})
 		}
 
 		genesisOutput := NewMockedOutput(utxo.EmptyTransactionID, 0)
-		cachedObject, stored := t.Ledger.Storage.outputStorage.StoreIfAbsent(genesisOutput)
+		cachedObject, stored := t.Ledger.Storage.OutputStorage.StoreIfAbsent(genesisOutput)
 		if stored {
 			cachedObject.Release()
 
 			genesisOutputMetadata := NewOutputMetadata(genesisOutput.ID())
 			genesisOutputMetadata.SetConfirmationState(confirmation.Confirmed)
-			t.Ledger.Storage.outputMetadataStorage.Store(genesisOutputMetadata).Release()
+			t.Ledger.Storage.OutputMetadataStorage.Store(genesisOutputMetadata).Release()
 
 			t.outputIDsByAlias["Genesis"] = genesisOutput.ID()
 			genesisOutput.ID().RegisterAlias("Genesis")
@@ -209,7 +204,7 @@ func (t *TestFramework) AssertConflictDAG(expectedParents map[string][]string) {
 
 		// Verify child -> parent references.
 		t.ConsumeConflict(currentConflictID, func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-			assert.Truef(t.test, expectedConflictIDs.Equal(conflict.Parents()), "Conflict(%s): expected parents %s are not equal to actual parents %s", currentConflictID, expectedConflictIDs, conflict.Parents())
+			require.Truef(t.test, expectedConflictIDs.Equal(conflict.Parents()), "Conflict(%s): expected parents %s are not equal to actual parents %s", currentConflictID, expectedConflictIDs, conflict.Parents())
 		})
 
 		for _, parentConflictID := range expectedConflictIDs.Slice() {
@@ -223,18 +218,18 @@ func (t *TestFramework) AssertConflictDAG(expectedParents map[string][]string) {
 	// Verify parent -> child references.
 	for parentConflictID, childConflictIDs := range childConflicts {
 		cachedChildConflicts := t.Ledger.ConflictDAG.Storage.CachedChildConflicts(parentConflictID)
-		assert.Equalf(t.test, childConflictIDs.Size(), len(cachedChildConflicts), "child conflicts count does not match for parent conflict %s, expected=%s, actual=%s", parentConflictID, childConflictIDs, cachedChildConflicts.Unwrap())
+		require.Equalf(t.test, childConflictIDs.Size(), len(cachedChildConflicts), "child conflicts count does not match for parent conflict %s, expected=%s, actual=%s", parentConflictID, childConflictIDs, cachedChildConflicts.Unwrap())
 		cachedChildConflicts.Release()
 
 		for _, childConflictID := range childConflictIDs.Slice() {
-			assert.Truef(t.test, t.Ledger.ConflictDAG.Storage.CachedChildConflict(parentConflictID, childConflictID).Consume(func(childConflict *conflictdag.ChildConflict[utxo.TransactionID]) {}), "could not load ChildConflict %s,%s", parentConflictID, childConflictID)
+			require.Truef(t.test, t.Ledger.ConflictDAG.Storage.CachedChildConflict(parentConflictID, childConflictID).Consume(func(childConflict *conflictdag.ChildConflict[utxo.TransactionID]) {}), "could not load ChildConflict %s,%s", parentConflictID, childConflictID)
 		}
 	}
 }
 
 // AssertConflicts asserts conflict membership from conflictID -> conflicts but also the reverse mapping conflict -> conflictIDs.
 // expectedConflictAliases should be specified as
-// "output.0": {"conflict1", "conflict2"}
+// "output.0": {"conflict1", "conflict2"}.
 func (t *TestFramework) AssertConflicts(expectedConflictsAliases map[string][]string) {
 	// Conflict -> conflictIDs.
 	ConflictResources := make(map[utxo.TransactionID]*set.AdvancedSet[utxo.OutputID])
@@ -245,12 +240,12 @@ func (t *TestFramework) AssertConflicts(expectedConflictsAliases map[string][]st
 
 		// Check count of conflict members for this conflictID.
 		cachedConflictMembers := t.Ledger.ConflictDAG.Storage.CachedConflictMembers(resourceID)
-		assert.Equalf(t.test, expectedConflictMembers.Size(), len(cachedConflictMembers), "conflict member count does not match for conflict %s, expected=%s, actual=%s", resourceID, expectedConflictsAliases, cachedConflictMembers.Unwrap())
+		require.Equalf(t.test, expectedConflictMembers.Size(), len(cachedConflictMembers), "conflict member count does not match for conflict %s, expected=%s, actual=%s", resourceID, expectedConflictsAliases, cachedConflictMembers.Unwrap())
 		cachedConflictMembers.Release()
 
 		// Verify that all named conflicts are stored as conflict members (conflictID -> conflictIDs).
 		for _, conflictID := range expectedConflictMembers.Slice() {
-			assert.Truef(t.test, t.Ledger.ConflictDAG.Storage.CachedConflictMember(resourceID, conflictID).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.OutputID, utxo.TransactionID]) {}), "could not load ConflictMember %s,%s", resourceID, conflictID)
+			require.Truef(t.test, t.Ledger.ConflictDAG.Storage.CachedConflictMember(resourceID, conflictID).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.OutputID, utxo.TransactionID]) {}), "could not load ConflictMember %s,%s", resourceID, conflictID)
 
 			if _, exists := ConflictResources[conflictID]; !exists {
 				ConflictResources[conflictID] = set.NewAdvancedSet[utxo.OutputID]()
@@ -262,7 +257,7 @@ func (t *TestFramework) AssertConflicts(expectedConflictsAliases map[string][]st
 	// Make sure that all conflicts have all specified conflictIDs (reverse mapping).
 	for conflictID, expectedConflicts := range ConflictResources {
 		t.ConsumeConflict(conflictID, func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-			assert.Truef(t.test, expectedConflicts.Equal(conflict.ConflictSetIDs()), "%s: conflicts expected=%s, actual=%s", conflictID, expectedConflicts, conflict.ConflictSetIDs())
+			require.Truef(t.test, expectedConflicts.Equal(conflict.ConflictSetIDs()), "%s: conflicts expected=%s, actual=%s", conflictID, expectedConflicts, conflict.ConflictSetIDs())
 		})
 	}
 }
@@ -275,11 +270,11 @@ func (t *TestFramework) AssertConflictIDs(expectedConflicts map[string][]string)
 		expectedConflictIDs := t.ConflictIDs(expectedConflictAliases...)
 
 		t.ConsumeTransactionMetadata(currentTx.ID(), func(txMetadata *TransactionMetadata) {
-			assert.Truef(t.test, expectedConflictIDs.Equal(txMetadata.ConflictIDs()), "Transaction(%s): expected %s is not equal to actual %s", txAlias, expectedConflictIDs, txMetadata.ConflictIDs())
+			require.Truef(t.test, expectedConflictIDs.Equal(txMetadata.ConflictIDs()), "Transaction(%s): expected %s is not equal to actual %s", txAlias, expectedConflictIDs, txMetadata.ConflictIDs())
 		})
 
 		t.ConsumeTransactionOutputs(currentTx, func(outputMetadata *OutputMetadata) {
-			assert.Truef(t.test, expectedConflictIDs.Equal(outputMetadata.ConflictIDs()), "Output(%s): expected %s is not equal to actual %s", outputMetadata.ID(), expectedConflictIDs, outputMetadata.ConflictIDs())
+			require.Truef(t.test, expectedConflictIDs.Equal(outputMetadata.ConflictIDs()), "Output(%s): expected %s is not equal to actual %s", outputMetadata.ID(), expectedConflictIDs, outputMetadata.ConflictIDs())
 		})
 	}
 }
@@ -289,11 +284,11 @@ func (t *TestFramework) AssertBooked(expectedBookedMap map[string]bool) {
 	for txAlias, expectedBooked := range expectedBookedMap {
 		currentTx := t.Transaction(txAlias)
 		t.ConsumeTransactionMetadata(currentTx.ID(), func(txMetadata *TransactionMetadata) {
-			assert.Equalf(t.test, expectedBooked, txMetadata.IsBooked(), "Transaction(%s): expected booked(%s) but has booked(%s)", txAlias, expectedBooked, txMetadata.IsBooked())
+			require.Equalf(t.test, expectedBooked, txMetadata.IsBooked(), "Transaction(%s): expected booked(%s) but has booked(%s)", txAlias, expectedBooked, txMetadata.IsBooked())
 
 			_ = txMetadata.OutputIDs().ForEach(func(outputID utxo.OutputID) (err error) {
 				// Check if output exists according to the Booked status of the enclosing Transaction.
-				assert.Equalf(t.test, expectedBooked, t.Ledger.Storage.CachedOutputMetadata(outputID).Consume(func(_ *OutputMetadata) {}),
+				require.Equalf(t.test, expectedBooked, t.Ledger.Storage.CachedOutputMetadata(outputID).Consume(func(_ *OutputMetadata) {}),
 					"Output(%s): expected booked(%s) but has booked(%s)", outputID, expectedBooked, txMetadata.IsBooked())
 				return nil
 			})
@@ -318,28 +313,28 @@ func (t *TestFramework) AllBooked(txAliases ...string) (allBooked bool) {
 
 // ConsumeConflict loads and consumes conflictdag.Conflict. Asserts that the loaded entity exists.
 func (t *TestFramework) ConsumeConflict(conflictID utxo.TransactionID, consumer func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID])) {
-	assert.Truef(t.test, t.Ledger.ConflictDAG.Storage.CachedConflict(conflictID).Consume(consumer), "failed to load conflict %s", conflictID)
+	require.Truef(t.test, t.Ledger.ConflictDAG.Storage.CachedConflict(conflictID).Consume(consumer), "failed to load conflict %s", conflictID)
 }
 
 // ConsumeTransactionMetadata loads and consumes TransactionMetadata. Asserts that the loaded entity exists.
 func (t *TestFramework) ConsumeTransactionMetadata(txID utxo.TransactionID, consumer func(txMetadata *TransactionMetadata)) {
-	assert.Truef(t.test, t.Ledger.Storage.CachedTransactionMetadata(txID).Consume(consumer), "failed to load metadata of %s", txID)
+	require.Truef(t.test, t.Ledger.Storage.CachedTransactionMetadata(txID).Consume(consumer), "failed to load metadata of %s", txID)
 }
 
 // ConsumeOutputMetadata loads and consumes OutputMetadata. Asserts that the loaded entity exists.
 func (t *TestFramework) ConsumeOutputMetadata(outputID utxo.OutputID, consumer func(outputMetadata *OutputMetadata)) {
-	assert.True(t.test, t.Ledger.Storage.CachedOutputMetadata(outputID).Consume(consumer))
+	require.True(t.test, t.Ledger.Storage.CachedOutputMetadata(outputID).Consume(consumer))
 }
 
 // ConsumeOutput loads and consumes Output. Asserts that the loaded entity exists.
 func (t *TestFramework) ConsumeOutput(outputID utxo.OutputID, consumer func(output utxo.Output)) {
-	assert.True(t.test, t.Ledger.Storage.CachedOutput(outputID).Consume(consumer))
+	require.True(t.test, t.Ledger.Storage.CachedOutput(outputID).Consume(consumer))
 }
 
 // ConsumeTransactionOutputs loads and consumes all OutputMetadata of the given Transaction. Asserts that the loaded entities exists.
 func (t *TestFramework) ConsumeTransactionOutputs(mockTx *MockedTransaction, consumer func(outputMetadata *OutputMetadata)) {
 	t.ConsumeTransactionMetadata(mockTx.ID(), func(txMetadata *TransactionMetadata) {
-		assert.EqualValuesf(t.test, mockTx.M.OutputCount, txMetadata.OutputIDs().Size(), "Output count in %s do not match", mockTx.ID())
+		require.EqualValuesf(t.test, mockTx.M.OutputCount, txMetadata.OutputIDs().Size(), "Output count in %s do not match", mockTx.ID())
 
 		for _, outputID := range txMetadata.OutputIDs().Slice() {
 			t.ConsumeOutputMetadata(outputID, consumer)
@@ -358,7 +353,7 @@ type MockedInput struct {
 }
 
 // NewMockedInput creates a new MockedInput from an utxo.OutputID.
-func NewMockedInput(outputID utxo.OutputID) (new *MockedInput) {
+func NewMockedInput(outputID utxo.OutputID) *MockedInput {
 	return &MockedInput{OutputID: outputID}
 }
 
@@ -412,6 +407,9 @@ var _ utxo.Output = new(MockedOutput)
 
 // region MockedTransaction ////////////////////////////////////////////////////////////////////////////////////////////
 
+// MockedTransactionType represents the payload Type of mocked Transactions.
+var MockedTransactionType payload.Type
+
 // MockedTransaction is the type that is used to describe instructions how to modify the ledger state for MockedVM.
 type MockedTransaction struct {
 	model.Storable[utxo.TransactionID, MockedTransaction, *MockedTransaction, mockedTransaction] `serix:"0"`
@@ -449,12 +447,14 @@ func (m *MockedTransaction) Inputs() (inputs []utxo.Input) {
 
 // Type returns the type of the Transaction.
 func (m *MockedTransaction) Type() payload.Type {
-	return 44
+	return MockedTransactionType
 }
 
 // code contract (make sure the struct implements all required methods).
-var _ utxo.Transaction = new(MockedTransaction)
-var _ payload.Payload = new(MockedTransaction)
+var (
+	_ utxo.Transaction = new(MockedTransaction)
+	_ payload.Payload  = new(MockedTransaction)
+)
 
 // _uniqueEssenceCounter contains a counter that is used to generate unique TransactionIDs.
 var _uniqueEssenceCounter uint64
@@ -536,3 +536,23 @@ func WithLedger(ledger *Ledger) options.Option[TestFramework] {
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func init() {
+	MockedTransactionType = payload.NewType(payloadtype.MockedTransaction, "MockedTransactionType")
+
+	if err := serix.DefaultAPI.RegisterTypeSettings(MockedTransaction{}, serix.TypeSettings{}.WithObjectType(uint32(new(MockedTransaction).Type()))); err != nil {
+		panic(errors.Wrap(err, "error registering Transaction type settings"))
+	}
+
+	if err := serix.DefaultAPI.RegisterInterfaceObjects((*payload.Payload)(nil), new(MockedTransaction)); err != nil {
+		panic(errors.Wrap(err, "error registering Transaction as Payload interface"))
+	}
+
+	if err := serix.DefaultAPI.RegisterTypeSettings(MockedOutput{}, serix.TypeSettings{}.WithObjectType(uint8(devnetvm.ExtendedLockedOutputType+1))); err != nil {
+		panic(errors.Wrap(err, "error registering ExtendedLockedOutput type settings"))
+	}
+
+	if err := serix.DefaultAPI.RegisterInterfaceObjects((*utxo.Output)(nil), new(MockedOutput)); err != nil {
+		panic(errors.Wrap(err, "error registering utxo.Output interface implementations"))
+	}
+}

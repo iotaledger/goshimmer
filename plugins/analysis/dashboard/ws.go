@@ -82,7 +82,7 @@ func broadcastWsBlock(blk interface{}, dontDrop ...bool) {
 }
 
 // handles a new websocket connection, registers the client
-// and waits for downstream blocks to be sent to the client
+// and waits for downstream blocks to be sent to the client.
 func websocketRoute(c echo.Context) error {
 	defer func() {
 		if r := recover(); r != nil {

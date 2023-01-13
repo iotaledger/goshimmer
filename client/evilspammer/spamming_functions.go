@@ -1,12 +1,11 @@
 package evilspammer
 
 import (
-	"fmt"
 	"math/rand"
 	"sync"
 	"time"
 
-	"github.com/cockroachdb/errors"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/client/evilwallet"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
@@ -19,7 +18,7 @@ func DataSpammingFunction(s *Spammer) {
 	if err := evilwallet.RateSetterSleep(clt, s.UseRateSetter); err != nil {
 		s.ErrCounter.CountError(err)
 	}
-	blkID, err := clt.PostData([]byte(fmt.Sprintf("SPAM")))
+	blkID, err := clt.PostData([]byte("SPAM"))
 	if err != nil {
 		s.ErrCounter.CountError(ErrFailSendDataBlock)
 	}
@@ -35,8 +34,8 @@ func DataSpammingFunction(s *Spammer) {
 func CustomConflictSpammingFunc(s *Spammer) {
 	conflictBatch, aliases, err := s.EvilWallet.PrepareCustomConflictsSpam(s.EvilScenario)
 	if err != nil {
-		s.log.Debugf(errors.Newf("%v: %w", ErrFailToPrepareBatch, err).Error())
-		s.ErrCounter.CountError(errors.Newf("%v: %w", ErrFailToPrepareBatch, err))
+		s.log.Debugf(errors.WithMessage(ErrFailToPrepareBatch, err.Error()).Error())
+		s.ErrCounter.CountError(errors.WithMessage(ErrFailToPrepareBatch, err.Error()))
 	}
 
 	for _, txs := range conflictBatch {

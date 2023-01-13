@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/configuration"
 	"github.com/iotaledger/hive.go/core/daemon"
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -17,6 +16,7 @@ import (
 	"github.com/iotaledger/hive.go/core/network/tcp"
 	"github.com/iotaledger/hive.go/core/node"
 	"github.com/iotaledger/hive.go/core/protocol"
+	"github.com/pkg/errors"
 	flag "github.com/spf13/pflag"
 	"go.uber.org/dig"
 

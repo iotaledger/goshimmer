@@ -9,7 +9,6 @@ import (
 
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/lo"
@@ -19,6 +18,7 @@ import (
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/stringify"
 	"github.com/iotaledger/hive.go/core/types"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -65,7 +65,6 @@ type Block struct {
 	model.Storable[BlockID, Block, *Block, block] `serix:"0"`
 	payload                                       payload.Payload
 	issuerID                                      *identity.ID
-	size                                          *int
 }
 
 type block struct {
@@ -110,7 +109,7 @@ func NewEmptyBlock(id BlockID, opts ...options.Option[Block]) (newBlock *Block) 
 func (b *Block) ContentHash() (contentHash types.Identifier, err error) {
 	blkBytes, err := b.Bytes()
 	if err != nil {
-		return types.Identifier{}, errors.Errorf("failed to create block bytes: %w", err)
+		return types.Identifier{}, errors.Wrap(err, "failed to create block bytes")
 	}
 
 	return blake2b.Sum256(blkBytes[:len(blkBytes)-ed25519.SignatureSize]), nil
@@ -249,48 +248,26 @@ func (b *Block) SetSignature(signature ed25519.Signature) {
 }
 
 // DetermineID calculates and sets the block's BlockID and size.
-func (b *Block) DetermineID() (err error) {
-	buf, err := b.Bytes()
+func (b *Block) DetermineID(blockIdentifier ...types.Identifier) (err error) {
+	blkBytes, err := b.Bytes()
 	if err != nil {
-		return errors.Errorf("failed to determine block ID: %w", err)
+		return errors.Wrap(err, "failed to create block bytes")
 	}
-
-	b.DetermineIDFromBytes(buf)
-	return nil
-}
-
-// DetermineIDFromBytes calculates and sets the block's BlockID and size.
-func (b *Block) DetermineIDFromBytes(buf []byte, blockHash ...types.Identifier) {
-	var hash types.Identifier
-	if len(blockHash) > 0 {
-		hash = blockHash[0]
+	if len(blockIdentifier) > 0 {
+		b.SetID(BlockID{
+			Identifier: blockIdentifier[0],
+			EpochIndex: epoch.IndexFromTime(b.IssuingTime()),
+		})
 	} else {
-		hash = types.NewIdentifier(buf)
+		b.SetID(DetermineID(blkBytes, epoch.IndexFromTime(b.IssuingTime())))
 	}
 
-	id := NewBlockID(hash, epoch.IndexFromTime(b.IssuingTime()))
-	b.SetID(id)
-
-	b.Lock()
-	defer b.Unlock()
-	l := len(buf)
-	b.size = &l
-}
-
-func (b *Block) SetSize(size int) {
-	b.size = &size
+	return nil
 }
 
 // Size returns the block size in bytes.
 func (b *Block) Size() int {
-	b.RLock()
-	defer b.RUnlock()
-
-	if b.size == nil {
-		panic(fmt.Sprintf("size is not set for %s", b.ID()))
-	}
-
-	return *b.size
+	return len(lo.PanicOnErr(b.Bytes()))
 }
 
 func (b *Block) String() string {
@@ -313,7 +290,16 @@ func (b *Block) String() string {
 	builder.AddField(stringify.NewStructField("Nonce", b.Nonce()))
 	builder.AddField(stringify.NewStructField("Commitment", b.Commitment()))
 	builder.AddField(stringify.NewStructField("Signature", b.Signature()))
+
 	return builder.String()
+}
+
+// DetermineID calculates the block's BlockID.
+func DetermineID(blkBytes []byte, epochIndex epoch.Index) BlockID {
+	contentHash := blake2b.Sum256(blkBytes[:len(blkBytes)-ed25519.SignatureSize])
+	signatureBytes := blkBytes[len(blkBytes)-ed25519.SignatureSize:]
+
+	return NewBlockID(contentHash, lo.Return1(ed25519.SignatureFromBytes(signatureBytes)), epochIndex)
 }
 
 // sortParents sorts given parents and returns a new slice with sorted parents.
@@ -392,10 +378,10 @@ func WithSequenceNumber(sequenceNumber uint64) options.Option[Block] {
 	}
 }
 
-func WithPayload(payload payload.Payload) options.Option[Block] {
+func WithPayload(p payload.Payload) options.Option[Block] {
 	return func(m *Block) {
-		m.payload = payload
-		m.M.PayloadBytes = lo.PanicOnErr(payload.Bytes())
+		m.payload = p
+		m.M.PayloadBytes = lo.PanicOnErr(p.Bytes())
 	}
 }
 
@@ -411,15 +397,15 @@ func WithNonce(nonce uint64) options.Option[Block] {
 	}
 }
 
-func WithLatestConfirmedEpoch(epoch epoch.Index) options.Option[Block] {
+func WithLatestConfirmedEpoch(epochIndex epoch.Index) options.Option[Block] {
 	return func(b *Block) {
-		b.M.LatestConfirmedEpoch = epoch
+		b.M.LatestConfirmedEpoch = epochIndex
 	}
 }
 
-func WithCommitment(commitment *commitment.Commitment) options.Option[Block] {
+func WithCommitment(cm *commitment.Commitment) options.Option[Block] {
 	return func(b *Block) {
-		b.M.EpochCommitment = commitment
+		b.M.EpochCommitment = cm
 	}
 }
 

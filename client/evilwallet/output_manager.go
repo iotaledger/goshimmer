@@ -1,12 +1,12 @@
 package evilwallet
 
 import (
-	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/types"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
@@ -113,20 +113,25 @@ func (o *OutputManager) IssuerSolidOutIDMap(issuer, outputID string) (isSolid bo
 
 // Track the confirmed statuses of the given outputIDs, it returns true if all of them are confirmed.
 func (o *OutputManager) Track(outputIDs []utxo.OutputID) (allConfirmed bool) {
-	wg := sync.WaitGroup{}
-	allConfirmed = true
+	var (
+		wg                     sync.WaitGroup
+		unconfirmedOutputFound atomic.Bool
+	)
+
 	for _, ID := range outputIDs {
 		wg.Add(1)
-		go func(id utxo.OutputID, allConfirmed bool) {
+
+		go func(id utxo.OutputID) {
 			defer wg.Done()
-			ok := o.AwaitOutputToBeAccepted(id, awaitOutputToBeConfirmed)
-			if !ok {
-				allConfirmed = false
-				return
+
+			if !o.AwaitOutputToBeAccepted(id, awaitOutputToBeConfirmed) {
+				unconfirmedOutputFound.Store(true)
 			}
-		}(ID, allConfirmed)
+		}(ID)
 	}
-	return
+	wg.Wait()
+
+	return !unconfirmedOutputFound.Load()
 }
 
 // CreateOutputFromAddress creates output, retrieves outputID, and adds it to the wallet.
@@ -224,11 +229,8 @@ func (o *OutputManager) AwaitWalletOutputsToBeConfirmed(wallet *Wallet) {
 		addr := output.Address
 		go func(addr devnetvm.Address) {
 			defer wg.Done()
-			outputIDs := o.RequestOutputsByAddress(addr.Base58())
-			ok := o.Track(outputIDs)
-			if !ok {
-				return
-			}
+
+			_ = o.Track(o.RequestOutputsByAddress(addr.Base58()))
 		}(addr)
 	}
 	wg.Wait()
@@ -285,7 +287,7 @@ func (o *OutputManager) AwaitTransactionToBeAccepted(txID string, waitFor time.D
 		}
 	}
 	if !accepted {
-		return fmt.Errorf("transaction %s not accepted in time", txID)
+		return errors.Errorf("transaction %s not accepted in time", txID)
 	}
 	return nil
 }
@@ -296,7 +298,7 @@ func (o *OutputManager) AwaitOutputToBeSolid(outID string, clt Client, waitFor t
 	var solid bool
 
 	for ; time.Since(s) < waitFor; time.Sleep(awaitSolidificationSleep) {
-		solid = o.IssuerSolidOutIDMap(clt.Url(), outID)
+		solid = o.IssuerSolidOutIDMap(clt.URL(), outID)
 		if solid {
 			break
 		}
@@ -306,7 +308,7 @@ func (o *OutputManager) AwaitOutputToBeSolid(outID string, clt Client, waitFor t
 		}
 	}
 	if !solid {
-		return errors.Newf("output %s not solidified in time", outID)
+		return errors.Errorf("output %s not solidified in time", outID)
 	}
 	return nil
 }

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/orderedmap"
@@ -16,6 +15,7 @@ import (
 	"github.com/iotaledger/hive.go/core/types"
 	"github.com/iotaledger/hive.go/serializer/v2"
 	"github.com/mr-tron/base58"
+	"github.com/pkg/errors"
 )
 
 // region TransactionID ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -94,10 +94,10 @@ func NewOutputID(txID TransactionID, index uint16) OutputID {
 func (o *OutputID) FromBase58(base58EncodedString string) (err error) {
 	decodedBytes, err := base58.Decode(base58EncodedString)
 	if err != nil {
-		return errors.Errorf("could not decode base58 encoded string: %w", err)
+		return errors.Wrap(err, "could not decode base58 encoded string")
 	}
 	if _, err = serix.DefaultAPI.Decode(context.Background(), decodedBytes, o, serix.WithValidation()); err != nil {
-		return errors.Errorf("failed to decode OutputID: %w", err)
+		return errors.Wrap(err, "failed to decode OutputID")
 	}
 
 	return nil
@@ -106,7 +106,7 @@ func (o *OutputID) FromBase58(base58EncodedString string) (err error) {
 // FromRandomness generates a random OutputID.
 func (o *OutputID) FromRandomness() (err error) {
 	if err = o.TransactionID.FromRandomness(); err != nil {
-		return errors.Errorf("could not create TransactionID from randomness: %w", err)
+		return errors.Wrap(err, "could not create TransactionID from randomness")
 	}
 
 	return nil
@@ -116,7 +116,7 @@ func (o *OutputID) FromRandomness() (err error) {
 func (o OutputID) Bytes() (serialized []byte, err error) {
 	serialized, err = o.TransactionID.Bytes()
 	if err != nil {
-		return nil, errors.Errorf("could not serialize TransactionID: %w", err)
+		return nil, errors.Wrap(err, "could not serialize TransactionID")
 	}
 
 	b := make([]byte, serializer.UInt16ByteSize)
@@ -128,7 +128,7 @@ func (o OutputID) Bytes() (serialized []byte, err error) {
 // FromBytes un-serializes an OutputID from a []byte.
 func (o *OutputID) FromBytes(outputBytes []byte) (consumedBytes int, err error) {
 	if consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), outputBytes, o, serix.WithValidation()); err != nil {
-		return consumedBytes, errors.Errorf("Fail to parse outputID from bytes: %w", err)
+		return consumedBytes, errors.Wrap(err, "Fail to parse outputID from bytes")
 	}
 	return
 }
@@ -167,7 +167,7 @@ func (o OutputID) Base58() (base58Encoded string) {
 	return base58.Encode(lo.PanicOnErr(o.Bytes()))
 }
 
-// Length returns number of bytes of OutputID
+// Length returns number of bytes of OutputID.
 func (o OutputID) Length() int {
 	return o.TransactionID.Length() + serializer.UInt16ByteSize
 }
@@ -249,7 +249,7 @@ func (o *Outputs) ForEach(callback func(output Output) error) (err error) {
 	return err
 }
 
-// Strings returns a human-readable version of the Outputs.
+// String returns a human-readable version of the Outputs.
 func (o *Outputs) String() (humanReadable string) {
 	structBuilder := stringify.NewStructBuilder("Outputs")
 	_ = o.ForEach(func(output Output) error {

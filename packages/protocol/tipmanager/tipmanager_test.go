@@ -6,8 +6,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
@@ -78,7 +79,7 @@ func TestTipManager_DataBlockTips(t *testing.T) {
 	// Tips(4) -> 4
 	{
 		parents := tipManager.Tips(4)
-		assert.Equal(t, 4, len(parents))
+		require.Equal(t, 4, len(parents))
 	}
 
 	// Tips(8) -> 6
@@ -89,7 +90,7 @@ func TestTipManager_DataBlockTips(t *testing.T) {
 	// Tips(0) -> 1
 	{
 		parents := tipManager.Tips(0)
-		assert.Equal(t, 1, len(parents))
+		require.Equal(t, 1, len(parents))
 	}
 }
 
@@ -164,7 +165,7 @@ func TestTipManager_TimeSinceConfirmation_Confirmed(t *testing.T) {
 	tf.SetBlocksAccepted(acceptedBlockIDsAliases...)
 	tf.SetMarkersAccepted(acceptedMarkers...)
 	tf.SetAcceptedTime(tf.Block("Marker-2/3").IssuingTime())
-	assert.Eventually(t, tf.engine.IsBootstrapped, 1*time.Minute, 500*time.Millisecond)
+	require.Eventually(t, tf.engine.IsBootstrapped, 1*time.Minute, 500*time.Millisecond)
 
 	// As we advance ATT, Genesis should be beyond TSC, and thus invalid.
 	tf.AssertIsPastConeTimestampCorrect("Genesis", false)
@@ -506,7 +507,7 @@ func TestTipManager_TimeSinceConfirmation_RootBlockParent(t *testing.T) {
 	tf.BlockDAG.EvictionState.EvictUntil(tf.Block("Block1").ID().Index())
 	tf.BlockDAG.EvictionState.RemoveRootBlock(models.EmptyBlockID)
 
-	assert.Eventually(t, tf.engine.IsBootstrapped, 1*time.Minute, 500*time.Millisecond)
+	require.Eventually(t, tf.engine.IsBootstrapped, 1*time.Minute, 500*time.Millisecond)
 
 	tf.CreateBlock("Block5", models.WithStrongParents(tf.BlockIDs("Block1")), models.WithIssuingTime(time.Now()))
 	tf.IssueBlocks("Block5").WaitUntilAllTasksProcessed()
@@ -518,79 +519,4 @@ func TestTipManager_TimeSinceConfirmation_RootBlockParent(t *testing.T) {
 	tf.AssertIsPastConeTimestampCorrect("Block2", true)
 	tf.AssertIsPastConeTimestampCorrect("Block1", false)
 	tf.AssertIsPastConeTimestampCorrect("Block5", false)
-}
-
-func TestTipManager_previousMarker(t *testing.T) {
-	prevMarker := previousMarker(markers.NewSequence(0, markers.NewMarkers()), markers.Index(50), func(marker markers.Marker) (block *booker.Block, exists bool) {
-		return nil, true
-	})
-
-	assert.EqualValues(t, 49, prevMarker.Index())
-	assert.EqualValues(t, 0, prevMarker.SequenceID())
-
-	prevMarker2 := previousMarker(markers.NewSequence(0, markers.NewMarkers(markers.NewMarker(0, 45))), markers.Index(50), func(marker markers.Marker) (block *booker.Block, exists bool) {
-		return nil, marker.Index() == 46
-	})
-
-	assert.EqualValues(t, 46, prevMarker2.Index())
-	assert.EqualValues(t, 0, prevMarker2.SequenceID())
-
-	prevMarker3 := previousMarker(markers.NewSequence(0, markers.NewMarkers(markers.NewMarker(0, 45))), markers.Index(50), func(marker markers.Marker) (block *booker.Block, exists bool) {
-		return nil, marker.Index() <= 47
-	})
-
-	assert.EqualValues(t, 47, prevMarker3.Index())
-	assert.EqualValues(t, 0, prevMarker3.SequenceID())
-
-	prevMarker4 := previousMarker(markers.NewSequence(0, markers.NewMarkers(markers.NewMarker(0, 45))), markers.Index(100), func(marker markers.Marker) (block *booker.Block, exists bool) {
-		return nil, false
-	})
-
-	assert.EqualValues(t, 46, prevMarker4.Index())
-	assert.EqualValues(t, 0, prevMarker4.SequenceID())
-
-	prevMarker5 := previousMarker(markers.NewSequence(0, markers.NewMarkers(markers.NewMarker(0, 45))), markers.Index(4), func(marker markers.Marker) (block *booker.Block, exists bool) {
-		return nil, false
-	})
-
-	assert.EqualValues(t, 3, prevMarker5.Index())
-	assert.EqualValues(t, 0, prevMarker5.SequenceID())
-}
-
-func TestTipManager_findFirstUnacceptedMarker(t *testing.T) {
-	firstUnacceptedMarker := findFirstUnacceptedMarker(markers.NewSequence(0, markers.NewMarkers(markers.NewMarker(0, 45), markers.NewMarker(0, 70))), func(marker markers.Marker) (block *booker.Block, exists bool) {
-		return nil, true
-	}, func(id markers.SequenceID) markers.Index {
-		return 50
-	})
-
-	assert.EqualValues(t, 50, firstUnacceptedMarker.Index())
-	assert.EqualValues(t, 0, firstUnacceptedMarker.SequenceID())
-
-	firstUnacceptedMarker2 := findFirstUnacceptedMarker(markers.NewSequence(0, markers.NewMarkers(markers.NewMarker(0, 10), markers.NewMarker(0, 50))), func(marker markers.Marker) (block *booker.Block, exists bool) {
-		return nil, marker.Index() >= 40
-	}, func(id markers.SequenceID) markers.Index {
-		return 60
-	})
-
-	assert.EqualValues(t, 60, firstUnacceptedMarker2.Index())
-	assert.EqualValues(t, 0, firstUnacceptedMarker2.SequenceID())
-
-	firstUnacceptedMarker3 := findFirstUnacceptedMarker(markers.NewSequence(0, markers.NewMarkers(markers.NewMarker(0, 10), markers.NewMarker(0, 100))), func(marker markers.Marker) (block *booker.Block, exists bool) {
-		return nil, marker.Index() >= 70
-	}, func(id markers.SequenceID) markers.Index {
-		return 60
-	})
-
-	assert.EqualValues(t, 70, firstUnacceptedMarker3.Index())
-	assert.EqualValues(t, 0, firstUnacceptedMarker3.SequenceID())
-
-	firstUnacceptedMarker4 := findFirstUnacceptedMarker(markers.NewSequence(0, markers.NewMarkers(markers.NewMarker(0, 10), markers.NewMarker(0, 65))), func(marker markers.Marker) (block *booker.Block, exists bool) {
-		return nil, false
-	}, func(id markers.SequenceID) markers.Index {
-		return 60
-	})
-
-	assert.EqualValues(t, 66, firstUnacceptedMarker4.Index(), firstUnacceptedMarker4.Index())
-	assert.EqualValues(t, 0, firstUnacceptedMarker4.SequenceID())
 }

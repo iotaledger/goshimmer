@@ -6,6 +6,8 @@ import (
 	"sort"
 	"strconv"
 
+	"github.com/pkg/errors"
+
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/model"
 	"github.com/iotaledger/hive.go/core/serix"
@@ -19,11 +21,11 @@ import (
 func init() {
 	err := serix.DefaultAPI.RegisterTypeSettings(UTXOInput{}, serix.TypeSettings{}.WithObjectType(uint8(new(UTXOInput).Type())))
 	if err != nil {
-		panic(fmt.Errorf("error registering UTXOInput type settings: %w", err))
+		panic(errors.Wrap(err, "error registering UTXOInput type settings"))
 	}
 	err = serix.DefaultAPI.RegisterInterfaceObjects((*Input)(nil), new(UTXOInput))
 	if err != nil {
-		panic(fmt.Errorf("error registering Input interface implementations: %w", err))
+		panic(errors.Wrap(err, "error registering Input interface implementations"))
 	}
 }
 
@@ -148,7 +150,7 @@ func (i Inputs) Strings() (result []string) {
 	for _, input := range i {
 		if input.Type() == UTXOInputType {
 			outputID := input.(*UTXOInput).ReferencedOutputID()
-			result = append(result, fmt.Sprintf("%s", outputID))
+			result = append(result, outputID.String())
 		}
 	}
 
@@ -195,7 +197,7 @@ func (u *UTXOInput) Compare(other Input) int {
 	return bytes.Compare(lo.PanicOnErr(u.Bytes()), lo.PanicOnErr(other.Bytes()))
 }
 
-// code contract (make sure the struct implements all required methods)
+// code contract (make sure the struct implements all required methods).
 var _ Input = &UTXOInput{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

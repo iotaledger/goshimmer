@@ -51,7 +51,6 @@ func TestEpoch(t *testing.T) {
 		testTime := genesisTime.Add(49 * time.Second)
 		ei := IndexFromTime(testTime)
 		assert.Equal(t, ei, Index(5))
-
 	}
 
 	{

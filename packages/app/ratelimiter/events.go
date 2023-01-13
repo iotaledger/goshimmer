@@ -9,7 +9,7 @@ type Events struct {
 	Hit *event.Event[*HitEvent]
 }
 
-func newEvents() (new *Events) {
+func newEvents() *Events {
 	return &Events{
 		Hit: event.New[*HitEvent](),
 	}

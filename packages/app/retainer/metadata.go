@@ -100,7 +100,7 @@ type BlockMetadata struct {
 }
 
 type blockMetadataModel struct {
-	Id models.BlockID `serix:"0"`
+	ID models.BlockID `serix:"0"`
 
 	// blockdag.Block
 	Missing  bool `serix:"1"`
@@ -185,7 +185,7 @@ func newBlockMetadata(cm *cachedMetadata) (b *BlockMetadata) {
 	b = model.NewStorable[models.BlockID, BlockMetadata](&blockMetadataModel{})
 
 	if cm.BlockDAG != nil {
-		b.M.Id = cm.BlockDAG.Block.ID()
+		b.M.ID = cm.BlockDAG.Block.ID()
 		b.SetID(cm.BlockDAG.Block.ID())
 		copyFromBlockDAGBlock(cm.BlockDAG, b)
 	}

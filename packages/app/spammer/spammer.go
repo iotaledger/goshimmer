@@ -5,9 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/iotaledger/hive.go/core/typeutils"
+	"github.com/pkg/errors"
 	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
@@ -48,7 +48,7 @@ func New(issuePayloadFunc IssuePayloadFunc, log *logger.Logger, estimateFunc Est
 }
 
 // Start starts the spammer to spam with the given blocks per time unit,
-// according to a inter block issuing function (IMIF)
+// according to a inter block issuing function (IMIF).
 func (s *Spammer) Start(rate int, payloadSize uint64, timeUnit time.Duration, imif string) {
 	// only start if not yet running
 	if s.running.SetToIf(false, true) {
