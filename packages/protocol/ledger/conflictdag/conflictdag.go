@@ -191,7 +191,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) SetConflictAccepted(confli
 		}
 
 		if modified = conflict.setConfirmationState(confirmation.Accepted); !modified {
-			return
+			continue
 		}
 
 		c.Events.ConflictAccepted.Trigger(conflict)
@@ -211,7 +211,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) SetConflictAccepted(confli
 		}
 
 		if modified = conflict.setConfirmationState(confirmation.Rejected); !modified {
-			return
+			continue
 		}
 
 		c.Events.ConflictRejected.Trigger(conflict)
