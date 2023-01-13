@@ -2,10 +2,12 @@ package faucet
 
 import (
 	"context"
+
+	"github.com/pkg/errors"
+
 	"github.com/iotaledger/hive.go/core/generics/model"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/serix"
-	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"

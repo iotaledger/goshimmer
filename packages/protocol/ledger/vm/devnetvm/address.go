@@ -3,13 +3,14 @@ package devnetvm
 import (
 	"bytes"
 	"context"
-	"github.com/iotaledger/hive.go/core/serix"
+
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/hive.go/core/cerrors"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/stringify"
 )
 

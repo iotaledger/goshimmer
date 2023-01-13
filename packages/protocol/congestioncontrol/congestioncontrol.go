@@ -41,7 +41,7 @@ func (c *CongestionControl) Run() {
 func (c *CongestionControl) Shutdown() {
 	c.schedulerMutex.RLock()
 	defer c.schedulerMutex.RUnlock()
-	
+
 	c.scheduler.Shutdown()
 	c.workerPool.Shutdown()
 }

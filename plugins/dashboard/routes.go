@@ -104,8 +104,8 @@ func setupRoutes(e *echo.Echo) {
 		var e *echo.HTTPError
 		if errors.As(err, &e) {
 			if e.Code == http.StatusNotFound {
-				if err := c.Redirect(http.StatusSeeOther, "/"); err != nil {
-					log.Warn("failed to redirect request")
+				if redirectErr := c.Redirect(http.StatusSeeOther, "/"); redirectErr != nil {
+					log.Warnf("failed to redirect request: %s", redirectErr.Error())
 				}
 				return
 			}
