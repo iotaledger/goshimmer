@@ -58,7 +58,7 @@ func broadcastData(c echo.Context) error {
 
 	maxAwaitTime := maxIssuedAwaitTime
 	if request.MaxEstimate > 0 {
-		maxAwaitTime = time.Duration(time.Duration(request.MaxEstimate).Milliseconds())
+		maxAwaitTime = time.Duration(request.MaxEstimate) * time.Millisecond
 		if deps.BlockIssuer.Estimate().Milliseconds() > request.MaxEstimate {
 			return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{
 				Error: fmt.Sprintf("issuance estimate greater than %d ms", request.MaxEstimate),
