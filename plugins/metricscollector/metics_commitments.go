@@ -1,6 +1,8 @@
 package metricscollector
 
 import (
+	"strconv"
+
 	"github.com/iotaledger/goshimmer/packages/app/collector"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
@@ -15,20 +17,22 @@ const (
 	seenTotal        = "seen_total"
 	missingRequested = "missing_requested_total"
 	missingReceived  = "missing_received_total"
+	acceptedBlocks   = "accepted_blocks"
+	transactions     = "accepted_transactions"
+	validators       = "active_validators"
 )
 
 var CommitmentsMetrics = collector.NewCollection(commitmentsNamespace,
 	collector.WithMetric(collector.NewMetric(lastCommitment,
-		collector.WithType(collector.Gauge),
+		collector.WithType(collector.GaugeVec),
 		collector.WithHelp("Last commitment of the node."),
-		collector.WithLabels("commitment"),
+		collector.WithLabels("epoch", "commitment"),
+		collector.WithLabelValuesCollection(),
 		collector.WithInitFunc(func() {
-			m := make(map[string]float64)
+			deps.Collector.ResetMetric(commitmentsNamespace, lastCommitment)
 			deps.Protocol.Events.Engine.NotarizationManager.EpochCommitted.Attach(event.NewClosure(func(details *notarization.EpochCommittedDetails) {
-				m[details.Commitment.ID().Base58()] = float64(details.Commitment.Index())
+				deps.Collector.Update(commitmentsNamespace, lastCommitment, collector.MultiLabels(strconv.Itoa(int(details.Commitment.Index())), details.Commitment.ID().Base58()))
 			}))
-			deps.Collector.Update(commitmentsNamespace, lastCommitment, m)
-			// todo reset
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(seenTotal,
@@ -55,6 +59,39 @@ var CommitmentsMetrics = collector.NewCollection(commitmentsNamespace,
 		collector.WithInitFunc(func() {
 			deps.Protocol.ChainManager().Events.MissingCommitmentReceived.Attach(event.NewClosure(func(commitment commitment.ID) {
 				deps.Collector.Increment(commitmentsNamespace, missingReceived)
+			}))
+		}),
+	)),
+	collector.WithMetric(collector.NewMetric(acceptedBlocks,
+		collector.WithType(collector.GaugeVec),
+		collector.WithHelp("Number of accepted blocks by the node per epoch."),
+		collector.WithLabels("epoch"),
+		collector.WithResetBeforeCollecting(true),
+		collector.WithInitFunc(func() {
+			deps.Protocol.Events.Engine.NotarizationManager.EpochCommitted.Attach(event.NewClosure(func(details *notarization.EpochCommittedDetails) {
+				deps.Collector.Update(commitmentsNamespace, acceptedBlocks, collector.MultiLabelsValues([]string{strconv.Itoa(int(details.Commitment.Index()))}, details.AcceptedBlocksCount))
+			}))
+		}),
+	)),
+	collector.WithMetric(collector.NewMetric(transactions,
+		collector.WithType(collector.GaugeVec),
+		collector.WithHelp("Number of transactions by the node per epoch."),
+		collector.WithLabels("epoch"),
+		collector.WithResetBeforeCollecting(true),
+		collector.WithInitFunc(func() {
+			deps.Protocol.Events.Engine.NotarizationManager.EpochCommitted.Attach(event.NewClosure(func(details *notarization.EpochCommittedDetails) {
+				deps.Collector.Update(commitmentsNamespace, transactions, collector.MultiLabelsValues([]string{strconv.Itoa(int(details.Commitment.Index()))}, details.AcceptedTransactionsCount))
+			}))
+		}),
+	)),
+	collector.WithMetric(collector.NewMetric(validators,
+		collector.WithType(collector.GaugeVec),
+		collector.WithHelp("Number of active validators per epoch."),
+		collector.WithLabels("epoch"),
+		collector.WithResetBeforeCollecting(true),
+		collector.WithInitFunc(func() {
+			deps.Protocol.Events.Engine.NotarizationManager.EpochCommitted.Attach(event.NewClosure(func(details *notarization.EpochCommittedDetails) {
+				deps.Collector.Update(commitmentsNamespace, validators, collector.MultiLabelsValues([]string{strconv.Itoa(int(details.Commitment.Index()))}, details.ActiveValidatorsCount))
 			}))
 		}),
 	)),

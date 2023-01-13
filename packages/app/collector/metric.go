@@ -88,6 +88,9 @@ func (m *Metric) initPromMetric() {
 func (m *Metric) Collect() {
 	valMap := m.collectFunc()
 	if valMap != nil {
+		if m.resetEnabled {
+			m.Reset()
+		}
 		m.Update(valMap)
 	}
 }
@@ -223,7 +226,6 @@ func WithLabelValuesCollection() options.Option[Metric] {
 }
 
 // WithResetBeforeCollecting  if enabled there will be a reset call on metric before each collectFunction call.
-// TODO handle this logic rather from metric level, not the entire collection
 func WithResetBeforeCollecting(resetEnabled bool) options.Option[Metric] {
 	return func(m *Metric) {
 		m.resetEnabled = resetEnabled

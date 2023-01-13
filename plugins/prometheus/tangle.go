@@ -161,7 +161,7 @@ func registerTangleMetrics() {
 	})
 
 	finalizedConflictCountDB = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "tangle_conflict_finalized_count_db",
+		Name: "conflict_resolved_total",
 		Help: "number of finalized conflicts stored in database",
 	})
 	confirmedConflictCount = prometheus.NewGauge(prometheus.GaugeOpts{

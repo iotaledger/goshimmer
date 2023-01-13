@@ -13,8 +13,7 @@ const (
 	bufferTotalSize       = "buffer_size_bytes_total"
 	bufferMaxSize         = "buffer_max_size"
 	deficit               = "deficit"
-	// todo implement smarter than in prev version
-	rate = "rate"
+	rate                  = "rate"
 )
 
 var SchedulerMetrics = collector.NewCollection(schedulerNamespace,
@@ -71,6 +70,13 @@ var SchedulerMetrics = collector.NewCollection(schedulerNamespace,
 		collector.WithCollectFunc(func() map[string]float64 {
 			deficit, _ := deps.Protocol.CongestionControl.Scheduler().Deficit(deps.Local.ID()).Float64()
 			return collector.SingleValue(deficit)
+		}),
+	)),
+	collector.WithMetric(collector.NewMetric(rate,
+		collector.WithType(collector.Gauge),
+		collector.WithHelp("Current rate of the scheduler."),
+		collector.WithCollectFunc(func() map[string]float64 {
+			return collector.SingleValue(deps.Protocol.CongestionControl.Scheduler().Rate())
 		}),
 	)),
 )

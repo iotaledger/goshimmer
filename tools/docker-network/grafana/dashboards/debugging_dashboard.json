@@ -720,7 +720,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "tangle_block_request_queue_size{instance=~\"$instance\"}",
+          "expr": "tangle_request_queue_size{instance=~\"$instance\"}",
           "interval": "",
           "legendFormat": "Block Request Queue Size",
           "refId": "A"
