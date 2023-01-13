@@ -61,6 +61,15 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 	})
 }
 
+// WaitUntilAllTasksProcessed waits until all tasks are processed.
+func (t *TestFramework) WaitUntilAllTasksProcessed() (self *TestFramework) {
+	event.Loop.PendingTasksCounter.WaitIsZero()
+	for _, pool := range t.Protocol.WorkerPools() {
+		pool.PendingTasksCounter.WaitIsZero()
+	}
+	return t
+}
+
 // region EngineTestFramework //////////////////////////////////////////////////////////////////////////////////////////
 
 type (

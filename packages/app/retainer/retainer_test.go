@@ -124,7 +124,8 @@ func TestRetainer_BlockMetadata_Evicted(t *testing.T) {
 	block, exists := protocolTF.Protocol.CongestionControl.Block(b.ID())
 	require.True(t, exists)
 	protocolTF.Protocol.Engine().EvictionState.EvictUntil(b.ID().EpochIndex + 1)
-	tangleTF.BlockDAGTestFramework.WaitUntilAllTasksProcessed()
+	protocolTF.WaitUntilAllTasksProcessed()
+	retainer.WorkerPool().PendingTasksCounter.WaitIsZero()
 
 	meta, exists := retainer.BlockMetadata(block.ID())
 	require.True(t, exists)
