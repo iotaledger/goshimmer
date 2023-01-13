@@ -273,12 +273,12 @@ func (a *AliasOutput) ToLedgerStateOutput(id utxo.OutputID) (devnetvm.Output, er
 	// alias address
 	aliasAddy, aErr := devnetvm.AliasAddressFromBase58EncodedString(a.AliasAddress)
 	if aErr != nil {
-		return nil, errors.Wrap(err, "wrong alias address in AliasOutput")
+		return nil, errors.Wrap(aErr, "wrong alias address in AliasOutput")
 	}
 	// state address
 	stateAddy, aErr := devnetvm.AddressFromBase58EncodedString(a.StateAddress)
 	if aErr != nil {
-		return nil, errors.Wrap(err, "wrong state address in AliasOutput")
+		return nil, errors.Wrap(aErr, "wrong state address in AliasOutput")
 	}
 	// stateIndex
 	stateIndex := a.StateIndex
@@ -409,7 +409,7 @@ func (e *ExtendedLockedOutput) ToLedgerStateOutput(id utxo.OutputID) (devnetvm.O
 	if e.FallbackAddress != "" && e.FallbackDeadline != 0 {
 		fallbackAddy, fErr := devnetvm.AddressFromBase58EncodedString(e.FallbackAddress)
 		if fErr != nil {
-			return nil, errors.Wrap(err, "wrong fallback address in ExtendedLockedOutput")
+			return nil, errors.Wrap(fErr, "wrong fallback address in ExtendedLockedOutput")
 		}
 		res = res.WithFallbackOptions(fallbackAddy, time.Unix(e.FallbackDeadline, 0))
 	}
