@@ -277,6 +277,7 @@ func (t *TipManager) checkBlockRecursive(block *booker.Block, minSupportedTimest
 
 	// if block is younger than TSC and accepted, then return timestampValid=true
 	if t.blockAcceptanceGadget.IsBlockAccepted(block.ID()) {
+		t.walkerCache.Get(block.ID().Index(), true).Set(block.ID(), types.Void)
 		return true
 	}
 
@@ -294,10 +295,9 @@ func (t *TipManager) checkBlockRecursive(block *booker.Block, minSupportedTimest
 		if !t.checkBlockRecursive(parentBlock.Block.Block, minSupportedTimestamp) {
 			return false
 		}
-
-		t.walkerCache.Get(parentBlock.ID().Index(), true).Set(parentBlock.ID(), types.Void)
 	}
 
+	t.walkerCache.Get(block.ID().Index(), true).Set(block.ID(), types.Void)
 	return true
 }
 
