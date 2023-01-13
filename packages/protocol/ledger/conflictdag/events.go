@@ -12,8 +12,8 @@ type Events[ConflictIDType, ResourceIDType comparable] struct {
 	// ConflictCreated is an event that gets triggered whenever a new Conflict is created.
 	ConflictCreated *event.Linkable[*Conflict[ConflictIDType, ResourceIDType]]
 
-	// ConflictConflictsUpdated is an event that gets triggered whenever the ConflictIDTypes of a Conflict are updated.
-	ConflictConflictsUpdated *event.Linkable[*ConflictConflictsUpdatedEvent[ConflictIDType, ResourceIDType]]
+	// ConflictUpdated is an event that gets triggered whenever the ConflictIDTypes of a Conflict are updated.
+	ConflictUpdated *event.Linkable[*Conflict[ConflictIDType, ResourceIDType]]
 
 	// ConflictParentsUpdated is an event that gets triggered whenever the parent ConflictIDTypeTypes of a Conflict are updated.
 	ConflictParentsUpdated *event.Linkable[*ConflictParentsUpdatedEvent[ConflictIDType, ResourceIDType]]
@@ -31,27 +31,13 @@ type Events[ConflictIDType, ResourceIDType comparable] struct {
 func NewEvents[ConflictIDType, ResourceIDType comparable](optsLinkTarget ...*Events[ConflictIDType, ResourceIDType]) (events *Events[ConflictIDType, ResourceIDType]) {
 	return event.LinkableConstructor(func() (self *Events[ConflictIDType, ResourceIDType]) {
 		return &Events[ConflictIDType, ResourceIDType]{
-			ConflictCreated:          event.NewLinkable[*Conflict[ConflictIDType, ResourceIDType]](),
-			ConflictConflictsUpdated: event.NewLinkable[*ConflictConflictsUpdatedEvent[ConflictIDType, ResourceIDType]](),
-			ConflictParentsUpdated:   event.NewLinkable[*ConflictParentsUpdatedEvent[ConflictIDType, ResourceIDType]](),
-			ConflictAccepted:         event.NewLinkable[*Conflict[ConflictIDType, ResourceIDType]](),
-			ConflictRejected:         event.NewLinkable[*Conflict[ConflictIDType, ResourceIDType]](),
+			ConflictCreated:        event.NewLinkable[*Conflict[ConflictIDType, ResourceIDType]](),
+			ConflictUpdated:        event.NewLinkable[*Conflict[ConflictIDType, ResourceIDType]](),
+			ConflictParentsUpdated: event.NewLinkable[*ConflictParentsUpdatedEvent[ConflictIDType, ResourceIDType]](),
+			ConflictAccepted:       event.NewLinkable[*Conflict[ConflictIDType, ResourceIDType]](),
+			ConflictRejected:       event.NewLinkable[*Conflict[ConflictIDType, ResourceIDType]](),
 		}
 	})(optsLinkTarget...)
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region ConflictConflictsUpdatedEvent //////////////////////////////////////////////////////////////////////////////////
-
-// ConflictConflictsUpdatedEvent is a container that acts as a dictionary for the ConflictConflictsUpdated event related
-// parameters.
-type ConflictConflictsUpdatedEvent[ConflictIDType, ResourceIDType comparable] struct {
-	// ConflictIDType contains the identifier of the updated Conflict.
-	ConflictIDType ConflictIDType
-
-	// NewConflictIDTypes contains the set of conflicts that this Conflict was added to.
-	NewConflictIDTypes *set.AdvancedSet[ResourceIDType]
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

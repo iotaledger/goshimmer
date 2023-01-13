@@ -44,63 +44,102 @@ func New[ConflictIDType, ResourceIDType comparable](evictionState *eviction.Stat
 	})
 }
 
+func (c *ConflictDAG[ConflictIDType, ResourceIDType]) Conflict(conflictID ConflictIDType) (conflict *Conflict[ConflictIDType, ResourceIDType], exists bool) {
+	return c.conflicts.Get(conflictID)
+}
+
+func (c *ConflictDAG[ConflictIDType, ResourceIDType]) ConflictSet(resourceID ResourceIDType) (conflictSet *ConflictSet[ConflictIDType, ResourceIDType], exists bool) {
+	return c.conflictSets.Get(resourceID)
+}
+
 // CreateConflict creates a new Conflict in the ConflictDAG and returns true if the Conflict was created.
-func (b *ConflictDAG[ConflictIDType, ResourceIDType]) CreateConflict(id ConflictIDType, parentIDs *set.AdvancedSet[ConflictIDType], conflictingResourceIDs *set.AdvancedSet[ResourceIDType]) (created bool) {
-	b.mutex.Lock()
+func (c *ConflictDAG[ConflictIDType, ResourceIDType]) CreateConflict(id ConflictIDType, parentIDs *set.AdvancedSet[ConflictIDType], conflictingResourceIDs *set.AdvancedSet[ResourceIDType]) (created bool) {
+	c.mutex.Lock()
 
-	parents := set.NewAdvancedSet[*Conflict[ConflictIDType, ResourceIDType]]()
-	for it := parentIDs.Iterator(); it.HasNext(); {
-		parentID := it.Next()
-		parent, exists := b.conflicts.Get(parentID)
-		if !exists {
-			// TODO: what do we do? does it mean the parent has been evicted already?
-		}
-		parents.Add(parent)
-	}
+	conflict, created := c.conflicts.RetrieveOrCreate(id, func() (newConflict *Conflict[ConflictIDType, ResourceIDType]) {
+		newConflict = NewConflict[ConflictIDType, ResourceIDType](id, parentIDs, set.NewAdvancedSet[*ConflictSet[ConflictIDType, ResourceIDType]]())
 
-	conflict, created := b.conflicts.RetrieveOrCreate(id, func() (newConflict *Conflict[ConflictIDType, ResourceIDType]) {
-		newConflict = NewConflict[ConflictIDType, ResourceIDType](id, parents, set.NewAdvancedSet[*ConflictSet[ConflictIDType, ResourceIDType]]())
-
-		for it := conflictingResourceIDs.Iterator(); it.HasNext(); {
-			conflictSetID := it.Next()
-
-			conflictSet, _ := b.conflictSets.RetrieveOrCreate(conflictSetID, func() *ConflictSet[ConflictIDType, ResourceIDType] {
-				return NewConflictSet[ConflictIDType, ResourceIDType](conflictSetID)
-			})
-			conflictSet.AddMember(newConflict)
-			newConflict.addConflictSet(conflictSet)
-		}
+		c.registerConflictWithConflictSet(newConflict, conflictingResourceIDs)
 
 		// create parent references to newly created conflict
-		for it := parents.Iterator(); it.HasNext(); {
-			parent := it.Next()
+		for it := parentIDs.Iterator(); it.HasNext(); {
+			parentID := it.Next()
+			parent, exists := c.conflicts.Get(parentID)
+			if !exists {
+				// TODO: what do we do? does it mean the parent has been evicted already?
+				continue
+			}
 			parent.addChild(newConflict)
 		}
 
-		if b.anyParentRejected(newConflict) || b.anyConflictingConflictAccepted(conflict) {
+		if c.anyParentRejected(newConflict) || c.anyConflictingConflictAccepted(newConflict) {
 			newConflict.setConfirmationState(confirmation.Rejected)
 		}
 
 		return
 	})
 
-	b.mutex.Unlock()
+	c.mutex.Unlock()
 
 	if created {
-		b.Events.ConflictCreated.Trigger(conflict)
+		c.Events.ConflictCreated.Trigger(conflict)
 	}
 
 	return created
 }
 
-// TODO: should we add this to the conflict model itself?
+// UpdateConflictingResources adds the Conflict to the given ConflictSets - it returns true if the conflict membership was modified during this operation.
+func (c *ConflictDAG[ConflictIDType, ResourceIDType]) UpdateConflictingResources(id ConflictIDType, conflictingResourceIDs *set.AdvancedSet[ResourceIDType]) (updated bool) {
+	conflict, exists := c.conflicts.Get(id)
+	if !exists {
+		return false
+	}
+
+	c.mutex.RLock()
+	updated = c.registerConflictWithConflictSet(conflict, conflictingResourceIDs)
+	c.mutex.RUnlock()
+
+	if updated {
+		c.Events.ConflictUpdated.Trigger(conflict)
+	}
+
+	return updated
+}
+
 // anyParentRejected checks if any of a Conflicts parents is Rejected.
-func (b *ConflictDAG[ConflictID, ConflictingResourceID]) anyParentRejected(conflict *Conflict[ConflictID, ConflictingResourceID]) (rejected bool) {
+func (c *ConflictDAG[ConflictIDType, ResourceIDType]) anyParentRejected(conflict *Conflict[ConflictIDType, ResourceIDType]) (rejected bool) {
 	for it := conflict.Parents().Iterator(); it.HasNext(); {
-		if it.Next().ConfirmationState().IsRejected() {
+		parent, exists := c.conflicts.Get(it.Next())
+		if exists && parent.ConfirmationState().IsRejected() {
 			return true
 		}
 	}
 
 	return false
+}
+
+// anyConflictingConflictAccepted checks if any conflicting Conflict is Accepted/Confirmed.
+func (c *ConflictDAG[ConflictIDType, ResourceIDType]) anyConflictingConflictAccepted(conflict *Conflict[ConflictIDType, ResourceIDType]) (anyAccepted bool) {
+	conflict.forEachConflictingConflictID(func(conflictingConflict *Conflict[ConflictIDType, ResourceIDType]) bool {
+		anyAccepted = conflictingConflict.ConfirmationState().IsAccepted()
+		return !anyAccepted
+	})
+
+	return anyAccepted
+}
+
+func (c *ConflictDAG[ConflictIDType, ResourceIDType]) registerConflictWithConflictSet(conflict *Conflict[ConflictIDType, ResourceIDType], conflictingResourceIDs *set.AdvancedSet[ResourceIDType]) (added bool) {
+	for it := conflictingResourceIDs.Iterator(); it.HasNext(); {
+		conflictSetID := it.Next()
+
+		conflictSet, _ := c.conflictSets.RetrieveOrCreate(conflictSetID, func() *ConflictSet[ConflictIDType, ResourceIDType] {
+			return NewConflictSet[ConflictIDType, ResourceIDType](conflictSetID)
+		})
+		if conflict.addConflictSet(conflictSet) {
+			conflictSet.AddConflictMember(conflict)
+			added = true
+		}
+	}
+
+	return added
 }
