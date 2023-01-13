@@ -2,14 +2,15 @@ package dashboard
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
 	"net/http"
+
+	"github.com/labstack/echo"
+	"github.com/mr-tron/base58/base58"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
-	"github.com/labstack/echo"
-	"github.com/mr-tron/base58/base58"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/app/retainer"

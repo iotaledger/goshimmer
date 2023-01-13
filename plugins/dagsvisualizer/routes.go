@@ -86,7 +86,7 @@ func setupRoutes(e *echo.Echo) {
 
 		switch errors.Unwrap(err) {
 		case echo.ErrNotFound:
-			if e := c.Redirect(http.StatusSeeOther, "/"); e != nil {
+			if err := c.Redirect(http.StatusSeeOther, "/"); err != nil {
 				log.Warn("failed to redirect request")
 			}
 			return

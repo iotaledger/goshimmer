@@ -95,7 +95,9 @@ func setupRoutes(e *echo.Echo) {
 
 		switch errors.Unwrap(err) {
 		case echo.ErrNotFound:
-			c.Redirect(http.StatusSeeOther, "/")
+			if err := c.Redirect(http.StatusSeeOther, "/"); err != nil {
+				log.Warn("failed to redirect request")
+			}
 			return
 
 		case echo.ErrUnauthorized:
