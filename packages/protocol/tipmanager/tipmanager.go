@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/randommap"
 	"github.com/iotaledger/hive.go/core/generics/walker"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -78,12 +79,13 @@ func (t *TipManager) AddTip(block *scheduler.Block) {
 		return
 	}
 
-	if t.isCommitmentOld(block) {
+	// Check if the block commits to an old epoch.
+	if t.isStaleCommitment(block) {
 		return
 	}
 
-	// If the commitment is in the future, and not known to be forking, we cannot yet add it to the tipset.
-	if t.isCommitmentUnknown(block) {
+	// If the commitment is in the future, and not known to be forking, we cannot yet add it to the main tipset.
+	if t.isFutureCommitment(block) {
 		t.addParkedTip(block)
 		return
 	}
@@ -150,47 +152,15 @@ func (t *TipManager) selectTips(count int) (parents models.BlockIDs) {
 
 		// at least one tip is returned
 		for _, tip := range tips {
-			if t.isCommitmentRecent(tip) {
+			if err := t.isValidTip(tip); err == nil {
 				parents.Add(tip.ID())
 			} else {
-				fmt.Printf("(time: %s) cannot select tip due to commitment not being recent (%d), current commitment (%d)\n",
-					time.Now(),
-					tip.Commitment().Index(),
-					t.engine.Storage.Settings.LatestCommitment().Index(),
-				)
 				t.DeleteTip(tip)
-				if t.tips.Size() == 0 {
-					fmt.Println("(time: ", time.Now(), ") >> deleted last TIP because it doesn't pass commitment check!", tip.ID())
-				}
-				continue
-			}
 
-			if t.isPastConeTimestampCorrect(tip.Block.Block) {
-				parents.Add(tip.ID())
-			} else {
-				fmt.Printf("(time: %s) cannot select tip due to TSC condition tip issuing time (%s), time (%s), min supported time (%s), block id (%s), tip pool size (%d), scheduled: (%t), orphaned: (%t), accepted: (%t)\n",
-					time.Now(),
-					tip.IssuingTime(),
-					t.engine.Clock.AcceptedTime(),
-					t.engine.Clock.AcceptedTime().Add(-t.optsTimeSinceConfirmationThreshold),
-					tip.ID().Base58(),
-					t.tips.Size(),
-					tip.IsScheduled(),
-					tip.IsOrphaned(),
-					t.engine.Consensus.BlockGadget.IsBlockAccepted(tip.ID()),
-				)
-				// tip.ForEachParent(func(parent models.Parent) {
-				// 	fmt.Println("parent block id", parent.ID.Base58())
-				// 	if parentBlock, exists := t.engine.(parent.ID); exists {
-				// 		fmt.Println(parentBlock.IssuingTime(), parentBlock.IsScheduled())
-				// 	}
-				// 	if t.acceptanceGadget.IsBlockAccepted(parent.ID) {
-				// 		fmt.Println("parent block accepted")
-				// 	}
-				// })
-				t.DeleteTip(tip)
+				// DEBUG
+				fmt.Printf("(time: %s) cannot select tip due to error: %s\n", time.Now(), err)
 				if t.tips.Size() == 0 {
-					fmt.Println("(time: ", time.Now(), ") >> deleted last TIP because it doesn't pass tsc check!", tip.ID())
+					fmt.Println("(time: ", time.Now(), ") >> deleted last TIP because it doesn't pass checks!", tip.ID())
 				}
 			}
 		}
@@ -276,15 +246,13 @@ func (t *TipManager) checkMonotonicity(block *scheduler.Block) (anyScheduledOrAc
 	return false
 }
 
-func (t *TipManager) isCommitmentOld(block *scheduler.Block) (isOld bool) {
+// isStaleCommitment returns true if the block belongs to a commitment that is too far back in the past.
+func (t *TipManager) isStaleCommitment(block *scheduler.Block) (isOld bool) {
 	return block.Commitment().Index() < t.engine.Storage.Settings.LatestCommitment().Index()-1
 }
 
-func (t *TipManager) isCommitmentRecent(block *scheduler.Block) (isFresh bool) {
-	return !t.isCommitmentUnknown(block) && t.engine.Storage.Settings.LatestCommitment().Index()-1 <= block.Commitment().Index()
-}
-
-func (t *TipManager) isCommitmentUnknown(block *scheduler.Block) (isUnknown bool) {
+// isFutureCommitment returns true if the block belongs to a commitment that is not yet known.
+func (t *TipManager) isFutureCommitment(block *scheduler.Block) (isUnknown bool) {
 	return block.Commitment().Index() > t.engine.Storage.Settings.LatestCommitment().Index()
 }
 
@@ -295,6 +263,33 @@ func (t *TipManager) addParkedTip(block *scheduler.Block) (added bool) {
 	return lo.Return1(t.parkedTips.Get(block.ID().Index(), true).RetrieveOrCreate(block.Commitment().ID(), func() *memstorage.Storage[models.BlockID, *scheduler.Block] {
 		return memstorage.New[models.BlockID, *scheduler.Block]()
 	})).Set(block.ID(), block)
+}
+
+func (t *TipManager) isValidTip(tip *scheduler.Block) (err error) {
+	if !t.isRecentCommitment(tip) {
+		return errors.Errorf("cannot select tip due to commitment not being recent (%d), current commitment (%d)", tip.Commitment().Index(), t.engine.Storage.Settings.LatestCommitment().Index())
+	}
+
+	if !t.isPastConeTimestampCorrect(tip.Block.Block) {
+		return errors.Errorf("cannot select tip due to TSC condition tip issuing time (%s), time (%s), min supported time (%s), block id (%s), tip pool size (%d), scheduled: (%t), orphaned: (%t), accepted: (%t)",
+			tip.IssuingTime(),
+			t.engine.Clock.AcceptedTime(),
+			t.engine.Clock.AcceptedTime().Add(-t.optsTimeSinceConfirmationThreshold),
+			tip.ID().Base58(),
+			t.tips.Size(),
+			tip.IsScheduled(),
+			tip.IsOrphaned(),
+			t.engine.Consensus.BlockGadget.IsBlockAccepted(tip.ID()),
+		)
+	}
+
+	return nil
+}
+
+// isRecentCommitment returns true if the commitment of the given block is not in the future and it is not older than 2
+// epoch with respect to our latest commitment.
+func (t *TipManager) isRecentCommitment(block *scheduler.Block) (isFresh bool) {
+	return !t.isFutureCommitment(block) && block.Commitment().Index() >= t.engine.Storage.Settings.LatestCommitment().Index()-1
 }
 
 // isPastConeTimestampCorrect performs the TSC check for the given tip.
