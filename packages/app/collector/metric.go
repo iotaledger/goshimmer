@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/iotaledger/hive.go/core/generics/options"
@@ -257,7 +258,3 @@ func WithInitValue(initValueFunc func() map[string]float64) options.Option[Metri
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-func emptyCollector(m *Metric) {
-	m.collectFunc = func() map[string]float64 { return nil }
-}
