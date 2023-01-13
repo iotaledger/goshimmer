@@ -146,7 +146,9 @@ func (r *Retainer) setupEvents() {
 	r.protocol.Events.Engine.Tangle.Booker.BlockBooked.AttachWithWorkerPool(event.NewClosure(func(block *booker.Block) {
 		if cm := r.createOrGetCachedMetadata(block.ID()); cm != nil {
 			cm.setBookerBlock(block)
+			cm.Lock()
 			cm.ConflictIDs = r.protocol.Engine().Tangle.BlockConflicts(block)
+			cm.Unlock()
 		}
 	}), r.workerPool)
 
