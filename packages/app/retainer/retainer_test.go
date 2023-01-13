@@ -70,7 +70,8 @@ func TestRetainer_BlockMetadata_NonEvicted(t *testing.T) {
 
 	tangleTF := tangle.NewTestFramework(t, tangle.WithTangle(protocolTF.Protocol.Engine().Tangle))
 	b := tangleTF.CreateBlock("A")
-	tangleTF.IssueBlocks("A").WaitUntilAllTasksProcessed()
+	tangleTF.IssueBlocks("A")
+	protocolTF.WaitUntilAllTasksProcessed()
 	block, exists := protocolTF.Protocol.CongestionControl.Block(b.ID())
 	require.True(t, exists)
 	var meta *BlockMetadata
@@ -120,7 +121,8 @@ func TestRetainer_BlockMetadata_Evicted(t *testing.T) {
 
 	tangleTF := tangle.NewTestFramework(t, tangle.WithTangle(protocolTF.Protocol.Engine().Tangle))
 	b := tangleTF.CreateBlock("A", models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0).Add(70*time.Second)))
-	tangleTF.IssueBlocks("A").WaitUntilAllTasksProcessed()
+	tangleTF.IssueBlocks("A")
+	protocolTF.WaitUntilAllTasksProcessed()
 	block, exists := protocolTF.Protocol.CongestionControl.Block(b.ID())
 	require.True(t, exists)
 	protocolTF.Protocol.Engine().EvictionState.EvictUntil(b.ID().EpochIndex + 1)

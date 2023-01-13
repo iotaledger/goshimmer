@@ -158,7 +158,7 @@ func TestEngine_NonEmptyInitialValidators(t *testing.T) {
 	tf.Tangle.IssueBlocks("1.C")
 	tf.WaitUntilAllTasksProcessed()
 
-	// ...but it get accepted only when 67% of the active weight is reached.
+	// ...but it gets accepted only when 67% of the active weight is reached.
 	tf.Acceptance.ValidateAcceptedBlocks(map[string]bool{
 		"1.A": true,
 		"1.B": false,
