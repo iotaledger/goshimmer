@@ -265,7 +265,6 @@ func createTestTangleMultipleParents(tf *TestFramework) {
 			"IncorrectTip": markers.NewMarkers(markers.NewMarker(0, 3)),
 		}))
 	}
-
 }
 
 func createTestTangleTSC(tf *TestFramework) {
