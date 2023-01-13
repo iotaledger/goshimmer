@@ -151,22 +151,6 @@ func (b *Booker) BlockFromMarker(marker markers.Marker) (block *Block, exists bo
 	return b.markerManager.BlockFromMarker(marker)
 }
 
-// BlockCeiling returns the smallest Index that is >= the given Marker and a boolean value indicating if it exists.
-func (b *Booker) BlockCeiling(marker markers.Marker) (ceilingMarker markers.Marker, exists bool) {
-	b.evictionMutex.RLock()
-	defer b.evictionMutex.RUnlock()
-
-	return b.markerManager.BlockCeiling(marker)
-}
-
-// BlockFloor returns the largest Index that is <= the given Marker and a boolean value indicating if it exists.
-func (b *Booker) BlockFloor(marker markers.Marker) (floorMarker markers.Marker, exists bool) {
-	b.evictionMutex.RLock()
-	defer b.evictionMutex.RUnlock()
-
-	return b.markerManager.BlockFloor(marker)
-}
-
 // GetEarliestAttachment returns the earliest attachment for a given transaction ID.
 func (b *Booker) GetEarliestAttachment(txID utxo.TransactionID) (attachment *Block) {
 	return b.attachments.getEarliestAttachment(txID)
