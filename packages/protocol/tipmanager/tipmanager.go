@@ -2,6 +2,7 @@ package tipmanager
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/iotaledger/hive.go/core/generics/lo"
@@ -9,6 +10,9 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/randommap"
 	"github.com/iotaledger/hive.go/core/generics/walker"
 
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
@@ -34,7 +38,9 @@ type TipManager struct {
 
 	schedulerBlockRetrieverFunc blockRetrieverFunc
 
-	tips *randommap.RandomMap[*scheduler.Block, *scheduler.Block]
+	tips          *randommap.RandomMap[*scheduler.Block, *scheduler.Block]
+	parkedTips    *memstorage.EpochStorage[commitment.ID, *memstorage.Storage[models.BlockID, *scheduler.Block]]
+	evictionMutex sync.RWMutex
 	// TODO: reintroduce TipsConflictTracker
 	// tipsConflictTracker *TipsConflictTracker
 
@@ -49,7 +55,8 @@ func New(schedulerBlockRetrieverFunc blockRetrieverFunc, opts ...options.Option[
 
 		schedulerBlockRetrieverFunc: schedulerBlockRetrieverFunc,
 
-		tips: randommap.New[*scheduler.Block, *scheduler.Block](),
+		tips:       randommap.New[*scheduler.Block, *scheduler.Block](),
+		parkedTips: memstorage.NewEpochStorage[commitment.ID, *memstorage.Storage[models.BlockID, *scheduler.Block]](),
 		// TODO: reintroduce TipsConflictTracker
 		// tipsConflictTracker: NewTipsConflictTracker(tangle),
 
@@ -72,6 +79,12 @@ func (t *TipManager) AddTip(block *scheduler.Block) {
 	}
 
 	if t.isCommitmentOld(block) {
+		return
+	}
+
+	// If the commitment is in the future, and not known to be forking, we cannot yet add it to the tipset.
+	if t.isCommitmentUnknown(block) {
+		t.addParkedTip(block)
 		return
 	}
 
@@ -137,6 +150,21 @@ func (t *TipManager) selectTips(count int) (parents models.BlockIDs) {
 
 		// at least one tip is returned
 		for _, tip := range tips {
+			if t.isCommitmentRecent(tip) {
+				parents.Add(tip.ID())
+			} else {
+				fmt.Printf("(time: %s) cannot select tip due to commitment not being recent (%d), current commitment (%d)\n",
+					time.Now(),
+					tip.Commitment().Index(),
+					t.engine.Storage.Settings.LatestCommitment().Index(),
+				)
+				t.DeleteTip(tip)
+				if t.tips.Size() == 0 {
+					fmt.Println("(time: ", time.Now(), ") >> deleted last TIP because it doesn't pass commitment check!", tip.ID())
+				}
+				continue
+			}
+
 			if t.isPastConeTimestampCorrect(tip.Block.Block) {
 				parents.Add(tip.ID())
 			} else {
@@ -183,6 +211,30 @@ func (t *TipManager) TipCount() int {
 	return t.tips.Size()
 }
 
+// PromoteTips promotes to the main tippool all parked tips that belong to the given commitment.
+func (t *TipManager) PromoteTips(cm *commitment.Commitment) {
+	t.evictionMutex.RLock()
+	defer t.evictionMutex.RUnlock()
+	defer t.Evict(cm.Index())
+
+	if parkedEpochTips := t.parkedTips.Get(cm.Index()); parkedEpochTips != nil {
+		if tipsForCommitment, exists := parkedEpochTips.Get(cm.ID()); exists {
+			tipsForCommitment.ForEach(func(_ models.BlockID, tip *scheduler.Block) bool {
+				t.addTip(tip)
+				return true
+			})
+		}
+	}
+}
+
+// Evict removes all parked tips that belong to an evicted epoch.
+func (t *TipManager) Evict(index epoch.Index) {
+	t.evictionMutex.Lock()
+	defer t.evictionMutex.Unlock()
+
+	t.parkedTips.Evict(index)
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region TSC to prevent lazy tips /////////////////////////////////////////////////////////////////////////////////////
@@ -226,6 +278,23 @@ func (t *TipManager) checkMonotonicity(block *scheduler.Block) (anyScheduledOrAc
 
 func (t *TipManager) isCommitmentOld(block *scheduler.Block) (isOld bool) {
 	return block.Commitment().Index() < t.engine.Storage.Settings.LatestCommitment().Index()-1
+}
+
+func (t *TipManager) isCommitmentRecent(block *scheduler.Block) (isFresh bool) {
+	return !t.isCommitmentUnknown(block) && t.engine.Storage.Settings.LatestCommitment().Index()-1 <= block.Commitment().Index()
+}
+
+func (t *TipManager) isCommitmentUnknown(block *scheduler.Block) (isUnknown bool) {
+	return block.Commitment().Index() > t.engine.Storage.Settings.LatestCommitment().Index()
+}
+
+func (t *TipManager) addParkedTip(block *scheduler.Block) (added bool) {
+	t.evictionMutex.RLock()
+	defer t.evictionMutex.RUnlock()
+
+	return lo.Return1(t.parkedTips.Get(block.ID().Index(), true).RetrieveOrCreate(block.Commitment().ID(), func() *memstorage.Storage[models.BlockID, *scheduler.Block] {
+		return memstorage.New[models.BlockID, *scheduler.Block]()
+	})).Set(block.ID(), block)
 }
 
 // isPastConeTimestampCorrect performs the TSC check for the given tip.
