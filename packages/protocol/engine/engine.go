@@ -108,9 +108,9 @@ func New(
 			)
 		},
 
+		(*Engine).initFilter,
 		(*Engine).initLedger,
 		(*Engine).initTangle,
-		(*Engine).initFilter,
 		(*Engine).initConsensus,
 		(*Engine).initClock,
 		(*Engine).initTSCManager,
@@ -267,7 +267,7 @@ func (e *Engine) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (err err
 }
 
 func (e *Engine) initFilter() {
-	e.Filter = filter.New(e.Tangle.BlockDAG.Block)
+	e.Filter = filter.New()
 
 	e.Events.Filter.LinkTo(e.Filter.Events)
 }
