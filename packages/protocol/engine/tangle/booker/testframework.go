@@ -15,7 +15,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdagOld"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
@@ -171,16 +170,16 @@ func (t *TestFramework) checkNormalizedConflictIDsContained(expectedContainedCon
 
 		normalizedRetrievedConflictIDs := retrievedConflictIDs.Clone()
 		for it := retrievedConflictIDs.Iterator(); it.HasNext(); {
-			t.Ledger.ConflictDAG.Storage.CachedConflict(it.Next()).Consume(func(b *conflictdagOld.Conflict[utxo.TransactionID, utxo.OutputID]) {
-				normalizedRetrievedConflictIDs.DeleteAll(b.Parents())
-			})
+			conflict, exists := t.Ledger.ConflictDAG.Conflict(it.Next())
+			require.True(t.test, exists, "conflict %s does not exist", conflict.ID())
+			normalizedRetrievedConflictIDs.DeleteAll(conflict.Parents())
 		}
 
 		normalizedExpectedConflictIDs := blockExpectedConflictIDs.Clone()
 		for it := blockExpectedConflictIDs.Iterator(); it.HasNext(); {
-			t.Ledger.ConflictDAG.Storage.CachedConflict(it.Next()).Consume(func(b *conflictdagOld.Conflict[utxo.TransactionID, utxo.OutputID]) {
-				normalizedExpectedConflictIDs.DeleteAll(b.Parents())
-			})
+			conflict, exists := t.Ledger.ConflictDAG.Conflict(it.Next())
+			require.True(t.test, exists, "conflict %s does not exist", conflict.ID())
+			normalizedExpectedConflictIDs.DeleteAll(conflict.Parents())
 		}
 
 		assert.True(t.test, normalizedExpectedConflictIDs.Intersect(normalizedRetrievedConflictIDs).Size() == normalizedExpectedConflictIDs.Size(), "ConflictID of %s should be %s but is %s", blockAlias, normalizedExpectedConflictIDs, normalizedRetrievedConflictIDs)
