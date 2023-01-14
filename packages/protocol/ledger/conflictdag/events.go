@@ -48,7 +48,7 @@ func NewEvents[ConflictIDType, ResourceIDType comparable](optsLinkTarget ...*Eve
 // parameters.
 type ConflictParentsUpdatedEvent[ConflictIDType, ResourceIDType comparable] struct {
 	// ConflictIDType contains the identifier of the updated Conflict.
-	ConflictIDType ConflictIDType
+	ConflictID ConflictIDType
 
 	// AddedConflict contains the forked parent Conflict that replaces the removed parents.
 	AddedConflict ConflictIDType
@@ -56,8 +56,8 @@ type ConflictParentsUpdatedEvent[ConflictIDType, ResourceIDType comparable] stru
 	// RemovedConflicts contains the parent ConflictIDTypes that were replaced by the newly forked Conflict.
 	RemovedConflicts *set.AdvancedSet[ConflictIDType]
 
-	// ParentsConflictIDTypes contains the updated list of parent ConflictIDTypes.
-	ParentsConflictIDTypes *set.AdvancedSet[ConflictIDType]
+	// ParentsConflictIDs contains the updated list of parent ConflictIDTypes.
+	ParentsConflictIDs *set.AdvancedSet[ConflictIDType]
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

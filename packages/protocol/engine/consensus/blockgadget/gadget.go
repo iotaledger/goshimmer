@@ -18,6 +18,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
@@ -420,6 +421,11 @@ func (a *Gadget) registerBlock(virtualVotingBlock *virtualvoting.Block) (block *
 // region Conflict Acceptance //////////////////////////////////////////////////////////////////////////////////////////
 
 func (a *Gadget) RefreshConflictAcceptance(conflictID utxo.TransactionID) {
+	conflict, exists := a.tangle.Booker.Ledger.ConflictDAG.Conflict(conflictID)
+	if !exists {
+		return
+	}
+
 	conflictWeight := a.tangle.VirtualVoting.ConflictVotersTotalWeight(conflictID)
 
 	if !IsThresholdReached(a.tangle.Validators.TotalWeight(), conflictWeight, a.optsConflictAcceptanceThreshold) {
@@ -430,14 +436,14 @@ func (a *Gadget) RefreshConflictAcceptance(conflictID utxo.TransactionID) {
 	isOtherConflictAccepted := false
 	var otherAcceptedConflict utxo.TransactionID
 
-	a.tangle.Booker.Ledger.ConflictDAG.Utils.ForEachConflictingConflictID(conflictID, func(conflictingConflictID utxo.TransactionID) bool {
+	conflict.ForEachConflictingConflict(func(conflictingConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) bool {
 		// check if another conflict is accepted, to evaluate reorg condition
-		if !isOtherConflictAccepted && a.tangle.Booker.Ledger.ConflictDAG.ConfirmationState(set.NewAdvancedSet(conflictingConflictID)).IsAccepted() {
+		if !isOtherConflictAccepted && a.tangle.Booker.Ledger.ConflictDAG.ConfirmationState(set.NewAdvancedSet(conflictingConflict.ID())).IsAccepted() {
 			isOtherConflictAccepted = true
-			otherAcceptedConflict = conflictingConflictID
+			otherAcceptedConflict = conflictingConflict.ID()
 		}
 
-		conflictingConflictWeight := a.tangle.VirtualVoting.ConflictVotersTotalWeight(conflictingConflictID)
+		conflictingConflictWeight := a.tangle.VirtualVoting.ConflictVotersTotalWeight(conflictingConflict.ID())
 
 		// if the conflict is less than 66% ahead, then don't mark as accepted
 		if !IsThresholdReached(a.tangle.Validators.TotalWeight(), conflictWeight-conflictingConflictWeight, a.optsConflictAcceptanceThreshold) {

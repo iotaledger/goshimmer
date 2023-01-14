@@ -14,7 +14,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdagOld"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
@@ -24,7 +24,7 @@ type TestFramework[VotePowerType constraints.Comparable[VotePowerType]] struct {
 	ConflictTracker *ConflictTracker[utxo.TransactionID, utxo.OutputID, VotePowerType]
 
 	test                         *testing.T
-	optsConflictDAGTestFramework []options.Option[conflictdagOld.TestFramework]
+	optsConflictDAGTestFramework []options.Option[conflictdag.TestFramework]
 	optsValidators               *sybilprotection.WeightedSet
 
 	*VotesTestFramework
@@ -42,10 +42,10 @@ func NewTestFramework[VotePowerType constraints.Comparable[VotePowerType]](test 
 			))
 		}
 
-		t.ConflictDAGTestFramework = conflictdagOld.NewTestFramework(t.test, t.optsConflictDAGTestFramework...)
+		t.ConflictDAGTestFramework = conflictdag.NewTestFramework(t.test, t.optsConflictDAGTestFramework...)
 
 		if t.ConflictTracker == nil {
-			t.ConflictTracker = NewConflictTracker[utxo.TransactionID, utxo.OutputID, VotePowerType](t.ConflictDAG(), t.VotesTestFramework.Validators)
+			t.ConflictTracker = NewConflictTracker[utxo.TransactionID, utxo.OutputID, VotePowerType](t.ConflictDAGTestFramework.ConflictDAG, t.VotesTestFramework.Validators)
 		}
 
 		t.ConflictTracker.Events.VoterAdded.Attach(event.NewClosure(func(event *VoterEvent[utxo.TransactionID]) {
@@ -58,7 +58,7 @@ func NewTestFramework[VotePowerType constraints.Comparable[VotePowerType]](test 
 
 func (t *TestFramework[VotePowerType]) ValidateStatementResults(expectedResults map[string]*set.AdvancedSet[identity.ID]) {
 	for conflictIDAlias, expectedVoters := range expectedResults {
-		actualVoters := t.ConflictTracker.Voters(t.ConflictID(conflictIDAlias))
+		actualVoters := t.ConflictTracker.Voters(t.ConflictDAGTestFramework.ConflictID(conflictIDAlias))
 
 		_ = expectedVoters.ForEach(func(expectedID identity.ID) (err error) {
 			require.Truef(t.test, actualVoters.Has(expectedID), "expected voter %s to be in the set of voters of conflict %s", expectedID, conflictIDAlias)
@@ -69,7 +69,7 @@ func (t *TestFramework[VotePowerType]) ValidateStatementResults(expectedResults 
 
 type VotesTestFramework = votes.TestFramework
 
-type ConflictDAGTestFramework = conflictdagOld.TestFramework
+type ConflictDAGTestFramework = conflictdag.TestFramework
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -95,20 +95,20 @@ func WithConflictTracker[VotePowerType constraints.Comparable[VotePowerType]](co
 	}
 }
 
-func WithConflictDAG[VotePowerType constraints.Comparable[VotePowerType]](conflictDAG *conflictdagOld.ConflictDAG[utxo.TransactionID, utxo.OutputID]) options.Option[TestFramework[VotePowerType]] {
+func WithConflictDAG[VotePowerType constraints.Comparable[VotePowerType]](conflictDAG *conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID]) options.Option[TestFramework[VotePowerType]] {
 	return func(t *TestFramework[VotePowerType]) {
 		if t.optsConflictDAGTestFramework == nil {
-			t.optsConflictDAGTestFramework = make([]options.Option[conflictdagOld.TestFramework], 0)
+			t.optsConflictDAGTestFramework = make([]options.Option[conflictdag.TestFramework], 0)
 		}
 
-		t.optsConflictDAGTestFramework = append(t.optsConflictDAGTestFramework, conflictdagOld.WithConflictDAG(conflictDAG))
+		t.optsConflictDAGTestFramework = append(t.optsConflictDAGTestFramework, conflictdag.WithConflictDAG(conflictDAG))
 	}
 }
 
 func WithValidators[VotePowerType constraints.Comparable[VotePowerType]](validators *sybilprotection.WeightedSet) options.Option[TestFramework[VotePowerType]] {
 	return func(t *TestFramework[VotePowerType]) {
 		if t.optsConflictDAGTestFramework == nil {
-			t.optsConflictDAGTestFramework = make([]options.Option[conflictdagOld.TestFramework], 0)
+			t.optsConflictDAGTestFramework = make([]options.Option[conflictdag.TestFramework], 0)
 		}
 	}
 }

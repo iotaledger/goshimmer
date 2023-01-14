@@ -136,10 +136,10 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) UpdateConflictParents(id C
 
 	if updated {
 		c.Events.ConflictParentsUpdated.Trigger(&ConflictParentsUpdatedEvent[ConflictIDType, ResourceIDType]{
-			ConflictIDType:         id,
-			AddedConflict:          addedConflictID,
-			RemovedConflicts:       removedConflictIDs,
-			ParentsConflictIDTypes: parentConflictIDs,
+			ConflictID:         id,
+			AddedConflict:      addedConflictID,
+			RemovedConflicts:   removedConflictIDs,
+			ParentsConflictIDs: parentConflictIDs,
 		})
 	}
 
@@ -394,4 +394,15 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) ForEachConnectedConflictin
 	}
 
 	traversedConflicts.ForEach(callback)
+}
+
+// ForEachConflict iterates over every existing Conflict in the entire Storage.
+func (c *ConflictDAG[ConflictIDType, ResourceIDType]) ForEachConflict(consumer func(conflict *Conflict[ConflictIDType, ResourceIDType])) {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	c.conflicts.ForEach(func(c2 ConflictIDType, conflict *Conflict[ConflictIDType, ResourceIDType]) bool {
+		consumer(conflict)
+		return true
+	})
 }

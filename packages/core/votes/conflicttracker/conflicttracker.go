@@ -10,18 +10,18 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdagOld"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 )
 
 type ConflictTracker[ConflictIDType, ResourceIDType comparable, VotePowerType constraints.Comparable[VotePowerType]] struct {
 	votes *memstorage.Storage[ConflictIDType, *votes.Votes[ConflictIDType, VotePowerType]]
 
-	conflictDAG *conflictdagOld.ConflictDAG[ConflictIDType, ResourceIDType]
+	conflictDAG *conflictdag.ConflictDAG[ConflictIDType, ResourceIDType]
 	validators  *sybilprotection.WeightedSet
 	Events      *Events[ConflictIDType]
 }
 
-func NewConflictTracker[ConflictIDType, ResourceIDType comparable, VotePowerType constraints.Comparable[VotePowerType]](conflictDAG *conflictdagOld.ConflictDAG[ConflictIDType, ResourceIDType], validators *sybilprotection.WeightedSet) *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType] {
+func NewConflictTracker[ConflictIDType, ResourceIDType comparable, VotePowerType constraints.Comparable[VotePowerType]](conflictDAG *conflictdag.ConflictDAG[ConflictIDType, ResourceIDType], validators *sybilprotection.WeightedSet) *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType] {
 	return &ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]{
 		votes:       memstorage.New[ConflictIDType, *votes.Votes[ConflictIDType, VotePowerType]](),
 		conflictDAG: conflictDAG,
@@ -116,8 +116,12 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) voterSu
 }
 
 func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) revokeConflictInstead(conflictID ConflictIDType, vote *votes.Vote[ConflictIDType, VotePowerType]) (votePower VotePowerType, revokeInstead bool) {
-	c.conflictDAG.Utils.ForEachConflictingConflictID(conflictID, func(conflictingConflictID ConflictIDType) bool {
-		votesObj, conflictVotesExist := c.votes.Get(conflictingConflictID)
+	conflict, exists := c.conflictDAG.Conflict(conflictID)
+	if !exists {
+		return
+	}
+	conflict.ForEachConflictingConflict(func(conflictingConflict *conflictdag.Conflict[ConflictIDType, ResourceIDType]) bool {
+		votesObj, conflictVotesExist := c.votes.Get(conflictingConflict.ID())
 		if !conflictVotesExist {
 			revokeInstead = false
 			return false

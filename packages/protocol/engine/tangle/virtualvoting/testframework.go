@@ -43,9 +43,9 @@ type TestFramework struct {
 	optsValidators      *sybilprotection.WeightedSet
 
 	*BookerTestFramework
-	*VotesTestFramework
-	*ConflictTrackerTestFramework
-	*SequenceTrackerTestFramework
+	VotesTestFramework           *VotesTestFramework
+	ConflictTrackerTestFramework *ConflictTrackerTestFramework
+	SequenceTrackerTestFramework *SequenceTrackerTestFramework
 }
 
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (newTestFramework *TestFramework) {
@@ -65,7 +65,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 		}
 
 		if t.VirtualVoting == nil {
-			t.VirtualVoting = New(t.Booker, t.optsValidators, t.optsVirtualVoting...)
+			t.VirtualVoting = New(t.BookerTestFramework.Booker, t.optsValidators, t.optsVirtualVoting...)
 		}
 
 		t.VotesTestFramework = votes.NewTestFramework(test, votes.WithValidators(t.optsValidators))
@@ -84,15 +84,19 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 	}, (*TestFramework).setupEvents)
 }
 
+func (t *TestFramework) ValidatorsSet(aliases ...string) (validators *set.AdvancedSet[identity.ID]) {
+	return t.VotesTestFramework.ValidatorsSet(aliases...)
+}
+
 func (t *TestFramework) AssertBlock(alias string, callback func(block *Block)) {
-	block, exists := t.VirtualVoting.Block(t.Block(alias).ID())
+	block, exists := t.VirtualVoting.Block(t.BookerTestFramework.Block(alias).ID())
 	require.True(t.test, exists, "Block %s not found", alias)
 	callback(block)
 }
 
 func (t *TestFramework) CreateIdentity(alias string, weight int64) {
 	t.identitiesByAlias[alias] = identity.GenerateIdentity()
-	t.CreateValidatorWithID(alias, t.identitiesByAlias[alias].ID(), weight)
+	t.VotesTestFramework.CreateValidatorWithID(alias, t.identitiesByAlias[alias].ID(), weight)
 }
 
 func (t *TestFramework) Identity(alias string) (v *identity.Identity) {
@@ -115,7 +119,7 @@ func (t *TestFramework) Identities(aliases ...string) (identities *set.AdvancedS
 
 func (t *TestFramework) ValidateMarkerVoters(expectedVoters map[markers.Marker]*set.AdvancedSet[identity.ID]) {
 	for marker, expectedVotersOfMarker := range expectedVoters {
-		voters := t.SequenceTracker.Voters(marker)
+		voters := t.SequenceTrackerTestFramework.SequenceTracker.Voters(marker)
 
 		assert.True(t.test, expectedVotersOfMarker.Equal(voters), "marker %s expected %d voters but got %d", marker, expectedVotersOfMarker.Size(), voters.Size())
 	}
@@ -123,7 +127,7 @@ func (t *TestFramework) ValidateMarkerVoters(expectedVoters map[markers.Marker]*
 
 func (t *TestFramework) ValidateConflictVoters(expectedVoters map[utxo.TransactionID]*set.AdvancedSet[identity.ID]) {
 	for conflictID, expectedVotersOfMarker := range expectedVoters {
-		voters := t.ConflictTracker.Voters(conflictID)
+		voters := t.ConflictTrackerTestFramework.ConflictTracker.Voters(conflictID)
 
 		assert.True(t.test, expectedVotersOfMarker.Equal(voters), "conflict %s expected %d voters but got %d", conflictID, expectedVotersOfMarker.Size(), voters.Size())
 	}
