@@ -20,7 +20,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdagOld"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/storage"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
@@ -92,10 +92,10 @@ func New(
 			optsBootstrappedThreshold: 10 * time.Second,
 			optsSnapshotDepth:         5,
 		}, opts, func(e *Engine) {
-			e.Ledger = ledger.New(e.Storage, e.optsLedgerOptions...)
+			e.EvictionState = eviction.NewState(storageInstance)
+			e.Ledger = ledger.New(e.Storage, e.EvictionState, e.optsLedgerOptions...)
 			e.LedgerState = ledgerstate.New(storageInstance, e.Ledger)
 			e.Clock = clock.New()
-			e.EvictionState = eviction.NewState(storageInstance)
 			e.SybilProtection = sybilProtection(e)
 			e.ThroughputQuota = throughputQuota(e)
 			e.NotarizationManager = notarization.NewManager(e.Storage, e.LedgerState, e.SybilProtection.Weights(), e.optsNotarizationManagerOptions...)
@@ -385,14 +385,14 @@ func (e *Engine) initNotarizationManager() {
 		e.NotarizationManager.SetAcceptanceTime(event.NewTime)
 	}), 1)
 
-	e.Ledger.ConflictDAG.Events.ConflictCreated.AttachWithWorkerPool(event.NewClosure(func(event *conflictdagOld.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
-		e.NotarizationManager.IncreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.GetEarliestAttachment(event.ID).IssuingTime()))
+	e.Ledger.ConflictDAG.Events.ConflictCreated.AttachWithWorkerPool(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+		e.NotarizationManager.IncreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.GetEarliestAttachment(conflict.ID()).IssuingTime()))
 	}), wp)
-	e.Ledger.ConflictDAG.Events.ConflictAccepted.AttachWithWorkerPool(event.NewClosure(func(conflictID utxo.TransactionID) {
-		e.NotarizationManager.DecreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.GetEarliestAttachment(conflictID).IssuingTime()))
+	e.Ledger.ConflictDAG.Events.ConflictAccepted.AttachWithWorkerPool(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+		e.NotarizationManager.DecreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.GetEarliestAttachment(conflict.ID()).IssuingTime()))
 	}), wp)
-	e.Ledger.ConflictDAG.Events.ConflictRejected.AttachWithWorkerPool(event.NewClosure(func(conflictID utxo.TransactionID) {
-		e.NotarizationManager.DecreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.GetEarliestAttachment(conflictID).IssuingTime()))
+	e.Ledger.ConflictDAG.Events.ConflictRejected.AttachWithWorkerPool(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+		e.NotarizationManager.DecreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.GetEarliestAttachment(conflict.ID()).IssuingTime()))
 	}), wp)
 	e.workerPools["NotarizationManager.Commitments"] = wp
 

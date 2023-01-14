@@ -12,7 +12,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdagOld"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
 	"github.com/iotaledger/goshimmer/packages/storage"
@@ -36,7 +37,7 @@ type Ledger struct {
 	Utils *Utils
 
 	// ConflictDAG is a reference to the ConflictDAG that is used by this Ledger.
-	ConflictDAG *conflictdagOld.ConflictDAG[utxo.TransactionID, utxo.OutputID]
+	ConflictDAG *conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID]
 
 	// dataFlow is a Ledger component that defines the data flow (how the different commands are chained together)
 	dataFlow *dataFlow
@@ -72,14 +73,14 @@ type Ledger struct {
 	optsConsumerCacheTime time.Duration
 
 	// optConflictDAG contains the optionsLedger for the ConflictDAG.
-	optConflictDAG []conflictdagOld.Option
+	optConflictDAG []options.Option[conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID]]
 
 	// mutex is a DAGMutex that is used to make the Ledger thread safe.
 	mutex *syncutils.DAGMutex[utxo.TransactionID]
 }
 
 // New returns a new Ledger from the given optionsLedger.
-func New(chainStorage *storage.Storage, opts ...options.Option[Ledger]) (ledger *Ledger) {
+func New(chainStorage *storage.Storage, evictionState *eviction.State, opts ...options.Option[Ledger]) (ledger *Ledger) {
 	ledger = options.Apply(&Ledger{
 		Events:       NewEvents(),
 		ChainStorage: chainStorage,
@@ -94,10 +95,7 @@ func New(chainStorage *storage.Storage, opts ...options.Option[Ledger]) (ledger 
 		mutex:                           syncutils.NewDAGMutex[utxo.TransactionID](),
 	}, opts)
 
-	ledger.ConflictDAG = conflictdagOld.New[utxo.TransactionID, utxo.OutputID](append([]conflictdagOld.Option{
-		conflictdagOld.WithStore(chainStorage.UnspentOutputs),
-		conflictdagOld.WithCacheTimeProvider(ledger.optsCacheTimeProvider),
-	}, ledger.optConflictDAG...)...)
+	ledger.ConflictDAG = conflictdag.New[utxo.TransactionID, utxo.OutputID](evictionState, ledger.optConflictDAG...)
 
 	ledger.Events.ConflictDAG = ledger.ConflictDAG.Events
 
@@ -173,7 +171,6 @@ func (l *Ledger) PruneTransaction(txID utxo.TransactionID, pruneFutureCone bool)
 // Shutdown shuts down the stateful elements of the Ledger (the Storage and the ConflictDAG).
 func (l *Ledger) Shutdown() {
 	l.Storage.Shutdown()
-	l.ConflictDAG.Shutdown()
 }
 
 // processTransaction tries to book a single Transaction.
@@ -271,8 +268,8 @@ func (l *Ledger) triggerRejectedEvent(txMetadata *TransactionMetadata) (triggere
 
 // propagateAcceptanceToIncludedTransactions propagates confirmations to the included future cone of the given
 // Transaction.
-func (l *Ledger) propagateAcceptanceToIncludedTransactions(txID utxo.TransactionID) {
-	l.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *TransactionMetadata) {
+func (l *Ledger) propagateAcceptanceToIncludedTransactions(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	l.Storage.CachedTransactionMetadata(conflict.ID()).Consume(func(txMetadata *TransactionMetadata) {
 		if !l.triggerAcceptedEvent(txMetadata) {
 			return
 		}
@@ -293,8 +290,8 @@ func (l *Ledger) propagateAcceptanceToIncludedTransactions(txID utxo.Transaction
 
 // propagateConfirmedConflictToIncludedTransactions propagates confirmations to the included future cone of the given
 // Transaction.
-func (l *Ledger) propagatedRejectionToTransactions(txID utxo.TransactionID) {
-	l.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *TransactionMetadata) {
+func (l *Ledger) propagatedRejectionToTransactions(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	l.Storage.CachedTransactionMetadata(conflict.ID()).Consume(func(txMetadata *TransactionMetadata) {
 		if !l.triggerRejectedEvent(txMetadata) {
 			return
 		}
@@ -369,7 +366,7 @@ func WithConsumerCacheTime(consumerCacheTime time.Duration) (option options.Opti
 }
 
 // WithConflictDAGOptions is an Option for the Ledger that allows to configure the optionsLedger for the ConflictDAG.
-func WithConflictDAGOptions(conflictDAGOptions ...conflictdagOld.Option) (option options.Option[Ledger]) {
+func WithConflictDAGOptions(conflictDAGOptions ...options.Option[conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID]]) (option options.Option[Ledger]) {
 	return func(options *Ledger) {
 		options.optConflictDAG = conflictDAGOptions
 	}

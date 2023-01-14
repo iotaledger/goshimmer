@@ -88,6 +88,14 @@ func (t *TestFramework) setupEvents() {
 	}))
 }
 
+func (t *TestFramework) RegisterConflictIDAlias(alias string, conflictID utxo.TransactionID) {
+	t.conflictIDsByAlias[alias] = conflictID
+}
+
+func (t *TestFramework) RegisterConflictSetIDAlias(alias string, conflictSetID utxo.OutputID) {
+	t.resourceByAlias[alias] = conflictSetID
+}
+
 func (t *TestFramework) CreateConflict(conflictAlias string, parentConflictIDs utxo.TransactionIDs, conflictSetAliases ...string) {
 	for _, conflictSetAlias := range conflictSetAliases {
 		if _, exists := t.resourceByAlias[conflictSetAlias]; !exists {
