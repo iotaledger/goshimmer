@@ -4,9 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdagOld"
-
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/autopeering/selection"
 	"github.com/iotaledger/hive.go/core/daemon"
@@ -16,6 +13,9 @@ import (
 	"github.com/iotaledger/hive.go/core/timeutil"
 	"github.com/iotaledger/hive.go/core/types"
 	"go.uber.org/dig"
+
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
@@ -258,18 +258,18 @@ func registerLocalMetrics() {
 		orphanedBlocks.Inc()
 	}))
 
-	deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictAccepted.Attach(event.NewClosure(func(conflictID utxo.TransactionID) {
+	deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictAccepted.Attach(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		activeConflictsMutex.Lock()
 		defer activeConflictsMutex.Unlock()
 
-		if _, exists := activeConflicts[conflictID]; !exists {
+		if _, exists := activeConflicts[conflict.ID()]; !exists {
 			return
 		}
-		firstAttachment := deps.Protocol.Engine().Tangle.GetEarliestAttachment(conflictID)
-		deps.Protocol.Engine().Ledger.ConflictDAG.Utils.ForEachConflictingConflictID(conflictID, func(conflictingConflictID utxo.TransactionID) bool {
-			if _, exists := activeConflicts[conflictID]; exists && conflictingConflictID != conflictID {
+		firstAttachment := deps.Protocol.Engine().Tangle.GetEarliestAttachment(conflict.ID())
+		conflict.ForEachConflictingConflict(func(conflictingConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) bool {
+			if _, exists := activeConflicts[conflict.ID()]; exists {
 				finalizedConflictCountDB.Inc()
-				delete(activeConflicts, conflictingConflictID)
+				delete(activeConflicts, conflictingConflict.ID())
 			}
 			return true
 		})
@@ -277,14 +277,14 @@ func registerLocalMetrics() {
 		confirmedConflictCount.Inc()
 		conflictConfirmationTotalTime.Add(uint64(time.Since(firstAttachment.IssuingTime()).Milliseconds()))
 
-		delete(activeConflicts, conflictID)
+		delete(activeConflicts, conflict.ID())
 	}))
 
-	deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictCreated.Attach(event.NewClosure(func(event *conflictdagOld.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
+	deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictCreated.Attach(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		activeConflictsMutex.Lock()
 		defer activeConflictsMutex.Unlock()
 
-		conflictID := event.ID
+		conflictID := conflict.ID()
 		if _, exists := activeConflicts[conflictID]; !exists {
 			conflictTotalCountDB.Inc()
 			activeConflicts[conflictID] = types.Void

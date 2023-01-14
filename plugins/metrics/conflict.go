@@ -6,7 +6,7 @@ import (
 	"github.com/iotaledger/hive.go/core/types"
 	"go.uber.org/atomic"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdagOld"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
@@ -63,7 +63,7 @@ func measureInitialConflictStats() {
 	defer activeConflictsMutex.Unlock()
 	activeConflicts = make(map[utxo.TransactionID]types.Empty)
 	conflictsToRemove := make([]utxo.TransactionID, 0)
-	deps.Protocol.Engine().Ledger.ConflictDAG.Utils.ForEachConflict(func(conflict *conflictdagOld.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	deps.Protocol.Engine().Ledger.ConflictDAG.ForEachConflict(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		switch conflict.ID() {
 		case utxo.EmptyTransactionID:
 			return
@@ -71,10 +71,8 @@ func measureInitialConflictStats() {
 			initialConflictTotalCountDB++
 			activeConflicts[conflict.ID()] = types.Void
 			if deps.Protocol.Engine().Ledger.ConflictDAG.ConfirmationState(utxo.NewTransactionIDs(conflict.ID())).IsAccepted() {
-				deps.Protocol.Engine().Ledger.ConflictDAG.Utils.ForEachConflictingConflictID(conflict.ID(), func(conflictingConflictID utxo.TransactionID) bool {
-					if conflictingConflictID != conflict.ID() {
-						initialFinalizedConflictCountDB++
-					}
+				conflict.ForEachConflictingConflict(func(conflictingConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) bool {
+					initialFinalizedConflictCountDB++
 					return true
 				})
 				initialFinalizedConflictCountDB++
@@ -86,10 +84,12 @@ func measureInitialConflictStats() {
 
 	// remove finalized conflicts from the map in separate loop when all conflicting conflicts are known
 	for _, conflictID := range conflictsToRemove {
-		deps.Protocol.Engine().Ledger.ConflictDAG.Utils.ForEachConflictingConflictID(conflictID, func(conflictingConflictID utxo.TransactionID) bool {
-			if conflictingConflictID != conflictID {
-				delete(activeConflicts, conflictingConflictID)
-			}
+		conflict, exists := deps.Protocol.Engine().Ledger.ConflictDAG.Conflict(conflictID)
+		if !exists {
+			continue
+		}
+		conflict.ForEachConflictingConflict(func(conflictingConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) bool {
+			delete(activeConflicts, conflictingConflict.ID())
 			return true
 		})
 		delete(activeConflicts, conflictID)

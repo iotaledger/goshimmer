@@ -11,7 +11,7 @@ import (
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdagOld"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
@@ -531,7 +531,7 @@ type ConflictWeight struct {
 }
 
 // NewConflictWeight returns a Conflict from the given ledger.Conflict.
-func NewConflictWeight(conflict *conflictdagOld.Conflict[utxo.TransactionID, utxo.OutputID], confirmationState confirmation.State, aw int64) ConflictWeight {
+func NewConflictWeight(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID], confirmationState confirmation.State, aw int64) ConflictWeight {
 	return ConflictWeight{
 		ID: conflict.ID().Base58(),
 		Parents: func() []string {
@@ -544,8 +544,8 @@ func NewConflictWeight(conflict *conflictdagOld.Conflict[utxo.TransactionID, utx
 		}(),
 		ConflictIDs: func() []string {
 			conflictIDs := make([]string, 0)
-			for it := conflict.ConflictSetIDs().Iterator(); it.HasNext(); {
-				conflictIDs = append(conflictIDs, it.Next().Base58())
+			for it := conflict.ConflictSets().Iterator(); it.HasNext(); {
+				conflictIDs = append(conflictIDs, it.Next().ID().Base58())
 			}
 
 			return conflictIDs
@@ -563,9 +563,9 @@ type ChildConflict struct {
 }
 
 // NewChildConflict returns a ChildConflict from the given ledger.ChildConflict.
-func NewChildConflict(childConflict *conflictdagOld.ChildConflict[utxo.TransactionID]) *ChildConflict {
+func NewChildConflict(childConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) *ChildConflict {
 	return &ChildConflict{
-		ConflictID: childConflict.ChildConflictID().Base58(),
+		ConflictID: childConflict.ID().Base58(),
 	}
 }
 
