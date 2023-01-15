@@ -27,13 +27,11 @@ services:
       --protocol.snapshot.path=./snapshot.bin
       --blockIssuer.rateSetter.enable=false
       --node.peerDBDirectory=/app/peerdb
-      --metrics.global=true
-      --metrics.local=true
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
-      --node.enablePlugins=prometheus,spammer,WebAPIToolsBlockEndpoint,activity
-      --prometheus.bindAddress=0.0.0.0:9311
-      --prometheus.processMetrics=true
-      --prometheus.goMetrics=true
+      --node.enablePlugins=metricsCollector,spammer,WebAPIToolsBlockEndpoint,activity
+      --metricsCollector.bindAddress=0.0.0.0:9311
+      --metricsCollector.processMetrics=true
+      --metricsCollector.goMetrics=true
       --blockIssuer.ignoreBootstrappedFlag=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
@@ -72,13 +70,11 @@ services:
       --protocol.snapshot.path=./snapshot.bin
       --blockIssuer.rateSetter.enable=false
       --node.peerDBDirectory=/app/peerdb
-      --metrics.global=true
-      --metrics.local=true
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
-      --node.enablePlugins=prometheus,spammer,WebAPIToolsBlockEndpoint,activity,faucet
-      --prometheus.bindAddress=0.0.0.0:9311
-      --prometheus.processMetrics=true
-      --prometheus.goMetrics=true
+      --node.enablePlugins=metricsCollector,spammer,WebAPIToolsBlockEndpoint,activity,faucet
+      --metricsCollector.bindAddress=0.0.0.0:9311
+      --metricsCollector.processMetrics=true
+      --metricsCollector.goMetrics=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
     secrets:
@@ -114,13 +110,11 @@ services:
       --protocol.snapshot.path=./snapshot.bin
       --blockIssuer.rateSetter.enable=false
       --node.peerDBDirectory=/app/peerdb
-      --metrics.global=true
-      --metrics.local=true
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
-      --node.enablePlugins=prometheus,spammer,WebAPIToolsBlockEndpoint,activity
-      --prometheus.bindAddress=0.0.0.0:9311
-      --prometheus.processMetrics=true
-      --prometheus.goMetrics=true
+      --node.enablePlugins=metricsCollector,spammer,WebAPIToolsBlockEndpoint,activity
+      --metricsCollector.bindAddress=0.0.0.0:9311
+      --metricsCollector.processMetrics=true
+      --metricsCollector.goMetrics=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
     secrets:
@@ -155,13 +149,11 @@ services:
       --protocol.snapshot.path=./snapshot.bin
       --blockIssuer.rateSetter.enable=false
       --node.peerDBDirectory=/app/peerdb
-      --metrics.global=true
-      --metrics.local=true
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
-      --node.enablePlugins=prometheus,spammer,WebAPIToolsBlockEndpoint,activity
-      --prometheus.bindAddress=0.0.0.0:9311
-      --prometheus.processMetrics=true
-      --prometheus.goMetrics=true
+      --node.enablePlugins=metricsCollector,spammer,WebAPIToolsBlockEndpoint,activity
+      --metricsCollector.bindAddress=0.0.0.0:9311
+      --metricsCollector.processMetrics=true
+      --metricsCollector.goMetrics=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
     secrets:
@@ -195,13 +187,11 @@ services:
       --protocol.snapshot.path=./snapshot.bin
       --blockIssuer.rateSetter.enable=false
       --node.peerDBDirectory=/app/peerdb
-      --metrics.global=true
-      --metrics.local=true
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
-      --node.enablePlugins=prometheus,spammer,WebAPIToolsBlockEndpoint,activity
-      --prometheus.bindAddress=0.0.0.0:9311
-      --prometheus.processMetrics=true
-      --prometheus.goMetrics=true
+      --node.enablePlugins=metricsCollector,spammer,WebAPIToolsBlockEndpoint,activity
+      --metricsCollector.bindAddress=0.0.0.0:9311
+      --metricsCollector.processMetrics=true
+      --metricsCollector.goMetrics=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
     secrets:
@@ -235,13 +225,11 @@ services:
       --protocol.snapshot.path=./snapshot.bin
       --blockIssuer.rateSetter.enable=false
       --node.peerDBDirectory=/app/peerdb
-      --metrics.global=true
-      --metrics.local=true
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
-      --node.enablePlugins=prometheus,spammer,WebAPIToolsBlockEndpoint,activity
-      --prometheus.bindAddress=0.0.0.0:9311
-      --prometheus.processMetrics=true
-      --prometheus.goMetrics=true
+      --node.enablePlugins=metricsCollector,spammer,WebAPIToolsBlockEndpoint,activity
+      --metricsCollector.bindAddress=0.0.0.0:9311
+      --metricsCollector.processMetrics=true
+      --metricsCollector.goMetrics=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
     secrets:
@@ -275,13 +263,11 @@ services:
       --protocol.snapshot.path=./snapshot.bin
       --blockIssuer.rateSetter.enable=false
       --node.peerDBDirectory=/app/peerdb
-      --metrics.global=true
-      --metrics.local=true
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
-      --node.enablePlugins=prometheus,spammer,WebAPIToolsBlockEndpoint,activity
-      --prometheus.bindAddress=0.0.0.0:9311
-      --prometheus.processMetrics=true
-      --prometheus.goMetrics=true
+      --node.enablePlugins=metricsCollector,spammer,WebAPIToolsBlockEndpoint,activity
+      --metricsCollector.bindAddress=0.0.0.0:9311
+      --metricsCollector.processMetrics=true
+      --metricsCollector.goMetrics=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
     secrets:
@@ -315,13 +301,11 @@ services:
       --protocol.snapshot.path=./snapshot.bin
       --blockIssuer.rateSetter.enable=false
       --node.peerDBDirectory=/app/peerdb
-      --metrics.global=true
-      --metrics.local=true
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
-      --node.enablePlugins=prometheus,spammer,WebAPIToolsBlockEndpoint,activity
-      --prometheus.bindAddress=0.0.0.0:9311
-      --prometheus.processMetrics=true
-      --prometheus.goMetrics=true
+      --node.enablePlugins=metricsCollector,spammer,WebAPIToolsBlockEndpoint,activity
+      --metricsCollector.bindAddress=0.0.0.0:9311
+      --metricsCollector.processMetrics=true
+      --metricsCollector.goMetrics=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
     secrets:
