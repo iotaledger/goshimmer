@@ -206,8 +206,8 @@ func (t *TipManager) PromoteFutureTips(cm *commitment.Commitment) {
 	defer t.evictionMutex.RUnlock()
 	defer t.Evict(cm.Index())
 
-	if parkedEpochTips := t.futureTips.Get(cm.Index()); parkedEpochTips != nil {
-		if tipsForCommitment, exists := parkedEpochTips.Get(cm.ID()); exists {
+	if futureEpochTips := t.futureTips.Get(cm.Index()); futureEpochTips != nil {
+		if tipsForCommitment, exists := futureEpochTips.Get(cm.ID()); exists {
 			tipsForCommitment.ForEach(func(_ models.BlockID, tip *scheduler.Block) bool {
 				t.addTip(tip)
 				return true
@@ -279,7 +279,7 @@ func (t *TipManager) addFutureTip(block *scheduler.Block) (added bool) {
 	t.evictionMutex.RLock()
 	defer t.evictionMutex.RUnlock()
 
-	return lo.Return1(t.futureTips.Get(block.ID().Index(), true).RetrieveOrCreate(block.Commitment().ID(), func() *memstorage.Storage[models.BlockID, *scheduler.Block] {
+	return lo.Return1(t.futureTips.Get(block.Commitment().Index(), true).RetrieveOrCreate(block.Commitment().ID(), func() *memstorage.Storage[models.BlockID, *scheduler.Block] {
 		return memstorage.New[models.BlockID, *scheduler.Block]()
 	})).Set(block.ID(), block)
 }

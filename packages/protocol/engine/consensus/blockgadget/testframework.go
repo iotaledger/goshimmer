@@ -321,4 +321,18 @@ func (m *MockAcceptanceGadget) FirstUnacceptedIndex(sequenceID markers.SequenceI
 	return 1
 }
 
+func (m *MockAcceptanceGadget) AcceptedBlocksInEpoch(index epoch.Index) (blocks models.BlockIDs) {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	blocks = models.NewBlockIDs()
+	for _, block := range m.AcceptedBlocks.Slice() {
+		if block.Index() == index {
+			blocks.Add(block)
+		}
+	}
+
+	return
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
