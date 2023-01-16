@@ -83,7 +83,7 @@ func (i *BlockIssuer) IssuePayload(p payload.Payload, parentsCount ...int) (bloc
 
 	block, err = i.Factory.CreateBlock(p, parentsCount...)
 	if err != nil {
-		f.Events.Error.Trigger(errors.Wrap(err, "block could not be created"))
+		i.Events.Error.Trigger(errors.Wrap(err, "block could not be created"))
 		return block, err
 	}
 	return block, i.issueBlock(block)
@@ -98,7 +98,7 @@ func (i *BlockIssuer) IssuePayloadWithReferences(p payload.Payload, references m
 	block, err = i.Factory.CreateBlockWithReferences(p, references, strongParentsCountOpt...)
 	if err != nil {
 
-		f.Events.Error.Trigger(errors.Wrap(err, "block with references could not be created"))
+		i.Events.Error.Trigger(errors.Wrap(err, "block with references could not be created"))
 		return nil, err
 	}
 

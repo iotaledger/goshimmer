@@ -42,7 +42,6 @@ func (m ModeType) String() string {
 	default:
 		return "deficit"
 	}
-
 }
 
 // New creates a new rate setter instance based on provided options.

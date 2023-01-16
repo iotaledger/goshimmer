@@ -130,7 +130,7 @@ func (s *Scheduler) IssuerQueueSize(issuerID identity.ID) int {
 	return issuerQueue.Size()
 }
 
-// IssuerQueueSize returns the total work of blocks in the IssuerIDs queue.
+// IssuerQueueWork returns the total work of blocks in the IssuerIDs queue.
 func (s *Scheduler) IssuerQueueWork(issuerID identity.ID) int {
 	s.evictionMutex.RLock()
 	defer s.evictionMutex.RUnlock()
@@ -587,7 +587,6 @@ func (s *Scheduler) updateDeficit(issuerID identity.ID, d *big.Rat) {
 	s.deficitsMutex.Lock()
 	defer s.deficitsMutex.Unlock()
 	s.deficits.Set(issuerID, minRat(deficit, s.optsMaxDeficit))
-
 }
 
 func (s *Scheduler) GetExcessDeficit(issuerID identity.ID) (deficitFloat float64, err error) {

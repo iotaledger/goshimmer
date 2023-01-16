@@ -150,7 +150,9 @@ func (p *Protocol) initNetworkProtocol() {
 	}))
 
 	p.networkProtocol.Events.BlockReceived.Attach(event.NewClosure(func(event *network.BlockReceivedEvent) {
-		p.ProcessBlock(event.Block, event.Source)
+		if err := p.ProcessBlock(event.Block, event.Source); err != nil {
+			panic(err)
+		}
 	}))
 
 	p.networkProtocol.Events.EpochCommitmentReceived.Attach(event.NewClosure(func(event *network.EpochCommitmentReceivedEvent) {

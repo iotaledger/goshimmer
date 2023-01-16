@@ -47,7 +47,6 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 			t.localIdentity = append(t.localIdentity, localID)
 			t.RateSetter = append(t.RateSetter, New(localID.ID(), p.Protocol, t.optsRateSetter...))
 		}
-
 	},
 	)
 }

@@ -57,7 +57,6 @@ type RateSetter struct {
 
 // New returns a new AIMD RateSetter.
 func New(protocol *protocol.Protocol, selfIdentity identity.ID, opts ...options.Option[RateSetter]) *RateSetter {
-
 	return options.Apply(&RateSetter{
 		protocol:              protocol,
 		self:                  selfIdentity,
@@ -128,13 +127,11 @@ func (r *RateSetter) Estimate() time.Duration {
 }
 
 func (r *RateSetter) rateSetting() {
-
 	var lastCreditUpdate = time.Now()
 
 loop:
 	for {
 		select {
-
 		case <-r.rateUpdateChan:
 			ownMana := float64(lo.Max(r.manaRetrieveFunc()[r.self], scheduler.MinMana))
 			maxManaValue := float64(lo.Max(append(lo.Values(r.manaRetrieveFunc()), scheduler.MinMana)...))
