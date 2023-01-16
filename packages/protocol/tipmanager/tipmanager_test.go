@@ -206,6 +206,67 @@ func TestTipManager_TimeSinceConfirmation_Confirmed(t *testing.T) {
 	tf.AssertIsPastConeTimestampCorrect("0/1-postTSC-direct_0", false)
 }
 
+// Test based on packages/tangle/images/TSC_test_scenario.png.
+func TestTipManager_TimeSinceConfirmation_MultipleParents(t *testing.T) {
+	tf := NewTestFramework(t,
+		WithTipManagerOptions(WithTimeSinceConfirmationThreshold(5*time.Minute)),
+		WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(10))))),
+	)
+	tf.engine.EvictionState.AddRootBlock(models.EmptyBlockID)
+
+	createTestTangleMultipleParents(tf)
+
+	acceptedBlockIDsAliases := []string{"Marker-0/1", "Marker-0/2", "Marker-0/3"}
+	acceptedMarkers := []markers.Marker{markers.NewMarker(0, 1), markers.NewMarker(0, 2), markers.NewMarker(0, 3)}
+	tf.SetBlocksAccepted(acceptedBlockIDsAliases...)
+	tf.SetMarkersAccepted(acceptedMarkers...)
+	tf.SetAcceptedTime(tf.Block("Marker-0/3").IssuingTime())
+	require.Eventually(t, tf.engine.IsBootstrapped, 1*time.Minute, 500*time.Millisecond)
+
+	// As we advance ATT, Genesis should be beyond TSC, and thus invalid.
+	tf.AssertIsPastConeTimestampCorrect("Genesis", false)
+
+	tf.AssertIsPastConeTimestampCorrect("Marker-0/1", false)
+
+	tf.AssertIsPastConeTimestampCorrect("IncorrectTip2", false)
+
+	// case #1
+	tf.AssertIsPastConeTimestampCorrect("IncorrectTip", false)
+}
+
+func createTestTangleMultipleParents(tf *TestFramework) {
+	markersMap := make(map[string]*markers.Markers)
+
+	// SEQUENCE 0
+	{
+		tf.CreateBlock("Marker-0/1", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithIssuingTime(time.Now().Add(-9*time.Minute)))
+		tf.IssueBlocks("Marker-0/1").WaitUntilAllTasksProcessed()
+
+		tf.CreateBlock("Marker-0/2", models.WithStrongParents(tf.BlockIDs("Marker-0/1")))
+		tf.IssueBlocks("Marker-0/2").WaitUntilAllTasksProcessed()
+
+		tf.CreateBlock("Marker-0/3", models.WithStrongParents(tf.BlockIDs("Marker-0/2")))
+		tf.IssueBlocks("Marker-0/3").WaitUntilAllTasksProcessed()
+
+		tf.CreateBlock("Marker-0/4", models.WithStrongParents(tf.BlockIDs("Marker-0/3")))
+		tf.IssueBlocks("Marker-0/4").WaitUntilAllTasksProcessed()
+
+		tf.CreateBlock("IncorrectTip", models.WithStrongParents(tf.BlockIDs("Marker-0/1", "Marker-0/3")))
+		tf.IssueBlocks("IncorrectTip").WaitUntilAllTasksProcessed()
+
+		tf.CreateBlock("IncorrectTip2", models.WithStrongParents(tf.BlockIDs("Marker-0/1")))
+		tf.IssueBlocks("IncorrectTip2").WaitUntilAllTasksProcessed()
+
+		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
+			"Marker-0/1":   markers.NewMarkers(markers.NewMarker(0, 1)),
+			"Marker-0/2":   markers.NewMarkers(markers.NewMarker(0, 2)),
+			"Marker-0/3":   markers.NewMarkers(markers.NewMarker(0, 3)),
+			"Marker-0/4":   markers.NewMarkers(markers.NewMarker(0, 4)),
+			"IncorrectTip": markers.NewMarkers(markers.NewMarker(0, 3)),
+		}))
+	}
+}
+
 func createTestTangleTSC(tf *TestFramework) {
 	markersMap := make(map[string]*markers.Markers)
 	var lastBlockAlias string

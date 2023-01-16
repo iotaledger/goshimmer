@@ -206,6 +206,10 @@ func (p *Protocol) initTipManager() {
 		p.TipManager.AddTip(block)
 	}))
 
+	p.Events.Engine.EvictionState.EpochEvicted.Attach(event.NewClosure(func(index epoch.Index) {
+		p.TipManager.EvictTSCCache(index)
+	}))
+
 	p.Events.Engine.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
 		p.TipManager.RemoveStrongParents(block.ModelsBlock)
 	}))
