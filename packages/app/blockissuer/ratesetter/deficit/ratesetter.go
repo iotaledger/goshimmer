@@ -30,7 +30,6 @@ type RateSetter struct {
 }
 
 func New(protocol *protocol.Protocol, selfIdentity identity.ID, opts ...options.Option[RateSetter]) *RateSetter {
-
 	return options.Apply(&RateSetter{
 		protocol:              protocol,
 		self:                  selfIdentity,

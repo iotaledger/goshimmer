@@ -68,7 +68,6 @@ func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opt
 				return latestCommitment, confirmedEpochIndex, nil
 			},
 			i.optsBlockFactoryOptions...)
-
 	}, (*BlockIssuer).setupEvents)
 }
 
@@ -97,7 +96,6 @@ func (i *BlockIssuer) IssuePayloadWithReferences(p payload.Payload, references m
 
 	block, err = i.Factory.CreateBlockWithReferences(p, references, strongParentsCountOpt...)
 	if err != nil {
-
 		i.Events.Error.Trigger(errors.Wrap(err, "block with references could not be created"))
 		return nil, err
 	}

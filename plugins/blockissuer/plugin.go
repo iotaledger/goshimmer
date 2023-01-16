@@ -45,7 +45,6 @@ func configure(_ *node.Plugin) {
 }
 
 func createBlockIssuer(local *peer.Local, protocol *protocol.Protocol) *blockissuer.BlockIssuer {
-
 	rateSetterMode := ratesetter.ParseRateSetterMode(Parameters.RateSetter.Mode)
 	rateSetter := ratesetter.New(local.ID(), protocol,
 		ratesetter.WithMode(rateSetterMode),
