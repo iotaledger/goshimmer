@@ -32,8 +32,8 @@ func New(protocol *protocol.Protocol, selfIdentity identity.ID, opts ...options.
 	return options.Apply(&RateSetter{
 		protocol:              protocol,
 		self:                  selfIdentity,
-		manaRetrieveFunc:      protocol.Engine().ManaTracker.ManaByIDs,
-		totalManaRetrieveFunc: protocol.Engine().ManaTracker.TotalMana,
+		manaRetrieveFunc:      protocol.Engine().ThroughputQuota.BalanceByIDs,
+		totalManaRetrieveFunc: protocol.Engine().ThroughputQuota.TotalBalance,
 		ownRate:               atomic.NewFloat64(0),
 	}, opts, func(r *RateSetter) {
 		r.maxRate = float64(time.Second / r.optsSchedulerRate)

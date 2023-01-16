@@ -61,8 +61,8 @@ func New(protocol *protocol.Protocol, selfIdentity identity.ID, opts ...options.
 	return options.Apply(&RateSetter{
 		protocol:              protocol,
 		self:                  selfIdentity,
-		manaRetrieveFunc:      protocol.Engine().ManaTracker.ManaByIDs,
-		totalManaRetrieveFunc: protocol.Engine().ManaTracker.TotalMana,
+		manaRetrieveFunc:      protocol.Engine().ThroughputQuota.BalanceByIDs,
+		totalManaRetrieveFunc: protocol.Engine().ThroughputQuota.TotalBalance,
 		rateUpdateChan:        make(chan *models.Block),
 		creditUpdateChan:      make(chan *models.Block),
 		ownRate:               atomic.NewFloat64(0),
