@@ -5,10 +5,10 @@ import (
 	"strconv"
 
 	"github.com/capossele/asset-registry/pkg/registryclient"
-	"github.com/cockroachdb/errors"
 	"github.com/go-resty/resty/v2"
 	"github.com/iotaledger/hive.go/core/marshalutil"
 	"github.com/iotaledger/hive.go/core/serix"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
@@ -51,7 +51,7 @@ func ParseAssetRegistry(marshalUtil *marshalutil.MarshalUtil) (assetRegistry *As
 	assetRegistry = new(AssetRegistry)
 	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), marshalUtil.Bytes()[marshalUtil.ReadOffset():], &assetRegistry, serix.WithValidation())
 	if err != nil {
-		err = errors.Errorf("failed to parse AssetRegistry: %w", err)
+		err = errors.Wrap(err, "failed to parse AssetRegistry")
 		return
 	}
 	marshalUtil.ReadSeek(marshalUtil.ReadOffset() + consumedBytes)

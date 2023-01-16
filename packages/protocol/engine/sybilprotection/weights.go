@@ -3,12 +3,12 @@ package sybilprotection
 import (
 	"sync"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/iotaledger/hive.go/core/types"
+	"github.com/pkg/errors"
 	"github.com/zyedidia/generic/cache"
 
 	"github.com/iotaledger/goshimmer/packages/core/ads"
@@ -148,7 +148,7 @@ func (w *Weights) Map() (weights map[identity.ID]int64, err error) {
 		weights[id] = weight.Value
 		return true
 	}); err != nil {
-		return nil, errors.Errorf("failed to export weights: %w", err)
+		return nil, errors.Wrap(err, "failed to export weights")
 	}
 
 	return weights, nil

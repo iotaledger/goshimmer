@@ -3,10 +3,10 @@ package blockissuer
 import (
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer/blockfactory"
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer/ratesetter"
@@ -83,7 +83,7 @@ func (i *BlockIssuer) IssuePayload(p payload.Payload, parentsCount ...int) (bloc
 
 	block, err = i.Factory.CreateBlock(p, parentsCount...)
 	if err != nil {
-		i.Events.Error.Trigger(errors.Errorf("block could not be created: %w", err))
+		f.Events.Error.Trigger(errors.Wrap(err, "block could not be created"))
 		return block, err
 	}
 	return block, i.issueBlock(block)
@@ -97,7 +97,8 @@ func (i *BlockIssuer) IssuePayloadWithReferences(p payload.Payload, references m
 
 	block, err = i.Factory.CreateBlockWithReferences(p, references, strongParentsCountOpt...)
 	if err != nil {
-		i.Events.Error.Trigger(errors.Errorf("block with references could not be created: %w", err))
+
+		f.Events.Error.Trigger(errors.Wrap(err, "block with references could not be created"))
 		return nil, err
 	}
 
@@ -138,7 +139,7 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeBooked(block *models.Block, max
 	err := i.issueBlock(block)
 
 	if err != nil {
-		return errors.Errorf("failed to issue block %s: %w", block.ID().String(), err)
+		return errors.Wrapf(err, "failed to issue block %s", block.ID().String())
 	}
 
 	timer := time.NewTimer(maxAwait)
@@ -176,7 +177,7 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeScheduled(block *models.Block, 
 	err := i.issueBlock(block)
 
 	if err != nil {
-		return errors.Errorf("failed to issue block %s: %w", block.ID().String(), err)
+		return errors.Wrapf(err, "failed to issue block %s", block.ID().String())
 	}
 
 	timer := time.NewTimer(maxAwait)

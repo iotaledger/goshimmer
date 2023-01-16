@@ -3,8 +3,8 @@ package dashboard
 import (
 	"sync"
 
-	"github.com/cockroachdb/errors"
 	"github.com/gorilla/websocket"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1/manamodels"
 )
@@ -59,7 +59,7 @@ func (m *ManaBuffer) SendValueBlks(ws *websocket.Conn) error {
 			Data: valueBlk,
 		}
 		if err := sendJSON(ws, blk); err != nil {
-			return errors.Errorf("failed to send mana value to client: %w", err)
+			return errors.Wrap(err, "failed to send mana value to client")
 		}
 	}
 	return nil
@@ -89,7 +89,7 @@ func (m *ManaBuffer) SendMapOverall(ws *websocket.Conn) error {
 			Data: blkData,
 		}
 		if err := sendJSON(ws, blk); err != nil {
-			return errors.Errorf("failed to send overall mana map to client: %w", err)
+			return errors.Wrap(err, "failed to send overall mana map to client")
 		}
 	}
 	return nil
@@ -119,7 +119,7 @@ func (m *ManaBuffer) SendMapOnline(ws *websocket.Conn) error {
 			Data: blkData,
 		}
 		if err := sendJSON(ws, blk); err != nil {
-			return errors.Errorf("failed to send online mana map to client: %w", err)
+			return errors.Wrap(err, "failed to send online mana map to client")
 		}
 	}
 	return nil

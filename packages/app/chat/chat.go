@@ -1,7 +1,7 @@
 package chat
 
 import (
-	"fmt"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/hive.go/core/generics/model"
 	"github.com/iotaledger/hive.go/core/serix"
@@ -13,11 +13,11 @@ import (
 func init() {
 	err := serix.DefaultAPI.RegisterTypeSettings(Payload{}, serix.TypeSettings{}.WithObjectType(uint32(new(Payload).Type())))
 	if err != nil {
-		panic(fmt.Errorf("error registering Chat type settings: %w", err))
+		panic(errors.Wrap(err, "error registering Chat type settings"))
 	}
 	err = serix.DefaultAPI.RegisterInterfaceObjects((*payload.Payload)(nil), new(Payload))
 	if err != nil {
-		panic(fmt.Errorf("error registering Chat as Payload interface: %w", err))
+		panic(errors.Wrap(err, "error registering Chat as Payload interface"))
 	}
 }
 

@@ -4,7 +4,6 @@ import (
 	"context"
 	"sync"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	typedkvstore "github.com/iotaledger/hive.go/core/generics/kvstore"
 	"github.com/iotaledger/hive.go/core/generics/lo"
@@ -12,6 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/kvstore"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/storable"
@@ -125,11 +125,11 @@ func (m *ThroughputQuota) applyCreatedOutput(output *ledger.OutputWithMetadata) 
 		if !m.engine.LedgerState.UnspentOutputs.WasInitialized() {
 			totalBalanceBytes, serializationErr := storable.SerializableInt64(m.updateTotalBalance(int64(iotaBalance))).Bytes()
 			if serializationErr != nil {
-				return errors.Errorf("failed to serialize total balance: %w", serializationErr)
+				return errors.Wrapf(serializationErr, "failed to serialize total balance")
 			}
 
 			if err := m.totalBalanceStorage.Set([]byte{0}, totalBalanceBytes); err != nil {
-				return errors.Errorf("failed to persist total balance: %w", err)
+				return errors.Wrap(err, "failed to persist total balance")
 			}
 		}
 	}

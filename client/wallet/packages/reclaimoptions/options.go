@@ -1,7 +1,7 @@
 package reclaimoptions
 
 import (
-	"github.com/cockroachdb/errors"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
@@ -79,7 +79,7 @@ func Build(options ...ReclaimFundsOption) (result *ReclaimFundsOptions, err erro
 	}
 
 	if result.Alias == nil {
-		return nil, errors.Errorf("an alias identifier must be specified for reclaiming delegated funds")
+		return nil, errors.New("an alias identifier must be specified for reclaiming delegated funds")
 	}
 
 	return

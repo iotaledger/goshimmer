@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/client"
@@ -15,7 +16,7 @@ import (
 func testBroadcastData(api *client.GoShimmerAPI) (string, error) {
 	blkID, err := api.Data([]byte(blkData))
 	if err != nil {
-		return "", fmt.Errorf("broadcast failed: %w", err)
+		return "", errors.Wrap(err, "broadcast failed")
 	}
 	return blkID, nil
 }
@@ -23,7 +24,7 @@ func testBroadcastData(api *client.GoShimmerAPI) (string, error) {
 func testTargetGetBlocks(api *client.GoShimmerAPI, blkID string) error {
 	// query target node for broadcasted data
 	if _, err := api.GetBlock(blkID); err != nil {
-		return fmt.Errorf("querying the target node failed: %w", err)
+		return errors.Wrap(err, "querying the target node failed")
 	}
 	return nil
 }
@@ -33,7 +34,7 @@ func testNodesGetBlocks(blkID string) error {
 	for _, n := range nodes {
 		nodesAPI := client.NewGoShimmerAPI(n)
 		if _, err := nodesAPI.GetBlock(blkID); err != nil {
-			return fmt.Errorf("querying node %s failed: %w", n, err)
+			return errors.Wrapf(err, "querying node %s failed", n)
 		}
 		fmt.Printf("blk found in node %s\n", n)
 	}

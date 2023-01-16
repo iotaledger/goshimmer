@@ -1,10 +1,10 @@
 package prunable
 
 import (
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/kvstore"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -25,7 +25,7 @@ func NewRootBlocks(databaseInstance *database.Manager, storagePrefix byte) (newR
 // Store stores the given blockID as a root block.
 func (r *RootBlocks) Store(id models.BlockID) (err error) {
 	if err = r.Storage(id.Index()).Set(lo.PanicOnErr(id.Bytes()), []byte{1}); err != nil {
-		return errors.Errorf("failed to store solid entry point block %s: %w", id, err)
+		return errors.Wrapf(err, "failed to store solid entry point block %s", id)
 	}
 
 	return nil
@@ -35,7 +35,7 @@ func (r *RootBlocks) Store(id models.BlockID) (err error) {
 func (r *RootBlocks) Has(blockID models.BlockID) (has bool, err error) {
 	has, err = r.Storage(blockID.Index()).Has(lo.PanicOnErr(blockID.Bytes()))
 	if err != nil {
-		return false, errors.Errorf("failed to delete solid entry point block %s: %w", blockID, err)
+		return false, errors.Wrapf(err, "failed to delete solid entry point block %s", blockID)
 	}
 
 	return has, nil
@@ -44,7 +44,7 @@ func (r *RootBlocks) Has(blockID models.BlockID) (has bool, err error) {
 // Delete deletes the given blockID from the root blocks.
 func (r *RootBlocks) Delete(blockID models.BlockID) (err error) {
 	if err = r.Storage(blockID.Index()).Delete(lo.PanicOnErr(blockID.Bytes())); err != nil {
-		return errors.Errorf("failed to delete solid entry point block %s: %w", blockID, err)
+		return errors.Wrapf(err, "failed to delete solid entry point block %s", blockID)
 	}
 
 	return nil
@@ -57,7 +57,7 @@ func (r *RootBlocks) LoadAll(index epoch.Index) (solidEntryPoints *set.AdvancedS
 		solidEntryPoints.Add(id)
 		return nil
 	}); err != nil {
-		panic(errors.Errorf("failed to load all rootblocks for epoch %d: %w", index, err))
+		panic(errors.Wrapf(err, "failed to load all rootblocks for epoch %d", index))
 	}
 	return
 }
@@ -66,7 +66,7 @@ func (r *RootBlocks) LoadAll(index epoch.Index) (solidEntryPoints *set.AdvancedS
 func (r *RootBlocks) StoreAll(rootBlocks *set.AdvancedSet[models.BlockID]) (err error) {
 	for it := rootBlocks.Iterator(); it.HasNext(); {
 		if err := r.Store(it.Next()); err != nil {
-			return errors.Errorf("failed to store rootblocks: %w", err)
+			return errors.Wrap(err, "failed to store rootblocks")
 		}
 	}
 	return nil
@@ -77,14 +77,14 @@ func (r *RootBlocks) Stream(index epoch.Index, processor func(models.BlockID) er
 	if storageErr := r.Storage(index).Iterate([]byte{}, func(blockIDBytes kvstore.Key, _ kvstore.Value) bool {
 		blockID := new(models.BlockID)
 		if _, err = blockID.FromBytes(blockIDBytes); err != nil {
-			err = errors.Errorf("failed to parse blockID %s: %w", blockIDBytes, err)
+			err = errors.Wrapf(err, "failed to parse blockID %s", blockIDBytes)
 		} else if err = processor(*blockID); err != nil {
-			err = errors.Errorf("failed to process root block %s: %w", blockID, err)
+			err = errors.Wrapf(err, "failed to process root block %s", blockID)
 		}
 
 		return err == nil
 	}); storageErr != nil {
-		return errors.Errorf("failed to iterate over rootblocks: %w", storageErr)
+		return errors.Wrapf(storageErr, "failed to iterate over rootblocks")
 	}
 
 	return err

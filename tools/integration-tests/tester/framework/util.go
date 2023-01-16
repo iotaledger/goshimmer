@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/cockroachdb/errors"
+	"github.com/pkg/errors"
 )
 
 // getWebAPIBaseURL returns the web API base url for the given IP.

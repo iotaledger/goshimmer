@@ -6,12 +6,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/types"
-	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
@@ -41,14 +42,14 @@ func TestScheduler_AddBlock(t *testing.T) {
 	defer tf.Scheduler.Shutdown()
 
 	blk := virtualvoting.NewBlock(booker.NewBlock(blockdag.NewBlock(models.NewBlock(models.WithStrongParents(tf.BlockIDs("Genesis"))), blockdag.WithSolid(true), blockdag.WithOrphaned(true)), booker.WithBooked(true), booker.WithStructureDetails(markers.NewStructureDetails())))
-	assert.NoError(t, blk.DetermineID())
+	require.NoError(t, blk.DetermineID())
 
 	tf.Scheduler.AddBlock(blk)
 
 	schedulerBlock, exists := tf.Scheduler.Block(blk.ID())
 
-	assert.True(t, exists, "scheduler block should exist")
-	assert.True(t, schedulerBlock.IsDropped(), "block should be dropped")
+	require.True(t, exists, "scheduler block should exist")
+	require.True(t, schedulerBlock.IsDropped(), "block should be dropped")
 	tf.AssertBlocksDropped(1)
 	tf.AssertBlocksSkipped(0)
 }
@@ -60,7 +61,7 @@ func TestScheduler_Submit(t *testing.T) {
 	defer tf.Scheduler.Shutdown()
 
 	blk := tf.CreateSchedulerBlock(models.WithIssuer(selfNode.PublicKey()))
-	assert.NoError(t, tf.Scheduler.Submit(blk))
+	require.NoError(t, tf.Scheduler.Submit(blk))
 	time.Sleep(100 * time.Millisecond)
 	// unsubmit to allow the scheduler to shutdown
 	tf.Scheduler.Unsubmit(blk)
@@ -70,7 +71,7 @@ func TestScheduler_updateActiveNodeList(t *testing.T) {
 	tf := NewTestFramework(t)
 
 	tf.Scheduler.updateActiveIssuersList(map[identity.ID]int64{})
-	assert.Equal(t, 0, tf.Scheduler.buffer.NumActiveIssuers())
+	require.Equal(t, 0, tf.Scheduler.buffer.NumActiveIssuers())
 	for _, alias := range []string{"A", "B", "C", "D", "E", "F", "G"} {
 		tf.CreateIssuer(alias, 0)
 	}
@@ -84,15 +85,15 @@ func TestScheduler_updateActiveNodeList(t *testing.T) {
 	})
 	tf.Scheduler.updateActiveIssuersList(tf.ManaMap())
 
-	assert.Equal(t, 5, tf.Scheduler.buffer.NumActiveIssuers())
+	require.Equal(t, 5, tf.Scheduler.buffer.NumActiveIssuers())
 	issuerIDs := tf.Scheduler.buffer.IssuerIDs()
-	assert.Contains(t, issuerIDs, tf.Issuer("A").ID())
-	assert.Contains(t, issuerIDs, tf.Issuer("B").ID())
-	assert.Contains(t, issuerIDs, tf.Issuer("C").ID())
-	assert.Contains(t, issuerIDs, tf.Issuer("D").ID())
-	assert.Contains(t, issuerIDs, tf.Issuer("E").ID())
-	assert.NotContains(t, issuerIDs, tf.Issuer("F").ID())
-	assert.NotContains(t, issuerIDs, tf.Issuer("G").ID())
+	require.Contains(t, issuerIDs, tf.Issuer("A").ID())
+	require.Contains(t, issuerIDs, tf.Issuer("B").ID())
+	require.Contains(t, issuerIDs, tf.Issuer("C").ID())
+	require.Contains(t, issuerIDs, tf.Issuer("D").ID())
+	require.Contains(t, issuerIDs, tf.Issuer("E").ID())
+	require.NotContains(t, issuerIDs, tf.Issuer("F").ID())
+	require.NotContains(t, issuerIDs, tf.Issuer("G").ID())
 	tf.UpdateIssuers(map[string]int64{
 		"A": 30,
 		"B": 15,
@@ -103,19 +104,19 @@ func TestScheduler_updateActiveNodeList(t *testing.T) {
 	})
 	tf.Scheduler.updateActiveIssuersList(tf.ManaMap())
 
-	assert.Equal(t, 5, tf.Scheduler.buffer.NumActiveIssuers())
+	require.Equal(t, 5, tf.Scheduler.buffer.NumActiveIssuers())
 
 	issuerIDs = tf.Scheduler.buffer.IssuerIDs()
-	assert.Contains(t, issuerIDs, tf.Issuer("A").ID())
-	assert.Contains(t, issuerIDs, tf.Issuer("B").ID())
-	assert.Contains(t, issuerIDs, tf.Issuer("C").ID())
-	assert.NotContains(t, issuerIDs, tf.Issuer("D").ID())
-	assert.NotContains(t, issuerIDs, tf.Issuer("E").ID())
-	assert.Contains(t, issuerIDs, tf.Issuer("F").ID())
-	assert.Contains(t, issuerIDs, tf.Issuer("G").ID())
+	require.Contains(t, issuerIDs, tf.Issuer("A").ID())
+	require.Contains(t, issuerIDs, tf.Issuer("B").ID())
+	require.Contains(t, issuerIDs, tf.Issuer("C").ID())
+	require.NotContains(t, issuerIDs, tf.Issuer("D").ID())
+	require.NotContains(t, issuerIDs, tf.Issuer("E").ID())
+	require.Contains(t, issuerIDs, tf.Issuer("F").ID())
+	require.Contains(t, issuerIDs, tf.Issuer("G").ID())
 
 	tf.Scheduler.updateActiveIssuersList(map[identity.ID]int64{})
-	assert.Equal(t, 0, tf.Scheduler.buffer.NumActiveIssuers())
+	require.Equal(t, 0, tf.Scheduler.buffer.NumActiveIssuers())
 }
 
 func TestScheduler_Dropped(t *testing.T) {
@@ -134,12 +135,13 @@ func TestScheduler_Dropped(t *testing.T) {
 		tf.IssueBlocks(alias).WaitUntilAllTasksProcessed()
 	}
 	droppedCounter := 0
-	assert.Eventually(t, func() bool {
+	require.Eventually(t, func() bool {
 		select {
 		case droppedBlockID := <-droppedBlockIDChan:
 			expectedBlock := tf.Block(fmt.Sprintf("blk-%d", droppedCounter))
 			droppedCounter++
-			return assert.Equal(t, expectedBlock.ID(), droppedBlockID)
+			require.Equal(t, expectedBlock.ID(), droppedBlockID)
+			return true
 		default:
 			return false
 		}
@@ -160,13 +162,14 @@ func TestScheduler_Schedule(t *testing.T) {
 	defer tf.Scheduler.Shutdown()
 	// create a new block from a different node
 	blk := tf.CreateSchedulerBlock(models.WithIssuer(tf.Issuer("peer").PublicKey()))
-	assert.NoError(t, tf.Scheduler.Submit(blk))
+	require.NoError(t, tf.Scheduler.Submit(blk))
 	tf.Scheduler.Ready(blk)
 
-	assert.Eventually(t, func() bool {
+	require.Eventually(t, func() bool {
 		select {
 		case id := <-blockScheduled:
-			return assert.Equal(t, blk.ID(), id)
+			require.Equal(t, blk.ID(), id)
+			return true
 		default:
 			return false
 		}
@@ -184,17 +187,18 @@ func TestScheduler_HandleOrphanedBlock_Ready(t *testing.T) {
 	tf.CreateIssuer("peer", 10)
 	// create a new block from a different node
 	blk := tf.CreateSchedulerBlock(models.WithIssuer(tf.Issuer("peer").PublicKey()))
-	assert.NoError(t, tf.Scheduler.Submit(blk))
+	require.NoError(t, tf.Scheduler.Submit(blk))
 	tf.Scheduler.Ready(blk)
 	tf.Tangle.SetOrphaned(blk.Block.Block.Block, true)
 
 	tf.Scheduler.Start()
 	defer tf.Scheduler.Shutdown()
 
-	assert.Eventually(t, func() bool {
+	require.Eventually(t, func() bool {
 		select {
 		case id := <-blockDropped:
-			return assert.Equal(t, blk.ID(), id)
+			require.Equal(t, blk.ID(), id)
+			return true
 		default:
 			return false
 		}
@@ -217,13 +221,14 @@ func TestScheduler_HandleOrphanedBlock_Scheduled(t *testing.T) {
 
 	// create a new block from a different node
 	blk := tf.CreateSchedulerBlock(models.WithIssuer(tf.Issuer("peer").PublicKey()))
-	assert.NoError(t, tf.Scheduler.Submit(blk))
+	require.NoError(t, tf.Scheduler.Submit(blk))
 	tf.Scheduler.Ready(blk)
 
-	assert.Eventually(t, func() bool {
+	require.Eventually(t, func() bool {
 		select {
 		case id := <-blockScheduled:
-			return assert.Equal(t, blk.ID(), id)
+			require.Equal(t, blk.ID(), id)
+			return true
 		default:
 			return false
 		}
@@ -245,13 +250,14 @@ func TestScheduler_HandleOrphanedBlock_Unready(t *testing.T) {
 	tf.CreateIssuer("peer", 10)
 	// create a new block from a different node
 	blk := tf.CreateSchedulerBlock(models.WithIssuer(tf.Issuer("peer").PublicKey()))
-	assert.NoError(t, tf.Scheduler.Submit(blk))
+	require.NoError(t, tf.Scheduler.Submit(blk))
 	tf.Tangle.SetOrphaned(blk.Block.Block.Block, true)
 
-	assert.Eventually(t, func() bool {
+	require.Eventually(t, func() bool {
 		select {
 		case id := <-blockDropped:
-			return assert.Equal(t, blk.ID(), id)
+			require.Equal(t, blk.ID(), id)
+			return true
 		default:
 			return false
 		}
@@ -283,13 +289,14 @@ func TestScheduler_SkipConfirmed(t *testing.T) {
 		blkReadyConfirmedNew.ID(): types.Void,
 	})
 
-	assert.NoError(t, tf.Scheduler.Submit(blkReadyConfirmedNew))
+	require.NoError(t, tf.Scheduler.Submit(blkReadyConfirmedNew))
 	tf.Scheduler.Ready(blkReadyConfirmedNew)
 
-	assert.Eventually(t, func() bool {
+	require.Eventually(t, func() bool {
 		select {
 		case id := <-blockScheduled:
-			return assert.Equal(t, blkReadyConfirmedNew.ID(), id)
+			require.Equal(t, blkReadyConfirmedNew.ID(), id)
+			return true
 		default:
 			return false
 		}
@@ -298,7 +305,7 @@ func TestScheduler_SkipConfirmed(t *testing.T) {
 	// create a new block from a different node and mark it as unready and confirmed, but younger than 1 minute
 	blkUnreadyConfirmedNew := tf.CreateSchedulerBlock(models.WithIssuer(tf.Issuer("peer").PublicKey()))
 
-	assert.NoError(t, tf.Scheduler.Submit(blkUnreadyConfirmedNew))
+	require.NoError(t, tf.Scheduler.Submit(blkUnreadyConfirmedNew))
 
 	lo.MergeMaps(tf.mockAcceptance.AcceptedBlocks, map[models.BlockID]types.Empty{
 		blkUnreadyConfirmedNew.ID(): types.Void,
@@ -307,13 +314,14 @@ func TestScheduler_SkipConfirmed(t *testing.T) {
 	tf.mockAcceptance.BlockAcceptedEvent.Trigger(blockgadget.NewBlock(blkUnreadyConfirmedNew.Block, blockgadget.WithAccepted(true)))
 
 	// make sure that the block was not unsubmitted
-	assert.Equal(t, tf.Scheduler.buffer.IssuerQueue(tf.Issuer("peer").ID()).IDs()[0], blkUnreadyConfirmedNew.ID())
+	require.Equal(t, tf.Scheduler.buffer.IssuerQueue(tf.Issuer("peer").ID()).IDs()[0], blkUnreadyConfirmedNew.ID())
 	tf.Scheduler.Ready(blkUnreadyConfirmedNew)
 
-	assert.Eventually(t, func() bool {
+	require.Eventually(t, func() bool {
 		select {
 		case id := <-blockScheduled:
-			return assert.Equal(t, blkUnreadyConfirmedNew.ID(), id)
+			require.Equal(t, blkUnreadyConfirmedNew.ID(), id)
+			return true
 		default:
 			return false
 		}
@@ -326,13 +334,14 @@ func TestScheduler_SkipConfirmed(t *testing.T) {
 		blkReadyConfirmedOld.ID(): types.Void,
 	})
 
-	assert.NoError(t, tf.Scheduler.Submit(blkReadyConfirmedOld))
+	require.NoError(t, tf.Scheduler.Submit(blkReadyConfirmedOld))
 	tf.Scheduler.Ready(blkReadyConfirmedOld)
 
-	assert.Eventually(t, func() bool {
+	require.Eventually(t, func() bool {
 		select {
 		case id := <-blockSkipped:
-			return assert.Equal(t, blkReadyConfirmedOld.ID(), id)
+			require.Equal(t, blkReadyConfirmedOld.ID(), id)
+			return true
 		default:
 			return false
 		}
@@ -340,17 +349,18 @@ func TestScheduler_SkipConfirmed(t *testing.T) {
 
 	// create a new block from a different node and mark it as unready and confirmed, but older than 1 minute
 	blkUnreadyConfirmedOld := tf.CreateSchedulerBlock(models.WithIssuer(tf.Issuer("peer").PublicKey()), models.WithIssuingTime(time.Now().Add(-2*time.Minute)))
-	assert.NoError(t, tf.Scheduler.Submit(blkUnreadyConfirmedOld))
+	require.NoError(t, tf.Scheduler.Submit(blkUnreadyConfirmedOld))
 	lo.MergeMaps(tf.mockAcceptance.AcceptedBlocks, map[models.BlockID]types.Empty{
 		blkUnreadyConfirmedOld.ID(): types.Void,
 	})
 
 	tf.mockAcceptance.BlockAcceptedEvent.Trigger(blockgadget.NewBlock(blkUnreadyConfirmedOld.Block, blockgadget.WithAccepted(true)))
 
-	assert.Eventually(t, func() bool {
+	require.Eventually(t, func() bool {
 		select {
 		case id := <-blockSkipped:
-			return assert.Equal(t, blkUnreadyConfirmedOld.ID(), id)
+			require.Equal(t, blkUnreadyConfirmedOld.ID(), id)
+			return true
 		default:
 			return false
 		}
@@ -370,10 +380,10 @@ func TestScheduler_Time(t *testing.T) {
 	defer tf.Scheduler.Shutdown()
 
 	futureBlock := tf.CreateSchedulerBlock(models.WithIssuer(tf.Issuer("peer").PublicKey()), models.WithIssuingTime(time.Now().Add(1*time.Second)))
-	assert.NoError(t, tf.Scheduler.Submit(futureBlock))
+	require.NoError(t, tf.Scheduler.Submit(futureBlock))
 
 	nowBlock := tf.CreateSchedulerBlock(models.WithIssuer(tf.Issuer("peer").PublicKey()))
-	assert.NoError(t, tf.Scheduler.Submit(nowBlock))
+	require.NoError(t, tf.Scheduler.Submit(nowBlock))
 
 	tf.Scheduler.Ready(futureBlock)
 	tf.Scheduler.Ready(nowBlock)
@@ -388,14 +398,14 @@ func TestScheduler_Time(t *testing.T) {
 			case <-timer.C:
 				return
 			case block := <-blockScheduled:
-				assert.Truef(t, time.Now().After(block.IssuingTime()), "scheduled too early: %s", time.Until(block.IssuingTime()))
+				require.Truef(t, time.Now().After(block.IssuingTime()), "scheduled too early: %s", time.Until(block.IssuingTime()))
 				scheduledIDs.Add(block.ID())
 			}
 		}
 	}()
 
 	<-done
-	assert.Equal(t, models.NewBlockIDs(nowBlock.ID(), futureBlock.ID()), scheduledIDs)
+	require.Equal(t, models.NewBlockIDs(nowBlock.ID(), futureBlock.ID()), scheduledIDs)
 }
 
 func TestScheduler_Issue(t *testing.T) {
@@ -403,7 +413,7 @@ func TestScheduler_Issue(t *testing.T) {
 	tf := NewTestFramework(t)
 	tf.CreateIssuer("peer", 10)
 
-	tf.Scheduler.Events.Error.Hook(event.NewClosure(func(err error) { assert.Failf(t, "unexpected error", "error event triggered: %v", err) }))
+	tf.Scheduler.Events.Error.Hook(event.NewClosure(func(err error) { require.Failf(t, "unexpected error", "error event triggered: %v", err) }))
 
 	// setup tangle up till the Scheduler
 	tf.Scheduler.Start()
@@ -420,11 +430,11 @@ func TestScheduler_Issue(t *testing.T) {
 		block := tf.CreateBlock(fmt.Sprintf("blk-%d", i), models.WithIssuer(tf.Issuer("peer").PublicKey()), models.WithStrongParents(models.NewBlockIDs(tf.Block("Genesis").ID())))
 		ids.Add(block.ID())
 		_, _, err := tf.Tangle.Attach(block)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	}
 
 	scheduledIDs := models.NewBlockIDs()
-	assert.Eventually(t, func() bool {
+	require.Eventually(t, func() bool {
 		select {
 		case id := <-blockScheduled:
 			scheduledIDs.Add(id)
@@ -433,7 +443,7 @@ func TestScheduler_Issue(t *testing.T) {
 			return false
 		}
 	}, 10*time.Second, 10*time.Millisecond)
-	assert.Equal(t, ids, scheduledIDs)
+	require.Equal(t, ids, scheduledIDs)
 
 	for i := 0; i < numBlocks; i++ {
 		block, _ := tf.Scheduler.Block(tf.Block(fmt.Sprintf("blk-%d", i)).ID())
@@ -452,7 +462,7 @@ func TestSchedulerFlow(t *testing.T) {
 	tf.CreateIssuer("peer", 10)
 	tf.CreateIssuer("self", 10)
 
-	tf.Scheduler.Events.Error.Hook(event.NewClosure(func(err error) { assert.Failf(t, "unexpected error", "error event triggered: %v", err) }))
+	tf.Scheduler.Events.Error.Hook(event.NewClosure(func(err error) { require.Failf(t, "unexpected error", "error event triggered: %v", err) }))
 
 	tf.Scheduler.Start()
 	defer tf.Scheduler.Shutdown()
@@ -476,7 +486,7 @@ func TestSchedulerFlow(t *testing.T) {
 	tf.IssueBlocks("A", "B", "C", "D", "E").WaitUntilAllTasksProcessed()
 
 	var scheduledIDs []models.BlockID
-	assert.Eventually(t, func() bool {
+	require.Eventually(t, func() bool {
 		select {
 		case id := <-blockScheduled:
 			scheduledIDs = append(scheduledIDs, id)
@@ -486,7 +496,7 @@ func TestSchedulerFlow(t *testing.T) {
 		}
 	}, 10*time.Second, 100*time.Millisecond)
 
-	assert.Equal(t, scheduledIDs, []models.BlockID{tf.Block("A").ID(), tf.Block("B").ID(), tf.Block("D").ID(), tf.Block("E").ID(), tf.Block("C").ID()})
+	require.Equal(t, scheduledIDs, []models.BlockID{tf.Block("A").ID(), tf.Block("B").ID(), tf.Block("D").ID(), tf.Block("E").ID(), tf.Block("C").ID()})
 }
 
 func TestSchedulerParallelSubmit(t *testing.T) {
@@ -495,7 +505,7 @@ func TestSchedulerParallelSubmit(t *testing.T) {
 
 	tf := NewTestFramework(t)
 
-	tf.Scheduler.Events.Error.Hook(event.NewClosure(func(err error) { assert.Failf(t, "unexpected error", "error event triggered: %v", err) }))
+	tf.Scheduler.Events.Error.Hook(event.NewClosure(func(err error) { require.Failf(t, "unexpected error", "error event triggered: %v", err) }))
 
 	tf.CreateIssuer("self", 10)
 	tf.CreateIssuer("peer", 10)
@@ -529,7 +539,7 @@ func TestSchedulerParallelSubmit(t *testing.T) {
 	tf.IssueBlocks(blockAliases...).WaitUntilAllTasksProcessed()
 
 	// wait for all blocks to have a formed opinion
-	assert.Eventually(t, func() bool { return atomic.LoadUint32(&(tf.scheduledBlocksCount)) == totalBlkCount }, 5*time.Minute, 100*time.Millisecond)
+	require.Eventually(t, func() bool { return atomic.LoadUint32(&(tf.scheduledBlocksCount)) == totalBlkCount }, 5*time.Minute, 100*time.Millisecond)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

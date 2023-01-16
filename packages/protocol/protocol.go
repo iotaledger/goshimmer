@@ -89,6 +89,7 @@ func New(dispatcher network.Endpoint, opts ...options.Option[Protocol]) (protoco
 
 // Run runs the protocol.
 func (p *Protocol) Run() {
+	p.CongestionControl.Run()
 	p.linkTo(p.engine)
 
 	if err := p.engine.Initialize(p.optsSnapshotPath); err != nil {
@@ -100,6 +101,7 @@ func (p *Protocol) Run() {
 
 // Shutdown shuts down the protocol.
 func (p *Protocol) Shutdown() {
+	p.CongestionControl.Shutdown()
 	p.engine.Shutdown()
 	p.storage.Shutdown()
 
