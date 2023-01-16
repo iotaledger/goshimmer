@@ -23,6 +23,7 @@ var (
 		BlkToBeSent:           []int{0},
 		TimeUnit:              time.Second,
 		DelayBetweenConflicts: 0,
+		NSpend:                2,
 		Scenario:              evilwallet.Scenario1(),
 		DeepSpam:              false,
 		EnableRateSetter:      true,
