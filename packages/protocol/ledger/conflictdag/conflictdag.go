@@ -24,6 +24,8 @@ type ConflictDAG[ConflictIDType, ResourceIDType comparable] struct {
 	conflicts    *memstorage.Storage[ConflictIDType, *Conflict[ConflictIDType, ResourceIDType]]
 	conflictSets *memstorage.Storage[ResourceIDType, *ConflictSet[ConflictIDType, ResourceIDType]]
 
+	optsMergeToMaster bool
+
 	// evictionMutex is a mutex that is used to synchronize the eviction of elements from the ConflictDAG.
 	evictionMutex sync.RWMutex
 
@@ -35,10 +37,11 @@ type ConflictDAG[ConflictIDType, ResourceIDType comparable] struct {
 // New is the constructor for the BlockDAG and creates a new BlockDAG instance.
 func New[ConflictIDType, ResourceIDType comparable](evictionState *eviction.State, opts ...options.Option[ConflictDAG[ConflictIDType, ResourceIDType]]) (c *ConflictDAG[ConflictIDType, ResourceIDType]) {
 	return options.Apply(&ConflictDAG[ConflictIDType, ResourceIDType]{
-		Events:        NewEvents[ConflictIDType, ResourceIDType](),
-		EvictionState: evictionState,
-		conflicts:     memstorage.New[ConflictIDType, *Conflict[ConflictIDType, ResourceIDType]](),
-		conflictSets:  memstorage.New[ResourceIDType, *ConflictSet[ConflictIDType, ResourceIDType]](),
+		Events:            NewEvents[ConflictIDType, ResourceIDType](),
+		EvictionState:     evictionState,
+		conflicts:         memstorage.New[ConflictIDType, *Conflict[ConflictIDType, ResourceIDType]](),
+		conflictSets:      memstorage.New[ResourceIDType, *ConflictSet[ConflictIDType, ResourceIDType]](),
+		optsMergeToMaster: true,
 	}, opts, func(b *ConflictDAG[ConflictIDType, ResourceIDType]) {
 
 		// TODO: evictionState.Events.EpochEvicted.Hook(event.NewClosure(b.evictEpoch))
@@ -186,6 +189,10 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) UpdateConflictingResources
 func (c *ConflictDAG[ConflictIDType, ResourceIDType]) UnconfirmedConflicts(conflictIDs *set.AdvancedSet[ConflictIDType]) (pendingConflictIDs *set.AdvancedSet[ConflictIDType]) {
 	c.evictionMutex.RLock()
 	defer c.evictionMutex.RUnlock()
+
+	if !c.optsMergeToMaster {
+		return conflictIDs.Clone()
+	}
 
 	pendingConflictIDs = set.NewAdvancedSet[ConflictIDType]()
 	for conflictWalker := conflictIDs.Iterator(); conflictWalker.HasNext(); {
@@ -441,3 +448,13 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) ForEachConflict(consumer f
 		return true
 	})
 }
+
+// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func MergeToMaster[ConflictIDType, ResourceIDType comparable](mergeToMaster bool) options.Option[ConflictDAG[ConflictIDType, ResourceIDType]] {
+	return func(c *ConflictDAG[ConflictIDType, ResourceIDType]) {
+		c.optsMergeToMaster = mergeToMaster
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
