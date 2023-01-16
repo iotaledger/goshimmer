@@ -629,6 +629,8 @@ func TestTipManager_FutureTips(t *testing.T) {
 			},
 		})
 
+		tf.AssertTipsAdded(7)
+		tf.AssertTipsRemoved(6)
 		tf.AssertTips(tf.BlockIDs("Block4.2"))
 	}
 }

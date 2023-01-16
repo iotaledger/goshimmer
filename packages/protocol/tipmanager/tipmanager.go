@@ -90,17 +90,7 @@ func (t *TipManager) AddTip(block *scheduler.Block) {
 		return
 	}
 
-	if !t.addTip(block) {
-		return
-	}
-
-	// skip removing tips if a width is set -> allows to artificially create a wide Tangle.
-	if t.TipCount() <= t.optsWidth {
-		return
-	}
-
-	// a tip loses its tip status if it is referenced by another block
-	t.RemoveStrongParents(block.ModelsBlock)
+	t.addTip(block)
 }
 
 func (t *TipManager) DeleteTip(block *scheduler.Block) (deleted bool) {
@@ -240,6 +230,15 @@ func (t *TipManager) addTip(block *scheduler.Block) (added bool) {
 		t.tips.Set(block.ID(), block)
 		// t.tipsConflictTracker.AddTip(block)
 		t.Events.TipAdded.Trigger(block)
+
+		// skip removing tips if a width is set -> allows to artificially create a wide Tangle.
+		if t.TipCount() <= t.optsWidth {
+			return
+		}
+
+		// a tip loses its tip status if it is referenced by another block
+		t.RemoveStrongParents(block.ModelsBlock)
+
 		return true
 	}
 
