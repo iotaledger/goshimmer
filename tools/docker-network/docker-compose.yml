@@ -12,7 +12,7 @@ services:
       --autoPeering.entryNodes=
       --node.seed=base58:8q491c3YWjbPwLmF2WD95YmCgh61j2kenCKHfGfByoWi
       --node.overwriteStoredSeed=true
-      --node.enablePlugins="webapitoolsendpoint",spammer,prometheus,WebAPIToolsBlockEndpoint,activity,snapshot
+      --node.enablePlugins="webapitoolsendpoint",spammer,prometheus,WebAPIToolsBlockEndpoint,activity,snapshot,profilingrecorder
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
       --config=/run/secrets/goshimmer.config.json
       --node.peerDBDirectory=/app/peerdb
@@ -27,11 +27,12 @@ services:
       --blockIssuer.ignoreBootstrappedFlag=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
+      --profilingRecorder.outputPath=/profiles
     secrets:
       - goshimmer.config.json
     volumes:
       - ./docker-network.snapshot:/app/snapshot.bin
-    #      - db:/app/db
+      - "./profiles:/profiles"
     #      - peerdb:/app/peerdb
     ports:
       - "8080:8080/tcp" # web API
