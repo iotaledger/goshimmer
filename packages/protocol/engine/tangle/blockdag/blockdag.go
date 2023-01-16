@@ -1,6 +1,7 @@
 package blockdag
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -142,7 +143,7 @@ func (b *BlockDAG) checkParents(block *Block) (err error) {
 	for _, parentID := range block.Parents() {
 		parent, parentExists := b.Block(parentID)
 		if !parentExists {
-			continue
+			panic(fmt.Sprintf("parent %s of block %s should exist as block was marked ordered by the solidifier", parentID, block.ID()))
 		}
 
 		// check timestamp monotonicity
