@@ -40,7 +40,7 @@ type TipManager struct {
 	schedulerBlockRetrieverFunc blockRetrieverFunc
 
 	tips          *randommap.RandomMap[*scheduler.Block, *scheduler.Block]
-	parkedTips    *memstorage.EpochStorage[commitment.ID, *memstorage.Storage[models.BlockID, *scheduler.Block]]
+	futureTips    *memstorage.EpochStorage[commitment.ID, *memstorage.Storage[models.BlockID, *scheduler.Block]]
 	evictionMutex sync.RWMutex
 	// TODO: reintroduce TipsConflictTracker
 	// tipsConflictTracker *TipsConflictTracker
@@ -57,7 +57,7 @@ func New(schedulerBlockRetrieverFunc blockRetrieverFunc, opts ...options.Option[
 		schedulerBlockRetrieverFunc: schedulerBlockRetrieverFunc,
 
 		tips:       randommap.New[*scheduler.Block, *scheduler.Block](),
-		parkedTips: memstorage.NewEpochStorage[commitment.ID, *memstorage.Storage[models.BlockID, *scheduler.Block]](),
+		futureTips: memstorage.NewEpochStorage[commitment.ID, *memstorage.Storage[models.BlockID, *scheduler.Block]](),
 		// TODO: reintroduce TipsConflictTracker
 		// tipsConflictTracker: NewTipsConflictTracker(tangle),
 
@@ -86,7 +86,7 @@ func (t *TipManager) AddTip(block *scheduler.Block) {
 
 	// If the commitment is in the future, and not known to be forking, we cannot yet add it to the main tipset.
 	if t.isFutureCommitment(block) {
-		t.addParkedTip(block)
+		t.addFutureTip(block)
 		return
 	}
 
@@ -181,13 +181,26 @@ func (t *TipManager) TipCount() int {
 	return t.tips.Size()
 }
 
-// PromoteTips promotes to the main tippool all parked tips that belong to the given commitment.
-func (t *TipManager) PromoteTips(cm *commitment.Commitment) {
+// FutureTipCount returns the amount of future tips per epoch.
+func (t *TipManager) FutureTipCount() (futureTipsPerEpoch map[epoch.Index]int) {
+	futureTipsPerEpoch = make(map[epoch.Index]int)
+	t.futureTips.ForEach(func(index epoch.Index, commitmentStorage *memstorage.Storage[commitment.ID, *memstorage.Storage[models.BlockID, *scheduler.Block]]) {
+		commitmentStorage.ForEach(func(cm commitment.ID, tipStorage *memstorage.Storage[models.BlockID, *scheduler.Block]) bool {
+			futureTipsPerEpoch[index] += tipStorage.Size()
+			return true
+		})
+	})
+
+	return
+}
+
+// PromoteFutureTips promotes to the main tippool all future tips that belong to the given commitment.
+func (t *TipManager) PromoteFutureTips(cm *commitment.Commitment) {
 	t.evictionMutex.RLock()
 	defer t.evictionMutex.RUnlock()
 	defer t.Evict(cm.Index())
 
-	if parkedEpochTips := t.parkedTips.Get(cm.Index()); parkedEpochTips != nil {
+	if parkedEpochTips := t.futureTips.Get(cm.Index()); parkedEpochTips != nil {
 		if tipsForCommitment, exists := parkedEpochTips.Get(cm.ID()); exists {
 			tipsForCommitment.ForEach(func(_ models.BlockID, tip *scheduler.Block) bool {
 				t.addTip(tip)
@@ -202,7 +215,7 @@ func (t *TipManager) Evict(index epoch.Index) {
 	t.evictionMutex.Lock()
 	defer t.evictionMutex.Unlock()
 
-	t.parkedTips.Evict(index)
+	t.futureTips.Evict(index)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -248,7 +261,7 @@ func (t *TipManager) checkMonotonicity(block *scheduler.Block) (anyScheduledOrAc
 
 // isStaleCommitment returns true if the block belongs to a commitment that is too far back in the past.
 func (t *TipManager) isStaleCommitment(block *scheduler.Block) (isOld bool) {
-	return block.Commitment().Index() < t.engine.Storage.Settings.LatestCommitment().Index()-1
+	return block.Commitment().Index() < (t.engine.Storage.Settings.LatestCommitment().Index() - 1).Max(0)
 }
 
 // isFutureCommitment returns true if the block belongs to a commitment that is not yet known.
@@ -256,11 +269,11 @@ func (t *TipManager) isFutureCommitment(block *scheduler.Block) (isUnknown bool)
 	return block.Commitment().Index() > t.engine.Storage.Settings.LatestCommitment().Index()
 }
 
-func (t *TipManager) addParkedTip(block *scheduler.Block) (added bool) {
+func (t *TipManager) addFutureTip(block *scheduler.Block) (added bool) {
 	t.evictionMutex.RLock()
 	defer t.evictionMutex.RUnlock()
 
-	return lo.Return1(t.parkedTips.Get(block.ID().Index(), true).RetrieveOrCreate(block.Commitment().ID(), func() *memstorage.Storage[models.BlockID, *scheduler.Block] {
+	return lo.Return1(t.futureTips.Get(block.ID().Index(), true).RetrieveOrCreate(block.Commitment().ID(), func() *memstorage.Storage[models.BlockID, *scheduler.Block] {
 		return memstorage.New[models.BlockID, *scheduler.Block]()
 	})).Set(block.ID(), block)
 }
@@ -289,7 +302,7 @@ func (t *TipManager) isValidTip(tip *scheduler.Block) (err error) {
 // isRecentCommitment returns true if the commitment of the given block is not in the future and it is not older than 2
 // epoch with respect to our latest commitment.
 func (t *TipManager) isRecentCommitment(block *scheduler.Block) (isFresh bool) {
-	return !t.isFutureCommitment(block) && block.Commitment().Index() >= t.engine.Storage.Settings.LatestCommitment().Index()-1
+	return !t.isFutureCommitment(block) && block.Commitment().Index() >= (t.engine.Storage.Settings.LatestCommitment().Index()-1).Max(0)
 }
 
 // isPastConeTimestampCorrect performs the TSC check for the given tip.
