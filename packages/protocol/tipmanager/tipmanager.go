@@ -5,11 +5,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/randommap"
+	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/generics/walker"
-	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -200,10 +202,30 @@ func (t *TipManager) PromoteFutureTips(cm *commitment.Commitment) {
 
 	if futureEpochTips := t.futureTips.Get(cm.Index()); futureEpochTips != nil {
 		if tipsForCommitment, exists := futureEpochTips.Get(cm.ID()); exists {
-			tipsForCommitment.ForEach(func(_ models.BlockID, tip *scheduler.Block) bool {
-				t.addTip(tip)
+
+			tipsToPromote := make(map[models.BlockID]*scheduler.Block)
+			tipsForCommitment.ForEach(func(blockID models.BlockID, tip *scheduler.Block) bool {
+				tipsToPromote[blockID] = tip
 				return true
 			})
+
+			tipsToNotPromote := set.NewAdvancedSet[models.BlockID]()
+			for _, tip := range tipsToPromote {
+				for _, parentID := range tip.Parents() {
+					if _, exists := tipsToPromote[parentID]; exists {
+						// Do not add this tips parent because this is not a tip anymore
+						tipsToNotPromote.Add(parentID)
+					}
+				}
+				// Remove all tips referenced by all future tips valid for this commitment
+				t.RemoveStrongParents(tip.ModelsBlock)
+			}
+
+			for tipID, tip := range tipsToPromote {
+				if !tipsToNotPromote.Has(tipID) {
+					t.addTip(tip)
+				}
+			}
 		}
 	}
 }

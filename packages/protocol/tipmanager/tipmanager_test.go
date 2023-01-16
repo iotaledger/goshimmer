@@ -589,7 +589,6 @@ func TestTipManager_FutureTips(t *testing.T) {
 
 	commitment2_1 := tf.FormCommitment(2, []string{}, 1)
 	commitment2_2 := tf.FormCommitment(2, []string{"Block2.1"}, 1)
-	// commitment2_2 := commitment.New(2, commitment1.ID(), types.Identifier{2}, 0)
 	commitment3_1 := commitment.New(3, commitment2_1.ID(), types.Identifier{1}, 0)
 
 	// Let's introduce a future tip, in epoch 4
@@ -598,8 +597,9 @@ func TestTipManager_FutureTips(t *testing.T) {
 		tf.CreateBlock("Block4.1", models.WithStrongParents(tf.BlockIDs("Block3.1")), models.WithIssuingTime(blockTime), models.WithCommitment(commitment2_1))
 		tf.CreateBlock("Block4.2", models.WithStrongParents(tf.BlockIDs("Block3.1")), models.WithIssuingTime(blockTime), models.WithCommitment(commitment2_2))
 		tf.CreateBlock("Block4.3", models.WithStrongParents(tf.BlockIDs("Block3.1")), models.WithIssuingTime(blockTime), models.WithCommitment(commitment3_1))
+		tf.CreateBlock("Block4.4", models.WithStrongParents(tf.BlockIDs("Block4.2")), models.WithIssuingTime(blockTime), models.WithCommitment(commitment2_2))
 
-		tf.IssueBlocks("Block4.1", "Block4.2", "Block4.3")
+		tf.IssueBlocks("Block4.1", "Block4.2", "Block4.3", "Block4.4")
 		tf.WaitUntilAllTasksProcessed()
 
 		tf.AssertTipsAdded(6)
@@ -608,13 +608,12 @@ func TestTipManager_FutureTips(t *testing.T) {
 		tf.AssertFutureTips(map[epoch.Index]map[commitment.ID]models.BlockIDs{
 			2: {
 				commitment2_1.ID(): tf.BlockIDs("Block4.1"),
-				commitment2_2.ID(): tf.BlockIDs("Block4.2"),
+				commitment2_2.ID(): tf.BlockIDs("Block4.2", "Block4.4"),
 			},
 			3: {
 				commitment3_1.ID(): tf.BlockIDs("Block4.3"),
 			},
 		})
-		// tf.AssertTips(tf.TipManager.Tips(1), tf.BlockIDs("Genesis"))
 	}
 
 	// We accept a block of epoch 4, rendering epoch 2 committable and refreshing the tippool
@@ -631,6 +630,6 @@ func TestTipManager_FutureTips(t *testing.T) {
 
 		tf.AssertTipsAdded(7)
 		tf.AssertTipsRemoved(6)
-		tf.AssertTips(tf.BlockIDs("Block4.2"))
+		tf.AssertTips(tf.BlockIDs("Block4.4"))
 	}
 }
