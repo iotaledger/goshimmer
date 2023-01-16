@@ -8,10 +8,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
+
 	"go.uber.org/atomic"
 )
 
@@ -74,7 +76,6 @@ func New(protocol *protocol.Protocol, selfIdentity identity.ID, opts ...options.
 	}, func(r *RateSetter) {
 		go r.rateSetting()
 	}, (*RateSetter).setupEvents)
-
 }
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.

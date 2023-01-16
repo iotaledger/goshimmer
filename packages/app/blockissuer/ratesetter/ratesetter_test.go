@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
-
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -13,7 +12,6 @@ import (
 )
 
 func TestRateSetter_IssueBlockAndAwaitSchedule_AIMD(t *testing.T) {
-
 	tf := NewTestFramework(t, WithRateSetterOptions(WithMode(AIMDMode)))
 	defer tf.Shutdown()
 
@@ -30,11 +28,9 @@ func TestRateSetter_IssueBlockAndAwaitSchedule_AIMD(t *testing.T) {
 			return false
 		}
 	}, 1*time.Second, 10*time.Millisecond)
-
 }
 
 func TestRateSetter_IssueBlockAndAwaitSchedule_Deficit(t *testing.T) {
-
 	tf := NewTestFramework(t, WithRateSetterOptions(WithMode(DeficitMode)))
 	defer tf.Shutdown()
 
@@ -51,11 +47,9 @@ func TestRateSetter_IssueBlockAndAwaitSchedule_Deficit(t *testing.T) {
 			return false
 		}
 	}, 1*time.Second, 10*time.Millisecond)
-
 }
 
 func TestRateSetter_IssueBlockAndAwaitSchedule_Disabled(t *testing.T) {
-
 	tf := NewTestFramework(t, WithRateSetterOptions(WithMode(DisabledMode)))
 	defer tf.Shutdown()
 
@@ -72,7 +66,6 @@ func TestRateSetter_IssueBlockAndAwaitSchedule_Disabled(t *testing.T) {
 			return false
 		}
 	}, 1*time.Second, 10*time.Millisecond)
-
 }
 
 func TestRateSetter_IssueBlocksAndAwaitScheduleMultipleIssuers_Deficit(t *testing.T) {
@@ -103,7 +96,6 @@ func TestRateSetter_IssueBlocksAndAwaitScheduleMultipleIssuers_Deficit(t *testin
 			return false
 		}
 	}, 1*time.Second, 10*time.Millisecond)
-
 }
 
 func TestRateSetter_IssueBlocksAndAwaitScheduleMultipleIssuers_Disabled(t *testing.T) {
@@ -134,5 +126,4 @@ func TestRateSetter_IssueBlocksAndAwaitScheduleMultipleIssuers_Disabled(t *testi
 			return false
 		}
 	}, 1*time.Second, 10*time.Millisecond)
-
 }

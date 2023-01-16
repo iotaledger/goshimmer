@@ -4,15 +4,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
+	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
+
 	"github.com/iotaledger/hive.go/core/configuration"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
 
-	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
-	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
-	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/stretchr/testify/assert"
 )
 
