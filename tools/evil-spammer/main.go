@@ -79,6 +79,7 @@ func parseBasicSpamFlags() {
 	delayBetweenConflicts := optionFlagSet.Duration("dbc", customSpamParams.DelayBetweenConflicts, "delayBetweenConflicts - Time delay between conflicts in double spend spamming")
 	scenario := optionFlagSet.String("scenario", "", "Name of the EvilBatch that should be used for the spam. By default uses Scenario1. Possible scenarios can be found in evilwallet/customscenarion.go.")
 	deepSpam := optionFlagSet.Bool("deep", customSpamParams.DeepSpam, "Enable the deep spam, by reusing outputs created during the spam.")
+	nSpend := optionFlagSet.Int("nSpend", customSpamParams.NSpend, "Number of outputs to be spent in n-spends spammer for the spammer type needs to be set to 'ds'. Default value is 2 for double-spend.")
 
 	parseOptionFlagSet(optionFlagSet)
 
@@ -108,6 +109,8 @@ func parseBasicSpamFlags() {
 			customSpamParams.Scenario = conflictBatch
 		}
 	}
+
+	customSpamParams.NSpend = *nSpend
 	customSpamParams.DeepSpam = *deepSpam
 	customSpamParams.TimeUnit = *timeunit
 	customSpamParams.DelayBetweenConflicts = *delayBetweenConflicts
