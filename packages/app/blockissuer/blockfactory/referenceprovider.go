@@ -1,8 +1,8 @@
 package blockfactory
 
 import (
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/walker"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol"
@@ -148,7 +148,7 @@ func (r *ReferenceProvider) addedReferencesForConflicts(conflictIDs utxo.Transac
 		}
 
 		if adjust, referencedBlk, referenceErr := r.adjustOpinion(conflictID, excludedConflictIDs); referenceErr != nil {
-			return nil, errors.Errorf("failed to create reference for %s: %w", conflictID, referenceErr)
+			return nil, errors.Wrapf(referenceErr, "failed to create reference for %s", conflictID)
 		} else if adjust {
 			referencesToAdd.Add(models.ShallowLikeParentType, referencedBlk)
 		}
@@ -185,7 +185,7 @@ func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, exclude
 		})
 	}
 
-	return false, models.EmptyBlockID, errors.Newf("failed to create dislike for %s", conflictID)
+	return false, models.EmptyBlockID, errors.Errorf("failed to create dislike for %s", conflictID)
 }
 
 // firstValidAttachment returns the first valid attachment of the given transaction.

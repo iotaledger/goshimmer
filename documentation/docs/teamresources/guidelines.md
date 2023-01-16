@@ -39,7 +39,7 @@ keywords:
 
 ## Error Handling
 
-We use the new error wrapping API and behavior introduced with Go 1.13 but we use the "github.com/cockroachdb/errors" drop-in replacement which follows the Go 2 design draft and which enables us to have a stack trace for every "wrapping" of the error.
+We use the new error wrapping API and behavior introduced with Go 1.13 but we use the "github.com/pkg/errors" drop-in replacement which follows the Go 2 design draft and which enables us to have a stack trace for every "wrapping" of the error.
 
 Errors should always be wrapped and annotated with an additional block at each step. The following example shows how errors are wrapped and turned into the corresponding sentinel errors.
 
@@ -47,9 +47,10 @@ Errors should always be wrapped and annotated with an additional block at each s
 package example
 
 import (
+    "fmt"
     "3rdPartyLibrary"
-
-    "github.com/cockroachdb/errors"
+    
+    "github.com/pkg/errors"
 )
 
 // define error variables to make errors identifiable (sentinel errors)
@@ -58,7 +59,7 @@ var ErrSentinel = errors.New("identifiable error")
 // turn anonymous 3rd party errors into identifiable ones
 func SentinelErrFrom3rdParty() (result interface{}, err error)
     if result, err = 3rdPartyLibrary.DoSomething(); err != nil {
-        err = errors.Errorf("failed to do something (%v): %w", err, ErrSentinel)
+        err = errors.WithMessagef(ErrSentinel, "failed to do something (%s)", err.Error())
         return
     }
 
@@ -67,12 +68,13 @@ func SentinelErrFrom3rdParty() (result interface{}, err error)
 
 // wrap recursive errors at each step
 func WrappedErrFromInternalCall() error {
-    return errors.Errorf("wrapped internal error: %w", SentinelErrFrom3rdParty())
+	_, err := SentinelErrFrom3rdParty()
+    return errors.Wrap(err, "wrapped internal error")
 }
 
 // create "new" identifiable internal errors that are not originating in 3rd party libs
 func ErrFromInternalCall() error {
-    return errors.Errorf("internal error: %w", ErrSentinel)
+    return errors.WithMessage(ErrSentinel, "internal error")
 }
 
 // main function

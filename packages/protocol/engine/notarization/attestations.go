@@ -4,11 +4,11 @@ import (
 	"encoding/binary"
 	"io"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/iotaledger/hive.go/core/marshalutil"
 	"github.com/iotaledger/hive.go/core/syncutils"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/ads"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -92,17 +92,17 @@ func (a *Attestations) Commit(index epoch.Index) (attestations *ads.Map[identity
 	defer a.mutex.Unlock(index)
 
 	if attestations, weight, err = a.commit(index); err != nil {
-		return nil, 0, errors.Errorf("failed to commit attestations for epoch %d: %w", index, err)
+		return nil, 0, errors.Wrapf(err, "failed to commit attestations for epoch %d", index)
 	}
 
 	if err = a.setWeight(index, weight); err != nil {
-		return nil, 0, errors.Errorf("failed to commit attestations for epoch %d: %w", index, err)
+		return nil, 0, errors.Wrapf(err, "failed to commit attestations for epoch %d", index)
 	}
 
 	a.SetLastCommittedEpoch(index)
 
 	if err = a.flush(index); err != nil {
-		return nil, 0, errors.Errorf("failed to flush attestations for epoch %d: %w", index, err)
+		return nil, 0, errors.Wrapf(err, "failed to flush attestations for epoch %d", index)
 	}
 
 	return
@@ -133,34 +133,34 @@ func (a *Attestations) Get(index epoch.Index) (attestations *ads.Map[identity.ID
 func (a *Attestations) Import(reader io.ReadSeeker) (err error) {
 	epochIndex, err := stream.Read[uint64](reader)
 	if err != nil {
-		return errors.Errorf("failed to read epoch: %w", err)
+		return errors.Wrap(err, "failed to read epoch")
 	}
 
 	weight, err := stream.Read[int64](reader)
 	if err != nil {
-		return errors.Errorf("failed to read weight for epoch: %w", err)
+		return errors.Wrap(err, "failed to read weight for epoch")
 	}
 
 	attestations, err := a.attestations(epoch.Index(epochIndex))
 	if err != nil {
-		return errors.Errorf("failed to import attestations for epoch %d: %w", epochIndex, err)
+		return errors.Wrapf(err, "failed to import attestations for epoch %d", epochIndex)
 	}
 
 	importedAttestation := new(Attestation)
 	if err = stream.ReadCollection(reader, func(i int) (err error) {
 		if err = stream.ReadSerializable(reader, importedAttestation); err != nil {
-			return errors.Errorf("failed to read attestation %d: %w", i, err)
+			return errors.Wrapf(err, "failed to read attestation %d", i)
 		}
 
 		attestations.Set(importedAttestation.IssuerID, importedAttestation)
 
 		return
 	}); err != nil {
-		return errors.Errorf("failed to import attestations for epoch %d: %w", epochIndex, err)
+		return errors.Wrapf(err, "failed to import attestations for epoch %d", epochIndex)
 	}
 
 	if err = a.setWeight(epoch.Index(epochIndex), weight); err != nil {
-		return errors.Errorf("failed to set attestations weight of epoch %d: %w", epochIndex, err)
+		return errors.Wrapf(err, "failed to set attestations weight of epoch %d", epochIndex)
 	}
 
 	a.SetLastCommittedEpoch(epoch.Index(epochIndex))
@@ -172,31 +172,31 @@ func (a *Attestations) Import(reader io.ReadSeeker) (err error) {
 
 func (a *Attestations) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (err error) {
 	if err = stream.Write(writer, uint64(targetEpoch)); err != nil {
-		return errors.Errorf("failed to write epoch: %w", err)
+		return errors.Wrap(err, "failed to write epoch")
 	}
 
 	if weight, err := a.weight(targetEpoch); targetEpoch != 0 && err != nil {
-		return errors.Errorf("failed to obtain weight for epoch: %w", err)
+		return errors.Wrap(err, "failed to obtain weight for epoch")
 	} else if err = stream.Write(writer, weight); err != nil {
-		return errors.Errorf("failed to write epoch weight: %w", err)
+		return errors.Wrap(err, "failed to write epoch weight")
 	}
 
 	return stream.WriteCollection(writer, func() (elementsCount uint64, writeErr error) {
 		attestations, writeErr := a.attestations(targetEpoch)
 		if writeErr != nil {
-			return 0, errors.Errorf("failed to export attestations for epoch %d: %w", targetEpoch, writeErr)
+			return 0, errors.Wrapf(writeErr, "failed to export attestations for epoch %d", targetEpoch)
 		}
 
 		if streamErr := attestations.Stream(func(issuerID identity.ID, attestation *Attestation) bool {
 			if writeErr = stream.WriteSerializable(writer, attestation); writeErr != nil {
-				writeErr = errors.Errorf("failed to write attestation for issuer %s: %w", issuerID, writeErr)
+				writeErr = errors.Wrapf(writeErr, "failed to write attestation for issuer %s", issuerID)
 			} else {
 				elementsCount++
 			}
 
 			return writeErr == nil
 		}); streamErr != nil {
-			return 0, errors.Errorf("failed to stream attestations of epoch %d: %w", targetEpoch, streamErr)
+			return 0, errors.Wrapf(streamErr, "failed to stream attestations of epoch %d", targetEpoch)
 		}
 
 		return
@@ -205,7 +205,7 @@ func (a *Attestations) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (e
 
 func (a *Attestations) commit(index epoch.Index) (attestations *ads.Map[identity.ID, Attestation, *identity.ID, *Attestation], weight int64, err error) {
 	if attestations, err = a.attestations(index); err != nil {
-		return nil, 0, errors.Errorf("failed to get attestors for epoch %d: %w", index, err)
+		return nil, 0, errors.Wrapf(err, "failed to get attestors for epoch %d", index)
 	}
 
 	if cachedEpochStorage := a.cachedAttestations.Evict(index); cachedEpochStorage != nil {
@@ -227,11 +227,11 @@ func (a *Attestations) commit(index epoch.Index) (attestations *ads.Map[identity
 
 func (a *Attestations) flush(index epoch.Index) (err error) {
 	if err = a.persistentStorage().Flush(); err != nil {
-		return errors.Errorf("failed to flush persistent storage: %w", err)
+		return errors.Wrap(err, "failed to flush persistent storage")
 	}
 
 	if err = a.bucketedStorage(index).Flush(); err != nil {
-		return errors.Errorf("failed to flush attestations for epoch %d: %w", index, err)
+		return errors.Wrapf(err, "failed to flush attestations for epoch %d", index)
 	}
 
 	return
@@ -239,7 +239,7 @@ func (a *Attestations) flush(index epoch.Index) (err error) {
 
 func (a *Attestations) attestations(index epoch.Index) (attestations *ads.Map[identity.ID, Attestation, *identity.ID, *Attestation], err error) {
 	if attestationsStorage, err := a.bucketedStorage(index).WithExtendedRealm([]byte{PrefixAttestations}); err != nil {
-		return nil, errors.Errorf("failed to access storage for attestors of epoch %d: %w", index, err)
+		return nil, errors.Wrapf(err, "failed to access storage for attestors of epoch %d", index)
 	} else {
 		return ads.NewMap[identity.ID, Attestation](attestationsStorage), nil
 	}
@@ -251,7 +251,7 @@ func (a *Attestations) weight(index epoch.Index) (weight int64, err error) {
 			return 0, nil
 		}
 
-		return 0, errors.Errorf("failed to retrieve weight of attestations for epoch %d: %w", index, err)
+		return 0, errors.Wrapf(err, "failed to retrieve weight of attestations for epoch %d", index)
 	} else {
 		return int64(binary.LittleEndian.Uint64(value)), nil
 	}
@@ -262,7 +262,7 @@ func (a *Attestations) setWeight(index epoch.Index, weight int64) (err error) {
 	binary.LittleEndian.PutUint64(weightBytes, uint64(weight))
 
 	if err = a.bucketedStorage(index).Set([]byte{PrefixAttestationsWeight}, weightBytes); err != nil {
-		return errors.Errorf("failed to store weight of attestations for epoch %d: %w", index, err)
+		return errors.Wrapf(err, "failed to store weight of attestations for epoch %d", index)
 	}
 
 	return

@@ -5,10 +5,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -119,11 +119,11 @@ func (m *Manager) IsFullyCommitted() bool {
 
 func (m *Manager) NotarizeAcceptedBlock(block *models.Block) (err error) {
 	if err = m.EpochMutations.AddAcceptedBlock(block); err != nil {
-		return errors.Errorf("failed to add accepted block to epoch mutations: %w", err)
+		return errors.Wrap(err, "failed to add accepted block to epoch mutations")
 	}
 
 	if _, err = m.Attestations.Add(NewAttestation(block)); err != nil {
-		return errors.Errorf("failed to add block to attestations: %w", err)
+		return errors.Wrap(err, "failed to add block to attestations")
 	}
 
 	return
@@ -131,11 +131,11 @@ func (m *Manager) NotarizeAcceptedBlock(block *models.Block) (err error) {
 
 func (m *Manager) NotarizeOrphanedBlock(block *models.Block) (err error) {
 	if err = m.EpochMutations.RemoveAcceptedBlock(block); err != nil {
-		return errors.Errorf("failed to remove accepted block from epoch mutations: %w", err)
+		return errors.Wrap(err, "failed to remove accepted block from epoch mutations")
 	}
 
 	if _, err = m.Attestations.Delete(NewAttestation(block)); err != nil {
-		return errors.Errorf("failed to delete block from attestations: %w", err)
+		return errors.Wrap(err, "failed to delete block from attestations")
 	}
 
 	return
@@ -146,7 +146,7 @@ func (m *Manager) Import(reader io.ReadSeeker) (err error) {
 	defer m.commitmentMutex.Unlock()
 
 	if err = m.Attestations.Import(reader); err != nil {
-		return errors.Errorf("failed to import attestations: %w", err)
+		return errors.Wrap(err, "failed to import attestations")
 	}
 
 	m.TriggerInitialized()
@@ -159,7 +159,7 @@ func (m *Manager) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (err er
 	defer m.commitmentMutex.RUnlock()
 
 	if err = m.Attestations.Export(writer, targetEpoch); err != nil {
-		return errors.Errorf("failed to export attestations: %w", err)
+		return errors.Wrap(err, "failed to export attestations")
 	}
 
 	return
@@ -198,19 +198,19 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 	m.pendingConflictsCounters.Delete(index)
 
 	if err := m.ledgerState.ApplyStateDiff(index); err != nil {
-		m.Events.Error.Trigger(errors.Errorf("failed to apply state diff for epoch %d: %w", index, err))
+		m.Events.Error.Trigger(errors.Wrapf(err, "failed to apply state diff for epoch %d", index))
 		return false
 	}
 
 	acceptedBlocks, acceptedTransactions, err := m.EpochMutations.Evict(index)
 	if err != nil {
-		m.Events.Error.Trigger(errors.Errorf("failed to commit mutations: %w", err))
+		m.Events.Error.Trigger(errors.Wrap(err, "failed to commit mutations"))
 		return false
 	}
 
 	attestations, attestationsWeight, err := m.Attestations.Commit(index)
 	if err != nil {
-		m.Events.Error.Trigger(errors.Errorf("failed to commit attestations: %w", err))
+		m.Events.Error.Trigger(errors.Wrap(err, "failed to commit attestations"))
 		return false
 	}
 
@@ -228,11 +228,11 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 	)
 
 	if err = m.storage.Settings.SetLatestCommitment(newCommitment); err != nil {
-		m.Events.Error.Trigger(errors.Errorf("failed to set latest commitment: %w", err))
+		m.Events.Error.Trigger(errors.Wrap(err, "failed to set latest commitment"))
 	}
 
 	if err = m.storage.Commitments.Store(newCommitment); err != nil {
-		m.Events.Error.Trigger(errors.Errorf("failed to store latest commitment: %w", err))
+		m.Events.Error.Trigger(errors.Wrap(err, "failed to store latest commitment"))
 	}
 
 	m.Events.EpochCommitted.Trigger(&EpochCommittedDetails{

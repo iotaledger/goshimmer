@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/cerrors"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/walker"
 	"github.com/iotaledger/hive.go/core/syncutils"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/causalorder"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -238,7 +238,7 @@ func (b *Booker) book(block *Block) (err error) {
 		}
 
 		if err := b.inheritConflictIDs(block); err != nil {
-			return errors.Errorf("error inheriting conflict IDs: %w", err)
+			return errors.Wrap(err, "error inheriting conflict IDs")
 		}
 		return nil
 	}
@@ -264,7 +264,7 @@ func (b *Booker) inheritConflictIDs(block *Block) (err error) {
 
 	parentsStructureDetails, pastMarkersConflictIDs, inheritedConflictIDs, err := b.determineBookingDetails(block)
 	if err != nil {
-		return errors.Errorf("failed to inherit conflict IDs: %w", err)
+		return errors.Wrap(err, "failed to inherit conflict IDs")
 	}
 
 	newStructureDetails := b.markerManager.ProcessBlock(block, parentsStructureDetails, inheritedConflictIDs)
@@ -295,7 +295,7 @@ func (b *Booker) determineBookingDetails(block *Block) (parentsStructureDetails 
 
 	likedConflictIDs, dislikedConflictIDs, shallowLikeErr := b.collectShallowLikedParentsConflictIDs(block)
 	if shallowLikeErr != nil {
-		return nil, nil, nil, errors.Errorf("failed to collect shallow likes of %s: %w", block.ID(), shallowLikeErr)
+		return nil, nil, nil, errors.Wrapf(shallowLikeErr, "failed to collect shallow likes of %s", block.ID())
 	}
 
 	inheritedConflictIDs.AddAll(strongParentsConflictIDs)
@@ -364,7 +364,7 @@ func (b *Booker) collectShallowLikedParentsConflictIDs(block *Block) (collectedL
 		}
 		transaction, isTransaction := parentBlock.Transaction()
 		if !isTransaction {
-			err = errors.Errorf("%s referenced by a shallow like of %s does not contain a Transaction: %w", parentBlockID, block.ID(), cerrors.ErrFatal)
+			err = errors.WithMessagef(cerrors.ErrFatal, "%s referenced by a shallow like of %s does not contain a Transaction", parentBlockID, block.ID())
 			return false
 		}
 
@@ -374,7 +374,7 @@ func (b *Booker) collectShallowLikedParentsConflictIDs(block *Block) (collectedL
 			conflictingTransactionID := it.Next()
 			dislikedConflicts, dislikedConflictsErr := b.Ledger.Utils.TransactionConflictIDs(conflictingTransactionID)
 			if dislikedConflictsErr != nil {
-				err = errors.Errorf("failed to retrieve disliked ConflictIDs of Transaction with %s contained in %s referenced by a shallow like of %s: %w", conflictingTransactionID, parentBlockID, block.ID(), dislikedConflictsErr)
+				err = errors.Wrapf(dislikedConflictsErr, "failed to retrieve disliked ConflictIDs of Transaction with %s contained in %s referenced by a shallow like of %s", conflictingTransactionID, parentBlockID, block.ID())
 				return false
 			}
 			collectedDislikedConflictIDs.AddAll(dislikedConflicts)
@@ -431,7 +431,7 @@ func (b *Booker) setupEvents() {
 
 	b.Ledger.Events.TransactionConflictIDUpdated.Hook(event.NewClosure(func(event *ledger.TransactionConflictIDUpdatedEvent) {
 		if err := b.PropagateForkedConflict(event.TransactionID, event.AddedConflictID, event.RemovedConflictIDs); err != nil {
-			b.Events.Error.Trigger(errors.Errorf("failed to propagate Conflict update of %s to BlockDAG: %w", event.TransactionID, err))
+			b.Events.Error.Trigger(errors.Wrapf(err, "failed to propagate Conflict update of %s to BlockDAG", event.TransactionID))
 		}
 	}))
 
@@ -456,7 +456,7 @@ func (b *Booker) PropagateForkedConflict(transactionID, addedConflictID utxo.Tra
 		updated, propagateFurther, forkErr := b.propagateForkedConflict(block, addedConflictID, removedConflictIDs)
 		if forkErr != nil {
 			blockWalker.StopWalk()
-			return errors.Errorf("failed to propagate forked ConflictID %s to future cone of %s: %w", addedConflictID, block.ID(), forkErr)
+			return errors.Wrapf(forkErr, "failed to propagate forked ConflictID %s to future cone of %s", addedConflictID, block.ID())
 		}
 		if !updated {
 			continue
@@ -485,7 +485,7 @@ func (b *Booker) propagateForkedConflict(block *Block, addedConflictID utxo.Tran
 
 	if structureDetails := block.StructureDetails(); structureDetails.IsPastMarker() {
 		if err = b.propagateForkedTransactionToMarkerFutureCone(structureDetails.PastMarkers().Marker(), addedConflictID, removedConflictIDs); err != nil {
-			return false, false, errors.Errorf("failed to propagate conflict %s to future cone of %s: %w", addedConflictID, structureDetails.PastMarkers().Marker(), err)
+			return false, false, errors.Wrapf(err, "failed to propagate conflict %s to future cone of %v", addedConflictID, structureDetails.PastMarkers().Marker())
 		}
 		return true, false, nil
 	}
@@ -512,7 +512,7 @@ func (b *Booker) propagateForkedTransactionToMarkerFutureCone(marker markers.Mar
 		currentMarker := markerWalker.Next()
 
 		if err = b.forkSingleMarker(currentMarker, conflictID, removedConflictIDs, markerWalker); err != nil {
-			return errors.Errorf("failed to propagate Conflict%s to Blocks approving %s: %w", conflictID, currentMarker, err)
+			return errors.Wrapf(err, "failed to propagate Conflict %s to Blocks approving %v", conflictID, currentMarker)
 		}
 	}
 

@@ -4,13 +4,13 @@ import (
 	"context"
 	"sync"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/libp2p/go-libp2p/core/host"
 	libp2ppeer "github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
+	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -264,7 +264,7 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 	if err := m.setNeighbor(nbr); err != nil {
 		for _, ps := range streams {
 			if resetErr := ps.Close(); resetErr != nil {
-				err = errors.CombineErrors(err, resetErr)
+				nbr.Log.Errorw("error closing stream", "err", resetErr)
 			}
 		}
 		return errors.WithStack(err)

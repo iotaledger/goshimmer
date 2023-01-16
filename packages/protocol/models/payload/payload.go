@@ -3,8 +3,8 @@ package payload
 import (
 	"context"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/serix"
+	"github.com/pkg/errors"
 )
 
 // MaxSize = MaxBlockSize -
@@ -24,7 +24,7 @@ type Payload interface {
 	// Bytes returns a marshaled version of the Payload.
 	Bytes() ([]byte, error)
 
-	// String returns a human readable version of the Payload.
+	// String returns a human-readable version of the Payload.
 	String() string
 }
 
@@ -34,7 +34,7 @@ func FromBytes(data []byte) (payloadDecoded Payload, consumedBytes int, err erro
 
 	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), data, payloadDecoded, serix.WithValidation())
 	if err != nil {
-		err = errors.Errorf("failed to parse Chat Payload: %w", err)
+		err = errors.Wrap(err, "failed to parse Chat Payload")
 		return
 	}
 
