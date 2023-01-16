@@ -127,11 +127,7 @@ func (b *BlockDAG) evictEpoch(index epoch.Index) {
 }
 
 func (b *BlockDAG) markSolid(block *Block) (err error) {
-	if err := b.checkTimestampMonotonicity(block); err != nil {
-		return err
-	}
-
-	if err := b.checkCommitmentMonotonicity(block); err != nil {
+	if err := b.checkParents(block); err != nil {
 		return err
 	}
 
@@ -142,22 +138,24 @@ func (b *BlockDAG) markSolid(block *Block) (err error) {
 	return nil
 }
 
-func (b *BlockDAG) checkTimestampMonotonicity(block *Block) error {
+func (b *BlockDAG) checkParents(block *Block) (err error) {
 	for _, parentID := range block.Parents() {
 		parent, parentExists := b.Block(parentID)
-		if parentExists && parent.IssuingTime().After(block.IssuingTime()) {
+		if !parentExists {
+			continue
+		}
+
+		// check timestamp monotonicity
+		if parent.IssuingTime().After(block.IssuingTime()) {
 			return errors.Errorf("timestamp monotonicity check failed for parent %s with timestamp %s. block timestamp %s", parent.ID(), parent.IssuingTime(), block.IssuingTime())
 		}
-	}
-	return nil
-}
 
-func (b *BlockDAG) checkCommitmentMonotonicity(block *Block) error {
-	for _, parentID := range block.Parents() {
-		if parent, exists := b.Block(parentID); exists && parent.Commitment().Index() > block.Commitment().Index() {
+		// check commitment monotonicity
+		if parent.Commitment().Index() > block.Commitment().Index() {
 			return errors.Errorf("commitment monotonicity check failed for parent %s with commitment index %d. block commitment index %d", parentID, parent.Commitment().Index(), block.Commitment().Index())
 		}
 	}
+
 	return nil
 }
 
