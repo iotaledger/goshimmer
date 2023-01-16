@@ -25,7 +25,7 @@ services:
       --analysis.server.bindAddress=0.0.0.0:21888
       --analysis.dashboard.bindAddress=0.0.0.0:28080
       --analysis.dashboard.manaDashboardAddress="{{ manaDashboardHost }}"
-      --metricsCollector.bindAddress=0.0.0.0:9311
+      --metrics.bindAddress=0.0.0.0:9311
       --node.enablePlugins=analysisServer,analysisDashboard,metricsCollector
       --node.disablePlugins=autopeering,webapihealthzendpoint,notarization,blockissuer,activity,profiling,manainitializer,webapiledgerstateendpoint,retainer,prometheus,webapiinfoendpoint,webapiratesetterendpoint,dagsvisualizer,network,firewall,p2p,webapiepochendpoint,chat,webapimanaendpoint,remotelog,warpsync,manualpeering,remotelogmetrics,webapifaucetrequestendpoint,database,faucet,indexer,protocol,dashboard,analysisclient,remotemetrics,webapiblockendpoint,webapiweightproviderendpoint,portcheck,metrics,webapidataendpoint,webapischedulerendpoint
       --logger.level={{ logLevel }}

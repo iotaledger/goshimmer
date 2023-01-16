@@ -19,9 +19,9 @@ services:
       --database.directory=/app/db
       --protocol.snapshot.path=./snapshot.bin
       --blockIssuer.rateSetter.enable=false
-      --metricsCollector.bindAddress=0.0.0.0:9311
-      --metricsCollector.processMetrics=true
-      --metricsCollector.goMetrics=true
+      --metrics.bindAddress=0.0.0.0:9311
+      --metrics.processMetrics=true
+      --metrics.goMetrics=true
       --blockIssuer.ignoreBootstrappedFlag=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
@@ -53,10 +53,10 @@ services:
       --node.overwriteStoredSeed=true
       --protocol.snapshot.path=./snapshot.bin
       --blockIssuer.rateSetter.enable=false
-      --metricsCollector.bindAddress=0.0.0.0:9311
+      --metrics.bindAddress=0.0.0.0:9311
       --protocol.genesisTime=${GENESIS_TIME}
-      --metricsCollector.processMetrics=true
-      --metricsCollector.goMetrics=true
+      --metrics.processMetrics=true
+      --metrics.goMetrics=true
     deploy:
       replicas: ${GOSHIMMER_PEER_REPLICAS:-1}
     secrets:
@@ -80,9 +80,9 @@ services:
       --database.directory=/app/db
       --protocol.snapshot.path=./snapshot.bin
       --blockIssuer.rateSetter.enable=false
-      --metricsCollector.bindAddress=0.0.0.0:9311
-      --metricsCollector.processMetrics=true
-      --metricsCollector.goMetrics=true
+      --metrics.bindAddress=0.0.0.0:9311
+      --metrics.processMetrics=true
+      --metrics.goMetrics=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
     secrets:
@@ -108,13 +108,13 @@ services:
       --config=/run/secrets/goshimmer.config.json
       --protocol.snapshot.path=./snapshot.bin
       --blockIssuer.rateSetter.enable=false
-      --metricsCollector.bindAddress=0.0.0.0:9311
-      --metricsCollector.bindAddress=0.0.0.0:9311
+      --metrics.bindAddress=0.0.0.0:9311
+      --metrics.bindAddress=0.0.0.0:9311
       --protocol.genesisTime=${GENESIS_TIME}
-      --metricsCollector.processMetrics=true
-      --metricsCollector.goMetrics=true
-      --metricsCollector.processMetrics=true
-      --metricsCollector.goMetrics=true
+      --metrics.processMetrics=true
+      --metrics.goMetrics=true
+      --metrics.processMetrics=true
+      --metrics.goMetrics=true
       --profiling.bindAddress=0.0.0.0:6061
     secrets:
       - goshimmer.config.json
@@ -143,9 +143,9 @@ services:
       --database.directory=/app/db
       --protocol.snapshot.path=./snapshot.bin
       --blockIssuer.rateSetter.enable=false
-      --metricsCollector.bindAddress=0.0.0.0:9311
-      --metricsCollector.processMetrics=true
-      --metricsCollector.goMetrics=true
+      --metrics.bindAddress=0.0.0.0:9311
+      --metrics.processMetrics=true
+      --metrics.goMetrics=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
     secrets:

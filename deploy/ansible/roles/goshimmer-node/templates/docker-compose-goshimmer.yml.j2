@@ -57,7 +57,7 @@ services:
      {% endif %}
       --node.disablePlugins=portcheck,ManaInitializer{% if remoteLogs|default(false) == false %},RemoteLog,RemoteLogMetrics{% endif %}
       --node.enablePlugins=dashboard,networkdelay,metricsCollector{% if faucet|default(false) %},faucet,WebAPIFaucetEndpoint{% endif %},activity,snapshot,WebAPIToolsBlockEndpoint,"WebAPI tools Endpoint"{% if spammer|default(false) %},spammer{% endif %}{% if remoteLogs|default(false) %},RemoteLog,RemoteLogMetrics{% endif %}
-      --metricsCollector.bindAddress=0.0.0.0:9311
+      --metrics.bindAddress=0.0.0.0:9311
       --activity.broadcastInterval=1s
      {% if faucet|default(false) %}
       --faucet.seed={{ faucetSeed }}
@@ -78,5 +78,5 @@ services:
       {% if genesisTime|default(None) %}
       --protocol.genesisTime={{ genesisTime }}
       {% endif %}
-      --metricsCollector.goMetrics=true
-      --metricsCollector.processMetrics=true
+      --metrics.goMetrics=true
+      --metrics.processMetrics=true

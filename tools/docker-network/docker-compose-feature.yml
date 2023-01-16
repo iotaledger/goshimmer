@@ -29,9 +29,9 @@ services:
       --node.peerDBDirectory=/app/peerdb
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
       --node.enablePlugins=metricsCollector,spammer,WebAPIToolsBlockEndpoint,activity
-      --metricsCollector.bindAddress=0.0.0.0:9311
-      --metricsCollector.processMetrics=true
-      --metricsCollector.goMetrics=true
+      --metrics.bindAddress=0.0.0.0:9311
+      --metrics.processMetrics=true
+      --metrics.goMetrics=true
       --blockIssuer.ignoreBootstrappedFlag=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
@@ -72,9 +72,9 @@ services:
       --node.peerDBDirectory=/app/peerdb
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
       --node.enablePlugins=metricsCollector,spammer,WebAPIToolsBlockEndpoint,activity,faucet
-      --metricsCollector.bindAddress=0.0.0.0:9311
-      --metricsCollector.processMetrics=true
-      --metricsCollector.goMetrics=true
+      --metrics.bindAddress=0.0.0.0:9311
+      --metrics.processMetrics=true
+      --metrics.goMetrics=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
     secrets:
@@ -112,9 +112,9 @@ services:
       --node.peerDBDirectory=/app/peerdb
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
       --node.enablePlugins=metricsCollector,spammer,WebAPIToolsBlockEndpoint,activity
-      --metricsCollector.bindAddress=0.0.0.0:9311
-      --metricsCollector.processMetrics=true
-      --metricsCollector.goMetrics=true
+      --metrics.bindAddress=0.0.0.0:9311
+      --metrics.processMetrics=true
+      --metrics.goMetrics=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
     secrets:
@@ -151,9 +151,9 @@ services:
       --node.peerDBDirectory=/app/peerdb
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
       --node.enablePlugins=metricsCollector,spammer,WebAPIToolsBlockEndpoint,activity
-      --metricsCollector.bindAddress=0.0.0.0:9311
-      --metricsCollector.processMetrics=true
-      --metricsCollector.goMetrics=true
+      --metrics.bindAddress=0.0.0.0:9311
+      --metrics.processMetrics=true
+      --metrics.goMetrics=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
     secrets:
@@ -189,9 +189,9 @@ services:
       --node.peerDBDirectory=/app/peerdb
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
       --node.enablePlugins=metricsCollector,spammer,WebAPIToolsBlockEndpoint,activity
-      --metricsCollector.bindAddress=0.0.0.0:9311
-      --metricsCollector.processMetrics=true
-      --metricsCollector.goMetrics=true
+      --metrics.bindAddress=0.0.0.0:9311
+      --metrics.processMetrics=true
+      --metrics.goMetrics=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
     secrets:
@@ -227,9 +227,9 @@ services:
       --node.peerDBDirectory=/app/peerdb
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
       --node.enablePlugins=metricsCollector,spammer,WebAPIToolsBlockEndpoint,activity
-      --metricsCollector.bindAddress=0.0.0.0:9311
-      --metricsCollector.processMetrics=true
-      --metricsCollector.goMetrics=true
+      --metrics.bindAddress=0.0.0.0:9311
+      --metrics.processMetrics=true
+      --metrics.goMetrics=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
     secrets:
@@ -265,9 +265,9 @@ services:
       --node.peerDBDirectory=/app/peerdb
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
       --node.enablePlugins=metricsCollector,spammer,WebAPIToolsBlockEndpoint,activity
-      --metricsCollector.bindAddress=0.0.0.0:9311
-      --metricsCollector.processMetrics=true
-      --metricsCollector.goMetrics=true
+      --metrics.bindAddress=0.0.0.0:9311
+      --metrics.processMetrics=true
+      --metrics.goMetrics=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
     secrets:
@@ -303,9 +303,9 @@ services:
       --node.peerDBDirectory=/app/peerdb
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
       --node.enablePlugins=metricsCollector,spammer,WebAPIToolsBlockEndpoint,activity
-      --metricsCollector.bindAddress=0.0.0.0:9311
-      --metricsCollector.processMetrics=true
-      --metricsCollector.goMetrics=true
+      --metrics.bindAddress=0.0.0.0:9311
+      --metrics.processMetrics=true
+      --metrics.goMetrics=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
     secrets:

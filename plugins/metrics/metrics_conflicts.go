@@ -1,4 +1,4 @@
-package metricscollector
+package metrics
 
 import (
 	"time"
@@ -15,7 +15,6 @@ const (
 	resolutionTime        = "resolution_time_seconds_total"
 	allConflictCounts     = "created_total"
 	resolvedConflictCount = "resolved_total"
-	activeConflicts       = "active_conflicts"
 )
 
 var ConflictMetrics = collector.NewCollection(conflictNamespace,

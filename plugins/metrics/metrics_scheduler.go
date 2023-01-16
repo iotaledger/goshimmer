@@ -1,4 +1,4 @@
-package metricscollector
+package metrics
 
 import (
 	"github.com/iotaledger/goshimmer/packages/app/collector"

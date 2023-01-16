@@ -1,4 +1,4 @@
-package metricscollector
+package metrics
 
 // metricsCollector is the plugin instance responsible for collection of prometheus metrics.
 // All metrics should be defined in metrics_namespace.go files with different namespace for each new collection.
