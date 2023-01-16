@@ -151,7 +151,7 @@ func (p *Protocol) initNetworkProtocol() {
 
 	p.networkProtocol.Events.BlockReceived.Attach(event.NewClosure(func(event *network.BlockReceivedEvent) {
 		if err := p.ProcessBlock(event.Block, event.Source); err != nil {
-			panic(err)
+			fmt.Print(err)
 		}
 	}))
 
