@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/stretchr/testify/assert"
 
@@ -51,6 +52,11 @@ func Test_PruneMarkerBlockMapping(t *testing.T) {
 
 	assert.Equal(t, epochCount, markerManager.markerBlockMapping.Size(), "expected the marker block mapping to have %d elements", epochCount)
 	assert.Equal(t, epochCount, markerManager.markerBlockMappingEviction.Size(), "expected the marker block pruning map to have %d elements", epochCount)
+	assert.Equal(t, 1, markerManager.sequenceMarkersMapping.Size(), "expected the sequence marker tree map to be have 1 element")
+
+	markerIndexTree, exists := markerManager.sequenceMarkersMapping.Get(1)
+	assert.True(t, exists, "expected the sequence marker tree map to be contain tree map for SequenceID(1)")
+	assert.Equal(t, epochCount, markerIndexTree.Size(), "expected the trees map to have %d elements", epochCount)
 
 	validateBlockMarkerMappingPruning(t, markerBlockMapping, markerManager, 0)
 
@@ -66,6 +72,86 @@ func Test_PruneMarkerBlockMapping(t *testing.T) {
 
 	assert.Equal(t, 0, markerManager.markerBlockMapping.Size(), "expected the marker block mapping to be empty")
 	assert.Equal(t, 0, markerManager.markerBlockMappingEviction.Size(), "expected the marker block pruning map to be empty")
+	assert.Equal(t, 0, markerManager.sequenceMarkersMapping.Size(), "expected the sequence marker tree map to be have 0 elements")
+}
+
+// We create epochCount blocks, each in a different epoch and with a different marker, then we prune the markerManager and expect the mapping to be pruned accordingly.
+func Test_BlockMarkerCeilingFloor(t *testing.T) {
+	const blockCount = 100
+	const markerGap = 100000
+
+	markerManager := NewMarkerManager[models.BlockID, *blockdag.Block]()
+
+	tf := blockdag.NewTestFramework(t)
+
+	// create a helper function that creates the blocks
+	createNewBlock := func(idx int, prefix string) (block *blockdag.Block) {
+		alias := fmt.Sprintf("blk%s-%d", prefix, idx)
+		if idx == 1 {
+			return blockdag.NewBlock(tf.CreateBlock(
+				alias,
+				models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0)),
+			))
+		}
+		return blockdag.NewBlock(tf.CreateBlock(
+			alias,
+			models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk%s-%d", prefix, idx-1))),
+			models.WithIssuingTime(time.Unix(epoch.GenesisTime+int64(idx-1)*epoch.Duration, 0)),
+		))
+	}
+
+	markerBlockMapping := make(map[markers.Marker]*blockdag.Block, blockCount)
+	for i := 1; i <= blockCount; i++ {
+		blk := createNewBlock(i, "")
+		markerBlockMapping[markers.NewMarker(1, markers.Index(i))] = blk
+		markerManager.addMarkerBlockMapping(markers.NewMarker(1, markers.Index(i)), blk)
+	}
+
+	for i := blockCount + markerGap; i <= 2*blockCount+markerGap; i++ {
+		blk := createNewBlock(i-markerGap, "")
+		markerBlockMapping[markers.NewMarker(1, markers.Index(i))] = blk
+		markerManager.addMarkerBlockMapping(markers.NewMarker(1, markers.Index(i)), blk)
+	}
+
+	validateBlockMarkerMappingPruning(t, markerBlockMapping, markerManager, 0)
+
+	ceilingMarker, exists := markerManager.BlockCeiling(markers.NewMarker(1, blockCount))
+	assert.True(t, exists, "ceiling marker should exist")
+	assert.Equal(t, markers.NewMarker(1, blockCount), ceilingMarker, "ceiling marker incorrect")
+
+	ceilingMarker, exists = markerManager.BlockCeiling(markers.NewMarker(1, blockCount+1))
+	assert.True(t, exists, "ceiling marker should exist")
+	assert.Equal(t, markers.NewMarker(1, blockCount+markerGap), ceilingMarker, "ceiling marker incorrect")
+
+	ceilingMarker, exists = markerManager.BlockCeiling(markers.NewMarker(1, blockCount+markerGap-1))
+	assert.True(t, exists, "ceiling marker should exist")
+	assert.Equal(t, markers.NewMarker(1, blockCount+markerGap), ceilingMarker, "ceiling marker incorrect")
+
+	ceilingMarker, exists = markerManager.BlockCeiling(markers.NewMarker(1, 0))
+	assert.True(t, exists, "ceiling marker should exist")
+	assert.Equal(t, markers.NewMarker(1, 1), ceilingMarker, "ceiling marker incorrect")
+
+	_, exists = markerManager.BlockCeiling(markers.NewMarker(1, 2*blockCount+markerGap+1))
+	assert.False(t, exists, "ceiling marker should not exist")
+
+	floorMarker, exists := markerManager.BlockFloor(markers.NewMarker(1, blockCount))
+	assert.True(t, exists, "floor marker should exist")
+	assert.Equal(t, markers.NewMarker(1, blockCount), floorMarker, "floor marker incorrect")
+
+	floorMarker, exists = markerManager.BlockFloor(markers.NewMarker(1, blockCount+1))
+	assert.True(t, exists, "floor marker should exist")
+	assert.Equal(t, markers.NewMarker(1, blockCount), floorMarker, "floor marker incorrect")
+
+	floorMarker, exists = markerManager.BlockFloor(markers.NewMarker(1, blockCount+markerGap-1))
+	assert.True(t, exists, "floor marker should exist")
+	assert.Equal(t, markers.NewMarker(1, blockCount), floorMarker, "floor marker incorrect")
+
+	floorMarker, exists = markerManager.BlockFloor(markers.NewMarker(1, 2*blockCount+markerGap+100))
+	assert.True(t, exists, "floor marker should exist")
+	assert.Equal(t, markers.NewMarker(1, 2*blockCount+markerGap), floorMarker, "floor marker incorrect")
+
+	_, exists = markerManager.BlockFloor(markers.NewMarker(1, 0))
+	assert.False(t, exists, "floor marker should not exist")
 }
 
 // We create sequences for an epoch X, each epoch contains sequences <X; X+5>.
@@ -247,6 +333,8 @@ func validateBlockMarkerMappingPruning(t *testing.T, markerBlockMapping map[mark
 			continue
 		}
 		assert.True(t, exists, "expected block %s with marker %s to be kept", expectedBlock.ID(), marker)
+		assert.Equal(t, marker, lo.Return1(markerManager.BlockCeiling(marker)), "expected Ceiling to return the marker")
+		assert.Equal(t, marker, lo.Return1(markerManager.BlockFloor(marker)), "expected Floor to return the marker")
 		assert.Equal(t, expectedBlock.ID(), mappedBlock.ID(), "expected the marker %s to be mapped to block %s, but got %s", marker, expectedBlock.ID(), mappedBlock.ID())
 	}
 }
