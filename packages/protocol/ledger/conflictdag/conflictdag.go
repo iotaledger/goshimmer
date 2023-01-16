@@ -3,11 +3,13 @@ package conflictdag
 import (
 	"sync"
 
+	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/generics/walker"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 )
@@ -23,15 +25,14 @@ type ConflictDAG[ConflictIDType, ResourceIDType comparable] struct {
 
 	conflicts    *memstorage.Storage[ConflictIDType, *Conflict[ConflictIDType, ResourceIDType]]
 	conflictSets *memstorage.Storage[ResourceIDType, *ConflictSet[ConflictIDType, ResourceIDType]]
-
-	optsMergeToMaster bool
+	evictionMap  *memstorage.Storage[epoch.Index, set.Set[ResourceIDType]]
 
 	// evictionMutex is a mutex that is used to synchronize the eviction of elements from the ConflictDAG.
 	evictionMutex sync.RWMutex
-
-	// TODO: is this mutex needed?
-	// mutex RWMutex is a mutex that prevents that two processes simultaneously update the ConfirmationState.
+	// mutex RWMutex is a mutex that prevents that two processes simultaneously update the ConflictDAG.
 	mutex sync.RWMutex
+
+	optsMergeToMaster bool
 }
 
 // New is the constructor for the BlockDAG and creates a new BlockDAG instance.
@@ -41,10 +42,11 @@ func New[ConflictIDType, ResourceIDType comparable](evictionState *eviction.Stat
 		EvictionState:     evictionState,
 		conflicts:         memstorage.New[ConflictIDType, *Conflict[ConflictIDType, ResourceIDType]](),
 		conflictSets:      memstorage.New[ResourceIDType, *ConflictSet[ConflictIDType, ResourceIDType]](),
+		evictionMap:       memstorage.New[epoch.Index, set.Set[ResourceIDType]](),
 		optsMergeToMaster: true,
-	}, opts, func(b *ConflictDAG[ConflictIDType, ResourceIDType]) {
+	}, opts, func(c *ConflictDAG[ConflictIDType, ResourceIDType]) {
 
-		// TODO: evictionState.Events.EpochEvicted.Hook(event.NewClosure(b.evictEpoch))
+		evictionState.Events.EpochEvicted.Hook(event.NewClosure(c.evictEpoch))
 	})
 }
 
@@ -77,7 +79,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) CreateConflict(id Conflict
 		parentID := it.Next()
 		parent, exists := c.conflicts.Get(parentID)
 		if !exists {
-			// TODO: what do we do? does it mean the parent has been evicted already?
+			// if the parent does not exist it means that it has been evicted already. We can ignore it.
 			continue
 		}
 		conflictParents.Add(parent)
@@ -447,6 +449,31 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) ForEachConflict(consumer f
 		consumer(conflict)
 		return true
 	})
+}
+
+func (c *ConflictDAG[ConflictIDType, ResourceIDType]) evictEpoch(index epoch.Index) {
+	c.evictionMutex.Lock()
+	defer c.evictionMutex.Unlock()
+
+	conflictSets, exists := c.evictionMap.Get(index)
+	if !exists {
+		return
+	}
+
+	conflictSets.ForEach(func(conflictSetID ResourceIDType) {
+		conflictSet, conflictSetExists := c.conflictSets.Get(conflictSetID)
+		if !conflictSetExists {
+			return
+		}
+		c.conflictSets.Delete(conflictSetID)
+
+		for it := conflictSet.Conflicts().Iterator(); it.HasNext(); {
+			conflict := it.Next()
+			c.conflicts.Delete(conflict.ID())
+		}
+	})
+
+	c.evictionMap.Delete(index)
 }
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
