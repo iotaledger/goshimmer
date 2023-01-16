@@ -39,7 +39,7 @@ type TipManager struct {
 
 	schedulerBlockRetrieverFunc blockRetrieverFunc
 
-	tips          *randommap.RandomMap[*scheduler.Block, *scheduler.Block]
+	tips          *randommap.RandomMap[models.BlockID, *scheduler.Block]
 	futureTips    *memstorage.EpochStorage[commitment.ID, *memstorage.Storage[models.BlockID, *scheduler.Block]]
 	evictionMutex sync.RWMutex
 	// TODO: reintroduce TipsConflictTracker
@@ -56,7 +56,7 @@ func New(schedulerBlockRetrieverFunc blockRetrieverFunc, opts ...options.Option[
 
 		schedulerBlockRetrieverFunc: schedulerBlockRetrieverFunc,
 
-		tips:       randommap.New[*scheduler.Block, *scheduler.Block](),
+		tips:       randommap.New[models.BlockID, *scheduler.Block](),
 		futureTips: memstorage.NewEpochStorage[commitment.ID, *memstorage.Storage[models.BlockID, *scheduler.Block]](),
 		// TODO: reintroduce TipsConflictTracker
 		// tipsConflictTracker: NewTipsConflictTracker(tangle),
@@ -67,7 +67,7 @@ func New(schedulerBlockRetrieverFunc blockRetrieverFunc, opts ...options.Option[
 }
 
 func (t *TipManager) LinkTo(engine *engine.Engine) {
-	t.tips = randommap.New[*scheduler.Block, *scheduler.Block]()
+	t.tips = randommap.New[models.BlockID, *scheduler.Block]()
 	t.engine = engine
 	t.blockAcceptanceGadget = engine.Consensus.BlockGadget
 }
@@ -104,7 +104,7 @@ func (t *TipManager) AddTip(block *scheduler.Block) {
 }
 
 func (t *TipManager) DeleteTip(block *scheduler.Block) (deleted bool) {
-	if _, deleted = t.tips.Delete(block); deleted {
+	if _, deleted = t.tips.Delete(block.ID()); deleted {
 		// t.tipsConflictTracker.RemoveTip(block)
 		t.Events.TipRemoved.Trigger(block)
 	}
@@ -172,8 +172,14 @@ func (t *TipManager) selectTips(count int) (parents models.BlockIDs) {
 }
 
 // AllTips returns a list of all tips that are stored in the TipManger.
-func (t *TipManager) AllTips() []*scheduler.Block {
-	return t.tips.Keys()
+func (t *TipManager) AllTips() (allTips []*scheduler.Block) {
+	allTips = make([]*scheduler.Block, 0, t.tips.Size())
+	t.tips.ForEach(func(_ models.BlockID, value *scheduler.Block) bool {
+		allTips = append(allTips, value)
+		return true
+	})
+
+	return
 }
 
 // TipCount the amount of tips.
@@ -228,8 +234,8 @@ type markerPreviousBlockPair struct {
 }
 
 func (t *TipManager) addTip(block *scheduler.Block) (added bool) {
-	if !t.tips.Has(block) {
-		t.tips.Set(block, block)
+	if !t.tips.Has(block.ID()) {
+		t.tips.Set(block.ID(), block)
 		// t.tipsConflictTracker.AddTip(block)
 		t.Events.TipAdded.Trigger(block)
 		return true
