@@ -14,7 +14,7 @@ import (
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/metrics"
+	"github.com/iotaledger/goshimmer/plugins/dashboardmetrics"
 )
 
 var (
@@ -65,26 +65,26 @@ func configureWebSocketWorkerPool() {
 }
 
 func runWebSocketStreams() {
-	updateStatus := event.NewClosure(func(event *metrics.AttachedBPSUpdatedEvent) {
+	updateStatus := event.NewClosure(func(event *dashboardmetrics.AttachedBPSUpdatedEvent) {
 		wsSendWorkerPool.TrySubmit(event.BPS)
 	})
-	updateComponentCounterStatus := event.NewClosure(func(event *metrics.ComponentCounterUpdatedEvent) {
+	updateComponentCounterStatus := event.NewClosure(func(event *dashboardmetrics.ComponentCounterUpdatedEvent) {
 		componentStatus := event.ComponentStatus
 		updateStatus := &componentsmetric{
-			Store:      componentStatus[metrics.Attached],
-			Solidifier: componentStatus[metrics.Solidified],
-			Scheduler:  componentStatus[metrics.Scheduled],
-			Booker:     componentStatus[metrics.Booked],
+			Store:      componentStatus[dashboardmetrics.Attached],
+			Solidifier: componentStatus[dashboardmetrics.Solidified],
+			Scheduler:  componentStatus[dashboardmetrics.Scheduled],
+			Booker:     componentStatus[dashboardmetrics.Booked],
 		}
 		wsSendWorkerPool.TrySubmit(updateStatus)
 	})
 
 	if err := daemon.BackgroundWorker("Dashboard[StatusUpdate]", func(ctx context.Context) {
-		metrics.Events.AttachedBPSUpdated.Attach(updateStatus)
-		metrics.Events.ComponentCounterUpdated.Attach(updateComponentCounterStatus)
+		dashboardmetrics.Events.AttachedBPSUpdated.Attach(updateStatus)
+		dashboardmetrics.Events.ComponentCounterUpdated.Attach(updateComponentCounterStatus)
 		<-ctx.Done()
 		log.Info("Stopping Dashboard[StatusUpdate] ...")
-		metrics.Events.AttachedBPSUpdated.Detach(updateStatus)
+		dashboardmetrics.Events.AttachedBPSUpdated.Detach(updateStatus)
 		wsSendWorkerPool.Stop()
 		log.Info("Stopping Dashboard[StatusUpdate] ... done")
 	}, shutdown.PriorityDashboard); err != nil {

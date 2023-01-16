@@ -1,4 +1,4 @@
-package metrics
+package dashboardmetrics
 
 import (
 	"time"

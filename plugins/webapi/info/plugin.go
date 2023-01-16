@@ -21,7 +21,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/banner"
-	"github.com/iotaledger/goshimmer/plugins/metrics"
+	"github.com/iotaledger/goshimmer/plugins/dashboardmetrics"
 )
 
 // PluginName is the name of the web API info endpoint plugin.
@@ -159,11 +159,11 @@ func getInfo(c echo.Context) error {
 		IdentityID:            base58.Encode(lo.PanicOnErr(deps.Local.Identity.ID().Bytes())),
 		IdentityIDShort:       deps.Local.Identity.ID().String(),
 		PublicKey:             deps.Local.PublicKey().String(),
-		BlockRequestQueueSize: int(metrics.BlockRequestQueueSize()),
-		SolidBlockCount: int(metrics.InitialBlockCountPerComponentGrafana()[metrics.Solidified] +
-			metrics.BlockCountSinceStartPerComponentGrafana()[metrics.Solidified]),
-		TotalBlockCount: int(metrics.InitialBlockCountPerComponentGrafana()[metrics.Attached] +
-			metrics.BlockCountSinceStartPerComponentGrafana()[metrics.Attached]),
+		BlockRequestQueueSize: int(dashboardmetrics.BlockRequestQueueSize()),
+		SolidBlockCount: int(dashboardmetrics.InitialBlockCountPerComponentGrafana()[dashboardmetrics.Solidified] +
+			dashboardmetrics.BlockCountSinceStartPerComponentGrafana()[dashboardmetrics.Solidified]),
+		TotalBlockCount: int(dashboardmetrics.InitialBlockCountPerComponentGrafana()[dashboardmetrics.Attached] +
+			dashboardmetrics.BlockCountSinceStartPerComponentGrafana()[dashboardmetrics.Attached]),
 		EnabledPlugins:  enabledPlugins,
 		DisabledPlugins: disabledPlugins,
 		Mana:            nodeMana,
