@@ -89,14 +89,6 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 
 		t.TipManager.LinkTo(t.engine)
 
-		t.engine.NotarizationManager.Events.EpochCommitted.Attach(event.NewClosure(func(details *notarization.EpochCommittedDetails) {
-			t.TipManager.PromoteFutureTips(details.Commitment)
-		}))
-
-		t.engine.EvictionState.Events.EpochEvicted.Attach(event.NewClosure(func(index epoch.Index) {
-			t.TipManager.Evict(index)
-		}))
-
 		t.TipManager.blockAcceptanceGadget = t.mockAcceptance
 
 		t.SetAcceptedTime(time.Unix(epoch.GenesisTime, 0))
@@ -131,6 +123,18 @@ func (t *TestFramework) setupEvents() {
 			t.test.Logf("TIP REMOVED: %s", block.ID())
 		}
 		atomic.AddUint32(&(t.tipRemoved), 1)
+	}))
+
+	t.mockAcceptance.BlockAcceptedEvent.Attach(event.NewClosure(func(block *blockgadget.Block) {
+		t.engine.NotarizationManager.NotarizeAcceptedBlock(block.ModelsBlock)
+	}))
+
+	t.engine.NotarizationManager.Events.EpochCommitted.Attach(event.NewClosure(func(details *notarization.EpochCommittedDetails) {
+		t.TipManager.PromoteFutureTips(details.Commitment)
+	}))
+
+	t.engine.EvictionState.Events.EpochEvicted.Attach(event.NewClosure(func(index epoch.Index) {
+		t.TipManager.Evict(index)
 	}))
 }
 
@@ -185,10 +189,9 @@ func (t *TestFramework) IssueBlocksAndSetAccepted(aliases ...string) *blockdag.T
 }
 
 func (t *TestFramework) SetBlocksAccepted(aliases ...string) {
-	t.mockAcceptance.SetBlocksAccepted(t.BlockIDs(aliases...))
-
 	for _, alias := range aliases {
-		t.engine.NotarizationManager.NotarizeAcceptedBlock(t.Block(alias).ModelsBlock)
+		block := t.Block(alias)
+		t.mockAcceptance.SetBlockAccepted(blockgadget.NewBlock(virtualvoting.NewBlock(block)))
 	}
 }
 

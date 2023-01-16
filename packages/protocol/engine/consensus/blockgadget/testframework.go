@@ -266,13 +266,12 @@ func NewMockAcceptanceGadget() *MockAcceptanceGadget {
 	}
 }
 
-func (m *MockAcceptanceGadget) SetBlocksAccepted(blocks models.BlockIDs) {
+func (m *MockAcceptanceGadget) SetBlockAccepted(block *Block) {
 	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	m.AcceptedBlocks.Add(block.ID())
+	m.mutex.Unlock()
 
-	for block := range blocks {
-		m.AcceptedBlocks.Add(block)
-	}
+	m.BlockAcceptedEvent.Trigger(block)
 }
 
 func (m *MockAcceptanceGadget) SetMarkersAccepted(markers ...markers.Marker) {
