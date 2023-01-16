@@ -1,8 +1,9 @@
 package metrics
 
 import (
-	"github.com/iotaledger/goshimmer/packages/app/collector"
 	"github.com/iotaledger/hive.go/core/generics/event"
+
+	"github.com/iotaledger/goshimmer/packages/app/collector"
 )
 
 const (

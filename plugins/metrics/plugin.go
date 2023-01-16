@@ -14,23 +14,25 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
-	"github.com/iotaledger/goshimmer/packages/app/collector"
-	"github.com/iotaledger/goshimmer/packages/network/p2p"
-	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/hive.go/core/autopeering/selection"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
+	"github.com/iotaledger/goshimmer/packages/app/collector"
+	"github.com/iotaledger/goshimmer/packages/network/p2p"
+	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/goshimmer/plugins/autopeering"
+
 	"github.com/gin-gonic/gin"
-	"github.com/iotaledger/goshimmer/packages/app/retainer"
-	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/daemon"
 	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/iotaledger/hive.go/core/node"
+
+	"github.com/iotaledger/goshimmer/packages/app/retainer"
+	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 
 	"go.uber.org/dig"
 )
@@ -108,7 +110,7 @@ func run(*node.Plugin) {
 			handler.ServeHTTP(c.Writer, c.Request)
 		})
 		bindAddr := Parameters.BindAddress
-		server = &http.Server{Addr: bindAddr, Handler: engine}
+		server = &http.Server{Addr: bindAddr, Handler: engine, ReadTimeout: 5 * time.Second, WriteTimeout: 5 * time.Second}
 
 		go func() {
 			log.Infof("You can now access the Prometheus exporter using: http://%s/metrics", bindAddr)

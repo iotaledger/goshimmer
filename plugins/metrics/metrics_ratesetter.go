@@ -10,8 +10,6 @@ const (
 	bufferSize = "buffer_size"
 )
 
-// TODO modify if needed when rate  setter is finished, indicate the correct unit in the metric name
-
 var RateSetterMetrics = collector.NewCollection(rateSetterNamespace,
 	collector.WithMetric(collector.NewMetric(estimate,
 		collector.WithType(collector.Gauge),

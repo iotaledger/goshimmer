@@ -5,9 +5,10 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/shirou/gopsutil/cpu"
+
 	"github.com/iotaledger/goshimmer/packages/app/collector"
 	"github.com/iotaledger/goshimmer/plugins/banner"
-	"github.com/shirou/gopsutil/cpu"
 )
 
 const (
