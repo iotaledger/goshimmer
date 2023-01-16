@@ -186,6 +186,10 @@ func (t *TestFramework) IssueBlocksAndSetAccepted(aliases ...string) *blockdag.T
 
 func (t *TestFramework) SetBlocksAccepted(aliases ...string) {
 	t.mockAcceptance.SetBlocksAccepted(t.BlockIDs(aliases...))
+
+	for _, alias := range aliases {
+		t.engine.NotarizationManager.NotarizeAcceptedBlock(t.Block(alias).ModelsBlock)
+	}
 }
 
 func (t *TestFramework) SetMarkersAccepted(m ...markers.Marker) {
