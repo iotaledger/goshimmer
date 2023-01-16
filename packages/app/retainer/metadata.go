@@ -229,8 +229,6 @@ func copyFromBlockDAGBlock(blockWithTime *blockWithTime[*blockdag.Block], blockM
 
 func copyFromBookerBlock(blockWithTime *blockWithTime[*booker.Block], blockMetadata *BlockMetadata) {
 	block := blockWithTime.Block
-	block.RLock()
-	defer block.RUnlock()
 
 	blockMetadata.M.Booked = block.IsBooked()
 	if structDetails := block.StructureDetails(); structDetails != nil {
@@ -254,8 +252,6 @@ func copyFromBookerBlock(blockWithTime *blockWithTime[*booker.Block], blockMetad
 
 func copyFromVirtualVotingBlock(blockWithTime *blockWithTime[*virtualvoting.Block], blockMetadata *BlockMetadata) {
 	block := blockWithTime.Block
-	block.RLock()
-	defer block.RUnlock()
 
 	blockMetadata.M.Tracked = true
 	blockMetadata.M.SubjectivelyInvalid = block.IsSubjectivelyInvalid()
@@ -264,8 +260,6 @@ func copyFromVirtualVotingBlock(blockWithTime *blockWithTime[*virtualvoting.Bloc
 
 func copyFromSchedulerBlock(blockWithTime *blockWithTime[*scheduler.Block], blockMetadata *BlockMetadata) {
 	block := blockWithTime.Block
-	block.RLock()
-	defer block.RUnlock()
 
 	blockMetadata.M.Scheduled = block.IsScheduled()
 	blockMetadata.M.Skipped = block.IsSkipped()
@@ -275,8 +269,6 @@ func copyFromSchedulerBlock(blockWithTime *blockWithTime[*scheduler.Block], bloc
 
 func copyFromAcceptanceBlock(blockWithTime *blockWithTime[*blockgadget.Block], blockMetadata *BlockMetadata) {
 	block := blockWithTime.Block
-	block.RLock()
-	defer block.RUnlock()
 
 	blockMetadata.M.Accepted = block.IsAccepted()
 	blockMetadata.M.AcceptedTime = blockWithTime.Time
@@ -284,6 +276,7 @@ func copyFromAcceptanceBlock(blockWithTime *blockWithTime[*blockgadget.Block], b
 
 func copyFromConfirmedBlock(blockWithTime *blockWithTime[*blockgadget.Block], blockMetadata *BlockMetadata) {
 	block := blockWithTime.Block
+
 	blockMetadata.M.Confirmed = block.IsConfirmed()
 	blockMetadata.M.ConfirmedTime = blockWithTime.Time
 }
