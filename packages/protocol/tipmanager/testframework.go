@@ -182,10 +182,10 @@ func (t *TestFramework) WaitUntilAllTasksProcessed() (self *TestFramework) {
 	return t
 }
 
-func (t *TestFramework) IssueBlocksAndSetAccepted(aliases ...string) *blockdag.TestFramework {
+func (t *TestFramework) IssueBlocksAndSetAccepted(aliases ...string) {
+	t.IssueBlocks(aliases...)
+	t.WaitUntilAllTasksProcessed()
 	t.SetBlocksAccepted(aliases...)
-
-	return t.IssueBlocks(aliases...)
 }
 
 func (t *TestFramework) SetBlocksAccepted(aliases ...string) {

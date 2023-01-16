@@ -45,7 +45,8 @@ func TestTipManager_DataBlockTips(t *testing.T) {
 	// Block 2
 	{
 		tf.CreateBlock("Block2")
-		tf.IssueBlocksAndSetAccepted("Block2").WaitUntilAllTasksProcessed()
+		tf.IssueBlocksAndSetAccepted("Block2")
+		tf.WaitUntilAllTasksProcessed()
 
 		tf.AssertTipCount(2)
 		tf.AssertEqualBlocks(tipManager.Tips(2), tf.BlockIDs("Block1", "Block2"))
@@ -56,7 +57,8 @@ func TestTipManager_DataBlockTips(t *testing.T) {
 	// Block 3
 	{
 		tf.CreateBlock("Block3", models.WithStrongParents(tf.BlockIDs("Block1", "Block2")))
-		tf.IssueBlocksAndSetAccepted("Block3").WaitUntilAllTasksProcessed()
+		tf.IssueBlocksAndSetAccepted("Block3")
+		tf.WaitUntilAllTasksProcessed()
 
 		tf.AssertTipCount(1)
 		tf.AssertEqualBlocks(tipManager.Tips(2), tf.BlockIDs("Block3"))
@@ -71,7 +73,8 @@ func TestTipManager_DataBlockTips(t *testing.T) {
 
 			alias := fmt.Sprintf("Block%d", n)
 			tf.CreateBlock(alias, models.WithStrongParents(tf.BlockIDs("Block1")))
-			tf.IssueBlocksAndSetAccepted(alias).WaitUntilAllTasksProcessed()
+			tf.IssueBlocksAndSetAccepted(alias)
+			tf.WaitUntilAllTasksProcessed()
 
 			tf.AssertTipCount(1 + count)
 			tf.AssertTipsAdded(uint32(3 + count))
