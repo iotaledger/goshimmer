@@ -48,13 +48,15 @@ type TipManager struct {
 	// TODO: reintroduce TipsConflictTracker
 	// tipsConflictTracker *TipsConflictTracker
 
+	commitmentRecentBoundary epoch.Index
+
 	optsTimeSinceConfirmationThreshold time.Duration
 	optsWidth                          int
 }
 
 // New creates a new TipManager.
-func New(schedulerBlockRetrieverFunc blockRetrieverFunc, opts ...options.Option[TipManager]) *TipManager {
-	return options.Apply(&TipManager{
+func New(schedulerBlockRetrieverFunc blockRetrieverFunc, opts ...options.Option[TipManager]) (t *TipManager) {
+	t = options.Apply(&TipManager{
 		Events: NewEvents(),
 
 		schedulerBlockRetrieverFunc: schedulerBlockRetrieverFunc,
@@ -69,6 +71,10 @@ func New(schedulerBlockRetrieverFunc blockRetrieverFunc, opts ...options.Option[
 		optsTimeSinceConfirmationThreshold: time.Minute,
 		optsWidth:                          0,
 	}, opts)
+
+	t.commitmentRecentBoundary = epoch.Index(int64(t.optsTimeSinceConfirmationThreshold.Seconds()) / epoch.Duration)
+
+	return
 }
 
 func (t *TipManager) LinkTo(engine *engine.Engine) {
@@ -84,14 +90,14 @@ func (t *TipManager) AddTip(block *scheduler.Block) {
 		return
 	}
 
-	// Check if the block commits to an old epoch.
-	if t.isStaleCommitment(block) {
-		return
-	}
-
 	// If the commitment is in the future, and not known to be forking, we cannot yet add it to the main tipset.
 	if t.isFutureCommitment(block) {
 		t.addFutureTip(block)
+		return
+	}
+
+	// Check if the block commits to an old epoch.
+	if !t.isRecentCommitment(block) {
 		return
 	}
 
@@ -292,11 +298,6 @@ func (t *TipManager) checkMonotonicity(block *scheduler.Block) (anyScheduledOrAc
 	return false
 }
 
-// isStaleCommitment returns true if the block belongs to a commitment that is too far back in the past.
-func (t *TipManager) isStaleCommitment(block *scheduler.Block) (isOld bool) {
-	return block.Commitment().Index() < (t.engine.Storage.Settings.LatestCommitment().Index() - 1).Max(0)
-}
-
 // isFutureCommitment returns true if the block belongs to a commitment that is not yet known.
 func (t *TipManager) isFutureCommitment(block *scheduler.Block) (isUnknown bool) {
 	return block.Commitment().Index() > t.engine.Storage.Settings.LatestCommitment().Index()
@@ -335,8 +336,7 @@ func (t *TipManager) isValidTip(tip *scheduler.Block) (err error) {
 // isRecentCommitment returns true if the commitment of the given block is not in the future and it is not older than TSC threshold
 // epoch with respect to our latest commitment.
 func (t *TipManager) isRecentCommitment(block *scheduler.Block) (isFresh bool) {
-	epochDelay := epoch.Index(int64(t.optsTimeSinceConfirmationThreshold.Seconds()) / epoch.Duration)
-	return !t.isFutureCommitment(block) && block.Commitment().Index() >= (t.engine.Storage.Settings.LatestCommitment().Index()-epochDelay).Max(0)
+	return block.Commitment().Index() >= (t.engine.Storage.Settings.LatestCommitment().Index() - t.commitmentRecentBoundary).Max(0)
 }
 
 // isPastConeTimestampCorrect performs the TSC check for the given tip.
