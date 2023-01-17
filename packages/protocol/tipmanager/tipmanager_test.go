@@ -34,7 +34,8 @@ func TestTipManager_DataBlockTips(t *testing.T) {
 	// Block 1
 	{
 		tf.CreateBlock("Block1")
-		tf.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
+		tf.IssueBlocks("Block1")
+		tf.WaitUntilAllTasksProcessed()
 
 		tf.AssertTipCount(1)
 		tf.AssertEqualBlocks(tipManager.Tips(2), tf.BlockIDs("Block1"))

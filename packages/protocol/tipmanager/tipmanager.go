@@ -95,8 +95,7 @@ func (t *TipManager) AddTip(block *scheduler.Block) {
 		return
 	}
 
-	// a tip loses its tip status if it is referenced by another block
-	t.RemoveStrongParents(block.ModelsBlock)
+	t.addTip(block)
 }
 
 func (t *TipManager) EvictTSCCache(index epoch.Index) {
