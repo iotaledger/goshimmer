@@ -2,6 +2,7 @@ package profilingrecorder
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -11,6 +12,8 @@ import (
 	"github.com/iotaledger/hive.go/core/daemon"
 	"github.com/iotaledger/hive.go/core/node"
 	"github.com/iotaledger/hive.go/core/timeutil"
+	"github.com/iotaledger/hive.go/core/types"
+	"github.com/zyedidia/generic/cache"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 )
@@ -21,6 +24,7 @@ const PluginName = "ProfilingRecorder"
 var (
 	// Plugin is the profiling plugin.
 	Plugin *node.Plugin
+	paths  *cache.Cache[string, types.Empty]
 )
 
 func init() {
@@ -33,28 +37,37 @@ func run(*node.Plugin) {
 	runtime.SetCPUProfileRate(5)
 
 	profConfig := &profile.Config{
-		Path:                Parameters.OutputPath,
-		EnableInterruptHook: true,
-		// Quiet: 			 true,
+		Path:  Parameters.OutputPath,
+		Quiet: true,
 	}
+
+	paths = cache.New[string, types.Empty](Parameters.Capacity)
+	paths.SetEvictCallback(func(key string, value types.Empty) {
+		err := os.RemoveAll(key)
+		if err != nil {
+			Plugin.LogError("Error while removing profiling data: ", err)
+		}
+	})
 
 	if err := daemon.BackgroundWorker(PluginName, func(ctx context.Context) {
 		ticker := timeutil.NewTicker(func() {
-			// TODO: always just keep x profiles around (maybe last 60min or so?)
 
-			profConfig.Path = filepath.Join(Parameters.OutputPath, strconv.FormatInt(time.Now().Unix(), 10))
+			path := filepath.Join(Parameters.OutputPath, strconv.FormatInt(time.Now().Unix(), 10))
+			paths.Put(path, types.Void)
+			profConfig.Path = path
 
 			cpuProfile := profile.CPUProfile(profConfig).Start()
-			time.Sleep(10 * time.Second)
-			defer cpuProfile.Stop()
+			memProfile := profile.MemProfile(profConfig).Start()
+			time.Sleep(Parameters.Duration)
 
-			defer profile.MemProfile(profConfig).Start().Stop()
+			defer cpuProfile.Stop()
+			defer memProfile.Stop()
 			defer profile.GoroutineProfile(profConfig).Start().Stop()
 			defer profile.MutexProfile(profConfig).Start().Stop()
 			defer profile.BlockProfile(profConfig).Start().Stop()
 			defer profile.TraceProfile(profConfig).Start().Stop()
 			defer profile.ThreadCreationProfile(profConfig).Start().Stop()
-		}, 30*time.Second, ctx)
+		}, Parameters.Interval, ctx)
 
 		<-ctx.Done()
 
