@@ -332,7 +332,7 @@ func (t *TipManager) isValidTip(tip *scheduler.Block) (err error) {
 	return nil
 }
 
-// isRecentCommitment returns true if the commitment of the given block is not in the future and it is not older than 2
+// isRecentCommitment returns true if the commitment of the given block is not in the future and it is not older than TSC threshold
 // epoch with respect to our latest commitment.
 func (t *TipManager) isRecentCommitment(block *scheduler.Block) (isFresh bool) {
 	epochDelay := epoch.Index(int64(t.optsTimeSinceConfirmationThreshold.Seconds()) / epoch.Duration)
