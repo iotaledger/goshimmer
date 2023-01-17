@@ -191,39 +191,14 @@ func (t *TestFramework) MockOutputFromTx(tx *MockedTransaction, outputIndex uint
 // It also verifies the reverse mapping, that there is a child reference (conflictdag.ChildConflict)
 // from "conflict1"->"conflict3" and "conflict2"->"conflict3".
 func (t *TestFramework) AssertConflictDAG(expectedParents map[string][]string) {
-	t.ConflictDAGTestFramework.AssertConflictsParents(expectedParents)
-
-	expectedChildren := make(map[string][]string)
-	for conflictAlias, expectedParentAliases := range expectedParents {
-		for _, parentAlias := range expectedParentAliases {
-			if _, exists := expectedChildren[parentAlias]; !exists {
-				expectedChildren[parentAlias] = make([]string, 0)
-			}
-			expectedChildren[parentAlias] = append(expectedChildren[parentAlias], conflictAlias)
-		}
-	}
-
-	t.ConflictDAGTestFramework.AssertConflictsChildren(expectedChildren)
+	t.ConflictDAGTestFramework.AssertConflictParentsAndChildren(expectedParents)
 }
 
 // AssertConflicts asserts conflict membership from conflictID -> conflicts but also the reverse mapping conflict -> conflictIDs.
 // expectedConflictAliases should be specified as
 // "output.0": {"conflict1", "conflict2"}.
 func (t *TestFramework) AssertConflicts(expectedConflictSetToConflictsAliases map[string][]string) {
-	t.ConflictDAGTestFramework.AssertConflictSets(expectedConflictSetToConflictsAliases)
-
-	// transform to conflict -> expected conflictSetIDs.
-	expectedConflictToConflictSetsAliases := make(map[string][]string)
-	for resourceAlias, expectedConflictMembersAliases := range expectedConflictSetToConflictsAliases {
-		for _, conflictAlias := range expectedConflictMembersAliases {
-			if _, exists := expectedConflictToConflictSetsAliases[conflictAlias]; !exists {
-				expectedConflictToConflictSetsAliases[conflictAlias] = make([]string, 0)
-			}
-			expectedConflictToConflictSetsAliases[conflictAlias] = append(expectedConflictToConflictSetsAliases[conflictAlias], resourceAlias)
-		}
-	}
-
-	t.ConflictDAGTestFramework.AssertConflictsConflictSets(expectedConflictToConflictSetsAliases)
+	t.ConflictDAGTestFramework.AssertConflictSetsAndConflicts(expectedConflictSetToConflictsAliases)
 }
 
 // AssertConflictIDs asserts that the given transactions and their outputs are booked into the specified conflicts.

@@ -186,7 +186,7 @@ func (t *TestFramework) randomResourceID() (randomConflictID utxo.OutputID) {
 	return randomConflictID
 }
 
-func (t *TestFramework) AssertConflictSets(expectedConflictSets map[string][]string) {
+func (t *TestFramework) assertConflictSets(expectedConflictSets map[string][]string) {
 	for conflictSetAlias, conflictAliases := range expectedConflictSets {
 		conflictSet, exists := t.ConflictDAG.ConflictSet(t.ConflictSetID(conflictSetAlias))
 		assert.Truef(t.test, exists, "ConflictSet %s not found", conflictSetAlias)
@@ -200,7 +200,7 @@ func (t *TestFramework) AssertConflictSets(expectedConflictSets map[string][]str
 	}
 }
 
-func (t *TestFramework) AssertConflictsParents(expectedParents map[string][]string) {
+func (t *TestFramework) assertConflictsParents(expectedParents map[string][]string) {
 	for conflictAlias, parentConflictAliases := range expectedParents {
 		conflict, exists := t.ConflictDAG.Conflict(t.ConflictID(conflictAlias))
 		assert.Truef(t.test, exists, "Conflict %s not found", conflictAlias)
@@ -210,7 +210,7 @@ func (t *TestFramework) AssertConflictsParents(expectedParents map[string][]stri
 	}
 }
 
-func (t *TestFramework) AssertConflictsChildren(expectedChildren map[string][]string) {
+func (t *TestFramework) assertConflictsChildren(expectedChildren map[string][]string) {
 	for conflictAlias, childConflictAliases := range expectedChildren {
 		conflict, exists := t.ConflictDAG.Conflict(t.ConflictID(conflictAlias))
 		assert.Truef(t.test, exists, "Conflict %s not found", conflictAlias)
@@ -223,7 +223,7 @@ func (t *TestFramework) AssertConflictsChildren(expectedChildren map[string][]st
 	}
 }
 
-func (t *TestFramework) AssertConflictsConflictSets(expectedConflictSets map[string][]string) {
+func (t *TestFramework) assertConflictsConflictSets(expectedConflictSets map[string][]string) {
 	for conflictAlias, conflictSetAliases := range expectedConflictSets {
 		conflict, exists := t.ConflictDAG.Conflict(t.ConflictID(conflictAlias))
 		assert.Truef(t.test, exists, "Conflict %s not found", conflictAlias)
@@ -234,6 +234,45 @@ func (t *TestFramework) AssertConflictsConflictSets(expectedConflictSets map[str
 		})
 		assert.ElementsMatchf(t.test, expectedConflictSetIDs, actualConflictSetIDs, "Expected Conflict %s to have conflict sets %v but got %v", conflictAlias, expectedConflictSetIDs, actualConflictSetIDs)
 	}
+}
+
+// AssertConflictParentsAndChildren asserts the structure of the conflict DAG as specified in expectedParents.
+// "conflict3": {"conflict1","conflict2"} asserts that "conflict3" should have "conflict1" and "conflict2" as parents.
+// It also verifies the reverse mapping, that there is a child reference from "conflict1"->"conflict3" and "conflict2"->"conflict3".
+func (t *TestFramework) AssertConflictParentsAndChildren(expectedParents map[string][]string) {
+	t.assertConflictsParents(expectedParents)
+
+	expectedChildren := make(map[string][]string)
+	for conflictAlias, expectedParentAliases := range expectedParents {
+		for _, parentAlias := range expectedParentAliases {
+			if _, exists := expectedChildren[parentAlias]; !exists {
+				expectedChildren[parentAlias] = make([]string, 0)
+			}
+			expectedChildren[parentAlias] = append(expectedChildren[parentAlias], conflictAlias)
+		}
+	}
+
+	t.assertConflictsChildren(expectedChildren)
+}
+
+// AssertConflictSetsAndConflicts asserts conflict membership from ConflictSetID -> Conflict but also the reverse mapping Conflict -> ConflictSetID.
+// expectedConflictAliases should be specified as
+// "conflictSetID1": {"conflict1", "conflict2"}.
+func (t *TestFramework) AssertConflictSetsAndConflicts(expectedConflictSetToConflictsAliases map[string][]string) {
+	t.assertConflictSets(expectedConflictSetToConflictsAliases)
+
+	// transform to conflict -> expected conflictSetIDs.
+	expectedConflictToConflictSetsAliases := make(map[string][]string)
+	for resourceAlias, expectedConflictMembersAliases := range expectedConflictSetToConflictsAliases {
+		for _, conflictAlias := range expectedConflictMembersAliases {
+			if _, exists := expectedConflictToConflictSetsAliases[conflictAlias]; !exists {
+				expectedConflictToConflictSetsAliases[conflictAlias] = make([]string, 0)
+			}
+			expectedConflictToConflictSetsAliases[conflictAlias] = append(expectedConflictToConflictSetsAliases[conflictAlias], resourceAlias)
+		}
+	}
+
+	t.assertConflictsConflictSets(expectedConflictToConflictSetsAliases)
 }
 
 func (t *TestFramework) AssertConfirmationState(expectedConfirmationState map[string]confirmation.State) {
