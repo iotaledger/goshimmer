@@ -335,7 +335,8 @@ func (t *TipManager) isValidTip(tip *scheduler.Block) (err error) {
 // isRecentCommitment returns true if the commitment of the given block is not in the future and it is not older than 2
 // epoch with respect to our latest commitment.
 func (t *TipManager) isRecentCommitment(block *scheduler.Block) (isFresh bool) {
-	return !t.isFutureCommitment(block) && block.Commitment().Index() >= (t.engine.Storage.Settings.LatestCommitment().Index()-1).Max(0)
+	epochDelay := epoch.Index(int64(t.optsTimeSinceConfirmationThreshold.Seconds()) / epoch.Duration)
+	return !t.isFutureCommitment(block) && block.Commitment().Index() >= (t.engine.Storage.Settings.LatestCommitment().Index()-epochDelay).Max(0)
 }
 
 // isPastConeTimestampCorrect performs the TSC check for the given tip.
