@@ -19,6 +19,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/peer"
 	"github.com/iotaledger/goshimmer/plugins/portcheck"
 	"github.com/iotaledger/goshimmer/plugins/profiling"
+	"github.com/iotaledger/goshimmer/plugins/profilingrecorder"
 	"github.com/iotaledger/goshimmer/plugins/protocol"
 	"github.com/iotaledger/goshimmer/plugins/retainer"
 	"github.com/iotaledger/goshimmer/plugins/spammer"
@@ -37,6 +38,7 @@ var Core = node.Plugins(
 	autopeering.Plugin,
 	manualpeering.Plugin,
 	profiling.Plugin,
+	profilingrecorder.Plugin,
 	p2p.Plugin,
 	protocol.Plugin,
 	retainer.Plugin,

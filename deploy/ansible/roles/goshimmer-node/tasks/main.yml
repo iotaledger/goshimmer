@@ -39,6 +39,11 @@
     state: directory
     mode: '0777'
 
+- name: Create Profiling Recorder directory
+  file:
+    path: /opt/{{ nodeType }}/profiles
+    state: directory
+    mode: '0777'
 
 - name: Remove DB
   shell:
@@ -47,6 +52,10 @@
 - name: Remove Retainer contents
   shell:
     cmd: rm -rf /opt/{{ nodeType }}/retainer/*
+
+- name: Remove Profiling Recorder contents
+  shell:
+    cmd: rm -rf /opt/{{ nodeType }}/profiles/*
 
 - name: Clean conntrack
   shell:
