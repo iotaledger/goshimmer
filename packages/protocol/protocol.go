@@ -226,6 +226,14 @@ func (p *Protocol) initTipManager() {
 		}
 	}))
 
+	p.Events.Engine.NotarizationManager.EpochCommitted.Attach(event.NewClosure(func(details *notarization.EpochCommittedDetails) {
+		p.TipManager.PromoteFutureTips(details.Commitment)
+	}))
+
+	p.Events.Engine.EvictionState.EpochEvicted.Attach(event.NewClosure(func(index epoch.Index) {
+		p.TipManager.Evict(index)
+	}))
+
 	p.Events.TipManager = p.TipManager.Events
 }
 

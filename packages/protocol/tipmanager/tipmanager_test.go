@@ -6,10 +6,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/types"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/hive.go/core/generics/lo"
-
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markermanager"
@@ -24,16 +28,17 @@ func TestTipManager_DataBlockTips(t *testing.T) {
 
 	// without any tip -> genesis
 	{
-		tf.AssertTips(tipManager.Tips(2), tf.BlockIDs("Genesis"))
+		tf.AssertEqualBlocks(tipManager.Tips(2), tf.BlockIDs("Genesis"))
 	}
 
 	// Block 1
 	{
 		tf.CreateBlock("Block1")
-		tf.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
+		tf.IssueBlocks("Block1")
+		tf.WaitUntilAllTasksProcessed()
 
 		tf.AssertTipCount(1)
-		tf.AssertTips(tipManager.Tips(2), tf.BlockIDs("Block1"))
+		tf.AssertEqualBlocks(tipManager.Tips(2), tf.BlockIDs("Block1"))
 		tf.AssertTipsAdded(1)
 		tf.AssertTipsRemoved(0)
 	}
@@ -41,10 +46,11 @@ func TestTipManager_DataBlockTips(t *testing.T) {
 	// Block 2
 	{
 		tf.CreateBlock("Block2")
-		tf.IssueBlocksAndSetAccepted("Block2").WaitUntilAllTasksProcessed()
+		tf.IssueBlocksAndSetAccepted("Block2")
+		tf.WaitUntilAllTasksProcessed()
 
 		tf.AssertTipCount(2)
-		tf.AssertTips(tipManager.Tips(2), tf.BlockIDs("Block1", "Block2"))
+		tf.AssertEqualBlocks(tipManager.Tips(2), tf.BlockIDs("Block1", "Block2"))
 		tf.AssertTipsAdded(2)
 		tf.AssertTipsRemoved(0)
 	}
@@ -52,10 +58,11 @@ func TestTipManager_DataBlockTips(t *testing.T) {
 	// Block 3
 	{
 		tf.CreateBlock("Block3", models.WithStrongParents(tf.BlockIDs("Block1", "Block2")))
-		tf.IssueBlocksAndSetAccepted("Block3").WaitUntilAllTasksProcessed()
+		tf.IssueBlocksAndSetAccepted("Block3")
+		tf.WaitUntilAllTasksProcessed()
 
 		tf.AssertTipCount(1)
-		tf.AssertTips(tipManager.Tips(2), tf.BlockIDs("Block3"))
+		tf.AssertEqualBlocks(tipManager.Tips(2), tf.BlockIDs("Block3"))
 		tf.AssertTipsAdded(3)
 		tf.AssertTipsRemoved(2)
 	}
@@ -67,7 +74,8 @@ func TestTipManager_DataBlockTips(t *testing.T) {
 
 			alias := fmt.Sprintf("Block%d", n)
 			tf.CreateBlock(alias, models.WithStrongParents(tf.BlockIDs("Block1")))
-			tf.IssueBlocksAndSetAccepted(alias).WaitUntilAllTasksProcessed()
+			tf.IssueBlocksAndSetAccepted(alias)
+			tf.WaitUntilAllTasksProcessed()
 
 			tf.AssertTipCount(1 + count)
 			tf.AssertTipsAdded(uint32(3 + count))
@@ -84,7 +92,7 @@ func TestTipManager_DataBlockTips(t *testing.T) {
 
 	// Tips(8) -> 6
 	{
-		tf.AssertTips(tipManager.Tips(8), tf.BlockIDs("Block3", "Block4", "Block5", "Block6", "Block7", "Block8"))
+		tf.AssertEqualBlocks(tipManager.Tips(8), tf.BlockIDs("Block3", "Block4", "Block5", "Block6", "Block7", "Block8"))
 	}
 
 	// Tips(0) -> 1
@@ -580,4 +588,124 @@ func TestTipManager_TimeSinceConfirmation_RootBlockParent(t *testing.T) {
 	tf.AssertIsPastConeTimestampCorrect("Block2", true)
 	tf.AssertIsPastConeTimestampCorrect("Block1", false)
 	tf.AssertIsPastConeTimestampCorrect("Block5", false)
+}
+
+func TestTipManager_FutureTips(t *testing.T) {
+	// MinimumCommittableAge will also be 10 seconds
+	epoch.GenesisTime = time.Now().Add(-100 * time.Second).Unix()
+	tf := NewTestFramework(t, WithNotarizationOptions(notarization.MinCommittableEpochAge(10*time.Second)))
+	tf.engine.EvictionState.AddRootBlock(models.EmptyBlockID)
+
+	tf.engine.Events.NotarizationManager.EpochCommitted.Hook(event.NewClosure(func(details *notarization.EpochCommittedDetails) {
+		fmt.Println(">>", details.Commitment.ID())
+	}))
+
+	// Let's add a few blocks to epoch 1
+	{
+		blockTime := time.Unix(epoch.GenesisTime+5, 0)
+		tf.CreateBlock("Block1.1", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithIssuingTime(blockTime))
+		tf.CreateBlock("Block1.2", models.WithStrongParents(tf.BlockIDs("Block1.1")), models.WithIssuingTime(blockTime))
+		tf.CreateBlock("Block1.3", models.WithStrongParents(tf.BlockIDs("Block1.2")), models.WithIssuingTime(blockTime))
+		tf.CreateBlock("Block1.4", models.WithStrongParents(tf.BlockIDs("Block1.2", "Block1.3")), models.WithIssuingTime(blockTime))
+
+		tf.IssueBlocks("Block1.1", "Block1.2", "Block1.3", "Block1.4")
+		tf.WaitUntilAllTasksProcessed()
+		tf.SetBlocksAccepted("Block1.1", "Block1.2", "Block1.3", "Block1.4")
+		tf.SetAcceptedTime(tf.Block("Block1.4").IssuingTime())
+		tf.WaitUntilAllTasksProcessed()
+
+		tf.AssertTipsAdded(4)
+		tf.AssertTipsRemoved(3)
+		tf.AssertTips(tf.BlockIDs("Block1.4"))
+	}
+
+	// Let's add a few blocks to epoch 2
+	{
+		blockTime := time.Unix(epoch.GenesisTime+15, 0)
+		tf.CreateBlock("Block2.1", models.WithStrongParents(tf.BlockIDs("Block1.4")), models.WithIssuingTime(blockTime))
+
+		tf.IssueBlocks("Block2.1")
+		tf.WaitUntilAllTasksProcessed()
+		tf.SetBlocksAccepted("Block2.1")
+		tf.SetAcceptedTime(tf.Block("Block2.1").IssuingTime())
+		tf.WaitUntilAllTasksProcessed()
+
+		tf.AssertTipsAdded(5)
+		tf.AssertTipsRemoved(4)
+		tf.AssertTips(tf.BlockIDs("Block2.1"))
+	}
+
+	// Let's add a few blocks to epoch 3
+	{
+		blockTime := time.Unix(epoch.GenesisTime+25, 0)
+		tf.CreateBlock("Block3.1", models.WithStrongParents(tf.BlockIDs("Block2.1")), models.WithIssuingTime(blockTime))
+
+		tf.IssueBlocks("Block3.1")
+		tf.WaitUntilAllTasksProcessed()
+		tf.SetBlocksAccepted("Block3.1")
+		tf.SetAcceptedTime(tf.Block("Block3.1").IssuingTime())
+		tf.WaitUntilAllTasksProcessed()
+
+		tf.AssertTipsAdded(6)
+		tf.AssertTipsRemoved(5)
+		tf.AssertTips(tf.BlockIDs("Block3.1"))
+	}
+
+	commitment2_1 := tf.FormCommitment(2, []string{}, 1)
+	commitment2_2 := tf.FormCommitment(2, []string{"Block2.1"}, 1)
+	commitment3_1 := commitment.New(3, commitment2_1.ID(), types.Identifier{1}, 0)
+
+	// Let's introduce a future tip, in epoch 4
+	{
+		blockTime := time.Unix(epoch.GenesisTime+35, 0)
+		tf.CreateBlock("Block4.1", models.WithStrongParents(tf.BlockIDs("Block3.1")), models.WithIssuingTime(blockTime), models.WithCommitment(commitment2_1))
+		tf.CreateBlock("Block4.2", models.WithStrongParents(tf.BlockIDs("Block3.1")), models.WithIssuingTime(blockTime), models.WithCommitment(commitment2_2))
+		tf.CreateBlock("Block4.3", models.WithStrongParents(tf.BlockIDs("Block3.1")), models.WithIssuingTime(blockTime), models.WithCommitment(commitment3_1))
+		tf.CreateBlock("Block4.4", models.WithStrongParents(tf.BlockIDs("Block4.2")), models.WithIssuingTime(blockTime), models.WithCommitment(commitment2_2))
+
+		tf.IssueBlocks("Block4.1", "Block4.2", "Block4.3", "Block4.4")
+		tf.WaitUntilAllTasksProcessed()
+
+		tf.AssertTipsAdded(6)
+		tf.AssertTipsRemoved(5)
+		tf.AssertTips(tf.BlockIDs("Block3.1"))
+		tf.AssertFutureTips(map[epoch.Index]map[commitment.ID]models.BlockIDs{
+			2: {
+				commitment2_1.ID(): tf.BlockIDs("Block4.1"),
+				commitment2_2.ID(): tf.BlockIDs("Block4.2", "Block4.4"),
+			},
+			3: {
+				commitment3_1.ID(): tf.BlockIDs("Block4.3"),
+			},
+		})
+	}
+
+	// We accept a block of epoch 4, rendering epoch 2 committable and refreshing the tippool
+	{
+		tf.SetBlocksAccepted("Block4.2")
+		tf.SetAcceptedTime(tf.Block("Block4.2").IssuingTime())
+		tf.WaitUntilAllTasksProcessed()
+
+		tf.AssertFutureTips(map[epoch.Index]map[commitment.ID]models.BlockIDs{
+			3: {
+				commitment3_1.ID(): tf.BlockIDs("Block4.3"),
+			},
+		})
+
+		tf.AssertTipsAdded(7)
+		tf.AssertTipsRemoved(6)
+		tf.AssertTips(tf.BlockIDs("Block4.4"))
+
+		tf.AssertEqualBlocks(tf.TipManager.Tips(1), tf.BlockIDs("Block4.4"))
+	}
+
+	// We force a later commitment to invalidate Block4.4 because the commitment is not recent anymore
+	{
+		commitment10_1 := commitment.New(10, commitment2_2.ID(), types.Identifier{1}, 0)
+		tf.engine.Storage.Settings.SetLatestCommitment(commitment10_1)
+
+		tf.AssertEqualBlocks(tf.TipManager.Tips(1), tf.BlockIDs("Genesis"))
+		tf.AssertTipsRemoved(7)
+		tf.AssertTips(tf.BlockIDs())
+	}
 }

@@ -5,10 +5,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/randommap"
+	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/types"
+	"github.com/pkg/errors"
 
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
@@ -39,22 +43,26 @@ type TipManager struct {
 	walkerCache   *memstorage.EpochStorage[models.BlockID, types.Empty]
 	evictionMutex sync.RWMutex
 
-	tips *randommap.RandomMap[*scheduler.Block, *scheduler.Block]
+	tips       *randommap.RandomMap[models.BlockID, *scheduler.Block]
+	futureTips *memstorage.EpochStorage[commitment.ID, *memstorage.Storage[models.BlockID, *scheduler.Block]]
 	// TODO: reintroduce TipsConflictTracker
 	// tipsConflictTracker *TipsConflictTracker
+
+	commitmentRecentBoundary epoch.Index
 
 	optsTimeSinceConfirmationThreshold time.Duration
 	optsWidth                          int
 }
 
 // New creates a new TipManager.
-func New(schedulerBlockRetrieverFunc blockRetrieverFunc, opts ...options.Option[TipManager]) *TipManager {
-	return options.Apply(&TipManager{
+func New(schedulerBlockRetrieverFunc blockRetrieverFunc, opts ...options.Option[TipManager]) (t *TipManager) {
+	t = options.Apply(&TipManager{
 		Events: NewEvents(),
 
 		schedulerBlockRetrieverFunc: schedulerBlockRetrieverFunc,
 
-		tips: randommap.New[*scheduler.Block, *scheduler.Block](),
+		tips:       randommap.New[models.BlockID, *scheduler.Block](),
+		futureTips: memstorage.NewEpochStorage[commitment.ID, *memstorage.Storage[models.BlockID, *scheduler.Block]](),
 		// TODO: reintroduce TipsConflictTracker
 		// tipsConflictTracker: NewTipsConflictTracker(tangle),
 
@@ -63,10 +71,14 @@ func New(schedulerBlockRetrieverFunc blockRetrieverFunc, opts ...options.Option[
 		optsTimeSinceConfirmationThreshold: time.Minute,
 		optsWidth:                          0,
 	}, opts)
+
+	t.commitmentRecentBoundary = epoch.Index(int64(t.optsTimeSinceConfirmationThreshold.Seconds()) / epoch.Duration)
+
+	return
 }
 
 func (t *TipManager) LinkTo(engine *engine.Engine) {
-	t.tips = randommap.New[*scheduler.Block, *scheduler.Block]()
+	t.tips = randommap.New[models.BlockID, *scheduler.Block]()
 	t.engine = engine
 	t.blockAcceptanceGadget = engine.Consensus.BlockGadget
 }
@@ -78,28 +90,18 @@ func (t *TipManager) AddTip(block *scheduler.Block) {
 		return
 	}
 
-	if !t.addTip(block) {
+	// If the commitment is in the future, and not known to be forking, we cannot yet add it to the main tipset.
+	if t.isFutureCommitment(block) {
+		t.addFutureTip(block)
 		return
 	}
 
-	// skip removing tips if a width is set -> allows to artificially create a wide Tangle.
-	if t.TipCount() <= t.optsWidth {
+	// Check if the block commits to an old epoch.
+	if !t.isRecentCommitment(block) {
 		return
 	}
 
-	// a tip loses its tip status if it is referenced by another block
-	t.RemoveStrongParents(block.ModelsBlock)
-}
-
-func (t *TipManager) addTip(block *scheduler.Block) (added bool) {
-	if !t.tips.Has(block) {
-		t.tips.Set(block, block)
-		// t.tipsConflictTracker.AddTip(block)
-		t.Events.TipAdded.Trigger(block)
-		return true
-	}
-
-	return false
+	t.addTip(block)
 }
 
 func (t *TipManager) EvictTSCCache(index epoch.Index) {
@@ -110,32 +112,11 @@ func (t *TipManager) EvictTSCCache(index epoch.Index) {
 }
 
 func (t *TipManager) DeleteTip(block *scheduler.Block) (deleted bool) {
-	if _, deleted = t.tips.Delete(block); deleted {
+	if _, deleted = t.tips.Delete(block.ID()); deleted {
 		// t.tipsConflictTracker.RemoveTip(block)
 		t.Events.TipRemoved.Trigger(block)
 	}
 	return
-}
-
-// checkMonotonicity returns true if the block has any accepted or scheduled child.
-func (t *TipManager) checkMonotonicity(block *scheduler.Block) (anyScheduledOrAccepted bool) {
-	for _, child := range block.Children() {
-		if child.IsOrphaned() {
-			continue
-		}
-
-		if t.blockAcceptanceGadget.IsBlockAccepted(child.ID()) {
-			return true
-		}
-
-		if childBlock, exists := t.schedulerBlockRetrieverFunc(child.ID()); exists {
-			if childBlock.IsScheduled() {
-				return true
-			}
-		}
-	}
-
-	return false
 }
 
 // RemoveStrongParents removes all tips that are parents of the given block.
@@ -179,32 +160,15 @@ func (t *TipManager) selectTips(count int) (parents models.BlockIDs) {
 
 		// at least one tip is returned
 		for _, tip := range tips {
-			if t.isPastConeTimestampCorrect(tip.Block.Block) {
+			if err := t.isValidTip(tip); err == nil {
 				parents.Add(tip.ID())
 			} else {
-				fmt.Printf("(time: %s) cannot select tip due to TSC condition tip issuing time (%s), time (%s), min supported time (%s), block id (%s), tip pool size (%d), scheduled: (%t), orphaned: (%t), accepted: (%t)\n",
-					time.Now(),
-					tip.IssuingTime(),
-					t.engine.Clock.AcceptedTime(),
-					t.engine.Clock.AcceptedTime().Add(-t.optsTimeSinceConfirmationThreshold),
-					tip.ID().Base58(),
-					t.tips.Size(),
-					tip.IsScheduled(),
-					tip.IsOrphaned(),
-					t.engine.Consensus.BlockGadget.IsBlockAccepted(tip.ID()),
-				)
-				// tip.ForEachParent(func(parent models.Parent) {
-				// 	fmt.Println("parent block id", parent.ID.Base58())
-				// 	if parentBlock, exists := t.engine.(parent.ID); exists {
-				// 		fmt.Println(parentBlock.IssuingTime(), parentBlock.IsScheduled())
-				// 	}
-				// 	if t.acceptanceGadget.IsBlockAccepted(parent.ID) {
-				// 		fmt.Println("parent block accepted")
-				// 	}
-				// })
 				t.DeleteTip(tip)
+
+				// DEBUG
+				fmt.Printf("(time: %s) cannot select tip due to error: %s\n", time.Now(), err)
 				if t.tips.Size() == 0 {
-					fmt.Println("(time: ", time.Now(), ") >> deleted last TIP because it doesn't pass tsc check!", tip.ID())
+					fmt.Println("(time: ", time.Now(), ") >> deleted last TIP because it doesn't pass checks!", tip.ID())
 				}
 			}
 		}
@@ -216,8 +180,14 @@ func (t *TipManager) selectTips(count int) (parents models.BlockIDs) {
 }
 
 // AllTips returns a list of all tips that are stored in the TipManger.
-func (t *TipManager) AllTips() []*scheduler.Block {
-	return t.tips.Keys()
+func (t *TipManager) AllTips() (allTips []*scheduler.Block) {
+	allTips = make([]*scheduler.Block, 0, t.tips.Size())
+	t.tips.ForEach(func(_ models.BlockID, value *scheduler.Block) bool {
+		allTips = append(allTips, value)
+		return true
+	})
+
+	return
 }
 
 // TipCount the amount of tips.
@@ -225,9 +195,146 @@ func (t *TipManager) TipCount() int {
 	return t.tips.Size()
 }
 
+// FutureTipCount returns the amount of future tips per epoch.
+func (t *TipManager) FutureTipCount() (futureTipsPerEpoch map[epoch.Index]int) {
+	futureTipsPerEpoch = make(map[epoch.Index]int)
+	t.futureTips.ForEach(func(index epoch.Index, commitmentStorage *memstorage.Storage[commitment.ID, *memstorage.Storage[models.BlockID, *scheduler.Block]]) {
+		commitmentStorage.ForEach(func(cm commitment.ID, tipStorage *memstorage.Storage[models.BlockID, *scheduler.Block]) bool {
+			futureTipsPerEpoch[index] += tipStorage.Size()
+			return true
+		})
+	})
+
+	return
+}
+
+// PromoteFutureTips promotes to the main tippool all future tips that belong to the given commitment.
+func (t *TipManager) PromoteFutureTips(cm *commitment.Commitment) {
+	t.evictionMutex.RLock()
+	defer func() {
+		t.evictionMutex.RUnlock()
+		t.Evict(cm.Index())
+	}()
+
+	if futureEpochTips := t.futureTips.Get(cm.Index()); futureEpochTips != nil {
+		if tipsForCommitment, exists := futureEpochTips.Get(cm.ID()); exists {
+			tipsToPromote := make(map[models.BlockID]*scheduler.Block)
+			tipsToNotPromote := set.NewAdvancedSet[models.BlockID]()
+
+			tipsForCommitment.ForEach(func(blockID models.BlockID, tip *scheduler.Block) bool {
+				for _, tipParent := range tip.Parents() {
+					tipsToNotPromote.Add(tipParent)
+				}
+				tipsToPromote[blockID] = tip
+				return true
+			})
+
+			for tipID, tip := range tipsToPromote {
+				// regardless if the tip makes it into the tippool, we remove its strong parents anyway
+				// currentTip <- futureTipNotToAdd <- futureTipToAdd
+				// We want to remove currentTip even if futureTipNotToAdd is not added to the tippool.
+				t.RemoveStrongParents(tip.ModelsBlock)
+				if !tipsToNotPromote.Has(tipID) {
+					t.addTip(tip)
+				}
+			}
+		}
+	}
+}
+
+// Evict removes all parked tips that belong to an evicted epoch.
+func (t *TipManager) Evict(index epoch.Index) {
+	t.evictionMutex.Lock()
+	defer t.evictionMutex.Unlock()
+
+	t.futureTips.Evict(index)
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region TSC to prevent lazy tips /////////////////////////////////////////////////////////////////////////////////////
+
+func (t *TipManager) addTip(block *scheduler.Block) (added bool) {
+	if !t.tips.Has(block.ID()) {
+		t.tips.Set(block.ID(), block)
+		// t.tipsConflictTracker.AddTip(block)
+		t.Events.TipAdded.Trigger(block)
+
+		// skip removing tips if a width is set -> allows to artificially create a wide Tangle.
+		if t.TipCount() <= t.optsWidth {
+			return true
+		}
+
+		// a tip loses its tip status if it is referenced by another block
+		t.RemoveStrongParents(block.ModelsBlock)
+
+		return true
+	}
+
+	return false
+}
+
+// checkMonotonicity returns true if the block has any accepted or scheduled child.
+func (t *TipManager) checkMonotonicity(block *scheduler.Block) (anyScheduledOrAccepted bool) {
+	for _, child := range block.Children() {
+		if child.IsOrphaned() {
+			continue
+		}
+
+		if t.blockAcceptanceGadget.IsBlockAccepted(child.ID()) {
+			return true
+		}
+
+		if childBlock, exists := t.schedulerBlockRetrieverFunc(child.ID()); exists {
+			if childBlock.IsScheduled() {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// isFutureCommitment returns true if the block belongs to a commitment that is not yet known.
+func (t *TipManager) isFutureCommitment(block *scheduler.Block) (isUnknown bool) {
+	return block.Commitment().Index() > t.engine.Storage.Settings.LatestCommitment().Index()
+}
+
+func (t *TipManager) addFutureTip(block *scheduler.Block) (added bool) {
+	t.evictionMutex.RLock()
+	defer t.evictionMutex.RUnlock()
+
+	return lo.Return1(t.futureTips.Get(block.Commitment().Index(), true).RetrieveOrCreate(block.Commitment().ID(), func() *memstorage.Storage[models.BlockID, *scheduler.Block] {
+		return memstorage.New[models.BlockID, *scheduler.Block]()
+	})).Set(block.ID(), block)
+}
+
+func (t *TipManager) isValidTip(tip *scheduler.Block) (err error) {
+	if !t.isRecentCommitment(tip) {
+		return errors.Errorf("cannot select tip due to commitment not being recent (%d), current commitment (%d)", tip.Commitment().Index(), t.engine.Storage.Settings.LatestCommitment().Index())
+	}
+
+	if !t.isPastConeTimestampCorrect(tip.Block.Block) {
+		return errors.Errorf("cannot select tip due to TSC condition tip issuing time (%s), time (%s), min supported time (%s), block id (%s), tip pool size (%d), scheduled: (%t), orphaned: (%t), accepted: (%t)",
+			tip.IssuingTime(),
+			t.engine.Clock.AcceptedTime(),
+			t.engine.Clock.AcceptedTime().Add(-t.optsTimeSinceConfirmationThreshold),
+			tip.ID().Base58(),
+			t.tips.Size(),
+			tip.IsScheduled(),
+			tip.IsOrphaned(),
+			t.engine.Consensus.BlockGadget.IsBlockAccepted(tip.ID()),
+		)
+	}
+
+	return nil
+}
+
+// isRecentCommitment returns true if the commitment of the given block is not in the future and it is not older than TSC threshold
+// epoch with respect to our latest commitment.
+func (t *TipManager) isRecentCommitment(block *scheduler.Block) (isFresh bool) {
+	return block.Commitment().Index() >= (t.engine.Storage.Settings.LatestCommitment().Index() - t.commitmentRecentBoundary).Max(0)
+}
 
 // isPastConeTimestampCorrect performs the TSC check for the given tip.
 // Conceptually, this involves the following steps:
