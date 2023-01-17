@@ -16,10 +16,13 @@ services:
       - ../../..:/tmp/goshimmer:rw
       - ../logs:/tmp/logs
       - ../assets:/tmp/assets
-      - goshimmer-testing-cache:/go
+      - goshimmer-testing-source:/go
+      - goshimmer-testing-cache:/root/.cache
       - goshimmer-testing-assets:/assets
 
 volumes:
+  goshimmer-testing-source:
+    name: goshimmer-testing-source
   goshimmer-testing-cache:
     name: goshimmer-testing-cache
   goshimmer-testing-assets:
