@@ -259,7 +259,7 @@ func (t *TipManager) addTip(block *scheduler.Block) (added bool) {
 
 		// skip removing tips if a width is set -> allows to artificially create a wide Tangle.
 		if t.TipCount() <= t.optsWidth {
-			return
+			return true
 		}
 
 		// a tip loses its tip status if it is referenced by another block
