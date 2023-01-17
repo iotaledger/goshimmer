@@ -1,11 +1,9 @@
 package discovery
 
 import (
-	"fmt"
 	"net"
 	"strings"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/autopeering/discover"
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/autopeering/peer/service"
@@ -13,6 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/mr-tron/base58"
+	"github.com/pkg/errors"
 )
 
 // autopeering constants.
@@ -49,15 +48,15 @@ func parseEntryNodes() (result []*peer.Peer, err error) {
 
 		parts := strings.Split(entryNodeDefinition, "@")
 		if len(parts) != entryNodeParts {
-			return nil, fmt.Errorf("%w: entry node information must contains %d parts, is %d", ErrParsingEntryNode, entryNodeParts, len(parts))
+			return nil, errors.WithMessagef(ErrParsingEntryNode, "entry node information must contains %d parts, is %d", entryNodeParts, len(parts))
 		}
 		pubKey, err := base58.Decode(parts[0])
 		if err != nil {
-			return nil, fmt.Errorf("%w: invalid public key: %s", ErrParsingEntryNode, err)
+			return nil, errors.WithMessagef(ErrParsingEntryNode, "invalid public key: %s", err.Error())
 		}
 		addr, err := net.ResolveUDPAddr("udp", parts[1])
 		if err != nil {
-			return nil, fmt.Errorf("%w: host cannot be resolved: %s", ErrParsingEntryNode, err)
+			return nil, errors.WithMessagef(ErrParsingEntryNode, "host cannot be resolved: %s", err.Error())
 		}
 		publicKey, _, err := ed25519.PublicKeyFromBytes(pubKey)
 		if err != nil {

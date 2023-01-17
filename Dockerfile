@@ -20,12 +20,6 @@ ARG DOWNLOAD_SNAPSHOT=1
 # Ensure ca-certficates are up to date
 RUN update-ca-certificates
 
-RUN if [ $RUN_TEST -gt 0 ]; then \
-    set -eux; \
-    apt-get update; \
-    apt-get install -y --no-install-recommends libgflags-dev libsnappy-dev zlib1g-dev libbz2-dev liblz4-dev libzstd-dev ; \
-    fi
-
 # Set the current Working Directory inside the container
 RUN mkdir /goshimmer
 WORKDIR /goshimmer

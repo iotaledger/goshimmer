@@ -5,8 +5,8 @@ import (
 	"encoding/binary"
 	"sync"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/kvstore"
+	"github.com/pkg/errors"
 )
 
 type GenericType[T any] struct {

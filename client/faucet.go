@@ -4,8 +4,8 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/app/faucet"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
@@ -40,12 +40,12 @@ func (api *GoShimmerAPI) BroadcastFaucetRequest(base58EncodedAddr string, powTar
 
 	address, err := devnetvm.AddressFromBase58EncodedString(base58EncodedAddr)
 	if err != nil {
-		return nil, errors.Errorf("could not decode address from string: %w", err)
+		return nil, errors.Wrapf(err, "could not decode address from string")
 	}
 
 	nonce, err := computeFaucetPoW(address, aManaPledgeID, cManaPledgeID, powTarget)
 	if err != nil {
-		return nil, errors.Errorf("could not compute faucet PoW: %w", err)
+		return nil, errors.Wrapf(err, "could not compute faucet PoW")
 	}
 
 	res := &jsonmodels.FaucetRequestResponse{}
@@ -67,7 +67,7 @@ func (api *GoShimmerAPI) SendFaucetRequestAPI(base58EncodedAddr string, powTarge
 	var aManaPledgeID identity.ID
 	var cManaPledgeID identity.ID
 	if accessPledgeID == "" && consensusPledgeID == "" {
-		return nil, errors.Errorf("accessPledgeID and consensusPledgeID must not be empty")
+		return nil, errors.New("accessPledgeID and consensusPledgeID must not be empty")
 	}
 	aManaPledgeIDFromString, err := identity.DecodeIDBase58(accessPledgeID)
 	if err == nil {
@@ -80,12 +80,12 @@ func (api *GoShimmerAPI) SendFaucetRequestAPI(base58EncodedAddr string, powTarge
 
 	address, err := devnetvm.AddressFromBase58EncodedString(base58EncodedAddr)
 	if err != nil {
-		return nil, errors.Errorf("could not decode address from string: %w", err)
+		return nil, errors.Wrap(err, "could not decode address from string")
 	}
 
 	nonce, err := computeFaucetPoW(address, aManaPledgeID, cManaPledgeID, powTarget)
 	if err != nil {
-		return nil, errors.Errorf("could not compute faucet PoW: %w", err)
+		return nil, errors.Wrap(err, "could not compute faucet PoW")
 	}
 
 	res := &jsonmodels.FaucetAPIResponse{}

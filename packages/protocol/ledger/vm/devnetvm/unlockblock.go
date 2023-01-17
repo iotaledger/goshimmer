@@ -2,38 +2,37 @@ package devnetvm
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/model"
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/stringify"
+	"github.com/pkg/errors"
 )
 
 func init() {
 	err := serix.DefaultAPI.RegisterTypeSettings(AliasUnlockBlock{}, serix.TypeSettings{}.WithObjectType(uint8(new(AliasUnlockBlock).Type())))
 	if err != nil {
-		panic(fmt.Errorf("error registering AliasUnlockBlock type settings: %w", err))
+		panic(errors.Wrap(err, "error registering AliasUnlockBlock type settings"))
 	}
 	err = serix.DefaultAPI.RegisterTypeSettings(ReferenceUnlockBlock{}, serix.TypeSettings{}.WithObjectType(uint8(new(ReferenceUnlockBlock).Type())))
 	if err != nil {
-		panic(fmt.Errorf("error registering ReferenceUnlockBlock type settings: %w", err))
+		panic(errors.Wrap(err, "error registering ReferenceUnlockBlock type settings"))
 	}
 	err = serix.DefaultAPI.RegisterTypeSettings(SignatureUnlockBlock{}, serix.TypeSettings{}.WithObjectType(uint8(new(SignatureUnlockBlock).Type())))
 	if err != nil {
-		panic(fmt.Errorf("error registering SignatureUnlockBlock type settings: %w", err))
+		panic(errors.Wrap(err, "error registering SignatureUnlockBlock type settings"))
 	}
 	err = serix.DefaultAPI.RegisterTypeSettings(UnlockBlocks{}, serix.TypeSettings{}.WithLengthPrefixType(serix.LengthPrefixTypeAsUint16).WithArrayRules(&serix.ArrayRules{
 		// TODO: Avoid failing on duplicated unlock blocks. They seem to have been wrongly generated in the old snapshot.
 		// ValidationMode: serializer.ArrayValidationModeNoDuplicates,
 	}))
 	if err != nil {
-		panic(fmt.Errorf("error registering SignatureUnlockBlock type settings: %w", err))
+		panic(errors.Wrap(err, "error registering SignatureUnlockBlock type settings"))
 	}
 	err = serix.DefaultAPI.RegisterInterfaceObjects((*UnlockBlock)(nil), new(AliasUnlockBlock), new(ReferenceUnlockBlock), new(SignatureUnlockBlock))
 	if err != nil {
-		panic(fmt.Errorf("error registering UnlockBlock interface implementations: %w", err))
+		panic(errors.Wrap(err, "error registering UnlockBlock interface implementations"))
 	}
 }
 
@@ -90,7 +89,7 @@ type UnlockBlocks []UnlockBlock
 func UnlockBlocksFromBytes(bytes []byte) (unlockBlocks UnlockBlocks, consumedBytes int, err error) {
 	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), bytes, &unlockBlocks, serix.WithValidation())
 	if err != nil {
-		err = errors.Errorf("failed to parse UnlockBlocks: %w", err)
+		err = errors.Wrap(err, "failed to parse UnlockBlocks")
 		return
 	}
 

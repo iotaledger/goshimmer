@@ -7,7 +7,6 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/types"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -32,38 +31,38 @@ func TestConflictDAG_RetrieveConflict(t *testing.T) {
 	require.NoError(t, conflictID2.FromRandomness())
 	require.NoError(t, conflictID3.FromRandomness())
 
-	assert.True(t, conflictDAG.CreateConflict(branchID2, set.NewAdvancedSet(types.Identifier{}), set.NewAdvancedSet(conflictID0, conflictID1)))
+	require.True(t, conflictDAG.CreateConflict(branchID2, set.NewAdvancedSet(types.Identifier{}), set.NewAdvancedSet(conflictID0, conflictID1)))
 	cachedBranch2 := conflictDAG.Storage.CachedConflict(branchID2)
 	defer cachedBranch2.Release()
 	Branch2, exists := cachedBranch2.Unwrap()
 	require.True(t, exists)
-	assert.Equal(t, set.NewAdvancedSet(types.Identifier{}), Branch2.Parents())
-	assert.True(t, set.NewAdvancedSet(conflictID0, conflictID1).Equal(Branch2.ConflictSetIDs()))
+	require.Equal(t, set.NewAdvancedSet(types.Identifier{}), Branch2.Parents())
+	require.True(t, set.NewAdvancedSet(conflictID0, conflictID1).Equal(Branch2.ConflictSetIDs()))
 
-	assert.True(t, conflictDAG.CreateConflict(branchID3, set.NewAdvancedSet(Branch2.ID()), set.NewAdvancedSet(conflictID0, conflictID1, conflictID2)))
+	require.True(t, conflictDAG.CreateConflict(branchID3, set.NewAdvancedSet(Branch2.ID()), set.NewAdvancedSet(conflictID0, conflictID1, conflictID2)))
 	cachedBranch3 := conflictDAG.Storage.CachedConflict(branchID3)
 	defer cachedBranch3.Release()
 	Branch3, exists := cachedBranch3.Unwrap()
 	require.True(t, exists)
 
-	assert.Equal(t, set.NewAdvancedSet(Branch2.ID()), Branch3.Parents())
-	assert.Equal(t, set.NewAdvancedSet(conflictID0, conflictID1, conflictID2), Branch3.ConflictSetIDs())
+	require.Equal(t, set.NewAdvancedSet(Branch2.ID()), Branch3.Parents())
+	require.Equal(t, set.NewAdvancedSet(conflictID0, conflictID1, conflictID2), Branch3.ConflictSetIDs())
 
-	assert.False(t, conflictDAG.CreateConflict(branchID2, set.NewAdvancedSet(types.Identifier{}), set.NewAdvancedSet(conflictID0, conflictID1, conflictID2)))
-	assert.True(t, conflictDAG.UpdateConflictingResources(branchID2, set.NewAdvancedSet(conflictID0, conflictID1, conflictID2)))
+	require.False(t, conflictDAG.CreateConflict(branchID2, set.NewAdvancedSet(types.Identifier{}), set.NewAdvancedSet(conflictID0, conflictID1, conflictID2)))
+	require.True(t, conflictDAG.UpdateConflictingResources(branchID2, set.NewAdvancedSet(conflictID0, conflictID1, conflictID2)))
 	cachedBranch2 = conflictDAG.Storage.CachedConflict(branchID2)
 	defer cachedBranch2.Release()
 	Branch2, exists = cachedBranch2.Unwrap()
 	require.True(t, exists)
 
-	assert.Equal(t, set.NewAdvancedSet(conflictID0, conflictID1, conflictID2), Branch2.ConflictSetIDs())
+	require.Equal(t, set.NewAdvancedSet(conflictID0, conflictID1, conflictID2), Branch2.ConflictSetIDs())
 
-	assert.True(t, conflictDAG.CreateConflict(branchID4, set.NewAdvancedSet(Branch3.ID(), Branch3.ID()), set.NewAdvancedSet(conflictID3)))
+	require.True(t, conflictDAG.CreateConflict(branchID4, set.NewAdvancedSet(Branch3.ID(), Branch3.ID()), set.NewAdvancedSet(conflictID3)))
 	cachedBranch4 := conflictDAG.Storage.CachedConflict(branchID4)
 	defer cachedBranch4.Release()
 	Branch4, exists := cachedBranch4.Unwrap()
 	require.True(t, exists)
-	assert.Equal(t, set.NewAdvancedSet(conflictID3), Branch4.ConflictSetIDs())
+	require.Equal(t, set.NewAdvancedSet(conflictID3), Branch4.ConflictSetIDs())
 }
 
 func TestConflictDAG_ConflictMembers(t *testing.T) {
@@ -82,17 +81,17 @@ func TestConflictDAG_ConflictMembers(t *testing.T) {
 	require.NoError(t, conflictID0.FromRandomness())
 
 	// create initial conflicts
-	assert.True(t, conflictDAG.CreateConflict(conflictID2, set.NewAdvancedSet(types.Identifier{}), set.NewAdvancedSet(conflictID0)))
+	require.True(t, conflictDAG.CreateConflict(conflictID2, set.NewAdvancedSet(types.Identifier{}), set.NewAdvancedSet(conflictID0)))
 	cachedConflict2 := conflictDAG.Storage.CachedConflict(conflictID2)
 	defer cachedConflict2.Release()
 	conflict2, exists := cachedConflict2.Unwrap()
-	assert.True(t, exists)
+	require.True(t, exists)
 
-	assert.True(t, conflictDAG.CreateConflict(conflictID3, set.NewAdvancedSet(types.Identifier{}), set.NewAdvancedSet(conflictID0)))
+	require.True(t, conflictDAG.CreateConflict(conflictID3, set.NewAdvancedSet(types.Identifier{}), set.NewAdvancedSet(conflictID0)))
 	cachedConflict3 := conflictDAG.Storage.CachedConflict(conflictID3)
 	defer cachedConflict3.Release()
 	conflict3, exists := cachedConflict3.Unwrap()
-	assert.True(t, exists)
+	require.True(t, exists)
 
 	// assert conflict members
 	expectedConflictMembers := map[types.Identifier]struct{}{
@@ -102,14 +101,14 @@ func TestConflictDAG_ConflictMembers(t *testing.T) {
 	conflictDAG.Storage.CachedConflictMembers(conflictID0).Consume(func(conflictMember *ConflictMember[types.Identifier, types.Identifier]) {
 		actualConflictMembers[conflictMember.ConflictID()] = struct{}{}
 	})
-	assert.Equal(t, expectedConflictMembers, actualConflictMembers)
+	require.Equal(t, expectedConflictMembers, actualConflictMembers)
 
 	// add conflict 4
-	assert.True(t, conflictDAG.CreateConflict(conflictID4, set.NewAdvancedSet(types.Identifier{}), set.NewAdvancedSet(conflictID0)))
+	require.True(t, conflictDAG.CreateConflict(conflictID4, set.NewAdvancedSet(types.Identifier{}), set.NewAdvancedSet(conflictID0)))
 	cachedConflict4 := conflictDAG.Storage.CachedConflict(conflictID4)
 	defer cachedConflict4.Release()
 	conflict4, exists := cachedConflict4.Unwrap()
-	assert.True(t, exists)
+	require.True(t, exists)
 
 	// conflict 4 should now also be part of the conflict set
 	expectedConflictMembers = map[types.Identifier]struct{}{
@@ -119,7 +118,7 @@ func TestConflictDAG_ConflictMembers(t *testing.T) {
 	conflictDAG.Storage.CachedConflictMembers(conflictID0).Consume(func(conflictMember *ConflictMember[types.Identifier, types.Identifier]) {
 		actualConflictMembers[conflictMember.ConflictID()] = struct{}{}
 	})
-	assert.Equal(t, expectedConflictMembers, actualConflictMembers)
+	require.Equal(t, expectedConflictMembers, actualConflictMembers)
 }
 
 func TestConflictDAG_SetConflictAccepted(t *testing.T) {
@@ -146,7 +145,7 @@ func TestConflictDAG_SetConflictAccepted(t *testing.T) {
 	conflictIDs["Conflict7"] = createConflict(t, conflictDAG, "Conflict7", set.NewAdvancedSet(types.Identifier{}), set.NewAdvancedSet(conflictID2))
 	conflictIDs["Conflict8"] = createConflict(t, conflictDAG, "Conflict8", set.NewAdvancedSet(types.Identifier{}), set.NewAdvancedSet(conflictID2))
 
-	assert.True(t, conflictDAG.SetConflictAccepted(conflictIDs["Conflict4"]))
+	require.True(t, conflictDAG.SetConflictAccepted(conflictIDs["Conflict4"]))
 
 	assertConfirmationStates(t, conflictDAG, conflictIDs, map[string]confirmation.State{
 		"Conflict2":           confirmation.Accepted,
@@ -161,7 +160,7 @@ func TestConflictDAG_SetConflictAccepted(t *testing.T) {
 		"Conflict5+Conflict8": confirmation.Rejected,
 	})
 
-	assert.True(t, conflictDAG.SetConflictAccepted(conflictIDs["Conflict8"]))
+	require.True(t, conflictDAG.SetConflictAccepted(conflictIDs["Conflict8"]))
 
 	// Create a new Conflict in an already-decided Conflict Set results in straight Reject
 	conflictIDs["Conflict9"] = createConflict(t, conflictDAG, "Conflict9", set.NewAdvancedSet(types.Identifier{}), set.NewAdvancedSet(conflictID2))
@@ -216,7 +215,7 @@ func assertConfirmationStates[ConflictT, ConflictSetT comparable](t *testing.T, 
 			conflictIDs.Add(conflictIDsMapping[conflictString])
 		}
 
-		assert.Equal(t, expectedConfirmationState, conflictDAG.ConfirmationState(conflictIDs), "%s inclustionState is not %s", conflictIDs, expectedConfirmationState)
+		require.Equal(t, expectedConfirmationState, conflictDAG.ConfirmationState(conflictIDs), "%s inclustionState is not %s", conflictIDs, expectedConfirmationState)
 	}
 }
 
@@ -227,7 +226,7 @@ func createConflict(t *testing.T, conflictDAG *ConflictDAG[types.Identifier, typ
 		return types.Identifier{}
 	}
 
-	assert.True(t, conflictDAG.CreateConflict(randomConflictID, parents, conflictIDs))
+	require.True(t, conflictDAG.CreateConflict(randomConflictID, parents, conflictIDs))
 	cachedConflict := conflictDAG.Storage.CachedConflict(randomConflictID)
 	cachedConflict.Release()
 

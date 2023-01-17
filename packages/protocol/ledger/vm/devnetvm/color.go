@@ -5,12 +5,12 @@ import (
 	"context"
 	"sort"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/cerrors"
 	"github.com/iotaledger/hive.go/core/generics/orderedmap"
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/stringify"
 	"github.com/mr-tron/base58"
+	"github.com/pkg/errors"
 )
 
 // region Color ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -31,7 +31,7 @@ type Color [ColorLength]byte
 func ColorFromBytes(data []byte) (color Color, consumedBytes int, err error) {
 	_, err = serix.DefaultAPI.Decode(context.Background(), data, &color, serix.WithValidation())
 	if err != nil {
-		err = errors.Errorf("failed to parse SigLockedColoredOutput: %w", err)
+		err = errors.Wrap(err, "failed to parse SigLockedColoredOutput")
 		return
 	}
 	return
@@ -41,12 +41,12 @@ func ColorFromBytes(data []byte) (color Color, consumedBytes int, err error) {
 func ColorFromBase58EncodedString(base58String string) (color Color, err error) {
 	parsedBytes, err := base58.Decode(base58String)
 	if err != nil {
-		err = errors.Errorf("error while decoding base58 encoded Color (%v): %w", err, cerrors.ErrBase58DecodeFailed)
+		err = errors.WithMessagef(cerrors.ErrBase58DecodeFailed, "error while decoding base58 encoded Color: %s", err.Error())
 		return
 	}
 
 	if color, _, err = ColorFromBytes(parsedBytes); err != nil {
-		err = errors.Errorf("failed to parse Color from bytes: %w", err)
+		err = errors.Wrap(err, "failed to parse Color from bytes")
 		return
 	}
 
@@ -123,7 +123,7 @@ func ColoredBalancesFromBytes(bytes []byte) (coloredBalances *ColoredBalances, c
 	coloredBalances = new(ColoredBalances)
 	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), bytes, coloredBalances)
 	if err != nil {
-		err = errors.Errorf("failed to parse ColoredBalances: %w", err)
+		err = errors.Wrap(err, "failed to parse ColoredBalances")
 		return
 	}
 	return

@@ -2,9 +2,10 @@ package remotelog
 
 import (
 	"encoding/json"
-	"fmt"
 	"net"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/hive.go/core/logger"
 
@@ -19,7 +20,7 @@ type RemoteLoggerConn struct {
 func newRemoteLoggerConn(address string) (*RemoteLoggerConn, error) {
 	c, err := net.Dial("udp", address)
 	if err != nil {
-		return nil, fmt.Errorf("could not create UDP socket to '%s'. %v", address, err)
+		return nil, errors.Wrapf(err, "could not create UDP socket to '%s'.", address)
 	}
 
 	return &RemoteLoggerConn{conn: c}, nil

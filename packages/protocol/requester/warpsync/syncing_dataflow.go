@@ -4,9 +4,9 @@ import (
 	"context"
 
 	"github.com/celestiaorg/smt"
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/dataflow"
 	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"

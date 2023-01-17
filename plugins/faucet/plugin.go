@@ -3,12 +3,12 @@ package faucet
 import (
 	"context"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/daemon"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/node"
 	"github.com/mr-tron/base58"
+	"github.com/pkg/errors"
 	"go.uber.org/atomic"
 	"go.uber.org/dig"
 

@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/cockroachdb/errors"
+	"github.com/pkg/errors"
 	"github.com/zyedidia/generic/cache"
 
 	"github.com/iotaledger/hive.go/core/generics/lo"

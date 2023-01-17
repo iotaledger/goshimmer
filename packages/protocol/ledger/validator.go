@@ -1,10 +1,10 @@
 package ledger
 
 import (
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/cerrors"
 	"github.com/iotaledger/hive.go/core/generics/dataflow"
 	"github.com/iotaledger/hive.go/core/generics/walker"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
@@ -30,7 +30,7 @@ func (v *validator) checkSolidityCommand(params *dataFlowParams, next dataflow.N
 	cachedInputs := v.ledger.Storage.CachedOutputs(params.InputIDs)
 	defer cachedInputs.Release()
 	if params.Inputs = utxo.NewOutputs(cachedInputs.Unwrap(true)...); params.Inputs.Size() != len(cachedInputs) {
-		return errors.Errorf("not all outputs of %s available: %w", params.Transaction.ID(), ErrTransactionUnsolid)
+		return errors.WithMessagef(ErrTransactionUnsolid, "not all outputs of %s available", params.Transaction.ID())
 	}
 
 	return next(params)
@@ -44,11 +44,11 @@ func (v *validator) checkOutputsCausallyRelatedCommand(params *dataFlowParams, n
 
 	params.InputsMetadata = NewOutputsMetadata(cachedOutputsMetadata.Unwrap(true)...)
 	if params.InputsMetadata.Size() != len(cachedOutputsMetadata) {
-		return errors.Errorf("failed to retrieve the metadata of all inputs of %s: %w", params.Transaction.ID(), cerrors.ErrFatal)
+		return errors.WithMessagef(cerrors.ErrFatal, "failed to retrieve the metadata of all inputs of %s", params.Transaction.ID())
 	}
 
 	if v.outputsCausallyRelated(params.InputsMetadata) {
-		return errors.Errorf("%s is trying to spend causally related Outputs: %w", params.Transaction.ID(), ErrTransactionInvalid)
+		return errors.WithMessagef(ErrTransactionInvalid, "%s is trying to spend causally related Outputs", params.Transaction.ID())
 	}
 
 	return next(params)
@@ -59,7 +59,7 @@ func (v *validator) checkOutputsCausallyRelatedCommand(params *dataFlowParams, n
 func (v *validator) checkTransactionExecutionCommand(params *dataFlowParams, next dataflow.Next[*dataFlowParams]) (err error) {
 	utxoOutputs, err := v.ledger.optsVM.ExecuteTransaction(params.Transaction, params.Inputs)
 	if err != nil {
-		return errors.Errorf("failed to execute transaction with %s: %w: %w", params.Transaction.ID(), ErrTransactionInvalid, err)
+		return errors.WithMessagef(ErrTransactionInvalid, "failed to execute transaction with %s: %s", params.Transaction.ID(), err.Error())
 	}
 
 	params.Outputs = utxo.NewOutputs(utxoOutputs...)

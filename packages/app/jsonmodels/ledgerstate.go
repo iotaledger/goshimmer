@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/iotaledger/hive.go/core/typeutils"
 	"github.com/mr-tron/base58"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
@@ -56,11 +56,11 @@ func NewOutput(output devnetvm.Output) (result *Output) {
 func (o *Output) ToLedgerstateOutput() (devnetvm.Output, error) {
 	outputType, err := devnetvm.OutputTypeFromString(o.Type)
 	if err != nil {
-		return nil, errors.Errorf("failed to parse output type: %w", err)
+		return nil, errors.Wrap(err, "failed to parse output type")
 	}
 	var id utxo.OutputID
 	if iErr := id.FromBase58(o.OutputID.Base58); err != nil {
-		return nil, errors.Errorf("failed to parse outputID: %w", iErr)
+		return nil, errors.Wrap(iErr, "failed to parse outputID")
 	}
 
 	switch outputType {
@@ -163,7 +163,7 @@ type SigLockedSingleOutput struct {
 func (s *SigLockedSingleOutput) ToLedgerStateOutput(id utxo.OutputID) (devnetvm.Output, error) {
 	addy, err := devnetvm.AddressFromBase58EncodedString(s.Address)
 	if err != nil {
-		return nil, errors.Errorf("wrong address in SigLockedSingleOutput: %w", err)
+		return nil, errors.Wrap(err, "wrong address in SigLockedSingleOutput")
 	}
 	res := devnetvm.NewSigLockedSingleOutput(s.Balance, addy)
 	res.SetID(id)
@@ -188,7 +188,7 @@ func UnmarshalSigLockedSingleOutputFromBytes(data []byte) (*SigLockedSingleOutpu
 	marshalledOutput := &SigLockedSingleOutput{}
 	err := json.Unmarshal(data, marshalledOutput)
 	if err != nil {
-		return nil, errors.Errorf("failed to unmarshal SigLockedSingleOutput: %w", err)
+		return nil, errors.Wrap(err, "failed to unmarshal SigLockedSingleOutput")
 	}
 	return marshalledOutput, nil
 }
@@ -207,11 +207,11 @@ type SigLockedColoredOutput struct {
 func (s *SigLockedColoredOutput) ToLedgerStateOutput(id utxo.OutputID) (devnetvm.Output, error) {
 	addy, err := devnetvm.AddressFromBase58EncodedString(s.Address)
 	if err != nil {
-		return nil, errors.Errorf("wrong address in SigLockedSingleOutput: %w", err)
+		return nil, errors.Wrap(err, "wrong address in SigLockedSingleOutput")
 	}
 	balances, bErr := getColoredBalances(s.Balances)
 	if bErr != nil {
-		return nil, errors.Errorf("failed to parse colored balances: %w", bErr)
+		return nil, errors.Wrap(bErr, "failed to parse colored balances")
 	}
 
 	res := devnetvm.NewSigLockedColoredOutput(balances, addy)
@@ -236,7 +236,7 @@ func UnmarshalSigLockedColoredOutputFromBytes(data []byte) (*SigLockedColoredOut
 	marshalledOutput := &SigLockedColoredOutput{}
 	err := json.Unmarshal(data, marshalledOutput)
 	if err != nil {
-		return nil, errors.Errorf("failed to unmarshal SigLockedSingleOutput: %w", err)
+		return nil, errors.Wrap(err, "failed to unmarshal SigLockedSingleOutput")
 	}
 	return marshalledOutput, nil
 }
@@ -268,17 +268,17 @@ type AliasOutput struct {
 func (a *AliasOutput) ToLedgerStateOutput(id utxo.OutputID) (devnetvm.Output, error) {
 	balances, err := getColoredBalances(a.Balances)
 	if err != nil {
-		return nil, errors.Errorf("failed to parse colored balances: %w", err)
+		return nil, errors.Wrap(err, "failed to parse colored balances")
 	}
 	// alias address
 	aliasAddy, aErr := devnetvm.AliasAddressFromBase58EncodedString(a.AliasAddress)
 	if aErr != nil {
-		return nil, errors.Errorf("wrong alias address in AliasOutput: %w", err)
+		return nil, errors.Wrap(aErr, "wrong alias address in AliasOutput")
 	}
 	// state address
 	stateAddy, aErr := devnetvm.AddressFromBase58EncodedString(a.StateAddress)
 	if aErr != nil {
-		return nil, errors.Errorf("wrong state address in AliasOutput: %w", err)
+		return nil, errors.Wrap(aErr, "wrong state address in AliasOutput")
 	}
 	// stateIndex
 	stateIndex := a.StateIndex
@@ -374,7 +374,7 @@ func UnmarshalAliasOutputFromBytes(data []byte) (*AliasOutput, error) {
 	marshalledOutput := &AliasOutput{}
 	err := json.Unmarshal(data, marshalledOutput)
 	if err != nil {
-		return nil, errors.Errorf("failed to unmarshal AliasOutput: %w", err)
+		return nil, errors.Wrap(err, "failed to unmarshal AliasOutput")
 	}
 	return marshalledOutput, nil
 }
@@ -397,11 +397,11 @@ type ExtendedLockedOutput struct {
 func (e *ExtendedLockedOutput) ToLedgerStateOutput(id utxo.OutputID) (devnetvm.Output, error) {
 	addy, err := devnetvm.AddressFromBase58EncodedString(e.Address)
 	if err != nil {
-		return nil, errors.Errorf("wrong address in ExtendedLockedOutput: %w", err)
+		return nil, errors.Wrap(err, "wrong address in ExtendedLockedOutput")
 	}
 	balances, bErr := getColoredBalances(e.Balances)
 	if bErr != nil {
-		return nil, errors.Errorf("failed to parse colored balances: %w", bErr)
+		return nil, errors.Wrap(bErr, "failed to parse colored balances")
 	}
 
 	res := devnetvm.NewExtendedLockedOutput(balances.Map(), addy)
@@ -409,7 +409,7 @@ func (e *ExtendedLockedOutput) ToLedgerStateOutput(id utxo.OutputID) (devnetvm.O
 	if e.FallbackAddress != "" && e.FallbackDeadline != 0 {
 		fallbackAddy, fErr := devnetvm.AddressFromBase58EncodedString(e.FallbackAddress)
 		if fErr != nil {
-			return nil, errors.Errorf("wrong fallback address in ExtendedLockedOutput: %w", err)
+			return nil, errors.Wrap(fErr, "wrong fallback address in ExtendedLockedOutput")
 		}
 		res = res.WithFallbackOptions(fallbackAddy, time.Unix(e.FallbackDeadline, 0))
 	}
@@ -452,7 +452,7 @@ func UnmarshalExtendedLockedOutputFromBytes(data []byte) (*ExtendedLockedOutput,
 	marshalledOutput := &ExtendedLockedOutput{}
 	err := json.Unmarshal(data, marshalledOutput)
 	if err != nil {
-		return nil, errors.Errorf("failed to unmarshal ExtendedLockedOutput: %w", err)
+		return nil, errors.Wrap(err, "failed to unmarshal ExtendedLockedOutput")
 	}
 	return marshalledOutput, nil
 }
@@ -765,7 +765,7 @@ func getColoredBalances(stringBalances map[string]uint64) (*devnetvm.ColoredBala
 	for stringColor, balance := range stringBalances {
 		color, cErr := devnetvm.ColorFromBase58EncodedString(stringColor)
 		if cErr != nil {
-			return nil, errors.Errorf("failed to decode color: %w", cErr)
+			return nil, errors.Wrap(cErr, "failed to decode color")
 		}
 		cBalances[color] = balance
 	}

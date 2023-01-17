@@ -7,7 +7,6 @@ import (
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
@@ -37,9 +36,9 @@ func TestTransaction_Bytes(t *testing.T) {
 	})
 	_tx := new(Transaction)
 	err := _tx.FromBytes(lo.PanicOnErr(transaction.Bytes()))
-	assert.NoError(t, err)
-	assert.Equal(t, transaction.ID(), _tx.ID())
-	assert.Equal(t, transaction.Essence().Outputs()[0].Balances(), _tx.Essence().Outputs()[0].Balances())
+	require.NoError(t, err)
+	require.Equal(t, transaction.ID(), _tx.ID())
+	require.Equal(t, transaction.Essence().Outputs()[0].Balances(), _tx.Essence().Outputs()[0].Balances())
 }
 
 func TestTransaction_Complex(t *testing.T) {
@@ -112,7 +111,7 @@ func TestTransaction_Complex(t *testing.T) {
 	// transaction := NewTransaction(completedEssence, unlockBlocks)
 
 	// TODO: ADD VALIDITY CHECKS ONCE WE ADDED THE UTXO DAG.
-	// assert.True(t, utxoDAG.TransactionValid(transaction))
+	// require.True(t, utxoDAG.TransactionValid(transaction))
 }
 
 // setupKeyChainAndAddresses generates keys and addresses that are used by the test case.

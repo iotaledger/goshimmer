@@ -3,7 +3,6 @@ package config
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -31,5 +30,5 @@ func TestCreateFlags(t *testing.T) {
 	var config GoShimmer
 	config.BlockIssuer.Enabled = true
 	config.BlockIssuer.RateSetter.Initial = 10
-	assert.Contains(t, config.CreateFlags(), "--blockissuer.rateSetter.initial=10")
+	require.Contains(t, config.CreateFlags(), "--blockissuer.rateSetter.initial=10")
 }

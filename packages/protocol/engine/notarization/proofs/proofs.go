@@ -3,7 +3,7 @@ package proofs
 /*
 import (
 	"github.com/celestiaorg/smt"
-	"github.com/cockroachdb/errors"
+	"github.com/pkg/errors"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"golang.org/x/crypto/blake2b"
 
