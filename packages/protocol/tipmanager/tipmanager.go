@@ -219,24 +219,21 @@ func (t *TipManager) PromoteFutureTips(cm *commitment.Commitment) {
 	if futureEpochTips := t.futureTips.Get(cm.Index()); futureEpochTips != nil {
 		if tipsForCommitment, exists := futureEpochTips.Get(cm.ID()); exists {
 			tipsToPromote := make(map[models.BlockID]*scheduler.Block)
+			tipsToNotPromote := set.NewAdvancedSet[models.BlockID]()
+
 			tipsForCommitment.ForEach(func(blockID models.BlockID, tip *scheduler.Block) bool {
+				for _, tipParent := range tip.Parents() {
+					tipsToNotPromote.Add(tipParent)
+				}
 				tipsToPromote[blockID] = tip
 				return true
 			})
 
-			tipsToNotPromote := set.NewAdvancedSet[models.BlockID]()
-			for _, tip := range tipsToPromote {
-				for _, parentID := range tip.Parents() {
-					if _, exists := tipsToPromote[parentID]; exists {
-						// Do not add this tips parent because this is not a tip anymore
-						tipsToNotPromote.Add(parentID)
-					}
-				}
-				// Remove all tips referenced by all future tips valid for this commitment
-				t.RemoveStrongParents(tip.ModelsBlock)
-			}
-
 			for tipID, tip := range tipsToPromote {
+				// regardless if the tip makes it into the tippool, we remove its strong parents anyway
+				// currentTip <- futureTipNotToAdd <- futureTipToAdd
+				// We want to remove currentTip even if futureTipNotToAdd is not added to the tippool.
+				t.RemoveStrongParents(tip.ModelsBlock)
 				if !tipsToNotPromote.Has(tipID) {
 					t.addTip(tip)
 				}
