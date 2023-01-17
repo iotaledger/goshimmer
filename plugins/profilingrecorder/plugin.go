@@ -2,7 +2,9 @@ package profilingrecorder
 
 import (
 	"context"
+	"path/filepath"
 	"runtime"
+	"strconv"
 	"time"
 
 	profile "github.com/bygui86/multi-profile/v2"
@@ -33,11 +35,19 @@ func run(*node.Plugin) {
 	profConfig := &profile.Config{
 		Path:                Parameters.OutputPath,
 		EnableInterruptHook: true,
+		// Quiet: 			 true,
 	}
 
 	if err := daemon.BackgroundWorker(PluginName, func(ctx context.Context) {
 		ticker := timeutil.NewTicker(func() {
-			profile.CPUProfile(profConfig).Start()
+			// TODO: always just keep x profiles around (maybe last 60min or so?)
+
+			profConfig.Path = filepath.Join(Parameters.OutputPath, strconv.FormatInt(time.Now().Unix(), 10))
+
+			cpuProfile := profile.CPUProfile(profConfig).Start()
+			time.Sleep(10 * time.Second)
+			defer cpuProfile.Stop()
+
 			defer profile.MemProfile(profConfig).Start().Stop()
 			defer profile.GoroutineProfile(profConfig).Start().Stop()
 			defer profile.MutexProfile(profConfig).Start().Stop()
