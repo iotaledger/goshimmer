@@ -5,10 +5,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/randommap"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/types"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -95,17 +97,6 @@ func (t *TipManager) AddTip(block *scheduler.Block) {
 
 	// a tip loses its tip status if it is referenced by another block
 	t.RemoveStrongParents(block.ModelsBlock)
-}
-
-func (t *TipManager) addTip(block *scheduler.Block) (added bool) {
-	if !t.tips.Has(block) {
-		t.tips.Set(block, block)
-		// t.tipsConflictTracker.AddTip(block)
-		t.Events.TipAdded.Trigger(block)
-		return true
-	}
-
-	return false
 }
 
 func (t *TipManager) EvictTSCCache(index epoch.Index) {
