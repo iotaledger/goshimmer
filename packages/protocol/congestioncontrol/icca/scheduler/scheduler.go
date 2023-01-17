@@ -593,7 +593,7 @@ func (s *Scheduler) GetExcessDeficit(issuerID identity.ID) (deficitFloat float64
 	s.deficitsMutex.RLock()
 	defer s.deficitsMutex.RUnlock()
 
-	if deficit, exists := s.deficits.Get(issuerID); !exists {
+	if deficit, exists := s.deficits.Get(issuerID); exists {
 		deficitFloat, _ = deficit.Float64()
 		return deficitFloat - float64(s.IssuerQueueWork(issuerID)), nil
 	}

@@ -77,7 +77,7 @@ func TestRateSetter_IssueBlocksAndAwaitScheduleMultipleIssuers_Deficit(t *testin
 
 	tf := NewTestFramework(t, WithRateSetterOptions(WithMode(DeficitMode)), WithSchedulerOptions(scheduler.WithRate(schedulerRate)), WithNumIssuers(numIssuers))
 	defer tf.Shutdown()
-	blockScheduled := make(chan *models.Block, 1)
+	blockScheduled := make(chan *models.Block, numBlocksPerIssuer*numIssuers)
 	tf.Protocol.CongestionControl.Scheduler().Events.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) { blockScheduled <- block.ModelsBlock }))
 
 	for i := 0; i < numIssuers; i++ {
@@ -107,7 +107,7 @@ func TestRateSetter_IssueBlocksAndAwaitScheduleMultipleIssuers_Disabled(t *testi
 
 	tf := NewTestFramework(t, WithRateSetterOptions(WithMode(DisabledMode)), WithSchedulerOptions(scheduler.WithRate(schedulerRate)), WithNumIssuers(numIssuers))
 	defer tf.Shutdown()
-	blockScheduled := make(chan *models.Block, 1)
+	blockScheduled := make(chan *models.Block, numBlocksPerIssuer*numIssuers)
 	tf.Protocol.CongestionControl.Scheduler().Events.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) { blockScheduled <- block.ModelsBlock }))
 
 	for i := 0; i < numIssuers; i++ {

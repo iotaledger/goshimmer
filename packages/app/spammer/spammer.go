@@ -85,6 +85,9 @@ func (s *Spammer) run(rate int, payloadSize uint64, timeUnit time.Duration, imif
 		case <-ticker.C:
 			// TODO: only sleep if estimate > some threshold.
 			for estimatedDuration := s.estimateFunc(); estimatedDuration > 0; estimatedDuration = s.estimateFunc() {
+				if estimatedDuration > time.Duration(rate) {
+					estimatedDuration = time.Duration(rate)
+				}
 				time.Sleep(estimatedDuration)
 			}
 
