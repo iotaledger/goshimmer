@@ -649,7 +649,6 @@ func TestTipManager_FutureTips(t *testing.T) {
 		tf.AssertTipsAdded(6)
 		tf.AssertTipsRemoved(5)
 		tf.AssertTips(tf.BlockIDs("Block3.1"))
-
 	}
 
 	commitment2_1 := tf.FormCommitment(2, []string{}, 1)

@@ -93,7 +93,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		t.SetAcceptedTime(time.Unix(epoch.GenesisTime, 0))
 
 		t.TestFramework.ModelsTestFramework.SetBlock("Genesis", models.NewEmptyBlock(models.EmptyBlockID, models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0))))
-	}, (*TestFramework).setupEvents, (*TestFramework).createGenesis)
+	}, (*TestFramework).createGenesis, (*TestFramework).setupEvents)
 }
 
 func (t *TestFramework) setupEvents() {
@@ -125,7 +125,7 @@ func (t *TestFramework) setupEvents() {
 	}))
 
 	t.mockAcceptance.BlockAcceptedEvent.Attach(event.NewClosure(func(block *blockgadget.Block) {
-		t.engine.NotarizationManager.NotarizeAcceptedBlock(block.ModelsBlock)
+		require.NoError(t.test, t.engine.NotarizationManager.NotarizeAcceptedBlock(block.ModelsBlock))
 	}))
 
 	t.engine.NotarizationManager.Events.EpochCommitted.Attach(event.NewClosure(func(details *notarization.EpochCommittedDetails) {

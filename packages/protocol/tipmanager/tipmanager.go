@@ -212,7 +212,6 @@ func (t *TipManager) PromoteFutureTips(cm *commitment.Commitment) {
 
 	if futureEpochTips := t.futureTips.Get(cm.Index()); futureEpochTips != nil {
 		if tipsForCommitment, exists := futureEpochTips.Get(cm.ID()); exists {
-
 			tipsToPromote := make(map[models.BlockID]*scheduler.Block)
 			tipsForCommitment.ForEach(func(blockID models.BlockID, tip *scheduler.Block) bool {
 				tipsToPromote[blockID] = tip
