@@ -27,9 +27,7 @@ type ConflictDAG[ConflictIDType, ResourceIDType comparable] struct {
 	conflictSets *memstorage.Storage[ResourceIDType, *ConflictSet[ConflictIDType, ResourceIDType]]
 	evictionMap  *memstorage.Storage[epoch.Index, set.Set[ResourceIDType]]
 
-	// evictionMutex is a mutex that is used to synchronize the eviction of elements from the ConflictDAG.
-	evictionMutex sync.RWMutex
-	// mutex RWMutex is a mutex that prevents that two processes simultaneously update the ConflictDAG.
+	// mutex is a mutex that prevents that two processes simultaneously update the ConflictDAG.
 	mutex sync.RWMutex
 
 	optsMergeToMaster bool
@@ -51,33 +49,39 @@ func New[ConflictIDType, ResourceIDType comparable](evictionState *eviction.Stat
 }
 
 func (c *ConflictDAG[ConflictIDType, ResourceIDType]) Conflict(conflictID ConflictIDType) (conflict *Conflict[ConflictIDType, ResourceIDType], exists bool) {
-	c.evictionMutex.RLock()
-	defer c.evictionMutex.RUnlock()
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
 
+	return c.conflict(conflictID)
+}
+
+func (c *ConflictDAG[ConflictIDType, ResourceIDType]) conflict(conflictID ConflictIDType) (conflict *Conflict[ConflictIDType, ResourceIDType], exists bool) {
 	return c.conflicts.Get(conflictID)
 }
 
 func (c *ConflictDAG[ConflictIDType, ResourceIDType]) ConflictSet(resourceID ResourceIDType) (conflictSet *ConflictSet[ConflictIDType, ResourceIDType], exists bool) {
-	c.evictionMutex.RLock()
-	defer c.evictionMutex.RUnlock()
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
 
+	return c.conflictSet(resourceID)
+}
+
+func (c *ConflictDAG[ConflictIDType, ResourceIDType]) conflictSet(resourceID ResourceIDType) (conflictSet *ConflictSet[ConflictIDType, ResourceIDType], exists bool) {
 	return c.conflictSets.Get(resourceID)
 }
 
 // CreateConflict creates a new Conflict in the ConflictDAG and returns true if the Conflict was created.
 func (c *ConflictDAG[ConflictIDType, ResourceIDType]) CreateConflict(id ConflictIDType, parentIDs *set.AdvancedSet[ConflictIDType], conflictingResourceIDs *set.AdvancedSet[ResourceIDType]) (created bool) {
-	c.evictionMutex.RLock()
-	defer c.evictionMutex.RUnlock()
-
-	// TODO: we need to set up an eviction map so that we can evict conflicts eventually
+	// TODO: we need to set the evictionMap based on the current epoch
 
 	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
 	conflictParents := set.NewAdvancedSet[*Conflict[ConflictIDType, ResourceIDType]]()
 
 	for it := parentIDs.Iterator(); it.HasNext(); {
 		parentID := it.Next()
-		parent, exists := c.conflicts.Get(parentID)
+		parent, exists := c.conflict(parentID)
 		if !exists {
 			// if the parent does not exist it means that it has been evicted already. We can ignore it.
 			continue
@@ -102,8 +106,6 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) CreateConflict(id Conflict
 		return
 	})
 
-	c.mutex.Unlock()
-
 	if created {
 		c.Events.ConflictCreated.Trigger(conflict)
 	}
@@ -113,13 +115,11 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) CreateConflict(id Conflict
 
 // UpdateConflictParents changes the parents of a Conflict after a fork.
 func (c *ConflictDAG[ConflictIDType, ResourceIDType]) UpdateConflictParents(id ConflictIDType, removedConflictIDs *set.AdvancedSet[ConflictIDType], addedConflictID ConflictIDType) (updated bool) {
-	c.evictionMutex.RLock()
-	defer c.evictionMutex.RUnlock()
-
-	c.mutex.RLock()
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
 	var parentConflictIDs *set.AdvancedSet[ConflictIDType]
-	conflict, exists := c.Conflict(id)
+	conflict, exists := c.conflict(id)
 	if !exists {
 		return false
 	}
@@ -135,7 +135,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) UpdateConflictParents(id C
 	updated = true
 
 	// create child reference in new parent
-	if addedParent, parentExists := c.Conflict(addedConflictID); parentExists {
+	if addedParent, parentExists := c.conflict(addedConflictID); parentExists {
 		addedParent.addChild(conflict)
 
 		if addedParent.ConfirmationState().IsRejected() && conflict.setConfirmationState(confirmation.Rejected) {
@@ -145,13 +145,11 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) UpdateConflictParents(id C
 
 	// remove child references in deleted parents
 	_ = removedConflictIDs.ForEach(func(conflictID ConflictIDType) (err error) {
-		if removedParent, removedParentExists := c.Conflict(conflictID); removedParentExists {
+		if removedParent, removedParentExists := c.conflict(conflictID); removedParentExists {
 			removedParent.deleteChild(conflict)
 		}
 		return nil
 	})
-
-	c.mutex.RUnlock()
 
 	if updated {
 		c.Events.ConflictParentsUpdated.Trigger(&ConflictParentsUpdatedEvent[ConflictIDType, ResourceIDType]{
@@ -167,17 +165,15 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) UpdateConflictParents(id C
 
 // UpdateConflictingResources adds the Conflict to the given ConflictSets - it returns true if the conflict membership was modified during this operation.
 func (c *ConflictDAG[ConflictIDType, ResourceIDType]) UpdateConflictingResources(id ConflictIDType, conflictingResourceIDs *set.AdvancedSet[ResourceIDType]) (updated bool) {
-	c.evictionMutex.RLock()
-	defer c.evictionMutex.RUnlock()
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
-	conflict, exists := c.conflicts.Get(id)
+	conflict, exists := c.conflict(id)
 	if !exists {
 		return false
 	}
 
-	c.mutex.RLock()
 	updated = c.registerConflictWithConflictSet(conflict, conflictingResourceIDs)
-	c.mutex.RUnlock()
 
 	if updated {
 		c.Events.ConflictUpdated.Trigger(conflict)
@@ -189,8 +185,8 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) UpdateConflictingResources
 // UnconfirmedConflicts takes a set of ConflictIDs and removes all the Accepted/Confirmed Conflicts (leaving only the
 // pending or rejected ones behind).
 func (c *ConflictDAG[ConflictIDType, ResourceIDType]) UnconfirmedConflicts(conflictIDs *set.AdvancedSet[ConflictIDType]) (pendingConflictIDs *set.AdvancedSet[ConflictIDType]) {
-	c.evictionMutex.RLock()
-	defer c.evictionMutex.RUnlock()
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
 
 	if !c.optsMergeToMaster {
 		return conflictIDs.Clone()
@@ -209,15 +205,12 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) UnconfirmedConflicts(confl
 // SetConflictAccepted sets the ConfirmationState of the given Conflict to be Accepted - it automatically sets also the
 // conflicting conflicts to be rejected.
 func (c *ConflictDAG[ConflictIDType, ResourceIDType]) SetConflictAccepted(conflictID ConflictIDType) (modified bool) {
-	c.evictionMutex.RLock()
-	defer c.evictionMutex.RUnlock()
-
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
 
 	rejectionWalker := walker.New[ConflictIDType]()
 	for confirmationWalker := set.NewAdvancedSet(conflictID).Iterator(); confirmationWalker.HasNext(); {
-		conflict, exists := c.Conflict(confirmationWalker.Next())
+		conflict, exists := c.conflict(confirmationWalker.Next())
 		if !exists {
 			continue
 		}
@@ -237,7 +230,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) SetConflictAccepted(confli
 	}
 
 	for rejectionWalker.HasNext() {
-		conflict, exists := c.Conflict(rejectionWalker.Next())
+		conflict, exists := c.conflict(rejectionWalker.Next())
 		if !exists {
 			continue
 		}
@@ -259,9 +252,6 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) SetConflictAccepted(confli
 
 // ConfirmationState returns the ConfirmationState of the given ConflictIDs.
 func (c *ConflictDAG[ConflictIDType, ResourceIDType]) ConfirmationState(conflictIDs *set.AdvancedSet[ConflictIDType]) (confirmationState confirmation.State) {
-	c.evictionMutex.RLock()
-	defer c.evictionMutex.RUnlock()
-
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
@@ -279,8 +269,8 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) ConfirmationState(conflict
 // computes the conflicts that will receive additional weight, the ones that will see their weight revoked, and if the
 // result constitutes an overall valid state transition.
 func (c *ConflictDAG[ConflictIDType, ResourceIDType]) DetermineVotes(conflictIDs *set.AdvancedSet[ConflictIDType]) (addedConflicts, revokedConflicts *set.AdvancedSet[ConflictIDType], isInvalid bool) {
-	c.evictionMutex.RLock()
-	defer c.evictionMutex.RUnlock()
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
 
 	addedConflicts = set.NewAdvancedSet[ConflictIDType]()
 	for it := conflictIDs.Iterator(); it.HasNext(); {
@@ -303,7 +293,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) determineConflictsToAdd(co
 	for it := conflictIDs.Iterator(); it.HasNext(); {
 		currentConflictID := it.Next()
 
-		conflict, exists := c.Conflict(currentConflictID)
+		conflict, exists := c.conflict(currentConflictID)
 		if !exists {
 			continue
 		}
@@ -325,7 +315,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) determineConflictsToRevoke
 	revokedConflicts = set.NewAdvancedSet[ConflictIDType]()
 	subTractionWalker := walker.New[ConflictIDType]()
 	for it := addedConflicts.Iterator(); it.HasNext(); {
-		conflict, exists := c.Conflict(it.Next())
+		conflict, exists := c.conflict(it.Next())
 		if !exists {
 			continue
 		}
@@ -347,7 +337,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) determineConflictsToRevoke
 
 		revokedConflicts.Add(currentConflictID)
 
-		currentConflict, exists := c.Conflict(currentConflictID)
+		currentConflict, exists := c.conflict(currentConflictID)
 		if !exists {
 			continue
 		}
@@ -401,7 +391,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) registerConflictWithConfli
 
 // confirmationState returns the ConfirmationState of the Conflict with the given ConflictID.
 func (c *ConflictDAG[ConflictIDType, ResourceIDType]) confirmationState(conflictID ConflictIDType) (confirmationState confirmation.State) {
-	if conflict, exists := c.Conflict(conflictID); exists {
+	if conflict, exists := c.conflict(conflictID); exists {
 		confirmationState = conflict.ConfirmationState()
 	}
 
@@ -411,8 +401,8 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) confirmationState(conflict
 // ForEachConnectedConflictingConflictID executes the callback for each Conflict that is directly or indirectly connected to
 // the named Conflict through a chain of intersecting conflicts.
 func (c *ConflictDAG[ConflictIDType, ResourceIDType]) ForEachConnectedConflictingConflictID(rootConflict *Conflict[ConflictIDType, ResourceIDType], callback func(conflictingConflict *Conflict[ConflictIDType, ResourceIDType])) {
-	c.evictionMutex.RLock()
-	defer c.evictionMutex.RUnlock()
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
 
 	traversedConflicts := set.New[*Conflict[ConflictIDType, ResourceIDType]]()
 	conflictSetsWalker := walker.New[*ConflictSet[ConflictIDType, ResourceIDType]]()
@@ -439,9 +429,6 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) ForEachConnectedConflictin
 
 // ForEachConflict iterates over every existing Conflict in the entire Storage.
 func (c *ConflictDAG[ConflictIDType, ResourceIDType]) ForEachConflict(consumer func(conflict *Conflict[ConflictIDType, ResourceIDType])) {
-	c.evictionMutex.RLock()
-	defer c.evictionMutex.RUnlock()
-
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
@@ -452,8 +439,8 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) ForEachConflict(consumer f
 }
 
 func (c *ConflictDAG[ConflictIDType, ResourceIDType]) evictEpoch(index epoch.Index) {
-	c.evictionMutex.Lock()
-	defer c.evictionMutex.Unlock()
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
 	conflictSets, exists := c.evictionMap.Get(index)
 	if !exists {
@@ -461,13 +448,14 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) evictEpoch(index epoch.Ind
 	}
 
 	conflictSets.ForEach(func(conflictSetID ResourceIDType) {
-		conflictSet, conflictSetExists := c.conflictSets.Get(conflictSetID)
+		conflictSet, conflictSetExists := c.conflictSet(conflictSetID)
 		if !conflictSetExists {
 			return
 		}
 		c.conflictSets.Delete(conflictSetID)
 
 		for it := conflictSet.Conflicts().Iterator(); it.HasNext(); {
+			// TODO: check if conflict is only associated with this conflictSet
 			conflict := it.Next()
 			c.conflicts.Delete(conflict.ID())
 		}
