@@ -91,7 +91,7 @@ func TestLedger_BookInOrder(t *testing.T) {
 			"TX7*": {"TX1", "TX2", "TX3"},
 		})
 	}
-	return
+
 	{
 		require.NoError(t, testFramework.IssueTransaction("TX5*"))
 
