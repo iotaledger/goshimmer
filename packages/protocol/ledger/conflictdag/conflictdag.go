@@ -3,13 +3,11 @@ package conflictdag
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/generics/walker"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 )
@@ -20,12 +18,8 @@ type ConflictDAG[ConflictIDType, ResourceIDType comparable] struct {
 	// Events contains the Events of the ConflictDAG.
 	Events *Events[ConflictIDType, ResourceIDType]
 
-	// EvictionState contains information about the current eviction state.
-	EvictionState *eviction.State
-
 	conflicts    *memstorage.Storage[ConflictIDType, *Conflict[ConflictIDType, ResourceIDType]]
 	conflictSets *memstorage.Storage[ResourceIDType, *ConflictSet[ConflictIDType, ResourceIDType]]
-	evictionMap  *memstorage.Storage[epoch.Index, set.Set[ResourceIDType]]
 
 	// mutex is a mutex that prevents that two processes simultaneously update the ConflictDAG.
 	mutex sync.RWMutex
@@ -37,15 +31,10 @@ type ConflictDAG[ConflictIDType, ResourceIDType comparable] struct {
 func New[ConflictIDType, ResourceIDType comparable](evictionState *eviction.State, opts ...options.Option[ConflictDAG[ConflictIDType, ResourceIDType]]) (c *ConflictDAG[ConflictIDType, ResourceIDType]) {
 	return options.Apply(&ConflictDAG[ConflictIDType, ResourceIDType]{
 		Events:            NewEvents[ConflictIDType, ResourceIDType](),
-		EvictionState:     evictionState,
 		conflicts:         memstorage.New[ConflictIDType, *Conflict[ConflictIDType, ResourceIDType]](),
 		conflictSets:      memstorage.New[ResourceIDType, *ConflictSet[ConflictIDType, ResourceIDType]](),
-		evictionMap:       memstorage.New[epoch.Index, set.Set[ResourceIDType]](),
 		optsMergeToMaster: true,
-	}, opts, func(c *ConflictDAG[ConflictIDType, ResourceIDType]) {
-
-		evictionState.Events.EpochEvicted.Hook(event.NewClosure(c.evictEpoch))
-	})
+	}, opts)
 }
 
 func (c *ConflictDAG[ConflictIDType, ResourceIDType]) Conflict(conflictID ConflictIDType) (conflict *Conflict[ConflictIDType, ResourceIDType], exists bool) {
@@ -72,8 +61,6 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) conflictSet(resourceID Res
 
 // CreateConflict creates a new Conflict in the ConflictDAG and returns true if the Conflict was created.
 func (c *ConflictDAG[ConflictIDType, ResourceIDType]) CreateConflict(id ConflictIDType, parentIDs *set.AdvancedSet[ConflictIDType], conflictingResourceIDs *set.AdvancedSet[ResourceIDType]) (created bool) {
-	// TODO: we need to set the evictionMap based on the current epoch
-
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -205,15 +192,22 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) UnconfirmedConflicts(confl
 // SetConflictAccepted sets the ConfirmationState of the given Conflict to be Accepted - it automatically sets also the
 // conflicting conflicts to be rejected.
 func (c *ConflictDAG[ConflictIDType, ResourceIDType]) SetConflictAccepted(conflictID ConflictIDType) (modified bool) {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	// Collect all resolved conflictSets and conflicts to delete them later
+	conflictSets := set.NewAdvancedSet[*ConflictSet[ConflictIDType, ResourceIDType]]()
+	conflicts := set.NewAdvancedSet[*Conflict[ConflictIDType, ResourceIDType]]()
 
 	rejectionWalker := walker.New[ConflictIDType]()
 	for confirmationWalker := set.NewAdvancedSet(conflictID).Iterator(); confirmationWalker.HasNext(); {
-		conflict, exists := c.conflict(confirmationWalker.Next())
+		currentConflictID := confirmationWalker.Next()
+		conflict, exists := c.conflict(currentConflictID)
 		if !exists {
 			continue
 		}
+		conflicts.Add(conflict)
+		conflictSets.AddAll(conflict.ConflictSets())
 
 		if modified = conflict.setConfirmationState(confirmation.Accepted); !modified {
 			continue
@@ -234,6 +228,8 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) SetConflictAccepted(confli
 		if !exists {
 			continue
 		}
+		conflicts.Add(conflict)
+		conflictSets.AddAll(conflict.ConflictSets())
 
 		if modified = conflict.setConfirmationState(confirmation.Rejected); !modified {
 			continue
@@ -245,6 +241,33 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) SetConflictAccepted(confli
 			rejectionWalker.Push(childConflict.ID())
 			return nil
 		})
+	}
+
+	// Delete all resolved ConflictSets (don't have a pending conflict anymore).
+	for it := conflictSets.Iterator(); it.HasNext(); {
+		conflictSet := it.Next()
+
+		pendingConflicts := false
+		for itConflict := conflictSet.Conflicts().Iterator(); itConflict.HasNext(); {
+			conflict := itConflict.Next()
+			if conflict.ConfirmationState() == confirmation.Pending {
+				pendingConflicts = true
+				continue
+			}
+			conflict.deleteConflictSet(conflictSet)
+		}
+
+		if !pendingConflicts {
+			c.conflictSets.Delete(conflictSet.ID())
+		}
+	}
+
+	// Delete all resolved Conflicts that are not part of any ConflictSet anymore.
+	for it := conflicts.Iterator(); it.HasNext(); {
+		conflict := it.Next()
+		if conflict.ConflictSets().Size() == 0 {
+			c.conflicts.Delete(conflict.ID())
+		}
 	}
 
 	return modified
@@ -436,32 +459,6 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) ForEachConflict(consumer f
 		consumer(conflict)
 		return true
 	})
-}
-
-func (c *ConflictDAG[ConflictIDType, ResourceIDType]) evictEpoch(index epoch.Index) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	conflictSets, exists := c.evictionMap.Get(index)
-	if !exists {
-		return
-	}
-
-	conflictSets.ForEach(func(conflictSetID ResourceIDType) {
-		conflictSet, conflictSetExists := c.conflictSet(conflictSetID)
-		if !conflictSetExists {
-			return
-		}
-		c.conflictSets.Delete(conflictSetID)
-
-		for it := conflictSet.Conflicts().Iterator(); it.HasNext(); {
-			// TODO: check if conflict is only associated with this conflictSet
-			conflict := it.Next()
-			c.conflicts.Delete(conflict.ID())
-		}
-	})
-
-	c.evictionMap.Delete(index)
 }
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////

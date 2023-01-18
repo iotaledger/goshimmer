@@ -11,7 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
@@ -27,10 +27,11 @@ type TestFramework struct {
 	conflictIDsByAlias map[string]utxo.TransactionID
 	resourceByAlias    map[string]utxo.OutputID
 
-	conflictCreated  int32
-	conflictUpdated  int32
-	conflictAccepted int32
-	conflictRejected int32
+	conflictCreated   int32
+	conflictUpdated   int32
+	conflictAccepted  int32
+	confirmationState map[utxo.TransactionID]confirmation.State
+	conflictRejected  int32
 
 	optsConflictDAG []options.Option[ConflictDAG[utxo.TransactionID, utxo.OutputID]]
 }
@@ -40,8 +41,8 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 	return options.Apply(&TestFramework{
 		conflictIDsByAlias: make(map[string]utxo.TransactionID),
 		resourceByAlias:    make(map[string]utxo.OutputID),
-
-		test: test,
+		confirmationState:  make(map[utxo.TransactionID]confirmation.State),
+		test:               test,
 	}, opts, func(t *TestFramework) {
 		if t.ConflictDAG == nil {
 			storageInstance := storage.New(test.TempDir(), 1)
@@ -64,6 +65,7 @@ func (t *TestFramework) setupEvents() {
 			t.test.Logf("CREATED: %s", conflict.ID())
 		}
 		atomic.AddInt32(&(t.conflictCreated), 1)
+		t.confirmationState[conflict.ID()] = conflict.ConfirmationState()
 	}))
 
 	t.ConflictDAG.Events.ConflictUpdated.Hook(event.NewClosure(func(conflict *Conflict[utxo.TransactionID, utxo.OutputID]) {
@@ -78,6 +80,7 @@ func (t *TestFramework) setupEvents() {
 			t.test.Logf("ACCEPTED: %s", conflict.ID())
 		}
 		atomic.AddInt32(&(t.conflictAccepted), 1)
+		t.confirmationState[conflict.ID()] = conflict.ConfirmationState()
 	}))
 
 	t.ConflictDAG.Events.ConflictRejected.Hook(event.NewClosure(func(conflict *Conflict[utxo.TransactionID, utxo.OutputID]) {
@@ -85,6 +88,7 @@ func (t *TestFramework) setupEvents() {
 			t.test.Logf("REJECTED: %s", conflict.ID())
 		}
 		atomic.AddInt32(&(t.conflictRejected), 1)
+		t.confirmationState[conflict.ID()] = conflict.ConfirmationState()
 	}))
 }
 
@@ -189,50 +193,50 @@ func (t *TestFramework) randomResourceID() (randomConflictID utxo.OutputID) {
 func (t *TestFramework) assertConflictSets(expectedConflictSets map[string][]string) {
 	for conflictSetAlias, conflictAliases := range expectedConflictSets {
 		conflictSet, exists := t.ConflictDAG.ConflictSet(t.ConflictSetID(conflictSetAlias))
-		assert.Truef(t.test, exists, "ConflictSet %s not found", conflictSetAlias)
+		require.Truef(t.test, exists, "ConflictSet %s not found", conflictSetAlias)
 
 		expectedConflictIDs := t.ConflictIDs(conflictAliases...).Slice()
 		actualConflictIDs := lo.Map(conflictSet.Conflicts().Slice(), func(conflict *Conflict[utxo.TransactionID, utxo.OutputID]) utxo.TransactionID {
 			return conflict.ID()
 		})
 
-		assert.ElementsMatchf(t.test, expectedConflictIDs, actualConflictIDs, "Expected ConflictSet %s to have conflicts %v but got %v", conflictSetAlias, expectedConflictIDs, actualConflictIDs)
+		require.ElementsMatchf(t.test, expectedConflictIDs, actualConflictIDs, "Expected ConflictSet %s to have conflicts %v but got %v", conflictSetAlias, expectedConflictIDs, actualConflictIDs)
 	}
 }
 
 func (t *TestFramework) assertConflictsParents(expectedParents map[string][]string) {
 	for conflictAlias, parentConflictAliases := range expectedParents {
 		conflict, exists := t.ConflictDAG.Conflict(t.ConflictID(conflictAlias))
-		assert.Truef(t.test, exists, "Conflict %s not found", conflictAlias)
+		require.Truef(t.test, exists, "Conflict %s not found", conflictAlias)
 
 		expectedParentConflictIDs := t.ConflictIDs(parentConflictAliases...).Slice()
-		assert.ElementsMatchf(t.test, expectedParentConflictIDs, conflict.Parents().Slice(), "Expected Conflict %s to have parents %v but got %v", conflictAlias, expectedParentConflictIDs, conflict.Parents().Slice())
+		require.ElementsMatchf(t.test, expectedParentConflictIDs, conflict.Parents().Slice(), "Expected Conflict %s to have parents %v but got %v", conflictAlias, expectedParentConflictIDs, conflict.Parents().Slice())
 	}
 }
 
 func (t *TestFramework) assertConflictsChildren(expectedChildren map[string][]string) {
 	for conflictAlias, childConflictAliases := range expectedChildren {
 		conflict, exists := t.ConflictDAG.Conflict(t.ConflictID(conflictAlias))
-		assert.Truef(t.test, exists, "Conflict %s not found", conflictAlias)
+		require.Truef(t.test, exists, "Conflict %s not found", conflictAlias)
 
 		expectedChildConflictIDs := t.ConflictIDs(childConflictAliases...).Slice()
 		actualChildConflictIDs := lo.Map(conflict.Children().Slice(), func(conflict *Conflict[utxo.TransactionID, utxo.OutputID]) utxo.TransactionID {
 			return conflict.ID()
 		})
-		assert.ElementsMatchf(t.test, expectedChildConflictIDs, actualChildConflictIDs, "Expected Conflict %s to have children %v but got %v", conflictAlias, expectedChildConflictIDs, actualChildConflictIDs)
+		require.ElementsMatchf(t.test, expectedChildConflictIDs, actualChildConflictIDs, "Expected Conflict %s to have children %v but got %v", conflictAlias, expectedChildConflictIDs, actualChildConflictIDs)
 	}
 }
 
 func (t *TestFramework) assertConflictsConflictSets(expectedConflictSets map[string][]string) {
 	for conflictAlias, conflictSetAliases := range expectedConflictSets {
 		conflict, exists := t.ConflictDAG.Conflict(t.ConflictID(conflictAlias))
-		assert.Truef(t.test, exists, "Conflict %s not found", conflictAlias)
+		require.Truef(t.test, exists, "Conflict %s not found", conflictAlias)
 
 		expectedConflictSetIDs := t.ConflictSetIDs(conflictSetAliases...).Slice()
 		actualConflictSetIDs := lo.Map(conflict.ConflictSets().Slice(), func(conflict *ConflictSet[utxo.TransactionID, utxo.OutputID]) utxo.OutputID {
 			return conflict.ID()
 		})
-		assert.ElementsMatchf(t.test, expectedConflictSetIDs, actualConflictSetIDs, "Expected Conflict %s to have conflict sets %v but got %v", conflictAlias, expectedConflictSetIDs, actualConflictSetIDs)
+		require.ElementsMatchf(t.test, expectedConflictSetIDs, actualConflictSetIDs, "Expected Conflict %s to have conflict sets %v but got %v", conflictAlias, expectedConflictSetIDs, actualConflictSetIDs)
 	}
 }
 
@@ -277,10 +281,10 @@ func (t *TestFramework) AssertConflictSetsAndConflicts(expectedConflictSetToConf
 
 func (t *TestFramework) AssertConfirmationState(expectedConfirmationState map[string]confirmation.State) {
 	for conflictAlias, expectedState := range expectedConfirmationState {
-		conflict, exists := t.ConflictDAG.Conflict(t.ConflictID(conflictAlias))
-		assert.Truef(t.test, exists, "Conflict %s not found", conflictAlias)
+		conflictConfirmationState, exists := t.confirmationState[t.ConflictID(conflictAlias)]
+		require.Truef(t.test, exists, "Conflict %s not found", conflictAlias)
 
-		assert.Equal(t.test, expectedState, conflict.ConfirmationState(), "Expected Conflict %s to have confirmation state %v but got %v", conflictAlias, expectedState, conflict.ConfirmationState())
+		require.Equal(t.test, expectedState, conflictConfirmationState, "Expected Conflict %s to have confirmation state %v but got %v", conflictAlias, expectedState, conflictConfirmationState)
 	}
 }
 

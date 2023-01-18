@@ -129,6 +129,13 @@ func (c *Conflict[ConflictIDType, ResourceIDType]) ForEachConflictingConflict(co
 	}
 }
 
+func (c *Conflict[ConflictIDType, ResourceIDType]) deleteConflictSet(conflictSet *ConflictSet[ConflictIDType, ResourceIDType]) (deleted bool) {
+	c.m.Lock()
+	defer c.m.Unlock()
+
+	return c.conflictSets.Delete(conflictSet)
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region ConflictSet //////////////////////////////////////////////////////////////////////////////////////////////////
