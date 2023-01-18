@@ -45,7 +45,7 @@ services:
       --autoPeering.networkVersion={{ networkVersion }}
       {% endif %}
       --node.disablePlugins=portcheck,ManaInitializer{% if remoteLogs|default(false) == false  %},RemoteLog,RemoteLogMetrics{% endif %}
-      --node.enablePlugins=dashboard,networkdelay,metricsCollector{% if faucet|default(false) %},faucet{% endif %}{% if remoteLogs|default(false) %},RemoteLog,RemoteLogMetrics{% endif %}
+      --node.enablePlugins=dashboard,networkdelay,metrics{% if faucet|default(false) %},faucet{% endif %}{% if remoteLogs|default(false) %},RemoteLog,RemoteLogMetrics{% endif %}
       --metrics.bindAddress=0.0.0.0:9311
       --logger.level={{ logLevel }}
       --logger.outputPaths=stdout

@@ -42,7 +42,7 @@ type dependencies struct {
 	Local                 *peer.Local
 	P2PMgr                *p2p.Manager                 `optional:"true"`
 	ManaFunc              manamodels.ManaRetrievalFunc `optional:"true" name:"manaFunc"`
-	AutoPeeringConnMetric *UDPConnTraffic
+	AutopeeringConnMetric *UDPConnTraffic
 }
 
 func init() {
@@ -171,12 +171,12 @@ func start(ctx context.Context) {
 	defer conn.Close()
 
 	// use wrapped UDPConn to allow metrics collection
-	deps.AutoPeeringConnMetric.UDPConn = conn
+	deps.AutopeeringConnMetric.UDPConn = conn
 
 	lPeer := deps.Local
 
 	// start a server doing peerDisc and peering
-	srv := server.Serve(lPeer, deps.AutoPeeringConnMetric, Plugin.Logger().Named("srv"), deps.Discovery, deps.Selection)
+	srv := server.Serve(lPeer, deps.AutopeeringConnMetric, Plugin.Logger().Named("srv"), deps.Discovery, deps.Selection)
 	defer srv.Close()
 
 	// start the peer discovery on that connection

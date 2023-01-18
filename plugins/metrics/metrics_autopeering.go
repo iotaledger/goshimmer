@@ -69,14 +69,14 @@ var AutopeeringMetrics = collector.NewCollection(autopeeringNamespace,
 		collector.WithType(collector.Counter),
 		collector.WithHelp("Inbound network autopeering traffic in bytes"),
 		collector.WithCollectFunc(func() map[string]float64 {
-			return collector.SingleValue(deps.AutoPeeringConnMetric.RXBytes())
+			return collector.SingleValue(deps.AutopeeringConnMetric.RXBytes())
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(trafficOutboundBytes,
 		collector.WithType(collector.Counter),
 		collector.WithHelp("Outbound network autopeering traffic in bytes"),
 		collector.WithCollectFunc(func() map[string]float64 {
-			return collector.SingleValue(deps.AutoPeeringConnMetric.TXBytes())
+			return collector.SingleValue(deps.AutopeeringConnMetric.TXBytes())
 		}),
 	)),
 )

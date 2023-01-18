@@ -1,6 +1,6 @@
 package metrics
 
-// metricsCollector is the plugin instance responsible for collection of prometheus metrics.
+// metrics is the plugin instance responsible for collection of prometheus metrics.
 // All metrics should be defined in metrics_namespace.go files with different namespace for each new collection.
 // Metrics naming should follow the guidelines from: https://prometheus.io/docs/practices/naming/
 // In short:
@@ -38,7 +38,7 @@ import (
 )
 
 // PluginName is the name of the metrics collector plugin.
-const PluginName = "Metrics Collector"
+const PluginName = "Metrics"
 
 var (
 	// Plugin is the plugin instance of the metrics collector plugin.
@@ -58,7 +58,7 @@ type dependencies struct {
 	P2Pmgr                *p2p.Manager        `optional:"true"`
 	Selection             *selection.Protocol `optional:"true"`
 	Retainer              *retainer.Retainer  `optional:"true"`
-	AutoPeeringConnMetric *autopeering.UDPConnTraffic
+	AutopeeringConnMetric *autopeering.UDPConnTraffic
 
 	Collector *collector.Collector
 }

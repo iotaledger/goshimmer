@@ -20,5 +20,5 @@ type ParametersDefinition struct {
 var Parameters = &ParametersDefinition{}
 
 func init() {
-	config.BindParameters(Parameters, "metricsCollector")
+	config.BindParameters(Parameters, "metrics")
 }

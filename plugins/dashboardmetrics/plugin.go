@@ -25,7 +25,7 @@ import (
 )
 
 // PluginName is the name of the metrics plugin.
-const PluginName = "Metrics"
+const PluginName = "DashboardMetrics"
 
 var (
 	// Plugin is the plugin instance of the metrics plugin.

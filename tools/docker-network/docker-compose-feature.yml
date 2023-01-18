@@ -28,7 +28,7 @@ services:
       --blockIssuer.rateSetter.enable=false
       --node.peerDBDirectory=/app/peerdb
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
-      --node.enablePlugins=metricsCollector,spammer,WebAPIToolsBlockEndpoint,activity
+      --node.enablePlugins=metrics,spammer,WebAPIToolsBlockEndpoint,activity
       --metrics.bindAddress=0.0.0.0:9311
       --metrics.processMetrics=true
       --metrics.goMetrics=true
@@ -71,7 +71,7 @@ services:
       --blockIssuer.rateSetter.enable=false
       --node.peerDBDirectory=/app/peerdb
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
-      --node.enablePlugins=metricsCollector,spammer,WebAPIToolsBlockEndpoint,activity,faucet
+      --node.enablePlugins=metrics,spammer,WebAPIToolsBlockEndpoint,activity,faucet
       --metrics.bindAddress=0.0.0.0:9311
       --metrics.processMetrics=true
       --metrics.goMetrics=true
@@ -111,7 +111,7 @@ services:
       --blockIssuer.rateSetter.enable=false
       --node.peerDBDirectory=/app/peerdb
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
-      --node.enablePlugins=metricsCollector,spammer,WebAPIToolsBlockEndpoint,activity
+      --node.enablePlugins=metrics,spammer,WebAPIToolsBlockEndpoint,activity
       --metrics.bindAddress=0.0.0.0:9311
       --metrics.processMetrics=true
       --metrics.goMetrics=true
@@ -150,7 +150,7 @@ services:
       --blockIssuer.rateSetter.enable=false
       --node.peerDBDirectory=/app/peerdb
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
-      --node.enablePlugins=metricsCollector,spammer,WebAPIToolsBlockEndpoint,activity
+      --node.enablePlugins=metrics,spammer,WebAPIToolsBlockEndpoint,activity
       --metrics.bindAddress=0.0.0.0:9311
       --metrics.processMetrics=true
       --metrics.goMetrics=true
@@ -188,7 +188,7 @@ services:
       --blockIssuer.rateSetter.enable=false
       --node.peerDBDirectory=/app/peerdb
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
-      --node.enablePlugins=metricsCollector,spammer,WebAPIToolsBlockEndpoint,activity
+      --node.enablePlugins=metrics,spammer,WebAPIToolsBlockEndpoint,activity
       --metrics.bindAddress=0.0.0.0:9311
       --metrics.processMetrics=true
       --metrics.goMetrics=true
@@ -226,7 +226,7 @@ services:
       --blockIssuer.rateSetter.enable=false
       --node.peerDBDirectory=/app/peerdb
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
-      --node.enablePlugins=metricsCollector,spammer,WebAPIToolsBlockEndpoint,activity
+      --node.enablePlugins=metrics,spammer,WebAPIToolsBlockEndpoint,activity
       --metrics.bindAddress=0.0.0.0:9311
       --metrics.processMetrics=true
       --metrics.goMetrics=true
@@ -264,7 +264,7 @@ services:
       --blockIssuer.rateSetter.enable=false
       --node.peerDBDirectory=/app/peerdb
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
-      --node.enablePlugins=metricsCollector,spammer,WebAPIToolsBlockEndpoint,activity
+      --node.enablePlugins=metrics,spammer,WebAPIToolsBlockEndpoint,activity
       --metrics.bindAddress=0.0.0.0:9311
       --metrics.processMetrics=true
       --metrics.goMetrics=true
@@ -302,7 +302,7 @@ services:
       --blockIssuer.rateSetter.enable=false
       --node.peerDBDirectory=/app/peerdb
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
-      --node.enablePlugins=metricsCollector,spammer,WebAPIToolsBlockEndpoint,activity
+      --node.enablePlugins=metrics,spammer,WebAPIToolsBlockEndpoint,activity
       --metrics.bindAddress=0.0.0.0:9311
       --metrics.processMetrics=true
       --metrics.goMetrics=true

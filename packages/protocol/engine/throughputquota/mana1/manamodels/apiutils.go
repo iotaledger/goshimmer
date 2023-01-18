@@ -69,7 +69,7 @@ func Percentile(id identity.ID, m map[identity.ID]int64) (percentileValue float6
 	return (nBelow / float64(len(m))) * 100
 }
 
-// NeighborsAverageMana returns the average mana of the eighbors, based on provided mana vector and neighbors list.
+// NeighborsAverageMana returns the average mana of the neighbors, based on provided mana vector and neighbors list.
 func NeighborsAverageMana(m map[identity.ID]int64, neighbors []*p2p.Neighbor) (avg float64) {
 	if len(m) == 0 {
 		return 0

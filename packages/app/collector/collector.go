@@ -10,7 +10,7 @@ type Collector struct {
 	collections map[string]*Collection
 }
 
-// New creates an instance of Manger, creates new prometheus registry for the protocol metrics collection.
+// New creates an instance of Manager and creates a new prometheus registry for the protocol metrics collection.
 func New() *Collector {
 	return &Collector{
 		Registry:    prometheus.NewRegistry(),
