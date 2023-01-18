@@ -200,6 +200,10 @@ func (s *Scheduler) Deficit(issuerID identity.ID) *big.Rat {
 	return deficit
 }
 
+func (s *Scheduler) GetAccessManaMap() map[identity.ID]int64 {
+	return s.accessManaMapRetrieverFunc()
+}
+
 // Shutdown shuts down the Scheduler.
 // Shutdown blocks until the scheduler has been shutdown successfully.
 func (s *Scheduler) Shutdown() {

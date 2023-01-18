@@ -80,7 +80,7 @@
       },
       "gridPos": {
         "h": 3,
-        "w": 8,
+        "w": 6,
         "x": 0,
         "y": 1
       },
@@ -99,7 +99,7 @@
         },
         "textMode": "auto"
       },
-      "pluginVersion": "9.2.4",
+      "pluginVersion": "9.3.2",
       "repeat": "instance",
       "repeatDirection": "h",
       "targets": [
@@ -110,7 +110,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "max(last_commitment{}) by (epoch, instance)",
+          "expr": "max(commitments_latest{}) by (epoch, instance)",
           "format": "table",
           "instant": true,
           "legendFormat": "__auto",
@@ -207,9 +207,9 @@
       },
       "gridPos": {
         "h": 3,
-        "w": 8,
+        "w": 6,
         "x": 0,
-        "y": 4
+        "y": 7
       },
       "id": 96,
       "options": {
@@ -226,7 +226,7 @@
         },
         "textMode": "auto"
       },
-      "pluginVersion": "9.2.4",
+      "pluginVersion": "9.3.2",
       "repeat": "instance",
       "repeatDirection": "h",
       "targets": [
@@ -237,7 +237,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "max(last_commitment{}) by (epoch, instance)",
+          "expr": "max(commitments_latest{}) by (epoch, instance)",
           "format": "table",
           "instant": true,
           "legendFormat": "__auto",
@@ -300,7 +300,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 7
+        "y": 13
       },
       "id": 63,
       "panels": [],
@@ -333,6 +333,9 @@
             "lineWidth": 1,
             "scaleDistribution": {
               "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
             }
           },
           "mappings": [],
@@ -362,37 +365,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Accepted Blocka"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "semi-dark-blue",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Accepted Txs"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "semi-dark-green",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Active Validators"
+              "options": "Accepted blocks"
             },
             "properties": [
               {
@@ -408,9 +381,9 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 8,
         "x": 0,
-        "y": 8
+        "y": 14
       },
       "id": 115,
       "options": {
@@ -444,14 +417,14 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "epoch_counters{instance=\"$instance\"}\n",
+          "expr": "commitments_accepted_blocks{instance=\"$instance\"}\n",
           "format": "table",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Epoch size metrics $instance",
+      "title": "Accepted blocks per epoch $instance",
       "transformations": [
         {
           "id": "convertFieldType",
@@ -459,15 +432,7 @@
             "conversions": [
               {
                 "destinationType": "number",
-                "targetField": "accepted_blocks"
-              },
-              {
-                "destinationType": "number",
-                "targetField": "transactions"
-              },
-              {
-                "destinationType": "number",
-                "targetField": "active_validators"
+                "targetField": "epoch"
               }
             ],
             "fields": {}
@@ -500,8 +465,10 @@
                 "operation": "groupby"
               },
               "Value": {
-                "aggregations": [],
-                "operation": "groupby"
+                "aggregations": [
+                  "lastNotNull"
+                ],
+                "operation": "aggregate"
               },
               "accepted_blocks": {
                 "aggregations": [
@@ -514,6 +481,10 @@
                   "lastNotNull"
                 ],
                 "operation": "aggregate"
+              },
+              "epoch": {
+                "aggregations": [],
+                "operation": "groupby"
               },
               "transactions": {
                 "aggregations": [
@@ -531,7 +502,7 @@
             "sort": [
               {
                 "desc": true,
-                "field": "Value"
+                "field": "epoch"
               }
             ]
           }
@@ -548,7 +519,7 @@
             "fields": {},
             "sort": [
               {
-                "field": "Value"
+                "field": "epoch"
               }
             ]
           }
@@ -569,10 +540,12 @@
             },
             "renameByName": {
               "Value": "Epoch Index",
+              "Value (lastNotNull)": "Accepted blocks",
               "accepted_blocks": "Accepted Blocks",
               "accepted_blocks (lastNotNull)": "Accepted Blocka",
               "active_validators": "Active validators",
               "active_validators (lastNotNull)": "Active Validators",
+              "epoch": "Epoch Index",
               "transactions": "Accepted Transactions",
               "transactions (lastNotNull)": "Accepted Txs"
             }
@@ -586,18 +559,18 @@
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
-      "description": "Orphaned blocks",
+      "description": "",
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "continuous-GrYlRd"
+            "mode": "palette-classic"
           },
           "custom": {
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
-            "fillOpacity": 80,
+            "fillOpacity": 65,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -607,6 +580,9 @@
             "lineWidth": 1,
             "scaleDistribution": {
               "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
             }
           },
           "mappings": [],
@@ -616,10 +592,6 @@
               {
                 "color": "green",
                 "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
               }
             ]
           }
@@ -628,7 +600,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "epoch"
+              "options": "Epoch Index"
             },
             "properties": [
               {
@@ -641,22 +613,20 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 8
+        "w": 8,
+        "x": 8,
+        "y": 14
       },
-      "id": 75,
-      "interval": "30s",
+      "id": 172,
       "options": {
         "barRadius": 0,
         "barWidth": 0.97,
-        "colorByField": "Blocks orphaned",
         "groupWidth": 0.7,
         "legend": {
           "calcs": [],
           "displayMode": "list",
           "placement": "bottom",
-          "showLegend": false
+          "showLegend": true
         },
         "orientation": "auto",
         "showValue": "auto",
@@ -665,10 +635,11 @@
           "mode": "single",
           "sort": "none"
         },
-        "xField": "epoch",
+        "xField": "Epoch Index",
         "xTickLabelRotation": -45,
         "xTickLabelSpacing": 0
       },
+      "pluginVersion": "9.2.4",
       "repeat": "instance",
       "repeatDirection": "v",
       "targets": [
@@ -678,15 +649,14 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "blk_removed_from_epoch{instance=\"$instance\"}",
+          "expr": "commitments_accepted_transactions{instance=\"$instance\"}",
           "format": "table",
-          "interval": "",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Blocks removed per epoch",
+      "title": "Accepted transactions per epoch $instance",
       "transformations": [
         {
           "id": "convertFieldType",
@@ -701,16 +671,59 @@
           }
         },
         {
-          "id": "organize",
+          "id": "groupBy",
           "options": {
-            "excludeByName": {
-              "Time": true,
-              "__name__": true,
-              "job": true
-            },
-            "indexByName": {},
-            "renameByName": {
-              "Value": "Blocks orphaned"
+            "fields": {
+              "Accepted Blocks": {
+                "aggregations": [
+                  "lastNotNull"
+                ],
+                "operation": "aggregate"
+              },
+              "Accepted Transactions": {
+                "aggregations": [
+                  "lastNotNull"
+                ],
+                "operation": "aggregate"
+              },
+              "Active validators": {
+                "aggregations": [
+                  "lastNotNull"
+                ],
+                "operation": "aggregate"
+              },
+              "Epoch Index": {
+                "aggregations": [],
+                "operation": "groupby"
+              },
+              "Value": {
+                "aggregations": [
+                  "lastNotNull"
+                ],
+                "operation": "aggregate"
+              },
+              "accepted_blocks": {
+                "aggregations": [
+                  "lastNotNull"
+                ],
+                "operation": "aggregate"
+              },
+              "active_validators": {
+                "aggregations": [
+                  "lastNotNull"
+                ],
+                "operation": "aggregate"
+              },
+              "epoch": {
+                "aggregations": [],
+                "operation": "groupby"
+              },
+              "transactions": {
+                "aggregations": [
+                  "lastNotNull"
+                ],
+                "operation": "aggregate"
+              }
             }
           }
         },
@@ -729,7 +742,7 @@
         {
           "id": "limit",
           "options": {
-            "limitField": 15
+            "limitField": 10
           }
         },
         {
@@ -742,6 +755,280 @@
               }
             ]
           }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {
+              "Time": 0,
+              "Value": 7,
+              "__name__": 1,
+              "accepted_blocks": 2,
+              "active_validators": 4,
+              "instance": 5,
+              "job": 6,
+              "transactions": 3
+            },
+            "renameByName": {
+              "Value": "Epoch Index",
+              "Value (lastNotNull)": "Accepted blocks",
+              "accepted_blocks": "Accepted Blocks",
+              "accepted_blocks (lastNotNull)": "Accepted Blocka",
+              "active_validators": "Active validators",
+              "active_validators (lastNotNull)": "Active Validators",
+              "epoch": "Epoch Index",
+              "transactions": "Accepted Transactions",
+              "transactions (lastNotNull)": "Accepted Txs"
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 65,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Epoch Index"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "EI"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value (lastNotNull)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 14
+      },
+      "id": 185,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "xField": "Epoch Index",
+        "xTickLabelRotation": -45,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "9.2.4",
+      "repeat": "instance",
+      "repeatDirection": "v",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "commitments_active_validators{instance=\"$instance\"}",
+          "format": "table",
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Active validators per epoch $instance",
+      "transformations": [
+        {
+          "id": "convertFieldType",
+          "options": {
+            "conversions": [
+              {
+                "destinationType": "number",
+                "targetField": "epoch"
+              }
+            ],
+            "fields": {}
+          }
+        },
+        {
+          "id": "groupBy",
+          "options": {
+            "fields": {
+              "Accepted Blocks": {
+                "aggregations": [
+                  "lastNotNull"
+                ],
+                "operation": "aggregate"
+              },
+              "Accepted Transactions": {
+                "aggregations": [
+                  "lastNotNull"
+                ],
+                "operation": "aggregate"
+              },
+              "Active validators": {
+                "aggregations": [
+                  "lastNotNull"
+                ],
+                "operation": "aggregate"
+              },
+              "Epoch Index": {
+                "aggregations": [],
+                "operation": "groupby"
+              },
+              "Value": {
+                "aggregations": [
+                  "lastNotNull"
+                ],
+                "operation": "aggregate"
+              },
+              "accepted_blocks": {
+                "aggregations": [
+                  "lastNotNull"
+                ],
+                "operation": "aggregate"
+              },
+              "active_validators": {
+                "aggregations": [
+                  "lastNotNull"
+                ],
+                "operation": "aggregate"
+              },
+              "epoch": {
+                "aggregations": [],
+                "operation": "groupby"
+              },
+              "transactions": {
+                "aggregations": [
+                  "lastNotNull"
+                ],
+                "operation": "aggregate"
+              }
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "desc": true,
+                "field": "epoch"
+              }
+            ]
+          }
+        },
+        {
+          "id": "limit",
+          "options": {
+            "limitField": 10
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "field": "epoch"
+              }
+            ]
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {
+              "Time": 0,
+              "Value": 7,
+              "__name__": 1,
+              "accepted_blocks": 2,
+              "active_validators": 4,
+              "instance": 5,
+              "job": 6,
+              "transactions": 3
+            },
+            "renameByName": {
+              "Value": "Epoch Index",
+              "Value (lastNotNull)": "Accepted blocks",
+              "accepted_blocks": "Accepted Blocks",
+              "accepted_blocks (lastNotNull)": "Accepted Blocka",
+              "active_validators": "Active validators",
+              "active_validators (lastNotNull)": "Active Validators",
+              "epoch": "Epoch Index",
+              "transactions": "Accepted Transactions",
+              "transactions (lastNotNull)": "Accepted Txs"
+            }
+          }
         }
       ],
       "type": "barchart"
@@ -752,7 +1039,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 32
+        "y": 70
       },
       "id": 33,
       "panels": [],
@@ -842,9 +1129,9 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 8,
+        "w": 6,
         "x": 0,
-        "y": 33
+        "y": 71
       },
       "id": 39,
       "maxPerRow": 4,
@@ -865,7 +1152,7 @@
           }
         ]
       },
-      "pluginVersion": "9.2.4",
+      "pluginVersion": "9.3.2",
       "repeat": "instance",
       "repeatDirection": "h",
       "targets": [
@@ -876,7 +1163,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "max(last_commitment{instance=\"$instance\", epoch!=\"0\"}) by (commitment, epoch)",
+          "expr": "max(commitments_latest{instance=\"$instance\", epoch!=\"0\"}) by (commitment, epoch)",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -952,6 +1239,9 @@
             "lineWidth": 4,
             "scaleDistribution": {
               "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
             }
           },
           "mappings": [],
@@ -975,7 +1265,7 @@
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 41
+        "y": 87
       },
       "id": 47,
       "options": {
@@ -1007,7 +1297,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "number_of_seen_other_commitments{instance=~\"$instance\"}",
+          "expr": "commitments_seen_total{instance=~\"$instance\"}",
           "format": "time_series",
           "instant": false,
           "legendFormat": "{{instance}}",
@@ -1036,7 +1326,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 47
+        "y": 93
       },
       "id": 59,
       "panels": [],
@@ -1068,6 +1358,9 @@
             "lineWidth": 4,
             "scaleDistribution": {
               "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
             }
           },
           "mappings": [],
@@ -1091,7 +1384,7 @@
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 48
+        "y": 94
       },
       "id": 49,
       "options": {
@@ -1122,7 +1415,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "missing_commitments_received{instance=~\"$instance\"}",
+          "expr": "commitments_missing_received_total{instance=~\"$instance\"}",
           "format": "time_series",
           "instant": false,
           "legendFormat": "{{instance}}",
@@ -1171,6 +1464,9 @@
             "lineWidth": 4,
             "scaleDistribution": {
               "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
             }
           },
           "mappings": [],
@@ -1194,7 +1490,7 @@
         "h": 6,
         "w": 12,
         "x": 12,
-        "y": 48
+        "y": 94
       },
       "id": 48,
       "options": {
@@ -1229,7 +1525,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "missing_commitments_requested{instance=~\"$instance\"}",
+          "expr": "commitments_missing_requested_total{instance=~\"$instance\"}",
           "format": "time_series",
           "instant": false,
           "legendFormat": "{{instance}}",
@@ -1273,7 +1569,7 @@
           "type": "prometheus",
           "uid": "PBFA97CFB590B2093"
         },
-        "definition": "label_values(iota_info_app, instance)",
+        "definition": "label_values(info_app, instance)",
         "hide": 0,
         "includeAll": true,
         "label": "Instance",
@@ -1281,7 +1577,7 @@
         "name": "instance",
         "options": [],
         "query": {
-          "query": "label_values(iota_info_app, instance)",
+          "query": "label_values(info_app, instance)",
           "refId": "StandardVariableQuery"
         },
         "refresh": 1,
