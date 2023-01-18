@@ -9,7 +9,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/cockroachdb/errors"
+	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 )
 

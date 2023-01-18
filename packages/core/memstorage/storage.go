@@ -85,7 +85,7 @@ func (s *Storage[K, V]) First() (key K, value V) {
 	return
 }
 
-func (s *Storage[K, V]) Set(key K, value V) (updated bool) {
+func (s *Storage[K, V]) Set(key K, value V) (created bool) {
 	s.Lock()
 	defer s.Unlock()
 

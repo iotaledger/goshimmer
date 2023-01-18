@@ -3,8 +3,8 @@ package devnetvm
 import (
 	"math"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/types"
+	"github.com/pkg/errors"
 )
 
 // TransactionBalancesValid is an internal utility function that checks if the sum of the balance changes equals to 0.
@@ -145,7 +145,7 @@ func UnlockBlocksValidWithError(inputs Outputs, transaction *Transaction) (bool,
 	unlockBlocks := transaction.UnlockBlocks()
 	cyclePresent, err := checkReferenceCycle(unlockBlocks)
 	if err != nil {
-		return false, errors.Errorf("unlock blocks are semantically invalid: %w", err)
+		return false, errors.Wrap(err, "unlock blocks are semantically invalid")
 	}
 	if cyclePresent {
 		return false, errors.New("unlock blocks contain cyclic dependency, no signature present for an unlock path")

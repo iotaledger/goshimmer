@@ -1,8 +1,8 @@
 package faucet
 
 import (
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
@@ -64,12 +64,12 @@ func (f *Connector) UnspentOutputs(addresses ...address.Address) (unspentOutputs
 func (f *Connector) SendTransaction(tx *devnetvm.Transaction) (err error) {
 	block, err := f.blockIssuer.CreateBlock(tx)
 	if err != nil {
-		return errors.Errorf("%v: tx %s", err, tx.ID().String())
+		return errors.Wrapf(err, "error sending tx %s", tx.ID().String())
 	}
 
 	err = f.blockIssuer.IssueBlockAndAwaitBlockToBeBooked(block, Parameters.MaxTransactionBookedAwaitTime)
 	if err != nil {
-		return errors.Errorf("%v: tx %s", err, tx.ID().String())
+		return errors.Wrapf(err, "error sending tx %s", tx.ID().String())
 	}
 
 	return nil

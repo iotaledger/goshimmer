@@ -11,7 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/timed"
 	"github.com/iotaledger/hive.go/core/types"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -51,7 +51,7 @@ func TestOrphanageManager_HandleTimeUpdate(t *testing.T) {
 		tf.Block("0/1-postTSC_0").ID(): types.Void,
 	})
 
-	assert.Equal(t, 27, tf.Manager.unacceptedBlocks.Len())
+	require.Equal(t, 27, tf.Manager.unacceptedBlocks.Len())
 
 	for blockID := range tf.mockAcceptance.AcceptedBlocks {
 		virtualVotingBlock, _ := tf.VirtualVoting.Block(blockID)
@@ -78,7 +78,7 @@ func TestOrphanageManager_HandleTimeUpdate(t *testing.T) {
 		"0/1-postTSCSeq1_3": false,
 		"0/1-postTSCSeq1_4": false,
 	})
-	assert.Equal(t, 6, tf.Manager.unacceptedBlocks.Len())
+	require.Equal(t, 6, tf.Manager.unacceptedBlocks.Len())
 
 	// Mark orphaned blocks as accepted and make sure that they get unorphaned.
 	{
@@ -144,7 +144,7 @@ func TestOrphanageManager_HandleTimeUpdate(t *testing.T) {
 			"0/1-postTSCSeq1_3": false,
 			"0/1-postTSCSeq1_4": false,
 		})
-		assert.Equal(t, 6, tf.Manager.unacceptedBlocks.Len())
+		require.Equal(t, 6, tf.Manager.unacceptedBlocks.Len())
 	}
 }
 

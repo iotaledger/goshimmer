@@ -5,9 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/types"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
@@ -516,7 +516,7 @@ func (e *EvilWallet) useFreshIfInputWalletNotProvided(buildOptions *Options) (*W
 		if wallet, err := e.wallets.freshWallet(); wallet != nil {
 			return wallet, nil
 		} else {
-			return nil, errors.Newf("no Fresh wallet is available: %w", err)
+			return nil, errors.Wrap(err, "no Fresh wallet is available")
 		}
 	}
 	return buildOptions.inputWallet, nil

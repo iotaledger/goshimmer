@@ -1,7 +1,7 @@
 package createnftoptions
 
 import (
-	"github.com/cockroachdb/errors"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
@@ -32,7 +32,7 @@ func InitialBalance(balance map[devnetvm.Color]uint64) CreateNFTOption {
 func ImmutableData(data []byte) CreateNFTOption {
 	return func(options *CreateNFTOptions) error {
 		if data == nil {
-			return errors.Errorf("empty data supplied for immutable data")
+			return errors.New("empty data supplied for immutable data")
 		}
 		if len(data) > devnetvm.MaxOutputPayloadSize {
 			return errors.Errorf("provided immutable data size %d is greater than maximum allowed %d", len(data), devnetvm.MaxOutputPayloadSize)

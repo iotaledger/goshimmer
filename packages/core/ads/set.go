@@ -4,11 +4,11 @@ import (
 	"sync"
 
 	"github.com/celestiaorg/smt"
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/constraints"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/iotaledger/hive.go/core/types"
+	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/storage/typedkey"
@@ -133,13 +133,13 @@ func (s *Set[K, KPtr]) Stream(callback func(key K) bool) (err error) {
 	if iterationErr := s.rawKeysStore.Iterate([]byte{}, func(key kvstore.Key, _ kvstore.Value) bool {
 		var kPtr KPtr = new(K)
 		if _, keyErr := kPtr.FromBytes(key); keyErr != nil {
-			err = errors.Errorf("failed to deserialize key %s: %w", key, keyErr)
+			err = errors.Wrapf(keyErr, "failed to deserialize key %s", key)
 			return false
 		}
 
 		return callback(*kPtr)
 	}); iterationErr != nil {
-		err = errors.Errorf("failed to iterate over set members: %w", iterationErr)
+		err = errors.Wrapf(iterationErr, "failed to iterate over set members")
 	}
 
 	return

@@ -8,16 +8,17 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
-	"github.com/stretchr/testify/assert"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/model"
+	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/stringify"
+	"github.com/iotaledger/hive.go/core/types/confirmation"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
@@ -209,11 +210,11 @@ func (t *TestFramework) AssertConflictIDs(expectedConflicts map[string][]string)
 		expectedConflictIDs := t.ConflictIDs(expectedConflictAliases...)
 
 		t.ConsumeTransactionMetadata(currentTx.ID(), func(txMetadata *TransactionMetadata) {
-			assert.Truef(t.test, expectedConflictIDs.Equal(txMetadata.ConflictIDs()), "Transaction(%s): expected %s is not equal to actual %s", txAlias, expectedConflictIDs, txMetadata.ConflictIDs())
+			require.Truef(t.test, expectedConflictIDs.Equal(txMetadata.ConflictIDs()), "Transaction(%s): expected %s is not equal to actual %s", txAlias, expectedConflictIDs, txMetadata.ConflictIDs())
 		})
 
 		t.ConsumeTransactionOutputs(currentTx, func(outputMetadata *OutputMetadata) {
-			assert.Truef(t.test, expectedConflictIDs.Equal(outputMetadata.ConflictIDs()), "Output(%s): expected %s is not equal to actual %s", outputMetadata.ID(), expectedConflictIDs, outputMetadata.ConflictIDs())
+			require.Truef(t.test, expectedConflictIDs.Equal(outputMetadata.ConflictIDs()), "Output(%s): expected %s is not equal to actual %s", outputMetadata.ID(), expectedConflictIDs, outputMetadata.ConflictIDs())
 		})
 	}
 }
@@ -223,11 +224,11 @@ func (t *TestFramework) AssertBooked(expectedBookedMap map[string]bool) {
 	for txAlias, expectedBooked := range expectedBookedMap {
 		currentTx := t.Transaction(txAlias)
 		t.ConsumeTransactionMetadata(currentTx.ID(), func(txMetadata *TransactionMetadata) {
-			assert.Equalf(t.test, expectedBooked, txMetadata.IsBooked(), "Transaction(%s): expected booked(%s) but has booked(%s)", txAlias, expectedBooked, txMetadata.IsBooked())
+			require.Equalf(t.test, expectedBooked, txMetadata.IsBooked(), "Transaction(%s): expected booked(%s) but has booked(%s)", txAlias, expectedBooked, txMetadata.IsBooked())
 
 			_ = txMetadata.OutputIDs().ForEach(func(outputID utxo.OutputID) (err error) {
 				// Check if output exists according to the Booked status of the enclosing Transaction.
-				assert.Equalf(t.test, expectedBooked, t.Ledger.Storage.CachedOutputMetadata(outputID).Consume(func(_ *OutputMetadata) {}),
+				require.Equalf(t.test, expectedBooked, t.Ledger.Storage.CachedOutputMetadata(outputID).Consume(func(_ *OutputMetadata) {}),
 					"Output(%s): expected booked(%s) but has booked(%s)", outputID, expectedBooked, txMetadata.IsBooked())
 				return nil
 			})
@@ -252,23 +253,23 @@ func (t *TestFramework) AllBooked(txAliases ...string) (allBooked bool) {
 
 // ConsumeTransactionMetadata loads and consumes TransactionMetadata. Asserts that the loaded entity exists.
 func (t *TestFramework) ConsumeTransactionMetadata(txID utxo.TransactionID, consumer func(txMetadata *TransactionMetadata)) {
-	assert.Truef(t.test, t.Ledger.Storage.CachedTransactionMetadata(txID).Consume(consumer), "failed to load metadata of %s", txID)
+	require.Truef(t.test, t.Ledger.Storage.CachedTransactionMetadata(txID).Consume(consumer), "failed to load metadata of %s", txID)
 }
 
 // ConsumeOutputMetadata loads and consumes OutputMetadata. Asserts that the loaded entity exists.
 func (t *TestFramework) ConsumeOutputMetadata(outputID utxo.OutputID, consumer func(outputMetadata *OutputMetadata)) {
-	assert.True(t.test, t.Ledger.Storage.CachedOutputMetadata(outputID).Consume(consumer))
+	require.True(t.test, t.Ledger.Storage.CachedOutputMetadata(outputID).Consume(consumer))
 }
 
 // ConsumeOutput loads and consumes Output. Asserts that the loaded entity exists.
 func (t *TestFramework) ConsumeOutput(outputID utxo.OutputID, consumer func(output utxo.Output)) {
-	assert.True(t.test, t.Ledger.Storage.CachedOutput(outputID).Consume(consumer))
+	require.True(t.test, t.Ledger.Storage.CachedOutput(outputID).Consume(consumer))
 }
 
 // ConsumeTransactionOutputs loads and consumes all OutputMetadata of the given Transaction. Asserts that the loaded entities exists.
 func (t *TestFramework) ConsumeTransactionOutputs(mockTx *MockedTransaction, consumer func(outputMetadata *OutputMetadata)) {
 	t.ConsumeTransactionMetadata(mockTx.ID(), func(txMetadata *TransactionMetadata) {
-		assert.EqualValuesf(t.test, mockTx.M.OutputCount, txMetadata.OutputIDs().Size(), "Output count in %s do not match", mockTx.ID())
+		require.EqualValuesf(t.test, mockTx.M.OutputCount, txMetadata.OutputIDs().Size(), "Output count in %s do not match", mockTx.ID())
 
 		for _, outputID := range txMetadata.OutputIDs().Slice() {
 			t.ConsumeOutputMetadata(outputID, consumer)
@@ -478,18 +479,18 @@ func init() {
 	MockedTransactionType = payload.NewType(payloadtype.MockedTransaction, "MockedTransactionType")
 
 	if err := serix.DefaultAPI.RegisterTypeSettings(MockedTransaction{}, serix.TypeSettings{}.WithObjectType(uint32(new(MockedTransaction).Type()))); err != nil {
-		panic(fmt.Errorf("error registering Transaction type settings: %w", err))
+		panic(errors.Wrap(err, "error registering Transaction type settings"))
 	}
 
 	if err := serix.DefaultAPI.RegisterInterfaceObjects((*payload.Payload)(nil), new(MockedTransaction)); err != nil {
-		panic(fmt.Errorf("error registering Transaction as Payload interface: %w", err))
+		panic(errors.Wrap(err, "error registering Transaction as Payload interface"))
 	}
 
 	if err := serix.DefaultAPI.RegisterTypeSettings(MockedOutput{}, serix.TypeSettings{}.WithObjectType(uint8(devnetvm.ExtendedLockedOutputType+1))); err != nil {
-		panic(fmt.Errorf("error registering ExtendedLockedOutput type settings: %w", err))
+		panic(errors.Wrap(err, "error registering ExtendedLockedOutput type settings"))
 	}
 
 	if err := serix.DefaultAPI.RegisterInterfaceObjects((*utxo.Output)(nil), new(MockedOutput)); err != nil {
-		panic(fmt.Errorf("error registering utxo.Output interface implementations: %w", err))
+		panic(errors.Wrap(err, "error registering utxo.Output interface implementations"))
 	}
 }

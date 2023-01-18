@@ -3,13 +3,12 @@ package permanent
 import (
 	"context"
 	"encoding/binary"
-	"fmt"
 	"io"
 	"sync"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/types"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -54,7 +53,7 @@ func (c *Settings) SetSnapshotImported(initialized bool) (err error) {
 	c.settingsModel.SnapshotImported = initialized
 
 	if err = c.ToFile(); err != nil {
-		return fmt.Errorf("failed to persist initialized flag: %w", err)
+		return errors.Wrap(err, "failed to persist initialized flag")
 	}
 
 	return nil
@@ -74,7 +73,7 @@ func (c *Settings) SetLatestCommitment(latestCommitment *commitment.Commitment) 
 	c.settingsModel.LatestCommitment = latestCommitment
 
 	if err = c.ToFile(); err != nil {
-		return errors.Errorf("failed to persist latest commitment: %w", err)
+		return errors.Wrap(err, "failed to persist latest commitment")
 	}
 
 	return nil
@@ -94,7 +93,7 @@ func (c *Settings) SetLatestStateMutationEpoch(latestStateMutationEpoch epoch.In
 	c.settingsModel.LatestStateMutationEpoch = latestStateMutationEpoch
 
 	if err = c.ToFile(); err != nil {
-		return errors.Errorf("failed to persist latest state mutation epoch: %w", err)
+		return errors.Wrap(err, "failed to persist latest state mutation epoch")
 	}
 
 	return nil
@@ -114,7 +113,7 @@ func (c *Settings) SetLatestConfirmedEpoch(latestConfirmedEpoch epoch.Index) (er
 	c.settingsModel.LatestConfirmedEpoch = latestConfirmedEpoch
 
 	if err = c.ToFile(); err != nil {
-		return errors.Errorf("failed to persist latest confirmed epoch: %w", err)
+		return errors.Wrap(err, "failed to persist latest confirmed epoch")
 	}
 
 	return nil
@@ -134,7 +133,7 @@ func (c *Settings) SetChainID(id commitment.ID) (err error) {
 	c.settingsModel.ChainID = id
 
 	if err = c.ToFile(); err != nil {
-		return errors.Errorf("failed to persist chain ID: %w", err)
+		return errors.Wrap(err, "failed to persist chain ID")
 	}
 
 	return nil
@@ -146,15 +145,15 @@ func (c *Settings) Export(writer io.WriteSeeker) (err error) {
 
 	settingsBytes, err := c.Bytes()
 	if err != nil {
-		return errors.Errorf("failed to convert settings to bytes: %w", err)
+		return errors.Wrap(err, "failed to convert settings to bytes")
 	}
 
 	if err = binary.Write(writer, binary.LittleEndian, uint32(len(settingsBytes))); err != nil {
-		return errors.Errorf("failed to write settings length: %w", err)
+		return errors.Wrap(err, "failed to write settings length")
 	}
 
 	if err = binary.Write(writer, binary.LittleEndian, settingsBytes); err != nil {
-		return errors.Errorf("failed to write settings: %w", err)
+		return errors.Wrap(err, "failed to write settings")
 	}
 
 	return nil
@@ -162,7 +161,7 @@ func (c *Settings) Export(writer io.WriteSeeker) (err error) {
 
 func (c *Settings) Import(reader io.ReadSeeker) (err error) {
 	if err = c.tryImport(reader); err != nil {
-		return errors.Errorf("failed to import settings: %w", err)
+		return errors.Wrap(err, "failed to import settings")
 	}
 
 	c.TriggerInitialized()
@@ -176,16 +175,16 @@ func (c *Settings) tryImport(reader io.ReadSeeker) (err error) {
 
 	var settingsSize uint32
 	if err = binary.Read(reader, binary.LittleEndian, &settingsSize); err != nil {
-		return errors.Errorf("failed to read settings length: %w", err)
+		return errors.Wrap(err, "failed to read settings length")
 	}
 
 	settingsBytes := make([]byte, settingsSize)
 	if err = binary.Read(reader, binary.LittleEndian, settingsBytes); err != nil {
-		return errors.Errorf("failed to read settings bytes: %w", err)
+		return errors.Wrap(err, "failed to read settings bytes")
 	}
 
 	if consumedBytes, fromBytesErr := c.FromBytes(settingsBytes); fromBytesErr != nil {
-		return errors.Errorf("failed to read settings: %w", fromBytesErr)
+		return errors.Wrapf(fromBytesErr, "failed to read settings")
 	} else if consumedBytes != len(settingsBytes) {
 		return errors.Errorf("failed to read settings: consumed bytes (%d) != expected bytes (%d)", consumedBytes, len(settingsBytes))
 	}
@@ -193,7 +192,7 @@ func (c *Settings) tryImport(reader io.ReadSeeker) (err error) {
 	c.settingsModel.SnapshotImported = true
 
 	if err = c.settingsModel.ToFile(); err != nil {
-		return errors.Errorf("failed to persist chain ID: %w", err)
+		return errors.Wrap(err, "failed to persist chain ID")
 	}
 
 	return

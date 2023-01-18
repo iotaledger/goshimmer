@@ -89,6 +89,7 @@ func New(dispatcher network.Endpoint, opts ...options.Option[Protocol]) (protoco
 
 // Run runs the protocol.
 func (p *Protocol) Run() {
+	p.CongestionControl.Run()
 	p.linkTo(p.engine)
 
 	if err := p.engine.Initialize(p.optsSnapshotPath); err != nil {
@@ -100,6 +101,7 @@ func (p *Protocol) Run() {
 
 // Shutdown shuts down the protocol.
 func (p *Protocol) Shutdown() {
+	p.CongestionControl.Shutdown()
 	p.engine.Shutdown()
 	p.storage.Shutdown()
 
@@ -204,6 +206,10 @@ func (p *Protocol) initTipManager() {
 		p.TipManager.AddTip(block)
 	}))
 
+	p.Events.Engine.EvictionState.EpochEvicted.Attach(event.NewClosure(func(index epoch.Index) {
+		p.TipManager.EvictTSCCache(index)
+	}))
+
 	p.Events.Engine.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
 		p.TipManager.RemoveStrongParents(block.ModelsBlock)
 	}))
@@ -218,6 +224,14 @@ func (p *Protocol) initTipManager() {
 		if schedulerBlock, exists := p.CongestionControl.Block(block.ID()); exists {
 			p.TipManager.AddTip(schedulerBlock)
 		}
+	}))
+
+	p.Events.Engine.NotarizationManager.EpochCommitted.Attach(event.NewClosure(func(details *notarization.EpochCommittedDetails) {
+		p.TipManager.PromoteFutureTips(details.Commitment)
+	}))
+
+	p.Events.Engine.EvictionState.EpochEvicted.Attach(event.NewClosure(func(index epoch.Index) {
+		p.TipManager.Evict(index)
 	}))
 
 	p.Events.TipManager = p.TipManager.Events
