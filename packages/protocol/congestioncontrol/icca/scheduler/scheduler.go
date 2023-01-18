@@ -1,7 +1,6 @@
 package scheduler
 
 import (
-	"fmt"
 	"math"
 	"math/big"
 	"sync"
@@ -588,7 +587,7 @@ func (s *Scheduler) GetExcessDeficit(issuerID identity.ID) (deficitFloat float64
 		return deficitFloat - float64(s.issuerQueueWork(issuerID)), nil
 	}
 
-	return 0.0, errors.New(fmt.Sprintf("Deficit for issuer %s does not exist", issuerID))
+	return 0.0, errors.Errorf("Deficit for issuer %s does not exist", issuerID)
 }
 
 func (s *Scheduler) GetOrRegisterBlock(virtualVotingBlock *virtualvoting.Block) (block *Block, err error) {
