@@ -5,9 +5,8 @@ import "github.com/iotaledger/goshimmer/packages/app/collector"
 const (
 	rateSetterNamespace = "ratesetter"
 
-	estimate   = "estimate"
-	ownRate    = "own_rate"
-	bufferSize = "buffer_size"
+	estimate = "estimate"
+	ownRate  = "own_rate"
 )
 
 var RateSetterMetrics = collector.NewCollection(rateSetterNamespace,
@@ -23,13 +22,6 @@ var RateSetterMetrics = collector.NewCollection(rateSetterNamespace,
 		collector.WithHelp("Current rate of the node."),
 		collector.WithCollectFunc(func() map[string]float64 {
 			return collector.SingleValue(deps.BlockIssuer.RateSetter.Rate())
-		}),
-	)),
-	collector.WithMetric(collector.NewMetric(bufferSize,
-		collector.WithType(collector.Gauge),
-		collector.WithHelp("Current size of the rate setter buffer."),
-		collector.WithCollectFunc(func() map[string]float64 {
-			return collector.SingleValue(deps.BlockIssuer.RateSetter.Size())
 		}),
 	)),
 )

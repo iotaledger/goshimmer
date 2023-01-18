@@ -81,7 +81,7 @@ var TangleMetrics = collector.NewCollection(tangleNamespace,
 			deps.Protocol.Events.Engine.Filter.BlockAllowed.Attach(event.NewClosure(func(_ *models.Block) {
 				deps.Collector.Increment(tangleNamespace, blocksPerComponentCount, collector.Allowed.String())
 			}))
-			deps.BlockIssuer.RateSetter.Events.BlockIssued.Attach(event.NewClosure(func(_ *models.Block) {
+			deps.BlockIssuer.Events.BlockIssued.Attach(event.NewClosure(func(_ *models.Block) {
 				deps.Collector.Increment(tangleNamespace, blocksPerComponentCount, collector.Issued.String())
 			}))
 			deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Attach(event.NewClosure(func(block *blockdag.Block) {
