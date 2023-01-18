@@ -130,20 +130,6 @@ func (s *Scheduler) IssuerQueueSize(issuerID identity.ID) int {
 	return issuerQueue.Size()
 }
 
-// IssuerQueueWork returns the total work of blocks in the IssuerIDs queue.
-func (s *Scheduler) IssuerQueueWork(issuerID identity.ID) int {
-	s.evictionMutex.RLock()
-	defer s.evictionMutex.RUnlock()
-	s.bufferMutex.RLock()
-	defer s.bufferMutex.RUnlock()
-
-	issuerQueue := s.buffer.IssuerQueue(issuerID)
-	if issuerQueue == nil {
-		return 0
-	}
-	return issuerQueue.Work()
-}
-
 // IssuerQueueSizes returns the size for each issuer queue.
 func (s *Scheduler) IssuerQueueSizes() map[identity.ID]int {
 	s.evictionMutex.RLock()
@@ -590,12 +576,16 @@ func (s *Scheduler) updateDeficit(issuerID identity.ID, d *big.Rat) {
 }
 
 func (s *Scheduler) GetExcessDeficit(issuerID identity.ID) (deficitFloat float64, err error) {
+	s.evictionMutex.RLock()
+	defer s.evictionMutex.RUnlock()
+	s.bufferMutex.RLock()
+	defer s.bufferMutex.RUnlock()
 	s.deficitsMutex.RLock()
 	defer s.deficitsMutex.RUnlock()
 
 	if deficit, exists := s.deficits.Get(issuerID); exists {
 		deficitFloat, _ = deficit.Float64()
-		return deficitFloat - float64(s.IssuerQueueWork(issuerID)), nil
+		return deficitFloat - float64(s.issuerQueueWork(issuerID)), nil
 	}
 
 	return 0.0, errors.New(fmt.Sprintf("Deficit for issuer %s does not exist", issuerID))
@@ -617,6 +607,14 @@ func (s *Scheduler) GetOrRegisterBlock(virtualVotingBlock *virtualvoting.Block) 
 	})
 
 	return block, nil
+}
+
+func (s *Scheduler) issuerQueueWork(issuerID identity.ID) int {
+	issuerQueue := s.buffer.IssuerQueue(issuerID)
+	if issuerQueue == nil {
+		return 0
+	}
+	return issuerQueue.Work()
 }
 
 func (s *Scheduler) getAccessMana(id identity.ID) int64 {
