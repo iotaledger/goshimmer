@@ -21,6 +21,7 @@ type IssuerQueue struct {
 	submitted *shrinkingmap.ShrinkingMap[models.BlockID, *Block]
 	inbox     generalheap.Heap[timed.HeapKey, *Block]
 	size      atomic.Int64
+	work      atomic.Int64
 }
 
 // NewIssuerQueue returns a new IssuerQueue.
@@ -31,13 +32,22 @@ func NewIssuerQueue(issuerID identity.ID) *IssuerQueue {
 	}
 }
 
-// Size returns the total size of the blocks in the queue.
+// Size returns the total number of blocks in the queue.
 // This function is thread-safe.
 func (q *IssuerQueue) Size() int {
 	if q == nil {
 		return 0
 	}
 	return int(q.size.Load())
+}
+
+// Work returns the total work of the blocks in the queue.
+// This function is thread-safe.
+func (q *IssuerQueue) Work() int {
+	if q == nil {
+		return 0
+	}
+	return int(q.work.Load())
 }
 
 // IssuerID returns the ID of the issuer belonging to the queue.
@@ -58,6 +68,7 @@ func (q *IssuerQueue) Submit(element *Block) bool {
 
 	q.submitted.Set(element.ID(), element)
 	q.size.Inc()
+	q.work.Add(int64(element.Work()))
 	return true
 }
 
@@ -69,6 +80,7 @@ func (q *IssuerQueue) Unsubmit(block *Block) bool {
 
 	q.submitted.Delete(block.ID())
 	q.size.Dec()
+	q.work.Sub(int64(block.Work()))
 	return true
 }
 
@@ -108,6 +120,7 @@ func (q *IssuerQueue) Front() *Block {
 func (q *IssuerQueue) PopFront() *Block {
 	blk := heap.Pop(&q.inbox).(*generalheap.HeapElement[timed.HeapKey, *Block]).Value
 	q.size.Dec()
+	q.work.Sub(int64(blk.Work()))
 	return blk
 }
 

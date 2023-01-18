@@ -31,8 +31,11 @@ const (
 	// BlockVersion defines the Version of the block structure.
 	BlockVersion uint8 = 1
 
-	// MaxBlockSize defines the maximum size of a block.
+	// MaxBlockSize defines the maximum size of a block in bytes.
 	MaxBlockSize = 64 * 1024
+
+	// MaxBlockSize defines the maximum work of a block.
+	MaxBlockWork = 1
 
 	// BlockIDLength defines the length of an BlockID.
 	BlockIDLength = types.IdentifierLength + 8
@@ -269,6 +272,12 @@ func (b *Block) DetermineID(blockIdentifier ...types.Identifier) (err error) {
 // Size returns the block size in bytes.
 func (b *Block) Size() int {
 	return len(lo.PanicOnErr(b.Bytes()))
+}
+
+// Work returns the work units required to process this block.
+// Currently to 1 for all blocks, but could be improved.
+func (b *Block) Work() int {
+	return 1
 }
 
 func (b *Block) String() string {

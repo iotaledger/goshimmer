@@ -177,7 +177,6 @@ func getInfo(c echo.Context) error {
 		},
 		RateSetter: jsonmodels.RateSetter{
 			Rate:     deps.BlockIssuer.Rate(),
-			Size:     deps.BlockIssuer.Size(),
 			Estimate: deps.BlockIssuer.Estimate(),
 		},
 	})

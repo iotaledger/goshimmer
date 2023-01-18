@@ -10,7 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer/blockfactory"
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer/ratesetter"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	protocolPlugin "github.com/iotaledger/goshimmer/plugins/protocol"
+	protocolParams "github.com/iotaledger/goshimmer/plugins/protocol"
 )
 
 // PluginName is the name of the spammer plugin.
@@ -45,17 +45,20 @@ func configure(_ *node.Plugin) {
 }
 
 func createBlockIssuer(local *peer.Local, protocol *protocol.Protocol) *blockissuer.BlockIssuer {
+	rateSetterMode := ratesetter.ParseRateSetterMode(Parameters.RateSetter.Mode)
+	rateSetter := ratesetter.New(local.ID(), protocol,
+		ratesetter.WithMode(rateSetterMode),
+		ratesetter.WithInitialRate(Parameters.RateSetter.Initial),
+		ratesetter.WithPause(Parameters.RateSetter.Pause),
+		ratesetter.WithSchedulerRate(protocolParams.SchedulerParameters.Rate),
+	)
+
 	return blockissuer.New(protocol, local.LocalIdentity(),
 		blockissuer.WithBlockFactoryOptions(
 			blockfactory.WithTipSelectionRetryInterval(Parameters.BlockFactory.TipSelectionRetryInterval),
 			blockfactory.WithTipSelectionTimeout(Parameters.BlockFactory.TipSelectionTimeout),
 		),
-		blockissuer.WithRateSetterOptions(
-			ratesetter.WithPause(Parameters.RateSetter.Pause),
-			ratesetter.WithInitialRate(Parameters.RateSetter.Initial),
-			ratesetter.WithEnabled(Parameters.RateSetter.Enable),
-			ratesetter.WithSchedulerRate(protocolPlugin.SchedulerParameters.Rate),
-		),
+		blockissuer.WithRateSetter(rateSetter),
 		blockissuer.WithIgnoreBootstrappedFlag(Parameters.IgnoreBootstrappedFlag),
 	)
 }

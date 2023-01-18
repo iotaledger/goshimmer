@@ -15,6 +15,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/network"
+	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
@@ -31,10 +32,12 @@ const genesisTokenAmount = 100
 type TestFramework struct {
 	Network  *network.MockedNetwork
 	Protocol *Protocol
+	Local    *identity.Identity
 
 	test *testing.T
 
-	optsProtocolOptions []options.Option[Protocol]
+	optsProtocolOptions          []options.Option[Protocol]
+	optsCongestionControlOptions []options.Option[congestioncontrol.CongestionControl]
 }
 
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (newTestFramework *TestFramework) {
@@ -159,6 +162,16 @@ func WithStorage(storageInstance *storage.Storage) options.Option[EngineTestFram
 func WithTangleOptions(tangleOpts ...options.Option[tangle.Tangle]) options.Option[EngineTestFramework] {
 	return func(t *EngineTestFramework) {
 		t.optsTangleOptions = tangleOpts
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func WithProtocolOptions(opts ...options.Option[Protocol]) options.Option[TestFramework] {
+	return func(t *TestFramework) {
+		t.optsProtocolOptions = opts
 	}
 }
 
