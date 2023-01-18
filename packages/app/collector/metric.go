@@ -81,7 +81,6 @@ func (m *Metric) initPromMetric() {
 			}, m.labels)
 		}
 	})
-
 }
 
 // Collect calls the collectFunc and updates the metric value, for Gauge/GaugeVec values are set,

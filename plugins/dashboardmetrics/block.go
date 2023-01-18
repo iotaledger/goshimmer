@@ -1,9 +1,10 @@
 package dashboardmetrics
 
 import (
-	"github.com/iotaledger/goshimmer/packages/app/collector"
 	"github.com/iotaledger/hive.go/core/syncutils"
 	"go.uber.org/atomic"
+
+	"github.com/iotaledger/goshimmer/packages/app/collector"
 )
 
 // the same metrics as above, but since the start of a node.

@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/autopeering/selection"
 	"github.com/iotaledger/hive.go/core/daemon"
@@ -13,6 +12,8 @@ import (
 	"github.com/iotaledger/hive.go/core/node"
 	"github.com/iotaledger/hive.go/core/timeutil"
 	"go.uber.org/dig"
+
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
