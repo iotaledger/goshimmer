@@ -161,13 +161,11 @@ func getInfo(c echo.Context) error {
 		IdentityIDShort:       deps.Local.Identity.ID().String(),
 		PublicKey:             deps.Local.PublicKey().String(),
 		BlockRequestQueueSize: int(dashboardmetrics.BlockRequestQueueSize()),
-		SolidBlockCount: int(dashboardmetrics.InitialBlockCountPerComponentGrafana()[collector.Solidified] +
-			dashboardmetrics.BlockCountSinceStartPerComponentGrafana()[collector.Solidified]),
-		TotalBlockCount: int(dashboardmetrics.InitialBlockCountPerComponentGrafana()[collector.Attached] +
-			dashboardmetrics.BlockCountSinceStartPerComponentGrafana()[collector.Attached]),
-		EnabledPlugins:  enabledPlugins,
-		DisabledPlugins: disabledPlugins,
-		Mana:            nodeMana,
+		SolidBlockCount:       int(dashboardmetrics.BlockCountSinceStartPerComponentGrafana()[collector.Solidified]),
+		TotalBlockCount:       int(dashboardmetrics.BlockCountSinceStartPerComponentGrafana()[collector.Attached]),
+		EnabledPlugins:        enabledPlugins,
+		DisabledPlugins:       disabledPlugins,
+		Mana:                  nodeMana,
 		Scheduler: jsonmodels.Scheduler{
 			Running:           scheduler.Running(),
 			Rate:              scheduler.Rate().String(),

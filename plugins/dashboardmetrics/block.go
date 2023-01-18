@@ -6,12 +6,6 @@ import (
 	"go.uber.org/atomic"
 )
 
-// initial values at start of the node.
-var (
-	// number of solid blocks in the database at startup.
-	initialBlockCountPerComponentDB = make(map[collector.ComponentType]uint64)
-)
-
 // the same metrics as above, but since the start of a node.
 var (
 	// Number of blocks per component (store, scheduler, booker) type since start of the node.
@@ -42,20 +36,6 @@ func BlockCountSinceStartPerComponentGrafana() map[collector.ComponentType]uint6
 	// copy the original map
 	clone := make(map[collector.ComponentType]uint64)
 	for key, element := range blockCountPerComponentGrafana {
-		clone[key] = element
-	}
-
-	return clone
-}
-
-// InitialBlockCountPerComponentGrafana returns a map of block count per component types and their count at the start of the node.
-func InitialBlockCountPerComponentGrafana() map[collector.ComponentType]uint64 {
-	blockCountPerComponentMutex.RLock()
-	defer blockCountPerComponentMutex.RUnlock()
-
-	// copy the original map
-	clone := make(map[collector.ComponentType]uint64)
-	for key, element := range initialBlockCountPerComponentDB {
 		clone[key] = element
 	}
 
