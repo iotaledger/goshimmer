@@ -3,6 +3,7 @@ package dashboardmetrics
 import (
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/app/collector"
 	"github.com/iotaledger/hive.go/core/generics/event"
 )
 
@@ -14,12 +15,15 @@ type EventsStruct struct {
 	AttachedBPSUpdated *event.Event[*AttachedBPSUpdatedEvent]
 	// Fired when the component counter per second metric is updated.
 	ComponentCounterUpdated *event.Event[*ComponentCounterUpdatedEvent]
+	// RateSetterUpdated is fired when the rate setter metric is updated.
+	RateSetterUpdated *event.Event[*RateSetterMetric]
 }
 
 func newEvents() *EventsStruct {
 	return &EventsStruct{
 		AttachedBPSUpdated:      event.New[*AttachedBPSUpdatedEvent](),
 		ComponentCounterUpdated: event.New[*ComponentCounterUpdatedEvent](),
+		RateSetterUpdated:       event.New[*RateSetterMetric](),
 	}
 }
 
@@ -39,5 +43,5 @@ type RateSetterMetric struct {
 }
 
 type ComponentCounterUpdatedEvent struct {
-	ComponentStatus map[ComponentType]uint64
+	ComponentStatus map[collector.ComponentType]uint64
 }

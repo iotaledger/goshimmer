@@ -4,10 +4,11 @@ import (
 	"sort"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/mr-tron/base58"
+
+	"github.com/iotaledger/goshimmer/packages/network/p2p"
 )
 
 // Issuer represents a issuer and its mana value.

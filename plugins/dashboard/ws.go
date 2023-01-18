@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/iotaledger/goshimmer/packages/app/collector"
 	"github.com/iotaledger/hive.go/core/daemon"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
@@ -71,17 +72,25 @@ func runWebSocketStreams() {
 	updateComponentCounterStatus := event.NewClosure(func(event *dashboardmetrics.ComponentCounterUpdatedEvent) {
 		componentStatus := event.ComponentStatus
 		updateStatus := &componentsmetric{
-			Store:      componentStatus[dashboardmetrics.Attached],
-			Solidifier: componentStatus[dashboardmetrics.Solidified],
-			Scheduler:  componentStatus[dashboardmetrics.Scheduled],
-			Booker:     componentStatus[dashboardmetrics.Booked],
+			Store:      componentStatus[collector.Attached],
+			Solidifier: componentStatus[collector.Solidified],
+			Scheduler:  componentStatus[collector.Scheduled],
+			Booker:     componentStatus[collector.Booked],
 		}
 		wsSendWorkerPool.TrySubmit(updateStatus)
+	})
+	updateRateSetterMetrics := event.NewClosure(func(metric *dashboardmetrics.RateSetterMetric) {
+		wsSendWorkerPool.TrySubmit(&rateSetterMetric{
+			Size:     metric.Size,
+			Estimate: metric.Estimate.String(),
+			Rate:     metric.Rate,
+		})
 	})
 
 	if err := daemon.BackgroundWorker("Dashboard[StatusUpdate]", func(ctx context.Context) {
 		dashboardmetrics.Events.AttachedBPSUpdated.Attach(updateStatus)
 		dashboardmetrics.Events.ComponentCounterUpdated.Attach(updateComponentCounterStatus)
+		dashboardmetrics.Events.RateSetterUpdated.Attach(updateRateSetterMetrics)
 		<-ctx.Done()
 		log.Info("Stopping Dashboard[StatusUpdate] ...")
 		dashboardmetrics.Events.AttachedBPSUpdated.Detach(updateStatus)
@@ -92,7 +101,7 @@ func runWebSocketStreams() {
 	}
 }
 
-// reigsters and creates a new websocket client.
+// registers and creates a new websocket client.
 func registerWSClient() (uint64, *wsclient) {
 	wsClientsMu.Lock()
 	defer wsClientsMu.Unlock()

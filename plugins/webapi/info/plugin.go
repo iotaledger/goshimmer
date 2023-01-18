@@ -5,6 +5,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/app/collector"
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
@@ -160,10 +161,10 @@ func getInfo(c echo.Context) error {
 		IdentityIDShort:       deps.Local.Identity.ID().String(),
 		PublicKey:             deps.Local.PublicKey().String(),
 		BlockRequestQueueSize: int(dashboardmetrics.BlockRequestQueueSize()),
-		SolidBlockCount: int(dashboardmetrics.InitialBlockCountPerComponentGrafana()[dashboardmetrics.Solidified] +
-			dashboardmetrics.BlockCountSinceStartPerComponentGrafana()[dashboardmetrics.Solidified]),
-		TotalBlockCount: int(dashboardmetrics.InitialBlockCountPerComponentGrafana()[dashboardmetrics.Attached] +
-			dashboardmetrics.BlockCountSinceStartPerComponentGrafana()[dashboardmetrics.Attached]),
+		SolidBlockCount: int(dashboardmetrics.InitialBlockCountPerComponentGrafana()[collector.Solidified] +
+			dashboardmetrics.BlockCountSinceStartPerComponentGrafana()[collector.Solidified]),
+		TotalBlockCount: int(dashboardmetrics.InitialBlockCountPerComponentGrafana()[collector.Attached] +
+			dashboardmetrics.BlockCountSinceStartPerComponentGrafana()[collector.Attached]),
 		EnabledPlugins:  enabledPlugins,
 		DisabledPlugins: disabledPlugins,
 		Mana:            nodeMana,
