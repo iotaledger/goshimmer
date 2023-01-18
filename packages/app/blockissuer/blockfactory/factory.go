@@ -39,7 +39,7 @@ type Factory struct {
 // NewBlockFactory creates a new block factory.
 func NewBlockFactory(localIdentity *identity.LocalIdentity, blockRetriever func(blockID models.BlockID) (block *blockdag.Block, exists bool), tipSelector TipSelectorFunc, referencesFunc ReferencesFunc, commitmentFunc CommitmentFunc, opts ...options.Option[Factory]) *Factory {
 	return options.Apply(&Factory{
-		Events:         NewEvents(),
+		Events:         newEvents(),
 		identity:       localIdentity,
 		blockRetriever: blockRetriever,
 		tipSelector:    tipSelector,

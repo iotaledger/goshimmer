@@ -86,7 +86,7 @@ func PeerConfig() config.GoShimmer {
 	c.Notarization.MinEpochCommittableAge = 60 * time.Second
 
 	c.BlockIssuer.Enabled = true
-	c.BlockIssuer.RateSetter.Enable = false
+	c.BlockIssuer.RateSetter.Mode = "disabled"
 
 	c.Faucet.Enabled = false
 	c.Faucet.Seed = base58.Encode(GenesisSeedBytes)

@@ -18,7 +18,6 @@ services:
       --node.peerDBDirectory=/app/peerdb
       --database.directory=/app/db
       --protocol.snapshot.path=./snapshot.bin
-      --blockIssuer.rateSetter.enable=false
       --metrics.bindAddress=0.0.0.0:9311
       --metrics.processMetrics=true
       --metrics.goMetrics=true
@@ -78,7 +77,6 @@ services:
       --node.peerDBDirectory=/app/peerdb
       --database.directory=/app/db
       --protocol.snapshot.path=./snapshot.bin
-      --blockIssuer.rateSetter.enable=false
       --metrics.bindAddress=0.0.0.0:9311
       --metrics.processMetrics=true
       --metrics.goMetrics=true
@@ -106,7 +104,6 @@ services:
       --database.directory=/app/db
       --config=/run/secrets/goshimmer.config.json
       --protocol.snapshot.path=./snapshot.bin
-      --blockIssuer.rateSetter.enable=false
       --metrics.bindAddress=0.0.0.0:9311
       --metrics.bindAddress=0.0.0.0:9311
       --protocol.genesisTime=${GENESIS_TIME}
@@ -141,7 +138,6 @@ services:
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/app/db
       --protocol.snapshot.path=./snapshot.bin
-      --blockIssuer.rateSetter.enable=false
       --metrics.bindAddress=0.0.0.0:9311
       --metrics.processMetrics=true
       --metrics.goMetrics=true

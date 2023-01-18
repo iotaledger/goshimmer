@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/cockroachdb/errors"
+
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
@@ -148,7 +150,9 @@ func (p *Protocol) initNetworkProtocol() {
 	}))
 
 	p.networkProtocol.Events.BlockReceived.Attach(event.NewClosure(func(event *network.BlockReceivedEvent) {
-		p.ProcessBlock(event.Block, event.Source)
+		if err := p.ProcessBlock(event.Block, event.Source); err != nil {
+			fmt.Print(err)
+		}
 	}))
 
 	p.networkProtocol.Events.EpochCommitmentReceived.Attach(event.NewClosure(func(event *network.EpochCommitmentReceivedEvent) {
@@ -237,16 +241,15 @@ func (p *Protocol) initTipManager() {
 	p.Events.TipManager = p.TipManager.Events
 }
 
-func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) {
+func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) error {
 	isSolid, chain, _ := p.chainManager.ProcessCommitment(block.Commitment())
 	if !isSolid {
-		fmt.Println(">> chain not solid", block.Commitment().ID(), "latest commitment", p.storage.Settings.LatestCommitment().ID(), "blockID", block.ID())
-		return
+		return errors.Errorf("Chain is not solid: ", block.Commitment().ID(), "\nLatest commitment: ", p.storage.Settings.LatestCommitment().ID(), "\nBlock ID: ", block.ID())
 	}
 
 	if mainChain := p.storage.Settings.ChainID(); chain.ForkingPoint.ID() == mainChain {
 		p.Engine().ProcessBlockFromPeer(block, src)
-		return
+		return nil
 	}
 
 	if p.Engine().IsBootstrapped() {
@@ -256,8 +259,10 @@ func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) {
 	if candidateEngine, candidateStorage := p.CandidateEngine(), p.CandidateStorage(); candidateEngine != nil && candidateStorage != nil {
 		if candidateChain := candidateStorage.Settings.ChainID(); chain.ForkingPoint.ID() == candidateChain {
 			candidateEngine.ProcessBlockFromPeer(block, src)
+			return nil
 		}
 	}
+	return errors.Errorf("block was not processed.")
 }
 
 func (p *Protocol) ProcessAttestationsRequest(epochIndex epoch.Index, src identity.ID) {

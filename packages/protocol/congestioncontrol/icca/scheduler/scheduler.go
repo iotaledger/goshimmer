@@ -29,10 +29,6 @@ const (
 	MinMana int64 = 1
 )
 
-// MaxDeficit is the maximum cap for accumulated deficit, i.e. max bytes that can be scheduled without waiting.
-// It must be >= MaxBlockSize.
-var MaxDeficit = new(big.Rat).SetInt64(int64(models.MaxBlockSize))
-
 // ErrNotRunning is returned when a block is submitted when the scheduler has been stopped.
 var ErrNotRunning = errors.New("scheduler stopped")
 
@@ -58,6 +54,7 @@ type Scheduler struct {
 	optsRate                           time.Duration
 	optsMaxBufferSize                  int
 	optsAcceptedBlockScheduleThreshold time.Duration
+	optsMaxDeficit                     *big.Rat
 
 	started        typeutils.AtomicBool
 	stopped        typeutils.AtomicBool
@@ -79,7 +76,8 @@ func New(evictionState *eviction.State, isBlockAccepted func(models.BlockID) boo
 		blocks:                             memstorage.NewEpochStorage[models.BlockID, *Block](),
 		optsMaxBufferSize:                  300,
 		optsAcceptedBlockScheduleThreshold: 5 * time.Minute,
-		optsRate:                           5 * time.Millisecond,
+		optsRate:                           5 * time.Millisecond,      // measured in time per unit work
+		optsMaxDeficit:                     new(big.Rat).SetInt64(10), // must be >= max block work, but work is currently=1 for all blocks
 
 		shutdownSignal: make(chan struct{}),
 	}, opts, func(s *Scheduler) {
@@ -111,7 +109,12 @@ func (s *Scheduler) Rate() time.Duration {
 	return s.optsRate
 }
 
-// IssuerQueueSize returns the size of the IssuerIDs queue.
+// IsUncongested checks if the issuerQueue is completely uncongested.
+func (s *Scheduler) IsUncongested() bool {
+	return s.ReadyBlocksCount() == 0
+}
+
+// IssuerQueueSize returns the size of the IssuerIDs queue in number of blocks.
 func (s *Scheduler) IssuerQueueSize(issuerID identity.ID) int {
 	s.evictionMutex.RLock()
 	defer s.evictionMutex.RUnlock()
@@ -151,7 +154,7 @@ func (s *Scheduler) MaxBufferSize() int {
 	return s.buffer.MaxSize()
 }
 
-// BufferSize returns the size of the buffer.
+// BufferSize returns the number of blocks in the buffer.
 func (s *Scheduler) BufferSize() int {
 	s.evictionMutex.RLock()
 	defer s.evictionMutex.RUnlock()
@@ -161,7 +164,7 @@ func (s *Scheduler) BufferSize() int {
 	return s.buffer.Size()
 }
 
-// ReadyBlocksCount returns the size buffer.
+// ReadyBlocksCount returns the number of blocks that are ready to be scheduled.
 func (s *Scheduler) ReadyBlocksCount() int {
 	s.evictionMutex.RLock()
 	defer s.evictionMutex.RUnlock()
@@ -171,7 +174,7 @@ func (s *Scheduler) ReadyBlocksCount() int {
 	return s.buffer.ReadyBlocksCount()
 }
 
-// TotalBlocksCount returns the size buffer.
+// TotalBlocksCount returns the size of the buffer in number of blocks.
 func (s *Scheduler) TotalBlocksCount() int {
 	s.evictionMutex.RLock()
 	defer s.evictionMutex.RUnlock()
@@ -378,6 +381,8 @@ func (s *Scheduler) submit(block *Block) error {
 
 	s.markAsDropped(droppedBlocks)
 
+	s.Events.BlockSubmitted.Trigger(block)
+
 	return nil
 }
 
@@ -420,13 +425,14 @@ loop:
 		select {
 		// every rate time units
 		case <-s.ticker.C:
-			// TODO: pause the ticker, if there are no ready blocks
 			if block := s.schedule(); block != nil {
+				// TODO: make this operate in units of work, with a variable pause between scheduling depending on work scheduled.
+				// TODO: don't use a ticker. Switch to a simple timer instead, and use a flag when ready to schedule something if there is nothing ready to be scheduled yet.
+				// TODO: implement a token bucket for the scheduler to account for bursty arrivals.
 				if block.SetScheduled() {
 					s.Events.BlockScheduled.Trigger(block)
 				}
 			}
-
 		// on close, exit the loop
 		case <-s.shutdownSignal:
 			break loop
@@ -478,8 +484,7 @@ func (s *Scheduler) schedule() *Block {
 	// remove the block from the buffer and adjust issuer's deficit
 	block := s.buffer.PopFront()
 	issuerID := identity.NewID(block.IssuerPublicKey())
-	s.updateDeficit(issuerID, new(big.Rat).SetInt64(-int64(block.Size())))
-
+	s.updateDeficit(issuerID, new(big.Rat).SetInt64(-int64(block.Work())))
 	return block
 }
 
@@ -507,7 +512,7 @@ func (s *Scheduler) selectIssuer(start *IssuerQueue, manaMap map[identity.ID]int
 				continue
 			}
 			// compute how often the deficit needs to be incremented until the block can be scheduled
-			remainingDeficit := maxRat(new(big.Rat).Sub(big.NewRat(int64(block.Size()), 1), s.Deficit(q.IssuerID())), new(big.Rat))
+			remainingDeficit := maxRat(new(big.Rat).Sub(big.NewRat(int64(block.Work()), 1), s.Deficit(q.IssuerID())), new(big.Rat))
 			// calculate how many rounds we need to skip to accumulate enough deficit.
 			// Use for loop to account for float imprecision.
 			r := new(big.Rat).Mul(remainingDeficit, new(big.Rat).Inv(quanta(q.IssuerID(), manaMap, totalMana)))
@@ -538,7 +543,7 @@ func (s *Scheduler) updateActiveIssuersList(manaMap map[identity.ID]int64) {
 	currentIssuer := s.buffer.Current()
 	numIssuers := s.buffer.NumActiveIssuers()
 	for i := 0; i < numIssuers; i++ {
-		if issuerMana, exists := manaMap[currentIssuer.IssuerID()]; (!exists || issuerMana < MinMana) && currentIssuer.Size() == 0 {
+		if issuerMana, exists := manaMap[currentIssuer.IssuerID()]; (!exists || issuerMana < MinMana) && currentIssuer.Work() == 0 {
 			s.buffer.RemoveIssuer(currentIssuer.IssuerID())
 			s.deficits.Delete(currentIssuer.IssuerID())
 
@@ -570,7 +575,23 @@ func (s *Scheduler) updateDeficit(issuerID identity.ID, d *big.Rat) {
 
 	s.deficitsMutex.Lock()
 	defer s.deficitsMutex.Unlock()
-	s.deficits.Set(issuerID, minRat(deficit, MaxDeficit))
+	s.deficits.Set(issuerID, minRat(deficit, s.optsMaxDeficit))
+}
+
+func (s *Scheduler) GetExcessDeficit(issuerID identity.ID) (deficitFloat float64, err error) {
+	s.evictionMutex.RLock()
+	defer s.evictionMutex.RUnlock()
+	s.bufferMutex.RLock()
+	defer s.bufferMutex.RUnlock()
+	s.deficitsMutex.RLock()
+	defer s.deficitsMutex.RUnlock()
+
+	if deficit, exists := s.deficits.Get(issuerID); exists {
+		deficitFloat, _ = deficit.Float64()
+		return deficitFloat - float64(s.issuerQueueWork(issuerID)), nil
+	}
+
+	return 0.0, errors.Errorf("Deficit for issuer %s does not exist", issuerID)
 }
 
 func (s *Scheduler) GetOrRegisterBlock(virtualVotingBlock *virtualvoting.Block) (block *Block, err error) {
@@ -589,6 +610,14 @@ func (s *Scheduler) GetOrRegisterBlock(virtualVotingBlock *virtualvoting.Block) 
 	})
 
 	return block, nil
+}
+
+func (s *Scheduler) issuerQueueWork(issuerID identity.ID) int {
+	issuerQueue := s.buffer.IssuerQueue(issuerID)
+	if issuerQueue == nil {
+		return 0
+	}
+	return issuerQueue.Work()
 }
 
 func (s *Scheduler) getAccessMana(id identity.ID) int64 {
@@ -635,6 +664,12 @@ func WithMaxBufferSize(maxBufferSize int) options.Option[Scheduler] {
 func WithRate(rate time.Duration) options.Option[Scheduler] {
 	return func(s *Scheduler) {
 		s.optsRate = rate
+	}
+}
+
+func WithMaxDeficit(maxDef int) options.Option[Scheduler] {
+	return func(s *Scheduler) {
+		s.optsMaxDeficit = new(big.Rat).SetInt64(int64(maxDef))
 	}
 }
 
