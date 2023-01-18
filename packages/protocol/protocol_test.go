@@ -256,7 +256,9 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 	}))
 
 	// Time has advanced to epoch 10 because of A.5, rendering 10 - MinimumCommittableAge(6) = 4 epoch committable
-	require.Equal(t, tf.Engine.Storage.Settings.LatestCommitment().Index(), epoch.Index(4))
+	require.Eventually(t, func() bool {
+		return tf.Engine.Storage.Settings.LatestCommitment().Index() == epoch.Index(4)
+	}, time.Second, 100*time.Millisecond)
 
 	// Dump snapshot for latest committable epoch 4 and check engine equivalence
 	{

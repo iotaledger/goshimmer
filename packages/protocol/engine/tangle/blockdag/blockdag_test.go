@@ -11,7 +11,9 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/randommap"
+	"github.com/iotaledger/hive.go/core/types"
 
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
@@ -616,4 +618,35 @@ func TestBlockDAG_MissingBlocks(t *testing.T) {
 	tf.AssertInvalidCount(0, "should have no invalid blocks")
 	tf.AssertSolidCount(blockCount, "should have all solid blocks")
 	tf.AssertMissingCount(0, "should have no missing blocks")
+}
+
+func TestBlockDAG_MonotonicCommitments(t *testing.T) {
+	tf := NewTestFramework(t)
+
+	tf.CreateBlock("block1", models.WithCommitment(commitment.New(0, commitment.ID{}, types.Identifier{}, 0)))
+	tf.CreateBlock("block2", models.WithStrongParents(tf.BlockIDs("block1")), models.WithCommitment(commitment.New(1, commitment.ID{}, types.Identifier{}, 0)))
+	tf.CreateBlock("block3", models.WithStrongParents(tf.BlockIDs("block1", "block2")), models.WithCommitment(commitment.New(3, commitment.ID{}, types.Identifier{}, 0)))
+	tf.CreateBlock("block4", models.WithStrongParents(tf.BlockIDs("block3", "block2")), models.WithCommitment(commitment.New(5, commitment.ID{}, types.Identifier{}, 0)))
+	tf.CreateBlock("block5", models.WithStrongParents(tf.BlockIDs("block3", "block4")), models.WithCommitment(commitment.New(3, commitment.ID{}, types.Identifier{}, 0)))
+
+	// issue block2
+	{
+		tf.IssueBlocks("block1", "block2", "block3", "block4", "block5")
+		event.Loop.PendingTasksCounter.WaitIsZero()
+		tf.AssertSolid(map[string]bool{
+			"block1": true,
+			"block2": true,
+			"block3": true,
+			"block4": true,
+			"block5": false,
+		})
+
+		tf.AssertInvalid(map[string]bool{
+			"block1": false,
+			"block2": false,
+			"block3": false,
+			"block4": false,
+			"block5": true,
+		})
+	}
 }

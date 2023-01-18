@@ -9,6 +9,7 @@ services:
     volumes:
       - "./db:/db"
       - "./retainer:/retainer"
+      - "./profiles:/profiles"
       - "/etc/localtime:/etc/localtime:ro"
     ports:
       # Autopeering
@@ -45,7 +46,7 @@ services:
       --autoPeering.networkVersion={{ networkVersion }}
       {% endif %}
       --node.disablePlugins=portcheck,ManaInitializer{% if remoteLogs|default(false) == false  %},RemoteLog,RemoteLogMetrics{% endif %}
-      --node.enablePlugins=dashboard,networkdelay,metrics{% if faucet|default(false) %},faucet{% endif %}{% if remoteLogs|default(false) %},RemoteLog,RemoteLogMetrics{% endif %}
+      --node.enablePlugins=dashboard,networkdelay,metrics{% if faucet|default(false) %},faucet{% endif %}{% if remoteLogs|default(false) %},RemoteLog,RemoteLogMetrics{% endif %},profilingrecorder
       --metrics.bindAddress=0.0.0.0:9311
       --logger.level={{ logLevel }}
       --logger.outputPaths=stdout
@@ -57,3 +58,4 @@ services:
       --protocol.bootstrapWindow=20s
       --metrics.goMetrics=true
       --metrics.processMetrics=true
+      --profilingRecorder.outputPath=/profiles

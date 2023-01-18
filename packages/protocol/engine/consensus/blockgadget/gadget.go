@@ -172,19 +172,20 @@ func (a *Gadget) RefreshSequence(sequenceID markers.SequenceID, newMaxSupportedI
 	totalWeight := a.totalWeightCallback()
 
 	for markerIndex := prevMaxSupportedIndex; markerIndex <= newMaxSupportedIndex; markerIndex++ {
-		// if sequence began due to attaching to a solid entry point, then prevMaxSupportedIndex=0 which needs to be skipped.
-		if markerIndex <= 0 {
-			continue
+		marker, markerExists := a.tangle.BlockCeiling(markers.NewMarker(sequenceID, markerIndex))
+		if !markerExists {
+			break
 		}
-
-		marker := markers.NewMarker(sequenceID, markerIndex)
 
 		blocksToAccept, blocksToConfirm := a.tryConfirmOrAccept(totalWeight, marker)
 		acceptedBlocks = append(acceptedBlocks, blocksToAccept...)
 		confirmedBlocks = append(confirmedBlocks, blocksToConfirm...)
+
+		markerIndex = marker.Index()
 	}
 
 	a.evictionMutex.RUnlock()
+
 	// EVICTION
 	for _, block := range acceptedBlocks {
 		a.acceptanceOrder.Queue(block)

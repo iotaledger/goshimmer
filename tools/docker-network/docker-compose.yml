@@ -29,7 +29,6 @@ services:
       - goshimmer.config.json
     volumes:
       - ./docker-network.snapshot:/app/snapshot.bin
-    #      - db:/app/db
     #      - peerdb:/app/peerdb
     ports:
       - "8080:8080/tcp" # web API
