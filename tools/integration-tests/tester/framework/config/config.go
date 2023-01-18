@@ -13,9 +13,9 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/dagsvisualizer"
 	"github.com/iotaledger/goshimmer/plugins/dashboard"
 	"github.com/iotaledger/goshimmer/plugins/faucet"
+	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/goshimmer/plugins/p2p"
 	"github.com/iotaledger/goshimmer/plugins/profiling"
-	"github.com/iotaledger/goshimmer/plugins/prometheus"
 	"github.com/iotaledger/goshimmer/plugins/protocol"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 )
@@ -45,7 +45,7 @@ type GoShimmer struct {
 	Protocol
 	Faucet
 	Activity
-	Prometheus
+	Metrics
 	Profiling
 	Dashboard
 	Dagsvisualizer
@@ -120,11 +120,11 @@ type BlockIssuer struct {
 	blockissuer.ParametersDefinition
 }
 
-// Prometheus defines the parameters of the Prometheus plugin.
-type Prometheus struct {
+// Metrics defines the parameters of the Metrics plugin.
+type Metrics struct {
 	Enabled bool
 
-	prometheus.ParametersDefinition
+	metrics.ParametersDefinition
 }
 
 // Profiling defines the parameters of the Profiling plugin.
