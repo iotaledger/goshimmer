@@ -165,7 +165,6 @@ func (m *Manager) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (err er
 	return
 }
 
-
 // MinCommittableEpochAge returns the minimum age of an epoch to be committable.
 func (m *Manager) MinCommittableEpochAge() time.Duration {
 	return m.optsMinCommittableEpochAge
