@@ -311,9 +311,9 @@ func (t *TipManager) addFutureTip(block *scheduler.Block) (added bool) {
 
 func (t *TipManager) isValidTip(tip *scheduler.Block) (err error) {
 	// TODO: fix this check when node is bootstrapping and commits a bunch of epochs at once.
-	//if !t.isRecentCommitment(tip) {
-	//	return errors.Errorf("cannot select tip due to commitment not being recent (%s - %d), current commitment (%d)", tip.ID().String(), tip.Commitment().Index(), t.engine.Storage.Settings.LatestCommitment().Index())
-	//}
+	if !t.isRecentCommitment(tip) {
+		return errors.Errorf("cannot select tip due to commitment not being recent (%s - %d), current commitment (%d)", tip.ID().String(), tip.Commitment().Index(), t.engine.Storage.Settings.LatestCommitment().Index())
+	}
 
 	if !t.isPastConeTimestampCorrect(tip.Block.Block) {
 		return errors.Errorf("cannot select tip due to TSC condition tip issuing time (%s), time (%s), min supported time (%s), block id (%s), tip pool size (%d), scheduled: (%t), orphaned: (%t), accepted: (%t)",
