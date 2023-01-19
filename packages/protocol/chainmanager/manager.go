@@ -6,11 +6,15 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/walker"
+	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/syncutils"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/eventticker"
+	"github.com/iotaledger/goshimmer/packages/core/memstorage"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 type Manager struct {
@@ -20,6 +24,8 @@ type Manager struct {
 
 	commitmentsByID      map[commitment.ID]*Commitment
 	commitmentsByIDMutex sync.Mutex
+
+	forkingBlocks *memstorage.EpochStorage[identity.ID, *models.Block]
 
 	optsCommitmentRequester []options.Option[eventticker.EventTicker[commitment.ID]]
 
@@ -32,6 +38,7 @@ func NewManager(snapshot *commitment.Commitment) (manager *Manager) {
 
 		commitmentsByID:       make(map[commitment.ID]*Commitment),
 		commitmentEntityMutex: syncutils.NewDAGMutex[commitment.ID](),
+		forkingBlocks:         memstorage.NewEpochStorage[identity.ID, *models.Block](),
 	}
 
 	manager.SnapshotCommitment, _ = manager.Commitment(snapshot.ID(), true)
@@ -48,15 +55,23 @@ func NewManager(snapshot *commitment.Commitment) (manager *Manager) {
 	return
 }
 
+func (m *Manager) ProcessBlock(block *models.Block, source identity.ID) (isSolid bool, chain *Chain, wasForked bool) {
+	if isSolid, chain, wasForked = m.ProcessCommitment(block.Commitment()); wasForked {
+		m.forkingBlocks.Get(block.Commitment().Index(), true).Set(source, block)
+		m.Events.ForkDetected.Trigger(&ForkDetectedEvent{
+			Chain:     chain,
+			ClaimedCW: block.Commitment().CumulativeWeight(),
+		})
+	}
+
+	return
+}
+
 func (m *Manager) ProcessCommitment(commitment *commitment.Commitment) (isSolid bool, chain *Chain, wasForked bool) {
 	// TODO: do not extend the main chain if the commitment doesn't come from myself, after I am bootstrapped.
 	isSolid, chain, wasForked, chainCommitment, commitmentPublished := m.registerCommitment(commitment)
 	if !commitmentPublished || chain == nil {
 		return isSolid, chain, wasForked
-	}
-
-	if wasForked {
-		m.Events.ForkDetected.Trigger(chain)
 	}
 
 	// Lock access to the chainCommitment so no children are added while we are propagating solidity
@@ -143,6 +158,15 @@ func (m *Manager) Commitments(id commitment.ID, amount int) (commitments []*Comm
 		commitments[i] = currentCommitment
 
 		id = currentCommitment.Commitment().PrevID()
+	}
+
+	return
+}
+
+// ForkingBlockFromSource returns the block containing a forking commitment on an index, received by the given source.
+func (m *Manager) ForkingBlockFromSource(index epoch.Index, source identity.ID) (block *models.Block, exists bool) {
+	if storage := m.forkingBlocks.Get(index, false); storage != nil {
+		return storage.Get(source)
 	}
 
 	return

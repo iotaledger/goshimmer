@@ -243,7 +243,7 @@ func (p *Protocol) initTipManager() {
 }
 
 func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) error {
-	isSolid, chain, _ := p.chainManager.ProcessCommitment(block.Commitment())
+	isSolid, chain, _ := p.chainManager.ProcessBlock(block, src)
 	if !isSolid {
 		return errors.Errorf("Chain is not solid: ", block.Commitment().ID(), "\nLatest commitment: ", p.storage.Settings.LatestCommitment().ID(), "\nBlock ID: ", block.ID())
 	}
@@ -283,7 +283,27 @@ func (p *Protocol) ProcessAttestationsRequest(epochIndex epoch.Index, src identi
 }
 
 func (p *Protocol) ProcessAttestations(attestations *set.AdvancedSet[*notarization.Attestation], source identity.ID) {
-	// TODO: process attestations and evluate chain switch!
+	mainChainWeight := p.Engine().Storage.Settings.LatestCommitment().CumulativeWeight()
+	attestation, _, exists := attestations.Head()
+	if !exists {
+		p.Events.Error.Trigger(errors.Errorf("received attestations from peer %s are empty", source.String()))
+		return
+	}
+
+	forkingBlock, exists := p.chainManager.ForkingBlockFromSource(attestation.CommitmentID.Index(), source)
+	if !exists {
+		p.Events.Error.Trigger(errors.Errorf("failed to get forking block for epoch %d", attestation.CommitmentID.Index()))
+		return
+	}
+	claimedWeight := forkingBlock.Commitment().CumulativeWeight()
+
+	if claimedWeight <= mainChainWeight {
+		p.Events.Error.Trigger(errors.Errorf("received attestations for a fork with lower weight %d vs %d from peer %s", source.String()))
+	}
+
+	
+
+	// TODO: we have to match the CW of the block with the CW of the obtained attestations
 }
 
 func (p *Protocol) Engine() (instance *engine.Engine) {
