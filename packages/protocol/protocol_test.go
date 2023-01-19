@@ -663,3 +663,108 @@ func TestEngine_ShutdownResume(t *testing.T) {
 
 	tf2.AssertEpochState(0)
 }
+
+func TestEngine_GuavaConflict(t *testing.T) {
+	debug.SetEnabled(true)
+	defer debug.SetEnabled(false)
+
+	epoch.GenesisTime = time.Now().Unix() - epoch.Duration*15
+
+	storageDir := t.TempDir()
+	storageInstance := storage.New(storageDir, DatabaseVersion, database.WithDBProvider(database.NewDB))
+
+	tf := NewEngineTestFramework(t, WithStorage(storageInstance), WithTangleOptions(
+		tangle.WithBookerOptions(
+			booker.WithMarkerManagerOptions(
+				markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(3)),
+			),
+		),
+	))
+	tempDir := utils.NewDirectory(t.TempDir())
+
+	tf.Engine.NotarizationManager.Events.Error.Attach(event.NewClosure(func(err error) {
+		panic(err)
+	}))
+
+	identitiesMap := map[string]ed25519.PublicKey{
+		"A": identity.GenerateIdentity().PublicKey(),
+		"B": identity.GenerateIdentity().PublicKey(),
+		"C": identity.GenerateIdentity().PublicKey(),
+		"D": identity.GenerateIdentity().PublicKey(),
+		"Z": identity.GenerateIdentity().PublicKey(),
+	}
+
+	identitiesWeights := map[identity.ID]uint64{
+		identity.New(identitiesMap["A"]).ID(): 25,
+		identity.New(identitiesMap["B"]).ID(): 25,
+		identity.New(identitiesMap["C"]).ID(): 25,
+		identity.New(identitiesMap["D"]).ID(): 25,
+		identity.New(identitiesMap["Z"]).ID(): 0,
+	}
+
+	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDir.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights))
+
+	require.NoError(t, tf.Engine.Initialize(tempDir.Path("genesis_snapshot.bin")))
+
+	require.Equal(t, int64(100), tf.Engine.SybilProtection.Validators().TotalWeight())
+
+	acceptedBlocks := make(map[string]bool)
+
+	{
+		tf.Tangle.CreateBlock("1.Z", models.WithStrongParents(tf.Tangle.BlockIDs("Genesis")), models.WithPayload(tf.Tangle.CreateTransaction("Tx1", 1, "Genesis")), models.WithIssuer(identitiesMap["Z"]))
+		tf.Tangle.CreateBlock("1.Z*", models.WithStrongParents(tf.Tangle.BlockIDs("Genesis")), models.WithPayload(tf.Tangle.CreateTransaction("Tx1*", 1, "Genesis")), models.WithIssuer(identitiesMap["Z"]))
+
+		tf.Tangle.CreateBlock("1.Z.1", models.WithStrongParents(tf.Tangle.BlockIDs("1.Z")), models.WithPayload(tf.Tangle.CreateTransaction("Tx2", 1, "Tx1.0")), models.WithIssuer(identitiesMap["Z"]))
+		tf.Tangle.CreateBlock("1.Z.1*", models.WithStrongParents(tf.Tangle.BlockIDs("1.Z")), models.WithPayload(tf.Tangle.CreateTransaction("Tx2*", 1, "Tx1.0")), models.WithIssuer(identitiesMap["Z"]))
+
+		tf.Tangle.CreateBlock("1.Z.2", models.WithStrongParents(tf.Tangle.BlockIDs("1.Z*")), models.WithPayload(tf.Tangle.CreateTransaction("Tx3", 1, "Tx1*.0")), models.WithIssuer(identitiesMap["Z"]))
+		tf.Tangle.CreateBlock("1.Z.2*", models.WithStrongParents(tf.Tangle.BlockIDs("1.Z*")), models.WithPayload(tf.Tangle.CreateTransaction("Tx3*", 1, "Tx1*.0")), models.WithIssuer(identitiesMap["Z"]))
+
+		tf.Tangle.CreateBlock("1.Z.3", models.WithStrongParents(tf.Tangle.BlockIDs("1.Z.2")), models.WithPayload(tf.Tangle.CreateTransaction("Tx4", 1, "Tx2.0", "Tx3.0")), models.WithIssuer(identitiesMap["Z"]))
+
+		tf.Tangle.CreateBlock("1.A", models.WithStrongParents(tf.Tangle.BlockIDs("1.Z.1")), models.WithIssuer(identitiesMap["A"]))
+		tf.Tangle.CreateBlock("1.B", models.WithStrongParents(tf.Tangle.BlockIDs("1.A")), models.WithIssuer(identitiesMap["B"]))
+		tf.Tangle.CreateBlock("1.C", models.WithStrongParents(tf.Tangle.BlockIDs("1.B")), models.WithIssuer(identitiesMap["C"]))
+		tf.Tangle.CreateBlock("1.D", models.WithStrongParents(tf.Tangle.BlockIDs("1.C")), models.WithIssuer(identitiesMap["D"]))
+
+		tf.Tangle.IssueBlocks("1.Z", "1.Z*", "1.Z.1", "1.Z.1*", "1.Z.2", "1.Z.2*")
+		tf.WaitUntilAllTasksProcessed()
+
+
+		tf.Acceptance.ValidateConflictAcceptance(map[string]confirmation.State{
+			"Tx1":  confirmation.Pending,
+			"Tx1*": confirmation.Pending,
+
+			"Tx2":  confirmation.Pending,
+			"Tx2*": confirmation.Pending,
+
+			"Tx3":  confirmation.Pending,
+			"Tx3*": confirmation.Pending,
+		})
+
+		tf.Tangle.IssueBlocks("1.Z.3", "1.A", "1.B", "1.C", "1.D")
+		tf.WaitUntilAllTasksProcessed()
+
+		tf.Acceptance.ValidateAcceptedBlocks(lo.MergeMaps(acceptedBlocks, map[string]bool{
+			"1.Z":   true,
+			"1.Z.1": true,
+			"1.Z*":  false,
+			"1.A":   true,
+			"1.B":   true,
+			"1.C":   false,
+			"1.D":   false,
+		}))
+
+		acceptedConflicts := make(map[string]confirmation.State)
+		tf.Acceptance.ValidateConflictAcceptance(lo.MergeMaps(acceptedConflicts, map[string]confirmation.State{
+			"Tx1":  confirmation.Undefined,
+			"Tx1*": confirmation.Undefined,
+
+			"Tx2":  confirmation.Undefined,
+			"Tx2*": confirmation.Undefined,
+
+			"Tx3":  confirmation.Undefined,
+			"Tx3*": confirmation.Undefined,
+		}))
+	}
+}

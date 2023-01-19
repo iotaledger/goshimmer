@@ -140,6 +140,7 @@ func (e *EngineTestFramework) WaitUntilAllTasksProcessed() (self *EngineTestFram
 	for _, pool := range e.Engine.WorkerPools() {
 		pool.PendingTasksCounter.WaitIsZero()
 	}
+
 	return e
 }
 
