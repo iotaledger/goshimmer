@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/workerpool"
 
@@ -182,7 +183,7 @@ func (p *Protocol) initNetworkProtocol() {
 	}))
 
 	p.networkProtocol.Events.AttestationsReceived.Attach(event.NewClosure(func(event *network.AttestationsReceivedEvent) {
-		p.ProcessAttestations(event.Source)
+		p.ProcessAttestations(event.Attestations, event.Source)
 	}))
 }
 
@@ -266,10 +267,22 @@ func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) error {
 }
 
 func (p *Protocol) ProcessAttestationsRequest(epochIndex epoch.Index, src identity.ID) {
-	// p.networkProtocol.SendAttestations(p.Engine().SybilProtection.Attestations(epochIndex), src)
+	attestationsForEpoch, err := p.Engine().NotarizationManager.Attestations.Get(epochIndex)
+	if err != nil {
+		p.Events.Error.Trigger(errors.Wrapf(err, "failed to get attestations for epoch %d upon request", epochIndex))
+		return
+	}
+
+	attestationsSet := set.NewAdvancedSet[*notarization.Attestation]()
+	attestationsForEpoch.Stream(func(_ identity.ID, attestation *notarization.Attestation) bool {
+		attestationsSet.Add(attestation)
+		return true
+	})
+
+	p.networkProtocol.SendAttestations(attestationsSet, src)
 }
 
-func (p *Protocol) ProcessAttestations(src identity.ID) {
+func (p *Protocol) ProcessAttestations(attestations *set.AdvancedSet[*notarization.Attestation], source identity.ID) {
 	// TODO: process attestations and evluate chain switch!
 }
 

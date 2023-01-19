@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/types"
@@ -17,6 +18,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	nwmodels "github.com/iotaledger/goshimmer/packages/network/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
@@ -65,6 +67,12 @@ func (p *Protocol) RequestBlock(id models.BlockID, to ...identity.ID) {
 func (p *Protocol) SendEpochCommitment(cm *commitment.Commitment, to ...identity.ID) {
 	p.network.Send(&nwmodels.Packet{Body: &nwmodels.Packet_EpochCommitment{EpochCommitment: &nwmodels.EpochCommitment{
 		Bytes: lo.PanicOnErr(cm.Bytes()),
+	}}}, protocolID, to...)
+}
+
+func (p *Protocol) SendAttestations(attestations *set.AdvancedSet[*notarization.Attestation], to ...identity.ID) {
+	p.network.Send(&nwmodels.Packet{Body: &nwmodels.Packet_Attestations{Attestations: &nwmodels.Attestations{
+		Bytes: lo.PanicOnErr(attestations.Encode()),
 	}}}, protocolID, to...)
 }
 
@@ -195,10 +203,12 @@ func (p *Protocol) onEpochCommitmentRequest(idBytes []byte, id identity.ID) {
 }
 
 func (p *Protocol) onAttestations(attestationsBytes []byte, id identity.ID) {
-	// TODO: PARSE BYTES
+	attestations := set.NewAdvancedSet[*notarization.Attestation]()
+	attestations.Decode(attestationsBytes)
 
 	p.Events.AttestationsReceived.Trigger(&AttestationsReceivedEvent{
-		Source: id,
+		Attestations: attestations,
+		Source:       id,
 	})
 }
 

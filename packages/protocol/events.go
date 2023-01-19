@@ -11,6 +11,7 @@ import (
 
 type Events struct {
 	InvalidBlockReceived *event.Linkable[identity.ID]
+	Error                *event.Linkable[error]
 
 	Engine            *engine.Events
 	CongestionControl *congestioncontrol.Events
@@ -21,6 +22,9 @@ type Events struct {
 
 var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 	return &Events{
+		InvalidBlockReceived: event.NewLinkable[identity.ID](),
+		Error:                event.NewLinkable[error](),
+
 		Engine:            engine.NewEvents(),
 		CongestionControl: congestioncontrol.NewEvents(),
 		TipManager:        tipmanager.NewEvents(),

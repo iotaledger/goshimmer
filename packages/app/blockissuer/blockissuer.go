@@ -57,13 +57,7 @@ func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opt
 			i.referenceProvider.References,
 			func() (ecRecord *commitment.Commitment, lastConfirmedEpochIndex epoch.Index, err error) {
 				latestCommitment := i.protocol.Engine().Storage.Settings.LatestCommitment()
-				if err != nil {
-					return nil, 0, err
-				}
 				confirmedEpochIndex := i.protocol.Engine().Storage.Settings.LatestConfirmedEpoch()
-				if err != nil {
-					return nil, 0, err
-				}
 
 				return latestCommitment, confirmedEpochIndex, nil
 			},
@@ -135,7 +129,6 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeBooked(block *models.Block, max
 	defer i.protocol.Events.Engine.Tangle.Booker.BlockBooked.Detach(closure)
 
 	err := i.issueBlock(block)
-
 	if err != nil {
 		return errors.Wrapf(err, "failed to issue block %s", block.ID().String())
 	}
@@ -173,7 +166,6 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeScheduled(block *models.Block, 
 	defer i.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Detach(closure)
 
 	err := i.issueBlock(block)
-
 	if err != nil {
 		return errors.Wrapf(err, "failed to issue block %s", block.ID().String())
 	}
@@ -195,6 +187,7 @@ func WithBlockFactoryOptions(blockFactoryOptions ...options.Option[blockfactory.
 		issuer.optsBlockFactoryOptions = blockFactoryOptions
 	}
 }
+
 func WithRateSetter(rateSetter ratesetter.RateSetter) options.Option[BlockIssuer] {
 	return func(issuer *BlockIssuer) {
 		issuer.RateSetter = rateSetter
