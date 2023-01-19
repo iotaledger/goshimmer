@@ -54,7 +54,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 				t.evictionState = eviction.NewState(storageInstance)
 			}
 
-			t.ConflictDAG = New(t.evictionState, t.optsConflictDAG...)
+			t.ConflictDAG = New(t.optsConflictDAG...)
 		}
 	}, (*TestFramework).setupEvents)
 }

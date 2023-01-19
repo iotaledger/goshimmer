@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 )
 
 // ConflictDAG represents a generic DAG that is able to model causal dependencies between conflicts that try to access a
@@ -28,7 +27,7 @@ type ConflictDAG[ConflictIDType, ResourceIDType comparable] struct {
 }
 
 // New is the constructor for the BlockDAG and creates a new BlockDAG instance.
-func New[ConflictIDType, ResourceIDType comparable](evictionState *eviction.State, opts ...options.Option[ConflictDAG[ConflictIDType, ResourceIDType]]) (c *ConflictDAG[ConflictIDType, ResourceIDType]) {
+func New[ConflictIDType, ResourceIDType comparable](opts ...options.Option[ConflictDAG[ConflictIDType, ResourceIDType]]) (c *ConflictDAG[ConflictIDType, ResourceIDType]) {
 	return options.Apply(&ConflictDAG[ConflictIDType, ResourceIDType]{
 		Events:            NewEvents[ConflictIDType, ResourceIDType](),
 		conflicts:         memstorage.New[ConflictIDType, *Conflict[ConflictIDType, ResourceIDType]](),

@@ -95,7 +95,7 @@ func New(chainStorage *storage.Storage, evictionState *eviction.State, opts ...o
 		mutex:                           syncutils.NewDAGMutex[utxo.TransactionID](),
 	}, opts)
 
-	ledger.ConflictDAG = conflictdag.New[utxo.TransactionID, utxo.OutputID](evictionState, ledger.optConflictDAG...)
+	ledger.ConflictDAG = conflictdag.New[utxo.TransactionID, utxo.OutputID](ledger.optConflictDAG...)
 
 	ledger.Events.ConflictDAG = ledger.ConflictDAG.Events
 
