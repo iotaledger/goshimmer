@@ -51,7 +51,6 @@ func run(*node.Plugin) {
 
 	if err := daemon.BackgroundWorker(PluginName, func(ctx context.Context) {
 		ticker := timeutil.NewTicker(func() {
-
 			path := filepath.Join(Parameters.OutputPath, strconv.FormatInt(time.Now().Unix(), 10))
 			paths.Put(path, types.Void)
 			profConfig.Path = path

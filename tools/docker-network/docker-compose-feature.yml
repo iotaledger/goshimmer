@@ -25,7 +25,6 @@ services:
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/app/db
       --protocol.snapshot.path=./snapshot.bin
-      --blockIssuer.rateSetter.enable=false
       --node.peerDBDirectory=/app/peerdb
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
       --node.enablePlugins=metrics,spammer,WebAPIToolsBlockEndpoint,activity
@@ -68,7 +67,6 @@ services:
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/app/db
       --protocol.snapshot.path=./snapshot.bin
-      --blockIssuer.rateSetter.enable=false
       --node.peerDBDirectory=/app/peerdb
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
       --node.enablePlugins=metrics,spammer,WebAPIToolsBlockEndpoint,activity,faucet
@@ -108,7 +106,6 @@ services:
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/app/db
       --protocol.snapshot.path=./snapshot.bin
-      --blockIssuer.rateSetter.enable=false
       --node.peerDBDirectory=/app/peerdb
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
       --node.enablePlugins=metrics,spammer,WebAPIToolsBlockEndpoint,activity
@@ -147,7 +144,6 @@ services:
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/app/db
       --protocol.snapshot.path=./snapshot.bin
-      --blockIssuer.rateSetter.enable=false
       --node.peerDBDirectory=/app/peerdb
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
       --node.enablePlugins=metrics,spammer,WebAPIToolsBlockEndpoint,activity
@@ -185,7 +181,6 @@ services:
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/app/db
       --protocol.snapshot.path=./snapshot.bin
-      --blockIssuer.rateSetter.enable=false
       --node.peerDBDirectory=/app/peerdb
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
       --node.enablePlugins=metrics,spammer,WebAPIToolsBlockEndpoint,activity
@@ -223,7 +218,6 @@ services:
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/app/db
       --protocol.snapshot.path=./snapshot.bin
-      --blockIssuer.rateSetter.enable=false
       --node.peerDBDirectory=/app/peerdb
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
       --node.enablePlugins=metrics,spammer,WebAPIToolsBlockEndpoint,activity
@@ -261,7 +255,6 @@ services:
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/app/db
       --protocol.snapshot.path=./snapshot.bin
-      --blockIssuer.rateSetter.enable=false
       --node.peerDBDirectory=/app/peerdb
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
       --node.enablePlugins=metrics,spammer,WebAPIToolsBlockEndpoint,activity
@@ -299,7 +292,6 @@ services:
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/app/db
       --protocol.snapshot.path=./snapshot.bin
-      --blockIssuer.rateSetter.enable=false
       --node.peerDBDirectory=/app/peerdb
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
       --node.enablePlugins=metrics,spammer,WebAPIToolsBlockEndpoint,activity
