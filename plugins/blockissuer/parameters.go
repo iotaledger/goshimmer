@@ -10,12 +10,12 @@ import (
 type ParametersDefinition struct {
 	// RateSetter contains the definition of the parameters used by the Rate Setter.
 	RateSetter struct {
+		// Mode determines the type of the rate setting mechanism.
+		Mode string `default:"deficit" usage:"define the type of rate setter to use. Possible options are deficit, aimd or disabled."`
 		// Initial defines the initial rate of rate setting.
-		Initial float64 `default:"1" usage:"the initial rate of rate setting. Set 0 to automatically estimate the value based on access mana."`
+		Initial float64 `default:"1" usage:"the initial rate of AIMD rate setting (if in AIMD mode). Set 0 to automatically estimate the value based on access mana."`
 		// Pause defines for how long to pause updates after decrease of rate.
-		Pause time.Duration `default:"1s" usage:"for how long to pause updates after decrease of rate"`
-		// Enable is the flag that enables the rate setting mechanism on node startup.
-		Enable bool `default:"true" usage:"whether to enable rate setter"`
+		Pause time.Duration `default:"1s" usage:"for how long to pause updates after decrease of rate (if in AIMD mode)."`
 	}
 
 	// RateSetter contains the definition of the parameters used by the Rate Setter.
