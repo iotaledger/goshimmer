@@ -593,7 +593,7 @@ func TestTipManager_TimeSinceConfirmation_RootBlockParent(t *testing.T) {
 func TestTipManager_FutureTips(t *testing.T) {
 	// MinimumCommittableAge will also be 10 seconds
 	epoch.GenesisTime = time.Now().Add(-100 * time.Second).Unix()
-	tf := NewTestFramework(t, WithNotarizationOptions(notarization.MinCommittableEpochAge(10*time.Second)))
+	tf := NewTestFramework(t, WithNotarizationOptions(notarization.WithMinCommittableEpochAge(10*time.Second)))
 	tf.engine.EvictionState.AddRootBlock(models.EmptyBlockID)
 
 	tf.engine.Events.NotarizationManager.EpochCommitted.Hook(event.NewClosure(func(details *notarization.EpochCommittedDetails) {
