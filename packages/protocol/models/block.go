@@ -249,6 +249,7 @@ func (b *Block) Signature() ed25519.Signature {
 
 func (b *Block) SetSignature(signature ed25519.Signature) {
 	b.M.Signature = signature
+	b.InvalidateBytesCache()
 }
 
 // DetermineID calculates and sets the block's BlockID and size.

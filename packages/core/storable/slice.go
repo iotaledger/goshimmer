@@ -22,19 +22,14 @@ type Slice[A any, B constraints.MarshalablePtr[A]] struct {
 	sync.RWMutex
 }
 
-func NewSlice[A any, B constraints.MarshalablePtr[A]](fileName string, opts ...options.Option[Slice[A, B]]) (indexedFile *Slice[A, B], err error) {
+func NewSlice[A any, B constraints.MarshalablePtr[A]](fileName string, entrySize int, opts ...options.Option[Slice[A, B]]) (indexedFile *Slice[A, B], err error) {
 	return options.Apply(new(Slice[A, B]), opts, func(i *Slice[A, B]) {
 		if i.fileHandle, err = os.OpenFile(fileName, os.O_RDWR|os.O_CREATE, 0o666); err != nil {
 			err = errors.Wrap(err, "failed to open file")
 			return
 		}
 
-		serializedEntity, serializationErr := B(new(A)).Bytes()
-		if serializationErr != nil {
-			err = errors.Wrapf(serializationErr, "failed to serialize empty entity (to determine its length)")
-			return
-		}
-		i.entrySize = len(serializedEntity)
+		i.entrySize = entrySize
 
 		if err = i.readHeader(); err != nil {
 			err = errors.Wrap(err, "failed to read header")
