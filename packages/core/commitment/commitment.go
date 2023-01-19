@@ -33,6 +33,10 @@ func New(index epoch.Index, prevID ID, rootsID types.Identifier, cumulativeWeigh
 	})
 }
 
+func NewEmptyCommitment() (newCommitment *Commitment) {
+	return model.NewImmutable[Commitment](&commitment{})
+}
+
 func (c *Commitment) ID() (id ID) {
 	idBytes := blake2b.Sum256(lo.PanicOnErr(c.Bytes()))
 
