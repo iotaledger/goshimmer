@@ -16,7 +16,7 @@ type Commitment struct {
 }
 
 func NewCommitment(id commitment.ID) (newCommitment *Commitment) {
-	newCommitment = model.NewStorable[commitment.ID, Commitment](&commitmentModel{})
+	newCommitment = model.NewStorable[commitment.ID, Commitment](&commitmentModel{}, false)
 	newCommitment.children = make([]*Commitment, 0)
 
 	newCommitment.SetID(id)

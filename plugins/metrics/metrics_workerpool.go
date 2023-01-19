@@ -9,23 +9,56 @@ import (
 const (
 	workerPoolNamespace = "workerpool"
 
-	workers = "eventloop_workers"
-	tasks   = "eventloop_tasks_pending"
+	workers = "workers"
+	tasks   = "tasks_pending"
+
+	eventLoopLabel = "event_loop"
+	retainerLabel  = "retainer"
 )
 
 var WorkerPoolMetrics = collector.NewCollection(workerPoolNamespace,
 	collector.WithMetric(collector.NewMetric(workers,
-		collector.WithType(collector.Gauge),
-		collector.WithHelp("Number of workers in the event loop worker pool."),
+		collector.WithType(collector.GaugeVec),
+		collector.WithHelp("Number of workers in the worker pool."),
+		collector.WithLabels("type"),
 		collector.WithCollectFunc(func() map[string]float64 {
-			return collector.SingleValue(float64(event.Loop.WorkerCount()))
+			collected := make(map[string]float64)
+
+			collected[eventLoopLabel] = float64(event.Loop.WorkerCount())
+
+			if deps.Protocol != nil {
+				for name, wp := range deps.Protocol.WorkerPools() {
+					collected[name] = float64(wp.WorkerCount())
+				}
+			}
+
+			if deps.Retainer != nil {
+				collected[retainerLabel] = float64(deps.Retainer.WorkerPool().WorkerCount())
+			}
+
+			return collected
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(tasks,
-		collector.WithType(collector.Gauge),
-		collector.WithHelp("Number of pending tasks in the event loop worker pool."),
+		collector.WithType(collector.GaugeVec),
+		collector.WithHelp("Number of pending tasks in the worker pool."),
+		collector.WithLabels("type"),
 		collector.WithCollectFunc(func() map[string]float64 {
-			return collector.SingleValue(float64(event.Loop.PendingTasksCounter.Value()))
+			collected := make(map[string]float64)
+
+			collected[eventLoopLabel] = float64(event.Loop.PendingTasksCounter.Value())
+
+			if deps.Protocol != nil {
+				for name, wp := range deps.Protocol.WorkerPools() {
+					collected[name] = float64(wp.PendingTasksCounter.Value())
+				}
+			}
+
+			if deps.Retainer != nil {
+				collected[retainerLabel] = float64(deps.Retainer.WorkerPool().PendingTasksCounter.Value())
+			}
+
+			return collected
 		}),
 	)),
 )

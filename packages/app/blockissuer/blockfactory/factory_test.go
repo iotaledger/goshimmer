@@ -72,4 +72,18 @@ func TestFactory_IssuePayload(t *testing.T) {
 	signatureValid, err := createdBlock.VerifySignature()
 	require.NoError(t, err)
 	assert.True(t, signatureValid)
+
+	b := lo.PanicOnErr(createdBlock.Bytes())
+	deserializedBlock := new(models.Block)
+	if _, err := deserializedBlock.FromBytes(b); err != nil {
+		panic(err)
+	}
+	require.Equal(t, b, lo.PanicOnErr(deserializedBlock.Bytes()))
+
+	require.NoError(t, deserializedBlock.DetermineID())
+	require.Equal(t, createdBlock.ID(), deserializedBlock.ID())
+
+	signatureValid, err = deserializedBlock.VerifySignature()
+	require.NoError(t, err)
+	require.True(t, signatureValid)
 }

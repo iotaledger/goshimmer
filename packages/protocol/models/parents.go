@@ -94,6 +94,9 @@ func (p ParentBlockIDs) RemoveDuplicatesFromWeak() {
 	for strongParent := range p[StrongParentType] {
 		delete(p[WeakParentType], strongParent)
 	}
+	for shallowLike := range p[ShallowLikeParentType] {
+		delete(p[WeakParentType], shallowLike)
+	}
 
 	if len(p[WeakParentType]) == 0 {
 		delete(p, WeakParentType)
