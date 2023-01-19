@@ -14,45 +14,24 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/core/autopeering/peer"
-	"github.com/iotaledger/hive.go/core/autopeering/selection"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/prometheus/client_golang/prometheus/collectors"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-
-	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
-	"github.com/iotaledger/goshimmer/packages/app/collector"
-	"github.com/iotaledger/goshimmer/packages/network/p2p"
-	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/plugins/autopeering"
-
 	"github.com/gin-gonic/gin"
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
+	"github.com/iotaledger/hive.go/core/autopeering/selection"
 	"github.com/iotaledger/hive.go/core/daemon"
+	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/iotaledger/hive.go/core/node"
-
-	"github.com/iotaledger/goshimmer/packages/app/retainer"
-	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-
+	"github.com/prometheus/client_golang/prometheus/collectors"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
+	"github.com/iotaledger/goshimmer/packages/app/collector"
+	"github.com/iotaledger/goshimmer/packages/app/retainer"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/protocol/models"
-
-	"github.com/iotaledger/goshimmer/packages/app/metrics"
-	"github.com/iotaledger/goshimmer/plugins/analysis/server"
+	"github.com/iotaledger/goshimmer/plugins/autopeering"
 )
 
 // PluginName is the name of the metrics collector plugin.
