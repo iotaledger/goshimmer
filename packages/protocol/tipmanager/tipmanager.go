@@ -338,15 +338,6 @@ func (t *TipManager) isPastConeTimestampCorrect(block *booker.Block) (timestampV
 		return true
 	}
 
-	if block.IssuingTime().Before(minSupportedTimestamp) {
-		return false
-	}
-
-	if t.blockAcceptanceGadget.IsBlockAccepted(block.ID()) {
-		// return true if block is accepted and has valid timestamp
-		return true
-	}
-
 	t.evictionMutex.RLock()
 	defer t.evictionMutex.RUnlock()
 
