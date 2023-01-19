@@ -50,7 +50,6 @@ services:
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
       --node.overwriteStoredSeed=true
       --protocol.snapshot.path=./snapshot.bin
-      --blockIssuer.rateSetter.enable=false
       --metrics.bindAddress=0.0.0.0:9311
       --protocol.genesisTime=${GENESIS_TIME}
       --metrics.processMetrics=true
