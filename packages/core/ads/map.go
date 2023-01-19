@@ -51,19 +51,21 @@ func (m *Map[K, V, KPtr, VPtr]) Root() (root types.Identifier) {
 
 // Set sets the output to unspent outputs set.
 func (m *Map[K, V, KPtr, VPtr]) Set(key K, value VPtr) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
 	valueBytes := lo.PanicOnErr(value.Bytes())
 	if len(valueBytes) == 0 {
 		panic("value cannot be empty")
 	}
 
-	keyBytes := lo.PanicOnErr(key.Bytes())
+	m.set(lo.PanicOnErr(key.Bytes()), valueBytes)
+}
 
-	m.root.Set(lo.PanicOnErr(m.tree.Update(keyBytes, valueBytes)))
+func (m *Map[K, V, KPtr, VPtr]) set(key, value []byte) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
-	if err := m.rawKeysStore.Set(keyBytes, []byte{}); err != nil {
+	m.root.Set(lo.PanicOnErr(m.tree.Update(key, value)))
+
+	if err := m.rawKeysStore.Set(key, []byte{}); err != nil {
 		panic(err)
 	}
 }
@@ -74,13 +76,17 @@ func (m *Map[K, V, KPtr, VPtr]) Delete(key K) (deleted bool) {
 		return
 	}
 
+	keyBytes := lo.PanicOnErr(key.Bytes())
+	if deleted = m.has(keyBytes); deleted {
+		m.delete(keyBytes)
+	}
+
+	return
+}
+
+func (m *Map[K, V, KPtr, VPtr]) delete(keyBytes []byte) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-
-	keyBytes := lo.PanicOnErr(key.Bytes())
-	if deleted = m.has(keyBytes); !deleted {
-		return
-	}
 
 	m.root.Set(lo.PanicOnErr(m.tree.Delete(keyBytes)))
 
