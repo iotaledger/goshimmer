@@ -79,6 +79,10 @@
   },
   "manaInitializer": {
     "FaucetAPI": "http://faucet:8080"
+  },
+  "blockIssuer": {
+    "rateSetter": {
+      "mode": "disabled"
+    }
   }
 }
-
