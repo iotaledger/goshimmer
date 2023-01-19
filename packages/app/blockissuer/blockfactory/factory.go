@@ -113,7 +113,6 @@ func (f *Factory) createBlockWithPayload(p payload.Payload, references models.Pa
 		return nil, errors.Wrap(err, "signing failed")
 	}
 	block.SetSignature(signature)
-	block.InvalidateBytesCache()
 
 	if err = block.DetermineID(); err != nil {
 		return nil, errors.Wrap(err, "there is a problem with the block syntax")
