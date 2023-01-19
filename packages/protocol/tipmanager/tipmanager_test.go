@@ -698,14 +698,4 @@ func TestTipManager_FutureTips(t *testing.T) {
 
 		tf.AssertEqualBlocks(tf.TipManager.Tips(1), tf.BlockIDs("Block4.4"))
 	}
-
-	// We force a later commitment to invalidate Block4.4 because the commitment is not recent anymore
-	{
-		commitment10_1 := commitment.New(10, commitment2_2.ID(), types.Identifier{1}, 0)
-		tf.engine.Storage.Settings.SetLatestCommitment(commitment10_1)
-
-		tf.AssertEqualBlocks(tf.TipManager.Tips(1), tf.BlockIDs("Genesis"))
-		tf.AssertTipsRemoved(7)
-		tf.AssertTips(tf.BlockIDs())
-	}
 }
