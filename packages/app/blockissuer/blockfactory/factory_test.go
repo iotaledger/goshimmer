@@ -75,7 +75,7 @@ func TestFactory_IssuePayload(t *testing.T) {
 
 	b := lo.PanicOnErr(createdBlock.Bytes())
 	deserializedBlock := new(models.Block)
-	if _, err := deserializedBlock.FromBytes(b); err != nil {
+	if _, err = deserializedBlock.FromBytes(b); err != nil {
 		panic(err)
 	}
 	require.Equal(t, b, lo.PanicOnErr(deserializedBlock.Bytes()))

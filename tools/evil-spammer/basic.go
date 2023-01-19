@@ -37,7 +37,6 @@ func CustomSpam(params *CustomSpamParams) {
 		err := wallet.RequestFreshBigFaucetWallet()
 		if err != nil {
 			panic(err)
-			return
 		}
 	}
 
