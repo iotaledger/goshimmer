@@ -32,7 +32,7 @@ import (
 // | empty  | genesisSeed  |
 // | node1  | empty/burned |
 // | node2  | empty/burned |.
-func CreateSnapshot(databaseVersion database.Version, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge map[identity.ID]uint64, initialAttestations []identity.ID) {
+func CreateSnapshot(databaseVersion database.Version, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge map[ed25519.PublicKey]uint64, initialAttestations []ed25519.PublicKey) {
 	s := storage.New(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), databaseVersion)
 
 	if err := s.Commitments.Store(&commitment.Commitment{}); err != nil {
@@ -51,8 +51,9 @@ func CreateSnapshot(databaseVersion database.Version, snapshotFileName string, g
 	}
 
 	engineInstance.NotarizationManager.Attestations.SetLastCommittedEpoch(-1)
-	for nodeID, value := range nodesToPledge {
+	for nodePublicKey, value := range nodesToPledge {
 		// pledge to ID but send funds to random address
+		nodeID := identity.NewID(nodePublicKey)
 		output, outputMetadata = createOutput(devnetvm.NewED25519Address(ed25519.GenerateKeyPair().PublicKey), value, nodeID, 0)
 		if err := engineInstance.LedgerState.UnspentOutputs.ApplyCreatedOutput(ledger.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
 			panic(err)
@@ -60,8 +61,8 @@ func CreateSnapshot(databaseVersion database.Version, snapshotFileName string, g
 	}
 	for _, nodeID := range initialAttestations {
 		if _, err := engineInstance.NotarizationManager.Attestations.Add(&notarization.Attestation{
-			IssuerID:    nodeID,
-			IssuingTime: time.Unix(epoch.GenesisTime-1, 0),
+			IssuerPublicKey: nodeID,
+			IssuingTime:     time.Unix(epoch.GenesisTime-1, 0),
 		}); err != nil {
 			panic(err)
 		}
@@ -107,7 +108,8 @@ func CreateSnapshotForIntegrationTest(s *storage.Storage, snapshotFileName strin
 
 	i := 0
 	nodesToPledge.ForEach(func(nodeSeedBytes identity.ID, value uint64) bool {
-		nodeID := identity.New(ed25519.PrivateKeyFromSeed(nodeSeedBytes[:]).Public()).ID()
+		nodePublicKey := ed25519.PrivateKeyFromSeed(nodeSeedBytes[:]).Public()
+		nodeID := identity.NewID(nodePublicKey)
 		output, outputMetadata := createOutput(seed.NewSeed(nodeSeedBytes[:]).Address(0).Address(), value, nodeID, 0)
 		if err := engineInstance.LedgerState.UnspentOutputs.ApplyCreatedOutput(ledger.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
 			panic(err)
@@ -116,8 +118,8 @@ func CreateSnapshotForIntegrationTest(s *storage.Storage, snapshotFileName strin
 		if i == 0 || startSynced {
 			// Add attestation to commitment only for first peer, so that it can issue blocks and bootstraps the network.
 			if _, err := engineInstance.NotarizationManager.Attestations.Add(&notarization.Attestation{
-				IssuerID:    nodeID,
-				IssuingTime: time.Unix(epoch.GenesisTime-1, 0),
+				IssuerPublicKey: nodePublicKey,
+				IssuingTime:     time.Unix(epoch.GenesisTime-1, 0),
 			}); err != nil {
 				panic(err)
 			}

@@ -7,7 +7,6 @@ import (
 
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/types"
 
@@ -17,7 +16,7 @@ import (
 )
 
 type Attestation struct {
-	IssuerID         identity.ID       `serix:"0"`
+	IssuerPublicKey  ed25519.PublicKey `serix:"0"`
 	IssuingTime      time.Time         `serix:"1"`
 	CommitmentID     commitment.ID     `serix:"2"`
 	BlockContentHash types.Identifier  `serix:"3"`
@@ -26,7 +25,7 @@ type Attestation struct {
 
 func NewAttestation(block *models.Block) *Attestation {
 	return &Attestation{
-		block.IssuerID(),
+		block.IssuerPublicKey(),
 		block.IssuingTime(),
 		block.Commitment().ID(),
 		lo.PanicOnErr(block.ContentHash()),

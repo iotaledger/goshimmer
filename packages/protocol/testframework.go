@@ -3,6 +3,8 @@ package protocol
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotaledger/hive.go/core/configuration"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -10,7 +12,6 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
-	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
@@ -58,8 +59,8 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 			}
 		})
 
-		identitiesWeights := map[identity.ID]uint64{
-			identity.New(ed25519.GenerateKeyPair().PublicKey).ID(): 100,
+		identitiesWeights := map[ed25519.PublicKey]uint64{
+			ed25519.GenerateKeyPair().PublicKey: 100,
 		}
 
 		snapshotcreator.CreateSnapshot(DatabaseVersion, tempDir.Path("snapshot.bin"), genesisTokenAmount, make([]byte, ed25519.SeedSize), identitiesWeights, lo.Keys(identitiesWeights))

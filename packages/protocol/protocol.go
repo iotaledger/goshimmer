@@ -1,18 +1,24 @@
 package protocol
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
 
-	"github.com/cockroachdb/errors"
+	"github.com/pkg/errors"
 
+	"github.com/iotaledger/hive.go/core/byteutils"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/generics/orderedmap"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/serix"
+	"github.com/iotaledger/hive.go/core/types"
 	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
@@ -30,6 +36,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
 	"github.com/iotaledger/goshimmer/packages/storage"
@@ -204,13 +211,13 @@ func (p *Protocol) initChainManager() {
 	}))
 
 	p.Events.chainManager.ForkDetected.Attach(event.NewClosure(func(event *chainmanager.ForkDetectedEvent) {
-		p.onForkDetected(event.Commitment, event.Source)
+		p.onForkDetected(event.Commitment, event.StartEpoch(), event.EndEpoch(), event.Source)
 	}))
 
 	p.Events.chainManager.LinkTo(p.chainManager.Events)
 }
 
-func (p *Protocol) onForkDetected(commitment *commitment.Commitment, source identity.ID) bool {
+func (p *Protocol) onForkDetected(commitment *commitment.Commitment, startIndex epoch.Index, endIndex epoch.Index, source identity.ID) bool {
 	claimedWeight := commitment.CumulativeWeight()
 	mainChainCommitment, err := p.Engine().Storage.Commitments.Load(commitment.Index())
 	if err != nil {
@@ -226,7 +233,7 @@ func (p *Protocol) onForkDetected(commitment *commitment.Commitment, source iden
 		return true
 	}
 
-	p.networkProtocol.RequestAttestations(commitment.Index(), source)
+	p.networkProtocol.RequestAttestations(startIndex, endIndex, source)
 	return false
 }
 
@@ -331,7 +338,7 @@ func (p *Protocol) ProcessAttestationsRequest(epochIndex epoch.Index, src identi
 	}
 
 	attestationsSet := set.NewAdvancedSet[*notarization.Attestation]()
-	attestationsForEpoch.Stream(func(_ identity.ID, attestation *notarization.Attestation) bool {
+	attestationsForEpoch.Stream(func(_ ed25519.PublicKey, attestation *notarization.Attestation) bool {
 		attestationsSet.Add(attestation)
 		return true
 	})
@@ -339,16 +346,26 @@ func (p *Protocol) ProcessAttestationsRequest(epochIndex epoch.Index, src identi
 	p.networkProtocol.SendAttestations(attestationsSet, src)
 }
 
-func (p *Protocol) ProcessAttestations(attestations *set.AdvancedSet[*notarization.Attestation], source identity.ID) {
-	attestation, _, exists := attestations.Head()
-	if !exists {
+func (p *Protocol) ProcessAttestations(attestations *orderedmap.OrderedMap[epoch.Index, *set.AdvancedSet[*notarization.Attestation]], source identity.ID) {
+
+	if attestations.Size() == 0 {
 		p.Events.Error.Trigger(errors.Errorf("received attestations from peer %s are empty", source.String()))
 		return
 	}
 
-	forkedEvent, exists := p.chainManager.ForkedEventByForkingPoint(attestation.CommitmentID)
+	_, firstEpochAttestations, exists := attestations.Head()
 	if !exists {
-		p.Events.Error.Trigger(errors.Errorf("failed to get forking point for commitment %s", attestation.CommitmentID))
+		p.Events.Error.Trigger(errors.Errorf("received attestations from peer %s are empty", source.String()))
+	}
+
+	attestationsForEpoch, _, exists := firstEpochAttestations.Head()
+	if !exists {
+		p.Events.Error.Trigger(errors.Errorf("received attestations from peer %s are empty", source.String()))
+	}
+
+	forkedEvent, exists := p.chainManager.ForkedEventByForkingPoint(attestationsForEpoch.CommitmentID)
+	if !exists {
+		p.Events.Error.Trigger(errors.Errorf("failed to get forking point for commitment %s", attestationsForEpoch.CommitmentID))
 		return
 	}
 
@@ -356,15 +373,74 @@ func (p *Protocol) ProcessAttestations(attestations *set.AdvancedSet[*notarizati
 
 	// Obtain mana vector at forking point - 1
 	snapshotIndex := forkedEvent.Chain.ForkingPoint.ID().Index() - 1
+	wb := sybilprotection.NewWeightsBatch(snapshotIndex)
+
+	var calculatedCumulativeWeight int64
+	var innerError error
+	p.Engine().NotarizationManager.PerformLocked(func(m *notarization.Manager) {
+		latestCommitment := p.Engine().Storage.Settings.LatestCommitment()
+
+		for i := latestCommitment.Index(); i >= snapshotIndex; i-- {
+			p.Engine().LedgerState.StateDiffs.StreamSpentOutputs(i, func(output *ledger.OutputWithMetadata) error {
+				if iotaBalance, balanceExists := output.IOTABalance(); balanceExists {
+					wb.Update(output.ConsensusManaPledgeID(), int64(iotaBalance))
+				}
+				return nil
+			})
+
+			p.Engine().LedgerState.StateDiffs.StreamCreatedOutputs(i, func(output *ledger.OutputWithMetadata) error {
+				if iotaBalance, balanceExists := output.IOTABalance(); balanceExists {
+					wb.Update(output.ConsensusManaPledgeID(), -int64(iotaBalance))
+				}
+				return nil
+			})
+		}
+
+		calculatedCumulativeWeight = lo.PanicOnErr(p.Engine().Storage.Commitments.Load(snapshotIndex)).CumulativeWeight()
+		visitedIdentities := make(map[identity.ID]types.Empty)
+		attestations.ForEach(func(epochIndex epoch.Index, epochAttestations *set.AdvancedSet[*notarization.Attestation]) bool {
+			for it := epochAttestations.Iterator(); it.HasNext(); {
+				attestation := it.Next()
+
+				issuingTimeBytes, err := serix.DefaultAPI.Encode(context.Background(), attestation.IssuingTime, serix.WithValidation())
+				if err != nil {
+					innerError = errors.Wrap(err, "failed to serialize attestations's issuing time")
+					return false
+				}
+
+				if !attestation.IssuerPublicKey.VerifySignature(byteutils.ConcatBytes(issuingTimeBytes, lo.PanicOnErr(attestation.CommitmentID.Bytes()), attestation.BlockContentHash[:]), attestation.Signature) {
+					innerError = errors.Errorf("invalid attestation signature provided by %s", source)
+					return false
+				}
+
+				issuerID := identity.NewID(attestation.IssuerPublicKey)
+				if _, alreadyVisited := visitedIdentities[issuerID]; alreadyVisited {
+					innerError = errors.Errorf("invalid attestation from source %s, issuerID %s contains multiple attestations", source, issuerID)
+					//TODO: ban source
+					return false
+				}
+
+				if weight, weightExists := p.Engine().SybilProtection.Weights().Get(issuerID); weightExists {
+					calculatedCumulativeWeight += weight.Value
+				}
+				calculatedCumulativeWeight += wb.Get(issuerID)
+
+				visitedIdentities[issuerID] = types.Void
+			}
+			return true
+		})
+	})
+	if innerError != nil {
+		p.Events.Error.Trigger(innerError)
+		return
+	}
 
 	// Add the attestations to the mana vector of the forking point
 	// TODO: I think we need to fetch more attestations here, because this is cumulative and we won't reach the same value as in the commitment
 
-	forkedPointCumulatedWeight := int64(0)
-
 	// Compare the CW with our main chain
-	if forkedPointCumulatedWeight <= p.Engine().Storage.Settings.LatestCommitment().CumulativeWeight() {
-		p.Events.Error.Trigger(errors.Errorf("forking point does not accumulate enough weight %s CW <= main chain %s CW", forkedPointCumulatedWeight, p.Engine().Storage.Settings.LatestCommitment().CumulativeWeight()))
+	if calculatedCumulativeWeight <= p.Engine().Storage.Settings.LatestCommitment().CumulativeWeight() {
+		p.Events.Error.Trigger(errors.Errorf("forking point does not accumulate enough weight %s CW <= main chain %s CW", calculatedCumulativeWeight, p.Engine().Storage.Settings.LatestCommitment().CumulativeWeight()))
 		return
 	}
 

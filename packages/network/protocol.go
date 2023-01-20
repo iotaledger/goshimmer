@@ -7,9 +7,11 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotaledger/hive.go/core/bytesfilter"
+	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/generics/orderedmap"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/identity"
@@ -83,9 +85,9 @@ func (p *Protocol) RequestCommitment(id commitment.ID, to ...identity.ID) {
 }
 
 // TODO: request a range of attestations
-func (p *Protocol) RequestAttestations(index epoch.Index, to ...identity.ID) {
+func (p *Protocol) RequestAttestations(startIndex epoch.Index, endIndex epoch.Index, to ...identity.ID) {
 	p.network.Send(&nwmodels.Packet{Body: &nwmodels.Packet_AttestationsRequest{AttestationsRequest: &nwmodels.AttestationsRequest{
-		Bytes: index.Bytes(),
+		Bytes: byteutils.ConcatBytes(startIndex.Bytes(), endIndex.Bytes()),
 	}}}, protocolID, to...)
 }
 
@@ -204,7 +206,7 @@ func (p *Protocol) onEpochCommitmentRequest(idBytes []byte, id identity.ID) {
 }
 
 func (p *Protocol) onAttestations(attestationsBytes []byte, id identity.ID) {
-	attestations := set.NewAdvancedSet[*notarization.Attestation]()
+	attestations := orderedmap.New[epoch.Index, *set.AdvancedSet[*notarization.Attestation]]()
 	attestations.Decode(attestationsBytes)
 
 	p.Events.AttestationsReceived.Trigger(&AttestationsReceivedEvent{

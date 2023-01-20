@@ -5,12 +5,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
+
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/timed"
-	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
@@ -91,8 +93,8 @@ func (s *SybilProtection) initializeActiveValidators() {
 		panic(err)
 	}
 
-	if err = attestations.Stream(func(id identity.ID, attestation *notarization.Attestation) bool {
-		s.validators.Add(id)
+	if err = attestations.Stream(func(key ed25519.PublicKey, attestation *notarization.Attestation) bool {
+		s.validators.Add(identity.NewID(key))
 
 		return true
 	}); err != nil {
@@ -183,25 +185,25 @@ func (s *SybilProtection) WeightsAtEpoch(targetEpoch epoch.Index) (weights *sybi
 	// TODO: clone the weights vector and rollback
 
 	/*
-	m.notarizationManager.RLock()
-	cei, err := m.notarizationManager.LatestConfirmedEpochIndex()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get latest confirmed epoch index")
-	}
-	if cei > targetEpoch {
-		return nil, errors.Errorf("requested epoch %d is below confirmed epoch %d", targetEpoch, cei)
-	}
+		m.notarizationManager.RLock()
+		cei, err := m.notarizationManager.LatestConfirmedEpochIndex()
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get latest confirmed epoch index")
+		}
+		if cei > targetEpoch {
+			return nil, errors.Errorf("requested epoch %d is below confirmed epoch %d", targetEpoch, cei)
+		}
 
-	manaVector = blocklayer.ConfirmedCManaVector.Clone()
-	epochDiffs, err := m.notarizationManager.GetEpochDiffs(cei+1, targetEpoch)
-	m.notarizationManager.RUnlock()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get epoch diffs")
-	}
+		manaVector = blocklayer.ConfirmedCManaVector.Clone()
+		epochDiffs, err := m.notarizationManager.GetEpochDiffs(cei+1, targetEpoch)
+		m.notarizationManager.RUnlock()
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get epoch diffs")
+		}
 
-	for ei := cei + 1; ei <= targetEpoch; ei++ {
-		manaVector.BookEpoch(epochDiffs[ei].Created(), epochDiffs[ei].Spent(), false)
-	}
+		for ei := cei + 1; ei <= targetEpoch; ei++ {
+			manaVector.BookEpoch(epochDiffs[ei].Created(), epochDiffs[ei].Spent(), false)
+		}
 	*/
 
 	return

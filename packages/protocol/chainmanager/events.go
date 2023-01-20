@@ -5,6 +5,7 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 )
 
@@ -29,4 +30,16 @@ type ForkDetectedEvent struct {
 	Source     identity.ID
 	Commitment *commitment.Commitment
 	Chain      *Chain
+}
+
+func (e *ForkDetectedEvent) StartEpoch() epoch.Index {
+	return e.Chain.ForkingPoint.ID().Index()
+}
+
+func (e *ForkDetectedEvent) EndEpoch() epoch.Index {
+	return e.Commitment.Index()
+}
+
+func (e *ForkDetectedEvent) EpochCount() int64 {
+	return int64(e.EndEpoch() - e.StartEpoch())
 }

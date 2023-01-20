@@ -10,9 +10,6 @@ import (
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/identity"
-
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
@@ -23,6 +20,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 )
 
 const (
@@ -36,19 +35,19 @@ const (
 
 // Feature network.
 var nodesToPledge = []string{
-	"Xv5Kmv9uZfNME4KD2zBoHZ3kVqovJN59ec62rH3AeLA",  // entrynode
-	"EUq4re4sZBMbmzdKo8LJF8uVQhbS24ZNeLRf7AntGH7b", // bootstrap_01
-	"6PqeR7gpR9KtVt7ZgxrEnTj76TS7S439R1gmmzLLrBcU", // vanilla_01
-	"DmKUMcbs6go8sMhJLfZxL8NKXHtYdxQMwVjyacsw4c6C", // node_01
-	"GCvqziTVeHHvM4SvSeLBobY2KYTNiyB1miS9giVDgJbk", // node_02
-	"64RCLnQC7ECpHGpq7dWp3Xtpc79uVi61XYBv5fgXsD9h", // node_03
-	"Amkmn4nt8qwboUGPmFhCoM9ogeCbvS3eBSTjuoE3a5ci", // node_04
-	"4FJbEsv448BoXeRo1a5Cq9xizkP2AkRBcx9W4PwDt2GL", // node_05
-	"GbkZ3CoiTuUPUAYjgZLM8Y1VgvUbPujHVxmYmPVY2GDC", // faucet_01
+	"AZKt9NEbNb9TAk5SqVTfj3ANoBzrWLjR5YKxa2BCyi8X", // entrynode
+	"BYpRNA5aCuyym8SRFbEATraY4yr9oyuXCsCFVcEM8Fm4", // bootstrap_01
+	"5UymiW32h2LM7UqVFf5W1f6iH2DxUqA85RnwP5QgyQYa", // vanilla_01
+	"HHPL5wTFjihv7sVHKXYbZkGcDbqq75h1LQntBhKs1saX", // node_01
+	"7WAEBePov6Po4kUZFN3h7GNHoddTYTEjhJkmmBPHLW2W", // node_02
+	"7xKTSQDtZtiGBAapAh7okHJgnYLq5JJtMUDf2sv1eRrc", // node_03
+	"oqSAYKz3v587JG5gRKcnPMnjcG9rVd6jFzJ97pjU5Ms",  // node_04
+	"J3Vr2cJ4m85xFGmZa1nda7ZZTWWM9ptYCxrUKXFDAFcc", // node_05
+	"3X3ZLueaT6T9mGL8C3YUsDrDqsVYvgbXNsa21jhgdzxi", // faucet_01
 }
 
 var initialAttestations = []string{
-	"EUq4re4sZBMbmzdKo8LJF8uVQhbS24ZNeLRf7AntGH7b", // bootstrap_01
+	"BYpRNA5aCuyym8SRFbEATraY4yr9oyuXCsCFVcEM8Fm4", // bootstrap_01
 }
 
 // Devnet
@@ -102,28 +101,36 @@ func createTempStorage() (s *storage.Storage) {
 	return storage.New(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), protocol.DatabaseVersion)
 }
 
-func createManaDistribution(totalTokensToPledge uint64) (manaDistribution map[identity.ID]uint64) {
-	manaDistribution = make(map[identity.ID]uint64)
+func createManaDistribution(totalTokensToPledge uint64) (manaDistribution map[ed25519.PublicKey]uint64) {
+	manaDistribution = make(map[ed25519.PublicKey]uint64)
 	for _, node := range nodesToPledge {
-		nodeID, err := identity.DecodeIDBase58(node)
+		bytes, err := base58.Decode(node)
 		if err != nil {
-			panic("failed to decode node id: " + err.Error())
+			panic("failed to decode node public key: " + err.Error())
+		}
+		nodePublicKey, _, err := ed25519.PublicKeyFromBytes(bytes)
+		if err != nil {
+			panic("failed to convert bytes to public key: " + err.Error())
 		}
 
-		manaDistribution[nodeID] = totalTokensToPledge / uint64(len(nodesToPledge))
+		manaDistribution[nodePublicKey] = totalTokensToPledge / uint64(len(nodesToPledge))
 	}
 
 	return manaDistribution
 }
 
-func createInitialAttestations() (parsed []identity.ID) {
+func createInitialAttestations() (parsed []ed25519.PublicKey) {
 	for _, node := range initialAttestations {
-		nodeID, err := identity.DecodeIDBase58(node)
+		bytes, err := base58.Decode(node)
 		if err != nil {
-			panic("failed to decode node id: " + err.Error())
+			panic("failed to decode node public key: " + err.Error())
+		}
+		nodePublicKey, _, err := ed25519.PublicKeyFromBytes(bytes)
+		if err != nil {
+			panic("failed to convert bytes to public key: " + err.Error())
 		}
 
-		parsed = append(parsed, nodeID)
+		parsed = append(parsed, nodePublicKey)
 	}
 
 	return parsed
@@ -174,7 +181,7 @@ func diagnosticPrintSnapshotFromFile(filePath string) {
 	}
 
 	fmt.Println("--- ActivityLog ---")
-	if err := lo.PanicOnErr(e.NotarizationManager.Attestations.Get(0)).Stream(func(id identity.ID, attestation *notarization.Attestation) bool {
+	if err := lo.PanicOnErr(e.NotarizationManager.Attestations.Get(0)).Stream(func(id ed25519.PublicKey, attestation *notarization.Attestation) bool {
 		fmt.Printf("%d: %+v\n", 0, id)
 		fmt.Printf("Attestation: %+v\n", attestation)
 		return true
