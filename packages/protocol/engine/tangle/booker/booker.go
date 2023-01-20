@@ -429,6 +429,22 @@ func (b *Booker) setupEvents() {
 		}
 	}))
 
+	b.BlockDAG.Events.BlockOrphaned.Hook(event.NewClosure(func(orphanedBlock *blockdag.Block) {
+		block, exists := b.Block(orphanedBlock.ID())
+		if !exists {
+			return
+		}
+
+		if tx, isTx := block.Transaction(); isTx && b.attachments.DeleteAttachment(tx.ID(), block) {
+			b.Events.Error.Trigger(errors.Errorf("transaction %s orphaned", tx.ID()))
+			b.Ledger.PruneTransaction(tx.ID(), true)
+			// TODO: trigger transactionOrphaned event
+		}
+	}))
+
+	// TODO: handle acceptation of orphaned block containing transaction, to re-add it to attachments and ledger,
+	// if transaction itself was orphaned as well
+
 	b.Ledger.Events.TransactionConflictIDUpdated.Hook(event.NewClosure(func(event *ledger.TransactionConflictIDUpdatedEvent) {
 		if err := b.PropagateForkedConflict(event.TransactionID, event.AddedConflictID, event.RemovedConflictIDs); err != nil {
 			b.Events.Error.Trigger(errors.Wrapf(err, "failed to propagate Conflict update of %s to BlockDAG", event.TransactionID))
