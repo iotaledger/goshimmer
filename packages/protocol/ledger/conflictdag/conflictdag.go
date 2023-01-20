@@ -242,32 +242,32 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) SetConflictAccepted(confli
 		})
 	}
 
-	// Delete all resolved ConflictSets (don't have a pending conflict anymore).
-	for it := conflictSets.Iterator(); it.HasNext(); {
-		conflictSet := it.Next()
-
-		pendingConflicts := false
-		for itConflict := conflictSet.Conflicts().Iterator(); itConflict.HasNext(); {
-			conflict := itConflict.Next()
-			if conflict.ConfirmationState() == confirmation.Pending {
-				pendingConflicts = true
-				continue
-			}
-			conflict.deleteConflictSet(conflictSet)
-		}
-
-		if !pendingConflicts {
-			c.conflictSets.Delete(conflictSet.ID())
-		}
-	}
-
-	// Delete all resolved Conflicts that are not part of any ConflictSet anymore.
-	for it := conflicts.Iterator(); it.HasNext(); {
-		conflict := it.Next()
-		if conflict.ConflictSets().Size() == 0 {
-			c.conflicts.Delete(conflict.ID())
-		}
-	}
+	//// Delete all resolved ConflictSets (don't have a pending conflict anymore).
+	//for it := conflictSets.Iterator(); it.HasNext(); {
+	//	conflictSet := it.Next()
+	//
+	//	pendingConflicts := false
+	//	for itConflict := conflictSet.Conflicts().Iterator(); itConflict.HasNext(); {
+	//		conflict := itConflict.Next()
+	//		if conflict.ConfirmationState() == confirmation.Pending {
+	//			pendingConflicts = true
+	//			continue
+	//		}
+	//		conflict.deleteConflictSet(conflictSet)
+	//	}
+	//
+	//	if !pendingConflicts {
+	//		c.conflictSets.Delete(conflictSet.ID())
+	//	}
+	//}
+	//
+	//// Delete all resolved Conflicts that are not part of any ConflictSet anymore.
+	//for it := conflicts.Iterator(); it.HasNext(); {
+	//	conflict := it.Next()
+	//	if conflict.ConflictSets().Size() == 0 {
+	//		c.conflicts.Delete(conflict.ID())
+	//	}
+	//}
 
 	return modified
 }
