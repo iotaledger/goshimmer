@@ -96,11 +96,6 @@ func (t *TipManager) AddTip(block *scheduler.Block) {
 		return
 	}
 
-	// Check if the block commits to an old epoch.
-	if !t.isRecentCommitment(block) {
-		return
-	}
-
 	t.addTip(block)
 }
 
@@ -310,11 +305,6 @@ func (t *TipManager) addFutureTip(block *scheduler.Block) (added bool) {
 }
 
 func (t *TipManager) isValidTip(tip *scheduler.Block) (err error) {
-	// TODO: fix this check when node is bootstrapping and commits a bunch of epochs at once.
-	if !t.isRecentCommitment(tip) {
-		return errors.Errorf("cannot select tip due to commitment not being recent (%s - %d), current commitment (%d)", tip.ID().String(), tip.Commitment().Index(), t.engine.Storage.Settings.LatestCommitment().Index())
-	}
-
 	if !t.isPastConeTimestampCorrect(tip.Block.Block) {
 		return errors.Errorf("cannot select tip due to TSC condition tip issuing time (%s), time (%s), min supported time (%s), block id (%s), tip pool size (%d), scheduled: (%t), orphaned: (%t), accepted: (%t)",
 			tip.IssuingTime(),
@@ -329,12 +319,6 @@ func (t *TipManager) isValidTip(tip *scheduler.Block) (err error) {
 	}
 
 	return nil
-}
-
-// isRecentCommitment returns true if the commitment of the given block is not in the future, and it is not older than TSC threshold
-// epoch with respect to our latest commitment.
-func (t *TipManager) isRecentCommitment(block *scheduler.Block) (isFresh bool) {
-	return block.Commitment().Index() >= (t.engine.Storage.Settings.LatestCommitment().Index() - t.commitmentRecentBoundary).Max(0)
 }
 
 // isPastConeTimestampCorrect performs the TSC check for the given tip.

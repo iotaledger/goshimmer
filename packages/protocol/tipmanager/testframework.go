@@ -61,7 +61,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		test:                    test,
 		mockAcceptance:          blockgadget.NewMockAcceptanceGadget(),
 		scheduledBlocks:         shrinkingmap.New[models.BlockID, *scheduler.Block](),
-		optsNotarizationOptions: []options.Option[notarization.Manager]{notarization.MinCommittableEpochAge(time.Since(time.Unix(epoch.GenesisTime, 0)))},
+		optsNotarizationOptions: []options.Option[notarization.Manager]{notarization.WithMinCommittableEpochAge(time.Since(time.Unix(epoch.GenesisTime, 0)))},
 	}, opts, func(t *TestFramework) {
 		storageInstance := storage.New(test.TempDir(), 1)
 		test.Cleanup(func() {
