@@ -50,7 +50,7 @@ func NewTestFramework[VotePowerType constraints.Comparable[VotePowerType]](test 
 
 		t.ConflictTracker.Events.VoterAdded.Attach(event.NewClosure(func(event *VoterEvent[utxo.TransactionID]) {
 			if debug.GetEnabled() {
-				t.test.Logf("CONFLICT VOTER ADDED: %v", event.ConflictID)
+				t.test.Logf("CONFLICT VOTER ADDED: %v, %v, %v", event.ConflictID, event.Voter, event.Opinion)
 			}
 		}))
 	})

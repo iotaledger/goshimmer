@@ -94,9 +94,10 @@ func (t *TestFramework) AssertBlock(alias string, callback func(block *Block)) {
 	callback(block)
 }
 
-func (t *TestFramework) CreateIdentity(alias string, weight int64) {
+func (t *TestFramework) CreateIdentity(alias string, weight int64, skipWeightUpdate ...bool) {
 	t.identitiesByAlias[alias] = identity.GenerateIdentity()
-	t.VotesTestFramework.CreateValidatorWithID(alias, t.identitiesByAlias[alias].ID(), weight)
+	identity.RegisterIDAlias(t.identitiesByAlias[alias].ID(), alias)
+	t.VotesTestFramework.CreateValidatorWithID(alias, t.identitiesByAlias[alias].ID(), weight, skipWeightUpdate...)
 }
 
 func (t *TestFramework) Identity(alias string) (v *identity.Identity) {
@@ -115,6 +116,20 @@ func (t *TestFramework) Identities(aliases ...string) (identities *set.AdvancedS
 	}
 
 	return
+}
+
+func (t *TestFramework) ValidatorsWithWeights(aliases ...string) map[identity.ID]uint64 {
+	weights := make(map[identity.ID]uint64)
+
+	for _, alias := range aliases {
+		id := t.Identity(alias).ID()
+		w, exists := t.VotesTestFramework.Validators.Weights.Get(id)
+		if exists {
+			weights[id] = uint64(w.Value)
+		}
+	}
+
+	return weights
 }
 
 func (t *TestFramework) ValidateMarkerVoters(expectedVoters map[markers.Marker]*set.AdvancedSet[identity.ID]) {
