@@ -569,7 +569,7 @@ func PostTransaction(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, jsonmodels.PostTransactionResponse{Error: err.Error()})
 	}
 
-	return c.JSON(http.StatusOK, &jsonmodels.PostTransactionResponse{TransactionID: tx.ID().Base58()})
+	return c.JSON(http.StatusOK, &jsonmodels.PostTransactionResponse{TransactionID: tx.ID().Base58(), BlockID: block.ID().Base58()})
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

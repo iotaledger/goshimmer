@@ -21,7 +21,7 @@ var (
 		Rates:                 []int{1},
 		Durations:             []time.Duration{time.Second * 20},
 		BlkToBeSent:           []int{0},
-		TimeUnit:              time.Minute,
+		TimeUnit:              time.Second,
 		DelayBetweenConflicts: 0,
 		Scenario:              evilwallet.Scenario1(),
 		DeepSpam:              false,

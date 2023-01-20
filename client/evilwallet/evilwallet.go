@@ -260,7 +260,7 @@ func (e *EvilWallet) splitOutputs(inputWallet, outputWallet *Wallet, splitNumber
 				if err = RateSetterSleep(clt, true); err != nil {
 					return
 				}
-				txID, err := clt.PostTransaction(tx)
+				txID, _, err := clt.PostTransaction(tx)
 				if err != nil {
 					return
 				}
@@ -345,7 +345,7 @@ func (e *EvilWallet) SendCustomConflicts(conflictsMaps []ConflictSlice) (err err
 				if err = RateSetterSleep(clt, true); err != nil {
 					return
 				}
-				_, _ = clt.PostTransaction(tx)
+				_, _, _ = clt.PostTransaction(tx)
 			}(clients[i], tx)
 		}
 		wg.Wait()
