@@ -145,7 +145,6 @@ func (s *Spammer) Spam() {
 	s.log.Infof("Start spamming transactions with %d rate", s.SpamDetails.Rate)
 
 	s.State.spamStartTime = time.Now()
-	timeExceeded := time.After(s.SpamDetails.MaxDuration)
 
 	go func() {
 		goroutineCount := atomic.NewInt32(0)
@@ -153,10 +152,6 @@ func (s *Spammer) Spam() {
 			select {
 			case <-s.State.logTicker.C:
 				s.log.Infof("Blocks issued so far: %d, errors encountered: %d", s.State.txSent.Load(), s.ErrCounter.GetTotalErrorCount())
-			case <-timeExceeded:
-				s.log.Infof("Maximum spam duration exceeded, stopping spammer....")
-				s.StopSpamming()
-				return
 			case <-s.done:
 				s.StopSpamming()
 				return
@@ -164,11 +159,10 @@ func (s *Spammer) Spam() {
 				if goroutineCount.Load() > 100 {
 					break
 				}
-				go func() {
-					goroutineCount.Inc()
-					defer goroutineCount.Dec()
-					s.spamFunc(s)
-				}()
+
+				s.spamFunc(s)
+				s.StopSpamming()
+				return
 			}
 		}
 	}()
