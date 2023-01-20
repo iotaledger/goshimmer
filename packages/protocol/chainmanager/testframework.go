@@ -46,7 +46,8 @@ func (t *TestFramework) CreateCommitment(alias string, prevAlias string) {
 }
 
 func (t *TestFramework) ProcessCommitment(alias string) (isSolid bool, chain *Chain, wasForked bool) {
-	return t.Manager.ProcessCommitment(t.commitment(alias))
+	isSolid, chain, wasForked, _, _ = t.Manager.registerCommitment(t.commitment(alias))
+	return
 }
 
 func (t *TestFramework) Chain(alias string) (chain *Chain) {

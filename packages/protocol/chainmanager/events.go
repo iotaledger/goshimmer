@@ -2,6 +2,7 @@ package chainmanager
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
@@ -25,6 +26,7 @@ var NewEvents = event.LinkableConstructor(func() *Events {
 })
 
 type ForkDetectedEvent struct {
-	Chain     *Chain
-	ClaimedCW int64
+	Source     identity.ID
+	Commitment *commitment.Commitment
+	Chain      *Chain
 }

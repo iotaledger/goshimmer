@@ -12,8 +12,6 @@ import (
 	"github.com/zyedidia/generic/cache"
 
 	"github.com/iotaledger/goshimmer/packages/core/ads"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/mana"
 )
 
 const cacheSize = 1000
