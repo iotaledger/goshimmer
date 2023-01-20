@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/generics/walker"
@@ -171,6 +172,10 @@ func (a *Gadget) RefreshSequence(sequenceID markers.SequenceID, newMaxSupportedI
 	var acceptedBlocks, confirmedBlocks []*Block
 
 	totalWeight := a.totalWeightCallback()
+
+	if lastAcceptedIndex, exists := a.lastAcceptedMarker.Get(sequenceID); exists {
+		prevMaxSupportedIndex = lo.Max(prevMaxSupportedIndex, lastAcceptedIndex)
+	}
 
 	for markerIndex := prevMaxSupportedIndex; markerIndex <= newMaxSupportedIndex; markerIndex++ {
 		marker, markerExists := a.tangle.BlockCeiling(markers.NewMarker(sequenceID, markerIndex))
@@ -344,6 +349,8 @@ func (a *Gadget) markAsConfirmed(block *Block) (err error) {
 }
 
 func (a *Gadget) setMarkerAccepted(marker markers.Marker) (wasUpdated bool) {
+	// This method can be called from multiple goroutines and we need to update the value atomically.
+	// However, when reading lastAcceptedMarker we don't need to lock because the storage is already locking.
 	a.lastAcceptedMarkerMutex.Lock()
 	defer a.lastAcceptedMarkerMutex.Unlock()
 
@@ -355,6 +362,8 @@ func (a *Gadget) setMarkerAccepted(marker markers.Marker) (wasUpdated bool) {
 }
 
 func (a *Gadget) setMarkerConfirmed(marker markers.Marker) (wasUpdated bool) {
+	// This method can be called from multiple goroutines and we need to update the value atomically.
+	// However, when reading lastConfirmedMarker we don't need to lock because the storage is already locking.
 	a.lastConfirmedMarkerMutex.Lock()
 	defer a.lastConfirmedMarkerMutex.Unlock()
 
