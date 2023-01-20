@@ -4,6 +4,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/identity"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
@@ -16,6 +17,7 @@ type Events struct {
 	Engine            *engine.Events
 	CongestionControl *congestioncontrol.Events
 	TipManager        *tipmanager.Events
+	chainManager      *chainmanager.Events
 
 	event.LinkableCollection[Events, *Events]
 }
@@ -28,5 +30,6 @@ var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 		Engine:            engine.NewEvents(),
 		CongestionControl: congestioncontrol.NewEvents(),
 		TipManager:        tipmanager.NewEvents(),
+		chainManager:      chainmanager.NewEvents(),
 	}
 })

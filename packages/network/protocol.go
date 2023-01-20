@@ -82,6 +82,7 @@ func (p *Protocol) RequestCommitment(id commitment.ID, to ...identity.ID) {
 	}}}, protocolID, to...)
 }
 
+// TODO: request a range of attestations
 func (p *Protocol) RequestAttestations(index epoch.Index, to ...identity.ID) {
 	p.network.Send(&nwmodels.Packet{Body: &nwmodels.Packet_AttestationsRequest{AttestationsRequest: &nwmodels.AttestationsRequest{
 		Bytes: index.Bytes(),

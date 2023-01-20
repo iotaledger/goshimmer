@@ -78,7 +78,12 @@ func New(schedulerBlockRetrieverFunc blockRetrieverFunc, opts ...options.Option[
 }
 
 func (t *TipManager) LinkTo(engine *engine.Engine) {
+	t.evictionMutex.Lock()
+	defer t.evictionMutex.Unlock()
+
+	t.walkerCache = memstorage.NewEpochStorage[models.BlockID, types.Empty]()
 	t.tips = randommap.New[models.BlockID, *scheduler.Block]()
+	t.futureTips = memstorage.NewEpochStorage[commitment.ID, *memstorage.Storage[models.BlockID, *scheduler.Block]]()
 	t.engine = engine
 	t.blockAcceptanceGadget = engine.Consensus.BlockGadget
 }

@@ -2,6 +2,8 @@ package protocol
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/cockroachdb/errors"
@@ -47,16 +49,15 @@ type Protocol struct {
 	TipManager        *tipmanager.TipManager
 	chainManager      *chainmanager.Manager
 
-	dispatcher           network.Endpoint
-	networkProtocol      *network.Protocol
-	directory            *utils.Directory
-	activeEngineMutex    sync.RWMutex
-	engine               *engine.Engine
-	candidateEngine      *engine.Engine
-	storage              *storage.Storage
-	candidateStorage     *storage.Storage
-	mainChain            commitment.ID
-	candidateChain       commitment.ID
+	dispatcher        network.Endpoint
+	networkProtocol   *network.Protocol
+	directory         *utils.Directory
+	activeEngineMutex sync.RWMutex
+	engine            *engine.Engine
+	candidateEngine   *engine.Engine
+	storage           *storage.Storage
+	candidateStorage  *storage.Storage
+
 	optsBaseDirectory    string
 	optsSnapshotPath     string
 	optsPruningThreshold uint64
@@ -202,9 +203,11 @@ func (p *Protocol) initChainManager() {
 		p.chainManager.CommitmentRequester.EvictUntil(epochIndex)
 	}))
 
-	p.chainManager.Events.ForkDetected.Attach(event.NewClosure(func(event *chainmanager.ForkDetectedEvent) {
+	p.Events.chainManager.ForkDetected.Attach(event.NewClosure(func(event *chainmanager.ForkDetectedEvent) {
 		p.onForkDetected(event.Commitment, event.Source)
 	}))
+
+	p.Events.chainManager.LinkTo(p.chainManager.Events)
 }
 
 func (p *Protocol) onForkDetected(commitment *commitment.Commitment, source identity.ID) bool {
@@ -225,6 +228,36 @@ func (p *Protocol) onForkDetected(commitment *commitment.Commitment, source iden
 
 	p.networkProtocol.RequestAttestations(commitment.Index(), source)
 	return false
+}
+
+func (p *Protocol) switchEngines() {
+	p.activeEngineMutex.Lock()
+
+	// Save a reference to the current main engine and storage so that we can shut it down and prune it after switching
+	oldEngineStorage := p.storage
+	oldEngine := p.engine
+
+	p.engine = p.candidateEngine
+	p.storage = p.candidateStorage
+
+	p.candidateEngine = nil
+	p.candidateStorage = nil
+
+	p.linkTo(p.engine)
+	//TODO: check if we really need to switch the chainManager
+	p.chainManager = chainmanager.NewManager(p.engine.Storage.Settings.LatestCommitment())
+	p.chainManager.Events.LinkTo(p.chainManager.Events)
+
+	p.activeEngineMutex.Unlock()
+
+	// Shutdown old engine and storage
+	oldEngine.Shutdown()
+	oldEngineStorage.Shutdown()
+
+	// Cleanup filesystem
+	if err := os.RemoveAll(oldEngineStorage.Directory); err != nil {
+		p.Events.Error.Trigger(errors.Wrap(err, "error removing storage directory after switching engines"))
+	}
 }
 
 func (p *Protocol) initTipManager() {
@@ -277,13 +310,13 @@ func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) error {
 		return nil
 	}
 
-	if p.Engine().IsBootstrapped() {
-		panic(fmt.Sprintln("different commitment", block))
-	}
-
 	if candidateEngine, candidateStorage := p.CandidateEngine(), p.CandidateStorage(); candidateEngine != nil && candidateStorage != nil {
 		if candidateChain := candidateStorage.Settings.ChainID(); chain.ForkingPoint.ID() == candidateChain {
 			candidateEngine.ProcessBlockFromPeer(block, src)
+
+			if candidateEngine.IsBootstrapped() && candidateEngine.Storage.Settings.LatestCommitment().CumulativeWeight() > p.Engine().Storage.Settings.LatestCommitment().CumulativeWeight() {
+				p.switchEngines()
+			}
 			return nil
 		}
 	}
@@ -322,7 +355,43 @@ func (p *Protocol) ProcessAttestations(attestations *set.AdvancedSet[*notarizati
 	// TODO: we have to match the CW of the block with the CW of the obtained attestations
 
 	// Obtain mana vector at forking point - 1
-	fmt.Println(forkedEvent)
+	snapshotIndex := forkedEvent.Chain.ForkingPoint.ID().Index() - 1
+
+	// Add the attestations to the mana vector of the forking point
+	// TODO: I think we need to fetch more attestations here, because this is cumulative and we won't reach the same value as in the commitment
+
+	forkedPointCumulatedWeight := int64(0)
+
+	// Compare the CW with our main chain
+	if forkedPointCumulatedWeight <= p.Engine().Storage.Settings.LatestCommitment().CumulativeWeight() {
+		p.Events.Error.Trigger(errors.Errorf("forking point does not accumulate enough weight %s CW <= main chain %s CW", forkedPointCumulatedWeight, p.Engine().Storage.Settings.LatestCommitment().CumulativeWeight()))
+		return
+	}
+
+	// Dump a snapshot at the forking point
+	snapshotPath := filepath.Join(os.TempDir(), fmt.Sprintf("snapshot_%d.bin", snapshotIndex))
+	if err := p.Engine().WriteSnapshot(snapshotPath, snapshotIndex); err != nil {
+		p.Events.Error.Trigger(errors.Wrapf(err, "error exporting snapshot for index %s", snapshotIndex))
+		return
+	}
+
+	// Initialize a new candidate engine
+	//TODO: use unique directories for each new engine
+	candidateStorage := storage.New(p.directory.Path(candidateBaseDir), DatabaseVersion, p.optsStorageDatabaseManagerOptions...)
+	candidateEngine := engine.New(candidateStorage, p.optsSybilProtectionProvider, p.optsThroughputQuotaProvider, p.optsEngineOptions...)
+
+	if err := candidateEngine.Initialize(snapshotPath); err != nil {
+		p.Events.Error.Trigger(errors.Wrap(err, "failed to initialize candidate engine with snapshot"))
+		candidateEngine.Shutdown()
+		candidateStorage.Shutdown()
+		return
+	}
+
+	// Set the engine as the new candidate
+	p.activeEngineMutex.Lock()
+	p.candidateStorage = candidateStorage
+	p.candidateEngine = candidateEngine
+	p.activeEngineMutex.Unlock()
 }
 
 func (p *Protocol) Engine() (instance *engine.Engine) {
@@ -345,6 +414,9 @@ func (p *Protocol) CandidateEngine() (instance *engine.Engine) {
 
 // MainStorage returns the underlying storage of the main chain.
 func (p *Protocol) MainStorage() (mainStorage *storage.Storage) {
+	p.activeEngineMutex.RLock()
+	defer p.activeEngineMutex.RUnlock()
+
 	return p.storage
 }
 

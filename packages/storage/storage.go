@@ -21,6 +21,8 @@ type Storage struct {
 
 	// databaseManager is the database manager.
 	databaseManager *database.Manager
+
+	Directory string
 }
 
 // New creates a new storage instance with the named database version in the given directory.
@@ -32,6 +34,7 @@ func New(directory string, version database.Version, opts ...options.Option[data
 		Prunable:  prunable.New(databaseManager),
 
 		databaseManager: databaseManager,
+		Directory:       directory,
 	}
 }
 
