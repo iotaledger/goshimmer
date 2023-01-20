@@ -1,6 +1,7 @@
 package conflictdag
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/iotaledger/hive.go/core/generics/options"
@@ -279,11 +280,13 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) ConfirmationState(conflict
 
 	confirmationState = confirmation.Confirmed
 	for it := conflictIDs.Iterator(); it.HasNext(); {
-		if confirmationState = confirmationState.Aggregate(c.confirmationState(it.Next())); confirmationState.IsRejected() {
+		conflictID := it.Next()
+		if confirmationState = confirmationState.Aggregate(c.confirmationState(conflictID)); confirmationState.IsRejected() {
 			return confirmation.Rejected
 		}
-	}
+		fmt.Println(conflictID, confirmationState)
 
+	}
 	return confirmationState
 }
 
