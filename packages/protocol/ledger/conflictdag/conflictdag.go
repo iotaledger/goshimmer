@@ -1,7 +1,6 @@
 package conflictdag
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/iotaledger/hive.go/core/generics/options"
@@ -33,7 +32,7 @@ func New[ConflictIDType, ResourceIDType comparable](opts ...options.Option[Confl
 		Events:            NewEvents[ConflictIDType, ResourceIDType](),
 		conflicts:         memstorage.New[ConflictIDType, *Conflict[ConflictIDType, ResourceIDType]](),
 		conflictSets:      memstorage.New[ResourceIDType, *ConflictSet[ConflictIDType, ResourceIDType]](),
-		optsMergeToMaster: true,
+		optsMergeToMaster: false,
 	}, opts)
 }
 
@@ -243,8 +242,8 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) SetConflictAccepted(confli
 		})
 	}
 
-	//// Delete all resolved ConflictSets (don't have a pending conflict anymore).
-	//for it := conflictSets.Iterator(); it.HasNext(); {
+	// // Delete all resolved ConflictSets (don't have a pending conflict anymore).
+	// for it := conflictSets.Iterator(); it.HasNext(); {
 	//	conflictSet := it.Next()
 	//
 	//	pendingConflicts := false
@@ -260,15 +259,15 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) SetConflictAccepted(confli
 	//	if !pendingConflicts {
 	//		c.conflictSets.Delete(conflictSet.ID())
 	//	}
-	//}
+	// }
 	//
-	//// Delete all resolved Conflicts that are not part of any ConflictSet anymore.
-	//for it := conflicts.Iterator(); it.HasNext(); {
+	// // Delete all resolved Conflicts that are not part of any ConflictSet anymore.
+	// for it := conflicts.Iterator(); it.HasNext(); {
 	//	conflict := it.Next()
 	//	if conflict.ConflictSets().Size() == 0 {
 	//		c.conflicts.Delete(conflict.ID())
 	//	}
-	//}
+	// }
 
 	return modified
 }
@@ -284,7 +283,6 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) ConfirmationState(conflict
 		if confirmationState = confirmationState.Aggregate(c.confirmationState(conflictID)); confirmationState.IsRejected() {
 			return confirmation.Rejected
 		}
-		fmt.Println(conflictID, confirmationState)
 
 	}
 	return confirmationState
@@ -353,12 +351,11 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) determineConflictsToRevoke
 	}
 
 	for subTractionWalker.HasNext() {
-		// currentVote := vote.WithConflictID(subTractionWalker.Next())
-		//
-		// if isInvalid = addedConflicts.Has(currentVote.ConflictID()) || votedConflicts.Has(currentVote.ConflictID()); isInvalid {
-		//	return
-		// }
 		currentConflictID := subTractionWalker.Next()
+
+		if isInvalid = addedConflicts.Has(currentConflictID); isInvalid {
+			return revokedConflicts, true
+		}
 
 		revokedConflicts.Add(currentConflictID)
 
