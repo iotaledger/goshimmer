@@ -666,8 +666,8 @@ func TestEngine_ShutdownResume(t *testing.T) {
 }
 
 func TestEngine_GuavaConflict(t *testing.T) {
-	debug.SetEnabled(true)
-	defer debug.SetEnabled(false)
+	// debug.SetEnabled(true)
+	// defer debug.SetEnabled(false)
 
 	epoch.GenesisTime = time.Now().Unix() - epoch.Duration*15
 
@@ -703,11 +703,8 @@ func TestEngine_GuavaConflict(t *testing.T) {
 
 	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDir.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights))
 
-	fmt.Println(tf.Engine.SybilProtection.Weights().Map())
-	fmt.Println(tf.Engine.SybilProtection.Validators().TotalWeight())
 	require.NoError(t, tf.Engine.Initialize(tempDir.Path("genesis_snapshot.bin")))
 
-	fmt.Println(tf.Engine.SybilProtection.Weights().Map())
 	require.Equal(t, int64(100), tf.Engine.SybilProtection.Validators().TotalWeight())
 
 	acceptedBlocks := make(map[string]bool)
@@ -724,7 +721,10 @@ func TestEngine_GuavaConflict(t *testing.T) {
 
 		tf.Tangle.CreateBlock("6o", models.WithStrongParents(tf.Tangle.BlockIDs("6LH")), models.WithPayload(tf.Tangle.CreateTransaction("Tx2", 1, "Tx1.0")), models.WithIssuer(tf.Tangle.Identity("Z").PublicKey()))
 		tf.Tangle.CreateBlock("Hx", models.WithStrongParents(tf.Tangle.BlockIDs("6o")), models.WithWeakParents(tf.Tangle.BlockIDs("6LH")), models.WithPayload(tf.Tangle.CreateTransaction("Tx2*", 1, "Tx1.0")), models.WithIssuer(tf.Tangle.Identity("Z").PublicKey()))
+		tf.Tangle.IssueBlocks("6LH", "6o", "Hx")
+		tf.WaitUntilAllTasksProcessed()
 
+		return
 		tf.Tangle.CreateBlock("C3", models.WithStrongParents(tf.Tangle.BlockIDs("Hx")), models.WithLikedInsteadParents(tf.Tangle.BlockIDs("Hx")), models.WithWeakParents(tf.Tangle.BlockIDs("6LH")), models.WithPayload(tf.Tangle.CreateTransaction("Tx3", 1, "Tx1.1")), models.WithIssuer(tf.Tangle.Identity("Z").PublicKey()))
 		tf.Tangle.CreateBlock("3uF", models.WithStrongParents(tf.Tangle.BlockIDs("Block1")), models.WithPayload(tf.Tangle.CreateTransaction("Tx3*", 1, "Tx1.1")), models.WithIssuer(tf.Tangle.Identity("Z").PublicKey()))
 
@@ -771,15 +771,16 @@ func TestEngine_GuavaConflict(t *testing.T) {
 			"Block9":  false,
 			"Block10": false,
 		}))
+
 		fmt.Println("============")
-		//acceptedConflicts := make(map[string]confirmation.State)
-		//tf.Acceptance.ValidateConflictAcceptance(lo.MergeMaps(acceptedConflicts, map[string]confirmation.State{
-		//	"Tx2":  confirmation.Accepted,
-		//	"Tx2*": confirmation.Rejected,
-		//
-		//	"Tx3":  confirmation.Accepted,
-		//	"Tx3*": confirmation.Rejected,
-		//}))
+		acceptedConflicts := make(map[string]confirmation.State)
+		tf.Acceptance.ValidateConflictAcceptance(lo.MergeMaps(acceptedConflicts, map[string]confirmation.State{
+			"Tx2":  confirmation.Accepted,
+			"Tx2*": confirmation.Rejected,
+
+			"Tx3":  confirmation.Accepted,
+			"Tx3*": confirmation.Rejected,
+		}))
 		tf.Tangle.LedgerTestFramework.ConsumeTransactionMetadata(tf.Tangle.BookerTestFramework.Transaction("Tx1").ID(), func(txMetadata *ledger.TransactionMetadata) {
 			assert.True(t, txMetadata.ConfirmationState().IsAccepted(), "Tx1 should be accepted")
 		})

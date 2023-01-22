@@ -436,6 +436,7 @@ func (b *Booker) setupEvents() {
 		}
 
 		if tx, isTx := block.Transaction(); isTx && b.attachments.DeleteAttachment(tx.ID(), block) {
+			fmt.Println("Transaction orphaned!!!!", block.ID(), tx.ID())
 			b.Events.Error.Trigger(errors.Errorf("transaction %s orphaned", tx.ID()))
 			b.Ledger.PruneTransaction(tx.ID(), true)
 			// TODO: trigger transactionOrphaned event
