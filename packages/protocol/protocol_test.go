@@ -41,8 +41,8 @@ func TestProtocol(t *testing.T) {
 	endpoint1 := testNetwork.Join(identity.GenerateIdentity().ID())
 	tempDir := utils.NewDirectory(t.TempDir())
 
-	identitiesWeights := map[identity.ID]uint64{
-		identity.GenerateIdentity().ID(): 100,
+	identitiesWeights := map[ed25519.PublicKey]uint64{
+		identity.GenerateIdentity().PublicKey(): 100,
 	}
 
 	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDir.Path("snapshot.bin"), 100, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights))
@@ -125,11 +125,11 @@ func TestEngine_NonEmptyInitialValidators(t *testing.T) {
 		"D": identity.GenerateIdentity().PublicKey(),
 	}
 
-	identitiesWeights := map[identity.ID]uint64{
-		identity.New(identitiesMap["A"]).ID(): 30,
-		identity.New(identitiesMap["B"]).ID(): 30,
-		identity.New(identitiesMap["C"]).ID(): 30,
-		identity.New(identitiesMap["D"]).ID(): 10,
+	identitiesWeights := map[ed25519.PublicKey]uint64{
+		identity.New(identitiesMap["A"]).PublicKey(): 30,
+		identity.New(identitiesMap["B"]).PublicKey(): 30,
+		identity.New(identitiesMap["C"]).PublicKey(): 30,
+		identity.New(identitiesMap["D"]).PublicKey(): 10,
 	}
 
 	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDir.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights))
@@ -186,11 +186,11 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 		"D": identity.GenerateIdentity().PublicKey(),
 	}
 
-	identitiesWeights := map[identity.ID]uint64{
-		identity.New(identitiesMap["A"]).ID(): 25,
-		identity.New(identitiesMap["B"]).ID(): 25,
-		identity.New(identitiesMap["C"]).ID(): 25,
-		identity.New(identitiesMap["D"]).ID(): 25,
+	identitiesWeights := map[ed25519.PublicKey]uint64{
+		identity.New(identitiesMap["A"]).PublicKey(): 25,
+		identity.New(identitiesMap["B"]).PublicKey(): 25,
+		identity.New(identitiesMap["C"]).PublicKey(): 25,
+		identity.New(identitiesMap["D"]).PublicKey(): 25,
 	}
 
 	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDir.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights))
@@ -471,12 +471,12 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		"Z": identity.GenerateIdentity().PublicKey(),
 	}
 
-	identitiesWeights := map[identity.ID]uint64{
-		identity.New(identitiesMap["A"]).ID(): 25,
-		identity.New(identitiesMap["B"]).ID(): 25,
-		identity.New(identitiesMap["C"]).ID(): 25,
-		identity.New(identitiesMap["D"]).ID(): 25,
-		identity.New(identitiesMap["Z"]).ID(): 0,
+	identitiesWeights := map[ed25519.PublicKey]uint64{
+		identity.New(identitiesMap["A"]).PublicKey(): 25,
+		identity.New(identitiesMap["B"]).PublicKey(): 25,
+		identity.New(identitiesMap["C"]).PublicKey(): 25,
+		identity.New(identitiesMap["D"]).PublicKey(): 25,
+		identity.New(identitiesMap["Z"]).PublicKey(): 0,
 	}
 
 	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDir.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights))
@@ -639,12 +639,12 @@ func TestEngine_ShutdownResume(t *testing.T) {
 		"Z": identity.GenerateIdentity().PublicKey(),
 	}
 
-	identitiesWeights := map[identity.ID]uint64{
-		identity.New(identitiesMap["A"]).ID(): 25,
-		identity.New(identitiesMap["B"]).ID(): 25,
-		identity.New(identitiesMap["C"]).ID(): 25,
-		identity.New(identitiesMap["D"]).ID(): 25,
-		identity.New(identitiesMap["Z"]).ID(): 0,
+	identitiesWeights := map[ed25519.PublicKey]uint64{
+		identity.New(identitiesMap["A"]).PublicKey(): 25,
+		identity.New(identitiesMap["B"]).PublicKey(): 25,
+		identity.New(identitiesMap["C"]).PublicKey(): 25,
+		identity.New(identitiesMap["D"]).PublicKey(): 25,
+		identity.New(identitiesMap["Z"]).PublicKey(): 0,
 	}
 
 	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDir.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights))
