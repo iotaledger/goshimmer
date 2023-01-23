@@ -24,6 +24,9 @@ type Events[ConflictIDType, ResourceIDType comparable] struct {
 	// ConflictRejected is an event that gets triggered whenever a Conflict is rejected.
 	ConflictRejected *event.Linkable[*Conflict[ConflictIDType, ResourceIDType]]
 
+	// ConflictNotConflicting is an event that gets triggered whenever all conflicting conflits have been orphaned and rejected..
+	ConflictNotConflicting *event.Linkable[*Conflict[ConflictIDType, ResourceIDType]]
+
 	event.LinkableCollection[Events[ConflictIDType, ResourceIDType], *Events[ConflictIDType, ResourceIDType]]
 }
 
@@ -36,6 +39,7 @@ func NewEvents[ConflictIDType, ResourceIDType comparable](optsLinkTarget ...*Eve
 			ConflictParentsUpdated: event.NewLinkable[*ConflictParentsUpdatedEvent[ConflictIDType, ResourceIDType]](),
 			ConflictAccepted:       event.NewLinkable[*Conflict[ConflictIDType, ResourceIDType]](),
 			ConflictRejected:       event.NewLinkable[*Conflict[ConflictIDType, ResourceIDType]](),
+			ConflictNotConflicting: event.NewLinkable[*Conflict[ConflictIDType, ResourceIDType]](),
 		}
 	})(optsLinkTarget...)
 }

@@ -194,10 +194,6 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) SetConflictAccepted(confli
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	// Collect all resolved conflictSets and conflicts to delete them later
-	conflictSets := set.NewAdvancedSet[*ConflictSet[ConflictIDType, ResourceIDType]]()
-	conflicts := set.NewAdvancedSet[*Conflict[ConflictIDType, ResourceIDType]]()
-
 	rejectionWalker := walker.New[ConflictIDType]()
 	for confirmationWalker := set.NewAdvancedSet(conflictID).Iterator(); confirmationWalker.HasNext(); {
 		currentConflictID := confirmationWalker.Next()
@@ -205,14 +201,14 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) SetConflictAccepted(confli
 		if !exists {
 			continue
 		}
-		conflicts.Add(conflict)
-		conflictSets.AddAll(conflict.ConflictSets())
 
-		if modified = conflict.setConfirmationState(confirmation.Accepted); !modified {
-			continue
+		if conflict.ConfirmationState() != confirmation.NotConflicting {
+			if modified = conflict.setConfirmationState(confirmation.Accepted); !modified {
+				continue
+			}
+
+			c.Events.ConflictAccepted.Trigger(conflict)
 		}
-
-		c.Events.ConflictAccepted.Trigger(conflict)
 
 		confirmationWalker.PushAll(conflict.Parents().Slice()...)
 
@@ -227,8 +223,6 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) SetConflictAccepted(confli
 		if !exists {
 			continue
 		}
-		conflicts.Add(conflict)
-		conflictSets.AddAll(conflict.ConflictSets())
 
 		if modified = conflict.setConfirmationState(confirmation.Rejected); !modified {
 			continue
@@ -242,8 +236,8 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) SetConflictAccepted(confli
 		})
 	}
 
-	// // Delete all resolved ConflictSets (don't have a pending conflict anymore).
-	// for it := conflictSets.Iterator(); it.HasNext(); {
+	//// Delete all resolved ConflictSets (don't have a pending conflict anymore).
+	//for it := conflictSets.Iterator(); it.HasNext(); {
 	//	conflictSet := it.Next()
 	//
 	//	pendingConflicts := false
@@ -259,15 +253,15 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) SetConflictAccepted(confli
 	//	if !pendingConflicts {
 	//		c.conflictSets.Delete(conflictSet.ID())
 	//	}
-	// }
+	//}
 	//
-	// // Delete all resolved Conflicts that are not part of any ConflictSet anymore.
-	// for it := conflicts.Iterator(); it.HasNext(); {
+	//// Delete all resolved Conflicts that are not part of any ConflictSet anymore.
+	//for it := conflicts.Iterator(); it.HasNext(); {
 	//	conflict := it.Next()
 	//	if conflict.ConflictSets().Size() == 0 {
 	//		c.conflicts.Delete(conflict.ID())
 	//	}
-	// }
+	//}
 
 	return modified
 }
@@ -277,6 +271,8 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) ConfirmationState(conflict
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
+	// TODO: simplify this method
+
 	confirmationState = confirmation.Confirmed
 	for it := conflictIDs.Iterator(); it.HasNext(); {
 		conflictID := it.Next()
@@ -285,6 +281,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) ConfirmationState(conflict
 		}
 
 	}
+
 	return confirmationState
 }
 
@@ -458,6 +455,69 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) ForEachConflict(consumer f
 		consumer(conflict)
 		return true
 	})
+}
+
+func (c *ConflictDAG[ConflictIDType, ResourceIDType]) HandleOrphanedConflict(conflictID ConflictIDType) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	conflict, exists := c.conflict(conflictID)
+	if !exists {
+		return
+	}
+
+	if !conflict.ConfirmationState().IsPending() {
+		return
+	}
+
+	conflict.setConfirmationState(confirmation.Rejected)
+	c.Events.ConflictRejected.Trigger(conflict)
+
+	// TODO: walk children conflicts and reject them as well
+	// iterate conflict's conflictSets. if only one conflict is pending, then mark it appropriately
+	for it := conflict.conflictSets.Iterator(); it.HasNext(); {
+		conflictSet := it.Next()
+
+		pendingConflict := c.getLastPendingConflict(conflictSet)
+		if pendingConflict == nil {
+			continue
+		}
+
+		// check if the last pending conflict is part of any other ConflictSets need to be voted on.
+		nonResolvedConflictSets := false
+		for pendingConflictSetsIt := pendingConflict.ConflictSets().Iterator(); pendingConflictSetsIt.HasNext(); {
+			pendingConflictConflictSet := pendingConflictSetsIt.Next()
+			if lastConflictSetElement := c.getLastPendingConflict(pendingConflictConflictSet); lastConflictSetElement == nil {
+				nonResolvedConflictSets = true
+			}
+		}
+
+		// if pendingConflict does not belong to any pending conflict sets, mark it as NotConflicting.
+		if !nonResolvedConflictSets {
+			pendingConflict.setConfirmationState(confirmation.NotConflicting)
+			c.Events.ConflictNotConflicting.Trigger(pendingConflict)
+		}
+	}
+}
+
+// getLastPendingConflict returns last pending Conflict from the ConflictSet or returns nil if zero or more than one pending conflicts left.
+func (c *ConflictDAG[ConflictIDType, ResourceIDType]) getLastPendingConflict(conflictSet *ConflictSet[ConflictIDType, ResourceIDType]) (pendingConflict *Conflict[ConflictIDType, ResourceIDType]) {
+	pendingConflictsCount := 0
+
+	for itConflict := conflictSet.Conflicts().Iterator(); itConflict.HasNext(); {
+		conflictSetMember := itConflict.Next()
+
+		if conflictSetMember.ConfirmationState() == confirmation.Pending {
+			pendingConflict = conflictSetMember
+			pendingConflictsCount++
+		}
+
+		if pendingConflictsCount > 1 {
+			return nil
+		}
+	}
+
+	return pendingConflict
 }
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
