@@ -4,10 +4,13 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/types"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/blake2b"
+
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/types"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -46,8 +49,7 @@ func (t *TestFramework) CreateCommitment(alias string, prevAlias string) {
 }
 
 func (t *TestFramework) ProcessCommitment(alias string) (isSolid bool, chain *Chain, wasForked bool) {
-	isSolid, chain, wasForked, _, _ = t.Manager.registerCommitment(t.commitment(alias))
-	return
+	return t.Manager.ProcessCommitmentFromSource(t.commitment(alias), identity.NewID(ed25519.PublicKey{}))
 }
 
 func (t *TestFramework) Chain(alias string) (chain *Chain) {
