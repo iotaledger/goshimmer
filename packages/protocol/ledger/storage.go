@@ -269,7 +269,9 @@ func (s *Storage) pruneTransaction(txID utxo.TransactionID, pruneFutureCone bool
 
 					s.CachedOutput(inputID).Consume(func(output utxo.Output) {
 						s.CachedOutputMetadata(inputID).Consume(func(outputMetadata *OutputMetadata) {
-							spentOutputsWithMetadata = append(spentOutputsWithMetadata, NewOutputWithMetadata(outputMetadata.InclusionEpoch(), outputMetadata.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
+							outputWithMetadata := NewOutputWithMetadata(outputMetadata.InclusionEpoch(), outputMetadata.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())
+							// TODO: we need to set the spent epoch here
+							spentOutputsWithMetadata = append(spentOutputsWithMetadata, outputWithMetadata)
 						})
 					})
 
@@ -286,6 +288,7 @@ func (s *Storage) pruneTransaction(txID utxo.TransactionID, pruneFutureCone bool
 
 				s.CachedOutput(outputID).Consume(func(output utxo.Output) {
 					s.CachedOutputMetadata(outputID).Consume(func(outputMetadata *OutputMetadata) {
+						// TODO: inclusion epoch is not set here
 						createdOutputsWithMetadata = append(createdOutputsWithMetadata, NewOutputWithMetadata(outputMetadata.InclusionEpoch(), outputMetadata.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
 					})
 				})

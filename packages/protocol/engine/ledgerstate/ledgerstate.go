@@ -40,6 +40,7 @@ func New(storageInstance *storage.Storage, memPool *ledger.Ledger) (ledgerState 
 
 	ledgerState.MemPool.Events.TransactionAccepted.Hook(event.NewClosure(ledgerState.onTransactionAccepted))
 	ledgerState.MemPool.Events.TransactionInclusionUpdated.Hook(event.NewClosure(ledgerState.onTransactionInclusionUpdated))
+	ledgerState.MemPool.Events.TransactionOrphaned.Hook(event.NewClosure(ledgerState.onTransactionOrphaned))
 
 	return
 }
@@ -171,5 +172,19 @@ func (l *LedgerState) onTransactionAccepted(transactionEvent *ledger.Transaction
 func (l *LedgerState) onTransactionInclusionUpdated(inclusionUpdatedEvent *ledger.TransactionInclusionUpdatedEvent) {
 	if l.MemPool.ConflictDAG.ConfirmationState(inclusionUpdatedEvent.TransactionMetadata.ConflictIDs()).IsAccepted() {
 		l.StateDiffs.moveTransactionToOtherEpoch(inclusionUpdatedEvent.TransactionMetadata, inclusionUpdatedEvent.PreviousInclusionEpoch, inclusionUpdatedEvent.InclusionEpoch)
+	}
+}
+
+func (l *LedgerState) onTransactionOrphaned(event *ledger.TransactionEvent) {
+	for _, outputWithMetadata := range event.SpentOutputs {
+		if err := l.StateDiffs.DeleteSpentOutput(outputWithMetadata.SpentInEpoch(), outputWithMetadata.ID()); err != nil {
+			panic(err)
+		}
+	}
+
+	for _, outputWithMetadata := range event.CreatedOutputs {
+		if err := l.StateDiffs.DeleteCreatedOutput(outputWithMetadata.Index(), outputWithMetadata.ID()); err != nil {
+			panic(err)
+		}
 	}
 }
