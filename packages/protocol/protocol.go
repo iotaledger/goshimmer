@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -361,7 +362,17 @@ func (p *Protocol) ProcessAttestations(attestations *orderedmap.OrderedMap[epoch
 		return
 	}
 
-	_, firstEpochAttestations, exists := attestations.Head()
+	var attestationEpochs []epoch.Index
+	attestations.ForEach(func(key epoch.Index, value *set.AdvancedSet[*notarization.Attestation]) bool {
+		attestationEpochs = append(attestationEpochs, key)
+		return true
+	})
+
+	sort.Slice(attestationEpochs, func(i, j int) bool {
+		return attestationEpochs[i] < attestationEpochs[j]
+	})
+
+	firstEpochAttestations, exists := attestations.Get(attestationEpochs[0])
 	if !exists {
 		p.Events.Error.Trigger(errors.Errorf("received attestations from peer %s are empty", source.String()))
 	}
@@ -377,26 +388,26 @@ func (p *Protocol) ProcessAttestations(attestations *orderedmap.OrderedMap[epoch
 		return
 	}
 
-	// TODO: we have to match the CW of the block with the CW of the obtained attestations
+	mainEngine := p.Engine()
 
 	// Obtain mana vector at forking point - 1
-	snapshotIndex := forkedEvent.Chain.ForkingPoint.ID().Index() - 1
-	wb := sybilprotection.NewWeightsBatch(snapshotIndex)
+	snapshotTargetIndex := forkedEvent.Chain.ForkingPoint.ID().Index() - 1
+	wb := sybilprotection.NewWeightsBatch(snapshotTargetIndex)
 
 	var calculatedCumulativeWeight int64
-	var innerError error
-	p.Engine().NotarizationManager.PerformLocked(func(m *notarization.Manager) {
-		latestCommitment := p.Engine().Storage.Settings.LatestCommitment()
+	mainEngine.NotarizationManager.PerformLocked(func(m *notarization.Manager) {
 
-		for i := latestCommitment.Index(); i >= snapshotIndex; i-- {
-			p.Engine().LedgerState.StateDiffs.StreamSpentOutputs(i, func(output *ledger.OutputWithMetadata) error {
+		// Calculate the difference between the latest commitment ledger and the ledger at the snapshot target index
+		latestCommitment := mainEngine.Storage.Settings.LatestCommitment()
+		for i := latestCommitment.Index(); i >= snapshotTargetIndex; i-- {
+			mainEngine.LedgerState.StateDiffs.StreamSpentOutputs(i, func(output *ledger.OutputWithMetadata) error {
 				if iotaBalance, balanceExists := output.IOTABalance(); balanceExists {
 					wb.Update(output.ConsensusManaPledgeID(), int64(iotaBalance))
 				}
 				return nil
 			})
 
-			p.Engine().LedgerState.StateDiffs.StreamCreatedOutputs(i, func(output *ledger.OutputWithMetadata) error {
+			mainEngine.LedgerState.StateDiffs.StreamCreatedOutputs(i, func(output *ledger.OutputWithMetadata) error {
 				if iotaBalance, balanceExists := output.IOTABalance(); balanceExists {
 					wb.Update(output.ConsensusManaPledgeID(), -int64(iotaBalance))
 				}
@@ -404,62 +415,61 @@ func (p *Protocol) ProcessAttestations(attestations *orderedmap.OrderedMap[epoch
 			})
 		}
 
-		calculatedCumulativeWeight = lo.PanicOnErr(p.Engine().Storage.Commitments.Load(snapshotIndex)).CumulativeWeight()
+		// Get our cumulative weight at the snapshot target index and apply all the received attestations on stop while verifying the validity of each signature
+		calculatedCumulativeWeight = lo.PanicOnErr(mainEngine.Storage.Commitments.Load(snapshotTargetIndex)).CumulativeWeight()
 		visitedIdentities := make(map[identity.ID]types.Empty)
-		attestations.ForEach(func(epochIndex epoch.Index, epochAttestations *set.AdvancedSet[*notarization.Attestation]) bool {
+		for _, epochIndex := range attestationEpochs {
+			epochAttestations, epochExists := attestations.Get(epochIndex)
+			if !epochExists {
+				p.Events.Error.Trigger(errors.Errorf("attestations for epoch %d missing", epochIndex))
+				//TODO: ban source?
+				return
+			}
 			for it := epochAttestations.Iterator(); it.HasNext(); {
 				attestation := it.Next()
 
 				issuingTimeBytes, err := serix.DefaultAPI.Encode(context.Background(), attestation.IssuingTime, serix.WithValidation())
 				if err != nil {
-					innerError = errors.Wrap(err, "failed to serialize attestations's issuing time")
-					return false
+					p.Events.Error.Trigger(errors.Wrap(err, "failed to serialize attestations's issuing time"))
+					return
 				}
 
 				if !attestation.IssuerPublicKey.VerifySignature(byteutils.ConcatBytes(issuingTimeBytes, lo.PanicOnErr(attestation.CommitmentID.Bytes()), attestation.BlockContentHash[:]), attestation.Signature) {
-					innerError = errors.Errorf("invalid attestation signature provided by %s", source)
-					return false
+					p.Events.Error.Trigger(errors.Errorf("invalid attestation signature provided by %s", source))
+					return
 				}
 
 				issuerID := identity.NewID(attestation.IssuerPublicKey)
 				if _, alreadyVisited := visitedIdentities[issuerID]; alreadyVisited {
-					innerError = errors.Errorf("invalid attestation from source %s, issuerID %s contains multiple attestations", source, issuerID)
-					//TODO: ban source
-					return false
+					p.Events.Error.Trigger(errors.Errorf("invalid attestation from source %s, issuerID %s contains multiple attestations", source, issuerID))
+					//TODO: ban source!
+					return
 				}
 
-				if weight, weightExists := p.Engine().SybilProtection.Weights().Get(issuerID); weightExists {
+				if weight, weightExists := mainEngine.SybilProtection.Weights().Get(issuerID); weightExists {
 					calculatedCumulativeWeight += weight.Value
 				}
 				calculatedCumulativeWeight += wb.Get(issuerID)
 
 				visitedIdentities[issuerID] = types.Void
 			}
-			return true
-		})
+		}
 	})
-	if innerError != nil {
-		p.Events.Error.Trigger(innerError)
-		return
-	}
 
-	// Add the attestations to the mana vector of the forking point
-	// TODO: I think we need to fetch more attestations here, because this is cumulative and we won't reach the same value as in the commitment
-
-	// Compare the CW with our main chain
-	if calculatedCumulativeWeight <= p.Engine().Storage.Settings.LatestCommitment().CumulativeWeight() {
+	// Compare the calculated cumulative weight with the current one of our current change to verify it is really higher
+	if calculatedCumulativeWeight <= mainEngine.Storage.Settings.LatestCommitment().CumulativeWeight() {
 		p.Events.Error.Trigger(errors.Errorf("forking point does not accumulate enough weight %s CW <= main chain %s CW", calculatedCumulativeWeight, p.Engine().Storage.Settings.LatestCommitment().CumulativeWeight()))
 		return
 	}
 
-	// Dump a snapshot at the forking point
-	snapshotPath := filepath.Join(os.TempDir(), fmt.Sprintf("snapshot_%d.bin", snapshotIndex))
-	if err := p.Engine().WriteSnapshot(snapshotPath, snapshotIndex); err != nil {
-		p.Events.Error.Trigger(errors.Wrapf(err, "error exporting snapshot for index %s", snapshotIndex))
+	// Dump a snapshot at the target index
+	snapshotPath := filepath.Join(os.TempDir(), fmt.Sprintf("snapshot_%d.bin", snapshotTargetIndex))
+	if err := mainEngine.WriteSnapshot(snapshotPath, snapshotTargetIndex); err != nil {
+		p.Events.Error.Trigger(errors.Wrapf(err, "error exporting snapshot for index %s", snapshotTargetIndex))
 		return
 	}
 
-	// Initialize a new candidate engine
+	// Initialize a new candidate engine using our created snapshot
 	//TODO: use unique directories for each new engine
 	candidateStorage := storage.New(p.directory.Path(candidateBaseDir), DatabaseVersion, p.optsStorageDatabaseManagerOptions...)
 	candidateEngine := engine.New(candidateStorage, p.optsSybilProtectionProvider, p.optsThroughputQuotaProvider, p.optsEngineOptions...)
