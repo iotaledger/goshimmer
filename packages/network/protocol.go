@@ -84,7 +84,6 @@ func (p *Protocol) RequestCommitment(id commitment.ID, to ...identity.ID) {
 	}}}, protocolID, to...)
 }
 
-// TODO: request a range of attestations
 func (p *Protocol) RequestAttestations(startIndex epoch.Index, endIndex epoch.Index, to ...identity.ID) {
 	p.network.Send(&nwmodels.Packet{Body: &nwmodels.Packet_AttestationsRequest{AttestationsRequest: &nwmodels.AttestationsRequest{
 		Bytes: byteutils.ConcatBytes(startIndex.Bytes(), endIndex.Bytes()),
@@ -207,7 +206,14 @@ func (p *Protocol) onEpochCommitmentRequest(idBytes []byte, id identity.ID) {
 
 func (p *Protocol) onAttestations(attestationsBytes []byte, id identity.ID) {
 	attestations := orderedmap.New[epoch.Index, *set.AdvancedSet[*notarization.Attestation]]()
-	attestations.Decode(attestationsBytes)
+	if _, err := attestations.Decode(attestationsBytes); err != nil {
+		p.Events.Error.Trigger(&ErrorEvent{
+			Error:  errors.Wrap(err, "failed to deserialize attestations"),
+			Source: id,
+		})
+
+		return
+	}
 
 	p.Events.AttestationsReceived.Trigger(&AttestationsReceivedEvent{
 		Attestations: attestations,

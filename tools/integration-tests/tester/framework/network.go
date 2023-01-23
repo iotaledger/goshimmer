@@ -9,10 +9,12 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
-	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
@@ -401,7 +403,7 @@ func (n *Network) createPeers(ctx context.Context, numPeers int, networkConfig C
 	if networkConfig.Autopeering {
 		conf.AutoPeering.Enabled = true
 		conf.AutoPeering.EntryNodes = []string{
-			fmt.Sprintf("%s@%s:%d", base58.Encode(n.entryNode.Identity.PublicKey().Bytes()), n.entryNode.Name(), peeringPort),
+			fmt.Sprintf("%s@%s:%d", base58.Encode(lo.PanicOnErr(n.entryNode.Identity.PublicKey().Bytes())), n.entryNode.Name(), peeringPort),
 		}
 	}
 	if networkConfig.Activity {
