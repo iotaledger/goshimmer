@@ -2,6 +2,7 @@ package block
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/iotaledger/hive.go/core/node"
 	"github.com/labstack/echo"
@@ -41,6 +42,7 @@ func configure(_ *node.Plugin) {
 	deps.Server.GET("blocks/:blockID", GetBlock)
 	deps.Server.GET("blocks/:blockID/metadata", GetBlockMetadata)
 	deps.Server.POST("blocks/payload", PostPayload)
+	deps.Server.POST("blocks", PostBlock)
 
 	// TODO: add markers to be retained by the retainer
 	// deps.Server.GET("blocks/sequences/:sequenceID", GetSequence)
@@ -188,6 +190,26 @@ func PostPayload(c echo.Context) error {
 	return c.JSON(http.StatusOK, jsonmodels.NewPostPayloadResponse(blk))
 }
 
+// PostBlock is the handler for the /blocks endpoint.
+func PostBlock(c echo.Context) error {
+	var request jsonmodels.PostBlockRequest
+	if err := c.Bind(&request); err != nil {
+		Plugin.LogInfo(err.Error())
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	}
+	parsedBlock := new(models.Block)
+	_, err := parsedBlock.FromBytes(request.BlockBytes)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	}
+
+	err = deps.BlockIssuer.IssueBlockAndAwaitBlockToBeBooked(parsedBlock, time.Second)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	}
+	return c.JSON(http.StatusOK, jsonmodels.NewPostBlockResponse(parsedBlock))
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region blockIDFromContext /////////////////////////////////////////////////////////////////////////////////////////
@@ -206,13 +228,13 @@ func blockIDFromContext(c echo.Context) (blockID models.BlockID, err error) {
 }
 
 // sequenceIDFromContext determines the sequenceID from the sequenceID parameter in an echo.Context.
-//func sequenceIDFromContext(c echo.Context) (id markers.SequenceID, err error) {
+// func sequenceIDFromContext(c echo.Context) (id markers.SequenceID, err error) {
 //	sequenceIDInt, err := strconv.Atoi(c.Param("sequenceID"))
 //	if err != nil {
 //		return
 //	}
 //
 //	return markers.SequenceID(sequenceIDInt), nil
-//}
+// }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

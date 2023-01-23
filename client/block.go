@@ -11,6 +11,7 @@ const (
 	routeBlock         = "blocks/"
 	routeBlockMetadata = "/metadata"
 	routeSendPayload   = "blocks/payload"
+	routeSendBlock     = "blocks"
 )
 
 // GetBlock is the handler for the /blocks/:blockID endpoint.
@@ -56,4 +57,14 @@ func (api *GoShimmerAPI) SendPayload(payload []byte) (string, error) {
 	}
 
 	return res.ID, nil
+}
+
+// SendBlock sends a block provided in form of bytes.
+func (api *GoShimmerAPI) SendBlock(blockBytes []byte) (string, error) {
+	res := &jsonmodels.PostBlockResponse{}
+	if err := api.do(http.MethodPost, routeSendBlock,
+		&jsonmodels.PostBlockRequest{BlockBytes: blockBytes}, res); err != nil {
+		return "", err
+	}
+	return res.BlockID, nil
 }
