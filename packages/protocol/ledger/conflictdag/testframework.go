@@ -27,11 +27,12 @@ type TestFramework struct {
 	conflictIDsByAlias map[string]utxo.TransactionID
 	resourceByAlias    map[string]utxo.OutputID
 
-	conflictCreated   int32
-	conflictUpdated   int32
-	conflictAccepted  int32
-	confirmationState map[utxo.TransactionID]confirmation.State
-	conflictRejected  int32
+	conflictCreated        int32
+	conflictUpdated        int32
+	conflictAccepted       int32
+	confirmationState      map[utxo.TransactionID]confirmation.State
+	conflictRejected       int32
+	conflictNotConflicting int32
 
 	optsConflictDAG []options.Option[ConflictDAG[utxo.TransactionID, utxo.OutputID]]
 }
@@ -88,6 +89,14 @@ func (t *TestFramework) setupEvents() {
 			t.test.Logf("REJECTED: %s", conflict.ID())
 		}
 		atomic.AddInt32(&(t.conflictRejected), 1)
+		t.confirmationState[conflict.ID()] = conflict.ConfirmationState()
+	}))
+
+	t.ConflictDAG.Events.ConflictNotConflicting.Hook(event.NewClosure(func(conflict *Conflict[utxo.TransactionID, utxo.OutputID]) {
+		if debug.GetEnabled() {
+			t.test.Logf("NOT CONFLICTING: %s", conflict.ID())
+		}
+		atomic.AddInt32(&(t.conflictNotConflicting), 1)
 		t.confirmationState[conflict.ID()] = conflict.ConfirmationState()
 	}))
 }

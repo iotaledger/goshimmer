@@ -176,5 +176,80 @@ func TestConflictDAG_UpdateConflictParents(t *testing.T) {
 	})
 }
 
-// TODO: add more tests for the DAG
-//  - concurrent test
+func TestConflictDAG_SetNotConflicting_1(t *testing.T) {
+	tf := NewTestFramework(t)
+
+	tf.CreateConflict("X", tf.ConflictIDs(), "0")
+	tf.CreateConflict("Y", tf.ConflictIDs(), "0")
+	tf.CreateConflict("A", tf.ConflictIDs("X"), "1")
+	tf.CreateConflict("B", tf.ConflictIDs("X"), "1")
+	tf.CreateConflict("C", tf.ConflictIDs("A"), "2")
+	tf.CreateConflict("D", tf.ConflictIDs("A"), "2")
+	tf.CreateConflict("E", tf.ConflictIDs("B"), "3")
+	tf.CreateConflict("F", tf.ConflictIDs("B"), "3")
+
+	tf.ConflictDAG.HandleOrphanedConflict(tf.ConflictID("B"))
+
+	tf.AssertConfirmationState(map[string]confirmation.State{
+		"X": confirmation.Pending,
+		"Y": confirmation.Pending,
+		"A": confirmation.NotConflicting,
+		"B": confirmation.Rejected,
+		"C": confirmation.Pending,
+		"D": confirmation.Pending,
+		//"E": confirmation.Rejected,
+		//"F": confirmation.Rejected,
+	})
+
+	tf.SetConflictAccepted("C")
+
+	tf.AssertConfirmationState(map[string]confirmation.State{
+		"X": confirmation.Accepted,
+		"Y": confirmation.Rejected,
+		"A": confirmation.NotConflicting,
+		"B": confirmation.Rejected,
+		"C": confirmation.Accepted,
+		"D": confirmation.Rejected,
+		//"E": confirmation.Rejected,
+		//"F": confirmation.Rejected,
+	})
+}
+
+func TestConflictDAG_SetNotConflicting_2(t *testing.T) {
+	tf := NewTestFramework(t)
+
+	tf.CreateConflict("X", tf.ConflictIDs(), "0")
+	tf.CreateConflict("Y", tf.ConflictIDs(), "0")
+	tf.CreateConflict("A", tf.ConflictIDs("X"), "1", "2")
+	tf.CreateConflict("B", tf.ConflictIDs("X"), "1")
+	tf.CreateConflict("C", tf.ConflictIDs(), "2")
+	tf.CreateConflict("D", tf.ConflictIDs(), "2")
+	tf.CreateConflict("E", tf.ConflictIDs("B"), "3")
+	tf.CreateConflict("F", tf.ConflictIDs("B"), "3")
+
+	tf.ConflictDAG.HandleOrphanedConflict(tf.ConflictID("B"))
+
+	tf.AssertConfirmationState(map[string]confirmation.State{
+		"X": confirmation.Pending,
+		"Y": confirmation.Pending,
+		"A": confirmation.Pending,
+		"B": confirmation.Rejected,
+		"C": confirmation.Pending,
+		"D": confirmation.Pending,
+		//"E": confirmation.Rejected,
+		//"F": confirmation.Rejected,
+	})
+
+	tf.SetConflictAccepted("C")
+
+	tf.AssertConfirmationState(map[string]confirmation.State{
+		"X": confirmation.Pending,
+		"Y": confirmation.Pending,
+		"A": confirmation.Rejected,
+		"B": confirmation.Rejected,
+		"C": confirmation.Accepted,
+		"D": confirmation.Rejected,
+		//"E": confirmation.Rejected,
+		//"F": confirmation.Rejected,
+	})
+}
