@@ -258,32 +258,55 @@ func (s *Storage) initConsumers(outputIDs utxo.OutputIDs, txID utxo.TransactionI
 // pruneTransaction removes a Transaction (and all of its dependencies) from the database.
 func (s *Storage) pruneTransaction(txID utxo.TransactionID, pruneFutureCone bool) {
 	for futureConeWalker := walker.New[utxo.TransactionID]().Push(txID); futureConeWalker.HasNext(); {
+		spentOutputsWithMetadata := make([]*OutputWithMetadata, 0)
+
 		currentTxID := futureConeWalker.Next()
 
 		s.CachedTransactionMetadata(currentTxID).Consume(func(txMetadata *TransactionMetadata) {
 			s.CachedTransaction(currentTxID).Consume(func(tx utxo.Transaction) {
 				for it := s.ledger.Utils.ResolveInputs(tx.Inputs()).Iterator(); it.HasNext(); {
-					s.consumerStorage.Delete(byteutils.ConcatBytes(lo.PanicOnErr(it.Next().Bytes()), lo.PanicOnErr(currentTxID.Bytes())))
-				}
+					inputID := it.Next()
 
+					s.CachedOutput(inputID).Consume(func(output utxo.Output) {
+						s.CachedOutputMetadata(inputID).Consume(func(outputMetadata *OutputMetadata) {
+							spentOutputsWithMetadata = append(spentOutputsWithMetadata, NewOutputWithMetadata(outputMetadata.InclusionEpoch(), outputMetadata.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
+						})
+					})
+
+					s.consumerStorage.Delete(byteutils.ConcatBytes(lo.PanicOnErr(inputID.Bytes()), lo.PanicOnErr(currentTxID.Bytes())))
+				}
 				tx.Delete()
 			})
 
 			createdOutputIDs := txMetadata.OutputIDs()
+			createdOutputsWithMetadata := make([]*OutputWithMetadata, 0, createdOutputIDs.Size())
 			for it := createdOutputIDs.Iterator(); it.HasNext(); {
-				outputIDBytes := lo.PanicOnErr(it.Next().Bytes())
+				outputID := it.Next()
+				outputIDBytes := lo.PanicOnErr(outputID.Bytes())
+
+				s.CachedOutput(outputID).Consume(func(output utxo.Output) {
+					s.CachedOutputMetadata(outputID).Consume(func(outputMetadata *OutputMetadata) {
+						createdOutputsWithMetadata = append(createdOutputsWithMetadata, NewOutputWithMetadata(outputMetadata.InclusionEpoch(), outputMetadata.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
+					})
+				})
 
 				s.OutputStorage.Delete(outputIDBytes)
 				s.OutputMetadataStorage.Delete(outputIDBytes)
 			}
+
+			txMetadata.Delete()
+
+			s.ledger.Events.TransactionOrphaned.Trigger(&TransactionEvent{
+				Metadata:       txMetadata,
+				CreatedOutputs: createdOutputsWithMetadata,
+				SpentOutputs:   spentOutputsWithMetadata,
+			})
 
 			if pruneFutureCone {
 				s.ledger.Utils.WalkConsumingTransactionID(createdOutputIDs, func(consumingTxID utxo.TransactionID, walker *walker.Walker[utxo.OutputID]) {
 					futureConeWalker.Push(consumingTxID)
 				})
 			}
-
-			txMetadata.Delete()
 		})
 	}
 }

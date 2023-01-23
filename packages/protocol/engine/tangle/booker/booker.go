@@ -439,7 +439,6 @@ func (b *Booker) setupEvents() {
 			fmt.Println("Transaction orphaned!!!!", block.ID(), tx.ID())
 			b.Events.Error.Trigger(errors.Errorf("transaction %s orphaned", tx.ID()))
 			b.Ledger.PruneTransaction(tx.ID(), true)
-			// TODO: trigger transactionOrphaned event
 		}
 	}))
 
