@@ -179,35 +179,6 @@ func (s *SybilProtection) CommitBatchedStateTransition() (ctx context.Context) {
 	return ctx
 }
 
-// WeightsAtEpoch returns the weights of the validators at the given epoch.
-func (s *SybilProtection) WeightsAtEpoch(targetEpoch epoch.Index) (weights *sybilprotection.Weights, err error) {
-	// TODO: clone the weights vector and rollback
-
-	/*
-		m.notarizationManager.RLock()
-		cei, err := m.notarizationManager.LatestConfirmedEpochIndex()
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to get latest confirmed epoch index")
-		}
-		if cei > targetEpoch {
-			return nil, errors.Errorf("requested epoch %d is below confirmed epoch %d", targetEpoch, cei)
-		}
-
-		manaVector = blocklayer.ConfirmedCManaVector.Clone()
-		epochDiffs, err := m.notarizationManager.GetEpochDiffs(cei+1, targetEpoch)
-		m.notarizationManager.RUnlock()
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to get epoch diffs")
-		}
-
-		for ei := cei + 1; ei <= targetEpoch; ei++ {
-			manaVector.BookEpoch(epochDiffs[ei].Created(), epochDiffs[ei].Spent(), false)
-		}
-	*/
-
-	return
-}
-
 func (s *SybilProtection) markValidatorActive(id identity.ID, activityTime time.Time) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
