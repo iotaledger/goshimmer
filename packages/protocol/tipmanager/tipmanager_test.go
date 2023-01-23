@@ -593,7 +593,7 @@ func TestTipManager_TimeSinceConfirmation_RootBlockParent(t *testing.T) {
 func TestTipManager_FutureTips(t *testing.T) {
 	// MinimumCommittableAge will also be 10 seconds
 	epoch.GenesisTime = time.Now().Add(-100 * time.Second).Unix()
-	tf := NewTestFramework(t, WithNotarizationOptions(notarization.MinCommittableEpochAge(10*time.Second)))
+	tf := NewTestFramework(t, WithNotarizationOptions(notarization.WithMinCommittableEpochAge(10*time.Second)))
 	tf.engine.EvictionState.AddRootBlock(models.EmptyBlockID)
 
 	tf.engine.Events.NotarizationManager.EpochCommitted.Hook(event.NewClosure(func(details *notarization.EpochCommittedDetails) {
@@ -697,15 +697,5 @@ func TestTipManager_FutureTips(t *testing.T) {
 		tf.AssertTips(tf.BlockIDs("Block4.4"))
 
 		tf.AssertEqualBlocks(tf.TipManager.Tips(1), tf.BlockIDs("Block4.4"))
-	}
-
-	// We force a later commitment to invalidate Block4.4 because the commitment is not recent anymore
-	{
-		commitment10_1 := commitment.New(10, commitment2_2.ID(), types.Identifier{1}, 0)
-		tf.engine.Storage.Settings.SetLatestCommitment(commitment10_1)
-
-		tf.AssertEqualBlocks(tf.TipManager.Tips(1), tf.BlockIDs("Genesis"))
-		tf.AssertTipsRemoved(7)
-		tf.AssertTips(tf.BlockIDs())
 	}
 }

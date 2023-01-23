@@ -22,7 +22,12 @@ type Commitments struct {
 }
 
 func NewCommitments(path string) (newCommitment *Commitments) {
-	commitmentsSlice, err := storable.NewSlice[commitment.Commitment](path)
+	commitmentsLength, err := determineCommitmentLength()
+	if err != nil {
+		panic(errors.Wrapf(err, "failed to serialize empty commitment (to determine its length)"))
+	}
+
+	commitmentsSlice, err := storable.NewSlice[commitment.Commitment](path, commitmentsLength)
 	if err != nil {
 		panic(errors.Wrap(err, "failed to create commitments file"))
 	}
@@ -79,7 +84,7 @@ func (c *Commitments) Import(reader io.ReadSeeker) (err error) {
 		return errors.Wrap(err, "failed to read epoch boundary")
 	}
 
-	commitmentSize := len(lo.PanicOnErr(new(commitment.Commitment).Bytes()))
+	commitmentSize := len(lo.PanicOnErr(commitment.NewEmptyCommitment().Bytes()))
 
 	for epochIndex := int64(0); epochIndex <= epochBoundary; epochIndex++ {
 		commitmentBytes := make([]byte, commitmentSize)
@@ -102,4 +107,13 @@ func (c *Commitments) Import(reader io.ReadSeeker) (err error) {
 	c.TriggerInitialized()
 
 	return nil
+}
+
+func determineCommitmentLength() (length int, err error) {
+	serializedCommitment, err := commitment.NewEmptyCommitment().Bytes()
+	if err != nil {
+		return 0, err
+	}
+
+	return len(serializedCommitment), nil
 }

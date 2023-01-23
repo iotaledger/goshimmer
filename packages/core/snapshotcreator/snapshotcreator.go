@@ -35,7 +35,7 @@ import (
 func CreateSnapshot(databaseVersion database.Version, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge map[ed25519.PublicKey]uint64, initialAttestations []ed25519.PublicKey) {
 	s := storage.New(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), databaseVersion)
 
-	if err := s.Commitments.Store(&commitment.Commitment{}); err != nil {
+	if err := s.Commitments.Store(commitment.NewEmptyCommitment()); err != nil {
 		panic(err)
 	}
 	if err := s.Settings.SetChainID(lo.PanicOnErr(s.Commitments.Load(0)).ID()); err != nil {
@@ -86,7 +86,7 @@ func CreateSnapshot(databaseVersion database.Version, snapshotFileName string, g
 // | node1       | node1       |
 // | node2       | node2       |.
 func CreateSnapshotForIntegrationTest(s *storage.Storage, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge *orderedmap.OrderedMap[identity.ID, uint64], startSynced bool) {
-	if err := s.Commitments.Store(&commitment.Commitment{}); err != nil {
+	if err := s.Commitments.Store(commitment.NewEmptyCommitment()); err != nil {
 		panic(err)
 	}
 	if err := s.Settings.SetChainID(lo.PanicOnErr(s.Commitments.Load(0)).ID()); err != nil {

@@ -166,6 +166,11 @@ func (m *Manager) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (err er
 	return
 }
 
+// MinCommittableEpochAge returns the minimum age of an epoch to be committable.
+func (m *Manager) MinCommittableEpochAge() time.Duration {
+	return m.optsMinCommittableEpochAge
+}
+
 func (m *Manager) tryCommitEpoch(index epoch.Index, acceptanceTime time.Time) {
 	for i := m.storage.Settings.LatestCommitment().Index() + 1; i <= index; i++ {
 		if !m.isCommittable(i, acceptanceTime) || !m.createCommitment(i) {
@@ -256,8 +261,8 @@ func (m *Manager) PerformLocked(perform func(m *Manager)) {
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// MinCommittableEpochAge specifies how old an epoch has to be for it to be committable.
-func MinCommittableEpochAge(d time.Duration) options.Option[Manager] {
+// WithMinCommittableEpochAge specifies how old an epoch has to be for it to be committable.
+func WithMinCommittableEpochAge(d time.Duration) options.Option[Manager] {
 	return func(manager *Manager) {
 		manager.optsMinCommittableEpochAge = d
 	}

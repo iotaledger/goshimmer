@@ -71,7 +71,7 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 		),
 		protocol.WithEngineOptions(
 			engine.WithNotarizationManagerOptions(
-				notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommittableAge),
+				notarization.WithMinCommittableEpochAge(NotarizationParameters.MinEpochCommittableAge),
 			),
 			engine.WithBootstrapThreshold(Parameters.BootstrapWindow),
 			engine.WithTSCManagerOptions(
