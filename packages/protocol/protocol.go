@@ -212,6 +212,10 @@ func (p *Protocol) initChainManager() {
 		p.chainManager.CommitmentRequester.EvictUntil(epochIndex)
 	}))
 
+	p.Events.Engine.EvictionState.EpochEvicted.Attach(event.NewClosure(func(epochIndex epoch.Index) {
+		p.chainManager.Evict(epochIndex)
+	}))
+
 	p.chainManager.Events.ForkDetected.Attach(event.NewClosure(func(event *chainmanager.ForkDetectedEvent) {
 		p.onForkDetected(event.Commitment, event.StartEpoch(), event.EndEpoch(), event.Source)
 	}))

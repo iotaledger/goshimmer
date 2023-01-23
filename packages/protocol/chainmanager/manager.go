@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/eventticker"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 )
@@ -24,7 +25,6 @@ type Manager struct {
 	commitmentsByID      map[commitment.ID]*Commitment
 	commitmentsByIDMutex sync.Mutex
 
-	// TODO: eviction
 	commitmentsByForkingPoint *memstorage.EpochStorage[commitment.ID, *ForkDetectedEvent]
 
 	optsCommitmentRequester []options.Option[eventticker.EventTicker[commitment.ID]]
@@ -187,6 +187,10 @@ func (m *Manager) ForkedEventByForkingPoint(commitmentID commitment.ID) (forkedE
 	}
 
 	return
+}
+
+func (m *Manager) Evict(index epoch.Index) {
+	m.commitmentsByForkingPoint.Evict(index)
 }
 
 func (m *Manager) registerChild(parent *Commitment, child *Commitment) (isSolid bool, chain *Chain, wasForked bool) {
