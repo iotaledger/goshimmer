@@ -5,8 +5,10 @@ import (
 	"context"
 	"time"
 
+	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/types"
 
@@ -60,4 +62,21 @@ func (a Attestation) Bytes() (bytes []byte, err error) {
 
 func (a *Attestation) FromBytes(bytes []byte) (consumedBytes int, err error) {
 	return serix.DefaultAPI.Decode(context.Background(), bytes, a, serix.WithValidation())
+}
+
+func (a *Attestation) IssuerID() identity.ID {
+	return identity.NewID(a.IssuerPublicKey)
+}
+
+func (a *Attestation) VerifySignature() (valid bool, err error) {
+	issuingTimeBytes, err := serix.DefaultAPI.Encode(context.Background(), a.IssuingTime, serix.WithValidation())
+	if err != nil {
+		return false, err
+	}
+
+	if !a.IssuerPublicKey.VerifySignature(byteutils.ConcatBytes(issuingTimeBytes, lo.PanicOnErr(a.CommitmentID.Bytes()), a.BlockContentHash[:]), a.Signature) {
+		return false, nil
+	}
+
+	return true, nil
 }

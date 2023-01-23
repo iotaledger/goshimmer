@@ -1,7 +1,6 @@
 package protocol
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,15 +9,12 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/hive.go/core/byteutils"
-	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/orderedmap"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/types"
 	"github.com/iotaledger/hive.go/core/workerpool"
 
@@ -349,7 +345,7 @@ func (p *Protocol) ProcessAttestationsRequest(startIndex epoch.Index, endIndex e
 		}
 
 		attestationsSet := set.NewAdvancedSet[*notarization.Attestation]()
-		attestationsForEpoch.Stream(func(_ ed25519.PublicKey, attestation *notarization.Attestation) bool {
+		attestationsForEpoch.Stream(func(_ identity.ID, attestation *notarization.Attestation) bool {
 			attestationsSet.Add(attestation)
 			return true
 		})
@@ -433,18 +429,17 @@ func (p *Protocol) ProcessAttestations(attestations *orderedmap.OrderedMap[epoch
 			for it := epochAttestations.Iterator(); it.HasNext(); {
 				attestation := it.Next()
 
-				issuingTimeBytes, err := serix.DefaultAPI.Encode(context.Background(), attestation.IssuingTime, serix.WithValidation())
-				if err != nil {
-					p.Events.Error.Trigger(errors.Wrap(err, "failed to serialize attestations's issuing time"))
-					return
-				}
+				if valid, err := attestation.VerifySignature(); !valid {
+					if err != nil {
+						p.Events.Error.Trigger(errors.Wrapf(err, "error validating attestation signature provided by %s", source))
+						return
+					}
 
-				if !attestation.IssuerPublicKey.VerifySignature(byteutils.ConcatBytes(issuingTimeBytes, lo.PanicOnErr(attestation.CommitmentID.Bytes()), attestation.BlockContentHash[:]), attestation.Signature) {
 					p.Events.Error.Trigger(errors.Errorf("invalid attestation signature provided by %s", source))
 					return
 				}
 
-				issuerID := identity.NewID(attestation.IssuerPublicKey)
+				issuerID := attestation.IssuerID()
 				if _, alreadyVisited := visitedIdentities[issuerID]; alreadyVisited {
 					p.Events.Error.Trigger(errors.Errorf("invalid attestation from source %s, issuerID %s contains multiple attestations", source, issuerID))
 					//TODO: ban source!

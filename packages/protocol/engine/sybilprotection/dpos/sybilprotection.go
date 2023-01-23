@@ -7,7 +7,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
@@ -93,8 +92,8 @@ func (s *SybilProtection) initializeActiveValidators() {
 		panic(err)
 	}
 
-	if err = attestations.Stream(func(key ed25519.PublicKey, attestation *notarization.Attestation) bool {
-		s.validators.Add(identity.NewID(key))
+	if err = attestations.Stream(func(id identity.ID, attestation *notarization.Attestation) bool {
+		s.validators.Add(id)
 
 		return true
 	}); err != nil {

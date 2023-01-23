@@ -6,7 +6,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/iotaledger/hive.go/core/marshalutil"
@@ -31,7 +30,7 @@ type Attestations struct {
 	persistentStorage  func(optRealm ...byte) kvstore.KVStore
 	bucketedStorage    func(index epoch.Index) kvstore.KVStore
 	weights            *sybilprotection.Weights
-	cachedAttestations *memstorage.EpochStorage[ed25519.PublicKey, *memstorage.Storage[models.BlockID, *Attestation]]
+	cachedAttestations *memstorage.EpochStorage[identity.ID, *memstorage.Storage[models.BlockID, *Attestation]]
 	mutex              *syncutils.DAGMutex[epoch.Index]
 
 	traits.Initializable
@@ -45,7 +44,7 @@ func NewAttestations(persistentStorage func(optRealm ...byte) kvstore.KVStore, b
 		persistentStorage:  persistentStorage,
 		bucketedStorage:    bucketedStorage,
 		weights:            weights,
-		cachedAttestations: memstorage.NewEpochStorage[ed25519.PublicKey, *memstorage.Storage[models.BlockID, *Attestation]](),
+		cachedAttestations: memstorage.NewEpochStorage[identity.ID, *memstorage.Storage[models.BlockID, *Attestation]](),
 		mutex:              syncutils.NewDAGMutex[epoch.Index](),
 	}
 }
@@ -61,7 +60,7 @@ func (a *Attestations) Add(attestation *Attestation) (added bool, err error) {
 	}
 
 	epochStorage := a.cachedAttestations.Get(epochIndex, true)
-	issuerStorage, _ := epochStorage.RetrieveOrCreate(attestation.IssuerPublicKey, memstorage.New[models.BlockID, *Attestation])
+	issuerStorage, _ := epochStorage.RetrieveOrCreate(attestation.IssuerID(), memstorage.New[models.BlockID, *Attestation])
 
 	return issuerStorage.Set(attestation.ID(), attestation), nil
 }
@@ -81,7 +80,7 @@ func (a *Attestations) Delete(attestation *Attestation) (deleted bool, err error
 		return false, nil
 	}
 
-	issuerStorage, exists := epochStorage.Get(attestation.IssuerPublicKey)
+	issuerStorage, exists := epochStorage.Get(attestation.IssuerID())
 	if !exists {
 		return false, nil
 	}
@@ -89,7 +88,7 @@ func (a *Attestations) Delete(attestation *Attestation) (deleted bool, err error
 	return issuerStorage.Delete(attestation.ID()), nil
 }
 
-func (a *Attestations) Commit(index epoch.Index) (attestations *ads.Map[ed25519.PublicKey, Attestation, *ed25519.PublicKey, *Attestation], weight int64, err error) {
+func (a *Attestations) Commit(index epoch.Index) (attestations *ads.Map[identity.ID, Attestation, *identity.ID, *Attestation], weight int64, err error) {
 	a.mutex.Lock(index)
 	defer a.mutex.Unlock(index)
 
@@ -121,7 +120,7 @@ func (a *Attestations) Weight(index epoch.Index) (weight int64, err error) {
 	return a.weight(index)
 }
 
-func (a *Attestations) Get(index epoch.Index) (attestations *ads.Map[ed25519.PublicKey, Attestation, *ed25519.PublicKey, *Attestation], err error) {
+func (a *Attestations) Get(index epoch.Index) (attestations *ads.Map[identity.ID, Attestation, *identity.ID, *Attestation], err error) {
 	a.mutex.RLock(index)
 	defer a.mutex.RUnlock(index)
 
@@ -154,7 +153,7 @@ func (a *Attestations) Import(reader io.ReadSeeker) (err error) {
 			return errors.Wrapf(err, "failed to read attestation %d", i)
 		}
 
-		attestations.Set(importedAttestation.IssuerPublicKey, importedAttestation)
+		attestations.Set(importedAttestation.IssuerID(), importedAttestation)
 
 		return
 	}); err != nil {
@@ -189,7 +188,7 @@ func (a *Attestations) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (e
 			return 0, errors.Wrapf(writeErr, "failed to export attestations for epoch %d", targetEpoch)
 		}
 
-		if streamErr := attestations.Stream(func(issuerID ed25519.PublicKey, attestation *Attestation) bool {
+		if streamErr := attestations.Stream(func(issuerID identity.ID, attestation *Attestation) bool {
 			if writeErr = stream.WriteSerializable(writer, attestation); writeErr != nil {
 				writeErr = errors.Wrapf(writeErr, "failed to write attestation for issuer %s", issuerID)
 			} else {
@@ -205,15 +204,15 @@ func (a *Attestations) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (e
 	})
 }
 
-func (a *Attestations) commit(index epoch.Index) (attestations *ads.Map[ed25519.PublicKey, Attestation, *ed25519.PublicKey, *Attestation], weight int64, err error) {
+func (a *Attestations) commit(index epoch.Index) (attestations *ads.Map[identity.ID, Attestation, *identity.ID, *Attestation], weight int64, err error) {
 	if attestations, err = a.attestations(index); err != nil {
 		return nil, 0, errors.Wrapf(err, "failed to get attestors for epoch %d", index)
 	}
 
 	if cachedEpochStorage := a.cachedAttestations.Evict(index); cachedEpochStorage != nil {
-		cachedEpochStorage.ForEach(func(id ed25519.PublicKey, attestationsOfID *memstorage.Storage[models.BlockID, *Attestation]) bool {
+		cachedEpochStorage.ForEach(func(id identity.ID, attestationsOfID *memstorage.Storage[models.BlockID, *Attestation]) bool {
 			if latestAttestation := latestAttestation(attestationsOfID); latestAttestation != nil {
-				if attestorWeight, exists := a.weights.Get(identity.NewID(id)); exists {
+				if attestorWeight, exists := a.weights.Get(id); exists {
 					attestations.Set(id, latestAttestation)
 
 					weight += attestorWeight.Value
@@ -239,11 +238,11 @@ func (a *Attestations) flush(index epoch.Index) (err error) {
 	return
 }
 
-func (a *Attestations) attestations(index epoch.Index) (attestations *ads.Map[ed25519.PublicKey, Attestation, *ed25519.PublicKey, *Attestation], err error) {
+func (a *Attestations) attestations(index epoch.Index) (attestations *ads.Map[identity.ID, Attestation, *identity.ID, *Attestation], err error) {
 	if attestationsStorage, err := a.bucketedStorage(index).WithExtendedRealm([]byte{PrefixAttestations}); err != nil {
 		return nil, errors.Wrapf(err, "failed to access storage for attestors of epoch %d", index)
 	} else {
-		return ads.NewMap[ed25519.PublicKey, Attestation](attestationsStorage), nil
+		return ads.NewMap[identity.ID, Attestation](attestationsStorage), nil
 	}
 }
 
