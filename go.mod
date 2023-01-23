@@ -11,6 +11,7 @@ require (
 	github.com/felixge/fgprof v0.9.3
 	github.com/gin-gonic/gin v1.8.1
 	github.com/go-resty/resty/v2 v2.6.0
+	github.com/google/uuid v1.3.0
 	github.com/gorilla/websocket v1.5.0
 	github.com/iotaledger/hive.go/core v1.0.0-rc.2.0.20230123070354-b2835485e1f9
 	github.com/iotaledger/hive.go/serializer/v2 v2.0.0-rc.1

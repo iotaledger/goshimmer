@@ -60,6 +60,7 @@ require (
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/gopacket v1.1.19 // indirect
 	github.com/google/pprof v0.0.0-20211214055906-6f57359322fd // indirect
+	github.com/google/uuid v1.3.0 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/huin/goupnp v1.0.3 // indirect
 	github.com/iancoleman/orderedmap v0.2.0 // indirect
