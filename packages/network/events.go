@@ -89,8 +89,9 @@ type AttestationsReceivedEvent struct {
 // region AttestationsRequestReceivedEvent /////////////////////////////////////////////////////////////////////////////
 
 type AttestationsRequestReceivedEvent struct {
-	Index  epoch.Index
-	Source identity.ID
+	StartIndex epoch.Index
+	EndIndex   epoch.Index
+	Source     identity.ID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

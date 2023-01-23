@@ -187,7 +187,7 @@ func (p *Protocol) initNetworkProtocol() {
 	}))
 
 	p.networkProtocol.Events.AttestationsRequestReceived.Attach(event.NewClosure(func(event *network.AttestationsRequestReceivedEvent) {
-		p.ProcessAttestationsRequest(event.Index, event.Source)
+		p.ProcessAttestationsRequest(event.StartIndex, event.EndIndex, event.Source)
 	}))
 
 	p.networkProtocol.Events.AttestationsReceived.Attach(event.NewClosure(func(event *network.AttestationsReceivedEvent) {
@@ -330,20 +330,32 @@ func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) error {
 	return errors.Errorf("block was not processed.")
 }
 
-func (p *Protocol) ProcessAttestationsRequest(epochIndex epoch.Index, src identity.ID) {
-	attestationsForEpoch, err := p.Engine().NotarizationManager.Attestations.Get(epochIndex)
-	if err != nil {
-		p.Events.Error.Trigger(errors.Wrapf(err, "failed to get attestations for epoch %d upon request", epochIndex))
+func (p *Protocol) ProcessAttestationsRequest(startIndex epoch.Index, endIndex epoch.Index, src identity.ID) {
+
+	if p.Engine().NotarizationManager.Attestations.LastCommittedEpoch() < endIndex {
+		// Invalid request received from src
+		// TODO: ban peer?
 		return
 	}
 
-	attestationsSet := set.NewAdvancedSet[*notarization.Attestation]()
-	attestationsForEpoch.Stream(func(_ ed25519.PublicKey, attestation *notarization.Attestation) bool {
-		attestationsSet.Add(attestation)
-		return true
-	})
+	attestations := orderedmap.New[epoch.Index, *set.AdvancedSet[*notarization.Attestation]]()
+	for i := startIndex; i <= endIndex; i++ {
+		attestationsForEpoch, err := p.Engine().NotarizationManager.Attestations.Get(i)
+		if err != nil {
+			p.Events.Error.Trigger(errors.Wrapf(err, "failed to get attestations for epoch %d upon request", i))
+			return
+		}
 
-	p.networkProtocol.SendAttestations(attestationsSet, src)
+		attestationsSet := set.NewAdvancedSet[*notarization.Attestation]()
+		attestationsForEpoch.Stream(func(_ ed25519.PublicKey, attestation *notarization.Attestation) bool {
+			attestationsSet.Add(attestation)
+			return true
+		})
+
+		attestations.Set(i, attestationsSet)
+	}
+
+	p.networkProtocol.SendAttestations(attestations, src)
 }
 
 func (p *Protocol) ProcessAttestations(attestations *orderedmap.OrderedMap[epoch.Index, *set.AdvancedSet[*notarization.Attestation]], source identity.ID) {

@@ -72,7 +72,7 @@ func (p *Protocol) SendEpochCommitment(cm *commitment.Commitment, to ...identity
 	}}}, protocolID, to...)
 }
 
-func (p *Protocol) SendAttestations(attestations *set.AdvancedSet[*notarization.Attestation], to ...identity.ID) {
+func (p *Protocol) SendAttestations(attestations *orderedmap.OrderedMap[epoch.Index, *set.AdvancedSet[*notarization.Attestation]], to ...identity.ID) {
 	p.network.Send(&nwmodels.Packet{Body: &nwmodels.Packet_Attestations{Attestations: &nwmodels.Attestations{
 		Bytes: lo.PanicOnErr(attestations.Encode()),
 	}}}, protocolID, to...)
@@ -216,10 +216,20 @@ func (p *Protocol) onAttestations(attestationsBytes []byte, id identity.ID) {
 }
 
 func (p *Protocol) onAttestationsRequest(epochIndexBytes []byte, id identity.ID) {
-	epochIndex, _, err := epoch.IndexFromBytes(epochIndexBytes)
+	startEpochIndex, consumed, err := epoch.IndexFromBytes(epochIndexBytes)
 	if err != nil {
 		p.Events.Error.Trigger(&ErrorEvent{
-			Error:  errors.Wrap(err, "failed to deserialize epoch index"),
+			Error:  errors.Wrap(err, "failed to deserialize start epoch index"),
+			Source: id,
+		})
+
+		return
+	}
+
+	endEpochIndex, _, err := epoch.IndexFromBytes(epochIndexBytes[consumed:])
+	if err != nil {
+		p.Events.Error.Trigger(&ErrorEvent{
+			Error:  errors.Wrap(err, "failed to deserialize end epoch index"),
 			Source: id,
 		})
 
@@ -227,8 +237,9 @@ func (p *Protocol) onAttestationsRequest(epochIndexBytes []byte, id identity.ID)
 	}
 
 	p.Events.AttestationsRequestReceived.Trigger(&AttestationsRequestReceivedEvent{
-		Index:  epochIndex,
-		Source: id,
+		StartIndex: startEpochIndex,
+		EndIndex:   endEpochIndex,
+		Source:     id,
 	})
 }
 
