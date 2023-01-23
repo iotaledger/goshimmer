@@ -159,8 +159,7 @@ func (o *VirtualVoting) track(block *Block) (tracked bool) {
 	if _, invalid := o.conflictTracker.TrackVote(o.Booker.BlockConflicts(block.Block), block.IssuerID(), votePower); invalid {
 		fmt.Println("invalid conflict vote", block.ID())
 		block.SetSubjectivelyInvalid(true)
-		// TODO: trigger event or just don't schedule subjectively invalid blocks? so that we can gather the block in the retainer etc
-		return false
+		return true
 	}
 
 	o.sequenceTracker.TrackVotes(block.StructureDetails().PastMarkers(), block.IssuerID(), votePower)

@@ -223,6 +223,10 @@ func (s *Scheduler) Block(id models.BlockID) (block *Block, exists bool) {
 }
 
 func (s *Scheduler) AddBlock(sourceBlock *virtualvoting.Block) {
+	if sourceBlock.IsSubjectivelyInvalid() {
+		return
+	}
+
 	s.evictionMutex.RLock()
 	defer s.evictionMutex.RUnlock()
 
