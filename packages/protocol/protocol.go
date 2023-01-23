@@ -333,7 +333,6 @@ func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) error {
 }
 
 func (p *Protocol) ProcessAttestationsRequest(startIndex epoch.Index, endIndex epoch.Index, src identity.ID) {
-
 	if p.Engine().NotarizationManager.Attestations.LastCommittedEpoch() < endIndex {
 		// Invalid request received from src
 		// TODO: ban peer?
@@ -349,10 +348,13 @@ func (p *Protocol) ProcessAttestationsRequest(startIndex epoch.Index, endIndex e
 		}
 
 		attestationsSet := set.NewAdvancedSet[*notarization.Attestation]()
-		attestationsForEpoch.Stream(func(_ identity.ID, attestation *notarization.Attestation) bool {
+		if err := attestationsForEpoch.Stream(func(_ identity.ID, attestation *notarization.Attestation) bool {
 			attestationsSet.Add(attestation)
 			return true
-		})
+		}); err != nil {
+			p.Events.Error.Trigger(errors.Wrapf(err, "failed to stream attestations for epoch %d", i))
+			return
+		}
 
 		attestations.Set(i, attestationsSet)
 	}
@@ -361,7 +363,6 @@ func (p *Protocol) ProcessAttestationsRequest(startIndex epoch.Index, endIndex e
 }
 
 func (p *Protocol) ProcessAttestations(attestations *orderedmap.OrderedMap[epoch.Index, *set.AdvancedSet[*notarization.Attestation]], source identity.ID) {
-
 	if attestations.Size() == 0 {
 		p.Events.Error.Trigger(errors.Errorf("received attestations from peer %s are empty", source.String()))
 		return
@@ -401,23 +402,28 @@ func (p *Protocol) ProcessAttestations(attestations *orderedmap.OrderedMap[epoch
 
 	var calculatedCumulativeWeight int64
 	mainEngine.NotarizationManager.PerformLocked(func(m *notarization.Manager) {
-
 		// Calculate the difference between the latest commitment ledger and the ledger at the snapshot target index
 		latestCommitment := mainEngine.Storage.Settings.LatestCommitment()
 		for i := latestCommitment.Index(); i >= snapshotTargetIndex; i-- {
-			mainEngine.LedgerState.StateDiffs.StreamSpentOutputs(i, func(output *ledger.OutputWithMetadata) error {
+			if err := mainEngine.LedgerState.StateDiffs.StreamSpentOutputs(i, func(output *ledger.OutputWithMetadata) error {
 				if iotaBalance, balanceExists := output.IOTABalance(); balanceExists {
 					wb.Update(output.ConsensusManaPledgeID(), int64(iotaBalance))
 				}
 				return nil
-			})
+			}); err != nil {
+				p.Events.Error.Trigger(errors.Wrap(err, "error streaming spent outputs for processing attestations"))
+				return
+			}
 
-			mainEngine.LedgerState.StateDiffs.StreamCreatedOutputs(i, func(output *ledger.OutputWithMetadata) error {
+			if err := mainEngine.LedgerState.StateDiffs.StreamCreatedOutputs(i, func(output *ledger.OutputWithMetadata) error {
 				if iotaBalance, balanceExists := output.IOTABalance(); balanceExists {
 					wb.Update(output.ConsensusManaPledgeID(), -int64(iotaBalance))
 				}
 				return nil
-			})
+			}); err != nil {
+				p.Events.Error.Trigger(errors.Wrap(err, "error streaming created outputs for processing attestations"))
+				return
+			}
 		}
 
 		// Get our cumulative weight at the snapshot target index and apply all the received attestations on stop while verifying the validity of each signature
