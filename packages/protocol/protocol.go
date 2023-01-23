@@ -423,7 +423,7 @@ func (p *Protocol) ProcessAttestations(attestations *orderedmap.OrderedMap[epoch
 		// Get our cumulative weight at the snapshot target index and apply all the received attestations on stop while verifying the validity of each signature
 		calculatedCumulativeWeight = lo.PanicOnErr(mainEngine.Storage.Commitments.Load(snapshotTargetIndex)).CumulativeWeight()
 		visitedIdentities := make(map[identity.ID]types.Empty)
-		for _, epochIndex := range attestationEpochs {
+		for epochIndex := forkedEvent.StartEpoch(); epochIndex <= forkedEvent.EndEpoch(); epochIndex++ {
 			epochAttestations, epochExists := attestations.Get(epochIndex)
 			if !epochExists {
 				p.Events.Error.Trigger(errors.Errorf("attestations for epoch %d missing", epochIndex))
