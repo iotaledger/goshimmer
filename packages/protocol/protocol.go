@@ -57,14 +57,15 @@ type Protocol struct {
 	TipManager        *tipmanager.TipManager
 	chainManager      *chainmanager.Manager
 
-	dispatcher        network.Endpoint
-	networkProtocol   *network.Protocol
-	directory         *utils.Directory
+	dispatcher      network.Endpoint
+	networkProtocol *network.Protocol
+	directory       *utils.Directory
+
 	activeEngineMutex sync.RWMutex
-	engine            *engine.Engine
-	candidateEngine   *engine.Engine
-	storage           *storage.Storage
+	mainStorage       *storage.Storage
+	mainEngine        *engine.Engine
 	candidateStorage  *storage.Storage
+	candidateEngine   *engine.Engine
 
 	optsBaseDirectory    string
 	optsSnapshotPath     string
@@ -102,9 +103,9 @@ func New(dispatcher network.Endpoint, opts ...options.Option[Protocol]) (protoco
 // Run runs the protocol.
 func (p *Protocol) Run() {
 	p.CongestionControl.Run()
-	p.linkTo(p.engine)
+	p.linkTo(p.mainEngine)
 
-	if err := p.engine.Initialize(p.optsSnapshotPath); err != nil {
+	if err := p.mainEngine.Initialize(p.optsSnapshotPath); err != nil {
 		panic(err)
 	}
 
@@ -114,8 +115,12 @@ func (p *Protocol) Run() {
 // Shutdown shuts down the protocol.
 func (p *Protocol) Shutdown() {
 	p.CongestionControl.Shutdown()
-	p.engine.Shutdown()
-	p.storage.Shutdown()
+
+	p.activeEngineMutex.RLock()
+	defer p.activeEngineMutex.RUnlock()
+
+	p.mainEngine.Shutdown()
+	p.mainStorage.Shutdown()
 
 	if p.candidateEngine != nil {
 		p.candidateEngine.Shutdown()
@@ -129,7 +134,7 @@ func (p *Protocol) Shutdown() {
 func (p *Protocol) WorkerPools() map[string]*workerpool.UnboundedWorkerPool {
 	wps := make(map[string]*workerpool.UnboundedWorkerPool)
 	wps["CongestionControl"] = p.CongestionControl.WorkerPool()
-	return lo.MergeMaps(wps, p.engine.WorkerPools())
+	return lo.MergeMaps(wps, p.Engine().WorkerPools())
 }
 
 func (p *Protocol) initDirectory() {
@@ -137,10 +142,10 @@ func (p *Protocol) initDirectory() {
 }
 
 func (p *Protocol) initMainChainStorage() {
-	p.storage = storage.New(p.directory.Path(mainBaseDir), DatabaseVersion, p.optsStorageDatabaseManagerOptions...)
+	p.mainStorage = storage.New(p.directory.Path(mainBaseDir), DatabaseVersion, p.optsStorageDatabaseManagerOptions...)
 
 	p.Events.Engine.Consensus.EpochGadget.EpochConfirmed.Attach(event.NewClosure(func(epochIndex epoch.Index) {
-		p.storage.PruneUntilEpoch(epochIndex - epoch.Index(p.optsPruningThreshold))
+		p.MainStorage().PruneUntilEpoch(epochIndex - epoch.Index(p.optsPruningThreshold))
 	}))
 }
 
@@ -197,7 +202,7 @@ func (p *Protocol) initNetworkProtocol() {
 }
 
 func (p *Protocol) initMainEngine() {
-	p.engine = engine.New(p.storage, p.optsSybilProtectionProvider, p.optsThroughputQuotaProvider, p.optsEngineOptions...)
+	p.mainEngine = engine.New(p.mainStorage, p.optsSybilProtectionProvider, p.optsThroughputQuotaProvider, p.optsEngineOptions...)
 }
 
 func (p *Protocol) initChainManager() {
@@ -240,16 +245,16 @@ func (p *Protocol) switchEngines() {
 	p.activeEngineMutex.Lock()
 
 	// Save a reference to the current main engine and storage so that we can shut it down and prune it after switching
-	oldEngineStorage := p.storage
-	oldEngine := p.engine
+	oldEngineStorage := p.mainStorage
+	oldEngine := p.mainEngine
 
-	p.engine = p.candidateEngine
-	p.storage = p.candidateStorage
+	p.mainEngine = p.candidateEngine
+	p.mainStorage = p.candidateStorage
 
 	p.candidateEngine = nil
 	p.candidateStorage = nil
 
-	p.linkTo(p.engine)
+	p.linkTo(p.mainEngine)
 	//TODO: check if we need to switch the chainManager or reset it somehow
 
 	p.activeEngineMutex.Unlock()
@@ -306,10 +311,10 @@ func (p *Protocol) initTipManager() {
 func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) error {
 	isSolid, chain, _ := p.chainManager.ProcessCommitmentFromSource(block.Commitment(), src)
 	if !isSolid {
-		return errors.Errorf("Chain is not solid: ", block.Commitment().ID(), "\nLatest commitment: ", p.storage.Settings.LatestCommitment().ID(), "\nBlock ID: ", block.ID())
+		return errors.Errorf("Chain is not solid: %s\nLatest commitment: %s\nBlock ID: %s", block.Commitment().ID(), p.MainStorage().Settings.LatestCommitment().ID(), block.ID())
 	}
 
-	if mainChain := p.storage.Settings.ChainID(); chain.ForkingPoint.ID() == mainChain {
+	if mainChain := p.MainStorage().Settings.ChainID(); chain.ForkingPoint.ID() == mainChain {
 		p.Engine().ProcessBlockFromPeer(block, src)
 		return nil
 	}
@@ -492,7 +497,7 @@ func (p *Protocol) Engine() (instance *engine.Engine) {
 	p.activeEngineMutex.RLock()
 	defer p.activeEngineMutex.RUnlock()
 
-	return p.engine
+	return p.mainEngine
 }
 
 func (p *Protocol) ChainManager() (instance *chainmanager.Manager) {
@@ -511,10 +516,10 @@ func (p *Protocol) MainStorage() (mainStorage *storage.Storage) {
 	p.activeEngineMutex.RLock()
 	defer p.activeEngineMutex.RUnlock()
 
-	return p.storage
+	return p.mainStorage
 }
 
-func (p *Protocol) CandidateStorage() (chainstorage *storage.Storage) {
+func (p *Protocol) CandidateStorage() (chainStorage *storage.Storage) {
 	p.activeEngineMutex.RLock()
 	defer p.activeEngineMutex.RUnlock()
 
