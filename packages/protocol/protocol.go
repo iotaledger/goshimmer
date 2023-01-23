@@ -210,11 +210,9 @@ func (p *Protocol) initChainManager() {
 		p.chainManager.CommitmentRequester.EvictUntil(epochIndex)
 	}))
 
-	p.Events.chainManager.ForkDetected.Attach(event.NewClosure(func(event *chainmanager.ForkDetectedEvent) {
+	p.chainManager.Events.ForkDetected.Attach(event.NewClosure(func(event *chainmanager.ForkDetectedEvent) {
 		p.onForkDetected(event.Commitment, event.StartEpoch(), event.EndEpoch(), event.Source)
 	}))
-
-	p.Events.chainManager.LinkTo(p.chainManager.Events)
 }
 
 func (p *Protocol) onForkDetected(commitment *commitment.Commitment, startIndex epoch.Index, endIndex epoch.Index, source identity.ID) bool {
@@ -251,9 +249,7 @@ func (p *Protocol) switchEngines() {
 	p.candidateStorage = nil
 
 	p.linkTo(p.engine)
-	//TODO: check if we really need to switch the chainManager
-	p.chainManager = chainmanager.NewManager(p.engine.Storage.Settings.LatestCommitment())
-	p.chainManager.Events.LinkTo(p.chainManager.Events)
+	//TODO: check if we need to switch the chainManager or reset it somehow
 
 	p.activeEngineMutex.Unlock()
 
