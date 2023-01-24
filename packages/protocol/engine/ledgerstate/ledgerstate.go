@@ -40,7 +40,6 @@ func New(storageInstance *storage.Storage, memPool *ledger.Ledger) (ledgerState 
 
 	ledgerState.MemPool.Events.TransactionAccepted.Hook(event.NewClosure(ledgerState.onTransactionAccepted))
 	ledgerState.MemPool.Events.TransactionInclusionUpdated.Hook(event.NewClosure(ledgerState.onTransactionInclusionUpdated))
-	ledgerState.MemPool.Events.TransactionOrphaned.Hook(event.NewClosure(ledgerState.onTransactionOrphaned))
 
 	return
 }

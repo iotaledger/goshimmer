@@ -386,11 +386,11 @@ func (e *Engine) initNotarizationManager() {
 			e.Events.Error.Trigger(errors.Wrapf(err, "failed to update transaction inclusion time %s in epoch", event.TransactionID))
 		}
 	}))
-	e.Ledger.Events.TransactionOrphaned.Hook(event.NewClosure(func(event *ledger.TransactionEvent) {
-		if err := e.NotarizationManager.EpochMutations.RemoveAcceptedTransaction(event.Metadata); err != nil {
-			e.Events.Error.Trigger(errors.Wrapf(err, "failed to remove accepted transaction %s from epoch", event.Metadata.ID()))
-		}
-	}))
+	//e.Ledger.Events.TransactionOrphaned.Hook(event.NewClosure(func(event *ledger.TransactionEvent) {
+	//	if err := e.NotarizationManager.EpochMutations.RemoveAcceptedTransaction(event.Metadata); err != nil {
+	//		e.Events.Error.Trigger(errors.Wrapf(err, "failed to remove accepted transaction %s from epoch", event.Metadata.ID()))
+	//	}
+	//}))
 
 	// Epochs are committed whenever ATT advances, start committing only when bootstrapped.
 	wp = e.Clock.Events.AcceptanceTimeUpdated.AttachWithNewWorkerPool(event.NewClosure(func(event *clock.TimeUpdateEvent) {
@@ -405,6 +405,9 @@ func (e *Engine) initNotarizationManager() {
 		e.NotarizationManager.DecreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.GetEarliestAttachment(conflict.ID()).IssuingTime()))
 	}))
 	e.Ledger.ConflictDAG.Events.ConflictRejected.Hook(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+		e.NotarizationManager.DecreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.GetEarliestAttachment(conflict.ID()).IssuingTime()))
+	}))
+	e.Ledger.ConflictDAG.Events.ConflictNotConflicting.Hook(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		e.NotarizationManager.DecreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.GetEarliestAttachment(conflict.ID()).IssuingTime()))
 	}))
 	// TODO: attach to conflict orphanage

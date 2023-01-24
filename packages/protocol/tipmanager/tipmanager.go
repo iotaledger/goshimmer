@@ -84,6 +84,10 @@ func (t *TipManager) LinkTo(engine *engine.Engine) {
 }
 
 func (t *TipManager) AddTip(block *scheduler.Block) {
+	if block.IsSubjectivelyInvalid() {
+		return
+	}
+
 	// Check if any children that are accepted or scheduled and return if true, to guarantee that parents are not added
 	// to the tipset after their children.
 	if t.checkMonotonicity(block) {
