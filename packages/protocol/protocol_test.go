@@ -789,11 +789,11 @@ func (n *NodeOnMockedNetwork) AttachLogging() {
 	}))
 
 	events.Engine.Consensus.BlockGadget.BlockAccepted.Hook(event.NewClosure(func(block *blockgadget.Block) {
-		fmt.Printf("%s> Consensus.BlockGadget.BlockAccepted: %s\n", n.Alias, block.ID())
+		fmt.Printf("%s> Consensus.BlockGadget.BlockAccepted: %s %s\n", n.Alias, block.ID(), block.Commitment().ID())
 	}))
 
 	events.Engine.Consensus.BlockGadget.BlockConfirmed.Hook(event.NewClosure(func(block *blockgadget.Block) {
-		fmt.Printf("%s> Consensus.BlockGadget.BlockConfirmed: %s\n", n.Alias, block.ID())
+		fmt.Printf("%s> Consensus.BlockGadget.BlockConfirmed: %s %s\n", n.Alias, block.ID(), block.Commitment().ID())
 	}))
 
 	events.Engine.Consensus.EpochGadget.EpochConfirmed.Hook(event.NewClosure(func(epochIndex epoch.Index) {
@@ -833,14 +833,23 @@ func (n *NodeOnMockedNetwork) WaitUntilAllTasksProcessed() {
 func (n *NodeOnMockedNetwork) IssueBlockAtEpoch(alias string, epochIndex epoch.Index, parents ...models.BlockID) *booker.Block {
 	issuingTime := time.Unix(epoch.GenesisTime+int64(epochIndex-1)*epoch.Duration, 0)
 	require.True(n.Testing, issuingTime.Before(time.Now()), "issued block is in the current or future epoch")
-	n.EngineTestFramework.Tangle.CreateBlock(alias, models.WithIssuer(n.Identity.PublicKey()), models.WithStrongParents(models.NewBlockIDs(parents...)), models.WithIssuingTime(issuingTime))
+	n.EngineTestFramework.Tangle.CreateBlock(alias,
+		models.WithIssuer(n.Identity.PublicKey()),
+		models.WithStrongParents(models.NewBlockIDs(parents...)),
+		models.WithIssuingTime(issuingTime),
+		models.WithCommitment(n.Protocol.Engine().Storage.Settings.LatestCommitment()),
+	)
 	n.EngineTestFramework.Tangle.IssueBlocks(alias)
 	n.WaitUntilAllTasksProcessed()
 	return n.EngineTestFramework.Tangle.Block(alias)
 }
 
 func (n *NodeOnMockedNetwork) IssueBlock(alias string, parents ...models.BlockID) *booker.Block {
-	n.EngineTestFramework.Tangle.CreateBlock(alias, models.WithIssuer(n.Identity.PublicKey()), models.WithStrongParents(models.NewBlockIDs(parents...)))
+	n.EngineTestFramework.Tangle.CreateBlock(alias,
+		models.WithIssuer(n.Identity.PublicKey()),
+		models.WithStrongParents(models.NewBlockIDs(parents...)),
+		models.WithCommitment(n.Protocol.Engine().Storage.Settings.LatestCommitment()),
+	)
 	n.EngineTestFramework.Tangle.IssueBlocks(alias)
 	n.WaitUntilAllTasksProcessed()
 	return n.EngineTestFramework.Tangle.Block(alias)
@@ -1015,8 +1024,13 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 
 		waitOnAllNodes()
 
+		blockG := node1.IssueBlock("J.G", blockE.ID())
+		blockH := node3.IssueBlock("J.H", blockF.ID())
+
+		waitOnAllNodes()
+
 		// Calm the compiler
-		_ = blockE.ID()
-		_ = blockF.ID()
+		_ = blockG.ID()
+		_ = blockH.ID()
 	}
 }
