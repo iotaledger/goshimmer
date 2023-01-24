@@ -165,7 +165,7 @@ func (c *WebClients) SetPledgeID(id *identity.ID) {
 }
 
 type Client interface {
-	// Url returns a client API url.
+	// URL returns a client API url.
 	URL() (cltID string)
 	// GetRateSetterEstimate returns a rate setter estimate.
 	GetRateSetterEstimate() (estimate time.Duration, err error)
@@ -175,6 +175,8 @@ type Client interface {
 	PostTransaction(tx *devnetvm.Transaction) (utxo.TransactionID, error)
 	// PostData sends the given data (payload) by creating a block in the backend.
 	PostData(data []byte) (blkID string, err error)
+	// PostBlock sends the given block bytes.
+	PostBlock(data []byte) (blkID string, err error)
 	// GetUnspentOutputForAddress gets the first unspent outputs of a given address.
 	GetUnspentOutputForAddress(addr devnetvm.Address) *jsonmodels.WalletOutput
 	// GetAddressUnspentOutputs gets the unspent outputs of an address.
@@ -193,6 +195,8 @@ type Client interface {
 	GetTransaction(txID string) (resp *jsonmodels.Transaction, err error)
 	// GetOutputSolidity checks if the transaction is solid.
 	GetOutputSolidity(outID string) (solid bool, err error)
+	// GetLatestCommitment returns the latest commitment and data needed to create a new block.
+	GetLatestCommitment() (commitment *jsonmodels.Commitment, err error)
 }
 
 // WebClient contains a GoShimmer web API to interact with a node.
@@ -259,6 +263,16 @@ func (c *WebClient) PostTransaction(tx *devnetvm.Transaction) (txID utxo.Transac
 // PostData sends the given data (payload) by creating a block in the backend.
 func (c *WebClient) PostData(data []byte) (blkID string, err error) {
 	resp, err := c.api.Data(data)
+	if err != nil {
+		return
+	}
+
+	return resp, nil
+}
+
+// PostBlock sends the given block bytes.
+func (c *WebClient) PostBlock(data []byte) (blkID string, err error) {
+	resp, err := c.api.SendBlock(data)
 	if err != nil {
 		return
 	}
@@ -348,6 +362,14 @@ func (c *WebClient) GetOutputSolidity(outID string) (solid bool, err error) {
 		return
 	}
 	solid = resp.OutputID.Base58 != ""
+	return
+}
+
+func (c *WebClient) GetLatestCommitment() (resp *jsonmodels.Commitment, err error) {
+	resp, err = c.api.GetLatestCommitment()
+	if err != nil {
+		return
+	}
 	return
 }
 
