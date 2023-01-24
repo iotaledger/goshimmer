@@ -71,7 +71,7 @@ export class ExplorerOutput {
 }
 
 class OutputID {
-    base58:  string;
+    base58: string;
     transactionID: string;
     outputIndex: number;
 }
@@ -273,11 +273,11 @@ export class ExplorerStore {
                 return;
             }
             let tx = await res.json()
-            for(let i = 0; i < tx.inputs.length; i++) {
+            for (let i = 0; i < tx.inputs.length; i++) {
                 let inputID = tx.inputs[i] ? tx.inputs[i].referencedOutputID.base58 : GenesisBlockID
-                try{
+                try {
                     let referencedOutputRes = await fetch(`/api/output/${inputID}`)
-                    if (referencedOutputRes.status === 404){
+                    if (referencedOutputRes.status === 404) {
                         let genOutput = new Output();
                         genOutput.output = new SigLockedSingleOutput();
                         genOutput.output.balance = 0;
@@ -286,10 +286,10 @@ export class ExplorerStore {
                         genOutput.outputID = tx.inputs[i].referencedOutputID;
                         tx.inputs[i].output = genOutput;
                     }
-                    if (referencedOutputRes.status === 200){
+                    if (referencedOutputRes.status === 200) {
                         tx.inputs[i].output = await referencedOutputRes.json()
                     }
-                }catch(err){
+                } catch (err) {
                     // ignore
                 }
             }
@@ -454,7 +454,7 @@ export class ExplorerStore {
         }
     }
 
-    getTips = async() => {
+    getTips = async () => {
         try {
             let res = await fetch(`/api/tips`)
             if (res.status === 404) {
@@ -555,6 +555,14 @@ export class ExplorerStore {
     @action
     updateBlock = (blk: Block) => {
         this.blk = blk;
+        this.blk.conflictIDs = this.blk.conflictIDs ? this.blk.conflictIDs : []
+        this.blk.addedConflictIDs = this.blk.addedConflictIDs ? this.blk.addedConflictIDs : []
+        this.blk.subtractedConflictIDs = this.blk.subtractedConflictIDs ? this.blk.subtractedConflictIDs : []
+        this.blk.strongChildren = this.blk.strongChildren ? this.blk.strongChildren : []
+        this.blk.weakChildren = this.blk.weakChildren ? this.blk.weakChildren : []
+        this.blk.shallowLikeChildren = this.blk.shallowLikeChildren ? this.blk.shallowLikeChildren : []
+        this.blk.parentsByType = this.blk.parentsByType ? this.blk.parentsByType : new Map<string, Array<string>>()
+
         this.query_err = null;
         this.query_loading = false;
         switch (blk.payload_type) {

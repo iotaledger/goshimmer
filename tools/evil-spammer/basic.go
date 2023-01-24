@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -35,12 +36,14 @@ func CustomSpam(params *CustomSpamParams) {
 	if fundsNeeded {
 		err := wallet.RequestFreshBigFaucetWallet()
 		if err != nil {
-			return
+			panic(err)
 		}
 	}
 
+
 	for i, sType := range params.SpamTypes {
 		log.Infof("Start spamming with rate: %d, time unit: %s, and spamming type: %s.", params.Rates[i], params.TimeUnit.String(), sType)
+
 
 		switch sType {
 		case "blk":

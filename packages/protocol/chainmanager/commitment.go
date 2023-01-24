@@ -94,6 +94,7 @@ func (c *Commitment) PublishCommitment(commitment *commitment.Commitment) (publi
 
 	if published = c.M.Commitment == nil; published {
 		c.M.Commitment = commitment
+		c.InvalidateBytesCache()
 	}
 
 	return
@@ -105,6 +106,7 @@ func (c *Commitment) PublishRoots(roots *commitment.Roots) (published bool) {
 
 	if published = c.M.Roots == nil; published {
 		c.M.Roots = roots
+		c.InvalidateBytesCache()
 	}
 
 	return

@@ -146,7 +146,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "exemplar": true,
-          "expr": "tangleTimeSynced",
+          "expr": "info_sync_status",
           "interval": "",
           "legendFormat": "{{instance}}",
           "refId": "A"

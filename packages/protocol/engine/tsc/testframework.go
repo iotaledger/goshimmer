@@ -57,7 +57,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 func (t *TestFramework) AssertOrphaned(expectedState map[string]bool) {
 	for alias, expectedOrphanage := range expectedState {
 		t.BookerTestFramework.AssertBlock(alias, func(block *booker.Block) {
-			require.Equal(t.test, expectedOrphanage, block.IsOrphaned(), "block %s is incorrectly orphaned", block.ID())
+			require.Equal(t.test, expectedOrphanage, block.Block.IsOrphaned(), "block %s is incorrectly orphaned", block.ID())
 		})
 	}
 }

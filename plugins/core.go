@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/blockissuer"
 	"github.com/iotaledger/goshimmer/plugins/cli"
 	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/goshimmer/plugins/dashboardmetrics"
 	"github.com/iotaledger/goshimmer/plugins/faucet"
 	"github.com/iotaledger/goshimmer/plugins/gracefulshutdown"
 	"github.com/iotaledger/goshimmer/plugins/indexer"
@@ -19,6 +20,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/peer"
 	"github.com/iotaledger/goshimmer/plugins/portcheck"
 	"github.com/iotaledger/goshimmer/plugins/profiling"
+	"github.com/iotaledger/goshimmer/plugins/profilingrecorder"
 	"github.com/iotaledger/goshimmer/plugins/protocol"
 	"github.com/iotaledger/goshimmer/plugins/retainer"
 	"github.com/iotaledger/goshimmer/plugins/spammer"
@@ -37,6 +39,7 @@ var Core = node.Plugins(
 	autopeering.Plugin,
 	manualpeering.Plugin,
 	profiling.Plugin,
+	profilingrecorder.Plugin,
 	p2p.Plugin,
 	protocol.Plugin,
 	retainer.Plugin,
@@ -44,6 +47,7 @@ var Core = node.Plugins(
 	warpsync.Plugin,
 	// firewall.Plugin,
 	faucet.Plugin,
+	dashboardmetrics.Plugin,
 	metrics.Plugin,
 	spammer.Plugin,
 	manainitializer.Plugin,

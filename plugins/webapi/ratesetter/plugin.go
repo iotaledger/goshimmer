@@ -38,7 +38,6 @@ func configure(_ *node.Plugin) {
 func getRateSetterEstimate(c echo.Context) error {
 	return c.JSON(http.StatusOK, jsonmodels.RateSetter{
 		Rate:     deps.BlockIssuer.Rate(),
-		Size:     deps.BlockIssuer.Size(),
 		Estimate: deps.BlockIssuer.Estimate(),
 	})
 }

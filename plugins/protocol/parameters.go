@@ -35,6 +35,8 @@ type SchedulerParametersDefinition struct {
 	Rate time.Duration `default:"1ms" usage:"block scheduling interval [time duration string]"` // 1000 blocks per second
 	// ConfirmedBlockThreshold time threshold after which confirmed blocks are not scheduled [time duration string]
 	ConfirmedBlockThreshold time.Duration `default:"1m" usage:"time threshold after which confirmed blocks are not scheduled [time duration string]"`
+	// MaxDeficit defines the maximum defict a node can build up.
+	MaxDeficit int `default:"10" usage:"max deficit (in units of work)"` // 10 units of work
 }
 
 // NotarizationParametersDefinition contains the definition of the parameters used by the notarization plugin.

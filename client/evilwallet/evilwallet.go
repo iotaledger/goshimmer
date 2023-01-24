@@ -1,6 +1,7 @@
 package evilwallet
 
 import (
+	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -153,6 +154,7 @@ func (e *EvilWallet) RequestFreshBigFaucetWallets(numberOfWallets int) {
 // requested from the Faucet.
 func (e *EvilWallet) RequestFreshBigFaucetWallet() (err error) {
 	initWallet := NewWallet()
+	fmt.Println("Requesting funds from faucet...")
 	funds, err := e.requestAndSplitFaucetFunds(initWallet, FaucetRequestSplitNumber*FaucetRequestSplitNumber)
 	if err != nil {
 		return
@@ -191,7 +193,7 @@ func (e *EvilWallet) requestFaucetFunds(wallet *Wallet) (outputID utxo.OutputID,
 	if err = RateSetterSleep(clt, true); err != nil {
 		return
 	}
-	err = clt.BroadcastFaucetRequest(addr.Base58())
+	err = clt.BroadcastFaucetRequest(addr.Base58(), 12)
 	if err != nil {
 		return
 	}

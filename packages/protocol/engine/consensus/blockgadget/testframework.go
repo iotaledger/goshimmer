@@ -267,13 +267,12 @@ func NewMockAcceptanceGadget() *MockAcceptanceGadget {
 	}
 }
 
-func (m *MockAcceptanceGadget) SetBlocksAccepted(blocks models.BlockIDs) {
+func (m *MockAcceptanceGadget) SetBlockAccepted(block *Block) {
 	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	m.AcceptedBlocks.Add(block.ID())
+	m.mutex.Unlock()
 
-	for block := range blocks {
-		m.AcceptedBlocks.Add(block)
-	}
+	m.BlockAcceptedEvent.Trigger(block)
 }
 
 func (m *MockAcceptanceGadget) SetMarkersAccepted(markers ...markers.Marker) {
@@ -320,6 +319,20 @@ func (m *MockAcceptanceGadget) FirstUnacceptedIndex(sequenceID markers.SequenceI
 		return acceptedIndex + 1
 	}
 	return 1
+}
+
+func (m *MockAcceptanceGadget) AcceptedBlocksInEpoch(index epoch.Index) (blocks models.BlockIDs) {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	blocks = models.NewBlockIDs()
+	for _, block := range m.AcceptedBlocks.Slice() {
+		if block.Index() == index {
+			blocks.Add(block)
+		}
+	}
+
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
