@@ -21,7 +21,11 @@ An implementation example is shown later for the POST method.
 GET and POST
 Two methods are currently used. First, with GET we register a new GET route for a handler function. The handler is accessed via the address path. The handler for a GET method can set the node to perform certain actions.
 
-webapi.Server().GET("path", HandlerFunc)
+webapi.Server(Client-Library and HTTP API reference
+
+You can use the Go client-library to interact with GoShimmer (located under github.com/iotaledger/goshimmer/client).
+
+You can find more info about this on our client-lib and Web API documentation.).GET("path", HandlerFunc)
 
 A command can be sent to the node software to the API, e.g. via command prompt:
 
