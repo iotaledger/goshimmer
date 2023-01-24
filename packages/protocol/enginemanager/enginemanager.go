@@ -61,8 +61,6 @@ func New(dir string,
 }
 
 func (m *EngineManager) LoadActiveEngine() (*EngineInstance, error) {
-	//TODO: check file pointing to main engine
-
 	info := &engineInfo{}
 	if err := ioutils.ReadJSONFromFile(m.infoFilePath(), info); err != nil {
 		if !errors.Is(err, os.ErrNotExist) {

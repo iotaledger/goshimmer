@@ -22,6 +22,7 @@ type Manager struct {
 	SnapshotCommitment  *Commitment
 	CommitmentRequester *eventticker.EventTicker[commitment.ID]
 
+	//TODO: change to memstorage.EpochStorage?
 	commitmentsByID      map[commitment.ID]*Commitment
 	commitmentsByIDMutex sync.Mutex
 
@@ -56,7 +57,7 @@ func NewManager(snapshot *commitment.Commitment) (manager *Manager) {
 }
 
 func (m *Manager) ProcessCommitmentFromSource(commitment *commitment.Commitment, source identity.ID) (isSolid bool, chain *Chain, wasForked bool) {
-	// TODO: do not extend the main chain if the commitment doesn't come from myself, after I am bootstrapped.
+	//TODO: do not extend the main chain if the commitment doesn't come from myself, after I am bootstrapped.
 	isSolid, chain, wasForked, chainCommitment, commitmentPublished := m.registerCommitment(commitment)
 	if !commitmentPublished || chain == nil {
 		return isSolid, chain, wasForked
@@ -190,6 +191,7 @@ func (m *Manager) ForkedEventByForkingPoint(commitmentID commitment.ID) (forkedE
 }
 
 func (m *Manager) Evict(index epoch.Index) {
+	//TODO: do we need to evict more stuff?
 	m.commitmentsByForkingPoint.Evict(index)
 }
 

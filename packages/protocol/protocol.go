@@ -221,6 +221,7 @@ func (p *Protocol) onForkDetected(commitment *commitment.Commitment, startIndex 
 		return true
 	}
 
+	//TODO: instead of startIndex, send commitmehtID of start
 	p.networkProtocol.RequestAttestations(startIndex, endIndex, source)
 	return false
 }
@@ -458,6 +459,7 @@ func (p *Protocol) ProcessAttestations(attestations *orderedmap.OrderedMap[epoch
 	// Compare the calculated cumulative weight with the current one of our current change to verify it is really higher
 	if calculatedCumulativeWeight <= mainEngine.Storage.Settings.LatestCommitment().CumulativeWeight() {
 		p.Events.Error.Trigger(errors.Errorf("forking point does not accumulate enough weight %d CW <= main chain %d CW", calculatedCumulativeWeight, p.Engine().Storage.Settings.LatestCommitment().CumulativeWeight()))
+		//TODO: ban source?
 		return
 	}
 
