@@ -1,25 +1,36 @@
 package main
 
 import (
-	"fmt"
+	"time"
 
-	"github.com/iotaledger/goshimmer/client"
-	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/client/evilspammer"
+	"github.com/iotaledger/goshimmer/tools/evil-spammer/identity"
 )
 
-func createBlock() {
+type CommitmentsSpamParams struct {
+	CommitmentType string
+	ClientURLs     []string
+	Rate           int
+	Duration       time.Duration
+	TimeUnit       time.Duration
+	NetworkAlias   string
+	IdentityAlias  string
+}
 
-	url := "http://localhost:8080"
+func CommitmentsSpam(params *CommitmentsSpamParams) {
+	identity.LoadConfig()
+	SpamCommitments(params.Rate, params.TimeUnit, params.Duration, params.NetworkAlias, params.IdentityAlias, params.CommitmentType)
+}
 
-	emptyBlock := new(models.Block)
-	b, err := emptyBlock.Bytes()
-	if err != nil {
-		panic(err)
+func SpamCommitments(rate int, timeUnit, duration time.Duration, networkAlias, identityAlias, commitmentType string) {
+	privateKay := identity.LoadIdentity(networkAlias, identityAlias)
+	options := []evilspammer.Options{
+		evilspammer.WithSpamRate(rate, timeUnit),
+		evilspammer.WithSpamDuration(duration),
+		evilspammer.WithSpammingFunc(evilspammer.CommitmentsSpammingFunction),
+		evilspammer.WithIdentity(identityAlias, privateKay),
+		evilspammer.WithCommitmentType(commitmentType),
 	}
-	clt := client.NewGoShimmerAPI(url)
-	ID, err := clt.SendPayload(b)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("Block posted, ID: " + ID)
+	spammer := evilspammer.NewSpammer(options...)
+	spammer.Spam()
 }

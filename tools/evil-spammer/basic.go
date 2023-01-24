@@ -79,7 +79,7 @@ func CustomSpam(params *CustomSpamParams) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				SpamCommitments(params.Rates[i], params.TimeUnit, params.Durations[i])
+
 			}()
 
 		default:
@@ -197,15 +197,4 @@ func SpamBlocks(wallet *evilwallet.EvilWallet, rate int, timeUnit, duration time
 	}
 	spammer := evilspammer.NewSpammer(options...)
 	return spammer
-}
-
-func SpamCommitments(rate int, timeUnit, duration time.Duration) {
-	options := []evilspammer.Options{
-		evilspammer.WithSpamRate(rate, timeUnit),
-		evilspammer.WithSpamDuration(duration),
-		evilspammer.WithSpammingFunc(evilspammer.CommitmentsSpammingFunction),
-	}
-	spammer := evilspammer.NewSpammer(options...)
-	spammer.Spam()
-
 }

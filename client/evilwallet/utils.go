@@ -4,13 +4,12 @@ import (
 	"context"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/serix"
 
 	"github.com/cockroachdb/errors"
@@ -54,17 +53,6 @@ func getOutputByJSON(jsonOutput *jsonmodels.Output) (output devnetvm.Output) {
 	return output
 }
 
-func getIotaColorAmount(balance *devnetvm.ColoredBalances) uint64 {
-	outBalance := uint64(0)
-	balance.ForEach(func(color devnetvm.Color, balance uint64) bool {
-		if color == devnetvm.ColorIOTA {
-			outBalance += balance
-		}
-		return true
-	})
-	return outBalance
-}
-
 // RateSetterSleep sleeps for the given rate.
 func RateSetterSleep(clt Client, useRateSetter bool) error {
 	if useRateSetter {
@@ -78,7 +66,7 @@ func RateSetterSleep(clt Client, useRateSetter bool) error {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func SignBlock(block *models.Block, privKey ed25519.PrivateKey) (ed25519.Signature, error) {
+func SignBlock(block *models.Block, localID *identity.LocalIdentity) (ed25519.Signature, error) {
 	contentHash, err := block.ContentHash()
 	if err != nil {
 		return ed25519.EmptySignature, errors.Wrap(err, "failed to obtain block content's hash")
@@ -91,20 +79,5 @@ func SignBlock(block *models.Block, privKey ed25519.PrivateKey) (ed25519.Signatu
 	if err != nil {
 		return ed25519.EmptySignature, errors.Wrap(err, "failed to encode block commitment")
 	}
-	return privKey.Sign(byteutils.ConcatBytes(issuingTimeBytes, b, contentHash[:])), nil
+	return localID.Sign(byteutils.ConcatBytes(issuingTimeBytes, b, contentHash[:])), nil
 }
-
-// region commitment utils  /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// todo improve dumy commitments
-func DummyCommitment(clt Client) (comm *commitment.Commitment, latestCinfIndex epoch.Index, err error) {
-	latestCommitmentResp, err := clt.GetLatestCommitment()
-	latestCommitment := new(commitment.Commitment)
-	_, err = latestCommitment.FromBytes(latestCommitmentResp.Bytes)
-	if err != nil {
-		return nil, 0, errors.Wrap(err, "failed to parse the bytes of the latest commitment")
-	}
-	return latestCommitment, epoch.Index(latestCommitmentResp.Index), nil
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////////

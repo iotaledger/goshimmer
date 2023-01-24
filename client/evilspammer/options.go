@@ -106,6 +106,18 @@ func WithNumberOfSpends(n int) Options {
 	}
 }
 
+func WithIdentity(alias, privateKey string) Options {
+	return func(s *Spammer) {
+		s.IdentityManager.AddIdentity(privateKey, alias)
+	}
+}
+
+func WithCommitmentType(commitmentType string) Options {
+	return func(s *Spammer) {
+		s.CommitmentManager.SetCommitmentType(commitmentType)
+	}
+}
+
 type SpamDetails struct {
 	Rate           int
 	TimeUnit       time.Duration
@@ -113,9 +125,6 @@ type SpamDetails struct {
 	MaxBatchesSent int
 }
 
-var DefaultSpamDetails = &SpamDetails{
-	Rate:           10,
-	TimeUnit:       time.Second,
-	MaxDuration:    time.Minute,
-	MaxBatchesSent: 601,
+type CommitmentSpamDetails struct {
+	CommitmentType string
 }
