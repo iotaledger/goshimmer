@@ -187,6 +187,7 @@ func (p *Protocol) initNetworkProtocol() {
 
 func (p *Protocol) initChainManager() {
 	p.chainManager = chainmanager.NewManager(p.Engine().Storage.Settings.LatestCommitment())
+	p.Events.ChainManager = p.chainManager.Events
 
 	p.Events.Engine.NotarizationManager.EpochCommitted.Attach(event.NewClosure(func(details *notarization.EpochCommittedDetails) {
 		p.chainManager.ProcessCommitment(details.Commitment)
@@ -200,7 +201,7 @@ func (p *Protocol) initChainManager() {
 		p.chainManager.Evict(epochIndex)
 	}))
 
-	p.chainManager.Events.ForkDetected.Attach(event.NewClosure(func(event *chainmanager.ForkDetectedEvent) {
+	p.Events.ChainManager.ForkDetected.Attach(event.NewClosure(func(event *chainmanager.ForkDetectedEvent) {
 		p.onForkDetected(event.Commitment, event.StartEpoch(), event.EndEpoch(), event.Source)
 	}))
 }
