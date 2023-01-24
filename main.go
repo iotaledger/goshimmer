@@ -1,6 +1,6 @@
 package main
 
-import (
+import (goshimmer.run./scripts/build.sh
 	_ "net/http/pprof"
 
 	"github.com/iotaledger/hive.go/core/node"
