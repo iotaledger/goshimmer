@@ -127,12 +127,12 @@ func NewEngineTestFramework(test *testing.T, opts ...options.Option[EngineTestFr
 }
 
 func (e *EngineTestFramework) AssertEpochState(index epoch.Index) {
-	require.Equal(e.test, index, e.Engine.Storage.Settings.LatestCommitment().Index())
-	require.Equal(e.test, index, e.Engine.NotarizationManager.Attestations.LastCommittedEpoch())
-	require.Equal(e.test, index, e.Engine.LedgerState.UnspentOutputs.LastCommittedEpoch())
-	require.Equal(e.test, index, e.Engine.SybilProtection.(*dpos.SybilProtection).LastCommittedEpoch())
-	require.Equal(e.test, index, e.Engine.ThroughputQuota.(*mana1.ThroughputQuota).LastCommittedEpoch())
-	require.Equal(e.test, index, e.Engine.EvictionState.LastEvictedEpoch())
+	require.Equal(e.test, index, e.Engine.Storage.Settings.LatestCommitment().Index(), "last commitment index is not equal")
+	require.Equal(e.test, index, e.Engine.NotarizationManager.Attestations.LastCommittedEpoch(), "notarization manager attestations last committed epoch is not equal")
+	require.Equal(e.test, index, e.Engine.LedgerState.UnspentOutputs.LastCommittedEpoch(), "ledger state unspent outputs last committed epoch is not equal")
+	require.Equal(e.test, index, e.Engine.SybilProtection.(*dpos.SybilProtection).LastCommittedEpoch(), "sybil protection last committed epoch is not equal")
+	require.Equal(e.test, index, e.Engine.ThroughputQuota.(*mana1.ThroughputQuota).LastCommittedEpoch(), "throughput quota last committed epoch is not equal")
+	require.Equal(e.test, index, e.Engine.EvictionState.LastEvictedEpoch(), "last evicted epoch is not equal")
 }
 
 // WaitUntilAllTasksProcessed waits until all tasks are processed.
