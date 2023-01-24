@@ -76,7 +76,8 @@ func TestRateSetter_IssueBlocksAndAwaitScheduleMultipleIssuers_Deficit(t *testin
 	allBlocks := make(map[models.BlockID]*models.Block)
 
 	tf := NewTestFramework(t, WithRateSetterOptions(WithMode(DeficitMode)), WithSchedulerOptions(scheduler.WithRate(schedulerRate)), WithNumIssuers(numIssuers))
-	defer tf.Shutdown()
+	t.Cleanup(tf.Shutdown)
+
 	blockScheduled := make(chan *models.Block, numBlocksPerIssuer*numIssuers)
 	tf.Protocol.CongestionControl.Scheduler().Events.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) { blockScheduled <- block.ModelsBlock }))
 
