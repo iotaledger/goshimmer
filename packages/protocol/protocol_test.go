@@ -676,14 +676,14 @@ func TestEngine_ShutdownResume(t *testing.T) {
 
 type NodeOnMockedNetwork struct {
 	Testing             *testing.T
-	Alias               string
 	Identity            *identity.Identity
 	Endpoint            *network.MockedEndpoint
 	Protocol            *Protocol
 	EngineTestFramework *EngineTestFramework
 }
 
-func newNode(t *testing.T, alias string, identity *identity.Identity, network *network.MockedNetwork, partition string, snapshotPath string) *NodeOnMockedNetwork {
+func newNode(t *testing.T, identity *identity.Identity, network *network.MockedNetwork, partition string, snapshotPath string) *NodeOnMockedNetwork {
+
 	endpoint := network.Join(identity.ID(), partition)
 	tempDir := utils.NewDirectory(t.TempDir())
 
@@ -716,7 +716,6 @@ func newNode(t *testing.T, alias string, identity *identity.Identity, network *n
 
 	n := &NodeOnMockedNetwork{
 		Testing:             t,
-		Alias:               alias,
 		Identity:            identity,
 		Endpoint:            endpoint,
 		Protocol:            protocol,
@@ -732,105 +731,125 @@ func (n *NodeOnMockedNetwork) AttachLogging() {
 	events := n.Protocol.Events
 
 	events.Engine.Tangle.BlockDAG.BlockAttached.Hook(event.NewClosure(func(block *blockdag.Block) {
-		fmt.Printf("%s> BlockDAG.BlockAttached: %s\n", n.Alias, block.ID())
+		fmt.Printf("%s> BlockDAG.BlockAttached: %s\n", n.Identity.ID(), block.ID())
 	}))
 
 	events.Engine.Tangle.BlockDAG.BlockSolid.Hook(event.NewClosure(func(block *blockdag.Block) {
-		fmt.Printf("%s> BlockDAG.BlockSolid: %s\n", n.Alias, block.ID())
+		fmt.Printf("%s> BlockDAG.BlockSolid: %s\n", n.Identity.ID(), block.ID())
 	}))
 
 	events.Engine.Tangle.BlockDAG.BlockInvalid.Hook(event.NewClosure(func(event *blockdag.BlockInvalidEvent) {
-		fmt.Printf("%s> BlockDAG.BlockInvalid: %s - %s\n", n.Alias, event.Block.ID(), event.Reason.Error())
+		fmt.Printf("%s> BlockDAG.BlockInvalid: %s - %s\n", n.Identity.ID(), event.Block.ID(), event.Reason.Error())
 	}))
 
 	events.Engine.Tangle.BlockDAG.BlockMissing.Hook(event.NewClosure(func(block *blockdag.Block) {
-		fmt.Printf("%s> BlockDAG.BlockMissing: %s\n", n.Alias, block.ID())
+		fmt.Printf("%s> BlockDAG.BlockMissing: %s\n", n.Identity.ID(), block.ID())
 	}))
 
 	events.Engine.Tangle.BlockDAG.MissingBlockAttached.Hook(event.NewClosure(func(block *blockdag.Block) {
-		fmt.Printf("%s> BlockDAG.MissingBlockAttached: %s\n", n.Alias, block.ID())
+		fmt.Printf("%s> BlockDAG.MissingBlockAttached: %s\n", n.Identity.ID(), block.ID())
 	}))
 
 	events.Engine.Tangle.BlockDAG.BlockOrphaned.Hook(event.NewClosure(func(block *blockdag.Block) {
-		fmt.Printf("%s> BlockDAG.BlockOrphaned: %s\n", n.Alias, block.ID())
+		fmt.Printf("%s> BlockDAG.BlockOrphaned: %s\n", n.Identity.ID(), block.ID())
 	}))
 
 	events.Engine.Tangle.BlockDAG.BlockUnorphaned.Hook(event.NewClosure(func(block *blockdag.Block) {
-		fmt.Printf("%s> BlockDAG.BlockUnorphaned: %s\n", n.Alias, block.ID())
+		fmt.Printf("%s> BlockDAG.BlockUnorphaned: %s\n", n.Identity.ID(), block.ID())
 	}))
 
 	events.Engine.Tangle.VirtualVoting.SequenceTracker.VotersUpdated.Hook(event.NewClosure(func(event *sequencetracker.VoterUpdatedEvent) {
-		fmt.Printf("%s> Tangle.VirtualVoting.SequenceTracker.VotersUpdated: %s %s %d -> %d\n", n.Alias, event.SequenceID, event.Voter, event.PrevMaxSupportedIndex, event.NewMaxSupportedIndex)
+		fmt.Printf("%s> Tangle.VirtualVoting.SequenceTracker.VotersUpdated: %s %s %d -> %d\n", n.Identity.ID(), event.SequenceID, event.Voter, event.PrevMaxSupportedIndex, event.NewMaxSupportedIndex)
 
 	}))
 
 	events.Engine.Clock.AcceptanceTimeUpdated.Hook(event.NewClosure(func(event *clock.TimeUpdateEvent) {
-		fmt.Printf("%s> Clock.AcceptanceTimeUpdated: %s\n", n.Alias, event.NewTime)
+		fmt.Printf("%s> Clock.AcceptanceTimeUpdated: %s\n", n.Identity.ID(), event.NewTime)
 	}))
 
 	events.Engine.Filter.BlockAllowed.Hook(event.NewClosure(func(block *models.Block) {
-		fmt.Printf("%s> Filter.BlockAllowed: %s\n", n.Alias, block.ID())
+		fmt.Printf("%s> Filter.BlockAllowed: %s\n", n.Identity.ID(), block.ID())
 	}))
 
 	events.Engine.Filter.BlockFiltered.Hook(event.NewClosure(func(event *filter.BlockFilteredEvent) {
-		fmt.Printf("%s> Filter.BlockFiltered: %s - %s\n", n.Alias, event.Block.ID(), event.Reason.Error())
+		fmt.Printf("%s> Filter.BlockFiltered: %s - %s\n", n.Identity.ID(), event.Block.ID(), event.Reason.Error())
 		n.Testing.Fatal("no blocks should be filtered")
 	}))
 
 	events.Engine.BlockRequester.Tick.Hook(event.NewClosure(func(blockID models.BlockID) {
-		fmt.Printf("%s> BlockRequester.Tick: %s\n", n.Alias, blockID)
+		fmt.Printf("%s> BlockRequester.Tick: %s\n", n.Identity.ID(), blockID)
 	}))
 
 	events.Engine.Error.Hook(event.NewClosure(func(err error) {
-		fmt.Printf("%s> Engine.Error: %s\n", n.Alias, err.Error())
+		fmt.Printf("%s> Engine.Error: %s\n", n.Identity.ID(), err.Error())
 	}))
 
 	events.Engine.NotarizationManager.EpochCommitted.Hook(event.NewClosure(func(details *notarization.EpochCommittedDetails) {
-		fmt.Printf("%s> NotarizationManager.EpochCommitted: %s\n", n.Alias, details.Commitment.ID())
+		fmt.Printf("%s> NotarizationManager.EpochCommitted: %s\n", n.Identity.ID(), details.Commitment.ID())
 	}))
 
 	events.Engine.Consensus.BlockGadget.BlockAccepted.Hook(event.NewClosure(func(block *blockgadget.Block) {
-		fmt.Printf("%s> Consensus.BlockGadget.BlockAccepted: %s %s\n", n.Alias, block.ID(), block.Commitment().ID())
+		fmt.Printf("%s> Consensus.BlockGadget.BlockAccepted: %s %s\n", n.Identity.ID(), block.ID(), block.Commitment().ID())
 	}))
 
 	events.Engine.Consensus.BlockGadget.BlockConfirmed.Hook(event.NewClosure(func(block *blockgadget.Block) {
-		fmt.Printf("%s> Consensus.BlockGadget.BlockConfirmed: %s %s\n", n.Alias, block.ID(), block.Commitment().ID())
+		fmt.Printf("%s> Consensus.BlockGadget.BlockConfirmed: %s %s\n", n.Identity.ID(), block.ID(), block.Commitment().ID())
 	}))
 
 	events.Engine.Consensus.EpochGadget.EpochConfirmed.Hook(event.NewClosure(func(epochIndex epoch.Index) {
-		fmt.Printf("%s> Consensus.EpochGadget.EpochConfirmed: %s\n", n.Alias, epochIndex)
+		fmt.Printf("%s> Consensus.EpochGadget.EpochConfirmed: %s\n", n.Identity.ID(), epochIndex)
 	}))
 
 	events.CongestionControl.Scheduler.BlockScheduled.Hook(event.NewClosure(func(block *scheduler.Block) {
-		fmt.Printf("%s> CongestionControl.Scheduler.BlockScheduled: %s\n", n.Alias, block.ID())
+		fmt.Printf("%s> CongestionControl.Scheduler.BlockScheduled: %s\n", n.Identity.ID(), block.ID())
 	}))
 
 	events.CongestionControl.Scheduler.BlockDropped.Hook(event.NewClosure(func(block *scheduler.Block) {
-		fmt.Printf("%s> CongestionControl.Scheduler.BlockDropped: %s\n", n.Alias, block.ID())
+		fmt.Printf("%s> CongestionControl.Scheduler.BlockDropped: %s\n", n.Identity.ID(), block.ID())
 	}))
 
 	events.CongestionControl.Scheduler.BlockSubmitted.Hook(event.NewClosure(func(block *scheduler.Block) {
-		fmt.Printf("%s> CongestionControl.Scheduler.BlockSubmitted: %s\n", n.Alias, block.ID())
+		fmt.Printf("%s> CongestionControl.Scheduler.BlockSubmitted: %s\n", n.Identity.ID(), block.ID())
 	}))
 
 	events.CongestionControl.Scheduler.BlockSkipped.Hook(event.NewClosure(func(block *scheduler.Block) {
-		fmt.Printf("%s> CongestionControl.Scheduler.BlockSkipped: %s\n", n.Alias, block.ID())
+		fmt.Printf("%s> CongestionControl.Scheduler.BlockSkipped: %s\n", n.Identity.ID(), block.ID())
 	}))
 
 	events.ChainManager.ForkDetected.Hook(event.NewClosure(func(event *chainmanager.ForkDetectedEvent) {
-		fmt.Printf("%s> ChainManager.ForkDetected: %s with forking point %s received from %s\n", n.Alias, event.Commitment.ID(), event.Chain.ForkingPoint.ID(), event.Source)
+		fmt.Printf("%s> ChainManager.ForkDetected: %s with forking point %s received from %s\n", n.Identity.ID(), event.Commitment.ID(), event.Chain.ForkingPoint.ID(), event.Source)
 	}))
 
 	events.CandidateEngineCreated.Hook(event.NewClosure(func(engine *enginemanager.EngineInstance) {
-		fmt.Printf("%s> CandidateEngineCreated: latest commitment %s\n", n.Alias, engine.Storage.Settings.LatestCommitment())
+		fmt.Printf("%s> CandidateEngineCreated: latest commitment %s\n", n.Identity.ID(), engine.Storage.Settings.LatestCommitment())
 	}))
 
 	events.MainEngineSwitched.Hook(event.NewClosure(func(engine *enginemanager.EngineInstance) {
-		fmt.Printf("%s> MainEngineSwitched: latest commitment %s\n", n.Alias, engine.Storage.Settings.LatestCommitment())
+		fmt.Printf("%s> MainEngineSwitched: latest commitment %s\n", n.Identity.ID(), engine.Storage.Settings.LatestCommitment())
 	}))
 
 	events.Error.Hook(event.NewClosure(func(err error) {
-		fmt.Printf("%s> Error: %s\n", n.Alias, err.Error())
+		fmt.Printf("%s> Error: %s\n", n.Identity.ID(), err.Error())
+	}))
+
+	events.Network.AttestationsReceived.Hook(event.NewClosure(func(event *network.AttestationsReceivedEvent) {
+		fmt.Printf("%s> Network.AttestationsReceived: from %s\n", n.Identity.ID(), event.Source)
+	}))
+
+	events.Network.AttestationsRequestReceived.Hook(event.NewClosure(func(event *network.AttestationsRequestReceivedEvent) {
+		fmt.Printf("%s> Network.AttestationsRequestReceived: from %s %d -> %d\n", n.Identity.ID(), event.Source, event.StartIndex, event.EndIndex)
+	}))
+
+	events.Network.EpochCommitmentReceived.Hook(event.NewClosure(func(event *network.EpochCommitmentReceivedEvent) {
+		fmt.Printf("%s> Network.EpochCommitmentReceived: from %s %s\n", n.Identity.ID(), event.Source, event.Commitment.ID())
+	}))
+
+	events.Network.EpochCommitmentRequestReceived.Hook(event.NewClosure(func(event *network.EpochCommitmentRequestReceivedEvent) {
+		fmt.Printf("%s> Network.EpochCommitmentRequestReceived: from %s %s\n", n.Identity.ID(), event.Source, event.CommitmentID)
+	}))
+
+	events.Network.Error.Hook(event.NewClosure(func(event *network.ErrorEvent) {
+		fmt.Printf("%s> Network.Error: from %s %s\n", n.Identity.ID(), event.Source, event.Error.Error())
 	}))
 }
 
@@ -887,6 +906,10 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 		"node4": identity.GenerateIdentity(),
 	}
 
+	for alias, id := range identitiesMap {
+		identity.RegisterIDAlias(id.ID(), alias)
+	}
+
 	partition1Weights := map[ed25519.PublicKey]uint64{
 		identitiesMap["node1"].PublicKey(): 75,
 		identitiesMap["node2"].PublicKey(): 25,
@@ -908,10 +931,10 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 	snapshotPartition2 := snapshotsDir.Path("snapshot_2.bin")
 	snapshotcreator.CreateSnapshot(DatabaseVersion, snapshotPartition2, 0, make([]byte, 32), allWeights, lo.Keys(partition2Weights))
 
-	node1 := newNode(t, "node1", identitiesMap["node1"], testNetwork, "P1", snapshotPartition1)
-	node2 := newNode(t, "node2", identitiesMap["node2"], testNetwork, "P1", snapshotPartition1)
-	node3 := newNode(t, "node3", identitiesMap["node3"], testNetwork, "P2", snapshotPartition2)
-	node4 := newNode(t, "node4", identitiesMap["node4"], testNetwork, "P2", snapshotPartition2)
+	node1 := newNode(t, identitiesMap["node1"], testNetwork, "P1", snapshotPartition1)
+	node2 := newNode(t, identitiesMap["node2"], testNetwork, "P1", snapshotPartition1)
+	node3 := newNode(t, identitiesMap["node3"], testNetwork, "P2", snapshotPartition2)
+	node4 := newNode(t, identitiesMap["node4"], testNetwork, "P2", snapshotPartition2)
 
 	require.Equal(t, int64(150), node1.Protocol.Engine().SybilProtection.Weights().TotalWeight().Value)
 	require.Equal(t, int64(100), node1.Protocol.Engine().SybilProtection.Validators().TotalWeight())
