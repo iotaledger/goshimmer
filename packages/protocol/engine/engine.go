@@ -108,7 +108,6 @@ func New(
 			)
 		},
 
-		(*Engine).initFilter,
 		(*Engine).initLedger,
 		(*Engine).initTangle,
 		(*Engine).initConsensus,
@@ -116,6 +115,7 @@ func New(
 		(*Engine).initTSCManager,
 		(*Engine).initBlockStorage,
 		(*Engine).initNotarizationManager,
+		(*Engine).initFilter,
 		(*Engine).initEvictionState,
 		(*Engine).initBlockRequester,
 
@@ -267,7 +267,11 @@ func (e *Engine) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (err err
 }
 
 func (e *Engine) initFilter() {
-	e.Filter = filter.New()
+	e.Filter = filter.New(filter.WithMinCommittableEpochAge(e.NotarizationManager.MinCommittableEpochAge()))
+
+	e.Filter.Events.BlockFiltered.Attach(event.NewClosure(func(filteredEvent *filter.BlockFilteredEvent) {
+		e.Events.Error.Trigger(errors.Wrapf(filteredEvent.Reason, "block (%s) filtered", filteredEvent.Block.ID()))
+	}))
 
 	e.Events.Filter.LinkTo(e.Filter.Events)
 }
