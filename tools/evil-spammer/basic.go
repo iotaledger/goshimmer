@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -70,12 +69,17 @@ func CustomSpam(params *CustomSpamParams) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				fmt.Println("Custom scenario")
 				s := SpamNestedConflicts(wallet, params.Rates[i], params.TimeUnit, params.Durations[i], params.Scenario, params.DeepSpam, false, params.EnableRateSetter)
 				if s == nil {
 					return
 				}
 				s.Spam()
+			}()
+		case "commitments":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				SpamCommitments(params.Rates[i], params.TimeUnit, params.Durations[i])
 			}()
 
 		default:
@@ -193,4 +197,15 @@ func SpamBlocks(wallet *evilwallet.EvilWallet, rate int, timeUnit, duration time
 	}
 	spammer := evilspammer.NewSpammer(options...)
 	return spammer
+}
+
+func SpamCommitments(rate int, timeUnit, duration time.Duration) {
+	options := []evilspammer.Options{
+		evilspammer.WithSpamRate(rate, timeUnit),
+		evilspammer.WithSpamDuration(duration),
+		evilspammer.WithSpammingFunc(evilspammer.CommitmentsSpammingFunction),
+	}
+	spammer := evilspammer.NewSpammer(options...)
+	spammer.Spam()
+
 }
