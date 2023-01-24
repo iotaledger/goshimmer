@@ -34,6 +34,7 @@ func (c *timeUpdate) Update(now, newTime time.Time) (updated bool) {
 	// the local wall clock should never be before the accepted Time unless we are eclipsed by malicious actors or our
 	// own Time is clearly in the past
 	if now.Before(newTime) {
+		//TODO: a block with a future time panics this
 		panic(fmt.Sprintf("tried to set Time is in the future. now: %s, newTime: %s", now.String(), newTime.String()))
 	}
 

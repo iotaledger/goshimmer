@@ -22,6 +22,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
 	"github.com/iotaledger/goshimmer/packages/network"
+	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
@@ -729,92 +730,95 @@ func (n *NodeOnMockedNetwork) AttachLogging() {
 
 	events := n.Protocol.Events
 
-	events.Engine.Tangle.BlockDAG.BlockAttached.Attach(event.NewClosure(func(block *blockdag.Block) {
+	events.Engine.Tangle.BlockDAG.BlockAttached.Hook(event.NewClosure(func(block *blockdag.Block) {
 		fmt.Printf("%s> BlockDAG.BlockAttached: %s\n", n.Alias, block.ID())
 	}))
 
-	events.Engine.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(func(block *blockdag.Block) {
+	events.Engine.Tangle.BlockDAG.BlockSolid.Hook(event.NewClosure(func(block *blockdag.Block) {
 		fmt.Printf("%s> BlockDAG.BlockSolid: %s\n", n.Alias, block.ID())
 	}))
 
-	events.Engine.Tangle.BlockDAG.BlockInvalid.Attach(event.NewClosure(func(event *blockdag.BlockInvalidEvent) {
+	events.Engine.Tangle.BlockDAG.BlockInvalid.Hook(event.NewClosure(func(event *blockdag.BlockInvalidEvent) {
 		fmt.Printf("%s> BlockDAG.BlockInvalid: %s - %s\n", n.Alias, event.Block.ID(), event.Reason.Error())
 	}))
 
-	events.Engine.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(func(block *blockdag.Block) {
+	events.Engine.Tangle.BlockDAG.BlockMissing.Hook(event.NewClosure(func(block *blockdag.Block) {
 		fmt.Printf("%s> BlockDAG.BlockMissing: %s\n", n.Alias, block.ID())
 	}))
 
-	events.Engine.Tangle.BlockDAG.MissingBlockAttached.Attach(event.NewClosure(func(block *blockdag.Block) {
+	events.Engine.Tangle.BlockDAG.MissingBlockAttached.Hook(event.NewClosure(func(block *blockdag.Block) {
 		fmt.Printf("%s> BlockDAG.MissingBlockAttached: %s\n", n.Alias, block.ID())
 	}))
 
-	events.Engine.Tangle.BlockDAG.BlockOrphaned.Attach(event.NewClosure(func(block *blockdag.Block) {
+	events.Engine.Tangle.BlockDAG.BlockOrphaned.Hook(event.NewClosure(func(block *blockdag.Block) {
 		fmt.Printf("%s> BlockDAG.BlockOrphaned: %s\n", n.Alias, block.ID())
 	}))
 
-	events.Engine.Tangle.BlockDAG.BlockUnorphaned.Attach(event.NewClosure(func(block *blockdag.Block) {
+	events.Engine.Tangle.BlockDAG.BlockUnorphaned.Hook(event.NewClosure(func(block *blockdag.Block) {
 		fmt.Printf("%s> BlockDAG.BlockUnorphaned: %s\n", n.Alias, block.ID())
 	}))
 
-	events.Engine.Tangle.VirtualVoting.SequenceTracker.VotersUpdated.Attach(event.NewClosure(func(event *sequencetracker.VoterUpdatedEvent) {
+	events.Engine.Tangle.VirtualVoting.SequenceTracker.VotersUpdated.Hook(event.NewClosure(func(event *sequencetracker.VoterUpdatedEvent) {
 		fmt.Printf("%s> Tangle.VirtualVoting.SequenceTracker.VotersUpdated: %s %s %d -> %d\n", n.Alias, event.SequenceID, event.Voter, event.PrevMaxSupportedIndex, event.NewMaxSupportedIndex)
 
 	}))
 
-	events.Engine.Clock.AcceptanceTimeUpdated.Attach(event.NewClosure(func(event *clock.TimeUpdateEvent) {
+	events.Engine.Clock.AcceptanceTimeUpdated.Hook(event.NewClosure(func(event *clock.TimeUpdateEvent) {
 		fmt.Printf("%s> Clock.AcceptanceTimeUpdated: %s\n", n.Alias, event.NewTime)
 	}))
 
-	events.Engine.Filter.BlockAllowed.Attach(event.NewClosure(func(block *models.Block) {
+	events.Engine.Filter.BlockAllowed.Hook(event.NewClosure(func(block *models.Block) {
 		fmt.Printf("%s> Filter.BlockAllowed: %s\n", n.Alias, block.ID())
 	}))
 
-	events.Engine.Filter.BlockFiltered.Attach(event.NewClosure(func(event *filter.BlockFilteredEvent) {
+	events.Engine.Filter.BlockFiltered.Hook(event.NewClosure(func(event *filter.BlockFilteredEvent) {
 		fmt.Printf("%s> Filter.BlockFiltered: %s - %s\n", n.Alias, event.Block.ID(), event.Reason.Error())
 		n.Testing.Fatal("no blocks should be filtered")
 	}))
 
-	events.Engine.BlockRequester.Tick.Attach(event.NewClosure(func(blockID models.BlockID) {
+	events.Engine.BlockRequester.Tick.Hook(event.NewClosure(func(blockID models.BlockID) {
 		fmt.Printf("%s> BlockRequester.Tick: %s\n", n.Alias, blockID)
 	}))
 
-	events.Engine.Error.Attach(event.NewClosure(func(err error) {
+	events.Engine.Error.Hook(event.NewClosure(func(err error) {
 		fmt.Printf("%s> Error: %s\n", n.Alias, err.Error())
 	}))
 
-	events.Engine.NotarizationManager.EpochCommitted.Attach(event.NewClosure(func(details *notarization.EpochCommittedDetails) {
+	events.Engine.NotarizationManager.EpochCommitted.Hook(event.NewClosure(func(details *notarization.EpochCommittedDetails) {
 		fmt.Printf("%s> NotarizationManager.EpochCommitted: %s\n", n.Alias, details.Commitment.ID())
 	}))
 
-	events.Engine.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
+	events.Engine.Consensus.BlockGadget.BlockAccepted.Hook(event.NewClosure(func(block *blockgadget.Block) {
 		fmt.Printf("%s> Consensus.BlockGadget.BlockAccepted: %s\n", n.Alias, block.ID())
 	}))
 
-	events.Engine.Consensus.BlockGadget.BlockConfirmed.Attach(event.NewClosure(func(block *blockgadget.Block) {
+	events.Engine.Consensus.BlockGadget.BlockConfirmed.Hook(event.NewClosure(func(block *blockgadget.Block) {
 		fmt.Printf("%s> Consensus.BlockGadget.BlockConfirmed: %s\n", n.Alias, block.ID())
 	}))
 
-	events.Engine.Consensus.EpochGadget.EpochConfirmed.Attach(event.NewClosure(func(epochIndex epoch.Index) {
+	events.Engine.Consensus.EpochGadget.EpochConfirmed.Hook(event.NewClosure(func(epochIndex epoch.Index) {
 		fmt.Printf("%s> Consensus.EpochGadget.EpochConfirmed: %s\n", n.Alias, epochIndex)
 	}))
 
-	events.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
+	events.CongestionControl.Scheduler.BlockScheduled.Hook(event.NewClosure(func(block *scheduler.Block) {
 		fmt.Printf("%s> CongestionControl.Scheduler.BlockScheduled: %s\n", n.Alias, block.ID())
 	}))
 
-	events.CongestionControl.Scheduler.BlockDropped.Attach(event.NewClosure(func(block *scheduler.Block) {
+	events.CongestionControl.Scheduler.BlockDropped.Hook(event.NewClosure(func(block *scheduler.Block) {
 		fmt.Printf("%s> CongestionControl.Scheduler.BlockDropped: %s\n", n.Alias, block.ID())
 	}))
 
-	events.CongestionControl.Scheduler.BlockSubmitted.Attach(event.NewClosure(func(block *scheduler.Block) {
+	events.CongestionControl.Scheduler.BlockSubmitted.Hook(event.NewClosure(func(block *scheduler.Block) {
 		fmt.Printf("%s> CongestionControl.Scheduler.BlockSubmitted: %s\n", n.Alias, block.ID())
 	}))
 
-	events.CongestionControl.Scheduler.BlockSkipped.Attach(event.NewClosure(func(block *scheduler.Block) {
+	events.CongestionControl.Scheduler.BlockSkipped.Hook(event.NewClosure(func(block *scheduler.Block) {
 		fmt.Printf("%s> CongestionControl.Scheduler.BlockSkipped: %s\n", n.Alias, block.ID())
 	}))
 
+	events.ChainManager.ForkDetected.Hook(event.NewClosure(func(event *chainmanager.ForkDetectedEvent) {
+		fmt.Printf("%s> ChainManager.ForkDetected: %s with forking point %s received from %s\n", n.Alias, event.Commitment.ID(), event.Chain.ForkingPoint.ID(), event.Source)
+	}))
 }
 
 func (n *NodeOnMockedNetwork) WaitUntilAllTasksProcessed() {
@@ -826,9 +830,17 @@ func (n *NodeOnMockedNetwork) WaitUntilAllTasksProcessed() {
 	time.Sleep(100 * time.Millisecond)
 }
 
-func (n *NodeOnMockedNetwork) IssueBlock(alias string, epochIndex epoch.Index, parents ...models.BlockID) *booker.Block {
+func (n *NodeOnMockedNetwork) IssueBlockAtEpoch(alias string, epochIndex epoch.Index, parents ...models.BlockID) *booker.Block {
 	issuingTime := time.Unix(epoch.GenesisTime+int64(epochIndex-1)*epoch.Duration, 0)
+	require.True(n.Testing, issuingTime.Before(time.Now()), "issued block is in the current or future epoch")
 	n.EngineTestFramework.Tangle.CreateBlock(alias, models.WithIssuer(n.Identity.PublicKey()), models.WithStrongParents(models.NewBlockIDs(parents...)), models.WithIssuingTime(issuingTime))
+	n.EngineTestFramework.Tangle.IssueBlocks(alias)
+	n.WaitUntilAllTasksProcessed()
+	return n.EngineTestFramework.Tangle.Block(alias)
+}
+
+func (n *NodeOnMockedNetwork) IssueBlock(alias string, parents ...models.BlockID) *booker.Block {
+	n.EngineTestFramework.Tangle.CreateBlock(alias, models.WithIssuer(n.Identity.PublicKey()), models.WithStrongParents(models.NewBlockIDs(parents...)))
 	n.EngineTestFramework.Tangle.IssueBlocks(alias)
 	n.WaitUntilAllTasksProcessed()
 	return n.EngineTestFramework.Tangle.Block(alias)
@@ -841,24 +853,10 @@ func (n *NodeOnMockedNetwork) ValidateAcceptedBlocks(expectedAcceptedBlocks map[
 	}
 }
 
-/*
-// MinimumCommittableAge will also be 10 seconds
-	epoch.GenesisTime = time.Now().Add(-100 * time.Second).Unix()
-	tf := NewTestFramework(t, WithNotarizationOptions(notarization.WithMinCommittableEpochAge(10*time.Second)))
-	tf.engine.EvictionState.AddRootBlock(models.EmptyBlockID)
-
-	tf.engine.Events.NotarizationManager.EpochCommitted.Hook(event.NewClosure(func(details *notarization.EpochCommittedDetails) {
-		fmt.Println(">>", details.Commitment.ID())
-	}))
-*/
-
 func TestProtocol_EngineSwitching(t *testing.T) {
-	//debug.SetEnabled(true)
-	//defer debug.SetEnabled(false)
+	testNetwork := network.NewMockedNetwork()
 
 	epoch.GenesisTime = time.Now().Unix() - epoch.Duration*10
-
-	testNetwork := network.NewMockedNetwork()
 
 	identitiesMap := map[string]*identity.Identity{
 		"node1": identity.GenerateIdentity(),
@@ -877,17 +875,33 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 		identitiesMap["node4"].PublicKey(): 25,
 	}
 
+	allWeights := map[ed25519.PublicKey]uint64{}
+	lo.MergeMaps(allWeights, partition1Weights)
+	lo.MergeMaps(allWeights, partition2Weights)
+
 	snapshotsDir := utils.NewDirectory(t.TempDir())
 	snapshotPartition1 := snapshotsDir.Path("snapshot_1.bin")
-	snapshotcreator.CreateSnapshot(DatabaseVersion, snapshotPartition1, 150, make([]byte, 32), lo.MergeMaps(partition1Weights, partition2Weights), lo.Keys(partition1Weights))
+	snapshotcreator.CreateSnapshot(DatabaseVersion, snapshotPartition1, 0, make([]byte, 32), allWeights, lo.Keys(partition1Weights))
 
 	snapshotPartition2 := snapshotsDir.Path("snapshot_2.bin")
-	snapshotcreator.CreateSnapshot(DatabaseVersion, snapshotPartition2, 150, make([]byte, 32), lo.MergeMaps(partition1Weights, partition2Weights), lo.Keys(partition2Weights))
+	snapshotcreator.CreateSnapshot(DatabaseVersion, snapshotPartition2, 0, make([]byte, 32), allWeights, lo.Keys(partition2Weights))
 
 	node1 := newNode(t, "node1", identitiesMap["node1"], testNetwork, "P1", snapshotPartition1)
 	node2 := newNode(t, "node2", identitiesMap["node2"], testNetwork, "P1", snapshotPartition1)
 	node3 := newNode(t, "node3", identitiesMap["node3"], testNetwork, "P2", snapshotPartition2)
 	node4 := newNode(t, "node4", identitiesMap["node4"], testNetwork, "P2", snapshotPartition2)
+
+	require.Equal(t, int64(150), node1.Protocol.Engine().SybilProtection.Weights().TotalWeight().Value)
+	require.Equal(t, int64(100), node1.Protocol.Engine().SybilProtection.Validators().TotalWeight())
+
+	require.Equal(t, int64(150), node2.Protocol.Engine().SybilProtection.Weights().TotalWeight().Value)
+	require.Equal(t, int64(100), node2.Protocol.Engine().SybilProtection.Validators().TotalWeight())
+
+	require.Equal(t, int64(150), node3.Protocol.Engine().SybilProtection.Weights().TotalWeight().Value)
+	require.Equal(t, int64(50), node3.Protocol.Engine().SybilProtection.Validators().TotalWeight())
+
+	require.Equal(t, int64(150), node4.Protocol.Engine().SybilProtection.Weights().TotalWeight().Value)
+	require.Equal(t, int64(50), node4.Protocol.Engine().SybilProtection.Validators().TotalWeight())
 
 	waitOnAllNodes := func() {
 		node1.WaitUntilAllTasksProcessed()
@@ -911,17 +925,18 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 	genesisBlockID := node1.EngineTestFramework.Tangle.Block("Genesis")
 
 	// Issue blocks on Partition 1
+	partition1Tips := models.NewBlockIDs()
 	{
-		blockA := node1.IssueBlock("P1.A", 6, genesisBlockID.ID())
+		blockA := node1.IssueBlockAtEpoch("P1.A", 6, genesisBlockID.ID())
 		waitOnAllNodes()
 
-		blockB := node2.IssueBlock("P1.B", 7, blockA.ID())
+		blockB := node2.IssueBlockAtEpoch("P1.B", 7, blockA.ID())
 		waitOnAllNodes()
 
-		blockC := node1.IssueBlock("P1.C", 8, blockB.ID())
+		blockC := node1.IssueBlockAtEpoch("P1.C", 8, blockB.ID())
 		waitOnAllNodes()
 
-		blockD := node2.IssueBlock("P1.D", 11, blockC.ID())
+		blockD := node2.IssueBlockAtEpoch("P1.D", 11, blockC.ID())
 		waitOnAllNodes()
 
 		assertBlockExistsOnNodes(blockA.ID(), node1, node2)
@@ -938,28 +953,28 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 			blockA.ID(): true,
 			blockB.ID(): true,
 			blockC.ID(): true,
-			blockD.ID(): true,
+			blockD.ID(): false, // block not referenced yet
 		}
 
 		node1.ValidateAcceptedBlocks(acceptedBlocks)
 		node2.ValidateAcceptedBlocks(acceptedBlocks)
 
-		println(blockA.Commitment().ID().String())
-		println(blockD.Commitment().ID().String())
+		partition1Tips.Add(blockD.ID())
 	}
 
 	// Issue blocks on Partition 2
+	partition2Tips := models.NewBlockIDs()
 	{
-		blockA := node3.IssueBlock("P2.A", 7, genesisBlockID.ID())
+		blockA := node3.IssueBlockAtEpoch("P2.A", 7, genesisBlockID.ID())
 		waitOnAllNodes()
 
-		blockB := node4.IssueBlock("P2.B", 8, blockA.ID())
+		blockB := node4.IssueBlockAtEpoch("P2.B", 8, blockA.ID())
 		waitOnAllNodes()
 
-		blockC := node3.IssueBlock("P2.C", 9, blockB.ID())
+		blockC := node3.IssueBlockAtEpoch("P2.C", 9, blockB.ID())
 		waitOnAllNodes()
 
-		blockD := node4.IssueBlock("P2.D", 11, blockC.ID())
+		blockD := node4.IssueBlockAtEpoch("P2.D", 11, blockC.ID())
 		waitOnAllNodes()
 
 		assertBlockExistsOnNodes(blockA.ID(), node3, node4)
@@ -976,13 +991,32 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 			blockA.ID(): true,
 			blockB.ID(): true,
 			blockC.ID(): true,
-			blockD.ID(): true,
+			blockD.ID(): false, // block not referenced yet
 		}
 
 		node3.ValidateAcceptedBlocks(acceptedBlocks)
 		node4.ValidateAcceptedBlocks(acceptedBlocks)
 
-		println(blockA.Commitment().ID().String())
-		println(blockD.Commitment().ID().String())
+		partition2Tips.Add(blockD.ID())
+	}
+
+	testNetwork.MergePartitionsToMain()
+	println("Merged network partitions")
+
+	// Issue blocks after merging the networks
+	{
+		tip := partition1Tips.First()
+		blockE := node1.IssueBlock("J.E", tip)
+		partition1Tips.Remove(tip)
+
+		tip = partition2Tips.First()
+		blockF := node3.IssueBlock("J.F", tip)
+		partition2Tips.Remove(tip)
+
+		waitOnAllNodes()
+
+		// Calm the compiler
+		_ = blockE.ID()
+		_ = blockF.ID()
 	}
 }
