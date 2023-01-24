@@ -141,23 +141,25 @@ func (p *Protocol) initCongestionControl() {
 func (p *Protocol) initNetworkProtocol() {
 	p.networkProtocol = network.NewProtocol(p.dispatcher)
 
-	p.networkProtocol.Events.BlockRequestReceived.Attach(event.NewClosure(func(event *network.BlockRequestReceivedEvent) {
+	p.Events.Network = p.networkProtocol.Events
+
+	p.Events.Network.BlockRequestReceived.Attach(event.NewClosure(func(event *network.BlockRequestReceivedEvent) {
 		if block, exists := p.MainEngineInstance().Engine.Block(event.BlockID); exists {
 			p.networkProtocol.SendBlock(block, event.Source)
 		}
 	}))
 
-	p.networkProtocol.Events.BlockReceived.Attach(event.NewClosure(func(event *network.BlockReceivedEvent) {
+	p.Events.Network.BlockReceived.Attach(event.NewClosure(func(event *network.BlockReceivedEvent) {
 		if err := p.ProcessBlock(event.Block, event.Source); err != nil {
 			p.Events.Error.Trigger(err)
 		}
 	}))
 
-	p.networkProtocol.Events.EpochCommitmentReceived.Attach(event.NewClosure(func(event *network.EpochCommitmentReceivedEvent) {
+	p.Events.Network.EpochCommitmentReceived.Attach(event.NewClosure(func(event *network.EpochCommitmentReceivedEvent) {
 		p.chainManager.ProcessCommitmentFromSource(event.Commitment, event.Source)
 	}))
 
-	p.networkProtocol.Events.EpochCommitmentRequestReceived.Attach(event.NewClosure(func(event *network.EpochCommitmentRequestReceivedEvent) {
+	p.Events.Network.EpochCommitmentRequestReceived.Attach(event.NewClosure(func(event *network.EpochCommitmentRequestReceivedEvent) {
 		if requestedCommitment, _ := p.chainManager.Commitment(event.CommitmentID); requestedCommitment != nil && requestedCommitment.Commitment() != nil {
 			p.networkProtocol.SendEpochCommitment(requestedCommitment.Commitment(), event.Source)
 		}
@@ -175,11 +177,11 @@ func (p *Protocol) initNetworkProtocol() {
 		p.networkProtocol.RequestCommitment(commitmentID)
 	}))
 
-	p.networkProtocol.Events.AttestationsRequestReceived.Attach(event.NewClosure(func(event *network.AttestationsRequestReceivedEvent) {
+	p.Events.Network.AttestationsRequestReceived.Attach(event.NewClosure(func(event *network.AttestationsRequestReceivedEvent) {
 		p.ProcessAttestationsRequest(event.StartIndex, event.EndIndex, event.Source)
 	}))
 
-	p.networkProtocol.Events.AttestationsReceived.Attach(event.NewClosure(func(event *network.AttestationsReceivedEvent) {
+	p.Events.Network.AttestationsReceived.Attach(event.NewClosure(func(event *network.AttestationsReceivedEvent) {
 		p.ProcessAttestations(event.Attestations, event.Source)
 	}))
 }
