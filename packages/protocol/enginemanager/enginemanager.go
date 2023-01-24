@@ -50,7 +50,6 @@ func New(dir string,
 	engineOptions []options.Option[engine.Engine],
 	sybilProtectionProvider engine.ModuleProvider[sybilprotection.SybilProtection],
 	throughputQuotaProvider engine.ModuleProvider[throughputquota.ThroughputQuota]) *EngineManager {
-
 	return &EngineManager{
 		directory:               utils.NewDirectory(dir),
 		dbVersion:               dbVersion,
@@ -142,7 +141,6 @@ func (m *EngineManager) newEngineInstance() *EngineInstance {
 }
 
 func (m *EngineManager) ForkEngineAtEpoch(index epoch.Index) (*EngineInstance, error) {
-
 	// Dump a snapshot at the target index
 	snapshotPath := filepath.Join(os.TempDir(), fmt.Sprintf("snapshot_%d.bin", index))
 	if err := m.activeInstance.Engine.WriteSnapshot(snapshotPath, index); err != nil {
@@ -152,8 +150,8 @@ func (m *EngineManager) ForkEngineAtEpoch(index epoch.Index) (*EngineInstance, e
 	instance := m.newEngineInstance()
 	if err := instance.InitializeWithSnapshot(snapshotPath); err != nil {
 		instance.Shutdown()
-		instance.RemoveFromFilesystem()
-		os.Remove(snapshotPath)
+		_ = instance.RemoveFromFilesystem()
+		_ = os.Remove(snapshotPath)
 		return nil, err
 	}
 
