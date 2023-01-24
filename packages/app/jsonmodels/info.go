@@ -32,8 +32,6 @@ type InfoResponse struct {
 	Mana Mana `json:"mana,omitempty"`
 	// Scheduler is the scheduler.
 	Scheduler Scheduler `json:"scheduler"`
-	// LastCommittedEpoch contains information about the last committed epoch.
-	LastCommittedEpoch EpochInfo
 	// RateSetter is the rate setter.
 	RateSetter RateSetter `json:"rateSetter"`
 	// error of the response

@@ -1,6 +1,10 @@
 package epoch
 
 import (
+	"net/http"
+
+	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/hive.go/core/node"
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
@@ -18,7 +22,8 @@ var (
 type dependencies struct {
 	dig.In
 
-	Server *echo.Echo
+	Server   *echo.Echo
+	Protocol *protocol.Protocol
 }
 
 func init() {
@@ -26,14 +31,31 @@ func init() {
 }
 
 func configure(_ *node.Plugin) {
-	// deps.Server.GET("epochs", getAllCommittedEpochs)
-	// deps.Server.GET("ec", getCurrentEC)
+	deps.Server.GET("commitments/latest", getLatestCommitment)
 	// deps.Server.GET("epoch/:ei", getCommittedEpoch)
 	// deps.Server.GET("epoch/:ei/utxos", getUTXOs)
 	// deps.Server.GET("epoch/:ei/blocks", getBlocks)
 	// deps.Server.GET("epoch/:ei/transactions", getTransactions)
 	// deps.Server.GET("epoch/:ei/pending-conflict-count", getPendingConflictsCount)
 	// deps.Server.GET("epoch/:ei/voters-weight", getVotersWeight)
+}
+
+func getLatestCommitment(c echo.Context) error {
+	latestCommitment := deps.Protocol.Engine().Storage.Settings.LatestCommitment()
+	b, err := latestCommitment.Bytes()
+	if err != nil {
+		return c.String(http.StatusInternalServerError, err.Error())
+	}
+	res := jsonmodels.Commitment{
+		LatestConfirmedIndex: int64(deps.Protocol.Engine().Storage.Settings.LatestConfirmedEpoch()),
+		Index:                int64(latestCommitment.Index()),
+		ID:                   latestCommitment.ID().Base58(),
+		PrevID:               latestCommitment.PrevID().Base58(),
+		RootsID:              latestCommitment.RootsID().Base58(),
+		CumulativeWeight:     latestCommitment.CumulativeWeight(),
+		Bytes:                b,
+	}
+	return c.JSON(http.StatusOK, res)
 }
 
 //
