@@ -683,7 +683,6 @@ type NodeOnMockedNetwork struct {
 }
 
 func newNode(t *testing.T, identity *identity.Identity, network *network.MockedNetwork, partition string, snapshotPath string) *NodeOnMockedNetwork {
-
 	endpoint := network.Join(identity.ID(), partition)
 	tempDir := utils.NewDirectory(t.TempDir())
 
@@ -727,7 +726,6 @@ func newNode(t *testing.T, identity *identity.Identity, network *network.MockedN
 }
 
 func (n *NodeOnMockedNetwork) AttachLogging() {
-
 	events := n.Protocol.Events
 
 	events.Engine.Tangle.BlockDAG.BlockAttached.Hook(event.NewClosure(func(block *blockdag.Block) {
@@ -760,7 +758,6 @@ func (n *NodeOnMockedNetwork) AttachLogging() {
 
 	events.Engine.Tangle.VirtualVoting.SequenceTracker.VotersUpdated.Hook(event.NewClosure(func(event *sequencetracker.VoterUpdatedEvent) {
 		fmt.Printf("%s> Tangle.VirtualVoting.SequenceTracker.VotersUpdated: %s %s %d -> %d\n", n.Identity.ID(), event.SequenceID, event.Voter, event.PrevMaxSupportedIndex, event.NewMaxSupportedIndex)
-
 	}))
 
 	events.Engine.Clock.AcceptanceTimeUpdated.Hook(event.NewClosure(func(event *clock.TimeUpdateEvent) {
@@ -892,6 +889,13 @@ func (n *NodeOnMockedNetwork) ValidateAcceptedBlocks(expectedAcceptedBlocks map[
 		actualBlockAccepted := n.Protocol.Engine().Consensus.BlockGadget.IsBlockAccepted(blockID)
 		require.Equal(n.Testing, blockExpectedAccepted, actualBlockAccepted, "Block %s should be accepted=%t but is %t", blockID, blockExpectedAccepted, actualBlockAccepted)
 	}
+}
+
+func (n *NodeOnMockedNetwork) AssertEqualChains(other *NodeOnMockedNetwork) {
+	require.Equal(n.Testing, n.Protocol.Engine().Storage.Settings.ChainID(), other.Protocol.Engine().Storage.Settings.ChainID())
+	require.Equal(n.Testing, n.Protocol.Engine().Storage.Settings.LatestCommitment(), other.Protocol.Engine().Storage.Settings.LatestCommitment())
+	require.Equal(n.Testing, n.Protocol.Engine().Storage.Settings.LatestConfirmedEpoch(), other.Protocol.Engine().Storage.Settings.LatestConfirmedEpoch())
+	require.Equal(n.Testing, n.Protocol.Engine().Storage.Settings.LatestStateMutationEpoch(), other.Protocol.Engine().Storage.Settings.LatestStateMutationEpoch())
 }
 
 func TestProtocol_EngineSwitching(t *testing.T) {
@@ -1068,5 +1072,12 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 		// Calm the compiler
 		_ = blockG.ID()
 		_ = blockH.ID()
+	}
+
+	// Compare chains
+	{
+		node1.AssertEqualChains(node2)
+		node1.AssertEqualChains(node3)
+		node1.AssertEqualChains(node4)
 	}
 }
