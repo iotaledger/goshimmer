@@ -194,7 +194,8 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) SetConflictAccepted(confli
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	rejectionWalker := walker.New[ConflictIDType]()
+	conflictsToReject := set.NewAdvancedSet[*Conflict[ConflictIDType, ResourceIDType]]()
+
 	for confirmationWalker := set.NewAdvancedSet(conflictID).Iterator(); confirmationWalker.HasNext(); {
 		currentConflictID := confirmationWalker.Next()
 		conflict, exists := c.conflict(currentConflictID)
@@ -203,9 +204,11 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) SetConflictAccepted(confli
 		}
 
 		if conflict.ConfirmationState() != confirmation.NotConflicting {
-			if modified = conflict.setConfirmationState(confirmation.Accepted); !modified {
+			if !conflict.setConfirmationState(confirmation.Accepted) {
 				continue
 			}
+
+			modified = true
 
 			c.Events.ConflictAccepted.Trigger(conflict)
 		}
@@ -213,28 +216,12 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) SetConflictAccepted(confli
 		confirmationWalker.PushAll(conflict.Parents().Slice()...)
 
 		conflict.ForEachConflictingConflict(func(conflictingConflict *Conflict[ConflictIDType, ResourceIDType]) bool {
-			rejectionWalker.Push(conflictingConflict.ID())
+			conflictsToReject.Add(conflictingConflict)
 			return true
 		})
 	}
 
-	for rejectionWalker.HasNext() {
-		conflict, exists := c.conflict(rejectionWalker.Next())
-		if !exists {
-			continue
-		}
-
-		if modified = conflict.setConfirmationState(confirmation.Rejected); !modified {
-			continue
-		}
-
-		c.Events.ConflictRejected.Trigger(conflict)
-
-		_ = conflict.Children().ForEach(func(childConflict *Conflict[ConflictIDType, ResourceIDType]) error {
-			rejectionWalker.Push(childConflict.ID())
-			return nil
-		})
-	}
+	modified = c.rejectConflictsWithFutureCone(conflictsToReject) || modified
 
 	//// Delete all resolved ConflictSets (don't have a pending conflict anymore).
 	//for it := conflictSets.Iterator(); it.HasNext(); {
@@ -266,6 +253,23 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) SetConflictAccepted(confli
 	return modified
 }
 
+func (c *ConflictDAG[ConflictIDType, ResourceIDType]) rejectConflictsWithFutureCone(initialConflicts *set.AdvancedSet[*Conflict[ConflictIDType, ResourceIDType]]) (modified bool) {
+	rejectionWalker := walker.New[*Conflict[ConflictIDType, ResourceIDType]]().PushAll(initialConflicts.Slice()...)
+	for rejectionWalker.HasNext() {
+		conflict := rejectionWalker.Next()
+		if !conflict.setConfirmationState(confirmation.Rejected) {
+			continue
+		}
+
+		modified = true
+
+		c.Events.ConflictRejected.Trigger(conflict)
+		rejectionWalker.PushAll(conflict.Children().Slice()...)
+	}
+
+	return modified
+}
+
 // ConfirmationState returns the ConfirmationState of the given ConflictIDs.
 func (c *ConflictDAG[ConflictIDType, ResourceIDType]) ConfirmationState(conflictIDs *set.AdvancedSet[ConflictIDType]) (confirmationState confirmation.State) {
 	c.mutex.RLock()
@@ -279,7 +283,6 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) ConfirmationState(conflict
 		if confirmationState = confirmationState.Aggregate(c.confirmationState(conflictID)); confirmationState.IsRejected() {
 			return confirmation.Rejected
 		}
-
 	}
 
 	return confirmationState
@@ -461,21 +464,15 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) HandleOrphanedConflict(con
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	conflict, exists := c.conflict(conflictID)
+	initialConflict, exists := c.conflict(conflictID)
 	if !exists {
 		return
 	}
 
-	if !conflict.ConfirmationState().IsPending() {
-		return
-	}
+	c.rejectConflictsWithFutureCone(set.NewAdvancedSet[*Conflict[ConflictIDType, ResourceIDType]](initialConflict))
 
-	conflict.setConfirmationState(confirmation.Rejected)
-	c.Events.ConflictRejected.Trigger(conflict)
-
-	// TODO: walk children conflicts and reject them as well
 	// iterate conflict's conflictSets. if only one conflict is pending, then mark it appropriately
-	for it := conflict.conflictSets.Iterator(); it.HasNext(); {
+	for it := initialConflict.conflictSets.Iterator(); it.HasNext(); {
 		conflictSet := it.Next()
 
 		pendingConflict := c.getLastPendingConflict(conflictSet)
@@ -489,6 +486,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) HandleOrphanedConflict(con
 			pendingConflictConflictSet := pendingConflictSetsIt.Next()
 			if lastConflictSetElement := c.getLastPendingConflict(pendingConflictConflictSet); lastConflictSetElement == nil {
 				nonResolvedConflictSets = true
+				break
 			}
 		}
 

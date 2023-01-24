@@ -188,6 +188,17 @@ func TestConflictDAG_SetNotConflicting_1(t *testing.T) {
 	tf.CreateConflict("E", tf.ConflictIDs("B"), "3")
 	tf.CreateConflict("F", tf.ConflictIDs("B"), "3")
 
+	tf.AssertConflictParentsAndChildren(map[string][]string{
+		"X": {},
+		"Y": {},
+		"A": {"X"},
+		"B": {"X"},
+		"C": {"A"},
+		"D": {"A"},
+		"E": {"B"},
+		"F": {"B"},
+	})
+
 	tf.ConflictDAG.HandleOrphanedConflict(tf.ConflictID("B"))
 
 	tf.AssertConfirmationState(map[string]confirmation.State{
@@ -197,8 +208,8 @@ func TestConflictDAG_SetNotConflicting_1(t *testing.T) {
 		"B": confirmation.Rejected,
 		"C": confirmation.Pending,
 		"D": confirmation.Pending,
-		//"E": confirmation.Rejected,
-		//"F": confirmation.Rejected,
+		"E": confirmation.Rejected,
+		"F": confirmation.Rejected,
 	})
 
 	tf.SetConflictAccepted("C")
@@ -210,8 +221,8 @@ func TestConflictDAG_SetNotConflicting_1(t *testing.T) {
 		"B": confirmation.Rejected,
 		"C": confirmation.Accepted,
 		"D": confirmation.Rejected,
-		//"E": confirmation.Rejected,
-		//"F": confirmation.Rejected,
+		"E": confirmation.Rejected,
+		"F": confirmation.Rejected,
 	})
 }
 
@@ -227,6 +238,17 @@ func TestConflictDAG_SetNotConflicting_2(t *testing.T) {
 	tf.CreateConflict("E", tf.ConflictIDs("B"), "3")
 	tf.CreateConflict("F", tf.ConflictIDs("B"), "3")
 
+	tf.AssertConflictParentsAndChildren(map[string][]string{
+		"X": {},
+		"Y": {},
+		"A": {"X"},
+		"B": {"X"},
+		"C": {},
+		"D": {},
+		"E": {"B"},
+		"F": {"B"},
+	})
+
 	tf.ConflictDAG.HandleOrphanedConflict(tf.ConflictID("B"))
 
 	tf.AssertConfirmationState(map[string]confirmation.State{
@@ -236,20 +258,83 @@ func TestConflictDAG_SetNotConflicting_2(t *testing.T) {
 		"B": confirmation.Rejected,
 		"C": confirmation.Pending,
 		"D": confirmation.Pending,
-		//"E": confirmation.Rejected,
-		//"F": confirmation.Rejected,
+		"E": confirmation.Rejected,
+		"F": confirmation.Rejected,
 	})
 
-	tf.SetConflictAccepted("C")
+	tf.SetConflictAccepted("A")
+
+	tf.AssertConfirmationState(map[string]confirmation.State{
+		"X": confirmation.Accepted,
+		"Y": confirmation.Rejected,
+		"A": confirmation.Accepted,
+		"B": confirmation.Rejected,
+		"C": confirmation.Rejected,
+		"D": confirmation.Rejected,
+		"E": confirmation.Rejected,
+		"F": confirmation.Rejected,
+	})
+}
+
+func TestConflictDAG_SetNotConflicting_3(t *testing.T) {
+	tf := NewTestFramework(t)
+
+	tf.CreateConflict("X", tf.ConflictIDs(), "0")
+	tf.CreateConflict("Y", tf.ConflictIDs(), "0")
+	tf.CreateConflict("A", tf.ConflictIDs("X"), "1", "2")
+	tf.CreateConflict("B", tf.ConflictIDs("X"), "1")
+	tf.CreateConflict("C", tf.ConflictIDs(), "2")
+	tf.CreateConflict("D", tf.ConflictIDs(), "2")
+	tf.CreateConflict("E", tf.ConflictIDs("B"), "3")
+	tf.CreateConflict("F", tf.ConflictIDs("B"), "3")
+
+	tf.AssertConflictParentsAndChildren(map[string][]string{
+		"X": {},
+		"Y": {},
+		"A": {"X"},
+		"B": {"X"},
+		"C": {},
+		"D": {},
+		"E": {"B"},
+		"F": {"B"},
+	})
+
+	tf.ConflictDAG.HandleOrphanedConflict(tf.ConflictID("B"))
 
 	tf.AssertConfirmationState(map[string]confirmation.State{
 		"X": confirmation.Pending,
 		"Y": confirmation.Pending,
-		"A": confirmation.Rejected,
+		"A": confirmation.Pending,
 		"B": confirmation.Rejected,
-		"C": confirmation.Accepted,
+		"C": confirmation.Pending,
+		"D": confirmation.Pending,
+		"E": confirmation.Rejected,
+		"F": confirmation.Rejected,
+	})
+
+	tf.ConflictDAG.HandleOrphanedConflict(tf.ConflictID("C"))
+
+	tf.AssertConfirmationState(map[string]confirmation.State{
+		"X": confirmation.Pending,
+		"Y": confirmation.Pending,
+		"A": confirmation.Pending,
+		"B": confirmation.Rejected,
+		"C": confirmation.Rejected,
+		"D": confirmation.Pending,
+		"E": confirmation.Rejected,
+		"F": confirmation.Rejected,
+	})
+
+	tf.ConflictDAG.HandleOrphanedConflict(tf.ConflictID("D"))
+
+	tf.AssertConfirmationState(map[string]confirmation.State{
+		"X": confirmation.Pending,
+		"Y": confirmation.Pending,
+		"A": confirmation.NotConflicting,
+		"B": confirmation.Rejected,
+		"C": confirmation.Rejected,
 		"D": confirmation.Rejected,
-		//"E": confirmation.Rejected,
-		//"F": confirmation.Rejected,
+		"E": confirmation.Rejected,
+		"F": confirmation.Rejected,
 	})
 }
