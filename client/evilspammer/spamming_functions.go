@@ -73,8 +73,8 @@ func CustomConflictSpammingFunc(s *Spammer) {
 func CommitmentsSpammingFunction(s *Spammer) {
 	clt := s.Clients.GetClient()
 	parents := clt.GetParents()
-	kp := ed25519.GenerateKeyPair()
-	commitment, latestConfIndex, err := evilwallet.DummyCommitment(clt)
+	localID := s.IdentityManager.GetIdentity()
+	commitment, latestConfIndex, err := s.CommitmentManager.GenerateCommitment()
 	if err != nil {
 		s.log.Debugf(errors.WithMessage(ErrFailToPrepareBatch, err.Error()).Error())
 		s.ErrCounter.CountError(errors.WithMessage(ErrFailToPrepareBatch, err.Error()))
@@ -82,14 +82,14 @@ func CommitmentsSpammingFunction(s *Spammer) {
 	p := payload.NewGenericDataPayload([]byte("SPAM"))
 	block := models.NewBlock(
 		models.WithParents(parents),
-		models.WithIssuer(kp.PublicKey),
+		models.WithIssuer(localID.PublicKey()),
 		models.WithIssuingTime(time.Now()),
 		models.WithPayload(p),
 		models.WithLatestConfirmedEpoch(latestConfIndex),
 		models.WithCommitment(commitment),
 		models.WithSignature(ed25519.EmptySignature),
 	)
-	signature, err := evilwallet.SignBlock(block, kp.PrivateKey)
+	signature, err := evilwallet.SignBlock(block, localID)
 	if err != nil {
 		return
 	}

@@ -35,15 +35,17 @@ type State struct {
 // Not mandatory options, if not provided spammer will use default settings:
 // WithSpamDetails, WithEvilWallet, WithErrorCounter, WithLogTickerInterval.
 type Spammer struct {
-	SpamDetails   *SpamDetails
-	State         *State
-	UseRateSetter bool
-	Clients       evilwallet.Connector
-	EvilWallet    *evilwallet.EvilWallet
-	EvilScenario  *evilwallet.EvilScenario
-	ErrCounter    *ErrorCounter
-	log           Logger
+	SpamDetails       *SpamDetails
+	State             *State
+	UseRateSetter     bool
+	Clients           evilwallet.Connector
+	EvilWallet        *evilwallet.EvilWallet
+	EvilScenario      *evilwallet.EvilScenario
+	IdentityManager   *IdentityManager
+	CommitmentManager *CommitmentManager
+	ErrCounter        *ErrorCounter
 
+	log Logger
 	// accessed from spamming functions
 	done     chan bool
 	shutdown chan types.Empty
@@ -61,14 +63,16 @@ func NewSpammer(options ...Options) *Spammer {
 		logTickTime:   time.Second * 30,
 	}
 	s := &Spammer{
-		SpamDetails:    &SpamDetails{},
-		spamFunc:       CustomConflictSpammingFunc,
-		State:          state,
-		EvilScenario:   evilwallet.NewEvilScenario(),
-		UseRateSetter:  true,
-		done:           make(chan bool),
-		shutdown:       make(chan types.Empty),
-		NumberOfSpends: 2,
+		SpamDetails:       &SpamDetails{},
+		spamFunc:          CustomConflictSpammingFunc,
+		State:             state,
+		EvilScenario:      evilwallet.NewEvilScenario(),
+		IdentityManager:   NewIdentityManager(),
+		CommitmentManager: NewCommitmentManager(),
+		UseRateSetter:     true,
+		done:              make(chan bool),
+		shutdown:          make(chan types.Empty),
+		NumberOfSpends:    2,
 	}
 
 	for _, opt := range options {
@@ -93,7 +97,7 @@ func (s *Spammer) BatchesPrepared() uint64 {
 
 func (s *Spammer) setup() {
 	s.Clients = s.EvilWallet.Connector()
-
+	s.CommitmentManager.SetConnector(s.Clients)
 	s.setupSpamDetails()
 
 	s.State.spamTicker = s.initSpamTicker()
@@ -101,11 +105,13 @@ func (s *Spammer) setup() {
 
 	if s.log == nil {
 		s.initLogger()
+		s.IdentityManager.SetLogger(s.log)
 	}
 
 	if s.ErrCounter == nil {
 		s.ErrCounter = NewErrorCount()
 	}
+
 }
 
 func (s *Spammer) setupSpamDetails() {

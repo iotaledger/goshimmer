@@ -23,7 +23,8 @@ func main() {
 		fmt.Println("Usage of the Evil Spammer tool, provide the first argument for the selected mode:\n" +
 			"'interactive' - enters the interactive mode.\n" +
 			"'basic' - can be parametrized with additional flags to run one time spammer. Run 'evil-wallet basic -h' for the list of possible flags.\n" +
-			"'quick' - runs simple stress test: tx spam -> blk spam -> ds spam. Run 'evil-wallet quick -h' for the list of possible flags.")
+			"'quick' - runs simple stress test: tx spam -> blk spam -> ds spam. Run 'evil-wallet quick -h' for the list of possible flags.\n" +
+			"'commitments' - runs spammer for commitments. Run 'evil-wallet commitments -h' for the list of possible flags.")
 		return
 	}
 	// run selected test scenario
@@ -34,6 +35,8 @@ func main() {
 		CustomSpam(&customSpamParams)
 	case "quick":
 		QuickTest(&quickTest)
+	case "commitments":
+		CommitmentsSpam(&commitmentsSpamParams)
 	default:
 		log.Warnf("Unknown parameter for script, possible values: basic, quick, interactive")
 	}
@@ -53,6 +56,8 @@ func parseFlags() (help bool) {
 		parseBasicSpamFlags()
 	case "quick":
 		parseQuickTestFlags()
+	case "commitments":
+		parseCommitmentsSpamFlags()
 	}
 	if Script == "help" || Script == "-h" || Script == "--help" {
 		return true
@@ -143,6 +148,26 @@ func parseQuickTestFlags() {
 	quickTest.TimeUnit = *timeunit
 	quickTest.DelayBetweenConflicts = *delayBetweenConflicts
 	quickTest.VerifyLedger = *verifyLedger
+}
+
+func parseCommitmentsSpamFlags() {
+	urls := optionFlagSet.String("urls", "", "API urls for clients used in test separated with commas")
+	commitmentType := optionFlagSet.String("type", "c", "Type of commitment spam. Possible values: 'latest' - valid commitment spam, 'oldest' - oldest possible spam")
+	rate := optionFlagSet.Int("rate", 1, "Commitment spam rate")
+	duration := optionFlagSet.Duration("duration", 0, "Duration of the spam. Format: decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.\n Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.")
+	timeUnit := optionFlagSet.Duration("tu", 0, "Time unit for the spamming rate. Format: decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.\n Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.")
+	networkAlias := optionFlagSet.String("network", "local", "Network alias for the test. Check your keys-config.json file for possible values.")
+	identityAlias := optionFlagSet.String("identity", "alice", "Identity alias for the node identity and its private keys. Check your keys-config.json file for possible values.")
+	if *urls != "" {
+		parsedUrls := parseCommaSepString(*urls)
+		commitmentsSpamParams.ClientURLs = parsedUrls
+	}
+	commitmentsSpamParams.CommitmentType = *commitmentType
+	commitmentsSpamParams.Rate = *rate
+	commitmentsSpamParams.Duration = *duration
+	commitmentsSpamParams.TimeUnit = *timeUnit
+	commitmentsSpamParams.NetworkAlias = *networkAlias
+	commitmentsSpamParams.IdentityAlias = *identityAlias
 }
 
 func parseCommaSepString(urls string) []string {

@@ -36,4 +36,13 @@ var (
 		DelayBetweenConflicts: 0,
 		EnableRateSetter:      true,
 	}
+
+	commitmentsSpamParams = CommitmentsSpamParams{
+		ClientURLs:    urls,
+		Rate:          1,
+		Duration:      time.Second * 20,
+		TimeUnit:      time.Second,
+		NetworkAlias:  "docker",
+		IdentityAlias: "peer_master",
+	}
 )
