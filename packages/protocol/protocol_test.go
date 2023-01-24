@@ -34,6 +34,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markermanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/protocol/enginemanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -781,7 +782,7 @@ func (n *NodeOnMockedNetwork) AttachLogging() {
 	}))
 
 	events.Engine.Error.Hook(event.NewClosure(func(err error) {
-		fmt.Printf("%s> Error: %s\n", n.Alias, err.Error())
+		fmt.Printf("%s> Engine.Error: %s\n", n.Alias, err.Error())
 	}))
 
 	events.Engine.NotarizationManager.EpochCommitted.Hook(event.NewClosure(func(details *notarization.EpochCommittedDetails) {
@@ -818,6 +819,18 @@ func (n *NodeOnMockedNetwork) AttachLogging() {
 
 	events.ChainManager.ForkDetected.Hook(event.NewClosure(func(event *chainmanager.ForkDetectedEvent) {
 		fmt.Printf("%s> ChainManager.ForkDetected: %s with forking point %s received from %s\n", n.Alias, event.Commitment.ID(), event.Chain.ForkingPoint.ID(), event.Source)
+	}))
+
+	events.CandidateEngineCreated.Hook(event.NewClosure(func(engine *enginemanager.EngineInstance) {
+		fmt.Printf("%s> CandidateEngineCreated: latest commitment %s\n", n.Alias, engine.Storage.Settings.LatestCommitment())
+	}))
+
+	events.MainEngineSwitched.Hook(event.NewClosure(func(engine *enginemanager.EngineInstance) {
+		fmt.Printf("%s> MainEngineSwitched: latest commitment %s\n", n.Alias, engine.Storage.Settings.LatestCommitment())
+	}))
+
+	events.Error.Hook(event.NewClosure(func(err error) {
+		fmt.Printf("%s> Error: %s\n", n.Alias, err.Error())
 	}))
 }
 
@@ -1010,7 +1023,7 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 	}
 
 	testNetwork.MergePartitionsToMain()
-	println("Merged network partitions")
+	println("\n=========================\nMerged network partitions\n=========================\n")
 
 	// Issue blocks after merging the networks
 	{

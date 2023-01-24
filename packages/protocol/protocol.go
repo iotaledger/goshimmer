@@ -1,7 +1,6 @@
 package protocol
 
 import (
-	"fmt"
 	"sort"
 	"sync"
 
@@ -150,7 +149,7 @@ func (p *Protocol) initNetworkProtocol() {
 
 	p.networkProtocol.Events.BlockReceived.Attach(event.NewClosure(func(event *network.BlockReceivedEvent) {
 		if err := p.ProcessBlock(event.Block, event.Source); err != nil {
-			fmt.Print(err)
+			p.Events.Error.Trigger(err)
 		}
 	}))
 
@@ -247,6 +246,8 @@ func (p *Protocol) switchEngines() {
 
 	p.activeEngineMutex.Unlock()
 
+	p.Events.MainEngineSwitched.Trigger(p.MainEngineInstance())
+
 	// Shutdown old engine and storage
 	oldEngine.Shutdown()
 
@@ -300,7 +301,7 @@ func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) error {
 
 	isSolid, chain, _ := p.chainManager.ProcessCommitmentFromSource(block.Commitment(), src)
 	if !isSolid {
-		return errors.Errorf("Chain is not solid: %s\nLatest commitment: %s\nBlock ID: %s", block.Commitment().ID(), mainEngine.Storage.Settings.LatestCommitment().ID(), block.ID())
+		return errors.Errorf("protocol ProcessBlock failed. chain is not solid: %s, latest commitment: %s, block ID: %s", block.Commitment().ID(), mainEngine.Storage.Settings.LatestCommitment().ID(), block.ID())
 	}
 
 	if mainChain := mainEngine.Storage.Settings.ChainID(); chain.ForkingPoint.ID() == mainChain {
@@ -474,6 +475,8 @@ func (p *Protocol) ProcessAttestations(attestations *orderedmap.OrderedMap[epoch
 	p.activeEngineMutex.Lock()
 	p.candidateEngine = candidateEngine
 	p.activeEngineMutex.Unlock()
+
+	p.Events.CandidateEngineCreated.Trigger(candidateEngine)
 }
 
 func (p *Protocol) Engine() *engine.Engine {

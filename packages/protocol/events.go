@@ -7,12 +7,15 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/enginemanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
 )
 
 type Events struct {
-	InvalidBlockReceived *event.Linkable[identity.ID]
-	Error                *event.Linkable[error]
+	InvalidBlockReceived   *event.Linkable[identity.ID]
+	CandidateEngineCreated *event.Linkable[*enginemanager.EngineInstance]
+	MainEngineSwitched     *event.Linkable[*enginemanager.EngineInstance]
+	Error                  *event.Linkable[error]
 
 	Engine            *engine.Events
 	CongestionControl *congestioncontrol.Events
@@ -24,8 +27,10 @@ type Events struct {
 
 var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 	return &Events{
-		InvalidBlockReceived: event.NewLinkable[identity.ID](),
-		Error:                event.NewLinkable[error](),
+		InvalidBlockReceived:   event.NewLinkable[identity.ID](),
+		CandidateEngineCreated: event.NewLinkable[*enginemanager.EngineInstance](),
+		MainEngineSwitched:     event.NewLinkable[*enginemanager.EngineInstance](),
+		Error:                  event.NewLinkable[error](),
 
 		Engine:            engine.NewEvents(),
 		CongestionControl: congestioncontrol.NewEvents(),
