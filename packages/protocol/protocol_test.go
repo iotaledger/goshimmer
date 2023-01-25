@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/types"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
@@ -37,6 +38,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/enginemanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/goshimmer/packages/storage/utils"
@@ -676,24 +678,23 @@ func TestEngine_ShutdownResume(t *testing.T) {
 
 type NodeOnMockedNetwork struct {
 	Testing             *testing.T
+	KeyPair             ed25519.KeyPair
 	Identity            *identity.Identity
 	Endpoint            *network.MockedEndpoint
 	Protocol            *Protocol
 	EngineTestFramework *EngineTestFramework
 }
 
-func newNode(t *testing.T, identity *identity.Identity, network *network.MockedNetwork, partition string, snapshotPath string) *NodeOnMockedNetwork {
+func newNode(t *testing.T, keyPair ed25519.KeyPair, network *network.MockedNetwork, partition string, snapshotPath string, engineOpts ...options.Option[engine.Engine]) *NodeOnMockedNetwork {
+
+	identity := identity.New(keyPair.PublicKey)
 	endpoint := network.Join(identity.ID(), partition)
 	tempDir := utils.NewDirectory(t.TempDir())
 
 	protocol := New(endpoint,
 		WithBaseDirectory(tempDir.Path()),
 		WithSnapshotPath(snapshotPath),
-		WithEngineOptions(
-			engine.WithNotarizationManagerOptions(
-				notarization.WithMinCommittableEpochAge(10*time.Second),
-			),
-		),
+		WithEngineOptions(engineOpts...),
 	)
 	protocol.Run()
 
@@ -713,89 +714,18 @@ func newNode(t *testing.T, identity *identity.Identity, network *network.MockedN
 		),
 	))
 
-	n := &NodeOnMockedNetwork{
+	return &NodeOnMockedNetwork{
 		Testing:             t,
 		Identity:            identity,
+		KeyPair:             keyPair,
 		Endpoint:            endpoint,
 		Protocol:            protocol,
 		EngineTestFramework: tf,
 	}
-	n.AttachLogging()
-
-	return n
 }
 
-func (n *NodeOnMockedNetwork) AttachLogging() {
+func (n *NodeOnMockedNetwork) HookLogging() {
 	events := n.Protocol.Events
-
-	events.Engine.Tangle.BlockDAG.BlockAttached.Hook(event.NewClosure(func(block *blockdag.Block) {
-		fmt.Printf("%s> BlockDAG.BlockAttached: %s\n", n.Identity.ID(), block.ID())
-	}))
-
-	events.Engine.Tangle.BlockDAG.BlockSolid.Hook(event.NewClosure(func(block *blockdag.Block) {
-		fmt.Printf("%s> BlockDAG.BlockSolid: %s\n", n.Identity.ID(), block.ID())
-	}))
-
-	events.Engine.Tangle.BlockDAG.BlockInvalid.Hook(event.NewClosure(func(event *blockdag.BlockInvalidEvent) {
-		fmt.Printf("%s> BlockDAG.BlockInvalid: %s - %s\n", n.Identity.ID(), event.Block.ID(), event.Reason.Error())
-	}))
-
-	events.Engine.Tangle.BlockDAG.BlockMissing.Hook(event.NewClosure(func(block *blockdag.Block) {
-		fmt.Printf("%s> BlockDAG.BlockMissing: %s\n", n.Identity.ID(), block.ID())
-	}))
-
-	events.Engine.Tangle.BlockDAG.MissingBlockAttached.Hook(event.NewClosure(func(block *blockdag.Block) {
-		fmt.Printf("%s> BlockDAG.MissingBlockAttached: %s\n", n.Identity.ID(), block.ID())
-	}))
-
-	events.Engine.Tangle.BlockDAG.BlockOrphaned.Hook(event.NewClosure(func(block *blockdag.Block) {
-		fmt.Printf("%s> BlockDAG.BlockOrphaned: %s\n", n.Identity.ID(), block.ID())
-	}))
-
-	events.Engine.Tangle.BlockDAG.BlockUnorphaned.Hook(event.NewClosure(func(block *blockdag.Block) {
-		fmt.Printf("%s> BlockDAG.BlockUnorphaned: %s\n", n.Identity.ID(), block.ID())
-	}))
-
-	events.Engine.Tangle.VirtualVoting.SequenceTracker.VotersUpdated.Hook(event.NewClosure(func(event *sequencetracker.VoterUpdatedEvent) {
-		fmt.Printf("%s> Tangle.VirtualVoting.SequenceTracker.VotersUpdated: %s %s %d -> %d\n", n.Identity.ID(), event.SequenceID, event.Voter, event.PrevMaxSupportedIndex, event.NewMaxSupportedIndex)
-	}))
-
-	events.Engine.Clock.AcceptanceTimeUpdated.Hook(event.NewClosure(func(event *clock.TimeUpdateEvent) {
-		fmt.Printf("%s> Clock.AcceptanceTimeUpdated: %s\n", n.Identity.ID(), event.NewTime)
-	}))
-
-	events.Engine.Filter.BlockAllowed.Hook(event.NewClosure(func(block *models.Block) {
-		fmt.Printf("%s> Filter.BlockAllowed: %s\n", n.Identity.ID(), block.ID())
-	}))
-
-	events.Engine.Filter.BlockFiltered.Hook(event.NewClosure(func(event *filter.BlockFilteredEvent) {
-		fmt.Printf("%s> Filter.BlockFiltered: %s - %s\n", n.Identity.ID(), event.Block.ID(), event.Reason.Error())
-		n.Testing.Fatal("no blocks should be filtered")
-	}))
-
-	events.Engine.BlockRequester.Tick.Hook(event.NewClosure(func(blockID models.BlockID) {
-		fmt.Printf("%s> BlockRequester.Tick: %s\n", n.Identity.ID(), blockID)
-	}))
-
-	events.Engine.Error.Hook(event.NewClosure(func(err error) {
-		fmt.Printf("%s> Engine.Error: %s\n", n.Identity.ID(), err.Error())
-	}))
-
-	events.Engine.NotarizationManager.EpochCommitted.Hook(event.NewClosure(func(details *notarization.EpochCommittedDetails) {
-		fmt.Printf("%s> NotarizationManager.EpochCommitted: %s\n", n.Identity.ID(), details.Commitment.ID())
-	}))
-
-	events.Engine.Consensus.BlockGadget.BlockAccepted.Hook(event.NewClosure(func(block *blockgadget.Block) {
-		fmt.Printf("%s> Consensus.BlockGadget.BlockAccepted: %s %s\n", n.Identity.ID(), block.ID(), block.Commitment().ID())
-	}))
-
-	events.Engine.Consensus.BlockGadget.BlockConfirmed.Hook(event.NewClosure(func(block *blockgadget.Block) {
-		fmt.Printf("%s> Consensus.BlockGadget.BlockConfirmed: %s %s\n", n.Identity.ID(), block.ID(), block.Commitment().ID())
-	}))
-
-	events.Engine.Consensus.EpochGadget.EpochConfirmed.Hook(event.NewClosure(func(epochIndex epoch.Index) {
-		fmt.Printf("%s> Consensus.EpochGadget.EpochConfirmed: %s\n", n.Identity.ID(), epochIndex)
-	}))
 
 	events.CongestionControl.Scheduler.BlockScheduled.Hook(event.NewClosure(func(block *scheduler.Block) {
 		fmt.Printf("%s> CongestionControl.Scheduler.BlockScheduled: %s\n", n.Identity.ID(), block.ID())
@@ -815,6 +745,7 @@ func (n *NodeOnMockedNetwork) AttachLogging() {
 
 	events.ChainManager.ForkDetected.Hook(event.NewClosure(func(event *chainmanager.ForkDetectedEvent) {
 		fmt.Printf("%s> ChainManager.ForkDetected: %s with forking point %s received from %s\n", n.Identity.ID(), event.Commitment.ID(), event.Chain.ForkingPoint.ID(), event.Source)
+		println("-----------------\nForkDetected\n-----------------")
 	}))
 
 	events.CandidateEngineCreated.Hook(event.NewClosure(func(engine *enginemanager.EngineInstance) {
@@ -829,12 +760,20 @@ func (n *NodeOnMockedNetwork) AttachLogging() {
 		fmt.Printf("%s> Error: %s\n", n.Identity.ID(), err.Error())
 	}))
 
+	events.Network.BlockReceived.Hook(event.NewClosure(func(event *network.BlockReceivedEvent) {
+		fmt.Printf("%s> Network.BlockReceived: from %s %s\n", n.Identity.ID(), event.Source, event.Block.ID())
+	}))
+
+	events.Network.BlockRequestReceived.Hook(event.NewClosure(func(event *network.BlockRequestReceivedEvent) {
+		fmt.Printf("%s> Network.BlockRequestReceived: from %s %s\n", n.Identity.ID(), event.Source, event.BlockID)
+	}))
+
 	events.Network.AttestationsReceived.Hook(event.NewClosure(func(event *network.AttestationsReceivedEvent) {
-		fmt.Printf("%s> Network.AttestationsReceived: from %s\n", n.Identity.ID(), event.Source)
+		fmt.Printf("%s> Network.AttestationsReceived: from %s for %s\n", n.Identity.ID(), event.Source, event.Commitment.ID())
 	}))
 
 	events.Network.AttestationsRequestReceived.Hook(event.NewClosure(func(event *network.AttestationsRequestReceivedEvent) {
-		fmt.Printf("%s> Network.AttestationsRequestReceived: from %s %d -> %d\n", n.Identity.ID(), event.Source, event.StartIndex, event.EndIndex)
+		fmt.Printf("%s> Network.AttestationsRequestReceived: from %s %s -> %d\n", n.Identity.ID(), event.Source, event.Commitment.ID(), event.EndIndex)
 	}))
 
 	events.Network.EpochCommitmentReceived.Hook(event.NewClosure(func(event *network.EpochCommitmentReceivedEvent) {
@@ -847,6 +786,84 @@ func (n *NodeOnMockedNetwork) AttachLogging() {
 
 	events.Network.Error.Hook(event.NewClosure(func(event *network.ErrorEvent) {
 		fmt.Printf("%s> Network.Error: from %s %s\n", n.Identity.ID(), event.Source, event.Error.Error())
+	}))
+
+	n.attachEngineLogs("Main", events.Engine)
+
+	events.CandidateEngineCreated.Hook(event.NewClosure(func(candidateEngine *enginemanager.EngineInstance) {
+		n.attachEngineLogs("Candidate", candidateEngine.Engine.Events)
+	}))
+
+}
+
+func (n *NodeOnMockedNetwork) attachEngineLogs(engineName string, events *engine.Events) {
+	events.Tangle.BlockDAG.BlockAttached.Hook(event.NewClosure(func(block *blockdag.Block) {
+		fmt.Printf("%s> [%s] BlockDAG.BlockAttached: %s\n", n.Identity.ID(), engineName, block.ID())
+	}))
+
+	events.Tangle.BlockDAG.BlockSolid.Hook(event.NewClosure(func(block *blockdag.Block) {
+		fmt.Printf("%s> [%s] BlockDAG.BlockSolid: %s\n", n.Identity.ID(), engineName, block.ID())
+	}))
+
+	events.Tangle.BlockDAG.BlockInvalid.Hook(event.NewClosure(func(event *blockdag.BlockInvalidEvent) {
+		fmt.Printf("%s> [%s] BlockDAG.BlockInvalid: %s - %s\n", n.Identity.ID(), engineName, event.Block.ID(), event.Reason.Error())
+	}))
+
+	events.Tangle.BlockDAG.BlockMissing.Hook(event.NewClosure(func(block *blockdag.Block) {
+		fmt.Printf("%s> [%s] BlockDAG.BlockMissing: %s\n", n.Identity.ID(), engineName, block.ID())
+	}))
+
+	events.Tangle.BlockDAG.MissingBlockAttached.Hook(event.NewClosure(func(block *blockdag.Block) {
+		fmt.Printf("%s> [%s] BlockDAG.MissingBlockAttached: %s\n", n.Identity.ID(), engineName, block.ID())
+	}))
+
+	events.Tangle.BlockDAG.BlockOrphaned.Hook(event.NewClosure(func(block *blockdag.Block) {
+		fmt.Printf("%s> [%s] BlockDAG.BlockOrphaned: %s\n", n.Identity.ID(), engineName, block.ID())
+	}))
+
+	events.Tangle.BlockDAG.BlockUnorphaned.Hook(event.NewClosure(func(block *blockdag.Block) {
+		fmt.Printf("%s> [%s] BlockDAG.BlockUnorphaned: %s\n", n.Identity.ID(), engineName, block.ID())
+	}))
+
+	events.Tangle.VirtualVoting.SequenceTracker.VotersUpdated.Hook(event.NewClosure(func(event *sequencetracker.VoterUpdatedEvent) {
+		fmt.Printf("%s> [%s] Tangle.VirtualVoting.SequenceTracker.VotersUpdated: %s %s %d -> %d\n", n.Identity.ID(), engineName, event.SequenceID, event.Voter, event.PrevMaxSupportedIndex, event.NewMaxSupportedIndex)
+	}))
+
+	events.Clock.AcceptanceTimeUpdated.Hook(event.NewClosure(func(event *clock.TimeUpdateEvent) {
+		fmt.Printf("%s> [%s] Clock.AcceptanceTimeUpdated: %s\n", n.Identity.ID(), engineName, event.NewTime)
+	}))
+
+	events.Filter.BlockAllowed.Hook(event.NewClosure(func(block *models.Block) {
+		fmt.Printf("%s> [%s] Filter.BlockAllowed: %s\n", n.Identity.ID(), engineName, block.ID())
+	}))
+
+	events.Filter.BlockFiltered.Hook(event.NewClosure(func(event *filter.BlockFilteredEvent) {
+		fmt.Printf("%s> [%s] Filter.BlockFiltered: %s - %s\n", n.Identity.ID(), engineName, event.Block.ID(), event.Reason.Error())
+		n.Testing.Fatal("no blocks should be filtered")
+	}))
+
+	events.BlockRequester.Tick.Hook(event.NewClosure(func(blockID models.BlockID) {
+		fmt.Printf("%s> [%s] BlockRequester.Tick: %s\n", n.Identity.ID(), engineName, blockID)
+	}))
+
+	events.Error.Hook(event.NewClosure(func(err error) {
+		fmt.Printf("%s> [%s] Engine.Error: %s\n", n.Identity.ID(), engineName, err.Error())
+	}))
+
+	events.NotarizationManager.EpochCommitted.Hook(event.NewClosure(func(details *notarization.EpochCommittedDetails) {
+		fmt.Printf("%s> [%s] NotarizationManager.EpochCommitted: %s\n", n.Identity.ID(), engineName, details.Commitment.ID())
+	}))
+
+	events.Consensus.BlockGadget.BlockAccepted.Hook(event.NewClosure(func(block *blockgadget.Block) {
+		fmt.Printf("%s> [%s] Consensus.BlockGadget.BlockAccepted: %s %s\n", n.Identity.ID(), engineName, block.ID(), block.Commitment().ID())
+	}))
+
+	events.Consensus.BlockGadget.BlockConfirmed.Hook(event.NewClosure(func(block *blockgadget.Block) {
+		fmt.Printf("%s> [%s] Consensus.BlockGadget.BlockConfirmed: %s %s\n", n.Identity.ID(), engineName, block.ID(), block.Commitment().ID())
+	}))
+
+	events.Consensus.EpochGadget.EpochConfirmed.Hook(event.NewClosure(func(epochIndex epoch.Index) {
+		fmt.Printf("%s> [%s] Consensus.EpochGadget.EpochConfirmed: %s\n", n.Identity.ID(), engineName, epochIndex)
 	}))
 }
 
@@ -862,8 +879,7 @@ func (n *NodeOnMockedNetwork) WaitUntilAllTasksProcessed() {
 func (n *NodeOnMockedNetwork) IssueBlockAtEpoch(alias string, epochIndex epoch.Index, parents ...models.BlockID) *booker.Block {
 	issuingTime := time.Unix(epoch.GenesisTime+int64(epochIndex-1)*epoch.Duration, 0)
 	require.True(n.Testing, issuingTime.Before(time.Now()), "issued block is in the current or future epoch")
-	n.EngineTestFramework.Tangle.CreateBlock(alias,
-		models.WithIssuer(n.Identity.PublicKey()),
+	n.EngineTestFramework.Tangle.CreateAndSignBlock(alias, &n.KeyPair,
 		models.WithStrongParents(models.NewBlockIDs(parents...)),
 		models.WithIssuingTime(issuingTime),
 		models.WithCommitment(n.Protocol.Engine().Storage.Settings.LatestCommitment()),
@@ -874,8 +890,7 @@ func (n *NodeOnMockedNetwork) IssueBlockAtEpoch(alias string, epochIndex epoch.I
 }
 
 func (n *NodeOnMockedNetwork) IssueBlock(alias string, parents ...models.BlockID) *booker.Block {
-	n.EngineTestFramework.Tangle.CreateBlock(alias,
-		models.WithIssuer(n.Identity.PublicKey()),
+	n.EngineTestFramework.Tangle.CreateAndSignBlock(alias, &n.KeyPair,
 		models.WithStrongParents(models.NewBlockIDs(parents...)),
 		models.WithCommitment(n.Protocol.Engine().Storage.Settings.LatestCommitment()),
 	)
@@ -901,27 +916,36 @@ func (n *NodeOnMockedNetwork) AssertEqualChains(other *NodeOnMockedNetwork) {
 func TestProtocol_EngineSwitching(t *testing.T) {
 	testNetwork := network.NewMockedNetwork()
 
-	epoch.GenesisTime = time.Now().Unix() - epoch.Duration*10
-
-	identitiesMap := map[string]*identity.Identity{
-		"node1": identity.GenerateIdentity(),
-		"node2": identity.GenerateIdentity(),
-		"node3": identity.GenerateIdentity(),
-		"node4": identity.GenerateIdentity(),
+	engineOptions := []options.Option[engine.Engine]{
+		engine.WithNotarizationManagerOptions(
+			notarization.WithMinCommittableEpochAge(10 * time.Second),
+		),
+		engine.WithLedgerOptions(
+			ledger.WithVM(new(devnetvm.VM)),
+		),
 	}
 
-	for alias, id := range identitiesMap {
-		identity.RegisterIDAlias(id.ID(), alias)
+	epoch.GenesisTime = time.Now().Unix() - epoch.Duration*10
+
+	identitiesMap := map[string]ed25519.KeyPair{
+		"node1": ed25519.GenerateKeyPair(),
+		"node2": ed25519.GenerateKeyPair(),
+		"node3": ed25519.GenerateKeyPair(),
+		"node4": ed25519.GenerateKeyPair(),
+	}
+
+	for alias, keyPair := range identitiesMap {
+		identity.RegisterIDAlias(identity.NewID(keyPair.PublicKey), alias)
 	}
 
 	partition1Weights := map[ed25519.PublicKey]uint64{
-		identitiesMap["node1"].PublicKey(): 75,
-		identitiesMap["node2"].PublicKey(): 25,
+		identitiesMap["node1"].PublicKey: 75,
+		identitiesMap["node2"].PublicKey: 25,
 	}
 
 	partition2Weights := map[ed25519.PublicKey]uint64{
-		identitiesMap["node3"].PublicKey(): 25,
-		identitiesMap["node4"].PublicKey(): 25,
+		identitiesMap["node3"].PublicKey: 25,
+		identitiesMap["node4"].PublicKey: 25,
 	}
 
 	allWeights := map[ed25519.PublicKey]uint64{}
@@ -930,15 +954,17 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 
 	snapshotsDir := utils.NewDirectory(t.TempDir())
 	snapshotPartition1 := snapshotsDir.Path("snapshot_1.bin")
-	snapshotcreator.CreateSnapshot(DatabaseVersion, snapshotPartition1, 0, make([]byte, 32), allWeights, lo.Keys(partition1Weights))
+	snapshotcreator.CreateSnapshot(DatabaseVersion, snapshotPartition1, 0, make([]byte, 32), allWeights, lo.Keys(partition1Weights), engineOptions...)
 
 	snapshotPartition2 := snapshotsDir.Path("snapshot_2.bin")
-	snapshotcreator.CreateSnapshot(DatabaseVersion, snapshotPartition2, 0, make([]byte, 32), allWeights, lo.Keys(partition2Weights))
+	snapshotcreator.CreateSnapshot(DatabaseVersion, snapshotPartition2, 0, make([]byte, 32), allWeights, lo.Keys(partition2Weights), engineOptions...)
 
-	node1 := newNode(t, identitiesMap["node1"], testNetwork, "P1", snapshotPartition1)
-	node2 := newNode(t, identitiesMap["node2"], testNetwork, "P1", snapshotPartition1)
-	node3 := newNode(t, identitiesMap["node3"], testNetwork, "P2", snapshotPartition2)
-	node4 := newNode(t, identitiesMap["node4"], testNetwork, "P2", snapshotPartition2)
+	node1 := newNode(t, identitiesMap["node1"], testNetwork, "P1", snapshotPartition1, engineOptions...)
+	node2 := newNode(t, identitiesMap["node2"], testNetwork, "P1", snapshotPartition1, engineOptions...)
+	node3 := newNode(t, identitiesMap["node3"], testNetwork, "P2", snapshotPartition2, engineOptions...)
+	node4 := newNode(t, identitiesMap["node4"], testNetwork, "P2", snapshotPartition2, engineOptions...)
+
+	node4.HookLogging()
 
 	require.Equal(t, int64(150), node1.Protocol.Engine().SybilProtection.Weights().TotalWeight().Value)
 	require.Equal(t, int64(100), node1.Protocol.Engine().SybilProtection.Validators().TotalWeight())
