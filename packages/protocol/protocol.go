@@ -1,7 +1,6 @@
 package protocol
 
 import (
-	"sort"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -178,11 +177,11 @@ func (p *Protocol) initNetworkProtocol() {
 	}))
 
 	p.Events.Network.AttestationsRequestReceived.Attach(event.NewClosure(func(event *network.AttestationsRequestReceivedEvent) {
-		p.ProcessAttestationsRequest(event.StartIndex, event.EndIndex, event.Source)
+		p.ProcessAttestationsRequest(event.Commitment, event.EndIndex, event.Source)
 	}))
 
 	p.Events.Network.AttestationsReceived.Attach(event.NewClosure(func(event *network.AttestationsReceivedEvent) {
-		p.ProcessAttestations(event.Attestations, event.Source)
+		p.ProcessAttestations(event.Commitment, event.Attestations, event.Source)
 	}))
 }
 
@@ -203,11 +202,11 @@ func (p *Protocol) initChainManager() {
 	}))
 
 	p.Events.ChainManager.ForkDetected.Attach(event.NewClosure(func(event *chainmanager.ForkDetectedEvent) {
-		p.onForkDetected(event.Commitment, event.StartEpoch(), event.EndEpoch(), event.Source)
+		p.onForkDetected(event.Commitment, event.ForkingPoint(), event.EndEpoch(), event.Source)
 	}))
 }
 
-func (p *Protocol) onForkDetected(commitment *commitment.Commitment, startIndex epoch.Index, endIndex epoch.Index, source identity.ID) bool {
+func (p *Protocol) onForkDetected(commitment *commitment.Commitment, forkingPoint *commitment.Commitment, endIndex epoch.Index, source identity.ID) bool {
 	claimedWeight := commitment.CumulativeWeight()
 	mainChainCommitment, err := p.Engine().Storage.Commitments.Load(commitment.Index())
 	if err != nil {
@@ -223,8 +222,7 @@ func (p *Protocol) onForkDetected(commitment *commitment.Commitment, startIndex 
 		return true
 	}
 
-	//TODO: instead of startIndex, send commitmehtID of start
-	p.networkProtocol.RequestAttestations(startIndex, endIndex, source)
+	p.networkProtocol.RequestAttestations(forkingPoint, endIndex, source)
 	return false
 }
 
@@ -324,7 +322,7 @@ func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) error {
 	return errors.Errorf("block was not processed.")
 }
 
-func (p *Protocol) ProcessAttestationsRequest(startIndex epoch.Index, endIndex epoch.Index, src identity.ID) {
+func (p *Protocol) ProcessAttestationsRequest(forkingPoint *commitment.Commitment, endIndex epoch.Index, src identity.ID) {
 	mainEngine := p.MainEngineInstance()
 
 	if mainEngine.Engine.NotarizationManager.Attestations.LastCommittedEpoch() < endIndex {
@@ -334,7 +332,7 @@ func (p *Protocol) ProcessAttestationsRequest(startIndex epoch.Index, endIndex e
 	}
 
 	attestations := orderedmap.New[epoch.Index, *set.AdvancedSet[*notarization.Attestation]]()
-	for i := startIndex; i <= endIndex; i++ {
+	for i := forkingPoint.Index(); i <= endIndex; i++ {
 		attestationsForEpoch, err := mainEngine.Engine.NotarizationManager.Attestations.Get(i)
 		if err != nil {
 			p.Events.Error.Trigger(errors.Wrapf(err, "failed to get attestations for epoch %d upon request", i))
@@ -353,38 +351,18 @@ func (p *Protocol) ProcessAttestationsRequest(startIndex epoch.Index, endIndex e
 		attestations.Set(i, attestationsSet)
 	}
 
-	p.networkProtocol.SendAttestations(attestations, src)
+	p.networkProtocol.SendAttestations(forkingPoint, attestations, src)
 }
 
-func (p *Protocol) ProcessAttestations(attestations *orderedmap.OrderedMap[epoch.Index, *set.AdvancedSet[*notarization.Attestation]], source identity.ID) {
+func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, attestations *orderedmap.OrderedMap[epoch.Index, *set.AdvancedSet[*notarization.Attestation]], source identity.ID) {
 	if attestations.Size() == 0 {
 		p.Events.Error.Trigger(errors.Errorf("received attestations from peer %s are empty", source.String()))
 		return
 	}
 
-	var attestationEpochs []epoch.Index
-	attestations.ForEach(func(key epoch.Index, value *set.AdvancedSet[*notarization.Attestation]) bool {
-		attestationEpochs = append(attestationEpochs, key)
-		return true
-	})
-
-	sort.Slice(attestationEpochs, func(i, j int) bool {
-		return attestationEpochs[i] < attestationEpochs[j]
-	})
-
-	firstEpochAttestations, exists := attestations.Get(attestationEpochs[0])
+	forkedEvent, exists := p.chainManager.ForkedEventByForkingPoint(forkingPoint.ID())
 	if !exists {
-		p.Events.Error.Trigger(errors.Errorf("received attestations from peer %s are empty", source.String()))
-	}
-
-	attestationsForEpoch, _, exists := firstEpochAttestations.Head()
-	if !exists {
-		p.Events.Error.Trigger(errors.Errorf("received attestations from peer %s are empty", source.String()))
-	}
-
-	forkedEvent, exists := p.chainManager.ForkedEventByForkingPoint(attestationsForEpoch.CommitmentID)
-	if !exists {
-		p.Events.Error.Trigger(errors.Errorf("failed to get forking point for commitment %s", attestationsForEpoch.CommitmentID))
+		p.Events.Error.Trigger(errors.Errorf("failed to get forking point for commitment %s", forkingPoint.ID()))
 		return
 	}
 
@@ -423,7 +401,7 @@ func (p *Protocol) ProcessAttestations(attestations *orderedmap.OrderedMap[epoch
 		// Get our cumulative weight at the snapshot target index and apply all the received attestations on stop while verifying the validity of each signature
 		calculatedCumulativeWeight = lo.PanicOnErr(mainEngine.Storage.Commitments.Load(snapshotTargetIndex)).CumulativeWeight()
 		visitedIdentities := make(map[identity.ID]types.Empty)
-		for epochIndex := forkedEvent.StartEpoch(); epochIndex <= forkedEvent.EndEpoch(); epochIndex++ {
+		for epochIndex := forkedEvent.ForkingPoint().Index(); epochIndex <= forkedEvent.EndEpoch(); epochIndex++ {
 			epochAttestations, epochExists := attestations.Get(epochIndex)
 			if !epochExists {
 				p.Events.Error.Trigger(errors.Errorf("attestations for epoch %d missing", epochIndex))

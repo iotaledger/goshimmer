@@ -90,17 +90,23 @@ func (m *Manager) ProcessCommitmentFromSource(commitment *commitment.Commitment,
 
 func (m *Manager) handleFork(commitment *commitment.Commitment, chain *Chain, source identity.ID) {
 	commitmentsStorage := m.commitmentsByForkingPoint.Get(commitment.Index(), true)
+
 	// Do not trigger another event for the same forking point.
 	if commitmentsStorage.Has(chain.ForkingPoint.ID()) {
 		return
 	}
 
-	// commitment.Index is the index you request attestations for.
 	// The forking point should be at least 3 epochs in the past w.r.t this commitment index.
-	// TODO: check commitment depth w.r.t the forking point.
+	//TODO: replace 3 with values depending on the configuration
+	latestChainCommitment := chain.LatestCommitment()
+	if latestChainCommitment.ID().Index()-chain.ForkingPoint.ID().Index() < 3 {
+		return
+	}
+
+	// commitment.Index is the index you request attestations for.
 	event := &ForkDetectedEvent{
 		Source:     source,
-		Commitment: commitment,
+		Commitment: latestChainCommitment.Commitment(),
 		Chain:      chain,
 	}
 	commitmentsStorage.Set(chain.ForkingPoint.ID(), event)

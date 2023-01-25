@@ -32,14 +32,10 @@ type ForkDetectedEvent struct {
 	Chain      *Chain
 }
 
-func (e *ForkDetectedEvent) StartEpoch() epoch.Index {
-	return e.Chain.ForkingPoint.ID().Index()
+func (e *ForkDetectedEvent) ForkingPoint() *commitment.Commitment {
+	return e.Chain.ForkingPoint.Commitment()
 }
 
 func (e *ForkDetectedEvent) EndEpoch() epoch.Index {
 	return e.Commitment.Index()
-}
-
-func (e *ForkDetectedEvent) EpochCount() int64 {
-	return int64(e.EndEpoch() - e.StartEpoch())
 }
