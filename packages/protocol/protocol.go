@@ -451,6 +451,9 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, atte
 		return
 	}
 
+	// Set the chain to the correct forking point
+	candidateEngine.Engine.Storage.Settings.SetChainID(forkedEvent.Chain.ForkingPoint.ID())
+
 	// Set the engine as the new candidate
 	p.activeEngineMutex.Lock()
 	p.candidateEngine = candidateEngine
