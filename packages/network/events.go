@@ -80,6 +80,7 @@ type EpochCommitmentRequestReceivedEvent struct {
 // region AttestationsReceivedEvent ////////////////////////////////////////////////////////////////////////////////////
 
 type AttestationsReceivedEvent struct {
+	Commitment   *commitment.Commitment
 	Attestations *orderedmap.OrderedMap[epoch.Index, *set.AdvancedSet[*notarization.Attestation]]
 	Source       identity.ID
 }
@@ -89,7 +90,7 @@ type AttestationsReceivedEvent struct {
 // region AttestationsRequestReceivedEvent /////////////////////////////////////////////////////////////////////////////
 
 type AttestationsRequestReceivedEvent struct {
-	StartIndex epoch.Index
+	Commitment *commitment.Commitment
 	EndIndex   epoch.Index
 	Source     identity.ID
 }

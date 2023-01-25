@@ -7,7 +7,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotaledger/hive.go/core/bytesfilter"
-	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
@@ -72,9 +71,10 @@ func (p *Protocol) SendEpochCommitment(cm *commitment.Commitment, to ...identity
 	}}}, protocolID, to...)
 }
 
-func (p *Protocol) SendAttestations(attestations *orderedmap.OrderedMap[epoch.Index, *set.AdvancedSet[*notarization.Attestation]], to ...identity.ID) {
+func (p *Protocol) SendAttestations(cm *commitment.Commitment, attestations *orderedmap.OrderedMap[epoch.Index, *set.AdvancedSet[*notarization.Attestation]], to ...identity.ID) {
 	p.network.Send(&nwmodels.Packet{Body: &nwmodels.Packet_Attestations{Attestations: &nwmodels.Attestations{
-		Bytes: lo.PanicOnErr(attestations.Encode()),
+		Commitment:   lo.PanicOnErr(cm.Bytes()),
+		Attestations: lo.PanicOnErr(attestations.Encode()),
 	}}}, protocolID, to...)
 }
 
@@ -84,9 +84,10 @@ func (p *Protocol) RequestCommitment(id commitment.ID, to ...identity.ID) {
 	}}}, protocolID, to...)
 }
 
-func (p *Protocol) RequestAttestations(startIndex epoch.Index, endIndex epoch.Index, to ...identity.ID) {
+func (p *Protocol) RequestAttestations(cm *commitment.Commitment, endIndex epoch.Index, to ...identity.ID) {
 	p.network.Send(&nwmodels.Packet{Body: &nwmodels.Packet_AttestationsRequest{AttestationsRequest: &nwmodels.AttestationsRequest{
-		Bytes: byteutils.ConcatBytes(startIndex.Bytes(), endIndex.Bytes()),
+		Commitment: lo.PanicOnErr(cm.Bytes()),
+		EndIndex:   endIndex.Bytes(),
 	}}}, protocolID, to...)
 }
 
@@ -105,9 +106,13 @@ func (p *Protocol) handlePacket(nbr identity.ID, packet proto.Message) (err erro
 	case *nwmodels.Packet_EpochCommitmentRequest:
 		event.Loop.Submit(func() { p.onEpochCommitmentRequest(packetBody.EpochCommitmentRequest.GetBytes(), nbr) })
 	case *nwmodels.Packet_Attestations:
-		event.Loop.Submit(func() { p.onAttestations(packetBody.Attestations.GetBytes(), nbr) })
+		event.Loop.Submit(func() {
+			p.onAttestations(packetBody.Attestations.GetCommitment(), packetBody.Attestations.GetAttestations(), nbr)
+		})
 	case *nwmodels.Packet_AttestationsRequest:
-		event.Loop.Submit(func() { p.onAttestationsRequest(packetBody.AttestationsRequest.GetBytes(), nbr) })
+		event.Loop.Submit(func() {
+			p.onAttestationsRequest(packetBody.AttestationsRequest.GetCommitment(), packetBody.AttestationsRequest.GetEndIndex(), nbr)
+		})
 	default:
 		return errors.Errorf("unsupported packet; packet=%+v, packetBody=%T-%+v", packet, packetBody, packetBody)
 	}
@@ -204,7 +209,17 @@ func (p *Protocol) onEpochCommitmentRequest(idBytes []byte, id identity.ID) {
 	})
 }
 
-func (p *Protocol) onAttestations(attestationsBytes []byte, id identity.ID) {
+func (p *Protocol) onAttestations(commitmentBytes []byte, attestationsBytes []byte, id identity.ID) {
+	cm := &commitment.Commitment{}
+	if _, err := cm.FromBytes(commitmentBytes); err != nil {
+		p.Events.Error.Trigger(&ErrorEvent{
+			Error:  errors.Wrap(err, "failed to deserialize commitment"),
+			Source: id,
+		})
+
+		return
+	}
+
 	attestations := orderedmap.New[epoch.Index, *set.AdvancedSet[*notarization.Attestation]]()
 	if _, err := attestations.Decode(attestationsBytes); err != nil {
 		p.Events.Error.Trigger(&ErrorEvent{
@@ -216,23 +231,24 @@ func (p *Protocol) onAttestations(attestationsBytes []byte, id identity.ID) {
 	}
 
 	p.Events.AttestationsReceived.Trigger(&AttestationsReceivedEvent{
+		Commitment:   cm,
 		Attestations: attestations,
 		Source:       id,
 	})
 }
 
-func (p *Protocol) onAttestationsRequest(epochIndexBytes []byte, id identity.ID) {
-	startEpochIndex, consumed, err := epoch.IndexFromBytes(epochIndexBytes)
-	if err != nil {
+func (p *Protocol) onAttestationsRequest(commitmentBytes []byte, epochIndexBytes []byte, id identity.ID) {
+	cm := &commitment.Commitment{}
+	if _, err := cm.FromBytes(commitmentBytes); err != nil {
 		p.Events.Error.Trigger(&ErrorEvent{
-			Error:  errors.Wrap(err, "failed to deserialize start epoch index"),
+			Error:  errors.Wrap(err, "failed to deserialize commitment"),
 			Source: id,
 		})
 
 		return
 	}
 
-	endEpochIndex, _, err := epoch.IndexFromBytes(epochIndexBytes[consumed:])
+	endEpochIndex, _, err := epoch.IndexFromBytes(epochIndexBytes)
 	if err != nil {
 		p.Events.Error.Trigger(&ErrorEvent{
 			Error:  errors.Wrap(err, "failed to deserialize end epoch index"),
@@ -243,7 +259,7 @@ func (p *Protocol) onAttestationsRequest(epochIndexBytes []byte, id identity.ID)
 	}
 
 	p.Events.AttestationsRequestReceived.Trigger(&AttestationsRequestReceivedEvent{
-		StartIndex: startEpochIndex,
+		Commitment: cm,
 		EndIndex:   endEpochIndex,
 		Source:     id,
 	})
