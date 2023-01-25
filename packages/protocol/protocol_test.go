@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/atomic"
 
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/debug"
@@ -1106,8 +1107,20 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 
 		go activityFunc(node1, blockG)
 		go activityFunc(node3, blockH)
+	}
 
-		time.Sleep(10 * time.Second)
+	// Wait for the engine to eventually switch on each node
+	{
+		nodeCount := atomic.NewInt32(0)
+		for _, node := range []*NodeOnMockedNetwork{node3, node4} {
+			nodeCount.Add(1)
+			node.Protocol.Events.MainEngineSwitched.Attach(event.NewClosure(func(_ *enginemanager.EngineInstance) {
+				nodeCount.Add(-1)
+			}))
+		}
+		require.Eventually(t, func() bool {
+			return nodeCount.Load() == 0
+		}, 15*time.Second, 100*time.Millisecond, "not all nodes switched main engine")
 	}
 
 	// Compare chains
