@@ -193,6 +193,16 @@ func (m *Metric) Reset() {
 	}
 }
 
+func (m *Metric) ResetLabels(labels map[string]string) {
+	switch m.Type {
+	case GaugeVec:
+		m.PromMetric.(*prometheus.GaugeVec).Reset()
+		m.PromMetric.(*prometheus.GaugeVec).Delete(labels)
+	case CounterVec:
+		m.PromMetric.(*prometheus.CounterVec).Delete(labels)
+	}
+}
+
 // region Options ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // WithType sets the metric type: Gauge, GaugeVec, Counter, CounterVec.
