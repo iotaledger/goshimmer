@@ -46,7 +46,7 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 				deps.Collector.Increment(epochNamespace, totalBlocks, strconv.Itoa(eventEpoch))
 
 				// need to initialize epoch metrics with 0 to have consistent data for each epoch
-				for _, metricName := range []string{acceptedBlocksInEpoch, orphanedBlocks, invalidBlocks, subjectivelyInvalidBlocks, totalTransactions, acceptedTransactions, orphanedTransactions, createdConflicts, acceptedConflicts, rejectedConflicts, notConflictingConflicts} {
+				for _, metricName := range []string{acceptedBlocksInEpoch, orphanedBlocks, invalidBlocks, subjectivelyInvalidBlocks, totalTransactions, acceptedTransactions, invalidTransactions, orphanedTransactions, createdConflicts, acceptedConflicts, rejectedConflicts, notConflictingConflicts} {
 					deps.Collector.Update(epochNamespace, metricName, map[string]float64{
 						strconv.Itoa(eventEpoch): 0,
 					})
@@ -59,7 +59,7 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 				epochToEvict := int(details.Commitment.Index()) - metricEvictionOffset
 
 				// need to remove metrics for old epochs, otherwise they would be stored in memory and always exposed to Prometheus, forever
-				for _, metricName := range []string{totalBlocks, acceptedBlocksInEpoch, orphanedBlocks, invalidBlocks, subjectivelyInvalidBlocks, totalTransactions, acceptedTransactions, orphanedTransactions, createdConflicts, acceptedConflicts, rejectedConflicts, notConflictingConflicts} {
+				for _, metricName := range []string{totalBlocks, acceptedBlocksInEpoch, orphanedBlocks, invalidBlocks, subjectivelyInvalidBlocks, totalTransactions, acceptedTransactions, invalidTransactions, orphanedTransactions, createdConflicts, acceptedConflicts, rejectedConflicts, notConflictingConflicts} {
 					deps.Collector.ResetMetricLabels(epochNamespace, metricName, map[string]string{
 						labelName: strconv.Itoa(epochToEvict),
 					})
