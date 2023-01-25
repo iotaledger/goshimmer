@@ -6,6 +6,7 @@ import (
 
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/orderedmap"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
@@ -30,9 +31,9 @@ import (
 // | Pledge | Funds        |
 // | ------ | ------------ |
 // | empty  | genesisSeed  |
-// | node1  | empty/burned |
-// | node2  | empty/burned |.
-func CreateSnapshot(databaseVersion database.Version, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge map[ed25519.PublicKey]uint64, initialAttestations []ed25519.PublicKey) {
+// | node1  | node1		   |
+// | node2  | node2        |.
+func CreateSnapshot(databaseVersion database.Version, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge map[ed25519.PublicKey]uint64, initialAttestations []ed25519.PublicKey, engineOpts ...options.Option[engine.Engine]) {
 	s := storage.New(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), databaseVersion)
 
 	if err := s.Commitments.Store(commitment.NewEmptyCommitment()); err != nil {
@@ -42,23 +43,27 @@ func CreateSnapshot(databaseVersion database.Version, snapshotFileName string, g
 		panic(err)
 	}
 
-	engineInstance := engine.New(s, dpos.NewProvider(), mana1.NewProvider())
-	// prepare outputsWithMetadata
-	output, outputMetadata := createOutput(seed.NewSeed(genesisSeedBytes).Address(0).Address(), genesisTokenAmount, identity.ID{}, 0)
+	engineInstance := engine.New(s, dpos.NewProvider(), mana1.NewProvider(), engineOpts...)
 
-	if err := engineInstance.LedgerState.UnspentOutputs.ApplyCreatedOutput(ledger.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
-		panic(err)
-	}
-
-	engineInstance.NotarizationManager.Attestations.SetLastCommittedEpoch(-1)
-	for nodePublicKey, value := range nodesToPledge {
-		// pledge to ID but send funds to random address
-		nodeID := identity.NewID(nodePublicKey)
-		output, outputMetadata = createOutput(devnetvm.NewED25519Address(ed25519.GenerateKeyPair().PublicKey), value, nodeID, 0)
+	// Create genesis output
+	if genesisTokenAmount > 0 {
+		output, outputMetadata := createOutput(seed.NewSeed(genesisSeedBytes).Address(0).Address(), genesisTokenAmount, identity.ID{}, 0)
 		if err := engineInstance.LedgerState.UnspentOutputs.ApplyCreatedOutput(ledger.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
 			panic(err)
 		}
 	}
+
+	// Create outputs for nodes
+	engineInstance.NotarizationManager.Attestations.SetLastCommittedEpoch(-1)
+	for nodePublicKey, value := range nodesToPledge {
+		// pledge to ID but send funds to random address
+		nodeID := identity.NewID(nodePublicKey)
+		output, outputMetadata := createOutput(devnetvm.NewED25519Address(nodePublicKey), value, nodeID, 0)
+		if err := engineInstance.LedgerState.UnspentOutputs.ApplyCreatedOutput(ledger.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
+			panic(err)
+		}
+	}
+
 	for _, nodeID := range initialAttestations {
 		if _, err := engineInstance.NotarizationManager.Attestations.Add(&notarization.Attestation{
 			IssuerPublicKey: nodeID,
