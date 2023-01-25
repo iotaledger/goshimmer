@@ -18,6 +18,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
@@ -398,16 +399,47 @@ func (e *Engine) initNotarizationManager() {
 	}), 1)
 	e.workerPools["NotarizationManager.Commitments"] = wp
 
+	e.Events.Tangle.Booker.AttachmentCreated.Hook(event.NewClosure(func(block *booker.AttachmentBlock) {
+		if tx, ok := block.Transaction(); ok {
+			if conflict, conflictExists := e.Ledger.ConflictDAG.Conflict(tx.ID()); conflictExists && conflict.ConfirmationState().IsPending() {
+				if !block.SetConflictCounted(true) {
+					return
+				}
+				e.NotarizationManager.IncreaseConflictsCounter(block.ID().Index())
+			}
+		}
+	}))
+	e.Events.Tangle.Booker.AttachmentOrphaned.Hook(event.NewClosure(func(block *booker.AttachmentBlock) {
+		if tx, ok := block.Transaction(); ok {
+			if conflict, conflictExists := e.Ledger.ConflictDAG.Conflict(tx.ID()); conflictExists && conflict.ConfirmationState().IsPending() {
+				e.NotarizationManager.DecreaseConflictsCounter(block.ID().Index())
+			}
+		}
+	}))
 	e.Ledger.ConflictDAG.Events.ConflictCreated.Hook(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-		e.NotarizationManager.IncreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.GetEarliestAttachment(conflict.ID()).IssuingTime()))
+		for it := e.Tangle.Booker.GetAllAttachments(conflict.ID()).Iterator(); it.HasNext(); {
+			attachmentBlock := it.Next()
+
+			if !attachmentBlock.AttachmentOrphaned() && attachmentBlock.SetConflictCounted(true) {
+				e.NotarizationManager.IncreaseConflictsCounter(attachmentBlock.ID().Index())
+			}
+		}
 	}))
 	e.Ledger.ConflictDAG.Events.ConflictAccepted.Hook(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-		e.NotarizationManager.DecreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.GetEarliestAttachment(conflict.ID()).IssuingTime()))
+		for it := e.Tangle.Booker.GetAllAttachments(conflict.ID()).Iterator(); it.HasNext(); {
+			attachmentBlock := it.Next()
+
+			if !attachmentBlock.AttachmentOrphaned() && attachmentBlock.ConflictCounted() {
+				e.NotarizationManager.DecreaseConflictsCounter(attachmentBlock.ID().Index())
+			}
+		}
 	}))
 	e.Ledger.ConflictDAG.Events.ConflictRejected.Hook(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+		// TODO: iterate thourgh all the attachments of the conflict and decrease the counter for each attachment epoch
 		e.NotarizationManager.DecreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.GetEarliestAttachment(conflict.ID()).IssuingTime()))
 	}))
 	e.Ledger.ConflictDAG.Events.ConflictNotConflicting.Hook(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+		// TODO: iterate thourgh all the attachments of the conflict and decrease the counter for each attachment epoch
 		e.NotarizationManager.DecreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.GetEarliestAttachment(conflict.ID()).IssuingTime()))
 	}))
 	// TODO: attach to conflict orphanage

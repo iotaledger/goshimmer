@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/generics/walker"
 	"github.com/iotaledger/hive.go/core/syncutils"
 	"github.com/pkg/errors"
@@ -177,8 +178,8 @@ func (b *Booker) GetLatestAttachment(txID utxo.TransactionID) (attachment *Block
 	return b.attachments.getLatestAttachment(txID)
 }
 
-func (b *Booker) GetAllAttachments(txID utxo.TransactionID) (attachments Blocks) {
-	return NewBlocks(b.attachments.Get(txID)...)
+func (b *Booker) GetAllAttachments(txID utxo.TransactionID) (attachments *set.AdvancedSet[*AttachmentBlock]) {
+	return b.attachments.GetAttachmentBlocks(txID)
 }
 
 func (b *Booker) evict(epochIndex epoch.Index) {

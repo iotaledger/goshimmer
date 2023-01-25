@@ -483,7 +483,7 @@ func GetTransactionAttachments(c echo.Context) (err error) {
 	}
 
 	blockIDs := models.NewBlockIDs()
-	_ = deps.Protocol.Engine().Tangle.GetAllAttachments(transactionID).ForEach(func(attachment *booker.Block) error {
+	_ = deps.Protocol.Engine().Tangle.GetAllAttachments(transactionID).ForEach(func(attachment *booker.AttachmentBlock) error {
 		blockIDs.Add(attachment.ID())
 		return nil
 	})

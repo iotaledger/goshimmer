@@ -67,7 +67,7 @@ func (a *attachments) OrphanAttachment(txID utxo.TransactionID, block *Block) (a
 		return nil, false, false
 	}
 
-	if !attachmentBlock.SetOrphaned(true) {
+	if !attachmentBlock.SetAttachmentOrphaned(true) {
 		return nil, false, false
 	}
 
@@ -87,6 +87,22 @@ func (a *attachments) Get(txID utxo.TransactionID) (attachments []*Block) {
 		txStorage.ForEach(func(_ epoch.Index, blocks *memstorage.Storage[models.BlockID, *AttachmentBlock]) bool {
 			blocks.ForEach(func(_ models.BlockID, attachmentBlock *AttachmentBlock) bool {
 				attachments = append(attachments, attachmentBlock.Block)
+				return true
+			})
+			return true
+		})
+	}
+
+	return
+}
+
+func (a *attachments) GetAttachmentBlocks(txID utxo.TransactionID) (attachments *set.AdvancedSet[*AttachmentBlock]) {
+	attachments = set.NewAdvancedSet[*AttachmentBlock]()
+
+	if txStorage := a.storage(txID, false); txStorage != nil {
+		txStorage.ForEach(func(_ epoch.Index, blocks *memstorage.Storage[models.BlockID, *AttachmentBlock]) bool {
+			blocks.ForEach(func(_ models.BlockID, attachmentBlock *AttachmentBlock) bool {
+				attachments.Add(attachmentBlock)
 				return true
 			})
 			return true
@@ -178,8 +194,9 @@ func (a *attachments) updateEvictionMap(epochIndex epoch.Index, txID utxo.Transa
 // region AttachmentBlock //////////////////////////////////////////////////////////////////////////////////////////////
 
 type AttachmentBlock struct {
-	conflictCounted bool
-	orphaned        bool
+	conflictCounted  bool
+	orphanageCounted bool
+	orphaned         bool
 
 	*Block
 }
@@ -207,14 +224,33 @@ func (a *AttachmentBlock) SetConflictCounted(conflictCounted bool) (updated bool
 	return true
 }
 
-func (a *AttachmentBlock) Orphaned() bool {
+func (a *AttachmentBlock) OrphanageCounted() bool {
+	a.RLock()
+	defer a.RUnlock()
+
+	return a.orphanageCounted
+}
+
+func (a *AttachmentBlock) SetOrphanageCounted(orphanageCounted bool) (updated bool) {
+	a.Lock()
+	defer a.Unlock()
+
+	if a.orphanageCounted == orphanageCounted {
+		return false
+	}
+
+	a.orphanageCounted = orphanageCounted
+	return true
+}
+
+func (a *AttachmentBlock) AttachmentOrphaned() bool {
 	a.RLock()
 	defer a.RUnlock()
 
 	return a.orphaned
 }
 
-func (a *AttachmentBlock) SetOrphaned(orphaned bool) (updated bool) {
+func (a *AttachmentBlock) SetAttachmentOrphaned(orphaned bool) (updated bool) {
 	a.Lock()
 	defer a.Unlock()
 

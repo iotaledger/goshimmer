@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
@@ -29,6 +30,8 @@ const (
 	invalidTransactions       = "invalid_transactions"
 	acceptedTransactions      = "accepted_transactions"
 	orphanedTransactions      = "orphaned_transactions"
+	totalAttachments          = "total_attachments"
+	orphanedAttachments       = "orphaned_attachments"
 	createdConflicts          = "created_conflicts"
 	acceptedConflicts         = "accepted_conflicts"
 	rejectedConflicts         = "rejected_conflicts"
@@ -46,7 +49,7 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 				deps.Collector.Increment(epochNamespace, totalBlocks, strconv.Itoa(eventEpoch))
 
 				// need to initialize epoch metrics with 0 to have consistent data for each epoch
-				for _, metricName := range []string{acceptedBlocksInEpoch, orphanedBlocks, invalidBlocks, subjectivelyInvalidBlocks, totalTransactions, acceptedTransactions, invalidTransactions, orphanedTransactions, createdConflicts, acceptedConflicts, rejectedConflicts, notConflictingConflicts} {
+				for _, metricName := range []string{acceptedBlocksInEpoch, orphanedBlocks, invalidBlocks, subjectivelyInvalidBlocks, totalTransactions, acceptedTransactions, invalidTransactions, orphanedTransactions, totalAttachments, orphanedAttachments, createdConflicts, acceptedConflicts, rejectedConflicts, notConflictingConflicts} {
 					deps.Collector.Update(epochNamespace, metricName, map[string]float64{
 						strconv.Itoa(eventEpoch): 0,
 					})
@@ -59,7 +62,7 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 				epochToEvict := int(details.Commitment.Index()) - metricEvictionOffset
 
 				// need to remove metrics for old epochs, otherwise they would be stored in memory and always exposed to Prometheus, forever
-				for _, metricName := range []string{totalBlocks, acceptedBlocksInEpoch, orphanedBlocks, invalidBlocks, subjectivelyInvalidBlocks, totalTransactions, acceptedTransactions, invalidTransactions, orphanedTransactions, createdConflicts, acceptedConflicts, rejectedConflicts, notConflictingConflicts} {
+				for _, metricName := range []string{totalBlocks, acceptedBlocksInEpoch, orphanedBlocks, invalidBlocks, subjectivelyInvalidBlocks, totalTransactions, acceptedTransactions, invalidTransactions, orphanedTransactions, totalAttachments, orphanedAttachments, createdConflicts, acceptedConflicts, rejectedConflicts, notConflictingConflicts} {
 					deps.Collector.ResetMetricLabels(epochNamespace, metricName, map[string]string{
 						labelName: strconv.Itoa(epochToEvict),
 					})
@@ -155,6 +158,29 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 			deps.Protocol.Events.Engine.Ledger.TransactionOrphaned.Attach(event.NewClosure(func(transaction *ledger.TransactionEvent) {
 				eventEpoch := int(transaction.Metadata.InclusionEpoch())
 				deps.Collector.Increment(epochNamespace, orphanedTransactions, strconv.Itoa(eventEpoch))
+			}))
+		}),
+	)),
+
+	collector.WithMetric(collector.NewMetric(totalAttachments,
+		collector.WithType(collector.CounterVec),
+		collector.WithLabels(labelName),
+		collector.WithHelp("Number of transaction attachments by the node per epoch."),
+		collector.WithInitFunc(func() {
+			deps.Protocol.Events.Engine.Tangle.Booker.AttachmentCreated.Attach(event.NewClosure(func(attachmentBlock *booker.AttachmentBlock) {
+				eventEpoch := int(attachmentBlock.ID().Index())
+				deps.Collector.Increment(epochNamespace, totalAttachments, strconv.Itoa(eventEpoch))
+			}))
+		}),
+	)),
+	collector.WithMetric(collector.NewMetric(orphanedAttachments,
+		collector.WithType(collector.CounterVec),
+		collector.WithLabels(labelName),
+		collector.WithHelp("Number of orphaned attachments by the node per epoch."),
+		collector.WithInitFunc(func() {
+			deps.Protocol.Events.Engine.Tangle.Booker.AttachmentOrphaned.Attach(event.NewClosure(func(attachmentBlock *booker.AttachmentBlock) {
+				eventEpoch := int(attachmentBlock.ID().Index())
+				deps.Collector.Increment(epochNamespace, orphanedAttachments, strconv.Itoa(eventEpoch))
 			}))
 		}),
 	)),
