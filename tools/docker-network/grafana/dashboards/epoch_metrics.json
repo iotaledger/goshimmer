@@ -455,25 +455,12 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "epochs_orphaned_blocks{instance=\"$instance\"}\n",
-          "format": "table",
-          "hide": false,
-          "legendFormat": "__auto",
-          "range": true,
-          "refId": "C"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "editorMode": "code",
           "expr": "epochs_accepted_transactions{instance=\"$instance\"}\n",
           "format": "table",
           "hide": false,
           "legendFormat": "__auto",
           "range": true,
-          "refId": "D"
+          "refId": "C"
         },
         {
           "datasource": {
@@ -640,7 +627,10 @@
             "renameByName": {
               "Value": "Epoch Index",
               "Value #A (lastNotNull)": "Total transactions",
-              "Value #B (lastNotNull)": "Accepted transactions",
+              "Value #B (lastNotNull)": "Invalid transactions",
+              "Value #C (lastNotNull)": "Accepted transactions",
+              "Value #D (lastNotNull)": "Orphaned transactions",
+              "Value #E (firstNotNull)": "Orphaned transactions",
               "Value (lastNotNull)": "Attached blocks",
               "accepted_blocks": "Accepted Blocks",
               "accepted_blocks (lastNotNull)": "Accepted Blocka",
@@ -1033,6 +1023,6 @@
   "timezone": "",
   "title": "Global Epochs View",
   "uid": "9eivfEo4z",
-  "version": 2,
+  "version": 4,
   "weekStart": ""
 }
