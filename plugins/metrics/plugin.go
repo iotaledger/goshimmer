@@ -151,6 +151,7 @@ func registerMetrics() {
 	deps.Collector.RegisterCollection(RateSetterMetrics)
 	deps.Collector.RegisterCollection(SchedulerMetrics)
 	deps.Collector.RegisterCollection(CommitmentsMetrics)
+	deps.Collector.RegisterCollection(EpochMetrics)
 	deps.Collector.RegisterCollection(WorkerPoolMetrics)
 
 }
