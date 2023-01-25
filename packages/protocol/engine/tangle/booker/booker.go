@@ -198,7 +198,9 @@ func (b *Booker) isPayloadSolid(block *Block) (isPayloadSolid bool, err error) {
 		return true, nil
 	}
 
-	b.attachments.Store(tx.ID(), block)
+	if attachmentBlock, created := b.attachments.Store(tx.ID(), block); created {
+		b.Events.AttachmentCreated.Trigger(attachmentBlock)
+	}
 
 	if err = b.Ledger.StoreAndProcessTransaction(
 		models.BlockIDToContext(context.Background(), block.ID()), tx,
@@ -435,15 +437,21 @@ func (b *Booker) setupEvents() {
 			return
 		}
 
-		if tx, isTx := block.Transaction(); isTx && b.attachments.DeleteAttachment(tx.ID(), block) {
-			fmt.Println("Transaction orphaned!!!!", block.ID(), tx.ID())
-			b.Events.Error.Trigger(errors.Errorf("transaction %s orphaned", tx.ID()))
-			b.Ledger.PruneTransaction(tx.ID(), true)
+		if tx, isTx := block.Transaction(); isTx {
+			attachmentBlock, attachmentOrphaned, lastAttachmentOrphaned := b.attachments.OrphanAttachment(tx.ID(), block)
+
+			if attachmentOrphaned {
+				fmt.Println("Transaction attachments orphaned!!!!", block.ID(), tx.ID())
+				b.Events.AttachmentOrphaned.Trigger(attachmentBlock)
+			}
+
+			if lastAttachmentOrphaned {
+				fmt.Println("Transaction orphaned!!!!", block.ID(), tx.ID())
+				b.Events.Error.Trigger(errors.Errorf("transaction %s orphaned", tx.ID()))
+				b.Ledger.PruneTransaction(tx.ID(), true)
+			}
 		}
 	}))
-
-	// TODO: handle acceptation of orphaned block containing transaction, to re-add it to attachments and ledger,
-	// if transaction itself was orphaned as well
 
 	b.Ledger.Events.TransactionConflictIDUpdated.Hook(event.NewClosure(func(event *ledger.TransactionConflictIDUpdatedEvent) {
 		if err := b.PropagateForkedConflict(event.TransactionID, event.AddedConflictID, event.RemovedConflictIDs); err != nil {

@@ -164,8 +164,8 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 		collector.WithHelp("Number of conflicts created per epoch."),
 		collector.WithInitFunc(func() {
 			// TODO: iterate through all atachments
-			deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictCreated.Attach(event.NewClosure(func(conflictCreated *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
-				eventEpoch := int(epoch.IndexFromTime(deps.Protocol.Engine().Tangle.GetEarliestAttachment(conflictCreated.ID).IssuingTime()))
+			deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictCreated.Attach(event.NewClosure(func(conflictCreated *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+				eventEpoch := int(epoch.IndexFromTime(deps.Protocol.Engine().Tangle.GetEarliestAttachment(conflictCreated.ID()).IssuingTime()))
 				deps.Collector.Increment(epochNamespace, createdConflicts, strconv.Itoa(eventEpoch))
 			}))
 		}),
@@ -176,8 +176,8 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 		collector.WithHelp("Number of conflicts accepted per epoch."),
 		collector.WithInitFunc(func() {
 			// TODO: iterate through all atachments
-			deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictAccepted.Attach(event.NewClosure(func(conflictID utxo.TransactionID) {
-				eventEpoch := int(epoch.IndexFromTime(deps.Protocol.Engine().Tangle.GetEarliestAttachment(conflictID).IssuingTime()))
+			deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictAccepted.Attach(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+				eventEpoch := int(epoch.IndexFromTime(deps.Protocol.Engine().Tangle.GetEarliestAttachment(conflict.ID()).IssuingTime()))
 				deps.Collector.Increment(epochNamespace, acceptedConflicts, strconv.Itoa(eventEpoch))
 			}))
 		}),
@@ -188,8 +188,8 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 		collector.WithHelp("Number of conflicts rejected per epoch."),
 		collector.WithInitFunc(func() {
 			// TODO: iterate through all atachments
-			deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictRejected.Attach(event.NewClosure(func(conflictID utxo.TransactionID) {
-				eventEpoch := int(epoch.IndexFromTime(deps.Protocol.Engine().Tangle.GetEarliestAttachment(conflictID).IssuingTime()))
+			deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictRejected.Attach(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+				eventEpoch := int(epoch.IndexFromTime(deps.Protocol.Engine().Tangle.GetEarliestAttachment(conflict.ID()).IssuingTime()))
 				deps.Collector.Increment(epochNamespace, rejectedConflicts, strconv.Itoa(eventEpoch))
 			}))
 		}),

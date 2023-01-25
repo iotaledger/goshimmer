@@ -1,6 +1,7 @@
 package booker
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/iotaledger/hive.go/core/generics/set"
@@ -9,74 +10,84 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 type attachments struct {
-	attachments *memstorage.Storage[utxo.TransactionID, *memstorage.Storage[epoch.Index, set.Set[*Block]]]
-	evictionMap *memstorage.Storage[epoch.Index, set.Set[utxo.TransactionID]]
+	attachments        *memstorage.Storage[utxo.TransactionID, *memstorage.Storage[epoch.Index, *memstorage.Storage[models.BlockID, *AttachmentBlock]]]
+	evictionMap        *memstorage.Storage[epoch.Index, set.Set[utxo.TransactionID]]
+	nonOrphanedCounter *memstorage.Storage[utxo.TransactionID, uint32]
 
 	mutex *syncutils.DAGMutex[utxo.TransactionID]
 }
 
 func newAttachments() (newAttachments *attachments) {
 	return &attachments{
-		attachments: memstorage.New[utxo.TransactionID, *memstorage.Storage[epoch.Index, set.Set[*Block]]](),
+		attachments: memstorage.New[utxo.TransactionID, *memstorage.Storage[epoch.Index, *memstorage.Storage[models.BlockID, *AttachmentBlock]]](),
 		evictionMap: memstorage.New[epoch.Index, set.Set[utxo.TransactionID]](),
 		mutex:       syncutils.NewDAGMutex[utxo.TransactionID](),
 	}
 }
 
-func (a *attachments) Store(txID utxo.TransactionID, block *Block) {
+func (a *attachments) Store(txID utxo.TransactionID, block *Block) (attachmentBlock *AttachmentBlock, created bool) {
 	a.mutex.Lock(txID)
 	defer a.mutex.Unlock(txID)
 
-	a.storeAttachment(txID, block)
+	attachmentBlock, created = a.storeAttachment(txID, block)
+	if !created {
+		return nil, false
+	}
+
+	prevValue, _ := a.nonOrphanedCounter.RetrieveOrCreate(txID, func() uint32 { return 0 })
+	a.nonOrphanedCounter.Set(txID, prevValue+1)
+
 	a.updateEvictionMap(block.ID().EpochIndex, txID)
+
+	return attachmentBlock, true
 }
 
-func (a *attachments) DeleteAttachment(txID utxo.TransactionID, block *Block) (lastAttachmentDeleted bool) {
+func (a *attachments) OrphanAttachment(txID utxo.TransactionID, block *Block) (attachmentBlock *AttachmentBlock, attachmentOrphaned, lastAttachmentOrphaned bool) {
 	a.mutex.Lock(txID)
 	defer a.mutex.Unlock(txID)
 
 	storage := a.storage(txID, false)
 	if storage == nil {
 		// zero attachments registered
-		return false
+		return nil, false, false
 	}
+
 	attachmentsOfEpoch, exists := storage.Get(block.ID().Index())
 	if !exists {
-		// there is no attachments of the transaction in the epoch already, so no need to continue
-		return false
+		// there is no attachments of the transaction in the epoch, so no need to continue
+		return nil, false, false
 	}
 
-	attachmentsOfEpoch.Delete(block)
-	if attachmentsOfEpoch.Size() > 0 {
-		// there are still some attachments of the transaction in the epoch, so don't continue
-		return false
+	attachmentBlock, attachmentExists := attachmentsOfEpoch.Get(block.ID())
+	if !attachmentExists {
+		return nil, false, false
 	}
 
-	// delete attachments storage for the given epoch and update eviction map
-	storage.Delete(block.ID().Index())
-	if txIDs, evictionMapEntryExists := a.evictionMap.Get(block.ID().Index()); evictionMapEntryExists {
-		txIDs.Delete(txID)
+	if !attachmentBlock.SetOrphaned(true) {
+		return nil, false, false
 	}
 
-	if storage.Size() > 0 {
-		// there are still attachments of the transaction in other epochs
-		return false
+	prevValue, counterExists := a.nonOrphanedCounter.Get(txID)
+	if !counterExists {
+		panic(fmt.Sprintf("non orphaned attachment counter does not exist for TxID(%s)", txID.String()))
 	}
 
-	// delete transaction's attachment storage
-	a.attachments.Delete(txID)
+	newValue := prevValue - 1
+	a.nonOrphanedCounter.Set(txID, newValue)
 
-	return true
+	return attachmentBlock, true, newValue == 0
 }
 
 func (a *attachments) Get(txID utxo.TransactionID) (attachments []*Block) {
 	if txStorage := a.storage(txID, false); txStorage != nil {
-		txStorage.ForEach(func(_ epoch.Index, blocks set.Set[*Block]) bool {
-			blocks.ForEach(func(block *Block) {
-				attachments = append(attachments, block)
+		txStorage.ForEach(func(_ epoch.Index, blocks *memstorage.Storage[models.BlockID, *AttachmentBlock]) bool {
+			blocks.ForEach(func(_ models.BlockID, attachmentBlock *AttachmentBlock) bool {
+				attachments = append(attachments, attachmentBlock.Block)
+				return true
 			})
 			return true
 		})
@@ -100,22 +111,27 @@ func (a *attachments) Evict(epochIndex epoch.Index) {
 	}
 }
 
-func (a *attachments) storeAttachment(txID utxo.TransactionID, block *Block) {
-	attachmentsOfEpoch, _ := a.storage(txID, true).RetrieveOrCreate(block.ID().EpochIndex, func() set.Set[*Block] {
-		return set.New[*Block](true)
+func (a *attachments) storeAttachment(txID utxo.TransactionID, block *Block) (attachmentBlock *AttachmentBlock, created bool) {
+	attachmentsOfEpoch, _ := a.storage(txID, true).RetrieveOrCreate(block.ID().EpochIndex, func() *memstorage.Storage[models.BlockID, *AttachmentBlock] {
+		return memstorage.New[models.BlockID, *AttachmentBlock]()
 	})
-	attachmentsOfEpoch.Add(block)
+
+	return attachmentsOfEpoch.RetrieveOrCreate(block.ID(), func() *AttachmentBlock {
+		return NewAttachmentBlock(block)
+	})
 }
 
 func (a *attachments) getEarliestAttachment(txID utxo.TransactionID) (attachment *Block) {
 	var lowestTime time.Time
 	if txStorage := a.storage(txID, false); txStorage != nil {
-		txStorage.ForEach(func(_ epoch.Index, blocks set.Set[*Block]) bool {
-			blocks.ForEach(func(block *Block) {
-				if lowestTime.After(block.IssuingTime()) || lowestTime.IsZero() {
-					lowestTime = block.IssuingTime()
-					attachment = block
+		txStorage.ForEach(func(_ epoch.Index, blocks *memstorage.Storage[models.BlockID, *AttachmentBlock]) bool {
+			blocks.ForEach(func(_ models.BlockID, attachmentBlock *AttachmentBlock) bool {
+				if lowestTime.After(attachmentBlock.IssuingTime()) || lowestTime.IsZero() {
+					lowestTime = attachmentBlock.IssuingTime()
+					attachment = attachmentBlock.Block
 				}
+
+				return true
 			})
 			return true
 		})
@@ -127,23 +143,23 @@ func (a *attachments) getEarliestAttachment(txID utxo.TransactionID) (attachment
 func (a *attachments) getLatestAttachment(txID utxo.TransactionID) (attachment *Block) {
 	highestTime := time.Time{}
 	if txStorage := a.storage(txID, false); txStorage != nil {
-		txStorage.ForEach(func(_ epoch.Index, blocks set.Set[*Block]) bool {
-			blocks.ForEach(func(block *Block) {
-				if highestTime.Before(block.IssuingTime()) {
-					highestTime = block.IssuingTime()
-					attachment = block
+		txStorage.ForEach(func(_ epoch.Index, blocks *memstorage.Storage[models.BlockID, *AttachmentBlock]) bool {
+			blocks.ForEach(func(_ models.BlockID, attachmentBlock *AttachmentBlock) bool {
+				if highestTime.Before(attachmentBlock.IssuingTime()) {
+					highestTime = attachmentBlock.IssuingTime()
+					attachment = attachmentBlock.Block
 				}
+				return true
 			})
 			return true
 		})
 	}
-
 	return
 }
 
-func (a *attachments) storage(txID utxo.TransactionID, createIfMissing bool) (storage *memstorage.Storage[epoch.Index, set.Set[*Block]]) {
+func (a *attachments) storage(txID utxo.TransactionID, createIfMissing bool) (storage *memstorage.Storage[epoch.Index, *memstorage.Storage[models.BlockID, *AttachmentBlock]]) {
 	if createIfMissing {
-		storage, _ = a.attachments.RetrieveOrCreate(txID, memstorage.New[epoch.Index, set.Set[*Block]])
+		storage, _ = a.attachments.RetrieveOrCreate(txID, memstorage.New[epoch.Index, *memstorage.Storage[models.BlockID, *AttachmentBlock]])
 		return
 	}
 
@@ -158,3 +174,56 @@ func (a *attachments) updateEvictionMap(epochIndex epoch.Index, txID utxo.Transa
 	})
 	txIDs.Add(txID)
 }
+
+// region AttachmentBlock //////////////////////////////////////////////////////////////////////////////////////////////
+
+type AttachmentBlock struct {
+	conflictCounted bool
+	orphaned        bool
+
+	*Block
+}
+
+func NewAttachmentBlock(block *Block) *AttachmentBlock {
+	return &AttachmentBlock{Block: block}
+}
+
+func (a *AttachmentBlock) ConflictCounted() bool {
+	a.RLock()
+	defer a.RUnlock()
+
+	return a.conflictCounted
+}
+
+func (a *AttachmentBlock) SetConflictCounted(conflictCounted bool) (updated bool) {
+	a.Lock()
+	defer a.Unlock()
+
+	if a.conflictCounted == conflictCounted {
+		return false
+	}
+
+	a.conflictCounted = conflictCounted
+	return true
+}
+
+func (a *AttachmentBlock) Orphaned() bool {
+	a.RLock()
+	defer a.RUnlock()
+
+	return a.orphaned
+}
+
+func (a *AttachmentBlock) SetOrphaned(orphaned bool) (updated bool) {
+	a.Lock()
+	defer a.Unlock()
+
+	if a.orphaned == orphaned {
+		return false
+	}
+
+	a.orphaned = orphaned
+	return true
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
