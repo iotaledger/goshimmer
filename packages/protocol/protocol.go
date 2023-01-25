@@ -459,6 +459,16 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, atte
 	p.candidateEngine = candidateEngine
 	p.activeEngineMutex.Unlock()
 
+	requestBlocks := event.NewClosure(func(blockID models.BlockID) {
+		p.networkProtocol.RequestBlock(blockID)
+	})
+
+	// Attach the engine block requests to the protocol and detach as soon as we switch to that engine
+	candidateEngine.Engine.Events.BlockRequester.Tick.Attach(requestBlocks)
+	p.Events.MainEngineSwitched.Attach(event.NewClosure(func(_ *enginemanager.EngineInstance) {
+		candidateEngine.Engine.Events.BlockRequester.Tick.Detach(requestBlocks)
+	}), 1)
+
 	p.Events.CandidateEngineCreated.Trigger(candidateEngine)
 }
 
