@@ -1095,9 +1095,19 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 
 		waitOnAllNodes()
 
-		// Calm the compiler
-		_ = blockG.ID()
-		_ = blockH.ID()
+		activityFunc := func(node *NodeOnMockedNetwork, tip *booker.Block) {
+			var counter int
+			for {
+				tip = node.IssueBlock(fmt.Sprintf("%s.%d", node.Identity.ID(), counter), tip.ID())
+				counter++
+				time.Sleep(100 * time.Millisecond)
+			}
+		}
+
+		go activityFunc(node1, blockG)
+		go activityFunc(node3, blockH)
+
+		time.Sleep(10 * time.Second)
 	}
 
 	// Compare chains
