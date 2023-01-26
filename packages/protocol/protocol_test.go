@@ -729,12 +729,13 @@ func (n *NodeOnMockedNetwork) HookLogging(includeMainEngine bool) {
 	events := n.Protocol.Events
 
 	if includeMainEngine {
-		n.attachEngineLogs("Main", events.Engine)
+		n.attachEngineLogs(n.Protocol.mainEngine)
 	}
 
 	events.CandidateEngineActivated.Hook(event.NewClosure(func(candidateEngine *enginemanager.EngineInstance) {
 		fmt.Printf("%s> CandidateEngineActivated: latest commitment %s %s\n", n.Identity.ID(), candidateEngine.Storage.Settings.LatestCommitment().ID(), candidateEngine.Storage.Settings.LatestCommitment())
 		fmt.Println("================\nACTIVATE\n================")
+		n.attachEngineLogs(candidateEngine)
 	}))
 
 	events.MainEngineSwitched.Hook(event.NewClosure(func(engine *enginemanager.EngineInstance) {
@@ -796,7 +797,11 @@ func (n *NodeOnMockedNetwork) HookLogging(includeMainEngine bool) {
 	}))
 }
 
-func (n *NodeOnMockedNetwork) attachEngineLogs(engineName string, events *engine.Events) {
+func (n *NodeOnMockedNetwork) attachEngineLogs(instance *enginemanager.EngineInstance) {
+
+	engineName := instance.Name()
+	events := instance.Engine.Events
+
 	events.Tangle.BlockDAG.BlockAttached.Hook(event.NewClosure(func(block *blockdag.Block) {
 		fmt.Printf("%s> [%s] BlockDAG.BlockAttached: %s\n", n.Identity.ID(), engineName, block.ID())
 	}))

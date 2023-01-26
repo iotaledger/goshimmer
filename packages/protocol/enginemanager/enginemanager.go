@@ -160,6 +160,10 @@ func (e *EngineInstance) InitializeWithSnapshot(snapshotPath string) error {
 	return e.Engine.Initialize(snapshotPath)
 }
 
+func (e *EngineInstance) Name() string {
+	return filepath.Base(e.Storage.Directory)
+}
+
 func (e *EngineInstance) Shutdown() {
 	e.Engine.Shutdown()
 	for _, wp := range e.Engine.WorkerPools() {
