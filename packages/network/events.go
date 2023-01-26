@@ -81,6 +81,7 @@ type EpochCommitmentRequestReceivedEvent struct {
 
 type AttestationsReceivedEvent struct {
 	Commitment   *commitment.Commitment
+	BlockIDs     models.BlockIDs
 	Attestations *orderedmap.OrderedMap[epoch.Index, *set.AdvancedSet[*notarization.Attestation]]
 	Source       identity.ID
 }

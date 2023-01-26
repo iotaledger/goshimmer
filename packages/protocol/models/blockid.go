@@ -196,6 +196,23 @@ func NewBlockIDs(blkIDs ...BlockID) BlockIDs {
 	return m
 }
 
+// FromBytes deserializes a BlockIDs from a byte slice.
+func (m BlockIDs) FromBytes(serialized []byte) (consumedBytes int, err error) {
+	var slice []BlockID
+	if consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), serialized, &slice, serix.WithTypeSettings(serix.TypeSettings{}.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32))); err != nil {
+		return
+	}
+	for _, b := range slice {
+		m.Add(b)
+	}
+	return
+}
+
+// Bytes returns a serialized version of the BlockIDs.
+func (m BlockIDs) Bytes() (serialized []byte, err error) {
+	return serix.DefaultAPI.Encode(context.Background(), m.Slice(), serix.WithTypeSettings(serix.TypeSettings{}.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32)))
+}
+
 // Slice converts the set of BlockIDs into a slice of BlockIDs.
 func (m BlockIDs) Slice() []BlockID {
 	ids := make([]BlockID, 0)

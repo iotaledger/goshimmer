@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -17,6 +18,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
@@ -181,7 +183,7 @@ func (p *Protocol) initNetworkProtocol() {
 	}))
 
 	p.Events.Network.AttestationsReceived.Attach(event.NewClosure(func(event *network.AttestationsReceivedEvent) {
-		p.ProcessAttestations(event.Commitment, event.Attestations, event.Source)
+		p.ProcessAttestations(event.Commitment, event.BlockIDs, event.Attestations, event.Source)
 	}))
 }
 
@@ -312,14 +314,13 @@ func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) error {
 	if candidateEngine := p.CandidateEngineInstance(); candidateEngine != nil {
 		if candidateChain := candidateEngine.Storage.Settings.ChainID(); chain.ForkingPoint.ID() == candidateChain {
 			candidateEngine.Engine.ProcessBlockFromPeer(block, src)
-
 			if candidateEngine.Engine.IsBootstrapped() && candidateEngine.Storage.Settings.LatestCommitment().CumulativeWeight() > mainEngine.Storage.Settings.LatestCommitment().CumulativeWeight() {
 				p.switchEngines()
 			}
 			return nil
 		}
 	}
-	return errors.Errorf("block was not processed.")
+	return errors.Errorf("block from source %s was not processed: %s", src, block.ID())
 }
 
 func (p *Protocol) ProcessAttestationsRequest(forkingPoint *commitment.Commitment, endIndex epoch.Index, src identity.ID) {
@@ -331,6 +332,7 @@ func (p *Protocol) ProcessAttestationsRequest(forkingPoint *commitment.Commitmen
 		return
 	}
 
+	blockIDs := models.NewBlockIDs()
 	attestations := orderedmap.New[epoch.Index, *set.AdvancedSet[*notarization.Attestation]]()
 	for i := forkingPoint.Index(); i <= endIndex; i++ {
 		attestationsForEpoch, err := mainEngine.Engine.NotarizationManager.Attestations.Get(i)
@@ -349,12 +351,21 @@ func (p *Protocol) ProcessAttestationsRequest(forkingPoint *commitment.Commitmen
 		}
 
 		attestations.Set(i, attestationsSet)
+
+		if err := mainEngine.Engine.Storage.Blocks.ForEachBlockInEpoch(i, func(blockID models.BlockID) bool {
+			blockIDs.Add(blockID)
+			return true
+		}); err != nil {
+			p.Events.Error.Trigger(errors.Wrap(err, "failed to read blocks from epoch"))
+			return
+		}
 	}
 
-	p.networkProtocol.SendAttestations(forkingPoint, attestations, src)
+	p.networkProtocol.SendAttestations(forkingPoint, blockIDs, attestations, src)
 }
 
-func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, attestations *orderedmap.OrderedMap[epoch.Index, *set.AdvancedSet[*notarization.Attestation]], source identity.ID) {
+func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, blockIDs models.BlockIDs, attestations *orderedmap.OrderedMap[epoch.Index, *set.AdvancedSet[*notarization.Attestation]], source identity.ID) {
+	fmt.Println("Received attestations for", forkingPoint.ID())
 	if attestations.Size() == 0 {
 		p.Events.Error.Trigger(errors.Errorf("received attestations from peer %s are empty", source.String()))
 		return
@@ -454,22 +465,52 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, atte
 	// Set the chain to the correct forking point
 	candidateEngine.Engine.Storage.Settings.SetChainID(forkedEvent.Chain.ForkingPoint.ID())
 
+	// Attach the engine block requests to the protocol and detach as soon as we switch to that engine
+	requestBlocks := event.NewClosure(func(blockID models.BlockID) {
+		p.networkProtocol.RequestBlock(blockID)
+	})
+	candidateEngine.Engine.Events.BlockRequester.Tick.Attach(requestBlocks)
+	p.Events.MainEngineSwitched.Hook(event.NewClosure(func(_ *enginemanager.EngineInstance) {
+		candidateEngine.Engine.Events.BlockRequester.Tick.Detach(requestBlocks)
+	}), 1)
+
+	// Add all the blocks from the forking point to the requester since those will not be passed to the engine by the protocol
+	requestedBlockIDs := memstorage.New[models.BlockID, types.Empty]()
+	for _, b := range blockIDs.Slice() {
+		fmt.Println("> Add", b)
+		requestedBlockIDs.Set(b, types.Void)
+	}
+	if requestedBlockIDs.Size() > 0 {
+		// Only attach a closure if there really are blocks that need requesting
+		var processRequestedBlock *event.Closure[*network.BlockReceivedEvent]
+		processRequestedBlock = event.NewClosure(func(event *network.BlockReceivedEvent) {
+			if requestedBlockIDs.Delete(event.Block.ID()) {
+				fmt.Println("Process requested block in candidate engine:", event.Block.ID())
+				candidateEngine.Engine.ProcessBlockFromPeer(event.Block, event.Source)
+
+				if requestedBlockIDs.IsEmpty() {
+					p.Events.Network.BlockReceived.Detach(processRequestedBlock)
+					fmt.Println("Last requested block received")
+				}
+			}
+		})
+		// Attach the block received since we want to pass the received blocks to out engine directly
+		p.Events.Network.BlockReceived.Attach(processRequestedBlock)
+	}
+
+	requestedBlockIDs.ForEachKey(func(id models.BlockID) bool {
+		fmt.Println("> Request", id)
+		candidateEngine.Engine.BlockRequester.StartTicker(id)
+		return true
+	})
+	fmt.Printf(">>> Added %d blocks to the candidate engine BlockRequester\n", requestedBlockIDs.Size())
+
 	// Set the engine as the new candidate
 	p.activeEngineMutex.Lock()
 	p.candidateEngine = candidateEngine
 	p.activeEngineMutex.Unlock()
 
-	requestBlocks := event.NewClosure(func(blockID models.BlockID) {
-		p.networkProtocol.RequestBlock(blockID)
-	})
-
-	// Attach the engine block requests to the protocol and detach as soon as we switch to that engine
-	candidateEngine.Engine.Events.BlockRequester.Tick.Attach(requestBlocks)
-	p.Events.MainEngineSwitched.Attach(event.NewClosure(func(_ *enginemanager.EngineInstance) {
-		candidateEngine.Engine.Events.BlockRequester.Tick.Detach(requestBlocks)
-	}), 1)
-
-	p.Events.CandidateEngineCreated.Trigger(candidateEngine)
+	p.Events.CandidateEngineActivated.Trigger(candidateEngine)
 }
 
 func (p *Protocol) Engine() *engine.Engine {

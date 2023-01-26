@@ -71,9 +71,10 @@ func (p *Protocol) SendEpochCommitment(cm *commitment.Commitment, to ...identity
 	}}}, protocolID, to...)
 }
 
-func (p *Protocol) SendAttestations(cm *commitment.Commitment, attestations *orderedmap.OrderedMap[epoch.Index, *set.AdvancedSet[*notarization.Attestation]], to ...identity.ID) {
+func (p *Protocol) SendAttestations(cm *commitment.Commitment, blockIDs models.BlockIDs, attestations *orderedmap.OrderedMap[epoch.Index, *set.AdvancedSet[*notarization.Attestation]], to ...identity.ID) {
 	p.network.Send(&nwmodels.Packet{Body: &nwmodels.Packet_Attestations{Attestations: &nwmodels.Attestations{
 		Commitment:   lo.PanicOnErr(cm.Bytes()),
+		Blocks:       lo.PanicOnErr(blockIDs.Bytes()),
 		Attestations: lo.PanicOnErr(attestations.Encode()),
 	}}}, protocolID, to...)
 }
@@ -107,7 +108,7 @@ func (p *Protocol) handlePacket(nbr identity.ID, packet proto.Message) (err erro
 		event.Loop.Submit(func() { p.onEpochCommitmentRequest(packetBody.EpochCommitmentRequest.GetBytes(), nbr) })
 	case *nwmodels.Packet_Attestations:
 		event.Loop.Submit(func() {
-			p.onAttestations(packetBody.Attestations.GetCommitment(), packetBody.Attestations.GetAttestations(), nbr)
+			p.onAttestations(packetBody.Attestations.GetCommitment(), packetBody.Attestations.GetBlocks(), packetBody.Attestations.GetAttestations(), nbr)
 		})
 	case *nwmodels.Packet_AttestationsRequest:
 		event.Loop.Submit(func() {
@@ -209,11 +210,21 @@ func (p *Protocol) onEpochCommitmentRequest(idBytes []byte, id identity.ID) {
 	})
 }
 
-func (p *Protocol) onAttestations(commitmentBytes []byte, attestationsBytes []byte, id identity.ID) {
+func (p *Protocol) onAttestations(commitmentBytes []byte, blockIDBytes []byte, attestationsBytes []byte, id identity.ID) {
 	cm := &commitment.Commitment{}
 	if _, err := cm.FromBytes(commitmentBytes); err != nil {
 		p.Events.Error.Trigger(&ErrorEvent{
 			Error:  errors.Wrap(err, "failed to deserialize commitment"),
+			Source: id,
+		})
+
+		return
+	}
+
+	blockIDs := models.NewBlockIDs()
+	if _, err := blockIDs.FromBytes(blockIDBytes); err != nil {
+		p.Events.Error.Trigger(&ErrorEvent{
+			Error:  errors.Wrap(err, "failed to deserialize blockIDs"),
 			Source: id,
 		})
 
@@ -232,6 +243,7 @@ func (p *Protocol) onAttestations(commitmentBytes []byte, attestationsBytes []by
 
 	p.Events.AttestationsReceived.Trigger(&AttestationsReceivedEvent{
 		Commitment:   cm,
+		BlockIDs:     blockIDs,
 		Attestations: attestations,
 		Source:       id,
 	})

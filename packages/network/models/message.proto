@@ -33,7 +33,8 @@ message EpochCommitmentRequest {
 
 message Attestations {
   bytes commitment = 1;
-  bytes attestations = 2;
+  bytes blocks = 2;
+  bytes attestations = 3;
 }
 
 message AttestationsRequest {
