@@ -161,8 +161,9 @@ func (p *Protocol) initNetworkProtocol() {
 	}))
 
 	p.Events.Network.EpochCommitmentRequestReceived.Attach(event.NewClosure(func(event *network.EpochCommitmentRequestReceivedEvent) {
-		if requestedCommitment, _ := p.chainManager.Commitment(event.CommitmentID); requestedCommitment != nil && requestedCommitment.Commitment() != nil {
-			p.networkProtocol.SendEpochCommitment(requestedCommitment.Commitment(), event.Source)
+		// when we receive a commitment request, do not look it up in the ChainManager but in the storage, else we might answer with commitments we did not issue ourselves and for which we cannot provide attestations
+		if requestedCommitment, err := p.Engine().Storage.Commitments.Load(event.CommitmentID.Index()); err == nil && requestedCommitment.ID() == event.CommitmentID {
+			p.networkProtocol.SendEpochCommitment(requestedCommitment, event.Source)
 		}
 	}))
 
