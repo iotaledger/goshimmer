@@ -416,7 +416,6 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 
 		// Get our cumulative weight at the snapshot target index and apply all the received attestations on stop while verifying the validity of each signature
 		calculatedCumulativeWeight = lo.PanicOnErr(mainEngine.Storage.Commitments.Load(snapshotTargetIndex)).CumulativeWeight()
-		visitedIdentities := make(map[identity.ID]types.Empty)
 		for epochIndex := forkedEvent.ForkingPoint().Index(); epochIndex <= forkedEvent.EndEpoch(); epochIndex++ {
 			epochAttestations, epochExists := attestations.Get(epochIndex)
 			if !epochExists {
@@ -424,6 +423,7 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 				//TODO: ban source?
 				return
 			}
+			visitedIdentities := make(map[identity.ID]types.Empty)
 			for it := epochAttestations.Iterator(); it.HasNext(); {
 				attestation := it.Next()
 
