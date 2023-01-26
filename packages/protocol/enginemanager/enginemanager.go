@@ -162,6 +162,9 @@ func (e *EngineInstance) InitializeWithSnapshot(snapshotPath string) error {
 
 func (e *EngineInstance) Shutdown() {
 	e.Engine.Shutdown()
+	for _, wp := range e.Engine.WorkerPools() {
+		wp.PendingTasksCounter.WaitIsZero()
+	}
 	e.Storage.Shutdown()
 }
 

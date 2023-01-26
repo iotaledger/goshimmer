@@ -54,9 +54,6 @@ func (s *Storage) PermanentDatabaseSize() int64 {
 
 // Shutdown shuts down the storage.
 func (s *Storage) Shutdown() {
-	//TODO: we cannot wait on the main loop here, else we cannot shutdown old engines
-	//event.Loop.PendingTasksCounter.WaitIsZero()
-
 	if err := s.Permanent.Commitments.Close(); err != nil {
 		panic(err)
 	}
