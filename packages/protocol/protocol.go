@@ -231,6 +231,11 @@ func (p *Protocol) onForkDetected(commitment *commitment.Commitment, forkingPoin
 func (p *Protocol) switchEngines() {
 	p.activeEngineMutex.Lock()
 
+	if p.candidateEngine == nil {
+		p.activeEngineMutex.Unlock()
+		return
+	}
+
 	// Save a reference to the current main engine and storage so that we can shut it down and prune it after switching
 	oldEngine := p.mainEngine
 
