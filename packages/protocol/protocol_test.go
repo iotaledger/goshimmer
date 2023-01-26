@@ -725,8 +725,22 @@ func newNode(t *testing.T, keyPair ed25519.KeyPair, network *network.MockedNetwo
 	}
 }
 
-func (n *NodeOnMockedNetwork) HookLogging() {
+func (n *NodeOnMockedNetwork) HookLogging(includeMainEngine bool) {
 	events := n.Protocol.Events
+
+	if includeMainEngine {
+		n.attachEngineLogs("Main", events.Engine)
+	}
+
+	events.CandidateEngineActivated.Hook(event.NewClosure(func(candidateEngine *enginemanager.EngineInstance) {
+		fmt.Printf("%s> CandidateEngineActivated: latest commitment %s %s\n", n.Identity.ID(), candidateEngine.Storage.Settings.LatestCommitment().ID(), candidateEngine.Storage.Settings.LatestCommitment())
+		fmt.Println("================\nACTIVATE\n================")
+	}))
+
+	events.MainEngineSwitched.Hook(event.NewClosure(func(engine *enginemanager.EngineInstance) {
+		fmt.Printf("%s> MainEngineSwitched: latest commitment %s %s\n", n.Identity.ID(), engine.Storage.Settings.LatestCommitment().ID(), engine.Storage.Settings.LatestCommitment())
+		fmt.Println("================\nSWITCH\n================")
+	}))
 
 	events.CongestionControl.Scheduler.BlockScheduled.Hook(event.NewClosure(func(block *scheduler.Block) {
 		fmt.Printf("%s> CongestionControl.Scheduler.BlockScheduled: %s\n", n.Identity.ID(), block.ID())
@@ -746,15 +760,7 @@ func (n *NodeOnMockedNetwork) HookLogging() {
 
 	events.ChainManager.ForkDetected.Hook(event.NewClosure(func(event *chainmanager.ForkDetectedEvent) {
 		fmt.Printf("%s> ChainManager.ForkDetected: %s with forking point %s received from %s\n", n.Identity.ID(), event.Commitment.ID(), event.Chain.ForkingPoint.ID(), event.Source)
-		println("-----------------\nForkDetected\n-----------------")
-	}))
-
-	events.CandidateEngineCreated.Hook(event.NewClosure(func(engine *enginemanager.EngineInstance) {
-		fmt.Printf("%s> CandidateEngineCreated: latest commitment %s\n", n.Identity.ID(), engine.Storage.Settings.LatestCommitment())
-	}))
-
-	events.MainEngineSwitched.Hook(event.NewClosure(func(engine *enginemanager.EngineInstance) {
-		fmt.Printf("%s> MainEngineSwitched: latest commitment %s\n", n.Identity.ID(), engine.Storage.Settings.LatestCommitment())
+		fmt.Println("-----------------\nForkDetected\n-----------------")
 	}))
 
 	events.Error.Hook(event.NewClosure(func(err error) {
@@ -762,7 +768,7 @@ func (n *NodeOnMockedNetwork) HookLogging() {
 	}))
 
 	events.Network.BlockReceived.Hook(event.NewClosure(func(event *network.BlockReceivedEvent) {
-		fmt.Printf("%s> Network.BlockReceived: from %s %s\n", n.Identity.ID(), event.Source, event.Block.ID())
+		fmt.Printf("%s> Network.BlockReceived: from %s %s - %d\n", n.Identity.ID(), event.Source, event.Block.ID(), event.Block.ID().Index())
 	}))
 
 	events.Network.BlockRequestReceived.Hook(event.NewClosure(func(event *network.BlockRequestReceivedEvent) {
@@ -788,13 +794,6 @@ func (n *NodeOnMockedNetwork) HookLogging() {
 	events.Network.Error.Hook(event.NewClosure(func(event *network.ErrorEvent) {
 		fmt.Printf("%s> Network.Error: from %s %s\n", n.Identity.ID(), event.Source, event.Error.Error())
 	}))
-
-	n.attachEngineLogs("Main", events.Engine)
-
-	events.CandidateEngineCreated.Hook(event.NewClosure(func(candidateEngine *enginemanager.EngineInstance) {
-		n.attachEngineLogs("Candidate", candidateEngine.Engine.Events)
-	}))
-
 }
 
 func (n *NodeOnMockedNetwork) attachEngineLogs(engineName string, events *engine.Events) {
@@ -826,8 +825,12 @@ func (n *NodeOnMockedNetwork) attachEngineLogs(engineName string, events *engine
 		fmt.Printf("%s> [%s] BlockDAG.BlockUnorphaned: %s\n", n.Identity.ID(), engineName, block.ID())
 	}))
 
+	events.Tangle.Booker.BlockBooked.Hook(event.NewClosure(func(block *booker.Block) {
+		fmt.Printf("%s> [%s] Booker.BlockBooked: %s\n", n.Identity.ID(), engineName, block.ID())
+	}))
+
 	events.Tangle.VirtualVoting.SequenceTracker.VotersUpdated.Hook(event.NewClosure(func(event *sequencetracker.VoterUpdatedEvent) {
-		fmt.Printf("%s> [%s] Tangle.VirtualVoting.SequenceTracker.VotersUpdated: %s %s %d -> %d\n", n.Identity.ID(), engineName, event.SequenceID, event.Voter, event.PrevMaxSupportedIndex, event.NewMaxSupportedIndex)
+		fmt.Printf("%s> [%s] Tangle.VirtualVoting.SequenceTracker.VotersUpdated: %s %s %d -> %d\n", n.Identity.ID(), engineName, event.Voter, event.SequenceID, event.PrevMaxSupportedIndex, event.NewMaxSupportedIndex)
 	}))
 
 	events.Clock.AcceptanceTimeUpdated.Hook(event.NewClosure(func(event *clock.TimeUpdateEvent) {
@@ -847,12 +850,16 @@ func (n *NodeOnMockedNetwork) attachEngineLogs(engineName string, events *engine
 		fmt.Printf("%s> [%s] BlockRequester.Tick: %s\n", n.Identity.ID(), engineName, blockID)
 	}))
 
+	events.BlockProcessed.Hook(event.NewClosure(func(blockID models.BlockID) {
+		fmt.Printf("%s> [%s] Engine.BlockProcessed: %s\n", n.Identity.ID(), engineName, blockID)
+	}))
+
 	events.Error.Hook(event.NewClosure(func(err error) {
 		fmt.Printf("%s> [%s] Engine.Error: %s\n", n.Identity.ID(), engineName, err.Error())
 	}))
 
 	events.NotarizationManager.EpochCommitted.Hook(event.NewClosure(func(details *notarization.EpochCommittedDetails) {
-		fmt.Printf("%s> [%s] NotarizationManager.EpochCommitted: %s\n", n.Identity.ID(), engineName, details.Commitment.ID())
+		fmt.Printf("%s> [%s] NotarizationManager.EpochCommitted: %s %s\n", n.Identity.ID(), engineName, details.Commitment.ID(), details.Commitment)
 	}))
 
 	events.Consensus.BlockGadget.BlockAccepted.Hook(event.NewClosure(func(block *blockgadget.Block) {
@@ -900,6 +907,30 @@ func (n *NodeOnMockedNetwork) IssueBlock(alias string, parents ...models.BlockID
 	return n.EngineTestFramework.Tangle.Block(alias)
 }
 
+func (n *NodeOnMockedNetwork) IssueActivity(duration time.Duration) {
+	go func() {
+		start := time.Now()
+		var counter int
+		for {
+			tips := n.Protocol.TipManager.Tips(1)
+			n.issueActivityBlock(fmt.Sprintf("%s.%d", n.Identity.ID(), counter), tips.Slice()...)
+			counter++
+			time.Sleep(1 * time.Second)
+			if duration > 0 && time.Now().Sub(start) > duration {
+				return
+			}
+		}
+	}()
+}
+
+func (n *NodeOnMockedNetwork) issueActivityBlock(alias string, parents ...models.BlockID) {
+	n.EngineTestFramework.Tangle.CreateAndSignBlock(alias, &n.KeyPair,
+		models.WithStrongParents(models.NewBlockIDs(parents...)),
+		models.WithCommitment(n.Protocol.Engine().Storage.Settings.LatestCommitment()),
+	)
+	n.EngineTestFramework.Tangle.IssueBlocks(alias)
+}
+
 func (n *NodeOnMockedNetwork) ValidateAcceptedBlocks(expectedAcceptedBlocks map[models.BlockID]bool) {
 	for blockID, blockExpectedAccepted := range expectedAcceptedBlocks {
 		actualBlockAccepted := n.Protocol.Engine().Consensus.BlockGadget.IsBlockAccepted(blockID)
@@ -907,11 +938,8 @@ func (n *NodeOnMockedNetwork) ValidateAcceptedBlocks(expectedAcceptedBlocks map[
 	}
 }
 
-func (n *NodeOnMockedNetwork) AssertEqualChains(other *NodeOnMockedNetwork) {
-	require.Equal(n.Testing, n.Protocol.Engine().Storage.Settings.ChainID(), other.Protocol.Engine().Storage.Settings.ChainID())
+func (n *NodeOnMockedNetwork) AssertEqualLatestCommitments(other *NodeOnMockedNetwork) {
 	require.Equal(n.Testing, n.Protocol.Engine().Storage.Settings.LatestCommitment(), other.Protocol.Engine().Storage.Settings.LatestCommitment())
-	require.Equal(n.Testing, n.Protocol.Engine().Storage.Settings.LatestConfirmedEpoch(), other.Protocol.Engine().Storage.Settings.LatestConfirmedEpoch())
-	require.Equal(n.Testing, n.Protocol.Engine().Storage.Settings.LatestStateMutationEpoch(), other.Protocol.Engine().Storage.Settings.LatestStateMutationEpoch())
 }
 
 func TestProtocol_EngineSwitching(t *testing.T) {
@@ -941,7 +969,7 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 
 	partition1Weights := map[ed25519.PublicKey]uint64{
 		identitiesMap["node1"].PublicKey: 75,
-		identitiesMap["node2"].PublicKey: 25,
+		identitiesMap["node2"].PublicKey: 75,
 	}
 
 	partition2Weights := map[ed25519.PublicKey]uint64{
@@ -954,30 +982,65 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 	lo.MergeMaps(allWeights, partition2Weights)
 
 	snapshotsDir := utils.NewDirectory(t.TempDir())
-	snapshotPartition1 := snapshotsDir.Path("snapshot_1.bin")
-	snapshotcreator.CreateSnapshot(DatabaseVersion, snapshotPartition1, 0, make([]byte, 32), allWeights, lo.Keys(partition1Weights), engineOptions...)
+	snapshot := snapshotsDir.Path("snapshot.bin")
+	snapshotcreator.CreateSnapshot(DatabaseVersion, snapshot, 0, make([]byte, 32), allWeights, nil, engineOptions...)
 
-	snapshotPartition2 := snapshotsDir.Path("snapshot_2.bin")
-	snapshotcreator.CreateSnapshot(DatabaseVersion, snapshotPartition2, 0, make([]byte, 32), allWeights, lo.Keys(partition2Weights), engineOptions...)
+	node1 := newNode(t, identitiesMap["node1"], testNetwork, "P1", snapshot, engineOptions...)
+	node2 := newNode(t, identitiesMap["node2"], testNetwork, "P1", snapshot, engineOptions...)
+	node3 := newNode(t, identitiesMap["node3"], testNetwork, "P2", snapshot, engineOptions...)
+	node4 := newNode(t, identitiesMap["node4"], testNetwork, "P2", snapshot, engineOptions...)
 
-	node1 := newNode(t, identitiesMap["node1"], testNetwork, "P1", snapshotPartition1, engineOptions...)
-	node2 := newNode(t, identitiesMap["node2"], testNetwork, "P1", snapshotPartition1, engineOptions...)
-	node3 := newNode(t, identitiesMap["node3"], testNetwork, "P2", snapshotPartition2, engineOptions...)
-	node4 := newNode(t, identitiesMap["node4"], testNetwork, "P2", snapshotPartition2, engineOptions...)
+	node1.HookLogging(true)
+	node2.HookLogging(true)
+	node3.HookLogging(true)
+	node4.HookLogging(true)
 
-	node4.HookLogging()
+	// Verify all nodes have the expected state
+	{
+		// Partition 1
+		require.Equal(t, int64(200), node1.Protocol.Engine().SybilProtection.Weights().TotalWeight().Value)
+		require.Equal(t, int64(0), node1.Protocol.Engine().SybilProtection.Validators().TotalWeight())
+		require.Equal(t, int64(200), node2.Protocol.Engine().SybilProtection.Weights().TotalWeight().Value)
+		require.Equal(t, int64(0), node2.Protocol.Engine().SybilProtection.Validators().TotalWeight())
 
-	require.Equal(t, int64(150), node1.Protocol.Engine().SybilProtection.Weights().TotalWeight().Value)
-	require.Equal(t, int64(100), node1.Protocol.Engine().SybilProtection.Validators().TotalWeight())
+		// Partition 2
+		require.Equal(t, int64(200), node3.Protocol.Engine().SybilProtection.Weights().TotalWeight().Value)
+		require.Equal(t, int64(0), node3.Protocol.Engine().SybilProtection.Validators().TotalWeight())
+		require.Equal(t, int64(200), node4.Protocol.Engine().SybilProtection.Weights().TotalWeight().Value)
+		require.Equal(t, int64(0), node4.Protocol.Engine().SybilProtection.Validators().TotalWeight())
 
-	require.Equal(t, int64(150), node2.Protocol.Engine().SybilProtection.Weights().TotalWeight().Value)
-	require.Equal(t, int64(100), node2.Protocol.Engine().SybilProtection.Validators().TotalWeight())
+		// Add the validators manually to the active set of each partition
+		for key := range partition1Weights {
+			node1.Protocol.Engine().SybilProtection.Validators().Add(identity.NewID(key))
+			node2.Protocol.Engine().SybilProtection.Validators().Add(identity.NewID(key))
+		}
 
-	require.Equal(t, int64(150), node3.Protocol.Engine().SybilProtection.Weights().TotalWeight().Value)
-	require.Equal(t, int64(50), node3.Protocol.Engine().SybilProtection.Validators().TotalWeight())
+		for key := range partition2Weights {
+			node3.Protocol.Engine().SybilProtection.Validators().Add(identity.NewID(key))
+			node4.Protocol.Engine().SybilProtection.Validators().Add(identity.NewID(key))
+		}
 
-	require.Equal(t, int64(150), node4.Protocol.Engine().SybilProtection.Weights().TotalWeight().Value)
-	require.Equal(t, int64(50), node4.Protocol.Engine().SybilProtection.Validators().TotalWeight())
+		// Partition 1
+		require.Equal(t, int64(200), node1.Protocol.Engine().SybilProtection.Weights().TotalWeight().Value)
+		require.Equal(t, int64(150), node1.Protocol.Engine().SybilProtection.Validators().TotalWeight())
+		require.Equal(t, int64(200), node2.Protocol.Engine().SybilProtection.Weights().TotalWeight().Value)
+		require.Equal(t, int64(150), node2.Protocol.Engine().SybilProtection.Validators().TotalWeight())
+
+		// Partition 2
+		require.Equal(t, int64(200), node3.Protocol.Engine().SybilProtection.Weights().TotalWeight().Value)
+		require.Equal(t, int64(50), node3.Protocol.Engine().SybilProtection.Validators().TotalWeight())
+		require.Equal(t, int64(200), node4.Protocol.Engine().SybilProtection.Weights().TotalWeight().Value)
+		require.Equal(t, int64(50), node4.Protocol.Engine().SybilProtection.Validators().TotalWeight())
+
+		// All are at epoch 0 with the same commitment
+		require.Equal(t, epoch.Index(0), node1.Protocol.Engine().Storage.Settings.LatestCommitment().ID().Index())
+		require.Equal(t, epoch.Index(0), node2.Protocol.Engine().Storage.Settings.LatestCommitment().ID().Index())
+		require.Equal(t, epoch.Index(0), node3.Protocol.Engine().Storage.Settings.LatestCommitment().ID().Index())
+		require.Equal(t, epoch.Index(0), node4.Protocol.Engine().Storage.Settings.LatestCommitment().ID().Index())
+		require.Equal(t, node1.Protocol.Engine().Storage.Settings.LatestCommitment(), node2.Protocol.Engine().Storage.Settings.LatestCommitment())
+		require.Equal(t, node1.Protocol.Engine().Storage.Settings.LatestCommitment(), node3.Protocol.Engine().Storage.Settings.LatestCommitment())
+		require.Equal(t, node1.Protocol.Engine().Storage.Settings.LatestCommitment(), node4.Protocol.Engine().Storage.Settings.LatestCommitment())
+	}
 
 	waitOnAllNodes := func() {
 		node1.WaitUntilAllTasksProcessed()
@@ -1001,73 +1064,106 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 	genesisBlockID := node1.EngineTestFramework.Tangle.Block("Genesis")
 
 	// Issue blocks on Partition 1
-	partition1Tips := models.NewBlockIDs()
 	{
-		blockA := node1.IssueBlockAtEpoch("P1.A", 6, genesisBlockID.ID())
+		blockA := node1.IssueBlockAtEpoch("P1.A", 5, genesisBlockID.ID())
 		waitOnAllNodes()
 
-		blockB := node2.IssueBlockAtEpoch("P1.B", 7, blockA.ID())
+		blockB := node2.IssueBlockAtEpoch("P1.B", 6, blockA.ID())
 		waitOnAllNodes()
 
-		blockC := node1.IssueBlockAtEpoch("P1.C", 8, blockB.ID())
+		blockC := node1.IssueBlockAtEpoch("P1.C", 7, blockB.ID())
 		waitOnAllNodes()
 
-		blockD := node2.IssueBlockAtEpoch("P1.D", 11, blockC.ID())
+		blockD := node2.IssueBlockAtEpoch("P1.D", 8, blockC.ID())
+		waitOnAllNodes()
+
+		blockE := node1.IssueBlockAtEpoch("P1.E", 9, blockD.ID())
+		waitOnAllNodes()
+
+		blockF := node2.IssueBlockAtEpoch("P1.F", 10, blockE.ID())
+		waitOnAllNodes()
+
+		blockG := node1.IssueBlockAtEpoch("P1.G", 11, blockF.ID())
 		waitOnAllNodes()
 
 		assertBlockExistsOnNodes(blockA.ID(), node1, node2)
 		assertBlockExistsOnNodes(blockB.ID(), node1, node2)
 		assertBlockExistsOnNodes(blockC.ID(), node1, node2)
 		assertBlockExistsOnNodes(blockD.ID(), node1, node2)
+		assertBlockExistsOnNodes(blockE.ID(), node1, node2)
+		assertBlockExistsOnNodes(blockF.ID(), node1, node2)
+		assertBlockExistsOnNodes(blockG.ID(), node1, node2)
 
 		assertBlockMissingOnNodes(blockA.ID(), node3, node4)
 		assertBlockMissingOnNodes(blockB.ID(), node3, node4)
 		assertBlockMissingOnNodes(blockC.ID(), node3, node4)
 		assertBlockMissingOnNodes(blockD.ID(), node3, node4)
+		assertBlockMissingOnNodes(blockE.ID(), node3, node4)
+		assertBlockMissingOnNodes(blockF.ID(), node3, node4)
+		assertBlockMissingOnNodes(blockG.ID(), node3, node4)
 
 		acceptedBlocks := map[models.BlockID]bool{
 			blockA.ID(): true,
 			blockB.ID(): true,
 			blockC.ID(): true,
-			blockD.ID(): false, // block not referenced yet
+			blockD.ID(): true,
+			blockE.ID(): true,
+			blockF.ID(): true,
+			blockG.ID(): false, // block not referenced yet
 		}
 
 		node1.ValidateAcceptedBlocks(acceptedBlocks)
 		node2.ValidateAcceptedBlocks(acceptedBlocks)
-
-		partition1Tips.Add(blockD.ID())
 	}
 
 	// Issue blocks on Partition 2
 	partition2Tips := models.NewBlockIDs()
 	{
-		blockA := node3.IssueBlockAtEpoch("P2.A", 7, genesisBlockID.ID())
+		blockA := node3.IssueBlockAtEpoch("P2.A", 5, genesisBlockID.ID())
 		waitOnAllNodes()
 
-		blockB := node4.IssueBlockAtEpoch("P2.B", 8, blockA.ID())
+		blockB := node4.IssueBlockAtEpoch("P2.B", 6, blockA.ID())
 		waitOnAllNodes()
 
-		blockC := node3.IssueBlockAtEpoch("P2.C", 9, blockB.ID())
+		blockC := node3.IssueBlockAtEpoch("P2.C", 7, blockB.ID())
 		waitOnAllNodes()
 
-		blockD := node4.IssueBlockAtEpoch("P2.D", 11, blockC.ID())
+		blockD := node4.IssueBlockAtEpoch("P2.D", 8, blockC.ID())
+		waitOnAllNodes()
+
+		blockE := node3.IssueBlockAtEpoch("P2.E", 9, blockD.ID())
+		waitOnAllNodes()
+
+		blockF := node4.IssueBlockAtEpoch("P2.E", 10, blockE.ID())
+		waitOnAllNodes()
+
+		blockG := node3.IssueBlockAtEpoch("P2.E", 11, blockF.ID())
 		waitOnAllNodes()
 
 		assertBlockExistsOnNodes(blockA.ID(), node3, node4)
 		assertBlockExistsOnNodes(blockB.ID(), node3, node4)
 		assertBlockExistsOnNodes(blockC.ID(), node3, node4)
 		assertBlockExistsOnNodes(blockD.ID(), node3, node4)
+		assertBlockExistsOnNodes(blockE.ID(), node3, node4)
+		assertBlockExistsOnNodes(blockF.ID(), node3, node4)
+		assertBlockExistsOnNodes(blockG.ID(), node3, node4)
 
 		assertBlockMissingOnNodes(blockA.ID(), node1, node2)
 		assertBlockMissingOnNodes(blockB.ID(), node1, node2)
 		assertBlockMissingOnNodes(blockC.ID(), node1, node2)
 		assertBlockMissingOnNodes(blockD.ID(), node1, node2)
+		assertBlockMissingOnNodes(blockE.ID(), node1, node2)
+		assertBlockMissingOnNodes(blockF.ID(), node1, node2)
+		assertBlockMissingOnNodes(blockG.ID(), node1, node2)
 
 		acceptedBlocks := map[models.BlockID]bool{
 			blockA.ID(): true,
 			blockB.ID(): true,
 			blockC.ID(): true,
-			blockD.ID(): false, // block not referenced yet
+			blockD.ID(): true,
+			blockE.ID(): true,
+			blockF.ID(): true,
+			blockG.ID(): false, // block not referenced yet
 		}
 
 		node3.ValidateAcceptedBlocks(acceptedBlocks)
@@ -1076,37 +1172,31 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 		partition2Tips.Add(blockD.ID())
 	}
 
-	testNetwork.MergePartitionsToMain()
-	println("\n=========================\nMerged network partitions\n=========================\n")
+	// Both partitions should have committed epoch 8 and have different commitments
+	{
+		waitOnAllNodes()
+		require.Equal(t, epoch.Index(8), node1.Protocol.Engine().Storage.Settings.LatestCommitment().Index())
+		require.Equal(t, epoch.Index(8), node2.Protocol.Engine().Storage.Settings.LatestCommitment().Index())
+		require.Equal(t, epoch.Index(8), node3.Protocol.Engine().Storage.Settings.LatestCommitment().Index())
+		require.Equal(t, epoch.Index(8), node4.Protocol.Engine().Storage.Settings.LatestCommitment().Index())
+
+		require.Equal(t, node1.Protocol.Engine().Storage.Settings.LatestCommitment(), node2.Protocol.Engine().Storage.Settings.LatestCommitment())
+		require.Equal(t, node3.Protocol.Engine().Storage.Settings.LatestCommitment(), node4.Protocol.Engine().Storage.Settings.LatestCommitment())
+		require.NotEqual(t, node1.Protocol.Engine().Storage.Settings.LatestCommitment(), node3.Protocol.Engine().Storage.Settings.LatestCommitment())
+	}
+
+	// Merge the partitions
+	{
+		testNetwork.MergePartitionsToMain()
+		println("\n=========================\nMerged network partitions\n=========================\n")
+	}
 
 	// Issue blocks after merging the networks
 	{
-		tip := partition1Tips.First()
-		blockE := node1.IssueBlock("J.E", tip)
-		partition1Tips.Remove(tip)
-
-		tip = partition2Tips.First()
-		blockF := node3.IssueBlock("J.F", tip)
-		partition2Tips.Remove(tip)
-
-		waitOnAllNodes()
-
-		blockG := node1.IssueBlock("J.G", blockE.ID())
-		blockH := node3.IssueBlock("J.H", blockF.ID())
-
-		waitOnAllNodes()
-
-		activityFunc := func(node *NodeOnMockedNetwork, tip *booker.Block) {
-			var counter int
-			for {
-				tip = node.IssueBlock(fmt.Sprintf("%s.%d", node.Identity.ID(), counter), tip.ID())
-				counter++
-				time.Sleep(100 * time.Millisecond)
-			}
-		}
-
-		go activityFunc(node1, blockG)
-		go activityFunc(node3, blockH)
+		node1.IssueActivity(20 * time.Second)
+		node2.IssueActivity(20 * time.Second)
+		node3.IssueActivity(20 * time.Second)
+		node4.IssueActivity(20 * time.Second)
 	}
 
 	// Wait for the engine to eventually switch on each node
@@ -1123,10 +1213,13 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 		}, 15*time.Second, 100*time.Millisecond, "not all nodes switched main engine")
 	}
 
+	time.Sleep(6 * time.Second)
+
 	// Compare chains
 	{
-		node1.AssertEqualChains(node2)
-		node1.AssertEqualChains(node3)
-		node1.AssertEqualChains(node4)
+		waitOnAllNodes()
+		node1.AssertEqualLatestCommitments(node2)
+		node1.AssertEqualLatestCommitments(node3)
+		node1.AssertEqualLatestCommitments(node4)
 	}
 }
