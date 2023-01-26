@@ -122,16 +122,6 @@ func (m *Manager) registerCommitment(commitment *commitment.Commitment, ownCommi
 	m.commitmentEntityMutex.Lock(commitment.ID())
 	defer m.commitmentEntityMutex.Unlock(commitment.ID())
 
-	chainCommitment, created := m.Commitment(commitment.ID(), true)
-
-	if !chainCommitment.PublishCommitment(commitment) {
-		return chainCommitment.IsSolid(), chainCommitment.Chain(), false, chainCommitment, false
-	}
-
-	if !created {
-		m.Events.MissingCommitmentReceived.Trigger(chainCommitment.ID())
-	}
-
 	// Lock access to the parent commitment
 	m.commitmentEntityMutex.Lock(commitment.PrevID())
 	defer m.commitmentEntityMutex.Unlock(commitment.PrevID())
@@ -141,7 +131,22 @@ func (m *Manager) registerCommitment(commitment *commitment.Commitment, ownCommi
 		m.Events.CommitmentMissing.Trigger(parentCommitment.ID())
 	}
 
-	isSolid, chain, wasForked = m.registerChild(parentCommitment, chainCommitment, ownCommitment)
+	chainCommitment, created := m.Commitment(commitment.ID(), true)
+
+	if !created {
+		m.Events.MissingCommitmentReceived.Trigger(chainCommitment.ID())
+	}
+
+	// Only allow ourselves to extend the end of the main chain
+	if parentCommitment.ID() == m.SnapshotCommitment.Chain().LatestCommitment().ID() && !ownCommitment {
+		return parentCommitment.IsSolid(), parentCommitment.Chain(), false, chainCommitment, false
+	}
+
+	if !chainCommitment.PublishCommitment(commitment) {
+		return chainCommitment.IsSolid(), chainCommitment.Chain(), false, chainCommitment, false
+	}
+
+	isSolid, chain, wasForked = m.registerChild(parentCommitment, chainCommitment)
 	return isSolid, chain, wasForked, chainCommitment, true
 }
 
@@ -200,11 +205,7 @@ func (m *Manager) Evict(index epoch.Index) {
 	m.commitmentsByForkingPoint.Evict(index)
 }
 
-func (m *Manager) registerChild(parent *Commitment, child *Commitment, ownCommitment bool) (isSolid bool, chain *Chain, wasForked bool) {
-	if parent.ID() == m.SnapshotCommitment.Chain().LatestCommitment().ID() && !ownCommitment {
-		return parent.IsSolid(), parent.Chain(), false
-	}
-
+func (m *Manager) registerChild(parent *Commitment, child *Commitment) (isSolid bool, chain *Chain, wasForked bool) {
 	if isSolid, chain, wasForked = parent.registerChild(child); chain != nil {
 		chain.addCommitment(child)
 		child.publishChain(chain)
