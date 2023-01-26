@@ -1,7 +1,6 @@
 package virtualvoting
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -157,7 +156,6 @@ func (o *VirtualVoting) track(block *Block) (tracked bool) {
 
 	votePower := NewBlockVotePower(block.ID(), block.IssuingTime())
 	if _, invalid := o.conflictTracker.TrackVote(o.Booker.BlockConflicts(block.Block), block.IssuerID(), votePower); invalid {
-		fmt.Println("invalid conflict vote", block.ID())
 		block.SetSubjectivelyInvalid(true)
 		return true
 	}

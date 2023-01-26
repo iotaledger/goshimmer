@@ -186,7 +186,7 @@ func onConflictAccepted(c *conflictdag.Conflict[utxo.TransactionID, utxo.OutputI
 
 	b, exists := conflicts.conflict(c.ID())
 	if !exists {
-		log.Warnf("conflict %s did not yet exist", c.ID())
+		//log.Warnf("conflict %s did not yet exist", c.ID())
 		return
 	}
 
@@ -212,7 +212,7 @@ func onConflictRejected(c *conflictdag.Conflict[utxo.TransactionID, utxo.OutputI
 
 	b, exists := conflicts.conflict(c.ID())
 	if !exists {
-		log.Warnf("conflict %s did not yet exist", c.ID())
+		//log.Warnf("conflict %s did not yet exist", c.ID())
 		return
 	}
 

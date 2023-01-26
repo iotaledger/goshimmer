@@ -170,6 +170,7 @@ func (b *Booker) BlockFloor(marker markers.Marker) (floorMarker markers.Marker, 
 
 // GetEarliestAttachment returns the earliest attachment for a given transaction ID.
 func (b *Booker) GetEarliestAttachment(txID utxo.TransactionID) (attachment *Block) {
+	// TODO: add a bool parameter that specifies if returned transaction may be orphaned
 	return b.attachments.getEarliestAttachment(txID)
 }
 
@@ -442,12 +443,11 @@ func (b *Booker) setupEvents() {
 			attachmentBlock, attachmentOrphaned, lastAttachmentOrphaned := b.attachments.OrphanAttachment(tx.ID(), block)
 
 			if attachmentOrphaned {
-				fmt.Println("Transaction attachments orphaned!!!!", block.ID(), tx.ID())
 				b.Events.AttachmentOrphaned.Trigger(attachmentBlock)
 			}
 
 			if lastAttachmentOrphaned {
-				fmt.Println("Transaction orphaned!!!!", block.ID(), tx.ID())
+				// TODO: attach this event somewhere to the engine
 				b.Events.Error.Trigger(errors.Errorf("transaction %s orphaned", tx.ID()))
 				b.Ledger.PruneTransaction(tx.ID(), true)
 			}
