@@ -11,26 +11,64 @@ import (
 
 // region MockedNetwork ////////////////////////////////////////////////////////////////////////////////////////////////
 
+const mainPartition = "main"
+
 type MockedNetwork struct {
-	dispatchers      map[identity.ID]*MockedEndpoint
-	dispatchersMutex sync.RWMutex
+	dispatchersByPartition map[string]map[identity.ID]*MockedEndpoint
+	dispatchersMutex       sync.RWMutex
 }
 
 func NewMockedNetwork() (mockedNetwork *MockedNetwork) {
 	return &MockedNetwork{
-		dispatchers: make(map[identity.ID]*MockedEndpoint),
+		dispatchersByPartition: make(map[string]map[identity.ID]*MockedEndpoint),
 	}
 }
 
-func (m *MockedNetwork) Join(identity identity.ID) (endpoint *MockedEndpoint) {
+func (m *MockedNetwork) Join(endpointID identity.ID, partition ...string) (endpoint *MockedEndpoint) {
 	m.dispatchersMutex.Lock()
 	defer m.dispatchersMutex.Unlock()
 
-	endpoint = NewMockedEndpoint(identity, m)
+	partitionID := mainPartition
+	if len(partition) > 0 {
+		partitionID = partition[0]
+	}
+	endpoint = NewMockedEndpoint(endpointID, m, partitionID)
 
-	m.dispatchers[identity] = endpoint
+	dispatchers, exists := m.dispatchersByPartition[partitionID]
+	if !exists {
+		dispatchers = make(map[identity.ID]*MockedEndpoint)
+		m.dispatchersByPartition[partitionID] = dispatchers
+	}
+	dispatchers[endpointID] = endpoint
 
 	return
+}
+
+func (m *MockedNetwork) MergePartitionsToMain(partitions ...string) {
+	m.dispatchersMutex.Lock()
+	defer m.dispatchersMutex.Unlock()
+
+	switch {
+	case len(partitions) == 0:
+		// Merge all partitions to main
+		for partitionID := range m.dispatchersByPartition {
+			if partitionID != mainPartition {
+				m.mergePartition(partitionID)
+			}
+		}
+	default:
+		for _, partitionID := range partitions {
+			m.mergePartition(partitionID)
+		}
+	}
+}
+
+func (m *MockedNetwork) mergePartition(partitionID string) {
+	for _, endpoint := range m.dispatchersByPartition[partitionID] {
+		endpoint.partition = mainPartition
+		m.dispatchersByPartition[mainPartition][endpoint.id] = endpoint
+	}
+	delete(m.dispatchersByPartition, partitionID)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -40,15 +78,17 @@ func (m *MockedNetwork) Join(identity identity.ID) (endpoint *MockedEndpoint) {
 type MockedEndpoint struct {
 	id            identity.ID
 	network       *MockedNetwork
+	partition     string
 	handlers      map[string]func(identity.ID, proto.Message) error
 	handlersMutex sync.RWMutex
 }
 
-func NewMockedEndpoint(id identity.ID, network *MockedNetwork) (newMockedNetwork *MockedEndpoint) {
+func NewMockedEndpoint(id identity.ID, network *MockedNetwork, partition string) (newMockedNetwork *MockedEndpoint) {
 	return &MockedEndpoint{
-		id:       id,
-		network:  network,
-		handlers: make(map[string]func(identity.ID, proto.Message) error),
+		id:        id,
+		network:   network,
+		partition: partition,
+		handlers:  make(map[string]func(identity.ID, proto.Message) error),
 	}
 }
 
@@ -71,7 +111,7 @@ func (m *MockedEndpoint) Send(packet proto.Message, protocolID string, to ...ide
 	defer m.network.dispatchersMutex.RUnlock()
 
 	if len(to) == 0 {
-		to = lo.Keys(m.network.dispatchers)
+		to = lo.Keys(m.network.dispatchersByPartition[m.partition])
 	}
 
 	for _, id := range to {
@@ -79,7 +119,7 @@ func (m *MockedEndpoint) Send(packet proto.Message, protocolID string, to ...ide
 			continue
 		}
 
-		if dispatcher, exists := m.network.dispatchers[id]; exists {
+		if dispatcher, exists := m.network.dispatchersByPartition[m.partition][id]; exists {
 			if protocolHandler, exists := dispatcher.handler(protocolID); exists {
 				if err := protocolHandler(m.id, packet); err != nil {
 					fmt.Println("ERROR: ", err)

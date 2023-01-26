@@ -20,6 +20,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
@@ -53,7 +54,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 	return options.Apply(&TestFramework{
 		test: test,
 		optsTotalWeightCallback: func() int64 {
-			return t.TangleTestFramework.Validators.TotalWeight()
+			return t.VotesTestFramework.Validators.TotalWeight()
 		},
 	}, opts, func(t *TestFramework) {
 		if t.optsValidators == nil {
@@ -68,12 +69,12 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 					storageInstance.Shutdown()
 				})
 
-				if t.optsLedger == nil {
-					t.optsLedger = ledger.New(storageInstance, t.optsLedgerOptions...)
-				}
-
 				if t.optsEvictionState == nil {
 					t.optsEvictionState = eviction.NewState(storageInstance)
+				}
+
+				if t.optsLedger == nil {
+					t.optsLedger = ledger.New(storageInstance, t.optsEvictionState, t.optsLedgerOptions...)
 				}
 
 				t.optsTangle = tangle.New(t.optsLedger, t.optsEvictionState, t.optsValidators, func() epoch.Index {
@@ -116,16 +117,16 @@ func (t *TestFramework) setupEvents() {
 		atomic.AddUint32(&(t.reorgCount), 1)
 	}))
 
-	t.ConflictDAG().Events.ConflictAccepted.Hook(event.NewClosure(func(conflictID utxo.TransactionID) {
+	t.ConflictTrackerTestFramework.ConflictDAG.Events.ConflictAccepted.Hook(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		if debug.GetEnabled() {
-			t.test.Logf("CONFLICT ACCEPTED: %s", conflictID)
+			t.test.Logf("CONFLICT ACCEPTED: %s", conflict.ID())
 		}
 		atomic.AddUint32(&(t.conflictsAccepted), 1)
 	}))
 
-	t.ConflictDAG().Events.ConflictRejected.Hook(event.NewClosure(func(conflictID utxo.TransactionID) {
+	t.ConflictTrackerTestFramework.ConflictDAG.Events.ConflictRejected.Hook(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		if debug.GetEnabled() {
-			t.test.Logf("CONFLICT REJECTED: %s", conflictID)
+			t.test.Logf("CONFLICT REJECTED: %s", conflict.ID())
 		}
 
 		atomic.AddUint32(&(t.conflictsRejected), 1)
@@ -154,14 +155,14 @@ func (t *TestFramework) AssertReorgs(reorgCount uint32) {
 
 func (t *TestFramework) ValidateAcceptedBlocks(expectedAcceptedBlocks map[string]bool) {
 	for blockID, blockExpectedAccepted := range expectedAcceptedBlocks {
-		actualBlockAccepted := t.Gadget.IsBlockAccepted(t.Block(blockID).ID())
+		actualBlockAccepted := t.Gadget.IsBlockAccepted(t.BookerTestFramework.Block(blockID).ID())
 		require.Equal(t.test, blockExpectedAccepted, actualBlockAccepted, "Block %s should be accepted=%t but is %t", blockID, blockExpectedAccepted, actualBlockAccepted)
 	}
 }
 
 func (t *TestFramework) ValidateConfirmedBlocks(expectedConfirmedBlocks map[string]bool) {
 	for blockID, blockExpectedConfirmed := range expectedConfirmedBlocks {
-		actualBlockConfirmed := t.Gadget.isBlockConfirmed(t.Block(blockID).ID())
+		actualBlockConfirmed := t.Gadget.isBlockConfirmed(t.BookerTestFramework.Block(blockID).ID())
 		require.Equal(t.test, blockExpectedConfirmed, actualBlockConfirmed, "Block %s should be confirmed=%t but is %t", blockID, blockExpectedConfirmed, actualBlockConfirmed)
 	}
 }
@@ -175,7 +176,7 @@ func (t *TestFramework) ValidateAcceptedMarker(expectedConflictIDs map[markers.M
 
 func (t *TestFramework) ValidateConflictAcceptance(expectedConflictIDs map[string]confirmation.State) {
 	for conflictIDAlias, conflictExpectedState := range expectedConflictIDs {
-		actualMarkerAccepted := t.ConflictDAG().ConfirmationState(set.NewAdvancedSet(t.Transaction(conflictIDAlias).ID()))
+		actualMarkerAccepted := t.ConflictTrackerTestFramework.ConflictDAG.ConfirmationState(set.NewAdvancedSet(t.BookerTestFramework.Transaction(conflictIDAlias).ID()))
 		require.Equal(t.test, conflictExpectedState, actualMarkerAccepted, "%s should be accepted=%t but is %t", conflictIDAlias, conflictExpectedState, actualMarkerAccepted)
 	}
 }

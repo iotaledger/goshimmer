@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/blockissuer"
 	"github.com/iotaledger/goshimmer/plugins/cli"
 	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/goshimmer/plugins/dashboardmetrics"
 	"github.com/iotaledger/goshimmer/plugins/faucet"
 	"github.com/iotaledger/goshimmer/plugins/gracefulshutdown"
 	"github.com/iotaledger/goshimmer/plugins/indexer"
@@ -46,6 +47,7 @@ var Core = node.Plugins(
 	warpsync.Plugin,
 	// firewall.Plugin,
 	faucet.Plugin,
+	dashboardmetrics.Plugin,
 	metrics.Plugin,
 	spammer.Plugin,
 	manainitializer.Plugin,

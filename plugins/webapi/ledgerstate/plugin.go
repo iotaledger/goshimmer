@@ -2,12 +2,14 @@ package ledgerstate
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/iotaledger/hive.go/core/daemon"
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/iotaledger/hive.go/core/node"
 	"github.com/labstack/echo"
@@ -275,13 +277,12 @@ func GetConflict(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	if deps.Protocol.Engine().Ledger.ConflictDAG.Storage.CachedConflict(conflictID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-		err = c.JSON(http.StatusOK, jsonmodels.NewConflictWeight(conflict, conflict.ConfirmationState(), deps.Protocol.Engine().Tangle.ConflictVotersTotalWeight(conflictID)))
-	}) {
-		return
+	conflict, exists := deps.Protocol.Engine().Ledger.ConflictDAG.Conflict(conflictID)
+	if !exists {
+		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load Conflict with %s", conflictID)))
 	}
 
-	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load Conflict with %s", conflictID)))
+	return c.JSON(http.StatusOK, jsonmodels.NewConflictWeight(conflict, conflict.ConfirmationState(), deps.Protocol.Engine().Tangle.ConflictVotersTotalWeight(conflictID)))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -295,10 +296,20 @@ func GetConflictChildren(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	cachedChildConflicts := deps.Protocol.Engine().Ledger.ConflictDAG.Storage.CachedChildConflicts(conflictID)
-	defer cachedChildConflicts.Release()
+	conflict, exists := deps.Protocol.Engine().Ledger.ConflictDAG.Conflict(conflictID)
+	if !exists {
+		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load Conflict with %s", conflictID)))
+	}
 
-	return c.JSON(http.StatusOK, jsonmodels.NewGetConflictChildrenResponse(conflictID, cachedChildConflicts.Unwrap()))
+	conflictIDsPerConflictSet := make(map[utxo.OutputID][]utxo.TransactionID)
+	for it := conflict.ConflictSets().Iterator(); it.HasNext(); {
+		conflictSet := it.Next()
+		conflictIDsPerConflictSet[conflictSet.ID()] = lo.Map(conflictSet.Conflicts().Slice(), func(c *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) utxo.TransactionID {
+			return c.ID()
+		})
+	}
+
+	return c.JSON(http.StatusOK, jsonmodels.NewGetConflictConflictsResponse(conflictID, conflictIDsPerConflictSet))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -312,22 +323,11 @@ func GetConflictConflicts(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	if deps.Protocol.Engine().Ledger.ConflictDAG.Storage.CachedConflict(conflictID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-		conflictIDsPerConflictID := make(map[utxo.OutputID][]utxo.TransactionID)
-		for it := conflict.ConflictSetIDs().Iterator(); it.HasNext(); {
-			conflictID := it.Next()
-			conflictIDsPerConflictID[conflictID] = make([]utxo.TransactionID, 0)
-			deps.Protocol.Engine().Ledger.ConflictDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.OutputID, utxo.TransactionID]) {
-				conflictIDsPerConflictID[conflictID] = append(conflictIDsPerConflictID[conflictID], conflictMember.ConflictID())
-			})
-		}
-
-		err = c.JSON(http.StatusOK, jsonmodels.NewGetConflictConflictsResponse(conflictID, conflictIDsPerConflictID))
-	}) {
-		return
+	conflict, exists := deps.Protocol.Engine().Ledger.ConflictDAG.Conflict(conflictID)
+	if !exists {
+		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load Conflict with %s", conflictID)))
 	}
-
-	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load Conflict with %s", conflictID)))
+	return c.JSON(http.StatusOK, jsonmodels.NewGetConflictChildrenResponse(conflictID, conflict.Children()))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

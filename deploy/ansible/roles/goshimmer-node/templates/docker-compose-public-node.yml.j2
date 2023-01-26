@@ -46,16 +46,15 @@ services:
       --autoPeering.networkVersion={{ networkVersion }}
       {% endif %}
       --node.disablePlugins=portcheck,ManaInitializer{% if remoteLogs|default(false) == false  %},RemoteLog,RemoteLogMetrics{% endif %}
-      --node.enablePlugins=dashboard,networkdelay,prometheus{% if faucet|default(false) %},faucet{% endif %}{% if remoteLogs|default(false) %},RemoteLog,RemoteLogMetrics{% endif %},profilingrecorder
-      --prometheus.bindAddress=0.0.0.0:9311
+      --node.enablePlugins=dashboard,networkdelay,metrics{% if faucet|default(false) %},faucet{% endif %}{% if remoteLogs|default(false) %},RemoteLog,RemoteLogMetrics{% endif %},profilingrecorder
+      --metrics.bindAddress=0.0.0.0:9311
       --logger.level={{ logLevel }}
       --logger.outputPaths=stdout
       --logger.disableEvents=false
-      --blockIssuer.rateSetter.enable=false
       --logger.remotelog.serverAddress={{ remoteLoggerHost }}:5213
       --remotemetrics.metricsLevel=0
       --blockIssuer.ignoreBootstrappedFlag=false
       --protocol.bootstrapWindow=20s
-      --prometheus.goMetrics=true
-      --prometheus.processMetrics=true
+      --metrics.goMetrics=true
+      --metrics.processMetrics=true
       --profilingRecorder.outputPath=/profiles

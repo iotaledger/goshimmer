@@ -44,8 +44,13 @@ func (u *Utils) ConflictIDsInFutureCone(conflictIDs utxo.TransactionIDs) (confli
 			continue
 		}
 
-		u.ledger.ConflictDAG.Utils.ForEachChildConflictID(conflictID, func(childConflictID utxo.TransactionID) {
-			conflictIDWalker.Push(childConflictID)
+		conflict, exists := u.ledger.ConflictDAG.Conflict(conflictID)
+		if !exists {
+			continue
+		}
+		_ = conflict.Children().ForEach(func(childConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) (err error) {
+			conflictIDWalker.Push(childConflict.ID())
+			return nil
 		})
 	}
 
@@ -136,19 +141,17 @@ func (u *Utils) ReferencedTransactions(tx utxo.Transaction) (transactionIDs utxo
 func (u *Utils) ConflictingTransactions(transactionID utxo.TransactionID) (conflictingTransactions utxo.TransactionIDs) {
 	conflictingTransactions = utxo.NewTransactionIDs()
 
-	u.ledger.ConflictDAG.Storage.CachedConflict(transactionID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-		for it := conflict.ConflictSetIDs().Iterator(); it.HasNext(); {
-			u.ledger.ConflictDAG.Storage.CachedConflictMembers(it.Next()).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.OutputID, utxo.TransactionID]) {
-				if conflictMember.ConflictID() == transactionID {
-					return
-				}
+	conflict, exists := u.ledger.ConflictDAG.Conflict(transactionID)
+	if !exists {
+		return conflictingTransactions
+	}
 
-				conflictingTransactions.Add(utxo.TransactionID{Identifier: conflictMember.ConflictID().Identifier})
-			})
-		}
+	conflict.ForEachConflictingConflict(func(conflictingConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) bool {
+		conflictingTransactions.Add(conflictingConflict.ID())
+		return true
 	})
 
-	return
+	return conflictingTransactions
 }
 
 // TransactionConfirmationState returns the ConfirmationState of the Transaction with the given TransactionID.

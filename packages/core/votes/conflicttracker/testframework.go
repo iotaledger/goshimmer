@@ -45,7 +45,7 @@ func NewTestFramework[VotePowerType constraints.Comparable[VotePowerType]](test 
 		t.ConflictDAGTestFramework = conflictdag.NewTestFramework(t.test, t.optsConflictDAGTestFramework...)
 
 		if t.ConflictTracker == nil {
-			t.ConflictTracker = NewConflictTracker[utxo.TransactionID, utxo.OutputID, VotePowerType](t.ConflictDAG(), t.VotesTestFramework.Validators)
+			t.ConflictTracker = NewConflictTracker[utxo.TransactionID, utxo.OutputID, VotePowerType](t.ConflictDAGTestFramework.ConflictDAG, t.VotesTestFramework.Validators)
 		}
 
 		t.ConflictTracker.Events.VoterAdded.Attach(event.NewClosure(func(event *VoterEvent[utxo.TransactionID]) {
@@ -58,7 +58,7 @@ func NewTestFramework[VotePowerType constraints.Comparable[VotePowerType]](test 
 
 func (t *TestFramework[VotePowerType]) ValidateStatementResults(expectedResults map[string]*set.AdvancedSet[identity.ID]) {
 	for conflictIDAlias, expectedVoters := range expectedResults {
-		actualVoters := t.ConflictTracker.Voters(t.ConflictID(conflictIDAlias))
+		actualVoters := t.ConflictTracker.Voters(t.ConflictDAGTestFramework.ConflictID(conflictIDAlias))
 
 		_ = expectedVoters.ForEach(func(expectedID identity.ID) (err error) {
 			require.Truef(t.test, actualVoters.Has(expectedID), "expected voter %s to be in the set of voters of conflict %s", expectedID, conflictIDAlias)

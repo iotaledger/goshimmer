@@ -13,8 +13,9 @@ import (
 	"github.com/iotaledger/hive.go/core/workerpool"
 	"github.com/labstack/echo"
 
+	"github.com/iotaledger/goshimmer/packages/app/collector"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/metrics"
+	"github.com/iotaledger/goshimmer/plugins/dashboardmetrics"
 )
 
 var (
@@ -65,20 +66,20 @@ func configureWebSocketWorkerPool() {
 }
 
 func runWebSocketStreams() {
-	updateStatus := event.NewClosure(func(event *metrics.AttachedBPSUpdatedEvent) {
+	updateStatus := event.NewClosure(func(event *dashboardmetrics.AttachedBPSUpdatedEvent) {
 		wsSendWorkerPool.TrySubmit(event.BPS)
 	})
-	updateComponentCounterStatus := event.NewClosure(func(event *metrics.ComponentCounterUpdatedEvent) {
+	updateComponentCounterStatus := event.NewClosure(func(event *dashboardmetrics.ComponentCounterUpdatedEvent) {
 		componentStatus := event.ComponentStatus
 		updateStatus := &componentsmetric{
-			Store:      componentStatus[metrics.Attached],
-			Solidifier: componentStatus[metrics.Solidified],
-			Scheduler:  componentStatus[metrics.Scheduled],
-			Booker:     componentStatus[metrics.Booked],
+			Store:      componentStatus[collector.Attached],
+			Solidifier: componentStatus[collector.Solidified],
+			Scheduler:  componentStatus[collector.Scheduled],
+			Booker:     componentStatus[collector.Booked],
 		}
 		wsSendWorkerPool.TrySubmit(updateStatus)
 	})
-	updateRateSetterMetrics := event.NewClosure(func(metric *metrics.RateSetterMetric) {
+	updateRateSetterMetrics := event.NewClosure(func(metric *dashboardmetrics.RateSetterMetric) {
 		wsSendWorkerPool.TrySubmit(&rateSetterMetric{
 			Size:     metric.Size,
 			Estimate: metric.Estimate.String(),
@@ -87,13 +88,12 @@ func runWebSocketStreams() {
 	})
 
 	if err := daemon.BackgroundWorker("Dashboard[StatusUpdate]", func(ctx context.Context) {
-		metrics.Events.AttachedBPSUpdated.Attach(updateStatus)
-		metrics.Events.ComponentCounterUpdated.Attach(updateComponentCounterStatus)
-		metrics.Events.RateSetterUpdated.Attach(updateRateSetterMetrics)
+		dashboardmetrics.Events.AttachedBPSUpdated.Attach(updateStatus)
+		dashboardmetrics.Events.ComponentCounterUpdated.Attach(updateComponentCounterStatus)
+		dashboardmetrics.Events.RateSetterUpdated.Attach(updateRateSetterMetrics)
 		<-ctx.Done()
 		log.Info("Stopping Dashboard[StatusUpdate] ...")
-		metrics.Events.AttachedBPSUpdated.Detach(updateStatus)
-		metrics.Events.RateSetterUpdated.Detach(updateRateSetterMetrics)
+		dashboardmetrics.Events.AttachedBPSUpdated.Detach(updateStatus)
 		wsSendWorkerPool.Stop()
 		log.Info("Stopping Dashboard[StatusUpdate] ... done")
 	}, shutdown.PriorityDashboard); err != nil {
@@ -101,7 +101,7 @@ func runWebSocketStreams() {
 	}
 }
 
-// reigsters and creates a new websocket client.
+// registers and creates a new websocket client.
 func registerWSClient() (uint64, *wsclient) {
 	wsClientsMu.Lock()
 	defer wsClientsMu.Unlock()

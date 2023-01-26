@@ -116,8 +116,12 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) voterSu
 }
 
 func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) revokeConflictInstead(conflictID ConflictIDType, vote *votes.Vote[ConflictIDType, VotePowerType]) (votePower VotePowerType, revokeInstead bool) {
-	c.conflictDAG.Utils.ForEachConflictingConflictID(conflictID, func(conflictingConflictID ConflictIDType) bool {
-		votesObj, conflictVotesExist := c.votes.Get(conflictingConflictID)
+	conflict, exists := c.conflictDAG.Conflict(conflictID)
+	if !exists {
+		return
+	}
+	conflict.ForEachConflictingConflict(func(conflictingConflict *conflictdag.Conflict[ConflictIDType, ResourceIDType]) bool {
+		votesObj, conflictVotesExist := c.votes.Get(conflictingConflict.ID())
 		if !conflictVotesExist {
 			revokeInstead = false
 			return false

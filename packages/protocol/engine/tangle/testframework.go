@@ -42,12 +42,12 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 				storageInstance.Shutdown()
 			})
 
-			if t.optsLedger == nil {
-				t.optsLedger = ledger.New(storageInstance, t.optsLedgerOptions...)
-			}
-
 			if t.optsEvictionState == nil {
 				t.optsEvictionState = eviction.NewState(storageInstance)
+			}
+
+			if t.optsLedger == nil {
+				t.optsLedger = ledger.New(storageInstance, t.optsEvictionState, t.optsLedgerOptions...)
 			}
 
 			if t.optsValidators == nil {

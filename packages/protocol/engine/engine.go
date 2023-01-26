@@ -20,6 +20,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/storage"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
@@ -31,7 +32,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tsc"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
@@ -92,10 +92,10 @@ func New(
 			optsBootstrappedThreshold: 10 * time.Second,
 			optsSnapshotDepth:         5,
 		}, opts, func(e *Engine) {
-			e.Ledger = ledger.New(e.Storage, e.optsLedgerOptions...)
+			e.EvictionState = eviction.NewState(storageInstance)
+			e.Ledger = ledger.New(e.Storage, e.EvictionState, e.optsLedgerOptions...)
 			e.LedgerState = ledgerstate.New(storageInstance, e.Ledger)
 			e.Clock = clock.New()
-			e.EvictionState = eviction.NewState(storageInstance)
 			e.SybilProtection = sybilProtection(e)
 			e.ThroughputQuota = throughputQuota(e)
 			e.NotarizationManager = notarization.NewManager(e.Storage, e.LedgerState, e.SybilProtection.Weights(), e.optsNotarizationManagerOptions...)
@@ -108,7 +108,6 @@ func New(
 			)
 		},
 
-		(*Engine).initFilter,
 		(*Engine).initLedger,
 		(*Engine).initTangle,
 		(*Engine).initConsensus,
@@ -116,6 +115,7 @@ func New(
 		(*Engine).initTSCManager,
 		(*Engine).initBlockStorage,
 		(*Engine).initNotarizationManager,
+		(*Engine).initFilter,
 		(*Engine).initEvictionState,
 		(*Engine).initBlockRequester,
 
@@ -267,7 +267,11 @@ func (e *Engine) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (err err
 }
 
 func (e *Engine) initFilter() {
-	e.Filter = filter.New()
+	e.Filter = filter.New(filter.WithMinCommittableEpochAge(e.NotarizationManager.MinCommittableEpochAge()))
+
+	e.Filter.Events.BlockFiltered.Attach(event.NewClosure(func(filteredEvent *filter.BlockFilteredEvent) {
+		e.Events.Error.Trigger(errors.Wrapf(filteredEvent.Reason, "block (%s) filtered", filteredEvent.Block.ID()))
+	}))
 
 	e.Events.Filter.LinkTo(e.Filter.Events)
 }
@@ -390,14 +394,14 @@ func (e *Engine) initNotarizationManager() {
 	}), 1)
 	e.workerPools["NotarizationManager.Commitments"] = wp
 
-	e.Ledger.ConflictDAG.Events.ConflictCreated.Hook(event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
-		e.NotarizationManager.IncreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.GetEarliestAttachment(event.ID).IssuingTime()))
+	e.Ledger.ConflictDAG.Events.ConflictCreated.Hook(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+		e.NotarizationManager.IncreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.GetEarliestAttachment(conflict.ID()).IssuingTime()))
 	}))
-	e.Ledger.ConflictDAG.Events.ConflictAccepted.Hook(event.NewClosure(func(conflictID utxo.TransactionID) {
-		e.NotarizationManager.DecreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.GetEarliestAttachment(conflictID).IssuingTime()))
+	e.Ledger.ConflictDAG.Events.ConflictAccepted.Hook(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+		e.NotarizationManager.DecreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.GetEarliestAttachment(conflict.ID()).IssuingTime()))
 	}))
-	e.Ledger.ConflictDAG.Events.ConflictRejected.Hook(event.NewClosure(func(conflictID utxo.TransactionID) {
-		e.NotarizationManager.DecreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.GetEarliestAttachment(conflictID).IssuingTime()))
+	e.Ledger.ConflictDAG.Events.ConflictRejected.Hook(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+		e.NotarizationManager.DecreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.GetEarliestAttachment(conflict.ID()).IssuingTime()))
 	}))
 
 	e.Events.NotarizationManager.LinkTo(e.NotarizationManager.Events)

@@ -6,7 +6,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
@@ -180,9 +179,10 @@ func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, exclude
 		}
 
 		// only walk deeper if we don't like "something else"
-		engineInstance.Ledger.ConflictDAG.Storage.CachedConflict(currentConflictID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+		conflict, exists := engineInstance.Ledger.ConflictDAG.Conflict(currentConflictID)
+		if exists {
 			w.PushFront(conflict.Parents().Slice()...)
-		})
+		}
 	}
 
 	return false, models.EmptyBlockID, errors.Errorf("failed to create dislike for %s", conflictID)
@@ -210,7 +210,11 @@ func (r *ReferenceProvider) payloadLiked(blockID models.BlockID) (liked bool) {
 	conflictIDs := engineInstance.Tangle.Booker.PayloadConflictIDs(block)
 
 	for it := conflictIDs.Iterator(); it.HasNext(); {
-		if !engineInstance.Consensus.ConflictLiked(it.Next()) {
+		conflict, exists := engineInstance.Ledger.ConflictDAG.Conflict(it.Next())
+		if !exists {
+			continue
+		}
+		if !engineInstance.Consensus.ConflictLiked(conflict) {
 			return false
 		}
 	}

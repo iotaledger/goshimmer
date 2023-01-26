@@ -8,7 +8,6 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/votes"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
 // TestApprovalWeightManager_updateConflictVoters tests the ApprovalWeightManager's functionality regarding conflictes.
@@ -19,20 +18,20 @@ func TestApprovalWeightManager_updateConflictVoters(t *testing.T) {
 	tf.CreateValidator("validator1", 1)
 	tf.CreateValidator("validator2", 1)
 
-	tf.CreateConflict("CS1", "Conflict1", utxo.NewTransactionIDs())
-	tf.CreateConflict("CS1", "Conflict2", utxo.NewTransactionIDs())
-	tf.CreateConflict("CS2", "Conflict3", utxo.NewTransactionIDs())
-	tf.CreateConflict("CS2", "Conflict4", utxo.NewTransactionIDs())
+	tf.CreateConflict("Conflict1", tf.ConflictIDs(), "CS1")
+	tf.CreateConflict("Conflict2", tf.ConflictIDs(), "CS1")
+	tf.CreateConflict("Conflict3", tf.ConflictIDs(), "CS2")
+	tf.CreateConflict("Conflict4", tf.ConflictIDs(), "CS2")
 
-	tf.CreateConflict("CS3", "Conflict1.1", tf.ConflictIDs("Conflict1"))
-	tf.CreateConflict("CS3", "Conflict1.2", tf.ConflictIDs("Conflict1"))
-	tf.CreateConflict("CS3", "Conflict1.3", tf.ConflictIDs("Conflict1"))
+	tf.CreateConflict("Conflict1.1", tf.ConflictIDs("Conflict1"), "CS3")
+	tf.CreateConflict("Conflict1.2", tf.ConflictIDs("Conflict1"), "CS3")
+	tf.CreateConflict("Conflict1.3", tf.ConflictIDs("Conflict1"), "CS3")
 
-	tf.CreateConflict("CS4", "Conflict4.1", tf.ConflictIDs("Conflict4"))
-	tf.CreateConflict("CS4", "Conflict4.2", tf.ConflictIDs("Conflict4"))
+	tf.CreateConflict("Conflict4.1", tf.ConflictIDs("Conflict4"), "CS4")
+	tf.CreateConflict("Conflict4.2", tf.ConflictIDs("Conflict4"), "CS4")
 
-	tf.CreateConflict("CS5", "Conflict4.1.1", tf.ConflictIDs("Conflict4.1"))
-	tf.CreateConflict("CS5", "Conflict4.1.2", tf.ConflictIDs("Conflict4.1"))
+	tf.CreateConflict("Conflict4.1.1", tf.ConflictIDs("Conflict4.1"), "CS5")
+	tf.CreateConflict("Conflict4.1.2", tf.ConflictIDs("Conflict4.1"), "CS5")
 
 	// Issue statements in different order to make sure that no information is lost when nodes apply statements in arbitrary order
 

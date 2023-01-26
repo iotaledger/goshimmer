@@ -20,6 +20,7 @@ import (
 	"github.com/iotaledger/hive.go/core/stringify"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
@@ -55,6 +56,8 @@ type TestFramework struct {
 
 	// optsLedger contains optional parameters for the Ledger instance.
 	optsLedger []options.Option[Ledger]
+
+	*ConflictDAGTestFramework
 }
 
 // NewTestFramework creates a new instance of the TestFramework with one default output "Genesis" which has to be
@@ -66,15 +69,17 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 		outputIDsByAlias:    make(map[string]utxo.OutputID),
 	}, opts, func(t *TestFramework) {
 		if t.Ledger == nil {
-			chainStorage := storage.New(test.TempDir(), 1)
-			t.Ledger = New(chainStorage, t.optsLedger...)
+			storageInstance := storage.New(test.TempDir(), 1)
+			t.Ledger = New(storageInstance, eviction.NewState(storageInstance), t.optsLedger...)
 
 			test.Cleanup(func() {
 				t.WaitUntilAllTasksProcessed()
 				t.Ledger.Shutdown()
-				chainStorage.Shutdown()
+				storageInstance.Shutdown()
 			})
 		}
+
+		t.ConflictDAGTestFramework = conflictdag.NewTestFramework(t.test, conflictdag.WithConflictDAG(t.Ledger.ConflictDAG))
 
 		genesisOutput := NewMockedOutput(utxo.EmptyTransactionID, 0)
 		cachedObject, stored := t.Ledger.Storage.OutputStorage.StoreIfAbsent(genesisOutput)
@@ -133,17 +138,7 @@ func (t *TestFramework) TransactionIDs(txAliases ...string) (txIDs utxo.Transact
 // ConflictIDs gets all conflictdag.ConflictIDs given by txAliases.
 // Panics if an alias doesn't exist.
 func (t *TestFramework) ConflictIDs(txAliases ...string) (conflictIDs *set.AdvancedSet[utxo.TransactionID]) {
-	conflictIDs = set.NewAdvancedSet[utxo.TransactionID]()
-	for _, expectedConflictAlias := range txAliases {
-		if expectedConflictAlias == "MasterConflict" {
-			conflictIDs.Add(utxo.TransactionID{})
-			continue
-		}
-
-		conflictIDs.Add(t.Transaction(expectedConflictAlias).ID())
-	}
-
-	return conflictIDs
+	return t.ConflictDAGTestFramework.ConflictIDs(txAliases...)
 }
 
 // CreateTransaction creates a transaction with the given alias and outputCount. Inputs for the transaction are specified
@@ -159,6 +154,7 @@ func (t *TestFramework) CreateTransaction(txAlias string, outputCount uint16, in
 	tx = NewMockedTransaction(mockedInputs, outputCount)
 	tx.ID().RegisterAlias(txAlias)
 	t.transactionsByAlias[txAlias] = tx
+	t.ConflictDAGTestFramework.RegisterConflictIDAlias(txAlias, tx.ID())
 
 	t.outputIDsByAliasMutex.Lock()
 	defer t.outputIDsByAliasMutex.Unlock()
@@ -169,6 +165,7 @@ func (t *TestFramework) CreateTransaction(txAlias string, outputCount uint16, in
 
 		outputID.RegisterAlias(outputAlias)
 		t.outputIDsByAlias[outputAlias] = outputID
+		t.ConflictDAGTestFramework.RegisterConflictSetIDAlias(outputAlias, outputID)
 	}
 
 	return tx
@@ -195,71 +192,14 @@ func (t *TestFramework) MockOutputFromTx(tx *MockedTransaction, outputIndex uint
 // It also verifies the reverse mapping, that there is a child reference (conflictdag.ChildConflict)
 // from "conflict1"->"conflict3" and "conflict2"->"conflict3".
 func (t *TestFramework) AssertConflictDAG(expectedParents map[string][]string) {
-	// Parent -> child references.
-	childConflicts := make(map[utxo.TransactionID]*set.AdvancedSet[utxo.TransactionID])
-
-	for conflictAlias, expectedParentAliases := range expectedParents {
-		currentConflictID := t.Transaction(conflictAlias).ID()
-		expectedConflictIDs := t.ConflictIDs(expectedParentAliases...)
-
-		// Verify child -> parent references.
-		t.ConsumeConflict(currentConflictID, func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-			require.Truef(t.test, expectedConflictIDs.Equal(conflict.Parents()), "Conflict(%s): expected parents %s are not equal to actual parents %s", currentConflictID, expectedConflictIDs, conflict.Parents())
-		})
-
-		for _, parentConflictID := range expectedConflictIDs.Slice() {
-			if _, exists := childConflicts[parentConflictID]; !exists {
-				childConflicts[parentConflictID] = set.NewAdvancedSet[utxo.TransactionID]()
-			}
-			childConflicts[parentConflictID].Add(currentConflictID)
-		}
-	}
-
-	// Verify parent -> child references.
-	for parentConflictID, childConflictIDs := range childConflicts {
-		cachedChildConflicts := t.Ledger.ConflictDAG.Storage.CachedChildConflicts(parentConflictID)
-		require.Equalf(t.test, childConflictIDs.Size(), len(cachedChildConflicts), "child conflicts count does not match for parent conflict %s, expected=%s, actual=%s", parentConflictID, childConflictIDs, cachedChildConflicts.Unwrap())
-		cachedChildConflicts.Release()
-
-		for _, childConflictID := range childConflictIDs.Slice() {
-			require.Truef(t.test, t.Ledger.ConflictDAG.Storage.CachedChildConflict(parentConflictID, childConflictID).Consume(func(childConflict *conflictdag.ChildConflict[utxo.TransactionID]) {}), "could not load ChildConflict %s,%s", parentConflictID, childConflictID)
-		}
-	}
+	t.ConflictDAGTestFramework.AssertConflictParentsAndChildren(expectedParents)
 }
 
 // AssertConflicts asserts conflict membership from conflictID -> conflicts but also the reverse mapping conflict -> conflictIDs.
 // expectedConflictAliases should be specified as
 // "output.0": {"conflict1", "conflict2"}.
-func (t *TestFramework) AssertConflicts(expectedConflictsAliases map[string][]string) {
-	// Conflict -> conflictIDs.
-	ConflictResources := make(map[utxo.TransactionID]*set.AdvancedSet[utxo.OutputID])
-
-	for resourceAlias, expectedConflictMembersAliases := range expectedConflictsAliases {
-		resourceID := t.OutputID(resourceAlias)
-		expectedConflictMembers := t.ConflictIDs(expectedConflictMembersAliases...)
-
-		// Check count of conflict members for this conflictID.
-		cachedConflictMembers := t.Ledger.ConflictDAG.Storage.CachedConflictMembers(resourceID)
-		require.Equalf(t.test, expectedConflictMembers.Size(), len(cachedConflictMembers), "conflict member count does not match for conflict %s, expected=%s, actual=%s", resourceID, expectedConflictsAliases, cachedConflictMembers.Unwrap())
-		cachedConflictMembers.Release()
-
-		// Verify that all named conflicts are stored as conflict members (conflictID -> conflictIDs).
-		for _, conflictID := range expectedConflictMembers.Slice() {
-			require.Truef(t.test, t.Ledger.ConflictDAG.Storage.CachedConflictMember(resourceID, conflictID).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.OutputID, utxo.TransactionID]) {}), "could not load ConflictMember %s,%s", resourceID, conflictID)
-
-			if _, exists := ConflictResources[conflictID]; !exists {
-				ConflictResources[conflictID] = set.NewAdvancedSet[utxo.OutputID]()
-			}
-			ConflictResources[conflictID].Add(resourceID)
-		}
-	}
-
-	// Make sure that all conflicts have all specified conflictIDs (reverse mapping).
-	for conflictID, expectedConflicts := range ConflictResources {
-		t.ConsumeConflict(conflictID, func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-			require.Truef(t.test, expectedConflicts.Equal(conflict.ConflictSetIDs()), "%s: conflicts expected=%s, actual=%s", conflictID, expectedConflicts, conflict.ConflictSetIDs())
-		})
-	}
+func (t *TestFramework) AssertConflicts(expectedConflictSetToConflictsAliases map[string][]string) {
+	t.ConflictDAGTestFramework.AssertConflictSetsAndConflicts(expectedConflictSetToConflictsAliases)
 }
 
 // AssertConflictIDs asserts that the given transactions and their outputs are booked into the specified conflicts.
@@ -311,11 +251,6 @@ func (t *TestFramework) AllBooked(txAliases ...string) (allBooked bool) {
 	return
 }
 
-// ConsumeConflict loads and consumes conflictdag.Conflict. Asserts that the loaded entity exists.
-func (t *TestFramework) ConsumeConflict(conflictID utxo.TransactionID, consumer func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID])) {
-	require.Truef(t.test, t.Ledger.ConflictDAG.Storage.CachedConflict(conflictID).Consume(consumer), "failed to load conflict %s", conflictID)
-}
-
 // ConsumeTransactionMetadata loads and consumes TransactionMetadata. Asserts that the loaded entity exists.
 func (t *TestFramework) ConsumeTransactionMetadata(txID utxo.TransactionID, consumer func(txMetadata *TransactionMetadata)) {
 	require.Truef(t.test, t.Ledger.Storage.CachedTransactionMetadata(txID).Consume(consumer), "failed to load metadata of %s", txID)
@@ -341,6 +276,9 @@ func (t *TestFramework) ConsumeTransactionOutputs(mockTx *MockedTransaction, con
 		}
 	})
 }
+
+// ConflictDAGTestFramework is an alias that it is used to be able to embed a named version of the TestFramework.
+type ConflictDAGTestFramework = conflictdag.TestFramework
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 

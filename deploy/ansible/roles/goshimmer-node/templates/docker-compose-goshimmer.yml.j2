@@ -57,8 +57,8 @@ services:
       --autoPeering.networkVersion={{ networkVersion }}
      {% endif %}
       --node.disablePlugins=portcheck,ManaInitializer{% if remoteLogs|default(false) == false %},RemoteLog,RemoteLogMetrics{% endif %}
-      --node.enablePlugins=dashboard,networkdelay,prometheus{% if faucet|default(false) %},faucet,WebAPIFaucetEndpoint{% endif %},activity,snapshot,WebAPIToolsBlockEndpoint,"WebAPI tools Endpoint"{% if spammer|default(false) %},spammer{% endif %}{% if remoteLogs|default(false) %},RemoteLog,RemoteLogMetrics{% endif %},profilingrecorder
-      --prometheus.bindAddress=0.0.0.0:9311
+      --node.enablePlugins=dashboard,networkdelay,metrics{% if faucet|default(false) %},faucet,WebAPIFaucetEndpoint{% endif %},activity,snapshot,WebAPIToolsBlockEndpoint,"WebAPI tools Endpoint"{% if spammer|default(false) %},spammer{% endif %}{% if remoteLogs|default(false) %},RemoteLog,RemoteLogMetrics{% endif %},profilingrecorder
+      --metrics.bindAddress=0.0.0.0:9311
       --activity.broadcastInterval=1s
      {% if faucet|default(false) %}
       --faucet.seed={{ faucetSeed }}
@@ -69,7 +69,6 @@ services:
       --logger.disableEvents=false
       --logger.remotelog.serverAddress={{ remoteLoggerHost }}:5213
       --remotemetrics.metricsLevel=0
-      --blockIssuer.rateSetter.enable=false
       {% if bootstrap|default(false) %}
       --blockIssuer.ignoreBootstrappedFlag=true
       {% else %}
@@ -79,6 +78,6 @@ services:
       {% if genesisTime|default(None) %}
       --protocol.genesisTime={{ genesisTime }}
       {% endif %}
-      --prometheus.goMetrics=true
-      --prometheus.processMetrics=true
+      --metrics.goMetrics=true
+      --metrics.processMetrics=true
       --profilingRecorder.outputPath=/profiles

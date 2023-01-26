@@ -14,7 +14,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markermanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
@@ -666,29 +665,7 @@ func TestMultiThreadedBookingAndForkingNested(t *testing.T) {
 		}
 	}
 
-	checkNormalizedConflictIDsContained(t, tf, expectedConflicts)
-}
-
-func checkNormalizedConflictIDsContained(t *testing.T, tf *TestFramework, expectedContainedConflictIDs map[string]utxo.TransactionIDs) {
-	for blockID, blockExpectedConflictIDs := range expectedContainedConflictIDs {
-		_, blockConflictIDs := tf.Booker.blockBookingDetails(tf.Block(blockID))
-
-		normalizedRetrievedConflictIDs := blockConflictIDs.Clone()
-		for it := blockConflictIDs.Iterator(); it.HasNext(); {
-			tf.Booker.Ledger.ConflictDAG.Storage.CachedConflict(it.Next()).Consume(func(b *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-				normalizedRetrievedConflictIDs.DeleteAll(b.Parents())
-			})
-		}
-
-		normalizedExpectedConflictIDs := blockExpectedConflictIDs.Clone()
-		for it := blockExpectedConflictIDs.Iterator(); it.HasNext(); {
-			tf.Booker.Ledger.ConflictDAG.Storage.CachedConflict(it.Next()).Consume(func(b *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-				normalizedExpectedConflictIDs.DeleteAll(b.Parents())
-			})
-		}
-
-		require.True(t, normalizedExpectedConflictIDs.Intersect(normalizedRetrievedConflictIDs).Size() == normalizedExpectedConflictIDs.Size(), "ConflictID of %s should be %s but is %s", blockID, normalizedExpectedConflictIDs, normalizedRetrievedConflictIDs)
-	}
+	tf.checkNormalizedConflictIDsContained(expectedConflicts)
 }
 
 // This test creates two chains of blocks from the genesis (1 block per epoch in each chain). The first chain is solid, the second chain is not.

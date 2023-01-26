@@ -124,18 +124,17 @@ func configureConflictConfirmationMetrics() {
 		return
 	}
 
-	deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictAccepted.Attach(event.NewClosure(func(conflictID utxo.TransactionID) {
-		onConflictConfirmed(conflictID)
+	deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictAccepted.Attach(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+		onConflictConfirmed(conflict.ID())
 	}))
 
-	deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictCreated.Attach(event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
+	deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictCreated.Attach(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		activeConflictsMutex.Lock()
 		defer activeConflictsMutex.Unlock()
 
-		conflictID := event.ID
-		if !activeConflicts.Has(conflictID) {
+		if !activeConflicts.Has(conflict.ID()) {
 			conflictTotalCountDB.Inc()
-			activeConflicts.Add(conflictID)
+			activeConflicts.Add(conflict.ID())
 			sendConflictMetrics()
 		}
 	}))

@@ -111,7 +111,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "sum(irate(tangle_blocks_per_type_count{instance=~\"$instance\"}[1m])) by (instance)",
+          "expr": "sum(irate(tangle_block_per_type_total{instance=~\"$instance\"}[1m])) by (instance)",
           "interval": "",
           "legendFormat": "Block Per Second {{instance}}",
           "queryType": "randomWalk",
@@ -119,7 +119,7 @@
         },
         {
           "exemplar": true,
-          "expr": "sum(irate(tangle_blocks_per_type_count{instance=~\"$instance\",block_type=\"TransactionType(1337)\"}[1m])) by (instance)",
+          "expr": "sum(irate(tangle_block_per_type_total{instance=~\"$instance\",block_type=\"TransactionType(1337)\"}[1m])) by (instance)",
           "hide": false,
           "interval": "",
           "legendFormat": "Transaction Per Second {{instance}}",
@@ -127,7 +127,7 @@
         },
         {
           "exemplar": true,
-          "expr": "sum(irate(tangle_blocks_per_type_count{instance=~\"$instance\",block_type=\"dRNG(111)\"}[1m])) by (instance)",
+          "expr": "sum(irate(tangle_block_per_type_total{instance=~\"$instance\",block_type=\"dRNG(111)\"}[1m])) by (instance)",
           "hide": false,
           "interval": "",
           "legendFormat": "dRNG Block Per Second {{instance}}",
@@ -135,7 +135,7 @@
         },
         {
           "exemplar": true,
-          "expr": "sum(irate(tangle_blocks_per_type_count{instance=~\"$instance\",block_type=\"faucet(2)\"}[1m])) by (instance)",
+          "expr": "sum(irate(tangle_block_per_type_total{instance=~\"$instance\",block_type=\"faucet(2)\"}[1m])) by (instance)",
           "hide": false,
           "interval": "",
           "legendFormat": "Faucet Block Per Second {{instance}}",
@@ -143,7 +143,7 @@
         },
         {
           "exemplar": true,
-          "expr": "sum(irate(tangle_blocks_per_type_count{instance=~\"$instance\",block_type=\"networkdelay(189)\"}[1m])) by (instance)",
+          "expr": "sum(irate(tangle_block_per_type_total{instance=~\"$instance\",block_type=\"networkdelay(189)\"}[1m])) by (instance)",
           "hide": false,
           "interval": "",
           "legendFormat": "Network Delay Block Per Second {{instance}}",
@@ -151,7 +151,7 @@
         },
         {
           "exemplar": true,
-          "expr": "sum(irate(tangle_blocks_per_type_count{instance=~\"$instance\",block_type=\"Statement(3)\"}[1m])) by (instance)",
+          "expr": "sum(irate(tangle_block_per_type_total{instance=~\"$instance\",block_type=\"Statement(3)\"}[1m])) by (instance)",
           "hide": false,
           "interval": "",
           "legendFormat": "Statements Per Second {{instance}}",
@@ -210,7 +210,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "sum(irate(tangle_blocks_per_component_count{component=\"Booker\",instance=~\"$instance\"}[5m])) by (instance)",
+          "expr": "sum(irate(tangle_blocks_per_component_total{component=\"Booker\",instance=~\"$instance\"}[5m])) by (instance)",
           "interval": "",
           "legendFormat": "BPS {{instance}} ",
           "refId": "A"
@@ -308,7 +308,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "sum(irate(tangle_blocks_per_type_count{instance=~\"$instance\"}[5m])) by (instance)",
+          "expr": "sum(irate(tangle_block_per_type_total{instance=~\"$instance\"}[5m])) by (instance)",
           "interval": "",
           "legendFormat": "BPS {{instance}} ",
           "refId": "A"
@@ -407,7 +407,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "tangle_block_tips_count{instance=~\"$instance\"}",
+          "expr": "tangle_tips_count{instance=~\"$instance\"}",
           "interval": "",
           "legendFormat": "Tips {{instance}}",
           "refId": "A"
@@ -506,7 +506,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "tangle_block_missing_count_db{instance=~\"$instance\"}",
+          "expr": "tangle_missing_block_total{instance=~\"$instance\"}",
           "interval": "",
           "legendFormat": "Missing Blocks {{instance}}",
           "refId": "A"
@@ -720,7 +720,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "tangle_block_request_queue_size{instance=~\"$instance\"}",
+          "expr": "tangle_request_queue_size{instance=~\"$instance\"}",
           "interval": "",
           "legendFormat": "Block Request Queue Size",
           "refId": "A"
@@ -883,7 +883,7 @@
           "value": "$__all"
         },
         "datasource": "Prometheus",
-        "definition": "label_values(iota_info_app, instance)",
+        "definition": "label_values(info_app, instance)",
         "description": null,
         "error": null,
         "hide": 0,
@@ -893,7 +893,7 @@
         "name": "instance",
         "options": [],
         "query": {
-          "query": "label_values(iota_info_app, instance)",
+          "query": "label_values(info_app, instance)",
           "refId": "StandardVariableQuery"
         },
         "refresh": 2,
