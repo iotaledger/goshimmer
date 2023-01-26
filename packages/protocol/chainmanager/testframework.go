@@ -49,6 +49,10 @@ func (t *TestFramework) CreateCommitment(alias string, prevAlias string) {
 }
 
 func (t *TestFramework) ProcessCommitment(alias string) (isSolid bool, chain *Chain, wasForked bool) {
+	return t.Manager.ProcessCommitment(t.commitment(alias))
+}
+
+func (t *TestFramework) ProcessCommitmentFromOtherSource(alias string) (isSolid bool, chain *Chain, wasForked bool) {
 	return t.Manager.ProcessCommitmentFromSource(t.commitment(alias), identity.NewID(ed25519.PublicKey{}))
 }
 

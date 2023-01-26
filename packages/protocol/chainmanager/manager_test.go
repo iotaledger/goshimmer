@@ -42,7 +42,7 @@ func TestManager(t *testing.T) {
 	}
 
 	{
-		isSolid, chain, wasForked := tf.ProcessCommitment("1*")
+		isSolid, chain, wasForked := tf.ProcessCommitmentFromOtherSource("1*")
 		require.True(t, isSolid)
 		require.True(t, wasForked)
 		tf.AssertChainIsAlias(chain, "1*")
@@ -52,7 +52,7 @@ func TestManager(t *testing.T) {
 	}
 
 	{
-		isSolid, chain, wasForked := tf.ProcessCommitment("4")
+		isSolid, chain, wasForked := tf.ProcessCommitmentFromOtherSource("4")
 		require.False(t, isSolid)
 		require.False(t, wasForked)
 		tf.AssertChainIsAlias(chain, "")
@@ -62,7 +62,7 @@ func TestManager(t *testing.T) {
 	}
 
 	{
-		isSolid, chain, wasForked := tf.ProcessCommitment("4*")
+		isSolid, chain, wasForked := tf.ProcessCommitmentFromOtherSource("4*")
 		require.False(t, isSolid)
 		require.True(t, wasForked)
 		tf.AssertChainIsAlias(chain, "4*")
@@ -72,7 +72,7 @@ func TestManager(t *testing.T) {
 	}
 
 	{
-		isSolid, chain, wasForked := tf.ProcessCommitment("3")
+		isSolid, chain, wasForked := tf.ProcessCommitmentFromOtherSource("3")
 		require.False(t, isSolid)
 		require.False(t, wasForked)
 		tf.AssertChainIsAlias(chain, "")
@@ -88,8 +88,8 @@ func TestManager(t *testing.T) {
 		tf.AssertChainIsAlias(chain, "Genesis")
 		tf.AssertChainState(lo.MergeMaps(expectedChainMappings, map[string]string{
 			"2": "Genesis",
-			"3": "Genesis",
-			"4": "Genesis",
+			"3": "",
+			"4": "",
 		}))
 	}
 
