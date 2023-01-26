@@ -6,7 +6,6 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 
 	"github.com/iotaledger/goshimmer/packages/app/collector"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
@@ -26,11 +25,9 @@ const (
 	orphanedBlocks            = "orphaned_blocks"
 	invalidBlocks             = "invalid_blocks"
 	subjectivelyInvalidBlocks = "subjectively_invalid_blocks"
-	totalTransactions         = "total_transactions"
-	invalidTransactions       = "invalid_transactions"
-	acceptedTransactions      = "accepted_transactions"
-	orphanedTransactions      = "orphaned_transactions"
 	totalAttachments          = "total_attachments"
+	rejectedAttachments       = "rejected_attachments"
+	acceptedAttachments       = "accepted_attachments"
 	orphanedAttachments       = "orphaned_attachments"
 	createdConflicts          = "created_conflicts"
 	acceptedConflicts         = "accepted_conflicts"
@@ -49,7 +46,7 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 				deps.Collector.Increment(epochNamespace, totalBlocks, strconv.Itoa(eventEpoch))
 
 				// need to initialize epoch metrics with 0 to have consistent data for each epoch
-				for _, metricName := range []string{acceptedBlocksInEpoch, orphanedBlocks, invalidBlocks, subjectivelyInvalidBlocks, totalTransactions, acceptedTransactions, invalidTransactions, orphanedTransactions, totalAttachments, orphanedAttachments, createdConflicts, acceptedConflicts, rejectedConflicts, notConflictingConflicts} {
+				for _, metricName := range []string{acceptedBlocksInEpoch, orphanedBlocks, invalidBlocks, subjectivelyInvalidBlocks, totalAttachments, orphanedAttachments, rejectedAttachments, acceptedAttachments, createdConflicts, acceptedConflicts, rejectedConflicts, notConflictingConflicts} {
 					deps.Collector.Update(epochNamespace, metricName, map[string]float64{
 						strconv.Itoa(eventEpoch): 0,
 					})
@@ -62,7 +59,7 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 				epochToEvict := int(details.Commitment.Index()) - metricEvictionOffset
 
 				// need to remove metrics for old epochs, otherwise they would be stored in memory and always exposed to Prometheus, forever
-				for _, metricName := range []string{totalBlocks, acceptedBlocksInEpoch, orphanedBlocks, invalidBlocks, subjectivelyInvalidBlocks, totalTransactions, acceptedTransactions, invalidTransactions, orphanedTransactions, totalAttachments, orphanedAttachments, createdConflicts, acceptedConflicts, rejectedConflicts, notConflictingConflicts} {
+				for _, metricName := range []string{totalBlocks, acceptedBlocksInEpoch, orphanedBlocks, invalidBlocks, subjectivelyInvalidBlocks, totalAttachments, orphanedAttachments, rejectedAttachments, acceptedAttachments, createdConflicts, acceptedConflicts, rejectedConflicts, notConflictingConflicts} {
 					deps.Collector.ResetMetricLabels(epochNamespace, metricName, map[string]string{
 						labelName: strconv.Itoa(epochToEvict),
 					})
@@ -117,50 +114,6 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 			}))
 		}),
 	)),
-	collector.WithMetric(collector.NewMetric(totalTransactions,
-		collector.WithType(collector.CounterVec),
-		collector.WithLabels(labelName),
-		collector.WithHelp("Number of transactions by the node per epoch."),
-		collector.WithInitFunc(func() {
-			deps.Protocol.Events.Engine.Ledger.TransactionBooked.Attach(event.NewClosure(func(bookedEvent *ledger.TransactionBookedEvent) {
-				eventEpoch := int(epoch.IndexFromTime(deps.Protocol.Engine().Tangle.GetEarliestAttachment(bookedEvent.TransactionID).IssuingTime()))
-				deps.Collector.Increment(epochNamespace, totalTransactions, strconv.Itoa(eventEpoch))
-			}))
-		}),
-	)),
-	collector.WithMetric(collector.NewMetric(invalidTransactions,
-		collector.WithType(collector.CounterVec),
-		collector.WithLabels(labelName),
-		collector.WithHelp("Number of transactions by the node per epoch."),
-		collector.WithInitFunc(func() {
-			deps.Protocol.Events.Engine.Ledger.TransactionInvalid.Attach(event.NewClosure(func(invalidEvent *ledger.TransactionInvalidEvent) {
-				eventEpoch := int(epoch.IndexFromTime(deps.Protocol.Engine().Tangle.GetEarliestAttachment(invalidEvent.TransactionID).IssuingTime()))
-				deps.Collector.Increment(epochNamespace, invalidTransactions, strconv.Itoa(eventEpoch))
-			}))
-		}),
-	)),
-	collector.WithMetric(collector.NewMetric(acceptedTransactions,
-		collector.WithType(collector.CounterVec),
-		collector.WithLabels(labelName),
-		collector.WithHelp("Number of accepted transactions by the node per epoch."),
-		collector.WithInitFunc(func() {
-			deps.Protocol.Events.Engine.Ledger.TransactionAccepted.Attach(event.NewClosure(func(transaction *ledger.TransactionEvent) {
-				eventEpoch := int(transaction.Metadata.InclusionEpoch())
-				deps.Collector.Increment(epochNamespace, acceptedTransactions, strconv.Itoa(eventEpoch))
-			}))
-		}),
-	)),
-	collector.WithMetric(collector.NewMetric(orphanedTransactions,
-		collector.WithType(collector.CounterVec),
-		collector.WithLabels(labelName),
-		collector.WithHelp("Number of accepted transactions by the node per epoch."),
-		collector.WithInitFunc(func() {
-			deps.Protocol.Events.Engine.Ledger.TransactionOrphaned.Attach(event.NewClosure(func(transaction *ledger.TransactionEvent) {
-				eventEpoch := int(transaction.Metadata.InclusionEpoch())
-				deps.Collector.Increment(epochNamespace, orphanedTransactions, strconv.Itoa(eventEpoch))
-			}))
-		}),
-	)),
 
 	collector.WithMetric(collector.NewMetric(totalAttachments,
 		collector.WithType(collector.CounterVec),
@@ -184,15 +137,45 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 			}))
 		}),
 	)),
+	collector.WithMetric(collector.NewMetric(rejectedAttachments,
+		collector.WithType(collector.CounterVec),
+		collector.WithLabels(labelName),
+		collector.WithHelp("Number of rejected attachments by the node per epoch."),
+		collector.WithInitFunc(func() {
+			deps.Protocol.Events.Engine.Ledger.TransactionRejected.Attach(event.NewClosure(func(transactionMetadata *ledger.TransactionMetadata) {
+				for it := deps.Protocol.Engine().Tangle.Booker.GetAllAttachments(transactionMetadata.ID()).Iterator(); it.HasNext(); {
+					attachmentBlock := it.Next()
+					if !attachmentBlock.AttachmentOrphaned() {
+						deps.Collector.Increment(epochNamespace, rejectedAttachments, strconv.Itoa(int(attachmentBlock.ID().Index())))
+					}
+				}
+			}))
+		}),
+	)),
+	collector.WithMetric(collector.NewMetric(acceptedAttachments,
+		collector.WithType(collector.CounterVec),
+		collector.WithLabels(labelName),
+		collector.WithHelp("Number of accepted attachments by the node per epoch."),
+		collector.WithInitFunc(func() {
+			deps.Protocol.Events.Engine.Ledger.TransactionAccepted.Attach(event.NewClosure(func(transactionEvent *ledger.TransactionEvent) {
+				for it := deps.Protocol.Engine().Tangle.Booker.GetAllAttachments(transactionEvent.Metadata.ID()).Iterator(); it.HasNext(); {
+					attachmentBlock := it.Next()
+					if !attachmentBlock.AttachmentOrphaned() {
+						deps.Collector.Increment(epochNamespace, acceptedAttachments, strconv.Itoa(int(attachmentBlock.ID().Index())))
+					}
+				}
+			}))
+		}),
+	)),
 	collector.WithMetric(collector.NewMetric(createdConflicts,
 		collector.WithType(collector.CounterVec),
 		collector.WithLabels(labelName),
 		collector.WithHelp("Number of conflicts created per epoch."),
 		collector.WithInitFunc(func() {
-			// TODO: iterate through all atachments
 			deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictCreated.Attach(event.NewClosure(func(conflictCreated *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-				eventEpoch := int(epoch.IndexFromTime(deps.Protocol.Engine().Tangle.GetEarliestAttachment(conflictCreated.ID()).IssuingTime()))
-				deps.Collector.Increment(epochNamespace, createdConflicts, strconv.Itoa(eventEpoch))
+				for it := deps.Protocol.Engine().Tangle.Booker.GetAllAttachments(conflictCreated.ID()).Iterator(); it.HasNext(); {
+					deps.Collector.Increment(epochNamespace, createdConflicts, strconv.Itoa(int(it.Next().ID().Index())))
+				}
 			}))
 		}),
 	)),
@@ -201,10 +184,10 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 		collector.WithLabels(labelName),
 		collector.WithHelp("Number of conflicts accepted per epoch."),
 		collector.WithInitFunc(func() {
-			// TODO: iterate through all atachments
 			deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictAccepted.Attach(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-				eventEpoch := int(epoch.IndexFromTime(deps.Protocol.Engine().Tangle.GetEarliestAttachment(conflict.ID()).IssuingTime()))
-				deps.Collector.Increment(epochNamespace, acceptedConflicts, strconv.Itoa(eventEpoch))
+				for it := deps.Protocol.Engine().Tangle.Booker.GetAllAttachments(conflict.ID()).Iterator(); it.HasNext(); {
+					deps.Collector.Increment(epochNamespace, acceptedConflicts, strconv.Itoa(int(it.Next().ID().Index())))
+				}
 			}))
 		}),
 	)),
@@ -213,10 +196,10 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 		collector.WithLabels(labelName),
 		collector.WithHelp("Number of conflicts rejected per epoch."),
 		collector.WithInitFunc(func() {
-			// TODO: iterate through all atachments
 			deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictRejected.Attach(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-				eventEpoch := int(epoch.IndexFromTime(deps.Protocol.Engine().Tangle.GetEarliestAttachment(conflict.ID()).IssuingTime()))
-				deps.Collector.Increment(epochNamespace, rejectedConflicts, strconv.Itoa(eventEpoch))
+				for it := deps.Protocol.Engine().Tangle.Booker.GetAllAttachments(conflict.ID()).Iterator(); it.HasNext(); {
+					deps.Collector.Increment(epochNamespace, rejectedConflicts, strconv.Itoa(int(it.Next().ID().Index())))
+				}
 			}))
 		}),
 	)),
@@ -225,10 +208,11 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 		collector.WithLabels(labelName),
 		collector.WithHelp("Number of conflicts rejected per epoch."),
 		collector.WithInitFunc(func() {
-			// TODO: iterate through all atachments
-			//deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictNotConflicting.Attach(event.NewClosure(func(conflictID utxo.TransactionID) {
-			//	deps.Collector.Increment(epochNamespace, notConflictingConflicts, strconv.Itoa(int(epoch.IndexFromTime(deps.Protocol.Engine().Tangle.GetEarliestAttachment(conflictID).IssuingTime()))))
-			//}))
+			deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictNotConflicting.Attach(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+				for it := deps.Protocol.Engine().Tangle.Booker.GetAllAttachments(conflict.ID()).Iterator(); it.HasNext(); {
+					deps.Collector.Increment(epochNamespace, notConflictingConflicts, strconv.Itoa(int(it.Next().ID().Index())))
+				}
+			}))
 		}),
 	)),
 )
