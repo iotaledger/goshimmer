@@ -943,8 +943,15 @@ func (n *NodeOnMockedNetwork) ValidateAcceptedBlocks(expectedAcceptedBlocks map[
 	}
 }
 
-func (n *NodeOnMockedNetwork) AssertEqualLatestCommitments(other *NodeOnMockedNetwork) {
-	require.Equal(n.Testing, n.Protocol.Engine().Storage.Settings.LatestCommitment(), other.Protocol.Engine().Storage.Settings.LatestCommitment())
+func (n *NodeOnMockedNetwork) AssertEqualChainsAtLeastAtEpoch(index epoch.Index, other *NodeOnMockedNetwork) {
+	lastCommitment := n.Protocol.Engine().Storage.Settings.LatestCommitment()
+	otherLastCommitment := other.Protocol.Engine().Storage.Settings.LatestCommitment()
+
+	require.GreaterOrEqual(n.Testing, lastCommitment.Index(), index)
+	require.GreaterOrEqual(n.Testing, otherLastCommitment.Index(), index)
+
+	oldestIndex := lo.Min(lastCommitment.Index(), otherLastCommitment.Index())
+	require.Equal(n.Testing, lo.PanicOnErr(n.Protocol.Engine().Storage.Commitments.Load(oldestIndex)), lo.PanicOnErr(other.Protocol.Engine().Storage.Commitments.Load(oldestIndex)))
 }
 
 func TestProtocol_EngineSwitching(t *testing.T) {
@@ -1223,8 +1230,9 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 	// Compare chains
 	{
 		waitOnAllNodes()
-		node1.AssertEqualLatestCommitments(node2)
-		node1.AssertEqualLatestCommitments(node3)
-		node1.AssertEqualLatestCommitments(node4)
+		// Check that all nodes have at least an epoch commited after we merged them at 8 and that they follow the same commitments
+		node1.AssertEqualChainsAtLeastAtEpoch(9, node2)
+		node1.AssertEqualChainsAtLeastAtEpoch(9, node3)
+		node1.AssertEqualChainsAtLeastAtEpoch(9, node4)
 	}
 }
