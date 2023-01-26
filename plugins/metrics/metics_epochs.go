@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -96,6 +97,7 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 		collector.WithHelp("Number of invalid blocks in an epoch epoch."),
 		collector.WithInitFunc(func() {
 			deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockInvalid.Attach(event.NewClosure(func(blockInvalidEvent *blockdag.BlockInvalidEvent) {
+				fmt.Println("block invalid", blockInvalidEvent.Block.ID(), blockInvalidEvent.Reason)
 				eventEpoch := int(blockInvalidEvent.Block.ID().Index())
 				deps.Collector.Increment(epochNamespace, invalidBlocks, strconv.Itoa(eventEpoch))
 			}))

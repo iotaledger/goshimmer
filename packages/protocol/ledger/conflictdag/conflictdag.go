@@ -1,7 +1,6 @@
 package conflictdag
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/iotaledger/hive.go/core/generics/options"
