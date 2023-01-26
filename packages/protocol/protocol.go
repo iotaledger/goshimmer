@@ -454,9 +454,19 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 		}
 	})
 
-	// Compare the calculated cumulative weight with the current one of our current change to verify it is really higher
-	if calculatedCumulativeWeight <= mainEngine.Storage.Settings.LatestCommitment().CumulativeWeight() {
-		p.Events.Error.Trigger(errors.Errorf("forking point does not accumulate enough weight %d CW <= main chain %d CW", calculatedCumulativeWeight, p.Engine().Storage.Settings.LatestCommitment().CumulativeWeight()))
+	// Compare the calculated cumulative weight with ours to verify it is really higher
+	weightAtForkedEventEnd := lo.PanicOnErr(mainEngine.Storage.Commitments.Load(forkedEvent.EndEpoch())).CumulativeWeight()
+	if calculatedCumulativeWeight <= weightAtForkedEventEnd {
+		forkedEventClaimedWeight := forkedEvent.Commitment.CumulativeWeight()
+		forkedEventMainWeight := lo.PanicOnErr(mainEngine.Engine.Storage.Commitments.Load(forkedEvent.Commitment.Index())).CumulativeWeight()
+		p.Events.Error.Trigger(errors.Errorf("fork at point %d does not accumulate enough weight at epoch %d calculated %d CW <= main chain %d CW. fork event detected at %d was %d CW > %d CW",
+			forkedEvent.ForkingPoint().Index(),
+			forkedEvent.EndEpoch(),
+			calculatedCumulativeWeight,
+			weightAtForkedEventEnd,
+			forkedEvent.Commitment.Index(),
+			forkedEventClaimedWeight,
+			forkedEventMainWeight))
 		//TODO: ban source?
 		return
 	}

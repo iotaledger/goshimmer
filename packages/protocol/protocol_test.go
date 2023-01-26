@@ -734,13 +734,13 @@ func (n *NodeOnMockedNetwork) HookLogging(includeMainEngine bool) {
 
 	events.CandidateEngineActivated.Hook(event.NewClosure(func(candidateEngine *enginemanager.EngineInstance) {
 		fmt.Printf("%s> CandidateEngineActivated: latest commitment %s %s\n", n.Identity.ID(), candidateEngine.Storage.Settings.LatestCommitment().ID(), candidateEngine.Storage.Settings.LatestCommitment())
-		fmt.Println("================\nACTIVATE\n================")
+		fmt.Printf("==================\nACTIVATE %s\n==================\n", n.Identity.ID())
 		n.attachEngineLogs(candidateEngine)
 	}))
 
 	events.MainEngineSwitched.Hook(event.NewClosure(func(engine *enginemanager.EngineInstance) {
 		fmt.Printf("%s> MainEngineSwitched: latest commitment %s %s\n", n.Identity.ID(), engine.Storage.Settings.LatestCommitment().ID(), engine.Storage.Settings.LatestCommitment())
-		fmt.Println("================\nSWITCH\n================")
+		fmt.Printf("================\nSWITCH %s\n================\n", n.Identity.ID())
 	}))
 
 	events.CongestionControl.Scheduler.BlockScheduled.Hook(event.NewClosure(func(block *scheduler.Block) {
@@ -761,7 +761,7 @@ func (n *NodeOnMockedNetwork) HookLogging(includeMainEngine bool) {
 
 	events.ChainManager.ForkDetected.Hook(event.NewClosure(func(event *chainmanager.ForkDetectedEvent) {
 		fmt.Printf("%s> ChainManager.ForkDetected: %s with forking point %s received from %s\n", n.Identity.ID(), event.Commitment.ID(), event.Chain.ForkingPoint.ID(), event.Source)
-		fmt.Println("-----------------\nForkDetected\n-----------------")
+		fmt.Printf("----------------------\nForkDetected %s\n----------------------\n", n.Identity.ID())
 	}))
 
 	events.Error.Hook(event.NewClosure(func(err error) {
