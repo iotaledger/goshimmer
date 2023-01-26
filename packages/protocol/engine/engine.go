@@ -235,10 +235,10 @@ func (e *Engine) Import(reader io.ReadSeeker) (err error) {
 		return errors.Wrap(err, "failed to import commitments")
 	} else if err = e.Storage.Settings.SetChainID(e.Storage.Settings.LatestCommitment().ID()); err != nil {
 		return errors.Wrap(err, "failed to set chainID")
-	} else if err = e.EvictionState.Import(reader); err != nil {
-		return errors.Wrap(err, "failed to import eviction state")
 	} else if err = e.LedgerState.Import(reader); err != nil {
 		return errors.Wrap(err, "failed to import ledger state")
+	} else if err = e.EvictionState.Import(reader); err != nil {
+		return errors.Wrap(err, "failed to import eviction state")
 	} else if err = e.NotarizationManager.Import(reader); err != nil {
 		return errors.Wrap(err, "failed to import notarization state")
 	}
@@ -255,10 +255,10 @@ func (e *Engine) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (err err
 		return errors.Wrap(err, "failed to export settings")
 	} else if err = e.Storage.Commitments.Export(writer, targetEpoch); err != nil {
 		return errors.Wrap(err, "failed to export commitments")
-	} else if err = e.EvictionState.Export(writer, targetEpoch); err != nil {
-		return errors.Wrap(err, "failed to export eviction state")
 	} else if err = e.LedgerState.Export(writer, targetEpoch); err != nil {
 		return errors.Wrap(err, "failed to export ledger state")
+	} else if err = e.EvictionState.Export(writer, targetEpoch); err != nil {
+		return errors.Wrap(err, "failed to export eviction state")
 	} else if err = e.NotarizationManager.Export(writer, targetEpoch); err != nil {
 		return errors.Wrap(err, "failed to export notarization state")
 	}
