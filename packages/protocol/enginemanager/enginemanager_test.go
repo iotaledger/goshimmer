@@ -113,7 +113,7 @@ func TestEngineManager_ForkEngineAtEpoch(t *testing.T) {
 		// Settings
 		// The ChainID of the new engine corresponds to the target epoch of the imported snapshot.
 		require.Equal(t, lo.PanicOnErr(tf.Engine.Storage.Commitments.Load(4)).ID(), tf2.Engine.Storage.Settings.ChainID())
-		require.Equal(t, tf.Engine.Storage.Settings.LatestCommitment(), tf2.Engine.Storage.Settings.LatestCommitment())
+		require.Equal(t, tf.Engine.Storage.Settings.LatestCommitment().InnerModel(), tf2.Engine.Storage.Settings.LatestCommitment().InnerModel())
 		require.Equal(t, tf.Engine.Storage.Settings.LatestConfirmedEpoch(), tf2.Engine.Storage.Settings.LatestConfirmedEpoch())
 		require.Equal(t, tf.Engine.Storage.Settings.LatestStateMutationEpoch(), tf2.Engine.Storage.Settings.LatestStateMutationEpoch())
 
