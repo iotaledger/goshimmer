@@ -5,13 +5,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
+	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
@@ -33,7 +33,7 @@ type Manager struct {
 
 	storage                  *storage.Storage
 	ledgerState              *ledgerstate.LedgerState
-	pendingConflictsCounters *shrinkingmap.ShrinkingMap[epoch.Index, uint64]
+	pendingConflictsCounters *memstorage.Storage[epoch.Index, *set.AdvancedSet[models.BlockID]]
 	commitmentMutex          sync.RWMutex
 
 	acceptanceTime      time.Time
@@ -52,7 +52,7 @@ func NewManager(storageInstance *storage.Storage, ledgerState *ledgerstate.Ledge
 		Attestations:               NewAttestations(storageInstance.Permanent.Attestations, storageInstance.Prunable.Attestations, weights),
 		storage:                    storageInstance,
 		ledgerState:                ledgerState,
-		pendingConflictsCounters:   shrinkingmap.New[epoch.Index, uint64](),
+		pendingConflictsCounters:   memstorage.New[epoch.Index, *set.AdvancedSet[models.BlockID]](),
 		acceptanceTime:             storageInstance.Settings.LatestCommitment().Index().EndTime(),
 		optsMinCommittableEpochAge: defaultMinEpochCommittableAge,
 	}, opts, func(m *Manager) {
@@ -60,33 +60,38 @@ func NewManager(storageInstance *storage.Storage, ledgerState *ledgerstate.Ledge
 	})
 }
 
-// IncreaseConflictsCounter increases the conflicts counter for the given epoch index.
-func (m *Manager) IncreaseConflictsCounter(index epoch.Index) {
+// AddConflictingAttachment adds the conflicting attachment to a set of pending conflicts of an epoch.
+func (m *Manager) AddConflictingAttachment(blockID models.BlockID) {
 	m.commitmentMutex.Lock()
 	defer m.commitmentMutex.Unlock()
 
-	if index <= m.storage.Settings.LatestCommitment().Index() {
+	if blockID.Index() <= m.storage.Settings.LatestCommitment().Index() {
 		return
 	}
 
-	m.pendingConflictsCounters.Set(index, lo.Return1(m.pendingConflictsCounters.Get(index))+1)
+	pendingConflicts, _ := m.pendingConflictsCounters.RetrieveOrCreate(blockID.Index(), func() *set.AdvancedSet[models.BlockID] {
+		return set.NewAdvancedSet[models.BlockID]()
+	})
+
+	pendingConflicts.Add(blockID)
 }
 
-// DecreaseConflictsCounter decreases the conflicts counter for the given epoch index.
-func (m *Manager) DecreaseConflictsCounter(index epoch.Index) {
+// DeleteConflictingAttachment deletes the conflicting attachment from a set of pending conflicts of an epoch.
+func (m *Manager) DeleteConflictingAttachment(blockID models.BlockID) {
 	m.commitmentMutex.Lock()
 	defer m.commitmentMutex.Unlock()
 
-	if index <= m.storage.Settings.LatestCommitment().Index() {
+	if blockID.Index() <= m.storage.Settings.LatestCommitment().Index() {
 		return
 	}
 
-	if newCounter := lo.Return1(m.pendingConflictsCounters.Get(index)) - 1; newCounter != 0 {
-		m.pendingConflictsCounters.Set(index, newCounter)
-	} else {
-		m.pendingConflictsCounters.Delete(index)
+	pendingConflicts, exists := m.pendingConflictsCounters.Get(blockID.Index())
+	if exists {
+		pendingConflicts.Delete(blockID)
+	}
 
-		m.tryCommitEpoch(index, m.AcceptanceTime())
+	if !exists || pendingConflicts.IsEmpty() {
+		m.tryCommitEpoch(blockID.Index(), m.AcceptanceTime())
 	}
 }
 
@@ -184,7 +189,7 @@ func (m *Manager) isCommittable(ei epoch.Index, acceptanceTime time.Time) (isCom
 
 func (m *Manager) hasNoPendingConflicts(ei epoch.Index) (hasNoPendingConflicts bool) {
 	for index := m.storage.Settings.LatestCommitment().Index(); index <= ei; index++ {
-		if count, _ := m.pendingConflictsCounters.Get(index); count != 0 {
+		if pendingConflicts, exists := m.pendingConflictsCounters.Get(index); exists && pendingConflicts.Size() > 0 {
 			return false
 		}
 	}
