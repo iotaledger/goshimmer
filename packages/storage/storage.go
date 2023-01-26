@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
@@ -55,7 +54,8 @@ func (s *Storage) PermanentDatabaseSize() int64 {
 
 // Shutdown shuts down the storage.
 func (s *Storage) Shutdown() {
-	event.Loop.PendingTasksCounter.WaitIsZero()
+	//TODO: we cannot wait on the main loop here, else we cannot shutdown old engines
+	//event.Loop.PendingTasksCounter.WaitIsZero()
 
 	if err := s.Permanent.Commitments.Close(); err != nil {
 		panic(err)
