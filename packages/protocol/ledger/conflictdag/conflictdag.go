@@ -1,6 +1,7 @@
 package conflictdag
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/iotaledger/hive.go/core/generics/options"
@@ -32,7 +33,7 @@ func New[ConflictIDType, ResourceIDType comparable](opts ...options.Option[Confl
 		Events:            NewEvents[ConflictIDType, ResourceIDType](),
 		conflicts:         memstorage.New[ConflictIDType, *Conflict[ConflictIDType, ResourceIDType]](),
 		conflictSets:      memstorage.New[ResourceIDType, *ConflictSet[ConflictIDType, ResourceIDType]](),
-		optsMergeToMaster: false,
+		optsMergeToMaster: true,
 	}, opts)
 }
 
