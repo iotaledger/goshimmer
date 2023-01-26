@@ -83,7 +83,10 @@ func (s *SybilProtection) initializeLatestCommitment() {
 }
 
 func (s *SybilProtection) initializeTotalWeight() {
-	s.weights.TotalWeight().UpdateTime = s.engine.Storage.Settings.LatestCommitment().Index()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	s.weights.UpdateTotalWeightEpoch(s.engine.Storage.Settings.LatestCommitment().Index())
 }
 
 func (s *SybilProtection) initializeActiveValidators() {

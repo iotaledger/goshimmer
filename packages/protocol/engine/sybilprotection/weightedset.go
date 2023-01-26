@@ -39,6 +39,9 @@ func (w *WeightedSet) Add(id identity.ID) (added bool) {
 	w.membersMutex.Lock()
 	defer w.membersMutex.Unlock()
 
+	w.totalWeightMutex.Lock()
+	defer w.totalWeightMutex.Unlock()
+
 	if added = w.members.Add(id); added {
 		if weight, exists := w.Weights.get(id); exists {
 			w.totalWeight += weight.Value

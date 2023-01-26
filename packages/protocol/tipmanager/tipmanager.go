@@ -43,6 +43,7 @@ type TipManager struct {
 	walkerCache   *memstorage.EpochStorage[models.BlockID, types.Empty]
 	evictionMutex sync.RWMutex
 
+	tipsMutex  sync.RWMutex
 	tips       *randommap.RandomMap[models.BlockID, *scheduler.Block]
 	futureTips *memstorage.EpochStorage[commitment.ID, *memstorage.Storage[models.BlockID, *scheduler.Block]]
 	// TODO: reintroduce TipsConflictTracker
@@ -81,14 +82,21 @@ func (t *TipManager) LinkTo(engine *engine.Engine) {
 	t.evictionMutex.Lock()
 	defer t.evictionMutex.Unlock()
 
+	t.tipsMutex.Lock()
+	defer t.tipsMutex.Unlock()
+
 	t.walkerCache = memstorage.NewEpochStorage[models.BlockID, types.Empty]()
 	t.tips = randommap.New[models.BlockID, *scheduler.Block]()
 	t.futureTips = memstorage.NewEpochStorage[commitment.ID, *memstorage.Storage[models.BlockID, *scheduler.Block]]()
+
 	t.engine = engine
 	t.blockAcceptanceGadget = engine.Consensus.BlockGadget
 }
 
 func (t *TipManager) AddTip(block *scheduler.Block) {
+	t.tipsMutex.RLock()
+	defer t.tipsMutex.RUnlock()
+
 	// Check if any children that are accepted or scheduled and return if true, to guarantee that parents are not added
 	// to the tipset after their children.
 	if t.checkMonotonicity(block) {
@@ -111,7 +119,7 @@ func (t *TipManager) EvictTSCCache(index epoch.Index) {
 	t.walkerCache.Evict(index)
 }
 
-func (t *TipManager) DeleteTip(block *scheduler.Block) (deleted bool) {
+func (t *TipManager) deleteTip(block *scheduler.Block) (deleted bool) {
 	if _, deleted = t.tips.Delete(block.ID()); deleted {
 		// t.tipsConflictTracker.RemoveTip(block)
 		t.Events.TipRemoved.Trigger(block)
@@ -119,8 +127,23 @@ func (t *TipManager) DeleteTip(block *scheduler.Block) (deleted bool) {
 	return
 }
 
+func (t *TipManager) DeleteTip(block *scheduler.Block) (deleted bool) {
+	t.tipsMutex.Lock()
+	defer t.tipsMutex.Unlock()
+
+	return t.deleteTip(block)
+}
+
 // RemoveStrongParents removes all tips that are parents of the given block.
 func (t *TipManager) RemoveStrongParents(block *models.Block) {
+	t.tipsMutex.Lock()
+	defer t.tipsMutex.Unlock()
+
+	t.removeStrongParents(block)
+}
+
+// RemoveStrongParents removes all tips that are parents of the given block.
+func (t *TipManager) removeStrongParents(block *models.Block) {
 	block.ForEachParent(func(parent models.Parent) {
 		// TODO: reintroduce TipsConflictTracker
 		// We do not want to remove the tip if it is the last one representing a pending conflict.
@@ -128,7 +151,7 @@ func (t *TipManager) RemoveStrongParents(block *models.Block) {
 		// 	return true
 		// }
 		if parentBlock, exists := t.schedulerBlockRetrieverFunc(parent.ID); exists {
-			t.DeleteTip(parentBlock)
+			t.deleteTip(parentBlock)
 		}
 	})
 }
@@ -146,6 +169,9 @@ func (t *TipManager) Tips(countParents int) (parents models.BlockIDs) {
 }
 
 func (t *TipManager) selectTips(count int) (parents models.BlockIDs) {
+	t.tipsMutex.RLock()
+	defer t.tipsMutex.RUnlock()
+
 	parents = models.NewBlockIDs()
 	for {
 		tips := t.tips.RandomUniqueEntries(count)
@@ -163,7 +189,7 @@ func (t *TipManager) selectTips(count int) (parents models.BlockIDs) {
 			if err := t.isValidTip(tip); err == nil {
 				parents.Add(tip.ID())
 			} else {
-				t.DeleteTip(tip)
+				t.deleteTip(tip)
 
 				// DEBUG
 				fmt.Printf("(time: %s) cannot select tip due to error: %s\n", time.Now(), err)
@@ -181,6 +207,9 @@ func (t *TipManager) selectTips(count int) (parents models.BlockIDs) {
 
 // AllTips returns a list of all tips that are stored in the TipManger.
 func (t *TipManager) AllTips() (allTips []*scheduler.Block) {
+	t.tipsMutex.RLock()
+	defer t.tipsMutex.RUnlock()
+
 	allTips = make([]*scheduler.Block, 0, t.tips.Size())
 	t.tips.ForEach(func(_ models.BlockID, value *scheduler.Block) bool {
 		allTips = append(allTips, value)
@@ -192,11 +221,17 @@ func (t *TipManager) AllTips() (allTips []*scheduler.Block) {
 
 // TipCount the amount of tips.
 func (t *TipManager) TipCount() int {
+	t.tipsMutex.RLock()
+	defer t.tipsMutex.RUnlock()
+
 	return t.tips.Size()
 }
 
 // FutureTipCount returns the amount of future tips per epoch.
 func (t *TipManager) FutureTipCount() (futureTipsPerEpoch map[epoch.Index]int) {
+	t.tipsMutex.RLock()
+	defer t.tipsMutex.RUnlock()
+
 	futureTipsPerEpoch = make(map[epoch.Index]int)
 	t.futureTips.ForEach(func(index epoch.Index, commitmentStorage *memstorage.Storage[commitment.ID, *memstorage.Storage[models.BlockID, *scheduler.Block]]) {
 		commitmentStorage.ForEach(func(cm commitment.ID, tipStorage *memstorage.Storage[models.BlockID, *scheduler.Block]) bool {
@@ -216,6 +251,9 @@ func (t *TipManager) PromoteFutureTips(cm *commitment.Commitment) {
 		t.Evict(cm.Index())
 	}()
 
+	t.tipsMutex.Lock()
+	defer t.tipsMutex.Unlock()
+
 	if futureEpochTips := t.futureTips.Get(cm.Index()); futureEpochTips != nil {
 		if tipsForCommitment, exists := futureEpochTips.Get(cm.ID()); exists {
 			tipsToPromote := make(map[models.BlockID]*scheduler.Block)
@@ -233,7 +271,7 @@ func (t *TipManager) PromoteFutureTips(cm *commitment.Commitment) {
 				// regardless if the tip makes it into the tippool, we remove its strong parents anyway
 				// currentTip <- futureTipNotToAdd <- futureTipToAdd
 				// We want to remove currentTip even if futureTipNotToAdd is not added to the tippool.
-				t.RemoveStrongParents(tip.ModelsBlock)
+				t.removeStrongParents(tip.ModelsBlock)
 				if !tipsToNotPromote.Has(tipID) {
 					t.addTip(tip)
 				}
@@ -246,6 +284,9 @@ func (t *TipManager) PromoteFutureTips(cm *commitment.Commitment) {
 func (t *TipManager) Evict(index epoch.Index) {
 	t.evictionMutex.Lock()
 	defer t.evictionMutex.Unlock()
+
+	t.tipsMutex.Lock()
+	defer t.tipsMutex.Unlock()
 
 	t.futureTips.Evict(index)
 }
@@ -261,12 +302,12 @@ func (t *TipManager) addTip(block *scheduler.Block) (added bool) {
 		t.Events.TipAdded.Trigger(block)
 
 		// skip removing tips if a width is set -> allows to artificially create a wide Tangle.
-		if t.TipCount() <= t.optsWidth {
+		if t.tips.Size() <= t.optsWidth {
 			return true
 		}
 
 		// a tip loses its tip status if it is referenced by another block
-		t.RemoveStrongParents(block.ModelsBlock)
+		t.removeStrongParents(block.ModelsBlock)
 
 		return true
 	}
@@ -303,6 +344,9 @@ func (t *TipManager) isFutureCommitment(block *scheduler.Block) (isUnknown bool)
 func (t *TipManager) addFutureTip(block *scheduler.Block) (added bool) {
 	t.evictionMutex.RLock()
 	defer t.evictionMutex.RUnlock()
+
+	t.tipsMutex.RLock()
+	defer t.tipsMutex.RUnlock()
 
 	return lo.Return1(t.futureTips.Get(block.Commitment().Index(), true).RetrieveOrCreate(block.Commitment().ID(), func() *memstorage.Storage[models.BlockID, *scheduler.Block] {
 		return memstorage.New[models.BlockID, *scheduler.Block]()

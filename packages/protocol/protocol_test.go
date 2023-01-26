@@ -1008,15 +1008,15 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 	// Verify all nodes have the expected state
 	{
 		// Partition 1
-		require.Equal(t, int64(200), node1.Protocol.Engine().SybilProtection.Weights().TotalWeight().Value)
+		require.Equal(t, int64(200), node1.Protocol.Engine().SybilProtection.Weights().TotalWeight())
 		require.Equal(t, int64(0), node1.Protocol.Engine().SybilProtection.Validators().TotalWeight())
-		require.Equal(t, int64(200), node2.Protocol.Engine().SybilProtection.Weights().TotalWeight().Value)
+		require.Equal(t, int64(200), node2.Protocol.Engine().SybilProtection.Weights().TotalWeight())
 		require.Equal(t, int64(0), node2.Protocol.Engine().SybilProtection.Validators().TotalWeight())
 
 		// Partition 2
-		require.Equal(t, int64(200), node3.Protocol.Engine().SybilProtection.Weights().TotalWeight().Value)
+		require.Equal(t, int64(200), node3.Protocol.Engine().SybilProtection.Weights().TotalWeight())
 		require.Equal(t, int64(0), node3.Protocol.Engine().SybilProtection.Validators().TotalWeight())
-		require.Equal(t, int64(200), node4.Protocol.Engine().SybilProtection.Weights().TotalWeight().Value)
+		require.Equal(t, int64(200), node4.Protocol.Engine().SybilProtection.Weights().TotalWeight())
 		require.Equal(t, int64(0), node4.Protocol.Engine().SybilProtection.Validators().TotalWeight())
 
 		// Add the validators manually to the active set of each partition
@@ -1031,15 +1031,15 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 		}
 
 		// Partition 1
-		require.Equal(t, int64(200), node1.Protocol.Engine().SybilProtection.Weights().TotalWeight().Value)
+		require.Equal(t, int64(200), node1.Protocol.Engine().SybilProtection.Weights().TotalWeight())
 		require.Equal(t, int64(150), node1.Protocol.Engine().SybilProtection.Validators().TotalWeight())
-		require.Equal(t, int64(200), node2.Protocol.Engine().SybilProtection.Weights().TotalWeight().Value)
+		require.Equal(t, int64(200), node2.Protocol.Engine().SybilProtection.Weights().TotalWeight())
 		require.Equal(t, int64(150), node2.Protocol.Engine().SybilProtection.Validators().TotalWeight())
 
 		// Partition 2
-		require.Equal(t, int64(200), node3.Protocol.Engine().SybilProtection.Weights().TotalWeight().Value)
+		require.Equal(t, int64(200), node3.Protocol.Engine().SybilProtection.Weights().TotalWeight())
 		require.Equal(t, int64(50), node3.Protocol.Engine().SybilProtection.Validators().TotalWeight())
-		require.Equal(t, int64(200), node4.Protocol.Engine().SybilProtection.Weights().TotalWeight().Value)
+		require.Equal(t, int64(200), node4.Protocol.Engine().SybilProtection.Weights().TotalWeight())
 		require.Equal(t, int64(50), node4.Protocol.Engine().SybilProtection.Validators().TotalWeight())
 
 		// All are at epoch 0 with the same commitment

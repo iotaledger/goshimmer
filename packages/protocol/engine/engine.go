@@ -302,7 +302,7 @@ func (e *Engine) initConsensus() {
 			totalWeight -= zeroIdentityWeight.Value
 		}
 
-		return totalWeight + e.SybilProtection.Weights().TotalWeight().Value
+		return totalWeight + e.SybilProtection.Weights().TotalWeight()
 	}, e.optsConsensusOptions...)
 
 	e.Events.EvictionState.EpochEvicted.Hook(event.NewClosure(e.Consensus.BlockGadget.EvictUntil))

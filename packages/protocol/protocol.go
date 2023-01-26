@@ -482,7 +482,7 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 	if err := candidateEngine.Engine.Storage.Settings.SetChainID(forkedEvent.Chain.ForkingPoint.ID()); err != nil {
 		p.Events.Error.Trigger(errors.Wrap(err, "error setting the ChainID on the forked engine"))
 		candidateEngine.Shutdown()
-		candidateEngine.RemoveFromFilesystem()
+		_ = candidateEngine.RemoveFromFilesystem()
 		return
 	}
 
