@@ -206,11 +206,11 @@ func (e *Engine) Initialize(snapshot string) (err error) {
 func (e *Engine) Shutdown() {
 	e.Ledger.Shutdown()
 
+	e.TriggerStopped()
+
 	for _, pool := range e.workerPools {
 		pool.Shutdown()
 	}
-
-	e.TriggerStopped()
 }
 
 func (e *Engine) WriteSnapshot(filePath string, targetEpoch ...epoch.Index) (err error) {

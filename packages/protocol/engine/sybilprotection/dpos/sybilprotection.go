@@ -180,6 +180,10 @@ func (s *SybilProtection) CommitBatchedStateTransition() (ctx context.Context) {
 }
 
 func (s *SybilProtection) markValidatorActive(id identity.ID, activityTime time.Time) {
+	if s.engine.WasStopped() {
+		return
+	}
+
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
