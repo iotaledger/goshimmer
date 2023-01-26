@@ -16,6 +16,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
 	"github.com/iotaledger/goshimmer/packages/protocol/enginemanager"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/storage/utils"
 )
 
@@ -28,9 +30,15 @@ type EngineManagerTestFramework struct {
 func NewEngineManagerTestFramework(t *testing.T, identitiesWeights map[ed25519.PublicKey]uint64) *EngineManagerTestFramework {
 	tf := &EngineManagerTestFramework{}
 
+	engineOptions := []options.Option[engine.Engine]{
+		engine.WithLedgerOptions(
+			ledger.WithVM(new(devnetvm.VM)),
+		),
+	}
+
 	snapshotPath := utils.NewDirectory(t.TempDir()).Path("snapshot.bin")
 
-	snapshotcreator.CreateSnapshot(protocol.DatabaseVersion, snapshotPath, 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights))
+	snapshotcreator.CreateSnapshot(protocol.DatabaseVersion, snapshotPath, 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights), engineOptions...)
 
 	tf.EngineManager = enginemanager.New(t.TempDir(),
 		protocol.DatabaseVersion,

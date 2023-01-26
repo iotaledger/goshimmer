@@ -687,7 +687,6 @@ type NodeOnMockedNetwork struct {
 }
 
 func newNode(t *testing.T, keyPair ed25519.KeyPair, network *network.MockedNetwork, partition string, snapshotPath string, engineOpts ...options.Option[engine.Engine]) *NodeOnMockedNetwork {
-
 	identity := identity.New(keyPair.PublicKey)
 	endpoint := network.Join(identity.ID(), partition)
 	tempDir := utils.NewDirectory(t.TempDir())
@@ -798,7 +797,6 @@ func (n *NodeOnMockedNetwork) HookLogging(includeMainEngine bool) {
 }
 
 func (n *NodeOnMockedNetwork) attachEngineLogs(instance *enginemanager.EngineInstance) {
-
 	engineName := instance.Name()
 	events := instance.Engine.Events
 
@@ -921,7 +919,7 @@ func (n *NodeOnMockedNetwork) IssueActivity(duration time.Duration) {
 			n.issueActivityBlock(fmt.Sprintf("%s.%d", n.Identity.ID(), counter), tips.Slice()...)
 			counter++
 			time.Sleep(1 * time.Second)
-			if duration > 0 && time.Now().Sub(start) > duration {
+			if duration > 0 && time.Since(start) > duration {
 				return
 			}
 		}
@@ -1230,7 +1228,7 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 	// Compare chains
 	{
 		waitOnAllNodes()
-		// Check that all nodes have at least an epoch commited after we merged them at 8 and that they follow the same commitments
+		// Check that all nodes have at least an epoch committed after we merged them at 8 and that they follow the same commitments
 		node1.AssertEqualChainsAtLeastAtEpoch(9, node2)
 		node1.AssertEqualChainsAtLeastAtEpoch(9, node3)
 		node1.AssertEqualChainsAtLeastAtEpoch(9, node4)

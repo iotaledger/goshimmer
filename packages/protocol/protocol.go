@@ -479,7 +479,12 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 	}
 
 	// Set the chain to the correct forking point
-	candidateEngine.Engine.Storage.Settings.SetChainID(forkedEvent.Chain.ForkingPoint.ID())
+	if err := candidateEngine.Engine.Storage.Settings.SetChainID(forkedEvent.Chain.ForkingPoint.ID()); err != nil {
+		p.Events.Error.Trigger(errors.Wrap(err, "error setting the ChainID on the forked engine"))
+		candidateEngine.Shutdown()
+		candidateEngine.RemoveFromFilesystem()
+		return
+	}
 
 	// Attach the engine block requests to the protocol and detach as soon as we switch to that engine
 	requestBlocks := event.NewClosure(func(blockID models.BlockID) {
