@@ -131,6 +131,7 @@ func (e *Engine) WorkerPools() map[string]*workerpool.UnboundedWorkerPool {
 
 func (e *Engine) ProcessBlockFromPeer(block *models.Block, source identity.ID) {
 	e.Filter.ProcessReceivedBlock(block, source)
+	e.Events.BlockProcessed.Trigger(block.ID())
 }
 
 func (e *Engine) Block(id models.BlockID) (block *models.Block, exists bool) {
