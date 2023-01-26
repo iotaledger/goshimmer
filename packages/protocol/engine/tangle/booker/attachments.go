@@ -14,8 +14,11 @@ import (
 )
 
 type attachments struct {
-	attachments        *memstorage.Storage[utxo.TransactionID, *memstorage.Storage[epoch.Index, *memstorage.Storage[models.BlockID, *AttachmentBlock]]]
-	evictionMap        *memstorage.Storage[epoch.Index, set.Set[utxo.TransactionID]]
+	attachments *memstorage.Storage[utxo.TransactionID, *memstorage.Storage[epoch.Index, *memstorage.Storage[models.BlockID, *AttachmentBlock]]]
+	evictionMap *memstorage.Storage[epoch.Index, set.Set[utxo.TransactionID]]
+
+	// nonOrphanedCounter is used to count all non-orphaned attachment of a transaction,
+	// so that it's not necessary to iterate through all the attachments to check if the transaction is orphaned.
 	nonOrphanedCounter *memstorage.Storage[utxo.TransactionID, uint32]
 
 	mutex *syncutils.DAGMutex[utxo.TransactionID]
@@ -23,9 +26,11 @@ type attachments struct {
 
 func newAttachments() (newAttachments *attachments) {
 	return &attachments{
-		attachments: memstorage.New[utxo.TransactionID, *memstorage.Storage[epoch.Index, *memstorage.Storage[models.BlockID, *AttachmentBlock]]](),
-		evictionMap: memstorage.New[epoch.Index, set.Set[utxo.TransactionID]](),
-		mutex:       syncutils.NewDAGMutex[utxo.TransactionID](),
+		attachments:        memstorage.New[utxo.TransactionID, *memstorage.Storage[epoch.Index, *memstorage.Storage[models.BlockID, *AttachmentBlock]]](),
+		evictionMap:        memstorage.New[epoch.Index, set.Set[utxo.TransactionID]](),
+		nonOrphanedCounter: memstorage.New[utxo.TransactionID, uint32](),
+
+		mutex: syncutils.NewDAGMutex[utxo.TransactionID](),
 	}
 }
 
