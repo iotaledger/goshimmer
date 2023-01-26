@@ -63,5 +63,6 @@ func (c *Chain) addCommitment(commitment *Commitment) {
 	if commitmentIndex > c.latestCommitmentIndex {
 		c.latestCommitmentIndex = commitmentIndex
 	}
+
 	c.commitmentsByIndex[commitmentIndex] = commitment
 }
