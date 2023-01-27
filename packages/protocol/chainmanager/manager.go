@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/pkg/errors"
+
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/walker"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/syncutils"
-	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -66,9 +67,9 @@ func (m *Manager) ProcessCommitmentFromSource(commitment *commitment.Commitment,
 	m.commitmentEntityMutex.Lock(chainCommitment.ID())
 	defer m.commitmentEntityMutex.Unlock(chainCommitment.ID())
 
-	if children := chainCommitment.Children(); len(children) != 0 {
-		for childWalker := walker.New[*Commitment]().Push(children[0]); childWalker.HasNext(); {
-			childWalker.PushAll(m.propagateChainToFirstChild(childWalker.Next(), chain)...)
+	if mainChild := chainCommitment.mainChild(); mainChild != nil {
+		for childWalker := walker.New[*Commitment]().Push(chainCommitment.mainChild()); childWalker.HasNext(); {
+			childWalker.PushAll(m.propagateChainToMainChild(childWalker.Next(), chain)...)
 		}
 	}
 
@@ -233,6 +234,64 @@ func (m *Manager) ForkedEventByForkingPoint(commitmentID commitment.ID) (forkedE
 	return
 }
 
+func (m *Manager) SwitchMainChain(head commitment.ID) error {
+	commitment, _ := m.Commitment(head)
+	if commitment == nil {
+		return errors.Errorf("unknown commitment %s", head)
+	}
+
+	forkingPoint, err := m.ForkingPointAgainstMainChain(head)
+	if err != nil {
+		return err
+	}
+
+	parentCommitment, _ := m.Commitment(forkingPoint.Commitment().PrevID())
+	if parentCommitment == nil {
+		return errors.Errorf("unknown parent of solid commitment %s", forkingPoint.ID())
+	}
+
+	// Separate the main chain by remove it from the parent
+	oldMainCommitment := parentCommitment.mainChild()
+
+	// For each forking point coming out of the main chain we need to reorg the children
+	for fp := commitment.Chain().ForkingPoint; ; {
+		fpParent, _ := m.Commitment(fp.Commitment().PrevID())
+
+		mainChild := fpParent.mainChild()
+		newChildChain := NewChain(mainChild)
+
+		if err := fpParent.setMainChild(fp); err != nil {
+			return err
+		}
+
+		for childWalker := walker.New[*Commitment]().Push(mainChild); childWalker.HasNext(); {
+			childWalker.PushAll(m.propagateReplaceChainToMainChild(childWalker.Next(), newChildChain)...)
+		}
+
+		if fp == forkingPoint {
+			break
+		}
+
+		fp = fpParent.Chain().ForkingPoint
+	}
+
+	// Delete all commitments after newer than our new head if the chain was longer than the new one
+	snapshotChain := m.SnapshotCommitment.Chain()
+	snapshotChain.dropCommitmentsAfter(head.Index())
+
+	// Separate the old main chain by removing it from the parent
+	parentCommitment.deleteChild(oldMainCommitment)
+
+	// Cleanup the old tree hanging from the old main chain from our cache
+	if children := oldMainCommitment.Children(); len(children) != 0 {
+		for childWalker := walker.New[*Commitment]().PushAll(children...); childWalker.HasNext(); {
+			childWalker.PushAll(m.deleteAllChildrenFromCache(childWalker.Next())...)
+		}
+	}
+
+	return nil
+}
+
 func (m *Manager) Evict(index epoch.Index) {
 	//TODO: do we need to evict more stuff?
 	m.commitmentsByForkingPoint.Evict(index)
@@ -248,7 +307,7 @@ func (m *Manager) registerChild(parent *Commitment, child *Commitment) (isSolid 
 	return
 }
 
-func (m *Manager) propagateChainToFirstChild(child *Commitment, chain *Chain) (childrenToUpdate []*Commitment) {
+func (m *Manager) propagateChainToMainChild(child *Commitment, chain *Chain) (childrenToUpdate []*Commitment) {
 	m.commitmentEntityMutex.Lock(child.ID())
 	defer m.commitmentEntityMutex.Unlock(child.ID())
 
@@ -258,12 +317,36 @@ func (m *Manager) propagateChainToFirstChild(child *Commitment, chain *Chain) (c
 
 	chain.addCommitment(child)
 
-	children := child.Children()
-	if len(children) == 0 {
+	mainChild := child.mainChild()
+	if mainChild == nil {
 		return
 	}
 
-	return children[:1]
+	return []*Commitment{mainChild}
+}
+
+func (m *Manager) propagateReplaceChainToMainChild(child *Commitment, chain *Chain) (childrenToUpdate []*Commitment) {
+	m.commitmentEntityMutex.Lock(child.ID())
+	defer m.commitmentEntityMutex.Unlock(child.ID())
+
+	child.replaceChain(chain)
+	chain.addCommitment(child)
+
+	mainChild := child.mainChild()
+	if mainChild == nil {
+		return
+	}
+
+	return []*Commitment{mainChild}
+}
+
+func (m *Manager) deleteAllChildrenFromCache(child *Commitment) (childrenToUpdate []*Commitment) {
+	m.commitmentEntityMutex.Lock(child.ID())
+	defer m.commitmentEntityMutex.Unlock(child.ID())
+
+	delete(m.commitmentsByID, child.ID())
+
+	return child.Children()
 }
 
 func (m *Manager) propagateSolidity(child *Commitment) (childrenToUpdate []*Commitment) {

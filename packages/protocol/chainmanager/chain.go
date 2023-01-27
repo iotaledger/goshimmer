@@ -66,3 +66,16 @@ func (c *Chain) addCommitment(commitment *Commitment) {
 
 	c.commitmentsByIndex[commitmentIndex] = commitment
 }
+
+func (c *Chain) dropCommitmentsAfter(index epoch.Index) {
+	c.Lock()
+	defer c.Unlock()
+
+	for i := index + 1; i <= c.latestCommitmentIndex; i++ {
+		delete(c.commitmentsByIndex, i)
+	}
+
+	if index < c.latestCommitmentIndex {
+		c.latestCommitmentIndex = index
+	}
+}

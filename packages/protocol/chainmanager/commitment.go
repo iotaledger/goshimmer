@@ -10,14 +10,15 @@ import (
 type Commitment struct {
 	model.Storable[commitment.ID, Commitment, *Commitment, commitmentModel] `serix:"0"`
 
-	solid    bool
-	children []*Commitment
-	chain    *Chain
+	solid       bool
+	mainChildID commitment.ID
+	children    map[commitment.ID]*Commitment
+	chain       *Chain
 }
 
 func NewCommitment(id commitment.ID) (newCommitment *Commitment) {
 	newCommitment = model.NewStorable[commitment.ID, Commitment](&commitmentModel{})
-	newCommitment.children = make([]*Commitment, 0)
+	newCommitment.children = make(map[commitment.ID]*Commitment)
 
 	newCommitment.SetID(id)
 
@@ -57,8 +58,10 @@ func (c *Commitment) Children() (children []*Commitment) {
 	c.RLock()
 	defer c.RUnlock()
 
-	children = make([]*Commitment, len(c.children))
-	copy(children, c.children)
+	children = make([]*Commitment, 0, len(c.children))
+	for _, commitment := range c.children {
+		children = append(children, commitment)
+	}
 
 	return
 }
@@ -116,11 +119,41 @@ func (c *Commitment) registerChild(child *Commitment) (isSolid bool, chain *Chai
 	c.Lock()
 	defer c.Unlock()
 
-	if c.children = append(c.children, child); len(c.children) > 1 {
+	if len(c.children) == 0 {
+		c.mainChildID = child.ID()
+	}
+
+	if c.children[child.ID()] = child; len(c.children) > 1 {
 		return c.solid, NewChain(child), true
 	}
 
 	return c.solid, c.chain, false
+}
+
+func (c *Commitment) deleteChild(child *Commitment) {
+	c.Lock()
+	defer c.Unlock()
+
+	delete(c.children, child.ID())
+}
+
+func (c *Commitment) mainChild() *Commitment {
+	c.RLock()
+	defer c.RUnlock()
+
+	return c.children[c.mainChildID]
+}
+
+func (c *Commitment) setMainChild(commitment *Commitment) error {
+	c.Lock()
+	defer c.Unlock()
+
+	if _, has := c.children[commitment.ID()]; !has {
+		return errors.Errorf("trying to set a main child %s before registering it as a children", commitment.ID())
+	}
+	c.mainChildID = commitment.ID()
+
+	return nil
 }
 
 func (c *Commitment) publishChain(chain *Chain) (wasPublished bool) {
@@ -132,4 +165,11 @@ func (c *Commitment) publishChain(chain *Chain) (wasPublished bool) {
 	}
 
 	return
+}
+
+func (c *Commitment) replaceChain(chain *Chain) {
+	c.Lock()
+	defer c.Unlock()
+
+	c.chain = chain
 }

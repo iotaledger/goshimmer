@@ -254,10 +254,16 @@ func (p *Protocol) switchEngines() {
 
 	p.activeEngineMutex.Unlock()
 
+	if err := p.chainManager.SwitchMainChain(p.Engine().Storage.Settings.LatestCommitment().ID()); err != nil {
+		p.Events.Error.Trigger(errors.Wrap(err, "switching main chain failed"))
+	}
+
 	p.Events.MainEngineSwitched.Trigger(p.MainEngineInstance())
 
 	// Shutdown old engine and storage
 	oldEngine.Shutdown()
+
+	// TODO: copy over old epochs from the old engine to the new one
 
 	// Cleanup filesystem
 	if err := oldEngine.RemoveFromFilesystem(); err != nil {
