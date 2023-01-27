@@ -204,7 +204,7 @@ func (m *Manager) ForkingPointAgainstMainChain(commitmentID commitment.ID) (*Com
 		return nil, errors.Errorf("unknown commitment %s", commitment)
 	}
 
-	if commitment.Chain() == nil {
+	if !commitment.IsSolid() || commitment.Chain() == nil {
 		return nil, errors.Errorf("commitment %s is not solid", commitment)
 	}
 
