@@ -145,8 +145,9 @@ func (m *Manager) registerCommitment(commitment *commitment.Commitment, ownCommi
 		return parentCommitment.IsSolid(), parentCommitment.Chain(), false, chainCommitment, false
 	}
 
-	if !chainCommitment.PublishCommitment(commitment) {
-		return chainCommitment.IsSolid(), chainCommitment.Chain(), false, chainCommitment, false
+	commitmentPublished = chainCommitment.PublishCommitment(commitment)
+	if !commitmentPublished && !ownCommitment {
+		return chainCommitment.IsSolid(), chainCommitment.Chain(), false, chainCommitment, commitmentPublished
 	}
 
 	if !created {
@@ -154,7 +155,7 @@ func (m *Manager) registerCommitment(commitment *commitment.Commitment, ownCommi
 	}
 
 	isSolid, chain, wasForked = m.registerChild(parentCommitment, chainCommitment)
-	return isSolid, chain, wasForked, chainCommitment, true
+	return isSolid, chain, wasForked, chainCommitment, commitmentPublished
 }
 
 func (m *Manager) Chain(ec commitment.ID) (chain *Chain) {
