@@ -30,11 +30,11 @@ func New(index epoch.Index, prevID ID, rootsID types.Identifier, cumulativeWeigh
 		PrevID:           prevID,
 		RootsID:          rootsID,
 		CumulativeWeight: cumulativeWeight,
-	}, false) //TODO: fix the data-race in immutable so that we can enable byte caching
+	})
 }
 
 func NewEmptyCommitment() (newCommitment *Commitment) {
-	return model.NewImmutable[Commitment](&commitment{}, false)
+	return model.NewImmutable[Commitment](&commitment{})
 }
 
 func (c *Commitment) ID() (id ID) {
