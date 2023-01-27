@@ -759,7 +759,7 @@ func (n *NodeOnMockedNetwork) HookLogging(includeMainEngine bool) {
 	}))
 
 	events.ChainManager.ForkDetected.Hook(event.NewClosure(func(event *chainmanager.ForkDetectedEvent) {
-		fmt.Printf("%s> ChainManager.ForkDetected: %s with forking point %s received from %s\n", n.Identity.ID(), event.Commitment.ID(), event.Chain.ForkingPoint.ID(), event.Source)
+		fmt.Printf("%s> ChainManager.ForkDetected: %s with forking point %s received from %s\n", n.Identity.ID(), event.Commitment.ID(), event.ForkingPointAgainstMainChain.ID(), event.Source)
 		fmt.Printf("----------------------\nForkDetected %s\n----------------------\n", n.Identity.ID())
 	}))
 

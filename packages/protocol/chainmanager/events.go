@@ -27,13 +27,9 @@ var NewEvents = event.LinkableConstructor(func() *Events {
 })
 
 type ForkDetectedEvent struct {
-	Source     identity.ID
-	Commitment *commitment.Commitment
-	Chain      *Chain
-}
-
-func (e *ForkDetectedEvent) ForkingPoint() *commitment.Commitment {
-	return e.Chain.ForkingPoint.Commitment()
+	Source                       identity.ID
+	Commitment                   *commitment.Commitment
+	ForkingPointAgainstMainChain *commitment.Commitment
 }
 
 func (e *ForkDetectedEvent) EndEpoch() epoch.Index {
