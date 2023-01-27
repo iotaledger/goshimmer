@@ -134,10 +134,6 @@ func (m *Manager) registerCommitment(commitment *commitment.Commitment, ownCommi
 
 	chainCommitment, created := m.Commitment(commitment.ID(), true)
 
-	if !created {
-		m.Events.MissingCommitmentReceived.Trigger(chainCommitment.ID())
-	}
-
 	// Only allow ourselves to extend the end of the main chain
 	if parentCommitment.ID() == m.SnapshotCommitment.Chain().LatestCommitment().ID() && !ownCommitment {
 		return parentCommitment.IsSolid(), parentCommitment.Chain(), false, chainCommitment, false
@@ -145,6 +141,10 @@ func (m *Manager) registerCommitment(commitment *commitment.Commitment, ownCommi
 
 	if !chainCommitment.PublishCommitment(commitment) {
 		return chainCommitment.IsSolid(), chainCommitment.Chain(), false, chainCommitment, false
+	}
+
+	if !created {
+		m.Events.MissingCommitmentReceived.Trigger(chainCommitment.ID())
 	}
 
 	isSolid, chain, wasForked = m.registerChild(parentCommitment, chainCommitment)

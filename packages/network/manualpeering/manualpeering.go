@@ -14,7 +14,6 @@ import (
 	"github.com/iotaledger/hive.go/core/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/iotaledger/hive.go/core/typeutils"
@@ -367,7 +366,17 @@ func (m *Manager) changeNeighborStatus(neighbor *p2p.Neighbor, connStatus Connec
 }
 
 func (m *Manager) connectionDirection(peerPK ed25519.PublicKey) (ConnectionDirection, error) {
-	result := bytes.Compare(lo.PanicOnErr(m.local.PublicKey().Bytes()), lo.PanicOnErr(peerPK.Bytes()))
+	pkBytes, err := m.local.PublicKey().Bytes()
+	if err != nil {
+		return "", err
+	}
+
+	peerPKBytes, err := peerPK.Bytes()
+	if err != nil {
+		return "", err
+	}
+
+	result := bytes.Compare(pkBytes, peerPKBytes)
 	if result < 0 {
 		return ConnDirectionOutbound, nil
 	} else if result > 0 {

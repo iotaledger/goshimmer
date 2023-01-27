@@ -48,7 +48,6 @@ func (g *Gadget) setLastConfirmedEpoch(i epoch.Index) {
 	defer g.Unlock()
 
 	g.lastConfirmedEpoch = i
-	g.Events.EpochConfirmed.Trigger(i)
 }
 
 func (g *Gadget) setup() {
@@ -69,6 +68,8 @@ func (g *Gadget) refreshEpochConfirmation(previousLatestEpochIndex epoch.Index, 
 		// because one thread owns write-lock on VirtualVoting lock and needs read lock on EpochGadget lock,
 		// while this method holds WriteLock on EpochGadget lock and is waiting for ReadLock on VirtualVoting.
 		g.setLastConfirmedEpoch(i)
+
+		g.Events.EpochConfirmed.Trigger(i)
 	}
 }
 

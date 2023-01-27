@@ -94,8 +94,8 @@ func (t *TipManager) LinkTo(engine *engine.Engine) {
 }
 
 func (t *TipManager) AddTip(block *scheduler.Block) {
-	t.tipsMutex.RLock()
-	defer t.tipsMutex.RUnlock()
+	t.tipsMutex.Lock()
+	defer t.tipsMutex.Unlock()
 
 	// Check if any children that are accepted or scheduled and return if true, to guarantee that parents are not added
 	// to the tipset after their children.
@@ -344,9 +344,6 @@ func (t *TipManager) isFutureCommitment(block *scheduler.Block) (isUnknown bool)
 func (t *TipManager) addFutureTip(block *scheduler.Block) (added bool) {
 	t.evictionMutex.RLock()
 	defer t.evictionMutex.RUnlock()
-
-	t.tipsMutex.RLock()
-	defer t.tipsMutex.RUnlock()
 
 	return lo.Return1(t.futureTips.Get(block.Commitment().Index(), true).RetrieveOrCreate(block.Commitment().ID(), func() *memstorage.Storage[models.BlockID, *scheduler.Block] {
 		return memstorage.New[models.BlockID, *scheduler.Block]()
