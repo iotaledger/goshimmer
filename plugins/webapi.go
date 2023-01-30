@@ -17,6 +17,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/webapi/metrics"
 	"github.com/iotaledger/goshimmer/plugins/webapi/ratesetter"
 	"github.com/iotaledger/goshimmer/plugins/webapi/scheduler"
+	"github.com/iotaledger/goshimmer/plugins/webapi/spamming"
 	"github.com/iotaledger/goshimmer/plugins/webapi/weightprovider"
 )
 
@@ -38,4 +39,5 @@ var WebAPI = node.Plugins(
 	ratesetter.Plugin,
 	scheduler.Plugin,
 	metrics.Plugin,
+	spamming.Plugin,
 )

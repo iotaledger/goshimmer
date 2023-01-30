@@ -12,7 +12,7 @@ services:
       --autoPeering.entryNodes=
       --node.seed=base58:8q491c3YWjbPwLmF2WD95YmCgh61j2kenCKHfGfByoWi
       --node.overwriteStoredSeed=true
-      --node.enablePlugins="webapitoolsendpoint",spammer,prometheus,WebAPIToolsBlockEndpoint,activity,snapshot
+      --node.enablePlugins="webapitoolsendpoint",spammer,prometheus,WebAPIToolsBlockEndpoint,activity,snapshot,WebAPISpammingEndpoint
       --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
       --config=/run/secrets/goshimmer.config.json
       --node.peerDBDirectory=/app/peerdb
@@ -27,6 +27,7 @@ services:
       --blockIssuer.ignoreBootstrappedFlag=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
+      --webapispamming.endpoints=http://0.0.0.0:8080,http://faucet:8080
     secrets:
       - goshimmer.config.json
     volumes:
