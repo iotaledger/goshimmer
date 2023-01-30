@@ -47,9 +47,9 @@ var Core = node.Plugins(
 	warpsync.Plugin,
 	// firewall.Plugin,
 	faucet.Plugin,
+	blockissuer.Plugin,
 	dashboardmetrics.Plugin,
 	metrics.Plugin,
 	spammer.Plugin,
 	manainitializer.Plugin,
-	blockissuer.Plugin,
 )

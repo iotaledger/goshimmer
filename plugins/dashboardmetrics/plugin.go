@@ -97,8 +97,6 @@ func run(_ *node.Plugin) {
 func registerLocalMetrics() {
 	// increase received BPS counter whenever we attached a block
 	deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Attach(event.NewClosure(func(block *blockdag.Block) {
-		blockCountPerComponentMutex.Lock()
-		defer blockCountPerComponentMutex.Unlock()
 		increaseReceivedBPSCounter()
 		increasePerComponentCounter(collector.Attached)
 	}))
