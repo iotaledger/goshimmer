@@ -1,12 +1,11 @@
 package block
 
 import (
-	"fmt"
 	"net/http"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/node"
 	"github.com/labstack/echo"
+	"github.com/pkg/errors"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
@@ -73,7 +72,7 @@ func configure(_ *node.Plugin) {
 //		return
 //	}
 //
-//	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load Sequence with %s", sequenceID)))
+//	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load Sequence with %s", sequenceID)))
 // }
 //
 // // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -93,7 +92,7 @@ func configure(_ *node.Plugin) {
 //		return
 //	}
 //
-//	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load MarkerIndexConflictIDMapping of %s", sequenceID)))
+//	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load MarkerIndexConflictIDMapping of %s", sequenceID)))
 // }
 //
 // // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -109,7 +108,7 @@ func GetBlock(c echo.Context) (err error) {
 
 	blockMetadata, exists := deps.Retainer.BlockMetadata(blockID)
 	if !exists {
-		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load BlockMetadata with %s", blockID)))
+		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load BlockMetadata with %s", blockID)))
 	}
 
 	var payloadBytes []byte
@@ -160,7 +159,7 @@ func GetBlockMetadata(c echo.Context) (err error) {
 
 	blockMetadata, exists := deps.Retainer.BlockMetadata(blockID)
 	if !exists {
-		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load BlockMetadata with %s", blockID)))
+		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load BlockMetadata with %s", blockID)))
 	}
 
 	return c.JSON(http.StatusOK, blockMetadata)

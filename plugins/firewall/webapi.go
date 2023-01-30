@@ -4,7 +4,7 @@ package firewall
 import (
 	"net/http"
 
-	"github.com/cockroachdb/errors"
+	"github.com/pkg/errors"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/labstack/echo"
 

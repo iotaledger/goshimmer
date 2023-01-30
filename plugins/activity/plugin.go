@@ -39,8 +39,13 @@ func configure(plugin *node.Plugin) {
 // broadcastActivityBlock broadcasts a sync beacon via communication layer.
 func broadcastActivityBlock() {
 	activityPayload := payload.NewGenericDataPayload([]byte("activity"))
-
-	time.Sleep(deps.BlockIssuer.Estimate())
+	for {
+		if estimate := deps.BlockIssuer.Estimate(); estimate > 0 {
+			time.Sleep(estimate)
+		} else {
+			break
+		}
+	}
 
 	block, err := deps.BlockIssuer.CreateBlock(activityPayload, Parameters.ParentsCount)
 	if err != nil {

@@ -77,7 +77,7 @@
           "refId": "B"
         },
         {
-          "expr": "mana_access{nodeID=\"$NodeID\"}",
+          "expr": "mana_access_per_node{nodeID=\"$NodeID\"}",
           "interval": "",
           "legendFormat": "Access Mana  (OnlyMana2)",
           "refId": "C"
@@ -181,7 +181,7 @@
           "refId": "A"
         },
         {
-          "expr": "mana_consensus{nodeID=\"$NodeID\"}",
+          "expr": "mana_consensus_per_node{nodeID=\"$NodeID\"}",
           "interval": "",
           "legendFormat": "Consensus Mana (OnlyMana1)",
           "refId": "C"
@@ -282,7 +282,7 @@
           "refId": "B"
         },
         {
-          "expr": "mana_access_percentile",
+          "expr": "mana_node_percentile",
           "interval": "",
           "legendFormat": "Access Percentile (OnlyMana2)",
           "refId": "A"
@@ -383,7 +383,7 @@
           "refId": "E"
         },
         {
-          "expr": "mana_consensus_percentile",
+          "expr": "mana_node_percentile",
           "interval": "",
           "legendFormat": "Consensus Percentile (OnlyMana1)",
           "refId": "D"
@@ -488,7 +488,7 @@
           "refId": "C"
         },
         {
-          "expr": "sum(mana_access)",
+          "expr": "sum(mana_access_per_node)",
           "interval": "",
           "legendFormat": "Total Access (OnlyMana2)",
           "refId": "A"
@@ -593,7 +593,7 @@
           "refId": "D"
         },
         {
-          "expr": "sum(mana_consensus)",
+          "expr": "sum(mana_consensus_per_node)",
           "interval": "",
           "legendFormat": "Total Consensus Mana (OnlyMana1)",
           "refId": "A"
@@ -697,7 +697,7 @@
           "refId": "A"
         },
         {
-          "expr": "avg(mana_access)",
+          "expr": "avg(mana_access_per_node)",
           "interval": "",
           "legendFormat": "Access Mana (OnlyMana2)",
           "refId": "C"
@@ -801,7 +801,7 @@
           "refId": "B"
         },
         {
-          "expr": "avg(mana_consensus)",
+          "expr": "avg(mana_consensus_per_node)",
           "interval": "",
           "legendFormat": "Consensus Mana (OnlyMana1)",
           "refId": "D"
@@ -904,7 +904,7 @@
           "refId": "A"
         },
         {
-          "expr": "stddev(mana_access)",
+          "expr": "stddev(mana_access_per_node)",
           "interval": "",
           "legendFormat": "Access Mana (OnlyMana2)",
           "refId": "C"
@@ -1007,7 +1007,7 @@
           "refId": "A"
         },
         {
-          "expr": "stddev(mana_consensus)",
+          "expr": "stddev(mana_consensus_per_node)",
           "interval": "",
           "legendFormat": "Consensus Mana (OnlyMana1)",
           "refId": "C"
@@ -1207,7 +1207,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "mana_access",
+          "expr": "mana_access_per_node",
           "instant": true,
           "interval": "",
           "legendFormat": "",
@@ -1482,7 +1482,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "mana_access",
+          "expr": "mana_access_per_node",
           "interval": "",
           "legendFormat": "{{nodeID}}",
           "refId": "A"
@@ -1589,7 +1589,7 @@
       "pluginVersion": "7.1.1",
       "targets": [
         {
-          "expr": "mana_access",
+          "expr": "mana_access_per_node",
           "interval": "",
           "legendFormat": "{{nodeID}}",
           "refId": "A"
@@ -1753,7 +1753,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "mana_consensus",
+          "expr": "mana_consensus_per_node",
           "instant": true,
           "interval": "",
           "legendFormat": "",
@@ -2028,7 +2028,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "mana_consensus",
+          "expr": "mana_consensus_per_node",
           "interval": "",
           "legendFormat": "{{nodeID}}",
           "refId": "A"
@@ -2135,7 +2135,7 @@
       "pluginVersion": "7.1.1",
       "targets": [
         {
-          "expr": "mana_consensus",
+          "expr": "mana_consensus_per_node",
           "interval": "",
           "legendFormat": "{{nodeID}}",
           "refId": "A"
@@ -2161,7 +2161,7 @@
           "value": "2GtxMQD9"
         },
         "datasource": "Prometheus",
-        "definition": "label_values(iota_info_app, nodeID)",
+        "definition": "label_values(info_app, nodeID)",
         "description": null,
         "error": null,
         "hide": 0,
@@ -2176,7 +2176,7 @@
             "value": "2GtxMQD9"
           }
         ],
-        "query": "label_values(iota_info_app, nodeID)",
+        "query": "label_values(info_app, nodeID)",
         "refresh": 0,
         "regex": "",
         "skipUrlSync": false,

@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/celestiaorg/smt"
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/generics/dataflow"
 	"github.com/iotaledger/hive.go/core/generics/lo"
@@ -12,6 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/types"
+	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/sync/errgroup"
 

@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/autopeering/discover"
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/autopeering/peer/service"
@@ -19,6 +18,7 @@ import (
 	"github.com/iotaledger/hive.go/core/node"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
+	"github.com/pkg/errors"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/app/retainer"
@@ -186,14 +186,6 @@ const (
 	MsgTypeManaMapOverall
 	// MsgTypeManaMapOnline defines a block containing online mana map.
 	MsgTypeManaMapOnline
-	// MsgTypeManaAllowedPledge defines a block containing a list of allowed mana pledge nodeIDs.
-	MsgTypeManaAllowedPledge
-	// MsgTypeManaInitPledge defines a block that is sent when initial pledge events are sent to the dashboard.
-	MsgTypeManaInitPledge
-	// MsgTypeManaInitRevoke defines a block that is sent when initial revoke events are sent to the dashboard.
-	MsgTypeManaInitRevoke
-	// MsgTypeManaInitDone defines a block that is sent when all initial values are sent.
-	MsgTypeManaInitDone
 	// MsgManaDashboardAddress is the socket address of the dashboard to stream mana from.
 	MsgManaDashboardAddress
 	// MsgTypeChat defines a chat block.

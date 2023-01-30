@@ -6,11 +6,11 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/bitmask"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/marshalutil"
+	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
@@ -119,7 +119,7 @@ func (wallet *Wallet) SendFunds(options ...sendoptions.SendFundsOption) (tx *dev
 	consumedOutputs, err := wallet.collectOutputsForFunding(requiredFunds, sendOptions.UsePendingOutputs, sendOptions.SourceAddresses...)
 	if err != nil {
 		if errors.Is(err, ErrTooManyOutputs) {
-			err = errors.Errorf("consolidate funds and try again: %w", err)
+			err = errors.Wrap(err, "consolidate funds and try again")
 		}
 		return
 	}
@@ -192,7 +192,7 @@ func (wallet *Wallet) ConsolidateFunds(options ...consolidateoptions.Consolidate
 		return
 	}
 	if len(confirmedAvailableBalance) == 0 {
-		err = errors.Errorf("no available balance to be consolidated in wallet")
+		err = errors.New("no available balance to be consolidated in wallet")
 		return
 	}
 	// collect outputs
@@ -201,7 +201,7 @@ func (wallet *Wallet) ConsolidateFunds(options ...consolidateoptions.Consolidate
 		return
 	}
 	if allOutputs.OutputCount() == 1 {
-		err = errors.Errorf("can't consolidate funds, there is only one value output in wallet")
+		err = errors.New("can't consolidate funds, there is only one value output in wallet")
 		return
 	}
 	consumedOutputsSlice := allOutputs.SplitIntoChunksOfMaxInputCount()
@@ -279,13 +279,13 @@ func (wallet *Wallet) ClaimConditionalFunds(options ...claimconditionaloptions.C
 		return
 	}
 	if len(confirmedConditionalBalance) == 0 {
-		err = errors.Errorf("no conditional balance found in the wallet")
+		err = errors.New("no conditional balance found in the wallet")
 		return
 	}
 	addresses := wallet.addressManager.Addresses()
 	consumedOutputs := wallet.outputManager.UnspentConditionalOutputs(false, addresses...)
 	if len(consumedOutputs) == 0 {
-		err = errors.Errorf("failed to find conditionally owned outputs in wallet")
+		err = errors.New("failed to find conditionally owned outputs in wallet")
 		return
 	}
 
@@ -363,7 +363,7 @@ func (wallet *Wallet) CreateAsset(asset Asset, waitForConfirmation ...bool) (ass
 	consumedOutputs, err := wallet.collectOutputsForFunding(map[devnetvm.Color]uint64{devnetvm.ColorIOTA: asset.Supply}, false)
 	if err != nil {
 		if errors.Is(err, ErrTooManyOutputs) {
-			err = errors.Errorf("consolidate funds and try again: %w", err)
+			err = errors.Wrap(err, "consolidate funds and try again")
 		}
 		return
 	}
@@ -428,7 +428,7 @@ func (wallet *Wallet) CreateNFT(options ...createnftoptions.CreateNFTOption) (tx
 	consumedOutputs, err := wallet.collectOutputsForFunding(createNFTOptions.InitialBalance, false)
 	if err != nil {
 		if errors.Is(err, ErrTooManyOutputs) {
-			err = errors.Errorf("consolidate funds and try again: %w", err)
+			err = errors.Wrap(err, "consolidate funds and try again")
 		}
 		return nil, nil, err
 	}
@@ -554,7 +554,7 @@ func (wallet *Wallet) TransferNFT(options ...transfernftoptions.TransferNFTOptio
 		var otherAlias *devnetvm.AliasOutput
 		otherAlias, err = wallet.connector.GetUnspentAliasOutput(transferOptions.ToAddress.(*devnetvm.AliasAddress))
 		if err != nil {
-			err = errors.Errorf("failed to check that transfer wouldn't result in deadlocked outputs: %w", err)
+			err = errors.Wrap(err, "failed to check that transfer wouldn't result in deadlocked outputs")
 			return
 		}
 		if otherAlias.GetGoverningAddress().Equals(alias.GetAliasAddress()) {
@@ -881,7 +881,7 @@ func (wallet *Wallet) DepositFundsToNFT(options ...deposittonftoptions.DepositFu
 	consumedOutputs, err := wallet.collectOutputsForFunding(depositBalances, false)
 	if err != nil {
 		if errors.Is(err, ErrTooManyOutputs) {
-			err = errors.Errorf("consolidate funds and try again: %w", err)
+			err = errors.Wrap(err, "consolidate funds and try again")
 		}
 		return nil, err
 	}
@@ -903,7 +903,7 @@ func (wallet *Wallet) DepositFundsToNFT(options ...deposittonftoptions.DepositFu
 	// remainder balance = totalConsumed - deposit
 	for color, balance := range depositBalances {
 		if totalConsumed[color] < balance {
-			return nil, errors.Errorf("deposit funds are greater than consumed funds")
+			return nil, errors.New("deposit funds are greater than consumed funds")
 		}
 		totalConsumed[color] -= balance
 		if totalConsumed[color] <= 0 {
@@ -1818,7 +1818,7 @@ func (wallet *Wallet) WaitForTxAcceptance(txID utxo.TransactionID, optionalCtx .
 	for {
 		select {
 		case <-ctx.Done():
-			return errors.Errorf("context canceled")
+			return errors.New("context canceled")
 		case <-ticker.C:
 			timeoutCounter += wallet.ConfirmationPollInterval
 			confirmationState, fetchErr := wallet.connector.GetTransactionConfirmationState(txID)
@@ -1965,7 +1965,7 @@ func (wallet *Wallet) findStateControlledAliasOutputByAliasID(id *devnetvm.Alias
 // It may collect pending outputs according to flag.
 func (wallet *Wallet) collectOutputsForFunding(fundingBalance map[devnetvm.Color]uint64, includePending bool, addresses ...address.Address) (OutputsByAddressAndOutputID, error) {
 	if fundingBalance == nil {
-		return nil, errors.Errorf("can't collect fund: empty fundingBalance provided")
+		return nil, errors.New("can't collect fund: empty fundingBalance provided")
 	}
 
 	_ = wallet.outputManager.Refresh()
@@ -2011,7 +2011,7 @@ func (wallet *Wallet) collectOutputsForFunding(fundingBalance map[devnetvm.Color
 	}
 
 	if enoughCollected(collected, fundingBalance) && numOfCollectedOutputs > devnetvm.MaxOutputCount {
-		return outputsToConsume, errors.Errorf("failed to collect outputs: %w", ErrTooManyOutputs)
+		return outputsToConsume, errors.WithMessage(ErrTooManyOutputs, "failed to collect outputs")
 	}
 
 	return nil, errors.Errorf("failed to gather initial funds \n %s, there are only \n %s funds available",

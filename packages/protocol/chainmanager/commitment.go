@@ -1,8 +1,8 @@
 package chainmanager
 
 import (
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/model"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 )
@@ -33,7 +33,7 @@ type commitmentModel struct {
 // TODO: this is just a temporary fix
 func (c *Commitment) FromObjectStorage(key, data []byte) (err error) {
 	if _, err = c.FromBytes(data); err != nil {
-		return errors.Errorf("failed to decode Model: %w", err)
+		return errors.Wrap(err, "failed to decode Model")
 	}
 	c.SetID(c.Commitment().ID())
 
@@ -94,6 +94,7 @@ func (c *Commitment) PublishCommitment(commitment *commitment.Commitment) (publi
 
 	if published = c.M.Commitment == nil; published {
 		c.M.Commitment = commitment
+		c.InvalidateBytesCache()
 	}
 
 	return
@@ -105,6 +106,7 @@ func (c *Commitment) PublishRoots(roots *commitment.Roots) (published bool) {
 
 	if published = c.M.Roots == nil; published {
 		c.M.Roots = roots
+		c.InvalidateBytesCache()
 	}
 
 	return

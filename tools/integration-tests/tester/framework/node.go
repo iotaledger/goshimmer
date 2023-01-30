@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"

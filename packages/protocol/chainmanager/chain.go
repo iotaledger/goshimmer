@@ -60,7 +60,7 @@ func (c *Chain) StreamEpochBlocks(index epoch.Index, callback func(blocks []*mod
 
 			return true
 		}); err != nil {
-			return errors.Errorf("failed to stream epoch blocks: %w", err)
+			return errors.Wrap(err, "failed to stream epoch blocks")
 		}
 
 		if len(blocks) > 0 {

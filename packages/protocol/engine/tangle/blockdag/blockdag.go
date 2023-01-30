@@ -1,12 +1,13 @@
 package blockdag
 
 import (
+	"fmt"
 	"sync"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/walker"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/causalorder"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -127,7 +128,7 @@ func (b *BlockDAG) evictEpoch(index epoch.Index) {
 }
 
 func (b *BlockDAG) markSolid(block *Block) (err error) {
-	if err := b.checkTimestampMonotonicity(block); err != nil {
+	if err := b.checkParents(block); err != nil {
 		return err
 	}
 
@@ -138,13 +139,24 @@ func (b *BlockDAG) markSolid(block *Block) (err error) {
 	return nil
 }
 
-func (b *BlockDAG) checkTimestampMonotonicity(block *Block) error {
+func (b *BlockDAG) checkParents(block *Block) (err error) {
 	for _, parentID := range block.Parents() {
 		parent, parentExists := b.Block(parentID)
-		if parentExists && parent.IssuingTime().After(block.IssuingTime()) {
+		if !parentExists {
+			panic(fmt.Sprintf("parent %s of block %s should exist as block was marked ordered by the solidifier", parentID, block.ID()))
+		}
+
+		// check timestamp monotonicity
+		if parent.IssuingTime().After(block.IssuingTime()) {
 			return errors.Errorf("timestamp monotonicity check failed for parent %s with timestamp %s. block timestamp %s", parent.ID(), parent.IssuingTime(), block.IssuingTime())
 		}
+
+		// check commitment monotonicity
+		if parent.Commitment().Index() > block.Commitment().Index() {
+			return errors.Errorf("commitment monotonicity check failed for parent %s with commitment index %d. block commitment index %d", parentID, parent.Commitment().Index(), block.Commitment().Index())
+		}
 	}
+
 	return nil
 }
 

@@ -1,15 +1,14 @@
 package server
 
 import (
-	"fmt"
 	"io"
 	"net"
 	"sync"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/netutil/buffconn"
 	"github.com/iotaledger/hive.go/core/node"
+	"github.com/pkg/errors"
 	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -33,7 +32,7 @@ const indexThreshold = 250
 func Listen(bindAddress string, log *node.Plugin, shutdownSignal <-chan struct{}) error {
 	listener, err := net.Listen("tcp", bindAddress)
 	if err != nil {
-		return fmt.Errorf("failed to start Broadcast daemon: %w", err)
+		return errors.Wrapf(err, "failed to start Broadcast daemon")
 	}
 
 	go func() {

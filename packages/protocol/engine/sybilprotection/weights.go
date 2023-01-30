@@ -3,32 +3,38 @@ package sybilprotection
 import (
 	"sync"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/iotaledger/hive.go/core/types"
+	"github.com/pkg/errors"
+	"github.com/zyedidia/generic/cache"
 
 	"github.com/iotaledger/goshimmer/packages/core/ads"
 )
+
+const cacheSize = 1000
 
 // Weights is a mapping between a collection of identities and their weights.
 type Weights struct {
 	// Events is a collection of events related to the Weights.
 	Events *Events
 
-	weights     *ads.Map[identity.ID, Weight, *identity.ID, *Weight]
-	totalWeight *Weight
-	mutex       sync.RWMutex
+	weights      *ads.Map[identity.ID, Weight, *identity.ID, *Weight]
+	weightsCache *cache.Cache[identity.ID, *Weight]
+	cacheMutex   sync.Mutex
+	totalWeight  *Weight
+	mutex        sync.RWMutex
 }
 
 // NewWeights creates a new Weights instance.
 func NewWeights(store kvstore.KVStore) (newWeights *Weights) {
 	return &Weights{
-		Events:      NewEvents(),
-		weights:     ads.NewMap[identity.ID, Weight](store),
-		totalWeight: NewWeight(0, -1),
+		Events:       NewEvents(),
+		weights:      ads.NewMap[identity.ID, Weight](store),
+		weightsCache: cache.New[identity.ID, *Weight](cacheSize),
+		totalWeight:  NewWeight(0, -1),
 	}
 }
 
@@ -42,7 +48,7 @@ func (w *Weights) Get(id identity.ID) (weight *Weight, exists bool) {
 	w.mutex.RLock()
 	defer w.mutex.RUnlock()
 
-	return w.weights.Get(id)
+	return w.get(id)
 }
 
 // Update updates the weight of the given identity.
@@ -52,11 +58,14 @@ func (w *Weights) Update(id identity.ID, weightDiff *Weight) {
 
 	if oldWeight, exists := w.weights.Get(id); exists {
 		if newWeight := oldWeight.Value + weightDiff.Value; newWeight == 0 {
+			w.weightsCache.Remove(id)
 			w.weights.Delete(id)
 		} else {
+			w.weightsCache.Remove(id)
 			w.weights.Set(id, NewWeight(newWeight, oldWeight.UpdateTime.Max(weightDiff.UpdateTime)))
 		}
 	} else {
+		w.weightsCache.Remove(id)
 		w.weights.Set(id, weightDiff)
 	}
 
@@ -72,7 +81,7 @@ func (w *Weights) BatchUpdate(batch *WeightsBatch) {
 	removedWeights := set.NewAdvancedSet[identity.ID]()
 
 	batch.ForEach(func(id identity.ID, diff int64) {
-		oldWeight, exists := w.weights.Get(id)
+		oldWeight, exists := w.get(id)
 		if !exists {
 			oldWeight = NewWeight(0, -1)
 		} else if batch.TargetEpoch() == oldWeight.UpdateTime {
@@ -89,6 +98,7 @@ func (w *Weights) BatchUpdate(batch *WeightsBatch) {
 			removedWeights.Add(id)
 		}
 
+		w.weightsCache.Remove(id)
 		w.weights.Set(id, NewWeight(newWeight, batch.TargetEpoch()))
 	})
 
@@ -96,6 +106,7 @@ func (w *Weights) BatchUpdate(batch *WeightsBatch) {
 
 	// after written to disk (remove deleted elements)
 	_ = removedWeights.ForEach(func(id identity.ID) error {
+		w.weightsCache.Remove(id)
 		w.weights.Delete(id)
 		return nil
 	})
@@ -137,8 +148,35 @@ func (w *Weights) Map() (weights map[identity.ID]int64, err error) {
 		weights[id] = weight.Value
 		return true
 	}); err != nil {
-		return nil, errors.Errorf("failed to export weights: %w", err)
+		return nil, errors.Wrap(err, "failed to export weights")
 	}
 
 	return weights, nil
+}
+
+func (w *Weights) get(id identity.ID) (weight *Weight, exists bool) {
+	if weight, exists = w.getFromCache(id); exists {
+		return weight, exists
+	}
+
+	weight, exists = w.weights.Get(id)
+	if exists {
+		w.setCache(id, weight)
+	}
+
+	return weight, exists
+}
+
+func (w *Weights) getFromCache(id identity.ID) (weight *Weight, exists bool) {
+	w.cacheMutex.Lock()
+	defer w.cacheMutex.Unlock()
+
+	return w.weightsCache.Get(id)
+}
+
+func (w *Weights) setCache(id identity.ID, weight *Weight) {
+	w.cacheMutex.Lock()
+	defer w.cacheMutex.Unlock()
+
+	w.weightsCache.Put(id, weight)
 }

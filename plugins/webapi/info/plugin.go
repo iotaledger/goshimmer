@@ -14,6 +14,7 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
+	"github.com/iotaledger/goshimmer/packages/app/collector"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/core/latestblocktracker"
 	"github.com/iotaledger/goshimmer/packages/protocol"
@@ -21,7 +22,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/banner"
-	"github.com/iotaledger/goshimmer/plugins/metrics"
+	"github.com/iotaledger/goshimmer/plugins/dashboardmetrics"
 )
 
 // PluginName is the name of the web API info endpoint plugin.
@@ -159,14 +160,12 @@ func getInfo(c echo.Context) error {
 		IdentityID:            base58.Encode(lo.PanicOnErr(deps.Local.Identity.ID().Bytes())),
 		IdentityIDShort:       deps.Local.Identity.ID().String(),
 		PublicKey:             deps.Local.PublicKey().String(),
-		BlockRequestQueueSize: int(metrics.BlockRequestQueueSize()),
-		SolidBlockCount: int(metrics.InitialBlockCountPerComponentGrafana()[metrics.Solidified] +
-			metrics.BlockCountSinceStartPerComponentGrafana()[metrics.Solidified]),
-		TotalBlockCount: int(metrics.InitialBlockCountPerComponentGrafana()[metrics.Attached] +
-			metrics.BlockCountSinceStartPerComponentGrafana()[metrics.Attached]),
-		EnabledPlugins:  enabledPlugins,
-		DisabledPlugins: disabledPlugins,
-		Mana:            nodeMana,
+		BlockRequestQueueSize: int(dashboardmetrics.BlockRequestQueueSize()),
+		SolidBlockCount:       int(dashboardmetrics.BlockCountSinceStartPerComponentGrafana()[collector.Solidified]),
+		TotalBlockCount:       int(dashboardmetrics.BlockCountSinceStartPerComponentGrafana()[collector.Attached]),
+		EnabledPlugins:        enabledPlugins,
+		DisabledPlugins:       disabledPlugins,
+		Mana:                  nodeMana,
 		Scheduler: jsonmodels.Scheduler{
 			Running:           scheduler.Running(),
 			Rate:              scheduler.Rate().String(),
@@ -177,7 +176,6 @@ func getInfo(c echo.Context) error {
 		},
 		RateSetter: jsonmodels.RateSetter{
 			Rate:     deps.BlockIssuer.Rate(),
-			Size:     deps.BlockIssuer.Size(),
 			Estimate: deps.BlockIssuer.Estimate(),
 		},
 	})

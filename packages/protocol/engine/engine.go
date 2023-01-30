@@ -6,10 +6,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/eventticker"
@@ -53,6 +54,8 @@ type Engine struct {
 	TSCManager          *tsc.Manager
 	Clock               *clock.Clock
 
+	workerPools map[string]*workerpool.UnboundedWorkerPool
+
 	isBootstrapped      bool
 	isBootstrappedMutex sync.Mutex
 
@@ -84,6 +87,8 @@ func New(
 			Constructable: traits.NewConstructable(),
 			Stoppable:     traits.NewStoppable(),
 
+			workerPools: map[string]*workerpool.UnboundedWorkerPool{},
+
 			optsBootstrappedThreshold: 10 * time.Second,
 			optsSnapshotDepth:         5,
 		}, opts, func(e *Engine) {
@@ -103,7 +108,6 @@ func New(
 			)
 		},
 
-		(*Engine).initFilter,
 		(*Engine).initLedger,
 		(*Engine).initTangle,
 		(*Engine).initConsensus,
@@ -111,6 +115,7 @@ func New(
 		(*Engine).initTSCManager,
 		(*Engine).initBlockStorage,
 		(*Engine).initNotarizationManager,
+		(*Engine).initFilter,
 		(*Engine).initEvictionState,
 		(*Engine).initBlockRequester,
 
@@ -118,6 +123,10 @@ func New(
 			e.TriggerConstructed()
 		},
 	)
+}
+
+func (e *Engine) WorkerPools() map[string]*workerpool.UnboundedWorkerPool {
+	return e.workerPools
 }
 
 func (e *Engine) ProcessBlockFromPeer(block *models.Block, source identity.ID) {
@@ -184,7 +193,7 @@ func (e *Engine) IsSynced() (isBootstrapped bool) {
 func (e *Engine) Initialize(snapshot string) (err error) {
 	if !e.Storage.Settings.SnapshotImported() {
 		if err = e.readSnapshot(snapshot); err != nil {
-			return errors.Errorf("failed to read snapshot from file '%s': %w", snapshot, err)
+			return errors.Wrapf(err, "failed to read snapshot from file '%s'", snapshot)
 		}
 	}
 
@@ -196,6 +205,10 @@ func (e *Engine) Initialize(snapshot string) (err error) {
 func (e *Engine) Shutdown() {
 	e.Ledger.Shutdown()
 
+	for _, pool := range e.workerPools {
+		pool.Shutdown()
+	}
+
 	e.TriggerStopped()
 }
 
@@ -205,11 +218,11 @@ func (e *Engine) WriteSnapshot(filePath string, targetEpoch ...epoch.Index) (err
 	}
 
 	if fileHandle, err := os.Create(filePath); err != nil {
-		return errors.Errorf("failed to create snapshot file: %w", err)
+		return errors.Wrap(err, "failed to create snapshot file")
 	} else if err = e.Export(fileHandle, targetEpoch[0]); err != nil {
-		return errors.Errorf("failed to write snapshot: %w", err)
+		return errors.Wrap(err, "failed to write snapshot")
 	} else if err = fileHandle.Close(); err != nil {
-		return errors.Errorf("failed to close snapshot file: %w", err)
+		return errors.Wrap(err, "failed to close snapshot file")
 	}
 
 	return
@@ -217,17 +230,17 @@ func (e *Engine) WriteSnapshot(filePath string, targetEpoch ...epoch.Index) (err
 
 func (e *Engine) Import(reader io.ReadSeeker) (err error) {
 	if err = e.Storage.Settings.Import(reader); err != nil {
-		return errors.Errorf("failed to import settings: %w", err)
+		return errors.Wrap(err, "failed to import settings")
 	} else if err = e.Storage.Commitments.Import(reader); err != nil {
-		return errors.Errorf("failed to import commitments: %w", err)
+		return errors.Wrap(err, "failed to import commitments")
 	} else if err = e.Storage.Settings.SetChainID(e.Storage.Settings.LatestCommitment().ID()); err != nil {
-		return errors.Errorf("failed to set chainID: %w", err)
+		return errors.Wrap(err, "failed to set chainID")
 	} else if err = e.EvictionState.Import(reader); err != nil {
-		return errors.Errorf("failed to import eviction state: %w", err)
+		return errors.Wrap(err, "failed to import eviction state")
 	} else if err = e.LedgerState.Import(reader); err != nil {
-		return errors.Errorf("failed to import ledger state: %w", err)
+		return errors.Wrap(err, "failed to import ledger state")
 	} else if err = e.NotarizationManager.Import(reader); err != nil {
-		return errors.Errorf("failed to import notarization state: %w", err)
+		return errors.Wrap(err, "failed to import notarization state")
 	}
 
 	// We need to set the genesis time before we add the activity log as otherwise the calculation is based on the empty time value.
@@ -239,22 +252,26 @@ func (e *Engine) Import(reader io.ReadSeeker) (err error) {
 
 func (e *Engine) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (err error) {
 	if err = e.Storage.Settings.Export(writer); err != nil {
-		return errors.Errorf("failed to export settings: %w", err)
+		return errors.Wrap(err, "failed to export settings")
 	} else if err = e.Storage.Commitments.Export(writer, targetEpoch); err != nil {
-		return errors.Errorf("failed to export commitments: %w", err)
+		return errors.Wrap(err, "failed to export commitments")
 	} else if err = e.EvictionState.Export(writer, targetEpoch); err != nil {
-		return errors.Errorf("failed to export eviction state: %w", err)
+		return errors.Wrap(err, "failed to export eviction state")
 	} else if err = e.LedgerState.Export(writer, targetEpoch); err != nil {
-		return errors.Errorf("failed to export ledger state: %w", err)
+		return errors.Wrap(err, "failed to export ledger state")
 	} else if err = e.NotarizationManager.Export(writer, targetEpoch); err != nil {
-		return errors.Errorf("failed to export notarization state: %w", err)
+		return errors.Wrap(err, "failed to export notarization state")
 	}
 
 	return
 }
 
 func (e *Engine) initFilter() {
-	e.Filter = filter.New()
+	e.Filter = filter.New(filter.WithMinCommittableEpochAge(e.NotarizationManager.MinCommittableEpochAge()))
+
+	e.Filter.Events.BlockFiltered.Attach(event.NewClosure(func(filteredEvent *filter.BlockFilteredEvent) {
+		e.Events.Error.Trigger(errors.Wrapf(filteredEvent.Reason, "block (%s) filtered", filteredEvent.Block.ID()))
+	}))
 
 	e.Events.Filter.LinkTo(e.Filter.Events)
 }
@@ -271,7 +288,7 @@ func (e *Engine) initTangle() {
 
 	e.Events.Filter.BlockAllowed.Attach(event.NewClosure(func(block *models.Block) {
 		if _, _, err := e.Tangle.Attach(block); err != nil {
-			e.Events.Error.Trigger(errors.Errorf("failed to attach block with %s (issuerID: %s): %w", block.ID(), block.IssuerID(), err))
+			e.Events.Error.Trigger(errors.Wrapf(err, "failed to attach block with %s (issuerID: %s)", block.ID(), block.IssuerID()))
 		}
 	}))
 
@@ -306,13 +323,13 @@ func (e *Engine) initConsensus() {
 }
 
 func (e *Engine) initClock() {
-	e.Events.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
+	e.workerPools["Clock.SetAcceptedTime"] = e.Events.Consensus.BlockGadget.BlockAccepted.AttachWithNewWorkerPool(event.NewClosure(func(block *blockgadget.Block) {
 		e.Clock.SetAcceptedTime(block.IssuingTime())
-	}))
+	}), 1)
 
-	e.Events.Consensus.BlockGadget.BlockConfirmed.Attach(event.NewClosure(func(block *blockgadget.Block) {
+	e.workerPools["Clock.SetConfirmedTime"] = e.Events.Consensus.BlockGadget.BlockConfirmed.AttachWithNewWorkerPool(event.NewClosure(func(block *blockgadget.Block) {
 		e.Clock.SetConfirmedTime(block.IssuingTime())
-	}))
+	}), 1)
 
 	e.Events.Consensus.EpochGadget.EpochConfirmed.Attach(event.NewClosure(func(epochIndex epoch.Index) {
 		e.Clock.SetConfirmedTime(epochIndex.EndTime())
@@ -334,40 +351,48 @@ func (e *Engine) initTSCManager() {
 func (e *Engine) initBlockStorage() {
 	e.Events.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
 		if err := e.Storage.Blocks.Store(block.ModelsBlock); err != nil {
-			e.Events.Error.Trigger(errors.Errorf("failed to store block with %s: %w", block.ID(), err))
+			e.Events.Error.Trigger(errors.Wrapf(err, "failed to store block with %s", block.ID()))
 		}
 	}))
 
 	e.Events.Tangle.BlockDAG.BlockOrphaned.Attach(event.NewClosure(func(block *blockdag.Block) {
 		if err := e.Storage.Blocks.Delete(block.ID()); err != nil {
-			e.Events.Error.Trigger(errors.Errorf("failed to delete block with %s: %w", block.ID(), err))
+			e.Events.Error.Trigger(errors.Wrapf(err, "failed to delete block with %s", block.ID()))
 		}
 	}))
 }
 
 func (e *Engine) initNotarizationManager() {
-	e.Consensus.BlockGadget.Events.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
+	wp := e.Consensus.BlockGadget.Events.BlockAccepted.AttachWithNewWorkerPool(event.NewClosure(func(block *blockgadget.Block) {
 		if err := e.NotarizationManager.NotarizeAcceptedBlock(block.ModelsBlock); err != nil {
-			e.Events.Error.Trigger(errors.Errorf("failed to add accepted block %s to epoch: %w", block.ID(), err))
+			e.Events.Error.Trigger(errors.Wrapf(err, "failed to add accepted block %s to epoch", block.ID()))
 		}
-	}))
-	e.Tangle.Events.BlockDAG.BlockOrphaned.Attach(event.NewClosure(func(block *blockdag.Block) {
+	}), 1)
+	e.Tangle.Events.BlockDAG.BlockOrphaned.AttachWithWorkerPool(event.NewClosure(func(block *blockdag.Block) {
 		if err := e.NotarizationManager.NotarizeOrphanedBlock(block.ModelsBlock); err != nil {
-			e.Events.Error.Trigger(errors.Errorf("failed to remove orphaned block %s from epoch: %w", block.ID(), err))
+			e.Events.Error.Trigger(errors.Wrapf(err, "failed to remove orphaned block %s from epoch", block.ID()))
 		}
-	}))
+	}), wp)
+	e.workerPools["NotarizationManager.Blocks"] = wp
 
+	// TODO: Why is it hooked?
 	e.Ledger.Events.TransactionAccepted.Hook(event.NewClosure(func(event *ledger.TransactionEvent) {
 		if err := e.NotarizationManager.EpochMutations.AddAcceptedTransaction(event.Metadata); err != nil {
-			e.Events.Error.Trigger(errors.Errorf("failed to add accepted transaction %s to epoch: %w", event.Metadata.ID(), err))
+			e.Events.Error.Trigger(errors.Wrapf(err, "failed to add accepted transaction %s to epoch", event.Metadata.ID()))
 		}
 	}))
 	e.Ledger.Events.TransactionInclusionUpdated.Hook(event.NewClosure(func(event *ledger.TransactionInclusionUpdatedEvent) {
 		if err := e.NotarizationManager.EpochMutations.UpdateTransactionInclusion(event.TransactionID, event.PreviousInclusionEpoch, event.InclusionEpoch); err != nil {
-			e.Events.Error.Trigger(errors.Errorf("failed to update transaction inclusion time %s in epoch: %w", event.TransactionID, err))
+			e.Events.Error.Trigger(errors.Wrapf(err, "failed to update transaction inclusion time %s in epoch", event.TransactionID))
 		}
 	}))
 	// TODO: add transaction orphaned event
+
+	// Epochs are committed whenever ATT advances, start committing only when bootstrapped.
+	wp = e.Clock.Events.AcceptanceTimeUpdated.AttachWithNewWorkerPool(event.NewClosure(func(event *clock.TimeUpdateEvent) {
+		e.NotarizationManager.SetAcceptanceTime(event.NewTime)
+	}), 1)
+	e.workerPools["NotarizationManager.Commitments"] = wp
 
 	e.Ledger.ConflictDAG.Events.ConflictCreated.Hook(event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
 		e.NotarizationManager.IncreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.GetEarliestAttachment(event.ID).IssuingTime()))
@@ -379,11 +404,6 @@ func (e *Engine) initNotarizationManager() {
 		e.NotarizationManager.DecreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.GetEarliestAttachment(conflictID).IssuingTime()))
 	}))
 
-	// Epochs are committed whenever ATT advances, start committing only when bootstrapped.
-	e.Clock.Events.AcceptanceTimeUpdated.Attach(event.NewClosure(func(event *clock.TimeUpdateEvent) {
-		e.NotarizationManager.SetAcceptanceTime(event.NewTime)
-	}))
-
 	e.Events.NotarizationManager.LinkTo(e.NotarizationManager.Events)
 	e.Events.EpochMutations.LinkTo(e.NotarizationManager.EpochMutations.Events)
 }
@@ -392,6 +412,7 @@ func (e *Engine) initEvictionState() {
 	e.Events.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
 		block.ForEachParent(func(parent models.Parent) {
 			// TODO: ONLY ADD STRONG PARENTS AFTER NOT DOWNLOADING PAST WEAK ARROWS
+			// TODO: is this correct? could this lock acceptance in some extreme corner case? something like this happened, that confirmation is correctly advancing per block, but acceptance does not. I think it might have something to do with root blocks
 			if parent.ID.Index() < block.ID().Index() {
 				e.EvictionState.AddRootBlock(parent.ID)
 			}
@@ -434,7 +455,7 @@ func (e *Engine) initBlockRequester() {
 func (e *Engine) readSnapshot(filePath string) (err error) {
 	file, err := os.Open(filePath)
 	if err != nil {
-		return errors.Errorf("failed to open snapshot file: %w", err)
+		return errors.Wrap(err, "failed to open snapshot file")
 	}
 	defer func() {
 		if closeErr := file.Close(); closeErr != nil {
@@ -443,9 +464,9 @@ func (e *Engine) readSnapshot(filePath string) (err error) {
 	}()
 
 	if err = e.Import(file); err != nil {
-		return errors.Errorf("failed to import snapshot: %w", err)
+		return errors.Wrap(err, "failed to import snapshot")
 	} else if err = e.Storage.Settings.SetSnapshotImported(true); err != nil {
-		return errors.Errorf("failed to set snapshot imported flag: %w", err)
+		return errors.Wrap(err, "failed to set snapshot imported flag")
 	}
 
 	return

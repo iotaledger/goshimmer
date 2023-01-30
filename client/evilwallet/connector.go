@@ -186,7 +186,7 @@ type Client interface {
 	// GetOutputConfirmationState gets the first unspent outputs of a given address.
 	GetOutputConfirmationState(outputID utxo.OutputID) confirmation.State
 	// BroadcastFaucetRequest requests funds from the faucet and returns the faucet request block ID.
-	BroadcastFaucetRequest(address string) error
+	BroadcastFaucetRequest(address string, powTarget int) error
 	// GetTransactionOutputs returns the outputs the transaction created.
 	GetTransactionOutputs(txID string) (outputs devnetvm.Outputs, err error)
 	// GetTransaction gets the transaction.
@@ -233,8 +233,8 @@ func (c *WebClient) SleepRateSetterEstimate() (err error) {
 }
 
 // BroadcastFaucetRequest requests funds from the faucet and returns the faucet request block ID.
-func (c *WebClient) BroadcastFaucetRequest(address string) (err error) {
-	_, err = c.api.BroadcastFaucetRequest(address, -1)
+func (c *WebClient) BroadcastFaucetRequest(address string, powTarget int) (err error) {
+	_, err = c.api.BroadcastFaucetRequest(address, powTarget)
 	return
 }
 

@@ -4,8 +4,8 @@ import (
 	"io"
 	"sync"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
@@ -95,7 +95,7 @@ func (s *State) AddRootBlock(id models.BlockID) {
 
 	if s.rootBlocks.Get(id.Index(), true).Set(id, true) {
 		if err := s.storage.RootBlocks.Store(id); err != nil {
-			panic(errors.Errorf("failed to store root block %s: %w", id, err))
+			panic(errors.Wrapf(err, "failed to store root block %s", id))
 		}
 	}
 
@@ -146,14 +146,14 @@ func (s *State) Export(writer io.WriteSeeker, evictedEpoch epoch.Index) (err err
 		for currentEpoch := s.delayedBlockEvictionThreshold(evictedEpoch) + 1; currentEpoch <= evictedEpoch; currentEpoch++ {
 			if err = s.storage.RootBlocks.Stream(currentEpoch, func(rootBlockID models.BlockID) (err error) {
 				if err = stream.WriteSerializable(writer, rootBlockID, models.BlockIDLength); err != nil {
-					return errors.Errorf("failed to write root block %s: %w", rootBlockID, err)
+					return errors.Wrapf(err, "failed to write root block %s", rootBlockID)
 				}
 
 				elementsCount++
 
 				return
 			}); err != nil {
-				return 0, errors.Errorf("failed to stream root blocks: %w", err)
+				return 0, errors.Wrap(err, "failed to stream root blocks")
 			}
 		}
 
@@ -167,7 +167,7 @@ func (s *State) Import(reader io.ReadSeeker) (err error) {
 
 	return stream.ReadCollection(reader, func(i int) error {
 		if err = stream.ReadSerializable(reader, &rootBlockID, models.BlockIDLength); err != nil {
-			return errors.Errorf("failed to read root block id %d: %w", i, err)
+			return errors.Wrapf(err, "failed to read root block id %d", i)
 		}
 
 		s.AddRootBlock(rootBlockID)
@@ -186,7 +186,7 @@ func (s *State) importRootBlocksFromStorage() (importedBlocks int) {
 
 			return
 		}); err != nil {
-			panic(errors.Errorf("failed importing root blocks from storage: %w", err))
+			panic(errors.Wrap(err, "failed importing root blocks from storage"))
 		}
 	}
 

@@ -1,9 +1,9 @@
 package utxo
 
 import (
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/cerrors"
+	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 )
 
@@ -20,16 +20,16 @@ type OutputStateProof struct {
 // Validate validates the proof and checks if the given Output is indeed the one that is referenced in the proof.
 func (o *OutputStateProof) Validate(output Output) (err error) {
 	if uint64(o.OutputID.Index) != o.OutputCommitmentProof.ProofIndex {
-		return errors.Errorf("proof index does not match output index: %w", cerrors.ErrFatal)
+		return errors.WithMessage(cerrors.ErrFatal, "proof index does not match output index")
 	}
 
 	if err = o.OutputCommitmentProof.Validate(output); err != nil {
-		return errors.Errorf("invalid output commitment proof: %w", err)
+		return errors.Wrap(err, "invalid output commitment proof")
 	}
 
 	provenTxID := blake2b.Sum256(byteutils.ConcatBytes(o.TransactionCommitment[:], o.OutputCommitmentProof.OutputCommitment.Bytes()))
 	if provenTxID != o.OutputID.TransactionID.Identifier {
-		return errors.Errorf("invalid transaction ID: %w", cerrors.ErrFatal)
+		return errors.WithMessage(cerrors.ErrFatal, "invalid transaction ID")
 	}
 
 	return nil

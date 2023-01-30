@@ -3,9 +3,10 @@ package tsc
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
@@ -56,7 +57,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 func (t *TestFramework) AssertOrphaned(expectedState map[string]bool) {
 	for alias, expectedOrphanage := range expectedState {
 		t.BookerTestFramework.AssertBlock(alias, func(block *booker.Block) {
-			assert.Equal(t.test, expectedOrphanage, block.IsOrphaned(), "block %s is incorrectly orphaned", block.ID())
+			require.Equal(t.test, expectedOrphanage, block.Block.IsOrphaned(), "block %s is incorrectly orphaned", block.ID())
 		})
 	}
 }

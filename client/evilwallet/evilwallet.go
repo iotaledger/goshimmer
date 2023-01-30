@@ -1,13 +1,14 @@
 package evilwallet
 
 import (
+	"fmt"
 	"math"
 	"sync"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/types"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
@@ -153,6 +154,7 @@ func (e *EvilWallet) RequestFreshBigFaucetWallets(numberOfWallets int) {
 // requested from the Faucet.
 func (e *EvilWallet) RequestFreshBigFaucetWallet() (err error) {
 	initWallet := NewWallet()
+	fmt.Println("Requesting funds from faucet...")
 	funds, err := e.requestAndSplitFaucetFunds(initWallet, FaucetRequestSplitNumber*FaucetRequestSplitNumber)
 	if err != nil {
 		return
@@ -191,7 +193,7 @@ func (e *EvilWallet) requestFaucetFunds(wallet *Wallet) (outputID utxo.OutputID,
 	if err = RateSetterSleep(clt, true); err != nil {
 		return
 	}
-	err = clt.BroadcastFaucetRequest(addr.Base58())
+	err = clt.BroadcastFaucetRequest(addr.Base58(), 12)
 	if err != nil {
 		return
 	}
@@ -516,7 +518,7 @@ func (e *EvilWallet) useFreshIfInputWalletNotProvided(buildOptions *Options) (*W
 		if wallet, err := e.wallets.freshWallet(); wallet != nil {
 			return wallet, nil
 		} else {
-			return nil, errors.Newf("no Fresh wallet is available: %w", err)
+			return nil, errors.Wrap(err, "no Fresh wallet is available")
 		}
 	}
 	return buildOptions.inputWallet, nil

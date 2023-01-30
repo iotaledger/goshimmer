@@ -2,17 +2,16 @@ package ledgerstate
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"sync"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/daemon"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/iotaledger/hive.go/core/node"
 	"github.com/labstack/echo"
+	"github.com/pkg/errors"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
@@ -269,7 +268,7 @@ func GetConflict(c echo.Context) (err error) {
 		return
 	}
 
-	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load Conflict with %s", conflictID)))
+	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load Conflict with %s", conflictID)))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -315,7 +314,7 @@ func GetConflictConflicts(c echo.Context) (err error) {
 		return
 	}
 
-	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load Conflict with %s", conflictID)))
+	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load Conflict with %s", conflictID)))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

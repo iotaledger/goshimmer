@@ -4,9 +4,9 @@ import (
 	"container/ring"
 	"math"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
@@ -39,12 +39,12 @@ func (b *BufferQueue) NumActiveIssuers() int {
 	return b.activeIssuers.Size()
 }
 
-// MaxSize returns the max size (in bytes) of all blocks in b.
+// MaxSize returns the max number of blocks in BufferQueue.
 func (b *BufferQueue) MaxSize() int {
 	return b.maxBuffer
 }
 
-// Size returns the total size (in bytes) of all blocks in b.
+// Size returns the total number of blocks in BufferQueue.
 func (b *BufferQueue) Size() int {
 	return b.size
 }
@@ -97,7 +97,7 @@ func (b *BufferQueue) dropHead(accessManaRetriever func(identity.ID) int64) (dro
 		for q := start; ; {
 			issuerMana := accessManaRetriever(q.IssuerID())
 			if issuerMana > 0.0 {
-				if scale := float64(q.Size()) / float64(issuerMana); scale > maxScale {
+				if scale := float64(q.Work()) / float64(issuerMana); scale > maxScale {
 					maxScale = scale
 					maxIssuerID = q.IssuerID()
 				}

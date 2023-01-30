@@ -5,15 +5,15 @@ go 1.19
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.4
 	github.com/ReneKroon/ttlcache/v2 v2.11.0
+	github.com/bygui86/multi-profile/v2 v2.1.0
 	github.com/capossele/asset-registry v0.0.0-20210521112927-c9d6e74574e8
 	github.com/celestiaorg/smt v0.2.1-0.20220414134126-dba215ccb884
 	github.com/cockroachdb/errors v1.9.0
 	github.com/felixge/fgprof v0.9.3
 	github.com/gin-gonic/gin v1.8.1
-	github.com/go-playground/assert/v2 v2.0.1
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/gorilla/websocket v1.5.0
-	github.com/iotaledger/hive.go/core v1.0.0-rc.1.0.20221215123443-a3f702c8d714
+	github.com/iotaledger/hive.go/core v1.0.0-rc.2.0.20230119113101-a8819890dec7
 	github.com/iotaledger/hive.go/serializer/v2 v2.0.0-rc.1
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/libp2p/go-libp2p v0.23.4
@@ -23,6 +23,7 @@ require (
 	github.com/multiformats/go-varint v0.0.6
 	github.com/natefinch/atomic v1.0.1
 	github.com/paulbellamy/ratecounter v0.2.0
+	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.14.0
 	github.com/shirou/gopsutil v3.21.4-0.20210419000835-c7a38de76ee5+incompatible
 	github.com/spf13/pflag v1.0.5
@@ -65,7 +66,6 @@ require (
 	github.com/onsi/ginkgo v1.16.5 // indirect
 	github.com/opencontainers/runtime-spec v1.0.2 // indirect
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/raulk/go-watchdog v1.3.0 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	golang.org/x/exp v0.0.0-20221111204811-129d8d6c17ab // indirect
@@ -84,7 +84,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/davidlazar/go-crypto v0.0.0-20200604182044-b73af7476f6c // indirect
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
-	github.com/emirpasic/gods v1.18.1 // indirect
+	github.com/emirpasic/gods v1.18.1
 	github.com/ethereum/go-ethereum v1.10.26 // indirect
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/flynn/noise v1.0.0 // indirect

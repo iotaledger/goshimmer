@@ -87,7 +87,7 @@ func PeerConfig() config.GoShimmer {
 	c.Notarization.MinEpochCommittableAge = 60 * time.Second
 
 	c.BlockIssuer.Enabled = true
-	c.BlockIssuer.RateSetter.Enable = false
+	c.BlockIssuer.RateSetter.Mode = "disabled"
 
 	c.Faucet.Enabled = false
 	c.Faucet.Seed = base58.Encode(GenesisSeedBytes)
@@ -103,7 +103,7 @@ func PeerConfig() config.GoShimmer {
 func EntryNodeConfig() config.GoShimmer {
 	c := PeerConfig()
 
-	c.DisabledPlugins = append(c.DisabledPlugins, "metrics",
+	c.DisabledPlugins = append(c.DisabledPlugins, "Metrics", "DashboardMetrics",
 		"manualpeering", "chat", "WebAPIDataEndpoint", "WebAPIFaucetRequestEndpoint", "WebAPIBlockEndpoint",
 		"WebAPIWeightProviderEndpoint", "WebAPIInfoEndpoint", "WebAPIRateSetterEndpoint", "WebAPISchedulerEndpoint", "WebAPIHealthzEndpoint",
 		"WebAPIManaEndpoint", "WebAPIEpochEndpoint", "WebAPIMetricsEndpoint", "remotelog", "remotelogmetrics", "DAGsVisualizer",

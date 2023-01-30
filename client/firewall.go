@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/pkg/errors"
 )
 
 const (

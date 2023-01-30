@@ -5,13 +5,14 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
-	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
@@ -132,50 +133,50 @@ func (t *TestFramework) setupEvents() {
 }
 
 func (t *TestFramework) AssertBlockAccepted(blocksAccepted uint32) {
-	assert.Equal(t.test, blocksAccepted, atomic.LoadUint32(&t.acceptedBlocks), "expected %d blocks to be accepted but got %d", blocksAccepted, atomic.LoadUint32(&t.acceptedBlocks))
+	require.Equal(t.test, blocksAccepted, atomic.LoadUint32(&t.acceptedBlocks), "expected %d blocks to be accepted but got %d", blocksAccepted, atomic.LoadUint32(&t.acceptedBlocks))
 }
 
 func (t *TestFramework) AssertBlockConfirmed(blocksConfirmed uint32) {
-	assert.Equal(t.test, blocksConfirmed, atomic.LoadUint32(&t.confirmedBlocks), "expected %d blocks to be accepted but got %d", blocksConfirmed, atomic.LoadUint32(&t.confirmedBlocks))
+	require.Equal(t.test, blocksConfirmed, atomic.LoadUint32(&t.confirmedBlocks), "expected %d blocks to be accepted but got %d", blocksConfirmed, atomic.LoadUint32(&t.confirmedBlocks))
 }
 
 func (t *TestFramework) AssertConflictsAccepted(conflictsAccepted uint32) {
-	assert.Equal(t.test, conflictsAccepted, atomic.LoadUint32(&t.conflictsAccepted), "expected %d conflicts to be accepted but got %d", conflictsAccepted, atomic.LoadUint32(&t.acceptedBlocks))
+	require.Equal(t.test, conflictsAccepted, atomic.LoadUint32(&t.conflictsAccepted), "expected %d conflicts to be accepted but got %d", conflictsAccepted, atomic.LoadUint32(&t.acceptedBlocks))
 }
 
 func (t *TestFramework) AssertConflictsRejected(conflictsRejected uint32) {
-	assert.Equal(t.test, conflictsRejected, atomic.LoadUint32(&t.conflictsRejected), "expected %d conflicts to be rejected but got %d", conflictsRejected, atomic.LoadUint32(&t.acceptedBlocks))
+	require.Equal(t.test, conflictsRejected, atomic.LoadUint32(&t.conflictsRejected), "expected %d conflicts to be rejected but got %d", conflictsRejected, atomic.LoadUint32(&t.acceptedBlocks))
 }
 
 func (t *TestFramework) AssertReorgs(reorgCount uint32) {
-	assert.Equal(t.test, reorgCount, atomic.LoadUint32(&t.reorgCount), "expected %d reorgs but got %d", reorgCount, atomic.LoadUint32(&t.reorgCount))
+	require.Equal(t.test, reorgCount, atomic.LoadUint32(&t.reorgCount), "expected %d reorgs but got %d", reorgCount, atomic.LoadUint32(&t.reorgCount))
 }
 
 func (t *TestFramework) ValidateAcceptedBlocks(expectedAcceptedBlocks map[string]bool) {
 	for blockID, blockExpectedAccepted := range expectedAcceptedBlocks {
 		actualBlockAccepted := t.Gadget.IsBlockAccepted(t.Block(blockID).ID())
-		assert.Equal(t.test, blockExpectedAccepted, actualBlockAccepted, "Block %s should be accepted=%t but is %t", blockID, blockExpectedAccepted, actualBlockAccepted)
+		require.Equal(t.test, blockExpectedAccepted, actualBlockAccepted, "Block %s should be accepted=%t but is %t", blockID, blockExpectedAccepted, actualBlockAccepted)
 	}
 }
 
 func (t *TestFramework) ValidateConfirmedBlocks(expectedConfirmedBlocks map[string]bool) {
 	for blockID, blockExpectedConfirmed := range expectedConfirmedBlocks {
 		actualBlockConfirmed := t.Gadget.isBlockConfirmed(t.Block(blockID).ID())
-		assert.Equal(t.test, blockExpectedConfirmed, actualBlockConfirmed, "Block %s should be confirmed=%t but is %t", blockID, blockExpectedConfirmed, actualBlockConfirmed)
+		require.Equal(t.test, blockExpectedConfirmed, actualBlockConfirmed, "Block %s should be confirmed=%t but is %t", blockID, blockExpectedConfirmed, actualBlockConfirmed)
 	}
 }
 
 func (t *TestFramework) ValidateAcceptedMarker(expectedConflictIDs map[markers.Marker]bool) {
 	for marker, markerExpectedAccepted := range expectedConflictIDs {
 		actualMarkerAccepted := t.Gadget.IsMarkerAccepted(marker)
-		assert.Equal(t.test, markerExpectedAccepted, actualMarkerAccepted, "%s should be accepted=%t but is %t", marker, markerExpectedAccepted, actualMarkerAccepted)
+		require.Equal(t.test, markerExpectedAccepted, actualMarkerAccepted, "%s should be accepted=%t but is %t", marker, markerExpectedAccepted, actualMarkerAccepted)
 	}
 }
 
 func (t *TestFramework) ValidateConflictAcceptance(expectedConflictIDs map[string]confirmation.State) {
 	for conflictIDAlias, conflictExpectedState := range expectedConflictIDs {
 		actualMarkerAccepted := t.ConflictDAG().ConfirmationState(set.NewAdvancedSet(t.Transaction(conflictIDAlias).ID()))
-		assert.Equal(t.test, conflictExpectedState, actualMarkerAccepted, "%s should be accepted=%t but is %t", conflictIDAlias, conflictExpectedState, actualMarkerAccepted)
+		require.Equal(t.test, conflictExpectedState, actualMarkerAccepted, "%s should be accepted=%t but is %t", conflictIDAlias, conflictExpectedState, actualMarkerAccepted)
 	}
 }
 
@@ -266,13 +267,12 @@ func NewMockAcceptanceGadget() *MockAcceptanceGadget {
 	}
 }
 
-func (m *MockAcceptanceGadget) SetBlocksAccepted(blocks models.BlockIDs) {
+func (m *MockAcceptanceGadget) SetBlockAccepted(block *Block) {
 	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	m.AcceptedBlocks.Add(block.ID())
+	m.mutex.Unlock()
 
-	for block := range blocks {
-		m.AcceptedBlocks.Add(block)
-	}
+	m.BlockAcceptedEvent.Trigger(block)
 }
 
 func (m *MockAcceptanceGadget) SetMarkersAccepted(markers ...markers.Marker) {
@@ -319,6 +319,20 @@ func (m *MockAcceptanceGadget) FirstUnacceptedIndex(sequenceID markers.SequenceI
 		return acceptedIndex + 1
 	}
 	return 1
+}
+
+func (m *MockAcceptanceGadget) AcceptedBlocksInEpoch(index epoch.Index) (blocks models.BlockIDs) {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	blocks = models.NewBlockIDs()
+	for _, block := range m.AcceptedBlocks.Slice() {
+		if block.Index() == index {
+			blocks.Add(block)
+		}
+	}
+
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -9,7 +9,6 @@ import (
 
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/lo"
@@ -19,6 +18,7 @@ import (
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/stringify"
 	"github.com/iotaledger/hive.go/core/types"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -31,8 +31,11 @@ const (
 	// BlockVersion defines the Version of the block structure.
 	BlockVersion uint8 = 1
 
-	// MaxBlockSize defines the maximum size of a block.
+	// MaxBlockSize defines the maximum size of a block in bytes.
 	MaxBlockSize = 64 * 1024
+
+	// MaxBlockSize defines the maximum work of a block.
+	MaxBlockWork = 1
 
 	// BlockIDLength defines the length of an BlockID.
 	BlockIDLength = types.IdentifierLength + 8
@@ -103,13 +106,14 @@ func NewEmptyBlock(id BlockID, opts ...options.Option[Block]) (newBlock *Block) 
 	return options.Apply(model.NewStorable[BlockID, Block](&block{}), opts, func(b *Block) {
 		b.SetID(id)
 		b.M.PayloadBytes = lo.PanicOnErr(payload.NewGenericDataPayload([]byte("")).Bytes())
+		b.M.EpochCommitment = commitment.New(0, commitment.ID{}, types.Identifier{}, 0)
 	})
 }
 
 func (b *Block) ContentHash() (contentHash types.Identifier, err error) {
 	blkBytes, err := b.Bytes()
 	if err != nil {
-		return types.Identifier{}, errors.Errorf("failed to create block bytes: %w", err)
+		return types.Identifier{}, errors.Wrap(err, "failed to create block bytes")
 	}
 
 	return blake2b.Sum256(blkBytes[:len(blkBytes)-ed25519.SignatureSize]), nil
@@ -245,13 +249,14 @@ func (b *Block) Signature() ed25519.Signature {
 
 func (b *Block) SetSignature(signature ed25519.Signature) {
 	b.M.Signature = signature
+	b.InvalidateBytesCache()
 }
 
 // DetermineID calculates and sets the block's BlockID and size.
 func (b *Block) DetermineID(blockIdentifier ...types.Identifier) (err error) {
 	blkBytes, err := b.Bytes()
 	if err != nil {
-		return errors.Errorf("failed to create block bytes: %w", err)
+		return errors.Wrap(err, "failed to create block bytes")
 	}
 	if len(blockIdentifier) > 0 {
 		b.SetID(BlockID{
@@ -268,6 +273,12 @@ func (b *Block) DetermineID(blockIdentifier ...types.Identifier) (err error) {
 // Size returns the block size in bytes.
 func (b *Block) Size() int {
 	return len(lo.PanicOnErr(b.Bytes()))
+}
+
+// Work returns the work units required to process this block.
+// Currently to 1 for all blocks, but could be improved.
+func (b *Block) Work() int {
+	return 1
 }
 
 func (b *Block) String() string {

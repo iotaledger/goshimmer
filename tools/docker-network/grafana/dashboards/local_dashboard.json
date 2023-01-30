@@ -25,7 +25,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 7,
+  "id": 6,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -93,10 +93,10 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.2.6",
+      "pluginVersion": "9.2.0",
       "targets": [
         {
-          "expr": "iota_info_app{instance=\"$instance\"}",
+          "expr": "info_app{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -158,11 +158,11 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.2.6",
+      "pluginVersion": "9.2.0",
       "targets": [
         {
           "exemplar": true,
-          "expr": "iota_info_app{instance=\"$instance\"}",
+          "expr": "info_app{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -225,7 +225,7 @@
         "text": {},
         "textMode": "value"
       },
-      "pluginVersion": "9.2.6",
+      "pluginVersion": "9.2.0",
       "targets": [
         {
           "exemplar": true,
@@ -294,10 +294,10 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.2.6",
+      "pluginVersion": "9.2.0",
       "targets": [
         {
-          "expr": "tangleTimeSynced{instance=\"$instance\"}",
+          "expr": "info_sync_status{instance=\"$instance\"}",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -355,7 +355,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.2.6",
+      "pluginVersion": "9.2.0",
       "targets": [
         {
           "datasource": {
@@ -364,7 +364,7 @@
           },
           "editorMode": "code",
           "exemplar": true,
-          "expr": "irate(tangle_blocks_per_component_count{component=\"Attached\",instance=\"$instance\"}[5m])",
+          "expr": "irate(tangle_blocks_per_component_total{component=\"Attached\",instance=\"$instance\"}[5m])",
           "interval": "",
           "legendFormat": "Total BPS",
           "range": true,
@@ -418,10 +418,10 @@
         "text": {},
         "textMode": "value"
       },
-      "pluginVersion": "9.2.6",
+      "pluginVersion": "9.2.0",
       "targets": [
         {
-          "expr": "mana_access{instance=\"$instance\",nodeID=\"$NodeID\"}",
+          "expr": "mana_access_per_node{instance=\"$instance\",nodeID=\"$NodeID\"}",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -474,7 +474,7 @@
         "text": {},
         "textMode": "value"
       },
-      "pluginVersion": "9.2.6",
+      "pluginVersion": "9.2.0",
       "targets": [
         {
           "datasource": {
@@ -482,7 +482,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "exemplar": true,
-          "expr": "mana_consensus{instance=\"$instance\",nodeID=\"$NodeID\"}",
+          "expr": "mana_consensus_per_node{instance=\"$instance\",nodeID=\"$NodeID\"}",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -539,7 +539,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.2.6",
+      "pluginVersion": "9.2.0",
       "targets": [
         {
           "datasource": {
@@ -547,7 +547,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "sum(db_size{instance=\"$instance\"}) /1024/1024",
+          "expr": "sum(db_size_bytes{instance=\"$instance\"}) /1024/1024",
           "interval": "",
           "legendFormat": "",
           "range": true,
@@ -605,7 +605,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.2.6",
+      "pluginVersion": "9.2.0",
       "targets": [
         {
           "datasource": {
@@ -613,7 +613,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "sum(db_size{type=\"storage_permanent\", instance=\"$instance\"}) /1024/1024",
+          "expr": "sum(db_size_bytes{type=\"storage_permanent\", instance=\"$instance\"}) /1024/1024",
           "interval": "",
           "legendFormat": "",
           "range": true,
@@ -671,7 +671,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.2.6",
+      "pluginVersion": "9.2.0",
       "targets": [
         {
           "datasource": {
@@ -679,7 +679,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "sum(db_size{type=\"storage_prunable\", instance=\"$instance\"}) /1024/1024",
+          "expr": "sum(db_size_bytes{type=\"storage_prunable\", instance=\"$instance\"}) /1024/1024",
           "interval": "",
           "legendFormat": "",
           "range": true,
@@ -737,7 +737,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "9.2.6",
+      "pluginVersion": "9.2.0",
       "targets": [
         {
           "datasource": {
@@ -745,7 +745,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "sum(db_size{instance=\"$instance\", type=\"retainer\"}) /1024/1024",
+          "expr": "sum(db_size_bytes{instance=\"$instance\", type=\"retainer\"}) /1024/1024",
           "interval": "",
           "legendFormat": "",
           "range": true,
@@ -810,7 +810,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -821,7 +821,7 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "irate(tangle_blocks_per_type_count{instance=\"$instance\"}[5m])",
+              "expr": "irate(tangle_block_per_type_total{instance=\"$instance\"}[5m])",
               "hide": false,
               "interval": "",
               "legendFormat": "Block Per Second {{block_type}}",
@@ -900,7 +900,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -911,7 +911,7 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "irate(tangle_blocks_per_component_count{instance=\"$instance\"}[5m])",
+              "expr": "irate(tangle_blocks_per_component_total{instance=\"$instance\"}[5m])",
               "interval": "",
               "legendFormat": "{{component}} BPS",
               "refId": "A"
@@ -990,7 +990,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -1000,7 +1000,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "tangle_block_tips_count{instance=\"$instance\"}",
+              "expr": "tangle_tips_count{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "Block Layer Tips",
               "refId": "A"
@@ -1077,7 +1077,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "pointradius": 0.5,
           "points": true,
           "renderer": "flot",
@@ -1087,19 +1087,19 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "autopeering_avg_distance{instance=\"$instance\"}",
+              "expr": "avg_over_time(autopeering_distance{instance=\"$instance\"}[$__range])",
               "interval": "",
               "legendFormat": "Average",
               "refId": "A"
             },
             {
-              "expr": "autopeering_max_distance{instance=\"$instance\"}",
+              "expr": "max_over_time(autopeering_distance{instance=\"$instance\"}[$__range])",
               "interval": "",
               "legendFormat": "Max",
               "refId": "B"
             },
             {
-              "expr": "autopeering_min_distance{instance=\"$instance\"}",
+              "expr": "min_over_time(autopeering_distance{instance=\"$instance\"}[$__range])",
               "interval": "",
               "legendFormat": "Min",
               "refId": "C"
@@ -1183,10 +1183,10 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "targets": [
             {
-              "expr": "autopeering_neighbor_connections_count{instance=\"$instance\"} - autopeering_neighbor_drop_count{instance=\"$instance\"}",
+              "expr": "autopeering_neighbor_connections_total{instance=\"$instance\"} - autopeering_neighbor_drop_total{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "",
               "refId": "A"
@@ -1239,10 +1239,10 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "targets": [
             {
-              "expr": "autopeering_avg_neighbor_connection_lifetime{instance=\"$instance\"}",
+              "expr": "autopeering_neighbor_connection_lifetime_seconds_total{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "",
               "refId": "A"
@@ -1298,10 +1298,10 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "targets": [
             {
-              "expr": "autopeering_neighbor_connections_count{instance=\"$instance\"}",
+              "expr": "autopeering_neighbor_connections_total{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "",
               "refId": "A"
@@ -1357,10 +1357,10 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "targets": [
             {
-              "expr": "autopeering_neighbor_drop_count{instance=\"$instance\"}",
+              "expr": "autopeering_neighbor_drop_total{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "",
               "refId": "A"
@@ -1411,7 +1411,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -1422,7 +1422,7 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "irate(tangle_block_solidification_missing_block_count{instance=\"$instance\"}[5m])",
+              "expr": "irate(tangle_missing_block_total{instance=\"$instance\"}[5m])",
               "interval": "",
               "legendFormat": "Solidifier-requested blocks",
               "refId": "A"
@@ -1500,7 +1500,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -1511,7 +1511,7 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "tangle_block_solidification_missing_block_count{instance=\"$instance\"}",
+              "expr": "tangle_missing_block_total{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "Solidifier-requested blocks",
               "refId": "A"
@@ -1590,7 +1590,7 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "targets": [
             {
               "expr": "traffic_analysis_outbound_bytes{instance=\"$instance\"}",
@@ -1645,7 +1645,7 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "targets": [
             {
               "expr": "traffic_gossip_outbound_packets{instance=\"$instance\"}",
@@ -1700,7 +1700,7 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "targets": [
             {
               "expr": "traffic_gossip_inbound_packets{instance=\"$instance\"}",
@@ -1755,10 +1755,10 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "targets": [
             {
-              "expr": "traffic_autopeering_outbound_bytes{instance=\"$instance\"}",
+              "expr": "autopeering_traffic_outbound_total_bytes{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "",
               "refId": "A"
@@ -1810,10 +1810,10 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "targets": [
             {
-              "expr": "traffic_autopeering_inbound_bytes{instance=\"$instance\"}",
+              "expr": "autopeering_traffic_inbound_total_bytes{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "",
               "refId": "A"
@@ -1863,7 +1863,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -1879,13 +1879,13 @@
               "refId": "A"
             },
             {
-              "expr": "irate(traffic_autopeering_inbound_bytes{instance=\"$instance\"}[1m])",
+              "expr": "irate(autopeering_traffic_inbound_total_bytes{instance=\"$instance\"}[1m])",
               "interval": "",
               "legendFormat": "Autopeering RX",
               "refId": "B"
             },
             {
-              "expr": "irate(traffic_autopeering_outbound_bytes{instance=\"$instance\"}[1m])",
+              "expr": "irate(autopeering_traffic_outbound_total_bytes{instance=\"$instance\"}[1m])",
               "interval": "",
               "legendFormat": "Autopeering TX",
               "refId": "C"
@@ -1987,7 +1987,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -1997,7 +1997,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "tangle_block_missing_count_db{instance=\"$instance\"}",
+              "expr": "tangle_missing_block_total{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "Missing Blocks",
               "refId": "A"
@@ -2077,7 +2077,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -2088,21 +2088,21 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "tangle_blocks_per_component_count{component=\"Solidifier\",instance=\"$instance\"}",
+              "expr": "tangle_blocks_per_component_total{component=\"Solidified\",instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "Solid Blocks in DB",
               "refId": "A"
             },
             {
               "exemplar": true,
-              "expr": "tangle_blocks_per_component_count{component=\"Store\",instance=\"$instance\"} - tangle_blocks_per_component_count{component=\"Solidifier\",instance=\"$instance\"}",
+              "expr": "tangle_blocks_per_component_total{component=\"Store\",instance=\"$instance\"} - tangle_blocks_per_component_total{component=\"Solidified\",instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "Not Solid Blocks in DB",
               "refId": "B"
             },
             {
               "exemplar": true,
-              "expr": "tangle_blocks_per_component_count{component=\"Store\",instance=\"$instance\"}",
+              "expr": "tangle_blocks_per_component_total{component=\"Store\",instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "Total Blocks in DB",
               "refId": "C"
@@ -2181,7 +2181,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -2192,7 +2192,7 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "tangle_block_request_queue_size{instance=\"$instance\"}",
+              "expr": "tangle_request_queue_size{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "Block Request Queue Size",
               "refId": "A"
@@ -2273,7 +2273,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -2284,7 +2284,7 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "rate(tangle_block_total_time_since_received{component=\"Solidifier\",instance=\"$instance\"}[5m])/rate(tangle_blocks_per_component_count{component=\"Solidifier\",instance=\"$instance\"}[5m])",
+              "expr": "rate(tangle_block_total_time_since_received{component=\"Solidified\",instance=\"$instance\"}[5m])/rate(tangle_blocks_per_component_total{component=\"Solidified\",instance=\"$instance\"}[5m])",
               "interval": "",
               "legendFormat": "Avg Solidification Time",
               "refId": "A"
@@ -2390,18 +2390,18 @@
             "text": {},
             "textMode": "value_and_name"
           },
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "targets": [
             {
               "exemplar": true,
-              "expr": "mana_access{instance=\"$instance\",nodeID=\"$NodeID\"}",
+              "expr": "mana_access_per_node{instance=\"$instance\",nodeID=\"$NodeID\"}",
               "interval": "",
               "legendFormat": "{{nodeID}}",
               "refId": "A"
             },
             {
               "exemplar": true,
-              "expr": "mana_consensus{instance=\"$instance\",nodeID=\"$NodeID\"}",
+              "expr": "mana_consensus_per_node{instance=\"$instance\",nodeID=\"$NodeID\"}",
               "hide": true,
               "interval": "",
               "legendFormat": "Consensus {{nodeID}}",
@@ -2460,17 +2460,17 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "targets": [
             {
               "exemplar": true,
-              "expr": "mana_access_percentile{instance=\"$instance\"}",
+              "expr": "mana_node_percentile{instance=\"$instance\",type=\"access\"}",
               "interval": "",
               "legendFormat": "Access",
               "refId": "A"
             },
             {
-              "expr": "mana_consensus_percentile{instance=\"$instance\"}",
+              "expr": "mana_node_percentile{instance=\"$instance\",type=\"consensus\"}",
               "interval": "",
               "legendFormat": "Consensus",
               "refId": "B"
@@ -2523,16 +2523,16 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "targets": [
             {
-              "expr": "avg(mana_access{instance=\"$instance\"})",
+              "expr": "avg(mana_access_per_node{instance=\"$instance\"})",
               "interval": "",
               "legendFormat": "Access",
               "refId": "A"
             },
             {
-              "expr": "avg(mana_consensus{instance=\"$instance\"})",
+              "expr": "avg(mana_consensus_per_node{instance=\"$instance\"})",
               "interval": "",
               "legendFormat": "Consensus",
               "refId": "B"
@@ -2585,18 +2585,18 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "targets": [
             {
               "exemplar": true,
-              "expr": "stddev(mana_access{instance=\"$instance\"})",
+              "expr": "stddev(mana_access_per_node{instance=\"$instance\"})",
               "interval": "",
               "legendFormat": "Access",
               "refId": "A"
             },
             {
               "exemplar": true,
-              "expr": "stddev(mana_consensus{instance=\"$instance\"})",
+              "expr": "stddev(mana_consensus_per_node{instance=\"$instance\"})",
               "interval": "",
               "legendFormat": "Consensus",
               "refId": "B"
@@ -2649,17 +2649,17 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "targets": [
             {
-              "expr": "mana_average_neighbors_access{instance=\"$instance\"}",
+              "expr": "mana_neighbors{instance=\"$instance\"}",
               "instant": false,
               "interval": "",
               "legendFormat": "Access",
               "refId": "A"
             },
             {
-              "expr": "mana_average_neighbors_consensus{instance=\"$instance\"}",
+              "expr": "mana_neighbors{instance=\"$instance\"}",
               "instant": false,
               "interval": "",
               "legendFormat": "Consensus",
@@ -2712,7 +2712,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -2722,13 +2722,13 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(mana_access{instance=\"$instance\"})",
+              "expr": "sum(mana_access_per_node{instance=\"$instance\"})",
               "interval": "",
               "legendFormat": "Total Access Mana In Network",
               "refId": "A"
             },
             {
-              "expr": "sum(mana_consensus{instance=\"$instance\"})",
+              "expr": "sum(mana_consensus_per_node{instance=\"$instance\"})",
               "interval": "",
               "legendFormat": "Total Consensus Mana In Network",
               "refId": "B"
@@ -2808,7 +2808,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -2818,7 +2818,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "mana_access{instance=\"$instance\"}",
+              "expr": "mana_access_per_node{}",
               "instant": true,
               "interval": "",
               "legendFormat": "",
@@ -2904,7 +2904,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -2914,7 +2914,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "mana_consensus{instance=\"$instance\"}",
+              "expr": "mana_consensus_per_node{}",
               "instant": true,
               "interval": "",
               "legendFormat": "",
@@ -3001,7 +3001,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -3011,7 +3011,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "mana_access{instance=\"$instance\"}",
+              "expr": "mana_access_per_node{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "{{nodeID}}",
               "refId": "A"
@@ -3094,7 +3094,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -3104,7 +3104,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "mana_access{instance=\"$instance\"}",
+              "expr": "mana_access_per_node{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "{{nodeID}}",
               "refId": "A"
@@ -3196,7 +3196,7 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "mana_access{instance=\"$instance\"}",
+              "expr": "mana_access_per_node{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "{{nodeID}}",
               "refId": "A"
@@ -3250,7 +3250,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.3.2",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -3260,7 +3260,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "mana_consensus{instance=\"$instance\"}",
+              "expr": "mana_consensus_per_node{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "{{nodeID}}",
               "refId": "A"
@@ -3343,7 +3343,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.3.2",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -3354,7 +3354,7 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "mana_consensus{instance=\"$instance\"}",
+              "expr": "mana_consensus_per_node{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "{{nodeID}}",
               "refId": "A"
@@ -3446,7 +3446,7 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "mana_consensus{instance=\"$instance\"}",
+              "expr": "mana_consensus_per_node{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "{{nodeID}}",
               "refId": "A"
@@ -3498,7 +3498,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.3.2",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -3508,13 +3508,13 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "mana_access_percentile{instance=\"$instance\"}",
+              "expr": "mana_node_percentile{instance=\"$instance\",type=\"access\"}",
               "interval": "",
               "legendFormat": "Access Percentile",
               "refId": "A"
             },
             {
-              "expr": "mana_consensus_percentile{instance=\"$instance\"}",
+              "expr": "mana_node_percentile{instance=\"$instance\",type=\"consensus\"}",
               "interval": "",
               "legendFormat": "Consensus Percentile",
               "refId": "B"
@@ -3538,274 +3538,6 @@
             {
               "format": "percent",
               "logBase": 1,
-              "show": true
-            },
-            {
-              "format": "short",
-              "logBase": 1,
-              "show": true
-            }
-          ],
-          "yaxis": {
-            "align": false
-          }
-        },
-        {
-          "aliasColors": {},
-          "bars": false,
-          "dashLength": 10,
-          "dashes": false,
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "description": "Average pledged BM1 and BM2 of access mana pledged to the node",
-          "fieldConfig": {
-            "defaults": {
-              "links": [],
-              "unit": "si: m"
-            },
-            "overrides": []
-          },
-          "fill": 1,
-          "fillGradient": 0,
-          "gridPos": {
-            "h": 11,
-            "w": 8,
-            "x": 8,
-            "y": 38
-          },
-          "hiddenSeries": false,
-          "id": 107,
-          "legend": {
-            "avg": false,
-            "current": false,
-            "max": false,
-            "min": false,
-            "show": true,
-            "total": false,
-            "values": false
-          },
-          "lines": true,
-          "linewidth": 1,
-          "nullPointMode": "null",
-          "options": {
-            "alertThreshold": true
-          },
-          "percentage": false,
-          "pluginVersion": "9.2.6",
-          "pointradius": 2,
-          "points": false,
-          "renderer": "flot",
-          "seriesOverrides": [],
-          "spaceLength": 10,
-          "stack": false,
-          "steppedLine": false,
-          "targets": [
-            {
-              "expr": "mana_average_access_pledge{type=\"bm2\",instance=\"$instance\"}",
-              "interval": "",
-              "legendFormat": "{{nodeID}}",
-              "refId": "B"
-            }
-          ],
-          "thresholds": [],
-          "timeRegions": [],
-          "title": "Average Pledged Access Mana",
-          "tooltip": {
-            "shared": true,
-            "sort": 0,
-            "value_type": "individual"
-          },
-          "type": "graph",
-          "xaxis": {
-            "mode": "time",
-            "show": true,
-            "values": []
-          },
-          "yaxes": [
-            {
-              "format": "si: m",
-              "logBase": 1,
-              "show": true
-            },
-            {
-              "format": "short",
-              "logBase": 1,
-              "show": true
-            }
-          ],
-          "yaxis": {
-            "align": false
-          }
-        },
-        {
-          "aliasColors": {},
-          "bars": false,
-          "dashLength": 10,
-          "dashes": false,
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "description": "Average pledged BM1 and BM2 of access mana pledged to the node",
-          "fieldConfig": {
-            "defaults": {
-              "links": [],
-              "unit": "si: m"
-            },
-            "overrides": []
-          },
-          "fill": 1,
-          "fillGradient": 0,
-          "gridPos": {
-            "h": 11,
-            "w": 8,
-            "x": 16,
-            "y": 38
-          },
-          "hiddenSeries": false,
-          "id": 114,
-          "legend": {
-            "avg": false,
-            "current": false,
-            "max": false,
-            "min": false,
-            "show": true,
-            "total": false,
-            "values": false
-          },
-          "lines": true,
-          "linewidth": 1,
-          "nullPointMode": "null",
-          "options": {
-            "alertThreshold": true
-          },
-          "percentage": false,
-          "pluginVersion": "9.2.6",
-          "pointradius": 2,
-          "points": false,
-          "renderer": "flot",
-          "seriesOverrides": [],
-          "spaceLength": 10,
-          "stack": false,
-          "steppedLine": false,
-          "targets": [
-            {
-              "expr": "mana_average_access_pledge{type=\"bm2\",instance=\"$instance\"}",
-              "interval": "",
-              "legendFormat": "{{nodeID}}",
-              "refId": "B"
-            }
-          ],
-          "thresholds": [],
-          "timeRegions": [],
-          "title": "Average Pledged Access Mana",
-          "tooltip": {
-            "shared": true,
-            "sort": 0,
-            "value_type": "individual"
-          },
-          "type": "graph",
-          "xaxis": {
-            "mode": "time",
-            "show": true,
-            "values": []
-          },
-          "yaxes": [
-            {
-              "format": "si: m",
-              "logBase": 1,
-              "show": true
-            },
-            {
-              "format": "short",
-              "logBase": 1,
-              "show": true
-            }
-          ],
-          "yaxis": {
-            "align": false
-          }
-        },
-        {
-          "aliasColors": {},
-          "bars": false,
-          "dashLength": 10,
-          "dashes": false,
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "description": "Amount of mana currently delegated to the node.",
-          "fieldConfig": {
-            "defaults": {
-              "links": [],
-              "unit": "si: m"
-            },
-            "overrides": []
-          },
-          "fill": 1,
-          "fillGradient": 0,
-          "gridPos": {
-            "h": 10,
-            "w": 8,
-            "x": 0,
-            "y": 49
-          },
-          "hiddenSeries": false,
-          "id": 110,
-          "legend": {
-            "avg": false,
-            "current": false,
-            "max": false,
-            "min": false,
-            "show": false,
-            "total": false,
-            "values": false
-          },
-          "lines": true,
-          "linewidth": 1,
-          "nullPointMode": "null",
-          "options": {
-            "alertThreshold": true
-          },
-          "percentage": false,
-          "pluginVersion": "9.2.6",
-          "pointradius": 2,
-          "points": false,
-          "renderer": "flot",
-          "seriesOverrides": [],
-          "spaceLength": 10,
-          "stack": false,
-          "steppedLine": false,
-          "targets": [
-            {
-              "expr": "mana_delegated_amount{instance=\"$instance\"}",
-              "interval": "",
-              "legendFormat": "",
-              "refId": "A"
-            }
-          ],
-          "thresholds": [],
-          "timeRegions": [],
-          "title": "Mana Delegated To Node",
-          "tooltip": {
-            "shared": true,
-            "sort": 0,
-            "value_type": "individual"
-          },
-          "type": "graph",
-          "xaxis": {
-            "mode": "time",
-            "show": true,
-            "values": []
-          },
-          "yaxes": [
-            {
-              "format": "si: m",
-              "logBase": 1,
-              "min": "0",
               "show": true
             },
             {
@@ -3858,7 +3590,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 106
+            "y": 6
           },
           "hiddenSeries": false,
           "id": 118,
@@ -3878,7 +3610,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -3889,7 +3621,7 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "irate(tangle_block_finalization_time_since_received{instance=\"$instance\"}[1m]) / irate(tangle_block_finalized_count{instance=\"$instance\"}[1m])",
+              "expr": "irate(conflict_resolution_time_seconds_total{instance=\"$instance\"}[1m]) / irate(conflict_resolved_total{instance=\"$instance\"}[1m])",
               "interval": "",
               "legendFormat": "{{blockType}} avg. finalization time",
               "queryType": "randomWalk",
@@ -3950,7 +3682,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 106
+            "y": 6
           },
           "hiddenSeries": false,
           "id": 119,
@@ -3970,7 +3702,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -3981,7 +3713,7 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "irate(tangle_conflict_confirmation_time{instance=\"$instance\"}[30s]) / rate(tangle_conflict_confirmed_count{instance=\"$instance\"}[30s])",
+              "expr": "irate(conflict_resolution_time_seconds_total{instance=\"$instance\"}[30s]) / rate(conflict_resolved_total{instance=\"$instance\"}[30s])",
               "interval": "",
               "legendFormat": "Average conflict confirmation time",
               "queryType": "randomWalk",
@@ -4035,7 +3767,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 114
+            "y": 14
           },
           "hiddenSeries": false,
           "id": 121,
@@ -4055,7 +3787,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -4066,7 +3798,7 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "sum(irate(tangle_blocks_parent_count_per_type{instance=\"$instance\"}[1m])) by (type,instance) / on(instance) group_left() sum(irate(tangle_block_finalized_count{instance=\"$instance\"}[1m])) by (instance)",
+              "expr": "sum(irate(tangle_parent_per_type_total{instance=\"$instance\"}[1m])) by (type,instance) / on(instance) group_left() sum(irate(tangle_accepted_blocks_count{instance=\"$instance\"}[1m])) by (instance)",
               "hide": false,
               "interval": "",
               "legendFormat": "{{type}}",
@@ -4134,7 +3866,7 @@
             "h": 4,
             "w": 6,
             "x": 12,
-            "y": 114
+            "y": 14
           },
           "id": 123,
           "options": {
@@ -4152,11 +3884,11 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "targets": [
             {
               "exemplar": true,
-              "expr": "tangle_conflict_total_count_db{instance=\"$instance\"}",
+              "expr": "conflict_created_total{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "",
               "queryType": "randomWalk",
@@ -4197,7 +3929,7 @@
             "h": 4,
             "w": 6,
             "x": 18,
-            "y": 114
+            "y": 14
           },
           "id": 125,
           "options": {
@@ -4215,11 +3947,11 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "targets": [
             {
               "exemplar": true,
-              "expr": "tangle_conflict_total_count_db{instance=\"$instance\"} - tangle_conflict_finalized_count_db{instance=\"$instance\"}",
+              "expr": "conflict_created_total{instance=\"$instance\"} - conflict_resolved_total{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "",
               "queryType": "randomWalk",
@@ -4260,7 +3992,7 @@
             "h": 4,
             "w": 6,
             "x": 12,
-            "y": 118
+            "y": 18
           },
           "id": 124,
           "options": {
@@ -4278,11 +4010,11 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "targets": [
             {
               "exemplar": true,
-              "expr": "tangle_conflict_finalized_count_db{instance=\"$instance\"}",
+              "expr": "conflict_resolved_total{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "",
               "queryType": "randomWalk",
@@ -4323,7 +4055,7 @@
             "h": 4,
             "w": 6,
             "x": 18,
-            "y": 118
+            "y": 18
           },
           "id": 126,
           "options": {
@@ -4341,11 +4073,11 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "targets": [
             {
               "exemplar": true,
-              "expr": "tangle_conflict_confirmed_count{instance=\"$instance\"}",
+              "expr": "conflict_resolved_total{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "",
               "queryType": "randomWalk",
@@ -4402,7 +4134,7 @@
             "h": 6,
             "w": 15,
             "x": 0,
-            "y": 123
+            "y": 7
           },
           "id": 146,
           "options": {
@@ -4420,11 +4152,11 @@
             "showUnfilled": true,
             "text": {}
           },
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "targets": [
             {
               "exemplar": true,
-              "expr": "topk(15, sum by (node_id) (scheduler_buffer_size_per_node{instance=\"$instance\"}/scheduler_amana_per_node{instance=\"$instance\"}))",
+              "expr": "topk(15, sum by (node_id) (scheduler_queue_size_per_node_bytes{instance=\"$instance\"}/scheduler_mana_per_node{instance=\"$instance\"}))",
               "instant": true,
               "interval": "",
               "legendFormat": "Node: {{node_id}}",
@@ -4464,7 +4196,7 @@
             "h": 3,
             "w": 3,
             "x": 15,
-            "y": 123
+            "y": 7
           },
           "id": 132,
           "options": {
@@ -4482,7 +4214,7 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "targets": [
             {
               "exemplar": true,
@@ -4523,7 +4255,7 @@
             "h": 3,
             "w": 3,
             "x": 18,
-            "y": 123
+            "y": 7
           },
           "id": 142,
           "options": {
@@ -4541,11 +4273,11 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "targets": [
             {
               "exemplar": true,
-              "expr": "tangle_blocks_per_component_count{component=\"Scheduler\",instance=\"$instance\"}",
+              "expr": "tangle_blocks_per_component_total{component=\"Scheduled\",instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "",
               "queryType": "randomWalk",
@@ -4584,7 +4316,7 @@
             "h": 3,
             "w": 3,
             "x": 21,
-            "y": 123
+            "y": 7
           },
           "id": 149,
           "options": {
@@ -4602,11 +4334,11 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "targets": [
             {
               "exemplar": true,
-              "expr": "tangle_blocks_per_component_count{component=\"SchedulerSkipped\",instance=\"$instance\"}",
+              "expr": "tangle_blocks_per_component_total{component=\"SchedulerSkipped\",instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "",
               "queryType": "randomWalk",
@@ -4645,7 +4377,7 @@
             "h": 3,
             "w": 3,
             "x": 15,
-            "y": 126
+            "y": 10
           },
           "id": 143,
           "options": {
@@ -4663,7 +4395,7 @@
             "text": {},
             "textMode": "value"
           },
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "targets": [
             {
               "exemplar": false,
@@ -4705,7 +4437,7 @@
             "h": 3,
             "w": 3,
             "x": 18,
-            "y": 126
+            "y": 10
           },
           "id": 140,
           "options": {
@@ -4723,11 +4455,11 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "targets": [
             {
               "exemplar": true,
-              "expr": "tangle_blocks_per_component_count{component=\"SchedulerDropped\",instance=\"$instance\"}",
+              "expr": "tangle_blocks_per_component_total{component=\"SchedulerDropped\",instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "",
               "queryType": "randomWalk",
@@ -4764,7 +4496,7 @@
             "h": 3,
             "w": 3,
             "x": 21,
-            "y": 126
+            "y": 10
           },
           "id": 154,
           "options": {
@@ -4782,7 +4514,7 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "targets": [
             {
               "datasource": {
@@ -4828,7 +4560,7 @@
             "h": 6,
             "w": 15,
             "x": 0,
-            "y": 129
+            "y": 13
           },
           "id": 145,
           "options": {
@@ -4846,7 +4578,7 @@
             "showUnfilled": true,
             "text": {}
           },
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "targets": [
             {
               "datasource": {
@@ -4855,7 +4587,7 @@
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "topk(15, sum by (node_id) (scheduler_buffer_size_per_node{instance=\"$instance\"}))",
+              "expr": "topk(15, sum by (node_id) (scheduler_queue_size_per_node_bytes{instance=\"$instance\"}))",
               "instant": true,
               "interval": "",
               "legendFormat": "Node: {{node_id}}",
@@ -4896,7 +4628,7 @@
             "h": 3,
             "w": 3,
             "x": 15,
-            "y": 129
+            "y": 13
           },
           "id": 130,
           "options": {
@@ -4914,11 +4646,11 @@
             "text": {},
             "textMode": "value"
           },
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "targets": [
             {
               "exemplar": false,
-              "expr": "scheduler_buffer_total_size{instance=\"$instance\"}",
+              "expr": "scheduler_buffer_size_bytes_total{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "",
               "queryType": "randomWalk",
@@ -4955,7 +4687,7 @@
             "h": 3,
             "w": 3,
             "x": 18,
-            "y": 129
+            "y": 13
           },
           "id": 134,
           "options": {
@@ -4973,11 +4705,11 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "targets": [
             {
               "exemplar": true,
-              "expr": "scheduler_buffer_total_blk_count{instance=\"$instance\"}",
+              "expr": "scheduler_buffer_size_bytes_total{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "",
               "queryType": "randomWalk",
@@ -5015,7 +4747,7 @@
             "h": 3,
             "w": 3,
             "x": 21,
-            "y": 129
+            "y": 13
           },
           "id": 153,
           "options": {
@@ -5033,7 +4765,7 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "targets": [
             {
               "datasource": {
@@ -5078,7 +4810,7 @@
             "h": 3,
             "w": 3,
             "x": 15,
-            "y": 132
+            "y": 16
           },
           "id": 138,
           "options": {
@@ -5096,7 +4828,7 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "targets": [
             {
               "datasource": {
@@ -5117,7 +4849,7 @@
                 "uid": "PBFA97CFB590B2093"
               },
               "exemplar": true,
-              "expr": "scheduler_buffer_size_per_node{node_id=\"$NodeID\",instance=\"$instance\"}",
+              "expr": "scheduler_queue_size_per_node_bytes{node_id=\"$NodeID\",instance=\"$instance\"}",
               "hide": false,
               "interval": "",
               "legendFormat": "Own scheduler queue size",
@@ -5157,7 +4889,7 @@
             "h": 3,
             "w": 3,
             "x": 18,
-            "y": 132
+            "y": 16
           },
           "id": 151,
           "options": {
@@ -5175,7 +4907,7 @@
             "text": {},
             "textMode": "value"
           },
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "targets": [
             {
               "datasource": {
@@ -5183,7 +4915,7 @@
                 "uid": "PBFA97CFB590B2093"
               },
               "exemplar": false,
-              "expr": "scheduler_buffer_total_blk_count{instance=\"$instance\"} - scheduler_buffer_ready_blk_count{instance=\"$instance\"}",
+              "expr": "scheduler_buffer_size_bytes_total{instance=\"$instance\"} - scheduler_buffer_ready_block_total{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "",
               "queryType": "randomWalk",
@@ -5220,7 +4952,7 @@
             "h": 3,
             "w": 3,
             "x": 21,
-            "y": 132
+            "y": 16
           },
           "id": 136,
           "options": {
@@ -5238,11 +4970,11 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "targets": [
             {
               "exemplar": true,
-              "expr": "scheduler_buffer_ready_blk_count{instance=\"$instance\"}",
+              "expr": "scheduler_buffer_ready_block_total{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "",
               "queryType": "randomWalk",
@@ -5280,7 +5012,7 @@
             "h": 3,
             "w": 3,
             "x": 15,
-            "y": 135
+            "y": 19
           },
           "id": 152,
           "options": {
@@ -5298,7 +5030,7 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "targets": [
             {
               "datasource": {
@@ -5344,7 +5076,7 @@
             "h": 3,
             "w": 3,
             "x": 18,
-            "y": 135
+            "y": 19
           },
           "id": 155,
           "options": {
@@ -5362,7 +5094,7 @@
             "text": {},
             "textMode": "auto"
           },
-          "pluginVersion": "9.2.6",
+          "pluginVersion": "9.2.0",
           "targets": [
             {
               "datasource": {
@@ -5370,7 +5102,7 @@
                 "uid": "PBFA97CFB590B2093"
               },
               "exemplar": true,
-              "expr": "tangle_blocks_orphaned_size{instance=\"$instance\"}",
+              "expr": "tangle_blocks_orphaned_total{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "",
               "queryType": "randomWalk",
@@ -5385,7 +5117,7 @@
       "type": "row"
     },
     {
-      "collapsed": true,
+      "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -5393,163 +5125,162 @@
         "y": 7
       },
       "id": 157,
-      "panels": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+      "panels": [],
+      "title": "Workerpools",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
           },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  }
-                ]
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
               }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 9,
-            "w": 3,
-            "x": 0,
-            "y": 139
-          },
-          "id": 159,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "none",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "textMode": "auto"
-          },
-          "pluginVersion": "9.2.6",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "PBFA97CFB590B2093"
-              },
-              "editorMode": "code",
-              "expr": "workerpool_eventloop_workers{instance=\"$instance\"}",
-              "legendFormat": "__auto",
-              "range": true,
-              "refId": "A"
-            }
-          ],
-          "title": "Event loop workers",
-          "type": "stat"
+            ]
+          }
         },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 3,
+        "x": 0,
+        "y": 8
+      },
+      "id": 159,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "9.2.0",
+      "targets": [
         {
           "datasource": {
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 9,
-            "w": 21,
-            "x": 3,
-            "y": 139
-          },
-          "id": 161,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "PBFA97CFB590B2093"
-              },
-              "editorMode": "code",
-              "expr": "workerpool_eventloop_tasks_pending{instance=\"$instance\"}",
-              "legendFormat": "{{instance}}",
-              "range": true,
-              "refId": "A"
-            }
-          ],
-          "title": "Event loop pending tasks",
-          "type": "timeseries"
+          "editorMode": "code",
+          "expr": "workerpool_workers{instance=\"$instance\"}",
+          "legendFormat": "{{type}}",
+          "range": true,
+          "refId": "A"
         }
       ],
-      "title": "Event loop",
-      "type": "row"
+      "title": "Workers",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 21,
+        "x": 3,
+        "y": 8
+      },
+      "id": 161,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "workerpool_tasks_pending{instance=\"$instance\"}",
+          "legendFormat": "{{type}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Pending tasks",
+      "type": "timeseries"
     }
   ],
   "refresh": "10s",
@@ -5568,7 +5299,7 @@
           "type": "prometheus",
           "uid": "PBFA97CFB590B2093"
         },
-        "definition": "label_values(iota_info_app, instance)",
+        "definition": "label_values(info_app, instance)",
         "hide": 0,
         "includeAll": false,
         "label": "Instance",
@@ -5576,7 +5307,7 @@
         "name": "instance",
         "options": [],
         "query": {
-          "query": "label_values(iota_info_app, instance)",
+          "query": "label_values(info_app, instance)",
           "refId": "StandardVariableQuery"
         },
         "refresh": 2,
@@ -5591,14 +5322,14 @@
       {
         "current": {
           "selected": false,
-          "text": "GbkZ3Coi",
-          "value": "GbkZ3Coi"
+          "text": "FZ6xmPZX",
+          "value": "FZ6xmPZX"
         },
         "datasource": {
           "type": "prometheus",
           "uid": "PBFA97CFB590B2093"
         },
-        "definition": "label_values(iota_info_app, nodeID)",
+        "definition": "label_values(info_app, nodeID)",
         "hide": 0,
         "includeAll": false,
         "label": "Node Identity",
@@ -5606,7 +5337,7 @@
         "name": "NodeID",
         "options": [],
         "query": {
-          "query": "label_values(iota_info_app, nodeID)",
+          "query": "label_values(info_app, nodeID)",
           "refId": "StandardVariableQuery"
         },
         "refresh": 2,
@@ -5640,6 +5371,6 @@
   "timezone": "",
   "title": "GoShimmer Local Metrics",
   "uid": "R-T27yW7k",
-  "version": 2,
+  "version": 3,
   "weekStart": ""
 }

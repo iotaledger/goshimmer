@@ -1,7 +1,7 @@
 package devnetvm
 
 import (
-	"github.com/cockroachdb/errors"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
@@ -17,7 +17,7 @@ func (d *VM) ParseTransaction(transactionBytes []byte) (transaction utxo.Transac
 
 func (d *VM) ParseOutput(outputBytes []byte) (output utxo.Output, err error) {
 	if output, err = OutputFromBytes(outputBytes); err != nil {
-		err = errors.Errorf("failed to parse Output: %w", err)
+		err = errors.Wrap(err, "failed to parse Output")
 	}
 
 	return output, err
@@ -30,7 +30,7 @@ func (d *VM) ResolveInput(input utxo.Input) (outputID utxo.OutputID) {
 func (d *VM) ExecuteTransaction(transaction utxo.Transaction, inputs *utxo.Outputs, _ ...uint64) (outputs []utxo.Output, err error) {
 	typedOutputs, err := d.executeTransaction(transaction.(*Transaction), OutputsFromUTXOOutputs(inputs))
 	if err != nil {
-		return nil, errors.Errorf("failed to execute transaction: %w", err)
+		return nil, errors.Wrap(err, "failed to execute transaction")
 	}
 
 	return typedOutputs.UTXOOutputs(), nil
@@ -38,13 +38,13 @@ func (d *VM) ExecuteTransaction(transaction utxo.Transaction, inputs *utxo.Outpu
 
 func (d *VM) executeTransaction(transaction *Transaction, inputs Outputs) (outputs Outputs, err error) {
 	if !TransactionBalancesValid(inputs, transaction.Essence().Outputs()) {
-		return nil, errors.Errorf("sum of consumed and spent balances is not 0: %w", ErrTransactionInvalid)
+		return nil, errors.WithMessagef(ErrTransactionInvalid, "sum of consumed and spent balances is not 0")
 	}
 	if !UnlockBlocksValid(inputs, transaction) {
-		return nil, errors.Errorf("spending of referenced consumedOutputs is not authorized: %w", ErrTransactionInvalid)
+		return nil, errors.WithMessagef(ErrTransactionInvalid, "spending of referenced consumedOutputs is not authorized")
 	}
 	if !AliasInitialStateValid(inputs, transaction) {
-		return nil, errors.Errorf("initial state of created alias output is invalid: %w", ErrTransactionInvalid)
+		return nil, errors.WithMessagef(ErrTransactionInvalid, "initial state of created alias output is invalid")
 	}
 
 	outputs = make(Outputs, 0, len(transaction.Essence().Outputs()))

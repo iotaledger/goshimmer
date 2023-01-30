@@ -5,9 +5,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/iotaledger/hive.go/core/typeutils"
+	"github.com/pkg/errors"
 	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
@@ -83,9 +84,10 @@ func (s *Spammer) run(rate int, payloadSize uint64, timeUnit time.Duration, imif
 		case <-s.shutdown:
 			return
 		case <-ticker.C:
-			estimatedDuration := s.estimateFunc()
 			// TODO: only sleep if estimate > some threshold.
-			time.Sleep(estimatedDuration)
+			for estimatedDuration := s.estimateFunc(); estimatedDuration > 0; estimatedDuration = s.estimateFunc() {
+				time.Sleep(lo.Min(estimatedDuration, time.Duration(rate)))
+			}
 
 			// adjust the ticker interval for the poisson imif
 			if imif == "poisson" {
