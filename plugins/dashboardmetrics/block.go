@@ -25,9 +25,53 @@ var (
 
 	// counter for the received BPS (for dashboard).
 	mpsAttachedSinceLastMeasurement atomic.Uint64
+
+	// total number of booked transactions.
+	bookedTransactions atomic.Uint64
+
+	// current number of finalized blocks.
+	finalizedBlockCount      = make(map[collector.BlockType]uint64)
+	finalizedBlockCountMutex syncutils.RWMutex
+
+	// total time it took all blocks to finalize after being issued. unit is milliseconds!
+	blockFinalizationIssuedTotalTime = make(map[collector.BlockType]uint64)
+	blockFinalizationTotalTimeMutex  syncutils.RWMutex
 )
 
 // //// Exported functions to obtain metrics from outside //////
+
+// BookedTransactions returns the actual number of tips in the block tangle.
+func BookedTransactions() uint64 {
+	return bookedTransactions.Load()
+}
+
+// BlockFinalizationTotalTimeSinceIssuedPerType returns total time since block issuance it took for all blocks to finalize per block type.
+func BlockFinalizationTotalTimeSinceIssuedPerType() map[collector.BlockType]uint64 {
+	blockFinalizationTotalTimeMutex.RLock()
+	defer blockFinalizationTotalTimeMutex.RUnlock()
+
+	// copy the original map
+	clone := make(map[collector.BlockType]uint64)
+	for key, element := range blockFinalizationIssuedTotalTime {
+		clone[key] = element
+	}
+
+	return clone
+}
+
+// FinalizedBlockCountPerType returns the number of blocks finalized per block type.
+func FinalizedBlockCountPerType() map[collector.BlockType]uint64 {
+	finalizedBlockCountMutex.RLock()
+	defer finalizedBlockCountMutex.RUnlock()
+
+	// copy the original map
+	clone := make(map[collector.BlockType]uint64)
+	for key, element := range finalizedBlockCount {
+		clone[key] = element
+	}
+
+	return clone
+}
 
 // BlockCountSinceStartPerComponentGrafana returns a map of block count per component types and their count since the start of the node.
 func BlockCountSinceStartPerComponentGrafana() map[collector.ComponentType]uint64 {
@@ -62,6 +106,11 @@ func BlockRequestQueueSize() int64 {
 	return requestQueueSize.Load()
 }
 
+// increases the booked transaction counter
+func increaseBookedTransactionCounter() {
+	bookedTransactions.Inc()
+}
+
 func increasePerComponentCounter(c collector.ComponentType) {
 	blockCountPerComponentMutex.Lock()
 	defer blockCountPerComponentMutex.Unlock()
@@ -69,6 +118,20 @@ func increasePerComponentCounter(c collector.ComponentType) {
 	// increase cumulative metrics
 	blockCountPerComponentDashboard[c]++
 	blockCountPerComponentGrafana[c]++
+}
+
+func increaseFinalizedBlkPerTypeCounter(c collector.BlockType) {
+	finalizedBlockCountMutex.Lock()
+	defer finalizedBlockCountMutex.Unlock()
+
+	finalizedBlockCount[c]++
+}
+
+func increaseFinalizationIssuedTotalTime(c collector.BlockType, t uint64) {
+	blockFinalizationTotalTimeMutex.Lock()
+	defer blockFinalizationTotalTimeMutex.Unlock()
+
+	blockFinalizationIssuedTotalTime[c] += t
 }
 
 // measures the Component Counter value per second.

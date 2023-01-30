@@ -2,20 +2,23 @@ package metrics
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"github.com/iotaledger/hive.go/core/autopeering/discover"
+	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/node"
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/app/collector"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/app/retainer"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1/manamodels"
-	"github.com/iotaledger/goshimmer/plugins/metrics"
+	"github.com/iotaledger/goshimmer/plugins/dashboardmetrics"
 )
 
 var (
@@ -24,15 +27,17 @@ var (
 
 	deps   = new(dependencies)
 	maxBPS float64
+
+	bps atomic.Uint64
 )
 
 type dependencies struct {
 	dig.In
 
 	Server    *echo.Echo
-	Retainer  *retainer.Retainer
 	Protocol  *protocol.Protocol
 	Discovery *discover.Protocol
+	Collector *collector.Collector
 }
 
 func init() {
@@ -40,41 +45,46 @@ func init() {
 }
 
 func configure(_ *node.Plugin) {
+	dashboardmetrics.Events.AttachedBPSUpdated.Attach(event.NewClosure(func(e *dashboardmetrics.AttachedBPSUpdatedEvent) {
+		bps.Store(e.BPS)
+	}))
+
 	deps.Server.GET("metrics/global", GetGlobalMetrics)
 	deps.Server.GET("metrics/nodes", GetNodesMetrics)
 }
 
 // GetGlobalMetrics is the handler for the /metrics/global endpoint.
 func GetGlobalMetrics(c echo.Context) (err error) {
-	blkStored := metrics.BlockCountSinceStartPerComponentGrafana()[metrics.Attached]
-
+	blkStored := dashboardmetrics.BlockCountSinceStartPerComponentGrafana()[collector.Attached]
+	fmt.Println(">>>>>>>block stored:", blkStored)
 	var finalizedBlk uint64
-	for _, num := range metrics.FinalizedBlockCountPerType() {
+	for _, num := range dashboardmetrics.FinalizedBlockCountPerType() {
 		finalizedBlk += num
 	}
+	fmt.Println(">>>>>>>finalized block:", finalizedBlk)
 	inclusionRate := finalizedBlk / blkStored
 
 	var totalDelay uint64
-	for _, t := range metrics.BlockFinalizationTotalTimeSinceIssuedPerType() {
+	for _, t := range dashboardmetrics.BlockFinalizationTotalTimeSinceIssuedPerType() {
 		totalDelay += t
 	}
 	confirmationDelay := time.Duration(totalDelay / finalizedBlk)
 
 	return c.JSON(http.StatusOK, jsonmodels.GlobalMetricsResponse{
-		BlockStored:        blkStored,
-		BookedTransactions: metrics.BookedTransactions(),
+		BPS:                bps.Load(),
+		BookedTransactions: dashboardmetrics.BookedTransactions(),
 		InclusionRate:      float64(inclusionRate),
 		ConfirmationDelay:  confirmationDelay.String(),
 		ActiveManaRatio:    activeManaRatio(),
 		OnlineNodes:        len(deps.Discovery.GetVerifiedPeers()),
-		ConflictsResolved:  metrics.FinalizedConflictCountDB(),
-		TotalConflicts:     metrics.TotalConflictCountDB(),
+		ConflictsResolved:  dashboardmetrics.FinalizedConflictCountDB(),
+		TotalConflicts:     dashboardmetrics.TotalConflictCountDB(),
 	})
 }
 
 // GetNodesMetrics is the handler for the /metrics/nodes endpoint.
 func GetNodesMetrics(c echo.Context) (err error) {
-	cmanas := metrics.ConsensusManaMap().ToIssuerStrList()
+	cmanas := dashboardmetrics.ConsensusManaMap().ToIssuerStrList()
 
 	if maxBPS == 0 {
 		maxBPS = 1 / deps.Protocol.CongestionControl.Scheduler().Rate().Seconds()
@@ -85,13 +95,13 @@ func GetNodesMetrics(c echo.Context) (err error) {
 		ActiveManaRatio: activeManaRatio(),
 		OnlineNodes:     len(deps.Discovery.GetVerifiedPeers()),
 		MaxBPS:          maxBPS,
-		BlockScheduled:  metrics.BlockCountSinceStartPerComponentGrafana()[metrics.Scheduled],
+		BlockScheduled:  dashboardmetrics.BlockCountSinceStartPerComponentGrafana()[collector.Scheduled],
 	})
 }
 
 func activeManaRatio() float64 {
 	var totalActive int64
-	for _, am := range metrics.ConsensusManaMap() {
+	for _, am := range dashboardmetrics.ConsensusManaMap() {
 		totalActive += am
 	}
 

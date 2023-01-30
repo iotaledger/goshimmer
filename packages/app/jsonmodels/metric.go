@@ -4,7 +4,7 @@ import "github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota
 
 // GlobalMetricsResponse contains global metrics for explorer.
 type GlobalMetricsResponse struct {
-	BlockStored        uint64  `json:"blockStored"`
+	BPS                uint64  `json:"bps"`
 	BookedTransactions uint64  `json:"bookedTransactions"`
 	InclusionRate      float64 `json:"inclusionRate"`
 	ConfirmationDelay  string  `json:"confirmationDelay"`
