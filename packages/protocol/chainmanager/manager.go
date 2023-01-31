@@ -18,6 +18,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 )
 
+var (
+	ErrCommitmentUnknown                  = errors.New("unknown commitment")
+	ErrCommitmentNotSolid                 = errors.New("commitment not solid")
+	ErrCommitmentIsAlreadyPartOfMainChain = errors.New("commitment is already part of the main chain")
+)
+
 type Manager struct {
 	Events              *Events
 	SnapshotCommitment  *Commitment
@@ -139,7 +145,11 @@ func (m *Manager) ProcessCommitment(commitment *commitment.Commitment) (isSolid 
 	}
 
 	if !published {
-		m.switchMainChainToCommitment(chainCommitment)
+		if err := m.switchMainChainToCommitment(chainCommitment); err != nil {
+			if !errors.Is(err, ErrCommitmentIsAlreadyPartOfMainChain) {
+				panic(err)
+			}
+		}
 	}
 
 	return isSolid, chain, wasForked
@@ -207,7 +217,7 @@ func (m *Manager) Commitments(id commitment.ID, amount int) (commitments []*Comm
 	for i := 0; i < amount; i++ {
 		currentCommitment, exists := m.commitmentsByID[id]
 		if !exists {
-			return nil, errors.New("not all commitments in the given range are known")
+			return nil, errors.Wrap(ErrCommitmentUnknown, "not all commitments in the given range are known")
 		}
 
 		commitments[i] = currentCommitment
@@ -220,7 +230,7 @@ func (m *Manager) Commitments(id commitment.ID, amount int) (commitments []*Comm
 
 func (m *Manager) forkingPointAgainstMainChain(commitment *Commitment) (*Commitment, error) {
 	if !commitment.IsSolid() || commitment.Chain() == nil {
-		return nil, errors.Errorf("commitment %s is not solid", commitment)
+		return nil, errors.Wrapf(ErrCommitmentNotSolid, "commitment %s is not solid", commitment)
 	}
 
 	var forkingCommitment *Commitment
@@ -229,12 +239,12 @@ func (m *Manager) forkingPointAgainstMainChain(commitment *Commitment) (*Commitm
 		forkingCommitment = chain.ForkingPoint
 
 		if commitment, _ = m.Commitment(forkingCommitment.Commitment().PrevID()); commitment == nil {
-			return nil, errors.Errorf("unknown parent of solid commitment %s", forkingCommitment.Commitment().ID())
+			return nil, errors.Wrapf(ErrCommitmentUnknown, "unknown parent of solid commitment %s", forkingCommitment.Commitment().ID())
 		}
 	}
 
 	if forkingCommitment == nil {
-		return nil, errors.Errorf("commitment %s is part of the main chain", commitment.ID())
+		return nil, errors.Wrapf(ErrCommitmentIsAlreadyPartOfMainChain, "commitment %s has no forking point", commitment.ID())
 	}
 
 	return forkingCommitment, nil
@@ -252,7 +262,7 @@ func (m *Manager) ForkedEventByForkingPoint(commitmentID commitment.ID) (forkedE
 func (m *Manager) SwitchMainChain(head commitment.ID) error {
 	commitment, _ := m.Commitment(head)
 	if commitment == nil {
-		return errors.Errorf("unknown commitment %s", head)
+		return errors.Wrapf(ErrCommitmentUnknown, "unknown commitment %s", head)
 	}
 
 	return m.switchMainChainToCommitment(commitment)
@@ -266,7 +276,7 @@ func (m *Manager) switchMainChainToCommitment(commitment *Commitment) error {
 
 	parentCommitment, _ := m.Commitment(forkingPoint.Commitment().PrevID())
 	if parentCommitment == nil {
-		return errors.Errorf("unknown parent of solid commitment %s", forkingPoint.ID())
+		return errors.Wrapf(ErrCommitmentUnknown, "unknown parent of solid commitment %s", forkingPoint.ID())
 	}
 
 	// Separate the main chain by remove it from the parent
