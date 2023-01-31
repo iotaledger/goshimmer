@@ -25,7 +25,11 @@ func GetLibp2pIdentity(lPeer *peer.Local) (libp2p.Option, error) {
 
 // ToLibp2pPrivateKey transforms private key in our type to libp2p type.
 func ToLibp2pPrivateKey(ourPrivateKey ed25519.PrivateKey) (libp2pcrypto.PrivKey, error) {
-	libp2pPrivateKey, err := libp2pcrypto.UnmarshalEd25519PrivateKey(ourPrivateKey.Bytes())
+	privateKeyBytes, err := ourPrivateKey.Bytes()
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	libp2pPrivateKey, err := libp2pcrypto.UnmarshalEd25519PrivateKey(privateKeyBytes)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
