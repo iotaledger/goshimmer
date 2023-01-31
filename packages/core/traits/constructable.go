@@ -2,8 +2,8 @@ package traits
 
 // Constructable is a trait that allows to subscribe to and trigger an event, whenever a component was constructed.
 type Constructable interface {
-	// SubscribeConstructed registers a new callback that is triggered when the component was constructed.
-	SubscribeConstructed(callback func()) (unsubscribe func())
+	// SubscribeConstructed registers callbacks that are triggered when the component was constructed.
+	SubscribeConstructed(callbacks ...func()) (unsubscribe func())
 
 	// TriggerConstructed triggers the constructed event.
 	TriggerConstructed()
@@ -24,9 +24,9 @@ type constructable struct {
 	lifecycleEvent *lifecycleEvent
 }
 
-// SubscribeConstructed registers a new callback that is triggered when the component was constructed.
-func (c *constructable) SubscribeConstructed(callback func()) (unsubscribe func()) {
-	return c.lifecycleEvent.Subscribe(callback)
+// SubscribeConstructed registers callbacks that are triggered when the component was constructed.
+func (c *constructable) SubscribeConstructed(callbacks ...func()) (unsubscribe func()) {
+	return c.lifecycleEvent.Subscribe(callbacks...)
 }
 
 // TriggerConstructed triggers the constructed event.

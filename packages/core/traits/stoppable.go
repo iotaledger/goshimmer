@@ -2,8 +2,8 @@ package traits
 
 // Stoppable is a trait that allows to subscribe to and trigger an event, whenever a component was stopped.
 type Stoppable interface {
-	// SubscribeStopped registers a new callback that is triggered when the component was stopped.
-	SubscribeStopped(callback func()) (unsubscribe func())
+	// SubscribeStopped registers callbacks that are triggered when the component was stopped.
+	SubscribeStopped(callbacks ...func()) (unsubscribe func())
 
 	// TriggerStopped triggers the stopped event.
 	TriggerStopped()
@@ -24,9 +24,9 @@ type stoppable struct {
 	lifecycleEvent *lifecycleEvent
 }
 
-// SubscribeStopped registers a new callback that is triggered when the component was stopped.
-func (s *stoppable) SubscribeStopped(callback func()) (unsubscribe func()) {
-	return s.lifecycleEvent.Subscribe(callback)
+// SubscribeStopped registers callbacks that are triggered when the component was stopped.
+func (s *stoppable) SubscribeStopped(callbacks ...func()) (unsubscribe func()) {
+	return s.lifecycleEvent.Subscribe(callbacks...)
 }
 
 // TriggerStopped triggers the stopped event.
