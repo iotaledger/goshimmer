@@ -63,7 +63,7 @@ func (r *RateSetter) Estimate() time.Duration {
 	} else {
 		// Note: this method needs to be updated to take the expected work of the incoming block as an argument.
 		expectedWork := models.MaxBlockWork
-		return time.Duration(lo.Max(0.0, (float64(expectedWork)-r.getExcessDeficit())/r.ownRate.Load()))
+		return time.Duration(lo.Max(0.0, (float64(expectedWork)-r.getExcessDeficit())/r.Rate()))
 	}
 }
 
