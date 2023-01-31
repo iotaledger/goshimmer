@@ -2,7 +2,6 @@ package metrics
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"sync/atomic"
 	"time"
@@ -56,13 +55,11 @@ func configure(_ *node.Plugin) {
 // GetGlobalMetrics is the handler for the /metrics/global endpoint.
 func GetGlobalMetrics(c echo.Context) (err error) {
 	blkStored := dashboardmetrics.BlockCountSinceStartPerComponentGrafana()[collector.Attached]
-	fmt.Println(">>>>>>>block stored:", blkStored)
 	var finalizedBlk uint64
 	for _, num := range dashboardmetrics.FinalizedBlockCountPerType() {
 		finalizedBlk += num
 	}
-	fmt.Println(">>>>>>>finalized block:", finalizedBlk)
-	inclusionRate := finalizedBlk / blkStored
+	inclusionRate := float64(finalizedBlk) / float64(blkStored)
 
 	var totalDelay uint64
 	for _, t := range dashboardmetrics.BlockFinalizationTotalTimeSinceIssuedPerType() {
@@ -73,7 +70,7 @@ func GetGlobalMetrics(c echo.Context) (err error) {
 	return c.JSON(http.StatusOK, jsonmodels.GlobalMetricsResponse{
 		BPS:                bps.Load(),
 		BookedTransactions: dashboardmetrics.BookedTransactions(),
-		InclusionRate:      float64(inclusionRate),
+		InclusionRate:      inclusionRate,
 		ConfirmationDelay:  confirmationDelay.String(),
 		ActiveManaRatio:    activeManaRatio(),
 		OnlineNodes:        len(deps.Discovery.GetVerifiedPeers()),
@@ -114,5 +111,5 @@ func activeManaRatio() float64 {
 	for i := 0; i < len(consensusManaList); i++ {
 		totalConsensusMana += consensusManaList[i].Mana
 	}
-	return float64(totalActive / totalConsensusMana)
+	return float64(totalActive) / float64(totalConsensusMana)
 }
