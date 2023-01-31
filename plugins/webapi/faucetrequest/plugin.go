@@ -7,11 +7,13 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/node"
 	"github.com/labstack/echo"
+	"github.com/mr-tron/base58"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	faucetpkg "github.com/iotaledger/goshimmer/packages/app/faucet"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/core/pow"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
@@ -37,6 +39,7 @@ func init() {
 
 func configure(_ *node.Plugin) {
 	deps.Server.POST("faucetrequest", requestFunds)
+	deps.Server.POST("faucetrequest/serialization", SerializeFaucetRequest)
 }
 
 // requestFunds creates a faucet request (0-value) block with the given destination address and
@@ -80,4 +83,45 @@ func requestFunds(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, jsonmodels.FaucetRequestResponse{ID: blk.ID().Base58()})
+}
+
+func SerializeFaucetRequest(c echo.Context) error {
+	var request jsonmodels.FaucetRequest
+	if err := c.Bind(&request); err != nil {
+		Plugin.LogInfo(err.Error())
+		return c.JSON(http.StatusBadRequest, jsonmodels.FaucetSerializationResponse{Error: err.Error()})
+	}
+
+	Plugin.LogInfo("Received - address:", request.Address)
+	Plugin.LogDebug(request)
+
+	addr, err := devnetvm.AddressFromBase58EncodedString(request.Address)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, jsonmodels.FaucetSerializationResponse{Error: "Invalid address"})
+	}
+
+	var accessManaPledgeID identity.ID
+	var consensusManaPledgeID identity.ID
+	if request.AccessManaPledgeID != "" {
+		accessManaPledgeID, err = identity.DecodeIDBase58(request.AccessManaPledgeID)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, jsonmodels.FaucetSerializationResponse{Error: "Invalid access mana node ID"})
+		}
+	}
+
+	if request.ConsensusManaPledgeID != "" {
+		consensusManaPledgeID, err = identity.DecodeIDBase58(request.ConsensusManaPledgeID)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, jsonmodels.FaucetSerializationResponse{Error: "Invalid consensus mana node ID"})
+		}
+	}
+
+	faucetPayload := faucetpkg.NewRequest(addr, accessManaPledgeID, consensusManaPledgeID, 0)
+	bytes, err := faucetPayload.Bytes()
+	if err != nil {
+		return c.JSON(http.StatusOK, jsonmodels.FaucetSerializationResponse{Error: err.Error()})
+	}
+	powRelevantBase58 := base58.Encode(bytes[:len(bytes)-pow.NonceBytes])
+
+	return c.JSON(http.StatusOK, jsonmodels.FaucetSerializationResponse{Bytes: powRelevantBase58})
 }

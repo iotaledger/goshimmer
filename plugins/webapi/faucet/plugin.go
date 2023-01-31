@@ -11,7 +11,6 @@ import (
 	faucetpkg "github.com/iotaledger/goshimmer/packages/app/faucet"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
-
 	"github.com/iotaledger/goshimmer/plugins/faucet"
 )
 
@@ -49,7 +48,7 @@ func processFaucetRequest(c echo.Context) error {
 
 	addr, err := devnetvm.AddressFromBase58EncodedString(request.Address)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.FaucetRequestResponse{Error: "Invalid address"})
+		return c.JSON(http.StatusBadRequest, jsonmodels.FaucetAPIResponse{Error: "Invalid address"})
 	}
 
 	var accessManaPledgeID identity.ID

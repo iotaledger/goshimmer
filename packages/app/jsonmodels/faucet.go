@@ -19,3 +19,9 @@ type FaucetRequest struct {
 	ConsensusManaPledgeID string `json:"consensusManaPledgeID"`
 	Nonce                 uint64 `json:"nonce"`
 }
+
+// FaucetSerializationResponse contains the serialized faucet payload.
+type FaucetSerializationResponse struct {
+	Bytes string `json:"bytes"`
+	Error string `json:"error,omitempty"`
+}
