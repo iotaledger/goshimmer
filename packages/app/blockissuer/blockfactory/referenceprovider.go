@@ -6,6 +6,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
@@ -121,9 +122,14 @@ func (r *ReferenceProvider) addedReferencesForBlock(blockID models.BlockID, excl
 
 	var err error
 	if addedReferences, err = r.addedReferencesForConflicts(blockConflicts, excludedConflictIDs); err != nil {
+		// Delete the tip if we could not pick it up.
 		if schedulerBlock, schedulerBlockExists := r.protocol.CongestionControl.Scheduler().Block(blockID); schedulerBlockExists {
 			r.protocol.TipManager.DeleteTip(schedulerBlock)
 		}
+	}
+
+	// We could not refer the blocks to fix the opinion, but we have no error condition.
+	if addedReferences == nil {
 		return nil, false
 	}
 
@@ -149,7 +155,12 @@ func (r *ReferenceProvider) addedReferencesForConflicts(conflictIDs utxo.Transac
 		if adjust, referencedBlk, referenceErr := r.adjustOpinion(conflictID, excludedConflictIDs); referenceErr != nil {
 			return nil, errors.Wrapf(referenceErr, "failed to create reference for %s", conflictID)
 		} else if adjust {
-			referencesToAdd.Add(models.ShallowLikeParentType, referencedBlk)
+			if referencedBlk != models.EmptyBlockID {
+				referencesToAdd.Add(models.ShallowLikeParentType, referencedBlk)
+			} else {
+				// We could not find a block that we could reference to fix this strong parent, but we don't want to delete the tip.
+				return nil, nil
+			}
 		}
 	}
 
@@ -157,7 +168,7 @@ func (r *ReferenceProvider) addedReferencesForConflicts(conflictIDs utxo.Transac
 }
 
 // adjustOpinion returns the reference that is necessary to correct our opinion on the given conflict.
-func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, excludedConflictIDs utxo.TransactionIDs) (adjust bool, blkID models.BlockID, err error) {
+func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, excludedConflictIDs utxo.TransactionIDs) (adjust bool, attachmentID models.BlockID, err error) {
 	engineInstance := r.protocol.Engine()
 
 	for w := walker.New[utxo.TransactionID](false).Push(conflictID); w.HasNext(); {
@@ -169,13 +180,19 @@ func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, exclude
 				return false, models.EmptyBlockID, nil
 			}
 
-			if blkID, err = r.firstValidAttachment(likedConflictID); err != nil {
+			attachment, err := r.firstValidAttachment(likedConflictID)
+			if err != nil {
 				continue
+			}
+
+			// Check if the attachment has a monotonic commitment.
+			if attachment.Commitment().Index() > r.protocol.Engine().Storage.Settings.LatestCommitment().Index() {
+				return true, models.EmptyBlockID, nil
 			}
 
 			excludedConflictIDs.AddAll(engineInstance.Ledger.Utils.ConflictIDsInFutureCone(dislikedConflictIDs))
 
-			return true, blkID, nil
+			return true, attachment.ID(), nil
 		}
 
 		// only walk deeper if we don't like "something else"
@@ -185,18 +202,18 @@ func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, exclude
 		}
 	}
 
-	return false, models.EmptyBlockID, errors.Errorf("failed to create dislike for %s", conflictID)
+	return false, models.EmptyBlockID, errors.Errorf("failed to adjust opinion for %s", conflictID)
 }
 
 // firstValidAttachment returns the first valid attachment of the given transaction.
-func (r *ReferenceProvider) firstValidAttachment(txID utxo.TransactionID) (blockID models.BlockID, err error) {
-	block := r.protocol.Engine().Tangle.Booker.GetEarliestAttachment(txID)
+func (r *ReferenceProvider) firstValidAttachment(txID utxo.TransactionID) (block *booker.Block, err error) {
+	block = r.protocol.Engine().Tangle.Booker.GetEarliestAttachment(txID)
 
 	if committableEpoch := r.latestEpochIndexCallback(); block.ID().Index() <= committableEpoch {
-		return models.EmptyBlockID, errors.Errorf("attachment of %s with %s is too far in the past as current committable epoch is %d", txID, block.ID(), committableEpoch)
+		return nil, errors.Errorf("attachment of %s with %s is too far in the past as current committable epoch is %d", txID, block.ID(), committableEpoch)
 	}
 
-	return block.ID(), nil
+	return
 }
 
 // payloadLiked checks if the payload of a Block is liked.
