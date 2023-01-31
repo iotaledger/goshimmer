@@ -88,8 +88,8 @@ func TestManager(t *testing.T) {
 		tf.AssertChainIsAlias(chain, "Genesis")
 		tf.AssertChainState(lo.MergeMaps(expectedChainMappings, map[string]string{
 			"2": "Genesis",
-			"3": "",
-			"4": "",
+			"3": "Genesis",
+			"4": "Genesis",
 		}))
 	}
 
