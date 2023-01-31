@@ -124,15 +124,15 @@ func (t *TestFramework) setupEvents() {
 		atomic.AddUint32(&(t.tipRemoved), 1)
 	}))
 
-	t.mockAcceptance.BlockAcceptedEvent.Attach(event.NewClosure(func(block *blockgadget.Block) {
+	t.mockAcceptance.BlockAcceptedEvent.Hook(event.NewClosure(func(block *blockgadget.Block) {
 		require.NoError(t.test, t.engine.NotarizationManager.NotarizeAcceptedBlock(block.ModelsBlock))
 	}))
 
-	t.engine.NotarizationManager.Events.EpochCommitted.Attach(event.NewClosure(func(details *notarization.EpochCommittedDetails) {
+	t.engine.NotarizationManager.Events.EpochCommitted.Hook(event.NewClosure(func(details *notarization.EpochCommittedDetails) {
 		t.TipManager.PromoteFutureTips(details.Commitment)
 	}))
 
-	t.engine.EvictionState.Events.EpochEvicted.Attach(event.NewClosure(func(index epoch.Index) {
+	t.engine.EvictionState.Events.EpochEvicted.Hook(event.NewClosure(func(index epoch.Index) {
 		t.TipManager.Evict(index)
 	}))
 }
