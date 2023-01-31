@@ -140,9 +140,14 @@ func checkCfgSeedAgainstDB(cfgSeed []byte, peerDB *peer.DB) error {
 	}
 	prvKeyCfg := ed25519.PrivateKeyFromSeed(cfgSeed)
 	prvKeyCfgBytes, err := prvKeyCfg.Bytes()
+	if err != nil {
+		return err
+	}
+
 	if !bytes.Equal(prvKeyCfgBytes, prvKeyDBBytes) {
 		return errors.WithMessagef(ErrMismatchedPrivateKeys, "identities - pub keys (cfg/db): %s vs. %s", prvKeyCfg.Public().String(), prvKeyDB.Public().String())
 	}
+
 	return nil
 }
 
