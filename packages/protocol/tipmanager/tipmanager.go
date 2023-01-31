@@ -245,14 +245,13 @@ func (t *TipManager) FutureTipCount() (futureTipsPerEpoch map[epoch.Index]int) {
 
 // PromoteFutureTips promotes to the main tippool all future tips that belong to the given commitment.
 func (t *TipManager) PromoteFutureTips(cm *commitment.Commitment) {
+	t.tipsMutex.Lock()
 	t.evictionMutex.RLock()
 	defer func() {
+		t.tipsMutex.Unlock()
 		t.evictionMutex.RUnlock()
 		t.Evict(cm.Index())
 	}()
-
-	t.tipsMutex.Lock()
-	defer t.tipsMutex.Unlock()
 
 	if futureEpochTips := t.futureTips.Get(cm.Index()); futureEpochTips != nil {
 		if tipsForCommitment, exists := futureEpochTips.Get(cm.ID()); exists {
