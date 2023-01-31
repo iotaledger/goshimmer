@@ -19,6 +19,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
+	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
@@ -66,11 +67,14 @@ type Protocol struct {
 	optsStorageDatabaseManagerOptions []options.Option[database.Manager]
 	optsSybilProtectionProvider       engine.ModuleProvider[sybilprotection.SybilProtection]
 	optsThroughputQuotaProvider       engine.ModuleProvider[throughputquota.ThroughputQuota]
+
+	traits.Stoppable
 }
 
 func New(dispatcher network.Endpoint, opts ...options.Option[Protocol]) (protocol *Protocol) {
 	return options.Apply(&Protocol{
-		Events: NewEvents(),
+		Events:    NewEvents(),
+		Stoppable: traits.NewStoppable(),
 
 		dispatcher:                  dispatcher,
 		optsSybilProtectionProvider: dpos.NewProvider(),
@@ -81,6 +85,7 @@ func New(dispatcher network.Endpoint, opts ...options.Option[Protocol]) (protoco
 		optsBaseDirectory:    "",
 		optsPruningThreshold: 6 * 60, // 1 hour given that epoch duration is 10 seconds
 	}, opts,
+		(*Protocol).initNetworkEvents,
 		(*Protocol).initCongestionControl,
 		(*Protocol).initEngineManager,
 		(*Protocol).initChainManager,
@@ -105,7 +110,12 @@ func (p *Protocol) Run() {
 		panic(err)
 	}
 
-	p.initNetworkProtocol()
+	p.networkProtocol = network.NewProtocol(p.dispatcher)
+	p.Events.Network.LinkTo(p.networkProtocol.Events)
+
+	for _, wp := range p.workerPools {
+		wp.Start()
+	}
 }
 
 func (p *Protocol) WaitWorkerPoolsEmpty() {
@@ -116,7 +126,7 @@ func (p *Protocol) WaitWorkerPoolsEmpty() {
 
 // Shutdown shuts down the protocol.
 func (p *Protocol) Shutdown() {
-	p.CongestionControl.Shutdown()
+	p.TriggerStopped()
 
 	p.activeEngineMutex.RLock()
 	defer p.activeEngineMutex.RUnlock()
@@ -126,12 +136,10 @@ func (p *Protocol) Shutdown() {
 	if p.candidateEngine != nil {
 		p.candidateEngine.Shutdown()
 	}
-}
 
-func (p *Protocol) WorkerPools() map[string]*workerpool.UnboundedWorkerPool {
-	wps := make(map[string]*workerpool.UnboundedWorkerPool)
-	wps["CongestionControl"] = p.CongestionControl.WorkerPool()
-	return lo.MergeMaps(wps, p.MainEngineInstance().Engine.WorkerPools())
+	for _, pool := range p.workerPools {
+		pool.Shutdown()
+	}
 }
 
 func (p *Protocol) initEngineManager() {
@@ -144,87 +152,115 @@ func (p *Protocol) initEngineManager() {
 		p.optsThroughputQuotaProvider,
 	)
 
-	p.Events.Engine.Consensus.EpochGadget.EpochConfirmed.Attach(event.NewClosure(func(epochIndex epoch.Index) {
-		p.Engine().Storage.PruneUntilEpoch(epochIndex - epoch.Index(p.optsPruningThreshold))
-	}))
+	p.SubscribeStopped(
+		event.Attach(p.Events.Engine.Consensus.EpochGadget.EpochConfirmed, func(epochIndex epoch.Index) {
+			p.Engine().Storage.PruneUntilEpoch(epochIndex - epoch.Index(p.optsPruningThreshold))
+		}),
+	)
 
 	p.mainEngine = lo.PanicOnErr(p.engineManager.LoadActiveEngine())
 }
 
 func (p *Protocol) initCongestionControl() {
 	p.CongestionControl = congestioncontrol.New(p.optsCongestionControlOptions...)
+	p.SubscribeStopped(p.CongestionControl.Shutdown)
+	p.workerPools["Protocol.CongestionControl"] = p.CongestionControl.WorkerPool()
 
-	p.Events.CongestionControl = p.CongestionControl.Events
+	p.Events.CongestionControl.LinkTo(p.CongestionControl.Events)
+
+	p.SubscribeStopped()
 }
 
-func (p *Protocol) initNetworkProtocol() {
-	p.networkProtocol = network.NewProtocol(p.dispatcher)
-
-	p.Events.Network.LinkTo(p.networkProtocol.Events)
-
-	p.Events.Network.BlockRequestReceived.Attach(event.NewClosure(func(event *network.BlockRequestReceivedEvent) {
-		if block, exists := p.MainEngineInstance().Engine.Block(event.BlockID); exists {
-			p.networkProtocol.SendBlock(block, event.Source)
-		}
-	}))
-
-	p.Events.Network.BlockReceived.Attach(event.NewClosure(func(event *network.BlockReceivedEvent) {
-		if err := p.ProcessBlock(event.Block, event.Source); err != nil {
-			p.Events.Error.Trigger(err)
-		}
-	}))
-
-	p.Events.Network.EpochCommitmentReceived.Attach(event.NewClosure(func(event *network.EpochCommitmentReceivedEvent) {
-		p.chainManager.ProcessCommitmentFromSource(event.Commitment, event.Source)
-	}))
-
-	p.Events.Network.EpochCommitmentRequestReceived.Attach(event.NewClosure(func(event *network.EpochCommitmentRequestReceivedEvent) {
-		// when we receive a commitment request, do not look it up in the ChainManager but in the storage, else we might answer with commitments we did not issue ourselves and for which we cannot provide attestations
-		if requestedCommitment, err := p.Engine().Storage.Commitments.Load(event.CommitmentID.Index()); err == nil && requestedCommitment.ID() == event.CommitmentID {
-			p.networkProtocol.SendEpochCommitment(requestedCommitment, event.Source)
-		}
-	}))
-
-	p.Events.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
-		p.networkProtocol.SendBlock(block.ModelsBlock)
-	}))
-
-	p.Events.Engine.BlockRequester.Tick.Attach(event.NewClosure(func(blockID models.BlockID) {
-		p.networkProtocol.RequestBlock(blockID)
-	}))
-
-	p.chainManager.CommitmentRequester.Events.Tick.Attach(event.NewClosure(func(commitmentID commitment.ID) {
-		p.networkProtocol.RequestCommitment(commitmentID)
-	}))
-
-	p.Events.Network.AttestationsRequestReceived.Attach(event.NewClosure(func(event *network.AttestationsRequestReceivedEvent) {
-		p.ProcessAttestationsRequest(event.Commitment, event.EndIndex, event.Source)
-	}))
-
-	p.Events.Network.AttestationsReceived.Attach(event.NewClosure(func(event *network.AttestationsReceivedEvent) {
-		p.ProcessAttestations(event.Commitment, event.BlockIDs, event.Attestations, event.Source)
-	}))
+func (p *Protocol) initNetworkEvents() {
+	p.SubscribeStopped(
+		event.Attach(p.Events.Network.BlockRequestReceived, func(event *network.BlockRequestReceivedEvent) {
+			if block, exists := p.MainEngineInstance().Engine.Block(event.BlockID); exists {
+				p.networkProtocol.SendBlock(block, event.Source)
+			}
+		}),
+		event.Attach(p.Events.Network.BlockReceived, func(event *network.BlockReceivedEvent) {
+			if err := p.ProcessBlock(event.Block, event.Source); err != nil {
+				p.Events.Error.Trigger(err)
+			}
+		}),
+		event.Attach(p.Events.Network.AttestationsRequestReceived, func(event *network.AttestationsRequestReceivedEvent) {
+			p.ProcessAttestationsRequest(event.Commitment, event.EndIndex, event.Source)
+		}),
+		event.Attach(p.Events.Network.AttestationsReceived, func(event *network.AttestationsReceivedEvent) {
+			p.ProcessAttestations(event.Commitment, event.BlockIDs, event.Attestations, event.Source)
+		}),
+		event.Attach(p.Events.Network.EpochCommitmentRequestReceived, func(event *network.EpochCommitmentRequestReceivedEvent) {
+			// when we receive a commitment request, do not look it up in the ChainManager but in the storage, else we might answer with commitments we did not issue ourselves and for which we cannot provide attestations
+			if requestedCommitment, err := p.Engine().Storage.Commitments.Load(event.CommitmentID.Index()); err == nil && requestedCommitment.ID() == event.CommitmentID {
+				p.networkProtocol.SendEpochCommitment(requestedCommitment, event.Source)
+			}
+		}),
+		event.Attach(p.Events.Engine.BlockRequester.Tick, func(blockID models.BlockID) {
+			p.networkProtocol.RequestBlock(blockID)
+		}),
+		event.Attach(p.Events.CongestionControl.Scheduler.BlockScheduled, func(block *scheduler.Block) {
+			p.networkProtocol.SendBlock(block.ModelsBlock)
+		}),
+	)
 }
 
 func (p *Protocol) initChainManager() {
 	p.chainManager = chainmanager.NewManager(p.Engine().Storage.Settings.LatestCommitment())
 	p.Events.ChainManager = p.chainManager.Events
 
-	p.Events.Engine.NotarizationManager.EpochCommitted.Attach(event.NewClosure(func(details *notarization.EpochCommittedDetails) {
-		p.chainManager.ProcessCommitment(details.Commitment)
-	}))
+	p.SubscribeStopped(
+		event.Attach(p.Events.Engine.NotarizationManager.EpochCommitted, func(details *notarization.EpochCommittedDetails) {
+			p.chainManager.ProcessCommitment(details.Commitment)
+		}),
+		event.Attach(p.Events.Engine.Consensus.EpochGadget.EpochConfirmed, func(epochIndex epoch.Index) {
+			p.chainManager.CommitmentRequester.EvictUntil(epochIndex)
+		}),
+		event.Attach(p.Events.Engine.EvictionState.EpochEvicted, func(epochIndex epoch.Index) {
+			p.chainManager.Evict(epochIndex)
+		}),
+		event.Attach(p.Events.ChainManager.ForkDetected, func(event *chainmanager.ForkDetectedEvent) {
+			p.onForkDetected(event.Commitment, event.ForkingPointAgainstMainChain, event.EndEpoch(), event.Source)
+		}),
+		event.Attach(p.Events.Network.EpochCommitmentReceived, func(event *network.EpochCommitmentReceivedEvent) {
+			p.chainManager.ProcessCommitmentFromSource(event.Commitment, event.Source)
+		}),
+		event.Attach(p.chainManager.CommitmentRequester.Events.Tick, func(commitmentID commitment.ID) {
+			p.networkProtocol.RequestCommitment(commitmentID)
+		}),
+	)
+}
 
-	p.Events.Engine.Consensus.EpochGadget.EpochConfirmed.Attach(event.NewClosure(func(epochIndex epoch.Index) {
-		p.chainManager.CommitmentRequester.EvictUntil(epochIndex)
-	}))
+func (p *Protocol) initTipManager() {
+	p.TipManager = tipmanager.New(p.CongestionControl.Block, p.optsTipManagerOptions...)
+	p.Events.TipManager = p.TipManager.Events
 
-	p.Events.Engine.EvictionState.EpochEvicted.Attach(event.NewClosure(func(epochIndex epoch.Index) {
-		p.chainManager.Evict(epochIndex)
-	}))
-
-	p.Events.ChainManager.ForkDetected.Attach(event.NewClosure(func(event *chainmanager.ForkDetectedEvent) {
-		p.onForkDetected(event.Commitment, event.ForkingPointAgainstMainChain, event.EndEpoch(), event.Source)
-	}))
+	p.SubscribeStopped(
+		event.Hook(p.Events.Engine.Tangle.BlockDAG.BlockOrphaned, func(block *blockdag.Block) {
+			if schedulerBlock, exists := p.CongestionControl.Block(block.ID()); exists {
+				p.TipManager.DeleteTip(schedulerBlock)
+			}
+		}),
+		event.Hook(p.Events.Engine.Tangle.BlockDAG.BlockUnorphaned, func(block *blockdag.Block) {
+			if schedulerBlock, exists := p.CongestionControl.Block(block.ID()); exists {
+				p.TipManager.AddTip(schedulerBlock)
+			}
+		}),
+		event.Attach(p.Events.CongestionControl.Scheduler.BlockScheduled, func(block *scheduler.Block) {
+			p.TipManager.AddTip(block)
+		}),
+		event.Attach(p.Events.Engine.EvictionState.EpochEvicted, func(index epoch.Index) {
+			p.TipManager.EvictTSCCache(index)
+		}),
+		event.Attach(p.Events.Engine.Consensus.BlockGadget.BlockAccepted, func(block *blockgadget.Block) {
+			p.TipManager.RemoveStrongParents(block.ModelsBlock)
+		}),
+		event.Attach(p.Events.Engine.NotarizationManager.EpochCommitted, func(details *notarization.EpochCommittedDetails) {
+			p.TipManager.PromoteFutureTips(details.Commitment)
+		}),
+		event.Attach(p.Events.Engine.EvictionState.EpochEvicted, func(index epoch.Index) {
+			p.TipManager.Evict(index)
+		}),
+	)
 }
 
 func (p *Protocol) onForkDetected(commitment *commitment.Commitment, forkingPoint *commitment.Commitment, endIndex epoch.Index, source identity.ID) bool {
@@ -287,45 +323,6 @@ func (p *Protocol) switchEngines() {
 	if err := oldEngine.RemoveFromFilesystem(); err != nil {
 		p.Events.Error.Trigger(errors.Wrap(err, "error removing storage directory after switching engines"))
 	}
-}
-
-func (p *Protocol) initTipManager() {
-	// TODO: SWITCH ENGINE SIMILAR TO REQUESTER
-	p.TipManager = tipmanager.New(p.CongestionControl.Block, p.optsTipManagerOptions...)
-
-	p.Events.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
-		p.TipManager.AddTip(block)
-	}))
-
-	p.Events.Engine.EvictionState.EpochEvicted.Attach(event.NewClosure(func(index epoch.Index) {
-		p.TipManager.EvictTSCCache(index)
-	}))
-
-	p.Events.Engine.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
-		p.TipManager.RemoveStrongParents(block.ModelsBlock)
-	}))
-
-	p.Events.Engine.Tangle.BlockDAG.BlockOrphaned.Hook(event.NewClosure(func(block *blockdag.Block) {
-		if schedulerBlock, exists := p.CongestionControl.Block(block.ID()); exists {
-			p.TipManager.DeleteTip(schedulerBlock)
-		}
-	}))
-
-	p.Events.Engine.Tangle.BlockDAG.BlockUnorphaned.Hook(event.NewClosure(func(block *blockdag.Block) {
-		if schedulerBlock, exists := p.CongestionControl.Block(block.ID()); exists {
-			p.TipManager.AddTip(schedulerBlock)
-		}
-	}))
-
-	p.Events.Engine.NotarizationManager.EpochCommitted.Attach(event.NewClosure(func(details *notarization.EpochCommittedDetails) {
-		p.TipManager.PromoteFutureTips(details.Commitment)
-	}))
-
-	p.Events.Engine.EvictionState.EpochEvicted.Attach(event.NewClosure(func(index epoch.Index) {
-		p.TipManager.Evict(index)
-	}))
-
-	p.Events.TipManager = p.TipManager.Events
 }
 
 func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) error {
@@ -511,13 +508,12 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 	}
 
 	// Attach the engine block requests to the protocol and detach as soon as we switch to that engine
-	requestBlocks := event.NewClosure(func(blockID models.BlockID) {
+	detachRequestBlocks := event.Attach(candidateEngine.Engine.Events.BlockRequester.Tick, func(blockID models.BlockID) {
 		p.networkProtocol.RequestBlock(blockID)
 	})
-	candidateEngine.Engine.Events.BlockRequester.Tick.Attach(requestBlocks)
-	p.Events.MainEngineSwitched.Hook(event.NewClosure(func(_ *enginemanager.EngineInstance) {
-		candidateEngine.Engine.Events.BlockRequester.Tick.Detach(requestBlocks)
-	}), 1)
+	event.Hook(p.Events.MainEngineSwitched, func(_ *enginemanager.EngineInstance) {
+		detachRequestBlocks()
+	}, 1)
 
 	// Add all the blocks from the forking point to the requester since those will not be passed to the engine by the protocol
 	requestedBlockIDs := memstorage.New[models.BlockID, types.Empty]()
@@ -541,6 +537,11 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 		})
 		// Attach the block received since we want to pass the received blocks to out engine directly
 		p.Events.Network.BlockReceived.Attach(processRequestedBlock)
+
+		// Detach also if the protocol is stopped
+		p.SubscribeStopped(func() {
+			p.Events.Network.BlockReceived.Detach(processRequestedBlock)
+		})
 	}
 
 	requestedBlockIDs.ForEachKey(func(id models.BlockID) bool {

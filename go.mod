@@ -13,7 +13,7 @@ require (
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/websocket v1.5.0
-	github.com/iotaledger/hive.go/core v1.0.0-rc.2.0.20230131093749-e00142fab4ff
+	github.com/iotaledger/hive.go/core v1.0.0-rc.2.0.20230131160805-be8915328f66
 	github.com/iotaledger/hive.go/serializer/v2 v2.0.0-rc.1
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/libp2p/go-libp2p v0.23.4

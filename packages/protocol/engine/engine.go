@@ -214,6 +214,8 @@ func (e *Engine) Shutdown() {
 
 	e.TriggerStopped()
 
+	e.WaitWorkerPoolsEmpty()
+
 	for _, pool := range e.workerPools {
 		pool.Shutdown()
 	}

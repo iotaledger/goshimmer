@@ -77,17 +77,17 @@ func TestProtocol(t *testing.T) {
 	commitments["2"] = commitment.New(2, commitments["1"].ID(), types.Identifier{2}, 0)
 	commitments["3"] = commitment.New(3, commitments["2"].ID(), types.Identifier{3}, 0)
 
-	protocol1.networkProtocol.Events.EpochCommitmentReceived.Trigger(&network.EpochCommitmentReceivedEvent{
+	protocol1.Events.Network.EpochCommitmentReceived.Trigger(&network.EpochCommitmentReceivedEvent{
 		Commitment: commitments["1"],
 		Source:     identity.ID{},
 	})
 
-	protocol1.networkProtocol.Events.EpochCommitmentReceived.Trigger(&network.EpochCommitmentReceivedEvent{
+	protocol1.Events.Network.EpochCommitmentReceived.Trigger(&network.EpochCommitmentReceivedEvent{
 		Commitment: commitments["2"],
 		Source:     identity.ID{},
 	})
 
-	protocol1.networkProtocol.Events.EpochCommitmentReceived.Trigger(&network.EpochCommitmentReceivedEvent{
+	protocol1.Events.Network.EpochCommitmentReceived.Trigger(&network.EpochCommitmentReceivedEvent{
 		Commitment: commitments["3"],
 		Source:     identity.ID{},
 	})
@@ -100,14 +100,14 @@ func TestProtocol(t *testing.T) {
 	protocol2 := New(endpoint2, WithBaseDirectory(tempDir2.Path()), WithSnapshotPath(tempDir2.Path("snapshot.bin")))
 	protocol2.Run()
 
-	protocol2.chainManager.Events.CommitmentMissing.Hook(event.NewClosure(func(id commitment.ID) {
+	protocol2.Events.ChainManager.CommitmentMissing.Hook(event.NewClosure(func(id commitment.ID) {
 		fmt.Println("MISSING", id)
 	}))
-	protocol2.chainManager.Events.MissingCommitmentReceived.Hook(event.NewClosure(func(id commitment.ID) {
+	protocol2.Events.ChainManager.MissingCommitmentReceived.Hook(event.NewClosure(func(id commitment.ID) {
 		fmt.Println("MISSING RECEIVED", id)
 	}))
 
-	protocol2.networkProtocol.Events.EpochCommitmentReceived.Trigger(&network.EpochCommitmentReceivedEvent{
+	protocol2.Events.Network.EpochCommitmentReceived.Trigger(&network.EpochCommitmentReceivedEvent{
 		Commitment: commitments["3"],
 		Source:     identity.ID{},
 	})
