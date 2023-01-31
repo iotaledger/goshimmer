@@ -48,7 +48,7 @@ func init() {
 
 func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
-	deps.Server.GET("doubleSpend", doubleSpend)
+	deps.Server.GET("spam/doubleSpend", doubleSpend)
 }
 
 func doubleSpend(c echo.Context) error {
