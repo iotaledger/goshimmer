@@ -11,7 +11,6 @@ import (
 	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/iotaledger/hive.go/core/node"
 	"github.com/iotaledger/hive.go/core/timeutil"
-	"github.com/iotaledger/hive.go/core/types"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
@@ -125,36 +124,32 @@ func registerLocalMetrics() {
 	}))
 
 	deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictCreated.Attach(event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
-		activeConflictsMutex.Lock()
-		defer activeConflictsMutex.Unlock()
-
 		conflictID := event.ID
-		if _, exists := activeConflicts[conflictID]; !exists {
+
+		added := addActiveConflict(conflictID)
+		if added {
 			conflictTotalCountDB.Inc()
-			activeConflicts[conflictID] = types.Void
 		}
 	}))
 
 	deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictAccepted.Attach(event.NewClosure(func(conflictID utxo.TransactionID) {
-		activeConflictsMutex.Lock()
-		defer activeConflictsMutex.Unlock()
-
-		if _, exists := activeConflicts[conflictID]; !exists {
+		removed := removeActiveConflict(conflictID)
+		if !removed {
 			return
 		}
+
 		firstAttachment := deps.Protocol.Engine().Tangle.GetEarliestAttachment(conflictID)
 		deps.Protocol.Engine().Ledger.ConflictDAG.Utils.ForEachConflictingConflictID(conflictID, func(conflictingConflictID utxo.TransactionID) bool {
 			if _, exists := activeConflicts[conflictID]; exists && conflictingConflictID != conflictID {
 				finalizedConflictCountDB.Inc()
-				delete(activeConflicts, conflictingConflictID)
+				removeActiveConflict(conflictingConflictID)
 			}
 			return true
 		})
+
 		finalizedConflictCountDB.Inc()
 		confirmedConflictCount.Inc()
 		conflictConfirmationTotalTime.Add(uint64(time.Since(firstAttachment.IssuingTime()).Milliseconds()))
-
-		delete(activeConflicts, conflictID)
 	}))
 
 }

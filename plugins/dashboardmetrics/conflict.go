@@ -34,7 +34,7 @@ var (
 	// all active conflicts stored in this map, to avoid duplicated event triggers for conflict confirmation.
 	activeConflicts map[utxo.TransactionID]types.Empty
 
-	activeConflictsMutex sync.Mutex
+	activeConflictsMutex sync.RWMutex
 )
 
 // ConflictConfirmationTotalTime returns total time it took for all confirmed conflicts to be confirmed.
@@ -55,6 +55,30 @@ func TotalConflictCountDB() uint64 {
 // FinalizedConflictCountDB returns the number of non-confirmed conflicts.
 func FinalizedConflictCountDB() uint64 {
 	return initialFinalizedConflictCountDB + finalizedConflictCountDB.Load()
+}
+
+func addActiveConflict(conflictID utxo.TransactionID) (added bool) {
+	activeConflictsMutex.Lock()
+	defer activeConflictsMutex.Unlock()
+
+	if _, exists := activeConflicts[conflictID]; !exists {
+		activeConflicts[conflictID] = types.Void
+		return true
+	}
+
+	return false
+}
+
+func removeActiveConflict(conflictID utxo.TransactionID) (removed bool) {
+	activeConflictsMutex.Lock()
+	defer activeConflictsMutex.Unlock()
+
+	if _, exists := activeConflicts[conflictID]; exists {
+		delete(activeConflicts, conflictID)
+		return true
+	}
+
+	return false
 }
 
 func measureInitialConflictStats() {
