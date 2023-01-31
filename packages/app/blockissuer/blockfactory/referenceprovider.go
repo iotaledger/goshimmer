@@ -128,7 +128,7 @@ func (r *ReferenceProvider) addedReferencesForBlock(blockID models.BlockID, excl
 		}
 	}
 
-	// We could not refer the blocks to fix the opinion, but we have no error condition.
+	// We could not refer to any block to fix the opinion.
 	if addedReferences == nil {
 		return nil, false
 	}
@@ -144,6 +144,12 @@ func (r *ReferenceProvider) addedReferencesForBlock(blockID models.BlockID, excl
 // addedReferencesForConflicts returns the references that are necessary to correct our opinion on the given conflicts.
 func (r *ReferenceProvider) addedReferencesForConflicts(conflictIDs utxo.TransactionIDs, excludedConflictIDs utxo.TransactionIDs) (referencesToAdd models.ParentBlockIDs, err error) {
 	referencesToAdd = models.NewParentBlockIDs()
+
+	// If any of the conflict is rejected we cannot pick up the block as a parent, and we delete it from the tipset.
+	if r.protocol.Engine().Tangle.Booker.Ledger.ConflictDAG.ConfirmationState(conflictIDs).IsRejected() {
+		return nil, errors.Errorf("the given conflicts are rejected: %s", conflictIDs)
+	}
+
 	for it := conflictIDs.Iterator(); it.HasNext(); {
 		conflictID := it.Next()
 
