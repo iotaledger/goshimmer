@@ -142,7 +142,7 @@ func (p *Protocol) initCongestionControl() {
 func (p *Protocol) initNetworkProtocol() {
 	p.networkProtocol = network.NewProtocol(p.dispatcher)
 
-	p.Events.Network = p.networkProtocol.Events
+	p.Events.Network.LinkTo(p.networkProtocol.Events)
 
 	p.Events.Network.BlockRequestReceived.Attach(event.NewClosure(func(event *network.BlockRequestReceivedEvent) {
 		if block, exists := p.MainEngineInstance().Engine.Block(event.BlockID); exists {
