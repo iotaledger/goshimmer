@@ -90,7 +90,7 @@ func CreateSnapshot(databaseVersion database.Version, snapshotFileName string, g
 // | empty       | genesisSeed  |
 // | node1       | node1       |
 // | node2       | node2       |.
-func CreateSnapshotForIntegrationTest(s *storage.Storage, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge *orderedmap.OrderedMap[identity.ID, uint64], startSynced bool) {
+func CreateSnapshotForIntegrationTest(s *storage.Storage, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge *orderedmap.OrderedMap[identity.ID, uint64], startSynced bool, engineOpts ...options.Option[engine.Engine]) {
 	if err := s.Commitments.Store(commitment.NewEmptyCommitment()); err != nil {
 		panic(err)
 	}
@@ -98,7 +98,7 @@ func CreateSnapshotForIntegrationTest(s *storage.Storage, snapshotFileName strin
 		panic(err)
 	}
 
-	engineInstance := engine.New(s, dpos.NewProvider(), mana1.NewProvider())
+	engineInstance := engine.New(s, dpos.NewProvider(), mana1.NewProvider(), engineOpts...)
 
 	engineInstance.NotarizationManager.Attestations.SetLastCommittedEpoch(-1)
 
