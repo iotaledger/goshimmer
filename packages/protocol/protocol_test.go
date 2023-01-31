@@ -879,9 +879,7 @@ func (n *NodeOnMockedNetwork) attachEngineLogs(instance *enginemanager.EngineIns
 }
 
 func (n *NodeOnMockedNetwork) WaitUntilAllTasksProcessed() {
-	for _, wp := range n.Protocol.WorkerPools() {
-		wp.PendingTasksCounter.WaitIsZero()
-	}
+	n.Protocol.WaitWorkerPoolsEmpty()
 	n.EngineTestFramework.WaitUntilAllTasksProcessed()
 	//TODO: find the race condition in the pools and remove this wait
 	time.Sleep(100 * time.Millisecond)

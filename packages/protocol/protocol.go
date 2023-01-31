@@ -53,6 +53,8 @@ type Protocol struct {
 	mainEngine        *enginemanager.EngineInstance
 	candidateEngine   *enginemanager.EngineInstance
 
+	workerPools map[string]*workerpool.UnboundedWorkerPool
+
 	optsBaseDirectory    string
 	optsSnapshotPath     string
 	optsPruningThreshold uint64
@@ -74,6 +76,8 @@ func New(dispatcher network.Endpoint, opts ...options.Option[Protocol]) (protoco
 		optsSybilProtectionProvider: dpos.NewProvider(),
 		optsThroughputQuotaProvider: mana1.NewProvider(),
 
+		workerPools: map[string]*workerpool.UnboundedWorkerPool{},
+
 		optsBaseDirectory:    "",
 		optsPruningThreshold: 6 * 60, // 1 hour given that epoch duration is 10 seconds
 	}, opts,
@@ -82,6 +86,14 @@ func New(dispatcher network.Endpoint, opts ...options.Option[Protocol]) (protoco
 		(*Protocol).initChainManager,
 		(*Protocol).initTipManager,
 	)
+}
+
+func (p *Protocol) WorkerPools() map[string]*workerpool.UnboundedWorkerPool {
+	wp := make(map[string]*workerpool.UnboundedWorkerPool)
+	lo.MergeMaps(wp, p.workerPools)
+	lo.MergeMaps(wp, p.MainEngineInstance().Engine.WorkerPools())
+
+	return wp
 }
 
 // Run runs the protocol.
@@ -94,6 +106,12 @@ func (p *Protocol) Run() {
 	}
 
 	p.initNetworkProtocol()
+}
+
+func (p *Protocol) WaitWorkerPoolsEmpty() {
+	for _, pool := range p.WorkerPools() {
+		pool.PendingTasksCounter.WaitIsZero()
+	}
 }
 
 // Shutdown shuts down the protocol.

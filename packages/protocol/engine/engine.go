@@ -129,6 +129,12 @@ func (e *Engine) WorkerPools() map[string]*workerpool.UnboundedWorkerPool {
 	return e.workerPools
 }
 
+func (e *Engine) WaitWorkerPoolsEmpty() {
+	for _, pool := range e.WorkerPools() {
+		pool.PendingTasksCounter.WaitIsZero()
+	}
+}
+
 func (e *Engine) ProcessBlockFromPeer(block *models.Block, source identity.ID) {
 	e.Filter.ProcessReceivedBlock(block, source)
 	e.Events.BlockProcessed.Trigger(block.ID())

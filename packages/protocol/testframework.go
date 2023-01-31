@@ -72,9 +72,9 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 // WaitUntilAllTasksProcessed waits until all tasks are processed.
 func (t *TestFramework) WaitUntilAllTasksProcessed() (self *TestFramework) {
 	event.Loop.PendingTasksCounter.WaitIsZero()
-	for _, pool := range t.Protocol.WorkerPools() {
-		pool.PendingTasksCounter.WaitIsZero()
-	}
+	t.Protocol.WaitWorkerPoolsEmpty()
+	event.Loop.PendingTasksCounter.WaitIsZero()
+
 	return t
 }
 
@@ -138,9 +138,9 @@ func (e *EngineTestFramework) AssertEpochState(index epoch.Index) {
 // WaitUntilAllTasksProcessed waits until all tasks are processed.
 func (e *EngineTestFramework) WaitUntilAllTasksProcessed() (self *EngineTestFramework) {
 	event.Loop.PendingTasksCounter.WaitIsZero()
-	for _, pool := range e.Engine.WorkerPools() {
-		pool.PendingTasksCounter.WaitIsZero()
-	}
+	e.Engine.WaitWorkerPoolsEmpty()
+	event.Loop.PendingTasksCounter.WaitIsZero()
+
 	return e
 }
 

@@ -173,9 +173,8 @@ func (t *TestFramework) mockSchedulerBlock(id models.BlockID) (block *scheduler.
 
 // WaitUntilAllTasksProcessed waits until all tasks are processed.
 func (t *TestFramework) WaitUntilAllTasksProcessed() (self *TestFramework) {
-	for _, wp := range t.engine.WorkerPools() {
-		wp.PendingTasksCounter.WaitIsZero()
-	}
+	event.Loop.PendingTasksCounter.WaitIsZero()
+	t.engine.WaitWorkerPoolsEmpty()
 	event.Loop.PendingTasksCounter.WaitIsZero()
 
 	return t

@@ -78,6 +78,7 @@ func (t *TestFramework) IssueBlocks(blockAliases ...string) *TestFramework {
 // WaitUntilAllTasksProcessed waits until all tasks are processed.
 func (t *TestFramework) WaitUntilAllTasksProcessed() (self *TestFramework) {
 	event.Loop.PendingTasksCounter.WaitIsZero()
+
 	return t
 }
 
