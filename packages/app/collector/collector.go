@@ -69,6 +69,13 @@ func (c *Collector) Increment(subsystem, metricName string, labels ...string) {
 	}
 }
 
+func (c *Collector) ResetMetricLabels(subsystem, metricName string, labelValues map[string]string) {
+	m := c.getMetric(subsystem, metricName)
+	if m != nil {
+		m.ResetLabels(labelValues)
+	}
+}
+
 func (c *Collector) ResetMetric(namespace string, node string) {
 	m := c.getMetric(namespace, node)
 	if m != nil {
