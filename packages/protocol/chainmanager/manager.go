@@ -170,11 +170,6 @@ func (m *Manager) registerCommitment(commitment *commitment.Commitment, ownCommi
 
 	chainCommitment, created := m.Commitment(commitment.ID(), true)
 
-	// Only allow ourselves to extend the end of the main chain
-	if parentCommitment.ID() == m.SnapshotCommitment.Chain().LatestCommitment().ID() && !ownCommitment {
-		return parentCommitment.IsSolid(), parentCommitment.Chain(), false, chainCommitment, false
-	}
-
 	if !chainCommitment.PublishCommitment(commitment) {
 		return chainCommitment.IsSolid(), chainCommitment.Chain(), false, chainCommitment, false
 	}
