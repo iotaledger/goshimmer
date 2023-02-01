@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
@@ -15,6 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
 )
@@ -33,7 +33,7 @@ type Manager struct {
 
 	storage                  *storage.Storage
 	ledgerState              *ledgerstate.LedgerState
-	pendingConflictsCounters *memstorage.Storage[epoch.Index, *set.AdvancedSet[models.BlockID]]
+	pendingConflictsCounters *memstorage.EpochStorage[models.BlockID, *models.Block]
 	commitmentMutex          sync.RWMutex
 
 	acceptanceTime      time.Time
@@ -52,7 +52,7 @@ func NewManager(storageInstance *storage.Storage, ledgerState *ledgerstate.Ledge
 		Attestations:               NewAttestations(storageInstance.Permanent.Attestations, storageInstance.Prunable.Attestations, weights),
 		storage:                    storageInstance,
 		ledgerState:                ledgerState,
-		pendingConflictsCounters:   memstorage.New[epoch.Index, *set.AdvancedSet[models.BlockID]](),
+		pendingConflictsCounters:   memstorage.NewEpochStorage[models.BlockID, *models.Block](),
 		acceptanceTime:             storageInstance.Settings.LatestCommitment().Index().EndTime(),
 		optsMinCommittableEpochAge: defaultMinEpochCommittableAge,
 	}, opts, func(m *Manager) {
@@ -61,19 +61,16 @@ func NewManager(storageInstance *storage.Storage, ledgerState *ledgerstate.Ledge
 }
 
 // AddConflictingAttachment adds the conflicting attachment to a set of pending conflicts of an epoch.
-func (m *Manager) AddConflictingAttachment(blockID models.BlockID) {
+func (m *Manager) AddConflictingAttachment(block *models.Block) {
 	m.commitmentMutex.Lock()
 	defer m.commitmentMutex.Unlock()
 
-	if blockID.Index() <= m.storage.Settings.LatestCommitment().Index() {
+	if block.ID().Index() <= m.storage.Settings.LatestCommitment().Index() {
 		return
 	}
 
-	pendingConflicts, _ := m.pendingConflictsCounters.RetrieveOrCreate(blockID.Index(), func() *set.AdvancedSet[models.BlockID] {
-		return set.NewAdvancedSet[models.BlockID]()
-	})
-
-	pendingConflicts.Add(blockID)
+	pendingConflicts := m.pendingConflictsCounters.Get(block.ID().Index(), true)
+	pendingConflicts.Set(block.ID(), block)
 }
 
 // DeleteConflictingAttachment deletes the conflicting attachment from a set of pending conflicts of an epoch.
@@ -85,12 +82,12 @@ func (m *Manager) DeleteConflictingAttachment(blockID models.BlockID) {
 		return
 	}
 
-	pendingConflicts, exists := m.pendingConflictsCounters.Get(blockID.Index())
-	if exists {
+	pendingConflicts := m.pendingConflictsCounters.Get(blockID.Index())
+	if pendingConflicts != nil {
 		pendingConflicts.Delete(blockID)
 	}
 
-	if !exists || pendingConflicts.IsEmpty() {
+	if pendingConflicts == nil || pendingConflicts.IsEmpty() {
 		m.tryCommitEpoch(blockID.Index(), m.AcceptanceTime())
 	}
 }
@@ -177,24 +174,31 @@ func (m *Manager) MinCommittableEpochAge() time.Duration {
 
 func (m *Manager) tryCommitEpoch(index epoch.Index, acceptanceTime time.Time) {
 	for i := m.storage.Settings.LatestCommitment().Index() + 1; i <= index; i++ {
-		if !m.isCommittable(i, acceptanceTime) || !m.createCommitment(i) {
+		if !m.isCommittable(i, acceptanceTime) {
+			return
+		}
+
+		// drop still-pending conflicts of an epoch old enough to be committed.
+		m.dropPendingConflicts(i)
+
+		if !m.createCommitment(i) {
 			return
 		}
 	}
 }
 
 func (m *Manager) isCommittable(ei epoch.Index, acceptanceTime time.Time) (isCommittable bool) {
-	return acceptanceTime.Sub(ei.EndTime()) >= m.optsMinCommittableEpochAge && m.hasNoPendingConflicts(ei)
+	return acceptanceTime.Sub(ei.EndTime()) >= m.optsMinCommittableEpochAge
 }
 
-func (m *Manager) hasNoPendingConflicts(ei epoch.Index) (hasNoPendingConflicts bool) {
-	for index := m.storage.Settings.LatestCommitment().Index(); index <= ei; index++ {
-		if pendingConflicts, exists := m.pendingConflictsCounters.Get(index); exists && pendingConflicts.Size() > 0 {
-			return false
-		}
+func (m *Manager) dropPendingConflicts(index epoch.Index) {
+	if storage := m.pendingConflictsCounters.Get(index); storage != nil {
+		storage.ForEach(func(attachmentID models.BlockID, attachment *models.Block) bool {
+			m.Events.ConflictDropped.Trigger(attachmentID)
+			return true
+		})
+		m.pendingConflictsCounters.Evict(index)
 	}
-
-	return true
 }
 
 func (m *Manager) createCommitment(index epoch.Index) (success bool) {
@@ -205,7 +209,6 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 		return false
 	}
 
-	m.pendingConflictsCounters.Delete(index)
 
 	if err := m.ledgerState.ApplyStateDiff(index); err != nil {
 		m.Events.Error.Trigger(errors.Wrapf(err, "failed to apply state diff for epoch %d", index))
@@ -239,10 +242,12 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 
 	if err = m.storage.Settings.SetLatestCommitment(newCommitment); err != nil {
 		m.Events.Error.Trigger(errors.Wrap(err, "failed to set latest commitment"))
+		return false
 	}
 
 	if err = m.storage.Commitments.Store(newCommitment); err != nil {
 		m.Events.Error.Trigger(errors.Wrap(err, "failed to store latest commitment"))
+		return false
 	}
 
 	m.Events.EpochCommitted.Trigger(&EpochCommittedDetails{
