@@ -28,7 +28,7 @@ var (
 		DeepSpam:              false,
 		EnableRateSetter:      true,
 	}
-	quickTest = QuickTestParams{
+	quickTestParams = QuickTestParams{
 		ClientURLs:            urls,
 		Rate:                  100,
 		Duration:              time.Second * 30,

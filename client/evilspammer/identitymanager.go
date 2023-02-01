@@ -24,6 +24,9 @@ func (i *IdentityManager) SetLogger(log Logger) {
 }
 
 func (i *IdentityManager) AddIdentity(privateKey, aliasName string) {
+	if privateKey == "" {
+		panic("private key is empty")
+	}
 	seedBytes, err := base58.Decode(privateKey)
 	if err != nil {
 		panic(err)
