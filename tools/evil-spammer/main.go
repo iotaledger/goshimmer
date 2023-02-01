@@ -19,6 +19,7 @@ var (
 
 func main() {
 	help := parseFlags()
+
 	if help {
 		fmt.Println("Usage of the Evil Spammer tool, provide the first argument for the selected mode:\n" +
 			"'interactive' - enters the interactive mode.\n" +
@@ -158,6 +159,9 @@ func parseCommitmentsSpamFlags() {
 	timeUnit := optionFlagSet.Duration("tu", commitmentsSpamParams.TimeUnit, "Time unit for the spamming rate. Format: decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.\n Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.")
 	networkAlias := optionFlagSet.String("network", commitmentsSpamParams.NetworkAlias, "Network alias for the test. Check your keys-config.json file for possible values.")
 	identityAlias := optionFlagSet.String("identity", commitmentsSpamParams.IdentityAlias, "Identity alias for the node identity and its private keys. Check your keys-config.json file for possible values.")
+
+	parseOptionFlagSet(optionFlagSet)
+
 	if *urls != "" {
 		parsedUrls := parseCommaSepString(*urls)
 		commitmentsSpamParams.ClientURLs = parsedUrls
