@@ -72,14 +72,21 @@ func CustomConflictSpammingFunc(s *Spammer) {
 
 func CommitmentsSpammingFunction(s *Spammer) {
 	clt := s.Clients.GetClient()
-	parents := clt.GetParents()
+	p := payload.NewGenericDataPayload([]byte("SPAM"))
+	payloadBytes, err := p.Bytes()
+	if err != nil {
+		s.ErrCounter.CountError(ErrFailToPrepareBatch)
+	}
+	parents, err := clt.GetReferences(payloadBytes, s.CommitmentManager.ParentRefsCount)
+	if err != nil {
+		s.ErrCounter.CountError(ErrFailGetReferences)
+	}
 	localID := s.IdentityManager.GetIdentity()
 	commitment, latestConfIndex, err := s.CommitmentManager.GenerateCommitment()
 	if err != nil {
 		s.log.Debugf(errors.WithMessage(ErrFailToPrepareBatch, err.Error()).Error())
 		s.ErrCounter.CountError(errors.WithMessage(ErrFailToPrepareBatch, err.Error()))
 	}
-	p := payload.NewGenericDataPayload([]byte("SPAM"))
 	block := models.NewBlock(
 		models.WithParents(parents),
 		models.WithIssuer(localID.PublicKey()),

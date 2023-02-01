@@ -11,7 +11,7 @@ import (
 var (
 	ErrFailPostTransaction = errors.New("failed to post transaction")
 	ErrFailSendDataBlock   = errors.New("failed to send a data block")
-
+	ErrFailGetReferences   = errors.New("failed to get references")
 	ErrTransactionIsNil    = errors.New("provided transaction is nil")
 	ErrFailToPrepareBatch  = errors.New("custom conflict batch could not be prepared")
 	ErrInsufficientClients = errors.New("insufficient clients to send conflicts")

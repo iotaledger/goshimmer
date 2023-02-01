@@ -7,12 +7,15 @@ import (
 )
 
 type CommitmentManager struct {
-	commitmentType string
-	connector      evilwallet.Connector
+	CommitmentType  string
+	ParentRefsCount int
+	connector       evilwallet.Connector
 }
 
 func NewCommitmentManager() *CommitmentManager {
-	return &CommitmentManager{}
+	return &CommitmentManager{
+		ParentRefsCount: 2,
+	}
 }
 
 func (c *CommitmentManager) SetConnector(connector evilwallet.Connector) {
@@ -20,11 +23,11 @@ func (c *CommitmentManager) SetConnector(connector evilwallet.Connector) {
 }
 
 func (c *CommitmentManager) SetCommitmentType(commitmentType string) {
-	c.commitmentType = commitmentType
+	c.CommitmentType = commitmentType
 }
 
 func (c *CommitmentManager) GenerateCommitment() (*commitment.Commitment, epoch.Index, error) {
-	switch c.commitmentType {
+	switch c.CommitmentType {
 	case "latest":
 	case "random":
 

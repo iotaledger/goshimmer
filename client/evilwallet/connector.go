@@ -1,6 +1,7 @@
 package evilwallet
 
 import (
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"sync"
 	"time"
 
@@ -197,6 +198,8 @@ type Client interface {
 	GetOutputSolidity(outID string) (solid bool, err error)
 	// GetLatestCommitment returns the latest commitment and data needed to create a new block.
 	GetLatestCommitment() (commitment *jsonmodels.Commitment, err error)
+	// GetReferences returns the references selected for a given payload.
+	GetReferences(payload []byte, parentsCount int) (refs models.ParentBlockIDs, err error)
 }
 
 // WebClient contains a GoShimmer web API to interact with a node.
@@ -371,6 +374,15 @@ func (c *WebClient) GetLatestCommitment() (resp *jsonmodels.Commitment, err erro
 		return
 	}
 	return
+}
+
+func (c *WebClient) GetReferences(payload []byte, parentsCount int) (blockIDs models.ParentBlockIDs, err error) {
+	resp, err := c.api.GetReferences(payload, parentsCount)
+	if err != nil {
+		return
+	}
+	blockIDs = resp.References()
+	return blockIDs, nil
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
