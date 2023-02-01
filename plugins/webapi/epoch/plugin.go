@@ -2,8 +2,12 @@ package epoch
 
 import (
 	"net/http"
+	"strconv"
+
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/hive.go/core/node"
 	"github.com/labstack/echo"
@@ -32,6 +36,7 @@ func init() {
 
 func configure(_ *node.Plugin) {
 	deps.Server.GET("commitments/latest", getLatestCommitment)
+	deps.Server.GET("commitments/:ei", getCommitment)
 	// deps.Server.GET("epoch/:ei", getCommittedEpoch)
 	// deps.Server.GET("epoch/:ei/utxos", getUTXOs)
 	// deps.Server.GET("epoch/:ei/blocks", getBlocks)
@@ -56,6 +61,41 @@ func getLatestCommitment(c echo.Context) error {
 		Bytes:                b,
 	}
 	return c.JSON(http.StatusOK, res)
+}
+
+func getCommitment(c echo.Context) error {
+	index, err := eiFromContext(c)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	}
+	commitment, err := deps.Protocol.Engine().Storage.Commitments.Load(index)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	}
+	b, err := commitment.Bytes()
+	if err != nil {
+		return c.String(http.StatusInternalServerError, err.Error())
+	}
+	res := jsonmodels.Commitment{
+		LatestConfirmedIndex: int64(deps.Protocol.Engine().Storage.Settings.LatestConfirmedEpoch()),
+		Index:                int64(commitment.Index()),
+		ID:                   commitment.ID().Base58(),
+		PrevID:               commitment.PrevID().Base58(),
+		RootsID:              commitment.RootsID().Base58(),
+		CumulativeWeight:     commitment.CumulativeWeight(),
+		Bytes:                b,
+	}
+	return c.JSON(http.StatusOK, res)
+}
+
+// epochIndexFromContext determines the epoch index from the epochIndex parameter in an echo.Context.
+func eiFromContext(c echo.Context) (ei epoch.Index, err error) {
+	eiText := c.Param("epochIndex")
+	eiInt, err := strconv.Atoi(eiText)
+	if err != nil {
+		return 0, errors.Wrap(err, "can't parse Index from URL param")
+	}
+	return epoch.Index(eiInt), nil
 }
 
 //
