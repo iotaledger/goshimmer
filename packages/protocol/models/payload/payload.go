@@ -32,7 +32,7 @@ type Payload interface {
 func FromBytes(data []byte) (payloadDecoded Payload, consumedBytes int, err error) {
 	payloadDecoded = Payload(nil)
 
-	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), data, payloadDecoded, serix.WithValidation())
+	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), data, &payloadDecoded, serix.WithValidation())
 	if err != nil {
 		err = errors.Wrap(err, "failed to parse Chat Payload")
 		return

@@ -1,6 +1,8 @@
 package jsonmodels
 
-import "github.com/iotaledger/goshimmer/packages/protocol/models"
+import (
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
+)
 
 // region GetReferences Req/Resp /////////////////////////////////////////////////////////////////////////////////////////
 
@@ -52,6 +54,7 @@ func (resp *GetReferencesResponse) References() models.ParentBlockIDs {
 
 // NewGetReferencesResponse creates a new GetReferencesResponse based on provided parents.
 func NewGetReferencesResponse(references models.ParentBlockIDs) (resp *GetReferencesResponse) {
+	resp = &GetReferencesResponse{}
 	for parentType, blockIDs := range references {
 		switch parentType {
 		case models.StrongParentType:

@@ -1,9 +1,10 @@
 package block
 
 import (
-	"github.com/iotaledger/goshimmer/packages/protocol"
 	"net/http"
 	"time"
+
+	"github.com/iotaledger/goshimmer/packages/protocol"
 
 	"github.com/iotaledger/hive.go/core/node"
 	"github.com/labstack/echo"
