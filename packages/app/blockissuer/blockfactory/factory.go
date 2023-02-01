@@ -122,7 +122,7 @@ func (f *Factory) createBlockWithPayload(p payload.Payload, references models.Pa
 }
 
 func (f *Factory) tryGetReferences(p payload.Payload, parentsCount int) (references models.ParentBlockIDs, err error) {
-	references, err = f.getReferences(p, parentsCount)
+	references, err = f.GetReferences(p, parentsCount)
 	if err == nil {
 		return references, nil
 	}
@@ -133,7 +133,7 @@ func (f *Factory) tryGetReferences(p payload.Payload, parentsCount int) (referen
 	for {
 		select {
 		case <-interval.C:
-			references, err = f.getReferences(p, parentsCount)
+			references, err = f.GetReferences(p, parentsCount)
 			if err != nil {
 				f.Events.Error.Trigger(errors.Wrap(err, "could not get references"))
 				continue
@@ -146,7 +146,7 @@ func (f *Factory) tryGetReferences(p payload.Payload, parentsCount int) (referen
 	}
 }
 
-func (f *Factory) getReferences(p payload.Payload, parentsCount int) (references models.ParentBlockIDs, err error) {
+func (f *Factory) GetReferences(p payload.Payload, parentsCount int) (references models.ParentBlockIDs, err error) {
 	strongParents := f.tips(p, parentsCount)
 	if len(strongParents) == 0 {
 		return nil, errors.Errorf("no strong parents were selected in tip selection")
