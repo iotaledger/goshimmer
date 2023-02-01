@@ -84,6 +84,12 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 	}, (*TestFramework).setupEvents)
 }
 
+func (t *TestFramework) WaitUntilAllTasksProcessed() (self *TestFramework) {
+	t.BookerTestFramework.WaitUntilAllTasksProcessed()
+
+	return t
+}
+
 func (t *TestFramework) AssertBlock(alias string, callback func(block *Block)) {
 	block, exists := t.VirtualVoting.Block(t.Block(alias).ID())
 	require.True(t.test, exists, "Block %s not found", alias)

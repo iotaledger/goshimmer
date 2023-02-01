@@ -51,6 +51,15 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 	}, (*TestFramework).setupEvents)
 }
 
+// WaitUntilAllTasksProcessed waits until all tasks are processed.
+func (t *TestFramework) WaitUntilAllTasksProcessed() (self *TestFramework) {
+	t.BlockDAGTestFramework.WaitUntilAllTasksProcessed()
+	t.LedgerTestFramework.WaitUntilAllTasksProcessed()
+	t.Booker.WaitWorkerPoolsEmpty()
+
+	return t
+}
+
 func (t *TestFramework) SequenceManager() (sequenceManager *markers.SequenceManager) {
 	return t.Booker.markerManager.SequenceManager
 }
@@ -64,7 +73,7 @@ func (t *TestFramework) PreventNewMarkers(prevent bool) {
 
 // Block retrieves the Blocks that is associated with the given alias.
 func (t *TestFramework) Block(alias string) (block *Block) {
-	block, ok := t.Booker.block(t.BlockDAGTestFramework.Block(alias).ID())
+	block, ok := t.Booker.Block(t.BlockDAGTestFramework.Block(alias).ID())
 	if !ok {
 		panic(fmt.Sprintf("Block alias %s not registered", alias))
 	}

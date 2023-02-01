@@ -175,6 +175,7 @@ func (t *TestFramework) mockSchedulerBlock(id models.BlockID) (block *scheduler.
 func (t *TestFramework) WaitUntilAllTasksProcessed() (self *TestFramework) {
 	event.Loop.PendingTasksCounter.WaitIsZero()
 	t.engine.WaitWorkerPoolsEmpty()
+	t.TestFramework.WaitUntilAllTasksProcessed()
 	event.Loop.PendingTasksCounter.WaitIsZero()
 
 	return t

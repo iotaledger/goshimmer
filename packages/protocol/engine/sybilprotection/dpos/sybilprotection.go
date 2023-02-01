@@ -42,6 +42,7 @@ type SybilProtection struct {
 
 	traits.Initializable
 	traits.BatchCommittable
+	traits.Runnable
 }
 
 // NewSybilProtection creates a new ProofOfStake instance.
@@ -50,6 +51,7 @@ func NewSybilProtection(engineInstance *engine.Engine, opts ...options.Option[Sy
 		&SybilProtection{
 			Initializable:    traits.NewInitializable(),
 			BatchCommittable: traits.NewBatchCommittable(engineInstance.Storage.SybilProtection(), PrefixLastCommittedEpoch),
+			Runnable:         traits.NewRunnable(),
 
 			engine:            engineInstance,
 			weights:           sybilprotection.NewWeights(engineInstance.Storage.SybilProtection(PrefixWeights)),
@@ -68,13 +70,14 @@ func NewSybilProtection(engineInstance *engine.Engine, opts ...options.Option[Sy
 				})
 
 				s.engine.LedgerState.UnspentOutputs.Subscribe(s)
-
-				s.engine.Events.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(func(block *blockdag.Block) {
-					s.markValidatorActive(block.IssuerID(), block.IssuingTime())
-				}))
 			})
 
-			s.engine.SubscribeStopped(s.stopInactivityManager)
+			s.SubscribeStopped(
+				event.AttachWithWorkerPool(s.engine.Events.Tangle.BlockDAG.BlockSolid, func(block *blockdag.Block) {
+					s.markValidatorActive(block.IssuerID(), block.IssuingTime())
+				}, s.NewWorkerPool("SybilProtection")),
+				s.stopInactivityManager,
+			)
 		})
 }
 

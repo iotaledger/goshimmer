@@ -14,6 +14,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
@@ -42,6 +43,8 @@ type EngineManager struct {
 type EngineInstance struct {
 	Engine  *engine.Engine
 	Storage *storage.Storage
+
+	traits.Runnable
 }
 
 func New(dir string,
@@ -127,10 +130,18 @@ func (m *EngineManager) loadEngineInstance(dirName string) *EngineInstance {
 	candidateStorage := storage.New(m.directory.Path(dirName), m.dbVersion, m.storageOptions...)
 	candidateEngine := engine.New(candidateStorage, m.sybilProtectionProvider, m.throughputQuotaProvider, m.engineOptions...)
 
-	return &EngineInstance{
-		Engine:  candidateEngine,
-		Storage: candidateStorage,
+	instance := &EngineInstance{
+		Runnable: traits.NewRunnable(),
+		Engine:   candidateEngine,
+		Storage:  candidateStorage,
 	}
+
+	instance.AttachRunnable("Engine", candidateEngine)
+	instance.SubscribeStopped(
+		candidateStorage.Shutdown,
+	)
+
+	return instance
 }
 
 func (m *EngineManager) newEngineInstance() *EngineInstance {
@@ -146,6 +157,7 @@ func (m *EngineManager) ForkEngineAtEpoch(index epoch.Index) (*EngineInstance, e
 	}
 
 	instance := m.newEngineInstance()
+	instance.Run()
 	if err := instance.InitializeWithSnapshot(snapshotPath); err != nil {
 		instance.Shutdown()
 		_ = instance.RemoveFromFilesystem()
@@ -162,14 +174,6 @@ func (e *EngineInstance) InitializeWithSnapshot(snapshotPath string) error {
 
 func (e *EngineInstance) Name() string {
 	return filepath.Base(e.Storage.Directory)
-}
-
-func (e *EngineInstance) Shutdown() {
-	e.Engine.Shutdown()
-	for _, wp := range e.Engine.WorkerPools() {
-		wp.PendingTasksCounter.WaitIsZero()
-	}
-	e.Storage.Shutdown()
 }
 
 func (e *EngineInstance) RemoveFromFilesystem() error {

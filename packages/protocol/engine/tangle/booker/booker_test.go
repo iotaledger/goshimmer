@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/stretchr/testify/require"
 
@@ -559,7 +558,7 @@ func TestMultiThreadedBookingAndForkingParallel(t *testing.T) {
 	}
 
 	wg.Wait()
-	event.Loop.PendingTasksCounter.WaitIsZero()
+	tf.WaitUntilAllTasksProcessed()
 
 	expectedConflicts := make(map[string]utxo.TransactionIDs)
 	for layer := 0; layer < layersNum; layer++ {
@@ -644,7 +643,7 @@ func TestMultiThreadedBookingAndForkingNested(t *testing.T) {
 		}(i)
 	}
 	wg.Wait()
-	event.Loop.PendingTasksCounter.WaitIsZero()
+	tf.WaitUntilAllTasksProcessed()
 
 	expectedConflicts := make(map[string]utxo.TransactionIDs)
 	for layer := 0; layer < layersNum; layer++ {
@@ -747,14 +746,14 @@ func Test_Prune(t *testing.T) {
 	require.True(t, wasAttached, "block should be attached")
 	require.NoError(t, err, "should not be able to attach a block after shutdown")
 
-	event.Loop.PendingTasksCounter.WaitIsZero()
+	tf.WaitUntilAllTasksProcessed()
 
 	tf.AssertBookedCount(epochCount+1, "should have all solid blocks")
 
 	validateState(tf, 0, epochCount)
 
 	tf.BlockDAG.EvictionState.EvictUntil(epochCount / 4)
-	event.Loop.PendingTasksCounter.WaitIsZero()
+	tf.WaitUntilAllTasksProcessed()
 
 	require.EqualValues(t, epochCount/4, tf.BlockDAG.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/4")
 
@@ -762,12 +761,12 @@ func Test_Prune(t *testing.T) {
 	tf.AssertInvalidCount(0, "should have invalid blocks")
 
 	tf.BlockDAG.EvictionState.EvictUntil(epochCount / 10)
-	event.Loop.PendingTasksCounter.WaitIsZero()
+	tf.WaitUntilAllTasksProcessed()
 
 	require.EqualValues(t, epochCount/4, tf.BlockDAG.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/4")
 
 	tf.BlockDAG.EvictionState.EvictUntil(epochCount / 2)
-	event.Loop.PendingTasksCounter.WaitIsZero()
+	tf.WaitUntilAllTasksProcessed()
 
 	require.EqualValues(t, epochCount/2, tf.BlockDAG.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/2")
 
@@ -778,7 +777,7 @@ func Test_Prune(t *testing.T) {
 		models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk-%d", epochCount))),
 		models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0)),
 	))
-	event.Loop.PendingTasksCounter.WaitIsZero()
+	tf.WaitUntilAllTasksProcessed()
 
 	require.False(t, wasAttached, "block should not be attached")
 	require.Error(t, err, "should not be able to attach a block after eviction of an epoch")

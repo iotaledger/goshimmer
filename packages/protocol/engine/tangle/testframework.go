@@ -74,6 +74,12 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 
 type VirtualVotingTestFramework = virtualvoting.TestFramework
 
+func (t *TestFramework) WaitUntilAllTasksProcessed() (self *TestFramework) {
+	t.VirtualVotingTestFramework.WaitUntilAllTasksProcessed()
+
+	return t
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////

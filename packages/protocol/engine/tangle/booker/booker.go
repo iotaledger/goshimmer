@@ -62,6 +62,8 @@ func New(blockDAG *blockdag.BlockDAG, ledger *ledger.Ledger, opts ...options.Opt
 			causalorder.WithReferenceValidator[models.BlockID](isReferenceValid),
 		)
 
+		b.AttachRunnable("Booker.BookingOrder", b.bookingOrder)
+
 		blockDAG.EvictionState.Events.EpochEvicted.Hook(event.NewClosure(b.evict))
 
 		b.Events.MarkerManager = b.markerManager.Events
@@ -423,27 +425,28 @@ func (b *Booker) strongChildren(block *Block) []*Block {
 }
 
 func (b *Booker) setupEvents() {
-	b.BlockDAG.Events.BlockSolid.Hook(event.NewClosure(func(block *blockdag.Block) {
-		if _, err := b.Queue(NewBlock(block)); err != nil {
-			panic(err)
-		}
-	}))
-
-	b.Ledger.Events.TransactionConflictIDUpdated.Hook(event.NewClosure(func(event *ledger.TransactionConflictIDUpdatedEvent) {
-		if err := b.PropagateForkedConflict(event.TransactionID, event.AddedConflictID, event.RemovedConflictIDs); err != nil {
-			b.Events.Error.Trigger(errors.Wrapf(err, "failed to propagate Conflict update of %s to BlockDAG", event.TransactionID))
-		}
-	}))
-
-	b.Ledger.Events.TransactionBooked.Attach(event.NewClosure(func(e *ledger.TransactionBookedEvent) {
-		contextBlockID := models.BlockIDFromContext(e.Context)
-
-		for _, block := range b.attachments.Get(e.TransactionID) {
-			if contextBlockID != block.ID() {
-				b.bookingOrder.Queue(block)
+	b.SubscribeStopped(
+		event.Hook(b.BlockDAG.Events.BlockSolid, func(block *blockdag.Block) {
+			fmt.Println("BlockSolid", block.ID())
+			if _, err := b.Queue(NewBlock(block)); err != nil {
+				panic(err)
 			}
-		}
-	}))
+		}),
+		event.Hook(b.Ledger.Events.TransactionConflictIDUpdated, func(event *ledger.TransactionConflictIDUpdatedEvent) {
+			if err := b.PropagateForkedConflict(event.TransactionID, event.AddedConflictID, event.RemovedConflictIDs); err != nil {
+				b.Events.Error.Trigger(errors.Wrapf(err, "failed to propagate Conflict update of %s to BlockDAG", event.TransactionID))
+			}
+		}),
+		event.AttachWithWorkerPool(b.Ledger.Events.TransactionBooked, func(e *ledger.TransactionBookedEvent) {
+			contextBlockID := models.BlockIDFromContext(e.Context)
+
+			for _, block := range b.attachments.Get(e.TransactionID) {
+				if contextBlockID != block.ID() {
+					b.bookingOrder.Queue(block)
+				}
+			}
+		}, b.NewWorkerPool("Booker", 1)),
+	)
 }
 
 // region FORK LOGIC ///////////////////////////////////////////////////////////////////////////////////////////////////

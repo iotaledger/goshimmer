@@ -53,10 +53,6 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 
 		test.Cleanup(func() {
 			t.Protocol.Shutdown()
-			t.Protocol.CongestionControl.WorkerPool().ShutdownComplete.Wait()
-			for _, pool := range t.Protocol.Engine().WorkerPools() {
-				pool.ShutdownComplete.Wait()
-			}
 		})
 
 		identitiesWeights := map[ed25519.PublicKey]uint64{
@@ -110,9 +106,6 @@ func NewEngineTestFramework(test *testing.T, opts ...options.Option[EngineTestFr
 			t.Engine = engine.New(t.optsStorage, dpos.NewProvider(), mana1.NewProvider(), engine.WithTangleOptions(t.optsTangleOptions...))
 			test.Cleanup(func() {
 				t.Engine.Shutdown()
-				for _, pool := range t.Engine.WorkerPools() {
-					pool.ShutdownComplete.Wait()
-				}
 			})
 		}
 
@@ -138,6 +131,8 @@ func (e *EngineTestFramework) AssertEpochState(index epoch.Index) {
 // WaitUntilAllTasksProcessed waits until all tasks are processed.
 func (e *EngineTestFramework) WaitUntilAllTasksProcessed() (self *EngineTestFramework) {
 	event.Loop.PendingTasksCounter.WaitIsZero()
+	e.Tangle.WaitUntilAllTasksProcessed()
+	e.Acceptance.WaitUntilAllTasksProcessed()
 	e.Engine.WaitWorkerPoolsEmpty()
 	event.Loop.PendingTasksCounter.WaitIsZero()
 

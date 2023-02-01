@@ -17,4 +17,5 @@ type ThroughputQuota interface {
 	TotalBalance() (totalQuota int64)
 
 	traits.Initializable
+	traits.Runnable
 }

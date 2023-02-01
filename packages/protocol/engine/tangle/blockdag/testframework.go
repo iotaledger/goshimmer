@@ -5,11 +5,13 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/stretchr/testify/require"
+	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -34,6 +36,8 @@ type TestFramework struct {
 
 	optsBlockDAG []options.Option[BlockDAG]
 
+	workerPool *workerpool.UnboundedWorkerPool
+
 	*ModelsTestFramework
 }
 
@@ -42,6 +46,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 	return options.Apply(&TestFramework{
 		test:           test,
 		orphanedBlocks: models.NewBlockIDs(),
+		workerPool:     workerpool.NewUnboundedWorkerPool().Start(),
 	}, opts, func(t *TestFramework) {
 		if t.BlockDAG == nil {
 			storageInstance := storage.New(test.TempDir(), 1)
@@ -59,6 +64,10 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 		t.ModelsTestFramework = models.NewTestFramework(
 			models.WithBlock("Genesis", models.NewEmptyBlock(models.EmptyBlockID)),
 		)
+		test.Cleanup(func() {
+			t.workerPool.Shutdown()
+		})
+
 	}, (*TestFramework).setupEvents)
 }
 
@@ -67,7 +76,7 @@ func (t *TestFramework) IssueBlocks(blockAliases ...string) *TestFramework {
 	for _, alias := range blockAliases {
 		currentBlock := t.ModelsTestFramework.Block(alias)
 
-		event.Loop.Submit(func() {
+		t.workerPool.Submit(func() {
 			_, _, _ = t.BlockDAG.Attach(currentBlock)
 		})
 	}
@@ -77,7 +86,8 @@ func (t *TestFramework) IssueBlocks(blockAliases ...string) *TestFramework {
 
 // WaitUntilAllTasksProcessed waits until all tasks are processed.
 func (t *TestFramework) WaitUntilAllTasksProcessed() (self *TestFramework) {
-	event.Loop.PendingTasksCounter.WaitIsZero()
+	t.workerPool.PendingTasksCounter.WaitIsZero()
+	t.BlockDAG.WaitWorkerPoolsEmpty()
 
 	return t
 }

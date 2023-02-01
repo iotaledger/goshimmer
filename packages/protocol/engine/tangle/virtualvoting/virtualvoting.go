@@ -130,18 +130,19 @@ func (o *VirtualVoting) ConflictVotersTotalWeight(conflictID utxo.TransactionID)
 }
 
 func (o *VirtualVoting) setupEvents() {
-	o.Booker.Events.BlockBooked.Hook(event.NewClosure(func(block *booker.Block) {
-		o.Track(NewBlock(block))
-	}))
-
-	o.Booker.Events.BlockConflictAdded.Hook(event.NewClosure(func(event *booker.BlockConflictAddedEvent) {
-		o.processForkedBlock(event.Block, event.ConflictID, event.ParentConflictIDs)
-	}))
-	o.Booker.Events.MarkerConflictAdded.Hook(event.NewClosure(func(event *booker.MarkerConflictAddedEvent) {
-		o.processForkedMarker(event.Marker, event.ConflictID, event.ParentConflictIDs)
-	}))
-	o.Booker.Events.MarkerManager.SequenceEvicted.Attach(event.NewClosure(o.evictSequence))
-	o.EvictionState.Events.EpochEvicted.Hook(event.NewClosure(o.evictEpoch))
+	o.SubscribeStopped(
+		event.Hook(o.Booker.Events.BlockBooked, func(block *booker.Block) {
+			o.Track(NewBlock(block))
+		}),
+		event.Hook(o.Booker.Events.BlockConflictAdded, func(event *booker.BlockConflictAddedEvent) {
+			o.processForkedBlock(event.Block, event.ConflictID, event.ParentConflictIDs)
+		}),
+		event.Hook(o.Booker.Events.MarkerConflictAdded, func(event *booker.MarkerConflictAddedEvent) {
+			o.processForkedMarker(event.Marker, event.ConflictID, event.ParentConflictIDs)
+		}),
+		event.AttachWithWorkerPool(o.Booker.Events.MarkerManager.SequenceEvicted, o.evictSequence, o.NewWorkerPool("VirtualVoting.Eviction", 1)),
+		event.Hook(o.EvictionState.Events.EpochEvicted, o.evictEpoch),
+	)
 }
 
 func (o *VirtualVoting) track(block *Block) (tracked bool) {

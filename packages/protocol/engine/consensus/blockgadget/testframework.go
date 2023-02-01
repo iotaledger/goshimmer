@@ -92,6 +92,12 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 	}, (*TestFramework).setupEvents)
 }
 
+// WaitUntilAllTasksProcessed waits until all tasks are processed.
+func (t *TestFramework) WaitUntilAllTasksProcessed() (self *TestFramework) {
+	t.TangleTestFramework.WaitUntilAllTasksProcessed()
+	return t
+}
+
 func (t *TestFramework) setupEvents() {
 	t.Gadget.Events.BlockAccepted.Hook(event.NewClosure(func(metadata *Block) {
 		if debug.GetEnabled() {

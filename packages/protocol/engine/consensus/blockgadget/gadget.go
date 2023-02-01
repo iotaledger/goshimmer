@@ -3,15 +3,17 @@ package blockgadget
 import (
 	"sync"
 
+	"github.com/pkg/errors"
+
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/generics/walker"
-	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/causalorder"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
+	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
@@ -44,11 +46,14 @@ type Gadget struct {
 	lastConfirmedMarkerMutex        sync.Mutex
 	optsMarkerConfirmationThreshold float64
 	confirmationOrder               *causalorder.CausalOrder[models.BlockID, *Block]
+
+	traits.Runnable
 }
 
 func New(tangleInstance *tangle.Tangle, evictionState *eviction.State, totalWeightCallback func() int64, opts ...options.Option[Gadget]) (gadget *Gadget) {
 	return options.Apply(&Gadget{
 		Events:                          NewEvents(),
+		Runnable:                        traits.NewRunnable(),
 		tangle:                          tangleInstance,
 		blocks:                          memstorage.NewEpochStorage[models.BlockID, *Block](),
 		lastAcceptedMarker:              memstorage.New[markers.SequenceID, markers.Index](),
@@ -76,6 +81,9 @@ func New(tangleInstance *tangle.Tangle, evictionState *eviction.State, totalWeig
 
 			return a.getOrRegisterBlock(id)
 		}, (*Block).IsConfirmed, a.markAsConfirmed, a.confirmationFailed)
+
+		a.AttachRunnable("AcceptanceOrder", a.acceptanceOrder)
+		a.AttachRunnable("ConfirmationOrder", a.confirmationOrder)
 	}, (*Gadget).setup)
 }
 
@@ -233,15 +241,17 @@ func (a *Gadget) EvictUntil(index epoch.Index) {
 }
 
 func (a *Gadget) setup() {
-	a.tangle.VirtualVoting.Events.SequenceTracker.VotersUpdated.Attach(event.NewClosure(func(evt *sequencetracker.VoterUpdatedEvent) {
-		a.RefreshSequence(evt.SequenceID, evt.NewMaxSupportedIndex, evt.PrevMaxSupportedIndex)
-	}))
+	wp := a.NewWorkerPool("BlockGadget")
 
-	a.tangle.VirtualVoting.Events.ConflictTracker.VoterAdded.Attach(event.NewClosure(func(evt *conflicttracker.VoterEvent[utxo.TransactionID]) {
-		a.RefreshConflictAcceptance(evt.ConflictID)
-	}))
-
-	a.tangle.Booker.Events.MarkerManager.SequenceEvicted.Attach(event.NewClosure(a.evictSequence))
+	a.SubscribeStopped(
+		event.AttachWithWorkerPool(a.tangle.VirtualVoting.Events.SequenceTracker.VotersUpdated, func(evt *sequencetracker.VoterUpdatedEvent) {
+			a.RefreshSequence(evt.SequenceID, evt.NewMaxSupportedIndex, evt.PrevMaxSupportedIndex)
+		}, wp),
+		event.AttachWithWorkerPool(a.tangle.VirtualVoting.Events.ConflictTracker.VoterAdded, func(evt *conflicttracker.VoterEvent[utxo.TransactionID]) {
+			a.RefreshConflictAcceptance(evt.ConflictID)
+		}, wp),
+		event.AttachWithWorkerPool(a.tangle.Booker.Events.MarkerManager.SequenceEvicted, a.evictSequence, wp),
+	)
 }
 
 func (a *Gadget) block(id models.BlockID) (block *Block, exists bool) {

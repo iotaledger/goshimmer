@@ -3,13 +3,14 @@ package causalorder
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/pkg/errors"
+
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/syncutils"
-	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
+	"github.com/iotaledger/goshimmer/packages/core/traits"
 )
 
 // region CausalOrderer ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -51,6 +52,8 @@ type CausalOrder[ID epoch.IndexedID, Entity OrderedEntity[ID]] struct {
 
 	// dagMutex contains a mutex used to synchronize access to Entities.
 	dagMutex *syncutils.DAGMutex[ID]
+
+	traits.Runnable
 }
 
 // New returns a new CausalOrderer instance with the given parameters.
@@ -70,6 +73,7 @@ func New[ID epoch.IndexedID, Entity OrderedEntity[ID]](
 		unorderedParentsCounter: memstorage.NewEpochStorage[ID, uint8](),
 		unorderedChildren:       memstorage.NewEpochStorage[ID, []Entity](),
 		dagMutex:                syncutils.NewDAGMutex[ID](),
+		Runnable:                traits.NewRunnable(),
 	}, opts)
 }
 
@@ -227,7 +231,7 @@ func (c *CausalOrder[ID, Entity]) propagateOrderToChildren(id ID) {
 	for _, child := range c.popUnorderedChildren(id) {
 		currentChild := child
 
-		event.Loop.Submit(func() {
+		c.NewWorkerPool("CausalOrder").Submit(func() {
 			c.evictionMutex.RLock()
 			defer c.evictionMutex.RUnlock()
 

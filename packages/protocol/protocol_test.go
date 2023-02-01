@@ -65,10 +65,6 @@ func TestProtocol(t *testing.T) {
 
 	t.Cleanup(func() {
 		protocol1.Shutdown()
-		protocol1.CongestionControl.WorkerPool().ShutdownComplete.Wait()
-		for _, pool := range protocol1.Engine().WorkerPools() {
-			pool.ShutdownComplete.Wait()
-		}
 	})
 
 	commitments := make(map[string]*commitment.Commitment)
@@ -472,7 +468,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 	))
 	tempDir := utils.NewDirectory(t.TempDir())
 
-	tf.Engine.NotarizationManager.Events.Error.Attach(event.NewClosure(func(err error) {
+	tf.Engine.NotarizationManager.Events.Error.Hook(event.NewClosure(func(err error) {
 		panic(err)
 	}))
 
@@ -640,7 +636,7 @@ func TestEngine_ShutdownResume(t *testing.T) {
 	))
 	tempDir := utils.NewDirectory(t.TempDir())
 
-	tf.Engine.NotarizationManager.Events.Error.Attach(event.NewClosure(func(err error) {
+	tf.Engine.NotarizationManager.Events.Error.Hook(event.NewClosure(func(err error) {
 		panic(err)
 	}))
 
@@ -700,10 +696,6 @@ func newNode(t *testing.T, keyPair ed25519.KeyPair, network *network.MockedNetwo
 
 	t.Cleanup(func() {
 		protocol.Shutdown()
-		protocol.CongestionControl.WorkerPool().ShutdownComplete.Wait()
-		for _, pool := range protocol.Engine().WorkerPools() {
-			pool.ShutdownComplete.Wait()
-		}
 	})
 
 	tf := NewEngineTestFramework(t, WithEngine(protocol.Engine()), WithTangleOptions(
@@ -1212,9 +1204,9 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 		nodeCount := atomic.NewInt32(0)
 		for _, node := range []*NodeOnMockedNetwork{node3, node4} {
 			nodeCount.Add(1)
-			node.Protocol.Events.MainEngineSwitched.Attach(event.NewClosure(func(_ *enginemanager.EngineInstance) {
+			event.Attach(node.Protocol.Events.MainEngineSwitched, func(_ *enginemanager.EngineInstance) {
 				nodeCount.Add(-1)
-			}))
+			})
 		}
 		require.Eventually(t, func() bool {
 			return nodeCount.Load() == 0

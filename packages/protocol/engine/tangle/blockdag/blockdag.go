@@ -4,14 +4,16 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/pkg/errors"
+
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/walker"
-	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/causalorder"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
+	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
@@ -34,6 +36,8 @@ type BlockDAG struct {
 
 	// evictionMutex is a mutex that is used to synchronize the eviction of elements from the BlockDAG.
 	evictionMutex sync.RWMutex
+
+	traits.Runnable
 }
 
 // New is the constructor for the BlockDAG and creates a new BlockDAG instance.
@@ -41,6 +45,7 @@ func New(evictionState *eviction.State, opts ...options.Option[BlockDAG]) (newBl
 	return options.Apply(&BlockDAG{
 		Events:        NewEvents(),
 		EvictionState: evictionState,
+		Runnable:      traits.NewRunnable(),
 		memStorage:    memstorage.NewEpochStorage[models.BlockID, *Block](),
 	}, opts, func(b *BlockDAG) {
 		b.solidifier = causalorder.New(
@@ -50,8 +55,11 @@ func New(evictionState *eviction.State, opts ...options.Option[BlockDAG]) (newBl
 			b.markInvalid,
 			causalorder.WithReferenceValidator[models.BlockID](checkReference),
 		)
+		b.AttachRunnable("BlockDAG.Solidifier", b.solidifier)
 
-		evictionState.Events.EpochEvicted.Hook(event.NewClosure(b.evictEpoch))
+		b.SubscribeStopped(
+			event.Hook(evictionState.Events.EpochEvicted, b.evictEpoch),
+		)
 	})
 }
 

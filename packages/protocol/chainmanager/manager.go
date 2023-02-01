@@ -55,8 +55,8 @@ func NewManager(snapshot *commitment.Commitment) (manager *Manager) {
 	manager.SnapshotCommitment.publishChain(NewChain(manager.SnapshotCommitment))
 
 	manager.CommitmentRequester = eventticker.New(manager.optsCommitmentRequester...)
-	manager.Events.CommitmentMissing.Attach(event.NewClosure(manager.CommitmentRequester.StartTicker))
-	manager.Events.MissingCommitmentReceived.Attach(event.NewClosure(manager.CommitmentRequester.StopTicker))
+	manager.Events.CommitmentMissing.Hook(event.NewClosure(manager.CommitmentRequester.StartTicker))
+	manager.Events.MissingCommitmentReceived.Hook(event.NewClosure(manager.CommitmentRequester.StopTicker))
 
 	manager.commitmentsByID[manager.SnapshotCommitment.ID()] = manager.SnapshotCommitment
 

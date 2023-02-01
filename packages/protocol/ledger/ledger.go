@@ -12,6 +12,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
@@ -76,6 +77,8 @@ type Ledger struct {
 
 	// mutex is a DAGMutex that is used to make the Ledger thread safe.
 	mutex *syncutils.DAGMutex[utxo.TransactionID]
+
+	traits.Runnable
 }
 
 // New returns a new Ledger from the given optionsLedger.
@@ -83,6 +86,7 @@ func New(chainStorage *storage.Storage, opts ...options.Option[Ledger]) (ledger 
 	ledger = options.Apply(&Ledger{
 		Events:       NewEvents(),
 		ChainStorage: chainStorage,
+		Runnable:     traits.NewRunnable(),
 
 		optsCacheTimeProvider:           database.NewCacheTimeProvider(0),
 		optsVM:                          NewMockedVM(),
@@ -107,17 +111,17 @@ func New(chainStorage *storage.Storage, opts ...options.Option[Ledger]) (ledger 
 	ledger.dataFlow = newDataFlow(ledger)
 	ledger.Utils = newUtils(ledger)
 
-	ledger.ConflictDAG.Events.ConflictAccepted.Attach(event.NewClosure(ledger.propagateAcceptanceToIncludedTransactions))
-
-	ledger.ConflictDAG.Events.ConflictRejected.Attach(event.NewClosure(ledger.propagatedRejectionToTransactions))
-
-	ledger.Events.TransactionBooked.Attach(event.NewClosure(func(event *TransactionBookedEvent) {
-		ledger.processConsumingTransactions(event.Outputs.IDs())
-	}))
-
-	ledger.Events.TransactionInvalid.Attach(event.NewClosure(func(event *TransactionInvalidEvent) {
-		ledger.PruneTransaction(event.TransactionID, true)
-	}))
+	wp := ledger.NewWorkerPool("Ledger")
+	ledger.SubscribeStopped(
+		event.AttachWithWorkerPool(ledger.ConflictDAG.Events.ConflictAccepted, ledger.propagateAcceptanceToIncludedTransactions, wp),
+		event.AttachWithWorkerPool(ledger.ConflictDAG.Events.ConflictRejected, ledger.propagatedRejectionToTransactions, wp),
+		event.AttachWithWorkerPool(ledger.Events.TransactionBooked, func(event *TransactionBookedEvent) {
+			ledger.processConsumingTransactions(event.Outputs.IDs())
+		}, wp),
+		event.AttachWithWorkerPool(ledger.Events.TransactionInvalid, func(event *TransactionInvalidEvent) {
+			ledger.PruneTransaction(event.TransactionID, true)
+		}, wp),
+	)
 
 	return ledger
 }

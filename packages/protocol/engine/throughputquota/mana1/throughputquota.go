@@ -39,6 +39,7 @@ type ThroughputQuota struct {
 
 	traits.Initializable
 	traits.BatchCommittable
+	traits.Runnable
 }
 
 // New creates a new ThroughputQuota manager.
@@ -46,6 +47,7 @@ func New(engineInstance *engine.Engine, opts ...options.Option[ThroughputQuota])
 	return options.Apply(&ThroughputQuota{
 		BatchCommittable:    traits.NewBatchCommittable(engineInstance.Storage.ThroughputQuota(), PrefixLastCommittedEpoch),
 		Initializable:       traits.NewInitializable(),
+		Runnable:            traits.NewRunnable(),
 		engine:              engineInstance,
 		totalBalanceStorage: engineInstance.Storage.ThroughputQuota(PrefixTotalBalance),
 		quotaByIDStorage:    typedkvstore.NewTypedStore[identity.ID, storable.SerializableInt64](engineInstance.Storage.ThroughputQuota(PrefixQuotasByID)),
@@ -179,38 +181,41 @@ func (m *ThroughputQuota) init() {
 
 	m.TriggerInitialized()
 
-	m.engine.Ledger.Events.TransactionAccepted.Attach(event.NewClosure(func(event *ledger.TransactionEvent) {
-		m.quotaByIDMutex.Lock()
-		defer m.quotaByIDMutex.Unlock()
-		for _, createdOutput := range event.CreatedOutputs {
-			if createdOutputErr := m.applyCreatedOutput(createdOutput); createdOutputErr != nil {
-				panic(createdOutputErr)
+	wp := m.NewWorkerPool("ThroughputQuota")
+	m.SubscribeStopped(
+		event.AttachWithWorkerPool(m.engine.Ledger.Events.TransactionAccepted, func(event *ledger.TransactionEvent) {
+			m.quotaByIDMutex.Lock()
+			defer m.quotaByIDMutex.Unlock()
+			for _, createdOutput := range event.CreatedOutputs {
+				if createdOutputErr := m.applyCreatedOutput(createdOutput); createdOutputErr != nil {
+					panic(createdOutputErr)
+				}
 			}
-		}
 
-		for _, spentOutput := range event.SpentOutputs {
-			if spentOutputErr := m.applySpentOutput(spentOutput); spentOutputErr != nil {
-				panic(spentOutputErr)
+			for _, spentOutput := range event.SpentOutputs {
+				if spentOutputErr := m.applySpentOutput(spentOutput); spentOutputErr != nil {
+					panic(spentOutputErr)
+				}
 			}
-		}
-	}))
+		}, wp),
+		event.AttachWithWorkerPool(m.engine.Ledger.Events.TransactionOrphaned, func(event *ledger.TransactionEvent) {
+			m.quotaByIDMutex.Lock()
+			defer m.quotaByIDMutex.Unlock()
 
-	m.engine.Ledger.Events.TransactionOrphaned.Attach(event.NewClosure(func(event *ledger.TransactionEvent) {
-		m.quotaByIDMutex.Lock()
-		defer m.quotaByIDMutex.Unlock()
-
-		for _, createdOutput := range event.CreatedOutputs {
-			if spentOutputErr := m.applySpentOutput(createdOutput); spentOutputErr != nil {
-				panic(spentOutputErr)
+			for _, createdOutput := range event.CreatedOutputs {
+				if spentOutputErr := m.applySpentOutput(createdOutput); spentOutputErr != nil {
+					panic(spentOutputErr)
+				}
 			}
-		}
 
-		for _, spentOutput := range event.SpentOutputs {
-			if createdOutputErr := m.applyCreatedOutput(spentOutput); createdOutputErr != nil {
-				panic(createdOutputErr)
+			for _, spentOutput := range event.SpentOutputs {
+				if createdOutputErr := m.applyCreatedOutput(spentOutput); createdOutputErr != nil {
+					panic(createdOutputErr)
+				}
 			}
-		}
-	}))
+		}, wp),
+	)
+
 }
 
 func (m *ThroughputQuota) updateMana(id identity.ID, diff int64) {
