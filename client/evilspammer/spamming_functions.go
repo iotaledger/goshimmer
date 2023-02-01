@@ -112,8 +112,8 @@ func CommitmentsSpammingFunction(s *Spammer) {
 	}
 
 	count := s.State.txSent.Add(1)
-	if count%int64(s.SpamDetails.Rate*2) == 0 {
-		s.log.Debugf("Last sent block, ID: %s; commitment: %s blkCount: %d", blkID, commitment, count)
+	if count%int64(s.SpamDetails.Rate*4) == 0 {
+		s.log.Debugf("Last sent block, ID: %s; %s blkCount: %d", blkID, commitment.ID().String(), count)
 	}
 	s.State.batchPrepared.Add(1)
 	s.CheckIfAllSent()
