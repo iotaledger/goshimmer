@@ -63,10 +63,36 @@ func (r *ReferenceProvider) References(payload payload.Payload, strongParents mo
 		return nil, errors.Errorf("none of the provided strong parents can be referenced. Strong parents provided: %+v.", strongParents)
 	}
 
+	// Uncensor pending conflicts
+	references[models.WeakParentType].AddAll(r.referencesToMissingConflicts(models.MaxParentsCount - len(references[models.WeakParentType])))
+
 	// Make sure that there's no duplicate between strong and weak parents.
 	references.RemoveDuplicatesFromWeak()
 
 	return references, nil
+}
+
+func (r *ReferenceProvider) referencesToMissingConflicts(amount int) (blockIDs models.BlockIDs) {
+	blockIDs = models.NewBlockIDs()
+	if amount == 0 {
+		return blockIDs
+	}
+
+	for it := r.protocol.TipManager.TipsConflictTracker.MissingConflicts(amount).Iterator(); it.HasNext(); {
+		attachment, blockIDErr := r.firstValidAttachment(it.Next())
+		if blockIDErr != nil {
+			continue
+		}
+
+		// Check commitment monotonicity for the attachment.
+		if attachment.Commitment().Index() > r.protocol.Engine().Storage.Settings.LatestCommitment().Index() {
+			continue
+		}
+
+		blockIDs.Add(attachment.ID())
+	}
+
+	return blockIDs
 }
 
 func (r *ReferenceProvider) weakParentsFromUnacceptedInputs(payload payload.Payload) (weakParents models.BlockIDs, err error) {

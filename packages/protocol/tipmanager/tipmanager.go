@@ -43,10 +43,9 @@ type TipManager struct {
 	walkerCache   *memstorage.EpochStorage[models.BlockID, types.Empty]
 	evictionMutex sync.RWMutex
 
-	tips       *randommap.RandomMap[models.BlockID, *scheduler.Block]
-	futureTips *memstorage.EpochStorage[commitment.ID, *memstorage.Storage[models.BlockID, *scheduler.Block]]
-	// TODO: reintroduce TipsConflictTracker
-	// tipsConflictTracker *TipsConflictTracker
+	tips                *randommap.RandomMap[models.BlockID, *scheduler.Block]
+	futureTips          *memstorage.EpochStorage[commitment.ID, *memstorage.Storage[models.BlockID, *scheduler.Block]]
+	TipsConflictTracker *TipsConflictTracker
 
 	commitmentRecentBoundary epoch.Index
 
@@ -63,8 +62,6 @@ func New(schedulerBlockRetrieverFunc blockRetrieverFunc, opts ...options.Option[
 
 		tips:       randommap.New[models.BlockID, *scheduler.Block](),
 		futureTips: memstorage.NewEpochStorage[commitment.ID, *memstorage.Storage[models.BlockID, *scheduler.Block]](),
-		// TODO: reintroduce TipsConflictTracker
-		// tipsConflictTracker: NewTipsConflictTracker(tangle),
 
 		walkerCache: memstorage.NewEpochStorage[models.BlockID, types.Empty](),
 
@@ -81,6 +78,8 @@ func (t *TipManager) LinkTo(engine *engine.Engine) {
 	t.tips = randommap.New[models.BlockID, *scheduler.Block]()
 	t.engine = engine
 	t.blockAcceptanceGadget = engine.Consensus.BlockGadget
+	t.TipsConflictTracker = NewTipsConflictTracker(engine)
+	t.TipsConflictTracker.Setup()
 }
 
 func (t *TipManager) AddTip(block *scheduler.Block) {
@@ -100,7 +99,9 @@ func (t *TipManager) AddTip(block *scheduler.Block) {
 		return
 	}
 
-	t.addTip(block)
+	if t.addTip(block) {
+		t.TipsConflictTracker.AddTip(block)
+	}
 }
 
 func (t *TipManager) EvictTSCCache(index epoch.Index) {
@@ -112,7 +113,7 @@ func (t *TipManager) EvictTSCCache(index epoch.Index) {
 
 func (t *TipManager) DeleteTip(block *scheduler.Block) (deleted bool) {
 	if _, deleted = t.tips.Delete(block.ID()); deleted {
-		// t.tipsConflictTracker.RemoveTip(block)
+		t.TipsConflictTracker.RemoveTip(block)
 		t.Events.TipRemoved.Trigger(block)
 	}
 	return
@@ -121,7 +122,7 @@ func (t *TipManager) DeleteTip(block *scheduler.Block) (deleted bool) {
 // RemoveStrongParents removes all tips that are parents of the given block.
 func (t *TipManager) RemoveStrongParents(block *models.Block) {
 	block.ForEachParent(func(parent models.Parent) {
-		// TODO: reintroduce TipsConflictTracker
+		// TODO: we remove the tip, but we reintroduce the pending liked conflict through the earliest attachment.
 		// We do not want to remove the tip if it is the last one representing a pending conflict.
 		// if t.isLastTipForConflict(parentBlockID) {
 		// 	return true

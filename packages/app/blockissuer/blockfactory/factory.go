@@ -162,8 +162,6 @@ func (f *Factory) getReferences(p payload.Payload, parentsCount int) (references
 	if _, exists := references[models.WeakParentType]; !exists {
 		references[models.WeakParentType] = models.NewBlockIDs()
 	}
-	// TODO: get from tips conflict tracker
-	// references[models.WeakParentType].AddAll(f.referenceProvider.ReferencesToMissingConflicts(issuingTime, models.MaxParentsCount-len(references[models.WeakParentType])))
 
 	// Make sure that there's no duplicate between strong and weak parents.
 	references.RemoveDuplicatesFromWeak()
