@@ -45,6 +45,8 @@ func (c *TipsConflictTracker) Setup() {
 func (c *TipsConflictTracker) AddTip(block *scheduler.Block) {
 	blockConflictIDs := c.engine.Tangle.Booker.BlockConflicts(block.Block.Block)
 
+	fmt.Println(">> Tracking", block.ID())
+
 	c.Lock()
 	defer c.Unlock()
 
@@ -84,6 +86,7 @@ func (c *TipsConflictTracker) RemoveTip(block *scheduler.Block) {
 		}
 
 		if count--; count == 0 {
+			fmt.Println(">> Censored conflict", conflictID)
 			c.censoredConflicts.Set(conflictID, types.Void)
 			c.tipCountPerConflict.Delete(conflictID)
 		}
@@ -98,9 +101,11 @@ func (c *TipsConflictTracker) MissingConflicts(amount int) (missingConflicts utx
 	censoredConflictsToDelete := utxo.NewTransactionIDs()
 	dislikedConflicts := utxo.NewTransactionIDs()
 	c.censoredConflicts.ForEach(func(conflictID utxo.TransactionID, _ types.Empty) bool {
+		fmt.Println(">> ++ Missing conflict", conflictID)
 		// TODO: this should not be necessary if ConflictAccepted/ConflictRejected events are fired appropriately
 		// If the conflict is not pending anymore or it clashes with a conflict we already introduced, we can remove it from the censored conflicts.
 		if !c.engine.Ledger.ConflictDAG.ConfirmationState(set.NewAdvancedSet(conflictID)).IsPending() || dislikedConflicts.Has(conflictID) {
+			fmt.Println(">> ++ not pending or clashing")
 			censoredConflictsToDelete.Add(conflictID)
 			return true
 		}
@@ -109,6 +114,11 @@ func (c *TipsConflictTracker) MissingConflicts(amount int) (missingConflicts utx
 		likedConflictID, dislikedConflictsInner := c.engine.Consensus.LikedConflictMember(conflictID)
 		dislikedConflicts.AddAll(dislikedConflictsInner)
 
+		if likedConflictID != conflictID {
+			fmt.Println(">> ++ not liked")
+		}
+
+		fmt.Println(">> ++ Missing conflict rescued", likedConflictID)
 		if missingConflicts.Add(likedConflictID) && missingConflicts.Size() == amount {
 			// We stop iterating if we have enough conflicts
 			return false

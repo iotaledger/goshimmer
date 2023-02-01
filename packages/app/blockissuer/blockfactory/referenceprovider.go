@@ -1,6 +1,8 @@
 package blockfactory
 
 import (
+	"fmt"
+
 	"github.com/iotaledger/hive.go/core/generics/walker"
 	"github.com/pkg/errors"
 
@@ -82,10 +84,18 @@ func (r *ReferenceProvider) referencesToMissingConflicts(amount int) (blockIDs m
 		attachment, blockIDErr := r.firstValidAttachment(it.Next())
 		if attachment == nil || blockIDErr != nil {
 			panic("first attachment should be valid")
+			// continue
 		}
+
+		// TODO: use earliest instead? to avoid commitment monotonicity issue
+		// attachment := r.protocol.Engine().Tangle.GetLatestAttachment(it.Next())
+		// if attachment == nil {
+		// 	panic("attachment should not be nil")
+		// }
 
 		// Check commitment monotonicity for the attachment.
 		if attachment.Commitment().Index() > r.protocol.Engine().Storage.Settings.LatestCommitment().Index() {
+			fmt.Println(">> ++ commitment for attachment not monotonic")
 			continue
 		}
 

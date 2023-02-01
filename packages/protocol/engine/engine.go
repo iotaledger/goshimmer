@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"sync"
@@ -407,10 +408,16 @@ func (e *Engine) initNotarizationManager() {
 			}
 		}
 	}))
-	e.Events.Tangle.Booker.AttachmentOrphaned.Hook(event.NewClosure(func(block *booker.AttachmentBlock) {
-		if tx, ok := block.Transaction(); ok {
-			if conflict, conflictExists := e.Ledger.ConflictDAG.Conflict(tx.ID()); conflictExists && conflict.ConfirmationState().IsPending() {
-				e.NotarizationManager.DeleteConflictingAttachment(block.ID())
+	e.Events.Tangle.Booker.AttachmentOrphaned.Hook(event.NewClosure(func(attachmentBlock *booker.AttachmentBlock) {
+		if tx, ok := attachmentBlock.Transaction(); ok {
+			conflict, conflictExists := e.Ledger.ConflictDAG.Conflict(tx.ID())
+			var isPending bool
+			if conflictExists {
+				isPending = conflict.ConfirmationState().IsPending()
+			}
+			fmt.Println("<< attachment orphaned", attachmentBlock.ID(), conflictExists, isPending)
+			if conflictExists && conflict.ConfirmationState().IsPending() {
+				e.NotarizationManager.DeleteConflictingAttachment(attachmentBlock.ID())
 			}
 		}
 	}))
@@ -427,6 +434,7 @@ func (e *Engine) initNotarizationManager() {
 		for it := e.Tangle.Booker.GetAllAttachments(conflict.ID()).Iterator(); it.HasNext(); {
 			attachmentBlock := it.Next()
 
+			fmt.Println("<< conflict accepted", attachmentBlock.ID(), attachmentBlock.AttachmentOrphaned())
 			if !attachmentBlock.AttachmentOrphaned() {
 				e.NotarizationManager.DeleteConflictingAttachment(attachmentBlock.ID())
 			}
@@ -436,6 +444,7 @@ func (e *Engine) initNotarizationManager() {
 		for it := e.Tangle.Booker.GetAllAttachments(conflict.ID()).Iterator(); it.HasNext(); {
 			attachmentBlock := it.Next()
 
+			fmt.Println("<< conflict rejected", attachmentBlock.ID(), attachmentBlock.AttachmentOrphaned())
 			if !attachmentBlock.AttachmentOrphaned() {
 				e.NotarizationManager.DeleteConflictingAttachment(attachmentBlock.ID())
 			}
@@ -445,6 +454,7 @@ func (e *Engine) initNotarizationManager() {
 		for it := e.Tangle.Booker.GetAllAttachments(conflict.ID()).Iterator(); it.HasNext(); {
 			attachmentBlock := it.Next()
 
+			fmt.Println("<< conflict non conflicting", attachmentBlock.ID(), attachmentBlock.AttachmentOrphaned())
 			if !attachmentBlock.AttachmentOrphaned() {
 				e.NotarizationManager.DeleteConflictingAttachment(attachmentBlock.ID())
 			}
