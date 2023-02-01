@@ -36,12 +36,13 @@ func (c *CommitmentManager) GenerateCommitment() (*commitment.Commitment, epoch.
 		if err != nil {
 			return nil, 0, errors.Wrap(err, "failed to get latest commitment")
 		}
-		var commitment *commitment.Commitment
-		_, err = commitment.FromBytes(resp.Bytes)
+		comm := commitment.NewEmptyCommitment()
+		b := resp.Bytes
+		_, err = comm.FromBytes(b)
 		if err != nil {
 			return nil, 0, errors.Wrap(err, "failed to parse commitment bytes")
 		}
-		return commitment, epoch.Index(resp.LatestConfirmedIndex), err
+		return comm, epoch.Index(resp.LatestConfirmedIndex), err
 	case "random":
 	case "oldest":
 

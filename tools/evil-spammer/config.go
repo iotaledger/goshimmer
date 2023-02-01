@@ -38,11 +38,12 @@ var (
 	}
 
 	commitmentsSpamParams = CommitmentsSpamParams{
-		ClientURLs:    urls,
-		Rate:          1,
-		Duration:      time.Second * 20,
-		TimeUnit:      time.Second,
-		NetworkAlias:  "docker",
-		IdentityAlias: "peer_master",
+		ClientURLs:     urls,
+		Rate:           1,
+		Duration:       time.Second * 20,
+		TimeUnit:       time.Second,
+		NetworkAlias:   "docker",
+		IdentityAlias:  "peer_master",
+		CommitmentType: "latest",
 	}
 )
