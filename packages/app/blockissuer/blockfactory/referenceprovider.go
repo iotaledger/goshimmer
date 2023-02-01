@@ -80,8 +80,8 @@ func (r *ReferenceProvider) referencesToMissingConflicts(amount int) (blockIDs m
 
 	for it := r.protocol.TipManager.TipsConflictTracker.MissingConflicts(amount).Iterator(); it.HasNext(); {
 		attachment, blockIDErr := r.firstValidAttachment(it.Next())
-		if blockIDErr != nil {
-			continue
+		if attachment == nil || blockIDErr != nil {
+			panic("first attachment should be valid")
 		}
 
 		// Check commitment monotonicity for the attachment.
@@ -113,7 +113,7 @@ func (r *ReferenceProvider) weakParentsFromUnacceptedInputs(payload payload.Payl
 		}
 
 		if !engineInstance.Ledger.Utils.TransactionConfirmationState(referencedTransactionID).IsAccepted() {
-			latestAttachment := engineInstance.Tangle.Booker.GetLatestAttachment(referencedTransactionID)
+			latestAttachment := engineInstance.Tangle.GetLatestAttachment(referencedTransactionID)
 			if latestAttachment == nil {
 				continue
 			}

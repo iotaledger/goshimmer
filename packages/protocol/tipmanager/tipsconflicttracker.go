@@ -96,25 +96,20 @@ func (c *TipsConflictTracker) MissingConflicts(amount int) (missingConflicts utx
 
 	missingConflicts = utxo.NewTransactionIDs()
 	censoredConflictsToDelete := utxo.NewTransactionIDs()
+	dislikedConflicts := utxo.NewTransactionIDs()
 	c.censoredConflicts.ForEach(func(conflictID utxo.TransactionID, _ types.Empty) bool {
 		// TODO: this should not be necessary if ConflictAccepted/ConflictRejected events are fired appropriately
-		if !c.engine.Ledger.ConflictDAG.ConfirmationState(set.NewAdvancedSet(conflictID)).IsPending() {
+		// If the conflict is not pending anymore or it clashes with a conflict we already introduced, we can remove it from the censored conflicts.
+		if !c.engine.Ledger.ConflictDAG.ConfirmationState(set.NewAdvancedSet(conflictID)).IsPending() || dislikedConflicts.Has(conflictID) {
 			censoredConflictsToDelete.Add(conflictID)
 			return true
 		}
 
-		// We want to reintroduce only the pending conflict that is liked
-		conflict, exists := c.engine.Ledger.ConflictDAG.Conflict(conflictID)
-		if !exists {
-			return true
-		}
+		// We want to reintroduce only the pending conflict that is liked.
+		likedConflictID, dislikedConflictsInner := c.engine.Consensus.LikedConflictMember(conflictID)
+		dislikedConflicts.AddAll(dislikedConflictsInner)
 
-		if !c.engine.Consensus.ConflictLiked(conflict) {
-			return true
-		}
-
-		fmt.Println(">> Missing conflict rescued", conflictID)
-		if missingConflicts.Add(conflictID) && missingConflicts.Size() == amount {
+		if missingConflicts.Add(likedConflictID) && missingConflicts.Size() == amount {
 			// We stop iterating if we have enough conflicts
 			return false
 		}

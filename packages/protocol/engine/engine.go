@@ -387,6 +387,7 @@ func (e *Engine) initNotarizationManager() {
 			e.Events.Error.Trigger(errors.Wrapf(err, "failed to update transaction inclusion time %s in epoch", event.TransactionID))
 		}
 	}))
+
 	//e.Ledger.Events.TransactionOrphaned.Hook(event.NewClosure(func(event *ledger.TransactionEvent) {
 	//	if err := e.NotarizationManager.EpochMutations.RemoveAcceptedTransaction(event.Metadata); err != nil {
 	//		e.Events.Error.Trigger(errors.Wrapf(err, "failed to remove accepted transaction %s from epoch", event.Metadata.ID()))
@@ -402,7 +403,7 @@ func (e *Engine) initNotarizationManager() {
 	e.Events.Tangle.Booker.AttachmentCreated.Hook(event.NewClosure(func(block *booker.AttachmentBlock) {
 		if tx, ok := block.Transaction(); ok {
 			if conflict, conflictExists := e.Ledger.ConflictDAG.Conflict(tx.ID()); conflictExists && conflict.ConfirmationState().IsPending() {
-				e.NotarizationManager.AddConflictingAttachment(block.ID())
+				e.NotarizationManager.AddConflictingAttachment(block.ModelsBlock)
 			}
 		}
 	}))
@@ -418,7 +419,7 @@ func (e *Engine) initNotarizationManager() {
 			attachmentBlock := it.Next()
 
 			if !attachmentBlock.AttachmentOrphaned() && conflict.ConfirmationState().IsPending() {
-				e.NotarizationManager.AddConflictingAttachment(attachmentBlock.ID())
+				e.NotarizationManager.AddConflictingAttachment(attachmentBlock.ModelsBlock)
 			}
 		}
 	}))
