@@ -14,8 +14,7 @@ type IdentityManager struct {
 
 func NewIdentityManager() *IdentityManager {
 	return &IdentityManager{
-		identities:   make(map[string]*identity.LocalIdentity),
-		primaryAlias: "non existing",
+		identities: make(map[string]*identity.LocalIdentity),
 	}
 }
 

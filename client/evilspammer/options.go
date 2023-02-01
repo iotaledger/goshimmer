@@ -109,6 +109,7 @@ func WithNumberOfSpends(n int) Options {
 func WithIdentity(alias, privateKey string) Options {
 	return func(s *Spammer) {
 		s.IdentityManager.AddIdentity(privateKey, alias)
+		s.IdentityManager.primaryAlias = alias
 	}
 }
 
