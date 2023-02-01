@@ -1,9 +1,10 @@
 package evilwallet
 
 import (
-	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"sync"
 	"time"
+
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
@@ -198,6 +199,8 @@ type Client interface {
 	GetOutputSolidity(outID string) (solid bool, err error)
 	// GetLatestCommitment returns the latest commitment and data needed to create a new block.
 	GetLatestCommitment() (commitment *jsonmodels.Commitment, err error)
+	// GetCommitment returns the commitment for a given epoch and data needed to create a new block.
+	GetCommitment(epochIndex string) (commitment *jsonmodels.Commitment, err error)
 	// GetReferences returns the references selected for a given payload.
 	GetReferences(payload []byte, parentsCount int) (refs models.ParentBlockIDs, err error)
 }
@@ -370,6 +373,14 @@ func (c *WebClient) GetOutputSolidity(outID string) (solid bool, err error) {
 
 func (c *WebClient) GetLatestCommitment() (resp *jsonmodels.Commitment, err error) {
 	resp, err = c.api.GetLatestCommitment()
+	if err != nil {
+		return
+	}
+	return
+}
+
+func (c *WebClient) GetCommitment(epochIndex string) (resp *jsonmodels.Commitment, err error) {
+	resp, err = c.api.GetCommitment(epochIndex)
 	if err != nil {
 		return
 	}
