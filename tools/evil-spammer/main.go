@@ -34,7 +34,7 @@ func main() {
 	case "basic":
 		CustomSpam(&customSpamParams)
 	case "quick":
-		QuickTest(&quickTest)
+		QuickTest(&quickTestParams)
 	case "commitments":
 		CommitmentsSpam(&commitmentsSpamParams)
 	default:
@@ -90,7 +90,7 @@ func parseBasicSpamFlags() {
 
 	if *urls != "" {
 		parsedUrls := parseCommaSepString(*urls)
-		quickTest.ClientURLs = parsedUrls
+		quickTestParams.ClientURLs = parsedUrls
 	}
 	if *spamTypes != "" {
 		parsedSpamTypes := parseCommaSepString(*spamTypes)
@@ -131,33 +131,33 @@ func parseBasicSpamFlags() {
 
 func parseQuickTestFlags() {
 	urls := optionFlagSet.String("urls", "", "API urls for clients used in test separated with commas")
-	rate := optionFlagSet.Int("rate", quickTest.Rate, "The spamming rate")
-	duration := optionFlagSet.Duration("duration", quickTest.Duration, "Duration of the spam. Format: decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.\n Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.")
-	timeunit := optionFlagSet.Duration("tu", quickTest.TimeUnit, "Time unit for the spamming rate. Format: decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.\n Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.")
-	delayBetweenConflicts := optionFlagSet.Duration("dbc", quickTest.DelayBetweenConflicts, "delayBetweenConflicts - Time delay between conflicts in double spend spamming")
-	verifyLedger := optionFlagSet.Bool("verify", quickTest.VerifyLedger, "Set to true if verify ledger script should be run at the end of the test")
+	rate := optionFlagSet.Int("rate", quickTestParams.Rate, "The spamming rate")
+	duration := optionFlagSet.Duration("duration", quickTestParams.Duration, "Duration of the spam. Format: decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.\n Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.")
+	timeunit := optionFlagSet.Duration("tu", quickTestParams.TimeUnit, "Time unit for the spamming rate. Format: decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.\n Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.")
+	delayBetweenConflicts := optionFlagSet.Duration("dbc", quickTestParams.DelayBetweenConflicts, "delayBetweenConflicts - Time delay between conflicts in double spend spamming")
+	verifyLedger := optionFlagSet.Bool("verify", quickTestParams.VerifyLedger, "Set to true if verify ledger script should be run at the end of the test")
 
 	parseOptionFlagSet(optionFlagSet)
 
 	if *urls != "" {
 		parsedUrls := parseCommaSepString(*urls)
-		quickTest.ClientURLs = parsedUrls
+		quickTestParams.ClientURLs = parsedUrls
 	}
-	quickTest.Rate = *rate
-	quickTest.Duration = *duration
-	quickTest.TimeUnit = *timeunit
-	quickTest.DelayBetweenConflicts = *delayBetweenConflicts
-	quickTest.VerifyLedger = *verifyLedger
+	quickTestParams.Rate = *rate
+	quickTestParams.Duration = *duration
+	quickTestParams.TimeUnit = *timeunit
+	quickTestParams.DelayBetweenConflicts = *delayBetweenConflicts
+	quickTestParams.VerifyLedger = *verifyLedger
 }
 
 func parseCommitmentsSpamFlags() {
 	urls := optionFlagSet.String("urls", "", "API urls for clients used in test separated with commas")
-	commitmentType := optionFlagSet.String("type", "c", "Type of commitment spam. Possible values: 'latest' - valid commitment spam, 'oldest' - oldest possible spam")
-	rate := optionFlagSet.Int("rate", 1, "Commitment spam rate")
-	duration := optionFlagSet.Duration("duration", 0, "Duration of the spam. Format: decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.\n Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.")
-	timeUnit := optionFlagSet.Duration("tu", 0, "Time unit for the spamming rate. Format: decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.\n Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.")
-	networkAlias := optionFlagSet.String("network", "local", "Network alias for the test. Check your keys-config.json file for possible values.")
-	identityAlias := optionFlagSet.String("identity", "alice", "Identity alias for the node identity and its private keys. Check your keys-config.json file for possible values.")
+	commitmentType := optionFlagSet.String("type", commitmentsSpamParams.CommitmentType, "Type of commitment spam. Possible values: 'latest' - valid commitment spam, 'oldest' - oldest possible spam")
+	rate := optionFlagSet.Int("rate", commitmentsSpamParams.Rate, "Commitment spam rate")
+	duration := optionFlagSet.Duration("duration", commitmentsSpamParams.Duration, "Duration of the spam. Format: decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.\n Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.")
+	timeUnit := optionFlagSet.Duration("tu", commitmentsSpamParams.TimeUnit, "Time unit for the spamming rate. Format: decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.\n Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.")
+	networkAlias := optionFlagSet.String("network", commitmentsSpamParams.NetworkAlias, "Network alias for the test. Check your keys-config.json file for possible values.")
+	identityAlias := optionFlagSet.String("identity", commitmentsSpamParams.IdentityAlias, "Identity alias for the node identity and its private keys. Check your keys-config.json file for possible values.")
 	if *urls != "" {
 		parsedUrls := parseCommaSepString(*urls)
 		commitmentsSpamParams.ClientURLs = parsedUrls

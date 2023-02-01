@@ -2,6 +2,7 @@ package identity
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 )
 
@@ -19,10 +20,13 @@ var identityConfigJSON = `{
 }`
 
 func LoadIdentity(networkName, alias string) string {
-	//fmt.Println("Loading identity", alias, "for network", networkName)
-	//if privateKey, exists := Config[alias]; exists {
-	//	return privateKey
-	//}
+	fmt.Println("Loading identity", alias, "for network", networkName)
+	if networkIdentities, exists := Config[networkName]; exists {
+		if privateKey, ok := networkIdentities[alias]; ok {
+			return privateKey
+		}
+		return ""
+	}
 	return ""
 }
 
@@ -47,6 +51,5 @@ func LoadConfig() Params {
 	if err = json.Unmarshal(fbytes, &Config); err != nil {
 		panic(err)
 	}
-	//fmt.Println("Loaded config:", Config)
 	return Config
 }
