@@ -44,6 +44,6 @@ var (
 		TimeUnit:       time.Second,
 		NetworkAlias:   "docker",
 		IdentityAlias:  "peer_master",
-		CommitmentType: "latest",
+		CommitmentType: "oldest",
 	}
 )

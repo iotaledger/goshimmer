@@ -23,12 +23,12 @@ func CommitmentsSpam(params *CommitmentsSpamParams) {
 }
 
 func SpamCommitments(rate int, timeUnit, duration time.Duration, networkAlias, identityAlias, commitmentType string) {
-	privateKay := identity.LoadIdentity(networkAlias, identityAlias)
+	privateKey := identity.LoadIdentity(networkAlias, identityAlias)
 	options := []evilspammer.Options{
 		evilspammer.WithSpamRate(rate, timeUnit),
 		evilspammer.WithSpamDuration(duration),
 		evilspammer.WithSpammingFunc(evilspammer.CommitmentsSpammingFunction),
-		evilspammer.WithIdentity(identityAlias, privateKay),
+		evilspammer.WithIdentity(identityAlias, privateKey),
 		evilspammer.WithCommitmentType(commitmentType),
 	}
 	spammer := evilspammer.NewSpammer(options...)

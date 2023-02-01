@@ -90,7 +90,7 @@ func getCommitment(c echo.Context) error {
 
 // epochIndexFromContext determines the epoch index from the epochIndex parameter in an echo.Context.
 func eiFromContext(c echo.Context) (ei epoch.Index, err error) {
-	eiText := c.Param("epochIndex")
+	eiText := c.Param("ei")
 	eiInt, err := strconv.Atoi(eiText)
 	if err != nil {
 		return 0, errors.Wrap(err, "can't parse Index from URL param")
