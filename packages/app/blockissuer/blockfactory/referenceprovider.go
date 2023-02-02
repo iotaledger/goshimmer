@@ -82,7 +82,8 @@ func (r *ReferenceProvider) referencesToMissingConflicts(amount int) (blockIDs m
 	}
 
 	for it := r.protocol.TipManager.TipsConflictTracker.MissingConflicts(amount).Iterator(); it.HasNext(); {
-		attachment, err := r.firstValidAttachment(it.Next())
+		conflictID := it.Next()
+		attachment, err := r.firstValidAttachment(conflictID)
 		if attachment == nil || err != nil {
 			// panic("first attachment should be valid")
 			fmt.Println(">> ++ firstValidAttachment failed adjust opinion", err)
@@ -101,6 +102,7 @@ func (r *ReferenceProvider) referencesToMissingConflicts(amount int) (blockIDs m
 			continue
 		}
 
+		fmt.Printf(">> ++ rescued %s via %s\n", conflictID, attachment.ID())
 		blockIDs.Add(attachment.ID())
 	}
 
