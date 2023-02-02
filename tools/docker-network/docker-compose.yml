@@ -24,6 +24,8 @@ services:
       --blockIssuer.ignoreBootstrappedFlag=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
+      --dashboard.dev=false
+      --dashboard.devDashboardAddress=dashboard-dev-docker:9999
     secrets:
       - goshimmer.config.json
     volumes:
