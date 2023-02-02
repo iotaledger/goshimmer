@@ -1,8 +1,6 @@
 package evilspammer
 
 import (
-	"fmt"
-
 	"github.com/iotaledger/goshimmer/client/evilwallet"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -35,7 +33,6 @@ func (c *CommitmentManager) GenerateCommitment() (*commitment.Commitment, epoch.
 	switch c.CommitmentType {
 	case "latest":
 		resp, err := clt.GetLatestCommitment()
-		fmt.Println(resp.Index)
 		if err != nil {
 			return nil, 0, errors.Wrap(err, "failed to get latest commitment")
 		}
