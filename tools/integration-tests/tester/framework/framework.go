@@ -18,6 +18,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/orderedmap"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/protocol"
@@ -174,7 +175,10 @@ func createSnapshot(snapshotInfo SnapshotInfo, startSynced bool) error {
 		),
 	}
 
-	snapshotcreator.CreateSnapshotForIntegrationTest(createTempStorage(), snapshotInfo.FilePath, snapshotInfo.GenesisTokenAmount, GenesisSeedBytes, nodesToPledgeMap, startSynced, engineOptions...)
+	storage := createTempStorage()
+	defer storage.Shutdown()
+
+	snapshotcreator.CreateSnapshotForIntegrationTest(workerpool.NewGroup("CreateSnapshotForIntegrationTest"), storage, snapshotInfo.FilePath, snapshotInfo.GenesisTokenAmount, GenesisSeedBytes, nodesToPledgeMap, startSynced, engineOptions...)
 
 	return nil
 }

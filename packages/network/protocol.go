@@ -7,7 +7,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotaledger/hive.go/core/bytesfilter"
-	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/orderedmap"
@@ -15,6 +14,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -31,17 +31,19 @@ type Protocol struct {
 	Events *Events
 
 	network                   Endpoint
+	workerPool                *workerpool.UnboundedWorkerPool
 	duplicateBlockBytesFilter *bytesfilter.BytesFilter
 
 	requestedBlockHashes      *shrinkingmap.ShrinkingMap[types.Identifier, types.Empty]
 	requestedBlockHashesMutex sync.Mutex
 }
 
-func NewProtocol(network Endpoint, opts ...options.Option[Protocol]) (protocol *Protocol) {
+func NewProtocol(network Endpoint, workerPool *workerpool.UnboundedWorkerPool, opts ...options.Option[Protocol]) (protocol *Protocol) {
 	return options.Apply(&Protocol{
 		Events: NewEvents(),
 
 		network:                   network,
+		workerPool:                workerPool,
 		duplicateBlockBytesFilter: bytesfilter.New(10000),
 		requestedBlockHashes:      shrinkingmap.New[types.Identifier, types.Empty](shrinkingmap.WithShrinkingThresholdCount(1000)),
 	}, opts, func(p *Protocol) {
@@ -99,19 +101,19 @@ func (p *Protocol) Unregister() {
 func (p *Protocol) handlePacket(nbr identity.ID, packet proto.Message) (err error) {
 	switch packetBody := packet.(*nwmodels.Packet).GetBody().(type) {
 	case *nwmodels.Packet_Block:
-		event.Loop.Submit(func() { p.onBlock(packetBody.Block.GetBytes(), nbr) })
+		p.workerPool.Submit(func() { p.onBlock(packetBody.Block.GetBytes(), nbr) })
 	case *nwmodels.Packet_BlockRequest:
-		event.Loop.Submit(func() { p.onBlockRequest(packetBody.BlockRequest.GetBytes(), nbr) })
+		p.workerPool.Submit(func() { p.onBlockRequest(packetBody.BlockRequest.GetBytes(), nbr) })
 	case *nwmodels.Packet_EpochCommitment:
-		event.Loop.Submit(func() { p.onEpochCommitment(packetBody.EpochCommitment.GetBytes(), nbr) })
+		p.workerPool.Submit(func() { p.onEpochCommitment(packetBody.EpochCommitment.GetBytes(), nbr) })
 	case *nwmodels.Packet_EpochCommitmentRequest:
-		event.Loop.Submit(func() { p.onEpochCommitmentRequest(packetBody.EpochCommitmentRequest.GetBytes(), nbr) })
+		p.workerPool.Submit(func() { p.onEpochCommitmentRequest(packetBody.EpochCommitmentRequest.GetBytes(), nbr) })
 	case *nwmodels.Packet_Attestations:
-		event.Loop.Submit(func() {
+		p.workerPool.Submit(func() {
 			p.onAttestations(packetBody.Attestations.GetCommitment(), packetBody.Attestations.GetBlocks(), packetBody.Attestations.GetAttestations(), nbr)
 		})
 	case *nwmodels.Packet_AttestationsRequest:
-		event.Loop.Submit(func() {
+		p.workerPool.Submit(func() {
 			p.onAttestationsRequest(packetBody.AttestationsRequest.GetCommitment(), packetBody.AttestationsRequest.GetEndIndex(), nbr)
 		})
 	default:

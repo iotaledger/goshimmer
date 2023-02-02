@@ -1,38 +1,40 @@
 package engine
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/pkg/errors"
+	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/eventticker"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
-	"github.com/iotaledger/goshimmer/packages/storage"
-
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/filter"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tsc"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
 // region Engine /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -53,6 +55,8 @@ type Engine struct {
 	TSCManager          *tsc.Manager
 	Clock               *clock.Clock
 
+	Workers *workerpool.Group
+
 	isBootstrapped      bool
 	isBootstrappedMutex sync.Mutex
 
@@ -68,10 +72,11 @@ type Engine struct {
 
 	traits.Constructable
 	traits.Initializable
-	traits.Runnable
+	traits.Stoppable
 }
 
 func New(
+	workers *workerpool.Group,
 	storageInstance *storage.Storage,
 	sybilProtection ModuleProvider[sybilprotection.SybilProtection],
 	throughputQuota ModuleProvider[throughputquota.ThroughputQuota],
@@ -82,21 +87,19 @@ func New(
 			Events:        NewEvents(),
 			Storage:       storageInstance,
 			Constructable: traits.NewConstructable(),
-			Runnable:      traits.NewRunnable(),
+			Stoppable:     traits.NewStoppable(),
+			Workers:       workers,
 
 			optsBootstrappedThreshold: 10 * time.Second,
 			optsSnapshotDepth:         5,
 		}, opts, func(e *Engine) {
-			e.Ledger = ledger.New(e.Storage, e.optsLedgerOptions...)
+			e.Ledger = ledger.New(workers.CreatePool("Pool"), e.Storage, e.optsLedgerOptions...)
 			e.LedgerState = ledgerstate.New(storageInstance, e.Ledger)
 			e.Clock = clock.New()
 			e.EvictionState = eviction.NewState(storageInstance)
 			e.SybilProtection = sybilProtection(e)
 			e.ThroughputQuota = throughputQuota(e)
 			e.NotarizationManager = notarization.NewManager(e.Storage, e.LedgerState, e.SybilProtection.Weights(), e.optsNotarizationManagerOptions...)
-
-			e.AttachRunnable("SybilProtection", e.SybilProtection)
-			e.AttachRunnable("ThroughputQuota", e.ThroughputQuota)
 
 			e.Initializable = traits.NewInitializable(
 				e.Storage.Settings.TriggerInitialized,
@@ -121,6 +124,15 @@ func New(
 			e.TriggerConstructed()
 		},
 	)
+}
+
+func (e *Engine) Shutdown() {
+	if !e.WasStopped() {
+		fmt.Println("engine.Engine.Shutdown", e.Storage.Directory)
+		e.TriggerStopped()
+		e.Ledger.Shutdown()
+		e.Workers.Shutdown()
+	}
 }
 
 func (e *Engine) ProcessBlockFromPeer(block *models.Block, source identity.ID) {
@@ -254,37 +266,31 @@ func (e *Engine) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (err err
 func (e *Engine) initFilter() {
 	e.Filter = filter.New(filter.WithMinCommittableEpochAge(e.NotarizationManager.MinCommittableEpochAge()))
 
-	e.SubscribeStopped(
-		event.AttachWithWorkerPool(e.Filter.Events.BlockFiltered, func(filteredEvent *filter.BlockFilteredEvent) {
-			e.Events.Error.Trigger(errors.Wrapf(filteredEvent.Reason, "block (%s) filtered", filteredEvent.Block.ID()))
-		}, e.NewWorkerPool("Filter", 1)),
-	)
+	event.AttachWithWorkerPool(e.Filter.Events.BlockFiltered, func(filteredEvent *filter.BlockFilteredEvent) {
+		e.Events.Error.Trigger(errors.Wrapf(filteredEvent.Reason, "block (%s) filtered", filteredEvent.Block.ID()))
+	}, e.Workers.CreatePool("Filter"))
 
 	e.Events.Filter.LinkTo(e.Filter.Events)
 }
 
 func (e *Engine) initLedger() {
 	e.Events.Ledger.LinkTo(e.Ledger.Events)
-	e.AttachRunnable("Ledger", e.Ledger)
 }
 
 func (e *Engine) initTangle() {
-	e.Tangle = tangle.New(e.Ledger, e.EvictionState, e.SybilProtection.Validators(), e.LastConfirmedEpoch, e.FirstUnacceptedMarker, e.optsTangleOptions...)
-	e.AttachRunnable("Tangle", e.Tangle)
+	e.Tangle = tangle.New(e.Workers.CreateGroup("Tangle"), e.Ledger, e.EvictionState, e.SybilProtection.Validators(), e.LastConfirmedEpoch, e.FirstUnacceptedMarker, e.optsTangleOptions...)
 
-	e.SubscribeStopped(
-		event.AttachWithWorkerPool(e.Events.Filter.BlockAllowed, func(block *models.Block) {
-			if _, _, err := e.Tangle.Attach(block); err != nil {
-				e.Events.Error.Trigger(errors.Wrapf(err, "failed to attach block with %s (issuerID: %s)", block.ID(), block.IssuerID()))
-			}
-		}, e.NewWorkerPool("Tangle.Attach", 1)),
-	)
+	event.AttachWithWorkerPool(e.Events.Filter.BlockAllowed, func(block *models.Block) {
+		if _, _, err := e.Tangle.BlockDAG.Attach(block); err != nil {
+			e.Events.Error.Trigger(errors.Wrapf(err, "failed to attach block with %s (issuerID: %s)", block.ID(), block.IssuerID()))
+		}
+	}, e.Workers.CreatePool("Tangle.Attach", 1))
 
 	e.Events.Tangle.LinkTo(e.Tangle.Events)
 }
 
 func (e *Engine) initConsensus() {
-	e.Consensus = consensus.New(e.Tangle, e.EvictionState, e.Storage.Permanent.Settings.LatestConfirmedEpoch(), func() (totalWeight int64) {
+	e.Consensus = consensus.New(e.Workers.CreateGroup("Consensus"), e.Tangle, e.EvictionState, e.Storage.Permanent.Settings.LatestConfirmedEpoch(), func() (totalWeight int64) {
 		if zeroIdentityWeight, exists := e.SybilProtection.Weights().Get(identity.ID{}); exists {
 			totalWeight -= zeroIdentityWeight.Value
 		}
@@ -292,123 +298,111 @@ func (e *Engine) initConsensus() {
 		return totalWeight + e.SybilProtection.Weights().TotalWeight()
 	}, e.optsConsensusOptions...)
 	e.Events.Consensus.LinkTo(e.Consensus.Events)
-	e.AttachRunnable("Consensus", e.Consensus)
 
-	e.SubscribeStopped(
-		event.Hook(e.Events.EvictionState.EpochEvicted, e.Consensus.BlockGadget.EvictUntil),
-		event.Hook(e.Events.Consensus.BlockGadget.Error, func(err error) {
-			e.Events.Error.Trigger(err)
-		}),
-		event.AttachWithWorkerPool(e.Events.Consensus.EpochGadget.EpochConfirmed, func(epochIndex epoch.Index) {
-			err := e.Storage.Permanent.Settings.SetLatestConfirmedEpoch(epochIndex)
-			if err != nil {
-				panic(err)
-			}
+	event.Hook(e.Events.EvictionState.EpochEvicted, e.Consensus.BlockGadget.EvictUntil)
+	event.Hook(e.Events.Consensus.BlockGadget.Error, func(err error) {
+		e.Events.Error.Trigger(err)
+	})
+	event.AttachWithWorkerPool(e.Events.Consensus.EpochGadget.EpochConfirmed, func(epochIndex epoch.Index) {
+		err := e.Storage.Permanent.Settings.SetLatestConfirmedEpoch(epochIndex)
+		if err != nil {
+			panic(err)
+		}
 
-			e.Tangle.VirtualVoting.EvictEpochTracker(epochIndex)
-		}, e.NewWorkerPool("Consensus", 1)),
-	)
+		e.Tangle.VirtualVoting.EvictEpochTracker(epochIndex)
+	}, e.Workers.CreatePool("Consensus", 1))
 }
 
 func (e *Engine) initClock() {
 	e.Events.Clock.LinkTo(e.Clock.Events)
 
-	wpAccepted := e.NewWorkerPool("Clock.SetAcceptedTime", 1)
-	wpConfirmed := e.NewWorkerPool("Clock.SetConfirmedTime", 1)
+	wpAccepted := e.Workers.CreatePool("Clock.SetAcceptedTime", 1)
+	wpConfirmed := e.Workers.CreatePool("Clock.SetConfirmedTime", 1)
 
-	e.SubscribeStopped(
-		event.AttachWithWorkerPool(e.Events.Consensus.BlockGadget.BlockAccepted, func(block *blockgadget.Block) {
-			e.Clock.SetAcceptedTime(block.IssuingTime())
-		}, wpAccepted),
-		event.AttachWithWorkerPool(e.Events.Consensus.BlockGadget.BlockConfirmed, func(block *blockgadget.Block) {
-			e.Clock.SetConfirmedTime(block.IssuingTime())
-		}, wpConfirmed),
-		event.AttachWithWorkerPool(e.Events.Consensus.EpochGadget.EpochConfirmed, func(epochIndex epoch.Index) {
-			e.Clock.SetConfirmedTime(epochIndex.EndTime())
-		}, wpConfirmed),
-	)
+	event.AttachWithWorkerPool(e.Events.Consensus.BlockGadget.BlockAccepted, func(block *blockgadget.Block) {
+		e.Clock.SetAcceptedTime(block.IssuingTime())
+	}, wpAccepted)
+	event.AttachWithWorkerPool(e.Events.Consensus.BlockGadget.BlockConfirmed, func(block *blockgadget.Block) {
+		e.Clock.SetConfirmedTime(block.IssuingTime())
+	}, wpConfirmed)
+	event.AttachWithWorkerPool(e.Events.Consensus.EpochGadget.EpochConfirmed, func(epochIndex epoch.Index) {
+		e.Clock.SetConfirmedTime(epochIndex.EndTime())
+	}, wpConfirmed)
 }
 
 func (e *Engine) initTSCManager() {
 	e.TSCManager = tsc.New(e.Consensus.BlockGadget.IsBlockAccepted, e.Tangle, e.optsTSCManagerOptions...)
 
-	wp := e.NewWorkerPool("TSCManager", 1)
+	wp := e.Workers.CreatePool("TSCManager", 1)
 
-	e.SubscribeStopped(
-		event.AttachWithWorkerPool(e.Events.Tangle.Booker.BlockBooked, e.TSCManager.AddBlock, wp),
-		event.AttachWithWorkerPool(e.Events.Clock.AcceptanceTimeUpdated, func(event *clock.TimeUpdateEvent) {
-			e.TSCManager.HandleTimeUpdate(event.NewTime)
-		}, wp),
-	)
+	event.AttachWithWorkerPool(e.Events.Tangle.Booker.BlockBooked, e.TSCManager.AddBlock, wp)
+	event.AttachWithWorkerPool(e.Events.Clock.AcceptanceTimeUpdated, func(event *clock.TimeUpdateEvent) {
+		e.TSCManager.HandleTimeUpdate(event.NewTime)
+	}, wp)
 }
 
 func (e *Engine) initBlockStorage() {
-	wp := e.NewWorkerPool("BlockStorage", 1)
+	wp := e.Workers.CreatePool("BlockStorage", 1)
 
-	e.SubscribeStopped(
-		event.AttachWithWorkerPool(e.Events.Consensus.BlockGadget.BlockAccepted, func(block *blockgadget.Block) {
-			if err := e.Storage.Blocks.Store(block.ModelsBlock); err != nil {
-				e.Events.Error.Trigger(errors.Wrapf(err, "failed to store block with %s", block.ID()))
-			}
-		}, wp),
-		event.AttachWithWorkerPool(e.Events.Tangle.BlockDAG.BlockOrphaned, func(block *blockdag.Block) {
-			if err := e.Storage.Blocks.Delete(block.ID()); err != nil {
-				e.Events.Error.Trigger(errors.Wrapf(err, "failed to delete block with %s", block.ID()))
-			}
-		}, wp),
-	)
+	event.AttachWithWorkerPool(e.Events.Consensus.BlockGadget.BlockAccepted, func(block *blockgadget.Block) {
+		if err := e.Storage.Blocks.Store(block.ModelsBlock); err != nil {
+			e.Events.Error.Trigger(errors.Wrapf(err, "failed to store block with %s", block.ID()))
+		}
+	}, wp)
+	event.AttachWithWorkerPool(e.Events.Tangle.BlockDAG.BlockOrphaned, func(block *blockdag.Block) {
+		if err := e.Storage.Blocks.Delete(block.ID()); err != nil {
+			e.Events.Error.Trigger(errors.Wrapf(err, "failed to delete block with %s", block.ID()))
+		}
+	}, wp)
 }
 
 func (e *Engine) initNotarizationManager() {
 	e.Events.NotarizationManager.LinkTo(e.NotarizationManager.Events)
 	e.Events.EpochMutations.LinkTo(e.NotarizationManager.EpochMutations.Events)
 
-	wpBlocks := e.NewWorkerPool("NotarizationManager.Blocks", 1)
-	wpCommitments := e.NewWorkerPool("NotarizationManager.Commitments", 1)
+	wpBlocks := e.Workers.CreatePool("NotarizationManager.Blocks", 1)
+	wpCommitments := e.Workers.CreatePool("NotarizationManager.Commitments", 1)
 
-	e.SubscribeStopped(
-		// EpochMutations must be hooked
-		event.Hook(e.Ledger.Events.TransactionAccepted, func(event *ledger.TransactionEvent) {
-			if err := e.NotarizationManager.EpochMutations.AddAcceptedTransaction(event.Metadata); err != nil {
-				e.Events.Error.Trigger(errors.Wrapf(err, "failed to add accepted transaction %s to epoch", event.Metadata.ID()))
-			}
-		}),
-		event.Hook(e.Ledger.Events.TransactionInclusionUpdated, func(event *ledger.TransactionInclusionUpdatedEvent) {
-			if err := e.NotarizationManager.EpochMutations.UpdateTransactionInclusion(event.TransactionID, event.PreviousInclusionEpoch, event.InclusionEpoch); err != nil {
-				e.Events.Error.Trigger(errors.Wrapf(err, "failed to update transaction inclusion time %s in epoch", event.TransactionID))
-			}
-		}),
+	// EpochMutations must be hooked
+	event.Hook(e.Ledger.Events.TransactionAccepted, func(event *ledger.TransactionEvent) {
+		if err := e.NotarizationManager.EpochMutations.AddAcceptedTransaction(event.Metadata); err != nil {
+			e.Events.Error.Trigger(errors.Wrapf(err, "failed to add accepted transaction %s to epoch", event.Metadata.ID()))
+		}
+	})
+	event.Hook(e.Ledger.Events.TransactionInclusionUpdated, func(event *ledger.TransactionInclusionUpdatedEvent) {
+		if err := e.NotarizationManager.EpochMutations.UpdateTransactionInclusion(event.TransactionID, event.PreviousInclusionEpoch, event.InclusionEpoch); err != nil {
+			e.Events.Error.Trigger(errors.Wrapf(err, "failed to update transaction inclusion time %s in epoch", event.TransactionID))
+		}
+	})
 
-		// ConflictDAG conflicts must be hooked
-		event.Hook(e.Ledger.ConflictDAG.Events.ConflictCreated, func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
-			e.NotarizationManager.IncreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.GetEarliestAttachment(event.ID).IssuingTime()))
-		}),
-		event.Hook(e.Ledger.ConflictDAG.Events.ConflictAccepted, func(conflictID utxo.TransactionID) {
-			e.NotarizationManager.DecreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.GetEarliestAttachment(conflictID).IssuingTime()))
-		}),
-		event.Hook(e.Ledger.ConflictDAG.Events.ConflictRejected, func(conflictID utxo.TransactionID) {
-			e.NotarizationManager.DecreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.GetEarliestAttachment(conflictID).IssuingTime()))
-		}),
+	// ConflictDAG conflicts must be hooked
+	event.Hook(e.Ledger.ConflictDAG.Events.ConflictCreated, func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
+		e.NotarizationManager.IncreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.Booker.GetEarliestAttachment(event.ID).IssuingTime()))
+	})
+	event.Hook(e.Ledger.ConflictDAG.Events.ConflictAccepted, func(conflictID utxo.TransactionID) {
+		e.NotarizationManager.DecreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.Booker.GetEarliestAttachment(conflictID).IssuingTime()))
+	})
+	event.Hook(e.Ledger.ConflictDAG.Events.ConflictRejected, func(conflictID utxo.TransactionID) {
+		e.NotarizationManager.DecreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.Booker.GetEarliestAttachment(conflictID).IssuingTime()))
+	})
 
-		event.AttachWithWorkerPool(e.Consensus.BlockGadget.Events.BlockAccepted, func(block *blockgadget.Block) {
-			if err := e.NotarizationManager.NotarizeAcceptedBlock(block.ModelsBlock); err != nil {
-				e.Events.Error.Trigger(errors.Wrapf(err, "failed to add accepted block %s to epoch", block.ID()))
-			}
-		}, wpBlocks),
-		event.AttachWithWorkerPool(e.Tangle.Events.BlockDAG.BlockOrphaned, func(block *blockdag.Block) {
-			if err := e.NotarizationManager.NotarizeOrphanedBlock(block.ModelsBlock); err != nil {
-				e.Events.Error.Trigger(errors.Wrapf(err, "failed to remove orphaned block %s from epoch", block.ID()))
-			}
-		}, wpBlocks),
+	event.AttachWithWorkerPool(e.Consensus.BlockGadget.Events.BlockAccepted, func(block *blockgadget.Block) {
+		if err := e.NotarizationManager.NotarizeAcceptedBlock(block.ModelsBlock); err != nil {
+			e.Events.Error.Trigger(errors.Wrapf(err, "failed to add accepted block %s to epoch", block.ID()))
+		}
+	}, wpBlocks)
+	event.AttachWithWorkerPool(e.Tangle.Events.BlockDAG.BlockOrphaned, func(block *blockdag.Block) {
+		if err := e.NotarizationManager.NotarizeOrphanedBlock(block.ModelsBlock); err != nil {
+			e.Events.Error.Trigger(errors.Wrapf(err, "failed to remove orphaned block %s from epoch", block.ID()))
+		}
+	}, wpBlocks)
 
-		// TODO: add transaction orphaned event
+	// TODO: add transaction orphaned event
 
-		// Epochs are committed whenever ATT advances, start committing only when bootstrapped.
-		event.AttachWithWorkerPool(e.Clock.Events.AcceptanceTimeUpdated, func(event *clock.TimeUpdateEvent) {
-			e.NotarizationManager.SetAcceptanceTime(event.NewTime)
-		}, wpCommitments),
-	)
-
+	// Epochs are committed whenever ATT advances, start committing only when bootstrapped.
+	event.AttachWithWorkerPool(e.Clock.Events.AcceptanceTimeUpdated, func(event *clock.TimeUpdateEvent) {
+		e.NotarizationManager.SetAcceptanceTime(event.NewTime)
+	}, wpCommitments)
 }
 
 func (e *Engine) initEvictionState() {
@@ -417,44 +411,40 @@ func (e *Engine) initEvictionState() {
 	})
 
 	e.Events.EvictionState.LinkTo(e.EvictionState.Events)
-	wp := e.NewWorkerPool("EvictionState", 1)
+	wp := e.Workers.CreatePool("EvictionState", 1)
 
-	e.SubscribeStopped(
-		event.AttachWithWorkerPool(e.Events.Consensus.BlockGadget.BlockAccepted, func(block *blockgadget.Block) {
-			block.ForEachParent(func(parent models.Parent) {
-				// TODO: ONLY ADD STRONG PARENTS AFTER NOT DOWNLOADING PAST WEAK ARROWS
-				// TODO: is this correct? could this lock acceptance in some extreme corner case? something like this happened, that confirmation is correctly advancing per block, but acceptance does not. I think it might have something to do with root blocks
-				if parent.ID.Index() < block.ID().Index() {
-					e.EvictionState.AddRootBlock(parent.ID)
-				}
-			})
-		}, wp),
-		event.AttachWithWorkerPool(e.Events.Tangle.BlockDAG.BlockOrphaned, func(block *blockdag.Block) {
-			e.EvictionState.RemoveRootBlock(block.ID())
-		}, wp),
-		event.AttachWithWorkerPool(e.NotarizationManager.Events.EpochCommitted, func(details *notarization.EpochCommittedDetails) {
-			e.EvictionState.EvictUntil(details.Commitment.Index())
-		}, wp),
-	)
+	event.AttachWithWorkerPool(e.Events.Consensus.BlockGadget.BlockAccepted, func(block *blockgadget.Block) {
+		block.ForEachParent(func(parent models.Parent) {
+			// TODO: ONLY ADD STRONG PARENTS AFTER NOT DOWNLOADING PAST WEAK ARROWS
+			// TODO: is this correct? could this lock acceptance in some extreme corner case? something like this happened, that confirmation is correctly advancing per block, but acceptance does not. I think it might have something to do with root blocks
+			if parent.ID.Index() < block.ID().Index() {
+				e.EvictionState.AddRootBlock(parent.ID)
+			}
+		})
+	}, wp)
+	event.AttachWithWorkerPool(e.Events.Tangle.BlockDAG.BlockOrphaned, func(block *blockdag.Block) {
+		e.EvictionState.RemoveRootBlock(block.ID())
+	}, wp)
+	event.AttachWithWorkerPool(e.NotarizationManager.Events.EpochCommitted, func(details *notarization.EpochCommittedDetails) {
+		e.EvictionState.EvictUntil(details.Commitment.Index())
+	}, wp)
 }
 
 func (e *Engine) initBlockRequester() {
 	e.BlockRequester = eventticker.New(e.optsBlockRequester...)
 	e.Events.BlockRequester.LinkTo(e.BlockRequester.Events)
 
-	e.SubscribeStopped(
-		event.Hook(e.Events.EvictionState.EpochEvicted, e.BlockRequester.EvictUntil),
+	event.Hook(e.Events.EvictionState.EpochEvicted, e.BlockRequester.EvictUntil)
 
-		// We need to hook to make sure that the request is created before the block arrives to avoid a race condition
-		// where we try to delete the request again before it is created. Thus, continuing to request forever.
-		event.Hook(e.Events.Tangle.BlockDAG.BlockMissing, func(block *blockdag.Block) {
-			// TODO: ONLY START REQUESTING WHEN NOT IN WARPSYNC RANGE (or just not attach outside)?
-			e.BlockRequester.StartTicker(block.ID())
-		}),
-		event.AttachWithWorkerPool(e.Events.Tangle.BlockDAG.MissingBlockAttached, func(block *blockdag.Block) {
-			e.BlockRequester.StopTicker(block.ID())
-		}, e.NewWorkerPool("BlockRequester", 1)),
-	)
+	// We need to hook to make sure that the request is created before the block arrives to avoid a race condition
+	// where we try to delete the request again before it is created. Thus, continuing to request forever.
+	event.Hook(e.Events.Tangle.BlockDAG.BlockMissing, func(block *blockdag.Block) {
+		// TODO: ONLY START REQUESTING WHEN NOT IN WARPSYNC RANGE (or just not attach outside)?
+		e.BlockRequester.StartTicker(block.ID())
+	})
+	event.AttachWithWorkerPool(e.Events.Tangle.BlockDAG.MissingBlockAttached, func(block *blockdag.Block) {
+		e.BlockRequester.StopTicker(block.ID())
+	}, e.Workers.CreatePool("BlockRequester", 1))
 }
 
 func (e *Engine) readSnapshot(filePath string) (err error) {

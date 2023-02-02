@@ -2,6 +2,7 @@ package storage
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -20,6 +21,8 @@ type Storage struct {
 
 	// databaseManager is the database manager.
 	databaseManager *database.Manager
+
+	shutdownOnce sync.Once
 
 	Directory string
 }
@@ -54,9 +57,11 @@ func (s *Storage) PermanentDatabaseSize() int64 {
 
 // Shutdown shuts down the storage.
 func (s *Storage) Shutdown() {
-	if err := s.Permanent.Commitments.Close(); err != nil {
-		panic(err)
-	}
+	s.shutdownOnce.Do(func() {
+		if err := s.Permanent.Commitments.Close(); err != nil {
+			panic(err)
+		}
 
-	s.databaseManager.Shutdown()
+		s.databaseManager.Shutdown()
+	})
 }

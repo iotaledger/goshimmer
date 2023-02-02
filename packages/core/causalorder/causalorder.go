@@ -7,10 +7,10 @@ import (
 
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/syncutils"
+	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
-	"github.com/iotaledger/goshimmer/packages/core/traits"
 )
 
 // region CausalOrderer ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -53,11 +53,12 @@ type CausalOrder[ID epoch.IndexedID, Entity OrderedEntity[ID]] struct {
 	// dagMutex contains a mutex used to synchronize access to Entities.
 	dagMutex *syncutils.DAGMutex[ID]
 
-	traits.Runnable
+	workerPool *workerpool.UnboundedWorkerPool
 }
 
 // New returns a new CausalOrderer instance with the given parameters.
 func New[ID epoch.IndexedID, Entity OrderedEntity[ID]](
+	workerPool *workerpool.UnboundedWorkerPool,
 	entityProvider func(id ID) (entity Entity, exists bool),
 	isOrdered func(entity Entity) (isOrdered bool),
 	orderedCallback func(entity Entity) (err error),
@@ -65,6 +66,7 @@ func New[ID epoch.IndexedID, Entity OrderedEntity[ID]](
 	opts ...options.Option[CausalOrder[ID, Entity]],
 ) (newCausalOrder *CausalOrder[ID, Entity]) {
 	return options.Apply(&CausalOrder[ID, Entity]{
+		workerPool:              workerPool,
 		entityProvider:          entityProvider,
 		isOrdered:               isOrdered,
 		orderedCallback:         orderedCallback,
@@ -73,7 +75,6 @@ func New[ID epoch.IndexedID, Entity OrderedEntity[ID]](
 		unorderedParentsCounter: memstorage.NewEpochStorage[ID, uint8](),
 		unorderedChildren:       memstorage.NewEpochStorage[ID, []Entity](),
 		dagMutex:                syncutils.NewDAGMutex[ID](),
-		Runnable:                traits.NewRunnable(),
 	}, opts)
 }
 
@@ -231,7 +232,7 @@ func (c *CausalOrder[ID, Entity]) propagateOrderToChildren(id ID) {
 	for _, child := range c.popUnorderedChildren(id) {
 		currentChild := child
 
-		c.NewWorkerPool("CausalOrder").Submit(func() {
+		c.workerPool.Submit(func() {
 			c.evictionMutex.RLock()
 			defer c.evictionMutex.RUnlock()
 

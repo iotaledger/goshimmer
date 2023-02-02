@@ -11,10 +11,10 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/ioutils"
+	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
@@ -32,6 +32,7 @@ type EngineManager struct {
 	directory      *utils.Directory
 	dbVersion      database.Version
 	storageOptions []options.Option[database.Manager]
+	workers        *workerpool.Group
 
 	engineOptions           []options.Option[engine.Engine]
 	sybilProtectionProvider engine.ModuleProvider[sybilprotection.SybilProtection]
@@ -43,17 +44,18 @@ type EngineManager struct {
 type EngineInstance struct {
 	Engine  *engine.Engine
 	Storage *storage.Storage
-
-	traits.Runnable
 }
 
-func New(dir string,
+func New(
+	workers *workerpool.Group,
+	dir string,
 	dbVersion database.Version,
 	storageOptions []options.Option[database.Manager],
 	engineOptions []options.Option[engine.Engine],
 	sybilProtectionProvider engine.ModuleProvider[sybilprotection.SybilProtection],
 	throughputQuotaProvider engine.ModuleProvider[throughputquota.ThroughputQuota]) *EngineManager {
 	return &EngineManager{
+		workers:                 workers,
 		directory:               utils.NewDirectory(dir),
 		dbVersion:               dbVersion,
 		storageOptions:          storageOptions,
@@ -128,20 +130,12 @@ func (m *EngineManager) SetActiveInstance(instance *EngineInstance) error {
 
 func (m *EngineManager) loadEngineInstance(dirName string) *EngineInstance {
 	candidateStorage := storage.New(m.directory.Path(dirName), m.dbVersion, m.storageOptions...)
-	candidateEngine := engine.New(candidateStorage, m.sybilProtectionProvider, m.throughputQuotaProvider, m.engineOptions...)
+	candidateEngine := engine.New(m.workers.CreateGroup(dirName), candidateStorage, m.sybilProtectionProvider, m.throughputQuotaProvider, m.engineOptions...)
 
-	instance := &EngineInstance{
-		Runnable: traits.NewRunnable(),
-		Engine:   candidateEngine,
-		Storage:  candidateStorage,
+	return &EngineInstance{
+		Engine:  candidateEngine,
+		Storage: candidateStorage,
 	}
-
-	instance.AttachRunnable("Engine", candidateEngine)
-	instance.SubscribeStopped(
-		candidateStorage.Shutdown,
-	)
-
-	return instance
 }
 
 func (m *EngineManager) newEngineInstance() *EngineInstance {
@@ -157,7 +151,6 @@ func (m *EngineManager) ForkEngineAtEpoch(index epoch.Index) (*EngineInstance, e
 	}
 
 	instance := m.newEngineInstance()
-	instance.Run()
 	if err := instance.InitializeWithSnapshot(snapshotPath); err != nil {
 		instance.Shutdown()
 		_ = instance.RemoveFromFilesystem()
@@ -174,6 +167,11 @@ func (e *EngineInstance) InitializeWithSnapshot(snapshotPath string) error {
 
 func (e *EngineInstance) Name() string {
 	return filepath.Base(e.Storage.Directory)
+}
+
+func (e *EngineInstance) Shutdown() {
+	e.Engine.Shutdown()
+	e.Storage.Shutdown()
 }
 
 func (e *EngineInstance) RemoveFromFilesystem() error {

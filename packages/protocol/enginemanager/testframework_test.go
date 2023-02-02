@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
@@ -27,10 +28,10 @@ type EngineManagerTestFramework struct {
 	ActiveEngine *enginemanager.EngineInstance
 }
 
-func NewEngineManagerTestFramework(t *testing.T, identitiesWeights map[ed25519.PublicKey]uint64) *EngineManagerTestFramework {
+func NewEngineManagerTestFramework(t *testing.T, workers *workerpool.Group, identitiesWeights map[ed25519.PublicKey]uint64) *EngineManagerTestFramework {
 	tf := &EngineManagerTestFramework{}
 
-	engineOptions := []options.Option[engine.Engine]{
+	engineOpts := []options.Option[engine.Engine]{
 		engine.WithLedgerOptions(
 			ledger.WithVM(new(devnetvm.VM)),
 		),
@@ -38,9 +39,10 @@ func NewEngineManagerTestFramework(t *testing.T, identitiesWeights map[ed25519.P
 
 	snapshotPath := utils.NewDirectory(t.TempDir()).Path("snapshot.bin")
 
-	snapshotcreator.CreateSnapshot(protocol.DatabaseVersion, snapshotPath, 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights), engineOptions...)
+	snapshotcreator.CreateSnapshot(workers.CreateGroup("CreateSnapshot"), protocol.DatabaseVersion, snapshotPath, 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights), engineOpts...)
 
-	tf.EngineManager = enginemanager.New(t.TempDir(),
+	tf.EngineManager = enginemanager.New(workers.CreateGroup("EngineManager"),
+		t.TempDir(),
 		protocol.DatabaseVersion,
 		[]options.Option[database.Manager]{},
 		[]options.Option[engine.Engine]{},

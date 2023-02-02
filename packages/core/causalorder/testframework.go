@@ -5,10 +5,12 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/iotaledger/hive.go/core/debug"
-	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/hive.go/core/debug"
+	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
@@ -26,18 +28,21 @@ type TestFramework struct {
 	evictedEntities      map[string]*MockedOrderedEntity
 	evictedEntitiesMutex sync.RWMutex
 
+	Workers *workerpool.Group
 	*CausalOrder[MockedEntityID, *MockedOrderedEntity]
 }
 
 // NewTestFramework is the constructor of the TestFramework.
-func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (newFramework *TestFramework) {
+func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...options.Option[TestFramework]) (newFramework *TestFramework) {
 	return options.Apply(&TestFramework{
 		test:            test,
+		Workers:         workers,
 		entitiesByAlias: make(map[string]*MockedOrderedEntity),
 		orderedEntities: make(map[string]*MockedOrderedEntity),
 		evictedEntities: make(map[string]*MockedOrderedEntity),
 	}, opts, func(t *TestFramework) {
 		t.CausalOrder = New(
+			t.Workers.CreatePool("CausalOrder"),
 			func(id MockedEntityID) (entity *MockedOrderedEntity, exists bool) {
 				return t.Get(id.alias)
 			}, (*MockedOrderedEntity).IsOrdered,

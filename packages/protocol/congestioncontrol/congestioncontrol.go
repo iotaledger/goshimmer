@@ -6,7 +6,6 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 
-	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -19,24 +18,15 @@ type CongestionControl struct {
 	schedulerMutex sync.RWMutex
 
 	optsSchedulerOptions []options.Option[scheduler.Scheduler]
-
-	traits.Runnable
 }
 
-func New(opts ...options.Option[CongestionControl]) (congestionControl *CongestionControl) {
-	congestionControl = options.Apply(&CongestionControl{
-		Events:   NewEvents(),
-		Runnable: traits.NewRunnable(),
+func New(opts ...options.Option[CongestionControl]) *CongestionControl {
+	return options.Apply(&CongestionControl{
+		Events: NewEvents(),
 	}, opts)
-
-	congestionControl.SubscribeStopped(
-		congestionControl.shutdownScheduler,
-	)
-
-	return congestionControl
 }
 
-func (c *CongestionControl) shutdownScheduler() {
+func (c *CongestionControl) Shutdown() {
 	c.schedulerMutex.RLock()
 	defer c.schedulerMutex.RUnlock()
 
@@ -60,20 +50,18 @@ func (c *CongestionControl) LinkTo(engine *engine.Engine) {
 	)
 	c.Events.Scheduler.LinkTo(c.scheduler.Events)
 
-	wp := c.NewWorkerPool("Scheduler")
+	wp := engine.Workers.CreatePool("Scheduler")
 	engine.SubscribeStopped(
-		c.SubscribeStopped(
-			event.AttachWithWorkerPool(engine.Tangle.Events.VirtualVoting.BlockTracked, c.scheduler.AddBlock, wp),
-			// engine.Tangle.Events.VirtualVoting.BlockTracked.Attach(event.NewClosure(func(block *virtualvoting.Block) {
-			//	registerBlock, err := c.scheduler.GetOrRegisterBlock(block)
-			//	if err != nil {
-			//		panic(err)
-			//	}
-			//	c.Events.Scheduler.BlockScheduled.Trigger(registerBlock)
-			// }))
-			event.AttachWithWorkerPool(engine.Tangle.Events.BlockDAG.BlockOrphaned, c.scheduler.HandleOrphanedBlock, wp),
-			event.AttachWithWorkerPool(engine.Consensus.Events.BlockGadget.BlockAccepted, c.scheduler.HandleAcceptedBlock, wp),
-		),
+		event.AttachWithWorkerPool(engine.Tangle.Events.VirtualVoting.BlockTracked, c.scheduler.AddBlock, wp),
+		// engine.Tangle.Events.VirtualVoting.BlockTracked.Attach(event.NewClosure(func(block *virtualvoting.Block) {
+		//	registerBlock, err := c.scheduler.GetOrRegisterBlock(block)
+		//	if err != nil {
+		//		panic(err)
+		//	}
+		//	c.Events.Scheduler.BlockScheduled.Trigger(registerBlock)
+		// }))
+		event.AttachWithWorkerPool(engine.Tangle.Events.BlockDAG.BlockOrphaned, c.scheduler.HandleOrphanedBlock, wp),
+		event.AttachWithWorkerPool(engine.Consensus.Events.BlockGadget.BlockAccepted, c.scheduler.HandleAcceptedBlock, wp),
 	)
 
 	c.scheduler.Start()

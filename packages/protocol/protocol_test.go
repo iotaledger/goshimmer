@@ -17,9 +17,9 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/types"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
+	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
@@ -41,7 +41,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/goshimmer/packages/storage/utils"
 )
 
@@ -49,23 +48,28 @@ func TestProtocol(t *testing.T) {
 	debug.SetEnabled(true)
 	defer debug.SetEnabled(false)
 
+	engineOpts := []options.Option[engine.Engine]{
+		engine.WithLedgerOptions(
+			ledger.WithVM(new(devnetvm.VM)),
+		),
+	}
+
+	workers := workerpool.NewGroup(t.Name())
+
 	testNetwork := network.NewMockedNetwork()
 
 	endpoint1 := testNetwork.Join(identity.GenerateIdentity().ID())
-	tempDir := utils.NewDirectory(t.TempDir())
 
 	identitiesWeights := map[ed25519.PublicKey]uint64{
 		identity.GenerateIdentity().PublicKey(): 100,
 	}
 
-	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDir.Path("snapshot.bin"), 100, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights))
+	tempDir := utils.NewDirectory(t.TempDir())
+	snapshotcreator.CreateSnapshot(workers.CreateGroup("CreateSnapshot1"), DatabaseVersion, tempDir.Path("snapshot.bin"), 100, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights), engineOpts...)
 
-	protocol1 := New(endpoint1, WithBaseDirectory(tempDir.Path()), WithSnapshotPath(tempDir.Path("snapshot.bin")))
+	protocol1 := New(workers.CreateGroup("Protocol1"), endpoint1, WithBaseDirectory(tempDir.Path()), WithSnapshotPath(tempDir.Path("snapshot.bin")), WithEngineOptions(engineOpts...))
 	protocol1.Run()
-
-	t.Cleanup(func() {
-		protocol1.Shutdown()
-	})
+	t.Cleanup(protocol1.Shutdown)
 
 	commitments := make(map[string]*commitment.Commitment)
 	commitments["0"] = commitment.New(0, commitment.ID{}, types.Identifier{}, 0)
@@ -89,12 +93,13 @@ func TestProtocol(t *testing.T) {
 	})
 
 	endpoint2 := testNetwork.Join(identity.GenerateIdentity().ID())
+
 	tempDir2 := utils.NewDirectory(t.TempDir())
+	snapshotcreator.CreateSnapshot(workers.CreateGroup("CreateSnapshot2"), DatabaseVersion, tempDir2.Path("snapshot.bin"), 100, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights), engineOpts...)
 
-	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDir2.Path("snapshot.bin"), 100, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights))
-
-	protocol2 := New(endpoint2, WithBaseDirectory(tempDir2.Path()), WithSnapshotPath(tempDir2.Path("snapshot.bin")))
+	protocol2 := New(workers.CreateGroup("Protocol2"), endpoint2, WithBaseDirectory(tempDir2.Path()), WithSnapshotPath(tempDir2.Path("snapshot.bin")), WithEngineOptions(engineOpts...))
 	protocol2.Run()
+	t.Cleanup(protocol2.Shutdown)
 
 	protocol2.Events.ChainManager.CommitmentMissing.Hook(event.NewClosure(func(id commitment.ID) {
 		fmt.Println("MISSING", id)
@@ -108,24 +113,29 @@ func TestProtocol(t *testing.T) {
 		Source:     identity.ID{},
 	})
 
-	tf1 := NewEngineTestFramework(t, WithEngine(protocol1.Engine()))
-	tf2 := NewEngineTestFramework(t, WithEngine(protocol2.Engine()))
+	tf1 := NewEngineTestFramework(t, workers.CreateGroup("EngineTest1"), protocol1.Engine())
+	_ = NewEngineTestFramework(t, workers.CreateGroup("EngineTest2"), protocol2.Engine())
 
-	tf1.Tangle.CreateBlock("A", models.WithStrongParents(tf1.Tangle.BlockIDs("Genesis")))
-	tf1.Tangle.IssueBlocks("A")
+	tf1.BlockDAG.CreateBlock("A", models.WithStrongParents(tf1.BlockDAG.BlockIDs("Genesis")))
+	tf1.BlockDAG.IssueBlocks("A")
 
-	tf1.WaitUntilAllTasksProcessed()
-	tf2.WaitUntilAllTasksProcessed()
+	workers.Wait()
 }
 
 func TestEngine_NonEmptyInitialValidators(t *testing.T) {
 	debug.SetEnabled(true)
 	defer debug.SetEnabled(false)
 
+	engineOpts := []options.Option[engine.Engine]{
+		engine.WithLedgerOptions(
+			ledger.WithVM(new(devnetvm.VM)),
+		),
+	}
+
 	epoch.GenesisTime = time.Now().Unix()
 
-	tf := NewEngineTestFramework(t)
-	tempDir := utils.NewDirectory(t.TempDir())
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewDefaultEngineTestFramework(t, workers.CreateGroup("EngineTestFramework"), engineOpts...)
 
 	identitiesMap := map[string]ed25519.PublicKey{
 		"A": identity.GenerateIdentity().PublicKey(),
@@ -141,31 +151,29 @@ func TestEngine_NonEmptyInitialValidators(t *testing.T) {
 		identity.New(identitiesMap["D"]).PublicKey(): 10,
 	}
 
-	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDir.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights))
+	tempDir := utils.NewDirectory(t.TempDir())
+	snapshotcreator.CreateSnapshot(workers.CreateGroup("CreateSnapshot"), DatabaseVersion, tempDir.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights), engineOpts...)
 
 	require.NoError(t, tf.Engine.Initialize(tempDir.Path("genesis_snapshot.bin")))
 
-	tf.Tangle.CreateBlock("1.A", models.WithStrongParents(tf.Tangle.BlockIDs("Genesis")), models.WithIssuer(identitiesMap["A"]))
-	tf.Tangle.IssueBlocks("1.A")
-	tf.WaitUntilAllTasksProcessed()
+	tf.BlockDAG.CreateBlock("1.A", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithIssuer(identitiesMap["A"]))
+	tf.BlockDAG.IssueBlocks("1.A")
 
 	// If the list of validators would be empty, this block will be accepted right away.
 	tf.Acceptance.ValidateAcceptedBlocks(map[string]bool{
 		"1.A": false,
 	})
 
-	tf.Tangle.CreateBlock("1.B", models.WithStrongParents(tf.Tangle.BlockIDs("1.A")), models.WithIssuer(identitiesMap["B"]))
-	tf.Tangle.IssueBlocks("1.B")
-	tf.WaitUntilAllTasksProcessed()
+	tf.BlockDAG.CreateBlock("1.B", models.WithStrongParents(tf.BlockDAG.BlockIDs("1.A")), models.WithIssuer(identitiesMap["B"]))
+	tf.BlockDAG.IssueBlocks("1.B")
 
 	tf.Acceptance.ValidateAcceptedBlocks(map[string]bool{
 		"1.A": false,
 		"1.B": false,
 	})
 
-	tf.Tangle.CreateBlock("1.C", models.WithStrongParents(tf.Tangle.BlockIDs("1.B")), models.WithIssuer(identitiesMap["C"]))
-	tf.Tangle.IssueBlocks("1.C")
-	tf.WaitUntilAllTasksProcessed()
+	tf.BlockDAG.CreateBlock("1.C", models.WithStrongParents(tf.BlockDAG.BlockIDs("1.B")), models.WithIssuer(identitiesMap["C"]))
+	tf.BlockDAG.IssueBlocks("1.C")
 
 	// ...but it gets accepted only when 67% of the active weight is reached.
 	tf.Acceptance.ValidateAcceptedBlocks(map[string]bool{
@@ -174,19 +182,24 @@ func TestEngine_NonEmptyInitialValidators(t *testing.T) {
 		"1.C": false,
 	})
 
-	tf.WaitUntilAllTasksProcessed()
+	workers.Wait()
 }
 
 func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 	debug.SetEnabled(true)
 	defer debug.SetEnabled(false)
 
-	epoch.GenesisTime = time.Now().Unix() - epoch.Duration*10
+	engineOpts := []options.Option[engine.Engine]{
+		engine.WithLedgerOptions(
+			ledger.WithVM(new(devnetvm.VM)),
+		),
+	}
 
+	epoch.GenesisTime = time.Now().Unix() - epoch.Duration*10
 	fmt.Println("> GenesisTime", time.Unix(epoch.GenesisTime, 0))
 
-	tf := NewEngineTestFramework(t)
-	tempDir := utils.NewDirectory(t.TempDir())
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewDefaultEngineTestFramework(t, workers.CreateGroup("EngineTestFramework"), engineOpts...)
 
 	identitiesMap := map[string]ed25519.PublicKey{
 		"A": identity.GenerateIdentity().PublicKey(),
@@ -202,7 +215,8 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 		identity.New(identitiesMap["D"]).PublicKey(): 25,
 	}
 
-	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDir.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights))
+	tempDir := utils.NewDirectory(t.TempDir())
+	snapshotcreator.CreateSnapshot(workers.CreateGroup("CreateSnapshot"), DatabaseVersion, tempDir.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights), engineOpts...)
 
 	require.NoError(t, tf.Engine.Initialize(tempDir.Path("genesis_snapshot.bin")))
 
@@ -211,14 +225,13 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 	epoch1IssuingTime := time.Unix(epoch.GenesisTime, 0)
 
 	// Blocks in epoch 1
-	tf.Tangle.CreateBlock("1.A", models.WithStrongParents(tf.Tangle.BlockIDs("Genesis")), models.WithIssuer(identitiesMap["A"]), models.WithIssuingTime(epoch1IssuingTime))
-	tf.Tangle.CreateBlock("1.B", models.WithStrongParents(tf.Tangle.BlockIDs("1.A")), models.WithIssuer(identitiesMap["B"]), models.WithIssuingTime(epoch1IssuingTime))
-	tf.Tangle.CreateBlock("1.C", models.WithStrongParents(tf.Tangle.BlockIDs("1.B")), models.WithIssuer(identitiesMap["C"]), models.WithIssuingTime(epoch1IssuingTime))
-	tf.Tangle.CreateBlock("1.D", models.WithStrongParents(tf.Tangle.BlockIDs("1.C")), models.WithIssuer(identitiesMap["D"]), models.WithIssuingTime(epoch1IssuingTime))
-	tf.Tangle.IssueBlocks("1.A", "1.B", "1.C", "1.D")
-	tf.WaitUntilAllTasksProcessed()
+	tf.BlockDAG.CreateBlock("1.A", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithIssuer(identitiesMap["A"]), models.WithIssuingTime(epoch1IssuingTime))
+	tf.BlockDAG.CreateBlock("1.B", models.WithStrongParents(tf.BlockDAG.BlockIDs("1.A")), models.WithIssuer(identitiesMap["B"]), models.WithIssuingTime(epoch1IssuingTime))
+	tf.BlockDAG.CreateBlock("1.C", models.WithStrongParents(tf.BlockDAG.BlockIDs("1.B")), models.WithIssuer(identitiesMap["C"]), models.WithIssuingTime(epoch1IssuingTime))
+	tf.BlockDAG.CreateBlock("1.D", models.WithStrongParents(tf.BlockDAG.BlockIDs("1.C")), models.WithIssuer(identitiesMap["D"]), models.WithIssuingTime(epoch1IssuingTime))
+	tf.BlockDAG.IssueBlocks("1.A", "1.B", "1.C", "1.D")
 
-	tf.Acceptance.AssertBlockTracked(4)
+	tf.VirtualVoting.AssertBlockTracked(4)
 
 	tf.Acceptance.ValidateAcceptedBlocks(lo.MergeMaps(acceptedBlocks, map[string]bool{
 		"1.A": true,
@@ -230,14 +243,12 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 	epoch2IssuingTime := time.Unix(epoch.GenesisTime+epoch.Duration, 0)
 
 	// Block in epoch 2, not accepting anything new.
-	tf.Tangle.CreateBlock("2.D", models.WithStrongParents(tf.Tangle.BlockIDs("1.D")), models.WithIssuer(identitiesMap["D"]), models.WithIssuingTime(epoch2IssuingTime))
-	tf.Tangle.IssueBlocks("2.D")
-	tf.WaitUntilAllTasksProcessed()
+	tf.BlockDAG.CreateBlock("2.D", models.WithStrongParents(tf.BlockDAG.BlockIDs("1.D")), models.WithIssuer(identitiesMap["D"]), models.WithIssuingTime(epoch2IssuingTime))
+	tf.BlockDAG.IssueBlocks("2.D")
 
 	// Block in epoch 11
-	tf.Tangle.CreateBlock("11.A", models.WithStrongParents(tf.Tangle.BlockIDs("2.D")), models.WithIssuer(identitiesMap["A"]))
-	tf.Tangle.IssueBlocks("11.A")
-	tf.WaitUntilAllTasksProcessed()
+	tf.BlockDAG.CreateBlock("11.A", models.WithStrongParents(tf.BlockDAG.BlockIDs("2.D")), models.WithIssuer(identitiesMap["A"]))
+	tf.BlockDAG.IssueBlocks("11.A")
 
 	tf.Acceptance.ValidateAcceptedBlocks(lo.MergeMaps(acceptedBlocks, map[string]bool{
 		"1.C":  true,
@@ -245,15 +256,14 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 		"11.A": false,
 	}))
 
-	require.Equal(t, epoch.IndexFromTime(tf.Tangle.Block("11.A").IssuingTime()), epoch.Index(11))
+	require.Equal(t, epoch.IndexFromTime(tf.Booker.Block("11.A").IssuingTime()), epoch.Index(11))
 
 	// Time hasn't advanced past epoch 1
 	require.Equal(t, tf.Engine.Storage.Settings.LatestCommitment().Index(), epoch.Index(0))
 
-	tf.Tangle.CreateBlock("11.B", models.WithStrongParents(tf.Tangle.BlockIDs("11.A")), models.WithIssuer(identitiesMap["B"]))
-	tf.Tangle.CreateBlock("11.C", models.WithStrongParents(tf.Tangle.BlockIDs("11.B")), models.WithIssuer(identitiesMap["C"]))
-	tf.Tangle.IssueBlocks("11.B", "11.C")
-	tf.WaitUntilAllTasksProcessed()
+	tf.BlockDAG.CreateBlock("11.B", models.WithStrongParents(tf.BlockDAG.BlockIDs("11.A")), models.WithIssuer(identitiesMap["B"]))
+	tf.BlockDAG.CreateBlock("11.C", models.WithStrongParents(tf.BlockDAG.BlockIDs("11.B")), models.WithIssuer(identitiesMap["C"]))
+	tf.BlockDAG.IssueBlocks("11.B", "11.C")
 
 	// Some blocks got evicted, and we have to restart evaluating with a new map
 	acceptedBlocks = make(map[string]bool)
@@ -273,7 +283,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 	{
 		require.NoError(t, tf.Engine.WriteSnapshot(tempDir.Path("snapshot_epoch4.bin")))
 
-		tf2 := NewEngineTestFramework(t)
+		tf2 := NewDefaultEngineTestFramework(t, workers.CreateGroup("EngineTestFramework2"), engineOpts...)
 
 		require.NoError(t, tf2.Engine.Initialize(tempDir.Path("snapshot_epoch4.bin")))
 
@@ -347,21 +357,21 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 	{
 		require.NoError(t, tf.Engine.WriteSnapshot(tempDir.Path("snapshot_epoch1.bin"), 1))
 
-		tf2 := NewEngineTestFramework(t)
+		tf3 := NewDefaultEngineTestFramework(t, workers.CreateGroup("EngineTestFramework3"), engineOpts...)
 
-		require.NoError(t, tf2.Engine.Initialize(tempDir.Path("snapshot_epoch1.bin")))
+		require.NoError(t, tf3.Engine.Initialize(tempDir.Path("snapshot_epoch1.bin")))
 
 		require.Equal(t, epoch.Index(4), tf.Engine.Storage.Settings.LatestCommitment().Index())
 
-		tf2.AssertEpochState(1)
+		tf3.AssertEpochState(1)
 
 		// Check that we only have attestations for epoch 1.
-		require.Equal(t, lo.PanicOnErr(tf.Engine.NotarizationManager.Attestations.Get(1)).Root(), lo.PanicOnErr(tf2.Engine.NotarizationManager.Attestations.Get(1)).Root())
-		require.Error(t, lo.Return2(tf2.Engine.NotarizationManager.Attestations.Get(2)))
-		require.Error(t, lo.Return2(tf2.Engine.NotarizationManager.Attestations.Get(3)))
-		require.Error(t, lo.Return2(tf2.Engine.NotarizationManager.Attestations.Get(4)))
+		require.Equal(t, lo.PanicOnErr(tf.Engine.NotarizationManager.Attestations.Get(1)).Root(), lo.PanicOnErr(tf3.Engine.NotarizationManager.Attestations.Get(1)).Root())
+		require.Error(t, lo.Return2(tf3.Engine.NotarizationManager.Attestations.Get(2)))
+		require.Error(t, lo.Return2(tf3.Engine.NotarizationManager.Attestations.Get(3)))
+		require.Error(t, lo.Return2(tf3.Engine.NotarizationManager.Attestations.Get(4)))
 		require.NoError(t, lo.PanicOnErr(tf.Engine.NotarizationManager.Attestations.Get(1)).Stream(func(key identity.ID, engine1Attestation *notarization.Attestation) bool {
-			engine2Attestations := lo.PanicOnErr(tf2.Engine.NotarizationManager.Attestations.Get(1))
+			engine2Attestations := lo.PanicOnErr(tf3.Engine.NotarizationManager.Attestations.Get(1))
 			engine2Attestation, exists := engine2Attestations.Get(key)
 			require.True(t, exists)
 			require.Equal(t, engine1Attestation, engine2Attestation)
@@ -372,7 +382,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 		// RootBlocks
 		for epochIndex := epoch.Index(0); epochIndex <= 1; epochIndex++ {
 			require.NoError(t, tf.Engine.Storage.RootBlocks.Stream(epochIndex, func(rootBlock models.BlockID) error {
-				has, err := tf2.Engine.Storage.RootBlocks.Has(rootBlock)
+				has, err := tf3.Engine.Storage.RootBlocks.Has(rootBlock)
 				require.NoError(t, err)
 				require.True(t, has)
 
@@ -381,53 +391,48 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 		}
 
 		// Block in epoch 2, not accepting anything new.
-		tf2.Tangle.CreateBlock("2.D", models.WithStrongParents(tf.Tangle.BlockIDs("1.D")), models.WithIssuer(identitiesMap["D"]), models.WithIssuingTime(epoch2IssuingTime))
-		tf2.Tangle.IssueBlocks("2.D")
-		tf2.WaitUntilAllTasksProcessed()
+		tf3.BlockDAG.CreateBlock("2.D", models.WithStrongParents(tf.BlockDAG.BlockIDs("1.D")), models.WithIssuer(identitiesMap["D"]), models.WithIssuingTime(epoch2IssuingTime))
+		tf3.BlockDAG.IssueBlocks("2.D")
 
 		// Block in epoch 11
-		tf2.Tangle.CreateBlock("11.A", models.WithStrongParents(tf2.Tangle.BlockIDs("2.D")), models.WithIssuer(identitiesMap["A"]))
-		tf2.Tangle.IssueBlocks("11.A")
-		tf2.WaitUntilAllTasksProcessed()
+		tf3.BlockDAG.CreateBlock("11.A", models.WithStrongParents(tf3.BlockDAG.BlockIDs("2.D")), models.WithIssuer(identitiesMap["A"]))
+		tf3.BlockDAG.IssueBlocks("11.A")
 
-		tf2.Tangle.CreateBlock("11.B", models.WithStrongParents(tf2.Tangle.BlockIDs("11.A")), models.WithIssuer(identitiesMap["B"]))
-		tf2.Tangle.CreateBlock("11.C", models.WithStrongParents(tf2.Tangle.BlockIDs("11.B")), models.WithIssuer(identitiesMap["C"]))
-		tf2.Tangle.IssueBlocks("11.B", "11.C")
-		tf2.WaitUntilAllTasksProcessed()
+		tf3.BlockDAG.CreateBlock("11.B", models.WithStrongParents(tf3.BlockDAG.BlockIDs("11.A")), models.WithIssuer(identitiesMap["B"]))
+		tf3.BlockDAG.CreateBlock("11.C", models.WithStrongParents(tf3.BlockDAG.BlockIDs("11.B")), models.WithIssuer(identitiesMap["C"]))
+		tf3.BlockDAG.IssueBlocks("11.B", "11.C")
 
-		require.Equal(t, epoch.Index(4), tf2.Engine.Storage.Settings.LatestCommitment().Index())
+		require.Equal(t, epoch.Index(4), tf3.Engine.Storage.Settings.LatestCommitment().Index())
 
 		// Some blocks got evicted, and we have to restart evaluating with a new map
 		acceptedBlocks = make(map[string]bool)
-		tf2.Acceptance.ValidateAcceptedBlocks(lo.MergeMaps(acceptedBlocks, map[string]bool{
+		tf3.Acceptance.ValidateAcceptedBlocks(lo.MergeMaps(acceptedBlocks, map[string]bool{
 			"2.D":  true,
 			"11.A": true,
 			"11.B": false,
 			"11.C": false,
 		}))
-
-		tf2.WaitUntilAllTasksProcessed()
 	}
 
 	// Dump snapshot for epoch 2 and check equivalence.
 	{
 		require.NoError(t, tf.Engine.WriteSnapshot(tempDir.Path("snapshot_epoch2.bin"), 2))
 
-		tf2 := NewEngineTestFramework(t)
+		tf4 := NewDefaultEngineTestFramework(t, workers.CreateGroup("EngineTestFramework4"), engineOpts...)
 
-		require.NoError(t, tf2.Engine.Initialize(tempDir.Path("snapshot_epoch2.bin")))
+		require.NoError(t, tf4.Engine.Initialize(tempDir.Path("snapshot_epoch2.bin")))
 
-		require.Equal(t, epoch.Index(2), tf2.Engine.Storage.Settings.LatestCommitment().Index())
+		require.Equal(t, epoch.Index(2), tf4.Engine.Storage.Settings.LatestCommitment().Index())
 
-		tf2.AssertEpochState(2)
+		tf4.AssertEpochState(2)
 
 		// Check that we only have attestations for epoch 2.
-		require.Nil(t, lo.Return2(tf2.Engine.NotarizationManager.Attestations.Get(1)))
-		require.NoError(t, lo.Return2(tf2.Engine.NotarizationManager.Attestations.Get(2)))
-		require.Error(t, lo.Return2(tf2.Engine.NotarizationManager.Attestations.Get(3)))
-		require.Error(t, lo.Return2(tf2.Engine.NotarizationManager.Attestations.Get(4)))
+		require.Nil(t, lo.Return2(tf4.Engine.NotarizationManager.Attestations.Get(1)))
+		require.NoError(t, lo.Return2(tf4.Engine.NotarizationManager.Attestations.Get(2)))
+		require.Error(t, lo.Return2(tf4.Engine.NotarizationManager.Attestations.Get(3)))
+		require.Error(t, lo.Return2(tf4.Engine.NotarizationManager.Attestations.Get(4)))
 		require.NoError(t, lo.PanicOnErr(tf.Engine.NotarizationManager.Attestations.Get(2)).Stream(func(key identity.ID, engine1Attestation *notarization.Attestation) bool {
-			engine2Attestations := lo.PanicOnErr(tf2.Engine.NotarizationManager.Attestations.Get(2))
+			engine2Attestations := lo.PanicOnErr(tf4.Engine.NotarizationManager.Attestations.Get(2))
 			engine2Attestation, exists := engine2Attestations.Get(key)
 			require.True(t, exists)
 			require.Equal(t, engine1Attestation, engine2Attestation)
@@ -438,35 +443,38 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 		// RootBlocks
 		for epochIndex := epoch.Index(0); epochIndex <= 2; epochIndex++ {
 			require.NoError(t, tf.Engine.Storage.RootBlocks.Stream(epochIndex, func(rootBlock models.BlockID) error {
-				has, err := tf2.Engine.Storage.RootBlocks.Has(rootBlock)
+				has, err := tf4.Engine.Storage.RootBlocks.Has(rootBlock)
 				require.NoError(t, err)
 				require.True(t, has)
 
 				return nil
 			}))
 		}
-
-		tf2.WaitUntilAllTasksProcessed()
 	}
+	fmt.Println(workers.Root())
 }
 
 func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 	debug.SetEnabled(true)
 	defer debug.SetEnabled(false)
 
-	epoch.GenesisTime = time.Now().Unix() - epoch.Duration*15
-
-	storageDir := t.TempDir()
-	storageInstance := storage.New(storageDir, DatabaseVersion, database.WithDBProvider(database.NewDB))
-
-	tf := NewEngineTestFramework(t, WithStorage(storageInstance), WithTangleOptions(
-		tangle.WithBookerOptions(
-			booker.WithMarkerManagerOptions(
-				markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(1)),
+	engineOpts := []options.Option[engine.Engine]{
+		engine.WithLedgerOptions(
+			ledger.WithVM(new(devnetvm.VM)),
+		),
+		engine.WithTangleOptions(
+			tangle.WithBookerOptions(
+				booker.WithMarkerManagerOptions(
+					markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(1)),
+				),
 			),
 		),
-	))
-	tempDir := utils.NewDirectory(t.TempDir())
+	}
+
+	epoch.GenesisTime = time.Now().Unix() - epoch.Duration*15
+
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewDefaultEngineTestFramework(t, workers.CreateGroup("EngineTestFramework"), engineOpts...)
 
 	tf.Engine.NotarizationManager.Events.Error.Hook(event.NewClosure(func(err error) {
 		panic(err)
@@ -488,7 +496,8 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		identity.New(identitiesMap["Z"]).PublicKey(): 0,
 	}
 
-	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDir.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights))
+	tempDir := utils.NewDirectory(t.TempDir())
+	snapshotcreator.CreateSnapshot(workers.CreateGroup("CreateSnapshot"), DatabaseVersion, tempDir.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights), engineOpts...)
 
 	require.NoError(t, tf.Engine.Initialize(tempDir.Path("genesis_snapshot.bin")))
 
@@ -498,14 +507,13 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 	epoch1IssuingTime := time.Unix(epoch.GenesisTime, 0)
 
 	{
-		tf.Tangle.CreateBlock("1.Z", models.WithStrongParents(tf.Tangle.BlockIDs("Genesis")), models.WithPayload(tf.Tangle.CreateTransaction("Tx1", 2, "Genesis")), models.WithIssuer(identitiesMap["Z"]), models.WithIssuingTime(epoch1IssuingTime))
-		tf.Tangle.CreateBlock("1.Z*", models.WithStrongParents(tf.Tangle.BlockIDs("Genesis")), models.WithPayload(tf.Tangle.CreateTransaction("Tx1*", 2, "Genesis")), models.WithIssuer(identitiesMap["Z"]), models.WithIssuingTime(epoch1IssuingTime))
-		tf.Tangle.CreateBlock("1.A", models.WithStrongParents(tf.Tangle.BlockIDs("1.Z")), models.WithIssuer(identitiesMap["A"]), models.WithIssuingTime(epoch1IssuingTime))
-		tf.Tangle.CreateBlock("1.B", models.WithStrongParents(tf.Tangle.BlockIDs("1.A")), models.WithIssuer(identitiesMap["B"]), models.WithIssuingTime(epoch1IssuingTime))
-		tf.Tangle.CreateBlock("1.C", models.WithStrongParents(tf.Tangle.BlockIDs("1.B")), models.WithIssuer(identitiesMap["C"]), models.WithIssuingTime(epoch1IssuingTime))
-		tf.Tangle.CreateBlock("1.D", models.WithStrongParents(tf.Tangle.BlockIDs("1.C")), models.WithIssuer(identitiesMap["D"]), models.WithIssuingTime(epoch1IssuingTime))
-		tf.Tangle.IssueBlocks("1.Z", "1.Z*", "1.A", "1.B", "1.C", "1.D")
-		tf.WaitUntilAllTasksProcessed()
+		tf.BlockDAG.CreateBlock("1.Z", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithPayload(tf.Ledger.CreateTransaction("Tx1", 2, "Genesis")), models.WithIssuer(identitiesMap["Z"]), models.WithIssuingTime(epoch1IssuingTime))
+		tf.BlockDAG.CreateBlock("1.Z*", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithPayload(tf.Ledger.CreateTransaction("Tx1*", 2, "Genesis")), models.WithIssuer(identitiesMap["Z"]), models.WithIssuingTime(epoch1IssuingTime))
+		tf.BlockDAG.CreateBlock("1.A", models.WithStrongParents(tf.BlockDAG.BlockIDs("1.Z")), models.WithIssuer(identitiesMap["A"]), models.WithIssuingTime(epoch1IssuingTime))
+		tf.BlockDAG.CreateBlock("1.B", models.WithStrongParents(tf.BlockDAG.BlockIDs("1.A")), models.WithIssuer(identitiesMap["B"]), models.WithIssuingTime(epoch1IssuingTime))
+		tf.BlockDAG.CreateBlock("1.C", models.WithStrongParents(tf.BlockDAG.BlockIDs("1.B")), models.WithIssuer(identitiesMap["C"]), models.WithIssuingTime(epoch1IssuingTime))
+		tf.BlockDAG.CreateBlock("1.D", models.WithStrongParents(tf.BlockDAG.BlockIDs("1.C")), models.WithIssuer(identitiesMap["D"]), models.WithIssuingTime(epoch1IssuingTime))
+		tf.BlockDAG.IssueBlocks("1.Z", "1.Z*", "1.A", "1.B", "1.C", "1.D")
 
 		tf.Acceptance.ValidateAcceptedBlocks(lo.MergeMaps(acceptedBlocks, map[string]bool{
 			"1.Z":  true,
@@ -529,11 +537,10 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 
 	{
 		epoch11IssuingTime := time.Unix(epoch.GenesisTime+epoch.Duration*10, 0)
-		tf.Tangle.CreateBlock("11.A", models.WithStrongParents(tf.Tangle.BlockIDs("1.D")), models.WithIssuer(identitiesMap["A"]), models.WithIssuingTime(epoch11IssuingTime))
-		tf.Tangle.CreateBlock("11.B", models.WithStrongParents(tf.Tangle.BlockIDs("11.A")), models.WithIssuer(identitiesMap["B"]), models.WithIssuingTime(epoch11IssuingTime))
-		tf.Tangle.CreateBlock("11.C", models.WithStrongParents(tf.Tangle.BlockIDs("11.B")), models.WithIssuer(identitiesMap["C"]), models.WithIssuingTime(epoch11IssuingTime))
-		tf.Tangle.IssueBlocks("11.A", "11.B", "11.C")
-		tf.WaitUntilAllTasksProcessed()
+		tf.BlockDAG.CreateBlock("11.A", models.WithStrongParents(tf.BlockDAG.BlockIDs("1.D")), models.WithIssuer(identitiesMap["A"]), models.WithIssuingTime(epoch11IssuingTime))
+		tf.BlockDAG.CreateBlock("11.B", models.WithStrongParents(tf.BlockDAG.BlockIDs("11.A")), models.WithIssuer(identitiesMap["B"]), models.WithIssuingTime(epoch11IssuingTime))
+		tf.BlockDAG.CreateBlock("11.C", models.WithStrongParents(tf.BlockDAG.BlockIDs("11.B")), models.WithIssuer(identitiesMap["C"]), models.WithIssuingTime(epoch11IssuingTime))
+		tf.BlockDAG.IssueBlocks("11.A", "11.B", "11.C")
 
 		require.Equal(t, epoch.Index(4), tf.Engine.Storage.Settings.LatestCommitment().Index())
 	}
@@ -544,7 +551,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 
 	{
 		epocht5IssuingTime := time.Unix(epoch.GenesisTime+epoch.Duration*4, 0)
-		tf.Tangle.CreateBlock("5.Z", models.WithStrongParents(tf.Tangle.BlockIDs("1.D")), models.WithPayload(tf.Tangle.CreateTransaction("Tx5", 2, "Tx1.0")), models.WithIssuer(identitiesMap["Z"]), models.WithIssuingTime(epocht5IssuingTime))
+		tf.BlockDAG.CreateBlock("5.Z", models.WithStrongParents(tf.BlockDAG.BlockIDs("1.D")), models.WithPayload(tf.Ledger.CreateTransaction("Tx5", 2, "Tx1.0")), models.WithIssuer(identitiesMap["Z"]), models.WithIssuingTime(epocht5IssuingTime))
 	}
 
 	// ///////////////////////////////////////////////////////////
@@ -553,11 +560,10 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 
 	{
 		epoch12IssuingTime := time.Unix(epoch.GenesisTime+epoch.Duration*11, 0)
-		tf.Tangle.CreateBlock("12.A.2", models.WithStrongParents(tf.Tangle.BlockIDs("5.Z")), models.WithIssuer(identitiesMap["A"]), models.WithIssuingTime(epoch12IssuingTime))
-		tf.Tangle.CreateBlock("12.B.2", models.WithStrongParents(tf.Tangle.BlockIDs("12.A.2")), models.WithIssuer(identitiesMap["B"]), models.WithIssuingTime(epoch12IssuingTime))
-		tf.Tangle.CreateBlock("12.C.2", models.WithStrongParents(tf.Tangle.BlockIDs("12.B.2")), models.WithIssuer(identitiesMap["C"]), models.WithIssuingTime(epoch12IssuingTime))
-		tf.Tangle.IssueBlocks("5.Z", "12.A.2", "12.B.2", "12.C.2")
-		tf.WaitUntilAllTasksProcessed()
+		tf.BlockDAG.CreateBlock("12.A.2", models.WithStrongParents(tf.BlockDAG.BlockIDs("5.Z")), models.WithIssuer(identitiesMap["A"]), models.WithIssuingTime(epoch12IssuingTime))
+		tf.BlockDAG.CreateBlock("12.B.2", models.WithStrongParents(tf.BlockDAG.BlockIDs("12.A.2")), models.WithIssuer(identitiesMap["B"]), models.WithIssuingTime(epoch12IssuingTime))
+		tf.BlockDAG.CreateBlock("12.C.2", models.WithStrongParents(tf.BlockDAG.BlockIDs("12.B.2")), models.WithIssuer(identitiesMap["C"]), models.WithIssuingTime(epoch12IssuingTime))
+		tf.BlockDAG.IssueBlocks("5.Z", "12.A.2", "12.B.2", "12.C.2")
 
 		require.Equal(t, epoch.Index(5), tf.Engine.Storage.Settings.LatestCommitment().Index())
 	}
@@ -569,17 +575,18 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 	{
 		require.NoError(t, tf.Engine.WriteSnapshot(tempDir.Path("snapshot_epoch1.bin"), 1))
 
-		tf2 := NewEngineTestFramework(t)
+		tf2 := NewDefaultEngineTestFramework(t, workers.CreateGroup("EngineTestFramework2"), engineOpts...)
+		tempDir := utils.NewDirectory(t.TempDir())
 		require.NoError(t, tf2.Engine.Initialize(tempDir.Path("snapshot_epoch1.bin")))
 
 		require.Equal(t, epoch.Index(1), tf2.Engine.Storage.Settings.LatestCommitment().Index())
 
-		require.True(t, tf2.Engine.LedgerState.UnspentOutputs.IDs.Has(tf.Tangle.OutputID("Tx1.0")))
-		require.True(t, tf2.Engine.LedgerState.UnspentOutputs.IDs.Has(tf.Tangle.OutputID("Tx1.1")))
-		require.False(t, tf2.Engine.LedgerState.UnspentOutputs.IDs.Has(tf.Tangle.OutputID("Tx5.0")))
-		require.False(t, tf2.Engine.LedgerState.UnspentOutputs.IDs.Has(tf.Tangle.OutputID("Tx5.1")))
+		require.True(t, tf2.Engine.LedgerState.UnspentOutputs.IDs.Has(tf.Ledger.OutputID("Tx1.0")))
+		require.True(t, tf2.Engine.LedgerState.UnspentOutputs.IDs.Has(tf.Ledger.OutputID("Tx1.1")))
+		require.False(t, tf2.Engine.LedgerState.UnspentOutputs.IDs.Has(tf.Ledger.OutputID("Tx5.0")))
+		require.False(t, tf2.Engine.LedgerState.UnspentOutputs.IDs.Has(tf.Ledger.OutputID("Tx5.1")))
 
-		tf2.WaitUntilAllTasksProcessed()
+		workers.Wait()
 	}
 
 	// ///////////////////////////////////////////////////////////
@@ -587,34 +594,28 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 	// ///////////////////////////////////////////////////////////
 
 	{
-		tf.WaitUntilAllTasksProcessed()
-
 		expectedBalanceByIDs := tf.Engine.ThroughputQuota.BalanceByIDs()
 		expectedTotalBalance := tf.Engine.ThroughputQuota.TotalBalance()
 
 		tf.Engine.Shutdown()
-		storageInstance.Shutdown()
-
-		storageInstance := storage.New(storageDir, DatabaseVersion, database.WithDBProvider(database.NewDB))
-		t.Cleanup(storageInstance.Shutdown)
 
 		fmt.Println("============================= Start Engine =============================")
 
-		tf2 := NewEngineTestFramework(t, WithStorage(storageInstance), WithTangleOptions(tf.optsTangleOptions...))
-		require.NoError(t, tf2.Engine.Initialize(""))
+		tf3 := NewDefaultEngineTestFramework(t, workers.CreateGroup("EngineTestFramework3"), engineOpts...)
+		require.NoError(t, tf3.Engine.Initialize(""))
 
-		tf2.AssertEpochState(5)
+		tf3.AssertEpochState(5)
 
-		require.False(t, tf2.Engine.LedgerState.UnspentOutputs.IDs.Has(tf.Tangle.OutputID("Tx1.0")))
-		require.True(t, tf2.Engine.LedgerState.UnspentOutputs.IDs.Has(tf.Tangle.OutputID("Tx1.1")))
-		require.True(t, tf2.Engine.LedgerState.UnspentOutputs.IDs.Has(tf.Tangle.OutputID("Tx5.0")))
-		require.True(t, tf2.Engine.LedgerState.UnspentOutputs.IDs.Has(tf.Tangle.OutputID("Tx5.1")))
+		require.False(t, tf3.Engine.LedgerState.UnspentOutputs.IDs.Has(tf.Ledger.OutputID("Tx1.0")))
+		require.True(t, tf3.Engine.LedgerState.UnspentOutputs.IDs.Has(tf.Ledger.OutputID("Tx1.1")))
+		require.True(t, tf3.Engine.LedgerState.UnspentOutputs.IDs.Has(tf.Ledger.OutputID("Tx5.0")))
+		require.True(t, tf3.Engine.LedgerState.UnspentOutputs.IDs.Has(tf.Ledger.OutputID("Tx5.1")))
 
 		// ThroughputQuota
-		require.Equal(t, expectedBalanceByIDs, tf2.Engine.ThroughputQuota.BalanceByIDs())
-		require.Equal(t, expectedTotalBalance, tf2.Engine.ThroughputQuota.TotalBalance())
+		require.Equal(t, expectedBalanceByIDs, tf3.Engine.ThroughputQuota.BalanceByIDs())
+		require.Equal(t, expectedTotalBalance, tf3.Engine.ThroughputQuota.TotalBalance())
 
-		tf2.WaitUntilAllTasksProcessed()
+		workers.Wait()
 	}
 }
 
@@ -622,19 +623,24 @@ func TestEngine_ShutdownResume(t *testing.T) {
 	debug.SetEnabled(true)
 	defer debug.SetEnabled(false)
 
-	epoch.GenesisTime = time.Now().Unix() - epoch.Duration*15
-
-	storageDir := t.TempDir()
-	storageInstance := storage.New(storageDir, DatabaseVersion)
-
-	tf := NewEngineTestFramework(t, WithStorage(storageInstance), WithTangleOptions(
-		tangle.WithBookerOptions(
-			booker.WithMarkerManagerOptions(
-				markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(1)),
+	engineOpts := []options.Option[engine.Engine]{
+		engine.WithLedgerOptions(
+			ledger.WithVM(new(devnetvm.VM)),
+		),
+		engine.WithTangleOptions(
+			tangle.WithBookerOptions(
+				booker.WithMarkerManagerOptions(
+					markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(1)),
+				),
 			),
 		),
-	))
-	tempDir := utils.NewDirectory(t.TempDir())
+	}
+
+	epoch.GenesisTime = time.Now().Unix() - epoch.Duration*15
+
+	workers := workerpool.NewGroup(t.Name())
+
+	tf := NewDefaultEngineTestFramework(t, workers.CreateGroup("EngineTestFramework1"), engineOpts...)
 
 	tf.Engine.NotarizationManager.Events.Error.Hook(event.NewClosure(func(err error) {
 		panic(err)
@@ -656,25 +662,25 @@ func TestEngine_ShutdownResume(t *testing.T) {
 		identity.New(identitiesMap["Z"]).PublicKey(): 0,
 	}
 
-	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDir.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights))
+	tempDir := utils.NewDirectory(t.TempDir())
+	snapshotcreator.CreateSnapshot(workers.CreateGroup("CreateSnapshot2"), DatabaseVersion, tempDir.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights), engineOpts...)
 
 	require.NoError(t, tf.Engine.Initialize(tempDir.Path("genesis_snapshot.bin")))
 
 	require.Equal(t, int64(100), tf.Engine.SybilProtection.Validators().TotalWeight())
 
 	tf.Engine.Shutdown()
-	storageInstance.Shutdown()
 
-	storageInstance = storage.New(storageDir, DatabaseVersion)
-
-	tf2 := NewEngineTestFramework(t, WithStorage(storageInstance), WithTangleOptions(tf.optsTangleOptions...))
+	tf2 := NewDefaultEngineTestFramework(t, workers.CreateGroup("EngineTestFramework2"), engineOpts...)
 	require.NoError(t, tf2.Engine.Initialize(""))
-
+	workers.Wait()
 	tf2.AssertEpochState(0)
 }
 
 type NodeOnMockedNetwork struct {
 	Testing             *testing.T
+	TestWorkers         *workerpool.Group
+	NodeWorkers         *workerpool.Group
 	KeyPair             ed25519.KeyPair
 	Identity            *identity.Identity
 	Endpoint            *network.MockedEndpoint
@@ -682,12 +688,15 @@ type NodeOnMockedNetwork struct {
 	EngineTestFramework *EngineTestFramework
 }
 
-func newNode(t *testing.T, keyPair ed25519.KeyPair, network *network.MockedNetwork, partition string, snapshotPath string, engineOpts ...options.Option[engine.Engine]) *NodeOnMockedNetwork {
+func newNode(t *testing.T, testWorkers *workerpool.Group, keyPair ed25519.KeyPair, network *network.MockedNetwork, partition string, snapshotPath string, engineOpts ...options.Option[engine.Engine]) *NodeOnMockedNetwork {
 	identity := identity.New(keyPair.PublicKey)
 	endpoint := network.Join(identity.ID(), partition)
 	tempDir := utils.NewDirectory(t.TempDir())
 
-	protocol := New(endpoint,
+	nodeWorkers := testWorkers.CreateGroup(identity.ID().String())
+
+	protocol := New(nodeWorkers.CreateGroup("Protocol"),
+		endpoint,
 		WithBaseDirectory(tempDir.Path()),
 		WithSnapshotPath(snapshotPath),
 		WithEngineOptions(engineOpts...),
@@ -698,16 +707,12 @@ func newNode(t *testing.T, keyPair ed25519.KeyPair, network *network.MockedNetwo
 		protocol.Shutdown()
 	})
 
-	tf := NewEngineTestFramework(t, WithEngine(protocol.Engine()), WithTangleOptions(
-		tangle.WithBookerOptions(
-			booker.WithMarkerManagerOptions(
-				markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(1)),
-			),
-		),
-	))
+	tf := NewEngineTestFramework(t, nodeWorkers.CreateGroup("EngineTestFramework"), protocol.Engine())
 
 	return &NodeOnMockedNetwork{
 		Testing:             t,
+		TestWorkers:         testWorkers,
+		NodeWorkers:         nodeWorkers,
 		Identity:            identity,
 		KeyPair:             keyPair,
 		Endpoint:            endpoint,
@@ -870,34 +875,31 @@ func (n *NodeOnMockedNetwork) attachEngineLogs(instance *enginemanager.EngineIns
 	}))
 }
 
-func (n *NodeOnMockedNetwork) WaitUntilAllTasksProcessed() {
-	n.Protocol.WaitWorkerPoolsEmpty()
-	n.EngineTestFramework.WaitUntilAllTasksProcessed()
-	//TODO: find the race condition in the pools and remove this wait
-	time.Sleep(100 * time.Millisecond)
+func (n *NodeOnMockedNetwork) Wait() {
+	n.NodeWorkers.Wait()
 }
 
 func (n *NodeOnMockedNetwork) IssueBlockAtEpoch(alias string, epochIndex epoch.Index, parents ...models.BlockID) *booker.Block {
 	issuingTime := time.Unix(epoch.GenesisTime+int64(epochIndex-1)*epoch.Duration, 0)
 	require.True(n.Testing, issuingTime.Before(time.Now()), "issued block is in the current or future epoch")
-	n.EngineTestFramework.Tangle.CreateAndSignBlock(alias, &n.KeyPair,
+	n.EngineTestFramework.BlockDAG.CreateAndSignBlock(alias, &n.KeyPair,
 		models.WithStrongParents(models.NewBlockIDs(parents...)),
 		models.WithIssuingTime(issuingTime),
 		models.WithCommitment(n.Protocol.Engine().Storage.Settings.LatestCommitment()),
 	)
-	n.EngineTestFramework.Tangle.IssueBlocks(alias)
-	n.WaitUntilAllTasksProcessed()
-	return n.EngineTestFramework.Tangle.Block(alias)
+	n.EngineTestFramework.BlockDAG.IssueBlocks(alias)
+	n.TestWorkers.Wait()
+	return n.EngineTestFramework.Booker.Block(alias)
 }
 
 func (n *NodeOnMockedNetwork) IssueBlock(alias string, parents ...models.BlockID) *booker.Block {
-	n.EngineTestFramework.Tangle.CreateAndSignBlock(alias, &n.KeyPair,
+	n.EngineTestFramework.BlockDAG.CreateAndSignBlock(alias, &n.KeyPair,
 		models.WithStrongParents(models.NewBlockIDs(parents...)),
 		models.WithCommitment(n.Protocol.Engine().Storage.Settings.LatestCommitment()),
 	)
-	n.EngineTestFramework.Tangle.IssueBlocks(alias)
-	n.WaitUntilAllTasksProcessed()
-	return n.EngineTestFramework.Tangle.Block(alias)
+	n.EngineTestFramework.BlockDAG.IssueBlocks(alias)
+	n.NodeWorkers.Wait()
+	return n.EngineTestFramework.Booker.Block(alias)
 }
 
 func (n *NodeOnMockedNetwork) IssueActivity(duration time.Duration) {
@@ -917,11 +919,11 @@ func (n *NodeOnMockedNetwork) IssueActivity(duration time.Duration) {
 }
 
 func (n *NodeOnMockedNetwork) issueActivityBlock(alias string, parents ...models.BlockID) {
-	n.EngineTestFramework.Tangle.CreateAndSignBlock(alias, &n.KeyPair,
+	n.EngineTestFramework.BlockDAG.CreateAndSignBlock(alias, &n.KeyPair,
 		models.WithStrongParents(models.NewBlockIDs(parents...)),
 		models.WithCommitment(n.Protocol.Engine().Storage.Settings.LatestCommitment()),
 	)
-	n.EngineTestFramework.Tangle.IssueBlocks(alias)
+	n.EngineTestFramework.BlockDAG.IssueBlocks(alias)
 }
 
 func (n *NodeOnMockedNetwork) ValidateAcceptedBlocks(expectedAcceptedBlocks map[models.BlockID]bool) {
@@ -945,12 +947,19 @@ func (n *NodeOnMockedNetwork) AssertEqualChainsAtLeastAtEpoch(index epoch.Index,
 func TestProtocol_EngineSwitching(t *testing.T) {
 	testNetwork := network.NewMockedNetwork()
 
-	engineOptions := []options.Option[engine.Engine]{
+	engineOpts := []options.Option[engine.Engine]{
 		engine.WithNotarizationManagerOptions(
 			notarization.WithMinCommittableEpochAge(10 * time.Second),
 		),
 		engine.WithLedgerOptions(
 			ledger.WithVM(new(devnetvm.VM)),
+		),
+		engine.WithTangleOptions(
+			tangle.WithBookerOptions(
+				booker.WithMarkerManagerOptions(
+					markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(1)),
+				),
+			),
 		),
 	}
 
@@ -981,14 +990,16 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 	lo.MergeMaps(allWeights, partition1Weights)
 	lo.MergeMaps(allWeights, partition2Weights)
 
+	workers := workerpool.NewGroup(t.Name())
+
 	snapshotsDir := utils.NewDirectory(t.TempDir())
 	snapshot := snapshotsDir.Path("snapshot.bin")
-	snapshotcreator.CreateSnapshot(DatabaseVersion, snapshot, 0, make([]byte, 32), allWeights, nil, engineOptions...)
+	snapshotcreator.CreateSnapshot(workers.CreateGroup("CreateSnapshot"), DatabaseVersion, snapshot, 0, make([]byte, 32), allWeights, nil, engineOpts...)
 
-	node1 := newNode(t, identitiesMap["node1"], testNetwork, "P1", snapshot, engineOptions...)
-	node2 := newNode(t, identitiesMap["node2"], testNetwork, "P1", snapshot, engineOptions...)
-	node3 := newNode(t, identitiesMap["node3"], testNetwork, "P2", snapshot, engineOptions...)
-	node4 := newNode(t, identitiesMap["node4"], testNetwork, "P2", snapshot, engineOptions...)
+	node1 := newNode(t, workers, identitiesMap["node1"], testNetwork, "P1", snapshot, engineOpts...)
+	node2 := newNode(t, workers, identitiesMap["node2"], testNetwork, "P1", snapshot, engineOpts...)
+	node3 := newNode(t, workers, identitiesMap["node3"], testNetwork, "P2", snapshot, engineOpts...)
+	node4 := newNode(t, workers, identitiesMap["node4"], testNetwork, "P2", snapshot, engineOpts...)
 
 	node1.HookLogging(true)
 	node2.HookLogging(true)
@@ -1043,10 +1054,10 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 	}
 
 	waitOnAllNodes := func() {
-		node1.WaitUntilAllTasksProcessed()
-		node2.WaitUntilAllTasksProcessed()
-		node3.WaitUntilAllTasksProcessed()
-		node4.WaitUntilAllTasksProcessed()
+		node1.Wait()
+		node2.Wait()
+		node3.Wait()
+		node4.Wait()
 	}
 
 	assertBlockExistsOnNodes := func(id models.BlockID, nodes ...*NodeOnMockedNetwork) {
@@ -1061,7 +1072,7 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 		}
 	}
 
-	genesisBlockID := node1.EngineTestFramework.Tangle.Block("Genesis")
+	genesisBlockID := node1.EngineTestFramework.BlockDAG.Block("Genesis")
 
 	// Issue blocks on Partition 1
 	{
@@ -1202,11 +1213,12 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 	// Wait for the engine to eventually switch on each node
 	{
 		nodeCount := atomic.NewInt32(0)
+		wp := workers.CreatePool("Activity")
 		for _, node := range []*NodeOnMockedNetwork{node3, node4} {
 			nodeCount.Add(1)
-			event.Attach(node.Protocol.Events.MainEngineSwitched, func(_ *enginemanager.EngineInstance) {
+			event.AttachWithWorkerPool(node.Protocol.Events.MainEngineSwitched, func(_ *enginemanager.EngineInstance) {
 				nodeCount.Add(-1)
-			})
+			}, wp)
 		}
 		require.Eventually(t, func() bool {
 			return nodeCount.Load() == 0

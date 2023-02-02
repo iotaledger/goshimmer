@@ -6,6 +6,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
@@ -34,14 +35,17 @@ type VirtualVoting struct {
 	optsSequenceCutoffCallback func(markers.SequenceID) markers.Index
 	optsEpochCutoffCallback    func() epoch.Index
 
+	Workers *workerpool.Group
+
 	*booker.Booker
 }
 
-func New(booker *booker.Booker, validators *sybilprotection.WeightedSet, opts ...options.Option[VirtualVoting]) (newVirtualVoting *VirtualVoting) {
+func New(workers *workerpool.Group, booker *booker.Booker, validators *sybilprotection.WeightedSet, opts ...options.Option[VirtualVoting]) (newVirtualVoting *VirtualVoting) {
 	return options.Apply(&VirtualVoting{
 		Validators: validators,
 		blocks:     memstorage.NewEpochStorage[models.BlockID, *Block](),
 		Booker:     booker,
+		Workers:    workers,
 		optsSequenceCutoffCallback: func(sequenceID markers.SequenceID) markers.Index {
 			return 1
 		},
@@ -130,26 +134,24 @@ func (o *VirtualVoting) ConflictVotersTotalWeight(conflictID utxo.TransactionID)
 }
 
 func (o *VirtualVoting) setupEvents() {
-	o.SubscribeStopped(
-		event.Hook(o.Booker.Events.BlockBooked, func(block *booker.Block) {
-			o.Track(NewBlock(block))
-		}),
-		event.Hook(o.Booker.Events.BlockConflictAdded, func(event *booker.BlockConflictAddedEvent) {
-			o.processForkedBlock(event.Block, event.ConflictID, event.ParentConflictIDs)
-		}),
-		event.Hook(o.Booker.Events.MarkerConflictAdded, func(event *booker.MarkerConflictAddedEvent) {
-			o.processForkedMarker(event.Marker, event.ConflictID, event.ParentConflictIDs)
-		}),
-		event.AttachWithWorkerPool(o.Booker.Events.MarkerManager.SequenceEvicted, o.evictSequence, o.NewWorkerPool("VirtualVoting.Eviction", 1)),
-		event.Hook(o.EvictionState.Events.EpochEvicted, o.evictEpoch),
-	)
+	event.Hook(o.Booker.Events.BlockBooked, func(block *booker.Block) {
+		o.Track(NewBlock(block))
+	})
+	event.Hook(o.Booker.Events.BlockConflictAdded, func(event *booker.BlockConflictAddedEvent) {
+		o.processForkedBlock(event.Block, event.ConflictID, event.ParentConflictIDs)
+	})
+	event.Hook(o.Booker.Events.MarkerConflictAdded, func(event *booker.MarkerConflictAddedEvent) {
+		o.processForkedMarker(event.Marker, event.ConflictID, event.ParentConflictIDs)
+	})
+	event.AttachWithWorkerPool(o.Booker.Events.MarkerManager.SequenceEvicted, o.evictSequence, o.Workers.CreatePool("Eviction", 1))
+	event.Hook(o.BlockDAG.EvictionState.Events.EpochEvicted, o.evictEpoch)
 }
 
 func (o *VirtualVoting) track(block *Block) (tracked bool) {
 	o.evictionMutex.RLock()
 	defer o.evictionMutex.RUnlock()
 
-	if o.EvictionState.InEvictedEpoch(block.ID()) {
+	if o.BlockDAG.EvictionState.InEvictedEpoch(block.ID()) {
 		return false
 	}
 
@@ -168,7 +170,7 @@ func (o *VirtualVoting) track(block *Block) (tracked bool) {
 
 // block retrieves the Block with given id from the mem-storage.
 func (o *VirtualVoting) block(id models.BlockID) (block *Block, exists bool) {
-	if o.EvictionState.IsRootBlock(id) {
+	if o.BlockDAG.EvictionState.IsRootBlock(id) {
 		bookerBlock, _ := o.Booker.Block(id)
 
 		return NewBlock(bookerBlock), true

@@ -3,6 +3,7 @@ package ledger
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/iotaledger/hive.go/core/serix"
@@ -53,30 +54,30 @@ func newStorage(ledger *Ledger, baseStore kvstore.KVStore) (storage *Storage) {
 			lo.PanicOnErr(baseStore.WithExtendedRealm([]byte{database.PrefixLedger, PrefixTransactionStorage})),
 			transactionFactory(ledger.optsVM),
 			ledger.optsCacheTimeProvider.CacheTime(ledger.optsTransactionCacheTime),
-			objectstorage.LeakDetectionEnabled(false),
+			objectstorage.LeakDetectionEnabled(true),
 			objectstorage.StoreOnCreation(true),
 		),
 		transactionMetadataStorage: objectstorage.NewStructStorage[TransactionMetadata](
 			lo.PanicOnErr(baseStore.WithExtendedRealm([]byte{database.PrefixLedger, PrefixTransactionMetadataStorage})),
 			ledger.optsCacheTimeProvider.CacheTime(ledger.optTransactionMetadataCacheTime),
-			objectstorage.LeakDetectionEnabled(false),
+			objectstorage.LeakDetectionEnabled(true),
 		),
 		OutputStorage: objectstorage.NewInterfaceStorage[utxo.Output](
 			lo.PanicOnErr(baseStore.WithExtendedRealm([]byte{database.PrefixLedger, PrefixOutputStorage})),
 			outputFactory(ledger.optsVM),
 			ledger.optsCacheTimeProvider.CacheTime(ledger.optsOutputCacheTime),
-			objectstorage.LeakDetectionEnabled(false),
+			objectstorage.LeakDetectionEnabled(true),
 			objectstorage.StoreOnCreation(true),
 		),
 		OutputMetadataStorage: objectstorage.NewStructStorage[OutputMetadata](
 			lo.PanicOnErr(baseStore.WithExtendedRealm([]byte{database.PrefixLedger, PrefixOutputMetadataStorage})),
 			ledger.optsCacheTimeProvider.CacheTime(ledger.optsOutputMetadataCacheTime),
-			objectstorage.LeakDetectionEnabled(false),
+			objectstorage.LeakDetectionEnabled(true, objectstorage.LeakDetectionOptions{MaxConsumersPerObject: 2, MaxConsumerHoldTime: 1 * time.Second}),
 		),
 		consumerStorage: objectstorage.NewStructStorage[Consumer](
 			lo.PanicOnErr(baseStore.WithExtendedRealm([]byte{database.PrefixLedger, PrefixConsumerStorage})),
 			ledger.optsCacheTimeProvider.CacheTime(ledger.optsConsumerCacheTime),
-			objectstorage.LeakDetectionEnabled(false),
+			objectstorage.LeakDetectionEnabled(true),
 			objectstorage.PartitionKey(new(Consumer).KeyPartitions()...),
 		),
 		ledger: ledger,

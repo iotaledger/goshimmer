@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"log"
 	"os"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/protocol"
@@ -94,7 +96,9 @@ func main() {
 	manaDistribution := createManaDistribution(totalTokensToPledge)
 	initialAttestationsSlice := createInitialAttestations()
 
-	snapshotcreator.CreateSnapshot(protocol.DatabaseVersion, snapshotFileName, genesisTokenAmount, genesisSeed, manaDistribution, initialAttestationsSlice)
+	snapshotcreator.CreateSnapshot(workerpool.NewGroup("CreateSnapshot"), protocol.DatabaseVersion, snapshotFileName, genesisTokenAmount, genesisSeed, manaDistribution, initialAttestationsSlice, engine.WithLedgerOptions(
+		ledger.WithVM(new(devnetvm.VM)),
+	))
 
 	diagnosticPrintSnapshotFromFile(snapshotFileName)
 }
@@ -152,7 +156,9 @@ func init() {
 
 func diagnosticPrintSnapshotFromFile(filePath string) {
 	s := createTempStorage()
-	e := engine.New(s, dpos.NewProvider(), mana1.NewProvider())
+	defer s.Shutdown()
+
+	e := engine.New(workerpool.NewGroup("Diagnostics"), s, dpos.NewProvider(), mana1.NewProvider())
 	if err := e.Initialize(filePath); err != nil {
 		panic(err)
 	}

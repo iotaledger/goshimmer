@@ -11,11 +11,11 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
@@ -30,7 +30,10 @@ import (
 // region TestFramework //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type TestFramework struct {
-	Scheduler      *Scheduler
+	Scheduler *Scheduler
+	Tangle    *tangle.TestFramework
+	workers   *workerpool.Group
+
 	storage        *storage.Storage
 	engine         *engine.Engine
 	mockAcceptance *blockgadget.MockAcceptanceGadget
@@ -43,91 +46,65 @@ type TestFramework struct {
 	skippedBlocksCount   uint32
 	droppedBlocksCount   uint32
 	evictionState        *eviction.State
-
-	optsScheduler           []options.Option[Scheduler]
-	optsTangle              []options.Option[tangle.Tangle]
-	optsGadget              []options.Option[blockgadget.Gadget]
-	optsValidators          *sybilprotection.WeightedSet
-	optsIsBlockAcceptedFunc func(models.BlockID) bool
-	optsBlockAcceptedEvent  *event.Linkable[*blockgadget.Block]
-	*TangleTestFramework
 }
 
-func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t *TestFramework) {
-	return options.Apply(&TestFramework{
+func NewTestFramework(test *testing.T, workers *workerpool.Group, optsScheduler ...options.Option[Scheduler]) *TestFramework {
+	t := &TestFramework{
 		test:           test,
+		workers:        workers,
 		issuersMana:    make(map[identity.ID]int64),
 		issuersByAlias: make(map[string]*identity.Identity),
 		mockAcceptance: blockgadget.NewMockAcceptanceGadget(),
-	}, opts, func(t *TestFramework) {
-		storageInstance := storage.New(test.TempDir(), 1)
-		t.storage = storageInstance
-		test.Cleanup(func() {
-			t.storage.Shutdown()
-		})
+	}
+	t.storage = storage.New(test.TempDir(), 1)
 
-		if t.evictionState == nil {
-			t.evictionState = eviction.NewState(t.storage)
-		}
+	t.engine = engine.New(workers.CreateGroup("Engine"), t.storage, dpos.NewProvider(), mana1.NewProvider())
+	test.Cleanup(func() {
+		t.Scheduler.Shutdown()
+		t.engine.Shutdown()
+		workers.Wait()
+		t.storage.Shutdown()
+	})
 
-		if t.engine == nil {
-			t.engine = engine.New(t.storage, dpos.NewProvider(), mana1.NewProvider())
-		}
+	t.Tangle = tangle.NewTestFramework(
+		test,
+		t.engine.Tangle,
+		virtualvoting.NewTestFramework(test, workers.CreateGroup("VirtualVotingTestFramework"), t.engine.Tangle.VirtualVoting),
+	)
 
-		if t.optsValidators == nil {
-			t.optsValidators = dpos.NewSybilProtection(t.engine).Validators()
-		}
+	t.Scheduler = New(t.Tangle.BlockDAG.Instance.EvictionState, t.mockAcceptance.IsBlockAccepted, t.ManaMap, t.TotalMana, optsScheduler...)
 
-		t.TangleTestFramework = tangle.NewTestFramework(
-			test,
-			tangle.WithTangleOptions(t.optsTangle...),
-			tangle.WithValidators(t.optsValidators),
-			tangle.WithEvictionState(t.evictionState),
-		)
+	t.setupEvents()
 
-		if t.optsIsBlockAcceptedFunc == nil {
-			t.optsIsBlockAcceptedFunc = t.mockAcceptance.IsBlockAccepted
-		}
-		if t.optsBlockAcceptedEvent == nil {
-			t.optsBlockAcceptedEvent = t.mockAcceptance.BlockAcceptedEvent
-		}
-
-		if t.Scheduler == nil {
-			t.Scheduler = New(t.TangleTestFramework.BlockDAG.EvictionState, t.optsIsBlockAcceptedFunc, t.ManaMap, t.TotalMana, t.optsScheduler...)
-		}
-	}, (*TestFramework).setupEvents)
+	return t
 }
 
-type TangleTestFramework = tangle.TestFramework
-
-type GadgetTestFramework = blockgadget.TestFramework
-
 func (t *TestFramework) setupEvents() {
-	t.mockAcceptance.BlockAcceptedEvent.Attach(event.NewClosure(t.Scheduler.HandleAcceptedBlock))
-	t.Tangle.Events.VirtualVoting.BlockTracked.Attach(event.NewClosure(t.Scheduler.AddBlock))
-	t.Tangle.Events.BlockDAG.BlockOrphaned.Attach(event.NewClosure(t.Scheduler.HandleOrphanedBlock))
+	event.AttachWithWorkerPool(t.mockAcceptance.BlockAcceptedEvent, t.Scheduler.HandleAcceptedBlock, t.workers.CreatePool("HandleAccepted"))
+	event.AttachWithWorkerPool(t.Tangle.Instance.Events.VirtualVoting.BlockTracked, t.Scheduler.AddBlock, t.workers.CreatePool("Add"))
+	event.AttachWithWorkerPool(t.Tangle.Instance.Events.BlockDAG.BlockOrphaned, t.Scheduler.HandleOrphanedBlock, t.workers.CreatePool("HandleOrphaned"))
 
-	t.Scheduler.Events.BlockScheduled.Hook(event.NewClosure(func(block *Block) {
+	event.Hook(t.Scheduler.Events.BlockScheduled, func(block *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("SCHEDULED: %s", block.ID())
 		}
 
 		atomic.AddUint32(&(t.scheduledBlocksCount), 1)
-	}))
+	})
 
-	t.Scheduler.Events.BlockSkipped.Hook(event.NewClosure(func(block *Block) {
+	event.Hook(t.Scheduler.Events.BlockSkipped, func(block *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("BLOCK SKIPPED: %s", block.ID())
 		}
 		atomic.AddUint32(&(t.skippedBlocksCount), 1)
-	}))
+	})
 
-	t.Scheduler.Events.BlockDropped.Hook(event.NewClosure(func(block *Block) {
+	event.Hook(t.Scheduler.Events.BlockDropped, func(block *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("BLOCK DROPPED: %s", block.ID())
 		}
 		atomic.AddUint32(&(t.droppedBlocksCount), 1)
-	}))
+	})
 }
 
 func (t *TestFramework) CreateIssuer(alias string, issuerMana int64) {
@@ -202,7 +179,7 @@ func (t *TestFramework) AssertBlocksDropped(blocksDropped uint32) {
 
 func (t *TestFramework) ValidateScheduledBlocks(expectedState map[string]bool) {
 	for blockID, expected := range expectedState {
-		block, exists := t.Scheduler.Block(t.Block(blockID).ID())
+		block, exists := t.Scheduler.Block(t.Tangle.BlockDAG.Block(blockID).ID())
 		require.Truef(t.test, exists, "block %s not registered", blockID)
 
 		actual := block.IsScheduled()
@@ -212,7 +189,7 @@ func (t *TestFramework) ValidateScheduledBlocks(expectedState map[string]bool) {
 
 func (t *TestFramework) ValidateSkippedBlocks(expectedState map[string]bool) {
 	for blockID, expected := range expectedState {
-		block, exists := t.Scheduler.Block(t.Block(blockID).ID())
+		block, exists := t.Scheduler.Block(t.Tangle.BlockDAG.Block(blockID).ID())
 		require.Truef(t.test, exists, "block %s not registered", blockID)
 
 		actual := block.IsSkipped()
@@ -223,63 +200,11 @@ func (t *TestFramework) ValidateSkippedBlocks(expectedState map[string]bool) {
 
 func (t *TestFramework) ValidateDroppedBlocks(expectedState map[string]bool) {
 	for blockID, expected := range expectedState {
-		block, exists := t.Scheduler.Block(t.Block(blockID).ID())
+		block, exists := t.Scheduler.Block(t.Tangle.BlockDAG.Block(blockID).ID())
 		require.Truef(t.test, exists, "block %s not registered", blockID)
 
 		actual := block.IsDropped()
 		require.Equal(t.test, expected, actual, "Block %s should be dropped=%t but is %t", blockID, expected, actual)
-	}
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
-
-func WithSchedulerOptions(opts ...options.Option[Scheduler]) options.Option[TestFramework] {
-	return func(tf *TestFramework) {
-		tf.optsScheduler = opts
-	}
-}
-
-func WithGadgetOptions(opts ...options.Option[blockgadget.Gadget]) options.Option[TestFramework] {
-	return func(tf *TestFramework) {
-		tf.optsGadget = opts
-	}
-}
-
-func WithTangleOptions(opts ...options.Option[tangle.Tangle]) options.Option[TestFramework] {
-	return func(tf *TestFramework) {
-		tf.optsTangle = opts
-	}
-}
-
-func WithBlockAcceptedEvent(blockAcceptedEvent *event.Linkable[*blockgadget.Block]) options.Option[TestFramework] {
-	return func(tf *TestFramework) {
-		tf.optsBlockAcceptedEvent = blockAcceptedEvent
-	}
-}
-
-func WithIsBlockAcceptedFunc(isBlockAcceptedFunc func(id models.BlockID) bool) options.Option[TestFramework] {
-	return func(tf *TestFramework) {
-		tf.optsIsBlockAcceptedFunc = isBlockAcceptedFunc
-	}
-}
-
-func WithEngine(engine *engine.Engine) options.Option[TestFramework] {
-	return func(t *TestFramework) {
-		t.engine = engine
-	}
-}
-
-func WithEvictionState(evictionState *eviction.State) options.Option[TestFramework] {
-	return func(t *TestFramework) {
-		t.evictionState = evictionState
-	}
-}
-
-func WithValidators(validators *sybilprotection.WeightedSet) options.Option[TestFramework] {
-	return func(t *TestFramework) {
-		t.optsValidators = validators
 	}
 }
 

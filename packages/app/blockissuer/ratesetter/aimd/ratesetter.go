@@ -80,7 +80,9 @@ func New(protocol *protocol.Protocol, selfIdentity identity.ID, opts ...options.
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (r *RateSetter) setupEvents() {
-	r.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
+	wp := r.protocol.Workers.CreatePool("RateSetter")
+
+	event.AttachWithWorkerPool(r.protocol.Events.CongestionControl.Scheduler.BlockScheduled, func(block *scheduler.Block) {
 		if r.pauseUpdates > 0 {
 			r.pauseUpdates--
 			return
@@ -91,12 +93,13 @@ func (r *RateSetter) setupEvents() {
 		if r.protocol.CongestionControl.Scheduler().IssuerQueueSize(r.self) > 0 {
 			r.rateUpdateChan <- block.ModelsBlock
 		}
-	}))
-	r.protocol.Events.CongestionControl.Scheduler.BlockSubmitted.Attach(event.NewClosure(func(block *scheduler.Block) {
+	}, wp)
+
+	event.AttachWithWorkerPool(r.protocol.Events.CongestionControl.Scheduler.BlockSubmitted, func(block *scheduler.Block) {
 		if block.IssuerID() == r.self {
 			r.updateIssueCredits(float64(-block.Work()))
 		}
-	}))
+	}, wp)
 }
 
 // Shutdown shuts down the RateSetter.

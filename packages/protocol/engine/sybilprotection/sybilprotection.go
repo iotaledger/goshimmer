@@ -14,6 +14,4 @@ type SybilProtection interface {
 
 	// Initializable exposes a subscribable life-cycle event that is triggered when the component is initialized.
 	traits.Initializable
-
-	traits.Runnable
 }

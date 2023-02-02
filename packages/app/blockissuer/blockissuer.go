@@ -3,10 +3,12 @@ package blockissuer
 import (
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/pkg/errors"
+	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer/blockfactory"
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer/ratesetter"
@@ -31,6 +33,7 @@ type BlockIssuer struct {
 	protocol          *protocol.Protocol
 	identity          *identity.LocalIdentity
 	referenceProvider *blockfactory.ReferenceProvider
+	workerPool        *workerpool.UnboundedWorkerPool
 
 	optsBlockFactoryOptions    []options.Option[blockfactory.Factory]
 	optsIgnoreBootstrappedFlag bool
@@ -39,9 +42,10 @@ type BlockIssuer struct {
 // New creates a new block issuer.
 func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opts ...options.Option[BlockIssuer]) *BlockIssuer {
 	return options.Apply(&BlockIssuer{
-		Events:   NewEvents(),
-		identity: localIdentity,
-		protocol: protocol,
+		Events:     NewEvents(),
+		identity:   localIdentity,
+		protocol:   protocol,
+		workerPool: protocol.Workers.CreatePool("BlockIssuer"),
 		referenceProvider: blockfactory.NewReferenceProvider(protocol, func() epoch.Index {
 			return protocol.Engine().Storage.Settings.LatestCommitment().Index()
 		}),
@@ -116,7 +120,7 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeBooked(block *models.Block, max
 	exit := make(chan struct{})
 	defer close(exit)
 
-	closure := event.NewClosure(func(bookedBlock *booker.Block) {
+	defer event.AttachWithWorkerPool(i.protocol.Events.Engine.Tangle.Booker.BlockBooked, func(bookedBlock *booker.Block) {
 		if block.ID() != bookedBlock.ID() {
 			return
 		}
@@ -124,9 +128,7 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeBooked(block *models.Block, max
 		case booked <- bookedBlock:
 		case <-exit:
 		}
-	})
-	i.protocol.Events.Engine.Tangle.Booker.BlockBooked.Attach(closure)
-	defer i.protocol.Events.Engine.Tangle.Booker.BlockBooked.Detach(closure)
+	}, i.workerPool)
 
 	err := i.issueBlock(block)
 	if err != nil {
@@ -153,7 +155,7 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeScheduled(block *models.Block, 
 	exit := make(chan struct{})
 	defer close(exit)
 
-	closure := event.NewClosure(func(scheduledBlock *scheduler.Block) {
+	defer event.AttachWithWorkerPool(i.protocol.Events.CongestionControl.Scheduler.BlockScheduled, func(scheduledBlock *scheduler.Block) {
 		if block.ID() != scheduledBlock.ID() {
 			return
 		}
@@ -161,9 +163,7 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeScheduled(block *models.Block, 
 		case scheduled <- scheduledBlock:
 		case <-exit:
 		}
-	})
-	i.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Attach(closure)
-	defer i.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Detach(closure)
+	}, i.workerPool)
 
 	err := i.issueBlock(block)
 	if err != nil {

@@ -6,9 +6,9 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/core/votes/epochtracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 )
@@ -22,13 +22,14 @@ type Gadget struct {
 
 	optsEpochConfirmationThreshold float64
 
+	workers *workerpool.Group
+
 	sync.RWMutex
-	traits.Runnable
 }
 
-func New(tangle *tangle.Tangle, lastConfirmedEpoch epoch.Index, totalWeightCallback func() int64, opts ...options.Option[Gadget]) (gadget *Gadget) {
+func New(workers *workerpool.Group, tangle *tangle.Tangle, lastConfirmedEpoch epoch.Index, totalWeightCallback func() int64, opts ...options.Option[Gadget]) (gadget *Gadget) {
 	return options.Apply(&Gadget{
-		Runnable:                       traits.NewRunnable(),
+		workers:                        workers,
 		optsEpochConfirmationThreshold: 0.67,
 	}, opts, func(a *Gadget) {
 		a.Events = NewEvents()
@@ -54,11 +55,9 @@ func (g *Gadget) setLastConfirmedEpoch(i epoch.Index) {
 }
 
 func (g *Gadget) setup() {
-	g.SubscribeStopped(
-		event.AttachWithWorkerPool(g.tangle.VirtualVoting.Events.EpochTracker.VotersUpdated, func(evt *epochtracker.VoterUpdatedEvent) {
-			g.refreshEpochConfirmation(evt.PrevLatestEpochIndex, evt.NewLatestEpochIndex)
-		}, g.NewWorkerPool("Refresh")),
-	)
+	event.AttachWithWorkerPool(g.tangle.VirtualVoting.Events.EpochTracker.VotersUpdated, func(evt *epochtracker.VoterUpdatedEvent) {
+		g.refreshEpochConfirmation(evt.PrevLatestEpochIndex, evt.NewLatestEpochIndex)
+	}, g.workers.CreatePool("Refresh"))
 }
 
 func (g *Gadget) refreshEpochConfirmation(previousLatestEpochIndex epoch.Index, newLatestEpochIndex epoch.Index) {

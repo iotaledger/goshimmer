@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol"
@@ -20,6 +21,8 @@ import (
 )
 
 func TestEngineManager_ForkEngineAtEpoch(t *testing.T) {
+	workers := workerpool.NewGroup(t.Name())
+
 	epoch.GenesisTime = time.Now().Unix() - epoch.Duration*10
 
 	identitiesMap := map[string]ed25519.PublicKey{
@@ -36,9 +39,9 @@ func TestEngineManager_ForkEngineAtEpoch(t *testing.T) {
 		identity.New(identitiesMap["D"]).PublicKey(): 25,
 	}
 
-	etf := NewEngineManagerTestFramework(t, identitiesWeights)
+	etf := NewEngineManagerTestFramework(t, workers.CreateGroup("EngineManagerTestFramework"), identitiesWeights)
 
-	tf := protocol.NewEngineTestFramework(t, protocol.WithEngine(etf.ActiveEngine.Engine))
+	tf := protocol.NewEngineTestFramework(t, workers.CreateGroup("EngineTestFramework"), etf.ActiveEngine.Engine)
 	tf.AssertEpochState(0)
 
 	acceptedBlocks := make(map[string]bool)
@@ -46,14 +49,14 @@ func TestEngineManager_ForkEngineAtEpoch(t *testing.T) {
 	epoch1IssuingTime := time.Unix(epoch.GenesisTime, 0)
 
 	// Blocks in epoch 1
-	tf.Tangle.CreateBlock("1.A", models.WithStrongParents(tf.Tangle.BlockIDs("Genesis")), models.WithIssuer(identitiesMap["A"]), models.WithIssuingTime(epoch1IssuingTime))
-	tf.Tangle.CreateBlock("1.B", models.WithStrongParents(tf.Tangle.BlockIDs("1.A")), models.WithIssuer(identitiesMap["B"]), models.WithIssuingTime(epoch1IssuingTime))
-	tf.Tangle.CreateBlock("1.C", models.WithStrongParents(tf.Tangle.BlockIDs("1.B")), models.WithIssuer(identitiesMap["C"]), models.WithIssuingTime(epoch1IssuingTime))
-	tf.Tangle.CreateBlock("1.D", models.WithStrongParents(tf.Tangle.BlockIDs("1.C")), models.WithIssuer(identitiesMap["D"]), models.WithIssuingTime(epoch1IssuingTime))
-	tf.Tangle.IssueBlocks("1.A", "1.B", "1.C", "1.D")
-	tf.WaitUntilAllTasksProcessed()
+	tf.BlockDAG.CreateBlock("1.A", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithIssuer(identitiesMap["A"]), models.WithIssuingTime(epoch1IssuingTime))
+	tf.BlockDAG.CreateBlock("1.B", models.WithStrongParents(tf.BlockDAG.BlockIDs("1.A")), models.WithIssuer(identitiesMap["B"]), models.WithIssuingTime(epoch1IssuingTime))
+	tf.BlockDAG.CreateBlock("1.C", models.WithStrongParents(tf.BlockDAG.BlockIDs("1.B")), models.WithIssuer(identitiesMap["C"]), models.WithIssuingTime(epoch1IssuingTime))
+	tf.BlockDAG.CreateBlock("1.D", models.WithStrongParents(tf.BlockDAG.BlockIDs("1.C")), models.WithIssuer(identitiesMap["D"]), models.WithIssuingTime(epoch1IssuingTime))
+	tf.BlockDAG.IssueBlocks("1.A", "1.B", "1.C", "1.D")
+	workers.Wait()
 
-	tf.Acceptance.AssertBlockTracked(4)
+	tf.VirtualVoting.AssertBlockTracked(4)
 
 	tf.Acceptance.ValidateAcceptedBlocks(lo.MergeMaps(acceptedBlocks, map[string]bool{
 		"1.A": true,
@@ -65,14 +68,14 @@ func TestEngineManager_ForkEngineAtEpoch(t *testing.T) {
 	epoch2IssuingTime := time.Unix(epoch.GenesisTime+epoch.Duration, 0)
 
 	// Block in epoch 2, not accepting anything new.
-	tf.Tangle.CreateBlock("2.D", models.WithStrongParents(tf.Tangle.BlockIDs("1.D")), models.WithIssuer(identitiesMap["D"]), models.WithIssuingTime(epoch2IssuingTime))
-	tf.Tangle.IssueBlocks("2.D")
-	tf.WaitUntilAllTasksProcessed()
+	tf.BlockDAG.CreateBlock("2.D", models.WithStrongParents(tf.BlockDAG.BlockIDs("1.D")), models.WithIssuer(identitiesMap["D"]), models.WithIssuingTime(epoch2IssuingTime))
+	tf.BlockDAG.IssueBlocks("2.D")
+	workers.Wait()
 
 	// Block in epoch 11
-	tf.Tangle.CreateBlock("11.A", models.WithStrongParents(tf.Tangle.BlockIDs("2.D")), models.WithIssuer(identitiesMap["A"]))
-	tf.Tangle.IssueBlocks("11.A")
-	tf.WaitUntilAllTasksProcessed()
+	tf.BlockDAG.CreateBlock("11.A", models.WithStrongParents(tf.BlockDAG.BlockIDs("2.D")), models.WithIssuer(identitiesMap["A"]))
+	tf.BlockDAG.IssueBlocks("11.A")
+	workers.Wait()
 
 	tf.Acceptance.ValidateAcceptedBlocks(lo.MergeMaps(acceptedBlocks, map[string]bool{
 		"1.C":  true,
@@ -80,15 +83,15 @@ func TestEngineManager_ForkEngineAtEpoch(t *testing.T) {
 		"11.A": false,
 	}))
 
-	require.Equal(t, epoch.IndexFromTime(tf.Tangle.Block("11.A").IssuingTime()), epoch.Index(11))
+	require.Equal(t, epoch.IndexFromTime(tf.BlockDAG.Block("11.A").IssuingTime()), epoch.Index(11))
 
 	// Time hasn't advanced past epoch 1
 	require.Equal(t, tf.Engine.Storage.Settings.LatestCommitment().Index(), epoch.Index(0))
 
-	tf.Tangle.CreateBlock("11.B", models.WithStrongParents(tf.Tangle.BlockIDs("11.A")), models.WithIssuer(identitiesMap["B"]))
-	tf.Tangle.CreateBlock("11.C", models.WithStrongParents(tf.Tangle.BlockIDs("11.B")), models.WithIssuer(identitiesMap["C"]))
-	tf.Tangle.IssueBlocks("11.B", "11.C")
-	tf.WaitUntilAllTasksProcessed()
+	tf.BlockDAG.CreateBlock("11.B", models.WithStrongParents(tf.BlockDAG.BlockIDs("11.A")), models.WithIssuer(identitiesMap["B"]))
+	tf.BlockDAG.CreateBlock("11.C", models.WithStrongParents(tf.BlockDAG.BlockIDs("11.B")), models.WithIssuer(identitiesMap["C"]))
+	tf.BlockDAG.IssueBlocks("11.B", "11.C")
+	workers.Wait()
 
 	// Some blocks got evicted, and we have to restart evaluating with a new map
 	acceptedBlocks = make(map[string]bool)
@@ -108,7 +111,7 @@ func TestEngineManager_ForkEngineAtEpoch(t *testing.T) {
 	require.NoError(t, err)
 
 	{
-		tf2 := protocol.NewEngineTestFramework(t, protocol.WithEngine(forkedEngine.Engine))
+		tf2 := protocol.NewEngineTestFramework(t, workers.CreateGroup("EngineTestFramework2"), forkedEngine.Engine)
 
 		// Settings
 		// The ChainID of the new engine corresponds to the target epoch of the imported snapshot.

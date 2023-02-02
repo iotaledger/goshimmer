@@ -7,36 +7,40 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/hive.go/core/types/confirmation"
+	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
 func TestLedger_BookInOrder(t *testing.T) {
-	testFramework := NewTestFramework(t)
-	testFramework.CreateTransaction("G", 3, "Genesis")
-	testFramework.CreateTransaction("TX1", 1, "G.0")
-	testFramework.CreateTransaction("TX1*", 1, "G.0")
-	testFramework.CreateTransaction("TX2", 1, "G.1")
-	testFramework.CreateTransaction("TX2*", 1, "G.1")
-	testFramework.CreateTransaction("TX3", 1, "G.2")
-	testFramework.CreateTransaction("TX3*", 1, "G.2")
-	testFramework.CreateTransaction("TX4", 1, "TX1.0", "TX2.0")
-	testFramework.CreateTransaction("TX5", 1, "TX4.0")
-	testFramework.CreateTransaction("TX5*", 1, "TX4.0")
-	testFramework.CreateTransaction("TX6", 1, "TX5.0", "TX3.0")
-	testFramework.CreateTransaction("TX7", 1, "TX6.0")
-	testFramework.CreateTransaction("TX7*", 1, "TX6.0")
-	testFramework.CreateTransaction("TX8", 1, "TX7.0")
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewDefaultTestFramework(t, workers.CreateGroup("LedgerTestFramework"))
+
+	tf.CreateTransaction("G", 3, "Genesis")
+	tf.CreateTransaction("TX1", 1, "G.0")
+	tf.CreateTransaction("TX1*", 1, "G.0")
+	tf.CreateTransaction("TX2", 1, "G.1")
+	tf.CreateTransaction("TX2*", 1, "G.1")
+	tf.CreateTransaction("TX3", 1, "G.2")
+	tf.CreateTransaction("TX3*", 1, "G.2")
+	tf.CreateTransaction("TX4", 1, "TX1.0", "TX2.0")
+	tf.CreateTransaction("TX5", 1, "TX4.0")
+	tf.CreateTransaction("TX5*", 1, "TX4.0")
+	tf.CreateTransaction("TX6", 1, "TX5.0", "TX3.0")
+	tf.CreateTransaction("TX7", 1, "TX6.0")
+	tf.CreateTransaction("TX7*", 1, "TX6.0")
+	tf.CreateTransaction("TX8", 1, "TX7.0")
 
 	{
 		for _, txAlias := range []string{"G", "TX1", "TX1*", "TX2", "TX2*", "TX3", "TX3*", "TX4", "TX5", "TX6", "TX7", "TX8"} {
-			require.NoError(t, testFramework.IssueTransaction(txAlias))
+			require.NoError(t, tf.IssueTransaction(txAlias))
 		}
 
-		testFramework.AssertConflictIDs(map[string][]string{
+		tf.AssertConflictIDs(map[string][]string{
 			"G":    {},
 			"TX1":  {"TX1"},
 			"TX1*": {"TX1*"},
@@ -51,7 +55,7 @@ func TestLedger_BookInOrder(t *testing.T) {
 			"TX8":  {"TX1", "TX2", "TX3"},
 		})
 
-		testFramework.AssertConflictDAG(map[string][]string{
+		tf.AssertConflictDAG(map[string][]string{
 			"TX1":  {},
 			"TX1*": {},
 			"TX2":  {},
@@ -62,9 +66,9 @@ func TestLedger_BookInOrder(t *testing.T) {
 	}
 
 	{
-		require.NoError(t, testFramework.IssueTransaction("TX7*"))
+		require.NoError(t, tf.IssueTransaction("TX7*"))
 
-		testFramework.AssertConflictIDs(map[string][]string{
+		tf.AssertConflictIDs(map[string][]string{
 			"G":    {},
 			"TX1":  {"TX1"},
 			"TX1*": {"TX1*"},
@@ -80,7 +84,7 @@ func TestLedger_BookInOrder(t *testing.T) {
 			"TX8":  {"TX7"},
 		})
 
-		testFramework.AssertConflictDAG(map[string][]string{
+		tf.AssertConflictDAG(map[string][]string{
 			"TX1":  {},
 			"TX1*": {},
 			"TX2":  {},
@@ -93,9 +97,9 @@ func TestLedger_BookInOrder(t *testing.T) {
 	}
 
 	{
-		require.NoError(t, testFramework.IssueTransaction("TX5*"))
+		require.NoError(t, tf.IssueTransaction("TX5*"))
 
-		testFramework.AssertConflictIDs(map[string][]string{
+		tf.AssertConflictIDs(map[string][]string{
 			"G":    {},
 			"TX1":  {"TX1"},
 			"TX1*": {"TX1*"},
@@ -112,7 +116,7 @@ func TestLedger_BookInOrder(t *testing.T) {
 			"TX8":  {"TX7"},
 		})
 
-		testFramework.AssertConflictDAG(map[string][]string{
+		tf.AssertConflictDAG(map[string][]string{
 			"TX1":  {},
 			"TX1*": {},
 			"TX2":  {},
@@ -129,35 +133,36 @@ func TestLedger_BookInOrder(t *testing.T) {
 
 // See scenario at img/ledger_test_SetConflictConfirmed.png.
 func TestLedger_SetConflictConfirmed(t *testing.T) {
-	testFramework := NewTestFramework(t)
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewDefaultTestFramework(t, workers.CreateGroup("LedgerTestFramework"))
 
 	// Step 1: Bottom Layer
-	testFramework.CreateTransaction("G", 3, "Genesis")
-	testFramework.CreateTransaction("TXA", 1, "G.0")
-	testFramework.CreateTransaction("TXB", 1, "G.0")
-	testFramework.CreateTransaction("TXC", 1, "G.1")
-	testFramework.CreateTransaction("TXD", 1, "G.1")
-	testFramework.CreateTransaction("TXH", 1, "G.2")
-	testFramework.CreateTransaction("TXI", 1, "G.2")
+	tf.CreateTransaction("G", 3, "Genesis")
+	tf.CreateTransaction("TXA", 1, "G.0")
+	tf.CreateTransaction("TXB", 1, "G.0")
+	tf.CreateTransaction("TXC", 1, "G.1")
+	tf.CreateTransaction("TXD", 1, "G.1")
+	tf.CreateTransaction("TXH", 1, "G.2")
+	tf.CreateTransaction("TXI", 1, "G.2")
 	// Step 2: Middle Layer
-	testFramework.CreateTransaction("TXE", 1, "TXA.0", "TXC.0")
+	tf.CreateTransaction("TXE", 1, "TXA.0", "TXC.0")
 	// Step 3: Top Layer
-	testFramework.CreateTransaction("TXF", 1, "TXE.0")
+	tf.CreateTransaction("TXF", 1, "TXE.0")
 	// Step 4: Top Layer
-	testFramework.CreateTransaction("TXG", 1, "TXE.0")
+	tf.CreateTransaction("TXG", 1, "TXE.0")
 	// Step 5: TopTop Layer
-	testFramework.CreateTransaction("TXL", 1, "TXG.0", "TXH.0")
+	tf.CreateTransaction("TXL", 1, "TXG.0", "TXH.0")
 	// Step 6: TopTopTOP Layer
-	testFramework.CreateTransaction("TXM", 1, "TXL.0")
+	tf.CreateTransaction("TXM", 1, "TXL.0")
 
 	// Mark A as Confirmed
 	{
 		for _, txAlias := range []string{"G", "TXA", "TXB", "TXC", "TXD", "TXH", "TXI"} {
-			require.NoError(t, testFramework.IssueTransaction(txAlias))
+			require.NoError(t, tf.IssueTransaction(txAlias))
 		}
-		require.True(t, testFramework.Ledger.ConflictDAG.SetConflictAccepted(testFramework.Transaction("TXA").ID()))
+		require.True(t, tf.Instance.ConflictDAG.SetConflictAccepted(tf.Transaction("TXA").ID()))
 
-		testFramework.AssertConflictIDs(map[string][]string{
+		tf.AssertConflictIDs(map[string][]string{
 			"G":   {},
 			"TXA": {"TXA"},
 			"TXB": {"TXB"},
@@ -167,7 +172,7 @@ func TestLedger_SetConflictConfirmed(t *testing.T) {
 			"TXI": {"TXI"},
 		})
 
-		testFramework.AssertConflictDAG(map[string][]string{
+		tf.AssertConflictDAG(map[string][]string{
 			"TXA": {},
 			"TXB": {},
 			"TXC": {},
@@ -176,19 +181,19 @@ func TestLedger_SetConflictConfirmed(t *testing.T) {
 			"TXI": {},
 		})
 
-		require.Equal(t, confirmation.Accepted, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXA")))
-		require.Equal(t, confirmation.Rejected, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXB")))
-		require.Equal(t, confirmation.Pending, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXC")))
-		require.Equal(t, confirmation.Pending, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXD")))
-		require.Equal(t, confirmation.Pending, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXH")))
-		require.Equal(t, confirmation.Pending, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXI")))
+		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXA")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXB")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXC")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXD")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXH")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXI")))
 	}
 
 	// When creating the middle layer the new transaction E should be booked only under its Pending parent C
 	{
-		require.NoError(t, testFramework.IssueTransaction("TXE"))
+		require.NoError(t, tf.IssueTransaction("TXE"))
 
-		testFramework.AssertConflictIDs(map[string][]string{
+		tf.AssertConflictIDs(map[string][]string{
 			"G":   {},
 			"TXA": {"TXA"},
 			"TXB": {"TXB"},
@@ -199,7 +204,7 @@ func TestLedger_SetConflictConfirmed(t *testing.T) {
 			"TXE": {"TXC"},
 		})
 
-		testFramework.AssertConflictDAG(map[string][]string{
+		tf.AssertConflictDAG(map[string][]string{
 			"TXA": {},
 			"TXB": {},
 			"TXC": {},
@@ -208,21 +213,21 @@ func TestLedger_SetConflictConfirmed(t *testing.T) {
 			"TXI": {},
 		})
 
-		require.Equal(t, confirmation.Accepted, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXA")))
-		require.Equal(t, confirmation.Rejected, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXB")))
-		require.Equal(t, confirmation.Pending, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXC")))
-		require.Equal(t, confirmation.Pending, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXD")))
-		require.Equal(t, confirmation.Pending, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXH")))
-		require.Equal(t, confirmation.Pending, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXI")))
+		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXA")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXB")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXC")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXD")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXH")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXI")))
 	}
 
 	// When creating the first transaction (F) of top layer it should be booked under the Pending parent C
 	{
 		for _, txAlias := range []string{"TXF"} {
-			require.NoError(t, testFramework.IssueTransaction(txAlias))
+			require.NoError(t, tf.IssueTransaction(txAlias))
 		}
 
-		testFramework.AssertConflictIDs(map[string][]string{
+		tf.AssertConflictIDs(map[string][]string{
 			"G":   {},
 			"TXA": {"TXA"},
 			"TXB": {"TXB"},
@@ -234,7 +239,7 @@ func TestLedger_SetConflictConfirmed(t *testing.T) {
 			"TXF": {"TXC"},
 		})
 
-		testFramework.AssertConflictDAG(map[string][]string{
+		tf.AssertConflictDAG(map[string][]string{
 			"TXA": {},
 			"TXB": {},
 			"TXC": {},
@@ -243,21 +248,21 @@ func TestLedger_SetConflictConfirmed(t *testing.T) {
 			"TXI": {},
 		})
 
-		require.Equal(t, confirmation.Accepted, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXA")))
-		require.Equal(t, confirmation.Rejected, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXB")))
-		require.Equal(t, confirmation.Pending, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXC")))
-		require.Equal(t, confirmation.Pending, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXD")))
-		require.Equal(t, confirmation.Pending, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXH")))
-		require.Equal(t, confirmation.Pending, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXI")))
+		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXA")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXB")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXC")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXD")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXH")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXI")))
 	}
 
 	// When creating the conflicting TX (G) of the top layer conflicts F & G are spawned by the fork of G
 	{
 		for _, txAlias := range []string{"TXG"} {
-			require.NoError(t, testFramework.IssueTransaction(txAlias))
+			require.NoError(t, tf.IssueTransaction(txAlias))
 		}
 
-		testFramework.AssertConflictIDs(map[string][]string{
+		tf.AssertConflictIDs(map[string][]string{
 			"G":   {},
 			"TXA": {"TXA"},
 			"TXB": {"TXB"},
@@ -270,7 +275,7 @@ func TestLedger_SetConflictConfirmed(t *testing.T) {
 			"TXG": {"TXG"},
 		})
 
-		testFramework.AssertConflictDAG(map[string][]string{
+		tf.AssertConflictDAG(map[string][]string{
 			"TXA": {},
 			"TXB": {},
 			"TXC": {},
@@ -281,25 +286,25 @@ func TestLedger_SetConflictConfirmed(t *testing.T) {
 			"TXG": {"TXC"},
 		})
 
-		require.Equal(t, confirmation.Accepted, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXA")))
-		require.Equal(t, confirmation.Rejected, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXB")))
-		require.Equal(t, confirmation.Pending, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXC")))
-		require.Equal(t, confirmation.Pending, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXD")))
-		require.Equal(t, confirmation.Pending, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXH")))
-		require.Equal(t, confirmation.Pending, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXI")))
-		require.Equal(t, confirmation.Pending, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXF")))
-		require.Equal(t, confirmation.Pending, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXG")))
+		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXA")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXB")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXC")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXD")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXH")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXI")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXF")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXG")))
 	}
 
-	require.True(t, testFramework.Ledger.ConflictDAG.SetConflictAccepted(testFramework.Transaction("TXD").ID()))
+	require.True(t, tf.Instance.ConflictDAG.SetConflictAccepted(tf.Transaction("TXD").ID()))
 
 	// TX L combines a child (G) of a Rejected conflict (C) and a pending conflict H, resulting in (G,H)
 	{
 		for _, txAlias := range []string{"TXL"} {
-			require.NoError(t, testFramework.IssueTransaction(txAlias))
+			require.NoError(t, tf.IssueTransaction(txAlias))
 		}
 
-		testFramework.AssertConflictIDs(map[string][]string{
+		tf.AssertConflictIDs(map[string][]string{
 			"G":   {},
 			"TXA": {"TXA"},
 			"TXB": {"TXB"},
@@ -313,7 +318,7 @@ func TestLedger_SetConflictConfirmed(t *testing.T) {
 			"TXL": {"TXG", "TXH"},
 		})
 
-		testFramework.AssertConflictDAG(map[string][]string{
+		tf.AssertConflictDAG(map[string][]string{
 			"TXA": {},
 			"TXB": {},
 			"TXC": {},
@@ -324,25 +329,25 @@ func TestLedger_SetConflictConfirmed(t *testing.T) {
 			"TXG": {"TXC"},
 		})
 
-		require.Equal(t, confirmation.Accepted, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXA")))
-		require.Equal(t, confirmation.Rejected, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXC")))
-		require.Equal(t, confirmation.Accepted, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXD")))
-		require.Equal(t, confirmation.Pending, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXH")))
-		require.Equal(t, confirmation.Pending, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXI")))
-		require.Equal(t, confirmation.Rejected, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXF")))
-		require.Equal(t, confirmation.Rejected, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXG")))
-		require.Equal(t, confirmation.Rejected, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXG", "TXH")))
+		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXA")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXC")))
+		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXD")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXH")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXI")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXF")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXG")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXG", "TXH")))
 	}
 
-	require.True(t, testFramework.Ledger.ConflictDAG.SetConflictAccepted(testFramework.Transaction("TXH").ID()))
+	require.True(t, tf.Instance.ConflictDAG.SetConflictAccepted(tf.Transaction("TXH").ID()))
 
 	// The new TX M should be now booked under G, as conflict H confirmed, just G because we don't propagate H further.
 	{
 		for _, txAlias := range []string{"TXM"} {
-			require.NoError(t, testFramework.IssueTransaction(txAlias))
+			require.NoError(t, tf.IssueTransaction(txAlias))
 		}
 
-		testFramework.AssertConflictIDs(map[string][]string{
+		tf.AssertConflictIDs(map[string][]string{
 			"G":   {},
 			"TXA": {"TXA"},
 			"TXB": {"TXB"},
@@ -357,7 +362,7 @@ func TestLedger_SetConflictConfirmed(t *testing.T) {
 			"TXM": {"TXG"},
 		})
 
-		testFramework.AssertConflictDAG(map[string][]string{
+		tf.AssertConflictDAG(map[string][]string{
 			"TXA": {},
 			"TXB": {},
 			"TXC": {},
@@ -368,28 +373,29 @@ func TestLedger_SetConflictConfirmed(t *testing.T) {
 			"TXG": {"TXC"},
 		})
 
-		require.Equal(t, confirmation.Accepted, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXA")))
-		require.Equal(t, confirmation.Rejected, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXB")))
-		require.Equal(t, confirmation.Rejected, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXC")))
-		require.Equal(t, confirmation.Accepted, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXD")))
-		require.Equal(t, confirmation.Accepted, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXH")))
-		require.Equal(t, confirmation.Rejected, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXI")))
-		require.Equal(t, confirmation.Rejected, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXF")))
-		require.Equal(t, confirmation.Rejected, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXG")))
-		require.Equal(t, confirmation.Rejected, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXG", "TXH")))
+		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXA")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXB")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXC")))
+		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXD")))
+		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXH")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXI")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXF")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXG")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXG", "TXH")))
 	}
 }
 
 func TestLedger_SolidifyAndForkMultiThreaded(t *testing.T) {
-	testFramework := NewTestFramework(t)
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewDefaultTestFramework(t, workers.CreateGroup("LedgerTestFramework"))
 
 	createdAliases := make([]string, 0)
 	bookedAliases := make(map[string]bool)
 
 	// Create UTXO-DAG from transactions 100 layers deep.
 	{
-		testFramework.CreateTransaction("G", 10, "Genesis")
-		require.NoError(t, testFramework.IssueTransaction("G"))
+		tf.CreateTransaction("G", 10, "Genesis")
+		require.NoError(t, tf.IssueTransaction("G"))
 
 		for layer := 0; layer < 100; layer++ {
 			for txNum := 0; txNum < 10; txNum++ {
@@ -404,7 +410,7 @@ func TestLedger_SolidifyAndForkMultiThreaded(t *testing.T) {
 					// Fork bottom layer.
 					genesisTxAlias := fmt.Sprintf("TX-0-%d*", txNum)
 					createdAliases = append(createdAliases, genesisTxAlias)
-					testFramework.CreateTransaction(genesisTxAlias, 10, consumedAliases...)
+					tf.CreateTransaction(genesisTxAlias, 10, consumedAliases...)
 
 					bookedAliases[genesisTxAlias] = true
 				} else {
@@ -413,7 +419,7 @@ func TestLedger_SolidifyAndForkMultiThreaded(t *testing.T) {
 					}
 				}
 
-				testFramework.CreateTransaction(txAlias, 10, consumedAliases...)
+				tf.CreateTransaction(txAlias, 10, consumedAliases...)
 				bookedAliases[txAlias] = true
 			}
 		}
@@ -430,7 +436,7 @@ func TestLedger_SolidifyAndForkMultiThreaded(t *testing.T) {
 			wg.Add(1)
 			go func(createdAlias string) {
 				defer wg.Done()
-				err := testFramework.IssueTransaction(createdAlias)
+				err := tf.IssueTransaction(createdAlias)
 				if err != nil && !errors.Is(err, ErrTransactionUnsolid) {
 					panic(err)
 				}
@@ -441,43 +447,43 @@ func TestLedger_SolidifyAndForkMultiThreaded(t *testing.T) {
 
 	// Create ad-hoc TX11 to mix and match conflicts propagated from the bottom layer.
 	{
-		testFramework.CreateTransaction("TX11", 10, "TX-99-0.0", "TX-99-1.0", "TX-99-2.0", "TX-99-3.0", "TX-99-4.0", "TX-99-5.0", "TX-99-6.0", "TX-99-7.0", "TX-99-8.0", "TX-99-9.0")
-		testFramework.IssueTransaction("TX11")
+		tf.CreateTransaction("TX11", 10, "TX-99-0.0", "TX-99-1.0", "TX-99-2.0", "TX-99-3.0", "TX-99-4.0", "TX-99-5.0", "TX-99-6.0", "TX-99-7.0", "TX-99-8.0", "TX-99-9.0")
+		tf.IssueTransaction("TX11")
 	}
 
 	// Verify conflicts for all transactions in the layers.
 	{
-		testFramework.WaitUntilAllTasksProcessed()
-		testFramework.AssertBooked(bookedAliases)
+		workers.Wait()
+		tf.AssertBooked(bookedAliases)
 
 		mappedConflicts := make(map[string][]string)
 		for _, issuedAlias := range createdAliases {
 			conflictNum := strings.Split(issuedAlias, "-")[2]
 			mappedConflicts[issuedAlias] = []string{fmt.Sprintf("TX-0-%s", conflictNum)}
 		}
-		testFramework.AssertConflictIDs(mappedConflicts)
+		tf.AssertConflictIDs(mappedConflicts)
 	}
 
 	// Verify conflicts for TX11.
 	{
-		testFramework.AssertConflictIDs(map[string][]string{
+		tf.AssertConflictIDs(map[string][]string{
 			"TX11": {"TX-0-0", "TX-0-1", "TX-0-2", "TX-0-3", "TX-0-4", "TX-0-5", "TX-0-6", "TX-0-7", "TX-0-8", "TX-0-9"},
 		})
 	}
 
 	// Create TX12 with deeper double spends.
 	{
-		testFramework.CreateTransaction("TX12", 10, "TX-0-0.0", "TX-0-1.0", "TX-0-2.0", "TX-0-3.0", "TX-0-4.0", "TX-0-5.0", "TX-0-6.0", "TX-0-7.0", "TX-0-8.0", "TX-0-9.0")
-		require.NoError(t, testFramework.IssueTransaction("TX12"))
+		tf.CreateTransaction("TX12", 10, "TX-0-0.0", "TX-0-1.0", "TX-0-2.0", "TX-0-3.0", "TX-0-4.0", "TX-0-5.0", "TX-0-6.0", "TX-0-7.0", "TX-0-8.0", "TX-0-9.0")
+		require.NoError(t, tf.IssueTransaction("TX12"))
 
-		testFramework.WaitUntilAllTasksProcessed()
+		workers.Wait()
 
-		testFramework.AssertConflictIDs(map[string][]string{
+		tf.AssertConflictIDs(map[string][]string{
 			"TX11": {"TX-1-0", "TX-1-1", "TX-1-2", "TX-1-3", "TX-1-4", "TX-1-5", "TX-1-6", "TX-1-7", "TX-1-8", "TX-1-9"},
 			"TX12": {"TX12"},
 		})
 
-		testFramework.AssertConflictDAG(map[string][]string{
+		tf.AssertConflictDAG(map[string][]string{
 			"TX-0-0": {},
 			"TX-0-1": {},
 			"TX-0-2": {},
@@ -514,54 +520,56 @@ func TestLedger_SolidifyAndForkMultiThreaded(t *testing.T) {
 			}
 			mappedConflicts[issuedAlias] = []string{conflict}
 		}
-		testFramework.AssertConflictIDs(mappedConflicts)
+		tf.AssertConflictIDs(mappedConflicts)
 	}
 }
 
 func TestLedger_ForkAlreadyConflictingTransaction(t *testing.T) {
-	testFramework := NewTestFramework(t)
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewDefaultTestFramework(t, workers.CreateGroup("LedgerTestFramework"))
 
-	testFramework.CreateTransaction("G", 3, "Genesis")
-	testFramework.CreateTransaction("TX1", 1, "G.0", "G.1")
-	testFramework.CreateTransaction("TX2", 1, "G.0")
-	testFramework.CreateTransaction("TX3", 1, "G.1")
+	tf.CreateTransaction("G", 3, "Genesis")
+	tf.CreateTransaction("TX1", 1, "G.0", "G.1")
+	tf.CreateTransaction("TX2", 1, "G.0")
+	tf.CreateTransaction("TX3", 1, "G.1")
 
 	for _, txAlias := range []string{"G", "TX1", "TX2", "TX3"} {
-		require.NoError(t, testFramework.IssueTransaction(txAlias))
+		require.NoError(t, tf.IssueTransaction(txAlias))
 	}
 
-	testFramework.AssertConflictIDs(map[string][]string{
+	tf.AssertConflictIDs(map[string][]string{
 		"G":   {},
 		"TX1": {"TX1"},
 		"TX2": {"TX2"},
 		"TX3": {"TX3"},
 	})
 
-	testFramework.AssertConflictDAG(map[string][]string{
+	tf.AssertConflictDAG(map[string][]string{
 		"TX1": {},
 		"TX2": {},
 		"TX3": {},
 	})
 
-	testFramework.AssertConflicts(map[string][]string{
+	tf.AssertConflicts(map[string][]string{
 		"G.0": {"TX1", "TX2"},
 		"G.1": {"TX1", "TX3"},
 	})
 }
 
 func TestLedger_TransactionCausallyRelated(t *testing.T) {
-	testFramework := NewTestFramework(t)
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewDefaultTestFramework(t, workers.CreateGroup("LedgerTestFramework"))
 
-	testFramework.CreateTransaction("G", 3, "Genesis")
-	testFramework.CreateTransaction("TX1", 1, "G.0")
-	testFramework.CreateTransaction("TX2", 1, "TX1.0")
-	testFramework.CreateTransaction("TX3", 1, "G.0", "TX2.0")
+	tf.CreateTransaction("G", 3, "Genesis")
+	tf.CreateTransaction("TX1", 1, "G.0")
+	tf.CreateTransaction("TX2", 1, "TX1.0")
+	tf.CreateTransaction("TX3", 1, "G.0", "TX2.0")
 
 	for _, txAlias := range []string{"G", "TX1", "TX2"} {
-		require.NoError(t, testFramework.IssueTransaction(txAlias))
+		require.NoError(t, tf.IssueTransaction(txAlias))
 	}
 
-	require.EqualError(t, testFramework.IssueTransaction("TX3"), "TransactionID(TX3) is trying to spend causally related Outputs: transaction invalid")
+	require.EqualError(t, tf.IssueTransaction("TX3"), "TransactionID(TX3) is trying to spend causally related Outputs: transaction invalid")
 }
 
 func TestLedger_Aliases(t *testing.T) {

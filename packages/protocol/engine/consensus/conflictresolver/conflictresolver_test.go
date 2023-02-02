@@ -5,16 +5,17 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/types"
-
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/core/workerpool"
+
 	"github.com/iotaledger/goshimmer/packages/core/database"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
 func TestOnTangleVoting_LikedInstead(t *testing.T) {
@@ -822,8 +823,12 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ls := ledger.New(storage.New(t.TempDir(), 1), ledger.WithCacheTimeProvider(database.NewCacheTimeProvider(0)))
-			defer ls.Shutdown()
+			workers := workerpool.NewGroup(tt.name)
+			ls := ledger.New(workers.CreatePool("Ledger"), blockdag.NewTestStorage(t, workers), ledger.WithCacheTimeProvider(database.NewCacheTimeProvider(0)))
+			defer func() {
+				workers.Wait()
+				ls.Shutdown()
+			}()
 
 			tt.test.Scenario.CreateConflicts(t, ls.ConflictDAG)
 			o := New(ls.ConflictDAG, tt.test.WeightFunc)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/gorilla/websocket"
+
 	"github.com/iotaledger/hive.go/core/daemon"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/workerpool"

@@ -1,18 +1,20 @@
 package protocol
 
 import (
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/hive.go/core/configuration"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
-	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
+	"github.com/iotaledger/hive.go/core/workerpool"
 
+	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/network"
@@ -21,7 +23,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/goshimmer/packages/storage/utils"
 )
@@ -32,54 +38,48 @@ const genesisTokenAmount = 100
 
 type TestFramework struct {
 	Network  *network.MockedNetwork
-	Protocol *Protocol
+	Instance *Protocol
 	Local    *identity.Identity
 
-	test *testing.T
+	test    *testing.T
+	workers *workerpool.Group
+
+	Engine *EngineTestFramework
 
 	optsProtocolOptions          []options.Option[Protocol]
 	optsCongestionControlOptions []options.Option[congestioncontrol.CongestionControl]
 }
 
-func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (newTestFramework *TestFramework) {
+func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...options.Option[TestFramework]) *TestFramework {
 	_ = logger.InitGlobalLogger(configuration.New())
 
 	return options.Apply(&TestFramework{
 		Network: network.NewMockedNetwork(),
 
-		test: test,
+		test:    test,
+		workers: workers,
 	}, opts, func(t *TestFramework) {
 		tempDir := utils.NewDirectory(test.TempDir())
 
 		test.Cleanup(func() {
-			t.Protocol.Shutdown()
+			t.Instance.Shutdown()
 		})
 
 		identitiesWeights := map[ed25519.PublicKey]uint64{
 			ed25519.GenerateKeyPair().PublicKey: 100,
 		}
 
-		snapshotcreator.CreateSnapshot(DatabaseVersion, tempDir.Path("snapshot.bin"), genesisTokenAmount, make([]byte, ed25519.SeedSize), identitiesWeights, lo.Keys(identitiesWeights))
+		ledgerVM := engine.WithLedgerOptions(ledger.WithVM(new(devnetvm.VM)))
 
-		t.Protocol = New(t.Network.Join(identity.GenerateIdentity().ID()), append(t.optsProtocolOptions, WithSnapshotPath(tempDir.Path("snapshot.bin")), WithBaseDirectory(tempDir.Path()))...)
+		snapshotcreator.CreateSnapshot(workers.CreateGroup("CreateSnapshot"), DatabaseVersion, tempDir.Path("snapshot.bin"), genesisTokenAmount, make([]byte, ed25519.SeedSize), identitiesWeights, lo.Keys(identitiesWeights), ledgerVM)
+
+		t.Instance = New(workers.CreateGroup("Protocol"), t.Network.Join(identity.GenerateIdentity().ID()), append(t.optsProtocolOptions, WithEngineOptions(ledgerVM), WithSnapshotPath(tempDir.Path("snapshot.bin")), WithBaseDirectory(tempDir.Path()))...)
+
+		t.Engine = NewEngineTestFramework(t.test, t.workers.CreateGroup("EngineTestFramework"), t.Instance.Engine())
 	})
 }
 
-// WaitUntilAllTasksProcessed waits until all tasks are processed.
-func (t *TestFramework) WaitUntilAllTasksProcessed() (self *TestFramework) {
-	event.Loop.PendingTasksCounter.WaitIsZero()
-	t.Protocol.WaitWorkerPoolsEmpty()
-	event.Loop.PendingTasksCounter.WaitIsZero()
-
-	return t
-}
-
 // region EngineTestFramework //////////////////////////////////////////////////////////////////////////////////////////
-
-type (
-	TangleTestFramework     = tangle.TestFramework
-	AcceptanceTestFramework = blockgadget.TestFramework
-)
 
 type EngineTestFramework struct {
 	Engine *engine.Engine
@@ -89,34 +89,42 @@ type EngineTestFramework struct {
 	optsStorage       *storage.Storage
 	optsTangleOptions []options.Option[tangle.Tangle]
 
-	Tangle     *TangleTestFramework
-	Acceptance *AcceptanceTestFramework
+	Tangle        *tangle.TestFramework
+	Booker        *booker.TestFramework
+	BlockDAG      *blockdag.TestFramework
+	Ledger        *ledger.TestFramework
+	VirtualVoting *virtualvoting.TestFramework
+	Acceptance    *blockgadget.TestFramework
 }
 
-func NewEngineTestFramework(test *testing.T, opts ...options.Option[EngineTestFramework]) (testFramework *EngineTestFramework) {
-	return options.Apply(&EngineTestFramework{
-		test: test,
-	}, opts, func(t *EngineTestFramework) {
-		if t.Engine == nil {
-			if t.optsStorage == nil {
-				t.optsStorage = storage.New(t.test.TempDir(), 1)
-				test.Cleanup(t.optsStorage.Shutdown)
-			}
+func NewTestEngine(t *testing.T, workers *workerpool.Group, storage *storage.Storage, opts ...options.Option[engine.Engine]) *engine.Engine {
+	e := engine.New(workers.CreateGroup("Engine"), storage, dpos.NewProvider(), mana1.NewProvider(), opts...)
+	t.Cleanup(e.Shutdown)
+	return e
+}
 
-			t.Engine = engine.New(t.optsStorage, dpos.NewProvider(), mana1.NewProvider(), engine.WithTangleOptions(t.optsTangleOptions...))
-			test.Cleanup(func() {
-				t.Engine.Shutdown()
-			})
-		}
+func NewEngineTestFramework(test *testing.T, workers *workerpool.Group, engine *engine.Engine) *EngineTestFramework {
+	t := &EngineTestFramework{
+		test:   test,
+		Engine: engine,
+		Tangle: tangle.NewTestFramework(test, engine.Tangle, virtualvoting.NewTestFramework(test, workers.CreateGroup("VirtualVotingTestFramework"), engine.Tangle.VirtualVoting)),
+	}
+	t.Acceptance = blockgadget.NewTestFramework(test,
+		engine.Consensus.BlockGadget,
+		t.Tangle,
+	)
+	t.Booker = t.Tangle.Booker
+	t.Ledger = t.Tangle.Ledger
+	t.BlockDAG = t.Tangle.BlockDAG
+	t.VirtualVoting = t.Tangle.VirtualVoting
+	return t
+}
 
-		t.Tangle = tangle.NewTestFramework(test, tangle.WithTangle(t.Engine.Tangle))
-		t.Acceptance = blockgadget.NewTestFramework(test,
-			blockgadget.WithGadget(t.Engine.Consensus.BlockGadget),
-			blockgadget.WithTangle(t.Engine.Tangle),
-			blockgadget.WithTangleTestFramework(t.Tangle),
-			blockgadget.WithEvictionState(t.Engine.EvictionState),
-		)
-	})
+func NewDefaultEngineTestFramework(t *testing.T, workers *workerpool.Group, optsEngine ...options.Option[engine.Engine]) *EngineTestFramework {
+	engine := NewTestEngine(t, workers.CreateGroup("Engine"), blockdag.NewTestStorage(t, workers, database.WithDBProvider(database.NewDB)), optsEngine...)
+	t.Cleanup(engine.Shutdown)
+
+	return NewEngineTestFramework(t, workers, engine)
 }
 
 func (e *EngineTestFramework) AssertEpochState(index epoch.Index) {
@@ -126,39 +134,6 @@ func (e *EngineTestFramework) AssertEpochState(index epoch.Index) {
 	require.Equal(e.test, index, e.Engine.SybilProtection.(*dpos.SybilProtection).LastCommittedEpoch(), "sybil protection last committed epoch is not equal")
 	require.Equal(e.test, index, e.Engine.ThroughputQuota.(*mana1.ThroughputQuota).LastCommittedEpoch(), "throughput quota last committed epoch is not equal")
 	require.Equal(e.test, index, e.Engine.EvictionState.LastEvictedEpoch(), "last evicted epoch is not equal")
-}
-
-// WaitUntilAllTasksProcessed waits until all tasks are processed.
-func (e *EngineTestFramework) WaitUntilAllTasksProcessed() (self *EngineTestFramework) {
-	event.Loop.PendingTasksCounter.WaitIsZero()
-	e.Tangle.WaitUntilAllTasksProcessed()
-	e.Acceptance.WaitUntilAllTasksProcessed()
-	e.Engine.WaitWorkerPoolsEmpty()
-	event.Loop.PendingTasksCounter.WaitIsZero()
-
-	return e
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
-
-func WithEngine(engine *engine.Engine) options.Option[EngineTestFramework] {
-	return func(t *EngineTestFramework) {
-		t.Engine = engine
-	}
-}
-
-func WithStorage(storageInstance *storage.Storage) options.Option[EngineTestFramework] {
-	return func(t *EngineTestFramework) {
-		t.optsStorage = storageInstance
-	}
-}
-
-func WithTangleOptions(tangleOpts ...options.Option[tangle.Tangle]) options.Option[EngineTestFramework] {
-	return func(t *EngineTestFramework) {
-		t.optsTangleOptions = tangleOpts
-	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

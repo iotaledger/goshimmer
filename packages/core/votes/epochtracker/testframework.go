@@ -3,52 +3,51 @@ package epochtracker
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/iotaledger/hive.go/core/debug"
-	"github.com/iotaledger/hive.go/core/generics/constraints"
 	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
-	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
 
 type TestFramework struct {
+	test         *testing.T
 	EpochTracker *EpochTracker
 
-	test *testing.T
-
-	*VotesTestFramework
+	Votes *votes.TestFramework
 }
 
 // NewTestFramework is the constructor of the TestFramework.
-func NewTestFramework[VotePowerType constraints.Comparable[VotePowerType]](test *testing.T, opts ...options.Option[TestFramework]) (newTestFramework *TestFramework) {
-	return options.Apply(&TestFramework{
-		test: test,
-	}, opts, func(t *TestFramework) {
-		if t.VotesTestFramework == nil {
-			t.VotesTestFramework = votes.NewTestFramework(test, votes.WithValidators(
-				sybilprotection.NewWeights(mapdb.NewMapDB()).NewWeightedSet(),
-			))
-		}
+func NewTestFramework(test *testing.T, epochTracker *EpochTracker, votesTF *votes.TestFramework) *TestFramework {
+	t := &TestFramework{
+		test:         test,
+		EpochTracker: epochTracker,
+		Votes:        votesTF,
+	}
 
-		if t.EpochTracker == nil {
-			t.EpochTracker = NewEpochTracker(func() epoch.Index { return 0 })
+	t.EpochTracker.Events.VotersUpdated.Hook(event.NewClosure(func(evt *VoterUpdatedEvent) {
+		if debug.GetEnabled() {
+			t.test.Logf("VOTER ADDED: %v", evt.NewLatestEpochIndex.String())
 		}
+	}))
 
-		t.EpochTracker.Events.VotersUpdated.Hook(event.NewClosure(func(evt *VoterUpdatedEvent) {
-			if debug.GetEnabled() {
-				t.test.Logf("VOTER ADDED: %v", evt.NewLatestEpochIndex.String())
-			}
-		}))
-	})
+	return t
+}
+
+func NewDefaultTestFramework(t *testing.T) *TestFramework {
+	return NewTestFramework(t, NewEpochTracker(func() epoch.Index { return 0 }),
+		votes.NewTestFramework(t,
+			sybilprotection.NewWeights(mapdb.NewMapDB()).NewWeightedSet(),
+		),
+	)
 }
 
 func (t *TestFramework) ValidateEpochVoters(expectedVoters map[epoch.Index]*set.AdvancedSet[identity.ID]) {
@@ -56,33 +55,6 @@ func (t *TestFramework) ValidateEpochVoters(expectedVoters map[epoch.Index]*set.
 		voters := t.EpochTracker.Voters(epochIndex)
 
 		assert.True(t.test, expectedVotersEpoch.Equal(voters), "epoch %s expected %s voters but got %s", epochIndex, expectedVotersEpoch, voters)
-	}
-}
-
-type VotesTestFramework = votes.TestFramework
-
-type MarkersTestFramework = markers.TestFramework
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
-
-func WithVotesTestFramework[VotePowerType constraints.Comparable[VotePowerType]](votesTestFramework *votes.TestFramework) options.Option[TestFramework] {
-	return func(tf *TestFramework) {
-		if tf.VotesTestFramework != nil {
-			panic("VotesTestFramework already set")
-		}
-
-		tf.VotesTestFramework = votesTestFramework
-	}
-}
-
-func WithEpochTracker[VotePowerType constraints.Comparable[VotePowerType]](sequenceTracker *EpochTracker) options.Option[TestFramework] {
-	return func(tf *TestFramework) {
-		if tf.EpochTracker != nil {
-			panic("sequence tracker already set")
-		}
-		tf.EpochTracker = sequenceTracker
 	}
 }
 

@@ -3,11 +3,14 @@ package protocol
 import (
 	"context"
 
+	"go.uber.org/dig"
+
 	"github.com/iotaledger/hive.go/core/daemon"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/node"
-	"go.uber.org/dig"
+	"github.com/iotaledger/hive.go/core/workerpool"
 
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
@@ -17,11 +20,16 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/filter"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tsc"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
 )
 
@@ -63,7 +71,9 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 	} else {
 		dbProvider = database.NewDB
 	}
-	p = protocol.New(n,
+
+	p = protocol.New(workerpool.NewGroup("Protocol"),
+		n,
 		protocol.WithSybilProtectionProvider(
 			dpos.NewProvider(
 				dpos.WithActivityWindow(Parameters.ValidatorActivityWindow),

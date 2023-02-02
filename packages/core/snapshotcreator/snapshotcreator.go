@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/orderedmap"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
+	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
@@ -33,8 +34,9 @@ import (
 // | empty  | genesisSeed  |
 // | node1  | node1		   |
 // | node2  | node2        |.
-func CreateSnapshot(databaseVersion database.Version, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge map[ed25519.PublicKey]uint64, initialAttestations []ed25519.PublicKey, engineOpts ...options.Option[engine.Engine]) {
+func CreateSnapshot(workers *workerpool.Group, databaseVersion database.Version, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge map[ed25519.PublicKey]uint64, initialAttestations []ed25519.PublicKey, engineOpts ...options.Option[engine.Engine]) {
 	s := storage.New(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), databaseVersion)
+	defer s.Shutdown()
 
 	if err := s.Commitments.Store(commitment.NewEmptyCommitment()); err != nil {
 		panic(err)
@@ -43,7 +45,8 @@ func CreateSnapshot(databaseVersion database.Version, snapshotFileName string, g
 		panic(err)
 	}
 
-	engineInstance := engine.New(s, dpos.NewProvider(), mana1.NewProvider(), engineOpts...)
+	engineInstance := engine.New(workers.CreateGroup("Engine"), s, dpos.NewProvider(), mana1.NewProvider(), engineOpts...)
+	defer engineInstance.Shutdown()
 
 	// Create genesis output
 	if genesisTokenAmount > 0 {
@@ -90,7 +93,7 @@ func CreateSnapshot(databaseVersion database.Version, snapshotFileName string, g
 // | empty       | genesisSeed  |
 // | node1       | node1       |
 // | node2       | node2       |.
-func CreateSnapshotForIntegrationTest(s *storage.Storage, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge *orderedmap.OrderedMap[identity.ID, uint64], startSynced bool, engineOpts ...options.Option[engine.Engine]) {
+func CreateSnapshotForIntegrationTest(workers *workerpool.Group, s *storage.Storage, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge *orderedmap.OrderedMap[identity.ID, uint64], startSynced bool, engineOpts ...options.Option[engine.Engine]) {
 	if err := s.Commitments.Store(commitment.NewEmptyCommitment()); err != nil {
 		panic(err)
 	}
@@ -98,7 +101,8 @@ func CreateSnapshotForIntegrationTest(s *storage.Storage, snapshotFileName strin
 		panic(err)
 	}
 
-	engineInstance := engine.New(s, dpos.NewProvider(), mana1.NewProvider(), engineOpts...)
+	engineInstance := engine.New(workers.CreateGroup("Engine"), s, dpos.NewProvider(), mana1.NewProvider(), engineOpts...)
+	defer engineInstance.Shutdown()
 
 	engineInstance.NotarizationManager.Attestations.SetLastCommittedEpoch(-1)
 

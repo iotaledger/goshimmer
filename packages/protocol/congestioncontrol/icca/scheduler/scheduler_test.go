@@ -13,6 +13,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
@@ -28,7 +29,8 @@ func TestScheduler_StartStop(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode.")
 	}
-	tf := NewTestFramework(t)
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"))
 	tf.Scheduler.Start()
 
 	time.Sleep(100 * time.Millisecond)
@@ -36,12 +38,13 @@ func TestScheduler_StartStop(t *testing.T) {
 }
 
 func TestScheduler_AddBlock(t *testing.T) {
-	tf := NewTestFramework(t)
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"))
 
 	tf.Scheduler.Start()
 	defer tf.Scheduler.Shutdown()
 
-	blk := virtualvoting.NewBlock(booker.NewBlock(blockdag.NewBlock(models.NewBlock(models.WithStrongParents(tf.BlockIDs("Genesis"))), blockdag.WithSolid(true), blockdag.WithOrphaned(true)), booker.WithBooked(true), booker.WithStructureDetails(markers.NewStructureDetails())))
+	blk := virtualvoting.NewBlock(booker.NewBlock(blockdag.NewBlock(models.NewBlock(models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Genesis"))), blockdag.WithSolid(true), blockdag.WithOrphaned(true)), booker.WithBooked(true), booker.WithStructureDetails(markers.NewStructureDetails())))
 	require.NoError(t, blk.DetermineID())
 
 	tf.Scheduler.AddBlock(blk)
@@ -55,7 +58,8 @@ func TestScheduler_AddBlock(t *testing.T) {
 }
 
 func TestScheduler_Submit(t *testing.T) {
-	tf := NewTestFramework(t)
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"))
 
 	tf.Scheduler.Start()
 	defer tf.Scheduler.Shutdown()
@@ -68,7 +72,8 @@ func TestScheduler_Submit(t *testing.T) {
 }
 
 func TestScheduler_updateActiveNodeList(t *testing.T) {
-	tf := NewTestFramework(t)
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"))
 
 	tf.Scheduler.updateActiveIssuersList(map[identity.ID]int64{})
 	require.Equal(t, 0, tf.Scheduler.buffer.NumActiveIssuers())
@@ -120,7 +125,8 @@ func TestScheduler_updateActiveNodeList(t *testing.T) {
 }
 
 func TestScheduler_Dropped(t *testing.T) {
-	tf := NewTestFramework(t, WithSchedulerOptions(WithMaxBufferSize(numBlocks/2)))
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"), WithMaxBufferSize(numBlocks/2))
 
 	tf.CreateIssuer("nomana", 0)
 
@@ -131,14 +137,15 @@ func TestScheduler_Dropped(t *testing.T) {
 
 	for i := 0; i < numBlocks; i++ {
 		alias := fmt.Sprintf("blk-%d", i)
-		tf.CreateBlock(alias, models.WithIssuer(tf.Issuer("nomana").PublicKey()), models.WithStrongParents(models.NewBlockIDs(tf.Block("Genesis").ID())))
-		tf.IssueBlocks(alias).WaitUntilAllTasksProcessed()
+		tf.Tangle.BlockDAG.CreateBlock(alias, models.WithIssuer(tf.Issuer("nomana").PublicKey()), models.WithStrongParents(models.NewBlockIDs(tf.Tangle.BlockDAG.Block("Genesis").ID())))
+		tf.Tangle.BlockDAG.IssueBlocks(alias)
+		workers.Wait()
 	}
 	droppedCounter := 0
 	require.Eventually(t, func() bool {
 		select {
 		case droppedBlockID := <-droppedBlockIDChan:
-			expectedBlock := tf.Block(fmt.Sprintf("blk-%d", droppedCounter))
+			expectedBlock := tf.Tangle.BlockDAG.Block(fmt.Sprintf("blk-%d", droppedCounter))
 			droppedCounter++
 			require.Equal(t, expectedBlock.ID(), droppedBlockID)
 			return true
@@ -150,7 +157,8 @@ func TestScheduler_Dropped(t *testing.T) {
 }
 
 func TestScheduler_Schedule(t *testing.T) {
-	tf := NewTestFramework(t)
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"))
 
 	blockScheduled := make(chan models.BlockID, 1)
 	tf.Scheduler.Events.BlockScheduled.Hook(event.NewClosure(func(block *Block) {
@@ -177,7 +185,8 @@ func TestScheduler_Schedule(t *testing.T) {
 }
 
 func TestScheduler_HandleOrphanedBlock_Ready(t *testing.T) {
-	tf := NewTestFramework(t)
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"))
 
 	blockDropped := make(chan models.BlockID, 1)
 	tf.Scheduler.Events.BlockDropped.Hook(event.NewClosure(func(block *Block) {
@@ -189,7 +198,7 @@ func TestScheduler_HandleOrphanedBlock_Ready(t *testing.T) {
 	blk := tf.CreateSchedulerBlock(models.WithIssuer(tf.Issuer("peer").PublicKey()))
 	require.NoError(t, tf.Scheduler.Submit(blk))
 	tf.Scheduler.Ready(blk)
-	tf.Tangle.SetOrphaned(blk.Block.Block.Block, true)
+	tf.Tangle.BlockDAG.Instance.SetOrphaned(blk.Block.Block.Block, true)
 
 	tf.Scheduler.Start()
 	defer tf.Scheduler.Shutdown()
@@ -208,7 +217,8 @@ func TestScheduler_HandleOrphanedBlock_Ready(t *testing.T) {
 }
 
 func TestScheduler_HandleOrphanedBlock_Scheduled(t *testing.T) {
-	tf := NewTestFramework(t)
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"))
 
 	blockScheduled := make(chan models.BlockID, 1)
 	tf.Scheduler.Events.BlockScheduled.Hook(event.NewClosure(func(block *Block) {
@@ -234,13 +244,14 @@ func TestScheduler_HandleOrphanedBlock_Scheduled(t *testing.T) {
 		}
 	}, 1*time.Second, 10*time.Millisecond)
 
-	tf.Tangle.SetOrphaned(blk.Block.Block.Block, true)
+	tf.Tangle.BlockDAG.Instance.SetOrphaned(blk.Block.Block.Block, true)
 
 	tf.AssertBlocksDropped(0)
 }
 
 func TestScheduler_HandleOrphanedBlock_Unready(t *testing.T) {
-	tf := NewTestFramework(t)
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"))
 
 	blockDropped := make(chan models.BlockID, 1)
 	tf.Scheduler.Events.BlockDropped.Hook(event.NewClosure(func(block *Block) {
@@ -251,7 +262,7 @@ func TestScheduler_HandleOrphanedBlock_Unready(t *testing.T) {
 	// create a new block from a different node
 	blk := tf.CreateSchedulerBlock(models.WithIssuer(tf.Issuer("peer").PublicKey()))
 	require.NoError(t, tf.Scheduler.Submit(blk))
-	tf.Tangle.SetOrphaned(blk.Block.Block.Block, true)
+	tf.Tangle.BlockDAG.Instance.SetOrphaned(blk.Block.Block.Block, true)
 
 	require.Eventually(t, func() bool {
 		select {
@@ -266,7 +277,9 @@ func TestScheduler_HandleOrphanedBlock_Unready(t *testing.T) {
 }
 
 func TestScheduler_SkipConfirmed(t *testing.T) {
-	tf := NewTestFramework(t, WithSchedulerOptions(WithAcceptedBlockScheduleThreshold(time.Minute)))
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"), WithAcceptedBlockScheduleThreshold(time.Minute))
+
 	tf.CreateIssuer("peer", 10)
 
 	blockScheduled := make(chan models.BlockID, 1)
@@ -368,7 +381,9 @@ func TestScheduler_SkipConfirmed(t *testing.T) {
 }
 
 func TestScheduler_Time(t *testing.T) {
-	tf := NewTestFramework(t)
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"))
+
 	tf.CreateIssuer("peer", 10)
 
 	blockScheduled := make(chan *Block, 1)
@@ -410,7 +425,11 @@ func TestScheduler_Time(t *testing.T) {
 
 func TestScheduler_Issue(t *testing.T) {
 	debug.SetEnabled(true)
-	tf := NewTestFramework(t)
+	defer debug.SetEnabled(false)
+
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"))
+
 	tf.CreateIssuer("peer", 10)
 
 	tf.Scheduler.Events.Error.Hook(event.NewClosure(func(err error) { require.Failf(t, "unexpected error", "error event triggered: %v", err) }))
@@ -427,9 +446,9 @@ func TestScheduler_Issue(t *testing.T) {
 
 	ids := models.NewBlockIDs()
 	for i := 0; i < numBlocks; i++ {
-		block := tf.CreateBlock(fmt.Sprintf("blk-%d", i), models.WithIssuer(tf.Issuer("peer").PublicKey()), models.WithStrongParents(models.NewBlockIDs(tf.Block("Genesis").ID())))
+		block := tf.Tangle.BlockDAG.CreateBlock(fmt.Sprintf("blk-%d", i), models.WithIssuer(tf.Issuer("peer").PublicKey()), models.WithStrongParents(models.NewBlockIDs(tf.Tangle.BlockDAG.Block("Genesis").ID())))
 		ids.Add(block.ID())
-		_, _, err := tf.Tangle.Attach(block)
+		_, _, err := tf.Tangle.Instance.BlockDAG.Attach(block)
 		require.NoError(t, err)
 	}
 
@@ -446,7 +465,7 @@ func TestScheduler_Issue(t *testing.T) {
 	require.Equal(t, ids, scheduledIDs)
 
 	for i := 0; i < numBlocks; i++ {
-		block, _ := tf.Scheduler.Block(tf.Block(fmt.Sprintf("blk-%d", i)).ID())
+		block, _ := tf.Scheduler.Block(tf.Tangle.BlockDAG.Block(fmt.Sprintf("blk-%d", i)).ID())
 		lo.MergeMaps(tf.mockAcceptance.AcceptedBlocks, map[models.BlockID]types.Empty{
 			block.ID(): types.Void,
 		})
@@ -458,7 +477,9 @@ func TestScheduler_Issue(t *testing.T) {
 }
 
 func TestSchedulerFlow(t *testing.T) {
-	tf := NewTestFramework(t)
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"))
+
 	tf.CreateIssuer("peer", 10)
 	tf.CreateIssuer("self", 10)
 
@@ -468,22 +489,23 @@ func TestSchedulerFlow(t *testing.T) {
 	defer tf.Scheduler.Shutdown()
 
 	// testing desired scheduled order: A - B - D - E - C
-	tf.CreateBlock("A", models.WithIssuer(tf.Issuer("self").PublicKey()), models.WithStrongParents(tf.BlockIDs("Genesis")))
-	tf.CreateBlock("B", models.WithIssuer(tf.Issuer("peer").PublicKey()), models.WithIssuingTime(time.Now().Add(1*time.Second)), models.WithStrongParents(tf.BlockIDs("Genesis")))
+	tf.Tangle.BlockDAG.CreateBlock("A", models.WithIssuer(tf.Issuer("self").PublicKey()), models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Genesis")))
+	tf.Tangle.BlockDAG.CreateBlock("B", models.WithIssuer(tf.Issuer("peer").PublicKey()), models.WithIssuingTime(time.Now().Add(1*time.Second)), models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Genesis")))
 
 	// set C to have a timestamp in the future
-	tf.CreateBlock("C", models.WithIssuer(tf.Issuer("self").PublicKey()), models.WithIssuingTime(time.Now().Add(5*time.Second)), models.WithStrongParents(tf.BlockIDs("A", "B")))
+	tf.Tangle.BlockDAG.CreateBlock("C", models.WithIssuer(tf.Issuer("self").PublicKey()), models.WithIssuingTime(time.Now().Add(5*time.Second)), models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("A", "B")))
 
-	tf.CreateBlock("D", models.WithIssuer(tf.Issuer("peer").PublicKey()), models.WithIssuingTime(time.Now().Add(1*time.Second)), models.WithStrongParents(tf.BlockIDs("A", "B")))
+	tf.Tangle.BlockDAG.CreateBlock("D", models.WithIssuer(tf.Issuer("peer").PublicKey()), models.WithIssuingTime(time.Now().Add(1*time.Second)), models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("A", "B")))
 
-	tf.CreateBlock("E", models.WithIssuer(tf.Issuer("self").PublicKey()), models.WithIssuingTime(time.Now().Add(3*time.Second)), models.WithStrongParents(tf.BlockIDs("A", "B")))
+	tf.Tangle.BlockDAG.CreateBlock("E", models.WithIssuer(tf.Issuer("self").PublicKey()), models.WithIssuingTime(time.Now().Add(3*time.Second)), models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("A", "B")))
 
 	blockScheduled := make(chan models.BlockID, 5)
 	tf.Scheduler.Events.BlockScheduled.Hook(event.NewClosure(func(block *Block) {
 		blockScheduled <- block.ID()
 	}))
 
-	tf.IssueBlocks("A", "B", "C", "D", "E").WaitUntilAllTasksProcessed()
+	tf.Tangle.BlockDAG.IssueBlocks("A", "B", "C", "D", "E")
+	workers.Wait()
 
 	var scheduledIDs []models.BlockID
 	require.Eventually(t, func() bool {
@@ -496,14 +518,17 @@ func TestSchedulerFlow(t *testing.T) {
 		}
 	}, 10*time.Second, 100*time.Millisecond)
 
-	require.Equal(t, scheduledIDs, []models.BlockID{tf.Block("A").ID(), tf.Block("B").ID(), tf.Block("D").ID(), tf.Block("E").ID(), tf.Block("C").ID()})
+	require.Equal(t, scheduledIDs, []models.BlockID{tf.Tangle.BlockDAG.Block("A").ID(), tf.Tangle.BlockDAG.Block("B").ID(), tf.Tangle.BlockDAG.Block("D").ID(), tf.Tangle.BlockDAG.Block("E").ID(), tf.Tangle.BlockDAG.Block("C").ID()})
 }
 
 func TestSchedulerParallelSubmit(t *testing.T) {
 	debug.SetEnabled(true)
+	defer debug.SetEnabled(false)
+
 	const totalBlkCount = 200
 
-	tf := NewTestFramework(t)
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"))
 
 	tf.Scheduler.Events.Error.Hook(event.NewClosure(func(err error) { require.Failf(t, "unexpected error", "error event triggered: %v", err) }))
 
@@ -519,24 +544,25 @@ func TestSchedulerParallelSubmit(t *testing.T) {
 	for i := 0; i < totalBlkCount/2; i++ {
 		alias := fmt.Sprintf("blk-%d", i)
 
-		parentOption := models.WithStrongParents(tf.BlockIDs("Genesis"))
+		parentOption := models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Genesis"))
 		if i > 1 {
-			parentOption = models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk-%d", i-1), fmt.Sprintf("blk-%d", i-2)))
+			parentOption = models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs(fmt.Sprintf("blk-%d", i-1), fmt.Sprintf("blk-%d", i-2)))
 		}
 
-		tf.CreateBlock(alias, models.WithIssuer(tf.Issuer("self").PublicKey()), parentOption)
+		tf.Tangle.BlockDAG.CreateBlock(alias, models.WithIssuer(tf.Issuer("self").PublicKey()), parentOption)
 		blockAliases = append(blockAliases, alias)
 	}
 
 	for i := totalBlkCount / 2; i < totalBlkCount; i++ {
 		alias := fmt.Sprintf("blk-%d", i)
 
-		tf.CreateBlock(alias, models.WithIssuer(tf.Issuer("peer").PublicKey()), models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk-%d", i-1), fmt.Sprintf("blk-%d", i-2))))
+		tf.Tangle.BlockDAG.CreateBlock(alias, models.WithIssuer(tf.Issuer("peer").PublicKey()), models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs(fmt.Sprintf("blk-%d", i-1), fmt.Sprintf("blk-%d", i-2))))
 		blockAliases = append(blockAliases, alias)
 	}
 
 	// issue tips to start solidification
-	tf.IssueBlocks(blockAliases...).WaitUntilAllTasksProcessed()
+	tf.Tangle.BlockDAG.IssueBlocks(blockAliases...)
+	workers.Wait()
 
 	// wait for all blocks to have a formed opinion
 	require.Eventually(t, func() bool { return atomic.LoadUint32(&(tf.scheduledBlocksCount)) == totalBlkCount }, 5*time.Minute, 100*time.Millisecond)

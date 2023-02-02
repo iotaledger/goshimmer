@@ -221,6 +221,8 @@ func (m *Manager) Shutdown() {
 	m.openDBsMutex.Lock()
 	defer m.openDBsMutex.Unlock()
 
+	fmt.Println("database.Manager.Shutdown")
+
 	m.openDBs.Each(func(index epoch.Index, db *dbInstance) {
 		err := db.instance.Close()
 		if err != nil {
