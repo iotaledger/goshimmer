@@ -8,7 +8,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
@@ -81,10 +81,11 @@ func (r *ReferenceProvider) referencesToMissingConflicts(amount int) (blockIDs m
 	}
 
 	for it := r.protocol.TipManager.TipsConflictTracker.MissingConflicts(amount).Iterator(); it.HasNext(); {
-		attachment, blockIDErr := r.firstValidAttachment(it.Next())
-		if attachment == nil || blockIDErr != nil {
-			panic("first attachment should be valid")
-			// continue
+		attachment, err := r.firstValidAttachment(it.Next())
+		if attachment == nil || err != nil {
+			// panic("first attachment should be valid")
+			fmt.Println(">> ++ firstValidAttachment failed adjust opinion", err)
+			continue
 		}
 
 		// TODO: use earliest instead? to avoid commitment monotonicity issue
@@ -224,6 +225,7 @@ func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, exclude
 
 			attachment, err := r.firstValidAttachment(likedConflictID)
 			if err != nil {
+				fmt.Println(">> ++ firstValidAttachment failed adjust opinion", err)
 				continue
 			}
 
@@ -248,8 +250,15 @@ func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, exclude
 }
 
 // firstValidAttachment returns the first valid attachment of the given transaction.
-func (r *ReferenceProvider) firstValidAttachment(txID utxo.TransactionID) (block *booker.Block, err error) {
-	block = r.protocol.Engine().Tangle.Booker.GetEarliestAttachment(txID)
+func (r *ReferenceProvider) firstValidAttachment(txID utxo.TransactionID) (block *virtualvoting.Block, err error) {
+	bookerBlock := r.protocol.Engine().Tangle.Booker.GetEarliestAttachment(txID)
+
+	block, exists := r.protocol.Engine().Tangle.VirtualVoting.Block(bookerBlock.ID())
+	if !exists {
+		return nil, errors.Errorf("no valid virtual voting block found for %s attachment with %s", txID, bookerBlock.ID())
+	} else if block.IsSubjectivelyInvalid() {
+		return nil, errors.Errorf("attachment of %s with %s is subjectively invalid", txID, bookerBlock.ID())
+	}
 
 	if committableEpoch := r.latestEpochIndexCallback(); block.ID().Index() <= committableEpoch {
 		return nil, errors.Errorf("attachment of %s with %s is too far in the past as current committable epoch is %d", txID, block.ID(), committableEpoch)
