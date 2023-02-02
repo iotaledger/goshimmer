@@ -202,8 +202,7 @@ func (p *Protocol) initChainManager() {
 	}))
 }
 
-func (p *Protocol) initTipManager() {
-	// TODO: SWITCH ENGINE SIMILAR TO REQUESTER
+func (p *Protocol) initTipManager() {	// TODO: SWITCH ENGINE SIMILAR TO REQUESTER
 	p.TipManager = tipmanager.New(p.CongestionControl.Block, p.optsTipManagerOptions...)
 
 	p.Events.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
@@ -253,7 +252,7 @@ func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) error {
 	}
 
 	if p.Engine().IsBootstrapped() {
-		panic(fmt.Sprintln("different commitment", block))
+		panic(fmt.Sprintf("different commitment on block %s\nforking at %s\nour latest commitment %s", block, chain.ForkingPoint.ID(), lo.PanicOnErr(p.storage.Commitments.Load(chain.ForkingPoint.ID().Index())).ID()))
 	}
 
 	if candidateEngine, candidateStorage := p.CandidateEngine(), p.CandidateStorage(); candidateEngine != nil && candidateStorage != nil {
@@ -262,7 +261,7 @@ func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) error {
 			return nil
 		}
 	}
-	return errors.Errorf("block was not processed.")
+	return errors.Errorf("block was not processed")
 }
 
 func (p *Protocol) ProcessAttestationsRequest(epochIndex epoch.Index, src identity.ID) {

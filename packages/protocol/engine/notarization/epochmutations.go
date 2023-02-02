@@ -1,6 +1,7 @@
 package notarization
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/iotaledger/hive.go/core/generics/constraints"
@@ -91,6 +92,8 @@ func (m *EpochMutations) AddAcceptedTransaction(metadata *ledger.TransactionMeta
 	}
 
 	m.acceptedTransactions(metadata.InclusionEpoch(), true).Add(metadata.ID())
+
+	fmt.Println(">> AddAcceptedTransaction", metadata.ID(), metadata.InclusionEpoch())
 
 	return
 }

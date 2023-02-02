@@ -434,7 +434,7 @@ func (e *Engine) initNotarizationManager() {
 		for it := e.Tangle.Booker.GetAllAttachments(conflict.ID()).Iterator(); it.HasNext(); {
 			attachmentBlock := it.Next()
 
-			fmt.Println("<< conflict accepted", attachmentBlock.ID(), attachmentBlock.AttachmentOrphaned())
+			fmt.Printf("<< conflict accepted %s attachment %s isOrphaned %t\n", conflict.ID(), attachmentBlock.ID(), attachmentBlock.AttachmentOrphaned())
 			if !attachmentBlock.AttachmentOrphaned() {
 				e.NotarizationManager.DeleteConflictingAttachment(attachmentBlock.ID())
 			}

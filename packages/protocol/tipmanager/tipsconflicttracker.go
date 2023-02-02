@@ -45,8 +45,6 @@ func (c *TipsConflictTracker) Setup() {
 func (c *TipsConflictTracker) AddTip(block *scheduler.Block) {
 	blockConflictIDs := c.engine.Tangle.Booker.BlockConflicts(block.Block.Block)
 
-	fmt.Println(">> Tracking", block.ID())
-
 	c.Lock()
 	defer c.Unlock()
 
@@ -100,6 +98,13 @@ func (c *TipsConflictTracker) MissingConflicts(amount int) (missingConflicts utx
 	missingConflicts = utxo.NewTransactionIDs()
 	censoredConflictsToDelete := utxo.NewTransactionIDs()
 	dislikedConflicts := utxo.NewTransactionIDs()
+	fmt.Println(">> ++ censored conflicts size", c.censoredConflicts.Size())
+	fmt.Println(">> ++ censored conflicts\n------")
+	c.censoredConflicts.ForEach(func(ti utxo.TransactionID, e types.Empty) bool {
+		fmt.Println(">> ++", ti)
+		return true
+	})
+	fmt.Println("------")
 	c.censoredConflicts.ForEach(func(conflictID utxo.TransactionID, _ types.Empty) bool {
 		fmt.Println(">> ++ Missing conflict", conflictID)
 		// TODO: this should not be necessary if ConflictAccepted/ConflictRejected events are fired appropriately

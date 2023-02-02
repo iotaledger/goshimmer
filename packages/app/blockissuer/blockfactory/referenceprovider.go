@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
@@ -252,12 +253,59 @@ func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, exclude
 // firstValidAttachment returns the first valid attachment of the given transaction.
 func (r *ReferenceProvider) firstValidAttachment(txID utxo.TransactionID) (block *virtualvoting.Block, err error) {
 	bookerBlock := r.protocol.Engine().Tangle.Booker.GetEarliestAttachment(txID)
+	if bookerBlock == nil {
+		return nil, errors.Errorf("could not obtain earliest attachment for %s", txID)
+	}
 
 	block, exists := r.protocol.Engine().Tangle.VirtualVoting.Block(bookerBlock.ID())
 	if !exists {
 		return nil, errors.Errorf("no valid virtual voting block found for %s attachment with %s", txID, bookerBlock.ID())
-	} else if block.IsSubjectivelyInvalid() {
-		return nil, errors.Errorf("attachment of %s with %s is subjectively invalid", txID, bookerBlock.ID())
+	}
+
+	if block.IsSubjectivelyInvalid() {
+		fmt.Println(">> sub invalid", block.ID())
+		// The block returned will be corresponding to the next heaviest originalConflict in the set.
+		block = nil
+		originalConflict, exists := r.protocol.Engine().Ledger.ConflictDAG.Conflict(txID)
+		if exists {
+			r.protocol.Engine().Consensus.ForEachConnectedConflictingConflictInDescendingOrder(originalConflict, func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+				if block != nil {
+					return
+				}
+
+				fmt.Println(">> trying for conflict", conflict.ID())
+
+				if originalConflict.ID() == conflict.ID() {
+					fmt.Println(">> blip")
+					return
+				}
+
+				bookerBlock := r.protocol.Engine().Tangle.Booker.GetEarliestAttachment(conflict.ID())
+				if bookerBlock == nil {
+					fmt.Println(">> blop")
+					return
+				}
+
+				blockInner, exists := r.protocol.Engine().Tangle.VirtualVoting.Block(bookerBlock.ID())
+				if !exists {
+					fmt.Println(">> men men")
+					return
+				}
+
+				if blockInner.IsSubjectivelyInvalid() {
+					fmt.Println(">> more sub invalid", blockInner.ID())
+					return
+				}
+
+				fmt.Println(">> FOUND!!", blockInner.ID())
+				block = blockInner
+			})
+		}
+
+		if block == nil {
+			return nil, errors.Errorf("no attachment for conflict members of %s are valid", txID)
+			// return nil, errors.Errorf("attachment of %s with %s is subjectively invalid", txID, bookerBlock.ID())
+		}
 	}
 
 	if committableEpoch := r.latestEpochIndexCallback(); block.ID().Index() <= committableEpoch {

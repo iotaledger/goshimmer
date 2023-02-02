@@ -235,6 +235,14 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 		return false
 	}
 
+	fmt.Println(">> ROOTS",
+		acceptedBlocks.Root(),
+		acceptedTransactions.Root(),
+		attestations.Root(),
+		m.ledgerState.UnspentOutputs.Root(),
+		m.EpochMutations.weights.Root(),
+	)
+
 	newCommitment := commitment.New(
 		index,
 		latestCommitment.ID(),

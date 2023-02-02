@@ -107,7 +107,7 @@ func (o *ConflictResolver) conflictPreferred(conflict *conflictdag.Conflict[utxo
 func (o *ConflictResolver) dislikedConnectedConflictingConflicts(currentConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) (dislikedConflicts set.Set[utxo.TransactionID]) {
 	dislikedConflicts = set.New[utxo.TransactionID]()
 
-	o.forEachConnectedConflictingConflictInDescendingOrder(currentConflict, func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	o.ForEachConnectedConflictingConflictInDescendingOrder(currentConflict, func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		if dislikedConflicts.Has(conflict.ID()) {
 			return
 		}
@@ -130,9 +130,9 @@ func (o *ConflictResolver) dislikedConnectedConflictingConflicts(currentConflict
 	return dislikedConflicts
 }
 
-// forEachConnectedConflictingConflictInDescendingOrder iterates over all conflicts connected via conflict sets
+// ForEachConnectedConflictingConflictInDescendingOrder iterates over all conflicts connected via conflict sets
 // and sorts them by weight. It calls the callback for each of them in that order.
-func (o *ConflictResolver) forEachConnectedConflictingConflictInDescendingOrder(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID], callback func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID])) {
+func (o *ConflictResolver) ForEachConnectedConflictingConflictInDescendingOrder(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID], callback func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID])) {
 	conflictWeights := make(map[utxo.TransactionID]int64)
 	conflictsOrderedByWeight := make([]*conflictdag.Conflict[utxo.TransactionID, utxo.OutputID], 0)
 
