@@ -389,11 +389,11 @@ func (e *Engine) initNotarizationManager() {
 		}
 	}))
 
-	//e.Ledger.Events.TransactionOrphaned.Hook(event.NewClosure(func(event *ledger.TransactionEvent) {
+	// e.Ledger.Events.TransactionOrphaned.Hook(event.NewClosure(func(event *ledger.TransactionEvent) {
 	//	if err := e.NotarizationManager.EpochMutations.RemoveAcceptedTransaction(event.Metadata); err != nil {
 	//		e.Events.Error.Trigger(errors.Wrapf(err, "failed to remove accepted transaction %s from epoch", event.Metadata.ID()))
 	//	}
-	//}))
+	// }))
 
 	// Epochs are committed whenever ATT advances, start committing only when bootstrapped.
 	wp = e.Clock.Events.AcceptanceTimeUpdated.AttachWithNewWorkerPool(event.NewClosure(func(event *clock.TimeUpdateEvent) {
@@ -416,7 +416,7 @@ func (e *Engine) initNotarizationManager() {
 				isPending = conflict.ConfirmationState().IsPending()
 			}
 			fmt.Println("<< attachment orphaned", attachmentBlock.ID(), conflictExists, isPending)
-			if conflictExists && conflict.ConfirmationState().IsPending() {
+			if conflictExists {
 				e.NotarizationManager.DeleteConflictingAttachment(attachmentBlock.ID())
 			}
 		}
