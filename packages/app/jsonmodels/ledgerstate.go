@@ -4,9 +4,12 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/iotaledger/hive.go/core/typeutils"
+
+	"github.com/iotaledger/hive.go/core/crypto/bls"
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
 
@@ -59,8 +62,10 @@ func (o *Output) ToLedgerstateOutput() (devnetvm.Output, error) {
 		return nil, errors.Wrap(err, "failed to parse output type")
 	}
 	var id utxo.OutputID
-	if iErr := id.FromBase58(o.OutputID.Base58); err != nil {
-		return nil, errors.Wrap(iErr, "failed to parse outputID")
+	if o.OutputID != nil {
+		if iErr := id.FromBase58(o.OutputID.Base58); err != nil {
+			return nil, errors.Wrap(iErr, "failed to parse outputID")
+		}
 	}
 
 	switch outputType {
@@ -717,6 +722,69 @@ func NewUnlockBlock(unlockBlock devnetvm.UnlockBlock) *UnlockBlock {
 	}
 
 	return result
+}
+
+// ToUnlockBlock converts the json unlockblock object into a goshimmer representation.
+func (u *UnlockBlock) ToUnlockBlock() (devnetvm.UnlockBlock, error) {
+	unlockBlockType, err := devnetvm.UnlockBlockTypeFromString(u.Type)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse unlock block type")
+	}
+
+	switch unlockBlockType {
+	case devnetvm.SignatureUnlockBlockType:
+		signature, err := toSignature(u)
+		if err != nil {
+			return nil, err
+		}
+		return devnetvm.NewSignatureUnlockBlock(signature), nil
+	case devnetvm.ReferenceUnlockBlockType:
+		return devnetvm.NewReferenceUnlockBlock(u.ReferencedIndex), nil
+	case devnetvm.AliasUnlockBlockType:
+		return devnetvm.NewAliasUnlockBlock(u.ReferencedIndex), nil
+
+	default:
+		return nil, errors.Errorf("not supported unlockblock type: %d", unlockBlockType)
+	}
+}
+
+func toSignature(u *UnlockBlock) (devnetvm.Signature, error) {
+	signatureType := u.SignatureType
+	var signature devnetvm.Signature
+
+	switch signatureType {
+	case devnetvm.ED25519SignatureType:
+		pubKey, err := ed25519.PublicKeyFromString(u.PublicKey)
+		if err != nil {
+			return nil, err
+		}
+		signatureBytes, err := base58.Decode(u.Signature)
+		if err != nil {
+			return nil, err
+		}
+		sig, _, err := ed25519.SignatureFromBytes(signatureBytes)
+		if err != nil {
+			return nil, err
+		}
+		signature = devnetvm.NewED25519Signature(pubKey, sig)
+	case devnetvm.BLSSignatureType:
+		pubKey, err := bls.PublicKeyFromBase58EncodedString(u.PublicKey)
+		if err != nil {
+			return nil, err
+		}
+		signatureBytes, err := base58.Decode(u.Signature)
+		if err != nil {
+			return nil, err
+		}
+		sig, _, err := bls.SignatureFromBytes(signatureBytes)
+		if err != nil {
+			return nil, err
+		}
+		signature = devnetvm.NewBLSSignature(bls.NewSignatureWithPublicKey(pubKey, sig))
+	default:
+		return nil, errors.Errorf("not supported signature type: %d", signatureType)
+	}
+	return signature, nil
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

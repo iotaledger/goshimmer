@@ -216,13 +216,43 @@ func NewPostPayloadResponse(block *models.Block) *PostPayloadResponse {
 
 // PostTransactionRequest holds the transaction object(bytes) to send.
 type PostTransactionRequest struct {
-	TransactionBytes []byte `json:"txn_bytes"`
+	TransactionBytes []byte `json:"txBytes"`
 }
 
 // PostTransactionResponse is the HTTP response from sending transaction.
 type PostTransactionResponse struct {
-	TransactionID string `json:"transaction_id,omitempty"`
+	TransactionID string `json:"transactionID,omitempty"`
 	Error         string `json:"error,omitempty"`
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region PostTransactionStructure Req /////////////////////////////////////////////////////////////////////////////////////
+
+// PostTransactionStructureRequest holds the transaction object(bytes) to send.
+type PostTransactionStructureRequest struct {
+	Essence      string        `json:"essence"`
+	UnlockBlocks []UnlockBlock `json:"unlockblocks"`
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region TransactionEssenceSerializeRequest Req/Resp /////////////////////////////////////////////////////////////////////////////////////
+
+// TransactionEssenceSerializeRequest holds the transaction object(bytes) to send.
+type TransactionEssenceSerializeRequest struct {
+	Timestamp             int64     `json:"timestamp"`
+	AccessManaPledgeID    string    `json:"accessManaPledgeID"`
+	ConsensusManaPledgeID string    `json:"consensusManaPledgeID"`
+	Inputs                []string  `json:"inputs"`
+	Outputs               []*Output `json:"outputs"`
+}
+
+// TransactionEssenceSerializeResponse is the HTTP response from sending transaction.
+type TransactionEssenceSerializeResponse struct {
+	Bytes        string   `json:"bytes"`
+	SortedInputs []string `json:"sortedInputs"`
+	Error        string   `json:"error,omitempty"`
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
