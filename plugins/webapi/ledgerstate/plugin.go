@@ -301,15 +301,7 @@ func GetConflictChildren(c echo.Context) (err error) {
 		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load Conflict with %s", conflictID)))
 	}
 
-	conflictIDsPerConflictSet := make(map[utxo.OutputID][]utxo.TransactionID)
-	for it := conflict.ConflictSets().Iterator(); it.HasNext(); {
-		conflictSet := it.Next()
-		conflictIDsPerConflictSet[conflictSet.ID()] = lo.Map(conflictSet.Conflicts().Slice(), func(c *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) utxo.TransactionID {
-			return c.ID()
-		})
-	}
-
-	return c.JSON(http.StatusOK, jsonmodels.NewGetConflictConflictsResponse(conflictID, conflictIDsPerConflictSet))
+	return c.JSON(http.StatusOK, jsonmodels.NewGetConflictChildrenResponse(conflictID, conflict.Children()))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -327,7 +319,15 @@ func GetConflictConflicts(c echo.Context) (err error) {
 	if !exists {
 		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load Conflict with %s", conflictID)))
 	}
-	return c.JSON(http.StatusOK, jsonmodels.NewGetConflictChildrenResponse(conflictID, conflict.Children()))
+	conflictIDsPerConflictSet := make(map[utxo.OutputID][]utxo.TransactionID)
+	for it := conflict.ConflictSets().Iterator(); it.HasNext(); {
+		conflictSet := it.Next()
+		conflictIDsPerConflictSet[conflictSet.ID()] = lo.Map(conflictSet.Conflicts().Slice(), func(c *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) utxo.TransactionID {
+			return c.ID()
+		})
+	}
+
+	return c.JSON(http.StatusOK, jsonmodels.NewGetConflictConflictsResponse(conflictID, conflictIDsPerConflictSet))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
