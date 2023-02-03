@@ -12,13 +12,14 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 )
 
 func TestReferenceProvider_References1(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	tf := protocol.NewTestFramework(t, workers.CreateGroup("Protocol"))
+	tf := protocol.NewTestFramework(t, workers.CreateGroup("Protocol"), new(ledger.MockedVM))
 	tf.Instance.Run()
 
 	tf.Engine.VirtualVoting.CreateIdentity("V1", 10)
@@ -44,7 +45,7 @@ func TestReferenceProvider_References1(t *testing.T) {
 
 func TestBlockFactory_PrepareLikedReferences_2(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	tf := protocol.NewTestFramework(t, workers.CreateGroup("Protocol"))
+	tf := protocol.NewTestFramework(t, workers.CreateGroup("Protocol"), new(ledger.MockedVM))
 	tf.Instance.Run()
 
 	tf.Engine.VirtualVoting.CreateIdentity("V1", 10)
@@ -102,7 +103,7 @@ func TestBlockFactory_PrepareLikedReferences_2(t *testing.T) {
 // Tests if weak references are properly constructed from consumed outputs.
 func TestBlockFactory_WeakReferencesConsumed(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	tf := protocol.NewTestFramework(t, workers.CreateGroup("Protocol"))
+	tf := protocol.NewTestFramework(t, workers.CreateGroup("Protocol"), new(ledger.MockedVM))
 	tf.Instance.Run()
 
 	tf.Engine.BlockDAG.CreateBlock("Block1", models.WithPayload(tf.Engine.Ledger.CreateTransaction("TX1", 3, "Genesis")))

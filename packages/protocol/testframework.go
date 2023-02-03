@@ -27,6 +27,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
 	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/goshimmer/packages/storage/utils"
 )
@@ -49,7 +50,7 @@ type TestFramework struct {
 	optsCongestionControlOptions []options.Option[congestioncontrol.CongestionControl]
 }
 
-func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...options.Option[TestFramework]) *TestFramework {
+func NewTestFramework(test *testing.T, workers *workerpool.Group, ledgerVM vm.VM, opts ...options.Option[TestFramework]) *TestFramework {
 	_ = logger.InitGlobalLogger(configuration.New())
 
 	return options.Apply(&TestFramework{
@@ -68,12 +69,9 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...option
 			ed25519.GenerateKeyPair().PublicKey: 100,
 		}
 
-		// TODO: MAKE OPTION
-		ledgerVM := ledger.WithVM(new(ledger.MockedVM))
-
 		snapshotcreator.CreateSnapshot(workers.CreateGroup("CreateSnapshot"), DatabaseVersion, tempDir.Path("snapshot.bin"), genesisTokenAmount, make([]byte, ed25519.SeedSize), identitiesWeights, lo.Keys(identitiesWeights), ledgerVM)
 
-		t.Instance = New(workers.CreateGroup("Protocol"), t.Network.Join(identity.GenerateIdentity().ID()), append(t.optsProtocolOptions, WithEngineOptions(engine.WithLedgerOptions(ledgerVM)), WithSnapshotPath(tempDir.Path("snapshot.bin")), WithBaseDirectory(tempDir.Path()))...)
+		t.Instance = New(workers.CreateGroup("Protocol"), t.Network.Join(identity.GenerateIdentity().ID()), append(t.optsProtocolOptions, WithEngineOptions(engine.WithLedgerOptions(ledger.WithVM(ledgerVM))), WithSnapshotPath(tempDir.Path("snapshot.bin")), WithBaseDirectory(tempDir.Path()))...)
 
 		t.Engine = NewEngineTestFramework(t.test, t.workers.CreateGroup("EngineTestFramework"), t.Instance.Engine())
 	})

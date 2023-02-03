@@ -22,6 +22,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/storage"
 )
@@ -34,7 +35,7 @@ import (
 // | empty  | genesisSeed  |
 // | node1  | node1		   |
 // | node2  | node2        |.
-func CreateSnapshot(workers *workerpool.Group, databaseVersion database.Version, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge map[ed25519.PublicKey]uint64, initialAttestations []ed25519.PublicKey, ledgerOptions ...options.Option[ledger.Ledger]) {
+func CreateSnapshot(workers *workerpool.Group, databaseVersion database.Version, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge map[ed25519.PublicKey]uint64, initialAttestations []ed25519.PublicKey, ledgerVM vm.VM) {
 	s := storage.New(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), databaseVersion)
 	defer s.Shutdown()
 
@@ -45,12 +46,7 @@ func CreateSnapshot(workers *workerpool.Group, databaseVersion database.Version,
 		panic(err)
 	}
 
-	var engineOptions []options.Option[engine.Engine]
-	if len(ledgerOptions) > 0 {
-		engineOptions = append(engineOptions, engine.WithLedgerOptions(ledgerOptions[0]))
-	}
-
-	engineInstance := engine.New(workers.CreateGroup("Engine"), s, dpos.NewProvider(), mana1.NewProvider(), engineOptions...)
+	engineInstance := engine.New(workers.CreateGroup("Engine"), s, dpos.NewProvider(), mana1.NewProvider(), engine.WithLedgerOptions(ledger.WithVM(ledgerVM)))
 	defer engineInstance.Shutdown()
 
 	// Create genesis output
