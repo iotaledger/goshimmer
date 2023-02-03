@@ -226,7 +226,9 @@ func PostBlock(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
-
+	if err = parsedBlock.DetermineID(); err != nil {
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	}
 	err = deps.BlockIssuer.IssueBlockAndAwaitBlockToBeBooked(parsedBlock, time.Second)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
