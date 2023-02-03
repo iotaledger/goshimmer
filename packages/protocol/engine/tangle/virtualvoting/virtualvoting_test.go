@@ -1,7 +1,6 @@
 package virtualvoting
 
 import (
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"testing"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/core/workerpool"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
