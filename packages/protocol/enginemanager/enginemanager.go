@@ -145,7 +145,7 @@ func (m *EngineManager) newEngineInstance() *EngineInstance {
 
 func (m *EngineManager) ForkEngineAtEpoch(index epoch.Index) (*EngineInstance, error) {
 	// Dump a snapshot at the target index
-	snapshotPath := filepath.Join(os.TempDir(), fmt.Sprintf("snapshot_%d.bin", index))
+	snapshotPath := filepath.Join(os.TempDir(), fmt.Sprintf("snapshot_%d_%s.bin", index, lo.PanicOnErr(uuid.NewUUID()).String()))
 	if err := m.activeInstance.Engine.WriteSnapshot(snapshotPath, index); err != nil {
 		return nil, errors.Wrapf(err, "error exporting snapshot for index %s", index)
 	}

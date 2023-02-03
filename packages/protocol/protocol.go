@@ -101,6 +101,8 @@ func (p *Protocol) Run() {
 func (p *Protocol) Shutdown() {
 	p.CongestionControl.Shutdown()
 
+	p.chainManager.CommitmentRequester.Shutdown()
+
 	p.activeEngineMutex.RLock()
 	defer p.activeEngineMutex.RUnlock()
 

@@ -84,7 +84,6 @@ func (tf *TestFramework) Shutdown() {
 	for _, rateSetter := range tf.RateSetter {
 		rateSetter.Shutdown()
 	}
-	tf.Protocol.Instance.Shutdown()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

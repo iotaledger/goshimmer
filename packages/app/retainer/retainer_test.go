@@ -70,7 +70,6 @@ func TestRetainer_BlockMetadata_NonEvicted(t *testing.T) {
 
 	t.Cleanup(func() {
 		retainer.Shutdown()
-		tf.Instance.Shutdown()
 	})
 
 	b := tf.Engine.BlockDAG.CreateBlock("A")
@@ -125,7 +124,6 @@ func TestRetainer_BlockMetadata_Evicted(t *testing.T) {
 
 	t.Cleanup(func() {
 		retainer.Shutdown()
-		tf.Instance.Shutdown()
 	})
 
 	b := tf.Engine.BlockDAG.CreateBlock("A", models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0).Add(70*time.Second)))

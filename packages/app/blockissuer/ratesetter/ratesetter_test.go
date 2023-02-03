@@ -16,7 +16,7 @@ import (
 func TestRateSetter_IssueBlockAndAwaitSchedule_AIMD(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
 	tf := NewTestFramework(t, workers.CreateGroup("RateSetterTestFramework"), WithRateSetterOptions(WithMode(AIMDMode)))
-	defer tf.Shutdown()
+	t.Cleanup(tf.Shutdown)
 
 	blockScheduled := make(chan *models.Block, 1)
 	tf.Protocol.Instance.CongestionControl.Scheduler().Events.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) { blockScheduled <- block.ModelsBlock }))
