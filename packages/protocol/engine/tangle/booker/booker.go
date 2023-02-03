@@ -439,19 +439,7 @@ func (b *Booker) setupEvents() {
 			return
 		}
 
-		if tx, isTx := block.Transaction(); isTx {
-			attachmentBlock, attachmentOrphaned, lastAttachmentOrphaned := b.attachments.OrphanAttachment(tx.ID(), block)
-
-			if attachmentOrphaned {
-				b.Events.AttachmentOrphaned.Trigger(attachmentBlock)
-			}
-
-			if lastAttachmentOrphaned {
-				// TODO: attach this event somewhere to the engine
-				b.Events.Error.Trigger(errors.Errorf("transaction %s orphaned", tx.ID()))
-				b.Ledger.PruneTransaction(tx.ID(), true)
-			}
-		}
+		b.OrphanAttachment(block)
 	}))
 
 	b.Ledger.Events.TransactionConflictIDUpdated.Hook(event.NewClosure(func(event *ledger.TransactionConflictIDUpdatedEvent) {
@@ -469,6 +457,22 @@ func (b *Booker) setupEvents() {
 			}
 		}
 	}))
+}
+
+func (b *Booker) OrphanAttachment(block *Block) {
+	if tx, isTx := block.Transaction(); isTx {
+		attachmentBlock, attachmentOrphaned, lastAttachmentOrphaned := b.attachments.OrphanAttachment(tx.ID(), block)
+
+		if attachmentOrphaned {
+			b.Events.AttachmentOrphaned.Trigger(attachmentBlock)
+		}
+
+		if lastAttachmentOrphaned {
+			// TODO: attach this event somewhere to the engine
+			b.Events.Error.Trigger(errors.Errorf("transaction %s orphaned", tx.ID()))
+			b.Ledger.PruneTransaction(tx.ID(), true)
+		}
+	}
 }
 
 // region FORK LOGIC ///////////////////////////////////////////////////////////////////////////////////////////////////

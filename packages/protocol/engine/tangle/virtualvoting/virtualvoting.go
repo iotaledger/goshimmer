@@ -157,6 +157,7 @@ func (o *VirtualVoting) track(block *Block) (tracked bool) {
 	votePower := NewBlockVotePower(block.ID(), block.IssuingTime())
 	if _, invalid := o.conflictTracker.TrackVote(o.Booker.BlockConflicts(block.Block), block.IssuerID(), votePower); invalid {
 		block.SetSubjectivelyInvalid(true)
+		o.Booker.OrphanAttachment(block.Block)
 		return true
 	}
 
