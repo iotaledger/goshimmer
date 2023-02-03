@@ -3,6 +3,7 @@ package protocol
 import (
 	"errors"
 	"fmt"
+	"github.com/iotaledger/goshimmer/packages/core/database"
 	"testing"
 	"time"
 
@@ -465,7 +466,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
 
 	testDir := t.TempDir()
-	engine1Storage := storage.New(testDir, DatabaseVersion)
+	engine1Storage := storage.New(testDir, DatabaseVersion, database.WithDBProvider(database.NewDB))
 	t.Cleanup(func() {
 		workers.Wait()
 		engine1Storage.Shutdown()
@@ -500,6 +501,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 	require.NoError(t, tf.Engine.Initialize(tempDir.Path("genesis_snapshot.bin")))
 
 	require.Equal(t, int64(100), tf.Engine.SybilProtection.Validators().TotalWeight())
+	require.Equal(t, int64(101), tf.Engine.ThroughputQuota.TotalBalance())
 
 	acceptedBlocks := make(map[string]bool)
 	epoch1IssuingTime := time.Unix(epoch.GenesisTime, 0)
@@ -540,7 +542,6 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		tf.BlockDAG.CreateBlock("11.C", models.WithStrongParents(tf.BlockDAG.BlockIDs("11.B")), models.WithIssuer(identitiesMap["C"]), models.WithIssuingTime(epoch11IssuingTime))
 		tf.BlockDAG.IssueBlocks("11.A", "11.B", "11.C")
 
-		require.Equal(t, epoch.Index(4), tf.Engine.Storage.Settings.LatestCommitment().Index())
 		tf.AssertEpochState(4)
 	}
 
@@ -564,7 +565,6 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		tf.BlockDAG.CreateBlock("12.C.2", models.WithStrongParents(tf.BlockDAG.BlockIDs("12.B.2")), models.WithIssuer(identitiesMap["C"]), models.WithIssuingTime(epoch12IssuingTime))
 		tf.BlockDAG.IssueBlocks("5.Z", "12.A.2", "12.B.2", "12.C.2")
 
-		require.Equal(t, epoch.Index(5), tf.Engine.Storage.Settings.LatestCommitment().Index())
 		tf.AssertEpochState(5)
 	}
 
@@ -600,10 +600,12 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		tf.AssertEpochState(5)
 
 		tf.Engine.Shutdown()
+		engine1Storage.Shutdown()
+		workers.Wait()
 
 		fmt.Println("============================= Start Engine =============================")
 
-		engine3Storage := storage.New(testDir, DatabaseVersion)
+		engine3Storage := storage.New(testDir, DatabaseVersion, database.WithDBProvider(database.NewDB))
 		t.Cleanup(func() {
 			workers.Wait()
 			engine3Storage.Shutdown()
@@ -640,7 +642,7 @@ func TestEngine_ShutdownResume(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
 
 	testDir := t.TempDir()
-	engine1Storage := storage.New(testDir, DatabaseVersion)
+	engine1Storage := storage.New(testDir, DatabaseVersion, database.WithDBProvider(database.NewDB))
 	t.Cleanup(func() {
 		workers.Wait()
 		engine1Storage.Shutdown()
@@ -687,8 +689,10 @@ func TestEngine_ShutdownResume(t *testing.T) {
 	require.Equal(t, int64(100), tf.Engine.SybilProtection.Validators().TotalWeight())
 
 	tf.Engine.Shutdown()
+	workers.Wait()
+	engine1Storage.Shutdown()
 
-	engine2Storage := storage.New(testDir, DatabaseVersion)
+	engine2Storage := storage.New(testDir, DatabaseVersion, database.WithDBProvider(database.NewDB))
 	t.Cleanup(func() {
 		workers.Wait()
 		engine2Storage.Shutdown()

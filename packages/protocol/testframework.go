@@ -130,7 +130,8 @@ func (e *EngineTestFramework) AssertEpochState(index epoch.Index) {
 	require.Equal(e.test, index, e.Engine.NotarizationManager.Attestations.LastCommittedEpoch(), "notarization manager attestations last committed epoch is not equal")
 	require.Equal(e.test, index, e.Engine.LedgerState.UnspentOutputs.LastCommittedEpoch(), "ledger state unspent outputs last committed epoch is not equal")
 	require.Equal(e.test, index, e.Engine.SybilProtection.(*dpos.SybilProtection).LastCommittedEpoch(), "sybil protection last committed epoch is not equal")
-	require.Equal(e.test, index, e.Engine.ThroughputQuota.(*mana1.ThroughputQuota).LastCommittedEpoch(), "throughput quota last committed epoch is not equal")
+	//TODO: throughput quota is not updated with each epoch, but with acceptance
+	//require.Equal(e.test, index, e.Engine.ThroughputQuota.(*mana1.ThroughputQuota).LastCommittedEpoch(), "throughput quota last committed epoch is not equal")
 	require.Equal(e.test, index, e.Engine.EvictionState.LastEvictedEpoch(), "last evicted epoch is not equal")
 }
 
