@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"sync"
@@ -128,7 +127,6 @@ func New(
 
 func (e *Engine) Shutdown() {
 	if !e.WasStopped() {
-		fmt.Println("engine.Engine.Shutdown", e.Storage.Directory)
 		e.TriggerStopped()
 		e.Ledger.Shutdown()
 		e.Workers.Shutdown()
