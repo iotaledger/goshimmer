@@ -5,13 +5,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/client/evilwallet"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 )
 
 func DataSpammingFunction(s *Spammer) {
@@ -82,7 +82,7 @@ func CommitmentsSpammingFunction(s *Spammer) {
 		s.ErrCounter.CountError(ErrFailGetReferences)
 	}
 	localID := s.IdentityManager.GetIdentity()
-	commitment, latestConfIndex, err := s.CommitmentManager.GenerateCommitment()
+	commitment, latestConfIndex, err := s.CommitmentManager.GenerateCommitment(clt)
 	if err != nil {
 		s.log.Debugf(errors.WithMessage(ErrFailToPrepareBatch, err.Error()).Error())
 		s.ErrCounter.CountError(errors.WithMessage(ErrFailToPrepareBatch, err.Error()))
@@ -101,9 +101,12 @@ func CommitmentsSpammingFunction(s *Spammer) {
 		return
 	}
 	block.SetSignature(signature)
+	if err = block.DetermineID(); err != nil {
+		s.ErrCounter.CountError(ErrFailPrepareBlock)
+	}
 	blockBytes, err := block.Bytes()
 	if err != nil {
-		s.ErrCounter.CountError(ErrFailSendDataBlock)
+		s.ErrCounter.CountError(ErrFailPrepareBlock)
 	}
 
 	blkID, err := clt.PostBlock(blockBytes)

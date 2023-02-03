@@ -16,6 +16,7 @@ var (
 	ErrFailToPrepareBatch  = errors.New("custom conflict batch could not be prepared")
 	ErrInsufficientClients = errors.New("insufficient clients to send conflicts")
 	ErrInputsNotSolid      = errors.New("not all inputs are solid")
+	ErrFailPrepareBlock    = errors.New("failed to prepare block")
 )
 
 // ErrorCounter counts errors that appeared during the spam,
