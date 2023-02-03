@@ -34,7 +34,7 @@ import (
 // | empty  | genesisSeed  |
 // | node1  | node1		   |
 // | node2  | node2        |.
-func CreateSnapshot(workers *workerpool.Group, databaseVersion database.Version, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge map[ed25519.PublicKey]uint64, initialAttestations []ed25519.PublicKey, engineOpts ...options.Option[engine.Engine]) {
+func CreateSnapshot(workers *workerpool.Group, databaseVersion database.Version, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge map[ed25519.PublicKey]uint64, initialAttestations []ed25519.PublicKey, ledgerOptions ...options.Option[ledger.Ledger]) {
 	s := storage.New(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), databaseVersion)
 	defer s.Shutdown()
 
@@ -45,7 +45,12 @@ func CreateSnapshot(workers *workerpool.Group, databaseVersion database.Version,
 		panic(err)
 	}
 
-	engineInstance := engine.New(workers.CreateGroup("Engine"), s, dpos.NewProvider(), mana1.NewProvider(), engineOpts...)
+	var engineOptions []options.Option[engine.Engine]
+	if len(ledgerOptions) > 0 {
+		engineOptions = append(engineOptions, engine.WithLedgerOptions(ledgerOptions[0]))
+	}
+
+	engineInstance := engine.New(workers.CreateGroup("Engine"), s, dpos.NewProvider(), mana1.NewProvider(), engineOptions...)
 	defer engineInstance.Shutdown()
 
 	// Create genesis output

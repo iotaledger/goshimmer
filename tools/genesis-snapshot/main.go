@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"log"
 	"os"
+
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
@@ -67,20 +68,20 @@ var initialAttestations = []string{
 // 	"5heLsHxMRdTewXooaaDFGpAoj5c41ah5wTmpMukjdvi7", // faucet_01
 // }
 //
-//var initialAttestations = []string{
+// var initialAttestations = []string{
 //		"AuQXPFmRu9nKNtUq3g1RLqVgSmxNrYeogt6uRwqYLGvK", // bootstrap_01
-//}
+// }
 
 // Docker network.
-//var nodesToPledge = []string{
+// var nodesToPledge = []string{
 //	"2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5", // peer_master
 //	"AXSoTPcN6SNwH64tywpz4k2XfAc24NR7ckKX8wPjeUZD", // peer_master2
 //	"FZ6xmPZXRs2M8z9m9ETTQok4PCga4X8FRHwQE6uYm4rV", // faucet
-//}
+// }
 //
-//var initialAttestations = []string{
+// var initialAttestations = []string{
 //	"2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5", // peer_master
-//}
+// }
 
 func main() {
 	snapshotFileName := viper.GetString(cfgSnapshotFileName)
@@ -96,9 +97,7 @@ func main() {
 	manaDistribution := createManaDistribution(totalTokensToPledge)
 	initialAttestationsSlice := createInitialAttestations()
 
-	snapshotcreator.CreateSnapshot(workerpool.NewGroup("CreateSnapshot"), protocol.DatabaseVersion, snapshotFileName, genesisTokenAmount, genesisSeed, manaDistribution, initialAttestationsSlice, engine.WithLedgerOptions(
-		ledger.WithVM(new(devnetvm.VM)),
-	))
+	snapshotcreator.CreateSnapshot(workerpool.NewGroup("CreateSnapshot"), protocol.DatabaseVersion, snapshotFileName, genesisTokenAmount, genesisSeed, manaDistribution, initialAttestationsSlice, ledger.WithVM(new(devnetvm.VM)))
 
 	diagnosticPrintSnapshotFromFile(snapshotFileName)
 }
