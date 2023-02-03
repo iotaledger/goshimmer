@@ -4,7 +4,10 @@ import (
 	"github.com/iotaledger/goshimmer/client/evilwallet"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/pkg/errors"
+	"golang.org/x/crypto/blake2b"
+	"math/rand"
 )
 
 type CommitmentManager struct {
@@ -36,13 +39,29 @@ func (c *CommitmentManager) GenerateCommitment(clt evilwallet.Client) (*commitme
 			return nil, 0, errors.Wrap(err, "failed to get latest commitment")
 		}
 		comm := commitment.NewEmptyCommitment()
-		b := resp.Bytes
-		_, err = comm.FromBytes(b)
+		_, err = comm.FromBytes(resp.Bytes)
 		if err != nil {
 			return nil, 0, errors.Wrap(err, "failed to parse commitment bytes")
 		}
 		return comm, epoch.Index(resp.LatestConfirmedIndex), err
 	case "random":
+		resp, err := clt.GetLatestCommitment()
+		if err != nil {
+			return nil, 0, errors.Wrap(err, "failed to get latest commitment")
+		}
+		comm := commitment.NewEmptyCommitment()
+		_, err = comm.FromBytes(resp.Bytes)
+		if err != nil {
+			return nil, 0, errors.Wrap(err, "failed to parse commitment bytes")
+		}
+		dummyRoot := blake2b.Sum256(byteutils.ConcatBytes(comm.RootsID().Bytes(), []byte{byte(rand.Int())}))
+		newCommitment := commitment.New(
+			comm.Index(),
+			comm.PrevID(),
+			dummyRoot,
+			comm.CumulativeWeight(),
+		)
+		return newCommitment, epoch.Index(resp.LatestConfirmedIndex), nil
 	case "oldest":
 		resp, err := clt.GetCommitment("0")
 		if err != nil {
@@ -54,7 +73,7 @@ func (c *CommitmentManager) GenerateCommitment(clt evilwallet.Client) (*commitme
 		if err != nil {
 			return nil, 0, errors.Wrap(err, "failed to parse commitment bytes")
 		}
-		return comm, 0, nil
+		return comm, epoch.Index(resp.LatestConfirmedIndex), nil
 	}
 	return nil, 0, nil
 }
