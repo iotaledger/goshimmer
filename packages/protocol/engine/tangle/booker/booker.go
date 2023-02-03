@@ -430,7 +430,6 @@ func (b *Booker) strongChildren(block *Block) []*Block {
 
 func (b *Booker) setupEvents() {
 	event.Hook(b.BlockDAG.Events.BlockSolid, func(block *blockdag.Block) {
-		fmt.Println("BlockSolid", block.ID())
 		if _, err := b.Queue(NewBlock(block)); err != nil {
 			panic(err)
 		}
