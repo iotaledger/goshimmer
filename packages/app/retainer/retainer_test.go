@@ -18,6 +18,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
@@ -62,7 +63,7 @@ func TestRetainer_BlockMetadata_JSON_optional(t *testing.T) {
 
 func TestRetainer_BlockMetadata_NonEvicted(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	tf := protocol.NewTestFramework(t, workers.CreateGroup("ProtocolTestFramework"))
+	tf := protocol.NewTestFramework(t, workers.CreateGroup("ProtocolTestFramework"), new(devnetvm.VM))
 	tf.Instance.Run()
 
 	retainer := NewRetainer(workers.CreateGroup("Retainer"), tf.Instance, database.NewManager(0))
@@ -117,7 +118,7 @@ func TestRetainer_BlockMetadata_NonEvicted(t *testing.T) {
 
 func TestRetainer_BlockMetadata_Evicted(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	tf := protocol.NewTestFramework(t, workers.CreateGroup("ProtocolTestFramework"))
+	tf := protocol.NewTestFramework(t, workers.CreateGroup("ProtocolTestFramework"), new(devnetvm.VM))
 	tf.Instance.Run()
 
 	retainer := NewRetainer(workers.CreateGroup("Retainer"), tf.Instance, database.NewManager(0))
