@@ -79,7 +79,7 @@ func New(evictionState *eviction.State, isBlockAccepted func(models.BlockID) boo
 		optsRate:                           5 * time.Millisecond,      // measured in time per unit work
 		optsMaxDeficit:                     new(big.Rat).SetInt64(10), // must be >= max block work, but work is currently=1 for all blocks
 
-		shutdownSignal: make(chan struct{}),
+		shutdownSignal: make(chan struct{}, 1),
 	}, opts, func(s *Scheduler) {
 		s.ticker = time.NewTicker(s.optsRate)
 		s.buffer = NewBufferQueue(s.optsMaxBufferSize)
