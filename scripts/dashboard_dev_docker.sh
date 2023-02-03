@@ -1,6 +1,7 @@
 #!/bin/bash
 #
 # Installs required dependencies and runs node's dashboard.
+# Run Docker network and set `--dashboard.dev=true` on any node you want to run the dashboard in dev mode.
 
 echo "::: Running /plugins/dashboard/frontend :::"
 docker run -it --rm \
