@@ -447,7 +447,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 	debug.SetEnabled(true)
 	defer debug.SetEnabled(false)
 
-	ledgerVM := new(devnetvm.VM)
+	ledgerVM := new(ledger.MockedVM)
 
 	engineOpts := []options.Option[engine.Engine]{
 		engine.WithLedgerOptions(ledger.WithVM(ledgerVM)),
@@ -463,10 +463,19 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 	epoch.GenesisTime = time.Now().Unix() - epoch.Duration*15
 
 	workers := workerpool.NewGroup(t.Name())
-	tf := NewDefaultEngineTestFramework(t, workers.CreateGroup("EngineTestFramework"), engineOpts...)
+
+	testDir := t.TempDir()
+	engine1Storage := storage.New(testDir, DatabaseVersion)
+	t.Cleanup(func() {
+		workers.Wait()
+		engine1Storage.Shutdown()
+	})
+
+	engine1 := NewTestEngine(t, workers.CreateGroup("Engine1"), engine1Storage, engineOpts...)
+	tf := NewEngineTestFramework(t, workers.CreateGroup("EngineTestFramework1"), engine1)
 
 	tf.Engine.NotarizationManager.Events.Error.Hook(event.NewClosure(func(err error) {
-		panic(err)
+		t.Fatal(err.Error())
 	}))
 
 	identitiesMap := map[string]ed25519.PublicKey{
@@ -532,6 +541,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		tf.BlockDAG.IssueBlocks("11.A", "11.B", "11.C")
 
 		require.Equal(t, epoch.Index(4), tf.Engine.Storage.Settings.LatestCommitment().Index())
+		tf.AssertEpochState(4)
 	}
 
 	// ///////////////////////////////////////////////////////////
@@ -555,6 +565,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		tf.BlockDAG.IssueBlocks("5.Z", "12.A.2", "12.B.2", "12.C.2")
 
 		require.Equal(t, epoch.Index(5), tf.Engine.Storage.Settings.LatestCommitment().Index())
+		tf.AssertEpochState(5)
 	}
 
 	// ///////////////////////////////////////////////////////////
@@ -565,10 +576,10 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		require.NoError(t, tf.Engine.WriteSnapshot(tempDir.Path("snapshot_epoch1.bin"), 1))
 
 		tf2 := NewDefaultEngineTestFramework(t, workers.CreateGroup("EngineTestFramework2"), engineOpts...)
-		tempDir := utils.NewDirectory(t.TempDir())
 		require.NoError(t, tf2.Engine.Initialize(tempDir.Path("snapshot_epoch1.bin")))
 
 		require.Equal(t, epoch.Index(1), tf2.Engine.Storage.Settings.LatestCommitment().Index())
+		tf2.AssertEpochState(1)
 
 		require.True(t, tf2.Engine.LedgerState.UnspentOutputs.IDs.Has(tf.Ledger.OutputID("Tx1.0")))
 		require.True(t, tf2.Engine.LedgerState.UnspentOutputs.IDs.Has(tf.Ledger.OutputID("Tx1.1")))
@@ -586,11 +597,21 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		expectedBalanceByIDs := tf.Engine.ThroughputQuota.BalanceByIDs()
 		expectedTotalBalance := tf.Engine.ThroughputQuota.TotalBalance()
 
+		tf.AssertEpochState(5)
+
 		tf.Engine.Shutdown()
 
 		fmt.Println("============================= Start Engine =============================")
 
-		tf3 := NewDefaultEngineTestFramework(t, workers.CreateGroup("EngineTestFramework3"), engineOpts...)
+		engine3Storage := storage.New(testDir, DatabaseVersion)
+		t.Cleanup(func() {
+			workers.Wait()
+			engine3Storage.Shutdown()
+		})
+
+		engine3 := NewTestEngine(t, workers.CreateGroup("Engine3"), engine3Storage, engineOpts...)
+		tf3 := NewEngineTestFramework(t, workers.CreateGroup("EngineTestFramework3"), engine3)
+
 		require.NoError(t, tf3.Engine.Initialize(""))
 
 		tf3.AssertEpochState(5)
