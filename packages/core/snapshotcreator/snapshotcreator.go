@@ -1,12 +1,12 @@
 package snapshotcreator
 
 import (
+	"fmt"
 	"os"
 	"time"
 
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/orderedmap"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
@@ -51,7 +51,7 @@ func CreateSnapshot(workers *workerpool.Group, databaseVersion database.Version,
 
 	// Create genesis output
 	if genesisTokenAmount > 0 {
-		output, outputMetadata := createOutput(seed.NewSeed(genesisSeedBytes).Address(0).Address(), genesisTokenAmount, identity.ID{}, 0)
+		output, outputMetadata := createOutput(ledgerVM, seed.NewSeed(genesisSeedBytes).KeyPair(0).PublicKey, genesisTokenAmount, identity.ID{}, 0)
 		if err := engineInstance.LedgerState.UnspentOutputs.ApplyCreatedOutput(ledger.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
 			panic(err)
 		}
@@ -62,7 +62,7 @@ func CreateSnapshot(workers *workerpool.Group, databaseVersion database.Version,
 	for nodePublicKey, value := range nodesToPledge {
 		// pledge to ID but send funds to random address
 		nodeID := identity.NewID(nodePublicKey)
-		output, outputMetadata := createOutput(devnetvm.NewED25519Address(nodePublicKey), value, nodeID, 0)
+		output, outputMetadata := createOutput(ledgerVM, nodePublicKey, value, nodeID, 0)
 		if err := engineInstance.LedgerState.UnspentOutputs.ApplyCreatedOutput(ledger.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
 			panic(err)
 		}
@@ -94,7 +94,7 @@ func CreateSnapshot(workers *workerpool.Group, databaseVersion database.Version,
 // | empty       | genesisSeed  |
 // | node1       | node1       |
 // | node2       | node2       |.
-func CreateSnapshotForIntegrationTest(workers *workerpool.Group, s *storage.Storage, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge *orderedmap.OrderedMap[identity.ID, uint64], startSynced bool, engineOpts ...options.Option[engine.Engine]) {
+func CreateSnapshotForIntegrationTest(workers *workerpool.Group, s *storage.Storage, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge *orderedmap.OrderedMap[identity.ID, uint64], startSynced bool, ledgerVM vm.VM) {
 	if err := s.Commitments.Store(commitment.NewEmptyCommitment()); err != nil {
 		panic(err)
 	}
@@ -102,7 +102,7 @@ func CreateSnapshotForIntegrationTest(workers *workerpool.Group, s *storage.Stor
 		panic(err)
 	}
 
-	engineInstance := engine.New(workers.CreateGroup("Engine"), s, dpos.NewProvider(), mana1.NewProvider(), engineOpts...)
+	engineInstance := engine.New(workers.CreateGroup("Engine"), s, dpos.NewProvider(), mana1.NewProvider(), engine.WithLedgerOptions(ledger.WithVM(ledgerVM)))
 	defer engineInstance.Shutdown()
 
 	engineInstance.NotarizationManager.Attestations.SetLastCommittedEpoch(-1)
@@ -110,7 +110,7 @@ func CreateSnapshotForIntegrationTest(workers *workerpool.Group, s *storage.Stor
 	if genesisTokenAmount > 0 {
 		// create faucet funds and do not pledge mana to any identity
 		var genesisPledgeID identity.ID
-		output, outputMetadata := createOutput(seed.NewSeed(genesisSeedBytes).Address(0).Address(), genesisTokenAmount, genesisPledgeID, 0)
+		output, outputMetadata := createOutput(ledgerVM, seed.NewSeed(genesisSeedBytes).KeyPair(0).PublicKey, genesisTokenAmount, genesisPledgeID, 0)
 		if err := engineInstance.LedgerState.UnspentOutputs.ApplyCreatedOutput(ledger.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
 			panic(err)
 		}
@@ -120,7 +120,7 @@ func CreateSnapshotForIntegrationTest(workers *workerpool.Group, s *storage.Stor
 	nodesToPledge.ForEach(func(nodeSeedBytes identity.ID, value uint64) bool {
 		nodePublicKey := ed25519.PrivateKeyFromSeed(nodeSeedBytes[:]).Public()
 		nodeID := identity.NewID(nodePublicKey)
-		output, outputMetadata := createOutput(seed.NewSeed(nodeSeedBytes[:]).Address(0).Address(), value, nodeID, 0)
+		output, outputMetadata := createOutput(ledgerVM, seed.NewSeed(nodeSeedBytes[:]).KeyPair(0).PublicKey, value, nodeID, 0)
 		if err := engineInstance.LedgerState.UnspentOutputs.ApplyCreatedOutput(ledger.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
 			panic(err)
 		}
@@ -149,11 +149,22 @@ func CreateSnapshotForIntegrationTest(workers *workerpool.Group, s *storage.Stor
 
 var outputCounter uint16 = 1
 
-func createOutput(address devnetvm.Address, tokenAmount uint64, pledgeID identity.ID, includedInEpoch epoch.Index) (output devnetvm.Output, outputMetadata *ledger.OutputMetadata) {
-	output = devnetvm.NewSigLockedColoredOutput(devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{
-		devnetvm.ColorIOTA: tokenAmount,
-	}), address)
-	output.SetID(utxo.NewOutputID(utxo.EmptyTransactionID, outputCounter))
+func createOutput(ledgerVM vm.VM, publicKey ed25519.PublicKey, tokenAmount uint64, pledgeID identity.ID, includedInEpoch epoch.Index) (output utxo.Output, outputMetadata *ledger.OutputMetadata) {
+
+	switch ledgerVM.(type) {
+	case *ledger.MockedVM:
+		output = ledger.NewMockedOutput(utxo.EmptyTransactionID, outputCounter, tokenAmount)
+
+	case *devnetvm.VM:
+		output = devnetvm.NewSigLockedColoredOutput(devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{
+			devnetvm.ColorIOTA: tokenAmount,
+		}), devnetvm.NewED25519Address(publicKey))
+		output.SetID(utxo.NewOutputID(utxo.EmptyTransactionID, outputCounter))
+
+	default:
+		panic(fmt.Sprintf("cannot create snapshot output for VM of type '%v'", ledgerVM))
+	}
+
 	outputCounter++
 
 	outputMetadata = ledger.NewOutputMetadata(output.ID())

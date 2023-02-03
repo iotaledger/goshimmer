@@ -97,7 +97,7 @@ func main() {
 	manaDistribution := createManaDistribution(totalTokensToPledge)
 	initialAttestationsSlice := createInitialAttestations()
 
-	snapshotcreator.CreateSnapshot(workerpool.NewGroup("CreateSnapshot"), protocol.DatabaseVersion, snapshotFileName, genesisTokenAmount, genesisSeed, manaDistribution, initialAttestationsSlice, ledger.WithVM(new(devnetvm.VM)))
+	snapshotcreator.CreateSnapshot(workerpool.NewGroup("CreateSnapshot"), protocol.DatabaseVersion, snapshotFileName, genesisTokenAmount, genesisSeed, manaDistribution, initialAttestationsSlice, new(devnetvm.VM))
 
 	diagnosticPrintSnapshotFromFile(snapshotFileName)
 }

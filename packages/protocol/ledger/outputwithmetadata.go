@@ -1,6 +1,8 @@
 package ledger
 
 import (
+	"fmt"
+
 	"github.com/iotaledger/hive.go/core/generics/model"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/stringify"
@@ -106,12 +108,15 @@ func (o *OutputWithMetadata) IOTABalance() (balance uint64, exists bool) {
 	o.RLock()
 	defer o.RUnlock()
 
-	devnetVMOutput, ok := o.Output().(devnetvm.Output)
-	if !ok {
+	switch output := o.Output().(type) {
+	case devnetvm.Output:
+		return output.Balances().Get(devnetvm.ColorIOTA)
+	case *MockedOutput:
+		return output.M.Balance, true
+	default:
+		panic(fmt.Sprintf("unknown output type '%s'", output))
 		return 0, false
 	}
-
-	return devnetVMOutput.Balances().Get(devnetvm.ColorIOTA)
 }
 
 // SetOutput sets the Output field.

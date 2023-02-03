@@ -31,7 +31,7 @@ type EngineManagerTestFramework struct {
 func NewEngineManagerTestFramework(t *testing.T, workers *workerpool.Group, identitiesWeights map[ed25519.PublicKey]uint64) *EngineManagerTestFramework {
 	tf := &EngineManagerTestFramework{}
 
-	ledgerVM := ledger.WithVM(new(devnetvm.VM))
+	ledgerVM := new(devnetvm.VM)
 
 	snapshotPath := utils.NewDirectory(t.TempDir()).Path("snapshot.bin")
 
@@ -42,7 +42,7 @@ func NewEngineManagerTestFramework(t *testing.T, workers *workerpool.Group, iden
 		protocol.DatabaseVersion,
 		[]options.Option[database.Manager]{},
 		[]options.Option[engine.Engine]{
-			engine.WithLedgerOptions(ledgerVM),
+			engine.WithLedgerOptions(ledger.WithVM(ledgerVM)),
 		},
 		dpos.NewProvider(),
 		mana1.NewProvider())

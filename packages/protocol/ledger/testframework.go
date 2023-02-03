@@ -77,7 +77,7 @@ func NewTestFramework(test *testing.T, instance *Ledger) *TestFramework {
 		outputIDsByAlias:    make(map[string]utxo.OutputID),
 	}
 
-	genesisOutput := NewMockedOutput(utxo.EmptyTransactionID, 0)
+	genesisOutput := NewMockedOutput(utxo.EmptyTransactionID, 0, 0)
 	cachedObject, stored := t.Instance.Storage.OutputStorage.StoreIfAbsent(genesisOutput)
 	if stored {
 		cachedObject.Release()
@@ -387,13 +387,16 @@ type mockedOutput struct {
 	// Index contains the Index of the Output in respect to it's creating Transaction (the nth Output will have the
 	// Index n).
 	Index uint16 `serix:"1"`
+
+	Balance uint64 `serix:"2"`
 }
 
 // NewMockedOutput creates a new MockedOutput based on the utxo.TransactionID and its index within the MockedTransaction.
-func NewMockedOutput(txID utxo.TransactionID, index uint16) (out *MockedOutput) {
+func NewMockedOutput(txID utxo.TransactionID, index uint16, balance uint64) (out *MockedOutput) {
 	out = model.NewStorable[utxo.OutputID, MockedOutput](&mockedOutput{
-		TxID:  txID,
-		Index: index,
+		TxID:    txID,
+		Index:   index,
+		Balance: balance,
 	})
 	out.SetID(utxo.OutputID{TransactionID: txID, Index: index})
 	return out
@@ -497,12 +500,12 @@ func (m *MockedVM) ResolveInput(input utxo.Input) (outputID utxo.OutputID) {
 
 // ExecuteTransaction executes the Transaction and determines the Outputs from the given Inputs. It returns an error
 // if the execution fails.
-func (m *MockedVM) ExecuteTransaction(transaction utxo.Transaction, _ *utxo.Outputs, _ ...uint64) (outputs []utxo.Output, err error) {
+func (m *MockedVM) ExecuteTransaction(transaction utxo.Transaction, inputs *utxo.Outputs, _ ...uint64) (outputs []utxo.Output, err error) {
 	mockedTransaction := transaction.(*MockedTransaction)
 
 	outputs = make([]utxo.Output, mockedTransaction.M.OutputCount)
 	for i := uint16(0); i < mockedTransaction.M.OutputCount; i++ {
-		outputs[i] = NewMockedOutput(mockedTransaction.ID(), i)
+		outputs[i] = NewMockedOutput(mockedTransaction.ID(), i, uint64(i))
 		outputs[i].SetID(utxo.NewOutputID(mockedTransaction.ID(), i))
 	}
 
