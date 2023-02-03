@@ -255,30 +255,34 @@ func (p *Protocol) switchEngines() {
 		return
 	}
 
-	// Save a reference to the current main engine and storage so that we can shut it down and prune it after switching
-	oldEngine := p.mainEngine
-
-	if err := p.engineManager.SetActiveInstance(p.candidateEngine); err != nil {
-		p.Events.Error.Trigger(errors.Wrap(err, "error switching engines"))
+	// Try to re-org the chain manager
+	if err := p.chainManager.SwitchMainChain(p.candidateEngine.Engine.Storage.Settings.LatestCommitment().ID()); err != nil {
 		p.activeEngineMutex.Unlock()
+		p.Events.Error.Trigger(errors.Wrap(err, "switching main chain failed"))
 		return
 	}
+
+	if err := p.engineManager.SetActiveInstance(p.candidateEngine); err != nil {
+		p.activeEngineMutex.Unlock()
+		p.Events.Error.Trigger(errors.Wrap(err, "error switching engines"))
+		return
+	}
+
+	// Stop current Scheduler
+	p.CongestionControl.Shutdown()
+
+	p.linkTo(p.mainEngine)
+
+	// Save a reference to the current main engine and storage so that we can shut it down and prune it after switching
+	oldEngine := p.mainEngine
+	oldEngine.Shutdown()
 
 	p.mainEngine = p.candidateEngine
 	p.candidateEngine = nil
 
-	p.linkTo(p.mainEngine)
-
-	if err := p.chainManager.SwitchMainChain(p.Engine().Storage.Settings.LatestCommitment().ID()); err != nil {
-		p.Events.Error.Trigger(errors.Wrap(err, "switching main chain failed"))
-	}
-
 	p.activeEngineMutex.Unlock()
 
 	p.Events.MainEngineSwitched.Trigger(p.MainEngineInstance())
-
-	// Shutdown old engine and storage
-	oldEngine.Shutdown()
 
 	// TODO: copy over old epochs from the old engine to the new one
 

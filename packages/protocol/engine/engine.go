@@ -128,6 +128,7 @@ func New(
 func (e *Engine) Shutdown() {
 	if !e.WasStopped() {
 		e.TriggerStopped()
+		e.BlockRequester.Shutdown()
 		e.Ledger.Shutdown()
 		e.Workers.Shutdown()
 	}

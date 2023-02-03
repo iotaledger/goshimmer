@@ -19,9 +19,8 @@ import (
 )
 
 var (
-	ErrCommitmentUnknown                  = errors.New("unknown commitment")
-	ErrCommitmentNotSolid                 = errors.New("commitment not solid")
-	ErrCommitmentIsAlreadyPartOfMainChain = errors.New("commitment is already part of the main chain")
+	ErrCommitmentUnknown  = errors.New("unknown commitment")
+	ErrCommitmentNotSolid = errors.New("commitment not solid")
 )
 
 type Manager struct {
@@ -102,6 +101,10 @@ func (m *Manager) handleFork(commitment *Commitment, chain *Chain, source identi
 		return
 	}
 
+	if forkingPoint == nil {
+		return
+	}
+
 	// Do not trigger another event for the same forking point.
 	if commitmentsStorage.Has(forkingPoint.ID()) {
 		return
@@ -150,9 +153,7 @@ func (m *Manager) ProcessCommitment(commitment *commitment.Commitment) (isSolid 
 
 	if !published {
 		if err := m.switchMainChainToCommitment(chainCommitment); err != nil {
-			if !errors.Is(err, ErrCommitmentIsAlreadyPartOfMainChain) {
-				panic(err)
-			}
+			panic(err)
 		}
 	}
 
@@ -242,10 +243,6 @@ func (m *Manager) forkingPointAgainstMainChain(commitment *Commitment) (*Commitm
 		}
 	}
 
-	if forkingCommitment == nil {
-		return nil, errors.Wrapf(ErrCommitmentIsAlreadyPartOfMainChain, "commitment %s has no forking point", commitment.ID())
-	}
-
 	return forkingCommitment, nil
 }
 
@@ -271,6 +268,11 @@ func (m *Manager) switchMainChainToCommitment(commitment *Commitment) error {
 	forkingPoint, err := m.forkingPointAgainstMainChain(commitment)
 	if err != nil {
 		return err
+	}
+
+	//  commitment is already part of the main chain
+	if forkingPoint == nil {
+		return nil
 	}
 
 	parentCommitment, _ := m.Commitment(forkingPoint.Commitment().PrevID())
