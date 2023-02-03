@@ -39,7 +39,7 @@ func main() {
 	case "commitments":
 		CommitmentsSpam(&commitmentsSpamParams)
 	default:
-		log.Warnf("Unknown parameter for script, possible values: basic, quick, interactive")
+		log.Warnf("Unknown parameter for script, possible values: basic, quick, commitments")
 	}
 }
 
