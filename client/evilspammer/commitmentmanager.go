@@ -1,12 +1,11 @@
 package evilspammer
 
 import (
+	"crypto/sha256"
 	"github.com/iotaledger/goshimmer/client/evilwallet"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/pkg/errors"
-	"golang.org/x/crypto/blake2b"
 	"math/rand"
 )
 
@@ -54,11 +53,10 @@ func (c *CommitmentManager) GenerateCommitment(clt evilwallet.Client) (*commitme
 		if err != nil {
 			return nil, 0, errors.Wrap(err, "failed to parse commitment bytes")
 		}
-		dummyRoot := blake2b.Sum256(byteutils.ConcatBytes(comm.RootsID().Bytes(), []byte{byte(rand.Int())}))
 		newCommitment := commitment.New(
 			comm.Index(),
 			comm.PrevID(),
-			dummyRoot,
+			randomRoot(),
 			comm.CumulativeWeight(),
 		)
 		return newCommitment, epoch.Index(resp.LatestConfirmedIndex), nil
@@ -76,4 +74,12 @@ func (c *CommitmentManager) GenerateCommitment(clt evilwallet.Client) (*commitme
 		return comm, epoch.Index(resp.LatestConfirmedIndex), nil
 	}
 	return nil, 0, nil
+}
+
+func randomRoot() [32]byte {
+	data := make([]byte, 10)
+	for i := range data {
+		data[i] = byte(rand.Intn(256))
+	}
+	return sha256.Sum256(data)
 }
