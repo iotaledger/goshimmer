@@ -25,7 +25,7 @@ var (
 		DelayBetweenConflicts: 0,
 		Scenario:              evilwallet.Scenario1(),
 		DeepSpam:              false,
-		EnableRateSetter:      true,
+		EnableRateSetter:      false,
 	}
 	quickTest = QuickTestParams{
 		ClientURLs:            urls,
@@ -33,6 +33,6 @@ var (
 		Duration:              time.Second * 30,
 		TimeUnit:              time.Second,
 		DelayBetweenConflicts: 0,
-		EnableRateSetter:      true,
+		EnableRateSetter:      false,
 	}
 )
