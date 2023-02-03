@@ -1,8 +1,9 @@
 package storage
 
 import (
-	"github.com/iotaledger/hive.go/core/generics/options"
 	"sync"
+
+	"github.com/iotaledger/hive.go/core/generics/options"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"

@@ -150,7 +150,6 @@ func CreateSnapshotForIntegrationTest(workers *workerpool.Group, s *storage.Stor
 var outputCounter uint16 = 1
 
 func createOutput(ledgerVM vm.VM, publicKey ed25519.PublicKey, tokenAmount uint64, pledgeID identity.ID, includedInEpoch epoch.Index) (output utxo.Output, outputMetadata *ledger.OutputMetadata) {
-
 	switch ledgerVM.(type) {
 	case *ledger.MockedVM:
 		output = ledger.NewMockedOutput(utxo.EmptyTransactionID, outputCounter, tokenAmount)

@@ -115,7 +115,6 @@ func (o *OutputWithMetadata) IOTABalance() (balance uint64, exists bool) {
 		return output.M.Balance, true
 	default:
 		panic(fmt.Sprintf("unknown output type '%s'", output))
-		return 0, false
 	}
 }
 

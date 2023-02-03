@@ -3,7 +3,6 @@ package protocol
 import (
 	"errors"
 	"fmt"
-	"github.com/iotaledger/goshimmer/packages/core/database"
 	"testing"
 	"time"
 
@@ -21,6 +20,7 @@ import (
 	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
@@ -726,7 +726,6 @@ type NodeOnMockedNetwork struct {
 }
 
 func newNode(t *testing.T, keyPair ed25519.KeyPair, network *network.MockedNetwork, partition string, snapshotPath string, engineOpts ...options.Option[engine.Engine]) *NodeOnMockedNetwork {
-
 	id := identity.New(keyPair.PublicKey)
 
 	node := &NodeOnMockedNetwork{
@@ -834,12 +833,7 @@ func (n *NodeOnMockedNetwork) HookLogging(includeMainEngine bool) {
 }
 
 func (n *NodeOnMockedNetwork) attachEngineLogs(instance *enginemanager.EngineInstance) {
-
-	engineName := "Main"
-	if n.Protocol.Engine() != instance.Engine {
-		engineName = "Candidate"
-	}
-	engineName = fmt.Sprintf("%s - %s", engineName, instance.Name()[:8])
+	engineName := fmt.Sprintf("%s - %s", lo.Cond(n.Protocol.Engine() != instance.Engine, "Candidate", "Main"), instance.Name()[:8])
 	events := instance.Engine.Events
 
 	events.Tangle.BlockDAG.BlockAttached.Hook(event.NewClosure(func(block *blockdag.Block) {
@@ -1107,7 +1101,16 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 		require.Equal(t, node1.Protocol.Engine().Storage.Settings.LatestCommitment(), node4.Protocol.Engine().Storage.Settings.LatestCommitment())
 	}
 
-	waitOnAllNodes := func() {
+	waitOnAllNodes := func(delay ...time.Duration) {
+		if len(delay) > 0 {
+			node1.Wait()
+			node2.Wait()
+			node3.Wait()
+			node4.Wait()
+
+			time.Sleep(delay[0])
+		}
+
 		node1.Wait()
 		node2.Wait()
 		node3.Wait()
@@ -1138,7 +1141,7 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 		blockF := node2.IssueBlockAtEpoch("P1.F", 10, blockE.ID())
 		blockG := node1.IssueBlockAtEpoch("P1.G", 11, blockF.ID())
 
-		waitOnAllNodes()
+		waitOnAllNodes(200 * time.Millisecond) // Give some time for the blocks to arrive over the network
 
 		assertBlockExistsOnNodes(blockA.ID(), node1, node2)
 		assertBlockExistsOnNodes(blockB.ID(), node1, node2)
@@ -1181,7 +1184,7 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 		blockF := node4.IssueBlockAtEpoch("P2.E", 10, blockE.ID())
 		blockG := node3.IssueBlockAtEpoch("P2.E", 11, blockF.ID())
 
-		waitOnAllNodes()
+		waitOnAllNodes(200 * time.Millisecond) // Give some time for the blocks to arrive over the network
 
 		assertBlockExistsOnNodes(blockA.ID(), node3, node4)
 		assertBlockExistsOnNodes(blockB.ID(), node3, node4)
