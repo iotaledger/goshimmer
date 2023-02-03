@@ -41,6 +41,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/goshimmer/packages/storage/utils"
 )
 
@@ -617,7 +618,14 @@ func TestEngine_ShutdownResume(t *testing.T) {
 
 	workers := workerpool.NewGroup(t.Name())
 
-	tf := NewDefaultEngineTestFramework(t, workers.CreateGroup("EngineTestFramework1"),
+	testDir := t.TempDir()
+	engine1Storage := storage.New(testDir, DatabaseVersion)
+	t.Cleanup(func() {
+		workers.Wait()
+		engine1Storage.Shutdown()
+	})
+
+	engine1 := NewTestEngine(t, workers.CreateGroup("Engine"), engine1Storage,
 		engine.WithLedgerOptions(ledger.WithVM(ledgerVM)),
 		engine.WithTangleOptions(
 			tangle.WithBookerOptions(
@@ -627,6 +635,8 @@ func TestEngine_ShutdownResume(t *testing.T) {
 			),
 		),
 	)
+
+	tf := NewEngineTestFramework(t, workers.CreateGroup("EngineTestFramework1"), engine1)
 
 	tf.Engine.NotarizationManager.Events.Error.Hook(event.NewClosure(func(err error) {
 		panic(err)
@@ -657,7 +667,24 @@ func TestEngine_ShutdownResume(t *testing.T) {
 
 	tf.Engine.Shutdown()
 
-	tf2 := NewDefaultEngineTestFramework(t, workers.CreateGroup("EngineTestFramework2"), engine.WithLedgerOptions(ledger.WithVM(ledgerVM)))
+	engine2Storage := storage.New(testDir, DatabaseVersion)
+	t.Cleanup(func() {
+		workers.Wait()
+		engine2Storage.Shutdown()
+	})
+
+	engine2 := NewTestEngine(t, workers.CreateGroup("Engine2"), engine2Storage,
+		engine.WithLedgerOptions(ledger.WithVM(ledgerVM)),
+		engine.WithTangleOptions(
+			tangle.WithBookerOptions(
+				booker.WithMarkerManagerOptions(
+					markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(1)),
+				),
+			),
+		),
+	)
+
+	tf2 := NewEngineTestFramework(t, workers.CreateGroup("EngineTestFramework2"), engine2)
 	require.NoError(t, tf2.Engine.Initialize(""))
 	workers.Wait()
 	tf2.AssertEpochState(0)
