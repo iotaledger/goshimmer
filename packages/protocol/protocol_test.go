@@ -928,7 +928,9 @@ func (n *NodeOnMockedNetwork) IssueBlockAtEpoch(alias string, epochIndex epoch.I
 	)
 	n.EngineTestFramework.BlockDAG.IssueBlocks(alias)
 	fmt.Println(n.Name, alias, n.Workers)
-	return n.EngineTestFramework.BlockDAG.Block(alias)
+	block := n.EngineTestFramework.BlockDAG.Block(alias)
+	fmt.Printf("%s > IssueBlockAtEpoch: %s with %s\n", n.Name, block.ID(), block.Commitment().ID())
+	return block
 }
 
 func (n *NodeOnMockedNetwork) IssueBlock(alias string, parents ...models.BlockID) *models.Block {
