@@ -1,39 +1,20 @@
 package event
 
-import (
-	"sync"
-	"sync/atomic"
+type Hook[FuncType any] struct {
+	trigger FuncType
+	unhook  func()
 
-	"github.com/iotaledger/hive.go/core/workerpool"
-)
-
-type Hook[TriggerFuncType any] struct {
-	callback        TriggerFuncType
-	workerPool      *workerpool.UnboundedWorkerPool
-	triggerCount    atomic.Uint64
-	maxTriggerCount uint64
-	unhook          func()
-	unhookOnce      sync.Once
+	triggerSettings
 }
 
-func (h *Hook[F]) Unhook() {
-	h.unhookOnce.Do(h.unhook)
-}
-
-func (h *Hook[TriggerFuncType]) shouldTrigger() bool {
-	if h.triggerCount.Add(1) > h.maxTriggerCount && h.maxTriggerCount > 0 {
-		return false
+func newHook[TriggerFunc any](trigger TriggerFunc, unhook func(), opts ...Option) *Hook[TriggerFunc] {
+	return &Hook[TriggerFunc]{
+		trigger:         trigger,
+		unhook:          unhook,
+		triggerSettings: *newTriggerSettings(opts...),
 	}
-
-	return true
 }
 
-func (h *Hook[TriggerFuncType]) setMaxTriggerCount(maxTriggerCount uint64) {
-	h.maxTriggerCount = maxTriggerCount
+func (h *Hook[TriggerFunc]) Unhook() {
+	h.unhook()
 }
-
-func (h *Hook[TriggerFuncType]) setWorkerPool(workerPool *workerpool.UnboundedWorkerPool) {
-	h.workerPool = workerPool
-}
-
-var _ configurable = &Hook[any]{}
