@@ -19,23 +19,25 @@ func New(opts ...Option) *Event {
 }
 
 func (w *Event) Trigger() {
-	if w.triggerCount.Add(1) < w.maxTriggerCount || w.maxTriggerCount == 0 {
-		w.hooks.ForEach(func(_ uint64, hook *Hook[func()]) bool {
-			if hook.triggerCount.Add(1) >= hook.maxTriggerCount && hook.maxTriggerCount > 0 {
-				return true
-			}
+	if w.MaxTriggerCountReached() {
+		return
+	}
 
-			if hook.workerPool == nil {
-				hook.trigger()
-
-				return true
-			}
-
-			hook.workerPool.Submit(hook.trigger)
+	w.hooks.ForEach(func(_ uint64, hook *Hook[func()]) bool {
+		if hook.MaxTriggerCountReached() {
+			hook.Unhook()
 
 			return true
-		})
-	}
+		}
+
+		if workerPool := w.targetWorkerPool(hook); workerPool == nil {
+			hook.trigger()
+		} else {
+			workerPool.Submit(hook.trigger)
+		}
+
+		return true
+	})
 }
 
 type event[TriggerFunc any] struct {
