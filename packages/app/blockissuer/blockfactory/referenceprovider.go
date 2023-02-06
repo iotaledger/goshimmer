@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/generics/walker"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -219,39 +218,30 @@ func (r *ReferenceProvider) addedReferencesForConflicts(conflictIDs utxo.Transac
 func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, excludedConflictIDs utxo.TransactionIDs) (adjust bool, attachmentID models.BlockID, err error) {
 	engineInstance := r.protocol.Engine()
 
-	for w := walker.New[utxo.TransactionID](false).Push(conflictID); w.HasNext(); {
-		currentConflictID := w.Next()
+	likedConflictID, dislikedConflictIDs := engineInstance.Consensus.AdjustOpinion(conflictID)
 
-		if likedConflictID, dislikedConflictIDs := engineInstance.Consensus.LikedConflictMember(currentConflictID); !likedConflictID.IsEmpty() {
-			// only triggers in first iteration
-			if likedConflictID == conflictID {
-				return false, models.EmptyBlockID, nil
-			}
-
-			attachment, err := r.latestValidAttachment(likedConflictID)
-			if err != nil {
-				fmt.Println(">> ++ latestValidAttachment failed adjust opinion", err)
-				continue
-			}
-
-			// Check if the attachment has a monotonic commitment.
-			if attachment.Commitment().Index() > r.protocol.Engine().Storage.Settings.LatestCommitment().Index() {
-				return true, models.EmptyBlockID, nil
-			}
-
-			excludedConflictIDs.AddAll(engineInstance.Ledger.Utils.ConflictIDsInFutureCone(dislikedConflictIDs))
-
-			return true, attachment.ID(), nil
-		}
-
-		// only walk deeper if we don't like "something else"
-		conflict, exists := engineInstance.Ledger.ConflictDAG.Conflict(currentConflictID)
-		if exists {
-			w.PushFront(conflict.Parents().Slice()...)
-		}
+	if likedConflictID.IsEmpty() {
+		return false, models.EmptyBlockID, errors.Errorf("failed to adjust opinion for %s", conflictID)
 	}
 
-	return false, models.EmptyBlockID, errors.Errorf("failed to adjust opinion for %s", conflictID)
+	if likedConflictID == conflictID {
+		return false, models.EmptyBlockID, nil
+	}
+
+	attachment, err := r.latestValidAttachment(likedConflictID)
+	if err != nil {
+		fmt.Println(">> ++ latestValidAttachment failed adjust opinion", err)
+		return false, models.EmptyBlockID, err
+	}
+
+	// Check if the attachment has a monotonic commitment.
+	if attachment.Commitment().Index() > r.protocol.Engine().Storage.Settings.LatestCommitment().Index() {
+		return true, models.EmptyBlockID, nil
+	}
+
+	excludedConflictIDs.AddAll(engineInstance.Ledger.Utils.ConflictIDsInFutureCone(dislikedConflictIDs))
+
+	return true, attachment.ID(), nil
 }
 
 // latestValidAttachment returns the first valid attachment of the given transaction.

@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 
 	"github.com/iotaledger/goshimmer/packages/app/collector"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
@@ -122,8 +123,9 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 		collector.WithLabels(labelName),
 		collector.WithHelp("Number of transaction attachments by the node per epoch."),
 		collector.WithInitFunc(func() {
-			deps.Protocol.Events.Engine.Tangle.Booker.AttachmentCreated.Attach(event.NewClosure(func(attachmentBlock *booker.AttachmentBlock) {
-				eventEpoch := int(attachmentBlock.ID().Index())
+			deps.Protocol.Events.Engine.Tangle.Booker.AttachmentCreated.Attach(event.NewClosure(func(block *booker.Block) {
+				fmt.Println("attachment created", lo.Return1(block.Transaction()).ID(), block)
+				eventEpoch := int(block.ID().Index())
 				deps.Collector.Increment(epochNamespace, totalAttachments, strconv.Itoa(eventEpoch))
 			}))
 		}),
@@ -133,8 +135,9 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 		collector.WithLabels(labelName),
 		collector.WithHelp("Number of orphaned attachments by the node per epoch."),
 		collector.WithInitFunc(func() {
-			deps.Protocol.Events.Engine.Tangle.Booker.AttachmentOrphaned.Attach(event.NewClosure(func(attachmentBlock *booker.AttachmentBlock) {
-				eventEpoch := int(attachmentBlock.ID().Index())
+			deps.Protocol.Events.Engine.Tangle.Booker.AttachmentOrphaned.Attach(event.NewClosure(func(block *booker.Block) {
+				fmt.Println("attachment orphaned", lo.Return1(block.Transaction()).ID(), block)
+				eventEpoch := int(block.ID().Index())
 				deps.Collector.Increment(epochNamespace, orphanedAttachments, strconv.Itoa(eventEpoch))
 			}))
 		}),
@@ -147,7 +150,8 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 			deps.Protocol.Events.Engine.Ledger.TransactionRejected.Attach(event.NewClosure(func(transactionMetadata *ledger.TransactionMetadata) {
 				for it := deps.Protocol.Engine().Tangle.Booker.GetAllAttachments(transactionMetadata.ID()).Iterator(); it.HasNext(); {
 					attachmentBlock := it.Next()
-					if !attachmentBlock.AttachmentOrphaned() {
+					fmt.Println("attachment rejected", lo.Return1(attachmentBlock.Transaction()).ID(), attachmentBlock)
+					if !attachmentBlock.IsOrphaned() {
 						deps.Collector.Increment(epochNamespace, rejectedAttachments, strconv.Itoa(int(attachmentBlock.ID().Index())))
 					}
 				}
@@ -162,7 +166,8 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 			deps.Protocol.Events.Engine.Ledger.TransactionAccepted.Attach(event.NewClosure(func(transactionEvent *ledger.TransactionEvent) {
 				for it := deps.Protocol.Engine().Tangle.Booker.GetAllAttachments(transactionEvent.Metadata.ID()).Iterator(); it.HasNext(); {
 					attachmentBlock := it.Next()
-					if !attachmentBlock.AttachmentOrphaned() {
+					fmt.Println("attachment accepted", lo.Return1(attachmentBlock.Transaction()).ID(), attachmentBlock)
+					if !attachmentBlock.IsOrphaned() {
 						deps.Collector.Increment(epochNamespace, acceptedAttachments, strconv.Itoa(int(attachmentBlock.ID().Index())))
 					}
 				}

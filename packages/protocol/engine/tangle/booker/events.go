@@ -10,8 +10,8 @@ import (
 
 type Events struct {
 	BlockBooked         *event.Linkable[*Block]
-	AttachmentCreated   *event.Linkable[*AttachmentBlock]
-	AttachmentOrphaned  *event.Linkable[*AttachmentBlock]
+	AttachmentCreated   *event.Linkable[*Block]
+	AttachmentOrphaned  *event.Linkable[*Block]
 	BlockConflictAdded  *event.Linkable[*BlockConflictAddedEvent]
 	MarkerConflictAdded *event.Linkable[*MarkerConflictAddedEvent]
 	Error               *event.Linkable[error]
@@ -25,8 +25,8 @@ type Events struct {
 var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 	return &Events{
 		BlockBooked:         event.NewLinkable[*Block](),
-		AttachmentCreated:   event.NewLinkable[*AttachmentBlock](),
-		AttachmentOrphaned:  event.NewLinkable[*AttachmentBlock](),
+		AttachmentCreated:   event.NewLinkable[*Block](),
+		AttachmentOrphaned:  event.NewLinkable[*Block](),
 		BlockConflictAdded:  event.NewLinkable[*BlockConflictAddedEvent](),
 		MarkerConflictAdded: event.NewLinkable[*MarkerConflictAddedEvent](),
 		Error:               event.NewLinkable[error](),

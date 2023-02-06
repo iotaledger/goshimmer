@@ -57,10 +57,35 @@ func (o *ConflictResolver) LikedConflictMember(conflictID utxo.TransactionID) (l
 	return likedConflict, dislikedConflicts
 }
 
+// AdjustOpinion returns the reference that is necessary to correct our opinion on the given conflict.
+func (o *ConflictResolver) AdjustOpinion(conflictID utxo.TransactionID) (likedConflict utxo.TransactionID, dislikedConflicts utxo.TransactionIDs) {
+	dislikedConflicts = utxo.NewTransactionIDs()
+
+	for w := walker.New[utxo.TransactionID](false).Push(conflictID); w.HasNext(); {
+		currentConflictID := w.Next()
+
+		likedConflictID, dislikedConflictIDs := o.LikedConflictMember(currentConflictID)
+
+		dislikedConflicts.AddAll(dislikedConflictIDs)
+
+		if !likedConflictID.IsEmpty() {
+			likedConflict = likedConflictID
+			break
+		}
+		// only walk deeper if we don't like "something else"
+		conflict, exists := o.conflictDAG.Conflict(currentConflictID)
+		if exists {
+			w.PushFront(conflict.Parents().Slice()...)
+		}
+	}
+
+	return likedConflict, dislikedConflicts
+}
+
 // ConflictLiked returns whether the conflict is the winner across all conflict sets (it is in the liked reality).
 func (o *ConflictResolver) ConflictLiked(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) (conflictLiked bool) {
 	conflictLiked = true
-	if conflict.ID() == utxo.EmptyTransactionID {
+	if conflict.ID().IsEmpty() {
 		return
 	}
 	// TODO: this should never happen?
@@ -77,7 +102,7 @@ func (o *ConflictResolver) ConflictLiked(conflict *conflictdag.Conflict[utxo.Tra
 // conflictPreferred returns whether the conflict is the winner across its conflict sets.
 func (o *ConflictResolver) conflictPreferred(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID], likeWalker *walker.Walker[*conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]]) (preferred bool) {
 	preferred = true
-	if conflict.ID() == utxo.EmptyTransactionID {
+	if conflict.ID().IsEmpty() {
 		return
 	}
 	// TODO: this should never happen?

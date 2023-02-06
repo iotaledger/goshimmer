@@ -117,7 +117,7 @@ func (c *TipsConflictTracker) MissingConflicts(amount int) (missingConflicts utx
 		}
 
 		// We want to reintroduce only the pending conflict that is liked.
-		likedConflictID, dislikedConflictsInner := c.engine.Consensus.LikedConflictMember(conflictID)
+		likedConflictID, dislikedConflictsInner := c.engine.Consensus.AdjustOpinion(conflictID)
 		dislikedConflicts.AddAll(dislikedConflictsInner)
 
 		if likedConflictID != conflictID {

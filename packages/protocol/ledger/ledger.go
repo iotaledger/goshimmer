@@ -105,9 +105,9 @@ func New(chainStorage *storage.Storage, evictionState *eviction.State, opts ...o
 	ledger.dataFlow = newDataFlow(ledger)
 	ledger.Utils = newUtils(ledger)
 
-	ledger.Events.TransactionOrphaned.Attach(event.NewClosure(func(event *TransactionEvent) {
-		ledger.ConflictDAG.HandleOrphanedConflict(event.Metadata.ID())
-	}))
+	//ledger.Events.TransactionOrphaned.Attach(event.NewClosure(func(event *TransactionEvent) {
+	//	ledger.ConflictDAG.HandleOrphanedConflict(event.Metadata.ID())
+	//}))
 
 	ledger.ConflictDAG.Events.ConflictAccepted.Attach(event.NewClosure(ledger.propagateAcceptanceToIncludedTransactions))
 

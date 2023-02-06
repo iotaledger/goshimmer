@@ -31,7 +31,7 @@ func TestReferenceProvider_References1(t *testing.T) {
 	tangleTF.IssueBlocks("Block1", "Block2", "Block3", "Block4")
 	tf.WaitUntilAllTasksProcessed()
 
-	rp := NewReferenceProvider(tf.Protocol, func() epoch.Index {
+	rp := NewReferenceProvider(tf.Protocol, 30*time.Second, func() epoch.Index {
 		return 0
 	})
 
@@ -58,7 +58,7 @@ func TestBlockFactory_PrepareLikedReferences_2(t *testing.T) {
 	tangleTF.IssueBlocks("Block0", "Block1", "Block2", "Block3", "Block4")
 	tf.WaitUntilAllTasksProcessed()
 
-	rp := NewReferenceProvider(tf.Protocol, func() epoch.Index {
+	rp := NewReferenceProvider(tf.Protocol, 30*time.Second, func() epoch.Index {
 		return 0
 	})
 
@@ -113,7 +113,7 @@ func TestBlockFactory_WeakReferencesConsumed(t *testing.T) {
 	tangleTF.IssueBlocks("Block1", "Block2", "Block3", "Block4")
 	tf.WaitUntilAllTasksProcessed()
 
-	rp := NewReferenceProvider(tf.Protocol, func() epoch.Index {
+	rp := NewReferenceProvider(tf.Protocol, 30*time.Second, func() epoch.Index {
 		return 0
 	})
 

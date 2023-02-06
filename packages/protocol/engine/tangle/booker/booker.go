@@ -180,7 +180,7 @@ func (b *Booker) GetLatestAttachment(txID utxo.TransactionID, returnOrphaned ...
 	return b.attachments.getLatestAttachment(txID, returnOrphaned...)
 }
 
-func (b *Booker) GetAllAttachments(txID utxo.TransactionID) (attachments *set.AdvancedSet[*AttachmentBlock]) {
+func (b *Booker) GetAllAttachments(txID utxo.TransactionID) (attachments *set.AdvancedSet[*Block]) {
 	return b.attachments.GetAttachmentBlocks(txID)
 }
 
@@ -201,8 +201,8 @@ func (b *Booker) isPayloadSolid(block *Block) (isPayloadSolid bool, err error) {
 		return true, nil
 	}
 
-	if attachmentBlock, created := b.attachments.Store(tx.ID(), block); created {
-		b.Events.AttachmentCreated.Trigger(attachmentBlock)
+	if b.attachments.Store(tx.ID(), block) {
+		b.Events.AttachmentCreated.Trigger(block)
 	}
 
 	if err = b.Ledger.StoreAndProcessTransaction(
@@ -462,7 +462,7 @@ func (b *Booker) setupEvents() {
 
 func (b *Booker) OrphanAttachment(block *Block) {
 	if tx, isTx := block.Transaction(); isTx {
-		attachmentBlock, attachmentOrphaned, lastAttachmentOrphaned := b.attachments.OrphanAttachment(tx.ID(), block)
+		attachmentBlock, attachmentOrphaned, lastAttachmentOrphaned := b.attachments.AttachmentOrphaned(tx.ID(), block)
 
 		if attachmentOrphaned {
 			b.Events.AttachmentOrphaned.Trigger(attachmentBlock)

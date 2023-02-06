@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"sync"
@@ -19,10 +18,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/storage"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
@@ -34,7 +31,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tsc"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
@@ -343,11 +339,11 @@ func (e *Engine) initClock() {
 func (e *Engine) initTSCManager() {
 	e.TSCManager = tsc.New(e.Consensus.BlockGadget.IsBlockAccepted, e.Tangle, e.optsTSCManagerOptions...)
 
-	e.Events.Tangle.Booker.BlockBooked.Attach(event.NewClosure(e.TSCManager.AddBlock))
+	//e.Events.Tangle.Booker.BlockBooked.Attach(event.NewClosure(e.TSCManager.AddBlock))
 
-	e.Events.Clock.AcceptanceTimeUpdated.Attach(event.NewClosure(func(event *clock.TimeUpdateEvent) {
-		e.TSCManager.HandleTimeUpdate(event.NewTime)
-	}))
+	//e.Events.Clock.AcceptanceTimeUpdated.Attach(event.NewClosure(func(event *clock.TimeUpdateEvent) {
+	//	e.TSCManager.HandleTimeUpdate(event.NewTime)
+	//}))
 }
 
 func (e *Engine) initBlockStorage() {
@@ -370,11 +366,6 @@ func (e *Engine) initNotarizationManager() {
 			e.Events.Error.Trigger(errors.Wrapf(err, "failed to add accepted block %s to epoch", block.ID()))
 		}
 	}), 1)
-	e.Tangle.Events.BlockDAG.BlockOrphaned.AttachWithWorkerPool(event.NewClosure(func(block *blockdag.Block) {
-		if err := e.NotarizationManager.NotarizeOrphanedBlock(block.ModelsBlock); err != nil {
-			e.Events.Error.Trigger(errors.Wrapf(err, "failed to remove orphaned block %s from epoch", block.ID()))
-		}
-	}), wp)
 	e.workerPools["NotarizationManager.Blocks"] = wp
 
 	// TODO: Why is it hooked?
@@ -401,65 +392,65 @@ func (e *Engine) initNotarizationManager() {
 	}), 1)
 	e.workerPools["NotarizationManager.Commitments"] = wp
 
-	e.Events.Tangle.Booker.AttachmentCreated.Hook(event.NewClosure(func(block *booker.AttachmentBlock) {
-		if tx, ok := block.Transaction(); ok {
-			if conflict, conflictExists := e.Ledger.ConflictDAG.Conflict(tx.ID()); conflictExists && conflict.ConfirmationState().IsPending() {
-				e.NotarizationManager.AddConflictingAttachment(block.ModelsBlock)
-			}
-		}
-	}))
-	e.Events.Tangle.Booker.AttachmentOrphaned.Hook(event.NewClosure(func(attachmentBlock *booker.AttachmentBlock) {
-		if tx, ok := attachmentBlock.Transaction(); ok {
-			conflict, conflictExists := e.Ledger.ConflictDAG.Conflict(tx.ID())
-			var isPending bool
-			if conflictExists {
-				isPending = conflict.ConfirmationState().IsPending()
-			}
-			fmt.Println("<< attachment orphaned", attachmentBlock.ID(), conflictExists, isPending)
-			if conflictExists {
-				e.NotarizationManager.DeleteConflictingAttachment(attachmentBlock.ID())
-			}
-		}
-	}))
-	e.Ledger.ConflictDAG.Events.ConflictCreated.Hook(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-		for it := e.Tangle.Booker.GetAllAttachments(conflict.ID()).Iterator(); it.HasNext(); {
-			attachmentBlock := it.Next()
-
-			if !attachmentBlock.AttachmentOrphaned() && conflict.ConfirmationState().IsPending() {
-				e.NotarizationManager.AddConflictingAttachment(attachmentBlock.ModelsBlock)
-			}
-		}
-	}))
-	e.Ledger.ConflictDAG.Events.ConflictAccepted.Hook(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-		for it := e.Tangle.Booker.GetAllAttachments(conflict.ID()).Iterator(); it.HasNext(); {
-			attachmentBlock := it.Next()
-
-			fmt.Printf("<< conflict accepted %s attachment %s isOrphaned %t\n", conflict.ID(), attachmentBlock.ID(), attachmentBlock.AttachmentOrphaned())
-			if !attachmentBlock.AttachmentOrphaned() {
-				e.NotarizationManager.DeleteConflictingAttachment(attachmentBlock.ID())
-			}
-		}
-	}))
-	e.Ledger.ConflictDAG.Events.ConflictRejected.Hook(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-		for it := e.Tangle.Booker.GetAllAttachments(conflict.ID()).Iterator(); it.HasNext(); {
-			attachmentBlock := it.Next()
-
-			fmt.Println("<< conflict rejected", attachmentBlock.ID(), attachmentBlock.AttachmentOrphaned())
-			if !attachmentBlock.AttachmentOrphaned() {
-				e.NotarizationManager.DeleteConflictingAttachment(attachmentBlock.ID())
-			}
-		}
-	}))
-	e.Ledger.ConflictDAG.Events.ConflictNotConflicting.Hook(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-		for it := e.Tangle.Booker.GetAllAttachments(conflict.ID()).Iterator(); it.HasNext(); {
-			attachmentBlock := it.Next()
-
-			fmt.Println("<< conflict non conflicting", attachmentBlock.ID(), attachmentBlock.AttachmentOrphaned())
-			if !attachmentBlock.AttachmentOrphaned() {
-				e.NotarizationManager.DeleteConflictingAttachment(attachmentBlock.ID())
-			}
-		}
-	}))
+	//e.Events.Tangle.Booker.AttachmentCreated.Hook(event.NewClosure(func(block *booker.Block) {
+	//	if tx, ok := block.Transaction(); ok {
+	//		if conflict, conflictExists := e.Ledger.ConflictDAG.Conflict(tx.ID()); conflictExists && conflict.ConfirmationState().IsPending() {
+	//			e.NotarizationManager.AddConflictingAttachment(block.ModelsBlock)
+	//		}
+	//	}
+	//}))
+	//e.Events.Tangle.Booker.AttachmentOrphaned.Hook(event.NewClosure(func(attachmentBlock *booker.Block) {
+	//	if tx, ok := attachmentBlock.Transaction(); ok {
+	//		conflict, conflictExists := e.Ledger.ConflictDAG.Conflict(tx.ID())
+	//		var isPending bool
+	//		if conflictExists {
+	//			isPending = conflict.ConfirmationState().IsPending()
+	//		}
+	//		fmt.Println("<< attachment orphaned", attachmentBlock.ID(), conflictExists, isPending)
+	//		if conflictExists {
+	//			e.NotarizationManager.DeleteConflictingAttachment(attachmentBlock.ID())
+	//		}
+	//	}
+	//}))
+	//e.Ledger.ConflictDAG.Events.ConflictCreated.Hook(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	//	for it := e.Tangle.Booker.GetAllAttachments(conflict.ID()).Iterator(); it.HasNext(); {
+	//		attachmentBlock := it.Next()
+	//
+	//		if !attachmentBlock.IsOrphaned() && conflict.ConfirmationState().IsPending() {
+	//			e.NotarizationManager.AddConflictingAttachment(attachmentBlock.ModelsBlock)
+	//		}
+	//	}
+	//}))
+	//e.Ledger.ConflictDAG.Events.ConflictAccepted.Hook(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	//	for it := e.Tangle.Booker.GetAllAttachments(conflict.ID()).Iterator(); it.HasNext(); {
+	//		attachmentBlock := it.Next()
+	//
+	//		fmt.Printf("<< conflict accepted %s attachment %s isOrphaned %t\n", conflict.ID(), attachmentBlock.ID(), attachmentBlock.IsOrphaned())
+	//		if !attachmentBlock.IsOrphaned() {
+	//			e.NotarizationManager.DeleteConflictingAttachment(attachmentBlock.ID())
+	//		}
+	//	}
+	//}))
+	//e.Ledger.ConflictDAG.Events.ConflictRejected.Hook(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	//	for it := e.Tangle.Booker.GetAllAttachments(conflict.ID()).Iterator(); it.HasNext(); {
+	//		attachmentBlock := it.Next()
+	//
+	//		fmt.Println("<< conflict rejected", attachmentBlock.ID(), attachmentBlock.IsOrphaned())
+	//		if !attachmentBlock.IsOrphaned() {
+	//			e.NotarizationManager.DeleteConflictingAttachment(attachmentBlock.ID())
+	//		}
+	//	}
+	//}))
+	//e.Ledger.ConflictDAG.Events.ConflictNotConflicting.Hook(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	//	for it := e.Tangle.Booker.GetAllAttachments(conflict.ID()).Iterator(); it.HasNext(); {
+	//		attachmentBlock := it.Next()
+	//
+	//		fmt.Println("<< conflict non conflicting", attachmentBlock.ID(), attachmentBlock.IsOrphaned())
+	//		if !attachmentBlock.IsOrphaned() {
+	//			e.NotarizationManager.DeleteConflictingAttachment(attachmentBlock.ID())
+	//		}
+	//	}
+	//}))
 
 	e.Events.NotarizationManager.LinkTo(e.NotarizationManager.Events)
 	e.Events.EpochMutations.LinkTo(e.NotarizationManager.EpochMutations.Events)
