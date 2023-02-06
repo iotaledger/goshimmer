@@ -297,7 +297,7 @@ func (p *Protocol) switchEngines() {
 func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) error {
 	mainEngine := p.MainEngineInstance()
 
-	isSolid, chain, _ := p.chainManager.ProcessCommitmentFromSource(block.Commitment(), src)
+	isSolid, _, chain := p.chainManager.ProcessCommitmentFromSource(block.Commitment(), src)
 	if !isSolid {
 		return errors.Errorf("protocol ProcessBlock failed. chain is not solid: %s, latest commitment: %s, block ID: %s", block.Commitment().ID(), mainEngine.Storage.Settings.LatestCommitment().ID(), block.ID())
 	}
@@ -481,8 +481,14 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 	detachRequestBlocks := event.AttachWithWorkerPool(candidateEngine.Engine.Events.BlockRequester.Tick, func(blockID models.BlockID) {
 		p.networkProtocol.RequestBlock(blockID)
 	}, wp)
+
+	detachProcessCommitment := event.AttachWithWorkerPool(candidateEngine.Engine.Events.NotarizationManager.EpochCommitted, func(details *notarization.EpochCommittedDetails) {
+		p.chainManager.ProcessCandidateCommitment(details.Commitment)
+	}, candidateEngine.Engine.Workers.CreatePool("ProcessCandidateCommitment"))
+
 	event.Hook(p.Events.MainEngineSwitched, func(_ *enginemanager.EngineInstance) {
 		detachRequestBlocks()
+		detachProcessCommitment()
 	}, 1)
 
 	// Add all the blocks from the forking point to the requester since those will not be passed to the engine by the protocol

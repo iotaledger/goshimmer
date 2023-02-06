@@ -24,7 +24,7 @@ func TestManager(t *testing.T) {
 	}
 
 	{
-		isSolid, chain, wasForked := tf.ProcessCommitment("1")
+		isSolid, wasForked, chain := tf.ProcessCommitment("1")
 		require.True(t, isSolid)
 		require.False(t, wasForked)
 		tf.AssertChainIsAlias(chain, "Genesis")
@@ -34,7 +34,7 @@ func TestManager(t *testing.T) {
 	}
 
 	{
-		isSolid, chain, wasForked := tf.ProcessCommitment("1")
+		isSolid, wasForked, chain := tf.ProcessCommitment("1")
 		require.True(t, isSolid)
 		require.False(t, wasForked)
 		tf.AssertChainIsAlias(chain, "Genesis")
@@ -42,7 +42,7 @@ func TestManager(t *testing.T) {
 	}
 
 	{
-		isSolid, chain, wasForked := tf.ProcessCommitmentFromOtherSource("1*")
+		isSolid, wasForked, chain := tf.ProcessCommitmentFromOtherSource("1*")
 		require.True(t, isSolid)
 		require.True(t, wasForked)
 		tf.AssertChainIsAlias(chain, "1*")
@@ -52,7 +52,7 @@ func TestManager(t *testing.T) {
 	}
 
 	{
-		isSolid, chain, wasForked := tf.ProcessCommitmentFromOtherSource("4")
+		isSolid, wasForked, chain := tf.ProcessCommitmentFromOtherSource("4")
 		require.False(t, isSolid)
 		require.False(t, wasForked)
 		tf.AssertChainIsAlias(chain, "")
@@ -62,7 +62,7 @@ func TestManager(t *testing.T) {
 	}
 
 	{
-		isSolid, chain, wasForked := tf.ProcessCommitmentFromOtherSource("4*")
+		isSolid, wasForked, chain := tf.ProcessCommitmentFromOtherSource("4*")
 		require.False(t, isSolid)
 		require.True(t, wasForked)
 		tf.AssertChainIsAlias(chain, "4*")
@@ -72,7 +72,7 @@ func TestManager(t *testing.T) {
 	}
 
 	{
-		isSolid, chain, wasForked := tf.ProcessCommitmentFromOtherSource("3")
+		isSolid, wasForked, chain := tf.ProcessCommitmentFromOtherSource("3")
 		require.False(t, isSolid)
 		require.False(t, wasForked)
 		tf.AssertChainIsAlias(chain, "")
@@ -82,7 +82,7 @@ func TestManager(t *testing.T) {
 	}
 
 	{
-		isSolid, chain, wasForked := tf.ProcessCommitment("2")
+		isSolid, wasForked, chain := tf.ProcessCommitment("2")
 		require.True(t, isSolid)
 		require.False(t, wasForked)
 		tf.AssertChainIsAlias(chain, "Genesis")
