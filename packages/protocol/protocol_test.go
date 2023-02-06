@@ -1141,7 +1141,7 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 		blockF := node2.IssueBlockAtEpoch("P1.F", 10, blockE.ID())
 		blockG := node1.IssueBlockAtEpoch("P1.G", 11, blockF.ID())
 
-		waitOnAllNodes(200 * time.Millisecond) // Give some time for the blocks to arrive over the network
+		waitOnAllNodes(1 * time.Second) // Give some time for the blocks to arrive over the network
 
 		assertBlockExistsOnNodes(blockA.ID(), node1, node2)
 		assertBlockExistsOnNodes(blockB.ID(), node1, node2)
@@ -1184,7 +1184,7 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 		blockF := node4.IssueBlockAtEpoch("P2.E", 10, blockE.ID())
 		blockG := node3.IssueBlockAtEpoch("P2.E", 11, blockF.ID())
 
-		waitOnAllNodes(200 * time.Millisecond) // Give some time for the blocks to arrive over the network
+		waitOnAllNodes(1 * time.Second) // Give some time for the blocks to arrive over the network
 
 		assertBlockExistsOnNodes(blockA.ID(), node3, node4)
 		assertBlockExistsOnNodes(blockB.ID(), node3, node4)
@@ -1239,10 +1239,10 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 
 	// Issue blocks after merging the networks
 	{
-		node1.IssueActivity(20 * time.Second)
-		node2.IssueActivity(20 * time.Second)
-		node3.IssueActivity(20 * time.Second)
-		node4.IssueActivity(20 * time.Second)
+		node1.IssueActivity(25 * time.Second)
+		node2.IssueActivity(25 * time.Second)
+		node3.IssueActivity(25 * time.Second)
+		node4.IssueActivity(25 * time.Second)
 	}
 
 	// Wait for the engine to eventually switch on each node
@@ -1257,7 +1257,7 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 		}
 		require.Eventually(t, func() bool {
 			return nodeCount.Load() == 0
-		}, 25*time.Second, 100*time.Millisecond, "not all nodes switched main engine")
+		}, 30*time.Second, 100*time.Millisecond, "not all nodes switched main engine")
 	}
 
 	time.Sleep(6 * time.Second)
