@@ -18,7 +18,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
@@ -304,21 +303,28 @@ func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) error {
 		return errors.Errorf("protocol ProcessBlock failed. chain is not solid: %s, latest commitment: %s, block ID: %s", block.Commitment().ID(), mainEngine.Storage.Settings.LatestCommitment().ID(), block.ID())
 	}
 
-	if mainChain := mainEngine.Storage.Settings.ChainID(); chain.ForkingPoint.ID() == mainChain {
+	processed := false
+
+	if mainChain := mainEngine.Storage.Settings.ChainID(); chain.ForkingPoint.ID() == mainChain || mainEngine.Engine.BlockRequester.HasTicker(block.ID()) {
 		mainEngine.Engine.ProcessBlockFromPeer(block, src)
-		return nil
+		processed = true
 	}
 
 	if candidateEngine := p.CandidateEngineInstance(); candidateEngine != nil {
-		if candidateChain := candidateEngine.Storage.Settings.ChainID(); chain.ForkingPoint.ID() == candidateChain {
+		if candidateChain := candidateEngine.Storage.Settings.ChainID(); chain.ForkingPoint.ID() == candidateChain || candidateEngine.Engine.BlockRequester.HasTicker(block.ID()) {
 			candidateEngine.Engine.ProcessBlockFromPeer(block, src)
 			if candidateEngine.Engine.IsBootstrapped() && candidateEngine.Storage.Settings.LatestCommitment().CumulativeWeight() > mainEngine.Storage.Settings.LatestCommitment().CumulativeWeight() {
 				p.switchEngines()
 			}
-			return nil
+			processed = true
 		}
 	}
-	return errors.Errorf("block from source %s was not processed: %s", src, block.ID())
+
+	if !processed {
+		return errors.Errorf("block from source %s was not processed: %s", src, block.ID())
+	}
+
+	return nil
 }
 
 func (p *Protocol) ProcessAttestationsRequest(forkingPoint *commitment.Commitment, endIndex epoch.Index, src identity.ID) {
@@ -484,6 +490,7 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 		p.networkProtocol.RequestBlock(blockID)
 	}, wp)
 
+	// Attach epoch commitments to the chain manager and detach as soon as we switch to that engine
 	detachProcessCommitment := event.AttachWithWorkerPool(candidateEngine.Engine.Events.NotarizationManager.EpochCommitted, func(details *notarization.EpochCommittedDetails) {
 		p.chainManager.ProcessCandidateCommitment(details.Commitment)
 	}, candidateEngine.Engine.Workers.CreatePool("ProcessCandidateCommitment"))
@@ -494,40 +501,7 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 	}, 1)
 
 	// Add all the blocks from the forking point to the requester since those will not be passed to the engine by the protocol
-	requestedBlockIDs := memstorage.New[models.BlockID, types.Empty]()
-	for _, b := range blockIDs.Slice() {
-		fmt.Println("> Add", b)
-		requestedBlockIDs.Set(b, types.Void)
-	}
-	if requestedBlockIDs.Size() > 0 {
-		// Only attach a closure if there really are blocks that need requesting
-		var processRequestedBlock *event.Closure[*network.BlockReceivedEvent]
-		processRequestedBlock = event.NewClosure(func(event *network.BlockReceivedEvent) {
-			if requestedBlockIDs.Delete(event.Block.ID()) {
-				fmt.Println("Process requested block in candidate engine:", event.Block.ID())
-				candidateEngine.Engine.ProcessBlockFromPeer(event.Block, event.Source)
-
-				if requestedBlockIDs.IsEmpty() {
-					p.Events.Network.BlockReceived.Detach(processRequestedBlock)
-					fmt.Println("Last requested block received")
-				}
-			}
-		})
-		// Attach the block received since we want to pass the received blocks to out engine directly
-		p.Events.Network.BlockReceived.AttachWithWorkerPool(processRequestedBlock, wp)
-
-		// Detach also if the candidate engine is stopped
-		candidateEngine.Engine.SubscribeStopped(func() {
-			p.Events.Network.BlockReceived.Detach(processRequestedBlock)
-		})
-	}
-
-	requestedBlockIDs.ForEachKey(func(id models.BlockID) bool {
-		fmt.Println("> Request", id)
-		candidateEngine.Engine.BlockRequester.StartTicker(id)
-		return true
-	})
-	fmt.Printf(">>> Added %d blocks to the candidate engine BlockRequester\n", requestedBlockIDs.Size())
+	candidateEngine.Engine.BlockRequester.StartTickers(blockIDs.Slice())
 
 	// Set the engine as the new candidate
 	p.activeEngineMutex.Lock()
