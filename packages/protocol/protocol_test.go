@@ -1136,11 +1136,17 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 	// Issue blocks on Partition 1
 	{
 		blockA := node1.IssueBlockAtEpoch("P1.A", 5, genesisBlockID.ID())
+		waitOnAllNodes()
 		blockB := node2.IssueBlockAtEpoch("P1.B", 6, blockA.ID())
+		waitOnAllNodes()
 		blockC := node1.IssueBlockAtEpoch("P1.C", 7, blockB.ID())
+		waitOnAllNodes()
 		blockD := node2.IssueBlockAtEpoch("P1.D", 8, blockC.ID())
+		waitOnAllNodes()
 		blockE := node1.IssueBlockAtEpoch("P1.E", 9, blockD.ID())
+		waitOnAllNodes()
 		blockF := node2.IssueBlockAtEpoch("P1.F", 10, blockE.ID())
+		waitOnAllNodes()
 		blockG := node1.IssueBlockAtEpoch("P1.G", 11, blockF.ID())
 
 		waitOnAllNodes(1 * time.Second) // Give some time for the blocks to arrive over the network
@@ -1179,11 +1185,17 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 	partition2Tips := models.NewBlockIDs()
 	{
 		blockA := node3.IssueBlockAtEpoch("P2.A", 5, genesisBlockID.ID())
+		waitOnAllNodes()
 		blockB := node4.IssueBlockAtEpoch("P2.B", 6, blockA.ID())
+		waitOnAllNodes()
 		blockC := node3.IssueBlockAtEpoch("P2.C", 7, blockB.ID())
+		waitOnAllNodes()
 		blockD := node4.IssueBlockAtEpoch("P2.D", 8, blockC.ID())
+		waitOnAllNodes()
 		blockE := node3.IssueBlockAtEpoch("P2.E", 9, blockD.ID())
+		waitOnAllNodes()
 		blockF := node4.IssueBlockAtEpoch("P2.E", 10, blockE.ID())
+		waitOnAllNodes()
 		blockG := node3.IssueBlockAtEpoch("P2.E", 11, blockF.ID())
 
 		waitOnAllNodes(1 * time.Second) // Give some time for the blocks to arrive over the network
