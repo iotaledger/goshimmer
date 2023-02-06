@@ -1,4 +1,4 @@
-package generic
+package event
 
 import (
 	"sync"

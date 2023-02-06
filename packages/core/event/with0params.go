@@ -1,10 +1,10 @@
-package generic
+package event
 
 type WithOutParam struct {
 	*base[func()]
 }
 
-func NewWithOutParam() *WithOutParam {
+func New() *WithOutParam {
 	return &WithOutParam{
 		base: newBase[func()](),
 	}

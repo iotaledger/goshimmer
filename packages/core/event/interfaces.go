@@ -1,4 +1,4 @@
-package generic
+package event
 
 import (
 	"github.com/iotaledger/hive.go/core/workerpool"

@@ -1,4 +1,4 @@
-package generic
+package event
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/lo"
@@ -8,7 +8,7 @@ type With1Param[Param1 any] struct {
 	*base[func(Param1)]
 }
 
-func NewWith1Param[Param1 any](opts ...Option) *With1Param[Param1] {
+func New1[Param1 any](opts ...Option) *With1Param[Param1] {
 	return &With1Param[Param1]{
 		base: newBase[func(Param1)](opts...),
 	}
