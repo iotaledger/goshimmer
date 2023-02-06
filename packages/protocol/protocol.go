@@ -99,6 +99,8 @@ func (p *Protocol) Run() {
 }
 
 func (p *Protocol) Shutdown() {
+	p.networkProtocol.Unregister()
+
 	p.CongestionControl.Shutdown()
 
 	p.chainManager.CommitmentRequester.Shutdown()
