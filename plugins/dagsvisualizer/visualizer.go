@@ -100,7 +100,7 @@ func registerTangleEvents() {
 	})
 
 	txAcceptedClosure := event.NewClosure(func(event *ledger.TransactionEvent) {
-		attachmentBlock := deps.Protocol.Engine().Tangle.GetEarliestAttachment(event.Metadata.ID())
+		attachmentBlock := deps.Protocol.Engine().Tangle.GetEarliestAttachment(event.Metadata.ID(), true)
 
 		wsBlk := &wsBlock{
 			Type: BlkTypeTangleTxConfirmationState,

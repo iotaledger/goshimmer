@@ -235,7 +235,7 @@ func sendAllConflicts() {
 }
 
 func issuerOfOldestAttachment(conflictID utxo.TransactionID) (id identity.ID) {
-	block := deps.Protocol.Engine().Tangle.GetEarliestAttachment(conflictID)
+	block := deps.Protocol.Engine().Tangle.GetEarliestAttachment(conflictID, true)
 	if block != nil {
 		return block.IssuerID()
 	}

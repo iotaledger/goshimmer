@@ -32,8 +32,9 @@ type BlockIssuer struct {
 	identity          *identity.LocalIdentity
 	referenceProvider *blockfactory.ReferenceProvider
 
-	optsBlockFactoryOptions    []options.Option[blockfactory.Factory]
-	optsIgnoreBootstrappedFlag bool
+	optsBlockFactoryOptions            []options.Option[blockfactory.Factory]
+	optsIgnoreBootstrappedFlag         bool
+	optsTimeSinceConfirmationThreshold time.Duration
 }
 
 // New creates a new block issuer.
@@ -42,10 +43,11 @@ func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opt
 		Events:   NewEvents(),
 		identity: localIdentity,
 		protocol: protocol,
-		referenceProvider: blockfactory.NewReferenceProvider(protocol, func() epoch.Index {
-			return protocol.Engine().Storage.Settings.LatestCommitment().Index()
-		}),
 	}, opts, func(i *BlockIssuer) {
+		i.referenceProvider = blockfactory.NewReferenceProvider(protocol, i.optsTimeSinceConfirmationThreshold, func() epoch.Index {
+			return protocol.Engine().Storage.Settings.LatestCommitment().Index()
+		})
+
 		i.Factory = blockfactory.NewBlockFactory(
 			localIdentity,
 			func(blockID models.BlockID) (block *blockdag.Block, exists bool) {
@@ -204,6 +206,13 @@ func WithRateSetter(rateSetter ratesetter.RateSetter) options.Option[BlockIssuer
 func WithIgnoreBootstrappedFlag(ignoreBootstrappedFlag bool) options.Option[BlockIssuer] {
 	return func(issuer *BlockIssuer) {
 		issuer.optsIgnoreBootstrappedFlag = ignoreBootstrappedFlag
+	}
+}
+
+// WithTimeSinceConfirmationThreshold returns an option that sets the time since confirmation threshold.
+func WithTimeSinceConfirmationThreshold(timeSinceConfirmationThreshold time.Duration) options.Option[BlockIssuer] {
+	return func(o *BlockIssuer) {
+		o.optsTimeSinceConfirmationThreshold = timeSinceConfirmationThreshold
 	}
 }
 

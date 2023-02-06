@@ -2,13 +2,14 @@ package blockfactory
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/iotaledger/hive.go/core/generics/walker"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
@@ -20,14 +21,16 @@ import (
 type ReferenceProvider struct {
 	protocol *protocol.Protocol
 
-	latestEpochIndexCallback func() epoch.Index
+	latestEpochIndexCallback       func() epoch.Index
+	timeSinceConfirmationThreshold time.Duration
 }
 
 // NewReferenceProvider creates a new ReferenceProvider instance.
-func NewReferenceProvider(protocol *protocol.Protocol, latestEpochIndexCallback func() epoch.Index) (newInstance *ReferenceProvider) {
+func NewReferenceProvider(protocol *protocol.Protocol, timeSinceConfirmationThreshold time.Duration, latestEpochIndexCallback func() epoch.Index) (newInstance *ReferenceProvider) {
 	return &ReferenceProvider{
-		protocol:                 protocol,
-		latestEpochIndexCallback: latestEpochIndexCallback,
+		protocol:                       protocol,
+		latestEpochIndexCallback:       latestEpochIndexCallback,
+		timeSinceConfirmationThreshold: timeSinceConfirmationThreshold,
 	}
 }
 
@@ -82,10 +85,10 @@ func (r *ReferenceProvider) referencesToMissingConflicts(amount int) (blockIDs m
 
 	for it := r.protocol.TipManager.TipsConflictTracker.MissingConflicts(amount).Iterator(); it.HasNext(); {
 		conflictID := it.Next()
-		attachment, err := r.firstValidAttachment(conflictID)
+		attachment, err := r.latestValidAttachment(conflictID)
 		if attachment == nil || err != nil {
 			// panic("first attachment should be valid")
-			fmt.Println(">> ++ firstValidAttachment failed adjust opinion", err)
+			fmt.Println(">> ++ latestValidAttachment failed adjust opinion", err)
 			continue
 		}
 
@@ -225,9 +228,9 @@ func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, exclude
 				return false, models.EmptyBlockID, nil
 			}
 
-			attachment, err := r.firstValidAttachment(likedConflictID)
+			attachment, err := r.latestValidAttachment(likedConflictID)
 			if err != nil {
-				fmt.Println(">> ++ firstValidAttachment failed adjust opinion", err)
+				fmt.Println(">> ++ latestValidAttachment failed adjust opinion", err)
 				continue
 			}
 
@@ -251,18 +254,15 @@ func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, exclude
 	return false, models.EmptyBlockID, errors.Errorf("failed to adjust opinion for %s", conflictID)
 }
 
-// firstValidAttachment returns the first valid attachment of the given transaction.
-func (r *ReferenceProvider) firstValidAttachment(txID utxo.TransactionID) (block *virtualvoting.Block, err error) {
-	bookerBlock := r.protocol.Engine().Tangle.Booker.GetEarliestAttachment(txID)
-	if bookerBlock == nil {
+// latestValidAttachment returns the first valid attachment of the given transaction.
+func (r *ReferenceProvider) latestValidAttachment(txID utxo.TransactionID) (block *booker.Block, err error) {
+	block = r.protocol.Engine().Tangle.Booker.GetLatestAttachment(txID)
+	if block == nil {
 		return nil, errors.Errorf("could not obtain earliest attachment for %s", txID)
 	}
 
-	block, exists := r.protocol.Engine().Tangle.VirtualVoting.Block(bookerBlock.ID())
-	if !exists {
-		return nil, errors.Errorf("no valid virtual voting block found for %s attachment with %s", txID, bookerBlock.ID())
-	} else if block.IsSubjectivelyInvalid() {
-		return nil, errors.Errorf("attachment of %s with %s is subjectively invalid", txID, bookerBlock.ID())
+	if acceptedTime := r.protocol.Engine().Clock.AcceptedTime(); block.IssuingTime().Before(acceptedTime.Add(-r.timeSinceConfirmationThreshold)) {
+		return nil, errors.Errorf("attachment of %s with %s is too far in the past relative to AcceptedTime %s", txID, block.ID(), acceptedTime.String())
 	}
 
 	// if block.IsSubjectivelyInvalid() {
@@ -315,7 +315,7 @@ func (r *ReferenceProvider) firstValidAttachment(txID utxo.TransactionID) (block
 		return nil, errors.Errorf("attachment of %s with %s is too far in the past as current committable epoch is %d", txID, block.ID(), committableEpoch)
 	}
 
-	return
+	return block, nil
 }
 
 // payloadLiked checks if the payload of a Block is liked.

@@ -100,7 +100,7 @@ func sendConflictMetrics() {
 }
 
 func updateMetricCounts(conflictID utxo.TransactionID, transactionID utxo.TransactionID) (oldestAttachment *booker.Block) {
-	oldestAttachment = deps.Protocol.Engine().Tangle.GetEarliestAttachment(transactionID)
+	oldestAttachment = deps.Protocol.Engine().Tangle.GetEarliestAttachment(transactionID, true)
 	conflict, exists := deps.Protocol.Engine().Ledger.ConflictDAG.Conflict(conflictID)
 	if !exists {
 		return oldestAttachment

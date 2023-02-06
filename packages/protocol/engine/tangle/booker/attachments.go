@@ -142,12 +142,12 @@ func (a *attachments) storeAttachment(txID utxo.TransactionID, block *Block) (at
 	})
 }
 
-func (a *attachments) getEarliestAttachment(txID utxo.TransactionID) (attachment *Block) {
+func (a *attachments) getEarliestAttachment(txID utxo.TransactionID, returnOrphaned ...bool) (attachment *Block) {
 	var lowestTime time.Time
 	if txStorage := a.storage(txID, false); txStorage != nil {
 		txStorage.ForEach(func(_ epoch.Index, blocks *memstorage.Storage[models.BlockID, *AttachmentBlock]) bool {
 			blocks.ForEach(func(_ models.BlockID, attachmentBlock *AttachmentBlock) bool {
-				if lowestTime.After(attachmentBlock.IssuingTime()) || lowestTime.IsZero() {
+				if (lowestTime.After(attachmentBlock.IssuingTime()) || lowestTime.IsZero()) && (!attachmentBlock.AttachmentOrphaned() || (len(returnOrphaned) > 0 && returnOrphaned[0])) {
 					lowestTime = attachmentBlock.IssuingTime()
 					attachment = attachmentBlock.Block
 				}
@@ -161,12 +161,12 @@ func (a *attachments) getEarliestAttachment(txID utxo.TransactionID) (attachment
 	return
 }
 
-func (a *attachments) getLatestAttachment(txID utxo.TransactionID) (attachment *Block) {
+func (a *attachments) getLatestAttachment(txID utxo.TransactionID, returnOrphaned ...bool) (attachment *Block) {
 	highestTime := time.Time{}
 	if txStorage := a.storage(txID, false); txStorage != nil {
 		txStorage.ForEach(func(_ epoch.Index, blocks *memstorage.Storage[models.BlockID, *AttachmentBlock]) bool {
 			blocks.ForEach(func(_ models.BlockID, attachmentBlock *AttachmentBlock) bool {
-				if highestTime.Before(attachmentBlock.IssuingTime()) {
+				if (highestTime.Before(attachmentBlock.IssuingTime())) && (!attachmentBlock.AttachmentOrphaned() || (len(returnOrphaned) > 0 && returnOrphaned[0])) {
 					highestTime = attachmentBlock.IssuingTime()
 					attachment = attachmentBlock.Block
 				}

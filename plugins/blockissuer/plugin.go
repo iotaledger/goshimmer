@@ -60,5 +60,6 @@ func createBlockIssuer(local *peer.Local, protocol *protocol.Protocol) *blockiss
 		),
 		blockissuer.WithRateSetter(rateSetter),
 		blockissuer.WithIgnoreBootstrappedFlag(Parameters.IgnoreBootstrappedFlag),
+		blockissuer.WithTimeSinceConfirmationThreshold(protocolParams.Parameters.TimeSinceConfirmationThreshold),
 	)
 }
