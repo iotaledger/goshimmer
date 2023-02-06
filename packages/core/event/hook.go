@@ -1,17 +1,21 @@
 package event
 
+import (
+	"github.com/iotaledger/hive.go/core/generics/options"
+)
+
 type Hook[FuncType any] struct {
 	trigger FuncType
 	unhook  func()
 
-	triggerSettings
+	*triggerSettings
 }
 
-func newHook[TriggerFunc any](trigger TriggerFunc, unhook func(), opts ...Option) *Hook[TriggerFunc] {
+func newHook[TriggerFunc any](trigger TriggerFunc, unhook func(), opts ...options.Option[triggerSettings]) *Hook[TriggerFunc] {
 	return &Hook[TriggerFunc]{
 		trigger:         trigger,
 		unhook:          unhook,
-		triggerSettings: *newTriggerSettings(opts...),
+		triggerSettings: options.Apply(new(triggerSettings), opts),
 	}
 }
 

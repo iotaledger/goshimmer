@@ -4,6 +4,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/orderedmap"
 	"github.com/iotaledger/hive.go/core/workerpool"
 )
@@ -46,25 +47,25 @@ type event[TriggerFunc any] struct {
 	link         *Hook[TriggerFunc]
 	linkMutex    sync.Mutex
 
-	triggerSettings
+	*triggerSettings
 }
 
 func newEvent[TriggerFunc any](opts ...Option) *event[TriggerFunc] {
 	b := &event[TriggerFunc]{
 		hooks:           orderedmap.New[uint64, *Hook[TriggerFunc]](),
-		triggerSettings: *newTriggerSettings(opts...),
+		triggerSettings: options.Apply(new(triggerSettings), opts),
 	}
 
 	for _, option := range opts {
-		option(&b.triggerSettings)
+		option(b.triggerSettings)
 	}
 
 	return b
 }
 
-func (b *event[TriggerFunc]) Hook(onTrigger TriggerFunc, opts ...Option) (hook *Hook[TriggerFunc]) {
+func (b *event[TriggerFunc]) Hook(triggerFunc TriggerFunc, opts ...Option) (hook *Hook[TriggerFunc]) {
 	hookID := b.hooksCounter.Add(1)
-	hook = newHook(onTrigger, func() { b.hooks.Delete(hookID) }, opts...)
+	hook = newHook(triggerFunc, func() { b.hooks.Delete(hookID) }, opts...)
 
 	b.hooks.Set(hookID, hook)
 

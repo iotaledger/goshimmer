@@ -3,44 +3,37 @@ package event
 import (
 	"sync/atomic"
 
+	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/workerpool"
 )
 
-type Option func(triggerable *triggerSettings)
-
+// WithMaxTriggerCount sets the maximum number of times an event (or hook) shall be triggered.
 func WithMaxTriggerCount(maxTriggerCount uint64) Option {
-	return func(configurable *triggerSettings) {
-		configurable.setMaxTriggerCount(maxTriggerCount)
+	return func(triggerSettings *triggerSettings) {
+		triggerSettings.maxTriggerCount = maxTriggerCount
 	}
 }
 
+// WithWorkerPool sets the worker pool that shall be used to execute the triggered function.
 func WithWorkerPool(workerPool *workerpool.UnboundedWorkerPool) Option {
-	return func(configurable *triggerSettings) {
-		configurable.setWorkerPool(workerPool)
+	return func(triggerSettings *triggerSettings) {
+		triggerSettings.workerPool = workerPool
 	}
 }
 
-// triggerSettings is a helper struct that can be embedded into an event to provide the trigger functionality.
+// triggerSettings is a struct that contains the trigger related settings.
 type triggerSettings struct {
 	workerPool      *workerpool.UnboundedWorkerPool
 	triggerCount    atomic.Uint64
 	maxTriggerCount uint64
 }
 
-func newTriggerSettings(opts ...Option) *triggerSettings {
-	c := new(triggerSettings)
-
-	for _, option := range opts {
-		option(c)
-	}
-
-	return c
-}
-
+// WasTriggered returns true if Trigger was called at least once.
 func (t *triggerSettings) WasTriggered() bool {
 	return t.triggerCount.Load() > 0
 }
 
+// TriggerCount returns the number of times Trigger was called.
 func (t *triggerSettings) TriggerCount() uint64 {
 	return t.triggerCount.Load()
 }
@@ -53,10 +46,8 @@ func (t *triggerSettings) MaxTriggerCountReached() bool {
 	return t.triggerCount.Add(1) > t.maxTriggerCount && t.maxTriggerCount != 0
 }
 
-func (t *triggerSettings) setMaxTriggerCount(maxTriggerCount uint64) {
-	t.maxTriggerCount = maxTriggerCount
+func (t *triggerSettings) WorkerPool() *workerpool.UnboundedWorkerPool {
+	return t.workerPool
 }
 
-func (t *triggerSettings) setWorkerPool(workerPool *workerpool.UnboundedWorkerPool) {
-	t.workerPool = workerPool
-}
+type Option = options.Option[triggerSettings]
