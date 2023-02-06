@@ -21,7 +21,7 @@ func WithWorkerPool(workerPool *workerpool.UnboundedWorkerPool) Option {
 	}
 }
 
-// triggerSettings is a struct that contains the trigger related settings.
+// triggerSettings is a struct that contains trigger related settings and logic.
 type triggerSettings struct {
 	workerPool      *workerpool.UnboundedWorkerPool
 	triggerCount    atomic.Uint64
