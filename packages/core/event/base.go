@@ -56,7 +56,7 @@ func (e *base[TriggerFunc]) linkTo(target eventInterface[TriggerFunc], triggerFu
 // targetWorkerPool returns the worker pool of the given hook or the base's worker pool if the hook does not have one.
 func (e *base[TriggerFunc]) targetWorkerPool(hook *Hook[TriggerFunc]) (workerPool *workerpool.UnboundedWorkerPool) {
 	if hook.workerPool != nil {
-		if hook.workerPool == ForceHook {
+		if hook.workerPool == noWorkerPool {
 			return nil
 		}
 

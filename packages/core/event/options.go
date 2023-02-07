@@ -7,8 +7,6 @@ import (
 	"github.com/iotaledger/hive.go/core/workerpool"
 )
 
-var ForceHook = &workerpool.UnboundedWorkerPool{}
-
 // WithMaxTriggerCount sets the maximum number of times an event (or hook) shall be triggered.
 func WithMaxTriggerCount(maxTriggerCount uint64) Option {
 	return func(triggerSettings *triggerSettings) {
@@ -20,6 +18,13 @@ func WithMaxTriggerCount(maxTriggerCount uint64) Option {
 func WithWorkerPool(workerPool *workerpool.UnboundedWorkerPool) Option {
 	return func(triggerSettings *triggerSettings) {
 		triggerSettings.workerPool = workerPool
+	}
+}
+
+// WithoutWorkerPool disables the usage of worker pools for the triggered element.
+func WithoutWorkerPool() Option {
+	return func(triggerSettings *triggerSettings) {
+		triggerSettings.workerPool = noWorkerPool
 	}
 }
 
@@ -54,6 +59,9 @@ func (t *triggerSettings) MaxTriggerCountReached() bool {
 func (t *triggerSettings) WorkerPool() *workerpool.UnboundedWorkerPool {
 	return t.workerPool
 }
+
+// noWorkerPool is a special value that indicates that no worker pool shall be used.
+var noWorkerPool = &workerpool.UnboundedWorkerPool{}
 
 // Option is a function that applies a setting to the triggerSettings.
 type Option = options.Option[triggerSettings]
