@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
@@ -164,7 +165,7 @@ func (e *ED25519Signature) AddressSignatureValid(address Address, data []byte) b
 		return false
 	}
 
-	hashedPublicKey := blake2b.Sum256(e.PublicKey.Bytes())
+	hashedPublicKey := blake2b.Sum256(lo.PanicOnErr(e.PublicKey.Bytes()))
 	if !bytes.Equal(hashedPublicKey[:], address.Digest()) {
 		return false
 	}

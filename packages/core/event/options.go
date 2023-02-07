@@ -7,6 +7,8 @@ import (
 	"github.com/iotaledger/hive.go/core/workerpool"
 )
 
+var ForceHook = &workerpool.UnboundedWorkerPool{}
+
 // WithMaxTriggerCount sets the maximum number of times an event (or hook) shall be triggered.
 func WithMaxTriggerCount(maxTriggerCount uint64) Option {
 	return func(triggerSettings *triggerSettings) {
