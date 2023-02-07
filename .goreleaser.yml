@@ -9,104 +9,61 @@ env:
 
 # Builds
 builds:
-  # GoShimmer AMD64 all OS
-  - id: goshimmer
-    binary: goshimmer
-    flags:
-      - -tags=rocksdb
-    ldflags:
-      - -s -w -X github.com/iotaledger/goshimmer/plugins/banner.AppVersion={{.Version}}
-    goos:
-      - linux
-    goarch:
-      - amd64
-
-  # cli-wallet AMD64 all OS
   - id: cli-wallet
     dir: ./tools/cli-wallet
     binary: cli-wallet
-    env:
-      - CGO_ENABLED=0
-    goos:
-      - linux
-      - darwin
-      - windows
     goarch:
       - amd64
+      - arm64
 
-  # evil-spammer AMD64 all OS
   - id: evil-spammer
     dir: ./tools/evil-spammer
     binary: evil-spammer
-    env:
-      - CGO_ENABLED=0
-    goos:
-      - linux
-      - darwin
-      - windows
     goarch:
       - amd64
+      - arm64
 
+universal_binaries:
+  - id : cli-wallet
+    name_template: cli-wallet
+    replace: true
+  - id: evil-spammer
+    name_template: evil-spammer
+    replace: true
 
 # Archives
 archives:
-  # GoShimmer with config and snapshot
-  - id: goshimmer
-    builds:
-      - goshimmer
-    name_template: "goshimmer-{{.Version}}_{{.Os}}_{{.Arch}}"
-    replacements:
-      amd64: x86_64
-      arm: ARM
-      arm64: ARM64
-      darwin: macOS
-      linux: Linux
-      windows: Windows
-    format_overrides:
-      - goos: windows
-        format: zip
-    files:
-      - README.md
-      - LICENSE
-      - config.json
-      - snapshot.bin
-
-  # cli-wallet
   - id: cli-wallet
     builds:
       - cli-wallet
-    name_template: "cli-wallet-{{.Version}}_{{.Os}}_{{.Arch}}"
-    replacements:
-      amd64: x86_64
-      arm: ARM
-      arm64: ARM64
-      darwin: macOS
-      linux: Linux
-      windows: Windows
+    name_template: >-
+      {{ .Binary }}_{{ .Version }}_
+      {{- if eq .Os "darwin"}}macOS
+      {{- else }}{{ title .Os }}{{ end }}
+      {{- if eq .Arch "amd64" }}_x86_64
+      {{- else if eq .Arch "all" }}
+      {{- else }}_{{ .Arch }}{{ end }}
     format_overrides:
       - goos: windows
         format: zip
     files:
       - LICENSE
 
-  # evil-spammer
   - id: evil-spammer
     builds:
       - evil-spammer
-    name_template: "evil-spammer-{{.Version}}_{{.Os}}_{{.Arch}}"
-    replacements:
-      amd64: x86_64
-      arm: ARM
-      arm64: ARM64
-      darwin: macOS
-      linux: Linux
-      windows: Windows
+    name_template: >-
+      {{ .Binary }}_{{ .Version }}_
+      {{- if eq .Os "darwin"}}macOS
+      {{- else }}{{ title .Os }}{{ end }}
+      {{- if eq .Arch "amd64" }}_x86_64
+      {{- else if eq .Arch "all" }}
+      {{- else }}_{{ .Arch }}{{ end }}
     format_overrides:
       - goos: windows
         format: zip
     files:
       - LICENSE
-
 
 # Checksum
 checksum:

@@ -22,5 +22,5 @@ jobs:
         run: touch config.json snapshot.bin
 
       - name: Run GoReleaser
-        run: goreleaser --snapshot --rm-dist
+        run: goreleaser --snapshot --clean
         shell: bash
