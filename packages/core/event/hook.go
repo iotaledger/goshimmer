@@ -4,7 +4,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 )
 
-// Hook is a container that holds a hook function and its settings.
+// Hook is a container that holds a trigger function and its trigger settings.
 type Hook[FuncType any] struct {
 	trigger FuncType
 	unhook  func()
