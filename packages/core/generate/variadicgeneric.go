@@ -10,6 +10,22 @@ import (
 )
 
 // VariadicGenericsTemplate is a template that can be used to generate variadic generic implementations.
+//
+// It takes a file as input and creates multiple variadic instances of the source code replacing the following tokens:
+//
+//   - paramCount: the number of parameters of the generic variadic instance - i.e. 3
+//   - constraints: list of type parameters without their constraints - i.e. "[T1, T2, T3]"
+//   - Constraints: list of type parameters with their constraints - i.e. "[T1, T2, T3 any]"
+//   - params: list of arguments without their type: "arg1, arg2, arg3"
+//   - Params: list of arguments with their type: "arg1 T1, arg2 T2, arg3 T3"
+//   - Types: list of types: "T1, T2, T3"
+//
+// Tokens have to be surrounded by /* and */ as comments in the source file. Neighboring whitespaces can be removed by
+// adding a "-" in the beginning or the end of the token - see examples:
+//
+//   - "func NewEvent /*paramCount*/ () {" => "func NewEvent 3 () {"
+//   - "func NewEvent /*-paramCount*/ () {" => "func NewEvent3 () {"
+//   - "func NewEvent /*-paramCount-*/ () {" => "func NewEvent3() {"
 type VariadicGenericsTemplate struct {
 	// fixedHeader is the header of the file that is not supposed to be changed.
 	fixedHeader string
@@ -37,13 +53,12 @@ func NewVariadicGenericsTemplate(fileName string) (*VariadicGenericsTemplate, er
 		fixedHeader:    fixedHeader,
 		dynamicContent: dynamicContent,
 		tokenMappings: map[string]func(int) string{
-			"paramCount":  func(i int) string { return lo.Cond(i == 0, "", "%d") },
-			"ParamCount":  func(i int) string { return lo.Cond(i == 0, "no", "%d") },
-			"constraints": func(i int) string { return lo.Cond(i == 0, "", "["+buildVariadicString("T%d", i)+"]") },
-			"Constraints": func(i int) string { return lo.Cond(i == 0, "", "["+buildVariadicString("T%d", i)+" any]") },
-			"params":      func(i int) string { return lo.Cond(i == 0, "", buildVariadicString("arg%d", i)) },
-			"Params":      func(i int) string { return lo.Cond(i == 0, "", buildVariadicString("arg%d T%d", i)) },
-			"Types":       func(i int) string { return lo.Cond(i == 0, "", buildVariadicString("T%d", i)) },
+			"paramCount":  func(i int) string { return "%d" },
+			"constraints": func(i int) string { return "[" + buildVariadicString("T%d", i) + "]" },
+			"Constraints": func(i int) string { return "[" + buildVariadicString("T%d", i) + " any]" },
+			"params":      func(i int) string { return buildVariadicString("arg%d", i) },
+			"Params":      func(i int) string { return buildVariadicString("arg%d T%d", i) },
+			"Types":       func(i int) string { return buildVariadicString("T%d", i) },
 		},
 	}, nil
 }

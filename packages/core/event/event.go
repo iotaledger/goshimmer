@@ -2,7 +2,7 @@ package event
 
 //go:generate go run variadics_generate.go 9
 
-// Event /*-paramCount*/ is an event with /*ParamCount*/ generic parameters.
+// Event /*-paramCount*/ is an event with /*paramCount*/ generic parameters.
 type Event /*-paramCount*/ /*-Constraints*/ struct {
 	*base[func( /*-Types-*/ )]
 }
