@@ -6,72 +6,87 @@ import (
 	"strings"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 )
 
-func VariadicGeneric(sourceFileName string, targetFileName string, targetParamCount int) error {
-	targetFile, err := os.Create(targetFileName)
+// VariadicGenericsTemplate is a template that can be used to generate variadic generic implementations.
+type VariadicGenericsTemplate struct {
+	// fixedHeader is the header of the file that is not supposed to be changed.
+	fixedHeader string
+
+	// dynamicContent is the content of the file that is supposed to be changed.
+	dynamicContent string
+
+	// tokenMappings is a map of tokens that are replaced with the given function.
+	tokenMappings map[string]func(int) string
+}
+
+// NewVariadicGenericsTemplate creates a new VariadicGenericsTemplate from the given file.
+func NewVariadicGenericsTemplate(fileName string) (*VariadicGenericsTemplate, error) {
+	readFile, err := os.ReadFile(fileName)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	readFile, err := os.ReadFile(sourceFileName)
+	fixedHeader, dynamicContent, err := splitTemplate(string(readFile))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	splitTemplate := strings.Split(string(readFile), "//go:generate")
-	if len(splitTemplate) != 2 {
-		return errors.New("could not find go:generate directive")
-	}
+	return &VariadicGenericsTemplate{
+		fixedHeader:    fixedHeader,
+		dynamicContent: dynamicContent,
+		tokenMappings: map[string]func(int) string{
+			"paramCount":  func(i int) string { return lo.Cond(i == 0, "", "%d") },
+			"ParamCount":  func(i int) string { return lo.Cond(i == 0, "no", "%d") },
+			"constraints": func(i int) string { return lo.Cond(i == 0, "", "["+buildVariadicString("T%d", i)+"]") },
+			"Constraints": func(i int) string { return lo.Cond(i == 0, "", "["+buildVariadicString("T%d", i)+" any]") },
+			"params":      func(i int) string { return lo.Cond(i == 0, "", buildVariadicString("arg%d", i)) },
+			"Params":      func(i int) string { return lo.Cond(i == 0, "", buildVariadicString("arg%d T%d", i)) },
+			"Types":       func(i int) string { return lo.Cond(i == 0, "", buildVariadicString("T%d", i)) },
+		},
+	}, nil
+}
 
-	header := strings.TrimSpace(strings.ReplaceAll(splitTemplate[0], "//go:build ignore", ""))
-	footer := splitTemplate[1]
-	footer = strings.TrimSpace(footer[strings.Index(footer, "\n"):])
-
-	_, err = targetFile.WriteString("// Code generated automatically DO NOT EDIT.\n" + header + "\n")
+// Generate generates the file with the given name and the given number of variadic parameters.
+func (v *VariadicGenericsTemplate) Generate(fileName string, paramCount int) error {
+	targetFile, err := os.Create(fileName)
 	if err != nil {
-		return err
+		return errors.Errorf("could not create file %s: %w", fileName, err)
 	}
+	defer func() { _ = targetFile.Close() }()
 
-	for paramCount := 0; paramCount <= targetParamCount; paramCount++ {
-		if paramCount == 0 {
-			_, err := targetFile.WriteString("\n" + replaceTokens(footer, map[string]string{
-				"paramCount":  "",
-				"ParamCount":  "no",
-				"constraints": "",
-				"Constraints": "",
-				"params":      "",
-				"Params":      "",
-				"Types":       "",
-			}, paramCount) + "\n")
-			if err != nil {
-				return err
-			}
-		} else {
-			_, err := targetFile.WriteString("\n" + replaceTokens(footer, map[string]string{
-				"paramCount":  "%d",
-				"ParamCount":  "%d",
-				"constraints": "[" + buildArgStrings("T%d", paramCount) + "]",
-				"Constraints": "[" + buildArgStrings("T%d", paramCount) + " any]",
-				"params":      buildArgStrings("arg%d", paramCount),
-				"Params":      buildArgStrings("arg%d T%d", paramCount),
-				"Types":       buildArgStrings("T%d", paramCount),
-			}, paramCount) + "\n")
-			if err != nil {
-				return err
-			}
-		}
+	if err = v.writeHeader(targetFile); err != nil {
+		return errors.Errorf("could not write header to file %s: %w", fileName, err)
 	}
-
-	if err = targetFile.Close(); err != nil {
-		return err
+	if err = v.writeContent(targetFile, paramCount); err != nil {
+		return errors.Errorf("could not write content to file %s: %w", fileName, err)
 	}
 
 	return nil
 }
 
-func replaceTokens(content string, replacements map[string]string, argCount int) string {
-	for token, replacement := range replacements {
+// writeHeader writes the fixed header to the given file.
+func (v *VariadicGenericsTemplate) writeHeader(targetFile *os.File) error {
+	return lo.Return2(targetFile.WriteString("// Code generated automatically DO NOT EDIT.\n" + v.fixedHeader + "\n"))
+}
+
+// writeContent writes the dynamic content to the given file.
+func (v *VariadicGenericsTemplate) writeContent(targetFile *os.File, paramCount int) error {
+	for i := 1; i <= paramCount; i++ {
+		_, err := targetFile.WriteString("\n" + v.replaceTokens(i) + "\n")
+		if err != nil {
+			return errors.Errorf("could not write content to file: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// replaceTokens translates the tokens in the dynamic content to the mapped ones from the tokenMappings.
+func (v *VariadicGenericsTemplate) replaceTokens(argCount int) string {
+	content := v.dynamicContent
+	for token, replacement := range v.tokenMappings {
 		content = strings.ReplaceAll(content, " /*-"+token+"-*/ ", "/*"+token+"*/")
 		content = strings.ReplaceAll(content, "/*-"+token+"-*/ ", "/*"+token+"*/")
 		content = strings.ReplaceAll(content, " /*-"+token+"-*/", "/*"+token+"*/")
@@ -80,17 +95,8 @@ func replaceTokens(content string, replacements map[string]string, argCount int)
 		content = strings.ReplaceAll(content, "/*-"+token+"*/", "/*"+token+"*/")
 		content = strings.ReplaceAll(content, "/*"+token+"-*/ ", "/*"+token+"*/")
 		content = strings.ReplaceAll(content, "/*"+token+"-*/", "/*"+token+"*/")
-		content = strings.ReplaceAll(content, "/*"+token+"*/", replacement)
+		content = strings.ReplaceAll(content, "/*"+token+"*/", replacement(argCount))
 	}
 
 	return strings.ReplaceAll(content, "%d", strconv.Itoa(argCount))
-}
-
-func buildArgStrings(template string, end int) string {
-	results := make([]string, 0)
-	for i := 1; i <= end; i++ {
-		results = append(results, strings.ReplaceAll(template, "%d", strconv.Itoa(i)))
-	}
-
-	return strings.Join(results, ", ")
 }

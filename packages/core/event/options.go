@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/core/workerpool"
 )
 
-// WithMaxTriggerCount sets the maximum number of times an event (or hook) shall be triggered.
+// WithMaxTriggerCount sets the maximum number of times an base (or hook) shall be triggered.
 func WithMaxTriggerCount(maxTriggerCount uint64) Option {
 	return func(triggerSettings *triggerSettings) {
 		triggerSettings.maxTriggerCount = maxTriggerCount
@@ -38,16 +38,20 @@ func (t *triggerSettings) TriggerCount() uint64 {
 	return t.triggerCount.Load()
 }
 
+// MaxTriggerCount returns the maximum number of times Trigger can be called.
 func (t *triggerSettings) MaxTriggerCount() uint64 {
 	return t.maxTriggerCount
 }
 
+// MaxTriggerCountReached returns true if the maximum number of times Trigger can be called was reached.
 func (t *triggerSettings) MaxTriggerCountReached() bool {
 	return t.triggerCount.Add(1) > t.maxTriggerCount && t.maxTriggerCount != 0
 }
 
+// WorkerPool returns the worker pool that shall be used to execute the triggered function.
 func (t *triggerSettings) WorkerPool() *workerpool.UnboundedWorkerPool {
 	return t.workerPool
 }
 
+// Option is a function that applies a setting to the triggerSettings.
 type Option = options.Option[triggerSettings]
