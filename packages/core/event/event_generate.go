@@ -18,7 +18,7 @@ func main() {
 		panic(err)
 	}
 
-	targetFile, err := os.Create("events.go")
+	targetFile, err := os.Create("event.go")
 	if err != nil {
 		panic(err)
 	}
@@ -56,11 +56,11 @@ func main() {
 			targetFile.WriteString("\n" + replaceTokens(footer, map[string]string{
 				"paramCount":  strconv.Itoa(paramCount),
 				"ParamCount":  strconv.Itoa(paramCount),
-				"constraints": "[" + extend("T%d", paramCount) + "]",
-				"Constraints": "[" + extend("T%d", paramCount) + " any]",
-				"params":      extend("arg%d", paramCount),
-				"Params":      extend("arg%d T%d", paramCount),
-				"Types":       extend("T%d", paramCount),
+				"constraints": "[" + buildArgStrings("T%d", paramCount) + "]",
+				"Constraints": "[" + buildArgStrings("T%d", paramCount) + " any]",
+				"params":      buildArgStrings("arg%d", paramCount),
+				"Params":      buildArgStrings("arg%d T%d", paramCount),
+				"Types":       buildArgStrings("T%d", paramCount),
 			}) + "\n")
 		}
 	}
@@ -86,7 +86,7 @@ func replaceTokens(content string, replacements map[string]string) string {
 	return content
 }
 
-func extend(template string, end int) string {
+func buildArgStrings(template string, end int) string {
 	results := make([]string, 0)
 	for i := 1; i <= end; i++ {
 		results = append(results, strings.ReplaceAll(template, "%d", strconv.Itoa(i)))
