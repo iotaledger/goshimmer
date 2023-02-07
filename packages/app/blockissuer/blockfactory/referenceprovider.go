@@ -84,6 +84,8 @@ func (r *ReferenceProvider) referencesToMissingConflicts(amount int) (blockIDs m
 
 	for it := r.protocol.TipManager.TipsConflictTracker.MissingConflicts(amount).Iterator(); it.HasNext(); {
 		conflictID := it.Next()
+
+		// TODO: make sure that timestamp monotonicity is not broken
 		attachment, err := r.latestValidAttachment(conflictID)
 		if attachment == nil || err != nil {
 			// panic("first attachment should be valid")
@@ -229,6 +231,7 @@ func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, exclude
 	}
 
 	attachment, err := r.latestValidAttachment(likedConflictID)
+	// TODO: make sure that timestamp monotonicity is held
 	if err != nil {
 		fmt.Println(">> ++ latestValidAttachment failed adjust opinion", err)
 		return false, models.EmptyBlockID, err

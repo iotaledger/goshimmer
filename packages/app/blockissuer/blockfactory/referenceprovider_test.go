@@ -94,7 +94,7 @@ func TestBlockFactory_PrepareLikedReferences_2(t *testing.T) {
 
 		checkReferences(t, rp, nil, tangleTF.BlockIDs("Block3", "Block4"), map[models.ParentsType]models.BlockIDs{
 			models.StrongParentType:      tangleTF.BlockIDs("Block3", "Block4"),
-			models.ShallowLikeParentType: tangleTF.BlockIDs("Block2", "Block5"),
+			models.ShallowLikeParentType: tangleTF.BlockIDs("Block2", "Block1"),
 		})
 	}
 }

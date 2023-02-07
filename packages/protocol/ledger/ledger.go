@@ -2,6 +2,7 @@ package ledger
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -109,15 +110,15 @@ func New(chainStorage *storage.Storage, evictionState *eviction.State, opts ...o
 	//	ledger.ConflictDAG.HandleOrphanedConflict(event.Metadata.ID())
 	//}))
 
-	ledger.ConflictDAG.Events.ConflictAccepted.Attach(event.NewClosure(ledger.propagateAcceptanceToIncludedTransactions))
+	ledger.ConflictDAG.Events.ConflictAccepted.Hook(event.NewClosure(ledger.propagateAcceptanceToIncludedTransactions))
 
-	ledger.ConflictDAG.Events.ConflictRejected.Attach(event.NewClosure(ledger.propagatedRejectionToTransactions))
+	ledger.ConflictDAG.Events.ConflictRejected.Hook(event.NewClosure(ledger.propagatedRejectionToTransactions))
 
-	ledger.Events.TransactionBooked.Attach(event.NewClosure(func(event *TransactionBookedEvent) {
+	ledger.Events.TransactionBooked.Hook(event.NewClosure(func(event *TransactionBookedEvent) {
 		ledger.processConsumingTransactions(event.Outputs.IDs())
 	}))
 
-	ledger.Events.TransactionInvalid.Attach(event.NewClosure(func(event *TransactionInvalidEvent) {
+	ledger.Events.TransactionInvalid.Hook(event.NewClosure(func(event *TransactionInvalidEvent) {
 		ledger.PruneTransaction(event.TransactionID, true)
 	}))
 
@@ -201,10 +202,12 @@ func (l *Ledger) processConsumingTransactions(outputIDs utxo.OutputIDs) {
 // triggerAcceptedEvent triggers the TransactionAccepted event if the Transaction was accepted.
 func (l *Ledger) triggerAcceptedEvent(txMetadata *TransactionMetadata) (triggered bool) {
 	if txMetadata.InclusionEpoch() == 0 {
+		fmt.Println("trigger accepted skipped, inclusion epoch 0", txMetadata.ID())
 		return false
 	}
 
 	if !txMetadata.SetConfirmationState(confirmation.Accepted) {
+		fmt.Println("trigger accepted skipped, accepted before", txMetadata.ID())
 		return false
 	}
 
@@ -279,7 +282,10 @@ func (l *Ledger) propagateAcceptanceToIncludedTransactions(conflict *conflictdag
 		}
 
 		l.Utils.WalkConsumingTransactionMetadata(txMetadata.OutputIDs(), func(consumingTxMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
-			if l.ConflictDAG.ConfirmationState(consumingTxMetadata.ConflictIDs()).IsAccepted() {
+			conflictIDsState := l.ConflictDAG.ConfirmationStateUnsafe(consumingTxMetadata.ConflictIDs())
+			fmt.Println("walking the transaction future cone acceptedConflict", conflict.ID(), "walking on", consumingTxMetadata.ID(), "conflictIDs confirmationstate", conflictIDsState.String(), "txConfirmationState", consumingTxMetadata.ConfirmationState().String(), "inclusionEpoch", consumingTxMetadata.InclusionEpoch())
+			if !conflictIDsState.IsAccepted() {
+				fmt.Println("conflictIDstate accepted - do not trigger the event")
 				return
 			}
 

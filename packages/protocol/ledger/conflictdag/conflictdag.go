@@ -210,6 +210,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) SetConflictAccepted(confli
 
 			modified = true
 
+
 			c.Events.ConflictAccepted.Trigger(conflict)
 		}
 
@@ -274,6 +275,22 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) rejectConflictsWithFutureC
 func (c *ConflictDAG[ConflictIDType, ResourceIDType]) ConfirmationState(conflictIDs *set.AdvancedSet[ConflictIDType]) (confirmationState confirmation.State) {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
+
+	// TODO: simplify this method
+
+	confirmationState = confirmation.Confirmed
+	for it := conflictIDs.Iterator(); it.HasNext(); {
+		conflictID := it.Next()
+		if confirmationState = confirmationState.Aggregate(c.confirmationState(conflictID)); confirmationState.IsRejected() {
+			return confirmation.Rejected
+		}
+	}
+
+	return confirmationState
+}
+
+// ConfirmationStateUnsafe returns the ConfirmationState of the given ConflictIDs.
+func (c *ConflictDAG[ConflictIDType, ResourceIDType]) ConfirmationStateUnsafe(conflictIDs *set.AdvancedSet[ConflictIDType]) (confirmationState confirmation.State) {
 
 	// TODO: simplify this method
 

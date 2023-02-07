@@ -1,6 +1,7 @@
 package virtualvoting
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -155,8 +156,13 @@ func (o *VirtualVoting) track(block *Block) (tracked bool) {
 	o.blocks.Get(block.ID().Index(), true).Set(block.ID(), block)
 
 	votePower := NewBlockVotePower(block.ID(), block.IssuingTime())
-	if _, invalid := o.conflictTracker.TrackVote(o.Booker.BlockConflicts(block.Block), block.IssuerID(), votePower); invalid {
+	blockConflicts := o.Booker.BlockConflicts(block.Block)
+
+	fmt.Println("block supports conflicts", block.ID(), block.IssuerID(), blockConflicts.String())
+
+	if _, invalid := o.conflictTracker.TrackVote(blockConflicts, block.IssuerID(), votePower); invalid {
 		block.SetSubjectivelyInvalid(true)
+		fmt.Println("block invalid", block.ID())
 		return true
 	}
 
@@ -210,12 +216,17 @@ func (o *VirtualVoting) EvictEpochTracker(epochIndex epoch.Index) {
 // processForkedBlock updates the Conflict weight after an individually mapped Block was forked into a new Conflict.
 func (o *VirtualVoting) processForkedBlock(block *booker.Block, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
 	votePower := NewBlockVotePower(block.ID(), block.IssuingTime())
+
+	fmt.Println("processing forked block", block.IssuerID(), block.ID(), block.IssuingTime())
+
 	o.conflictTracker.AddSupportToForkedConflict(forkedConflictID, parentConflictIDs, block.IssuerID(), votePower)
 }
 
 // take everything in future cone because it was not conflicting before and move to new conflict.
 func (o *VirtualVoting) processForkedMarker(marker markers.Marker, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
 	for voterID, votePower := range o.sequenceTracker.VotersWithPower(marker) {
+		fmt.Println("processing forked marker", voterID, marker, votePower.blockID, votePower.time)
+
 		o.conflictTracker.AddSupportToForkedConflict(forkedConflictID, parentConflictIDs, voterID, votePower)
 	}
 }

@@ -1,6 +1,8 @@
 package retainer
 
 import (
+	"fmt"
+
 	"github.com/iotaledger/hive.go/core/syncutils"
 	"github.com/iotaledger/hive.go/core/workerpool"
 	"github.com/pkg/errors"
@@ -168,6 +170,10 @@ func (r *Retainer) setupEvents() {
 	r.protocol.Events.CongestionControl.Scheduler.BlockSkipped.AttachWithWorkerPool(congestionControlClosure, r.workerPool)
 
 	r.protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.AttachWithWorkerPool(event.NewClosure(func(block *blockgadget.Block) {
+		if tx, isTx := block.Transaction(); isTx {
+			fmt.Println("attachment block accepted ", block.ID(), tx.ID())
+		}
+
 		cm := r.createOrGetCachedMetadata(block.ID())
 		cm.setAcceptanceBlock(block)
 	}), r.workerPool)
