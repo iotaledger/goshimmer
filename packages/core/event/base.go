@@ -9,7 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/core/workerpool"
 )
 
-type event[TriggerFunc any] struct {
+type base[TriggerFunc any] struct {
 	hooks        *orderedmap.OrderedMap[uint64, *Hook[TriggerFunc]]
 	hooksCounter atomic.Uint64
 	link         *Hook[TriggerFunc]
@@ -18,8 +18,8 @@ type event[TriggerFunc any] struct {
 	*triggerSettings
 }
 
-func newEvent[TriggerFunc any](opts ...Option) *event[TriggerFunc] {
-	b := &event[TriggerFunc]{
+func newEvent[TriggerFunc any](opts ...Option) *base[TriggerFunc] {
+	b := &base[TriggerFunc]{
 		hooks:           orderedmap.New[uint64, *Hook[TriggerFunc]](),
 		triggerSettings: options.Apply(new(triggerSettings), opts),
 	}
@@ -31,7 +31,7 @@ func newEvent[TriggerFunc any](opts ...Option) *event[TriggerFunc] {
 	return b
 }
 
-func (b *event[TriggerFunc]) Hook(triggerFunc TriggerFunc, opts ...Option) (hook *Hook[TriggerFunc]) {
+func (b *base[TriggerFunc]) Hook(triggerFunc TriggerFunc, opts ...Option) (hook *Hook[TriggerFunc]) {
 	hookID := b.hooksCounter.Add(1)
 	hook = newHook(triggerFunc, func() { b.hooks.Delete(hookID) }, opts...)
 
@@ -40,7 +40,7 @@ func (b *event[TriggerFunc]) Hook(triggerFunc TriggerFunc, opts ...Option) (hook
 	return hook
 }
 
-func (b *event[TriggerFunc]) linkTo(triggerFunc TriggerFunc, target hookable[TriggerFunc]) {
+func (b *base[TriggerFunc]) linkTo(triggerFunc TriggerFunc, target hookable[TriggerFunc]) {
 	b.linkMutex.Lock()
 	defer b.linkMutex.Unlock()
 
@@ -55,7 +55,7 @@ func (b *event[TriggerFunc]) linkTo(triggerFunc TriggerFunc, target hookable[Tri
 	}
 }
 
-func (b *event[TriggerFunc]) targetWorkerPool(hook *Hook[TriggerFunc]) (workerPool *workerpool.UnboundedWorkerPool) {
+func (b *base[TriggerFunc]) targetWorkerPool(hook *Hook[TriggerFunc]) (workerPool *workerpool.UnboundedWorkerPool) {
 	if hook.workerPool != nil {
 		return hook.workerPool
 	}
