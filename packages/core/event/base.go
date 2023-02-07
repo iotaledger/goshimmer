@@ -6,6 +6,7 @@ import (
 
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/orderedmap"
+	"github.com/iotaledger/hive.go/core/typeutils"
 	"github.com/iotaledger/hive.go/core/workerpool"
 )
 
@@ -46,7 +47,7 @@ func (e *base[TriggerFunc]) linkTo(target eventInterface[TriggerFunc], triggerFu
 		e.link.Unhook()
 	}
 
-	if target == nil {
+	if typeutils.IsInterfaceNil(target) {
 		e.link = nil
 	} else {
 		e.link = target.Hook(triggerFunc)
