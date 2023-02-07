@@ -73,15 +73,15 @@ var initialAttestations = []string{
 // }
 
 // Docker network.
-// var nodesToPledge = []string{
-//	"2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5", // peer_master
-//	"AXSoTPcN6SNwH64tywpz4k2XfAc24NR7ckKX8wPjeUZD", // peer_master2
-//	"FZ6xmPZXRs2M8z9m9ETTQok4PCga4X8FRHwQE6uYm4rV", // faucet
-// }
+//var nodesToPledge = []string{
+//	"EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP", // peer_master
+//	"5kjiW423d5EtNh943j8gYahyxPdnv9xge8Kuks5tjoYg", // peer_master2
+//	"CHfU1NUf6ZvUKDQHTG2df53GR7CvuMFtyt7YymJ6DwS3", // faucet
+//}
 //
-// var initialAttestations = []string{
-//	"2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5", // peer_master
-// }
+//var initialAttestations = []string{
+//	"EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP", // peer_master
+//}
 
 func main() {
 	snapshotFileName := viper.GetString(cfgSnapshotFileName)
