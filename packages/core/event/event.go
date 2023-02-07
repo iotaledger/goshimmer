@@ -25,10 +25,6 @@ func newEvent[TriggerFunc any](opts ...Option) *event[TriggerFunc] {
 		triggerSettings: options.Apply(new(triggerSettings), opts),
 	}
 
-	for _, option := range opts {
-		option(b.triggerSettings)
-	}
-
 	return b
 }
 
@@ -56,7 +52,7 @@ func (e *event[TriggerFunc]) linkTo(triggerFunc TriggerFunc, target hookable[Tri
 	}
 }
 
-func (e *event[TriggerFunc]) targetWorkerPool(hook *Hook[TriggerFunc]) (workerPool *workerpool.UnboundedWorkerPool) {
+func (e *event[TriggerFunc]) targetWorkerPool(hook *Hook[TriggerFunc]) *workerpool.UnboundedWorkerPool {
 	if hook.workerPool != nil {
 		return hook.workerPool
 	}
