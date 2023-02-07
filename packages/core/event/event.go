@@ -32,36 +32,36 @@ func newEvent[TriggerFunc any](opts ...Option) *event[TriggerFunc] {
 	return b
 }
 
-func (b *event[TriggerFunc]) Hook(triggerFunc TriggerFunc, opts ...Option) (hook *Hook[TriggerFunc]) {
-	hookID := b.hooksCounter.Add(1)
-	hook = newHook(triggerFunc, func() { b.hooks.Delete(hookID) }, opts...)
+func (e *event[TriggerFunc]) Hook(triggerFunc TriggerFunc, opts ...Option) (hook *Hook[TriggerFunc]) {
+	hookID := e.hooksCounter.Add(1)
+	hook = newHook(triggerFunc, func() { e.hooks.Delete(hookID) }, opts...)
 
-	b.hooks.Set(hookID, hook)
+	e.hooks.Set(hookID, hook)
 
 	return hook
 }
 
-func (b *event[TriggerFunc]) linkTo(triggerFunc TriggerFunc, target hookable[TriggerFunc]) {
-	b.linkMutex.Lock()
-	defer b.linkMutex.Unlock()
+func (e *event[TriggerFunc]) linkTo(triggerFunc TriggerFunc, target hookable[TriggerFunc]) {
+	e.linkMutex.Lock()
+	defer e.linkMutex.Unlock()
 
-	if b.link != nil {
-		b.link.Unhook()
+	if e.link != nil {
+		e.link.Unhook()
 	}
 
 	if target == nil {
-		b.link = nil
+		e.link = nil
 	} else {
-		b.link = target.Hook(triggerFunc)
+		e.link = target.Hook(triggerFunc)
 	}
 }
 
-func (b *event[TriggerFunc]) targetWorkerPool(hook *Hook[TriggerFunc]) (workerPool *workerpool.UnboundedWorkerPool) {
+func (e *event[TriggerFunc]) targetWorkerPool(hook *Hook[TriggerFunc]) (workerPool *workerpool.UnboundedWorkerPool) {
 	if hook.workerPool != nil {
 		return hook.workerPool
 	}
 
-	return b.workerPool
+	return e.workerPool
 }
 
 type hookable[TriggerFunc any] interface {
