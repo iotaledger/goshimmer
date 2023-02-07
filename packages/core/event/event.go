@@ -2,7 +2,7 @@ package event
 
 //go:generate go run variadics_generate.go 9
 
-// Event /*-paramCount*/ is an base with /*ParamCount*/ generic parameters.
+// Event /*-paramCount*/ is an event with /*ParamCount*/ generic parameters.
 type Event /*-paramCount*/ /*-Constraints*/ struct {
 	*base[func( /*-Types-*/ )]
 }
@@ -39,7 +39,7 @@ func (e *Event /*-paramCount-*/ /*-constraints-*/) Trigger( /*-Params-*/ ) {
 	})
 }
 
-// LinkTo links the base to the given target (nil unlinks the base).
+// LinkTo links the event to the given target event (nil unlinks).
 func (e *Event /*-paramCount-*/ /*-constraints-*/) LinkTo(target *Event /*-paramCount-*/ /*-constraints-*/) {
 	e.linkTo(target, e.Trigger)
 }

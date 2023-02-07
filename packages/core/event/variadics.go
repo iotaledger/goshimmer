@@ -1,7 +1,7 @@
 // Code generated automatically DO NOT EDIT.
 package event
 
-// Event1 is an base with 1 generic parameters.
+// Event1 is an event with 1 generic parameters.
 type Event1[T1 any] struct {
 	*base[func(T1)]
 }
@@ -38,12 +38,12 @@ func (e *Event1[T1]) Trigger(arg1 T1) {
 	})
 }
 
-// LinkTo links the base to the given target (nil unlinks the base).
+// LinkTo links the event to the given target event (nil unlinks).
 func (e *Event1[T1]) LinkTo(target *Event1[T1]) {
 	e.linkTo(target, e.Trigger)
 }
 
-// Event2 is an base with 2 generic parameters.
+// Event2 is an event with 2 generic parameters.
 type Event2[T1, T2 any] struct {
 	*base[func(T1, T2)]
 }
@@ -80,12 +80,12 @@ func (e *Event2[T1, T2]) Trigger(arg1 T1, arg2 T2) {
 	})
 }
 
-// LinkTo links the base to the given target (nil unlinks the base).
+// LinkTo links the event to the given target event (nil unlinks).
 func (e *Event2[T1, T2]) LinkTo(target *Event2[T1, T2]) {
 	e.linkTo(target, e.Trigger)
 }
 
-// Event3 is an base with 3 generic parameters.
+// Event3 is an event with 3 generic parameters.
 type Event3[T1, T2, T3 any] struct {
 	*base[func(T1, T2, T3)]
 }
@@ -122,12 +122,12 @@ func (e *Event3[T1, T2, T3]) Trigger(arg1 T1, arg2 T2, arg3 T3) {
 	})
 }
 
-// LinkTo links the base to the given target (nil unlinks the base).
+// LinkTo links the event to the given target event (nil unlinks).
 func (e *Event3[T1, T2, T3]) LinkTo(target *Event3[T1, T2, T3]) {
 	e.linkTo(target, e.Trigger)
 }
 
-// Event4 is an base with 4 generic parameters.
+// Event4 is an event with 4 generic parameters.
 type Event4[T1, T2, T3, T4 any] struct {
 	*base[func(T1, T2, T3, T4)]
 }
@@ -164,12 +164,12 @@ func (e *Event4[T1, T2, T3, T4]) Trigger(arg1 T1, arg2 T2, arg3 T3, arg4 T4) {
 	})
 }
 
-// LinkTo links the base to the given target (nil unlinks the base).
+// LinkTo links the event to the given target event (nil unlinks).
 func (e *Event4[T1, T2, T3, T4]) LinkTo(target *Event4[T1, T2, T3, T4]) {
 	e.linkTo(target, e.Trigger)
 }
 
-// Event5 is an base with 5 generic parameters.
+// Event5 is an event with 5 generic parameters.
 type Event5[T1, T2, T3, T4, T5 any] struct {
 	*base[func(T1, T2, T3, T4, T5)]
 }
@@ -206,12 +206,12 @@ func (e *Event5[T1, T2, T3, T4, T5]) Trigger(arg1 T1, arg2 T2, arg3 T3, arg4 T4,
 	})
 }
 
-// LinkTo links the base to the given target (nil unlinks the base).
+// LinkTo links the event to the given target event (nil unlinks).
 func (e *Event5[T1, T2, T3, T4, T5]) LinkTo(target *Event5[T1, T2, T3, T4, T5]) {
 	e.linkTo(target, e.Trigger)
 }
 
-// Event6 is an base with 6 generic parameters.
+// Event6 is an event with 6 generic parameters.
 type Event6[T1, T2, T3, T4, T5, T6 any] struct {
 	*base[func(T1, T2, T3, T4, T5, T6)]
 }
@@ -248,12 +248,12 @@ func (e *Event6[T1, T2, T3, T4, T5, T6]) Trigger(arg1 T1, arg2 T2, arg3 T3, arg4
 	})
 }
 
-// LinkTo links the base to the given target (nil unlinks the base).
+// LinkTo links the event to the given target event (nil unlinks).
 func (e *Event6[T1, T2, T3, T4, T5, T6]) LinkTo(target *Event6[T1, T2, T3, T4, T5, T6]) {
 	e.linkTo(target, e.Trigger)
 }
 
-// Event7 is an base with 7 generic parameters.
+// Event7 is an event with 7 generic parameters.
 type Event7[T1, T2, T3, T4, T5, T6, T7 any] struct {
 	*base[func(T1, T2, T3, T4, T5, T6, T7)]
 }
@@ -290,12 +290,12 @@ func (e *Event7[T1, T2, T3, T4, T5, T6, T7]) Trigger(arg1 T1, arg2 T2, arg3 T3, 
 	})
 }
 
-// LinkTo links the base to the given target (nil unlinks the base).
+// LinkTo links the event to the given target event (nil unlinks).
 func (e *Event7[T1, T2, T3, T4, T5, T6, T7]) LinkTo(target *Event7[T1, T2, T3, T4, T5, T6, T7]) {
 	e.linkTo(target, e.Trigger)
 }
 
-// Event8 is an base with 8 generic parameters.
+// Event8 is an event with 8 generic parameters.
 type Event8[T1, T2, T3, T4, T5, T6, T7, T8 any] struct {
 	*base[func(T1, T2, T3, T4, T5, T6, T7, T8)]
 }
@@ -332,12 +332,12 @@ func (e *Event8[T1, T2, T3, T4, T5, T6, T7, T8]) Trigger(arg1 T1, arg2 T2, arg3 
 	})
 }
 
-// LinkTo links the base to the given target (nil unlinks the base).
+// LinkTo links the event to the given target event (nil unlinks).
 func (e *Event8[T1, T2, T3, T4, T5, T6, T7, T8]) LinkTo(target *Event8[T1, T2, T3, T4, T5, T6, T7, T8]) {
 	e.linkTo(target, e.Trigger)
 }
 
-// Event9 is an base with 9 generic parameters.
+// Event9 is an event with 9 generic parameters.
 type Event9[T1, T2, T3, T4, T5, T6, T7, T8, T9 any] struct {
 	*base[func(T1, T2, T3, T4, T5, T6, T7, T8, T9)]
 }
@@ -374,7 +374,7 @@ func (e *Event9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) Trigger(arg1 T1, arg2 T2, a
 	})
 }
 
-// LinkTo links the base to the given target (nil unlinks the base).
+// LinkTo links the event to the given target event (nil unlinks).
 func (e *Event9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) LinkTo(target *Event9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) {
 	e.linkTo(target, e.Trigger)
 }

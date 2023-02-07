@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/core/workerpool"
 )
 
-// WithMaxTriggerCount sets the maximum number of times an base (or hook) shall be triggered.
+// WithMaxTriggerCount sets the maximum number of times an event (or hook) shall be triggered.
 func WithMaxTriggerCount(maxTriggerCount uint64) Option {
 	return func(triggerSettings *triggerSettings) {
 		triggerSettings.maxTriggerCount = maxTriggerCount
