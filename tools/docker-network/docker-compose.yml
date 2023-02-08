@@ -16,8 +16,6 @@ services:
       --blockIssuer.ignoreBootstrappedFlag=true
       --dashboard.dev=false
       --dashboard.devDashboardAddress=dashboard-dev-docker:9999
-    secrets:
-      - goshimmer.config.json
     volumes:
       - ./docker-network.snapshot:/app/snapshot.bin
     #      - peerdb:/app/peerdb
@@ -38,8 +36,6 @@ services:
       --node.disablePlugins=${COMMON_DISABLED}
     deploy:
       replicas: ${GOSHIMMER_PEER_REPLICAS:-1}
-    secrets:
-      - goshimmer.config.json
     volumes:
       - ./docker-network.snapshot:/app/snapshot.bin
     networks:
@@ -53,8 +49,6 @@ services:
       --node.seed=base58:4ata8GcTRMJ5sSv2jQJWmSYYTHct748p3tXmCFYm7wjA
       --node.enablePlugins=${COMMON_ENABLED}
       --node.disablePlugins=${COMMON_DISABLED}
-    secrets:
-      - goshimmer.config.json
     volumes:
       - ./docker-network.snapshot:/app/snapshot.bin
     ports:
@@ -70,8 +64,6 @@ services:
       ${COMMON_CONFIG}
       --node.enablePlugins="webapitoolsendpoint",spammer,metrics
       --node.disablePlugins=${COMMON_DISABLED}
-    secrets:
-      - goshimmer.config.json
     volumes:
       - ./docker-network.snapshot:/app/snapshot.bin
     ports:
@@ -87,22 +79,9 @@ services:
     image: docker-network-peer_master:latest
     stop_grace_period: 1m
     command: >
-      --node.enablePlugins="webapitoolsendpoint",spammer,metrics
-      --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
-      --node.peerDBDirectory=/app/peerdb
-      --database.directory=/app/db
-      --config=/run/secrets/goshimmer.config.json
-      --protocol.snapshot.path=./snapshot.bin
-      --metrics.bindAddress=0.0.0.0:9311
-      --metrics.bindAddress=0.0.0.0:9311
-      --protocol.genesisTime=${GENESIS_TIME}
-      --metrics.processMetrics=true
-      --metrics.goMetrics=true
-      --metrics.processMetrics=true
-      --metrics.goMetrics=true
-      --profiling.bindAddress=0.0.0.0:6061
-    secrets:
-      - goshimmer.config.json
+      ${COMMON_CONFIG}
+           --node.enablePlugins="webapitoolsendpoint",spammer,metrics
+           --node.disablePlugins=${COMMON_DISABLED}
     volumes:
       - ./docker-network.snapshot:/app/snapshot.bin
     ports:
@@ -121,8 +100,6 @@ services:
       --node.seed=base58:3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E
       --node.enablePlugins=${COMMON_ENABLED},faucet
       --node.disablePlugins=${COMMON_DISABLED}
-    secrets:
-      - goshimmer.config.json
     volumes:
       - ./docker-network.snapshot:/app/snapshot.bin
     ports:
@@ -183,7 +160,5 @@ volumes:
 secrets:
   goshimmer.block.snapshot.bin:
     file: ${SNAPSHOT_FILE:-./docker-network.snapshot}
-  goshimmer.config.json:
-    file: ${GOSHIMMER_CONFIG:-./config.docker.json}
   prometheus.yml:
     file: ${PROMETHEUS_CONFIG:-./prometheus.yml}
