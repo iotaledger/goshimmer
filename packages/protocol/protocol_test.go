@@ -63,7 +63,7 @@ func TestProtocol(t *testing.T) {
 	}
 
 	tempDir := utils.NewDirectory(t.TempDir())
-	snapshotcreator.CreateSnapshot(workers.CreateGroup("CreateSnapshot1"), DatabaseVersion, tempDir.Path("snapshot.bin"), 100, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights), ledgerVM)
+	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDir.Path("snapshot.bin"), 100, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights), ledgerVM)
 
 	protocol1 := New(workers.CreateGroup("Protocol1"), endpoint1, WithBaseDirectory(tempDir.Path()), WithSnapshotPath(tempDir.Path("snapshot.bin")), WithEngineOptions(engine.WithLedgerOptions(ledger.WithVM(ledgerVM))))
 	protocol1.Run()
@@ -93,7 +93,7 @@ func TestProtocol(t *testing.T) {
 	endpoint2 := testNetwork.Join(identity.GenerateIdentity().ID())
 
 	tempDir2 := utils.NewDirectory(t.TempDir())
-	snapshotcreator.CreateSnapshot(workers.CreateGroup("CreateSnapshot2"), DatabaseVersion, tempDir2.Path("snapshot.bin"), 100, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights), ledgerVM)
+	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDir2.Path("snapshot.bin"), 100, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights), ledgerVM)
 
 	protocol2 := New(workers.CreateGroup("Protocol2"), endpoint2, WithBaseDirectory(tempDir2.Path()), WithSnapshotPath(tempDir2.Path("snapshot.bin")), WithEngineOptions(engine.WithLedgerOptions(ledger.WithVM(ledgerVM))))
 	protocol2.Run()
@@ -146,7 +146,7 @@ func TestEngine_NonEmptyInitialValidators(t *testing.T) {
 	}
 
 	tempDir := utils.NewDirectory(t.TempDir())
-	snapshotcreator.CreateSnapshot(workers.CreateGroup("CreateSnapshot"), DatabaseVersion, tempDir.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights), ledgerVM)
+	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDir.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights), ledgerVM)
 
 	require.NoError(t, tf.Engine.Initialize(tempDir.Path("genesis_snapshot.bin")))
 
@@ -206,7 +206,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 	}
 
 	tempDir := utils.NewDirectory(t.TempDir())
-	snapshotcreator.CreateSnapshot(workers.CreateGroup("CreateSnapshot"), DatabaseVersion, tempDir.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights), ledgerVM)
+	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDir.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights), ledgerVM)
 
 	require.NoError(t, tf.Engine.Initialize(tempDir.Path("genesis_snapshot.bin")))
 
@@ -496,7 +496,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 	}
 
 	tempDir := utils.NewDirectory(t.TempDir())
-	snapshotcreator.CreateSnapshot(workers.CreateGroup("CreateSnapshot"), DatabaseVersion, tempDir.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights), ledgerVM)
+	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDir.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights), ledgerVM)
 
 	require.NoError(t, tf.Engine.Initialize(tempDir.Path("genesis_snapshot.bin")))
 
@@ -682,7 +682,7 @@ func TestEngine_ShutdownResume(t *testing.T) {
 	}
 
 	tempDir := utils.NewDirectory(t.TempDir())
-	snapshotcreator.CreateSnapshot(workers.CreateGroup("CreateSnapshot2"), DatabaseVersion, tempDir.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights), ledgerVM)
+	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDir.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights), ledgerVM)
 
 	require.NoError(t, tf.Engine.Initialize(tempDir.Path("genesis_snapshot.bin")))
 
@@ -1044,7 +1044,7 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 
 	snapshotsDir := utils.NewDirectory(t.TempDir())
 	snapshot := snapshotsDir.Path("snapshot.bin")
-	snapshotcreator.CreateSnapshot(workers.CreateGroup("CreateSnapshot"), DatabaseVersion, snapshot, 0, make([]byte, 32), allWeights, nil, ledgerVM)
+	snapshotcreator.CreateSnapshot(DatabaseVersion, snapshot, 0, make([]byte, 32), allWeights, nil, ledgerVM)
 
 	node1 := newNode(t, identitiesMap["node1"], testNetwork, "P1", snapshot, engineOpts...)
 	node2 := newNode(t, identitiesMap["node2"], testNetwork, "P1", snapshot, engineOpts...)

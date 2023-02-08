@@ -35,7 +35,10 @@ import (
 // | empty  | genesisSeed  |
 // | node1  | node1		   |
 // | node2  | node2        |.
-func CreateSnapshot(workers *workerpool.Group, databaseVersion database.Version, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge map[ed25519.PublicKey]uint64, initialAttestations []ed25519.PublicKey, ledgerVM vm.VM) {
+func CreateSnapshot(databaseVersion database.Version, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge map[ed25519.PublicKey]uint64, initialAttestations []ed25519.PublicKey, ledgerVM vm.VM) {
+	workers := workerpool.NewGroup("CreateSnapshot")
+	defer workers.Shutdown()
+
 	s := storage.New(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), databaseVersion)
 	defer s.Shutdown()
 
@@ -94,7 +97,10 @@ func CreateSnapshot(workers *workerpool.Group, databaseVersion database.Version,
 // | empty       | genesisSeed  |
 // | node1       | node1       |
 // | node2       | node2       |.
-func CreateSnapshotForIntegrationTest(workers *workerpool.Group, s *storage.Storage, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge *orderedmap.OrderedMap[identity.ID, uint64], startSynced bool, ledgerVM vm.VM) {
+func CreateSnapshotForIntegrationTest(s *storage.Storage, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge *orderedmap.OrderedMap[identity.ID, uint64], startSynced bool, ledgerVM vm.VM) {
+	workers := workerpool.NewGroup("CreateSnapshot")
+	defer workers.Shutdown()
+
 	if err := s.Commitments.Store(commitment.NewEmptyCommitment()); err != nil {
 		panic(err)
 	}

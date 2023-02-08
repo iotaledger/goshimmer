@@ -35,7 +35,7 @@ func NewEngineManagerTestFramework(t *testing.T, workers *workerpool.Group, iden
 
 	snapshotPath := utils.NewDirectory(t.TempDir()).Path("snapshot.bin")
 
-	snapshotcreator.CreateSnapshot(workers.CreateGroup("CreateSnapshot"), protocol.DatabaseVersion, snapshotPath, 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights), ledgerVM)
+	snapshotcreator.CreateSnapshot(protocol.DatabaseVersion, snapshotPath, 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights), ledgerVM)
 
 	tf.EngineManager = enginemanager.New(workers.CreateGroup("EngineManager"),
 		t.TempDir(),
