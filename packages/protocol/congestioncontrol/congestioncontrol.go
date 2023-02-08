@@ -53,13 +53,13 @@ func (c *CongestionControl) LinkTo(engine *engine.Engine) {
 	wp := engine.Workers.CreatePool("Scheduler")
 	engine.SubscribeStopped(
 		event.AttachWithWorkerPool(engine.Tangle.Events.VirtualVoting.BlockTracked, c.scheduler.AddBlock, wp),
-		// engine.Tangle.Events.VirtualVoting.BlockTracked.Attach(event.NewClosure(func(block *virtualvoting.Block) {
+		// event.AttachWithWorkerPool(engine.Tangle.Events.VirtualVoting.BlockTracked, func(block *virtualvoting.Block) {
 		//	registerBlock, err := c.scheduler.GetOrRegisterBlock(block)
 		//	if err != nil {
 		//		panic(err)
 		//	}
 		//	c.Events.Scheduler.BlockScheduled.Trigger(registerBlock)
-		// }))
+		// }, wp)
 		event.AttachWithWorkerPool(engine.Tangle.Events.BlockDAG.BlockOrphaned, c.scheduler.HandleOrphanedBlock, wp),
 		event.AttachWithWorkerPool(engine.Consensus.Events.BlockGadget.BlockAccepted, c.scheduler.HandleAcceptedBlock, wp),
 	)

@@ -33,11 +33,11 @@ func NewTestFramework(test *testing.T, epochTracker *EpochTracker, votesTF *vote
 		Votes:        votesTF,
 	}
 
-	t.EpochTracker.Events.VotersUpdated.Hook(event.NewClosure(func(evt *VoterUpdatedEvent) {
+	event.Hook(t.EpochTracker.Events.VotersUpdated, func(evt *VoterUpdatedEvent) {
 		if debug.GetEnabled() {
 			t.test.Logf("VOTER ADDED: %v", evt.NewLatestEpochIndex.String())
 		}
-	}))
+	})
 
 	return t
 }

@@ -103,33 +103,33 @@ func (t *TestFramework) AssertBlockConflictsUpdateCount(blockConflictsUpdateCoun
 }
 
 func (t *TestFramework) setupEvents() {
-	t.Instance.Events.BlockBooked.Hook(event.NewClosure(func(metadata *Block) {
+	event.Hook(t.Instance.Events.BlockBooked, func(metadata *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("BOOKED: %s", metadata.ID())
 		}
 
 		atomic.AddInt32(&(t.bookedBlocks), 1)
-	}))
+	})
 
-	t.Instance.Events.BlockConflictAdded.Hook(event.NewClosure(func(evt *BlockConflictAddedEvent) {
+	event.Hook(t.Instance.Events.BlockConflictAdded, func(evt *BlockConflictAddedEvent) {
 		if debug.GetEnabled() {
 			t.test.Logf("BLOCK CONFLICT UPDATED: %s - %s", evt.Block.ID(), evt.ConflictID)
 		}
 
 		atomic.AddInt32(&(t.blockConflictsUpdated), 1)
-	}))
+	})
 
-	t.Instance.Events.MarkerConflictAdded.Hook(event.NewClosure(func(evt *MarkerConflictAddedEvent) {
+	event.Hook(t.Instance.Events.MarkerConflictAdded, func(evt *MarkerConflictAddedEvent) {
 		if debug.GetEnabled() {
 			t.test.Logf("MARKER CONFLICT UPDATED: %v - %v", evt.Marker, evt.ConflictID)
 		}
 
 		atomic.AddInt32(&(t.markerConflictsAdded), 1)
-	}))
+	})
 
-	t.Instance.Events.Error.Hook(event.NewClosure(func(err error) {
+	event.Hook(t.Instance.Events.Error, func(err error) {
 		t.test.Logf("ERROR: %s", err)
-	}))
+	})
 }
 
 func (t *TestFramework) checkConflictIDs(expectedConflictIDs map[string]utxo.TransactionIDs) {

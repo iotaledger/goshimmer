@@ -126,13 +126,13 @@ func (t *TestFramework) AssertBlockTracked(blocksTracked uint32) {
 }
 
 func (t *TestFramework) setupEvents() {
-	t.Instance.Events.BlockTracked.Hook(event.NewClosure(func(metadata *Block) {
+	event.Hook(t.Instance.Events.BlockTracked, func(metadata *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("TRACKED: %s", metadata.ID())
 		}
 
 		atomic.AddUint32(&(t.trackedBlocks), 1)
-	}))
+	})
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

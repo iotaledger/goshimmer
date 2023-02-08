@@ -28,7 +28,7 @@ func Test_PruneMarkerBlockMapping(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
 	tf := blockdag.NewDefaultTestFramework(t, workers.CreateGroup("BlockDAGTestFramework"))
 
-	tf.Instance.EvictionState.Events.EpochEvicted.Hook(event.NewClosure(markerManager.Evict))
+	event.Hook(tf.Instance.EvictionState.Events.EpochEvicted, markerManager.Evict)
 
 	// create a helper function that creates the blocks
 	createNewBlock := func(idx int, prefix string) (block *blockdag.Block, alias string) {

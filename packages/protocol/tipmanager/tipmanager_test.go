@@ -610,9 +610,9 @@ func TestTipManager_FutureTips(t *testing.T) {
 	)
 	tf.Engine.EvictionState.AddRootBlock(models.EmptyBlockID)
 
-	tf.Engine.Events.NotarizationManager.EpochCommitted.Hook(event.NewClosure(func(details *notarization.EpochCommittedDetails) {
+	event.Hook(tf.Engine.Events.NotarizationManager.EpochCommitted, func(details *notarization.EpochCommittedDetails) {
 		fmt.Println(">>", details.Commitment.ID())
-	}))
+	})
 
 	// Let's add a few blocks to epoch 1
 	{

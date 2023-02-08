@@ -83,43 +83,43 @@ func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, optsGadget
 }
 
 func (t *TestFramework) setupEvents() {
-	t.Gadget.Events.BlockAccepted.Hook(event.NewClosure(func(metadata *Block) {
+	event.Hook(t.Gadget.Events.BlockAccepted, func(metadata *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("ACCEPTED: %s", metadata.ID())
 		}
 
 		atomic.AddUint32(&(t.acceptedBlocks), 1)
-	}))
+	})
 
-	t.Gadget.Events.BlockConfirmed.Hook(event.NewClosure(func(metadata *Block) {
+	event.Hook(t.Gadget.Events.BlockConfirmed, func(metadata *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("CONFIRMED: %s", metadata.ID())
 		}
 
 		atomic.AddUint32(&(t.confirmedBlocks), 1)
-	}))
+	})
 
-	t.Gadget.Events.Reorg.Hook(event.NewClosure(func(conflictID utxo.TransactionID) {
+	event.Hook(t.Gadget.Events.Reorg, func(conflictID utxo.TransactionID) {
 		if debug.GetEnabled() {
 			t.test.Logf("REORG NEEDED: %s", conflictID)
 		}
 		atomic.AddUint32(&(t.reorgCount), 1)
-	}))
+	})
 
-	t.Tangle.VirtualVoting.ConflictDAG.Instance.Events.ConflictAccepted.Hook(event.NewClosure(func(conflictID utxo.TransactionID) {
+	event.Hook(t.Tangle.VirtualVoting.ConflictDAG.Instance.Events.ConflictAccepted, func(conflictID utxo.TransactionID) {
 		if debug.GetEnabled() {
 			t.test.Logf("CONFLICT ACCEPTED: %s", conflictID)
 		}
 		atomic.AddUint32(&(t.conflictsAccepted), 1)
-	}))
+	})
 
-	t.Tangle.VirtualVoting.ConflictDAG.Instance.Events.ConflictRejected.Hook(event.NewClosure(func(conflictID utxo.TransactionID) {
+	event.Hook(t.Tangle.VirtualVoting.ConflictDAG.Instance.Events.ConflictRejected, func(conflictID utxo.TransactionID) {
 		if debug.GetEnabled() {
 			t.test.Logf("CONFLICT REJECTED: %s", conflictID)
 		}
 
 		atomic.AddUint32(&(t.conflictsRejected), 1)
-	}))
+	})
 }
 
 func (t *TestFramework) AssertBlockAccepted(blocksAccepted uint32) {

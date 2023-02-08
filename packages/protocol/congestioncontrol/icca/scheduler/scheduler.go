@@ -87,9 +87,9 @@ func New(evictionState *eviction.State, isBlockAccepted func(models.BlockID) boo
 }
 
 func (s *Scheduler) setupEvents() {
-	s.Events.BlockScheduled.Hook(event.NewClosure(s.UpdateChildren))
+	event.Hook(s.Events.BlockScheduled, s.UpdateChildren)
 
-	s.evictionState.Events.EpochEvicted.Hook(event.NewClosure(s.evictEpoch))
+	event.Hook(s.evictionState.Events.EpochEvicted, s.evictEpoch)
 }
 
 // Start starts the scheduler.

@@ -68,7 +68,7 @@ func New(workers *workerpool.Group, blockDAG *blockdag.BlockDAG, ledger *ledger.
 			causalorder.WithReferenceValidator[models.BlockID](isReferenceValid),
 		)
 
-		blockDAG.EvictionState.Events.EpochEvicted.Hook(event.NewClosure(b.evict))
+		event.Hook(blockDAG.EvictionState.Events.EpochEvicted, b.evict)
 
 		b.Events.MarkerManager = b.markerManager.Events
 	}, (*Booker).setupEvents)
