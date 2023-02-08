@@ -193,7 +193,7 @@ func (t *TestFramework) AssertIsPastConeTimestampCorrect(blockAlias string, expe
 	if !exists {
 		panic(fmt.Sprintf("block with %s not found", blockAlias))
 	}
-	actual := t.Instance.isPastConeTimestampCorrect(block.Block.Block)
+	actual := t.Instance.IsPastConeTimestampCorrect(block.Block.Block)
 	require.Equal(t.test, expected, actual, "isPastConeTimestampCorrect: %s should be %t but is %t", blockAlias, expected, actual)
 }
 
