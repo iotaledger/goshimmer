@@ -158,6 +158,8 @@ func diagnosticPrintSnapshotFromFile(filePath string) {
 	defer s.Shutdown()
 
 	e := engine.New(workerpool.NewGroup("Diagnostics"), s, dpos.NewProvider(), mana1.NewProvider())
+	defer e.Shutdown()
+
 	if err := e.Initialize(filePath); err != nil {
 		panic(err)
 	}

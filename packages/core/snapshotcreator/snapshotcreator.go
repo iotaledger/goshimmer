@@ -60,7 +60,7 @@ func CreateSnapshot(workers *workerpool.Group, databaseVersion database.Version,
 	// Create outputs for nodes
 	engineInstance.NotarizationManager.Attestations.SetLastCommittedEpoch(-1)
 	for nodePublicKey, value := range nodesToPledge {
-		// pledge to ID but send funds to random address
+		// send funds and pledge to ID
 		nodeID := identity.NewID(nodePublicKey)
 		output, outputMetadata := createOutput(ledgerVM, nodePublicKey, value, nodeID, 0)
 		if err := engineInstance.LedgerState.UnspentOutputs.ApplyCreatedOutput(ledger.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {

@@ -35,29 +35,17 @@ func (d *Directory) RemoveSubdir(name string) error {
 }
 
 func (d *Directory) SubDirs() ([]string, error) {
+	entries, err := os.ReadDir(d.path)
+	if err != nil {
+		return nil, err
+	}
+
 	var dirs []string
-	basePath := filepath.Base(d.path)
-
-	err := filepath.WalkDir(d.path, func(path string, dirEntry os.DirEntry, err error) error {
-		if err != nil {
-			return err
+	for _, entry := range entries {
+		if entry.IsDir() {
+			dirs = append(dirs, entry.Name())
 		}
-
-		switch filepath.Dir(path) {
-		case ".":
-			return nil
-		case basePath:
-			if dirEntry.IsDir() {
-				dirs = append(dirs, dirEntry.Name())
-			}
-			return nil
-		default:
-			if dirEntry.IsDir() {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-	})
+	}
 
 	return dirs, err
 }
