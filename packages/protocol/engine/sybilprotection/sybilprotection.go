@@ -14,4 +14,7 @@ type SybilProtection interface {
 
 	// Initializable exposes a subscribable life-cycle event that is triggered when the component is initialized.
 	traits.Initializable
+
+	// Committable is a trait that stores information about the latest commitment.
+	traits.Committable
 }

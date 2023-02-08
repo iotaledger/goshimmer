@@ -13,7 +13,7 @@ import (
 	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
@@ -41,7 +41,7 @@ func TestEngineManager_ForkEngineAtEpoch(t *testing.T) {
 
 	etf := NewEngineManagerTestFramework(t, workers.CreateGroup("EngineManagerTestFramework"), identitiesWeights)
 
-	tf := protocol.NewEngineTestFramework(t, workers.CreateGroup("EngineTestFramework"), etf.ActiveEngine.Engine)
+	tf := engine.NewTestFramework(t, workers.CreateGroup("TestFramework"), etf.ActiveEngine.Engine)
 	tf.AssertEpochState(0)
 
 	acceptedBlocks := make(map[string]bool)
@@ -86,7 +86,7 @@ func TestEngineManager_ForkEngineAtEpoch(t *testing.T) {
 	require.Equal(t, epoch.IndexFromTime(tf.BlockDAG.Block("11.A").IssuingTime()), epoch.Index(11))
 
 	// Time hasn't advanced past epoch 1
-	require.Equal(t, tf.Engine.Storage.Settings.LatestCommitment().Index(), epoch.Index(0))
+	require.Equal(t, tf.Instance.Storage.Settings.LatestCommitment().Index(), epoch.Index(0))
 
 	tf.BlockDAG.CreateBlock("11.B", models.WithStrongParents(tf.BlockDAG.BlockIDs("11.A")), models.WithIssuer(identitiesMap["B"]))
 	tf.BlockDAG.CreateBlock("11.C", models.WithStrongParents(tf.BlockDAG.BlockIDs("11.B")), models.WithIssuer(identitiesMap["C"]))
@@ -104,45 +104,45 @@ func TestEngineManager_ForkEngineAtEpoch(t *testing.T) {
 
 	// Time has advanced to epoch 10 because of A.5, rendering 10 - MinimumCommittableAge(6) = 4 epoch committable
 	require.Eventually(t, func() bool {
-		return tf.Engine.Storage.Settings.LatestCommitment().Index() == epoch.Index(4)
+		return tf.Instance.Storage.Settings.LatestCommitment().Index() == epoch.Index(4)
 	}, time.Second, 100*time.Millisecond)
 
-	forkedEngine, err := etf.EngineManager.ForkEngineAtEpoch(tf.Engine.Storage.Settings.LatestCommitment().Index())
+	forkedEngine, err := etf.EngineManager.ForkEngineAtEpoch(tf.Instance.Storage.Settings.LatestCommitment().Index())
 	require.NoError(t, err)
 
 	{
-		tf2 := protocol.NewEngineTestFramework(t, workers.CreateGroup("EngineTestFramework2"), forkedEngine.Engine)
+		tf2 := engine.NewTestFramework(t, workers.CreateGroup("EngineTestFramework2"), forkedEngine.Engine)
 
 		// Settings
 		// The ChainID of the new engine corresponds to the target epoch of the imported snapshot.
-		require.Equal(t, lo.PanicOnErr(tf.Engine.Storage.Commitments.Load(4)).ID(), tf2.Engine.Storage.Settings.ChainID())
-		require.Equal(t, tf.Engine.Storage.Settings.LatestCommitment(), tf2.Engine.Storage.Settings.LatestCommitment())
-		require.Equal(t, tf.Engine.Storage.Settings.LatestConfirmedEpoch(), tf2.Engine.Storage.Settings.LatestConfirmedEpoch())
-		require.Equal(t, tf.Engine.Storage.Settings.LatestStateMutationEpoch(), tf2.Engine.Storage.Settings.LatestStateMutationEpoch())
+		require.Equal(t, lo.PanicOnErr(tf.Instance.Storage.Commitments.Load(4)).ID(), tf2.Instance.Storage.Settings.ChainID())
+		require.Equal(t, tf.Instance.Storage.Settings.LatestCommitment(), tf2.Instance.Storage.Settings.LatestCommitment())
+		require.Equal(t, tf.Instance.Storage.Settings.LatestConfirmedEpoch(), tf2.Instance.Storage.Settings.LatestConfirmedEpoch())
+		require.Equal(t, tf.Instance.Storage.Settings.LatestStateMutationEpoch(), tf2.Instance.Storage.Settings.LatestStateMutationEpoch())
 
 		tf2.AssertEpochState(4)
 
 		// Bucketed Storage
 		for epochIndex := epoch.Index(0); epochIndex <= 4; epochIndex++ {
-			originalCommitment, err := tf.Engine.Storage.Commitments.Load(epochIndex)
+			originalCommitment, err := tf.Instance.Storage.Commitments.Load(epochIndex)
 			require.NoError(t, err)
-			importedCommitment, err := tf2.Engine.Storage.Commitments.Load(epochIndex)
+			importedCommitment, err := tf2.Instance.Storage.Commitments.Load(epochIndex)
 			require.NoError(t, err)
 
 			require.Equal(t, originalCommitment, importedCommitment)
 
 			// Check that StateDiffs have been cleared after snapshot import.
-			require.NoError(t, tf2.Engine.LedgerState.StateDiffs.StreamCreatedOutputs(epochIndex, func(*ledger.OutputWithMetadata) error {
+			require.NoError(t, tf2.Instance.LedgerState.StateDiffs.StreamCreatedOutputs(epochIndex, func(*ledger.OutputWithMetadata) error {
 				return errors.New("StateDiffs created should be empty after snapshot import")
 			}))
 
-			require.NoError(t, tf2.Engine.LedgerState.StateDiffs.StreamSpentOutputs(epochIndex, func(*ledger.OutputWithMetadata) error {
+			require.NoError(t, tf2.Instance.LedgerState.StateDiffs.StreamSpentOutputs(epochIndex, func(*ledger.OutputWithMetadata) error {
 				return errors.New("StateDiffs spent should be empty after snapshot import")
 			}))
 
 			// RootBlocks
-			require.NoError(t, tf.Engine.Storage.RootBlocks.Stream(epochIndex, func(rootBlock models.BlockID) error {
-				has, err := tf2.Engine.Storage.RootBlocks.Has(rootBlock)
+			require.NoError(t, tf.Instance.Storage.RootBlocks.Stream(epochIndex, func(rootBlock models.BlockID) error {
+				has, err := tf2.Instance.Storage.RootBlocks.Has(rootBlock)
 				require.NoError(t, err)
 				require.True(t, has)
 
@@ -151,26 +151,26 @@ func TestEngineManager_ForkEngineAtEpoch(t *testing.T) {
 		}
 
 		// LedgerState
-		require.Equal(t, tf.Engine.LedgerState.UnspentOutputs.IDs.Size(), tf2.Engine.LedgerState.UnspentOutputs.IDs.Size())
-		require.Equal(t, tf.Engine.LedgerState.UnspentOutputs.IDs.Root(), tf2.Engine.LedgerState.UnspentOutputs.IDs.Root())
-		require.NoError(t, tf.Engine.LedgerState.UnspentOutputs.IDs.Stream(func(outputID utxo.OutputID) bool {
-			require.True(t, tf2.Engine.LedgerState.UnspentOutputs.IDs.Has(outputID))
+		require.Equal(t, tf.Instance.LedgerState.UnspentOutputs.IDs.Size(), tf2.Instance.LedgerState.UnspentOutputs.IDs.Size())
+		require.Equal(t, tf.Instance.LedgerState.UnspentOutputs.IDs.Root(), tf2.Instance.LedgerState.UnspentOutputs.IDs.Root())
+		require.NoError(t, tf.Instance.LedgerState.UnspentOutputs.IDs.Stream(func(outputID utxo.OutputID) bool {
+			require.True(t, tf2.Instance.LedgerState.UnspentOutputs.IDs.Has(outputID))
 			return true
 		}))
 
 		// SybilProtection
-		require.Equal(t, lo.PanicOnErr(tf.Engine.SybilProtection.Weights().Map()), lo.PanicOnErr(tf2.Engine.SybilProtection.Weights().Map()))
-		require.Equal(t, tf.Engine.SybilProtection.Weights().TotalWeight(), tf2.Engine.SybilProtection.Weights().TotalWeight())
-		require.Equal(t, tf.Engine.SybilProtection.Weights().Root(), tf2.Engine.SybilProtection.Weights().Root())
+		require.Equal(t, lo.PanicOnErr(tf.Instance.SybilProtection.Weights().Map()), lo.PanicOnErr(tf2.Instance.SybilProtection.Weights().Map()))
+		require.Equal(t, tf.Instance.SybilProtection.Weights().TotalWeight(), tf2.Instance.SybilProtection.Weights().TotalWeight())
+		require.Equal(t, tf.Instance.SybilProtection.Weights().Root(), tf2.Instance.SybilProtection.Weights().Root())
 
 		// ThroughputQuota
-		require.Equal(t, tf.Engine.ThroughputQuota.BalanceByIDs(), tf2.Engine.ThroughputQuota.BalanceByIDs())
-		require.Equal(t, tf.Engine.ThroughputQuota.TotalBalance(), tf2.Engine.ThroughputQuota.TotalBalance())
+		require.Equal(t, tf.Instance.ThroughputQuota.BalanceByIDs(), tf2.Instance.ThroughputQuota.BalanceByIDs())
+		require.Equal(t, tf.Instance.ThroughputQuota.TotalBalance(), tf2.Instance.ThroughputQuota.TotalBalance())
 
 		// Attestations for the targetEpoch only
-		require.Equal(t, lo.PanicOnErr(tf.Engine.NotarizationManager.Attestations.Get(4)).Root(), lo.PanicOnErr(tf2.Engine.NotarizationManager.Attestations.Get(4)).Root())
-		require.NoError(t, lo.PanicOnErr(tf.Engine.NotarizationManager.Attestations.Get(4)).Stream(func(key identity.ID, engine1Attestation *notarization.Attestation) bool {
-			engine2Attestations := lo.PanicOnErr(tf2.Engine.NotarizationManager.Attestations.Get(4))
+		require.Equal(t, lo.PanicOnErr(tf.Instance.NotarizationManager.Attestations.Get(4)).Root(), lo.PanicOnErr(tf2.Instance.NotarizationManager.Attestations.Get(4)).Root())
+		require.NoError(t, lo.PanicOnErr(tf.Instance.NotarizationManager.Attestations.Get(4)).Stream(func(key identity.ID, engine1Attestation *notarization.Attestation) bool {
+			engine2Attestations := lo.PanicOnErr(tf2.Instance.NotarizationManager.Attestations.Get(4))
 			engine2Attestation, exists := engine2Attestations.Get(key)
 			require.True(t, exists)
 			require.Equal(t, engine1Attestation, engine2Attestation)
@@ -178,7 +178,7 @@ func TestEngineManager_ForkEngineAtEpoch(t *testing.T) {
 			return true
 		}))
 
-		require.NotEqual(t, tf.Engine.Storage.Directory, tf2.Engine.Storage.Directory)
+		require.NotEqual(t, tf.Instance.Storage.Directory, tf2.Instance.Storage.Directory)
 
 		require.NoError(t, etf.EngineManager.SetActiveInstance(forkedEngine))
 
