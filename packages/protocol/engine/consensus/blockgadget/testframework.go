@@ -86,9 +86,6 @@ func (t *TestFramework) setupEvents() {
 	t.Gadget.Events.BlockAccepted.Hook(event.NewClosure(func(metadata *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("ACCEPTED: %s", metadata.ID())
-			if metadata.ID().String() == "BlockID(Block5)" {
-				_ = ""
-			}
 		}
 
 		atomic.AddUint32(&(t.acceptedBlocks), 1)

@@ -1,7 +1,6 @@
 package blockgadget
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -320,9 +319,6 @@ func (a *Gadget) markAsAccepted(block *Block) (err error) {
 	}
 
 	if block.SetAccepted() {
-		if block.ID().String() == "BlockID(Block5)" {
-			fmt.Println("foo")
-		}
 		// If block has been orphaned before acceptance, remove the flag from the block. Otherwise, remove the block from TimedHeap.
 		if block.IsOrphaned() {
 			a.tangle.BlockDAG.SetOrphaned(block.Block.Block.Block, false)
