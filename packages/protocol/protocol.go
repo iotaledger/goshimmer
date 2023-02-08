@@ -195,6 +195,17 @@ func (p *Protocol) initChainManager() {
 		p.chainManager.ProcessCommitmentFromSource(event.Commitment, event.Source)
 	}, wp)
 	event.AttachWithWorkerPool(p.chainManager.CommitmentRequester.Events.Tick, func(commitmentID commitment.ID) {
+		// Check if we have the requested commitment in our storage before asking our peers for it.
+		// This can happen after we restart the node because the chain manager builds up the chain again.
+		if commitment, _ := p.Engine().Storage.Commitments.Load(commitmentID.Index()); commitment != nil {
+			if commitment.ID() == commitmentID {
+				wp.Submit(func() {
+					p.chainManager.ProcessCommitment(commitment)
+				})
+				return
+			}
+		}
+
 		p.networkProtocol.RequestCommitment(commitmentID)
 	}, p.Workers.CreatePool("RequestCommitment", 2))
 }
