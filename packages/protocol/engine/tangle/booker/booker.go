@@ -31,28 +31,30 @@ type Booker struct {
 	// Events contains the Events of Booker.
 	Events *Events
 
-	Ledger        *ledger.Ledger
-	bookingOrder  *causalorder.CausalOrder[models.BlockID, *Block]
-	attachments   *attachments
-	blocks        *memstorage.EpochStorage[models.BlockID, *Block]
-	markerManager *markermanager.MarkerManager[models.BlockID, *Block]
-	bookingMutex  *syncutils.DAGMutex[models.BlockID]
-	evictionMutex sync.RWMutex
+	Ledger              *ledger.Ledger
+	isBlockAcceptedFunc func(models.BlockID) bool
+	bookingOrder        *causalorder.CausalOrder[models.BlockID, *Block]
+	attachments         *attachments
+	blocks              *memstorage.EpochStorage[models.BlockID, *Block]
+	markerManager       *markermanager.MarkerManager[models.BlockID, *Block]
+	bookingMutex        *syncutils.DAGMutex[models.BlockID]
+	evictionMutex       sync.RWMutex
 
 	optsMarkerManager []options.Option[markermanager.MarkerManager[models.BlockID, *Block]]
 
 	*blockdag.BlockDAG
 }
 
-func New(blockDAG *blockdag.BlockDAG, ledger *ledger.Ledger, opts ...options.Option[Booker]) (booker *Booker) {
+func New(isBlockAcceptedFunc func(models.BlockID) bool, blockDAG *blockdag.BlockDAG, ledger *ledger.Ledger, opts ...options.Option[Booker]) (booker *Booker) {
 	return options.Apply(&Booker{
-		Events:            NewEvents(),
-		attachments:       newAttachments(),
-		blocks:            memstorage.NewEpochStorage[models.BlockID, *Block](),
-		bookingMutex:      syncutils.NewDAGMutex[models.BlockID](),
-		optsMarkerManager: make([]options.Option[markermanager.MarkerManager[models.BlockID, *Block]], 0),
-		Ledger:            ledger,
-		BlockDAG:          blockDAG,
+		Events:              NewEvents(),
+		attachments:         newAttachments(),
+		blocks:              memstorage.NewEpochStorage[models.BlockID, *Block](),
+		bookingMutex:        syncutils.NewDAGMutex[models.BlockID](),
+		optsMarkerManager:   make([]options.Option[markermanager.MarkerManager[models.BlockID, *Block]], 0),
+		Ledger:              ledger,
+		isBlockAcceptedFunc: isBlockAcceptedFunc,
+		BlockDAG:            blockDAG,
 	}, opts, func(b *Booker) {
 		b.markerManager = markermanager.NewMarkerManager(b.optsMarkerManager...)
 		b.bookingOrder = causalorder.New(
@@ -303,12 +305,12 @@ func (b *Booker) determineBookingDetails(block *Block) (parentsStructureDetails 
 		return nil, nil, nil, errors.Wrapf(shallowLikeErr, "failed to collect shallow likes of %s", block.ID())
 	}
 
-	inheritedConflictIDs.AddAll(strongParentsConflictIDs)
+	inheritedConflictIDs.AddAll(b.Ledger.ConflictDAG.UnconfirmedConflicts(strongParentsConflictIDs))
 	inheritedConflictIDs.AddAll(weakPayloadConflictIDs)
 	inheritedConflictIDs.AddAll(likedConflictIDs)
 	inheritedConflictIDs.DeleteAll(b.Ledger.Utils.ConflictIDsInFutureCone(dislikedConflictIDs))
 
-	return parentsStructureDetails, b.Ledger.ConflictDAG.UnconfirmedConflicts(parentsPastMarkersConflictIDs), b.Ledger.ConflictDAG.UnconfirmedConflicts(inheritedConflictIDs), nil
+	return parentsStructureDetails, b.Ledger.ConflictDAG.UnconfirmedConflicts(parentsPastMarkersConflictIDs), inheritedConflictIDs, nil
 }
 
 // collectStrongParentsBookingDetails returns the booking details of a Block's strong parents.
@@ -369,7 +371,7 @@ func (b *Booker) collectShallowLikedParentsConflictIDs(block *Block) (collectedL
 		}
 		transaction, isTransaction := parentBlock.Transaction()
 		if !isTransaction {
-			err = errors.WithMessagef(cerrors.ErrFatal, "%s referenced by a shallow like of %s does not contain a Transaction", parentBlockID, block.ID())
+			err = errors.WithMessagef(cerrors.ErrFatal, "%s (isRootBlock %t) referenced by a shallow like of %s does not contain a Transaction", parentBlockID, b.EvictionState.IsRootBlock(parentBlockID), block.ID())
 			return false
 		}
 
@@ -480,6 +482,14 @@ func (b *Booker) OrphanAttachment(block *Block) {
 
 // PropagateForkedConflict propagates the forked ConflictID to the future cone of the attachments of the given Transaction.
 func (b *Booker) PropagateForkedConflict(transactionID, addedConflictID utxo.TransactionID, removedConflictIDs utxo.TransactionIDs) (err error) {
+	// If the added conflict has been accepted before via its attachment, we don't propagate it to the future cone.
+	for _, attachment := range b.attachments.Get(addedConflictID) {
+		if b.isBlockAcceptedFunc(attachment.ID()) {
+			fmt.Printf(">> Fork propagation: NOT propagating because TX %s has been accepted via attachment %s\n", transactionID, attachment.ID())
+			return
+		}
+	}
+
 	for blockWalker := walker.New[*Block]().PushAll(b.attachments.Get(transactionID)...); blockWalker.HasNext(); {
 		block := blockWalker.Next()
 
@@ -530,7 +540,53 @@ func (b *Booker) updateBlockConflicts(block *Block, addedConflict utxo.Transacti
 		return false
 	}
 
+	/*
+		likedConflictIDs, dislikedConflictIDs, shallowLikeErr := b.collectShallowLikedParentsConflictIDs(block)
+		if shallowLikeErr != nil {
+			panic("failed to collect shallow likes of " + block.ID().String())
+			return nil, nil, nil, errors.Wrapf(shallowLikeErr, "failed to collect shallow likes of %s", block.ID())
+		}
+
+		inheritedConflictIDs.AddAll(strongParentsConflictIDs)
+		inheritedConflictIDs.AddAll(weakPayloadConflictIDs)
+		inheritedConflictIDs.AddAll(likedConflictIDs)
+		inheritedConflictIDs.DeleteAll(b.Ledger.Utils.ConflictIDsInFutureCone(dislikedConflictIDs))
+	*/
+
+	// We do not add the new forked conflict if the block explicitly voted for something conflicting.
+	// But we still want to propagate it further.
+	if b.isConflictExplicitlyExcluded(block, addedConflict) {
+		return true
+	}
+
 	return block.AddConflictID(addedConflict)
+}
+
+func (b *Booker) isConflictExplicitlyExcluded(block *Block, addedConflict utxo.TransactionID) (explicitlyExcluded bool) {
+	_, dislikedConflictIDs, shallowLikeErr := b.collectShallowLikedParentsConflictIDs(block)
+	if shallowLikeErr != nil {
+		panic("failed to collect shallow likes of " + block.ID().String() + shallowLikeErr.Error())
+	}
+
+	weakPayloadConflictIDs := b.collectWeakParentsConflictIDs(block)
+
+	for itWeak := weakPayloadConflictIDs.Iterator(); itWeak.HasNext(); {
+		for it := b.Ledger.Utils.ConflictingTransactions(itWeak.Next()).Iterator(); it.HasNext(); {
+			conflictingTransactionID := it.Next()
+			dislikedConflicts, dislikedConflictsErr := b.Ledger.Utils.TransactionConflictIDs(conflictingTransactionID)
+			if dislikedConflictsErr != nil {
+				panic("failed to collect disliked conflicts of " + conflictingTransactionID.String())
+			}
+			dislikedConflictIDs.AddAll(dislikedConflicts)
+		}
+	}
+
+	if dislikedConflictIDs.Has(addedConflict) {
+		fmt.Println("fork not propagated because explicit dislike")
+		return true
+	}
+
+	return false
 }
 
 // propagateForkedTransactionToMarkerFutureCone propagates a newly created ConflictID into the future cone of the given Marker.
@@ -561,6 +617,16 @@ func (b *Booker) forkSingleMarker(currentMarker markers.Marker, newConflictID ut
 		return nil
 	}
 
+	block, exists := b.markerManager.BlockFromMarker(currentMarker)
+	if !exists {
+		panic("missing block for marker")
+	}
+
+	if b.isConflictExplicitlyExcluded(block, newConflictID) {
+		fmt.Printf(">> Fork propagation: NOT added %s as %s explicitly dislikes\n", newConflictID, block.ID())
+		goto dirtyjump
+	}
+
 	if !newConflictIDs.Add(newConflictID) {
 		return nil
 	}
@@ -569,12 +635,16 @@ func (b *Booker) forkSingleMarker(currentMarker markers.Marker, newConflictID ut
 		return nil
 	}
 
+	fmt.Printf(">> Fork propagation: added %s to %s\n", newConflictID, block.ID())
+
 	// trigger event
 	b.Events.MarkerConflictAdded.Trigger(&MarkerConflictAddedEvent{
 		Marker:            currentMarker,
 		ConflictID:        newConflictID,
 		ParentConflictIDs: removedConflictIDs,
 	})
+
+dirtyjump:
 
 	// propagate updates to later ConflictID mappings of the same sequence.
 	b.markerManager.ForEachConflictIDMapping(currentMarker.SequenceID(), currentMarker.Index(), func(mappedMarker markers.Marker, _ utxo.TransactionIDs) {
