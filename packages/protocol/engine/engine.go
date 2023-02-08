@@ -283,7 +283,7 @@ func (e *Engine) initTangle() {
 		if _, _, err := e.Tangle.BlockDAG.Attach(block); err != nil {
 			e.Events.Error.Trigger(errors.Wrapf(err, "failed to attach block with %s (issuerID: %s)", block.ID(), block.IssuerID()))
 		}
-	}, e.Workers.CreatePool("Tangle.Attach", 1)) // Using just 1 worker to avoid contention
+	}, e.Workers.CreatePool("Tangle.Attach", 2))
 
 	e.Events.Tangle.LinkTo(e.Tangle.Events)
 }
