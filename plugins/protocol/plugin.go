@@ -88,6 +88,9 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 			),
 			engine.WithSnapshotDepth(Parameters.Snapshot.Depth),
 		),
+		protocol.WithChainManagerOptions(
+			chainmanager.WithForkDetectionMinimumDepth(Parameters.ForkDetectionMinimumDepth),
+		),
 		protocol.WithTipManagerOptions(
 			tipmanager.WithWidth(Parameters.TangleWidth),
 			tipmanager.WithTimeSinceConfirmationThreshold(Parameters.TimeSinceConfirmationThreshold),

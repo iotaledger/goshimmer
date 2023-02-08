@@ -60,6 +60,7 @@ type Protocol struct {
 	// optsSolidificationOptions []options.Option[solidification.Requester]
 	optsCongestionControlOptions      []options.Option[congestioncontrol.CongestionControl]
 	optsEngineOptions                 []options.Option[engine.Engine]
+	optsChainManagerOptions           []options.Option[chainmanager.Manager]
 	optsTipManagerOptions             []options.Option[tipmanager.TipManager]
 	optsStorageDatabaseManagerOptions []options.Option[database.Manager]
 	optsSybilProtectionProvider       engine.ModuleProvider[sybilprotection.SybilProtection]
@@ -175,7 +176,7 @@ func (p *Protocol) initNetworkEvents() {
 }
 
 func (p *Protocol) initChainManager() {
-	p.chainManager = chainmanager.NewManager(p.Engine().Storage.Settings.LatestCommitment())
+	p.chainManager = chainmanager.NewManager(p.Engine().Storage.Settings.LatestCommitment(), p.optsChainManagerOptions...)
 	p.Events.ChainManager = p.chainManager.Events
 
 	wp := p.Workers.CreatePool("ChainManager", 1) // Using just 1 worker to avoid contention
@@ -298,7 +299,7 @@ func (p *Protocol) switchEngines() {
 func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) error {
 	mainEngine := p.MainEngineInstance()
 
-	isSolid, _, chain := p.chainManager.ProcessCommitmentFromSource(block.Commitment(), src)
+	isSolid, chain := p.chainManager.ProcessCommitmentFromSource(block.Commitment(), src)
 	if !isSolid {
 		return errors.Errorf("protocol ProcessBlock failed. chain is not solid: %s, latest commitment: %s, block ID: %s", block.Commitment().ID(), mainEngine.Storage.Settings.LatestCommitment().ID(), block.ID())
 	}
@@ -599,6 +600,12 @@ func WithTipManagerOptions(opts ...options.Option[tipmanager.TipManager]) option
 func WithEngineOptions(opts ...options.Option[engine.Engine]) options.Option[Protocol] {
 	return func(n *Protocol) {
 		n.optsEngineOptions = opts
+	}
+}
+
+func WithChainManagerOptions(opts ...options.Option[chainmanager.Manager]) options.Option[Protocol] {
+	return func(n *Protocol) {
+		n.optsChainManagerOptions = opts
 	}
 }
 

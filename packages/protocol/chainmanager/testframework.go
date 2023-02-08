@@ -17,7 +17,7 @@ import (
 )
 
 type TestFramework struct {
-	Manager *Manager
+	Instance *Manager
 
 	test               *testing.T
 	commitmentsByAlias map[string]*commitment.Commitment
@@ -29,7 +29,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 	snapshotCommitment := commitment.New(0, commitment.ID{}, types.Identifier{}, 0)
 
 	return options.Apply(&TestFramework{
-		Manager: NewManager(snapshotCommitment),
+		Instance: NewManager(snapshotCommitment),
 
 		test: test,
 		commitmentsByAlias: map[string]*commitment.Commitment{
@@ -48,16 +48,16 @@ func (t *TestFramework) CreateCommitment(alias string, prevAlias string) {
 	t.commitmentsByAlias[alias] = commitment.New(previousIndex+1, prevCommitmentID, randomECR, 0)
 }
 
-func (t *TestFramework) ProcessCommitment(alias string) (isSolid bool, wasForked bool, chain *Chain) {
-	return t.Manager.ProcessCommitment(t.commitment(alias))
+func (t *TestFramework) ProcessCommitment(alias string) (isSolid bool, chain *Chain) {
+	return t.Instance.ProcessCommitment(t.commitment(alias))
 }
 
-func (t *TestFramework) ProcessCommitmentFromOtherSource(alias string) (isSolid bool, wasForked bool, chain *Chain) {
-	return t.Manager.ProcessCommitmentFromSource(t.commitment(alias), identity.NewID(ed25519.PublicKey{}))
+func (t *TestFramework) ProcessCommitmentFromOtherSource(alias string) (isSolid bool, chain *Chain) {
+	return t.Instance.ProcessCommitmentFromSource(t.commitment(alias), identity.NewID(ed25519.PublicKey{}))
 }
 
 func (t *TestFramework) Chain(alias string) (chain *Chain) {
-	return t.Manager.Chain(t.EC(alias))
+	return t.Instance.Chain(t.EC(alias))
 }
 
 func (t *TestFramework) commitment(alias string) (commitment *commitment.Commitment) {

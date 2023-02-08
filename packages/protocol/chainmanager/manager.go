@@ -31,38 +31,42 @@ type Manager struct {
 	commitmentsByID      map[commitment.ID]*Commitment
 	commitmentsByIDMutex sync.Mutex
 
-	forksByForkingPoint *memstorage.EpochStorage[commitment.ID, *Fork]
+	// This tracks the forkingPoints by the commitment that triggered the detection so we can clean up after eviction
+	forkingPointsByCommitments *memstorage.EpochStorage[commitment.ID, commitment.ID]
+	forksByForkingPoint        *memstorage.Storage[commitment.ID, *Fork]
 
 	optsCommitmentRequester []options.Option[eventticker.EventTicker[commitment.ID]]
+
+	optsMinimumForkDepth int64
 
 	commitmentEntityMutex *syncutils.DAGMutex[commitment.ID]
 }
 
-func NewManager(snapshot *commitment.Commitment) (manager *Manager) {
-	manager = &Manager{
-		Events: NewEvents(),
+func NewManager(snapshot *commitment.Commitment, opts ...options.Option[Manager]) (manager *Manager) {
+	return options.Apply(&Manager{
+		Events:               NewEvents(),
+		optsMinimumForkDepth: 3,
 
-		commitmentsByID:       make(map[commitment.ID]*Commitment),
-		commitmentEntityMutex: syncutils.NewDAGMutex[commitment.ID](),
-		forksByForkingPoint:   memstorage.NewEpochStorage[commitment.ID, *Fork](),
-	}
+		commitmentsByID:            make(map[commitment.ID]*Commitment),
+		commitmentEntityMutex:      syncutils.NewDAGMutex[commitment.ID](),
+		forkingPointsByCommitments: memstorage.NewEpochStorage[commitment.ID, commitment.ID](),
+		forksByForkingPoint:        memstorage.New[commitment.ID, *Fork](),
+	}, opts, func(manager *Manager) {
+		manager.SnapshotCommitment, _ = manager.Commitment(snapshot.ID(), true)
+		manager.SnapshotCommitment.PublishCommitment(snapshot)
+		manager.SnapshotCommitment.SetSolid(true)
+		manager.SnapshotCommitment.publishChain(NewChain(manager.SnapshotCommitment))
 
-	manager.SnapshotCommitment, _ = manager.Commitment(snapshot.ID(), true)
-	manager.SnapshotCommitment.PublishCommitment(snapshot)
-	manager.SnapshotCommitment.SetSolid(true)
-	manager.SnapshotCommitment.publishChain(NewChain(manager.SnapshotCommitment))
+		manager.CommitmentRequester = eventticker.New(manager.optsCommitmentRequester...)
+		event.Hook(manager.Events.CommitmentMissing, manager.CommitmentRequester.StartTicker)
+		event.Hook(manager.Events.MissingCommitmentReceived, manager.CommitmentRequester.StopTicker)
 
-	manager.CommitmentRequester = eventticker.New(manager.optsCommitmentRequester...)
-	event.Hook(manager.Events.CommitmentMissing, manager.CommitmentRequester.StartTicker)
-	event.Hook(manager.Events.MissingCommitmentReceived, manager.CommitmentRequester.StopTicker)
-
-	manager.commitmentsByID[manager.SnapshotCommitment.ID()] = manager.SnapshotCommitment
-
-	return
+		manager.commitmentsByID[manager.SnapshotCommitment.ID()] = manager.SnapshotCommitment
+	})
 }
 
-func (m *Manager) processCommitment(commitment *commitment.Commitment) (isNew bool, isSolid bool, wasForked bool, chainCommitment *Commitment) {
-	isNew, isSolid, wasForked, chainCommitment = m.registerCommitment(commitment)
+func (m *Manager) processCommitment(commitment *commitment.Commitment) (isNew bool, isSolid bool, chainCommitment *Commitment) {
+	isNew, isSolid, _, chainCommitment = m.registerCommitment(commitment)
 	if !isNew || chainCommitment.Chain() == nil {
 		return
 	}
@@ -88,34 +92,32 @@ func (m *Manager) processCommitment(commitment *commitment.Commitment) (isNew bo
 	return
 }
 
-func (m *Manager) ProcessCommitmentFromSource(commitment *commitment.Commitment, source identity.ID) (isSolid bool, wasForked bool, chain *Chain) {
-	_, isSolid, wasForked, chainCommitment := m.processCommitment(commitment)
+func (m *Manager) ProcessCommitmentFromSource(commitment *commitment.Commitment, source identity.ID) (isSolid bool, chain *Chain) {
+	_, isSolid, chainCommitment := m.processCommitment(commitment)
 
-	if wasForked {
-		m.handleFork(chainCommitment, chainCommitment.Chain(), source)
-	}
+	m.detectForks(chainCommitment, source)
 
-	return isSolid, wasForked, chainCommitment.Chain()
+	return isSolid, chainCommitment.Chain()
 }
 
-func (m *Manager) ProcessCandidateCommitment(commitment *commitment.Commitment) (isSolid bool, wasForked bool, chain *Chain) {
-	_, isSolid, wasForked, chainCommitment := m.processCommitment(commitment)
-	return isSolid, wasForked, chainCommitment.Chain()
+func (m *Manager) ProcessCandidateCommitment(commitment *commitment.Commitment) (isSolid bool, chain *Chain) {
+	_, isSolid, chainCommitment := m.processCommitment(commitment)
+	return isSolid, chainCommitment.Chain()
 }
 
-func (m *Manager) ProcessCommitment(commitment *commitment.Commitment) (isSolid bool, wasForked bool, chain *Chain) {
-	isNew, isSolid, wasForked, chainCommitment := m.processCommitment(commitment)
+func (m *Manager) ProcessCommitment(commitment *commitment.Commitment) (isSolid bool, chain *Chain) {
+	isNew, isSolid, chainCommitment := m.processCommitment(commitment)
 
-	if !isNew || wasForked {
+	if !isNew {
 		if err := m.switchMainChainToCommitment(chainCommitment); err != nil {
 			panic(err)
 		}
 	}
 
-	return isSolid, false, chainCommitment.Chain()
+	return isSolid, chainCommitment.Chain()
 }
 
-func (m *Manager) handleFork(commitment *Commitment, chain *Chain, source identity.ID) {
+func (m *Manager) detectForks(commitment *Commitment, source identity.ID) {
 	forkingPoint, err := m.forkingPointAgainstMainChain(commitment)
 	if err != nil {
 		return
@@ -126,15 +128,13 @@ func (m *Manager) handleFork(commitment *Commitment, chain *Chain, source identi
 	}
 
 	// Do not trigger another event for the same forking point.
-	forksStorage := m.forksByForkingPoint.Get(commitment.ID().Index(), true)
-	if forksStorage.Has(forkingPoint.ID()) {
+	if m.forksByForkingPoint.Has(forkingPoint.ID()) {
 		return
 	}
 
-	// The forking point should be at least 3 epochs in the past w.r.t this commitment index.
-	//TODO: replace 3 with values depending on the configuration
-	latestChainCommitment := chain.LatestCommitment()
-	if latestChainCommitment.ID().Index()-forkingPoint.ID().Index() < 3 {
+	// The forking point should be at least optsMinimumForkDepth epochs in the past w.r.t this commitment index.
+	latestChainCommitment := commitment.Chain().LatestCommitment()
+	if int64(latestChainCommitment.ID().Index()-forkingPoint.ID().Index()) < m.optsMinimumForkDepth {
 		return
 	}
 
@@ -144,7 +144,10 @@ func (m *Manager) handleFork(commitment *Commitment, chain *Chain, source identi
 		Commitment:   latestChainCommitment.Commitment(),
 		ForkingPoint: forkingPoint.Commitment(),
 	}
-	forksStorage.Set(forkingPoint.ID(), fork)
+	m.forksByForkingPoint.Set(forkingPoint.ID(), fork)
+
+	m.forkingPointsByCommitments.Get(commitment.ID().Index(), true).Set(commitment.ID(), forkingPoint.ID())
+
 	m.Events.ForkDetected.Trigger(fork)
 }
 
@@ -236,11 +239,7 @@ func (m *Manager) forkingPointAgainstMainChain(commitment *Commitment) (*Commitm
 
 // ForkByForkingPoint returns the fork generated by a peer for the given forking point.
 func (m *Manager) ForkByForkingPoint(forkingPoint commitment.ID) (fork *Fork, exists bool) {
-	if storage := m.forksByForkingPoint.Get(forkingPoint.Index(), false); storage != nil {
-		return storage.Get(forkingPoint)
-	}
-
-	return
+	return m.forksByForkingPoint.Get(forkingPoint)
 }
 
 func (m *Manager) SwitchMainChain(head commitment.ID) error {
@@ -312,7 +311,15 @@ func (m *Manager) switchMainChainToCommitment(commitment *Commitment) error {
 
 func (m *Manager) Evict(index epoch.Index) {
 	//TODO: do we need to evict more stuff?
-	m.forksByForkingPoint.Evict(index)
+
+	// Forget about the forks that we detected at that epoch so that we can detect them again if they happen
+	evictedForkDetections := m.forkingPointsByCommitments.Evict(index)
+	if evictedForkDetections != nil {
+		evictedForkDetections.ForEach(func(_, forkingPoint commitment.ID) bool {
+			m.forksByForkingPoint.Delete(forkingPoint)
+			return true
+		})
+	}
 }
 
 func (m *Manager) registerChild(parent *Commitment, child *Commitment) (isSolid bool, chain *Chain, wasForked bool) {
@@ -376,4 +383,10 @@ func (m *Manager) propagateSolidity(child *Commitment) (childrenToUpdate []*Comm
 	}
 
 	return
+}
+
+func WithForkDetectionMinimumDepth(depth int64) options.Option[Manager] {
+	return func(m *Manager) {
+		m.optsMinimumForkDepth = depth
+	}
 }
