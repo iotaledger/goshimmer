@@ -508,10 +508,15 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 
 	// Set the engine as the new candidate
 	p.activeEngineMutex.Lock()
+	oldCandidateEngine := p.candidateEngine
 	p.candidateEngine = candidateEngine
 	p.activeEngineMutex.Unlock()
 
 	p.Events.CandidateEngineActivated.Trigger(candidateEngine)
+
+	if oldCandidateEngine != nil {
+		oldCandidateEngine.Shutdown()
+	}
 }
 
 func (p *Protocol) Engine() *engine.Engine {
