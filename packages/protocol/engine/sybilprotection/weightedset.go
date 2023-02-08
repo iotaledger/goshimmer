@@ -57,6 +57,9 @@ func (w *WeightedSet) Delete(id identity.ID) (removed bool) {
 	w.membersMutex.Lock()
 	defer w.membersMutex.Unlock()
 
+	w.totalWeightMutex.Lock()
+	defer w.totalWeightMutex.Unlock()
+
 	if removed = w.members.Delete(id); removed {
 		if weight, exists := w.Weights.get(id); exists {
 			w.totalWeight -= weight.Value
