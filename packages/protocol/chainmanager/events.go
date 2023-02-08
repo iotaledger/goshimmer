@@ -2,17 +2,15 @@ package chainmanager
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 )
 
 type Events struct {
 	CommitmentMissing         *event.Linkable[commitment.ID]
 	MissingCommitmentReceived *event.Linkable[commitment.ID]
-	ForkDetected              *event.Linkable[*ForkDetectedEvent]
+	ForkDetected              *event.Linkable[*Fork]
 	EvictionState             *eviction.Events
 
 	event.LinkableCollection[Events, *Events]
@@ -22,16 +20,6 @@ var NewEvents = event.LinkableConstructor(func() *Events {
 	return &Events{
 		CommitmentMissing:         event.NewLinkable[commitment.ID](),
 		MissingCommitmentReceived: event.NewLinkable[commitment.ID](),
-		ForkDetected:              event.NewLinkable[*ForkDetectedEvent](),
+		ForkDetected:              event.NewLinkable[*Fork](),
 	}
 })
-
-type ForkDetectedEvent struct {
-	Source                       identity.ID
-	Commitment                   *commitment.Commitment
-	ForkingPointAgainstMainChain *commitment.Commitment
-}
-
-func (e *ForkDetectedEvent) EndEpoch() epoch.Index {
-	return e.Commitment.Index()
-}

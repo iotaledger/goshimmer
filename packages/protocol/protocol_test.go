@@ -800,8 +800,8 @@ func (n *NodeOnMockedNetwork) HookLogging(includeMainEngine bool) {
 		fmt.Printf("%s > CongestionControl.Scheduler.BlockSkipped: %s\n", n.Name, block.ID())
 	})
 
-	event.Hook(events.ChainManager.ForkDetected, func(event *chainmanager.ForkDetectedEvent) {
-		fmt.Printf("%s > ChainManager.ForkDetected: %s with forking point %s received from %s\n", n.Name, event.Commitment.ID(), event.ForkingPointAgainstMainChain.ID(), event.Source)
+	event.Hook(events.ChainManager.ForkDetected, func(fork *chainmanager.Fork) {
+		fmt.Printf("%s > ChainManager.ForkDetected: %s with forking point %s received from %s\n", n.Name, fork.Commitment.ID(), fork.ForkingPoint.ID(), fork.Source)
 		fmt.Printf("----------------------\nForkDetected %s\n----------------------\n", n.Name)
 	})
 

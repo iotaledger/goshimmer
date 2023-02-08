@@ -189,9 +189,7 @@ func (p *Protocol) initChainManager() {
 	event.AttachWithWorkerPool(p.Events.Engine.EvictionState.EpochEvicted, func(epochIndex epoch.Index) {
 		p.chainManager.Evict(epochIndex)
 	}, wp)
-	event.AttachWithWorkerPool(p.Events.ChainManager.ForkDetected, func(event *chainmanager.ForkDetectedEvent) {
-		p.onForkDetected(event.Commitment, event.ForkingPointAgainstMainChain, event.EndEpoch(), event.Source)
-	}, wp)
+	event.AttachWithWorkerPool(p.Events.ChainManager.ForkDetected, p.onForkDetected, wp)
 	event.AttachWithWorkerPool(p.Events.Network.EpochCommitmentReceived, func(event *network.EpochCommitmentReceivedEvent) {
 		p.chainManager.ProcessCommitmentFromSource(event.Commitment, event.Source)
 	}, wp)
@@ -233,24 +231,23 @@ func (p *Protocol) initTipManager() {
 	}, wp)
 }
 
-func (p *Protocol) onForkDetected(commitment *commitment.Commitment, forkingPoint *commitment.Commitment, endIndex epoch.Index, source identity.ID) bool {
-	claimedWeight := commitment.CumulativeWeight()
-	mainChainCommitment, err := p.Engine().Storage.Commitments.Load(commitment.Index())
+func (p *Protocol) onForkDetected(fork *chainmanager.Fork) {
+	claimedWeight := fork.Commitment.CumulativeWeight()
+	mainChainCommitment, err := p.Engine().Storage.Commitments.Load(fork.Commitment.Index())
 	if err != nil {
-		p.Events.Error.Trigger(errors.Errorf("failed to load commitment for main chain tip at index %d", commitment.Index()))
-		return true
+		p.Events.Error.Trigger(errors.Errorf("failed to load commitment for main chain tip at index %d", fork.Commitment.Index()))
+		return
 	}
 
 	mainChainWeight := mainChainCommitment.CumulativeWeight()
 
 	if claimedWeight <= mainChainWeight {
 		// TODO: ban source?
-		p.Events.Error.Trigger(errors.Errorf("dot not process fork with %d CW <= than main chain %d CW received from %s", claimedWeight, mainChainWeight, source))
-		return true
+		p.Events.Error.Trigger(errors.Errorf("dot not process fork with %d CW <= than main chain %d CW received from %s", claimedWeight, mainChainWeight, fork.Source))
+		return
 	}
 
-	p.networkProtocol.RequestAttestations(forkingPoint, endIndex, source)
-	return false
+	p.networkProtocol.RequestAttestations(fork.ForkingPoint, fork.EndEpoch(), fork.Source)
 }
 
 func (p *Protocol) switchEngines() {
@@ -378,7 +375,7 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 		return
 	}
 
-	forkedEvent, exists := p.chainManager.ForkedEventByForkingPoint(forkingPoint.ID())
+	forkedEvent, exists := p.chainManager.ForkByForkingPoint(forkingPoint.ID())
 	if !exists {
 		p.Events.Error.Trigger(errors.Errorf("failed to get forking point for commitment %s", forkingPoint.ID()))
 		return
@@ -387,7 +384,7 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 	mainEngine := p.MainEngineInstance()
 
 	// Obtain mana vector at forking point - 1
-	snapshotTargetIndex := forkedEvent.ForkingPointAgainstMainChain.Index() - 1
+	snapshotTargetIndex := forkedEvent.ForkingPoint.Index() - 1
 	wb := sybilprotection.NewWeightsBatch(snapshotTargetIndex)
 
 	var calculatedCumulativeWeight int64
@@ -418,7 +415,7 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 
 		// Get our cumulative weight at the snapshot target index and apply all the received attestations on stop while verifying the validity of each signature
 		calculatedCumulativeWeight = lo.PanicOnErr(mainEngine.Storage.Commitments.Load(snapshotTargetIndex)).CumulativeWeight()
-		for epochIndex := forkedEvent.ForkingPointAgainstMainChain.Index(); epochIndex <= forkedEvent.EndEpoch(); epochIndex++ {
+		for epochIndex := forkedEvent.ForkingPoint.Index(); epochIndex <= forkedEvent.EndEpoch(); epochIndex++ {
 			epochAttestations, epochExists := attestations.Get(epochIndex)
 			if !epochExists {
 				p.Events.Error.Trigger(errors.Errorf("attestations for epoch %d missing", epochIndex))
@@ -462,7 +459,7 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 		forkedEventClaimedWeight := forkedEvent.Commitment.CumulativeWeight()
 		forkedEventMainWeight := lo.PanicOnErr(mainEngine.Engine.Storage.Commitments.Load(forkedEvent.Commitment.Index())).CumulativeWeight()
 		p.Events.Error.Trigger(errors.Errorf("fork at point %d does not accumulate enough weight at epoch %d calculated %d CW <= main chain %d CW. fork event detected at %d was %d CW > %d CW",
-			forkedEvent.ForkingPointAgainstMainChain.Index(),
+			forkedEvent.ForkingPoint.Index(),
 			forkedEvent.EndEpoch(),
 			calculatedCumulativeWeight,
 			weightAtForkedEventEnd,
@@ -480,7 +477,7 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 	}
 
 	// Set the chain to the correct forking point
-	if err := candidateEngine.Engine.Storage.Settings.SetChainID(forkedEvent.ForkingPointAgainstMainChain.ID()); err != nil {
+	if err := candidateEngine.Engine.Storage.Settings.SetChainID(forkedEvent.ForkingPoint.ID()); err != nil {
 		p.Events.Error.Trigger(errors.Wrap(err, "error setting the ChainID on the forked engine"))
 		candidateEngine.Shutdown()
 		_ = candidateEngine.RemoveFromFilesystem()
