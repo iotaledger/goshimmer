@@ -80,9 +80,9 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, optsScheduler 
 }
 
 func (t *TestFramework) setupEvents() {
-	event.AttachWithWorkerPool(t.mockAcceptance.BlockAcceptedEvent, t.Scheduler.HandleAcceptedBlock, t.workers.CreatePool("HandleAccepted"))
-	event.AttachWithWorkerPool(t.Tangle.Instance.Events.VirtualVoting.BlockTracked, t.Scheduler.AddBlock, t.workers.CreatePool("Add"))
-	event.AttachWithWorkerPool(t.Tangle.Instance.Events.BlockDAG.BlockOrphaned, t.Scheduler.HandleOrphanedBlock, t.workers.CreatePool("HandleOrphaned"))
+	event.AttachWithWorkerPool(t.mockAcceptance.BlockAcceptedEvent, t.Scheduler.HandleAcceptedBlock, t.workers.CreatePool("HandleAccepted", 2))
+	event.AttachWithWorkerPool(t.Tangle.Instance.Events.VirtualVoting.BlockTracked, t.Scheduler.AddBlock, t.workers.CreatePool("Add", 2))
+	event.AttachWithWorkerPool(t.Tangle.Instance.Events.BlockDAG.BlockOrphaned, t.Scheduler.HandleOrphanedBlock, t.workers.CreatePool("HandleOrphaned", 2))
 
 	event.Hook(t.Scheduler.Events.BlockScheduled, func(block *Block) {
 		if debug.GetEnabled() {

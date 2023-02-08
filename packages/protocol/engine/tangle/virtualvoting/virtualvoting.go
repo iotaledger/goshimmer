@@ -143,7 +143,8 @@ func (o *VirtualVoting) setupEvents() {
 	event.Hook(o.Booker.Events.MarkerConflictAdded, func(event *booker.MarkerConflictAddedEvent) {
 		o.processForkedMarker(event.Marker, event.ConflictID, event.ParentConflictIDs)
 	})
-	event.AttachWithWorkerPool(o.Booker.Events.MarkerManager.SequenceEvicted, o.evictSequence, o.Workers.CreatePool("Eviction", 1))
+	wp := o.Workers.CreatePool("Eviction", 1) // Using just 1 worker to avoid contention
+	event.AttachWithWorkerPool(o.Booker.Events.MarkerManager.SequenceEvicted, o.evictSequence, wp)
 	event.Hook(o.BlockDAG.EvictionState.Events.EpochEvicted, o.evictEpoch)
 }
 

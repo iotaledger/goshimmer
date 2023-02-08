@@ -70,8 +70,8 @@ func New(workers *workerpool.Group, tangleInstance *tangle.Tangle, evictionState
 		a.lastConfirmedMarker = memstorage.New[markers.SequenceID, markers.Index]()
 		a.blocks = memstorage.NewEpochStorage[models.BlockID, *Block]()
 
-		a.acceptanceOrder = causalorder.New(workers.CreatePool("AcceptanceOrder"), a.GetOrRegisterBlock, (*Block).IsAccepted, a.markAsAccepted, a.acceptanceFailed)
-		a.confirmationOrder = causalorder.New(workers.CreatePool("ConfirmationOrder"), func(id models.BlockID) (entity *Block, exists bool) {
+		a.acceptanceOrder = causalorder.New(workers.CreatePool("AcceptanceOrder", 2), a.GetOrRegisterBlock, (*Block).IsAccepted, a.markAsAccepted, a.acceptanceFailed)
+		a.confirmationOrder = causalorder.New(workers.CreatePool("ConfirmationOrder", 2), func(id models.BlockID) (entity *Block, exists bool) {
 			a.evictionMutex.RLock()
 			defer a.evictionMutex.RUnlock()
 
@@ -238,7 +238,7 @@ func (a *Gadget) EvictUntil(index epoch.Index) {
 }
 
 func (a *Gadget) setup() {
-	wp := a.workers.CreatePool("Gadget")
+	wp := a.workers.CreatePool("Gadget", 2)
 
 	event.AttachWithWorkerPool(a.tangle.VirtualVoting.Events.SequenceTracker.VotersUpdated, func(evt *sequencetracker.VoterUpdatedEvent) {
 		a.RefreshSequence(evt.SequenceID, evt.NewMaxSupportedIndex, evt.PrevMaxSupportedIndex)

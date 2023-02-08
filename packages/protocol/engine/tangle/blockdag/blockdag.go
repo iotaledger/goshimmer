@@ -49,7 +49,7 @@ func New(workers *workerpool.Group, evictionState *eviction.State, opts ...optio
 		memStorage:    memstorage.NewEpochStorage[models.BlockID, *Block](),
 	}, opts, func(b *BlockDAG) {
 		b.solidifier = causalorder.New(
-			workers.CreatePool("Solidifier"),
+			workers.CreatePool("Solidifier", 2),
 			b.Block,
 			(*Block).IsSolid,
 			b.markSolid,

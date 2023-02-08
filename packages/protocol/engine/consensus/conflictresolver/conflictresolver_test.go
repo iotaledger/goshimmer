@@ -824,7 +824,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			workers := workerpool.NewGroup(tt.name)
-			ls := ledger.New(workers.CreatePool("Ledger"), blockdag.NewTestStorage(t, workers), ledger.WithCacheTimeProvider(database.NewCacheTimeProvider(0)))
+			ls := ledger.New(workers.CreatePool("Ledger", 2), blockdag.NewTestStorage(t, workers), ledger.WithCacheTimeProvider(database.NewCacheTimeProvider(0)))
 			defer func() {
 				workers.Wait()
 				ls.Shutdown()

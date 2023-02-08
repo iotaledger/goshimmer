@@ -78,7 +78,7 @@ func NewSybilProtection(engineInstance *engine.Engine, opts ...options.Option[Sy
 
 				event.AttachWithWorkerPool(s.engine.Events.Tangle.BlockDAG.BlockSolid, func(block *blockdag.Block) {
 					s.markValidatorActive(block.IssuerID(), block.IssuingTime())
-				}, s.workers.CreatePool("SybilProtection"))
+				}, s.workers.CreatePool("SybilProtection", 2))
 			})
 		})
 }

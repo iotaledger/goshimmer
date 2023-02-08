@@ -60,7 +60,7 @@ func New(workers *workerpool.Group, blockDAG *blockdag.BlockDAG, ledger *ledger.
 	}, opts, func(b *Booker) {
 		b.markerManager = markermanager.NewMarkerManager(b.optsMarkerManager...)
 		b.bookingOrder = causalorder.New(
-			workers.CreatePool("BookingOrder"),
+			workers.CreatePool("BookingOrder", 2),
 			b.Block,
 			(*Block).IsBooked,
 			b.book,
@@ -447,7 +447,7 @@ func (b *Booker) setupEvents() {
 				b.bookingOrder.Queue(block)
 			}
 		}
-	}, b.Workers.CreatePool("Booker"))
+	}, b.Workers.CreatePool("Booker", 2))
 }
 
 // region FORK LOGIC ///////////////////////////////////////////////////////////////////////////////////////////////////

@@ -62,7 +62,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, blockDAG *Bloc
 		workers:        workers,
 		Instance:       blockDAG,
 		orphanedBlocks: models.NewBlockIDs(),
-		workerPool:     workers.CreatePool("IssueBlocks"),
+		workerPool:     workers.CreatePool("IssueBlocks", 2),
 	}
 	t.ModelsTestFramework = models.NewTestFramework(
 		models.WithBlock("Genesis", models.NewEmptyBlock(models.EmptyBlockID)),

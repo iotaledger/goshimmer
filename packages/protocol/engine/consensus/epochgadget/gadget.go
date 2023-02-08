@@ -57,7 +57,7 @@ func (g *Gadget) setLastConfirmedEpoch(i epoch.Index) {
 func (g *Gadget) setup() {
 	event.AttachWithWorkerPool(g.tangle.VirtualVoting.Events.EpochTracker.VotersUpdated, func(evt *epochtracker.VoterUpdatedEvent) {
 		g.refreshEpochConfirmation(evt.PrevLatestEpochIndex, evt.NewLatestEpochIndex)
-	}, g.workers.CreatePool("Refresh"))
+	}, g.workers.CreatePool("Refresh", 2))
 }
 
 func (g *Gadget) refreshEpochConfirmation(previousLatestEpochIndex epoch.Index, newLatestEpochIndex epoch.Index) {

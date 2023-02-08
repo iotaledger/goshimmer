@@ -42,7 +42,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...option
 		evictedEntities: make(map[string]*MockedOrderedEntity),
 	}, opts, func(t *TestFramework) {
 		t.CausalOrder = New(
-			t.Workers.CreatePool("CausalOrder"),
+			t.Workers.CreatePool("CausalOrder", 2),
 			func(id MockedEntityID) (entity *MockedOrderedEntity, exists bool) {
 				return t.Get(id.alias)
 			}, (*MockedOrderedEntity).IsOrdered,

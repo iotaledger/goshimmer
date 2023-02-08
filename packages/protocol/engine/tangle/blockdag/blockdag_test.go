@@ -274,7 +274,7 @@ func TestBlockDAG_AttachBlockTwice_1(t *testing.T) {
 		startMutex   sync.RWMutex
 	)
 
-	loop := workers.CreatePool("Loop")
+	loop := workers.CreatePool("Loop", 2)
 
 	loop.Submit(func() {
 		startMutex.Lock()
@@ -613,7 +613,7 @@ func TestBlockDAG_MissingBlocks(t *testing.T) {
 
 		_, _, err := tf.Instance.Attach(blocks[metadata.ID()])
 		require.NoError(t, err, "should be able to attach a block")
-	}, workers.CreatePool("BlockMissing"))
+	}, workers.CreatePool("BlockMissing", 2))
 
 	// issue tips to start solidification
 	tips.ForEach(func(key models.BlockID, _ models.BlockID) bool {

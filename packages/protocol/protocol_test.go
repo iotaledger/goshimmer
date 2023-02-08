@@ -1262,7 +1262,7 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 	// Wait for the engine to eventually switch on each node
 	{
 		nodeCount := atomic.NewInt32(0)
-		wp := workers.CreatePool("Activity")
+		wp := workers.CreatePool("Activity", 2)
 		for _, node := range []*NodeOnMockedNetwork{node3, node4} {
 			nodeCount.Add(1)
 			event.AttachWithWorkerPool(node.Protocol.Events.MainEngineSwitched, func(_ *enginemanager.EngineInstance) {

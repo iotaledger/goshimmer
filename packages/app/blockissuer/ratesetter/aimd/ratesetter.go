@@ -80,7 +80,7 @@ func New(protocol *protocol.Protocol, selfIdentity identity.ID, opts ...options.
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (r *RateSetter) setupEvents() {
-	wp := r.protocol.Workers.CreatePool("RateSetter")
+	wp := r.protocol.Workers.CreatePool("RateSetter", 2)
 
 	event.AttachWithWorkerPool(r.protocol.Events.CongestionControl.Scheduler.BlockScheduled, func(block *scheduler.Block) {
 		if r.pauseUpdates > 0 {

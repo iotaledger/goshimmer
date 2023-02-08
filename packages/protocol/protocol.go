@@ -93,7 +93,7 @@ func (p *Protocol) Run() {
 		panic(err)
 	}
 
-	p.networkProtocol = network.NewProtocol(p.dispatcher, p.Workers.CreatePool("NetworkProtocol"))
+	p.networkProtocol = network.NewProtocol(p.dispatcher, p.Workers.CreatePool("NetworkProtocol")) // Use max amount of workers for networking
 	p.Events.Network.LinkTo(p.networkProtocol.Events)
 }
 
@@ -128,7 +128,7 @@ func (p *Protocol) initEngineManager() {
 
 	event.AttachWithWorkerPool(p.Events.Engine.Consensus.EpochGadget.EpochConfirmed, func(epochIndex epoch.Index) {
 		p.Engine().Storage.PruneUntilEpoch(epochIndex - epoch.Index(p.optsPruningThreshold))
-	}, p.Workers.CreatePool("PruneEngine"))
+	}, p.Workers.CreatePool("PruneEngine", 2))
 
 	p.mainEngine = lo.PanicOnErr(p.engineManager.LoadActiveEngine())
 }
@@ -139,43 +139,46 @@ func (p *Protocol) initCongestionControl() {
 }
 
 func (p *Protocol) initNetworkEvents() {
-	wp := p.Workers.CreatePool("Network")
-
+	wpBlocks := p.Workers.CreatePool("NetworkEvents.Blocks") // Use max amount of workers for sending, receiving and requesting blocks
 	event.AttachWithWorkerPool(p.Events.Network.BlockRequestReceived, func(event *network.BlockRequestReceivedEvent) {
 		if block, exists := p.MainEngineInstance().Engine.Block(event.BlockID); exists {
 			p.networkProtocol.SendBlock(block, event.Source)
 		}
-	}, wp)
+	}, wpBlocks)
+	event.AttachWithWorkerPool(p.Events.Engine.BlockRequester.Tick, func(blockID models.BlockID) {
+		p.networkProtocol.RequestBlock(blockID)
+	}, wpBlocks)
+	event.AttachWithWorkerPool(p.Events.CongestionControl.Scheduler.BlockScheduled, func(block *scheduler.Block) {
+		p.networkProtocol.SendBlock(block.ModelsBlock)
+	}, wpBlocks)
 	event.AttachWithWorkerPool(p.Events.Network.BlockReceived, func(event *network.BlockReceivedEvent) {
 		if err := p.ProcessBlock(event.Block, event.Source); err != nil {
 			p.Events.Error.Trigger(err)
 		}
-	}, wp)
-	event.AttachWithWorkerPool(p.Events.Network.AttestationsRequestReceived, func(event *network.AttestationsRequestReceivedEvent) {
-		p.ProcessAttestationsRequest(event.Commitment, event.EndIndex, event.Source)
-	}, wp)
-	event.AttachWithWorkerPool(p.Events.Network.AttestationsReceived, func(event *network.AttestationsReceivedEvent) {
-		p.ProcessAttestations(event.Commitment, event.BlockIDs, event.Attestations, event.Source)
-	}, wp)
+	}, wpBlocks)
+
+	wpCommitments := p.Workers.CreatePool("NetworkEvents.EpochCommitments") // Using just 1 worker to avoid contention
 	event.AttachWithWorkerPool(p.Events.Network.EpochCommitmentRequestReceived, func(event *network.EpochCommitmentRequestReceivedEvent) {
 		// when we receive a commitment request, do not look it up in the ChainManager but in the storage, else we might answer with commitments we did not issue ourselves and for which we cannot provide attestations
 		if requestedCommitment, err := p.Engine().Storage.Commitments.Load(event.CommitmentID.Index()); err == nil && requestedCommitment.ID() == event.CommitmentID {
 			p.networkProtocol.SendEpochCommitment(requestedCommitment, event.Source)
 		}
-	}, wp)
-	event.AttachWithWorkerPool(p.Events.Engine.BlockRequester.Tick, func(blockID models.BlockID) {
-		p.networkProtocol.RequestBlock(blockID)
-	}, wp)
-	event.AttachWithWorkerPool(p.Events.CongestionControl.Scheduler.BlockScheduled, func(block *scheduler.Block) {
-		p.networkProtocol.SendBlock(block.ModelsBlock)
-	}, wp)
+	}, wpCommitments)
+
+	wpAttestations := p.Workers.CreatePool("NetworkEvents.Attestations") // Using just 1 worker to avoid contention
+	event.AttachWithWorkerPool(p.Events.Network.AttestationsRequestReceived, func(event *network.AttestationsRequestReceivedEvent) {
+		p.ProcessAttestationsRequest(event.Commitment, event.EndIndex, event.Source)
+	}, wpAttestations)
+	event.AttachWithWorkerPool(p.Events.Network.AttestationsReceived, func(event *network.AttestationsReceivedEvent) {
+		p.ProcessAttestations(event.Commitment, event.BlockIDs, event.Attestations, event.Source)
+	}, wpAttestations)
 }
 
 func (p *Protocol) initChainManager() {
 	p.chainManager = chainmanager.NewManager(p.Engine().Storage.Settings.LatestCommitment())
 	p.Events.ChainManager = p.chainManager.Events
 
-	wp := p.Workers.CreatePool("ChainManager", 1)
+	wp := p.Workers.CreatePool("ChainManager", 1) // Using just 1 worker to avoid contention
 
 	event.AttachWithWorkerPool(p.Events.Engine.NotarizationManager.EpochCommitted, func(details *notarization.EpochCommittedDetails) {
 		p.chainManager.ProcessCommitment(details.Commitment)
@@ -194,14 +197,14 @@ func (p *Protocol) initChainManager() {
 	}, wp)
 	event.AttachWithWorkerPool(p.chainManager.CommitmentRequester.Events.Tick, func(commitmentID commitment.ID) {
 		p.networkProtocol.RequestCommitment(commitmentID)
-	}, p.Workers.CreatePool("Protocol.Network"))
+	}, p.Workers.CreatePool("RequestCommitment", 2))
 }
 
 func (p *Protocol) initTipManager() {
 	p.TipManager = tipmanager.New(p.CongestionControl.Block, p.optsTipManagerOptions...)
 	p.Events.TipManager = p.TipManager.Events
 
-	wp := p.Workers.CreatePool("TipManager", 1)
+	wp := p.Workers.CreatePool("TipManager", 1) // Using just 1 worker to avoid contention
 
 	event.Hook(p.Events.Engine.Tangle.BlockDAG.BlockOrphaned, func(block *blockdag.Block) {
 		if schedulerBlock, exists := p.CongestionControl.Block(block.ID()); exists {
@@ -485,7 +488,7 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 	}
 
 	// Attach the engine block requests to the protocol and detach as soon as we switch to that engine
-	wp := candidateEngine.Engine.Workers.CreatePool("CandidateBlockRequester")
+	wp := candidateEngine.Engine.Workers.CreatePool("CandidateBlockRequester", 2)
 	detachRequestBlocks := event.AttachWithWorkerPool(candidateEngine.Engine.Events.BlockRequester.Tick, func(blockID models.BlockID) {
 		p.networkProtocol.RequestBlock(blockID)
 	}, wp)
@@ -493,7 +496,7 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 	// Attach epoch commitments to the chain manager and detach as soon as we switch to that engine
 	detachProcessCommitment := event.AttachWithWorkerPool(candidateEngine.Engine.Events.NotarizationManager.EpochCommitted, func(details *notarization.EpochCommittedDetails) {
 		p.chainManager.ProcessCandidateCommitment(details.Commitment)
-	}, candidateEngine.Engine.Workers.CreatePool("ProcessCandidateCommitment"))
+	}, candidateEngine.Engine.Workers.CreatePool("ProcessCandidateCommitment", 2))
 
 	event.Hook(p.Events.MainEngineSwitched, func(_ *enginemanager.EngineInstance) {
 		detachRequestBlocks()

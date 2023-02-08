@@ -45,7 +45,7 @@ func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opt
 		Events:     NewEvents(),
 		identity:   localIdentity,
 		protocol:   protocol,
-		workerPool: protocol.Workers.CreatePool("BlockIssuer"),
+		workerPool: protocol.Workers.CreatePool("BlockIssuer", 2),
 		referenceProvider: blockfactory.NewReferenceProvider(protocol, func() epoch.Index {
 			return protocol.Engine().Storage.Settings.LatestCommitment().Index()
 		}),

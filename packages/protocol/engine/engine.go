@@ -92,7 +92,7 @@ func New(
 			optsBootstrappedThreshold: 10 * time.Second,
 			optsSnapshotDepth:         5,
 		}, opts, func(e *Engine) {
-			e.Ledger = ledger.New(workers.CreatePool("Pool"), e.Storage, e.optsLedgerOptions...)
+			e.Ledger = ledger.New(workers.CreatePool("Pool", 2), e.Storage, e.optsLedgerOptions...)
 			e.LedgerState = ledgerstate.New(storageInstance, e.Ledger)
 			e.Clock = clock.New()
 			e.EvictionState = eviction.NewState(storageInstance)
@@ -267,7 +267,7 @@ func (e *Engine) initFilter() {
 
 	event.AttachWithWorkerPool(e.Filter.Events.BlockFiltered, func(filteredEvent *filter.BlockFilteredEvent) {
 		e.Events.Error.Trigger(errors.Wrapf(filteredEvent.Reason, "block (%s) filtered", filteredEvent.Block.ID()))
-	}, e.Workers.CreatePool("Filter"))
+	}, e.Workers.CreatePool("Filter", 2))
 
 	e.Events.Filter.LinkTo(e.Filter.Events)
 }
@@ -283,7 +283,7 @@ func (e *Engine) initTangle() {
 		if _, _, err := e.Tangle.BlockDAG.Attach(block); err != nil {
 			e.Events.Error.Trigger(errors.Wrapf(err, "failed to attach block with %s (issuerID: %s)", block.ID(), block.IssuerID()))
 		}
-	}, e.Workers.CreatePool("Tangle.Attach", 1))
+	}, e.Workers.CreatePool("Tangle.Attach", 1)) // Using just 1 worker to avoid contention
 
 	e.Events.Tangle.LinkTo(e.Tangle.Events)
 }
@@ -309,14 +309,14 @@ func (e *Engine) initConsensus() {
 		}
 
 		e.Tangle.VirtualVoting.EvictEpochTracker(epochIndex)
-	}, e.Workers.CreatePool("Consensus", 1))
+	}, e.Workers.CreatePool("Consensus", 1)) // Using just 1 worker to avoid contention
 }
 
 func (e *Engine) initClock() {
 	e.Events.Clock.LinkTo(e.Clock.Events)
 
-	wpAccepted := e.Workers.CreatePool("Clock.SetAcceptedTime", 1)
-	wpConfirmed := e.Workers.CreatePool("Clock.SetConfirmedTime", 1)
+	wpAccepted := e.Workers.CreatePool("Clock.SetAcceptedTime", 1)   // Using just 1 worker to avoid contention
+	wpConfirmed := e.Workers.CreatePool("Clock.SetConfirmedTime", 1) // Using just 1 worker to avoid contention
 
 	event.AttachWithWorkerPool(e.Events.Consensus.BlockGadget.BlockAccepted, func(block *blockgadget.Block) {
 		e.Clock.SetAcceptedTime(block.IssuingTime())
@@ -332,7 +332,7 @@ func (e *Engine) initClock() {
 func (e *Engine) initTSCManager() {
 	e.TSCManager = tsc.New(e.Consensus.BlockGadget.IsBlockAccepted, e.Tangle, e.optsTSCManagerOptions...)
 
-	wp := e.Workers.CreatePool("TSCManager", 1)
+	wp := e.Workers.CreatePool("TSCManager", 1) // Using just 1 worker to avoid contention
 
 	event.AttachWithWorkerPool(e.Events.Tangle.Booker.BlockBooked, e.TSCManager.AddBlock, wp)
 	event.AttachWithWorkerPool(e.Events.Clock.AcceptanceTimeUpdated, func(event *clock.TimeUpdateEvent) {
@@ -341,7 +341,7 @@ func (e *Engine) initTSCManager() {
 }
 
 func (e *Engine) initBlockStorage() {
-	wp := e.Workers.CreatePool("BlockStorage", 1)
+	wp := e.Workers.CreatePool("BlockStorage", 1) // Using just 1 worker to avoid contention
 
 	event.AttachWithWorkerPool(e.Events.Consensus.BlockGadget.BlockAccepted, func(block *blockgadget.Block) {
 		if err := e.Storage.Blocks.Store(block.ModelsBlock); err != nil {
@@ -359,8 +359,8 @@ func (e *Engine) initNotarizationManager() {
 	e.Events.NotarizationManager.LinkTo(e.NotarizationManager.Events)
 	e.Events.EpochMutations.LinkTo(e.NotarizationManager.EpochMutations.Events)
 
-	wpBlocks := e.Workers.CreatePool("NotarizationManager.Blocks", 1)
-	wpCommitments := e.Workers.CreatePool("NotarizationManager.Commitments", 1)
+	wpBlocks := e.Workers.CreatePool("NotarizationManager.Blocks", 1)           // Using just 1 worker to avoid contention
+	wpCommitments := e.Workers.CreatePool("NotarizationManager.Commitments", 1) // Using just 1 worker to avoid contention
 
 	// EpochMutations must be hooked
 	event.Hook(e.Ledger.Events.TransactionAccepted, func(event *ledger.TransactionEvent) {
@@ -410,7 +410,7 @@ func (e *Engine) initEvictionState() {
 	})
 
 	e.Events.EvictionState.LinkTo(e.EvictionState.Events)
-	wp := e.Workers.CreatePool("EvictionState", 1)
+	wp := e.Workers.CreatePool("EvictionState", 1) // Using just 1 worker to avoid contention
 
 	event.AttachWithWorkerPool(e.Events.Consensus.BlockGadget.BlockAccepted, func(block *blockgadget.Block) {
 		block.ForEachParent(func(parent models.Parent) {
@@ -443,7 +443,7 @@ func (e *Engine) initBlockRequester() {
 	})
 	event.AttachWithWorkerPool(e.Events.Tangle.BlockDAG.MissingBlockAttached, func(block *blockdag.Block) {
 		e.BlockRequester.StopTicker(block.ID())
-	}, e.Workers.CreatePool("BlockRequester", 1))
+	}, e.Workers.CreatePool("BlockRequester", 1)) // Using just 1 worker to avoid contention
 }
 
 func (e *Engine) readSnapshot(filePath string) (err error) {

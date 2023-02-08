@@ -56,7 +56,7 @@ type TestFramework struct {
 
 func NewTestLedger(t *testing.T, workers *workerpool.Group, optsLedger ...options.Option[Ledger]) *Ledger {
 	storage := blockdag.NewTestStorage(t, workers)
-	ledger := New(workers.CreatePool("Ledger"), storage, optsLedger...)
+	ledger := New(workers.CreatePool("Ledger", 2), storage, optsLedger...)
 
 	t.Cleanup(func() {
 		workers.Wait()
