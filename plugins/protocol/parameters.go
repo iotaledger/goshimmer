@@ -65,6 +65,11 @@ type DatabaseParametersDefinition struct {
 	}
 }
 
+// DebugParametersDefinition contains the definition of configuration parameters used for debugging purposes.
+type DebugParametersDefinition struct {
+	PanicOnForkDetection bool `default:"false" usage:"whether to panic if a network fork is detected or if the normal chain switching is allowed to happen"`
+}
+
 // Parameters contains the general configuration used by the blocklayer plugin.
 var Parameters = &ParametersDefinition{}
 
@@ -77,9 +82,13 @@ var NotarizationParameters = &NotarizationParametersDefinition{}
 // DatabaseParameters contains configuration parameters used by Database.
 var DatabaseParameters = &DatabaseParametersDefinition{}
 
+// DebugParameters contains the configuration parameters used for debugging purposes.
+var DebugParameters = &DebugParametersDefinition{}
+
 func init() {
 	config.BindParameters(Parameters, "protocol")
 	config.BindParameters(SchedulerParameters, "scheduler")
 	config.BindParameters(NotarizationParameters, "notarization")
 	config.BindParameters(DatabaseParameters, "database")
+	config.BindParameters(DebugParameters, "debug")
 }

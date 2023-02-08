@@ -16,6 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
@@ -146,6 +147,12 @@ func configureLogging(*node.Plugin) {
 	// deps.Protocol.Events.Engine.BlockRequester.Tick.Attach(event.NewClosure(func(blockID models.BlockID) {
 	// 	fmt.Println(">>>>>>> BlockRequesterTick", blockID)
 	// }))
+
+	if DebugParameters.PanicOnForkDetection {
+		event.Hook(deps.Protocol.Events.ChainManager.ForkDetected, func(event *chainmanager.ForkDetectedEvent) {
+			Plugin.LogFatalfAndExit("Network fork detected: received from %s, commitment: %s, forkingPoint: %s", event.Source, event.Commitment, event.ForkingPointAgainstMainChain)
+		})
+	}
 }
 
 func run(*node.Plugin) {
