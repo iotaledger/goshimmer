@@ -314,7 +314,9 @@ func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) error {
 	if candidateEngine := p.CandidateEngineInstance(); candidateEngine != nil {
 		if candidateChain := candidateEngine.Storage.Settings.ChainID(); chain.ForkingPoint.ID() == candidateChain || candidateEngine.Engine.BlockRequester.HasTicker(block.ID()) {
 			candidateEngine.Engine.ProcessBlockFromPeer(block, src)
-			if candidateEngine.Engine.IsBootstrapped() && candidateEngine.Storage.Settings.LatestCommitment().CumulativeWeight() > mainEngine.Storage.Settings.LatestCommitment().CumulativeWeight() {
+			if candidateEngine.Engine.IsBootstrapped() &&
+				candidateEngine.Storage.Settings.LatestCommitment().Index() >= mainEngine.Storage.Settings.LatestCommitment().Index() &&
+				candidateEngine.Storage.Settings.LatestCommitment().CumulativeWeight() > mainEngine.Storage.Settings.LatestCommitment().CumulativeWeight() {
 				p.switchEngines()
 			}
 			processed = true
