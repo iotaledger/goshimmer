@@ -123,7 +123,7 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeBooked(block *models.Block, max
 	exit := make(chan struct{})
 	defer close(exit)
 
-	detach := event.AttachWithWorkerPool(i.protocol.Events.Engine.Tangle.Booker.BlockBooked, func(bookedBlock *booker.Block) {
+	defer event.AttachWithWorkerPool(i.protocol.Events.Engine.Tangle.Booker.BlockBooked, func(bookedBlock *booker.Block) {
 		if block.ID() != bookedBlock.ID() {
 			return
 		}
@@ -131,9 +131,7 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeBooked(block *models.Block, max
 		case booked <- bookedBlock:
 		case <-exit:
 		}
-	}, i.workerPool)
-
-	defer detach()
+	}, i.workerPool)()
 
 	err := i.issueBlock(block)
 	if err != nil {
@@ -160,7 +158,7 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeScheduled(block *models.Block, 
 	exit := make(chan struct{})
 	defer close(exit)
 
-	detach := event.AttachWithWorkerPool(i.protocol.Events.CongestionControl.Scheduler.BlockScheduled, func(scheduledBlock *scheduler.Block) {
+	defer event.AttachWithWorkerPool(i.protocol.Events.CongestionControl.Scheduler.BlockScheduled, func(scheduledBlock *scheduler.Block) {
 		if block.ID() != scheduledBlock.ID() {
 			return
 		}
@@ -168,9 +166,7 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeScheduled(block *models.Block, 
 		case scheduled <- scheduledBlock:
 		case <-exit:
 		}
-	}, i.workerPool)
-
-	defer detach()
+	}, i.workerPool)()
 
 	err := i.issueBlock(block)
 	if err != nil {
