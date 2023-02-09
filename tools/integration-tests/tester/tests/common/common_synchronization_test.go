@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
+	"github.com/iotaledger/hive.go/core/generics/options"
 	"log"
 	"testing"
 	"time"
@@ -25,13 +26,14 @@ func TestCommonSynchronization(t *testing.T) {
 		numBlocks     = 100
 		numSyncBlocks = 10 * initialPeers
 	)
-	snapshotInfo := tests.EqualSnapshotDetails
+	snapshotOptions := tests.EqualSnapshotOptions
+	snapshotInfo := snapshotcreator.NewOptions(snapshotOptions...)
 
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), initialPeers, framework.CreateNetworkConfig{
 		StartSynced: false,
-		Snapshot:    snapshotInfo,
+		Snapshot:    snapshotOptions,
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
@@ -48,7 +50,7 @@ func TestCommonSynchronization(t *testing.T) {
 	// 2. spawn peer without knowledge of previous blocks
 	log.Println("Spawning new node to sync...")
 
-	cfg := createNewPeerConfig(t, snapshotInfo, 3)
+	cfg := createNewPeerConfig(t, snapshotOptions, 3)
 	newPeer, err := n.CreatePeer(ctx, cfg)
 	require.NoError(t, err)
 	err = n.DoManualPeering(ctx)
@@ -109,13 +111,14 @@ func TestCommonSynchronization(t *testing.T) {
 }
 
 func TestConfirmBlock(t *testing.T) {
-	snapshotInfo := tests.ConsensusSnapshotDetails
+	snapshotOptions := tests.ConsensusSnapshotOptions
+	snapshotInfo := snapshotcreator.NewOptions(snapshotOptions...)
 
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
 		StartSynced: false,
-		Snapshot:    snapshotInfo,
+		Snapshot:    snapshotOptions,
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo, func(peerIndex int, isPeerMaster bool, conf config.GoShimmer) config.GoShimmer {
 		conf.UseNodeSeedAsWalletSeed = true
 		return conf
@@ -134,12 +137,14 @@ func TestConfirmBlock(t *testing.T) {
 	tests.TryAcceptBlock(t, peers, blockID, 30*time.Second, 100*time.Millisecond)
 }
 
-func createNewPeerConfig(t *testing.T, snapshotOptions *snapshotcreator.Options, peerIndex int) config.GoShimmer {
-	seedBytes, err := base58.Decode(snapshotOptions.PeersSeedBase58[peerIndex])
+func createNewPeerConfig(t *testing.T, snapshotOptions []options.Option[snapshotcreator.Options], peerIndex int) config.GoShimmer {
+	opt := snapshotcreator.NewOptions(snapshotOptions...)
+
+	seedBytes, err := base58.Decode(opt.PeersSeedBase58[peerIndex])
 	require.NoError(t, err)
 	conf := framework.PeerConfig()
 	conf.Seed = seedBytes
-	conf.Protocol.Snapshot.Path = snapshotOptions.FilePath
+	conf.Protocol.Snapshot.Path = opt.FilePath
 	// the new peer should use a shorter TangleTimeWindow than regular peers to go out of sync before them
 	conf.Protocol.BootstrapWindow = 30 * time.Second
 	return conf

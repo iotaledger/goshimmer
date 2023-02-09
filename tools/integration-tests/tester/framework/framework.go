@@ -5,6 +5,7 @@ package framework
 
 import (
 	"context"
+	"github.com/iotaledger/hive.go/core/generics/options"
 	"log"
 	"os"
 	"sync"
@@ -140,17 +141,16 @@ func (f *Framework) CreateNetworkNoAutomaticManualPeering(ctx context.Context, n
 	return network, nil
 }
 
-func createSnapshot(snapshotInfo *snapshotcreator.Options, startSynced bool) error {
-	// default to /assets/snapshot.bin
-	if snapshotInfo.FilePath == "" {
-		snapshotInfo.FilePath = "/assets/snapshot.bin"
-	}
-	// todo reverse this, snapshotIfo shopuld be created with opdion and instead of snapshot info use default options
-	err := snapshotInfo.CreateSnapshot(
+func createSnapshot(snapshotInfo []options.Option[snapshotcreator.Options], startSynced bool) error {
+	defaultOpts := []options.Option[snapshotcreator.Options]{
+		snapshotcreator.WithFilePath("/assets/snapshot.bin"),
 		snapshotcreator.WithDatabaseVersion(protocol.DatabaseVersion),
 		snapshotcreator.WithVM(new(devnetvm.VM)),
 		snapshotcreator.WithStartSynced(startSynced),
 		snapshotcreator.WithGenesisSeed(GenesisSeedBytes),
+	}
+	err := snapshotcreator.CreateSnapshot(
+		append(defaultOpts, snapshotInfo...)...,
 	)
 	if err != nil {
 		panic(err)

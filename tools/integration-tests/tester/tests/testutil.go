@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
+	"github.com/iotaledger/hive.go/core/generics/options"
 	"log"
 	"testing"
 	"time"
@@ -37,43 +38,42 @@ const (
 	shutdownGraceTime = time.Minute
 )
 
-// OrphanageSnapshotDetails defines info for orphanage test scenario.
-var OrphanageSnapshotDetails = &snapshotcreator.Options{
-	FilePath:           "/assets/dynamic_snapshots/orphanage_snapshot.bin",
-	GenesisTokenAmount: 0,
-	PeersSeedBase58: []string{
+// OrphanageSnapshotOptions defines snapshot options for orphanage test scenario.
+var OrphanageSnapshotOptions = []options.Option[snapshotcreator.Options]{
+	snapshotcreator.WithFilePath("/assets/dynamic_snapshots/orphanage_snapshot.bin"),
+	snapshotcreator.WithGenesisTokenAmount(0),
+	snapshotcreator.WithPeersSeedBase58([]string{
 		"3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E", // FZ6xmPZX
 		"GtKSdqanb4mokUBjAf9JZmsSqWzWjzzw57mRR56LjfBL", // H6jzPnLbjsh
 		"CmFVE14Yh9rqn2FrXD8s7ybRoRN5mUnqQxLAuD5HF2em", // JHxvcap7xhv
 		"DuJuWE3hisFrFK1HmrXkd9FSsNNWbw58JcQnKdBn6TdN", // 7rRpyEGU7Sf
-	},
-	PeersAmountsPledged: []uint64{2_500_000_000_000_000, 2_500_000_000_000_000, 2_500_000_000_000_000, 10},
+	}),
+	snapshotcreator.WithPeersAmountsPledged([]uint64{2_500_000_000_000_000, 2_500_000_000_000_000, 2_500_000_000_000_000, 10}),
 }
 
-// EqualSnapshotDetails defines info for equally distributed consensus mana.
-var EqualSnapshotDetails = &snapshotcreator.Options{
-	FilePath:           "/assets/dynamic_snapshots/equal_snapshot.bin",
-	GenesisTokenAmount: 2_500_000_000_000_000,
-	PeersSeedBase58: []string{
+// EqualSnapshotOptions defines snapshot options for equal test scenario.
+var EqualSnapshotOptions = []options.Option[snapshotcreator.Options]{
+	snapshotcreator.WithFilePath("/assets/dynamic_snapshots/equal_snapshot.bin"),
+	snapshotcreator.WithGenesisTokenAmount(2_500_000_000_000_000),
+	snapshotcreator.WithPeersSeedBase58([]string{
 		"GtKSdqanb4mokUBjAf9JZmsSqWzWjzzw57mRR56LjfBL", // H6jzPnLbjsh
 		"CmFVE14Yh9rqn2FrXD8s7ybRoRN5mUnqQxLAuD5HF2em", // JHxvcap7xhv
 		"DuJuWE3hisFrFK1HmrXkd9FSsNNWbw58JcQnKdBn6TdN", // 7rRpyEGU7Sf
 		"3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E", // FZ6xmPZX
-	},
-	PeersAmountsPledged: []uint64{2_500_000_000_000_000, 2_500_000_000_000_000, 2_500_000_000_000_000, 2_500_000_000_000_000},
+	}),
+	snapshotcreator.WithPeersAmountsPledged([]uint64{2_500_000_000_000_000, 2_500_000_000_000_000, 2_500_000_000_000_000, 2_500_000_000_000_000}),
 }
 
-// ConsensusSnapshotDetails defines info for consensus integration test snapshot
-var ConsensusSnapshotDetails = &snapshotcreator.Options{
-	FilePath:           "/assets/dynamic_snapshots/consensus_snapshot.bin",
-	GenesisTokenAmount: 800_000, // pledged to peer 0
-	PeersSeedBase58: []string{
+var ConsensusSnapshotOptions = []options.Option[snapshotcreator.Options]{
+	snapshotcreator.WithFilePath("/assets/dynamic_snapshots/consensus_snapshot.bin"),
+	snapshotcreator.WithGenesisTokenAmount(800_000),
+	snapshotcreator.WithPeersSeedBase58([]string{
 		"Bk69VaYsRuiAaKn8hK6KxUj45X5dED3ueRtxfYnsh4Q8", // jnaC6ZyWuw
 		"HUH4rmxUxMZBBtHJ4QM5Ts6s8DP3HnFpChejntnCxto2", // iNvPFvkfSDp
 		"CmFVE14Yh9rqn2FrXD8s7ybRoRN5mUnqQxLAuD5HF2em", // JHxvcap7xhv
 		"DuJuWE3hisFrFK1HmrXkd9FSsNNWbw58JcQnKdBn6TdN", // 7rRpyEGU7Sf
-	},
-	PeersAmountsPledged: []uint64{1_600_000, 800_000, 800_000, 800_000, 800_000},
+	}),
+	snapshotcreator.WithPeersAmountsPledged([]uint64{1_600_000, 800_000, 800_000, 800_000, 800_000}),
 }
 
 // GetIdentSeed returns decoded seed bytes for the supplied SnapshotInfo and peer index

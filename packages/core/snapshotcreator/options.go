@@ -26,6 +26,12 @@ type Options struct {
 	vm              vm.VM
 }
 
+func NewOptions(opts ...options.Option[Options]) *Options {
+	return options.Apply(&Options{
+		FilePath: "snapshot.bin",
+	}, opts)
+}
+
 func WithFilePath(filePath string) options.Option[Options] {
 	return func(m *Options) {
 		m.FilePath = filePath

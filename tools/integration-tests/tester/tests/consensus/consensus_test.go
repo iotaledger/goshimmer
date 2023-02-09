@@ -2,6 +2,7 @@ package consensus
 
 import (
 	"context"
+	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"log"
 	"testing"
 	"time"
@@ -35,8 +36,8 @@ func TestSimpleDoubleSpend(t *testing.T) {
 		numberOfConflictingTxs = 10
 	)
 
-	snapshotInfo := tests.ConsensusSnapshotDetails
-
+	snapshotOptions := tests.ConsensusSnapshotOptions
+	snapshotInfo := snapshotcreator.NewOptions(snapshotOptions...)
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), 4,
@@ -45,7 +46,7 @@ func TestSimpleDoubleSpend(t *testing.T) {
 			Faucet:      false,
 			Activity:    false,
 			Autopeering: false,
-			Snapshot:    snapshotInfo,
+			Snapshot:    snapshotOptions,
 		}, tests.CommonSnapshotConfigFunc(t, snapshotInfo, func(peerIndex int, isPeerMaster bool, conf config.GoShimmer) config.GoShimmer {
 			conf.UseNodeSeedAsWalletSeed = true
 			conf.ValidatorActivityWindow = 10 * time.Minute
