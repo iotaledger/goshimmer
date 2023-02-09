@@ -1,8 +1,10 @@
 package chainmanager
 
 import (
-	"github.com/iotaledger/hive.go/core/generics/model"
 	"github.com/pkg/errors"
+
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/model"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 )
@@ -54,16 +56,11 @@ func (c *Commitment) Commitment() (commitment *commitment.Commitment) {
 	return c.M.Commitment
 }
 
-func (c *Commitment) Children() (children []*Commitment) {
+func (c *Commitment) Children() []*Commitment {
 	c.RLock()
 	defer c.RUnlock()
 
-	children = make([]*Commitment, 0, len(c.children))
-	for _, commitment := range c.children {
-		children = append(children, commitment)
-	}
-
-	return
+	return lo.Values(c.children)
 }
 
 func (c *Commitment) Chain() (chain *Chain) {
@@ -149,7 +146,7 @@ func (c *Commitment) setMainChild(commitment *Commitment) error {
 	defer c.Unlock()
 
 	if _, has := c.children[commitment.ID()]; !has {
-		return errors.Errorf("trying to set a main child %s before registering it as a children", commitment.ID())
+		return errors.Errorf("trying to set a main child %s before registering it as a child", commitment.ID())
 	}
 	c.mainChildID = commitment.ID()
 

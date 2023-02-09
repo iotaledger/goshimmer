@@ -269,7 +269,7 @@ func (t *TipManager) PromoteFutureTips(cm *commitment.Commitment) {
 		}
 	}
 
-	t.evict(cm.Index())
+	t.futureTips.Evict(cm.Index())
 }
 
 // Evict removes all parked tips that belong to an evicted epoch.
@@ -277,10 +277,6 @@ func (t *TipManager) Evict(index epoch.Index) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	t.evict(index)
-}
-
-func (t *TipManager) evict(index epoch.Index) {
 	t.futureTips.Evict(index)
 }
 

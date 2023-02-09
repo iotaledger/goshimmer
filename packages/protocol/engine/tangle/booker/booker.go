@@ -42,7 +42,7 @@ type Booker struct {
 
 	optsMarkerManager []options.Option[markermanager.MarkerManager[models.BlockID, *Block]]
 
-	Workers *workerpool.Group
+	workers *workerpool.Group
 
 	BlockDAG *blockdag.BlockDAG
 }
@@ -55,7 +55,7 @@ func New(workers *workerpool.Group, blockDAG *blockdag.BlockDAG, ledger *ledger.
 		bookingMutex:      syncutils.NewDAGMutex[models.BlockID](),
 		optsMarkerManager: make([]options.Option[markermanager.MarkerManager[models.BlockID, *Block]], 0),
 		Ledger:            ledger,
-		Workers:           workers,
+		workers:           workers,
 		BlockDAG:          blockDAG,
 	}, opts, func(b *Booker) {
 		b.markerManager = markermanager.NewMarkerManager(b.optsMarkerManager...)
@@ -447,7 +447,7 @@ func (b *Booker) setupEvents() {
 				b.bookingOrder.Queue(block)
 			}
 		}
-	}, b.Workers.CreatePool("Booker", 2))
+	}, b.workers.CreatePool("Booker", 2))
 }
 
 // region FORK LOGIC ///////////////////////////////////////////////////////////////////////////////////////////////////

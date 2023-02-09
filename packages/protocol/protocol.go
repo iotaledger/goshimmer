@@ -258,7 +258,7 @@ func (p *Protocol) onForkDetected(fork *chainmanager.Fork) {
 		return
 	}
 
-	p.networkProtocol.RequestAttestations(fork.ForkingPoint, fork.EndEpoch(), fork.Source)
+	p.networkProtocol.RequestAttestations(fork.ForkingPoint, fork.Commitment.Index(), fork.Source)
 }
 
 func (p *Protocol) switchEngines() {
@@ -427,7 +427,7 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 
 		// Get our cumulative weight at the snapshot target index and apply all the received attestations on stop while verifying the validity of each signature
 		calculatedCumulativeWeight = lo.PanicOnErr(mainEngine.Storage.Commitments.Load(snapshotTargetIndex)).CumulativeWeight()
-		for epochIndex := forkedEvent.ForkingPoint.Index(); epochIndex <= forkedEvent.EndEpoch(); epochIndex++ {
+		for epochIndex := forkedEvent.ForkingPoint.Index(); epochIndex <= forkedEvent.Commitment.Index(); epochIndex++ {
 			epochAttestations, epochExists := attestations.Get(epochIndex)
 			if !epochExists {
 				p.Events.Error.Trigger(errors.Errorf("attestations for epoch %d missing", epochIndex))
@@ -466,13 +466,13 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 	})
 
 	// Compare the calculated cumulative weight with ours to verify it is really higher
-	weightAtForkedEventEnd := lo.PanicOnErr(mainEngine.Storage.Commitments.Load(forkedEvent.EndEpoch())).CumulativeWeight()
+	weightAtForkedEventEnd := lo.PanicOnErr(mainEngine.Storage.Commitments.Load(forkedEvent.Commitment.Index())).CumulativeWeight()
 	if calculatedCumulativeWeight <= weightAtForkedEventEnd {
 		forkedEventClaimedWeight := forkedEvent.Commitment.CumulativeWeight()
 		forkedEventMainWeight := lo.PanicOnErr(mainEngine.Engine.Storage.Commitments.Load(forkedEvent.Commitment.Index())).CumulativeWeight()
 		p.Events.Error.Trigger(errors.Errorf("fork at point %d does not accumulate enough weight at epoch %d calculated %d CW <= main chain %d CW. fork event detected at %d was %d CW > %d CW",
 			forkedEvent.ForkingPoint.Index(),
-			forkedEvent.EndEpoch(),
+			forkedEvent.Commitment.Index(),
 			calculatedCumulativeWeight,
 			weightAtForkedEventEnd,
 			forkedEvent.Commitment.Index(),
