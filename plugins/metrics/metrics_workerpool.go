@@ -27,7 +27,7 @@ var WorkerPoolMetrics = collector.NewCollection(workerPoolNamespace,
 			collected[eventLoopLabel] = float64(event.Loop.WorkerCount())
 
 			if deps.Protocol != nil {
-				for name, wp := range deps.Protocol.WorkerPools() {
+				for name, wp := range deps.Protocol.Workers.Pools() {
 					collected[name] = float64(wp.WorkerCount())
 				}
 			}
@@ -46,16 +46,16 @@ var WorkerPoolMetrics = collector.NewCollection(workerPoolNamespace,
 		collector.WithCollectFunc(func() map[string]float64 {
 			collected := make(map[string]float64)
 
-			collected[eventLoopLabel] = float64(event.Loop.PendingTasksCounter.Value())
+			collected[eventLoopLabel] = float64(event.Loop.PendingTasksCounter.Get())
 
 			if deps.Protocol != nil {
-				for name, wp := range deps.Protocol.WorkerPools() {
-					collected[name] = float64(wp.PendingTasksCounter.Value())
+				for name, wp := range deps.Protocol.Workers.Pools() {
+					collected[name] = float64(wp.PendingTasksCounter.Get())
 				}
 			}
 
 			if deps.Retainer != nil {
-				collected[retainerLabel] = float64(deps.Retainer.WorkerPool().PendingTasksCounter.Value())
+				collected[retainerLabel] = float64(deps.Retainer.WorkerPool().PendingTasksCounter.Get())
 			}
 
 			return collected

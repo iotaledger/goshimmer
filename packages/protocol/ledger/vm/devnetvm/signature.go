@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/core/cerrors"
 	"github.com/iotaledger/hive.go/core/crypto/bls"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/stringify"
 )
@@ -164,7 +165,7 @@ func (e *ED25519Signature) AddressSignatureValid(address Address, data []byte) b
 		return false
 	}
 
-	hashedPublicKey := blake2b.Sum256(e.PublicKey.Bytes())
+	hashedPublicKey := blake2b.Sum256(lo.PanicOnErr(e.PublicKey.Bytes()))
 	if !bytes.Equal(hashedPublicKey[:], address.Digest()) {
 		return false
 	}

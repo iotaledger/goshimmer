@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/pkg/errors"
+
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/walker"
-	"github.com/pkg/errors"
+	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/causalorder"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -34,16 +36,20 @@ type BlockDAG struct {
 
 	// evictionMutex is a mutex that is used to synchronize the eviction of elements from the BlockDAG.
 	evictionMutex sync.RWMutex
+
+	Workers *workerpool.Group
 }
 
 // New is the constructor for the BlockDAG and creates a new BlockDAG instance.
-func New(evictionState *eviction.State, opts ...options.Option[BlockDAG]) (newBlockDAG *BlockDAG) {
+func New(workers *workerpool.Group, evictionState *eviction.State, opts ...options.Option[BlockDAG]) (newBlockDAG *BlockDAG) {
 	return options.Apply(&BlockDAG{
 		Events:        NewEvents(),
 		EvictionState: evictionState,
+		Workers:       workers,
 		memStorage:    memstorage.NewEpochStorage[models.BlockID, *Block](),
 	}, opts, func(b *BlockDAG) {
 		b.solidifier = causalorder.New(
+			workers.CreatePool("Solidifier", 2),
 			b.Block,
 			(*Block).IsSolid,
 			b.markSolid,
@@ -51,7 +57,7 @@ func New(evictionState *eviction.State, opts ...options.Option[BlockDAG]) (newBl
 			causalorder.WithReferenceValidator[models.BlockID](checkReference),
 		)
 
-		evictionState.Events.EpochEvicted.Hook(event.NewClosure(b.evictEpoch))
+		event.Hook(evictionState.Events.EpochEvicted, b.evictEpoch)
 	})
 }
 

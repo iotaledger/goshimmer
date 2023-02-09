@@ -8,15 +8,15 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/autopeering/peer/service"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/typeutils"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
+	"github.com/iotaledger/hive.go/core/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
-	"github.com/pkg/errors"
+	"github.com/iotaledger/hive.go/core/typeutils"
 
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 )
@@ -366,7 +366,17 @@ func (m *Manager) changeNeighborStatus(neighbor *p2p.Neighbor, connStatus Connec
 }
 
 func (m *Manager) connectionDirection(peerPK ed25519.PublicKey) (ConnectionDirection, error) {
-	result := bytes.Compare(m.local.PublicKey().Bytes(), peerPK.Bytes())
+	pkBytes, err := m.local.PublicKey().Bytes()
+	if err != nil {
+		return "", err
+	}
+
+	peerPKBytes, err := peerPK.Bytes()
+	if err != nil {
+		return "", err
+	}
+
+	result := bytes.Compare(pkBytes, peerPKBytes)
 	if result < 0 {
 		return ConnDirectionOutbound, nil
 	} else if result > 0 {

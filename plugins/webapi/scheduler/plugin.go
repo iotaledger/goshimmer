@@ -46,7 +46,7 @@ func getSchedulerInfo(c echo.Context) error {
 
 	deficit, _ := scheduler.Deficit(deps.Local.ID()).Float64()
 	return c.JSON(http.StatusOK, jsonmodels.Scheduler{
-		Running:           scheduler.Running(),
+		Running:           scheduler.IsRunning(),
 		Rate:              scheduler.Rate().String(),
 		MaxBufferSize:     scheduler.MaxBufferSize(),
 		CurrentBufferSize: scheduler.BufferSize(),

@@ -5,10 +5,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
-	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -248,6 +249,12 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 	})
 
 	return true
+}
+
+func (m *Manager) PerformLocked(perform func(m *Manager)) {
+	m.commitmentMutex.Lock()
+	defer m.commitmentMutex.Unlock()
+	perform(m)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -20,7 +20,9 @@ type MockedNetwork struct {
 
 func NewMockedNetwork() (mockedNetwork *MockedNetwork) {
 	return &MockedNetwork{
-		dispatchersByPartition: make(map[string]map[identity.ID]*MockedEndpoint),
+		dispatchersByPartition: map[string]map[identity.ID]*MockedEndpoint{
+			mainPartition: make(map[identity.ID]*MockedEndpoint),
+		},
 	}
 }
 

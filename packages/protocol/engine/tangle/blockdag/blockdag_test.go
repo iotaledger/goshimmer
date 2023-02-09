@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/randommap"
 	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -20,7 +21,8 @@ import (
 
 // This test checks if the internal metadata is correct i.e. that children are assigned correctly and that all the flags are correct.
 func TestBlockDAG_AttachBlock(t *testing.T) {
-	tf := NewTestFramework(t)
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewDefaultTestFramework(t, workers.CreateGroup("BlockDAGTestFramework"))
 
 	tf.CreateBlock("block1")
 	tf.CreateBlock("block2", models.WithStrongParents(tf.BlockIDs("block1")))
@@ -31,7 +33,7 @@ func TestBlockDAG_AttachBlock(t *testing.T) {
 	// issue block2
 	{
 		tf.IssueBlocks("block2")
-		event.Loop.PendingTasksCounter.WaitIsZero()
+		workers.Wait()
 		tf.AssertMissing(map[string]bool{
 			"block1": true,
 			"block2": false,
@@ -60,7 +62,7 @@ func TestBlockDAG_AttachBlock(t *testing.T) {
 	// issue block1
 	{
 		tf.IssueBlocks("block1")
-		event.Loop.PendingTasksCounter.WaitIsZero()
+		workers.Wait()
 
 		tf.AssertMissing(map[string]bool{
 			"block1": false,
@@ -90,7 +92,7 @@ func TestBlockDAG_AttachBlock(t *testing.T) {
 	// issue block4
 	{
 		tf.IssueBlocks("block4")
-		event.Loop.PendingTasksCounter.WaitIsZero()
+		workers.Wait()
 
 		tf.AssertMissing(map[string]bool{
 			"block1": false,
@@ -128,7 +130,7 @@ func TestBlockDAG_AttachBlock(t *testing.T) {
 	// issue block5
 	{
 		tf.IssueBlocks("block5")
-		event.Loop.PendingTasksCounter.WaitIsZero()
+		workers.Wait()
 
 		tf.AssertMissing(map[string]bool{
 			"block1": false,
@@ -170,7 +172,7 @@ func TestBlockDAG_AttachBlock(t *testing.T) {
 	// issue block3
 	{
 		tf.IssueBlocks("block3")
-		event.Loop.PendingTasksCounter.WaitIsZero()
+		workers.Wait()
 
 		tf.AssertMissing(map[string]bool{
 			"block1": false,
@@ -211,7 +213,8 @@ func TestBlockDAG_AttachBlock(t *testing.T) {
 }
 
 func TestBlockDAG_SetOrphaned(t *testing.T) {
-	tf := NewTestFramework(t)
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewDefaultTestFramework(t, workers.CreateGroup("BlockDAGTestFramework"))
 
 	tf.CreateBlock("block1")
 	tf.CreateBlock("block2")
@@ -220,43 +223,44 @@ func TestBlockDAG_SetOrphaned(t *testing.T) {
 	tf.CreateBlock("block5", models.WithStrongParents(tf.BlockIDs("block4")))
 	tf.CreateBlock("block6", models.WithStrongParents(tf.BlockIDs("block5")))
 	tf.IssueBlocks("block1", "block2", "block3", "block4", "block5")
-	event.Loop.PendingTasksCounter.WaitIsZero()
+	workers.Wait()
 
-	block1, _ := tf.BlockDAG.Block(tf.Block("block1").ID())
-	block2, _ := tf.BlockDAG.Block(tf.Block("block2").ID())
-	block4, _ := tf.BlockDAG.Block(tf.Block("block4").ID())
+	block1, _ := tf.Instance.Block(tf.Block("block1").ID())
+	block2, _ := tf.Instance.Block(tf.Block("block2").ID())
+	block4, _ := tf.Instance.Block(tf.Block("block4").ID())
 
-	tf.BlockDAG.SetOrphaned(block1, true)
-	event.Loop.PendingTasksCounter.WaitIsZero()
+	tf.Instance.SetOrphaned(block1, true)
+	workers.Wait()
 	tf.AssertOrphanedBlocks(tf.BlockIDs("block1"))
 
-	tf.BlockDAG.SetOrphaned(block2, true)
-	event.Loop.PendingTasksCounter.WaitIsZero()
+	tf.Instance.SetOrphaned(block2, true)
+	workers.Wait()
 	tf.AssertOrphanedBlocks(tf.BlockIDs("block1", "block2"))
 
-	tf.BlockDAG.SetOrphaned(block4, true)
-	event.Loop.PendingTasksCounter.WaitIsZero()
+	tf.Instance.SetOrphaned(block4, true)
+	workers.Wait()
 	tf.AssertOrphanedBlocks(tf.BlockIDs("block1", "block2", "block4"))
 
-	tf.BlockDAG.SetOrphaned(block1, false)
-	event.Loop.PendingTasksCounter.WaitIsZero()
+	tf.Instance.SetOrphaned(block1, false)
+	workers.Wait()
 	tf.AssertOrphanedBlocks(tf.BlockIDs("block2", "block4"))
 
-	tf.BlockDAG.SetOrphaned(block2, false)
-	event.Loop.PendingTasksCounter.WaitIsZero()
+	tf.Instance.SetOrphaned(block2, false)
+	workers.Wait()
 	tf.AssertOrphanedBlocks(tf.BlockIDs("block4"))
 
 	tf.IssueBlocks("block6")
-	event.Loop.PendingTasksCounter.WaitIsZero()
+	workers.Wait()
 	tf.AssertOrphanedBlocks(tf.BlockIDs("block4"))
 
-	tf.BlockDAG.SetOrphaned(block4, false)
-	event.Loop.PendingTasksCounter.WaitIsZero()
+	tf.Instance.SetOrphaned(block4, false)
+	workers.Wait()
 	tf.AssertOrphanedBlocks(models.NewBlockIDs())
 }
 
 func TestBlockDAG_AttachBlockTwice_1(t *testing.T) {
-	tf := NewTestFramework(t)
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewDefaultTestFramework(t, workers.CreateGroup("BlockDAGTestFramework"))
 
 	tf.CreateBlock("block1")
 	tf.CreateBlock("block2", models.WithStrongParents(tf.BlockIDs("block1")))
@@ -270,22 +274,24 @@ func TestBlockDAG_AttachBlockTwice_1(t *testing.T) {
 		startMutex   sync.RWMutex
 	)
 
-	event.Loop.Submit(func() {
+	loop := workers.CreatePool("Loop", 2)
+
+	loop.Submit(func() {
 		startMutex.Lock()
 		started++
 		startMutex.Unlock()
 
-		_, wasAttached1, err1 = tf.BlockDAG.Attach(tf.Block("block2"))
+		_, wasAttached1, err1 = tf.Instance.Attach(tf.Block("block2"))
 	})
-	event.Loop.Submit(func() {
+	loop.Submit(func() {
 		startMutex.Lock()
 		started++
 		startMutex.Unlock()
 
-		_, wasAttached2, err2 = tf.BlockDAG.Attach(tf.Block("block2"))
+		_, wasAttached2, err2 = tf.Instance.Attach(tf.Block("block2"))
 	})
 
-	event.Loop.PendingTasksCounter.WaitIsZero()
+	workers.Wait()
 
 	require.Eventually(t, func() bool {
 		startMutex.RLock()
@@ -300,41 +306,43 @@ func TestBlockDAG_AttachBlockTwice_1(t *testing.T) {
 }
 
 func TestBlockDAG_AttachBlockTwice_2(t *testing.T) {
-	tf := NewTestFramework(t)
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewDefaultTestFramework(t, workers.CreateGroup("BlockDAGTestFramework"))
 
 	tf.CreateBlock("block1")
 	tf.CreateBlock("block2", models.WithStrongParents(tf.BlockIDs("block1")))
 
-	_, wasAttached, err := tf.BlockDAG.Attach(tf.Block("block2"))
+	_, wasAttached, err := tf.Instance.Attach(tf.Block("block2"))
 	require.NoError(t, err, "should not return an error")
 	require.True(t, wasAttached, "should have been attached")
 
-	_, wasAttached, err = tf.BlockDAG.Attach(tf.Block("block2"))
+	_, wasAttached, err = tf.Instance.Attach(tf.Block("block2"))
 	require.NoError(t, err, "should not return an error")
 	require.False(t, wasAttached, "should not have been attached")
 
-	event.Loop.PendingTasksCounter.WaitIsZero()
+	workers.Wait()
 
 	require.NoError(t, err, "should not return an error")
 }
 
 func TestBlockDAG_Attach_InvalidTimestamp(t *testing.T) {
-	tf := NewTestFramework(t)
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewDefaultTestFramework(t, workers.CreateGroup("BlockDAGTestFramework"))
 
 	now := time.Now()
 	tf.CreateBlock("block1", models.WithIssuingTime(now.Add(-5*time.Second)))
 	tf.CreateBlock("block2", models.WithIssuingTime(now.Add(5*time.Second)))
 	tf.CreateBlock("block3", models.WithStrongParents(tf.BlockIDs("block1", "block2")), models.WithIssuingTime(now))
 
-	_, wasAttached, err := tf.BlockDAG.Attach(tf.Block("block1"))
+	_, wasAttached, err := tf.Instance.Attach(tf.Block("block1"))
 	require.NoError(t, err, "should not return an error")
 	require.True(t, wasAttached, "should have been attached")
 
-	_, wasAttached, err = tf.BlockDAG.Attach(tf.Block("block2"))
+	_, wasAttached, err = tf.Instance.Attach(tf.Block("block2"))
 	require.NoError(t, err, "should not return an error")
 	require.True(t, wasAttached, "should have been attached")
 
-	event.Loop.PendingTasksCounter.WaitIsZero()
+	workers.Wait()
 
 	expectedSolidState := map[string]bool{}
 	expectedInvalidState := map[string]bool{}
@@ -348,10 +356,10 @@ func TestBlockDAG_Attach_InvalidTimestamp(t *testing.T) {
 		"block1": false,
 		"block2": false,
 	}))
-	_, wasAttached, err = tf.BlockDAG.Attach(tf.Block("block3"))
+	_, wasAttached, err = tf.Instance.Attach(tf.Block("block3"))
 	require.NoError(t, err, "should not return an error")
 	require.True(t, wasAttached, "should have been attached")
-	event.Loop.PendingTasksCounter.WaitIsZero()
+	workers.Wait()
 
 	tf.AssertSolid(lo.MergeMaps(expectedSolidState, map[string]bool{
 		"block3": false,
@@ -367,7 +375,8 @@ func TestBlockDAG_Attach_InvalidTimestamp(t *testing.T) {
 func TestBlockDAG_AttachInvalid(t *testing.T) {
 	const epochCount = 100
 
-	tf := NewTestFramework(t)
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewDefaultTestFramework(t, workers.CreateGroup("BlockDAGTestFramework"))
 
 	// create a helper function that creates the blocks
 	createNewBlock := func(idx int, prefix string) (block *models.Block, alias string) {
@@ -386,10 +395,10 @@ func TestBlockDAG_AttachInvalid(t *testing.T) {
 	}
 
 	// Prune BlockDAG.
-	tf.BlockDAG.EvictionState.EvictUntil(epochCount / 2)
-	event.Loop.PendingTasksCounter.WaitIsZero()
+	tf.Instance.EvictionState.EvictUntil(epochCount / 2)
+	workers.Wait()
 
-	require.EqualValues(t, epochCount/2, tf.BlockDAG.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch should be epochCount/2")
+	require.EqualValues(t, epochCount/2, tf.Instance.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch should be epochCount/2")
 
 	blocks := make([]*models.Block, epochCount)
 	expectedMissing := make(map[string]bool, epochCount)
@@ -414,8 +423,8 @@ func TestBlockDAG_AttachInvalid(t *testing.T) {
 	// Issue the first bunch of blocks. Those should be marked as invalid when the block with pruned parents is attached.
 	{
 		for i := len(blocks) - 11; i >= 0; i-- {
-			_, wasAttached, err := tf.BlockDAG.Attach(blocks[i])
-			if blocks[i].ID().Index()-1 > tf.BlockDAG.EvictionState.LastEvictedEpoch() {
+			_, wasAttached, err := tf.Instance.Attach(blocks[i])
+			if blocks[i].ID().Index()-1 > tf.Instance.EvictionState.LastEvictedEpoch() {
 				require.True(t, wasAttached, "block should be attached")
 				require.NoError(t, err, "should not be able to attach a block after shutdown")
 				continue
@@ -424,7 +433,7 @@ func TestBlockDAG_AttachInvalid(t *testing.T) {
 			require.False(t, wasAttached, "block should not be attached")
 			require.Error(t, err, "should not be able to attach a block to a pruned epoch")
 		}
-		event.Loop.PendingTasksCounter.WaitIsZero()
+		workers.Wait()
 
 		tf.AssertSolidCount(0, "should not have any solid blocks")
 		tf.AssertInvalidCount(epochCount/2-10, "should have invalid blocks")
@@ -433,11 +442,11 @@ func TestBlockDAG_AttachInvalid(t *testing.T) {
 	// Issue the second bunch of blocks. Those should be marked as invalid when the block attaches to a previously invalid block.
 	{
 		for i := len(blocks) - 1; i >= len(blocks)-10; i-- {
-			_, wasAttached, err := tf.BlockDAG.Attach(blocks[i])
+			_, wasAttached, err := tf.Instance.Attach(blocks[i])
 			require.True(t, wasAttached, "block should be attached")
 			require.NoError(t, err, "should not be able to attach a block after shutdown")
 		}
-		event.Loop.PendingTasksCounter.WaitIsZero()
+		workers.Wait()
 
 		tf.AssertSolidCount(0, "should not have any solid blocks")
 		tf.AssertInvalidCount(epochCount/2, "should have invalid blocks")
@@ -452,7 +461,8 @@ func TestBlockDAG_AttachInvalid(t *testing.T) {
 func TestBlockDAG_Prune(t *testing.T) {
 	const epochCount = 100
 
-	tf := NewTestFramework(t)
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewDefaultTestFramework(t, workers.CreateGroup("BlockDAGTestFramework"))
 
 	// create a helper function that creates the blocks
 	createNewBlock := func(idx int, prefix string) (block *models.Block, alias string) {
@@ -480,7 +490,7 @@ func TestBlockDAG_Prune(t *testing.T) {
 	for i := 1; i <= epochCount; i++ {
 		block, alias := createNewBlock(i, "")
 
-		_, wasAttached, err := tf.BlockDAG.Attach(block)
+		_, wasAttached, err := tf.Instance.Attach(block)
 
 		if i >= epochCount/4 {
 			expectedMissing[alias] = false
@@ -499,7 +509,7 @@ func TestBlockDAG_Prune(t *testing.T) {
 		if i == 1 {
 			continue
 		}
-		_, wasAttached, err := tf.BlockDAG.Attach(blk)
+		_, wasAttached, err := tf.Instance.Attach(blk)
 
 		if i >= epochCount/2 {
 			expectedMissing[alias] = false
@@ -510,25 +520,25 @@ func TestBlockDAG_Prune(t *testing.T) {
 		require.True(t, wasAttached, "block should be attached")
 		require.NoError(t, err, "should not be able to attach a block after shutdown")
 	}
-	event.Loop.PendingTasksCounter.WaitIsZero()
+	workers.Wait()
 
 	tf.AssertSolidCount(epochCount, "should have all solid blocks")
 
 	validateState(tf, 0, epochCount)
-	tf.BlockDAG.EvictionState.EvictUntil(epochCount / 4)
-	event.Loop.PendingTasksCounter.WaitIsZero()
-	require.EqualValues(t, epochCount/4, tf.BlockDAG.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch should be epochCount/4")
+	tf.Instance.EvictionState.EvictUntil(epochCount / 4)
+	workers.Wait()
+	require.EqualValues(t, epochCount/4, tf.Instance.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch should be epochCount/4")
 
 	// All orphan blocks should be marked as invalid due to invalidity propagation.
 	tf.AssertInvalidCount(epochCount, "should have invalid blocks")
 
-	tf.BlockDAG.EvictionState.EvictUntil(epochCount / 10)
-	event.Loop.PendingTasksCounter.WaitIsZero()
-	require.EqualValues(t, epochCount/4, tf.BlockDAG.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch should be epochCount/4")
+	tf.Instance.EvictionState.EvictUntil(epochCount / 10)
+	workers.Wait()
+	require.EqualValues(t, epochCount/4, tf.Instance.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch should be epochCount/4")
 
-	tf.BlockDAG.EvictionState.EvictUntil(epochCount / 2)
-	event.Loop.PendingTasksCounter.WaitIsZero()
-	require.EqualValues(t, epochCount/2, tf.BlockDAG.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch should be epochCount/2")
+	tf.Instance.EvictionState.EvictUntil(epochCount / 2)
+	workers.Wait()
+	require.EqualValues(t, epochCount/2, tf.Instance.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch should be epochCount/2")
 
 	validateState(tf, epochCount/2, epochCount)
 }
@@ -537,19 +547,19 @@ func validateState(tf *TestFramework, maxDroppedEpoch, epochCount int) {
 	for i := 1; i <= maxDroppedEpoch; i++ {
 		blkID := tf.Block(fmt.Sprintf("blk-%d", i)).ID()
 
-		_, exists := tf.BlockDAG.Block(blkID)
+		_, exists := tf.Instance.Block(blkID)
 		require.False(tf.test, exists, "block %s should not be in the BlockDAG", blkID)
 
-		require.Nil(tf.test, tf.BlockDAG.memStorage.Get(blkID.Index()), "epoch %s should not be in the memStorage", blkID.Index())
+		require.Nil(tf.test, tf.Instance.memStorage.Get(blkID.Index()), "epoch %s should not be in the memStorage", blkID.Index())
 	}
 
 	for i := maxDroppedEpoch + 1; i <= epochCount; i++ {
 		blkID := tf.Block(fmt.Sprintf("blk-%d", i)).ID()
 
-		_, exists := tf.BlockDAG.Block(blkID)
+		_, exists := tf.Instance.Block(blkID)
 		require.True(tf.test, exists, "block %s should be in the BlockDAG", blkID)
 
-		require.NotNil(tf.test, tf.BlockDAG.memStorage.Get(blkID.Index()), "epoch %s should be in the memStorage", blkID.Index())
+		require.NotNil(tf.test, tf.Instance.memStorage.Get(blkID.Index()), "epoch %s should be in the memStorage", blkID.Index())
 	}
 }
 
@@ -560,7 +570,8 @@ func TestBlockDAG_MissingBlocks(t *testing.T) {
 		storeDelay    = 0 * time.Millisecond
 	)
 
-	tf := NewTestFramework(t)
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewDefaultTestFramework(t, workers.CreateGroup("BlockDAGTestFramework"))
 
 	// map to keep track of the tips
 	tips := randommap.New[models.BlockID, models.BlockID]()
@@ -597,22 +608,22 @@ func TestBlockDAG_MissingBlocks(t *testing.T) {
 		blocks[blk.ID()] = blk
 	}
 
-	tf.BlockDAG.Events.BlockMissing.Attach(event.NewClosure(func(metadata *Block) {
+	event.AttachWithWorkerPool(tf.Instance.Events.BlockMissing, func(metadata *Block) {
 		time.Sleep(storeDelay)
 
-		_, _, err := tf.BlockDAG.Attach(blocks[metadata.ID()])
+		_, _, err := tf.Instance.Attach(blocks[metadata.ID()])
 		require.NoError(t, err, "should be able to attach a block")
-	}))
+	}, workers.CreatePool("BlockMissing", 2))
 
 	// issue tips to start solidification
 	tips.ForEach(func(key models.BlockID, _ models.BlockID) bool {
-		_, _, err := tf.BlockDAG.Attach(blocks[key])
+		_, _, err := tf.Instance.Attach(blocks[key])
 		require.NoError(t, err, "should be able to attach a block")
 		return true
 	})
 
 	// wait until all blocks are solidified
-	event.Loop.PendingTasksCounter.WaitIsZero()
+	workers.Wait()
 
 	tf.AssertStoredCount(blockCount, "should have all blocks")
 	tf.AssertInvalidCount(0, "should have no invalid blocks")
@@ -621,7 +632,8 @@ func TestBlockDAG_MissingBlocks(t *testing.T) {
 }
 
 func TestBlockDAG_MonotonicCommitments(t *testing.T) {
-	tf := NewTestFramework(t)
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewDefaultTestFramework(t, workers.CreateGroup("BlockDAGTestFramework"))
 
 	tf.CreateBlock("block1", models.WithCommitment(commitment.New(0, commitment.ID{}, types.Identifier{}, 0)))
 	tf.CreateBlock("block2", models.WithStrongParents(tf.BlockIDs("block1")), models.WithCommitment(commitment.New(1, commitment.ID{}, types.Identifier{}, 0)))
@@ -632,7 +644,7 @@ func TestBlockDAG_MonotonicCommitments(t *testing.T) {
 	// issue block2
 	{
 		tf.IssueBlocks("block1", "block2", "block3", "block4", "block5")
-		event.Loop.PendingTasksCounter.WaitIsZero()
+		workers.Wait()
 		tf.AssertSolid(map[string]bool{
 			"block1": true,
 			"block2": true,

@@ -40,7 +40,7 @@ var CommitmentsMetrics = collector.NewCollection(commitmentsNamespace,
 		collector.WithType(collector.Counter),
 		collector.WithHelp("Number of commitments seen by the node."),
 		collector.WithInitFunc(func() {
-			deps.Protocol.ChainManager().Events.ForkDetected.Attach(event.NewClosure(func(chain *chainmanager.Chain) {
+			deps.Protocol.ChainManager().Events.ForkDetected.Attach(event.NewClosure(func(_ *chainmanager.Fork) {
 				deps.Collector.Increment(commitmentsNamespace, seenTotal)
 			}))
 		}),

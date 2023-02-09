@@ -164,7 +164,7 @@ func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, exclude
 	for w := walker.New[utxo.TransactionID](false).Push(conflictID); w.HasNext(); {
 		currentConflictID := w.Next()
 
-		if likedConflictID, dislikedConflictIDs := engineInstance.Consensus.LikedConflictMember(currentConflictID); !likedConflictID.IsEmpty() {
+		if likedConflictID, dislikedConflictIDs := engineInstance.Consensus.ConflictResolver.LikedConflictMember(currentConflictID); !likedConflictID.IsEmpty() {
 			// only triggers in first iteration
 			if likedConflictID == conflictID {
 				return false, models.EmptyBlockID, nil
@@ -210,7 +210,7 @@ func (r *ReferenceProvider) payloadLiked(blockID models.BlockID) (liked bool) {
 	conflictIDs := engineInstance.Tangle.Booker.PayloadConflictIDs(block)
 
 	for it := conflictIDs.Iterator(); it.HasNext(); {
-		if !engineInstance.Consensus.ConflictLiked(it.Next()) {
+		if !engineInstance.Consensus.ConflictResolver.ConflictLiked(it.Next()) {
 			return false
 		}
 	}

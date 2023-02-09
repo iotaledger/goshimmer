@@ -32,9 +32,12 @@ message EpochCommitmentRequest {
 }
 
 message Attestations {
-  bytes bytes = 1;
+  bytes commitment = 1;
+  bytes blocks = 2;
+  bytes attestations = 3;
 }
 
 message AttestationsRequest {
-  bytes bytes = 1;
+  bytes commitment = 1;
+  bytes end_index = 2;
 }

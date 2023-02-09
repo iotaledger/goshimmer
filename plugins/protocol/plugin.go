@@ -3,10 +3,12 @@ package protocol
 import (
 	"context"
 
+	"go.uber.org/dig"
+
 	"github.com/iotaledger/hive.go/core/daemon"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/node"
-	"go.uber.org/dig"
+	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -14,6 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
@@ -63,7 +66,9 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 	} else {
 		dbProvider = database.NewDB
 	}
-	p = protocol.New(n,
+
+	p = protocol.New(workerpool.NewGroup("Protocol"),
+		n,
 		protocol.WithSybilProtectionProvider(
 			dpos.NewProvider(
 				dpos.WithActivityWindow(Parameters.ValidatorActivityWindow),
@@ -82,6 +87,9 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 				ledger.WithCacheTimeProvider(cacheTimeProvider),
 			),
 			engine.WithSnapshotDepth(Parameters.Snapshot.Depth),
+		),
+		protocol.WithChainManagerOptions(
+			chainmanager.WithForkDetectionMinimumDepth(Parameters.ForkDetectionMinimumDepth),
 		),
 		protocol.WithTipManagerOptions(
 			tipmanager.WithWidth(Parameters.TangleWidth),
@@ -124,6 +132,10 @@ func configureLogging(*node.Plugin) {
 	// deps.Protocol.Events.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
 	// 	Plugin.LogDebugf("Block %s scheduled", block.ID())
 	// }))
+	deps.Protocol.Events.Error.Attach(event.NewClosure(func(err error) {
+		Plugin.LogErrorf("Error in Protocol: %s", err)
+	}))
+
 	deps.Protocol.Events.Engine.Error.Attach(event.NewClosure(func(err error) {
 		Plugin.LogErrorf("Error in Engine: %s", err)
 	}))
@@ -138,6 +150,12 @@ func configureLogging(*node.Plugin) {
 	// deps.Protocol.Events.Engine.BlockRequester.Tick.Attach(event.NewClosure(func(blockID models.BlockID) {
 	// 	fmt.Println(">>>>>>> BlockRequesterTick", blockID)
 	// }))
+
+	if DebugParameters.PanicOnForkDetection {
+		event.Hook(deps.Protocol.Events.ChainManager.ForkDetected, func(fork *chainmanager.Fork) {
+			Plugin.LogFatalfAndExit("Network fork detected: received from %s, commitment: %s, forkingPoint: %s", fork.Source, fork.Commitment, fork.ForkingPoint)
+		})
+	}
 }
 
 func run(*node.Plugin) {

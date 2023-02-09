@@ -3,15 +3,17 @@ package sybilprotection
 import (
 	"sync"
 
+	"github.com/pkg/errors"
+	"github.com/zyedidia/generic/cache"
+
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/iotaledger/hive.go/core/types"
-	"github.com/pkg/errors"
-	"github.com/zyedidia/generic/cache"
 
 	"github.com/iotaledger/goshimmer/packages/core/ads"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
 
 const cacheSize = 1000
@@ -126,11 +128,18 @@ func (w *Weights) ForEach(callback func(id identity.ID, weight *Weight) bool) (e
 }
 
 // TotalWeight returns the total weight of all identities.
-func (w *Weights) TotalWeight() (totalWeight *Weight) {
+func (w *Weights) TotalWeight() (totalWeight int64) {
 	w.mutex.RLock()
 	defer w.mutex.RUnlock()
 
-	return w.totalWeight
+	return w.totalWeight.Value
+}
+
+func (w *Weights) UpdateTotalWeightEpoch(index epoch.Index) {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
+	w.totalWeight.UpdateTime = index
 }
 
 // Root returns the root of the merkle tree of the stored weights.

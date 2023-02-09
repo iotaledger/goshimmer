@@ -69,3 +69,27 @@ func (b *Blocks) Delete(id models.BlockID) (err error) {
 
 	return nil
 }
+
+func (b *Blocks) ForEachBlockInEpoch(index epoch.Index, consumer func(blockID models.BlockID) bool) error {
+	storage := b.Storage(index)
+	if storage == nil {
+		return errors.Errorf("storage does not exist for epoch %s", index)
+	}
+
+	var innerErr error
+	if err := storage.IterateKeys(kvstore.EmptyPrefix, func(key kvstore.Key) bool {
+		var blockID models.BlockID
+		if _, innerErr = blockID.FromBytes(key); innerErr != nil {
+			return false
+		}
+		return consumer(blockID)
+	}); err != nil {
+		return errors.Wrapf(err, "failed to stream blockIDs for epoch %s", index)
+	}
+
+	if innerErr != nil {
+		return errors.Wrapf(innerErr, "failed to deserialize blockIDs for epoch %s", index)
+	}
+
+	return nil
+}

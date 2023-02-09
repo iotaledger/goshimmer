@@ -5,13 +5,15 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/pkg/errors"
+
 	"github.com/iotaledger/hive.go/core/cerrors"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/walker"
 	"github.com/iotaledger/hive.go/core/syncutils"
-	"github.com/pkg/errors"
+	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/causalorder"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -40,10 +42,12 @@ type Booker struct {
 
 	optsMarkerManager []options.Option[markermanager.MarkerManager[models.BlockID, *Block]]
 
-	*blockdag.BlockDAG
+	workers *workerpool.Group
+
+	BlockDAG *blockdag.BlockDAG
 }
 
-func New(blockDAG *blockdag.BlockDAG, ledger *ledger.Ledger, opts ...options.Option[Booker]) (booker *Booker) {
+func New(workers *workerpool.Group, blockDAG *blockdag.BlockDAG, ledger *ledger.Ledger, opts ...options.Option[Booker]) (booker *Booker) {
 	return options.Apply(&Booker{
 		Events:            NewEvents(),
 		attachments:       newAttachments(),
@@ -51,10 +55,12 @@ func New(blockDAG *blockdag.BlockDAG, ledger *ledger.Ledger, opts ...options.Opt
 		bookingMutex:      syncutils.NewDAGMutex[models.BlockID](),
 		optsMarkerManager: make([]options.Option[markermanager.MarkerManager[models.BlockID, *Block]], 0),
 		Ledger:            ledger,
+		workers:           workers,
 		BlockDAG:          blockDAG,
 	}, opts, func(b *Booker) {
 		b.markerManager = markermanager.NewMarkerManager(b.optsMarkerManager...)
 		b.bookingOrder = causalorder.New(
+			workers.CreatePool("BookingOrder", 2),
 			b.Block,
 			(*Block).IsBooked,
 			b.book,
@@ -62,7 +68,7 @@ func New(blockDAG *blockdag.BlockDAG, ledger *ledger.Ledger, opts ...options.Opt
 			causalorder.WithReferenceValidator[models.BlockID](isReferenceValid),
 		)
 
-		blockDAG.EvictionState.Events.EpochEvicted.Hook(event.NewClosure(b.evict))
+		event.Hook(blockDAG.EvictionState.Events.EpochEvicted, b.evict)
 
 		b.Events.MarkerManager = b.markerManager.Events
 	}, (*Booker).setupEvents)
@@ -81,7 +87,7 @@ func (b *Booker) queue(block *Block) (wasQueued bool, err error) {
 	b.evictionMutex.RLock()
 	defer b.evictionMutex.RUnlock()
 
-	if b.EvictionState.InEvictedEpoch(block.ID()) {
+	if b.BlockDAG.EvictionState.InEvictedEpoch(block.ID()) {
 		return false, nil
 	}
 
@@ -114,7 +120,7 @@ func (b *Booker) BlockBookingDetails(block *Block) (pastMarkersConflictIDs, bloc
 
 // PayloadConflictIDs returns the ConflictIDs of the payload contained in the given Block.
 func (b *Booker) PayloadConflictIDs(block *Block) (conflictIDs utxo.TransactionIDs) {
-	if b.EvictionState.InEvictedEpoch(block.ID()) {
+	if b.BlockDAG.EvictionState.InEvictedEpoch(block.ID()) {
 		return utxo.NewTransactionIDs()
 	}
 
@@ -211,7 +217,7 @@ func (b *Booker) isPayloadSolid(block *Block) (isPayloadSolid bool, err error) {
 
 // block retrieves the Block with given id from the mem-storage.
 func (b *Booker) block(id models.BlockID) (block *Block, exists bool) {
-	if b.EvictionState.IsRootBlock(id) {
+	if b.BlockDAG.EvictionState.IsRootBlock(id) {
 		return NewRootBlock(id), true
 	}
 
@@ -233,7 +239,7 @@ func (b *Booker) book(block *Block) (err error) {
 		b.evictionMutex.RLock()
 		defer b.evictionMutex.RUnlock()
 
-		if b.EvictionState.InEvictedEpoch(block.ID()) {
+		if b.BlockDAG.EvictionState.InEvictedEpoch(block.ID()) {
 			return errors.Errorf("block with %s belongs to an evicted epoch", block.ID())
 		}
 
@@ -253,7 +259,7 @@ func (b *Booker) book(block *Block) (err error) {
 }
 
 func (b *Booker) markInvalid(block *Block, reason error) {
-	b.SetInvalid(block.Block, reason)
+	b.BlockDAG.SetInvalid(block.Block, reason)
 }
 
 func (b *Booker) inheritConflictIDs(block *Block) (err error) {
@@ -313,7 +319,7 @@ func (b *Booker) collectStrongParentsBookingDetails(block *Block) (parentsStruct
 	parentsConflictIDs = utxo.NewTransactionIDs()
 
 	block.ForEachParentByType(models.StrongParentType, func(parentBlockID models.BlockID) bool {
-		if b.EvictionState.IsRootBlock(parentBlockID) {
+		if b.BlockDAG.EvictionState.IsRootBlock(parentBlockID) {
 			return true
 		}
 
@@ -423,19 +429,17 @@ func (b *Booker) strongChildren(block *Block) []*Block {
 }
 
 func (b *Booker) setupEvents() {
-	b.BlockDAG.Events.BlockSolid.Hook(event.NewClosure(func(block *blockdag.Block) {
+	event.Hook(b.BlockDAG.Events.BlockSolid, func(block *blockdag.Block) {
 		if _, err := b.Queue(NewBlock(block)); err != nil {
 			panic(err)
 		}
-	}))
-
-	b.Ledger.Events.TransactionConflictIDUpdated.Hook(event.NewClosure(func(event *ledger.TransactionConflictIDUpdatedEvent) {
+	})
+	event.Hook(b.Ledger.Events.TransactionConflictIDUpdated, func(event *ledger.TransactionConflictIDUpdatedEvent) {
 		if err := b.PropagateForkedConflict(event.TransactionID, event.AddedConflictID, event.RemovedConflictIDs); err != nil {
 			b.Events.Error.Trigger(errors.Wrapf(err, "failed to propagate Conflict update of %s to BlockDAG", event.TransactionID))
 		}
-	}))
-
-	b.Ledger.Events.TransactionBooked.Attach(event.NewClosure(func(e *ledger.TransactionBookedEvent) {
+	})
+	event.AttachWithWorkerPool(b.Ledger.Events.TransactionBooked, func(e *ledger.TransactionBookedEvent) {
 		contextBlockID := models.BlockIDFromContext(e.Context)
 
 		for _, block := range b.attachments.Get(e.TransactionID) {
@@ -443,7 +447,7 @@ func (b *Booker) setupEvents() {
 				b.bookingOrder.Queue(block)
 			}
 		}
-	}))
+	}, b.workers.CreatePool("Booker", 2))
 }
 
 // region FORK LOGIC ///////////////////////////////////////////////////////////////////////////////////////////////////

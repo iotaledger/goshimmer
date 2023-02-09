@@ -22,7 +22,7 @@ func TestCommonSynchronization(t *testing.T) {
 	const (
 		initialPeers  = 3
 		numBlocks     = 100
-		numSyncBlocks = 5 * initialPeers
+		numSyncBlocks = 10 * initialPeers
 	)
 	snapshotInfo := tests.EqualSnapshotDetails
 
@@ -93,7 +93,7 @@ func TestCommonSynchronization(t *testing.T) {
 
 	// 7. issue some blocks on old peers so that new peer can sync again
 	log.Printf("Issuing %d blocks on the %d initial peers...", numSyncBlocks, initialPeers)
-	ids = tests.SendDataBlocks(t, n.Peers()[:initialPeers], numSyncBlocks, ids)
+	ids = tests.SendDataBlocksWithDelay(t, n.Peers()[:initialPeers], numSyncBlocks, 10*time.Millisecond, ids)
 	log.Println("Issuing blocks... done")
 
 	// 9. check whether all issued blocks are available on to the new peer

@@ -6,12 +6,12 @@ import (
 )
 
 type Events struct {
-	Hit *event.Event[*HitEvent]
+	Hit *event.Linkable[*HitEvent]
 }
 
 func newEvents() *Events {
 	return &Events{
-		Hit: event.New[*HitEvent](),
+		Hit: event.NewLinkable[*HitEvent](),
 	}
 }
 

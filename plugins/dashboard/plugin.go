@@ -350,7 +350,7 @@ func currentNodeStatus() *nodestatus {
 	deficit, _ := deps.Protocol.CongestionControl.Scheduler().Deficit(deps.Local.ID()).Float64()
 
 	status.Scheduler = schedulerMetric{
-		Running:           deps.Protocol.CongestionControl.Scheduler().Running(),
+		Running:           deps.Protocol.CongestionControl.Scheduler().IsRunning(),
 		Rate:              deps.Protocol.CongestionControl.Scheduler().Rate().String(),
 		MaxBufferSize:     deps.Protocol.CongestionControl.Scheduler().MaxBufferSize(),
 		CurrentBufferSize: deps.Protocol.CongestionControl.Scheduler().BufferSize(),

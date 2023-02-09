@@ -119,6 +119,23 @@ func (b *Block) ContentHash() (contentHash types.Identifier, err error) {
 	return blake2b.Sum256(blkBytes[:len(blkBytes)-ed25519.SignatureSize]), nil
 }
 
+func (b *Block) Sign(pair *ed25519.KeyPair) error {
+	b.M.IssuerPublicKey = pair.PublicKey
+
+	contentHash, err := b.ContentHash()
+	if err != nil {
+		return errors.Wrap(err, "failed to obtain block content's hash")
+	}
+
+	issuingTimeBytes, err := serix.DefaultAPI.Encode(context.Background(), b.IssuingTime(), serix.WithValidation())
+	if err != nil {
+		return errors.Wrap(err, "failed to serialize block's issuing time")
+	}
+
+	b.SetSignature(pair.PrivateKey.Sign(byteutils.ConcatBytes(issuingTimeBytes, lo.PanicOnErr(b.Commitment().ID().Bytes()), contentHash[:])))
+	return nil
+}
+
 // VerifySignature verifies the Signature of the block.
 func (b *Block) VerifySignature() (valid bool, err error) {
 	contentHash, err := b.ContentHash()
