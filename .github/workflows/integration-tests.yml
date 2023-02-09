@@ -18,18 +18,7 @@ jobs:
     steps:
 
       - name: Checkout repository
-        uses: actions/checkout@v2
-
-      - name: Cache Go modules for tester container
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/go
-          # make sure concurrent runs (not really supported) do not match the same key but instead fall back to a reasonable cache
-          key: ${{ runner.os }}-it-go-${{ hashFiles('tools/integration-tests/tester/go.sum') }}-${{ github.job }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-it-go-${{ hashFiles('tools/integration-tests/tester/go.sum') }}-
-            ${{ runner.os }}-it-go-
+        uses: actions/checkout@v3
 
       - name: Build GoShimmer image
         run: |
@@ -68,18 +57,7 @@ jobs:
     steps:
 
       - name: Checkout repository
-        uses: actions/checkout@v2
-
-      - name: Cache Go modules for tester container
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/go
-          # make sure concurrent runs (not really supported) do not match the same key but instead fall back to a reasonable cache
-          key: ${{ runner.os }}-it-go-${{ hashFiles('tools/integration-tests/tester/go.sum') }}-${{ github.job }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-it-go-${{ hashFiles('tools/integration-tests/tester/go.sum') }}-
-            ${{ runner.os }}-it-go-
+        uses: actions/checkout@v3
 
       - name: Build GoShimmer image
         run: |
@@ -116,18 +94,7 @@ jobs:
     steps:
 
       - name: Checkout repository
-        uses: actions/checkout@v2
-
-      - name: Cache Go modules for tester container
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/go
-          # make sure concurrent runs (not really supported) do not match the same key but instead fall back to a reasonable cache
-          key: ${{ runner.os }}-it-go-${{ hashFiles('tools/integration-tests/tester/go.sum') }}-${{ github.job }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-it-go-${{ hashFiles('tools/integration-tests/tester/go.sum') }}-
-            ${{ runner.os }}-it-go-
+        uses: actions/checkout@v3
 
       - name: Build GoShimmer image
         run: |
@@ -164,18 +131,7 @@ jobs:
     steps:
 
       - name: Checkout repository
-        uses: actions/checkout@v2
-
-      - name: Cache Go modules for tester container
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/go
-          # make sure concurrent runs (not really supported) do not match the same key but instead fall back to a reasonable cache
-          key: ${{ runner.os }}-it-go-${{ hashFiles('tools/integration-tests/tester/go.sum') }}-${{ github.job }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-it-go-${{ hashFiles('tools/integration-tests/tester/go.sum') }}-
-            ${{ runner.os }}-it-go-
+        uses: actions/checkout@v3
 
       - name: Build GoShimmer image
         run: |
@@ -212,18 +168,7 @@ jobs:
     steps:
 
       - name: Checkout repository
-        uses: actions/checkout@v2
-
-      - name: Cache Go modules for tester container
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/go
-          # make sure concurrent runs (not really supported) do not match the same key but instead fall back to a reasonable cache
-          key: ${{ runner.os }}-it-go-${{ hashFiles('tools/integration-tests/tester/go.sum') }}-${{ github.job }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-it-go-${{ hashFiles('tools/integration-tests/tester/go.sum') }}-
-            ${{ runner.os }}-it-go-
+        uses: actions/checkout@v3
 
       - name: Build GoShimmer image
         run: |
@@ -260,18 +205,7 @@ jobs:
     steps:
 
       - name: Check out code
-        uses: actions/checkout@v2
-
-      - name: Cache Go modules for tester container
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/go
-          # make sure concurrent runs (not really supported) do not match the same key but instead fall back to a reasonable cache
-          key: ${{ runner.os }}-it-go-${{ hashFiles('tools/integration-tests/tester/go.sum') }}-${{ github.job }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-it-go-${{ hashFiles('tools/integration-tests/tester/go.sum') }}-
-            ${{ runner.os }}-it-go-
+        uses: actions/checkout@v3
 
       - name: Build GoShimmer image
         run: |
@@ -308,18 +242,7 @@ jobs:
     steps:
 
       - name: Checkout repository
-        uses: actions/checkout@v2
-
-      - name: Cache Go modules for tester container
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/go
-          # make sure concurrent runs (not really supported) do not match the same key but instead fall back to a reasonable cache
-          key: ${{ runner.os }}-it-go-${{ hashFiles('tools/integration-tests/tester/go.sum') }}-${{ github.job }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-it-go-${{ hashFiles('tools/integration-tests/tester/go.sum') }}-
-            ${{ runner.os }}-it-go-
+        uses: actions/checkout@v3
 
       - name: Build GoShimmer image
         run: |
