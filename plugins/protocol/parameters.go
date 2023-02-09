@@ -22,10 +22,10 @@ type ParametersDefinition struct {
 	Snapshot struct {
 		// Path is the path to the snapshot file.
 		Path string `default:"./snapshot.bin" usage:"the path of the snapshot file"`
-		// Depth defines how many epoch diffs are stored in the snapshot, starting from the full ledgerstate
+		// Depth defines how many epoch diffs are stored in the snapshot, starting from the full ledgerstate.
 		Depth int `default:"5" usage:"defines how many epoch diffs are stored in the snapshot, starting from the full ledgerstate"`
 	}
-	// ForkDetectionMinimumDepth defines the minimum depth a fork has to have to be detected
+	// ForkDetectionMinimumDepth defines the minimum depth a fork has to have to be detected.
 	ForkDetectionMinimumDepth int64 `default:"3" usage:"the minimum depth a fork has to have to be detected"`
 }
 

@@ -42,7 +42,11 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...option
 		optsRateSetter: rateSetterOpts,
 		optsNumIssuers: 1,
 	}, opts, func(t *TestFramework) {
-		p := protocol.NewTestFramework(t.test, workers.CreateGroup("Protocol"), new(ledger.MockedVM), protocol.WithProtocolOptions(protocol.WithCongestionControlOptions(congestioncontrol.WithSchedulerOptions(t.optsScheduler...))))
+		p := protocol.NewTestFramework(t.test, workers.CreateGroup("Protocol"), new(ledger.MockedVM), protocol.WithProtocolOptions(
+			protocol.WithCongestionControlOptions(
+				congestioncontrol.WithSchedulerOptions(t.optsScheduler...),
+			),
+		))
 		t.Protocol = p
 		p.Instance.Run()
 		for i := 0; i < t.optsNumIssuers; i++ {
