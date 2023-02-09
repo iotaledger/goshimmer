@@ -28,6 +28,8 @@ type engineInfo struct {
 	Name string `json:"name"`
 }
 
+// region EngineManager ////////////////////////////////////////////////////////////////////////////////////////////////
+
 type EngineManager struct {
 	directory      *utils.Directory
 	dbVersion      database.Version
@@ -39,11 +41,6 @@ type EngineManager struct {
 	throughputQuotaProvider engine.ModuleProvider[throughputquota.ThroughputQuota]
 
 	activeInstance *EngineInstance
-}
-
-type EngineInstance struct {
-	Engine  *engine.Engine
-	Storage *storage.Storage
 }
 
 func New(
@@ -161,6 +158,15 @@ func (m *EngineManager) ForkEngineAtEpoch(index epoch.Index) (*EngineInstance, e
 	return instance, nil
 }
 
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region EngineInstance ////////////////////////////////////////////////////////////////////////////////////////////////
+
+type EngineInstance struct {
+	Engine  *engine.Engine
+	Storage *storage.Storage
+}
+
 func (e *EngineInstance) InitializeWithSnapshot(snapshotPath string) error {
 	return e.Engine.Initialize(snapshotPath)
 }
@@ -177,3 +183,5 @@ func (e *EngineInstance) Shutdown() {
 func (e *EngineInstance) RemoveFromFilesystem() error {
 	return os.RemoveAll(e.Storage.Directory)
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
