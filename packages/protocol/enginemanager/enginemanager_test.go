@@ -54,7 +54,6 @@ func TestEngineManager_ForkEngineAtEpoch(t *testing.T) {
 	tf.BlockDAG.CreateBlock("1.C", models.WithStrongParents(tf.BlockDAG.BlockIDs("1.B")), models.WithIssuer(identitiesMap["C"]), models.WithIssuingTime(epoch1IssuingTime))
 	tf.BlockDAG.CreateBlock("1.D", models.WithStrongParents(tf.BlockDAG.BlockIDs("1.C")), models.WithIssuer(identitiesMap["D"]), models.WithIssuingTime(epoch1IssuingTime))
 	tf.BlockDAG.IssueBlocks("1.A", "1.B", "1.C", "1.D")
-	workers.Wait()
 
 	tf.VirtualVoting.AssertBlockTracked(4)
 
@@ -70,12 +69,10 @@ func TestEngineManager_ForkEngineAtEpoch(t *testing.T) {
 	// Block in epoch 2, not accepting anything new.
 	tf.BlockDAG.CreateBlock("2.D", models.WithStrongParents(tf.BlockDAG.BlockIDs("1.D")), models.WithIssuer(identitiesMap["D"]), models.WithIssuingTime(epoch2IssuingTime))
 	tf.BlockDAG.IssueBlocks("2.D")
-	workers.Wait()
 
 	// Block in epoch 11
 	tf.BlockDAG.CreateBlock("11.A", models.WithStrongParents(tf.BlockDAG.BlockIDs("2.D")), models.WithIssuer(identitiesMap["A"]))
 	tf.BlockDAG.IssueBlocks("11.A")
-	workers.Wait()
 
 	tf.Acceptance.ValidateAcceptedBlocks(lo.MergeMaps(acceptedBlocks, map[string]bool{
 		"1.C":  true,
@@ -91,7 +88,6 @@ func TestEngineManager_ForkEngineAtEpoch(t *testing.T) {
 	tf.BlockDAG.CreateBlock("11.B", models.WithStrongParents(tf.BlockDAG.BlockIDs("11.A")), models.WithIssuer(identitiesMap["B"]))
 	tf.BlockDAG.CreateBlock("11.C", models.WithStrongParents(tf.BlockDAG.BlockIDs("11.B")), models.WithIssuer(identitiesMap["C"]))
 	tf.BlockDAG.IssueBlocks("11.B", "11.C")
-	workers.Wait()
 
 	// Some blocks got evicted, and we have to restart evaluating with a new map
 	acceptedBlocks = make(map[string]bool)
