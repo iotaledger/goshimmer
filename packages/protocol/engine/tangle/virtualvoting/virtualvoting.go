@@ -217,7 +217,7 @@ func (o *VirtualVoting) EvictEpochTracker(epochIndex epoch.Index) {
 func (o *VirtualVoting) processForkedBlock(block *booker.Block, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
 	votePower := NewBlockVotePower(block.ID(), block.IssuingTime())
 
-	fmt.Println("processing forked block", forkedConflictID, block.IssuerID(), block.ID(), block.IssuingTime())
+	fmt.Println("processing forked block", block.IssuerID(), block.ID(), block.IssuingTime())
 
 	o.conflictTracker.AddSupportToForkedConflict(forkedConflictID, parentConflictIDs, block.IssuerID(), votePower)
 }
@@ -225,7 +225,7 @@ func (o *VirtualVoting) processForkedBlock(block *booker.Block, forkedConflictID
 // take everything in future cone because it was not conflicting before and move to new conflict.
 func (o *VirtualVoting) processForkedMarker(marker markers.Marker, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
 	for voterID, votePower := range o.sequenceTracker.VotersWithPower(marker) {
-		fmt.Println("processing forked marker", forkedConflictID, voterID, marker, votePower.blockID, votePower.time)
+		fmt.Println("processing forked marker", voterID, marker, votePower.blockID, votePower.time)
 
 		o.conflictTracker.AddSupportToForkedConflict(forkedConflictID, parentConflictIDs, voterID, votePower)
 	}

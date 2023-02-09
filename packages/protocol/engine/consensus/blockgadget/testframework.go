@@ -81,7 +81,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 					return 0
 				}, func(id markers.SequenceID) markers.Index {
 					return 1
-				}, func(bi models.BlockID) bool { return false }, t.optsTangleOptions...)
+				}, t.optsTangleOptions...)
 			}
 
 			t.Gadget = New(t.optsTangle, t.optsEvictionState, t.optsTotalWeightCallback, t.optsGadgetOptions...)

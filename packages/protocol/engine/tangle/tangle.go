@@ -11,7 +11,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 // region Tangle ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -37,12 +36,11 @@ func New(
 	validators *sybilprotection.WeightedSet,
 	epochCutoffCallback func() epoch.Index,
 	sequenceCutoffCallback func(id markers.SequenceID) markers.Index,
-	isBlockAcceptedFunc func(models.BlockID) bool,
 	opts ...options.Option[Tangle],
 ) (newTangle *Tangle) {
 	return options.Apply(new(Tangle), opts, func(t *Tangle) {
 		t.BlockDAG = blockdag.New(evictionState, t.optsBlockDAG...)
-		t.Booker = booker.New(isBlockAcceptedFunc, t.BlockDAG, ledger, t.optsBooker...)
+		t.Booker = booker.New(t.BlockDAG, ledger, t.optsBooker...)
 		t.VirtualVoting = virtualvoting.New(t.Booker, validators, append(t.optsVirtualVoting, virtualvoting.WithEpochCutoffCallback(epochCutoffCallback), virtualvoting.WithSequenceCutoffCallback(sequenceCutoffCallback))...)
 
 		t.Events = NewEvents()

@@ -15,7 +15,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -46,7 +45,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 		t.LedgerTestFramework = ledger.NewTestFramework(test, lo.Cond(t.optsLedger != nil, ledger.WithLedger(t.optsLedger), ledger.WithLedgerOptions(t.optsLedgerOptions...)))
 
 		if t.Booker == nil {
-			t.Booker = New(func(models.BlockID) bool { return false }, t.BlockDAG, t.Ledger, t.optsBookerOptions...)
+			t.Booker = New(t.BlockDAG, t.Ledger, t.optsBookerOptions...)
 		}
 	}, (*TestFramework).setupEvents)
 }
