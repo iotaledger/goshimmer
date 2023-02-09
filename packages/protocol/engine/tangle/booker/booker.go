@@ -39,6 +39,8 @@ type Booker struct {
 	bookingMutex  *syncutils.DAGMutex[models.BlockID]
 	evictionMutex sync.RWMutex
 
+	forkingLock sync.RWMutex
+
 	optsMarkerManager []options.Option[markermanager.MarkerManager[models.BlockID, *Block]]
 
 	*blockdag.BlockDAG
@@ -272,7 +274,10 @@ func (b *Booker) inheritConflictIDs(block *Block) (err error) {
 		return errors.Wrap(err, "failed to inherit conflict IDs")
 	}
 
+	b.forkingLock.RLock()
 	newStructureDetails := b.markerManager.ProcessBlock(block, parentsStructureDetails, inheritedConflictIDs)
+	b.forkingLock.RUnlock()
+
 	block.setStructureDetails(newStructureDetails)
 
 	if !newStructureDetails.IsPastMarker() {
@@ -306,7 +311,10 @@ func (b *Booker) determineBookingDetails(block *Block) (parentsStructureDetails 
 	inheritedConflictIDs.AddAll(strongParentsConflictIDs)
 	inheritedConflictIDs.AddAll(weakPayloadConflictIDs)
 	inheritedConflictIDs.AddAll(likedConflictIDs)
+	fmt.Println("\t booking details: ", block.ID(), "\nstrongConflicts\n", strongParentsConflictIDs, "\nweakPayloadConflicts\n", weakPayloadConflictIDs, "\nlikedConflictIDs\n", likedConflictIDs, "\ndisliked\n", dislikedConflictIDs)
 	inheritedConflictIDs.DeleteAll(b.Ledger.Utils.ConflictIDsInFutureCone(dislikedConflictIDs))
+
+	fmt.Println("\t booking details UNCONFIRMED: ", block.ID(), b.Ledger.ConflictDAG.UnconfirmedConflicts(inheritedConflictIDs))
 
 	return parentsStructureDetails, b.Ledger.ConflictDAG.UnconfirmedConflicts(parentsPastMarkersConflictIDs), b.Ledger.ConflictDAG.UnconfirmedConflicts(inheritedConflictIDs), nil
 }
@@ -526,15 +534,16 @@ func (b *Booker) propagateForkedConflict(block *Block, addedConflictID utxo.Tran
 		return false, false, nil
 	}
 
-	if structureDetails := block.StructureDetails(); structureDetails.IsPastMarker() {
-		fmt.Println(">> propagating forked conflict to marker future cone of block", addedConflictID, block.ID(), structureDetails.PastMarkers().Marker())
-		if err = b.propagateForkedTransactionToMarkerFutureCone(structureDetails.PastMarkers().Marker(), addedConflictID, removedConflictIDs); err != nil {
-			err = errors.Wrapf(err, "failed to propagate conflict %s to future cone of %v", addedConflictID, structureDetails.PastMarkers().Marker())
-			fmt.Println(err)
-			return false, false, err
-		}
-		return true, false, nil
-	}
+	// if structureDetails := block.StructureDetails(); structureDetails.IsPastMarker() {
+	// 	fmt.Println(">> propagating forked conflict to marker future cone of block", addedConflictID, block.ID(), structureDetails.PastMarkers().Marker())
+	// 	if err = b.propagateForkedTransactionToMarkerFutureCone(structureDetails.PastMarkers().Marker(), addedConflictID, removedConflictIDs); err != nil {
+	// 		err = errors.Wrapf(err, "failed to propagate conflict %s to future cone of %v", addedConflictID, structureDetails.PastMarkers().Marker())
+	// 		fmt.Println(err)
+	// 		return false, false, err
+	// 	}
+	// 	return true, false, nil
+	// }
+
 	fmt.Println(">> propagating forked conflict to block future cone of block", addedConflictID, block.ID())
 	propagated = b.updateBlockConflicts(block, addedConflictID, removedConflictIDs)
 	// We only need to propagate further (in the block's future cone) if the block was updated.
@@ -568,7 +577,10 @@ func (b *Booker) propagateForkedTransactionToMarkerFutureCone(marker markers.Mar
 // forkSingleMarker propagates a newly created ConflictID to a single marker and queues the next elements that need to be
 // visited.
 func (b *Booker) forkSingleMarker(currentMarker markers.Marker, newConflictID utxo.TransactionID, removedConflictIDs utxo.TransactionIDs, markerWalker *walker.Walker[markers.Marker]) (err error) {
-	fmt.Println(">> forkSingleMarker", currentMarker, newConflictID, removedConflictIDs)
+	b.forkingLock.Lock()
+	defer b.forkingLock.Unlock()
+
+	fmt.Println(">> forkSingleMarker", lo.Return1(b.markerManager.BlockFromMarker(currentMarker)).ID(), currentMarker, newConflictID, removedConflictIDs)
 	b.markerManager.SequenceMutex.Lock(currentMarker.SequenceID())
 	defer b.markerManager.SequenceMutex.Unlock(currentMarker.SequenceID())
 

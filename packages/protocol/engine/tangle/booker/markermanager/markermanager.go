@@ -58,6 +58,7 @@ func NewMarkerManager[IndexedID epoch.IndexedID, MappedEntity epoch.IndexedEntit
 // ProcessBlock returns the structure Details of a Block that are derived from the StructureDetails of its
 // strong and like parents.
 func (m *MarkerManager[IndexedID, MappedEntity]) ProcessBlock(block MappedEntity, structureDetails []*markers.StructureDetails, conflictIDs utxo.TransactionIDs) (newStructureDetails *markers.StructureDetails) {
+
 	newStructureDetails, newSequenceCreated := m.SequenceManager.InheritStructureDetails(structureDetails)
 	if newStructureDetails.IsPastMarker() {
 		m.SequenceMutex.Lock(newStructureDetails.PastMarkers().Marker().SequenceID())

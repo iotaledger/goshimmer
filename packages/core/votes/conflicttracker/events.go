@@ -5,6 +5,7 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/votes"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 type Events[ConflictIDType comparable] struct {
@@ -24,6 +25,7 @@ func NewEvents[ConflictIDType comparable](optLinkTargets ...*Events[ConflictIDTy
 }
 
 type VoterEvent[ConflictIDType comparable] struct {
+	BlockID    models.BlockID
 	Voter      identity.ID
 	ConflictID ConflictIDType
 	Opinion    votes.Opinion

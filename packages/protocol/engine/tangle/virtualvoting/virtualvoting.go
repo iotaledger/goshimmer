@@ -219,7 +219,7 @@ func (o *VirtualVoting) processForkedBlock(block *booker.Block, forkedConflictID
 
 	fmt.Println("processing forked block", forkedConflictID, block.IssuerID(), block.ID(), block.IssuingTime())
 
-	o.conflictTracker.AddSupportToForkedConflict(forkedConflictID, parentConflictIDs, block.IssuerID(), votePower)
+	o.conflictTracker.AddSupportToForkedConflict(forkedConflictID, parentConflictIDs, block.ID(), block.IssuerID(), votePower)
 }
 
 // take everything in future cone because it was not conflicting before and move to new conflict.
@@ -228,7 +228,7 @@ func (o *VirtualVoting) processForkedMarker(marker markers.Marker, forkedConflic
 	for voterID, votePower := range o.sequenceTracker.VotersWithPower(marker) {
 		fmt.Println("processing forked marker", forkedConflictID, voterID, marker, votePower.blockID, votePower.time)
 
-		o.conflictTracker.AddSupportToForkedConflict(forkedConflictID, parentConflictIDs, voterID, votePower)
+		o.conflictTracker.AddSupportToForkedConflict(forkedConflictID, parentConflictIDs, models.EmptyBlockID, voterID, votePower)
 	}
 }
 
