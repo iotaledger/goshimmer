@@ -1,7 +1,6 @@
 package protocol
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -383,7 +382,6 @@ func (p *Protocol) ProcessAttestationsRequest(forkingPoint *commitment.Commitmen
 }
 
 func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, blockIDs models.BlockIDs, attestations *orderedmap.OrderedMap[epoch.Index, *set.AdvancedSet[*notarization.Attestation]], source identity.ID) {
-	fmt.Println("Received attestations for", forkingPoint.ID())
 	if attestations.Size() == 0 {
 		p.Events.Error.Trigger(errors.Errorf("received attestations from peer %s are empty", source.String()))
 		return
@@ -494,7 +492,9 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 	if err := candidateEngine.Engine.Storage.Settings.SetChainID(forkedEvent.ForkingPoint.ID()); err != nil {
 		p.Events.Error.Trigger(errors.Wrap(err, "error setting the ChainID on the forked engine"))
 		candidateEngine.Shutdown()
-		_ = candidateEngine.RemoveFromFilesystem()
+		if err := candidateEngine.RemoveFromFilesystem(); err != nil {
+			p.Events.Error.Trigger(errors.Wrap(err, "error cleaning up old failed candidate engine from file system"))
+		}
 		return
 	}
 
@@ -527,6 +527,9 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 
 	if oldCandidateEngine != nil {
 		oldCandidateEngine.Shutdown()
+		if err := oldCandidateEngine.RemoveFromFilesystem(); err != nil {
+			p.Events.Error.Trigger(errors.Wrap(err, "error cleaning up replaced candidate engine from file system"))
+		}
 	}
 }
 
