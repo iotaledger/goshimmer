@@ -551,11 +551,17 @@ func (b *Booker) propagateForkedConflict(block *Block, addedConflictID utxo.Tran
 }
 
 func (b *Booker) updateBlockConflicts(block *Block, addedConflict utxo.TransactionID, parentConflicts utxo.TransactionIDs) (updated bool) {
-	if _, conflictIDs := b.blockBookingDetails(block); !conflictIDs.HasAll(parentConflicts) {
+	_, conflictIDs := b.blockBookingDetails(block)
+
+	if !conflictIDs.HasAll(parentConflicts) {
+		fmt.Println(">> updateBlockConflicts - block ", block.ID(), "supports ", conflictIDs, "parentConflicts", parentConflicts)
 		return false
 	}
 
-	return block.AddConflictID(addedConflict)
+	updated = block.AddConflictID(addedConflict)
+
+	fmt.Println(">> updateBlockConflicts - block ", block.ID(), "supports ", conflictIDs, "updated", updated)
+	return updated
 }
 
 // propagateForkedTransactionToMarkerFutureCone propagates a newly created ConflictID into the future cone of the given Marker.
