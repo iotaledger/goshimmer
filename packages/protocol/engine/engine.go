@@ -68,6 +68,7 @@ type Engine struct {
 	optsConsensusOptions           []options.Option[consensus.Consensus]
 	optsTSCManagerOptions          []options.Option[tsc.Manager]
 	optsBlockRequester             []options.Option[eventticker.EventTicker[models.BlockID]]
+	optsFilter                     []options.Option[filter.Filter]
 
 	traits.Constructable
 	traits.Initializable
@@ -263,7 +264,7 @@ func (e *Engine) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (err err
 }
 
 func (e *Engine) initFilter() {
-	e.Filter = filter.New(filter.WithMinCommittableEpochAge(e.NotarizationManager.MinCommittableEpochAge()))
+	e.Filter = filter.New(e.optsFilter...)
 
 	event.AttachWithWorkerPool(e.Filter.Events.BlockFiltered, func(filteredEvent *filter.BlockFilteredEvent) {
 		e.Events.Error.Trigger(errors.Wrapf(filteredEvent.Reason, "block (%s) filtered", filteredEvent.Block.ID()))
@@ -503,6 +504,12 @@ func WithTSCManagerOptions(opts ...options.Option[tsc.Manager]) options.Option[E
 func WithLedgerOptions(opts ...options.Option[ledger.Ledger]) options.Option[Engine] {
 	return func(e *Engine) {
 		e.optsLedgerOptions = append(e.optsLedgerOptions, opts...)
+	}
+}
+
+func WithFilterOptions(opts ...options.Option[filter.Filter]) options.Option[Engine] {
+	return func(e *Engine) {
+		e.optsFilter = append(e.optsFilter, opts...)
 	}
 }
 
