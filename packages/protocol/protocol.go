@@ -166,7 +166,7 @@ func (p *Protocol) initNetworkEvents() {
 		}
 	}, wpCommitments)
 
-	wpAttestations := p.Workers.CreatePool("NetworkEvents.Attestations") // Using just 1 worker to avoid contention
+	wpAttestations := p.Workers.CreatePool("NetworkEvents.Attestations", 1) // Using just 1 worker to avoid contention
 	event.AttachWithWorkerPool(p.Events.Network.AttestationsRequestReceived, func(event *network.AttestationsRequestReceivedEvent) {
 		p.ProcessAttestationsRequest(event.Commitment, event.EndIndex, event.Source)
 	}, wpAttestations)
