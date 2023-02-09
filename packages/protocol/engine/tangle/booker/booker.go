@@ -369,7 +369,7 @@ func (b *Booker) collectShallowLikedParentsConflictIDs(block *Block) (collectedL
 		}
 		transaction, isTransaction := parentBlock.Transaction()
 		if !isTransaction {
-			err = errors.WithMessagef(cerrors.ErrFatal, "%s referenced by a shallow like of %s does not contain a Transaction", parentBlockID, block.ID())
+			err = errors.WithMessagef(cerrors.ErrFatal, "%s (isRootBlock %t) referenced by a shallow like of %s does not contain a Transaction", parentBlockID, b.EvictionState.IsRootBlock(parentBlockID), block.ID())
 			return false
 		}
 
