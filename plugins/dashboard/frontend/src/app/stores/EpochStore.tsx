@@ -1,102 +1,49 @@
-import {action, observable} from "mobx";
-import {Node as ManaNode} from "app/stores/ManaStore"
+import {computed, action, observable} from "mobx";
+import { registerHandler, WSMsgType } from "app/misc/WS";
+import * as React from "react";
+import {Link} from 'react-router-dom';
 
+const liveFeedSize = 100;
 
-enum QueryError {
-    NotFound = 1,
-    BadRequest = 2
-}
-
-class EpochIDResponse {
-    epochID: number
-}
-
-export class EpochData {
-    epochID: number;
-    epochStartTime: number;
-    epochEndTime: number;
-    weights: Array<ManaNode>;
-    totalWeight: number;
+export class EpochInfo {
+    index: number;
+    id: string;
 }
 
 export class EpochStore {
-    @observable currentOracleEpoch: EpochData = null;
-    @observable previousOracleEpoch: EpochData = null;
+    @observable liveFeed: Array<EpochInfo> = [];
 
+    constructor() {
+        registerHandler(WSMsgType.EpochInfo, this.addLiveFeed);
+    }
 
-    // loading
-    @observable query_loading: boolean = false;
-    @observable query_err: any = null;
-
-    @action getOracleEpochs = async () => {
-        this.updateQueryLoading(true);
-        try {
-            let res = await fetch("/api/epochs/oracle/current");
-            if (res.status === 404) {
-                this.updateQueryError(QueryError.NotFound);
-                return;
+    @action addLiveFeed = async (info: EpochInfo) => {
+        if (this.liveFeed.findIndex((t) => t.id == info.id) === -1) {
+            if (this.liveFeed.length >= liveFeedSize) {
+                this.liveFeed.shift();
             }
-            // get current oracle epoch
-            let epochID = (await res.json() as EpochIDResponse).epochID;
-            let dataRes = await this.getEpochData(epochID);
-            let data = await dataRes as EpochData;
-            this.updateOracleEpoch(true, data);
-
-            // get previous oracle epoch
-            dataRes = await this.getEpochData(epochID-1);
-            data = await dataRes as EpochData;
-            this.updateOracleEpoch(false, data);
-            this.updateQueryLoading(false);
-        } catch (err) {
-            this.updateQueryError(err);
+            this.liveFeed.push(info);
         }
     }
 
-    @action
-    getEpochData = async (id: number) => {
-        try {
-            let res = await fetch(`/api/epochs/${id}`)
-            if (res.status === 404) {
-                this.updateQueryError(QueryError.NotFound);
-                return;
-            }
-            if (res.status === 400) {
-                this.updateQueryError(QueryError.BadRequest);
-                return;
-            }
-            return res.json();
-        } catch (err) {
-            this.updateQueryError(err);
-            return;
+    @computed
+    get epochLiveFeed() {
+        let feed = [];
+        for (let i = this.liveFeed.length - 1; i >= 0; i--) {
+            let info = this.liveFeed[i];
+            feed.push(
+                <tr key={info.id}>
+                    <td>
+                        {info.index}
+                    </td>
+                    <td>
+                        <Link to={`/explorer/epoch/${info.id}`}>
+                            {info.id}
+                        </Link>
+                    </td>
+                </tr>
+            );
         }
+        return feed;
     }
-
-    @action
-    updateOracleEpoch = (updateCurrentOracleEpoch: boolean, data: EpochData) => {
-        data.weights.sort((a, b) => {
-            return b.mana - a.mana;
-        })
-        if (updateCurrentOracleEpoch) {
-            this.currentOracleEpoch = data;
-        } else {
-            this.previousOracleEpoch = data;
-        }
-    }
-
-    @action
-    reset = () => {
-        this.currentOracleEpoch = null;
-        this.previousOracleEpoch = null;
-        this.query_err = null;
-        this.query_loading = null;
-    }
-
-    @action
-    updateQueryError = (err: any) => {
-        this.query_err = err;
-        this.query_loading = false;
-    };
-
-    @action
-    updateQueryLoading = (loading: boolean) => this.query_loading = loading;
 }

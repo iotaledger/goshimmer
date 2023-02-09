@@ -87,6 +87,7 @@ func configure(plugin *node.Plugin) {
 	configureManaFeed()
 	configureServer()
 	configureConflictLiveFeed()
+	configureEpochLiveFeed()
 }
 
 func configureServer() {
@@ -122,6 +123,7 @@ func run(*node.Plugin) {
 	runVisualizer()
 	runManaFeed()
 	runConflictLiveFeed()
+	runEpochsLiveFeed()
 
 	if deps.Chat != nil {
 		runChatLiveFeed()
@@ -185,7 +187,13 @@ const (
 	// MsgTypeManaMapOverall defines a block containing overall mana map.
 	MsgTypeManaMapOverall
 	// MsgTypeManaMapOnline defines a block containing online mana map.
+	MsgTypeManaAllowedPledge
 	MsgTypeManaMapOnline
+	MsgTypeManaPledge
+	MsgTypeManaInitPledge
+	MsgTypeManaRevoke
+	MsgTypeManaInitRevoke
+	MsgTypeManaInitDone
 	// MsgManaDashboardAddress is the socket address of the dashboard to stream mana from.
 	MsgManaDashboardAddress
 	// MsgTypeChat defines a chat block.
@@ -196,6 +204,8 @@ const (
 	MsgTypeConflictsConflictSet
 	// MsgTypeConflictsConflict defines a websocket message that contains a conflict update for the "conflicts" tab.
 	MsgTypeConflictsConflict
+	// MsgTypeEpochInfo defines a websocket message that contains a conflict update for the "conflicts" tab.
+	MsgTypeEpochInfo
 )
 
 type wsblk struct {
