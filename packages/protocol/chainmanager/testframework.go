@@ -72,6 +72,22 @@ func (t *TestFramework) commitment(alias string) (commitment *commitment.Commitm
 	return
 }
 
+func (t *TestFramework) ChainCommitment(alias string) *Commitment {
+	cm, created := t.Instance.Commitment(t.EC(alias))
+	require.False(t.test, created)
+
+	return cm
+}
+
+func (t *TestFramework) AssertEqualChainCommitments(commitments []*Commitment, aliases ...string) {
+	var chainCommitments []*Commitment
+	for _, alias := range aliases {
+		chainCommitments = append(chainCommitments, t.ChainCommitment(alias))
+	}
+
+	require.EqualValues(t.test, commitments, chainCommitments)
+}
+
 func (t *TestFramework) EC(alias string) (epochCommitment commitment.ID) {
 	return t.commitment(alias).ID()
 }

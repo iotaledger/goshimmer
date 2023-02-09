@@ -142,17 +142,17 @@ func TestManager(t *testing.T) {
 	{
 		commitments, err := tf.Instance.Commitments(tf.EC("8*"), 9)
 		require.NoError(t, err)
-		require.EqualValues(t, []*Commitment{
-			lo.Return1(tf.Instance.Commitment(tf.EC("8*"))),
-			lo.Return1(tf.Instance.Commitment(tf.EC("7*"))),
-			lo.Return1(tf.Instance.Commitment(tf.EC("6*"))),
-			lo.Return1(tf.Instance.Commitment(tf.EC("5*"))),
-			lo.Return1(tf.Instance.Commitment(tf.EC("4*"))),
-			lo.Return1(tf.Instance.Commitment(tf.EC("3"))),
-			lo.Return1(tf.Instance.Commitment(tf.EC("2"))),
-			lo.Return1(tf.Instance.Commitment(tf.EC("1"))),
-			lo.Return1(tf.Instance.Commitment(tf.EC("Genesis"))),
-		}, commitments)
+		tf.AssertEqualChainCommitments(commitments,
+			"8*",
+			"7*",
+			"6*",
+			"5*",
+			"4*",
+			"3",
+			"2",
+			"1",
+			"Genesis",
+		)
 	}
 
 	{
@@ -224,17 +224,17 @@ func TestManagerForkDetectedAgain(t *testing.T) {
 	{
 		commitments, err := tf.Instance.Commitments(tf.EC("8*"), 9)
 		require.NoError(t, err)
-		require.EqualValues(t, []*Commitment{
-			lo.Return1(tf.Instance.Commitment(tf.EC("8*"))),
-			lo.Return1(tf.Instance.Commitment(tf.EC("7*"))),
-			lo.Return1(tf.Instance.Commitment(tf.EC("6*"))),
-			lo.Return1(tf.Instance.Commitment(tf.EC("5*"))),
-			lo.Return1(tf.Instance.Commitment(tf.EC("4*"))),
-			lo.Return1(tf.Instance.Commitment(tf.EC("3"))),
-			lo.Return1(tf.Instance.Commitment(tf.EC("2"))),
-			lo.Return1(tf.Instance.Commitment(tf.EC("1"))),
-			lo.Return1(tf.Instance.Commitment(tf.EC("Genesis"))),
-		}, commitments)
+		tf.AssertEqualChainCommitments(commitments,
+			"8*",
+			"7*",
+			"6*",
+			"5*",
+			"4*",
+			"3",
+			"2",
+			"1",
+			"Genesis",
+		)
 	}
 
 	{
