@@ -27,6 +27,8 @@ type ParametersDefinition struct {
 	}
 	// ForkDetectionMinimumDepth defines the minimum depth a fork has to have to be detected.
 	ForkDetectionMinimumDepth int64 `default:"3" usage:"the minimum depth a fork has to have to be detected"`
+	// MaxAllowedClockDrift defines the maximum drift our wall clock can have to future blocks being received from the network.
+	MaxAllowedClockDrift time.Duration `default:"5s" usage:"the maximum drift our wall clock can have to future blocks being received from the network"`
 }
 
 // SchedulerParametersDefinition contains the definition of the parameters used by the Scheduler.

@@ -15,6 +15,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/filter"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
@@ -45,6 +47,11 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...option
 		p := protocol.NewTestFramework(t.test, workers.CreateGroup("Protocol"), new(ledger.MockedVM), protocol.WithProtocolOptions(
 			protocol.WithCongestionControlOptions(
 				congestioncontrol.WithSchedulerOptions(t.optsScheduler...),
+			),
+			protocol.WithEngineOptions(
+				engine.WithFilterOptions(
+					filter.WithSignatureValidation(false),
+				),
 			),
 		))
 		t.Protocol = p
