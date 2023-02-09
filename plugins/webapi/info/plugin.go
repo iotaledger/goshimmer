@@ -167,7 +167,7 @@ func getInfo(c echo.Context) error {
 		DisabledPlugins:       disabledPlugins,
 		Mana:                  nodeMana,
 		Scheduler: jsonmodels.Scheduler{
-			Running:           scheduler.Running(),
+			Running:           scheduler.IsRunning(),
 			Rate:              scheduler.Rate().String(),
 			MaxBufferSize:     scheduler.MaxBufferSize(),
 			CurrentBufferSize: scheduler.BufferSize(),
