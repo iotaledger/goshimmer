@@ -564,20 +564,24 @@ func (b *Booker) propagateForkedTransactionToMarkerFutureCone(marker markers.Mar
 // forkSingleMarker propagates a newly created ConflictID to a single marker and queues the next elements that need to be
 // visited.
 func (b *Booker) forkSingleMarker(currentMarker markers.Marker, newConflictID utxo.TransactionID, removedConflictIDs utxo.TransactionIDs, markerWalker *walker.Walker[markers.Marker]) (err error) {
+	fmt.Println(">> forkSingleMarker", currentMarker, newConflictID, removedConflictIDs)
 	b.markerManager.SequenceMutex.Lock(currentMarker.SequenceID())
 	defer b.markerManager.SequenceMutex.Unlock(currentMarker.SequenceID())
 
 	// update ConflictID mapping
 	newConflictIDs := b.markerManager.ConflictIDs(currentMarker)
 	if !newConflictIDs.HasAll(removedConflictIDs) {
+		fmt.Println("\t HasAll")
 		return nil
 	}
 
 	if !newConflictIDs.Add(newConflictID) {
+		fmt.Println("\t Add")
 		return nil
 	}
 
 	if !b.markerManager.SetConflictIDs(currentMarker, newConflictIDs) {
+		fmt.Println("\t SetConflictIDs")
 		return nil
 	}
 
