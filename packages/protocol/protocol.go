@@ -158,7 +158,7 @@ func (p *Protocol) initNetworkEvents() {
 		}
 	}, wpBlocks)
 
-	wpCommitments := p.Workers.CreatePool("NetworkEvents.EpochCommitments") // Using just 1 worker to avoid contention
+	wpCommitments := p.Workers.CreatePool("NetworkEvents.EpochCommitments", 1) // Using just 1 worker to avoid contention
 	event.AttachWithWorkerPool(p.Events.Network.EpochCommitmentRequestReceived, func(event *network.EpochCommitmentRequestReceivedEvent) {
 		// when we receive a commitment request, do not look it up in the ChainManager but in the storage, else we might answer with commitments we did not issue ourselves and for which we cannot provide attestations
 		if requestedCommitment, err := p.Engine().Storage.Commitments.Load(event.CommitmentID.Index()); err == nil && requestedCommitment.ID() == event.CommitmentID {
