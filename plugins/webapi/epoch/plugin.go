@@ -1,7 +1,22 @@
 package epoch
 
 import (
+	"strconv"
+	"sync"
+
+	"github.com/cockroachdb/errors"
+
+	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/app/retainer"
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
+	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/node"
+
+	"net/http"
+
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 )
@@ -13,12 +28,17 @@ var (
 	// Plugin is the plugin instance of the web API epoch endpoint plugin.
 	Plugin *node.Plugin
 	deps   = new(dependencies)
+
+	currentEC     *commitment.Commitment
+	currentECLock sync.RWMutex
 )
 
 type dependencies struct {
 	dig.In
 
-	Server *echo.Echo
+	Server   *echo.Echo
+	Retainer *retainer.Retainer
+	Protocol *protocol.Protocol
 }
 
 func init() {
@@ -26,140 +46,135 @@ func init() {
 }
 
 func configure(_ *node.Plugin) {
-	// deps.Server.GET("epochs", getAllCommittedEpochs)
-	// deps.Server.GET("ec", getCurrentEC)
-	// deps.Server.GET("epoch/:ei", getCommittedEpoch)
-	// deps.Server.GET("epoch/:ei/utxos", getUTXOs)
-	// deps.Server.GET("epoch/:ei/blocks", getBlocks)
-	// deps.Server.GET("epoch/:ei/transactions", getTransactions)
-	// deps.Server.GET("epoch/:ei/pending-conflict-count", getPendingConflictsCount)
-	// deps.Server.GET("epoch/:ei/voters-weight", getVotersWeight)
+	deps.Server.GET("ec", getCurrentEC)
+	deps.Server.GET("epochs/:ei", getCommittedEpoch)
+	deps.Server.GET("epochs/commitment/:commitment", getCommittedEpochByCommitment)
+	deps.Server.GET("epochs/:ei/utxos", getUTXOs)
+	deps.Server.GET("epochs/:ei/blocks", getBlocks)
+	deps.Server.GET("epochs/:ei/transactions", getTransactions)
+	// deps.Server.GET("epochs/:ei/voters-weight", getVotersWeight)
+
+	deps.Protocol.Engine().NotarizationManager.Events.EpochCommitted.Attach(event.NewClosure(func(e *notarization.EpochCommittedDetails) {
+		currentECLock.Lock()
+		defer currentECLock.Unlock()
+
+		currentEC = e.Commitment
+	}))
 }
 
-//
-// func getAllCommittedEpochs(c echo.Context) error {
-// 	allEpochs := epochstorage.GetCommittableEpochs()
-// 	allEpochsInfos := make([]*jsonmodels.EpochInfo, 0, len(allEpochs))
-// 	for _, ecRecord := range allEpochs {
-// 		allEpochsInfos = append(allEpochsInfos, jsonmodels.EpochInfoFromRecord(ecRecord))
-// 	}
-// 	sort.Slice(allEpochsInfos, func(i, j int) bool {
-// 		return allEpochsInfos[i].EI < allEpochsInfos[j].EI
-// 	})
-// 	return c.JSON(http.StatusOK, allEpochsInfos)
-// }
-//
-// func getCurrentEC(c echo.Context) error {
-// 	ecRecord, err := deps.NotarizationMgr.GetLatestEC()
-// 	if err != nil {
-// 		return c.JSON(http.StatusInternalServerError, jsonmodels.NewErrorResponse(err))
-// 	}
-// 	ec := ecRecord.ID()
-//
-// 	return c.JSON(http.StatusOK, ec.Base58())
-// }
-//
-// func getCommittedEpoch(c echo.Context) error {
-// 	ei, err := getEI(c)
-// 	if err != nil {
-// 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
-// 	}
-// 	allEpochs := epochstorage.GetCommittableEpochs()
-// 	epochInfo := jsonmodels.EpochInfoFromRecord(allEpochs[ei])
-//
-// 	return c.JSON(http.StatusOK, epochInfo)
-// }
-//
-// func getUTXOs(c echo.Context) error {
-// 	ei, err := getEI(c)
-// 	if err != nil {
-// 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
-// 	}
-// 	spentIDs, createdIDs := epochstorage.GetEpochUTXOs(ei)
-//
-// 	spent := make([]string, len(spentIDs))
-// 	for i, o := range spentIDs {
-// 		spent[i] = o.String()
-// 	}
-// 	created := make([]string, len(createdIDs))
-// 	for i, o := range createdIDs {
-// 		created[i] = o.String()
-// 	}
-//
-// 	resp := jsonmodels.EpochUTXOsResponse{SpentOutputs: spent, CreatedOutputs: created}
-//
-// 	return c.JSON(http.StatusOK, resp)
-// }
-//
-// func getBlocks(c echo.Context) error {
-// 	ei, err := getEI(c)
-// 	if err != nil {
-// 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
-// 	}
-// 	blockIDs := epochstorage.GetEpochBlockIDs(ei)
-//
-// 	blocks := make([]string, len(blockIDs))
-// 	for i, m := range blockIDs {
-// 		blocks[i] = m
-// 	}
-// 	resp := jsonmodels.EpochBlocksResponse{Blocks: blocks}
-//
-// 	return c.JSON(http.StatusOK, resp)
-// }
-//
-// func getTransactions(c echo.Context) error {
-// 	ei, err := getEI(c)
-// 	if err != nil {
-// 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
-// 	}
-// 	transactionIDs := epochstorage.GetEpochTransactions(ei)
-//
-// 	transactions := make([]string, len(transactionIDs))
-// 	for i, t := range transactionIDs {
-// 		transactions[i] = t.String()
-// 	}
-// 	resp := jsonmodels.EpochTransactionsResponse{Transactions: transactions}
-//
-// 	return c.JSON(http.StatusOK, resp)
-// }
-//
-// func getPendingConflictsCount(c echo.Context) error {
-// 	ei, err := getEI(c)
-// 	if err != nil {
-// 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
-// 	}
-// 	allEpochs := epochstorage.GetPendingConflictCount()
-// 	resp := jsonmodels.EpochPendingConflictCountResponse{PendingConflictCount: allEpochs[ei]}
-//
-// 	return c.JSON(http.StatusOK, resp)
-// }
-//
-// func getEI(c echo.Context) (epoch.Index, error) {
-// 	eiText := c.Param("ei")
-// 	eiNumber, err := strconv.Atoi(eiText)
-// 	if err != nil {
-// 		return 0, errors.Wrap(err, "can't parse Index from URL param")
-// 	}
-// 	return epoch.Index(uint64(eiNumber)), nil
-// }
-//
+func getCurrentEC(c echo.Context) error {
+	currentECLock.RLock()
+	defer currentECLock.RUnlock()
+
+	return c.JSON(http.StatusOK, jsonmodels.EpochInfoFromRecord(currentEC))
+}
+
+func getCommittedEpoch(c echo.Context) error {
+	ei, err := getEI(c)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	}
+
+	cc, exist := deps.Retainer.Commitment(ei)
+	if !exist {
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(errors.New("commitment not exists")))
+	}
+
+	return c.JSON(http.StatusOK, jsonmodels.EpochInfoFromRecord(cc.M.Commitment))
+}
+
+func getCommittedEpochByCommitment(c echo.Context) error {
+	var ID commitment.ID
+	err := ID.FromBase58(c.Param("commitment"))
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	}
+
+	cc, exist := deps.Retainer.CommitmentbyID(ID)
+	if !exist {
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(errors.New("commitment not exists")))
+	}
+
+	return c.JSON(http.StatusOK, jsonmodels.EpochInfoFromRecord(cc.M.Commitment))
+}
+
+func getUTXOs(c echo.Context) error {
+	ei, err := getEI(c)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	}
+
+	cc, exist := deps.Retainer.Commitment(ei)
+	if !exist {
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(errors.New("commitment not exists")))
+	}
+
+	var (
+		spent   []string
+		created []string
+	)
+	for _, s := range cc.M.SpentOutputs.Slice() {
+		spent = append(spent, s.Base58())
+	}
+	for _, c := range cc.M.CreatedOutputs.Slice() {
+		created = append(created, c.Base58())
+	}
+
+	return c.JSON(http.StatusOK, jsonmodels.EpochUTXOsResponse{SpentOutputs: spent, CreatedOutputs: created})
+}
+
+func getBlocks(c echo.Context) error {
+	ei, err := getEI(c)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, jsonmodels.EpochBlocksResponse{Error: err.Error()})
+	}
+
+	cc, exist := deps.Retainer.Commitment(ei)
+	if !exist {
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(errors.New("commitment not exists")))
+	}
+
+	return c.JSON(http.StatusOK, jsonmodels.EpochBlocksResponse{Blocks: cc.M.AcceptedBlocks.Base58()})
+}
+
+func getTransactions(c echo.Context) error {
+	ei, err := getEI(c)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, jsonmodels.EpochBlocksResponse{Error: err.Error()})
+	}
+
+	cc, exist := deps.Retainer.Commitment(ei)
+	if !exist {
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(errors.New("commitment not exists")))
+	}
+
+	var txs []string
+	for _, t := range cc.M.AcceptedTransactions.Slice() {
+		txs = append(txs, t.Base58())
+	}
+
+	return c.JSON(http.StatusOK, jsonmodels.EpochTransactionsResponse{Transactions: txs})
+}
+
+func getEI(c echo.Context) (epoch.Index, error) {
+	eiText := c.Param("ei")
+	eiNumber, err := strconv.Atoi(eiText)
+	if err != nil {
+		return 0, errors.Wrap(err, "can't parse Index from URL param")
+	}
+	return epoch.Index(uint64(eiNumber)), nil
+}
+
 // func getVotersWeight(c echo.Context) error {
 // 	ei, err := getEI(c)
 // 	if err != nil {
-// 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+// 		return c.JSON(http.StatusBadRequest, jsonmodels.EpochBlocksResponse{Error: err.Error()})
 // 	}
-// 	weights := epochstorage.GetEpochVotersWeight(ei)
-//
-// 	respMap := make(map[string]*jsonmodels.NodeWeight)
-// 	for ecr, nw := range weights {
-// 		ws := make(map[string]float64, 0)
-// 		for id, w := range nw {
-// 			ws[id.String()] = w
-// 		}
-// 		nodeWeights := &jsonmodels.NodeWeight{Weights: ws}
-// 		respMap[ecr.Base58()] = nodeWeights
+
+// 	cc, exist := deps.Retainer.Commitment(ei)
+// 	if !exist {
+// 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(errors.New("commitment not exists")))
 // 	}
-// 	resp := jsonmodels.EpochVotersWeightResponse{VotersWeight: respMap}
-//
-// 	return c.JSON(http.StatusOK, resp)
+
+// 	return c.JSON(http.StatusOK, jsonmodels.EpochVotersWeightResponse{})
 // }

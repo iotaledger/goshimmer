@@ -262,7 +262,7 @@ func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
 		var conflicts []*conflictVertex
 		conflictMap := utxo.NewTransactionIDs()
 		for i := startEpoch; i <= endEpoch; i++ {
-			deps.Retainer.Stream(i, func(id models.BlockID, metadata *retainer.BlockMetadata) {
+			deps.Retainer.StreamBlocksMetadata(i, func(id models.BlockID, metadata *retainer.BlockMetadata) {
 				if metadata.M.Block.IssuingTime().After(startTimestamp) && metadata.M.Block.IssuingTime().Before(endTimestamp) {
 					tangleNode, utxoNode, blockConflicts := processMetadata(metadata, conflictMap)
 					blocks = append(blocks, tangleNode)

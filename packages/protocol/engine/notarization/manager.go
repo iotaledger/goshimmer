@@ -16,6 +16,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
 )
@@ -241,11 +243,26 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 		m.Events.Error.Trigger(errors.Wrap(err, "failed to store latest commitment"))
 	}
 
+	var (
+		createdOutputs = utxo.NewOutputIDs()
+		spentOutputs   = utxo.NewOutputIDs()
+	)
+	m.ledgerState.StateDiffs.StreamCreatedOutputs(index, func(owm *ledger.OutputWithMetadata) error {
+		createdOutputs.Add(owm.ID())
+		return nil
+	})
+	m.ledgerState.StateDiffs.StreamSpentOutputs(index, func(owm *ledger.OutputWithMetadata) error {
+		spentOutputs.Add(owm.ID())
+		return nil
+	})
+
 	m.Events.EpochCommitted.Trigger(&EpochCommittedDetails{
-		Commitment:                newCommitment,
-		AcceptedBlocksCount:       acceptedBlocks.Size(),
-		AcceptedTransactionsCount: acceptedTransactions.Size(),
-		ActiveValidatorsCount:     0,
+		Commitment:            newCommitment,
+		AcceptedBlocks:        acceptedBlocks,
+		AcceptedTransactions:  acceptedTransactions,
+		CreatedOutputs:        createdOutputs,
+		SpentOutputs:          spentOutputs,
+		ActiveValidatorsCount: 0,
 	})
 
 	return true

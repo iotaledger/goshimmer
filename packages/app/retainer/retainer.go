@@ -10,12 +10,14 @@ import (
 	"github.com/iotaledger/hive.go/core/syncutils"
 	"github.com/iotaledger/hive.go/core/workerpool"
 
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
@@ -23,10 +25,19 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
+const epochInCache = 20
+const (
+	prefixBlockMetadataStorage byte = iota
+
+	prefixCommitmentDetailsStorage
+)
+
 type Retainer struct {
-	workerPool     *workerpool.UnboundedWorkerPool
-	cachedMetadata *memstorage.EpochStorage[models.BlockID, *cachedMetadata]
-	blockStorage   *database.PersistentEpochStorage[models.BlockID, BlockMetadata, *models.BlockID, *BlockMetadata]
+	workerPool        *workerpool.UnboundedWorkerPool
+	cachedMetadata    *memstorage.EpochStorage[models.BlockID, *cachedMetadata]
+	blockStorage      *database.PersistentEpochStorage[models.BlockID, BlockMetadata, *models.BlockID, *BlockMetadata]
+	cachedCommitment  *memstorage.EpochStorage[commitment.ID, *cachedCommitment]
+	commitmentStorage *database.PersistentEpochStorage[commitment.ID, CommitmentDetails, *commitment.ID, *CommitmentDetails]
 
 	dbManager    *database.Manager
 	protocol     *protocol.Protocol
@@ -37,13 +48,15 @@ type Retainer struct {
 
 func NewRetainer(workers *workerpool.Group, protocol *protocol.Protocol, dbManager *database.Manager, opts ...options.Option[Retainer]) (r *Retainer) {
 	return options.Apply(&Retainer{
-		workerPool:     workers.CreatePool("Retainer", 2),
-		cachedMetadata: memstorage.NewEpochStorage[models.BlockID, *cachedMetadata](),
-		protocol:       protocol,
-		dbManager:      dbManager,
-		optsRealm:      []byte("retainer"),
+		workerPool:       workers.CreatePool("Retainer", 2),
+		cachedMetadata:   memstorage.NewEpochStorage[models.BlockID, *cachedMetadata](),
+		cachedCommitment: memstorage.NewEpochStorage[commitment.ID, *cachedCommitment](),
+		protocol:         protocol,
+		dbManager:        dbManager,
+		optsRealm:        []byte("retainer"),
 	}, opts, (*Retainer).setupEvents, func(r *Retainer) {
-		r.blockStorage = database.NewPersistentEpochStorage[models.BlockID, BlockMetadata](dbManager, r.optsRealm)
+		r.blockStorage = database.NewPersistentEpochStorage[models.BlockID, BlockMetadata](dbManager, append(r.optsRealm, []byte{prefixBlockMetadataStorage}...))
+		r.commitmentStorage = database.NewPersistentEpochStorage[commitment.ID, CommitmentDetails](dbManager, append(r.optsRealm, []byte{prefixCommitmentDetailsStorage}...))
 		r.evictionLock = syncutils.NewDAGMutex[epoch.Index]()
 	})
 }
@@ -78,18 +91,26 @@ func (r *Retainer) BlockMetadata(blockID models.BlockID) (metadata *BlockMetadat
 	return metadata, exists
 }
 
-func (r *Retainer) LoadAll(index epoch.Index) (ids *set.AdvancedSet[*BlockMetadata]) {
+func (r *Retainer) Commitment(index epoch.Index) (c *CommitmentDetails, exists bool) {
+	return r.getCommitmentDetails(index)
+}
+
+func (r *Retainer) CommitmentbyID(id commitment.ID) (c *CommitmentDetails, exists bool) {
+	return r.getCommitmentDetails(id.Index())
+}
+
+func (r *Retainer) LoadAllBlockMetadata(index epoch.Index) (ids *set.AdvancedSet[*BlockMetadata]) {
 	r.evictionLock.RLock(index)
 	defer r.evictionLock.RUnlock(index)
 
 	ids = set.NewAdvancedSet[*BlockMetadata]()
-	r.Stream(index, func(id models.BlockID, metadata *BlockMetadata) {
+	r.StreamBlocksMetadata(index, func(id models.BlockID, metadata *BlockMetadata) {
 		ids.Add(metadata)
 	})
 	return
 }
 
-func (r *Retainer) Stream(index epoch.Index, callback func(id models.BlockID, metadata *BlockMetadata)) {
+func (r *Retainer) StreamBlocksMetadata(index epoch.Index, callback func(id models.BlockID, metadata *BlockMetadata)) {
 	r.evictionLock.RLock(index)
 	defer r.evictionLock.RUnlock(index)
 
@@ -177,6 +198,25 @@ func (r *Retainer) setupEvents() {
 	}, r.workerPool)
 
 	event.Hook(r.protocol.Events.Engine.EvictionState.EpochEvicted, r.storeAndEvictEpoch)
+
+	r.protocol.Engine().NotarizationManager.Events.EpochCommitted.AttachWithWorkerPool(event.NewClosure(func(e *notarization.EpochCommittedDetails) {
+		if cc := r.createOrGetCachedCommitment(e.Commitment); cc != nil {
+			var (
+				blockIDs = make(models.BlockIDs)
+				txIDs    = utxo.NewTransactionIDs()
+			)
+			_ = e.AcceptedBlocks.Stream(func(key models.BlockID) bool {
+				blockIDs.Add(key)
+				return true
+			})
+			_ = e.AcceptedTransactions.Stream(func(key utxo.TransactionID) bool {
+				txIDs.Add(key)
+				return true
+			})
+
+			cc.setCommitment(e.Commitment, blockIDs, txIDs, e.CreatedOutputs, e.SpentOutputs)
+		}
+	}), r.workerPool)
 }
 
 func (r *Retainer) createOrGetCachedMetadata(id models.BlockID) *cachedMetadata {
@@ -192,20 +232,41 @@ func (r *Retainer) createOrGetCachedMetadata(id models.BlockID) *cachedMetadata 
 	return cm
 }
 
+func (r *Retainer) createOrGetCachedCommitment(cm *commitment.Commitment) *cachedCommitment {
+	r.evictionLock.RLock(cm.Index())
+	defer r.evictionLock.RUnlock(cm.Index())
+
+	if cm.Index() < r.protocol.Engine().EvictionState.LastEvictedEpoch() {
+		return nil
+	}
+
+	storage := r.cachedCommitment.Get(cm.Index(), true)
+	c, _ := storage.RetrieveOrCreate(cm.ID(), newCachedCommitment)
+
+	return c
+}
+
 func (r *Retainer) storeAndEvictEpoch(epochIndex epoch.Index) {
+	commitmentEvictIndex := epochIndex - epochInCache
+
 	// First we read the data from storage.
 	metas := r.createStorableBlockMetadata(epochIndex)
+	c := r.createStorableCommitmentDetails(commitmentEvictIndex)
 
 	// Now we store it to disk (slow).
 	r.storeBlockMetadata(metas)
+	r.storeCommitmentDetails(c)
 
 	// Once everything is stored to disk, we evict it from cache.
 	// Therefore, we make sure that we can always first try to read BlockMetadata from cache and if it's not in cache
 	// anymore it is already written to disk.
 	r.evictionLock.Lock(epochIndex)
-	defer r.evictionLock.Unlock(epochIndex)
-
 	r.cachedMetadata.Evict(epochIndex)
+	r.evictionLock.Unlock(epochIndex)
+
+	r.evictionLock.Lock(commitmentEvictIndex)
+	r.cachedCommitment.Evict(commitmentEvictIndex)
+	r.evictionLock.Unlock(commitmentEvictIndex)
 }
 
 func (r *Retainer) createStorableBlockMetadata(epochIndex epoch.Index) (metas []*BlockMetadata) {
@@ -233,11 +294,30 @@ func (r *Retainer) createStorableBlockMetadata(epochIndex epoch.Index) (metas []
 	return metas
 }
 
+func (r *Retainer) createStorableCommitmentDetails(epochIndex epoch.Index) (c *CommitmentDetails) {
+	c, exists := r.getCommitmentDetails(epochIndex)
+	if !exists {
+		return nil
+	}
+
+	return c
+}
+
 func (r *Retainer) storeBlockMetadata(metas []*BlockMetadata) {
 	for _, meta := range metas {
 		if err := r.blockStorage.Set(meta.ID(), *meta); err != nil {
 			panic(errors.Wrapf(err, "could not save %s to block storage", meta.ID()))
 		}
+	}
+}
+
+func (r *Retainer) storeCommitmentDetails(c *CommitmentDetails) {
+	if c == nil {
+		return
+	}
+
+	if err := r.commitmentStorage.Set(c.ID(), *c); err != nil {
+		panic(errors.Wrapf(err, "could not save %s to commitment storage", c.ID()))
 	}
 }
 
@@ -252,6 +332,37 @@ func (r *Retainer) blockMetadataFromCache(blockID models.BlockID) (storageExists
 
 	cm, exists := storage.Get(blockID)
 	return true, newBlockMetadata(cm), exists
+}
+
+func (r *Retainer) getCommitmentDetails(index epoch.Index) (c *CommitmentDetails, exists bool) {
+	if index < 0 {
+		return
+	}
+
+	r.evictionLock.RLock(index)
+	defer r.evictionLock.RUnlock(index)
+
+	// get from cache
+	storage := r.cachedCommitment.Get(index)
+	if storage != nil {
+		_, cachedCommitment := storage.First()
+		return newCommitmentDetails(cachedCommitment), true
+	}
+
+	// get from persistent storage
+	c = new(CommitmentDetails)
+	err := r.commitmentStorage.Iterate(index, func(key commitment.ID, value CommitmentDetails) (advance bool) {
+		*c = value
+		c.SetID(c.M.ID)
+		exists = true
+
+		return false
+	})
+	if err != nil {
+		return nil, false
+	}
+
+	return c, exists
 }
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
