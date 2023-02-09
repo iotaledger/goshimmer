@@ -415,8 +415,8 @@ func (b *Booker) blockBookingDetails(block *Block) (pastMarkersConflictIDs, bloc
 	return pastMarkersConflictIDs, blockConflictIDs
 }
 
-func (b *Booker) strongChildren(block *Block) []*Block {
-	return lo.Filter(lo.Map(block.StrongChildren(), func(blockDAGChild *blockdag.Block) (bookerChild *Block) {
+func (b *Booker) blocksFromBlockDAGBlocks(blocks []*blockdag.Block) []*Block {
+	return lo.Filter(lo.Map(blocks, func(blockDAGChild *blockdag.Block) (bookerChild *Block) {
 		bookerChild, exists := b.block(blockDAGChild.ID())
 		if !exists {
 			return nil
@@ -480,7 +480,17 @@ func (b *Booker) OrphanAttachment(block *Block) {
 
 // PropagateForkedConflict propagates the forked ConflictID to the future cone of the attachments of the given Transaction.
 func (b *Booker) PropagateForkedConflict(transactionID, addedConflictID utxo.TransactionID, removedConflictIDs utxo.TransactionIDs) (err error) {
-	for blockWalker := walker.New[*Block]().PushAll(b.attachments.Get(transactionID)...); blockWalker.HasNext(); {
+	blockWalker := walker.New[*Block]()
+
+	for it := b.GetAllAttachments(transactionID).Iterator(); it.HasNext(); {
+		attachment := it.Next()
+		blockWalker.Push(attachment)
+
+		blockWalker.PushAll(b.blocksFromBlockDAGBlocks(attachment.WeakChildren())...)
+		blockWalker.PushAll(b.blocksFromBlockDAGBlocks(attachment.LikedInsteadChildren())...)
+	}
+
+	for blockWalker.HasNext() {
 		block := blockWalker.Next()
 
 		updated, propagateFurther, forkErr := b.propagateForkedConflict(block, addedConflictID, removedConflictIDs)
@@ -499,7 +509,7 @@ func (b *Booker) PropagateForkedConflict(transactionID, addedConflictID utxo.Tra
 		})
 
 		if propagateFurther {
-			blockWalker.PushAll(b.strongChildren(block)...)
+			blockWalker.PushAll(b.blocksFromBlockDAGBlocks(block.StrongChildren())...)
 		}
 	}
 	return nil
@@ -515,7 +525,9 @@ func (b *Booker) propagateForkedConflict(block *Block, addedConflictID utxo.Tran
 
 	if structureDetails := block.StructureDetails(); structureDetails.IsPastMarker() {
 		if err = b.propagateForkedTransactionToMarkerFutureCone(structureDetails.PastMarkers().Marker(), addedConflictID, removedConflictIDs); err != nil {
-			return false, false, errors.Wrapf(err, "failed to propagate conflict %s to future cone of %v", addedConflictID, structureDetails.PastMarkers().Marker())
+			err = errors.Wrapf(err, "failed to propagate conflict %s to future cone of %v", addedConflictID, structureDetails.PastMarkers().Marker())
+			fmt.Println(err)
+			return false, false, err
 		}
 		return true, false, nil
 	}

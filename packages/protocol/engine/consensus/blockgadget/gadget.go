@@ -244,7 +244,7 @@ func (a *Gadget) setup() {
 		a.RefreshSequence(evt.SequenceID, evt.NewMaxSupportedIndex, evt.PrevMaxSupportedIndex)
 	}))
 
-	a.tangle.VirtualVoting.Events.ConflictTracker.VoterAdded.Attach(event.NewClosure(func(evt *conflicttracker.VoterEvent[utxo.TransactionID]) {
+	a.tangle.VirtualVoting.Events.ConflictTracker.VoterAdded.Hook(event.NewClosure(func(evt *conflicttracker.VoterEvent[utxo.TransactionID]) {
 		a.RefreshConflictAcceptance(evt.ConflictID)
 	}))
 
