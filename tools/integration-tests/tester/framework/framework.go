@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/docker/docker/client"
-	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
@@ -19,9 +18,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/orderedmap"
-	"github.com/iotaledger/hive.go/core/identity"
 )
 
 var (
@@ -144,49 +140,23 @@ func (f *Framework) CreateNetworkNoAutomaticManualPeering(ctx context.Context, n
 	return network, nil
 }
 
-func createTempStorage() (s *storage.Storage) {
-	return storage.New(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), protocol.DatabaseVersion)
-}
-
-func createSnapshot(snapshotInfo SnapshotInfo, startSynced bool) error {
-	nodesToPledgeMap, err := createPledgeMap(snapshotInfo)
-	if err != nil {
-		return err
-	}
-
-	if nodesToPledgeMap.Size() == 0 {
-		return errors.New("no nodes to pledge specified in SnapshotInfo")
-	}
-
+func createSnapshot(snapshotInfo *snapshotcreator.Options, startSynced bool) error {
 	// default to /assets/snapshot.bin
 	if snapshotInfo.FilePath == "" {
 		snapshotInfo.FilePath = "/assets/snapshot.bin"
 	}
-
-	storage := createTempStorage()
-	defer storage.Shutdown()
-
-	snapshotcreator.CreateSnapshotForIntegrationTest(storage, snapshotInfo.FilePath, snapshotInfo.GenesisTokenAmount, GenesisSeedBytes, nodesToPledgeMap, startSynced, new(devnetvm.VM))
-
-	return nil
-}
-
-// createPledgeMap creates a pledge map according to snapshotInfo
-func createPledgeMap(snapshotInfo SnapshotInfo) (nodesToPledge *orderedmap.OrderedMap[identity.ID, uint64], err error) {
-	nodesToPledge = orderedmap.New[identity.ID, uint64]()
-
-	for i, peerSeedBase58 := range snapshotInfo.PeersSeedBase58 {
-		seedBytes, err := base58.Decode(peerSeedBase58)
-		if err != nil {
-			return nil, err
-		}
-
-		var seed [32]byte
-		copy(seed[:], seedBytes)
-		nodesToPledge.Set(seed, snapshotInfo.PeersAmountsPledged[i])
+	// todo reverse this, snapshotIfo shopuld be created with opdion and instead of snapshot info use default options
+	err := snapshotInfo.CreateSnapshot(
+		snapshotcreator.WithDatabaseVersion(protocol.DatabaseVersion),
+		snapshotcreator.WithVM(new(devnetvm.VM)),
+		snapshotcreator.WithStartSynced(startSynced),
+		snapshotcreator.WithGenesisSeed(GenesisSeedBytes),
+	)
+	if err != nil {
+		panic(err)
 	}
 
-	return nodesToPledge, nil
+	return nil
 }
 
 // CreateNetworkWithPartitions creates and returns a network that contains numPeers GoShimmer nodes

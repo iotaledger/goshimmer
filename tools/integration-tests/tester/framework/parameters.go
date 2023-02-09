@@ -2,6 +2,7 @@ package framework
 
 import (
 	"fmt"
+	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"time"
 
 	"github.com/mr-tron/base58"
@@ -50,7 +51,7 @@ type CreateNetworkConfig struct {
 	// Activity specifies whether nodes schedule activity blocks in regular intervals.
 	Activity bool
 	// Snapshot to be generated and rendered available for the network.
-	Snapshot SnapshotInfo
+	Snapshot *snapshotcreator.Options
 }
 
 // PeerConfig specifies the default config of a standard GoShimmer peer.

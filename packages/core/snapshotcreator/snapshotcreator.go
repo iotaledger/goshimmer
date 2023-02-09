@@ -2,6 +2,7 @@ package snapshotcreator
 
 import (
 	"fmt"
+	"github.com/mr-tron/base58/base58"
 	"os"
 	"time"
 
@@ -26,7 +27,127 @@ import (
 	"github.com/iotaledger/hive.go/core/workerpool"
 )
 
-// CreateSnapshot creates a new snapshot. Genesis is defined by genesisTokenAmount and seedBytes, it is pledged to the
+// CreateSnapshot creates a new snapshot. Genesis is defined by genesisTokenAmount and seedBytes, it
+// is pledged to the node that is derived from the same seed. The amount to pledge to each node is defined by
+// nodesToPledge map (seedBytes->amount), the funds of each pledge is sent to the same seed.
+// | Pledge      | Funds       |
+// | ----------- | ----------- |
+// | empty       | genesisSeed  |
+// | node1       | node1       |
+// | node2       | node2       |.
+
+func CreateSnapshot(opts ...options.Option[Options]) (err error) {
+	opt := &Options{}
+	options.Apply[Options](opt, opts)
+
+	workers := workerpool.NewGroup("CreateSnapshot")
+	defer workers.Shutdown()
+	s := storage.New(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), opt.dataBaseVersion)
+	defer s.Shutdown()
+
+	if err = s.Commitments.Store(commitment.NewEmptyCommitment()); err != nil {
+		panic(err)
+	}
+	if err = s.Settings.SetChainID(lo.PanicOnErr(s.Commitments.Load(0)).ID()); err != nil {
+		panic(err)
+	}
+
+	engineInstance := engine.New(workers.CreateGroup("Engine"), s, dpos.NewProvider(), mana1.NewProvider(), engine.WithLedgerOptions(ledger.WithVM(opt.vm)))
+	defer engineInstance.Shutdown()
+	engineInstance.NotarizationManager.Attestations.SetLastCommittedEpoch(-1)
+
+	err = opt.createGenesisOutput(engineInstance)
+	if err != nil {
+		panic(err)
+	}
+	i := 0
+	nodesToPledge, err := opt.createPledgeMap()
+	if err != nil {
+		panic(err)
+	}
+	nodesToPledge.ForEach(func(nodeSeedBytes identity.ID, value uint64) bool {
+		nodePublicKey := ed25519.PrivateKeyFromSeed(nodeSeedBytes[:]).Public()
+		nodeID := identity.NewID(nodePublicKey)
+		output, outputMetadata := createOutput(opt.vm, seed.NewSeed(nodeSeedBytes[:]).KeyPair(0).PublicKey, value, nodeID, 0)
+		if err = engineInstance.LedgerState.UnspentOutputs.ApplyCreatedOutput(ledger.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
+			panic(err)
+		}
+
+		// Add attestation to commitment only for first peer, unless InitialAttestation node is provided
+		// so that it can issue blocks and bootstraps the network.
+		if opt.InitialAttestation == "" && i == 0 || opt.StartSynced {
+			err = opt.attest(engineInstance, nodePublicKey)
+		}
+		i++
+		return true
+	})
+
+	opt.createAttestationIfNotYetDone(engineInstance)
+	if _, _, err = engineInstance.NotarizationManager.Attestations.Commit(0); err != nil {
+		panic(err)
+	}
+	if err = engineInstance.WriteSnapshot(opt.FilePath); err != nil {
+		panic(err)
+	}
+	return nil
+}
+
+func (m *Options) attest(engineInstance *engine.Engine, nodePublicKey ed25519.PublicKey) error {
+	if _, err := engineInstance.NotarizationManager.Attestations.Add(&notarization.Attestation{
+		IssuerPublicKey: nodePublicKey,
+		IssuingTime:     time.Unix(epoch.GenesisTime-1, 0),
+	}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *Options) createAttestationIfNotYetDone(engineInstance *engine.Engine) {
+	if !m.StartSynced && m.InitialAttestation != "" {
+		bytes, err := base58.Decode(m.InitialAttestation)
+		if err != nil {
+			panic("failed to decode node public key: " + err.Error())
+		}
+		nodePublicKey, _, err := ed25519.PublicKeyFromBytes(bytes)
+		if err != nil {
+			panic("failed to convert bytes to public key: " + err.Error())
+		}
+		err = m.attest(engineInstance, nodePublicKey)
+		if err != nil {
+			panic("failed to attest: " + err.Error())
+		}
+	}
+}
+
+func (m *Options) createGenesisOutput(engineInstance *engine.Engine) error {
+	if m.GenesisTokenAmount > 0 {
+		output, outputMetadata := createOutput(m.vm, seed.NewSeed(m.GenesisSeed).KeyPair(0).PublicKey, m.GenesisTokenAmount, identity.ID{}, 0)
+		if err := engineInstance.LedgerState.UnspentOutputs.ApplyCreatedOutput(ledger.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// createPledgeMap creates a pledge map according to snapshotInfo
+func (m *Options) createPledgeMap() (nodesToPledge *orderedmap.OrderedMap[identity.ID, uint64], err error) {
+	nodesToPledge = orderedmap.New[identity.ID, uint64]()
+
+	for i, peerSeedBase58 := range m.PeersSeedBase58 {
+		seedBytes, err := base58.Decode(peerSeedBase58)
+		if err != nil {
+			return nil, err
+		}
+
+		var s [32]byte
+		copy(s[:], seedBytes)
+		nodesToPledge.Set(s, m.PeersAmountsPledged[i])
+	}
+
+	return nodesToPledge, nil
+}
+
+// CreateSnapshotOld creates a new snapshot. Genesis is defined by genesisTokenAmount and seedBytes, it is pledged to the
 // empty nodeID. The amount to pledge to each node is defined by nodesToPledge map, the funds of each pledge is burned.
 // pledge funds
 // | Pledge | Funds        |
@@ -34,7 +155,7 @@ import (
 // | empty  | genesisSeed  |
 // | node1  | node1		   |
 // | node2  | node2        |.
-func CreateSnapshot(databaseVersion database.Version, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge map[ed25519.PublicKey]uint64, initialAttestations []ed25519.PublicKey, ledgerVM vm.VM) {
+func CreateSnapshotOld(databaseVersion database.Version, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge map[ed25519.PublicKey]uint64, initialAttestations []ed25519.PublicKey, ledgerVM vm.VM) {
 	workers := workerpool.NewGroup("CreateSnapshot")
 	defer workers.Shutdown()
 
@@ -79,70 +200,6 @@ func CreateSnapshot(databaseVersion database.Version, snapshotFileName string, g
 		}
 	}
 
-	if _, _, err := engineInstance.NotarizationManager.Attestations.Commit(0); err != nil {
-		panic(err)
-	}
-
-	if err := engineInstance.WriteSnapshot(snapshotFileName); err != nil {
-		panic(err)
-	}
-}
-
-// CreateSnapshotForIntegrationTest creates a new snapshot. Genesis is defined by genesisTokenAmount and seedBytes, it
-// is pledged to the node that is derived from the same seed. The amount to pledge to each node is defined by
-// nodesToPledge map (seedBytes->amount), the funds of each pledge is sent to the same seed.
-// | Pledge      | Funds       |
-// | ----------- | ----------- |
-// | empty       | genesisSeed  |
-// | node1       | node1       |
-// | node2       | node2       |.
-func CreateSnapshotForIntegrationTest(s *storage.Storage, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge *orderedmap.OrderedMap[identity.ID, uint64], startSynced bool, ledgerVM vm.VM) {
-	workers := workerpool.NewGroup("CreateSnapshot")
-	defer workers.Shutdown()
-
-	if err := s.Commitments.Store(commitment.NewEmptyCommitment()); err != nil {
-		panic(err)
-	}
-	if err := s.Settings.SetChainID(lo.PanicOnErr(s.Commitments.Load(0)).ID()); err != nil {
-		panic(err)
-	}
-
-	engineInstance := engine.New(workers.CreateGroup("Engine"), s, dpos.NewProvider(), mana1.NewProvider(), engine.WithLedgerOptions(ledger.WithVM(ledgerVM)))
-	defer engineInstance.Shutdown()
-
-	engineInstance.NotarizationManager.Attestations.SetLastCommittedEpoch(-1)
-
-	if genesisTokenAmount > 0 {
-		// create faucet funds and do not pledge mana to any identity
-		var genesisPledgeID identity.ID
-		output, outputMetadata := createOutput(ledgerVM, seed.NewSeed(genesisSeedBytes).KeyPair(0).PublicKey, genesisTokenAmount, genesisPledgeID, 0)
-		if err := engineInstance.LedgerState.UnspentOutputs.ApplyCreatedOutput(ledger.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
-			panic(err)
-		}
-	}
-
-	i := 0
-	nodesToPledge.ForEach(func(nodeSeedBytes identity.ID, value uint64) bool {
-		nodePublicKey := ed25519.PrivateKeyFromSeed(nodeSeedBytes[:]).Public()
-		nodeID := identity.NewID(nodePublicKey)
-		output, outputMetadata := createOutput(ledgerVM, seed.NewSeed(nodeSeedBytes[:]).KeyPair(0).PublicKey, value, nodeID, 0)
-		if err := engineInstance.LedgerState.UnspentOutputs.ApplyCreatedOutput(ledger.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
-			panic(err)
-		}
-
-		if i == 0 || startSynced {
-			// Add attestation to commitment only for first peer, so that it can issue blocks and bootstraps the network.
-			if _, err := engineInstance.NotarizationManager.Attestations.Add(&notarization.Attestation{
-				IssuerPublicKey: nodePublicKey,
-				IssuingTime:     time.Unix(epoch.GenesisTime-1, 0),
-			}); err != nil {
-				panic(err)
-			}
-		}
-
-		i++
-		return true
-	})
 	if _, _, err := engineInstance.NotarizationManager.Attestations.Commit(0); err != nil {
 		panic(err)
 	}

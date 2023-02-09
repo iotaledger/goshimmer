@@ -2,6 +2,8 @@ package common
 
 import (
 	"context"
+	"fmt"
+	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"log"
 	"testing"
 	"time"
@@ -132,12 +134,12 @@ func TestConfirmBlock(t *testing.T) {
 	tests.TryAcceptBlock(t, peers, blockID, 30*time.Second, 100*time.Millisecond)
 }
 
-func createNewPeerConfig(t *testing.T, snapshotInfo framework.SnapshotInfo, peerIndex int) config.GoShimmer {
-	seedBytes, err := base58.Decode(snapshotInfo.PeersSeedBase58[peerIndex])
+func createNewPeerConfig(t *testing.T, snapshotOptions *snapshotcreator.Options, peerIndex int) config.GoShimmer {
+	seedBytes, err := base58.Decode(snapshotOptions.PeersSeedBase58[peerIndex])
 	require.NoError(t, err)
 	conf := framework.PeerConfig()
 	conf.Seed = seedBytes
-	conf.Protocol.Snapshot.Path = snapshotInfo.FilePath
+	conf.Protocol.Snapshot.Path = snapshotOptions.FilePath
 	// the new peer should use a shorter TangleTimeWindow than regular peers to go out of sync before them
 	conf.Protocol.BootstrapWindow = 30 * time.Second
 	return conf

@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	"fmt"
+	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"log"
 	"testing"
 	"time"
@@ -37,7 +38,7 @@ const (
 )
 
 // OrphanageSnapshotDetails defines info for orphanage test scenario.
-var OrphanageSnapshotDetails = framework.SnapshotInfo{
+var OrphanageSnapshotDetails = &snapshotcreator.Options{
 	FilePath:           "/assets/dynamic_snapshots/orphanage_snapshot.bin",
 	GenesisTokenAmount: 0,
 	PeersSeedBase58: []string{
@@ -50,7 +51,7 @@ var OrphanageSnapshotDetails = framework.SnapshotInfo{
 }
 
 // EqualSnapshotDetails defines info for equally distributed consensus mana.
-var EqualSnapshotDetails = framework.SnapshotInfo{
+var EqualSnapshotDetails = &snapshotcreator.Options{
 	FilePath:           "/assets/dynamic_snapshots/equal_snapshot.bin",
 	GenesisTokenAmount: 2_500_000_000_000_000,
 	PeersSeedBase58: []string{
@@ -63,7 +64,7 @@ var EqualSnapshotDetails = framework.SnapshotInfo{
 }
 
 // ConsensusSnapshotDetails defines info for consensus integration test snapshot
-var ConsensusSnapshotDetails = framework.SnapshotInfo{
+var ConsensusSnapshotDetails = &snapshotcreator.Options{
 	FilePath:           "/assets/dynamic_snapshots/consensus_snapshot.bin",
 	GenesisTokenAmount: 800_000, // pledged to peer 0
 	PeersSeedBase58: []string{
@@ -76,20 +77,20 @@ var ConsensusSnapshotDetails = framework.SnapshotInfo{
 }
 
 // GetIdentSeed returns decoded seed bytes for the supplied SnapshotInfo and peer index
-func GetIdentSeed(t *testing.T, snapshotInfo framework.SnapshotInfo, peerIndex int) []byte {
-	seedBytes, err := base58.Decode(snapshotInfo.PeersSeedBase58[peerIndex])
+func GetIdentSeed(t *testing.T, snapshotOptions *snapshotcreator.Options, peerIndex int) []byte {
+	seedBytes, err := base58.Decode(snapshotOptions.PeersSeedBase58[peerIndex])
 	require.NoError(t, err)
 	return seedBytes
 }
 
 // CommonSnapshotConfigFunc returns a peer configuration altering function that uses the specified Snapshot information for all peers.
 // If a cfgFunc is provided, further manipulation of the base config for every peer is possible.
-func CommonSnapshotConfigFunc(t *testing.T, snaphotInfo framework.SnapshotInfo, cfgFunc ...framework.CfgAlterFunc) framework.CfgAlterFunc {
+func CommonSnapshotConfigFunc(t *testing.T, snapshotOptions *snapshotcreator.Options, cfgFunc ...framework.CfgAlterFunc) framework.CfgAlterFunc {
 	return func(peerIndex int, isPeerMaster bool, conf config.GoShimmer) config.GoShimmer {
-		conf.Protocol.Snapshot.Path = snaphotInfo.FilePath
+		conf.Protocol.Snapshot.Path = snapshotOptions.FilePath
 
-		require.Lessf(t, peerIndex, len(snaphotInfo.PeersSeedBase58), "index=%d out of range for peerSeeds=%d", peerIndex, len(snaphotInfo.PeersSeedBase58))
-		conf.Seed = GetIdentSeed(t, snaphotInfo, peerIndex)
+		require.Lessf(t, peerIndex, len(snapshotOptions.PeersSeedBase58), "index=%d out of range for peerSeeds=%d", peerIndex, len(snapshotOptions.PeersSeedBase58))
+		conf.Seed = GetIdentSeed(t, snapshotOptions, peerIndex)
 
 		if len(cfgFunc) > 0 {
 			conf = cfgFunc[0](peerIndex, isPeerMaster && peerIndex == 0, conf)
@@ -530,16 +531,6 @@ func RequireBalancesEqual(t *testing.T, nodes []*framework.Node, balancesByAddre
 	}
 }
 
-// RequireNoUnspentOutputs asserts that on all node the given addresses do not have any unspent outputs.
-func RequireNoUnspentOutputs(t *testing.T, nodes []*framework.Node, addresses ...devnetvm.Address) {
-	for _, node := range nodes {
-		for _, addr := range addresses {
-			unspent := AddressUnspentOutputs(t, node, addr, 1)
-			require.Empty(t, unspent, "address %s should not have any UTXOs", addr)
-		}
-	}
-}
-
 // ExpectedState is an expected state.
 // All fields are optional.
 type ExpectedState struct {
@@ -552,12 +543,6 @@ type ExpectedState struct {
 // True returns a pointer to a true bool.
 func True() *bool {
 	x := true
-	return &x
-}
-
-// False returns a pointer to a false bool.
-func False() *bool {
-	x := false
 	return &x
 }
 
