@@ -636,6 +636,9 @@ func (s *Scheduler) evictEpoch(index epoch.Index) {
 
 func quanta(issuerID identity.ID, manaMap map[identity.ID]int64, totalMana int64) *big.Rat {
 	if manaValue, exists := manaMap[issuerID]; exists {
+		if manaValue == 0 {
+			manaValue = MinMana
+		}
 		return big.NewRat(manaValue, totalMana)
 	}
 
