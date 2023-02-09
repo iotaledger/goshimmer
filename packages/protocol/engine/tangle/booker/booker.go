@@ -480,6 +480,8 @@ func (b *Booker) OrphanAttachment(block *Block) {
 
 // PropagateForkedConflict propagates the forked ConflictID to the future cone of the attachments of the given Transaction.
 func (b *Booker) PropagateForkedConflict(transactionID, addedConflictID utxo.TransactionID, removedConflictIDs utxo.TransactionIDs) (err error) {
+	fmt.Println(">> PropagateForkedConflict tx", transactionID, "added conflictID", addedConflictID)
+
 	blockWalker := walker.New[*Block]()
 
 	for it := b.GetAllAttachments(transactionID).Iterator(); it.HasNext(); {
@@ -509,6 +511,7 @@ func (b *Booker) PropagateForkedConflict(transactionID, addedConflictID utxo.Tra
 		})
 
 		if propagateFurther {
+			// TODO: inherit weak and liked as well
 			blockWalker.PushAll(b.blocksFromBlockDAGBlocks(block.StrongChildren())...)
 		}
 	}
@@ -524,6 +527,7 @@ func (b *Booker) propagateForkedConflict(block *Block, addedConflictID utxo.Tran
 	}
 
 	if structureDetails := block.StructureDetails(); structureDetails.IsPastMarker() {
+		fmt.Println(">> propagating forked conflict to marker future cone of block", addedConflictID, block.ID(), structureDetails.PastMarkers().Marker())
 		if err = b.propagateForkedTransactionToMarkerFutureCone(structureDetails.PastMarkers().Marker(), addedConflictID, removedConflictIDs); err != nil {
 			err = errors.Wrapf(err, "failed to propagate conflict %s to future cone of %v", addedConflictID, structureDetails.PastMarkers().Marker())
 			fmt.Println(err)
@@ -531,7 +535,7 @@ func (b *Booker) propagateForkedConflict(block *Block, addedConflictID utxo.Tran
 		}
 		return true, false, nil
 	}
-
+	fmt.Println(">> propagating forked conflict to block future cone of block", addedConflictID, block.ID())
 	propagated = b.updateBlockConflicts(block, addedConflictID, removedConflictIDs)
 	// We only need to propagate further (in the block's future cone) if the block was updated.
 	return propagated, propagated, nil
