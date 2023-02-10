@@ -219,7 +219,14 @@ func (l *Ledger) triggerAcceptedEvent(txMetadata *TransactionMetadata) (triggere
 
 	// TODO: check for acceptance monotonicity
 
+	// We skip triggering the event if the transaction was already accepted.
 	if !txMetadata.SetConfirmationState(confirmation.Accepted) {
+		// ... but if the conflict we are propagating is ourselves, we still want to walk the UTXO future cone.
+		if txMetadata.ConflictIDs().Has(txMetadata.ID()) {
+			fmt.Println("trigger accepted skipped, conflict is self", txMetadata.ID())
+			return true
+		}
+
 		fmt.Println("trigger accepted skipped, accepted before", txMetadata.ID())
 		return false
 	}
