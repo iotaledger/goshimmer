@@ -6,6 +6,7 @@ import {
     Output,
     PayloadType,
     SigLockedSingleOutput,
+    Transaction,
     TransactionPayload
 } from "app/misc/Payload";
 import * as React from "react";
@@ -93,6 +94,15 @@ class OutputConsumer {
 class OutputConsumers {
     outputID: OutputID;
     consumers: Array<OutputConsumer>
+}
+
+class TransactionMetadata {
+    transactionID: string;
+    conflictIDs: string[];
+    booked: boolean;
+    bookedTime: number;
+    confirmationState: number;
+    confirmationStateTime: number;
 }
 
 class PendingMana {
@@ -261,306 +271,132 @@ export class ExplorerStore {
 
     searchBlock = async (id: string) => {
         this.updateQueryLoading(true);
-        try {
-            let res = await fetch(`/api/block/${id}`);
-            if (res.status === 404) {
-                this.updateQueryError(QueryError.NotFound);
-                return;
-            }
-            let blk: Block = await res.json();
-            this.updateBlock(blk);
-        } catch (err) {
-            this.updateQueryError(err);
-        }
+        const res = await this.fetchJson<never, Block>("get", `/api/block/${id}`)
+
+        this.updateBlock(res);
     };
 
     searchAddress = async (id: string) => {
         this.updateQueryLoading(true);
-        try {
-            let res = await fetch(`/api/address/${id}`);
-            if (res.status === 404) {
-                this.updateQueryError(QueryError.NotFound);
-                return;
-            }
-            let addr: AddressResult = await res.json();
-            this.updateAddress(addr);
-        } catch (err) {
-            this.updateQueryError(err);
-        }
+        const res = await this.fetchJson<never, AddressResult>("get", `/api/address/${id}`)
+        this.updateAddress(res);
     };
 
+    @action
     getTransaction = async (id: string) => {
-        try {
-            let res = await fetch(`/api/transaction/${id}`)
-            if (res.status === 404) {
-                this.updateQueryError(QueryError.NotFound);
-                return;
-            }
-            let tx = await res.json()
-            for (let i = 0; i < tx.inputs.length; i++) {
-                let inputID = tx.inputs[i] ? tx.inputs[i].referencedOutputID.base58 : GenesisBlockID
-                try {
-                    let referencedOutputRes = await fetch(`/api/output/${inputID}`)
-                    if (referencedOutputRes.status === 404) {
-                        let genOutput = new Output();
-                        genOutput.output = new SigLockedSingleOutput();
-                        genOutput.output.balance = 0;
-                        genOutput.output.address = "LOADED FROM SNAPSHOT";
-                        genOutput.type = "SigLockedSingleOutputType";
-                        genOutput.outputID = tx.inputs[i].referencedOutputID;
-                        tx.inputs[i].output = genOutput;
-                    }
-                    if (referencedOutputRes.status === 200) {
-                        tx.inputs[i].output = await referencedOutputRes.json()
-                    }
-                } catch (err) {
-                    // ignore
+        const tx = await this.fetchJson<never, Transaction>("get", `/api/transaction/${id}`)
+
+        for (let i = 0; i < tx.inputs.length; i++) {
+            let inputID = tx.inputs[i] ? tx.inputs[i].referencedOutputID.base58 : GenesisBlockID
+            try {
+                let referencedOutputRes = await fetch(`/api/output/${inputID}`)
+                if (referencedOutputRes.status === 404) {
+                    let genOutput = new Output();
+                    genOutput.output = new SigLockedSingleOutput();
+                    genOutput.output.balance = 0;
+                    genOutput.output.address = "LOADED FROM SNAPSHOT";
+                    genOutput.type = "SigLockedSingleOutputType";
+                    genOutput.outputID = tx.inputs[i].referencedOutputID;
+                    tx.inputs[i].output = genOutput;
                 }
+                if (referencedOutputRes.status === 200) {
+                    tx.inputs[i].output = await referencedOutputRes.json()
+                }
+            } catch (err) {
+                // ignore
             }
-            this.updateTransaction(tx)
-        } catch (err) {
-            this.updateQueryError(err);
+            this.tx = tx;
         }
     }
 
+    @action
     getTransactionAttachments = async (id: string) => {
-        try {
-            let res = await fetch(`/api/transaction/${id}/attachments`)
-            if (res.status === 404) {
-                this.updateQueryError(QueryError.NotFound);
-                return;
-            }
-            let attachments = await res.json()
-            this.updateTransactionAttachments(attachments)
-        } catch (err) {
-            this.updateQueryError(err);
-        }
+        const attachments = await this.fetchJson<never, {transactionID: string, blockIDs: string[]}>("get", `/api/transaction/${id}/attachments`)
+        this.txAttachments = attachments;
     }
 
+    @action
     getTransactionMetadata = async (id: string) => {
-        try {
-            let res = await fetch(`/api/transaction/${id}/metadata`)
-            if (res.status === 404) {
-                this.updateQueryError(QueryError.NotFound);
-                return;
-            }
-            let metadata = await res.json()
-            this.updateTransactionMetadata(metadata)
-        } catch (err) {
-            this.updateQueryError(err);
-        }
+        const res = await this.fetchJson<never, TransactionMetadata>("get", `/api/transaction/${id}/metadata`)
+        this.txMetadata = res;
     }
 
+    @action
     getOutput = async (id: string) => {
-        try {
-            let res = await fetch(`/api/output/${id}`)
-            if (res.status === 404) {
-                this.updateQueryError(QueryError.NotFound);
-                return;
-            }
-            if (res.status === 400) {
-                this.updateQueryError(QueryError.BadRequest);
-                return;
-            }
-            let output: any = await res.json()
-            if (output.error) {
-                this.updateQueryError(output.error)
-                return
-            }
-            this.updateOutput(output)
-        } catch (err) {
-            this.updateQueryError(err);
-        }
+        const output = await this.fetchJson<never, Output>("get", `/api/output/${id}`)
+        this.output = output;
     }
 
+    @action
     getOutputMetadata = async (id: string) => {
-        try {
-            let res = await fetch(`/api/output/${id}/metadata`)
-            if (res.status === 404) {
-                return;
-            }
-            if (res.status === 400) {
-                return;
-            }
-            let metadata: OutputMetadata = await res.json()
-            this.updateOutputMetadata(metadata)
-        } catch (err) {
-            //ignore
-        }
+        const res = await this.fetchJson<never, OutputMetadata>("get", `/api/output/${id}/metadata`)
+        this.outputMetadata = res;
     }
 
+    @action
     getOutputConsumers = async (id: string) => {
-        try {
-            let res = await fetch(`/api/output/${id}/consumers`)
-            if (res.status === 404) {
-                return;
-            }
-            if (res.status === 400) {
-                return;
-            }
-            let consumers: OutputConsumers = await res.json()
-            this.updateOutputConsumers(consumers)
-        } catch (err) {
-            //ignore
-        }
+        const res = await this.fetchJson<never, OutputConsumers>("get", `/api/output/${id}/consumers`)
+        this.outputConsumers = res;
     }
 
+    @action
     getPendingMana = async (outputID: string) => {
-        try {
-            let res = await fetch(`/api/mana/pending?OutputID=${outputID}`)
-            if (res.status === 404) {
-                return;
-            }
-            if (res.status === 400) {
-                return;
-            }
-            let pendingMana: PendingMana = await res.json()
-            this.updatePendingMana(pendingMana)
-        } catch (err) {
-            // ignore
-        }
+        const res = await this.fetchJson<never, PendingMana>("get", `/api/mana/pending?OutputID=${outputID}`)
+        this.pendingMana = res;
     }
 
+    @action
     getConflict = async (id: string) => {
-        try {
-            let res = await fetch(`/api/conflict/${id}`)
-            if (res.status === 404) {
-                this.updateQueryError(QueryError.NotFound);
-                return;
-            }
-            if (res.status === 400) {
-                this.updateQueryError(QueryError.BadRequest);
-                return;
-            }
-            let conflict: Conflict = await res.json()
-            this.updateConflict(conflict)
-        } catch (err) {
-            this.updateQueryError(err);
-        }
+        const res = await this.fetchJson<never, Conflict>("get", `/api/conflict/${id}`)
+        this.conflict = res;
     }
 
+    @action
     getConflictChildren = async (id: string) => {
-        try {
-            let res = await fetch(`/api/conflict/${id}/children`)
-            if (res.status === 404) {
-                return;
-            }
-            let children: ConflictChildren = await res.json()
-            this.updateConflictChildren(children)
-        } catch (err) {
-            // ignore
-        }
+        const res = await this.fetchJson<never, ConflictChildren>("get", `/api/conflict/${id}/children`)
+        this.conflictChildren = res;
     }
 
+    @action
     getConflictConflicts = async (id: string) => {
-        try {
-            let res = await fetch(`/api/conflict/${id}/conflicts`)
-            if (res.status === 404) {
-                return;
-            }
-            let conflicts: ConflictConflicts = await res.json()
-            this.updateConflictConflicts(conflicts)
-        } catch (err) {
-            // ignore
-        }
+        const res = await this.fetchJson<never, ConflictConflicts>("get", `/api/conflict/${id}/conflicts`)
+        this.conflictConflicts = res;
     }
 
+    @action
     getConflictVoters = async (id: string) => {
-        try {
-            let res = await fetch(`/api/conflict/${id}/voters`)
-            if (res.status === 404) {
-                return;
-            }
-            let conflictVoters: ConflictVoters = await res.json()
-            this.updateConflictVoters(conflictVoters)
-        } catch (err) {
-            // ignore
-        }
+        const res = await this.fetchJson<never, ConflictVoters>("get", `/api/conflict/${id}/voters`)
+        this.conflictVoters = res;
     }
 
+    @action
     getEpochDetails = async (id: string) => {
-        try {
-            let res = await fetch(`/api/epoch/commitment/${id}`)
-            if (res.status === 404) {
-                this.updateQueryError(QueryError.NotFound);
-                return;
-            }
-            if (res.status === 400) {
-                this.updateQueryError(QueryError.BadRequest);
-                return;
-            }
-            let info: EpochInfo = await res.json()
-            this.updateEpochInfo(info);
-        } catch (err) {
-            this.updateQueryError(err);
-        }
+        const res = await this.fetchJson<never, EpochInfo>("get", `/api/epoch/commitment/${id}`)
+        this.epochInfo = res;
     }
 
+    @action
     getEpochBlocks = async (index: number) => {
-        try {
-            let res = await fetch(`/api/epoch/${index}/blocks`)
-            if (res.status === 404) {
-                this.updateQueryError(QueryError.NotFound);
-                return;
-            }
-            if (res.status === 400) {
-                this.updateQueryError(QueryError.BadRequest);
-                return;
-            }
-            let blks: EpochBlocks = await res.json()
-            this.updateEpochBlocks(blks);
-        } catch (err) {
-            this.updateQueryError(err);
-        }
+        const res = await this.fetchJson<never, EpochBlocks>("get", `/api/epoch/${index}/blocks`)
+        this.epochBlocks = res;
     }
 
+    @action
     getEpochTransactions = async (index: number) => {
-        try {
-            let res = await fetch(`/api/epoch/${index}/transactions`)
-            if (res.status === 404) {
-                this.updateQueryError(QueryError.NotFound);
-                return;
-            }
-            if (res.status === 400) {
-                this.updateQueryError(QueryError.BadRequest);
-                return;
-            }
-            let txs: EpochTransactions = await res.json()
-            this.updateEpochTransactions(txs);
-        } catch (err) {
-            this.updateQueryError(err);
-        }
+       const res = await this.fetchJson<never, EpochTransactions>("get", `/api/epoch/${index}/transactions`)
+       this.epochTransactions = res;
     }
 
+    @action
     getEpochUTXOs = async (index: number) => {
-        try {
-            let res = await fetch(`/api/epoch/${index}/utxos`)
-            if (res.status === 404) {
-                this.updateQueryError(QueryError.NotFound);
-                return;
-            }
-            if (res.status === 400) {
-                this.updateQueryError(QueryError.BadRequest);
-                return;
-            }
-            let utxos: EpochUTXOs = await res.json()
-            this.updateEpochUTXOs(utxos);
-        } catch (err) {
-            this.updateQueryError(err);
-        }
+        const res = await this.fetchJson<never, EpochUTXOs>("get", `/api/epoch/${index}/utxos`)
+        this.epochUtxos = res;
     }
 
+    @action
     getTips = async () => {
-        try {
-            let res = await fetch(`/api/tips`)
-            if (res.status === 404) {
-                return;
-            }
-            let tips: Tips = await res.json()
-            this.updateTips(tips)
-        } catch (err) {
-            // ignore
-        }
+        const res = await this.fetchJson<never, Tips>("get", "/api/tips")
+        this.tips = res;
     }
 
     @action
@@ -579,6 +415,10 @@ export class ExplorerStore {
         this.conflictChildren = null;
         this.conflictConflicts = null;
         this.tips = null;
+        this.epochBlocks = new EpochBlocks;
+        this.epochInfo = new EpochInfo;
+        this.epochTransactions = new EpochTransactions;
+        this.epochUtxos = new EpochUTXOs;
     };
 
     @action
@@ -587,86 +427,6 @@ export class ExplorerStore {
         this.query_err = null;
         this.query_loading = false;
     };
-
-    @action
-    updateTransaction = (tx: any) => {
-        this.tx = tx;
-    }
-
-    @action
-    updateTransactionAttachments = (attachments: any) => {
-        this.txAttachments = attachments;
-    }
-
-    @action
-    updateTransactionMetadata = (metadata: any) => {
-        this.txMetadata = metadata;
-    }
-
-    @action
-    updateOutput = (output: any) => {
-        this.output = output;
-    }
-
-    @action
-    updateOutputMetadata = (metadata: OutputMetadata) => {
-        this.outputMetadata = metadata;
-    }
-
-    @action
-    updateOutputConsumers = (consumers: OutputConsumers) => {
-        this.outputConsumers = consumers;
-    }
-
-    @action
-    updatePendingMana = (pendingMana: PendingMana) => {
-        this.pendingMana = pendingMana;
-    }
-
-    @action
-    updateConflict = (conflict: Conflict) => {
-        this.conflict = conflict;
-    }
-
-    @action
-    updateConflictChildren = (children: ConflictChildren) => {
-        this.conflictChildren = children;
-    }
-
-    @action
-    updateConflictConflicts = (conflicts: ConflictConflicts) => {
-        this.conflictConflicts = conflicts;
-    }
-
-    @action
-    updateConflictVoters = (conflictVoters: ConflictVoters) => {
-        this.conflictVoters = conflictVoters;
-    }
-
-    @action
-    updateEpochInfo = (info: EpochInfo) => {
-        this.epochInfo = info;
-    }
-
-    @action
-    updateEpochBlocks = (blks: EpochBlocks) => {
-        this.epochBlocks = blks;
-    }
-
-    @action
-    updateEpochTransactions = (txs: EpochTransactions) => {
-        this.epochTransactions = txs;
-    }
-
-    @action
-    updateEpochUTXOs = (utxos: EpochUTXOs) => {
-        this.epochUtxos = utxos;
-    }
-
-    @action
-    updateTips = (tips: Tips) => {
-        this.tips = tips;
-    }
 
     @action
     updateBlock = (blk: Block) => {
@@ -757,6 +517,45 @@ export class ExplorerStore {
         return list;
     }
 
+    async fetchJson<T, U>(
+        method: 'get' | 'delete',
+        route: string,
+        requestData?: T
+    ): Promise<U> {
+
+        const body = requestData ? JSON.stringify(requestData, function (_, v) {
+            // keep Uint8Array as it is
+            if (v instanceof Uint8Array) {
+                return Array.from(v);
+            }
+            return v;
+        })
+        : undefined;
+
+        const response = await fetch(`${route}`, {
+            method,
+            headers:{ 'Content-Type': 'application/json' },
+            body
+        });
+
+        if (response.ok)  {
+            const responseData: U = await response.json();
+            return responseData;
+        }
+
+        switch (response.status) {
+            case 404:
+                this.updateQueryError(QueryError.NotFound);
+                break;
+            case 400:
+                this.updateQueryError(QueryError.BadRequest);
+                break;
+            default:
+                this.updateQueryError('unexpected error')
+                break;
+        }
+        return {} as U;
+    }
 }
 
 export default ExplorerStore;
