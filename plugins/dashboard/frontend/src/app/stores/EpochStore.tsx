@@ -37,7 +37,7 @@ export class EpochStore {
                         {info.index}
                     </td>
                     <td>
-                        <Link to={`/explorer/epoch/${info.id}`}>
+                        <Link to={`/explorer/epoch/commitment/${info.id}`}>
                             {info.id}
                         </Link>
                     </td>

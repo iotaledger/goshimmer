@@ -5,9 +5,9 @@ import (
 )
 
 type EpochInfo struct {
-	ID               string `json:"ID"`
-	EI               uint64 `json:"Index"`
-	ECR              string `json:"RootsID"`
+	ID               string `json:"id"`
+	Index            uint64 `json:"index"`
+	ECR              string `json:"rootsID"`
 	PrevEC           string `json:"prevEC"`
 	CumulativeWeight int64  `json:"cumulativeWeight"`
 }
@@ -15,7 +15,7 @@ type EpochInfo struct {
 func EpochInfoFromRecord(c *commitment.Commitment) *EpochInfo {
 	return &EpochInfo{
 		ID:               c.ID().Base58(),
-		EI:               uint64(c.Index()),
+		Index:            uint64(c.Index()),
 		ECR:              c.RootsID().Base58(),
 		PrevEC:           c.PrevID().Base58(),
 		CumulativeWeight: c.CumulativeWeight(),

@@ -134,6 +134,26 @@ class ConflictVoters {
     voters: Array<string>
 }
 
+class EpochInfo {
+    id: string;
+	index: number;
+	rootsID: string;
+	prevEC: string ;
+	cumulativeWeight: number;
+}
+
+class EpochBlocks {
+    blocks: Array<string>;
+}
+
+class EpochTransactions {
+    transactions: Array<string>;
+}
+
+class EpochUTXOs {
+    createdOutputs: Array<string>;
+    spentOutputs: Array<string>;
+}
 class SearchResult {
     block: BlockRef;
     address: AddressResult;
@@ -174,6 +194,10 @@ export class ExplorerStore {
     @observable conflictConflicts: ConflictConflicts = null;
     @observable conflictVoters: ConflictVoters = null;
     @observable tips: Tips = null;
+    @observable epochInfo: EpochInfo = new EpochInfo;
+    @observable epochBlocks: EpochBlocks = new EpochBlocks;
+    @observable epochTransactions: EpochTransactions = new EpochTransactions;
+    @observable epochUtxos: EpochUTXOs = new EpochUTXOs;
 
     // loading
     @observable query_loading: boolean = false;
@@ -454,6 +478,78 @@ export class ExplorerStore {
         }
     }
 
+    getEpochDetails = async (id: string) => {
+        try {
+            let res = await fetch(`/api/epoch/commitment/${id}`)
+            if (res.status === 404) {
+                this.updateQueryError(QueryError.NotFound);
+                return;
+            }
+            if (res.status === 400) {
+                this.updateQueryError(QueryError.BadRequest);
+                return;
+            }
+            let info: EpochInfo = await res.json()
+            this.updateEpochInfo(info);
+        } catch (err) {
+            this.updateQueryError(err);
+        }
+    }
+
+    getEpochBlocks = async (index: number) => {
+        try {
+            let res = await fetch(`/api/epoch/${index}/blocks`)
+            if (res.status === 404) {
+                this.updateQueryError(QueryError.NotFound);
+                return;
+            }
+            if (res.status === 400) {
+                this.updateQueryError(QueryError.BadRequest);
+                return;
+            }
+            let blks: EpochBlocks = await res.json()
+            this.updateEpochBlocks(blks);
+        } catch (err) {
+            this.updateQueryError(err);
+        }
+    }
+
+    getEpochTransactions = async (index: number) => {
+        try {
+            let res = await fetch(`/api/epoch/${index}/transactions`)
+            if (res.status === 404) {
+                this.updateQueryError(QueryError.NotFound);
+                return;
+            }
+            if (res.status === 400) {
+                this.updateQueryError(QueryError.BadRequest);
+                return;
+            }
+            let txs: EpochTransactions = await res.json()
+            this.updateEpochTransactions(txs);
+        } catch (err) {
+            this.updateQueryError(err);
+        }
+    }
+
+    getEpochUTXOs = async (index: number) => {
+        try {
+            let res = await fetch(`/api/epoch/${index}/utxos`)
+            if (res.status === 404) {
+                this.updateQueryError(QueryError.NotFound);
+                return;
+            }
+            if (res.status === 400) {
+                this.updateQueryError(QueryError.BadRequest);
+                return;
+            }
+            let utxos: EpochUTXOs = await res.json()
+            this.updateEpochUTXOs(utxos);
+        } catch (err) {
+            this.updateQueryError(err);
+        }
+    }
+
     getTips = async () => {
         try {
             let res = await fetch(`/api/tips`)
@@ -545,6 +641,26 @@ export class ExplorerStore {
     @action
     updateConflictVoters = (conflictVoters: ConflictVoters) => {
         this.conflictVoters = conflictVoters;
+    }
+
+    @action
+    updateEpochInfo = (info: EpochInfo) => {
+        this.epochInfo = info;
+    }
+
+    @action
+    updateEpochBlocks = (blks: EpochBlocks) => {
+        this.epochBlocks = blks;
+    }
+
+    @action
+    updateEpochTransactions = (txs: EpochTransactions) => {
+        this.epochTransactions = txs;
+    }
+
+    @action
+    updateEpochUTXOs = (utxos: EpochUTXOs) => {
+        this.epochUtxos = utxos;
     }
 
     @action

@@ -22,6 +22,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 
 	"github.com/iotaledger/goshimmer/plugins/chat"
+	epochAPI "github.com/iotaledger/goshimmer/plugins/webapi/epoch"
 	ledgerstateAPI "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
 )
 
@@ -216,6 +217,10 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/conflict/:conflictID/children", ledgerstateAPI.GetConflictChildren)
 	routeGroup.GET("/conflict/:conflictID/conflicts", ledgerstateAPI.GetConflictConflicts)
 	routeGroup.GET("/conflict/:conflictID/voters", ledgerstateAPI.GetConflictVoters)
+	routeGroup.GET("/epoch/:ei/blocks", epochAPI.GetBlocks)
+	routeGroup.GET("/epoch/commitment/:commitment", epochAPI.GetCommittedEpochByCommitment)
+	routeGroup.GET("/epoch/:ei/transactions", epochAPI.GetTransactions)
+	routeGroup.GET("/epoch/:ei/utxos", epochAPI.GetUTXOs)
 	routeGroup.POST("/chat", chat.SendChatBlock)
 
 	routeGroup.GET("/search/:search", func(c echo.Context) error {

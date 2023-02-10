@@ -46,12 +46,12 @@ func init() {
 }
 
 func configure(_ *node.Plugin) {
-	deps.Server.GET("ec", getCurrentEC)
-	deps.Server.GET("epochs/:ei", getCommittedEpoch)
-	deps.Server.GET("epochs/commitment/:commitment", getCommittedEpochByCommitment)
-	deps.Server.GET("epochs/:ei/utxos", getUTXOs)
-	deps.Server.GET("epochs/:ei/blocks", getBlocks)
-	deps.Server.GET("epochs/:ei/transactions", getTransactions)
+	deps.Server.GET("ec", GetCurrentEC)
+	deps.Server.GET("epochs/:ei", GetCommittedEpoch)
+	deps.Server.GET("epochs/commitment/:commitment", GetCommittedEpochByCommitment)
+	deps.Server.GET("epochs/:ei/utxos", GetUTXOs)
+	deps.Server.GET("epochs/:ei/blocks", GetBlocks)
+	deps.Server.GET("epochs/:ei/transactions", GetTransactions)
 	// deps.Server.GET("epochs/:ei/voters-weight", getVotersWeight)
 
 	deps.Protocol.Engine().NotarizationManager.Events.EpochCommitted.Attach(event.NewClosure(func(e *notarization.EpochCommittedDetails) {
@@ -62,14 +62,14 @@ func configure(_ *node.Plugin) {
 	}))
 }
 
-func getCurrentEC(c echo.Context) error {
+func GetCurrentEC(c echo.Context) error {
 	currentECLock.RLock()
 	defer currentECLock.RUnlock()
 
 	return c.JSON(http.StatusOK, jsonmodels.EpochInfoFromRecord(currentEC))
 }
 
-func getCommittedEpoch(c echo.Context) error {
+func GetCommittedEpoch(c echo.Context) error {
 	ei, err := getEI(c)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
@@ -83,7 +83,7 @@ func getCommittedEpoch(c echo.Context) error {
 	return c.JSON(http.StatusOK, jsonmodels.EpochInfoFromRecord(cc.M.Commitment))
 }
 
-func getCommittedEpochByCommitment(c echo.Context) error {
+func GetCommittedEpochByCommitment(c echo.Context) error {
 	var ID commitment.ID
 	err := ID.FromBase58(c.Param("commitment"))
 	if err != nil {
@@ -98,7 +98,7 @@ func getCommittedEpochByCommitment(c echo.Context) error {
 	return c.JSON(http.StatusOK, jsonmodels.EpochInfoFromRecord(cc.M.Commitment))
 }
 
-func getUTXOs(c echo.Context) error {
+func GetUTXOs(c echo.Context) error {
 	ei, err := getEI(c)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
@@ -110,8 +110,8 @@ func getUTXOs(c echo.Context) error {
 	}
 
 	var (
-		spent   []string
-		created []string
+		spent   = make([]string, 0)
+		created = make([]string, 0)
 	)
 	for _, s := range cc.M.SpentOutputs.Slice() {
 		spent = append(spent, s.Base58())
@@ -123,7 +123,7 @@ func getUTXOs(c echo.Context) error {
 	return c.JSON(http.StatusOK, jsonmodels.EpochUTXOsResponse{SpentOutputs: spent, CreatedOutputs: created})
 }
 
-func getBlocks(c echo.Context) error {
+func GetBlocks(c echo.Context) error {
 	ei, err := getEI(c)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.EpochBlocksResponse{Error: err.Error()})
@@ -137,7 +137,7 @@ func getBlocks(c echo.Context) error {
 	return c.JSON(http.StatusOK, jsonmodels.EpochBlocksResponse{Blocks: cc.M.AcceptedBlocks.Base58()})
 }
 
-func getTransactions(c echo.Context) error {
+func GetTransactions(c echo.Context) error {
 	ei, err := getEI(c)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.EpochBlocksResponse{Error: err.Error()})
@@ -148,7 +148,7 @@ func getTransactions(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(errors.New("commitment not exists")))
 	}
 
-	var txs []string
+	txs := make([]string, 0)
 	for _, t := range cc.M.AcceptedTransactions.Slice() {
 		txs = append(txs, t.Base58())
 	}
