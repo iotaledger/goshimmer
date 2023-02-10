@@ -1,11 +1,10 @@
 package virtualvoting
 
 import (
-	"sync"
-
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/syncutils"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
@@ -29,7 +28,7 @@ type VirtualVoting struct {
 	conflictTracker *conflicttracker.ConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower]
 	sequenceTracker *sequencetracker.SequenceTracker[BlockVotePower]
 	epochTracker    *epochtracker.EpochTracker
-	evictionMutex   sync.RWMutex
+	evictionMutex   *syncutils.StarvingMutex
 
 	optsSequenceCutoffCallback func(markers.SequenceID) markers.Index
 	optsEpochCutoffCallback    func() epoch.Index
@@ -39,9 +38,10 @@ type VirtualVoting struct {
 
 func New(booker *booker.Booker, validators *sybilprotection.WeightedSet, opts ...options.Option[VirtualVoting]) (newVirtualVoting *VirtualVoting) {
 	return options.Apply(&VirtualVoting{
-		Validators: validators,
-		blocks:     memstorage.NewEpochStorage[models.BlockID, *Block](),
-		Booker:     booker,
+		Validators:    validators,
+		blocks:        memstorage.NewEpochStorage[models.BlockID, *Block](),
+		Booker:        booker,
+		evictionMutex: syncutils.NewStarvingMutex(),
 		optsSequenceCutoffCallback: func(sequenceID markers.SequenceID) markers.Index {
 			return 1
 		},
