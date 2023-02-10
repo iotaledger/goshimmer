@@ -99,6 +99,19 @@ func (t *TipManager) AddTip(block *scheduler.Block) {
 		return
 	}
 
+	// Do not add a tip booked on a reject branch, we won't use it as a tip and it will otherwise remove parent tips.
+	blockConflictIDs := t.engine.Tangle.BlockConflicts(block.Block.Block)
+	if t.engine.Tangle.Booker.Ledger.ConflictDAG.ConfirmationState(blockConflictIDs).IsRejected() {
+		fmt.Println("\t>> AddTip not adding because on rejected conflict", block.ID())
+		for it := blockConflictIDs.Iterator(); it.HasNext(); {
+			conflictID := it.Next()
+			if t.engine.Tangle.Booker.Ledger.ConflictDAG.ConfirmationState(set.NewAdvancedSet(conflictID)) == confirmation.Rejected {
+				fmt.Println("\t\t>> rejected", conflictID)
+			}
+		}
+		return
+	}
+
 	if t.addTip(block) {
 		t.TipsConflictTracker.AddTip(block)
 	}
