@@ -178,13 +178,10 @@ func (m *Manager) tryCommitEpoch(index epoch.Index, acceptanceTime time.Time) {
 		if !m.isCommittable(i, acceptanceTime) {
 			return
 		}
-		fmt.Println(">> committing", i)
-
 		// drop still-pending conflicts of an epoch old enough to be committed.
 		m.dropPendingConflicts(i)
 
 		if !m.createCommitment(i) {
-			fmt.Println(">> epoch not committable", i)
 			return
 		}
 	}
@@ -234,20 +231,6 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 		m.Events.Error.Trigger(errors.Wrap(err, "failed to commit attestations"))
 		return false
 	}
-
-	fmt.Println(">> ROOTS",
-		acceptedBlocks.Root(),
-		acceptedTransactions.Root(),
-		attestations.Root(),
-		m.ledgerState.UnspentOutputs.Root(),
-		m.EpochMutations.weights.Root(),
-	)
-	fmt.Println(">>>> BEGIN TRANSACTIONS")
-	acceptedTransactions.Stream(func(key utxo.TransactionID) bool {
-		fmt.Println(key)
-		return true
-	})
-	fmt.Println(">>>> END TRANSACTIONS")
 
 	newCommitment := commitment.New(
 		index,

@@ -1,7 +1,6 @@
 package virtualvoting
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -158,17 +157,11 @@ func (o *VirtualVoting) track(block *Block) (tracked bool) {
 	votePower := NewBlockVotePower(block.ID(), block.IssuingTime())
 	blockConflicts := o.Booker.BlockConflicts(block.Block)
 
-	fmt.Println(">> VirtualVoting - conflictTracker- block supports conflicts", block.ID(), block.IssuerID(), blockConflicts.String())
-
 	if _, invalid := o.conflictTracker.TrackVote(blockConflicts, block.IssuerID(), votePower); invalid {
 		block.SetSubjectivelyInvalid(true)
-		fmt.Println("block invalid", block.ID())
 		return true
 	}
-	fmt.Println(">> VirtualVoting - sequenceTracker", block.ID())
 	o.sequenceTracker.TrackVotes(block.StructureDetails().PastMarkers(), block.IssuerID(), votePower)
-
-	fmt.Println(">> VirtualVoting - epochTracker", block.ID())
 
 	o.epochTracker.TrackVotes(block.Commitment().Index(), block.IssuerID(), epochtracker.EpochVotePower{Index: block.ID().Index()})
 
@@ -220,21 +213,15 @@ func (o *VirtualVoting) processForkedBlock(bookerBlock *booker.Block, forkedConf
 
 	block, exists := o.Block(bookerBlock.ID())
 	if !exists || block.IsSubjectivelyInvalid() {
-		fmt.Println("Block doesn't exist or is subjectively invalid", exists, block.IsSubjectivelyInvalid())
 		return
 	}
-
-	fmt.Println("processing forked block", forkedConflictID, block.IssuerID(), block.ID(), block.IssuingTime())
 
 	o.conflictTracker.AddSupportToForkedConflict(forkedConflictID, parentConflictIDs, block.IssuerID(), votePower)
 }
 
 // take everything in future cone because it was not conflicting before and move to new conflict.
 func (o *VirtualVoting) processForkedMarker(marker markers.Marker, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
-	fmt.Println("Begin processing forked marker", marker)
 	for voterID, votePower := range o.sequenceTracker.VotersWithPower(marker) {
-		fmt.Println("processing forked marker", forkedConflictID, voterID, marker, votePower.blockID, votePower.time)
-
 		o.conflictTracker.AddSupportToForkedConflict(forkedConflictID, parentConflictIDs, voterID, votePower)
 	}
 }

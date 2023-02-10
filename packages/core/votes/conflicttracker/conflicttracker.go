@@ -58,7 +58,6 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) Voters(
 func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) AddSupportToForkedConflict(forkedConflictID ConflictIDType, parentConflictIDs *set.AdvancedSet[ConflictIDType], voterID identity.ID, power VotePowerType) {
 	// We need to make sure that the voter supports all the conflict's parents.
 	if !c.voterSupportsAllConflicts(voterID, parentConflictIDs) {
-		fmt.Println("voter does not support all parent conflicts", forkedConflictID, parentConflictIDs, voterID)
 		return
 	}
 
