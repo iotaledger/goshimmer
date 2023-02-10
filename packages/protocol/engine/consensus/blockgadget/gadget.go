@@ -334,10 +334,6 @@ func (a *Gadget) propagateAcceptanceConfirmation(marker markers.Marker, confirme
 }
 
 func (a *Gadget) markAsAccepted(block *Block) (err error) {
-	if a.evictionState.IsRootBlock(block.ID()) {
-		return
-	}
-
 	if a.evictionState.InEvictedEpoch(block.ID()) {
 		return errors.Errorf("block with %s belongs to an evicted epoch", block.ID())
 	}
