@@ -32,7 +32,7 @@ const (
 )
 
 var (
-	defaultClientsURLs = []string{"http://localhost:8080", "http://localhost:8090"}
+	defaultClientsURLs = []string{}
 	faucetBalance      = devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{
 		devnetvm.ColorIOTA: uint64(faucetTokensPerRequest),
 	})
