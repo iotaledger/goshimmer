@@ -1,11 +1,10 @@
 package conflictdag
 
 import (
-	"sync"
-
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/generics/walker"
+	"github.com/iotaledger/hive.go/core/syncutils"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
@@ -21,7 +20,7 @@ type ConflictDAG[ConflictIDType, ResourceIDType comparable] struct {
 	conflictSets *memstorage.Storage[ResourceIDType, *ConflictSet[ConflictIDType, ResourceIDType]]
 
 	// mutex is a mutex that prevents that two processes simultaneously update the ConflictDAG.
-	mutex sync.RWMutex
+	mutex *syncutils.StarvingMutex
 
 	optsMergeToMaster bool
 }
@@ -32,6 +31,7 @@ func New[ConflictIDType, ResourceIDType comparable](opts ...options.Option[Confl
 		Events:            NewEvents[ConflictIDType, ResourceIDType](),
 		conflicts:         memstorage.New[ConflictIDType, *Conflict[ConflictIDType, ResourceIDType]](),
 		conflictSets:      memstorage.New[ResourceIDType, *ConflictSet[ConflictIDType, ResourceIDType]](),
+		mutex:             syncutils.NewStarvingMutex(),
 		optsMergeToMaster: true,
 	}, opts)
 }
@@ -290,7 +290,6 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) ConfirmationState(conflict
 
 // ConfirmationStateUnsafe returns the ConfirmationState of the given ConflictIDs.
 func (c *ConflictDAG[ConflictIDType, ResourceIDType]) ConfirmationStateUnsafe(conflictIDs *set.AdvancedSet[ConflictIDType]) (confirmationState confirmation.State) {
-
 	// TODO: simplify this method
 
 	confirmationState = confirmation.Confirmed
