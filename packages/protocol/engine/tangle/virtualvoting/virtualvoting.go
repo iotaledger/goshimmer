@@ -217,8 +217,14 @@ func (o *VirtualVoting) EvictEpochTracker(epochIndex epoch.Index) {
 // region Forking logic ////////////////////////////////////////////////////////////////////////////////////////////////
 
 // processForkedBlock updates the Conflict weight after an individually mapped Block was forked into a new Conflict.
-func (o *VirtualVoting) processForkedBlock(block *booker.Block, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
-	votePower := NewBlockVotePower(block.ID(), block.IssuingTime())
+func (o *VirtualVoting) processForkedBlock(bookerBlock *booker.Block, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
+	votePower := NewBlockVotePower(bookerBlock.ID(), bookerBlock.IssuingTime())
+
+	block, exists := o.Block(bookerBlock.ID())
+	if !exists || block.IsSubjectivelyInvalid() {
+		fmt.Println("Block doesn't exist or is subjectively invalid", exists, block.IsSubjectivelyInvalid())
+		return
+	}
 
 	fmt.Println("processing forked block", forkedConflictID, block.IssuerID(), block.ID(), block.IssuingTime())
 
