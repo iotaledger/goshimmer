@@ -1,7 +1,6 @@
 package blockgadget
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -246,28 +245,6 @@ func (a *Gadget) setup() {
 
 	a.tangle.VirtualVoting.Events.ConflictTracker.VoterAdded.Hook(event.NewClosure(func(evt *conflicttracker.VoterEvent[utxo.TransactionID]) {
 		a.RefreshConflictAcceptance(evt.ConflictID)
-
-		conflictID := evt.ConflictID
-		_, exists := a.tangle.Booker.Ledger.ConflictDAG.Conflict(conflictID)
-		if !exists {
-			return
-		}
-
-		 conflictWeight := a.tangle.VirtualVoting.ConflictVotersTotalWeight(conflictID)
-
-		fmt.Println("conflict weight after vote added", evt.BlockID, conflictID, conflictWeight, a.tangle.Validators.TotalWeight())
-	}))
-
-	a.tangle.VirtualVoting.Events.ConflictTracker.VoterRemoved.Attach(event.NewClosure(func(evt *conflicttracker.VoterEvent[utxo.TransactionID]) {
-		conflictID := evt.ConflictID
-		_, exists := a.tangle.Booker.Ledger.ConflictDAG.Conflict(conflictID)
-		if !exists {
-			return
-		}
-
-		conflictWeight := a.tangle.VirtualVoting.ConflictVotersTotalWeight(conflictID)
-
-		fmt.Println("conflict weight after vote revoked", evt.BlockID, conflictID, evt.Voter.String(), conflictWeight, a.tangle.Validators.TotalWeight())
 	}))
 
 	a.tangle.Booker.Events.MarkerManager.SequenceEvicted.Attach(event.NewClosure(a.evictSequence))

@@ -2,7 +2,6 @@ package ledger
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -208,12 +207,10 @@ func (l *Ledger) processConsumingTransactions(outputIDs utxo.OutputIDs) {
 // triggerAcceptedEvent triggers the TransactionAccepted event if the Transaction was accepted.
 func (l *Ledger) triggerAcceptedEvent(txMetadata *TransactionMetadata) (triggered bool) {
 	if !l.ConflictDAG.ConfirmationState(txMetadata.ConflictIDs()).IsAccepted() {
-		fmt.Println("trigger accepted skipped, conflicts not accepted", txMetadata.ID())
 		return false
 	}
 
 	if txMetadata.InclusionEpoch() == 0 {
-		fmt.Println("trigger accepted skipped, inclusion epoch 0", txMetadata.ID())
 		return false
 	}
 
@@ -222,13 +219,7 @@ func (l *Ledger) triggerAcceptedEvent(txMetadata *TransactionMetadata) (triggere
 	// We skip triggering the event if the transaction was already accepted.
 	if !txMetadata.SetConfirmationState(confirmation.Accepted) {
 		// ... but if the conflict we are propagating is ourselves, we still want to walk the UTXO future cone.
-		if txMetadata.ConflictIDs().Has(txMetadata.ID()) {
-			fmt.Println("trigger accepted skipped, conflict is self", txMetadata.ID())
-			return true
-		}
-
-		fmt.Println("trigger accepted skipped, accepted before", txMetadata.ID())
-		return false
+		return txMetadata.ConflictIDs().Has(txMetadata.ID())
 	}
 
 	transactionEvent := &TransactionEvent{
@@ -320,9 +311,7 @@ func (l *Ledger) propagateAcceptanceToIncludedTransactions(txID utxo.Transaction
 			}
 
 			conflictIDsState := l.ConflictDAG.ConfirmationStateUnsafe(consumingTxMetadata.ConflictIDs())
-			fmt.Println("walking the transaction future cone acceptedConflict", txID, "walking on", consumingTxMetadata.ID(), "conflictIDs confirmationstate", conflictIDsState.String(), "txConfirmationState", consumingTxMetadata.ConfirmationState().String(), "inclusionEpoch", consumingTxMetadata.InclusionEpoch())
 			if !conflictIDsState.IsAccepted() {
-				fmt.Println("conflictIDstate accepted - do not trigger the event")
 				return
 			}
 
