@@ -159,6 +159,7 @@ func (a *attachments) getEarliestAttachment(txID utxo.TransactionID, returnOrpha
 
 func (a *attachments) getLatestAttachment(txID utxo.TransactionID, returnOrphaned ...bool) (attachment *Block) {
 	highestTime := time.Time{}
+	fmt.Println(">> getLatestAttachment", txID)
 	if txStorage := a.storage(txID, false); txStorage != nil {
 		txStorage.ForEach(func(_ epoch.Index, blocks *memstorage.Storage[models.BlockID, *Block]) bool {
 			blocks.ForEach(func(_ models.BlockID, block *Block) bool {
@@ -170,6 +171,8 @@ func (a *attachments) getLatestAttachment(txID utxo.TransactionID, returnOrphane
 			})
 			return true
 		})
+	} else {
+		fmt.Println("\t>> storage nil", txID)
 	}
 	return
 }

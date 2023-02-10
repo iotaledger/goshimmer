@@ -166,6 +166,7 @@ func (r *ReferenceProvider) addedReferencesForBlock(blockID models.BlockID, excl
 	var err error
 	if addedReferences, err = r.addedReferencesForConflicts(blockConflicts, excludedConflictIDs); err != nil {
 		// Delete the tip if we could not pick it up.
+		fmt.Println(">> addedReferencesForConflicts failed adjust opinion", err)
 		if schedulerBlock, schedulerBlockExists := r.protocol.CongestionControl.Scheduler().Block(blockID); schedulerBlockExists {
 			r.protocol.TipManager.DeleteTip(schedulerBlock)
 		}
@@ -251,7 +252,7 @@ func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, exclude
 func (r *ReferenceProvider) latestValidAttachment(txID utxo.TransactionID) (block *booker.Block, err error) {
 	block = r.protocol.Engine().Tangle.Booker.GetLatestAttachment(txID)
 	if block == nil {
-		return nil, errors.Errorf("could not obtain earliest attachment for %s", txID)
+		return nil, errors.Errorf("could not obtain latest attachment for %s", txID)
 	}
 
 	if acceptedTime := r.protocol.Engine().Clock.AcceptedTime(); block.IssuingTime().Before(acceptedTime.Add(-r.timeSinceConfirmationThreshold)) {

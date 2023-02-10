@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/randommap"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
@@ -84,17 +85,20 @@ func (t *TipManager) LinkTo(engine *engine.Engine) {
 
 func (t *TipManager) AddTip(block *scheduler.Block) {
 	if block.IsSubjectivelyInvalid() {
+		fmt.Println("\t>> AddTip sub invalid", block.ID())
 		return
 	}
 
 	// Check if any children that are accepted or scheduled and return if true, to guarantee that parents are not added
 	// to the tipset after their children.
 	if t.checkMonotonicity(block) {
+		fmt.Println("\t>> AddTip non monotonic", block.ID())
 		return
 	}
 
 	// If the commitment is in the future, and not known to be forking, we cannot yet add it to the main tipset.
 	if t.isFutureCommitment(block) {
+		fmt.Println("\t>> AddTip in future commitment", block.ID())
 		t.addFutureTip(block)
 		return
 	}
