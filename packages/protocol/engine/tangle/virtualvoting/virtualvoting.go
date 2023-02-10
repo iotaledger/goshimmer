@@ -178,9 +178,7 @@ func (o *VirtualVoting) track(block *Block) (tracked bool) {
 // block retrieves the Block with given id from the mem-storage.
 func (o *VirtualVoting) block(id models.BlockID) (block *Block, exists bool) {
 	if o.EvictionState.IsRootBlock(id) {
-		bookerBlock, _ := o.Booker.Block(id)
-
-		return NewBlock(bookerBlock), true
+		return NewRootBlock(id), true
 	}
 
 	storage := o.blocks.Get(id.Index(), false)
