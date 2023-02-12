@@ -108,10 +108,6 @@ func New(chainStorage *storage.Storage, evictionState *eviction.State, opts ...o
 	ledger.dataFlow = newDataFlow(ledger)
 	ledger.Utils = newUtils(ledger)
 
-	// ledger.Events.TransactionOrphaned.Attach(event.NewClosure(func(event *TransactionEvent) {
-	//	ledger.ConflictDAG.HandleOrphanedConflict(event.Metadata.ID())
-	// }))
-
 	ledger.ConflictDAG.Events.ConflictAccepted.Attach(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		ledger.PropagateAcceptanceToIncludedTransactions(conflict.ID())
 	}))
@@ -214,7 +210,24 @@ func (l *Ledger) triggerAcceptedEvent(txMetadata *TransactionMetadata) (triggere
 		return false
 	}
 
-	// TODO: check for acceptance monotonicity
+	// check for acceptance monotonicity
+	inputsAccepted := true
+	l.Storage.CachedTransaction(txMetadata.ID()).Consume(func(tx utxo.Transaction) {
+		for it := l.Utils.ResolveInputs(tx.Inputs()).Iterator(); it.HasNext(); {
+			inputID := it.Next()
+			l.Storage.CachedOutputMetadata(inputID).Consume(func(outputMetadata *OutputMetadata) {
+				if !outputMetadata.ConfirmationState().IsAccepted() {
+					inputsAccepted = false
+				}
+			})
+			if !inputsAccepted {
+				return
+			}
+		}
+	})
+	if !inputsAccepted {
+		return false
+	}
 
 	// We skip triggering the event if the transaction was already accepted.
 	if !txMetadata.SetConfirmationState(confirmation.Accepted) {
