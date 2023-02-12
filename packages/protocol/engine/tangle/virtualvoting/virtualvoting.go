@@ -211,6 +211,8 @@ func (o *VirtualVoting) EvictEpochTracker(epochIndex epoch.Index) {
 func (o *VirtualVoting) processForkedBlock(bookerBlock *booker.Block, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
 	votePower := NewBlockVotePower(bookerBlock.ID(), bookerBlock.IssuingTime())
 
+	// Do not apply votes of subjectively invalid blocks on forking. Votes of subjectively invalid blocks are also not counted
+	// when booking.
 	block, exists := o.Block(bookerBlock.ID())
 	if !exists || block.IsSubjectivelyInvalid() {
 		return
