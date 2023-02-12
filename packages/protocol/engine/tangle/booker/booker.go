@@ -529,15 +529,15 @@ func (b *Booker) propagateForkedConflict(block *Block, addedConflictID utxo.Tran
 		return false, false, nil
 	}
 
-	// if structureDetails := block.StructureDetails(); structureDetails.IsPastMarker() {
-	// 	fmt.Println(">> propagating forked conflict to marker future cone of block", addedConflictID, block.ID(), structureDetails.PastMarkers().Marker())
-	// 	if err = b.propagateForkedTransactionToMarkerFutureCone(structureDetails.PastMarkers().Marker(), addedConflictID, removedConflictIDs); err != nil {
-	// 		err = errors.Wrapf(err, "failed to propagate conflict %s to future cone of %v", addedConflictID, structureDetails.PastMarkers().Marker())
-	// 		fmt.Println(err)
-	// 		return false, false, err
-	// 	}
-	// 	return true, false, nil
-	// }
+	if structureDetails := block.StructureDetails(); structureDetails.IsPastMarker() {
+		fmt.Println(">> propagating forked conflict to marker future cone of block", addedConflictID, block.ID(), structureDetails.PastMarkers().Marker())
+		if err = b.propagateForkedTransactionToMarkerFutureCone(structureDetails.PastMarkers().Marker(), addedConflictID, removedConflictIDs); err != nil {
+			err = errors.Wrapf(err, "failed to propagate conflict %s to future cone of %v", addedConflictID, structureDetails.PastMarkers().Marker())
+			fmt.Println(err)
+			return false, false, err
+		}
+		return true, false, nil
+	}
 
 	propagated = b.updateBlockConflicts(block, addedConflictID, removedConflictIDs)
 	// We only need to propagate further (in the block's future cone) if the block was updated.
