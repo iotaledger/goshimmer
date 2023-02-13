@@ -90,6 +90,9 @@ func (s *SequenceManager) Delete(id SequenceID) {
 			referencingSequence.referencedMarkers.Delete(id)
 		}
 	}
+
+	fmt.Println("deletedSequence", id)
+
 	s.sequences.Delete(id)
 }
 
@@ -205,6 +208,8 @@ func (s *SequenceManager) createSequence(referencedMarkers *Markers) (firstMarke
 	newSequence := NewSequence(s.sequenceIDCounter, referencedMarkers)
 	s.sequenceIDCounter++
 	s.sequenceIDCounterMutex.Unlock()
+
+	fmt.Println("createdSequence", newSequence.ID())
 
 	s.sequences.Set(newSequence.ID(), newSequence)
 	firstMarker = NewMarker(newSequence.ID(), newSequence.LowestIndex())
