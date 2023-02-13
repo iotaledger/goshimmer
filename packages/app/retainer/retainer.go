@@ -39,9 +39,10 @@ type Retainer struct {
 	cachedCommitment  *memstorage.EpochStorage[commitment.ID, *cachedCommitment]
 	commitmentStorage *database.PersistentEpochStorage[commitment.ID, CommitmentDetails, *commitment.ID, *CommitmentDetails]
 
-	dbManager    *database.Manager
-	protocol     *protocol.Protocol
-	evictionLock *syncutils.DAGMutex[epoch.Index]
+	dbManager              *database.Manager
+	protocol               *protocol.Protocol
+	metadataEvictionLock   *syncutils.DAGMutex[epoch.Index]
+	commitmentEvictionLock *syncutils.DAGMutex[epoch.Index]
 
 	optsRealm kvstore.Realm
 }
@@ -57,7 +58,8 @@ func NewRetainer(workers *workerpool.Group, protocol *protocol.Protocol, dbManag
 	}, opts, (*Retainer).setupEvents, func(r *Retainer) {
 		r.blockStorage = database.NewPersistentEpochStorage[models.BlockID, BlockMetadata](dbManager, append(r.optsRealm, []byte{prefixBlockMetadataStorage}...))
 		r.commitmentStorage = database.NewPersistentEpochStorage[commitment.ID, CommitmentDetails](dbManager, append(r.optsRealm, []byte{prefixCommitmentDetailsStorage}...))
-		r.evictionLock = syncutils.NewDAGMutex[epoch.Index]()
+		r.metadataEvictionLock = syncutils.NewDAGMutex[epoch.Index]()
+		r.commitmentEvictionLock = syncutils.NewDAGMutex[epoch.Index]()
 	})
 }
 
@@ -100,8 +102,8 @@ func (r *Retainer) CommitmentbyID(id commitment.ID) (c *CommitmentDetails, exist
 }
 
 func (r *Retainer) LoadAllBlockMetadata(index epoch.Index) (ids *set.AdvancedSet[*BlockMetadata]) {
-	r.evictionLock.RLock(index)
-	defer r.evictionLock.RUnlock(index)
+	r.metadataEvictionLock.RLock(index)
+	defer r.metadataEvictionLock.RUnlock(index)
 
 	ids = set.NewAdvancedSet[*BlockMetadata]()
 	r.StreamBlocksMetadata(index, func(id models.BlockID, metadata *BlockMetadata) {
@@ -111,8 +113,8 @@ func (r *Retainer) LoadAllBlockMetadata(index epoch.Index) (ids *set.AdvancedSet
 }
 
 func (r *Retainer) StreamBlocksMetadata(index epoch.Index, callback func(id models.BlockID, metadata *BlockMetadata)) {
-	r.evictionLock.RLock(index)
-	defer r.evictionLock.RUnlock(index)
+	r.metadataEvictionLock.RLock(index)
+	defer r.metadataEvictionLock.RUnlock(index)
 
 	if epochStorage := r.cachedMetadata.Get(index, false); epochStorage != nil {
 		epochStorage.ForEach(func(id models.BlockID, cachedMetadata *cachedMetadata) bool {
@@ -220,8 +222,8 @@ func (r *Retainer) setupEvents() {
 }
 
 func (r *Retainer) createOrGetCachedMetadata(id models.BlockID) *cachedMetadata {
-	r.evictionLock.RLock(id.Index())
-	defer r.evictionLock.RUnlock(id.Index())
+	r.metadataEvictionLock.RLock(id.Index())
+	defer r.metadataEvictionLock.RUnlock(id.Index())
 
 	if id.EpochIndex < r.protocol.Engine().EvictionState.LastEvictedEpoch() {
 		return nil
@@ -233,8 +235,8 @@ func (r *Retainer) createOrGetCachedMetadata(id models.BlockID) *cachedMetadata 
 }
 
 func (r *Retainer) createOrGetCachedCommitment(cm *commitment.Commitment) *cachedCommitment {
-	r.evictionLock.RLock(cm.Index())
-	defer r.evictionLock.RUnlock(cm.Index())
+	r.commitmentEvictionLock.RLock(cm.Index())
+	defer r.commitmentEvictionLock.RUnlock(cm.Index())
 
 	if cm.Index() < r.protocol.Engine().EvictionState.LastEvictedEpoch() {
 		return nil
@@ -260,18 +262,18 @@ func (r *Retainer) storeAndEvictEpoch(epochIndex epoch.Index) {
 	// Once everything is stored to disk, we evict it from cache.
 	// Therefore, we make sure that we can always first try to read BlockMetadata from cache and if it's not in cache
 	// anymore it is already written to disk.
-	r.evictionLock.Lock(epochIndex)
+	r.metadataEvictionLock.Lock(epochIndex)
 	r.cachedMetadata.Evict(epochIndex)
-	r.evictionLock.Unlock(epochIndex)
+	r.metadataEvictionLock.Unlock(epochIndex)
 
-	r.evictionLock.Lock(commitmentEvictIndex)
+	r.commitmentEvictionLock.Lock(commitmentEvictIndex)
 	r.cachedCommitment.Evict(commitmentEvictIndex)
-	r.evictionLock.Unlock(commitmentEvictIndex)
+	r.commitmentEvictionLock.Unlock(commitmentEvictIndex)
 }
 
 func (r *Retainer) createStorableBlockMetadata(epochIndex epoch.Index) (metas []*BlockMetadata) {
-	r.evictionLock.RLock(epochIndex)
-	defer r.evictionLock.RUnlock(epochIndex)
+	r.metadataEvictionLock.RLock(epochIndex)
+	defer r.metadataEvictionLock.RUnlock(epochIndex)
 
 	storage := r.cachedMetadata.Get(epochIndex)
 	if storage == nil {
@@ -322,8 +324,8 @@ func (r *Retainer) storeCommitmentDetails(c *CommitmentDetails) {
 }
 
 func (r *Retainer) blockMetadataFromCache(blockID models.BlockID) (storageExists bool, metadata *BlockMetadata, exists bool) {
-	r.evictionLock.RLock(blockID.Index())
-	defer r.evictionLock.RUnlock(blockID.Index())
+	r.metadataEvictionLock.RLock(blockID.Index())
+	defer r.metadataEvictionLock.RUnlock(blockID.Index())
 
 	storage := r.cachedMetadata.Get(blockID.Index())
 	if storage == nil {
@@ -339,8 +341,8 @@ func (r *Retainer) getCommitmentDetails(index epoch.Index) (c *CommitmentDetails
 		return
 	}
 
-	r.evictionLock.RLock(index)
-	defer r.evictionLock.RUnlock(index)
+	r.commitmentEvictionLock.RLock(index)
+	defer r.commitmentEvictionLock.RUnlock(index)
 
 	// get from cache
 	storage := r.cachedCommitment.Get(index)
