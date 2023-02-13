@@ -3,7 +3,6 @@ package ledger
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -79,8 +78,6 @@ type Ledger struct {
 
 	// mutex is a DAGMutex that is used to make the Ledger thread safe.
 	mutex *syncutils.DAGMutex[utxo.TransactionID]
-
-	propagationMutex sync.RWMutex
 }
 
 // New returns a new Ledger from the given optionsLedger.
@@ -110,7 +107,7 @@ func New(chainStorage *storage.Storage, evictionState *eviction.State, opts ...o
 	ledger.Utils = newUtils(ledger)
 
 	ledger.ConflictDAG.Events.ConflictAccepted.Attach(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-		ledger.PropagateAcceptanceToIncludedTransactions(conflict.ID())
+		ledger.propagateAcceptanceToIncludedTransactions(conflict.ID())
 	}))
 
 	ledger.ConflictDAG.Events.ConflictRejected.Attach(event.NewClosure(ledger.propagatedRejectionToTransactions))
@@ -128,9 +125,6 @@ func New(chainStorage *storage.Storage, evictionState *eviction.State, opts ...o
 
 // SetTransactionInclusionEpoch sets the inclusion timestamp of a Transaction.
 func (l *Ledger) SetTransactionInclusionEpoch(id utxo.TransactionID, inclusionEpoch epoch.Index) {
-	l.propagationMutex.Lock()
-	defer l.propagationMutex.Unlock()
-
 	l.Storage.CachedTransactionMetadata(id).Consume(func(metadata *TransactionMetadata) {
 		updated, previousInclusionEpoch := metadata.SetInclusionEpoch(inclusionEpoch)
 		if !updated {
@@ -306,18 +300,11 @@ func (l *Ledger) triggerRejectedEvent(txMetadata *TransactionMetadata) (triggere
 	return true
 }
 
-func (l *Ledger) PropagateAcceptanceToIncludedTransactions(txID utxo.TransactionID) {
-	l.propagationMutex.Lock()
-	defer l.propagationMutex.Unlock()
-
-	l.propagateAcceptanceToIncludedTransactions(txID)
-}
-
 // propagateAcceptanceToIncludedTransactions propagates confirmations to the included future cone of the given
 // Transaction.
 func (l *Ledger) propagateAcceptanceToIncludedTransactions(txID utxo.TransactionID) {
-	l.mutex.RLock(txID)
-	defer l.mutex.RUnlock(txID)
+	l.mutex.Lock(txID)
+	defer l.mutex.Unlock(txID)
 
 	l.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *TransactionMetadata) {
 		if !l.triggerAcceptedEvent(txMetadata) {
@@ -325,14 +312,14 @@ func (l *Ledger) propagateAcceptanceToIncludedTransactions(txID utxo.Transaction
 		}
 
 		l.Utils.WalkConsumingTransactionMetadata(txMetadata.OutputIDs(), func(consumingTxMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
-			l.mutex.RLock(consumingTxMetadata.ID())
-			defer l.mutex.RUnlock(consumingTxMetadata.ID())
+			l.mutex.Lock(consumingTxMetadata.ID())
+			defer l.mutex.Unlock(consumingTxMetadata.ID())
 
 			if !l.triggerAcceptedEvent(consumingTxMetadata) {
 				return
 			}
 
-			conflictIDsState := l.ConflictDAG.ConfirmationStateUnsafe(consumingTxMetadata.ConflictIDs())
+			conflictIDsState := l.ConflictDAG.ConfirmationState(consumingTxMetadata.ConflictIDs())
 			fmt.Println("walking the transaction future cone acceptedConflict", txID, "walking on", consumingTxMetadata.ID(), "conflictIDs confirmationstate", conflictIDsState.String(), "txConfirmationState", consumingTxMetadata.ConfirmationState().String(), "inclusionEpoch", consumingTxMetadata.InclusionEpoch())
 			if !conflictIDsState.IsAccepted() {
 				fmt.Println("conflictIDstate accepted - do not trigger the event")
