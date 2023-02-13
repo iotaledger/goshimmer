@@ -3,6 +3,7 @@ package snapshotcreator
 import (
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/options"
 )
 
@@ -13,8 +14,13 @@ type Options struct {
 	GenesisSeed []byte
 	// GenesisTokenAmount is the amount of tokens left on the Genesis, pledged to Peer Master.
 	GenesisTokenAmount uint64
+	// TotalTokensPledged is the total amount of tokens pledged from genesis to the peers.
+	// If provided mana will be distributed equally.
+	TotalTokensPledged uint64
 	// PeerSeedBase58 is a slice of Seeds encoded in Base58, one entry per peer.
 	PeersSeedBase58 []string
+	// PeersPublicKey is a slice of public keys, one entry per peer.
+	PeersPublicKey []ed25519.PublicKey
 	// PeersAmountsPledges is a slice of amounts to be pledged to the peers, one entry per peer.
 	PeersAmountsPledged []uint64
 	// InitialAttestation indicates which node public key should be included in the first commitment.
@@ -55,6 +61,12 @@ func WithGenesisTokenAmount(genesisTokenAmount uint64) options.Option[Options] {
 func WithPeersSeedBase58(peersSeedBase58 []string) options.Option[Options] {
 	return func(m *Options) {
 		m.PeersSeedBase58 = peersSeedBase58
+	}
+}
+
+func WithPeersPublicKey(peersPublicKey []ed25519.PublicKey) options.Option[Options] {
+	return func(m *Options) {
+		m.PeersPublicKey = peersPublicKey
 	}
 }
 

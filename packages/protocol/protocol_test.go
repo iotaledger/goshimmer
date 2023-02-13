@@ -60,7 +60,16 @@ func TestProtocol(t *testing.T) {
 	}
 
 	tempDir := utils.NewDirectory(t.TempDir())
-	snapshotcreator.CreateSnapshot(protocol.DatabaseVersion, tempDir.Path("snapshot.bin"), 100, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights), ledgerVM)
+	err := snapshotcreator.CreateSnapshot(
+		snapshotcreator.WithDatabaseVersion(protocol.DatabaseVersion),
+		snapshotcreator.WithFilePath(tempDir.Path("snapshot.bin")),
+		snapshotcreator.WithGenesisTokenAmount(100),
+		snapshotcreator.WithGenesisSeed(make([]byte, 32)),
+		snapshotcreator.WithPeersPublicKey(lo.Keys(identitiesWeights)),
+		snapshotcreator.WithVM(ledgerVM),
+		snapshotcreator.WithPeersAmountsPledged(lo.Values(identitiesWeights)),
+	)
+	require.NoError(t, err)
 
 	protocol1 := protocol.New(workers.CreateGroup("Protocol1"), endpoint1, protocol.WithBaseDirectory(tempDir.Path()), protocol.WithSnapshotPath(tempDir.Path("snapshot.bin")), protocol.WithEngineOptions(engine.WithLedgerOptions(ledger.WithVM(ledgerVM))))
 	protocol1.Run()
@@ -90,7 +99,16 @@ func TestProtocol(t *testing.T) {
 	endpoint2 := testNetwork.Join(identity.GenerateIdentity().ID())
 
 	tempDir2 := utils.NewDirectory(t.TempDir())
-	snapshotcreator.CreateSnapshot(protocol.DatabaseVersion, tempDir2.Path("snapshot.bin"), 100, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights), ledgerVM)
+	err = snapshotcreator.CreateSnapshot(
+		snapshotcreator.WithDatabaseVersion(protocol.DatabaseVersion),
+		snapshotcreator.WithFilePath(tempDir2.Path("snapshot.bin")),
+		snapshotcreator.WithGenesisTokenAmount(100),
+		snapshotcreator.WithGenesisSeed(make([]byte, 32)),
+		snapshotcreator.WithPeersPublicKey(lo.Keys(identitiesWeights)),
+		snapshotcreator.WithVM(ledgerVM),
+		snapshotcreator.WithPeersAmountsPledged(lo.Values(identitiesWeights)),
+	)
+	require.NoError(t, err)
 
 	protocol2 := protocol.New(workers.CreateGroup("Protocol2"), endpoint2, protocol.WithBaseDirectory(tempDir2.Path()), protocol.WithSnapshotPath(tempDir2.Path("snapshot.bin")), protocol.WithEngineOptions(engine.WithLedgerOptions(ledger.WithVM(ledgerVM))))
 	protocol2.Run()
@@ -143,7 +161,16 @@ func TestEngine_NonEmptyInitialValidators(t *testing.T) {
 	}
 
 	tempDir := utils.NewDirectory(t.TempDir())
-	snapshotcreator.CreateSnapshot(protocol.DatabaseVersion, tempDir.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights), ledgerVM)
+	err := snapshotcreator.CreateSnapshot(
+		snapshotcreator.WithDatabaseVersion(protocol.DatabaseVersion),
+		snapshotcreator.WithFilePath(tempDir.Path("genesis_snapshot.bin")),
+		snapshotcreator.WithGenesisTokenAmount(1),
+		snapshotcreator.WithGenesisSeed(make([]byte, 32)),
+		snapshotcreator.WithPeersPublicKey(lo.Keys(identitiesWeights)),
+		snapshotcreator.WithVM(ledgerVM),
+		snapshotcreator.WithPeersAmountsPledged(lo.Values(identitiesWeights)),
+	)
+	require.NoError(t, err)
 
 	require.NoError(t, tf.Instance.Initialize(tempDir.Path("genesis_snapshot.bin")))
 
@@ -203,7 +230,17 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 	}
 
 	tempDir := utils.NewDirectory(t.TempDir())
-	snapshotcreator.CreateSnapshot(protocol.DatabaseVersion, tempDir.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights), ledgerVM)
+
+	err := snapshotcreator.CreateSnapshot(
+		snapshotcreator.WithDatabaseVersion(protocol.DatabaseVersion),
+		snapshotcreator.WithFilePath(tempDir.Path("genesis_snapshot.bin")),
+		snapshotcreator.WithGenesisTokenAmount(1),
+		snapshotcreator.WithGenesisSeed(make([]byte, 32)),
+		snapshotcreator.WithPeersPublicKey(lo.Keys(identitiesWeights)),
+		snapshotcreator.WithVM(ledgerVM),
+		snapshotcreator.WithPeersAmountsPledged(lo.Values(identitiesWeights)),
+	)
+	require.NoError(t, err)
 
 	require.NoError(t, tf.Instance.Initialize(tempDir.Path("genesis_snapshot.bin")))
 
@@ -493,7 +530,16 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 	}
 
 	tempDir := utils.NewDirectory(t.TempDir())
-	snapshotcreator.CreateSnapshot(protocol.DatabaseVersion, tempDir.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights), ledgerVM)
+	err := snapshotcreator.CreateSnapshot(
+		snapshotcreator.WithDatabaseVersion(protocol.DatabaseVersion),
+		snapshotcreator.WithFilePath(tempDir.Path("genesis_snapshot.bin")),
+		snapshotcreator.WithGenesisTokenAmount(1),
+		snapshotcreator.WithGenesisSeed(make([]byte, 32)),
+		snapshotcreator.WithPeersPublicKey(lo.Keys(identitiesWeights)),
+		snapshotcreator.WithVM(ledgerVM),
+		snapshotcreator.WithPeersAmountsPledged(lo.Values(identitiesWeights)),
+	)
+	require.NoError(t, err)
 
 	require.NoError(t, tf.Instance.Initialize(tempDir.Path("genesis_snapshot.bin")))
 
@@ -681,7 +727,16 @@ func TestEngine_ShutdownResume(t *testing.T) {
 	}
 
 	tempDir := utils.NewDirectory(t.TempDir())
-	snapshotcreator.CreateSnapshot(protocol.DatabaseVersion, tempDir.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights), ledgerVM)
+	err := snapshotcreator.CreateSnapshot(
+		snapshotcreator.WithDatabaseVersion(protocol.DatabaseVersion),
+		snapshotcreator.WithFilePath(tempDir.Path("genesis_snapshot.bin")),
+		snapshotcreator.WithGenesisTokenAmount(1),
+		snapshotcreator.WithGenesisSeed(make([]byte, 32)),
+		snapshotcreator.WithPeersPublicKey(lo.Keys(identitiesWeights)),
+		snapshotcreator.WithVM(ledgerVM),
+		snapshotcreator.WithPeersAmountsPledged(lo.Values(identitiesWeights)),
+	)
+	require.NoError(t, err)
 
 	require.NoError(t, tf.Instance.Initialize(tempDir.Path("genesis_snapshot.bin")))
 
@@ -766,7 +821,17 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 
 	snapshotsDir := utils.NewDirectory(t.TempDir())
 	snapshot := snapshotsDir.Path("snapshot.bin")
-	snapshotcreator.CreateSnapshot(protocol.DatabaseVersion, snapshot, 0, make([]byte, 32), allWeights, nil, ledgerVM)
+
+	err := snapshotcreator.CreateSnapshot(
+		snapshotcreator.WithDatabaseVersion(protocol.DatabaseVersion),
+		snapshotcreator.WithFilePath(snapshotsDir.Path("snapshot.bin")),
+		snapshotcreator.WithGenesisTokenAmount(0),
+		snapshotcreator.WithGenesisSeed(make([]byte, 32)),
+		snapshotcreator.WithPeersPublicKey(lo.Keys(allWeights)),
+		snapshotcreator.WithVM(ledgerVM),
+		snapshotcreator.WithPeersAmountsPledged(lo.Values(allWeights)),
+	)
+	require.NoError(t, err)
 
 	node1 := mockednetwork.NewNode(t, identitiesMap["node1"], testNetwork, "P1", snapshot, engineOpts...)
 	node2 := mockednetwork.NewNode(t, identitiesMap["node2"], testNetwork, "P1", snapshot, engineOpts...)

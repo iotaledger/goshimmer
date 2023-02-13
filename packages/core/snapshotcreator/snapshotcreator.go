@@ -2,7 +2,6 @@ package snapshotcreator
 
 import (
 	"fmt"
-	"github.com/mr-tron/base58/base58"
 	"os"
 	"time"
 
@@ -20,6 +19,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/storage"
+
+	"github.com/mr-tron/base58/base58"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/orderedmap"
@@ -37,8 +38,7 @@ import (
 // | node2       | node2       |.
 
 func CreateSnapshot(opts ...options.Option[Options]) (err error) {
-	opt := &Options{}
-	options.Apply[Options](opt, opts)
+	opt := NewOptions(opts...)
 
 	workers := workerpool.NewGroup("CreateSnapshot")
 	defer workers.Shutdown()
@@ -61,14 +61,15 @@ func CreateSnapshot(opts ...options.Option[Options]) (err error) {
 		panic(err)
 	}
 	i := 0
+	opt.createPledgeIDs()
 	nodesToPledge, err := opt.createPledgeMap()
 	if err != nil {
 		panic(err)
 	}
-	nodesToPledge.ForEach(func(nodeSeedBytes identity.ID, value uint64) bool {
-		nodePublicKey := ed25519.PrivateKeyFromSeed(nodeSeedBytes[:]).Public()
-		nodeID := identity.NewID(nodePublicKey)
-		output, outputMetadata := createOutput(opt.vm, seed.NewSeed(nodeSeedBytes[:]).KeyPair(0).PublicKey, value, nodeID, 0)
+	nodesToPledge.ForEach(func(nodeIdentity *identity.Identity, value uint64) bool {
+		nodePublicKey := nodeIdentity.PublicKey()
+		nodeID := nodeIdentity.ID()
+		output, outputMetadata := createOutput(opt.vm, nodePublicKey, value, nodeID, 0)
 		if err = engineInstance.LedgerState.UnspentOutputs.ApplyCreatedOutput(ledger.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
 			panic(err)
 		}
@@ -129,19 +130,38 @@ func (m *Options) createGenesisOutput(engineInstance *engine.Engine) error {
 	return nil
 }
 
-// createPledgeMap creates a pledge map according to snapshotInfo
-func (m *Options) createPledgeMap() (nodesToPledge *orderedmap.OrderedMap[identity.ID, uint64], err error) {
-	nodesToPledge = orderedmap.New[identity.ID, uint64]()
-
+func (m *Options) createPledgeIDs() {
+	if m.PeersPublicKey != nil {
+		return
+	}
+	m.PeersPublicKey = make([]ed25519.PublicKey, len(m.PeersSeedBase58))
 	for i, peerSeedBase58 := range m.PeersSeedBase58 {
-		seedBytes, err := base58.Decode(peerSeedBase58)
+		b, err := base58.Decode(peerSeedBase58)
 		if err != nil {
-			return nil, err
+			panic("failed to decode peer seed: " + err.Error())
 		}
+		var seedBytes []byte
+		copy(seedBytes[:], b)
+		m.PeersPublicKey[i] = ed25519.PrivateKeyFromSeed(seedBytes).Public()
+	}
+}
 
-		var s [32]byte
-		copy(s[:], seedBytes)
-		nodesToPledge.Set(s, m.PeersAmountsPledged[i])
+// createPledgeMap creates a pledge map according to snapshotInfo
+func (m *Options) createPledgeMap() (nodesToPledge *orderedmap.OrderedMap[*identity.Identity, uint64], err error) {
+	nodesToPledge = orderedmap.New[*identity.Identity, uint64]()
+	if m.PeersAmountsPledged == nil {
+		m.PeersAmountsPledged = make([]uint64, len(m.PeersPublicKey))
+		// equal snapshot by default
+		if m.TotalTokensPledged == 0 {
+			m.TotalTokensPledged = m.GenesisTokenAmount
+		}
+		for i := range m.PeersAmountsPledged {
+			m.PeersAmountsPledged[i] = m.TotalTokensPledged / uint64(len(m.PeersPublicKey))
+		}
+	}
+
+	for i, pubKey := range m.PeersPublicKey {
+		nodesToPledge.Set(identity.New(pubKey), m.PeersAmountsPledged[i])
 	}
 
 	return nodesToPledge, nil
