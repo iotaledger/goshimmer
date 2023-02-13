@@ -187,13 +187,7 @@ const (
 	// MsgTypeManaMapOverall defines a block containing overall mana map.
 	MsgTypeManaMapOverall
 	// MsgTypeManaMapOnline defines a block containing online mana map.
-	MsgTypeManaAllowedPledge
 	MsgTypeManaMapOnline
-	MsgTypeManaPledge
-	MsgTypeManaInitPledge
-	MsgTypeManaRevoke
-	MsgTypeManaInitRevoke
-	MsgTypeManaInitDone
 	// MsgManaDashboardAddress is the socket address of the dashboard to stream mana from.
 	MsgManaDashboardAddress
 	// MsgTypeChat defines a chat block.
