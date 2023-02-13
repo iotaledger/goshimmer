@@ -200,7 +200,7 @@ type Client interface {
 	// GetLatestCommitment returns the latest commitment and data needed to create a new block.
 	GetLatestCommitment() (commitment *jsonmodels.Commitment, err error)
 	// GetCommitment returns the commitment for a given epoch and data needed to create a new block.
-	GetCommitment(epochIndex string) (commitment *jsonmodels.Commitment, err error)
+	GetCommitment(epochIndex int) (commitment *jsonmodels.Commitment, err error)
 	// GetReferences returns the references selected for a given payload.
 	GetReferences(payload []byte, parentsCount int) (refs models.ParentBlockIDs, err error)
 }
@@ -379,7 +379,7 @@ func (c *WebClient) GetLatestCommitment() (resp *jsonmodels.Commitment, err erro
 	return
 }
 
-func (c *WebClient) GetCommitment(epochIndex string) (resp *jsonmodels.Commitment, err error) {
+func (c *WebClient) GetCommitment(epochIndex int) (resp *jsonmodels.Commitment, err error) {
 	resp, err = c.api.GetCommitment(epochIndex)
 	if err != nil {
 		return

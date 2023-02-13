@@ -60,18 +60,36 @@ func (c *CommitmentManager) GenerateCommitment(clt evilwallet.Client) (*commitme
 			comm.CumulativeWeight(),
 		)
 		return newCommitment, epoch.Index(resp.LatestConfirmedIndex), nil
-	case "oldest":
-		resp, err := clt.GetCommitment("0")
+	case "invalid":
+		comm := commitment.NewEmptyCommitment()
+		newCommitment := commitment.New(
+			0,
+			comm.PrevID(),
+			randomRoot(),
+			1000000000,
+		)
+		return newCommitment, 0, nil
+	case "second":
+		resp, err := clt.GetLatestCommitment()
+		if err != nil {
+			return nil, 0, errors.Wrap(err, "failed to get latest commitment")
+		}
+		latestComm := commitment.NewEmptyCommitment()
+		_, err = latestComm.FromBytes(resp.Bytes)
+		latestEpoch := latestComm.ID().EpochIndex
+		second := int(latestEpoch) - 1
+		resp, err = clt.GetCommitment(second)
 		if err != nil {
 			return nil, 0, errors.Wrap(err, "failed to get oldest commitment")
 		}
-		comm := commitment.NewEmptyCommitment()
+
+		secondComm := commitment.NewEmptyCommitment()
 		b := resp.Bytes
-		_, err = comm.FromBytes(b)
+		_, err = secondComm.FromBytes(b)
 		if err != nil {
 			return nil, 0, errors.Wrap(err, "failed to parse commitment bytes")
 		}
-		return comm, epoch.Index(resp.LatestConfirmedIndex), nil
+		return secondComm, epoch.Index(resp.LatestConfirmedIndex) - 1, nil
 	}
 	return nil, 0, nil
 }

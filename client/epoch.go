@@ -2,6 +2,7 @@ package client
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 )
@@ -19,11 +20,11 @@ func (api *GoShimmerAPI) GetLatestCommitment() (*jsonmodels.Commitment, error) {
 	return res, nil
 }
 
-func (api *GoShimmerAPI) GetCommitment(epochIndex string) (*jsonmodels.Commitment, error) {
+func (api *GoShimmerAPI) GetCommitment(epochIndex int) (*jsonmodels.Commitment, error) {
 	res := &jsonmodels.Commitment{}
 	if err := api.do(
 		http.MethodGet,
-		routeCommitment+epochIndex,
+		routeCommitment+strconv.Itoa(epochIndex),
 		nil,
 		res,
 	); err != nil {
