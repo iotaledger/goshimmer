@@ -197,6 +197,9 @@ func (l *Ledger) processConsumingTransactions(outputIDs utxo.OutputIDs) {
 
 // triggerAcceptedEvent triggers the TransactionAccepted event if the Transaction was accepted.
 func (l *Ledger) triggerAcceptedEvent(txMetadata *TransactionMetadata) (triggered bool) {
+	l.mutex.Lock(txMetadata.ID())
+	defer l.mutex.Unlock(txMetadata.ID())
+
 	if !l.ConflictDAG.ConfirmationState(txMetadata.ConflictIDs()).IsAccepted() {
 		fmt.Println("trigger accepted skipped, conflicts not accepted", txMetadata.ID())
 		return false
@@ -300,29 +303,23 @@ func (l *Ledger) triggerRejectedEvent(txMetadata *TransactionMetadata) (triggere
 	return true
 }
 
+func (l *Ledger) triggerRejectedEventLocked(txMetadata *TransactionMetadata) (triggered bool) {
+	l.mutex.Lock(txMetadata.ID())
+	defer l.mutex.Unlock(txMetadata.ID())
+
+	return l.triggerRejectedEvent(txMetadata)
+}
+
 // propagateAcceptanceToIncludedTransactions propagates confirmations to the included future cone of the given
 // Transaction.
 func (l *Ledger) propagateAcceptanceToIncludedTransactions(txID utxo.TransactionID) {
-	l.mutex.Lock(txID)
-	defer l.mutex.Unlock(txID)
-
 	l.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *TransactionMetadata) {
 		if !l.triggerAcceptedEvent(txMetadata) {
 			return
 		}
 
 		l.Utils.WalkConsumingTransactionMetadata(txMetadata.OutputIDs(), func(consumingTxMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
-			l.mutex.Lock(consumingTxMetadata.ID())
-			defer l.mutex.Unlock(consumingTxMetadata.ID())
-
 			if !l.triggerAcceptedEvent(consumingTxMetadata) {
-				return
-			}
-
-			conflictIDsState := l.ConflictDAG.ConfirmationState(consumingTxMetadata.ConflictIDs())
-			fmt.Println("walking the transaction future cone acceptedConflict", txID, "walking on", consumingTxMetadata.ID(), "conflictIDs confirmationstate", conflictIDsState.String(), "txConfirmationState", consumingTxMetadata.ConfirmationState().String(), "inclusionEpoch", consumingTxMetadata.InclusionEpoch())
-			if !conflictIDsState.IsAccepted() {
-				fmt.Println("conflictIDstate accepted - do not trigger the event")
 				return
 			}
 
@@ -335,15 +332,12 @@ func (l *Ledger) propagateAcceptanceToIncludedTransactions(txID utxo.Transaction
 // Transaction.
 func (l *Ledger) propagatedRejectionToTransactions(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 	l.Storage.CachedTransactionMetadata(conflict.ID()).Consume(func(txMetadata *TransactionMetadata) {
-		if !l.triggerRejectedEvent(txMetadata) {
+		if !l.triggerRejectedEventLocked(txMetadata) {
 			return
 		}
 
 		l.Utils.WalkConsumingTransactionMetadata(txMetadata.OutputIDs(), func(consumingTxMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
-			l.mutex.Lock(consumingTxMetadata.ID())
-			defer l.mutex.Unlock(consumingTxMetadata.ID())
-
-			if !l.triggerRejectedEvent(consumingTxMetadata) {
+			if !l.triggerRejectedEventLocked(consumingTxMetadata) {
 				return
 			}
 
