@@ -74,9 +74,12 @@ func (m *MarkerManager[IndexedID, MappedEntity]) ProcessBlock(block MappedEntity
 			m.SetConflictIDs(newStructureDetails.PastMarkers().Marker(), conflictIDs)
 		}
 		m.addMarkerBlockMapping(newStructureDetails.PastMarkers().Marker(), block)
-
-		m.registerSequenceEviction(block.ID().Index(), newStructureDetails.PastMarkers().Marker().SequenceID())
 	}
+
+	newStructureDetails.PastMarkers().ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
+		m.registerSequenceEviction(block.ID().Index(), sequenceID)
+		return true
+	})
 
 	return newStructureDetails
 }
