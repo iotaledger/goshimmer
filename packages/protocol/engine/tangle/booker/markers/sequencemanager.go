@@ -30,7 +30,7 @@ type SequenceManager struct {
 // NewSequenceManager is the constructor of the SequenceManager that takes a KVStore to persist its state.
 func NewSequenceManager(opts ...options.Option[SequenceManager]) (m *SequenceManager) {
 	m = options.Apply(&SequenceManager{
-		optsMaxPastMarkerDistance: 30,
+		optsMaxPastMarkerDistance: 0,
 		sequences:                 memstorage.New[SequenceID, *Sequence](),
 		optsIncreaseIndexCallback: func(SequenceID, Index) bool {
 			return true
