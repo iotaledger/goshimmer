@@ -253,7 +253,7 @@ func (a *Gadget) setup() {
 			return
 		}
 
-		 conflictWeight := a.tangle.VirtualVoting.ConflictVotersTotalWeight(conflictID)
+		conflictWeight := a.tangle.VirtualVoting.ConflictVotersTotalWeight(conflictID)
 
 		fmt.Println("conflict weight after vote added", evt.BlockID, conflictID, conflictWeight, a.tangle.Validators.TotalWeight())
 	}))
@@ -405,13 +405,8 @@ func (a *Gadget) evictSequence(sequenceID markers.SequenceID) {
 	a.evictionMutex.Lock()
 	defer a.evictionMutex.Unlock()
 
-	if !a.lastAcceptedMarker.Delete(sequenceID) {
-		a.Events.Error.Trigger(errors.Errorf("could not evict last accepted marker of sequenceID=%s", sequenceID))
-	}
-
-	if !a.lastConfirmedMarker.Delete(sequenceID) {
-		a.Events.Error.Trigger(errors.Errorf("could not evict last confirmed marker of sequenceID=%s", sequenceID))
-	}
+	a.lastAcceptedMarker.Delete(sequenceID)
+	a.lastConfirmedMarker.Delete(sequenceID)
 }
 
 func (a *Gadget) getOrRegisterBlock(blockID models.BlockID) (block *Block, exists bool) {
