@@ -221,7 +221,7 @@ func (o *VirtualVoting) processForkedBlock(bookerBlock *booker.Block, forkedConf
 		if exists {
 			fmt.Println("Block is subjectively invalid", block.ID())
 		} else {
-			fmt.Println("Block doesn't exist", block.ID())
+			fmt.Println("Block doesn't exist", bookerBlock.ID())
 		}
 		return
 	}
