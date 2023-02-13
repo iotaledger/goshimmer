@@ -311,10 +311,7 @@ func (b *Booker) determineBookingDetails(block *Block) (parentsStructureDetails 
 	inheritedConflictIDs.AddAll(strongParentsConflictIDs)
 	inheritedConflictIDs.AddAll(weakPayloadConflictIDs)
 	inheritedConflictIDs.AddAll(likedConflictIDs)
-	fmt.Println("\t booking details: ", block.ID(), "\nstrongConflicts\n", strongParentsConflictIDs, "\nweakPayloadConflicts\n", weakPayloadConflictIDs, "\nlikedConflictIDs\n", likedConflictIDs, "\ndisliked\n", dislikedConflictIDs)
 	inheritedConflictIDs.DeleteAll(b.Ledger.Utils.ConflictIDsInFutureCone(dislikedConflictIDs))
-
-	fmt.Println("\t booking details UNCONFIRMED: ", block.ID(), b.Ledger.ConflictDAG.UnconfirmedConflicts(inheritedConflictIDs))
 
 	return parentsStructureDetails, b.Ledger.ConflictDAG.UnconfirmedConflicts(parentsPastMarkersConflictIDs), b.Ledger.ConflictDAG.UnconfirmedConflicts(inheritedConflictIDs), nil
 }
@@ -554,13 +551,13 @@ func (b *Booker) updateBlockConflicts(block *Block, addedConflict utxo.Transacti
 	_, conflictIDs := b.blockBookingDetails(block)
 
 	if !conflictIDs.HasAll(parentConflicts) {
-		fmt.Println(">> updateBlockConflicts - block ", block.ID(), "supports ", conflictIDs, "parentConflicts", parentConflicts)
+		fmt.Println(">> updateBlockConflicts - block ", block.ID(), "supports ", conflictIDs.Size(), "parentConflicts", parentConflicts)
 		return false
 	}
 
 	updated = block.AddConflictID(addedConflict)
 
-	fmt.Println(">> updateBlockConflicts - block ", block.ID(), "supports ", conflictIDs, "updated", updated)
+	fmt.Println(">> updateBlockConflicts - block ", block.ID(), "supports ", conflictIDs.Size(), "updated", updated)
 	return updated
 }
 

@@ -43,7 +43,7 @@ then
 fi
 
 export COMPOSE_PROFILES=$(join , ${PROFILES[@]})
-docker compose up -d
+docker compose up
 
 echo "Clean up docker resources"
-#docker compose down -v
+docker compose down -v

@@ -159,17 +159,12 @@ func (o *VirtualVoting) track(block *Block) (tracked bool) {
 	votePower := NewBlockVotePower(block.ID(), block.IssuingTime())
 	blockConflicts := o.Booker.BlockConflicts(block.Block)
 
-	fmt.Println(">> VirtualVoting - conflictTracker- block supports conflicts", block.ID(), block.IssuerID(), blockConflicts.String())
-
 	if _, invalid := o.conflictTracker.TrackVote(blockConflicts, block.IssuerID(), votePower); invalid {
 		block.SetSubjectivelyInvalid(true)
 		fmt.Println("block invalid", block.ID())
 		return true
 	}
-	fmt.Println(">> VirtualVoting - sequenceTracker", block.ID())
 	o.sequenceTracker.TrackVotes(block.StructureDetails().PastMarkers(), block.IssuerID(), votePower)
-
-	fmt.Println(">> VirtualVoting - epochTracker", block.ID())
 
 	o.epochTracker.TrackVotes(block.Commitment().Index(), block.IssuerID(), epochtracker.EpochVotePower{Index: block.ID().Index()})
 
