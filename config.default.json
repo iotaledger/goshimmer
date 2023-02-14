@@ -88,9 +88,6 @@
       "password": "goshimmer"
     }
   },
-  "broadcast": {
-    "bindAddress": "127.0.0.1:5050"
-  },
   "networkdelay": {
     "originPublicKey": "9DB3j9cWYSuEEtkvanrzqkzCQMdH1FGv3TawJdVbDxkd"
   }
