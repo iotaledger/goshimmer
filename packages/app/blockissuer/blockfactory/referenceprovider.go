@@ -249,6 +249,7 @@ func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, exclude
 
 	// Check if the attachment has a monotonic commitment.
 	if attachment.Commitment().Index() > r.protocol.Engine().Storage.Settings.LatestCommitment().Index() {
+		fmt.Printf(">> I want commitment block %s with commitment %d but I have %d\n", attachment.ID(), attachment.Commitment().Index(), r.protocol.Engine().Storage.Settings.LatestCommitment().Index())
 		return true, models.EmptyBlockID, nil
 	}
 
