@@ -1,9 +1,9 @@
 export enum PayloadType {
     Data = 0,
-    Transaction = 1337,
-    Faucet = 2,
-    Statement = 3,
-    Chat = 989,
+    Transaction = 1,
+    NetworkDelay = 3,
+    Faucet = 4,
+    Chat = 5,
 }
 
 // BasicPayload
@@ -125,8 +125,8 @@ export function getPayloadType(p: number){
             return "Data"
         case PayloadType.Transaction:
             return "Transaction"
-        case PayloadType.Statement:
-            return "Statement"
+        case PayloadType.NetworkDelay:
+            return "Network Delay"
         case PayloadType.Faucet:
             return "Faucet"
         case PayloadType.Chat:
