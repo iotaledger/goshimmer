@@ -143,14 +143,6 @@
         },
         {
           "exemplar": true,
-          "expr": "sum(irate(tangle_block_per_type_total{instance=~\"$instance\",block_type=\"networkdelay(189)\"}[1m])) by (instance)",
-          "hide": false,
-          "interval": "",
-          "legendFormat": "Network Delay Block Per Second {{instance}}",
-          "refId": "E"
-        },
-        {
-          "exemplar": true,
           "expr": "sum(irate(tangle_block_per_type_total{instance=~\"$instance\",block_type=\"Statement(3)\"}[1m])) by (instance)",
           "hide": false,
           "interval": "",

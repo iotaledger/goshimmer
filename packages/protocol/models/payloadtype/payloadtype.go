@@ -10,9 +10,6 @@ const (
 	// MockedTransaction is the mocked transaction payload type.
 	MockedTransaction
 
-	// NetworkDelay is the network delay payload type.
-	NetworkDelay
-
 	// FaucetRequest is the faucet request payload type.
 	FaucetRequest
 )
