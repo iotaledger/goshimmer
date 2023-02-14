@@ -1,6 +1,7 @@
 package blockfactory
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
@@ -150,6 +151,7 @@ func (r *ReferenceProvider) addedReferencesForBlock(blockID models.BlockID, excl
 
 	block, exists := engineInstance.Tangle.Booker.Block(blockID)
 	if !exists {
+		fmt.Println(">> block does not exist", blockID)
 		return nil, false
 	}
 	blockConflicts := engineInstance.Tangle.Booker.BlockConflicts(block)
@@ -162,9 +164,12 @@ func (r *ReferenceProvider) addedReferencesForBlock(blockID models.BlockID, excl
 	var err error
 	if addedReferences, err = r.addedReferencesForConflicts(blockConflicts, excludedConflictIDs); err != nil {
 		// Delete the tip if we could not pick it up.
+		fmt.Println(">> error adding references", blockID)
 		if schedulerBlock, schedulerBlockExists := r.protocol.CongestionControl.Scheduler().Block(blockID); schedulerBlockExists {
+			fmt.Println(">> tip removed", blockID)
 			r.protocol.TipManager.DeleteTip(schedulerBlock)
 		}
+		return nil, false
 	}
 
 	// We could not refer to any block to fix the opinion, so we add the tips' strong parents to the tip pool.
@@ -177,11 +182,13 @@ func (r *ReferenceProvider) addedReferencesForBlock(blockID models.BlockID, excl
 				return true
 			})
 		}
+		fmt.Println(">> could not fix opinion", blockID)
 		return nil, false
 	}
 
 	// A block might introduce too many references and cannot be picked up as a strong parent.
 	if _, success = r.tryExtendReferences(models.NewParentBlockIDs(), addedReferences); !success {
+		fmt.Println(">> tryExtendedReferences", blockID)
 		return nil, false
 	}
 
