@@ -167,8 +167,16 @@ func (r *ReferenceProvider) addedReferencesForBlock(blockID models.BlockID, excl
 		}
 	}
 
-	// We could not refer to any block to fix the opinion.
+	// We could not refer to any block to fix the opinion, so we add the tips' strong parents to the tip pool.
 	if addedReferences == nil {
+		if block, exists := r.protocol.Engine().Tangle.Booker.Block(blockID); exists {
+			block.ForEachParentByType(models.StrongParentType, func(parentBlockID models.BlockID) bool {
+				if schedulerBlock, schedulerBlockExists := r.protocol.CongestionControl.Scheduler().Block(parentBlockID); schedulerBlockExists {
+					r.protocol.TipManager.AddTip(schedulerBlock)
+				}
+				return true
+			})
+		}
 		return nil, false
 	}
 
