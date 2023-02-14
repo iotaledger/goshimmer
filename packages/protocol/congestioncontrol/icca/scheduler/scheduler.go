@@ -504,14 +504,10 @@ func (s *Scheduler) selectIssuer(start *IssuerQueue, manaMap map[identity.ID]int
 				continue
 			}
 
-			if block.IsDropped() || block.IsOrphaned() || block.ID().Index() <= s.evictionState.LastEvictedEpoch() {
+			if block.IsDropped() || block.IsOrphaned() {
 				s.buffer.PopFront()
 				block = q.Front()
 
-				// TODO: remove this print eventually
-				if block.ID().Index() <= s.evictionState.LastEvictedEpoch() {
-					fmt.Printf(">> Scheduler found Ready block %s older than last evicted epoch %s\n", block.ID().String(), s.evictionState.LastEvictedEpoch().String())
-				}
 				continue
 			}
 
