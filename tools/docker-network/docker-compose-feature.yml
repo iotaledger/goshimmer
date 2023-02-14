@@ -26,7 +26,7 @@ services:
       --database.directory=/app/db
       --protocol.snapshot.path=./snapshot.bin
       --node.peerDBDirectory=/app/peerdb
-      --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
+      --node.disablePlugins=portcheck,ManaInitializer,RemoteLog,AnalysisClient
       --node.enablePlugins=metrics,spammer,WebAPIToolsBlockEndpoint,activity
       --metrics.bindAddress=0.0.0.0:9311
       --metrics.processMetrics=true
@@ -68,7 +68,7 @@ services:
       --database.directory=/app/db
       --protocol.snapshot.path=./snapshot.bin
       --node.peerDBDirectory=/app/peerdb
-      --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
+      --node.disablePlugins=portcheck,ManaInitializer,RemoteLog,AnalysisClient
       --node.enablePlugins=metrics,spammer,WebAPIToolsBlockEndpoint,activity,faucet
       --metrics.bindAddress=0.0.0.0:9311
       --metrics.processMetrics=true
@@ -107,7 +107,7 @@ services:
       --database.directory=/app/db
       --protocol.snapshot.path=./snapshot.bin
       --node.peerDBDirectory=/app/peerdb
-      --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
+      --node.disablePlugins=portcheck,ManaInitializer,RemoteLog,AnalysisClient
       --node.enablePlugins=metrics,spammer,WebAPIToolsBlockEndpoint,activity
       --metrics.bindAddress=0.0.0.0:9311
       --metrics.processMetrics=true
@@ -145,7 +145,7 @@ services:
       --database.directory=/app/db
       --protocol.snapshot.path=./snapshot.bin
       --node.peerDBDirectory=/app/peerdb
-      --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
+      --node.disablePlugins=portcheck,ManaInitializer,RemoteLog,AnalysisClient
       --node.enablePlugins=metrics,spammer,WebAPIToolsBlockEndpoint,activity
       --metrics.bindAddress=0.0.0.0:9311
       --metrics.processMetrics=true
@@ -182,7 +182,7 @@ services:
       --database.directory=/app/db
       --protocol.snapshot.path=./snapshot.bin
       --node.peerDBDirectory=/app/peerdb
-      --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
+      --node.disablePlugins=portcheck,ManaInitializer,RemoteLog,AnalysisClient
       --node.enablePlugins=metrics,spammer,WebAPIToolsBlockEndpoint,activity
       --metrics.bindAddress=0.0.0.0:9311
       --metrics.processMetrics=true
@@ -219,7 +219,7 @@ services:
       --database.directory=/app/db
       --protocol.snapshot.path=./snapshot.bin
       --node.peerDBDirectory=/app/peerdb
-      --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
+      --node.disablePlugins=portcheck,ManaInitializer,RemoteLog,AnalysisClient
       --node.enablePlugins=metrics,spammer,WebAPIToolsBlockEndpoint,activity
       --metrics.bindAddress=0.0.0.0:9311
       --metrics.processMetrics=true
@@ -256,7 +256,7 @@ services:
       --database.directory=/app/db
       --protocol.snapshot.path=./snapshot.bin
       --node.peerDBDirectory=/app/peerdb
-      --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
+      --node.disablePlugins=portcheck,ManaInitializer,RemoteLog,AnalysisClient
       --node.enablePlugins=metrics,spammer,WebAPIToolsBlockEndpoint,activity
       --metrics.bindAddress=0.0.0.0:9311
       --metrics.processMetrics=true
@@ -293,7 +293,7 @@ services:
       --database.directory=/app/db
       --protocol.snapshot.path=./snapshot.bin
       --node.peerDBDirectory=/app/peerdb
-      --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
+      --node.disablePlugins=portcheck,ManaInitializer,RemoteLog,AnalysisClient
       --node.enablePlugins=metrics,spammer,WebAPIToolsBlockEndpoint,activity
       --metrics.bindAddress=0.0.0.0:9311
       --metrics.processMetrics=true
