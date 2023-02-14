@@ -15,6 +15,7 @@ import {TransactionPayload} from 'app/components/TransactionPayload'
 import {ChatPayload} from 'app/components/ChatPayload'
 import {getPayloadType, PayloadType} from 'app/misc/Payload'
 import {resolveBase58ConflictID} from "app/utils/conflict";
+import { FaucetPayload } from './FaucetPayload';
 
 interface Props {
     nodeStore?: NodeStore;
@@ -61,6 +62,7 @@ export class ExplorerBlockQueryResult extends React.Component<Props, any> {
             case PayloadType.Data:
                 return <BasicPayload/>
             case PayloadType.Faucet:
+                return <FaucetPayload/>
             case PayloadType.Chat:
                 return <ChatPayload/>
             default:

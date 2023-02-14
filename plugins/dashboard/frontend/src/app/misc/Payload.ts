@@ -18,6 +18,13 @@ export class TransactionPayload {
     transaction: Transaction;
 }
 
+export class FaucetPayload {
+    address: string;
+    accessManaPledgeID: string;
+    consensusManaPledgeID: string;
+    nonce: number;
+}
+
 // Chat payload
 export class ChatPayload {
     from: string;

@@ -95,9 +95,12 @@ func ProcessPayload(p payload.Payload) interface{} {
 		return processTransactionPayload(p)
 	case faucet.RequestType:
 		// faucet payload
-		return BasicStringPayload{
-			ContentTitle: "address",
-			Content:      p.(*faucet.Payload).Address().Base58(),
+		faucetPayload := p.(*faucet.Payload)
+		return jsonmodels.FaucetRequest{
+			Address:               faucetPayload.Address().Base58(),
+			ConsensusManaPledgeID: faucetPayload.ConsensusManaPledgeID().EncodeBase58(),
+			AccessManaPledgeID:    faucetPayload.AccessManaPledgeID().EncodeBase58(),
+			Nonce:                 faucetPayload.M.Nonce,
 		}
 	case chatPkg.Type:
 		chatPayload := p.(*chatPkg.Payload)

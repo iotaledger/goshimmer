@@ -6,7 +6,8 @@ import {
     Output,
     PayloadType,
     SigLockedSingleOutput,
-    TransactionPayload
+    TransactionPayload,
+    FaucetPayload
 } from "app/misc/Payload";
 import * as React from "react";
 import {Link} from 'react-router-dom';
@@ -573,6 +574,7 @@ export class ExplorerStore {
                 this.payload = blk.payload as BasicPayload
                 break;
             case PayloadType.Faucet:
+                this.payload = blk.payload as FaucetPayload
             default:
                 this.payload = blk.payload as BasicPayload
                 break;
