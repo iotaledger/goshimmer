@@ -68,6 +68,7 @@ type Engine struct {
 	optsConsensusOptions           []options.Option[consensus.Consensus]
 	optsTSCManagerOptions          []options.Option[tsc.Manager]
 	optsBlockRequester             []options.Option[eventticker.EventTicker[models.BlockID]]
+	optsFilter                     []options.Option[filter.Filter]
 
 	traits.Constructable
 	traits.Initializable
@@ -263,7 +264,7 @@ func (e *Engine) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (err err
 }
 
 func (e *Engine) initFilter() {
-	e.Filter = filter.New(filter.WithMinCommittableEpochAge(e.NotarizationManager.MinCommittableEpochAge()))
+	e.Filter = filter.New(e.optsFilter...)
 
 	event.AttachWithWorkerPool(e.Filter.Events.BlockFiltered, func(filteredEvent *filter.BlockFilteredEvent) {
 		e.Events.Error.Trigger(errors.Wrapf(filteredEvent.Reason, "block (%s) filtered", filteredEvent.Block.ID()))
@@ -478,13 +479,13 @@ func WithBootstrapThreshold(threshold time.Duration) options.Option[Engine] {
 
 func WithTangleOptions(opts ...options.Option[tangle.Tangle]) options.Option[Engine] {
 	return func(e *Engine) {
-		e.optsTangleOptions = opts
+		e.optsTangleOptions = append(e.optsTangleOptions, opts...)
 	}
 }
 
 func WithConsensusOptions(opts ...options.Option[consensus.Consensus]) options.Option[Engine] {
 	return func(e *Engine) {
-		e.optsConsensusOptions = opts
+		e.optsConsensusOptions = append(e.optsConsensusOptions, opts...)
 	}
 }
 
@@ -496,19 +497,25 @@ func WithEntryPointsDepth(entryPointsDepth int) options.Option[Engine] {
 
 func WithTSCManagerOptions(opts ...options.Option[tsc.Manager]) options.Option[Engine] {
 	return func(e *Engine) {
-		e.optsTSCManagerOptions = opts
+		e.optsTSCManagerOptions = append(e.optsTSCManagerOptions, opts...)
 	}
 }
 
 func WithLedgerOptions(opts ...options.Option[ledger.Ledger]) options.Option[Engine] {
 	return func(e *Engine) {
-		e.optsLedgerOptions = opts
+		e.optsLedgerOptions = append(e.optsLedgerOptions, opts...)
+	}
+}
+
+func WithFilterOptions(opts ...options.Option[filter.Filter]) options.Option[Engine] {
+	return func(e *Engine) {
+		e.optsFilter = append(e.optsFilter, opts...)
 	}
 }
 
 func WithNotarizationManagerOptions(opts ...options.Option[notarization.Manager]) options.Option[Engine] {
 	return func(e *Engine) {
-		e.optsNotarizationManagerOptions = opts
+		e.optsNotarizationManagerOptions = append(e.optsNotarizationManagerOptions, opts...)
 	}
 }
 
@@ -520,7 +527,7 @@ func WithSnapshotDepth(depth int) options.Option[Engine] {
 
 func WithRequesterOptions(opts ...options.Option[eventticker.EventTicker[models.BlockID]]) options.Option[Engine] {
 	return func(e *Engine) {
-		e.optsBlockRequester = opts
+		e.optsBlockRequester = append(e.optsBlockRequester, opts...)
 	}
 }
 

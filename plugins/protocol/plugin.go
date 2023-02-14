@@ -20,6 +20,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/filter"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tsc"
@@ -75,6 +76,11 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 			),
 		),
 		protocol.WithEngineOptions(
+			engine.WithFilterOptions(
+				filter.WithMinCommittableEpochAge(NotarizationParameters.MinEpochCommittableAge),
+				filter.WithMaxAllowedWallClockDrift(Parameters.MaxAllowedClockDrift),
+				filter.WithSignatureValidation(true),
+			),
 			engine.WithNotarizationManagerOptions(
 				notarization.WithMinCommittableEpochAge(NotarizationParameters.MinEpochCommittableAge),
 			),
