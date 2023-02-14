@@ -10,8 +10,6 @@
   roles:
     - role: goshimmer-node
       nodeType: entrynode
-    - role: goshimmer-node
-      nodeType: analysis-server
 
 - hosts: goshimmers:&internal_nodes
   gather_facts: no

@@ -33,7 +33,6 @@ goshimmers:
           faucet: true
           faucetSeed: "{{ FAUCET_01_FAUCET_SEED }}"
   vars:
-    analysisServerHost: "analysisentry-01.pre-devnet.shimmer.iota.cafe"
     entryNodeHost: "analysisentry-01.pre-devnet.shimmer.iota.cafe"
     entryNodePubKey: "2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj"
     bootstrapNodePubKey: "Gm7W191NDnqyF7KJycZqK7V6ENLwqxTwoKQN4SmpkB24"
