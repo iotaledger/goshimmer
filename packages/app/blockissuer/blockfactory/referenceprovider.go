@@ -177,7 +177,7 @@ func (r *ReferenceProvider) addedReferencesForBlock(blockID models.BlockID, excl
 		if block, exists := r.protocol.Engine().Tangle.Booker.Block(blockID); exists {
 			block.ForEachParentByType(models.StrongParentType, func(parentBlockID models.BlockID) bool {
 				if schedulerBlock, schedulerBlockExists := r.protocol.CongestionControl.Scheduler().Block(parentBlockID); schedulerBlockExists {
-					r.protocol.TipManager.AddTip(schedulerBlock)
+					r.protocol.TipManager.AddTipNonMonotonic(schedulerBlock)
 				}
 				return true
 			})
