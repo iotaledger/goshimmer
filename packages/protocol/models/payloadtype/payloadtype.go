@@ -15,7 +15,4 @@ const (
 
 	// FaucetRequest is the faucet request payload type.
 	FaucetRequest
-
-	// Chat is the chat payload type.
-	Chat
 )
