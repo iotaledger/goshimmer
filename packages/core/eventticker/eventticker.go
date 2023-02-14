@@ -44,6 +44,12 @@ func New[T epoch.IndexedID](opts ...options.Option[EventTicker[T]]) *EventTicker
 	}, opts)
 }
 
+func (r *EventTicker[T]) StartTickers(ids []T) {
+	for _, id := range ids {
+		r.StartTicker(id)
+	}
+}
+
 func (r *EventTicker[T]) StartTicker(id T) {
 	if r.addTickerToQueue(id) {
 		r.Events.TickerStarted.Trigger(id)
@@ -55,6 +61,21 @@ func (r *EventTicker[T]) StopTicker(id T) {
 	if r.stopTicker(id) {
 		r.Events.TickerStopped.Trigger(id)
 	}
+}
+
+func (r *EventTicker[T]) HasTicker(id T) bool {
+	r.evictionMutex.RLock()
+	defer r.evictionMutex.RUnlock()
+
+	if id.Index() <= r.lastEvictedEpoch {
+		return false
+	}
+
+	if queue := r.scheduledTickers.Get(id.Index(), false); queue != nil {
+		return queue.Has(id)
+	}
+
+	return false
 }
 
 func (r *EventTicker[T]) QueueSize() int {

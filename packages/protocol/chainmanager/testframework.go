@@ -4,17 +4,20 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/types"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/blake2b"
+
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/types"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
 
 type TestFramework struct {
-	Manager *Manager
+	Instance *Manager
 
 	test               *testing.T
 	commitmentsByAlias map[string]*commitment.Commitment
@@ -26,7 +29,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 	snapshotCommitment := commitment.New(0, commitment.ID{}, types.Identifier{}, 0)
 
 	return options.Apply(&TestFramework{
-		Manager: NewManager(snapshotCommitment),
+		Instance: NewManager(snapshotCommitment),
 
 		test: test,
 		commitmentsByAlias: map[string]*commitment.Commitment{
@@ -45,12 +48,16 @@ func (t *TestFramework) CreateCommitment(alias string, prevAlias string) {
 	t.commitmentsByAlias[alias] = commitment.New(previousIndex+1, prevCommitmentID, randomECR, 0)
 }
 
-func (t *TestFramework) ProcessCommitment(alias string) (isSolid bool, chain *Chain, wasForked bool) {
-	return t.Manager.ProcessCommitment(t.commitment(alias))
+func (t *TestFramework) ProcessCommitment(alias string) (isSolid bool, chain *Chain) {
+	return t.Instance.ProcessCommitment(t.commitment(alias))
+}
+
+func (t *TestFramework) ProcessCommitmentFromOtherSource(alias string) (isSolid bool, chain *Chain) {
+	return t.Instance.ProcessCommitmentFromSource(t.commitment(alias), identity.NewID(ed25519.PublicKey{}))
 }
 
 func (t *TestFramework) Chain(alias string) (chain *Chain) {
-	return t.Manager.Chain(t.EC(alias))
+	return t.Instance.Chain(t.EC(alias))
 }
 
 func (t *TestFramework) commitment(alias string) (commitment *commitment.Commitment) {
@@ -63,6 +70,22 @@ func (t *TestFramework) commitment(alias string) (commitment *commitment.Commitm
 	}
 
 	return
+}
+
+func (t *TestFramework) ChainCommitment(alias string) *Commitment {
+	cm, created := t.Instance.Commitment(t.EC(alias))
+	require.False(t.test, created)
+
+	return cm
+}
+
+func (t *TestFramework) AssertEqualChainCommitments(commitments []*Commitment, aliases ...string) {
+	var chainCommitments []*Commitment
+	for _, alias := range aliases {
+		chainCommitments = append(chainCommitments, t.ChainCommitment(alias))
+	}
+
+	require.EqualValues(t.test, commitments, chainCommitments)
 }
 
 func (t *TestFramework) EC(alias string) (epochCommitment commitment.ID) {

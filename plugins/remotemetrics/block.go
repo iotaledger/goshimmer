@@ -88,7 +88,7 @@ func onTransactionAccepted(transactionEvent *ledger.TransactionEvent) {
 		return
 	}
 
-	earliestAttachment := deps.Protocol.Engine().Tangle.GetEarliestAttachment(transactionEvent.Metadata.ID())
+	earliestAttachment := deps.Protocol.Engine().Tangle.Booker.GetEarliestAttachment(transactionEvent.Metadata.ID())
 
 	onBlockFinalized(earliestAttachment.ModelsBlock)
 }

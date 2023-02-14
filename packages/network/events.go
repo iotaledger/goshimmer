@@ -2,10 +2,13 @@ package network
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/orderedmap"
+	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
@@ -77,7 +80,10 @@ type EpochCommitmentRequestReceivedEvent struct {
 // region AttestationsReceivedEvent ////////////////////////////////////////////////////////////////////////////////////
 
 type AttestationsReceivedEvent struct {
-	Source identity.ID
+	Commitment   *commitment.Commitment
+	BlockIDs     models.BlockIDs
+	Attestations *orderedmap.OrderedMap[epoch.Index, *set.AdvancedSet[*notarization.Attestation]]
+	Source       identity.ID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -85,8 +91,9 @@ type AttestationsReceivedEvent struct {
 // region AttestationsRequestReceivedEvent /////////////////////////////////////////////////////////////////////////////
 
 type AttestationsRequestReceivedEvent struct {
-	Index  epoch.Index
-	Source identity.ID
+	Commitment *commitment.Commitment
+	EndIndex   epoch.Index
+	Source     identity.ID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

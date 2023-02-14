@@ -7,11 +7,12 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/labstack/echo"
+
 	"github.com/iotaledger/hive.go/core/daemon"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/workerpool"
-	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/app/collector"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"

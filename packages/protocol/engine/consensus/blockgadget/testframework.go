@@ -11,125 +11,115 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
+	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
+	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markermanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
 // region TestFramework //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type TestFramework struct {
-	Gadget *Gadget
+	test          *testing.T
+	Gadget        *Gadget
+	Tangle        *tangle.TestFramework
+	VirtualVoting *virtualvoting.TestFramework
+	Booker        *booker.TestFramework
+	Ledger        *ledger.TestFramework
+	BlockDAG      *blockdag.TestFramework
+	Votes         *votes.TestFramework
 
-	test              *testing.T
 	acceptedBlocks    uint32
 	confirmedBlocks   uint32
 	conflictsAccepted uint32
 	conflictsRejected uint32
 	reorgCount        uint32
-
-	optsGadgetOptions       []options.Option[Gadget]
-	optsLedger              *ledger.Ledger
-	optsLedgerOptions       []options.Option[ledger.Ledger]
-	optsEvictionState       *eviction.State
-	optsTangle              *tangle.Tangle
-	optsTangleOptions       []options.Option[tangle.Tangle]
-	optsTotalWeightCallback func() int64
-	optsValidators          *sybilprotection.WeightedSet
-
-	*TangleTestFramework
 }
 
-func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t *TestFramework) {
-	return options.Apply(&TestFramework{
-		test: test,
-		optsTotalWeightCallback: func() int64 {
-			return t.TangleTestFramework.Validators.TotalWeight()
-		},
-	}, opts, func(t *TestFramework) {
-		if t.optsValidators == nil {
-			t.optsValidators = sybilprotection.NewWeightedSet(sybilprotection.NewWeights(mapdb.NewMapDB()))
-		}
+func NewTestFramework(test *testing.T, gadget *Gadget, tangleTF *tangle.TestFramework) *TestFramework {
+	t := &TestFramework{
+		test:          test,
+		Gadget:        gadget,
+		Tangle:        tangleTF,
+		VirtualVoting: tangleTF.VirtualVoting,
+		Booker:        tangleTF.Booker,
+		Ledger:        tangleTF.Ledger,
+		BlockDAG:      tangleTF.BlockDAG,
+		Votes:         tangleTF.Votes,
+	}
 
-		if t.Gadget == nil {
-			if t.optsTangle == nil {
-				storageInstance := storage.New(test.TempDir(), 1)
-				test.Cleanup(func() {
-					t.optsLedger.Shutdown()
-					storageInstance.Shutdown()
-				})
+	t.setupEvents()
+	return t
+}
 
-				if t.optsLedger == nil {
-					t.optsLedger = ledger.New(storageInstance, t.optsLedgerOptions...)
-				}
+func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, optsGadget ...options.Option[Gadget]) *TestFramework {
+	tangleTF := tangle.NewDefaultTestFramework(t, workers.CreateGroup("TangleTestFramework"),
+		tangle.WithBookerOptions(
+			booker.WithMarkerManagerOptions(
+				markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(3)),
+			),
+		),
+	)
 
-				if t.optsEvictionState == nil {
-					t.optsEvictionState = eviction.NewState(storageInstance)
-				}
-
-				t.optsTangle = tangle.New(t.optsLedger, t.optsEvictionState, t.optsValidators, func() epoch.Index {
-					return 0
-				}, func(id markers.SequenceID) markers.Index {
-					return 1
-				}, t.optsTangleOptions...)
-			}
-
-			t.Gadget = New(t.optsTangle, t.optsEvictionState, t.optsTotalWeightCallback, t.optsGadgetOptions...)
-		}
-
-		if t.TangleTestFramework == nil {
-			t.TangleTestFramework = tangle.NewTestFramework(test, tangle.WithTangle(t.optsTangle), tangle.WithValidators(t.optsValidators))
-		}
-	}, (*TestFramework).setupEvents)
+	return NewTestFramework(t,
+		New(workers.CreateGroup("BlockGadget"),
+			tangleTF.Instance,
+			tangleTF.BlockDAG.Instance.EvictionState,
+			tangleTF.Votes.Validators.TotalWeight,
+			optsGadget...,
+		),
+		tangleTF,
+	)
 }
 
 func (t *TestFramework) setupEvents() {
-	t.Gadget.Events.BlockAccepted.Hook(event.NewClosure(func(metadata *Block) {
+	event.Hook(t.Gadget.Events.BlockAccepted, func(metadata *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("ACCEPTED: %s", metadata.ID())
 		}
 
 		atomic.AddUint32(&(t.acceptedBlocks), 1)
-	}))
+	})
 
-	t.Gadget.Events.BlockConfirmed.Hook(event.NewClosure(func(metadata *Block) {
+	event.Hook(t.Gadget.Events.BlockConfirmed, func(metadata *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("CONFIRMED: %s", metadata.ID())
 		}
 
 		atomic.AddUint32(&(t.confirmedBlocks), 1)
-	}))
+	})
 
-	t.Gadget.Events.Reorg.Hook(event.NewClosure(func(conflictID utxo.TransactionID) {
+	event.Hook(t.Gadget.Events.Reorg, func(conflictID utxo.TransactionID) {
 		if debug.GetEnabled() {
 			t.test.Logf("REORG NEEDED: %s", conflictID)
 		}
 		atomic.AddUint32(&(t.reorgCount), 1)
-	}))
+	})
 
-	t.ConflictDAG().Events.ConflictAccepted.Hook(event.NewClosure(func(conflictID utxo.TransactionID) {
+	event.Hook(t.Tangle.VirtualVoting.ConflictDAG.Instance.Events.ConflictAccepted, func(conflictID utxo.TransactionID) {
 		if debug.GetEnabled() {
 			t.test.Logf("CONFLICT ACCEPTED: %s", conflictID)
 		}
 		atomic.AddUint32(&(t.conflictsAccepted), 1)
-	}))
+	})
 
-	t.ConflictDAG().Events.ConflictRejected.Hook(event.NewClosure(func(conflictID utxo.TransactionID) {
+	event.Hook(t.Tangle.VirtualVoting.ConflictDAG.Instance.Events.ConflictRejected, func(conflictID utxo.TransactionID) {
 		if debug.GetEnabled() {
 			t.test.Logf("CONFLICT REJECTED: %s", conflictID)
 		}
 
 		atomic.AddUint32(&(t.conflictsRejected), 1)
-	}))
+	})
 }
 
 func (t *TestFramework) AssertBlockAccepted(blocksAccepted uint32) {
@@ -154,14 +144,14 @@ func (t *TestFramework) AssertReorgs(reorgCount uint32) {
 
 func (t *TestFramework) ValidateAcceptedBlocks(expectedAcceptedBlocks map[string]bool) {
 	for blockID, blockExpectedAccepted := range expectedAcceptedBlocks {
-		actualBlockAccepted := t.Gadget.IsBlockAccepted(t.Block(blockID).ID())
+		actualBlockAccepted := t.Gadget.IsBlockAccepted(t.Tangle.BlockDAG.Block(blockID).ID())
 		require.Equal(t.test, blockExpectedAccepted, actualBlockAccepted, "Block %s should be accepted=%t but is %t", blockID, blockExpectedAccepted, actualBlockAccepted)
 	}
 }
 
 func (t *TestFramework) ValidateConfirmedBlocks(expectedConfirmedBlocks map[string]bool) {
 	for blockID, blockExpectedConfirmed := range expectedConfirmedBlocks {
-		actualBlockConfirmed := t.Gadget.isBlockConfirmed(t.Block(blockID).ID())
+		actualBlockConfirmed := t.Gadget.isBlockConfirmed(t.Tangle.BlockDAG.Block(blockID).ID())
 		require.Equal(t.test, blockExpectedConfirmed, actualBlockConfirmed, "Block %s should be confirmed=%t but is %t", blockID, blockExpectedConfirmed, actualBlockConfirmed)
 	}
 }
@@ -175,74 +165,8 @@ func (t *TestFramework) ValidateAcceptedMarker(expectedConflictIDs map[markers.M
 
 func (t *TestFramework) ValidateConflictAcceptance(expectedConflictIDs map[string]confirmation.State) {
 	for conflictIDAlias, conflictExpectedState := range expectedConflictIDs {
-		actualMarkerAccepted := t.ConflictDAG().ConfirmationState(set.NewAdvancedSet(t.Transaction(conflictIDAlias).ID()))
+		actualMarkerAccepted := t.Tangle.VirtualVoting.ConflictDAG.Instance.ConfirmationState(set.NewAdvancedSet(t.Tangle.Ledger.Transaction(conflictIDAlias).ID()))
 		require.Equal(t.test, conflictExpectedState, actualMarkerAccepted, "%s should be accepted=%t but is %t", conflictIDAlias, conflictExpectedState, actualMarkerAccepted)
-	}
-}
-
-type TangleTestFramework = tangle.TestFramework
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
-
-func WithGadget(gadget *Gadget) options.Option[TestFramework] {
-	return func(tf *TestFramework) {
-		tf.Gadget = gadget
-	}
-}
-
-func WithTotalWeightCallback(totalWeightCallback func() int64) options.Option[TestFramework] {
-	return func(tf *TestFramework) {
-		tf.optsTotalWeightCallback = totalWeightCallback
-	}
-}
-
-func WithGadgetOptions(opts ...options.Option[Gadget]) options.Option[TestFramework] {
-	return func(tf *TestFramework) {
-		tf.optsGadgetOptions = opts
-	}
-}
-
-func WithTangle(tangle *tangle.Tangle) options.Option[TestFramework] {
-	return func(tf *TestFramework) {
-		tf.optsTangle = tangle
-	}
-}
-
-func WithTangleOptions(opts ...options.Option[tangle.Tangle]) options.Option[TestFramework] {
-	return func(tf *TestFramework) {
-		tf.optsTangleOptions = opts
-	}
-}
-
-func WithTangleTestFramework(testFramework *tangle.TestFramework) options.Option[TestFramework] {
-	return func(tf *TestFramework) {
-		tf.TangleTestFramework = testFramework
-	}
-}
-
-func WithLedger(ledger *ledger.Ledger) options.Option[TestFramework] {
-	return func(tf *TestFramework) {
-		tf.optsLedger = ledger
-	}
-}
-
-func WithLedgerOptions(opts ...options.Option[ledger.Ledger]) options.Option[TestFramework] {
-	return func(tf *TestFramework) {
-		tf.optsLedgerOptions = opts
-	}
-}
-
-func WithEvictionState(evictionState *eviction.State) options.Option[TestFramework] {
-	return func(t *TestFramework) {
-		t.optsEvictionState = evictionState
-	}
-}
-
-func WithValidators(validators *sybilprotection.WeightedSet) options.Option[TestFramework] {
-	return func(t *TestFramework) {
-		t.optsValidators = validators
 	}
 }
 

@@ -5,10 +5,11 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/labstack/echo"
+
 	"github.com/iotaledger/hive.go/core/daemon"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/workerpool"
-	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"

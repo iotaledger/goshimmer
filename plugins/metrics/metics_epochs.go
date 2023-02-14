@@ -120,7 +120,7 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 		collector.WithHelp("Number of transactions by the node per epoch."),
 		collector.WithInitFunc(func() {
 			deps.Protocol.Events.Engine.Ledger.TransactionBooked.Attach(event.NewClosure(func(bookedEvent *ledger.TransactionBookedEvent) {
-				eventEpoch := int(epoch.IndexFromTime(deps.Protocol.Engine().Tangle.GetEarliestAttachment(bookedEvent.TransactionID).IssuingTime()))
+				eventEpoch := int(epoch.IndexFromTime(deps.Protocol.Engine().Tangle.Booker.GetEarliestAttachment(bookedEvent.TransactionID).IssuingTime()))
 				deps.Collector.Increment(epochNamespace, totalTransactions, strconv.Itoa(eventEpoch))
 			}))
 		}),
@@ -131,7 +131,7 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 		collector.WithHelp("Number of transactions by the node per epoch."),
 		collector.WithInitFunc(func() {
 			deps.Protocol.Events.Engine.Ledger.TransactionInvalid.Attach(event.NewClosure(func(invalidEvent *ledger.TransactionInvalidEvent) {
-				eventEpoch := int(epoch.IndexFromTime(deps.Protocol.Engine().Tangle.GetEarliestAttachment(invalidEvent.TransactionID).IssuingTime()))
+				eventEpoch := int(epoch.IndexFromTime(deps.Protocol.Engine().Tangle.Booker.GetEarliestAttachment(invalidEvent.TransactionID).IssuingTime()))
 				deps.Collector.Increment(epochNamespace, invalidTransactions, strconv.Itoa(eventEpoch))
 			}))
 		}),
@@ -165,7 +165,7 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 		collector.WithInitFunc(func() {
 			// TODO: iterate through all atachments
 			deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictCreated.Attach(event.NewClosure(func(conflictCreated *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
-				eventEpoch := int(epoch.IndexFromTime(deps.Protocol.Engine().Tangle.GetEarliestAttachment(conflictCreated.ID).IssuingTime()))
+				eventEpoch := int(epoch.IndexFromTime(deps.Protocol.Engine().Tangle.Booker.GetEarliestAttachment(conflictCreated.ID).IssuingTime()))
 				deps.Collector.Increment(epochNamespace, createdConflicts, strconv.Itoa(eventEpoch))
 			}))
 		}),
@@ -177,7 +177,7 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 		collector.WithInitFunc(func() {
 			// TODO: iterate through all atachments
 			deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictAccepted.Attach(event.NewClosure(func(conflictID utxo.TransactionID) {
-				eventEpoch := int(epoch.IndexFromTime(deps.Protocol.Engine().Tangle.GetEarliestAttachment(conflictID).IssuingTime()))
+				eventEpoch := int(epoch.IndexFromTime(deps.Protocol.Engine().Tangle.Booker.GetEarliestAttachment(conflictID).IssuingTime()))
 				deps.Collector.Increment(epochNamespace, acceptedConflicts, strconv.Itoa(eventEpoch))
 			}))
 		}),
@@ -189,7 +189,7 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 		collector.WithInitFunc(func() {
 			// TODO: iterate through all atachments
 			deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictRejected.Attach(event.NewClosure(func(conflictID utxo.TransactionID) {
-				eventEpoch := int(epoch.IndexFromTime(deps.Protocol.Engine().Tangle.GetEarliestAttachment(conflictID).IssuingTime()))
+				eventEpoch := int(epoch.IndexFromTime(deps.Protocol.Engine().Tangle.Booker.GetEarliestAttachment(conflictID).IssuingTime()))
 				deps.Collector.Increment(epochNamespace, rejectedConflicts, strconv.Itoa(eventEpoch))
 			}))
 		}),

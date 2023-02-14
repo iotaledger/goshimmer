@@ -4,6 +4,8 @@ import (
 	"context"
 	"sync"
 
+	"github.com/pkg/errors"
+
 	"github.com/iotaledger/hive.go/core/generics/event"
 	typedkvstore "github.com/iotaledger/hive.go/core/generics/kvstore"
 	"github.com/iotaledger/hive.go/core/generics/lo"
@@ -11,7 +13,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/kvstore"
-	"github.com/pkg/errors"
+	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/storable"
@@ -30,6 +32,7 @@ const (
 // ThroughputQuota is the manager that tracks the throughput quota of identities according to mana1 (delegated pledge).
 type ThroughputQuota struct {
 	engine              *engine.Engine
+	workers             *workerpool.Group
 	quotaByIDStorage    *typedkvstore.TypedStore[identity.ID, storable.SerializableInt64, *identity.ID, *storable.SerializableInt64]
 	quotaByIDCache      *shrinkingmap.ShrinkingMap[identity.ID, int64]
 	quotaByIDMutex      sync.RWMutex // TODO: replace this lock with DAG mutex so each entity is individually locked
@@ -47,6 +50,7 @@ func New(engineInstance *engine.Engine, opts ...options.Option[ThroughputQuota])
 		BatchCommittable:    traits.NewBatchCommittable(engineInstance.Storage.ThroughputQuota(), PrefixLastCommittedEpoch),
 		Initializable:       traits.NewInitializable(),
 		engine:              engineInstance,
+		workers:             engineInstance.Workers.CreateGroup("ThroughputQuota"),
 		totalBalanceStorage: engineInstance.Storage.ThroughputQuota(PrefixTotalBalance),
 		quotaByIDStorage:    typedkvstore.NewTypedStore[identity.ID, storable.SerializableInt64](engineInstance.Storage.ThroughputQuota(PrefixQuotasByID)),
 		quotaByIDCache:      shrinkingmap.New[identity.ID, int64](),
@@ -179,7 +183,8 @@ func (m *ThroughputQuota) init() {
 
 	m.TriggerInitialized()
 
-	m.engine.Ledger.Events.TransactionAccepted.Attach(event.NewClosure(func(event *ledger.TransactionEvent) {
+	wp := m.workers.CreatePool("ThroughputQuota", 2)
+	event.AttachWithWorkerPool(m.engine.Ledger.Events.TransactionAccepted, func(event *ledger.TransactionEvent) {
 		m.quotaByIDMutex.Lock()
 		defer m.quotaByIDMutex.Unlock()
 		for _, createdOutput := range event.CreatedOutputs {
@@ -193,9 +198,8 @@ func (m *ThroughputQuota) init() {
 				panic(spentOutputErr)
 			}
 		}
-	}))
-
-	m.engine.Ledger.Events.TransactionOrphaned.Attach(event.NewClosure(func(event *ledger.TransactionEvent) {
+	}, wp)
+	event.AttachWithWorkerPool(m.engine.Ledger.Events.TransactionOrphaned, func(event *ledger.TransactionEvent) {
 		m.quotaByIDMutex.Lock()
 		defer m.quotaByIDMutex.Unlock()
 
@@ -210,7 +214,7 @@ func (m *ThroughputQuota) init() {
 				panic(createdOutputErr)
 			}
 		}
-	}))
+	}, wp)
 }
 
 func (m *ThroughputQuota) updateMana(id identity.ID, diff int64) {

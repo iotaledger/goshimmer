@@ -4,11 +4,12 @@ import (
 	"encoding/binary"
 	"io"
 
+	"github.com/pkg/errors"
+
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/iotaledger/hive.go/core/marshalutil"
 	"github.com/iotaledger/hive.go/core/syncutils"
-	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/ads"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -59,7 +60,7 @@ func (a *Attestations) Add(attestation *Attestation) (added bool, err error) {
 	}
 
 	epochStorage := a.cachedAttestations.Get(epochIndex, true)
-	issuerStorage, _ := epochStorage.RetrieveOrCreate(attestation.IssuerID, memstorage.New[models.BlockID, *Attestation])
+	issuerStorage, _ := epochStorage.RetrieveOrCreate(attestation.IssuerID(), memstorage.New[models.BlockID, *Attestation])
 
 	return issuerStorage.Set(attestation.ID(), attestation), nil
 }
@@ -79,7 +80,7 @@ func (a *Attestations) Delete(attestation *Attestation) (deleted bool, err error
 		return false, nil
 	}
 
-	issuerStorage, exists := epochStorage.Get(attestation.IssuerID)
+	issuerStorage, exists := epochStorage.Get(attestation.IssuerID())
 	if !exists {
 		return false, nil
 	}
@@ -152,7 +153,7 @@ func (a *Attestations) Import(reader io.ReadSeeker) (err error) {
 			return errors.Wrapf(err, "failed to read attestation %d", i)
 		}
 
-		attestations.Set(importedAttestation.IssuerID, importedAttestation)
+		attestations.Set(importedAttestation.IssuerID(), importedAttestation)
 
 		return
 	}); err != nil {

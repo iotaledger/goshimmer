@@ -4,28 +4,26 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/iotaledger/hive.go/core/generics/options"
-
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
 type TestFramework struct {
-	conflictDAG *ConflictDAG[utxo.TransactionID, utxo.OutputID]
-
 	t *testing.T
+
+	Instance *ConflictDAG[utxo.TransactionID, utxo.OutputID]
 
 	conflictIDsByAlias map[string]utxo.TransactionID
 	resourceByAlias    map[string]utxo.OutputID
 }
 
 // NewTestFramework is the constructor of the TestFramework.
-func NewTestFramework(t *testing.T, opts ...options.Option[TestFramework]) (newFramework *TestFramework) {
-	return options.Apply(&TestFramework{
+func NewTestFramework(t *testing.T, conflictDAGInstance *ConflictDAG[utxo.TransactionID, utxo.OutputID]) *TestFramework {
+	return &TestFramework{
+		t:                  t,
+		Instance:           conflictDAGInstance,
 		conflictIDsByAlias: make(map[string]utxo.TransactionID),
 		resourceByAlias:    make(map[string]utxo.OutputID),
-
-		t: t,
-	}, opts)
+	}
 }
 
 func (t *TestFramework) randomConflictID() (randomConflictID utxo.TransactionID) {
@@ -53,7 +51,7 @@ func (t *TestFramework) CreateConflict(conflictSetAlias, conflictAlias string, p
 	t.conflictIDsByAlias[conflictAlias] = t.randomConflictID()
 	t.conflictIDsByAlias[conflictAlias].RegisterAlias(conflictAlias)
 
-	t.ConflictDAG().CreateConflict(t.conflictIDsByAlias[conflictAlias], parentConflictIDs, t.ConflictSetIDs(conflictSetAlias))
+	t.Instance.CreateConflict(t.conflictIDsByAlias[conflictAlias], parentConflictIDs, t.ConflictSetIDs(conflictSetAlias))
 }
 
 func (t *TestFramework) ConflictID(alias string) (conflictID utxo.TransactionID) {
@@ -90,21 +88,4 @@ func (t *TestFramework) ConflictSetIDs(aliases ...string) (conflictSetIDs utxo.O
 	}
 
 	return
-}
-
-func (t *TestFramework) ConflictDAG() (booker *ConflictDAG[utxo.TransactionID, utxo.OutputID]) {
-	if t.conflictDAG == nil {
-		t.conflictDAG = New[utxo.TransactionID, utxo.OutputID]()
-	}
-
-	return t.conflictDAG
-}
-
-func WithConflictDAG(conflictDAG *ConflictDAG[utxo.TransactionID, utxo.OutputID]) options.Option[TestFramework] {
-	return func(tf *TestFramework) {
-		if tf.conflictDAG != nil {
-			panic("conflict DAG already set")
-		}
-		tf.conflictDAG = conflictDAG
-	}
 }

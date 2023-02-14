@@ -5,12 +5,15 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/stretchr/testify/require"
+	"github.com/iotaledger/hive.go/core/workerpool"
 
+	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
@@ -21,7 +24,7 @@ import (
 // TestFramework implements a framework for conveniently issuing blocks in a BlockDAG as part of unit tests in a
 // simplified way.
 type TestFramework struct {
-	BlockDAG *BlockDAG
+	Instance *BlockDAG
 
 	test                *testing.T
 	evictionState       *eviction.State
@@ -32,34 +35,46 @@ type TestFramework struct {
 	orphanedBlocks      models.BlockIDs
 	orphanedBlocksMutex sync.Mutex
 
-	optsBlockDAG []options.Option[BlockDAG]
+	workers    *workerpool.Group
+	workerPool *workerpool.UnboundedWorkerPool
 
 	*ModelsTestFramework
 }
 
+func NewTestStorage(t *testing.T, workers *workerpool.Group, opts ...options.Option[database.Manager]) *storage.Storage {
+	s := storage.New(t.TempDir(), 1, opts...)
+	t.Cleanup(func() {
+		workers.Wait()
+		s.Shutdown()
+	})
+	return s
+}
+
+func NewTestBlockDAG(t *testing.T, workers *workerpool.Group, evictionState *eviction.State, optsBlockDAG ...options.Option[BlockDAG]) *BlockDAG {
+	require.NotNil(t, evictionState)
+	return New(workers, evictionState, optsBlockDAG...)
+}
+
 // NewTestFramework is the constructor of the TestFramework.
-func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (newTestFramework *TestFramework) {
-	return options.Apply(&TestFramework{
+func NewTestFramework(test *testing.T, workers *workerpool.Group, blockDAG *BlockDAG) *TestFramework {
+	t := &TestFramework{
 		test:           test,
+		workers:        workers,
+		Instance:       blockDAG,
 		orphanedBlocks: models.NewBlockIDs(),
-	}, opts, func(t *TestFramework) {
-		if t.BlockDAG == nil {
-			storageInstance := storage.New(test.TempDir(), 1)
-			test.Cleanup(func() {
-				storageInstance.Shutdown()
-			})
+		workerPool:     workers.CreatePool("IssueBlocks", 2),
+	}
+	t.ModelsTestFramework = models.NewTestFramework(
+		models.WithBlock("Genesis", models.NewEmptyBlock(models.EmptyBlockID)),
+	)
 
-			if t.evictionState == nil {
-				t.evictionState = eviction.NewState(storageInstance)
-			}
+	t.setupEvents()
 
-			t.BlockDAG = New(t.evictionState, t.optsBlockDAG...)
-		}
+	return t
+}
 
-		t.ModelsTestFramework = models.NewTestFramework(
-			models.WithBlock("Genesis", models.NewEmptyBlock(models.EmptyBlockID)),
-		)
-	}, (*TestFramework).setupEvents)
+func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, optsBlockDAG ...options.Option[BlockDAG]) *TestFramework {
+	return NewTestFramework(t, workers.CreateGroup("BlockDAGTestFramework"), NewTestBlockDAG(t, workers.CreateGroup("BlockDAG"), eviction.NewState(NewTestStorage(t, workers)), optsBlockDAG...))
 }
 
 // IssueBlocks stores the given Blocks in the Storage and triggers the processing by the BlockDAG.
@@ -67,17 +82,13 @@ func (t *TestFramework) IssueBlocks(blockAliases ...string) *TestFramework {
 	for _, alias := range blockAliases {
 		currentBlock := t.ModelsTestFramework.Block(alias)
 
-		event.Loop.Submit(func() {
-			_, _, _ = t.BlockDAG.Attach(currentBlock)
+		t.workerPool.Submit(func() {
+			_, _, _ = t.Instance.Attach(currentBlock)
 		})
 	}
 
-	return t
-}
+	t.workers.WaitAll()
 
-// WaitUntilAllTasksProcessed waits until all tasks are processed.
-func (t *TestFramework) WaitUntilAllTasksProcessed() (self *TestFramework) {
-	event.Loop.PendingTasksCounter.WaitIsZero()
 	return t
 }
 
@@ -129,11 +140,14 @@ func (t *TestFramework) AssertStoredCount(storedCount int32, msgAndArgs ...inter
 }
 
 func (t *TestFramework) AssertOrphanedCount(storedCount int32, msgAndArgs ...interface{}) {
+	t.orphanedBlocksMutex.Lock()
+	defer t.orphanedBlocksMutex.Unlock()
+
 	require.EqualValues(t.test, storedCount, len(t.orphanedBlocks), msgAndArgs...)
 }
 
 func (t *TestFramework) AssertBlock(alias string, callback func(block *Block)) {
-	block, exists := t.BlockDAG.Block(t.Block(alias).ID())
+	block, exists := t.Instance.Block(t.Block(alias).ID())
 	require.True(t.test, exists, "Block %s not found", alias)
 	callback(block)
 }
@@ -163,42 +177,42 @@ func (t *TestFramework) AssertLikedInsteadChildren(m map[string][]string) {
 }
 
 func (t *TestFramework) setupEvents() {
-	t.BlockDAG.Events.BlockSolid.Hook(event.NewClosure(func(metadata *Block) {
+	event.Hook(t.Instance.Events.BlockSolid, func(metadata *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("SOLID: %s", metadata.ID())
 		}
 		atomic.AddInt32(&(t.solidBlocks), 1)
-	}))
+	})
 
-	t.BlockDAG.Events.BlockMissing.Hook(event.NewClosure(func(metadata *Block) {
+	event.Hook(t.Instance.Events.BlockMissing, func(metadata *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("MISSING: %s", metadata.ID())
 		}
 		atomic.AddInt32(&(t.missingBlocks), 1)
-	}))
+	})
 
-	t.BlockDAG.Events.MissingBlockAttached.Hook(event.NewClosure(func(metadata *Block) {
+	event.Hook(t.Instance.Events.MissingBlockAttached, func(metadata *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("MISSING BLOCK STORED: %s", metadata.ID())
 		}
 		atomic.AddInt32(&(t.missingBlocks), -1)
-	}))
+	})
 
-	t.BlockDAG.Events.BlockInvalid.Hook(event.NewClosure(func(event *BlockInvalidEvent) {
+	event.Hook(t.Instance.Events.BlockInvalid, func(event *BlockInvalidEvent) {
 		if debug.GetEnabled() {
 			t.test.Logf("INVALID: %s (%s)", event.Block.ID(), event.Reason)
 		}
 		atomic.AddInt32(&(t.invalidBlocks), 1)
-	}))
+	})
 
-	t.BlockDAG.Events.BlockAttached.Hook(event.NewClosure(func(metadata *Block) {
+	event.Hook(t.Instance.Events.BlockAttached, func(metadata *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("ATTACHED: %s", metadata.ID())
 		}
 		atomic.AddInt32(&(t.attachedBlocks), 1)
-	}))
+	})
 
-	t.BlockDAG.Events.BlockOrphaned.Hook(event.NewClosure(func(metadata *Block) {
+	event.Hook(t.Instance.Events.BlockOrphaned, func(metadata *Block) {
 		t.orphanedBlocksMutex.Lock()
 		defer t.orphanedBlocksMutex.Unlock()
 
@@ -207,9 +221,9 @@ func (t *TestFramework) setupEvents() {
 		}
 
 		t.orphanedBlocks.Add(metadata.ID())
-	}))
+	})
 
-	t.BlockDAG.Events.BlockUnorphaned.Hook(event.NewClosure(func(metadata *Block) {
+	event.Hook(t.Instance.Events.BlockUnorphaned, func(metadata *Block) {
 		t.orphanedBlocksMutex.Lock()
 		defer t.orphanedBlocksMutex.Unlock()
 
@@ -218,35 +232,10 @@ func (t *TestFramework) setupEvents() {
 		}
 
 		t.orphanedBlocks.Remove(metadata.ID())
-	}))
+	})
 }
 
 // ModelsTestFramework is an alias that it is used to be able to embed a named version of the TestFramework.
 type ModelsTestFramework = models.TestFramework
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// WithEvictionState returns an option that sets the eviction state of the TestFramework.
-func WithEvictionState(evictionState *eviction.State) options.Option[TestFramework] {
-	return func(t *TestFramework) {
-		t.evictionState = evictionState
-	}
-}
-
-// WithBlockDAGOptions returns an option that sets the BlockDAGOptions of the TestFramework.
-func WithBlockDAGOptions(opts ...options.Option[BlockDAG]) options.Option[TestFramework] {
-	return func(t *TestFramework) {
-		t.optsBlockDAG = opts
-	}
-}
-
-// WithBlockDAG returns an option that allows you to provide a BlockDAG instance to the TestFramework.
-func WithBlockDAG(blockDAG *BlockDAG) options.Option[TestFramework] {
-	return func(t *TestFramework) {
-		t.BlockDAG = blockDAG
-	}
-}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
