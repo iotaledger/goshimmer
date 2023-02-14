@@ -16,9 +16,6 @@ services:
         soft: 8192
         hard: 8192
     command: >
-      --analysis.dashboard.bindAddress=0.0.0.0:9000
-      --analysis.dashboard.dev=false
-      --analysis.server.bindAddress=0.0.0.0:1888
       --autoPeering.entryNodes=
       --node.seed=base58:DyXtTNRpXRxsu8WDEjk5CCBXQ96bdsofmXiHbGtFTkh5
       --node.overwriteStoredSeed=true
@@ -26,7 +23,7 @@ services:
       --database.directory=/app/db
       --protocol.snapshot.path=./snapshot.bin
       --node.peerDBDirectory=/app/peerdb
-      --node.disablePlugins=portcheck,ManaInitializer,RemoteLog,AnalysisClient
+      --node.disablePlugins=portcheck,ManaInitializer,RemoteLog
       --node.enablePlugins=metrics,spammer,WebAPIToolsBlockEndpoint,activity
       --metrics.bindAddress=0.0.0.0:9311
       --metrics.processMetrics=true
@@ -44,10 +41,7 @@ services:
       - "8080:8080/tcp" # web API
       - "8081:8081/tcp" # dashboard
       - "8061:8061/tcp" # dags visualizer
-      - "9000:9000/tcp" # analysis dashboard
       - "6081:6061/tcp" # pprof
-    expose:
-      - 1888/tcp # analysis server
     networks:
       - shimmer
   faucet:
@@ -68,7 +62,7 @@ services:
       --database.directory=/app/db
       --protocol.snapshot.path=./snapshot.bin
       --node.peerDBDirectory=/app/peerdb
-      --node.disablePlugins=portcheck,ManaInitializer,RemoteLog,AnalysisClient
+      --node.disablePlugins=portcheck,ManaInitializer,RemoteLog
       --node.enablePlugins=metrics,spammer,WebAPIToolsBlockEndpoint,activity,faucet
       --metrics.bindAddress=0.0.0.0:9311
       --metrics.processMetrics=true
@@ -107,7 +101,7 @@ services:
       --database.directory=/app/db
       --protocol.snapshot.path=./snapshot.bin
       --node.peerDBDirectory=/app/peerdb
-      --node.disablePlugins=portcheck,ManaInitializer,RemoteLog,AnalysisClient
+      --node.disablePlugins=portcheck,ManaInitializer,RemoteLog
       --node.enablePlugins=metrics,spammer,WebAPIToolsBlockEndpoint,activity
       --metrics.bindAddress=0.0.0.0:9311
       --metrics.processMetrics=true
@@ -145,7 +139,7 @@ services:
       --database.directory=/app/db
       --protocol.snapshot.path=./snapshot.bin
       --node.peerDBDirectory=/app/peerdb
-      --node.disablePlugins=portcheck,ManaInitializer,RemoteLog,AnalysisClient
+      --node.disablePlugins=portcheck,ManaInitializer,RemoteLog
       --node.enablePlugins=metrics,spammer,WebAPIToolsBlockEndpoint,activity
       --metrics.bindAddress=0.0.0.0:9311
       --metrics.processMetrics=true
@@ -182,7 +176,7 @@ services:
       --database.directory=/app/db
       --protocol.snapshot.path=./snapshot.bin
       --node.peerDBDirectory=/app/peerdb
-      --node.disablePlugins=portcheck,ManaInitializer,RemoteLog,AnalysisClient
+      --node.disablePlugins=portcheck,ManaInitializer,RemoteLog
       --node.enablePlugins=metrics,spammer,WebAPIToolsBlockEndpoint,activity
       --metrics.bindAddress=0.0.0.0:9311
       --metrics.processMetrics=true
@@ -219,7 +213,7 @@ services:
       --database.directory=/app/db
       --protocol.snapshot.path=./snapshot.bin
       --node.peerDBDirectory=/app/peerdb
-      --node.disablePlugins=portcheck,ManaInitializer,RemoteLog,AnalysisClient
+      --node.disablePlugins=portcheck,ManaInitializer,RemoteLog
       --node.enablePlugins=metrics,spammer,WebAPIToolsBlockEndpoint,activity
       --metrics.bindAddress=0.0.0.0:9311
       --metrics.processMetrics=true
@@ -256,7 +250,7 @@ services:
       --database.directory=/app/db
       --protocol.snapshot.path=./snapshot.bin
       --node.peerDBDirectory=/app/peerdb
-      --node.disablePlugins=portcheck,ManaInitializer,RemoteLog,AnalysisClient
+      --node.disablePlugins=portcheck,ManaInitializer,RemoteLog
       --node.enablePlugins=metrics,spammer,WebAPIToolsBlockEndpoint,activity
       --metrics.bindAddress=0.0.0.0:9311
       --metrics.processMetrics=true
@@ -293,7 +287,7 @@ services:
       --database.directory=/app/db
       --protocol.snapshot.path=./snapshot.bin
       --node.peerDBDirectory=/app/peerdb
-      --node.disablePlugins=portcheck,ManaInitializer,RemoteLog,AnalysisClient
+      --node.disablePlugins=portcheck,ManaInitializer,RemoteLog
       --node.enablePlugins=metrics,spammer,WebAPIToolsBlockEndpoint,activity
       --metrics.bindAddress=0.0.0.0:9311
       --metrics.processMetrics=true

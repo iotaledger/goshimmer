@@ -121,7 +121,7 @@ func run(*node.Plugin) {
 	runConflictLiveFeed()
 
 	log.Infof("Starting %s ...", PluginName)
-	if err := daemon.BackgroundWorker(PluginName, worker, shutdown.PriorityAnalysis); err != nil {
+	if err := daemon.BackgroundWorker(PluginName, worker, shutdown.PriorityProfiling); err != nil {
 		log.Panicf("Error starting as daemon: %s", err)
 	}
 }

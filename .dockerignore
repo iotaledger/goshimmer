@@ -17,7 +17,6 @@ tools/
 mainnetdb/
 
 plugins/dashboard/frontend/node_modules/
-plugins/analysis/dashboard/frontend/node_modules/
 plugins/dagsvisualizer/frontend/node_modules/
 documentation/
 images/

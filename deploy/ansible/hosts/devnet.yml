@@ -39,7 +39,6 @@ goshimmers:
         public-node-03.devnet.shimmer.iota.cafe:
 
   vars:
-    analysisServerHost: "analysisentry-01.devnet.shimmer.iota.cafe"
     entryNodeHost: "analysisentry-01.devnet.shimmer.iota.cafe"
     entryNodePubKey: "2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj"
     bootstrapNodePubKey: "Gm7W191NDnqyF7KJycZqK7V6ENLwqxTwoKQN4SmpkB24"
