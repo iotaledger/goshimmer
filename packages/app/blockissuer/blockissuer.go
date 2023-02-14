@@ -74,6 +74,7 @@ func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opt
 }
 
 func (i *BlockIssuer) setupEvents() {
+	i.Factory.Events.Error.Attach(event.NewClosure(i.Events.Error.Trigger))
 }
 
 // IssuePayload creates a new block including sequence number and tip selection, submits it to be processed and returns it.
@@ -137,7 +138,6 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeBooked(block *models.Block, max
 	defer i.protocol.Events.Engine.Tangle.Booker.BlockBooked.Detach(closure)
 
 	err := i.issueBlock(block)
-
 	if err != nil {
 		return errors.Wrapf(err, "failed to issue block %s", block.ID().String())
 	}
@@ -175,7 +175,6 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeScheduled(block *models.Block, 
 	defer i.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Detach(closure)
 
 	err := i.issueBlock(block)
-
 	if err != nil {
 		return errors.Wrapf(err, "failed to issue block %s", block.ID().String())
 	}
@@ -197,6 +196,7 @@ func WithBlockFactoryOptions(blockFactoryOptions ...options.Option[blockfactory.
 		issuer.optsBlockFactoryOptions = blockFactoryOptions
 	}
 }
+
 func WithRateSetter(rateSetter ratesetter.RateSetter) options.Option[BlockIssuer] {
 	return func(issuer *BlockIssuer) {
 		issuer.RateSetter = rateSetter
