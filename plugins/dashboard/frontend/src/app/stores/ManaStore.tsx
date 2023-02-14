@@ -153,12 +153,12 @@ export class ManaStore {
         registerHandler(WSMsgType.Mana, this.addNewManaValue);
         registerHandler(WSMsgType.ManaMapOverall, this.updateNetworkRichest);
         registerHandler(WSMsgType.ManaMapOnline, this.updateActiveRichest);
-        registerHandler(WSMsgType.ManaAllowedPledge, this.updateAllowedPledgeIDs);
-        registerHandler(WSMsgType.ManaInitPledge, this.addNewInitPledge);
-        registerHandler(WSMsgType.ManaInitRevoke, this.addNewInitRevoke);
-        registerHandler(WSMsgType.ManaInitDone, this.initDone);
-        registerHandler(WSMsgType.ManaPledge, this.addNewPledge);
-        registerHandler(WSMsgType.ManaRevoke, this.addNewRevoke);
+        // registerHandler(WSMsgType.ManaAllowedPledge, this.updateAllowedPledgeIDs);
+        // registerHandler(WSMsgType.ManaInitPledge, this.addNewInitPledge);
+        // registerHandler(WSMsgType.ManaInitRevoke, this.addNewInitRevoke);
+        // registerHandler(WSMsgType.ManaInitDone, this.initDone);
+        // registerHandler(WSMsgType.ManaPledge, this.addNewPledge);
+        // registerHandler(WSMsgType.ManaRevoke, this.addNewRevoke);
     };
 
     @action
