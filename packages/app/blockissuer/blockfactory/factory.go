@@ -85,16 +85,16 @@ func (f *Factory) createBlockWithPayload(p payload.Payload, references models.Pa
 		return nil, errors.Errorf("maximum payload size of %d bytes exceeded", payloadLen)
 	}
 
-	epochCommitment, lastConfirmedEpochIndex, err := f.commitmentFunc()
-	if err != nil {
-		return nil, errors.Wrap(err, "cannot retrieve epoch commitment")
-	}
-
 	if references.IsEmpty() {
 		references, err = f.tryGetReferences(p, strongParentsCount)
 		if err != nil {
 			return nil, errors.Wrap(err, "error while trying to get references")
 		}
+	}
+
+	epochCommitment, lastConfirmedEpochIndex, err := f.commitmentFunc()
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot retrieve epoch commitment")
 	}
 
 	block := models.NewBlock(
