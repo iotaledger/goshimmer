@@ -231,6 +231,9 @@ func (b *Booker) block(id models.BlockID) (block *Block, exists bool) {
 }
 
 func (b *Booker) book(block *Block) (err error) {
+	b.bookingMutex.Lock(block.ID())
+	defer b.bookingMutex.Unlock(block.ID())
+
 	// TODO: make sure this is actually necessary
 	if block.IsInvalid() {
 		return errors.Errorf("block with %s was marked as invalid", block.ID())
@@ -266,8 +269,6 @@ func (b *Booker) markInvalid(block *Block, reason error) {
 func (b *Booker) inheritConflictIDs(block *Block) (err error) {
 	b.bookingMutex.RLock(block.Parents()...)
 	defer b.bookingMutex.RUnlock(block.Parents()...)
-	b.bookingMutex.Lock(block.ID())
-	defer b.bookingMutex.Unlock(block.ID())
 
 	parentsStructureDetails, pastMarkersConflictIDs, inheritedConflictIDs, err := b.determineBookingDetails(block)
 	if err != nil {
@@ -499,34 +500,42 @@ func (b *Booker) PropagateForkedConflict(transactionID, addedConflictID utxo.Tra
 
 	for blockWalker.HasNext() {
 		block := blockWalker.Next()
-
-		updated, propagateFurther, forkErr := b.propagateForkedConflict(block, addedConflictID, removedConflictIDs)
-		if forkErr != nil {
+		propagateFurther, propagationErr := b.propagateToBlock(block, addedConflictID, removedConflictIDs)
+		if propagationErr != nil {
 			blockWalker.StopWalk()
-			return errors.Wrapf(forkErr, "failed to propagate forked ConflictID %s to future cone of %s", addedConflictID, block.ID())
+			return errors.Wrapf(propagationErr, "failed to propagate forked ConflictID %s to future cone of %s", addedConflictID, block.ID())
 		}
-		if !updated {
-			continue
-		}
-
-		b.Events.BlockConflictAdded.Trigger(&BlockConflictAddedEvent{
-			Block:             block,
-			ConflictID:        addedConflictID,
-			ParentConflictIDs: removedConflictIDs,
-		})
-
 		if propagateFurther {
 			// TODO: inherit weak and liked as well
 			blockWalker.PushAll(b.blocksFromBlockDAGBlocks(block.StrongChildren())...)
 		}
 	}
+
 	return nil
 }
 
-func (b *Booker) propagateForkedConflict(block *Block, addedConflictID utxo.TransactionID, removedConflictIDs utxo.TransactionIDs) (propagated, propagateFurther bool, err error) {
+func (b *Booker) propagateToBlock(block *Block, addedConflictID utxo.TransactionID, removedConflictIDs utxo.TransactionIDs) (propagateFurther bool, err error) {
 	b.bookingMutex.Lock(block.ID())
 	defer b.bookingMutex.Unlock(block.ID())
 
+	updated, propagateFurther, forkErr := b.propagateForkedConflict(block, addedConflictID, removedConflictIDs)
+	if forkErr != nil {
+		return false, errors.Wrapf(forkErr, "failed to propagate forked ConflictID %s to future cone of %s", addedConflictID, block.ID())
+	}
+	if !updated {
+		return false, nil
+	}
+
+	b.Events.BlockConflictAdded.Trigger(&BlockConflictAddedEvent{
+		Block:             block,
+		ConflictID:        addedConflictID,
+		ParentConflictIDs: removedConflictIDs,
+	})
+
+	return true, nil
+}
+
+func (b *Booker) propagateForkedConflict(block *Block, addedConflictID utxo.TransactionID, removedConflictIDs utxo.TransactionIDs) (propagated, propagateFurther bool, err error) {
 	if !block.IsBooked() {
 		return false, false, nil
 	}
