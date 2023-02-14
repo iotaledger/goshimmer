@@ -482,8 +482,6 @@ func (b *Booker) OrphanAttachment(block *Block) {
 
 // PropagateForkedConflict propagates the forked ConflictID to the future cone of the attachments of the given Transaction.
 func (b *Booker) PropagateForkedConflict(transactionID, addedConflictID utxo.TransactionID, removedConflictIDs utxo.TransactionIDs) (err error) {
-	fmt.Println(">> PropagateForkedConflict tx", transactionID, "added conflictID", addedConflictID)
-
 	blockWalker := walker.New[*Block]()
 
 	for it := b.GetAllAttachments(transactionID).Iterator(); it.HasNext(); {
@@ -546,7 +544,6 @@ func (b *Booker) propagateForkedConflict(block *Block, addedConflictID utxo.Tran
 	// 	return true, false, nil
 	// }
 
-	fmt.Println(">> propagating forked conflict to block future cone of block", addedConflictID, block.ID())
 	propagated = b.updateBlockConflicts(block, addedConflictID, removedConflictIDs)
 	// We only need to propagate further (in the block's future cone) if the block was updated.
 	return propagated, propagated, nil
@@ -556,13 +553,11 @@ func (b *Booker) updateBlockConflicts(block *Block, addedConflict utxo.Transacti
 	_, conflictIDs := b.blockBookingDetails(block)
 
 	if !conflictIDs.HasAll(parentConflicts) {
-		fmt.Println(">> updateBlockConflicts - block ", block.ID(), "supports ", conflictIDs.Size(), "parentConflicts", parentConflicts)
 		return false
 	}
 
 	updated = block.AddConflictID(addedConflict)
 
-	fmt.Println(">> updateBlockConflicts - block ", block.ID(), "supports ", conflictIDs.Size(), "updated", updated)
 	return updated
 }
 
@@ -585,24 +580,20 @@ func (b *Booker) propagateForkedTransactionToMarkerFutureCone(marker markers.Mar
 // forkSingleMarker propagates a newly created ConflictID to a single marker and queues the next elements that need to be
 // visited.
 func (b *Booker) forkSingleMarker(currentMarker markers.Marker, newConflictID utxo.TransactionID, removedConflictIDs utxo.TransactionIDs, markerWalker *walker.Walker[markers.Marker]) (err error) {
-	fmt.Println(">> forkSingleMarker", lo.Return1(b.markerManager.BlockFromMarker(currentMarker)).ID(), currentMarker, newConflictID, removedConflictIDs)
 	b.markerManager.SequenceMutex.Lock(currentMarker.SequenceID())
 	defer b.markerManager.SequenceMutex.Unlock(currentMarker.SequenceID())
 
 	// update ConflictID mapping
 	newConflictIDs := b.markerManager.ConflictIDs(currentMarker)
 	if !newConflictIDs.HasAll(removedConflictIDs) {
-		fmt.Println("\t HasAll")
 		return nil
 	}
 
 	if !newConflictIDs.Add(newConflictID) {
-		fmt.Println("\t Add")
 		return nil
 	}
 
 	if !b.markerManager.SetConflictIDs(currentMarker, newConflictIDs) {
-		fmt.Println("\t SetConflictIDs")
 		return nil
 	}
 

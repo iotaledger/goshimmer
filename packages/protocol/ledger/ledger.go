@@ -2,7 +2,6 @@ package ledger
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -201,12 +200,10 @@ func (l *Ledger) triggerAcceptedEvent(txMetadata *TransactionMetadata) (triggere
 	defer l.mutex.Unlock(txMetadata.ID())
 
 	if !l.ConflictDAG.ConfirmationState(txMetadata.ConflictIDs()).IsAccepted() {
-		fmt.Println("trigger accepted skipped, conflicts not accepted", txMetadata.ID())
 		return false
 	}
 
 	if txMetadata.InclusionEpoch() == 0 {
-		fmt.Println("trigger accepted skipped, inclusion epoch 0", txMetadata.ID())
 		return false
 	}
 
@@ -233,11 +230,9 @@ func (l *Ledger) triggerAcceptedEvent(txMetadata *TransactionMetadata) (triggere
 	if !txMetadata.SetConfirmationState(confirmation.Accepted) {
 		// ... but if the conflict we are propagating is ourselves, we still want to walk the UTXO future cone.
 		if txMetadata.ConflictIDs().Has(txMetadata.ID()) {
-			fmt.Println("trigger accepted skipped, conflict is self", txMetadata.ID())
 			return true
 		}
 
-		fmt.Println("trigger accepted skipped, accepted before", txMetadata.ID())
 		return false
 	}
 

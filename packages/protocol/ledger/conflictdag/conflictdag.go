@@ -1,8 +1,6 @@
 package conflictdag
 
 import (
-	"fmt"
-
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/generics/walker"
@@ -95,7 +93,6 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) CreateConflict(id Conflict
 	})
 
 	if created {
-		fmt.Println(">> Conflict created ", conflict.ID())
 		c.Events.ConflictCreated.Trigger(conflict)
 	}
 

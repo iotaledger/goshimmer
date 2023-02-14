@@ -161,7 +161,6 @@ func (o *VirtualVoting) track(block *Block) (tracked bool) {
 
 	if _, invalid := o.conflictTracker.TrackVote(blockConflicts, block.IssuerID(), votePower); invalid {
 		block.SetSubjectivelyInvalid(true)
-		fmt.Println("block invalid", block.ID())
 		return true
 	}
 	o.sequenceTracker.TrackVotes(block.StructureDetails().PastMarkers(), block.IssuerID(), votePower)
@@ -218,15 +217,8 @@ func (o *VirtualVoting) processForkedBlock(bookerBlock *booker.Block, forkedConf
 	// when booking.
 	block, exists := o.Block(bookerBlock.ID())
 	if !exists || block.IsSubjectivelyInvalid() {
-		if exists {
-			fmt.Println("Block is subjectively invalid", block.ID())
-		} else {
-			fmt.Println("Block doesn't exist", bookerBlock.ID())
-		}
 		return
 	}
-
-	fmt.Println("processing forked block", forkedConflictID, block.IssuerID(), block.ID(), block.IssuingTime())
 
 	o.conflictTracker.AddSupportToForkedConflict(forkedConflictID, parentConflictIDs, block.IssuerID(), votePower)
 }
@@ -235,8 +227,6 @@ func (o *VirtualVoting) processForkedBlock(bookerBlock *booker.Block, forkedConf
 func (o *VirtualVoting) processForkedMarker(marker markers.Marker, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
 	fmt.Println("Begin processing forked marker", marker)
 	for voterID, votePower := range o.sequenceTracker.VotersWithPower(marker) {
-		fmt.Println("processing forked marker", forkedConflictID, voterID, marker, votePower.blockID, votePower.time)
-
 		o.conflictTracker.AddSupportToForkedConflict(forkedConflictID, parentConflictIDs, voterID, votePower)
 	}
 }

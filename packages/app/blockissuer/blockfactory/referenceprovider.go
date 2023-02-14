@@ -1,7 +1,6 @@
 package blockfactory
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
@@ -89,7 +88,6 @@ func (r *ReferenceProvider) referencesToMissingConflicts(amount int) (blockIDs m
 		attachment, err := r.latestValidAttachment(conflictID)
 		if attachment == nil || err != nil {
 			// panic("first attachment should be valid")
-			fmt.Println(">> ++ latestValidAttachment failed adjust opinion", err)
 			continue
 		}
 
@@ -101,11 +99,9 @@ func (r *ReferenceProvider) referencesToMissingConflicts(amount int) (blockIDs m
 
 		// Check commitment monotonicity for the attachment.
 		if attachment.Commitment().Index() > r.protocol.Engine().Storage.Settings.LatestCommitment().Index() {
-			fmt.Println(">> ++ commitment for attachment not monotonic")
 			continue
 		}
 
-		fmt.Printf(">> ++ rescued %s via %s\n", conflictID, attachment.ID())
 		blockIDs.Add(attachment.ID())
 	}
 
@@ -166,7 +162,6 @@ func (r *ReferenceProvider) addedReferencesForBlock(blockID models.BlockID, excl
 	var err error
 	if addedReferences, err = r.addedReferencesForConflicts(blockConflicts, excludedConflictIDs); err != nil {
 		// Delete the tip if we could not pick it up.
-		fmt.Println(">> addedReferencesForConflicts failed adjust opinion", err)
 		if schedulerBlock, schedulerBlockExists := r.protocol.CongestionControl.Scheduler().Block(blockID); schedulerBlockExists {
 			r.protocol.TipManager.DeleteTip(schedulerBlock)
 		}
@@ -234,7 +229,6 @@ func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, exclude
 	attachment, err := r.latestValidAttachment(likedConflictID)
 	// TODO: make sure that timestamp monotonicity is held
 	if err != nil {
-		fmt.Println(">> ++ latestValidAttachment failed adjust opinion", err)
 		return false, models.EmptyBlockID, err
 	}
 

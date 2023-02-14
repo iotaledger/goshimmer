@@ -170,9 +170,8 @@ func (a *attachments) getLatestAttachment(txID utxo.TransactionID, returnOrphane
 			})
 			return true
 		})
-	} else {
-		fmt.Println("\t>> storage nil", txID)
 	}
+
 	return
 }
 
