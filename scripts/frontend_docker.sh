@@ -13,7 +13,7 @@ docker run -it --rm \
     -v $(pwd):/tmp/mnt \
     -e YARN_CACHE_FOLDER=/tmp/ \
     -e HOME=/tmp/ \
-    -w /tmp/mnt/plugins/dashboard/frontend node:12.16 bash -c "yarn install && yarn build"
+    -w /tmp/mnt/plugins/dashboard/frontend node:14.0 bash -c "yarn install && yarn build"
 
 echo "::: Building /plugins/analysis/dashboard/frontend :::"
 rm -rf plugins/analysis/dashboard/frontend/build
