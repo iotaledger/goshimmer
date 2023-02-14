@@ -62,8 +62,8 @@ func New(booker *booker.Booker, validators *sybilprotection.WeightedSet, opts ..
 	}, (*VirtualVoting).setupEvents)
 }
 
-func (o *VirtualVoting) Track(block *Block) {
-	if o.track(block) {
+func (o *VirtualVoting) Track(block *Block, conflictIDs utxo.TransactionIDs) {
+	if o.track(block, conflictIDs) {
 		o.Events.BlockTracked.Trigger(block)
 	}
 }
@@ -132,8 +132,8 @@ func (o *VirtualVoting) ConflictVotersTotalWeight(conflictID utxo.TransactionID)
 }
 
 func (o *VirtualVoting) setupEvents() {
-	o.Booker.Events.BlockBooked.Hook(event.NewClosure(func(block *booker.Block) {
-		o.Track(NewBlock(block))
+	o.Booker.Events.BlockBooked.Hook(event.NewClosure(func(evt *booker.BlockBookedEvent) {
+		o.Track(NewBlock(evt.Block), evt.ConflictIDs)
 	}))
 
 	o.Booker.Events.BlockConflictAdded.Hook(event.NewClosure(func(event *booker.BlockConflictAddedEvent) {
@@ -146,7 +146,7 @@ func (o *VirtualVoting) setupEvents() {
 	o.EvictionState.Events.EpochEvicted.Hook(event.NewClosure(o.evictEpoch))
 }
 
-func (o *VirtualVoting) track(block *Block) (tracked bool) {
+func (o *VirtualVoting) track(block *Block, conflictIDs utxo.TransactionIDs) (tracked bool) {
 	o.evictionMutex.RLock()
 	defer o.evictionMutex.RUnlock()
 
@@ -157,9 +157,8 @@ func (o *VirtualVoting) track(block *Block) (tracked bool) {
 	o.blocks.Get(block.ID().Index(), true).Set(block.ID(), block)
 
 	votePower := NewBlockVotePower(block.ID(), block.IssuingTime())
-	blockConflicts := o.Booker.BlockConflicts(block.Block)
 
-	if _, invalid := o.conflictTracker.TrackVote(blockConflicts, block.IssuerID(), votePower); invalid {
+	if _, invalid := o.conflictTracker.TrackVote(conflictIDs, block.IssuerID(), votePower); invalid {
 		block.SetSubjectivelyInvalid(true)
 		return true
 	}

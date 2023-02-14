@@ -71,14 +71,14 @@ func registerTangleEvents() {
 		storeWsBlock(wsBlk)
 	})
 
-	bookedClosure := event.NewClosure(func(block *booker.Block) {
-		conflictIDs := deps.Protocol.Engine().Tangle.BlockConflicts(block)
+	bookedClosure := event.NewClosure(func(evt *booker.BlockBookedEvent) {
+		conflictIDs := deps.Protocol.Engine().Tangle.BlockConflicts(evt.Block)
 
 		wsBlk := &wsBlock{
 			Type: BlkTypeTangleBooked,
 			Data: &tangleBooked{
-				ID:          block.ID().Base58(),
-				IsMarker:    block.StructureDetails().IsPastMarker(),
+				ID:          evt.Block.ID().Base58(),
+				IsMarker:    evt.Block.StructureDetails().IsPastMarker(),
 				ConflictIDs: lo.Map(conflictIDs.Slice(), utxo.TransactionID.Base58),
 			},
 		}
@@ -132,9 +132,9 @@ func registerUTXOEvents() {
 		}
 	})
 
-	bookedClosure := event.NewClosure(func(block *booker.Block) {
-		if block.Payload().Type() == devnetvm.TransactionType {
-			tx := block.Payload().(*devnetvm.Transaction)
+	bookedClosure := event.NewClosure(func(evt *booker.BlockBookedEvent) {
+		if evt.Block.Payload().Type() == devnetvm.TransactionType {
+			tx := evt.Block.Payload().(*devnetvm.Transaction)
 			deps.Protocol.Engine().Ledger.Storage.CachedTransactionMetadata(tx.ID()).Consume(func(txMetadata *ledger.TransactionMetadata) {
 				wsBlk := &wsBlock{
 					Type: BlkTypeUTXOBooked,

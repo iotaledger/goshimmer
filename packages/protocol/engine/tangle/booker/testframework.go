@@ -98,9 +98,9 @@ func (t *TestFramework) AssertBlockConflictsUpdateCount(blockConflictsUpdateCoun
 }
 
 func (t *TestFramework) setupEvents() {
-	t.Booker.Events.BlockBooked.Hook(event.NewClosure(func(metadata *Block) {
+	t.Booker.Events.BlockBooked.Hook(event.NewClosure(func(evt *BlockBookedEvent) {
 		if debug.GetEnabled() {
-			t.test.Logf("BOOKED: %v, %v", metadata.ID(), metadata.StructureDetails().PastMarkers())
+			t.test.Logf("BOOKED: %v, %v", evt.Block.ID(), evt.Block.StructureDetails().PastMarkers())
 		}
 
 		atomic.AddInt32(&(t.bookedBlocks), 1)

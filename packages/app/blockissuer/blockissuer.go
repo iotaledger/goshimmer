@@ -125,12 +125,12 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeBooked(block *models.Block, max
 	exit := make(chan struct{})
 	defer close(exit)
 
-	closure := event.NewClosure(func(bookedBlock *booker.Block) {
-		if block.ID() != bookedBlock.ID() {
+	closure := event.NewClosure(func(evt *booker.BlockBookedEvent) {
+		if block.ID() != evt.Block.ID() {
 			return
 		}
 		select {
-		case booked <- bookedBlock:
+		case booked <- evt.Block:
 		case <-exit:
 		}
 	})

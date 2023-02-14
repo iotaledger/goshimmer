@@ -50,7 +50,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 			t.Manager = New(t.optsIsBlockAcceptedFunc, t.TestFramework.Tangle, t.optsTSCManager...)
 		}
 
-		t.TestFramework.Tangle.Booker.Events.BlockBooked.Attach(event.NewClosure(t.Manager.AddBlock))
+		t.TestFramework.Tangle.Booker.Events.BlockBooked.Attach(event.NewClosure(func(evt *booker.BlockBookedEvent) {t.Manager.AddBlock(evt.Block)}))
 	})
 }
 

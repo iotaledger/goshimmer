@@ -93,7 +93,7 @@ var TangleMetrics = collector.NewCollection(tangleNamespace,
 			deps.Protocol.Events.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
 				deps.Collector.Increment(tangleNamespace, blocksPerComponentCount, collector.Scheduled.String())
 			}))
-			deps.Protocol.Events.Engine.Tangle.Booker.BlockBooked.Attach(event.NewClosure(func(block *booker.Block) {
+			deps.Protocol.Events.Engine.Tangle.Booker.BlockBooked.Attach(event.NewClosure(func(_ *booker.BlockBookedEvent) {
 				deps.Collector.Increment(tangleNamespace, blocksPerComponentCount, collector.Booked.String())
 			}))
 			deps.Protocol.Events.CongestionControl.Scheduler.BlockDropped.Attach(event.NewClosure(func(block *scheduler.Block) {

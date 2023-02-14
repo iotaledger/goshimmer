@@ -228,7 +228,7 @@ func (b *Booker) block(id models.BlockID) (block *Block, exists bool) {
 	return storage.Get(id)
 }
 
-func (b *Booker) book(block *Block) (err error) {
+func (b *Booker) book(block *Block) (inheritingErr error) {
 	b.bookingMutex.Lock(block.ID())
 	defer b.bookingMutex.Unlock(block.ID())
 
@@ -237,25 +237,30 @@ func (b *Booker) book(block *Block) (err error) {
 		return errors.Errorf("block with %s was marked as invalid", block.ID())
 	}
 
-	tryInheritConflictIDs := func() error {
+	tryInheritConflictIDs := func() (inheritedConflictIDs utxo.TransactionIDs, err error) {
 		b.evictionMutex.RLock()
 		defer b.evictionMutex.RUnlock()
 
 		if b.EvictionState.InEvictedEpoch(block.ID()) {
-			return errors.Errorf("block with %s belongs to an evicted epoch", block.ID())
+			return nil, errors.Errorf("block with %s belongs to an evicted epoch", block.ID())
 		}
 
-		if err := b.inheritConflictIDs(block); err != nil {
-			return errors.Wrap(err, "error inheriting conflict IDs")
+		if inheritedConflictIDs, err = b.inheritConflictIDs(block); err != nil {
+			return nil, errors.Wrap(err, "error inheriting conflict IDs")
 		}
-		return nil
+
+		return
 	}
 
-	if err := tryInheritConflictIDs(); err != nil {
-		return err
+	inheritedConflitIDs, inheritingErr := tryInheritConflictIDs()
+	if inheritingErr != nil {
+		return inheritingErr
 	}
 
-	b.Events.BlockBooked.Trigger(block)
+	b.Events.BlockBooked.Trigger(&BlockBookedEvent{
+		Block:       block,
+		ConflictIDs: inheritedConflitIDs,
+	})
 
 	return nil
 }
@@ -264,13 +269,13 @@ func (b *Booker) markInvalid(block *Block, reason error) {
 	b.SetInvalid(block.Block, reason)
 }
 
-func (b *Booker) inheritConflictIDs(block *Block) (err error) {
+func (b *Booker) inheritConflictIDs(block *Block) (inheritedConflictIDs utxo.TransactionIDs, err error) {
 	b.bookingMutex.RLock(block.Parents()...)
 	defer b.bookingMutex.RUnlock(block.Parents()...)
 
 	parentsStructureDetails, pastMarkersConflictIDs, inheritedConflictIDs, err := b.determineBookingDetails(block)
 	if err != nil {
-		return errors.Wrap(err, "failed to inherit conflict IDs")
+		return nil, errors.Wrap(err, "failed to inherit conflict IDs")
 	}
 
 	newStructureDetails := b.markerManager.ProcessBlock(block, parentsStructureDetails, inheritedConflictIDs)

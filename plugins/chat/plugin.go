@@ -43,7 +43,7 @@ type dependencies struct {
 }
 
 func configure(_ *node.Plugin) {
-	deps.Protocol.Events.Engine.Tangle.Booker.BlockBooked.Attach(event.NewClosure(onReceiveBlockFromBlockLayer))
+	deps.Protocol.Events.Engine.Tangle.Booker.BlockBooked.Attach(event.NewClosure(func(evt *booker.BlockBookedEvent) { onReceiveBlockFromBlockLayer(evt.Block) }))
 	configureWebAPI()
 }
 
