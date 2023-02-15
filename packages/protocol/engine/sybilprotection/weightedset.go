@@ -9,21 +9,20 @@ import (
 )
 
 type WeightedSet struct {
-	Weights              *Weights
-	weightUpdatesClosure *event.Closure[*WeightsBatch]
-	members              *set.AdvancedSet[identity.ID]
-	membersMutex         sync.RWMutex
-	totalWeight          int64
-	totalWeightMutex     sync.RWMutex
+	Weights             *Weights
+	weightUpdatesDetach func()
+	members             *set.AdvancedSet[identity.ID]
+	membersMutex        sync.RWMutex
+	totalWeight         int64
+	totalWeightMutex    sync.RWMutex
 }
 
 func NewWeightedSet(weights *Weights, optMembers ...identity.ID) (newWeightedSet *WeightedSet) {
 	newWeightedSet = new(WeightedSet)
 	newWeightedSet.Weights = weights
-	newWeightedSet.weightUpdatesClosure = event.NewClosure(newWeightedSet.onWeightUpdated)
 	newWeightedSet.members = set.NewAdvancedSet[identity.ID]()
 
-	weights.Events.WeightsUpdated.Attach(newWeightedSet.weightUpdatesClosure)
+	newWeightedSet.weightUpdatesDetach = event.Hook(weights.Events.WeightsUpdated, newWeightedSet.onWeightUpdated)
 
 	for _, member := range optMembers {
 		newWeightedSet.Add(member)
@@ -38,6 +37,9 @@ func (w *WeightedSet) Add(id identity.ID) (added bool) {
 
 	w.membersMutex.Lock()
 	defer w.membersMutex.Unlock()
+
+	w.totalWeightMutex.Lock()
+	defer w.totalWeightMutex.Unlock()
 
 	if added = w.members.Add(id); added {
 		if weight, exists := w.Weights.get(id); exists {
@@ -54,6 +56,9 @@ func (w *WeightedSet) Delete(id identity.ID) (removed bool) {
 
 	w.membersMutex.Lock()
 	defer w.membersMutex.Unlock()
+
+	w.totalWeightMutex.Lock()
+	defer w.totalWeightMutex.Unlock()
 
 	if removed = w.members.Delete(id); removed {
 		if weight, exists := w.Weights.get(id); exists {
@@ -127,7 +132,7 @@ func (w *WeightedSet) Members() *set.AdvancedSet[identity.ID] {
 }
 
 func (w *WeightedSet) Detach() {
-	w.Weights.Events.WeightsUpdated.Detach(w.weightUpdatesClosure)
+	w.weightUpdatesDetach()
 }
 
 func (w *WeightedSet) onWeightUpdated(updates *WeightsBatch) {

@@ -1,16 +1,4 @@
 {
-  "analysis": {
-    "client": {
-      "serverAddress": "analysisentry-01.devnet.shimmer.iota.cafe:21888"
-    },
-    "server": {
-      "bindAddress": "0.0.0.0:16178"
-    },
-    "dashboard": {
-      "bindAddress": "0.0.0.0:8000",
-      "dev": false
-    }
-  },
   "autoPeering": {
     "entryNodes": [
       "2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj@analysisentry-01.devnet.shimmer.iota.cafe:15626",
@@ -87,11 +75,5 @@
       "username": "goshimmer",
       "password": "goshimmer"
     }
-  },
-  "broadcast": {
-    "bindAddress": "127.0.0.1:5050"
-  },
-  "networkdelay": {
-    "originPublicKey": "9DB3j9cWYSuEEtkvanrzqkzCQMdH1FGv3TawJdVbDxkd"
   }
 }

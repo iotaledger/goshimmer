@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/walker"
 	"github.com/iotaledger/hive.go/core/syncutils"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
+	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -38,6 +39,8 @@ type Ledger struct {
 
 	// ConflictDAG is a reference to the ConflictDAG that is used by this Ledger.
 	ConflictDAG *conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID]
+
+	workerPool *workerpool.UnboundedWorkerPool
 
 	// dataFlow is a Ledger component that defines the data flow (how the different commands are chained together)
 	dataFlow *dataFlow
@@ -80,11 +83,11 @@ type Ledger struct {
 }
 
 // New returns a new Ledger from the given optionsLedger.
-func New(chainStorage *storage.Storage, evictionState *eviction.State, opts ...options.Option[Ledger]) (ledger *Ledger) {
+func New(workerPool *workerpool.UnboundedWorkerPool, chainStorage *storage.Storage, evictionState *eviction.State, opts ...options.Option[Ledger]) (ledger *Ledger) {
 	ledger = options.Apply(&Ledger{
-		Events:       NewEvents(),
-		ChainStorage: chainStorage,
-
+		Events:                          NewEvents(),
+		ChainStorage:                    chainStorage,
+		workerPool:                      workerPool,
 		optsCacheTimeProvider:           database.NewCacheTimeProvider(0),
 		optsVM:                          NewMockedVM(),
 		optsTransactionCacheTime:        10 * time.Second,
@@ -105,19 +108,16 @@ func New(chainStorage *storage.Storage, evictionState *eviction.State, opts ...o
 	ledger.dataFlow = newDataFlow(ledger)
 	ledger.Utils = newUtils(ledger)
 
-	ledger.ConflictDAG.Events.ConflictAccepted.Attach(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	event.AttachWithWorkerPool(ledger.ConflictDAG.Events.ConflictAccepted, func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		ledger.propagateAcceptanceToIncludedTransactions(conflict.ID())
-	}))
-
-	ledger.ConflictDAG.Events.ConflictRejected.Attach(event.NewClosure(ledger.propagatedRejectionToTransactions))
-
-	ledger.Events.TransactionBooked.Hook(event.NewClosure(func(event *TransactionBookedEvent) {
+	}, workerPool)
+	event.AttachWithWorkerPool(ledger.ConflictDAG.Events.ConflictRejected, ledger.propagatedRejectionToTransactions, workerPool)
+	event.AttachWithWorkerPool(ledger.Events.TransactionBooked, func(event *TransactionBookedEvent) {
 		ledger.processConsumingTransactions(event.Outputs.IDs())
-	}))
-
-	ledger.Events.TransactionInvalid.Hook(event.NewClosure(func(event *TransactionInvalidEvent) {
+	}, workerPool)
+	event.Hook(ledger.Events.TransactionInvalid, func(event *TransactionInvalidEvent) {
 		ledger.PruneTransaction(event.TransactionID, true)
-	}))
+	})
 
 	return ledger
 }
@@ -170,6 +170,7 @@ func (l *Ledger) PruneTransaction(txID utxo.TransactionID, pruneFutureCone bool)
 
 // Shutdown shuts down the stateful elements of the Ledger (the Storage and the ConflictDAG).
 func (l *Ledger) Shutdown() {
+	l.workerPool.PendingTasksCounter.WaitIsZero()
 	l.Storage.Shutdown()
 }
 
@@ -186,10 +187,8 @@ func (l *Ledger) processTransaction(tx utxo.Transaction) (err error) {
 func (l *Ledger) processConsumingTransactions(outputIDs utxo.OutputIDs) {
 	for it := l.Utils.UnprocessedConsumingTransactions(outputIDs).Iterator(); it.HasNext(); {
 		txID := it.Next()
-		event.Loop.Submit(func() {
-			l.Storage.CachedTransaction(txID).Consume(func(tx utxo.Transaction) {
-				_ = l.processTransaction(tx)
-			})
+		l.Storage.CachedTransaction(txID).Consume(func(tx utxo.Transaction) {
+			_ = l.processTransaction(tx)
 		})
 	}
 }

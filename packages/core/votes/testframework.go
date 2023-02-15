@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
 
@@ -21,12 +20,12 @@ type TestFramework struct {
 }
 
 // NewTestFramework is the constructor of the TestFramework.
-func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (newTestFramework *TestFramework) {
-	return options.Apply(&TestFramework{
+func NewTestFramework(test *testing.T, validators *sybilprotection.WeightedSet) *TestFramework {
+	return &TestFramework{
 		test:              test,
-		Validators:        nil,
+		Validators:        validators,
 		validatorsByAlias: make(map[string]identity.ID),
-	}, opts)
+	}
 }
 
 func (t *TestFramework) CreateValidator(alias string, weight int64) {
@@ -59,16 +58,6 @@ func (t *TestFramework) ValidatorsSet(aliases ...string) (validators *set.Advanc
 	}
 
 	return
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
-
-func WithValidators(validators *sybilprotection.WeightedSet) options.Option[TestFramework] {
-	return func(tf *TestFramework) {
-		tf.Validators = validators
-	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

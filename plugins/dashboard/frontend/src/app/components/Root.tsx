@@ -15,7 +15,6 @@ import {ExplorerAddressQueryResult} from "app/components/ExplorerAddressResult";
 import {Explorer404} from "app/components/Explorer404";
 import {Neighbors} from "app/components/Neighbors";
 import {Visualizer} from "app/components/Visualizer";
-import {Chat} from "app/components/Chat";
 import {Conflicts} from "app/components/Conflicts";
 import {Tips} from "app/components/Tips";
 import {Mana} from "app/components/Mana";
@@ -81,11 +80,6 @@ export class Root extends React.Component<Props, any> {
                                 Tips
                             </Nav.Link>
                         </LinkContainer>
-                        <LinkContainer to="/chat">
-                            <Nav.Link>
-                                Chat
-                            </Nav.Link>
-                        </LinkContainer>
                     </Nav>
                     <Navbar.Collapse className="justify-content-end">
                         <NavExplorerSearchbar/>
@@ -105,7 +99,6 @@ export class Root extends React.Component<Props, any> {
                     <Route exact path="/explorer/output/:id" component={ExplorerOutputQueryResult}/>
                     <Route exact path="/explorer/conflict/:id" component={ExplorerConflictQueryResult}/>
                     <Route exact path="/explorer/404/:search" component={Explorer404}/>
-                    <Route exact path="/chat" component={Chat}/>
                     <Route exact path="/conflicts" component={Conflicts}/>
                     <Route exact path="/tips" component={Tips}/>
                     <Route exact path="/explorer" component={Explorer}/>

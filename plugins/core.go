@@ -45,7 +45,6 @@ var Core = node.Plugins(
 	retainer.Plugin,
 	indexer.Plugin,
 	warpsync.Plugin,
-	// firewall.Plugin,
 	faucet.Plugin,
 	dashboardmetrics.Plugin,
 	metrics.Plugin,

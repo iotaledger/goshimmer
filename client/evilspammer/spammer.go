@@ -224,7 +224,6 @@ func (s *Spammer) PostTransaction(tx *devnetvm.Transaction, clt evilwallet.Clien
 }
 
 func (s *Spammer) handleSolidityForReuseOutputs(clt evilwallet.Client, tx *devnetvm.Transaction) (ok bool) {
-	ok = true
 	ok = s.EvilWallet.AwaitInputsSolidity(tx.Essence().Inputs(), clt)
 	if s.EvilScenario.OutputWallet.Type() == evilwallet.Reuse {
 		s.EvilWallet.AddReuseOutputsToThePool(tx.Essence().Outputs())

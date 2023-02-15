@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync/atomic"
 
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
 
@@ -18,7 +19,7 @@ type TestFramework struct {
 }
 
 // NewTestFramework is the constructor of the TestFramework.
-func NewTestFramework(opts ...options.Option[TestFramework]) (newTestFramework *TestFramework) {
+func NewTestFramework(opts ...options.Option[TestFramework]) *TestFramework {
 	return options.Apply(&TestFramework{
 		blocksByAlias: make(map[string]*Block),
 	}, opts)
@@ -34,6 +35,32 @@ func (t *TestFramework) CreateBlock(alias string, opts ...options.Option[Block])
 
 	if block.ParentsCountByType(StrongParentType) == 0 {
 		block.M.Parents.Add(StrongParentType, EmptyBlockID)
+	}
+
+	if err := block.DetermineID(); err != nil {
+		panic(err)
+	}
+	block.ID().RegisterAlias(alias)
+
+	t.blocksByAlias[alias] = block
+
+	return
+}
+
+// CreateAndSignBlock creates a Block with the given alias and BlockTestFrameworkBlockOptions and signs it with the given keyPair.
+func (t *TestFramework) CreateAndSignBlock(alias string, keyPair *ed25519.KeyPair, opts ...options.Option[Block]) (block *Block) {
+	block = NewBlock(opts...)
+
+	if block.SequenceNumber() == 0 {
+		block.M.SequenceNumber = t.increaseSequenceNumber()
+	}
+
+	if block.ParentsCountByType(StrongParentType) == 0 {
+		block.M.Parents.Add(StrongParentType, EmptyBlockID)
+	}
+
+	if err := block.Sign(keyPair); err != nil {
+		panic(err)
 	}
 
 	if err := block.DetermineID(); err != nil {

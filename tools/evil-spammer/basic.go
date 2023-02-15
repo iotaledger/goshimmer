@@ -47,42 +47,42 @@ func CustomSpam(params *CustomSpamParams) {
 		switch spamType {
 		case "blk":
 			wg.Add(1)
-			go func() {
+			go func(i int) {
 				defer wg.Done()
 				s := SpamBlocks(wallet, params.Rates[i], params.TimeUnit, params.Durations[i], params.BlkToBeSent[i], params.EnableRateSetter)
 				if s == nil {
 					return
 				}
 				s.Spam()
-			}()
+			}(i)
 		case "tx":
 			wg.Add(1)
-			go func() {
+			go func(i int) {
 				defer wg.Done()
 				SpamTransaction(wallet, params.Rates[i], params.TimeUnit, params.Durations[i], params.DeepSpam, params.EnableRateSetter)
-			}()
+			}(i)
 		// case "ds":
 		//	wg.Add(1)
-		//	go func() {
+		//	go func(i int) {
 		//		defer wg.Done()
 		//		SpamDoubleSpends(wallet, params.Rates[i], params.BlkToBeSent[i], params.TimeUnit, params.Durations[i], params.DelayBetweenConflicts, params.DeepSpam, params.EnableRateSetter)
-		//	}()
+		//	}(i)
 		// case "nds":
 		//	wg.Add(1)
-		//	go func() {
+		//	go func(i int) {
 		//		defer wg.Done()
 		//		SpamNDoubleSpends(wallet, params.Rates[i], params.NSpend, params.TimeUnit, params.Durations[i], params.DelayBetweenConflicts, params.DeepSpam, params.EnableRateSetter)
-		//	}()
+		//	}(i)
 		case "custom":
 			wg.Add(1)
-			go func() {
+			go func(i int) {
 				defer wg.Done()
 				s := SpamNestedConflicts(wallet, params.Rates[i], params.TimeUnit, params.Durations[i], params.Scenario, params.DeepSpam, false, params.EnableRateSetter)
 				if s == nil {
 					return
 				}
 				s.Spam()
-			}()
+			}(i)
 
 		default:
 			log.Warn("Spamming type not recognized. Try one of following: tx, ds, blk")
@@ -180,7 +180,7 @@ func SpamNDoubleSpends(wallet *evilwallet.EvilWallet, rate, nSpend int, timeUnit
 	spammer.Spam()
 }
 
-func SpamNestedConflicts(wallet *evilwallet.EvilWallet, rate int, timeUnit, duration time.Duration, conflictBatch evilwallet.EvilBatch, deepSpam, reuseOutputs, enableRateSetter bool) (spammer *evilspammer.Spammer) {
+func SpamNestedConflicts(wallet *evilwallet.EvilWallet, rate int, timeUnit, duration time.Duration, conflictBatch evilwallet.EvilBatch, deepSpam, reuseOutputs, enableRateSetter bool) *evilspammer.Spammer {
 	scenarioOptions := []evilwallet.ScenarioOption{
 		evilwallet.WithScenarioCustomConflicts(conflictBatch),
 	}
@@ -197,8 +197,8 @@ func SpamNestedConflicts(wallet *evilwallet.EvilWallet, rate int, timeUnit, dura
 	}
 	scenario := evilwallet.NewEvilScenario(scenarioOptions...)
 	if scenario.NumOfClientsNeeded > wallet.NumOfClient() {
-		spammer = nil
 		printer.NotEnoughClientsWarning(scenario.NumOfClientsNeeded)
+		return nil
 	}
 
 	options := []evilspammer.Options{

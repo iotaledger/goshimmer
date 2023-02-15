@@ -2,7 +2,6 @@ package common
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"testing"
 	"time"
@@ -22,7 +21,7 @@ func TestCommonSynchronization(t *testing.T) {
 	const (
 		initialPeers  = 3
 		numBlocks     = 100
-		numSyncBlocks = 5 * initialPeers
+		numSyncBlocks = 10 * initialPeers
 	)
 	snapshotInfo := tests.EqualSnapshotDetails
 
@@ -93,7 +92,7 @@ func TestCommonSynchronization(t *testing.T) {
 
 	// 7. issue some blocks on old peers so that new peer can sync again
 	log.Printf("Issuing %d blocks on the %d initial peers...", numSyncBlocks, initialPeers)
-	ids = tests.SendDataBlocks(t, n.Peers()[:initialPeers], numSyncBlocks, ids)
+	ids = tests.SendDataBlocksWithDelay(t, n.Peers()[:initialPeers], numSyncBlocks, 10*time.Millisecond, ids)
 	log.Println("Issuing blocks... done")
 
 	// 9. check whether all issued blocks are available on to the new peer
@@ -105,49 +104,6 @@ func TestCommonSynchronization(t *testing.T) {
 		func() bool { return tests.Synced(t, newPeer) },
 		tests.Timeout, tests.Tick,
 		"the peer %s did not sync again after restart", newPeer)
-}
-
-func TestFirewall(t *testing.T) {
-	t.Skip("Test firewall when network layer is fully implemented")
-	ctx, cancel := tests.Context(context.Background(), t)
-	defer cancel()
-	n, err := f.CreateNetwork(ctx, t.Name(), 2, framework.CreateNetworkConfig{
-		StartSynced: true,
-		Snapshot:    tests.EqualSnapshotDetails,
-	}, func(peerIndex int, peerMaster bool, cfg config.GoShimmer) config.GoShimmer {
-		if peerIndex == 0 {
-			// cfg..BlocksRateLimit.Limit = 50
-		}
-		return cfg
-	})
-	require.NoError(t, err)
-	defer tests.ShutdownNetwork(ctx, t, n)
-
-	log.Println("Bootstrapping network...")
-	tests.BootstrapNetwork(t, n)
-	log.Println("Bootstrapping network... done")
-
-	peer1, peer2 := n.Peers()[0], n.Peers()[1]
-	got1, err := peer1.GetPeerFaultinessCount(peer2.ID())
-	require.NoError(t, err)
-	require.Equal(t, 0, got1)
-	got2, err := peer2.GetPeerFaultinessCount(peer1.ID())
-	require.NoError(t, err)
-	require.Equal(t, 0, got2)
-
-	// Start spamming blocks from peer2 to peer1.
-	for i := 0; i < 51; i++ {
-		tests.SendDataBlock(t, peer2, []byte(fmt.Sprintf("Test %d", i)), i)
-		require.NoError(t, err)
-	}
-	require.Eventually(t, func() bool {
-		got1, err = peer1.GetPeerFaultinessCount(peer2.ID())
-		require.NoError(t, err)
-		return got1 != 0
-	}, tests.Timeout, tests.Tick)
-	got2, err = peer2.GetPeerFaultinessCount(peer1.ID())
-	require.NoError(t, err)
-	require.Equal(t, 0, got2)
 }
 
 func TestConfirmBlock(t *testing.T) {

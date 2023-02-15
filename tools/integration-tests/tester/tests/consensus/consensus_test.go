@@ -50,12 +50,15 @@ func TestSimpleDoubleSpend(t *testing.T) {
 			conf.UseNodeSeedAsWalletSeed = true
 			conf.ValidatorActivityWindow = 10 * time.Minute
 			conf.Protocol.TimeSinceConfirmationThreshold = 10 * time.Minute
-			conf.Notarization.MinEpochCommittableAge = conf.Protocol.TimeSinceConfirmationThreshold * 2
 			return conf
 		}))
 
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
+
+	log.Println("Bootstrapping network...")
+	tests.BootstrapNetwork(t, n)
+	log.Println("Bootstrapping network... done")
 
 	const delayBetweenDataBlocks = 100 * time.Millisecond
 	dataBlocksAmount := len(n.Peers()) * 10

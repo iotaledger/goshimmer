@@ -4,25 +4,25 @@ import (
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 type Chain struct {
 	ForkingPoint *Commitment
-	// Metadatastorage
 
-	latestCommittableEpoch epoch.Index
-	commitmentsByIndex     map[epoch.Index]*Commitment
+	latestCommitmentIndex epoch.Index
+	commitmentsByIndex    map[epoch.Index]*Commitment
 
 	sync.RWMutex
 }
 
 func NewChain(forkingPoint *Commitment) (fork *Chain) {
-	return &Chain{
-		ForkingPoint: forkingPoint,
+	forkingPointIndex := forkingPoint.Commitment().Index()
 
+	return &Chain{
+		ForkingPoint:          forkingPoint,
+		latestCommitmentIndex: forkingPointIndex,
 		commitmentsByIndex: map[epoch.Index]*Commitment{
-			forkingPoint.Commitment().Index(): forkingPoint,
+			forkingPointIndex: forkingPoint,
 		},
 	}
 }
@@ -32,44 +32,6 @@ func (c *Chain) IsSolid() (isSolid bool) {
 	defer c.RUnlock()
 
 	return c.ForkingPoint.IsSolid()
-}
-
-func (c *Chain) BlocksCount(index epoch.Index) (blocksCount int) {
-	return 0
-}
-
-func (c *Chain) StreamEpochBlocks(index epoch.Index, callback func(blocks []*models.Block), batchSize int) (err error) {
-	/*
-		c.RLock()
-		defer c.RUnlock()
-
-		if index > c.latestCommittableEpoch {
-			return errors.Errorf("cannot stream blocks of epoch %d: not committable yet", index)
-		}
-
-		blocks := make([]*models2.Block, 0)
-		if err = c.protocolInstance.BlockStorage.Iterate(index, func(key models2.BlockID, value *models2.Block) bool {
-			value.SetID(key)
-
-			blocks = append(blocks, value)
-
-			if len(blocks) == batchSize {
-				callback(blocks)
-				blocks = make([]*models2.Block, 0)
-			}
-
-			return true
-		}); err != nil {
-			return errors.Wrap(err, "failed to stream epoch blocks")
-		}
-
-		if len(blocks) > 0 {
-			callback(blocks)
-		}
-
-	*/
-
-	return
 }
 
 func (c *Chain) Commitment(index epoch.Index) (commitment *Commitment) {
@@ -86,9 +48,34 @@ func (c *Chain) Size() int {
 	return len(c.commitmentsByIndex)
 }
 
+func (c *Chain) LatestCommitment() *Commitment {
+	c.RLock()
+	defer c.RUnlock()
+
+	return c.commitmentsByIndex[c.latestCommitmentIndex]
+}
+
 func (c *Chain) addCommitment(commitment *Commitment) {
 	c.Lock()
 	defer c.Unlock()
 
-	c.commitmentsByIndex[commitment.Commitment().Index()] = commitment
+	commitmentIndex := commitment.Commitment().Index()
+	if commitmentIndex > c.latestCommitmentIndex {
+		c.latestCommitmentIndex = commitmentIndex
+	}
+
+	c.commitmentsByIndex[commitmentIndex] = commitment
+}
+
+func (c *Chain) dropCommitmentsAfter(index epoch.Index) {
+	c.Lock()
+	defer c.Unlock()
+
+	for i := index + 1; i <= c.latestCommitmentIndex; i++ {
+		delete(c.commitmentsByIndex, i)
+	}
+
+	if index < c.latestCommitmentIndex {
+		c.latestCommitmentIndex = index
+	}
 }

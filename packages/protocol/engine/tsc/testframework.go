@@ -10,83 +10,45 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
-	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 )
 
 // region TestFramework //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type TestFramework struct {
+	test           *testing.T
 	Manager        *Manager
-	mockAcceptance *blockgadget.MockAcceptanceGadget
+	MockAcceptance *blockgadget.MockAcceptanceGadget
 
-	test *testing.T
-
-	optsTSCManager          []options.Option[Manager]
-	optsTangle              []options.Option[tangle.Tangle]
-	optsIsBlockAcceptedFunc func(models.BlockID) bool
-	optsBlockAcceptedEvent  *event.Linkable[*blockgadget.Block]
-	*tangle.TestFramework
+	Tangle        *tangle.TestFramework
+	BlockDAG      *blockdag.TestFramework
+	Booker        *booker.TestFramework
+	VirtualVoting *virtualvoting.TestFramework
 }
 
-func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t *TestFramework) {
-	return options.Apply(&TestFramework{
+func NewTestFramework(test *testing.T, tangleTF *tangle.TestFramework, optsTSCManager ...options.Option[Manager]) *TestFramework {
+	t := &TestFramework{
 		test:           test,
-		mockAcceptance: blockgadget.NewMockAcceptanceGadget(),
-	}, opts, func(t *TestFramework) {
-		t.TestFramework = tangle.NewTestFramework(
-			test,
-			tangle.WithTangleOptions(t.optsTangle...),
-		)
+		Tangle:         tangleTF,
+		BlockDAG:       tangleTF.BlockDAG,
+		Booker:         tangleTF.Booker,
+		VirtualVoting:  tangleTF.VirtualVoting,
+		MockAcceptance: blockgadget.NewMockAcceptanceGadget(),
+	}
 
-		if t.optsIsBlockAcceptedFunc == nil {
-			t.optsIsBlockAcceptedFunc = t.mockAcceptance.IsBlockAccepted
-		}
-		if t.optsBlockAcceptedEvent == nil {
-			t.optsBlockAcceptedEvent = t.mockAcceptance.BlockAcceptedEvent
-		}
+	t.Manager = New(t.MockAcceptance.IsBlockAccepted, tangleTF.Instance, optsTSCManager...)
+	event.Hook(t.Tangle.Booker.Instance.Events.BlockBooked, t.Manager.AddBlock)
 
-		if t.Manager == nil {
-			t.Manager = New(t.optsIsBlockAcceptedFunc, t.TestFramework.Tangle, t.optsTSCManager...)
-		}
-
-		t.TestFramework.Tangle.Booker.Events.BlockBooked.Attach(event.NewClosure(func(evt *booker.BlockBookedEvent) {t.Manager.AddBlock(evt.Block)}))
-	})
+	return t
 }
 
 func (t *TestFramework) AssertOrphaned(expectedState map[string]bool) {
 	for alias, expectedOrphanage := range expectedState {
-		t.BookerTestFramework.AssertBlock(alias, func(block *booker.Block) {
+		t.Tangle.Booker.AssertBlock(alias, func(block *booker.Block) {
 			require.Equal(t.test, expectedOrphanage, block.Block.IsOrphaned(), "block %s is incorrectly orphaned", block.ID())
 		})
-	}
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
-
-func WithTSCManagerOptions(opts ...options.Option[Manager]) options.Option[TestFramework] {
-	return func(tf *TestFramework) {
-		tf.optsTSCManager = opts
-	}
-}
-
-func WithTangleOptions(opts ...options.Option[tangle.Tangle]) options.Option[TestFramework] {
-	return func(tf *TestFramework) {
-		tf.optsTangle = opts
-	}
-}
-
-func WithBlockAcceptedEvent(blockAcceptedEvent *event.Linkable[*blockgadget.Block]) options.Option[TestFramework] {
-	return func(tf *TestFramework) {
-		tf.optsBlockAcceptedEvent = blockAcceptedEvent
-	}
-}
-
-func WithIsBlockAcceptedFunc(isBlockAcceptedFunc func(id models.BlockID) bool) options.Option[TestFramework] {
-	return func(tf *TestFramework) {
-		tf.optsIsBlockAcceptedFunc = isBlockAcceptedFunc
 	}
 }
 

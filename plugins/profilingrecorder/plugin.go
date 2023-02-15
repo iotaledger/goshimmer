@@ -72,7 +72,7 @@ func run(*node.Plugin) {
 
 		ticker.Shutdown()
 		ticker.WaitForShutdown()
-	}, shutdown.PriorityAnalysis); err != nil {
+	}, shutdown.PriorityProfiling); err != nil {
 		panic(err)
 	}
 }

@@ -2,8 +2,8 @@ package traits
 
 // Initializable is a trait that allows to subscribe to and trigger an event, whenever a component was initialized.
 type Initializable interface {
-	// SubscribeInitialized registers a new callback that is triggered when the component was initialized.
-	SubscribeInitialized(callback func()) (unsubscribe func())
+	// SubscribeInitialized registers callbacks that are triggered when the component was initialized.
+	SubscribeInitialized(callbacks ...func()) (unsubscribe func())
 
 	// TriggerInitialized triggers the initialized event.
 	TriggerInitialized()
@@ -37,9 +37,9 @@ type initializable struct {
 	lifecycleEvent *lifecycleEvent
 }
 
-// SubscribeInitialized registers a new callback that is triggered when the component was initialized.
-func (i *initializable) SubscribeInitialized(callback func()) (unsubscribe func()) {
-	return i.lifecycleEvent.Subscribe(callback)
+// SubscribeInitialized registers callbacks that are triggered when the component was initialized.
+func (i *initializable) SubscribeInitialized(callbacks ...func()) (unsubscribe func()) {
+	return i.lifecycleEvent.Subscribe(callbacks...)
 }
 
 // TriggerInitialized triggers the initialized event.

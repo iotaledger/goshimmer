@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
@@ -14,7 +16,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
-	"github.com/stretchr/testify/require"
+	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/ads"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
@@ -34,14 +36,15 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
 // region TestFramework //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type TestFramework struct {
-	TipManager           *TipManager
-	engine               *engine.Engine
+	Instance *TipManager
+	Engine   *engine.Engine
+	Tangle   *tangle.TestFramework
+
 	mockAcceptance       *blockgadget.MockAcceptanceGadget
 	scheduledBlocks      *shrinkingmap.ShrinkingMap[models.BlockID, *scheduler.Block]
 	scheduledBlocksMutex sync.RWMutex
@@ -53,51 +56,45 @@ type TestFramework struct {
 	optsTipManagerOptions   []options.Option[TipManager]
 	optsTangleOptions       []options.Option[tangle.Tangle]
 	optsNotarizationOptions []options.Option[notarization.Manager]
-	*tangle.TestFramework
 }
 
-func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t *TestFramework) {
+func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...options.Option[TestFramework]) (t *TestFramework) {
 	return options.Apply(&TestFramework{
 		test:                    test,
 		mockAcceptance:          blockgadget.NewMockAcceptanceGadget(),
 		scheduledBlocks:         shrinkingmap.New[models.BlockID, *scheduler.Block](),
 		optsNotarizationOptions: []options.Option[notarization.Manager]{notarization.WithMinCommittableEpochAge(time.Since(time.Unix(epoch.GenesisTime, 0)))},
 	}, opts, func(t *TestFramework) {
-		storageInstance := storage.New(test.TempDir(), 1)
+		storageInstance := blockdag.NewTestStorage(test, workers)
+
+		// set MinCommittableEpochAge to genesis so nothing is committed.
+		t.Engine = engine.New(workers.CreateGroup("Engine"), storageInstance, dpos.NewProvider(), mana1.NewProvider(), engine.WithNotarizationManagerOptions(t.optsNotarizationOptions...), engine.WithTangleOptions(t.optsTangleOptions...))
+
 		test.Cleanup(func() {
-			event.Loop.PendingTasksCounter.WaitIsZero()
-			t.engine.Shutdown()
+			t.Engine.Shutdown()
+			workers.Wait()
 			storageInstance.Shutdown()
 		})
 
-		// set MinCommittableEpochAge to genesis so nothing is committed.
-		t.engine = engine.New(storageInstance, dpos.NewProvider(), mana1.NewProvider(), engine.WithNotarizationManagerOptions(t.optsNotarizationOptions...), engine.WithTangleOptions(t.optsTangleOptions...))
-
-		t.TestFramework = tangle.NewTestFramework(
+		t.Tangle = tangle.NewTestFramework(
 			test,
-			tangle.WithTangle(t.engine.Tangle),
-			tangle.WithLedger(t.engine.Ledger),
-			tangle.WithEvictionState(t.engine.EvictionState),
-			tangle.WithValidators(t.engine.SybilProtection.Validators()),
+			t.Engine.Tangle,
+			virtualvoting.NewTestFramework(test, workers.CreateGroup("VirtualVotingTestFramework"), t.Engine.Tangle.VirtualVoting),
 		)
 
-		if t.TipManager == nil {
-			t.TipManager = New(t.mockSchedulerBlock, t.optsTipManagerOptions...)
-			// TODO: need to activate it with an engine t.TipManager.Activate()
-		}
+		t.Instance = New(t.mockSchedulerBlock, t.optsTipManagerOptions...)
+		t.Instance.LinkTo(t.Engine)
 
-		t.TipManager.LinkTo(t.engine)
-
-		t.TipManager.blockAcceptanceGadget = t.mockAcceptance
+		t.Instance.blockAcceptanceGadget = t.mockAcceptance
 
 		t.SetAcceptedTime(time.Unix(epoch.GenesisTime, 0))
 
-		t.TestFramework.ModelsTestFramework.SetBlock("Genesis", models.NewEmptyBlock(models.EmptyBlockID, models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0))))
+		t.Tangle.BlockDAG.ModelsTestFramework.SetBlock("Genesis", models.NewEmptyBlock(models.EmptyBlockID, models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0))))
 	}, (*TestFramework).createGenesis, (*TestFramework).setupEvents)
 }
 
 func (t *TestFramework) setupEvents() {
-	t.Tangle.Events.VirtualVoting.BlockTracked.Hook(event.NewClosure(func(block *virtualvoting.Block) {
+	event.Hook(t.Tangle.Instance.Events.VirtualVoting.BlockTracked, func(block *virtualvoting.Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("SIMULATING SCHEDULED: %s", block.ID())
 		}
@@ -107,34 +104,34 @@ func (t *TestFramework) setupEvents() {
 		t.scheduledBlocks.Set(block.ID(), scheduledBlock)
 		t.scheduledBlocksMutex.Unlock()
 
-		t.TipManager.AddTip(scheduledBlock)
-	}))
+		t.Instance.AddTip(scheduledBlock)
+	})
 
-	t.TipManager.Events.TipAdded.Hook(event.NewClosure(func(block *scheduler.Block) {
+	event.Hook(t.Instance.Events.TipAdded, func(block *scheduler.Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("TIP ADDED: %s", block.ID())
 		}
 		atomic.AddUint32(&(t.tipAdded), 1)
-	}))
+	})
 
-	t.TipManager.Events.TipRemoved.Hook(event.NewClosure(func(block *scheduler.Block) {
+	event.Hook(t.Instance.Events.TipRemoved, func(block *scheduler.Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("TIP REMOVED: %s", block.ID())
 		}
 		atomic.AddUint32(&(t.tipRemoved), 1)
-	}))
+	})
 
-	t.mockAcceptance.BlockAcceptedEvent.Attach(event.NewClosure(func(block *blockgadget.Block) {
-		require.NoError(t.test, t.engine.NotarizationManager.NotarizeAcceptedBlock(block.ModelsBlock))
-	}))
+	event.Hook(t.mockAcceptance.BlockAcceptedEvent, func(block *blockgadget.Block) {
+		require.NoError(t.test, t.Engine.NotarizationManager.NotarizeAcceptedBlock(block.ModelsBlock))
+	})
 
-	t.engine.NotarizationManager.Events.EpochCommitted.Attach(event.NewClosure(func(details *notarization.EpochCommittedDetails) {
-		t.TipManager.PromoteFutureTips(details.Commitment)
-	}))
+	event.Hook(t.Engine.NotarizationManager.Events.EpochCommitted, func(details *notarization.EpochCommittedDetails) {
+		t.Instance.PromoteFutureTips(details.Commitment)
+	})
 
-	t.engine.EvictionState.Events.EpochEvicted.Attach(event.NewClosure(func(index epoch.Index) {
-		t.TipManager.Evict(index)
-	}))
+	event.Hook(t.Engine.EvictionState.Events.EpochEvicted, func(index epoch.Index) {
+		t.Instance.Evict(index)
+	})
 }
 
 func (t *TestFramework) createGenesis() {
@@ -171,25 +168,14 @@ func (t *TestFramework) mockSchedulerBlock(id models.BlockID) (block *scheduler.
 	return t.scheduledBlocks.Get(id)
 }
 
-// WaitUntilAllTasksProcessed waits until all tasks are processed.
-func (t *TestFramework) WaitUntilAllTasksProcessed() (self *TestFramework) {
-	for _, wp := range t.engine.WorkerPools() {
-		wp.PendingTasksCounter.WaitIsZero()
-	}
-	event.Loop.PendingTasksCounter.WaitIsZero()
-
-	return t
-}
-
 func (t *TestFramework) IssueBlocksAndSetAccepted(aliases ...string) {
-	t.IssueBlocks(aliases...)
-	t.WaitUntilAllTasksProcessed()
+	t.Tangle.BlockDAG.IssueBlocks(aliases...)
 	t.SetBlocksAccepted(aliases...)
 }
 
 func (t *TestFramework) SetBlocksAccepted(aliases ...string) {
 	for _, alias := range aliases {
-		block := t.Block(alias)
+		block := t.Tangle.Booker.Block(alias)
 		t.mockAcceptance.SetBlockAccepted(blockgadget.NewBlock(virtualvoting.NewBlock(block)))
 	}
 }
@@ -199,15 +185,15 @@ func (t *TestFramework) SetMarkersAccepted(m ...markers.Marker) {
 }
 
 func (t *TestFramework) SetAcceptedTime(acceptedTime time.Time) {
-	t.engine.Clock.SetAcceptedTime(acceptedTime)
+	t.Engine.Clock.SetAcceptedTime(acceptedTime)
 }
 
 func (t *TestFramework) AssertIsPastConeTimestampCorrect(blockAlias string, expected bool) {
-	block, exists := t.mockSchedulerBlock(t.Block(blockAlias).ID())
+	block, exists := t.mockSchedulerBlock(t.Tangle.Booker.Block(blockAlias).ID())
 	if !exists {
 		panic(fmt.Sprintf("block with %s not found", blockAlias))
 	}
-	actual := t.TipManager.isPastConeTimestampCorrect(block.Block.Block)
+	actual := t.Instance.IsPastConeTimestampCorrect(block.Block.Block)
 	require.Equal(t.test, expected, actual, "isPastConeTimestampCorrect: %s should be %t but is %t", blockAlias, expected, actual)
 }
 
@@ -224,7 +210,7 @@ func (t *TestFramework) AssertEqualBlocks(actualBlocks, expectedBlocks models.Bl
 }
 
 func (t *TestFramework) AssertTips(expectedTips models.BlockIDs) {
-	t.AssertEqualBlocks(models.NewBlockIDs(lo.Map(t.TipManager.AllTips(), func(block *scheduler.Block) models.BlockID {
+	t.AssertEqualBlocks(models.NewBlockIDs(lo.Map(t.Instance.AllTips(), func(block *scheduler.Block) models.BlockID {
 		return block.ID()
 	})...), expectedTips)
 }
@@ -232,7 +218,7 @@ func (t *TestFramework) AssertTips(expectedTips models.BlockIDs) {
 func (t *TestFramework) AssertFutureTips(expectedFutureTips map[epoch.Index]map[commitment.ID]models.BlockIDs) {
 	actualFutureTips := make(map[epoch.Index]map[commitment.ID]models.BlockIDs)
 
-	t.TipManager.futureTips.ForEach(func(index epoch.Index, commitmentStorage *memstorage.Storage[commitment.ID, *memstorage.Storage[models.BlockID, *scheduler.Block]]) {
+	t.Instance.futureTips.ForEach(func(index epoch.Index, commitmentStorage *memstorage.Storage[commitment.ID, *memstorage.Storage[models.BlockID, *scheduler.Block]]) {
 		commitmentStorage.ForEach(func(cm commitment.ID, tipStorage *memstorage.Storage[models.BlockID, *scheduler.Block]) bool {
 			if _, exists := actualFutureTips[index]; !exists {
 				actualFutureTips[index] = make(map[commitment.ID]models.BlockIDs)
@@ -255,7 +241,7 @@ func (t *TestFramework) AssertFutureTips(expectedFutureTips map[epoch.Index]map[
 }
 
 func (t *TestFramework) AssertTipCount(expectedTipCount int) {
-	require.Equal(t.test, expectedTipCount, t.TipManager.TipCount(), "expected %d tip count but got %d", t.TipManager.TipCount(), expectedTipCount)
+	require.Equal(t.test, expectedTipCount, t.Instance.TipCount(), "expected %d tip count but got %d", t.Instance.TipCount(), expectedTipCount)
 }
 
 func (t *TestFramework) FormCommitment(index epoch.Index, acceptedBlocksAliases []string, prevIndex epoch.Index) (cm *commitment.Commitment) {
@@ -263,18 +249,18 @@ func (t *TestFramework) FormCommitment(index epoch.Index, acceptedBlocksAliases 
 	adsBlocks := ads.NewSet[models.BlockID](mapdb.NewMapDB())
 	adsAttestations := ads.NewMap[identity.ID, notarization.Attestation](mapdb.NewMapDB())
 	for _, acceptedBlockAlias := range acceptedBlocksAliases {
-		acceptedBlock := t.Block(acceptedBlockAlias)
+		acceptedBlock := t.Tangle.Booker.Block(acceptedBlockAlias)
 		adsBlocks.Add(acceptedBlock.ID())
 		adsAttestations.Set(acceptedBlock.IssuerID(), notarization.NewAttestation(acceptedBlock.ModelsBlock))
 	}
 	return commitment.New(
 		index,
-		lo.PanicOnErr(t.engine.Storage.Commitments.Load(prevIndex)).ID(),
+		lo.PanicOnErr(t.Engine.Storage.Commitments.Load(prevIndex)).ID(),
 		commitment.NewRoots(
 			adsBlocks.Root(),
 			ads.NewSet[utxo.TransactionID](mapdb.NewMapDB()).Root(),
 			adsAttestations.Root(),
-			t.engine.LedgerState.UnspentOutputs.Root(),
+			t.Engine.LedgerState.UnspentOutputs.Root(),
 			ads.NewMap[identity.ID, sybilprotection.Weight](mapdb.NewMapDB()).Root(),
 		).ID(),
 		0,

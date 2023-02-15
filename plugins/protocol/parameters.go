@@ -22,9 +22,13 @@ type ParametersDefinition struct {
 	Snapshot struct {
 		// Path is the path to the snapshot file.
 		Path string `default:"./snapshot.bin" usage:"the path of the snapshot file"`
-		// Depth defines how many epoch diffs are stored in the snapshot, starting from the full ledgerstate
+		// Depth defines how many epoch diffs are stored in the snapshot, starting from the full ledgerstate.
 		Depth int `default:"5" usage:"defines how many epoch diffs are stored in the snapshot, starting from the full ledgerstate"`
 	}
+	// ForkDetectionMinimumDepth defines the minimum depth a fork has to have to be detected.
+	ForkDetectionMinimumDepth int64 `default:"3" usage:"the minimum depth a fork has to have to be detected"`
+	// MaxAllowedClockDrift defines the maximum drift our wall clock can have to future blocks being received from the network.
+	MaxAllowedClockDrift time.Duration `default:"5s" usage:"the maximum drift our wall clock can have to future blocks being received from the network"`
 }
 
 // SchedulerParametersDefinition contains the definition of the parameters used by the Scheduler.
@@ -65,6 +69,11 @@ type DatabaseParametersDefinition struct {
 	}
 }
 
+// DebugParametersDefinition contains the definition of configuration parameters used for debugging purposes.
+type DebugParametersDefinition struct {
+	PanicOnForkDetection bool `default:"false" usage:"whether to panic if a network fork is detected or if the normal chain switching is allowed to happen"`
+}
+
 // Parameters contains the general configuration used by the blocklayer plugin.
 var Parameters = &ParametersDefinition{}
 
@@ -77,9 +86,13 @@ var NotarizationParameters = &NotarizationParametersDefinition{}
 // DatabaseParameters contains configuration parameters used by Database.
 var DatabaseParameters = &DatabaseParametersDefinition{}
 
+// DebugParameters contains the configuration parameters used for debugging purposes.
+var DebugParameters = &DebugParametersDefinition{}
+
 func init() {
 	config.BindParameters(Parameters, "protocol")
 	config.BindParameters(SchedulerParameters, "scheduler")
 	config.BindParameters(NotarizationParameters, "notarization")
 	config.BindParameters(DatabaseParameters, "database")
+	config.BindParameters(DebugParameters, "debug")
 }

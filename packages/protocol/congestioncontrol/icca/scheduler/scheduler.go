@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"fmt"
 	"math"
 	"math/big"
 	"sync"
@@ -39,7 +40,6 @@ type Scheduler struct {
 	Events *Events
 
 	blocks        *memstorage.EpochStorage[models.BlockID, *Block]
-	ticker        *time.Ticker
 	bufferMutex   sync.RWMutex
 	buffer        *BufferQueue
 	deficitsMutex sync.RWMutex
@@ -56,10 +56,8 @@ type Scheduler struct {
 	optsAcceptedBlockScheduleThreshold time.Duration
 	optsMaxDeficit                     *big.Rat
 
-	started        typeutils.AtomicBool
-	stopped        typeutils.AtomicBool
+	running        typeutils.AtomicBool
 	shutdownSignal chan struct{}
-	shutdownOnce   sync.Once
 }
 
 // New returns a new Scheduler.
@@ -78,30 +76,29 @@ func New(evictionState *eviction.State, isBlockAccepted func(models.BlockID) boo
 		optsAcceptedBlockScheduleThreshold: 5 * time.Minute,
 		optsRate:                           5 * time.Millisecond,      // measured in time per unit work
 		optsMaxDeficit:                     new(big.Rat).SetInt64(10), // must be >= max block work, but work is currently=1 for all blocks
-
-		shutdownSignal: make(chan struct{}),
 	}, opts, func(s *Scheduler) {
-		s.ticker = time.NewTicker(s.optsRate)
 		s.buffer = NewBufferQueue(s.optsMaxBufferSize)
 	}, (*Scheduler).setupEvents)
 }
 
 func (s *Scheduler) setupEvents() {
-	s.Events.BlockScheduled.Hook(event.NewClosure(s.UpdateChildren))
+	event.Hook(s.Events.BlockScheduled, s.UpdateChildren)
 
-	s.evictionState.Events.EpochEvicted.Hook(event.NewClosure(s.evictEpoch))
+	event.Hook(s.evictionState.Events.EpochEvicted, s.evictEpoch)
 }
 
 // Start starts the scheduler.
 func (s *Scheduler) Start() {
-	s.started.Set()
-	// start the main loop
-	go s.mainLoop()
+	if s.running.SetToIf(false, true) {
+		s.shutdownSignal = make(chan struct{}, 1)
+		// start the main loop
+		go s.mainLoop()
+	}
 }
 
-// Running returns true if the scheduler has started.
-func (s *Scheduler) Running() bool {
-	return s.started.IsSet()
+// IsRunning returns true if the scheduler has started.
+func (s *Scheduler) IsRunning() bool {
+	return s.running.IsSet()
 }
 
 // Rate gets the rate of the scheduler.
@@ -207,11 +204,9 @@ func (s *Scheduler) GetAccessManaMap() map[identity.ID]int64 {
 // Shutdown shuts down the Scheduler.
 // Shutdown blocks until the scheduler has been shutdown successfully.
 func (s *Scheduler) Shutdown() {
-	s.shutdownOnce.Do(func() {
-		s.stopped.Set()
-		s.shutdownSignal <- struct{}{}
+	if s.running.SetToIf(true, false) {
 		close(s.shutdownSignal)
-	})
+	}
 }
 
 // Block retrieves the Block with given id from the mem-storage.
@@ -369,7 +364,7 @@ func (s *Scheduler) updateChildren(block *Block) {
 }
 
 func (s *Scheduler) submit(block *Block) error {
-	if s.stopped.IsSet() {
+	if !s.IsRunning() {
 		return ErrNotRunning
 	}
 
@@ -418,13 +413,20 @@ func (s *Scheduler) block(id models.BlockID) (block *Block, exists bool) {
 
 // mainLoop periodically triggers the scheduling of ready blocks.
 func (s *Scheduler) mainLoop() {
-	defer s.ticker.Stop()
+	ticker := time.NewTicker(s.optsRate)
+	defer ticker.Stop()
 
 loop:
 	for {
 		select {
+		// on close, exit the loop
+		case <-s.shutdownSignal:
+			break loop
 		// every rate time units
-		case <-s.ticker.C:
+		case <-ticker.C:
+			if !s.IsRunning() {
+				break loop
+			}
 			if block := s.schedule(); block != nil {
 				// TODO: make this operate in units of work, with a variable pause between scheduling depending on work scheduled.
 				// TODO: don't use a ticker. Switch to a simple timer instead, and use a flag when ready to schedule something if there is nothing ready to be scheduled yet.
@@ -433,9 +435,6 @@ loop:
 					s.Events.BlockScheduled.Trigger(block)
 				}
 			}
-		// on close, exit the loop
-		case <-s.shutdownSignal:
-			break loop
 		}
 	}
 }
@@ -511,6 +510,7 @@ func (s *Scheduler) selectIssuer(start *IssuerQueue, manaMap map[identity.ID]int
 
 				continue
 			}
+
 			// compute how often the deficit needs to be incremented until the block can be scheduled
 			remainingDeficit := maxRat(new(big.Rat).Sub(big.NewRat(int64(block.Work()), 1), s.Deficit(q.IssuerID())), new(big.Rat))
 			// calculate how many rounds we need to skip to accumulate enough deficit.
@@ -633,11 +633,28 @@ func (s *Scheduler) evictEpoch(index epoch.Index) {
 	s.evictionMutex.Lock()
 	defer s.evictionMutex.Unlock()
 
+	// TODO: this can be implemented better, but usually there will not be a lot of blocks in the buffer anyway, so it's good enough for a quickfix
+	// A possible problem is that a block is stuck in the buffer, without ever being marked as ready.
+	// This situation should never occur, but we suspect it does happen sometimes and the following fix should remedy that.
+	// Probably it can be deleted once the original problem is fixed.
+	// If a block is marked as Ready, then it will be eventually removed by the scheduling loop.
+	for _, blockID := range s.buffer.IDs() {
+		if blockID.Index() == index {
+			if block, exists := s.block(blockID); exists {
+				s.buffer.Unsubmit(block)
+				fmt.Printf(">> Scheduler evicted block %s from the buffer when evicting epoch %s\n", blockID.String(), index.String())
+			}
+		}
+	}
+
 	s.blocks.Evict(index)
 }
 
 func quanta(issuerID identity.ID, manaMap map[identity.ID]int64, totalMana int64) *big.Rat {
 	if manaValue, exists := manaMap[issuerID]; exists {
+		if manaValue == 0 {
+			manaValue = MinMana
+		}
 		return big.NewRat(manaValue, totalMana)
 	}
 

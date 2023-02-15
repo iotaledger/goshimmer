@@ -19,10 +19,9 @@ import (
 )
 
 type TestFramework struct {
-	ConflictDAG   *ConflictDAG[utxo.TransactionID, utxo.OutputID]
-	evictionState *eviction.State
+	t *testing.T
 
-	test *testing.T
+	Instance *ConflictDAG[utxo.TransactionID, utxo.OutputID]
 
 	conflictIDsByAlias map[string]utxo.TransactionID
 	resourceByAlias    map[string]utxo.OutputID
@@ -38,27 +37,29 @@ type TestFramework struct {
 }
 
 // NewTestFramework is the constructor of the TestFramework.
-func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (newFramework *TestFramework) {
-	return options.Apply(&TestFramework{
+func NewTestFramework(t *testing.T, conflictDAGInstance *ConflictDAG[utxo.TransactionID, utxo.OutputID]) *TestFramework {
+	return &TestFramework{
+		t:                  t,
+		Instance:           conflictDAGInstance,
 		conflictIDsByAlias: make(map[string]utxo.TransactionID),
 		resourceByAlias:    make(map[string]utxo.OutputID),
-		confirmationState:  make(map[utxo.TransactionID]confirmation.State),
-		test:               test,
-	}, opts, func(t *TestFramework) {
-		if t.ConflictDAG == nil {
-			storageInstance := storage.New(test.TempDir(), 1)
-			test.Cleanup(func() {
-				storageInstance.Shutdown()
-			})
-
-			if t.evictionState == nil {
-				t.evictionState = eviction.NewState(storageInstance)
-			}
-
-			t.ConflictDAG = New(t.optsConflictDAG...)
-		}
-	}, (*TestFramework).setupEvents)
+	}
+	// TODO: call setupEvents
+	// if t.ConflictDAG == nil {
+	//			storageInstance := storage.New(test.TempDir(), 1)
+	//			test.Cleanup(func() {
+	//				storageInstance.Shutdown()
+	//			})
+	//
+	//			if t.evictionState == nil {
+	//				t.evictionState = eviction.NewState(storageInstance)
+	//			}
+	//
+	//			t.ConflictDAG = New(t.optsConflictDAG...)
+	//		}
+	//	}, (*TestFramework).setupEvents)
 }
+
 
 func (t *TestFramework) setupEvents() {
 	t.ConflictDAG.Events.ConflictCreated.Hook(event.NewClosure(func(conflict *Conflict[utxo.TransactionID, utxo.OutputID]) {
@@ -120,7 +121,7 @@ func (t *TestFramework) CreateConflict(conflictAlias string, parentConflictIDs u
 	t.conflictIDsByAlias[conflictAlias] = t.randomConflictID()
 	t.conflictIDsByAlias[conflictAlias].RegisterAlias(conflictAlias)
 
-	t.ConflictDAG.CreateConflict(t.ConflictID(conflictAlias), parentConflictIDs, t.ConflictSetIDs(conflictSetAliases...))
+	t.Instance.CreateConflict(t.conflictIDsByAlias[conflictAlias], parentConflictIDs, t.ConflictSetIDs(conflictSetAlias))
 }
 
 func (t *TestFramework) UpdateConflictingResources(conflictAlias string, conflictingResourcesAliases ...string) {
@@ -296,28 +297,3 @@ func (t *TestFramework) AssertConfirmationState(expectedConfirmationState map[st
 		require.Equal(t.test, expectedState, conflictConfirmationState, "Expected Conflict %s to have confirmation state %v but got %v", conflictAlias, expectedState, conflictConfirmationState)
 	}
 }
-
-// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// WithEvictionState returns an option that sets the eviction state of the TestFramework.
-func WithEvictionState(evictionState *eviction.State) options.Option[TestFramework] {
-	return func(t *TestFramework) {
-		t.evictionState = evictionState
-	}
-}
-
-// WithConflictDAGOptions returns an option that sets the ConflictDAGOptions of the TestFramework.
-func WithConflictDAGOptions(opts ...options.Option[ConflictDAG[utxo.TransactionID, utxo.OutputID]]) options.Option[TestFramework] {
-	return func(t *TestFramework) {
-		t.optsConflictDAG = opts
-	}
-}
-
-// WithConflictDAG returns an option that allows you to provide a BlockDAG instance to the TestFramework.
-func WithConflictDAG(conflictDAG *ConflictDAG[utxo.TransactionID, utxo.OutputID]) options.Option[TestFramework] {
-	return func(t *TestFramework) {
-		t.ConflictDAG = conflictDAG
-	}
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

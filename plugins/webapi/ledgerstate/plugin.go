@@ -341,7 +341,7 @@ func GetConflictVoters(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	voters := deps.Protocol.Engine().Tangle.ConflictVoters(conflictID)
+	voters := deps.Protocol.Engine().Tangle.VirtualVoting.ConflictVoters(conflictID)
 	defer voters.Detach()
 
 	return c.JSON(http.StatusOK, jsonmodels.NewGetConflictVotersResponse(conflictID, voters))
@@ -483,7 +483,7 @@ func GetTransactionAttachments(c echo.Context) (err error) {
 	}
 
 	blockIDs := models.NewBlockIDs()
-	_ = deps.Protocol.Engine().Tangle.GetAllAttachments(transactionID).ForEach(func(attachment *booker.Block) error {
+	_ = deps.Protocol.Engine().Tangle.Booker.GetAllAttachments(transactionID).ForEach(func(attachment *booker.Block) error {
 		blockIDs.Add(attachment.ID())
 		return nil
 	})

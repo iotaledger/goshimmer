@@ -235,19 +235,19 @@ func (m *Manager) processEpochBlocksRequestPacket(packetEpochRequest *wp.Packet_
 		return
 	}
 
-	blocksCount := chain.BlocksCount(ei)
+	//blocksCount := chain.BlocksCount(ei)
 
-	// Send epoch starter.
-	m.protocol.SendEpochStarter(ei, ecID, blocksCount, nbr.ID())
-	m.log.Debugw("sent epoch start", "peer", nbr.Peer.ID(), "Index", ei, "blocksCount", blocksCount)
-
-	if err := chain.StreamEpochBlocks(ei, func(blocks []*models.Block) {
-		m.protocol.SendBlocksBatch(ei, ecID, blocks, nbr.ID())
-		m.log.Debugw("sent epoch blocks batch", "peer", nbr.ID(), "Index", ei, "blocksLen", len(blocks))
-	}, m.blockBatchSize); err != nil {
-		m.log.Errorw("epoch blocks request rejected: unable to stream blocks", "peer", nbr.Peer.ID(), "Index", ei, "ID", ec, "err", err)
-		return
-	}
+	//// Send epoch starter.
+	//m.protocol.SendEpochStarter(ei, ecID, blocksCount, nbr.ID())
+	//m.log.Debugw("sent epoch start", "peer", nbr.Peer.ID(), "Index", ei, "blocksCount", blocksCount)
+	//
+	//if err := chain.StreamEpochBlocks(ei, func(blocks []*models.Block) {
+	//	m.protocol.SendBlocksBatch(ei, ecID, blocks, nbr.ID())
+	//	m.log.Debugw("sent epoch blocks batch", "peer", nbr.ID(), "Index", ei, "blocksLen", len(blocks))
+	//}, m.blockBatchSize); err != nil {
+	//	m.log.Errorw("epoch blocks request rejected: unable to stream blocks", "peer", nbr.Peer.ID(), "Index", ei, "ID", ec, "err", err)
+	//	return
+	//}
 
 	// Send epoch terminator.
 	// TODO: m.protocol.SendEpochEnd(ei, ec, commitment.Roots(), nbr.ID())

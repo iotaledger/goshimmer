@@ -8,15 +8,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/hive.go/core/serix"
+	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
@@ -60,19 +62,22 @@ func TestRetainer_BlockMetadata_JSON_optional(t *testing.T) {
 }
 
 func TestRetainer_BlockMetadata_NonEvicted(t *testing.T) {
-	protocolTF := protocol.NewTestFramework(t)
-	protocolTF.Protocol.Run()
+	workers := workerpool.NewGroup(t.Name())
+	tf := protocol.NewTestFramework(t, workers.CreateGroup("ProtocolTestFramework"), new(devnetvm.VM))
+	tf.Instance.Run()
 
-	retainer := NewRetainer(protocolTF.Protocol, database.NewManager(0))
+	retainer := NewRetainer(workers.CreateGroup("Retainer"), tf.Instance, database.NewManager(0))
+
 	t.Cleanup(func() {
 		retainer.Shutdown()
 	})
 
-	tangleTF := tangle.NewTestFramework(t, tangle.WithTangle(protocolTF.Protocol.Engine().Tangle))
-	b := tangleTF.CreateBlock("A")
-	tangleTF.IssueBlocks("A")
-	protocolTF.WaitUntilAllTasksProcessed()
-	block, exists := protocolTF.Protocol.CongestionControl.Block(b.ID())
+	b := tf.Engine.BlockDAG.CreateBlock("A")
+	tf.Engine.BlockDAG.IssueBlocks("A")
+
+	workers.Wait()
+
+	block, exists := tf.Instance.CongestionControl.Block(b.ID())
 	require.True(t, exists)
 	var meta *BlockMetadata
 	require.Eventuallyf(t, func() (exists bool) {
@@ -100,7 +105,7 @@ func TestRetainer_BlockMetadata_NonEvicted(t *testing.T) {
 	require.EqualValues(t, pastMarkers, block.StructureDetails().PastMarkers())
 	require.Equal(t, meta.M.AddedConflictIDs, block.AddedConflictIDs())
 	require.Equal(t, meta.M.SubtractedConflictIDs, block.SubtractedConflictIDs())
-	require.Equal(t, meta.M.ConflictIDs, protocolTF.Protocol.Engine().Tangle.BlockConflicts(block.Block.Block))
+	require.Equal(t, meta.M.ConflictIDs, tf.Instance.Engine().Tangle.Booker.BlockConflicts(block.Block.Block))
 
 	require.Equal(t, meta.M.Tracked, true)
 	require.Equal(t, meta.M.SubjectivelyInvalid, block.IsSubjectivelyInvalid())
@@ -111,22 +116,25 @@ func TestRetainer_BlockMetadata_NonEvicted(t *testing.T) {
 }
 
 func TestRetainer_BlockMetadata_Evicted(t *testing.T) {
-	protocolTF := protocol.NewTestFramework(t)
-	protocolTF.Protocol.Run()
+	workers := workerpool.NewGroup(t.Name())
+	tf := protocol.NewTestFramework(t, workers.CreateGroup("ProtocolTestFramework"), new(devnetvm.VM))
+	tf.Instance.Run()
 
-	retainer := NewRetainer(protocolTF.Protocol, database.NewManager(0))
+	retainer := NewRetainer(workers.CreateGroup("Retainer"), tf.Instance, database.NewManager(0))
+
 	t.Cleanup(func() {
 		retainer.Shutdown()
 	})
 
-	tangleTF := tangle.NewTestFramework(t, tangle.WithTangle(protocolTF.Protocol.Engine().Tangle))
-	b := tangleTF.CreateBlock("A", models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0).Add(70*time.Second)))
-	tangleTF.IssueBlocks("A")
-	protocolTF.WaitUntilAllTasksProcessed()
-	block, exists := protocolTF.Protocol.CongestionControl.Block(b.ID())
+	b := tf.Engine.BlockDAG.CreateBlock("A", models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0).Add(70*time.Second)))
+	tf.Engine.BlockDAG.IssueBlocks("A")
+
+	workers.Wait()
+
+	block, exists := tf.Instance.CongestionControl.Block(b.ID())
 	require.True(t, exists)
-	protocolTF.Protocol.Engine().EvictionState.EvictUntil(b.ID().EpochIndex + 1)
-	protocolTF.WaitUntilAllTasksProcessed()
+	tf.Instance.Engine().EvictionState.EvictUntil(b.ID().EpochIndex + 1)
+	workers.Wait()
 	retainer.WorkerPool().PendingTasksCounter.WaitIsZero()
 
 	meta, exists := retainer.BlockMetadata(block.ID())
@@ -153,7 +161,7 @@ func TestRetainer_BlockMetadata_Evicted(t *testing.T) {
 	require.EqualValues(t, pastMarkers, block.StructureDetails().PastMarkers())
 	require.Equal(t, meta.M.AddedConflictIDs, block.AddedConflictIDs())
 	require.Equal(t, meta.M.SubtractedConflictIDs, block.SubtractedConflictIDs())
-	require.Equal(t, meta.M.ConflictIDs, protocolTF.Protocol.Engine().Tangle.BlockConflicts(block.Block.Block))
+	require.Equal(t, meta.M.ConflictIDs, tf.Instance.Engine().Tangle.Booker.BlockConflicts(block.Block.Block))
 	require.Equal(t, meta.M.Tracked, true)
 	require.Equal(t, meta.M.SubjectivelyInvalid, block.IsSubjectivelyInvalid())
 	// You cannot really test this as the scheduler might have scheduled the block after its metadata was retained.
