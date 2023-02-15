@@ -58,16 +58,14 @@ func TestProtocol(t *testing.T) {
 	identitiesWeights := map[ed25519.PublicKey]uint64{
 		identity.GenerateIdentity().PublicKey(): 100,
 	}
-
 	tempDir := utils.NewDirectory(t.TempDir())
 	err := snapshotcreator.CreateSnapshot(
 		snapshotcreator.WithDatabaseVersion(protocol.DatabaseVersion),
 		snapshotcreator.WithFilePath(tempDir.Path("snapshot.bin")),
 		snapshotcreator.WithGenesisTokenAmount(100),
 		snapshotcreator.WithGenesisSeed(make([]byte, 32)),
-		snapshotcreator.WithPeersPublicKey(lo.Keys(identitiesWeights)),
+		snapshotcreator.WithPledgeIDs(identitiesWeights),
 		snapshotcreator.WithVM(ledgerVM),
-		snapshotcreator.WithPeersAmountsPledged(lo.Values(identitiesWeights)),
 	)
 	require.NoError(t, err)
 
@@ -104,9 +102,8 @@ func TestProtocol(t *testing.T) {
 		snapshotcreator.WithFilePath(tempDir2.Path("snapshot.bin")),
 		snapshotcreator.WithGenesisTokenAmount(100),
 		snapshotcreator.WithGenesisSeed(make([]byte, 32)),
-		snapshotcreator.WithPeersPublicKey(lo.Keys(identitiesWeights)),
+		snapshotcreator.WithPledgeIDs(identitiesWeights),
 		snapshotcreator.WithVM(ledgerVM),
-		snapshotcreator.WithPeersAmountsPledged(lo.Values(identitiesWeights)),
 	)
 	require.NoError(t, err)
 
@@ -166,9 +163,9 @@ func TestEngine_NonEmptyInitialValidators(t *testing.T) {
 		snapshotcreator.WithFilePath(tempDir.Path("genesis_snapshot.bin")),
 		snapshotcreator.WithGenesisTokenAmount(1),
 		snapshotcreator.WithGenesisSeed(make([]byte, 32)),
-		snapshotcreator.WithPeersPublicKey(lo.Keys(identitiesWeights)),
+		snapshotcreator.WithPledgeIDs(identitiesWeights),
 		snapshotcreator.WithVM(ledgerVM),
-		snapshotcreator.WithPeersAmountsPledged(lo.Values(identitiesWeights)),
+		snapshotcreator.WithAttestAll(true),
 	)
 	require.NoError(t, err)
 
@@ -236,9 +233,8 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 		snapshotcreator.WithFilePath(tempDir.Path("genesis_snapshot.bin")),
 		snapshotcreator.WithGenesisTokenAmount(1),
 		snapshotcreator.WithGenesisSeed(make([]byte, 32)),
-		snapshotcreator.WithPeersPublicKey(lo.Keys(identitiesWeights)),
+		snapshotcreator.WithPledgeIDs(identitiesWeights),
 		snapshotcreator.WithVM(ledgerVM),
-		snapshotcreator.WithPeersAmountsPledged(lo.Values(identitiesWeights)),
 	)
 	require.NoError(t, err)
 
@@ -528,16 +524,15 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		identity.New(identitiesMap["D"]).PublicKey(): 25,
 		identity.New(identitiesMap["Z"]).PublicKey(): 0,
 	}
-
 	tempDir := utils.NewDirectory(t.TempDir())
 	err := snapshotcreator.CreateSnapshot(
 		snapshotcreator.WithDatabaseVersion(protocol.DatabaseVersion),
 		snapshotcreator.WithFilePath(tempDir.Path("genesis_snapshot.bin")),
 		snapshotcreator.WithGenesisTokenAmount(1),
 		snapshotcreator.WithGenesisSeed(make([]byte, 32)),
-		snapshotcreator.WithPeersPublicKey(lo.Keys(identitiesWeights)),
+		snapshotcreator.WithPledgeIDs(identitiesWeights),
 		snapshotcreator.WithVM(ledgerVM),
-		snapshotcreator.WithPeersAmountsPledged(lo.Values(identitiesWeights)),
+		snapshotcreator.WithAttestAll(true),
 	)
 	require.NoError(t, err)
 
@@ -732,9 +727,9 @@ func TestEngine_ShutdownResume(t *testing.T) {
 		snapshotcreator.WithFilePath(tempDir.Path("genesis_snapshot.bin")),
 		snapshotcreator.WithGenesisTokenAmount(1),
 		snapshotcreator.WithGenesisSeed(make([]byte, 32)),
-		snapshotcreator.WithPeersPublicKey(lo.Keys(identitiesWeights)),
+		snapshotcreator.WithPledgeIDs(identitiesWeights),
 		snapshotcreator.WithVM(ledgerVM),
-		snapshotcreator.WithPeersAmountsPledged(lo.Values(identitiesWeights)),
+		snapshotcreator.WithAttestAll(true),
 	)
 	require.NoError(t, err)
 
@@ -827,9 +822,8 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 		snapshotcreator.WithFilePath(snapshotsDir.Path("snapshot.bin")),
 		snapshotcreator.WithGenesisTokenAmount(0),
 		snapshotcreator.WithGenesisSeed(make([]byte, 32)),
-		snapshotcreator.WithPeersPublicKey(lo.Keys(allWeights)),
+		snapshotcreator.WithPledgeIDs(allWeights),
 		snapshotcreator.WithVM(ledgerVM),
-		snapshotcreator.WithPeersAmountsPledged(lo.Values(allWeights)),
 	)
 	require.NoError(t, err)
 

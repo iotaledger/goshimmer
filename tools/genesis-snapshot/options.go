@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 )
 
-var baseOptions = []options.Option[snapshotcreator.Options]{
+var BaseOptions = []options.Option[snapshotcreator.Options]{
 	snapshotcreator.WithDatabaseVersion(protocol.DatabaseVersion),
 	snapshotcreator.WithVM(new(devnetvm.VM)),
 	// 7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih
@@ -18,19 +18,8 @@ var baseOptions = []options.Option[snapshotcreator.Options]{
 	snapshotcreator.WithGenesisTokenAmount(1000000000000000),
 	snapshotcreator.WithFilePath("snapshot.bin"),
 }
-var dockerNetwork = []options.Option[snapshotcreator.Options]{
-	snapshotcreator.WithFilePath("docker-network.snapshot"),
-	snapshotcreator.WithGenesisTokenAmount(0),
-	snapshotcreator.WithPeersSeedBase58([]string{
-		"3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E", // FZ6xmPZX
-		"GtKSdqanb4mokUBjAf9JZmsSqWzWjzzw57mRR56LjfBL", // H6jzPnLbjsh
-		"CmFVE14Yh9rqn2FrXD8s7ybRoRN5mUnqQxLAuD5HF2em", // JHxvcap7xhv
-		"DuJuWE3hisFrFK1HmrXkd9FSsNNWbw58JcQnKdBn6TdN", // 7rRpyEGU7Sf
-	}),
-	snapshotcreator.WithPeersAmountsPledged([]uint64{2_500_000_000_000_000, 2_500_000_000_000_000, 2_500_000_000_000_000, 10}),
-}
 
-var featureNetwork = []options.Option[snapshotcreator.Options]{
+var FeatureNetwork = []options.Option[snapshotcreator.Options]{
 	snapshotcreator.WithGenesisTokenAmount(1000000000000000),
 	snapshotcreator.WithFilePath("snapshot.bin"),
 	snapshotcreator.WithPeersSeedBase58([]string{
@@ -44,10 +33,10 @@ var featureNetwork = []options.Option[snapshotcreator.Options]{
 		"J3Vr2cJ4m85xFGmZa1nda7ZZTWWM9ptYCxrUKXFDAFcc", // node_05
 		"3X3ZLueaT6T9mGL8C3YUsDrDqsVYvgbXNsa21jhgdzxi", // faucet_01
 	}),
-	snapshotcreator.WithInitialAttestation("AZKt9NEbNb9TAk5SqVTfj3ANoBzrWLjR5YKxa2BCyi8X"),
+	snapshotcreator.WithInitialAttestationsBase58([]string{"AZKt9NEbNb9TAk5SqVTfj3ANoBzrWLjR5YKxa2BCyi8X"}),
 }
 
-var dockerNetworktwet = []options.Option[snapshotcreator.Options]{
+var DockerNetwork = []options.Option[snapshotcreator.Options]{
 	snapshotcreator.WithGenesisTokenAmount(1000000000000000),
 	snapshotcreator.WithFilePath("docker-network.snapshot"),
 	snapshotcreator.WithPeersSeedBase58([]string{
@@ -55,10 +44,10 @@ var dockerNetworktwet = []options.Option[snapshotcreator.Options]{
 		"5kjiW423d5EtNh943j8gYahyxPdnv9xge8Kuks5tjoYg", // peer_master2
 		"CHfU1NUf6ZvUKDQHTG2df53GR7CvuMFtyt7YymJ6DwS3", // faucet
 	}),
-	snapshotcreator.WithInitialAttestation("EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP"),
+	snapshotcreator.WithInitialAttestationsBase58([]string{"EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP"}),
 }
 
-var devnet = []options.Option[snapshotcreator.Options]{
+var Devnet = []options.Option[snapshotcreator.Options]{
 	snapshotcreator.WithGenesisTokenAmount(1000000000000000),
 	snapshotcreator.WithFilePath("snapshot.bin"),
 	snapshotcreator.WithPeersSeedBase58([]string{
@@ -72,5 +61,5 @@ var devnet = []options.Option[snapshotcreator.Options]{
 		"HGiFs4jR74yxDMCN8K1Z16QPdwchXokXzYhBLqKW2ssW", // node_05
 		"5heLsHxMRdTewXooaaDFGpAoj5c41ah5wTmpMukjdvi7", // faucet_01
 	}),
-	snapshotcreator.WithInitialAttestation("AuQXPFmRu9nKNtUq3g1RLqVgSmxNrYeogt6uRwqYLGvK"),
+	snapshotcreator.WithInitialAttestationsBase58([]string{"AuQXPFmRu9nKNtUq3g1RLqVgSmxNrYeogt6uRwqYLGvK"}),
 }

@@ -146,7 +146,7 @@ func createSnapshot(snapshotInfo []options.Option[snapshotcreator.Options], star
 		snapshotcreator.WithFilePath("/assets/snapshot.bin"),
 		snapshotcreator.WithDatabaseVersion(protocol.DatabaseVersion),
 		snapshotcreator.WithVM(new(devnetvm.VM)),
-		snapshotcreator.WithStartSynced(startSynced),
+		snapshotcreator.WithAttestAll(startSynced),
 		snapshotcreator.WithGenesisSeed(GenesisSeedBytes),
 	}
 	err := snapshotcreator.CreateSnapshot(

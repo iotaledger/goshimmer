@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"github.com/stretchr/testify/require"
 	"testing"
 
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
@@ -13,7 +14,6 @@ import (
 	"github.com/iotaledger/hive.go/app/configuration"
 	"github.com/iotaledger/hive.go/app/logger"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
-	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/workerpool"
@@ -56,7 +56,16 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, ledgerVM vm.VM
 			ed25519.GenerateKeyPair().PublicKey: 100,
 		}
 
-		snapshotcreator.CreateSnapshotOld(DatabaseVersion, tempDir.Path("snapshot.bin"), genesisTokenAmount, make([]byte, ed25519.SeedSize), identitiesWeights, lo.Keys(identitiesWeights), ledgerVM)
+		err := snapshotcreator.CreateSnapshot(
+			snapshotcreator.WithDatabaseVersion(DatabaseVersion),
+			snapshotcreator.WithVM(ledgerVM),
+			snapshotcreator.WithFilePath(tempDir.Path("snapshot.bin")),
+			snapshotcreator.WithGenesisTokenAmount(genesisTokenAmount),
+			snapshotcreator.WithGenesisSeed(make([]byte, ed25519.SeedSize)),
+			snapshotcreator.WithPledgeIDs(identitiesWeights),
+			snapshotcreator.WithAttestAll(true),
+		)
+		require.NoError(test, err)
 
 		t.Instance = New(workers.CreateGroup("Protocol"), t.Network.Join(identity.GenerateIdentity().ID()), append(t.optsProtocolOptions,
 			WithSnapshotPath(tempDir.Path("snapshot.bin")),

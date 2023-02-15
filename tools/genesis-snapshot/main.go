@@ -5,11 +5,10 @@ import (
 	"log"
 	"os"
 
+	"github.com/cockroachdb/errors"
 	"github.com/mr-tron/base58"
-	"github.com/pkg/errors"
 	flag "github.com/spf13/pflag"
 
-	"github.com/spf13/viper"
 
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/protocol"
@@ -19,27 +18,28 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
-	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/workerpool"
 )
 
 func main() {
-	parsedOpts, configSelected := parseFlags()
-	opts := baseOptions
+	fmt.Println("creating snapshot...")
+	parsedOpts, configSelected, checkValidity := parseFlags()
+	opts := BaseOptions
 	switch configSelected {
 	case "devnet":
-		opts = append(opts, devnet...)
+		opts = append(opts, Devnet...)
 	case "feature":
-		opts = append(opts, featureNetwork...)
+		opts = append(opts, FeatureNetwork...)
 	case "docker":
-		opts = append(opts, dockerNetwork...)
+		opts = append(opts, DockerNetwork...)
 	default:
-		opts = baseOptions
+		configSelected = "default"
+		opts = BaseOptions
 	}
 	opts = append(opts, parsedOpts...)
 	info := snapshotcreator.NewOptions(opts...)
@@ -49,18 +49,19 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
-	diagnosticPrintSnapshotFromFile(info.FilePath)
+	if checkValidity {
+		diagnosticPrintSnapshotFromFile(info.FilePath)
+	}
 }
 
-func parseFlags() (opt []options.Option[snapshotcreator.Options], conf string) {
-	config := flag.String("config", "", "use ready config: devnet, feature, docker")
+func parseFlags() (opt []options.Option[snapshotcreator.Options], conf string, diagnose bool) {
 	filename := flag.String("filename", "", "the name of the generated snapshot file")
+	checkValidity := flag.BoolP("diagnose", "d", false, "check the validity of the generated snapshot file")
+	config := flag.String("config", "", "use ready config: devnet, feature, docker")
 	genesisTokenAmount := flag.Uint64("token-amount", 0, "the amount of tokens to add to the genesis output")
 	genesisSeedStr := flag.String("seed", "", "the genesis seed provided in base58 format.")
 
 	flag.Parse()
-
 	opt = []options.Option[snapshotcreator.Options]{}
 	if *genesisTokenAmount != 0 {
 		opt = append(opt, snapshotcreator.WithGenesisTokenAmount(*genesisTokenAmount))
@@ -75,7 +76,7 @@ func parseFlags() (opt []options.Option[snapshotcreator.Options], conf string) {
 		}
 		opt = append(opt, snapshotcreator.WithGenesisSeed(genesisSeed))
 	}
-	return opt, *config
+	return opt, *config, *checkValidity
 }
 
 func createTempStorage() (s *storage.Storage) {
@@ -85,11 +86,11 @@ func createTempStorage() (s *storage.Storage) {
 func diagnosticPrintSnapshotFromFile(filePath string) {
 	s := createTempStorage()
 	defer s.Shutdown()
-	workers := workerpool.NewGroup("CreateSnapshot")
-	defer workers.Shutdown()
-	engineInstance := engine.New(workers.CreateGroup("Engine"), s, dpos.NewProvider(), mana1.NewProvider(), engine.WithLedgerOptions(ledger.WithVM(new(devnetvm.VM))))
-	defer engineInstance.Shutdown()
-	if err := engineInstance.Initialize(filePath); err != nil {
+
+	e := engine.New(workerpool.NewGroup("Diagnostics"), s, dpos.NewProvider(), mana1.NewProvider())
+	defer e.Shutdown()
+
+	if err := e.Initialize(filePath); err != nil {
 		panic(err)
 	}
 
@@ -100,9 +101,9 @@ func diagnosticPrintSnapshotFromFile(filePath string) {
 	fmt.Printf("%+v\n", lo.PanicOnErr(s.Commitments.Load(0)))
 
 	fmt.Println("--- Ledgerstate ---")
-	engineInstance.Ledger.Storage.ForEachOutputID(func(outputID utxo.OutputID) bool {
-		engineInstance.Ledger.Storage.CachedOutput(outputID).Consume(func(o utxo.Output) {
-			engineInstance.Ledger.Storage.CachedOutputMetadata(outputID).Consume(func(m *ledger.OutputMetadata) {
+	e.Ledger.Storage.ForEachOutputID(func(outputID utxo.OutputID) bool {
+		e.Ledger.Storage.CachedOutput(outputID).Consume(func(o utxo.Output) {
+			e.Ledger.Storage.CachedOutputMetadata(outputID).Consume(func(m *ledger.OutputMetadata) {
 				fmt.Printf("%+v\n%#v\n", o, m)
 			})
 		})
@@ -110,7 +111,7 @@ func diagnosticPrintSnapshotFromFile(filePath string) {
 	})
 
 	fmt.Println("--- SEPs ---")
-	if err := engineInstance.Storage.RootBlocks.Stream(0, func(blockID models.BlockID) (err error) {
+	if err := e.Storage.RootBlocks.Stream(0, func(blockID models.BlockID) (err error) {
 		fmt.Printf("%+v\n", blockID)
 
 		return
@@ -119,7 +120,7 @@ func diagnosticPrintSnapshotFromFile(filePath string) {
 	}
 
 	fmt.Println("--- ActivityLog ---")
-	if err := lo.PanicOnErr(engineInstance.NotarizationManager.Attestations.Get(0)).Stream(func(id identity.ID, attestation *notarization.Attestation) bool {
+	if err := lo.PanicOnErr(e.NotarizationManager.Attestations.Get(0)).Stream(func(id identity.ID, attestation *notarization.Attestation) bool {
 		fmt.Printf("%d: %+v\n", 0, id)
 		fmt.Printf("Attestation: %+v\n", attestation)
 		return true
@@ -129,18 +130,17 @@ func diagnosticPrintSnapshotFromFile(filePath string) {
 
 	fmt.Println("--- Diffs ---")
 	fmt.Println("SpentOutputs: ")
-	if err := engineInstance.LedgerState.StateDiffs.StreamSpentOutputs(0, func(owm *ledger.OutputWithMetadata) error {
+	if err := e.LedgerState.StateDiffs.StreamSpentOutputs(0, func(owm *ledger.OutputWithMetadata) error {
 		fmt.Printf("%d: %+v\n", 0, owm)
 		return nil
 	}); err != nil {
 		panic(err)
 	}
 	fmt.Println("CreatedOutputs: ")
-	if err := engineInstance.LedgerState.StateDiffs.StreamCreatedOutputs(0, func(owm *ledger.OutputWithMetadata) error {
+	if err := e.LedgerState.StateDiffs.StreamCreatedOutputs(0, func(owm *ledger.OutputWithMetadata) error {
 		fmt.Printf("%d: %+v\n", 0, owm)
 		return nil
 	}); err != nil {
 		panic(err)
 	}
-	fmt.Println("Still going on")
 }

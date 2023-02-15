@@ -23,10 +23,12 @@ type Options struct {
 	PeersPublicKey []ed25519.PublicKey
 	// PeersAmountsPledges is a slice of amounts to be pledged to the peers, one entry per peer.
 	PeersAmountsPledged []uint64
+	// InitialAttestation indicates which node should be included in the first commitment.
+	InitialAttestationsBase58 []string
 	// InitialAttestation indicates which node public key should be included in the first commitment.
-	InitialAttestation string
-	// StartSynced indicates that all nodes will be included in the attestation.
-	StartSynced bool
+	InitialAttestationsPublicKey []ed25519.PublicKey
+	// AttestAll indicates that all nodes will be included in the attestation.
+	AttestAll bool
 
 	dataBaseVersion database.Version
 	vm              vm.VM
@@ -57,6 +59,14 @@ func WithGenesisTokenAmount(genesisTokenAmount uint64) options.Option[Options] {
 	}
 }
 
+// WithTotalTokensPledged sets the total amount of tokens pledged from genesis to the peers,
+// if not provided all genesis tokens will be distributed equally.
+func WithTotalTokensPledged(totalTokensPledged uint64) options.Option[Options] {
+	return func(m *Options) {
+		m.TotalTokensPledged = totalTokensPledged
+	}
+}
+
 // WithPeersSeedBase58 sets the seed of the peers to be used in the snapshot.
 func WithPeersSeedBase58(peersSeedBase58 []string) options.Option[Options] {
 	return func(m *Options) {
@@ -77,17 +87,31 @@ func WithPeersAmountsPledged(peersAmountsPledged []uint64) options.Option[Option
 	}
 }
 
-// WithInitialAttestation sets the initial attestation node to use for the snapshot.
-func WithInitialAttestation(initialAttestation string) options.Option[Options] {
+// WithPledgeIDs sets the public keys and pledge amounts to use for the snapshot.
+func WithPledgeIDs(pledgeIDs map[ed25519.PublicKey]uint64) options.Option[Options] {
 	return func(m *Options) {
-		m.InitialAttestation = initialAttestation
+		m.PeersPublicKey, m.PeersAmountsPledged = KeyValues(pledgeIDs)
 	}
 }
 
-// WithStartSynced indicates if all node should be included in attestations.
-func WithStartSynced(startSynced bool) options.Option[Options] {
+// WithInitialAttestationsBase58 sets the initial attestation node to use for the snapshot.
+func WithInitialAttestationsBase58(initialAttestation []string) options.Option[Options] {
 	return func(m *Options) {
-		m.StartSynced = startSynced
+		m.InitialAttestationsBase58 = initialAttestation
+	}
+}
+
+// WithInitialAttestationsPublicKey sets the initial attestation node public key to use for the snapshot.
+func WithInitialAttestationsPublicKey(initialAttestation []ed25519.PublicKey) options.Option[Options] {
+	return func(m *Options) {
+		m.InitialAttestationsPublicKey = initialAttestation
+	}
+}
+
+// WithAttestAll indicates if all node should be included in attestations.
+func WithAttestAll(attestAll bool) options.Option[Options] {
+	return func(m *Options) {
+		m.AttestAll = attestAll
 	}
 }
 
@@ -103,4 +127,16 @@ func WithVM(vm vm.VM) options.Option[Options] {
 	return func(m *Options) {
 		m.vm = vm
 	}
+}
+
+func KeyValues[K comparable, V any](in map[K]V) ([]K, []V) {
+	keys := make([]K, 0, len(in))
+	values := make([]V, 0, len(in))
+
+	for k, v := range in {
+		keys = append(keys, k)
+		values = append(values, v)
+	}
+
+	return keys, values
 }

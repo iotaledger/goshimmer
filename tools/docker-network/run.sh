@@ -31,6 +31,10 @@ then
   exit 1
 fi
 
+# create snapshot file
+echo "Create snapshot"
+go run ../genesis-snapshot/. --config docker
+
 echo "Run GoShimmer network"
 # GOSHIMMER_PEER_REPLICAS is used in docker-compose.yml to determine how many replicas to create
 export GOSHIMMER_PEER_REPLICAS=$REPLICAS

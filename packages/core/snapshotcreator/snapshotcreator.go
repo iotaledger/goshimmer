@@ -54,18 +54,21 @@ func CreateSnapshot(opts ...options.Option[Options]) (err error) {
 
 	engineInstance := engine.New(workers.CreateGroup("Engine"), s, dpos.NewProvider(), mana1.NewProvider(), engine.WithLedgerOptions(ledger.WithVM(opt.vm)))
 	defer engineInstance.Shutdown()
-	engineInstance.NotarizationManager.Attestations.SetLastCommittedEpoch(-1)
 
 	err = opt.createGenesisOutput(engineInstance)
 	if err != nil {
 		panic(err)
 	}
+	engineInstance.NotarizationManager.Attestations.SetLastCommittedEpoch(-1)
+
 	i := 0
-	opt.createPledgeIDs()
+	opt.createPeersPublicKeys()
 	nodesToPledge, err := opt.createPledgeMap()
 	if err != nil {
 		panic(err)
 	}
+	opt.createInitialAttestationsPublicKeys()
+
 	nodesToPledge.ForEach(func(nodeIdentity *identity.Identity, value uint64) bool {
 		nodePublicKey := nodeIdentity.PublicKey()
 		nodeID := nodeIdentity.ID()
@@ -74,9 +77,8 @@ func CreateSnapshot(opts ...options.Option[Options]) (err error) {
 			panic(err)
 		}
 
-		// Add attestation to commitment only for first peer, unless InitialAttestation node is provided
-		// so that it can issue blocks and bootstraps the network.
-		if opt.InitialAttestation == "" && i == 0 || opt.StartSynced {
+		// Add attestation to commitment only if AttestAll option is set.
+		if opt.AttestAll {
 			err = opt.attest(engineInstance, nodePublicKey)
 		}
 		i++
@@ -104,16 +106,11 @@ func (m *Options) attest(engineInstance *engine.Engine, nodePublicKey ed25519.Pu
 }
 
 func (m *Options) createAttestationIfNotYetDone(engineInstance *engine.Engine) {
-	if !m.StartSynced && m.InitialAttestation != "" {
-		bytes, err := base58.Decode(m.InitialAttestation)
-		if err != nil {
-			panic("failed to decode node public key: " + err.Error())
-		}
-		nodePublicKey, _, err := ed25519.PublicKeyFromBytes(bytes)
-		if err != nil {
-			panic("failed to convert bytes to public key: " + err.Error())
-		}
-		err = m.attest(engineInstance, nodePublicKey)
+	if m.AttestAll {
+		return
+	}
+	for _, nodePublicKey := range m.InitialAttestationsPublicKey {
+		err := m.attest(engineInstance, nodePublicKey)
 		if err != nil {
 			panic("failed to attest: " + err.Error())
 		}
@@ -130,7 +127,7 @@ func (m *Options) createGenesisOutput(engineInstance *engine.Engine) error {
 	return nil
 }
 
-func (m *Options) createPledgeIDs() {
+func (m *Options) createPeersPublicKeys() {
 	if m.PeersPublicKey != nil {
 		return
 	}
@@ -140,9 +137,11 @@ func (m *Options) createPledgeIDs() {
 		if err != nil {
 			panic("failed to decode peer seed: " + err.Error())
 		}
-		var seedBytes []byte
-		copy(seedBytes[:], b)
-		m.PeersPublicKey[i] = ed25519.PrivateKeyFromSeed(seedBytes).Public()
+		nodePublicKey, _, err := ed25519.PublicKeyFromBytes(b)
+		if err != nil {
+			panic("failed to read public key from bytes: " + err.Error())
+		}
+		m.PeersPublicKey[i] = nodePublicKey
 	}
 }
 
@@ -165,6 +164,25 @@ func (m *Options) createPledgeMap() (nodesToPledge *orderedmap.OrderedMap[*ident
 	}
 
 	return nodesToPledge, nil
+}
+
+func (m *Options) createInitialAttestationsPublicKeys() {
+	// if attestations are provided already in public key form, or nothing was provided, return
+	if m.InitialAttestationsPublicKey != nil || m.InitialAttestationsBase58 == nil {
+		return
+	}
+	m.InitialAttestationsPublicKey = make([]ed25519.PublicKey, len(m.InitialAttestationsBase58))
+	for i, attestationBase58 := range m.InitialAttestationsBase58 {
+		b, err := base58.Decode(attestationBase58)
+		if err != nil {
+			panic("failed to decode attestation: " + err.Error())
+		}
+		nodePublicKey, _, err := ed25519.PublicKeyFromBytes(b)
+		if err != nil {
+			panic("failed to read public key from bytes: " + err.Error())
+		}
+		m.InitialAttestationsPublicKey[i] = nodePublicKey
+	}
 }
 
 // CreateSnapshotOld creates a new snapshot. Genesis is defined by genesisTokenAmount and seedBytes, it is pledged to the
