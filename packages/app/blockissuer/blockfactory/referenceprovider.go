@@ -138,6 +138,10 @@ func (r *ReferenceProvider) weakParentsFromUnacceptedInputs(payload payload.Payl
 				continue
 			}
 
+			if latestAttachment.Commitment().Index() > r.protocol.Engine().Storage.Settings.LatestCommitment().Index() {
+				continue
+			}
+
 			weakParents.Add(latestAttachment.ID())
 		}
 	}
