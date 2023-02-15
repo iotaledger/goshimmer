@@ -110,7 +110,7 @@ func (t *TipManager) AddTipNonMonotonic(block *scheduler.Block) {
 	}
 
 	if t.addTip(block) {
-		t.TipsConflictTracker.AddTip(block)
+		t.TipsConflictTracker.AddTip(block, blockConflictIDs)
 	}
 }
 

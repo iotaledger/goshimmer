@@ -12,9 +12,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 type TipsConflictTracker struct {
+	tipConflicts        *memstorage.Storage[models.BlockID, utxo.TransactionIDs]
 	censoredConflicts   *memstorage.Storage[utxo.TransactionID, types.Empty]
 	tipCountPerConflict *memstorage.Storage[utxo.TransactionID, int]
 	engine              *engine.Engine
@@ -24,6 +26,7 @@ type TipsConflictTracker struct {
 
 func NewTipsConflictTracker(engineInstance *engine.Engine) *TipsConflictTracker {
 	return &TipsConflictTracker{
+		tipConflicts:        memstorage.New[models.BlockID, utxo.TransactionIDs](),
 		censoredConflicts:   memstorage.New[utxo.TransactionID, types.Empty](),
 		tipCountPerConflict: memstorage.New[utxo.TransactionID, int](),
 		engine:              engineInstance,
@@ -42,11 +45,11 @@ func (c *TipsConflictTracker) Setup() {
 	}))
 }
 
-func (c *TipsConflictTracker) AddTip(block *scheduler.Block) {
-	blockConflictIDs := c.engine.Tangle.Booker.BlockConflicts(block.Block.Block)
-
+func (c *TipsConflictTracker) AddTip(block *scheduler.Block, blockConflictIDs utxo.TransactionIDs) {
 	c.Lock()
 	defer c.Unlock()
+
+	c.tipConflicts.Set(block.ID(), blockConflictIDs)
 
 	for it := blockConflictIDs.Iterator(); it.HasNext(); {
 		conflict := it.Next()
@@ -66,10 +69,15 @@ func (c *TipsConflictTracker) AddTip(block *scheduler.Block) {
 }
 
 func (c *TipsConflictTracker) RemoveTip(block *scheduler.Block) {
-	blockConflictIDs := c.engine.Tangle.Booker.BlockConflicts(block.Block.Block)
-
 	c.Lock()
 	defer c.Unlock()
+
+	blockConflictIDs, exists := c.tipConflicts.Get(block.ID())
+	if !exists {
+		return
+	}
+
+	c.tipConflicts.Delete(block.ID())
 
 	for it := blockConflictIDs.Iterator(); it.HasNext(); {
 		conflictID := it.Next()
