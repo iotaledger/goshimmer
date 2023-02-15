@@ -3,8 +3,8 @@ package faucet
 import (
 	"net/http"
 
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/node"
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 

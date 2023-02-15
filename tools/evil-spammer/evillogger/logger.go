@@ -3,7 +3,7 @@ package evillogger
 import (
 	"fmt"
 
-	"github.com/iotaledger/hive.go/core/configuration"
+	"github.com/iotaledger/hive.go/app/configuration"
 	"github.com/iotaledger/hive.go/core/logger"
 )
 
