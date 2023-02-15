@@ -58,7 +58,9 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 				return 0
 			}, func(id markers.SequenceID) markers.Index {
 				return 1
-			}, t.optsTangle...)
+			},
+			storageInstance.Commitments.Load,
+			t.optsTangle...)
 		}
 
 		t.VirtualVotingTestFramework = virtualvoting.NewTestFramework(

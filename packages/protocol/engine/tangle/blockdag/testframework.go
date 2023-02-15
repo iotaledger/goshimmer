@@ -53,7 +53,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 				t.evictionState = eviction.NewState(storageInstance)
 			}
 
-			t.BlockDAG = New(t.evictionState, t.optsBlockDAG...)
+			t.BlockDAG = New(t.evictionState, storageInstance.Commitments.Load, t.optsBlockDAG...)
 		}
 
 		t.ModelsTestFramework = models.NewTestFramework(

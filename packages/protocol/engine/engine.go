@@ -282,7 +282,7 @@ func (e *Engine) initLedgerState() {
 }
 
 func (e *Engine) initTangle() {
-	e.Tangle = tangle.New(e.Ledger, e.EvictionState, e.SybilProtection.Validators(), e.LastConfirmedEpoch, e.FirstUnacceptedMarker, e.optsTangleOptions...)
+	e.Tangle = tangle.New(e.Ledger, e.EvictionState, e.SybilProtection.Validators(), e.LastConfirmedEpoch, e.FirstUnacceptedMarker, e.Storage.Commitments.Load, e.optsTangleOptions...)
 
 	e.Events.Filter.BlockAllowed.Attach(event.NewClosure(func(block *models.Block) {
 		if _, _, err := e.Tangle.Attach(block); err != nil {
@@ -339,7 +339,7 @@ func (e *Engine) initClock() {
 func (e *Engine) initTSCManager() {
 	e.TSCManager = tsc.New(e.Consensus.BlockGadget.IsBlockAccepted, e.Tangle, e.optsTSCManagerOptions...)
 
-	//e.Events.Tangle.Booker.BlockBooked.Attach(event.NewClosure(e.TSCManager.AddBlock))
+	// e.Events.Tangle.Booker.BlockBooked.Attach(event.NewClosure(e.TSCManager.AddBlock))
 
 	//e.Events.Clock.AcceptanceTimeUpdated.Attach(event.NewClosure(func(event *clock.TimeUpdateEvent) {
 	//	e.TSCManager.HandleTimeUpdate(event.NewTime)

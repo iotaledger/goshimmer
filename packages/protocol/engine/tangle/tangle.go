@@ -3,6 +3,7 @@ package tangle
 import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
@@ -36,10 +37,11 @@ func New(
 	validators *sybilprotection.WeightedSet,
 	epochCutoffCallback func() epoch.Index,
 	sequenceCutoffCallback func(id markers.SequenceID) markers.Index,
+	commitmentFunc func(epoch.Index) (*commitment.Commitment, error),
 	opts ...options.Option[Tangle],
 ) (newTangle *Tangle) {
 	return options.Apply(new(Tangle), opts, func(t *Tangle) {
-		t.BlockDAG = blockdag.New(evictionState, t.optsBlockDAG...)
+		t.BlockDAG = blockdag.New(evictionState, commitmentFunc, t.optsBlockDAG...)
 		t.Booker = booker.New(t.BlockDAG, ledger, t.optsBooker...)
 		t.VirtualVoting = virtualvoting.New(t.Booker, validators, append(t.optsVirtualVoting, virtualvoting.WithEpochCutoffCallback(epochCutoffCallback), virtualvoting.WithSequenceCutoffCallback(sequenceCutoffCallback))...)
 
