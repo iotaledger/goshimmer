@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/iotaledger/hive.go/app/configuration"
+	appLogger "github.com/iotaledger/hive.go/app/logger"
 	"github.com/iotaledger/hive.go/core/logger"
 )
 
@@ -16,7 +17,7 @@ func init() {
 		fmt.Println(err)
 		return
 	}
-	if err = logger.InitGlobalLogger(config); err != nil {
+	if err = appLogger.InitGlobalLogger(config); err != nil {
 		panic(err)
 	}
 	logger.SetLevel(logger.LevelInfo)
