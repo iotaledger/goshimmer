@@ -58,7 +58,6 @@ func New(workers *workerpool.Group, evictionState *eviction.State, latestCommitm
 	return options.Apply(&BlockDAG{
 		Events:         NewEvents(),
 		EvictionState:  evictionState,
-		Workers:       workers,
 		memStorage:     memstorage.NewEpochStorage[models.BlockID, *Block](),
 		commitmentFunc: latestCommitmentFunc,
 		futureBlocks:   memstorage.NewEpochStorage[commitment.ID, *set.AdvancedSet[*Block]](),
@@ -146,7 +145,7 @@ func (b *BlockDAG) evictEpoch(index epoch.Index) {
 	defer b.evictionMutex.Unlock()
 
 	// We want to deal with the synchronous BlockSolid events in a separate goroutine.
-	go b.promoteFutureBlocksUntil(index)
+	b.promoteFutureBlocksUntil(index)
 
 	b.memStorage.Evict(index)
 }

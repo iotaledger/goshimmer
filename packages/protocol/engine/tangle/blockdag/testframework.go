@@ -50,9 +50,9 @@ func NewTestStorage(t *testing.T, workers *workerpool.Group, opts ...options.Opt
 	return s
 }
 
-func NewTestBlockDAG(t *testing.T, workers *workerpool.Group, evictionState *eviction.State, optsBlockDAG ...options.Option[BlockDAG]) *BlockDAG {
+func NewTestBlockDAG(t *testing.T, workers *workerpool.Group, evictionState *eviction.State, storageInstance *storage.Storage, optsBlockDAG ...options.Option[BlockDAG]) *BlockDAG {
 	require.NotNil(t, evictionState)
-	return New(workers, evictionState, optsBlockDAG...)
+	return New(workers, evictionState, storageInstance.Commitments.Load, optsBlockDAG...)
 }
 
 // NewTestFramework is the constructor of the TestFramework.
@@ -74,7 +74,8 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, blockDAG *Bloc
 }
 
 func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, optsBlockDAG ...options.Option[BlockDAG]) *TestFramework {
-	return NewTestFramework(t, workers.CreateGroup("BlockDAGTestFramework"), NewTestBlockDAG(t, workers.CreateGroup("BlockDAG"), eviction.NewState(NewTestStorage(t, workers)), optsBlockDAG...))
+	storageInstance := NewTestStorage(t, workers)
+	return NewTestFramework(t, workers.CreateGroup("BlockDAGTestFramework"), NewTestBlockDAG(t, workers.CreateGroup("BlockDAG"), eviction.NewState(storageInstance), storageInstance, optsBlockDAG...))
 }
 
 // IssueBlocks stores the given Blocks in the Storage and triggers the processing by the BlockDAG.

@@ -33,9 +33,10 @@ func TestOTV_Track(t *testing.T) {
 
 	workers := workerpool.NewGroup(t.Name())
 
+	storageInstance := blockdag.NewTestStorage(t, workers)
 	tf := NewTestFramework(t, workers.CreateGroup("VirtualVotingTestFramework"), New(workers.CreateGroup("VirtualVoting"),
 		booker.New(workers.CreateGroup("Booker"),
-			blockdag.NewTestBlockDAG(t, workers.CreateGroup("BlockDAG"), eviction.NewState(blockdag.NewTestStorage(t, workers))),
+			blockdag.NewTestBlockDAG(t, workers.CreateGroup("BlockDAG"), eviction.NewState(storageInstance), storageInstance),
 			ledger.NewTestLedger(t, workers.CreateGroup("Ledger")),
 			booker.WithMarkerManagerOptions(
 				markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](

@@ -100,12 +100,10 @@ func (t *TestFramework) RegisterConflictSetIDAlias(alias string, conflictSetID u
 
 func (t *TestFramework) CreateConflict(conflictAlias string, parentConflictIDs utxo.TransactionIDs, conflictSetAliases ...string) {
 	t.RegisterConflictIDAlias(conflictAlias, t.randomConflictID())
-	fmt.Println("------ conflictAlias -----", conflictAlias)
 	for _, conflictSetAlias := range conflictSetAliases {
 		if _, exists := t.resourceByAlias[conflictSetAlias]; !exists {
 			t.RegisterConflictSetIDAlias(conflictSetAlias, t.randomResourceID())
 		}
-		fmt.Println("conflictSetAlias", conflictSetAlias)
 	}
 
 	t.Instance.CreateConflict(t.ConflictID(conflictAlias), parentConflictIDs, t.ConflictSetIDs(conflictSetAliases...))
