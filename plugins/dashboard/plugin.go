@@ -29,7 +29,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 
-	"github.com/iotaledger/goshimmer/packages/app/chat"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 )
@@ -61,7 +60,6 @@ type dependencies struct {
 	Discover   *discover.Protocol  `optional:"true"`
 	Selection  *selection.Protocol `optional:"true"`
 	P2PManager *p2p.Manager        `optional:"true"`
-	Chat       *chat.Chat          `optional:"true"`
 	Indexer    *indexer.Indexer
 }
 
@@ -82,7 +80,6 @@ func configure(plugin *node.Plugin) {
 
 	configureWebSocketWorkerPool()
 	configureLiveFeed()
-	configureChatLiveFeed()
 	configureVisualizer()
 	configureManaFeed()
 	configureServer()
@@ -123,12 +120,8 @@ func run(*node.Plugin) {
 	runManaFeed()
 	runConflictLiveFeed()
 
-	if deps.Chat != nil {
-		runChatLiveFeed()
-	}
-
 	log.Infof("Starting %s ...", PluginName)
-	if err := daemon.BackgroundWorker(PluginName, worker, shutdown.PriorityAnalysis); err != nil {
+	if err := daemon.BackgroundWorker(PluginName, worker, shutdown.PriorityProfiling); err != nil {
 		log.Panicf("Error starting as daemon: %s", err)
 	}
 }
@@ -188,8 +181,6 @@ const (
 	MsgTypeManaMapOnline
 	// MsgManaDashboardAddress is the socket address of the dashboard to stream mana from.
 	MsgManaDashboardAddress
-	// MsgTypeChat defines a chat block.
-	MsgTypeChat
 	// MsgTypeRateSetterMetric defines rate setter metrics.
 	MsgTypeRateSetterMetric
 	// MsgTypeConflictsConflictSet defines a websocket message that contains a conflictSet update for the "conflicts" tab.
@@ -350,7 +341,7 @@ func currentNodeStatus() *nodestatus {
 	deficit, _ := deps.Protocol.CongestionControl.Scheduler().Deficit(deps.Local.ID()).Float64()
 
 	status.Scheduler = schedulerMetric{
-		Running:           deps.Protocol.CongestionControl.Scheduler().Running(),
+		Running:           deps.Protocol.CongestionControl.Scheduler().IsRunning(),
 		Rate:              deps.Protocol.CongestionControl.Scheduler().Rate().String(),
 		MaxBufferSize:     deps.Protocol.CongestionControl.Scheduler().MaxBufferSize(),
 		CurrentBufferSize: deps.Protocol.CongestionControl.Scheduler().BufferSize(),

@@ -7,12 +7,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/labstack/echo"
+
 	"github.com/iotaledger/hive.go/core/daemon"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/iotaledger/hive.go/core/workerpool"
-	"github.com/labstack/echo"
+
+	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/app/retainer"
@@ -72,7 +74,7 @@ func registerTangleEvents() {
 	})
 
 	bookedClosure := event.NewClosure(func(evt *booker.BlockBookedEvent) {
-		conflictIDs := deps.Protocol.Engine().Tangle.BlockConflicts(evt.Block)
+		conflictIDs := deps.Protocol.Engine().Tangle.Booker.BlockConflicts(evt.Block)
 
 		wsBlk := &wsBlock{
 			Type: BlkTypeTangleBooked,
@@ -100,7 +102,7 @@ func registerTangleEvents() {
 	})
 
 	txAcceptedClosure := event.NewClosure(func(event *ledger.TransactionEvent) {
-		attachmentBlock := deps.Protocol.Engine().Tangle.GetEarliestAttachment(event.Metadata.ID(), true)
+		attachmentBlock := deps.Protocol.Engine().Tangle.Booker.GetEarliestAttachment(event.Metadata.ID(), true)
 
 		wsBlk := &wsBlock{
 			Type: BlkTypeTangleTxConfirmationState,

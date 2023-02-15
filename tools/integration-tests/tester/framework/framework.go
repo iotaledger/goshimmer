@@ -11,14 +11,16 @@ import (
 	"time"
 
 	"github.com/docker/docker/client"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/orderedmap"
-	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
 
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/orderedmap"
+	"github.com/iotaledger/hive.go/core/identity"
+
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/storage"
 
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
@@ -163,7 +165,10 @@ func createSnapshot(snapshotInfo SnapshotInfo, startSynced bool) error {
 		snapshotInfo.FilePath = "/assets/snapshot.bin"
 	}
 
-	snapshotcreator.CreateSnapshotForIntegrationTest(createTempStorage(), snapshotInfo.FilePath, snapshotInfo.GenesisTokenAmount, GenesisSeedBytes, nodesToPledgeMap, startSynced)
+	storage := createTempStorage()
+	defer storage.Shutdown()
+
+	snapshotcreator.CreateSnapshotForIntegrationTest(storage, snapshotInfo.FilePath, snapshotInfo.GenesisTokenAmount, GenesisSeedBytes, nodesToPledgeMap, startSynced, new(devnetvm.VM))
 
 	return nil
 }

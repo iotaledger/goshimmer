@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -21,17 +22,19 @@ import (
 type Tangle struct {
 	Events *Events
 
+	BlockDAG      *blockdag.BlockDAG
+	Booker        *booker.Booker
+	VirtualVoting *virtualvoting.VirtualVoting
+	Ledger        *ledger.Ledger
+
 	optsBlockDAG      []options.Option[blockdag.BlockDAG]
 	optsBooker        []options.Option[booker.Booker]
 	optsVirtualVoting []options.Option[virtualvoting.VirtualVoting]
-
-	*blockdag.BlockDAG
-	*booker.Booker
-	*virtualvoting.VirtualVoting
 }
 
 // New is the constructor for a new Tangle.
 func New(
+	workers *workerpool.Group,
 	ledger *ledger.Ledger,
 	evictionState *eviction.State,
 	validators *sybilprotection.WeightedSet,
@@ -41,9 +44,17 @@ func New(
 	opts ...options.Option[Tangle],
 ) (newTangle *Tangle) {
 	return options.Apply(new(Tangle), opts, func(t *Tangle) {
-		t.BlockDAG = blockdag.New(evictionState, commitmentFunc, t.optsBlockDAG...)
-		t.Booker = booker.New(t.BlockDAG, ledger, t.optsBooker...)
-		t.VirtualVoting = virtualvoting.New(t.Booker, validators, append(t.optsVirtualVoting, virtualvoting.WithEpochCutoffCallback(epochCutoffCallback), virtualvoting.WithSequenceCutoffCallback(sequenceCutoffCallback))...)
+		t.Ledger = ledger
+		t.BlockDAG = blockdag.New(workers.CreateGroup("BlockDAG"), evictionState, commitmentFunc, t.optsBlockDAG...)
+		t.Booker = booker.New(workers.CreateGroup("Booker"), t.BlockDAG, ledger, t.optsBooker...)
+		t.VirtualVoting = virtualvoting.New(workers.CreateGroup("VirtualVoting"),
+			t.Booker,
+			validators,
+			append(t.optsVirtualVoting,
+				virtualvoting.WithEpochCutoffCallback(epochCutoffCallback),
+				virtualvoting.WithSequenceCutoffCallback(sequenceCutoffCallback),
+			)...,
+		)
 
 		t.Events = NewEvents()
 		t.Events.BlockDAG = t.BlockDAG.Events

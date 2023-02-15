@@ -11,8 +11,9 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/iotaledger/hive.go/core/workerpool"
+
+	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
@@ -186,7 +187,7 @@ func onConflictAccepted(c *conflictdag.Conflict[utxo.TransactionID, utxo.OutputI
 
 	b, exists := conflicts.conflict(c.ID())
 	if !exists {
-		//log.Warnf("conflict %s did not yet exist", c.ID())
+		// log.Warnf("conflict %s did not yet exist", c.ID())
 		return
 	}
 
@@ -212,7 +213,7 @@ func onConflictRejected(c *conflictdag.Conflict[utxo.TransactionID, utxo.OutputI
 
 	b, exists := conflicts.conflict(c.ID())
 	if !exists {
-		//log.Warnf("conflict %s did not yet exist", c.ID())
+		// log.Warnf("conflict %s did not yet exist", c.ID())
 		return
 	}
 
@@ -235,7 +236,7 @@ func sendAllConflicts() {
 }
 
 func issuerOfOldestAttachment(conflictID utxo.TransactionID) (id identity.ID) {
-	block := deps.Protocol.Engine().Tangle.GetEarliestAttachment(conflictID, true)
+	block := deps.Protocol.Engine().Tangle.Booker.GetEarliestAttachment(conflictID, true)
 	if block != nil {
 		return block.IssuerID()
 	}

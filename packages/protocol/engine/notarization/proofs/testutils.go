@@ -38,8 +38,8 @@ func NewEventMock(t *testing.T, notarizationManager *notarization.Manager) *Even
 	}
 
 	// attach all events
-	notarizationManager.Events.EpochCommitted.Hook(event.NewClosure(e.EpochCommittable))
-	// notarizationManager.Events.ConsensusWeightsUpdated.Hook(event.NewClosure(e.ManaVectorUpdate))
+	event.Hook(notarizationManager.Events.EpochCommitted, e.EpochCommittable)
+	// event.Hook(notarizationManager.Events.ConsensusWeightsUpdated, e.ManaVectorUpdate)
 
 	return e
 }

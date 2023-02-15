@@ -30,6 +30,10 @@ func (w *WeightsBatch) Update(id identity.ID, diff int64) {
 	w.totalDiff += diff
 }
 
+func (w *WeightsBatch) Get(id identity.ID) (diff int64) {
+	return w.diffs[id]
+}
+
 // TargetEpoch returns the epoch that the batch is targeting.
 func (w *WeightsBatch) TargetEpoch() (targetEpoch epoch.Index) {
 	return w.targetEpoch

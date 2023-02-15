@@ -11,23 +11,23 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/model"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/stringify"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
+	"github.com/iotaledger/hive.go/core/workerpool"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
+	"github.com/iotaledger/goshimmer/packages/core/confirmation"
+
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payloadtype"
-	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -36,8 +36,10 @@ import (
 // UTXO-DAG by specifying transactions outputs/inputs via aliases.
 // It makes use of a simplified MockedVM, with MockedTransaction, MockedOutput and MockedInput.
 type TestFramework struct {
-	// Ledger contains a reference to the Ledger instance that the TestFramework is using.
-	Ledger *Ledger
+	// Instance contains a reference to the Ledger instance that the TestFramework is using.
+	Instance *Ledger
+
+	ConflictDAG *conflictdag.TestFramework
 
 	// test contains a reference to the testing instance.
 	test *testing.T
@@ -53,47 +55,49 @@ type TestFramework struct {
 
 	// outputIDsByAliasMutex contains a mutex that is used to synchronize parallel access to the outputIDsByAlias.
 	outputIDsByAliasMutex sync.RWMutex
+}
 
-	// optsLedger contains optional parameters for the Ledger instance.
-	optsLedger []options.Option[Ledger]
+func NewTestLedger(t *testing.T, workers *workerpool.Group, optsLedger ...options.Option[Ledger]) *Ledger {
+	storage := blockdag.NewTestStorage(t, workers)
+	ledger := New(workers.CreatePool("Ledger", 2), storage, optsLedger...)
 
-	*ConflictDAGTestFramework
+	t.Cleanup(func() {
+		workers.Wait()
+		ledger.Shutdown()
+		storage.Shutdown()
+	})
+
+	return ledger
 }
 
 // NewTestFramework creates a new instance of the TestFramework with one default output "Genesis" which has to be
 // consumed by the first transaction.
-func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (newTestFramework *TestFramework) {
-	return options.Apply(&TestFramework{
+func NewTestFramework(test *testing.T, instance *Ledger) *TestFramework {
+	t := &TestFramework{
 		test:                test,
+		Instance:            instance,
+		ConflictDAG:         conflictdag.NewTestFramework(test, instance.ConflictDAG),
 		transactionsByAlias: make(map[string]*MockedTransaction),
 		outputIDsByAlias:    make(map[string]utxo.OutputID),
-	}, opts, func(t *TestFramework) {
-		if t.Ledger == nil {
-			storageInstance := storage.New(test.TempDir(), 1)
-			t.Ledger = New(storageInstance, eviction.NewState(storageInstance), t.optsLedger...)
+	}
 
-			test.Cleanup(func() {
-				t.WaitUntilAllTasksProcessed()
-				t.Ledger.Shutdown()
-				storageInstance.Shutdown()
-			})
-		}
+	genesisOutput := NewMockedOutput(utxo.EmptyTransactionID, 0, 0)
+	cachedObject, stored := t.Instance.Storage.OutputStorage.StoreIfAbsent(genesisOutput)
+	if stored {
+		cachedObject.Release()
 
-		t.ConflictDAGTestFramework = conflictdag.NewTestFramework(t.test, conflictdag.WithConflictDAG(t.Ledger.ConflictDAG))
+		genesisOutputMetadata := NewOutputMetadata(genesisOutput.ID())
+		genesisOutputMetadata.SetConfirmationState(confirmation.Confirmed)
+		t.Instance.Storage.OutputMetadataStorage.Store(genesisOutputMetadata).Release()
 
-		genesisOutput := NewMockedOutput(utxo.EmptyTransactionID, 0)
-		cachedObject, stored := t.Ledger.Storage.OutputStorage.StoreIfAbsent(genesisOutput)
-		if stored {
-			cachedObject.Release()
+		t.outputIDsByAlias["Genesis"] = genesisOutput.ID()
+		genesisOutput.ID().RegisterAlias("Genesis")
+	}
+	return t
+}
 
-			genesisOutputMetadata := NewOutputMetadata(genesisOutput.ID())
-			genesisOutputMetadata.SetConfirmationState(confirmation.Confirmed)
-			t.Ledger.Storage.OutputMetadataStorage.Store(genesisOutputMetadata).Release()
-
-			t.outputIDsByAlias["Genesis"] = genesisOutput.ID()
-			genesisOutput.ID().RegisterAlias("Genesis")
-		}
-	})
+func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, optsLedger ...options.Option[Ledger]) *TestFramework {
+	return NewTestFramework(t, NewTestLedger(t, workers.CreateGroup("Ledger"), optsLedger...))
 }
 
 // Transaction gets the created MockedTransaction by the given alias.
@@ -138,7 +142,7 @@ func (t *TestFramework) TransactionIDs(txAliases ...string) (txIDs utxo.Transact
 // ConflictIDs gets all conflictdag.ConflictIDs given by txAliases.
 // Panics if an alias doesn't exist.
 func (t *TestFramework) ConflictIDs(txAliases ...string) (conflictIDs *set.AdvancedSet[utxo.TransactionID]) {
-	return t.ConflictDAGTestFramework.ConflictIDs(txAliases...)
+	return t.ConflictDAG.ConflictIDs(txAliases...)
 }
 
 // CreateTransaction creates a transaction with the given alias and outputCount. Inputs for the transaction are specified
@@ -154,7 +158,7 @@ func (t *TestFramework) CreateTransaction(txAlias string, outputCount uint16, in
 	tx = NewMockedTransaction(mockedInputs, outputCount)
 	tx.ID().RegisterAlias(txAlias)
 	t.transactionsByAlias[txAlias] = tx
-	t.ConflictDAGTestFramework.RegisterConflictIDAlias(txAlias, tx.ID())
+	t.ConflictDAG.RegisterConflictIDAlias(txAlias, tx.ID())
 
 	t.outputIDsByAliasMutex.Lock()
 	defer t.outputIDsByAliasMutex.Unlock()
@@ -165,7 +169,7 @@ func (t *TestFramework) CreateTransaction(txAlias string, outputCount uint16, in
 
 		outputID.RegisterAlias(outputAlias)
 		t.outputIDsByAlias[outputAlias] = outputID
-		t.ConflictDAGTestFramework.RegisterConflictSetIDAlias(outputAlias, outputID)
+		t.ConflictDAG.RegisterConflictSetIDAlias(outputAlias, outputID)
 	}
 
 	return tx
@@ -173,13 +177,7 @@ func (t *TestFramework) CreateTransaction(txAlias string, outputCount uint16, in
 
 // IssueTransaction issues the transaction given by txAlias.
 func (t *TestFramework) IssueTransaction(txAlias string) (err error) {
-	return t.Ledger.StoreAndProcessTransaction(context.Background(), t.Transaction(txAlias))
-}
-
-func (t *TestFramework) WaitUntilAllTasksProcessed() (self *TestFramework) {
-	// time.Sleep(100 * time.Millisecond)
-	event.Loop.PendingTasksCounter.WaitIsZero()
-	return t
+	return t.Instance.StoreAndProcessTransaction(context.Background(), t.Transaction(txAlias))
 }
 
 // MockOutputFromTx creates an utxo.OutputID from a given MockedTransaction and outputIndex.
@@ -192,14 +190,14 @@ func (t *TestFramework) MockOutputFromTx(tx *MockedTransaction, outputIndex uint
 // It also verifies the reverse mapping, that there is a child reference (conflictdag.ChildConflict)
 // from "conflict1"->"conflict3" and "conflict2"->"conflict3".
 func (t *TestFramework) AssertConflictDAG(expectedParents map[string][]string) {
-	t.ConflictDAGTestFramework.AssertConflictParentsAndChildren(expectedParents)
+	t.ConflictDAG.AssertConflictParentsAndChildren(expectedParents)
 }
 
 // AssertConflicts asserts conflict membership from conflictID -> conflicts but also the reverse mapping conflict -> conflictIDs.
 // expectedConflictAliases should be specified as
 // "output.0": {"conflict1", "conflict2"}.
 func (t *TestFramework) AssertConflicts(expectedConflictSetToConflictsAliases map[string][]string) {
-	t.ConflictDAGTestFramework.AssertConflictSetsAndConflicts(expectedConflictSetToConflictsAliases)
+	t.ConflictDAG.AssertConflictSetsAndConflicts(expectedConflictSetToConflictsAliases)
 }
 
 // AssertConflictIDs asserts that the given transactions and their outputs are booked into the specified conflicts.
@@ -228,7 +226,7 @@ func (t *TestFramework) AssertBooked(expectedBookedMap map[string]bool) {
 
 			_ = txMetadata.OutputIDs().ForEach(func(outputID utxo.OutputID) (err error) {
 				// Check if output exists according to the Booked status of the enclosing Transaction.
-				require.Equalf(t.test, expectedBooked, t.Ledger.Storage.CachedOutputMetadata(outputID).Consume(func(_ *OutputMetadata) {}),
+				require.Equalf(t.test, expectedBooked, t.Instance.Storage.CachedOutputMetadata(outputID).Consume(func(_ *OutputMetadata) {}),
 					"Output(%s): expected booked(%s) but has booked(%s)", outputID, expectedBooked, txMetadata.IsBooked())
 				return nil
 			})
@@ -253,17 +251,17 @@ func (t *TestFramework) AllBooked(txAliases ...string) (allBooked bool) {
 
 // ConsumeTransactionMetadata loads and consumes TransactionMetadata. Asserts that the loaded entity exists.
 func (t *TestFramework) ConsumeTransactionMetadata(txID utxo.TransactionID, consumer func(txMetadata *TransactionMetadata)) {
-	require.Truef(t.test, t.Ledger.Storage.CachedTransactionMetadata(txID).Consume(consumer), "failed to load metadata of %s", txID)
+	require.Truef(t.test, t.Instance.Storage.CachedTransactionMetadata(txID).Consume(consumer), "failed to load metadata of %s", txID)
 }
 
 // ConsumeOutputMetadata loads and consumes OutputMetadata. Asserts that the loaded entity exists.
 func (t *TestFramework) ConsumeOutputMetadata(outputID utxo.OutputID, consumer func(outputMetadata *OutputMetadata)) {
-	require.True(t.test, t.Ledger.Storage.CachedOutputMetadata(outputID).Consume(consumer))
+	require.True(t.test, t.Instance.Storage.CachedOutputMetadata(outputID).Consume(consumer))
 }
 
 // ConsumeOutput loads and consumes Output. Asserts that the loaded entity exists.
 func (t *TestFramework) ConsumeOutput(outputID utxo.OutputID, consumer func(output utxo.Output)) {
-	require.True(t.test, t.Ledger.Storage.CachedOutput(outputID).Consume(consumer))
+	require.True(t.test, t.Instance.Storage.CachedOutput(outputID).Consume(consumer))
 }
 
 // ConsumeTransactionOutputs loads and consumes all OutputMetadata of the given Transaction. Asserts that the loaded entities exists.
@@ -276,9 +274,6 @@ func (t *TestFramework) ConsumeTransactionOutputs(mockTx *MockedTransaction, con
 		}
 	})
 }
-
-// ConflictDAGTestFramework is an alias that it is used to be able to embed a named version of the TestFramework.
-type ConflictDAGTestFramework = conflictdag.TestFramework
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -326,13 +321,16 @@ type mockedOutput struct {
 	// Index contains the Index of the Output in respect to it's creating Transaction (the nth Output will have the
 	// Index n).
 	Index uint16 `serix:"1"`
+
+	Balance uint64 `serix:"2"`
 }
 
 // NewMockedOutput creates a new MockedOutput based on the utxo.TransactionID and its index within the MockedTransaction.
-func NewMockedOutput(txID utxo.TransactionID, index uint16) (out *MockedOutput) {
+func NewMockedOutput(txID utxo.TransactionID, index uint16, balance uint64) (out *MockedOutput) {
 	out = model.NewStorable[utxo.OutputID, MockedOutput](&mockedOutput{
-		TxID:  txID,
-		Index: index,
+		TxID:    txID,
+		Index:   index,
+		Balance: balance,
 	})
 	out.SetID(utxo.OutputID{TransactionID: txID, Index: index})
 	return out
@@ -436,12 +434,12 @@ func (m *MockedVM) ResolveInput(input utxo.Input) (outputID utxo.OutputID) {
 
 // ExecuteTransaction executes the Transaction and determines the Outputs from the given Inputs. It returns an error
 // if the execution fails.
-func (m *MockedVM) ExecuteTransaction(transaction utxo.Transaction, _ *utxo.Outputs, _ ...uint64) (outputs []utxo.Output, err error) {
+func (m *MockedVM) ExecuteTransaction(transaction utxo.Transaction, inputs *utxo.Outputs, _ ...uint64) (outputs []utxo.Output, err error) {
 	mockedTransaction := transaction.(*MockedTransaction)
 
 	outputs = make([]utxo.Output, mockedTransaction.M.OutputCount)
 	for i := uint16(0); i < mockedTransaction.M.OutputCount; i++ {
-		outputs[i] = NewMockedOutput(mockedTransaction.ID(), i)
+		outputs[i] = NewMockedOutput(mockedTransaction.ID(), i, uint64(i))
 		outputs[i].SetID(utxo.NewOutputID(mockedTransaction.ID(), i))
 	}
 
@@ -450,28 +448,6 @@ func (m *MockedVM) ExecuteTransaction(transaction utxo.Transaction, _ *utxo.Outp
 
 // code contract (make sure the struct implements all required methods).
 var _ vm.VM = new(MockedVM)
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
-
-func WithLedgerOptions(opts ...options.Option[Ledger]) options.Option[TestFramework] {
-	return func(tf *TestFramework) {
-		if tf.Ledger != nil {
-			panic("ledger already set")
-		}
-		tf.optsLedger = opts
-	}
-}
-
-func WithLedger(ledger *Ledger) options.Option[TestFramework] {
-	return func(tf *TestFramework) {
-		if tf.optsLedger != nil {
-			panic("ledger options already set")
-		}
-		tf.Ledger = ledger
-	}
-}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 

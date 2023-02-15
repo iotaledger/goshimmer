@@ -5,7 +5,8 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
+
+	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/client/wallet"

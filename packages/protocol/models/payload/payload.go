@@ -34,7 +34,7 @@ func FromBytes(data []byte) (payloadDecoded Payload, consumedBytes int, err erro
 
 	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), data, payloadDecoded, serix.WithValidation())
 	if err != nil {
-		err = errors.Wrap(err, "failed to parse Chat Payload")
+		err = errors.Wrap(err, "failed to parse Payload")
 		return
 	}
 

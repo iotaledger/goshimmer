@@ -29,10 +29,16 @@ type lifecycleEvent struct {
 	mutex sync.RWMutex
 }
 
-// Subscribe registers a new callback that is triggered when the event was triggered.
-func (s *lifecycleEvent) Subscribe(callback func()) (unsubscribe func()) {
+// Subscribe registers callbacks that are triggered when the event was triggered.
+func (s *lifecycleEvent) Subscribe(callbacks ...func()) (unsubscribe func()) {
+	if len(callbacks) == 0 {
+		return func() {}
+	}
+
 	closure := event.NewClosure(func(bool) {
-		callback()
+		for _, callback := range callbacks {
+			callback()
+		}
 	})
 
 	s.event.Hook(closure)

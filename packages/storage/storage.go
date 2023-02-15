@@ -1,7 +1,8 @@
 package storage
 
 import (
-	"github.com/iotaledger/hive.go/core/generics/event"
+	"sync"
+
 	"github.com/iotaledger/hive.go/core/generics/options"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
@@ -21,6 +22,10 @@ type Storage struct {
 
 	// databaseManager is the database manager.
 	databaseManager *database.Manager
+
+	shutdownOnce sync.Once
+
+	Directory string
 }
 
 // New creates a new storage instance with the named database version in the given directory.
@@ -32,6 +37,7 @@ func New(directory string, version database.Version, opts ...options.Option[data
 		Prunable:  prunable.New(databaseManager),
 
 		databaseManager: databaseManager,
+		Directory:       directory,
 	}
 }
 
@@ -52,11 +58,11 @@ func (s *Storage) PermanentDatabaseSize() int64 {
 
 // Shutdown shuts down the storage.
 func (s *Storage) Shutdown() {
-	event.Loop.PendingTasksCounter.WaitIsZero()
+	s.shutdownOnce.Do(func() {
+		if err := s.Permanent.Commitments.Close(); err != nil {
+			panic(err)
+		}
 
-	if err := s.Permanent.Commitments.Close(); err != nil {
-		panic(err)
-	}
-
-	s.databaseManager.Shutdown()
+		s.databaseManager.Shutdown()
+	})
 }

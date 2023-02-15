@@ -119,19 +119,46 @@ func (b *Block) ContentHash() (contentHash types.Identifier, err error) {
 	return blake2b.Sum256(blkBytes[:len(blkBytes)-ed25519.SignatureSize]), nil
 }
 
-// VerifySignature verifies the Signature of the block.
-func (b *Block) VerifySignature() (valid bool, err error) {
+func (b *Block) Sign(pair *ed25519.KeyPair) error {
+	b.M.IssuerPublicKey = pair.PublicKey
+
 	contentHash, err := b.ContentHash()
 	if err != nil {
-		return false, err
+		return errors.Wrap(err, "failed to obtain block content's hash")
 	}
 
 	issuingTimeBytes, err := serix.DefaultAPI.Encode(context.Background(), b.IssuingTime(), serix.WithValidation())
 	if err != nil {
-		panic(err)
+		return errors.Wrap(err, "failed to serialize block's issuing time")
 	}
 
-	return b.M.IssuerPublicKey.VerifySignature(byteutils.ConcatBytes(issuingTimeBytes, lo.PanicOnErr(b.Commitment().ID().Bytes()), contentHash[:]), b.Signature()), nil
+	commitmentIDBytes, err := b.Commitment().ID().Bytes()
+	if err != nil {
+		return errors.Wrap(err, "failed to serialize block's commitment ID")
+	}
+
+	b.SetSignature(pair.PrivateKey.Sign(byteutils.ConcatBytes(issuingTimeBytes, commitmentIDBytes, contentHash[:])))
+	return nil
+}
+
+// VerifySignature verifies the Signature of the block.
+func (b *Block) VerifySignature() (valid bool, err error) {
+	contentHash, err := b.ContentHash()
+	if err != nil {
+		return false, errors.Wrap(err, "failed to obtain block content's hash")
+	}
+
+	issuingTimeBytes, err := serix.DefaultAPI.Encode(context.Background(), b.IssuingTime(), serix.WithValidation())
+	if err != nil {
+		return false, errors.Wrap(err, "failed to serialize block's issuing time")
+	}
+
+	commitmentIDBytes, err := b.Commitment().ID().Bytes()
+	if err != nil {
+		return false, errors.Wrap(err, "failed to serialize block's commitment ID")
+	}
+
+	return b.M.IssuerPublicKey.VerifySignature(byteutils.ConcatBytes(issuingTimeBytes, commitmentIDBytes, contentHash[:]), b.Signature()), nil
 }
 
 // Version returns the block Version.

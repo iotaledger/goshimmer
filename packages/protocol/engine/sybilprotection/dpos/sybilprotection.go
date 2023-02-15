@@ -5,12 +5,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/timed"
-	"github.com/pkg/errors"
+	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
@@ -30,6 +32,7 @@ const (
 // SybilProtection is a sybil protection module for the engine that manages the weights of actors according to their stake.
 type SybilProtection struct {
 	engine            *engine.Engine
+	workers           *workerpool.Group
 	weights           *sybilprotection.Weights
 	validators        *sybilprotection.WeightedSet
 	inactivityManager *timed.TaskExecutor[identity.ID]
@@ -51,6 +54,7 @@ func NewSybilProtection(engineInstance *engine.Engine, opts ...options.Option[Sy
 			BatchCommittable: traits.NewBatchCommittable(engineInstance.Storage.SybilProtection(), PrefixLastCommittedEpoch),
 
 			engine:            engineInstance,
+			workers:           engineInstance.Workers.CreateGroup("SybilProtection"),
 			weights:           sybilprotection.NewWeights(engineInstance.Storage.SybilProtection(PrefixWeights)),
 			inactivityManager: timed.NewTaskExecutor[identity.ID](1),
 			lastActivities:    shrinkingmap.New[identity.ID, time.Time](),
@@ -68,12 +72,14 @@ func NewSybilProtection(engineInstance *engine.Engine, opts ...options.Option[Sy
 
 				s.engine.LedgerState.UnspentOutputs.Subscribe(s)
 
-				s.engine.Events.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(func(block *blockdag.Block) {
-					s.markValidatorActive(block.IssuerID(), block.IssuingTime())
-				}))
-			})
+				s.engine.SubscribeStopped(
+					s.stopInactivityManager,
+				)
 
-			s.engine.SubscribeStopped(s.stopInactivityManager)
+				event.AttachWithWorkerPool(s.engine.Events.Tangle.BlockDAG.BlockSolid, func(block *blockdag.Block) {
+					s.markValidatorActive(block.IssuerID(), block.IssuingTime())
+				}, s.workers.CreatePool("SybilProtection", 2))
+			})
 		})
 }
 
@@ -82,7 +88,10 @@ func (s *SybilProtection) initializeLatestCommitment() {
 }
 
 func (s *SybilProtection) initializeTotalWeight() {
-	s.weights.TotalWeight().UpdateTime = s.engine.Storage.Settings.LatestCommitment().Index()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	s.weights.UpdateTotalWeightEpoch(s.engine.Storage.Settings.LatestCommitment().Index())
 }
 
 func (s *SybilProtection) initializeActiveValidators() {
@@ -179,6 +188,10 @@ func (s *SybilProtection) CommitBatchedStateTransition() (ctx context.Context) {
 }
 
 func (s *SybilProtection) markValidatorActive(id identity.ID, activityTime time.Time) {
+	if s.engine.WasStopped() {
+		return
+	}
+
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 

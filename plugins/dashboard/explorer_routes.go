@@ -10,7 +10,8 @@ import (
 
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
+
+	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/app/retainer"
@@ -21,7 +22,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 
-	"github.com/iotaledger/goshimmer/plugins/chat"
 	ledgerstateAPI "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
 )
 
@@ -216,7 +216,6 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/conflict/:conflictID/children", ledgerstateAPI.GetConflictChildren)
 	routeGroup.GET("/conflict/:conflictID/conflicts", ledgerstateAPI.GetConflictConflicts)
 	routeGroup.GET("/conflict/:conflictID/voters", ledgerstateAPI.GetConflictVoters)
-	routeGroup.POST("/chat", chat.SendChatBlock)
 
 	routeGroup.GET("/search/:search", func(c echo.Context) error {
 		search := c.Param("search")

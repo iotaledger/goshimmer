@@ -53,7 +53,7 @@ func testCount(t testing.TB, prl *ratelimiter.PeerRateLimiter, testPeer *peer.Pe
 	activityCount := atomic.NewInt32(0)
 	expectedActivity := testLimit + 1
 	eventCalled := atomic.NewInt32(0)
-	prl.Events.Hit.Hook(event.NewClosure(func(event *ratelimiter.HitEvent) {
+	event.Hook(prl.Events.Hit, func(event *ratelimiter.HitEvent) {
 		p := event.Source
 		rl := event.RateLimit
 		eventCalled.Inc()
@@ -61,7 +61,7 @@ func testCount(t testing.TB, prl *ratelimiter.PeerRateLimiter, testPeer *peer.Pe
 		require.Equal(t, testPeer.ID(), p)
 		require.Equal(t, defaultTestInterval, rl.Interval)
 		require.Equal(t, testLimit, rl.Limit)
-	}))
+	})
 	for i := 0; i < expectedActivity; i++ {
 		activityCount.Inc()
 		prl.Count(testPeer.ID())

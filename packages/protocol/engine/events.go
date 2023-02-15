@@ -15,7 +15,8 @@ import (
 )
 
 type Events struct {
-	Error *event.Linkable[error]
+	Error          *event.Linkable[error]
+	BlockProcessed *event.Linkable[models.BlockID]
 
 	EvictionState       *eviction.Events
 	Filter              *filter.Events
@@ -34,6 +35,7 @@ type Events struct {
 var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 	return &Events{
 		Error:               event.NewLinkable[error](),
+		BlockProcessed:      event.NewLinkable[models.BlockID](),
 		EvictionState:       eviction.NewEvents(),
 		Filter:              filter.NewEvents(),
 		Ledger:              ledger.NewEvents(),

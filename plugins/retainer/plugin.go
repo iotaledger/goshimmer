@@ -3,6 +3,7 @@ package retainer
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/node"
+	"github.com/iotaledger/hive.go/core/workerpool"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/app/retainer"
@@ -52,5 +53,5 @@ func createRetainer(p *protocol.Protocol) *retainer.Retainer {
 		dbProvider = database.NewDB
 	}
 
-	return retainer.NewRetainer(p, database.NewManager(protocol.DatabaseVersion, database.WithGranularity(Parameters.DBGranularity), database.WithMaxOpenDBs(Parameters.MaxOpenDBs), database.WithDBProvider(dbProvider), database.WithBaseDir(Parameters.Directory)))
+	return retainer.NewRetainer(workerpool.NewGroup("Retainer"), p, database.NewManager(protocol.DatabaseVersion, database.WithGranularity(Parameters.DBGranularity), database.WithMaxOpenDBs(Parameters.MaxOpenDBs), database.WithDBProvider(dbProvider), database.WithBaseDir(Parameters.Directory)))
 }

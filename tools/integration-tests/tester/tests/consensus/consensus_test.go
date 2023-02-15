@@ -8,9 +8,10 @@ import (
 
 	"github.com/iotaledger/hive.go/core/bitmask"
 	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
@@ -50,12 +51,15 @@ func TestSimpleDoubleSpend(t *testing.T) {
 			conf.UseNodeSeedAsWalletSeed = true
 			conf.ValidatorActivityWindow = 10 * time.Minute
 			conf.Protocol.TimeSinceConfirmationThreshold = 10 * time.Minute
-			conf.Notarization.MinEpochCommittableAge = conf.Protocol.TimeSinceConfirmationThreshold * 2
 			return conf
 		}))
 
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
+
+	log.Println("Bootstrapping network...")
+	tests.BootstrapNetwork(t, n)
+	log.Println("Bootstrapping network... done")
 
 	const delayBetweenDataBlocks = 100 * time.Millisecond
 	dataBlocksAmount := len(n.Peers()) * 10

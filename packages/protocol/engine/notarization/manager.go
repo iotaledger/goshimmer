@@ -5,8 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/pkg/errors"
+
+	"github.com/iotaledger/hive.go/core/generics/options"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -59,8 +60,8 @@ func NewManager(storageInstance *storage.Storage, ledgerState *ledgerstate.Ledge
 	})
 }
 
-//// AddConflictingAttachment adds the conflicting attachment to a set of pending conflicts of an epoch.
-//func (m *Manager) AddConflictingAttachment(block *models.Block) {
+// // AddConflictingAttachment adds the conflicting attachment to a set of pending conflicts of an epoch.
+// func (m *Manager) AddConflictingAttachment(block *models.Block) {
 //	m.commitmentMutex.Lock()
 //	defer m.commitmentMutex.Unlock()
 //
@@ -70,10 +71,10 @@ func NewManager(storageInstance *storage.Storage, ledgerState *ledgerstate.Ledge
 //
 //	pendingConflicts := m.pendingConflictsCounters.Get(block.ID().Index(), true)
 //	pendingConflicts.Set(block.ID(), block)
-//}
+// }
 //
-//// DeleteConflictingAttachment deletes the conflicting attachment from a set of pending conflicts of an epoch.
-//func (m *Manager) DeleteConflictingAttachment(blockID models.BlockID) {
+// // DeleteConflictingAttachment deletes the conflicting attachment from a set of pending conflicts of an epoch.
+// func (m *Manager) DeleteConflictingAttachment(blockID models.BlockID) {
 //	m.commitmentMutex.Lock()
 //	defer m.commitmentMutex.Unlock()
 //
@@ -89,7 +90,7 @@ func NewManager(storageInstance *storage.Storage, ledgerState *ledgerstate.Ledge
 //	if pendingConflicts == nil || pendingConflicts.IsEmpty() {
 //		m.tryCommitEpoch(blockID.Index(), m.AcceptanceTime())
 //	}
-//}
+// }
 
 // AcceptanceTime returns the acceptance time of the Manager.
 func (m *Manager) AcceptanceTime() time.Time {
@@ -260,6 +261,12 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 	})
 
 	return true
+}
+
+func (m *Manager) PerformLocked(perform func(m *Manager)) {
+	m.commitmentMutex.Lock()
+	defer m.commitmentMutex.Unlock()
+	perform(m)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

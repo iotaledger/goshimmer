@@ -7,9 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markermanager"
@@ -19,106 +20,113 @@ import (
 )
 
 func TestScenario_1(t *testing.T) {
-	tf := NewTestFramework(t)
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"))
 
-	tf.CreateBlock("Block1", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithPayload(tf.CreateTransaction("TX1", 3, "Genesis")))
-	tf.CreateBlock("Block2", models.WithStrongParents(tf.BlockIDs("Genesis", "Block1")), models.WithPayload(tf.CreateTransaction("TX2", 1, "TX1.1", "TX1.2")))
-	tf.CreateBlock("Block3", models.WithStrongParents(tf.BlockIDs("Block1", "Block2")), models.WithPayload(tf.Transaction("TX2")))
-	tf.CreateBlock("Block4", models.WithStrongParents(tf.BlockIDs("Genesis", "Block1")), models.WithPayload(tf.CreateTransaction("TX3", 1, "TX1.0")))
-	tf.CreateBlock("Block5", models.WithStrongParents(tf.BlockIDs("Block1", "Block2")), models.WithPayload(tf.CreateTransaction("TX4", 1, "TX1.0")))
-	tf.CreateBlock("Block6", models.WithStrongParents(tf.BlockIDs("Block2", "Block5")), models.WithPayload(tf.CreateTransaction("TX5", 1, "TX2.0", "TX4.0")))
-	tf.CreateBlock("Block7", models.WithStrongParents(tf.BlockIDs("Block4", "Block5")), models.WithPayload(tf.Transaction("TX2")))
-	tf.CreateBlock("Block8", models.WithStrongParents(tf.BlockIDs("Block4", "Block5")), models.WithPayload(tf.CreateTransaction("TX6", 1, "TX3.0", "TX4.0")))
-	tf.CreateBlock("Block9", models.WithStrongParents(tf.BlockIDs("Block4", "Block6")), models.WithPayload(tf.CreateTransaction("TX7", 1, "TX5.0")))
+	tf.BlockDAG.CreateBlock("Block1", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithPayload(tf.Ledger.CreateTransaction("TX1", 3, "Genesis")))
+	tf.BlockDAG.CreateBlock("Block2", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis", "Block1")), models.WithPayload(tf.Ledger.CreateTransaction("TX2", 1, "TX1.1", "TX1.2")))
+	tf.BlockDAG.CreateBlock("Block3", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block1", "Block2")), models.WithPayload(tf.Ledger.Transaction("TX2")))
+	tf.BlockDAG.CreateBlock("Block4", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis", "Block1")), models.WithPayload(tf.Ledger.CreateTransaction("TX3", 1, "TX1.0")))
+	tf.BlockDAG.CreateBlock("Block5", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block1", "Block2")), models.WithPayload(tf.Ledger.CreateTransaction("TX4", 1, "TX1.0")))
+	tf.BlockDAG.CreateBlock("Block6", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block2", "Block5")), models.WithPayload(tf.Ledger.CreateTransaction("TX5", 1, "TX2.0", "TX4.0")))
+	tf.BlockDAG.CreateBlock("Block7", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block4", "Block5")), models.WithPayload(tf.Ledger.Transaction("TX2")))
+	tf.BlockDAG.CreateBlock("Block8", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block4", "Block5")), models.WithPayload(tf.Ledger.CreateTransaction("TX6", 1, "TX3.0", "TX4.0")))
+	tf.BlockDAG.CreateBlock("Block9", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block4", "Block6")), models.WithPayload(tf.Ledger.CreateTransaction("TX7", 1, "TX5.0")))
 
-	tf.IssueBlocks("Block1", "Block2", "Block3", "Block4", "Block5", "Block6", "Block7", "Block8", "Block9").WaitUntilAllTasksProcessed()
+	tf.BlockDAG.IssueBlocks("Block1", "Block2", "Block3", "Block4", "Block5", "Block6", "Block7", "Block8", "Block9")
+
+	workers.Wait()
 
 	tf.checkConflictIDs(map[string]utxo.TransactionIDs{
 		"Block1": utxo.NewTransactionIDs(),
 		"Block3": utxo.NewTransactionIDs(),
 		"Block2": utxo.NewTransactionIDs(),
-		"Block4": tf.TransactionIDs("TX3"),
-		"Block5": tf.TransactionIDs("TX4"),
-		"Block6": tf.TransactionIDs("TX4", "TX5"),
-		"Block7": tf.TransactionIDs("TX4", "TX3"),
-		"Block8": tf.TransactionIDs("TX4", "TX3", "TX6"),
-		"Block9": tf.TransactionIDs("TX4", "TX3", "TX5"),
+		"Block4": tf.Ledger.TransactionIDs("TX3"),
+		"Block5": tf.Ledger.TransactionIDs("TX4"),
+		"Block6": tf.Ledger.TransactionIDs("TX4", "TX5"),
+		"Block7": tf.Ledger.TransactionIDs("TX4", "TX3"),
+		"Block8": tf.Ledger.TransactionIDs("TX4", "TX3", "TX6"),
+		"Block9": tf.Ledger.TransactionIDs("TX4", "TX3", "TX5"),
 	})
 	tf.AssertBookedCount(9, "all blocks should be booked")
 }
 
 func TestScenario_2(t *testing.T) {
-	tf := NewTestFramework(t)
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"))
 
-	tf.CreateBlock("Block1", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithPayload(tf.CreateTransaction("TX1", 3, "Genesis")))
-	tf.CreateBlock("Block2", models.WithStrongParents(tf.BlockIDs("Genesis", "Block1")), models.WithPayload(tf.CreateTransaction("TX2", 1, "TX1.1", "TX1.2")))
-	tf.CreateBlock("Block3", models.WithStrongParents(tf.BlockIDs("Block1", "Block2")), models.WithPayload(tf.Transaction("TX2")))
-	tf.CreateBlock("Block4", models.WithStrongParents(tf.BlockIDs("Genesis", "Block1")), models.WithPayload(tf.CreateTransaction("TX3", 1, "TX1.0")))
-	tf.CreateBlock("Block5", models.WithStrongParents(tf.BlockIDs("Block1", "Block2")), models.WithPayload(tf.CreateTransaction("TX4", 1, "TX1.0")))
-	tf.CreateBlock("Block6", models.WithStrongParents(tf.BlockIDs("Block2", "Block5")), models.WithPayload(tf.CreateTransaction("TX5", 1, "TX4.0", "TX2.0")))
-	tf.CreateBlock("Block7", models.WithStrongParents(tf.BlockIDs("Block1", "Block4")), models.WithPayload(tf.CreateTransaction("TX6", 1, "TX1.2")))
-	tf.CreateBlock("Block8", models.WithStrongParents(tf.BlockIDs("Block7", "Block4")), models.WithPayload(tf.CreateTransaction("TX7", 1, "TX3.0", "TX6.0")))
-	tf.CreateBlock("Block9", models.WithStrongParents(tf.BlockIDs("Block4", "Block7")), models.WithPayload(tf.CreateTransaction("TX8", 1, "TX1.1")))
-	tf.CreateBlock("Block0.5", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithPayload(tf.CreateTransaction("TX9", 1, "TX8.0")))
+	tf.BlockDAG.CreateBlock("Block1", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithPayload(tf.Ledger.CreateTransaction("TX1", 3, "Genesis")))
+	tf.BlockDAG.CreateBlock("Block2", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis", "Block1")), models.WithPayload(tf.Ledger.CreateTransaction("TX2", 1, "TX1.1", "TX1.2")))
+	tf.BlockDAG.CreateBlock("Block3", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block1", "Block2")), models.WithPayload(tf.Ledger.Transaction("TX2")))
+	tf.BlockDAG.CreateBlock("Block4", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis", "Block1")), models.WithPayload(tf.Ledger.CreateTransaction("TX3", 1, "TX1.0")))
+	tf.BlockDAG.CreateBlock("Block5", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block1", "Block2")), models.WithPayload(tf.Ledger.CreateTransaction("TX4", 1, "TX1.0")))
+	tf.BlockDAG.CreateBlock("Block6", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block2", "Block5")), models.WithPayload(tf.Ledger.CreateTransaction("TX5", 1, "TX4.0", "TX2.0")))
+	tf.BlockDAG.CreateBlock("Block7", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block1", "Block4")), models.WithPayload(tf.Ledger.CreateTransaction("TX6", 1, "TX1.2")))
+	tf.BlockDAG.CreateBlock("Block8", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block7", "Block4")), models.WithPayload(tf.Ledger.CreateTransaction("TX7", 1, "TX3.0", "TX6.0")))
+	tf.BlockDAG.CreateBlock("Block9", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block4", "Block7")), models.WithPayload(tf.Ledger.CreateTransaction("TX8", 1, "TX1.1")))
+	tf.BlockDAG.CreateBlock("Block0.5", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithPayload(tf.Ledger.CreateTransaction("TX9", 1, "TX8.0")))
 
-	tf.IssueBlocks("Block0.5").WaitUntilAllTasksProcessed()
-	tf.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
-	tf.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
-	tf.IssueBlocks("Block3", "Block4").WaitUntilAllTasksProcessed()
-	tf.IssueBlocks("Block5").WaitUntilAllTasksProcessed()
-	tf.IssueBlocks("Block6").WaitUntilAllTasksProcessed()
-	tf.IssueBlocks("Block7").WaitUntilAllTasksProcessed()
-	tf.IssueBlocks("Block8").WaitUntilAllTasksProcessed()
-	tf.IssueBlocks("Block9").WaitUntilAllTasksProcessed()
+	tf.BlockDAG.IssueBlocks("Block0.5")
+	tf.BlockDAG.IssueBlocks("Block1")
+	tf.BlockDAG.IssueBlocks("Block2")
+	tf.BlockDAG.IssueBlocks("Block3", "Block4")
+	tf.BlockDAG.IssueBlocks("Block5")
+	tf.BlockDAG.IssueBlocks("Block6")
+	tf.BlockDAG.IssueBlocks("Block7")
+	tf.BlockDAG.IssueBlocks("Block8")
+	tf.BlockDAG.IssueBlocks("Block9")
+
+	workers.Wait()
 
 	tf.checkConflictIDs(map[string]utxo.TransactionIDs{
-		"Block0.5": tf.TransactionIDs("TX8"),
+		"Block0.5": tf.Ledger.TransactionIDs("TX8"),
 		"Block1":   utxo.NewTransactionIDs(),
-		"Block2":   tf.TransactionIDs("TX2"),
-		"Block3":   tf.TransactionIDs("TX2"),
-		"Block4":   tf.TransactionIDs("TX3"),
-		"Block5":   tf.TransactionIDs("TX2", "TX4"),
-		"Block6":   tf.TransactionIDs("TX2", "TX4"),
-		"Block7":   tf.TransactionIDs("TX3", "TX6"),
-		"Block8":   tf.TransactionIDs("TX3", "TX6"),
-		"Block9":   tf.TransactionIDs("TX3", "TX6", "TX8"),
+		"Block2":   tf.Ledger.TransactionIDs("TX2"),
+		"Block3":   tf.Ledger.TransactionIDs("TX2"),
+		"Block4":   tf.Ledger.TransactionIDs("TX3"),
+		"Block5":   tf.Ledger.TransactionIDs("TX2", "TX4"),
+		"Block6":   tf.Ledger.TransactionIDs("TX2", "TX4"),
+		"Block7":   tf.Ledger.TransactionIDs("TX3", "TX6"),
+		"Block8":   tf.Ledger.TransactionIDs("TX3", "TX6"),
+		"Block9":   tf.Ledger.TransactionIDs("TX3", "TX6", "TX8"),
 	})
 
 	tf.AssertBookedCount(10, "all block should be booked")
 }
 
 func TestScenario_3(t *testing.T) {
-	tf := NewTestFramework(t)
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"))
 
-	tf.CreateBlock("Block1", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithPayload(tf.CreateTransaction("TX1", 3, "Genesis")))
-	tf.CreateBlock("Block2", models.WithStrongParents(tf.BlockIDs("Genesis", "Block1")), models.WithPayload(tf.CreateTransaction("TX2", 1, "TX1.1", "TX1.2")))
-	tf.CreateBlock("Block3", models.WithStrongParents(tf.BlockIDs("Block1", "Block2")), models.WithPayload(tf.Transaction("TX2")))
-	tf.CreateBlock("Block4", models.WithStrongParents(tf.BlockIDs("Genesis", "Block1")), models.WithPayload(tf.CreateTransaction("TX3", 1, "TX1.0")))
-	tf.CreateBlock("Block5", models.WithStrongParents(tf.BlockIDs("Block1")), models.WithWeakParents(tf.BlockIDs("Block2")), models.WithPayload(tf.CreateTransaction("TX4", 1, "TX1.0")))
-	tf.CreateBlock("Block6", models.WithStrongParents(tf.BlockIDs("Block2", "Block5")), models.WithPayload(tf.CreateTransaction("TX5", 1, "TX4.0", "TX2.0")))
-	tf.CreateBlock("Block7", models.WithStrongParents(tf.BlockIDs("Block1", "Block4")), models.WithPayload(tf.CreateTransaction("TX6", 1, "TX1.2")))
-	tf.CreateBlock("Block8", models.WithStrongParents(tf.BlockIDs("Block4", "Block7")), models.WithPayload(tf.CreateTransaction("TX7", 1, "TX6.0", "TX3.0")))
-	tf.CreateBlock("Block9", models.WithStrongParents(tf.BlockIDs("Block4", "Block7")), models.WithPayload(tf.CreateTransaction("TX8", 1, "TX1.1")))
+	tf.BlockDAG.CreateBlock("Block1", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithPayload(tf.Ledger.CreateTransaction("TX1", 3, "Genesis")))
+	tf.BlockDAG.CreateBlock("Block2", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis", "Block1")), models.WithPayload(tf.Ledger.CreateTransaction("TX2", 1, "TX1.1", "TX1.2")))
+	tf.BlockDAG.CreateBlock("Block3", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block1", "Block2")), models.WithPayload(tf.Ledger.Transaction("TX2")))
+	tf.BlockDAG.CreateBlock("Block4", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis", "Block1")), models.WithPayload(tf.Ledger.CreateTransaction("TX3", 1, "TX1.0")))
+	tf.BlockDAG.CreateBlock("Block5", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block1")), models.WithWeakParents(tf.BlockDAG.BlockIDs("Block2")), models.WithPayload(tf.Ledger.CreateTransaction("TX4", 1, "TX1.0")))
+	tf.BlockDAG.CreateBlock("Block6", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block2", "Block5")), models.WithPayload(tf.Ledger.CreateTransaction("TX5", 1, "TX4.0", "TX2.0")))
+	tf.BlockDAG.CreateBlock("Block7", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block1", "Block4")), models.WithPayload(tf.Ledger.CreateTransaction("TX6", 1, "TX1.2")))
+	tf.BlockDAG.CreateBlock("Block8", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block4", "Block7")), models.WithPayload(tf.Ledger.CreateTransaction("TX7", 1, "TX6.0", "TX3.0")))
+	tf.BlockDAG.CreateBlock("Block9", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block4", "Block7")), models.WithPayload(tf.Ledger.CreateTransaction("TX8", 1, "TX1.1")))
 
-	tf.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
-	tf.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
-	tf.IssueBlocks("Block3", "Block4").WaitUntilAllTasksProcessed()
-	tf.IssueBlocks("Block5").WaitUntilAllTasksProcessed()
-	tf.IssueBlocks("Block6").WaitUntilAllTasksProcessed()
-	tf.IssueBlocks("Block7").WaitUntilAllTasksProcessed()
-	tf.IssueBlocks("Block8").WaitUntilAllTasksProcessed()
-	tf.IssueBlocks("Block9").WaitUntilAllTasksProcessed()
+	tf.BlockDAG.IssueBlocks("Block1")
+	tf.BlockDAG.IssueBlocks("Block2")
+	tf.BlockDAG.IssueBlocks("Block3", "Block4")
+	tf.BlockDAG.IssueBlocks("Block5")
+	tf.BlockDAG.IssueBlocks("Block6")
+	tf.BlockDAG.IssueBlocks("Block7")
+	tf.BlockDAG.IssueBlocks("Block8")
+	tf.BlockDAG.IssueBlocks("Block9")
 
 	tf.checkConflictIDs(map[string]utxo.TransactionIDs{
 		"Block1": utxo.NewTransactionIDs(),
-		"Block2": tf.TransactionIDs("TX2"),
-		"Block3": tf.TransactionIDs("TX2"),
-		"Block4": tf.TransactionIDs("TX3"),
-		"Block5": tf.TransactionIDs("TX4"),
-		"Block6": tf.TransactionIDs("TX4", "TX2"),
-		"Block7": tf.TransactionIDs("TX6", "TX3"),
-		"Block8": tf.TransactionIDs("TX6", "TX3"),
-		"Block9": tf.TransactionIDs("TX6", "TX3", "TX8"),
+		"Block2": tf.Ledger.TransactionIDs("TX2"),
+		"Block3": tf.Ledger.TransactionIDs("TX2"),
+		"Block4": tf.Ledger.TransactionIDs("TX3"),
+		"Block5": tf.Ledger.TransactionIDs("TX4"),
+		"Block6": tf.Ledger.TransactionIDs("TX4", "TX2"),
+		"Block7": tf.Ledger.TransactionIDs("TX6", "TX3"),
+		"Block8": tf.Ledger.TransactionIDs("TX6", "TX3"),
+		"Block9": tf.Ledger.TransactionIDs("TX6", "TX3", "TX8"),
 	})
 	tf.AssertBookedCount(9, "all block should be booked")
 }
@@ -127,13 +135,18 @@ func TestScenario_3(t *testing.T) {
 // 1. It tests whether a new sequence is created after max past marker gap is reached.
 // 2. Propagation of conflicts through the markers, to individually mapped blocks, and across sequence boundaries.
 func TestScenario_4(t *testing.T) {
-	tf := NewTestFramework(t, WithBookerOptions(WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *Block](markers.WithMaxPastMarkerDistance(3)))))
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"),
+		WithMarkerManagerOptions(
+			markermanager.WithSequenceManagerOptions[models.BlockID, *Block](markers.WithMaxPastMarkerDistance(3)),
+		),
+	)
 
-	tf.CreateBlock("BaseBlock", models.WithStrongParents(tf.BlockIDs("Genesis")))
-	tf.IssueBlocks("BaseBlock").WaitUntilAllTasksProcessed()
+	tf.BlockDAG.CreateBlock("BaseBlock", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")))
+	tf.BlockDAG.IssueBlocks("BaseBlock")
 
-	tf.CreateBlock("Block0", models.WithStrongParents(tf.BlockIDs("BaseBlock")), models.WithPayload(tf.CreateTransaction("TX0", 4, "Genesis")))
-	tf.IssueBlocks("Block0").WaitUntilAllTasksProcessed()
+	tf.BlockDAG.CreateBlock("Block0", models.WithStrongParents(tf.BlockDAG.BlockIDs("BaseBlock")), models.WithPayload(tf.Ledger.CreateTransaction("TX0", 4, "Genesis")))
+	tf.BlockDAG.IssueBlocks("Block0")
 
 	markersMap := make(map[string]*markers.Markers)
 	metadataDiffConflictIDs := make(map[string][]utxo.TransactionIDs)
@@ -141,8 +154,8 @@ func TestScenario_4(t *testing.T) {
 
 	// ISSUE Block1
 	{
-		tf.CreateBlock("Block1", models.WithStrongParents(tf.BlockIDs("Block0")), models.WithPayload(tf.CreateTransaction("TX1", 1, "TX0.0")))
-		tf.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
+		tf.BlockDAG.CreateBlock("Block1", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block0")), models.WithPayload(tf.Ledger.CreateTransaction("TX1", 1, "TX0.0")))
+		tf.BlockDAG.IssueBlocks("Block1")
 
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
 			"Block0": markers.NewMarkers(markers.NewMarker(0, 2)),
@@ -160,8 +173,8 @@ func TestScenario_4(t *testing.T) {
 
 	// ISSUE Block2
 	{
-		tf.CreateBlock("Block2", models.WithStrongParents(tf.BlockIDs("Block1")))
-		tf.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
+		tf.BlockDAG.CreateBlock("Block2", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block1")))
+		tf.BlockDAG.IssueBlocks("Block2")
 
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
 			"Block2": markers.NewMarkers(markers.NewMarker(0, 4)),
@@ -176,8 +189,8 @@ func TestScenario_4(t *testing.T) {
 
 	// ISSUE Block3
 	{
-		tf.CreateBlock("Block3", models.WithStrongParents(tf.BlockIDs("BaseBlock")), models.WithPayload(tf.CreateTransaction("TX3", 1, "TX0.1")))
-		tf.IssueBlocks("Block3").WaitUntilAllTasksProcessed()
+		tf.BlockDAG.CreateBlock("Block3", models.WithStrongParents(tf.BlockDAG.BlockIDs("BaseBlock")), models.WithPayload(tf.Ledger.CreateTransaction("TX3", 1, "TX0.1")))
+		tf.BlockDAG.IssueBlocks("Block3")
 
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
 			"Block3": markers.NewMarkers(markers.NewMarker(0, 1)),
@@ -193,26 +206,26 @@ func TestScenario_4(t *testing.T) {
 
 	// ISSUE Block4
 	{
-		tf.CreateBlock("Block4", models.WithStrongParents(tf.BlockIDs("Block3")), models.WithPayload(tf.CreateTransaction("TX4", 1, "TX0.0")))
-		tf.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
+		tf.BlockDAG.CreateBlock("Block4", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block3")), models.WithPayload(tf.Ledger.CreateTransaction("TX4", 1, "TX0.0")))
+		tf.BlockDAG.IssueBlocks("Block4")
 
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
 			"Block4": markers.NewMarkers(markers.NewMarker(0, 1)),
 		}))
 		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
-			"Block4": {tf.TransactionIDs("TX4"), utxo.NewTransactionIDs()},
+			"Block4": {tf.Ledger.TransactionIDs("TX4"), utxo.NewTransactionIDs()},
 		}))
 		tf.checkConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
-			"Block1": tf.TransactionIDs("TX1"),
-			"Block2": tf.TransactionIDs("TX1"),
-			"Block4": tf.TransactionIDs("TX4"),
+			"Block1": tf.Ledger.TransactionIDs("TX1"),
+			"Block2": tf.Ledger.TransactionIDs("TX1"),
+			"Block4": tf.Ledger.TransactionIDs("TX4"),
 		}))
 	}
 
 	// ISSUE Block5
 	{
-		tf.CreateBlock("Block5", models.WithStrongParents(tf.BlockIDs("Block4")))
-		tf.IssueBlocks("Block5").WaitUntilAllTasksProcessed()
+		tf.BlockDAG.CreateBlock("Block5", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block4")))
+		tf.BlockDAG.IssueBlocks("Block5")
 
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
 			"Block5": markers.NewMarkers(markers.NewMarker(1, 2)),
@@ -221,14 +234,14 @@ func TestScenario_4(t *testing.T) {
 			"Block5": {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
 		}))
 		tf.checkConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
-			"Block5": tf.TransactionIDs("TX4"),
+			"Block5": tf.Ledger.TransactionIDs("TX4"),
 		}))
 	}
 
 	// ISSUE Block6
 	{
-		tf.CreateBlock("Block6", models.WithStrongParents(tf.BlockIDs("Block5", "Block0")), models.WithPayload(tf.CreateTransaction("TX5", 1, "TX0.2")))
-		tf.IssueBlocks("Block6").WaitUntilAllTasksProcessed()
+		tf.BlockDAG.CreateBlock("Block6", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block5", "Block0")), models.WithPayload(tf.Ledger.CreateTransaction("TX5", 1, "TX0.2")))
+		tf.BlockDAG.IssueBlocks("Block6")
 
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
 			"Block6": markers.NewMarkers(markers.NewMarker(1, 3)),
@@ -239,14 +252,14 @@ func TestScenario_4(t *testing.T) {
 		}))
 
 		tf.checkConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
-			"Block6": tf.TransactionIDs("TX4"),
+			"Block6": tf.Ledger.TransactionIDs("TX4"),
 		}))
 	}
 
 	// ISSUE Block6.3
 	{
-		tf.CreateBlock("Block6.3", models.WithStrongParents(tf.BlockIDs("Block6")))
-		tf.IssueBlocks("Block6.3").WaitUntilAllTasksProcessed()
+		tf.BlockDAG.CreateBlock("Block6.3", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block6")))
+		tf.BlockDAG.IssueBlocks("Block6.3")
 
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
 			"Block6.3": markers.NewMarkers(markers.NewMarker(1, 4)),
@@ -257,14 +270,14 @@ func TestScenario_4(t *testing.T) {
 		}))
 
 		tf.checkConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
-			"Block6.3": tf.TransactionIDs("TX4"),
+			"Block6.3": tf.Ledger.TransactionIDs("TX4"),
 		}))
 	}
 
 	// ISSUE Block6.6
 	{
-		tf.CreateBlock("Block6.6", models.WithStrongParents(tf.BlockIDs("Block6")))
-		tf.IssueBlocks("Block6.6").WaitUntilAllTasksProcessed()
+		tf.BlockDAG.CreateBlock("Block6.6", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block6")))
+		tf.BlockDAG.IssueBlocks("Block6.6")
 
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
 			"Block6.6": markers.NewMarkers(markers.NewMarker(1, 3)),
@@ -275,53 +288,53 @@ func TestScenario_4(t *testing.T) {
 		}))
 
 		tf.checkConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
-			"Block6.6": tf.TransactionIDs("TX4"),
+			"Block6.6": tf.Ledger.TransactionIDs("TX4"),
 		}))
 	}
 
 	// ISSUE Block7
 	{
-		tf.CreateBlock("Block7", models.WithStrongParents(tf.BlockIDs("Block5", "Block0")), models.WithPayload(tf.CreateTransaction("TX6", 1, "TX0.2")))
-		tf.IssueBlocks("Block7").WaitUntilAllTasksProcessed()
+		tf.BlockDAG.CreateBlock("Block7", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block5", "Block0")), models.WithPayload(tf.Ledger.CreateTransaction("TX6", 1, "TX0.2")))
+		tf.BlockDAG.IssueBlocks("Block7")
 
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
 			"Block7": markers.NewMarkers(markers.NewMarker(1, 2), markers.NewMarker(0, 2)),
 		}))
 
 		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
-			"Block7": {tf.TransactionIDs("TX6"), utxo.NewTransactionIDs()},
+			"Block7": {tf.Ledger.TransactionIDs("TX6"), utxo.NewTransactionIDs()},
 		}))
 
 		tf.checkConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
-			"Block6":   tf.TransactionIDs("TX4", "TX5"),
-			"Block6.3": tf.TransactionIDs("TX4", "TX5"),
-			"Block6.6": tf.TransactionIDs("TX4", "TX5"),
-			"Block7":   tf.TransactionIDs("TX4", "TX6"),
+			"Block6":   tf.Ledger.TransactionIDs("TX4", "TX5"),
+			"Block6.3": tf.Ledger.TransactionIDs("TX4", "TX5"),
+			"Block6.6": tf.Ledger.TransactionIDs("TX4", "TX5"),
+			"Block7":   tf.Ledger.TransactionIDs("TX4", "TX6"),
 		}))
 	}
 
 	// ISSUE Block7.3
 	{
-		tf.CreateBlock("Block7.3", models.WithStrongParents(tf.BlockIDs("Block7")))
-		tf.IssueBlocks("Block7.3").WaitUntilAllTasksProcessed()
+		tf.BlockDAG.CreateBlock("Block7.3", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block7")))
+		tf.BlockDAG.IssueBlocks("Block7.3")
 
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
 			"Block7.3": markers.NewMarkers(markers.NewMarker(1, 2), markers.NewMarker(0, 2)),
 		}))
 
 		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
-			"Block7.3": {tf.TransactionIDs("TX6"), utxo.NewTransactionIDs()},
+			"Block7.3": {tf.Ledger.TransactionIDs("TX6"), utxo.NewTransactionIDs()},
 		}))
 
 		tf.checkConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
-			"Block7.3": tf.TransactionIDs("TX4", "TX6"),
+			"Block7.3": tf.Ledger.TransactionIDs("TX4", "TX6"),
 		}))
 	}
 
 	// ISSUE Block7.6
 	{
-		tf.CreateBlock("Block7.6", models.WithStrongParents(tf.BlockIDs("Block7.3")))
-		tf.IssueBlocks("Block7.6").WaitUntilAllTasksProcessed()
+		tf.BlockDAG.CreateBlock("Block7.6", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block7.3")))
+		tf.BlockDAG.IssueBlocks("Block7.6")
 
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
 			"Block7.6": markers.NewMarkers(markers.NewMarker(2, 3)),
@@ -332,70 +345,72 @@ func TestScenario_4(t *testing.T) {
 		}))
 
 		tf.checkConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
-			"Block7.6": tf.TransactionIDs("TX4", "TX6"),
+			"Block7.6": tf.Ledger.TransactionIDs("TX4", "TX6"),
 		}))
 	}
 
 	// ISSUE Block8
 	{
-		tf.CreateBlock("Block8", models.WithStrongParents(tf.BlockIDs("Block2")), models.WithPayload(tf.CreateTransaction("TX2", 1, "TX0.1")))
-		tf.IssueBlocks("Block8").WaitUntilAllTasksProcessed()
+		tf.BlockDAG.CreateBlock("Block8", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block2")), models.WithPayload(tf.Ledger.CreateTransaction("TX2", 1, "TX0.1")))
+		tf.BlockDAG.IssueBlocks("Block8")
 
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
 			"Block8": markers.NewMarkers(markers.NewMarker(0, 5)),
 		}))
 		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
-			"Block3": {tf.TransactionIDs("TX3"), utxo.NewTransactionIDs()},
-			"Block4": {tf.TransactionIDs("TX3", "TX4"), utxo.NewTransactionIDs()},
+			"Block3": {tf.Ledger.TransactionIDs("TX3"), utxo.NewTransactionIDs()},
+			"Block4": {tf.Ledger.TransactionIDs("TX3", "TX4"), utxo.NewTransactionIDs()},
 			"Block8": {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
 		}))
 		tf.checkConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
-			"Block3":   tf.TransactionIDs("TX3"),
-			"Block4":   tf.TransactionIDs("TX3", "TX4"),
-			"Block5":   tf.TransactionIDs("TX3", "TX4"),
-			"Block6":   tf.TransactionIDs("TX3", "TX4", "TX5"),
-			"Block6.3": tf.TransactionIDs("TX3", "TX4", "TX5"),
-			"Block6.6": tf.TransactionIDs("TX3", "TX4", "TX5"),
-			"Block7":   tf.TransactionIDs("TX3", "TX4", "TX6"),
-			"Block7.3": tf.TransactionIDs("TX3", "TX4", "TX6"),
-			"Block7.6": tf.TransactionIDs("TX3", "TX4", "TX6"),
-			"Block8":   tf.TransactionIDs("TX2", "TX1"),
+			"Block3":   tf.Ledger.TransactionIDs("TX3"),
+			"Block4":   tf.Ledger.TransactionIDs("TX3", "TX4"),
+			"Block5":   tf.Ledger.TransactionIDs("TX3", "TX4"),
+			"Block6":   tf.Ledger.TransactionIDs("TX3", "TX4", "TX5"),
+			"Block6.3": tf.Ledger.TransactionIDs("TX3", "TX4", "TX5"),
+			"Block6.6": tf.Ledger.TransactionIDs("TX3", "TX4", "TX5"),
+			"Block7":   tf.Ledger.TransactionIDs("TX3", "TX4", "TX6"),
+			"Block7.3": tf.Ledger.TransactionIDs("TX3", "TX4", "TX6"),
+			"Block7.6": tf.Ledger.TransactionIDs("TX3", "TX4", "TX6"),
+			"Block8":   tf.Ledger.TransactionIDs("TX2", "TX1"),
 		}))
 	}
 }
 
 func TestFutureConePropagation(t *testing.T) {
-	tf := NewTestFramework(t)
-	tf.CreateBlock("Block0", models.WithStrongParents(tf.BlockIDs("Genesis")))
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"))
 
-	tf.CreateBlock("Block1", models.WithStrongParents(tf.BlockIDs("Block0")), models.WithPayload(tf.CreateTransaction("TX1", 1, "Genesis")))
-	tf.CreateBlock("Block1*", models.WithStrongParents(tf.BlockIDs("Block0")), models.WithPayload(tf.CreateTransaction("TX1*", 1, "Genesis")))
-	tf.CreateBlock("Block2", models.WithStrongParents(tf.BlockIDs("Block1")), models.WithPayload(tf.CreateTransaction("TX2", 1, "TX1.0")))
-	tf.CreateBlock("Block2*", models.WithStrongParents(tf.BlockIDs("Block1")), models.WithPayload(tf.CreateTransaction("TX2*", 1, "TX1.0")))
+	tf.BlockDAG.CreateBlock("Block0", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")))
+
+	tf.BlockDAG.CreateBlock("Block1", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block0")), models.WithPayload(tf.Ledger.CreateTransaction("TX1", 1, "Genesis")))
+	tf.BlockDAG.CreateBlock("Block1*", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block0")), models.WithPayload(tf.Ledger.CreateTransaction("TX1*", 1, "Genesis")))
+	tf.BlockDAG.CreateBlock("Block2", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block1")), models.WithPayload(tf.Ledger.CreateTransaction("TX2", 1, "TX1.0")))
+	tf.BlockDAG.CreateBlock("Block2*", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block1")), models.WithPayload(tf.Ledger.CreateTransaction("TX2*", 1, "TX1.0")))
 
 	// these are all liking TX1* -> should not have TX1 and TX2
-	tf.CreateBlock("Block3", models.WithStrongParents(tf.BlockIDs("Block2")), models.WithLikedInsteadParents(tf.BlockIDs("Block1*"))) // propagation via markers
-	tf.CreateBlock("Block4", models.WithStrongParents(tf.BlockIDs("Block2")), models.WithLikedInsteadParents(tf.BlockIDs("Block1*"))) // check correct booking (later)
-	tf.CreateBlock("Block5", models.WithStrongParents(tf.BlockIDs("Block2")), models.WithLikedInsteadParents(tf.BlockIDs("Block1*"))) // propagation via individually mapped blocks
-	tf.CreateBlock("Block6", models.WithStrongParents(tf.BlockIDs("Block5")))                                                         // propagation via individually mapped blocks
+	tf.BlockDAG.CreateBlock("Block3", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block2")), models.WithLikedInsteadParents(tf.BlockDAG.BlockIDs("Block1*"))) // propagation via markers
+	tf.BlockDAG.CreateBlock("Block4", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block2")), models.WithLikedInsteadParents(tf.BlockDAG.BlockIDs("Block1*"))) // check correct booking (later)
+	tf.BlockDAG.CreateBlock("Block5", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block2")), models.WithLikedInsteadParents(tf.BlockDAG.BlockIDs("Block1*"))) // propagation via individually mapped blocks
+	tf.BlockDAG.CreateBlock("Block6", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block5")))                                                                  // propagation via individually mapped blocks
 
 	// these are liking TX1 -> should have TX2 too
-	tf.CreateBlock("Block7", models.WithStrongParents(tf.BlockIDs("Block2")))                                                        // propagation via individually mapped blocks
-	tf.CreateBlock("Block8", models.WithStrongParents(tf.BlockIDs("Block3")), models.WithLikedInsteadParents(tf.BlockIDs("Block1"))) // propagation via marker
-	tf.CreateBlock("Block9", models.WithStrongParents(tf.BlockIDs("Block5")), models.WithLikedInsteadParents(tf.BlockIDs("Block1"))) // propagation via marker
+	tf.BlockDAG.CreateBlock("Block7", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block2")))                                                                 // propagation via individually mapped blocks
+	tf.BlockDAG.CreateBlock("Block8", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block3")), models.WithLikedInsteadParents(tf.BlockDAG.BlockIDs("Block1"))) // propagation via marker
+	tf.BlockDAG.CreateBlock("Block9", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block5")), models.WithLikedInsteadParents(tf.BlockDAG.BlockIDs("Block1"))) // propagation via marker
 
 	markersMap := make(map[string]*markers.Markers)
 	metadataDiffConflictIDs := make(map[string][]utxo.TransactionIDs)
 	conflictIDs := make(map[string]utxo.TransactionIDs)
 
 	{
-		tf.IssueBlocks("Block0").WaitUntilAllTasksProcessed()
-		tf.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
-		tf.IssueBlocks("Block1*").WaitUntilAllTasksProcessed()
-		tf.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
-		tf.IssueBlocks("Block3").WaitUntilAllTasksProcessed()
-		tf.IssueBlocks("Block5", "Block6").WaitUntilAllTasksProcessed()
-		tf.IssueBlocks("Block7", "Block8", "Block9").WaitUntilAllTasksProcessed()
+		tf.BlockDAG.IssueBlocks("Block0")
+		tf.BlockDAG.IssueBlocks("Block1")
+		tf.BlockDAG.IssueBlocks("Block1*")
+		tf.BlockDAG.IssueBlocks("Block2")
+		tf.BlockDAG.IssueBlocks("Block3")
+		tf.BlockDAG.IssueBlocks("Block5", "Block6")
+		tf.BlockDAG.IssueBlocks("Block7", "Block8", "Block9")
 
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
 			"Block0":  markers.NewMarkers(markers.NewMarker(0, 1)),
@@ -411,93 +426,95 @@ func TestFutureConePropagation(t *testing.T) {
 		}))
 		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
 			"Block1":  {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
-			"Block1*": {tf.TransactionIDs("TX1*"), utxo.NewTransactionIDs()},
+			"Block1*": {tf.Ledger.TransactionIDs("TX1*"), utxo.NewTransactionIDs()},
 			"Block2":  {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
 			"Block3":  {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
-			"Block5":  {tf.TransactionIDs("TX1*"), tf.TransactionIDs("TX1")},
-			"Block6":  {tf.TransactionIDs("TX1*"), tf.TransactionIDs("TX1")},
+			"Block5":  {tf.Ledger.TransactionIDs("TX1*"), tf.Ledger.TransactionIDs("TX1")},
+			"Block6":  {tf.Ledger.TransactionIDs("TX1*"), tf.Ledger.TransactionIDs("TX1")},
 			"Block7":  {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
 			"Block8":  {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
 			"Block9":  {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
 		}))
 		tf.checkConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
-			"Block1":  tf.TransactionIDs("TX1"),
-			"Block1*": tf.TransactionIDs("TX1*"),
-			"Block2":  tf.TransactionIDs("TX1"),
-			"Block3":  tf.TransactionIDs("TX1*"),
-			"Block5":  tf.TransactionIDs("TX1*"),
-			"Block6":  tf.TransactionIDs("TX1*"),
-			"Block7":  tf.TransactionIDs("TX1"),
-			"Block8":  tf.TransactionIDs("TX1"),
-			"Block9":  tf.TransactionIDs("TX1"),
+			"Block1":  tf.Ledger.TransactionIDs("TX1"),
+			"Block1*": tf.Ledger.TransactionIDs("TX1*"),
+			"Block2":  tf.Ledger.TransactionIDs("TX1"),
+			"Block3":  tf.Ledger.TransactionIDs("TX1*"),
+			"Block5":  tf.Ledger.TransactionIDs("TX1*"),
+			"Block6":  tf.Ledger.TransactionIDs("TX1*"),
+			"Block7":  tf.Ledger.TransactionIDs("TX1"),
+			"Block8":  tf.Ledger.TransactionIDs("TX1"),
+			"Block9":  tf.Ledger.TransactionIDs("TX1"),
 		}))
 	}
 
 	// Verify correct propagation of TX2 to its future cone.
 	{
-		tf.IssueBlocks("Block2*").WaitUntilAllTasksProcessed()
+		tf.BlockDAG.IssueBlocks("Block2*")
 
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
 			"Block2*": markers.NewMarkers(markers.NewMarker(0, 2)),
 		}))
 		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
-			"Block2*": {tf.TransactionIDs("TX2*"), utxo.NewTransactionIDs()},
-			"Block5":  {tf.TransactionIDs("TX1*"), tf.TransactionIDs("TX1")},
-			"Block6":  {tf.TransactionIDs("TX1*"), tf.TransactionIDs("TX1")},
+			"Block2*": {tf.Ledger.TransactionIDs("TX2*"), utxo.NewTransactionIDs()},
+			"Block5":  {tf.Ledger.TransactionIDs("TX1*"), tf.Ledger.TransactionIDs("TX1")},
+			"Block6":  {tf.Ledger.TransactionIDs("TX1*"), tf.Ledger.TransactionIDs("TX1")},
 		}))
 		tf.checkConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
-			"Block2":  tf.TransactionIDs("TX1", "TX2"),
-			"Block2*": tf.TransactionIDs("TX1", "TX2*"),
-			"Block3":  tf.TransactionIDs("TX1*"), // does not change because of marker mapping
-			"Block5":  tf.TransactionIDs("TX1*"), // does not change because of additional diff entry
-			"Block6":  tf.TransactionIDs("TX1*"), // does not change because of additional diff entry
-			"Block7":  tf.TransactionIDs("TX1", "TX2"),
-			"Block8":  tf.TransactionIDs("TX1", "TX2"),
-			"Block9":  tf.TransactionIDs("TX1", "TX2"),
+			"Block2":  tf.Ledger.TransactionIDs("TX1", "TX2"),
+			"Block2*": tf.Ledger.TransactionIDs("TX1", "TX2*"),
+			"Block3":  tf.Ledger.TransactionIDs("TX1*"), // does not change because of marker mapping
+			"Block5":  tf.Ledger.TransactionIDs("TX1*"), // does not change because of additional diff entry
+			"Block6":  tf.Ledger.TransactionIDs("TX1*"), // does not change because of additional diff entry
+			"Block7":  tf.Ledger.TransactionIDs("TX1", "TX2"),
+			"Block8":  tf.Ledger.TransactionIDs("TX1", "TX2"),
+			"Block9":  tf.Ledger.TransactionIDs("TX1", "TX2"),
 		}))
 	}
 
 	// Check that inheritance works as expected when booking Block4.
 	{
-		tf.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
+		tf.BlockDAG.IssueBlocks("Block4")
 
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
 			"Block4": markers.NewMarkers(markers.NewMarker(0, 3)),
 		}))
 		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
-			"Block4": {tf.TransactionIDs("TX1*"), tf.TransactionIDs("TX1", "TX2")},
+			"Block4": {tf.Ledger.TransactionIDs("TX1*"), tf.Ledger.TransactionIDs("TX1", "TX2")},
 		}))
 		tf.checkConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
-			"Block4": tf.TransactionIDs("TX1*"),
+			"Block4": tf.Ledger.TransactionIDs("TX1*"),
 		}))
 	}
 }
 
 func TestWeakParent(t *testing.T) {
-	tf := NewTestFramework(t)
-	tf.CreateBlock("Block0", models.WithStrongParents(tf.BlockIDs("Genesis")))
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"))
 
-	tf.CreateBlock("Block1", models.WithStrongParents(tf.BlockIDs("Block0")), models.WithPayload(tf.CreateTransaction("TX1", 1, "Genesis")))
-	tf.CreateBlock("Block1*", models.WithStrongParents(tf.BlockIDs("Block0")), models.WithPayload(tf.CreateTransaction("TX1*", 1, "Genesis")))
-	tf.CreateBlock("Block2", models.WithStrongParents(tf.BlockIDs("Block0")), models.WithWeakParents(tf.BlockIDs("Block1")))
+	tf.BlockDAG.CreateBlock("Block0", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")))
+
+	tf.BlockDAG.CreateBlock("Block1", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block0")), models.WithPayload(tf.Ledger.CreateTransaction("TX1", 1, "Genesis")))
+	tf.BlockDAG.CreateBlock("Block1*", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block0")), models.WithPayload(tf.Ledger.CreateTransaction("TX1*", 1, "Genesis")))
+	tf.BlockDAG.CreateBlock("Block2", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block0")), models.WithWeakParents(tf.BlockDAG.BlockIDs("Block1")))
 
 	{
-		tf.IssueBlocks("Block0").WaitUntilAllTasksProcessed()
-		tf.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
-		tf.IssueBlocks("Block1*").WaitUntilAllTasksProcessed()
-		tf.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
+		tf.BlockDAG.IssueBlocks("Block0")
+		tf.BlockDAG.IssueBlocks("Block1")
+		tf.BlockDAG.IssueBlocks("Block1*")
+		tf.BlockDAG.IssueBlocks("Block2")
 
 		tf.checkBlockMetadataDiffConflictIDs(map[string][]utxo.TransactionIDs{
 			"Block0":  {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
 			"Block1":  {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
-			"Block1*": {tf.TransactionIDs("TX1*"), utxo.NewTransactionIDs()},
-			"Block2":  {tf.TransactionIDs("TX1"), utxo.NewTransactionIDs()},
+			"Block1*": {tf.Ledger.TransactionIDs("TX1*"), utxo.NewTransactionIDs()},
+			"Block2":  {tf.Ledger.TransactionIDs("TX1"), utxo.NewTransactionIDs()},
 		})
 		tf.checkConflictIDs(map[string]utxo.TransactionIDs{
-			"Block0":  tf.TransactionIDs(),
-			"Block1":  tf.TransactionIDs("TX1"),
-			"Block1*": tf.TransactionIDs("TX1*"),
-			"Block2":  tf.TransactionIDs("TX1"),
+			"Block0":  tf.Ledger.TransactionIDs(),
+			"Block1":  tf.Ledger.TransactionIDs("TX1"),
+			"Block1*": tf.Ledger.TransactionIDs("TX1*"),
+			"Block2":  tf.Ledger.TransactionIDs("TX1"),
 		})
 	}
 }
@@ -506,11 +523,12 @@ func TestMultiThreadedBookingAndForkingParallel(t *testing.T) {
 	const layersNum = 127
 	const widthSize = 8 // since we reference all blocks in the layer below, this is limited by the max parents
 
-	tf := NewTestFramework(t)
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"))
 
 	// Create base-layer outputs to double-spend
-	tf.CreateBlock("Block.G", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithPayload(tf.CreateTransaction("G", layersNum, "Genesis")))
-	tf.IssueBlocks("Block.G").WaitUntilAllTasksProcessed()
+	tf.BlockDAG.CreateBlock("Block.G", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithPayload(tf.Ledger.CreateTransaction("G", layersNum, "Genesis")))
+	tf.BlockDAG.IssueBlocks("Block.G")
 
 	blks := make([]string, 0)
 
@@ -536,9 +554,9 @@ func TestMultiThreadedBookingAndForkingParallel(t *testing.T) {
 			}
 
 			if input != "" {
-				tf.CreateBlock(blkName, models.WithStrongParents(tf.BlockIDs(strongParents...)), models.WithPayload(tf.CreateTransaction(txAlias, 1, input)))
+				tf.BlockDAG.CreateBlock(blkName, models.WithStrongParents(tf.BlockDAG.BlockIDs(strongParents...)), models.WithPayload(tf.Ledger.CreateTransaction(txAlias, 1, input)))
 			} else {
-				tf.CreateBlock(blkName, models.WithStrongParents(tf.BlockIDs(strongParents...)))
+				tf.BlockDAG.CreateBlock(blkName, models.WithStrongParents(tf.BlockDAG.BlockIDs(strongParents...)))
 			}
 
 			blks = append(blks, blkName)
@@ -552,13 +570,13 @@ func TestMultiThreadedBookingAndForkingParallel(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			time.Sleep(time.Duration(int(50 * 1000 * rand.Float32())))
-			tf.IssueBlocks(blks[i])
+			tf.BlockDAG.IssueBlocks(blks[i])
 			wg.Done()
 		}(i)
 	}
 
 	wg.Wait()
-	event.Loop.PendingTasksCounter.WaitIsZero()
+	workers.Wait()
 
 	expectedConflicts := make(map[string]utxo.TransactionIDs)
 	for layer := 0; layer < layersNum; layer++ {
@@ -581,7 +599,7 @@ func TestMultiThreadedBookingAndForkingParallel(t *testing.T) {
 				continue
 			}
 
-			expectedConflicts[blkName] = tf.TransactionIDs(conflicts...)
+			expectedConflicts[blkName] = tf.Ledger.TransactionIDs(conflicts...)
 		}
 	}
 
@@ -592,11 +610,12 @@ func TestMultiThreadedBookingAndForkingNested(t *testing.T) {
 	const layersNum = 50
 	const widthSize = 8 // since we reference all blocks in the layer below, this is limited by the max parents
 
-	tf := NewTestFramework(t)
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"))
 
 	// Create base-layer outputs to double-spend
-	tf.CreateBlock("Block.G", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithPayload(tf.CreateTransaction("G", widthSize, "Genesis")))
-	tf.IssueBlocks("Block.G").WaitUntilAllTasksProcessed()
+	tf.BlockDAG.CreateBlock("Block.G", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithPayload(tf.Ledger.CreateTransaction("G", widthSize, "Genesis")))
+	tf.BlockDAG.IssueBlocks("Block.G")
 
 	blks := make([]string, 0)
 
@@ -625,7 +644,7 @@ func TestMultiThreadedBookingAndForkingNested(t *testing.T) {
 				input = fmt.Sprintf("TX.%d.%d.0", layer-1, width-width%2)
 			}
 			txAlias := fmt.Sprintf("TX.%d.%d", layer, width)
-			tf.CreateBlock(blkName, models.WithStrongParents(tf.BlockIDs(strongParents...)), models.WithLikedInsteadParents(tf.BlockIDs(likeParents...)), models.WithPayload(tf.CreateTransaction(txAlias, 1, input)))
+			tf.BlockDAG.CreateBlock(blkName, models.WithStrongParents(tf.BlockDAG.BlockIDs(strongParents...)), models.WithLikedInsteadParents(tf.BlockDAG.BlockIDs(likeParents...)), models.WithPayload(tf.Ledger.CreateTransaction(txAlias, 1, input)))
 
 			blks = append(blks, blkName)
 		}
@@ -638,12 +657,12 @@ func TestMultiThreadedBookingAndForkingNested(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			time.Sleep(time.Duration(int(50 * 1000 * rand.Float32())))
-			tf.IssueBlocks(blks[i])
+			tf.BlockDAG.IssueBlocks(blks[i])
 			wg.Done()
 		}(i)
 	}
 	wg.Wait()
-	event.Loop.PendingTasksCounter.WaitIsZero()
+	workers.Wait()
 
 	expectedConflicts := make(map[string]utxo.TransactionIDs)
 	for layer := 0; layer < layersNum; layer++ {
@@ -661,7 +680,7 @@ func TestMultiThreadedBookingAndForkingNested(t *testing.T) {
 				}
 			}
 
-			expectedConflicts[blkName] = tf.TransactionIDs(conflicts...)
+			expectedConflicts[blkName] = tf.Ledger.TransactionIDs(conflicts...)
 		}
 	}
 
@@ -673,7 +692,8 @@ func TestMultiThreadedBookingAndForkingNested(t *testing.T) {
 func Test_Prune(t *testing.T) {
 	const epochCount = 100
 
-	tf := NewTestFramework(t)
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"))
 
 	// create a helper function that creates the blocks
 	createNewBlock := func(idx int, prefix string) (block *models.Block, alias string) {
@@ -681,22 +701,22 @@ func Test_Prune(t *testing.T) {
 		if idx == 1 {
 			fmt.Println("Creating genesis block")
 
-			return tf.CreateBlock(
+			return tf.BlockDAG.CreateBlock(
 				alias,
 				models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0)),
-				models.WithPayload(tf.CreateTransaction(alias, 1, "Genesis")),
+				models.WithPayload(tf.Ledger.CreateTransaction(alias, 1, "Genesis")),
 			), alias
 		}
 		parentAlias := fmt.Sprintf("blk%s-%d", prefix, idx-1)
-		return tf.CreateBlock(
+		return tf.BlockDAG.CreateBlock(
 			alias,
-			models.WithStrongParents(tf.BlockIDs(parentAlias)),
+			models.WithStrongParents(tf.BlockDAG.BlockIDs(parentAlias)),
 			models.WithIssuingTime(time.Unix(epoch.GenesisTime+int64(idx-1)*epoch.Duration, 0)),
-			models.WithPayload(tf.CreateTransaction(alias, 1, fmt.Sprintf("%s.0", parentAlias))),
+			models.WithPayload(tf.Ledger.CreateTransaction(alias, 1, fmt.Sprintf("%s.0", parentAlias))),
 		), alias
 	}
 
-	require.EqualValues(t, 0, tf.BlockDAG.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch should be 0")
+	require.EqualValues(t, 0, tf.BlockDAG.Instance.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch should be 0")
 
 	expectedInvalid := make(map[string]bool, epochCount)
 	expectedBooked := make(map[string]bool, epochCount)
@@ -705,7 +725,7 @@ func Test_Prune(t *testing.T) {
 	for i := 1; i <= epochCount; i++ {
 		block, alias := createNewBlock(i, "")
 
-		_, wasAttached, err := tf.BlockDAG.Attach(block)
+		_, wasAttached, err := tf.BlockDAG.Instance.Attach(block)
 		require.True(t, wasAttached, "block should be attached")
 		require.NoError(t, err, "should not be able to attach a block after shutdown")
 
@@ -715,47 +735,47 @@ func Test_Prune(t *testing.T) {
 		}
 	}
 
-	_, wasAttached, err := tf.BlockDAG.Attach(tf.CreateBlock(
+	_, wasAttached, err := tf.BlockDAG.Instance.Attach(tf.BlockDAG.CreateBlock(
 		"blk-1-reattachment",
-		models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk-%d", epochCount))),
+		models.WithStrongParents(tf.BlockDAG.BlockIDs(fmt.Sprintf("blk-%d", epochCount))),
 		models.WithIssuingTime(time.Unix(epoch.GenesisTime+int64(epochCount)*epoch.Duration, 0)),
-		models.WithPayload(tf.Transaction("blk-1")),
+		models.WithPayload(tf.Ledger.Transaction("blk-1")),
 	))
 	require.True(t, wasAttached, "block should be attached")
 	require.NoError(t, err, "should not be able to attach a block after shutdown")
 
-	event.Loop.PendingTasksCounter.WaitIsZero()
+	workers.Wait()
 
 	tf.AssertBookedCount(epochCount+1, "should have all solid blocks")
 
 	validateState(tf, 0, epochCount)
 
-	tf.BlockDAG.EvictionState.EvictUntil(epochCount / 4)
-	event.Loop.PendingTasksCounter.WaitIsZero()
+	tf.BlockDAG.Instance.EvictionState.EvictUntil(epochCount / 4)
+	workers.Wait()
 
-	require.EqualValues(t, epochCount/4, tf.BlockDAG.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/4")
+	require.EqualValues(t, epochCount/4, tf.BlockDAG.Instance.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/4")
 
 	// All orphan blocks should be marked as invalid due to invalidity propagation.
-	tf.AssertInvalidCount(0, "should have invalid blocks")
+	tf.BlockDAG.AssertInvalidCount(0, "should have invalid blocks")
 
-	tf.BlockDAG.EvictionState.EvictUntil(epochCount / 10)
-	event.Loop.PendingTasksCounter.WaitIsZero()
+	tf.BlockDAG.Instance.EvictionState.EvictUntil(epochCount / 10)
+	workers.Wait()
 
-	require.EqualValues(t, epochCount/4, tf.BlockDAG.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/4")
+	require.EqualValues(t, epochCount/4, tf.BlockDAG.Instance.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/4")
 
-	tf.BlockDAG.EvictionState.EvictUntil(epochCount / 2)
-	event.Loop.PendingTasksCounter.WaitIsZero()
+	tf.BlockDAG.Instance.EvictionState.EvictUntil(epochCount / 2)
+	workers.Wait()
 
-	require.EqualValues(t, epochCount/2, tf.BlockDAG.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/2")
+	require.EqualValues(t, epochCount/2, tf.BlockDAG.Instance.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/2")
 
 	validateState(tf, epochCount/2, epochCount)
 
-	_, wasAttached, err = tf.BlockDAG.Attach(tf.CreateBlock(
+	_, wasAttached, err = tf.BlockDAG.Instance.Attach(tf.BlockDAG.CreateBlock(
 		"blk-0.5",
-		models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk-%d", epochCount))),
+		models.WithStrongParents(tf.BlockDAG.BlockIDs(fmt.Sprintf("blk-%d", epochCount))),
 		models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0)),
 	))
-	event.Loop.PendingTasksCounter.WaitIsZero()
+	workers.Wait()
 
 	require.False(t, wasAttached, "block should not be attached")
 	require.Error(t, err, "should not be able to attach a block after eviction of an epoch")
@@ -765,59 +785,60 @@ func validateState(tf *TestFramework, maxPrunedEpoch, epochCount int) {
 	for i := maxPrunedEpoch + 1; i <= epochCount; i++ {
 		alias := fmt.Sprintf("blk-%d", i)
 
-		_, exists := tf.Booker.Block(tf.ModelsTestFramework.Block(alias).ID())
+		_, exists := tf.Instance.Block(tf.BlockDAG.Block(alias).ID())
 		require.True(tf.test, exists, "block should be in the BlockDAG")
 		if i == 1 {
-			blocks := tf.Booker.attachments.Get(tf.Transaction(alias).ID())
+			blocks := tf.Instance.attachments.Get(tf.Ledger.Transaction(alias).ID())
 			require.Len(tf.test, blocks, 2, "transaction blk-0 should have 2 attachments")
 		} else {
-			blocks := tf.Booker.attachments.Get(tf.Transaction(alias).ID())
+			blocks := tf.Instance.attachments.Get(tf.Ledger.Transaction(alias).ID())
 			require.Len(tf.test, blocks, 1, "transaction should have 1 attachment")
 		}
 	}
 
 	for i := 1; i <= maxPrunedEpoch; i++ {
 		alias := fmt.Sprintf("blk-%d", i)
-		_, exists := tf.Booker.Block(tf.ModelsTestFramework.Block(alias).ID())
+		_, exists := tf.Instance.Block(tf.BlockDAG.Block(alias).ID())
 		require.False(tf.test, exists, "block should not be in the BlockDAG")
 		if i == 1 {
-			blocks := tf.Booker.attachments.Get(tf.Transaction(alias).ID())
+			blocks := tf.Instance.attachments.Get(tf.Ledger.Transaction(alias).ID())
 			require.Len(tf.test, blocks, 1, "transaction should have 1 attachment")
 		} else {
-			blocks := tf.Booker.attachments.Get(tf.Transaction(alias).ID())
+			blocks := tf.Instance.attachments.Get(tf.Ledger.Transaction(alias).ID())
 			require.Empty(tf.test, blocks, "transaction should have no attachments")
 		}
 	}
 }
 
 func Test_BlockInvalid(t *testing.T) {
-	tf := NewTestFramework(t)
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"))
 
-	tf.CreateBlock("Block1", models.WithStrongParents(tf.BlockIDs("Genesis")))
-	tf.CreateBlock("Block2", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithLikedInsteadParents(tf.BlockIDs("Block1")))
-	tf.CreateBlock("Block3", models.WithStrongParents(tf.BlockIDs("Block1", "Block2")))
-	tf.CreateBlock("Block4", models.WithStrongParents(tf.BlockIDs("Genesis", "Block1")))
-	tf.CreateBlock("Block5", models.WithStrongParents(tf.BlockIDs("Block1", "Block2")))
-	tf.CreateBlock("Block6", models.WithStrongParents(tf.BlockIDs("Block2", "Block5")))
-	tf.CreateBlock("Block7", models.WithStrongParents(tf.BlockIDs("Block4", "Block5")))
-	tf.CreateBlock("Block8", models.WithStrongParents(tf.BlockIDs("Block4", "Block5")))
-	tf.CreateBlock("Block9", models.WithStrongParents(tf.BlockIDs("Block4", "Block6")))
+	tf.BlockDAG.CreateBlock("Block1", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")))
+	tf.BlockDAG.CreateBlock("Block2", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithLikedInsteadParents(tf.BlockDAG.BlockIDs("Block1")))
+	tf.BlockDAG.CreateBlock("Block3", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block1", "Block2")))
+	tf.BlockDAG.CreateBlock("Block4", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis", "Block1")))
+	tf.BlockDAG.CreateBlock("Block5", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block1", "Block2")))
+	tf.BlockDAG.CreateBlock("Block6", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block2", "Block5")))
+	tf.BlockDAG.CreateBlock("Block7", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block4", "Block5")))
+	tf.BlockDAG.CreateBlock("Block8", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block4", "Block5")))
+	tf.BlockDAG.CreateBlock("Block9", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block4", "Block6")))
 
-	tf.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
-	tf.IssueBlocks("Block3").WaitUntilAllTasksProcessed()
-	tf.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
-	tf.IssueBlocks("Block5").WaitUntilAllTasksProcessed()
-	tf.IssueBlocks("Block6").WaitUntilAllTasksProcessed()
-	tf.IssueBlocks("Block7").WaitUntilAllTasksProcessed()
-	tf.IssueBlocks("Block8").WaitUntilAllTasksProcessed()
+	tf.BlockDAG.IssueBlocks("Block1")
+	tf.BlockDAG.IssueBlocks("Block3")
+	tf.BlockDAG.IssueBlocks("Block4")
+	tf.BlockDAG.IssueBlocks("Block5")
+	tf.BlockDAG.IssueBlocks("Block6")
+	tf.BlockDAG.IssueBlocks("Block7")
+	tf.BlockDAG.IssueBlocks("Block8")
 
-	tf.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
+	tf.BlockDAG.IssueBlocks("Block2")
 
-	tf.IssueBlocks("Block9").WaitUntilAllTasksProcessed()
+	tf.BlockDAG.IssueBlocks("Block9")
 
-	tf.AssertInvalidCount(7, "8 blocks should be invalid")
+	tf.BlockDAG.AssertInvalidCount(7, "8 blocks should be invalid")
 	tf.AssertBookedCount(2, "1 block should be booked")
-	tf.AssertInvalid(map[string]bool{
+	tf.BlockDAG.AssertInvalid(map[string]bool{
 		"Block1": false,
 		"Block2": true,
 		"Block3": true,
@@ -840,7 +861,7 @@ func Test_BlockInvalid(t *testing.T) {
 		"Block8": false,
 	})
 
-	tf.AssertSolid(map[string]bool{
+	tf.BlockDAG.AssertSolid(map[string]bool{
 		"Block1": true,
 		"Block2": true,
 		"Block3": true,
