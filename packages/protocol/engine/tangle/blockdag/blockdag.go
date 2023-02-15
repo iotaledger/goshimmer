@@ -139,6 +139,9 @@ func (b *BlockDAG) evictEpoch(index epoch.Index) {
 	b.evictionMutex.Lock()
 	defer b.evictionMutex.Unlock()
 
+	// We want to deal with the synchronous BlockSolid events in a separate goroutine.
+	go b.promoteFutureBlocksUntil(index)
+
 	b.memStorage.Evict(index)
 }
 
