@@ -1,7 +1,6 @@
 package notarization
 
 import (
-	"fmt"
 	"io"
 	"sync"
 	"time"
@@ -252,8 +251,6 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 		m.Events.Error.Trigger(errors.Wrap(err, "failed to store latest commitment"))
 		return false
 	}
-
-	fmt.Println("epoch committed", newCommitment.Index())
 
 	m.Events.EpochCommitted.Trigger(&EpochCommittedDetails{
 		Commitment:                newCommitment,

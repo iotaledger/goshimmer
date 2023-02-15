@@ -167,7 +167,6 @@ func (b *BlockDAG) isFutureBlock(block *Block) (isFutureBlock bool) {
 	// If we are not able to load the commitment for the block, it means we haven't committed this epoch yet.
 	if _, err := b.commitmentFunc(block.Commitment().Index()); err != nil {
 		b.storeFutureBlock(block)
-		fmt.Println("Future block stored", block.ID())
 		return true
 	}
 
@@ -194,7 +193,6 @@ func (b *BlockDAG) promoteFutureBlocksUntil(index epoch.Index) {
 				// Rely on the ordered nature of the underlying map: we need, in fact, to make sure we
 				// trigger the parents before the children.
 				blocksStorage.ForEach(func(block *Block) (err error) {
-					fmt.Println("Prototing future block", block.ID())
 					b.Events.BlockSolid.Trigger(block)
 					return nil
 				})
