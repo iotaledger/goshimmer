@@ -56,7 +56,7 @@ export class VisualizerStore {
         try {
             let res = await fetch(`/api/visualizer/history`);
             let history: history = await res.json();
-            history.vertices.forEach(v => {
+            await history.vertices.forEach(v => {
                 this.addVertex(v);
             });
         } catch (err) {
@@ -384,6 +384,10 @@ function dfsIterator(graph, node, cb, up, cbLinks: any = false, seenNodes = []) 
         const node = seenNodes[pointer++];
 
         if (cb(node)) return true;
+
+        if (!node.links) {
+            return
+        }
 
         for (const link of node.links) {
             if (cbLinks) cbLinks(link);
