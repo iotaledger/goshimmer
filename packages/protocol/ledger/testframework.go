@@ -17,11 +17,11 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/stringify"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/iotaledger/hive.go/core/workerpool"
 
+	"github.com/iotaledger/goshimmer/packages/core/confirmation"
+
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
@@ -38,6 +38,8 @@ import (
 type TestFramework struct {
 	// Instance contains a reference to the Ledger instance that the TestFramework is using.
 	Instance *Ledger
+
+	ConflictDAG *conflictdag.TestFramework
 
 	// test contains a reference to the testing instance.
 	test *testing.T
@@ -74,6 +76,7 @@ func NewTestFramework(test *testing.T, instance *Ledger) *TestFramework {
 	t := &TestFramework{
 		test:                test,
 		Instance:            instance,
+		ConflictDAG:         conflictdag.NewTestFramework(test, instance.ConflictDAG),
 		transactionsByAlias: make(map[string]*MockedTransaction),
 		outputIDsByAlias:    make(map[string]utxo.OutputID),
 	}
@@ -139,7 +142,7 @@ func (t *TestFramework) TransactionIDs(txAliases ...string) (txIDs utxo.Transact
 // ConflictIDs gets all conflictdag.ConflictIDs given by txAliases.
 // Panics if an alias doesn't exist.
 func (t *TestFramework) ConflictIDs(txAliases ...string) (conflictIDs *set.AdvancedSet[utxo.TransactionID]) {
-	return t.ConflictDAGTestFramework.ConflictIDs(txAliases...)
+	return t.ConflictDAG.ConflictIDs(txAliases...)
 }
 
 // CreateTransaction creates a transaction with the given alias and outputCount. Inputs for the transaction are specified
@@ -155,7 +158,7 @@ func (t *TestFramework) CreateTransaction(txAlias string, outputCount uint16, in
 	tx = NewMockedTransaction(mockedInputs, outputCount)
 	tx.ID().RegisterAlias(txAlias)
 	t.transactionsByAlias[txAlias] = tx
-	t.ConflictDAGTestFramework.RegisterConflictIDAlias(txAlias, tx.ID())
+	t.ConflictDAG.RegisterConflictIDAlias(txAlias, tx.ID())
 
 	t.outputIDsByAliasMutex.Lock()
 	defer t.outputIDsByAliasMutex.Unlock()
@@ -166,7 +169,7 @@ func (t *TestFramework) CreateTransaction(txAlias string, outputCount uint16, in
 
 		outputID.RegisterAlias(outputAlias)
 		t.outputIDsByAlias[outputAlias] = outputID
-		t.ConflictDAGTestFramework.RegisterConflictSetIDAlias(outputAlias, outputID)
+		t.ConflictDAG.RegisterConflictSetIDAlias(outputAlias, outputID)
 	}
 
 	return tx
@@ -187,14 +190,14 @@ func (t *TestFramework) MockOutputFromTx(tx *MockedTransaction, outputIndex uint
 // It also verifies the reverse mapping, that there is a child reference (conflictdag.ChildConflict)
 // from "conflict1"->"conflict3" and "conflict2"->"conflict3".
 func (t *TestFramework) AssertConflictDAG(expectedParents map[string][]string) {
-	t.ConflictDAGTestFramework.AssertConflictParentsAndChildren(expectedParents)
+	t.ConflictDAG.AssertConflictParentsAndChildren(expectedParents)
 }
 
 // AssertConflicts asserts conflict membership from conflictID -> conflicts but also the reverse mapping conflict -> conflictIDs.
 // expectedConflictAliases should be specified as
 // "output.0": {"conflict1", "conflict2"}.
 func (t *TestFramework) AssertConflicts(expectedConflictSetToConflictsAliases map[string][]string) {
-	t.ConflictDAGTestFramework.AssertConflictSetsAndConflicts(expectedConflictSetToConflictsAliases)
+	t.ConflictDAG.AssertConflictSetsAndConflicts(expectedConflictSetToConflictsAliases)
 }
 
 // AssertConflictIDs asserts that the given transactions and their outputs are booked into the specified conflicts.

@@ -92,7 +92,7 @@ func New(
 			optsSnapshotDepth:         5,
 		}, opts, func(e *Engine) {
 			e.EvictionState = eviction.NewState(storageInstance)
-			e.Ledger = ledger.New(workers.CreatePool("Pool", 2), e.Storage, e.EvictionState, e.optsLedgerOptions...)
+			e.Ledger = ledger.New(workers.CreatePool("Pool", 2), e.Storage, e.optsLedgerOptions...)
 			e.LedgerState = ledgerstate.New(storageInstance, e.Ledger)
 			e.Clock = clock.New()
 			e.SybilProtection = sybilProtection(e)
@@ -391,14 +391,14 @@ func (e *Engine) initNotarizationManager() {
 	//	}
 	// }))
 
-	//e.Events.Tangle.Booker.AttachmentCreated.Hook(event.NewClosure(func(block *booker.Block) {
+	// e.Events.Tangle.Booker.AttachmentCreated.Hook(event.NewClosure(func(block *booker.Block) {
 	//	if tx, ok := block.Transaction(); ok {
 	//		if conflict, conflictExists := e.Ledger.ConflictDAG.Conflict(tx.ID()); conflictExists && conflict.ConfirmationState().IsPending() {
 	//			e.NotarizationManager.AddConflictingAttachment(block.ModelsBlock)
 	//		}
 	//	}
-	//}))
-	//e.Events.Tangle.Booker.AttachmentOrphaned.Hook(event.NewClosure(func(attachmentBlock *booker.Block) {
+	// }))
+	// e.Events.Tangle.Booker.AttachmentOrphaned.Hook(event.NewClosure(func(attachmentBlock *booker.Block) {
 	//	if tx, ok := attachmentBlock.Transaction(); ok {
 	//		conflict, conflictExists := e.Ledger.ConflictDAG.Conflict(tx.ID())
 	//		var isPending bool
@@ -410,8 +410,8 @@ func (e *Engine) initNotarizationManager() {
 	//			e.NotarizationManager.DeleteConflictingAttachment(attachmentBlock.ID())
 	//		}
 	//	}
-	//}))
-	//e.Ledger.ConflictDAG.Events.ConflictCreated.Hook(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	// }))
+	// e.Ledger.ConflictDAG.Events.ConflictCreated.Hook(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 	//	for it := e.Tangle.Booker.GetAllAttachments(conflict.ID()).Iterator(); it.HasNext(); {
 	//		attachmentBlock := it.Next()
 	//
@@ -419,8 +419,8 @@ func (e *Engine) initNotarizationManager() {
 	//			e.NotarizationManager.AddConflictingAttachment(attachmentBlock.ModelsBlock)
 	//		}
 	//	}
-	//}))
-	//e.Ledger.ConflictDAG.Events.ConflictAccepted.Hook(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	// }))
+	// e.Ledger.ConflictDAG.Events.ConflictAccepted.Hook(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 	//	for it := e.Tangle.Booker.GetAllAttachments(conflict.ID()).Iterator(); it.HasNext(); {
 	//		attachmentBlock := it.Next()
 	//
@@ -429,8 +429,8 @@ func (e *Engine) initNotarizationManager() {
 	//			e.NotarizationManager.DeleteConflictingAttachment(attachmentBlock.ID())
 	//		}
 	//	}
-	//}))
-	//e.Ledger.ConflictDAG.Events.ConflictRejected.Hook(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	// }))
+	// e.Ledger.ConflictDAG.Events.ConflictRejected.Hook(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 	//	for it := e.Tangle.Booker.GetAllAttachments(conflict.ID()).Iterator(); it.HasNext(); {
 	//		attachmentBlock := it.Next()
 	//
@@ -439,8 +439,8 @@ func (e *Engine) initNotarizationManager() {
 	//			e.NotarizationManager.DeleteConflictingAttachment(attachmentBlock.ID())
 	//		}
 	//	}
-	//}))
-	//e.Ledger.ConflictDAG.Events.ConflictNotConflicting.Hook(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	// }))
+	// e.Ledger.ConflictDAG.Events.ConflictNotConflicting.Hook(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 	//	for it := e.Tangle.Booker.GetAllAttachments(conflict.ID()).Iterator(); it.HasNext(); {
 	//		attachmentBlock := it.Next()
 	//
@@ -449,7 +449,7 @@ func (e *Engine) initNotarizationManager() {
 	//			e.NotarizationManager.DeleteConflictingAttachment(attachmentBlock.ID())
 	//		}
 	//	}
-	//}))
+	// }))
 }
 
 func (e *Engine) initEvictionState() {

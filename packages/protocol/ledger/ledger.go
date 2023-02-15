@@ -8,12 +8,11 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/walker"
 	"github.com/iotaledger/hive.go/core/syncutils"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/iotaledger/hive.go/core/workerpool"
 
+	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
@@ -83,7 +82,7 @@ type Ledger struct {
 }
 
 // New returns a new Ledger from the given optionsLedger.
-func New(workerPool *workerpool.UnboundedWorkerPool, chainStorage *storage.Storage, evictionState *eviction.State, opts ...options.Option[Ledger]) (ledger *Ledger) {
+func New(workerPool *workerpool.UnboundedWorkerPool, chainStorage *storage.Storage, opts ...options.Option[Ledger]) (ledger *Ledger) {
 	ledger = options.Apply(&Ledger{
 		Events:                          NewEvents(),
 		ChainStorage:                    chainStorage,

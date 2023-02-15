@@ -42,7 +42,7 @@ type TipManager struct {
 
 	walkerCache *memstorage.EpochStorage[models.BlockID, types.Empty]
 
-	mutex      sync.RWMutex
+	mutex               sync.RWMutex
 	tips                *randommap.RandomMap[models.BlockID, *scheduler.Block]
 	futureTips          *memstorage.EpochStorage[commitment.ID, *memstorage.Storage[models.BlockID, *scheduler.Block]]
 	TipsConflictTracker *TipsConflictTracker
@@ -113,7 +113,7 @@ func (t *TipManager) AddTipNonMonotonic(block *scheduler.Block) {
 	}
 
 	// Do not add a tip booked on a reject branch, we won't use it as a tip and it will otherwise remove parent tips.
-	blockConflictIDs := t.engine.Tangle.BlockConflicts(block.Block.Block)
+	blockConflictIDs := t.engine.Tangle.Booker.BlockConflicts(block.Block.Block)
 	if t.engine.Tangle.Booker.Ledger.ConflictDAG.ConfirmationState(blockConflictIDs).IsRejected() {
 		return
 	}

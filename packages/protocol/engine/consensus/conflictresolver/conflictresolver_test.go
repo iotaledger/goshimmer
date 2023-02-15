@@ -9,11 +9,7 @@ import (
 
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/types"
-	"github.com/iotaledger/hive.go/core/workerpool"
 
-	"github.com/iotaledger/goshimmer/packages/core/database"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
@@ -823,10 +819,10 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tf := conflictdag.NewTestFramework(t)
+			tf := conflictdag.NewDefaultTestFramework(t)
 
-			tt.test.Scenario.CreateConflicts(t, tf.ConflictDAG)
-			o := New(tf.ConflictDAG, tt.test.WeightFunc)
+			tt.test.Scenario.CreateConflicts(t, tf.Instance)
+			o := New(tf.Instance, tt.test.WeightFunc)
 
 			for _, e := range tt.test.executions {
 				liked, conflictMembers := o.LikedConflictMember(tt.test.Scenario.ConflictID(e.conflictAlias))

@@ -43,9 +43,9 @@ type BlockIssuer struct {
 // New creates a new block issuer.
 func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opts ...options.Option[BlockIssuer]) *BlockIssuer {
 	return options.Apply(&BlockIssuer{
-		Events:   NewEvents(),
-		identity: localIdentity,
-		protocol: protocol,
+		Events:     NewEvents(),
+		identity:   localIdentity,
+		protocol:   protocol,
 		workerPool: protocol.Workers.CreatePool("BlockIssuer", 2),
 	}, opts, func(i *BlockIssuer) {
 		i.referenceProvider = blockfactory.NewReferenceProvider(protocol, i.optsTimeSinceConfirmationThreshold, func() epoch.Index {

@@ -6,9 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-	"go.uber.org/atomic"
-
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -16,10 +13,12 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/types"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
+	"github.com/iotaledger/hive.go/core/workerpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"go.uber.org/atomic"
+
+	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/database"
@@ -718,148 +717,6 @@ func TestEngine_ShutdownResume(t *testing.T) {
 	tf2.AssertEpochState(0)
 }
 
-func TestEngine_GuavaConflict(t *testing.T) {
-	// debug.SetEnabled(true)
-	// defer debug.SetEnabled(false)
-
-	epoch.GenesisTime = time.Now().Unix() - epoch.Duration*15
-
-	storageDir := t.TempDir()
-	storageInstance := storage.New(storageDir, DatabaseVersion, database.WithDBProvider(database.NewDB))
-
-	tf := NewEngineTestFramework(t, WithStorage(storageInstance), WithTangleOptions(
-		tangle.WithBookerOptions(
-			booker.WithMarkerManagerOptions(
-				markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(3)),
-			),
-		),
-	))
-	tempDir := utils.NewDirectory(t.TempDir())
-
-	tf.Engine.NotarizationManager.Events.Error.Attach(event.NewClosure(func(err error) {
-		panic(err)
-	}))
-
-	tf.Tangle.CreateIdentity("A", 25, true)
-	tf.Tangle.CreateIdentity("B", 25, true)
-	tf.Tangle.CreateIdentity("C", 25, true)
-	tf.Tangle.CreateIdentity("D", 25, true)
-	tf.Tangle.CreateIdentity("Z", 0, true)
-
-	identitiesWeights := map[identity.ID]uint64{
-		tf.Tangle.Identity("A").ID(): 25,
-		tf.Tangle.Identity("B").ID(): 25,
-		tf.Tangle.Identity("C").ID(): 25,
-		tf.Tangle.Identity("D").ID(): 25,
-		tf.Tangle.Identity("Z").ID(): 0,
-	}
-
-	snapshotcreator.CreateSnapshot(DatabaseVersion, tempDir.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights))
-
-	require.NoError(t, tf.Engine.Initialize(tempDir.Path("genesis_snapshot.bin")))
-
-	require.Equal(t, int64(100), tf.Engine.SybilProtection.Validators().TotalWeight())
-
-	acceptedBlocks := make(map[string]bool)
-	{
-		tf.Tangle.CreateBlock("Block1", models.WithStrongParents(tf.Tangle.BlockIDs("Genesis")), models.WithIssuer(tf.Tangle.Identity("A").PublicKey()))
-		tf.Tangle.CreateBlock("Block2", models.WithStrongParents(tf.Tangle.BlockIDs("Block1")), models.WithIssuer(tf.Tangle.Identity("B").PublicKey()))
-		tf.Tangle.CreateBlock("Block3", models.WithStrongParents(tf.Tangle.BlockIDs("Block2")), models.WithIssuer(tf.Tangle.Identity("C").PublicKey()))
-		tf.Tangle.CreateBlock("Block4", models.WithStrongParents(tf.Tangle.BlockIDs("Block3")), models.WithIssuer(tf.Tangle.Identity("D").PublicKey()))
-		tf.Tangle.IssueBlocks("Block1", "Block2", "Block3", "Block4")
-		tf.WaitUntilAllTasksProcessed()
-	}
-	{
-		tf.Tangle.CreateBlock("6LH", models.WithStrongParents(tf.Tangle.BlockIDs("Block4")), models.WithPayload(tf.Tangle.CreateTransaction("Tx1", 2, "Genesis")), models.WithIssuer(tf.Tangle.Identity("Z").PublicKey()))
-
-		tf.Tangle.CreateBlock("6o", models.WithStrongParents(tf.Tangle.BlockIDs("6LH")), models.WithPayload(tf.Tangle.CreateTransaction("Tx2", 1, "Tx1.0")), models.WithIssuer(tf.Tangle.Identity("Z").PublicKey()))
-		tf.Tangle.CreateBlock("Hx", models.WithStrongParents(tf.Tangle.BlockIDs("6o")), models.WithWeakParents(tf.Tangle.BlockIDs("6LH")), models.WithPayload(tf.Tangle.CreateTransaction("Tx2*", 1, "Tx1.0")), models.WithIssuer(tf.Tangle.Identity("Z").PublicKey()))
-		tf.Tangle.IssueBlocks("6LH", "6o", "Hx")
-		tf.WaitUntilAllTasksProcessed()
-
-		return
-		tf.Tangle.CreateBlock("C3", models.WithStrongParents(tf.Tangle.BlockIDs("Hx")), models.WithLikedInsteadParents(tf.Tangle.BlockIDs("Hx")), models.WithWeakParents(tf.Tangle.BlockIDs("6LH")), models.WithPayload(tf.Tangle.CreateTransaction("Tx3", 1, "Tx1.1")), models.WithIssuer(tf.Tangle.Identity("Z").PublicKey()))
-		tf.Tangle.CreateBlock("3uF", models.WithStrongParents(tf.Tangle.BlockIDs("Block1")), models.WithPayload(tf.Tangle.CreateTransaction("Tx3*", 1, "Tx1.1")), models.WithIssuer(tf.Tangle.Identity("Z").PublicKey()))
-
-		tf.Tangle.CreateBlock("Block5", models.WithStrongParents(tf.Tangle.BlockIDs("C3")), models.WithIssuer(tf.Tangle.Identity("C").PublicKey()))
-		tf.Tangle.CreateBlock("Block6", models.WithStrongParents(tf.Tangle.BlockIDs("Block5")), models.WithIssuer(tf.Tangle.Identity("C").PublicKey()))
-
-		tf.Tangle.CreateBlock("D1", models.WithStrongParents(tf.Tangle.BlockIDs("3uF")), models.WithLikedInsteadParents(tf.Tangle.BlockIDs("C3")), models.WithWeakParents(tf.Tangle.BlockIDs("Block6")), models.WithPayload(tf.Tangle.CreateTransaction("Tx4", 1, "Tx2.0", "Tx3.0")), models.WithIssuer(tf.Tangle.Identity("Z").PublicKey()))
-		tf.Tangle.IssueBlocks("6LH", "6o", "Hx", "C3", "3uF", "Block5", "Block6", "D1")
-		tf.WaitUntilAllTasksProcessed()
-
-		tf.Acceptance.ValidateConflictAcceptance(map[string]confirmation.State{
-			"Tx2":  confirmation.Pending,
-			"Tx2*": confirmation.Pending,
-
-			"Tx3":  confirmation.Pending,
-			"Tx3*": confirmation.Pending,
-		})
-	}
-
-	{
-		tf.Tangle.CreateBlock("Block7", models.WithStrongParents(tf.Tangle.BlockIDs("D1")), models.WithIssuer(tf.Tangle.Identity("A").PublicKey()))
-		tf.Tangle.CreateBlock("Block8", models.WithStrongParents(tf.Tangle.BlockIDs("Block7")), models.WithIssuer(tf.Tangle.Identity("B").PublicKey()))
-		tf.Tangle.CreateBlock("Block9", models.WithStrongParents(tf.Tangle.BlockIDs("Block8")), models.WithIssuer(tf.Tangle.Identity("C").PublicKey()))
-		tf.Tangle.CreateBlock("Block10", models.WithStrongParents(tf.Tangle.BlockIDs("Block9")), models.WithIssuer(tf.Tangle.Identity("D").PublicKey()))
-
-		tf.Tangle.IssueBlocks("Block7", "Block8", "Block9", "Block10")
-		tf.WaitUntilAllTasksProcessed()
-
-		tf.Acceptance.ValidateAcceptedBlocks(lo.MergeMaps(acceptedBlocks, map[string]bool{
-			"Block1":  true,
-			"Block2":  true,
-			"Block3":  true,
-			"Block4":  true,
-			"6LH":     true,
-			"6o":      true,
-			"Hx":      true,
-			"C3":      true,
-			"3uF":     true,
-			"Block5":  true,
-			"Block6":  true,
-			"D1":      true,
-			"Block7":  true,
-			"Block8":  true,
-			"Block9":  false,
-			"Block10": false,
-		}))
-
-		fmt.Println("============")
-		acceptedConflicts := make(map[string]confirmation.State)
-		tf.Acceptance.ValidateConflictAcceptance(lo.MergeMaps(acceptedConflicts, map[string]confirmation.State{
-			"Tx2":  confirmation.Accepted,
-			"Tx2*": confirmation.Rejected,
-
-			"Tx3":  confirmation.Accepted,
-			"Tx3*": confirmation.Rejected,
-		}))
-		tf.Tangle.LedgerTestFramework.ConsumeTransactionMetadata(tf.Tangle.BookerTestFramework.Transaction("Tx1").ID(), func(txMetadata *ledger.TransactionMetadata) {
-			assert.True(t, txMetadata.ConfirmationState().IsAccepted(), "Tx1 should be accepted")
-		})
-
-		tf.Tangle.LedgerTestFramework.ConsumeTransactionMetadata(tf.Tangle.BookerTestFramework.Transaction("Tx2").ID(), func(txMetadata *ledger.TransactionMetadata) {
-			assert.True(t, txMetadata.ConfirmationState().IsAccepted(), "Tx2 should be accepted")
-		})
-
-		tf.Tangle.LedgerTestFramework.ConsumeTransactionMetadata(tf.Tangle.BookerTestFramework.Transaction("Tx2*").ID(), func(txMetadata *ledger.TransactionMetadata) {
-			assert.True(t, txMetadata.ConfirmationState().IsRejected(), "Tx2* should be rejected")
-		})
-
-		tf.Tangle.LedgerTestFramework.ConsumeTransactionMetadata(tf.Tangle.BookerTestFramework.Transaction("Tx3").ID(), func(txMetadata *ledger.TransactionMetadata) {
-			assert.True(t, txMetadata.ConfirmationState().IsAccepted(), "Tx3 should be accepted")
-		})
-
-		tf.Tangle.LedgerTestFramework.ConsumeTransactionMetadata(tf.Tangle.BookerTestFramework.Transaction("Tx3*").ID(), func(txMetadata *ledger.TransactionMetadata) {
-			assert.True(t, txMetadata.ConfirmationState().IsRejected(), "Tx3* should be rejected")
-		})
-
-		tf.Tangle.LedgerTestFramework.ConsumeTransactionMetadata(tf.Tangle.BookerTestFramework.Transaction("Tx4").ID(), func(txMetadata *ledger.TransactionMetadata) {
-			assert.True(t, txMetadata.ConfirmationState().IsAccepted(), "Tx4 should be accepted")
-		})
-	}
-}
-
 func TestProtocol_EngineSwitching(t *testing.T) {
 	testNetwork := network.NewMockedNetwork()
 
@@ -1149,5 +1006,143 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 		node1.AssertEqualChainsAtLeastAtEpoch(9, node2)
 		node1.AssertEqualChainsAtLeastAtEpoch(9, node3)
 		node1.AssertEqualChainsAtLeastAtEpoch(9, node4)
+	}
+}
+
+func TestEngine_GuavaConflict(t *testing.T) {
+	// debug.SetEnabled(true)
+	// defer debug.SetEnabled(false)
+
+	ledgerVM := new(devnetvm.VM)
+
+	epoch.GenesisTime = time.Now().Unix()
+
+	workers := workerpool.NewGroup(t.Name())
+	tf := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework"), dpos.NewProvider(), mana1.NewProvider(),
+		engine.WithTangleOptions(
+			tangle.WithBookerOptions(
+				booker.WithMarkerManagerOptions(
+					markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(3)),
+				),
+			),
+		))
+
+	event.Hook(tf.Instance.NotarizationManager.Events.Error, func(err error) {
+		panic(err)
+	})
+
+	tf.Tangle.VirtualVoting.CreateIdentity("A", 25, true)
+	tf.Tangle.VirtualVoting.CreateIdentity("B", 25, true)
+	tf.Tangle.VirtualVoting.CreateIdentity("C", 25, true)
+	tf.Tangle.VirtualVoting.CreateIdentity("D", 25, true)
+	tf.Tangle.VirtualVoting.CreateIdentity("Z", 0, true)
+
+	identitiesWeights := map[ed25519.PublicKey]uint64{
+		tf.Tangle.VirtualVoting.Identity("A").PublicKey(): 25,
+		tf.Tangle.VirtualVoting.Identity("B").PublicKey(): 25,
+		tf.Tangle.VirtualVoting.Identity("C").PublicKey(): 25,
+		tf.Tangle.VirtualVoting.Identity("D").PublicKey(): 25,
+		tf.Tangle.VirtualVoting.Identity("Z").PublicKey(): 0,
+	}
+
+	tempDir := utils.NewDirectory(t.TempDir())
+	snapshotcreator.CreateSnapshot(protocol.DatabaseVersion, tempDir.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights), ledgerVM)
+
+	require.NoError(t, tf.Instance.Initialize(tempDir.Path("genesis_snapshot.bin")))
+
+	require.Equal(t, int64(100), tf.Instance.SybilProtection.Validators().TotalWeight())
+
+	acceptedBlocks := make(map[string]bool)
+	{
+		tf.Tangle.BlockDAG.CreateBlock("Block1", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Genesis")), models.WithIssuer(tf.Tangle.VirtualVoting.Identity("A").PublicKey()))
+		tf.Tangle.BlockDAG.CreateBlock("Block2", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block1")), models.WithIssuer(tf.Tangle.VirtualVoting.Identity("B").PublicKey()))
+		tf.Tangle.BlockDAG.CreateBlock("Block3", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block2")), models.WithIssuer(tf.Tangle.VirtualVoting.Identity("C").PublicKey()))
+		tf.Tangle.BlockDAG.CreateBlock("Block4", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block3")), models.WithIssuer(tf.Tangle.VirtualVoting.Identity("D").PublicKey()))
+		tf.Tangle.BlockDAG.IssueBlocks("Block1", "Block2", "Block3", "Block4")
+	}
+	{
+		tf.Tangle.BlockDAG.CreateBlock("6LH", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block4")), models.WithPayload(tf.Tangle.Ledger.CreateTransaction("Tx1", 2, "Genesis")), models.WithIssuer(tf.Tangle.VirtualVoting.Identity("Z").PublicKey()))
+
+		tf.Tangle.BlockDAG.CreateBlock("6o", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("6LH")), models.WithPayload(tf.Tangle.Ledger.CreateTransaction("Tx2", 1, "Tx1.0")), models.WithIssuer(tf.Tangle.VirtualVoting.Identity("Z").PublicKey()))
+		tf.Tangle.BlockDAG.CreateBlock("Hx", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("6o")), models.WithWeakParents(tf.Tangle.BlockDAG.BlockIDs("6LH")), models.WithPayload(tf.Tangle.Ledger.CreateTransaction("Tx2*", 1, "Tx1.0")), models.WithIssuer(tf.Tangle.VirtualVoting.Identity("Z").PublicKey()))
+		tf.Tangle.BlockDAG.IssueBlocks("6LH", "6o", "Hx")
+
+		tf.Tangle.BlockDAG.CreateBlock("C3", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Hx")), models.WithLikedInsteadParents(tf.Tangle.BlockDAG.BlockIDs("Hx")), models.WithWeakParents(tf.Tangle.BlockDAG.BlockIDs("6LH")), models.WithPayload(tf.Tangle.Ledger.CreateTransaction("Tx3", 1, "Tx1.1")), models.WithIssuer(tf.Tangle.VirtualVoting.Identity("Z").PublicKey()))
+		tf.Tangle.BlockDAG.CreateBlock("3uF", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block1")), models.WithPayload(tf.Tangle.Ledger.CreateTransaction("Tx3*", 1, "Tx1.1")), models.WithIssuer(tf.Tangle.VirtualVoting.Identity("Z").PublicKey()))
+
+		tf.Tangle.BlockDAG.CreateBlock("Block5", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("C3")), models.WithIssuer(tf.Tangle.VirtualVoting.Identity("C").PublicKey()))
+		tf.Tangle.BlockDAG.CreateBlock("Block6", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block5")), models.WithIssuer(tf.Tangle.VirtualVoting.Identity("C").PublicKey()))
+
+		tf.Tangle.BlockDAG.CreateBlock("D1", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("3uF")), models.WithLikedInsteadParents(tf.Tangle.BlockDAG.BlockIDs("C3")), models.WithWeakParents(tf.Tangle.BlockDAG.BlockIDs("Block6")), models.WithPayload(tf.Tangle.Ledger.CreateTransaction("Tx4", 1, "Tx2.0", "Tx3.0")), models.WithIssuer(tf.Tangle.VirtualVoting.Identity("Z").PublicKey()))
+		tf.Tangle.BlockDAG.IssueBlocks("6LH", "6o", "Hx", "C3", "3uF", "Block5", "Block6", "D1")
+
+		tf.Acceptance.ValidateConflictAcceptance(map[string]confirmation.State{
+			"Tx2":  confirmation.Pending,
+			"Tx2*": confirmation.Pending,
+
+			"Tx3":  confirmation.Pending,
+			"Tx3*": confirmation.Pending,
+		})
+	}
+
+	{
+		tf.Tangle.BlockDAG.CreateBlock("Block7", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("D1")), models.WithIssuer(tf.Tangle.VirtualVoting.Identity("A").PublicKey()))
+		tf.Tangle.BlockDAG.CreateBlock("Block8", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block7")), models.WithIssuer(tf.Tangle.VirtualVoting.Identity("B").PublicKey()))
+		tf.Tangle.BlockDAG.CreateBlock("Block9", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block8")), models.WithIssuer(tf.Tangle.VirtualVoting.Identity("C").PublicKey()))
+		tf.Tangle.BlockDAG.CreateBlock("Block10", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block9")), models.WithIssuer(tf.Tangle.VirtualVoting.Identity("D").PublicKey()))
+
+		tf.Tangle.BlockDAG.IssueBlocks("Block7", "Block8", "Block9", "Block10")
+
+		tf.Acceptance.ValidateAcceptedBlocks(lo.MergeMaps(acceptedBlocks, map[string]bool{
+			"Block1":  true,
+			"Block2":  true,
+			"Block3":  true,
+			"Block4":  true,
+			"6LH":     true,
+			"6o":      true,
+			"Hx":      true,
+			"C3":      true,
+			"3uF":     true,
+			"Block5":  true,
+			"Block6":  true,
+			"D1":      true,
+			"Block7":  true,
+			"Block8":  true,
+			"Block9":  false,
+			"Block10": false,
+		}))
+
+		fmt.Println("============")
+		acceptedConflicts := make(map[string]confirmation.State)
+		tf.Acceptance.ValidateConflictAcceptance(lo.MergeMaps(acceptedConflicts, map[string]confirmation.State{
+			"Tx2":  confirmation.Accepted,
+			"Tx2*": confirmation.Rejected,
+
+			"Tx3":  confirmation.Accepted,
+			"Tx3*": confirmation.Rejected,
+		}))
+		tf.Tangle.Ledger.ConsumeTransactionMetadata(tf.Tangle.Ledger.Transaction("Tx1").ID(), func(txMetadata *ledger.TransactionMetadata) {
+			assert.True(t, txMetadata.ConfirmationState().IsAccepted(), "Tx1 should be accepted")
+		})
+
+		tf.Tangle.Ledger.ConsumeTransactionMetadata(tf.Tangle.Ledger.Transaction("Tx2").ID(), func(txMetadata *ledger.TransactionMetadata) {
+			assert.True(t, txMetadata.ConfirmationState().IsAccepted(), "Tx2 should be accepted")
+		})
+
+		tf.Tangle.Ledger.ConsumeTransactionMetadata(tf.Tangle.Ledger.Transaction("Tx2*").ID(), func(txMetadata *ledger.TransactionMetadata) {
+			assert.True(t, txMetadata.ConfirmationState().IsRejected(), "Tx2* should be rejected")
+		})
+
+		tf.Tangle.Ledger.ConsumeTransactionMetadata(tf.Tangle.Ledger.Transaction("Tx3").ID(), func(txMetadata *ledger.TransactionMetadata) {
+			assert.True(t, txMetadata.ConfirmationState().IsAccepted(), "Tx3 should be accepted")
+		})
+
+		tf.Tangle.Ledger.ConsumeTransactionMetadata(tf.Tangle.Ledger.Transaction("Tx3*").ID(), func(txMetadata *ledger.TransactionMetadata) {
+			assert.True(t, txMetadata.ConfirmationState().IsRejected(), "Tx3* should be rejected")
+		})
+
+		tf.Tangle.Ledger.ConsumeTransactionMetadata(tf.Tangle.Ledger.Transaction("Tx4").ID(), func(txMetadata *ledger.TransactionMetadata) {
+			assert.True(t, txMetadata.ConfirmationState().IsAccepted(), "Tx4 should be accepted")
+		})
 	}
 }

@@ -4,11 +4,12 @@ import (
 	"testing"
 
 	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
+
+	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 )
 
 func TestConflictDAG_CreateConflict(t *testing.T) {
-	tf := NewTestFramework(t)
+	tf := NewDefaultTestFramework(t)
 
 	tf.CreateConflict("A", tf.ConflictIDs(), "1")
 	tf.CreateConflict("B", tf.ConflictIDs(), "1", "2")
@@ -92,7 +93,7 @@ func TestConflictDAG_CreateConflict(t *testing.T) {
 }
 
 func TestConflictDAG_UpdateConflictParents(t *testing.T) {
-	tf := NewTestFramework(t)
+	tf := NewDefaultTestFramework(t)
 
 	tf.CreateConflict("A", tf.ConflictIDs(), "1")
 	tf.CreateConflict("B", tf.ConflictIDs(), "1", "2")
@@ -177,7 +178,7 @@ func TestConflictDAG_UpdateConflictParents(t *testing.T) {
 }
 
 func TestConflictDAG_SetNotConflicting_1(t *testing.T) {
-	tf := NewTestFramework(t)
+	tf := NewDefaultTestFramework(t)
 
 	tf.CreateConflict("X", tf.ConflictIDs(), "0")
 	tf.CreateConflict("Y", tf.ConflictIDs(), "0")
@@ -199,7 +200,7 @@ func TestConflictDAG_SetNotConflicting_1(t *testing.T) {
 		"F": {"B"},
 	})
 
-	tf.ConflictDAG.HandleOrphanedConflict(tf.ConflictID("B"))
+	tf.Instance.HandleOrphanedConflict(tf.ConflictID("B"))
 
 	tf.AssertConfirmationState(map[string]confirmation.State{
 		"X": confirmation.Pending,
@@ -227,7 +228,7 @@ func TestConflictDAG_SetNotConflicting_1(t *testing.T) {
 }
 
 func TestConflictDAG_SetNotConflicting_2(t *testing.T) {
-	tf := NewTestFramework(t)
+	tf := NewDefaultTestFramework(t)
 
 	tf.CreateConflict("X", tf.ConflictIDs(), "0")
 	tf.CreateConflict("Y", tf.ConflictIDs(), "0")
@@ -249,7 +250,7 @@ func TestConflictDAG_SetNotConflicting_2(t *testing.T) {
 		"F": {"B"},
 	})
 
-	tf.ConflictDAG.HandleOrphanedConflict(tf.ConflictID("B"))
+	tf.Instance.HandleOrphanedConflict(tf.ConflictID("B"))
 
 	tf.AssertConfirmationState(map[string]confirmation.State{
 		"X": confirmation.Pending,
@@ -277,7 +278,7 @@ func TestConflictDAG_SetNotConflicting_2(t *testing.T) {
 }
 
 func TestConflictDAG_SetNotConflicting_3(t *testing.T) {
-	tf := NewTestFramework(t)
+	tf := NewDefaultTestFramework(t)
 
 	tf.CreateConflict("X", tf.ConflictIDs(), "0")
 	tf.CreateConflict("Y", tf.ConflictIDs(), "0")
@@ -299,7 +300,7 @@ func TestConflictDAG_SetNotConflicting_3(t *testing.T) {
 		"F": {"B"},
 	})
 
-	tf.ConflictDAG.HandleOrphanedConflict(tf.ConflictID("B"))
+	tf.Instance.HandleOrphanedConflict(tf.ConflictID("B"))
 
 	tf.AssertConfirmationState(map[string]confirmation.State{
 		"X": confirmation.Pending,
@@ -312,7 +313,7 @@ func TestConflictDAG_SetNotConflicting_3(t *testing.T) {
 		"F": confirmation.Rejected,
 	})
 
-	tf.ConflictDAG.HandleOrphanedConflict(tf.ConflictID("C"))
+	tf.Instance.HandleOrphanedConflict(tf.ConflictID("C"))
 
 	tf.AssertConfirmationState(map[string]confirmation.State{
 		"X": confirmation.Pending,
@@ -325,7 +326,7 @@ func TestConflictDAG_SetNotConflicting_3(t *testing.T) {
 		"F": confirmation.Rejected,
 	})
 
-	tf.ConflictDAG.HandleOrphanedConflict(tf.ConflictID("D"))
+	tf.Instance.HandleOrphanedConflict(tf.ConflictID("D"))
 
 	tf.AssertConfirmationState(map[string]confirmation.State{
 		"X": confirmation.Pending,

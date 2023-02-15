@@ -4,7 +4,8 @@ import (
 	"sync"
 
 	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
+
+	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 )
 
 // region Conflict /////////////////////////////////////////////////////////////////////////////////////////////////////

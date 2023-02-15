@@ -18,10 +18,10 @@ func TestApprovalWeightManager_updateConflictVoters(t *testing.T) {
 	tf.Votes.CreateValidator("validator1", 1)
 	tf.Votes.CreateValidator("validator2", 1)
 
-	tf.ConflictDAG.CreateConflict("Conflict1", tf.ConflictIDs(), "CS1")
-	tf.ConflictDAG.CreateConflict("Conflict2", tf.ConflictIDs(), "CS1")
-	tf.ConflictDAG.CreateConflict("Conflict3", tf.ConflictIDs(), "CS2")
-	tf.ConflictDAG.CreateConflict("Conflict4", tf.ConflictIDs(), "CS2")
+	tf.ConflictDAG.CreateConflict("Conflict1", tf.ConflictDAG.ConflictIDs(), "CS1")
+	tf.ConflictDAG.CreateConflict("Conflict2", tf.ConflictDAG.ConflictIDs(), "CS1")
+	tf.ConflictDAG.CreateConflict("Conflict3", tf.ConflictDAG.ConflictIDs(), "CS2")
+	tf.ConflictDAG.CreateConflict("Conflict4", tf.ConflictDAG.ConflictIDs(), "CS2")
 
 	tf.ConflictDAG.CreateConflict("Conflict1.1", tf.ConflictDAG.ConflictIDs("Conflict1"), "CS3")
 	tf.ConflictDAG.CreateConflict("Conflict1.2", tf.ConflictDAG.ConflictIDs("Conflict1"), "CS3")

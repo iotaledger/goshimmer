@@ -10,16 +10,14 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
+	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
 type TestFramework struct {
-	t *testing.T
+	test *testing.T
 
 	Instance *ConflictDAG[utxo.TransactionID, utxo.OutputID]
 
@@ -37,115 +35,104 @@ type TestFramework struct {
 }
 
 // NewTestFramework is the constructor of the TestFramework.
-func NewTestFramework(t *testing.T, conflictDAGInstance *ConflictDAG[utxo.TransactionID, utxo.OutputID]) *TestFramework {
-	return &TestFramework{
-		t:                  t,
+func NewTestFramework(test *testing.T, conflictDAGInstance *ConflictDAG[utxo.TransactionID, utxo.OutputID]) *TestFramework {
+	t := &TestFramework{
+		test:               test,
 		Instance:           conflictDAGInstance,
 		conflictIDsByAlias: make(map[string]utxo.TransactionID),
 		resourceByAlias:    make(map[string]utxo.OutputID),
+		confirmationState:  make(map[utxo.TransactionID]confirmation.State),
 	}
-	// TODO: call setupEvents
-	// if t.ConflictDAG == nil {
-	//			storageInstance := storage.New(test.TempDir(), 1)
-	//			test.Cleanup(func() {
-	//				storageInstance.Shutdown()
-	//			})
-	//
-	//			if t.evictionState == nil {
-	//				t.evictionState = eviction.NewState(storageInstance)
-	//			}
-	//
-	//			t.ConflictDAG = New(t.optsConflictDAG...)
-	//		}
-	//	}, (*TestFramework).setupEvents)
+	t.setupEvents()
+	return t
 }
 
+func NewDefaultTestFramework(t *testing.T, opts ...options.Option[ConflictDAG[utxo.TransactionID, utxo.OutputID]]) *TestFramework {
+	return NewTestFramework(t, New(opts...))
+}
 
 func (t *TestFramework) setupEvents() {
-	t.ConflictDAG.Events.ConflictCreated.Hook(event.NewClosure(func(conflict *Conflict[utxo.TransactionID, utxo.OutputID]) {
+	event.Hook(t.Instance.Events.ConflictCreated, func(conflict *Conflict[utxo.TransactionID, utxo.OutputID]) {
 		if debug.GetEnabled() {
 			t.test.Logf("CREATED: %s", conflict.ID())
 		}
 		atomic.AddInt32(&(t.conflictCreated), 1)
 		t.confirmationState[conflict.ID()] = conflict.ConfirmationState()
-	}))
-
-	t.ConflictDAG.Events.ConflictUpdated.Hook(event.NewClosure(func(conflict *Conflict[utxo.TransactionID, utxo.OutputID]) {
+	})
+	event.Hook(t.Instance.Events.ConflictUpdated, func(conflict *Conflict[utxo.TransactionID, utxo.OutputID]) {
 		if debug.GetEnabled() {
 			t.test.Logf("UPDATED: %s", conflict.ID())
 		}
 		atomic.AddInt32(&(t.conflictUpdated), 1)
-	}))
-
-	t.ConflictDAG.Events.ConflictAccepted.Hook(event.NewClosure(func(conflict *Conflict[utxo.TransactionID, utxo.OutputID]) {
+	})
+	event.Hook(t.Instance.Events.ConflictAccepted, func(conflict *Conflict[utxo.TransactionID, utxo.OutputID]) {
 		if debug.GetEnabled() {
 			t.test.Logf("ACCEPTED: %s", conflict.ID())
 		}
 		atomic.AddInt32(&(t.conflictAccepted), 1)
 		t.confirmationState[conflict.ID()] = conflict.ConfirmationState()
-	}))
-
-	t.ConflictDAG.Events.ConflictRejected.Hook(event.NewClosure(func(conflict *Conflict[utxo.TransactionID, utxo.OutputID]) {
+	})
+	event.Hook(t.Instance.Events.ConflictRejected, func(conflict *Conflict[utxo.TransactionID, utxo.OutputID]) {
 		if debug.GetEnabled() {
 			t.test.Logf("REJECTED: %s", conflict.ID())
 		}
 		atomic.AddInt32(&(t.conflictRejected), 1)
 		t.confirmationState[conflict.ID()] = conflict.ConfirmationState()
-	}))
-
-	t.ConflictDAG.Events.ConflictNotConflicting.Hook(event.NewClosure(func(conflict *Conflict[utxo.TransactionID, utxo.OutputID]) {
+	})
+	event.Hook(t.Instance.Events.ConflictNotConflicting, func(conflict *Conflict[utxo.TransactionID, utxo.OutputID]) {
 		if debug.GetEnabled() {
 			t.test.Logf("NOT CONFLICTING: %s", conflict.ID())
 		}
 		atomic.AddInt32(&(t.conflictNotConflicting), 1)
 		t.confirmationState[conflict.ID()] = conflict.ConfirmationState()
-	}))
+	})
 }
 
 func (t *TestFramework) RegisterConflictIDAlias(alias string, conflictID utxo.TransactionID) {
+	conflictID.RegisterAlias(alias)
 	t.conflictIDsByAlias[alias] = conflictID
 }
 
 func (t *TestFramework) RegisterConflictSetIDAlias(alias string, conflictSetID utxo.OutputID) {
+	conflictSetID.RegisterAlias(alias)
 	t.resourceByAlias[alias] = conflictSetID
 }
 
 func (t *TestFramework) CreateConflict(conflictAlias string, parentConflictIDs utxo.TransactionIDs, conflictSetAliases ...string) {
+	t.RegisterConflictIDAlias(conflictAlias, t.randomConflictID())
+	fmt.Println("------ conflictAlias -----", conflictAlias)
 	for _, conflictSetAlias := range conflictSetAliases {
 		if _, exists := t.resourceByAlias[conflictSetAlias]; !exists {
-			t.resourceByAlias[conflictSetAlias] = t.randomResourceID()
-			t.resourceByAlias[conflictSetAlias].RegisterAlias(conflictSetAlias)
+			t.RegisterConflictSetIDAlias(conflictSetAlias, t.randomResourceID())
 		}
+		fmt.Println("conflictSetAlias", conflictSetAlias)
 	}
 
-	t.conflictIDsByAlias[conflictAlias] = t.randomConflictID()
-	t.conflictIDsByAlias[conflictAlias].RegisterAlias(conflictAlias)
-
-	t.Instance.CreateConflict(t.conflictIDsByAlias[conflictAlias], parentConflictIDs, t.ConflictSetIDs(conflictSetAlias))
+	t.Instance.CreateConflict(t.ConflictID(conflictAlias), parentConflictIDs, t.ConflictSetIDs(conflictSetAliases...))
 }
 
 func (t *TestFramework) UpdateConflictingResources(conflictAlias string, conflictingResourcesAliases ...string) {
-	t.ConflictDAG.UpdateConflictingResources(t.ConflictID(conflictAlias), t.ConflictSetIDs(conflictingResourcesAliases...))
+	t.Instance.UpdateConflictingResources(t.ConflictID(conflictAlias), t.ConflictSetIDs(conflictingResourcesAliases...))
 }
 
 func (t *TestFramework) UpdateConflictParents(conflictAlias string, addedConflictAlias string, removedConflictAliases ...string) {
-	t.ConflictDAG.UpdateConflictParents(t.ConflictID(conflictAlias), t.ConflictIDs(removedConflictAliases...), t.ConflictID(addedConflictAlias))
+	t.Instance.UpdateConflictParents(t.ConflictID(conflictAlias), t.ConflictIDs(removedConflictAliases...), t.ConflictID(addedConflictAlias))
 }
 
 func (t *TestFramework) UnconfirmedConflicts(conflictAliases ...string) *set.AdvancedSet[utxo.TransactionID] {
-	return t.ConflictDAG.UnconfirmedConflicts(t.ConflictIDs(conflictAliases...))
+	return t.Instance.UnconfirmedConflicts(t.ConflictIDs(conflictAliases...))
 }
 
 func (t *TestFramework) SetConflictAccepted(conflictAlias string) {
-	t.ConflictDAG.SetConflictAccepted(t.ConflictID(conflictAlias))
+	t.Instance.SetConflictAccepted(t.ConflictID(conflictAlias))
 }
 
 func (t *TestFramework) ConfirmationState(conflictAliases ...string) confirmation.State {
-	return t.ConflictDAG.ConfirmationState(t.ConflictIDs(conflictAliases...))
+	return t.Instance.ConfirmationState(t.ConflictIDs(conflictAliases...))
 }
 
 func (t *TestFramework) DetermineVotes(conflictAliases ...string) (addedConflicts, revokedConflicts *set.AdvancedSet[utxo.TransactionID], isInvalid bool) {
-	return t.ConflictDAG.DetermineVotes(t.ConflictIDs(conflictAliases...))
+	return t.Instance.DetermineVotes(t.ConflictIDs(conflictAliases...))
 }
 
 func (t *TestFramework) ConflictID(alias string) (conflictID utxo.TransactionID) {
@@ -202,7 +189,7 @@ func (t *TestFramework) randomResourceID() (randomConflictID utxo.OutputID) {
 
 func (t *TestFramework) assertConflictSets(expectedConflictSets map[string][]string) {
 	for conflictSetAlias, conflictAliases := range expectedConflictSets {
-		conflictSet, exists := t.ConflictDAG.ConflictSet(t.ConflictSetID(conflictSetAlias))
+		conflictSet, exists := t.Instance.ConflictSet(t.ConflictSetID(conflictSetAlias))
 		require.Truef(t.test, exists, "ConflictSet %s not found", conflictSetAlias)
 
 		expectedConflictIDs := t.ConflictIDs(conflictAliases...).Slice()
@@ -216,7 +203,7 @@ func (t *TestFramework) assertConflictSets(expectedConflictSets map[string][]str
 
 func (t *TestFramework) assertConflictsParents(expectedParents map[string][]string) {
 	for conflictAlias, parentConflictAliases := range expectedParents {
-		conflict, exists := t.ConflictDAG.Conflict(t.ConflictID(conflictAlias))
+		conflict, exists := t.Instance.Conflict(t.ConflictID(conflictAlias))
 		require.Truef(t.test, exists, "Conflict %s not found", conflictAlias)
 
 		expectedParentConflictIDs := t.ConflictIDs(parentConflictAliases...).Slice()
@@ -226,7 +213,7 @@ func (t *TestFramework) assertConflictsParents(expectedParents map[string][]stri
 
 func (t *TestFramework) assertConflictsChildren(expectedChildren map[string][]string) {
 	for conflictAlias, childConflictAliases := range expectedChildren {
-		conflict, exists := t.ConflictDAG.Conflict(t.ConflictID(conflictAlias))
+		conflict, exists := t.Instance.Conflict(t.ConflictID(conflictAlias))
 		require.Truef(t.test, exists, "Conflict %s not found", conflictAlias)
 
 		expectedChildConflictIDs := t.ConflictIDs(childConflictAliases...).Slice()
@@ -239,7 +226,7 @@ func (t *TestFramework) assertConflictsChildren(expectedChildren map[string][]st
 
 func (t *TestFramework) assertConflictsConflictSets(expectedConflictSets map[string][]string) {
 	for conflictAlias, conflictSetAliases := range expectedConflictSets {
-		conflict, exists := t.ConflictDAG.Conflict(t.ConflictID(conflictAlias))
+		conflict, exists := t.Instance.Conflict(t.ConflictID(conflictAlias))
 		require.Truef(t.test, exists, "Conflict %s not found", conflictAlias)
 
 		expectedConflictSetIDs := t.ConflictSetIDs(conflictSetAliases...).Slice()

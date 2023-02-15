@@ -109,21 +109,13 @@ func TestScenario_3(t *testing.T) {
 	tf.BlockDAG.CreateBlock("Block9", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block4", "Block7")), models.WithPayload(tf.Ledger.CreateTransaction("TX8", 1, "TX1.1")))
 
 	tf.BlockDAG.IssueBlocks("Block1")
-	workers.Wait()
 	tf.BlockDAG.IssueBlocks("Block2")
-	workers.Wait()
 	tf.BlockDAG.IssueBlocks("Block3", "Block4")
-	workers.Wait()
 	tf.BlockDAG.IssueBlocks("Block5")
-	workers.Wait()
 	tf.BlockDAG.IssueBlocks("Block6")
-	workers.Wait()
 	tf.BlockDAG.IssueBlocks("Block7")
-	workers.Wait()
 	tf.BlockDAG.IssueBlocks("Block8")
-	workers.Wait()
 	tf.BlockDAG.IssueBlocks("Block9")
-	workers.Wait()
 
 	tf.checkConflictIDs(map[string]utxo.TransactionIDs{
 		"Block1": utxo.NewTransactionIDs(),

@@ -77,7 +77,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, virtualVotingI
 }
 
 func (t *TestFramework) ValidatorsSet(aliases ...string) (validators *set.AdvancedSet[identity.ID]) {
-	return t.VotesTestFramework.ValidatorsSet(aliases...)
+	return t.Votes.ValidatorsSet(aliases...)
 }
 
 func (t *TestFramework) AssertBlock(alias string, callback func(block *Block)) {
@@ -86,10 +86,10 @@ func (t *TestFramework) AssertBlock(alias string, callback func(block *Block)) {
 	callback(block)
 }
 
-func (t *TestFramework) CreateIdentity(alias string, weight int64) {
+func (t *TestFramework) CreateIdentity(alias string, weight int64, skipWeightUpdate ...bool) {
 	t.identitiesByAlias[alias] = identity.GenerateIdentity()
 	identity.RegisterIDAlias(t.identitiesByAlias[alias].ID(), alias)
-	t.Votes.CreateValidatorWithID(alias, t.identitiesByAlias[alias].ID(), weight)
+	t.Votes.CreateValidatorWithID(alias, t.identitiesByAlias[alias].ID(), weight, skipWeightUpdate...)
 }
 
 func (t *TestFramework) Identity(alias string) (v *identity.Identity) {
@@ -115,7 +115,7 @@ func (t *TestFramework) ValidatorsWithWeights(aliases ...string) map[identity.ID
 
 	for _, alias := range aliases {
 		id := t.Identity(alias).ID()
-		w, exists := t.VotesTestFramework.Validators.Weights.Get(id)
+		w, exists := t.Votes.Validators.Weights.Get(id)
 		if exists {
 			weights[id] = uint64(w.Value)
 		}

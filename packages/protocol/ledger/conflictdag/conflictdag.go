@@ -5,8 +5,8 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/generics/walker"
 	"github.com/iotaledger/hive.go/core/syncutils"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
 
+	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 )
 
@@ -223,8 +223,8 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) SetConflictAccepted(confli
 
 	modified = c.rejectConflictsWithFutureCone(conflictsToReject) || modified
 
-	//// Delete all resolved ConflictSets (don't have a pending conflict anymore).
-	//for it := conflictSets.Iterator(); it.HasNext(); {
+	// // Delete all resolved ConflictSets (don't have a pending conflict anymore).
+	// for it := conflictSets.Iterator(); it.HasNext(); {
 	//	conflictSet := it.Next()
 	//
 	//	pendingConflicts := false
@@ -240,15 +240,15 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) SetConflictAccepted(confli
 	//	if !pendingConflicts {
 	//		c.conflictSets.Delete(conflictSet.ID())
 	//	}
-	//}
+	// }
 	//
-	//// Delete all resolved Conflicts that are not part of any ConflictSet anymore.
-	//for it := conflicts.Iterator(); it.HasNext(); {
+	// // Delete all resolved Conflicts that are not part of any ConflictSet anymore.
+	// for it := conflicts.Iterator(); it.HasNext(); {
 	//	conflict := it.Next()
 	//	if conflict.ConflictSets().Size() == 0 {
 	//		c.conflicts.Delete(conflict.ID())
 	//	}
-	//}
+	// }
 
 	return modified
 }
