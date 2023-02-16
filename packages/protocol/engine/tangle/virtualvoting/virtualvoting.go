@@ -1,8 +1,6 @@
 package virtualvoting
 
 import (
-	"fmt"
-
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
@@ -228,7 +226,6 @@ func (o *VirtualVoting) processForkedBlock(bookerBlock *booker.Block, forkedConf
 
 // take everything in future cone because it was not conflicting before and move to new conflict.
 func (o *VirtualVoting) processForkedMarker(marker markers.Marker, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
-	fmt.Println("Begin processing forked marker", marker)
 	for voterID, votePower := range o.sequenceTracker.VotersWithPower(marker) {
 		o.conflictTracker.AddSupportToForkedConflict(forkedConflictID, parentConflictIDs, voterID, votePower)
 	}

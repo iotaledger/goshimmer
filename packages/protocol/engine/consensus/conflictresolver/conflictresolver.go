@@ -58,6 +58,7 @@ func (o *ConflictResolver) LikedConflictMember(conflictID utxo.TransactionID) (l
 }
 
 // AdjustOpinion returns the reference that is necessary to correct our opinion on the given conflict.
+// It recursively walk to the parent conflicts to find the upmost liked conflict.
 func (o *ConflictResolver) AdjustOpinion(conflictID utxo.TransactionID) (likedConflict utxo.TransactionID, dislikedConflicts utxo.TransactionIDs) {
 	dislikedConflicts = utxo.NewTransactionIDs()
 
