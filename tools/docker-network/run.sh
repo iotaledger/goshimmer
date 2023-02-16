@@ -19,11 +19,18 @@ else
   export GENESIS_TIME=$(date -v-5M +%s)
 fi
 
+DOCKER_COMPOSE_FILE=docker-compose.yml
+if [ $FEATURE -ne 0 ]
+then
+  DOCKER_COMPOSE_FILE=docker-compose-feature.yml
+fi
+
+
 export DOCKER_BUILDKIT=1
 export COMPOSE_DOCKER_CLI_BUILD=1
 echo "Build GoShimmer"
 # Allow docker compose to build and cache an image
-docker compose build
+docker compose -f $DOCKER_COMPOSE_FILE build
 
 # check exit code of builder
 if [ $? -ne 0 ]
@@ -41,11 +48,6 @@ else
   go run ../genesis-snapshot/. --config docker
 fi
 
-DOCKER_COMPOSE_FILE=docker-compose.yml
-if [ $FEATURE -ne 0 ]
-then
-  DOCKER_COMPOSE_FILE=docker-compose-feature.yml
-fi
 
 echo "Run GoShimmer network with ${DOCKER_COMPOSE_FILE}"
 # GOSHIMMER_PEER_REPLICAS is used in docker-compose.yml to determine how many replicas to create
