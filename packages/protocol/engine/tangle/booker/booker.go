@@ -508,7 +508,6 @@ func (b *Booker) PropagateForkedConflict(transactionID, addedConflictID utxo.Tra
 			return errors.Wrapf(propagationErr, "failed to propagate forked ConflictID %s to future cone of %s", addedConflictID, block.ID())
 		}
 		if propagateFurther {
-			// TODO: inherit weak and liked as well
 			blockWalker.PushAll(b.blocksFromBlockDAGBlocks(block.StrongChildren())...)
 		}
 	}
