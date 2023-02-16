@@ -4,7 +4,6 @@ x-build-goshimmer: &goshimmer_build
   context: ../../
   args:
     DOWNLOAD_SNAPSHOT: 0
-
 services:
   bootstrap:
     build: *goshimmer_build
@@ -16,25 +15,15 @@ services:
         soft: 8192
         hard: 8192
     command: >
+      ${FEATURE_AUTOPEERING_CONFIG}
+      ${COMMON_CONFIG}
       --autoPeering.entryNodes=
       --node.seed=base58:DyXtTNRpXRxsu8WDEjk5CCBXQ96bdsofmXiHbGtFTkh5
-      --node.overwriteStoredSeed=true
-      --config=/run/secrets/goshimmer.config.json
-      --database.directory=/app/db
-      --protocol.snapshot.path=./snapshot.bin
-      --node.peerDBDirectory=/app/peerdb
-      --node.disablePlugins=portcheck,ManaInitializer,RemoteLog
-      --node.enablePlugins=metrics,spammer,WebAPIToolsBlockEndpoint,activity
-      --metrics.bindAddress=0.0.0.0:9311
-      --metrics.processMetrics=true
-      --metrics.goMetrics=true
+      --node.enablePlugins=${COMMON_ENABLED}
+      --node.disablePlugins=${COMMON_DISABLED}
       --blockIssuer.ignoreBootstrappedFlag=true
-      --protocol.genesisTime=${GENESIS_TIME}
-      --profiling.bindAddress=0.0.0.0:6061
-    secrets:
-      - goshimmer.config.json
     volumes:
-      - ./docker-network.feature.snapshot:/app/snapshot.bin
+      - ./feature.snapshot:/app/snapshot.bin
       - "/etc/timezone:/etc/timezone:ro"
       - "/etc/localtime:/etc/localtime:ro"
     ports:
@@ -54,25 +43,14 @@ services:
         soft: 8192
         hard: 8192
     command: >
-      --config=/run/secrets/goshimmer.config.json
+      ${FEATURE_AUTOPEERING_CONFIG}
+      ${COMMON_CONFIG}
       --node.seed=base58:6TjAFDutx39cVEW7wuXVPqJ7ZrvD7WVPvEG7tMpLNivb
       --faucet.seed=FTbSrJ3D5XY9LyqpzHUzxhcHcn3sRhzBEcJb2jHmY9GB
-      --node.overwriteStoredSeed=true
-      --config=/run/secrets/goshimmer.config.json
-      --database.directory=/app/db
-      --protocol.snapshot.path=./snapshot.bin
-      --node.peerDBDirectory=/app/peerdb
-      --node.disablePlugins=portcheck,ManaInitializer,RemoteLog
-      --node.enablePlugins=metrics,spammer,WebAPIToolsBlockEndpoint,activity,faucet
-      --metrics.bindAddress=0.0.0.0:9311
-      --metrics.processMetrics=true
-      --metrics.goMetrics=true
-      --protocol.genesisTime=${GENESIS_TIME}
-      --profiling.bindAddress=0.0.0.0:6061
-    secrets:
-      - goshimmer.config.json
+      --node.enablePlugins=${COMMON_ENABLED},faucet
+      --node.disablePlugins=${COMMON_DISABLED}
     volumes:
-      - ./docker-network.feature.snapshot:/app/snapshot.bin
+      - ./feature.snapshot:/app/snapshot.bin
       - "/etc/timezone:/etc/timezone:ro"
       - "/etc/localtime:/etc/localtime:ro"
     ports:
@@ -94,24 +72,13 @@ services:
         soft: 8192
         hard: 8192
     command: >
-      --config=/run/secrets/goshimmer.config.json
+      ${FEATURE_AUTOPEERING_CONFIG}
+      ${COMMON_CONFIG}
       --node.seed=base58:E2BcF5h6J2Xge4LpXPq1iz3ocibAxEeLp5G56Yt2GKGe
-      --node.overwriteStoredSeed=true
-      --config=/run/secrets/goshimmer.config.json
-      --database.directory=/app/db
-      --protocol.snapshot.path=./snapshot.bin
-      --node.peerDBDirectory=/app/peerdb
-      --node.disablePlugins=portcheck,ManaInitializer,RemoteLog
-      --node.enablePlugins=metrics,spammer,WebAPIToolsBlockEndpoint,activity
-      --metrics.bindAddress=0.0.0.0:9311
-      --metrics.processMetrics=true
-      --metrics.goMetrics=true
-      --protocol.genesisTime=${GENESIS_TIME}
-      --profiling.bindAddress=0.0.0.0:6061
-    secrets:
-      - goshimmer.config.json
+      --node.enablePlugins=${COMMON_ENABLED}
+      --node.disablePlugins=${COMMON_DISABLED}
     volumes:
-      - ./docker-network.feature.snapshot:/app/snapshot.bin
+      - ./feature.snapshot:/app/snapshot.bin
       - "/etc/timezone:/etc/timezone:ro"
       - "/etc/localtime:/etc/localtime:ro"
     ports:
@@ -132,24 +99,13 @@ services:
         soft: 8192
         hard: 8192
     command: >
-      --config=/run/secrets/goshimmer.config.json
+      ${FEATURE_AUTOPEERING_CONFIG}
+      ${COMMON_CONFIG}
       --node.seed=base58:3CqUkp2QoJL9TSooxmsiVi5A7ZdHAagjnMAKDyrKCZUV
-      --node.overwriteStoredSeed=true
-      --config=/run/secrets/goshimmer.config.json
-      --database.directory=/app/db
-      --protocol.snapshot.path=./snapshot.bin
-      --node.peerDBDirectory=/app/peerdb
-      --node.disablePlugins=portcheck,ManaInitializer,RemoteLog
-      --node.enablePlugins=metrics,spammer,WebAPIToolsBlockEndpoint,activity
-      --metrics.bindAddress=0.0.0.0:9311
-      --metrics.processMetrics=true
-      --metrics.goMetrics=true
-      --protocol.genesisTime=${GENESIS_TIME}
-      --profiling.bindAddress=0.0.0.0:6061
-    secrets:
-      - goshimmer.config.json
+      --node.enablePlugins=${COMMON_ENABLED}
+      --node.disablePlugins=${COMMON_DISABLED}
     volumes:
-      - ./docker-network.feature.snapshot:/app/snapshot.bin
+      - ./feature.snapshot:/app/snapshot.bin
       - "/etc/timezone:/etc/timezone:ro"
       - "/etc/localtime:/etc/localtime:ro"
     ports:
@@ -169,24 +125,13 @@ services:
         soft: 8192
         hard: 8192
     command: >
-      --config=/run/secrets/goshimmer.config.json
+      ${FEATURE_AUTOPEERING_CONFIG}
+      ${COMMON_CONFIG}
       --node.seed=base58:AMRdVcVjeouXxUgABbvJTutnbNao26X1ZoE8uujPxivn
-      --node.overwriteStoredSeed=true
-      --config=/run/secrets/goshimmer.config.json
-      --database.directory=/app/db
-      --protocol.snapshot.path=./snapshot.bin
-      --node.peerDBDirectory=/app/peerdb
-      --node.disablePlugins=portcheck,ManaInitializer,RemoteLog
-      --node.enablePlugins=metrics,spammer,WebAPIToolsBlockEndpoint,activity
-      --metrics.bindAddress=0.0.0.0:9311
-      --metrics.processMetrics=true
-      --metrics.goMetrics=true
-      --protocol.genesisTime=${GENESIS_TIME}
-      --profiling.bindAddress=0.0.0.0:6061
-    secrets:
-      - goshimmer.config.json
+      --node.enablePlugins=${COMMON_ENABLED}
+      --node.disablePlugins=${COMMON_DISABLED}
     volumes:
-      - ./docker-network.feature.snapshot:/app/snapshot.bin
+      - ./feature.snapshot:/app/snapshot.bin
       - "/etc/timezone:/etc/timezone:ro"
       - "/etc/localtime:/etc/localtime:ro"
     ports:
@@ -206,24 +151,13 @@ services:
         soft: 8192
         hard: 8192
     command: >
-      --config=/run/secrets/goshimmer.config.json
+      ${FEATURE_AUTOPEERING_CONFIG}
+      ${COMMON_CONFIG}
       --node.seed=base58:8pD9RVFVZVsJRyqei5W5NdwdjgMFgpyE3UxQE4s3Cwqk
-      --node.overwriteStoredSeed=true
-      --config=/run/secrets/goshimmer.config.json
-      --database.directory=/app/db
-      --protocol.snapshot.path=./snapshot.bin
-      --node.peerDBDirectory=/app/peerdb
-      --node.disablePlugins=portcheck,ManaInitializer,RemoteLog
-      --node.enablePlugins=metrics,spammer,WebAPIToolsBlockEndpoint,activity
-      --metrics.bindAddress=0.0.0.0:9311
-      --metrics.processMetrics=true
-      --metrics.goMetrics=true
-      --protocol.genesisTime=${GENESIS_TIME}
-      --profiling.bindAddress=0.0.0.0:6061
-    secrets:
-      - goshimmer.config.json
+      --node.enablePlugins=${COMMON_ENABLED}
+      --node.disablePlugins=${COMMON_DISABLED}
     volumes:
-      - ./docker-network.feature.snapshot:/app/snapshot.bin
+      - ./feature.snapshot:/app/snapshot.bin
       - "/etc/timezone:/etc/timezone:ro"
       - "/etc/localtime:/etc/localtime:ro"
     ports:
@@ -243,24 +177,13 @@ services:
         soft: 8192
         hard: 8192
     command: >
-      --config=/run/secrets/goshimmer.config.json
+      ${FEATURE_AUTOPEERING_CONFIG}
+      ${COMMON_CONFIG}
       --node.seed=base58:7ufJuibvjDeC18bNDsA34YvDTPNapWHD6WjTq1CtEHmd
-      --node.overwriteStoredSeed=true
-      --config=/run/secrets/goshimmer.config.json
-      --database.directory=/app/db
-      --protocol.snapshot.path=./snapshot.bin
-      --node.peerDBDirectory=/app/peerdb
-      --node.disablePlugins=portcheck,ManaInitializer,RemoteLog
-      --node.enablePlugins=metrics,spammer,WebAPIToolsBlockEndpoint,activity
-      --metrics.bindAddress=0.0.0.0:9311
-      --metrics.processMetrics=true
-      --metrics.goMetrics=true
-      --protocol.genesisTime=${GENESIS_TIME}
-      --profiling.bindAddress=0.0.0.0:6061
-    secrets:
-      - goshimmer.config.json
+      --node.enablePlugins=${COMMON_ENABLED}
+      --node.disablePlugins=${COMMON_DISABLED}
     volumes:
-      - ./docker-network.feature.snapshot:/app/snapshot.bin
+      - ./feature.snapshot:/app/snapshot.bin
       - "/etc/timezone:/etc/timezone:ro"
       - "/etc/localtime:/etc/localtime:ro"
     ports:
@@ -280,24 +203,13 @@ services:
         soft: 8192
         hard: 8192
     command: >
-      --config=/run/secrets/goshimmer.config.json
+      ${FEATURE_AUTOPEERING_CONFIG}
+      ${COMMON_CONFIG}
       --node.seed=base58:B3HR25Z7APVH7xrhAnuFJVmixKxgGb73UrvoovLSG3Jd
-      --node.overwriteStoredSeed=true
-      --config=/run/secrets/goshimmer.config.json
-      --database.directory=/app/db
-      --protocol.snapshot.path=./snapshot.bin
-      --node.peerDBDirectory=/app/peerdb
-      --node.disablePlugins=portcheck,ManaInitializer,RemoteLog
-      --node.enablePlugins=metrics,spammer,WebAPIToolsBlockEndpoint,activity
-      --metrics.bindAddress=0.0.0.0:9311
-      --metrics.processMetrics=true
-      --metrics.goMetrics=true
-      --protocol.genesisTime=${GENESIS_TIME}
-      --profiling.bindAddress=0.0.0.0:6061
-    secrets:
-      - goshimmer.config.json
+      --node.enablePlugins=${COMMON_ENABLED}
+      --node.disablePlugins=${COMMON_DISABLED}
     volumes:
-      - ./docker-network.feature.snapshot:/app/snapshot.bin
+      - ./feature.snapshot:/app/snapshot.bin
       - "/etc/timezone:/etc/timezone:ro"
       - "/etc/localtime:/etc/localtime:ro"
     ports:
@@ -347,7 +259,5 @@ networks:
     driver: bridge
 # read only files to load in the containers that may be shared across containers
 secrets:
-  goshimmer.config.json:
-    file: ${GOSHIMMER_CONFIG:-./config.feature.docker.json}
   prometheus.yml:
     file: ${PROMETHEUS_CONFIG:-./prometheus.yml}

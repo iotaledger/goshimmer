@@ -21,7 +21,7 @@ var BaseOptions = []options.Option[snapshotcreator.Options]{
 
 var FeatureNetwork = []options.Option[snapshotcreator.Options]{
 	snapshotcreator.WithGenesisTokenAmount(1000000000000000),
-	snapshotcreator.WithFilePath("snapshot.bin"),
+	snapshotcreator.WithFilePath("feature.snapshot"),
 	snapshotcreator.WithPeersSeedBase58([]string{
 		"AZKt9NEbNb9TAk5SqVTfj3ANoBzrWLjR5YKxa2BCyi8X", // entry node
 		"BYpRNA5aCuyym8SRFbEATraY4yr9oyuXCsCFVcEM8Fm4", // bootstrap_01

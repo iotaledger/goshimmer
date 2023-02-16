@@ -9,6 +9,8 @@ services:
     build: *goshimmer_build
     stop_grace_period: 1m
     command: >
+      ${DOCKER_AUTOPEERING_CONFIG}
+      ${COMMON_CONFIG}
       --autoPeering.entryNodes=
       --node.seed=base58:8q491c3YWjbPwLmF2WD95YmCgh61j2kenCKHfGfByoWi
       --node.enablePlugins=${COMMON_ENABLED},snapshot
@@ -31,6 +33,7 @@ services:
     image: docker-network-peer_master:latest
     stop_grace_period: 1m
     command: >
+      ${DOCKER_AUTOPEERING_CONFIG}
       ${COMMON_CONFIG}
       --node.enablePlugins=${COMMON_ENABLED}
       --node.disablePlugins=${COMMON_DISABLED}
@@ -45,6 +48,7 @@ services:
     image: docker-network-peer_master:latest
     stop_grace_period: 1m
     command: >
+      ${DOCKER_AUTOPEERING_CONFIG}
       ${COMMON_CONFIG}
       --node.seed=base58:4ata8GcTRMJ5sSv2jQJWmSYYTHct748p3tXmCFYm7wjA
       --node.enablePlugins=${COMMON_ENABLED}
@@ -61,6 +65,7 @@ services:
     image: docker-network-peer_master:latest
     stop_grace_period: 1m
     command: >
+      ${DOCKER_AUTOPEERING_CONFIG}
       ${COMMON_CONFIG}
       --node.enablePlugins="webapitoolsendpoint",spammer,metrics
       --node.disablePlugins=${COMMON_DISABLED}
@@ -95,6 +100,7 @@ services:
     image: docker-network-peer_master:latest
     stop_grace_period: 1m
     command: >
+      ${DOCKER_AUTOPEERING_CONFIG}
       ${COMMON_CONFIG}
       --faucet.seed=7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih
       --node.seed=base58:3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E
