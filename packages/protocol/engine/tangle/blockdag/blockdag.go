@@ -50,7 +50,8 @@ type BlockDAG struct {
 	// evictionMutex is a mutex that is used to synchronize the eviction of elements from the BlockDAG.
 	evictionMutex sync.RWMutex
 
-	Workers *workerpool.Group
+	Workers    *workerpool.Group
+	workerPool *workerpool.UnboundedWorkerPool
 }
 
 // New is the constructor for the BlockDAG and creates a new BlockDAG instance.
@@ -61,9 +62,11 @@ func New(workers *workerpool.Group, evictionState *eviction.State, latestCommitm
 		memStorage:     memstorage.NewEpochStorage[models.BlockID, *Block](),
 		commitmentFunc: latestCommitmentFunc,
 		futureBlocks:   memstorage.NewEpochStorage[commitment.ID, *set.AdvancedSet[*Block]](),
+		Workers:        workers,
+		workerPool:     workers.CreatePool("Solidifier", 2),
 	}, opts, func(b *BlockDAG) {
 		b.solidifier = causalorder.New(
-			workers.CreatePool("Solidifier", 2),
+			b.workerPool,
 			b.Block,
 			(*Block).IsSolid,
 			b.markSolid,
@@ -145,7 +148,9 @@ func (b *BlockDAG) evictEpoch(index epoch.Index) {
 	defer b.evictionMutex.Unlock()
 
 	// We want to deal with the synchronous BlockSolid events in a separate goroutine.
-	b.promoteFutureBlocksUntil(index)
+	b.workerPool.Submit(func() {
+		b.promoteFutureBlocksUntil(index)
+	})
 
 	b.memStorage.Evict(index)
 }
