@@ -8,7 +8,6 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/generics/walker"
 	"github.com/iotaledger/hive.go/core/workerpool"
 
@@ -455,32 +454,16 @@ func (a *Gadget) RefreshConflictAcceptance(conflictID utxo.TransactionID) {
 	}
 
 	markAsAccepted := true
-	isOtherConflictAccepted := false
-	var otherAcceptedConflict utxo.TransactionID
 
 	conflict.ForEachConflictingConflict(func(conflictingConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) bool {
-		// check if another conflict is accepted, to evaluate reorg condition
-		if !isOtherConflictAccepted && a.tangle.Booker.Ledger.ConflictDAG.ConfirmationState(set.NewAdvancedSet(conflictingConflict.ID())).IsAccepted() {
-			isOtherConflictAccepted = true
-			otherAcceptedConflict = conflictingConflict.ID()
-		}
-
 		conflictingConflictWeight := a.tangle.VirtualVoting.ConflictVotersTotalWeight(conflictingConflict.ID())
 
 		// if the conflict is less than 66% ahead, then don't mark as accepted
 		if !IsThresholdReached(a.tangle.VirtualVoting.Validators.TotalWeight(), conflictWeight-conflictingConflictWeight, a.optsConflictAcceptanceThreshold) {
 			markAsAccepted = false
 		}
-
 		return markAsAccepted
 	})
-
-	// check if previously accepted conflict is different from the newly accepted one, then trigger the reorg
-	if markAsAccepted && isOtherConflictAccepted {
-		a.Events.Error.Trigger(errors.Errorf("conflictID %s needs to be reorg-ed, but functionality not implemented yet!", conflictID))
-		a.Events.Reorg.Trigger(otherAcceptedConflict)
-		return
-	}
 
 	if markAsAccepted {
 		a.tangle.Booker.Ledger.ConflictDAG.SetConflictAccepted(conflictID)

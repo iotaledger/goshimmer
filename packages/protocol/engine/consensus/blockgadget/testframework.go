@@ -45,7 +45,6 @@ type TestFramework struct {
 	confirmedBlocks   uint32
 	conflictsAccepted uint32
 	conflictsRejected uint32
-	reorgCount        uint32
 }
 
 func NewTestFramework(test *testing.T, gadget *Gadget, tangleTF *tangle.TestFramework) *TestFramework {
@@ -101,13 +100,6 @@ func (t *TestFramework) setupEvents() {
 		atomic.AddUint32(&(t.confirmedBlocks), 1)
 	})
 
-	event.Hook(t.Gadget.Events.Reorg, func(conflictID utxo.TransactionID) {
-		if debug.GetEnabled() {
-			t.test.Logf("REORG NEEDED: %s", conflictID)
-		}
-		atomic.AddUint32(&(t.reorgCount), 1)
-	})
-
 	event.Hook(t.Tangle.VirtualVoting.ConflictDAG.Instance.Events.ConflictAccepted, func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		if debug.GetEnabled() {
 			t.test.Logf("CONFLICT ACCEPTED: %s", conflict.ID())
@@ -140,9 +132,6 @@ func (t *TestFramework) AssertConflictsRejected(conflictsRejected uint32) {
 	require.Equal(t.test, conflictsRejected, atomic.LoadUint32(&t.conflictsRejected), "expected %d conflicts to be rejected but got %d", conflictsRejected, atomic.LoadUint32(&t.acceptedBlocks))
 }
 
-func (t *TestFramework) AssertReorgs(reorgCount uint32) {
-	require.Equal(t.test, reorgCount, atomic.LoadUint32(&t.reorgCount), "expected %d reorgs but got %d", reorgCount, atomic.LoadUint32(&t.reorgCount))
-}
 
 func (t *TestFramework) ValidateAcceptedBlocks(expectedAcceptedBlocks map[string]bool) {
 	for blockID, blockExpectedAccepted := range expectedAcceptedBlocks {

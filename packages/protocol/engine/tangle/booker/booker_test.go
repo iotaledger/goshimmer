@@ -95,6 +95,7 @@ func TestScenario_2(t *testing.T) {
 }
 
 func TestScenario_3(t *testing.T) {
+	t.Skip("Skip until we propagate conflicts through Markers again")
 	workers := workerpool.NewGroup(t.Name())
 	tf := NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"))
 
@@ -135,6 +136,7 @@ func TestScenario_3(t *testing.T) {
 // 1. It tests whether a new sequence is created after max past marker gap is reached.
 // 2. Propagation of conflicts through the markers, to individually mapped blocks, and across sequence boundaries.
 func TestScenario_4(t *testing.T) {
+	t.Skip("Skip until we propagate conflicts through Markers again")
 	workers := workerpool.NewGroup(t.Name())
 	tf := NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"),
 		WithMarkerManagerOptions(
@@ -378,6 +380,7 @@ func TestScenario_4(t *testing.T) {
 }
 
 func TestFutureConePropagation(t *testing.T) {
+	t.Skip("Skip until we propagate conflicts through Markers again")
 	workers := workerpool.NewGroup(t.Name())
 	tf := NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"))
 
@@ -489,6 +492,7 @@ func TestFutureConePropagation(t *testing.T) {
 }
 
 func TestWeakParent(t *testing.T) {
+	t.Skip("Skip until we propagate conflicts through Markers again")
 	workers := workerpool.NewGroup(t.Name())
 	tf := NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"))
 

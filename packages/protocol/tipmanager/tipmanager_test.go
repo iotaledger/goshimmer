@@ -16,6 +16,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
@@ -111,7 +112,9 @@ func TestTipManager_TimeSinceConfirmation_Unconfirmed(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
 	tf := NewTestFramework(t, workers.CreateGroup("TipManagerTestFramework"),
 		WithTipManagerOptions(WithTimeSinceConfirmationThreshold(5*time.Minute)),
-		WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(10))))),
+		WithEngineOptions(
+			engine.WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(10))))),
+		),
 	)
 	tf.Engine.EvictionState.AddRootBlock(models.EmptyBlockID)
 
@@ -164,7 +167,9 @@ func TestTipManager_TimeSinceConfirmation_Confirmed(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
 	tf := NewTestFramework(t, workers.CreateGroup("TipManagerTestFramework"),
 		WithTipManagerOptions(WithTimeSinceConfirmationThreshold(5*time.Minute)),
-		WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(10))))),
+		WithEngineOptions(
+			engine.WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(10))))),
+		),
 	)
 	tf.Engine.EvictionState.AddRootBlock(models.EmptyBlockID)
 	createTestTangleTSC(tf)
@@ -225,7 +230,9 @@ func TestTipManager_TimeSinceConfirmation_MultipleParents(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
 	tf := NewTestFramework(t, workers.CreateGroup("TipManagerTestFramework"),
 		WithTipManagerOptions(WithTimeSinceConfirmationThreshold(5*time.Minute)),
-		WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(10))))),
+		WithEngineOptions(
+			engine.WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(10))))),
+		),
 	)
 	tf.Engine.EvictionState.AddRootBlock(models.EmptyBlockID)
 
@@ -555,18 +562,24 @@ func issueBlocks(tf *TestFramework, blockPrefix string, blockCount int, parents 
 func TestTipManager_TimeSinceConfirmation_RootBlockParent(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
 	tf := NewTestFramework(t, workers.CreateGroup("TipManagerTestFramework"),
+		WithEngineOptions(
+			engine.WithBootstrapThreshold(time.Since(time.Unix(epoch.GenesisTime, 0).Add(-time.Hour))),
+			engine.WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(10))))),
+		),
 		WithTipManagerOptions(WithTimeSinceConfirmationThreshold(30*time.Second)),
-		WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(10))))),
 	)
+
+	now := time.Unix(epoch.GenesisTime, 0).Add(5 * time.Minute)
+
 	tf.Engine.EvictionState.AddRootBlock(models.EmptyBlockID)
 
-	tf.Tangle.BlockDAG.CreateBlock("Block1", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Genesis")), models.WithIssuingTime(time.Now().Add(-50*time.Second)))
+	b1 := tf.Tangle.BlockDAG.CreateBlock("Block1", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Genesis")), models.WithIssuingTime(now.Add(-50*time.Second)))
 	tf.Tangle.BlockDAG.IssueBlocks("Block1")
-	tf.Tangle.BlockDAG.CreateBlock("Block2", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block1")), models.WithIssuingTime(time.Now()))
+	tf.Tangle.BlockDAG.CreateBlock("Block2", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block1")), models.WithIssuingTime(now))
 	tf.Tangle.BlockDAG.IssueBlocks("Block2")
-	tf.Tangle.BlockDAG.CreateBlock("Block3", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block2")), models.WithIssuingTime(time.Now().Add(5*time.Second)))
+	tf.Tangle.BlockDAG.CreateBlock("Block3", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block2")), models.WithIssuingTime(now.Add(5*time.Second)))
 	tf.Tangle.BlockDAG.IssueBlocks("Block3")
-	tf.Tangle.BlockDAG.CreateBlock("Block4", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block3")), models.WithIssuingTime(time.Now().Add(10*time.Second)))
+	tf.Tangle.BlockDAG.CreateBlock("Block4", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block3")), models.WithIssuingTime(now.Add(10*time.Second)))
 	tf.Tangle.BlockDAG.IssueBlocks("Block4")
 	tf.Tangle.Booker.CheckMarkers(map[string]*markers.Markers{
 		"Block1": markers.NewMarkers(markers.NewMarker(0, 1)),
@@ -579,14 +592,16 @@ func TestTipManager_TimeSinceConfirmation_RootBlockParent(t *testing.T) {
 	acceptedMarkers := []markers.Marker{markers.NewMarker(0, 1), markers.NewMarker(0, 2)}
 	tf.SetBlocksAccepted(acceptedBlockIDsAliases...)
 	tf.SetMarkersAccepted(acceptedMarkers...)
-	tf.SetAcceptedTime(tf.Tangle.BlockDAG.Block("Block2").IssuingTime())
+	tf.SetAcceptedTime(now.Add(25 * time.Second))
 	tf.Tangle.BlockDAG.Instance.EvictionState.AddRootBlock(tf.Tangle.BlockDAG.Block("Block1").ID())
-	tf.Tangle.BlockDAG.Instance.EvictionState.EvictUntil(tf.Tangle.BlockDAG.Block("Block1").ID().Index())
+
 	tf.Tangle.BlockDAG.Instance.EvictionState.RemoveRootBlock(models.EmptyBlockID)
 
-	require.Eventually(t, tf.Engine.IsBootstrapped, 1*time.Minute, 500*time.Millisecond)
+	require.Eventually(t, tf.Engine.NotarizationManager.IsFullyCommitted, 1*time.Minute, 500*time.Millisecond)
 
-	tf.Tangle.BlockDAG.CreateBlock("Block5", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block1")), models.WithIssuingTime(time.Now()))
+	tf.Engine.Workers.WaitAll()
+
+	tf.Tangle.BlockDAG.CreateBlock("Block5", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block1")), models.WithIssuingTime(now))
 	tf.Tangle.BlockDAG.IssueBlocks("Block5")
 	tf.Tangle.Booker.CheckMarkers(map[string]*markers.Markers{
 		"Block5": markers.NewMarkers(markers.NewMarker(1, 1)),
@@ -606,7 +621,9 @@ func TestTipManager_FutureTips(t *testing.T) {
 	epoch.GenesisTime = time.Now().Add(-100 * time.Second).Unix()
 	workers := workerpool.NewGroup(t.Name())
 	tf := NewTestFramework(t, workers.CreateGroup("TipManagerTestFramework"),
-		WithNotarizationOptions(notarization.WithMinCommittableEpochAge(10*time.Second)),
+		WithEngineOptions(
+			engine.WithNotarizationManagerOptions(notarization.WithMinCommittableEpochAge(10*time.Second)),
+		),
 	)
 	tf.Engine.EvictionState.AddRootBlock(models.EmptyBlockID)
 

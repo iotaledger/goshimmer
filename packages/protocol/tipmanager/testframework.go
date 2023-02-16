@@ -53,22 +53,19 @@ type TestFramework struct {
 	tipAdded   uint32
 	tipRemoved uint32
 
-	optsTipManagerOptions   []options.Option[TipManager]
-	optsTangleOptions       []options.Option[tangle.Tangle]
-	optsNotarizationOptions []options.Option[notarization.Manager]
+	optsTipManagerOptions []options.Option[TipManager]
+	optsEngineOptions     []options.Option[engine.Engine]
 }
 
 func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...options.Option[TestFramework]) (t *TestFramework) {
 	return options.Apply(&TestFramework{
-		test:                    test,
-		mockAcceptance:          blockgadget.NewMockAcceptanceGadget(),
-		scheduledBlocks:         shrinkingmap.New[models.BlockID, *scheduler.Block](),
-		optsNotarizationOptions: []options.Option[notarization.Manager]{notarization.WithMinCommittableEpochAge(time.Since(time.Unix(epoch.GenesisTime, 0)))},
+		test:            test,
+		mockAcceptance:  blockgadget.NewMockAcceptanceGadget(),
+		scheduledBlocks: shrinkingmap.New[models.BlockID, *scheduler.Block](),
 	}, opts, func(t *TestFramework) {
 		storageInstance := blockdag.NewTestStorage(test, workers)
-
 		// set MinCommittableEpochAge to genesis so nothing is committed.
-		t.Engine = engine.New(workers.CreateGroup("Engine"), storageInstance, dpos.NewProvider(), mana1.NewProvider(), engine.WithNotarizationManagerOptions(t.optsNotarizationOptions...), engine.WithTangleOptions(t.optsTangleOptions...))
+		t.Engine = engine.New(workers.CreateGroup("Engine"), storageInstance, dpos.NewProvider(), mana1.NewProvider(), t.optsEngineOptions...)
 
 		test.Cleanup(func() {
 			t.Engine.Shutdown()
@@ -126,6 +123,8 @@ func (t *TestFramework) setupEvents() {
 	})
 
 	event.Hook(t.Engine.NotarizationManager.Events.EpochCommitted, func(details *notarization.EpochCommittedDetails) {
+		fmt.Println("epoch committed in the engine", details.Commitment.Index())
+
 		t.Instance.PromoteFutureTips(details.Commitment)
 	})
 
@@ -277,16 +276,11 @@ func WithTipManagerOptions(opts ...options.Option[TipManager]) options.Option[Te
 	}
 }
 
-func WithTangleOptions(opts ...options.Option[tangle.Tangle]) options.Option[TestFramework] {
+func WithEngineOptions(opts ...options.Option[engine.Engine]) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
-		tf.optsTangleOptions = opts
+		tf.optsEngineOptions = opts
 	}
-}
 
-func WithNotarizationOptions(opts ...options.Option[notarization.Manager]) options.Option[TestFramework] {
-	return func(tf *TestFramework) {
-		tf.optsNotarizationOptions = opts
-	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

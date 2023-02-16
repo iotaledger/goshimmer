@@ -4,7 +4,9 @@ import (
 	"sync"
 
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/types"
 
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/storage/permanent"
@@ -32,13 +34,17 @@ type Storage struct {
 func New(directory string, version database.Version, opts ...options.Option[database.Manager]) (newStorage *Storage) {
 	databaseManager := database.NewManager(version, append(opts, database.WithBaseDir(directory))...)
 
-	return &Storage{
+	newStorage = &Storage{
 		Permanent: permanent.New(utils.NewDirectory(directory, true), databaseManager),
 		Prunable:  prunable.New(databaseManager),
 
 		databaseManager: databaseManager,
 		Directory:       directory,
 	}
+
+	newStorage.Commitments.Store(commitment.New(0, commitment.ID{}, types.Identifier{}, 0))
+
+	return newStorage
 }
 
 // PruneUntilEpoch prunes storage epochs less than and equal to the given index.

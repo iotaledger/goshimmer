@@ -50,7 +50,7 @@ func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, optsBooker
 
 	return NewTestFramework(t, workers, New(
 		workers.CreateGroup("Booker"),
-		blockdag.NewTestBlockDAG(t, workers, eviction.NewState(storageInstance), storageInstance),
+		blockdag.NewTestBlockDAG(t, workers, eviction.NewState(storageInstance), blockdag.DefaultCommitmentFunc),
 		ledger.NewTestLedger(t, workers.CreateGroup("Ledger")),
 		optsBooker...,
 	))
