@@ -189,6 +189,7 @@ func (t *TipManager) selectTips(count int) (parents models.BlockIDs) {
 
 		// only add genesis if no tips are available
 		if len(tips) == 0 {
+			// TODO: possible to use latest accepted block instead
 			rootBlock := t.engine.EvictionState.LatestRootBlock()
 			fmt.Println("(time: ", time.Now(), ") selecting root block because tip pool empty:", rootBlock)
 

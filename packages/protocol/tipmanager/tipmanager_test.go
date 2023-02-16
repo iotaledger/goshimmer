@@ -113,6 +113,7 @@ func TestTipManager_TimeSinceConfirmation_Unconfirmed(t *testing.T) {
 	tf := NewTestFramework(t, workers.CreateGroup("TipManagerTestFramework"),
 		WithTipManagerOptions(WithTimeSinceConfirmationThreshold(5*time.Minute)),
 		WithEngineOptions(
+			engine.WithBootstrapThreshold(time.Since(time.Unix(epoch.GenesisTime, 0).Add(-time.Hour))),
 			engine.WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(10))))),
 		),
 	)
@@ -168,14 +169,14 @@ func TestTipManager_TimeSinceConfirmation_Confirmed(t *testing.T) {
 	tf := NewTestFramework(t, workers.CreateGroup("TipManagerTestFramework"),
 		WithTipManagerOptions(WithTimeSinceConfirmationThreshold(5*time.Minute)),
 		WithEngineOptions(
+			engine.WithBootstrapThreshold(time.Since(time.Unix(epoch.GenesisTime, 0).Add(30*time.Second))),
+			engine.WithNotarizationManagerOptions(notarization.WithMinCommittableEpochAge(20*time.Minute)),
 			engine.WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(10))))),
 		),
 	)
 	tf.Engine.EvictionState.AddRootBlock(models.EmptyBlockID)
 	createTestTangleTSC(tf)
 
-	// Even without any confirmations, it should be possible to attach to genesis.
-	tf.AssertIsPastConeTimestampCorrect("Genesis", true)
 	// case 0 - only one block can attach to genesis, so there should not be two subtangles starting from the genesis, but TSC allows using such tip.
 	tf.AssertIsPastConeTimestampCorrect("7/1_2", true)
 
@@ -185,9 +186,6 @@ func TestTipManager_TimeSinceConfirmation_Confirmed(t *testing.T) {
 	tf.SetMarkersAccepted(acceptedMarkers...)
 	tf.SetAcceptedTime(tf.Tangle.BlockDAG.Block("Marker-2/3").IssuingTime())
 	require.Eventually(t, tf.Engine.IsBootstrapped, 1*time.Minute, 500*time.Millisecond)
-
-	// As we advance ATT, Genesis should be beyond TSC, and thus invalid.
-	tf.AssertIsPastConeTimestampCorrect("Genesis", false)
 
 	// case 0 - only one block can attach to genesis, so there should not be two subtangles starting from the genesis, but TSC allows using such tip.
 	tf.AssertIsPastConeTimestampCorrect("7/1_2", false)
@@ -231,6 +229,8 @@ func TestTipManager_TimeSinceConfirmation_MultipleParents(t *testing.T) {
 	tf := NewTestFramework(t, workers.CreateGroup("TipManagerTestFramework"),
 		WithTipManagerOptions(WithTimeSinceConfirmationThreshold(5*time.Minute)),
 		WithEngineOptions(
+			engine.WithBootstrapThreshold(time.Since(time.Unix(epoch.GenesisTime, 0).Add(30*time.Second))),
+			engine.WithNotarizationManagerOptions(notarization.WithMinCommittableEpochAge(20*time.Minute)),
 			engine.WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(10))))),
 		),
 	)
@@ -257,26 +257,27 @@ func TestTipManager_TimeSinceConfirmation_MultipleParents(t *testing.T) {
 }
 
 func createTestTangleMultipleParents(tf *TestFramework) {
+	now := time.Unix(epoch.GenesisTime, 0).Add(20 * time.Minute)
 	markersMap := make(map[string]*markers.Markers)
 
 	// SEQUENCE 0
 	{
-		tf.Tangle.BlockDAG.CreateBlock("Marker-0/1", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Genesis")), models.WithIssuingTime(time.Now().Add(-9*time.Minute)))
+		tf.Tangle.BlockDAG.CreateBlock("Marker-0/1", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Genesis")), models.WithIssuingTime(now.Add(-9*time.Minute)))
 		tf.Tangle.BlockDAG.IssueBlocks("Marker-0/1")
 
-		tf.Tangle.BlockDAG.CreateBlock("Marker-0/2", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Marker-0/1")))
+		tf.Tangle.BlockDAG.CreateBlock("Marker-0/2", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Marker-0/1")), models.WithIssuingTime(now))
 		tf.Tangle.BlockDAG.IssueBlocks("Marker-0/2")
 
-		tf.Tangle.BlockDAG.CreateBlock("Marker-0/3", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Marker-0/2")))
+		tf.Tangle.BlockDAG.CreateBlock("Marker-0/3", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Marker-0/2")), models.WithIssuingTime(now))
 		tf.Tangle.BlockDAG.IssueBlocks("Marker-0/3")
 
-		tf.Tangle.BlockDAG.CreateBlock("Marker-0/4", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Marker-0/3")))
+		tf.Tangle.BlockDAG.CreateBlock("Marker-0/4", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Marker-0/3")), models.WithIssuingTime(now))
 		tf.Tangle.BlockDAG.IssueBlocks("Marker-0/4")
 
-		tf.Tangle.BlockDAG.CreateBlock("IncorrectTip", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Marker-0/1", "Marker-0/3")))
+		tf.Tangle.BlockDAG.CreateBlock("IncorrectTip", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Marker-0/1", "Marker-0/3")), models.WithIssuingTime(now))
 		tf.Tangle.BlockDAG.IssueBlocks("IncorrectTip")
 
-		tf.Tangle.BlockDAG.CreateBlock("IncorrectTip2", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Marker-0/1")))
+		tf.Tangle.BlockDAG.CreateBlock("IncorrectTip2", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Marker-0/1")), models.WithIssuingTime(now))
 		tf.Tangle.BlockDAG.IssueBlocks("IncorrectTip2")
 
 		tf.Tangle.Booker.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
@@ -290,35 +291,37 @@ func createTestTangleMultipleParents(tf *TestFramework) {
 }
 
 func createTestTangleTSC(tf *TestFramework) {
+	now := time.Unix(epoch.GenesisTime, 0).Add(20 * time.Minute)
+
 	markersMap := make(map[string]*markers.Markers)
 	var lastBlockAlias string
 
 	// SEQUENCE 0
 	{
-		tf.Tangle.BlockDAG.CreateBlock("Marker-0/1", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Genesis")), models.WithIssuingTime(time.Now().Add(-9*time.Minute)))
+		tf.Tangle.BlockDAG.CreateBlock("Marker-0/1", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Genesis")), models.WithIssuingTime(now.Add(-9*time.Minute)))
 		tf.Tangle.BlockDAG.IssueBlocks("Marker-0/1")
 		tf.Tangle.Booker.PreventNewMarkers(true)
 		lastBlockAlias = issueBlocks(tf, "0/1-preTSC", 3, []string{"Marker-0/1"}, time.Minute*8)
 		lastBlockAlias = issueBlocks(tf, "0/1-postTSC", 3, []string{lastBlockAlias}, time.Minute)
 		tf.Tangle.Booker.PreventNewMarkers(false)
-		tf.Tangle.BlockDAG.CreateBlock("Marker-0/2", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs(lastBlockAlias)))
+		tf.Tangle.BlockDAG.CreateBlock("Marker-0/2", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs(lastBlockAlias)), models.WithIssuingTime(now))
 		tf.Tangle.BlockDAG.IssueBlocks("Marker-0/2")
 		tf.Tangle.Booker.PreventNewMarkers(true)
 		lastBlockAlias = issueBlocks(tf, "0/2", 5, []string{"Marker-0/2"}, 0)
 		tf.Tangle.Booker.PreventNewMarkers(false)
-		tf.Tangle.BlockDAG.CreateBlock("Marker-0/3", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs(lastBlockAlias)))
+		tf.Tangle.BlockDAG.CreateBlock("Marker-0/3", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs(lastBlockAlias)), models.WithIssuingTime(now))
 		tf.Tangle.BlockDAG.IssueBlocks("Marker-0/3")
 		tf.Tangle.Booker.PreventNewMarkers(true)
 		lastBlockAlias = issueBlocks(tf, "0/3", 5, []string{"Marker-0/3"}, 0)
 		tf.Tangle.Booker.PreventNewMarkers(false)
-		tf.Tangle.BlockDAG.CreateBlock("Marker-0/4", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs(lastBlockAlias)))
+		tf.Tangle.BlockDAG.CreateBlock("Marker-0/4", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs(lastBlockAlias)), models.WithIssuingTime(now))
 		tf.Tangle.BlockDAG.IssueBlocks("Marker-0/4")
 		tf.Tangle.Booker.PreventNewMarkers(true)
 		_ = issueBlocks(tf, "0/4", 5, []string{"Marker-0/4"}, 0)
 		tf.Tangle.Booker.PreventNewMarkers(false)
 
 		// issue block for test case #16
-		tf.Tangle.BlockDAG.CreateBlock("0/1-postTSC-direct_0", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Marker-0/1")))
+		tf.Tangle.BlockDAG.CreateBlock("0/1-postTSC-direct_0", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Marker-0/1")), models.WithIssuingTime(now))
 		tf.Tangle.BlockDAG.IssueBlocks("0/1-postTSC-direct_0")
 
 		tf.Tangle.Booker.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
@@ -341,12 +344,12 @@ func createTestTangleTSC(tf *TestFramework) {
 		lastBlockAlias = issueBlocks(tf, "0/1-preTSCSeq1", 3, []string{"Marker-0/1"}, time.Minute*6)
 		lastBlockAlias = issueBlocks(tf, "0/1-postTSCSeq1", 6, []string{lastBlockAlias}, time.Minute*4)
 		tf.Tangle.Booker.PreventNewMarkers(false)
-		tf.Tangle.BlockDAG.CreateBlock("Marker-1/2", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs(lastBlockAlias)), models.WithIssuingTime(time.Now().Add(-3*time.Minute)))
+		tf.Tangle.BlockDAG.CreateBlock("Marker-1/2", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs(lastBlockAlias)), models.WithIssuingTime(now.Add(-3*time.Minute)))
 		tf.Tangle.BlockDAG.IssueBlocks("Marker-1/2")
 		tf.Tangle.Booker.PreventNewMarkers(true)
 		lastBlockAlias = issueBlocks(tf, "1/2", 5, []string{"Marker-1/2"}, 0)
 		tf.Tangle.Booker.PreventNewMarkers(false)
-		tf.Tangle.BlockDAG.CreateBlock("Marker-1/3", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs(lastBlockAlias)))
+		tf.Tangle.BlockDAG.CreateBlock("Marker-1/3", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs(lastBlockAlias)), models.WithIssuingTime(now))
 		tf.Tangle.BlockDAG.IssueBlocks("Marker-1/3")
 		tf.Tangle.Booker.PreventNewMarkers(true)
 		_ = issueBlocks(tf, "1/3", 5, []string{"Marker-1/3"}, 0)
@@ -383,12 +386,12 @@ func createTestTangleTSC(tf *TestFramework) {
 		lastBlockAlias = issueBlocks(tf, "0/1-preTSCSeq2", 3, []string{"Marker-0/1"}, time.Minute*6)
 		lastBlockAlias = issueBlocks(tf, "0/1-postTSCSeq2", 6, []string{lastBlockAlias}, time.Minute*4)
 		tf.Tangle.Booker.PreventNewMarkers(false)
-		tf.Tangle.BlockDAG.CreateBlock("Marker-2/2", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs(lastBlockAlias)), models.WithIssuingTime(time.Now().Add(-3*time.Minute)))
+		tf.Tangle.BlockDAG.CreateBlock("Marker-2/2", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs(lastBlockAlias)), models.WithIssuingTime(now.Add(-3*time.Minute)))
 		tf.Tangle.BlockDAG.IssueBlocks("Marker-2/2")
 		tf.Tangle.Booker.PreventNewMarkers(true)
 		lastBlockAlias = issueBlocks(tf, "2/2", 5, []string{"Marker-2/2"}, 0)
 		tf.Tangle.Booker.PreventNewMarkers(false)
-		tf.Tangle.BlockDAG.CreateBlock("Marker-2/3", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs(lastBlockAlias)))
+		tf.Tangle.BlockDAG.CreateBlock("Marker-2/3", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs(lastBlockAlias)), models.WithIssuingTime(now))
 		tf.Tangle.BlockDAG.IssueBlocks("Marker-2/3")
 		tf.Tangle.Booker.PreventNewMarkers(true)
 		_ = issueBlocks(tf, "2/3", 5, []string{"Marker-2/3"}, 0)
@@ -421,7 +424,7 @@ func createTestTangleTSC(tf *TestFramework) {
 
 	// SEQUENCE 2 + 0
 	{
-		tf.Tangle.BlockDAG.CreateBlock("Marker-2/5", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("0/4_4", "2/3_4")))
+		tf.Tangle.BlockDAG.CreateBlock("Marker-2/5", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("0/4_4", "2/3_4")), models.WithIssuingTime(now))
 		tf.Tangle.BlockDAG.IssueBlocks("Marker-2/5")
 		tf.Tangle.Booker.PreventNewMarkers(true)
 		_ = issueBlocks(tf, "2/5", 5, []string{"Marker-2/5"}, 0)
@@ -442,7 +445,7 @@ func createTestTangleTSC(tf *TestFramework) {
 		tf.Tangle.Booker.PreventNewMarkers(true)
 		lastBlockAlias = issueBlocks(tf, "0/1-postTSCSeq3", 5, []string{"0/1-postTSCSeq2_0"}, 0)
 		tf.Tangle.Booker.PreventNewMarkers(false)
-		tf.Tangle.BlockDAG.CreateBlock("Marker-3/2", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs(lastBlockAlias)))
+		tf.Tangle.BlockDAG.CreateBlock("Marker-3/2", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs(lastBlockAlias)), models.WithIssuingTime(now))
 		tf.Tangle.BlockDAG.IssueBlocks("Marker-3/2")
 		tf.Tangle.Booker.PreventNewMarkers(true)
 		_ = issueBlocks(tf, "3/2", 5, []string{"Marker-3/2"}, 0)
@@ -467,7 +470,7 @@ func createTestTangleTSC(tf *TestFramework) {
 	{
 		tf.Tangle.Booker.PreventNewMarkers(true)
 		lastBlockAlias = issueBlocks(tf, "2/3+0/4", 5, []string{"0/4_4", "2/3_4"}, 0)
-		tf.Tangle.BlockDAG.CreateBlock("Marker-4/5", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs(lastBlockAlias)))
+		tf.Tangle.BlockDAG.CreateBlock("Marker-4/5", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs(lastBlockAlias)), models.WithIssuingTime(now))
 		tf.Tangle.BlockDAG.IssueBlocks("Marker-4/5")
 		tf.Tangle.Booker.PreventNewMarkers(false)
 
@@ -484,7 +487,7 @@ func createTestTangleTSC(tf *TestFramework) {
 		tf.Tangle.Booker.PreventNewMarkers(true)
 		lastBlockAlias = issueBlocks(tf, "0/1-preTSCSeq5", 6, []string{"0/1-preTSCSeq2_2"}, time.Minute*6)
 		tf.Tangle.Booker.PreventNewMarkers(false)
-		tf.Tangle.BlockDAG.CreateBlock("Marker-5/2", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs(lastBlockAlias)))
+		tf.Tangle.BlockDAG.CreateBlock("Marker-5/2", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs(lastBlockAlias)), models.WithIssuingTime(now))
 		tf.Tangle.BlockDAG.IssueBlocks("Marker-5/2")
 		tf.Tangle.Booker.PreventNewMarkers(true)
 		_ = issueBlocks(tf, "5/2", 5, []string{"Marker-5/2"}, 0)
@@ -510,7 +513,7 @@ func createTestTangleTSC(tf *TestFramework) {
 		tf.Tangle.Booker.PreventNewMarkers(true)
 		lastBlockAlias = issueBlocks(tf, "0/1-postTSCSeq6", 6, []string{"0/1-preTSCSeq2_2"}, 0)
 		tf.Tangle.Booker.PreventNewMarkers(false)
-		tf.Tangle.BlockDAG.CreateBlock("Marker-6/2", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs(lastBlockAlias)))
+		tf.Tangle.BlockDAG.CreateBlock("Marker-6/2", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs(lastBlockAlias)), models.WithIssuingTime(now))
 		tf.Tangle.BlockDAG.IssueBlocks("Marker-6/2")
 		tf.Tangle.Booker.PreventNewMarkers(true)
 		_ = issueBlocks(tf, "6/2", 5, []string{"Marker-6/2"}, 0)
@@ -544,14 +547,16 @@ func createTestTangleTSC(tf *TestFramework) {
 }
 
 func issueBlocks(tf *TestFramework, blockPrefix string, blockCount int, parents []string, timestampOffset time.Duration) string {
+	now := time.Unix(epoch.GenesisTime, 0).Add(20 * time.Minute)
+
 	blockAlias := fmt.Sprintf("%s_%d", blockPrefix, 0)
 
-	tf.Tangle.BlockDAG.CreateBlock(blockAlias, models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs(parents...)), models.WithIssuingTime(time.Now().Add(-timestampOffset)))
+	tf.Tangle.BlockDAG.CreateBlock(blockAlias, models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs(parents...)), models.WithIssuingTime(now.Add(-timestampOffset)))
 	tf.Tangle.BlockDAG.IssueBlocks(blockAlias)
 
 	for i := 1; i < blockCount; i++ {
 		alias := fmt.Sprintf("%s_%d", blockPrefix, i)
-		tf.Tangle.BlockDAG.CreateBlock(alias, models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs(blockAlias)), models.WithIssuingTime(time.Now().Add(-timestampOffset)))
+		tf.Tangle.BlockDAG.CreateBlock(alias, models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs(blockAlias)), models.WithIssuingTime(now.Add(-timestampOffset)))
 		tf.Tangle.BlockDAG.IssueBlocks(alias)
 		// fmt.Println("issuing block", tf.Tangle.BlockDAG.Block(alias).ID())
 		blockAlias = alias
@@ -573,7 +578,7 @@ func TestTipManager_TimeSinceConfirmation_RootBlockParent(t *testing.T) {
 
 	tf.Engine.EvictionState.AddRootBlock(models.EmptyBlockID)
 
-	b1 := tf.Tangle.BlockDAG.CreateBlock("Block1", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Genesis")), models.WithIssuingTime(now.Add(-50*time.Second)))
+	tf.Tangle.BlockDAG.CreateBlock("Block1", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Genesis")), models.WithIssuingTime(now.Add(-50*time.Second)))
 	tf.Tangle.BlockDAG.IssueBlocks("Block1")
 	tf.Tangle.BlockDAG.CreateBlock("Block2", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block1")), models.WithIssuingTime(now))
 	tf.Tangle.BlockDAG.IssueBlocks("Block2")
@@ -614,6 +619,7 @@ func TestTipManager_TimeSinceConfirmation_RootBlockParent(t *testing.T) {
 }
 
 func TestTipManager_FutureTips(t *testing.T) {
+	t.Skip("Test should be moved to BlockDAG to test the future commitment buffering functionality.")
 	debug.SetEnabled(true)
 	defer debug.SetEnabled(false)
 

@@ -104,6 +104,10 @@ func (t *TestFramework) setupEvents() {
 		t.Instance.AddTip(scheduledBlock)
 	})
 
+	event.Hook(t.Engine.Events.EvictionState.EpochEvicted, func(index epoch.Index) {
+		t.Instance.EvictTSCCache(index)
+	})
+
 	event.Hook(t.Instance.Events.TipAdded, func(block *scheduler.Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("TIP ADDED: %s", block.ID())
@@ -123,8 +127,6 @@ func (t *TestFramework) setupEvents() {
 	})
 
 	event.Hook(t.Engine.NotarizationManager.Events.EpochCommitted, func(details *notarization.EpochCommittedDetails) {
-		fmt.Println("epoch committed in the engine", details.Commitment.Index())
-
 		t.Instance.PromoteFutureTips(details.Commitment)
 	})
 

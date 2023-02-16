@@ -24,7 +24,6 @@ import (
 	"github.com/iotaledger/hive.go/core/autopeering/selection"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/logger"
-	"github.com/iotaledger/hive.go/core/node"
 
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	"github.com/iotaledger/goshimmer/packages/app/collector"
