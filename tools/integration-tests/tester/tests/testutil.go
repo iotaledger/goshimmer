@@ -613,10 +613,10 @@ func RequireConfirmationStateEqual(t *testing.T, nodes framework.Nodes, expected
 				// the confirmation state can change, so we should check all transactions every time
 				stateEqual, confirmationState := txMetadataStateEqual(t, node, txID, expInclState)
 				if !stateEqual {
-					t.Logf("Current ConfirmationState for txId %s is %s", txID, confirmationState)
+					t.Logf("Current ConfirmationState for txId %s is %s on %s", txID, confirmationState, node.Name())
 					return false
 				}
-				t.Logf("Current ConfirmationState for txId %s is %s", txID, confirmationState)
+				t.Logf("Current ConfirmationState for txId %s is %s on %s", txID, confirmationState, node.Name())
 
 			}
 		}
