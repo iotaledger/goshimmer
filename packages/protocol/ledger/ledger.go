@@ -227,11 +227,7 @@ func (l *Ledger) triggerAcceptedEvent(txMetadata *TransactionMetadata) (triggere
 	// We skip triggering the event if the transaction was already accepted.
 	if !txMetadata.SetConfirmationState(confirmation.Accepted) {
 		// ... but if the conflict we are propagating is ourselves, we still want to walk the UTXO future cone.
-		if txMetadata.ConflictIDs().Has(txMetadata.ID()) {
-			return true
-		}
-
-		return false
+		return txMetadata.ConflictIDs().Has(txMetadata.ID())
 	}
 
 	transactionEvent := &TransactionEvent{

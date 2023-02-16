@@ -42,7 +42,9 @@ func New(directory string, version database.Version, opts ...options.Option[data
 		Directory:       directory,
 	}
 
-	newStorage.Commitments.Store(commitment.New(0, commitment.ID{}, types.Identifier{}, 0))
+	if err := newStorage.Commitments.Store(commitment.New(0, commitment.ID{}, types.Identifier{}, 0)); err != nil {
+		panic(err)
+	}
 
 	return newStorage
 }

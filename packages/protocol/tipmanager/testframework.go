@@ -248,7 +248,6 @@ func WithEngineOptions(opts ...options.Option[engine.Engine]) options.Option[Tes
 	return func(tf *TestFramework) {
 		tf.optsEngineOptions = opts
 	}
-
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

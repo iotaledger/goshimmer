@@ -95,7 +95,8 @@ func (c *TipsConflictTracker) RemoveTip(block *scheduler.Block) {
 			continue
 		}
 
-		if count--; count == 0 {
+		count--
+		if count == 0 {
 			c.censoredConflicts.Set(conflictID, types.Void)
 			c.tipCountPerConflict.Delete(conflictID)
 		}

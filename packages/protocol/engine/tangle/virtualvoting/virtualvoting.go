@@ -6,8 +6,8 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/workerpool"
 	"github.com/iotaledger/hive.go/core/syncutils"
+	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
@@ -46,7 +46,7 @@ func New(workers *workerpool.Group, booker *booker.Booker, validators *sybilprot
 		Validators:    validators,
 		blocks:        memstorage.NewEpochStorage[models.BlockID, *Block](),
 		Booker:        booker,
-		Workers:    workers,
+		Workers:       workers,
 		evictionMutex: syncutils.NewStarvingMutex(),
 		optsSequenceCutoffCallback: func(sequenceID markers.SequenceID) markers.Index {
 			return 1

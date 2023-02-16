@@ -200,7 +200,7 @@ func (b *BlockDAG) promoteFutureBlocksUntil(index epoch.Index) {
 			if blocksStorage, exists := storage.Get(cm.ID()); exists {
 				// Rely on the ordered nature of the underlying map: we need, in fact, to make sure we
 				// trigger the parents before the children.
-				blocksStorage.ForEach(func(block *Block) (err error) {
+				_ = blocksStorage.ForEach(func(block *Block) (err error) {
 					b.Events.BlockSolid.Trigger(block)
 					return nil
 				})

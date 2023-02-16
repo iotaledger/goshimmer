@@ -251,21 +251,7 @@ func (a *Gadget) setup() {
 
 	event.Hook(a.tangle.VirtualVoting.Events.ConflictTracker.VoterAdded, func(evt *conflicttracker.VoterEvent[utxo.TransactionID]) {
 		a.RefreshConflictAcceptance(evt.ConflictID)
-
-		conflictID := evt.ConflictID
-		_, exists := a.tangle.Booker.Ledger.ConflictDAG.Conflict(conflictID)
-		if !exists {
-			return
-		}
 	})
-
-	event.AttachWithWorkerPool(a.tangle.VirtualVoting.Events.ConflictTracker.VoterRemoved, func(evt *conflicttracker.VoterEvent[utxo.TransactionID]) {
-		conflictID := evt.ConflictID
-		_, exists := a.tangle.Booker.Ledger.ConflictDAG.Conflict(conflictID)
-		if !exists {
-			return
-		}
-	}, wp)
 
 	event.AttachWithWorkerPool(a.tangle.Booker.Events.MarkerManager.SequenceEvicted, a.evictSequence, wp)
 }

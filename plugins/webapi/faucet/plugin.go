@@ -3,15 +3,14 @@ package faucet
 import (
 	"net/http"
 
-	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 
 	faucetpkg "github.com/iotaledger/goshimmer/packages/app/faucet"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
-
 	"github.com/iotaledger/goshimmer/plugins/faucet"
 )
 
