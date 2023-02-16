@@ -21,7 +21,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/ads"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
@@ -125,14 +124,6 @@ func (t *TestFramework) setupEvents() {
 	event.Hook(t.mockAcceptance.BlockAcceptedEvent, func(block *blockgadget.Block) {
 		require.NoError(t.test, t.Engine.NotarizationManager.NotarizeAcceptedBlock(block.ModelsBlock))
 	})
-
-	event.Hook(t.Engine.NotarizationManager.Events.EpochCommitted, func(details *notarization.EpochCommittedDetails) {
-		t.Instance.PromoteFutureTips(details.Commitment)
-	})
-
-	event.Hook(t.Engine.EvictionState.Events.EpochEvicted, func(index epoch.Index) {
-		t.Instance.Evict(index)
-	})
 }
 
 func (t *TestFramework) createGenesis() {
@@ -214,31 +205,6 @@ func (t *TestFramework) AssertTips(expectedTips models.BlockIDs) {
 	t.AssertEqualBlocks(models.NewBlockIDs(lo.Map(t.Instance.AllTips(), func(block *scheduler.Block) models.BlockID {
 		return block.ID()
 	})...), expectedTips)
-}
-
-func (t *TestFramework) AssertFutureTips(expectedFutureTips map[epoch.Index]map[commitment.ID]models.BlockIDs) {
-	actualFutureTips := make(map[epoch.Index]map[commitment.ID]models.BlockIDs)
-
-	t.Instance.futureTips.ForEach(func(index epoch.Index, commitmentStorage *memstorage.Storage[commitment.ID, *memstorage.Storage[models.BlockID, *scheduler.Block]]) {
-		commitmentStorage.ForEach(func(cm commitment.ID, tipStorage *memstorage.Storage[models.BlockID, *scheduler.Block]) bool {
-			if _, exists := actualFutureTips[index]; !exists {
-				actualFutureTips[index] = make(map[commitment.ID]models.BlockIDs)
-			}
-
-			if _, exists := actualFutureTips[index][cm]; !exists {
-				actualFutureTips[index][cm] = models.NewBlockIDs()
-			}
-
-			tipStorage.ForEach(func(blockID models.BlockID, _ *scheduler.Block) bool {
-				actualFutureTips[index][cm].Add(blockID)
-				return true
-			})
-
-			return true
-		})
-	})
-
-	require.Equal(t.test, expectedFutureTips, actualFutureTips, "expected future tips %s but got %s", expectedFutureTips, actualFutureTips)
 }
 
 func (t *TestFramework) AssertTipCount(expectedTipCount int) {

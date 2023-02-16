@@ -233,12 +233,6 @@ func (p *Protocol) initTipManager() {
 	event.AttachWithWorkerPool(p.Events.Engine.Consensus.BlockGadget.BlockAccepted, func(block *blockgadget.Block) {
 		p.TipManager.RemoveStrongParents(block.ModelsBlock)
 	}, wp)
-	event.AttachWithWorkerPool(p.Events.Engine.NotarizationManager.EpochCommitted, func(details *notarization.EpochCommittedDetails) {
-		p.TipManager.PromoteFutureTips(details.Commitment)
-	}, wp)
-	event.AttachWithWorkerPool(p.Events.Engine.EvictionState.EpochEvicted, func(index epoch.Index) {
-		p.TipManager.Evict(index)
-	}, wp)
 }
 
 func (p *Protocol) onForkDetected(fork *chainmanager.Fork) {

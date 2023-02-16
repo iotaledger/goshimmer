@@ -5,14 +5,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/randommap"
-	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/types"
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
@@ -44,7 +41,6 @@ type TipManager struct {
 
 	mutex               sync.RWMutex
 	tips                *randommap.RandomMap[models.BlockID, *scheduler.Block]
-	futureTips          *memstorage.EpochStorage[commitment.ID, *memstorage.Storage[models.BlockID, *scheduler.Block]]
 	TipsConflictTracker *TipsConflictTracker
 
 	commitmentRecentBoundary epoch.Index
@@ -61,7 +57,6 @@ func New(schedulerBlockRetrieverFunc blockRetrieverFunc, opts ...options.Option[
 		schedulerBlockRetrieverFunc: schedulerBlockRetrieverFunc,
 
 		tips:       randommap.New[models.BlockID, *scheduler.Block](),
-		futureTips: memstorage.NewEpochStorage[commitment.ID, *memstorage.Storage[models.BlockID, *scheduler.Block]](),
 
 		walkerCache: memstorage.NewEpochStorage[models.BlockID, types.Empty](),
 
@@ -80,7 +75,6 @@ func (t *TipManager) LinkTo(engine *engine.Engine) {
 
 	t.walkerCache = memstorage.NewEpochStorage[models.BlockID, types.Empty]()
 	t.tips = randommap.New[models.BlockID, *scheduler.Block]()
-	t.futureTips = memstorage.NewEpochStorage[commitment.ID, *memstorage.Storage[models.BlockID, *scheduler.Block]]()
 
 	t.engine = engine
 	t.blockAcceptanceGadget = engine.Consensus.BlockGadget
@@ -103,12 +97,6 @@ func (t *TipManager) AddTip(block *scheduler.Block) {
 
 func (t *TipManager) AddTipNonMonotonic(block *scheduler.Block) {
 	if block.IsSubjectivelyInvalid() {
-		return
-	}
-
-	// If the commitment is in the future, and not known to be forking, we cannot yet add it to the main tipset.
-	if t.isFutureCommitment(block) {
-		t.addFutureTip(block)
 		return
 	}
 
@@ -239,63 +227,6 @@ func (t *TipManager) TipCount() int {
 	return t.tips.Size()
 }
 
-// FutureTipCount returns the amount of future tips per epoch.
-func (t *TipManager) FutureTipCount() (futureTipsPerEpoch map[epoch.Index]int) {
-	t.mutex.RLock()
-	defer t.mutex.RUnlock()
-
-	futureTipsPerEpoch = make(map[epoch.Index]int)
-	t.futureTips.ForEach(func(index epoch.Index, commitmentStorage *memstorage.Storage[commitment.ID, *memstorage.Storage[models.BlockID, *scheduler.Block]]) {
-		commitmentStorage.ForEach(func(cm commitment.ID, tipStorage *memstorage.Storage[models.BlockID, *scheduler.Block]) bool {
-			futureTipsPerEpoch[index] += tipStorage.Size()
-			return true
-		})
-	})
-
-	return
-}
-
-// PromoteFutureTips promotes to the main tippool all future tips that belong to the given commitment.
-func (t *TipManager) PromoteFutureTips(cm *commitment.Commitment) {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
-
-	if futureEpochTips := t.futureTips.Get(cm.Index()); futureEpochTips != nil {
-		if tipsForCommitment, exists := futureEpochTips.Get(cm.ID()); exists {
-			tipsToPromote := make(map[models.BlockID]*scheduler.Block)
-			tipsToNotPromote := set.NewAdvancedSet[models.BlockID]()
-
-			tipsForCommitment.ForEach(func(blockID models.BlockID, tip *scheduler.Block) bool {
-				for _, tipParent := range tip.Parents() {
-					tipsToNotPromote.Add(tipParent)
-				}
-				tipsToPromote[blockID] = tip
-				return true
-			})
-
-			for tipID, tip := range tipsToPromote {
-				// regardless if the tip makes it into the tippool, we remove its strong parents anyway
-				// currentTip <- futureTipNotToAdd <- futureTipToAdd
-				// We want to remove currentTip even if futureTipNotToAdd is not added to the tippool.
-				t.removeStrongParents(tip.ModelsBlock)
-				if !tipsToNotPromote.Has(tipID) {
-					t.addTip(tip)
-				}
-			}
-		}
-	}
-
-	t.futureTips.Evict(cm.Index())
-}
-
-// Evict removes all parked tips that belong to an evicted epoch.
-func (t *TipManager) Evict(index epoch.Index) {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
-
-	t.futureTips.Evict(index)
-}
-
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region TSC to prevent lazy tips /////////////////////////////////////////////////////////////////////////////////////
@@ -344,12 +275,6 @@ func (t *TipManager) checkMonotonicity(block *scheduler.Block) (anyScheduledOrAc
 // isFutureCommitment returns true if the block belongs to a commitment that is not yet known.
 func (t *TipManager) isFutureCommitment(block *scheduler.Block) (isUnknown bool) {
 	return block.Commitment().Index() > t.engine.Storage.Settings.LatestCommitment().Index()
-}
-
-func (t *TipManager) addFutureTip(block *scheduler.Block) (added bool) {
-	return lo.Return1(t.futureTips.Get(block.Commitment().Index(), true).RetrieveOrCreate(block.Commitment().ID(), func() *memstorage.Storage[models.BlockID, *scheduler.Block] {
-		return memstorage.New[models.BlockID, *scheduler.Block]()
-	})).Set(block.ID(), block)
 }
 
 func (t *TipManager) isValidTip(tip *scheduler.Block) (err error) {
