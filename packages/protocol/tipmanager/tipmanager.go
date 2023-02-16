@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/randommap"
 	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/core/workerpool"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -35,6 +36,7 @@ type TipManager struct {
 	engine                *engine.Engine
 	blockAcceptanceGadget acceptanceGadget
 
+	workers                     *workerpool.Group
 	schedulerBlockRetrieverFunc blockRetrieverFunc
 
 	walkerCache *memstorage.EpochStorage[models.BlockID, types.Empty]
@@ -50,13 +52,14 @@ type TipManager struct {
 }
 
 // New creates a new TipManager.
-func New(schedulerBlockRetrieverFunc blockRetrieverFunc, opts ...options.Option[TipManager]) (t *TipManager) {
+func New(workers *workerpool.Group, schedulerBlockRetrieverFunc blockRetrieverFunc, opts ...options.Option[TipManager]) (t *TipManager) {
 	t = options.Apply(&TipManager{
 		Events: NewEvents(),
 
+		workers:                     workers,
 		schedulerBlockRetrieverFunc: schedulerBlockRetrieverFunc,
 
-		tips:       randommap.New[models.BlockID, *scheduler.Block](),
+		tips: randommap.New[models.BlockID, *scheduler.Block](),
 
 		walkerCache: memstorage.NewEpochStorage[models.BlockID, types.Empty](),
 
@@ -78,7 +81,7 @@ func (t *TipManager) LinkTo(engine *engine.Engine) {
 
 	t.engine = engine
 	t.blockAcceptanceGadget = engine.Consensus.BlockGadget
-	t.TipsConflictTracker = NewTipsConflictTracker(engine)
+	t.TipsConflictTracker = NewTipsConflictTracker(t.workers, engine)
 	t.TipsConflictTracker.Setup()
 }
 

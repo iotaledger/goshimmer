@@ -6,6 +6,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
@@ -16,6 +17,7 @@ import (
 )
 
 type TipsConflictTracker struct {
+	workers             *workerpool.Group
 	tipConflicts        *memstorage.Storage[models.BlockID, utxo.TransactionIDs]
 	censoredConflicts   *memstorage.Storage[utxo.TransactionID, types.Empty]
 	tipCountPerConflict *memstorage.Storage[utxo.TransactionID, int]
@@ -24,8 +26,9 @@ type TipsConflictTracker struct {
 	sync.RWMutex
 }
 
-func NewTipsConflictTracker(engineInstance *engine.Engine) *TipsConflictTracker {
+func NewTipsConflictTracker(workers *workerpool.Group, engineInstance *engine.Engine) *TipsConflictTracker {
 	return &TipsConflictTracker{
+		workers:             workers,
 		tipConflicts:        memstorage.New[models.BlockID, utxo.TransactionIDs](),
 		censoredConflicts:   memstorage.New[utxo.TransactionID, types.Empty](),
 		tipCountPerConflict: memstorage.New[utxo.TransactionID, int](),
@@ -34,15 +37,16 @@ func NewTipsConflictTracker(engineInstance *engine.Engine) *TipsConflictTracker 
 }
 
 func (c *TipsConflictTracker) Setup() {
-	c.engine.Ledger.ConflictDAG.Events.ConflictAccepted.Attach(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	wp := c.workers.CreatePool("TipsConflictTracker", 1)
+	event.AttachWithWorkerPool(c.engine.Ledger.ConflictDAG.Events.ConflictAccepted, func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		c.deleteConflict(conflict.ID())
-	}))
-	c.engine.Ledger.ConflictDAG.Events.ConflictRejected.Attach(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	}, wp)
+	event.AttachWithWorkerPool(c.engine.Ledger.ConflictDAG.Events.ConflictRejected, func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		c.deleteConflict(conflict.ID())
-	}))
-	c.engine.Ledger.ConflictDAG.Events.ConflictNotConflicting.Attach(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	}, wp)
+	event.AttachWithWorkerPool(c.engine.Ledger.ConflictDAG.Events.ConflictNotConflicting, func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		c.deleteConflict(conflict.ID())
-	}))
+	}, wp)
 }
 
 func (c *TipsConflictTracker) AddTip(block *scheduler.Block, blockConflictIDs utxo.TransactionIDs) {

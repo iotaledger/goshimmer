@@ -72,7 +72,7 @@ func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opt
 }
 
 func (i *BlockIssuer) setupEvents() {
-	i.Factory.Events.Error.Attach(event.NewClosure(i.Events.Error.Trigger))
+	event.Hook(i.Factory.Events.Error, i.Events.Error.Trigger)
 }
 
 // IssuePayload creates a new block including sequence number and tip selection, submits it to be processed and returns it.

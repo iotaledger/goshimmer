@@ -78,7 +78,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...option
 			virtualvoting.NewTestFramework(test, workers.CreateGroup("VirtualVotingTestFramework"), t.Engine.Tangle.VirtualVoting),
 		)
 
-		t.Instance = New(t.mockSchedulerBlock, t.optsTipManagerOptions...)
+		t.Instance = New(workers.CreateGroup("TipManager"), t.mockSchedulerBlock, t.optsTipManagerOptions...)
 		t.Instance.LinkTo(t.Engine)
 
 		t.Instance.blockAcceptanceGadget = t.mockAcceptance
