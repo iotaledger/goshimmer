@@ -185,68 +185,6 @@ func (m *Options) createInitialAttestationsPublicKeys() {
 	}
 }
 
-// CreateSnapshotOld creates a new snapshot. Genesis is defined by genesisTokenAmount and seedBytes, it is pledged to the
-// empty nodeID. The amount to pledge to each node is defined by nodesToPledge map, the funds of each pledge is burned.
-// pledge funds
-// | Pledge | Funds        |
-// | ------ | ------------ |
-// | empty  | genesisSeed  |
-// | node1  | node1		   |
-// | node2  | node2        |.
-func CreateSnapshotOld(databaseVersion database.Version, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge map[ed25519.PublicKey]uint64, initialAttestations []ed25519.PublicKey, ledgerVM vm.VM) {
-	workers := workerpool.NewGroup("CreateSnapshot")
-	defer workers.Shutdown()
-
-	s := storage.New(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), databaseVersion)
-	defer s.Shutdown()
-
-	if err := s.Commitments.Store(commitment.NewEmptyCommitment()); err != nil {
-		panic(err)
-	}
-	if err := s.Settings.SetChainID(lo.PanicOnErr(s.Commitments.Load(0)).ID()); err != nil {
-		panic(err)
-	}
-
-	engineInstance := engine.New(workers.CreateGroup("Engine"), s, dpos.NewProvider(), mana1.NewProvider(), engine.WithLedgerOptions(ledger.WithVM(ledgerVM)))
-	defer engineInstance.Shutdown()
-
-	// Create genesis output
-	if genesisTokenAmount > 0 {
-		output, outputMetadata := createOutput(ledgerVM, seed.NewSeed(genesisSeedBytes).KeyPair(0).PublicKey, genesisTokenAmount, identity.ID{}, 0)
-		if err := engineInstance.LedgerState.UnspentOutputs.ApplyCreatedOutput(ledger.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
-			panic(err)
-		}
-	}
-
-	// Create outputs for nodes
-	engineInstance.NotarizationManager.Attestations.SetLastCommittedEpoch(-1)
-	for nodePublicKey, value := range nodesToPledge {
-		// send funds and pledge to ID
-		nodeID := identity.NewID(nodePublicKey)
-		output, outputMetadata := createOutput(ledgerVM, nodePublicKey, value, nodeID, 0)
-		if err := engineInstance.LedgerState.UnspentOutputs.ApplyCreatedOutput(ledger.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
-			panic(err)
-		}
-	}
-
-	for _, nodeID := range initialAttestations {
-		if _, err := engineInstance.NotarizationManager.Attestations.Add(&notarization.Attestation{
-			IssuerPublicKey: nodeID,
-			IssuingTime:     time.Unix(epoch.GenesisTime-1, 0),
-		}); err != nil {
-			panic(err)
-		}
-	}
-
-	if _, _, err := engineInstance.NotarizationManager.Attestations.Commit(0); err != nil {
-		panic(err)
-	}
-
-	if err := engineInstance.WriteSnapshot(snapshotFileName); err != nil {
-		panic(err)
-	}
-}
-
 var outputCounter uint16 = 1
 
 func createOutput(ledgerVM vm.VM, publicKey ed25519.PublicKey, tokenAmount uint64, pledgeID identity.ID, includedInEpoch epoch.Index) (output utxo.Output, outputMetadata *ledger.OutputMetadata) {
