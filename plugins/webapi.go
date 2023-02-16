@@ -1,7 +1,7 @@
 package plugins
 
 import (
-	"github.com/iotaledger/hive.go/core/node"
+	"github.com/iotaledger/goshimmer/packages/node"
 
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/goshimmer/plugins/webapi/autopeering"

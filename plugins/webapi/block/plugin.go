@@ -3,7 +3,7 @@ package block
 import (
 	"net/http"
 
-	"github.com/iotaledger/hive.go/core/node"
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/labstack/echo"
 	"github.com/pkg/errors"
 	"go.uber.org/dig"

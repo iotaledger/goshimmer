@@ -1,7 +1,7 @@
 package epoch
 
 import (
-	"github.com/iotaledger/hive.go/core/node"
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 )

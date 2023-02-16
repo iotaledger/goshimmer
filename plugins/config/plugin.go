@@ -7,9 +7,10 @@ import (
 	flag "github.com/spf13/pflag"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/hive.go/core/configuration"
+	"github.com/iotaledger/hive.go/app/configuration"
 	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/node"
+
+	"github.com/iotaledger/goshimmer/packages/node"
 )
 
 // PluginName is the name of the config plugin.

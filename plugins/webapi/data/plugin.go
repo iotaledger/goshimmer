@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/hive.go/core/logger"
-	"github.com/iotaledger/hive.go/core/node"
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 

@@ -9,8 +9,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/daemon"
-	"github.com/iotaledger/hive.go/core/node"
+	"github.com/iotaledger/hive.go/app/daemon"
+
+	"github.com/iotaledger/goshimmer/packages/node"
 )
 
 // PluginName is the name of the graceful shutdown plugin.

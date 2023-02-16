@@ -8,7 +8,8 @@ import (
 	"github.com/iotaledger/goshimmer/client/evilwallet"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 
-	"github.com/iotaledger/hive.go/core/configuration"
+	"github.com/iotaledger/hive.go/app/configuration"
+	appLogger "github.com/iotaledger/hive.go/app/logger"
 	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/iotaledger/hive.go/core/types"
 	"go.uber.org/atomic"
@@ -126,7 +127,7 @@ func (s *Spammer) setupSpamDetails() {
 
 func (s *Spammer) initLogger() {
 	config := configuration.New()
-	_ = logger.InitGlobalLogger(config)
+	_ = appLogger.InitGlobalLogger(config)
 	logger.SetLevel(logger.LevelDebug)
 	s.log = logger.NewLogger("Spammer")
 }

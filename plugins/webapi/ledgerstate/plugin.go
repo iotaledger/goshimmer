@@ -7,11 +7,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/daemon"
+	"github.com/iotaledger/goshimmer/packages/node"
+	"github.com/iotaledger/hive.go/app/daemon"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/logger"
-	"github.com/iotaledger/hive.go/core/node"
 	"github.com/labstack/echo"
 	"github.com/pkg/errors"
 	"go.uber.org/dig"

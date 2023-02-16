@@ -13,7 +13,8 @@ require (
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/websocket v1.5.0
-	github.com/iotaledger/hive.go/core v1.0.0-rc.3.0.20230209145929-d30a974ef09f
+	github.com/iotaledger/hive.go/app v0.0.0-20230215114502-38144ed5567f
+	github.com/iotaledger/hive.go/core v1.0.0-rc.3.0.20230215114502-38144ed5567f
 	github.com/iotaledger/hive.go/serializer/v2 v2.0.0-rc.1
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/libp2p/go-libp2p v0.23.4
@@ -33,7 +34,7 @@ require (
 	gitlab.com/NebulousLabs/merkletree v0.0.0-20200118113624-07fbf710afc4
 	go.dedis.ch/kyber/v3 v3.0.14
 	go.uber.org/atomic v1.10.0
-	go.uber.org/dig v1.15.0
+	go.uber.org/dig v1.16.1
 	golang.org/x/crypto v0.2.0
 	golang.org/x/sync v0.1.0
 	google.golang.org/protobuf v1.28.1
