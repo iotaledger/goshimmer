@@ -2,23 +2,23 @@ package autopeering
 
 import (
 	"context"
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 	"net"
 	"time"
 
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/hive.go/app/daemon"
-	"github.com/iotaledger/hive.go/core/autopeering/discover"
-	"github.com/iotaledger/hive.go/core/autopeering/peer"
-	"github.com/iotaledger/hive.go/core/autopeering/peer/service"
-	"github.com/iotaledger/hive.go/core/autopeering/selection"
-	"github.com/iotaledger/hive.go/core/autopeering/server"
-	"github.com/iotaledger/hive.go/core/generics/event"
-
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1/manamodels"
+	"github.com/iotaledger/hive.go/app/daemon"
+	"github.com/iotaledger/hive.go/autopeering/discover"
+	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/autopeering/peer/service"
+	"github.com/iotaledger/hive.go/autopeering/selection"
+	"github.com/iotaledger/hive.go/autopeering/server"
 
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 )
@@ -32,6 +32,8 @@ var (
 	deps   = new(dependencies)
 
 	localAddr *net.UDPAddr
+
+	workerPool *workerpool.WorkerPool
 )
 
 type dependencies struct {
@@ -48,7 +50,7 @@ type dependencies struct {
 func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
 
-	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
+	Plugin.Events.Init.Hook(func(event *node.InitEvent) {
 		if err := event.Container.Provide(discovery.CreatePeerDisc); err != nil {
 			Plugin.Panic(err)
 		}
@@ -68,7 +70,7 @@ func init() {
 		}); err != nil {
 			Plugin.Panic(err)
 		}
-	}))
+	})
 }
 
 func configure(_ *node.Plugin) {
@@ -84,6 +86,8 @@ func configure(_ *node.Plugin) {
 	if err := deps.Local.UpdateService(service.PeeringKey, localAddr.Network(), localAddr.Port); err != nil {
 		Plugin.LogFatalfAndExit("could not update services: %s", err)
 	}
+
+	workerPool = workerpool.New(PluginName, 1)
 
 	if deps.P2PMgr != nil {
 		configureGossipIntegration()
@@ -102,13 +106,13 @@ func configureGossipIntegration() {
 	mgr := deps.P2PMgr
 
 	// link to the autopeering events
-	deps.Selection.Events().Dropped.Attach(event.NewClosure(func(ev *selection.DroppedEvent) {
+	deps.Selection.Events().Dropped.Hook(func(ev *selection.DroppedEvent) {
 		if err := mgr.DropNeighbor(ev.DroppedID, p2p.NeighborsGroupAuto); err != nil {
 			Plugin.Logger().Debugw("error dropping neighbor", "id", ev.DroppedID, "err", err)
 		}
-	}))
+	}, event.WithWorkerPool(workerPool))
 	// We need to allocate synchronously the resources to accommodate incoming stream requests.
-	deps.Selection.Events().IncomingPeering.Hook(event.NewClosure(func(ev *selection.PeeringEvent) {
+	deps.Selection.Events().IncomingPeering.Hook(func(ev *selection.PeeringEvent) {
 		if !ev.Status {
 			return // ignore rejected peering
 		}
@@ -116,9 +120,9 @@ func configureGossipIntegration() {
 			deps.Selection.RemoveNeighbor(ev.Peer.ID())
 			Plugin.Logger().Debugw("error adding inbound", "id", ev.Peer.ID(), "err", err)
 		}
-	}))
+	})
 
-	deps.Selection.Events().OutgoingPeering.Attach(event.NewClosure(func(ev *selection.PeeringEvent) {
+	deps.Selection.Events().OutgoingPeering.Hook(func(ev *selection.PeeringEvent) {
 		if !ev.Status {
 			return // ignore rejected peering
 		}
@@ -126,43 +130,45 @@ func configureGossipIntegration() {
 			deps.Selection.RemoveNeighbor(ev.Peer.ID())
 			Plugin.Logger().Debugw("error adding outbound", "id", ev.Peer.ID(), "err", err)
 		}
-	}))
+	}, event.WithWorkerPool(workerPool))
 
-	mgr.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Attach(event.NewClosure(func(event *p2p.NeighborRemovedEvent) {
+	mgr.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Hook(func(event *p2p.NeighborRemovedEvent) {
 		deps.Selection.RemoveNeighbor(event.Neighbor.ID())
-	}))
+	}, event.WithWorkerPool(workerPool))
 }
 
 func configureEvents() {
 	// log the peer discovery events
-	deps.Discovery.Events().PeerDiscovered.Attach(event.NewClosure(func(ev *discover.PeerDiscoveredEvent) {
+	deps.Discovery.Events().PeerDiscovered.Hook(func(ev *discover.PeerDiscoveredEvent) {
 		Plugin.Logger().Infof("Discovered: %s / %s", ev.Peer.Address(), ev.Peer.ID())
-	}))
-	deps.Discovery.Events().PeerDeleted.Attach(event.NewClosure(func(ev *discover.PeerDeletedEvent) {
+	}, event.WithWorkerPool(workerPool))
+	deps.Discovery.Events().PeerDeleted.Hook(func(ev *discover.PeerDeletedEvent) {
 		Plugin.Logger().Infof("Removed offline: %s / %s", ev.Peer.Address(), ev.Peer.ID())
-	}))
+	}, event.WithWorkerPool(workerPool))
 
 	// log the peer selection events
-	deps.Selection.Events().SaltUpdated.Attach(event.NewClosure(func(ev *selection.SaltUpdatedEvent) {
+	deps.Selection.Events().SaltUpdated.Hook(func(ev *selection.SaltUpdatedEvent) {
 		Plugin.Logger().Infof("Salt updated; expires=%s", ev.Public.GetExpiration().Format(time.RFC822))
-	}))
-	deps.Selection.Events().OutgoingPeering.Attach(event.NewClosure(func(ev *selection.PeeringEvent) {
+	}, event.WithWorkerPool(workerPool))
+	deps.Selection.Events().OutgoingPeering.Hook(func(ev *selection.PeeringEvent) {
 		if ev.Status {
 			Plugin.Logger().Infof("Peering chosen: %s / %s", ev.Peer.Address(), ev.Peer.ID())
 		}
-	}))
-	deps.Selection.Events().IncomingPeering.Attach(event.NewClosure(func(ev *selection.PeeringEvent) {
+	}, event.WithWorkerPool(workerPool))
+	deps.Selection.Events().IncomingPeering.Hook(func(ev *selection.PeeringEvent) {
 		if ev.Status {
 			Plugin.Logger().Infof("Peering accepted: %s / %s", ev.Peer.Address(), ev.Peer.ID())
 		}
-	}))
-	deps.Selection.Events().Dropped.Attach(event.NewClosure(func(ev *selection.DroppedEvent) {
+	}, event.WithWorkerPool(workerPool))
+	deps.Selection.Events().Dropped.Hook(func(ev *selection.DroppedEvent) {
 		Plugin.Logger().Infof("Peering dropped: %s", ev.DroppedID)
-	}))
+	}, event.WithWorkerPool(workerPool))
 }
 
 func start(ctx context.Context) {
 	defer Plugin.Logger().Info("Stopping " + PluginName + " ... done")
+
+	workerPool.Start()
 
 	conn, err := net.ListenUDP(localAddr.Network(), localAddr)
 	if err != nil {
@@ -195,4 +201,6 @@ func start(ctx context.Context) {
 	deps.Discovery.Close()
 
 	lPeer.Database().Close()
+
+	workerPool.Shutdown()
 }

@@ -5,11 +5,10 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/walker"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/syncutils"
+	"github.com/iotaledger/hive.go/ds/walker"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -60,8 +59,8 @@ func NewManager(snapshot *commitment.Commitment, opts ...options.Option[Manager]
 		manager.SnapshotCommitment.publishChain(NewChain(manager.SnapshotCommitment))
 
 		manager.CommitmentRequester = eventticker.New(manager.optsCommitmentRequester...)
-		event.Hook(manager.Events.CommitmentMissing, manager.CommitmentRequester.StartTicker)
-		event.Hook(manager.Events.MissingCommitmentReceived, manager.CommitmentRequester.StopTicker)
+		manager.Events.CommitmentMissing.Hook(manager.CommitmentRequester.StartTicker)
+		manager.Events.MissingCommitmentReceived.Hook(manager.CommitmentRequester.StopTicker)
 
 		manager.commitmentsByID[manager.SnapshotCommitment.ID()] = manager.SnapshotCommitment
 	})

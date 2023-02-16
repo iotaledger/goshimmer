@@ -1,18 +1,18 @@
 package blockgadget
 
 import (
+	"github.com/iotaledger/hive.go/ds/advancedset"
 	"sync"
 	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/hive.go/core/debug"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/confirmation"
+	"github.com/iotaledger/hive.go/runtime/debug"
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
@@ -83,7 +83,7 @@ func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, optsGadget
 }
 
 func (t *TestFramework) setupEvents() {
-	event.Hook(t.Gadget.Events.BlockAccepted, func(metadata *Block) {
+	t.Gadget.Events.BlockAccepted.Hook(func(metadata *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("ACCEPTED: %s", metadata.ID())
 		}
@@ -91,7 +91,7 @@ func (t *TestFramework) setupEvents() {
 		atomic.AddUint32(&(t.acceptedBlocks), 1)
 	})
 
-	event.Hook(t.Gadget.Events.BlockConfirmed, func(metadata *Block) {
+	t.Gadget.Events.BlockConfirmed.Hook(func(metadata *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("CONFIRMED: %s", metadata.ID())
 		}
@@ -99,21 +99,21 @@ func (t *TestFramework) setupEvents() {
 		atomic.AddUint32(&(t.confirmedBlocks), 1)
 	})
 
-	event.Hook(t.Gadget.Events.Reorg, func(conflictID utxo.TransactionID) {
+	t.Gadget.Events.Reorg.Hook(func(conflictID utxo.TransactionID) {
 		if debug.GetEnabled() {
 			t.test.Logf("REORG NEEDED: %s", conflictID)
 		}
 		atomic.AddUint32(&(t.reorgCount), 1)
 	})
 
-	event.Hook(t.Tangle.VirtualVoting.ConflictDAG.Instance.Events.ConflictAccepted, func(conflictID utxo.TransactionID) {
+	t.Tangle.VirtualVoting.ConflictDAG.Instance.Events.ConflictAccepted.Hook(func(conflictID utxo.TransactionID) {
 		if debug.GetEnabled() {
 			t.test.Logf("CONFLICT ACCEPTED: %s", conflictID)
 		}
 		atomic.AddUint32(&(t.conflictsAccepted), 1)
 	})
 
-	event.Hook(t.Tangle.VirtualVoting.ConflictDAG.Instance.Events.ConflictRejected, func(conflictID utxo.TransactionID) {
+	t.Tangle.VirtualVoting.ConflictDAG.Instance.Events.ConflictRejected.Hook(func(conflictID utxo.TransactionID) {
 		if debug.GetEnabled() {
 			t.test.Logf("CONFLICT REJECTED: %s", conflictID)
 		}
@@ -165,7 +165,7 @@ func (t *TestFramework) ValidateAcceptedMarker(expectedConflictIDs map[markers.M
 
 func (t *TestFramework) ValidateConflictAcceptance(expectedConflictIDs map[string]confirmation.State) {
 	for conflictIDAlias, conflictExpectedState := range expectedConflictIDs {
-		actualMarkerAccepted := t.Tangle.VirtualVoting.ConflictDAG.Instance.ConfirmationState(set.NewAdvancedSet(t.Tangle.Ledger.Transaction(conflictIDAlias).ID()))
+		actualMarkerAccepted := t.Tangle.VirtualVoting.ConflictDAG.Instance.ConfirmationState(advancedset.NewAdvancedSet(t.Tangle.Ledger.Transaction(conflictIDAlias).ID()))
 		require.Equal(t.test, conflictExpectedState, actualMarkerAccepted, "%s should be accepted=%t but is %t", conflictIDAlias, conflictExpectedState, actualMarkerAccepted)
 	}
 }
@@ -176,7 +176,7 @@ func (t *TestFramework) ValidateConflictAcceptance(expectedConflictIDs map[strin
 
 // MockAcceptanceGadget mocks ConfirmationOracle marking all blocks as confirmed.
 type MockAcceptanceGadget struct {
-	BlockAcceptedEvent *event.Linkable[*Block]
+	BlockAcceptedEvent *event.Event1[*Block]
 	AcceptedBlocks     models.BlockIDs
 	AcceptedMarkers    *markers.Markers
 
@@ -185,7 +185,7 @@ type MockAcceptanceGadget struct {
 
 func NewMockAcceptanceGadget() *MockAcceptanceGadget {
 	return &MockAcceptanceGadget{
-		BlockAcceptedEvent: event.NewLinkable[*Block](),
+		BlockAcceptedEvent: event.New1[*Block](),
 		AcceptedBlocks:     models.NewBlockIDs(),
 		AcceptedMarkers:    markers.NewMarkers(),
 	}

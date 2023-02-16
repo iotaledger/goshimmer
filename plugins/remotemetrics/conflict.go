@@ -1,10 +1,10 @@
 package remotemetrics
 
 import (
+	"github.com/iotaledger/hive.go/ds/advancedset"
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
 	"go.uber.org/atomic"
 
@@ -33,7 +33,7 @@ var (
 	initialConfirmedConflictCountDB uint64
 
 	// all active conflicts stored in this map, to avoid duplicated event triggers for conflict confirmation.
-	activeConflicts      *set.AdvancedSet[utxo.TransactionID]
+	activeConflicts      *advancedset.AdvancedSet[utxo.TransactionID]
 	activeConflictsMutex sync.Mutex
 )
 
@@ -117,7 +117,7 @@ func updateMetricCounts(conflictID utxo.TransactionID, transactionID utxo.Transa
 func measureInitialConflictCounts() {
 	activeConflictsMutex.Lock()
 	defer activeConflictsMutex.Unlock()
-	activeConflicts = set.NewAdvancedSet[utxo.TransactionID]()
+	activeConflicts = advancedset.NewAdvancedSet[utxo.TransactionID]()
 	conflictsToRemove := make([]utxo.TransactionID, 0)
 	deps.Protocol.Engine().Ledger.ConflictDAG.Utils.ForEachConflict(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		switch conflict.ID() {

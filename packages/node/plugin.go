@@ -5,7 +5,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/logger"
 )
 
@@ -43,10 +42,10 @@ func NewPlugin(name string, deps interface{}, status int, callbacks ...Callback)
 	case 0:
 		// plugin doesn't have any callbacks (i.e. plugins that execute stuff on init())
 	case 1:
-		plugin.Events.Run.Hook(event.NewClosure(func(event *RunEvent) { callbacks[0](event.Plugin) }))
+		plugin.Events.Run.Hook(func(event *RunEvent) { callbacks[0](event.Plugin) })
 	case 2:
-		plugin.Events.Configure.Hook(event.NewClosure(func(event *ConfigureEvent) { callbacks[0](event.Plugin) }))
-		plugin.Events.Run.Hook(event.NewClosure(func(event *RunEvent) { callbacks[1](event.Plugin) }))
+		plugin.Events.Configure.Hook(func(event *ConfigureEvent) { callbacks[0](event.Plugin) })
+		plugin.Events.Run.Hook(func(event *RunEvent) { callbacks[1](event.Plugin) })
 	default:
 		panic("too many callbacks in NewPlugin(...)")
 	}

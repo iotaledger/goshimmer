@@ -1,17 +1,17 @@
 package ratelimiter
 
 import (
-	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 type Events struct {
-	Hit *event.Linkable[*HitEvent]
+	Hit *event.Event1[*HitEvent]
 }
 
 func newEvents() *Events {
 	return &Events{
-		Hit: event.NewLinkable[*HitEvent](),
+		Hit: event.New1[*HitEvent](),
 	}
 }
 

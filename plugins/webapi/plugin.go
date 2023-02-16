@@ -11,12 +11,10 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/hive.go/app/daemon"
-	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/logger"
-
-	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 )
 
 // PluginName is the name of the web API plugin.
@@ -39,14 +37,14 @@ type dependencies struct {
 func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
 
-	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
+	Plugin.Events.Init.Hook(func(event *node.InitEvent) {
 		if err := event.Container.Provide(func() *echo.Echo {
 			server := newServer()
 			return server
 		}); err != nil {
 			Plugin.Panic(err)
 		}
-	}))
+	})
 }
 
 // newServer creates a server instance.

@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 

@@ -3,7 +3,7 @@ package markers
 import (
 	"testing"
 
-	"github.com/iotaledger/hive.go/core/stringify"
+	"github.com/iotaledger/hive.go/stringify"
 	"github.com/stretchr/testify/assert"
 )
 

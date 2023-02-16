@@ -3,6 +3,7 @@ package ledger
 import (
 	"context"
 	"fmt"
+	"github.com/iotaledger/hive.go/ds/advancedset"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -11,14 +12,13 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/model"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/serix"
-	"github.com/iotaledger/hive.go/core/stringify"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/confirmation"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/objectstorage/generic/model"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
+	"github.com/iotaledger/hive.go/serializer/v2/serix"
+	"github.com/iotaledger/hive.go/stringify"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
@@ -137,8 +137,8 @@ func (t *TestFramework) TransactionIDs(txAliases ...string) (txIDs utxo.Transact
 
 // ConflictIDs gets all conflictdag.ConflictIDs given by txAliases.
 // Panics if an alias doesn't exist.
-func (t *TestFramework) ConflictIDs(txAliases ...string) (conflictIDs *set.AdvancedSet[utxo.TransactionID]) {
-	conflictIDs = set.NewAdvancedSet[utxo.TransactionID]()
+func (t *TestFramework) ConflictIDs(txAliases ...string) (conflictIDs *advancedset.AdvancedSet[utxo.TransactionID]) {
+	conflictIDs = advancedset.NewAdvancedSet[utxo.TransactionID]()
 	for _, expectedConflictAlias := range txAliases {
 		if expectedConflictAlias == "MasterConflict" {
 			conflictIDs.Add(utxo.TransactionID{})
@@ -195,7 +195,7 @@ func (t *TestFramework) MockOutputFromTx(tx *MockedTransaction, outputIndex uint
 // from "conflict1"->"conflict3" and "conflict2"->"conflict3".
 func (t *TestFramework) AssertConflictDAG(expectedParents map[string][]string) {
 	// Parent -> child references.
-	childConflicts := make(map[utxo.TransactionID]*set.AdvancedSet[utxo.TransactionID])
+	childConflicts := make(map[utxo.TransactionID]*advancedset.AdvancedSet[utxo.TransactionID])
 
 	for conflictAlias, expectedParentAliases := range expectedParents {
 		currentConflictID := t.Transaction(conflictAlias).ID()
@@ -208,7 +208,7 @@ func (t *TestFramework) AssertConflictDAG(expectedParents map[string][]string) {
 
 		for _, parentConflictID := range expectedConflictIDs.Slice() {
 			if _, exists := childConflicts[parentConflictID]; !exists {
-				childConflicts[parentConflictID] = set.NewAdvancedSet[utxo.TransactionID]()
+				childConflicts[parentConflictID] = advancedset.NewAdvancedSet[utxo.TransactionID]()
 			}
 			childConflicts[parentConflictID].Add(currentConflictID)
 		}
@@ -231,7 +231,7 @@ func (t *TestFramework) AssertConflictDAG(expectedParents map[string][]string) {
 // "output.0": {"conflict1", "conflict2"}.
 func (t *TestFramework) AssertConflicts(expectedConflictsAliases map[string][]string) {
 	// Conflict -> conflictIDs.
-	ConflictResources := make(map[utxo.TransactionID]*set.AdvancedSet[utxo.OutputID])
+	ConflictResources := make(map[utxo.TransactionID]*advancedset.AdvancedSet[utxo.OutputID])
 
 	for resourceAlias, expectedConflictMembersAliases := range expectedConflictsAliases {
 		resourceID := t.OutputID(resourceAlias)
@@ -247,7 +247,7 @@ func (t *TestFramework) AssertConflicts(expectedConflictsAliases map[string][]st
 			require.Truef(t.test, t.Instance.ConflictDAG.Storage.CachedConflictMember(resourceID, conflictID).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.OutputID, utxo.TransactionID]) {}), "could not load ConflictMember %s,%s", resourceID, conflictID)
 
 			if _, exists := ConflictResources[conflictID]; !exists {
-				ConflictResources[conflictID] = set.NewAdvancedSet[utxo.OutputID]()
+				ConflictResources[conflictID] = advancedset.NewAdvancedSet[utxo.OutputID]()
 			}
 			ConflictResources[conflictID].Add(resourceID)
 		}

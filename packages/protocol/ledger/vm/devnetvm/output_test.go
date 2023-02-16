@@ -8,12 +8,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
-	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/model"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/marshalutil"
+	"github.com/iotaledger/hive.go/lo"
+	storableModel "github.com/iotaledger/hive.go/objectstorage/generic/model"
+	"github.com/iotaledger/hive.go/serializer/v2/byteutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/blake2b"
@@ -954,7 +955,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev := dummyAliasOutput().WithDelegation()
 		next := prev.NewAliasOutputNext(true)
 		assert.Equal(t, true, next.IsDelegated())
-		tx := model.NewStorable[utxo.TransactionID, Transaction](&transactionModel{
+		tx := storableModel.NewStorable[utxo.TransactionID, Transaction](&transactionModel{
 			Essence: model.NewImmutable[TransactionEssence](&transactionEssenceModel{
 				Timestamp: time.Now(),
 			}),
@@ -969,10 +970,10 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		next := prev.NewAliasOutputNext(true)
 		assert.Equal(t, true, next.IsDelegated())
 		// happy case, time-lock expired
-		err := prev.validateTransition(next, model.NewStorable[utxo.TransactionID, Transaction](&transactionModel{Essence: model.NewImmutable[TransactionEssence](&transactionEssenceModel{Timestamp: timeLock.Add(time.Second)})}))
+		err := prev.validateTransition(next, storableModel.NewStorable[utxo.TransactionID, Transaction](&transactionModel{Essence: model.NewImmutable[TransactionEssence](&transactionEssenceModel{Timestamp: timeLock.Add(time.Second)})}))
 		assert.NoError(t, err)
 		// not happy case, time-lock is still active
-		err = prev.validateTransition(next, model.NewStorable[utxo.TransactionID, Transaction](&transactionModel{Essence: model.NewImmutable[TransactionEssence](&transactionEssenceModel{Timestamp: timeLock.Add(-time.Second)})}))
+		err = prev.validateTransition(next, storableModel.NewStorable[utxo.TransactionID, Transaction](&transactionModel{Essence: model.NewImmutable[TransactionEssence](&transactionEssenceModel{Timestamp: timeLock.Add(-time.Second)})}))
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -980,7 +981,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 	t.Run("CASE: State update, delegation without time-lock", func(t *testing.T) {
 		prev := dummyAliasOutput().WithDelegation()
 		next := prev.NewAliasOutputNext(false)
-		err := prev.validateTransition(next, model.NewStorable[utxo.TransactionID, Transaction](&transactionModel{Essence: model.NewImmutable[TransactionEssence](&transactionEssenceModel{Timestamp: time.Now()})}))
+		err := prev.validateTransition(next, storableModel.NewStorable[utxo.TransactionID, Transaction](&transactionModel{Essence: model.NewImmutable[TransactionEssence](&transactionEssenceModel{Timestamp: time.Now()})}))
 		assert.NoError(t, err)
 	})
 
@@ -989,10 +990,10 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev := dummyAliasOutput().WithDelegationAndTimelock(timeLock)
 		next := prev.NewAliasOutputNext(false)
 		// time-lock is active state transition allowed
-		err := prev.validateTransition(next, model.NewStorable[utxo.TransactionID, Transaction](&transactionModel{Essence: model.NewImmutable[TransactionEssence](&transactionEssenceModel{Timestamp: timeLock.Add(-time.Second)})}))
+		err := prev.validateTransition(next, storableModel.NewStorable[utxo.TransactionID, Transaction](&transactionModel{Essence: model.NewImmutable[TransactionEssence](&transactionEssenceModel{Timestamp: timeLock.Add(-time.Second)})}))
 		assert.NoError(t, err)
 		// time-lock expired, state transition should fail
-		err = prev.validateTransition(next, model.NewStorable[utxo.TransactionID, Transaction](&transactionModel{Essence: model.NewImmutable[TransactionEssence](&transactionEssenceModel{Timestamp: timeLock.Add(time.Second)})}))
+		err = prev.validateTransition(next, storableModel.NewStorable[utxo.TransactionID, Transaction](&transactionModel{Essence: model.NewImmutable[TransactionEssence](&transactionEssenceModel{Timestamp: timeLock.Add(time.Second)})}))
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -1001,7 +1002,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev := dummyAliasOutput().WithDelegation()
 		next := prev.NewAliasOutputNext(false)
 		next.delegationTimelock = time.Now()
-		err := prev.validateTransition(next, model.NewStorable[utxo.TransactionID, Transaction](&transactionModel{Essence: model.NewImmutable[TransactionEssence](&transactionEssenceModel{Timestamp: time.Now()})}))
+		err := prev.validateTransition(next, storableModel.NewStorable[utxo.TransactionID, Transaction](&transactionModel{Essence: model.NewImmutable[TransactionEssence](&transactionEssenceModel{Timestamp: time.Now()})}))
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -2255,7 +2256,7 @@ func TestExtendedLockedOutput_UnlockValid(t *testing.T) {
 		input := NewExtendedLockedOutput(map[Color]uint64{ColorIOTA: 1}, randAliasAddress())
 		unlockBlock := NewReferenceUnlockBlock(0)
 
-		valid, err := input.UnlockValid(model.NewStorable[utxo.TransactionID, Transaction](&transactionModel{Essence: new(TransactionEssence)}), unlockBlock, Outputs{input})
+		valid, err := input.UnlockValid(storableModel.NewStorable[utxo.TransactionID, Transaction](&transactionModel{Essence: new(TransactionEssence)}), unlockBlock, Outputs{input})
 		t.Log(err)
 		assert.Error(t, err)
 		assert.False(t, valid)

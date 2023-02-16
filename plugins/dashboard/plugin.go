@@ -14,12 +14,12 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/hive.go/app/daemon"
-	"github.com/iotaledger/hive.go/core/autopeering/discover"
-	"github.com/iotaledger/hive.go/core/autopeering/peer"
-	"github.com/iotaledger/hive.go/core/autopeering/peer/service"
-	"github.com/iotaledger/hive.go/core/autopeering/selection"
-	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/autopeering/discover"
+	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/autopeering/peer/service"
+	"github.com/iotaledger/hive.go/autopeering/selection"
 	"github.com/iotaledger/hive.go/core/logger"
+	"github.com/iotaledger/hive.go/runtime/event"
 
 	"github.com/iotaledger/goshimmer/packages/app/retainer"
 	"github.com/iotaledger/goshimmer/packages/core/latestblocktracker"
@@ -130,7 +130,7 @@ func run(*node.Plugin) {
 func worker(ctx context.Context) {
 	defer log.Infof("Stopping %s ... done", PluginName)
 
-	defer wsSendWorkerPool.Stop()
+	defer wsSendWorkerPool.Shutdown()
 
 	stopped := make(chan struct{})
 	go func() {

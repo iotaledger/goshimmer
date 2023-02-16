@@ -3,10 +3,10 @@ package virtualvoting
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
@@ -134,18 +134,18 @@ func (o *VirtualVoting) ConflictVotersTotalWeight(conflictID utxo.TransactionID)
 }
 
 func (o *VirtualVoting) setupEvents() {
-	event.Hook(o.Booker.Events.BlockBooked, func(block *booker.Block) {
+	o.Booker.Events.BlockBooked.Hook(func(block *booker.Block) {
 		o.Track(NewBlock(block))
 	})
-	event.Hook(o.Booker.Events.BlockConflictAdded, func(event *booker.BlockConflictAddedEvent) {
+	o.Booker.Events.BlockConflictAdded.Hook(func(event *booker.BlockConflictAddedEvent) {
 		o.processForkedBlock(event.Block, event.ConflictID, event.ParentConflictIDs)
 	})
-	event.Hook(o.Booker.Events.MarkerConflictAdded, func(event *booker.MarkerConflictAddedEvent) {
+	o.Booker.Events.MarkerConflictAdded.Hook(func(event *booker.MarkerConflictAddedEvent) {
 		o.processForkedMarker(event.Marker, event.ConflictID, event.ParentConflictIDs)
 	})
 	wp := o.Workers.CreatePool("Eviction", 1) // Using just 1 worker to avoid contention
-	event.AttachWithWorkerPool(o.Booker.Events.MarkerManager.SequenceEvicted, o.evictSequence, wp)
-	event.Hook(o.BlockDAG.EvictionState.Events.EpochEvicted, o.evictEpoch)
+	o.Booker.Events.MarkerManager.SequenceEvicted.Hook(o.evictSequence, event.WithWorkerPool(wp))
+	o.BlockDAG.EvictionState.Events.EpochEvicted.Hook(o.evictEpoch)
 }
 
 func (o *VirtualVoting) track(block *Block) (tracked bool) {

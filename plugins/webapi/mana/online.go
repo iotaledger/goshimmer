@@ -1,14 +1,14 @@
 package mana
 
 import (
+	"github.com/iotaledger/hive.go/ds/advancedset"
 	"net/http"
 	"sort"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/autopeering/peer"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/lo"
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
@@ -17,9 +17,9 @@ import (
 func getOnlineAccessHandler(c echo.Context) error {
 	resp := make([]*jsonmodels.OnlineIssuerStr, 0)
 	manaMap := deps.Protocol.Engine().ThroughputQuota.BalanceByIDs()
-	var knownPeers *set.AdvancedSet[identity.ID]
+	var knownPeers *advancedset.AdvancedSet[identity.ID]
 	if deps.Discovery != nil {
-		knownPeers = set.NewAdvancedSet[identity.ID](lo.Map(deps.Discovery.GetVerifiedPeers(), func(p *peer.Peer) identity.ID {
+		knownPeers = advancedset.NewAdvancedSet[identity.ID](lo.Map(deps.Discovery.GetVerifiedPeers(), func(p *peer.Peer) identity.ID {
 			return p.ID()
 		})...)
 	}

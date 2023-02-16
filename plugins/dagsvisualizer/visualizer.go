@@ -9,11 +9,11 @@ import (
 
 	"github.com/labstack/echo"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/confirmation"
 	"github.com/iotaledger/hive.go/app/daemon"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/app/retainer"
@@ -31,19 +31,16 @@ import (
 )
 
 var (
-	visualizerWorkerCount     = 1
-	visualizerWorkerQueueSize = 500
-	visualizerWorkerPool      *workerpool.NonBlockingQueuedWorkerPool
-	maxWsBlockBufferSize      = 200
-	buffer                    []*wsBlock
-	bufferMutex               sync.RWMutex
+	visualizerWorkerCount = 1
+	visualizerWorkerPool  *workerpool.WorkerPool
+	maxWsBlockBufferSize  = 200
+	buffer                []*wsBlock
+	bufferMutex           sync.RWMutex
 )
 
 func setupVisualizer() {
 	// create and start workerpool
-	visualizerWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
-		broadcastWsBlock(task.Param(0))
-	}, workerpool.WorkerCount(visualizerWorkerCount), workerpool.QueueSize(visualizerWorkerQueueSize))
+	visualizerWorkerPool = workerpool.New(PluginName, visualizerWorkerCount)
 }
 
 func runVisualizer() {
@@ -53,9 +50,10 @@ func runVisualizer() {
 		registerUTXOEvents()
 		registerConflictEvents()
 
+		visualizerWorkerPool.Start()
 		<-ctx.Done()
 		log.Info("Stopping DAGs Visualizer ...")
-		visualizerWorkerPool.Stop()
+		visualizerWorkerPool.Shutdown()
 		log.Info("Stopping DAGs Visualizer ... done")
 	}, shutdown.PriorityDashboard); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
@@ -63,16 +61,16 @@ func runVisualizer() {
 }
 
 func registerTangleEvents() {
-	storeClosure := event.NewClosure(func(block *blockdag.Block) {
+	deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Hook(func(block *blockdag.Block) {
 		wsBlk := &wsBlock{
 			Type: BlkTypeTangleVertex,
 			Data: newTangleVertex(block.ModelsBlock),
 		}
-		visualizerWorkerPool.TrySubmit(wsBlk)
+		broadcastWsBlock(wsBlk)
 		storeWsBlock(wsBlk)
-	})
+	}, event.WithWorkerPool(visualizerWorkerPool))
 
-	bookedClosure := event.NewClosure(func(block *booker.Block) {
+	deps.Protocol.Events.Engine.Tangle.Booker.BlockBooked.Hook(func(block *booker.Block) {
 		conflictIDs := deps.Protocol.Engine().Tangle.Booker.BlockConflicts(block)
 
 		wsBlk := &wsBlock{
@@ -83,11 +81,11 @@ func registerTangleEvents() {
 				ConflictIDs: lo.Map(conflictIDs.Slice(), utxo.TransactionID.Base58),
 			},
 		}
-		visualizerWorkerPool.TrySubmit(wsBlk)
+		broadcastWsBlock(wsBlk)
 		storeWsBlock(wsBlk)
-	})
+	}, event.WithWorkerPool(visualizerWorkerPool))
 
-	blkAcceptedClosure := event.NewClosure(func(block *blockgadget.Block) {
+	deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Hook(func(block *blockgadget.Block) {
 		wsBlk := &wsBlock{
 			Type: BlkTypeTangleConfirmed,
 			Data: &tangleConfirmed{
@@ -96,11 +94,11 @@ func registerTangleEvents() {
 				AcceptedTime: time.Now().UnixNano(),
 			},
 		}
-		visualizerWorkerPool.TrySubmit(wsBlk)
+		broadcastWsBlock(wsBlk)
 		storeWsBlock(wsBlk)
-	})
+	}, event.WithWorkerPool(visualizerWorkerPool))
 
-	txAcceptedClosure := event.NewClosure(func(event *ledger.TransactionEvent) {
+	deps.Protocol.Events.Engine.Ledger.TransactionAccepted.Hook(func(event *ledger.TransactionEvent) {
 		attachmentBlock := deps.Protocol.Engine().Tangle.Booker.GetEarliestAttachment(event.Metadata.ID())
 
 		wsBlk := &wsBlock{
@@ -110,30 +108,25 @@ func registerTangleEvents() {
 				IsConfirmed: deps.Protocol.Engine().Ledger.Utils.TransactionConfirmationState(event.Metadata.ID()).IsAccepted(),
 			},
 		}
-		visualizerWorkerPool.TrySubmit(wsBlk)
+		broadcastWsBlock(wsBlk)
 		storeWsBlock(wsBlk)
-	})
-
-	deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Attach(storeClosure)
-	deps.Protocol.Events.Engine.Tangle.Booker.BlockBooked.Attach(bookedClosure)
-	deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Attach(blkAcceptedClosure)
-	deps.Protocol.Events.Engine.Ledger.TransactionAccepted.Attach(txAcceptedClosure)
+	}, event.WithWorkerPool(visualizerWorkerPool))
 }
 
 func registerUTXOEvents() {
-	storeClosure := event.NewClosure(func(block *blockdag.Block) {
+	deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Hook(func(block *blockdag.Block) {
 		if block.Payload().Type() == devnetvm.TransactionType {
 			tx := block.Payload().(*devnetvm.Transaction)
 			wsBlk := &wsBlock{
 				Type: BlkTypeUTXOVertex,
 				Data: newUTXOVertex(block.ID(), tx),
 			}
-			visualizerWorkerPool.TrySubmit(wsBlk)
+			broadcastWsBlock(wsBlk)
 			storeWsBlock(wsBlk)
 		}
-	})
+	}, event.WithWorkerPool(visualizerWorkerPool))
 
-	bookedClosure := event.NewClosure(func(block *booker.Block) {
+	deps.Protocol.Events.Engine.Tangle.Booker.BlockBooked.Hook(func(block *booker.Block) {
 		if block.Payload().Type() == devnetvm.TransactionType {
 			tx := block.Payload().(*devnetvm.Transaction)
 			deps.Protocol.Engine().Ledger.Storage.CachedTransactionMetadata(tx.ID()).Consume(func(txMetadata *ledger.TransactionMetadata) {
@@ -144,13 +137,13 @@ func registerUTXOEvents() {
 						ConflictIDs: lo.Map(txMetadata.ConflictIDs().Slice(), utxo.TransactionID.Base58),
 					},
 				}
-				visualizerWorkerPool.TrySubmit(wsBlk)
+				broadcastWsBlock(wsBlk)
 				storeWsBlock(wsBlk)
 			})
 		}
-	})
+	}, event.WithWorkerPool(visualizerWorkerPool))
 
-	txAcceptedClosure := event.NewClosure(func(event *ledger.TransactionEvent) {
+	deps.Protocol.Events.Engine.Ledger.TransactionAccepted.Hook(func(event *ledger.TransactionEvent) {
 		txMeta := event.Metadata
 		wsBlk := &wsBlock{
 			Type: BlkTypeUTXOConfirmationStateChanged,
@@ -161,52 +154,13 @@ func registerUTXOEvents() {
 				IsConfirmed:           txMeta.ConfirmationState().IsAccepted(),
 			},
 		}
-		visualizerWorkerPool.TrySubmit(wsBlk)
+		broadcastWsBlock(wsBlk)
 		storeWsBlock(wsBlk)
-	})
-
-	deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Attach(storeClosure)
-	deps.Protocol.Events.Engine.Tangle.Booker.BlockBooked.Attach(bookedClosure)
-	deps.Protocol.Events.Engine.Ledger.TransactionAccepted.Attach(txAcceptedClosure)
+	}, event.WithWorkerPool(visualizerWorkerPool))
 }
 
 func registerConflictEvents() {
-	createdClosure := event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
-		wsBlk := &wsBlock{
-			Type: BlkTypeConflictVertex,
-			Data: newConflictVertex(event.ID),
-		}
-		visualizerWorkerPool.TrySubmit(wsBlk)
-		storeWsBlock(wsBlk)
-	})
-
-	parentUpdateClosure := event.NewClosure(func(event *conflictdag.ConflictParentsUpdatedEvent[utxo.TransactionID, utxo.OutputID]) {
-		lo.Map(event.ParentsConflictIDs.Slice(), utxo.TransactionID.Base58)
-		wsBlk := &wsBlock{
-			Type: BlkTypeConflictParentsUpdate,
-			Data: &conflictParentUpdate{
-				ID:      event.ConflictID.Base58(),
-				Parents: lo.Map(event.ParentsConflictIDs.Slice(), utxo.TransactionID.Base58),
-			},
-		}
-		visualizerWorkerPool.TrySubmit(wsBlk)
-		storeWsBlock(wsBlk)
-	})
-
-	conflictConfirmedClosure := event.NewClosure(func(conflictID utxo.TransactionID) {
-		wsBlk := &wsBlock{
-			Type: BlkTypeConflictConfirmationStateChanged,
-			Data: &conflictConfirmationStateChanged{
-				ID:                conflictID.Base58(),
-				ConfirmationState: confirmation.Accepted.String(),
-				IsConfirmed:       true,
-			},
-		}
-		visualizerWorkerPool.TrySubmit(wsBlk)
-		storeWsBlock(wsBlk)
-	})
-
-	conflictWeightChangedClosure := event.NewClosure(func(e *conflicttracker.VoterEvent[utxo.TransactionID]) {
+	conflictWeightChangedFunc := func(e *conflicttracker.VoterEvent[utxo.TransactionID]) {
 		conflictConfirmationState := deps.Protocol.Engine().Ledger.ConflictDAG.ConfirmationState(utxo.NewTransactionIDs(e.ConflictID))
 		wsBlk := &wsBlock{
 			Type: BlkTypeConflictWeightChanged,
@@ -216,15 +170,47 @@ func registerConflictEvents() {
 				ConfirmationState: conflictConfirmationState.String(),
 			},
 		}
-		visualizerWorkerPool.TrySubmit(wsBlk)
+		broadcastWsBlock(wsBlk)
 		storeWsBlock(wsBlk)
-	})
+	}
 
-	deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictCreated.Attach(createdClosure)
-	deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictAccepted.Attach(conflictConfirmedClosure)
-	deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictParentsUpdated.Attach(parentUpdateClosure)
-	deps.Protocol.Events.Engine.Tangle.VirtualVoting.ConflictTracker.VoterAdded.Attach(conflictWeightChangedClosure)
-	deps.Protocol.Events.Engine.Tangle.VirtualVoting.ConflictTracker.VoterRemoved.Attach(conflictWeightChangedClosure)
+	deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictCreated.Hook(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
+		wsBlk := &wsBlock{
+			Type: BlkTypeConflictVertex,
+			Data: newConflictVertex(event.ID),
+		}
+		broadcastWsBlock(wsBlk)
+		storeWsBlock(wsBlk)
+	}, event.WithWorkerPool(visualizerWorkerPool))
+
+	deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictAccepted.Hook(func(conflictID utxo.TransactionID) {
+		wsBlk := &wsBlock{
+			Type: BlkTypeConflictConfirmationStateChanged,
+			Data: &conflictConfirmationStateChanged{
+				ID:                conflictID.Base58(),
+				ConfirmationState: confirmation.Accepted.String(),
+				IsConfirmed:       true,
+			},
+		}
+		broadcastWsBlock(wsBlk)
+		storeWsBlock(wsBlk)
+	}, event.WithWorkerPool(visualizerWorkerPool))
+
+	deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictParentsUpdated.Hook(func(event *conflictdag.ConflictParentsUpdatedEvent[utxo.TransactionID, utxo.OutputID]) {
+		lo.Map(event.ParentsConflictIDs.Slice(), utxo.TransactionID.Base58)
+		wsBlk := &wsBlock{
+			Type: BlkTypeConflictParentsUpdate,
+			Data: &conflictParentUpdate{
+				ID:      event.ConflictID.Base58(),
+				Parents: lo.Map(event.ParentsConflictIDs.Slice(), utxo.TransactionID.Base58),
+			},
+		}
+		broadcastWsBlock(wsBlk)
+		storeWsBlock(wsBlk)
+	}, event.WithWorkerPool(visualizerWorkerPool))
+
+	deps.Protocol.Events.Engine.Tangle.VirtualVoting.ConflictTracker.VoterAdded.Hook(conflictWeightChangedFunc, event.WithWorkerPool(visualizerWorkerPool))
+	deps.Protocol.Events.Engine.Tangle.VirtualVoting.ConflictTracker.VoterRemoved.Hook(conflictWeightChangedFunc, event.WithWorkerPool(visualizerWorkerPool))
 }
 
 func setupDagsVisualizerRoutes(routeGroup *echo.Group) {

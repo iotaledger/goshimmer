@@ -1,11 +1,11 @@
 package conflicttracker
 
 import (
+	"github.com/iotaledger/hive.go/ds/advancedset"
 	"testing"
 
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/lo"
 
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
@@ -36,7 +36,7 @@ func TestApprovalWeightManager_updateConflictVoters(t *testing.T) {
 
 	// Issue statements in different order to make sure that no information is lost when nodes apply statements in arbitrary order
 
-	expectedResults := map[string]*set.AdvancedSet[identity.ID]{
+	expectedResults := map[string]*advancedset.AdvancedSet[identity.ID]{
 		"Conflict1":     tf.Votes.ValidatorsSet(),
 		"Conflict1.1":   tf.Votes.ValidatorsSet(),
 		"Conflict1.2":   tf.Votes.ValidatorsSet(),
@@ -54,7 +54,7 @@ func TestApprovalWeightManager_updateConflictVoters(t *testing.T) {
 	{
 		tf.Instance.TrackVote(tf.ConflictDAG.ConflictIDs("Conflict4.1.2"), tf.Votes.Validator("validator1"), votes.MockedVotePower{VotePower: 2})
 
-		tf.ValidateStatementResults(lo.MergeMaps(expectedResults, map[string]*set.AdvancedSet[identity.ID]{
+		tf.ValidateStatementResults(lo.MergeMaps(expectedResults, map[string]*advancedset.AdvancedSet[identity.ID]{
 			"Conflict4":     tf.Votes.ValidatorsSet("validator1"),
 			"Conflict4.1":   tf.Votes.ValidatorsSet("validator1"),
 			"Conflict4.1.2": tf.Votes.ValidatorsSet("validator1"),
@@ -65,7 +65,7 @@ func TestApprovalWeightManager_updateConflictVoters(t *testing.T) {
 	{
 		tf.Instance.TrackVote(tf.ConflictDAG.ConflictIDs("Conflict1.1", "Conflict4.1.1"), tf.Votes.Validator("validator1"), votes.MockedVotePower{VotePower: 1})
 
-		tf.ValidateStatementResults(lo.MergeMaps(expectedResults, map[string]*set.AdvancedSet[identity.ID]{
+		tf.ValidateStatementResults(lo.MergeMaps(expectedResults, map[string]*advancedset.AdvancedSet[identity.ID]{
 			"Conflict1":   tf.Votes.ValidatorsSet("validator1"),
 			"Conflict1.1": tf.Votes.ValidatorsSet("validator1"),
 		}))
@@ -75,7 +75,7 @@ func TestApprovalWeightManager_updateConflictVoters(t *testing.T) {
 	{
 		tf.Instance.TrackVote(tf.ConflictDAG.ConflictIDs("Conflict2"), tf.Votes.Validator("validator1"), votes.MockedVotePower{VotePower: 3})
 
-		tf.ValidateStatementResults(lo.MergeMaps(expectedResults, map[string]*set.AdvancedSet[identity.ID]{
+		tf.ValidateStatementResults(lo.MergeMaps(expectedResults, map[string]*advancedset.AdvancedSet[identity.ID]{
 			"Conflict1":   tf.Votes.ValidatorsSet(),
 			"Conflict1.1": tf.Votes.ValidatorsSet(),
 			"Conflict2":   tf.Votes.ValidatorsSet("validator1"),
@@ -86,7 +86,7 @@ func TestApprovalWeightManager_updateConflictVoters(t *testing.T) {
 	{
 		tf.Instance.TrackVote(tf.ConflictDAG.ConflictIDs("Conflict1.2", "Conflict4.1.2"), tf.Votes.Validator("validator2"), votes.MockedVotePower{VotePower: 3})
 
-		tf.ValidateStatementResults(lo.MergeMaps(expectedResults, map[string]*set.AdvancedSet[identity.ID]{
+		tf.ValidateStatementResults(lo.MergeMaps(expectedResults, map[string]*advancedset.AdvancedSet[identity.ID]{
 			"Conflict1":     tf.Votes.ValidatorsSet("validator2"),
 			"Conflict1.2":   tf.Votes.ValidatorsSet("validator2"),
 			"Conflict4.1.2": tf.Votes.ValidatorsSet("validator1", "validator2"),
@@ -99,7 +99,7 @@ func TestApprovalWeightManager_updateConflictVoters(t *testing.T) {
 	{
 		tf.Instance.TrackVote(tf.ConflictDAG.ConflictIDs("Conflict3"), tf.Votes.Validator("validator2"), votes.MockedVotePower{VotePower: 5})
 
-		tf.ValidateStatementResults(lo.MergeMaps(expectedResults, map[string]*set.AdvancedSet[identity.ID]{
+		tf.ValidateStatementResults(lo.MergeMaps(expectedResults, map[string]*advancedset.AdvancedSet[identity.ID]{
 			"Conflict3":     tf.Votes.ValidatorsSet("validator2"),
 			"Conflict4.1.2": tf.Votes.ValidatorsSet("validator1"),
 			"Conflict4.1":   tf.Votes.ValidatorsSet("validator1"),

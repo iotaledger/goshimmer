@@ -2,11 +2,11 @@ package sequencetracker
 
 import (
 	"fmt"
+	"github.com/iotaledger/hive.go/ds/advancedset"
 
-	"github.com/iotaledger/hive.go/core/generics/constraints"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/generics/walker"
+	"github.com/iotaledger/hive.go/constraints"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/ds/walker"
 
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/core/votes/latestvotes"
@@ -49,8 +49,8 @@ func (s *SequenceTracker[VotePowerType]) TrackVotes(pastMarkers *markers.Markers
 	}
 }
 
-func (s *SequenceTracker[VotePowerType]) Voters(marker markers.Marker) (voters *set.AdvancedSet[identity.ID]) {
-	voters = set.NewAdvancedSet[identity.ID]()
+func (s *SequenceTracker[VotePowerType]) Voters(marker markers.Marker) (voters *advancedset.AdvancedSet[identity.ID]) {
+	voters = advancedset.NewAdvancedSet[identity.ID]()
 
 	votesObj, exists := s.votes.Get(marker.SequenceID())
 	if !exists {

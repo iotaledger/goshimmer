@@ -1,9 +1,9 @@
 package conflictdag
 
 import (
-	"github.com/iotaledger/hive.go/core/generics/model"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/confirmation"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/objectstorage/generic/model"
 )
 
 // region Conflict /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -15,16 +15,16 @@ type Conflict[ConflictID, ConflictSetID comparable] struct {
 
 type conflict[ConflictID, ConflictSetID comparable] struct {
 	// Parents contains the parent ConflictIDs that this Conflict depends on.
-	Parents *set.AdvancedSet[ConflictID] `serix:"0"`
+	Parents *advancedset.AdvancedSet[ConflictID] `serix:"0"`
 
 	// ConflictSetIDs contains the identifiers of the conflictsets that this Conflict is part of.
-	ConflictSetIDs *set.AdvancedSet[ConflictSetID] `serix:"1"`
+	ConflictSetIDs *advancedset.AdvancedSet[ConflictSetID] `serix:"1"`
 
 	// ConfirmationState contains the ConfirmationState of the Conflict.
 	ConfirmationState confirmation.State `serix:"2"`
 }
 
-func NewConflict[ConflictID comparable, ConflictSetID comparable](id ConflictID, parents *set.AdvancedSet[ConflictID], conflictSetIDs *set.AdvancedSet[ConflictSetID]) (c *Conflict[ConflictID, ConflictSetID]) {
+func NewConflict[ConflictID comparable, ConflictSetID comparable](id ConflictID, parents *advancedset.AdvancedSet[ConflictID], conflictSetIDs *advancedset.AdvancedSet[ConflictSetID]) (c *Conflict[ConflictID, ConflictSetID]) {
 	c = model.NewStorable[ConflictID, Conflict[ConflictID, ConflictSetID]](&conflict[ConflictID, ConflictSetID]{
 		Parents:           parents,
 		ConflictSetIDs:    conflictSetIDs,
@@ -36,7 +36,7 @@ func NewConflict[ConflictID comparable, ConflictSetID comparable](id ConflictID,
 }
 
 // Parents returns the parent ConflictIDs that this Conflict depends on.
-func (c *Conflict[ConflictID, ConflictSetID]) Parents() (parents *set.AdvancedSet[ConflictID]) {
+func (c *Conflict[ConflictID, ConflictSetID]) Parents() (parents *advancedset.AdvancedSet[ConflictID]) {
 	c.RLock()
 	defer c.RUnlock()
 
@@ -44,7 +44,7 @@ func (c *Conflict[ConflictID, ConflictSetID]) Parents() (parents *set.AdvancedSe
 }
 
 // SetParents updates the parent ConflictIDs that this Conflict depends on. It returns true if the Conflict was modified.
-func (c *Conflict[ConflictID, ConflictSetID]) SetParents(parents *set.AdvancedSet[ConflictID]) {
+func (c *Conflict[ConflictID, ConflictSetID]) SetParents(parents *advancedset.AdvancedSet[ConflictID]) {
 	c.Lock()
 	defer c.Unlock()
 
@@ -53,7 +53,7 @@ func (c *Conflict[ConflictID, ConflictSetID]) SetParents(parents *set.AdvancedSe
 }
 
 // ConflictSetIDs returns the identifiers of the conflict sets that this Conflict is part of.
-func (c *Conflict[ConflictID, ConflictSetID]) ConflictSetIDs() (conflictSetIDs *set.AdvancedSet[ConflictSetID]) {
+func (c *Conflict[ConflictID, ConflictSetID]) ConflictSetIDs() (conflictSetIDs *advancedset.AdvancedSet[ConflictSetID]) {
 	c.RLock()
 	defer c.RUnlock()
 

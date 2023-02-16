@@ -2,10 +2,10 @@ package markers
 
 import (
 	"fmt"
+	"github.com/iotaledger/hive.go/ds/advancedset"
 	"testing"
 
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 type TestFramework struct {
@@ -42,7 +42,7 @@ func (t *TestFramework) StructureDetails(alias string) (structureDetails *Struct
 }
 
 func (t *TestFramework) StructureDetailsSet(aliases ...string) (structureDetailsSlice []*StructureDetails) {
-	structureDetailsSet := set.NewAdvancedSet[*StructureDetails]()
+	structureDetailsSet := advancedset.NewAdvancedSet[*StructureDetails]()
 	for _, alias := range aliases {
 		structureDetailsSet.Add(t.StructureDetails(alias))
 	}

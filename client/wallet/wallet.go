@@ -7,9 +7,9 @@ import (
 	"unsafe"
 
 	"github.com/iotaledger/hive.go/core/bitmask"
-	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/marshalutil"
+	"github.com/iotaledger/hive.go/lo"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 

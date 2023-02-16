@@ -7,10 +7,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/ds/set"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
@@ -28,7 +27,7 @@ func Test_PruneMarkerBlockMapping(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
 	tf := blockdag.NewDefaultTestFramework(t, workers.CreateGroup("BlockDAGTestFramework"))
 
-	event.Hook(tf.Instance.EvictionState.Events.EpochEvicted, markerManager.Evict)
+	tf.Instance.EvictionState.Events.EpochEvicted.Hook(markerManager.Evict)
 
 	// create a helper function that creates the blocks
 	createNewBlock := func(idx int, prefix string) (block *blockdag.Block, alias string) {
@@ -64,12 +63,12 @@ func Test_PruneMarkerBlockMapping(t *testing.T) {
 	validateBlockMarkerMappingPruning(t, markerBlockMapping, markerManager, 0)
 
 	tf.Instance.EvictionState.EvictUntil(epochCount / 2)
-	event.Loop.PendingTasksCounter.WaitIsZero()
+	workers.Wait()
 
 	validateBlockMarkerMappingPruning(t, markerBlockMapping, markerManager, epochCount/2)
 
 	tf.Instance.EvictionState.EvictUntil(epochCount)
-	event.Loop.PendingTasksCounter.WaitIsZero()
+	workers.Wait()
 
 	validateBlockMarkerMappingPruning(t, markerBlockMapping, markerManager, epochCount)
 

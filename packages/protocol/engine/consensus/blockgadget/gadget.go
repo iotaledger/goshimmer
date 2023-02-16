@@ -1,15 +1,15 @@
 package blockgadget
 
 import (
+	"github.com/iotaledger/hive.go/ds/advancedset"
 	"sync"
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/generics/walker"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/ds/walker"
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/causalorder"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -240,13 +240,13 @@ func (a *Gadget) EvictUntil(index epoch.Index) {
 func (a *Gadget) setup() {
 	wp := a.workers.CreatePool("Gadget", 2)
 
-	event.AttachWithWorkerPool(a.tangle.VirtualVoting.Events.SequenceTracker.VotersUpdated, func(evt *sequencetracker.VoterUpdatedEvent) {
+	a.tangle.VirtualVoting.Events.SequenceTracker.VotersUpdated.Hook(func(evt *sequencetracker.VoterUpdatedEvent) {
 		a.RefreshSequence(evt.SequenceID, evt.NewMaxSupportedIndex, evt.PrevMaxSupportedIndex)
-	}, wp)
-	event.AttachWithWorkerPool(a.tangle.VirtualVoting.Events.ConflictTracker.VoterAdded, func(evt *conflicttracker.VoterEvent[utxo.TransactionID]) {
+	}, event.WithWorkerPool(wp))
+	a.tangle.VirtualVoting.Events.ConflictTracker.VoterAdded.Hook(func(evt *conflicttracker.VoterEvent[utxo.TransactionID]) {
 		a.RefreshConflictAcceptance(evt.ConflictID)
-	}, wp)
-	event.AttachWithWorkerPool(a.tangle.Booker.Events.MarkerManager.SequenceEvicted, a.evictSequence, wp)
+	}, event.WithWorkerPool(wp))
+	a.tangle.Booker.Events.MarkerManager.SequenceEvicted.Hook(a.evictSequence, event.WithWorkerPool(wp))
 }
 
 func (a *Gadget) block(id models.BlockID) (block *Block, exists bool) {
@@ -438,7 +438,7 @@ func (a *Gadget) RefreshConflictAcceptance(conflictID utxo.TransactionID) {
 
 	a.tangle.Booker.Ledger.ConflictDAG.Utils.ForEachConflictingConflictID(conflictID, func(conflictingConflictID utxo.TransactionID) bool {
 		// check if another conflict is accepted, to evaluate reorg condition
-		if !isOtherConflictAccepted && a.tangle.Booker.Ledger.ConflictDAG.ConfirmationState(set.NewAdvancedSet(conflictingConflictID)).IsAccepted() {
+		if !isOtherConflictAccepted && a.tangle.Booker.Ledger.ConflictDAG.ConfirmationState(advancedset.NewAdvancedSet(conflictingConflictID)).IsAccepted() {
 			isOtherConflictAccepted = true
 			otherAcceptedConflict = conflictingConflictID
 		}

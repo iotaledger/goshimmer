@@ -4,8 +4,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/lo"
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/network/p2p"

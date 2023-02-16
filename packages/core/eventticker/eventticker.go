@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/core/crypto"
-	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/timed"
+	"github.com/iotaledger/hive.go/runtime/options"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"

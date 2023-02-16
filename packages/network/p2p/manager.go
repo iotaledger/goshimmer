@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/autopeering/peer"
+	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/libp2p/go-libp2p/core/host"

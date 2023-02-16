@@ -1,7 +1,7 @@
 package metrics
 
 import (
-	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/runtime/event"
 
 	"github.com/iotaledger/goshimmer/packages/app/collector"
 )

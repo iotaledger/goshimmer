@@ -6,12 +6,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/confirmation"
 	"github.com/iotaledger/hive.go/app/daemon"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
@@ -52,12 +51,12 @@ func (c *conflictSet) ToJSON() *conflictSetJSON {
 }
 
 type conflict struct {
-	ConflictID        utxo.TransactionID              `json:"conflictID"`
-	ConflictSetIDs    *set.AdvancedSet[utxo.OutputID] `json:"conflictSetIDs"`
-	ConfirmationState confirmation.State              `json:"confirmationState"`
-	IssuingTime       time.Time                       `json:"issuingTime"`
-	IssuerNodeID      identity.ID                     `json:"issuerNodeID"`
-	UpdatedTime       time.Time                       `json:"updatedTime"`
+	ConflictID        utxo.TransactionID                      `json:"conflictID"`
+	ConflictSetIDs    *advancedset.AdvancedSet[utxo.OutputID] `json:"conflictSetIDs"`
+	ConfirmationState confirmation.State                      `json:"confirmationState"`
+	IssuingTime       time.Time                               `json:"issuingTime"`
+	IssuerNodeID      identity.ID                             `json:"issuerNodeID"`
+	UpdatedTime       time.Time                               `json:"updatedTime"`
 }
 
 type conflictJSON struct {

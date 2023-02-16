@@ -2,14 +2,14 @@ package tipmanager
 
 import (
 	"fmt"
+	"github.com/iotaledger/hive.go/ds/advancedset"
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/randommap"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/ds/randommap"
+	"github.com/iotaledger/hive.go/ds/types"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
@@ -247,7 +247,7 @@ func (t *TipManager) PromoteFutureTips(cm *commitment.Commitment) {
 	if futureEpochTips := t.futureTips.Get(cm.Index()); futureEpochTips != nil {
 		if tipsForCommitment, exists := futureEpochTips.Get(cm.ID()); exists {
 			tipsToPromote := make(map[models.BlockID]*scheduler.Block)
-			tipsToNotPromote := set.NewAdvancedSet[models.BlockID]()
+			tipsToNotPromote := advancedset.NewAdvancedSet[models.BlockID]()
 
 			tipsForCommitment.ForEach(func(blockID models.BlockID, tip *scheduler.Block) bool {
 				for _, tipParent := range tip.Parents() {

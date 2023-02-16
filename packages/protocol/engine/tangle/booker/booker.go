@@ -8,12 +8,12 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/hive.go/core/cerrors"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/walker"
-	"github.com/iotaledger/hive.go/core/syncutils"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/ds/walker"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/causalorder"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -68,7 +68,7 @@ func New(workers *workerpool.Group, blockDAG *blockdag.BlockDAG, ledger *ledger.
 			causalorder.WithReferenceValidator[models.BlockID](isReferenceValid),
 		)
 
-		event.Hook(blockDAG.EvictionState.Events.EpochEvicted, b.evict)
+		blockDAG.EvictionState.Events.EpochEvicted.Hook(b.evict)
 
 		b.Events.MarkerManager = b.markerManager.Events
 	}, (*Booker).setupEvents)
@@ -429,17 +429,17 @@ func (b *Booker) strongChildren(block *Block) []*Block {
 }
 
 func (b *Booker) setupEvents() {
-	event.Hook(b.BlockDAG.Events.BlockSolid, func(block *blockdag.Block) {
+	b.BlockDAG.Events.BlockSolid.Hook(func(block *blockdag.Block) {
 		if _, err := b.Queue(NewBlock(block)); err != nil {
 			panic(err)
 		}
 	})
-	event.Hook(b.Ledger.Events.TransactionConflictIDUpdated, func(event *ledger.TransactionConflictIDUpdatedEvent) {
+	b.Ledger.Events.TransactionConflictIDUpdated.Hook(func(event *ledger.TransactionConflictIDUpdatedEvent) {
 		if err := b.PropagateForkedConflict(event.TransactionID, event.AddedConflictID, event.RemovedConflictIDs); err != nil {
 			b.Events.Error.Trigger(errors.Wrapf(err, "failed to propagate Conflict update of %s to BlockDAG", event.TransactionID))
 		}
 	})
-	event.AttachWithWorkerPool(b.Ledger.Events.TransactionBooked, func(e *ledger.TransactionBookedEvent) {
+	b.Ledger.Events.TransactionBooked.Hook(func(e *ledger.TransactionBookedEvent) {
 		contextBlockID := models.BlockIDFromContext(e.Context)
 
 		for _, block := range b.attachments.Get(e.TransactionID) {
@@ -447,7 +447,7 @@ func (b *Booker) setupEvents() {
 				b.bookingOrder.Queue(block)
 			}
 		}
-	}, b.workers.CreatePool("Booker", 2))
+	}, event.WithWorkerPool(b.workers.CreatePool("Booker", 2)))
 }
 
 // region FORK LOGIC ///////////////////////////////////////////////////////////////////////////////////////////////////

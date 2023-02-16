@@ -1,11 +1,12 @@
 package ledger
 
 import (
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/confirmation"
 	"github.com/iotaledger/hive.go/core/cerrors"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/generics/walker"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/ds/set"
+	"github.com/iotaledger/hive.go/ds/walker"
+	"github.com/iotaledger/hive.go/lo"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
@@ -33,7 +34,7 @@ func (u *Utils) ConflictIDsInFutureCone(conflictIDs utxo.TransactionIDs) (confli
 
 		conflictIDsInFutureCone.Add(conflictID)
 
-		if u.ledger.ConflictDAG.ConfirmationState(set.NewAdvancedSet(conflictID)).IsAccepted() {
+		if u.ledger.ConflictDAG.ConfirmationState(advancedset.NewAdvancedSet(conflictID)).IsAccepted() {
 			u.ledger.Storage.CachedTransactionMetadata(conflictID).Consume(func(txMetadata *TransactionMetadata) {
 				u.WalkConsumingTransactionMetadata(txMetadata.OutputIDs(), func(txMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
 					conflictIDsInFutureCone.AddAll(txMetadata.ConflictIDs())
@@ -113,8 +114,8 @@ func (u *Utils) WithTransactionAndMetadata(txID utxo.TransactionID, callback fun
 }
 
 // TransactionConflictIDs returns the ConflictIDs of the given TransactionID.
-func (u *Utils) TransactionConflictIDs(txID utxo.TransactionID) (conflictIDs *set.AdvancedSet[utxo.TransactionID], err error) {
-	conflictIDs = set.NewAdvancedSet[utxo.TransactionID]()
+func (u *Utils) TransactionConflictIDs(txID utxo.TransactionID) (conflictIDs *advancedset.AdvancedSet[utxo.TransactionID], err error) {
+	conflictIDs = advancedset.NewAdvancedSet[utxo.TransactionID]()
 	if !u.ledger.Storage.CachedTransactionMetadata(txID).Consume(func(metadata *TransactionMetadata) {
 		conflictIDs = metadata.ConflictIDs()
 	}) {

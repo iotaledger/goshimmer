@@ -9,15 +9,15 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/confirmation"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
-	"github.com/iotaledger/hive.go/core/debug"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/types"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/debug"
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/database"
@@ -96,10 +96,10 @@ func TestProtocol(t *testing.T) {
 	protocol2.Run()
 	t.Cleanup(protocol2.Shutdown)
 
-	event.Hook(protocol2.Events.ChainManager.CommitmentMissing, func(id commitment.ID) {
+	protocol2.Events.ChainManager.CommitmentMissing.Hook(func(id commitment.ID) {
 		fmt.Println("MISSING", id)
 	})
-	event.Hook(protocol2.Events.ChainManager.MissingCommitmentReceived, func(id commitment.ID) {
+	protocol2.Events.ChainManager.MissingCommitmentReceived.Hook(func(id commitment.ID) {
 		fmt.Println("MISSING RECEIVED", id)
 	})
 
@@ -472,7 +472,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 	engine1 := engine.NewTestEngine(t, workers.CreateGroup("Engine1"), engine1Storage, dpos.NewProvider(), mana1.NewProvider(), engineOpts...)
 	tf := engine.NewTestFramework(t, workers.CreateGroup("EngineTestFramework1"), engine1)
 
-	event.Hook(tf.Instance.NotarizationManager.Events.Error, func(err error) {
+	tf.Instance.NotarizationManager.Events.Error.Hook(func(err error) {
 		t.Fatal(err.Error())
 	})
 
@@ -660,7 +660,7 @@ func TestEngine_ShutdownResume(t *testing.T) {
 
 	tf := engine.NewTestFramework(t, workers.CreateGroup("EngineTestFramework1"), engine1)
 
-	event.Hook(tf.Instance.NotarizationManager.Events.Error, func(err error) {
+	tf.Instance.NotarizationManager.Events.Error.Hook(func(err error) {
 		panic(err)
 	})
 

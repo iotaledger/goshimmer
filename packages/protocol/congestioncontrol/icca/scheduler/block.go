@@ -1,8 +1,8 @@
 package scheduler
 
 import (
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/runtime/options"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -126,11 +126,11 @@ func WithSkipped(skipped bool) options.Option[Block] {
 // region Blocks ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Blocks represents a collection of Block.
-type Blocks = *set.AdvancedSet[*Block]
+type Blocks = *advancedset.AdvancedSet[*Block]
 
 // NewBlocks returns a new Block collection with the given elements.
 func NewBlocks(blocks ...*Block) (newBlocks Blocks) {
-	return set.NewAdvancedSet(blocks...)
+	return advancedset.NewAdvancedSet(blocks...)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

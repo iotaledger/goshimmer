@@ -2,16 +2,17 @@ package dashboardmetrics
 
 import (
 	"context"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 	"time"
 
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/hive.go/app/daemon"
-	"github.com/iotaledger/hive.go/core/autopeering/peer"
-	"github.com/iotaledger/hive.go/core/autopeering/selection"
-	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/autopeering/selection"
 	"github.com/iotaledger/hive.go/core/logger"
-	"github.com/iotaledger/hive.go/core/timeutil"
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/timeutil"
 
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
@@ -29,6 +30,8 @@ var (
 	Plugin *node.Plugin
 	deps   = new(dependencies)
 	log    *logger.Logger
+
+	workerPool = workerpool.New(PluginName, 1)
 )
 
 type dependencies struct {
@@ -55,6 +58,7 @@ func run(_ *node.Plugin) {
 	registerLocalMetrics()
 	// create a background worker that update the metrics every second
 	if err := daemon.BackgroundWorker("Metrics Updater", func(ctx context.Context) {
+		workerPool.Start()
 		// Do not block until the Ticker is shutdown because we might want to start multiple Tickers and we can
 		// safely ignore the last execution when shutting down.
 		timeutil.NewTicker(func() {
@@ -65,6 +69,7 @@ func run(_ *node.Plugin) {
 
 		// Wait before terminating so we get correct log blocks from the daemon regarding the shutdown order.
 		<-ctx.Done()
+		workerPool.Shutdown()
 	}, shutdown.PriorityMetrics); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
@@ -72,9 +77,9 @@ func run(_ *node.Plugin) {
 
 func registerLocalMetrics() {
 	// increase received BPS counter whenever we attached a block
-	deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Attach(event.NewClosure(func(block *blockdag.Block) {
+	deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Hook(func(block *blockdag.Block) {
 		blockCountPerComponentMutex.Lock()
 		defer blockCountPerComponentMutex.Unlock()
 		increaseReceivedBPSCounter()
-	}))
+	}, event.WithWorkerPool(workerPool))
 }

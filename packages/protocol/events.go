@@ -1,8 +1,8 @@
 package protocol
 
 import (
-	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/runtime/event"
 
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
@@ -13,10 +13,10 @@ import (
 )
 
 type Events struct {
-	InvalidBlockReceived     *event.Linkable[identity.ID]
-	CandidateEngineActivated *event.Linkable[*enginemanager.EngineInstance]
-	MainEngineSwitched       *event.Linkable[*enginemanager.EngineInstance]
-	Error                    *event.Linkable[error]
+	InvalidBlockReceived     *event.Event1[identity.ID]
+	CandidateEngineActivated *event.Event1[*enginemanager.EngineInstance]
+	MainEngineSwitched       *event.Event1[*enginemanager.EngineInstance]
+	Error                    *event.Event1[error]
 
 	Network           *network.Events
 	Engine            *engine.Events
@@ -24,15 +24,15 @@ type Events struct {
 	TipManager        *tipmanager.Events
 	ChainManager      *chainmanager.Events
 
-	event.LinkableCollection[Events, *Events]
+	event.Group[Events, *Events]
 }
 
-var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
+var NewEvents = event.CreateGroupConstructor(func() (newEvents *Events) {
 	return &Events{
-		InvalidBlockReceived:     event.NewLinkable[identity.ID](),
-		CandidateEngineActivated: event.NewLinkable[*enginemanager.EngineInstance](),
-		MainEngineSwitched:       event.NewLinkable[*enginemanager.EngineInstance](),
-		Error:                    event.NewLinkable[error](),
+		InvalidBlockReceived:     event.New1[identity.ID](),
+		CandidateEngineActivated: event.New1[*enginemanager.EngineInstance](),
+		MainEngineSwitched:       event.New1[*enginemanager.EngineInstance](),
+		Error:                    event.New1[error](),
 
 		Network:           network.NewEvents(),
 		Engine:            engine.NewEvents(),

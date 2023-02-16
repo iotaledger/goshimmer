@@ -1,7 +1,7 @@
 package faucet
 
 import (
-	"github.com/iotaledger/hive.go/core/types/confirmation"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/confirmation"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/client/wallet"

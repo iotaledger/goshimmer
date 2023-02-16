@@ -5,10 +5,10 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer/blockfactory"
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer/ratesetter"
@@ -33,7 +33,7 @@ type BlockIssuer struct {
 	protocol          *protocol.Protocol
 	identity          *identity.LocalIdentity
 	referenceProvider *blockfactory.ReferenceProvider
-	workerPool        *workerpool.UnboundedWorkerPool
+	workerPool        *workerpool.WorkerPool
 
 	optsBlockFactoryOptions    []options.Option[blockfactory.Factory]
 	optsIgnoreBootstrappedFlag bool
@@ -123,7 +123,7 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeBooked(block *models.Block, max
 	exit := make(chan struct{})
 	defer close(exit)
 
-	defer event.AttachWithWorkerPool(i.protocol.Events.Engine.Tangle.Booker.BlockBooked, func(bookedBlock *booker.Block) {
+	hook := i.protocol.Events.Engine.Tangle.Booker.BlockBooked.Hook(func(bookedBlock *booker.Block) {
 		if block.ID() != bookedBlock.ID() {
 			return
 		}
@@ -131,7 +131,8 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeBooked(block *models.Block, max
 		case booked <- bookedBlock:
 		case <-exit:
 		}
-	}, i.workerPool)()
+	}, event.WithWorkerPool(i.workerPool))
+	defer hook.Unhook()
 
 	err := i.issueBlock(block)
 	if err != nil {
@@ -158,7 +159,7 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeScheduled(block *models.Block, 
 	exit := make(chan struct{})
 	defer close(exit)
 
-	defer event.AttachWithWorkerPool(i.protocol.Events.CongestionControl.Scheduler.BlockScheduled, func(scheduledBlock *scheduler.Block) {
+	hook := i.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Hook(func(scheduledBlock *scheduler.Block) {
 		if block.ID() != scheduledBlock.ID() {
 			return
 		}
@@ -166,7 +167,8 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeScheduled(block *models.Block, 
 		case scheduled <- scheduledBlock:
 		case <-exit:
 		}
-	}, i.workerPool)()
+	}, event.WithWorkerPool(i.workerPool))
+	defer hook.Unhook()
 
 	err := i.issueBlock(block)
 	if err != nil {

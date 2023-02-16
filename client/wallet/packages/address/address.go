@@ -1,7 +1,7 @@
 package address
 
 import (
-	"github.com/iotaledger/hive.go/core/stringify"
+	"github.com/iotaledger/hive.go/stringify"
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"

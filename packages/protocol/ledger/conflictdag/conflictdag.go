@@ -1,12 +1,12 @@
 package conflictdag
 
 import (
+	"github.com/iotaledger/hive.go/ds/advancedset"
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/byteutils"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/generics/walker"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/confirmation"
+	"github.com/iotaledger/hive.go/ds/walker"
+	"github.com/iotaledger/hive.go/serializer/v2/byteutils"
 )
 
 // ConflictDAG represents a generic DAG that is able to model causal dependencies between conflicts that try to access a
@@ -41,10 +41,10 @@ func New[ConflictIDType, ResourceIDType comparable](options ...Option) (dag *Con
 }
 
 // CreateConflict creates a new Conflict in the ConflictDAG and returns true if the Conflict was new.
-func (b *ConflictDAG[ConflictIDType, ResourceIDType]) CreateConflict(id ConflictIDType, parents *set.AdvancedSet[ConflictIDType], conflictingResources *set.AdvancedSet[ResourceIDType]) (created bool) {
+func (b *ConflictDAG[ConflictIDType, ResourceIDType]) CreateConflict(id ConflictIDType, parents *advancedset.AdvancedSet[ConflictIDType], conflictingResources *advancedset.AdvancedSet[ResourceIDType]) (created bool) {
 	b.Lock()
 	b.Storage.CachedConflict(id, func(ConflictIDType) (conflict *Conflict[ConflictIDType, ResourceIDType]) {
-		conflict = NewConflict(id, parents, set.NewAdvancedSet[ResourceIDType]())
+		conflict = NewConflict(id, parents, advancedset.NewAdvancedSet[ResourceIDType]())
 
 		b.addConflictMembers(conflict, conflictingResources)
 		b.createChildConflictReferences(parents, id)
@@ -71,10 +71,10 @@ func (b *ConflictDAG[ConflictIDType, ResourceIDType]) CreateConflict(id Conflict
 }
 
 // UpdateConflictParents changes the parents of a Conflict after a fork (also updating the corresponding references).
-func (b *ConflictDAG[ConflictIDType, ResourceIDType]) UpdateConflictParents(id ConflictIDType, removedConflictIDs *set.AdvancedSet[ConflictIDType], addedConflictID ConflictIDType) (updated bool) {
+func (b *ConflictDAG[ConflictIDType, ResourceIDType]) UpdateConflictParents(id ConflictIDType, removedConflictIDs *advancedset.AdvancedSet[ConflictIDType], addedConflictID ConflictIDType) (updated bool) {
 	b.RLock()
 
-	var parentConflictIDs *set.AdvancedSet[ConflictIDType]
+	var parentConflictIDs *advancedset.AdvancedSet[ConflictIDType]
 	b.Storage.CachedConflict(id).Consume(func(conflict *Conflict[ConflictIDType, ResourceIDType]) {
 		parentConflictIDs = conflict.Parents()
 		if !parentConflictIDs.Add(addedConflictID) {
@@ -82,7 +82,7 @@ func (b *ConflictDAG[ConflictIDType, ResourceIDType]) UpdateConflictParents(id C
 		}
 
 		b.removeChildConflictReferences(parentConflictIDs.DeleteAll(removedConflictIDs), id)
-		b.createChildConflictReferences(set.NewAdvancedSet(addedConflictID), id)
+		b.createChildConflictReferences(advancedset.NewAdvancedSet(addedConflictID), id)
 
 		conflict.SetParents(parentConflictIDs)
 		updated = true
@@ -103,7 +103,7 @@ func (b *ConflictDAG[ConflictIDType, ResourceIDType]) UpdateConflictParents(id C
 
 // UpdateConflictingResources adds the Conflict to the named conflicts - it returns true if the conflict membership was modified
 // during this operation.
-func (b *ConflictDAG[ConflictIDType, ResourceIDType]) UpdateConflictingResources(id ConflictIDType, conflictingResourceIDs *set.AdvancedSet[ResourceIDType]) (updated bool) {
+func (b *ConflictDAG[ConflictIDType, ResourceIDType]) UpdateConflictingResources(id ConflictIDType, conflictingResourceIDs *advancedset.AdvancedSet[ResourceIDType]) (updated bool) {
 	b.RLock()
 	b.Storage.CachedConflict(id).Consume(func(conflict *Conflict[ConflictIDType, ResourceIDType]) {
 		updated = b.addConflictMembers(conflict, conflictingResourceIDs)
@@ -122,12 +122,12 @@ func (b *ConflictDAG[ConflictIDType, ResourceIDType]) UpdateConflictingResources
 
 // UnconfirmedConflicts takes a set of ConflictIDs and removes all the Accepted/Confirmed Conflicts (leaving only the
 // pending or rejected ones behind).
-func (b *ConflictDAG[ConflictIDType, ConflictingResourceID]) UnconfirmedConflicts(conflictIDs *set.AdvancedSet[ConflictIDType]) (pendingConflictIDs *set.AdvancedSet[ConflictIDType]) {
+func (b *ConflictDAG[ConflictIDType, ConflictingResourceID]) UnconfirmedConflicts(conflictIDs *advancedset.AdvancedSet[ConflictIDType]) (pendingConflictIDs *advancedset.AdvancedSet[ConflictIDType]) {
 	if !b.options.mergeToMaster {
 		return conflictIDs.Clone()
 	}
 
-	pendingConflictIDs = set.NewAdvancedSet[ConflictIDType]()
+	pendingConflictIDs = advancedset.NewAdvancedSet[ConflictIDType]()
 	for conflictWalker := conflictIDs.Iterator(); conflictWalker.HasNext(); {
 		if currentConflictID := conflictWalker.Next(); !b.confirmationState(currentConflictID).IsAccepted() {
 			pendingConflictIDs.Add(currentConflictID)
@@ -144,7 +144,7 @@ func (b *ConflictDAG[ConflictID, ConflictingResourceID]) SetConflictAccepted(con
 	defer b.Unlock()
 
 	rejectionWalker := walker.New[ConflictID]()
-	for confirmationWalker := set.NewAdvancedSet(conflictID).Iterator(); confirmationWalker.HasNext(); {
+	for confirmationWalker := advancedset.NewAdvancedSet(conflictID).Iterator(); confirmationWalker.HasNext(); {
 		b.Storage.CachedConflict(confirmationWalker.Next()).Consume(func(conflict *Conflict[ConflictID, ConflictingResourceID]) {
 			if modified = conflict.setConfirmationState(confirmation.Accepted); !modified {
 				return
@@ -179,7 +179,7 @@ func (b *ConflictDAG[ConflictID, ConflictingResourceID]) SetConflictAccepted(con
 }
 
 // ConfirmationState returns the ConfirmationState of the given ConflictIDs.
-func (b *ConflictDAG[ConflictID, ConflictingResourceID]) ConfirmationState(conflictIDs *set.AdvancedSet[ConflictID]) (confirmationState confirmation.State) {
+func (b *ConflictDAG[ConflictID, ConflictingResourceID]) ConfirmationState(conflictIDs *advancedset.AdvancedSet[ConflictID]) (confirmationState confirmation.State) {
 	b.RLock()
 	defer b.RUnlock()
 
@@ -196,13 +196,13 @@ func (b *ConflictDAG[ConflictID, ConflictingResourceID]) ConfirmationState(confl
 // DetermineVotes iterates over a set of conflicts and, taking into account the opinion a Voter expressed previously,
 // computes the conflicts that will receive additional weight, the ones that will see their weight revoked, and if the
 // result constitutes an overrall valid state transition.
-func (b *ConflictDAG[ConflictID, ConflictingResourceID]) DetermineVotes(conflictIDs *set.AdvancedSet[ConflictID]) (addedConflicts, revokedConflicts *set.AdvancedSet[ConflictID], isInvalid bool) {
-	addedConflicts = set.NewAdvancedSet[ConflictID]()
+func (b *ConflictDAG[ConflictID, ConflictingResourceID]) DetermineVotes(conflictIDs *advancedset.AdvancedSet[ConflictID]) (addedConflicts, revokedConflicts *advancedset.AdvancedSet[ConflictID], isInvalid bool) {
+	addedConflicts = advancedset.NewAdvancedSet[ConflictID]()
 	for it := conflictIDs.Iterator(); it.HasNext(); {
 		votedConflictID := it.Next()
 
 		// The starting conflicts should not be considered as having common Parents, hence we treat them separately.
-		conflictAddedConflicts, _ := b.determineConflictsToAdd(set.NewAdvancedSet(votedConflictID))
+		conflictAddedConflicts, _ := b.determineConflictsToAdd(advancedset.NewAdvancedSet(votedConflictID))
 		addedConflicts.AddAll(conflictAddedConflicts)
 	}
 	revokedConflicts, isInvalid = b.determineConflictsToRevoke(addedConflicts)
@@ -212,8 +212,8 @@ func (b *ConflictDAG[ConflictID, ConflictingResourceID]) DetermineVotes(conflict
 
 // determineConflictsToAdd iterates through the past cone of the given Conflicts and determines the ConflictIDs that
 // are affected by the Vote.
-func (b *ConflictDAG[ConflictID, ConflictingResourceID]) determineConflictsToAdd(conflictIDs *set.AdvancedSet[ConflictID]) (addedConflicts *set.AdvancedSet[ConflictID], allParentsAdded bool) {
-	addedConflicts = set.NewAdvancedSet[ConflictID]()
+func (b *ConflictDAG[ConflictID, ConflictingResourceID]) determineConflictsToAdd(conflictIDs *advancedset.AdvancedSet[ConflictID]) (addedConflicts *advancedset.AdvancedSet[ConflictID], allParentsAdded bool) {
+	addedConflicts = advancedset.NewAdvancedSet[ConflictID]()
 
 	for it := conflictIDs.Iterator(); it.HasNext(); {
 		currentConflictID := it.Next()
@@ -233,8 +233,8 @@ func (b *ConflictDAG[ConflictID, ConflictingResourceID]) determineConflictsToAdd
 
 // determineConflictsToRevoke determines which Conflicts of the conflicting future cone of the added Conflicts are affected
 // by the vote and if the vote is valid (not voting for conflicting Conflicts).
-func (b *ConflictDAG[ConflictID, ConflictingResourceID]) determineConflictsToRevoke(addedConflicts *set.AdvancedSet[ConflictID]) (revokedConflicts *set.AdvancedSet[ConflictID], isInvalid bool) {
-	revokedConflicts = set.NewAdvancedSet[ConflictID]()
+func (b *ConflictDAG[ConflictID, ConflictingResourceID]) determineConflictsToRevoke(addedConflicts *advancedset.AdvancedSet[ConflictID]) (revokedConflicts *advancedset.AdvancedSet[ConflictID], isInvalid bool) {
+	revokedConflicts = advancedset.NewAdvancedSet[ConflictID]()
 	subTractionWalker := walker.New[ConflictID]()
 	for it := addedConflicts.Iterator(); it.HasNext(); {
 		b.Utils.ForEachConflictingConflictID(it.Next(), func(conflictingConflictID ConflictID) bool {
@@ -268,7 +268,7 @@ func (b *ConflictDAG[ConflictID, ConflictingResourceID]) Shutdown() {
 }
 
 // addConflictMembers creates the named ConflictMember references.
-func (b *ConflictDAG[ConflictID, ConflictingResourceID]) addConflictMembers(conflict *Conflict[ConflictID, ConflictingResourceID], conflictIDs *set.AdvancedSet[ConflictingResourceID]) (added bool) {
+func (b *ConflictDAG[ConflictID, ConflictingResourceID]) addConflictMembers(conflict *Conflict[ConflictID, ConflictingResourceID], conflictIDs *advancedset.AdvancedSet[ConflictingResourceID]) (added bool) {
 	for it := conflictIDs.Iterator(); it.HasNext(); {
 		conflictID := it.Next()
 
@@ -281,14 +281,14 @@ func (b *ConflictDAG[ConflictID, ConflictingResourceID]) addConflictMembers(conf
 }
 
 // createChildConflictReferences creates the named ChildConflict references.
-func (b *ConflictDAG[ConflictID, ConflictingResourceID]) createChildConflictReferences(parentConflictIDs *set.AdvancedSet[ConflictID], childConflictID ConflictID) {
+func (b *ConflictDAG[ConflictID, ConflictingResourceID]) createChildConflictReferences(parentConflictIDs *advancedset.AdvancedSet[ConflictID], childConflictID ConflictID) {
 	for it := parentConflictIDs.Iterator(); it.HasNext(); {
 		b.Storage.CachedChildConflict(it.Next(), childConflictID, NewChildConflict[ConflictID]).Release()
 	}
 }
 
 // removeChildConflictReferences removes the named ChildConflict references.
-func (b *ConflictDAG[ConflictID, ConflictingResourceID]) removeChildConflictReferences(parentConflictIDs *set.AdvancedSet[ConflictID], childConflictID ConflictID) {
+func (b *ConflictDAG[ConflictID, ConflictingResourceID]) removeChildConflictReferences(parentConflictIDs *advancedset.AdvancedSet[ConflictID], childConflictID ConflictID) {
 	for it := parentConflictIDs.Iterator(); it.HasNext(); {
 		b.Storage.childConflictStorage.Delete(byteutils.ConcatBytes(bytes(it.Next()), bytes(childConflictID)))
 	}

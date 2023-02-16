@@ -4,8 +4,8 @@ import (
 	"net/http"
 
 	"github.com/iotaledger/goshimmer/packages/node"
-	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/lo"
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 

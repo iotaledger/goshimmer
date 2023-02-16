@@ -1,12 +1,13 @@
 package conflictdag
 
 import (
+	"github.com/iotaledger/hive.go/objectstorage"
+	"github.com/iotaledger/hive.go/objectstorage/generic"
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/cerrors"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/objectstorage"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/serializer/v2/byteutils"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
@@ -17,13 +18,13 @@ import (
 // Storage is a ConflictDAG component that bundles the storage related API.
 type Storage[ConflictID comparable, ConflictSetID comparable] struct {
 	// conflictStorage is an object storage used to persist Conflict objects.
-	conflictStorage *objectstorage.ObjectStorage[*Conflict[ConflictID, ConflictSetID]]
+	conflictStorage *generic.ObjectStorage[*Conflict[ConflictID, ConflictSetID]]
 
 	// childConflictStorage is an object storage used to persist ChildConflict objects.
-	childConflictStorage *objectstorage.ObjectStorage[*ChildConflict[ConflictID]]
+	childConflictStorage *generic.ObjectStorage[*ChildConflict[ConflictID]]
 
 	// conflictMemberStorage is an object storage used to persist ConflictMember objects.
-	conflictMemberStorage *objectstorage.ObjectStorage[*ConflictMember[ConflictSetID, ConflictID]]
+	conflictMemberStorage *generic.ObjectStorage[*ConflictMember[ConflictSetID, ConflictID]]
 
 	// shutdownOnce is used to ensure that the Shutdown routine is executed only a single time.
 	shutdownOnce sync.Once
@@ -32,19 +33,19 @@ type Storage[ConflictID comparable, ConflictSetID comparable] struct {
 // newStorage returns a new Storage instance configured with the given options.
 func newStorage[ConflictID comparable, ConflictSetID comparable](options *optionsConflictDAG) (storage *Storage[ConflictID, ConflictSetID]) {
 	storage = &Storage[ConflictID, ConflictSetID]{
-		conflictStorage: objectstorage.NewStructStorage[Conflict[ConflictID, ConflictSetID]](
+		conflictStorage: generic.NewStructStorage[Conflict[ConflictID, ConflictSetID]](
 			lo.PanicOnErr(options.store.WithExtendedRealm([]byte{database.PrefixConflictDAG, PrefixConflictStorage})),
 			options.cacheTimeProvider.CacheTime(options.conflictCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 		),
-		childConflictStorage: objectstorage.NewStructStorage[ChildConflict[ConflictID]](
+		childConflictStorage: generic.NewStructStorage[ChildConflict[ConflictID]](
 			lo.PanicOnErr(options.store.WithExtendedRealm([]byte{database.PrefixConflictDAG, PrefixChildConflictStorage})),
 			objectstorage.PartitionKey(new(ChildConflict[ConflictID]).KeyPartitions()...),
 			options.cacheTimeProvider.CacheTime(options.childConflictCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 			objectstorage.StoreOnCreation(true),
 		),
-		conflictMemberStorage: objectstorage.NewStructStorage[ConflictMember[ConflictSetID, ConflictID]](
+		conflictMemberStorage: generic.NewStructStorage[ConflictMember[ConflictSetID, ConflictID]](
 			lo.PanicOnErr(options.store.WithExtendedRealm([]byte{database.PrefixConflictDAG, PrefixConflictMemberStorage})),
 			objectstorage.PartitionKey(new(ConflictMember[ConflictSetID, ConflictID]).KeyPartitions()...),
 			options.cacheTimeProvider.CacheTime(options.conflictMemberCacheTime),
@@ -58,7 +59,7 @@ func newStorage[ConflictID comparable, ConflictSetID comparable](options *option
 
 // CachedConflict retrieves the CachedObject representing the named Conflict. The optional computeIfAbsentCallback can be
 // used to dynamically initialize a non-existing Conflict.
-func (s *Storage[ConflictID, ConflictSetID]) CachedConflict(conflictID ConflictID, computeIfAbsentCallback ...func(conflictID ConflictID) *Conflict[ConflictID, ConflictSetID]) (cachedConflict *objectstorage.CachedObject[*Conflict[ConflictID, ConflictSetID]]) {
+func (s *Storage[ConflictID, ConflictSetID]) CachedConflict(conflictID ConflictID, computeIfAbsentCallback ...func(conflictID ConflictID) *Conflict[ConflictID, ConflictSetID]) (cachedConflict *generic.CachedObject[*Conflict[ConflictID, ConflictSetID]]) {
 	if len(computeIfAbsentCallback) >= 1 {
 		return s.conflictStorage.ComputeIfAbsent(bytes(conflictID), func(key []byte) *Conflict[ConflictID, ConflictSetID] {
 			return computeIfAbsentCallback[0](conflictID)
@@ -70,7 +71,7 @@ func (s *Storage[ConflictID, ConflictSetID]) CachedConflict(conflictID ConflictI
 
 // CachedChildConflict retrieves the CachedObject representing the named ChildConflict. The optional computeIfAbsentCallback
 // can be used to dynamically initialize a non-existing ChildConflict.
-func (s *Storage[ConflictID, ConflictSetID]) CachedChildConflict(parentConflictID, childConflictID ConflictID, computeIfAbsentCallback ...func(parentConflictID, childConflictID ConflictID) *ChildConflict[ConflictID]) *objectstorage.CachedObject[*ChildConflict[ConflictID]] {
+func (s *Storage[ConflictID, ConflictSetID]) CachedChildConflict(parentConflictID, childConflictID ConflictID, computeIfAbsentCallback ...func(parentConflictID, childConflictID ConflictID) *ChildConflict[ConflictID]) *generic.CachedObject[*ChildConflict[ConflictID]] {
 	if len(computeIfAbsentCallback) >= 1 {
 		return s.childConflictStorage.ComputeIfAbsent(byteutils.ConcatBytes(bytes(parentConflictID), bytes(childConflictID)), func(key []byte) *ChildConflict[ConflictID] {
 			return computeIfAbsentCallback[0](parentConflictID, childConflictID)
@@ -81,9 +82,9 @@ func (s *Storage[ConflictID, ConflictSetID]) CachedChildConflict(parentConflictI
 }
 
 // CachedChildConflicts retrieves the CachedObjects containing the ChildConflict references approving the named Conflict.
-func (s *Storage[ConflictID, ConflictSetID]) CachedChildConflicts(conflictID ConflictID) (cachedChildConflicts objectstorage.CachedObjects[*ChildConflict[ConflictID]]) {
-	cachedChildConflicts = make(objectstorage.CachedObjects[*ChildConflict[ConflictID]], 0)
-	s.childConflictStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*ChildConflict[ConflictID]]) bool {
+func (s *Storage[ConflictID, ConflictSetID]) CachedChildConflicts(conflictID ConflictID) (cachedChildConflicts generic.CachedObjects[*ChildConflict[ConflictID]]) {
+	cachedChildConflicts = make(generic.CachedObjects[*ChildConflict[ConflictID]], 0)
+	s.childConflictStorage.ForEach(func(key []byte, cachedObject *generic.CachedObject[*ChildConflict[ConflictID]]) bool {
 		cachedChildConflicts = append(cachedChildConflicts, cachedObject)
 		return true
 	}, objectstorage.WithIteratorPrefix(bytes(conflictID)))
@@ -93,7 +94,7 @@ func (s *Storage[ConflictID, ConflictSetID]) CachedChildConflicts(conflictID Con
 
 // CachedConflictMember retrieves the CachedObject representing the named ConflictMember. The optional
 // computeIfAbsentCallback can be used to dynamically initialize a non-existing ConflictMember.
-func (s *Storage[ConflictID, ConflictSetID]) CachedConflictMember(conflictSetID ConflictSetID, conflictID ConflictID, computeIfAbsentCallback ...func(conflictSetID ConflictSetID, conflictID ConflictID) *ConflictMember[ConflictSetID, ConflictID]) *objectstorage.CachedObject[*ConflictMember[ConflictSetID, ConflictID]] {
+func (s *Storage[ConflictID, ConflictSetID]) CachedConflictMember(conflictSetID ConflictSetID, conflictID ConflictID, computeIfAbsentCallback ...func(conflictSetID ConflictSetID, conflictID ConflictID) *ConflictMember[ConflictSetID, ConflictID]) *generic.CachedObject[*ConflictMember[ConflictSetID, ConflictID]] {
 	if len(computeIfAbsentCallback) >= 1 {
 		return s.conflictMemberStorage.ComputeIfAbsent(byteutils.ConcatBytes(bytes(conflictSetID), bytes(conflictID)), func(key []byte) *ConflictMember[ConflictSetID, ConflictID] {
 			return computeIfAbsentCallback[0](conflictSetID, conflictID)
@@ -105,9 +106,9 @@ func (s *Storage[ConflictID, ConflictSetID]) CachedConflictMember(conflictSetID 
 
 // CachedConflictMembers retrieves the CachedObjects containing the ConflictMember references related to the named
 // conflict.
-func (s *Storage[ConflictID, ConflictSetID]) CachedConflictMembers(conflictID ConflictSetID) (cachedConflictMembers objectstorage.CachedObjects[*ConflictMember[ConflictSetID, ConflictID]]) {
-	cachedConflictMembers = make(objectstorage.CachedObjects[*ConflictMember[ConflictSetID, ConflictID]], 0)
-	s.conflictMemberStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*ConflictMember[ConflictSetID, ConflictID]]) bool {
+func (s *Storage[ConflictID, ConflictSetID]) CachedConflictMembers(conflictID ConflictSetID) (cachedConflictMembers generic.CachedObjects[*ConflictMember[ConflictSetID, ConflictID]]) {
+	cachedConflictMembers = make(generic.CachedObjects[*ConflictMember[ConflictSetID, ConflictID]], 0)
+	s.conflictMemberStorage.ForEach(func(key []byte, cachedObject *generic.CachedObject[*ConflictMember[ConflictSetID, ConflictID]]) bool {
 		cachedConflictMembers = append(cachedConflictMembers, cachedObject)
 
 		return true

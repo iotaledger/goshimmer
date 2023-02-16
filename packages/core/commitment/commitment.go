@@ -3,9 +3,9 @@ package commitment
 import (
 	"unsafe"
 
-	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/model"
 	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/lo"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"

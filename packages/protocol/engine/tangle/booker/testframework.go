@@ -7,10 +7,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/hive.go/core/debug"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/runtime/debug"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
@@ -103,7 +102,7 @@ func (t *TestFramework) AssertBlockConflictsUpdateCount(blockConflictsUpdateCoun
 }
 
 func (t *TestFramework) setupEvents() {
-	event.Hook(t.Instance.Events.BlockBooked, func(metadata *Block) {
+	t.Instance.Events.BlockBooked.Hook(func(metadata *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("BOOKED: %s", metadata.ID())
 		}
@@ -111,7 +110,7 @@ func (t *TestFramework) setupEvents() {
 		atomic.AddInt32(&(t.bookedBlocks), 1)
 	})
 
-	event.Hook(t.Instance.Events.BlockConflictAdded, func(evt *BlockConflictAddedEvent) {
+	t.Instance.Events.BlockConflictAdded.Hook(func(evt *BlockConflictAddedEvent) {
 		if debug.GetEnabled() {
 			t.test.Logf("BLOCK CONFLICT UPDATED: %s - %s", evt.Block.ID(), evt.ConflictID)
 		}
@@ -119,7 +118,7 @@ func (t *TestFramework) setupEvents() {
 		atomic.AddInt32(&(t.blockConflictsUpdated), 1)
 	})
 
-	event.Hook(t.Instance.Events.MarkerConflictAdded, func(evt *MarkerConflictAddedEvent) {
+	t.Instance.Events.MarkerConflictAdded.Hook(func(evt *MarkerConflictAddedEvent) {
 		if debug.GetEnabled() {
 			t.test.Logf("MARKER CONFLICT UPDATED: %v - %v", evt.Marker, evt.ConflictID)
 		}
@@ -127,7 +126,7 @@ func (t *TestFramework) setupEvents() {
 		atomic.AddInt32(&(t.markerConflictsAdded), 1)
 	})
 
-	event.Hook(t.Instance.Events.Error, func(err error) {
+	t.Instance.Events.Error.Hook(func(err error) {
 		t.test.Logf("ERROR: %s", err)
 	})
 }

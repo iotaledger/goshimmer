@@ -1,9 +1,9 @@
 package indexer
 
 import (
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 	"go.uber.org/dig"
-
-	"github.com/iotaledger/hive.go/core/generics/event"
 
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol"
@@ -28,11 +28,11 @@ type dependencies struct {
 
 func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled)
-	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
+	Plugin.Events.Init.Hook(func(event *node.InitEvent) {
 		if err := event.Container.Provide(provide); err != nil {
 			Plugin.Panic(err)
 		}
-	}))
+	})
 }
 
 func provide(deps dependencies) (i *indexer.Indexer) {
@@ -42,9 +42,10 @@ func provide(deps dependencies) (i *indexer.Indexer) {
 		return deps.Protocol.Engine().Ledger
 	})
 
-	deps.Protocol.Events.Engine.Ledger.OutputCreated.Attach(event.NewClosure(i.OnOutputCreated))
-	deps.Protocol.Events.Engine.Ledger.OutputSpent.Attach(event.NewClosure(i.OnOutputSpentRejected))
-	deps.Protocol.Events.Engine.Ledger.OutputRejected.Attach(event.NewClosure(i.OnOutputSpentRejected))
+	wp := workerpool.New(PluginName, 1)
+	deps.Protocol.Events.Engine.Ledger.OutputCreated.Hook(i.OnOutputCreated, event.WithWorkerPool(wp))
+	deps.Protocol.Events.Engine.Ledger.OutputSpent.Hook(i.OnOutputSpentRejected, event.WithWorkerPool(wp))
+	deps.Protocol.Events.Engine.Ledger.OutputRejected.Hook(i.OnOutputSpentRejected, event.WithWorkerPool(wp))
 
 	return i
 }

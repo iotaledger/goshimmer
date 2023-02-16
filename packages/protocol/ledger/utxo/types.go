@@ -4,16 +4,16 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"github.com/iotaledger/hive.go/ds/advancedset"
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/byteutils"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/orderedmap"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/serix"
-	"github.com/iotaledger/hive.go/core/stringify"
 	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/ds/orderedmap"
+	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/serializer/v2"
+	"github.com/iotaledger/hive.go/serializer/v2/byteutils"
+	"github.com/iotaledger/hive.go/serializer/v2/serix"
+	"github.com/iotaledger/hive.go/stringify"
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
 )
@@ -65,11 +65,11 @@ var EmptyTransactionID TransactionID
 // region TransactionIDs ///////////////////////////////////////////////////////////////////////////////////////////////
 
 // TransactionIDs represents a collection of TransactionIDs.
-type TransactionIDs = *set.AdvancedSet[TransactionID]
+type TransactionIDs = *advancedset.AdvancedSet[TransactionID]
 
 // NewTransactionIDs returns a new TransactionID collection with the given elements.
 func NewTransactionIDs(ids ...TransactionID) (newTransactionIDs TransactionIDs) {
-	return set.NewAdvancedSet(ids...)
+	return advancedset.NewAdvancedSet(ids...)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -193,11 +193,11 @@ var (
 // region OutputIDs ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // OutputIDs represents a collection of OutputIDs.
-type OutputIDs = *set.AdvancedSet[OutputID]
+type OutputIDs = *advancedset.AdvancedSet[OutputID]
 
 // NewOutputIDs returns a new OutputID collection with the given elements.
 func NewOutputIDs(ids ...OutputID) (newOutputIDs OutputIDs) {
-	return set.NewAdvancedSet(ids...)
+	return advancedset.NewAdvancedSet(ids...)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -3,10 +3,10 @@ package evilwallet
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/lo"
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/ds/types"
 	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"

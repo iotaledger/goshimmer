@@ -10,13 +10,12 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/hive.go/core/autopeering/peer"
-	"github.com/iotaledger/hive.go/core/autopeering/peer/service"
+	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
-	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
-	"github.com/iotaledger/hive.go/core/typeutils"
+	"github.com/iotaledger/hive.go/runtime/event"
 
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 )
@@ -70,7 +69,7 @@ type Manager struct {
 	log               *logger.Logger
 	local             *peer.Local
 	startOnce         sync.Once
-	isStarted         typeutils.AtomicBool
+	isStarted         atomic.Bool
 	stopOnce          sync.Once
 	stopMutex         sync.RWMutex
 	isStopped         bool
@@ -78,8 +77,8 @@ type Manager struct {
 	knownPeersMutex   sync.RWMutex
 	knownPeers        map[identity.ID]*knownPeer
 
-	onGossipNeighborRemovedClosure *event.Closure[*p2p.NeighborRemovedEvent]
-	onGossipNeighborAddedClosure   *event.Closure[*p2p.NeighborAddedEvent]
+	onGossipNeighborRemovedHook *event.Hook[func(*p2p.NeighborRemovedEvent)]
+	onGossipNeighborAddedHook   *event.Hook[func(*p2p.NeighborAddedEvent)]
 }
 
 // NewManager initializes a new Manager instance.
@@ -91,8 +90,6 @@ func NewManager(p2pm *p2p.Manager, local *peer.Local, log *logger.Logger) *Manag
 		reconnectInterval: defaultReconnectInterval,
 		knownPeers:        map[identity.ID]*knownPeer{},
 	}
-	m.onGossipNeighborRemovedClosure = event.NewClosure(func(event *p2p.NeighborRemovedEvent) { m.onGossipNeighborRemoved(event.Neighbor) })
-	m.onGossipNeighborAddedClosure = event.NewClosure(func(event *p2p.NeighborAddedEvent) { m.onGossipNeighborAdded(event.Neighbor) })
 	return m
 }
 
@@ -175,15 +172,15 @@ func (m *Manager) GetPeers(opts ...GetPeersOption) []*KnownPeer {
 // Calling multiple times has no effect.
 func (m *Manager) Start() {
 	m.startOnce.Do(func() {
-		m.p2pm.NeighborGroupEvents(p2p.NeighborsGroupManual).NeighborRemoved.Attach(m.onGossipNeighborRemovedClosure)
-		m.p2pm.NeighborGroupEvents(p2p.NeighborsGroupManual).NeighborAdded.Attach(m.onGossipNeighborAddedClosure)
-		m.isStarted.Set()
+		m.onGossipNeighborRemovedHook = m.p2pm.NeighborGroupEvents(p2p.NeighborsGroupManual).NeighborRemoved.Hook(func(removedEvent *p2p.NeighborRemovedEvent) { m.onGossipNeighborRemoved(removedEvent.Neighbor) })
+		m.onGossipNeighborAddedHook = m.p2pm.NeighborGroupEvents(p2p.NeighborsGroupManual).NeighborAdded.Hook(func(event *p2p.NeighborAddedEvent) { m.onGossipNeighborAdded(event.Neighbor) })
+		m.isStarted.Store(true)
 	})
 }
 
 // Stop terminates internal background workers. Calling multiple times has no effect.
 func (m *Manager) Stop() (err error) {
-	if !m.isStarted.IsSet() {
+	if !m.isStarted.Load() {
 		return errors.New("can't stop the manager: it hasn't been started yet")
 	}
 	m.stopOnce.Do(func() {
@@ -191,8 +188,8 @@ func (m *Manager) Stop() (err error) {
 		defer m.stopMutex.Unlock()
 		m.isStopped = true
 		err = errors.WithStack(m.removeAllKnownPeers())
-		m.p2pm.NeighborGroupEvents(p2p.NeighborsGroupManual).NeighborRemoved.Detach(m.onGossipNeighborRemovedClosure)
-		m.p2pm.NeighborGroupEvents(p2p.NeighborsGroupManual).NeighborAdded.Detach(m.onGossipNeighborAddedClosure)
+		m.onGossipNeighborRemovedHook.Unhook()
+		m.onGossipNeighborAddedHook.Unhook()
 	})
 	return err
 }
@@ -237,7 +234,7 @@ func (kp *knownPeer) setConnStatus(cs ConnectionStatus) {
 }
 
 func (m *Manager) addPeer(p *KnownPeerToAdd) error {
-	if !m.isStarted.IsSet() {
+	if !m.isStarted.Load() {
 		return errors.New("manual peering manager hasn't been started yet")
 	}
 	m.stopMutex.RLock()

@@ -3,7 +3,7 @@ package devnetvm
 import (
 	"math"
 
-	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/pkg/errors"
 )
 

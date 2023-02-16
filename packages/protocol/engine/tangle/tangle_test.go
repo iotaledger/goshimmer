@@ -3,7 +3,7 @@ package tangle
 import (
 	"testing"
 
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )

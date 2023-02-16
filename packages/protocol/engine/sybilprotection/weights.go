@@ -1,16 +1,16 @@
 package sybilprotection
 
 import (
+	"github.com/iotaledger/hive.go/ds/advancedset"
 	"sync"
 
 	"github.com/pkg/errors"
 	"github.com/zyedidia/generic/cache"
 
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/kvstore"
+	"github.com/iotaledger/hive.go/lo"
 
 	"github.com/iotaledger/goshimmer/packages/core/ads"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -80,7 +80,7 @@ func (w *Weights) BatchUpdate(batch *WeightsBatch) {
 	defer w.mutex.Unlock()
 
 	direction := int64(lo.Compare(batch.TargetEpoch(), w.totalWeight.UpdateTime))
-	removedWeights := set.NewAdvancedSet[identity.ID]()
+	removedWeights := advancedset.NewAdvancedSet[identity.ID]()
 
 	batch.ForEach(func(id identity.ID, diff int64) {
 		oldWeight, exists := w.get(id)

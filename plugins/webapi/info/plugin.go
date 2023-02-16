@@ -1,14 +1,15 @@
 package info
 
 import (
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 	"net/http"
 	"sort"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/node"
-	"github.com/iotaledger/hive.go/core/autopeering/peer"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/event"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58/base58"
 	"go.uber.org/dig"
@@ -43,6 +44,7 @@ var (
 	deps               = new(dependencies)
 	lastAcceptedBlock  = latestblocktracker.New()
 	lastConfirmedBlock = latestblocktracker.New()
+	workerPool         = workerpool.New(PluginName, 1)
 )
 
 func init() {
@@ -50,12 +52,16 @@ func init() {
 }
 
 func configure(_ *node.Plugin) {
-	deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
+	workerPool.Start()
+
+	deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Hook(func(block *blockgadget.Block) {
 		lastAcceptedBlock.Update(block.ModelsBlock)
-	}))
-	deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockConfirmed.Attach(event.NewClosure(func(block *blockgadget.Block) {
+	}, event.WithWorkerPool(workerPool))
+
+	deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockConfirmed.Hook(func(block *blockgadget.Block) {
 		lastConfirmedBlock.Update(block.ModelsBlock)
-	}))
+	}, event.WithWorkerPool(workerPool))
+
 	deps.Server.GET("info", getInfo)
 }
 

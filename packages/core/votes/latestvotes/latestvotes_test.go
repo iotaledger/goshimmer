@@ -3,9 +3,9 @@ package latestvotes
 import (
 	"testing"
 
-	"github.com/iotaledger/hive.go/core/generics/constraints"
-	"github.com/iotaledger/hive.go/core/generics/thresholdmap"
+	"github.com/iotaledger/hive.go/constraints"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/ds/thresholdmap"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/core/votes"

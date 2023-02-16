@@ -5,14 +5,15 @@ package remotemetrics
 
 import (
 	"context"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 	"time"
 
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/hive.go/app/daemon"
-	"github.com/iotaledger/hive.go/core/autopeering/peer"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/timeutil"
+	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/timeutil"
 
 	"github.com/iotaledger/goshimmer/packages/app/remotemetrics"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
@@ -32,6 +33,11 @@ const (
 )
 
 const (
+	// PluginName is the name of the faucet plugin.
+	PluginName = "RemoteLogMetrics"
+)
+
+const (
 	// Debug defines the most verbose metrics collection level.
 	Debug uint8 = iota
 	// Info defines regular metrics collection level.
@@ -46,6 +52,8 @@ var (
 	// Plugin is the plugin instance of the remote plugin instance.
 	Plugin *node.Plugin
 	deps   = new(dependencies)
+
+	workers = workerpool.NewGroup(PluginName)
 )
 
 type dependencies struct {
@@ -57,7 +65,7 @@ type dependencies struct {
 }
 
 func init() {
-	Plugin = node.NewPlugin("RemoteLogMetrics", deps, node.Enabled, configure, run)
+	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
 }
 
 func configure(_ *node.Plugin) {
@@ -94,6 +102,7 @@ func run(_ *node.Plugin) {
 
 		// Wait before terminating so we get correct log blocks from the daemon regarding the shutdown order.
 		<-ctx.Done()
+		workers.Shutdown()
 	}, shutdown.PriorityRemoteLog); err != nil {
 		Plugin.Panicf("Failed to start as daemon: %s", err)
 	}
@@ -103,19 +112,23 @@ func configureSyncMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
 	}
-	remotemetrics.Events.TangleTimeSyncChanged.Attach(event.NewClosure(func(event *remotemetrics.TangleTimeSyncChangedEvent) {
+
+	wp := workers.CreatePool("SyncMetrics", 1)
+	remotemetrics.Events.TangleTimeSyncChanged.Hook(func(event *remotemetrics.TangleTimeSyncChangedEvent) {
 		isTangleTimeSynced.Store(event.CurrentStatus)
-	}))
-	remotemetrics.Events.TangleTimeSyncChanged.Attach(event.NewClosure(func(event *remotemetrics.TangleTimeSyncChangedEvent) {
+	}, event.WithWorkerPool(wp))
+	remotemetrics.Events.TangleTimeSyncChanged.Hook(func(event *remotemetrics.TangleTimeSyncChangedEvent) {
 		sendSyncStatusChangedEvent(event)
-	}))
+	}, event.WithWorkerPool(wp))
 }
 
 func configureSchedulerQueryMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
 	}
-	remotemetrics.Events.SchedulerQuery.Attach(event.NewClosure(func(event *remotemetrics.SchedulerQueryEvent) { obtainSchedulerStats(event.Time) }))
+
+	wp := workers.CreatePool("SchedulerQueryMetrics", 1)
+	remotemetrics.Events.SchedulerQuery.Hook(func(event *remotemetrics.SchedulerQueryEvent) { obtainSchedulerStats(event.Time) }, event.WithWorkerPool(wp))
 }
 
 func configureConflictConfirmationMetrics() {
@@ -123,11 +136,12 @@ func configureConflictConfirmationMetrics() {
 		return
 	}
 
-	deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictAccepted.Attach(event.NewClosure(func(conflictID utxo.TransactionID) {
+	wp := workers.CreatePool("ConflictConfirmationMetrics", 1)
+	deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictAccepted.Hook(func(conflictID utxo.TransactionID) {
 		onConflictConfirmed(conflictID)
-	}))
+	}, event.WithWorkerPool(wp))
 
-	deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictCreated.Attach(event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
+	deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictCreated.Hook(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
 		activeConflictsMutex.Lock()
 		defer activeConflictsMutex.Unlock()
 
@@ -137,35 +151,41 @@ func configureConflictConfirmationMetrics() {
 			activeConflicts.Add(conflictID)
 			sendConflictMetrics()
 		}
-	}))
+	}, event.WithWorkerPool(wp))
 }
 
 func configureBlockFinalizedMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
-	} else if Parameters.MetricsLevel == Info {
-		deps.Protocol.Events.Engine.Ledger.TransactionAccepted.Attach(event.NewClosure(onTransactionAccepted))
+	}
+
+	wp := workers.CreatePool("BlockFinalizedMetrics", 1)
+	if Parameters.MetricsLevel == Info {
+		deps.Protocol.Events.Engine.Ledger.TransactionAccepted.Hook(onTransactionAccepted, event.WithWorkerPool(wp))
 	} else {
-		deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockConfirmed.Attach(event.NewClosure(func(block *blockgadget.Block) {
+		deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockConfirmed.Hook(func(block *blockgadget.Block) {
 			onBlockFinalized(block.ModelsBlock)
-		}))
+		}, event.WithWorkerPool(wp))
 	}
 }
 
 func configureBlockScheduledMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
-	} else if Parameters.MetricsLevel == Info {
-		deps.Protocol.CongestionControl.Events.Scheduler.BlockDropped.Attach(event.NewClosure(func(block *scheduler.Block) {
+	}
+
+	wp := workers.CreatePool("BlockScheduledMetrics", 1)
+	if Parameters.MetricsLevel == Info {
+		deps.Protocol.CongestionControl.Events.Scheduler.BlockDropped.Hook(func(block *scheduler.Block) {
 			sendBlockSchedulerRecord(block, "blockDiscarded")
-		}))
+		}, event.WithWorkerPool(wp))
 	} else {
-		deps.Protocol.CongestionControl.Events.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
+		deps.Protocol.CongestionControl.Events.Scheduler.BlockScheduled.Hook(func(block *scheduler.Block) {
 			sendBlockSchedulerRecord(block, "blockScheduled")
-		}))
-		deps.Protocol.CongestionControl.Events.Scheduler.BlockDropped.Attach(event.NewClosure(func(block *scheduler.Block) {
+		}, event.WithWorkerPool(wp))
+		deps.Protocol.CongestionControl.Events.Scheduler.BlockDropped.Hook(func(block *scheduler.Block) {
 			sendBlockSchedulerRecord(block, "blockDiscarded")
-		}))
+		}, event.WithWorkerPool(wp))
 	}
 }
 
@@ -174,10 +194,11 @@ func configureMissingBlockMetrics() {
 		return
 	}
 
-	deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(func(block *blockdag.Block) {
+	wp := workers.CreatePool("MissingBlockMetrics", 1)
+	deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockMissing.Hook(func(block *blockdag.Block) {
 		sendMissingBlockRecord(block.ModelsBlock, "missingBlock")
-	}))
-	deps.Protocol.Events.Engine.Tangle.BlockDAG.MissingBlockAttached.Attach(event.NewClosure(func(block *blockdag.Block) {
+	}, event.WithWorkerPool(wp))
+	deps.Protocol.Events.Engine.Tangle.BlockDAG.MissingBlockAttached.Hook(func(block *blockdag.Block) {
 		sendMissingBlockRecord(block.ModelsBlock, "missingBlockStored")
-	}))
+	}, event.WithWorkerPool(wp))
 }

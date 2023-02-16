@@ -7,11 +7,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/hive.go/core/debug"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/debug"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
@@ -36,7 +35,7 @@ type TestFramework struct {
 	orphanedBlocksMutex sync.Mutex
 
 	workers    *workerpool.Group
-	workerPool *workerpool.UnboundedWorkerPool
+	workerPool *workerpool.WorkerPool
 
 	*ModelsTestFramework
 }
@@ -177,42 +176,42 @@ func (t *TestFramework) AssertLikedInsteadChildren(m map[string][]string) {
 }
 
 func (t *TestFramework) setupEvents() {
-	event.Hook(t.Instance.Events.BlockSolid, func(metadata *Block) {
+	t.Instance.Events.BlockSolid.Hook(func(metadata *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("SOLID: %s", metadata.ID())
 		}
 		atomic.AddInt32(&(t.solidBlocks), 1)
 	})
 
-	event.Hook(t.Instance.Events.BlockMissing, func(metadata *Block) {
+	t.Instance.Events.BlockMissing.Hook(func(metadata *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("MISSING: %s", metadata.ID())
 		}
 		atomic.AddInt32(&(t.missingBlocks), 1)
 	})
 
-	event.Hook(t.Instance.Events.MissingBlockAttached, func(metadata *Block) {
+	t.Instance.Events.MissingBlockAttached.Hook(func(metadata *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("MISSING BLOCK STORED: %s", metadata.ID())
 		}
 		atomic.AddInt32(&(t.missingBlocks), -1)
 	})
 
-	event.Hook(t.Instance.Events.BlockInvalid, func(event *BlockInvalidEvent) {
+	t.Instance.Events.BlockInvalid.Hook(func(event *BlockInvalidEvent) {
 		if debug.GetEnabled() {
 			t.test.Logf("INVALID: %s (%s)", event.Block.ID(), event.Reason)
 		}
 		atomic.AddInt32(&(t.invalidBlocks), 1)
 	})
 
-	event.Hook(t.Instance.Events.BlockAttached, func(metadata *Block) {
+	t.Instance.Events.BlockAttached.Hook(func(metadata *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("ATTACHED: %s", metadata.ID())
 		}
 		atomic.AddInt32(&(t.attachedBlocks), 1)
 	})
 
-	event.Hook(t.Instance.Events.BlockOrphaned, func(metadata *Block) {
+	t.Instance.Events.BlockOrphaned.Hook(func(metadata *Block) {
 		t.orphanedBlocksMutex.Lock()
 		defer t.orphanedBlocksMutex.Unlock()
 
@@ -223,7 +222,7 @@ func (t *TestFramework) setupEvents() {
 		t.orphanedBlocks.Add(metadata.ID())
 	})
 
-	event.Hook(t.Instance.Events.BlockUnorphaned, func(metadata *Block) {
+	t.Instance.Events.BlockUnorphaned.Hook(func(metadata *Block) {
 		t.orphanedBlocksMutex.Lock()
 		defer t.orphanedBlocksMutex.Unlock()
 

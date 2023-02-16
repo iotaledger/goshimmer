@@ -8,12 +8,11 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/model"
-	"github.com/iotaledger/hive.go/core/serix"
-	"github.com/iotaledger/hive.go/core/stringify"
-	"github.com/iotaledger/hive.go/core/types"
-	"github.com/iotaledger/hive.go/core/typeutils"
+	"github.com/iotaledger/hive.go/ds/types"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/serializer/v2/serix"
+	"github.com/iotaledger/hive.go/stringify"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
@@ -100,7 +99,7 @@ func NewInputs(optionalInputs ...Input) (inputs Inputs) {
 	// filter duplicates (store marshaled version so we don't need to marshal a second time during sort)
 	for _, input := range optionalInputs {
 		marshaledInput := lo.PanicOnErr(input.Bytes())
-		marshaledInputAsString := typeutils.BytesToString(marshaledInput)
+		marshaledInputAsString := string(marshaledInput)
 
 		if _, seenAlready := seenInputs[marshaledInputAsString]; seenAlready {
 			continue

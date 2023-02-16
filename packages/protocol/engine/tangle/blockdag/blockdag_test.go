@@ -8,11 +8,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/randommap"
 	"github.com/iotaledger/hive.go/core/types"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/ds/randommap"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -608,12 +608,12 @@ func TestBlockDAG_MissingBlocks(t *testing.T) {
 		blocks[blk.ID()] = blk
 	}
 
-	event.AttachWithWorkerPool(tf.Instance.Events.BlockMissing, func(metadata *Block) {
+	tf.Instance.Events.BlockMissing.Hook(func(metadata *Block) {
 		time.Sleep(storeDelay)
 
 		_, _, err := tf.Instance.Attach(blocks[metadata.ID()])
 		require.NoError(t, err, "should be able to attach a block")
-	}, workers.CreatePool("BlockMissing", 2))
+	}, event.WithWorkerPool(workers.CreatePool("BlockMissing", 2)))
 
 	// issue tips to start solidification
 	tips.ForEach(func(key models.BlockID, _ models.BlockID) bool {

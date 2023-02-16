@@ -8,11 +8,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
@@ -82,7 +81,7 @@ func (n *Node) HookLogging(includeMainEngine bool) {
 		n.attachEngineLogs(n.Protocol.MainEngineInstance())
 	}
 
-	event.Hook(events.CandidateEngineActivated, func(candidateEngine *enginemanager.EngineInstance) {
+	events.CandidateEngineActivated.Hook(func(candidateEngine *enginemanager.EngineInstance) {
 		n.EngineTestFramework = engine.NewTestFramework(n.Testing, n.Workers.CreateGroup(fmt.Sprintf("EngineTestFramework-%s", candidateEngine.Name()[:8])), candidateEngine.Engine)
 
 		fmt.Printf("%s > CandidateEngineActivated: latest commitment %s %s\n", n.Name, candidateEngine.Storage.Settings.LatestCommitment().ID(), candidateEngine.Storage.Settings.LatestCommitment())
@@ -90,61 +89,61 @@ func (n *Node) HookLogging(includeMainEngine bool) {
 		n.attachEngineLogs(candidateEngine)
 	})
 
-	event.Hook(events.MainEngineSwitched, func(engine *enginemanager.EngineInstance) {
+	events.MainEngineSwitched.Hook(func(engine *enginemanager.EngineInstance) {
 		fmt.Printf("%s > MainEngineSwitched: latest commitment %s %s\n", n.Name, engine.Storage.Settings.LatestCommitment().ID(), engine.Storage.Settings.LatestCommitment())
 		fmt.Printf("================\nSWITCH %s\n================\n", n.Name)
 	})
 
-	event.Hook(events.CongestionControl.Scheduler.BlockScheduled, func(block *scheduler.Block) {
+	events.CongestionControl.Scheduler.BlockScheduled.Hook(func(block *scheduler.Block) {
 		fmt.Printf("%s > CongestionControl.Scheduler.BlockScheduled: %s\n", n.Name, block.ID())
 	})
 
-	event.Hook(events.CongestionControl.Scheduler.BlockDropped, func(block *scheduler.Block) {
+	events.CongestionControl.Scheduler.BlockDropped.Hook(func(block *scheduler.Block) {
 		fmt.Printf("%s > CongestionControl.Scheduler.BlockDropped: %s\n", n.Name, block.ID())
 	})
 
-	event.Hook(events.CongestionControl.Scheduler.BlockSubmitted, func(block *scheduler.Block) {
+	events.CongestionControl.Scheduler.BlockSubmitted.Hook(func(block *scheduler.Block) {
 		fmt.Printf("%s > CongestionControl.Scheduler.BlockSubmitted: %s\n", n.Name, block.ID())
 	})
 
-	event.Hook(events.CongestionControl.Scheduler.BlockSkipped, func(block *scheduler.Block) {
+	events.CongestionControl.Scheduler.BlockSkipped.Hook(func(block *scheduler.Block) {
 		fmt.Printf("%s > CongestionControl.Scheduler.BlockSkipped: %s\n", n.Name, block.ID())
 	})
 
-	event.Hook(events.ChainManager.ForkDetected, func(fork *chainmanager.Fork) {
+	events.ChainManager.ForkDetected.Hook(func(fork *chainmanager.Fork) {
 		fmt.Printf("%s > ChainManager.ForkDetected: %s with forking point %s received from %s\n", n.Name, fork.Commitment.ID(), fork.ForkingPoint.ID(), fork.Source)
 		fmt.Printf("----------------------\nForkDetected %s\n----------------------\n", n.Name)
 	})
 
-	event.Hook(events.Error, func(err error) {
+	events.Error.Hook(func(err error) {
 		fmt.Printf("%s > Error: %s\n", n.Name, err.Error())
 	})
 
-	event.Hook(events.Network.BlockReceived, func(event *network.BlockReceivedEvent) {
+	events.Network.BlockReceived.Hook(func(event *network.BlockReceivedEvent) {
 		fmt.Printf("%s > Network.BlockReceived: from %s %s - %d\n", n.Name, event.Source, event.Block.ID(), event.Block.ID().Index())
 	})
 
-	event.Hook(events.Network.BlockRequestReceived, func(event *network.BlockRequestReceivedEvent) {
+	events.Network.BlockRequestReceived.Hook(func(event *network.BlockRequestReceivedEvent) {
 		fmt.Printf("%s > Network.BlockRequestReceived: from %s %s\n", n.Name, event.Source, event.BlockID)
 	})
 
-	event.Hook(events.Network.AttestationsReceived, func(event *network.AttestationsReceivedEvent) {
+	events.Network.AttestationsReceived.Hook(func(event *network.AttestationsReceivedEvent) {
 		fmt.Printf("%s > Network.AttestationsReceived: from %s for %s\n", n.Name, event.Source, event.Commitment.ID())
 	})
 
-	event.Hook(events.Network.AttestationsRequestReceived, func(event *network.AttestationsRequestReceivedEvent) {
+	events.Network.AttestationsRequestReceived.Hook(func(event *network.AttestationsRequestReceivedEvent) {
 		fmt.Printf("%s > Network.AttestationsRequestReceived: from %s %s -> %d\n", n.Name, event.Source, event.Commitment.ID(), event.EndIndex)
 	})
 
-	event.Hook(events.Network.EpochCommitmentReceived, func(event *network.EpochCommitmentReceivedEvent) {
+	events.Network.EpochCommitmentReceived.Hook(func(event *network.EpochCommitmentReceivedEvent) {
 		fmt.Printf("%s > Network.EpochCommitmentReceived: from %s %s\n", n.Name, event.Source, event.Commitment.ID())
 	})
 
-	event.Hook(events.Network.EpochCommitmentRequestReceived, func(event *network.EpochCommitmentRequestReceivedEvent) {
+	events.Network.EpochCommitmentRequestReceived.Hook(func(event *network.EpochCommitmentRequestReceivedEvent) {
 		fmt.Printf("%s > Network.EpochCommitmentRequestReceived: from %s %s\n", n.Name, event.Source, event.CommitmentID)
 	})
 
-	event.Hook(events.Network.Error, func(event *network.ErrorEvent) {
+	events.Network.Error.Hook(func(event *network.ErrorEvent) {
 		fmt.Printf("%s > Network.Error: from %s %s\n", n.Name, event.Source, event.Error.Error())
 	})
 }
@@ -153,80 +152,80 @@ func (n *Node) attachEngineLogs(instance *enginemanager.EngineInstance) {
 	engineName := fmt.Sprintf("%s - %s", lo.Cond(n.Protocol.Engine() != instance.Engine, "Candidate", "Main"), instance.Name()[:8])
 	events := instance.Engine.Events
 
-	event.Hook(events.Tangle.BlockDAG.BlockAttached, func(block *blockdag.Block) {
+	events.Tangle.BlockDAG.BlockAttached.Hook(func(block *blockdag.Block) {
 		fmt.Printf("%s > [%s] BlockDAG.BlockAttached: %s\n", n.Name, engineName, block.ID())
 	})
 
-	event.Hook(events.Tangle.BlockDAG.BlockSolid, func(block *blockdag.Block) {
+	events.Tangle.BlockDAG.BlockSolid.Hook(func(block *blockdag.Block) {
 		fmt.Printf("%s > [%s] BlockDAG.BlockSolid: %s\n", n.Name, engineName, block.ID())
 	})
 
-	event.Hook(events.Tangle.BlockDAG.BlockInvalid, func(event *blockdag.BlockInvalidEvent) {
+	events.Tangle.BlockDAG.BlockInvalid.Hook(func(event *blockdag.BlockInvalidEvent) {
 		fmt.Printf("%s > [%s] BlockDAG.BlockInvalid: %s - %s\n", n.Name, engineName, event.Block.ID(), event.Reason.Error())
 	})
 
-	event.Hook(events.Tangle.BlockDAG.BlockMissing, func(block *blockdag.Block) {
+	events.Tangle.BlockDAG.BlockMissing.Hook(func(block *blockdag.Block) {
 		fmt.Printf("%s > [%s] BlockDAG.BlockMissing: %s\n", n.Name, engineName, block.ID())
 	})
 
-	event.Hook(events.Tangle.BlockDAG.MissingBlockAttached, func(block *blockdag.Block) {
+	events.Tangle.BlockDAG.MissingBlockAttached.Hook(func(block *blockdag.Block) {
 		fmt.Printf("%s > [%s] BlockDAG.MissingBlockAttached: %s\n", n.Name, engineName, block.ID())
 	})
 
-	event.Hook(events.Tangle.BlockDAG.BlockOrphaned, func(block *blockdag.Block) {
+	events.Tangle.BlockDAG.BlockOrphaned.Hook(func(block *blockdag.Block) {
 		fmt.Printf("%s > [%s] BlockDAG.BlockOrphaned: %s\n", n.Name, engineName, block.ID())
 	})
 
-	event.Hook(events.Tangle.BlockDAG.BlockUnorphaned, func(block *blockdag.Block) {
+	events.Tangle.BlockDAG.BlockUnorphaned.Hook(func(block *blockdag.Block) {
 		fmt.Printf("%s > [%s] BlockDAG.BlockUnorphaned: %s\n", n.Name, engineName, block.ID())
 	})
 
-	event.Hook(events.Tangle.Booker.BlockBooked, func(block *booker.Block) {
+	events.Tangle.Booker.BlockBooked.Hook(func(block *booker.Block) {
 		fmt.Printf("%s > [%s] Booker.BlockBooked: %s\n", n.Name, engineName, block.ID())
 	})
 
-	event.Hook(events.Tangle.VirtualVoting.SequenceTracker.VotersUpdated, func(event *sequencetracker.VoterUpdatedEvent) {
+	events.Tangle.VirtualVoting.SequenceTracker.VotersUpdated.Hook(func(event *sequencetracker.VoterUpdatedEvent) {
 		fmt.Printf("%s > [%s] Tangle.VirtualVoting.SequenceTracker.VotersUpdated: %s %s %d -> %d\n", n.Name, engineName, event.Voter, event.SequenceID, event.PrevMaxSupportedIndex, event.NewMaxSupportedIndex)
 	})
 
-	event.Hook(events.Clock.AcceptanceTimeUpdated, func(event *clock.TimeUpdateEvent) {
+	events.Clock.AcceptanceTimeUpdated.Hook(func(event *clock.TimeUpdateEvent) {
 		fmt.Printf("%s > [%s] Clock.AcceptanceTimeUpdated: %s\n", n.Name, engineName, event.NewTime)
 	})
 
-	event.Hook(events.Filter.BlockAllowed, func(block *models.Block) {
+	events.Filter.BlockAllowed.Hook(func(block *models.Block) {
 		fmt.Printf("%s > [%s] Filter.BlockAllowed: %s\n", n.Name, engineName, block.ID())
 	})
 
-	event.Hook(events.Filter.BlockFiltered, func(event *filter.BlockFilteredEvent) {
+	events.Filter.BlockFiltered.Hook(func(event *filter.BlockFilteredEvent) {
 		fmt.Printf("%s > [%s] Filter.BlockFiltered: %s - %s\n", n.Name, engineName, event.Block.ID(), event.Reason.Error())
 		n.Testing.Fatal("no blocks should be filtered")
 	})
 
-	event.Hook(events.BlockRequester.Tick, func(blockID models.BlockID) {
+	events.BlockRequester.Tick.Hook(func(blockID models.BlockID) {
 		fmt.Printf("%s > [%s] BlockRequester.Tick: %s\n", n.Name, engineName, blockID)
 	})
 
-	event.Hook(events.BlockProcessed, func(blockID models.BlockID) {
+	events.BlockProcessed.Hook(func(blockID models.BlockID) {
 		fmt.Printf("%s > [%s] Engine.BlockProcessed: %s\n", n.Name, engineName, blockID)
 	})
 
-	event.Hook(events.Error, func(err error) {
+	events.Error.Hook(func(err error) {
 		fmt.Printf("%s > [%s] Engine.Error: %s\n", n.Name, engineName, err.Error())
 	})
 
-	event.Hook(events.NotarizationManager.EpochCommitted, func(details *notarization.EpochCommittedDetails) {
+	events.NotarizationManager.EpochCommitted.Hook(func(details *notarization.EpochCommittedDetails) {
 		fmt.Printf("%s > [%s] NotarizationManager.EpochCommitted: %s %s\n", n.Name, engineName, details.Commitment.ID(), details.Commitment)
 	})
 
-	event.Hook(events.Consensus.BlockGadget.BlockAccepted, func(block *blockgadget.Block) {
+	events.Consensus.BlockGadget.BlockAccepted.Hook(func(block *blockgadget.Block) {
 		fmt.Printf("%s > [%s] Consensus.BlockGadget.BlockAccepted: %s %s\n", n.Name, engineName, block.ID(), block.Commitment().ID())
 	})
 
-	event.Hook(events.Consensus.BlockGadget.BlockConfirmed, func(block *blockgadget.Block) {
+	events.Consensus.BlockGadget.BlockConfirmed.Hook(func(block *blockgadget.Block) {
 		fmt.Printf("%s > [%s] Consensus.BlockGadget.BlockConfirmed: %s %s\n", n.Name, engineName, block.ID(), block.Commitment().ID())
 	})
 
-	event.Hook(events.Consensus.EpochGadget.EpochConfirmed, func(epochIndex epoch.Index) {
+	events.Consensus.EpochGadget.EpochConfirmed.Hook(func(epochIndex epoch.Index) {
 		fmt.Printf("%s > [%s] Consensus.EpochGadget.EpochConfirmed: %s\n", n.Name, engineName, epochIndex)
 	})
 }

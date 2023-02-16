@@ -1,9 +1,8 @@
 package database
 
 import (
+	"github.com/iotaledger/hive.go/objectstorage"
 	"time"
-
-	"github.com/iotaledger/hive.go/core/generics/objectstorage"
 )
 
 // CacheTimeProvider should be always used to get the CacheTime option for storage

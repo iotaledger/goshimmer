@@ -6,10 +6,9 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/walker"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/ds/walker"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/causalorder"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -57,7 +56,7 @@ func New(workers *workerpool.Group, evictionState *eviction.State, opts ...optio
 			causalorder.WithReferenceValidator[models.BlockID](checkReference),
 		)
 
-		event.Hook(evictionState.Events.EpochEvicted, b.evictEpoch)
+		evictionState.Events.EpochEvicted.Hook(b.evictEpoch)
 	})
 }
 

@@ -1,7 +1,7 @@
 package dashboardmetrics
 
 import (
-	"github.com/iotaledger/hive.go/core/syncutils"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/app/collector"

@@ -2,12 +2,12 @@ package conflictdag
 
 import (
 	"context"
+	"github.com/iotaledger/hive.go/objectstorage/generic"
 
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/objectstorage"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/generics/walker"
-	"github.com/iotaledger/hive.go/core/serix"
+	"github.com/iotaledger/hive.go/ds/set"
+	"github.com/iotaledger/hive.go/ds/walker"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/serializer/v2/serix"
 )
 
 // Utils is a ConflictDAG component that bundles utility related API to simplify common interactions with the ConflictDAG.
@@ -31,7 +31,7 @@ func (u *Utils[ConflictID, ConflictSetID]) ForEachChildConflictID(conflictID Con
 
 // ForEachConflict iterates over every existing Conflict in the entire Storage.
 func (u *Utils[ConflictID, ConflictSetID]) ForEachConflict(consumer func(conflict *Conflict[ConflictID, ConflictSetID])) {
-	u.conflictDAG.Storage.conflictStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*Conflict[ConflictID, ConflictSetID]]) bool {
+	u.conflictDAG.Storage.conflictStorage.ForEach(func(key []byte, cachedObject *generic.CachedObject[*Conflict[ConflictID, ConflictSetID]]) bool {
 		cachedObject.Consume(func(conflict *Conflict[ConflictID, ConflictSetID]) {
 			consumer(conflict)
 		})

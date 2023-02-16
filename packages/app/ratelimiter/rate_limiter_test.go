@@ -5,10 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/autopeering/peer"
-	"github.com/iotaledger/hive.go/core/autopeering/peer/service"
+	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
-	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/stretchr/testify/require"
@@ -53,7 +52,7 @@ func testCount(t testing.TB, prl *ratelimiter.PeerRateLimiter, testPeer *peer.Pe
 	activityCount := atomic.NewInt32(0)
 	expectedActivity := testLimit + 1
 	eventCalled := atomic.NewInt32(0)
-	event.Hook(prl.Events.Hit, func(event *ratelimiter.HitEvent) {
+	prl.Events.Hit.Hook(func(event *ratelimiter.HitEvent) {
 		p := event.Source
 		rl := event.RateLimit
 		eventCalled.Inc()

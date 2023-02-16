@@ -1,12 +1,12 @@
 package votes
 
 import (
+	"github.com/iotaledger/hive.go/ds/advancedset"
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/generics/constraints"
-	"github.com/iotaledger/hive.go/core/generics/orderedmap"
-	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/constraints"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/ds/orderedmap"
 )
 
 type Vote[ConflictIDType comparable, VotePowerType constraints.Comparable[VotePowerType]] struct {
@@ -91,8 +91,8 @@ func (v *Votes[ConflictIDType, VotePowerType]) Delete(vote *Vote[ConflictIDType,
 	return v.o.Delete(vote.Voter)
 }
 
-func (v *Votes[ConflictIDType, VotePowerType]) Voters() (voters *set.AdvancedSet[identity.ID]) {
-	voters = set.NewAdvancedSet[identity.ID]()
+func (v *Votes[ConflictIDType, VotePowerType]) Voters() (voters *advancedset.AdvancedSet[identity.ID]) {
+	voters = advancedset.NewAdvancedSet[identity.ID]()
 
 	v.m.RLock()
 	defer v.m.RUnlock()

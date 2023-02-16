@@ -8,9 +8,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
-
-	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 )
 
@@ -25,20 +22,18 @@ type EventMock struct {
 	calledEvents   uint64
 	test           *testing.T
 
-	attached []struct {
-		*event.Event[*commitment.Commitment]
-		*event.Closure[*commitment.Commitment]
-	}
+	attached []func()
 }
 
 // NewEventMock creates a new EventMock.
 func NewEventMock(t *testing.T, notarizationManager *notarization.Manager) *EventMock {
 	e := &EventMock{
-		test: t,
+		test:     t,
+		attached: make([]func(), 0),
 	}
 
 	// attach all events
-	event.Hook(notarizationManager.Events.EpochCommitted, e.EpochCommittable)
+	e.attached = append(e.attached, notarizationManager.Events.EpochCommitted.Hook(e.EpochCommittable).Unhook)
 	// event.Hook(notarizationManager.Events.ConsensusWeightsUpdated, e.ManaVectorUpdate)
 
 	return e
@@ -47,13 +42,12 @@ func NewEventMock(t *testing.T, notarizationManager *notarization.Manager) *Even
 // DetachAll detaches all event handlers.
 func (e *EventMock) DetachAll() {
 	for _, a := range e.attached {
-		a.Event.Detach(a.Closure)
+		a()
 	}
 }
 
 // Expect is a proxy for Mock.On() but keeping track of num of calls.
 func (e *EventMock) Expect(eventName string, arguments ...interface{}) {
-	event.Loop.PendingTasksCounter.WaitIsZero()
 	e.On(eventName, arguments...)
 	atomic.AddUint64(&e.expectedEvents, 1)
 }
@@ -61,7 +55,6 @@ func (e *EventMock) Expect(eventName string, arguments ...interface{}) {
 // AssertExpectations asserts expectations.
 func (e *EventMock) AssertExpectations(t mock.TestingT) bool {
 	var calledEvents, expectedEvents uint64
-	event.Loop.PendingTasksCounter.WaitIsZero()
 
 	require.Eventuallyf(t, func() bool {
 		calledEvents = atomic.LoadUint64(&e.calledEvents)

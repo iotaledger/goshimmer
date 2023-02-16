@@ -10,7 +10,7 @@ package tipmanager
 //
 // func NewTipsConflictTracker(tangle *Tangle) *TipsConflictTracker {
 // 	return &TipsConflictTracker{
-// 		missingConflicts:  set.NewAdvancedSet[utxo.TransactionID](),
+// 		missingConflicts:  advancedset.NewAdvancedSet[utxo.TransactionID](),
 // 		tipsConflictCount: make(map[utxo.TransactionID]int),
 // 		tangle:            tangle,
 // 	}
@@ -37,7 +37,7 @@ package tipmanager
 // 	for it := blockConflictIDs.Iterator(); it.HasNext(); {
 // 		conflictID := it.Next()
 //
-// 		if !c.tangle.Ledger.ConflictDAG.ConfirmationState(set.NewAdvancedSet(conflictID)).IsPending() {
+// 		if !c.tangle.Ledger.ConflictDAG.ConfirmationState(advancedset.NewAdvancedSet(conflictID)).IsPending() {
 // 			continue
 // 		}
 //
@@ -63,7 +63,7 @@ package tipmanager
 // 			continue
 // 		}
 //
-// 		if !c.tangle.Ledger.ConflictDAG.ConfirmationState(set.NewAdvancedSet(conflictID)).IsPending() {
+// 		if !c.tangle.Ledger.ConflictDAG.ConfirmationState(advancedset.NewAdvancedSet(conflictID)).IsPending() {
 // 			continue
 // 		}
 //
@@ -81,7 +81,7 @@ package tipmanager
 // 	missingConflicts = utxo.NewTransactionIDs()
 // 	_ = c.missingConflicts.ForEach(func(conflictID utxo.TransactionID) (err error) {
 // 		// TODO: this should not be necessary if ConflictAccepted/ConflictRejected events are fired appropriately
-// 		if !c.tangle.Ledger.ConflictDAG.ConfirmationState(set.NewAdvancedSet(conflictID)).IsPending() {
+// 		if !c.tangle.Ledger.ConflictDAG.ConfirmationState(advancedset.NewAdvancedSet(conflictID)).IsPending() {
 // 			c.missingConflicts.Delete(conflictID)
 // 			delete(c.tipsConflictCount, conflictID)
 // 			return

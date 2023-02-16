@@ -1,9 +1,9 @@
 package epochtracker
 
 import (
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/lo"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
@@ -14,7 +14,7 @@ type EpochTracker struct {
 	Events *Events
 
 	votesPerIdentity *memstorage.Storage[identity.ID, *latestvotes.LatestVotes[epoch.Index, EpochVotePower]]
-	votersPerEpoch   *memstorage.Storage[epoch.Index, *set.AdvancedSet[identity.ID]]
+	votersPerEpoch   *memstorage.Storage[epoch.Index, *advancedset.AdvancedSet[identity.ID]]
 
 	cutoffIndexCallback func() epoch.Index
 }
@@ -22,16 +22,16 @@ type EpochTracker struct {
 func NewEpochTracker(cutoffIndexCallback func() epoch.Index) *EpochTracker {
 	return &EpochTracker{
 		votesPerIdentity: memstorage.New[identity.ID, *latestvotes.LatestVotes[epoch.Index, EpochVotePower]](),
-		votersPerEpoch:   memstorage.New[epoch.Index, *set.AdvancedSet[identity.ID]](),
+		votersPerEpoch:   memstorage.New[epoch.Index, *advancedset.AdvancedSet[identity.ID]](),
 
 		cutoffIndexCallback: cutoffIndexCallback,
 		Events:              NewEvents(),
 	}
 }
 
-func (c *EpochTracker) epochVoters(epochIndex epoch.Index) *set.AdvancedSet[identity.ID] {
-	epochVoters, _ := c.votersPerEpoch.RetrieveOrCreate(epochIndex, func() *set.AdvancedSet[identity.ID] {
-		return set.NewAdvancedSet[identity.ID]()
+func (c *EpochTracker) epochVoters(epochIndex epoch.Index) *advancedset.AdvancedSet[identity.ID] {
+	epochVoters, _ := c.votersPerEpoch.RetrieveOrCreate(epochIndex, func() *advancedset.AdvancedSet[identity.ID] {
+		return advancedset.NewAdvancedSet[identity.ID]()
 	})
 	return epochVoters
 }
@@ -63,8 +63,8 @@ func (c *EpochTracker) TrackVotes(epochIndex epoch.Index, voterID identity.ID, p
 	})
 }
 
-func (c *EpochTracker) Voters(epochIndex epoch.Index) (voters *set.AdvancedSet[identity.ID]) {
-	voters = set.NewAdvancedSet[identity.ID]()
+func (c *EpochTracker) Voters(epochIndex epoch.Index) (voters *advancedset.AdvancedSet[identity.ID]) {
+	voters = advancedset.NewAdvancedSet[identity.ID]()
 
 	epochVoters, exists := c.votersPerEpoch.Get(epochIndex)
 	if !exists {

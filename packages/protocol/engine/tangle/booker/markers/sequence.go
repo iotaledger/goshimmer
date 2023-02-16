@@ -2,13 +2,13 @@ package markers
 
 import (
 	"context"
+	"github.com/iotaledger/hive.go/ds/advancedset"
 	"strconv"
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/marshalutil"
-	"github.com/iotaledger/hive.go/core/serix"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/serializer/v2/serix"
 	"github.com/pkg/errors"
 )
 
@@ -47,11 +47,11 @@ func (s SequenceID) String() (humanReadableSequenceID string) {
 // region SequenceIDs //////////////////////////////////////////////////////////////////////////////////////////////////
 
 // SequenceIDs represents a collection of SequenceIDs.
-type SequenceIDs = *set.AdvancedSet[SequenceID]
+type SequenceIDs = *advancedset.AdvancedSet[SequenceID]
 
 // NewSequenceIDs creates a new collection of SequenceIDs.
 func NewSequenceIDs(sequenceIDs ...SequenceID) (result SequenceIDs) {
-	result = set.NewAdvancedSet(sequenceIDs...)
+	result = advancedset.NewAdvancedSet(sequenceIDs...)
 
 	return
 }
