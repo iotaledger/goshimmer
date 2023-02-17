@@ -62,7 +62,7 @@ func configureServer() {
 }
 
 func run(plugin *node.Plugin) {
-	runVisualizer()
+	runVisualizer(plugin)
 
 	plugin.LogInfof("Starting %s ...", PluginName)
 	if err := daemon.BackgroundWorker(PluginName, worker, shutdown.PriorityDashboard); err != nil {

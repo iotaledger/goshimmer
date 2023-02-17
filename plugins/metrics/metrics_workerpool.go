@@ -1,8 +1,6 @@
 package metrics
 
 import (
-	"github.com/iotaledger/hive.go/runtime/event"
-
 	"github.com/iotaledger/goshimmer/packages/app/collector"
 )
 
@@ -12,8 +10,7 @@ const (
 	workers = "workers"
 	tasks   = "tasks_pending"
 
-	eventLoopLabel = "event_loop"
-	retainerLabel  = "retainer"
+	retainerLabel = "retainer"
 )
 
 var WorkerPoolMetrics = collector.NewCollection(workerPoolNamespace,
@@ -24,7 +21,9 @@ var WorkerPoolMetrics = collector.NewCollection(workerPoolNamespace,
 		collector.WithCollectFunc(func() map[string]float64 {
 			collected := make(map[string]float64)
 
-			collected[eventLoopLabel] = float64(event.Loop.WorkerCount())
+			for _, p := range Plugin.Node.LoadedPlugins() {
+				collected[p.Name] = float64(p.WorkerPool.WorkerCount())
+			}
 
 			if deps.Protocol != nil {
 				for name, wp := range deps.Protocol.Workers.Pools() {
@@ -46,7 +45,9 @@ var WorkerPoolMetrics = collector.NewCollection(workerPoolNamespace,
 		collector.WithCollectFunc(func() map[string]float64 {
 			collected := make(map[string]float64)
 
-			collected[eventLoopLabel] = float64(event.Loop.PendingTasksCounter.Get())
+			for _, p := range Plugin.Node.LoadedPlugins() {
+				collected[p.Name] = float64(p.WorkerPool.PendingTasksCounter.Get())
+			}
 
 			if deps.Protocol != nil {
 				for name, wp := range deps.Protocol.Workers.Pools() {

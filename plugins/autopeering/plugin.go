@@ -3,7 +3,6 @@ package autopeering
 import (
 	"context"
 	"github.com/iotaledger/hive.go/runtime/event"
-	"github.com/iotaledger/hive.go/runtime/workerpool"
 	"net"
 	"time"
 
@@ -32,8 +31,6 @@ var (
 	deps   = new(dependencies)
 
 	localAddr *net.UDPAddr
-
-	workerPool *workerpool.WorkerPool
 )
 
 type dependencies struct {
@@ -73,7 +70,7 @@ func init() {
 	})
 }
 
-func configure(_ *node.Plugin) {
+func configure(plugin *node.Plugin) {
 	var err error
 
 	// resolve the bind address
@@ -87,12 +84,10 @@ func configure(_ *node.Plugin) {
 		Plugin.LogFatalfAndExit("could not update services: %s", err)
 	}
 
-	workerPool = workerpool.New(PluginName, 1)
-
 	if deps.P2PMgr != nil {
-		configureGossipIntegration()
+		configureGossipIntegration(plugin)
 	}
-	configureEvents()
+	configureEvents(plugin)
 }
 
 func run(*node.Plugin) {
@@ -101,7 +96,7 @@ func run(*node.Plugin) {
 	}
 }
 
-func configureGossipIntegration() {
+func configureGossipIntegration(plugin *node.Plugin) {
 	// assure that the Manager is instantiated
 	mgr := deps.P2PMgr
 
@@ -110,7 +105,7 @@ func configureGossipIntegration() {
 		if err := mgr.DropNeighbor(ev.DroppedID, p2p.NeighborsGroupAuto); err != nil {
 			Plugin.Logger().Debugw("error dropping neighbor", "id", ev.DroppedID, "err", err)
 		}
-	}, event.WithWorkerPool(workerPool))
+	}, event.WithWorkerPool(plugin.WorkerPool))
 	// We need to allocate synchronously the resources to accommodate incoming stream requests.
 	deps.Selection.Events().IncomingPeering.Hook(func(ev *selection.PeeringEvent) {
 		if !ev.Status {
@@ -130,45 +125,43 @@ func configureGossipIntegration() {
 			deps.Selection.RemoveNeighbor(ev.Peer.ID())
 			Plugin.Logger().Debugw("error adding outbound", "id", ev.Peer.ID(), "err", err)
 		}
-	}, event.WithWorkerPool(workerPool))
+	}, event.WithWorkerPool(plugin.WorkerPool))
 
 	mgr.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Hook(func(event *p2p.NeighborRemovedEvent) {
 		deps.Selection.RemoveNeighbor(event.Neighbor.ID())
-	}, event.WithWorkerPool(workerPool))
+	}, event.WithWorkerPool(plugin.WorkerPool))
 }
 
-func configureEvents() {
+func configureEvents(plugin *node.Plugin) {
 	// log the peer discovery events
 	deps.Discovery.Events().PeerDiscovered.Hook(func(ev *discover.PeerDiscoveredEvent) {
 		Plugin.Logger().Infof("Discovered: %s / %s", ev.Peer.Address(), ev.Peer.ID())
-	}, event.WithWorkerPool(workerPool))
+	}, event.WithWorkerPool(plugin.WorkerPool))
 	deps.Discovery.Events().PeerDeleted.Hook(func(ev *discover.PeerDeletedEvent) {
 		Plugin.Logger().Infof("Removed offline: %s / %s", ev.Peer.Address(), ev.Peer.ID())
-	}, event.WithWorkerPool(workerPool))
+	}, event.WithWorkerPool(plugin.WorkerPool))
 
 	// log the peer selection events
 	deps.Selection.Events().SaltUpdated.Hook(func(ev *selection.SaltUpdatedEvent) {
 		Plugin.Logger().Infof("Salt updated; expires=%s", ev.Public.GetExpiration().Format(time.RFC822))
-	}, event.WithWorkerPool(workerPool))
+	}, event.WithWorkerPool(plugin.WorkerPool))
 	deps.Selection.Events().OutgoingPeering.Hook(func(ev *selection.PeeringEvent) {
 		if ev.Status {
 			Plugin.Logger().Infof("Peering chosen: %s / %s", ev.Peer.Address(), ev.Peer.ID())
 		}
-	}, event.WithWorkerPool(workerPool))
+	}, event.WithWorkerPool(plugin.WorkerPool))
 	deps.Selection.Events().IncomingPeering.Hook(func(ev *selection.PeeringEvent) {
 		if ev.Status {
 			Plugin.Logger().Infof("Peering accepted: %s / %s", ev.Peer.Address(), ev.Peer.ID())
 		}
-	}, event.WithWorkerPool(workerPool))
+	}, event.WithWorkerPool(plugin.WorkerPool))
 	deps.Selection.Events().Dropped.Hook(func(ev *selection.DroppedEvent) {
 		Plugin.Logger().Infof("Peering dropped: %s", ev.DroppedID)
-	}, event.WithWorkerPool(workerPool))
+	}, event.WithWorkerPool(plugin.WorkerPool))
 }
 
 func start(ctx context.Context) {
 	defer Plugin.Logger().Info("Stopping " + PluginName + " ... done")
-
-	workerPool.Start()
 
 	conn, err := net.ListenUDP(localAddr.Network(), localAddr)
 	if err != nil {
@@ -201,6 +194,4 @@ func start(ctx context.Context) {
 	deps.Discovery.Close()
 
 	lPeer.Database().Close()
-
-	workerPool.Shutdown()
 }

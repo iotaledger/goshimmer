@@ -161,6 +161,10 @@ func (node *Node) Run() {
 	node.Logger.Info("Shutdown complete!")
 }
 
+func (node *Node) LoadedPlugins() []*Plugin {
+	return node.loadedPlugins
+}
+
 func AddPlugin(plugin *Plugin) {
 	name := plugin.Name
 	status := plugin.Status

@@ -3,12 +3,9 @@ package protocol
 import (
 	"context"
 	"github.com/iotaledger/goshimmer/packages/network"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 
 	"go.uber.org/dig"
-
-	"github.com/iotaledger/hive.go/app/daemon"
-	"github.com/iotaledger/hive.go/runtime/event"
-	"github.com/iotaledger/hive.go/runtime/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -27,6 +24,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
+	"github.com/iotaledger/hive.go/app/daemon"
+	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 // PluginName is the name of the gossip plugin.
@@ -36,8 +35,6 @@ var (
 	Plugin *node.Plugin
 
 	deps = new(dependencies)
-
-	workers = workerpool.NewGroup(PluginName)
 )
 
 type dependencies struct {
@@ -70,7 +67,7 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 		dbProvider = database.NewDB
 	}
 
-	p = protocol.New(workers.CreateGroup("Protocol"),
+	p = protocol.New(workerpool.NewGroup("Protocol"),
 		n,
 		protocol.WithSybilProtectionProvider(
 			dpos.NewProvider(
@@ -124,8 +121,7 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 	return p
 }
 
-func configureLogging(*node.Plugin) {
-	wp := workers.CreatePool("Logging")
+func configureLogging(plugin *node.Plugin) {
 	// deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Attach(event.NewClosure(func(block *blockdag.Block) {
 	// 	Plugin.LogDebugf("Block %s attached", block.ID())
 	// }))
@@ -143,11 +139,11 @@ func configureLogging(*node.Plugin) {
 	// }))
 	deps.Protocol.Events.Error.Hook(func(err error) {
 		Plugin.LogErrorf("Error in Protocol: %s", err)
-	}, event.WithWorkerPool(wp))
+	}, event.WithWorkerPool(plugin.WorkerPool))
 
 	deps.Protocol.Events.Engine.Error.Hook(func(err error) {
 		Plugin.LogErrorf("Error in Engine: %s", err)
-	}, event.WithWorkerPool(wp))
+	}, event.WithWorkerPool(plugin.WorkerPool))
 
 	// deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(func(block *blockdag.Block) {
 	// 	fmt.Println(">>>>>>> BlockMissing", block.ID())
@@ -162,7 +158,7 @@ func configureLogging(*node.Plugin) {
 
 	deps.Protocol.Events.Network.Error.Hook(func(errorEvent *network.ErrorEvent) {
 		Plugin.LogErrorf("Error in Network: %s (source: %s)", errorEvent.Error, errorEvent.Source.String())
-	}, event.WithWorkerPool(wp))
+	}, event.WithWorkerPool(plugin.WorkerPool))
 
 	if DebugParameters.PanicOnForkDetection {
 		deps.Protocol.Events.ChainManager.ForkDetected.Hook(func(fork *chainmanager.Fork) {
@@ -172,18 +168,13 @@ func configureLogging(*node.Plugin) {
 
 }
 
-func run(*node.Plugin) {
-	deps.Protocol.Run()
-
+func run(plugin *node.Plugin) {
 	if err := daemon.BackgroundWorker("protocol", func(ctx context.Context) {
+		deps.Protocol.Run()
 		<-ctx.Done()
-
-		Plugin.LogInfo("Gracefully shutting down the Protocol...")
-
+		plugin.LogInfo("Gracefully shutting down the Protocol...")
 		deps.Protocol.Shutdown()
-		workers.Shutdown()
 	}, shutdown.PriorityTangle); err != nil {
 		Plugin.Panicf("Error starting as daemon: %s", err)
 	}
-
 }

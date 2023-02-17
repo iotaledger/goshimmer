@@ -2,18 +2,13 @@ package dagsvisualizer
 
 import (
 	"context"
+	"github.com/iotaledger/goshimmer/packages/node"
 	"net/http"
 	"strconv"
 	"sync"
 	"time"
 
 	"github.com/labstack/echo"
-
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/confirmation"
-	"github.com/iotaledger/hive.go/app/daemon"
-	"github.com/iotaledger/hive.go/lo"
-	"github.com/iotaledger/hive.go/runtime/event"
-	"github.com/iotaledger/hive.go/runtime/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/app/retainer"
@@ -24,43 +19,38 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/app/daemon"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 var (
-	visualizerWorkerCount = 1
-	visualizerWorkerPool  *workerpool.WorkerPool
-	maxWsBlockBufferSize  = 200
-	buffer                []*wsBlock
-	bufferMutex           sync.RWMutex
+	maxWsBlockBufferSize = 200
+	buffer               []*wsBlock
+	bufferMutex          sync.RWMutex
 )
 
-func setupVisualizer() {
-	// create and start workerpool
-	visualizerWorkerPool = workerpool.New(PluginName, visualizerWorkerCount)
-}
-
-func runVisualizer() {
+func runVisualizer(plugin *node.Plugin) {
 	if err := daemon.BackgroundWorker("Dags Visualizer[Visualizer]", func(ctx context.Context) {
 		// register to events
-		registerTangleEvents()
-		registerUTXOEvents()
-		registerConflictEvents()
+		registerTangleEvents(plugin)
+		registerUTXOEvents(plugin)
+		registerConflictEvents(plugin)
 
-		visualizerWorkerPool.Start()
 		<-ctx.Done()
 		log.Info("Stopping DAGs Visualizer ...")
-		visualizerWorkerPool.Shutdown()
 		log.Info("Stopping DAGs Visualizer ... done")
 	}, shutdown.PriorityDashboard); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
 }
 
-func registerTangleEvents() {
+func registerTangleEvents(plugin *node.Plugin) {
 	deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Hook(func(block *blockdag.Block) {
 		wsBlk := &wsBlock{
 			Type: BlkTypeTangleVertex,
@@ -68,7 +58,7 @@ func registerTangleEvents() {
 		}
 		broadcastWsBlock(wsBlk)
 		storeWsBlock(wsBlk)
-	}, event.WithWorkerPool(visualizerWorkerPool))
+	}, event.WithWorkerPool(plugin.WorkerPool))
 
 	deps.Protocol.Events.Engine.Tangle.Booker.BlockBooked.Hook(func(block *booker.Block) {
 		conflictIDs := deps.Protocol.Engine().Tangle.Booker.BlockConflicts(block)
@@ -83,7 +73,7 @@ func registerTangleEvents() {
 		}
 		broadcastWsBlock(wsBlk)
 		storeWsBlock(wsBlk)
-	}, event.WithWorkerPool(visualizerWorkerPool))
+	}, event.WithWorkerPool(plugin.WorkerPool))
 
 	deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Hook(func(block *blockgadget.Block) {
 		wsBlk := &wsBlock{
@@ -96,7 +86,7 @@ func registerTangleEvents() {
 		}
 		broadcastWsBlock(wsBlk)
 		storeWsBlock(wsBlk)
-	}, event.WithWorkerPool(visualizerWorkerPool))
+	}, event.WithWorkerPool(plugin.WorkerPool))
 
 	deps.Protocol.Events.Engine.Ledger.TransactionAccepted.Hook(func(event *ledger.TransactionEvent) {
 		attachmentBlock := deps.Protocol.Engine().Tangle.Booker.GetEarliestAttachment(event.Metadata.ID())
@@ -110,10 +100,10 @@ func registerTangleEvents() {
 		}
 		broadcastWsBlock(wsBlk)
 		storeWsBlock(wsBlk)
-	}, event.WithWorkerPool(visualizerWorkerPool))
+	}, event.WithWorkerPool(plugin.WorkerPool))
 }
 
-func registerUTXOEvents() {
+func registerUTXOEvents(plugin *node.Plugin) {
 	deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Hook(func(block *blockdag.Block) {
 		if block.Payload().Type() == devnetvm.TransactionType {
 			tx := block.Payload().(*devnetvm.Transaction)
@@ -124,7 +114,7 @@ func registerUTXOEvents() {
 			broadcastWsBlock(wsBlk)
 			storeWsBlock(wsBlk)
 		}
-	}, event.WithWorkerPool(visualizerWorkerPool))
+	}, event.WithWorkerPool(plugin.WorkerPool))
 
 	deps.Protocol.Events.Engine.Tangle.Booker.BlockBooked.Hook(func(block *booker.Block) {
 		if block.Payload().Type() == devnetvm.TransactionType {
@@ -141,7 +131,7 @@ func registerUTXOEvents() {
 				storeWsBlock(wsBlk)
 			})
 		}
-	}, event.WithWorkerPool(visualizerWorkerPool))
+	}, event.WithWorkerPool(plugin.WorkerPool))
 
 	deps.Protocol.Events.Engine.Ledger.TransactionAccepted.Hook(func(event *ledger.TransactionEvent) {
 		txMeta := event.Metadata
@@ -156,10 +146,10 @@ func registerUTXOEvents() {
 		}
 		broadcastWsBlock(wsBlk)
 		storeWsBlock(wsBlk)
-	}, event.WithWorkerPool(visualizerWorkerPool))
+	}, event.WithWorkerPool(plugin.WorkerPool))
 }
 
-func registerConflictEvents() {
+func registerConflictEvents(plugin *node.Plugin) {
 	conflictWeightChangedFunc := func(e *conflicttracker.VoterEvent[utxo.TransactionID]) {
 		conflictConfirmationState := deps.Protocol.Engine().Ledger.ConflictDAG.ConfirmationState(utxo.NewTransactionIDs(e.ConflictID))
 		wsBlk := &wsBlock{
@@ -181,7 +171,7 @@ func registerConflictEvents() {
 		}
 		broadcastWsBlock(wsBlk)
 		storeWsBlock(wsBlk)
-	}, event.WithWorkerPool(visualizerWorkerPool))
+	}, event.WithWorkerPool(plugin.WorkerPool))
 
 	deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictAccepted.Hook(func(conflictID utxo.TransactionID) {
 		wsBlk := &wsBlock{
@@ -194,7 +184,7 @@ func registerConflictEvents() {
 		}
 		broadcastWsBlock(wsBlk)
 		storeWsBlock(wsBlk)
-	}, event.WithWorkerPool(visualizerWorkerPool))
+	}, event.WithWorkerPool(plugin.WorkerPool))
 
 	deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictParentsUpdated.Hook(func(event *conflictdag.ConflictParentsUpdatedEvent[utxo.TransactionID, utxo.OutputID]) {
 		lo.Map(event.ParentsConflictIDs.Slice(), utxo.TransactionID.Base58)
@@ -207,10 +197,10 @@ func registerConflictEvents() {
 		}
 		broadcastWsBlock(wsBlk)
 		storeWsBlock(wsBlk)
-	}, event.WithWorkerPool(visualizerWorkerPool))
+	}, event.WithWorkerPool(plugin.WorkerPool))
 
-	deps.Protocol.Events.Engine.Tangle.VirtualVoting.ConflictTracker.VoterAdded.Hook(conflictWeightChangedFunc, event.WithWorkerPool(visualizerWorkerPool))
-	deps.Protocol.Events.Engine.Tangle.VirtualVoting.ConflictTracker.VoterRemoved.Hook(conflictWeightChangedFunc, event.WithWorkerPool(visualizerWorkerPool))
+	deps.Protocol.Events.Engine.Tangle.VirtualVoting.ConflictTracker.VoterAdded.Hook(conflictWeightChangedFunc, event.WithWorkerPool(plugin.WorkerPool))
+	deps.Protocol.Events.Engine.Tangle.VirtualVoting.ConflictTracker.VoterRemoved.Hook(conflictWeightChangedFunc, event.WithWorkerPool(plugin.WorkerPool))
 }
 
 func setupDagsVisualizerRoutes(routeGroup *echo.Group) {

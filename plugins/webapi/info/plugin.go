@@ -1,7 +1,6 @@
 package info
 
 import (
-	"github.com/iotaledger/hive.go/runtime/workerpool"
 	"net/http"
 	"sort"
 	"time"
@@ -44,16 +43,13 @@ var (
 	deps               = new(dependencies)
 	lastAcceptedBlock  = latestblocktracker.New()
 	lastConfirmedBlock = latestblocktracker.New()
-	workerPool         = workerpool.New(PluginName, 1)
 )
 
 func init() {
-	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure)
+	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, run)
 }
 
 func configure(_ *node.Plugin) {
-	workerPool.Start()
-
 	deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Hook(func(block *blockgadget.Block) {
 		lastAcceptedBlock.Update(block.ModelsBlock)
 	}, event.WithWorkerPool(workerPool))

@@ -3,8 +3,6 @@ package metrics
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/runtime/event"
-
 	"github.com/iotaledger/goshimmer/packages/app/collector"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
@@ -42,19 +40,19 @@ var TangleMetrics = collector.NewCollection(tangleNamespace,
 		collector.WithHelp("Number of blocks per type in the tangle"),
 		collector.WithLabels("type"),
 		collector.WithInitFunc(func() {
-			deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
+			deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Hook(func(block *blockgadget.Block) {
 				blockType := collector.NewBlockType(block.Payload().Type()).String()
 				deps.Collector.Increment(tangleNamespace, blockPerTypeCount, blockType)
-			}))
+			})
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(missingBlocksCount,
 		collector.WithType(collector.Counter),
 		collector.WithHelp("Number of blocks missing during the solidification in the tangle"),
 		collector.WithInitFunc(func() {
-			deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(func(_ *blockdag.Block) {
+			deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockMissing.Hook(func(_ *blockdag.Block) {
 				deps.Collector.Increment(tangleNamespace, missingBlocksCount)
-			}))
+			})
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(parentPerTypeCount,
@@ -62,12 +60,12 @@ var TangleMetrics = collector.NewCollection(tangleNamespace,
 		collector.WithHelp("Number of parents of the block per its type"),
 		collector.WithLabels("type"),
 		collector.WithInitFunc(func() {
-			deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
+			deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Hook(func(block *blockgadget.Block) {
 				blockType := collector.NewBlockType(block.Payload().Type()).String()
 				block.ForEachParent(func(parent models.Parent) {
 					deps.Collector.Increment(tangleNamespace, parentPerTypeCount, blockType)
 				})
-			}))
+			})
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(blocksPerComponentCount,
@@ -75,51 +73,51 @@ var TangleMetrics = collector.NewCollection(tangleNamespace,
 		collector.WithHelp("Number of blocks per component"),
 		collector.WithLabels("component"),
 		collector.WithInitFunc(func() {
-			deps.Protocol.Network().Events.BlockReceived.Attach(event.NewClosure(func(_ *network.BlockReceivedEvent) {
+			deps.Protocol.Network().Events.BlockReceived.Hook(func(_ *network.BlockReceivedEvent) {
 				deps.Collector.Increment(tangleNamespace, blocksPerComponentCount, collector.Received.String())
-			}))
-			deps.Protocol.Events.Engine.Filter.BlockAllowed.Attach(event.NewClosure(func(_ *models.Block) {
+			})
+			deps.Protocol.Events.Engine.Filter.BlockAllowed.Hook(func(_ *models.Block) {
 				deps.Collector.Increment(tangleNamespace, blocksPerComponentCount, collector.Allowed.String())
-			}))
-			deps.BlockIssuer.Events.BlockIssued.Attach(event.NewClosure(func(_ *models.Block) {
+			})
+			deps.BlockIssuer.Events.BlockIssued.Hook(func(_ *models.Block) {
 				deps.Collector.Increment(tangleNamespace, blocksPerComponentCount, collector.Issued.String())
-			}))
-			deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Attach(event.NewClosure(func(block *blockdag.Block) {
+			})
+			deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Hook(func(block *blockdag.Block) {
 				deps.Collector.Increment(tangleNamespace, blocksPerComponentCount, collector.Attached.String())
-			}))
-			deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(func(block *blockdag.Block) {
+			})
+			deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockSolid.Hook(func(block *blockdag.Block) {
 				deps.Collector.Increment(tangleNamespace, blocksPerComponentCount, collector.Solidified.String())
-			}))
-			deps.Protocol.Events.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
+			})
+			deps.Protocol.Events.CongestionControl.Scheduler.BlockScheduled.Hook(func(block *scheduler.Block) {
 				deps.Collector.Increment(tangleNamespace, blocksPerComponentCount, collector.Scheduled.String())
-			}))
-			deps.Protocol.Events.Engine.Tangle.Booker.BlockBooked.Attach(event.NewClosure(func(block *booker.Block) {
+			})
+			deps.Protocol.Events.Engine.Tangle.Booker.BlockBooked.Hook(func(block *booker.Block) {
 				deps.Collector.Increment(tangleNamespace, blocksPerComponentCount, collector.Booked.String())
-			}))
-			deps.Protocol.Events.CongestionControl.Scheduler.BlockDropped.Attach(event.NewClosure(func(block *scheduler.Block) {
+			})
+			deps.Protocol.Events.CongestionControl.Scheduler.BlockDropped.Hook(func(block *scheduler.Block) {
 				deps.Collector.Increment(tangleNamespace, blocksPerComponentCount, collector.SchedulerDropped.String())
-			}))
-			deps.Protocol.Events.CongestionControl.Scheduler.BlockSkipped.Attach(event.NewClosure(func(block *scheduler.Block) {
+			})
+			deps.Protocol.Events.CongestionControl.Scheduler.BlockSkipped.Hook(func(block *scheduler.Block) {
 				deps.Collector.Increment(tangleNamespace, blocksPerComponentCount, collector.SchedulerSkipped.String())
-			}))
+			})
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(blocksOrphanedCount,
 		collector.WithType(collector.Counter),
 		collector.WithHelp("Number of orphaned blocks"),
 		collector.WithInitFunc(func() {
-			deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockOrphaned.Attach(event.NewClosure(func(block *blockdag.Block) {
+			deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockOrphaned.Hook(func(block *blockdag.Block) {
 				deps.Collector.Increment(tangleNamespace, blocksOrphanedCount)
-			}))
+			})
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(acceptedBlocksCount,
 		collector.WithType(collector.Counter),
 		collector.WithHelp("Number of accepted blocks"),
 		collector.WithInitFunc(func() {
-			deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
+			deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Hook(func(block *blockgadget.Block) {
 				deps.Collector.Increment(tangleNamespace, acceptedBlocksCount)
-			}))
+			})
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(timeSinceReceivedPerComponent,
@@ -127,11 +125,11 @@ var TangleMetrics = collector.NewCollection(tangleNamespace,
 		collector.WithHelp("Time since the block was received per component"),
 		collector.WithLabels("component"),
 		collector.WithInitFunc(func() {
-			deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
+			deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Hook(func(block *blockgadget.Block) {
 				blockType := collector.NewBlockType(block.Payload().Type()).String()
 				timeSince := float64(time.Since(block.IssuingTime()).Milliseconds())
 				deps.Collector.Update(tangleNamespace, timeSinceReceivedPerComponent, collector.MultiLabelsValues([]string{blockType}, timeSince))
-			}))
+			})
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(requestQueueSize,

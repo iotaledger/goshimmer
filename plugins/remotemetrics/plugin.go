@@ -5,7 +5,6 @@ package remotemetrics
 
 import (
 	"context"
-	"github.com/iotaledger/hive.go/runtime/workerpool"
 	"time"
 
 	"go.uber.org/dig"
@@ -52,8 +51,6 @@ var (
 	// Plugin is the plugin instance of the remote plugin instance.
 	Plugin *node.Plugin
 	deps   = new(dependencies)
-
-	workers = workerpool.NewGroup(PluginName)
 )
 
 type dependencies struct {
@@ -68,22 +65,22 @@ func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
 }
 
-func configure(_ *node.Plugin) {
+func configure(plugin *node.Plugin) {
 	// if remotelog plugin is disabled, then remotemetrics should not be started either
 	if node.IsSkipped(remotelog.Plugin) {
 		Plugin.LogInfof("%s is disabled; skipping %s\n", remotelog.Plugin.Name, Plugin.Name)
 		return
 	}
 
-	configureSyncMetrics()
-	configureConflictConfirmationMetrics()
-	configureBlockFinalizedMetrics()
-	configureBlockScheduledMetrics()
-	configureMissingBlockMetrics()
-	configureSchedulerQueryMetrics()
+	configureSyncMetrics(plugin)
+	configureConflictConfirmationMetrics(plugin)
+	configureBlockFinalizedMetrics(plugin)
+	configureBlockScheduledMetrics(plugin)
+	configureMissingBlockMetrics(plugin)
+	configureSchedulerQueryMetrics(plugin)
 }
 
-func run(_ *node.Plugin) {
+func run(plugin *node.Plugin) {
 	// if remotelog plugin is disabled, then remotemetrics should not be started either
 	if node.IsSkipped(remotelog.Plugin) {
 		return
@@ -102,44 +99,40 @@ func run(_ *node.Plugin) {
 
 		// Wait before terminating so we get correct log blocks from the daemon regarding the shutdown order.
 		<-ctx.Done()
-		workers.Shutdown()
 	}, shutdown.PriorityRemoteLog); err != nil {
 		Plugin.Panicf("Failed to start as daemon: %s", err)
 	}
 }
 
-func configureSyncMetrics() {
+func configureSyncMetrics(plugin *node.Plugin) {
 	if Parameters.MetricsLevel > Info {
 		return
 	}
 
-	wp := workers.CreatePool("SyncMetrics", 1)
 	remotemetrics.Events.TangleTimeSyncChanged.Hook(func(event *remotemetrics.TangleTimeSyncChangedEvent) {
 		isTangleTimeSynced.Store(event.CurrentStatus)
-	}, event.WithWorkerPool(wp))
+	}, event.WithWorkerPool(plugin.WorkerPool))
 	remotemetrics.Events.TangleTimeSyncChanged.Hook(func(event *remotemetrics.TangleTimeSyncChangedEvent) {
 		sendSyncStatusChangedEvent(event)
-	}, event.WithWorkerPool(wp))
+	}, event.WithWorkerPool(plugin.WorkerPool))
 }
 
-func configureSchedulerQueryMetrics() {
+func configureSchedulerQueryMetrics(plugin *node.Plugin) {
 	if Parameters.MetricsLevel > Info {
 		return
 	}
 
-	wp := workers.CreatePool("SchedulerQueryMetrics", 1)
-	remotemetrics.Events.SchedulerQuery.Hook(func(event *remotemetrics.SchedulerQueryEvent) { obtainSchedulerStats(event.Time) }, event.WithWorkerPool(wp))
+	remotemetrics.Events.SchedulerQuery.Hook(func(event *remotemetrics.SchedulerQueryEvent) { obtainSchedulerStats(event.Time) }, event.WithWorkerPool(plugin.WorkerPool))
 }
 
-func configureConflictConfirmationMetrics() {
+func configureConflictConfirmationMetrics(plugin *node.Plugin) {
 	if Parameters.MetricsLevel > Info {
 		return
 	}
 
-	wp := workers.CreatePool("ConflictConfirmationMetrics", 1)
 	deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictAccepted.Hook(func(conflictID utxo.TransactionID) {
 		onConflictConfirmed(conflictID)
-	}, event.WithWorkerPool(wp))
+	}, event.WithWorkerPool(plugin.WorkerPool))
 
 	deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictCreated.Hook(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
 		activeConflictsMutex.Lock()
@@ -151,54 +144,51 @@ func configureConflictConfirmationMetrics() {
 			activeConflicts.Add(conflictID)
 			sendConflictMetrics()
 		}
-	}, event.WithWorkerPool(wp))
+	}, event.WithWorkerPool(plugin.WorkerPool))
 }
 
-func configureBlockFinalizedMetrics() {
+func configureBlockFinalizedMetrics(plugin *node.Plugin) {
 	if Parameters.MetricsLevel > Info {
 		return
 	}
 
-	wp := workers.CreatePool("BlockFinalizedMetrics", 1)
 	if Parameters.MetricsLevel == Info {
-		deps.Protocol.Events.Engine.Ledger.TransactionAccepted.Hook(onTransactionAccepted, event.WithWorkerPool(wp))
+		deps.Protocol.Events.Engine.Ledger.TransactionAccepted.Hook(onTransactionAccepted, event.WithWorkerPool(plugin.WorkerPool))
 	} else {
 		deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockConfirmed.Hook(func(block *blockgadget.Block) {
 			onBlockFinalized(block.ModelsBlock)
-		}, event.WithWorkerPool(wp))
+		}, event.WithWorkerPool(plugin.WorkerPool))
 	}
 }
 
-func configureBlockScheduledMetrics() {
+func configureBlockScheduledMetrics(plugin *node.Plugin) {
 	if Parameters.MetricsLevel > Info {
 		return
 	}
 
-	wp := workers.CreatePool("BlockScheduledMetrics", 1)
 	if Parameters.MetricsLevel == Info {
 		deps.Protocol.CongestionControl.Events.Scheduler.BlockDropped.Hook(func(block *scheduler.Block) {
 			sendBlockSchedulerRecord(block, "blockDiscarded")
-		}, event.WithWorkerPool(wp))
+		}, event.WithWorkerPool(plugin.WorkerPool))
 	} else {
 		deps.Protocol.CongestionControl.Events.Scheduler.BlockScheduled.Hook(func(block *scheduler.Block) {
 			sendBlockSchedulerRecord(block, "blockScheduled")
-		}, event.WithWorkerPool(wp))
+		}, event.WithWorkerPool(plugin.WorkerPool))
 		deps.Protocol.CongestionControl.Events.Scheduler.BlockDropped.Hook(func(block *scheduler.Block) {
 			sendBlockSchedulerRecord(block, "blockDiscarded")
-		}, event.WithWorkerPool(wp))
+		}, event.WithWorkerPool(plugin.WorkerPool))
 	}
 }
 
-func configureMissingBlockMetrics() {
+func configureMissingBlockMetrics(plugin *node.Plugin) {
 	if Parameters.MetricsLevel > Info {
 		return
 	}
 
-	wp := workers.CreatePool("MissingBlockMetrics", 1)
 	deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockMissing.Hook(func(block *blockdag.Block) {
 		sendMissingBlockRecord(block.ModelsBlock, "missingBlock")
-	}, event.WithWorkerPool(wp))
+	}, event.WithWorkerPool(plugin.WorkerPool))
 	deps.Protocol.Events.Engine.Tangle.BlockDAG.MissingBlockAttached.Hook(func(block *blockdag.Block) {
 		sendMissingBlockRecord(block.ModelsBlock, "missingBlockStored")
-	}, event.WithWorkerPool(wp))
+	}, event.WithWorkerPool(plugin.WorkerPool))
 }
