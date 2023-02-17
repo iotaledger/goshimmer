@@ -9,7 +9,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 
-	"github.com/iotaledger/hive.go/core/configuration"
+	"github.com/iotaledger/hive.go/app/configuration"
+	appLogger "github.com/iotaledger/hive.go/app/logger"
 	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/iotaledger/hive.go/core/types"
 	"go.uber.org/atomic"
@@ -133,7 +134,7 @@ func (s *Spammer) setupSpamDetails() {
 
 func (s *Spammer) initLogger() {
 	config := configuration.New()
-	_ = logger.InitGlobalLogger(config)
+	_ = appLogger.InitGlobalLogger(config)
 	logger.SetLevel(logger.LevelDebug)
 	s.log = logger.NewLogger("Spammer")
 }
@@ -233,7 +234,6 @@ func (s *Spammer) PostTransaction(tx *devnetvm.Transaction, clt evilwallet.Clien
 }
 
 func (s *Spammer) handleSolidityForReuseOutputs(clt evilwallet.Client, tx *devnetvm.Transaction) (ok bool) {
-	ok = true
 	ok = s.EvilWallet.AwaitInputsSolidity(tx.Essence().Inputs(), clt)
 	if s.EvilScenario.OutputWallet.Type() == evilwallet.Reuse {
 		s.EvilWallet.AddReuseOutputsToThePool(tx.Essence().Outputs())

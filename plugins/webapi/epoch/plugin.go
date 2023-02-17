@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/hive.go/core/node"
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 )

@@ -5,9 +5,8 @@ import (
 
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/hive.go/core/daemon"
+	"github.com/iotaledger/hive.go/app/daemon"
 	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/node"
 	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
@@ -15,11 +14,13 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/filter"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tsc"
@@ -75,6 +76,11 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 			),
 		),
 		protocol.WithEngineOptions(
+			engine.WithFilterOptions(
+				filter.WithMinCommittableEpochAge(NotarizationParameters.MinEpochCommittableAge),
+				filter.WithMaxAllowedWallClockDrift(Parameters.MaxAllowedClockDrift),
+				filter.WithSignatureValidation(true),
+			),
 			engine.WithNotarizationManagerOptions(
 				notarization.WithMinCommittableEpochAge(NotarizationParameters.MinEpochCommittableAge),
 			),

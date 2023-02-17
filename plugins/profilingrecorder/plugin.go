@@ -9,13 +9,14 @@ import (
 	"time"
 
 	profile "github.com/bygui86/multi-profile/v2"
-	"github.com/iotaledger/hive.go/core/daemon"
-	"github.com/iotaledger/hive.go/core/node"
-	"github.com/iotaledger/hive.go/core/timeutil"
-	"github.com/iotaledger/hive.go/core/types"
 	"github.com/zyedidia/generic/cache"
 
+	"github.com/iotaledger/hive.go/app/daemon"
+	"github.com/iotaledger/hive.go/core/timeutil"
+	"github.com/iotaledger/hive.go/core/types"
+
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/node"
 )
 
 // PluginName is the name of the profiling plugin.
@@ -72,7 +73,7 @@ func run(*node.Plugin) {
 
 		ticker.Shutdown()
 		ticker.WaitForShutdown()
-	}, shutdown.PriorityAnalysis); err != nil {
+	}, shutdown.PriorityProfiling); err != nil {
 		panic(err)
 	}
 }

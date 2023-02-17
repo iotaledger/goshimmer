@@ -41,7 +41,6 @@ services:
       - RETAINER_DIRECTORY=/retainer
       - DATABASE_DIRECTORY=/db/mainnetdb
       - NODE_PEERDBDIRECTORY=/db/peerdb
-      - ANALYSIS_CLIENT_SERVERADDRESS={{ analysisServerHost }}:21888
       - AUTOPEERING_BINDADDRESS=0.0.0.0:14626
       - DASHBOARD_BINDADDRESS=0.0.0.0:8081
       - P2P_BINDADDRESS=0.0.0.0:14666
@@ -57,7 +56,7 @@ services:
       --autoPeering.networkVersion={{ networkVersion }}
      {% endif %}
       --node.disablePlugins=portcheck,ManaInitializer{% if remoteLogs|default(false) == false %},RemoteLog,RemoteLogMetrics{% endif %}
-      --node.enablePlugins=dashboard,networkdelay,metrics{% if faucet|default(false) %},faucet,WebAPIFaucetEndpoint{% endif %},activity,snapshot,WebAPIToolsBlockEndpoint,"WebAPI tools Endpoint"{% if spammer|default(false) %},spammer{% endif %}{% if remoteLogs|default(false) %},RemoteLog,RemoteLogMetrics{% endif %},profilingrecorder
+      --node.enablePlugins=dashboard,metrics{% if faucet|default(false) %},faucet,WebAPIFaucetEndpoint{% endif %},activity,snapshot,WebAPIToolsBlockEndpoint,"WebAPI tools Endpoint"{% if spammer|default(false) %},spammer{% endif %}{% if remoteLogs|default(false) %},RemoteLog,RemoteLogMetrics{% endif %},profilingrecorder
       --metrics.bindAddress=0.0.0.0:9311
       --activity.broadcastInterval=1s
      {% if faucet|default(false) %}

@@ -56,7 +56,6 @@ type Protocol struct {
 	optsSnapshotPath     string
 	optsPruningThreshold uint64
 
-	// optsSolidificationOptions []options.Option[solidification.Requester]
 	optsCongestionControlOptions      []options.Option[congestioncontrol.CongestionControl]
 	optsEngineOptions                 []options.Option[engine.Engine]
 	optsChainManagerOptions           []options.Option[chainmanager.Manager]
@@ -601,38 +600,32 @@ func WithThroughputQuotaProvider(sybilProtectionProvider engine.ModuleProvider[t
 }
 
 func WithCongestionControlOptions(opts ...options.Option[congestioncontrol.CongestionControl]) options.Option[Protocol] {
-	return func(e *Protocol) {
-		e.optsCongestionControlOptions = opts
+	return func(p *Protocol) {
+		p.optsCongestionControlOptions = append(p.optsCongestionControlOptions, opts...)
 	}
 }
 
 func WithTipManagerOptions(opts ...options.Option[tipmanager.TipManager]) options.Option[Protocol] {
 	return func(p *Protocol) {
-		p.optsTipManagerOptions = opts
+		p.optsTipManagerOptions = append(p.optsTipManagerOptions, opts...)
 	}
 }
 
-// func WithSolidificationOptions(opts ...options.Option[solidification.Requester]) options.Option[Protocol] {
-// 	return func(n *Protocol) {
-// 		n.optsSolidificationOptions = opts
-// 	}
-// }
-
 func WithEngineOptions(opts ...options.Option[engine.Engine]) options.Option[Protocol] {
-	return func(n *Protocol) {
-		n.optsEngineOptions = opts
+	return func(p *Protocol) {
+		p.optsEngineOptions = append(p.optsEngineOptions, opts...)
 	}
 }
 
 func WithChainManagerOptions(opts ...options.Option[chainmanager.Manager]) options.Option[Protocol] {
-	return func(n *Protocol) {
-		n.optsChainManagerOptions = opts
+	return func(p *Protocol) {
+		p.optsChainManagerOptions = append(p.optsChainManagerOptions, opts...)
 	}
 }
 
 func WithStorageDatabaseManagerOptions(opts ...options.Option[database.Manager]) options.Option[Protocol] {
 	return func(p *Protocol) {
-		p.optsStorageDatabaseManagerOptions = opts
+		p.optsStorageDatabaseManagerOptions = append(p.optsStorageDatabaseManagerOptions, opts...)
 	}
 }
 

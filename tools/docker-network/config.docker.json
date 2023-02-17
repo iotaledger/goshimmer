@@ -1,16 +1,4 @@
 {
-  "analysis": {
-    "client": {
-      "serverAddress": "peer_master:1888"
-    },
-    "server": {
-      "bindAddress": "0.0.0.0:1888"
-    },
-    "dashboard": {
-      "bindAddress": "0.0.0.0:9000",
-      "dev": false
-    }
-  },
   "autoPeering": {
     "entryNodes": [
       "EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP@peer_master:14626"

@@ -15,8 +15,8 @@ const (
 	PriorityFaucet
 	// PriorityRemoteLog defines the shutdown priority for remote log.
 	PriorityRemoteLog
-	// PriorityAnalysis defines the shutdown priority for analysis server.
-	PriorityAnalysis
+	// PriorityProfiling defines the shutdown priority for profiling.
+	PriorityProfiling
 	// PriorityPrometheus defines the shutdown priority for prometheus.
 	PriorityPrometheus
 	// PriorityMetrics defines the shutdown priority for metrics server.
@@ -31,8 +31,6 @@ const (
 	PriorityAutopeering
 	// PriorityManualpeering defines the shutdown priority for manualpeering.
 	PriorityManualpeering
-	// PriorityFirewall defines the shutdown priority for firewall.
-	PriorityFirewall
 	// PriorityWebAPI defines the shutdown priority for webapi.
 	PriorityWebAPI
 	// PriorityDashboard defines the shutdown priority for dashboard.
