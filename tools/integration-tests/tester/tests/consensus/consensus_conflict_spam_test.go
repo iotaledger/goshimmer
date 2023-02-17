@@ -1,6 +1,7 @@
 package consensus
 
 import (
+	"context"
 	"log"
 	"testing"
 	"time"
@@ -33,76 +34,76 @@ const (
 
 // TestConflictSpamAndMergeToMaster spams a node with conflicts and makes sure the confirmation states are the same across the network
 // and verifies that the Tangle converged to Master
-// func TestConflictSpamAndMergeToMaster(t *testing.T) {
-// 	ctx, cancel := tests.Context(context.Background(), t)
-// 	defer cancel()
-// 	snapshotInfo := tests.EqualSnapshotDetails
-// 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
-// 		Faucet:      true,
-// 		StartSynced: false,
-// 		Activity:    false,
-// 		Snapshot:    snapshotInfo,
-// 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
-// 	require.NoError(t, err)
-// 	defer tests.ShutdownNetwork(ctx, t, n)
-//
-// 	log.Println("Bootstrapping network...")
-// 	tests.BootstrapNetwork(t, n)
-// 	log.Println("Bootstrapping network... done")
-//
-// 	faucet, peer1 := n.Peers()[0], n.Peers()[1]
-// 	tokensPerRequest = faucet.Config().TokensPerRequest
-//
-// 	const delayBetweenDataBlocks = 100 * time.Millisecond
-// 	dataBlocksAmount := len(n.Peers()) * 10
-//
-// 	t.Logf("Sending %d data blocks to confirm Faucet Outputs", dataBlocksAmount)
-// 	tests.SendDataBlocksWithDelay(t, n.Peers(), dataBlocksAmount, delayBetweenDataBlocks)
-//
-// 	fundingAddress := peer1.Address(0)
-// 	tests.SendFaucetRequest(t, peer1, fundingAddress)
-//
-// 	t.Logf("Sending %d data blocks to confirm Faucet Funds", dataBlocksAmount)
-// 	tests.SendDataBlocksWithDelay(t, n.Peers(), dataBlocksAmount, delayBetweenDataBlocks)
-//
-// 	require.Eventually(t, func() bool {
-// 		return tests.Balance(t, peer1, fundingAddress, devnetvm.ColorIOTA) >= uint64(tokensPerRequest)
-// 	}, tests.Timeout, tests.Tick)
-//
-// 	addresses := make([]devnetvm.Address, splits)
-// 	keyPairs := make(map[string]*ed25519.KeyPair, splits)
-// 	for i := 0; i < splits; i++ {
-// 		address := peer1.Address(i)
-// 		addresses[i] = address
-// 		keyPairs[address.String()] = peer1.KeyPair(uint64(i))
-// 	}
-//
-// 	outputs := getOutputsControlledBy(t, peer1, fundingAddress)
-// 	fundingKeyPair := map[string]*ed25519.KeyPair{fundingAddress.String(): peer1.KeyPair(0)}
-// 	outputs = splitToAddresses(t, peer1, outputs[0], fundingKeyPair, addresses...)
-//
-// 	// slice should have enough conflicting outputs for the number of loop repetition
-// 	pairwiseOutputs := outputs[:conflictRepetitions*numberOfConflictingOutputs]
-// 	tripletOutputs := outputs[len(pairwiseOutputs):]
-// 	txs := make([]*devnetvm.Transaction, 0)
-// 	for i := 0; i < conflictRepetitions; i++ {
-// 		txs = append(txs, sendPairWiseConflicts(t, n.Peers(), determineOutputSlice(pairwiseOutputs, i, numberOfConflictingOutputs), keyPairs, i)...)
-// 		txs = append(txs, sendTripleConflicts(t, n.Peers(), determineOutputSlice(tripletOutputs, i, numberOfConflictingOutputs), keyPairs, i)...)
-// 	}
-//
-// 	t.Logf("Sending data %d blocks to confirm Conflicts and make ConfirmationState converge on all nodes", dataBlocksAmount*2)
-// 	tests.SendDataBlocksWithDelay(t, n.Peers(), dataBlocksAmount*2, delayBetweenDataBlocks)
-//
-// 	t.Logf("number of txs to verify is %d", len(txs))
-// 	verifyConfirmationsOnPeers(t, n.Peers(), txs)
-//
-// 	blkID, _ := tests.SendDataBlock(t, peer1, []byte("Gimme Master!"), 1)
-//
-// 	t.Logf("Verifying that %s is on MasterConflict", blkID)
-// 	blockMetadata, err := peer1.GetBlockMetadata(blkID)
-// 	require.NoError(t, err)
-// 	require.Empty(t, blockMetadata.M.ConflictIDs)
-// }
+func TestConflictSpamAndMergeToMaster(t *testing.T) {
+	ctx, cancel := tests.Context(context.Background(), t)
+	defer cancel()
+	snapshotInfo := tests.EqualSnapshotDetails
+	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
+		Faucet:      true,
+		StartSynced: false,
+		Activity:    false,
+		Snapshot:    snapshotInfo,
+	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
+	require.NoError(t, err)
+	defer tests.ShutdownNetwork(ctx, t, n)
+
+	log.Println("Bootstrapping network...")
+	tests.BootstrapNetwork(t, n)
+	log.Println("Bootstrapping network... done")
+
+	faucet, peer1 := n.Peers()[0], n.Peers()[1]
+	tokensPerRequest = faucet.Config().TokensPerRequest
+
+	const delayBetweenDataBlocks = 100 * time.Millisecond
+	dataBlocksAmount := len(n.Peers()) * 10
+
+	t.Logf("Sending %d data blocks to confirm Faucet Outputs", dataBlocksAmount)
+	tests.SendDataBlocksWithDelay(t, n.Peers(), dataBlocksAmount, delayBetweenDataBlocks)
+
+	fundingAddress := peer1.Address(0)
+	tests.SendFaucetRequest(t, peer1, fundingAddress)
+
+	t.Logf("Sending %d data blocks to confirm Faucet Funds", dataBlocksAmount)
+	tests.SendDataBlocksWithDelay(t, n.Peers(), dataBlocksAmount, delayBetweenDataBlocks)
+
+	require.Eventually(t, func() bool {
+		return tests.Balance(t, peer1, fundingAddress, devnetvm.ColorIOTA) >= uint64(tokensPerRequest)
+	}, tests.Timeout, tests.Tick)
+
+	addresses := make([]devnetvm.Address, splits)
+	keyPairs := make(map[string]*ed25519.KeyPair, splits)
+	for i := 0; i < splits; i++ {
+		address := peer1.Address(i)
+		addresses[i] = address
+		keyPairs[address.String()] = peer1.KeyPair(uint64(i))
+	}
+
+	outputs := getOutputsControlledBy(t, peer1, fundingAddress)
+	fundingKeyPair := map[string]*ed25519.KeyPair{fundingAddress.String(): peer1.KeyPair(0)}
+	outputs = splitToAddresses(t, peer1, outputs[0], fundingKeyPair, addresses...)
+
+	// slice should have enough conflicting outputs for the number of loop repetition
+	pairwiseOutputs := outputs[:conflictRepetitions*numberOfConflictingOutputs]
+	tripletOutputs := outputs[len(pairwiseOutputs):]
+	txs := make([]*devnetvm.Transaction, 0)
+	for i := 0; i < conflictRepetitions; i++ {
+		txs = append(txs, sendPairWiseConflicts(t, n.Peers(), determineOutputSlice(pairwiseOutputs, i, numberOfConflictingOutputs), keyPairs, i)...)
+		txs = append(txs, sendTripleConflicts(t, n.Peers(), determineOutputSlice(tripletOutputs, i, numberOfConflictingOutputs), keyPairs, i)...)
+	}
+
+	t.Logf("Sending data %d blocks to confirm Conflicts and make ConfirmationState converge on all nodes", dataBlocksAmount*2)
+	tests.SendDataBlocksWithDelay(t, n.Peers(), dataBlocksAmount*2, delayBetweenDataBlocks)
+
+	t.Logf("number of txs to verify is %d", len(txs))
+	verifyConfirmationsOnPeers(t, n.Peers(), txs)
+
+	blkID, _ := tests.SendDataBlock(t, peer1, []byte("Gimme Master!"), 1)
+
+	t.Logf("Verifying that %s is on MasterConflict", blkID)
+	blockMetadata, err := peer1.GetBlockMetadata(blkID)
+	require.NoError(t, err)
+	require.Empty(t, blockMetadata.M.ConflictIDs)
+}
 
 // determineOutputSlice will extract sub-slices from outputs of a certain size.
 // For each increment of i it will take the next sub-slice so there would be no overlaps with previous sub-slices.

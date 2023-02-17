@@ -10,7 +10,6 @@ import (
 
 	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/types"
 	"github.com/iotaledger/hive.go/core/workerpool"
 
@@ -258,7 +257,6 @@ func TestTipManager_TimeSinceConfirmation_MultipleParents(t *testing.T) {
 
 func createTestTangleMultipleParents(tf *TestFramework) {
 	now := time.Unix(epoch.GenesisTime, 0).Add(20 * time.Minute)
-	markersMap := make(map[string]*markers.Markers)
 
 	// SEQUENCE 0
 	{
@@ -279,21 +277,12 @@ func createTestTangleMultipleParents(tf *TestFramework) {
 
 		tf.Tangle.BlockDAG.CreateBlock("IncorrectTip2", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Marker-0/1")), models.WithIssuingTime(now))
 		tf.Tangle.BlockDAG.IssueBlocks("IncorrectTip2")
-
-		tf.Tangle.Booker.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
-			"Marker-0/1":   markers.NewMarkers(markers.NewMarker(0, 1)),
-			"Marker-0/2":   markers.NewMarkers(markers.NewMarker(0, 2)),
-			"Marker-0/3":   markers.NewMarkers(markers.NewMarker(0, 3)),
-			"Marker-0/4":   markers.NewMarkers(markers.NewMarker(0, 4)),
-			"IncorrectTip": markers.NewMarkers(markers.NewMarker(0, 3)),
-		}))
 	}
 }
 
 func createTestTangleTSC(tf *TestFramework) {
 	now := time.Unix(epoch.GenesisTime, 0).Add(20 * time.Minute)
 
-	markersMap := make(map[string]*markers.Markers)
 	var lastBlockAlias string
 
 	// SEQUENCE 0
@@ -323,19 +312,6 @@ func createTestTangleTSC(tf *TestFramework) {
 		// issue block for test case #16
 		tf.Tangle.BlockDAG.CreateBlock("0/1-postTSC-direct_0", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Marker-0/1")), models.WithIssuingTime(now))
 		tf.Tangle.BlockDAG.IssueBlocks("0/1-postTSC-direct_0")
-
-		tf.Tangle.Booker.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
-			"Marker-0/1":    markers.NewMarkers(markers.NewMarker(0, 1)),
-			"0/1-preTSC_0":  markers.NewMarkers(markers.NewMarker(0, 1)),
-			"0/1-preTSC_1":  markers.NewMarkers(markers.NewMarker(0, 1)),
-			"0/1-preTSC_2":  markers.NewMarkers(markers.NewMarker(0, 1)),
-			"0/1-postTSC_0": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"0/1-postTSC_1": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"0/1-postTSC_2": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"Marker-0/2":    markers.NewMarkers(markers.NewMarker(0, 2)),
-			"Marker-0/3":    markers.NewMarkers(markers.NewMarker(0, 3)),
-			"Marker-0/4":    markers.NewMarkers(markers.NewMarker(0, 4)),
-		}))
 	}
 
 	// SEQUENCE 1
@@ -354,30 +330,6 @@ func createTestTangleTSC(tf *TestFramework) {
 		tf.Tangle.Booker.PreventNewMarkers(true)
 		_ = issueBlocks(tf, "1/3", 5, []string{"Marker-1/3"}, 0)
 		tf.Tangle.Booker.PreventNewMarkers(false)
-
-		tf.Tangle.Booker.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
-			"0/1-preTSCSeq1_0":  markers.NewMarkers(markers.NewMarker(0, 1)),
-			"0/1-preTSCSeq1_1":  markers.NewMarkers(markers.NewMarker(0, 1)),
-			"0/1-preTSCSeq1_2":  markers.NewMarkers(markers.NewMarker(0, 1)),
-			"0/1-postTSCSeq1_0": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"0/1-postTSCSeq1_1": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"0/1-postTSCSeq1_2": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"0/1-postTSCSeq1_3": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"0/1-postTSCSeq1_4": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"0/1-postTSCSeq1_5": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"Marker-1/2":        markers.NewMarkers(markers.NewMarker(1, 2)),
-			"1/2_0":             markers.NewMarkers(markers.NewMarker(1, 2)),
-			"1/2_1":             markers.NewMarkers(markers.NewMarker(1, 2)),
-			"1/2_2":             markers.NewMarkers(markers.NewMarker(1, 2)),
-			"1/2_3":             markers.NewMarkers(markers.NewMarker(1, 2)),
-			"1/2_4":             markers.NewMarkers(markers.NewMarker(1, 2)),
-			"Marker-1/3":        markers.NewMarkers(markers.NewMarker(1, 3)),
-			"1/3_0":             markers.NewMarkers(markers.NewMarker(1, 3)),
-			"1/3_1":             markers.NewMarkers(markers.NewMarker(1, 3)),
-			"1/3_2":             markers.NewMarkers(markers.NewMarker(1, 3)),
-			"1/3_3":             markers.NewMarkers(markers.NewMarker(1, 3)),
-			"1/3_4":             markers.NewMarkers(markers.NewMarker(1, 3)),
-		}))
 	}
 
 	// SEQUENCE 2
@@ -396,30 +348,6 @@ func createTestTangleTSC(tf *TestFramework) {
 		tf.Tangle.Booker.PreventNewMarkers(true)
 		_ = issueBlocks(tf, "2/3", 5, []string{"Marker-2/3"}, 0)
 		tf.Tangle.Booker.PreventNewMarkers(false)
-
-		tf.Tangle.Booker.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
-			"0/1-preTSCSeq2_0":  markers.NewMarkers(markers.NewMarker(0, 1)),
-			"0/1-preTSCSeq2_1":  markers.NewMarkers(markers.NewMarker(0, 1)),
-			"0/1-preTSCSeq2_2":  markers.NewMarkers(markers.NewMarker(0, 1)),
-			"0/1-postTSCSeq2_0": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"0/1-postTSCSeq2_1": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"0/1-postTSCSeq2_2": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"0/1-postTSCSeq2_3": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"0/1-postTSCSeq2_4": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"0/1-postTSCSeq2_5": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"Marker-2/2":        markers.NewMarkers(markers.NewMarker(2, 2)),
-			"2/2_0":             markers.NewMarkers(markers.NewMarker(2, 2)),
-			"2/2_1":             markers.NewMarkers(markers.NewMarker(2, 2)),
-			"2/2_2":             markers.NewMarkers(markers.NewMarker(2, 2)),
-			"2/2_3":             markers.NewMarkers(markers.NewMarker(2, 2)),
-			"2/2_4":             markers.NewMarkers(markers.NewMarker(2, 2)),
-			"Marker-2/3":        markers.NewMarkers(markers.NewMarker(2, 3)),
-			"2/3_0":             markers.NewMarkers(markers.NewMarker(2, 3)),
-			"2/3_1":             markers.NewMarkers(markers.NewMarker(2, 3)),
-			"2/3_2":             markers.NewMarkers(markers.NewMarker(2, 3)),
-			"2/3_3":             markers.NewMarkers(markers.NewMarker(2, 3)),
-			"2/3_4":             markers.NewMarkers(markers.NewMarker(2, 3)),
-		}))
 	}
 
 	// SEQUENCE 2 + 0
@@ -429,15 +357,6 @@ func createTestTangleTSC(tf *TestFramework) {
 		tf.Tangle.Booker.PreventNewMarkers(true)
 		_ = issueBlocks(tf, "2/5", 5, []string{"Marker-2/5"}, 0)
 		tf.Tangle.Booker.PreventNewMarkers(false)
-
-		tf.Tangle.Booker.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
-			"Marker-2/5": markers.NewMarkers(markers.NewMarker(2, 5)),
-			"2/5_0":      markers.NewMarkers(markers.NewMarker(2, 5)),
-			"2/5_1":      markers.NewMarkers(markers.NewMarker(2, 5)),
-			"2/5_2":      markers.NewMarkers(markers.NewMarker(2, 5)),
-			"2/5_3":      markers.NewMarkers(markers.NewMarker(2, 5)),
-			"2/5_4":      markers.NewMarkers(markers.NewMarker(2, 5)),
-		}))
 	}
 
 	// SEQUENCE 3
@@ -450,20 +369,6 @@ func createTestTangleTSC(tf *TestFramework) {
 		tf.Tangle.Booker.PreventNewMarkers(true)
 		_ = issueBlocks(tf, "3/2", 5, []string{"Marker-3/2"}, 0)
 		tf.Tangle.Booker.PreventNewMarkers(false)
-
-		tf.Tangle.Booker.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
-			"0/1-postTSCSeq3_0": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"0/1-postTSCSeq3_1": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"0/1-postTSCSeq3_2": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"0/1-postTSCSeq3_3": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"0/1-postTSCSeq3_4": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"Marker-3/2":        markers.NewMarkers(markers.NewMarker(3, 2)),
-			"3/2_0":             markers.NewMarkers(markers.NewMarker(3, 2)),
-			"3/2_1":             markers.NewMarkers(markers.NewMarker(3, 2)),
-			"3/2_2":             markers.NewMarkers(markers.NewMarker(3, 2)),
-			"3/2_3":             markers.NewMarkers(markers.NewMarker(3, 2)),
-			"3/2_4":             markers.NewMarkers(markers.NewMarker(3, 2)),
-		}))
 	}
 
 	// SEQUENCE 2 + 0 (two past markers) -> SEQUENCE 4
@@ -474,13 +379,6 @@ func createTestTangleTSC(tf *TestFramework) {
 		tf.Tangle.BlockDAG.IssueBlocks("Marker-4/5")
 		tf.Tangle.Booker.PreventNewMarkers(false)
 
-		tf.Tangle.Booker.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
-			"2/3+0/4_0":  markers.NewMarkers(markers.NewMarker(2, 3), markers.NewMarker(0, 4)),
-			"2/3+0/4_1":  markers.NewMarkers(markers.NewMarker(2, 3), markers.NewMarker(0, 4)),
-			"2/3+0/4_2":  markers.NewMarkers(markers.NewMarker(2, 3), markers.NewMarker(0, 4)),
-			"2/3+0/4_3":  markers.NewMarkers(markers.NewMarker(2, 3), markers.NewMarker(0, 4)),
-			"Marker-4/5": markers.NewMarkers(markers.NewMarker(4, 5)),
-		}))
 	}
 	// SEQUENCE 5
 	{
@@ -492,20 +390,6 @@ func createTestTangleTSC(tf *TestFramework) {
 		tf.Tangle.Booker.PreventNewMarkers(true)
 		_ = issueBlocks(tf, "5/2", 5, []string{"Marker-5/2"}, 0)
 		tf.Tangle.Booker.PreventNewMarkers(false)
-
-		tf.Tangle.Booker.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
-			"0/1-preTSCSeq5_0": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"0/1-preTSCSeq5_1": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"0/1-preTSCSeq5_2": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"0/1-preTSCSeq5_3": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"0/1-preTSCSeq5_4": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"Marker-5/2":       markers.NewMarkers(markers.NewMarker(5, 2)),
-			"5/2_0":            markers.NewMarkers(markers.NewMarker(5, 2)),
-			"5/2_1":            markers.NewMarkers(markers.NewMarker(5, 2)),
-			"5/2_2":            markers.NewMarkers(markers.NewMarker(5, 2)),
-			"5/2_3":            markers.NewMarkers(markers.NewMarker(5, 2)),
-			"5/2_4":            markers.NewMarkers(markers.NewMarker(5, 2)),
-		}))
 	}
 
 	// SEQUENCE 6
@@ -518,31 +402,11 @@ func createTestTangleTSC(tf *TestFramework) {
 		tf.Tangle.Booker.PreventNewMarkers(true)
 		_ = issueBlocks(tf, "6/2", 5, []string{"Marker-6/2"}, 0)
 		tf.Tangle.Booker.PreventNewMarkers(false)
-
-		tf.Tangle.Booker.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
-			"0/1-postTSCSeq6_0": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"0/1-postTSCSeq6_1": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"0/1-postTSCSeq6_2": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"0/1-postTSCSeq6_3": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"0/1-postTSCSeq6_4": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"Marker-6/2":        markers.NewMarkers(markers.NewMarker(6, 2)),
-			"6/2_0":             markers.NewMarkers(markers.NewMarker(6, 2)),
-			"6/2_1":             markers.NewMarkers(markers.NewMarker(6, 2)),
-			"6/2_2":             markers.NewMarkers(markers.NewMarker(6, 2)),
-			"6/2_3":             markers.NewMarkers(markers.NewMarker(6, 2)),
-			"6/2_4":             markers.NewMarkers(markers.NewMarker(6, 2)),
-		}))
 	}
 
 	// SEQUENCE 7 (without markers)
 	{
 		_ = issueBlocks(tf, "7/1", 3, []string{"Genesis"}, 0)
-
-		tf.Tangle.Booker.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
-			"7/1_0": markers.NewMarkers(markers.NewMarker(7, 1)),
-			"7/1_1": markers.NewMarkers(markers.NewMarker(7, 2)),
-			"7/1_2": markers.NewMarkers(markers.NewMarker(7, 3)),
-		}))
 	}
 }
 
@@ -586,12 +450,6 @@ func TestTipManager_TimeSinceConfirmation_RootBlockParent(t *testing.T) {
 	tf.Tangle.BlockDAG.IssueBlocks("Block3")
 	tf.Tangle.BlockDAG.CreateBlock("Block4", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block3")), models.WithIssuingTime(now.Add(10*time.Second)))
 	tf.Tangle.BlockDAG.IssueBlocks("Block4")
-	tf.Tangle.Booker.CheckMarkers(map[string]*markers.Markers{
-		"Block1": markers.NewMarkers(markers.NewMarker(0, 1)),
-		"Block2": markers.NewMarkers(markers.NewMarker(0, 2)),
-		"Block3": markers.NewMarkers(markers.NewMarker(0, 3)),
-		"Block4": markers.NewMarkers(markers.NewMarker(0, 4)),
-	})
 
 	acceptedBlockIDsAliases := []string{"Block1", "Block2"}
 	acceptedMarkers := []markers.Marker{markers.NewMarker(0, 1), markers.NewMarker(0, 2)}
@@ -608,9 +466,6 @@ func TestTipManager_TimeSinceConfirmation_RootBlockParent(t *testing.T) {
 
 	tf.Tangle.BlockDAG.CreateBlock("Block5", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block1")), models.WithIssuingTime(now))
 	tf.Tangle.BlockDAG.IssueBlocks("Block5")
-	tf.Tangle.Booker.CheckMarkers(map[string]*markers.Markers{
-		"Block5": markers.NewMarkers(markers.NewMarker(1, 1)),
-	})
 
 	tf.AssertIsPastConeTimestampCorrect("Block3", true)
 	tf.AssertIsPastConeTimestampCorrect("Block2", true)

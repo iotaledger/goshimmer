@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/iotaledger/hive.go/core/generics/options"
-
 	"github.com/iotaledger/hive.go/core/generics/walker"
 
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
@@ -45,7 +44,7 @@ func NewSequenceManager(opts ...options.Option[SequenceManager]) (m *SequenceMan
 // additional flag that indicates if a new Sequence was created. When attaching to one of the root blocks, a new
 // sequence is always created and the block is assigned Index(1), while Index(0) is a root index.
 // InheritStructureDetails inherits the structure details of the given parent StructureDetails.
-func (s *SequenceManager) InheritStructureDetails(referencedStructureDetails []*StructureDetails) (inheritedStructureDetails *StructureDetails, newSequenceCreated bool) {
+func (s *SequenceManager) InheritStructureDetails(referencedStructureDetails []*StructureDetails, allParentsInPastEpoch bool) (inheritedStructureDetails *StructureDetails, newSequenceCreated bool) {
 	inheritedStructureDetails = s.mergeParentStructureDetails(referencedStructureDetails)
 
 	inheritedStructureDetails.SetPastMarkers(s.normalizeMarkers(inheritedStructureDetails.PastMarkers()))
@@ -59,7 +58,7 @@ func (s *SequenceManager) InheritStructureDetails(referencedStructureDetails []*
 
 	assignedMarker, sequenceExtended := s.extendHighestAvailableSequence(inheritedStructureDetails.PastMarkers())
 	if !sequenceExtended && !newSequenceCreated {
-		newSequenceCreated, assignedMarker = s.createSequenceIfNecessary(inheritedStructureDetails)
+		newSequenceCreated, assignedMarker = s.createSequenceIfNecessary(inheritedStructureDetails, allParentsInPastEpoch)
 	}
 
 	if !sequenceExtended && !newSequenceCreated {
@@ -192,8 +191,8 @@ func (s *SequenceManager) extendHighestAvailableSequence(referencedPastMarkers *
 
 // createSequenceIfNecessary is an internal utility function that creates a new Sequence if the distance to the last
 // past Marker is higher or equal than the configured threshold and returns the first Marker in that Sequence.
-func (s *SequenceManager) createSequenceIfNecessary(structureDetails *StructureDetails) (created bool, firstMarker Marker) {
-	if structureDetails.PastMarkerGap() < s.optsMaxPastMarkerDistance {
+func (s *SequenceManager) createSequenceIfNecessary(structureDetails *StructureDetails, allParentsInPastEpoch bool) (created bool, firstMarker Marker) {
+	if !allParentsInPastEpoch && structureDetails.PastMarkerGap() < s.optsMaxPastMarkerDistance {
 		return
 	}
 	return true, s.createSequence(structureDetails.PastMarkers())

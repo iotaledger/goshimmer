@@ -284,7 +284,15 @@ func (b *Booker) inheritConflictIDs(block *Block) (inheritedConflictIDs utxo.Tra
 		return nil, errors.Wrap(err, "failed to inherit conflict IDs")
 	}
 
-	newStructureDetails := b.markerManager.ProcessBlock(block, parentsStructureDetails, inheritedConflictIDs)
+	allParentsInPastEpochs := true
+	for parentID := range block.ParentsByType(models.StrongParentType) {
+		if parentID.Index() >= block.ID().Index() {
+			allParentsInPastEpochs = false
+			break
+		}
+	}
+
+	newStructureDetails := b.markerManager.ProcessBlock(block, allParentsInPastEpochs, parentsStructureDetails, inheritedConflictIDs)
 
 	block.setStructureDetails(newStructureDetails)
 
