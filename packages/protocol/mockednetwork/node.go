@@ -230,7 +230,7 @@ func (n *Node) attachEngineLogs(instance *enginemanager.EngineInstance) {
 }
 
 func (n *Node) Wait() {
-	n.Workers.Wait()
+	n.Workers.WaitChildren()
 }
 
 func (n *Node) IssueBlockAtEpoch(alias string, epochIndex epoch.Index, parents ...models.BlockID) *models.Block {

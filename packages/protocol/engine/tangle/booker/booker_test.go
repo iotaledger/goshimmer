@@ -35,7 +35,7 @@ func TestScenario_1(t *testing.T) {
 
 	tf.BlockDAG.IssueBlocks("Block1", "Block2", "Block3", "Block4", "Block5", "Block6", "Block7", "Block8", "Block9")
 
-	workers.Wait()
+	workers.WaitChildren()
 
 	tf.checkConflictIDs(map[string]utxo.TransactionIDs{
 		"Block1": utxo.NewTransactionIDs(),
@@ -76,7 +76,7 @@ func TestScenario_2(t *testing.T) {
 	tf.BlockDAG.IssueBlocks("Block8")
 	tf.BlockDAG.IssueBlocks("Block9")
 
-	workers.Wait()
+	workers.WaitChildren()
 
 	tf.checkConflictIDs(map[string]utxo.TransactionIDs{
 		"Block0.5": tf.Ledger.TransactionIDs("TX8"),
@@ -109,21 +109,21 @@ func TestScenario_3(t *testing.T) {
 	tf.BlockDAG.CreateBlock("Block9", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block4", "Block7")), models.WithPayload(tf.Ledger.CreateTransaction("TX8", 1, "TX1.1")))
 
 	tf.BlockDAG.IssueBlocks("Block1")
-	workers.Wait()
+	workers.WaitChildren()
 	tf.BlockDAG.IssueBlocks("Block2")
-	workers.Wait()
+	workers.WaitChildren()
 	tf.BlockDAG.IssueBlocks("Block3", "Block4")
-	workers.Wait()
+	workers.WaitChildren()
 	tf.BlockDAG.IssueBlocks("Block5")
-	workers.Wait()
+	workers.WaitChildren()
 	tf.BlockDAG.IssueBlocks("Block6")
-	workers.Wait()
+	workers.WaitChildren()
 	tf.BlockDAG.IssueBlocks("Block7")
-	workers.Wait()
+	workers.WaitChildren()
 	tf.BlockDAG.IssueBlocks("Block8")
-	workers.Wait()
+	workers.WaitChildren()
 	tf.BlockDAG.IssueBlocks("Block9")
-	workers.Wait()
+	workers.WaitChildren()
 
 	tf.checkConflictIDs(map[string]utxo.TransactionIDs{
 		"Block1": utxo.NewTransactionIDs(),
@@ -584,7 +584,7 @@ func TestMultiThreadedBookingAndForkingParallel(t *testing.T) {
 	}
 
 	wg.Wait()
-	workers.Wait()
+	workers.WaitChildren()
 
 	expectedConflicts := make(map[string]utxo.TransactionIDs)
 	for layer := 0; layer < layersNum; layer++ {
@@ -670,7 +670,7 @@ func TestMultiThreadedBookingAndForkingNested(t *testing.T) {
 		}(i)
 	}
 	wg.Wait()
-	workers.Wait()
+	workers.WaitChildren()
 
 	expectedConflicts := make(map[string]utxo.TransactionIDs)
 	for layer := 0; layer < layersNum; layer++ {
@@ -774,14 +774,14 @@ func Test_Prune(t *testing.T) {
 	require.True(t, wasAttached, "block should be attached")
 	require.NoError(t, err, "should not be able to attach a block after shutdown")
 
-	workers.Wait()
+	workers.WaitChildren()
 
 	tf.AssertBookedCount(epochCount+1, "should have all solid blocks")
 
 	validateState(tf, 0, epochCount)
 
 	tf.BlockDAG.Instance.EvictionState.EvictUntil(epochCount / 4)
-	workers.Wait()
+	workers.WaitChildren()
 
 	require.EqualValues(t, epochCount/4, tf.BlockDAG.Instance.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/4")
 
@@ -789,12 +789,12 @@ func Test_Prune(t *testing.T) {
 	tf.BlockDAG.AssertInvalidCount(0, "should have invalid blocks")
 
 	tf.BlockDAG.Instance.EvictionState.EvictUntil(epochCount / 10)
-	workers.Wait()
+	workers.WaitChildren()
 
 	require.EqualValues(t, epochCount/4, tf.BlockDAG.Instance.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/4")
 
 	tf.BlockDAG.Instance.EvictionState.EvictUntil(epochCount / 2)
-	workers.Wait()
+	workers.WaitChildren()
 
 	require.EqualValues(t, epochCount/2, tf.BlockDAG.Instance.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/2")
 
@@ -805,7 +805,7 @@ func Test_Prune(t *testing.T) {
 		models.WithStrongParents(tf.BlockDAG.BlockIDs(fmt.Sprintf("blk-%d", epochCount))),
 		models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0)),
 	))
-	workers.Wait()
+	workers.WaitChildren()
 
 	require.False(t, wasAttached, "block should not be attached")
 	require.Error(t, err, "should not be able to attach a block after eviction of an epoch")

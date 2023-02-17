@@ -20,3 +20,5 @@ go get github.com/iotaledger/hive.go/kvstore@$COMMIT
 
 go get github.com/iotaledger/hive.go/objectstorage@$COMMIT
 go get github.com/iotaledger/hive.go/autopeering@$COMMIT
+
+go mod tidy

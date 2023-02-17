@@ -113,7 +113,7 @@ func TestProtocol(t *testing.T) {
 	tf1.BlockDAG.CreateBlock("A", models.WithStrongParents(tf1.BlockDAG.BlockIDs("Genesis")))
 	tf1.BlockDAG.IssueBlocks("A")
 
-	workers.Wait()
+	workers.WaitChildren()
 }
 
 func TestEngine_NonEmptyInitialValidators(t *testing.T) {
@@ -172,7 +172,7 @@ func TestEngine_NonEmptyInitialValidators(t *testing.T) {
 		"1.C": false,
 	})
 
-	workers.Wait()
+	workers.WaitChildren()
 }
 
 func TestEngine_BlocksForwardAndRollback(t *testing.T) {
@@ -464,7 +464,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 	testDir := t.TempDir()
 	engine1Storage := storage.New(testDir, protocol.DatabaseVersion, database.WithDBProvider(database.NewDB))
 	t.Cleanup(func() {
-		workers.Wait()
+		workers.WaitChildren()
 		engine1Storage.Shutdown()
 	})
 
@@ -582,7 +582,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		require.False(t, tf2.Instance.LedgerState.UnspentOutputs.IDs.Has(tf.Ledger.OutputID("Tx5.0")))
 		require.False(t, tf2.Instance.LedgerState.UnspentOutputs.IDs.Has(tf.Ledger.OutputID("Tx5.1")))
 
-		workers.Wait()
+		workers.WaitChildren()
 	}
 
 	// ///////////////////////////////////////////////////////////
@@ -597,13 +597,13 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 
 		tf.Instance.Shutdown()
 		engine1Storage.Shutdown()
-		workers.Wait()
+		workers.WaitChildren()
 
 		fmt.Println("============================= Start Engine =============================")
 
 		engine3Storage := storage.New(testDir, protocol.DatabaseVersion, database.WithDBProvider(database.NewDB))
 		t.Cleanup(func() {
-			workers.Wait()
+			workers.WaitChildren()
 			engine3Storage.Shutdown()
 		})
 
@@ -623,7 +623,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		require.Equal(t, expectedBalanceByIDs, tf3.Instance.ThroughputQuota.BalanceByIDs())
 		require.Equal(t, expectedTotalBalance, tf3.Instance.ThroughputQuota.TotalBalance())
 
-		workers.Wait()
+		workers.WaitChildren()
 	}
 }
 
@@ -640,7 +640,7 @@ func TestEngine_ShutdownResume(t *testing.T) {
 	testDir := t.TempDir()
 	engine1Storage := storage.New(testDir, protocol.DatabaseVersion, database.WithDBProvider(database.NewDB))
 	t.Cleanup(func() {
-		workers.Wait()
+		workers.WaitChildren()
 		engine1Storage.Shutdown()
 	})
 
@@ -687,12 +687,12 @@ func TestEngine_ShutdownResume(t *testing.T) {
 	require.Equal(t, int64(100), tf.Instance.SybilProtection.Validators().TotalWeight())
 
 	tf.Instance.Shutdown()
-	workers.Wait()
+	workers.WaitChildren()
 	engine1Storage.Shutdown()
 
 	engine2Storage := storage.New(testDir, protocol.DatabaseVersion, database.WithDBProvider(database.NewDB))
 	t.Cleanup(func() {
-		workers.Wait()
+		workers.WaitChildren()
 		engine2Storage.Shutdown()
 	})
 
@@ -711,7 +711,7 @@ func TestEngine_ShutdownResume(t *testing.T) {
 
 	tf2 := engine.NewTestFramework(t, workers.CreateGroup("EngineTestFramework2"), engine2)
 	require.NoError(t, tf2.Instance.Initialize(""))
-	workers.Wait()
+	workers.WaitChildren()
 	tf2.AssertEpochState(0)
 }
 

@@ -58,7 +58,7 @@ func NewTestLedger(t *testing.T, workers *workerpool.Group, optsLedger ...option
 	ledger := New(workers.CreatePool("Ledger", 2), storage, optsLedger...)
 
 	t.Cleanup(func() {
-		workers.Wait()
+		workers.WaitChildren()
 		ledger.Shutdown()
 		storage.Shutdown()
 	})

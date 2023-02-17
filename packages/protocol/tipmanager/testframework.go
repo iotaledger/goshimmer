@@ -70,7 +70,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...option
 
 		test.Cleanup(func() {
 			t.Engine.Shutdown()
-			workers.Wait()
+			workers.WaitChildren()
 			storageInstance.Shutdown()
 		})
 

@@ -37,7 +37,7 @@ func TestTipManager_DataBlockTips(t *testing.T) {
 	{
 		tf.Tangle.BlockDAG.CreateBlock("Block1")
 		tf.Tangle.BlockDAG.IssueBlocks("Block1")
-		workers.Wait()
+		workers.WaitChildren()
 
 		tf.AssertTipCount(1)
 		tf.AssertEqualBlocks(tipManager.Tips(2), tf.Tangle.BlockDAG.BlockIDs("Block1"))
@@ -49,7 +49,7 @@ func TestTipManager_DataBlockTips(t *testing.T) {
 	{
 		tf.Tangle.BlockDAG.CreateBlock("Block2")
 		tf.IssueBlocksAndSetAccepted("Block2")
-		workers.Wait()
+		workers.WaitChildren()
 
 		tf.AssertTipCount(2)
 		tf.AssertEqualBlocks(tipManager.Tips(2), tf.Tangle.BlockDAG.BlockIDs("Block1", "Block2"))
@@ -61,7 +61,7 @@ func TestTipManager_DataBlockTips(t *testing.T) {
 	{
 		tf.Tangle.BlockDAG.CreateBlock("Block3", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block1", "Block2")))
 		tf.IssueBlocksAndSetAccepted("Block3")
-		workers.Wait()
+		workers.WaitChildren()
 
 		tf.AssertTipCount(1)
 		tf.AssertEqualBlocks(tipManager.Tips(2), tf.Tangle.BlockDAG.BlockIDs("Block3"))
@@ -77,7 +77,7 @@ func TestTipManager_DataBlockTips(t *testing.T) {
 			alias := fmt.Sprintf("Block%d", n)
 			tf.Tangle.BlockDAG.CreateBlock(alias, models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block1")))
 			tf.IssueBlocksAndSetAccepted(alias)
-			workers.Wait()
+			workers.WaitChildren()
 
 			tf.AssertTipCount(1 + count)
 			tf.AssertTipsAdded(uint32(3 + count))
@@ -621,10 +621,10 @@ func TestTipManager_FutureTips(t *testing.T) {
 		tf.Tangle.BlockDAG.CreateBlock("Block1.4", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block1.2", "Block1.3")), models.WithIssuingTime(blockTime))
 
 		tf.Tangle.BlockDAG.IssueBlocks("Block1.1", "Block1.2", "Block1.3", "Block1.4")
-		workers.Wait()
+		workers.WaitChildren()
 		tf.SetBlocksAccepted("Block1.1", "Block1.2", "Block1.3", "Block1.4")
 		tf.SetAcceptedTime(tf.Tangle.BlockDAG.Block("Block1.4").IssuingTime())
-		workers.Wait()
+		workers.WaitChildren()
 
 		tf.AssertTipsAdded(4)
 		tf.AssertTipsRemoved(3)
@@ -637,10 +637,10 @@ func TestTipManager_FutureTips(t *testing.T) {
 		tf.Tangle.BlockDAG.CreateBlock("Block2.1", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block1.4")), models.WithIssuingTime(blockTime))
 
 		tf.Tangle.BlockDAG.IssueBlocks("Block2.1")
-		workers.Wait()
+		workers.WaitChildren()
 		tf.SetBlocksAccepted("Block2.1")
 		tf.SetAcceptedTime(tf.Tangle.BlockDAG.Block("Block2.1").IssuingTime())
-		workers.Wait()
+		workers.WaitChildren()
 
 		tf.AssertTipsAdded(5)
 		tf.AssertTipsRemoved(4)
@@ -653,10 +653,10 @@ func TestTipManager_FutureTips(t *testing.T) {
 		tf.Tangle.BlockDAG.CreateBlock("Block3.1", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block2.1")), models.WithIssuingTime(blockTime))
 
 		tf.Tangle.BlockDAG.IssueBlocks("Block3.1")
-		workers.Wait()
+		workers.WaitChildren()
 		tf.SetBlocksAccepted("Block3.1")
 		tf.SetAcceptedTime(tf.Tangle.BlockDAG.Block("Block3.1").IssuingTime())
-		workers.Wait()
+		workers.WaitChildren()
 
 		tf.AssertTipsAdded(6)
 		tf.AssertTipsRemoved(5)
@@ -676,7 +676,7 @@ func TestTipManager_FutureTips(t *testing.T) {
 		tf.Tangle.BlockDAG.CreateBlock("Block4.4", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block4.2")), models.WithIssuingTime(blockTime), models.WithCommitment(commitment2_2))
 
 		tf.Tangle.BlockDAG.IssueBlocks("Block4.1", "Block4.2", "Block4.3", "Block4.4")
-		workers.Wait()
+		workers.WaitChildren()
 
 		tf.AssertTipsAdded(6)
 		tf.AssertTipsRemoved(5)
@@ -696,7 +696,7 @@ func TestTipManager_FutureTips(t *testing.T) {
 	{
 		tf.SetBlocksAccepted("Block4.2")
 		tf.SetAcceptedTime(tf.Tangle.BlockDAG.Block("Block4.2").IssuingTime())
-		workers.Wait()
+		workers.WaitChildren()
 
 		tf.AssertFutureTips(map[epoch.Index]map[commitment.ID]models.BlockIDs{
 			3: {

@@ -177,6 +177,8 @@ func TestEngineManager_ForkEngineAtEpoch(t *testing.T) {
 
 		require.NoError(t, etf.EngineManager.SetActiveInstance(forkedEngine))
 
+		forkedEngine.Shutdown()
+
 		active, err := etf.EngineManager.LoadActiveEngine()
 		require.NoError(t, err)
 		require.Equal(t, active.Storage.Directory, forkedEngine.Storage.Directory)

@@ -62,7 +62,7 @@ func TestOrphanageManager_HandleTimeUpdate(t *testing.T) {
 		tf.Manager.HandleTimeUpdate(virtualVotingBlock.IssuingTime())
 	}
 
-	workers.Wait()
+	workers.WaitChildren()
 
 	tf.BlockDAG.AssertOrphanedCount(10, "expected %d orphaned blocks", 10)
 	tf.AssertOrphaned(map[string]bool{
@@ -128,7 +128,7 @@ func TestOrphanageManager_HandleTimeUpdate(t *testing.T) {
 			tf.BlockDAG.Instance.SetOrphaned(virtualVotingBlock.Block.Block, false)
 		}
 
-		workers.Wait()
+		workers.WaitChildren()
 
 		tf.BlockDAG.AssertOrphanedCount(0, "expected %d orphaned blocks", 0)
 		tf.AssertOrphaned(map[string]bool{

@@ -30,7 +30,7 @@ func TestReferenceProvider_References1(t *testing.T) {
 	tf.Engine.BlockDAG.CreateBlock("Block4", models.WithPayload(tf.Engine.Ledger.CreateTransaction("TX4", 1, "TX1.0", "TX1.1")), models.WithIssuer(tf.Engine.VirtualVoting.Identity("V2").PublicKey()))
 	tf.Engine.BlockDAG.IssueBlocks("Block1", "Block2", "Block3", "Block4")
 
-	workers.Wait()
+	workers.WaitChildren()
 
 	rp := NewReferenceProvider(tf.Instance, func() epoch.Index {
 		return 0
@@ -56,7 +56,7 @@ func TestBlockFactory_PrepareLikedReferences_2(t *testing.T) {
 	tf.Engine.BlockDAG.CreateBlock("Block3", models.WithPayload(tf.Engine.Ledger.CreateTransaction("TX3", 1, "TX0.1")), models.WithIssuer(tf.Engine.VirtualVoting.Identity("V1").PublicKey()))
 	tf.Engine.BlockDAG.CreateBlock("Block4", models.WithPayload(tf.Engine.Ledger.CreateTransaction("TX4", 1, "TX0.0")), models.WithIssuer(tf.Engine.VirtualVoting.Identity("V1").PublicKey()))
 	tf.Engine.BlockDAG.IssueBlocks("Block0", "Block1", "Block2", "Block3", "Block4")
-	workers.Wait()
+	workers.WaitChildren()
 
 	rp := NewReferenceProvider(tf.Instance, func() epoch.Index {
 		return 0
@@ -90,7 +90,7 @@ func TestBlockFactory_PrepareLikedReferences_2(t *testing.T) {
 	{
 		tf.Engine.BlockDAG.CreateBlock("Block5", models.WithPayload(tf.Engine.Ledger.Transaction("TX1")))
 		tf.Engine.BlockDAG.IssueBlocks("Block5")
-		workers.Wait()
+		workers.WaitChildren()
 
 		checkReferences(t, rp, nil, tf.Engine.BlockDAG.BlockIDs("Block3", "Block4"), map[models.ParentsType]models.BlockIDs{
 			models.StrongParentType:      tf.Engine.BlockDAG.BlockIDs("Block3", "Block4"),
@@ -110,7 +110,7 @@ func TestBlockFactory_WeakReferencesConsumed(t *testing.T) {
 	tf.Engine.BlockDAG.CreateBlock("Block3", models.WithPayload(tf.Engine.Ledger.CreateTransaction("TX3", 1, "TX1.1")))
 	tf.Engine.BlockDAG.CreateBlock("Block4", models.WithPayload(tf.Engine.Ledger.CreateTransaction("TX4", 1, "TX2.0", "TX3.0")))
 	tf.Engine.BlockDAG.IssueBlocks("Block1", "Block2", "Block3", "Block4")
-	workers.Wait()
+	workers.WaitChildren()
 
 	rp := NewReferenceProvider(tf.Instance, func() epoch.Index {
 		return 0
@@ -140,7 +140,7 @@ func TestBlockFactory_WeakReferencesConsumed(t *testing.T) {
 	// IssueBlock reattachment of TX3 (Block5) and make sure it is referenced in favor of Block3 (earliest attachment).
 	tf.Engine.BlockDAG.CreateBlock("Block5", models.WithPayload(tf.Engine.Ledger.Transaction("TX3")))
 	tf.Engine.BlockDAG.IssueBlocks("Block5")
-	workers.Wait()
+	workers.WaitChildren()
 
 	{
 		checkReferences(t, rp, tf.Engine.BlockDAG.Block("Block4").Payload(), tf.Engine.BlockDAG.BlockIDs("Block1"), map[models.ParentsType]models.BlockIDs{

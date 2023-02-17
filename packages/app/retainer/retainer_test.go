@@ -74,7 +74,7 @@ func TestRetainer_BlockMetadata_NonEvicted(t *testing.T) {
 	b := tf.Engine.BlockDAG.CreateBlock("A")
 	tf.Engine.BlockDAG.IssueBlocks("A")
 
-	workers.Wait()
+	workers.WaitChildren()
 
 	block, exists := tf.Instance.CongestionControl.Block(b.ID())
 	require.True(t, exists)
@@ -128,12 +128,12 @@ func TestRetainer_BlockMetadata_Evicted(t *testing.T) {
 	b := tf.Engine.BlockDAG.CreateBlock("A", models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0).Add(70*time.Second)))
 	tf.Engine.BlockDAG.IssueBlocks("A")
 
-	workers.Wait()
+	workers.WaitChildren()
 
 	block, exists := tf.Instance.CongestionControl.Block(b.ID())
 	require.True(t, exists)
 	tf.Instance.Engine().EvictionState.EvictUntil(b.ID().EpochIndex + 1)
-	workers.Wait()
+	workers.WaitChildren()
 	retainer.WorkerPool().PendingTasksCounter.WaitIsZero()
 
 	meta, exists := retainer.BlockMetadata(block.ID())

@@ -520,7 +520,7 @@ func TestSchedulerFlow(t *testing.T) {
 	})
 
 	tf.Tangle.BlockDAG.IssueBlocks("A", "B", "C", "D", "E")
-	workers.Wait()
+	workers.WaitChildren()
 
 	var scheduledIDs []models.BlockID
 	require.Eventually(t, func() bool {
@@ -578,7 +578,7 @@ func TestSchedulerParallelSubmit(t *testing.T) {
 
 	// issue tips to start solidification
 	tf.Tangle.BlockDAG.IssueBlocks(blockAliases...)
-	workers.Wait()
+	workers.WaitChildren()
 
 	// wait for all blocks to have a formed opinion
 	require.Eventually(t, func() bool { return atomic.LoadUint32(&(tf.scheduledBlocksCount)) == totalBlkCount }, 5*time.Minute, 100*time.Millisecond)

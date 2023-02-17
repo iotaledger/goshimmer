@@ -61,7 +61,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, optsScheduler 
 	test.Cleanup(func() {
 		t.Scheduler.Shutdown()
 		t.engine.Shutdown()
-		workers.Wait()
+		workers.WaitChildren()
 		t.storage.Shutdown()
 	})
 

@@ -42,7 +42,7 @@ type TestFramework struct {
 func NewTestStorage(t *testing.T, workers *workerpool.Group, opts ...options.Option[database.Manager]) *storage.Storage {
 	s := storage.New(t.TempDir(), 1, opts...)
 	t.Cleanup(func() {
-		workers.Wait()
+		workers.WaitChildren()
 		s.Shutdown()
 	})
 	return s
@@ -85,7 +85,7 @@ func (t *TestFramework) IssueBlocks(blockAliases ...string) *TestFramework {
 		})
 	}
 
-	t.workers.WaitAll()
+	t.workers.WaitParents()
 
 	return t
 }
