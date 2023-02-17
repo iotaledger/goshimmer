@@ -378,7 +378,6 @@ func createTestTangleTSC(tf *TestFramework) {
 		tf.Tangle.BlockDAG.CreateBlock("Marker-4/5", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs(lastBlockAlias)), models.WithIssuingTime(now))
 		tf.Tangle.BlockDAG.IssueBlocks("Marker-4/5")
 		tf.Tangle.Booker.PreventNewMarkers(false)
-
 	}
 	// SEQUENCE 5
 	{
@@ -561,7 +560,7 @@ func TestTipManager_FutureTips(t *testing.T) {
 		tf.AssertTipsAdded(6)
 		tf.AssertTipsRemoved(5)
 		tf.AssertTips(tf.Tangle.BlockDAG.BlockIDs("Block3.1"))
-		//tf.AssertFutureTips(map[epoch.Index]map[commitment.ID]models.BlockIDs{
+		// tf.AssertFutureTips(map[epoch.Index]map[commitment.ID]models.BlockIDs{
 		//	2: {
 		//		commitment2_1.ID(): tf.Tangle.BlockDAG.BlockIDs("Block4.1"),
 		//		commitment2_2.ID(): tf.Tangle.BlockDAG.BlockIDs("Block4.2", "Block4.4"),
@@ -569,7 +568,7 @@ func TestTipManager_FutureTips(t *testing.T) {
 		//	3: {
 		//		commitment3_1.ID(): tf.Tangle.BlockDAG.BlockIDs("Block4.3"),
 		//	},
-		//})
+		// })
 	}
 
 	// We accept a block of epoch 4, rendering epoch 2 committable and refreshing the tippool
@@ -578,11 +577,11 @@ func TestTipManager_FutureTips(t *testing.T) {
 		tf.SetAcceptedTime(tf.Tangle.BlockDAG.Block("Block4.2").IssuingTime())
 		workers.Wait()
 
-		//tf.AssertFutureTips(map[epoch.Index]map[commitment.ID]models.BlockIDs{
+		// tf.AssertFutureTips(map[epoch.Index]map[commitment.ID]models.BlockIDs{
 		//	3: {
 		//		commitment3_1.ID(): tf.Tangle.BlockDAG.BlockIDs("Block4.3"),
 		//	},
-		//})
+		// })
 
 		tf.AssertTipsAdded(7)
 		tf.AssertTipsRemoved(6)

@@ -5,9 +5,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -30,9 +29,9 @@ type Manager struct {
 	EpochMutations *EpochMutations
 	Attestations   *Attestations
 
-	storage                  *storage.Storage
-	ledgerState              *ledgerstate.LedgerState
-	commitmentMutex          sync.RWMutex
+	storage         *storage.Storage
+	ledgerState     *ledgerstate.LedgerState
+	commitmentMutex sync.RWMutex
 
 	acceptanceTime      time.Time
 	acceptanceTimeMutex sync.RWMutex
@@ -152,7 +151,6 @@ func (m *Manager) tryCommitEpoch(index epoch.Index, acceptanceTime time.Time) {
 func (m *Manager) isCommittable(ei epoch.Index, acceptanceTime time.Time) (isCommittable bool) {
 	return acceptanceTime.Sub(ei.EndTime()) >= m.optsMinCommittableEpochAge
 }
-
 
 func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 	latestCommitment := m.storage.Settings.LatestCommitment()
