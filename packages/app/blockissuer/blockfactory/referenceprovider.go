@@ -86,6 +86,7 @@ func (r *ReferenceProvider) referencesToMissingConflicts(amount int) (blockIDs m
 		conflictID := it.Next()
 
 		// TODO: make sure that timestamp monotonicity is not broken
+		// TODO: need to check of every parent instead of adjusting the block's issuing time
 		attachment, err := r.latestValidAttachment(conflictID)
 		if attachment == nil || err != nil {
 			// panic("first attachment should be valid")
@@ -132,13 +133,8 @@ func (r *ReferenceProvider) weakParentsFromUnacceptedInputs(payload payload.Payl
 				continue
 			}
 
-			committableEpoch := r.latestEpochIndexCallback()
-
-			if latestAttachment.ID().Index() <= committableEpoch {
-				continue
-			}
-
-			if latestAttachment.Commitment().Index() > r.protocol.Engine().Storage.Settings.LatestCommitment().Index() {
+			// do not add a block from an already committed epoch as weak parent
+			if latestAttachment.ID().Index() <= r.latestEpochIndexCallback() {
 				continue
 			}
 
@@ -155,7 +151,6 @@ func (r *ReferenceProvider) addedReferencesForBlock(blockID models.BlockID, excl
 
 	block, exists := engineInstance.Tangle.Booker.Block(blockID)
 	if !exists {
-		fmt.Println(">> block does not exist", blockID)
 		return nil, false
 	}
 	blockConflicts := engineInstance.Tangle.Booker.BlockConflicts(block)
@@ -168,9 +163,7 @@ func (r *ReferenceProvider) addedReferencesForBlock(blockID models.BlockID, excl
 	var err error
 	if addedReferences, err = r.addedReferencesForConflicts(blockConflicts, excludedConflictIDs); err != nil {
 		// Delete the tip if we could not pick it up.
-		fmt.Println(">> error adding references", blockID)
 		if schedulerBlock, schedulerBlockExists := r.protocol.CongestionControl.Scheduler().Block(blockID); schedulerBlockExists {
-			fmt.Println(">> tip removed", blockID)
 			r.protocol.TipManager.DeleteTip(schedulerBlock)
 		}
 		return nil, false
@@ -192,7 +185,6 @@ func (r *ReferenceProvider) addedReferencesForBlock(blockID models.BlockID, excl
 
 	// A block might introduce too many references and cannot be picked up as a strong parent.
 	if _, success = r.tryExtendReferences(models.NewParentBlockIDs(), addedReferences); !success {
-		fmt.Println(">> tryExtendedReferences", blockID)
 		return nil, false
 	}
 
@@ -238,7 +230,7 @@ func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, exclude
 	likedConflictID, dislikedConflictIDs := engineInstance.Consensus.ConflictResolver.AdjustOpinion(conflictID)
 
 	if likedConflictID.IsEmpty() {
-		return false, models.EmptyBlockID, errors.Errorf("failed to adjust opinion for %s", conflictID)
+		panic("likedConflictID empty when trying to adjust opinion!")
 	}
 
 	if likedConflictID == conflictID {
@@ -249,12 +241,6 @@ func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, exclude
 	// TODO: make sure that timestamp monotonicity is held
 	if err != nil {
 		return false, models.EmptyBlockID, err
-	}
-
-	// Check if the attachment has a monotonic commitment.
-	if attachment.Commitment().Index() > r.protocol.Engine().Storage.Settings.LatestCommitment().Index() {
-		fmt.Printf(">> I want commitment block %s with commitment %d but I have %d\n", attachment.ID(), attachment.Commitment().Index(), r.protocol.Engine().Storage.Settings.LatestCommitment().Index())
-		return true, models.EmptyBlockID, nil
 	}
 
 	excludedConflictIDs.AddAll(engineInstance.Ledger.Utils.ConflictIDsInFutureCone(dislikedConflictIDs))
@@ -272,52 +258,6 @@ func (r *ReferenceProvider) latestValidAttachment(txID utxo.TransactionID) (bloc
 	if acceptedTime := r.protocol.Engine().Clock.AcceptedTime(); block.IssuingTime().Before(acceptedTime.Add(-r.timeSinceConfirmationThreshold)) {
 		return nil, errors.Errorf("attachment of %s with %s is too far in the past relative to AcceptedTime %s", txID, block.ID(), acceptedTime.String())
 	}
-
-	// if block.IsSubjectivelyInvalid() {
-	// 	fmt.Println(">> sub invalid", block.ID())
-	// 	// The block returned will be corresponding to the next heaviest originalConflict in the set.
-	// 	block = nil
-	// 	originalConflict, exists := r.protocol.Engine().Ledger.ConflictDAG.Conflict(txID)
-	// 	if exists {
-	// 		r.protocol.Engine().Consensus.ForEachConnectedConflictingConflictInDescendingOrder(originalConflict, func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-	// 			if block != nil {
-	// 				return
-	// 			}
-	//
-	// 			fmt.Println(">> trying for conflict", conflict.ID())
-	//
-	// 			if originalConflict.ID() == conflict.ID() {
-	// 				fmt.Println(">> blip")
-	// 				return
-	// 			}
-	//
-	// 			bookerBlock := r.protocol.Engine().Tangle.Booker.GetEarliestAttachment(conflict.ID())
-	// 			if bookerBlock == nil {
-	// 				fmt.Println(">> blop")
-	// 				return
-	// 			}
-	//
-	// 			blockInner, exists := r.protocol.Engine().Tangle.VirtualVoting.Block(bookerBlock.ID())
-	// 			if !exists {
-	// 				fmt.Println(">> men men")
-	// 				return
-	// 			}
-	//
-	// 			if blockInner.IsSubjectivelyInvalid() {
-	// 				fmt.Println(">> more sub invalid", blockInner.ID())
-	// 				return
-	// 			}
-	//
-	// 			fmt.Println(">> FOUND!!", blockInner.ID())
-	// 			block = blockInner
-	// 		})
-	// 	}
-	//
-	// 	if block == nil {
-	// 		return nil, errors.Errorf("no attachment for conflict members of %s are valid", txID)
-	// 		// return nil, errors.Errorf("attachment of %s with %s is subjectively invalid", txID, bookerBlock.ID())
-	// 	}
-	// }
 
 	if committableEpoch := r.latestEpochIndexCallback(); block.ID().Index() <= committableEpoch {
 		return nil, errors.Errorf("attachment of %s with %s is too far in the past as current committable epoch is %d", txID, block.ID(), committableEpoch)
