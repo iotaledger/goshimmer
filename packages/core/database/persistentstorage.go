@@ -1,10 +1,9 @@
 package database
 
 import (
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/hive.go/constraints"
 	"github.com/iotaledger/hive.go/kvstore"
-
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
 
 type PersistentEpochStorage[K, V any, KPtr IndexedKey[K], VPtr constraints.MarshalablePtr[V]] struct {

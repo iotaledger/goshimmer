@@ -1,9 +1,8 @@
 package markermanager
 
 import (
-	"github.com/iotaledger/hive.go/runtime/event"
-
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
+	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 type Events struct {

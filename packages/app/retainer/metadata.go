@@ -5,10 +5,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/lo"
-	"github.com/iotaledger/hive.go/objectstorage/generic/model"
-	"github.com/iotaledger/hive.go/serializer/v2/serix"
-
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
@@ -17,6 +13,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/objectstorage/generic/model"
+	"github.com/iotaledger/hive.go/serializer/v2/serix"
 )
 
 // region cachedMetadata ///////////////////////////////////////////////////////////////////////////////////////////////

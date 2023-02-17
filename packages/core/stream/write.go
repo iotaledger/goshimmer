@@ -4,8 +4,9 @@ import (
 	"encoding/binary"
 	"io"
 
-	"github.com/iotaledger/hive.go/constraints"
 	"github.com/pkg/errors"
+
+	"github.com/iotaledger/hive.go/constraints"
 )
 
 // Write writes a generic basic type from the stream.

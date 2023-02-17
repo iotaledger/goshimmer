@@ -8,20 +8,18 @@ import (
 	"github.com/mr-tron/base58/base58"
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/confirmation"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/lo"
-
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/app/retainer"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
-
 	ledgerstateAPI "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 // ExplorerBlock defines the struct of the ExplorerBlock.

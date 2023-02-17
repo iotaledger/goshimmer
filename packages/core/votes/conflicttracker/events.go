@@ -1,10 +1,9 @@
 package conflicttracker
 
 import (
+	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/runtime/event"
-
-	"github.com/iotaledger/goshimmer/packages/core/votes"
 )
 
 type Events[ConflictIDType comparable] struct {

@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/mr-tron/base58"
+
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/mr-tron/base58"
 )
 
 //nolint:errcheck // this small tool does not need thorough error checking

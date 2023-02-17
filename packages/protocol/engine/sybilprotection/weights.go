@@ -1,19 +1,18 @@
 package sybilprotection
 
 import (
-	"github.com/iotaledger/hive.go/ds/advancedset"
 	"sync"
 
 	"github.com/pkg/errors"
 	"github.com/zyedidia/generic/cache"
 
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/types"
-	"github.com/iotaledger/hive.go/kvstore"
-	"github.com/iotaledger/hive.go/lo"
-
 	"github.com/iotaledger/goshimmer/packages/core/ads"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/kvstore"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 const cacheSize = 1000

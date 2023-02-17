@@ -1,10 +1,9 @@
 package chainmanager
 
 import (
-	"github.com/iotaledger/hive.go/runtime/event"
-
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
+	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 type Events struct {

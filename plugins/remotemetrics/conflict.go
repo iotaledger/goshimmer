@@ -1,17 +1,17 @@
 package remotemetrics
 
 import (
-	"github.com/iotaledger/hive.go/ds/advancedset"
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/identity"
 	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/app/remotemetrics"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/ds/advancedset"
 )
 
 var (

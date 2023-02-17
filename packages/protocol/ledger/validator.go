@@ -1,12 +1,12 @@
 package ledger
 
 import (
-	"github.com/iotaledger/hive.go/core/cerrors"
-	"github.com/iotaledger/hive.go/core/generics/dataflow"
-	"github.com/iotaledger/hive.go/ds/walker"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/hive.go/core/cerrors"
+	"github.com/iotaledger/hive.go/core/generics/dataflow"
+	"github.com/iotaledger/hive.go/ds/walker"
 )
 
 // validator is a Ledger component that bundles the API that is used to check the validity of a Transaction.

@@ -2,13 +2,12 @@ package models
 
 import (
 	"fmt"
-	"github.com/iotaledger/hive.go/ds/advancedset"
 	"sync/atomic"
 
-	"github.com/iotaledger/hive.go/core/crypto/ed25519"
-	"github.com/iotaledger/hive.go/runtime/options"
-
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////

@@ -1,13 +1,14 @@
 package conflictdag
 
 import (
-	"github.com/iotaledger/hive.go/ds/advancedset"
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/confirmation"
 	"github.com/iotaledger/hive.go/core/types"
-	"github.com/stretchr/testify/require"
+	"github.com/iotaledger/hive.go/ds/advancedset"
 )
 
 func TestConflictDAG_RetrieveConflict(t *testing.T) {

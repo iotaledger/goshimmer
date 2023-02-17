@@ -3,13 +3,13 @@ package scheduler
 import (
 	"net/http"
 
-	"github.com/iotaledger/goshimmer/packages/node"
-	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/labstack/echo/v4"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/hive.go/autopeering/peer"
 )
 
 // PluginName is the name of the web API info endpoint plugin.

@@ -1,13 +1,12 @@
 package epochtracker
 
 import (
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/ds/advancedset"
-	"github.com/iotaledger/hive.go/lo"
-
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/core/votes/latestvotes"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 type EpochTracker struct {

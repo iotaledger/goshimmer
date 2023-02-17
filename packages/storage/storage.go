@@ -3,13 +3,12 @@ package storage
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/runtime/options"
-
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/storage/permanent"
 	"github.com/iotaledger/goshimmer/packages/storage/prunable"
 	"github.com/iotaledger/goshimmer/packages/storage/utils"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 // Storage is an abstraction around the storage layer of the node.

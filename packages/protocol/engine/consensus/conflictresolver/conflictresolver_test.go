@@ -2,20 +2,19 @@
 package conflictresolver
 
 import (
-	"github.com/iotaledger/hive.go/ds/advancedset"
 	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
-	"github.com/iotaledger/hive.go/core/types"
-	"github.com/iotaledger/hive.go/runtime/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 func TestOnTangleVoting_LikedInstead(t *testing.T) {

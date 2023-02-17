@@ -1,17 +1,17 @@
 package mana
 
 import (
-	"github.com/iotaledger/hive.go/ds/advancedset"
 	"net/http"
 	"sort"
 	"time"
 
-	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/lo"
 	"github.com/labstack/echo/v4"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 func getOnlineAccessHandler(c echo.Context) error {

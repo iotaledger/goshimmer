@@ -1,16 +1,16 @@
 package conflictdag
 
 import (
-	"github.com/iotaledger/hive.go/objectstorage"
-	"github.com/iotaledger/hive.go/objectstorage/generic"
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/cerrors"
-	"github.com/iotaledger/hive.go/lo"
-	"github.com/iotaledger/hive.go/serializer/v2/byteutils"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
+	"github.com/iotaledger/hive.go/core/cerrors"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/objectstorage"
+	"github.com/iotaledger/hive.go/objectstorage/generic"
+	"github.com/iotaledger/hive.go/serializer/v2/byteutils"
 )
 
 // region Storage //////////////////////////////////////////////////////////////////////////////////////////////////////

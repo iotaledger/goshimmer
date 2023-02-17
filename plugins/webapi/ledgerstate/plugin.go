@@ -6,16 +6,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/node"
-	"github.com/iotaledger/hive.go/app/daemon"
-	"github.com/iotaledger/hive.go/core/logger"
-	"github.com/iotaledger/hive.go/runtime/event"
 	"github.com/labstack/echo/v4"
 	"github.com/pkg/errors"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
+	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
@@ -24,9 +22,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-
-	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
+	"github.com/iotaledger/hive.go/app/daemon"
+	"github.com/iotaledger/hive.go/core/logger"
+	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////

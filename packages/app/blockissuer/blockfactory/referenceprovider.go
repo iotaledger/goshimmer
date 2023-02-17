@@ -1,7 +1,6 @@
 package blockfactory
 
 import (
-	"github.com/iotaledger/hive.go/ds/walker"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -10,6 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
+	"github.com/iotaledger/hive.go/ds/walker"
 )
 
 // region ReferenceProvider ////////////////////////////////////////////////////////////////////////////////////////////

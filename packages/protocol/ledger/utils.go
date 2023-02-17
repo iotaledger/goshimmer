@@ -1,16 +1,16 @@
 package ledger
 
 import (
+	"github.com/pkg/errors"
+
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/confirmation"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/hive.go/core/cerrors"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/ds/set"
 	"github.com/iotaledger/hive.go/ds/walker"
 	"github.com/iotaledger/hive.go/lo"
-	"github.com/pkg/errors"
-
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
 // Utils is a Ledger component that bundles utility related API to simplify common interactions with the Ledger.

@@ -1,9 +1,8 @@
 package blockfactory
 
 import (
-	"github.com/iotaledger/hive.go/runtime/event"
-
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 // Events represents events happening on a block factory.

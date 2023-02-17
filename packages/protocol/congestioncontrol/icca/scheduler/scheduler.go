@@ -2,17 +2,13 @@ package scheduler
 
 import (
 	"fmt"
-	"go.uber.org/atomic"
 	"math"
 	"math/big"
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/ds/shrinkingmap"
-	"github.com/iotaledger/hive.go/runtime/options"
-
 	"github.com/pkg/errors"
+	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
@@ -21,6 +17,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/ds/shrinkingmap"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 const (

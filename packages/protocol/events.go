@@ -1,15 +1,14 @@
 package protocol
 
 import (
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/runtime/event"
-
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/enginemanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 type Events struct {

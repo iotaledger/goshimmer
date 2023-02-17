@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 type MetricType uint8

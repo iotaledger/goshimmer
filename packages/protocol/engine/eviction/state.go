@@ -4,7 +4,6 @@ import (
 	"io"
 	"sync"
 
-	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -12,6 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/stream"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 // State represents the state of the eviction and keeps track of the root blocks.

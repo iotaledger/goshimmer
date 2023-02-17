@@ -10,14 +10,13 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/iotaledger/hive.go/runtime/event"
-
-	"github.com/iotaledger/goshimmer/packages/network/p2p"
 )
 
 const defaultReconnectInterval = 5 * time.Second

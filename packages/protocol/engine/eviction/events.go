@@ -1,9 +1,8 @@
 package eviction
 
 import (
-	"github.com/iotaledger/hive.go/runtime/event"
-
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 type Events struct {

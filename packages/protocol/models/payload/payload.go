@@ -3,8 +3,9 @@ package payload
 import (
 	"context"
 
-	"github.com/iotaledger/hive.go/serializer/v2/serix"
 	"github.com/pkg/errors"
+
+	"github.com/iotaledger/hive.go/serializer/v2/serix"
 )
 
 // MaxSize = MaxBlockSize -

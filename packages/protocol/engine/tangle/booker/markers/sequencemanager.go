@@ -5,11 +5,9 @@ import (
 	"math"
 	"sync"
 
-	"github.com/iotaledger/hive.go/runtime/options"
-
-	"github.com/iotaledger/hive.go/ds/walker"
-
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
+	"github.com/iotaledger/hive.go/ds/walker"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 // region SequenceManager //////////////////////////////////////////////////////////////////////////////////////////////////////

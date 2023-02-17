@@ -1,7 +1,6 @@
 package conflicttracker
 
 import (
-	"github.com/iotaledger/hive.go/ds/advancedset"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -12,6 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/hive.go/constraints"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/runtime/debug"
 )

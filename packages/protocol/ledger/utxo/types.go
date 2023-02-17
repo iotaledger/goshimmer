@@ -4,18 +4,19 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"github.com/iotaledger/hive.go/ds/advancedset"
 	"sync"
 
+	"github.com/mr-tron/base58"
+	"github.com/pkg/errors"
+
 	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/ds/orderedmap"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/serializer/v2"
 	"github.com/iotaledger/hive.go/serializer/v2/byteutils"
 	"github.com/iotaledger/hive.go/serializer/v2/serix"
 	"github.com/iotaledger/hive.go/stringify"
-	"github.com/mr-tron/base58"
-	"github.com/pkg/errors"
 )
 
 // region TransactionID ////////////////////////////////////////////////////////////////////////////////////////////////

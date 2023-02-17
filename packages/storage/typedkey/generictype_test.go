@@ -3,11 +3,11 @@ package typedkey
 import (
 	"testing"
 
-	"github.com/iotaledger/hive.go/core/types"
-	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/kvstore/mapdb"
 )
 
 func Test(t *testing.T) {

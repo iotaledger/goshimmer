@@ -3,11 +3,10 @@ package booker
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/ds/set"
-
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/hive.go/ds/set"
 )
 
 type attachments struct {

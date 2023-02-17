@@ -3,8 +3,9 @@ package markers
 import (
 	"testing"
 
-	"github.com/iotaledger/hive.go/stringify"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/iotaledger/hive.go/stringify"
 )
 
 func TestManager(t *testing.T) {

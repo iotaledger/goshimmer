@@ -2,11 +2,11 @@ package conflictdag
 
 import (
 	"context"
-	"github.com/iotaledger/hive.go/objectstorage/generic"
 
 	"github.com/iotaledger/hive.go/ds/set"
 	"github.com/iotaledger/hive.go/ds/walker"
 	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/objectstorage/generic"
 	"github.com/iotaledger/hive.go/serializer/v2/serix"
 )
 

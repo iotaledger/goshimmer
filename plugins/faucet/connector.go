@@ -1,7 +1,6 @@
 package faucet
 
 import (
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/confirmation"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/client/wallet"
@@ -9,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"

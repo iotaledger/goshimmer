@@ -1,10 +1,9 @@
 package consensus
 
 import (
-	"github.com/iotaledger/hive.go/runtime/event"
-
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/epochgadget"
+	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 type Events struct {

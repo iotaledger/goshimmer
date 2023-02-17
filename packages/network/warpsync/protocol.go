@@ -1,14 +1,14 @@
 package warpsync
 
 import (
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/logger"
-	"github.com/iotaledger/hive.go/runtime/workerpool"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotaledger/goshimmer/packages/network"
 	wp "github.com/iotaledger/goshimmer/packages/network/warpsync/proto"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/logger"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 const (

@@ -2,12 +2,12 @@ package node
 
 import (
 	"fmt"
-	"github.com/iotaledger/hive.go/runtime/workerpool"
 	"os"
 	"strings"
 	"sync"
 
 	"github.com/iotaledger/hive.go/core/logger"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 const (

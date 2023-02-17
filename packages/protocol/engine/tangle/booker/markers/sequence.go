@@ -2,14 +2,15 @@ package markers
 
 import (
 	"context"
-	"github.com/iotaledger/hive.go/ds/advancedset"
 	"strconv"
 	"sync"
 
+	"github.com/pkg/errors"
+
 	"github.com/iotaledger/hive.go/core/marshalutil"
+	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/serializer/v2/serix"
-	"github.com/pkg/errors"
 )
 
 // region SequenceID ///////////////////////////////////////////////////////////////////////////////////////////////////

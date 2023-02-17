@@ -2,14 +2,13 @@ package protocol
 
 import (
 	"context"
-	"github.com/iotaledger/goshimmer/packages/network"
-	"github.com/iotaledger/hive.go/runtime/workerpool"
 
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol"
@@ -26,6 +25,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
 	"github.com/iotaledger/hive.go/app/daemon"
 	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 // PluginName is the name of the gossip plugin.

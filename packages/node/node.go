@@ -2,8 +2,9 @@ package node
 
 import (
 	"fmt"
-	"go.uber.org/dig"
 	"reflect"
+
+	"go.uber.org/dig"
 
 	"github.com/iotaledger/hive.go/app/daemon"
 	"github.com/iotaledger/hive.go/core/logger"

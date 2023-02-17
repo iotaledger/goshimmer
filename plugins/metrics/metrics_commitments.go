@@ -1,13 +1,13 @@
 package metrics
 
 import (
-	"github.com/iotaledger/hive.go/runtime/event"
 	"strconv"
 
 	"github.com/iotaledger/goshimmer/packages/app/collector"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
+	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 const (

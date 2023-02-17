@@ -1,7 +1,6 @@
 package metrics
 
 import (
-	"github.com/iotaledger/hive.go/runtime/event"
 	"strconv"
 
 	"github.com/iotaledger/goshimmer/packages/app/collector"
@@ -13,6 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 const (

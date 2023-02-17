@@ -1,17 +1,17 @@
 package warpsync
 
 import (
-	"go.uber.org/atomic"
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/logger"
-	"github.com/iotaledger/hive.go/runtime/options"
+	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/network/warpsync"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/core/logger"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 const minimumWindowSize = 10

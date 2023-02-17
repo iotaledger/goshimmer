@@ -6,14 +6,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/generalheap"
-	"github.com/iotaledger/hive.go/core/timed"
-	"github.com/iotaledger/hive.go/runtime/options"
-
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/core/generalheap"
+	"github.com/iotaledger/hive.go/core/timed"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 // region Manager /////////////////////////////////////////////////////////////////////////////////////////////

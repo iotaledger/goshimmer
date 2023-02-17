@@ -1,14 +1,13 @@
 package epochtracker
 
 import (
-	"github.com/iotaledger/hive.go/ds/advancedset"
 	"testing"
 
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/debug"
-
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
 
 func TestEpochTracker_TrackVotes(t *testing.T) {

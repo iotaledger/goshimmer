@@ -2,7 +2,6 @@ package autopeering
 
 import (
 	"context"
-	"github.com/iotaledger/hive.go/runtime/event"
 	"net"
 	"time"
 
@@ -12,14 +11,14 @@ import (
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1/manamodels"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/hive.go/app/daemon"
 	"github.com/iotaledger/hive.go/autopeering/discover"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/autopeering/selection"
 	"github.com/iotaledger/hive.go/autopeering/server"
-
-	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
+	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 // PluginName is the name of the peering plugin.

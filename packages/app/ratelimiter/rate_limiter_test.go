@@ -5,15 +5,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+	"go.uber.org/atomic"
+
+	"github.com/iotaledger/goshimmer/packages/app/ratelimiter"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/atomic"
-
-	"github.com/iotaledger/goshimmer/packages/app/ratelimiter"
 )
 
 const (

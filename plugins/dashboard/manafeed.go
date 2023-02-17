@@ -2,7 +2,6 @@ package dashboard
 
 import (
 	"context"
-	"github.com/iotaledger/goshimmer/packages/node"
 	"sort"
 	"sync"
 	"time"
@@ -11,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1/manamodels"
 	"github.com/iotaledger/hive.go/app/daemon"

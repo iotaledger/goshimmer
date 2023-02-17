@@ -8,11 +8,10 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/hive.go/runtime/debug"
 	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
-
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////

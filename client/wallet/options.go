@@ -4,10 +4,10 @@ import (
 	"time"
 
 	"github.com/capossele/asset-registry/pkg/registryservice"
-	"github.com/iotaledger/hive.go/core/bitmask"
 
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/hive.go/core/bitmask"
 )
 
 // Option represents an optional parameter .

@@ -1,11 +1,10 @@
 package virtualvoting
 
 import (
-	"github.com/iotaledger/hive.go/ds/advancedset"
-	"github.com/iotaledger/hive.go/runtime/options"
-
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 // region Block ////////////////////////////////////////////////////////////////////////////////////////////////////////

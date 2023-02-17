@@ -1,10 +1,9 @@
 package notarization
 
 import (
-	"github.com/iotaledger/hive.go/runtime/event"
-
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 // Events is a container that acts as a dictionary for the events of the notarization manager.

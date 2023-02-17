@@ -2,7 +2,6 @@ package dashboard
 
 import (
 	"context"
-	"github.com/iotaledger/goshimmer/packages/node"
 	"net/http"
 	"sync"
 	"time"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/app/collector"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/dashboardmetrics"
 	"github.com/iotaledger/hive.go/app/daemon"
 	"github.com/iotaledger/hive.go/lo"

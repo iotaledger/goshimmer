@@ -2,13 +2,12 @@ package votes
 
 import (
 	"fmt"
-	"github.com/iotaledger/hive.go/ds/advancedset"
 	"testing"
 
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/lo"
-
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////

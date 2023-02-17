@@ -2,13 +2,12 @@ package ledger
 
 import (
 	"context"
-	"github.com/iotaledger/hive.go/ds/advancedset"
-
-	"github.com/iotaledger/hive.go/runtime/event"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 // region Events ///////////////////////////////////////////////////////////////////////////////////////////////////////

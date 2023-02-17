@@ -3,10 +3,9 @@ package conflictdag
 import (
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
-
-	"github.com/iotaledger/goshimmer/packages/core/database"
 )
 
 // region WithStore ////////////////////////////////////////////////////////////////////////////////////////////////////

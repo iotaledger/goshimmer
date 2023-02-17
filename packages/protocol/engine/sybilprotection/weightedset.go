@@ -1,10 +1,10 @@
 package sybilprotection
 
 import (
-	"github.com/iotaledger/hive.go/ds/advancedset"
 	"sync"
 
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/runtime/event"
 )
 

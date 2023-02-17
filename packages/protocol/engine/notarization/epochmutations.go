@@ -3,9 +3,6 @@ package notarization
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/constraints"
-	"github.com/iotaledger/hive.go/kvstore/mapdb"
-	"github.com/iotaledger/hive.go/lo"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/ads"
@@ -15,6 +12,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/constraints"
+	"github.com/iotaledger/hive.go/kvstore/mapdb"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 // EpochMutations is an in-memory data structure that enables the collection of mutations for uncommitted epochs.

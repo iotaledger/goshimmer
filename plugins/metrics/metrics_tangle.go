@@ -1,7 +1,6 @@
 package metrics
 
 import (
-	"github.com/iotaledger/hive.go/runtime/event"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/app/collector"
@@ -11,6 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 const (

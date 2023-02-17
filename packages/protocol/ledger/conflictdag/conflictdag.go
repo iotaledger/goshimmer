@@ -1,10 +1,10 @@
 package conflictdag
 
 import (
-	"github.com/iotaledger/hive.go/ds/advancedset"
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/confirmation"
+	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/ds/walker"
 	"github.com/iotaledger/hive.go/serializer/v2/byteutils"
 )

@@ -2,15 +2,8 @@ package warpsync
 
 import (
 	"context"
-	"github.com/iotaledger/hive.go/ds/advancedset"
 
 	"github.com/celestiaorg/smt"
-	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/core/generics/dataflow"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/ds/orderedmap"
-	"github.com/iotaledger/hive.go/ds/types"
-	"github.com/iotaledger/hive.go/lo"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/sync/errgroup"
@@ -21,6 +14,13 @@ import (
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	wp "github.com/iotaledger/goshimmer/packages/network/warpsync/proto"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/core/generics/dataflow"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/ds/orderedmap"
+	"github.com/iotaledger/hive.go/ds/types"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 type epochSyncStart struct {

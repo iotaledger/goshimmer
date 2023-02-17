@@ -3,11 +3,11 @@ package client
 import (
 	"net/http"
 
-	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/network/manualpeering"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 )
 
 const (

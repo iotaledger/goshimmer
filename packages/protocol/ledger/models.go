@@ -1,17 +1,16 @@
 package ledger
 
 import (
-	"github.com/iotaledger/hive.go/ds/advancedset"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/confirmation"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/ds/orderedmap"
 	"github.com/iotaledger/hive.go/objectstorage/generic/model"
 	"github.com/iotaledger/hive.go/stringify"
-
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
 // region TransactionMetadata //////////////////////////////////////////////////////////////////////////////////////////

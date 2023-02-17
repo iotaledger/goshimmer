@@ -1,7 +1,6 @@
 package blockissuer
 
 import (
-	"github.com/iotaledger/hive.go/runtime/event"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
@@ -11,6 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	protocolParams "github.com/iotaledger/goshimmer/plugins/protocol"
 	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 // PluginName is the name of the spammer plugin.

@@ -3,9 +3,8 @@ package memstorage
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/ds/shrinkingmap"
-
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/hive.go/ds/shrinkingmap"
 )
 
 // EpochStorage is an evictable storage that stores storages for epochs.

@@ -2,15 +2,15 @@ package wallet
 
 import (
 	"context"
-	"github.com/go-resty/resty/v2"
 	"strconv"
 
 	"github.com/capossele/asset-registry/pkg/registryclient"
-	"github.com/iotaledger/hive.go/core/marshalutil"
-	"github.com/iotaledger/hive.go/serializer/v2/serix"
+	"github.com/go-resty/resty/v2"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/hive.go/core/marshalutil"
+	"github.com/iotaledger/hive.go/serializer/v2/serix"
 )
 
 const (

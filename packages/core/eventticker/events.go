@@ -1,9 +1,8 @@
 package eventticker
 
 import (
-	"github.com/iotaledger/hive.go/runtime/event"
-
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 // Events represents events happening on a EventTicker.

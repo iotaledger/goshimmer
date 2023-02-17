@@ -4,8 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 
@@ -14,6 +12,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 // region Buffered Queue test /////////////////////////////////////////////////////////////////////////////////////////////

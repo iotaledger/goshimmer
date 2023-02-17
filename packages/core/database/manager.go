@@ -11,13 +11,12 @@ import (
 	"github.com/pkg/errors"
 	"github.com/zyedidia/generic/cache"
 
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/hive.go/core/ioutils"
 	"github.com/iotaledger/hive.go/ds/shrinkingmap"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/options"
-
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
 
 // region Manager //////////////////////////////////////////////////////////////////////////////////////////////////////

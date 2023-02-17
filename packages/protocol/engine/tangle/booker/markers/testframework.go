@@ -2,9 +2,9 @@ package markers
 
 import (
 	"fmt"
-	"github.com/iotaledger/hive.go/ds/advancedset"
 	"testing"
 
+	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/runtime/options"
 )
 

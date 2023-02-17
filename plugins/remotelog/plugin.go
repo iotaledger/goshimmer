@@ -10,16 +10,16 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/iotaledger/hive.go/app/daemon"
-	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/core/logger"
-	"github.com/iotaledger/hive.go/runtime/workerpool"
 	"go.uber.org/dig"
 	"gopkg.in/src-d/go-git.v4"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/node"
 	logger_plugin "github.com/iotaledger/goshimmer/plugins/logger"
+	"github.com/iotaledger/hive.go/app/daemon"
+	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/core/logger"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 const (

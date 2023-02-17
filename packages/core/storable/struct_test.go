@@ -5,10 +5,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/iotaledger/hive.go/serializer/v2/serix"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/storable"
+	"github.com/iotaledger/hive.go/serializer/v2/serix"
 )
 
 // region Tests ////////////////////////////////////////////////////////////////////////////////////////////////////////

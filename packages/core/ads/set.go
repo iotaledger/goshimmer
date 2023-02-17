@@ -4,14 +4,14 @@ import (
 	"sync"
 
 	"github.com/celestiaorg/smt"
-	"github.com/iotaledger/hive.go/constraints"
-	"github.com/iotaledger/hive.go/core/types"
-	"github.com/iotaledger/hive.go/kvstore"
-	"github.com/iotaledger/hive.go/lo"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/storage/typedkey"
+	"github.com/iotaledger/hive.go/constraints"
+	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/kvstore"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 const (
