@@ -162,10 +162,6 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 		return false
 	}
 
-	// TODO: remove
-	// This should have been already evicted by dropPendingConflicts.
-	// m.pendingConflictsCounters.Evict(index)
-
 	if err := m.ledgerState.ApplyStateDiff(index); err != nil {
 		m.Events.Error.Trigger(errors.Wrapf(err, "failed to apply state diff for epoch %d", index))
 		return false

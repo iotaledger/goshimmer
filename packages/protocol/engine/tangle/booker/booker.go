@@ -176,14 +176,14 @@ func (b *Booker) BlockFloor(marker markers.Marker) (floorMarker markers.Marker, 
 
 // GetEarliestAttachment returns the earliest attachment for a given transaction ID.
 // returnOrphaned parameter specifies whether the returned attachment may be orphaned.
-func (b *Booker) GetEarliestAttachment(txID utxo.TransactionID, returnOrphaned ...bool) (attachment *Block) {
-	return b.attachments.getEarliestAttachment(txID, returnOrphaned...)
+func (b *Booker) GetEarliestAttachment(txID utxo.TransactionID) (attachment *Block) {
+	return b.attachments.getEarliestAttachment(txID)
 }
 
 // GetLatestAttachment returns the latest attachment for a given transaction ID.
 // returnOrphaned parameter specifies whether the returned attachment may be orphaned.
-func (b *Booker) GetLatestAttachment(txID utxo.TransactionID, returnOrphaned ...bool) (attachment *Block) {
-	return b.attachments.getLatestAttachment(txID, returnOrphaned...)
+func (b *Booker) GetLatestAttachment(txID utxo.TransactionID) (attachment *Block) {
+	return b.attachments.getLatestAttachment(txID)
 }
 
 func (b *Booker) GetAllAttachments(txID utxo.TransactionID) (attachments *set.AdvancedSet[*Block]) {

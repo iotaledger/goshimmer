@@ -43,7 +43,7 @@ type BlockDAG struct {
 	// futureBlocks contains blocks with a commitment in the future, that should not be passed to the booker yet.
 	futureBlocks *memstorage.EpochStorage[commitment.ID, *set.AdvancedSet[*Block]]
 
-	lastFuturePromotedIndex epoch.Index
+	nextIndexToPromote epoch.Index
 
 	futureBlocksMutex sync.RWMutex
 
@@ -196,7 +196,7 @@ func (b *BlockDAG) promoteFutureBlocksUntil(index epoch.Index) {
 	b.futureBlocksMutex.Lock()
 	defer b.futureBlocksMutex.Unlock()
 
-	for i := b.lastFuturePromotedIndex; i <= index; i++ {
+	for i := b.nextIndexToPromote; i <= index; i++ {
 		cm, err := b.commitmentFunc(i)
 		if err != nil {
 			panic(fmt.Sprintf("failed to load commitment for index %d: %s", i, err))
@@ -214,7 +214,7 @@ func (b *BlockDAG) promoteFutureBlocksUntil(index epoch.Index) {
 		b.futureBlocks.Evict(i)
 	}
 
-	b.lastFuturePromotedIndex = index + 1
+	b.nextIndexToPromote = index + 1
 }
 
 func (b *BlockDAG) checkParents(block *Block) (err error) {
