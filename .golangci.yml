@@ -56,7 +56,7 @@ linters-settings:
             - importShadow
             - evalOrder
     goimports:
-        local-prefixes: github.com/iotaledger/goshimmer
+        local-prefixes: github.com/iotaledger
     gomnd:
         settings:
             mnd:
