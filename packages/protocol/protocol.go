@@ -283,7 +283,7 @@ func (p *Protocol) switchEngines() {
 	// Stop current Scheduler
 	p.CongestionControl.Shutdown()
 
-	p.linkTo(p.mainEngine)
+	p.linkTo(p.candidateEngine)
 
 	// Save a reference to the current main engine and storage so that we can shut it down and prune it after switching
 	oldEngine := p.mainEngine
