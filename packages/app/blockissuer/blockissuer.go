@@ -35,8 +35,9 @@ type BlockIssuer struct {
 	referenceProvider *blockfactory.ReferenceProvider
 	workerPool        *workerpool.UnboundedWorkerPool
 
-	optsBlockFactoryOptions    []options.Option[blockfactory.Factory]
-	optsIgnoreBootstrappedFlag bool
+	optsBlockFactoryOptions            []options.Option[blockfactory.Factory]
+	optsIgnoreBootstrappedFlag         bool
+	optsTimeSinceConfirmationThreshold time.Duration
 }
 
 // New creates a new block issuer.
@@ -46,10 +47,11 @@ func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opt
 		identity:   localIdentity,
 		protocol:   protocol,
 		workerPool: protocol.Workers.CreatePool("BlockIssuer", 2),
-		referenceProvider: blockfactory.NewReferenceProvider(protocol, func() epoch.Index {
-			return protocol.Engine().Storage.Settings.LatestCommitment().Index()
-		}),
 	}, opts, func(i *BlockIssuer) {
+		i.referenceProvider = blockfactory.NewReferenceProvider(protocol, i.optsTimeSinceConfirmationThreshold, func() epoch.Index {
+			return protocol.Engine().Storage.Settings.LatestCommitment().Index()
+		})
+
 		i.Factory = blockfactory.NewBlockFactory(
 			localIdentity,
 			func(blockID models.BlockID) (block *blockdag.Block, exists bool) {
@@ -70,6 +72,7 @@ func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opt
 }
 
 func (i *BlockIssuer) setupEvents() {
+	event.Hook(i.Factory.Events.Error, i.Events.Error.Trigger)
 }
 
 // IssuePayload creates a new block including sequence number and tip selection, submits it to be processed and returns it.
@@ -123,12 +126,12 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeBooked(block *models.Block, max
 	exit := make(chan struct{})
 	defer close(exit)
 
-	defer event.AttachWithWorkerPool(i.protocol.Events.Engine.Tangle.Booker.BlockBooked, func(bookedBlock *booker.Block) {
-		if block.ID() != bookedBlock.ID() {
+	defer event.AttachWithWorkerPool(i.protocol.Events.Engine.Tangle.Booker.BlockBooked, func(evt *booker.BlockBookedEvent) {
+		if block.ID() != evt.Block.ID() {
 			return
 		}
 		select {
-		case booked <- bookedBlock:
+		case booked <- evt.Block:
 		case <-exit:
 		}
 	}, i.workerPool)()
@@ -200,6 +203,13 @@ func WithRateSetter(rateSetter ratesetter.RateSetter) options.Option[BlockIssuer
 func WithIgnoreBootstrappedFlag(ignoreBootstrappedFlag bool) options.Option[BlockIssuer] {
 	return func(issuer *BlockIssuer) {
 		issuer.optsIgnoreBootstrappedFlag = ignoreBootstrappedFlag
+	}
+}
+
+// WithTimeSinceConfirmationThreshold returns an option that sets the time since confirmation threshold.
+func WithTimeSinceConfirmationThreshold(timeSinceConfirmationThreshold time.Duration) options.Option[BlockIssuer] {
+	return func(o *BlockIssuer) {
+		o.optsTimeSinceConfirmationThreshold = timeSinceConfirmationThreshold
 	}
 }
 

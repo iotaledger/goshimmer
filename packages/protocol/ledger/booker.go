@@ -70,6 +70,10 @@ func (b *booker) bookTransaction(ctx context.Context, tx utxo.Transaction, txMet
 
 	b.storeOutputs(outputs, conflictIDs, consensusPledgeID, accessPledgeID)
 
+	if b.ledger.ConflictDAG.ConfirmationState(conflictIDs).IsRejected() {
+		b.ledger.triggerRejectedEvent(txMetadata)
+	}
+
 	txMetadata.SetBooked(true)
 
 	lo.ForEach(consumers, func(consumer *Consumer) { consumer.SetBooked() })

@@ -8,9 +8,9 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/walker"
 	"github.com/iotaledger/hive.go/core/syncutils"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/iotaledger/hive.go/core/workerpool"
 
+	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
@@ -75,7 +75,7 @@ type Ledger struct {
 	optsConsumerCacheTime time.Duration
 
 	// optConflictDAG contains the optionsLedger for the ConflictDAG.
-	optConflictDAG []conflictdag.Option
+	optConflictDAG []options.Option[conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID]]
 
 	// mutex is a DAGMutex that is used to make the Ledger thread safe.
 	mutex *syncutils.DAGMutex[utxo.TransactionID]
@@ -97,10 +97,7 @@ func New(workerPool *workerpool.UnboundedWorkerPool, chainStorage *storage.Stora
 		mutex:                           syncutils.NewDAGMutex[utxo.TransactionID](),
 	}, opts)
 
-	ledger.ConflictDAG = conflictdag.New[utxo.TransactionID, utxo.OutputID](append([]conflictdag.Option{
-		conflictdag.WithStore(chainStorage.UnspentOutputs),
-		conflictdag.WithCacheTimeProvider(ledger.optsCacheTimeProvider),
-	}, ledger.optConflictDAG...)...)
+	ledger.ConflictDAG = conflictdag.New(ledger.optConflictDAG...)
 
 	ledger.Events.ConflictDAG = ledger.ConflictDAG.Events
 
@@ -110,7 +107,10 @@ func New(workerPool *workerpool.UnboundedWorkerPool, chainStorage *storage.Stora
 	ledger.dataFlow = newDataFlow(ledger)
 	ledger.Utils = newUtils(ledger)
 
-	event.AttachWithWorkerPool(ledger.ConflictDAG.Events.ConflictAccepted, ledger.propagateAcceptanceToIncludedTransactions, workerPool)
+	// TODO: revisit whether we should make the process of setting conflict and transaction as accepted/rejected atomic
+	event.AttachWithWorkerPool(ledger.ConflictDAG.Events.ConflictAccepted, func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+		ledger.propagateAcceptanceToIncludedTransactions(conflict.ID())
+	}, workerPool)
 	event.AttachWithWorkerPool(ledger.ConflictDAG.Events.ConflictRejected, ledger.propagatedRejectionToTransactions, workerPool)
 	event.AttachWithWorkerPool(ledger.Events.TransactionBooked, func(event *TransactionBookedEvent) {
 		ledger.processConsumingTransactions(event.Outputs.IDs())
@@ -145,9 +145,7 @@ func (l *Ledger) SetTransactionInclusionEpoch(id utxo.TransactionID, inclusionEp
 			})
 		}
 
-		if l.ConflictDAG.ConfirmationState(metadata.ConflictIDs()).IsAccepted() && previousInclusionEpoch == 0 {
-			l.triggerAcceptedEvent(metadata)
-		}
+		l.propagateAcceptanceToIncludedTransactions(metadata.ID())
 	})
 }
 
@@ -174,7 +172,6 @@ func (l *Ledger) PruneTransaction(txID utxo.TransactionID, pruneFutureCone bool)
 func (l *Ledger) Shutdown() {
 	l.workerPool.PendingTasksCounter.WaitIsZero()
 	l.Storage.Shutdown()
-	l.ConflictDAG.Shutdown()
 }
 
 // processTransaction tries to book a single Transaction.
@@ -198,12 +195,40 @@ func (l *Ledger) processConsumingTransactions(outputIDs utxo.OutputIDs) {
 
 // triggerAcceptedEvent triggers the TransactionAccepted event if the Transaction was accepted.
 func (l *Ledger) triggerAcceptedEvent(txMetadata *TransactionMetadata) (triggered bool) {
+	l.mutex.Lock(txMetadata.ID())
+	defer l.mutex.Unlock(txMetadata.ID())
+
+	if !l.ConflictDAG.ConfirmationState(txMetadata.ConflictIDs()).IsAccepted() {
+		return false
+	}
+
 	if txMetadata.InclusionEpoch() == 0 {
 		return false
 	}
 
-	if !txMetadata.SetConfirmationState(confirmation.Accepted) {
+	// check for acceptance monotonicity
+	inputsAccepted := true
+	l.Storage.CachedTransaction(txMetadata.ID()).Consume(func(tx utxo.Transaction) {
+		for it := l.Utils.ResolveInputs(tx.Inputs()).Iterator(); it.HasNext(); {
+			inputID := it.Next()
+			l.Storage.CachedOutputMetadata(inputID).Consume(func(outputMetadata *OutputMetadata) {
+				if !outputMetadata.ConfirmationState().IsAccepted() {
+					inputsAccepted = false
+				}
+			})
+			if !inputsAccepted {
+				return
+			}
+		}
+	})
+	if !inputsAccepted {
 		return false
+	}
+
+	// We skip triggering the event if the transaction was already accepted.
+	if !txMetadata.SetConfirmationState(confirmation.Accepted) {
+		// ... but if the conflict we are propagating is ourselves, we still want to walk the UTXO future cone.
+		return txMetadata.ConflictIDs().Has(txMetadata.ID())
 	}
 
 	transactionEvent := &TransactionEvent{
@@ -268,6 +293,13 @@ func (l *Ledger) triggerRejectedEvent(txMetadata *TransactionMetadata) (triggere
 	return true
 }
 
+func (l *Ledger) triggerRejectedEventLocked(txMetadata *TransactionMetadata) (triggered bool) {
+	l.mutex.Lock(txMetadata.ID())
+	defer l.mutex.Unlock(txMetadata.ID())
+
+	return l.triggerRejectedEvent(txMetadata)
+}
+
 // propagateAcceptanceToIncludedTransactions propagates confirmations to the included future cone of the given
 // Transaction.
 func (l *Ledger) propagateAcceptanceToIncludedTransactions(txID utxo.TransactionID) {
@@ -277,10 +309,6 @@ func (l *Ledger) propagateAcceptanceToIncludedTransactions(txID utxo.Transaction
 		}
 
 		l.Utils.WalkConsumingTransactionMetadata(txMetadata.OutputIDs(), func(consumingTxMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
-			if l.ConflictDAG.ConfirmationState(consumingTxMetadata.ConflictIDs()).IsAccepted() {
-				return
-			}
-
 			if !l.triggerAcceptedEvent(consumingTxMetadata) {
 				return
 			}
@@ -292,14 +320,14 @@ func (l *Ledger) propagateAcceptanceToIncludedTransactions(txID utxo.Transaction
 
 // propagateConfirmedConflictToIncludedTransactions propagates confirmations to the included future cone of the given
 // Transaction.
-func (l *Ledger) propagatedRejectionToTransactions(txID utxo.TransactionID) {
-	l.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *TransactionMetadata) {
-		if !l.triggerRejectedEvent(txMetadata) {
+func (l *Ledger) propagatedRejectionToTransactions(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	l.Storage.CachedTransactionMetadata(conflict.ID()).Consume(func(txMetadata *TransactionMetadata) {
+		if !l.triggerRejectedEventLocked(txMetadata) {
 			return
 		}
 
 		l.Utils.WalkConsumingTransactionMetadata(txMetadata.OutputIDs(), func(consumingTxMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
-			if !l.triggerRejectedEvent(consumingTxMetadata) {
+			if !l.triggerRejectedEventLocked(consumingTxMetadata) {
 				return
 			}
 
@@ -368,7 +396,7 @@ func WithConsumerCacheTime(consumerCacheTime time.Duration) (option options.Opti
 }
 
 // WithConflictDAGOptions is an Option for the Ledger that allows to configure the optionsLedger for the ConflictDAG.
-func WithConflictDAGOptions(conflictDAGOptions ...conflictdag.Option) (option options.Option[Ledger]) {
+func WithConflictDAGOptions(conflictDAGOptions ...options.Option[conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID]]) (option options.Option[Ledger]) {
 	return func(options *Ledger) {
 		options.optConflictDAG = conflictDAGOptions
 	}

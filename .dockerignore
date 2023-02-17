@@ -15,6 +15,8 @@ tools/
 
 # Database directory
 mainnetdb/
+db/
+retainer/
 
 plugins/dashboard/frontend/node_modules/
 plugins/dagsvisualizer/frontend/node_modules/

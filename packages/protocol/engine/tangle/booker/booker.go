@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/generics/walker"
 	"github.com/iotaledger/hive.go/core/syncutils"
 	"github.com/iotaledger/hive.go/core/workerpool"
@@ -174,17 +175,19 @@ func (b *Booker) BlockFloor(marker markers.Marker) (floorMarker markers.Marker, 
 }
 
 // GetEarliestAttachment returns the earliest attachment for a given transaction ID.
+// returnOrphaned parameter specifies whether the returned attachment may be orphaned.
 func (b *Booker) GetEarliestAttachment(txID utxo.TransactionID) (attachment *Block) {
 	return b.attachments.getEarliestAttachment(txID)
 }
 
 // GetLatestAttachment returns the latest attachment for a given transaction ID.
+// returnOrphaned parameter specifies whether the returned attachment may be orphaned.
 func (b *Booker) GetLatestAttachment(txID utxo.TransactionID) (attachment *Block) {
 	return b.attachments.getLatestAttachment(txID)
 }
 
-func (b *Booker) GetAllAttachments(txID utxo.TransactionID) (attachments Blocks) {
-	return NewBlocks(b.attachments.Get(txID)...)
+func (b *Booker) GetAllAttachments(txID utxo.TransactionID) (attachments *set.AdvancedSet[*Block]) {
+	return b.attachments.GetAttachmentBlocks(txID)
 }
 
 func (b *Booker) evict(epochIndex epoch.Index) {
@@ -204,7 +207,9 @@ func (b *Booker) isPayloadSolid(block *Block) (isPayloadSolid bool, err error) {
 		return true, nil
 	}
 
-	b.attachments.Store(tx.ID(), block)
+	if b.attachments.Store(tx.ID(), block) {
+		b.Events.AttachmentCreated.Trigger(block)
+	}
 
 	if err = b.Ledger.StoreAndProcessTransaction(
 		models.BlockIDToContext(context.Background(), block.ID()), tx,
@@ -229,31 +234,42 @@ func (b *Booker) block(id models.BlockID) (block *Block, exists bool) {
 	return storage.Get(id)
 }
 
-func (b *Booker) book(block *Block) (err error) {
+func (b *Booker) book(block *Block) (inheritingErr error) {
+	// Need to mutually exclude a fork on this block.
+	// VirtualVoting.Track is performed within the context on this lock to make those two steps atomic.
+	// VirtualVoting should be refactored to be a component of Booker.
+	b.bookingMutex.Lock(block.ID())
+	defer b.bookingMutex.Unlock(block.ID())
+
 	// TODO: make sure this is actually necessary
 	if block.IsInvalid() {
 		return errors.Errorf("block with %s was marked as invalid", block.ID())
 	}
 
-	tryInheritConflictIDs := func() error {
+	tryInheritConflictIDs := func() (inheritedConflictIDs utxo.TransactionIDs, err error) {
 		b.evictionMutex.RLock()
 		defer b.evictionMutex.RUnlock()
 
 		if b.BlockDAG.EvictionState.InEvictedEpoch(block.ID()) {
-			return errors.Errorf("block with %s belongs to an evicted epoch", block.ID())
+			return nil, errors.Errorf("block with %s belongs to an evicted epoch", block.ID())
 		}
 
-		if err := b.inheritConflictIDs(block); err != nil {
-			return errors.Wrap(err, "error inheriting conflict IDs")
+		if inheritedConflictIDs, err = b.inheritConflictIDs(block); err != nil {
+			return nil, errors.Wrap(err, "error inheriting conflict IDs")
 		}
-		return nil
+
+		return
 	}
 
-	if err := tryInheritConflictIDs(); err != nil {
-		return err
+	inheritedConflitIDs, inheritingErr := tryInheritConflictIDs()
+	if inheritingErr != nil {
+		return inheritingErr
 	}
 
-	b.Events.BlockBooked.Trigger(block)
+	b.Events.BlockBooked.Trigger(&BlockBookedEvent{
+		Block:       block,
+		ConflictIDs: inheritedConflitIDs,
+	})
 
 	return nil
 }
@@ -262,18 +278,25 @@ func (b *Booker) markInvalid(block *Block, reason error) {
 	b.BlockDAG.SetInvalid(block.Block, reason)
 }
 
-func (b *Booker) inheritConflictIDs(block *Block) (err error) {
+func (b *Booker) inheritConflictIDs(block *Block) (inheritedConflictIDs utxo.TransactionIDs, err error) {
 	b.bookingMutex.RLock(block.Parents()...)
 	defer b.bookingMutex.RUnlock(block.Parents()...)
-	b.bookingMutex.Lock(block.ID())
-	defer b.bookingMutex.Unlock(block.ID())
 
 	parentsStructureDetails, pastMarkersConflictIDs, inheritedConflictIDs, err := b.determineBookingDetails(block)
 	if err != nil {
-		return errors.Wrap(err, "failed to inherit conflict IDs")
+		return nil, errors.Wrap(err, "failed to inherit conflict IDs")
 	}
 
-	newStructureDetails := b.markerManager.ProcessBlock(block, parentsStructureDetails, inheritedConflictIDs)
+	allParentsInPastEpochs := true
+	for parentID := range block.ParentsByType(models.StrongParentType) {
+		if parentID.Index() >= block.ID().Index() {
+			allParentsInPastEpochs = false
+			break
+		}
+	}
+
+	newStructureDetails := b.markerManager.ProcessBlock(block, allParentsInPastEpochs, parentsStructureDetails, inheritedConflictIDs)
+
 	block.setStructureDetails(newStructureDetails)
 
 	if !newStructureDetails.IsPastMarker() {
@@ -370,7 +393,7 @@ func (b *Booker) collectShallowLikedParentsConflictIDs(block *Block) (collectedL
 		}
 		transaction, isTransaction := parentBlock.Transaction()
 		if !isTransaction {
-			err = errors.WithMessagef(cerrors.ErrFatal, "%s referenced by a shallow like of %s does not contain a Transaction", parentBlockID, block.ID())
+			err = errors.WithMessagef(cerrors.ErrFatal, "%s (isRootBlock %t) referenced by a shallow like of %s does not contain a Transaction", parentBlockID, b.BlockDAG.EvictionState.IsRootBlock(parentBlockID), block.ID())
 			return false
 		}
 
@@ -416,8 +439,8 @@ func (b *Booker) blockBookingDetails(block *Block) (pastMarkersConflictIDs, bloc
 	return pastMarkersConflictIDs, blockConflictIDs
 }
 
-func (b *Booker) strongChildren(block *Block) []*Block {
-	return lo.Filter(lo.Map(block.StrongChildren(), func(blockDAGChild *blockdag.Block) (bookerChild *Block) {
+func (b *Booker) blocksFromBlockDAGBlocks(blocks []*blockdag.Block) []*Block {
+	return lo.Filter(lo.Map(blocks, func(blockDAGChild *blockdag.Block) (bookerChild *Block) {
 		bookerChild, exists := b.block(blockDAGChild.ID())
 		if !exists {
 			return nil
@@ -433,6 +456,14 @@ func (b *Booker) setupEvents() {
 		if _, err := b.Queue(NewBlock(block)); err != nil {
 			panic(err)
 		}
+	})
+	event.Hook(b.BlockDAG.Events.BlockOrphaned, func(orphanedBlock *blockdag.Block) {
+		block, exists := b.Block(orphanedBlock.ID())
+		if !exists {
+			return
+		}
+
+		b.OrphanAttachment(block)
 	})
 	event.Hook(b.Ledger.Events.TransactionConflictIDUpdated, func(event *ledger.TransactionConflictIDUpdatedEvent) {
 		if err := b.PropagateForkedConflict(event.TransactionID, event.AddedConflictID, event.RemovedConflictIDs); err != nil {
@@ -450,49 +481,91 @@ func (b *Booker) setupEvents() {
 	}, b.workers.CreatePool("Booker", 2))
 }
 
+func (b *Booker) OrphanAttachment(block *Block) {
+	if tx, isTx := block.Transaction(); isTx {
+		attachmentBlock, attachmentOrphaned, lastAttachmentOrphaned := b.attachments.AttachmentOrphaned(tx.ID(), block)
+
+		if attachmentOrphaned {
+			b.Events.AttachmentOrphaned.Trigger(attachmentBlock)
+		}
+
+		if lastAttachmentOrphaned {
+			// TODO: attach this event somewhere to the engine
+			b.Events.Error.Trigger(errors.Errorf("transaction %s orphaned", tx.ID()))
+			b.Ledger.PruneTransaction(tx.ID(), true)
+		}
+	}
+}
+
 // region FORK LOGIC ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // PropagateForkedConflict propagates the forked ConflictID to the future cone of the attachments of the given Transaction.
 func (b *Booker) PropagateForkedConflict(transactionID, addedConflictID utxo.TransactionID, removedConflictIDs utxo.TransactionIDs) (err error) {
-	for blockWalker := walker.New[*Block]().PushAll(b.attachments.Get(transactionID)...); blockWalker.HasNext(); {
+	blockWalker := walker.New[*Block]()
+
+	for it := b.GetAllAttachments(transactionID).Iterator(); it.HasNext(); {
+		attachment := it.Next()
+		blockWalker.Push(attachment)
+
+		// weak and like reference implies a vote only on the parent, so fork propagation should only go through direct weak/like children.
+		blockWalker.PushAll(b.blocksFromBlockDAGBlocks(attachment.WeakChildren())...)
+		blockWalker.PushAll(b.blocksFromBlockDAGBlocks(attachment.LikedInsteadChildren())...)
+	}
+
+	for blockWalker.HasNext() {
 		block := blockWalker.Next()
-
-		updated, propagateFurther, forkErr := b.propagateForkedConflict(block, addedConflictID, removedConflictIDs)
-		if forkErr != nil {
+		propagateFurther, propagationErr := b.propagateToBlock(block, addedConflictID, removedConflictIDs)
+		if propagationErr != nil {
 			blockWalker.StopWalk()
-			return errors.Wrapf(forkErr, "failed to propagate forked ConflictID %s to future cone of %s", addedConflictID, block.ID())
+			return errors.Wrapf(propagationErr, "failed to propagate forked ConflictID %s to future cone of %s", addedConflictID, block.ID())
 		}
-		if !updated {
-			continue
-		}
-
-		b.Events.BlockConflictAdded.Trigger(&BlockConflictAddedEvent{
-			Block:             block,
-			ConflictID:        addedConflictID,
-			ParentConflictIDs: removedConflictIDs,
-		})
-
 		if propagateFurther {
-			blockWalker.PushAll(b.strongChildren(block)...)
+			blockWalker.PushAll(b.blocksFromBlockDAGBlocks(block.StrongChildren())...)
 		}
 	}
+
 	return nil
 }
 
-func (b *Booker) propagateForkedConflict(block *Block, addedConflictID utxo.TransactionID, removedConflictIDs utxo.TransactionIDs) (propagated, propagateFurther bool, err error) {
+func (b *Booker) propagateToBlock(block *Block, addedConflictID utxo.TransactionID, removedConflictIDs utxo.TransactionIDs) (propagateFurther bool, err error) {
+	// Need to mutually exclude a booking on this block.
+	// VirtualVoting.Track is performed within the context on this lock to make those two steps atomic.
+	// VirtualVoting should be refactored to be a component of Booker.
+	// TODO: possibly need to also lock this mutex when propagating through markers.
 	b.bookingMutex.Lock(block.ID())
 	defer b.bookingMutex.Unlock(block.ID())
 
+	updated, propagateFurther, forkErr := b.propagateForkedConflict(block, addedConflictID, removedConflictIDs)
+	if forkErr != nil {
+		return false, errors.Wrapf(forkErr, "failed to propagate forked ConflictID %s to future cone of %s", addedConflictID, block.ID())
+	}
+	if !updated {
+		return false, nil
+	}
+
+	b.Events.BlockConflictAdded.Trigger(&BlockConflictAddedEvent{
+		Block:             block,
+		ConflictID:        addedConflictID,
+		ParentConflictIDs: removedConflictIDs,
+	})
+
+	return true, nil
+}
+
+func (b *Booker) propagateForkedConflict(block *Block, addedConflictID utxo.TransactionID, removedConflictIDs utxo.TransactionIDs) (propagated, propagateFurther bool, err error) {
 	if !block.IsBooked() {
 		return false, false, nil
 	}
 
-	if structureDetails := block.StructureDetails(); structureDetails.IsPastMarker() {
-		if err = b.propagateForkedTransactionToMarkerFutureCone(structureDetails.PastMarkers().Marker(), addedConflictID, removedConflictIDs); err != nil {
-			return false, false, errors.Wrapf(err, "failed to propagate conflict %s to future cone of %v", addedConflictID, structureDetails.PastMarkers().Marker())
-		}
-		return true, false, nil
-	}
+	// if structureDetails := block.StructureDetails(); structureDetails.IsPastMarker() {
+	// 	fmt.Println(">> propagating forked conflict to marker future cone of block", addedConflictID, block.ID(), structureDetails.PastMarkers().Marker())
+	// 	if err = b.propagateForkedTransactionToMarkerFutureCone(structureDetails.PastMarkers().Marker(), addedConflictID, removedConflictIDs); err != nil {
+	// 		err = errors.Wrapf(err, "failed to propagate conflict %s to future cone of %v", addedConflictID, structureDetails.PastMarkers().Marker())
+	// 		fmt.Println(err)
+	// 		return false, false, err
+	// 	}
+	// 	return true, false, nil
+	// }
 
 	propagated = b.updateBlockConflicts(block, addedConflictID, removedConflictIDs)
 	// We only need to propagate further (in the block's future cone) if the block was updated.
@@ -500,11 +573,16 @@ func (b *Booker) propagateForkedConflict(block *Block, addedConflictID utxo.Tran
 }
 
 func (b *Booker) updateBlockConflicts(block *Block, addedConflict utxo.TransactionID, parentConflicts utxo.TransactionIDs) (updated bool) {
-	if _, conflictIDs := b.blockBookingDetails(block); !conflictIDs.HasAll(parentConflicts) {
+	_, conflictIDs := b.blockBookingDetails(block)
+
+	// if a block does not already support all parent conflicts of a conflict A, then it cannot vote for a more specialize conflict of A
+	if !conflictIDs.HasAll(parentConflicts) {
 		return false
 	}
 
-	return block.AddConflictID(addedConflict)
+	updated = block.AddConflictID(addedConflict)
+
+	return updated
 }
 
 // propagateForkedTransactionToMarkerFutureCone propagates a newly created ConflictID into the future cone of the given Marker.

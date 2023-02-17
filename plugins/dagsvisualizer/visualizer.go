@@ -12,8 +12,9 @@ import (
 	"github.com/iotaledger/hive.go/app/daemon"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/iotaledger/hive.go/core/workerpool"
+
+	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/app/retainer"
@@ -72,14 +73,14 @@ func registerTangleEvents() {
 		storeWsBlock(wsBlk)
 	})
 
-	bookedClosure := event.NewClosure(func(block *booker.Block) {
-		conflictIDs := deps.Protocol.Engine().Tangle.Booker.BlockConflicts(block)
+	bookedClosure := event.NewClosure(func(evt *booker.BlockBookedEvent) {
+		conflictIDs := deps.Protocol.Engine().Tangle.Booker.BlockConflicts(evt.Block)
 
 		wsBlk := &wsBlock{
 			Type: BlkTypeTangleBooked,
 			Data: &tangleBooked{
-				ID:          block.ID().Base58(),
-				IsMarker:    block.StructureDetails().IsPastMarker(),
+				ID:          evt.Block.ID().Base58(),
+				IsMarker:    evt.Block.StructureDetails().IsPastMarker(),
 				ConflictIDs: lo.Map(conflictIDs.Slice(), utxo.TransactionID.Base58),
 			},
 		}
@@ -133,9 +134,9 @@ func registerUTXOEvents() {
 		}
 	})
 
-	bookedClosure := event.NewClosure(func(block *booker.Block) {
-		if block.Payload().Type() == devnetvm.TransactionType {
-			tx := block.Payload().(*devnetvm.Transaction)
+	bookedClosure := event.NewClosure(func(evt *booker.BlockBookedEvent) {
+		if evt.Block.Payload().Type() == devnetvm.TransactionType {
+			tx := evt.Block.Payload().(*devnetvm.Transaction)
 			deps.Protocol.Engine().Ledger.Storage.CachedTransactionMetadata(tx.ID()).Consume(func(txMetadata *ledger.TransactionMetadata) {
 				wsBlk := &wsBlock{
 					Type: BlkTypeUTXOBooked,
@@ -171,10 +172,10 @@ func registerUTXOEvents() {
 }
 
 func registerConflictEvents() {
-	createdClosure := event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
+	createdClosure := event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		wsBlk := &wsBlock{
 			Type: BlkTypeConflictVertex,
-			Data: newConflictVertex(event.ID),
+			Data: newConflictVertex(conflict.ID()),
 		}
 		visualizerWorkerPool.TrySubmit(wsBlk)
 		storeWsBlock(wsBlk)
@@ -193,11 +194,11 @@ func registerConflictEvents() {
 		storeWsBlock(wsBlk)
 	})
 
-	conflictConfirmedClosure := event.NewClosure(func(conflictID utxo.TransactionID) {
+	conflictConfirmedClosure := event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		wsBlk := &wsBlock{
 			Type: BlkTypeConflictConfirmationStateChanged,
 			Data: &conflictConfirmationStateChanged{
-				ID:                conflictID.Base58(),
+				ID:                conflict.ID().Base58(),
 				ConfirmationState: confirmation.Accepted.String(),
 				IsConfirmed:       true,
 			},
@@ -374,26 +375,29 @@ func newUTXOVertex(blkID models.BlockID, tx *devnetvm.Transaction) (ret *utxoVer
 }
 
 func newConflictVertex(conflictID utxo.TransactionID) (ret *conflictVertex) {
-	deps.Protocol.Engine().Ledger.ConflictDAG.Storage.CachedConflict(conflictID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-		conflicts := make(map[utxo.OutputID][]utxo.TransactionID)
-		// get conflicts of a conflict
-		for it := conflict.ConflictSetIDs().Iterator(); it.HasNext(); {
-			conflictID := it.Next()
-			conflicts[conflictID] = make([]utxo.TransactionID, 0)
-			deps.Protocol.Engine().Ledger.ConflictDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.OutputID, utxo.TransactionID]) {
-				conflicts[conflictID] = append(conflicts[conflictID], conflictMember.ConflictID())
-			})
-		}
-		confirmationState := deps.Protocol.Engine().Ledger.ConflictDAG.ConfirmationState(utxo.NewTransactionIDs(conflictID))
-		ret = &conflictVertex{
-			ID:                conflictID.Base58(),
-			Parents:           lo.Map(conflict.Parents().Slice(), utxo.TransactionID.Base58),
-			Conflicts:         jsonmodels.NewGetConflictConflictsResponse(conflict.ID(), conflicts),
-			IsConfirmed:       confirmationState.IsAccepted(),
-			ConfirmationState: confirmationState.String(),
-			AW:                deps.Protocol.Engine().Tangle.VirtualVoting.ConflictVotersTotalWeight(conflictID),
-		}
-	})
+	conflict, exists := deps.Protocol.Engine().Ledger.ConflictDAG.Conflict(conflictID)
+	if !exists {
+		return
+	}
+	conflicts := make(map[utxo.OutputID][]utxo.TransactionID)
+	// get conflicts of a conflict
+	for it := conflict.ConflictSets().Iterator(); it.HasNext(); {
+		conflictSet := it.Next()
+		conflicts[conflictSet.ID()] = make([]utxo.TransactionID, 0)
+
+		conflicts[conflictSet.ID()] = lo.Map(conflictSet.Conflicts().Slice(), func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) utxo.TransactionID {
+			return conflict.ID()
+		})
+	}
+	confirmationState := deps.Protocol.Engine().Ledger.ConflictDAG.ConfirmationState(utxo.NewTransactionIDs(conflictID))
+	ret = &conflictVertex{
+		ID:                conflictID.Base58(),
+		Parents:           lo.Map(conflict.Parents().Slice(), utxo.TransactionID.Base58),
+		Conflicts:         jsonmodels.NewGetConflictConflictsResponse(conflict.ID(), conflicts),
+		IsConfirmed:       confirmationState.IsAccepted(),
+		ConfirmationState: confirmationState.String(),
+		AW:                deps.Protocol.Engine().Tangle.VirtualVoting.ConflictVotersTotalWeight(conflictID),
+	}
 	return
 }
 

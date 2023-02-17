@@ -141,11 +141,11 @@ func (r *Retainer) setupEvents() {
 		}
 	}, r.workerPool)
 
-	event.AttachWithWorkerPool(r.protocol.Events.Engine.Tangle.Booker.BlockBooked, func(block *booker.Block) {
-		if cm := r.createOrGetCachedMetadata(block.ID()); cm != nil {
-			cm.setBookerBlock(block)
+	event.AttachWithWorkerPool(r.protocol.Events.Engine.Tangle.Booker.BlockBooked, func(evt *booker.BlockBookedEvent) {
+		if cm := r.createOrGetCachedMetadata(evt.Block.ID()); cm != nil {
+			cm.setBookerBlock(evt.Block)
 			cm.Lock()
-			cm.ConflictIDs = r.protocol.Engine().Tangle.Booker.BlockConflicts(block)
+			cm.ConflictIDs = evt.ConflictIDs
 			cm.Unlock()
 		}
 	}, r.workerPool)

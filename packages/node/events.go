@@ -8,7 +8,6 @@ import (
 
 var Events *NodeEvents
 
-//nolint:revive // will be replaces by app package anyway
 type NodeEvents struct {
 	AddPlugin *event.Event[*AddEvent]
 }

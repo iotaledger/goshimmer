@@ -15,7 +15,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
+	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
 )
+
+const tscThreshold = time.Minute
 
 func TestReferenceProvider_References1(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
@@ -33,7 +36,7 @@ func TestReferenceProvider_References1(t *testing.T) {
 
 	workers.Wait()
 
-	rp := NewReferenceProvider(tf.Instance, func() epoch.Index {
+	rp := NewReferenceProvider(tf.Instance, 30*time.Second, func() epoch.Index {
 		return 0
 	})
 
@@ -45,7 +48,7 @@ func TestReferenceProvider_References1(t *testing.T) {
 
 func TestBlockFactory_PrepareLikedReferences_2(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	tf := protocol.NewTestFramework(t, workers.CreateGroup("Protocol"), new(ledger.MockedVM))
+	tf := protocol.NewTestFramework(t, workers.CreateGroup("Protocol"), new(ledger.MockedVM), protocol.WithProtocolOptions(protocol.WithTipManagerOptions(tipmanager.WithTimeSinceConfirmationThreshold(tscThreshold))))
 	tf.Instance.Run()
 
 	tf.Engine.VirtualVoting.CreateIdentity("V1", 10)
@@ -59,7 +62,7 @@ func TestBlockFactory_PrepareLikedReferences_2(t *testing.T) {
 	tf.Engine.BlockDAG.IssueBlocks("Block0", "Block1", "Block2", "Block3", "Block4")
 	workers.Wait()
 
-	rp := NewReferenceProvider(tf.Instance, func() epoch.Index {
+	rp := NewReferenceProvider(tf.Instance, tscThreshold, func() epoch.Index {
 		return 0
 	})
 
@@ -95,7 +98,7 @@ func TestBlockFactory_PrepareLikedReferences_2(t *testing.T) {
 
 		checkReferences(t, rp, nil, tf.Engine.BlockDAG.BlockIDs("Block3", "Block4"), map[models.ParentsType]models.BlockIDs{
 			models.StrongParentType:      tf.Engine.BlockDAG.BlockIDs("Block3", "Block4"),
-			models.ShallowLikeParentType: tf.Engine.BlockDAG.BlockIDs("Block2", "Block5"),
+			models.ShallowLikeParentType: tf.Engine.BlockDAG.BlockIDs("Block2", "Block1"),
 		})
 	}
 }
@@ -103,7 +106,7 @@ func TestBlockFactory_PrepareLikedReferences_2(t *testing.T) {
 // Tests if weak references are properly constructed from consumed outputs.
 func TestBlockFactory_WeakReferencesConsumed(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	tf := protocol.NewTestFramework(t, workers.CreateGroup("Protocol"), new(ledger.MockedVM))
+	tf := protocol.NewTestFramework(t, workers.CreateGroup("Protocol"), new(ledger.MockedVM), protocol.WithProtocolOptions(protocol.WithTipManagerOptions(tipmanager.WithTimeSinceConfirmationThreshold(tscThreshold))))
 	tf.Instance.Run()
 
 	tf.Engine.BlockDAG.CreateBlock("Block1", models.WithPayload(tf.Engine.Ledger.CreateTransaction("TX1", 3, "Genesis")))
@@ -113,7 +116,7 @@ func TestBlockFactory_WeakReferencesConsumed(t *testing.T) {
 	tf.Engine.BlockDAG.IssueBlocks("Block1", "Block2", "Block3", "Block4")
 	workers.Wait()
 
-	rp := NewReferenceProvider(tf.Instance, func() epoch.Index {
+	rp := NewReferenceProvider(tf.Instance, tscThreshold, func() epoch.Index {
 		return 0
 	})
 

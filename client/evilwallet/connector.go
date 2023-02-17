@@ -5,13 +5,15 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
+
+	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 type ServersStatus []*wallet.ServerStatus
@@ -172,7 +174,7 @@ type Client interface {
 	// SleepRateSetterEstimate sleeps for rate setter estimate.
 	SleepRateSetterEstimate() (err error)
 	// PostTransaction sends a transaction to the Tangle via a given client.
-	PostTransaction(tx *devnetvm.Transaction) (utxo.TransactionID, error)
+	PostTransaction(tx *devnetvm.Transaction) (utxo.TransactionID, models.BlockID, error)
 	// PostData sends the given data (payload) by creating a block in the backend.
 	PostData(data []byte) (blkID string, err error)
 	// GetUnspentOutputForAddress gets the first unspent outputs of a given address.
@@ -239,7 +241,7 @@ func (c *WebClient) BroadcastFaucetRequest(address string, powTarget int) (err e
 }
 
 // PostTransaction sends a transaction to the Tangle via a given client.
-func (c *WebClient) PostTransaction(tx *devnetvm.Transaction) (txID utxo.TransactionID, err error) {
+func (c *WebClient) PostTransaction(tx *devnetvm.Transaction) (txID utxo.TransactionID, blockID models.BlockID, err error) {
 	txBytes, err := tx.Bytes()
 	if err != nil {
 		return
@@ -250,6 +252,10 @@ func (c *WebClient) PostTransaction(tx *devnetvm.Transaction) (txID utxo.Transac
 		return
 	}
 	err = txID.FromBase58(resp.TransactionID)
+	if err != nil {
+		return
+	}
+	err = blockID.FromBase58(resp.BlockID)
 	if err != nil {
 		return
 	}

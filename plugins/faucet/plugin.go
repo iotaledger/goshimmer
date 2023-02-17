@@ -63,13 +63,13 @@ func newFaucet() *Faucet {
 	}
 	seedBytes, err := base58.Decode(Parameters.Seed)
 	if err != nil {
-		Plugin.LogFatalfAndExit("configured seed for the faucet is invalid: %s", err)
+		Plugin.LogFatalfAndExitf("configured seed for the faucet is invalid: %s", err)
 	}
 	if Parameters.TokensPerRequest <= 0 {
-		Plugin.LogFatalfAndExit("the amount of tokens to fulfill per request must be above zero")
+		Plugin.LogFatalfAndExitf("the amount of tokens to fulfill per request must be above zero")
 	}
 	if Parameters.MaxTransactionBookedAwaitTime <= 0 {
-		Plugin.LogFatalfAndExit("the max transaction booked await time must be more than 0")
+		Plugin.LogFatalfAndExitf("the max transaction booked await time must be more than 0")
 	}
 
 	return NewFaucet(walletseed.NewSeed(seedBytes), deps.Protocol, deps.BlockIssuer, deps.Indexer)

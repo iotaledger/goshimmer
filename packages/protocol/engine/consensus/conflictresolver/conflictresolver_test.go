@@ -9,11 +9,7 @@ import (
 
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/types"
-	"github.com/iotaledger/hive.go/core/workerpool"
 
-	"github.com/iotaledger/goshimmer/packages/core/database"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
@@ -823,15 +819,10 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			workers := workerpool.NewGroup(tt.name)
-			ls := ledger.New(workers.CreatePool("Ledger", 2), blockdag.NewTestStorage(t, workers), ledger.WithCacheTimeProvider(database.NewCacheTimeProvider(0)))
-			defer func() {
-				workers.Wait()
-				ls.Shutdown()
-			}()
+			tf := conflictdag.NewDefaultTestFramework(t)
 
-			tt.test.Scenario.CreateConflicts(t, ls.ConflictDAG)
-			o := New(ls.ConflictDAG, tt.test.WeightFunc)
+			tt.test.Scenario.CreateConflicts(t, tf.Instance)
+			o := New(tf.Instance, tt.test.WeightFunc)
 
 			for _, e := range tt.test.executions {
 				liked, conflictMembers := o.LikedConflictMember(tt.test.Scenario.ConflictID(e.conflictAlias))
@@ -922,9 +913,7 @@ func createTestConflict(t *testing.T, conflictDAG *conflictdag.ConflictDAG[utxo.
 	}
 	newConflictCreated = conflictDAG.CreateConflict(conflictMeta.ConflictID, conflictMeta.ParentConflicts, conflictMeta.Conflicting)
 	require.True(t, newConflictCreated)
-	conflictDAG.Storage.CachedConflict(conflictMeta.ConflictID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-		conflictMeta.ConflictID = conflict.ID()
-	})
+
 	conflictMeta.ConflictID.RegisterAlias(alias)
 	return newConflictCreated
 }

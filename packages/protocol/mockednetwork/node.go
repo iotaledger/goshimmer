@@ -181,8 +181,8 @@ func (n *Node) attachEngineLogs(instance *enginemanager.EngineInstance) {
 		fmt.Printf("%s > [%s] BlockDAG.BlockUnorphaned: %s\n", n.Name, engineName, block.ID())
 	})
 
-	event.Hook(events.Tangle.Booker.BlockBooked, func(block *booker.Block) {
-		fmt.Printf("%s > [%s] Booker.BlockBooked: %s\n", n.Name, engineName, block.ID())
+	event.Hook(events.Tangle.Booker.BlockBooked, func(evt *booker.BlockBookedEvent) {
+		fmt.Printf("%s > [%s] Booker.BlockBooked: %s\n", n.Name, engineName, evt.Block.ID())
 	})
 
 	event.Hook(events.Tangle.VirtualVoting.SequenceTracker.VotersUpdated, func(event *sequencetracker.VoterUpdatedEvent) {

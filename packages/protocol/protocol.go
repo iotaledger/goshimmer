@@ -209,10 +209,10 @@ func (p *Protocol) initChainManager() {
 }
 
 func (p *Protocol) initTipManager() {
-	p.TipManager = tipmanager.New(p.CongestionControl.Block, p.optsTipManagerOptions...)
+	p.TipManager = tipmanager.New(p.Workers.CreateGroup("TipManager"), p.CongestionControl.Block, p.optsTipManagerOptions...)
 	p.Events.TipManager = p.TipManager.Events
 
-	wp := p.Workers.CreatePool("TipManager", 1) // Using just 1 worker to avoid contention
+	wp := p.Workers.CreatePool("TipManagerAttach", 1) // Using just 1 worker to avoid contention
 
 	event.Hook(p.Events.Engine.Tangle.BlockDAG.BlockOrphaned, func(block *blockdag.Block) {
 		if schedulerBlock, exists := p.CongestionControl.Block(block.ID()); exists {
@@ -232,12 +232,6 @@ func (p *Protocol) initTipManager() {
 	}, wp)
 	event.AttachWithWorkerPool(p.Events.Engine.Consensus.BlockGadget.BlockAccepted, func(block *blockgadget.Block) {
 		p.TipManager.RemoveStrongParents(block.ModelsBlock)
-	}, wp)
-	event.AttachWithWorkerPool(p.Events.Engine.NotarizationManager.EpochCommitted, func(details *notarization.EpochCommittedDetails) {
-		p.TipManager.PromoteFutureTips(details.Commitment)
-	}, wp)
-	event.AttachWithWorkerPool(p.Events.Engine.EvictionState.EpochEvicted, func(index epoch.Index) {
-		p.TipManager.Evict(index)
 	}, wp)
 }
 
@@ -430,7 +424,7 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 			epochAttestations, epochExists := attestations.Get(epochIndex)
 			if !epochExists {
 				p.Events.Error.Trigger(errors.Errorf("attestations for epoch %d missing", epochIndex))
-				//TODO: ban source?
+				// TODO: ban source?
 				return
 			}
 			visitedIdentities := make(map[identity.ID]types.Empty)
@@ -450,7 +444,7 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 				issuerID := attestation.IssuerID()
 				if _, alreadyVisited := visitedIdentities[issuerID]; alreadyVisited {
 					p.Events.Error.Trigger(errors.Errorf("invalid attestation from source %s, issuerID %s contains multiple attestations", source, issuerID))
-					//TODO: ban source!
+					// TODO: ban source!
 					return
 				}
 
@@ -477,7 +471,7 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 			forkedEvent.Commitment.Index(),
 			forkedEventClaimedWeight,
 			forkedEventMainWeight))
-		//TODO: ban source?
+		// TODO: ban source?
 		return
 	}
 

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
@@ -12,6 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	faucetpkg "github.com/iotaledger/goshimmer/packages/app/faucet"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )

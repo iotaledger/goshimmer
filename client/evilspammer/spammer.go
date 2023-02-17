@@ -6,7 +6,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/client/evilwallet"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 
 	"github.com/iotaledger/hive.go/app/configuration"
@@ -208,12 +207,10 @@ func (s *Spammer) PostTransaction(tx *devnetvm.Transaction, clt evilwallet.Clien
 		return
 	}
 
-	var err error
-	var txID utxo.TransactionID
-	if err = evilwallet.RateSetterSleep(clt, s.UseRateSetter); err != nil {
+	if err := evilwallet.RateSetterSleep(clt, s.UseRateSetter); err != nil {
 		return
 	}
-	txID, err = clt.PostTransaction(tx)
+	txID, blockID, err := clt.PostTransaction(tx)
 	if err != nil {
 		s.log.Debug(ErrFailPostTransaction)
 		s.ErrCounter.CountError(errors.WithMessage(ErrFailPostTransaction, err.Error()))
@@ -224,7 +221,7 @@ func (s *Spammer) PostTransaction(tx *devnetvm.Transaction, clt evilwallet.Clien
 	}
 
 	count := s.State.txSent.Add(1)
-	s.log.Debugf("Last transaction sent, ID: %s, txCount: %d", txID.String(), count)
+	s.log.Debugf("%s: Last transaction sent, ID: %s, txCount: %d", blockID.Base58(), txID.Base58(), count)
 }
 
 func (s *Spammer) handleSolidityForReuseOutputs(clt evilwallet.Client, tx *devnetvm.Transaction) (ok bool) {

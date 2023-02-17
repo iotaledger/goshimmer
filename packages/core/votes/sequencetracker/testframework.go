@@ -38,7 +38,7 @@ func NewTestFramework[VotePowerType constraints.Comparable[VotePowerType]](test 
 
 	event.Hook(t.Instance.Events.VotersUpdated, func(evt *VoterUpdatedEvent) {
 		if debug.GetEnabled() {
-			t.test.Logf("VOTER ADDED: %v", markers.NewMarker(evt.SequenceID, evt.NewMaxSupportedIndex))
+			t.test.Logf("VOTER ADDED: %v, %v", markers.NewMarker(evt.SequenceID, evt.NewMaxSupportedIndex), evt.Voter)
 		}
 	})
 	return t

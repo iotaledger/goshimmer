@@ -5,11 +5,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
-
-	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -32,10 +29,9 @@ type Manager struct {
 	EpochMutations *EpochMutations
 	Attestations   *Attestations
 
-	storage                  *storage.Storage
-	ledgerState              *ledgerstate.LedgerState
-	pendingConflictsCounters *shrinkingmap.ShrinkingMap[epoch.Index, uint64]
-	commitmentMutex          sync.RWMutex
+	storage         *storage.Storage
+	ledgerState     *ledgerstate.LedgerState
+	commitmentMutex sync.RWMutex
 
 	acceptanceTime      time.Time
 	acceptanceTimeMutex sync.RWMutex
@@ -53,42 +49,11 @@ func NewManager(storageInstance *storage.Storage, ledgerState *ledgerstate.Ledge
 		Attestations:               NewAttestations(storageInstance.Permanent.Attestations, storageInstance.Prunable.Attestations, weights),
 		storage:                    storageInstance,
 		ledgerState:                ledgerState,
-		pendingConflictsCounters:   shrinkingmap.New[epoch.Index, uint64](),
 		acceptanceTime:             storageInstance.Settings.LatestCommitment().Index().EndTime(),
 		optsMinCommittableEpochAge: defaultMinEpochCommittableAge,
 	}, opts, func(m *Manager) {
 		m.Initializable = traits.NewInitializable(m.Attestations.TriggerInitialized)
 	})
-}
-
-// IncreaseConflictsCounter increases the conflicts counter for the given epoch index.
-func (m *Manager) IncreaseConflictsCounter(index epoch.Index) {
-	m.commitmentMutex.Lock()
-	defer m.commitmentMutex.Unlock()
-
-	if index <= m.storage.Settings.LatestCommitment().Index() {
-		return
-	}
-
-	m.pendingConflictsCounters.Set(index, lo.Return1(m.pendingConflictsCounters.Get(index))+1)
-}
-
-// DecreaseConflictsCounter decreases the conflicts counter for the given epoch index.
-func (m *Manager) DecreaseConflictsCounter(index epoch.Index) {
-	m.commitmentMutex.Lock()
-	defer m.commitmentMutex.Unlock()
-
-	if index <= m.storage.Settings.LatestCommitment().Index() {
-		return
-	}
-
-	if newCounter := lo.Return1(m.pendingConflictsCounters.Get(index)) - 1; newCounter != 0 {
-		m.pendingConflictsCounters.Set(index, newCounter)
-	} else {
-		m.pendingConflictsCounters.Delete(index)
-
-		m.tryCommitEpoch(index, m.AcceptanceTime())
-	}
 }
 
 // AcceptanceTime returns the acceptance time of the Manager.
@@ -173,24 +138,18 @@ func (m *Manager) MinCommittableEpochAge() time.Duration {
 
 func (m *Manager) tryCommitEpoch(index epoch.Index, acceptanceTime time.Time) {
 	for i := m.storage.Settings.LatestCommitment().Index() + 1; i <= index; i++ {
-		if !m.isCommittable(i, acceptanceTime) || !m.createCommitment(i) {
+		if !m.isCommittable(i, acceptanceTime) {
+			return
+		}
+
+		if !m.createCommitment(i) {
 			return
 		}
 	}
 }
 
 func (m *Manager) isCommittable(ei epoch.Index, acceptanceTime time.Time) (isCommittable bool) {
-	return acceptanceTime.Sub(ei.EndTime()) >= m.optsMinCommittableEpochAge && m.hasNoPendingConflicts(ei)
-}
-
-func (m *Manager) hasNoPendingConflicts(ei epoch.Index) (hasNoPendingConflicts bool) {
-	for index := m.storage.Settings.LatestCommitment().Index(); index <= ei; index++ {
-		if count, _ := m.pendingConflictsCounters.Get(index); count != 0 {
-			return false
-		}
-	}
-
-	return true
+	return acceptanceTime.Sub(ei.EndTime()) >= m.optsMinCommittableEpochAge
 }
 
 func (m *Manager) createCommitment(index epoch.Index) (success bool) {
@@ -200,8 +159,6 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 
 		return false
 	}
-
-	m.pendingConflictsCounters.Delete(index)
 
 	if err := m.ledgerState.ApplyStateDiff(index); err != nil {
 		m.Events.Error.Trigger(errors.Wrapf(err, "failed to apply state diff for epoch %d", index))
@@ -235,10 +192,12 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 
 	if err = m.storage.Settings.SetLatestCommitment(newCommitment); err != nil {
 		m.Events.Error.Trigger(errors.Wrap(err, "failed to set latest commitment"))
+		return false
 	}
 
 	if err = m.storage.Commitments.Store(newCommitment); err != nil {
 		m.Events.Error.Trigger(errors.Wrap(err, "failed to store latest commitment"))
+		return false
 	}
 
 	m.Events.EpochCommitted.Trigger(&EpochCommittedDetails{

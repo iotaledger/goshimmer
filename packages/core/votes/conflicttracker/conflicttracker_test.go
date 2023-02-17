@@ -8,7 +8,6 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/votes"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
 // TestApprovalWeightManager_updateConflictVoters tests the ApprovalWeightManager's functionality regarding conflictes.
@@ -19,20 +18,20 @@ func TestApprovalWeightManager_updateConflictVoters(t *testing.T) {
 	tf.Votes.CreateValidator("validator1", 1)
 	tf.Votes.CreateValidator("validator2", 1)
 
-	tf.ConflictDAG.CreateConflict("CS1", "Conflict1", utxo.NewTransactionIDs())
-	tf.ConflictDAG.CreateConflict("CS1", "Conflict2", utxo.NewTransactionIDs())
-	tf.ConflictDAG.CreateConflict("CS2", "Conflict3", utxo.NewTransactionIDs())
-	tf.ConflictDAG.CreateConflict("CS2", "Conflict4", utxo.NewTransactionIDs())
+	tf.ConflictDAG.CreateConflict("Conflict1", tf.ConflictDAG.ConflictIDs(), "CS1")
+	tf.ConflictDAG.CreateConflict("Conflict2", tf.ConflictDAG.ConflictIDs(), "CS1")
+	tf.ConflictDAG.CreateConflict("Conflict3", tf.ConflictDAG.ConflictIDs(), "CS2")
+	tf.ConflictDAG.CreateConflict("Conflict4", tf.ConflictDAG.ConflictIDs(), "CS2")
 
-	tf.ConflictDAG.CreateConflict("CS3", "Conflict1.1", tf.ConflictDAG.ConflictIDs("Conflict1"))
-	tf.ConflictDAG.CreateConflict("CS3", "Conflict1.2", tf.ConflictDAG.ConflictIDs("Conflict1"))
-	tf.ConflictDAG.CreateConflict("CS3", "Conflict1.3", tf.ConflictDAG.ConflictIDs("Conflict1"))
+	tf.ConflictDAG.CreateConflict("Conflict1.1", tf.ConflictDAG.ConflictIDs("Conflict1"), "CS3")
+	tf.ConflictDAG.CreateConflict("Conflict1.2", tf.ConflictDAG.ConflictIDs("Conflict1"), "CS3")
+	tf.ConflictDAG.CreateConflict("Conflict1.3", tf.ConflictDAG.ConflictIDs("Conflict1"), "CS3")
 
-	tf.ConflictDAG.CreateConflict("CS4", "Conflict4.1", tf.ConflictDAG.ConflictIDs("Conflict4"))
-	tf.ConflictDAG.CreateConflict("CS4", "Conflict4.2", tf.ConflictDAG.ConflictIDs("Conflict4"))
+	tf.ConflictDAG.CreateConflict("Conflict4.1", tf.ConflictDAG.ConflictIDs("Conflict4"), "CS4")
+	tf.ConflictDAG.CreateConflict("Conflict4.2", tf.ConflictDAG.ConflictIDs("Conflict4"), "CS4")
 
-	tf.ConflictDAG.CreateConflict("CS5", "Conflict4.1.1", tf.ConflictDAG.ConflictIDs("Conflict4.1"))
-	tf.ConflictDAG.CreateConflict("CS5", "Conflict4.1.2", tf.ConflictDAG.ConflictIDs("Conflict4.1"))
+	tf.ConflictDAG.CreateConflict("Conflict4.1.1", tf.ConflictDAG.ConflictIDs("Conflict4.1"), "CS5")
+	tf.ConflictDAG.CreateConflict("Conflict4.1.2", tf.ConflictDAG.ConflictIDs("Conflict4.1"), "CS5")
 
 	// Issue statements in different order to make sure that no information is lost when nodes apply statements in arbitrary order
 

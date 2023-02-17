@@ -3,7 +3,6 @@ package block
 import (
 	"net/http"
 
-	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/labstack/echo"
 	"github.com/pkg/errors"
 	"go.uber.org/dig"
@@ -11,6 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/app/retainer"
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
@@ -206,13 +206,13 @@ func blockIDFromContext(c echo.Context) (blockID models.BlockID, err error) {
 }
 
 // sequenceIDFromContext determines the sequenceID from the sequenceID parameter in an echo.Context.
-//func sequenceIDFromContext(c echo.Context) (id markers.SequenceID, err error) {
+// func sequenceIDFromContext(c echo.Context) (id markers.SequenceID, err error) {
 //	sequenceIDInt, err := strconv.Atoi(c.Param("sequenceID"))
 //	if err != nil {
 //		return
 //	}
 //
 //	return markers.SequenceID(sequenceIDInt), nil
-//}
+// }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

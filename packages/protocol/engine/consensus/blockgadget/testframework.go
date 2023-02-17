@@ -5,15 +5,14 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
@@ -23,6 +22,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
@@ -43,7 +43,6 @@ type TestFramework struct {
 	confirmedBlocks   uint32
 	conflictsAccepted uint32
 	conflictsRejected uint32
-	reorgCount        uint32
 }
 
 func NewTestFramework(test *testing.T, gadget *Gadget, tangleTF *tangle.TestFramework) *TestFramework {
@@ -99,23 +98,16 @@ func (t *TestFramework) setupEvents() {
 		atomic.AddUint32(&(t.confirmedBlocks), 1)
 	})
 
-	event.Hook(t.Gadget.Events.Reorg, func(conflictID utxo.TransactionID) {
+	event.Hook(t.Tangle.VirtualVoting.ConflictDAG.Instance.Events.ConflictAccepted, func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		if debug.GetEnabled() {
-			t.test.Logf("REORG NEEDED: %s", conflictID)
-		}
-		atomic.AddUint32(&(t.reorgCount), 1)
-	})
-
-	event.Hook(t.Tangle.VirtualVoting.ConflictDAG.Instance.Events.ConflictAccepted, func(conflictID utxo.TransactionID) {
-		if debug.GetEnabled() {
-			t.test.Logf("CONFLICT ACCEPTED: %s", conflictID)
+			t.test.Logf("CONFLICT ACCEPTED: %s", conflict.ID())
 		}
 		atomic.AddUint32(&(t.conflictsAccepted), 1)
 	})
 
-	event.Hook(t.Tangle.VirtualVoting.ConflictDAG.Instance.Events.ConflictRejected, func(conflictID utxo.TransactionID) {
+	event.Hook(t.Tangle.VirtualVoting.ConflictDAG.Instance.Events.ConflictRejected, func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		if debug.GetEnabled() {
-			t.test.Logf("CONFLICT REJECTED: %s", conflictID)
+			t.test.Logf("CONFLICT REJECTED: %s", conflict.ID())
 		}
 
 		atomic.AddUint32(&(t.conflictsRejected), 1)
@@ -136,10 +128,6 @@ func (t *TestFramework) AssertConflictsAccepted(conflictsAccepted uint32) {
 
 func (t *TestFramework) AssertConflictsRejected(conflictsRejected uint32) {
 	require.Equal(t.test, conflictsRejected, atomic.LoadUint32(&t.conflictsRejected), "expected %d conflicts to be rejected but got %d", conflictsRejected, atomic.LoadUint32(&t.acceptedBlocks))
-}
-
-func (t *TestFramework) AssertReorgs(reorgCount uint32) {
-	require.Equal(t.test, reorgCount, atomic.LoadUint32(&t.reorgCount), "expected %d reorgs but got %d", reorgCount, atomic.LoadUint32(&t.reorgCount))
 }
 
 func (t *TestFramework) ValidateAcceptedBlocks(expectedAcceptedBlocks map[string]bool) {

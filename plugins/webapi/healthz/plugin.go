@@ -4,12 +4,12 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/hive.go/app/daemon"
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 )
 

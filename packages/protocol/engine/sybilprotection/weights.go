@@ -165,13 +165,17 @@ func (w *Weights) Map() (weights map[identity.ID]int64, err error) {
 
 func (w *Weights) get(id identity.ID) (weight *Weight, exists bool) {
 	if weight, exists = w.getFromCache(id); exists {
+		if weight.UpdateTime == -1 {
+			return weight, false
+		}
 		return weight, exists
 	}
 
 	weight, exists = w.weights.Get(id)
-	if exists {
-		w.setCache(id, weight)
+	if !exists {
+		weight = NewWeight(0, -1)
 	}
+	w.setCache(id, weight)
 
 	return weight, exists
 }
