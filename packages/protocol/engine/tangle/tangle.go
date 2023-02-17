@@ -38,11 +38,12 @@ func New(
 	validators *sybilprotection.WeightedSet,
 	epochCutoffCallback func() epoch.Index,
 	sequenceCutoffCallback func(id markers.SequenceID) markers.Index,
+	commitmentFunc func(epoch.Index) (*commitment.Commitment, error),
 	opts ...options.Option[Tangle],
 ) (newTangle *Tangle) {
 	return options.Apply(new(Tangle), opts, func(t *Tangle) {
 		t.Ledger = ledger
-		t.BlockDAG = blockdag.New(workers.CreateGroup("BlockDAG"), evictionState, t.optsBlockDAG...)
+		t.BlockDAG = blockdag.New(workers.CreateGroup("BlockDAG"), evictionState, commitmentFunc, t.optsBlockDAG...)
 		t.Booker = booker.New(workers.CreateGroup("Booker"), t.BlockDAG, ledger, t.optsBooker...)
 		t.VirtualVoting = virtualvoting.New(workers.CreateGroup("VirtualVoting"),
 			t.Booker,

@@ -42,7 +42,6 @@ type TestFramework struct {
 	confirmedBlocks   uint32
 	conflictsAccepted uint32
 	conflictsRejected uint32
-	reorgCount        uint32
 }
 
 func NewTestFramework(test *testing.T, gadget *Gadget, tangleTF *tangle.TestFramework) *TestFramework {
@@ -98,23 +97,16 @@ func (t *TestFramework) setupEvents() {
 		atomic.AddUint32(&(t.confirmedBlocks), 1)
 	})
 
-	t.Gadget.Events.Reorg.Hook(func(conflictID utxo.TransactionID) {
+	event.Hook(t.Tangle.VirtualVoting.ConflictDAG.Instance.Events.ConflictAccepted, func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		if debug.GetEnabled() {
-			t.test.Logf("REORG NEEDED: %s", conflictID)
-		}
-		atomic.AddUint32(&(t.reorgCount), 1)
-	})
-
-	t.Tangle.VirtualVoting.ConflictDAG.Instance.Events.ConflictAccepted.Hook(func(conflictID utxo.TransactionID) {
-		if debug.GetEnabled() {
-			t.test.Logf("CONFLICT ACCEPTED: %s", conflictID)
+			t.test.Logf("CONFLICT ACCEPTED: %s", conflict.ID())
 		}
 		atomic.AddUint32(&(t.conflictsAccepted), 1)
 	})
 
-	t.Tangle.VirtualVoting.ConflictDAG.Instance.Events.ConflictRejected.Hook(func(conflictID utxo.TransactionID) {
+	event.Hook(t.Tangle.VirtualVoting.ConflictDAG.Instance.Events.ConflictRejected, func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		if debug.GetEnabled() {
-			t.test.Logf("CONFLICT REJECTED: %s", conflictID)
+			t.test.Logf("CONFLICT REJECTED: %s", conflict.ID())
 		}
 
 		atomic.AddUint32(&(t.conflictsRejected), 1)
@@ -135,10 +127,6 @@ func (t *TestFramework) AssertConflictsAccepted(conflictsAccepted uint32) {
 
 func (t *TestFramework) AssertConflictsRejected(conflictsRejected uint32) {
 	require.Equal(t.test, conflictsRejected, atomic.LoadUint32(&t.conflictsRejected), "expected %d conflicts to be rejected but got %d", conflictsRejected, atomic.LoadUint32(&t.acceptedBlocks))
-}
-
-func (t *TestFramework) AssertReorgs(reorgCount uint32) {
-	require.Equal(t.test, reorgCount, atomic.LoadUint32(&t.reorgCount), "expected %d reorgs but got %d", reorgCount, atomic.LoadUint32(&t.reorgCount))
 }
 
 func (t *TestFramework) ValidateAcceptedBlocks(expectedAcceptedBlocks map[string]bool) {

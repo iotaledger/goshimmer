@@ -24,6 +24,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage/utils"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/options"
@@ -179,8 +182,8 @@ func (n *Node) attachEngineLogs(instance *enginemanager.EngineInstance) {
 		fmt.Printf("%s > [%s] BlockDAG.BlockUnorphaned: %s\n", n.Name, engineName, block.ID())
 	})
 
-	events.Tangle.Booker.BlockBooked.Hook(func(block *booker.Block) {
-		fmt.Printf("%s > [%s] Booker.BlockBooked: %s\n", n.Name, engineName, block.ID())
+	events.Tangle.Booker.BlockBooked.Hook(func(evt *booker.BlockBookedEvent) {
+		fmt.Printf("%s > [%s] Booker.BlockBooked: %s\n", n.Name, engineName, evt.Block.ID())
 	})
 
 	events.Tangle.VirtualVoting.SequenceTracker.VotersUpdated.Hook(func(event *sequencetracker.VoterUpdatedEvent) {

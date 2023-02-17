@@ -13,7 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/sendoptions"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/confirmation"
+	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
@@ -109,7 +109,9 @@ func TestSimpleDoubleSpend(t *testing.T) {
 
 	t.Logf("Sending %d data blocks to make ConfirmationState converge", dataBlocksAmount)
 	tests.SendDataBlocksWithDelay(t, n.Peers(), dataBlocksAmount, delayBetweenDataBlocks)
+	t.Logf("Sending %d data blocks to make ConfirmationState converge... done", dataBlocksAmount)
 
+	t.Logf("Waiting for conflicting transactions to be marked...")
 	// conflicting txs should have spawned conflicts
 	require.Eventually(t, func() bool {
 		res1, err := node1.GetTransactionMetadata(txs1[0].ID().Base58())
@@ -118,11 +120,15 @@ func TestSimpleDoubleSpend(t *testing.T) {
 		require.NoError(t, err)
 		return len(res1.ConflictIDs) > 0 && len(res2.ConflictIDs) > 0
 	}, tests.Timeout, tests.Tick)
+	t.Logf("Waiting for conflicting transactions to be marked... done")
 
+	t.Logf("Sending data blocks to resolve the conflict...")
 	// we issue blks on both nodes so the txs' ConfirmationState can change, given that they are dependent on their
 	// attachments' ConfirmationState. if blks would only be issued on node 2 or 1, they weight would never surpass 50%.
 	tests.SendDataBlocks(t, n.Peers(), 50)
+	t.Logf("Sending data blocks to resolve the conflict... done")
 
+	t.Logf("Making sure that conflicts are resolved...")
 	for i := 0; i < numberOfConflictingTxs; i++ {
 		tests.RequireConfirmationStateEqual(t, n.Peers(), tests.ExpectedTxsStates{
 			txs1[i].ID().Base58(): {
@@ -135,6 +141,8 @@ func TestSimpleDoubleSpend(t *testing.T) {
 			},
 		}, time.Minute, tests.Tick)
 	}
+	t.Logf("Making sure that conflicts are resolved... done")
+
 }
 
 func sendConflictingTx(t *testing.T, wallet *wallet.Wallet, targetAddr address.Address, actualGenesisTokenAmount uint64, node *framework.Node) *devnetvm.Transaction {

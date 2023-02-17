@@ -15,6 +15,7 @@ import (
 	"github.com/iotaledger/hive.go/ds/set"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
+	"github.com/iotaledger/hive.go/core/workerpool"
 )
 
 // We create epochCount blocks, each in a different epoch and with a different marker, then we prune the markerManager and expect the mapping to be pruned accordingly.
@@ -187,10 +188,10 @@ func Test_PruneSequences(t *testing.T) {
 				))
 			}
 
-			newStructureDetailsTmp, created := markerManager.SequenceManager.InheritStructureDetails([]*markers.StructureDetails{structureDetails})
+			newStructureDetailsTmp, created := markerManager.SequenceManager.InheritStructureDetails([]*markers.StructureDetails{structureDetails}, false)
 
 			// create another marker within the same sequence, so that in the next iteration a new sequence will be created
-			newStructureDetails, _ := markerManager.SequenceManager.InheritStructureDetails([]*markers.StructureDetails{newStructureDetailsTmp})
+			newStructureDetails, _ := markerManager.SequenceManager.InheritStructureDetails([]*markers.StructureDetails{newStructureDetailsTmp}, false)
 
 			assert.True(t, created, "expected to create a new sequence with sequence ID %d", expectedSequenceID)
 			assert.True(t, newStructureDetails.IsPastMarker(), "expected the new sequence details to be past marker")

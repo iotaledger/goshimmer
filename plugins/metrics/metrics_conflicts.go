@@ -22,8 +22,8 @@ var ConflictMetrics = collector.NewCollection(conflictNamespace,
 		collector.WithType(collector.Counter),
 		collector.WithHelp("Time since transaction issuance to the conflict acceptance"),
 		collector.WithInitFunc(func() {
-			deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictAccepted.Hook(func(conflictID utxo.TransactionID) {
-				firstAttachment := deps.Protocol.Engine().Tangle.Booker.GetEarliestAttachment(conflictID)
+			deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictAccepted.Hook(func(*conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+				firstAttachment := deps.Protocol.Engine().Tangle.Booker.GetEarliestAttachment(conflict.ID())
 				timeSinceIssuance := time.Since(firstAttachment.IssuingTime()).Milliseconds()
 				timeIssuanceSeconds := float64(timeSinceIssuance) / 1000
 				deps.Collector.Update(conflictNamespace, resolutionTime, collector.SingleValue(timeIssuanceSeconds))
@@ -33,11 +33,8 @@ var ConflictMetrics = collector.NewCollection(conflictNamespace,
 	collector.WithMetric(collector.NewMetric(resolvedConflictCount,
 		collector.WithType(collector.Counter),
 		collector.WithHelp("Number of resolved (accepted) conflicts"),
-		collector.WithInitValue(func() map[string]float64 {
-			return collector.SingleValue(deps.Protocol.Engine().Ledger.ConflictDAG.Utils.ConflictCount())
-		}),
 		collector.WithInitFunc(func() {
-			deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictAccepted.Hook(func(conflictID utxo.TransactionID) {
+			deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictAccepted.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 				deps.Collector.Increment(conflictNamespace, resolvedConflictCount)
 			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
@@ -46,7 +43,7 @@ var ConflictMetrics = collector.NewCollection(conflictNamespace,
 		collector.WithType(collector.Counter),
 		collector.WithHelp("Number of created conflicts"),
 		collector.WithInitFunc(func() {
-			deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictCreated.Hook(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
+			deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictCreated.Hook(func(event * conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 				deps.Collector.Increment(conflictNamespace, allConflictCounts)
 			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),

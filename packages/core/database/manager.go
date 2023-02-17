@@ -64,7 +64,7 @@ func NewManager(version Version, opts ...options.Option[Manager]) *Manager {
 			}
 			size, err := dbPrunableDirectorySize(m.bucketedBaseDir, baseIndex)
 			if err != nil {
-				panic(err)
+				fmt.Fprintln(os.Stderr, err)
 			}
 
 			m.dbSizes.Set(baseIndex, size)

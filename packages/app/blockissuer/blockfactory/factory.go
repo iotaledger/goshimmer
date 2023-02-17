@@ -85,16 +85,16 @@ func (f *Factory) createBlockWithPayload(p payload.Payload, references models.Pa
 		return nil, errors.Errorf("maximum payload size of %d bytes exceeded", payloadLen)
 	}
 
-	epochCommitment, lastConfirmedEpochIndex, err := f.commitmentFunc()
-	if err != nil {
-		return nil, errors.Wrap(err, "cannot retrieve epoch commitment")
-	}
-
 	if references.IsEmpty() {
 		references, err = f.tryGetReferences(p, strongParentsCount)
 		if err != nil {
 			return nil, errors.Wrap(err, "error while trying to get references")
 		}
+	}
+
+	epochCommitment, lastConfirmedEpochIndex, err := f.commitmentFunc()
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot retrieve epoch commitment")
 	}
 
 	block := models.NewBlock(
@@ -162,8 +162,6 @@ func (f *Factory) getReferences(p payload.Payload, parentsCount int) (references
 	if _, exists := references[models.WeakParentType]; !exists {
 		references[models.WeakParentType] = models.NewBlockIDs()
 	}
-	// TODO: get from tips conflict tracker
-	// references[models.WeakParentType].AddAll(f.referenceProvider.ReferencesToMissingConflicts(issuingTime, models.MaxParentsCount-len(references[models.WeakParentType])))
 
 	// Make sure that there's no duplicate between strong and weak parents.
 	references.RemoveDuplicatesFromWeak()

@@ -24,6 +24,8 @@ services:
       --blockIssuer.ignoreBootstrappedFlag=true
       --protocol.genesisTime=${GENESIS_TIME}
       --profiling.bindAddress=0.0.0.0:6061
+      --dashboard.dev=false
+      --dashboard.devDashboardAddress=dashboard-dev-docker:9999
     secrets:
       - goshimmer.config.json
     volumes:
@@ -59,8 +61,7 @@ services:
       - ./docker-network.snapshot:/app/snapshot.bin
     networks:
       - goshimmer
-    depends_on:
-      - peer_master
+
   peer_master2:
     image: docker-network-peer_master:latest
     stop_grace_period: 1m
@@ -88,8 +89,6 @@ services:
       - "6071:6061/tcp" # pprof
     networks:
       - goshimmer
-    depends_on:
-      - peer_master
   peer_nomana:
     image: docker-network-peer_master:latest
     stop_grace_period: 1m
@@ -121,6 +120,34 @@ services:
     depends_on:
       - peer_master
       - faucet
+  peer_nomana2:
+    image: docker-network-peer_master:latest
+    stop_grace_period: 1m
+    command: >
+      --node.enablePlugins="webapitoolsendpoint",spammer,metrics
+      --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
+      --node.peerDBDirectory=/app/peerdb
+      --database.directory=/app/db
+      --config=/run/secrets/goshimmer.config.json
+      --protocol.snapshot.path=./snapshot.bin
+      --metrics.bindAddress=0.0.0.0:9311
+      --metrics.bindAddress=0.0.0.0:9311
+      --protocol.genesisTime=${GENESIS_TIME}
+      --metrics.processMetrics=true
+      --metrics.goMetrics=true
+      --metrics.processMetrics=true
+      --metrics.goMetrics=true
+      --profiling.bindAddress=0.0.0.0:6061
+    secrets:
+      - goshimmer.config.json
+    volumes:
+      - ./docker-network.snapshot:/app/snapshot.bin
+    ports:
+      - "8030:8080/tcp" # web API
+      - "8031:8081/tcp" # dashboard
+      - "6031:6061/tcp" # pprof
+    networks:
+      - goshimmer
 
   faucet:
     image: docker-network-peer_master:latest

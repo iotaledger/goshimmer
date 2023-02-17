@@ -26,7 +26,7 @@ func NewTestFramework(t *testing.T, opts ...options.Option[TestFramework]) (newF
 }
 
 func (t *TestFramework) InheritStructureDetails(alias string, inheritedStructureDetails []*StructureDetails) (structureDetails *StructureDetails, created bool) {
-	structureDetails, created = t.SequenceManager().InheritStructureDetails(inheritedStructureDetails)
+	structureDetails, created = t.SequenceManager().InheritStructureDetails(inheritedStructureDetails, false)
 	t.structureDetailsByAlias[alias] = structureDetails
 
 	return

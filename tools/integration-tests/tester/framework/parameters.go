@@ -16,6 +16,7 @@ const (
 	dashboardPort = 8081
 	gossipPort    = 14666
 	peeringPort   = 14626
+	profilingPort = 6061
 
 	containerNameEntryNode   = "entry_node"
 	containerNameReplica     = "replica_"
@@ -58,7 +59,7 @@ func PeerConfig() config.GoShimmer {
 
 	c.Image = "iotaledger/goshimmer"
 
-	c.DisabledPlugins = []string{"portcheck", "profiling", "remotelogmetrics", "remotemetrics", "WebAPIEpochEndpoint", "ManaInitializer", "Warpsync"}
+	c.DisabledPlugins = []string{"portcheck", "remotelogmetrics", "remotemetrics", "WebAPIEpochEndpoint", "ManaInitializer", "Warpsync"}
 
 	c.Network.Enabled = true
 
@@ -94,6 +95,9 @@ func PeerConfig() config.GoShimmer {
 
 	c.Activity.Enabled = false
 	c.Activity.BroadcastInterval = time.Second // increase frequency to speedup tests
+
+	c.Profiling.Enabled = true
+	c.Profiling.BindAddress = fmt.Sprintf("0.0.0.0:%d", profilingPort)
 
 	return c
 }

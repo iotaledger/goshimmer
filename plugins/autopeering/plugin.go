@@ -75,12 +75,12 @@ func configure(plugin *node.Plugin) {
 	// resolve the bind address
 	localAddr, err = net.ResolveUDPAddr("udp", Parameters.BindAddress)
 	if err != nil {
-		Plugin.LogFatalfAndExit("bind address '%s' is invalid: %s", Parameters.BindAddress, err)
+		Plugin.LogFatalfAndExitf("bind address '%s' is invalid: %s", Parameters.BindAddress, err)
 	}
 
 	// announce the peering service
 	if err := deps.Local.UpdateService(service.PeeringKey, localAddr.Network(), localAddr.Port); err != nil {
-		Plugin.LogFatalfAndExit("could not update services: %s", err)
+		Plugin.LogFatalfAndExitf("could not update services: %s", err)
 	}
 
 	if deps.P2PMgr != nil {

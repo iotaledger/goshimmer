@@ -87,8 +87,8 @@ func (p *Plugin) LogErrorf(format string, args ...interface{}) {
 	p.Logger().Errorf(format, args...)
 }
 
-// LogErrorfAndExit uses fmt.Sprintf to log a templated message, then calls os.Exit.
-func (p *Plugin) LogErrorfAndExit(format string, args ...interface{}) {
+// LogErrorfAndExitf uses fmt.Sprintf to log a templated message, then calls os.Exit.
+func (p *Plugin) LogErrorfAndExitf(format string, args ...interface{}) {
 	p.Logger().Errorf(format, args...)
 	p.Logger().Error("Exiting...")
 	os.Exit(1)
@@ -99,8 +99,8 @@ func (p *Plugin) LogFatalAndExit(args ...interface{}) {
 	p.Logger().Fatal(args...)
 }
 
-// LogFatalfAndExit uses fmt.Sprintf to log a templated message, then calls os.Exit.
-func (p *Plugin) LogFatalfAndExit(format string, args ...interface{}) {
+// LogFatalfAndExitf uses fmt.Sprintf to log a templated message, then calls os.Exit.
+func (p *Plugin) LogFatalfAndExitf(format string, args ...interface{}) {
 	p.Logger().Fatalf(format, args...)
 }
 

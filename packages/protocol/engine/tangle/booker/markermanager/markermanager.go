@@ -57,8 +57,9 @@ func NewMarkerManager[IndexedID epoch.IndexedID, MappedEntity epoch.IndexedEntit
 
 // ProcessBlock returns the structure Details of a Block that are derived from the StructureDetails of its
 // strong and like parents.
-func (m *MarkerManager[IndexedID, MappedEntity]) ProcessBlock(block MappedEntity, structureDetails []*markers.StructureDetails, conflictIDs utxo.TransactionIDs) (newStructureDetails *markers.StructureDetails) {
-	newStructureDetails, newSequenceCreated := m.SequenceManager.InheritStructureDetails(structureDetails)
+func (m *MarkerManager[IndexedID, MappedEntity]) ProcessBlock(block MappedEntity, allParentsInPastEpoch bool, structureDetails []*markers.StructureDetails, conflictIDs utxo.TransactionIDs) (newStructureDetails *markers.StructureDetails) {
+	newStructureDetails, newSequenceCreated := m.SequenceManager.InheritStructureDetails(structureDetails, allParentsInPastEpoch)
+
 	if newStructureDetails.IsPastMarker() {
 		m.SequenceMutex.Lock(newStructureDetails.PastMarkers().Marker().SequenceID())
 		defer m.SequenceMutex.Unlock(newStructureDetails.PastMarkers().Marker().SequenceID())
@@ -73,9 +74,12 @@ func (m *MarkerManager[IndexedID, MappedEntity]) ProcessBlock(block MappedEntity
 			m.SetConflictIDs(newStructureDetails.PastMarkers().Marker(), conflictIDs)
 		}
 		m.addMarkerBlockMapping(newStructureDetails.PastMarkers().Marker(), block)
-
-		m.registerSequenceEviction(block.ID().Index(), newStructureDetails.PastMarkers().Marker().SequenceID())
 	}
+
+	newStructureDetails.PastMarkers().ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
+		m.registerSequenceEviction(block.ID().Index(), sequenceID)
+		return true
+	})
 
 	return newStructureDetails
 }

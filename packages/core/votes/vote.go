@@ -132,4 +132,15 @@ const (
 	Dislike
 )
 
+func (o Opinion) String() string {
+	switch o {
+	case Like:
+		return "Like"
+	case Dislike:
+		return "Dislike"
+	default:
+		return "UndefinedOpinion"
+	}
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

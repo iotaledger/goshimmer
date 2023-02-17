@@ -10,6 +10,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/app/retainer"
+	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
@@ -18,6 +19,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 	ledgerstateAPI "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/lo"
 )

@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/storage/prunable"
 	"github.com/iotaledger/goshimmer/packages/storage/utils"
 	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/core/types"
 )
 
 // Storage is an abstraction around the storage layer of the node.
@@ -31,13 +32,19 @@ type Storage struct {
 func New(directory string, version database.Version, opts ...options.Option[database.Manager]) (newStorage *Storage) {
 	databaseManager := database.NewManager(version, append(opts, database.WithBaseDir(directory))...)
 
-	return &Storage{
+	newStorage = &Storage{
 		Permanent: permanent.New(utils.NewDirectory(directory, true), databaseManager),
 		Prunable:  prunable.New(databaseManager),
 
 		databaseManager: databaseManager,
 		Directory:       directory,
 	}
+
+	if err := newStorage.Commitments.Store(commitment.New(0, commitment.ID{}, types.Identifier{}, 0)); err != nil {
+		panic(err)
+	}
+
+	return newStorage
 }
 
 // PruneUntilEpoch prunes storage epochs less than and equal to the given index.

@@ -2,7 +2,6 @@ package blockgadget
 
 import (
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/runtime/event"
 )
@@ -11,7 +10,6 @@ type Events struct {
 	BlockAccepted  *event.Event1[*Block]
 	BlockConfirmed *event.Event1[*Block]
 	EpochClosed    *event.Event1[*memstorage.Storage[models.BlockID, *Block]]
-	Reorg          *event.Event1[utxo.TransactionID]
 	Error          *event.Event1[error]
 
 	event.Group[Events, *Events]
@@ -23,7 +21,6 @@ var NewEvents = event.CreateGroupConstructor(func() (newEvents *Events) {
 		BlockAccepted:  event.New1[*Block](),
 		BlockConfirmed: event.New1[*Block](),
 		EpochClosed:    event.New1[*memstorage.Storage[models.BlockID, *Block]](),
-		Reorg:          event.New1[utxo.TransactionID](),
 		Error:          event.New1[error](),
 	}
 })

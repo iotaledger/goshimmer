@@ -11,10 +11,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/hive.go/runtime/debug"
 	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
@@ -45,9 +45,11 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, instance *Book
 }
 
 func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, optsBooker ...options.Option[Booker]) *TestFramework {
+	storageInstance := blockdag.NewTestStorage(t, workers)
+
 	return NewTestFramework(t, workers, New(
 		workers.CreateGroup("Booker"),
-		blockdag.NewTestBlockDAG(t, workers, eviction.NewState(blockdag.NewTestStorage(t, workers))),
+		blockdag.NewTestBlockDAG(t, workers, eviction.NewState(storageInstance), blockdag.DefaultCommitmentFunc),
 		ledger.NewTestLedger(t, workers.CreateGroup("Ledger")),
 		optsBooker...,
 	))
@@ -101,9 +103,9 @@ func (t *TestFramework) AssertBlockConflictsUpdateCount(blockConflictsUpdateCoun
 }
 
 func (t *TestFramework) setupEvents() {
-	t.Instance.Events.BlockBooked.Hook(func(metadata *Block) {
+	event.Hook(t.Instance.Events.BlockBooked, func(evt *BlockBookedEvent) {
 		if debug.GetEnabled() {
-			t.test.Logf("BOOKED: %s", metadata.ID())
+			t.test.Logf("BOOKED: %v, %v", evt.Block.ID(), evt.Block.StructureDetails().PastMarkers())
 		}
 
 		atomic.AddInt32(&(t.bookedBlocks), 1)
@@ -175,16 +177,16 @@ func (t *TestFramework) checkNormalizedConflictIDsContained(expectedContainedCon
 
 		normalizedRetrievedConflictIDs := retrievedConflictIDs.Clone()
 		for it := retrievedConflictIDs.Iterator(); it.HasNext(); {
-			t.Ledger.Instance.ConflictDAG.Storage.CachedConflict(it.Next()).Consume(func(b *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-				normalizedRetrievedConflictIDs.DeleteAll(b.Parents())
-			})
+			conflict, exists := t.Ledger.Instance.ConflictDAG.Conflict(it.Next())
+			require.True(t.test, exists, "conflict %s does not exist", conflict.ID())
+			normalizedRetrievedConflictIDs.DeleteAll(conflict.Parents())
 		}
 
 		normalizedExpectedConflictIDs := blockExpectedConflictIDs.Clone()
 		for it := blockExpectedConflictIDs.Iterator(); it.HasNext(); {
-			t.Ledger.Instance.ConflictDAG.Storage.CachedConflict(it.Next()).Consume(func(b *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-				normalizedExpectedConflictIDs.DeleteAll(b.Parents())
-			})
+			conflict, exists := t.Ledger.Instance.ConflictDAG.Conflict(it.Next())
+			require.True(t.test, exists, "conflict %s does not exist", conflict.ID())
+			normalizedExpectedConflictIDs.DeleteAll(conflict.Parents())
 		}
 
 		require.True(t.test, normalizedExpectedConflictIDs.Intersect(normalizedRetrievedConflictIDs).Size() == normalizedExpectedConflictIDs.Size(), "ConflictID of %s should be %s but is %s", blockAlias, normalizedExpectedConflictIDs, normalizedRetrievedConflictIDs)

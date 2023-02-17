@@ -12,7 +12,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/ads"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
@@ -27,6 +26,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/core/debug"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/ds/shrinkingmap"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
@@ -51,22 +55,19 @@ type TestFramework struct {
 	tipAdded   uint32
 	tipRemoved uint32
 
-	optsTipManagerOptions   []options.Option[TipManager]
-	optsTangleOptions       []options.Option[tangle.Tangle]
-	optsNotarizationOptions []options.Option[notarization.Manager]
+	optsTipManagerOptions []options.Option[TipManager]
+	optsEngineOptions     []options.Option[engine.Engine]
 }
 
 func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...options.Option[TestFramework]) (t *TestFramework) {
 	return options.Apply(&TestFramework{
-		test:                    test,
-		mockAcceptance:          blockgadget.NewMockAcceptanceGadget(),
-		scheduledBlocks:         shrinkingmap.New[models.BlockID, *scheduler.Block](),
-		optsNotarizationOptions: []options.Option[notarization.Manager]{notarization.WithMinCommittableEpochAge(time.Since(time.Unix(epoch.GenesisTime, 0)))},
+		test:            test,
+		mockAcceptance:  blockgadget.NewMockAcceptanceGadget(),
+		scheduledBlocks: shrinkingmap.New[models.BlockID, *scheduler.Block](),
 	}, opts, func(t *TestFramework) {
 		storageInstance := blockdag.NewTestStorage(test, workers)
-
 		// set MinCommittableEpochAge to genesis so nothing is committed.
-		t.Engine = engine.New(workers.CreateGroup("Engine"), storageInstance, dpos.NewProvider(), mana1.NewProvider(), engine.WithNotarizationManagerOptions(t.optsNotarizationOptions...), engine.WithTangleOptions(t.optsTangleOptions...))
+		t.Engine = engine.New(workers.CreateGroup("Engine"), storageInstance, dpos.NewProvider(), mana1.NewProvider(), t.optsEngineOptions...)
 
 		test.Cleanup(func() {
 			t.Engine.Shutdown()
@@ -80,7 +81,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...option
 			virtualvoting.NewTestFramework(test, workers.CreateGroup("VirtualVotingTestFramework"), t.Engine.Tangle.VirtualVoting),
 		)
 
-		t.Instance = New(t.mockSchedulerBlock, t.optsTipManagerOptions...)
+		t.Instance = New(workers.CreateGroup("TipManager"), t.mockSchedulerBlock, t.optsTipManagerOptions...)
 		t.Instance.LinkTo(t.Engine)
 
 		t.Instance.blockAcceptanceGadget = t.mockAcceptance
@@ -105,6 +106,10 @@ func (t *TestFramework) setupEvents() {
 		t.Instance.AddTip(scheduledBlock)
 	})
 
+	event.Hook(t.Engine.Events.EvictionState.EpochEvicted, func(index epoch.Index) {
+		t.Instance.EvictTSCCache(index)
+	})
+
 	t.Instance.Events.TipAdded.Hook(func(block *scheduler.Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("TIP ADDED: %s", block.ID())
@@ -121,14 +126,6 @@ func (t *TestFramework) setupEvents() {
 
 	t.mockAcceptance.BlockAcceptedEvent.Hook(func(block *blockgadget.Block) {
 		require.NoError(t.test, t.Engine.NotarizationManager.NotarizeAcceptedBlock(block.ModelsBlock))
-	})
-
-	t.Engine.NotarizationManager.Events.EpochCommitted.Hook(func(details *notarization.EpochCommittedDetails) {
-		t.Instance.PromoteFutureTips(details.Commitment)
-	})
-
-	t.Engine.EvictionState.Events.EpochEvicted.Hook(func(index epoch.Index) {
-		t.Instance.Evict(index)
 	})
 }
 
@@ -213,31 +210,6 @@ func (t *TestFramework) AssertTips(expectedTips models.BlockIDs) {
 	})...), expectedTips)
 }
 
-func (t *TestFramework) AssertFutureTips(expectedFutureTips map[epoch.Index]map[commitment.ID]models.BlockIDs) {
-	actualFutureTips := make(map[epoch.Index]map[commitment.ID]models.BlockIDs)
-
-	t.Instance.futureTips.ForEach(func(index epoch.Index, commitmentStorage *memstorage.Storage[commitment.ID, *memstorage.Storage[models.BlockID, *scheduler.Block]]) {
-		commitmentStorage.ForEach(func(cm commitment.ID, tipStorage *memstorage.Storage[models.BlockID, *scheduler.Block]) bool {
-			if _, exists := actualFutureTips[index]; !exists {
-				actualFutureTips[index] = make(map[commitment.ID]models.BlockIDs)
-			}
-
-			if _, exists := actualFutureTips[index][cm]; !exists {
-				actualFutureTips[index][cm] = models.NewBlockIDs()
-			}
-
-			tipStorage.ForEach(func(blockID models.BlockID, _ *scheduler.Block) bool {
-				actualFutureTips[index][cm].Add(blockID)
-				return true
-			})
-
-			return true
-		})
-	})
-
-	require.Equal(t.test, expectedFutureTips, actualFutureTips, "expected future tips %s but got %s", expectedFutureTips, actualFutureTips)
-}
-
 func (t *TestFramework) AssertTipCount(expectedTipCount int) {
 	require.Equal(t.test, expectedTipCount, t.Instance.TipCount(), "expected %d tip count but got %d", t.Instance.TipCount(), expectedTipCount)
 }
@@ -275,15 +247,9 @@ func WithTipManagerOptions(opts ...options.Option[TipManager]) options.Option[Te
 	}
 }
 
-func WithTangleOptions(opts ...options.Option[tangle.Tangle]) options.Option[TestFramework] {
+func WithEngineOptions(opts ...options.Option[engine.Engine]) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
-		tf.optsTangleOptions = opts
-	}
-}
-
-func WithNotarizationOptions(opts ...options.Option[notarization.Manager]) options.Option[TestFramework] {
-	return func(tf *TestFramework) {
-		tf.optsNotarizationOptions = opts
+		tf.optsEngineOptions = opts
 	}
 }
 

@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 )
@@ -101,11 +102,13 @@ func sendConflictMetrics() {
 
 func updateMetricCounts(conflictID utxo.TransactionID, transactionID utxo.TransactionID) (oldestAttachment *booker.Block) {
 	oldestAttachment = deps.Protocol.Engine().Tangle.Booker.GetEarliestAttachment(transactionID)
-	deps.Protocol.Engine().Ledger.ConflictDAG.Utils.ForEachConflictingConflictID(conflictID, func(conflictingConflictID utxo.TransactionID) bool {
-		if conflictingConflictID != conflictID {
-			finalizedConflictCountDB.Inc()
-			activeConflicts.Delete(conflictingConflictID)
-		}
+	conflict, exists := deps.Protocol.Engine().Ledger.ConflictDAG.Conflict(conflictID)
+	if !exists {
+		return oldestAttachment
+	}
+	conflict.ForEachConflictingConflict(func(conflictingConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) bool {
+		finalizedConflictCountDB.Inc()
+		activeConflicts.Delete(conflictingConflict.ID())
 		return true
 	})
 	finalizedConflictCountDB.Inc()
@@ -119,7 +122,7 @@ func measureInitialConflictCounts() {
 	defer activeConflictsMutex.Unlock()
 	activeConflicts = advancedset.NewAdvancedSet[utxo.TransactionID]()
 	conflictsToRemove := make([]utxo.TransactionID, 0)
-	deps.Protocol.Engine().Ledger.ConflictDAG.Utils.ForEachConflict(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	deps.Protocol.Engine().Ledger.ConflictDAG.ForEachConflict(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		switch conflict.ID() {
 		case utxo.EmptyTransactionID:
 			return
@@ -127,10 +130,8 @@ func measureInitialConflictCounts() {
 			initialConflictTotalCountDB++
 			activeConflicts.Add(conflict.ID())
 			if deps.Protocol.Engine().Ledger.ConflictDAG.ConfirmationState(utxo.NewTransactionIDs(conflict.ID())).IsAccepted() {
-				deps.Protocol.Engine().Ledger.ConflictDAG.Utils.ForEachConflictingConflictID(conflict.ID(), func(conflictingConflictID utxo.TransactionID) bool {
-					if conflictingConflictID != conflict.ID() {
-						initialFinalizedConflictCountDB++
-					}
+				conflict.ForEachConflictingConflict(func(conflictingConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) bool {
+					initialFinalizedConflictCountDB++
 					return true
 				})
 				initialFinalizedConflictCountDB++
@@ -142,10 +143,12 @@ func measureInitialConflictCounts() {
 
 	// remove finalized conflicts from the map in separate loop when all conflicting conflicts are known
 	for _, conflictID := range conflictsToRemove {
-		deps.Protocol.Engine().Ledger.ConflictDAG.Utils.ForEachConflictingConflictID(conflictID, func(conflictingConflictID utxo.TransactionID) bool {
-			if conflictingConflictID != conflictID {
-				activeConflicts.Delete(conflictingConflictID)
-			}
+		conflict, exists := deps.Protocol.Engine().Ledger.ConflictDAG.Conflict(conflictID)
+		if !exists {
+			continue
+		}
+		conflict.ForEachConflictingConflict(func(conflictingConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) bool {
+			activeConflicts.Delete(conflictingConflict.ID())
 			return true
 		})
 		activeConflicts.Delete(conflictID)

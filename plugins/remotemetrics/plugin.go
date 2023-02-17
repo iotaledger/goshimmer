@@ -129,18 +129,17 @@ func configureConflictConfirmationMetrics(plugin *node.Plugin) {
 		return
 	}
 
-	deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictAccepted.Hook(func(conflictID utxo.TransactionID) {
-		onConflictConfirmed(conflictID)
-	}, event.WithWorkerPool(plugin.WorkerPool))
+	deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictAccepted.Attach(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+		onConflictConfirmed(conflict.ID())
+	}))
 
-	deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictCreated.Hook(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
+	deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictCreated.Attach(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		activeConflictsMutex.Lock()
 		defer activeConflictsMutex.Unlock()
 
-		conflictID := event.ID
-		if !activeConflicts.Has(conflictID) {
+		if !activeConflicts.Has(conflict.ID()) {
 			conflictTotalCountDB.Inc()
-			activeConflicts.Add(conflictID)
+			activeConflicts.Add(conflict.ID())
 			sendConflictMetrics()
 		}
 	}, event.WithWorkerPool(plugin.WorkerPool))

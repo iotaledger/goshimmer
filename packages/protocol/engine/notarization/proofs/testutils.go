@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
+	"github.com/iotaledger/hive.go/core/generics/event"
 )
 
 const (

@@ -66,13 +66,13 @@ type GetConflictChildrenResponse struct {
 }
 
 // NewGetConflictChildrenResponse returns a GetConflictChildrenResponse from the given details.
-func NewGetConflictChildrenResponse(conflictID utxo.TransactionID, childConflicts []*conflictdag.ChildConflict[utxo.TransactionID]) *GetConflictChildrenResponse {
+func NewGetConflictChildrenResponse(conflictID utxo.TransactionID, childConflicts *set.AdvancedSet[*conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]]) *GetConflictChildrenResponse {
 	return &GetConflictChildrenResponse{
 		ConflictID: conflictID.Base58(),
 		ChildConflicts: func() (mappedChildConflicts []*ChildConflict) {
 			mappedChildConflicts = make([]*ChildConflict, 0)
-			for _, childConflict := range childConflicts {
-				mappedChildConflicts = append(mappedChildConflicts, NewChildConflict(childConflict))
+			for it := childConflicts.Iterator(); it.HasNext(); {
+				mappedChildConflicts = append(mappedChildConflicts, NewChildConflict(it.Next()))
 			}
 
 			return
@@ -217,6 +217,7 @@ type PostTransactionRequest struct {
 // PostTransactionResponse is the HTTP response from sending transaction.
 type PostTransactionResponse struct {
 	TransactionID string `json:"transaction_id,omitempty"`
+	BlockID       string `json:"block_id,omitempty"`
 	Error         string `json:"error,omitempty"`
 }
 

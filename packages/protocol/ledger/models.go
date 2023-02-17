@@ -3,6 +3,7 @@ package ledger
 import (
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"

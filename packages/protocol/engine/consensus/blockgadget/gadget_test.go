@@ -4,11 +4,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markermanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/debug"
@@ -716,100 +716,6 @@ func TestGadget_update_multipleSequences_onlyAcceptThenConfirm(t *testing.T) {
 
 		tf.AssertBlockAccepted(15)
 		tf.AssertBlockConfirmed(15)
-	}
-}
-
-func TestGadget_update_reorg(t *testing.T) {
-	debug.SetEnabled(true)
-	defer debug.SetEnabled(false)
-
-	workers := workerpool.NewGroup(t.Name())
-
-	tf := NewDefaultTestFramework(t,
-		workers.CreateGroup("BlockGadgetTestFramework"),
-		WithMarkerAcceptanceThreshold(0.66),
-		WithConfirmationThreshold(0.66),
-	)
-
-	tf.VirtualVoting.CreateIdentity("A", 20)
-	tf.VirtualVoting.CreateIdentity("B", 30)
-
-	initialAcceptedBlocks := make(map[string]bool)
-	initialAcceptedConflicts := make(map[string]confirmation.State)
-
-	tf.BlockDAG.CreateBlock("Block1", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithIssuer(tf.VirtualVoting.Identity("A").PublicKey()), models.WithPayload(tf.Ledger.CreateTransaction("Tx1", 1, "Genesis")))
-	tf.BlockDAG.CreateBlock("Block2", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithIssuer(tf.VirtualVoting.Identity("B").PublicKey()), models.WithPayload(tf.Ledger.CreateTransaction("Tx2", 1, "Genesis")))
-
-	tf.BlockDAG.IssueBlocks("Block1")
-	tf.BlockDAG.IssueBlocks("Block2")
-
-	{
-		tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
-			"Block1": false,
-			"Block2": false,
-		}))
-		tf.ValidateConfirmedBlocks(initialAcceptedBlocks)
-
-		tf.ValidateConflictAcceptance(lo.MergeMaps(initialAcceptedConflicts, map[string]confirmation.State{
-			"Tx1": confirmation.Pending,
-			"Tx2": confirmation.Pending,
-		}))
-
-		tf.AssertConflictsAccepted(0)
-		tf.AssertConflictsRejected(0)
-	}
-
-	tf.BlockDAG.CreateBlock("Block3", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block1")), models.WithIssuer(tf.VirtualVoting.Identity("B").PublicKey()), models.WithPayload(tf.Ledger.CreateTransaction("Tx3", 1, "Tx1.0")))
-
-	tf.BlockDAG.IssueBlocks("Block3")
-
-	{
-		tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
-			"Block1": true,
-			"Block3": false,
-		}))
-		tf.ValidateConfirmedBlocks(initialAcceptedBlocks)
-
-		tf.ValidateConflictAcceptance(lo.MergeMaps(initialAcceptedConflicts, map[string]confirmation.State{
-			"Tx1": confirmation.Accepted,
-			"Tx2": confirmation.Rejected,
-		}))
-
-		tf.AssertConflictsAccepted(1)
-		tf.AssertConflictsRejected(1)
-	}
-
-	tf.BlockDAG.CreateBlock("Block4", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block2")), models.WithIssuer(tf.VirtualVoting.Identity("A").PublicKey()))
-	tf.BlockDAG.IssueBlocks("Block4")
-	{
-		tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
-			"Block2": true,
-			"Block4": false,
-		}))
-		tf.ValidateConfirmedBlocks(initialAcceptedBlocks)
-
-		tf.ValidateConflictAcceptance(lo.MergeMaps(initialAcceptedConflicts, map[string]confirmation.State{}))
-
-		tf.AssertConflictsAccepted(1)
-		tf.AssertConflictsRejected(1)
-		tf.AssertReorgs(0)
-	}
-
-	tf.BlockDAG.CreateBlock("Block5", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block4")), models.WithIssuer(tf.VirtualVoting.Identity("B").PublicKey()))
-	tf.BlockDAG.IssueBlocks("Block5")
-	{
-		tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
-			"Block2": true,
-			"Block4": true,
-			"Block5": false,
-		}))
-		tf.ValidateConfirmedBlocks(initialAcceptedBlocks)
-
-		tf.ValidateConflictAcceptance(lo.MergeMaps(initialAcceptedConflicts, map[string]confirmation.State{}))
-
-		tf.AssertConflictsAccepted(1)
-		tf.AssertConflictsRejected(1)
-		tf.AssertReorgs(1)
 	}
 }
 

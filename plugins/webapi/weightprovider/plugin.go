@@ -8,6 +8,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/lo"
 )

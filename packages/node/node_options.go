@@ -4,7 +4,6 @@ import (
 	"github.com/iotaledger/hive.go/app/daemon"
 )
 
-//nolint:revive // will be replaces by app package anyway
 type NodeOptions struct {
 	plugins []*Plugin
 	daemon  daemon.Daemon
@@ -24,7 +23,6 @@ func newNodeOptions(optionalOptions []NodeOption) *NodeOptions {
 	return result
 }
 
-//nolint:revive // will be replaces by app package anyway
 type NodeOption func(*NodeOptions)
 
 func Plugins(plugins ...*Plugin) NodeOption {

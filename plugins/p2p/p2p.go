@@ -21,17 +21,17 @@ func createManager(lPeer *peer.Local) *p2p.Manager {
 	// resolve the bind address
 	localAddr, err = net.ResolveTCPAddr("tcp", Parameters.BindAddress)
 	if err != nil {
-		Plugin.LogFatalfAndExit("bind address '%s' is invalid: %s", Parameters.BindAddress, err)
+		Plugin.LogFatalfAndExitf("bind address '%s' is invalid: %s", Parameters.BindAddress, err)
 	}
 
 	// announce the service
 	if serviceErr := lPeer.UpdateService(service.P2PKey, localAddr.Network(), localAddr.Port); serviceErr != nil {
-		Plugin.LogFatalfAndExit("could not update services: %s", serviceErr)
+		Plugin.LogFatalfAndExitf("could not update services: %s", serviceErr)
 	}
 
 	libp2pIdentity, err := libp2putil.GetLibp2pIdentity(lPeer)
 	if err != nil {
-		Plugin.LogFatalfAndExit("Could not build libp2p identity from local peer: %s", err)
+		Plugin.LogFatalfAndExitf("Could not build libp2p identity from local peer: %s", err)
 	}
 	libp2pHost, err := libp2p.New(
 		libp2p.ListenAddrStrings(fmt.Sprintf("/ip4/%s/tcp/%d", localAddr.IP, localAddr.Port)),
@@ -39,7 +39,7 @@ func createManager(lPeer *peer.Local) *p2p.Manager {
 		libp2p.NATPortMap(),
 	)
 	if err != nil {
-		Plugin.LogFatalfAndExit("Couldn't create libp2p host: %s", err)
+		Plugin.LogFatalfAndExitf("Couldn't create libp2p host: %s", err)
 	}
 
 	return p2p.NewManager(libp2pHost, lPeer, Plugin.Logger())

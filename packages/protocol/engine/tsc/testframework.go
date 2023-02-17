@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/core/generics/options"
 )
 
 // region TestFramework //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -37,7 +38,9 @@ func NewTestFramework(test *testing.T, tangleTF *tangle.TestFramework, optsTSCMa
 	}
 
 	t.Manager = New(t.MockAcceptance.IsBlockAccepted, tangleTF.Instance, optsTSCManager...)
-	t.Tangle.Booker.Instance.Events.BlockBooked.Hook(t.Manager.AddBlock)
+	event.Hook(t.Tangle.Booker.Instance.Events.BlockBooked, func(event *booker.BlockBookedEvent) {
+		t.Manager.AddBlock(event.Block)
+	})
 
 	return t
 }

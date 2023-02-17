@@ -50,7 +50,6 @@ func init() {
 }
 
 func run(plugin *node.Plugin) {
-
 	deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Hook(func(block *blockgadget.Block) {
 		lastAcceptedBlock.Update(block.ModelsBlock)
 	}, event.WithWorkerPool(plugin.WorkerPool))

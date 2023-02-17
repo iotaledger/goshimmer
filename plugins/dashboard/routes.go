@@ -33,8 +33,7 @@ const (
 
 func indexRoute(e echo.Context) error {
 	if Parameters.Dev {
-		fmt.Println("in dev mode")
-		req, err := http.NewRequestWithContext(e.Request().Context(), "GET", Parameters.DevDashboardAddress, http.NoBody)
+		req, err := http.NewRequestWithContext(e.Request().Context(), "GET", "http://"+Parameters.DevDashboardAddress, http.NoBody)
 		if err != nil {
 			return err
 		}

@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/requester/warpsync"
 	"github.com/iotaledger/hive.go/app/daemon"
+	"github.com/iotaledger/hive.go/core/generics/event"
 )
 
 // PluginName is the name of the warpsync plugin.

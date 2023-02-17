@@ -17,6 +17,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/hive.go/core/debug"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/runtime/debug"
@@ -59,13 +62,13 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, virtualVotingI
 
 	t.ConflictDAG = conflictdag.NewTestFramework(t.test, t.Ledger.Instance.ConflictDAG)
 
-	t.ConflictTracker = conflicttracker.NewTestFramework[BlockVotePower](test,
+	t.ConflictTracker = conflicttracker.NewTestFramework(test,
 		t.Votes,
 		t.ConflictDAG,
 		virtualVotingInstance.conflictTracker,
 	)
 
-	t.SequenceTracker = sequencetracker.NewTestFramework[BlockVotePower](test,
+	t.SequenceTracker = sequencetracker.NewTestFramework(test,
 		t.Votes,
 		virtualVotingInstance.sequenceTracker,
 		t.Booker.SequenceManager(),
@@ -74,15 +77,20 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, virtualVotingI
 	return t
 }
 
+func (t *TestFramework) ValidatorsSet(aliases ...string) (validators *set.AdvancedSet[identity.ID]) {
+	return t.Votes.ValidatorsSet(aliases...)
+}
+
 func (t *TestFramework) AssertBlock(alias string, callback func(block *Block)) {
 	block, exists := t.Instance.Block(t.Booker.BlockDAG.Block(alias).ID())
 	require.True(t.test, exists, "Block %s not found", alias)
 	callback(block)
 }
 
-func (t *TestFramework) CreateIdentity(alias string, weight int64) {
+func (t *TestFramework) CreateIdentity(alias string, weight int64, skipWeightUpdate ...bool) {
 	t.identitiesByAlias[alias] = identity.GenerateIdentity()
-	t.Votes.CreateValidatorWithID(alias, t.identitiesByAlias[alias].ID(), weight)
+	identity.RegisterIDAlias(t.identitiesByAlias[alias].ID(), alias)
+	t.Votes.CreateValidatorWithID(alias, t.identitiesByAlias[alias].ID(), weight, skipWeightUpdate...)
 }
 
 func (t *TestFramework) Identity(alias string) (v *identity.Identity) {
@@ -101,6 +109,20 @@ func (t *TestFramework) Identities(aliases ...string) (identities *advancedset.A
 	}
 
 	return
+}
+
+func (t *TestFramework) ValidatorsWithWeights(aliases ...string) map[identity.ID]uint64 {
+	weights := make(map[identity.ID]uint64)
+
+	for _, alias := range aliases {
+		id := t.Identity(alias).ID()
+		w, exists := t.Votes.Validators.Weights.Get(id)
+		if exists {
+			weights[id] = uint64(w.Value)
+		}
+	}
+
+	return weights
 }
 
 func (t *TestFramework) ValidateMarkerVoters(expectedVoters map[markers.Marker]*advancedset.AdvancedSet[identity.ID]) {

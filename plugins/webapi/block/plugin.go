@@ -206,13 +206,13 @@ func blockIDFromContext(c echo.Context) (blockID models.BlockID, err error) {
 }
 
 // sequenceIDFromContext determines the sequenceID from the sequenceID parameter in an echo.Context.
-//func sequenceIDFromContext(c echo.Context) (id markers.SequenceID, err error) {
+// func sequenceIDFromContext(c echo.Context) (id markers.SequenceID, err error) {
 //	sequenceIDInt, err := strconv.Atoi(c.Param("sequenceID"))
 //	if err != nil {
 //		return
 //	}
 //
 //	return markers.SequenceID(sequenceIDInt), nil
-//}
+// }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
