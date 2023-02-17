@@ -75,13 +75,17 @@ func (v *Votes[ConflictIDType, VotePowerType]) Add(vote *Vote[ConflictIDType, Vo
 
 	previousVote, exists := v.o.Get(vote.Voter)
 	if !exists {
-		return v.o.Set(vote.Voter, vote), true
+		v.o.Set(vote.Voter, vote)
+		return true, true
 	}
+
 	if vote.VotePower.Compare(previousVote.VotePower) <= 0 {
 		return false, false
 	}
 
-	return v.o.Set(vote.Voter, vote), previousVote.Opinion != vote.Opinion
+	v.o.Set(vote.Voter, vote)
+
+	return true, previousVote.Opinion != vote.Opinion
 }
 
 func (v *Votes[ConflictIDType, VotePowerType]) Delete(vote *Vote[ConflictIDType, VotePowerType]) (deleted bool) {

@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/ds/orderedmap"
+	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/objectstorage/generic/model"
 	"github.com/iotaledger/hive.go/stringify"
 )
@@ -428,7 +429,7 @@ func (o *OutputsMetadata) Get(id utxo.OutputID) (outputMetadata *OutputMetadata,
 
 // Add adds the given OutputMetadata object to the collection.
 func (o *OutputsMetadata) Add(output *OutputMetadata) (added bool) {
-	return o.Set(output.ID(), output)
+	return !lo.Return2(o.Set(output.ID(), output))
 }
 
 func (o *OutputsMetadata) Filter(predicate func(outputMetadata *OutputMetadata) bool) (filtered *OutputsMetadata) {
