@@ -7,7 +7,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/hive.go/core/logger"
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"

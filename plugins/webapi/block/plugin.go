@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/iotaledger/goshimmer/packages/node"
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 	"github.com/pkg/errors"
 	"go.uber.org/dig"
 

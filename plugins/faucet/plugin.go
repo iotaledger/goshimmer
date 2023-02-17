@@ -2,6 +2,7 @@ package faucet
 
 import (
 	"context"
+	"github.com/iotaledger/hive.go/runtime/event"
 
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
@@ -73,10 +74,10 @@ func newFaucet() *Faucet {
 	return NewFaucet(walletseed.NewSeed(seedBytes), deps.Protocol, deps.BlockIssuer, deps.Indexer)
 }
 
-func configure(_ *node.Plugin) {
+func configure(plugin *node.Plugin) {
 	targetPoWDifficulty = Parameters.PowDifficulty
 
-	configureEvents()
+	deps.Protocol.Events.Engine.Tangle.VirtualVoting.BlockTracked.Hook(onBlockProcessed, event.WithWorkerPool(plugin.WorkerPool))
 }
 
 func run(plugin *node.Plugin) {
@@ -92,10 +93,6 @@ func run(plugin *node.Plugin) {
 	}, shutdown.PriorityFaucet); err != nil {
 		plugin.Logger().Panicf("Failed to start daemon: %s", err)
 	}
-}
-
-func configureEvents() {
-	deps.Protocol.Events.Engine.Tangle.VirtualVoting.BlockTracked.Attach(onBlockProcessed)
 }
 
 func OnWebAPIRequest(fundingRequest *faucet.Payload) error {

@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"

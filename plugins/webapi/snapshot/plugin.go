@@ -8,7 +8,7 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/node"
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 )
