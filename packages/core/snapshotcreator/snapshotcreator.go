@@ -1,7 +1,7 @@
 package snapshotcreator
 
 import (
-	"fmt"
+	"github.com/pkg/errors"
 	"os"
 	"time"
 
@@ -46,10 +46,10 @@ func CreateSnapshot(opts ...options.Option[Options]) (err error) {
 	defer s.Shutdown()
 
 	if err = s.Commitments.Store(commitment.NewEmptyCommitment()); err != nil {
-		panic(err)
+		return errors.Wrap(err, "failed to store empty commitment")
 	}
 	if err = s.Settings.SetChainID(lo.PanicOnErr(s.Commitments.Load(0)).ID()); err != nil {
-		panic(err)
+		return errors.Wrap(err, "failed to set chainID")
 	}
 
 	engineInstance := engine.New(workers.CreateGroup("Engine"), s, dpos.NewProvider(), mana1.NewProvider(), engine.WithLedgerOptions(ledger.WithVM(opt.vm)))
@@ -57,20 +57,23 @@ func CreateSnapshot(opts ...options.Option[Options]) (err error) {
 
 	err = opt.createGenesisOutput(engineInstance)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	engineInstance.NotarizationManager.Attestations.SetLastCommittedEpoch(-1)
 
 	i := 0
 	nodesToPledge, err := opt.createPledgeMap()
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	nodesToPledge.ForEach(func(nodeIdentity *identity.Identity, value uint64) bool {
 		nodePublicKey := nodeIdentity.PublicKey()
 		nodeID := nodeIdentity.ID()
-		output, outputMetadata := createOutput(opt.vm, nodePublicKey, value, nodeID, 0)
+		output, outputMetadata, errOut := createOutput(opt.vm, nodePublicKey, value, nodeID, 0)
+		if errOut != nil {
+			panic(errOut)
+		}
 		if err = engineInstance.LedgerState.UnspentOutputs.ApplyCreatedOutput(ledger.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
 			panic(err)
 		}
@@ -83,12 +86,15 @@ func CreateSnapshot(opts ...options.Option[Options]) (err error) {
 		return true
 	})
 
-	opt.createAttestationIfNotYetDone(engineInstance)
+	err = opt.createAttestationIfNotYetDone(engineInstance)
+	if err != nil {
+		return err
+	}
 	if _, _, err = engineInstance.NotarizationManager.Attestations.Commit(0); err != nil {
-		panic(err)
+		return err
 	}
 	if err = engineInstance.WriteSnapshot(opt.FilePath); err != nil {
-		panic(err)
+		return err
 	}
 	return nil
 }
@@ -103,22 +109,26 @@ func (m *Options) attest(engineInstance *engine.Engine, nodePublicKey ed25519.Pu
 	return nil
 }
 
-func (m *Options) createAttestationIfNotYetDone(engineInstance *engine.Engine) {
+func (m *Options) createAttestationIfNotYetDone(engineInstance *engine.Engine) (err error) {
 	if m.AttestAll {
-		return
+		return nil
 	}
 	for _, nodePublicKey := range m.InitialAttestationsPublicKey {
-		err := m.attest(engineInstance, nodePublicKey)
+		err = m.attest(engineInstance, nodePublicKey)
 		if err != nil {
-			panic("failed to attest: " + err.Error())
+			return errors.Wrap(err, "failed to attest")
 		}
 	}
+	return nil
 }
 
 func (m *Options) createGenesisOutput(engineInstance *engine.Engine) error {
 	if m.GenesisTokenAmount > 0 {
-		output, outputMetadata := createOutput(m.vm, seed.NewSeed(m.GenesisSeed).KeyPair(0).PublicKey, m.GenesisTokenAmount, identity.ID{}, 0)
-		if err := engineInstance.LedgerState.UnspentOutputs.ApplyCreatedOutput(ledger.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
+		output, outputMetadata, err := createOutput(m.vm, seed.NewSeed(m.GenesisSeed).KeyPair(0).PublicKey, m.GenesisTokenAmount, identity.ID{}, 0)
+		if err != nil {
+			return err
+		}
+		if err = engineInstance.LedgerState.UnspentOutputs.ApplyCreatedOutput(ledger.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
 			return err
 		}
 	}
@@ -148,7 +158,7 @@ func (m *Options) createPledgeMap() (nodesToPledge *orderedmap.OrderedMap[*ident
 
 var outputCounter uint16 = 1
 
-func createOutput(ledgerVM vm.VM, publicKey ed25519.PublicKey, tokenAmount uint64, pledgeID identity.ID, includedInEpoch epoch.Index) (output utxo.Output, outputMetadata *ledger.OutputMetadata) {
+func createOutput(ledgerVM vm.VM, publicKey ed25519.PublicKey, tokenAmount uint64, pledgeID identity.ID, includedInEpoch epoch.Index) (output utxo.Output, outputMetadata *ledger.OutputMetadata, err error) {
 	switch ledgerVM.(type) {
 	case *ledger.MockedVM:
 		output = ledger.NewMockedOutput(utxo.EmptyTransactionID, outputCounter, tokenAmount)
@@ -160,7 +170,7 @@ func createOutput(ledgerVM vm.VM, publicKey ed25519.PublicKey, tokenAmount uint6
 		output.SetID(utxo.NewOutputID(utxo.EmptyTransactionID, outputCounter))
 
 	default:
-		panic(fmt.Sprintf("cannot create snapshot output for VM of type '%v'", ledgerVM))
+		return nil, nil, errors.Errorf("cannot create snapshot output for VM of type '%v'", ledgerVM)
 	}
 
 	outputCounter++
@@ -171,5 +181,5 @@ func createOutput(ledgerVM vm.VM, publicKey ed25519.PublicKey, tokenAmount uint6
 	outputMetadata.SetConsensusManaPledgeID(pledgeID)
 	outputMetadata.SetInclusionEpoch(includedInEpoch)
 
-	return output, outputMetadata
+	return output, outputMetadata, nil
 }
