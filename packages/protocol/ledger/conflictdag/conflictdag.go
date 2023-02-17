@@ -406,7 +406,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) registerConflictWithConfli
 		conflictSetID := it.Next()
 
 		conflictSet, _ := c.conflictSets.RetrieveOrCreate(conflictSetID, func() *ConflictSet[ConflictIDType, ResourceIDType] {
-			return NewConflictSet[ConflictIDType, ResourceIDType](conflictSetID)
+			return NewConflictSet[ConflictIDType](conflictSetID)
 		})
 		if conflict.addConflictSet(conflictSet) {
 			conflictSet.AddConflictMember(conflict)
@@ -475,7 +475,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) HandleOrphanedConflict(con
 		return
 	}
 
-	c.rejectConflictsWithFutureCone(set.NewAdvancedSet[*Conflict[ConflictIDType, ResourceIDType]](initialConflict))
+	c.rejectConflictsWithFutureCone(set.NewAdvancedSet(initialConflict))
 
 	// iterate conflict's conflictSets. if only one conflict is pending, then mark it appropriately
 	for it := initialConflict.conflictSets.Iterator(); it.HasNext(); {
