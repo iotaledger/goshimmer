@@ -3,7 +3,7 @@ version: "3.5"
 services:
   tester:
     container_name: tester
-    image: golang:1.19-bullseye
+    image: golang:1.20-bullseye
     working_dir: /tmp/goshimmer/tools/integration-tests/tester
     command: /tmp/assets/entrypoint.sh
     environment:
