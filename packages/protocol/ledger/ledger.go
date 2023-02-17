@@ -114,9 +114,9 @@ func New(workerPool *workerpool.UnboundedWorkerPool, chainStorage *storage.Stora
 	event.AttachWithWorkerPool(ledger.Events.TransactionBooked, func(event *TransactionBookedEvent) {
 		ledger.processConsumingTransactions(event.Outputs.IDs())
 	}, workerPool)
-	event.Hook(ledger.Events.TransactionInvalid, func(event *TransactionInvalidEvent) {
+	event.AttachWithWorkerPool(ledger.Events.TransactionInvalid, func(event *TransactionInvalidEvent) {
 		ledger.PruneTransaction(event.TransactionID, true)
-	})
+	}, workerPool)
 
 	return ledger
 }
