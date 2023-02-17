@@ -23,17 +23,17 @@ var FeatureNetwork = []options.Option[snapshotcreator.Options]{
 	snapshotcreator.WithGenesisTokenAmount(1000000000000000),
 	snapshotcreator.WithFilePath("feature.snapshot"),
 	snapshotcreator.WithPeersSeedBase58([]string{
-		"AZKt9NEbNb9TAk5SqVTfj3ANoBzrWLjR5YKxa2BCyi8X", // entry node
+		"AZKt9NEbNb9TAk5SqVTfj3ANoBzrWLjR5YKxa2BCyi8X", // entry node (not present in docker network version)
 		"BYpRNA5aCuyym8SRFbEATraY4yr9oyuXCsCFVcEM8Fm4", // bootstrap_01
+		"3X3ZLueaT6T9mGL8C3YUsDrDqsVYvgbXNsa21jhgdzxi", // faucet_01
 		"5UymiW32h2LM7UqVFf5W1f6iH2DxUqA85RnwP5QgyQYa", // vanilla_01
 		"HHPL5wTFjihv7sVHKXYbZkGcDbqq75h1LQntBhKs1saX", // node_01
 		"7WAEBePov6Po4kUZFN3h7GNHoddTYTEjhJkmmBPHLW2W", // node_02
 		"7xKTSQDtZtiGBAapAh7okHJgnYLq5JJtMUDf2sv1eRrc", // node_03
 		"oqSAYKz3v587JG5gRKcnPMnjcG9rVd6jFzJ97pjU5Ms",  // node_04
 		"J3Vr2cJ4m85xFGmZa1nda7ZZTWWM9ptYCxrUKXFDAFcc", // node_05
-		"3X3ZLueaT6T9mGL8C3YUsDrDqsVYvgbXNsa21jhgdzxi", // faucet_01
 	}),
-	snapshotcreator.WithInitialAttestationsBase58([]string{"AZKt9NEbNb9TAk5SqVTfj3ANoBzrWLjR5YKxa2BCyi8X"}),
+	snapshotcreator.WithInitialAttestationsBase58([]string{"BYpRNA5aCuyym8SRFbEATraY4yr9oyuXCsCFVcEM8Fm4"}),
 }
 
 var DockerNetwork = []options.Option[snapshotcreator.Options]{

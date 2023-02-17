@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/cockroachdb/errors"
+
 	"github.com/mr-tron/base58"
 	flag "github.com/spf13/pflag"
 
