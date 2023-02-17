@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"sync"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
-	"google.golang.org/protobuf/proto"
 )
 
 // region MockedNetwork ////////////////////////////////////////////////////////////////////////////////////////////////

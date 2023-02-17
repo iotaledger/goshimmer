@@ -3,9 +3,8 @@ package tangle
 import (
 	"testing"
 
-	"github.com/iotaledger/hive.go/core/workerpool"
-
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/core/workerpool"
 )
 
 func Test(t *testing.T) {

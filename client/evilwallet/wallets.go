@@ -3,16 +3,15 @@ package evilwallet
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/pkg/errors"
-
-	"github.com/iotaledger/hive.go/core/types"
 	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/types"
 )
 
 type walletID int

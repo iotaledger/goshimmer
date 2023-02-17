@@ -6,14 +6,13 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/pkg/errors"
-
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 
 	"github.com/iotaledger/goshimmer/client"
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
+	"github.com/iotaledger/hive.go/core/identity"
 )
 
 // Nodes is a slice of Node(s).

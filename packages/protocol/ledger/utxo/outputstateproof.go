@@ -1,10 +1,11 @@
 package utxo
 
 import (
-	"github.com/iotaledger/hive.go/core/byteutils"
-	"github.com/iotaledger/hive.go/core/cerrors"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
+
+	"github.com/iotaledger/hive.go/core/byteutils"
+	"github.com/iotaledger/hive.go/core/cerrors"
 )
 
 // region OutputStateProof /////////////////////////////////////////////////////////////////////////////////////////////

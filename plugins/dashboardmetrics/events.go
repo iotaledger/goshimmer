@@ -3,9 +3,8 @@ package dashboardmetrics
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
-
 	"github.com/iotaledger/goshimmer/packages/app/collector"
+	"github.com/iotaledger/hive.go/core/generics/event"
 )
 
 // Events defines the events of the plugin.

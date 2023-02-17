@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
+	"github.com/iotaledger/hive.go/core/logger"
 )
 
 const maxIssuedAwaitTime = 5 * time.Second

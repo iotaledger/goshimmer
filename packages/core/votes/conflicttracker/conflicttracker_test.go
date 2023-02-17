@@ -3,11 +3,10 @@ package conflicttracker
 import (
 	"testing"
 
+	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
-
-	"github.com/iotaledger/goshimmer/packages/core/votes"
 )
 
 // TestApprovalWeightManager_updateConflictVoters tests the ApprovalWeightManager's functionality regarding conflictes.

@@ -4,9 +4,8 @@ import "github.com/iotaledger/goshimmer/packages/app/collector"
 
 const (
 	rateSetterNamespace = "ratesetter"
-
-	estimate = "estimate"
-	ownRate  = "own_rate"
+	estimate            = "estimate"
+	ownRate             = "own_rate"
 )
 
 var RateSetterMetrics = collector.NewCollection(rateSetterNamespace,

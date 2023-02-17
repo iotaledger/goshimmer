@@ -5,11 +5,12 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/pkg/errors"
+
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/marshalutil"
 	"github.com/iotaledger/hive.go/core/serix"
-	"github.com/pkg/errors"
 )
 
 // region SequenceID ///////////////////////////////////////////////////////////////////////////////////////////////////
