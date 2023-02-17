@@ -987,9 +987,9 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 		wp := workers.CreatePool("Activity", 2)
 		for _, node := range []*mockednetwork.Node{node3, node4} {
 			nodeCount.Add(1)
-			event.AttachWithWorkerPool(node.Protocol.Events.MainEngineSwitched, func(_ *enginemanager.EngineInstance) {
+			node.Protocol.Events.MainEngineSwitched.Hook(func(_ *enginemanager.EngineInstance) {
 				nodeCount.Add(-1)
-			}, wp)
+			}, event.WithWorkerPool(wp))
 		}
 		require.Eventually(t, func() bool {
 			return nodeCount.Load() == 0

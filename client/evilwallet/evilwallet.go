@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"

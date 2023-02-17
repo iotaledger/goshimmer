@@ -49,14 +49,15 @@ func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, run)
 }
 
-func configure(_ *node.Plugin) {
+func run(plugin *node.Plugin) {
+
 	deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Hook(func(block *blockgadget.Block) {
 		lastAcceptedBlock.Update(block.ModelsBlock)
-	}, event.WithWorkerPool(workerPool))
+	}, event.WithWorkerPool(plugin.WorkerPool))
 
 	deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockConfirmed.Hook(func(block *blockgadget.Block) {
 		lastConfirmedBlock.Update(block.ModelsBlock)
-	}, event.WithWorkerPool(workerPool))
+	}, event.WithWorkerPool(plugin.WorkerPool))
 
 	deps.Server.GET("info", getInfo)
 }
