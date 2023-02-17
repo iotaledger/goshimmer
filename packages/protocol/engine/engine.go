@@ -84,6 +84,7 @@ func New(
 		&Engine{
 			Events:        NewEvents(),
 			Storage:       storageInstance,
+			EvictionState: eviction.NewState(storageInstance),
 			Constructable: traits.NewConstructable(),
 			Stoppable:     traits.NewStoppable(),
 			Workers:       workers,
@@ -91,7 +92,6 @@ func New(
 			optsBootstrappedThreshold: 10 * time.Second,
 			optsSnapshotDepth:         5,
 		}, opts, func(e *Engine) {
-			e.EvictionState = eviction.NewState(storageInstance)
 			e.Ledger = ledger.New(workers.CreatePool("Pool", 2), e.Storage, e.optsLedgerOptions...)
 			e.LedgerState = ledgerstate.New(storageInstance, e.Ledger)
 			e.Clock = clock.New()
@@ -362,7 +362,7 @@ func (e *Engine) initNotarizationManager() {
 	wpBlocks := e.Workers.CreatePool("NotarizationManager.Blocks", 1)           // Using just 1 worker to avoid contention
 	wpCommitments := e.Workers.CreatePool("NotarizationManager.Commitments", 1) // Using just 1 worker to avoid contention
 
-	// EpochMutations must be hooked
+	// EpochMutations must be hooked because inclusion might be added before transaction are added.
 	event.Hook(e.Ledger.Events.TransactionAccepted, func(event *ledger.TransactionEvent) {
 		if err := e.NotarizationManager.EpochMutations.AddAcceptedTransaction(event.Metadata); err != nil {
 			e.Events.Error.Trigger(errors.Wrapf(err, "failed to add accepted transaction %s to epoch", event.Metadata.ID()))
@@ -384,72 +384,6 @@ func (e *Engine) initNotarizationManager() {
 	event.AttachWithWorkerPool(e.Clock.Events.AcceptanceTimeUpdated, func(event *clock.TimeUpdateEvent) {
 		e.NotarizationManager.SetAcceptanceTime(event.NewTime)
 	}, wpCommitments)
-
-	// e.Ledger.Events.TransactionOrphaned.Hook(event.NewClosure(func(event *ledger.TransactionEvent) {
-	//	if err := e.NotarizationManager.EpochMutations.RemoveAcceptedTransaction(event.Metadata); err != nil {
-	//		e.Events.Error.Trigger(errors.Wrapf(err, "failed to remove accepted transaction %s from epoch", event.Metadata.ID()))
-	//	}
-	// }))
-
-	// e.Events.Tangle.Booker.AttachmentCreated.Hook(event.NewClosure(func(block *booker.Block) {
-	//	if tx, ok := block.Transaction(); ok {
-	//		if conflict, conflictExists := e.Ledger.ConflictDAG.Conflict(tx.ID()); conflictExists && conflict.ConfirmationState().IsPending() {
-	//			e.NotarizationManager.AddConflictingAttachment(block.ModelsBlock)
-	//		}
-	//	}
-	// }))
-	// e.Events.Tangle.Booker.AttachmentOrphaned.Hook(event.NewClosure(func(attachmentBlock *booker.Block) {
-	//	if tx, ok := attachmentBlock.Transaction(); ok {
-	//		conflict, conflictExists := e.Ledger.ConflictDAG.Conflict(tx.ID())
-	//		var isPending bool
-	//		if conflictExists {
-	//			isPending = conflict.ConfirmationState().IsPending()
-	//		}
-	//		fmt.Println("<< attachment orphaned", attachmentBlock.ID(), conflictExists, isPending)
-	//		if conflictExists {
-	//			e.NotarizationManager.DeleteConflictingAttachment(attachmentBlock.ID())
-	//		}
-	//	}
-	// }))
-	// e.Ledger.ConflictDAG.Events.ConflictCreated.Hook(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-	//	for it := e.Tangle.Booker.GetAllAttachments(conflict.ID()).Iterator(); it.HasNext(); {
-	//		attachmentBlock := it.Next()
-	//
-	//		if !attachmentBlock.IsOrphaned() && conflict.ConfirmationState().IsPending() {
-	//			e.NotarizationManager.AddConflictingAttachment(attachmentBlock.ModelsBlock)
-	//		}
-	//	}
-	// }))
-	// e.Ledger.ConflictDAG.Events.ConflictAccepted.Hook(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-	//	for it := e.Tangle.Booker.GetAllAttachments(conflict.ID()).Iterator(); it.HasNext(); {
-	//		attachmentBlock := it.Next()
-	//
-	//		fmt.Printf("<< conflict accepted %s attachment %s isOrphaned %t\n", conflict.ID(), attachmentBlock.ID(), attachmentBlock.IsOrphaned())
-	//		if !attachmentBlock.IsOrphaned() {
-	//			e.NotarizationManager.DeleteConflictingAttachment(attachmentBlock.ID())
-	//		}
-	//	}
-	// }))
-	// e.Ledger.ConflictDAG.Events.ConflictRejected.Hook(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-	//	for it := e.Tangle.Booker.GetAllAttachments(conflict.ID()).Iterator(); it.HasNext(); {
-	//		attachmentBlock := it.Next()
-	//
-	//		fmt.Println("<< conflict rejected", attachmentBlock.ID(), attachmentBlock.IsOrphaned())
-	//		if !attachmentBlock.IsOrphaned() {
-	//			e.NotarizationManager.DeleteConflictingAttachment(attachmentBlock.ID())
-	//		}
-	//	}
-	// }))
-	// e.Ledger.ConflictDAG.Events.ConflictNotConflicting.Hook(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-	//	for it := e.Tangle.Booker.GetAllAttachments(conflict.ID()).Iterator(); it.HasNext(); {
-	//		attachmentBlock := it.Next()
-	//
-	//		fmt.Println("<< conflict non conflicting", attachmentBlock.ID(), attachmentBlock.IsOrphaned())
-	//		if !attachmentBlock.IsOrphaned() {
-	//			e.NotarizationManager.DeleteConflictingAttachment(attachmentBlock.ID())
-	//		}
-	//	}
-	// }))
 }
 
 func (e *Engine) initEvictionState() {

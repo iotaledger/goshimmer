@@ -173,17 +173,3 @@ func (l *LedgerState) onTransactionInclusionUpdated(inclusionUpdatedEvent *ledge
 		l.StateDiffs.moveTransactionToOtherEpoch(inclusionUpdatedEvent.TransactionMetadata, inclusionUpdatedEvent.PreviousInclusionEpoch, inclusionUpdatedEvent.InclusionEpoch)
 	}
 }
-
-func (l *LedgerState) onTransactionOrphaned(event *ledger.TransactionEvent) {
-	for _, outputWithMetadata := range event.SpentOutputs {
-		if err := l.StateDiffs.DeleteSpentOutput(outputWithMetadata.SpentInEpoch(), outputWithMetadata.ID()); err != nil {
-			panic(err)
-		}
-	}
-
-	for _, outputWithMetadata := range event.CreatedOutputs {
-		if err := l.StateDiffs.DeleteCreatedOutput(outputWithMetadata.Index(), outputWithMetadata.ID()); err != nil {
-			panic(err)
-		}
-	}
-}

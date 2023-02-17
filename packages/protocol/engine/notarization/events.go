@@ -10,7 +10,6 @@ import (
 // Events is a container that acts as a dictionary for the events of the notarization manager.
 type Events struct {
 	EpochCommitted  *event.Linkable[*EpochCommittedDetails]
-	ConflictDropped *event.Linkable[models.BlockID]
 	Error           *event.Linkable[error]
 
 	event.LinkableCollection[Events, *Events]
@@ -20,7 +19,6 @@ type Events struct {
 var NewEvents = event.LinkableConstructor(func() (self *Events) {
 	return &Events{
 		EpochCommitted:  event.NewLinkable[*EpochCommittedDetails](),
-		ConflictDropped: event.NewLinkable[models.BlockID](),
 		Error:           event.NewLinkable[error](),
 	}
 })

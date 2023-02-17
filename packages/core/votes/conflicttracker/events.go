@@ -24,7 +24,6 @@ func NewEvents[ConflictIDType comparable](optLinkTargets ...*Events[ConflictIDTy
 }
 
 type VoterEvent[ConflictIDType comparable] struct {
-	BlockID    string
 	Voter      identity.ID
 	ConflictID ConflictIDType
 	Opinion    votes.Opinion

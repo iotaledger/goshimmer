@@ -89,7 +89,6 @@ func (o *ConflictResolver) ConflictLiked(conflict *conflictdag.Conflict[utxo.Tra
 	if conflict.ID().IsEmpty() {
 		return
 	}
-	// TODO: this should never happen?
 
 	for likeWalker := walker.New[*conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]]().Push(conflict); likeWalker.HasNext(); {
 		if conflictLiked = conflictLiked && o.conflictPreferred(likeWalker.Next(), likeWalker); !conflictLiked {
@@ -106,7 +105,6 @@ func (o *ConflictResolver) conflictPreferred(conflict *conflictdag.Conflict[utxo
 	if conflict.ID().IsEmpty() {
 		return
 	}
-	// TODO: this should never happen?
 
 	switch conflict.ConfirmationState() {
 	case confirmation.Rejected:
