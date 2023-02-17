@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"github.com/iotaledger/hive.go/runtime/event"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/app/collector"
@@ -27,7 +28,7 @@ var AutopeeringMetrics = collector.NewCollection(autopeeringNamespace,
 		collector.WithInitFunc(func() {
 			deps.P2Pmgr.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Hook(func(event *p2p.NeighborRemovedEvent) {
 				deps.Collector.Increment(autopeeringNamespace, neighborDropCount)
-			})
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(connectionsCount,
@@ -36,7 +37,7 @@ var AutopeeringMetrics = collector.NewCollection(autopeeringNamespace,
 		collector.WithInitFunc(func() {
 			deps.P2Pmgr.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborAdded.Hook(func(event *p2p.NeighborAddedEvent) {
 				deps.Collector.Increment(autopeeringNamespace, connectionsCount)
-			})
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(neighborConnectionLifetimeSec,
@@ -46,7 +47,7 @@ var AutopeeringMetrics = collector.NewCollection(autopeeringNamespace,
 			deps.P2Pmgr.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Hook(func(event *p2p.NeighborRemovedEvent) {
 				neighborConnectionsLifeTime := time.Since(event.Neighbor.ConnectionEstablished())
 				deps.Collector.Update(autopeeringNamespace, neighborConnectionLifetimeSec, collector.SingleValue(neighborConnectionsLifeTime.Seconds()))
-			})
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(distance,
@@ -57,8 +58,8 @@ var AutopeeringMetrics = collector.NewCollection(autopeeringNamespace,
 				deps.Collector.Update(autopeeringNamespace, distance, collector.SingleValue(float64(event.Distance)))
 			}
 			if deps.Selection != nil {
-				deps.Selection.Events().IncomingPeering.Hook(onAutopeeringSelection)
-				deps.Selection.Events().OutgoingPeering.Hook(onAutopeeringSelection)
+				deps.Selection.Events().IncomingPeering.Hook(onAutopeeringSelection, event.WithWorkerPool(Plugin.WorkerPool))
+				deps.Selection.Events().OutgoingPeering.Hook(onAutopeeringSelection, event.WithWorkerPool(Plugin.WorkerPool))
 			}
 		}),
 	)),

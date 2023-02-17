@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"github.com/iotaledger/hive.go/runtime/event"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/app/collector"
@@ -43,7 +44,7 @@ var TangleMetrics = collector.NewCollection(tangleNamespace,
 			deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Hook(func(block *blockgadget.Block) {
 				blockType := collector.NewBlockType(block.Payload().Type()).String()
 				deps.Collector.Increment(tangleNamespace, blockPerTypeCount, blockType)
-			})
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(missingBlocksCount,
@@ -52,7 +53,7 @@ var TangleMetrics = collector.NewCollection(tangleNamespace,
 		collector.WithInitFunc(func() {
 			deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockMissing.Hook(func(_ *blockdag.Block) {
 				deps.Collector.Increment(tangleNamespace, missingBlocksCount)
-			})
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(parentPerTypeCount,
@@ -65,7 +66,7 @@ var TangleMetrics = collector.NewCollection(tangleNamespace,
 				block.ForEachParent(func(parent models.Parent) {
 					deps.Collector.Increment(tangleNamespace, parentPerTypeCount, blockType)
 				})
-			})
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(blocksPerComponentCount,
@@ -75,31 +76,31 @@ var TangleMetrics = collector.NewCollection(tangleNamespace,
 		collector.WithInitFunc(func() {
 			deps.Protocol.Network().Events.BlockReceived.Hook(func(_ *network.BlockReceivedEvent) {
 				deps.Collector.Increment(tangleNamespace, blocksPerComponentCount, collector.Received.String())
-			})
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 			deps.Protocol.Events.Engine.Filter.BlockAllowed.Hook(func(_ *models.Block) {
 				deps.Collector.Increment(tangleNamespace, blocksPerComponentCount, collector.Allowed.String())
-			})
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 			deps.BlockIssuer.Events.BlockIssued.Hook(func(_ *models.Block) {
 				deps.Collector.Increment(tangleNamespace, blocksPerComponentCount, collector.Issued.String())
-			})
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 			deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Hook(func(block *blockdag.Block) {
 				deps.Collector.Increment(tangleNamespace, blocksPerComponentCount, collector.Attached.String())
-			})
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 			deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockSolid.Hook(func(block *blockdag.Block) {
 				deps.Collector.Increment(tangleNamespace, blocksPerComponentCount, collector.Solidified.String())
-			})
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 			deps.Protocol.Events.CongestionControl.Scheduler.BlockScheduled.Hook(func(block *scheduler.Block) {
 				deps.Collector.Increment(tangleNamespace, blocksPerComponentCount, collector.Scheduled.String())
-			})
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 			deps.Protocol.Events.Engine.Tangle.Booker.BlockBooked.Hook(func(block *booker.Block) {
 				deps.Collector.Increment(tangleNamespace, blocksPerComponentCount, collector.Booked.String())
-			})
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 			deps.Protocol.Events.CongestionControl.Scheduler.BlockDropped.Hook(func(block *scheduler.Block) {
 				deps.Collector.Increment(tangleNamespace, blocksPerComponentCount, collector.SchedulerDropped.String())
-			})
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 			deps.Protocol.Events.CongestionControl.Scheduler.BlockSkipped.Hook(func(block *scheduler.Block) {
 				deps.Collector.Increment(tangleNamespace, blocksPerComponentCount, collector.SchedulerSkipped.String())
-			})
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(blocksOrphanedCount,
@@ -108,7 +109,7 @@ var TangleMetrics = collector.NewCollection(tangleNamespace,
 		collector.WithInitFunc(func() {
 			deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockOrphaned.Hook(func(block *blockdag.Block) {
 				deps.Collector.Increment(tangleNamespace, blocksOrphanedCount)
-			})
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(acceptedBlocksCount,
@@ -117,7 +118,7 @@ var TangleMetrics = collector.NewCollection(tangleNamespace,
 		collector.WithInitFunc(func() {
 			deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Hook(func(block *blockgadget.Block) {
 				deps.Collector.Increment(tangleNamespace, acceptedBlocksCount)
-			})
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(timeSinceReceivedPerComponent,
@@ -129,7 +130,7 @@ var TangleMetrics = collector.NewCollection(tangleNamespace,
 				blockType := collector.NewBlockType(block.Payload().Type()).String()
 				timeSince := float64(time.Since(block.IssuingTime()).Milliseconds())
 				deps.Collector.Update(tangleNamespace, timeSinceReceivedPerComponent, collector.MultiLabelsValues([]string{blockType}, timeSince))
-			})
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(requestQueueSize,

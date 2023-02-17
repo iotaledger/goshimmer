@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"github.com/iotaledger/hive.go/runtime/event"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/app/collector"
@@ -26,7 +27,7 @@ var ConflictMetrics = collector.NewCollection(conflictNamespace,
 				timeSinceIssuance := time.Since(firstAttachment.IssuingTime()).Milliseconds()
 				timeIssuanceSeconds := float64(timeSinceIssuance) / 1000
 				deps.Collector.Update(conflictNamespace, resolutionTime, collector.SingleValue(timeIssuanceSeconds))
-			})
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(resolvedConflictCount,
@@ -38,7 +39,7 @@ var ConflictMetrics = collector.NewCollection(conflictNamespace,
 		collector.WithInitFunc(func() {
 			deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictAccepted.Hook(func(conflictID utxo.TransactionID) {
 				deps.Collector.Increment(conflictNamespace, resolvedConflictCount)
-			})
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(allConflictCounts,
@@ -47,7 +48,7 @@ var ConflictMetrics = collector.NewCollection(conflictNamespace,
 		collector.WithInitFunc(func() {
 			deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictCreated.Hook(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
 				deps.Collector.Increment(conflictNamespace, allConflictCounts)
-			})
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
 	)),
 )

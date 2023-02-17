@@ -58,7 +58,6 @@ func configureServer() {
 	server.Use(middleware.Recover())
 
 	setupRoutes(server)
-	setupVisualizer()
 }
 
 func run(plugin *node.Plugin) {

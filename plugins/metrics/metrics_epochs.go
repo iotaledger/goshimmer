@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"github.com/iotaledger/hive.go/runtime/event"
 	"strconv"
 
 	"github.com/iotaledger/goshimmer/packages/app/collector"
@@ -49,7 +50,7 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 						strconv.Itoa(eventEpoch): 0,
 					})
 				}
-			})
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 
 			// initialize it once and remove committed epoch from all metrics (as they will not change afterwards)
 			// in a single attachment instead of multiple ones
@@ -62,7 +63,7 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 						labelName: strconv.Itoa(epochToEvict),
 					})
 				}
-			})
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
 	)),
 
@@ -74,7 +75,7 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 			deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Hook(func(block *blockgadget.Block) {
 				eventEpoch := int(block.ID().Index())
 				deps.Collector.Increment(epochNamespace, acceptedBlocksInEpoch, strconv.Itoa(eventEpoch))
-			})
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(orphanedBlocks,
@@ -85,7 +86,7 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 			deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockOrphaned.Hook(func(block *blockdag.Block) {
 				eventEpoch := int(block.ID().Index())
 				deps.Collector.Increment(epochNamespace, orphanedBlocks, strconv.Itoa(eventEpoch))
-			})
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(invalidBlocks,
@@ -96,7 +97,7 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 			deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockInvalid.Hook(func(blockInvalidEvent *blockdag.BlockInvalidEvent) {
 				eventEpoch := int(blockInvalidEvent.Block.ID().Index())
 				deps.Collector.Increment(epochNamespace, invalidBlocks, strconv.Itoa(eventEpoch))
-			})
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(subjectivelyInvalidBlocks,
@@ -109,7 +110,7 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 					eventEpoch := int(block.ID().Index())
 					deps.Collector.Increment(epochNamespace, subjectivelyInvalidBlocks, strconv.Itoa(eventEpoch))
 				}
-			})
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(totalTransactions,
@@ -120,7 +121,7 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 			deps.Protocol.Events.Engine.Ledger.TransactionBooked.Hook(func(bookedEvent *ledger.TransactionBookedEvent) {
 				eventEpoch := int(epoch.IndexFromTime(deps.Protocol.Engine().Tangle.Booker.GetEarliestAttachment(bookedEvent.TransactionID).IssuingTime()))
 				deps.Collector.Increment(epochNamespace, totalTransactions, strconv.Itoa(eventEpoch))
-			})
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(invalidTransactions,
@@ -131,7 +132,7 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 			deps.Protocol.Events.Engine.Ledger.TransactionInvalid.Hook(func(invalidEvent *ledger.TransactionInvalidEvent) {
 				eventEpoch := int(epoch.IndexFromTime(deps.Protocol.Engine().Tangle.Booker.GetEarliestAttachment(invalidEvent.TransactionID).IssuingTime()))
 				deps.Collector.Increment(epochNamespace, invalidTransactions, strconv.Itoa(eventEpoch))
-			})
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(acceptedTransactions,
@@ -142,7 +143,7 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 			deps.Protocol.Events.Engine.Ledger.TransactionAccepted.Hook(func(transaction *ledger.TransactionEvent) {
 				eventEpoch := int(transaction.Metadata.InclusionEpoch())
 				deps.Collector.Increment(epochNamespace, acceptedTransactions, strconv.Itoa(eventEpoch))
-			})
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(orphanedTransactions,
@@ -153,7 +154,7 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 			deps.Protocol.Events.Engine.Ledger.TransactionOrphaned.Hook(func(transaction *ledger.TransactionEvent) {
 				eventEpoch := int(transaction.Metadata.InclusionEpoch())
 				deps.Collector.Increment(epochNamespace, orphanedTransactions, strconv.Itoa(eventEpoch))
-			})
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(createdConflicts,
@@ -165,7 +166,7 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 			deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictCreated.Hook(func(conflictCreated *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
 				eventEpoch := int(epoch.IndexFromTime(deps.Protocol.Engine().Tangle.Booker.GetEarliestAttachment(conflictCreated.ID).IssuingTime()))
 				deps.Collector.Increment(epochNamespace, createdConflicts, strconv.Itoa(eventEpoch))
-			})
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(acceptedConflicts,
@@ -177,7 +178,7 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 			deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictAccepted.Hook(func(conflictID utxo.TransactionID) {
 				eventEpoch := int(epoch.IndexFromTime(deps.Protocol.Engine().Tangle.Booker.GetEarliestAttachment(conflictID).IssuingTime()))
 				deps.Collector.Increment(epochNamespace, acceptedConflicts, strconv.Itoa(eventEpoch))
-			})
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(rejectedConflicts,
@@ -189,7 +190,7 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 			deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictRejected.Hook(func(conflictID utxo.TransactionID) {
 				eventEpoch := int(epoch.IndexFromTime(deps.Protocol.Engine().Tangle.Booker.GetEarliestAttachment(conflictID).IssuingTime()))
 				deps.Collector.Increment(epochNamespace, rejectedConflicts, strconv.Itoa(eventEpoch))
-			})
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(notConflictingConflicts,
@@ -200,7 +201,7 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 			// TODO: iterate through all attachments
 			//deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictNotConflicting.Hook(func(conflictID utxo.TransactionID) {
 			//	deps.Collector.Increment(epochNamespace, notConflictingConflicts, strconv.Itoa(int(epoch.IndexFromTime(deps.Protocol.Engine().Tangle.GetEarliestAttachment(conflictID).IssuingTime()))))
-			//})
+			//}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
 	)),
 )

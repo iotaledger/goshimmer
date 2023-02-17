@@ -61,8 +61,8 @@ var (
 	// doubleSpendFilterOnce ensures that doubleSpendFilter is a singleton.
 	doubleSpendFilterOnce sync.Once
 
-	// closure to be executed on transaction confirmation.
-	onTransactionAccepted *event.Closure[*ledger.TransactionEvent]
+	// Hook to the transaction confirmation event.
+	onTransactionAccepted *event.Hook[func(*ledger.TransactionEvent)]
 
 	log *logger.Logger
 )
@@ -102,15 +102,14 @@ func FilterRemove(txID utxo.TransactionID) {
 	}
 }
 
-func configure(_ *node.Plugin) {
-	filterEnabled = webapi.Parameters.EnableDSFilter
-	if filterEnabled {
+func configure(plugin *node.Plugin) {
+	if webapi.Parameters.EnableDSFilter {
 		doubleSpendFilter = Filter()
-		onTransactionAccepted = event.NewClosure(func(event *ledger.TransactionEvent) {
+		deps.Protocol.Events.Engine.Ledger.TransactionAccepted.Hook(func(event *ledger.TransactionEvent) {
 			doubleSpendFilter.Remove(event.Metadata.ID())
-		})
+		}, event.WithWorkerPool(plugin.WorkerPool))
 	}
-	deps.Protocol.Events.Engine.Ledger.TransactionAccepted.Attach(onTransactionAccepted)
+
 	log = logger.NewLogger(PluginName)
 }
 
@@ -154,7 +153,10 @@ func worker(ctx context.Context) {
 		}
 	}()
 	log.Infof("Stopping %s ...", PluginName)
-	deps.Protocol.Engine().Ledger.Events.TransactionAccepted.Detach(onTransactionAccepted)
+	if onTransactionAccepted != nil {
+		onTransactionAccepted.Unhook()
+		onTransactionAccepted = nil
+	}
 }
 
 func outputsOnAddress(address devnetvm.Address) (outputs devnetvm.Outputs) {
