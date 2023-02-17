@@ -5,7 +5,6 @@ package framework
 
 import (
 	"context"
-	"github.com/iotaledger/hive.go/core/generics/options"
 	"log"
 	"os"
 	"sync"
@@ -17,8 +16,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
+	"github.com/iotaledger/hive.go/core/generics/options"
 )
 
 var (

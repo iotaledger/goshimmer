@@ -6,10 +6,8 @@ import (
 	"os"
 
 	"github.com/cockroachdb/errors"
-
 	"github.com/mr-tron/base58"
 	flag "github.com/spf13/pflag"
-
 
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/protocol"
