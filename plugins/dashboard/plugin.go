@@ -71,20 +71,16 @@ func init() {
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(plugin.Name)
 
-	deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
+	deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Hook(func(block *blockgadget.Block) {
 		lastAcceptedBlock.Update(block.ModelsBlock)
-	}))
+	}, event.WithWorkerPool(plugin.WorkerPool))
 
-	deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockConfirmed.Attach(event.NewClosure(func(block *blockgadget.Block) {
+	deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockConfirmed.Hook(func(block *blockgadget.Block) {
 		lastConfirmedBlock.Update(block.ModelsBlock)
-	}))
+	}, event.WithWorkerPool(plugin.WorkerPool))
 
-	configureWebSocketWorkerPool()
-	configureLiveFeed()
 	configureVisualizer()
-	configureManaFeed()
 	configureServer()
-	configureConflictLiveFeed()
 }
 
 func configureServer() {
@@ -111,15 +107,15 @@ func configureServer() {
 	setupRoutes(server)
 }
 
-func run(*node.Plugin) {
+func run(plugin *node.Plugin) {
 	// run block broker
-	runWebSocketStreams()
+	runWebSocketStreams(plugin)
 	// run the block live feed
-	runLiveFeed()
+	runLiveFeed(plugin)
 	// run the visualizer vertex feed
-	runVisualizer()
-	runManaFeed()
-	runConflictLiveFeed()
+	runVisualizer(plugin)
+	runManaFeed(plugin)
+	runConflictLiveFeed(plugin)
 
 	log.Infof("Starting %s ...", PluginName)
 	if err := daemon.BackgroundWorker(PluginName, worker, shutdown.PriorityProfiling); err != nil {
@@ -129,8 +125,6 @@ func run(*node.Plugin) {
 
 func worker(ctx context.Context) {
 	defer log.Infof("Stopping %s ... done", PluginName)
-
-	defer wsSendWorkerPool.Shutdown()
 
 	stopped := make(chan struct{})
 	go func() {

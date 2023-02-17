@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"context"
+	"github.com/iotaledger/goshimmer/packages/node"
 	"net/http"
 	"sync"
 	"time"
@@ -9,20 +10,16 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
 
-	"github.com/iotaledger/hive.go/app/daemon"
-	"github.com/iotaledger/hive.go/lo"
-	"github.com/iotaledger/hive.go/runtime/event"
-	"github.com/iotaledger/hive.go/runtime/workerpool"
-
 	"github.com/iotaledger/goshimmer/packages/app/collector"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/dashboardmetrics"
+	"github.com/iotaledger/hive.go/app/daemon"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 var (
 	// settings
-	wsSendWorkerCount     = 1
-	wsSendWorkerPool      *workerpool.WorkerPool
 	webSocketWriteTimeout = 3 * time.Second
 
 	// clients
@@ -46,11 +43,7 @@ type wsclient struct {
 	exit chan struct{}
 }
 
-func configureWebSocketWorkerPool() {
-	wsSendWorkerPool = workerpool.New("WebSocket", wsSendWorkerCount)
-}
-
-func runWebSocketStreams() {
+func runWebSocketStreams(plugin *node.Plugin) {
 
 	process := func(msg interface{}) {
 		switch x := msg.(type) {
@@ -69,31 +62,32 @@ func runWebSocketStreams() {
 	}
 
 	if err := daemon.BackgroundWorker("Dashboard[StatusUpdate]", func(ctx context.Context) {
-		updateStatusHook := dashboardmetrics.Events.AttachedBPSUpdated.Hook(func(event *dashboardmetrics.AttachedBPSUpdatedEvent) {
-			process(event.BPS)
-		}, event.WithWorkerPool(wsSendWorkerPool))
+		unhook := lo.Batch(
+			dashboardmetrics.Events.AttachedBPSUpdated.Hook(func(event *dashboardmetrics.AttachedBPSUpdatedEvent) {
+				process(event.BPS)
+			}, event.WithWorkerPool(plugin.WorkerPool)).Unhook,
 
-		dashboardmetrics.Events.ComponentCounterUpdated.Hook(func(event *dashboardmetrics.ComponentCounterUpdatedEvent) {
-			componentStatus := event.ComponentStatus
-			process(&componentsmetric{
-				Store:      componentStatus[collector.Attached],
-				Solidifier: componentStatus[collector.Solidified],
-				Scheduler:  componentStatus[collector.Scheduled],
-				Booker:     componentStatus[collector.Booked],
-			})
-		}, event.WithWorkerPool(wsSendWorkerPool))
+			dashboardmetrics.Events.ComponentCounterUpdated.Hook(func(event *dashboardmetrics.ComponentCounterUpdatedEvent) {
+				componentStatus := event.ComponentStatus
+				process(&componentsmetric{
+					Store:      componentStatus[collector.Attached],
+					Solidifier: componentStatus[collector.Solidified],
+					Scheduler:  componentStatus[collector.Scheduled],
+					Booker:     componentStatus[collector.Booked],
+				})
+			}, event.WithWorkerPool(plugin.WorkerPool)).Unhook,
 
-		dashboardmetrics.Events.RateSetterUpdated.Hook(func(metric *dashboardmetrics.RateSetterMetric) {
-			process(&rateSetterMetric{
-				Size:     metric.Size,
-				Estimate: metric.Estimate.String(),
-				Rate:     metric.Rate,
-			})
-		}, event.WithWorkerPool(wsSendWorkerPool))
+			dashboardmetrics.Events.RateSetterUpdated.Hook(func(metric *dashboardmetrics.RateSetterMetric) {
+				process(&rateSetterMetric{
+					Size:     metric.Size,
+					Estimate: metric.Estimate.String(),
+					Rate:     metric.Rate,
+				})
+			}, event.WithWorkerPool(plugin.WorkerPool)).Unhook,
+		)
 		<-ctx.Done()
 		log.Info("Stopping Dashboard[StatusUpdate] ...")
-		updateStatusHook.Unhook()
-		wsSendWorkerPool.Shutdown()
+		unhook()
 		log.Info("Stopping Dashboard[StatusUpdate] ... done")
 	}, shutdown.PriorityDashboard); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
