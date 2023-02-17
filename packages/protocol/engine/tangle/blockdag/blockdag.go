@@ -85,7 +85,6 @@ func (b *BlockDAG) Attach(data *models.Block) (block *Block, wasAttached bool, e
 
 		b.solidifier.Queue(block)
 	}
-	fmt.Println("BlockDAG.Attach", block.ID(), wasAttached, err)
 
 	return
 }
@@ -164,7 +163,6 @@ func (b *BlockDAG) markSolid(block *Block) (err error) {
 	block.setSolid()
 
 	if b.isFutureBlock(block) {
-		fmt.Println("future block", block.ID())
 		return
 	}
 
@@ -198,7 +196,6 @@ func (b *BlockDAG) promoteFutureBlocksUntil(index epoch.Index) {
 	b.futureBlocksMutex.Lock()
 	defer b.futureBlocksMutex.Unlock()
 
-	fmt.Println("promoting future blocks until", index)
 	for i := b.lastFuturePromotedIndex; i <= index; i++ {
 		cm, err := b.commitmentFunc(i)
 		if err != nil {
@@ -242,7 +239,6 @@ func (b *BlockDAG) checkParents(block *Block) (err error) {
 }
 
 func (b *BlockDAG) markInvalid(block *Block, reason error) {
-	fmt.Println("marking block invalid", block.ID(), reason)
 	b.SetInvalid(block, reason)
 }
 
