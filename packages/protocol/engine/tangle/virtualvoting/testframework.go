@@ -61,13 +61,13 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, virtualVotingI
 
 	t.ConflictDAG = conflictdag.NewTestFramework(t.test, t.Ledger.Instance.ConflictDAG)
 
-	t.ConflictTracker = conflicttracker.NewTestFramework[BlockVotePower](test,
+	t.ConflictTracker = conflicttracker.NewTestFramework(test,
 		t.Votes,
 		t.ConflictDAG,
 		virtualVotingInstance.conflictTracker,
 	)
 
-	t.SequenceTracker = sequencetracker.NewTestFramework[BlockVotePower](test,
+	t.SequenceTracker = sequencetracker.NewTestFramework(test,
 		t.Votes,
 		virtualVotingInstance.sequenceTracker,
 		t.Booker.SequenceManager(),
