@@ -17,6 +17,7 @@ jobs:
       - name: Run golangci-lint
         uses: reviewdog/action-golangci-lint@v2
         with:
+          version: v1.51.1
           github_token: ${{ secrets.github_token }}
           golangci_lint_flags: "--timeout=10m"
           reporter: "github-pr-check"
