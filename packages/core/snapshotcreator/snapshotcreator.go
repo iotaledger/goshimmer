@@ -62,12 +62,10 @@ func CreateSnapshot(opts ...options.Option[Options]) (err error) {
 	engineInstance.NotarizationManager.Attestations.SetLastCommittedEpoch(-1)
 
 	i := 0
-	opt.createPeersPublicKeys()
 	nodesToPledge, err := opt.createPledgeMap()
 	if err != nil {
 		panic(err)
 	}
-	opt.createInitialAttestationsPublicKeys()
 
 	nodesToPledge.ForEach(func(nodeIdentity *identity.Identity, value uint64) bool {
 		nodePublicKey := nodeIdentity.PublicKey()
@@ -127,24 +125,6 @@ func (m *Options) createGenesisOutput(engineInstance *engine.Engine) error {
 	return nil
 }
 
-func (m *Options) createPeersPublicKeys() {
-	if m.PeersPublicKey != nil {
-		return
-	}
-	m.PeersPublicKey = make([]ed25519.PublicKey, len(m.PeersSeedBase58))
-	for i, peerSeedBase58 := range m.PeersSeedBase58 {
-		b, err := base58.Decode(peerSeedBase58)
-		if err != nil {
-			panic("failed to decode peer seed: " + err.Error())
-		}
-		nodePublicKey, _, err := ed25519.PublicKeyFromBytes(b)
-		if err != nil {
-			panic("failed to read public key from bytes: " + err.Error())
-		}
-		m.PeersPublicKey[i] = nodePublicKey
-	}
-}
-
 // createPledgeMap creates a pledge map according to snapshotInfo
 func (m *Options) createPledgeMap() (nodesToPledge *orderedmap.OrderedMap[*identity.Identity, uint64], err error) {
 	nodesToPledge = orderedmap.New[*identity.Identity, uint64]()
@@ -164,25 +144,6 @@ func (m *Options) createPledgeMap() (nodesToPledge *orderedmap.OrderedMap[*ident
 	}
 
 	return nodesToPledge, nil
-}
-
-func (m *Options) createInitialAttestationsPublicKeys() {
-	// if attestations are provided already in public key form, or nothing was provided, return
-	if m.InitialAttestationsPublicKey != nil || m.InitialAttestationsBase58 == nil {
-		return
-	}
-	m.InitialAttestationsPublicKey = make([]ed25519.PublicKey, len(m.InitialAttestationsBase58))
-	for i, attestationBase58 := range m.InitialAttestationsBase58 {
-		b, err := base58.Decode(attestationBase58)
-		if err != nil {
-			panic("failed to decode attestation: " + err.Error())
-		}
-		nodePublicKey, _, err := ed25519.PublicKeyFromBytes(b)
-		if err != nil {
-			panic("failed to read public key from bytes: " + err.Error())
-		}
-		m.InitialAttestationsPublicKey[i] = nodePublicKey
-	}
 }
 
 var outputCounter uint16 = 1

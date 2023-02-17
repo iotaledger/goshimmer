@@ -22,7 +22,7 @@ var BaseOptions = []options.Option[snapshotcreator.Options]{
 var FeatureNetwork = []options.Option[snapshotcreator.Options]{
 	snapshotcreator.WithGenesisTokenAmount(1000000000000000),
 	snapshotcreator.WithFilePath("feature.snapshot"),
-	snapshotcreator.WithPeersSeedBase58([]string{
+	snapshotcreator.WithPeersPublicKeysBase58([]string{
 		"AZKt9NEbNb9TAk5SqVTfj3ANoBzrWLjR5YKxa2BCyi8X", // entry node (not present in docker network version)
 		"BYpRNA5aCuyym8SRFbEATraY4yr9oyuXCsCFVcEM8Fm4", // bootstrap_01
 		"3X3ZLueaT6T9mGL8C3YUsDrDqsVYvgbXNsa21jhgdzxi", // faucet_01
@@ -39,7 +39,7 @@ var FeatureNetwork = []options.Option[snapshotcreator.Options]{
 var DockerNetwork = []options.Option[snapshotcreator.Options]{
 	snapshotcreator.WithGenesisTokenAmount(1000000000000000),
 	snapshotcreator.WithFilePath("docker-network.snapshot"),
-	snapshotcreator.WithPeersSeedBase58([]string{
+	snapshotcreator.WithPeersPublicKeysBase58([]string{
 		"EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP", // peer_master
 		"5kjiW423d5EtNh943j8gYahyxPdnv9xge8Kuks5tjoYg", // peer_master2
 		"CHfU1NUf6ZvUKDQHTG2df53GR7CvuMFtyt7YymJ6DwS3", // faucet
@@ -50,7 +50,7 @@ var DockerNetwork = []options.Option[snapshotcreator.Options]{
 var Devnet = []options.Option[snapshotcreator.Options]{
 	snapshotcreator.WithGenesisTokenAmount(1000000000000000),
 	snapshotcreator.WithFilePath("snapshot.bin"),
-	snapshotcreator.WithPeersSeedBase58([]string{
+	snapshotcreator.WithPeersPublicKeysBase58([]string{
 		"7Yr1tz7atYcbQUv5njuzoC5MiDsMmr3hqaWtAsgJfxxr", // entrynode
 		"AuQXPFmRu9nKNtUq3g1RLqVgSmxNrYeogt6uRwqYLGvK", // bootstrap_01
 		"D9SPFofAGhA5V9QRDngc1E8qG9bTrnATmpZMdoyRiBoW", // vanilla_01

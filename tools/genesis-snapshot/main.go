@@ -28,7 +28,6 @@ import (
 )
 
 func main() {
-	fmt.Println("creating snapshot...")
 	parsedOpts, configSelected, checkValidity := parseFlags()
 	opts := BaseOptions
 	switch configSelected {

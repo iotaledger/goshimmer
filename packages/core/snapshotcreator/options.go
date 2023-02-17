@@ -5,10 +5,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/mr-tron/base58/base58"
 )
 
 // Options stores the details about snapshots created for integration tests
 type Options struct {
+	// FilePath is the path to the snapshot file.
 	FilePath string
 	// GenesisSeed is the seed of the PeerMaster node where the genesis pledge goes to.
 	GenesisSeed []byte
@@ -17,15 +19,13 @@ type Options struct {
 	// TotalTokensPledged is the total amount of tokens pledged from genesis to the peers.
 	// If provided mana will be distributed equally.
 	TotalTokensPledged uint64
-	// PeerSeedBase58 is a slice of Seeds encoded in Base58, one entry per peer.
+	// PeersSeedBase58 is a slice of Seeds encoded in Base58, one entry per peer.
 	PeersSeedBase58 []string
 	// PeersPublicKey is a slice of public keys, one entry per peer.
 	PeersPublicKey []ed25519.PublicKey
-	// PeersAmountsPledges is a slice of amounts to be pledged to the peers, one entry per peer.
+	// PeersAmountsPledged is a slice of amounts to be pledged to the peers, one entry per peer.
 	PeersAmountsPledged []uint64
-	// InitialAttestation indicates which node should be included in the first commitment.
-	InitialAttestationsBase58 []string
-	// InitialAttestation indicates which node public key should be included in the first commitment.
+	// InitialAttestationsPublicKey indicates which node public key should be included in the first commitment.
 	InitialAttestationsPublicKey []ed25519.PublicKey
 	// AttestAll indicates that all nodes will be included in the attestation.
 	AttestAll bool
@@ -70,11 +70,38 @@ func WithTotalTokensPledged(totalTokensPledged uint64) options.Option[Options] {
 // WithPeersSeedBase58 sets the seed of the peers to be used in the snapshot.
 func WithPeersSeedBase58(peersSeedBase58 []string) options.Option[Options] {
 	return func(m *Options) {
+		m.PeersPublicKey = make([]ed25519.PublicKey, len(peersSeedBase58))
+		for i, seed58 := range peersSeedBase58 {
+			b, err := base58.Decode(seed58)
+			if err != nil {
+				panic("failed to decode peer seed: " + err.Error())
+			}
+			nodePublicKey := ed25519.PrivateKeyFromSeed(b).Public()
+			m.PeersPublicKey[i] = nodePublicKey
+		}
 		m.PeersSeedBase58 = peersSeedBase58
 	}
 }
 
-func WithPeersPublicKey(peersPublicKey []ed25519.PublicKey) options.Option[Options] {
+// WithPeersPublicKeysBase58 sets the public keys of the peers based on provided base58 encoded public keys.
+func WithPeersPublicKeysBase58(peersPublicKeyBase58 []string) options.Option[Options] {
+	return func(m *Options) {
+		m.PeersPublicKey = make([]ed25519.PublicKey, len(peersPublicKeyBase58))
+		for _, pk := range peersPublicKeyBase58 {
+			b, err := base58.Decode(pk)
+			if err != nil {
+				panic("failed to decode peer seed: " + err.Error())
+			}
+			nodePublicKey, _, err := ed25519.PublicKeyFromBytes(b)
+			if err != nil {
+				panic("failed to read public key from bytes: " + err.Error())
+			}
+			m.PeersPublicKey = append(m.PeersPublicKey, nodePublicKey)
+		}
+	}
+}
+
+func WithPeersPublicKeys(peersPublicKey []ed25519.PublicKey) options.Option[Options] {
 	return func(m *Options) {
 		m.PeersPublicKey = peersPublicKey
 	}
@@ -94,10 +121,21 @@ func WithPledgeIDs(pledgeIDs map[ed25519.PublicKey]uint64) options.Option[Option
 	}
 }
 
-// WithInitialAttestationsBase58 sets the initial attestation node to use for the snapshot.
-func WithInitialAttestationsBase58(initialAttestation []string) options.Option[Options] {
+// WithInitialAttestationsBase58 sets the initial attestation node to use for the snapshot based on provided public keys in base58.
+func WithInitialAttestationsBase58(initialAttestationBase58 []string) options.Option[Options] {
 	return func(m *Options) {
-		m.InitialAttestationsBase58 = initialAttestation
+		m.InitialAttestationsPublicKey = make([]ed25519.PublicKey, len(initialAttestationBase58))
+		for i, attestationBase58 := range initialAttestationBase58 {
+			b, err := base58.Decode(attestationBase58)
+			if err != nil {
+				panic("failed to decode attestation: " + err.Error())
+			}
+			nodePublicKey, _, err := ed25519.PublicKeyFromBytes(b)
+			if err != nil {
+				panic("failed to read public key from bytes: " + err.Error())
+			}
+			m.InitialAttestationsPublicKey[i] = nodePublicKey
+		}
 	}
 }
 

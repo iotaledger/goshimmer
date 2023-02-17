@@ -39,7 +39,7 @@ func NewEngineManagerTestFramework(t *testing.T, workers *workerpool.Group, iden
 		snapshotcreator.WithFilePath(snapshotPath),
 		snapshotcreator.WithGenesisTokenAmount(1),
 		snapshotcreator.WithGenesisSeed(make([]byte, 32)),
-		snapshotcreator.WithPeersPublicKey(lo.Keys(identitiesWeights)),
+		snapshotcreator.WithPeersPublicKeys(lo.Keys(identitiesWeights)),
 		snapshotcreator.WithVM(ledgerVM),
 		snapshotcreator.WithPeersAmountsPledged(lo.Values(identitiesWeights)),
 	)
