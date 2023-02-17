@@ -107,6 +107,7 @@ func New(workerPool *workerpool.UnboundedWorkerPool, chainStorage *storage.Stora
 	ledger.dataFlow = newDataFlow(ledger)
 	ledger.Utils = newUtils(ledger)
 
+	// TODO: revisit whether we should make the process of setting conflict and transaction as accepted/rejected atomic
 	event.AttachWithWorkerPool(ledger.ConflictDAG.Events.ConflictAccepted, func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		ledger.propagateAcceptanceToIncludedTransactions(conflict.ID())
 	}, workerPool)

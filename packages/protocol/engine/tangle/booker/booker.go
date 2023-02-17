@@ -235,6 +235,9 @@ func (b *Booker) block(id models.BlockID) (block *Block, exists bool) {
 }
 
 func (b *Booker) book(block *Block) (inheritingErr error) {
+	// Need to mutually exclude a fork on this block.
+	// VirtualVoting.Track is performed within the context on this lock to make those two steps atomic.
+	// VirtualVoting should be refactored to be a component of Booker.
 	b.bookingMutex.Lock(block.ID())
 	defer b.bookingMutex.Unlock(block.ID())
 
@@ -504,6 +507,7 @@ func (b *Booker) PropagateForkedConflict(transactionID, addedConflictID utxo.Tra
 		attachment := it.Next()
 		blockWalker.Push(attachment)
 
+		// weak and like reference implies a vote only on the parent, so fork propagation should only go through direct weak/like children.
 		blockWalker.PushAll(b.blocksFromBlockDAGBlocks(attachment.WeakChildren())...)
 		blockWalker.PushAll(b.blocksFromBlockDAGBlocks(attachment.LikedInsteadChildren())...)
 	}
@@ -524,6 +528,10 @@ func (b *Booker) PropagateForkedConflict(transactionID, addedConflictID utxo.Tra
 }
 
 func (b *Booker) propagateToBlock(block *Block, addedConflictID utxo.TransactionID, removedConflictIDs utxo.TransactionIDs) (propagateFurther bool, err error) {
+	// Need to mutually exclude a booking on this block.
+	// VirtualVoting.Track is performed within the context on this lock to make those two steps atomic.
+	// VirtualVoting should be refactored to be a component of Booker.
+	// TODO: possibly need to also lock this mutex when propagating through markers.
 	b.bookingMutex.Lock(block.ID())
 	defer b.bookingMutex.Unlock(block.ID())
 
@@ -567,6 +575,7 @@ func (b *Booker) propagateForkedConflict(block *Block, addedConflictID utxo.Tran
 func (b *Booker) updateBlockConflicts(block *Block, addedConflict utxo.TransactionID, parentConflicts utxo.TransactionIDs) (updated bool) {
 	_, conflictIDs := b.blockBookingDetails(block)
 
+	// if a block does not already support all parent conflicts of a conflict A, then it cannot vote for a more specialize conflict of A
 	if !conflictIDs.HasAll(parentConflicts) {
 		return false
 	}

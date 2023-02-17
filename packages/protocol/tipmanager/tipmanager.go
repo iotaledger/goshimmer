@@ -147,11 +147,6 @@ func (t *TipManager) RemoveStrongParents(block *models.Block) {
 // RemoveStrongParents removes all tips that are parents of the given block.
 func (t *TipManager) removeStrongParents(block *models.Block) {
 	block.ForEachParent(func(parent models.Parent) {
-		// TODO: we remove the tip, but we reintroduce the pending liked conflict through the earliest attachment.
-		// We do not want to remove the tip if it is the last one representing a pending conflict.
-		// if t.isLastTipForConflict(parentBlockID) {
-		// 	return true
-		// }
 		if parentBlock, exists := t.schedulerBlockRetrieverFunc(parent.ID); exists {
 			t.deleteTip(parentBlock)
 		}
