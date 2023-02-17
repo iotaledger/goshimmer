@@ -2,7 +2,6 @@ package common
 
 import (
 	"context"
-	"fmt"
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"log"
