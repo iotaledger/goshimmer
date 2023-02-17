@@ -5,13 +5,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/stringify"
 	"github.com/iotaledger/hive.go/core/types"
-
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 // region Block ////////////////////////////////////////////////////////////////////////////////////////////////////////

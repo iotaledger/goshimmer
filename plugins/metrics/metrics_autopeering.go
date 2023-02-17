@@ -3,11 +3,10 @@ package metrics
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/core/autopeering/selection"
-	"github.com/iotaledger/hive.go/core/generics/event"
-
 	"github.com/iotaledger/goshimmer/packages/app/collector"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
+	"github.com/iotaledger/hive.go/core/autopeering/selection"
+	"github.com/iotaledger/hive.go/core/generics/event"
 )
 
 const (

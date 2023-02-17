@@ -6,14 +6,13 @@ import (
 	"github.com/pkg/errors"
 	"github.com/zyedidia/generic/cache"
 
+	"github.com/iotaledger/goshimmer/packages/core/ads"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/iotaledger/hive.go/core/types"
-
-	"github.com/iotaledger/goshimmer/packages/core/ads"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
 
 const cacheSize = 1000

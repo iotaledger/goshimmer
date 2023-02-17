@@ -3,15 +3,14 @@ package sequencetracker
 import (
 	"fmt"
 
-	"github.com/iotaledger/hive.go/core/generics/constraints"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/generics/walker"
-	"github.com/iotaledger/hive.go/core/identity"
-
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/core/votes/latestvotes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
+	"github.com/iotaledger/hive.go/core/generics/constraints"
+	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/generics/walker"
+	"github.com/iotaledger/hive.go/core/identity"
 )
 
 type SequenceTracker[VotePowerType constraints.Comparable[VotePowerType]] struct {

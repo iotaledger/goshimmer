@@ -5,14 +5,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/iotaledger/hive.go/core/types"
 	"github.com/stretchr/testify/require"
-
-	"github.com/iotaledger/hive.go/core/debug"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/database"
@@ -20,6 +13,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
+	"github.com/iotaledger/hive.go/core/debug"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/core/workerpool"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////

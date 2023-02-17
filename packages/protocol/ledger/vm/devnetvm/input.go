@@ -8,14 +8,13 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/model"
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/stringify"
 	"github.com/iotaledger/hive.go/core/types"
 	"github.com/iotaledger/hive.go/core/typeutils"
-
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
 func init() {

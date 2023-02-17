@@ -1,9 +1,8 @@
 package sybilprotection
 
 import (
-	"github.com/iotaledger/hive.go/core/identity"
-
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/hive.go/core/identity"
 )
 
 // WeightsBatch is a batch of weight diffs that can be applied to a Weights instance.

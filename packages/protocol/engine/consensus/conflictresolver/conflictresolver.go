@@ -4,13 +4,12 @@ import (
 	"bytes"
 	"sort"
 
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/generics/walker"
-
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/generics/walker"
 )
 
 type WeightFunc func(conflictID utxo.TransactionID) (weight int64)

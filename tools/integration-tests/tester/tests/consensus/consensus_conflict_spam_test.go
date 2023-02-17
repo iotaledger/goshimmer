@@ -6,16 +6,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/crypto/ed25519"
-	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/core/confirmation"
-
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 )
 
 // constant var, shouldn't be changed

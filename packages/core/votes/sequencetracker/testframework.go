@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
+	"github.com/iotaledger/goshimmer/packages/core/votes"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/constraints"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/stretchr/testify/assert"
-
-	"github.com/iotaledger/goshimmer/packages/core/votes"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////

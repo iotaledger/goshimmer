@@ -4,11 +4,10 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
-
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////

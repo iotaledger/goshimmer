@@ -1,15 +1,14 @@
 package network
 
 import (
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/orderedmap"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/identity"
-
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/orderedmap"
+	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/identity"
 )
 
 // region Events ///////////////////////////////////////////////////////////////////////////////////////////////////////

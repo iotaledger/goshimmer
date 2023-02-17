@@ -6,7 +6,6 @@ import "github.com/iotaledger/goshimmer/plugins/config"
 type ParametersDefinition struct {
 	// BindAddress defines the bind address for the web API.
 	BindAddress string `default:"127.0.0.1:8080" usage:"the bind address for the web API"`
-
 	// BasicAuth
 	BasicAuth struct {
 		// Enabled defines whether basic HTTP authentication is required to access the API.
@@ -16,7 +15,6 @@ type ParametersDefinition struct {
 		// Password defines the password used by the basic HTTP authentication.
 		Password string `default:"goshimmer" usage:"HTTP basic auth password"`
 	}
-
 	// EnableDSFilter determines if the DoubleSpendFilter should be enabled.
 	EnableDSFilter bool `default:"false" usage:"whether to enable double spend filter"`
 }

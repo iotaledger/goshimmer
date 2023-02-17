@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/mr-tron/base58"
+	"github.com/pkg/errors"
+
 	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/orderedmap"
@@ -14,8 +17,6 @@ import (
 	"github.com/iotaledger/hive.go/core/stringify"
 	"github.com/iotaledger/hive.go/core/types"
 	"github.com/iotaledger/hive.go/serializer/v2"
-	"github.com/mr-tron/base58"
-	"github.com/pkg/errors"
 )
 
 // region TransactionID ////////////////////////////////////////////////////////////////////////////////////////////////

@@ -4,12 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/walker"
-	"github.com/iotaledger/hive.go/core/syncutils"
-	"github.com/iotaledger/hive.go/core/workerpool"
-
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -17,6 +11,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
 	"github.com/iotaledger/goshimmer/packages/storage"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/generics/walker"
+	"github.com/iotaledger/hive.go/core/syncutils"
+	"github.com/iotaledger/hive.go/core/workerpool"
 )
 
 // region Ledger ///////////////////////////////////////////////////////////////////////////////////////////////////////

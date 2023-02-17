@@ -8,17 +8,17 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/mr-tron/base58"
+	"github.com/pkg/errors"
+	"golang.org/x/crypto/blake2b"
+
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/stringify"
 	"github.com/iotaledger/hive.go/core/types"
-	"github.com/mr-tron/base58"
-	"github.com/pkg/errors"
-	"golang.org/x/crypto/blake2b"
-
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
 
 // region BlockID ////////////////////////////////////////////////////////////////////////////////////////////////////

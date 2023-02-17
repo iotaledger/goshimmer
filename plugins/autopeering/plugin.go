@@ -7,6 +7,11 @@ import (
 
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/network/p2p"
+	"github.com/iotaledger/goshimmer/packages/node"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1/manamodels"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/hive.go/app/daemon"
 	"github.com/iotaledger/hive.go/core/autopeering/discover"
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
@@ -14,13 +19,6 @@ import (
 	"github.com/iotaledger/hive.go/core/autopeering/selection"
 	"github.com/iotaledger/hive.go/core/autopeering/server"
 	"github.com/iotaledger/hive.go/core/generics/event"
-
-	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-	"github.com/iotaledger/goshimmer/packages/network/p2p"
-	"github.com/iotaledger/goshimmer/packages/node"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1/manamodels"
-
-	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 )
 
 // PluginName is the name of the peering plugin.

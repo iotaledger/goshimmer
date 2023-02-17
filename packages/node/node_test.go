@@ -6,11 +6,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/hive.go/app/configuration"
 	"github.com/iotaledger/hive.go/app/logger"
 	"github.com/iotaledger/hive.go/core/generics/event"
-
-	"github.com/iotaledger/goshimmer/packages/node"
 )
 
 func TestDependencyInjection(t *testing.T) {

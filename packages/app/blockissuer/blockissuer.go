@@ -5,11 +5,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/workerpool"
-
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer/blockfactory"
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer/ratesetter"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
@@ -20,6 +15,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/workerpool"
 )
 
 // region Factory ///////////////////////////////////////////////////////////////////////////////////////////////

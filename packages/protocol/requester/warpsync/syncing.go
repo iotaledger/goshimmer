@@ -4,13 +4,6 @@ import (
 	"context"
 
 	"github.com/celestiaorg/smt"
-	"github.com/iotaledger/hive.go/core/autopeering/peer"
-	"github.com/iotaledger/hive.go/core/generics/dataflow"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/orderedmap"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/types"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/sync/errgroup"
@@ -21,6 +14,13 @@ import (
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	wp "github.com/iotaledger/goshimmer/packages/network/warpsync/proto"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/core/autopeering/peer"
+	"github.com/iotaledger/hive.go/core/generics/dataflow"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/orderedmap"
+	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/types"
 )
 
 type epochSyncStart struct {

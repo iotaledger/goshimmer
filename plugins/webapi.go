@@ -2,7 +2,6 @@ package plugins
 
 import (
 	"github.com/iotaledger/goshimmer/packages/node"
-
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/goshimmer/plugins/webapi/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/webapi/block"

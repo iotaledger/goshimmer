@@ -1,10 +1,9 @@
 package blockgadget
 
 import (
-	"github.com/iotaledger/hive.go/core/generics/event"
-
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/core/generics/event"
 )
 
 type Events struct {

@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/typeutils"
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
 
@@ -14,6 +12,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/typeutils"
 )
 
 // region Address //////////////////////////////////////////////////////////////////////////////////////////////////////

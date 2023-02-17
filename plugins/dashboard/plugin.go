@@ -13,6 +13,16 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/app/retainer"
+	"github.com/iotaledger/goshimmer/packages/core/latestblocktracker"
+	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/network/p2p"
+	"github.com/iotaledger/goshimmer/packages/node"
+	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
+	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
+	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/hive.go/app/daemon"
 	"github.com/iotaledger/hive.go/core/autopeering/discover"
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
@@ -20,18 +30,6 @@ import (
 	"github.com/iotaledger/hive.go/core/autopeering/selection"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/logger"
-
-	"github.com/iotaledger/goshimmer/packages/app/retainer"
-	"github.com/iotaledger/goshimmer/packages/core/latestblocktracker"
-	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-	"github.com/iotaledger/goshimmer/packages/node"
-	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
-	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
-
-	"github.com/iotaledger/goshimmer/packages/network/p2p"
-	"github.com/iotaledger/goshimmer/plugins/banner"
 )
 
 // TODO: mana visualization + metrics

@@ -4,14 +4,15 @@ import (
 	"net"
 	"strings"
 
+	"github.com/mr-tron/base58"
+	"github.com/pkg/errors"
+
 	"github.com/iotaledger/hive.go/core/autopeering/discover"
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
-	"github.com/mr-tron/base58"
-	"github.com/pkg/errors"
 )
 
 // autopeering constants.

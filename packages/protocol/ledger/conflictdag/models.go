@@ -3,9 +3,8 @@ package conflictdag
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/generics/set"
-
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
+	"github.com/iotaledger/hive.go/core/generics/set"
 )
 
 // region Conflict /////////////////////////////////////////////////////////////////////////////////////////////////////
