@@ -1104,7 +1104,15 @@ func TestEngine_GuavaConflict(t *testing.T) {
 	}
 
 	tempDir := utils.NewDirectory(t.TempDir())
-	snapshotcreator.CreateSnapshot(protocol.DatabaseVersion, tempDir.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights), ledgerVM)
+	err := snapshotcreator.CreateSnapshot(snapshotcreator.WithDatabaseVersion(protocol.DatabaseVersion),
+		snapshotcreator.WithFilePath(tempDir.Path("genesis_snapshot.bin")),
+		snapshotcreator.WithGenesisTokenAmount(1),
+		snapshotcreator.WithGenesisSeed(make([]byte, 32)),
+		snapshotcreator.WithPledgeIDs(identitiesWeights),
+		snapshotcreator.WithAttestAll(true),
+		snapshotcreator.WithVM(ledgerVM),
+	)
+	require.NoError(t, err)
 
 	require.NoError(t, tf.Instance.Initialize(tempDir.Path("genesis_snapshot.bin")))
 
