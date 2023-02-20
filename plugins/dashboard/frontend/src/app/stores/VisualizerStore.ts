@@ -47,7 +47,11 @@ export class VisualizerStore {
 
     constructor(routerStore: RouterStore) {
         this.routerStore = routerStore;
-        this.fetchHistory();
+        this.setup();
+    }
+
+    setup = async() => {
+        await this.fetchHistory();
         registerHandler(WSMsgType.Vertex, this.addVertex);
         registerHandler(WSMsgType.TipInfo, this.addTipInfo);
     }
@@ -56,7 +60,7 @@ export class VisualizerStore {
         try {
             let res = await fetch(`/api/visualizer/history`);
             let history: history = await res.json();
-            await history.vertices.forEach(v => {
+            history.vertices.forEach(v => {
                 this.addVertex(v);
             });
         } catch (err) {
@@ -115,13 +119,14 @@ export class VisualizerStore {
             existing.parentIDsByType = vert.parentIDsByType;
             vert = existing;
         } else {
+            console.log(vert)
             if (vert.is_finalized) {
                 this.finalized_count++;
+                // this.addTipInfo({id:vert.id, is_tip: false});
             }
             this.verticesIncomingOrder.push(vert.id);
             this.checkLimit();
         }
-
         this.vertices.set(vert.id, vert);
         if (this.draw) {
             this.drawVertex(vert);
@@ -133,6 +138,7 @@ export class VisualizerStore {
         let vert = this.vertices.get(tipInfo.id);
         if (!vert) {
             // create a new empty one for now
+            console.log("node not exists, first seen as tip")
             vert = new Vertex();
             vert.id = tipInfo.id;
             this.verticesIncomingOrder.push(vert.id);
@@ -155,7 +161,6 @@ export class VisualizerStore {
             if (this.selected && deleteId === this.selected.id) {
                 this.clearSelected();
             }
-            this.vertices.delete(deleteId);
             if (this.draw) {
                 this.graph.removeNode(deleteId);
             }
@@ -168,37 +173,7 @@ export class VisualizerStore {
             if (vert.is_tip) {
                 this.tips_count--;
             }
-
-            if (vert.parentIDsByType) {
-                Object.keys(vert.parentIDsByType).map((parentType) => {
-                    vert.parentIDsByType[parentType].forEach((value) => {
-                        this.deleteParentLink(value)
-                    })
-                })
-            }
-        }
-    }
-
-    @action
-    deleteParentLink = (parentId: string) => {
-        if (!parentId) {
-            return;
-        }
-        let parent = this.vertices.get(parentId);
-        if (parent) {
-            if (this.selected && parentId === this.selected.id) {
-                this.clearSelected();
-            }
-            if (parent.is_finalized) {
-                this.finalized_count--;
-            }
-            if (parent.is_tip) {
-                this.tips_count--;
-            }
-            this.vertices.delete(parentId);
-        }
-        if (this.draw) {
-            this.graph.removeNode(parentId);
+            this.vertices.delete(deleteId);
         }
     }
 
@@ -214,6 +189,7 @@ export class VisualizerStore {
             } else {
                 node = this.graph.addNode(vert.id, vert);
             }
+
             if (vert.parentIDsByType) {
                 Object.keys(vert.parentIDsByType).map((parentType) => {
                     vert.parentIDsByType[parentType].forEach((value) => {
@@ -232,16 +208,21 @@ export class VisualizerStore {
     }
 
     colorForVertexState = (vert: Vertex) => {
-        if (!vert || !vert.parentIDsByType || Object.keys(vert.parentIDsByType).length === 0) return "#b58900";
-        if (vert.is_tip) {
-            return "#cb4b16";
+        if (!vert) {
+            console.log("vert is not exists, can't decide color!")
+            return "#b58900";
         }
+
         // finalized
         if (vert.is_finalized) {
             if (vert.is_tx) {
                 return "#fad02c";
             }
             return "#6c71c4"
+        }
+
+        if (vert.is_tip) {
+            return "#cb4b16";
         }
 
         // pending
@@ -312,7 +293,7 @@ export class VisualizerStore {
     @action
     updateSelected = (vert: Vertex, viaClick?: boolean) => {
         if (!vert) return;
-
+        console.log("selected:",vert)
         this.selected = vert;
         this.selected_via_click = !!viaClick;
 
