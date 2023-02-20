@@ -276,6 +276,8 @@ func (b *Booker) book(block *virtualvoting.Block) (inheritingErr error) {
 		ConflictIDs: inheritedConflitIDs,
 	})
 
+	b.VirtualVoting.Track(block, inheritedConflitIDs)
+
 	return nil
 }
 
@@ -484,6 +486,7 @@ func (b *Booker) setupEvents() {
 			}
 		}
 	}, b.workers.CreatePool("Booker", 2))
+	event.AttachWithWorkerPool(b.Events.MarkerManager.SequenceEvicted, b.VirtualVoting.EvictSequence, b.workers.CreatePool("VirtualVoting Sequence Eviction", 1))
 }
 
 func (b *Booker) OrphanAttachment(block *virtualvoting.Block) {
@@ -547,6 +550,8 @@ func (b *Booker) propagateToBlock(block *virtualvoting.Block, addedConflictID ut
 	if !updated {
 		return false, nil
 	}
+
+	b.VirtualVoting.ProcessForkedBlock(block, addedConflictID, removedConflictIDs)
 
 	b.Events.BlockConflictAdded.Trigger(&BlockConflictAddedEvent{
 		Block:             block,
@@ -625,6 +630,8 @@ func (b *Booker) forkSingleMarker(currentMarker markers.Marker, newConflictID ut
 	if !b.markerManager.SetConflictIDs(currentMarker, newConflictIDs) {
 		return nil
 	}
+
+	b.VirtualVoting.ProcessForkedMarker(currentMarker, newConflictID, removedConflictIDs)
 
 	// trigger event
 	b.Events.MarkerConflictAdded.Trigger(&MarkerConflictAddedEvent{

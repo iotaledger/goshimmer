@@ -57,7 +57,7 @@ func New(workers *workerpool.Group, conflictDAG *conflictdag.ConflictDAG[utxo.Tr
 		o.Events.ConflictTracker = o.conflictTracker.Events
 		o.Events.SequenceTracker = o.sequenceTracker.Events
 		o.Events.EpochTracker = o.epochTracker.Events
-	}, (*VirtualVoting).setupEvents)
+	})
 }
 
 func (o *VirtualVoting) Track(block *Block, conflictIDs utxo.TransactionIDs) {
@@ -132,9 +132,11 @@ func (o *VirtualVoting) setupEvents() {
 		event.Hook(o.Booker.Events.MarkerConflictAdded, func(event *booker.MarkerConflictAddedEvent) {
 			o.processForkedMarker(event.Marker, event.ConflictID, event.ParentConflictIDs)
 		})
-		wp := o.Workers.CreatePool("Eviction", 1) // Using just 1 worker to avoid contention
-		event.AttachWithWorkerPool(o.Booker.Events.MarkerManager.SequenceEvicted, o.evictSequence, wp)
-		event.Hook(o.BlockDAG.EvictionState.Events.EpochEvicted, o.evictEpoch)
+	*/
+	/*
+	wp := o.Workers.CreatePool("Eviction", 1) // Using just 1 worker to avoid contention
+	event.AttachWithWorkerPool(o.Booker.Events.MarkerManager.SequenceEvicted, o.evictSequence, wp)
+	event.Hook(o.BlockDAG.EvictionState.Events.EpochEvicted, o.evictEpoch)
 	*/
 }
 
@@ -162,7 +164,7 @@ func (o *VirtualVoting) track(block *Block, conflictIDs utxo.TransactionIDs) (tr
 	return true
 }
 
-func (o *VirtualVoting) evictSequence(sequenceID markers.SequenceID) {
+func (o *VirtualVoting) EvictSequence(sequenceID markers.SequenceID) {
 	o.evictionMutex.Lock()
 	defer o.evictionMutex.Unlock()
 
@@ -180,8 +182,8 @@ func (o *VirtualVoting) EvictEpochTracker(epochIndex epoch.Index) {
 
 // region Forking logic ////////////////////////////////////////////////////////////////////////////////////////////////
 
-// processForkedBlock updates the Conflict weight after an individually mapped Block was forked into a new Conflict.
-func (o *VirtualVoting) processForkedBlock(block *Block, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
+// ProcessForkedBlock updates the Conflict weight after an individually mapped Block was forked into a new Conflict.
+func (o *VirtualVoting) ProcessForkedBlock(block *Block, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
 	votePower := NewBlockVotePower(block.ID(), block.IssuingTime())
 
 	// Do not apply votes of subjectively invalid blocks on forking. Votes of subjectively invalid blocks are also not counted
@@ -194,7 +196,7 @@ func (o *VirtualVoting) processForkedBlock(block *Block, forkedConflictID utxo.T
 }
 
 // take everything in future cone because it was not conflicting before and move to new conflict.
-func (o *VirtualVoting) processForkedMarker(marker markers.Marker, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
+func (o *VirtualVoting) ProcessForkedMarker(marker markers.Marker, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
 	for voterID, votePower := range o.sequenceTracker.VotersWithPower(marker) {
 		o.conflictTracker.AddSupportToForkedConflict(forkedConflictID, parentConflictIDs, voterID, votePower)
 	}
