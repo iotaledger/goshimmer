@@ -8,7 +8,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/hive.go/runtime/event"
-	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 // PluginName is the name of the gossip plugin.
@@ -24,10 +23,11 @@ type dependencies struct {
 	dig.In
 
 	Protocol *protocol.Protocol
+	Indexer  *indexer.Indexer
 }
 
 func init() {
-	Plugin = node.NewPlugin(PluginName, deps, node.Enabled)
+	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure)
 	Plugin.Events.Init.Hook(func(event *node.InitEvent) {
 		if err := event.Container.Provide(provide); err != nil {
 			Plugin.Panic(err)
@@ -35,17 +35,18 @@ func init() {
 	})
 }
 
-func provide(deps dependencies) (i *indexer.Indexer) {
+func provide(protocol *protocol.Protocol) (i *indexer.Indexer) {
 	// TODO: needs to consider switching of instance/ledger in the future
 	// TODO: load snapshot / attach to events from snapshot loading
 	i = indexer.New(func() *ledger.Ledger {
-		return deps.Protocol.Engine().Ledger
+		return protocol.Engine().Ledger
 	})
 
-	wp := workerpool.New(PluginName, 1)
-	deps.Protocol.Events.Engine.Ledger.OutputCreated.Hook(i.OnOutputCreated, event.WithWorkerPool(wp))
-	deps.Protocol.Events.Engine.Ledger.OutputSpent.Hook(i.OnOutputSpentRejected, event.WithWorkerPool(wp))
-	deps.Protocol.Events.Engine.Ledger.OutputRejected.Hook(i.OnOutputSpentRejected, event.WithWorkerPool(wp))
-
 	return i
+}
+
+func configure(plugin *node.Plugin) {
+	deps.Protocol.Events.Engine.Ledger.OutputCreated.Hook(deps.Indexer.OnOutputCreated, event.WithWorkerPool(plugin.WorkerPool))
+	deps.Protocol.Events.Engine.Ledger.OutputSpent.Hook(deps.Indexer.OnOutputSpentRejected, event.WithWorkerPool(plugin.WorkerPool))
+	deps.Protocol.Events.Engine.Ledger.OutputRejected.Hook(deps.Indexer.OnOutputSpentRejected, event.WithWorkerPool(plugin.WorkerPool))
 }
