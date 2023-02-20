@@ -22,3 +22,7 @@ go get github.com/iotaledger/hive.go/objectstorage@$COMMIT
 go get github.com/iotaledger/hive.go/autopeering@$COMMIT
 
 go mod tidy
+
+pushd tools/integration-tests/tester
+go mod tidy
+popd

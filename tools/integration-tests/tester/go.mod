@@ -8,9 +8,9 @@ require (
 	github.com/docker/docker v1.13.1
 	github.com/docker/go-connections v0.4.0
 	github.com/iotaledger/goshimmer v0.1.3
-	github.com/iotaledger/hive.go/core v1.0.0-rc.3.0.20230219002729-f3fe3a0b0672
-	github.com/iotaledger/hive.go/ds v0.0.0-20230219002729-f3fe3a0b0672
-	github.com/iotaledger/hive.go/lo v0.0.0-20230219002729-f3fe3a0b0672
+	github.com/iotaledger/hive.go/core v1.0.0-rc.3.0.20230220110713-5cde92e55626
+	github.com/iotaledger/hive.go/ds v0.0.0-20230220110713-5cde92e55626
+	github.com/iotaledger/hive.go/lo v0.0.0-20230220110713-5cde92e55626
 	github.com/mr-tron/base58 v1.2.0
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.8.1
@@ -46,12 +46,7 @@ require (
 	github.com/francoispqt/gojay v1.2.13 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/getsentry/sentry-go v0.12.0 // indirect
-	github.com/gin-contrib/sse v0.1.0 // indirect
-	github.com/gin-gonic/gin v1.6.3 // indirect
 	github.com/go-ole/go-ole v1.2.1 // indirect
-	github.com/go-playground/locales v0.13.0 // indirect
-	github.com/go-playground/universal-translator v0.17.0 // indirect
-	github.com/go-playground/validator/v10 v10.2.0 // indirect
 	github.com/go-resty/resty/v2 v2.6.0 // indirect
 	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0 // indirect
@@ -67,22 +62,21 @@ require (
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/huin/goupnp v1.0.3 // indirect
 	github.com/iancoleman/orderedmap v0.2.0 // indirect
-	github.com/iotaledger/grocksdb v1.7.5-0.20221128103803-fcdb79760195 // indirect
-	github.com/iotaledger/hive.go/app v0.0.0-20230219002729-f3fe3a0b0672 // indirect
-	github.com/iotaledger/hive.go/autopeering v0.0.0-20230219002729-f3fe3a0b0672 // indirect
-	github.com/iotaledger/hive.go/constraints v0.0.0-20230219002729-f3fe3a0b0672 // indirect
-	github.com/iotaledger/hive.go/kvstore v0.0.0-20230219002729-f3fe3a0b0672 // indirect
-	github.com/iotaledger/hive.go/objectstorage v0.0.0-20230219002729-f3fe3a0b0672 // indirect
-	github.com/iotaledger/hive.go/runtime v0.0.0-20230219002729-f3fe3a0b0672 // indirect
-	github.com/iotaledger/hive.go/serializer/v2 v2.0.0-rc.1.0.20230219002729-f3fe3a0b0672 // indirect
-	github.com/iotaledger/hive.go/stringify v0.0.0-20230219002729-f3fe3a0b0672 // indirect
+	github.com/iotaledger/grocksdb v1.7.5-0.20230220105546-5162e18885c7 // indirect
+	github.com/iotaledger/hive.go/app v0.0.0-20230220110713-5cde92e55626 // indirect
+	github.com/iotaledger/hive.go/autopeering v0.0.0-20230220110713-5cde92e55626 // indirect
+	github.com/iotaledger/hive.go/constraints v0.0.0-20230220110713-5cde92e55626 // indirect
+	github.com/iotaledger/hive.go/kvstore v0.0.0-20230220110713-5cde92e55626 // indirect
+	github.com/iotaledger/hive.go/objectstorage v0.0.0-20230220110713-5cde92e55626 // indirect
+	github.com/iotaledger/hive.go/runtime v0.0.0-20230220110713-5cde92e55626 // indirect
+	github.com/iotaledger/hive.go/serializer/v2 v2.0.0-rc.1.0.20230220110713-5cde92e55626 // indirect
+	github.com/iotaledger/hive.go/stringify v0.0.0-20230220110713-5cde92e55626 // indirect
 	github.com/ipfs/go-cid v0.3.2 // indirect
 	github.com/ipfs/go-log/v2 v2.5.1 // indirect
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
 	github.com/jbenet/go-temp-err-catcher v0.1.0 // indirect
 	github.com/jellydator/ttlcache/v2 v2.11.1 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
-	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.15.12 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.1 // indirect
 	github.com/knadh/koanf v1.5.0 // indirect
@@ -92,7 +86,6 @@ require (
 	github.com/labstack/echo v3.3.10+incompatible // indirect
 	github.com/labstack/echo/v4 v4.10.0 // indirect
 	github.com/labstack/gommon v0.4.0 // indirect
-	github.com/leodido/go-urn v1.2.0 // indirect
 	github.com/libp2p/go-buffer-pool v0.1.0 // indirect
 	github.com/libp2p/go-cidranger v1.1.0 // indirect
 	github.com/libp2p/go-flow-metrics v0.1.0 // indirect
@@ -114,8 +107,6 @@ require (
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
-	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
-	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/multiformats/go-base32 v0.1.0 // indirect
 	github.com/multiformats/go-base36 v0.2.0 // indirect
 	github.com/multiformats/go-multiaddr v0.8.0 // indirect
@@ -154,7 +145,6 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/tklauser/go-sysconf v0.3.5 // indirect
 	github.com/tklauser/numcpus v0.2.2 // indirect
-	github.com/ugorji/go/codec v1.1.7 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
