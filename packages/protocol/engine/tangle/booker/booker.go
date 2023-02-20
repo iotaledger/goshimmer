@@ -17,12 +17,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/cerrors"
+	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/ds/walker"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/event"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/iotaledger/hive.go/runtime/syncutils"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
@@ -187,7 +185,7 @@ func (b *Booker) GetLatestAttachment(txID utxo.TransactionID) (attachment *Block
 	return b.attachments.getLatestAttachment(txID)
 }
 
-func (b *Booker) GetAllAttachments(txID utxo.TransactionID) (attachments *set.AdvancedSet[*Block]) {
+func (b *Booker) GetAllAttachments(txID utxo.TransactionID) (attachments *advancedset.AdvancedSet[*Block]) {
 	return b.attachments.GetAttachmentBlocks(txID)
 }
 
@@ -458,7 +456,7 @@ func (b *Booker) setupEvents() {
 			panic(err)
 		}
 	})
-	event.Hook(b.BlockDAG.Events.BlockOrphaned, func(orphanedBlock *blockdag.Block) {
+	b.BlockDAG.Events.BlockOrphaned.Hook(func(orphanedBlock *blockdag.Block) {
 		block, exists := b.Block(orphanedBlock.ID())
 		if !exists {
 			return

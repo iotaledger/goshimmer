@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
-	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 func TestConflictDAG_CreateConflict(t *testing.T) {

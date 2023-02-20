@@ -7,10 +7,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/ds/set"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/syncutils"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 type attachments struct {
@@ -96,8 +97,8 @@ func (a *attachments) Get(txID utxo.TransactionID) (attachments []*Block) {
 	return
 }
 
-func (a *attachments) GetAttachmentBlocks(txID utxo.TransactionID) (attachments *set.AdvancedSet[*Block]) {
-	attachments = set.NewAdvancedSet[*Block]()
+func (a *attachments) GetAttachmentBlocks(txID utxo.TransactionID) (attachments *advancedset.AdvancedSet[*Block]) {
+	attachments = advancedset.NewAdvancedSet[*Block]()
 
 	if txStorage := a.storage(txID, false); txStorage != nil {
 		txStorage.ForEach(func(_ epoch.Index, blocks *memstorage.Storage[models.BlockID, *Block]) bool {

@@ -11,11 +11,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/runtime/event"
 	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
@@ -134,7 +133,7 @@ func (o *VirtualVoting) ConflictVotersTotalWeight(conflictID utxo.TransactionID)
 }
 
 func (o *VirtualVoting) setupEvents() {
-	event.Hook(o.Booker.Events.BlockBooked, func(evt *booker.BlockBookedEvent) {
+	o.Booker.Events.BlockBooked.Hook(func(evt *booker.BlockBookedEvent) {
 		o.Track(NewBlock(evt.Block), evt.ConflictIDs)
 	})
 	o.Booker.Events.BlockConflictAdded.Hook(func(event *booker.BlockConflictAddedEvent) {

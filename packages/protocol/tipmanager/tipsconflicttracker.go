@@ -9,10 +9,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/types"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/ds/types"
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 type TipsConflictTracker struct {
@@ -37,15 +37,15 @@ func NewTipsConflictTracker(workers *workerpool.Group, engineInstance *engine.En
 
 func (c *TipsConflictTracker) Setup() {
 	wp := c.workers.CreatePool("TipsConflictTracker", 1)
-	event.AttachWithWorkerPool(c.engine.Ledger.ConflictDAG.Events.ConflictAccepted, func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	c.engine.Ledger.ConflictDAG.Events.ConflictAccepted.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		c.deleteConflict(conflict.ID())
-	}, wp)
-	event.AttachWithWorkerPool(c.engine.Ledger.ConflictDAG.Events.ConflictRejected, func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	}, event.WithWorkerPool(wp))
+	c.engine.Ledger.ConflictDAG.Events.ConflictRejected.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		c.deleteConflict(conflict.ID())
-	}, wp)
-	event.AttachWithWorkerPool(c.engine.Ledger.ConflictDAG.Events.ConflictNotConflicting, func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	}, event.WithWorkerPool(wp))
+	c.engine.Ledger.ConflictDAG.Events.ConflictNotConflicting.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		c.deleteConflict(conflict.ID())
-	}, wp)
+	}, event.WithWorkerPool(wp))
 }
 
 func (c *TipsConflictTracker) AddTip(block *scheduler.Block, blockConflictIDs utxo.TransactionIDs) {
@@ -57,7 +57,7 @@ func (c *TipsConflictTracker) AddTip(block *scheduler.Block, blockConflictIDs ut
 	for it := blockConflictIDs.Iterator(); it.HasNext(); {
 		conflict := it.Next()
 
-		if !c.engine.Ledger.ConflictDAG.ConfirmationState(set.NewAdvancedSet(conflict)).IsPending() {
+		if !c.engine.Ledger.ConflictDAG.ConfirmationState(advancedset.NewAdvancedSet(conflict)).IsPending() {
 			continue
 		}
 
@@ -90,7 +90,7 @@ func (c *TipsConflictTracker) RemoveTip(block *scheduler.Block) {
 			continue
 		}
 
-		if !c.engine.Ledger.ConflictDAG.ConfirmationState(set.NewAdvancedSet(conflictID)).IsPending() {
+		if !c.engine.Ledger.ConflictDAG.ConfirmationState(advancedset.NewAdvancedSet(conflictID)).IsPending() {
 			continue
 		}
 
@@ -112,7 +112,7 @@ func (c *TipsConflictTracker) MissingConflicts(amount int) (missingConflicts utx
 	c.censoredConflicts.ForEach(func(conflictID utxo.TransactionID, _ types.Empty) bool {
 		// TODO: this should not be necessary if ConflictAccepted/ConflictRejected events are fired appropriately
 		// If the conflict is not pending anymore or it clashes with a conflict we already introduced, we can remove it from the censored conflicts.
-		if !c.engine.Ledger.ConflictDAG.ConfirmationState(set.NewAdvancedSet(conflictID)).IsPending() || dislikedConflicts.Has(conflictID) {
+		if !c.engine.Ledger.ConflictDAG.ConfirmationState(advancedset.NewAdvancedSet(conflictID)).IsPending() || dislikedConflicts.Has(conflictID) {
 			censoredConflictsToDelete.Add(conflictID)
 			return true
 		}

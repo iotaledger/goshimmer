@@ -162,7 +162,7 @@ func configureLogging(plugin *node.Plugin) {
 
 	if DebugParameters.PanicOnForkDetection {
 		deps.Protocol.Events.ChainManager.ForkDetected.Hook(func(fork *chainmanager.Fork) {
-			Plugin.LogFatalfAndExit("Network fork detected: received from %s, commitment: %s, forkingPoint: %s", fork.Source, fork.Commitment, fork.ForkingPoint)
+			Plugin.LogFatalfAndExitf("Network fork detected: received from %s, commitment: %s, forkingPoint: %s", fork.Source, fork.Commitment, fork.ForkingPoint)
 		})
 	}
 

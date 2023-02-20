@@ -2,7 +2,6 @@ package epochtracker
 
 import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/runtime/event"
 )

@@ -26,11 +26,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/debug"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/ds/shrinkingmap"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
@@ -106,7 +101,7 @@ func (t *TestFramework) setupEvents() {
 		t.Instance.AddTip(scheduledBlock)
 	})
 
-	event.Hook(t.Engine.Events.EvictionState.EpochEvicted, func(index epoch.Index) {
+	t.Engine.Events.EvictionState.EpochEvicted.Hook(func(index epoch.Index) {
 		t.Instance.EvictTSCCache(index)
 	})
 

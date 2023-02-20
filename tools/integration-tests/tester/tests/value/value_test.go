@@ -11,7 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/createnftoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/destroynftoptions"
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/confirmation"
+	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"

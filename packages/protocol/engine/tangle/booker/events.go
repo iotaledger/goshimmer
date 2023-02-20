@@ -9,8 +9,8 @@ import (
 
 type Events struct {
 	BlockBooked         *event.Event1[*BlockBookedEvent]
-	AttachmentCreated   *event.Linkable[*Block]
-	AttachmentOrphaned  *event.Linkable[*Block]
+	AttachmentCreated   *event.Event1[*Block]
+	AttachmentOrphaned  *event.Event1[*Block]
 	BlockConflictAdded  *event.Event1[*BlockConflictAddedEvent]
 	MarkerConflictAdded *event.Event1[*MarkerConflictAddedEvent]
 	Error               *event.Event1[error]
@@ -24,8 +24,8 @@ type Events struct {
 var NewEvents = event.CreateGroupConstructor(func() (newEvents *Events) {
 	return &Events{
 		BlockBooked:         event.New1[*BlockBookedEvent](),
-		AttachmentCreated:   event.NewLinkable[*Block](),
-		AttachmentOrphaned:  event.NewLinkable[*Block](),
+		AttachmentCreated:   event.New1[*Block](),
+		AttachmentOrphaned:  event.New1[*Block](),
 		BlockConflictAdded:  event.New1[*BlockConflictAddedEvent](),
 		MarkerConflictAdded: event.New1[*MarkerConflictAddedEvent](),
 		Error:               event.New1[error](),

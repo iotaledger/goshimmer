@@ -8,7 +8,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/banner"
-	"github.com/iotaledger/hive.go/core/generics/event"
 )
 
 // PluginName is the name of the CLI plugin.

@@ -17,10 +17,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markermanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/debug"
-	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/types"
-	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/debug"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
@@ -462,7 +459,7 @@ func TestTipManager_TimeSinceConfirmation_RootBlockParent(t *testing.T) {
 
 	require.Eventually(t, tf.Engine.NotarizationManager.IsFullyCommitted, 1*time.Minute, 500*time.Millisecond)
 
-	tf.Engine.Workers.WaitAll()
+	tf.Engine.Workers.WaitParents()
 
 	tf.Tangle.BlockDAG.CreateBlock("Block5", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block1")), models.WithIssuingTime(now))
 	tf.Tangle.BlockDAG.IssueBlocks("Block5")

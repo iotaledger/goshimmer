@@ -7,7 +7,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
@@ -108,9 +107,9 @@ func New(workerPool *workerpool.WorkerPool, chainStorage *storage.Storage, opts 
 	ledger.Utils = newUtils(ledger)
 
 	// TODO: revisit whether we should make the process of setting conflict and transaction as accepted/rejected atomic
-	event.AttachWithWorkerPool(ledger.ConflictDAG.Events.ConflictAccepted, func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	ledger.ConflictDAG.Events.ConflictAccepted.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		ledger.propagateAcceptanceToIncludedTransactions(conflict.ID())
-	}, workerPool)
+	}, event.WithWorkerPool(workerPool))
 	ledger.ConflictDAG.Events.ConflictRejected.Hook(ledger.propagatedRejectionToTransactions, event.WithWorkerPool(workerPool))
 	ledger.Events.TransactionBooked.Hook(func(event *TransactionBookedEvent) {
 		ledger.processConsumingTransactions(event.Outputs.IDs())

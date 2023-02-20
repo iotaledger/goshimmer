@@ -14,7 +14,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/hive.go/runtime/debug"
 	"github.com/iotaledger/hive.go/runtime/options"
-	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
@@ -103,7 +102,7 @@ func (t *TestFramework) AssertBlockConflictsUpdateCount(blockConflictsUpdateCoun
 }
 
 func (t *TestFramework) setupEvents() {
-	event.Hook(t.Instance.Events.BlockBooked, func(evt *BlockBookedEvent) {
+	t.Instance.Events.BlockBooked.Hook(func(evt *BlockBookedEvent) {
 		if debug.GetEnabled() {
 			t.test.Logf("BOOKED: %v, %v", evt.Block.ID(), evt.Block.StructureDetails().PastMarkers())
 		}

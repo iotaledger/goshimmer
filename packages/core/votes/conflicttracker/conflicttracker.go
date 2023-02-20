@@ -105,7 +105,7 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) conflic
 	return !exists || conflict.ConfirmationState().IsPending()
 }
 
-func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) voterSupportsAllConflicts(voter identity.ID, conflictIDs *set.AdvancedSet[ConflictIDType]) (allConflictsSupported bool) {
+func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) voterSupportsAllConflicts(voter identity.ID, conflictIDs *advancedset.AdvancedSet[ConflictIDType]) (allConflictsSupported bool) {
 	for it := conflictIDs.Iterator(); it.HasNext(); {
 		conflictID := it.Next()
 
