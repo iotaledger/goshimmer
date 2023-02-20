@@ -75,6 +75,7 @@ var ConsensusSnapshotOptions = []options.Option[snapshotcreator.Options]{
 		"DuJuWE3hisFrFK1HmrXkd9FSsNNWbw58JcQnKdBn6TdN", // 7rRpyEGU7Sf
 	}),
 	snapshotcreator.WithPeersAmountsPledged([]uint64{1_600_000, 800_000, 800_000, 800_000, 800_000}),
+	snapshotcreator.WithInitialAttestationsBase58([]string{"3kwsHfLDb7ifuxLbyMZneXq3s5heRWnXKKGPAARJDaUE"}), // pk for seed Bk69VaYsRuiAaKn8hK6KxUj45X5dED3ueRtxfYnsh4Q8
 }
 
 // GetIdentSeed returns decoded seed bytes for the supplied SnapshotInfo and peer index
