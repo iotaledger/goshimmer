@@ -92,7 +92,7 @@ func CreateSnapshot(opts ...options.Option[Options]) (err error) {
 	if _, _, err = engineInstance.NotarizationManager.Attestations.Commit(0); err != nil {
 		return err
 	}
-	if err = engineInstance.WriteSnapshot(opt.FilePath); err != nil {
+	if err := engineInstance.WriteSnapshot(opt.FilePath); err != nil {
 		return err
 	}
 	return nil
@@ -127,7 +127,7 @@ func (m *Options) createGenesisOutput(engineInstance *engine.Engine) error {
 		if err != nil {
 			return err
 		}
-		if err = engineInstance.LedgerState.UnspentOutputs.ApplyCreatedOutput(ledger.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
+		if err := engineInstance.LedgerState.UnspentOutputs.ApplyCreatedOutput(ledger.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
 			return err
 		}
 	}

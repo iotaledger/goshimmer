@@ -1,7 +1,6 @@
 package protocol
 
 import (
-	"github.com/stretchr/testify/require"
 	"testing"
 
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
@@ -17,6 +16,8 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/workerpool"
+
+	"github.com/stretchr/testify/require"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
