@@ -125,7 +125,7 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeBooked(block *models.Block, max
 	exit := make(chan struct{})
 	defer close(exit)
 
-	hook := i.protocol.Events.Engine.Tangle.Booker.BlockBooked.Hook(func(evt *booker.BlockBookedEvent) {
+	defer i.protocol.Events.Engine.Tangle.Booker.BlockBooked.Hook(func(evt *booker.BlockBookedEvent) {
 		if block.ID() != evt.Block.ID() {
 			return
 		}
@@ -133,11 +133,9 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeBooked(block *models.Block, max
 		case booked <- evt.Block:
 		case <-exit:
 		}
-	}, event.WithWorkerPool(i.workerPool))
-	defer hook.Unhook()
+	}, event.WithWorkerPool(i.workerPool)).Unhook()
 
-	err := i.issueBlock(block)
-	if err != nil {
+	if err := i.issueBlock(block); err != nil {
 		return errors.Wrapf(err, "failed to issue block %s", block.ID().String())
 	}
 
@@ -161,7 +159,7 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeScheduled(block *models.Block, 
 	exit := make(chan struct{})
 	defer close(exit)
 
-	hook := i.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Hook(func(scheduledBlock *scheduler.Block) {
+	defer i.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Hook(func(scheduledBlock *scheduler.Block) {
 		if block.ID() != scheduledBlock.ID() {
 			return
 		}
@@ -169,11 +167,9 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeScheduled(block *models.Block, 
 		case scheduled <- scheduledBlock:
 		case <-exit:
 		}
-	}, event.WithWorkerPool(i.workerPool))
-	defer hook.Unhook()
+	}, event.WithWorkerPool(i.workerPool)).Unhook()
 
-	err := i.issueBlock(block)
-	if err != nil {
+	if err := i.issueBlock(block); err != nil {
 		return errors.Wrapf(err, "failed to issue block %s", block.ID().String())
 	}
 
