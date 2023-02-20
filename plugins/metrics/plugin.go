@@ -13,7 +13,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gin-gonic/gin"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -88,10 +89,10 @@ func run(*node.Plugin) {
 	if err := daemon.BackgroundWorker("Prometheus exporter", func(ctx context.Context) {
 		log.Info("Starting Prometheus exporter ... done")
 
-		engine := gin.New()
-		engine.Use(gin.Recovery())
+		engine := echo.New()
+		engine.Use(middleware.Recover())
 
-		engine.GET("/metrics", func(c *gin.Context) {
+		engine.GET("/metrics", func(c echo.Context) error {
 			deps.Collector.Collect()
 
 			handler := promhttp.HandlerFor(
@@ -103,7 +104,9 @@ func run(*node.Plugin) {
 			if Parameters.PromhttpMetrics {
 				handler = promhttp.InstrumentMetricHandler(deps.Collector.Registry, handler)
 			}
-			handler.ServeHTTP(c.Writer, c.Request)
+			handler.ServeHTTP(c.Response().Writer, c.Request())
+
+			return nil
 		})
 		bindAddr := Parameters.BindAddress
 		server = &http.Server{Addr: bindAddr, Handler: engine, ReadTimeout: 5 * time.Second, WriteTimeout: 5 * time.Second}
