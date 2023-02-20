@@ -16,7 +16,7 @@ import (
 )
 
 type TipsConflictTracker struct {
-	workers             *workerpool.Group
+	workerPool          *workerpool.WorkerPool
 	tipConflicts        *memstorage.Storage[models.BlockID, utxo.TransactionIDs]
 	censoredConflicts   *memstorage.Storage[utxo.TransactionID, types.Empty]
 	tipCountPerConflict *memstorage.Storage[utxo.TransactionID, int]
@@ -25,27 +25,33 @@ type TipsConflictTracker struct {
 	sync.RWMutex
 }
 
-func NewTipsConflictTracker(workers *workerpool.Group, engineInstance *engine.Engine) *TipsConflictTracker {
-	return &TipsConflictTracker{
-		workers:             workers,
+func NewTipsConflictTracker(workerPool *workerpool.WorkerPool, engineInstance *engine.Engine) *TipsConflictTracker {
+	t := &TipsConflictTracker{
+		workerPool:          workerPool,
 		tipConflicts:        memstorage.New[models.BlockID, utxo.TransactionIDs](),
 		censoredConflicts:   memstorage.New[utxo.TransactionID, types.Empty](),
 		tipCountPerConflict: memstorage.New[utxo.TransactionID, int](),
 		engine:              engineInstance,
 	}
+
+	t.setup()
+	return t
 }
 
-func (c *TipsConflictTracker) Setup() {
-	wp := c.workers.CreatePool("TipsConflictTracker", 1)
+func (c *TipsConflictTracker) setup() {
 	c.engine.Ledger.ConflictDAG.Events.ConflictAccepted.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		c.deleteConflict(conflict.ID())
-	}, event.WithWorkerPool(wp))
+	}, event.WithWorkerPool(c.workerPool))
 	c.engine.Ledger.ConflictDAG.Events.ConflictRejected.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		c.deleteConflict(conflict.ID())
-	}, event.WithWorkerPool(wp))
+	}, event.WithWorkerPool(c.workerPool))
 	c.engine.Ledger.ConflictDAG.Events.ConflictNotConflicting.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		c.deleteConflict(conflict.ID())
-	}, event.WithWorkerPool(wp))
+	}, event.WithWorkerPool(c.workerPool))
+}
+
+func (c *TipsConflictTracker) Cleanup() {
+	c.workerPool.Shutdown()
 }
 
 func (c *TipsConflictTracker) AddTip(block *scheduler.Block, blockConflictIDs utxo.TransactionIDs) {

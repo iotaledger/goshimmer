@@ -81,8 +81,10 @@ func (t *TipManager) LinkTo(engine *engine.Engine) {
 
 	t.engine = engine
 	t.blockAcceptanceGadget = engine.Consensus.BlockGadget
-	t.TipsConflictTracker = NewTipsConflictTracker(t.workers, engine)
-	t.TipsConflictTracker.Setup()
+	if t.TipsConflictTracker != nil {
+		t.TipsConflictTracker.Cleanup()
+	}
+	t.TipsConflictTracker = NewTipsConflictTracker(t.workers.CreatePool("TipsConflictTracker", 1), engine)
 }
 
 func (t *TipManager) AddTip(block *scheduler.Block) {
