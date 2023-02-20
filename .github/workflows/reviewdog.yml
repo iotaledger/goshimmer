@@ -20,5 +20,6 @@ jobs:
           version: v1.51.1
           github_token: ${{ secrets.github_token }}
           golangci_lint_flags: "--timeout=10m"
-          reporter: "github-pr-check"
+          reporter: github-pr-check
           fail_on_error: true
+          filter_mode: nofilter

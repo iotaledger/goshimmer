@@ -17,7 +17,7 @@ jobs:
       - ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Create Git tag
         run: |
@@ -35,7 +35,7 @@ jobs:
       volumes: [/repo]
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           ref: "refs/tags/${{github.event.inputs.tagName}}"
 
@@ -59,7 +59,7 @@ jobs:
       - ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           ref: "refs/tags/${{github.event.inputs.tagName}}"
       - name: Publish to Docker Hub

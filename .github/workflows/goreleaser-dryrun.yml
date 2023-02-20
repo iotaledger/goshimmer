@@ -16,7 +16,7 @@ jobs:
       volumes: [/repo]
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Create fake config.json and snapshot.bin
         run: touch config.json snapshot.bin
