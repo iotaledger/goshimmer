@@ -5,15 +5,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/orderedmap"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/types"
-	"github.com/iotaledger/hive.go/core/workerpool"
-
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -33,6 +24,14 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/generics/orderedmap"
+	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/core/workerpool"
 )
 
 // region Protocol /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -56,7 +55,6 @@ type Protocol struct {
 	optsSnapshotPath     string
 	optsPruningThreshold uint64
 
-	// optsSolidificationOptions []options.Option[solidification.Requester]
 	optsCongestionControlOptions      []options.Option[congestioncontrol.CongestionControl]
 	optsEngineOptions                 []options.Option[engine.Engine]
 	optsChainManagerOptions           []options.Option[chainmanager.Manager]
@@ -210,10 +208,10 @@ func (p *Protocol) initChainManager() {
 }
 
 func (p *Protocol) initTipManager() {
-	p.TipManager = tipmanager.New(p.CongestionControl.Block, p.optsTipManagerOptions...)
+	p.TipManager = tipmanager.New(p.Workers.CreateGroup("TipManager"), p.CongestionControl.Block, p.optsTipManagerOptions...)
 	p.Events.TipManager = p.TipManager.Events
 
-	wp := p.Workers.CreatePool("TipManager", 1) // Using just 1 worker to avoid contention
+	wp := p.Workers.CreatePool("TipManagerAttach", 1) // Using just 1 worker to avoid contention
 
 	event.Hook(p.Events.Engine.Tangle.BlockDAG.BlockOrphaned, func(block *blockdag.Block) {
 		if schedulerBlock, exists := p.CongestionControl.Block(block.ID()); exists {
@@ -233,12 +231,6 @@ func (p *Protocol) initTipManager() {
 	}, wp)
 	event.AttachWithWorkerPool(p.Events.Engine.Consensus.BlockGadget.BlockAccepted, func(block *blockgadget.Block) {
 		p.TipManager.RemoveStrongParents(block.ModelsBlock)
-	}, wp)
-	event.AttachWithWorkerPool(p.Events.Engine.NotarizationManager.EpochCommitted, func(details *notarization.EpochCommittedDetails) {
-		p.TipManager.PromoteFutureTips(details.Commitment)
-	}, wp)
-	event.AttachWithWorkerPool(p.Events.Engine.EvictionState.EpochEvicted, func(index epoch.Index) {
-		p.TipManager.Evict(index)
 	}, wp)
 }
 
@@ -431,7 +423,7 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 			epochAttestations, epochExists := attestations.Get(epochIndex)
 			if !epochExists {
 				p.Events.Error.Trigger(errors.Errorf("attestations for epoch %d missing", epochIndex))
-				//TODO: ban source?
+				// TODO: ban source?
 				return
 			}
 			visitedIdentities := make(map[identity.ID]types.Empty)
@@ -451,7 +443,7 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 				issuerID := attestation.IssuerID()
 				if _, alreadyVisited := visitedIdentities[issuerID]; alreadyVisited {
 					p.Events.Error.Trigger(errors.Errorf("invalid attestation from source %s, issuerID %s contains multiple attestations", source, issuerID))
-					//TODO: ban source!
+					// TODO: ban source!
 					return
 				}
 
@@ -478,7 +470,7 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 			forkedEvent.Commitment.Index(),
 			forkedEventClaimedWeight,
 			forkedEventMainWeight))
-		//TODO: ban source?
+		// TODO: ban source?
 		return
 	}
 
@@ -601,38 +593,32 @@ func WithThroughputQuotaProvider(sybilProtectionProvider engine.ModuleProvider[t
 }
 
 func WithCongestionControlOptions(opts ...options.Option[congestioncontrol.CongestionControl]) options.Option[Protocol] {
-	return func(e *Protocol) {
-		e.optsCongestionControlOptions = opts
+	return func(p *Protocol) {
+		p.optsCongestionControlOptions = append(p.optsCongestionControlOptions, opts...)
 	}
 }
 
 func WithTipManagerOptions(opts ...options.Option[tipmanager.TipManager]) options.Option[Protocol] {
 	return func(p *Protocol) {
-		p.optsTipManagerOptions = opts
+		p.optsTipManagerOptions = append(p.optsTipManagerOptions, opts...)
 	}
 }
 
-// func WithSolidificationOptions(opts ...options.Option[solidification.Requester]) options.Option[Protocol] {
-// 	return func(n *Protocol) {
-// 		n.optsSolidificationOptions = opts
-// 	}
-// }
-
 func WithEngineOptions(opts ...options.Option[engine.Engine]) options.Option[Protocol] {
-	return func(n *Protocol) {
-		n.optsEngineOptions = opts
+	return func(p *Protocol) {
+		p.optsEngineOptions = append(p.optsEngineOptions, opts...)
 	}
 }
 
 func WithChainManagerOptions(opts ...options.Option[chainmanager.Manager]) options.Option[Protocol] {
-	return func(n *Protocol) {
-		n.optsChainManagerOptions = opts
+	return func(p *Protocol) {
+		p.optsChainManagerOptions = append(p.optsChainManagerOptions, opts...)
 	}
 }
 
 func WithStorageDatabaseManagerOptions(opts ...options.Option[database.Manager]) options.Option[Protocol] {
 	return func(p *Protocol) {
-		p.optsStorageDatabaseManagerOptions = opts
+		p.optsStorageDatabaseManagerOptions = append(p.optsStorageDatabaseManagerOptions, opts...)
 	}
 }
 

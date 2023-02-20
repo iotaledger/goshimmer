@@ -6,11 +6,10 @@ import (
 
 	"github.com/labstack/echo"
 
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/identity"
-
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1/manamodels"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/identity"
 )
 
 // getNHighestAccessHandler handles a /mana/access/nhighest request.

@@ -4,11 +4,10 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
-
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -32,9 +31,12 @@ func (t *TestFramework) CreateValidator(alias string, weight int64) {
 	t.CreateValidatorWithID(alias, lo.PanicOnErr(identity.RandomIDInsecure()), weight)
 }
 
-func (t *TestFramework) CreateValidatorWithID(alias string, id identity.ID, weight int64) {
+func (t *TestFramework) CreateValidatorWithID(alias string, id identity.ID, weight int64, skipWeightUpdate ...bool) {
 	t.validatorsByAlias[alias] = id
 
+	if len(skipWeightUpdate) == 1 && skipWeightUpdate[0] {
+		return
+	}
 	t.Validators.Weights.Update(id, sybilprotection.NewWeight(weight, 0))
 	t.Validators.Add(id)
 }

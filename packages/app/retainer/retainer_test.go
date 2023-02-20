@@ -10,9 +10,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/hive.go/core/serix"
-	"github.com/iotaledger/hive.go/core/workerpool"
-
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol"
@@ -20,6 +17,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/core/serix"
+	"github.com/iotaledger/hive.go/core/workerpool"
 )
 
 func TestRetainer_BlockMetadata_Serialization(t *testing.T) {
@@ -133,7 +132,9 @@ func TestRetainer_BlockMetadata_Evicted(t *testing.T) {
 
 	block, exists := tf.Instance.CongestionControl.Block(b.ID())
 	require.True(t, exists)
-	tf.Instance.Engine().EvictionState.EvictUntil(b.ID().EpochIndex + 1)
+
+	// Trigger eviction through commitment creation
+	tf.Engine.Instance.NotarizationManager.SetAcceptanceTime((epoch.IndexFromTime(time.Unix(epoch.GenesisTime, 0).Add(70*time.Second)) + 8).EndTime())
 	workers.Wait()
 	retainer.WorkerPool().PendingTasksCounter.WaitIsZero()
 

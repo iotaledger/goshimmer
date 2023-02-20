@@ -8,13 +8,13 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/serix"
-	"github.com/iotaledger/hive.go/core/types"
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/serix"
+	"github.com/iotaledger/hive.go/core/types"
 )
 
 type ID struct {

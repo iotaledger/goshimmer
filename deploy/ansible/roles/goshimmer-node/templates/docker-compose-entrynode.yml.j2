@@ -25,7 +25,6 @@ services:
       --autoPeering.networkVersion={{ networkVersion }}
       {% endif %}
       --autoPeering.entryNodes=
-      --analysis.client.serverAddress=
-      --node.disablePlugins=webapihealthzendpoint,notarization,blockissuer,activity,profiling,manainitializer,webapiledgerstateendpoint,retainer,prometheus,webapiinfoendpoint,webapiratesetterendpoint,dagsvisualizer,network,firewall,p2p,webapiepochendpoint,chat,webapimanaendpoint,remotelog,warpsync,manualpeering,remotelogmetrics,webapifaucetrequestendpoint,database,faucet,indexer,protocol,dashboard,analysisclient,remotemetrics,webapiblockendpoint,webapiweightproviderendpoint,portcheck,metrics,webapidataendpoint,webapischedulerendpoint,dashboardmetrics
+      --node.disablePlugins=webapihealthzendpoint,notarization,blockissuer,activity,profiling,manainitializer,webapiledgerstateendpoint,retainer,prometheus,webapiinfoendpoint,webapiratesetterendpoint,dagsvisualizer,network,p2p,webapiepochendpoint,webapimanaendpoint,remotelog,warpsync,manualpeering,remotelogmetrics,webapifaucetrequestendpoint,database,faucet,indexer,protocol,dashboard,remotemetrics,webapiblockendpoint,webapiweightproviderendpoint,portcheck,metrics,webapidataendpoint,webapischedulerendpoint,dashboardmetrics
       --logger.level={{ logLevel }}
       --logger.outputPaths=stdout

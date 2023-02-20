@@ -3,14 +3,14 @@ package markermanager
 import (
 	"github.com/emirpasic/gods/maps/treemap"
 	"github.com/emirpasic/gods/utils"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/syncutils"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/syncutils"
 )
 
 type MarkerManager[IndexedID epoch.IndexedID, MappedEntity epoch.IndexedEntity[IndexedID]] struct {
@@ -57,8 +57,9 @@ func NewMarkerManager[IndexedID epoch.IndexedID, MappedEntity epoch.IndexedEntit
 
 // ProcessBlock returns the structure Details of a Block that are derived from the StructureDetails of its
 // strong and like parents.
-func (m *MarkerManager[IndexedID, MappedEntity]) ProcessBlock(block MappedEntity, structureDetails []*markers.StructureDetails, conflictIDs utxo.TransactionIDs) (newStructureDetails *markers.StructureDetails) {
-	newStructureDetails, newSequenceCreated := m.SequenceManager.InheritStructureDetails(structureDetails)
+func (m *MarkerManager[IndexedID, MappedEntity]) ProcessBlock(block MappedEntity, allParentsInPastEpoch bool, structureDetails []*markers.StructureDetails, conflictIDs utxo.TransactionIDs) (newStructureDetails *markers.StructureDetails) {
+	newStructureDetails, newSequenceCreated := m.SequenceManager.InheritStructureDetails(structureDetails, allParentsInPastEpoch)
+
 	if newStructureDetails.IsPastMarker() {
 		m.SequenceMutex.Lock(newStructureDetails.PastMarkers().Marker().SequenceID())
 		defer m.SequenceMutex.Unlock(newStructureDetails.PastMarkers().Marker().SequenceID())
@@ -73,9 +74,12 @@ func (m *MarkerManager[IndexedID, MappedEntity]) ProcessBlock(block MappedEntity
 			m.SetConflictIDs(newStructureDetails.PastMarkers().Marker(), conflictIDs)
 		}
 		m.addMarkerBlockMapping(newStructureDetails.PastMarkers().Marker(), block)
-
-		m.registerSequenceEviction(block.ID().Index(), newStructureDetails.PastMarkers().Marker().SequenceID())
 	}
+
+	newStructureDetails.PastMarkers().ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
+		m.registerSequenceEviction(block.ID().Index(), sequenceID)
+		return true
+	})
 
 	return newStructureDetails
 }

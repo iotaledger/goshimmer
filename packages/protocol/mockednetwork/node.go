@@ -7,13 +7,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/hive.go/core/crypto/ed25519"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/workerpool"
-
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
 	"github.com/iotaledger/goshimmer/packages/network"
@@ -30,6 +23,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/enginemanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage/utils"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/workerpool"
 )
 
 type Node struct {
@@ -181,8 +180,8 @@ func (n *Node) attachEngineLogs(instance *enginemanager.EngineInstance) {
 		fmt.Printf("%s > [%s] BlockDAG.BlockUnorphaned: %s\n", n.Name, engineName, block.ID())
 	})
 
-	event.Hook(events.Tangle.Booker.BlockBooked, func(block *booker.Block) {
-		fmt.Printf("%s > [%s] Booker.BlockBooked: %s\n", n.Name, engineName, block.ID())
+	event.Hook(events.Tangle.Booker.BlockBooked, func(evt *booker.BlockBookedEvent) {
+		fmt.Printf("%s > [%s] Booker.BlockBooked: %s\n", n.Name, engineName, evt.Block.ID())
 	})
 
 	event.Hook(events.Tangle.VirtualVoting.SequenceTracker.VotersUpdated, func(event *sequencetracker.VoterUpdatedEvent) {

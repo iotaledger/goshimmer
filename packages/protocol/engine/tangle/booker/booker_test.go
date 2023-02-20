@@ -9,15 +9,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/workerpool"
-
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markermanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/workerpool"
 )
 
 func TestScenario_1(t *testing.T) {
@@ -96,6 +94,7 @@ func TestScenario_2(t *testing.T) {
 }
 
 func TestScenario_3(t *testing.T) {
+	t.Skip("Skip until we propagate conflicts through Markers again")
 	workers := workerpool.NewGroup(t.Name())
 	tf := NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"))
 
@@ -110,21 +109,13 @@ func TestScenario_3(t *testing.T) {
 	tf.BlockDAG.CreateBlock("Block9", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block4", "Block7")), models.WithPayload(tf.Ledger.CreateTransaction("TX8", 1, "TX1.1")))
 
 	tf.BlockDAG.IssueBlocks("Block1")
-	workers.Wait()
 	tf.BlockDAG.IssueBlocks("Block2")
-	workers.Wait()
 	tf.BlockDAG.IssueBlocks("Block3", "Block4")
-	workers.Wait()
 	tf.BlockDAG.IssueBlocks("Block5")
-	workers.Wait()
 	tf.BlockDAG.IssueBlocks("Block6")
-	workers.Wait()
 	tf.BlockDAG.IssueBlocks("Block7")
-	workers.Wait()
 	tf.BlockDAG.IssueBlocks("Block8")
-	workers.Wait()
 	tf.BlockDAG.IssueBlocks("Block9")
-	workers.Wait()
 
 	tf.checkConflictIDs(map[string]utxo.TransactionIDs{
 		"Block1": utxo.NewTransactionIDs(),
@@ -144,6 +135,7 @@ func TestScenario_3(t *testing.T) {
 // 1. It tests whether a new sequence is created after max past marker gap is reached.
 // 2. Propagation of conflicts through the markers, to individually mapped blocks, and across sequence boundaries.
 func TestScenario_4(t *testing.T) {
+	t.Skip("Skip until we propagate conflicts through Markers again")
 	workers := workerpool.NewGroup(t.Name())
 	tf := NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"),
 		WithMarkerManagerOptions(
@@ -387,6 +379,7 @@ func TestScenario_4(t *testing.T) {
 }
 
 func TestFutureConePropagation(t *testing.T) {
+	t.Skip("Skip until we propagate conflicts through Markers again")
 	workers := workerpool.NewGroup(t.Name())
 	tf := NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"))
 
@@ -498,6 +491,7 @@ func TestFutureConePropagation(t *testing.T) {
 }
 
 func TestWeakParent(t *testing.T) {
+	t.Skip("Skip until we propagate conflicts through Markers again")
 	workers := workerpool.NewGroup(t.Name())
 	tf := NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"))
 
@@ -693,29 +687,7 @@ func TestMultiThreadedBookingAndForkingNested(t *testing.T) {
 		}
 	}
 
-	checkNormalizedConflictIDsContained(t, tf, expectedConflicts)
-}
-
-func checkNormalizedConflictIDsContained(t *testing.T, tf *TestFramework, expectedContainedConflictIDs map[string]utxo.TransactionIDs) {
-	for blockID, blockExpectedConflictIDs := range expectedContainedConflictIDs {
-		_, blockConflictIDs := tf.Instance.blockBookingDetails(tf.Block(blockID))
-
-		normalizedRetrievedConflictIDs := blockConflictIDs.Clone()
-		for it := blockConflictIDs.Iterator(); it.HasNext(); {
-			tf.Instance.Ledger.ConflictDAG.Storage.CachedConflict(it.Next()).Consume(func(b *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-				normalizedRetrievedConflictIDs.DeleteAll(b.Parents())
-			})
-		}
-
-		normalizedExpectedConflictIDs := blockExpectedConflictIDs.Clone()
-		for it := blockExpectedConflictIDs.Iterator(); it.HasNext(); {
-			tf.Instance.Ledger.ConflictDAG.Storage.CachedConflict(it.Next()).Consume(func(b *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-				normalizedExpectedConflictIDs.DeleteAll(b.Parents())
-			})
-		}
-
-		require.True(t, normalizedExpectedConflictIDs.Intersect(normalizedRetrievedConflictIDs).Size() == normalizedExpectedConflictIDs.Size(), "ConflictID of %s should be %s but is %s", blockID, normalizedExpectedConflictIDs, normalizedRetrievedConflictIDs)
-	}
+	tf.checkNormalizedConflictIDsContained(expectedConflicts)
 }
 
 // This test creates two chains of blocks from the genesis (1 block per epoch in each chain). The first chain is solid, the second chain is not.

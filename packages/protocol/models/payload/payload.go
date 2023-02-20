@@ -3,8 +3,9 @@ package payload
 import (
 	"context"
 
-	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/pkg/errors"
+
+	"github.com/iotaledger/hive.go/core/serix"
 )
 
 // MaxSize = MaxBlockSize -
@@ -32,7 +33,7 @@ type Payload interface {
 func TypeFromBytes(data []byte) (payloadType Type, consumedBytes int, err error) {
 	_, err = serix.DefaultAPI.Decode(context.Background(), data, &payloadType)
 	if err != nil {
-		err = errors.Errorf("failed to parse PayloadType (%v)", err)
+		err = errors.Wrap(err, "failed to parse PayloadType")
 		return
 	}
 

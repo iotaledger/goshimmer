@@ -4,12 +4,9 @@ package snapshot
 
 import (
 	"net/http"
-
 	"go.uber.org/dig"
-
-	"github.com/iotaledger/hive.go/core/node"
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/labstack/echo"
-
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 )
 

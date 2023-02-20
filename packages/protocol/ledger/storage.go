@@ -4,20 +4,19 @@ import (
 	"context"
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/kvstore"
-	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/pkg/errors"
 
+	"github.com/iotaledger/goshimmer/packages/core/database"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
 	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/cerrors"
 	"github.com/iotaledger/hive.go/core/generics/dataflow"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/objectstorage"
 	"github.com/iotaledger/hive.go/core/generics/walker"
-
-	"github.com/iotaledger/goshimmer/packages/core/database"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
+	"github.com/iotaledger/hive.go/core/kvstore"
+	"github.com/iotaledger/hive.go/core/serix"
 )
 
 // region storage //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -258,32 +257,58 @@ func (s *Storage) initConsumers(outputIDs utxo.OutputIDs, txID utxo.TransactionI
 // pruneTransaction removes a Transaction (and all of its dependencies) from the database.
 func (s *Storage) pruneTransaction(txID utxo.TransactionID, pruneFutureCone bool) {
 	for futureConeWalker := walker.New[utxo.TransactionID]().Push(txID); futureConeWalker.HasNext(); {
+		spentOutputsWithMetadata := make([]*OutputWithMetadata, 0)
+
 		currentTxID := futureConeWalker.Next()
 
 		s.CachedTransactionMetadata(currentTxID).Consume(func(txMetadata *TransactionMetadata) {
 			s.CachedTransaction(currentTxID).Consume(func(tx utxo.Transaction) {
 				for it := s.ledger.Utils.ResolveInputs(tx.Inputs()).Iterator(); it.HasNext(); {
-					s.consumerStorage.Delete(byteutils.ConcatBytes(lo.PanicOnErr(it.Next().Bytes()), lo.PanicOnErr(currentTxID.Bytes())))
-				}
+					inputID := it.Next()
 
+					s.CachedOutput(inputID).Consume(func(output utxo.Output) {
+						s.CachedOutputMetadata(inputID).Consume(func(outputMetadata *OutputMetadata) {
+							outputWithMetadata := NewOutputWithMetadata(outputMetadata.InclusionEpoch(), outputMetadata.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())
+							// TODO: we need to set the spent epoch here
+							spentOutputsWithMetadata = append(spentOutputsWithMetadata, outputWithMetadata)
+						})
+					})
+
+					s.consumerStorage.Delete(byteutils.ConcatBytes(lo.PanicOnErr(inputID.Bytes()), lo.PanicOnErr(currentTxID.Bytes())))
+				}
 				tx.Delete()
 			})
 
 			createdOutputIDs := txMetadata.OutputIDs()
+			createdOutputsWithMetadata := make([]*OutputWithMetadata, 0, createdOutputIDs.Size())
 			for it := createdOutputIDs.Iterator(); it.HasNext(); {
-				outputIDBytes := lo.PanicOnErr(it.Next().Bytes())
+				outputID := it.Next()
+				outputIDBytes := lo.PanicOnErr(outputID.Bytes())
+
+				s.CachedOutput(outputID).Consume(func(output utxo.Output) {
+					s.CachedOutputMetadata(outputID).Consume(func(outputMetadata *OutputMetadata) {
+						// TODO: inclusion epoch is not set here
+						createdOutputsWithMetadata = append(createdOutputsWithMetadata, NewOutputWithMetadata(outputMetadata.InclusionEpoch(), outputMetadata.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
+					})
+				})
 
 				s.OutputStorage.Delete(outputIDBytes)
 				s.OutputMetadataStorage.Delete(outputIDBytes)
 			}
+
+			txMetadata.Delete()
+
+			s.ledger.Events.TransactionOrphaned.Trigger(&TransactionEvent{
+				Metadata:       txMetadata,
+				CreatedOutputs: createdOutputsWithMetadata,
+				SpentOutputs:   spentOutputsWithMetadata,
+			})
 
 			if pruneFutureCone {
 				s.ledger.Utils.WalkConsumingTransactionID(createdOutputIDs, func(consumingTxID utxo.TransactionID, walker *walker.Walker[utxo.OutputID]) {
 					futureConeWalker.Push(consumingTxID)
 				})
 			}
-
-			txMetadata.Delete()
 		})
 	}
 }

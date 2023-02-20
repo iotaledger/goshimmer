@@ -5,17 +5,17 @@ import (
 	"io"
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/kvstore"
-	"github.com/iotaledger/hive.go/core/types"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/ads"
+	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/stream"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/hive.go/core/kvstore"
+	"github.com/iotaledger/hive.go/core/types"
 )
 
 type UnspentOutputsConsumer interface {

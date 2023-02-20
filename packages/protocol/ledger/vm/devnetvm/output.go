@@ -9,6 +9,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
+	"golang.org/x/crypto/blake2b"
+
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/hive.go/core/bitmask"
 	"github.com/iotaledger/hive.go/core/cerrors"
 	"github.com/iotaledger/hive.go/core/generics/lo"
@@ -19,10 +23,6 @@ import (
 	"github.com/iotaledger/hive.go/core/stringify"
 	"github.com/iotaledger/hive.go/core/types"
 	"github.com/iotaledger/hive.go/core/typeutils"
-	"github.com/pkg/errors"
-	"golang.org/x/crypto/blake2b"
-
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
 func init() {

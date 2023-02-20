@@ -6,17 +6,18 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/hive.go/core/configuration"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/logger"
-	"github.com/iotaledger/hive.go/core/workerpool"
-
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/filter"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/app/configuration"
+	"github.com/iotaledger/hive.go/app/logger"
+	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/workerpool"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -42,7 +43,16 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...option
 		optsRateSetter: rateSetterOpts,
 		optsNumIssuers: 1,
 	}, opts, func(t *TestFramework) {
-		p := protocol.NewTestFramework(t.test, workers.CreateGroup("Protocol"), new(ledger.MockedVM), protocol.WithProtocolOptions(protocol.WithCongestionControlOptions(congestioncontrol.WithSchedulerOptions(t.optsScheduler...))))
+		p := protocol.NewTestFramework(t.test, workers.CreateGroup("Protocol"), new(ledger.MockedVM), protocol.WithProtocolOptions(
+			protocol.WithCongestionControlOptions(
+				congestioncontrol.WithSchedulerOptions(t.optsScheduler...),
+			),
+			protocol.WithEngineOptions(
+				engine.WithFilterOptions(
+					filter.WithSignatureValidation(false),
+				),
+			),
+		))
 		t.Protocol = p
 		p.Instance.Run()
 		for i := 0; i < t.optsNumIssuers; i++ {

@@ -3,16 +3,15 @@ package block
 import (
 	"net/http"
 
-	"github.com/iotaledger/hive.go/core/node"
 	"github.com/labstack/echo"
 	"github.com/pkg/errors"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
-	"github.com/iotaledger/goshimmer/packages/app/chat"
 	"github.com/iotaledger/goshimmer/packages/app/faucet"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/app/retainer"
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
@@ -208,14 +207,14 @@ func blockIDFromContext(c echo.Context) (blockID models.BlockID, err error) {
 }
 
 // sequenceIDFromContext determines the sequenceID from the sequenceID parameter in an echo.Context.
-//func sequenceIDFromContext(c echo.Context) (id markers.SequenceID, err error) {
+// func sequenceIDFromContext(c echo.Context) (id markers.SequenceID, err error) {
 //	sequenceIDInt, err := strconv.Atoi(c.Param("sequenceID"))
 //	if err != nil {
 //		return
 //	}
 //
 //	return markers.SequenceID(sequenceIDInt), nil
-//}
+// }
 
 func payloadFromBytes(payloadBytes []byte) (parsedPayload payload.Payload, err error) {
 	dptype, _, err := payload.TypeFromBytes(payloadBytes)
@@ -247,14 +246,6 @@ func payloadFromBytes(payloadBytes []byte) (parsedPayload payload.Payload, err e
 			return nil, err
 		}
 		parsedPayload = req
-
-	case chat.Type:
-		content := &chat.Payload{}
-		_, err = content.FromBytes(payloadBytes)
-		if err != nil {
-			return nil, err
-		}
-		parsedPayload = content
 	default:
 		return nil, errors.New("unknown payload type")
 	}

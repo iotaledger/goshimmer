@@ -5,15 +5,14 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/votes"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
-
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/votes"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////

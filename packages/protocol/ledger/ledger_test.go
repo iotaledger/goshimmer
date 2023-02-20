@@ -10,10 +10,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/hive.go/core/types/confirmation"
-	"github.com/iotaledger/hive.go/core/workerpool"
-
+	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/hive.go/core/workerpool"
 )
 
 func TestLedger_BookInOrder(t *testing.T) {

@@ -4,13 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/debug"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
-	"github.com/iotaledger/hive.go/core/workerpool"
-
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
@@ -20,6 +13,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/core/debug"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
+	"github.com/iotaledger/hive.go/core/workerpool"
 )
 
 func TestOTV_Track(t *testing.T) {
@@ -33,9 +32,10 @@ func TestOTV_Track(t *testing.T) {
 
 	workers := workerpool.NewGroup(t.Name())
 
+	storageInstance := blockdag.NewTestStorage(t, workers)
 	tf := NewTestFramework(t, workers.CreateGroup("VirtualVotingTestFramework"), New(workers.CreateGroup("VirtualVoting"),
 		booker.New(workers.CreateGroup("Booker"),
-			blockdag.NewTestBlockDAG(t, workers.CreateGroup("BlockDAG"), eviction.NewState(blockdag.NewTestStorage(t, workers))),
+			blockdag.NewTestBlockDAG(t, workers.CreateGroup("BlockDAG"), eviction.NewState(storageInstance), storageInstance.Commitments.Load),
 			ledger.NewTestLedger(t, workers.CreateGroup("Ledger")),
 			booker.WithMarkerManagerOptions(
 				markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](

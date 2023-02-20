@@ -3,13 +3,13 @@ package weightprovider
 import (
 	"net/http"
 
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/node"
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/identity"
 )
 
 var (

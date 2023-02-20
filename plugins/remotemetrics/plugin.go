@@ -7,24 +7,22 @@ import (
 	"context"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/autopeering/peer"
-	"github.com/iotaledger/hive.go/core/generics/event"
+	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/app/remotemetrics"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-
-	"github.com/iotaledger/goshimmer/packages/app/remotemetrics"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
-
-	"github.com/iotaledger/hive.go/core/daemon"
-	"github.com/iotaledger/hive.go/core/node"
+	"github.com/iotaledger/hive.go/app/daemon"
+	"github.com/iotaledger/hive.go/core/autopeering/peer"
+	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/timeutil"
-	"go.uber.org/dig"
 )
 
 const (
@@ -124,18 +122,17 @@ func configureConflictConfirmationMetrics() {
 		return
 	}
 
-	deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictAccepted.Attach(event.NewClosure(func(conflictID utxo.TransactionID) {
-		onConflictConfirmed(conflictID)
+	deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictAccepted.Attach(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+		onConflictConfirmed(conflict.ID())
 	}))
 
-	deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictCreated.Attach(event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
+	deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictCreated.Attach(event.NewClosure(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		activeConflictsMutex.Lock()
 		defer activeConflictsMutex.Unlock()
 
-		conflictID := event.ID
-		if !activeConflicts.Has(conflictID) {
+		if !activeConflicts.Has(conflict.ID()) {
 			conflictTotalCountDB.Inc()
-			activeConflicts.Add(conflictID)
+			activeConflicts.Add(conflict.ID())
 			sendConflictMetrics()
 		}
 	}))

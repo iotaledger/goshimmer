@@ -3,10 +3,6 @@ package tangle
 import (
 	"testing"
 
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
-	"github.com/iotaledger/hive.go/core/workerpool"
-
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
@@ -16,6 +12,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
+	"github.com/iotaledger/hive.go/core/workerpool"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -32,11 +31,14 @@ type TestFramework struct {
 }
 
 func NewTestTangle(t *testing.T, workers *workerpool.Group, ledger *ledger.Ledger, validators *sybilprotection.WeightedSet, optsTangle ...options.Option[Tangle]) *Tangle {
-	tangle := New(workers, ledger, eviction.NewState(blockdag.NewTestStorage(t, workers)), validators, func() epoch.Index {
+	storageInstance := blockdag.NewTestStorage(t, workers)
+
+	tangle := New(workers, ledger, eviction.NewState(storageInstance), validators, func() epoch.Index {
 		return 0
 	}, func(id markers.SequenceID) markers.Index {
 		return 1
-	}, optsTangle...)
+	}, storageInstance.Commitments.Load,
+		optsTangle...)
 
 	return tangle
 }

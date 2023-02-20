@@ -3,13 +3,12 @@ package indexer
 import (
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/hive.go/core/cerrors"
-	"github.com/iotaledger/hive.go/core/generics/objectstorage"
-
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/hive.go/core/cerrors"
+	"github.com/iotaledger/hive.go/core/generics/objectstorage"
 )
 
 // region Indexer //////////////////////////////////////////////////////////////////////////////////////////////////////

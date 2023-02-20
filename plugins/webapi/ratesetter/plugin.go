@@ -3,12 +3,12 @@ package ratesetter
 import (
 	"net/http"
 
-	"github.com/iotaledger/hive.go/core/node"
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/node"
 )
 
 // PluginName is the name of the web API info endpoint plugin.

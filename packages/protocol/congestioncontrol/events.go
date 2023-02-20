@@ -1,9 +1,8 @@
 package congestioncontrol
 
 import (
-	"github.com/iotaledger/hive.go/core/generics/event"
-
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
+	"github.com/iotaledger/hive.go/core/generics/event"
 )
 
 type Events struct {

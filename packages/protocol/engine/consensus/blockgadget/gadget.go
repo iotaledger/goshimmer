@@ -5,12 +5,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/generics/walker"
-	"github.com/iotaledger/hive.go/core/workerpool"
-
 	"github.com/iotaledger/goshimmer/packages/core/causalorder"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
@@ -20,8 +14,14 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/generics/walker"
+	"github.com/iotaledger/hive.go/core/workerpool"
 )
 
 // region Gadget ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -176,6 +176,10 @@ func (a *Gadget) RefreshSequence(sequenceID markers.SequenceID, newMaxSupportedI
 
 	totalWeight := a.totalWeightCallback()
 
+	if lastAcceptedIndex, exists := a.lastAcceptedMarker.Get(sequenceID); exists {
+		prevMaxSupportedIndex = lo.Max(prevMaxSupportedIndex, lastAcceptedIndex)
+	}
+
 	for markerIndex := prevMaxSupportedIndex; markerIndex <= newMaxSupportedIndex; markerIndex++ {
 		marker, markerExists := a.tangle.Booker.BlockCeiling(markers.NewMarker(sequenceID, markerIndex))
 		if !markerExists {
@@ -243,9 +247,11 @@ func (a *Gadget) setup() {
 	event.AttachWithWorkerPool(a.tangle.VirtualVoting.Events.SequenceTracker.VotersUpdated, func(evt *sequencetracker.VoterUpdatedEvent) {
 		a.RefreshSequence(evt.SequenceID, evt.NewMaxSupportedIndex, evt.PrevMaxSupportedIndex)
 	}, wp)
-	event.AttachWithWorkerPool(a.tangle.VirtualVoting.Events.ConflictTracker.VoterAdded, func(evt *conflicttracker.VoterEvent[utxo.TransactionID]) {
+
+	event.Hook(a.tangle.VirtualVoting.Events.ConflictTracker.VoterAdded, func(evt *conflicttracker.VoterEvent[utxo.TransactionID]) {
 		a.RefreshConflictAcceptance(evt.ConflictID)
-	}, wp)
+	})
+
 	event.AttachWithWorkerPool(a.tangle.Booker.Events.MarkerManager.SequenceEvicted, a.evictSequence, wp)
 }
 
@@ -310,10 +316,6 @@ func (a *Gadget) propagateAcceptanceConfirmation(marker markers.Marker, confirme
 }
 
 func (a *Gadget) markAsAccepted(block *Block) (err error) {
-	if a.evictionState.IsRootBlock(block.ID()) {
-		return
-	}
-
 	if a.evictionState.InEvictedEpoch(block.ID()) {
 		return errors.Errorf("block with %s belongs to an evicted epoch", block.ID())
 	}
@@ -348,6 +350,8 @@ func (a *Gadget) markAsConfirmed(block *Block) (err error) {
 }
 
 func (a *Gadget) setMarkerAccepted(marker markers.Marker) (wasUpdated bool) {
+	// This method can be called from multiple goroutines and we need to update the value atomically.
+	// However, when reading lastAcceptedMarker we don't need to lock because the storage is already locking.
 	a.lastAcceptedMarkerMutex.Lock()
 	defer a.lastAcceptedMarkerMutex.Unlock()
 
@@ -359,6 +363,8 @@ func (a *Gadget) setMarkerAccepted(marker markers.Marker) (wasUpdated bool) {
 }
 
 func (a *Gadget) setMarkerConfirmed(marker markers.Marker) (wasUpdated bool) {
+	// This method can be called from multiple goroutines and we need to update the value atomically.
+	// However, when reading lastConfirmedMarker we don't need to lock because the storage is already locking.
 	a.lastConfirmedMarkerMutex.Lock()
 	defer a.lastConfirmedMarkerMutex.Unlock()
 
@@ -381,13 +387,8 @@ func (a *Gadget) evictSequence(sequenceID markers.SequenceID) {
 	a.evictionMutex.Lock()
 	defer a.evictionMutex.Unlock()
 
-	if !a.lastAcceptedMarker.Delete(sequenceID) {
-		a.Events.Error.Trigger(errors.Errorf("could not evict last accepted marker of sequenceID=%s", sequenceID))
-	}
-
-	if !a.lastConfirmedMarker.Delete(sequenceID) {
-		a.Events.Error.Trigger(errors.Errorf("could not evict last confirmed marker of sequenceID=%s", sequenceID))
-	}
+	a.lastAcceptedMarker.Delete(sequenceID)
+	a.lastConfirmedMarker.Delete(sequenceID)
 }
 
 func (a *Gadget) getOrRegisterBlock(blockID models.BlockID) (block *Block, exists bool) {
@@ -426,6 +427,11 @@ func (a *Gadget) registerBlock(virtualVotingBlock *virtualvoting.Block) (block *
 // region Conflict Acceptance //////////////////////////////////////////////////////////////////////////////////////////
 
 func (a *Gadget) RefreshConflictAcceptance(conflictID utxo.TransactionID) {
+	conflict, exists := a.tangle.Booker.Ledger.ConflictDAG.Conflict(conflictID)
+	if !exists {
+		return
+	}
+
 	conflictWeight := a.tangle.VirtualVoting.ConflictVotersTotalWeight(conflictID)
 
 	if !IsThresholdReached(a.tangle.VirtualVoting.Validators.TotalWeight(), conflictWeight, a.optsConflictAcceptanceThreshold) {
@@ -433,32 +439,16 @@ func (a *Gadget) RefreshConflictAcceptance(conflictID utxo.TransactionID) {
 	}
 
 	markAsAccepted := true
-	isOtherConflictAccepted := false
-	var otherAcceptedConflict utxo.TransactionID
 
-	a.tangle.Booker.Ledger.ConflictDAG.Utils.ForEachConflictingConflictID(conflictID, func(conflictingConflictID utxo.TransactionID) bool {
-		// check if another conflict is accepted, to evaluate reorg condition
-		if !isOtherConflictAccepted && a.tangle.Booker.Ledger.ConflictDAG.ConfirmationState(set.NewAdvancedSet(conflictingConflictID)).IsAccepted() {
-			isOtherConflictAccepted = true
-			otherAcceptedConflict = conflictingConflictID
-		}
-
-		conflictingConflictWeight := a.tangle.VirtualVoting.ConflictVotersTotalWeight(conflictingConflictID)
+	conflict.ForEachConflictingConflict(func(conflictingConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) bool {
+		conflictingConflictWeight := a.tangle.VirtualVoting.ConflictVotersTotalWeight(conflictingConflict.ID())
 
 		// if the conflict is less than 66% ahead, then don't mark as accepted
 		if !IsThresholdReached(a.tangle.VirtualVoting.Validators.TotalWeight(), conflictWeight-conflictingConflictWeight, a.optsConflictAcceptanceThreshold) {
 			markAsAccepted = false
 		}
-
 		return markAsAccepted
 	})
-
-	// check if previously accepted conflict is different from the newly accepted one, then trigger the reorg
-	if markAsAccepted && isOtherConflictAccepted {
-		a.Events.Error.Trigger(errors.Errorf("conflictID %s needs to be reorg-ed, but functionality not implemented yet!", conflictID))
-		a.Events.Reorg.Trigger(otherAcceptedConflict)
-		return
-	}
 
 	if markAsAccepted {
 		a.tangle.Booker.Ledger.ConflictDAG.SetConflictAccepted(conflictID)

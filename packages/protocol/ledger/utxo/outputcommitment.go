@@ -3,12 +3,13 @@ package utxo
 import (
 	"context"
 
+	"github.com/pkg/errors"
+	"gitlab.com/NebulousLabs/merkletree/merkletree-blake"
+
 	"github.com/iotaledger/hive.go/core/cerrors"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/types"
-	"github.com/pkg/errors"
-	"gitlab.com/NebulousLabs/merkletree/merkletree-blake"
 )
 
 // region OutputCommitment /////////////////////////////////////////////////////////////////////////////////////////////

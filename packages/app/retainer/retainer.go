@@ -3,13 +3,6 @@ package retainer
 import (
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/kvstore"
-	"github.com/iotaledger/hive.go/core/syncutils"
-	"github.com/iotaledger/hive.go/core/workerpool"
-
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
@@ -21,6 +14,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/kvstore"
+	"github.com/iotaledger/hive.go/core/syncutils"
+	"github.com/iotaledger/hive.go/core/workerpool"
 )
 
 type Retainer struct {
@@ -141,11 +140,11 @@ func (r *Retainer) setupEvents() {
 		}
 	}, r.workerPool)
 
-	event.AttachWithWorkerPool(r.protocol.Events.Engine.Tangle.Booker.BlockBooked, func(block *booker.Block) {
-		if cm := r.createOrGetCachedMetadata(block.ID()); cm != nil {
-			cm.setBookerBlock(block)
+	event.AttachWithWorkerPool(r.protocol.Events.Engine.Tangle.Booker.BlockBooked, func(evt *booker.BlockBookedEvent) {
+		if cm := r.createOrGetCachedMetadata(evt.Block.ID()); cm != nil {
+			cm.setBookerBlock(evt.Block)
 			cm.Lock()
-			cm.ConflictIDs = r.protocol.Engine().Tangle.Booker.BlockConflicts(block)
+			cm.ConflictIDs = evt.ConflictIDs
 			cm.Unlock()
 		}
 	}, r.workerPool)

@@ -6,14 +6,13 @@ import (
 	"github.com/pkg/errors"
 	"github.com/zyedidia/generic/cache"
 
+	"github.com/iotaledger/goshimmer/packages/core/ads"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/iotaledger/hive.go/core/types"
-
-	"github.com/iotaledger/goshimmer/packages/core/ads"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
 
 const cacheSize = 1000
@@ -165,13 +164,17 @@ func (w *Weights) Map() (weights map[identity.ID]int64, err error) {
 
 func (w *Weights) get(id identity.ID) (weight *Weight, exists bool) {
 	if weight, exists = w.getFromCache(id); exists {
+		if weight.UpdateTime == -1 {
+			return weight, false
+		}
 		return weight, exists
 	}
 
 	weight, exists = w.weights.Get(id)
-	if exists {
-		w.setCache(id, weight)
+	if !exists {
+		weight = NewWeight(0, -1)
 	}
+	w.setCache(id, weight)
 
 	return weight, exists
 }

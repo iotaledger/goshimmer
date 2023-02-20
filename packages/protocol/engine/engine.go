@@ -8,11 +8,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/workerpool"
-
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/eventticker"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
@@ -30,10 +25,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tsc"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/workerpool"
 )
 
 // region Engine /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -68,6 +65,7 @@ type Engine struct {
 	optsConsensusOptions           []options.Option[consensus.Consensus]
 	optsTSCManagerOptions          []options.Option[tsc.Manager]
 	optsBlockRequester             []options.Option[eventticker.EventTicker[models.BlockID]]
+	optsFilter                     []options.Option[filter.Filter]
 
 	traits.Constructable
 	traits.Initializable
@@ -85,6 +83,7 @@ func New(
 		&Engine{
 			Events:        NewEvents(),
 			Storage:       storageInstance,
+			EvictionState: eviction.NewState(storageInstance),
 			Constructable: traits.NewConstructable(),
 			Stoppable:     traits.NewStoppable(),
 			Workers:       workers,
@@ -95,7 +94,6 @@ func New(
 			e.Ledger = ledger.New(workers.CreatePool("Pool", 2), e.Storage, e.optsLedgerOptions...)
 			e.LedgerState = ledgerstate.New(storageInstance, e.Ledger)
 			e.Clock = clock.New()
-			e.EvictionState = eviction.NewState(storageInstance)
 			e.SybilProtection = sybilProtection(e)
 			e.ThroughputQuota = throughputQuota(e)
 			e.NotarizationManager = notarization.NewManager(e.Storage, e.LedgerState, e.SybilProtection.Weights(), e.optsNotarizationManagerOptions...)
@@ -263,7 +261,7 @@ func (e *Engine) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (err err
 }
 
 func (e *Engine) initFilter() {
-	e.Filter = filter.New(filter.WithMinCommittableEpochAge(e.NotarizationManager.MinCommittableEpochAge()))
+	e.Filter = filter.New(e.optsFilter...)
 
 	event.AttachWithWorkerPool(e.Filter.Events.BlockFiltered, func(filteredEvent *filter.BlockFilteredEvent) {
 		e.Events.Error.Trigger(errors.Wrapf(filteredEvent.Reason, "block (%s) filtered", filteredEvent.Block.ID()))
@@ -277,7 +275,7 @@ func (e *Engine) initLedger() {
 }
 
 func (e *Engine) initTangle() {
-	e.Tangle = tangle.New(e.Workers.CreateGroup("Tangle"), e.Ledger, e.EvictionState, e.SybilProtection.Validators(), e.LastConfirmedEpoch, e.FirstUnacceptedMarker, e.optsTangleOptions...)
+	e.Tangle = tangle.New(e.Workers.CreateGroup("Tangle"), e.Ledger, e.EvictionState, e.SybilProtection.Validators(), e.LastConfirmedEpoch, e.FirstUnacceptedMarker, e.Storage.Commitments.Load, e.optsTangleOptions...)
 
 	event.AttachWithWorkerPool(e.Events.Filter.BlockAllowed, func(block *models.Block) {
 		if _, _, err := e.Tangle.BlockDAG.Attach(block); err != nil {
@@ -332,12 +330,13 @@ func (e *Engine) initClock() {
 func (e *Engine) initTSCManager() {
 	e.TSCManager = tsc.New(e.Consensus.BlockGadget.IsBlockAccepted, e.Tangle, e.optsTSCManagerOptions...)
 
-	wp := e.Workers.CreatePool("TSCManager", 1) // Using just 1 worker to avoid contention
+	// wp := e.Workers.CreatePool("TSCManager", 1) // Using just 1 worker to avoid contention
 
-	event.AttachWithWorkerPool(e.Events.Tangle.Booker.BlockBooked, e.TSCManager.AddBlock, wp)
-	event.AttachWithWorkerPool(e.Events.Clock.AcceptanceTimeUpdated, func(event *clock.TimeUpdateEvent) {
-		e.TSCManager.HandleTimeUpdate(event.NewTime)
-	}, wp)
+	// TODO: enable TSC again
+	// event.AttachWithWorkerPool(e.Events.Tangle.Booker.BlockBooked, e.TSCManager.AddBlock, wp)
+	// event.AttachWithWorkerPool(e.Events.Clock.AcceptanceTimeUpdated, func(event *clock.TimeUpdateEvent) {
+	// 	e.TSCManager.HandleTimeUpdate(event.NewTime)
+	// }, wp)
 }
 
 func (e *Engine) initBlockStorage() {
@@ -362,7 +361,7 @@ func (e *Engine) initNotarizationManager() {
 	wpBlocks := e.Workers.CreatePool("NotarizationManager.Blocks", 1)           // Using just 1 worker to avoid contention
 	wpCommitments := e.Workers.CreatePool("NotarizationManager.Commitments", 1) // Using just 1 worker to avoid contention
 
-	// EpochMutations must be hooked
+	// EpochMutations must be hooked because inclusion might be added before transaction are added.
 	event.Hook(e.Ledger.Events.TransactionAccepted, func(event *ledger.TransactionEvent) {
 		if err := e.NotarizationManager.EpochMutations.AddAcceptedTransaction(event.Metadata); err != nil {
 			e.Events.Error.Trigger(errors.Wrapf(err, "failed to add accepted transaction %s to epoch", event.Metadata.ID()))
@@ -374,29 +373,11 @@ func (e *Engine) initNotarizationManager() {
 		}
 	})
 
-	// ConflictDAG conflicts must be hooked
-	event.Hook(e.Ledger.ConflictDAG.Events.ConflictCreated, func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
-		e.NotarizationManager.IncreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.Booker.GetEarliestAttachment(event.ID).IssuingTime()))
-	})
-	event.Hook(e.Ledger.ConflictDAG.Events.ConflictAccepted, func(conflictID utxo.TransactionID) {
-		e.NotarizationManager.DecreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.Booker.GetEarliestAttachment(conflictID).IssuingTime()))
-	})
-	event.Hook(e.Ledger.ConflictDAG.Events.ConflictRejected, func(conflictID utxo.TransactionID) {
-		e.NotarizationManager.DecreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.Booker.GetEarliestAttachment(conflictID).IssuingTime()))
-	})
-
 	event.AttachWithWorkerPool(e.Consensus.BlockGadget.Events.BlockAccepted, func(block *blockgadget.Block) {
 		if err := e.NotarizationManager.NotarizeAcceptedBlock(block.ModelsBlock); err != nil {
 			e.Events.Error.Trigger(errors.Wrapf(err, "failed to add accepted block %s to epoch", block.ID()))
 		}
 	}, wpBlocks)
-	event.AttachWithWorkerPool(e.Tangle.Events.BlockDAG.BlockOrphaned, func(block *blockdag.Block) {
-		if err := e.NotarizationManager.NotarizeOrphanedBlock(block.ModelsBlock); err != nil {
-			e.Events.Error.Trigger(errors.Wrapf(err, "failed to remove orphaned block %s from epoch", block.ID()))
-		}
-	}, wpBlocks)
-
-	// TODO: add transaction orphaned event
 
 	// Epochs are committed whenever ATT advances, start committing only when bootstrapped.
 	event.AttachWithWorkerPool(e.Clock.Events.AcceptanceTimeUpdated, func(event *clock.TimeUpdateEvent) {
@@ -478,13 +459,13 @@ func WithBootstrapThreshold(threshold time.Duration) options.Option[Engine] {
 
 func WithTangleOptions(opts ...options.Option[tangle.Tangle]) options.Option[Engine] {
 	return func(e *Engine) {
-		e.optsTangleOptions = opts
+		e.optsTangleOptions = append(e.optsTangleOptions, opts...)
 	}
 }
 
 func WithConsensusOptions(opts ...options.Option[consensus.Consensus]) options.Option[Engine] {
 	return func(e *Engine) {
-		e.optsConsensusOptions = opts
+		e.optsConsensusOptions = append(e.optsConsensusOptions, opts...)
 	}
 }
 
@@ -496,19 +477,25 @@ func WithEntryPointsDepth(entryPointsDepth int) options.Option[Engine] {
 
 func WithTSCManagerOptions(opts ...options.Option[tsc.Manager]) options.Option[Engine] {
 	return func(e *Engine) {
-		e.optsTSCManagerOptions = opts
+		e.optsTSCManagerOptions = append(e.optsTSCManagerOptions, opts...)
 	}
 }
 
 func WithLedgerOptions(opts ...options.Option[ledger.Ledger]) options.Option[Engine] {
 	return func(e *Engine) {
-		e.optsLedgerOptions = opts
+		e.optsLedgerOptions = append(e.optsLedgerOptions, opts...)
+	}
+}
+
+func WithFilterOptions(opts ...options.Option[filter.Filter]) options.Option[Engine] {
+	return func(e *Engine) {
+		e.optsFilter = append(e.optsFilter, opts...)
 	}
 }
 
 func WithNotarizationManagerOptions(opts ...options.Option[notarization.Manager]) options.Option[Engine] {
 	return func(e *Engine) {
-		e.optsNotarizationManagerOptions = opts
+		e.optsNotarizationManagerOptions = append(e.optsNotarizationManagerOptions, opts...)
 	}
 }
 
@@ -520,7 +507,7 @@ func WithSnapshotDepth(depth int) options.Option[Engine] {
 
 func WithRequesterOptions(opts ...options.Option[eventticker.EventTicker[models.BlockID]]) options.Option[Engine] {
 	return func(e *Engine) {
-		e.optsBlockRequester = opts
+		e.optsBlockRequester = append(e.optsBlockRequester, opts...)
 	}
 }
 

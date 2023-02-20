@@ -3,7 +3,6 @@ export enum PayloadType {
     Transaction = 1,
     NetworkDelay = 3,
     Faucet = 4,
-    Chat = 5,
 }
 
 // BasicPayload
@@ -23,13 +22,6 @@ export class FaucetPayload {
     accessManaPledgeID: string;
     consensusManaPledgeID: string;
     nonce: number;
-}
-
-// Chat payload
-export class ChatPayload {
-    from: string;
-    to: string;
-    block: string;
 }
 
 export class Transaction {
@@ -136,8 +128,6 @@ export function getPayloadType(p: number){
             return "Network Delay"
         case PayloadType.Faucet:
             return "Faucet"
-        case PayloadType.Chat:
-            return "Chat"
         default:
             return "Unknown"
     }

@@ -7,16 +7,18 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/core/database"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/types"
 	"github.com/iotaledger/hive.go/core/workerpool"
-
-	"github.com/iotaledger/goshimmer/packages/core/database"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
-	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -50,9 +52,9 @@ func NewTestStorage(t *testing.T, workers *workerpool.Group, opts ...options.Opt
 	return s
 }
 
-func NewTestBlockDAG(t *testing.T, workers *workerpool.Group, evictionState *eviction.State, optsBlockDAG ...options.Option[BlockDAG]) *BlockDAG {
+func NewTestBlockDAG(t *testing.T, workers *workerpool.Group, evictionState *eviction.State, commitmentLoadFunc func(index epoch.Index) (commitment *commitment.Commitment, err error), optsBlockDAG ...options.Option[BlockDAG]) *BlockDAG {
 	require.NotNil(t, evictionState)
-	return New(workers, evictionState, optsBlockDAG...)
+	return New(workers, evictionState, commitmentLoadFunc, optsBlockDAG...)
 }
 
 // NewTestFramework is the constructor of the TestFramework.
@@ -74,7 +76,8 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, blockDAG *Bloc
 }
 
 func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, optsBlockDAG ...options.Option[BlockDAG]) *TestFramework {
-	return NewTestFramework(t, workers.CreateGroup("BlockDAGTestFramework"), NewTestBlockDAG(t, workers.CreateGroup("BlockDAG"), eviction.NewState(NewTestStorage(t, workers)), optsBlockDAG...))
+	storageInstance := NewTestStorage(t, workers)
+	return NewTestFramework(t, workers.CreateGroup("BlockDAGTestFramework"), NewTestBlockDAG(t, workers.CreateGroup("BlockDAG"), eviction.NewState(storageInstance), DefaultCommitmentFunc, optsBlockDAG...))
 }
 
 // IssueBlocks stores the given Blocks in the Storage and triggers the processing by the BlockDAG.
@@ -233,6 +236,10 @@ func (t *TestFramework) setupEvents() {
 
 		t.orphanedBlocks.Remove(metadata.ID())
 	})
+}
+
+func DefaultCommitmentFunc(index epoch.Index) (cm *commitment.Commitment, err error) {
+	return commitment.New(index, commitment.NewID(1, []byte{}), types.NewIdentifier([]byte{}), 0), nil
 }
 
 // ModelsTestFramework is an alias that it is used to be able to embed a named version of the TestFramework.

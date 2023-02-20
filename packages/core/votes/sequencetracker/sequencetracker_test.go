@@ -3,15 +3,14 @@ package sequencetracker
 import (
 	"testing"
 
+	"github.com/iotaledger/goshimmer/packages/core/votes"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
-
-	"github.com/iotaledger/goshimmer/packages/core/votes"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 )
 
 // TestSequenceTracker_TrackVotes tests the SequenceTracker's functionality regarding tracking sequence votes.

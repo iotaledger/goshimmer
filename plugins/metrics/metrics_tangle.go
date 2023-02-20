@@ -3,8 +3,6 @@ package metrics
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
-
 	"github.com/iotaledger/goshimmer/packages/app/collector"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
@@ -12,6 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/core/generics/event"
 )
 
 const (
@@ -93,7 +92,7 @@ var TangleMetrics = collector.NewCollection(tangleNamespace,
 			deps.Protocol.Events.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
 				deps.Collector.Increment(tangleNamespace, blocksPerComponentCount, collector.Scheduled.String())
 			}))
-			deps.Protocol.Events.Engine.Tangle.Booker.BlockBooked.Attach(event.NewClosure(func(block *booker.Block) {
+			deps.Protocol.Events.Engine.Tangle.Booker.BlockBooked.Attach(event.NewClosure(func(_ *booker.BlockBookedEvent) {
 				deps.Collector.Increment(tangleNamespace, blocksPerComponentCount, collector.Booked.String())
 			}))
 			deps.Protocol.Events.CongestionControl.Scheduler.BlockDropped.Attach(event.NewClosure(func(block *scheduler.Block) {

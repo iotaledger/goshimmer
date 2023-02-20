@@ -4,11 +4,10 @@ import (
 	"fmt"
 	"sync/atomic"
 
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
-
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////

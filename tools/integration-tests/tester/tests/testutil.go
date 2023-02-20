@@ -7,11 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/crypto/ed25519"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -19,10 +14,15 @@ import (
 
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/identity"
 )
 
 var faucetPoWDifficulty = framework.PeerConfig().Faucet.PowDifficulty
@@ -612,10 +612,10 @@ func RequireConfirmationStateEqual(t *testing.T, nodes framework.Nodes, expected
 				// the confirmation state can change, so we should check all transactions every time
 				stateEqual, confirmationState := txMetadataStateEqual(t, node, txID, expInclState)
 				if !stateEqual {
-					t.Logf("Current ConfirmationState for txId %s is %s", txID, confirmationState)
+					t.Logf("Current ConfirmationState for txId %s is %s on %s", txID, confirmationState, node.Name())
 					return false
 				}
-				t.Logf("Current ConfirmationState for txId %s is %s", txID, confirmationState)
+				t.Logf("Current ConfirmationState for txId %s is %s on %s", txID, confirmationState, node.Name())
 
 			}
 		}

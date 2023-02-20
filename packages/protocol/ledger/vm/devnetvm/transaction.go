@@ -7,6 +7,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
+
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
+	"github.com/iotaledger/goshimmer/packages/protocol/models/payloadtype"
 	"github.com/iotaledger/hive.go/core/cerrors"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/model"
@@ -14,11 +19,6 @@ import (
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/types"
 	"github.com/iotaledger/hive.go/serializer/v2"
-	"github.com/pkg/errors"
-
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
-	"github.com/iotaledger/goshimmer/packages/protocol/models/payloadtype"
 )
 
 // region TransactionType //////////////////////////////////////////////////////////////////////////////////////////////

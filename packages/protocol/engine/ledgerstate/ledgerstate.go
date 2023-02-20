@@ -4,13 +4,13 @@ import (
 	"io"
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/storage"
+	"github.com/iotaledger/hive.go/core/generics/event"
 )
 
 // LedgerState represents the state of the ledger.

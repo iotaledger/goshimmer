@@ -7,8 +7,14 @@ import (
 	"sort"
 	"time"
 
+	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/lo"
@@ -18,13 +24,6 @@ import (
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/stringify"
 	"github.com/iotaledger/hive.go/core/types"
-	"github.com/pkg/errors"
-
-	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 )
 
 const (
@@ -132,7 +131,12 @@ func (b *Block) Sign(pair *ed25519.KeyPair) error {
 		return errors.Wrap(err, "failed to serialize block's issuing time")
 	}
 
-	b.SetSignature(pair.PrivateKey.Sign(byteutils.ConcatBytes(issuingTimeBytes, lo.PanicOnErr(b.Commitment().ID().Bytes()), contentHash[:])))
+	commitmentIDBytes, err := b.Commitment().ID().Bytes()
+	if err != nil {
+		return errors.Wrap(err, "failed to serialize block's commitment ID")
+	}
+
+	b.SetSignature(pair.PrivateKey.Sign(byteutils.ConcatBytes(issuingTimeBytes, commitmentIDBytes, contentHash[:])))
 	return nil
 }
 
@@ -140,15 +144,20 @@ func (b *Block) Sign(pair *ed25519.KeyPair) error {
 func (b *Block) VerifySignature() (valid bool, err error) {
 	contentHash, err := b.ContentHash()
 	if err != nil {
-		return false, err
+		return false, errors.Wrap(err, "failed to obtain block content's hash")
 	}
 
 	issuingTimeBytes, err := serix.DefaultAPI.Encode(context.Background(), b.IssuingTime(), serix.WithValidation())
 	if err != nil {
-		panic(err)
+		return false, errors.Wrap(err, "failed to serialize block's issuing time")
 	}
 
-	return b.M.IssuerPublicKey.VerifySignature(byteutils.ConcatBytes(issuingTimeBytes, lo.PanicOnErr(b.Commitment().ID().Bytes()), contentHash[:]), b.Signature()), nil
+	commitmentIDBytes, err := b.Commitment().ID().Bytes()
+	if err != nil {
+		return false, errors.Wrap(err, "failed to serialize block's commitment ID")
+	}
+
+	return b.M.IssuerPublicKey.VerifySignature(byteutils.ConcatBytes(issuingTimeBytes, commitmentIDBytes, contentHash[:]), b.Signature()), nil
 }
 
 // Version returns the block Version.

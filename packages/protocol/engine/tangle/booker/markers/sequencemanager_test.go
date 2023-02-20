@@ -3,8 +3,9 @@ package markers
 import (
 	"testing"
 
-	"github.com/iotaledger/hive.go/core/stringify"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/iotaledger/hive.go/core/stringify"
 )
 
 func TestManager(t *testing.T) {
@@ -299,37 +300,37 @@ func TestManager(t *testing.T) {
 func TestManagerConvergence(t *testing.T) {
 	tf := NewTestFramework(t)
 
-	structureDetails1, _ := tf.SequenceManager().InheritStructureDetails(nil)
+	structureDetails1, _ := tf.SequenceManager().InheritStructureDetails(nil, false)
 	assert.True(t, structureDetails1.PastMarkers().Equals(NewMarkers(NewMarker(0, 1))))
 
-	structureDetails2, _ := tf.SequenceManager().InheritStructureDetails(nil)
+	structureDetails2, _ := tf.SequenceManager().InheritStructureDetails(nil, false)
 	assert.True(t, structureDetails2.PastMarkers().Equals(NewMarkers(NewMarker(1, 1))))
 
-	structureDetails3, _ := tf.SequenceManager().InheritStructureDetails(nil)
+	structureDetails3, _ := tf.SequenceManager().InheritStructureDetails(nil, false)
 	assert.True(t, structureDetails3.PastMarkers().Equals(NewMarkers(NewMarker(2, 1))))
 
-	structureDetails4, _ := tf.SequenceManager().InheritStructureDetails([]*StructureDetails{structureDetails1, structureDetails2})
+	structureDetails4, _ := tf.SequenceManager().InheritStructureDetails([]*StructureDetails{structureDetails1, structureDetails2}, false)
 	assert.True(t, structureDetails4.PastMarkers().Equals(NewMarkers(NewMarker(1, 2))))
 
-	structureDetails5, _ := tf.SequenceManager().InheritStructureDetails([]*StructureDetails{structureDetails1, structureDetails3})
+	structureDetails5, _ := tf.SequenceManager().InheritStructureDetails([]*StructureDetails{structureDetails1, structureDetails3}, false)
 	assert.True(t, structureDetails5.PastMarkers().Equals(NewMarkers(NewMarker(2, 2))))
 
-	structureDetails6, _ := tf.SequenceManager().InheritStructureDetails([]*StructureDetails{structureDetails1, structureDetails2, structureDetails3})
+	structureDetails6, _ := tf.SequenceManager().InheritStructureDetails([]*StructureDetails{structureDetails1, structureDetails2, structureDetails3}, false)
 	assert.True(t, structureDetails6.PastMarkers().Equals(NewMarkers(NewMarker(0, 2))))
 
-	structureDetails7, _ := tf.SequenceManager().InheritStructureDetails([]*StructureDetails{structureDetails2, structureDetails3})
+	structureDetails7, _ := tf.SequenceManager().InheritStructureDetails([]*StructureDetails{structureDetails2, structureDetails3}, false)
 	assert.True(t, structureDetails7.PastMarkers().Equals(NewMarkers(NewMarker(1, 1), NewMarker(2, 1))))
 
-	structureDetails8, _ := tf.SequenceManager().InheritStructureDetails([]*StructureDetails{structureDetails4, structureDetails5})
+	structureDetails8, _ := tf.SequenceManager().InheritStructureDetails([]*StructureDetails{structureDetails4, structureDetails5}, false)
 	assert.True(t, structureDetails8.PastMarkers().Equals(NewMarkers(NewMarker(2, 3))))
 
-	structureDetails9, _ := tf.SequenceManager().InheritStructureDetails([]*StructureDetails{structureDetails5, structureDetails6})
+	structureDetails9, _ := tf.SequenceManager().InheritStructureDetails([]*StructureDetails{structureDetails5, structureDetails6}, false)
 	assert.True(t, structureDetails9.PastMarkers().Equals(NewMarkers(NewMarker(0, 3))))
 
-	structureDetails10, _ := tf.SequenceManager().InheritStructureDetails([]*StructureDetails{structureDetails6, structureDetails7})
+	structureDetails10, _ := tf.SequenceManager().InheritStructureDetails([]*StructureDetails{structureDetails6, structureDetails7}, false)
 	assert.True(t, structureDetails10.PastMarkers().Equals(NewMarkers(NewMarker(0, 2), NewMarker(1, 1), NewMarker(2, 1))))
 
-	structureDetails11, _ := tf.SequenceManager().InheritStructureDetails([]*StructureDetails{structureDetails9, structureDetails10})
+	structureDetails11, _ := tf.SequenceManager().InheritStructureDetails([]*StructureDetails{structureDetails9, structureDetails10}, false)
 	assert.True(t, structureDetails11.PastMarkers().Equals(NewMarkers(NewMarker(0, 4))))
 }
 
@@ -340,7 +341,7 @@ func inheritPastMarkers(block *block, manager *SequenceManager, blockDB map[stri
 		pastMarkers[i] = blockDB[parentID].structureDetails
 	}
 
-	block.structureDetails, _ = manager.InheritStructureDetails(pastMarkers)
+	block.structureDetails, _ = manager.InheritStructureDetails(pastMarkers, false)
 }
 
 func makeBlockDB(blocks ...*block) (blockDB map[string]*block) {

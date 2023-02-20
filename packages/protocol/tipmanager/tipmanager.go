@@ -5,14 +5,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/randommap"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/types"
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
@@ -20,6 +14,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/generics/randommap"
+	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/core/workerpool"
 )
 
 type acceptanceGadget interface {
@@ -38,15 +36,14 @@ type TipManager struct {
 	engine                *engine.Engine
 	blockAcceptanceGadget acceptanceGadget
 
+	workers                     *workerpool.Group
 	schedulerBlockRetrieverFunc blockRetrieverFunc
 
 	walkerCache *memstorage.EpochStorage[models.BlockID, types.Empty]
 
-	mutex      sync.RWMutex
-	tips       *randommap.RandomMap[models.BlockID, *scheduler.Block]
-	futureTips *memstorage.EpochStorage[commitment.ID, *memstorage.Storage[models.BlockID, *scheduler.Block]]
-	// TODO: reintroduce TipsConflictTracker
-	// tipsConflictTracker *TipsConflictTracker
+	mutex               sync.RWMutex
+	tips                *randommap.RandomMap[models.BlockID, *scheduler.Block]
+	TipsConflictTracker *TipsConflictTracker
 
 	commitmentRecentBoundary epoch.Index
 
@@ -55,16 +52,14 @@ type TipManager struct {
 }
 
 // New creates a new TipManager.
-func New(schedulerBlockRetrieverFunc blockRetrieverFunc, opts ...options.Option[TipManager]) (t *TipManager) {
+func New(workers *workerpool.Group, schedulerBlockRetrieverFunc blockRetrieverFunc, opts ...options.Option[TipManager]) (t *TipManager) {
 	t = options.Apply(&TipManager{
 		Events: NewEvents(),
 
+		workers:                     workers,
 		schedulerBlockRetrieverFunc: schedulerBlockRetrieverFunc,
 
-		tips:       randommap.New[models.BlockID, *scheduler.Block](),
-		futureTips: memstorage.NewEpochStorage[commitment.ID, *memstorage.Storage[models.BlockID, *scheduler.Block]](),
-		// TODO: reintroduce TipsConflictTracker
-		// tipsConflictTracker: NewTipsConflictTracker(tangle),
+		tips: randommap.New[models.BlockID, *scheduler.Block](),
 
 		walkerCache: memstorage.NewEpochStorage[models.BlockID, types.Empty](),
 
@@ -83,10 +78,11 @@ func (t *TipManager) LinkTo(engine *engine.Engine) {
 
 	t.walkerCache = memstorage.NewEpochStorage[models.BlockID, types.Empty]()
 	t.tips = randommap.New[models.BlockID, *scheduler.Block]()
-	t.futureTips = memstorage.NewEpochStorage[commitment.ID, *memstorage.Storage[models.BlockID, *scheduler.Block]]()
 
 	t.engine = engine
 	t.blockAcceptanceGadget = engine.Consensus.BlockGadget
+	t.TipsConflictTracker = NewTipsConflictTracker(t.workers, engine)
+	t.TipsConflictTracker.Setup()
 }
 
 func (t *TipManager) AddTip(block *scheduler.Block) {
@@ -99,13 +95,23 @@ func (t *TipManager) AddTip(block *scheduler.Block) {
 		return
 	}
 
-	// If the commitment is in the future, and not known to be forking, we cannot yet add it to the main tipset.
-	if t.isFutureCommitment(block) {
-		t.addFutureTip(block)
+	t.AddTipNonMonotonic(block)
+}
+
+func (t *TipManager) AddTipNonMonotonic(block *scheduler.Block) {
+	if block.IsSubjectivelyInvalid() {
 		return
 	}
 
-	t.addTip(block)
+	// Do not add a tip booked on a reject branch, we won't use it as a tip and it will otherwise remove parent tips.
+	blockConflictIDs := t.engine.Tangle.Booker.BlockConflicts(block.Block.Block)
+	if t.engine.Tangle.Booker.Ledger.ConflictDAG.ConfirmationState(blockConflictIDs).IsRejected() {
+		return
+	}
+
+	if t.addTip(block) {
+		t.TipsConflictTracker.AddTip(block, blockConflictIDs)
+	}
 }
 
 func (t *TipManager) EvictTSCCache(index epoch.Index) {
@@ -117,7 +123,7 @@ func (t *TipManager) EvictTSCCache(index epoch.Index) {
 
 func (t *TipManager) deleteTip(block *scheduler.Block) (deleted bool) {
 	if _, deleted = t.tips.Delete(block.ID()); deleted {
-		// t.tipsConflictTracker.RemoveTip(block)
+		t.TipsConflictTracker.RemoveTip(block)
 		t.Events.TipRemoved.Trigger(block)
 	}
 	return
@@ -141,11 +147,6 @@ func (t *TipManager) RemoveStrongParents(block *models.Block) {
 // RemoveStrongParents removes all tips that are parents of the given block.
 func (t *TipManager) removeStrongParents(block *models.Block) {
 	block.ForEachParent(func(parent models.Parent) {
-		// TODO: reintroduce TipsConflictTracker
-		// We do not want to remove the tip if it is the last one representing a pending conflict.
-		// if t.isLastTipForConflict(parentBlockID) {
-		// 	return true
-		// }
 		if parentBlock, exists := t.schedulerBlockRetrieverFunc(parent.ID); exists {
 			t.deleteTip(parentBlock)
 		}
@@ -174,6 +175,7 @@ func (t *TipManager) selectTips(count int) (parents models.BlockIDs) {
 
 		// only add genesis if no tips are available
 		if len(tips) == 0 {
+			// TODO: possible to use latest accepted block instead
 			rootBlock := t.engine.EvictionState.LatestRootBlock()
 			fmt.Println("(time: ", time.Now(), ") selecting root block because tip pool empty:", rootBlock)
 
@@ -221,63 +223,6 @@ func (t *TipManager) TipCount() int {
 	defer t.mutex.RUnlock()
 
 	return t.tips.Size()
-}
-
-// FutureTipCount returns the amount of future tips per epoch.
-func (t *TipManager) FutureTipCount() (futureTipsPerEpoch map[epoch.Index]int) {
-	t.mutex.RLock()
-	defer t.mutex.RUnlock()
-
-	futureTipsPerEpoch = make(map[epoch.Index]int)
-	t.futureTips.ForEach(func(index epoch.Index, commitmentStorage *memstorage.Storage[commitment.ID, *memstorage.Storage[models.BlockID, *scheduler.Block]]) {
-		commitmentStorage.ForEach(func(cm commitment.ID, tipStorage *memstorage.Storage[models.BlockID, *scheduler.Block]) bool {
-			futureTipsPerEpoch[index] += tipStorage.Size()
-			return true
-		})
-	})
-
-	return
-}
-
-// PromoteFutureTips promotes to the main tippool all future tips that belong to the given commitment.
-func (t *TipManager) PromoteFutureTips(cm *commitment.Commitment) {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
-
-	if futureEpochTips := t.futureTips.Get(cm.Index()); futureEpochTips != nil {
-		if tipsForCommitment, exists := futureEpochTips.Get(cm.ID()); exists {
-			tipsToPromote := make(map[models.BlockID]*scheduler.Block)
-			tipsToNotPromote := set.NewAdvancedSet[models.BlockID]()
-
-			tipsForCommitment.ForEach(func(blockID models.BlockID, tip *scheduler.Block) bool {
-				for _, tipParent := range tip.Parents() {
-					tipsToNotPromote.Add(tipParent)
-				}
-				tipsToPromote[blockID] = tip
-				return true
-			})
-
-			for tipID, tip := range tipsToPromote {
-				// regardless if the tip makes it into the tippool, we remove its strong parents anyway
-				// currentTip <- futureTipNotToAdd <- futureTipToAdd
-				// We want to remove currentTip even if futureTipNotToAdd is not added to the tippool.
-				t.removeStrongParents(tip.ModelsBlock)
-				if !tipsToNotPromote.Has(tipID) {
-					t.addTip(tip)
-				}
-			}
-		}
-	}
-
-	t.futureTips.Evict(cm.Index())
-}
-
-// Evict removes all parked tips that belong to an evicted epoch.
-func (t *TipManager) Evict(index epoch.Index) {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
-
-	t.futureTips.Evict(index)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -328,12 +273,6 @@ func (t *TipManager) checkMonotonicity(block *scheduler.Block) (anyScheduledOrAc
 // isFutureCommitment returns true if the block belongs to a commitment that is not yet known.
 func (t *TipManager) isFutureCommitment(block *scheduler.Block) (isUnknown bool) {
 	return block.Commitment().Index() > t.engine.Storage.Settings.LatestCommitment().Index()
-}
-
-func (t *TipManager) addFutureTip(block *scheduler.Block) (added bool) {
-	return lo.Return1(t.futureTips.Get(block.Commitment().Index(), true).RetrieveOrCreate(block.Commitment().ID(), func() *memstorage.Storage[models.BlockID, *scheduler.Block] {
-		return memstorage.New[models.BlockID, *scheduler.Block]()
-	})).Set(block.ID(), block)
 }
 
 func (t *TipManager) isValidTip(tip *scheduler.Block) (err error) {
