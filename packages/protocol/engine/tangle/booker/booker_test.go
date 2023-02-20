@@ -566,8 +566,6 @@ func TestMultiThreadedBookingAndForkingParallel(t *testing.T) {
 		}
 	}
 
-	rand.Seed(time.Now().UnixNano())
-
 	var wg sync.WaitGroup
 	for i := 0; i < len(blks); i++ {
 		wg.Add(1)
@@ -652,8 +650,6 @@ func TestMultiThreadedBookingAndForkingNested(t *testing.T) {
 			blks = append(blks, blkName)
 		}
 	}
-
-	rand.Seed(time.Now().UnixNano())
 
 	var wg sync.WaitGroup
 	for i := 0; i < len(blks); i++ {

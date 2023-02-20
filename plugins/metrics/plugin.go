@@ -130,7 +130,6 @@ func run(*node.Plugin) {
 			cancel()
 		}
 		log.Info("Stopping Prometheus exporter ... done")
-
 	}, shutdown.PriorityPrometheus); err != nil {
 		log.Panic(err)
 	}

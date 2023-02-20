@@ -69,9 +69,7 @@ func sendTipInfo(block *scheduler.Block, isTip bool) {
 }
 
 func runVisualizer(plugin *node.Plugin) {
-
 	if err := daemon.BackgroundWorker("Dashboard[Visualizer]", func(ctx context.Context) {
-
 		unhook := lo.Batch(
 			deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Hook(func(block *blockdag.Block) {
 				addToHistory(block.ModelsBlock, false)

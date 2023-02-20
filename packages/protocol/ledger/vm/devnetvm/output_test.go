@@ -2,8 +2,8 @@ package devnetvm
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/binary"
-	"math/rand"
 	"sync"
 	"testing"
 	"time"

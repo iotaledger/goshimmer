@@ -15,7 +15,6 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/ds/shrinkingmap"
 	"github.com/iotaledger/hive.go/kvstore"
-	typedkvstore "github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/event"
 	"github.com/iotaledger/hive.go/runtime/options"
@@ -32,7 +31,7 @@ const (
 type ThroughputQuota struct {
 	engine              *engine.Engine
 	workers             *workerpool.Group
-	quotaByIDStorage    *typedkvstore.TypedStore[identity.ID, storable.SerializableInt64, *identity.ID, *storable.SerializableInt64]
+	quotaByIDStorage    *kvstore.TypedStore[identity.ID, storable.SerializableInt64, *identity.ID, *storable.SerializableInt64]
 	quotaByIDCache      *shrinkingmap.ShrinkingMap[identity.ID, int64]
 	quotaByIDMutex      sync.RWMutex // TODO: replace this lock with DAG mutex so each entity is individually locked
 	totalBalanceStorage kvstore.KVStore
@@ -51,7 +50,7 @@ func New(engineInstance *engine.Engine, opts ...options.Option[ThroughputQuota])
 		engine:              engineInstance,
 		workers:             engineInstance.Workers.CreateGroup("ThroughputQuota"),
 		totalBalanceStorage: engineInstance.Storage.ThroughputQuota(PrefixTotalBalance),
-		quotaByIDStorage:    typedkvstore.NewTypedStore[identity.ID, storable.SerializableInt64](engineInstance.Storage.ThroughputQuota(PrefixQuotasByID)),
+		quotaByIDStorage:    kvstore.NewTypedStore[identity.ID, storable.SerializableInt64](engineInstance.Storage.ThroughputQuota(PrefixQuotasByID)),
 		quotaByIDCache:      shrinkingmap.New[identity.ID, int64](),
 	}, opts, func(m *ThroughputQuota) {
 		if iterationErr := m.quotaByIDStorage.Iterate([]byte{}, func(key identity.ID, value storable.SerializableInt64) (advance bool) {

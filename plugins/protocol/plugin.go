@@ -165,7 +165,6 @@ func configureLogging(plugin *node.Plugin) {
 			Plugin.LogFatalfAndExitf("Network fork detected: received from %s, commitment: %s, forkingPoint: %s", fork.Source, fork.Commitment, fork.ForkingPoint)
 		})
 	}
-
 }
 
 func run(plugin *node.Plugin) {

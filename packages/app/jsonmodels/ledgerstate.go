@@ -59,7 +59,7 @@ func (o *Output) ToLedgerstateOutput() (devnetvm.Output, error) {
 		return nil, errors.Wrap(err, "failed to parse output type")
 	}
 	var id utxo.OutputID
-	if iErr := id.FromBase58(o.OutputID.Base58); err != nil {
+	if iErr := id.FromBase58(o.OutputID.Base58); iErr != nil {
 		return nil, errors.Wrap(iErr, "failed to parse outputID")
 	}
 

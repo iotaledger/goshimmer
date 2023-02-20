@@ -44,7 +44,6 @@ type wsclient struct {
 }
 
 func runWebSocketStreams(plugin *node.Plugin) {
-
 	process := func(msg interface{}) {
 		switch x := msg.(type) {
 		case uint64:

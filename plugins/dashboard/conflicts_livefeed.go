@@ -91,7 +91,6 @@ func sendConflictUpdate(b *conflict) {
 
 func runConflictLiveFeed(plugin *node.Plugin) {
 	if err := daemon.BackgroundWorker("Dashboard[ConflictsLiveFeed]", func(ctx context.Context) {
-
 		conflicts = &boundedConflictMap{
 			conflictSets: make(map[utxo.OutputID]*conflictSet),
 			conflicts:    make(map[utxo.TransactionID]*conflict),
