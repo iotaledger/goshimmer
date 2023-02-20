@@ -211,7 +211,7 @@ func registerConflictEvents() {
 			Type: BlkTypeConflictWeightChanged,
 			Data: &conflictWeightChanged{
 				ID:                e.ConflictID.Base58(),
-				Weight:            deps.Protocol.Engine().Tangle.VirtualVoting.ConflictVotersTotalWeight(e.ConflictID),
+				Weight:            deps.Protocol.Engine().Tangle.Booker.VirtualVoting.ConflictVotersTotalWeight(e.ConflictID),
 				ConfirmationState: conflictConfirmationState.String(),
 			},
 		}
@@ -222,8 +222,8 @@ func registerConflictEvents() {
 	deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictCreated.Attach(createdClosure)
 	deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictAccepted.Attach(conflictConfirmedClosure)
 	deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictParentsUpdated.Attach(parentUpdateClosure)
-	deps.Protocol.Events.Engine.Tangle.VirtualVoting.ConflictTracker.VoterAdded.Attach(conflictWeightChangedClosure)
-	deps.Protocol.Events.Engine.Tangle.VirtualVoting.ConflictTracker.VoterRemoved.Attach(conflictWeightChangedClosure)
+	deps.Protocol.Events.Engine.Tangle.Booker.VirtualVoting.ConflictTracker.VoterAdded.Attach(conflictWeightChangedClosure)
+	deps.Protocol.Events.Engine.Tangle.Booker.VirtualVoting.ConflictTracker.VoterRemoved.Attach(conflictWeightChangedClosure)
 }
 
 func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
@@ -394,7 +394,7 @@ func newConflictVertex(conflictID utxo.TransactionID) (ret *conflictVertex) {
 		Conflicts:         jsonmodels.NewGetConflictConflictsResponse(conflict.ID(), conflicts),
 		IsConfirmed:       confirmationState.IsAccepted(),
 		ConfirmationState: confirmationState.String(),
-		AW:                deps.Protocol.Engine().Tangle.VirtualVoting.ConflictVotersTotalWeight(conflictID),
+		AW:                deps.Protocol.Engine().Tangle.Booker.VirtualVoting.ConflictVotersTotalWeight(conflictID),
 	}
 	return
 }

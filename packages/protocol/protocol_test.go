@@ -24,6 +24,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markermanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
 	"github.com/iotaledger/goshimmer/packages/protocol/enginemanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
@@ -452,7 +453,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		engine.WithTangleOptions(
 			tangle.WithBookerOptions(
 				booker.WithMarkerManagerOptions(
-					markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(1)),
+					markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(1)),
 				),
 			),
 		),
@@ -652,7 +653,7 @@ func TestEngine_ShutdownResume(t *testing.T) {
 		engine.WithTangleOptions(
 			tangle.WithBookerOptions(
 				booker.WithMarkerManagerOptions(
-					markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(1)),
+					markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(1)),
 				),
 			),
 		),
@@ -704,7 +705,7 @@ func TestEngine_ShutdownResume(t *testing.T) {
 		engine.WithTangleOptions(
 			tangle.WithBookerOptions(
 				booker.WithMarkerManagerOptions(
-					markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(1)),
+					markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(1)),
 				),
 			),
 		),
@@ -729,7 +730,7 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 		engine.WithTangleOptions(
 			tangle.WithBookerOptions(
 				booker.WithMarkerManagerOptions(
-					markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(1)),
+					markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(1)),
 				),
 			),
 		),
@@ -1021,7 +1022,7 @@ func TestEngine_GuavaConflict(t *testing.T) {
 		engine.WithTangleOptions(
 			tangle.WithBookerOptions(
 				booker.WithMarkerManagerOptions(
-					markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(3)),
+					markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(3)),
 				),
 			),
 		))

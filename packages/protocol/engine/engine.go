@@ -306,7 +306,7 @@ func (e *Engine) initConsensus() {
 			panic(err)
 		}
 
-		e.Tangle.VirtualVoting.EvictEpochTracker(epochIndex)
+		e.Tangle.Booker.VirtualVoting.EvictEpochTracker(epochIndex)
 	}, e.Workers.CreatePool("Consensus", 1)) // Using just 1 worker to avoid contention
 }
 

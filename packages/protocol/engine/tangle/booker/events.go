@@ -3,19 +3,21 @@ package booker
 import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markermanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/hive.go/core/generics/event"
 )
 
 type Events struct {
 	BlockBooked         *event.Linkable[*BlockBookedEvent]
-	AttachmentCreated   *event.Linkable[*Block]
-	AttachmentOrphaned  *event.Linkable[*Block]
+	AttachmentCreated   *event.Linkable[*virtualvoting.Block]
+	AttachmentOrphaned  *event.Linkable[*virtualvoting.Block]
 	BlockConflictAdded  *event.Linkable[*BlockConflictAddedEvent]
 	MarkerConflictAdded *event.Linkable[*MarkerConflictAddedEvent]
 	Error               *event.Linkable[error]
 
 	MarkerManager *markermanager.Events
+	VirtualVoting *virtualvoting.Events
 
 	event.LinkableCollection[Events, *Events]
 }
@@ -24,18 +26,19 @@ type Events struct {
 var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 	return &Events{
 		BlockBooked:         event.NewLinkable[*BlockBookedEvent](),
-		AttachmentCreated:   event.NewLinkable[*Block](),
-		AttachmentOrphaned:  event.NewLinkable[*Block](),
+		AttachmentCreated:   event.NewLinkable[*virtualvoting.Block](),
+		AttachmentOrphaned:  event.NewLinkable[*virtualvoting.Block](),
 		BlockConflictAdded:  event.NewLinkable[*BlockConflictAddedEvent](),
 		MarkerConflictAdded: event.NewLinkable[*MarkerConflictAddedEvent](),
 		Error:               event.NewLinkable[error](),
 
 		MarkerManager: markermanager.NewEvents(),
+		VirtualVoting: virtualvoting.NewEvents(),
 	}
 })
 
 type BlockConflictAddedEvent struct {
-	Block             *Block
+	Block             *virtualvoting.Block
 	ConflictID        utxo.TransactionID
 	ParentConflictIDs utxo.TransactionIDs
 }
@@ -47,6 +50,6 @@ type MarkerConflictAddedEvent struct {
 }
 
 type BlockBookedEvent struct {
-	Block       *Block
+	Block       *virtualvoting.Block
 	ConflictIDs utxo.TransactionIDs
 }

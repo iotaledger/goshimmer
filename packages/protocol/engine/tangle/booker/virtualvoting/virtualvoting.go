@@ -2,16 +2,13 @@ package virtualvoting
 
 import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/epochtracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/syncutils"
@@ -21,10 +18,11 @@ import (
 // region VirtualVoting ////////////////////////////////////////////////////////////////////////////////////////////////
 
 type VirtualVoting struct {
-	Events     *Events
-	Validators *sybilprotection.WeightedSet
+	Events          *Events
+	Validators      *sybilprotection.WeightedSet
+	ConflictDAG     *conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID]
+	SequenceManager *markers.SequenceManager
 
-	blocks          *memstorage.EpochStorage[models.BlockID, *Block]
 	conflictTracker *conflicttracker.ConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower]
 	sequenceTracker *sequencetracker.SequenceTracker[BlockVotePower]
 	epochTracker    *epochtracker.EpochTracker
@@ -34,26 +32,25 @@ type VirtualVoting struct {
 	optsEpochCutoffCallback    func() epoch.Index
 
 	Workers *workerpool.Group
-
-	*booker.Booker
 }
 
-func New(workers *workerpool.Group, booker *booker.Booker, validators *sybilprotection.WeightedSet, opts ...options.Option[VirtualVoting]) (newVirtualVoting *VirtualVoting) {
+func New(workers *workerpool.Group, conflictDAG *conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID], sequenceManager *markers.SequenceManager, validators *sybilprotection.WeightedSet, opts ...options.Option[VirtualVoting]) (newVirtualVoting *VirtualVoting) {
 	return options.Apply(&VirtualVoting{
-		Validators:    validators,
-		blocks:        memstorage.NewEpochStorage[models.BlockID, *Block](),
-		Booker:        booker,
-		Workers:       workers,
-		evictionMutex: syncutils.NewStarvingMutex(),
+		Validators:      validators,
+		Workers:         workers,
+		ConflictDAG:     conflictDAG,
+		SequenceManager: sequenceManager,
+		evictionMutex:   syncutils.NewStarvingMutex(),
 		optsSequenceCutoffCallback: func(sequenceID markers.SequenceID) markers.Index {
 			return 1
 		},
+
 		optsEpochCutoffCallback: func() epoch.Index {
 			return 0
 		},
 	}, opts, func(o *VirtualVoting) {
-		o.conflictTracker = conflicttracker.NewConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower](o.Booker.Ledger.ConflictDAG, validators)
-		o.sequenceTracker = sequencetracker.NewSequenceTracker[BlockVotePower](validators, o.Booker.Sequence, o.optsSequenceCutoffCallback)
+		o.conflictTracker = conflicttracker.NewConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower](conflictDAG, validators)
+		o.sequenceTracker = sequencetracker.NewSequenceTracker[BlockVotePower](validators, sequenceManager.Sequence, o.optsSequenceCutoffCallback)
 		o.epochTracker = epochtracker.NewEpochTracker(o.optsEpochCutoffCallback)
 
 		o.Events = NewEvents()
@@ -67,14 +64,6 @@ func (o *VirtualVoting) Track(block *Block, conflictIDs utxo.TransactionIDs) {
 	if o.track(block, conflictIDs) {
 		o.Events.BlockTracked.Trigger(block)
 	}
-}
-
-// Block retrieves a Block with metadata from the in-memory storage of the Booker.
-func (o *VirtualVoting) Block(id models.BlockID) (block *Block, exists bool) {
-	o.evictionMutex.RLock()
-	defer o.evictionMutex.RUnlock()
-
-	return o.block(id)
 }
 
 // MarkerVotersTotalWeight retrieves Validators supporting a given marker.
@@ -133,29 +122,32 @@ func (o *VirtualVoting) ConflictVotersTotalWeight(conflictID utxo.TransactionID)
 }
 
 func (o *VirtualVoting) setupEvents() {
-	event.Hook(o.Booker.Events.BlockBooked, func(evt *booker.BlockBookedEvent) {
-		o.Track(NewBlock(evt.Block), evt.ConflictIDs)
-	})
-	event.Hook(o.Booker.Events.BlockConflictAdded, func(event *booker.BlockConflictAddedEvent) {
-		o.processForkedBlock(event.Block, event.ConflictID, event.ParentConflictIDs)
-	})
-	event.Hook(o.Booker.Events.MarkerConflictAdded, func(event *booker.MarkerConflictAddedEvent) {
-		o.processForkedMarker(event.Marker, event.ConflictID, event.ParentConflictIDs)
-	})
-	wp := o.Workers.CreatePool("Eviction", 1) // Using just 1 worker to avoid contention
-	event.AttachWithWorkerPool(o.Booker.Events.MarkerManager.SequenceEvicted, o.evictSequence, wp)
-	event.Hook(o.BlockDAG.EvictionState.Events.EpochEvicted, o.evictEpoch)
+	/*
+		event.Hook(o.Booker.Events.BlockBooked, func(evt *booker.BlockBookedEvent) {
+			o.Track(NewBlock(evt.Block), evt.ConflictIDs)
+		})
+		event.Hook(o.Booker.Events.BlockConflictAdded, func(event *booker.BlockConflictAddedEvent) {
+			o.processForkedBlock(event.Block, event.ConflictID, event.ParentConflictIDs)
+		})
+		event.Hook(o.Booker.Events.MarkerConflictAdded, func(event *booker.MarkerConflictAddedEvent) {
+			o.processForkedMarker(event.Marker, event.ConflictID, event.ParentConflictIDs)
+		})
+		wp := o.Workers.CreatePool("Eviction", 1) // Using just 1 worker to avoid contention
+		event.AttachWithWorkerPool(o.Booker.Events.MarkerManager.SequenceEvicted, o.evictSequence, wp)
+		event.Hook(o.BlockDAG.EvictionState.Events.EpochEvicted, o.evictEpoch)
+	*/
 }
 
 func (o *VirtualVoting) track(block *Block, conflictIDs utxo.TransactionIDs) (tracked bool) {
 	o.evictionMutex.RLock()
 	defer o.evictionMutex.RUnlock()
 
-	if o.BlockDAG.EvictionState.InEvictedEpoch(block.ID()) {
-		return false
-	}
-
-	o.blocks.Get(block.ID().Index(), true).Set(block.ID(), block)
+	// TODO: this check should happen outside.
+	/*
+		if o.BlockDAG.EvictionState.InEvictedEpoch(block.ID()) {
+			return false
+		}
+	*/
 
 	votePower := NewBlockVotePower(block.ID(), block.IssuingTime())
 
@@ -168,27 +160,6 @@ func (o *VirtualVoting) track(block *Block, conflictIDs utxo.TransactionIDs) (tr
 	o.epochTracker.TrackVotes(block.Commitment().Index(), block.IssuerID(), epochtracker.EpochVotePower{Index: block.ID().Index()})
 
 	return true
-}
-
-// block retrieves the Block with given id from the mem-storage.
-func (o *VirtualVoting) block(id models.BlockID) (block *Block, exists bool) {
-	if o.BlockDAG.EvictionState.IsRootBlock(id) {
-		return NewRootBlock(id), true
-	}
-
-	storage := o.blocks.Get(id.Index(), false)
-	if storage == nil {
-		return nil, false
-	}
-
-	return storage.Get(id)
-}
-
-func (o *VirtualVoting) evictEpoch(epochIndex epoch.Index) {
-	o.evictionMutex.Lock()
-	defer o.evictionMutex.Unlock()
-
-	o.blocks.Evict(epochIndex)
 }
 
 func (o *VirtualVoting) evictSequence(sequenceID markers.SequenceID) {
@@ -210,13 +181,12 @@ func (o *VirtualVoting) EvictEpochTracker(epochIndex epoch.Index) {
 // region Forking logic ////////////////////////////////////////////////////////////////////////////////////////////////
 
 // processForkedBlock updates the Conflict weight after an individually mapped Block was forked into a new Conflict.
-func (o *VirtualVoting) processForkedBlock(bookerBlock *booker.Block, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
-	votePower := NewBlockVotePower(bookerBlock.ID(), bookerBlock.IssuingTime())
+func (o *VirtualVoting) processForkedBlock(block *Block, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
+	votePower := NewBlockVotePower(block.ID(), block.IssuingTime())
 
 	// Do not apply votes of subjectively invalid blocks on forking. Votes of subjectively invalid blocks are also not counted
 	// when booking.
-	block, exists := o.Block(bookerBlock.ID())
-	if !exists || block.IsSubjectivelyInvalid() {
+	if block.IsSubjectivelyInvalid() {
 		return
 	}
 

@@ -184,7 +184,7 @@ func (n *Node) attachEngineLogs(instance *enginemanager.EngineInstance) {
 		fmt.Printf("%s > [%s] Booker.BlockBooked: %s\n", n.Name, engineName, evt.Block.ID())
 	})
 
-	event.Hook(events.Tangle.VirtualVoting.SequenceTracker.VotersUpdated, func(event *sequencetracker.VoterUpdatedEvent) {
+	event.Hook(events.Tangle.Booker.VirtualVoting.SequenceTracker.VotersUpdated, func(event *sequencetracker.VoterUpdatedEvent) {
 		fmt.Printf("%s > [%s] Tangle.VirtualVoting.SequenceTracker.VotersUpdated: %s %s %d -> %d\n", n.Name, engineName, event.Voter, event.SequenceID, event.PrevMaxSupportedIndex, event.NewMaxSupportedIndex)
 	})
 

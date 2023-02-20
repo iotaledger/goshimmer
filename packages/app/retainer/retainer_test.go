@@ -104,7 +104,7 @@ func TestRetainer_BlockMetadata_NonEvicted(t *testing.T) {
 	require.EqualValues(t, pastMarkers, block.StructureDetails().PastMarkers())
 	require.Equal(t, meta.M.AddedConflictIDs, block.AddedConflictIDs())
 	require.Equal(t, meta.M.SubtractedConflictIDs, block.SubtractedConflictIDs())
-	require.Equal(t, meta.M.ConflictIDs, tf.Instance.Engine().Tangle.Booker.BlockConflicts(block.Block.Block))
+	require.Equal(t, meta.M.ConflictIDs, tf.Instance.Engine().Tangle.Booker.BlockConflicts(block.Block))
 
 	require.Equal(t, meta.M.Tracked, true)
 	require.Equal(t, meta.M.SubjectivelyInvalid, block.IsSubjectivelyInvalid())
@@ -162,7 +162,7 @@ func TestRetainer_BlockMetadata_Evicted(t *testing.T) {
 	require.EqualValues(t, pastMarkers, block.StructureDetails().PastMarkers())
 	require.Equal(t, meta.M.AddedConflictIDs, block.AddedConflictIDs())
 	require.Equal(t, meta.M.SubtractedConflictIDs, block.SubtractedConflictIDs())
-	require.Equal(t, meta.M.ConflictIDs, tf.Instance.Engine().Tangle.Booker.BlockConflicts(block.Block.Block))
+	require.Equal(t, meta.M.ConflictIDs, tf.Instance.Engine().Tangle.Booker.BlockConflicts(block.Block))
 	require.Equal(t, meta.M.Tracked, true)
 	require.Equal(t, meta.M.SubjectivelyInvalid, block.IsSubjectivelyInvalid())
 	// You cannot really test this as the scheduler might have scheduled the block after its metadata was retained.

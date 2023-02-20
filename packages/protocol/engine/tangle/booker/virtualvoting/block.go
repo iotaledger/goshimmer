@@ -1,4 +1,4 @@
-package booker
+package virtualvoting
 
 import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
@@ -14,6 +14,7 @@ type Block struct {
 	structureDetails      *markers.StructureDetails
 	addedConflictIDs      utxo.TransactionIDs
 	subtractedConflictIDs utxo.TransactionIDs
+	subjectivelyInvalid   bool
 
 	*blockdag.Block
 }
@@ -69,6 +70,24 @@ func (b *Block) SubtractedConflictIDs() utxo.TransactionIDs {
 	return b.subtractedConflictIDs.Clone()
 }
 
+func (b *Block) IsSubjectivelyInvalid() bool {
+	b.RLock()
+	defer b.RUnlock()
+
+	return b.subjectivelyInvalid
+}
+
+func (b *Block) SetSubjectivelyInvalid(bool) (wasUpdated bool) {
+	b.Lock()
+	defer b.Unlock()
+
+	if wasUpdated = !b.subjectivelyInvalid; wasUpdated {
+		b.subjectivelyInvalid = true
+	}
+
+	return
+}
+
 func NewBlock(block *blockdag.Block, opts ...options.Option[Block]) (newBlock *Block) {
 	return options.Apply(&Block{
 		Block:                 block,
@@ -94,7 +113,7 @@ func (b *Block) IsBooked() (isBooked bool) {
 	return b.booked
 }
 
-func (b *Block) setBooked() (wasUpdated bool) {
+func (b *Block) SetBooked() (wasUpdated bool) {
 	b.Lock()
 	defer b.Unlock()
 
@@ -112,7 +131,7 @@ func (b *Block) StructureDetails() *markers.StructureDetails {
 	return b.structureDetails
 }
 
-func (b *Block) setStructureDetails(structureDetails *markers.StructureDetails) {
+func (b *Block) SetStructureDetails(structureDetails *markers.StructureDetails) {
 	b.Lock()
 	defer b.Unlock()
 

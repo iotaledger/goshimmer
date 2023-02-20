@@ -13,7 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -209,10 +209,10 @@ func (a *Gadget) RefreshSequence(sequenceID markers.SequenceID, newMaxSupportedI
 // Acceptance and Confirmation use the same threshold if confirmation is possible.
 // If there is not enough online weight to achieve confirmation, then acceptance condition is evaluated based on total active weight.
 func (a *Gadget) tryConfirmOrAccept(totalWeight int64, marker markers.Marker) (blocksToAccept, blocksToConfirm []*Block) {
-	markerTotalWeight := a.tangle.VirtualVoting.MarkerVotersTotalWeight(marker)
+	markerTotalWeight := a.tangle.Booker.VirtualVoting.MarkerVotersTotalWeight(marker)
 
 	// check if enough weight is online to confirm based on total weight
-	if IsThresholdReached(totalWeight, a.tangle.VirtualVoting.Validators.TotalWeight(), a.optsMarkerConfirmationThreshold) {
+	if IsThresholdReached(totalWeight, a.tangle.Booker.VirtualVoting.Validators.TotalWeight(), a.optsMarkerConfirmationThreshold) {
 		// check if marker weight has enough weight to be confirmed
 		if IsThresholdReached(totalWeight, markerTotalWeight, a.optsMarkerConfirmationThreshold) {
 			// need to mark outside 'if' statement, otherwise only the first condition would be executed due to lazy evaluation
@@ -222,7 +222,7 @@ func (a *Gadget) tryConfirmOrAccept(totalWeight int64, marker markers.Marker) (b
 				return a.propagateAcceptanceConfirmation(marker, true)
 			}
 		}
-	} else if IsThresholdReached(a.tangle.VirtualVoting.Validators.TotalWeight(), markerTotalWeight, a.optsMarkerAcceptanceThreshold) && a.setMarkerAccepted(marker) {
+	} else if IsThresholdReached(a.tangle.Booker.VirtualVoting.Validators.TotalWeight(), markerTotalWeight, a.optsMarkerAcceptanceThreshold) && a.setMarkerAccepted(marker) {
 		return a.propagateAcceptanceConfirmation(marker, false)
 	}
 
@@ -244,11 +244,11 @@ func (a *Gadget) EvictUntil(index epoch.Index) {
 func (a *Gadget) setup() {
 	wp := a.workers.CreatePool("Gadget", 2)
 
-	event.AttachWithWorkerPool(a.tangle.VirtualVoting.Events.SequenceTracker.VotersUpdated, func(evt *sequencetracker.VoterUpdatedEvent) {
+	event.AttachWithWorkerPool(a.tangle.Booker.VirtualVoting.Events.SequenceTracker.VotersUpdated, func(evt *sequencetracker.VoterUpdatedEvent) {
 		a.RefreshSequence(evt.SequenceID, evt.NewMaxSupportedIndex, evt.PrevMaxSupportedIndex)
 	}, wp)
 
-	event.Hook(a.tangle.VirtualVoting.Events.ConflictTracker.VoterAdded, func(evt *conflicttracker.VoterEvent[utxo.TransactionID]) {
+	event.Hook(a.tangle.Booker.VirtualVoting.Events.ConflictTracker.VoterAdded, func(evt *conflicttracker.VoterEvent[utxo.TransactionID]) {
 		a.RefreshConflictAcceptance(evt.ConflictID)
 	})
 
@@ -323,7 +323,7 @@ func (a *Gadget) markAsAccepted(block *Block) (err error) {
 	if block.SetAccepted() {
 		// If block has been orphaned before acceptance, remove the flag from the block. Otherwise, remove the block from TimedHeap.
 		if block.IsOrphaned() {
-			a.tangle.BlockDAG.SetOrphaned(block.Block.Block.Block, false)
+			a.tangle.BlockDAG.SetOrphaned(block.Block.Block, false)
 		}
 
 		a.Events.BlockAccepted.Trigger(block)
@@ -394,7 +394,7 @@ func (a *Gadget) evictSequence(sequenceID markers.SequenceID) {
 func (a *Gadget) getOrRegisterBlock(blockID models.BlockID) (block *Block, exists bool) {
 	block, exists = a.block(blockID)
 	if !exists {
-		virtualVotingBlock, virtualVotingBlockExists := a.tangle.VirtualVoting.Block(blockID)
+		virtualVotingBlock, virtualVotingBlockExists := a.tangle.Booker.Block(blockID)
 		if !virtualVotingBlockExists {
 			return nil, false
 		}
@@ -432,19 +432,19 @@ func (a *Gadget) RefreshConflictAcceptance(conflictID utxo.TransactionID) {
 		return
 	}
 
-	conflictWeight := a.tangle.VirtualVoting.ConflictVotersTotalWeight(conflictID)
+	conflictWeight := a.tangle.Booker.VirtualVoting.ConflictVotersTotalWeight(conflictID)
 
-	if !IsThresholdReached(a.tangle.VirtualVoting.Validators.TotalWeight(), conflictWeight, a.optsConflictAcceptanceThreshold) {
+	if !IsThresholdReached(a.tangle.Booker.VirtualVoting.Validators.TotalWeight(), conflictWeight, a.optsConflictAcceptanceThreshold) {
 		return
 	}
 
 	markAsAccepted := true
 
 	conflict.ForEachConflictingConflict(func(conflictingConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) bool {
-		conflictingConflictWeight := a.tangle.VirtualVoting.ConflictVotersTotalWeight(conflictingConflict.ID())
+		conflictingConflictWeight := a.tangle.Booker.VirtualVoting.ConflictVotersTotalWeight(conflictingConflict.ID())
 
 		// if the conflict is less than 66% ahead, then don't mark as accepted
-		if !IsThresholdReached(a.tangle.VirtualVoting.Validators.TotalWeight(), conflictWeight-conflictingConflictWeight, a.optsConflictAcceptanceThreshold) {
+		if !IsThresholdReached(a.tangle.Booker.VirtualVoting.Validators.TotalWeight(), conflictWeight-conflictingConflictWeight, a.optsConflictAcceptanceThreshold) {
 			markAsAccepted = false
 		}
 		return markAsAccepted

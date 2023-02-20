@@ -9,7 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 )
@@ -47,7 +47,7 @@ func NewTestFramework(test *testing.T, tangleTF *tangle.TestFramework, optsTSCMa
 
 func (t *TestFramework) AssertOrphaned(expectedState map[string]bool) {
 	for alias, expectedOrphanage := range expectedState {
-		t.Tangle.Booker.AssertBlock(alias, func(block *booker.Block) {
+		t.Tangle.Booker.AssertBlock(alias, func(block *virtualvoting.Block) {
 			require.Equal(t.test, expectedOrphanage, block.Block.IsOrphaned(), "block %s is incorrectly orphaned", block.ID())
 		})
 	}

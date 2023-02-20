@@ -16,7 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
@@ -281,7 +281,7 @@ func GetConflict(c echo.Context) (err error) {
 		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load Conflict with %s", conflictID)))
 	}
 
-	return c.JSON(http.StatusOK, jsonmodels.NewConflictWeight(conflict, conflict.ConfirmationState(), deps.Protocol.Engine().Tangle.VirtualVoting.ConflictVotersTotalWeight(conflictID)))
+	return c.JSON(http.StatusOK, jsonmodels.NewConflictWeight(conflict, conflict.ConfirmationState(), deps.Protocol.Engine().Tangle.Booker.VirtualVoting.ConflictVotersTotalWeight(conflictID)))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -340,7 +340,7 @@ func GetConflictVoters(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	voters := deps.Protocol.Engine().Tangle.VirtualVoting.ConflictVoters(conflictID)
+	voters := deps.Protocol.Engine().Tangle.Booker.VirtualVoting.ConflictVoters(conflictID)
 	defer voters.Detach()
 
 	return c.JSON(http.StatusOK, jsonmodels.NewGetConflictVotersResponse(conflictID, voters))
@@ -482,7 +482,7 @@ func GetTransactionAttachments(c echo.Context) (err error) {
 	}
 
 	blockIDs := models.NewBlockIDs()
-	_ = deps.Protocol.Engine().Tangle.Booker.GetAllAttachments(transactionID).ForEach(func(attachment *booker.Block) error {
+	_ = deps.Protocol.Engine().Tangle.Booker.GetAllAttachments(transactionID).ForEach(func(attachment *virtualvoting.Block) error {
 		blockIDs.Add(attachment.ID())
 		return nil
 	})

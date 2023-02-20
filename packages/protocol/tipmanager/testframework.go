@@ -22,7 +22,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -74,7 +74,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...option
 		t.Tangle = tangle.NewTestFramework(
 			test,
 			t.Engine.Tangle,
-			virtualvoting.NewTestFramework(test, workers.CreateGroup("VirtualVotingTestFramework"), t.Engine.Tangle.VirtualVoting),
+			booker.NewTestFramework(test, workers.CreateGroup("BookerTestFramework"), t.Engine.Tangle.Booker),
 		)
 
 		t.Instance = New(workers.CreateGroup("TipManager"), t.mockSchedulerBlock, t.optsTipManagerOptions...)
@@ -89,7 +89,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...option
 }
 
 func (t *TestFramework) setupEvents() {
-	event.Hook(t.Tangle.Instance.Events.VirtualVoting.BlockTracked, func(block *virtualvoting.Block) {
+	event.Hook(t.Tangle.Instance.Events.Booker.VirtualVoting.BlockTracked, func(block *virtualvoting.Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("SIMULATING SCHEDULED: %s", block.ID())
 		}
@@ -134,14 +134,12 @@ func (t *TestFramework) createGenesis() {
 
 	block := scheduler.NewBlock(
 		virtualvoting.NewBlock(
-			booker.NewBlock(
-				blockdag.NewBlock(
-					models.NewEmptyBlock(models.EmptyBlockID, models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0))),
-					blockdag.WithSolid(true),
-				),
-				booker.WithBooked(true),
-				booker.WithStructureDetails(structureDetails),
+			blockdag.NewBlock(
+				models.NewEmptyBlock(models.EmptyBlockID, models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0))),
+				blockdag.WithSolid(true),
 			),
+			virtualvoting.WithBooked(true),
+			virtualvoting.WithStructureDetails(structureDetails),
 		),
 		scheduler.WithScheduled(true),
 	)
@@ -167,7 +165,7 @@ func (t *TestFramework) IssueBlocksAndSetAccepted(aliases ...string) {
 func (t *TestFramework) SetBlocksAccepted(aliases ...string) {
 	for _, alias := range aliases {
 		block := t.Tangle.Booker.Block(alias)
-		t.mockAcceptance.SetBlockAccepted(blockgadget.NewBlock(virtualvoting.NewBlock(block)))
+		t.mockAcceptance.SetBlockAccepted(blockgadget.NewBlock(block))
 	}
 }
 
@@ -184,7 +182,7 @@ func (t *TestFramework) AssertIsPastConeTimestampCorrect(blockAlias string, expe
 	if !exists {
 		panic(fmt.Sprintf("block with %s not found", blockAlias))
 	}
-	actual := t.Instance.IsPastConeTimestampCorrect(block.Block.Block)
+	actual := t.Instance.IsPastConeTimestampCorrect(block.Block)
 	require.Equal(t.test, expected, actual, "isPastConeTimestampCorrect: %s should be %t but is %t", blockAlias, expected, actual)
 }
 

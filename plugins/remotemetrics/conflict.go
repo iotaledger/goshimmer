@@ -7,7 +7,7 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/app/remotemetrics"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/hive.go/core/generics/set"
@@ -99,7 +99,7 @@ func sendConflictMetrics() {
 	_ = deps.RemoteLogger.Send(record)
 }
 
-func updateMetricCounts(conflictID utxo.TransactionID, transactionID utxo.TransactionID) (oldestAttachment *booker.Block) {
+func updateMetricCounts(conflictID utxo.TransactionID, transactionID utxo.TransactionID) (oldestAttachment *virtualvoting.Block) {
 	oldestAttachment = deps.Protocol.Engine().Tangle.Booker.GetEarliestAttachment(transactionID)
 	conflict, exists := deps.Protocol.Engine().Ledger.ConflictDAG.Conflict(conflictID)
 	if !exists {

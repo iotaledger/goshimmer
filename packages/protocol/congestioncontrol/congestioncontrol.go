@@ -51,7 +51,7 @@ func (c *CongestionControl) LinkTo(engine *engine.Engine) {
 
 	wp := engine.Workers.CreatePool("Scheduler", 2)
 	engine.SubscribeStopped(
-		event.AttachWithWorkerPool(engine.Tangle.Events.VirtualVoting.BlockTracked, c.scheduler.AddBlock, wp),
+		event.AttachWithWorkerPool(engine.Tangle.Events.Booker.VirtualVoting.BlockTracked, c.scheduler.AddBlock, wp),
 		// event.AttachWithWorkerPool(engine.Tangle.Events.VirtualVoting.BlockTracked, func(block *virtualvoting.Block) {
 		//	registerBlock, err := c.scheduler.GetOrRegisterBlock(block)
 		//	if err != nil {

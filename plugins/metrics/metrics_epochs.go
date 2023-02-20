@@ -8,8 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
@@ -107,7 +106,7 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 		collector.WithLabels(labelName),
 		collector.WithHelp("Number of invalid blocks in an epoch epoch."),
 		collector.WithInitFunc(func() {
-			deps.Protocol.Events.Engine.Tangle.VirtualVoting.BlockTracked.Attach(event.NewClosure(func(block *virtualvoting.Block) {
+			deps.Protocol.Events.Engine.Tangle.Booker.VirtualVoting.BlockTracked.Attach(event.NewClosure(func(block *virtualvoting.Block) {
 				if block.IsSubjectivelyInvalid() {
 					eventEpoch := int(block.ID().Index())
 					deps.Collector.Increment(epochNamespace, subjectivelyInvalidBlocks, strconv.Itoa(eventEpoch))
@@ -121,7 +120,7 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 		collector.WithLabels(labelName),
 		collector.WithHelp("Number of transaction attachments by the node per epoch."),
 		collector.WithInitFunc(func() {
-			deps.Protocol.Events.Engine.Tangle.Booker.AttachmentCreated.Attach(event.NewClosure(func(block *booker.Block) {
+			deps.Protocol.Events.Engine.Tangle.Booker.AttachmentCreated.Attach(event.NewClosure(func(block *virtualvoting.Block) {
 				eventEpoch := int(block.ID().Index())
 				deps.Collector.Increment(epochNamespace, totalAttachments, strconv.Itoa(eventEpoch))
 			}))
@@ -132,7 +131,7 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 		collector.WithLabels(labelName),
 		collector.WithHelp("Number of orphaned attachments by the node per epoch."),
 		collector.WithInitFunc(func() {
-			deps.Protocol.Events.Engine.Tangle.Booker.AttachmentOrphaned.Attach(event.NewClosure(func(block *booker.Block) {
+			deps.Protocol.Events.Engine.Tangle.Booker.AttachmentOrphaned.Attach(event.NewClosure(func(block *virtualvoting.Block) {
 				eventEpoch := int(block.ID().Index())
 				deps.Collector.Increment(epochNamespace, orphanedAttachments, strconv.Itoa(eventEpoch))
 			}))
