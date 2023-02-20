@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/marshalutil"
 	"github.com/iotaledger/hive.go/ds/thresholdmap"
+	"github.com/iotaledger/hive.go/serializer/v2/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 )
 

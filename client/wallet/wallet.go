@@ -23,10 +23,10 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/withdrawfromnftoptions"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
-	"github.com/iotaledger/hive.go/core/bitmask"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/marshalutil"
+	"github.com/iotaledger/hive.go/ds/bitmask"
 	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/serializer/v2/marshalutil"
 )
 
 // region Wallet ///////////////////////////////////////////////////////////////////////////////////////////////////////

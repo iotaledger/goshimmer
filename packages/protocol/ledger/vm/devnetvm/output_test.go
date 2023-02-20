@@ -16,10 +16,10 @@ import (
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/model"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/marshalutil"
 	"github.com/iotaledger/hive.go/lo"
 	storableModel "github.com/iotaledger/hive.go/objectstorage/generic/model"
 	"github.com/iotaledger/hive.go/serializer/v2/byteutils"
+	"github.com/iotaledger/hive.go/serializer/v2/marshalutil"
 )
 
 // region AliasOutput Tests.

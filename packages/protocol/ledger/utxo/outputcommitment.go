@@ -6,7 +6,7 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.com/NebulousLabs/merkletree/merkletree-blake"
 
-	"github.com/iotaledger/hive.go/core/cerrors"
+	"github.com/iotaledger/goshimmer/packages/core/cerrors"
 	"github.com/iotaledger/hive.go/core/types"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/serializer/v2/serix"
