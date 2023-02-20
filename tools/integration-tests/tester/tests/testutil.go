@@ -62,6 +62,7 @@ var EqualSnapshotOptions = []options.Option[snapshotcreator.Options]{
 		"3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E", // FZ6xmPZX
 	}),
 	snapshotcreator.WithPeersAmountsPledged([]uint64{2_500_000_000_000_000, 2_500_000_000_000_000, 2_500_000_000_000_000, 2_500_000_000_000_000}),
+	snapshotcreator.WithInitialAttestationsBase58([]string{"B45CgJeL9rfigCNXdkReZoVmK4RJqw4E81zYuETA4zJC"}), // pk for seed GtKSdqanb4mokUBjAf9JZmsSqWzWjzzw57mRR56LjfBL
 }
 
 var ConsensusSnapshotOptions = []options.Option[snapshotcreator.Options]{
