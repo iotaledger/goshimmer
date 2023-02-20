@@ -843,17 +843,17 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 
 	assertBlockExistsOnNodes := func(id models.BlockID, nodes ...*mockednetwork.Node) {
 		for _, node := range nodes {
-			require.True(t, lo.Return2(node.EngineTestFramework.Instance.Block(id)))
+			require.True(t, lo.Return2(node.EngineTestFramework().Instance.Block(id)))
 		}
 	}
 
 	assertBlockMissingOnNodes := func(id models.BlockID, nodes ...*mockednetwork.Node) {
 		for _, node := range nodes {
-			require.False(t, lo.Return2(node.EngineTestFramework.Instance.Block(id)))
+			require.False(t, lo.Return2(node.EngineTestFramework().Instance.Block(id)))
 		}
 	}
 
-	genesisBlockID := node1.EngineTestFramework.BlockDAG.Block("Genesis")
+	genesisBlockID := node1.EngineTestFramework().BlockDAG.Block("Genesis")
 
 	// Issue blocks on Partition 1
 	{

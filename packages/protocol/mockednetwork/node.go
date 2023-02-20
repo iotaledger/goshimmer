@@ -2,6 +2,7 @@ package mockednetwork
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -31,13 +32,15 @@ import (
 )
 
 type Node struct {
-	Testing             *testing.T
-	Name                string
-	KeyPair             ed25519.KeyPair
-	Endpoint            *network.MockedEndpoint
-	Workers             *workerpool.Group
-	Protocol            *protocol.Protocol
-	EngineTestFramework *engine.TestFramework
+	Testing  *testing.T
+	Name     string
+	KeyPair  ed25519.KeyPair
+	Endpoint *network.MockedEndpoint
+	Workers  *workerpool.Group
+	Protocol *protocol.Protocol
+
+	tf    *engine.TestFramework
+	mutex sync.RWMutex
 }
 
 func NewNode(t *testing.T, keyPair ed25519.KeyPair, network *network.MockedNetwork, partition string, snapshotPath string, engineOpts ...options.Option[engine.Engine]) *Node {
@@ -68,9 +71,23 @@ func NewNode(t *testing.T, keyPair ed25519.KeyPair, network *network.MockedNetwo
 	})
 
 	mainEngine := node.Protocol.MainEngineInstance()
-	node.EngineTestFramework = engine.NewTestFramework(t, node.Workers.CreateGroup(fmt.Sprintf("EngineTestFramework-%s", mainEngine.Name()[:8])), mainEngine.Engine)
+	node.tf = engine.NewTestFramework(t, node.Workers.CreateGroup(fmt.Sprintf("EngineTestFramework-%s", mainEngine.Name()[:8])), mainEngine.Engine)
+
+	node.Protocol.Events.CandidateEngineActivated.Hook(func(candidateEngine *enginemanager.EngineInstance) {
+		node.mutex.Lock()
+		defer node.mutex.Unlock()
+
+		node.tf = engine.NewTestFramework(node.Testing, node.Workers.CreateGroup(fmt.Sprintf("EngineTestFramework-%s", candidateEngine.Name()[:8])), candidateEngine.Engine)
+	})
 
 	return node
+}
+
+func (n *Node) EngineTestFramework() *engine.TestFramework {
+	n.mutex.RLock()
+	defer n.mutex.RUnlock()
+
+	return n.tf
 }
 
 func (n *Node) HookLogging(includeMainEngine bool) {
@@ -81,8 +98,6 @@ func (n *Node) HookLogging(includeMainEngine bool) {
 	}
 
 	events.CandidateEngineActivated.Hook(func(candidateEngine *enginemanager.EngineInstance) {
-		n.EngineTestFramework = engine.NewTestFramework(n.Testing, n.Workers.CreateGroup(fmt.Sprintf("EngineTestFramework-%s", candidateEngine.Name()[:8])), candidateEngine.Engine)
-
 		fmt.Printf("%s > CandidateEngineActivated: latest commitment %s %s\n", n.Name, candidateEngine.Storage.Settings.LatestCommitment().ID(), candidateEngine.Storage.Settings.LatestCommitment())
 		fmt.Printf("==================\nACTIVATE %s\n==================\n", n.Name)
 		n.attachEngineLogs(candidateEngine)
@@ -234,27 +249,31 @@ func (n *Node) Wait() {
 }
 
 func (n *Node) IssueBlockAtEpoch(alias string, epochIndex epoch.Index, parents ...models.BlockID) *models.Block {
+	tf := n.EngineTestFramework()
+
 	issuingTime := time.Unix(epoch.GenesisTime+int64(epochIndex-1)*epoch.Duration, 0)
 	require.True(n.Testing, issuingTime.Before(time.Now()), "issued block is in the current or future epoch")
-	n.EngineTestFramework.BlockDAG.CreateAndSignBlock(alias, &n.KeyPair,
+	tf.BlockDAG.CreateAndSignBlock(alias, &n.KeyPair,
 		models.WithStrongParents(models.NewBlockIDs(parents...)),
 		models.WithIssuingTime(issuingTime),
 		models.WithCommitment(n.Protocol.Engine().Storage.Settings.LatestCommitment()),
 	)
-	n.EngineTestFramework.BlockDAG.IssueBlocks(alias)
+	tf.BlockDAG.IssueBlocks(alias)
 	fmt.Println(n.Name, alias, n.Workers)
-	block := n.EngineTestFramework.BlockDAG.Block(alias)
+	block := tf.BlockDAG.Block(alias)
 	fmt.Printf("%s > IssueBlockAtEpoch: %s with %s\n", n.Name, block.ID(), block.Commitment().ID())
 	return block
 }
 
 func (n *Node) IssueBlock(alias string, parents ...models.BlockID) *models.Block {
-	n.EngineTestFramework.BlockDAG.CreateAndSignBlock(alias, &n.KeyPair,
+	tf := n.EngineTestFramework()
+
+	tf.BlockDAG.CreateAndSignBlock(alias, &n.KeyPair,
 		models.WithStrongParents(models.NewBlockIDs(parents...)),
 		models.WithCommitment(n.Protocol.Engine().Storage.Settings.LatestCommitment()),
 	)
-	n.EngineTestFramework.BlockDAG.IssueBlocks(alias)
-	return n.EngineTestFramework.BlockDAG.Block(alias)
+	tf.BlockDAG.IssueBlocks(alias)
+	return tf.BlockDAG.Block(alias)
 }
 
 func (n *Node) IssueActivity(duration time.Duration) {
@@ -280,11 +299,13 @@ func (n *Node) IssueActivity(duration time.Duration) {
 
 func (n *Node) issueActivityBlock(alias string, parents ...models.BlockID) bool {
 	if !n.Protocol.Engine().WasStopped() {
-		n.EngineTestFramework.BlockDAG.CreateAndSignBlock(alias, &n.KeyPair,
+		tf := n.EngineTestFramework()
+
+		tf.BlockDAG.CreateAndSignBlock(alias, &n.KeyPair,
 			models.WithStrongParents(models.NewBlockIDs(parents...)),
 			models.WithCommitment(n.Protocol.Engine().Storage.Settings.LatestCommitment()),
 		)
-		n.EngineTestFramework.BlockDAG.IssueBlocks(alias)
+		tf.BlockDAG.IssueBlocks(alias)
 
 		return true
 	}
