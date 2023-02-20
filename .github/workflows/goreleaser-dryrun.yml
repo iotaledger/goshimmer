@@ -13,10 +13,11 @@ jobs:
       - ubuntu-latest
     container:
       image: iotaledger/goreleaser-cgo-cross-compiler:1.20.1
-      volumes: [/repo]
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+
+      - run: git config --system --add safe.directory /__w/goshimmer/goshimmer
 
       - name: Create fake config.json and snapshot.bin
         run: touch config.json snapshot.bin
