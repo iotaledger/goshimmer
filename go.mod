@@ -12,17 +12,17 @@ require (
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/websocket v1.4.2
-	github.com/iotaledger/hive.go/app v0.0.0-20230219002729-f3fe3a0b0672
-	github.com/iotaledger/hive.go/autopeering v0.0.0-20230219002729-f3fe3a0b0672
-	github.com/iotaledger/hive.go/constraints v0.0.0-20230219002729-f3fe3a0b0672
-	github.com/iotaledger/hive.go/core v1.0.0-rc.3.0.20230219002729-f3fe3a0b0672
-	github.com/iotaledger/hive.go/ds v0.0.0-20230219002729-f3fe3a0b0672
-	github.com/iotaledger/hive.go/kvstore v0.0.0-20230219002729-f3fe3a0b0672
-	github.com/iotaledger/hive.go/lo v0.0.0-20230219002729-f3fe3a0b0672
-	github.com/iotaledger/hive.go/objectstorage v0.0.0-20230219002729-f3fe3a0b0672
-	github.com/iotaledger/hive.go/runtime v0.0.0-20230219002729-f3fe3a0b0672
-	github.com/iotaledger/hive.go/serializer/v2 v2.0.0-rc.1.0.20230219002729-f3fe3a0b0672
-	github.com/iotaledger/hive.go/stringify v0.0.0-20230219002729-f3fe3a0b0672
+	github.com/iotaledger/hive.go/app v0.0.0-20230220110713-5cde92e55626
+	github.com/iotaledger/hive.go/autopeering v0.0.0-20230220110713-5cde92e55626
+	github.com/iotaledger/hive.go/constraints v0.0.0-20230220110713-5cde92e55626
+	github.com/iotaledger/hive.go/core v1.0.0-rc.3.0.20230220110713-5cde92e55626
+	github.com/iotaledger/hive.go/ds v0.0.0-20230220110713-5cde92e55626
+	github.com/iotaledger/hive.go/kvstore v0.0.0-20230220110713-5cde92e55626
+	github.com/iotaledger/hive.go/lo v0.0.0-20230220110713-5cde92e55626
+	github.com/iotaledger/hive.go/objectstorage v0.0.0-20230220110713-5cde92e55626
+	github.com/iotaledger/hive.go/runtime v0.0.0-20230220110713-5cde92e55626
+	github.com/iotaledger/hive.go/serializer/v2 v2.0.0-rc.1.0.20230220110713-5cde92e55626
+	github.com/iotaledger/hive.go/stringify v0.0.0-20230220110713-5cde92e55626
 	github.com/jellydator/ttlcache/v2 v2.11.1
 	github.com/labstack/echo/v4 v4.10.0
 	github.com/libp2p/go-libp2p v0.25.1
@@ -85,7 +85,7 @@ require (
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/huin/goupnp v1.0.3 // indirect
 	github.com/iancoleman/orderedmap v0.2.0 // indirect
-	github.com/iotaledger/grocksdb v1.7.5-0.20221128103803-fcdb79760195 // indirect
+	github.com/iotaledger/grocksdb v1.7.5-0.20230220105546-5162e18885c7 // indirect
 	github.com/ipfs/go-cid v0.3.2 // indirect
 	github.com/ipfs/go-log/v2 v2.5.1 // indirect
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
