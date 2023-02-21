@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/hive.go/app/daemon"
 	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 // PluginName is the name of the p2p plugin.
@@ -37,24 +38,21 @@ func init() {
 	})
 }
 
-func configure(_ *node.Plugin) {
-	configureLogging()
+func configure(plugin *node.Plugin) {
+	// log the p2p events
+	deps.P2PMgr.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborAdded.Hook(func(event *p2p.NeighborAddedEvent) {
+		n := event.Neighbor
+		Plugin.LogInfof("Neighbor added: %s / %s", p2p.GetAddress(n.Peer), n.ID())
+	}, event.WithWorkerPool(plugin.WorkerPool))
+
+	deps.P2PMgr.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Hook(func(event *p2p.NeighborRemovedEvent) {
+		n := event.Neighbor
+		Plugin.LogInfof("Neighbor removed: %s / %s", p2p.GetAddress(n.Peer), n.ID())
+	}, event.WithWorkerPool(plugin.WorkerPool))
 }
 
 func run(plugin *node.Plugin) {
 	if err := daemon.BackgroundWorker(PluginName, start, shutdown.PriorityP2P); err != nil {
 		plugin.Logger().Panicf("Failed to start as daemon: %s", err)
 	}
-}
-
-func configureLogging() {
-	// log the p2p events
-	deps.P2PMgr.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborAdded.Hook(func(event *p2p.NeighborAddedEvent) {
-		n := event.Neighbor
-		Plugin.LogInfof("Neighbor added: %s / %s", p2p.GetAddress(n.Peer), n.ID())
-	})
-	deps.P2PMgr.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Hook(func(event *p2p.NeighborRemovedEvent) {
-		n := event.Neighbor
-		Plugin.LogInfof("Neighbor removed: %s / %s", p2p.GetAddress(n.Peer), n.ID())
-	})
 }
