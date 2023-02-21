@@ -243,7 +243,6 @@ func (b *Booker) block(id models.BlockID) (block *virtualvoting.Block, exists bo
 func (b *Booker) book(block *virtualvoting.Block) (inheritingErr error) {
 	// Need to mutually exclude a fork on this block.
 	// VirtualVoting.Track is performed within the context on this lock to make those two steps atomic.
-	// VirtualVoting should be refactored to be a component of Booker.
 	b.bookingMutex.Lock(block.ID())
 	defer b.bookingMutex.Unlock(block.ID())
 
@@ -542,7 +541,6 @@ func (b *Booker) PropagateForkedConflict(transactionID, addedConflictID utxo.Tra
 func (b *Booker) propagateToBlock(block *virtualvoting.Block, addedConflictID utxo.TransactionID, removedConflictIDs utxo.TransactionIDs) (propagateFurther bool, err error) {
 	// Need to mutually exclude a booking on this block.
 	// VirtualVoting.Track is performed within the context on this lock to make those two steps atomic.
-	// VirtualVoting should be refactored to be a component of Booker.
 	// TODO: possibly need to also lock this mutex when propagating through markers.
 	b.bookingMutex.Lock(block.ID())
 	defer b.bookingMutex.Unlock(block.ID())
