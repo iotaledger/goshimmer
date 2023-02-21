@@ -37,7 +37,6 @@ type dependencies struct {
 func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
 	Plugin.Events.Init.Hook(func(event *node.InitEvent) {
-
 		newManager := func(lPeer *peer.Local, p2pMgr *p2p.Manager) *manualpeering.Manager {
 			return manualpeering.NewManager(p2pMgr, lPeer, event.Plugin.WorkerPool, logger.NewLogger(PluginName))
 		}
