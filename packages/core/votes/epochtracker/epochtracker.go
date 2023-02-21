@@ -2,26 +2,26 @@ package epochtracker
 
 import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/core/votes/latestvotes"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/ds/shrinkingmap"
 	"github.com/iotaledger/hive.go/lo"
 )
 
 type EpochTracker struct {
 	Events *Events
 
-	votesPerIdentity *memstorage.Storage[identity.ID, *latestvotes.LatestVotes[epoch.Index, EpochVotePower]]
-	votersPerEpoch   *memstorage.Storage[epoch.Index, *advancedset.AdvancedSet[identity.ID]]
+	votesPerIdentity *shrinkingmap.ShrinkingMap[identity.ID, *latestvotes.LatestVotes[epoch.Index, EpochVotePower]]
+	votersPerEpoch   *shrinkingmap.ShrinkingMap[epoch.Index, *advancedset.AdvancedSet[identity.ID]]
 
 	cutoffIndexCallback func() epoch.Index
 }
 
 func NewEpochTracker(cutoffIndexCallback func() epoch.Index) *EpochTracker {
 	return &EpochTracker{
-		votesPerIdentity: memstorage.New[identity.ID, *latestvotes.LatestVotes[epoch.Index, EpochVotePower]](),
-		votersPerEpoch:   memstorage.New[epoch.Index, *advancedset.AdvancedSet[identity.ID]](),
+		votesPerIdentity: shrinkingmap.New[identity.ID, *latestvotes.LatestVotes[epoch.Index, EpochVotePower]](),
+		votersPerEpoch:   shrinkingmap.New[epoch.Index, *advancedset.AdvancedSet[identity.ID]](),
 
 		cutoffIndexCallback: cutoffIndexCallback,
 		Events:              NewEvents(),
@@ -29,7 +29,7 @@ func NewEpochTracker(cutoffIndexCallback func() epoch.Index) *EpochTracker {
 }
 
 func (c *EpochTracker) epochVoters(epochIndex epoch.Index) *advancedset.AdvancedSet[identity.ID] {
-	epochVoters, _ := c.votersPerEpoch.RetrieveOrCreate(epochIndex, func() *advancedset.AdvancedSet[identity.ID] {
+	epochVoters, _ := c.votersPerEpoch.GetOrCreate(epochIndex, func() *advancedset.AdvancedSet[identity.ID] {
 		return advancedset.NewAdvancedSet[identity.ID]()
 	})
 	return epochVoters
@@ -42,7 +42,7 @@ func (c *EpochTracker) TrackVotes(epochIndex epoch.Index, voterID identity.ID, p
 		return
 	}
 
-	votersVotes, _ := c.votesPerIdentity.RetrieveOrCreate(voterID, func() *latestvotes.LatestVotes[epoch.Index, EpochVotePower] {
+	votersVotes, _ := c.votesPerIdentity.GetOrCreate(voterID, func() *latestvotes.LatestVotes[epoch.Index, EpochVotePower] {
 		return latestvotes.NewLatestVotes[epoch.Index, EpochVotePower](voterID)
 	})
 

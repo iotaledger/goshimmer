@@ -3,17 +3,17 @@ package conflicttracker
 import (
 	"fmt"
 
-	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/hive.go/constraints"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/ds/shrinkingmap"
 )
 
 type ConflictTracker[ConflictIDType, ResourceIDType comparable, VotePowerType constraints.Comparable[VotePowerType]] struct {
-	votes *memstorage.Storage[ConflictIDType, *votes.Votes[ConflictIDType, VotePowerType]]
+	votes *shrinkingmap.ShrinkingMap[ConflictIDType, *votes.Votes[ConflictIDType, VotePowerType]]
 
 	conflictDAG *conflictdag.ConflictDAG[ConflictIDType, ResourceIDType]
 	validators  *sybilprotection.WeightedSet
@@ -22,7 +22,7 @@ type ConflictTracker[ConflictIDType, ResourceIDType comparable, VotePowerType co
 
 func NewConflictTracker[ConflictIDType, ResourceIDType comparable, VotePowerType constraints.Comparable[VotePowerType]](conflictDAG *conflictdag.ConflictDAG[ConflictIDType, ResourceIDType], validators *sybilprotection.WeightedSet) *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType] {
 	return &ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]{
-		votes:       memstorage.New[ConflictIDType, *votes.Votes[ConflictIDType, VotePowerType]](),
+		votes:       shrinkingmap.New[ConflictIDType, *votes.Votes[ConflictIDType, VotePowerType]](),
 		conflictDAG: conflictDAG,
 		validators:  validators,
 		Events:      NewEvents[ConflictIDType](),
@@ -66,7 +66,7 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) AddSupp
 	}
 
 	vote := votes.NewVote[ConflictIDType](voterID, power, votes.Like).WithConflictID(forkedConflictID)
-	votesObj, _ := c.votes.RetrieveOrCreate(forkedConflictID, votes.NewVotes[ConflictIDType, VotePowerType])
+	votesObj, _ := c.votes.GetOrCreate(forkedConflictID, votes.NewVotes[ConflictIDType, VotePowerType])
 	if added, opinionChanged := votesObj.Add(vote); added && opinionChanged {
 		c.Events.VoterAdded.Trigger(&VoterEvent[ConflictIDType]{Voter: voterID, ConflictID: forkedConflictID})
 	}
@@ -81,7 +81,7 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) applyVo
 			continue
 		}
 
-		votesObj, created := c.votes.RetrieveOrCreate(conflictID, votes.NewVotes[ConflictIDType, VotePowerType])
+		votesObj, created := c.votes.GetOrCreate(conflictID, votes.NewVotes[ConflictIDType, VotePowerType])
 
 		conflictVote := defaultVote.WithConflictID(conflictID)
 

@@ -602,7 +602,7 @@ func (s *Scheduler) GetOrRegisterBlock(virtualVotingBlock *virtualvoting.Block) 
 
 	blockStorage := s.blocks.Get(virtualVotingBlock.ID().Index(), true)
 
-	block, _ = blockStorage.RetrieveOrCreate(virtualVotingBlock.ID(), func() *Block {
+	block, _ = blockStorage.GetOrCreate(virtualVotingBlock.ID(), func() *Block {
 		return NewBlock(virtualVotingBlock)
 	})
 

@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/eventticker"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/ds/shrinkingmap"
 	"github.com/iotaledger/hive.go/ds/walker"
 	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/iotaledger/hive.go/runtime/syncutils"
@@ -31,7 +32,7 @@ type Manager struct {
 
 	// This tracks the forkingPoints by the commitment that triggered the detection so we can clean up after eviction
 	forkingPointsByCommitments *memstorage.EpochStorage[commitment.ID, commitment.ID]
-	forksByForkingPoint        *memstorage.Storage[commitment.ID, *Fork]
+	forksByForkingPoint        *shrinkingmap.ShrinkingMap[commitment.ID, *Fork]
 
 	evictionMutex sync.RWMutex
 
@@ -50,7 +51,7 @@ func NewManager(snapshot *commitment.Commitment, opts ...options.Option[Manager]
 		commitmentsByID:            make(map[commitment.ID]*Commitment),
 		commitmentEntityMutex:      syncutils.NewDAGMutex[commitment.ID](),
 		forkingPointsByCommitments: memstorage.NewEpochStorage[commitment.ID, commitment.ID](),
-		forksByForkingPoint:        memstorage.New[commitment.ID, *Fork](),
+		forksByForkingPoint:        shrinkingmap.New[commitment.ID, *Fork](),
 	}, opts, func(manager *Manager) {
 		manager.SnapshotCommitment, _ = manager.Commitment(snapshot.ID(), true)
 		manager.SnapshotCommitment.PublishCommitment(snapshot)

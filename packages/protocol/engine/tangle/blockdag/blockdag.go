@@ -185,7 +185,7 @@ func (b *BlockDAG) isFutureBlock(block *Block) (isFutureBlock bool) {
 }
 
 func (b *BlockDAG) storeFutureBlock(block *Block) {
-	lo.Return1(b.futureBlocks.Get(block.Commitment().Index(), true).RetrieveOrCreate(block.Commitment().ID(), func() *advancedset.AdvancedSet[*Block] {
+	lo.Return1(b.futureBlocks.Get(block.Commitment().Index(), true).GetOrCreate(block.Commitment().ID(), func() *advancedset.AdvancedSet[*Block] {
 		return advancedset.NewAdvancedSet[*Block]()
 	})).Add(block)
 }
@@ -249,7 +249,7 @@ func (b *BlockDAG) attach(data *models.Block) (block *Block, wasAttached bool, e
 		return
 	}
 
-	if block, wasAttached = b.memStorage.Get(data.ID().EpochIndex, true).RetrieveOrCreate(data.ID(), func() *Block { return NewBlock(data) }); !wasAttached {
+	if block, wasAttached = b.memStorage.Get(data.ID().EpochIndex, true).GetOrCreate(data.ID(), func() *Block { return NewBlock(data) }); !wasAttached {
 		if wasAttached = block.update(data); !wasAttached {
 			return
 		}
@@ -301,7 +301,7 @@ func (b *BlockDAG) registerChild(child *Block, parent models.Parent) {
 		return
 	}
 
-	parentBlock, _ := b.memStorage.Get(parent.ID.Index(), true).RetrieveOrCreate(parent.ID, func() (newBlock *Block) {
+	parentBlock, _ := b.memStorage.Get(parent.ID.Index(), true).GetOrCreate(parent.ID, func() (newBlock *Block) {
 		newBlock = NewBlock(models.NewEmptyBlock(parent.ID), WithMissing(true))
 
 		b.Events.BlockMissing.Trigger(newBlock)
