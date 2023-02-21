@@ -2,9 +2,9 @@ package conflictdag
 
 import (
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
-	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/ds/set"
+	"github.com/iotaledger/hive.go/ds/shrinkingmap"
 	"github.com/iotaledger/hive.go/ds/walker"
 	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/iotaledger/hive.go/runtime/syncutils"
@@ -16,8 +16,8 @@ type ConflictDAG[ConflictIDType, ResourceIDType comparable] struct {
 	// Events contains the Events of the ConflictDAG.
 	Events *Events[ConflictIDType, ResourceIDType]
 
-	conflicts    *memstorage.Storage[ConflictIDType, *Conflict[ConflictIDType, ResourceIDType]]
-	conflictSets *memstorage.Storage[ResourceIDType, *ConflictSet[ConflictIDType, ResourceIDType]]
+	conflicts    *shrinkingmap.ShrinkingMap[ConflictIDType, *Conflict[ConflictIDType, ResourceIDType]]
+	conflictSets *shrinkingmap.ShrinkingMap[ResourceIDType, *ConflictSet[ConflictIDType, ResourceIDType]]
 
 	// mutex is a mutex that prevents that two processes simultaneously update the ConflictDAG.
 	mutex *syncutils.StarvingMutex
@@ -29,8 +29,8 @@ type ConflictDAG[ConflictIDType, ResourceIDType comparable] struct {
 func New[ConflictIDType, ResourceIDType comparable](opts ...options.Option[ConflictDAG[ConflictIDType, ResourceIDType]]) (c *ConflictDAG[ConflictIDType, ResourceIDType]) {
 	return options.Apply(&ConflictDAG[ConflictIDType, ResourceIDType]{
 		Events:            NewEvents[ConflictIDType, ResourceIDType](),
-		conflicts:         memstorage.New[ConflictIDType, *Conflict[ConflictIDType, ResourceIDType]](),
-		conflictSets:      memstorage.New[ResourceIDType, *ConflictSet[ConflictIDType, ResourceIDType]](),
+		conflicts:         shrinkingmap.New[ConflictIDType, *Conflict[ConflictIDType, ResourceIDType]](),
+		conflictSets:      shrinkingmap.New[ResourceIDType, *ConflictSet[ConflictIDType, ResourceIDType]](),
 		mutex:             syncutils.NewStarvingMutex(),
 		optsMergeToMaster: true,
 	}, opts)
@@ -75,7 +75,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) CreateConflict(id Conflict
 		conflictParents.Add(parent)
 	}
 
-	conflict, created := c.conflicts.RetrieveOrCreate(id, func() (newConflict *Conflict[ConflictIDType, ResourceIDType]) {
+	conflict, created := c.conflicts.GetOrCreate(id, func() (newConflict *Conflict[ConflictIDType, ResourceIDType]) {
 		newConflict = NewConflict(id, parentIDs, advancedset.NewAdvancedSet[*ConflictSet[ConflictIDType, ResourceIDType]]())
 
 		c.registerConflictWithConflictSet(newConflict, conflictingResourceIDs)
@@ -405,7 +405,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) registerConflictWithConfli
 	for it := conflictingResourceIDs.Iterator(); it.HasNext(); {
 		conflictSetID := it.Next()
 
-		conflictSet, _ := c.conflictSets.RetrieveOrCreate(conflictSetID, func() *ConflictSet[ConflictIDType, ResourceIDType] {
+		conflictSet, _ := c.conflictSets.GetOrCreate(conflictSetID, func() *ConflictSet[ConflictIDType, ResourceIDType] {
 			return NewConflictSet[ConflictIDType](conflictSetID)
 		})
 		if conflict.addConflictSet(conflictSet) {

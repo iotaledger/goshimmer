@@ -3,13 +3,13 @@ package tipmanager
 import (
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/ds/shrinkingmap"
 	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/runtime/event"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
@@ -17,9 +17,9 @@ import (
 
 type TipsConflictTracker struct {
 	workerPool          *workerpool.WorkerPool
-	tipConflicts        *memstorage.Storage[models.BlockID, utxo.TransactionIDs]
-	censoredConflicts   *memstorage.Storage[utxo.TransactionID, types.Empty]
-	tipCountPerConflict *memstorage.Storage[utxo.TransactionID, int]
+	tipConflicts        *shrinkingmap.ShrinkingMap[models.BlockID, utxo.TransactionIDs]
+	censoredConflicts   *shrinkingmap.ShrinkingMap[utxo.TransactionID, types.Empty]
+	tipCountPerConflict *shrinkingmap.ShrinkingMap[utxo.TransactionID, int]
 	engine              *engine.Engine
 
 	sync.RWMutex
@@ -28,9 +28,9 @@ type TipsConflictTracker struct {
 func NewTipsConflictTracker(workerPool *workerpool.WorkerPool, engineInstance *engine.Engine) *TipsConflictTracker {
 	t := &TipsConflictTracker{
 		workerPool:          workerPool,
-		tipConflicts:        memstorage.New[models.BlockID, utxo.TransactionIDs](),
-		censoredConflicts:   memstorage.New[utxo.TransactionID, types.Empty](),
-		tipCountPerConflict: memstorage.New[utxo.TransactionID, int](),
+		tipConflicts:        shrinkingmap.New[models.BlockID, utxo.TransactionIDs](),
+		censoredConflicts:   shrinkingmap.New[utxo.TransactionID, types.Empty](),
+		tipCountPerConflict: shrinkingmap.New[utxo.TransactionID, int](),
 		engine:              engineInstance,
 	}
 

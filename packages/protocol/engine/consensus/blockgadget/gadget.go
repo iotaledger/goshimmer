@@ -17,6 +17,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/ds/shrinkingmap"
 	"github.com/iotaledger/hive.go/ds/walker"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/event"
@@ -38,11 +39,11 @@ type Gadget struct {
 
 	totalWeightCallback func() int64
 
-	lastAcceptedMarker              *memstorage.Storage[markers.SequenceID, markers.Index]
+	lastAcceptedMarker              *shrinkingmap.ShrinkingMap[markers.SequenceID, markers.Index]
 	lastAcceptedMarkerMutex         sync.Mutex
 	optsMarkerAcceptanceThreshold   float64
 	acceptanceOrder                 *causalorder.CausalOrder[models.BlockID, *Block]
-	lastConfirmedMarker             *memstorage.Storage[markers.SequenceID, markers.Index]
+	lastConfirmedMarker             *shrinkingmap.ShrinkingMap[markers.SequenceID, markers.Index]
 	lastConfirmedMarkerMutex        sync.Mutex
 	optsMarkerConfirmationThreshold float64
 	confirmationOrder               *causalorder.CausalOrder[models.BlockID, *Block]
@@ -56,7 +57,7 @@ func New(workers *workerpool.Group, tangleInstance *tangle.Tangle, evictionState
 		workers:                         workers,
 		tangle:                          tangleInstance,
 		blocks:                          memstorage.NewEpochStorage[models.BlockID, *Block](),
-		lastAcceptedMarker:              memstorage.New[markers.SequenceID, markers.Index](),
+		lastAcceptedMarker:              shrinkingmap.New[markers.SequenceID, markers.Index](),
 		evictionState:                   evictionState,
 		optsMarkerAcceptanceThreshold:   0.67,
 		optsMarkerConfirmationThreshold: 0.67,
@@ -66,8 +67,8 @@ func New(workers *workerpool.Group, tangleInstance *tangle.Tangle, evictionState
 
 		a.tangle = tangleInstance
 		a.totalWeightCallback = totalWeightCallback
-		a.lastAcceptedMarker = memstorage.New[markers.SequenceID, markers.Index]()
-		a.lastConfirmedMarker = memstorage.New[markers.SequenceID, markers.Index]()
+		a.lastAcceptedMarker = shrinkingmap.New[markers.SequenceID, markers.Index]()
+		a.lastConfirmedMarker = shrinkingmap.New[markers.SequenceID, markers.Index]()
 		a.blocks = memstorage.NewEpochStorage[models.BlockID, *Block]()
 
 		a.acceptanceOrder = causalorder.New(workers.CreatePool("AcceptanceOrder", 2), a.GetOrRegisterBlock, (*Block).IsAccepted, a.markAsAccepted, a.acceptanceFailed)
@@ -415,7 +416,7 @@ func (a *Gadget) registerBlock(virtualVotingBlock *virtualvoting.Block) (block *
 	}
 
 	blockStorage := a.blocks.Get(virtualVotingBlock.ID().Index(), true)
-	block, _ = blockStorage.RetrieveOrCreate(virtualVotingBlock.ID(), func() *Block {
+	block, _ = blockStorage.GetOrCreate(virtualVotingBlock.ID(), func() *Block {
 		return NewBlock(virtualVotingBlock)
 	})
 

@@ -5,10 +5,10 @@ import (
 	"github.com/emirpasic/gods/utils"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/hive.go/ds/set"
+	"github.com/iotaledger/hive.go/ds/shrinkingmap"
 	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
@@ -16,14 +16,14 @@ import (
 type MarkerManager[IndexedID epoch.IndexedID, MappedEntity epoch.IndexedEntity[IndexedID]] struct {
 	Events                       *Events
 	SequenceManager              *markers.SequenceManager
-	markerIndexConflictIDMapping *memstorage.Storage[markers.SequenceID, *MarkerIndexConflictIDMapping]
+	markerIndexConflictIDMapping *shrinkingmap.ShrinkingMap[markers.SequenceID, *MarkerIndexConflictIDMapping]
 
-	markerBlockMapping         *memstorage.Storage[markers.Marker, MappedEntity]
-	sequenceMarkersMapping     *memstorage.Storage[markers.SequenceID, *treemap.Map]
-	markerBlockMappingEviction *memstorage.Storage[epoch.Index, set.Set[markers.Marker]]
+	markerBlockMapping         *shrinkingmap.ShrinkingMap[markers.Marker, MappedEntity]
+	sequenceMarkersMapping     *shrinkingmap.ShrinkingMap[markers.SequenceID, *treemap.Map]
+	markerBlockMappingEviction *shrinkingmap.ShrinkingMap[epoch.Index, set.Set[markers.Marker]]
 
-	sequenceLastUsed *memstorage.Storage[markers.SequenceID, epoch.Index]
-	sequenceEviction *memstorage.Storage[epoch.Index, set.Set[markers.SequenceID]]
+	sequenceLastUsed *shrinkingmap.ShrinkingMap[markers.SequenceID, epoch.Index]
+	sequenceEviction *shrinkingmap.ShrinkingMap[epoch.Index, set.Set[markers.SequenceID]]
 
 	SequenceMutex *syncutils.DAGMutex[markers.SequenceID]
 
@@ -33,13 +33,13 @@ type MarkerManager[IndexedID epoch.IndexedID, MappedEntity epoch.IndexedEntity[I
 func NewMarkerManager[IndexedID epoch.IndexedID, MappedEntity epoch.IndexedEntity[IndexedID]](opts ...options.Option[MarkerManager[IndexedID, MappedEntity]]) *MarkerManager[IndexedID, MappedEntity] {
 	manager := options.Apply(&MarkerManager[IndexedID, MappedEntity]{
 		Events:                     NewEvents(),
-		markerBlockMapping:         memstorage.New[markers.Marker, MappedEntity](),
-		sequenceMarkersMapping:     memstorage.New[markers.SequenceID, *treemap.Map](),
-		markerBlockMappingEviction: memstorage.New[epoch.Index, set.Set[markers.Marker]](),
+		markerBlockMapping:         shrinkingmap.New[markers.Marker, MappedEntity](),
+		sequenceMarkersMapping:     shrinkingmap.New[markers.SequenceID, *treemap.Map](),
+		markerBlockMappingEviction: shrinkingmap.New[epoch.Index, set.Set[markers.Marker]](),
 
-		markerIndexConflictIDMapping: memstorage.New[markers.SequenceID, *MarkerIndexConflictIDMapping](),
-		sequenceLastUsed:             memstorage.New[markers.SequenceID, epoch.Index](),
-		sequenceEviction:             memstorage.New[epoch.Index, set.Set[markers.SequenceID]](),
+		markerIndexConflictIDMapping: shrinkingmap.New[markers.SequenceID, *MarkerIndexConflictIDMapping](),
+		sequenceLastUsed:             shrinkingmap.New[markers.SequenceID, epoch.Index](),
+		sequenceEviction:             shrinkingmap.New[epoch.Index, set.Set[markers.SequenceID]](),
 
 		SequenceMutex: syncutils.NewDAGMutex[markers.SequenceID](),
 
@@ -129,7 +129,7 @@ func (m *MarkerManager[IndexedID, MappedEntity]) evictMarkerBlockMapping(epochIn
 
 func (m *MarkerManager[IndexedID, MappedEntity]) registerSequenceEviction(index epoch.Index, sequenceID markers.SequenceID) {
 	// add the sequence to the set of active sequences for the given epoch.Index. This is append-only (record of the past).
-	sequenceSet, _ := m.sequenceEviction.RetrieveOrCreate(index, func() set.Set[markers.SequenceID] {
+	sequenceSet, _ := m.sequenceEviction.GetOrCreate(index, func() set.Set[markers.SequenceID] {
 		return set.New[markers.SequenceID](true)
 	})
 	sequenceSet.Add(sequenceID)
@@ -183,7 +183,7 @@ func (m *MarkerManager[IndexedID, MappedEntity]) ConflictIDs(marker markers.Mark
 }
 
 func (m *MarkerManager[IndexedID, MappedEntity]) setConflictIDMapping(marker markers.Marker, conflictIDs utxo.TransactionIDs) {
-	mapping, _ := m.markerIndexConflictIDMapping.RetrieveOrCreate(marker.SequenceID(), NewMarkerIndexConflictIDMapping)
+	mapping, _ := m.markerIndexConflictIDMapping.GetOrCreate(marker.SequenceID(), NewMarkerIndexConflictIDMapping)
 	mapping.SetConflictIDs(marker.Index(), conflictIDs)
 }
 
@@ -295,10 +295,10 @@ func (m *MarkerManager[IndexedID, MappedEntity]) BlockCeiling(marker markers.Mar
 func (m *MarkerManager[IndexedID, MappedEntity]) addMarkerBlockMapping(marker markers.Marker, block MappedEntity) {
 	m.markerBlockMapping.Set(marker, block)
 
-	markerSet, _ := m.markerBlockMappingEviction.RetrieveOrCreate(block.ID().Index(), func() set.Set[markers.Marker] { return set.New[markers.Marker](true) })
+	markerSet, _ := m.markerBlockMappingEviction.GetOrCreate(block.ID().Index(), func() set.Set[markers.Marker] { return set.New[markers.Marker](true) })
 	markerSet.Add(marker)
 
-	markerIndexBlockMapping, _ := m.sequenceMarkersMapping.RetrieveOrCreate(marker.SequenceID(), func() *treemap.Map {
+	markerIndexBlockMapping, _ := m.sequenceMarkersMapping.GetOrCreate(marker.SequenceID(), func() *treemap.Map {
 		return treemap.NewWith(utils.UInt64Comparator)
 	})
 	markerIndexBlockMapping.Put(uint64(marker.Index()), block)

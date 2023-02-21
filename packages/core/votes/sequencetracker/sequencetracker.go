@@ -3,20 +3,20 @@ package sequencetracker
 import (
 	"fmt"
 
-	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/core/votes/latestvotes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/hive.go/constraints"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/ds/shrinkingmap"
 	"github.com/iotaledger/hive.go/ds/walker"
 )
 
 type SequenceTracker[VotePowerType constraints.Comparable[VotePowerType]] struct {
 	Events *Events
 
-	votes *memstorage.Storage[markers.SequenceID, *memstorage.Storage[identity.ID, *latestvotes.LatestVotes[markers.Index, VotePowerType]]]
+	votes *shrinkingmap.ShrinkingMap[markers.SequenceID, *shrinkingmap.ShrinkingMap[identity.ID, *latestvotes.LatestVotes[markers.Index, VotePowerType]]]
 
 	sequenceCallback    func(id markers.SequenceID) (sequence *markers.Sequence, exists bool)
 	validators          *sybilprotection.WeightedSet
@@ -25,7 +25,7 @@ type SequenceTracker[VotePowerType constraints.Comparable[VotePowerType]] struct
 
 func NewSequenceTracker[VotePowerType constraints.Comparable[VotePowerType]](validators *sybilprotection.WeightedSet, sequenceCallback func(id markers.SequenceID) (sequence *markers.Sequence, exists bool), cutoffIndexCallback func(sequenceID markers.SequenceID) markers.Index) *SequenceTracker[VotePowerType] {
 	return &SequenceTracker[VotePowerType]{
-		votes:               memstorage.New[markers.SequenceID, *memstorage.Storage[identity.ID, *latestvotes.LatestVotes[markers.Index, VotePowerType]]](),
+		votes:               shrinkingmap.New[markers.SequenceID, *shrinkingmap.ShrinkingMap[identity.ID, *latestvotes.LatestVotes[markers.Index, VotePowerType]]](),
 		sequenceCallback:    sequenceCallback,
 		validators:          validators,
 		cutoffIndexCallback: cutoffIndexCallback,
@@ -100,8 +100,10 @@ func (s *SequenceTracker[VotePowerType]) addVoteToMarker(marker markers.Marker, 
 		return
 	}
 
-	sequenceStorage, _ := s.votes.RetrieveOrCreate(marker.SequenceID(), memstorage.New[identity.ID, *latestvotes.LatestVotes[markers.Index, VotePowerType]])
-	latestMarkerVotes, _ := sequenceStorage.RetrieveOrCreate(voter, func() *latestvotes.LatestVotes[markers.Index, VotePowerType] {
+	sequenceStorage, _ := s.votes.GetOrCreate(marker.SequenceID(), func() *shrinkingmap.ShrinkingMap[identity.ID, *latestvotes.LatestVotes[markers.Index, VotePowerType]] {
+		return shrinkingmap.New[identity.ID, *latestvotes.LatestVotes[markers.Index, VotePowerType]]()
+	})
+	latestMarkerVotes, _ := sequenceStorage.GetOrCreate(voter, func() *latestvotes.LatestVotes[markers.Index, VotePowerType] {
 		return latestvotes.NewLatestVotes[markers.Index, VotePowerType](voter)
 	})
 

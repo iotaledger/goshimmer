@@ -187,7 +187,7 @@ func (r *Retainer) createOrGetCachedMetadata(id models.BlockID) *cachedMetadata 
 	}
 
 	storage := r.cachedMetadata.Get(id.Index(), true)
-	cm, _ := storage.RetrieveOrCreate(id, newCachedMetadata)
+	cm, _ := storage.GetOrCreate(id, newCachedMetadata)
 	return cm
 }
 

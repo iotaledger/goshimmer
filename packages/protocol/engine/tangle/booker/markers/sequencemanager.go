@@ -5,7 +5,7 @@ import (
 	"math"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/core/memstorage"
+	"github.com/iotaledger/hive.go/ds/shrinkingmap"
 	"github.com/iotaledger/hive.go/ds/walker"
 	"github.com/iotaledger/hive.go/runtime/options"
 )
@@ -15,7 +15,7 @@ import (
 // SequenceManager is the managing entity for the Marker related business logic. It is stateful and automatically stores its
 // state in a memstorage.
 type SequenceManager struct {
-	sequences              *memstorage.Storage[SequenceID, *Sequence]
+	sequences              *shrinkingmap.ShrinkingMap[SequenceID, *Sequence]
 	sequenceIDCounter      SequenceID
 	sequenceIDCounterMutex sync.Mutex
 
@@ -29,7 +29,7 @@ type SequenceManager struct {
 func NewSequenceManager(opts ...options.Option[SequenceManager]) (m *SequenceManager) {
 	m = options.Apply(&SequenceManager{
 		optsMaxPastMarkerDistance: 30,
-		sequences:                 memstorage.New[SequenceID, *Sequence](),
+		sequences:                 shrinkingmap.New[SequenceID, *Sequence](),
 		optsIncreaseIndexCallback: func(SequenceID, Index) bool {
 			return true
 		},
