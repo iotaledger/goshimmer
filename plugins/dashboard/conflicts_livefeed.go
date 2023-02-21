@@ -8,23 +8,20 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/hive.go/app/daemon"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 var (
-	mu                               sync.RWMutex
-	conflicts                        *boundedConflictMap
-	conflictsLiveFeedWorkerPool      *workerpool.NonBlockingQueuedWorkerPool
-	conflictsLiveFeedWorkerCount     = 1
-	conflictsLiveFeedWorkerQueueSize = 50
+	mu        sync.RWMutex
+	conflicts *boundedConflictMap
 )
 
 type conflictSet struct {
@@ -52,12 +49,12 @@ func (c *conflictSet) ToJSON() *conflictSetJSON {
 }
 
 type conflict struct {
-	ConflictID        utxo.TransactionID              `json:"conflictID"`
-	ConflictSetIDs    *set.AdvancedSet[utxo.OutputID] `json:"conflictSetIDs"`
-	ConfirmationState confirmation.State              `json:"confirmationState"`
-	IssuingTime       time.Time                       `json:"issuingTime"`
-	IssuerNodeID      identity.ID                     `json:"issuerNodeID"`
-	UpdatedTime       time.Time                       `json:"updatedTime"`
+	ConflictID        utxo.TransactionID                      `json:"conflictID"`
+	ConflictSetIDs    *advancedset.AdvancedSet[utxo.OutputID] `json:"conflictSetIDs"`
+	ConfirmationState confirmation.State                      `json:"confirmationState"`
+	IssuingTime       time.Time                               `json:"issuingTime"`
+	IssuerNodeID      identity.ID                             `json:"issuerNodeID"`
+	UpdatedTime       time.Time                               `json:"updatedTime"`
 }
 
 type conflictJSON struct {
@@ -85,43 +82,31 @@ func (c *conflict) ToJSON() *conflictJSON {
 }
 
 func sendConflictSetUpdate(c *conflictSet) {
-	conflictsLiveFeedWorkerPool.TrySubmit(MsgTypeConflictsConflictSet, c.ToJSON())
+	broadcastWsBlock(&wsblk{MsgTypeConflictsConflictSet, c.ToJSON()})
 }
 
 func sendConflictUpdate(b *conflict) {
-	conflictsLiveFeedWorkerPool.TrySubmit(MsgTypeConflictsConflict, b.ToJSON())
+	broadcastWsBlock(&wsblk{MsgTypeConflictsConflict, b.ToJSON()})
 }
 
-func configureConflictLiveFeed() {
-	conflictsLiveFeedWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
-		broadcastWsBlock(&wsblk{task.Param(0).(byte), task.Param(1)})
-		task.Return(nil)
-	}, workerpool.WorkerCount(conflictsLiveFeedWorkerCount), workerpool.QueueSize(conflictsLiveFeedWorkerQueueSize))
-}
-
-func runConflictLiveFeed() {
+func runConflictLiveFeed(plugin *node.Plugin) {
 	if err := daemon.BackgroundWorker("Dashboard[ConflictsLiveFeed]", func(ctx context.Context) {
-		defer conflictsLiveFeedWorkerPool.Stop()
-
 		conflicts = &boundedConflictMap{
 			conflictSets: make(map[utxo.OutputID]*conflictSet),
 			conflicts:    make(map[utxo.TransactionID]*conflict),
 			conflictHeap: &timeHeap{},
 		}
 
-		onConflictCreatedClosure := event.NewClosure(onConflictCreated)
-		onConflictAcceptedClosure := event.NewClosure(onConflictAccepted)
-		onConflictRejectedClosure := event.NewClosure(onConflictRejected)
-		deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictCreated.Attach(onConflictCreatedClosure)
-		deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictAccepted.Attach(onConflictAcceptedClosure)
-		deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictRejected.Attach(onConflictRejectedClosure)
+		unhook := lo.Batch(
+			deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictCreated.Hook(onConflictCreated, event.WithWorkerPool(plugin.WorkerPool)).Unhook,
+			deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictAccepted.Hook(onConflictAccepted, event.WithWorkerPool(plugin.WorkerPool)).Unhook,
+			deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictRejected.Hook(onConflictRejected, event.WithWorkerPool(plugin.WorkerPool)).Unhook,
+		)
 
 		<-ctx.Done()
 
 		log.Info("Stopping Dashboard[ConflictsLiveFeed] ...")
-		deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictCreated.Detach(onConflictCreatedClosure)
-		deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictAccepted.Detach(onConflictAcceptedClosure)
-		deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictRejected.Detach(onConflictRejectedClosure)
+		unhook()
 		log.Info("Stopping Dashboard[ConflictsLiveFeed] ... done")
 	}, shutdown.PriorityDashboard); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)

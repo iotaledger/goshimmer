@@ -5,14 +5,14 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotaledger/goshimmer/packages/core/cerrors"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
-	"github.com/iotaledger/hive.go/core/cerrors"
 	"github.com/iotaledger/hive.go/core/generics/dataflow"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/generics/walker"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/ds/walker"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 // booker is a Ledger component that bundles the booking related API.
@@ -86,7 +86,7 @@ func (b *booker) bookTransaction(ctx context.Context, tx utxo.Transaction, txMet
 }
 
 // inheritedConflictIDs determines the ConflictIDs that a Transaction should inherit when being booked.
-func (b *booker) inheritConflictIDs(ctx context.Context, txID utxo.TransactionID, inputsMetadata *OutputsMetadata) (inheritedConflictIDs *set.AdvancedSet[utxo.TransactionID]) {
+func (b *booker) inheritConflictIDs(ctx context.Context, txID utxo.TransactionID, inputsMetadata *OutputsMetadata) (inheritedConflictIDs *advancedset.AdvancedSet[utxo.TransactionID]) {
 	parentConflictIDs := b.ledger.ConflictDAG.UnconfirmedConflicts(inputsMetadata.ConflictIDs())
 
 	conflictingInputIDs, consumersToFork := b.determineConflictDetails(txID, inputsMetadata)
@@ -100,11 +100,11 @@ func (b *booker) inheritConflictIDs(ctx context.Context, txID utxo.TransactionID
 		b.forkTransaction(ctx, it.Next(), conflictingInputIDs)
 	}
 
-	return set.NewAdvancedSet(txID)
+	return advancedset.NewAdvancedSet(txID)
 }
 
 // storeOutputs stores the Outputs in the Ledger.
-func (b *booker) storeOutputs(outputs *utxo.Outputs, conflictIDs *set.AdvancedSet[utxo.TransactionID], consensusPledgeID, accessPledgeID identity.ID) {
+func (b *booker) storeOutputs(outputs *utxo.Outputs, conflictIDs *advancedset.AdvancedSet[utxo.TransactionID], consensusPledgeID, accessPledgeID identity.ID) {
 	_ = outputs.ForEach(func(output utxo.Output) (err error) {
 		outputMetadata := NewOutputMetadata(output.ID())
 		outputMetadata.SetConflictIDs(conflictIDs)
@@ -167,7 +167,7 @@ func (b *booker) forkTransaction(ctx context.Context, txID utxo.TransactionID, o
 }
 
 // propagateForkedConflictToFutureCone propagates a newly introduced Conflict to its future cone.
-func (b *booker) propagateForkedConflictToFutureCone(ctx context.Context, outputIDs utxo.OutputIDs, forkedConflictID utxo.TransactionID, previousParentConflicts *set.AdvancedSet[utxo.TransactionID]) {
+func (b *booker) propagateForkedConflictToFutureCone(ctx context.Context, outputIDs utxo.OutputIDs, forkedConflictID utxo.TransactionID, previousParentConflicts *advancedset.AdvancedSet[utxo.TransactionID]) {
 	b.ledger.Utils.WalkConsumingTransactionMetadata(outputIDs, func(consumingTxMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
 		b.ledger.mutex.Lock(consumingTxMetadata.ID())
 		defer b.ledger.mutex.Unlock(consumingTxMetadata.ID())
@@ -181,7 +181,7 @@ func (b *booker) propagateForkedConflictToFutureCone(ctx context.Context, output
 }
 
 // updateConflictsAfterFork updates the ConflictIDs of a Transaction after a fork.
-func (b *booker) updateConflictsAfterFork(ctx context.Context, txMetadata *TransactionMetadata, forkedConflictID utxo.TransactionID, previousParents *set.AdvancedSet[utxo.TransactionID]) (updated bool) {
+func (b *booker) updateConflictsAfterFork(ctx context.Context, txMetadata *TransactionMetadata, forkedConflictID utxo.TransactionID, previousParents *advancedset.AdvancedSet[utxo.TransactionID]) (updated bool) {
 	if txMetadata.IsConflicting() {
 		b.ledger.ConflictDAG.UpdateConflictParents(txMetadata.ID(), previousParents, forkedConflictID)
 		return false

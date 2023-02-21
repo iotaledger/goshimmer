@@ -4,8 +4,8 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
-	"github.com/iotaledger/hive.go/core/kvstore"
-	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
+	"github.com/iotaledger/hive.go/kvstore"
+	"github.com/iotaledger/hive.go/kvstore/mapdb"
 )
 
 // region WithStore ////////////////////////////////////////////////////////////////////////////////////////////////////

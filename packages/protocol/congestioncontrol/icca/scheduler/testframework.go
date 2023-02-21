@@ -19,11 +19,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
-	"github.com/iotaledger/hive.go/core/debug"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/runtime/debug"
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 // region TestFramework //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -61,7 +61,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, optsScheduler 
 	test.Cleanup(func() {
 		t.Scheduler.Shutdown()
 		t.engine.Shutdown()
-		workers.Wait()
+		workers.WaitChildren()
 		t.storage.Shutdown()
 	})
 
@@ -79,11 +79,11 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, optsScheduler 
 }
 
 func (t *TestFramework) setupEvents() {
-	event.AttachWithWorkerPool(t.mockAcceptance.BlockAcceptedEvent, t.Scheduler.HandleAcceptedBlock, t.workers.CreatePool("HandleAccepted", 2))
-	event.AttachWithWorkerPool(t.Tangle.Instance.Events.Booker.VirtualVoting.BlockTracked, t.Scheduler.AddBlock, t.workers.CreatePool("Add", 2))
-	event.AttachWithWorkerPool(t.Tangle.Instance.Events.BlockDAG.BlockOrphaned, t.Scheduler.HandleOrphanedBlock, t.workers.CreatePool("HandleOrphaned", 2))
+	t.mockAcceptance.BlockAcceptedEvent.Hook(t.Scheduler.HandleAcceptedBlock, event.WithWorkerPool(t.workers.CreatePool("HandleAccepted", 2)))
+	t.Tangle.Instance.Events.Booker.VirtualVoting.BlockTracked.Hook(t.Scheduler.AddBlock, event.WithWorkerPool(t.workers.CreatePool("Add", 2)))
+	t.Tangle.Instance.Events.BlockDAG.BlockOrphaned.Hook(t.Scheduler.HandleOrphanedBlock, event.WithWorkerPool(t.workers.CreatePool("HandleOrphaned", 2)))
 
-	event.Hook(t.Scheduler.Events.BlockScheduled, func(block *Block) {
+	t.Scheduler.Events.BlockScheduled.Hook(func(block *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("SCHEDULED: %s", block.ID())
 		}
@@ -91,14 +91,14 @@ func (t *TestFramework) setupEvents() {
 		atomic.AddUint32(&(t.scheduledBlocksCount), 1)
 	})
 
-	event.Hook(t.Scheduler.Events.BlockSkipped, func(block *Block) {
+	t.Scheduler.Events.BlockSkipped.Hook(func(block *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("BLOCK SKIPPED: %s", block.ID())
 		}
 		atomic.AddUint32(&(t.skippedBlocksCount), 1)
 	})
 
-	event.Hook(t.Scheduler.Events.BlockDropped, func(block *Block) {
+	t.Scheduler.Events.BlockDropped.Hook(func(block *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("BLOCK DROPPED: %s", block.ID())
 		}

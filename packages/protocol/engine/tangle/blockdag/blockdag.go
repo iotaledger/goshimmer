@@ -12,12 +12,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/generics/walker"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/ds/walker"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 // region BlockDAG /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -40,7 +39,7 @@ type BlockDAG struct {
 	commitmentFunc func(index epoch.Index) (*commitment.Commitment, error)
 
 	// futureBlocks contains blocks with a commitment in the future, that should not be passed to the booker yet.
-	futureBlocks *memstorage.EpochStorage[commitment.ID, *set.AdvancedSet[*Block]]
+	futureBlocks *memstorage.EpochStorage[commitment.ID, *advancedset.AdvancedSet[*Block]]
 
 	nextIndexToPromote epoch.Index
 
@@ -50,7 +49,7 @@ type BlockDAG struct {
 	evictionMutex sync.RWMutex
 
 	Workers    *workerpool.Group
-	workerPool *workerpool.UnboundedWorkerPool
+	workerPool *workerpool.WorkerPool
 }
 
 // New is the constructor for the BlockDAG and creates a new BlockDAG instance.
@@ -60,7 +59,7 @@ func New(workers *workerpool.Group, evictionState *eviction.State, latestCommitm
 		EvictionState:  evictionState,
 		memStorage:     memstorage.NewEpochStorage[models.BlockID, *Block](),
 		commitmentFunc: latestCommitmentFunc,
-		futureBlocks:   memstorage.NewEpochStorage[commitment.ID, *set.AdvancedSet[*Block]](),
+		futureBlocks:   memstorage.NewEpochStorage[commitment.ID, *advancedset.AdvancedSet[*Block]](),
 		Workers:        workers,
 		workerPool:     workers.CreatePool("Solidifier", 2),
 	}, opts, func(b *BlockDAG) {
@@ -73,7 +72,7 @@ func New(workers *workerpool.Group, evictionState *eviction.State, latestCommitm
 			causalorder.WithReferenceValidator[models.BlockID](checkReference),
 		)
 
-		event.Hook(evictionState.Events.EpochEvicted, b.evictEpoch)
+		evictionState.Events.EpochEvicted.Hook(b.evictEpoch)
 	})
 }
 
@@ -186,8 +185,8 @@ func (b *BlockDAG) isFutureBlock(block *Block) (isFutureBlock bool) {
 }
 
 func (b *BlockDAG) storeFutureBlock(block *Block) {
-	lo.Return1(b.futureBlocks.Get(block.Commitment().Index(), true).RetrieveOrCreate(block.Commitment().ID(), func() *set.AdvancedSet[*Block] {
-		return set.NewAdvancedSet[*Block]()
+	lo.Return1(b.futureBlocks.Get(block.Commitment().Index(), true).GetOrCreate(block.Commitment().ID(), func() *advancedset.AdvancedSet[*Block] {
+		return advancedset.NewAdvancedSet[*Block]()
 	})).Add(block)
 }
 
@@ -250,7 +249,7 @@ func (b *BlockDAG) attach(data *models.Block) (block *Block, wasAttached bool, e
 		return
 	}
 
-	if block, wasAttached = b.memStorage.Get(data.ID().EpochIndex, true).RetrieveOrCreate(data.ID(), func() *Block { return NewBlock(data) }); !wasAttached {
+	if block, wasAttached = b.memStorage.Get(data.ID().EpochIndex, true).GetOrCreate(data.ID(), func() *Block { return NewBlock(data) }); !wasAttached {
 		if wasAttached = block.update(data); !wasAttached {
 			return
 		}
@@ -302,7 +301,7 @@ func (b *BlockDAG) registerChild(child *Block, parent models.Parent) {
 		return
 	}
 
-	parentBlock, _ := b.memStorage.Get(parent.ID.Index(), true).RetrieveOrCreate(parent.ID, func() (newBlock *Block) {
+	parentBlock, _ := b.memStorage.Get(parent.ID.Index(), true).GetOrCreate(parent.ID, func() (newBlock *Block) {
 		newBlock = NewBlock(models.NewEmptyBlock(parent.ID), WithMissing(true))
 
 		b.Events.BlockMissing.Trigger(newBlock)

@@ -11,12 +11,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/generalheap"
-	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/timed"
-	"github.com/iotaledger/hive.go/core/types"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/ds/generalheap"
+	"github.com/iotaledger/hive.go/ds/types"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/timed"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 func TestOrphanageManager_orphanBeforeTSC(t *testing.T) {
@@ -62,7 +62,7 @@ func TestOrphanageManager_HandleTimeUpdate(t *testing.T) {
 		tf.Manager.HandleTimeUpdate(virtualVotingBlock.IssuingTime())
 	}
 
-	workers.Wait()
+	workers.WaitChildren()
 
 	tf.BlockDAG.AssertOrphanedCount(10, "expected %d orphaned blocks", 10)
 	tf.AssertOrphaned(map[string]bool{
@@ -128,7 +128,7 @@ func TestOrphanageManager_HandleTimeUpdate(t *testing.T) {
 			tf.BlockDAG.Instance.SetOrphaned(virtualVotingBlock.Block, false)
 		}
 
-		workers.Wait()
+		workers.WaitChildren()
 
 		tf.BlockDAG.AssertOrphanedCount(0, "expected %d orphaned blocks", 0)
 		tf.AssertOrphaned(map[string]bool{

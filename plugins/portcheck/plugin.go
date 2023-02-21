@@ -9,10 +9,10 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/banner"
-	"github.com/iotaledger/hive.go/core/autopeering/discover"
-	"github.com/iotaledger/hive.go/core/autopeering/peer"
-	"github.com/iotaledger/hive.go/core/autopeering/peer/service"
-	"github.com/iotaledger/hive.go/core/autopeering/server"
+	"github.com/iotaledger/hive.go/autopeering/discover"
+	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/autopeering/peer/service"
+	"github.com/iotaledger/hive.go/autopeering/server"
 	"github.com/iotaledger/hive.go/core/logger"
 )
 

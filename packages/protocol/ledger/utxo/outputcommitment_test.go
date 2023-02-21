@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/hive.go/core/generics/model"
+	"github.com/iotaledger/hive.go/objectstorage/generic/model"
 )
 
 func TestOutputCommitment(t *testing.T) {

@@ -7,9 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/ds/types"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 func TestManager(t *testing.T) {
@@ -27,7 +26,7 @@ func TestManager(t *testing.T) {
 	tf.CreateCommitment("8*", "7*")
 
 	forkDetected := make(chan struct{}, 1)
-	event.Hook(tf.Instance.Events.ForkDetected, func(fork *Fork) {
+	tf.Instance.Events.ForkDetected.Hook(func(fork *Fork) {
 		// The ForkDetected event should only be triggered once and only if the fork is deep enough
 		require.Equal(t, fork.Commitment.ID(), tf.EC("7*"))
 		require.Equal(t, fork.ForkingPoint.ID(), tf.EC("4*"))
@@ -194,7 +193,7 @@ func TestManagerForkDetectedAgain(t *testing.T) {
 		tf.EC("7*"): types.Void,
 		tf.EC("9*"): types.Void,
 	}
-	event.Hook(tf.Instance.Events.ForkDetected, func(fork *Fork) {
+	tf.Instance.Events.ForkDetected.Hook(func(fork *Fork) {
 		if _, has := expectedForks[fork.Commitment.ID()]; !has {
 			t.Fatalf("unexpected fork at: %s", fork.Commitment.ID())
 		}

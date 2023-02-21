@@ -9,27 +9,29 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/syncutils"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/ds/set"
+	"github.com/iotaledger/hive.go/ds/shrinkingmap"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 type attachments struct {
-	attachments *memstorage.Storage[utxo.TransactionID, *memstorage.Storage[epoch.Index, *memstorage.Storage[models.BlockID, *virtualvoting.Block]]]
-	evictionMap *memstorage.Storage[epoch.Index, set.Set[utxo.TransactionID]]
+	attachments *shrinkingmap.ShrinkingMap[utxo.TransactionID, *shrinkingmap.ShrinkingMap[epoch.Index, *shrinkingmap.ShrinkingMap[models.BlockID, *virtualvoting.Block]]]
+	evictionMap *shrinkingmap.ShrinkingMap[epoch.Index, set.Set[utxo.TransactionID]]
 
 	// nonOrphanedCounter is used to count all non-orphaned attachment of a transaction,
 	// so that it's not necessary to iterate through all the attachments to check if the transaction is orphaned.
-	nonOrphanedCounter *memstorage.Storage[utxo.TransactionID, uint32]
+	nonOrphanedCounter *shrinkingmap.ShrinkingMap[utxo.TransactionID, uint32]
 
 	mutex *syncutils.DAGMutex[utxo.TransactionID]
 }
 
 func newAttachments() (newAttachments *attachments) {
 	return &attachments{
-		attachments:        memstorage.New[utxo.TransactionID, *memstorage.Storage[epoch.Index, *memstorage.Storage[models.BlockID, *virtualvoting.Block]]](),
-		evictionMap:        memstorage.New[epoch.Index, set.Set[utxo.TransactionID]](),
-		nonOrphanedCounter: memstorage.New[utxo.TransactionID, uint32](),
+		attachments:        shrinkingmap.New[utxo.TransactionID, *shrinkingmap.ShrinkingMap[epoch.Index, *shrinkingmap.ShrinkingMap[models.BlockID, *virtualvoting.Block]]](),
+		evictionMap:        shrinkingmap.New[epoch.Index, set.Set[utxo.TransactionID]](),
+		nonOrphanedCounter: shrinkingmap.New[utxo.TransactionID, uint32](),
 
 		mutex: syncutils.NewDAGMutex[utxo.TransactionID](),
 	}
@@ -43,7 +45,7 @@ func (a *attachments) Store(txID utxo.TransactionID, block *virtualvoting.Block)
 		return false
 	}
 
-	prevValue, _ := a.nonOrphanedCounter.RetrieveOrCreate(txID, func() uint32 { return 0 })
+	prevValue, _ := a.nonOrphanedCounter.GetOrCreate(txID, func() uint32 { return 0 })
 	a.nonOrphanedCounter.Set(txID, prevValue+1)
 
 	a.updateEvictionMap(block.ID().EpochIndex, txID)
@@ -85,7 +87,7 @@ func (a *attachments) AttachmentOrphaned(txID utxo.TransactionID, block *virtual
 
 func (a *attachments) Get(txID utxo.TransactionID) (attachments []*virtualvoting.Block) {
 	if txStorage := a.storage(txID, false); txStorage != nil {
-		txStorage.ForEach(func(_ epoch.Index, blocks *memstorage.Storage[models.BlockID, *virtualvoting.Block]) bool {
+		txStorage.ForEach(func(_ epoch.Index, blocks *shrinkingmap.ShrinkingMap[models.BlockID, *virtualvoting.Block]) bool {
 			blocks.ForEach(func(_ models.BlockID, block *virtualvoting.Block) bool {
 				attachments = append(attachments, block)
 				return true
@@ -97,11 +99,11 @@ func (a *attachments) Get(txID utxo.TransactionID) (attachments []*virtualvoting
 	return
 }
 
-func (a *attachments) GetAttachmentBlocks(txID utxo.TransactionID) (attachments *set.AdvancedSet[*virtualvoting.Block]) {
-	attachments = set.NewAdvancedSet[*virtualvoting.Block]()
+func (a *attachments) GetAttachmentBlocks(txID utxo.TransactionID) (attachments *advancedset.AdvancedSet[*virtualvoting.Block]) {
+	attachments = advancedset.NewAdvancedSet[*virtualvoting.Block]()
 
 	if txStorage := a.storage(txID, false); txStorage != nil {
-		txStorage.ForEach(func(_ epoch.Index, blocks *memstorage.Storage[models.BlockID, *virtualvoting.Block]) bool {
+		txStorage.ForEach(func(_ epoch.Index, blocks *shrinkingmap.ShrinkingMap[models.BlockID, *virtualvoting.Block]) bool {
 			blocks.ForEach(func(_ models.BlockID, attachmentBlock *virtualvoting.Block) bool {
 				attachments.Add(attachmentBlock)
 				return true
@@ -129,11 +131,11 @@ func (a *attachments) Evict(epochIndex epoch.Index) {
 }
 
 func (a *attachments) storeAttachment(txID utxo.TransactionID, block *virtualvoting.Block) (created bool) {
-	attachmentsOfEpoch, _ := a.storage(txID, true).RetrieveOrCreate(block.ID().EpochIndex, func() *memstorage.Storage[models.BlockID, *virtualvoting.Block] {
-		return memstorage.New[models.BlockID, *virtualvoting.Block]()
+	attachmentsOfEpoch, _ := a.storage(txID, true).GetOrCreate(block.ID().EpochIndex, func() *shrinkingmap.ShrinkingMap[models.BlockID, *virtualvoting.Block] {
+		return shrinkingmap.New[models.BlockID, *virtualvoting.Block]()
 	})
 
-	return lo.Return2(attachmentsOfEpoch.RetrieveOrCreate(block.ID(), func() *virtualvoting.Block {
+	return lo.Return2(attachmentsOfEpoch.GetOrCreate(block.ID(), func() *virtualvoting.Block {
 		return block
 	}))
 }
@@ -141,7 +143,7 @@ func (a *attachments) storeAttachment(txID utxo.TransactionID, block *virtualvot
 func (a *attachments) getEarliestAttachment(txID utxo.TransactionID) (attachment *virtualvoting.Block) {
 	var lowestTime time.Time
 	if txStorage := a.storage(txID, false); txStorage != nil {
-		txStorage.ForEach(func(_ epoch.Index, blocks *memstorage.Storage[models.BlockID, *virtualvoting.Block]) bool {
+		txStorage.ForEach(func(_ epoch.Index, blocks *shrinkingmap.ShrinkingMap[models.BlockID, *virtualvoting.Block]) bool {
 			blocks.ForEach(func(_ models.BlockID, block *virtualvoting.Block) bool {
 				if lowestTime.After(block.IssuingTime()) || lowestTime.IsZero() {
 					lowestTime = block.IssuingTime()
@@ -160,7 +162,7 @@ func (a *attachments) getEarliestAttachment(txID utxo.TransactionID) (attachment
 func (a *attachments) getLatestAttachment(txID utxo.TransactionID) (attachment *virtualvoting.Block) {
 	highestTime := time.Time{}
 	if txStorage := a.storage(txID, false); txStorage != nil {
-		txStorage.ForEach(func(_ epoch.Index, blocks *memstorage.Storage[models.BlockID, *virtualvoting.Block]) bool {
+		txStorage.ForEach(func(_ epoch.Index, blocks *shrinkingmap.ShrinkingMap[models.BlockID, *virtualvoting.Block]) bool {
 			blocks.ForEach(func(_ models.BlockID, block *virtualvoting.Block) bool {
 				if highestTime.Before(block.IssuingTime()) {
 					highestTime = block.IssuingTime()
@@ -175,9 +177,11 @@ func (a *attachments) getLatestAttachment(txID utxo.TransactionID) (attachment *
 	return
 }
 
-func (a *attachments) storage(txID utxo.TransactionID, createIfMissing bool) (storage *memstorage.Storage[epoch.Index, *memstorage.Storage[models.BlockID, *virtualvoting.Block]]) {
+func (a *attachments) storage(txID utxo.TransactionID, createIfMissing bool) (storage *shrinkingmap.ShrinkingMap[epoch.Index, *shrinkingmap.ShrinkingMap[models.BlockID, *virtualvoting.Block]]) {
 	if createIfMissing {
-		storage, _ = a.attachments.RetrieveOrCreate(txID, memstorage.New[epoch.Index, *memstorage.Storage[models.BlockID, *virtualvoting.Block]])
+		storage, _ = a.attachments.GetOrCreate(txID, func() *shrinkingmap.ShrinkingMap[epoch.Index, *shrinkingmap.ShrinkingMap[models.BlockID, *Block]] {
+			return shrinkingmap.New[epoch.Index, *shrinkingmap.ShrinkingMap[models.BlockID, *virtualvoting.Block]]()
+		})
 		return
 	}
 
@@ -187,7 +191,7 @@ func (a *attachments) storage(txID utxo.TransactionID, createIfMissing bool) (st
 }
 
 func (a *attachments) updateEvictionMap(epochIndex epoch.Index, txID utxo.TransactionID) {
-	txIDs, _ := a.evictionMap.RetrieveOrCreate(epochIndex, func() set.Set[utxo.TransactionID] {
+	txIDs, _ := a.evictionMap.GetOrCreate(epochIndex, func() set.Set[utxo.TransactionID] {
 		return set.New[utxo.TransactionID](true)
 	})
 	txIDs.Add(txID)

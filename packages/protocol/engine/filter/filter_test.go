@@ -12,10 +12,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 type TestFramework struct {
@@ -29,11 +28,11 @@ func NewTestFramework(t *testing.T, optsFilter ...options.Option[Filter]) *TestF
 		Filter: New(optsFilter...),
 	}
 
-	event.Hook(tf.Filter.Events.BlockAllowed, func(block *models.Block) {
+	tf.Filter.Events.BlockAllowed.Hook(func(block *models.Block) {
 		t.Logf("BlockAllowed: %s", block.ID())
 	})
 
-	event.Hook(tf.Filter.Events.BlockFiltered, func(event *BlockFilteredEvent) {
+	tf.Filter.Events.BlockFiltered.Hook(func(event *BlockFilteredEvent) {
 		t.Logf("BlockFiltered: %s - %s", event.Block.ID(), event.Reason)
 	})
 
@@ -82,11 +81,11 @@ func TestFilter_WithMaxAllowedWallClockDrift(t *testing.T) {
 		WithSignatureValidation(false),
 	)
 
-	event.Hook(tf.Filter.Events.BlockAllowed, func(block *models.Block) {
+	tf.Filter.Events.BlockAllowed.Hook(func(block *models.Block) {
 		require.NotEqual(t, "tooFarAheadFuture", block.ID().Alias())
 	})
 
-	event.Hook(tf.Filter.Events.BlockFiltered, func(event *BlockFilteredEvent) {
+	tf.Filter.Events.BlockFiltered.Hook(func(event *BlockFilteredEvent) {
 		require.Equal(t, "tooFarAheadFuture", event.Block.ID().Alias())
 		require.True(t, errors.Is(event.Reason, ErrorsBlockTimeTooFarAheadInFuture))
 	})
@@ -102,11 +101,11 @@ func TestFilter_WithSignatureValidation(t *testing.T) {
 		WithSignatureValidation(true),
 	)
 
-	event.Hook(tf.Filter.Events.BlockAllowed, func(block *models.Block) {
+	tf.Filter.Events.BlockAllowed.Hook(func(block *models.Block) {
 		require.Equal(t, "valid", block.ID().Alias())
 	})
 
-	event.Hook(tf.Filter.Events.BlockFiltered, func(event *BlockFilteredEvent) {
+	tf.Filter.Events.BlockFiltered.Hook(func(event *BlockFilteredEvent) {
 		require.Equal(t, "invalid", event.Block.ID().Alias())
 		require.True(t, errors.Is(event.Reason, ErrorsInvalidSignature))
 	})
@@ -121,11 +120,11 @@ func TestFilter_MinCommittableEpochAge(t *testing.T) {
 		WithSignatureValidation(false),
 	)
 
-	event.Hook(tf.Filter.Events.BlockAllowed, func(block *models.Block) {
+	tf.Filter.Events.BlockAllowed.Hook(func(block *models.Block) {
 		require.True(t, strings.HasPrefix(block.ID().Alias(), "valid"))
 	})
 
-	event.Hook(tf.Filter.Events.BlockFiltered, func(event *BlockFilteredEvent) {
+	tf.Filter.Events.BlockFiltered.Hook(func(event *BlockFilteredEvent) {
 		require.True(t, strings.HasPrefix(event.Block.ID().Alias(), "invalid"))
 		require.True(t, errors.Is(event.Reason, ErrorCommitmentNotCommittable))
 	})

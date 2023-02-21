@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/hive.go/core/serix"
+	"github.com/iotaledger/hive.go/serializer/v2/serix"
 )
 
 // Weight is a weight annotated with the epoch it was last updated in.

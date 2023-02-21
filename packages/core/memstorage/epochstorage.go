@@ -4,24 +4,24 @@ import (
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
+	"github.com/iotaledger/hive.go/ds/shrinkingmap"
 )
 
 // EpochStorage is an evictable storage that stores storages for epochs.
 type EpochStorage[K comparable, V any] struct {
-	cache *shrinkingmap.ShrinkingMap[epoch.Index, *Storage[K, V]]
+	cache *shrinkingmap.ShrinkingMap[epoch.Index, *shrinkingmap.ShrinkingMap[K, V]]
 	mutex sync.Mutex
 }
 
 // NewEpochStorage creates a new epoch storage.
 func NewEpochStorage[K comparable, V any]() *EpochStorage[K, V] {
 	return &EpochStorage[K, V]{
-		cache: shrinkingmap.New[epoch.Index, *Storage[K, V]](),
+		cache: shrinkingmap.New[epoch.Index, *shrinkingmap.ShrinkingMap[K, V]](),
 	}
 }
 
 // Evict evicts the storage for the given index.
-func (e *EpochStorage[K, V]) Evict(index epoch.Index) (evictedStorage *Storage[K, V]) {
+func (e *EpochStorage[K, V]) Evict(index epoch.Index) (evictedStorage *shrinkingmap.ShrinkingMap[K, V]) {
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
 
@@ -35,7 +35,7 @@ func (e *EpochStorage[K, V]) Evict(index epoch.Index) (evictedStorage *Storage[K
 }
 
 // Get returns the storage for the given index.
-func (e *EpochStorage[K, V]) Get(index epoch.Index, createIfMissing ...bool) (storage *Storage[K, V]) {
+func (e *EpochStorage[K, V]) Get(index epoch.Index, createIfMissing ...bool) (storage *shrinkingmap.ShrinkingMap[K, V]) {
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
 
@@ -48,18 +48,18 @@ func (e *EpochStorage[K, V]) Get(index epoch.Index, createIfMissing ...bool) (st
 		return nil
 	}
 
-	storage = New[K, V]()
+	storage = shrinkingmap.New[K, V]()
 	e.cache.Set(index, storage)
 
 	return storage
 }
 
 // ForEach iterates over all storages.
-func (e *EpochStorage[K, V]) ForEach(f func(index epoch.Index, storage *Storage[K, V])) {
+func (e *EpochStorage[K, V]) ForEach(f func(index epoch.Index, storage *shrinkingmap.ShrinkingMap[K, V])) {
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
 
-	e.cache.ForEach(func(index epoch.Index, storage *Storage[K, V]) bool {
+	e.cache.ForEach(func(index epoch.Index, storage *shrinkingmap.ShrinkingMap[K, V]) bool {
 		f(index, storage)
 
 		return true

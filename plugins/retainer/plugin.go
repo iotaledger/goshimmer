@@ -9,8 +9,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	protocolplugin "github.com/iotaledger/goshimmer/plugins/protocol"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 // PluginName is the name of the spammer plugin.
@@ -32,17 +32,17 @@ type dependencies struct {
 func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure)
 
-	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
+	Plugin.Events.Init.Hook(func(event *node.InitEvent) {
 		if err := event.Container.Provide(createRetainer); err != nil {
 			Plugin.Panic(err)
 		}
-	}))
+	})
 }
 
 func configure(*node.Plugin) {
-	deps.Protocol.Events.Engine.Consensus.EpochGadget.EpochConfirmed.AttachWithWorkerPool(event.NewClosure(func(epochIndex epoch.Index) {
+	deps.Protocol.Events.Engine.Consensus.EpochGadget.EpochConfirmed.Hook(func(epochIndex epoch.Index) {
 		deps.Retainer.PruneUntilEpoch(epochIndex - epoch.Index(Parameters.PruningThreshold))
-	}), deps.Retainer.WorkerPool())
+	}, event.WithWorkerPool(deps.Retainer.WorkerPool()))
 }
 
 func createRetainer(p *protocol.Protocol) *retainer.Retainer {

@@ -18,8 +18,8 @@ import (
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
-	"github.com/iotaledger/hive.go/core/bitmask"
-	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/ds/bitmask"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 // TestSimpleDoubleSpend tests whether consensus is able to resolve a simple double spend in a partition.

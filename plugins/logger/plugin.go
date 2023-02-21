@@ -7,7 +7,6 @@ import (
 	"github.com/iotaledger/hive.go/app/configuration"
 	"github.com/iotaledger/hive.go/app/daemon"
 	"github.com/iotaledger/hive.go/app/logger"
-	"github.com/iotaledger/hive.go/core/generics/event"
 )
 
 // PluginName is the name of the logger plugin.
@@ -25,7 +24,7 @@ func Init(container *dig.Container) {
 }
 
 func init() {
-	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
+	Plugin.Events.Init.Hook(func(event *node.InitEvent) {
 		if err := event.Container.Invoke(func(config *configuration.Configuration) {
 			if err := logger.InitGlobalLogger(config); err != nil {
 				panic(err)
@@ -36,5 +35,5 @@ func init() {
 
 		// enable logging for the daemon
 		daemon.DebugLogger(Plugin.Logger())
-	}))
+	})
 }

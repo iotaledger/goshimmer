@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 func Test(t *testing.T) {

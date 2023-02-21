@@ -4,7 +4,7 @@ import (
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
-	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/ds/advancedset"
 )
 
 // region Conflict /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -12,21 +12,21 @@ import (
 type Conflict[ConflictIDType, ResourceIDType comparable] struct {
 	id ConflictIDType
 
-	parents  *set.AdvancedSet[ConflictIDType]
-	children *set.AdvancedSet[*Conflict[ConflictIDType, ResourceIDType]]
+	parents  *advancedset.AdvancedSet[ConflictIDType]
+	children *advancedset.AdvancedSet[*Conflict[ConflictIDType, ResourceIDType]]
 
-	conflictSets *set.AdvancedSet[*ConflictSet[ConflictIDType, ResourceIDType]]
+	conflictSets *advancedset.AdvancedSet[*ConflictSet[ConflictIDType, ResourceIDType]]
 
 	confirmationState confirmation.State
 
 	m sync.RWMutex
 }
 
-func NewConflict[ConflictIDType comparable, ResourceIDType comparable](id ConflictIDType, parents *set.AdvancedSet[ConflictIDType], conflictSets *set.AdvancedSet[*ConflictSet[ConflictIDType, ResourceIDType]]) (c *Conflict[ConflictIDType, ResourceIDType]) {
+func NewConflict[ConflictIDType comparable, ResourceIDType comparable](id ConflictIDType, parents *advancedset.AdvancedSet[ConflictIDType], conflictSets *advancedset.AdvancedSet[*ConflictSet[ConflictIDType, ResourceIDType]]) (c *Conflict[ConflictIDType, ResourceIDType]) {
 	c = &Conflict[ConflictIDType, ResourceIDType]{
 		id:                id,
 		parents:           parents,
-		children:          set.NewAdvancedSet[*Conflict[ConflictIDType, ResourceIDType]](),
+		children:          advancedset.NewAdvancedSet[*Conflict[ConflictIDType, ResourceIDType]](),
 		conflictSets:      conflictSets,
 		confirmationState: confirmation.Pending,
 	}
@@ -39,7 +39,7 @@ func (c *Conflict[ConflictIDType, ResourceIDType]) ID() ConflictIDType {
 }
 
 // Parents returns the parent ConflictIDs that this Conflict depends on.
-func (c *Conflict[ConflictIDType, ResourceIDType]) Parents() (parents *set.AdvancedSet[ConflictIDType]) {
+func (c *Conflict[ConflictIDType, ResourceIDType]) Parents() (parents *advancedset.AdvancedSet[ConflictIDType]) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 
@@ -47,7 +47,7 @@ func (c *Conflict[ConflictIDType, ResourceIDType]) Parents() (parents *set.Advan
 }
 
 // SetParents updates the parent ConflictIDs that this Conflict depends on. It returns true if the Conflict was modified.
-func (c *Conflict[ConflictIDType, ResourceIDType]) setParents(parents *set.AdvancedSet[ConflictIDType]) {
+func (c *Conflict[ConflictIDType, ResourceIDType]) setParents(parents *advancedset.AdvancedSet[ConflictIDType]) {
 	c.m.Lock()
 	defer c.m.Unlock()
 
@@ -55,14 +55,14 @@ func (c *Conflict[ConflictIDType, ResourceIDType]) setParents(parents *set.Advan
 }
 
 // ConflictSets returns the identifiers of the conflict sets that this Conflict is part of.
-func (c *Conflict[ConflictIDType, ResourceIDType]) ConflictSets() (conflictSets *set.AdvancedSet[*ConflictSet[ConflictIDType, ResourceIDType]]) {
+func (c *Conflict[ConflictIDType, ResourceIDType]) ConflictSets() (conflictSets *advancedset.AdvancedSet[*ConflictSet[ConflictIDType, ResourceIDType]]) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 
 	return c.conflictSets.Clone()
 }
 
-func (c *Conflict[ConflictIDType, ResourceIDType]) Children() (children *set.AdvancedSet[*Conflict[ConflictIDType, ResourceIDType]]) {
+func (c *Conflict[ConflictIDType, ResourceIDType]) Children() (children *advancedset.AdvancedSet[*Conflict[ConflictIDType, ResourceIDType]]) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 
@@ -142,7 +142,7 @@ func (c *Conflict[ConflictIDType, ResourceIDType]) deleteConflictSet(conflictSet
 
 type ConflictSet[ConflictIDType, ResourceIDType comparable] struct {
 	id        ResourceIDType
-	conflicts *set.AdvancedSet[*Conflict[ConflictIDType, ResourceIDType]]
+	conflicts *advancedset.AdvancedSet[*Conflict[ConflictIDType, ResourceIDType]]
 
 	m sync.RWMutex
 }
@@ -150,7 +150,7 @@ type ConflictSet[ConflictIDType, ResourceIDType comparable] struct {
 func NewConflictSet[ConflictIDType comparable, ResourceIDType comparable](id ResourceIDType) (c *ConflictSet[ConflictIDType, ResourceIDType]) {
 	return &ConflictSet[ConflictIDType, ResourceIDType]{
 		id:        id,
-		conflicts: set.NewAdvancedSet[*Conflict[ConflictIDType, ResourceIDType]](),
+		conflicts: advancedset.NewAdvancedSet[*Conflict[ConflictIDType, ResourceIDType]](),
 	}
 }
 
@@ -158,7 +158,7 @@ func (c *ConflictSet[ConflictIDType, ResourceIDType]) ID() (id ResourceIDType) {
 	return c.id
 }
 
-func (c *ConflictSet[ConflictIDType, ResourceIDType]) Conflicts() *set.AdvancedSet[*Conflict[ConflictIDType, ResourceIDType]] {
+func (c *ConflictSet[ConflictIDType, ResourceIDType]) Conflicts() *advancedset.AdvancedSet[*Conflict[ConflictIDType, ResourceIDType]] {
 	c.m.RLock()
 	defer c.m.RUnlock()
 

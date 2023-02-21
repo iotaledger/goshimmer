@@ -13,12 +13,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/debug"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/types"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/ds/types"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/debug"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 // region Scheduler_test /////////////////////////////////////////////////////////////////////////////////////////////
@@ -137,12 +136,12 @@ func TestScheduler_Dropped(t *testing.T) {
 	}
 
 	processedBlocksChan := make(chan schedulerBlock, numBlocks)
-	event.Hook(tf.Scheduler.Events.BlockDropped, func(block *Block) {
+	tf.Scheduler.Events.BlockDropped.Hook(func(block *Block) {
 		processedBlocksChan <- schedulerBlock{ID: block.ID(), Dropped: true}
 		require.Equal(t, numBlocks/2, tf.Scheduler.buffer.Size()) // If a block is dropped it is because the buffer is full
 	})
 
-	event.Hook(tf.Scheduler.Events.BlockScheduled, func(block *Block) {
+	tf.Scheduler.Events.BlockScheduled.Hook(func(block *Block) {
 		processedBlocksChan <- schedulerBlock{ID: block.ID(), Dropped: false}
 	})
 
@@ -174,7 +173,7 @@ func TestScheduler_Schedule(t *testing.T) {
 	tf.CreateIssuer("peer", 10)
 
 	blockScheduled := make(chan models.BlockID, 1)
-	event.Hook(tf.Scheduler.Events.BlockScheduled, func(block *Block) {
+	tf.Scheduler.Events.BlockScheduled.Hook(func(block *Block) {
 		blockScheduled <- block.ID()
 	})
 
@@ -203,7 +202,7 @@ func TestScheduler_HandleOrphanedBlock_Ready(t *testing.T) {
 	tf.CreateIssuer("peer", 10)
 
 	blockDropped := make(chan models.BlockID, 1)
-	event.Hook(tf.Scheduler.Events.BlockDropped, func(block *Block) {
+	tf.Scheduler.Events.BlockDropped.Hook(func(block *Block) {
 		blockDropped <- block.ID()
 	})
 
@@ -235,7 +234,7 @@ func TestScheduler_HandleOrphanedBlock_Scheduled(t *testing.T) {
 	tf.CreateIssuer("peer", 10)
 
 	blockScheduled := make(chan models.BlockID, 1)
-	event.Hook(tf.Scheduler.Events.BlockScheduled, func(block *Block) {
+	tf.Scheduler.Events.BlockScheduled.Hook(func(block *Block) {
 		blockScheduled <- block.ID()
 	})
 
@@ -268,7 +267,7 @@ func TestScheduler_HandleOrphanedBlock_Unready(t *testing.T) {
 	tf.CreateIssuer("peer", 10)
 
 	blockDropped := make(chan models.BlockID, 1)
-	event.Hook(tf.Scheduler.Events.BlockDropped, func(block *Block) {
+	tf.Scheduler.Events.BlockDropped.Hook(func(block *Block) {
 		blockDropped <- block.ID()
 	})
 
@@ -300,10 +299,10 @@ func TestScheduler_SkipConfirmed(t *testing.T) {
 	blockScheduled := make(chan models.BlockID, 1)
 	blockSkipped := make(chan models.BlockID, 1)
 
-	event.Hook(tf.Scheduler.Events.BlockScheduled, func(block *Block) {
+	tf.Scheduler.Events.BlockScheduled.Hook(func(block *Block) {
 		blockScheduled <- block.ID()
 	})
-	event.Hook(tf.Scheduler.Events.BlockSkipped, func(block *Block) {
+	tf.Scheduler.Events.BlockSkipped.Hook(func(block *Block) {
 		blockSkipped <- block.ID()
 	})
 
@@ -401,7 +400,7 @@ func TestScheduler_Time(t *testing.T) {
 	tf.CreateIssuer("peer", 10)
 
 	blockScheduled := make(chan *Block, 1)
-	event.Hook(tf.Scheduler.Events.BlockScheduled, func(block *Block) {
+	tf.Scheduler.Events.BlockScheduled.Hook(func(block *Block) {
 		blockScheduled <- block
 	})
 
@@ -445,7 +444,7 @@ func TestScheduler_Issue(t *testing.T) {
 
 	tf.CreateIssuer("peer", 10)
 
-	event.Hook(tf.Scheduler.Events.Error, func(err error) {
+	tf.Scheduler.Events.Error.Hook(func(err error) {
 		require.Failf(t, "unexpected error", "error event triggered: %v", err)
 	})
 
@@ -454,7 +453,7 @@ func TestScheduler_Issue(t *testing.T) {
 
 	const numBlocks = 5
 	blockScheduled := make(chan models.BlockID, numBlocks)
-	event.Hook(tf.Scheduler.Events.BlockScheduled, func(block *Block) {
+	tf.Scheduler.Events.BlockScheduled.Hook(func(block *Block) {
 		blockScheduled <- block.ID()
 	})
 
@@ -497,7 +496,7 @@ func TestSchedulerFlow(t *testing.T) {
 	tf.CreateIssuer("peer", 10)
 	tf.CreateIssuer("self", 10)
 
-	event.Hook(tf.Scheduler.Events.Error, func(err error) {
+	tf.Scheduler.Events.Error.Hook(func(err error) {
 		require.Failf(t, "unexpected error", "error event triggered: %v", err)
 	})
 
@@ -515,12 +514,12 @@ func TestSchedulerFlow(t *testing.T) {
 	tf.Tangle.BlockDAG.CreateBlock("E", models.WithIssuer(tf.Issuer("self").PublicKey()), models.WithIssuingTime(time.Now().Add(3*time.Second)), models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("A", "B")))
 
 	blockScheduled := make(chan models.BlockID, 5)
-	event.Hook(tf.Scheduler.Events.BlockScheduled, func(block *Block) {
+	tf.Scheduler.Events.BlockScheduled.Hook(func(block *Block) {
 		blockScheduled <- block.ID()
 	})
 
 	tf.Tangle.BlockDAG.IssueBlocks("A", "B", "C", "D", "E")
-	workers.Wait()
+	workers.WaitChildren()
 
 	var scheduledIDs []models.BlockID
 	require.Eventually(t, func() bool {
@@ -545,7 +544,7 @@ func TestSchedulerParallelSubmit(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
 	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"))
 
-	event.Hook(tf.Scheduler.Events.Error, func(err error) {
+	tf.Scheduler.Events.Error.Hook(func(err error) {
 		require.Failf(t, "unexpected error", "error event triggered: %v", err)
 	})
 
@@ -578,7 +577,7 @@ func TestSchedulerParallelSubmit(t *testing.T) {
 
 	// issue tips to start solidification
 	tf.Tangle.BlockDAG.IssueBlocks(blockAliases...)
-	workers.Wait()
+	workers.WaitChildren()
 
 	// wait for all blocks to have a formed opinion
 	require.Eventually(t, func() bool { return atomic.LoadUint32(&(tf.scheduledBlocksCount)) == totalBlkCount }, 5*time.Minute, 100*time.Millisecond)

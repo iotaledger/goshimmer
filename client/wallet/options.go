@@ -7,7 +7,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
-	"github.com/iotaledger/hive.go/core/bitmask"
+	"github.com/iotaledger/hive.go/ds/bitmask"
 )
 
 // Option represents an optional parameter .

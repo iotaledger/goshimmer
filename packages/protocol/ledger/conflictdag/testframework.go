@@ -9,11 +9,10 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/hive.go/core/debug"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/debug"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 type TestFramework struct {
@@ -52,34 +51,34 @@ func NewDefaultTestFramework(t *testing.T, opts ...options.Option[ConflictDAG[ut
 }
 
 func (t *TestFramework) setupEvents() {
-	event.Hook(t.Instance.Events.ConflictCreated, func(conflict *Conflict[utxo.TransactionID, utxo.OutputID]) {
+	t.Instance.Events.ConflictCreated.Hook(func(conflict *Conflict[utxo.TransactionID, utxo.OutputID]) {
 		if debug.GetEnabled() {
 			t.test.Logf("CREATED: %s", conflict.ID())
 		}
 		atomic.AddInt32(&(t.conflictCreated), 1)
 		t.confirmationState[conflict.ID()] = conflict.ConfirmationState()
 	})
-	event.Hook(t.Instance.Events.ConflictUpdated, func(conflict *Conflict[utxo.TransactionID, utxo.OutputID]) {
+	t.Instance.Events.ConflictUpdated.Hook(func(conflict *Conflict[utxo.TransactionID, utxo.OutputID]) {
 		if debug.GetEnabled() {
 			t.test.Logf("UPDATED: %s", conflict.ID())
 		}
 		atomic.AddInt32(&(t.conflictUpdated), 1)
 	})
-	event.Hook(t.Instance.Events.ConflictAccepted, func(conflict *Conflict[utxo.TransactionID, utxo.OutputID]) {
+	t.Instance.Events.ConflictAccepted.Hook(func(conflict *Conflict[utxo.TransactionID, utxo.OutputID]) {
 		if debug.GetEnabled() {
 			t.test.Logf("ACCEPTED: %s", conflict.ID())
 		}
 		atomic.AddInt32(&(t.conflictAccepted), 1)
 		t.confirmationState[conflict.ID()] = conflict.ConfirmationState()
 	})
-	event.Hook(t.Instance.Events.ConflictRejected, func(conflict *Conflict[utxo.TransactionID, utxo.OutputID]) {
+	t.Instance.Events.ConflictRejected.Hook(func(conflict *Conflict[utxo.TransactionID, utxo.OutputID]) {
 		if debug.GetEnabled() {
 			t.test.Logf("REJECTED: %s", conflict.ID())
 		}
 		atomic.AddInt32(&(t.conflictRejected), 1)
 		t.confirmationState[conflict.ID()] = conflict.ConfirmationState()
 	})
-	event.Hook(t.Instance.Events.ConflictNotConflicting, func(conflict *Conflict[utxo.TransactionID, utxo.OutputID]) {
+	t.Instance.Events.ConflictNotConflicting.Hook(func(conflict *Conflict[utxo.TransactionID, utxo.OutputID]) {
 		if debug.GetEnabled() {
 			t.test.Logf("NOT CONFLICTING: %s", conflict.ID())
 		}
@@ -117,7 +116,7 @@ func (t *TestFramework) UpdateConflictParents(conflictAlias string, addedConflic
 	t.Instance.UpdateConflictParents(t.ConflictID(conflictAlias), t.ConflictIDs(removedConflictAliases...), t.ConflictID(addedConflictAlias))
 }
 
-func (t *TestFramework) UnconfirmedConflicts(conflictAliases ...string) *set.AdvancedSet[utxo.TransactionID] {
+func (t *TestFramework) UnconfirmedConflicts(conflictAliases ...string) *advancedset.AdvancedSet[utxo.TransactionID] {
 	return t.Instance.UnconfirmedConflicts(t.ConflictIDs(conflictAliases...))
 }
 
@@ -129,7 +128,7 @@ func (t *TestFramework) ConfirmationState(conflictAliases ...string) confirmatio
 	return t.Instance.ConfirmationState(t.ConflictIDs(conflictAliases...))
 }
 
-func (t *TestFramework) DetermineVotes(conflictAliases ...string) (addedConflicts, revokedConflicts *set.AdvancedSet[utxo.TransactionID], isInvalid bool) {
+func (t *TestFramework) DetermineVotes(conflictAliases ...string) (addedConflicts, revokedConflicts *advancedset.AdvancedSet[utxo.TransactionID], isInvalid bool) {
 	return t.Instance.DetermineVotes(t.ConflictIDs(conflictAliases...))
 }
 

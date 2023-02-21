@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/storage"
-	"github.com/iotaledger/hive.go/core/generics/event"
 )
 
 // LedgerState represents the state of the ledger.
@@ -38,8 +37,8 @@ func New(storageInstance *storage.Storage, memPool *ledger.Ledger) (ledgerState 
 		storage: storageInstance,
 	}
 
-	event.Hook(ledgerState.MemPool.Events.TransactionAccepted, ledgerState.onTransactionAccepted)
-	event.Hook(ledgerState.MemPool.Events.TransactionInclusionUpdated, ledgerState.onTransactionInclusionUpdated)
+	ledgerState.MemPool.Events.TransactionAccepted.Hook(ledgerState.onTransactionAccepted)
+	ledgerState.MemPool.Events.TransactionInclusionUpdated.Hook(ledgerState.onTransactionInclusionUpdated)
 
 	return
 }

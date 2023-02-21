@@ -12,10 +12,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/ds/set"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 // We create epochCount blocks, each in a different epoch and with a different marker, then we prune the markerManager and expect the mapping to be pruned accordingly.
@@ -27,7 +26,7 @@ func Test_PruneMarkerBlockMapping(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
 	tf := blockdag.NewDefaultTestFramework(t, workers.CreateGroup("BlockDAGTestFramework"))
 
-	event.Hook(tf.Instance.EvictionState.Events.EpochEvicted, markerManager.Evict)
+	tf.Instance.EvictionState.Events.EpochEvicted.Hook(markerManager.Evict)
 
 	// create a helper function that creates the blocks
 	createNewBlock := func(idx int, prefix string) (block *blockdag.Block, alias string) {
@@ -63,12 +62,12 @@ func Test_PruneMarkerBlockMapping(t *testing.T) {
 	validateBlockMarkerMappingPruning(t, markerBlockMapping, markerManager, 0)
 
 	tf.Instance.EvictionState.EvictUntil(epochCount / 2)
-	workers.WaitAll()
+	workers.WaitChildren()
 
 	validateBlockMarkerMappingPruning(t, markerBlockMapping, markerManager, epochCount/2)
 
 	tf.Instance.EvictionState.EvictUntil(epochCount)
-	workers.WaitAll()
+	workers.WaitChildren()
 
 	validateBlockMarkerMappingPruning(t, markerBlockMapping, markerManager, epochCount)
 

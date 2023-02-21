@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -50,8 +50,8 @@ func (t *TestFramework) Validator(alias string) (v identity.ID) {
 	return
 }
 
-func (t *TestFramework) ValidatorsSet(aliases ...string) (validators *set.AdvancedSet[identity.ID]) {
-	validators = set.NewAdvancedSet[identity.ID]()
+func (t *TestFramework) ValidatorsSet(aliases ...string) (validators *advancedset.AdvancedSet[identity.ID]) {
+	validators = advancedset.NewAdvancedSet[identity.ID]()
 	for _, alias := range aliases {
 		validators.Add(t.Validator(alias))
 	}
