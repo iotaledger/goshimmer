@@ -61,9 +61,19 @@ func New(workers *workerpool.Group, conflictDAG *conflictdag.ConflictDAG[utxo.Tr
 }
 
 func (o *VirtualVoting) Track(block *Block, conflictIDs utxo.TransactionIDs) {
-	if o.track(block, conflictIDs) {
-		o.Events.BlockTracked.Trigger(block)
+	o.evictionMutex.RLock()
+	defer o.evictionMutex.RUnlock()
+
+	votePower := NewBlockVotePower(block.ID(), block.IssuingTime())
+
+	if _, invalid := o.conflictTracker.TrackVote(conflictIDs, block.IssuerID(), votePower); invalid {
+		block.SetSubjectivelyInvalid(true)
+	} else {
+		o.sequenceTracker.TrackVotes(block.StructureDetails().PastMarkers(), block.IssuerID(), votePower)
+		o.epochTracker.TrackVotes(block.Commitment().Index(), block.IssuerID(), epochtracker.EpochVotePower{Index: block.ID().Index()})
 	}
+
+	o.Events.BlockTracked.Trigger(block)
 }
 
 // MarkerVotersTotalWeight retrieves Validators supporting a given marker.
@@ -119,49 +129,6 @@ func (o *VirtualVoting) ConflictVotersTotalWeight(conflictID utxo.TransactionID)
 		return nil
 	})
 	return totalWeight
-}
-
-func (o *VirtualVoting) setupEvents() {
-	/*
-		event.Hook(o.Booker.Events.BlockBooked, func(evt *booker.BlockBookedEvent) {
-			o.Track(NewBlock(evt.Block), evt.ConflictIDs)
-		})
-		event.Hook(o.Booker.Events.BlockConflictAdded, func(event *booker.BlockConflictAddedEvent) {
-			o.processForkedBlock(event.Block, event.ConflictID, event.ParentConflictIDs)
-		})
-		event.Hook(o.Booker.Events.MarkerConflictAdded, func(event *booker.MarkerConflictAddedEvent) {
-			o.processForkedMarker(event.Marker, event.ConflictID, event.ParentConflictIDs)
-		})
-	*/
-	/*
-	wp := o.Workers.CreatePool("Eviction", 1) // Using just 1 worker to avoid contention
-	event.AttachWithWorkerPool(o.Booker.Events.MarkerManager.SequenceEvicted, o.evictSequence, wp)
-	event.Hook(o.BlockDAG.EvictionState.Events.EpochEvicted, o.evictEpoch)
-	*/
-}
-
-func (o *VirtualVoting) track(block *Block, conflictIDs utxo.TransactionIDs) (tracked bool) {
-	o.evictionMutex.RLock()
-	defer o.evictionMutex.RUnlock()
-
-	// TODO: this check should happen outside.
-	/*
-		if o.BlockDAG.EvictionState.InEvictedEpoch(block.ID()) {
-			return false
-		}
-	*/
-
-	votePower := NewBlockVotePower(block.ID(), block.IssuingTime())
-
-	if _, invalid := o.conflictTracker.TrackVote(conflictIDs, block.IssuerID(), votePower); invalid {
-		block.SetSubjectivelyInvalid(true)
-		return true
-	}
-	o.sequenceTracker.TrackVotes(block.StructureDetails().PastMarkers(), block.IssuerID(), votePower)
-
-	o.epochTracker.TrackVotes(block.Commitment().Index(), block.IssuerID(), epochtracker.EpochVotePower{Index: block.ID().Index()})
-
-	return true
 }
 
 func (o *VirtualVoting) EvictSequence(sequenceID markers.SequenceID) {

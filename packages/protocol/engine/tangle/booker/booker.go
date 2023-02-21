@@ -551,13 +551,13 @@ func (b *Booker) propagateToBlock(block *virtualvoting.Block, addedConflictID ut
 		return false, nil
 	}
 
-	b.VirtualVoting.ProcessForkedBlock(block, addedConflictID, removedConflictIDs)
-
 	b.Events.BlockConflictAdded.Trigger(&BlockConflictAddedEvent{
 		Block:             block,
 		ConflictID:        addedConflictID,
 		ParentConflictIDs: removedConflictIDs,
 	})
+
+	b.VirtualVoting.ProcessForkedBlock(block, addedConflictID, removedConflictIDs)
 
 	return true, nil
 }
@@ -631,14 +631,14 @@ func (b *Booker) forkSingleMarker(currentMarker markers.Marker, newConflictID ut
 		return nil
 	}
 
-	b.VirtualVoting.ProcessForkedMarker(currentMarker, newConflictID, removedConflictIDs)
-
 	// trigger event
 	b.Events.MarkerConflictAdded.Trigger(&MarkerConflictAddedEvent{
 		Marker:            currentMarker,
 		ConflictID:        newConflictID,
 		ParentConflictIDs: removedConflictIDs,
 	})
+
+	b.VirtualVoting.ProcessForkedMarker(currentMarker, newConflictID, removedConflictIDs)
 
 	// propagate updates to later ConflictID mappings of the same sequence.
 	b.markerManager.ForEachConflictIDMapping(currentMarker.SequenceID(), currentMarker.Index(), func(mappedMarker markers.Marker, _ utxo.TransactionIDs) {
