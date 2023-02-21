@@ -168,8 +168,9 @@ func configureLogging(plugin *node.Plugin) {
 }
 
 func run(plugin *node.Plugin) {
+	deps.Protocol.Run()
+
 	if err := daemon.BackgroundWorker("protocol", func(ctx context.Context) {
-		deps.Protocol.Run()
 		<-ctx.Done()
 		plugin.LogInfo("Gracefully shutting down the Protocol...")
 		deps.Protocol.Shutdown()
