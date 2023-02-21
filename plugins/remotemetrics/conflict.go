@@ -10,8 +10,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/ds/advancedset"
 )
 
 var (
@@ -33,7 +33,7 @@ var (
 	initialConfirmedConflictCountDB uint64
 
 	// all active conflicts stored in this map, to avoid duplicated event triggers for conflict confirmation.
-	activeConflicts      *set.AdvancedSet[utxo.TransactionID]
+	activeConflicts      *advancedset.AdvancedSet[utxo.TransactionID]
 	activeConflictsMutex sync.Mutex
 )
 
@@ -119,7 +119,7 @@ func updateMetricCounts(conflictID utxo.TransactionID, transactionID utxo.Transa
 func measureInitialConflictCounts() {
 	activeConflictsMutex.Lock()
 	defer activeConflictsMutex.Unlock()
-	activeConflicts = set.NewAdvancedSet[utxo.TransactionID]()
+	activeConflicts = advancedset.NewAdvancedSet[utxo.TransactionID]()
 	conflictsToRemove := make([]utxo.TransactionID, 0)
 	deps.Protocol.Engine().Ledger.ConflictDAG.ForEachConflict(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		switch conflict.ID() {

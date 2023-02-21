@@ -15,10 +15,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 // region Factory ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -32,7 +32,7 @@ type BlockIssuer struct {
 	protocol          *protocol.Protocol
 	identity          *identity.LocalIdentity
 	referenceProvider *blockfactory.ReferenceProvider
-	workerPool        *workerpool.UnboundedWorkerPool
+	workerPool        *workerpool.WorkerPool
 
 	optsBlockFactoryOptions            []options.Option[blockfactory.Factory]
 	optsIgnoreBootstrappedFlag         bool
@@ -71,7 +71,7 @@ func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opt
 }
 
 func (i *BlockIssuer) setupEvents() {
-	event.Hook(i.Factory.Events.Error, i.Events.Error.Trigger)
+	i.Events.Error.LinkTo(i.Factory.Events.Error)
 }
 
 // IssuePayload creates a new block including sequence number and tip selection, submits it to be processed and returns it.
@@ -125,7 +125,7 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeBooked(block *models.Block, max
 	exit := make(chan struct{})
 	defer close(exit)
 
-	defer event.AttachWithWorkerPool(i.protocol.Events.Engine.Tangle.Booker.BlockBooked, func(evt *booker.BlockBookedEvent) {
+	defer i.protocol.Events.Engine.Tangle.Booker.BlockBooked.Hook(func(evt *booker.BlockBookedEvent) {
 		if block.ID() != evt.Block.ID() {
 			return
 		}
@@ -133,10 +133,9 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeBooked(block *models.Block, max
 		case booked <- evt.Block:
 		case <-exit:
 		}
-	}, i.workerPool)()
+	}, event.WithWorkerPool(i.workerPool)).Unhook()
 
-	err := i.issueBlock(block)
-	if err != nil {
+	if err := i.issueBlock(block); err != nil {
 		return errors.Wrapf(err, "failed to issue block %s", block.ID().String())
 	}
 
@@ -160,7 +159,7 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeScheduled(block *models.Block, 
 	exit := make(chan struct{})
 	defer close(exit)
 
-	defer event.AttachWithWorkerPool(i.protocol.Events.CongestionControl.Scheduler.BlockScheduled, func(scheduledBlock *scheduler.Block) {
+	defer i.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Hook(func(scheduledBlock *scheduler.Block) {
 		if block.ID() != scheduledBlock.ID() {
 			return
 		}
@@ -168,10 +167,9 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeScheduled(block *models.Block, 
 		case scheduled <- scheduledBlock:
 		case <-exit:
 		}
-	}, i.workerPool)()
+	}, event.WithWorkerPool(i.workerPool)).Unhook()
 
-	err := i.issueBlock(block)
-	if err != nil {
+	if err := i.issueBlock(block); err != nil {
 		return errors.Wrapf(err, "failed to issue block %s", block.ID().String())
 	}
 

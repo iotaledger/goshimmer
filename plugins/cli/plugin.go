@@ -8,7 +8,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/banner"
-	"github.com/iotaledger/hive.go/core/generics/event"
 )
 
 // PluginName is the name of the CLI plugin.
@@ -27,11 +26,11 @@ func init() {
 		onAddPlugin(&node.AddEvent{Name: name, Status: plugin.Status})
 	}
 
-	node.Events.AddPlugin.Hook(event.NewClosure(onAddPlugin))
+	node.Events.AddPlugin.Hook(onAddPlugin)
 
 	flag.Usage = printUsage
 
-	Plugin.Events.Init.Hook(event.NewClosure(onInit))
+	Plugin.Events.Init.Hook(onInit)
 }
 
 func onAddPlugin(addEvent *node.AddEvent) {

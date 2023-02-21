@@ -34,13 +34,13 @@ import (
 	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/goshimmer/packages/storage/utils"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
-	"github.com/iotaledger/hive.go/core/debug"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/types"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/debug"
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 func TestProtocol(t *testing.T) {
@@ -96,10 +96,10 @@ func TestProtocol(t *testing.T) {
 	protocol2.Run()
 	t.Cleanup(protocol2.Shutdown)
 
-	event.Hook(protocol2.Events.ChainManager.CommitmentMissing, func(id commitment.ID) {
+	protocol2.Events.ChainManager.CommitmentMissing.Hook(func(id commitment.ID) {
 		fmt.Println("MISSING", id)
 	})
-	event.Hook(protocol2.Events.ChainManager.MissingCommitmentReceived, func(id commitment.ID) {
+	protocol2.Events.ChainManager.MissingCommitmentReceived.Hook(func(id commitment.ID) {
 		fmt.Println("MISSING RECEIVED", id)
 	})
 
@@ -114,7 +114,7 @@ func TestProtocol(t *testing.T) {
 	tf1.BlockDAG.CreateBlock("A", models.WithStrongParents(tf1.BlockDAG.BlockIDs("Genesis")))
 	tf1.BlockDAG.IssueBlocks("A")
 
-	workers.Wait()
+	workers.WaitChildren()
 }
 
 func TestEngine_NonEmptyInitialValidators(t *testing.T) {
@@ -173,7 +173,7 @@ func TestEngine_NonEmptyInitialValidators(t *testing.T) {
 		"1.C": false,
 	})
 
-	workers.Wait()
+	workers.WaitChildren()
 }
 
 func TestEngine_BlocksForwardAndRollback(t *testing.T) {
@@ -465,14 +465,14 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 	testDir := t.TempDir()
 	engine1Storage := storage.New(testDir, protocol.DatabaseVersion, database.WithDBProvider(database.NewDB))
 	t.Cleanup(func() {
-		workers.Wait()
+		workers.WaitChildren()
 		engine1Storage.Shutdown()
 	})
 
 	engine1 := engine.NewTestEngine(t, workers.CreateGroup("Engine1"), engine1Storage, dpos.NewProvider(), mana1.NewProvider(), engineOpts...)
 	tf := engine.NewTestFramework(t, workers.CreateGroup("EngineTestFramework1"), engine1)
 
-	event.Hook(tf.Instance.NotarizationManager.Events.Error, func(err error) {
+	tf.Instance.NotarizationManager.Events.Error.Hook(func(err error) {
 		t.Fatal(err.Error())
 	})
 
@@ -583,7 +583,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		require.False(t, tf2.Instance.LedgerState.UnspentOutputs.IDs.Has(tf.Ledger.OutputID("Tx5.0")))
 		require.False(t, tf2.Instance.LedgerState.UnspentOutputs.IDs.Has(tf.Ledger.OutputID("Tx5.1")))
 
-		workers.Wait()
+		workers.WaitChildren()
 	}
 
 	// ///////////////////////////////////////////////////////////
@@ -598,13 +598,13 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 
 		tf.Instance.Shutdown()
 		engine1Storage.Shutdown()
-		workers.Wait()
+		workers.WaitChildren()
 
 		fmt.Println("============================= Start Engine =============================")
 
 		engine3Storage := storage.New(testDir, protocol.DatabaseVersion, database.WithDBProvider(database.NewDB))
 		t.Cleanup(func() {
-			workers.Wait()
+			workers.WaitChildren()
 			engine3Storage.Shutdown()
 		})
 
@@ -624,7 +624,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		require.Equal(t, expectedBalanceByIDs, tf3.Instance.ThroughputQuota.BalanceByIDs())
 		require.Equal(t, expectedTotalBalance, tf3.Instance.ThroughputQuota.TotalBalance())
 
-		workers.Wait()
+		workers.WaitChildren()
 	}
 }
 
@@ -641,7 +641,7 @@ func TestEngine_ShutdownResume(t *testing.T) {
 	testDir := t.TempDir()
 	engine1Storage := storage.New(testDir, protocol.DatabaseVersion, database.WithDBProvider(database.NewDB))
 	t.Cleanup(func() {
-		workers.Wait()
+		workers.WaitChildren()
 		engine1Storage.Shutdown()
 	})
 
@@ -660,7 +660,7 @@ func TestEngine_ShutdownResume(t *testing.T) {
 
 	tf := engine.NewTestFramework(t, workers.CreateGroup("EngineTestFramework1"), engine1)
 
-	event.Hook(tf.Instance.NotarizationManager.Events.Error, func(err error) {
+	tf.Instance.NotarizationManager.Events.Error.Hook(func(err error) {
 		panic(err)
 	})
 
@@ -688,12 +688,12 @@ func TestEngine_ShutdownResume(t *testing.T) {
 	require.Equal(t, int64(100), tf.Instance.SybilProtection.Validators().TotalWeight())
 
 	tf.Instance.Shutdown()
-	workers.Wait()
+	workers.WaitChildren()
 	engine1Storage.Shutdown()
 
 	engine2Storage := storage.New(testDir, protocol.DatabaseVersion, database.WithDBProvider(database.NewDB))
 	t.Cleanup(func() {
-		workers.Wait()
+		workers.WaitChildren()
 		engine2Storage.Shutdown()
 	})
 
@@ -712,7 +712,7 @@ func TestEngine_ShutdownResume(t *testing.T) {
 
 	tf2 := engine.NewTestFramework(t, workers.CreateGroup("EngineTestFramework2"), engine2)
 	require.NoError(t, tf2.Instance.Initialize(""))
-	workers.Wait()
+	workers.WaitChildren()
 	tf2.AssertEpochState(0)
 }
 
@@ -843,17 +843,17 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 
 	assertBlockExistsOnNodes := func(id models.BlockID, nodes ...*mockednetwork.Node) {
 		for _, node := range nodes {
-			require.True(t, lo.Return2(node.EngineTestFramework.Instance.Block(id)))
+			require.True(t, lo.Return2(node.EngineTestFramework().Instance.Block(id)))
 		}
 	}
 
 	assertBlockMissingOnNodes := func(id models.BlockID, nodes ...*mockednetwork.Node) {
 		for _, node := range nodes {
-			require.False(t, lo.Return2(node.EngineTestFramework.Instance.Block(id)))
+			require.False(t, lo.Return2(node.EngineTestFramework().Instance.Block(id)))
 		}
 	}
 
-	genesisBlockID := node1.EngineTestFramework.BlockDAG.Block("Genesis")
+	genesisBlockID := node1.EngineTestFramework().BlockDAG.Block("Genesis")
 
 	// Issue blocks on Partition 1
 	{
@@ -987,9 +987,9 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 		wp := workers.CreatePool("Activity", 2)
 		for _, node := range []*mockednetwork.Node{node3, node4} {
 			nodeCount.Add(1)
-			event.AttachWithWorkerPool(node.Protocol.Events.MainEngineSwitched, func(_ *enginemanager.EngineInstance) {
+			node.Protocol.Events.MainEngineSwitched.Hook(func(_ *enginemanager.EngineInstance) {
 				nodeCount.Add(-1)
-			}, wp)
+			}, event.WithWorkerPool(wp))
 		}
 		require.Eventually(t, func() bool {
 			return nodeCount.Load() == 0
@@ -1026,7 +1026,7 @@ func TestEngine_GuavaConflict(t *testing.T) {
 			),
 		))
 
-	event.Hook(tf.Instance.NotarizationManager.Events.Error, func(err error) {
+	tf.Instance.NotarizationManager.Events.Error.Hook(func(err error) {
 		panic(err)
 	})
 

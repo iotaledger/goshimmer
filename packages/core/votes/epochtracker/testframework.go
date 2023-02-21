@@ -8,11 +8,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
-	"github.com/iotaledger/hive.go/core/debug"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/kvstore/mapdb"
+	"github.com/iotaledger/hive.go/runtime/debug"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -32,7 +31,7 @@ func NewTestFramework(test *testing.T, epochTracker *EpochTracker, votesTF *vote
 		Votes:        votesTF,
 	}
 
-	event.Hook(t.EpochTracker.Events.VotersUpdated, func(evt *VoterUpdatedEvent) {
+	t.EpochTracker.Events.VotersUpdated.Hook(func(evt *VoterUpdatedEvent) {
 		if debug.GetEnabled() {
 			t.test.Logf("VOTER ADDED: %v", evt.NewLatestEpochIndex.String())
 		}
@@ -49,7 +48,7 @@ func NewDefaultTestFramework(t *testing.T) *TestFramework {
 	)
 }
 
-func (t *TestFramework) ValidateEpochVoters(expectedVoters map[epoch.Index]*set.AdvancedSet[identity.ID]) {
+func (t *TestFramework) ValidateEpochVoters(expectedVoters map[epoch.Index]*advancedset.AdvancedSet[identity.ID]) {
 	for epochIndex, expectedVotersEpoch := range expectedVoters {
 		voters := t.EpochTracker.Voters(epochIndex)
 

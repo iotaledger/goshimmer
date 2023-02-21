@@ -12,14 +12,13 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	typedkvstore "github.com/iotaledger/hive.go/core/generics/kvstore"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/kvstore"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/ds/shrinkingmap"
+	"github.com/iotaledger/hive.go/kvstore"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 const (
@@ -32,7 +31,7 @@ const (
 type ThroughputQuota struct {
 	engine              *engine.Engine
 	workers             *workerpool.Group
-	quotaByIDStorage    *typedkvstore.TypedStore[identity.ID, storable.SerializableInt64, *identity.ID, *storable.SerializableInt64]
+	quotaByIDStorage    *kvstore.TypedStore[identity.ID, storable.SerializableInt64, *identity.ID, *storable.SerializableInt64]
 	quotaByIDCache      *shrinkingmap.ShrinkingMap[identity.ID, int64]
 	quotaByIDMutex      sync.RWMutex // TODO: replace this lock with DAG mutex so each entity is individually locked
 	totalBalanceStorage kvstore.KVStore
@@ -51,7 +50,7 @@ func New(engineInstance *engine.Engine, opts ...options.Option[ThroughputQuota])
 		engine:              engineInstance,
 		workers:             engineInstance.Workers.CreateGroup("ThroughputQuota"),
 		totalBalanceStorage: engineInstance.Storage.ThroughputQuota(PrefixTotalBalance),
-		quotaByIDStorage:    typedkvstore.NewTypedStore[identity.ID, storable.SerializableInt64](engineInstance.Storage.ThroughputQuota(PrefixQuotasByID)),
+		quotaByIDStorage:    kvstore.NewTypedStore[identity.ID, storable.SerializableInt64](engineInstance.Storage.ThroughputQuota(PrefixQuotasByID)),
 		quotaByIDCache:      shrinkingmap.New[identity.ID, int64](),
 	}, opts, func(m *ThroughputQuota) {
 		if iterationErr := m.quotaByIDStorage.Iterate([]byte{}, func(key identity.ID, value storable.SerializableInt64) (advance bool) {
@@ -183,7 +182,7 @@ func (m *ThroughputQuota) init() {
 	m.TriggerInitialized()
 
 	wp := m.workers.CreatePool("ThroughputQuota", 2)
-	event.AttachWithWorkerPool(m.engine.Ledger.Events.TransactionAccepted, func(event *ledger.TransactionEvent) {
+	m.engine.Ledger.Events.TransactionAccepted.Hook(func(event *ledger.TransactionEvent) {
 		m.quotaByIDMutex.Lock()
 		defer m.quotaByIDMutex.Unlock()
 		for _, createdOutput := range event.CreatedOutputs {
@@ -197,8 +196,8 @@ func (m *ThroughputQuota) init() {
 				panic(spentOutputErr)
 			}
 		}
-	}, wp)
-	event.AttachWithWorkerPool(m.engine.Ledger.Events.TransactionOrphaned, func(event *ledger.TransactionEvent) {
+	}, event.WithWorkerPool(wp))
+	m.engine.Ledger.Events.TransactionOrphaned.Hook(func(event *ledger.TransactionEvent) {
 		m.quotaByIDMutex.Lock()
 		defer m.quotaByIDMutex.Unlock()
 
@@ -213,7 +212,7 @@ func (m *ThroughputQuota) init() {
 				panic(createdOutputErr)
 			}
 		}
-	}, wp)
+	}, event.WithWorkerPool(wp))
 }
 
 func (m *ThroughputQuota) updateMana(id identity.ID, diff int64) {

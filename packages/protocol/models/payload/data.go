@@ -5,7 +5,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payloadtype"
 	"github.com/iotaledger/hive.go/core/generics/model"
-	"github.com/iotaledger/hive.go/core/serix"
+	"github.com/iotaledger/hive.go/serializer/v2/serix"
 )
 
 func init() {

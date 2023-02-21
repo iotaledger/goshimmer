@@ -14,10 +14,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/randommap"
-	"github.com/iotaledger/hive.go/core/types"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/ds/randommap"
+	"github.com/iotaledger/hive.go/ds/types"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 type acceptanceGadget interface {
@@ -81,8 +81,10 @@ func (t *TipManager) LinkTo(engine *engine.Engine) {
 
 	t.engine = engine
 	t.blockAcceptanceGadget = engine.Consensus.BlockGadget
-	t.TipsConflictTracker = NewTipsConflictTracker(t.workers, engine)
-	t.TipsConflictTracker.Setup()
+	if t.TipsConflictTracker != nil {
+		t.TipsConflictTracker.Cleanup()
+	}
+	t.TipsConflictTracker = NewTipsConflictTracker(t.workers.CreatePool("TipsConflictTracker", 1), engine)
 }
 
 func (t *TipManager) AddTip(block *scheduler.Block) {

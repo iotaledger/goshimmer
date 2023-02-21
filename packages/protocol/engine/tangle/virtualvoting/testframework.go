@@ -17,11 +17,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/hive.go/core/debug"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/runtime/debug"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 type TestFramework struct {
@@ -75,7 +74,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, virtualVotingI
 	return t
 }
 
-func (t *TestFramework) ValidatorsSet(aliases ...string) (validators *set.AdvancedSet[identity.ID]) {
+func (t *TestFramework) ValidatorsSet(aliases ...string) (validators *advancedset.AdvancedSet[identity.ID]) {
 	return t.Votes.ValidatorsSet(aliases...)
 }
 
@@ -100,8 +99,8 @@ func (t *TestFramework) Identity(alias string) (v *identity.Identity) {
 	return
 }
 
-func (t *TestFramework) Identities(aliases ...string) (identities *set.AdvancedSet[*identity.Identity]) {
-	identities = set.NewAdvancedSet[*identity.Identity]()
+func (t *TestFramework) Identities(aliases ...string) (identities *advancedset.AdvancedSet[*identity.Identity]) {
+	identities = advancedset.NewAdvancedSet[*identity.Identity]()
 	for _, alias := range aliases {
 		identities.Add(t.Identity(alias))
 	}
@@ -123,7 +122,7 @@ func (t *TestFramework) ValidatorsWithWeights(aliases ...string) map[identity.ID
 	return weights
 }
 
-func (t *TestFramework) ValidateMarkerVoters(expectedVoters map[markers.Marker]*set.AdvancedSet[identity.ID]) {
+func (t *TestFramework) ValidateMarkerVoters(expectedVoters map[markers.Marker]*advancedset.AdvancedSet[identity.ID]) {
 	for marker, expectedVotersOfMarker := range expectedVoters {
 		voters := t.SequenceTracker.Instance.Voters(marker)
 
@@ -131,7 +130,7 @@ func (t *TestFramework) ValidateMarkerVoters(expectedVoters map[markers.Marker]*
 	}
 }
 
-func (t *TestFramework) ValidateConflictVoters(expectedVoters map[utxo.TransactionID]*set.AdvancedSet[identity.ID]) {
+func (t *TestFramework) ValidateConflictVoters(expectedVoters map[utxo.TransactionID]*advancedset.AdvancedSet[identity.ID]) {
 	for conflictID, expectedVotersOfMarker := range expectedVoters {
 		voters := t.ConflictTracker.Instance.Voters(conflictID)
 
@@ -144,7 +143,7 @@ func (t *TestFramework) AssertBlockTracked(blocksTracked uint32) {
 }
 
 func (t *TestFramework) setupEvents() {
-	event.Hook(t.Instance.Events.BlockTracked, func(metadata *Block) {
+	t.Instance.Events.BlockTracked.Hook(func(metadata *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("TRACKED: %s", metadata.ID())
 		}

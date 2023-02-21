@@ -5,8 +5,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 type Block struct {
@@ -122,11 +122,11 @@ func (b *Block) setStructureDetails(structureDetails *markers.StructureDetails) 
 // region Blocks ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Blocks represents a collection of Block.
-type Blocks = *set.AdvancedSet[*Block]
+type Blocks = *advancedset.AdvancedSet[*Block]
 
 // NewBlocks returns a new Block collection with the given elements.
 func NewBlocks(blocks ...*Block) (newBlocks Blocks) {
-	return set.NewAdvancedSet(blocks...)
+	return advancedset.NewAdvancedSet(blocks...)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

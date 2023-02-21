@@ -11,11 +11,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/syncutils"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 // region VirtualVoting ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -133,18 +133,18 @@ func (o *VirtualVoting) ConflictVotersTotalWeight(conflictID utxo.TransactionID)
 }
 
 func (o *VirtualVoting) setupEvents() {
-	event.Hook(o.Booker.Events.BlockBooked, func(evt *booker.BlockBookedEvent) {
+	o.Booker.Events.BlockBooked.Hook(func(evt *booker.BlockBookedEvent) {
 		o.Track(NewBlock(evt.Block), evt.ConflictIDs)
 	})
-	event.Hook(o.Booker.Events.BlockConflictAdded, func(event *booker.BlockConflictAddedEvent) {
+	o.Booker.Events.BlockConflictAdded.Hook(func(event *booker.BlockConflictAddedEvent) {
 		o.processForkedBlock(event.Block, event.ConflictID, event.ParentConflictIDs)
 	})
-	event.Hook(o.Booker.Events.MarkerConflictAdded, func(event *booker.MarkerConflictAddedEvent) {
+	o.Booker.Events.MarkerConflictAdded.Hook(func(event *booker.MarkerConflictAddedEvent) {
 		o.processForkedMarker(event.Marker, event.ConflictID, event.ParentConflictIDs)
 	})
 	wp := o.Workers.CreatePool("Eviction", 1) // Using just 1 worker to avoid contention
-	event.AttachWithWorkerPool(o.Booker.Events.MarkerManager.SequenceEvicted, o.evictSequence, wp)
-	event.Hook(o.BlockDAG.EvictionState.Events.EpochEvicted, o.evictEpoch)
+	o.Booker.Events.MarkerManager.SequenceEvicted.Hook(o.evictSequence, event.WithWorkerPool(wp))
+	o.BlockDAG.EvictionState.Events.EpochEvicted.Hook(o.evictEpoch)
 }
 
 func (o *VirtualVoting) track(block *Block, conflictIDs utxo.TransactionIDs) (tracked bool) {

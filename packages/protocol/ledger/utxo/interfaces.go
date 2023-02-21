@@ -1,7 +1,7 @@
 package utxo
 
 import (
-	"github.com/iotaledger/hive.go/core/generics/objectstorage"
+	"github.com/iotaledger/hive.go/objectstorage/generic"
 )
 
 // region Transaction //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -26,7 +26,7 @@ type Transaction interface {
 	// String returns a human-readable version of the Transaction.
 	String() (humanReadable string)
 
-	objectstorage.StorableObject
+	generic.StorableObject
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -57,7 +57,7 @@ type Output interface {
 	// String returns a human-readable version of the Output.
 	String() (humanReadable string)
 
-	objectstorage.StorableObject
+	generic.StorableObject
 }
 
 type OutputFactory func([]byte) (output Output, err error)

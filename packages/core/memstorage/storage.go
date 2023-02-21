@@ -3,8 +3,8 @@ package memstorage
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
+	"github.com/iotaledger/hive.go/ds/shrinkingmap"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 type Storage[K comparable, V any] struct {

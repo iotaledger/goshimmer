@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 	"github.com/pkg/errors"
 	"go.uber.org/dig"
 
@@ -25,9 +25,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/app/daemon"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/logger"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -62,8 +62,8 @@ var (
 	// doubleSpendFilterOnce ensures that doubleSpendFilter is a singleton.
 	doubleSpendFilterOnce sync.Once
 
-	// closure to be executed on transaction confirmation.
-	onTransactionAccepted *event.Closure[*ledger.TransactionEvent]
+	// Hook to the transaction confirmation event.
+	onTransactionAccepted *event.Hook[func(*ledger.TransactionEvent)]
 
 	log *logger.Logger
 )
@@ -103,15 +103,14 @@ func FilterRemove(txID utxo.TransactionID) {
 	}
 }
 
-func configure(_ *node.Plugin) {
-	filterEnabled = webapi.Parameters.EnableDSFilter
-	if filterEnabled {
+func configure(plugin *node.Plugin) {
+	if webapi.Parameters.EnableDSFilter {
 		doubleSpendFilter = Filter()
-		onTransactionAccepted = event.NewClosure(func(event *ledger.TransactionEvent) {
+		deps.Protocol.Events.Engine.Ledger.TransactionAccepted.Hook(func(event *ledger.TransactionEvent) {
 			doubleSpendFilter.Remove(event.Metadata.ID())
-		})
+		}, event.WithWorkerPool(plugin.WorkerPool))
 	}
-	deps.Protocol.Events.Engine.Ledger.TransactionAccepted.Attach(onTransactionAccepted)
+
 	log = logger.NewLogger(PluginName)
 }
 
@@ -155,7 +154,10 @@ func worker(ctx context.Context) {
 		}
 	}()
 	log.Infof("Stopping %s ...", PluginName)
-	deps.Protocol.Engine().Ledger.Events.TransactionAccepted.Detach(onTransactionAccepted)
+	if onTransactionAccepted != nil {
+		onTransactionAccepted.Unhook()
+		onTransactionAccepted = nil
+	}
 }
 
 func outputsOnAddress(address devnetvm.Address) (outputs devnetvm.Outputs) {

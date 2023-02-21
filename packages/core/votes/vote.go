@@ -3,10 +3,10 @@ package votes
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/generics/constraints"
-	"github.com/iotaledger/hive.go/core/generics/orderedmap"
-	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/constraints"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/ds/orderedmap"
 )
 
 type Vote[ConflictIDType comparable, VotePowerType constraints.Comparable[VotePowerType]] struct {
@@ -75,13 +75,17 @@ func (v *Votes[ConflictIDType, VotePowerType]) Add(vote *Vote[ConflictIDType, Vo
 
 	previousVote, exists := v.o.Get(vote.Voter)
 	if !exists {
-		return v.o.Set(vote.Voter, vote), true
+		v.o.Set(vote.Voter, vote)
+		return true, true
 	}
+
 	if vote.VotePower.Compare(previousVote.VotePower) <= 0 {
 		return false, false
 	}
 
-	return v.o.Set(vote.Voter, vote), previousVote.Opinion != vote.Opinion
+	v.o.Set(vote.Voter, vote)
+
+	return true, previousVote.Opinion != vote.Opinion
 }
 
 func (v *Votes[ConflictIDType, VotePowerType]) Delete(vote *Vote[ConflictIDType, VotePowerType]) (deleted bool) {
@@ -91,8 +95,8 @@ func (v *Votes[ConflictIDType, VotePowerType]) Delete(vote *Vote[ConflictIDType,
 	return v.o.Delete(vote.Voter)
 }
 
-func (v *Votes[ConflictIDType, VotePowerType]) Voters() (voters *set.AdvancedSet[identity.ID]) {
-	voters = set.NewAdvancedSet[identity.ID]()
+func (v *Votes[ConflictIDType, VotePowerType]) Voters() (voters *advancedset.AdvancedSet[identity.ID]) {
+	voters = advancedset.NewAdvancedSet[identity.ID]()
 
 	v.m.RLock()
 	defer v.m.RUnlock()

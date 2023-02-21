@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 	"github.com/pkg/errors"
 	"go.uber.org/dig"
 
@@ -13,8 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/hive.go/app/daemon"
-	"github.com/iotaledger/hive.go/core/autopeering/peer"
-	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/logger"
 )
 
@@ -37,15 +36,15 @@ type dependencies struct {
 
 func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
-	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
+	Plugin.Events.Init.Hook(func(event *node.InitEvent) {
+		newManager := func(lPeer *peer.Local, p2pMgr *p2p.Manager) *manualpeering.Manager {
+			return manualpeering.NewManager(p2pMgr, lPeer, event.Plugin.WorkerPool, logger.NewLogger(PluginName))
+		}
+
 		if err := event.Container.Provide(newManager); err != nil {
 			Plugin.Panic(err)
 		}
-	}))
-}
-
-func newManager(lPeer *peer.Local, p2pMgr *p2p.Manager) *manualpeering.Manager {
-	return manualpeering.NewManager(p2pMgr, lPeer, logger.NewLogger(PluginName))
+	})
 }
 
 func configure(_ *node.Plugin) {

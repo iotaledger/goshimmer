@@ -6,8 +6,8 @@ import (
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/walker"
+	"github.com/iotaledger/hive.go/ds/walker"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 // region SequenceManager //////////////////////////////////////////////////////////////////////////////////////////////////////

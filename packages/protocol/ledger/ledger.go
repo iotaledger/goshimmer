@@ -11,11 +11,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
 	"github.com/iotaledger/goshimmer/packages/storage"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/walker"
-	"github.com/iotaledger/hive.go/core/syncutils"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/ds/walker"
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 // region Ledger ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -38,7 +38,7 @@ type Ledger struct {
 	// ConflictDAG is a reference to the ConflictDAG that is used by this Ledger.
 	ConflictDAG *conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID]
 
-	workerPool *workerpool.UnboundedWorkerPool
+	workerPool *workerpool.WorkerPool
 
 	// dataFlow is a Ledger component that defines the data flow (how the different commands are chained together)
 	dataFlow *dataFlow
@@ -81,7 +81,7 @@ type Ledger struct {
 }
 
 // New returns a new Ledger from the given optionsLedger.
-func New(workerPool *workerpool.UnboundedWorkerPool, chainStorage *storage.Storage, opts ...options.Option[Ledger]) (ledger *Ledger) {
+func New(workerPool *workerpool.WorkerPool, chainStorage *storage.Storage, opts ...options.Option[Ledger]) (ledger *Ledger) {
 	ledger = options.Apply(&Ledger{
 		Events:                          NewEvents(),
 		ChainStorage:                    chainStorage,
@@ -107,16 +107,16 @@ func New(workerPool *workerpool.UnboundedWorkerPool, chainStorage *storage.Stora
 	ledger.Utils = newUtils(ledger)
 
 	// TODO: revisit whether we should make the process of setting conflict and transaction as accepted/rejected atomic
-	event.AttachWithWorkerPool(ledger.ConflictDAG.Events.ConflictAccepted, func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	ledger.ConflictDAG.Events.ConflictAccepted.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		ledger.propagateAcceptanceToIncludedTransactions(conflict.ID())
-	}, workerPool)
-	event.AttachWithWorkerPool(ledger.ConflictDAG.Events.ConflictRejected, ledger.propagatedRejectionToTransactions, workerPool)
-	event.AttachWithWorkerPool(ledger.Events.TransactionBooked, func(event *TransactionBookedEvent) {
+	}, event.WithWorkerPool(workerPool))
+	ledger.ConflictDAG.Events.ConflictRejected.Hook(ledger.propagatedRejectionToTransactions, event.WithWorkerPool(workerPool))
+	ledger.Events.TransactionBooked.Hook(func(event *TransactionBookedEvent) {
 		ledger.processConsumingTransactions(event.Outputs.IDs())
-	}, workerPool)
-	event.AttachWithWorkerPool(ledger.Events.TransactionInvalid, func(event *TransactionInvalidEvent) {
+	}, event.WithWorkerPool(workerPool))
+	ledger.Events.TransactionInvalid.Hook(func(event *TransactionInvalidEvent) {
 		ledger.PruneTransaction(event.TransactionID, true)
-	}, workerPool)
+	}, event.WithWorkerPool(workerPool))
 
 	return ledger
 }

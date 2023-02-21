@@ -26,14 +26,13 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/debug"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/ds/shrinkingmap"
+	"github.com/iotaledger/hive.go/kvstore/mapdb"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/debug"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 // region TestFramework //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -67,7 +66,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...option
 
 		test.Cleanup(func() {
 			t.Engine.Shutdown()
-			workers.Wait()
+			workers.WaitChildren()
 			storageInstance.Shutdown()
 		})
 
@@ -89,7 +88,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...option
 }
 
 func (t *TestFramework) setupEvents() {
-	event.Hook(t.Tangle.Instance.Events.VirtualVoting.BlockTracked, func(block *virtualvoting.Block) {
+	t.Tangle.Instance.Events.VirtualVoting.BlockTracked.Hook(func(block *virtualvoting.Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("SIMULATING SCHEDULED: %s", block.ID())
 		}
@@ -102,25 +101,25 @@ func (t *TestFramework) setupEvents() {
 		t.Instance.AddTip(scheduledBlock)
 	})
 
-	event.Hook(t.Engine.Events.EvictionState.EpochEvicted, func(index epoch.Index) {
+	t.Engine.Events.EvictionState.EpochEvicted.Hook(func(index epoch.Index) {
 		t.Instance.EvictTSCCache(index)
 	})
 
-	event.Hook(t.Instance.Events.TipAdded, func(block *scheduler.Block) {
+	t.Instance.Events.TipAdded.Hook(func(block *scheduler.Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("TIP ADDED: %s", block.ID())
 		}
 		atomic.AddUint32(&(t.tipAdded), 1)
 	})
 
-	event.Hook(t.Instance.Events.TipRemoved, func(block *scheduler.Block) {
+	t.Instance.Events.TipRemoved.Hook(func(block *scheduler.Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("TIP REMOVED: %s", block.ID())
 		}
 		atomic.AddUint32(&(t.tipRemoved), 1)
 	})
 
-	event.Hook(t.mockAcceptance.BlockAcceptedEvent, func(block *blockgadget.Block) {
+	t.mockAcceptance.BlockAcceptedEvent.Hook(func(block *blockgadget.Block) {
 		require.NoError(t.test, t.Engine.NotarizationManager.NotarizeAcceptedBlock(block.ModelsBlock))
 	})
 }

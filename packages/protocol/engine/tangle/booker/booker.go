@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/causalorder"
+	"github.com/iotaledger/goshimmer/packages/core/cerrors"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
@@ -16,14 +17,13 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/cerrors"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/generics/walker"
-	"github.com/iotaledger/hive.go/core/syncutils"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/ds/walker"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 // region Booker ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -68,7 +68,7 @@ func New(workers *workerpool.Group, blockDAG *blockdag.BlockDAG, ledger *ledger.
 			causalorder.WithReferenceValidator[models.BlockID](isReferenceValid),
 		)
 
-		event.Hook(blockDAG.EvictionState.Events.EpochEvicted, b.evict)
+		blockDAG.EvictionState.Events.EpochEvicted.Hook(b.evict)
 
 		b.Events.MarkerManager = b.markerManager.Events
 	}, (*Booker).setupEvents)
@@ -185,7 +185,7 @@ func (b *Booker) GetLatestAttachment(txID utxo.TransactionID) (attachment *Block
 	return b.attachments.getLatestAttachment(txID)
 }
 
-func (b *Booker) GetAllAttachments(txID utxo.TransactionID) (attachments *set.AdvancedSet[*Block]) {
+func (b *Booker) GetAllAttachments(txID utxo.TransactionID) (attachments *advancedset.AdvancedSet[*Block]) {
 	return b.attachments.GetAttachmentBlocks(txID)
 }
 
@@ -451,12 +451,12 @@ func (b *Booker) blocksFromBlockDAGBlocks(blocks []*blockdag.Block) []*Block {
 }
 
 func (b *Booker) setupEvents() {
-	event.Hook(b.BlockDAG.Events.BlockSolid, func(block *blockdag.Block) {
+	b.BlockDAG.Events.BlockSolid.Hook(func(block *blockdag.Block) {
 		if _, err := b.Queue(NewBlock(block)); err != nil {
 			panic(err)
 		}
 	})
-	event.Hook(b.BlockDAG.Events.BlockOrphaned, func(orphanedBlock *blockdag.Block) {
+	b.BlockDAG.Events.BlockOrphaned.Hook(func(orphanedBlock *blockdag.Block) {
 		block, exists := b.Block(orphanedBlock.ID())
 		if !exists {
 			return
@@ -464,12 +464,12 @@ func (b *Booker) setupEvents() {
 
 		b.OrphanAttachment(block)
 	})
-	event.Hook(b.Ledger.Events.TransactionConflictIDUpdated, func(event *ledger.TransactionConflictIDUpdatedEvent) {
+	b.Ledger.Events.TransactionConflictIDUpdated.Hook(func(event *ledger.TransactionConflictIDUpdatedEvent) {
 		if err := b.PropagateForkedConflict(event.TransactionID, event.AddedConflictID, event.RemovedConflictIDs); err != nil {
 			b.Events.Error.Trigger(errors.Wrapf(err, "failed to propagate Conflict update of %s to BlockDAG", event.TransactionID))
 		}
 	})
-	event.AttachWithWorkerPool(b.Ledger.Events.TransactionBooked, func(e *ledger.TransactionBookedEvent) {
+	b.Ledger.Events.TransactionBooked.Hook(func(e *ledger.TransactionBookedEvent) {
 		contextBlockID := models.BlockIDFromContext(e.Context)
 
 		for _, block := range b.attachments.Get(e.TransactionID) {
@@ -477,7 +477,7 @@ func (b *Booker) setupEvents() {
 				b.bookingOrder.Queue(block)
 			}
 		}
-	}, b.workers.CreatePool("Booker", 2))
+	}, event.WithWorkerPool(b.workers.CreatePool("Booker", 2)))
 }
 
 func (b *Booker) OrphanAttachment(block *Block) {
