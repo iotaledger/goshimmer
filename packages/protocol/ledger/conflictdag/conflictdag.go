@@ -1,6 +1,8 @@
 package conflictdag
 
 import (
+	"fmt"
+
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/ds/set"
@@ -223,33 +225,6 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) SetConflictAccepted(confli
 
 	modified = c.rejectConflictsWithFutureCone(conflictsToReject) || modified
 
-	// // Delete all resolved ConflictSets (don't have a pending conflict anymore).
-	// for it := conflictSets.Iterator(); it.HasNext(); {
-	//	conflictSet := it.Next()
-	//
-	//	pendingConflicts := false
-	//	for itConflict := conflictSet.Conflicts().Iterator(); itConflict.HasNext(); {
-	//		conflict := itConflict.Next()
-	//		if conflict.ConfirmationState() == confirmation.Pending {
-	//			pendingConflicts = true
-	//			continue
-	//		}
-	//		conflict.deleteConflictSet(conflictSet)
-	//	}
-	//
-	//	if !pendingConflicts {
-	//		c.conflictSets.Delete(conflictSet.ID())
-	//	}
-	// }
-	//
-	// // Delete all resolved Conflicts that are not part of any ConflictSet anymore.
-	// for it := conflicts.Iterator(); it.HasNext(); {
-	//	conflict := it.Next()
-	//	if conflict.ConflictSets().Size() == 0 {
-	//		c.conflicts.Delete(conflict.ID())
-	//	}
-	// }
-
 	return modified
 }
 
@@ -464,6 +439,33 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) ForEachConflict(consumer f
 		consumer(conflict)
 		return true
 	})
+}
+
+func (c *ConflictDAG[ConflictIDType, ResourceIDType]) EvictConflict(conflictID ConflictIDType) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	conflict, exists := c.conflict(conflictID)
+	if !exists {
+		return
+	}
+
+	if conflict.ConfirmationState().IsPending() {
+		fmt.Println("WARNING: Evicting pending conflict", conflictID)
+	}
+
+	c.conflicts.Delete(conflictID)
+	// TODO: trigger conflict evicted event
+
+	// Delete the conflict from all its conflict sets.
+	for it := conflict.ConflictSets().Iterator(); it.HasNext(); {
+		conflictSet := it.Next()
+		// In case this is the last conflict in the conflict set, delete the conflict set.
+		if _, isEmpty := conflictSet.DeleteConflictMember(conflict); isEmpty {
+			c.conflictSets.Delete(conflictSet.ID())
+			// TODO: trigger conflict set evicted event
+		}
+	}
 }
 
 func (c *ConflictDAG[ConflictIDType, ResourceIDType]) HandleOrphanedConflict(conflictID ConflictIDType) {

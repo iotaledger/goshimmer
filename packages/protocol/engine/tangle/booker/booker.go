@@ -225,12 +225,21 @@ func (b *Booker) GetAllAttachments(txID utxo.TransactionID) (attachments *advanc
 func (b *Booker) evict(epochIndex epoch.Index) {
 	b.bookingOrder.EvictUntil(epochIndex)
 
-	b.evictionMutex.Lock()
-	defer b.evictionMutex.Unlock()
+	evictedTX := func() utxo.TransactionIDs {
+		b.evictionMutex.Lock()
+		defer b.evictionMutex.Unlock()
 
-	b.attachments.Evict(epochIndex)
-	b.markerManager.Evict(epochIndex)
-	b.blocks.Evict(epochIndex)
+		b.markerManager.Evict(epochIndex)
+		b.blocks.Evict(epochIndex)
+		return b.attachments.Evict(epochIndex)
+	}()
+
+	for it := evictedTX.Iterator(); it.HasNext(); {
+		txID := it.Next()
+		// TODO: After the ledger refactor, conflict eviction should be based on transaction eviction and happen atomically within the ledger.
+		b.Ledger.ConflictDAG.EvictConflict(txID)
+		// b.Ledger.PruneTransaction(tx.ID(), true)
+	}
 }
 
 func (b *Booker) isPayloadSolid(block *virtualvoting.Block) (isPayloadSolid bool, err error) {
@@ -502,14 +511,6 @@ func (b *Booker) setupEvents() {
 			panic(err)
 		}
 	})
-	b.BlockDAG.Events.BlockOrphaned.Hook(func(orphanedBlock *blockdag.Block) {
-		block, exists := b.Block(orphanedBlock.ID())
-		if !exists {
-			return
-		}
-
-		b.OrphanAttachment(block)
-	})
 	b.Ledger.Events.TransactionConflictIDUpdated.Hook(func(event *ledger.TransactionConflictIDUpdatedEvent) {
 		if err := b.PropagateForkedConflict(event.TransactionID, event.AddedConflictID, event.RemovedConflictIDs); err != nil {
 			b.Events.Error.Trigger(errors.Wrapf(err, "failed to propagate Conflict update of %s to BlockDAG", event.TransactionID))
@@ -528,22 +529,6 @@ func (b *Booker) setupEvents() {
 	b.Events.MarkerManager.SequenceEvicted.Hook(func(sequenceID markers.SequenceID) {
 		b.VirtualVoting.EvictSequence(sequenceID)
 	}, event.WithWorkerPool(b.workers.CreatePool("VirtualVoting Sequence Eviction", 1)))
-}
-
-func (b *Booker) OrphanAttachment(block *virtualvoting.Block) {
-	if tx, isTx := block.Transaction(); isTx {
-		attachmentBlock, attachmentOrphaned, lastAttachmentOrphaned := b.attachments.AttachmentOrphaned(tx.ID(), block)
-
-		if attachmentOrphaned {
-			b.Events.AttachmentOrphaned.Trigger(attachmentBlock)
-		}
-
-		if lastAttachmentOrphaned {
-			// TODO: attach this event somewhere to the engine
-			b.Events.Error.Trigger(errors.Errorf("transaction %s orphaned", tx.ID()))
-			b.Ledger.PruneTransaction(tx.ID(), true)
-		}
-	}
 }
 
 // region FORK LOGIC ///////////////////////////////////////////////////////////////////////////////////////////////////

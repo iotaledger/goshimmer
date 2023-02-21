@@ -73,19 +73,28 @@ func (a *attachments) GetAttachmentBlocks(txID utxo.TransactionID) (attachments 
 	return
 }
 
-func (a *attachments) Evict(epochIndex epoch.Index) {
-	if txIDs, exists := a.evictionMap.Get(epochIndex); exists {
-		a.evictionMap.Delete(epochIndex)
-
-		txIDs.ForEach(func(txID utxo.TransactionID) {
-			a.mutex.Lock(txID)
-			defer a.mutex.Unlock(txID)
-
-			if attachmentsOfTX := a.storage(txID, false); attachmentsOfTX != nil && attachmentsOfTX.Delete(epochIndex) && attachmentsOfTX.Size() == 0 {
-				a.attachments.Delete(txID)
-			}
-		})
+func (a *attachments) Evict(epochIndex epoch.Index) (evictedTX utxo.TransactionIDs) {
+	txIDs, exists := a.evictionMap.Get(epochIndex)
+	if !exists {
+		return utxo.NewTransactionIDs()
 	}
+
+	a.evictionMap.Delete(epochIndex)
+	evictedTX = utxo.NewTransactionIDs()
+
+	txIDs.ForEach(func(txID utxo.TransactionID) {
+		a.mutex.Lock(txID)
+		defer a.mutex.Unlock(txID)
+
+		attachmentsOfTX := a.storage(txID, false)
+		if attachmentsOfTX != nil && attachmentsOfTX.Delete(epochIndex) && attachmentsOfTX.Size() == 0 {
+			// There are no other attachments of this transaction, so we can delete it.
+			a.attachments.Delete(txID)
+			evictedTX.Add(txID)
+		}
+	})
+
+	return evictedTX
 }
 
 func (a *attachments) storeAttachment(txID utxo.TransactionID, block *virtualvoting.Block) (created bool) {

@@ -172,4 +172,11 @@ func (c *ConflictSet[ConflictIDType, ResourceIDType]) AddConflictMember(conflict
 	return c.conflicts.Add(conflict)
 }
 
+func (c *ConflictSet[ConflictIDType, ResourceIDType]) DeleteConflictMember(conflict *Conflict[ConflictIDType, ResourceIDType]) (deleted, isEmpty bool) {
+	c.m.Lock()
+	defer c.m.Unlock()
+
+	return c.conflicts.Delete(conflict), c.conflicts.IsEmpty()
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
