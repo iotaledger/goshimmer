@@ -76,6 +76,7 @@ func New(workers *workerpool.Group, blockDAG *blockdag.BlockDAG, ledger *ledger.
 
 		blockDAG.EvictionState.Events.EpochEvicted.Hook(b.evict)
 
+		b.Events.VirtualVoting = b.VirtualVoting.Events
 		b.Events.MarkerManager = b.markerManager.Events
 	}, (*Booker).setupEvents)
 }
