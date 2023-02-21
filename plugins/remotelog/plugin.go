@@ -19,7 +19,7 @@ import (
 	"github.com/iotaledger/hive.go/app/daemon"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/logger"
-	"github.com/iotaledger/hive.go/runtime/workerpool"
+	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 const (
@@ -40,7 +40,6 @@ var (
 	myID          string
 	myGitHead     string
 	myGitConflict string
-	workerPool    *workerpool.WorkerPool
 )
 
 type dependencies struct {
@@ -77,8 +76,6 @@ func configure(_ *node.Plugin) {
 	}
 
 	getGitInfo()
-
-	workerPool = workerpool.New("RemoteLog", 1)
 }
 
 func run(plugin *node.Plugin) {
@@ -89,11 +86,10 @@ func run(plugin *node.Plugin) {
 	if err := daemon.BackgroundWorker(PluginName, func(ctx context.Context) {
 		hook := logger.Events.AnyMsg.Hook(func(logEvent *logger.LogEvent) {
 			deps.RemoteLogger.SendLogMsg(logEvent.Level, logEvent.Name, logEvent.Msg)
-		})
+		}, event.WithWorkerPool(plugin.WorkerPool))
 		<-ctx.Done()
 		plugin.LogInfof("Stopping %s ...", PluginName)
 		hook.Unhook()
-		workerPool.Shutdown()
 		plugin.LogInfof("Stopping %s ... done", PluginName)
 	}, shutdown.PriorityRemoteLog); err != nil {
 		plugin.Panicf("Failed to start as daemon: %s", err)
