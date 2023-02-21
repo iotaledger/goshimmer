@@ -83,14 +83,14 @@ type Manager struct {
 }
 
 // NewManager initializes a new Manager instance.
-func NewManager(p2pm *p2p.Manager, local *peer.Local, log *logger.Logger) *Manager {
+func NewManager(p2pm *p2p.Manager, local *peer.Local, workerPool *workerpool.WorkerPool, log *logger.Logger) *Manager {
 	m := &Manager{
 		p2pm:              p2pm,
 		local:             local,
 		log:               log,
 		reconnectInterval: defaultReconnectInterval,
 		knownPeers:        map[identity.ID]*knownPeer{},
-		workerPool:        workerpool.New("manualpeering.Manager", 1),
+		workerPool:        workerPool,
 	}
 	return m
 }
@@ -197,7 +197,6 @@ func (m *Manager) Stop() (err error) {
 		err = errors.WithStack(m.removeAllKnownPeers())
 		m.onGossipNeighborRemovedHook.Unhook()
 		m.onGossipNeighborAddedHook.Unhook()
-		m.workerPool.Shutdown()
 	})
 	return err
 }
