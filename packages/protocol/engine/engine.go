@@ -8,6 +8,11 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
+
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/eventticker"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
@@ -27,10 +32,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/runtime/event"
-	"github.com/iotaledger/hive.go/runtime/options"
-	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 // region Engine /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -304,7 +305,7 @@ func (e *Engine) initConsensus() {
 			panic(err)
 		}
 
-		e.Tangle.VirtualVoting.EvictEpochTracker(epochIndex)
+		e.Tangle.Booker.VirtualVoting.EvictEpochTracker(epochIndex)
 	}, event.WithWorkerPool(e.Workers.CreatePool("Consensus", 1))) // Using just 1 worker to avoid contention
 }
 
@@ -331,10 +332,10 @@ func (e *Engine) initTSCManager() {
 	// wp := e.Workers.CreatePool("TSCManager", 1) // Using just 1 worker to avoid contention
 
 	// TODO: enable TSC again
-	//e.Events.Tangle.Booker.BlockBooked.Hook(e.TSCManager.AddBlock, event.WithWorkerPool(wp))
-	//e.Events.Clock.AcceptanceTimeUpdated.Hook(func(event *clock.TimeUpdateEvent) {
+	// e.Events.Tangle.Booker.BlockBooked.Hook(e.TSCManager.AddBlock, event.WithWorkerPool(wp))
+	// e.Events.Clock.AcceptanceTimeUpdated.Hook(func(event *clock.TimeUpdateEvent) {
 	//	e.TSCManager.HandleTimeUpdate(event.NewTime)
-	//}, event.WithWorkerPool(wp))
+	// }, event.WithWorkerPool(wp))
 }
 
 func (e *Engine) initBlockStorage() {

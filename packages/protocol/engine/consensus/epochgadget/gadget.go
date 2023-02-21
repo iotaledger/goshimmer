@@ -54,7 +54,7 @@ func (g *Gadget) setLastConfirmedEpoch(i epoch.Index) {
 }
 
 func (g *Gadget) setup() {
-	g.tangle.VirtualVoting.Events.EpochTracker.VotersUpdated.Hook(func(evt *epochtracker.VoterUpdatedEvent) {
+	g.tangle.Booker.VirtualVoting.Events.EpochTracker.VotersUpdated.Hook(func(evt *epochtracker.VoterUpdatedEvent) {
 		g.refreshEpochConfirmation(evt.PrevLatestEpochIndex, evt.NewLatestEpochIndex)
 	}, event.WithWorkerPool(g.workers.CreatePool("Refresh", 2)))
 }
@@ -63,7 +63,7 @@ func (g *Gadget) refreshEpochConfirmation(previousLatestEpochIndex epoch.Index, 
 	totalWeight := g.totalWeightCallback()
 
 	for i := lo.Max(g.LastConfirmedEpoch(), previousLatestEpochIndex) + 1; i <= newLatestEpochIndex; i++ {
-		if !IsThresholdReached(totalWeight, g.tangle.VirtualVoting.EpochVotersTotalWeight(i), g.optsEpochConfirmationThreshold) {
+		if !IsThresholdReached(totalWeight, g.tangle.Booker.VirtualVoting.EpochVotersTotalWeight(i), g.optsEpochConfirmationThreshold) {
 			break
 		}
 

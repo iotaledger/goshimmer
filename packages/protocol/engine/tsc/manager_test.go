@@ -58,7 +58,7 @@ func TestOrphanageManager_HandleTimeUpdate(t *testing.T) {
 	require.Equal(t, 27, tf.Manager.unacceptedBlocks.Len())
 
 	for blockID := range tf.MockAcceptance.AcceptedBlocks {
-		virtualVotingBlock, _ := tf.VirtualVoting.Instance.Block(blockID)
+		virtualVotingBlock, _ := tf.Booker.Instance.Block(blockID)
 		tf.Manager.HandleTimeUpdate(virtualVotingBlock.IssuingTime())
 	}
 
@@ -123,9 +123,9 @@ func TestOrphanageManager_HandleTimeUpdate(t *testing.T) {
 		lo.MergeMaps(tf.MockAcceptance.AcceptedBlocks, newAcceptedBlocks)
 
 		for _, blockID := range newAcceptedBlocksInOrder {
-			virtualVotingBlock, _ := tf.VirtualVoting.Instance.Block(blockID)
+			virtualVotingBlock, _ := tf.Booker.Instance.Block(blockID)
 			tf.Manager.HandleTimeUpdate(virtualVotingBlock.IssuingTime())
-			tf.BlockDAG.Instance.SetOrphaned(virtualVotingBlock.Block.Block, false)
+			tf.BlockDAG.Instance.SetOrphaned(virtualVotingBlock.Block, false)
 		}
 
 		workers.WaitChildren()

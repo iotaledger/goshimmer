@@ -13,6 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 	"github.com/iotaledger/hive.go/core/identity"
@@ -119,7 +120,7 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeBooked(block *models.Block, max
 	}
 
 	// first subscribe to the transaction booked event
-	booked := make(chan *booker.Block, 1)
+	booked := make(chan *virtualvoting.Block, 1)
 	// exit is used to let the caller exit if for whatever
 	// reason the same transaction gets booked multiple times
 	exit := make(chan struct{})

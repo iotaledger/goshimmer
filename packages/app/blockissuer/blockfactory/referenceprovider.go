@@ -8,7 +8,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
@@ -249,7 +249,7 @@ func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, exclude
 }
 
 // latestValidAttachment returns the first valid attachment of the given transaction.
-func (r *ReferenceProvider) latestValidAttachment(txID utxo.TransactionID) (block *booker.Block, err error) {
+func (r *ReferenceProvider) latestValidAttachment(txID utxo.TransactionID) (block *virtualvoting.Block, err error) {
 	block = r.protocol.Engine().Tangle.Booker.GetLatestAttachment(txID)
 	if block == nil {
 		return nil, errors.Errorf("could not obtain latest attachment for %s", txID)

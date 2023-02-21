@@ -10,9 +10,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/ds/types"
@@ -46,7 +45,7 @@ func TestScheduler_AddBlock(t *testing.T) {
 	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"))
 	tf.Scheduler.Start()
 
-	blk := virtualvoting.NewBlock(booker.NewBlock(blockdag.NewBlock(models.NewBlock(models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Genesis"))), blockdag.WithSolid(true), blockdag.WithOrphaned(true)), booker.WithBooked(true), booker.WithStructureDetails(markers.NewStructureDetails())))
+	blk := virtualvoting.NewBlock(blockdag.NewBlock(models.NewBlock(models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Genesis"))), blockdag.WithSolid(true), blockdag.WithOrphaned(true)), virtualvoting.WithBooked(true), virtualvoting.WithStructureDetails(markers.NewStructureDetails()))
 	require.NoError(t, blk.DetermineID())
 
 	tf.Scheduler.AddBlock(blk)
@@ -213,7 +212,7 @@ func TestScheduler_HandleOrphanedBlock_Ready(t *testing.T) {
 	blk := tf.CreateSchedulerBlock(models.WithIssuer(tf.Issuer("peer").PublicKey()))
 	require.NoError(t, tf.Scheduler.Submit(blk))
 	tf.Scheduler.Ready(blk)
-	tf.Tangle.BlockDAG.Instance.SetOrphaned(blk.Block.Block.Block, true)
+	tf.Tangle.BlockDAG.Instance.SetOrphaned(blk.Block.Block, true)
 
 	require.Eventually(t, func() bool {
 		select {
@@ -256,7 +255,7 @@ func TestScheduler_HandleOrphanedBlock_Scheduled(t *testing.T) {
 		}
 	}, 1*time.Second, 10*time.Millisecond)
 
-	tf.Tangle.BlockDAG.Instance.SetOrphaned(blk.Block.Block.Block, true)
+	tf.Tangle.BlockDAG.Instance.SetOrphaned(blk.Block.Block, true)
 
 	tf.AssertBlocksDropped(0)
 }
@@ -277,7 +276,7 @@ func TestScheduler_HandleOrphanedBlock_Unready(t *testing.T) {
 	// create a new block from a different node
 	blk := tf.CreateSchedulerBlock(models.WithIssuer(tf.Issuer("peer").PublicKey()))
 	require.NoError(t, tf.Scheduler.Submit(blk))
-	tf.Tangle.BlockDAG.Instance.SetOrphaned(blk.Block.Block.Block, true)
+	tf.Tangle.BlockDAG.Instance.SetOrphaned(blk.Block.Block, true)
 
 	require.Eventually(t, func() bool {
 		select {

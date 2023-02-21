@@ -11,8 +11,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/ds/randommap"
 	"github.com/iotaledger/hive.go/ds/types"
@@ -106,7 +106,7 @@ func (t *TipManager) AddTipNonMonotonic(block *scheduler.Block) {
 	}
 
 	// Do not add a tip booked on a reject branch, we won't use it as a tip and it will otherwise remove parent tips.
-	blockConflictIDs := t.engine.Tangle.Booker.BlockConflicts(block.Block.Block)
+	blockConflictIDs := t.engine.Tangle.Booker.BlockConflicts(block.Block)
 	if t.engine.Tangle.Booker.Ledger.ConflictDAG.ConfirmationState(blockConflictIDs).IsRejected() {
 		return
 	}
@@ -278,7 +278,7 @@ func (t *TipManager) isFutureCommitment(block *scheduler.Block) (isUnknown bool)
 }
 
 func (t *TipManager) isValidTip(tip *scheduler.Block) (err error) {
-	if !t.isPastConeTimestampCorrect(tip.Block.Block) {
+	if !t.isPastConeTimestampCorrect(tip.Block) {
 		return errors.Errorf("cannot select tip due to TSC condition tip issuing time (%s), time (%s), min supported time (%s), block id (%s), tip pool size (%d), scheduled: (%t), orphaned: (%t), accepted: (%t)",
 			tip.IssuingTime(),
 			t.engine.Clock.AcceptedTime(),
@@ -294,7 +294,7 @@ func (t *TipManager) isValidTip(tip *scheduler.Block) (err error) {
 	return nil
 }
 
-func (t *TipManager) IsPastConeTimestampCorrect(block *booker.Block) (timestampValid bool) {
+func (t *TipManager) IsPastConeTimestampCorrect(block *virtualvoting.Block) (timestampValid bool) {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
 
@@ -309,7 +309,7 @@ func (t *TipManager) IsPastConeTimestampCorrect(block *booker.Block) (timestampV
 // This function is optimized through the use of markers and the following assumption:
 //
 //	If there's any unaccepted block >TSC threshold, then the oldest accepted block will be >TSC threshold, too.
-func (t *TipManager) isPastConeTimestampCorrect(block *booker.Block) (timestampValid bool) {
+func (t *TipManager) isPastConeTimestampCorrect(block *virtualvoting.Block) (timestampValid bool) {
 	minSupportedTimestamp := t.engine.Clock.AcceptedTime().Add(-t.optsTimeSinceConfirmationThreshold)
 
 	if !t.engine.IsBootstrapped() {
@@ -323,7 +323,7 @@ func (t *TipManager) isPastConeTimestampCorrect(block *booker.Block) (timestampV
 	return
 }
 
-func (t *TipManager) checkBlockRecursive(block *booker.Block, minSupportedTimestamp time.Time) (timestampValid bool) {
+func (t *TipManager) checkBlockRecursive(block *virtualvoting.Block, minSupportedTimestamp time.Time) (timestampValid bool) {
 	if storage := t.walkerCache.Get(block.ID().Index(), false); storage != nil {
 		if _, exists := storage.Get(block.ID()); exists {
 			return true
@@ -352,7 +352,7 @@ func (t *TipManager) checkBlockRecursive(block *booker.Block, minSupportedTimest
 			return false
 		}
 
-		if !t.checkBlockRecursive(parentBlock.Block.Block, minSupportedTimestamp) {
+		if !t.checkBlockRecursive(parentBlock.Block, minSupportedTimestamp) {
 			return false
 		}
 	}

@@ -6,15 +6,11 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/hive.go/core/identity"
@@ -30,11 +26,8 @@ type TestFramework struct {
 	identitiesByAlias map[string]*identity.Identity
 	trackedBlocks     uint32
 
-	Booker          *booker.TestFramework
-	Ledger          *ledger.TestFramework
-	BlockDAG        *blockdag.TestFramework
-	Votes           *votes.TestFramework
 	ConflictDAG     *conflictdag.TestFramework
+	Votes           *votes.TestFramework
 	ConflictTracker *conflicttracker.TestFramework[BlockVotePower]
 	SequenceTracker *sequencetracker.TestFramework[BlockVotePower]
 }
@@ -46,18 +39,9 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, virtualVotingI
 		identitiesByAlias: make(map[string]*identity.Identity),
 	}
 
-	t.Booker = booker.NewTestFramework(
-		test,
-		workers.CreateGroup("BookerTestFramework"),
-		virtualVotingInstance.Booker,
-	)
-
-	t.Ledger = t.Booker.Ledger
-	t.BlockDAG = t.Booker.BlockDAG
+	t.ConflictDAG = conflictdag.NewTestFramework(t.test, virtualVotingInstance.ConflictDAG)
 
 	t.Votes = votes.NewTestFramework(test, virtualVotingInstance.Validators)
-
-	t.ConflictDAG = conflictdag.NewTestFramework(t.test, t.Ledger.Instance.ConflictDAG)
 
 	t.ConflictTracker = conflicttracker.NewTestFramework(test,
 		t.Votes,
@@ -68,7 +52,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, virtualVotingI
 	t.SequenceTracker = sequencetracker.NewTestFramework(test,
 		t.Votes,
 		virtualVotingInstance.sequenceTracker,
-		t.Booker.SequenceManager(),
+		virtualVotingInstance.SequenceManager,
 	)
 	t.setupEvents()
 	return t
@@ -76,12 +60,6 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, virtualVotingI
 
 func (t *TestFramework) ValidatorsSet(aliases ...string) (validators *advancedset.AdvancedSet[identity.ID]) {
 	return t.Votes.ValidatorsSet(aliases...)
-}
-
-func (t *TestFramework) AssertBlock(alias string, callback func(block *Block)) {
-	block, exists := t.Instance.Block(t.Booker.BlockDAG.Block(alias).ID())
-	require.True(t.test, exists, "Block %s not found", alias)
-	callback(block)
 }
 
 func (t *TestFramework) CreateIdentity(alias string, weight int64, skipWeightUpdate ...bool) {

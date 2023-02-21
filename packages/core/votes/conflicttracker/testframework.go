@@ -46,7 +46,7 @@ func NewTestFramework[VotePowerType constraints.Comparable[VotePowerType]](test 
 func NewDefaultFramework[VotePowerType constraints.Comparable[VotePowerType]](t *testing.T) *TestFramework[VotePowerType] {
 	votesTF := votes.NewTestFramework(t, sybilprotection.NewWeights(mapdb.NewMapDB()).NewWeightedSet())
 	conflictDAGTF := conflictdag.NewTestFramework(t, conflictdag.New[utxo.TransactionID, utxo.OutputID]())
-	return NewTestFramework[VotePowerType](t,
+	return NewTestFramework(t,
 		votesTF,
 		conflictDAGTF,
 		NewConflictTracker[utxo.TransactionID, utxo.OutputID, VotePowerType](conflictDAGTF.Instance, votesTF.Validators),
