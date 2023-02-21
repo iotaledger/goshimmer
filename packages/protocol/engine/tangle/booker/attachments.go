@@ -4,16 +4,16 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/memstorage"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/ds/set"
 	"github.com/iotaledger/hive.go/ds/shrinkingmap"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/syncutils"
+
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 type attachments struct {
@@ -179,7 +179,7 @@ func (a *attachments) getLatestAttachment(txID utxo.TransactionID) (attachment *
 
 func (a *attachments) storage(txID utxo.TransactionID, createIfMissing bool) (storage *shrinkingmap.ShrinkingMap[epoch.Index, *shrinkingmap.ShrinkingMap[models.BlockID, *virtualvoting.Block]]) {
 	if createIfMissing {
-		storage, _ = a.attachments.GetOrCreate(txID, func() *shrinkingmap.ShrinkingMap[epoch.Index, *shrinkingmap.ShrinkingMap[models.BlockID, *Block]] {
+		storage, _ = a.attachments.GetOrCreate(txID, func() *shrinkingmap.ShrinkingMap[epoch.Index, *shrinkingmap.ShrinkingMap[models.BlockID, *virtualvoting.Block]] {
 			return shrinkingmap.New[epoch.Index, *shrinkingmap.ShrinkingMap[models.BlockID, *virtualvoting.Block]]()
 		})
 		return

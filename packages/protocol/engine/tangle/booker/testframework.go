@@ -5,7 +5,12 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/hive.go/runtime/debug"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
@@ -15,10 +20,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/hive.go/runtime/debug"
-	"github.com/iotaledger/hive.go/runtime/options"
-	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
-	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
