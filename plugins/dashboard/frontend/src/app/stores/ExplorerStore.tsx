@@ -148,7 +148,7 @@ class EpochInfo {
     id: string;
 	index: number;
 	rootsID: string;
-	prevEC: string ;
+	prevID: string ;
 	cumulativeWeight: number;
 }
 

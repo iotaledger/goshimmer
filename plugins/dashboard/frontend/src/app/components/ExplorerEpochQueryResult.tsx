@@ -51,7 +51,7 @@ export class ExplorerEpochQueryResult extends React.Component<Props, any> {
                     <ListGroup.Item>ID: {commitment}</ListGroup.Item>
                     <ListGroup.Item>Index: {epochInfo.index}</ListGroup.Item>
                     <ListGroup.Item>RootsID: {epochInfo.rootsID}</ListGroup.Item>
-                    <ListGroup.Item>PrevEC: {epochInfo.prevEC}</ListGroup.Item>
+                    <ListGroup.Item>PrevEC: {epochInfo.prevID}</ListGroup.Item>
                     <ListGroup.Item>Cumulative Weight: {epochInfo.cumulativeWeight}</ListGroup.Item>
                      <ListGroup.Item>Blocks:
                         {epochBlocks.blocks && <Card>
