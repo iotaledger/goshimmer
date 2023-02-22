@@ -8,7 +8,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/causalorder"
-	"github.com/iotaledger/goshimmer/packages/core/cerrors"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
@@ -17,6 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/ds/advancedset"
@@ -125,8 +125,8 @@ func (b *Booker) BlockBookingDetails(block *virtualvoting.Block) (pastMarkersCon
 	return b.blockBookingDetails(block)
 }
 
-// PayloadConflictIDs returns the ConflictIDs of the payload contained in the given Block.
-func (b *Booker) PayloadConflictIDs(block *virtualvoting.Block) (conflictIDs utxo.TransactionIDs) {
+// TransactionConflictIDs returns the ConflictIDs of the payload contained in the given Block.
+func (b *Booker) TransactionConflictIDs(block *virtualvoting.Block) (conflictIDs utxo.TransactionIDs) {
 	if b.BlockDAG.EvictionState.InEvictedEpoch(block.ID()) {
 		return utxo.NewTransactionIDs()
 	}
@@ -143,6 +143,31 @@ func (b *Booker) PayloadConflictIDs(block *virtualvoting.Block) (conflictIDs utx
 	})
 
 	return
+}
+
+// PayloadConflictID returns the ConflictID of the conflicting transaction contained in the given Block.
+func (b *Booker) PayloadConflictID(block *virtualvoting.Block) (conflictID utxo.TransactionID, conflictingConflictIDs utxo.TransactionIDs, isTransaction bool) {
+	if b.BlockDAG.EvictionState.InEvictedEpoch(block.ID()) {
+		return conflictID, conflictingConflictIDs, false
+	}
+
+	transaction, isTransaction := block.Transaction()
+	if !isTransaction {
+		return conflictID, conflictingConflictIDs, false
+	}
+
+	conflict, exists := b.Ledger.ConflictDAG.Conflict(transaction.ID())
+	if !exists {
+		return utxo.EmptyTransactionID, conflictingConflictIDs, true
+	}
+
+	conflictingConflictIDs = utxo.NewTransactionIDs()
+	conflict.ForEachConflictingConflict(func(conflictingConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) bool {
+		conflictingConflictIDs.Add(conflictingConflict.ID())
+		return true
+	})
+
+	return transaction.ID(), conflictingConflictIDs, true
 }
 
 // Sequence retrieves a Sequence by its ID.
@@ -323,7 +348,9 @@ func (b *Booker) inheritConflictIDs(block *virtualvoting.Block) (inheritedConfli
 
 // determineBookingDetails determines the booking details of an unbooked Block.
 func (b *Booker) determineBookingDetails(block *virtualvoting.Block) (parentsStructureDetails []*markers.StructureDetails, parentsPastMarkersConflictIDs, inheritedConflictIDs utxo.TransactionIDs, err error) {
-	inheritedConflictIDs = b.PayloadConflictIDs(block)
+	inheritedConflictIDs = utxo.NewTransactionIDs()
+
+	payloadConflictIDs := b.TransactionConflictIDs(block)
 
 	parentsStructureDetails, parentsPastMarkersConflictIDs, strongParentsConflictIDs := b.collectStrongParentsBookingDetails(block)
 
@@ -338,6 +365,18 @@ func (b *Booker) determineBookingDetails(block *virtualvoting.Block) (parentsStr
 	inheritedConflictIDs.AddAll(weakPayloadConflictIDs)
 	inheritedConflictIDs.AddAll(likedConflictIDs)
 	inheritedConflictIDs.DeleteAll(b.Ledger.Utils.ConflictIDsInFutureCone(dislikedConflictIDs))
+
+	// block always sets Like reference its own conflict, if its payload is a transaction, and it's conflicting
+	if selfConflictID, selfDislikedConflictIDs, isTransaction := b.PayloadConflictID(block); isTransaction && !selfConflictID.IsEmpty() {
+		inheritedConflictIDs.Add(selfConflictID)
+		inheritedConflictIDs.DeleteAll(b.Ledger.Utils.ConflictIDsInFutureCone(selfDislikedConflictIDs))
+	}
+
+	// set payloadConflictIDs at the end, so that if it contains conflicting conflicts,
+	// it cannot be masked by like references and the block will be seen as subjectively invalid
+	inheritedConflictIDs.AddAll(payloadConflictIDs)
+
+	// if a payload is a conflicting transaction, then remove any conflicting conflicts from supported conflicts
 
 	return parentsStructureDetails, b.Ledger.ConflictDAG.UnconfirmedConflicts(parentsPastMarkersConflictIDs), b.Ledger.ConflictDAG.UnconfirmedConflicts(inheritedConflictIDs), nil
 }
@@ -380,7 +419,7 @@ func (b *Booker) collectWeakParentsConflictIDs(block *virtualvoting.Block) (payl
 		if !exists {
 			panic(fmt.Sprintf("parent %s does not exist", parentBlockID))
 		}
-		payloadConflictIDs.AddAll(b.PayloadConflictIDs(parentBlock))
+		payloadConflictIDs.AddAll(b.TransactionConflictIDs(parentBlock))
 
 		return true
 	})
@@ -393,28 +432,27 @@ func (b *Booker) collectWeakParentsConflictIDs(block *virtualvoting.Block) (payl
 func (b *Booker) collectShallowLikedParentsConflictIDs(block *virtualvoting.Block) (collectedLikedConflictIDs, collectedDislikedConflictIDs utxo.TransactionIDs, err error) {
 	collectedLikedConflictIDs = utxo.NewTransactionIDs()
 	collectedDislikedConflictIDs = utxo.NewTransactionIDs()
+
 	block.ForEachParentByType(models.ShallowLikeParentType, func(parentBlockID models.BlockID) bool {
 		parentBlock, exists := b.Block(parentBlockID)
 		if !exists {
 			panic(fmt.Sprintf("parent %s does not exist", parentBlockID))
 		}
-		transaction, isTransaction := parentBlock.Transaction()
+
+		conflictID, conflictingConflictIDs, isTransaction := b.PayloadConflictID(parentBlock)
 		if !isTransaction {
-			err = errors.WithMessagef(cerrors.ErrFatal, "%s (isRootBlock %t) referenced by a shallow like of %s does not contain a Transaction", parentBlockID, b.BlockDAG.EvictionState.IsRootBlock(parentBlockID), block.ID())
+			err = errors.Errorf("%s (isRootBlock %t) referenced by a shallow like of %s does not contain a Transaction", parentBlockID, b.BlockDAG.EvictionState.IsRootBlock(parentBlockID), block.ID())
 			return false
 		}
 
-		collectedLikedConflictIDs.AddAll(b.PayloadConflictIDs(parentBlock))
-
-		for it := b.Ledger.Utils.ConflictingTransactions(transaction.ID()).Iterator(); it.HasNext(); {
-			conflictingTransactionID := it.Next()
-			dislikedConflicts, dislikedConflictsErr := b.Ledger.Utils.TransactionConflictIDs(conflictingTransactionID)
-			if dislikedConflictsErr != nil {
-				err = errors.Wrapf(dislikedConflictsErr, "failed to retrieve disliked ConflictIDs of Transaction with %s contained in %s referenced by a shallow like of %s", conflictingTransactionID, parentBlockID, block.ID())
-				return false
-			}
-			collectedDislikedConflictIDs.AddAll(dislikedConflicts)
+		// if Payload is a transaction but is not conflicting (yet, possibly) do not discard the whole block, but ignore the Like reference
+		// if the Payload will be forked in the future, then forking logic will use that Like reference during propagation
+		if conflictID.IsEmpty() {
+			return true
 		}
+
+		collectedLikedConflictIDs.Add(conflictID)
+		collectedDislikedConflictIDs.AddAll(conflictingConflictIDs)
 
 		return err == nil
 	})

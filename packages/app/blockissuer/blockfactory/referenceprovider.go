@@ -274,7 +274,7 @@ func (r *ReferenceProvider) payloadLiked(blockID models.BlockID) (liked bool) {
 	if !exists {
 		return false
 	}
-	conflictIDs := engineInstance.Tangle.Booker.PayloadConflictIDs(block)
+	conflictIDs := engineInstance.Tangle.Booker.TransactionConflictIDs(block)
 
 	for it := conflictIDs.Iterator(); it.HasNext(); {
 		conflict, exists := engineInstance.Ledger.ConflictDAG.Conflict(it.Next())
