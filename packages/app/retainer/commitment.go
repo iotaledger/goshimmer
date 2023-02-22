@@ -2,7 +2,6 @@ package retainer
 
 import (
 	"context"
-	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
@@ -10,40 +9,6 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/model"
 	"github.com/iotaledger/hive.go/core/serix"
 )
-
-// region cachedCommitment ///////////////////////////////////////////////////////////////////////////////////////////////
-
-type cachedCommitment struct {
-	*commitmentDetailsModel
-
-	sync.Mutex
-}
-
-func newCachedCommitment() *cachedCommitment {
-	return &cachedCommitment{commitmentDetailsModel: &commitmentDetailsModel{
-		ID:                   commitment.ID{},
-		Commitment:           nil,
-		AcceptedBlocks:       make(models.BlockIDs),
-		AcceptedTransactions: utxo.NewTransactionIDs(),
-		CreatedOutputs:       utxo.NewOutputIDs(),
-		SpentOutputs:         utxo.NewOutputIDs(),
-	}}
-}
-
-func (c *cachedCommitment) setCommitment(cm *commitment.Commitment, blocks models.BlockIDs,
-	txIDs utxo.TransactionIDs, created utxo.OutputIDs, spent utxo.OutputIDs) {
-	c.Lock()
-	defer c.Unlock()
-
-	c.Commitment = cm
-	c.ID = cm.ID()
-	c.AcceptedBlocks = blocks
-	c.AcceptedTransactions = txIDs
-	c.CreatedOutputs = created
-	c.SpentOutputs = spent
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type CommitmentDetails struct {
 	model.Storable[commitment.ID, CommitmentDetails, *CommitmentDetails, commitmentDetailsModel] `serix:"0"`
@@ -59,26 +24,23 @@ type commitmentDetailsModel struct {
 	SpentOutputs         utxo.OutputIDs         `serix:"5,lengthPrefixType=uint32"`
 }
 
-func newCommitmentDetails(cc *cachedCommitment) (c *CommitmentDetails) {
-	if cc == nil {
-		c = model.NewStorable[commitment.ID, CommitmentDetails](&commitmentDetailsModel{})
-		c.SetID(commitment.ID{})
-		return
-	}
-
-	cc.Lock()
-	defer cc.Unlock()
-
+func newCommitmentDetails() (c *CommitmentDetails) {
 	c = model.NewStorable[commitment.ID, CommitmentDetails](&commitmentDetailsModel{})
-	c.SetID(cc.ID)
-	c.M.ID = cc.ID
-	c.M.Commitment = cc.Commitment
-	c.M.AcceptedBlocks = cc.AcceptedBlocks
-	c.M.AcceptedTransactions = cc.AcceptedTransactions
-	c.M.CreatedOutputs = cc.CreatedOutputs
-	c.M.SpentOutputs = cc.SpentOutputs
+	c.SetID(commitment.ID{})
 
-	return
+	return c
+}
+
+func (c *CommitmentDetails) setCommitment(cm *commitment.Commitment, blocks models.BlockIDs,
+	txIDs utxo.TransactionIDs, created utxo.OutputIDs, spent utxo.OutputIDs) {
+	c.M.Commitment = cm
+	c.M.ID = cm.ID()
+	c.SetID(cm.ID())
+
+	c.M.AcceptedBlocks = blocks
+	c.M.AcceptedTransactions = txIDs
+	c.M.CreatedOutputs = created
+	c.M.SpentOutputs = spent
 }
 
 func (c *CommitmentDetails) Encode() ([]byte, error) {

@@ -44,7 +44,7 @@ func TestRetainer_Commitment_Serialization(t *testing.T) {
 	serializedBytes, err := cd.Bytes()
 	require.NoError(t, err)
 
-	cdDeserialized := newCommitmentDetails(nil)
+	cdDeserialized := newCommitmentDetails()
 	decodedBytes, err := cdDeserialized.FromBytes(serializedBytes)
 	require.NoError(t, err)
 	require.Equal(t, len(serializedBytes), decodedBytes)
@@ -274,7 +274,7 @@ func createCommitmentDetails() *CommitmentDetails {
 	_ = root.FromRandomness()
 	cm := commitment.New(epoch.Index(4), id0, root, 500)
 
-	cd := newCommitmentDetails(nil)
+	cd := newCommitmentDetails()
 	cd.SetID(id1)
 	cd.M.Commitment = cm
 
