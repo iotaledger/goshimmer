@@ -125,7 +125,7 @@ func (b *Booker) BlockBookingDetails(block *virtualvoting.Block) (pastMarkersCon
 	return b.blockBookingDetails(block)
 }
 
-// TransactionConflictIDs returns the ConflictIDs of the payload contained in the given Block.
+// TransactionConflictIDs returns the ConflictIDs of the Transaction contained in the given Block including conflicts from the UTXO past cone.
 func (b *Booker) TransactionConflictIDs(block *virtualvoting.Block) (conflictIDs utxo.TransactionIDs) {
 	if b.BlockDAG.EvictionState.InEvictedEpoch(block.ID()) {
 		return utxo.NewTransactionIDs()
@@ -145,7 +145,7 @@ func (b *Booker) TransactionConflictIDs(block *virtualvoting.Block) (conflictIDs
 	return
 }
 
-// PayloadConflictID returns the ConflictID of the conflicting transaction contained in the given Block.
+// PayloadConflictID returns the ConflictID of the conflicting payload contained in the given Block without conflicts from the UTXO past cone.
 func (b *Booker) PayloadConflictID(block *virtualvoting.Block) (conflictID utxo.TransactionID, conflictingConflictIDs utxo.TransactionIDs, isTransaction bool) {
 	if b.BlockDAG.EvictionState.InEvictedEpoch(block.ID()) {
 		return conflictID, conflictingConflictIDs, false
@@ -350,7 +350,7 @@ func (b *Booker) inheritConflictIDs(block *virtualvoting.Block) (inheritedConfli
 func (b *Booker) determineBookingDetails(block *virtualvoting.Block) (parentsStructureDetails []*markers.StructureDetails, parentsPastMarkersConflictIDs, inheritedConflictIDs utxo.TransactionIDs, err error) {
 	inheritedConflictIDs = utxo.NewTransactionIDs()
 
-	payloadConflictIDs := b.TransactionConflictIDs(block)
+	transactionConflictIDs := b.TransactionConflictIDs(block)
 
 	parentsStructureDetails, parentsPastMarkersConflictIDs, strongParentsConflictIDs := b.collectStrongParentsBookingDetails(block)
 
@@ -372,9 +372,9 @@ func (b *Booker) determineBookingDetails(block *virtualvoting.Block) (parentsStr
 		inheritedConflictIDs.DeleteAll(b.Ledger.Utils.ConflictIDsInFutureCone(selfDislikedConflictIDs))
 	}
 
-	// set payloadConflictIDs at the end, so that if it contains conflicting conflicts,
+	// set transactionConflictIDs at the end, so that if it contains conflicting conflicts,
 	// it cannot be masked by like references and the block will be seen as subjectively invalid
-	inheritedConflictIDs.AddAll(payloadConflictIDs)
+	inheritedConflictIDs.AddAll(transactionConflictIDs)
 
 	// if a payload is a conflicting transaction, then remove any conflicting conflicts from supported conflicts
 
@@ -411,20 +411,20 @@ func (b *Booker) collectStrongParentsBookingDetails(block *virtualvoting.Block) 
 
 // collectShallowDislikedParentsConflictIDs removes the ConflictIDs of the shallow dislike reference and all its conflicts from
 // the supplied ArithmeticConflictIDs.
-func (b *Booker) collectWeakParentsConflictIDs(block *virtualvoting.Block) (payloadConflictIDs utxo.TransactionIDs) {
-	payloadConflictIDs = utxo.NewTransactionIDs()
+func (b *Booker) collectWeakParentsConflictIDs(block *virtualvoting.Block) (transactionConflictIDs utxo.TransactionIDs) {
+	transactionConflictIDs = utxo.NewTransactionIDs()
 
 	block.ForEachParentByType(models.WeakParentType, func(parentBlockID models.BlockID) bool {
 		parentBlock, exists := b.Block(parentBlockID)
 		if !exists {
 			panic(fmt.Sprintf("parent %s does not exist", parentBlockID))
 		}
-		payloadConflictIDs.AddAll(b.TransactionConflictIDs(parentBlock))
+		transactionConflictIDs.AddAll(b.TransactionConflictIDs(parentBlock))
 
 		return true
 	})
 
-	return payloadConflictIDs
+	return transactionConflictIDs
 }
 
 // collectShallowLikedParentsConflictIDs adds the ConflictIDs of the shallow like reference and removes all its conflicts from
