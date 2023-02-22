@@ -12,12 +12,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/storage"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 type TestFramework struct {
@@ -46,7 +46,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, engine *Engine
 	t := &TestFramework{
 		test:     test,
 		Instance: engine,
-		Tangle:   tangle.NewTestFramework(test, engine.Tangle, virtualvoting.NewTestFramework(test, workers.CreateGroup("VirtualVotingTestFramework"), engine.Tangle.VirtualVoting)),
+		Tangle:   tangle.NewTestFramework(test, engine.Tangle, booker.NewTestFramework(test, workers.CreateGroup("BookerTestFramework"), engine.Tangle.Booker)),
 	}
 	t.Acceptance = blockgadget.NewTestFramework(test,
 		engine.Consensus.BlockGadget,
@@ -71,7 +71,7 @@ func (e *TestFramework) AssertEpochState(index epoch.Index) {
 	require.Equal(e.test, index, e.Instance.NotarizationManager.Attestations.LastCommittedEpoch(), "notarization manager attestations last committed epoch is not equal")
 	require.Equal(e.test, index, e.Instance.LedgerState.UnspentOutputs.LastCommittedEpoch(), "ledger state unspent outputs last committed epoch is not equal")
 	require.Equal(e.test, index, e.Instance.SybilProtection.LastCommittedEpoch(), "sybil protection last committed epoch is not equal")
-	//TODO: throughput quota is not updated with each epoch, but with acceptance
-	//require.Equal(e.test, index, e.Engine.ThroughputQuota.(*mana1.ThroughputQuota).LastCommittedEpoch(), "throughput quota last committed epoch is not equal")
+	// TODO: throughput quota is not updated with each epoch, but with acceptance
+	// require.Equal(e.test, index, e.Engine.ThroughputQuota.(*mana1.ThroughputQuota).LastCommittedEpoch(), "throughput quota last committed epoch is not equal")
 	require.Equal(e.test, index, e.Instance.EvictionState.LastEvictedEpoch(), "last evicted epoch is not equal")
 }

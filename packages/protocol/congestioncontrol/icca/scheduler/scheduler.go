@@ -8,19 +8,18 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/typeutils"
+	"github.com/iotaledger/hive.go/ds/shrinkingmap"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 const (
@@ -55,7 +54,7 @@ type Scheduler struct {
 	optsAcceptedBlockScheduleThreshold time.Duration
 	optsMaxDeficit                     *big.Rat
 
-	running        typeutils.AtomicBool
+	running        atomic.Bool
 	shutdownSignal chan struct{}
 }
 
@@ -81,14 +80,13 @@ func New(evictionState *eviction.State, isBlockAccepted func(models.BlockID) boo
 }
 
 func (s *Scheduler) setupEvents() {
-	event.Hook(s.Events.BlockScheduled, s.UpdateChildren)
-
-	event.Hook(s.evictionState.Events.EpochEvicted, s.evictEpoch)
+	s.Events.BlockScheduled.Hook(s.UpdateChildren)
+	s.evictionState.Events.EpochEvicted.Hook(s.evictEpoch)
 }
 
 // Start starts the scheduler.
 func (s *Scheduler) Start() {
-	if s.running.SetToIf(false, true) {
+	if s.running.CompareAndSwap(false, true) {
 		s.shutdownSignal = make(chan struct{}, 1)
 		// start the main loop
 		go s.mainLoop()
@@ -97,7 +95,7 @@ func (s *Scheduler) Start() {
 
 // IsRunning returns true if the scheduler has started.
 func (s *Scheduler) IsRunning() bool {
-	return s.running.IsSet()
+	return s.running.Load()
 }
 
 // Rate gets the rate of the scheduler.
@@ -203,7 +201,7 @@ func (s *Scheduler) GetAccessManaMap() map[identity.ID]int64 {
 // Shutdown shuts down the Scheduler.
 // Shutdown blocks until the scheduler has been shutdown successfully.
 func (s *Scheduler) Shutdown() {
-	if s.running.SetToIf(true, false) {
+	if s.running.CompareAndSwap(true, false) {
 		close(s.shutdownSignal)
 	}
 }
@@ -604,7 +602,7 @@ func (s *Scheduler) GetOrRegisterBlock(virtualVotingBlock *virtualvoting.Block) 
 
 	blockStorage := s.blocks.Get(virtualVotingBlock.ID().Index(), true)
 
-	block, _ = blockStorage.RetrieveOrCreate(virtualVotingBlock.ID(), func() *Block {
+	block, _ = blockStorage.GetOrCreate(virtualVotingBlock.ID(), func() *Block {
 		return NewBlock(virtualVotingBlock)
 	})
 

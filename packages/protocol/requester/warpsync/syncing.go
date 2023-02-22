@@ -14,13 +14,13 @@ import (
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	wp "github.com/iotaledger/goshimmer/packages/network/warpsync/proto"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/autopeering/peer"
+	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/generics/dataflow"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/orderedmap"
-	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/ds/orderedmap"
+	"github.com/iotaledger/hive.go/ds/types"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 type epochSyncStart struct {
@@ -58,7 +58,7 @@ func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC
 	eg.SetLimit(m.concurrency)
 
 	epochProcessedChan := make(chan epoch.Index)
-	discardedPeers := set.NewAdvancedSet[identity.ID]()
+	discardedPeers := advancedset.NewAdvancedSet[identity.ID]()
 
 	workerFunc := m.syncEpochFunc(errCtx, eg, validPeers, discardedPeers, ecChain, epochProcessedChan)
 	completedEpoch = m.queueSlidingEpochs(errCtx, startRange, endRange, workerFunc, epochProcessedChan)
@@ -69,7 +69,7 @@ func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC
 	return completedEpoch, nil
 }
 
-func (m *Manager) syncEpochFunc(errCtx context.Context, eg *errgroup.Group, validPeers *orderedmap.OrderedMap[identity.ID, *p2p.Neighbor], discardedPeers *set.AdvancedSet[identity.ID], ecChain map[epoch.Index]commitment.ID, epochProcessedChan chan epoch.Index) func(targetEpoch epoch.Index) {
+func (m *Manager) syncEpochFunc(errCtx context.Context, eg *errgroup.Group, validPeers *orderedmap.OrderedMap[identity.ID, *p2p.Neighbor], discardedPeers *advancedset.AdvancedSet[identity.ID], ecChain map[epoch.Index]commitment.ID, epochProcessedChan chan epoch.Index) func(targetEpoch epoch.Index) {
 	return func(targetEpoch epoch.Index) {
 		eg.Go(func() (err error) {
 			if !validPeers.ForEach(func(peerID identity.ID, neighbor *p2p.Neighbor) (success bool) {

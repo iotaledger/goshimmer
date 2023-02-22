@@ -11,19 +11,19 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/kvstore"
-	"github.com/iotaledger/hive.go/core/syncutils"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/kvstore"
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 type Retainer struct {
-	workerPool     *workerpool.UnboundedWorkerPool
+	workerPool     *workerpool.WorkerPool
 	cachedMetadata *memstorage.EpochStorage[models.BlockID, *cachedMetadata]
 	blockStorage   *database.PersistentEpochStorage[models.BlockID, BlockMetadata, *models.BlockID, *BlockMetadata]
 
@@ -77,11 +77,11 @@ func (r *Retainer) BlockMetadata(blockID models.BlockID) (metadata *BlockMetadat
 	return metadata, exists
 }
 
-func (r *Retainer) LoadAll(index epoch.Index) (ids *set.AdvancedSet[*BlockMetadata]) {
+func (r *Retainer) LoadAll(index epoch.Index) (ids *advancedset.AdvancedSet[*BlockMetadata]) {
 	r.evictionLock.RLock(index)
 	defer r.evictionLock.RUnlock(index)
 
-	ids = set.NewAdvancedSet[*BlockMetadata]()
+	ids = advancedset.NewAdvancedSet[*BlockMetadata]()
 	r.Stream(index, func(id models.BlockID, metadata *BlockMetadata) {
 		ids.Add(metadata)
 	})
@@ -112,7 +112,7 @@ func (r *Retainer) DatabaseSize() int64 {
 }
 
 // WorkerPool returns the worker pool of the retainer.
-func (r *Retainer) WorkerPool() *workerpool.UnboundedWorkerPool {
+func (r *Retainer) WorkerPool() *workerpool.WorkerPool {
 	return r.workerPool
 }
 
@@ -122,11 +122,11 @@ func (r *Retainer) PruneUntilEpoch(epochIndex epoch.Index) {
 }
 
 func (r *Retainer) setupEvents() {
-	event.AttachWithWorkerPool(r.protocol.Events.Engine.Tangle.BlockDAG.BlockAttached, func(block *blockdag.Block) {
+	r.protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Hook(func(block *blockdag.Block) {
 		if cm := r.createOrGetCachedMetadata(block.ID()); cm != nil {
 			cm.setBlockDAGBlock(block)
 		}
-	}, r.workerPool)
+	}, event.WithWorkerPool(r.workerPool))
 
 	// TODO: missing blocks make the node fail due to empty strong parents
 	// r.protocol.Events.Engine.Tangle.BlockDAG.BlockMissing.AttachWithWorkerPool(event.NewClosure(func(block *blockdag.Block) {
@@ -134,48 +134,48 @@ func (r *Retainer) setupEvents() {
 	//	cm.setBlockDAGBlock(block)
 	// }))
 
-	event.AttachWithWorkerPool(r.protocol.Events.Engine.Tangle.BlockDAG.BlockSolid, func(block *blockdag.Block) {
+	r.protocol.Events.Engine.Tangle.BlockDAG.BlockSolid.Hook(func(block *blockdag.Block) {
 		if cm := r.createOrGetCachedMetadata(block.ID()); cm != nil {
 			cm.setBlockDAGBlock(block)
 		}
-	}, r.workerPool)
+	}, event.WithWorkerPool(r.workerPool))
 
-	event.AttachWithWorkerPool(r.protocol.Events.Engine.Tangle.Booker.BlockBooked, func(evt *booker.BlockBookedEvent) {
+	r.protocol.Events.Engine.Tangle.Booker.BlockBooked.Hook(func(evt *booker.BlockBookedEvent) {
 		if cm := r.createOrGetCachedMetadata(evt.Block.ID()); cm != nil {
 			cm.setBookerBlock(evt.Block)
 			cm.Lock()
 			cm.ConflictIDs = evt.ConflictIDs
 			cm.Unlock()
 		}
-	}, r.workerPool)
+	}, event.WithWorkerPool(r.workerPool))
 
-	event.AttachWithWorkerPool(r.protocol.Events.Engine.Tangle.VirtualVoting.BlockTracked, func(block *virtualvoting.Block) {
+	r.protocol.Events.Engine.Tangle.Booker.VirtualVoting.BlockTracked.Hook(func(block *virtualvoting.Block) {
 		if cm := r.createOrGetCachedMetadata(block.ID()); cm != nil {
 			cm.setVirtualVotingBlock(block)
 		}
-	}, r.workerPool)
+	}, event.WithWorkerPool(r.workerPool))
 
 	congestionControl := func(block *scheduler.Block) {
 		if cm := r.createOrGetCachedMetadata(block.ID()); cm != nil {
 			cm.setSchedulerBlock(block)
 		}
 	}
-	event.AttachWithWorkerPool(r.protocol.Events.CongestionControl.Scheduler.BlockScheduled, congestionControl, r.workerPool)
-	event.AttachWithWorkerPool(r.protocol.Events.CongestionControl.Scheduler.BlockDropped, congestionControl, r.workerPool)
-	event.AttachWithWorkerPool(r.protocol.Events.CongestionControl.Scheduler.BlockSkipped, congestionControl, r.workerPool)
+	r.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Hook(congestionControl, event.WithWorkerPool(r.workerPool))
+	r.protocol.Events.CongestionControl.Scheduler.BlockDropped.Hook(congestionControl, event.WithWorkerPool(r.workerPool))
+	r.protocol.Events.CongestionControl.Scheduler.BlockSkipped.Hook(congestionControl, event.WithWorkerPool(r.workerPool))
 
-	event.AttachWithWorkerPool(r.protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted, func(block *blockgadget.Block) {
+	r.protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Hook(func(block *blockgadget.Block) {
 		cm := r.createOrGetCachedMetadata(block.ID())
 		cm.setAcceptanceBlock(block)
-	}, r.workerPool)
+	}, event.WithWorkerPool(r.workerPool))
 
-	event.AttachWithWorkerPool(r.protocol.Events.Engine.Consensus.BlockGadget.BlockConfirmed, func(block *blockgadget.Block) {
+	r.protocol.Events.Engine.Consensus.BlockGadget.BlockConfirmed.Hook(func(block *blockgadget.Block) {
 		if cm := r.createOrGetCachedMetadata(block.ID()); cm != nil {
 			cm.setConfirmationBlock(block)
 		}
-	}, r.workerPool)
+	}, event.WithWorkerPool(r.workerPool))
 
-	event.Hook(r.protocol.Events.Engine.EvictionState.EpochEvicted, r.storeAndEvictEpoch)
+	r.protocol.Events.Engine.EvictionState.EpochEvicted.Hook(r.storeAndEvictEpoch)
 }
 
 func (r *Retainer) createOrGetCachedMetadata(id models.BlockID) *cachedMetadata {
@@ -187,7 +187,7 @@ func (r *Retainer) createOrGetCachedMetadata(id models.BlockID) *cachedMetadata 
 	}
 
 	storage := r.cachedMetadata.Get(id.Index(), true)
-	cm, _ := storage.RetrieveOrCreate(id, newCachedMetadata)
+	cm, _ := storage.GetOrCreate(id, newCachedMetadata)
 	return cm
 }
 

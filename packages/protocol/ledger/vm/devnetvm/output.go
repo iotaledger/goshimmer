@@ -12,17 +12,17 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 
+	"github.com/iotaledger/goshimmer/packages/core/cerrors"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/hive.go/core/bitmask"
-	"github.com/iotaledger/hive.go/core/cerrors"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/model"
-	"github.com/iotaledger/hive.go/core/generics/objectstorage"
-	"github.com/iotaledger/hive.go/core/marshalutil"
-	"github.com/iotaledger/hive.go/core/serix"
-	"github.com/iotaledger/hive.go/core/stringify"
-	"github.com/iotaledger/hive.go/core/types"
-	"github.com/iotaledger/hive.go/core/typeutils"
+	"github.com/iotaledger/hive.go/ds/bitmask"
+	"github.com/iotaledger/hive.go/ds/types"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/objectstorage"
+	"github.com/iotaledger/hive.go/objectstorage/generic"
+	storableModel "github.com/iotaledger/hive.go/objectstorage/generic/model"
+	"github.com/iotaledger/hive.go/serializer/v2/marshalutil"
+	"github.com/iotaledger/hive.go/serializer/v2/serix"
+	"github.com/iotaledger/hive.go/stringify"
 )
 
 func init() {
@@ -131,7 +131,7 @@ type Output interface {
 	Compare(other Output) int
 
 	// StorableObject makes Outputs storable in the ObjectStorage.
-	objectstorage.StorableObject
+	generic.StorableObject
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -153,7 +153,7 @@ func NewOutputs(optionalOutputs ...Output) (outputs Outputs) {
 	// filter duplicates (store marshaled version so we don't need to marshal a second time during sort)
 	for _, output := range optionalOutputs {
 		marshaledOutput := lo.PanicOnErr(output.Bytes())
-		marshaledOutputAsString := typeutils.BytesToString(marshaledOutput)
+		marshaledOutputAsString := string(marshaledOutput)
 
 		if _, seenAlready := seenOutputs[marshaledOutputAsString]; seenAlready {
 			continue
@@ -331,7 +331,7 @@ func (o OutputsByID) String() string {
 // SigLockedSingleOutput is an Output that holds exactly one uncolored balance and that can be unlocked by providing a
 // signature for an Address.
 type SigLockedSingleOutput struct {
-	model.Storable[utxo.OutputID, SigLockedSingleOutput, *SigLockedSingleOutput, sigLockedSingleOutput] `serix:"0"`
+	storableModel.Storable[utxo.OutputID, SigLockedSingleOutput, *SigLockedSingleOutput, sigLockedSingleOutput] `serix:"0"`
 }
 
 type sigLockedSingleOutput struct {
@@ -341,7 +341,7 @@ type sigLockedSingleOutput struct {
 
 // NewSigLockedSingleOutput is the constructor for a SigLockedSingleOutput.
 func NewSigLockedSingleOutput(balance uint64, address Address) *SigLockedSingleOutput {
-	return model.NewStorable[utxo.OutputID, SigLockedSingleOutput](
+	return storableModel.NewStorable[utxo.OutputID, SigLockedSingleOutput](
 		&sigLockedSingleOutput{
 			Balance: balance,
 			Address: address,
@@ -435,7 +435,7 @@ func (s *SigLockedSingleOutput) Compare(other Output) int {
 // SigLockedColoredOutput is an Output that holds colored balances and that can be unlocked by providing a signature for
 // an Address.
 type SigLockedColoredOutput struct {
-	model.Storable[utxo.OutputID, SigLockedColoredOutput, *SigLockedColoredOutput, sigLockedColoredOutput] `serix:"0"`
+	storableModel.Storable[utxo.OutputID, SigLockedColoredOutput, *SigLockedColoredOutput, sigLockedColoredOutput] `serix:"0"`
 }
 type sigLockedColoredOutput struct {
 	Balances *ColoredBalances `serix:"0"`
@@ -444,7 +444,7 @@ type sigLockedColoredOutput struct {
 
 // NewSigLockedColoredOutput is the constructor for a SigLockedColoredOutput.
 func NewSigLockedColoredOutput(balances *ColoredBalances, address Address) *SigLockedColoredOutput {
-	return model.NewStorable[utxo.OutputID, SigLockedColoredOutput](
+	return storableModel.NewStorable[utxo.OutputID, SigLockedColoredOutput](
 		&sigLockedColoredOutput{
 			Balances: balances,
 			Address:  address,

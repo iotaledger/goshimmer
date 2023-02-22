@@ -4,7 +4,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
-	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 var BaseOptions = []options.Option[snapshotcreator.Options]{

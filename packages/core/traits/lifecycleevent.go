@@ -3,13 +3,13 @@ package traits
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 // newLifecycleEvent creates a new lifecycle event trait.
 func newLifecycleEvent(optCallbacks ...func()) (newLifecycleEvent *lifecycleEvent) {
 	return &lifecycleEvent{
-		event:     event.NewLinkable[bool](),
+		event:     event.New1[bool](),
 		callbacks: optCallbacks,
 	}
 }
@@ -17,7 +17,7 @@ func newLifecycleEvent(optCallbacks ...func()) (newLifecycleEvent *lifecycleEven
 // lifecycleEvent is the implementation of the lifecycle event trait.
 type lifecycleEvent struct {
 	// event is the linkable Event that is used for the subscriptions.
-	event *event.Linkable[bool]
+	event *event.Event1[bool]
 
 	// optCallbacks is a list of optional callbacks that are triggered when the component is stopped.
 	callbacks []func()
@@ -35,17 +35,11 @@ func (s *lifecycleEvent) Subscribe(callbacks ...func()) (unsubscribe func()) {
 		return func() {}
 	}
 
-	closure := event.NewClosure(func(bool) {
+	return s.event.Hook(func(bool) {
 		for _, callback := range callbacks {
 			callback()
 		}
-	})
-
-	s.event.Hook(closure)
-
-	return func() {
-		s.event.Detach(closure)
-	}
+	}).Unhook
 }
 
 // Trigger triggers the event.

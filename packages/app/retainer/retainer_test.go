@@ -17,8 +17,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/serix"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
+	"github.com/iotaledger/hive.go/serializer/v2/serix"
 )
 
 func TestRetainer_BlockMetadata_Serialization(t *testing.T) {
@@ -74,7 +74,7 @@ func TestRetainer_BlockMetadata_NonEvicted(t *testing.T) {
 	b := tf.Engine.BlockDAG.CreateBlock("A")
 	tf.Engine.BlockDAG.IssueBlocks("A")
 
-	workers.Wait()
+	workers.WaitChildren()
 
 	block, exists := tf.Instance.CongestionControl.Block(b.ID())
 	require.True(t, exists)
@@ -104,7 +104,7 @@ func TestRetainer_BlockMetadata_NonEvicted(t *testing.T) {
 	require.EqualValues(t, pastMarkers, block.StructureDetails().PastMarkers())
 	require.Equal(t, meta.M.AddedConflictIDs, block.AddedConflictIDs())
 	require.Equal(t, meta.M.SubtractedConflictIDs, block.SubtractedConflictIDs())
-	require.Equal(t, meta.M.ConflictIDs, tf.Instance.Engine().Tangle.Booker.BlockConflicts(block.Block.Block))
+	require.Equal(t, meta.M.ConflictIDs, tf.Instance.Engine().Tangle.Booker.BlockConflicts(block.Block))
 
 	require.Equal(t, meta.M.Tracked, true)
 	require.Equal(t, meta.M.SubjectivelyInvalid, block.IsSubjectivelyInvalid())
@@ -128,14 +128,14 @@ func TestRetainer_BlockMetadata_Evicted(t *testing.T) {
 	b := tf.Engine.BlockDAG.CreateBlock("A", models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0).Add(70*time.Second)))
 	tf.Engine.BlockDAG.IssueBlocks("A")
 
-	workers.Wait()
+	workers.WaitChildren()
 
 	block, exists := tf.Instance.CongestionControl.Block(b.ID())
 	require.True(t, exists)
 
 	// Trigger eviction through commitment creation
 	tf.Engine.Instance.NotarizationManager.SetAcceptanceTime((epoch.IndexFromTime(time.Unix(epoch.GenesisTime, 0).Add(70*time.Second)) + 8).EndTime())
-	workers.Wait()
+	workers.WaitChildren()
 	retainer.WorkerPool().PendingTasksCounter.WaitIsZero()
 
 	meta, exists := retainer.BlockMetadata(block.ID())
@@ -162,7 +162,7 @@ func TestRetainer_BlockMetadata_Evicted(t *testing.T) {
 	require.EqualValues(t, pastMarkers, block.StructureDetails().PastMarkers())
 	require.Equal(t, meta.M.AddedConflictIDs, block.AddedConflictIDs())
 	require.Equal(t, meta.M.SubtractedConflictIDs, block.SubtractedConflictIDs())
-	require.Equal(t, meta.M.ConflictIDs, tf.Instance.Engine().Tangle.Booker.BlockConflicts(block.Block.Block))
+	require.Equal(t, meta.M.ConflictIDs, tf.Instance.Engine().Tangle.Booker.BlockConflicts(block.Block))
 	require.Equal(t, meta.M.Tracked, true)
 	require.Equal(t, meta.M.SubjectivelyInvalid, block.IsSubjectivelyInvalid())
 	// You cannot really test this as the scheduler might have scheduled the block after its metadata was retained.

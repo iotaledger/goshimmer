@@ -9,8 +9,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/storage/permanent"
 	"github.com/iotaledger/goshimmer/packages/storage/prunable"
 	"github.com/iotaledger/goshimmer/packages/storage/utils"
-	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 // Storage is an abstraction around the storage layer of the node.

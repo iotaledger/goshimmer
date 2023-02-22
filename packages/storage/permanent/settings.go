@@ -12,8 +12,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/storable"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
-	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/serializer/v2/serix"
 )
 
 // region Settings /////////////////////////////////////////////////////////////////////////////////////////////////////

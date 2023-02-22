@@ -8,22 +8,24 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/causalorder"
+	"github.com/iotaledger/goshimmer/packages/core/cerrors"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markermanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/cerrors"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/generics/walker"
-	"github.com/iotaledger/hive.go/core/syncutils"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/ds/walker"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 // region Booker ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -33,49 +35,54 @@ type Booker struct {
 	Events *Events
 
 	Ledger        *ledger.Ledger
-	bookingOrder  *causalorder.CausalOrder[models.BlockID, *Block]
+	VirtualVoting *virtualvoting.VirtualVoting
+	bookingOrder  *causalorder.CausalOrder[models.BlockID, *virtualvoting.Block]
 	attachments   *attachments
-	blocks        *memstorage.EpochStorage[models.BlockID, *Block]
-	markerManager *markermanager.MarkerManager[models.BlockID, *Block]
+	blocks        *memstorage.EpochStorage[models.BlockID, *virtualvoting.Block]
+	markerManager *markermanager.MarkerManager[models.BlockID, *virtualvoting.Block]
 	bookingMutex  *syncutils.DAGMutex[models.BlockID]
 	evictionMutex sync.RWMutex
 
-	optsMarkerManager []options.Option[markermanager.MarkerManager[models.BlockID, *Block]]
+	optsMarkerManager []options.Option[markermanager.MarkerManager[models.BlockID, *virtualvoting.Block]]
+	optsVirtualVoting []options.Option[virtualvoting.VirtualVoting]
 
 	workers *workerpool.Group
 
 	BlockDAG *blockdag.BlockDAG
 }
 
-func New(workers *workerpool.Group, blockDAG *blockdag.BlockDAG, ledger *ledger.Ledger, opts ...options.Option[Booker]) (booker *Booker) {
+func New(workers *workerpool.Group, blockDAG *blockdag.BlockDAG, ledger *ledger.Ledger, validators *sybilprotection.WeightedSet, opts ...options.Option[Booker]) (booker *Booker) {
 	return options.Apply(&Booker{
 		Events:            NewEvents(),
 		attachments:       newAttachments(),
-		blocks:            memstorage.NewEpochStorage[models.BlockID, *Block](),
+		blocks:            memstorage.NewEpochStorage[models.BlockID, *virtualvoting.Block](),
 		bookingMutex:      syncutils.NewDAGMutex[models.BlockID](),
-		optsMarkerManager: make([]options.Option[markermanager.MarkerManager[models.BlockID, *Block]], 0),
+		optsMarkerManager: make([]options.Option[markermanager.MarkerManager[models.BlockID, *virtualvoting.Block]], 0),
+		optsVirtualVoting: make([]options.Option[virtualvoting.VirtualVoting], 0),
 		Ledger:            ledger,
 		workers:           workers,
 		BlockDAG:          blockDAG,
 	}, opts, func(b *Booker) {
 		b.markerManager = markermanager.NewMarkerManager(b.optsMarkerManager...)
+		b.VirtualVoting = virtualvoting.New(workers.CreateGroup("virtualvoting"), ledger.ConflictDAG, b.markerManager.SequenceManager, validators, b.optsVirtualVoting...)
 		b.bookingOrder = causalorder.New(
 			workers.CreatePool("BookingOrder", 2),
 			b.Block,
-			(*Block).IsBooked,
+			(*virtualvoting.Block).IsBooked,
 			b.book,
 			b.markInvalid,
 			causalorder.WithReferenceValidator[models.BlockID](isReferenceValid),
 		)
 
-		event.Hook(blockDAG.EvictionState.Events.EpochEvicted, b.evict)
+		blockDAG.EvictionState.Events.EpochEvicted.Hook(b.evict)
 
+		b.Events.VirtualVoting = b.VirtualVoting.Events
 		b.Events.MarkerManager = b.markerManager.Events
 	}, (*Booker).setupEvents)
 }
 
 // Queue checks if payload is solid and then adds the block to a Booker's CausalOrder.
-func (b *Booker) Queue(block *Block) (wasQueued bool, err error) {
+func (b *Booker) Queue(block *virtualvoting.Block) (wasQueued bool, err error) {
 	if wasQueued, err = b.queue(block); wasQueued {
 		b.bookingOrder.Queue(block)
 	}
@@ -83,7 +90,7 @@ func (b *Booker) Queue(block *Block) (wasQueued bool, err error) {
 	return
 }
 
-func (b *Booker) queue(block *Block) (wasQueued bool, err error) {
+func (b *Booker) queue(block *virtualvoting.Block) (wasQueued bool, err error) {
 	b.evictionMutex.RLock()
 	defer b.evictionMutex.RUnlock()
 
@@ -97,7 +104,7 @@ func (b *Booker) queue(block *Block) (wasQueued bool, err error) {
 }
 
 // Block retrieves a Block with metadata from the in-memory storage of the Booker.
-func (b *Booker) Block(id models.BlockID) (block *Block, exists bool) {
+func (b *Booker) Block(id models.BlockID) (block *virtualvoting.Block, exists bool) {
 	b.evictionMutex.RLock()
 	defer b.evictionMutex.RUnlock()
 
@@ -105,13 +112,13 @@ func (b *Booker) Block(id models.BlockID) (block *Block, exists bool) {
 }
 
 // BlockConflicts returns the Conflict related details of the given Block.
-func (b *Booker) BlockConflicts(block *Block) (blockConflictIDs utxo.TransactionIDs) {
+func (b *Booker) BlockConflicts(block *virtualvoting.Block) (blockConflictIDs utxo.TransactionIDs) {
 	_, blockConflictIDs = b.BlockBookingDetails(block)
 	return
 }
 
 // BlockBookingDetails returns the Conflict and Marker related details of the given Block.
-func (b *Booker) BlockBookingDetails(block *Block) (pastMarkersConflictIDs, blockConflictIDs utxo.TransactionIDs) {
+func (b *Booker) BlockBookingDetails(block *virtualvoting.Block) (pastMarkersConflictIDs, blockConflictIDs utxo.TransactionIDs) {
 	b.evictionMutex.RLock()
 	defer b.evictionMutex.RUnlock()
 
@@ -119,7 +126,7 @@ func (b *Booker) BlockBookingDetails(block *Block) (pastMarkersConflictIDs, bloc
 }
 
 // PayloadConflictIDs returns the ConflictIDs of the payload contained in the given Block.
-func (b *Booker) PayloadConflictIDs(block *Block) (conflictIDs utxo.TransactionIDs) {
+func (b *Booker) PayloadConflictIDs(block *virtualvoting.Block) (conflictIDs utxo.TransactionIDs) {
 	if b.BlockDAG.EvictionState.InEvictedEpoch(block.ID()) {
 		return utxo.NewTransactionIDs()
 	}
@@ -147,7 +154,7 @@ func (b *Booker) Sequence(id markers.SequenceID) (sequence *markers.Sequence, ex
 }
 
 // BlockFromMarker retrieves the Block of the given Marker.
-func (b *Booker) BlockFromMarker(marker markers.Marker) (block *Block, exists bool) {
+func (b *Booker) BlockFromMarker(marker markers.Marker) (block *virtualvoting.Block, exists bool) {
 	b.evictionMutex.RLock()
 	defer b.evictionMutex.RUnlock()
 	if marker.Index() == 0 {
@@ -175,17 +182,17 @@ func (b *Booker) BlockFloor(marker markers.Marker) (floorMarker markers.Marker, 
 
 // GetEarliestAttachment returns the earliest attachment for a given transaction ID.
 // returnOrphaned parameter specifies whether the returned attachment may be orphaned.
-func (b *Booker) GetEarliestAttachment(txID utxo.TransactionID) (attachment *Block) {
+func (b *Booker) GetEarliestAttachment(txID utxo.TransactionID) (attachment *virtualvoting.Block) {
 	return b.attachments.getEarliestAttachment(txID)
 }
 
 // GetLatestAttachment returns the latest attachment for a given transaction ID.
 // returnOrphaned parameter specifies whether the returned attachment may be orphaned.
-func (b *Booker) GetLatestAttachment(txID utxo.TransactionID) (attachment *Block) {
+func (b *Booker) GetLatestAttachment(txID utxo.TransactionID) (attachment *virtualvoting.Block) {
 	return b.attachments.getLatestAttachment(txID)
 }
 
-func (b *Booker) GetAllAttachments(txID utxo.TransactionID) (attachments *set.AdvancedSet[*Block]) {
+func (b *Booker) GetAllAttachments(txID utxo.TransactionID) (attachments *advancedset.AdvancedSet[*virtualvoting.Block]) {
 	return b.attachments.GetAttachmentBlocks(txID)
 }
 
@@ -200,7 +207,7 @@ func (b *Booker) evict(epochIndex epoch.Index) {
 	b.blocks.Evict(epochIndex)
 }
 
-func (b *Booker) isPayloadSolid(block *Block) (isPayloadSolid bool, err error) {
+func (b *Booker) isPayloadSolid(block *virtualvoting.Block) (isPayloadSolid bool, err error) {
 	tx, isTx := block.Transaction()
 	if !isTx {
 		return true, nil
@@ -220,9 +227,9 @@ func (b *Booker) isPayloadSolid(block *Block) (isPayloadSolid bool, err error) {
 }
 
 // block retrieves the Block with given id from the mem-storage.
-func (b *Booker) block(id models.BlockID) (block *Block, exists bool) {
+func (b *Booker) block(id models.BlockID) (block *virtualvoting.Block, exists bool) {
 	if b.BlockDAG.EvictionState.IsRootBlock(id) {
-		return NewRootBlock(id), true
+		return virtualvoting.NewRootBlock(id), true
 	}
 
 	storage := b.blocks.Get(id.Index(), false)
@@ -233,10 +240,9 @@ func (b *Booker) block(id models.BlockID) (block *Block, exists bool) {
 	return storage.Get(id)
 }
 
-func (b *Booker) book(block *Block) (inheritingErr error) {
+func (b *Booker) book(block *virtualvoting.Block) (inheritingErr error) {
 	// Need to mutually exclude a fork on this block.
 	// VirtualVoting.Track is performed within the context on this lock to make those two steps atomic.
-	// VirtualVoting should be refactored to be a component of Booker.
 	b.bookingMutex.Lock(block.ID())
 	defer b.bookingMutex.Unlock(block.ID())
 
@@ -270,14 +276,16 @@ func (b *Booker) book(block *Block) (inheritingErr error) {
 		ConflictIDs: inheritedConflitIDs,
 	})
 
+	b.VirtualVoting.Track(block, inheritedConflitIDs)
+
 	return nil
 }
 
-func (b *Booker) markInvalid(block *Block, reason error) {
+func (b *Booker) markInvalid(block *virtualvoting.Block, reason error) {
 	b.BlockDAG.SetInvalid(block.Block, reason)
 }
 
-func (b *Booker) inheritConflictIDs(block *Block) (inheritedConflictIDs utxo.TransactionIDs, err error) {
+func (b *Booker) inheritConflictIDs(block *virtualvoting.Block) (inheritedConflictIDs utxo.TransactionIDs, err error) {
 	b.bookingMutex.RLock(block.Parents()...)
 	defer b.bookingMutex.RUnlock(block.Parents()...)
 
@@ -296,7 +304,7 @@ func (b *Booker) inheritConflictIDs(block *Block) (inheritedConflictIDs utxo.Tra
 
 	newStructureDetails := b.markerManager.ProcessBlock(block, allParentsInPastEpochs, parentsStructureDetails, inheritedConflictIDs)
 
-	block.setStructureDetails(newStructureDetails)
+	block.SetStructureDetails(newStructureDetails)
 
 	if !newStructureDetails.IsPastMarker() {
 		addedConflictIDs := inheritedConflictIDs.Clone()
@@ -308,13 +316,13 @@ func (b *Booker) inheritConflictIDs(block *Block) (inheritedConflictIDs utxo.Tra
 		block.AddAllSubtractedConflictIDs(subtractedConflictIDs)
 	}
 
-	block.setBooked()
+	block.SetBooked()
 
 	return
 }
 
 // determineBookingDetails determines the booking details of an unbooked Block.
-func (b *Booker) determineBookingDetails(block *Block) (parentsStructureDetails []*markers.StructureDetails, parentsPastMarkersConflictIDs, inheritedConflictIDs utxo.TransactionIDs, err error) {
+func (b *Booker) determineBookingDetails(block *virtualvoting.Block) (parentsStructureDetails []*markers.StructureDetails, parentsPastMarkersConflictIDs, inheritedConflictIDs utxo.TransactionIDs, err error) {
 	inheritedConflictIDs = b.PayloadConflictIDs(block)
 
 	parentsStructureDetails, parentsPastMarkersConflictIDs, strongParentsConflictIDs := b.collectStrongParentsBookingDetails(block)
@@ -335,7 +343,7 @@ func (b *Booker) determineBookingDetails(block *Block) (parentsStructureDetails 
 }
 
 // collectStrongParentsBookingDetails returns the booking details of a Block's strong parents.
-func (b *Booker) collectStrongParentsBookingDetails(block *Block) (parentsStructureDetails []*markers.StructureDetails, parentsPastMarkersConflictIDs, parentsConflictIDs utxo.TransactionIDs) {
+func (b *Booker) collectStrongParentsBookingDetails(block *virtualvoting.Block) (parentsStructureDetails []*markers.StructureDetails, parentsPastMarkersConflictIDs, parentsConflictIDs utxo.TransactionIDs) {
 	parentsStructureDetails = make([]*markers.StructureDetails, 0)
 	parentsPastMarkersConflictIDs = utxo.NewTransactionIDs()
 	parentsConflictIDs = utxo.NewTransactionIDs()
@@ -364,7 +372,7 @@ func (b *Booker) collectStrongParentsBookingDetails(block *Block) (parentsStruct
 
 // collectShallowDislikedParentsConflictIDs removes the ConflictIDs of the shallow dislike reference and all its conflicts from
 // the supplied ArithmeticConflictIDs.
-func (b *Booker) collectWeakParentsConflictIDs(block *Block) (payloadConflictIDs utxo.TransactionIDs) {
+func (b *Booker) collectWeakParentsConflictIDs(block *virtualvoting.Block) (payloadConflictIDs utxo.TransactionIDs) {
 	payloadConflictIDs = utxo.NewTransactionIDs()
 
 	block.ForEachParentByType(models.WeakParentType, func(parentBlockID models.BlockID) bool {
@@ -382,7 +390,7 @@ func (b *Booker) collectWeakParentsConflictIDs(block *Block) (payloadConflictIDs
 
 // collectShallowLikedParentsConflictIDs adds the ConflictIDs of the shallow like reference and removes all its conflicts from
 // the supplied ArithmeticConflictIDs.
-func (b *Booker) collectShallowLikedParentsConflictIDs(block *Block) (collectedLikedConflictIDs, collectedDislikedConflictIDs utxo.TransactionIDs, err error) {
+func (b *Booker) collectShallowLikedParentsConflictIDs(block *virtualvoting.Block) (collectedLikedConflictIDs, collectedDislikedConflictIDs utxo.TransactionIDs, err error) {
 	collectedLikedConflictIDs = utxo.NewTransactionIDs()
 	collectedDislikedConflictIDs = utxo.NewTransactionIDs()
 	block.ForEachParentByType(models.ShallowLikeParentType, func(parentBlockID models.BlockID) bool {
@@ -415,7 +423,7 @@ func (b *Booker) collectShallowLikedParentsConflictIDs(block *Block) (collectedL
 }
 
 // blockBookingDetails returns the Conflict and Marker related details of the given Block.
-func (b *Booker) blockBookingDetails(block *Block) (pastMarkersConflictIDs, blockConflictIDs utxo.TransactionIDs) {
+func (b *Booker) blockBookingDetails(block *virtualvoting.Block) (pastMarkersConflictIDs, blockConflictIDs utxo.TransactionIDs) {
 	b.rLockBlockSequences(block)
 	defer b.rUnlockBlockSequences(block)
 
@@ -438,25 +446,25 @@ func (b *Booker) blockBookingDetails(block *Block) (pastMarkersConflictIDs, bloc
 	return pastMarkersConflictIDs, blockConflictIDs
 }
 
-func (b *Booker) blocksFromBlockDAGBlocks(blocks []*blockdag.Block) []*Block {
-	return lo.Filter(lo.Map(blocks, func(blockDAGChild *blockdag.Block) (bookerChild *Block) {
+func (b *Booker) blocksFromBlockDAGBlocks(blocks []*blockdag.Block) []*virtualvoting.Block {
+	return lo.Filter(lo.Map(blocks, func(blockDAGChild *blockdag.Block) (bookerChild *virtualvoting.Block) {
 		bookerChild, exists := b.block(blockDAGChild.ID())
 		if !exists {
 			return nil
 		}
 		return bookerChild
-	}), func(child *Block) bool {
+	}), func(child *virtualvoting.Block) bool {
 		return child != nil
 	})
 }
 
 func (b *Booker) setupEvents() {
-	event.Hook(b.BlockDAG.Events.BlockSolid, func(block *blockdag.Block) {
-		if _, err := b.Queue(NewBlock(block)); err != nil {
+	b.BlockDAG.Events.BlockSolid.Hook(func(block *blockdag.Block) {
+		if _, err := b.Queue(virtualvoting.NewBlock(block)); err != nil {
 			panic(err)
 		}
 	})
-	event.Hook(b.BlockDAG.Events.BlockOrphaned, func(orphanedBlock *blockdag.Block) {
+	b.BlockDAG.Events.BlockOrphaned.Hook(func(orphanedBlock *blockdag.Block) {
 		block, exists := b.Block(orphanedBlock.ID())
 		if !exists {
 			return
@@ -464,12 +472,12 @@ func (b *Booker) setupEvents() {
 
 		b.OrphanAttachment(block)
 	})
-	event.Hook(b.Ledger.Events.TransactionConflictIDUpdated, func(event *ledger.TransactionConflictIDUpdatedEvent) {
+	b.Ledger.Events.TransactionConflictIDUpdated.Hook(func(event *ledger.TransactionConflictIDUpdatedEvent) {
 		if err := b.PropagateForkedConflict(event.TransactionID, event.AddedConflictID, event.RemovedConflictIDs); err != nil {
 			b.Events.Error.Trigger(errors.Wrapf(err, "failed to propagate Conflict update of %s to BlockDAG", event.TransactionID))
 		}
 	})
-	event.AttachWithWorkerPool(b.Ledger.Events.TransactionBooked, func(e *ledger.TransactionBookedEvent) {
+	b.Ledger.Events.TransactionBooked.Hook(func(e *ledger.TransactionBookedEvent) {
 		contextBlockID := models.BlockIDFromContext(e.Context)
 
 		for _, block := range b.attachments.Get(e.TransactionID) {
@@ -477,10 +485,14 @@ func (b *Booker) setupEvents() {
 				b.bookingOrder.Queue(block)
 			}
 		}
-	}, b.workers.CreatePool("Booker", 2))
+	}, event.WithWorkerPool(b.workers.CreatePool("Booker", 2)))
+
+	b.Events.MarkerManager.SequenceEvicted.Hook(func(sequenceID markers.SequenceID) {
+		b.VirtualVoting.EvictSequence(sequenceID)
+	}, event.WithWorkerPool(b.workers.CreatePool("VirtualVoting Sequence Eviction", 1)))
 }
 
-func (b *Booker) OrphanAttachment(block *Block) {
+func (b *Booker) OrphanAttachment(block *virtualvoting.Block) {
 	if tx, isTx := block.Transaction(); isTx {
 		attachmentBlock, attachmentOrphaned, lastAttachmentOrphaned := b.attachments.AttachmentOrphaned(tx.ID(), block)
 
@@ -500,7 +512,7 @@ func (b *Booker) OrphanAttachment(block *Block) {
 
 // PropagateForkedConflict propagates the forked ConflictID to the future cone of the attachments of the given Transaction.
 func (b *Booker) PropagateForkedConflict(transactionID, addedConflictID utxo.TransactionID, removedConflictIDs utxo.TransactionIDs) (err error) {
-	blockWalker := walker.New[*Block]()
+	blockWalker := walker.New[*virtualvoting.Block]()
 
 	for it := b.GetAllAttachments(transactionID).Iterator(); it.HasNext(); {
 		attachment := it.Next()
@@ -526,10 +538,9 @@ func (b *Booker) PropagateForkedConflict(transactionID, addedConflictID utxo.Tra
 	return nil
 }
 
-func (b *Booker) propagateToBlock(block *Block, addedConflictID utxo.TransactionID, removedConflictIDs utxo.TransactionIDs) (propagateFurther bool, err error) {
+func (b *Booker) propagateToBlock(block *virtualvoting.Block, addedConflictID utxo.TransactionID, removedConflictIDs utxo.TransactionIDs) (propagateFurther bool, err error) {
 	// Need to mutually exclude a booking on this block.
 	// VirtualVoting.Track is performed within the context on this lock to make those two steps atomic.
-	// VirtualVoting should be refactored to be a component of Booker.
 	// TODO: possibly need to also lock this mutex when propagating through markers.
 	b.bookingMutex.Lock(block.ID())
 	defer b.bookingMutex.Unlock(block.ID())
@@ -548,10 +559,12 @@ func (b *Booker) propagateToBlock(block *Block, addedConflictID utxo.Transaction
 		ParentConflictIDs: removedConflictIDs,
 	})
 
+	b.VirtualVoting.ProcessForkedBlock(block, addedConflictID, removedConflictIDs)
+
 	return true, nil
 }
 
-func (b *Booker) propagateForkedConflict(block *Block, addedConflictID utxo.TransactionID, removedConflictIDs utxo.TransactionIDs) (propagated, propagateFurther bool, err error) {
+func (b *Booker) propagateForkedConflict(block *virtualvoting.Block, addedConflictID utxo.TransactionID, removedConflictIDs utxo.TransactionIDs) (propagated, propagateFurther bool, err error) {
 	if !block.IsBooked() {
 		return false, false, nil
 	}
@@ -571,7 +584,7 @@ func (b *Booker) propagateForkedConflict(block *Block, addedConflictID utxo.Tran
 	return propagated, propagated, nil
 }
 
-func (b *Booker) updateBlockConflicts(block *Block, addedConflict utxo.TransactionID, parentConflicts utxo.TransactionIDs) (updated bool) {
+func (b *Booker) updateBlockConflicts(block *virtualvoting.Block, addedConflict utxo.TransactionID, parentConflicts utxo.TransactionIDs) (updated bool) {
 	_, conflictIDs := b.blockBookingDetails(block)
 
 	// if a block does not already support all parent conflicts of a conflict A, then it cannot vote for a more specialize conflict of A
@@ -627,6 +640,8 @@ func (b *Booker) forkSingleMarker(currentMarker markers.Marker, newConflictID ut
 		ParentConflictIDs: removedConflictIDs,
 	})
 
+	b.VirtualVoting.ProcessForkedMarker(currentMarker, newConflictID, removedConflictIDs)
+
 	// propagate updates to later ConflictID mappings of the same sequence.
 	b.markerManager.ForEachConflictIDMapping(currentMarker.SequenceID(), currentMarker.Index(), func(mappedMarker markers.Marker, _ utxo.TransactionIDs) {
 		markerWalker.Push(mappedMarker)
@@ -644,14 +659,14 @@ func (b *Booker) forkSingleMarker(currentMarker markers.Marker, newConflictID ut
 
 // region Utils //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func (b *Booker) rLockBlockSequences(block *Block) bool {
+func (b *Booker) rLockBlockSequences(block *virtualvoting.Block) bool {
 	return block.StructureDetails().PastMarkers().ForEachSorted(func(sequenceID markers.SequenceID, _ markers.Index) bool {
 		b.markerManager.SequenceMutex.RLock(sequenceID)
 		return true
 	})
 }
 
-func (b *Booker) rUnlockBlockSequences(block *Block) bool {
+func (b *Booker) rUnlockBlockSequences(block *virtualvoting.Block) bool {
 	return block.StructureDetails().PastMarkers().ForEachSorted(func(sequenceID markers.SequenceID, _ markers.Index) bool {
 		b.markerManager.SequenceMutex.RUnlock(sequenceID)
 		return true
@@ -659,7 +674,7 @@ func (b *Booker) rUnlockBlockSequences(block *Block) bool {
 }
 
 // isReferenceValid checks if the reference between the child and its parent is valid.
-func isReferenceValid(child *Block, parent *Block) (err error) {
+func isReferenceValid(child *virtualvoting.Block, parent *virtualvoting.Block) (err error) {
 	if parent.IsInvalid() {
 		return errors.Errorf("parent %s of child %s is marked as invalid", parent.ID(), child.ID())
 	}
@@ -671,9 +686,15 @@ func isReferenceValid(child *Block, parent *Block) (err error) {
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithMarkerManagerOptions(opts ...options.Option[markermanager.MarkerManager[models.BlockID, *Block]]) options.Option[Booker] {
+func WithMarkerManagerOptions(opts ...options.Option[markermanager.MarkerManager[models.BlockID, *virtualvoting.Block]]) options.Option[Booker] {
 	return func(b *Booker) {
 		b.optsMarkerManager = opts
+	}
+}
+
+func WithVirtualVotingOptions(opts ...options.Option[virtualvoting.VirtualVoting]) options.Option[Booker] {
+	return func(b *Booker) {
+		b.optsVirtualVoting = opts
 	}
 }
 

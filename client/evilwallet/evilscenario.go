@@ -7,7 +7,7 @@ import (
 	"github.com/mr-tron/base58"
 	"go.uber.org/atomic"
 
-	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/ds/types"
 )
 
 // The custom conflict in spammer can be provided like this:

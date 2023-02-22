@@ -2,11 +2,12 @@ package common
 
 import (
 	"context"
-	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
-	"github.com/iotaledger/hive.go/core/generics/options"
 	"log"
 	"testing"
 	"time"
+
+	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
+	"github.com/iotaledger/hive.go/runtime/options"
 
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/require"

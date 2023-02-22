@@ -9,11 +9,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/eventticker"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/walker"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/syncutils"
+	"github.com/iotaledger/hive.go/ds/shrinkingmap"
+	"github.com/iotaledger/hive.go/ds/walker"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 var (
@@ -32,7 +32,7 @@ type Manager struct {
 
 	// This tracks the forkingPoints by the commitment that triggered the detection so we can clean up after eviction
 	forkingPointsByCommitments *memstorage.EpochStorage[commitment.ID, commitment.ID]
-	forksByForkingPoint        *memstorage.Storage[commitment.ID, *Fork]
+	forksByForkingPoint        *shrinkingmap.ShrinkingMap[commitment.ID, *Fork]
 
 	evictionMutex sync.RWMutex
 
@@ -51,7 +51,7 @@ func NewManager(snapshot *commitment.Commitment, opts ...options.Option[Manager]
 		commitmentsByID:            make(map[commitment.ID]*Commitment),
 		commitmentEntityMutex:      syncutils.NewDAGMutex[commitment.ID](),
 		forkingPointsByCommitments: memstorage.NewEpochStorage[commitment.ID, commitment.ID](),
-		forksByForkingPoint:        memstorage.New[commitment.ID, *Fork](),
+		forksByForkingPoint:        shrinkingmap.New[commitment.ID, *Fork](),
 	}, opts, func(manager *Manager) {
 		manager.SnapshotCommitment, _ = manager.Commitment(snapshot.ID(), true)
 		manager.SnapshotCommitment.PublishCommitment(snapshot)
@@ -59,8 +59,8 @@ func NewManager(snapshot *commitment.Commitment, opts ...options.Option[Manager]
 		manager.SnapshotCommitment.publishChain(NewChain(manager.SnapshotCommitment))
 
 		manager.CommitmentRequester = eventticker.New(manager.optsCommitmentRequester...)
-		event.Hook(manager.Events.CommitmentMissing, manager.CommitmentRequester.StartTicker)
-		event.Hook(manager.Events.MissingCommitmentReceived, manager.CommitmentRequester.StopTicker)
+		manager.Events.CommitmentMissing.Hook(manager.CommitmentRequester.StartTicker)
+		manager.Events.MissingCommitmentReceived.Hook(manager.CommitmentRequester.StopTicker)
 
 		manager.commitmentsByID[manager.SnapshotCommitment.ID()] = manager.SnapshotCommitment
 	})

@@ -16,11 +16,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markermanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/debug"
-	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/types"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/runtime/debug"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 func TestTipManager_DataBlockTips(t *testing.T) {
@@ -38,7 +38,7 @@ func TestTipManager_DataBlockTips(t *testing.T) {
 	{
 		tf.Tangle.BlockDAG.CreateBlock("Block1")
 		tf.Tangle.BlockDAG.IssueBlocks("Block1")
-		workers.Wait()
+		workers.WaitChildren()
 
 		tf.AssertTipCount(1)
 		tf.AssertEqualBlocks(tipManager.Tips(2), tf.Tangle.BlockDAG.BlockIDs("Block1"))
@@ -50,7 +50,7 @@ func TestTipManager_DataBlockTips(t *testing.T) {
 	{
 		tf.Tangle.BlockDAG.CreateBlock("Block2")
 		tf.IssueBlocksAndSetAccepted("Block2")
-		workers.Wait()
+		workers.WaitChildren()
 
 		tf.AssertTipCount(2)
 		tf.AssertEqualBlocks(tipManager.Tips(2), tf.Tangle.BlockDAG.BlockIDs("Block1", "Block2"))
@@ -62,7 +62,7 @@ func TestTipManager_DataBlockTips(t *testing.T) {
 	{
 		tf.Tangle.BlockDAG.CreateBlock("Block3", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block1", "Block2")))
 		tf.IssueBlocksAndSetAccepted("Block3")
-		workers.Wait()
+		workers.WaitChildren()
 
 		tf.AssertTipCount(1)
 		tf.AssertEqualBlocks(tipManager.Tips(2), tf.Tangle.BlockDAG.BlockIDs("Block3"))
@@ -78,7 +78,7 @@ func TestTipManager_DataBlockTips(t *testing.T) {
 			alias := fmt.Sprintf("Block%d", n)
 			tf.Tangle.BlockDAG.CreateBlock(alias, models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block1")))
 			tf.IssueBlocksAndSetAccepted(alias)
-			workers.Wait()
+			workers.WaitChildren()
 
 			tf.AssertTipCount(1 + count)
 			tf.AssertTipsAdded(uint32(3 + count))
@@ -112,7 +112,7 @@ func TestTipManager_TimeSinceConfirmation_Unconfirmed(t *testing.T) {
 		WithTipManagerOptions(WithTimeSinceConfirmationThreshold(5*time.Minute)),
 		WithEngineOptions(
 			engine.WithBootstrapThreshold(time.Since(time.Unix(epoch.GenesisTime, 0).Add(-time.Hour))),
-			engine.WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(10))))),
+			engine.WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(10))))),
 		),
 	)
 	tf.Engine.EvictionState.AddRootBlock(models.EmptyBlockID)
@@ -169,7 +169,7 @@ func TestTipManager_TimeSinceConfirmation_Confirmed(t *testing.T) {
 		WithEngineOptions(
 			engine.WithBootstrapThreshold(time.Since(time.Unix(epoch.GenesisTime, 0).Add(30*time.Second))),
 			engine.WithNotarizationManagerOptions(notarization.WithMinCommittableEpochAge(20*time.Minute)),
-			engine.WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(10))))),
+			engine.WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(10))))),
 		),
 	)
 	tf.Engine.EvictionState.AddRootBlock(models.EmptyBlockID)
@@ -229,7 +229,7 @@ func TestTipManager_TimeSinceConfirmation_MultipleParents(t *testing.T) {
 		WithEngineOptions(
 			engine.WithBootstrapThreshold(time.Since(time.Unix(epoch.GenesisTime, 0).Add(30*time.Second))),
 			engine.WithNotarizationManagerOptions(notarization.WithMinCommittableEpochAge(20*time.Minute)),
-			engine.WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(10))))),
+			engine.WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(10))))),
 		),
 	)
 	tf.Engine.EvictionState.AddRootBlock(models.EmptyBlockID)
@@ -431,7 +431,7 @@ func TestTipManager_TimeSinceConfirmation_RootBlockParent(t *testing.T) {
 	tf := NewTestFramework(t, workers.CreateGroup("TipManagerTestFramework"),
 		WithEngineOptions(
 			engine.WithBootstrapThreshold(time.Since(time.Unix(epoch.GenesisTime, 0).Add(-time.Hour))),
-			engine.WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(10))))),
+			engine.WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(10))))),
 		),
 		WithTipManagerOptions(WithTimeSinceConfirmationThreshold(30*time.Second)),
 	)
@@ -460,7 +460,7 @@ func TestTipManager_TimeSinceConfirmation_RootBlockParent(t *testing.T) {
 
 	require.Eventually(t, tf.Engine.NotarizationManager.IsFullyCommitted, 1*time.Minute, 500*time.Millisecond)
 
-	tf.Engine.Workers.WaitAll()
+	tf.Engine.Workers.WaitParents()
 
 	tf.Tangle.BlockDAG.CreateBlock("Block5", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block1")), models.WithIssuingTime(now))
 	tf.Tangle.BlockDAG.IssueBlocks("Block5")
@@ -486,7 +486,7 @@ func TestTipManager_FutureTips(t *testing.T) {
 	)
 	tf.Engine.EvictionState.AddRootBlock(models.EmptyBlockID)
 
-	event.Hook(tf.Engine.Events.NotarizationManager.EpochCommitted, func(details *notarization.EpochCommittedDetails) {
+	tf.Engine.Events.NotarizationManager.EpochCommitted.Hook(func(details *notarization.EpochCommittedDetails) {
 		fmt.Println(">>", details.Commitment.ID())
 	})
 
@@ -499,10 +499,10 @@ func TestTipManager_FutureTips(t *testing.T) {
 		tf.Tangle.BlockDAG.CreateBlock("Block1.4", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block1.2", "Block1.3")), models.WithIssuingTime(blockTime))
 
 		tf.Tangle.BlockDAG.IssueBlocks("Block1.1", "Block1.2", "Block1.3", "Block1.4")
-		workers.Wait()
+		workers.WaitChildren()
 		tf.SetBlocksAccepted("Block1.1", "Block1.2", "Block1.3", "Block1.4")
 		tf.SetAcceptedTime(tf.Tangle.BlockDAG.Block("Block1.4").IssuingTime())
-		workers.Wait()
+		workers.WaitChildren()
 
 		tf.AssertTipsAdded(4)
 		tf.AssertTipsRemoved(3)
@@ -515,10 +515,10 @@ func TestTipManager_FutureTips(t *testing.T) {
 		tf.Tangle.BlockDAG.CreateBlock("Block2.1", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block1.4")), models.WithIssuingTime(blockTime))
 
 		tf.Tangle.BlockDAG.IssueBlocks("Block2.1")
-		workers.Wait()
+		workers.WaitChildren()
 		tf.SetBlocksAccepted("Block2.1")
 		tf.SetAcceptedTime(tf.Tangle.BlockDAG.Block("Block2.1").IssuingTime())
-		workers.Wait()
+		workers.WaitChildren()
 
 		tf.AssertTipsAdded(5)
 		tf.AssertTipsRemoved(4)
@@ -531,10 +531,10 @@ func TestTipManager_FutureTips(t *testing.T) {
 		tf.Tangle.BlockDAG.CreateBlock("Block3.1", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block2.1")), models.WithIssuingTime(blockTime))
 
 		tf.Tangle.BlockDAG.IssueBlocks("Block3.1")
-		workers.Wait()
+		workers.WaitChildren()
 		tf.SetBlocksAccepted("Block3.1")
 		tf.SetAcceptedTime(tf.Tangle.BlockDAG.Block("Block3.1").IssuingTime())
-		workers.Wait()
+		workers.WaitChildren()
 
 		tf.AssertTipsAdded(6)
 		tf.AssertTipsRemoved(5)
@@ -554,7 +554,7 @@ func TestTipManager_FutureTips(t *testing.T) {
 		tf.Tangle.BlockDAG.CreateBlock("Block4.4", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block4.2")), models.WithIssuingTime(blockTime), models.WithCommitment(commitment2_2))
 
 		tf.Tangle.BlockDAG.IssueBlocks("Block4.1", "Block4.2", "Block4.3", "Block4.4")
-		workers.Wait()
+		workers.WaitChildren()
 
 		tf.AssertTipsAdded(6)
 		tf.AssertTipsRemoved(5)
@@ -574,7 +574,7 @@ func TestTipManager_FutureTips(t *testing.T) {
 	{
 		tf.SetBlocksAccepted("Block4.2")
 		tf.SetAcceptedTime(tf.Tangle.BlockDAG.Block("Block4.2").IssuingTime())
-		workers.Wait()
+		workers.WaitChildren()
 
 		// tf.AssertFutureTips(map[epoch.Index]map[commitment.ID]models.BlockIDs{
 		//	3: {

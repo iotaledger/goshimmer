@@ -5,7 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/ds/types"
 )
 
 // TransactionBalancesValid is an internal utility function that checks if the sum of the balance changes equals to 0.

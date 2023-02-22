@@ -14,8 +14,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/libp2putil/libp2ptesting"
 	p2pproto "github.com/iotaledger/goshimmer/packages/network/p2p/proto"
-	"github.com/iotaledger/hive.go/core/autopeering/peer"
-	"github.com/iotaledger/hive.go/core/autopeering/peer/service"
+	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"

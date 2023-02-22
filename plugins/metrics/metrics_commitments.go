@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
-	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 const (
@@ -30,36 +30,36 @@ var CommitmentsMetrics = collector.NewCollection(commitmentsNamespace,
 		collector.WithLabelValuesCollection(),
 		collector.WithInitFunc(func() {
 			deps.Collector.ResetMetric(commitmentsNamespace, lastCommitment)
-			deps.Protocol.Events.Engine.NotarizationManager.EpochCommitted.Attach(event.NewClosure(func(details *notarization.EpochCommittedDetails) {
+			deps.Protocol.Events.Engine.NotarizationManager.EpochCommitted.Hook(func(details *notarization.EpochCommittedDetails) {
 				deps.Collector.Update(commitmentsNamespace, lastCommitment, collector.MultiLabels(strconv.Itoa(int(details.Commitment.Index())), details.Commitment.ID().Base58()))
-			}))
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(seenTotal,
 		collector.WithType(collector.Counter),
 		collector.WithHelp("Number of commitments seen by the node."),
 		collector.WithInitFunc(func() {
-			deps.Protocol.ChainManager().Events.ForkDetected.Attach(event.NewClosure(func(_ *chainmanager.Fork) {
+			deps.Protocol.Events.ChainManager.ForkDetected.Hook(func(_ *chainmanager.Fork) {
 				deps.Collector.Increment(commitmentsNamespace, seenTotal)
-			}))
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(missingRequested,
 		collector.WithType(collector.Counter),
 		collector.WithHelp("Number of missing commitments requested by the node."),
 		collector.WithInitFunc(func() {
-			deps.Protocol.ChainManager().Events.CommitmentMissing.Attach(event.NewClosure(func(commitment commitment.ID) {
+			deps.Protocol.Events.ChainManager.CommitmentMissing.Hook(func(commitment commitment.ID) {
 				deps.Collector.Increment(commitmentsNamespace, missingRequested)
-			}))
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(missingReceived,
 		collector.WithType(collector.Counter),
 		collector.WithHelp("Number of missing commitments received by the node."),
 		collector.WithInitFunc(func() {
-			deps.Protocol.ChainManager().Events.MissingCommitmentReceived.Attach(event.NewClosure(func(commitment commitment.ID) {
+			deps.Protocol.Events.ChainManager.MissingCommitmentReceived.Hook(func(commitment commitment.ID) {
 				deps.Collector.Increment(commitmentsNamespace, missingReceived)
-			}))
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(acceptedBlocks,
@@ -68,9 +68,9 @@ var CommitmentsMetrics = collector.NewCollection(commitmentsNamespace,
 		collector.WithLabels("epoch"),
 		collector.WithResetBeforeCollecting(true),
 		collector.WithInitFunc(func() {
-			deps.Protocol.Events.Engine.NotarizationManager.EpochCommitted.Attach(event.NewClosure(func(details *notarization.EpochCommittedDetails) {
+			deps.Protocol.Events.Engine.NotarizationManager.EpochCommitted.Hook(func(details *notarization.EpochCommittedDetails) {
 				deps.Collector.Update(commitmentsNamespace, acceptedBlocks, collector.MultiLabelsValues([]string{strconv.Itoa(int(details.Commitment.Index()))}, details.AcceptedBlocksCount))
-			}))
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(transactions,
@@ -79,9 +79,9 @@ var CommitmentsMetrics = collector.NewCollection(commitmentsNamespace,
 		collector.WithLabels("epoch"),
 		collector.WithResetBeforeCollecting(true),
 		collector.WithInitFunc(func() {
-			deps.Protocol.Events.Engine.NotarizationManager.EpochCommitted.Attach(event.NewClosure(func(details *notarization.EpochCommittedDetails) {
+			deps.Protocol.Events.Engine.NotarizationManager.EpochCommitted.Hook(func(details *notarization.EpochCommittedDetails) {
 				deps.Collector.Update(commitmentsNamespace, transactions, collector.MultiLabelsValues([]string{strconv.Itoa(int(details.Commitment.Index()))}, details.AcceptedTransactionsCount))
-			}))
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(validators,
@@ -90,9 +90,9 @@ var CommitmentsMetrics = collector.NewCollection(commitmentsNamespace,
 		collector.WithLabels("epoch"),
 		collector.WithResetBeforeCollecting(true),
 		collector.WithInitFunc(func() {
-			deps.Protocol.Events.Engine.NotarizationManager.EpochCommitted.Attach(event.NewClosure(func(details *notarization.EpochCommittedDetails) {
+			deps.Protocol.Events.Engine.NotarizationManager.EpochCommitted.Hook(func(details *notarization.EpochCommittedDetails) {
 				deps.Collector.Update(commitmentsNamespace, validators, collector.MultiLabelsValues([]string{strconv.Itoa(int(details.Commitment.Index()))}, details.ActiveValidatorsCount))
-			}))
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
 	)),
 )

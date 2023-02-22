@@ -1,12 +1,12 @@
-package booker
+package virtualvoting
 
 import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 type Block struct {
@@ -14,6 +14,7 @@ type Block struct {
 	structureDetails      *markers.StructureDetails
 	addedConflictIDs      utxo.TransactionIDs
 	subtractedConflictIDs utxo.TransactionIDs
+	subjectivelyInvalid   bool
 
 	*blockdag.Block
 }
@@ -69,6 +70,24 @@ func (b *Block) SubtractedConflictIDs() utxo.TransactionIDs {
 	return b.subtractedConflictIDs.Clone()
 }
 
+func (b *Block) IsSubjectivelyInvalid() bool {
+	b.RLock()
+	defer b.RUnlock()
+
+	return b.subjectivelyInvalid
+}
+
+func (b *Block) SetSubjectivelyInvalid(bool) (wasUpdated bool) {
+	b.Lock()
+	defer b.Unlock()
+
+	if wasUpdated = !b.subjectivelyInvalid; wasUpdated {
+		b.subjectivelyInvalid = true
+	}
+
+	return
+}
+
 func NewBlock(block *blockdag.Block, opts ...options.Option[Block]) (newBlock *Block) {
 	return options.Apply(&Block{
 		Block:                 block,
@@ -94,7 +113,7 @@ func (b *Block) IsBooked() (isBooked bool) {
 	return b.booked
 }
 
-func (b *Block) setBooked() (wasUpdated bool) {
+func (b *Block) SetBooked() (wasUpdated bool) {
 	b.Lock()
 	defer b.Unlock()
 
@@ -112,7 +131,7 @@ func (b *Block) StructureDetails() *markers.StructureDetails {
 	return b.structureDetails
 }
 
-func (b *Block) setStructureDetails(structureDetails *markers.StructureDetails) {
+func (b *Block) SetStructureDetails(structureDetails *markers.StructureDetails) {
 	b.Lock()
 	defer b.Unlock()
 
@@ -122,11 +141,11 @@ func (b *Block) setStructureDetails(structureDetails *markers.StructureDetails) 
 // region Blocks ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Blocks represents a collection of Block.
-type Blocks = *set.AdvancedSet[*Block]
+type Blocks = *advancedset.AdvancedSet[*Block]
 
 // NewBlocks returns a new Block collection with the given elements.
 func NewBlocks(blocks ...*Block) (newBlocks Blocks) {
-	return set.NewAdvancedSet(blocks...)
+	return advancedset.NewAdvancedSet(blocks...)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

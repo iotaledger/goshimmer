@@ -2,13 +2,13 @@ package framework
 
 import (
 	"fmt"
-	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
-	"github.com/iotaledger/hive.go/core/generics/options"
 	"time"
 
-	"github.com/mr-tron/base58"
-
+	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
+	"github.com/iotaledger/hive.go/runtime/options"
+
+	"github.com/mr-tron/base58"
 )
 
 const (

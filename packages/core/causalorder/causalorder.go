@@ -7,9 +7,9 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/syncutils"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 // region CausalOrderer ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -52,12 +52,12 @@ type CausalOrder[ID epoch.IndexedID, Entity OrderedEntity[ID]] struct {
 	// dagMutex contains a mutex used to synchronize access to Entities.
 	dagMutex *syncutils.DAGMutex[ID]
 
-	workerPool *workerpool.UnboundedWorkerPool
+	workerPool *workerpool.WorkerPool
 }
 
 // New returns a new CausalOrderer instance with the given parameters.
 func New[ID epoch.IndexedID, Entity OrderedEntity[ID]](
-	workerPool *workerpool.UnboundedWorkerPool,
+	workerPool *workerpool.WorkerPool,
 	entityProvider func(id ID) (entity Entity, exists bool),
 	isOrdered func(entity Entity) (isOrdered bool),
 	orderedCallback func(entity Entity) (err error),
