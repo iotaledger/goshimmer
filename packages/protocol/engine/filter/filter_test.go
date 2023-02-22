@@ -116,7 +116,7 @@ func TestFilter_WithSignatureValidation(t *testing.T) {
 
 func TestFilter_MinCommittableEpochAge(t *testing.T) {
 	tf := NewTestFramework(t,
-		WithMinCommittableEpochAge(30*time.Second), // 3 epochs
+		WithMinCommittableEpochAge(3),
 		WithSignatureValidation(false),
 	)
 

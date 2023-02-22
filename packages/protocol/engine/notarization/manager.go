@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	defaultMinEpochCommittableAge = 1 * time.Minute
+	defaultMinEpochCommittableAge = 6
 )
 
 // region Manager //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -36,7 +36,7 @@ type Manager struct {
 	acceptanceTime      time.Time
 	acceptanceTimeMutex sync.RWMutex
 
-	optsMinCommittableEpochAge time.Duration
+	optsMinCommittableEpochAge epoch.Index
 
 	traits.Initializable
 }
@@ -74,13 +74,16 @@ func (m *Manager) SetAcceptanceTime(acceptanceTime time.Time) {
 	m.acceptanceTimeMutex.Unlock()
 
 	if index := epoch.IndexFromTime(acceptanceTime); index > m.storage.Settings.LatestCommitment().Index() {
-		m.tryCommitEpoch(index, acceptanceTime)
+		m.tryCommitEpochUntil(index)
 	}
 }
 
 // IsFullyCommitted returns if the Manager finished committing all pending epochs up to the current acceptance time.
 func (m *Manager) IsFullyCommitted() bool {
-	return m.AcceptanceTime().Sub((m.storage.Settings.LatestCommitment().Index() + 1).EndTime()) < m.optsMinCommittableEpochAge
+	// If acceptance time is in epoch 10, then the latest committable index is 3 (with optsMinCommittableEpochAge=6), because there are 6 full epochs between epoch 10 and epoch 3.
+	// All epochs smaller than 4 are committable, so in order to check if epoch 3 is committed it's necessary to do m.optsMinCommittableEpochAge-1,
+	// otherwise we'd expect epoch 4 to be committed in order to be fully committed, which is impossible.
+	return m.storage.Settings.LatestCommitment().Index() >= epoch.IndexFromTime(m.AcceptanceTime())-m.optsMinCommittableEpochAge-1
 }
 
 func (m *Manager) NotarizeAcceptedBlock(block *models.Block) (err error) {
@@ -132,13 +135,13 @@ func (m *Manager) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (err er
 }
 
 // MinCommittableEpochAge returns the minimum age of an epoch to be committable.
-func (m *Manager) MinCommittableEpochAge() time.Duration {
+func (m *Manager) MinCommittableEpochAge() epoch.Index {
 	return m.optsMinCommittableEpochAge
 }
 
-func (m *Manager) tryCommitEpoch(index epoch.Index, acceptanceTime time.Time) {
-	for i := m.storage.Settings.LatestCommitment().Index() + 1; i <= index; i++ {
-		if !m.isCommittable(i, acceptanceTime) {
+func (m *Manager) tryCommitEpochUntil(acceptedBlockIndex epoch.Index) {
+	for i := m.storage.Settings.LatestCommitment().Index() + 1; i <= acceptedBlockIndex; i++ {
+		if !m.isCommittable(i, acceptedBlockIndex) {
 			return
 		}
 
@@ -148,8 +151,8 @@ func (m *Manager) tryCommitEpoch(index epoch.Index, acceptanceTime time.Time) {
 	}
 }
 
-func (m *Manager) isCommittable(ei epoch.Index, acceptanceTime time.Time) (isCommittable bool) {
-	return acceptanceTime.Sub(ei.EndTime()) >= m.optsMinCommittableEpochAge
+func (m *Manager) isCommittable(index, acceptedBlockIndex epoch.Index) (isCommittable bool) {
+	return index < acceptedBlockIndex-m.optsMinCommittableEpochAge
 }
 
 func (m *Manager) createCommitment(index epoch.Index) (success bool) {
@@ -221,9 +224,9 @@ func (m *Manager) PerformLocked(perform func(m *Manager)) {
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // WithMinCommittableEpochAge specifies how old an epoch has to be for it to be committable.
-func WithMinCommittableEpochAge(d time.Duration) options.Option[Manager] {
+func WithMinCommittableEpochAge(age epoch.Index) options.Option[Manager] {
 	return func(manager *Manager) {
-		manager.optsMinCommittableEpochAge = d
+		manager.optsMinCommittableEpochAge = age
 	}
 }
 

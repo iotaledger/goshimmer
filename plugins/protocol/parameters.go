@@ -46,7 +46,7 @@ type SchedulerParametersDefinition struct {
 // NotarizationParametersDefinition contains the definition of the parameters used by the notarization plugin.
 type NotarizationParametersDefinition struct {
 	// MinEpochCommittableAge defines the min age of a committable epoch.
-	MinEpochCommittableAge time.Duration `default:"1m" usage:"min age of a committable epoch"`
+	MinEpochCommittableAge int64 `default:"6" usage:"min age of a committable epoch denoted in epochs"`
 }
 
 // DatabaseParametersDefinition contains the definition of configuration parameters used by the storage layer.

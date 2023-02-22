@@ -76,12 +76,12 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 		),
 		protocol.WithEngineOptions(
 			engine.WithFilterOptions(
-				filter.WithMinCommittableEpochAge(NotarizationParameters.MinEpochCommittableAge),
+				filter.WithMinCommittableEpochAge(epoch.Index(NotarizationParameters.MinEpochCommittableAge)),
 				filter.WithMaxAllowedWallClockDrift(Parameters.MaxAllowedClockDrift),
 				filter.WithSignatureValidation(true),
 			),
 			engine.WithNotarizationManagerOptions(
-				notarization.WithMinCommittableEpochAge(NotarizationParameters.MinEpochCommittableAge),
+				notarization.WithMinCommittableEpochAge(epoch.Index(NotarizationParameters.MinEpochCommittableAge)),
 			),
 			engine.WithBootstrapThreshold(Parameters.BootstrapWindow),
 			engine.WithTSCManagerOptions(
