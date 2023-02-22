@@ -78,13 +78,6 @@ func (t *TestFramework) setupEvents() {
 		atomic.AddInt32(&(t.conflictRejected), 1)
 		t.confirmationState[conflict.ID()] = conflict.ConfirmationState()
 	})
-	t.Instance.Events.ConflictNotConflicting.Hook(func(conflict *Conflict[utxo.TransactionID, utxo.OutputID]) {
-		if debug.GetEnabled() {
-			t.test.Logf("NOT CONFLICTING: %s", conflict.ID())
-		}
-		atomic.AddInt32(&(t.conflictNotConflicting), 1)
-		t.confirmationState[conflict.ID()] = conflict.ConfirmationState()
-	})
 }
 
 func (t *TestFramework) RegisterConflictIDAlias(alias string, conflictID utxo.TransactionID) {

@@ -31,7 +31,6 @@ const (
 	createdConflicts          = "created_conflicts"
 	acceptedConflicts         = "accepted_conflicts"
 	rejectedConflicts         = "rejected_conflicts"
-	notConflictingConflicts   = "not_conflicting_conflicts"
 )
 
 var EpochMetrics = collector.NewCollection(epochNamespace,
@@ -45,7 +44,7 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 				deps.Collector.Increment(epochNamespace, totalBlocks, strconv.Itoa(eventEpoch))
 
 				// need to initialize epoch metrics with 0 to have consistent data for each epoch
-				for _, metricName := range []string{acceptedBlocksInEpoch, orphanedBlocks, invalidBlocks, subjectivelyInvalidBlocks, totalAttachments, orphanedAttachments, rejectedAttachments, acceptedAttachments, createdConflicts, acceptedConflicts, rejectedConflicts, notConflictingConflicts} {
+				for _, metricName := range []string{acceptedBlocksInEpoch, orphanedBlocks, invalidBlocks, subjectivelyInvalidBlocks, totalAttachments, orphanedAttachments, rejectedAttachments, acceptedAttachments, createdConflicts, acceptedConflicts, rejectedConflicts} {
 					deps.Collector.Update(epochNamespace, metricName, map[string]float64{
 						strconv.Itoa(eventEpoch): 0,
 					})
@@ -58,7 +57,7 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 				epochToEvict := int(details.Commitment.Index()) - metricEvictionOffset
 
 				// need to remove metrics for old epochs, otherwise they would be stored in memory and always exposed to Prometheus, forever
-				for _, metricName := range []string{totalBlocks, acceptedBlocksInEpoch, orphanedBlocks, invalidBlocks, subjectivelyInvalidBlocks, totalAttachments, orphanedAttachments, rejectedAttachments, acceptedAttachments, createdConflicts, acceptedConflicts, rejectedConflicts, notConflictingConflicts} {
+				for _, metricName := range []string{totalBlocks, acceptedBlocksInEpoch, orphanedBlocks, invalidBlocks, subjectivelyInvalidBlocks, totalAttachments, orphanedAttachments, rejectedAttachments, acceptedAttachments, createdConflicts, acceptedConflicts, rejectedConflicts} {
 					deps.Collector.ResetMetricLabels(epochNamespace, metricName, map[string]string{
 						labelName: strconv.Itoa(epochToEvict),
 					})
@@ -199,18 +198,6 @@ var EpochMetrics = collector.NewCollection(epochNamespace,
 			deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictRejected.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 				for it := deps.Protocol.Engine().Tangle.Booker.GetAllAttachments(conflict.ID()).Iterator(); it.HasNext(); {
 					deps.Collector.Increment(epochNamespace, rejectedConflicts, strconv.Itoa(int(it.Next().ID().Index())))
-				}
-			}, event.WithWorkerPool(Plugin.WorkerPool))
-		}),
-	)),
-	collector.WithMetric(collector.NewMetric(notConflictingConflicts,
-		collector.WithType(collector.CounterVec),
-		collector.WithLabels(labelName),
-		collector.WithHelp("Number of conflicts rejected per epoch."),
-		collector.WithInitFunc(func() {
-			deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictNotConflicting.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-				for it := deps.Protocol.Engine().Tangle.Booker.GetAllAttachments(conflict.ID()).Iterator(); it.HasNext(); {
-					deps.Collector.Increment(epochNamespace, notConflictingConflicts, strconv.Itoa(int(it.Next().ID().Index())))
 				}
 			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),

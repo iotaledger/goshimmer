@@ -45,7 +45,7 @@ func (c *TipsConflictTracker) setup() {
 	c.engine.Ledger.ConflictDAG.Events.ConflictRejected.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		c.deleteConflict(conflict.ID())
 	}, event.WithWorkerPool(c.workerPool))
-	c.engine.Ledger.ConflictDAG.Events.ConflictNotConflicting.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	c.engine.Ledger.ConflictDAG.Events.ConflictEvicted.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		c.deleteConflict(conflict.ID())
 	}, event.WithWorkerPool(c.workerPool))
 }
