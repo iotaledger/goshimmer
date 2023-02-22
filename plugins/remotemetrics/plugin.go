@@ -165,14 +165,14 @@ func configureBlockScheduledMetrics(plugin *node.Plugin) {
 	}
 
 	if Parameters.MetricsLevel == Info {
-		deps.Protocol.CongestionControl.Events.Scheduler.BlockDropped.Hook(func(block *scheduler.Block) {
+		deps.Protocol.Events.CongestionControl.Scheduler.BlockDropped.Hook(func(block *scheduler.Block) {
 			sendBlockSchedulerRecord(block, "blockDiscarded")
 		}, event.WithWorkerPool(plugin.WorkerPool))
 	} else {
-		deps.Protocol.CongestionControl.Events.Scheduler.BlockScheduled.Hook(func(block *scheduler.Block) {
+		deps.Protocol.Events.CongestionControl.Scheduler.BlockScheduled.Hook(func(block *scheduler.Block) {
 			sendBlockSchedulerRecord(block, "blockScheduled")
 		}, event.WithWorkerPool(plugin.WorkerPool))
-		deps.Protocol.CongestionControl.Events.Scheduler.BlockDropped.Hook(func(block *scheduler.Block) {
+		deps.Protocol.Events.CongestionControl.Scheduler.BlockDropped.Hook(func(block *scheduler.Block) {
 			sendBlockSchedulerRecord(block, "blockDiscarded")
 		}, event.WithWorkerPool(plugin.WorkerPool))
 	}
