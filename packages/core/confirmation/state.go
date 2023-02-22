@@ -13,9 +13,6 @@ const (
 	// Accepted is the state for accepted entities.
 	Accepted
 
-	// NotConflicting is the state for a conflict, whose all conflicting conflicts are orphaned and rejected.
-	NotConflicting
-
 	// Confirmed is the state for confirmed entities.
 	Confirmed
 )
@@ -45,7 +42,7 @@ func (s State) IsPending() bool {
 
 // Aggregate returns the lowest confirmation state of all given states.
 func (s State) Aggregate(o State) State {
-	if o == Undefined || o == NotConflicting {
+	if o == Undefined {
 		return s
 	}
 
@@ -65,8 +62,6 @@ func (s State) String() (humanReadable string) {
 		return "Rejected"
 	case Accepted:
 		return "Accepted"
-	case NotConflicting:
-		return "NotConflicting"
 	case Confirmed:
 		return "Confirmed"
 	default:

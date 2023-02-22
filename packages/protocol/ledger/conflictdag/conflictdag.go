@@ -205,15 +205,12 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) SetConflictAccepted(confli
 			continue
 		}
 
-		if conflict.ConfirmationState() != confirmation.NotConflicting {
-			if !conflict.setConfirmationState(confirmation.Accepted) {
-				continue
-			}
-
-			modified = true
-
-			c.Events.ConflictAccepted.Trigger(conflict)
+		if !conflict.setConfirmationState(confirmation.Accepted) {
+			continue
 		}
+		modified = true
+
+		c.Events.ConflictAccepted.Trigger(conflict)
 
 		confirmationWalker.PushAll(conflict.Parents().Slice()...)
 
@@ -466,64 +463,6 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) EvictConflict(conflictID C
 			// TODO: trigger conflict set evicted event
 		}
 	}
-}
-
-func (c *ConflictDAG[ConflictIDType, ResourceIDType]) HandleOrphanedConflict(conflictID ConflictIDType) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	initialConflict, exists := c.conflict(conflictID)
-	if !exists {
-		return
-	}
-
-	c.rejectConflictsWithFutureCone(advancedset.NewAdvancedSet(initialConflict))
-
-	// iterate conflict's conflictSets. if only one conflict is pending, then mark it appropriately
-	for it := initialConflict.conflictSets.Iterator(); it.HasNext(); {
-		conflictSet := it.Next()
-
-		pendingConflict := c.getLastPendingConflict(conflictSet)
-		if pendingConflict == nil {
-			continue
-		}
-
-		// check if the last pending conflict is part of any other ConflictSets need to be voted on.
-		nonResolvedConflictSets := false
-		for pendingConflictSetsIt := pendingConflict.ConflictSets().Iterator(); pendingConflictSetsIt.HasNext(); {
-			pendingConflictConflictSet := pendingConflictSetsIt.Next()
-			if lastConflictSetElement := c.getLastPendingConflict(pendingConflictConflictSet); lastConflictSetElement == nil {
-				nonResolvedConflictSets = true
-				break
-			}
-		}
-
-		// if pendingConflict does not belong to any pending conflict sets, mark it as NotConflicting.
-		if !nonResolvedConflictSets {
-			pendingConflict.setConfirmationState(confirmation.NotConflicting)
-			c.Events.ConflictNotConflicting.Trigger(pendingConflict)
-		}
-	}
-}
-
-// getLastPendingConflict returns last pending Conflict from the ConflictSet or returns nil if zero or more than one pending conflicts left.
-func (c *ConflictDAG[ConflictIDType, ResourceIDType]) getLastPendingConflict(conflictSet *ConflictSet[ConflictIDType, ResourceIDType]) (pendingConflict *Conflict[ConflictIDType, ResourceIDType]) {
-	pendingConflictsCount := 0
-
-	for itConflict := conflictSet.Conflicts().Iterator(); itConflict.HasNext(); {
-		conflictSetMember := itConflict.Next()
-
-		if conflictSetMember.ConfirmationState() == confirmation.Pending {
-			pendingConflict = conflictSetMember
-			pendingConflictsCount++
-		}
-
-		if pendingConflictsCount > 1 {
-			return nil
-		}
-	}
-
-	return pendingConflict
 }
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
