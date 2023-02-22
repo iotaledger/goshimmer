@@ -3,10 +3,14 @@ package dashboard
 import (
 	"context"
 	"net/http"
-	"sync"
+	"sort"
+	"sync/atomic"
+	"time"
 
 	"github.com/labstack/echo"
 
+	"github.com/iotaledger/goshimmer/packages/app/retainer"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
@@ -23,11 +27,7 @@ var (
 	visualizerWorkerQueueSize = 500
 	visualizerWorkerPool      *workerpool.NonBlockingQueuedWorkerPool
 
-	blkHistoryMutex    sync.RWMutex
-	blkFinalized       map[string]bool
-	blkHistory         []*models.Block
-	maxBlkHistorySize  = 1000
-	numHistoryToRemove = 100
+	currentEpoch atomic.Int64
 )
 
 // vertex defines a vertex in a DAG.
@@ -36,6 +36,7 @@ type vertex struct {
 	ParentIDsByType map[string][]string `json:"parentIDsByType"`
 	IsFinalized     bool                `json:"is_finalized"`
 	IsTx            bool                `json:"is_tx"`
+	IssuingTime     time.Time
 }
 
 // tipinfo holds information about whether a given block is a tip or not.
@@ -60,10 +61,6 @@ func configureVisualizer() {
 
 		task.Return(nil)
 	}, workerpool.WorkerCount(visualizerWorkerCount), workerpool.QueueSize(visualizerWorkerQueueSize))
-
-	// configure blkHistory, blkSolid
-	blkFinalized = make(map[string]bool, maxBlkHistorySize)
-	blkHistory = make([]*models.Block, 0, maxBlkHistorySize)
 }
 
 func sendVertex(blk *models.Block, finalized bool) {
@@ -84,8 +81,10 @@ func sendTipInfo(block *scheduler.Block, isTip bool) {
 
 func runVisualizer() {
 	processBlock := func(block *models.Block, accepted bool) {
-		addToHistory(block, accepted)
 		visualizerWorkerPool.TrySubmit(block, accepted)
+		if block.ID().Index() > epoch.Index(currentEpoch.Load()) {
+			currentEpoch.Store(int64(block.ID().Index()))
+		}
 	}
 
 	notifyNewBlkStored := event.NewClosure(func(block *blockdag.Block) {
@@ -124,42 +123,27 @@ func runVisualizer() {
 
 func setupVisualizerRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/visualizer/history", func(c echo.Context) (err error) {
-		blkHistoryMutex.RLock()
-		defer blkHistoryMutex.RUnlock()
-
-		cpyHistory := make([]*models.Block, len(blkHistory))
-		copy(cpyHistory, blkHistory)
-
 		var res []vertex
-		for _, block := range cpyHistory {
-			res = append(res, vertex{
-				ID:              block.ID().Base58(),
-				ParentIDsByType: prepareParentReferences(block),
-				IsFinalized:     blkFinalized[block.ID().Base58()],
-				IsTx:            block.Payload().Type() == devnetvm.TransactionType,
+
+		start := epoch.Index(currentEpoch.Load())
+		for _, ei := range []epoch.Index{start - 1, start} {
+			blocks := deps.Retainer.LoadAll(ei)
+			_ = blocks.ForEach(func(element *retainer.BlockMetadata) (err error) {
+				res = append(res, vertex{
+					ID:              element.ID().Base58(),
+					ParentIDsByType: prepareParentReferences(element.M.Block),
+					IsFinalized:     element.M.Accepted,
+					IsTx:            element.M.Block.Payload().Type() == devnetvm.TransactionType,
+					IssuingTime:     element.M.Block.IssuingTime(),
+				})
+				return
 			})
 		}
 
+		sort.Slice(res, func(i, j int) bool {
+			return res[i].IssuingTime.Before(res[j].IssuingTime)
+		})
+
 		return c.JSON(http.StatusOK, history{Vertices: res})
 	})
-}
-
-func addToHistory(blk *models.Block, finalized bool) {
-	blkHistoryMutex.Lock()
-	defer blkHistoryMutex.Unlock()
-	if _, exist := blkFinalized[blk.ID().Base58()]; exist {
-		blkFinalized[blk.ID().Base58()] = finalized
-		return
-	}
-
-	// remove 100 old blks if the slice is full
-	if len(blkHistory) >= maxBlkHistorySize {
-		for i := 0; i < numHistoryToRemove; i++ {
-			delete(blkFinalized, blkHistory[i].ID().Base58())
-		}
-		blkHistory = append(blkHistory[:0], blkHistory[numHistoryToRemove:maxBlkHistorySize]...)
-	}
-	// add new blk
-	blkHistory = append(blkHistory, blk)
-	blkFinalized[blk.ID().Base58()] = finalized
 }
