@@ -526,9 +526,14 @@ func (b *Booker) setupEvents() {
 		}
 	}, event.WithWorkerPool(b.workers.CreatePool("Booker", 2)))
 
+	wp := b.workers.CreatePool("VirtualVoting Eviction", 1)
 	b.Events.MarkerManager.SequenceEvicted.Hook(func(sequenceID markers.SequenceID) {
 		b.VirtualVoting.EvictSequence(sequenceID)
-	}, event.WithWorkerPool(b.workers.CreatePool("VirtualVoting Sequence Eviction", 1)))
+	}, event.WithWorkerPool(wp))
+
+	b.Ledger.ConflictDAG.Events.ConflictEvicted.Hook(func(c *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+		b.VirtualVoting.EvictConflict(c.ID())
+	}, event.WithWorkerPool(wp))
 }
 
 // region FORK LOGIC ///////////////////////////////////////////////////////////////////////////////////////////////////

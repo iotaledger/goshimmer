@@ -145,6 +145,13 @@ func (o *VirtualVoting) EvictEpochTracker(epochIndex epoch.Index) {
 	o.epochTracker.EvictEpoch(epochIndex)
 }
 
+func (o *VirtualVoting) EvictConflict(conflictID utxo.TransactionID) {
+	o.evictionMutex.Lock()
+	defer o.evictionMutex.Unlock()
+
+	o.conflictTracker.EvictConflict(conflictID)
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Forking logic ////////////////////////////////////////////////////////////////////////////////////////////////

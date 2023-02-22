@@ -452,7 +452,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) EvictConflict(conflictID C
 	}
 
 	c.conflicts.Delete(conflictID)
-	// TODO: trigger conflict evicted event
+	c.Events.ConflictEvicted.Trigger(conflict)
 
 	// Delete the conflict from all its conflict sets.
 	for it := conflict.ConflictSets().Iterator(); it.HasNext(); {
@@ -460,7 +460,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) EvictConflict(conflictID C
 		// In case this is the last conflict in the conflict set, delete the conflict set.
 		if _, isEmpty := conflictSet.DeleteConflictMember(conflict); isEmpty {
 			c.conflictSets.Delete(conflictSet.ID())
-			// TODO: trigger conflict set evicted event
+			c.Events.ConflictSetEvicted.Trigger(conflictSet)
 		}
 	}
 }

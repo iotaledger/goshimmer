@@ -72,6 +72,10 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) AddSupp
 	}
 }
 
+func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) EvictConflict(conflictID ConflictIDType) {
+	c.votes.Delete(conflictID)
+}
+
 func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) applyVotes(defaultVote *votes.Vote[ConflictIDType, VotePowerType], conflictIDs *advancedset.AdvancedSet[ConflictIDType]) (collectedEvents []*VoterEvent[ConflictIDType]) {
 	for it := conflictIDs.Iterator(); it.HasNext(); {
 		conflictID := it.Next()
