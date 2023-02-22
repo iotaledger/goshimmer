@@ -2,6 +2,7 @@ import { action, observable, ObservableMap } from 'mobx';
 import { registerHandler, WSMsgType } from "app/misc/WS";
 import { RouterStore } from "mobx-react-router";
 import { default as Viva } from 'vivagraphjs';
+import {Block} from './ExplorerStore';
 
 export class Vertex {
     id: string;
@@ -18,6 +19,19 @@ export class TipInfo {
 
 class history {
     vertices: Array<Vertex>;
+}
+
+const COLOR = {
+    BlockPending: "#b9b7bd",
+    BlockConfirmed: "#6c71c4",
+    TransactionPending: "#393e46",
+    TransactionConfirmed: "#fad02c",
+    Tip: "#cb4b16",
+    Unknown: "#b58900",
+    Line: "#586e75",
+    SelectedPastConeLine: "#e105f5",
+    SelectedFutureConeLine: "#51e05d",
+    Selected: "#859900"
 }
 
 const vertexSize = 20;
@@ -47,13 +61,9 @@ export class VisualizerStore {
 
     constructor(routerStore: RouterStore) {
         this.routerStore = routerStore;
-        this.setup();
-    }
-
-    setup = async() => {
-        await this.fetchHistory();
         registerHandler(WSMsgType.Vertex, this.addVertex);
         registerHandler(WSMsgType.TipInfo, this.addTipInfo);
+        this.fetchHistory();
     }
 
     fetchHistory = async () => {
@@ -111,44 +121,45 @@ export class VisualizerStore {
         let existing = this.vertices.get(vert.id);
         if (existing) {
             if (!existing.is_finalized && vert.is_finalized) {
-                existing.is_finalized = true;
                 this.finalized_count++;
             }
-            // update parent1 and parent2 ids since we might be dealing
-            // with a vertex obj only created from a tip info
-            existing.parentIDsByType = vert.parentIDsByType;
-            vert = existing;
         } else {
-            console.log(vert)
             if (vert.is_finalized) {
                 this.finalized_count++;
-                // this.addTipInfo({id:vert.id, is_tip: false});
             }
             this.verticesIncomingOrder.push(vert.id);
             this.checkLimit();
         }
         this.vertices.set(vert.id, vert);
+
         if (this.draw) {
             this.drawVertex(vert);
         }
     };
 
     @action
-    addTipInfo = (tipInfo: TipInfo) => {
-        let vert = this.vertices.get(tipInfo.id);
-        if (!vert) {
-            // create a new empty one for now
-            console.log("node not exists, first seen as tip")
-            vert = new Vertex();
-            vert.id = tipInfo.id;
-            this.verticesIncomingOrder.push(vert.id);
-            this.checkLimit();
+    addTipInfo = async (tipInfo: TipInfo) => {
+        let v = this.vertices.get(tipInfo.id);
+        if (!v) {
+            v = new Vertex();
+            v.id = tipInfo.id;
+
+            // first seen as tip, get parents info
+            let res = await fetch(`/api/block/${tipInfo.id}`);
+            if (res.status === 200) {
+                let blk: Block = await res.json();
+                v.parentIDsByType = blk.parentsByType;
+                v.is_finalized = blk.acceptance;
+            }
+            this.verticesIncomingOrder.push(v.id);
         }
-        this.tips_count += tipInfo.is_tip ? 1 : vert.is_tip ? -1 : 0;
-        vert.is_tip = tipInfo.is_tip;
-        this.vertices.set(vert.id, vert);
+
+        this.tips_count += tipInfo.is_tip ? 1 : v.is_tip ? -1 : 0;
+        v.is_tip = tipInfo.is_tip;
+        this.vertices.set(tipInfo.id, v);
+
         if (this.draw) {
-            this.drawVertex(vert);
+            this.drawVertex(v);
         }
     };
 
@@ -178,58 +189,55 @@ export class VisualizerStore {
     }
 
     drawVertex = (vert: Vertex) => {
-        if (vert) {
-            let node;
-            let existing = this.graph.getNode(vert.id);
-            if (existing) {
-                // update coloring
-                let nodeUI = this.graphics.getNodeUI(vert.id);
-                nodeUI.color = parseColor(this.colorForVertexState(vert));
-                node = existing
-            } else {
-                node = this.graph.addNode(vert.id, vert);
-            }
+        let node = this.graph.getNode(vert.id);
+        if (node) {
+            // update coloring
+            let nodeUI = this.graphics.getNodeUI(vert.id);
+            nodeUI.color = parseColor(this.colorForVertexState(vert));
+        } else {
+            node = this.graph.addNode(vert.id, vert);
+        }
 
-            if (vert.parentIDsByType) {
-                Object.keys(vert.parentIDsByType).map((parentType) => {
-                    vert.parentIDsByType[parentType].forEach((value) => {
-                        // if value is valid AND (links is empty OR there is no between parent and children)
-                        if (value && ((!node.links || !node.links.some(link => link.fromId === value)))) {
-                            // draw the link only when the parent exists
-                            let existing = this.graph.getNode(value);
-                            if (existing) {
-                                this.graph.addLink(value, vert.id);
-                            }
+        if (vert.parentIDsByType) {
+            Object.keys(vert.parentIDsByType).map((parentType) => {
+                vert.parentIDsByType[parentType].forEach((value) => {
+                    // if value is valid AND (links is empty OR there is no between parent and children)
+                    if (value && ((!node.links || !node.links.some(link => link.fromId === value)))) {
+                        // draw the link only when the parent exists
+                        let parent = this.graph.getNode(value);
+                        if (parent) {
+                            this.graph.addLink(value, vert.id);
+                        } else {
+                            console.log("link not added, parent doesn't exist", value);
                         }
-                    })
+                    }
                 })
-            }
+            })
         }
     }
 
     colorForVertexState = (vert: Vertex) => {
         if (!vert) {
-            console.log("vert is not exists, can't decide color!")
-            return "#b58900";
+            return COLOR.Unknown;
         }
 
         // finalized
         if (vert.is_finalized) {
             if (vert.is_tx) {
-                return "#fad02c";
+                return COLOR.TransactionConfirmed;
             }
-            return "#6c71c4"
+            return COLOR.BlockConfirmed;
         }
 
         if (vert.is_tip) {
-            return "#cb4b16";
+            return COLOR.Tip;
         }
 
         // pending
         if (vert.is_tx) {
-            return "#393e46"
+            return COLOR.TransactionPending
         }
-        return "#b9b7bd";
+        return COLOR.BlockPending;
     }
 
     start = () => {
@@ -254,7 +262,7 @@ export class VisualizerStore {
             }
             return Viva.Graph.View.webglSquare(vertexSize, this.colorForVertexState(node.data));
         })
-        graphics.link(() => Viva.Graph.View.webglLine("#586e75"));
+        graphics.link(() => Viva.Graph.View.webglLine(COLOR.Line));
         let ele = document.getElementById('visualizer');
         this.renderer = Viva.Graph.View.renderer(this.graph, {
             container: ele, graphics, layout,
@@ -277,8 +285,12 @@ export class VisualizerStore {
         this.graphics = graphics;
         this.renderer.run();
 
-        this.vertices.forEach((vertex) => {
-            this.drawVertex(vertex)
+        // draw vertices by order
+        this.verticesIncomingOrder.forEach((id) => {
+            let v = this.vertices.get(id);
+            if (v) {
+                this.drawVertex(v);
+            }
         })
     }
 
@@ -293,21 +305,41 @@ export class VisualizerStore {
     @action
     updateSelected = (vert: Vertex, viaClick?: boolean) => {
         if (!vert) return;
-        console.log("selected:",vert)
+
         this.selected = vert;
         this.selected_via_click = !!viaClick;
 
         // mutate links
         let nodeUI = this.graphics.getNodeUI(vert.id);
         this.selected_origin_color = nodeUI.color
-        nodeUI.color = parseColor("#859900");
+        nodeUI.color = parseColor(COLOR.Selected);
         nodeUI.size = vertexSize * 1.5;
+
+        let node = this.graph.getNode(vert.id);
+        const seenForward = [];
+        const seenBackwards = [];
+        dfsIterator(this.graph, node, node => {
+        }, true,
+            link => {
+                const linkUI = this.graphics.getLinkUI(link.id);
+                linkUI.color = parseColor(COLOR.SelectedFutureConeLine);
+            },
+            seenBackwards
+        );
+        dfsIterator(this.graph, node, node => {
+        }, false,
+            link => {
+                const linkUI = this.graphics.getLinkUI(link.id);
+                linkUI.color = parseColor(COLOR.SelectedPastConeLine);
+            },
+            seenForward
+        );
     }
 
     resetLinks = () => {
         this.graph.forEachLink(function (link) {
             const linkUI = this.graphics.getLinkUI(link.id);
-            linkUI.color = parseColor("#586e75");
+            linkUI.color = parseColor(COLOR.Line);
         });
     }
 
@@ -335,7 +367,7 @@ export class VisualizerStore {
         }, true,
             link => {
                 const linkUI = this.graphics.getLinkUI(link.id);
-                linkUI.color = parseColor("#586e75");
+                linkUI.color = parseColor(COLOR.Line);
             },
             seenBackwards
         );
@@ -343,7 +375,7 @@ export class VisualizerStore {
         }, false,
             link => {
                 const linkUI = this.graphics.getLinkUI(link.id);
-                linkUI.color = parseColor("#586e75");
+                linkUI.color = parseColor(COLOR.Line);
             },
             seenForward
         );
@@ -371,14 +403,16 @@ function dfsIterator(graph, node, cb, up, cbLinks: any = false, seenNodes = []) 
         }
 
         for (const link of node.links) {
-            if (cbLinks) cbLinks(link);
-
+            // parents
             if (!up && link.toId === node.id && !seenNodes.includes(graph.getNode(link.fromId))) {
+                if (cbLinks) cbLinks(link);
                 seenNodes.push(graph.getNode(link.fromId));
                 continue;
             }
 
+            // children
             if (up && link.fromId === node.id && !seenNodes.includes(graph.getNode(link.toId))) {
+                if (cbLinks) cbLinks(link);
                 seenNodes.push(graph.getNode(link.toId));
             }
         }
