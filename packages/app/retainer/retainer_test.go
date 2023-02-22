@@ -11,8 +11,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/hive.go/core/serix"
+	"github.com/iotaledger/hive.go/core/types"
 	"github.com/iotaledger/hive.go/core/workerpool"
 
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol"
@@ -34,6 +36,20 @@ func TestRetainer_BlockMetadata_Serialization(t *testing.T) {
 	require.Equal(t, len(serializedBytes), decodedBytes)
 
 	validateDeserialized(t, meta, metaDeserialized)
+}
+
+func TestRetainer_Commitment_Serialization(t *testing.T) {
+	cd := createCommitmentDetails()
+
+	serializedBytes, err := cd.Bytes()
+	require.NoError(t, err)
+
+	cdDeserialized := newCommitmentDetails(nil)
+	decodedBytes, err := cdDeserialized.FromBytes(serializedBytes)
+	require.NoError(t, err)
+	require.Equal(t, len(serializedBytes), decodedBytes)
+
+	validateDeserializedCommitmentDetails(t, cd, cdDeserialized)
 }
 
 func TestRetainer_BlockMetadata_JSON(t *testing.T) {
@@ -198,6 +214,14 @@ func validateDeserialized(t *testing.T, meta *BlockMetadata, metaDeserialized *B
 	require.Equal(t, meta.M.AcceptedTime.Unix(), metaDeserialized.M.AcceptedTime.Unix())
 }
 
+func validateDeserializedCommitmentDetails(t *testing.T, cd *CommitmentDetails, cdDeserialized *CommitmentDetails) {
+	require.Equal(t, cd.M.AcceptedBlocks, cdDeserialized.M.AcceptedBlocks)
+	require.Equal(t, cd.M.AcceptedTransactions, cdDeserialized.M.AcceptedTransactions)
+	require.Equal(t, cd.M.CreatedOutputs, cdDeserialized.M.CreatedOutputs)
+	require.Equal(t, cd.M.SpentOutputs, cdDeserialized.M.SpentOutputs)
+	require.EqualValues(t, cd.M.Commitment, cdDeserialized.M.Commitment)
+}
+
 func createBlockMetadata() *BlockMetadata {
 	var blockID0, blockID1, blockID2 models.BlockID
 	_ = blockID0.FromRandomness()
@@ -239,6 +263,42 @@ func createBlockMetadata() *BlockMetadata {
 	meta.M.Accepted = true
 	meta.M.AcceptedTime = time.Now()
 	return meta
+}
+
+func createCommitmentDetails() *CommitmentDetails {
+	var id0, id1 commitment.ID
+	_ = id0.FromRandomness()
+	_ = id1.FromRandomness()
+
+	var root types.Identifier
+	_ = root.FromRandomness()
+	cm := commitment.New(epoch.Index(4), id0, root, 500)
+
+	cd := newCommitmentDetails(nil)
+	cd.SetID(id1)
+	cd.M.Commitment = cm
+
+	var blockID0 models.BlockID
+	_ = blockID0.FromRandomness()
+
+	cd.M.AcceptedBlocks = make(models.BlockIDs)
+	cd.M.AcceptedBlocks.Add(blockID0)
+
+	var txID utxo.TransactionID
+	_ = txID.FromRandomness()
+	cd.M.AcceptedTransactions = utxo.NewTransactionIDs()
+	cd.M.AcceptedTransactions.Add(txID)
+
+	var outputID0, outputID1 utxo.OutputID
+	_ = outputID0.FromRandomness()
+	_ = outputID1.FromRandomness()
+
+	cd.M.CreatedOutputs = utxo.NewOutputIDs()
+	cd.M.CreatedOutputs.Add(outputID0)
+	cd.M.SpentOutputs = utxo.NewOutputIDs()
+	cd.M.SpentOutputs.Add(outputID1)
+
+	return cd
 }
 
 func printPrettyJSON(t *testing.T, b []byte) {

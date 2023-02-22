@@ -1,6 +1,7 @@
 package retainer
 
 import (
+	"context"
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
@@ -8,23 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/generics/model"
 	"github.com/iotaledger/hive.go/core/serix"
-	"github.com/pkg/errors"
 )
-
-func init() {
-	err := serix.DefaultAPI.RegisterTypeSettings(make(models.BlockIDs, 0), serix.TypeSettings{}.WithLengthPrefixType(serix.LengthPrefixTypeAsUint16))
-	if err != nil {
-		panic(errors.Wrap(err, "error registering BlockIDs type settings"))
-	}
-	err = serix.DefaultAPI.RegisterTypeSettings(utxo.NewTransactionIDs(), serix.TypeSettings{}.WithLengthPrefixType(serix.LengthPrefixTypeAsUint16))
-	if err != nil {
-		panic(errors.Wrap(err, "error registering TransactionIDs type settings"))
-	}
-	err = serix.DefaultAPI.RegisterTypeSettings(utxo.NewOutputIDs(), serix.TypeSettings{}.WithLengthPrefixType(serix.LengthPrefixTypeAsUint16))
-	if err != nil {
-		panic(errors.Wrap(err, "error registering OutputIDs type settings"))
-	}
-}
 
 // region cachedCommitment ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -68,10 +53,10 @@ type commitmentDetailsModel struct {
 	ID commitment.ID `serix:"0"`
 
 	Commitment           *commitment.Commitment `serix:"1"`
-	AcceptedBlocks       models.BlockIDs        `serix:"2"`
-	AcceptedTransactions utxo.TransactionIDs    `serix:"3"`
-	CreatedOutputs       utxo.OutputIDs         `serix:"4"`
-	SpentOutputs         utxo.OutputIDs         `serix:"5"`
+	AcceptedBlocks       models.BlockIDs        `serix:"2,lengthPrefixType=uint32"`
+	AcceptedTransactions utxo.TransactionIDs    `serix:"3,lengthPrefixType=uint32"`
+	CreatedOutputs       utxo.OutputIDs         `serix:"4,lengthPrefixType=uint32"`
+	SpentOutputs         utxo.OutputIDs         `serix:"5,lengthPrefixType=uint32"`
 }
 
 func newCommitmentDetails(cc *cachedCommitment) (c *CommitmentDetails) {
@@ -94,4 +79,20 @@ func newCommitmentDetails(cc *cachedCommitment) (c *CommitmentDetails) {
 	c.M.SpentOutputs = cc.SpentOutputs
 
 	return
+}
+
+func (c *CommitmentDetails) Encode() ([]byte, error) {
+	return serix.DefaultAPI.Encode(context.Background(), c.M)
+}
+
+func (c *CommitmentDetails) Decode(bytes []byte) (int, error) {
+	return serix.DefaultAPI.Decode(context.Background(), bytes, &c.M)
+}
+
+func (c *CommitmentDetails) MarshalJSON() ([]byte, error) {
+	return serix.DefaultAPI.JSONEncode(context.Background(), c.M)
+}
+
+func (c *CommitmentDetails) UnmarshalJSON(bytes []byte) error {
+	return serix.DefaultAPI.JSONDecode(context.Background(), bytes, &c.M)
 }
