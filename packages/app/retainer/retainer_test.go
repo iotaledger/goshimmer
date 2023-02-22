@@ -135,7 +135,7 @@ func TestRetainer_BlockMetadata_Evicted(t *testing.T) {
 	require.True(t, exists)
 	tf.Instance.Engine().EvictionState.EvictUntil(b.ID().EpochIndex + 1)
 	workers.Wait()
-	retainer.WorkerPool().PendingTasksCounter.WaitIsZero()
+	retainer.BlockWorkerPool().PendingTasksCounter.WaitIsZero()
 
 	meta, exists := retainer.BlockMetadata(block.ID())
 	require.True(t, exists)

@@ -33,11 +33,12 @@ const (
 )
 
 type Retainer struct {
-	workerPool        *workerpool.UnboundedWorkerPool
-	cachedMetadata    *memstorage.EpochStorage[models.BlockID, *cachedMetadata]
-	blockStorage      *database.PersistentEpochStorage[models.BlockID, BlockMetadata, *models.BlockID, *BlockMetadata]
-	cachedCommitment  *memstorage.EpochStorage[commitment.ID, *cachedCommitment]
-	commitmentStorage *database.PersistentEpochStorage[commitment.ID, CommitmentDetails, *commitment.ID, *CommitmentDetails]
+	blockWorkerPool      *workerpool.UnboundedWorkerPool
+	commitmentWorkerPool *workerpool.UnboundedWorkerPool
+	cachedMetadata       *memstorage.EpochStorage[models.BlockID, *cachedMetadata]
+	blockStorage         *database.PersistentEpochStorage[models.BlockID, BlockMetadata, *models.BlockID, *BlockMetadata]
+	cachedCommitment     *memstorage.EpochStorage[commitment.ID, *cachedCommitment]
+	commitmentStorage    *database.PersistentEpochStorage[commitment.ID, CommitmentDetails, *commitment.ID, *CommitmentDetails]
 
 	dbManager              *database.Manager
 	protocol               *protocol.Protocol
@@ -49,12 +50,13 @@ type Retainer struct {
 
 func NewRetainer(workers *workerpool.Group, protocol *protocol.Protocol, dbManager *database.Manager, opts ...options.Option[Retainer]) (r *Retainer) {
 	return options.Apply(&Retainer{
-		workerPool:       workers.CreatePool("Retainer", 2),
-		cachedMetadata:   memstorage.NewEpochStorage[models.BlockID, *cachedMetadata](),
-		cachedCommitment: memstorage.NewEpochStorage[commitment.ID, *cachedCommitment](),
-		protocol:         protocol,
-		dbManager:        dbManager,
-		optsRealm:        []byte("retainer"),
+		blockWorkerPool:      workers.CreatePool("RetainerBlock", 2),
+		commitmentWorkerPool: workers.CreatePool("RetainerCommitment", 1),
+		cachedMetadata:       memstorage.NewEpochStorage[models.BlockID, *cachedMetadata](),
+		cachedCommitment:     memstorage.NewEpochStorage[commitment.ID, *cachedCommitment](),
+		protocol:             protocol,
+		dbManager:            dbManager,
+		optsRealm:            []byte("retainer"),
 	}, opts, (*Retainer).setupEvents, func(r *Retainer) {
 		r.blockStorage = database.NewPersistentEpochStorage[models.BlockID, BlockMetadata](dbManager, append(r.optsRealm, []byte{prefixBlockMetadataStorage}...))
 		r.commitmentStorage = database.NewPersistentEpochStorage[commitment.ID, CommitmentDetails](dbManager, append(r.optsRealm, []byte{prefixCommitmentDetailsStorage}...))
@@ -64,7 +66,8 @@ func NewRetainer(workers *workerpool.Group, protocol *protocol.Protocol, dbManag
 }
 
 func (r *Retainer) Shutdown() {
-	r.workerPool.Shutdown()
+	r.blockWorkerPool.Shutdown()
+	r.commitmentWorkerPool.Shutdown()
 }
 
 func (r *Retainer) Block(blockID models.BlockID) (block *models.Block, exists bool) {
@@ -135,9 +138,14 @@ func (r *Retainer) DatabaseSize() int64 {
 	return r.dbManager.TotalStorageSize()
 }
 
-// WorkerPool returns the worker pool of the retainer.
-func (r *Retainer) WorkerPool() *workerpool.UnboundedWorkerPool {
-	return r.workerPool
+// BlockWorkerPool returns the block worker pool of the retainer.
+func (r *Retainer) BlockWorkerPool() *workerpool.UnboundedWorkerPool {
+	return r.blockWorkerPool
+}
+
+// CommitmentWorkerPoolv returns the commitment worker pool of the retainer.
+func (r *Retainer) CommitmentWorkerPool() *workerpool.UnboundedWorkerPool {
+	return r.commitmentWorkerPool
 }
 
 // PruneUntilEpoch prunes storage epochs less than and equal to the given index.
@@ -150,7 +158,7 @@ func (r *Retainer) setupEvents() {
 		if cm := r.createOrGetCachedMetadata(block.ID()); cm != nil {
 			cm.setBlockDAGBlock(block)
 		}
-	}, r.workerPool)
+	}, r.blockWorkerPool)
 
 	// TODO: missing blocks make the node fail due to empty strong parents
 	// r.protocol.Events.Engine.Tangle.BlockDAG.BlockMissing.AttachWithWorkerPool(event.NewClosure(func(block *blockdag.Block) {
@@ -162,7 +170,7 @@ func (r *Retainer) setupEvents() {
 		if cm := r.createOrGetCachedMetadata(block.ID()); cm != nil {
 			cm.setBlockDAGBlock(block)
 		}
-	}, r.workerPool)
+	}, r.blockWorkerPool)
 
 	event.AttachWithWorkerPool(r.protocol.Events.Engine.Tangle.Booker.BlockBooked, func(block *booker.Block) {
 		if cm := r.createOrGetCachedMetadata(block.ID()); cm != nil {
@@ -171,33 +179,33 @@ func (r *Retainer) setupEvents() {
 			cm.ConflictIDs = r.protocol.Engine().Tangle.Booker.BlockConflicts(block)
 			cm.Unlock()
 		}
-	}, r.workerPool)
+	}, r.blockWorkerPool)
 
 	event.AttachWithWorkerPool(r.protocol.Events.Engine.Tangle.VirtualVoting.BlockTracked, func(block *virtualvoting.Block) {
 		if cm := r.createOrGetCachedMetadata(block.ID()); cm != nil {
 			cm.setVirtualVotingBlock(block)
 		}
-	}, r.workerPool)
+	}, r.blockWorkerPool)
 
 	congestionControl := func(block *scheduler.Block) {
 		if cm := r.createOrGetCachedMetadata(block.ID()); cm != nil {
 			cm.setSchedulerBlock(block)
 		}
 	}
-	event.AttachWithWorkerPool(r.protocol.Events.CongestionControl.Scheduler.BlockScheduled, congestionControl, r.workerPool)
-	event.AttachWithWorkerPool(r.protocol.Events.CongestionControl.Scheduler.BlockDropped, congestionControl, r.workerPool)
-	event.AttachWithWorkerPool(r.protocol.Events.CongestionControl.Scheduler.BlockSkipped, congestionControl, r.workerPool)
+	event.AttachWithWorkerPool(r.protocol.Events.CongestionControl.Scheduler.BlockScheduled, congestionControl, r.blockWorkerPool)
+	event.AttachWithWorkerPool(r.protocol.Events.CongestionControl.Scheduler.BlockDropped, congestionControl, r.blockWorkerPool)
+	event.AttachWithWorkerPool(r.protocol.Events.CongestionControl.Scheduler.BlockSkipped, congestionControl, r.blockWorkerPool)
 
 	event.AttachWithWorkerPool(r.protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted, func(block *blockgadget.Block) {
 		cm := r.createOrGetCachedMetadata(block.ID())
 		cm.setAcceptanceBlock(block)
-	}, r.workerPool)
+	}, r.blockWorkerPool)
 
 	event.AttachWithWorkerPool(r.protocol.Events.Engine.Consensus.BlockGadget.BlockConfirmed, func(block *blockgadget.Block) {
 		if cm := r.createOrGetCachedMetadata(block.ID()); cm != nil {
 			cm.setConfirmationBlock(block)
 		}
-	}, r.workerPool)
+	}, r.blockWorkerPool)
 
 	event.Hook(r.protocol.Events.Engine.EvictionState.EpochEvicted, r.storeAndEvictEpoch)
 
@@ -218,7 +226,7 @@ func (r *Retainer) setupEvents() {
 
 			cc.setCommitment(e.Commitment, blockIDs, txIDs, e.CreatedOutputs, e.SpentOutputs)
 		}
-	}), r.workerPool)
+	}), r.commitmentWorkerPool)
 }
 
 func (r *Retainer) createOrGetCachedMetadata(id models.BlockID) *cachedMetadata {

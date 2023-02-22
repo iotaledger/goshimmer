@@ -33,7 +33,8 @@ var WorkerPoolMetrics = collector.NewCollection(workerPoolNamespace,
 			}
 
 			if deps.Retainer != nil {
-				collected[retainerLabel] = float64(deps.Retainer.WorkerPool().WorkerCount())
+				collected[retainerLabel] = float64(deps.Retainer.BlockWorkerPool().WorkerCount() +
+					deps.Retainer.CommitmentWorkerPool().WorkerCount())
 			}
 
 			return collected
@@ -55,7 +56,8 @@ var WorkerPoolMetrics = collector.NewCollection(workerPoolNamespace,
 			}
 
 			if deps.Retainer != nil {
-				collected[retainerLabel] = float64(deps.Retainer.WorkerPool().PendingTasksCounter.Get())
+				collected[retainerLabel] = float64(deps.Retainer.BlockWorkerPool().PendingTasksCounter.Get() +
+					deps.Retainer.CommitmentWorkerPool().PendingTasksCounter.Get())
 			}
 
 			return collected
