@@ -74,7 +74,7 @@ var TangleMetrics = collector.NewCollection(tangleNamespace,
 		collector.WithHelp("Number of blocks per component"),
 		collector.WithLabels("component"),
 		collector.WithInitFunc(func() {
-			deps.Protocol.Network().Events.BlockReceived.Hook(func(_ *network.BlockReceivedEvent) {
+			deps.Protocol.Events.Network.BlockReceived.Hook(func(_ *network.BlockReceivedEvent) {
 				deps.Collector.Increment(tangleNamespace, blocksPerComponentCount, collector.Received.String())
 			}, event.WithWorkerPool(Plugin.WorkerPool))
 			deps.Protocol.Events.Engine.Filter.BlockAllowed.Hook(func(_ *models.Block) {
