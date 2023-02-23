@@ -147,6 +147,8 @@ func (b *Booker) TransactionConflictIDs(block *virtualvoting.Block) (conflictIDs
 
 // PayloadConflictID returns the ConflictID of the conflicting payload contained in the given Block without conflicts from the UTXO past cone.
 func (b *Booker) PayloadConflictID(block *virtualvoting.Block) (conflictID utxo.TransactionID, conflictingConflictIDs utxo.TransactionIDs, isTransaction bool) {
+	conflictingConflictIDs = utxo.NewTransactionIDs()
+
 	if b.BlockDAG.EvictionState.InEvictedEpoch(block.ID()) {
 		return conflictID, conflictingConflictIDs, false
 	}
@@ -161,7 +163,6 @@ func (b *Booker) PayloadConflictID(block *virtualvoting.Block) (conflictID utxo.
 		return utxo.EmptyTransactionID, conflictingConflictIDs, true
 	}
 
-	conflictingConflictIDs = utxo.NewTransactionIDs()
 	conflict.ForEachConflictingConflict(func(conflictingConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) bool {
 		conflictingConflictIDs.Add(conflictingConflict.ID())
 		return true
@@ -369,14 +370,13 @@ func (b *Booker) determineBookingDetails(block *virtualvoting.Block) (parentsStr
 	// block always sets Like reference its own conflict, if its payload is a transaction, and it's conflicting
 	if selfConflictID, selfDislikedConflictIDs, isTransaction := b.PayloadConflictID(block); isTransaction && !selfConflictID.IsEmpty() {
 		inheritedConflictIDs.Add(selfConflictID)
+		// if a payload is a conflicting transaction, then remove any conflicting conflicts from supported conflicts
 		inheritedConflictIDs.DeleteAll(b.Ledger.Utils.ConflictIDsInFutureCone(selfDislikedConflictIDs))
 	}
 
 	// set transactionConflictIDs at the end, so that if it contains conflicting conflicts,
 	// it cannot be masked by like references and the block will be seen as subjectively invalid
 	inheritedConflictIDs.AddAll(transactionConflictIDs)
-
-	// if a payload is a conflicting transaction, then remove any conflicting conflicts from supported conflicts
 
 	return parentsStructureDetails, b.Ledger.ConflictDAG.UnconfirmedConflicts(parentsPastMarkersConflictIDs), b.Ledger.ConflictDAG.UnconfirmedConflicts(inheritedConflictIDs), nil
 }
