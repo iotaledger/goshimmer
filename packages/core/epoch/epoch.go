@@ -67,7 +67,9 @@ func (i Index) StartTime() time.Time {
 
 // EndTime returns the latest possible timestamp for an Epoch. Anything with higher timestamp will belong to the next epoch.
 func (i Index) EndTime() time.Time {
-	return i.StartTime().Add(time.Duration(Duration) * time.Second).Add(-1)
+        endUnix := GenesisTime + int64(i)*Duration
+        // we subtract 1 nanosecond from the next epoch to get the latest possible timestamp for epoch i
+	return time.Unix(endUnix, 0).Add(-1)
 }
 
 // Max returns the maximum of the two given epochs.
