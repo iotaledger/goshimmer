@@ -177,11 +177,11 @@ func (t *TipManager) selectTips(count int) (parents models.BlockIDs) {
 
 		// only add genesis if no tips are available
 		if len(tips) == 0 {
-			// TODO: possible to use latest accepted block instead
-			rootBlock := t.engine.EvictionState.LatestRootBlock()
-			fmt.Println("(time: ", time.Now(), ") selecting root block because tip pool empty:", rootBlock)
+			// TODO: we should probably perform TSC check on these blocks, as some could be old in case of a slow growing chain.
+			rootBlocks := t.engine.EvictionState.LatestRootBlocks()
+			fmt.Println("(time: ", time.Now(), ") selecting root blocks because tip pool empty:", rootBlocks)
 
-			return parents.Add(rootBlock)
+			return rootBlocks
 		}
 
 		// at least one tip is returned

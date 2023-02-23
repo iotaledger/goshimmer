@@ -8,9 +8,9 @@ require (
 	github.com/docker/docker v1.13.1
 	github.com/docker/go-connections v0.4.0
 	github.com/iotaledger/goshimmer v0.1.3
-	github.com/iotaledger/hive.go/core v1.0.0-rc.3.0.20230220131919-04c57d928722
-	github.com/iotaledger/hive.go/ds v0.0.0-20230220131919-04c57d928722
-	github.com/iotaledger/hive.go/lo v0.0.0-20230220131919-04c57d928722
+	github.com/iotaledger/hive.go/core v1.0.0-rc.3.0.20230223001851-8caba55e57d4
+	github.com/iotaledger/hive.go/ds v0.0.0-20230223001851-8caba55e57d4
+	github.com/iotaledger/hive.go/lo v0.0.0-20230223001851-8caba55e57d4
 	github.com/mr-tron/base58 v1.2.0
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.8.1
@@ -63,14 +63,14 @@ require (
 	github.com/huin/goupnp v1.0.3 // indirect
 	github.com/iancoleman/orderedmap v0.2.0 // indirect
 	github.com/iotaledger/grocksdb v1.7.5-0.20230220105546-5162e18885c7 // indirect
-	github.com/iotaledger/hive.go/app v0.0.0-20230220131919-04c57d928722 // indirect
-	github.com/iotaledger/hive.go/autopeering v0.0.0-20230220131919-04c57d928722 // indirect
-	github.com/iotaledger/hive.go/constraints v0.0.0-20230220131919-04c57d928722 // indirect
-	github.com/iotaledger/hive.go/kvstore v0.0.0-20230220131919-04c57d928722 // indirect
-	github.com/iotaledger/hive.go/objectstorage v0.0.0-20230220131919-04c57d928722 // indirect
-	github.com/iotaledger/hive.go/runtime v0.0.0-20230220131919-04c57d928722 // indirect
-	github.com/iotaledger/hive.go/serializer/v2 v2.0.0-rc.1.0.20230220131919-04c57d928722 // indirect
-	github.com/iotaledger/hive.go/stringify v0.0.0-20230220131919-04c57d928722 // indirect
+	github.com/iotaledger/hive.go/app v0.0.0-20230223001851-8caba55e57d4 // indirect
+	github.com/iotaledger/hive.go/autopeering v0.0.0-20230223001851-8caba55e57d4 // indirect
+	github.com/iotaledger/hive.go/constraints v0.0.0-20230223001851-8caba55e57d4 // indirect
+	github.com/iotaledger/hive.go/kvstore v0.0.0-20230223001851-8caba55e57d4 // indirect
+	github.com/iotaledger/hive.go/objectstorage v0.0.0-20230223001851-8caba55e57d4 // indirect
+	github.com/iotaledger/hive.go/runtime v0.0.0-20230223001851-8caba55e57d4 // indirect
+	github.com/iotaledger/hive.go/serializer/v2 v2.0.0-rc.1.0.20230223001851-8caba55e57d4 // indirect
+	github.com/iotaledger/hive.go/stringify v0.0.0-20230223001851-8caba55e57d4 // indirect
 	github.com/ipfs/go-cid v0.3.2 // indirect
 	github.com/ipfs/go-log/v2 v2.5.1 // indirect
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect

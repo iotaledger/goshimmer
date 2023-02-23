@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/stream"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
+	"github.com/iotaledger/hive.go/ds/ringbuffer"
 	"github.com/iotaledger/hive.go/runtime/options"
 )
 
@@ -18,13 +19,12 @@ import (
 type State struct {
 	Events *Events
 
-	rootBlocks           *memstorage.EpochStorage[models.BlockID, bool]
-	latestRootBlock      models.BlockID
-	latestRootBlockMutex sync.RWMutex
-	storage              *storage.Storage
-	lastEvictedEpoch     epoch.Index
-	evictionMutex        sync.RWMutex
-	triggerMutex         sync.Mutex
+	rootBlocks       *memstorage.EpochStorage[models.BlockID, bool]
+	latestRootBlocks *ringbuffer.RingBuffer[models.BlockID]
+	storage          *storage.Storage
+	lastEvictedEpoch epoch.Index
+	evictionMutex    sync.RWMutex
+	triggerMutex     sync.Mutex
 
 	optsRootBlocksEvictionDelay epoch.Index
 }
@@ -34,7 +34,7 @@ func NewState(storageInstance *storage.Storage, opts ...options.Option[State]) (
 	return options.Apply(&State{
 		Events:                      NewEvents(),
 		rootBlocks:                  memstorage.NewEpochStorage[models.BlockID, bool](),
-		latestRootBlock:             models.EmptyBlockID,
+		latestRootBlocks:            ringbuffer.NewRingBuffer[models.BlockID](8),
 		storage:                     storageInstance,
 		lastEvictedEpoch:            storageInstance.Settings.LatestCommitment().Index(),
 		optsRootBlocksEvictionDelay: 3,
@@ -99,7 +99,7 @@ func (s *State) AddRootBlock(id models.BlockID) {
 		}
 	}
 
-	s.updateLatestRootBlock(id)
+	s.latestRootBlocks.Add(id)
 }
 
 // RemoveRootBlock removes a solid entry points from the map.
@@ -132,12 +132,9 @@ func (s *State) IsRootBlock(id models.BlockID) (has bool) {
 	return epochBlocks != nil && epochBlocks.Has(id)
 }
 
-// LatestRootBlock returns the latest root block.
-func (s *State) LatestRootBlock() models.BlockID {
-	s.latestRootBlockMutex.RLock()
-	defer s.latestRootBlockMutex.RUnlock()
-
-	return s.latestRootBlock
+// LatestRootBlocks returns the latest root blocks.
+func (s *State) LatestRootBlocks() models.BlockIDs {
+	return models.NewBlockIDs(s.latestRootBlocks.Get()...)
 }
 
 // Export exports the root blocks to the given writer.
@@ -191,16 +188,6 @@ func (s *State) importRootBlocksFromStorage() (importedBlocks int) {
 	}
 
 	return
-}
-
-// updateLatestRootBlock updates the latest root block.
-func (s *State) updateLatestRootBlock(id models.BlockID) {
-	s.latestRootBlockMutex.Lock()
-	defer s.latestRootBlockMutex.Unlock()
-
-	if id.Index() >= s.latestRootBlock.Index() {
-		s.latestRootBlock = id
-	}
 }
 
 // delayedBlockEvictionThreshold returns the epoch index that is the threshold for delayed rootblocks eviction.
