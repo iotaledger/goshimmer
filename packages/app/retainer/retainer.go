@@ -25,7 +25,6 @@ import (
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
-const epochInCache = 20
 const (
 	prefixBlockMetadataStorage byte = iota
 
