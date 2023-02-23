@@ -21,6 +21,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
@@ -206,10 +207,17 @@ func (r *Retainer) setupEvents() {
 	event.Hook(r.protocol.Events.Engine.EvictionState.EpochEvicted, r.storeAndEvictEpoch)
 
 	r.protocol.Engine().NotarizationManager.Events.EpochCommitted.AttachWithWorkerPool(event.NewClosure(func(e *notarization.EpochCommittedDetails) {
-		if cd := r.createOrGetCommitmentDetails(e.Commitment); cd != nil {
+		if e.Commitment.Index() < r.protocol.Engine().EvictionState.LastEvictedEpoch() {
+			return
+		}
+
+		cd, _ := r.getCommitmentDetails(e.Commitment.Index())
+		if cd != nil {
 			var (
-				blockIDs = make(models.BlockIDs)
-				txIDs    = utxo.NewTransactionIDs()
+				blockIDs       = make(models.BlockIDs)
+				txIDs          = utxo.NewTransactionIDs()
+				spentOutputs   = utxo.NewOutputIDs()
+				createdOutputs = utxo.NewOutputIDs()
 			)
 			_ = e.AcceptedBlocks.Stream(func(key models.BlockID) bool {
 				blockIDs.Add(key)
@@ -220,7 +228,17 @@ func (r *Retainer) setupEvents() {
 				return true
 			})
 
-			cd.setCommitment(e.Commitment, blockIDs, txIDs, e.CreatedOutputs, e.SpentOutputs)
+			_ = e.SpentOutputs(e.Commitment.Index(), func(owm *ledger.OutputWithMetadata) error {
+				spentOutputs.Add(owm.ID())
+				return nil
+			})
+
+			_ = e.CreatedOutputs(e.Commitment.Index(), func(owm *ledger.OutputWithMetadata) error {
+				createdOutputs.Add(owm.ID())
+				return nil
+			})
+
+			cd.setCommitment(e.Commitment, blockIDs, txIDs, createdOutputs, spentOutputs)
 			r.storeCommitmentDetails(cd)
 		}
 	}), r.commitmentWorkerPool)
@@ -237,16 +255,6 @@ func (r *Retainer) createOrGetCachedMetadata(id models.BlockID) *cachedMetadata 
 	storage := r.cachedMetadata.Get(id.Index(), true)
 	cm, _ := storage.RetrieveOrCreate(id, newCachedMetadata)
 	return cm
-}
-
-func (r *Retainer) createOrGetCommitmentDetails(cm *commitment.Commitment) *CommitmentDetails {
-	if cm.Index() < r.protocol.Engine().EvictionState.LastEvictedEpoch() {
-		return nil
-	}
-
-	cd, _ := r.getCommitmentDetails(cm.Index())
-
-	return cd
 }
 
 func (r *Retainer) storeAndEvictEpoch(epochIndex epoch.Index) {

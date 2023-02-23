@@ -5,6 +5,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/ads"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
@@ -39,12 +41,14 @@ var NewEpochMutationsEvents = event.LinkableConstructor(func() (self *EpochMutat
 	}
 })
 
+type OutputsProvider func(epoch.Index, func(*ledger.OutputWithMetadata) error) error
+
 // EpochCommittedDetails struct { contains the details of a committed epoch.
 type EpochCommittedDetails struct {
 	Commitment            *commitment.Commitment
 	AcceptedBlocks        *ads.Set[models.BlockID, *models.BlockID]
 	AcceptedTransactions  *ads.Set[utxo.TransactionID, *utxo.TransactionID]
-	CreatedOutputs        utxo.OutputIDs
-	SpentOutputs          utxo.OutputIDs
+	SpentOutputs          OutputsProvider
+	CreatedOutputs        OutputsProvider
 	ActiveValidatorsCount int
 }
