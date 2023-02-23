@@ -196,9 +196,9 @@ func (r *ReferenceProvider) addedReferencesForConflicts(conflictIDs utxo.Transac
 	referencesToAdd = models.NewParentBlockIDs()
 
 	// If any of the conflict is rejected we cannot pick up the block as a parent, and we delete it from the tipset.
-	if r.protocol.Engine().Tangle.Booker.Ledger.ConflictDAG.ConfirmationState(conflictIDs).IsRejected() {
-		return nil, errors.Errorf("the given conflicts are rejected: %s", conflictIDs)
-	}
+	// if r.protocol.Engine().Tangle.Booker.Ledger.ConflictDAG.ConfirmationState(conflictIDs).IsRejected() {
+	// 	return nil, errors.Errorf("the given conflicts are rejected: %s", conflictIDs)
+	// }
 
 	for it := conflictIDs.Iterator(); it.HasNext(); {
 		conflictID := it.Next()
