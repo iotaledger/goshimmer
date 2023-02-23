@@ -195,11 +195,6 @@ func (r *ReferenceProvider) addedReferencesForBlock(blockID models.BlockID, excl
 func (r *ReferenceProvider) addedReferencesForConflicts(conflictIDs utxo.TransactionIDs, excludedConflictIDs utxo.TransactionIDs) (referencesToAdd models.ParentBlockIDs, err error) {
 	referencesToAdd = models.NewParentBlockIDs()
 
-	// If any of the conflict is rejected we cannot pick up the block as a parent, and we delete it from the tipset.
-	// if r.protocol.Engine().Tangle.Booker.Ledger.ConflictDAG.ConfirmationState(conflictIDs).IsRejected() {
-	// 	return nil, errors.Errorf("the given conflicts are rejected: %s", conflictIDs)
-	// }
-
 	for it := conflictIDs.Iterator(); it.HasNext(); {
 		conflictID := it.Next()
 
