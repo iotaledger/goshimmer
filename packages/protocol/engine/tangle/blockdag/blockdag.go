@@ -142,29 +142,36 @@ func (b *BlockDAG) SetOrphaned(block *Block, orphaned bool) (updated bool) {
 func (b *BlockDAG) evictEpoch(index epoch.Index) {
 	b.solidifier.EvictUntil(index)
 
-	b.evictionMutex.Lock()
-	defer b.evictionMutex.Unlock()
-
+	// TODO: this should happen when we commit to an epoch, not on eviction as this is delayed!
 	// We want to deal with the synchronous BlockSolid events in a separate goroutine.
 	b.workerPool.Submit(func() {
 		b.promoteFutureBlocksUntil(index)
 	})
 
+	b.evictionMutex.Lock()
+	defer b.evictionMutex.Unlock()
+
 	b.memStorage.Evict(index)
 }
 
 func (b *BlockDAG) markSolid(block *Block) (err error) {
-	if err := b.checkParents(block); err != nil {
-		return err
+	// Future blocks already have passed these checks, as they are revisited again at a later point in time.
+	if !block.IsFuture() {
+		if err := b.checkParents(block); err != nil {
+			return err
+		}
+
+		if b.isFutureBlock(block) {
+			return
+		}
 	}
 
+	// It is important to only set the block as solid when it was not "parked" as a future block.
+	// Future blocks are queued for solidification again when the epoch is committed.
 	block.setSolid()
 
-	if b.isFutureBlock(block) {
-		return
-	}
-
-	b.promoteFutureBlocksUntil(block.Commitment().Index())
+	// TODO: this should be removed
+	//  b.promoteFutureBlocksUntil(block.Commitment().Index())
 
 	b.Events.BlockSolid.Trigger(block)
 
@@ -177,17 +184,17 @@ func (b *BlockDAG) isFutureBlock(block *Block) (isFutureBlock bool) {
 
 	// If we are not able to load the commitment for the block, it means we haven't committed this epoch yet.
 	if _, err := b.commitmentFunc(block.Commitment().Index()); err != nil {
-		b.storeFutureBlock(block)
+		// We set the block as future block so that we can skip some checks when revisiting it later in markSolid via the solidifier.
+		block.setFuture()
+
+		// TODO: no need for an advancedset anymore since we establish the order with the causal order.
+		lo.Return1(b.futureBlocks.Get(block.Commitment().Index(), true).GetOrCreate(block.Commitment().ID(), func() *advancedset.AdvancedSet[*Block] {
+			return advancedset.NewAdvancedSet[*Block]()
+		})).Add(block)
 		return true
 	}
 
 	return false
-}
-
-func (b *BlockDAG) storeFutureBlock(block *Block) {
-	lo.Return1(b.futureBlocks.Get(block.Commitment().Index(), true).GetOrCreate(block.Commitment().ID(), func() *advancedset.AdvancedSet[*Block] {
-		return advancedset.NewAdvancedSet[*Block]()
-	})).Add(block)
 }
 
 func (b *BlockDAG) promoteFutureBlocksUntil(index epoch.Index) {
@@ -204,7 +211,8 @@ func (b *BlockDAG) promoteFutureBlocksUntil(index epoch.Index) {
 				// Rely on the ordered nature of the underlying map: we need, in fact, to make sure we
 				// trigger the parents before the children.
 				_ = blocksStorage.ForEach(func(block *Block) (err error) {
-					b.Events.BlockSolid.Trigger(block)
+					fmt.Println("promoting future block", block.ID())
+					b.solidifier.Queue(block)
 					return nil
 				})
 			}
@@ -237,7 +245,7 @@ func (b *BlockDAG) checkParents(block *Block) (err error) {
 }
 
 func (b *BlockDAG) markInvalid(block *Block, reason error) {
-	b.SetInvalid(block, reason)
+	b.SetInvalid(block, errors.Wrap(reason, "block marked as invalid in BlockDAG"))
 }
 
 // attach tries to attach the given Block to the BlockDAG.

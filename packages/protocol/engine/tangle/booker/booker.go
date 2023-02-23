@@ -308,7 +308,7 @@ func (b *Booker) book(block *virtualvoting.Block) (inheritingErr error) {
 }
 
 func (b *Booker) markInvalid(block *virtualvoting.Block, reason error) {
-	b.BlockDAG.SetInvalid(block.Block, reason)
+	b.BlockDAG.SetInvalid(block.Block, errors.Wrap(reason, "block marked as invalid in Booker"))
 }
 
 func (b *Booker) inheritConflictIDs(block *virtualvoting.Block) (inheritedConflictIDs utxo.TransactionIDs, err error) {
