@@ -724,7 +724,7 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 
 	engineOpts := []options.Option[engine.Engine]{
 		engine.WithNotarizationManagerOptions(
-			notarization.WithMinCommittableEpochAge(10 * time.Second),
+			notarization.WithMinCommittableEpochAge(1),
 		),
 		engine.WithLedgerOptions(ledger.WithVM(ledgerVM)),
 		engine.WithTangleOptions(

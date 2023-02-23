@@ -22,10 +22,8 @@ var (
 type Filter struct {
 	Events *Events
 
-	minCommittableEpochDelta int64
-
 	optsMaxAllowedWallClockDrift time.Duration
-	optsMinCommittableEpochAge   time.Duration
+	optsMinCommittableEpochAge   epoch.Index
 	optsSignatureValidation      bool
 }
 
@@ -34,15 +32,13 @@ func New(opts ...options.Option[Filter]) (inbox *Filter) {
 	return options.Apply(&Filter{
 		Events:                  NewEvents(),
 		optsSignatureValidation: true,
-	}, opts, func(f *Filter) {
-		f.minCommittableEpochDelta = int64(f.optsMinCommittableEpochAge.Seconds()) / epoch.Duration
-	})
+	}, opts)
 }
 
 // ProcessReceivedBlock processes block from the given source.
 func (f *Filter) ProcessReceivedBlock(block *models.Block, source identity.ID) {
 	// Check if the block is trying to commit to an epoch that is not yet committable
-	if f.optsMinCommittableEpochAge > 0 && block.Commitment().Index() > block.ID().Index()-epoch.Index(f.minCommittableEpochDelta) {
+	if f.optsMinCommittableEpochAge > 0 && block.Commitment().Index() > block.ID().Index()-f.optsMinCommittableEpochAge {
 		f.Events.BlockFiltered.Trigger(&BlockFilteredEvent{
 			Block:  block,
 			Reason: errors.WithMessagef(ErrorCommitmentNotCommittable, "block at epoch %d committing to epoch %d", block.ID().Index(), block.Commitment().Index()),
@@ -83,9 +79,9 @@ func (f *Filter) ProcessReceivedBlock(block *models.Block, source identity.ID) {
 }
 
 // WithMinCommittableEpochAge specifies how old an epoch has to be for it to be committable.
-func WithMinCommittableEpochAge(d time.Duration) options.Option[Filter] {
+func WithMinCommittableEpochAge(age epoch.Index) options.Option[Filter] {
 	return func(filter *Filter) {
-		filter.optsMinCommittableEpochAge = d
+		filter.optsMinCommittableEpochAge = age
 	}
 }
 

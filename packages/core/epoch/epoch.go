@@ -10,7 +10,7 @@ import (
 
 var (
 	// GenesisTime is the time (Unix in seconds) of the genesis.
-	GenesisTime int64 = 1666037699
+	GenesisTime int64 = 1666037700
 
 	// Duration is the default epoch duration in seconds.
 	Duration int64 = 10
@@ -65,10 +65,11 @@ func (i Index) StartTime() time.Time {
 	return time.Unix(startUnix, 0)
 }
 
-// EndTime calculates the end time of the given epoch.
+// EndTime returns the latest possible timestamp for an Epoch. Anything with higher timestamp will belong to the next epoch.
 func (i Index) EndTime() time.Time {
-	endUnix := GenesisTime + int64(i-1)*Duration + Duration - 1
-	return time.Unix(endUnix, 0)
+	endUnix := GenesisTime + int64(i)*Duration
+	// we subtract 1 nanosecond from the next epoch to get the latest possible timestamp for epoch i
+	return time.Unix(endUnix, 0).Add(-1)
 }
 
 // Max returns the maximum of the two given epochs.

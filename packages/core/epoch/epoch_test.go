@@ -4,59 +4,67 @@ import (
 	"testing"
 	"time"
 
-	"github.com/magiconair/properties/assert"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestEpoch(t *testing.T) {
 	genesisTime := time.Unix(GenesisTime, 0)
 
 	{
-		// ei = 0
+		endOfEpochTime := genesisTime.Add(time.Duration(Duration) * time.Second).Add(-1)
+
+		assert.Equal(t, Index(1), IndexFromTime(endOfEpochTime))
+		assert.False(t, Index(1).EndTime().Before(endOfEpochTime))
+
+		startOfEpochTime := genesisTime.Add(time.Duration(Duration) * time.Second)
+
+		assert.Equal(t, Index(2), IndexFromTime(startOfEpochTime))
+		assert.False(t, Index(2).StartTime().After(startOfEpochTime))
+	}
+
+	{
 		testTime := genesisTime.Add(5 * time.Second)
-		ei := IndexFromTime(testTime)
-		assert.Equal(t, ei, Index(1))
+		index := IndexFromTime(testTime)
+		assert.Equal(t, index, Index(1))
 
-		startTime := ei.StartTime()
+		startTime := index.StartTime()
 		assert.Equal(t, startTime, time.Unix(genesisTime.Unix(), 0))
-		endTime := ei.EndTime()
-		assert.Equal(t, endTime, time.Unix(genesisTime.Add(9*time.Second).Unix(), 0))
+		endTime := index.EndTime()
+		assert.Equal(t, endTime, (index + 1).StartTime().Add(-1))
 	}
 
 	{
-		// ei = 1
 		testTime := genesisTime.Add(10 * time.Second)
-		ei := IndexFromTime(testTime)
-		assert.Equal(t, ei, Index(2))
+		index := IndexFromTime(testTime)
+		assert.Equal(t, index, Index(2))
 
-		startTime := ei.StartTime()
+		startTime := index.StartTime()
 		assert.Equal(t, startTime, time.Unix(genesisTime.Add(10*time.Second).Unix(), 0))
-		endTime := ei.EndTime()
-		assert.Equal(t, endTime, time.Unix(genesisTime.Add(19*time.Second).Unix(), 0))
+		endTime := index.EndTime()
+		assert.Equal(t, endTime, (index + 1).StartTime().Add(-1))
 	}
 
 	{
-		// ei = 3
 		testTime := genesisTime.Add(35 * time.Second)
-		ei := IndexFromTime(testTime)
-		assert.Equal(t, ei, Index(4))
+		index := IndexFromTime(testTime)
+		assert.Equal(t, index, Index(4))
 
-		startTime := ei.StartTime()
+		startTime := index.StartTime()
 		assert.Equal(t, startTime, time.Unix(genesisTime.Add(30*time.Second).Unix(), 0))
-		endTime := ei.EndTime()
-		assert.Equal(t, endTime, time.Unix(genesisTime.Add(39*time.Second).Unix(), 0))
+		endTime := index.EndTime()
+		assert.Equal(t, endTime, (index + 1).StartTime().Add(-1))
 	}
 
 	{
-		// ei = 4
 		testTime := genesisTime.Add(49 * time.Second)
-		ei := IndexFromTime(testTime)
-		assert.Equal(t, ei, Index(5))
+		index := IndexFromTime(testTime)
+		assert.Equal(t, index, Index(5))
 	}
 
 	{
-		// a time before genesis time, ei = 0
+		// a time before genesis time, index = 0
 		testTime := genesisTime.Add(-10 * time.Second)
-		ei := IndexFromTime(testTime)
-		assert.Equal(t, ei, Index(0))
+		index := IndexFromTime(testTime)
+		assert.Equal(t, index, Index(0))
 	}
 }
