@@ -134,7 +134,11 @@ func (s *State) IsRootBlock(id models.BlockID) (has bool) {
 
 // LatestRootBlocks returns the latest root blocks.
 func (s *State) LatestRootBlocks() models.BlockIDs {
-	return models.NewBlockIDs(s.latestRootBlocks.Get()...)
+	rootBlocks := s.latestRootBlocks.Get()
+	if len(rootBlocks) == 0 {
+		return models.NewBlockIDs(models.EmptyBlockID)
+	}
+	return models.NewBlockIDs(rootBlocks...)
 }
 
 // Export exports the root blocks to the given writer.
