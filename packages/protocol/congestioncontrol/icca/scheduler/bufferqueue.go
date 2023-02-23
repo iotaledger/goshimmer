@@ -4,11 +4,11 @@ import (
 	"container/ring"
 	"math"
 
-	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
-	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/ds/shrinkingmap"
 )
 
 // ErrInsufficientMana is returned when the mana is insufficient.

@@ -11,7 +11,6 @@ export enum WSMsgType {
     ManaMapOverall,
     ManaMapOnline,
     BlkManaDashboardAddress,
-    Chat,
     RateSetter,
     ConflictSet,
     Conflict,

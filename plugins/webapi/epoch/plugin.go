@@ -1,24 +1,21 @@
 package epoch
 
 import (
+	"net/http"
 	"strconv"
 	"sync"
 
-	"github.com/cockroachdb/errors"
+	"github.com/labstack/echo/v4"
+	"github.com/pkg/errors"
+	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/app/retainer"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/node"
-
-	"net/http"
-
-	"github.com/labstack/echo"
-	"go.uber.org/dig"
 )
 
 // PluginName is the name of the web API epoch endpoint plugin.
@@ -54,12 +51,12 @@ func configure(_ *node.Plugin) {
 	deps.Server.GET("epochs/:ei/transactions", GetTransactions)
 	// deps.Server.GET("epochs/:ei/voters-weight", getVotersWeight)
 
-	deps.Protocol.Engine().NotarizationManager.Events.EpochCommitted.Attach(event.NewClosure(func(e *notarization.EpochCommittedDetails) {
+	deps.Protocol.Engine().NotarizationManager.Events.EpochCommitted.Hook(func(e *notarization.EpochCommittedDetails) {
 		currentECLock.Lock()
 		defer currentECLock.Unlock()
 
 		currentEC = e.Commitment
-	}))
+	})
 }
 
 func GetCurrentEC(c echo.Context) error {

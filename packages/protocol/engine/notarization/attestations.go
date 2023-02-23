@@ -6,11 +6,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/kvstore"
-	"github.com/iotaledger/hive.go/core/marshalutil"
-	"github.com/iotaledger/hive.go/core/syncutils"
-
 	"github.com/iotaledger/goshimmer/packages/core/ads"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
@@ -18,6 +13,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/ds/shrinkingmap"
+	"github.com/iotaledger/hive.go/kvstore"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
+	"github.com/iotaledger/hive.go/serializer/v2/marshalutil"
 )
 
 const (
@@ -30,7 +30,7 @@ type Attestations struct {
 	persistentStorage  func(optRealm ...byte) kvstore.KVStore
 	bucketedStorage    func(index epoch.Index) kvstore.KVStore
 	weights            *sybilprotection.Weights
-	cachedAttestations *memstorage.EpochStorage[identity.ID, *memstorage.Storage[models.BlockID, *Attestation]]
+	cachedAttestations *memstorage.EpochStorage[identity.ID, *shrinkingmap.ShrinkingMap[models.BlockID, *Attestation]]
 	mutex              *syncutils.DAGMutex[epoch.Index]
 
 	traits.Initializable
@@ -44,7 +44,7 @@ func NewAttestations(persistentStorage func(optRealm ...byte) kvstore.KVStore, b
 		persistentStorage:  persistentStorage,
 		bucketedStorage:    bucketedStorage,
 		weights:            weights,
-		cachedAttestations: memstorage.NewEpochStorage[identity.ID, *memstorage.Storage[models.BlockID, *Attestation]](),
+		cachedAttestations: memstorage.NewEpochStorage[identity.ID, *shrinkingmap.ShrinkingMap[models.BlockID, *Attestation]](),
 		mutex:              syncutils.NewDAGMutex[epoch.Index](),
 	}
 }
@@ -60,7 +60,9 @@ func (a *Attestations) Add(attestation *Attestation) (added bool, err error) {
 	}
 
 	epochStorage := a.cachedAttestations.Get(epochIndex, true)
-	issuerStorage, _ := epochStorage.RetrieveOrCreate(attestation.IssuerID(), memstorage.New[models.BlockID, *Attestation])
+	issuerStorage, _ := epochStorage.GetOrCreate(attestation.IssuerID(), func() *shrinkingmap.ShrinkingMap[models.BlockID, *Attestation] {
+		return shrinkingmap.New[models.BlockID, *Attestation]()
+	})
 
 	return issuerStorage.Set(attestation.ID(), attestation), nil
 }
@@ -210,7 +212,7 @@ func (a *Attestations) commit(index epoch.Index) (attestations *ads.Map[identity
 	}
 
 	if cachedEpochStorage := a.cachedAttestations.Evict(index); cachedEpochStorage != nil {
-		cachedEpochStorage.ForEach(func(id identity.ID, attestationsOfID *memstorage.Storage[models.BlockID, *Attestation]) bool {
+		cachedEpochStorage.ForEach(func(id identity.ID, attestationsOfID *shrinkingmap.ShrinkingMap[models.BlockID, *Attestation]) bool {
 			if latestAttestation := latestAttestation(attestationsOfID); latestAttestation != nil {
 				if attestorWeight, exists := a.weights.Get(id); exists {
 					attestations.Set(id, latestAttestation)
@@ -269,7 +271,7 @@ func (a *Attestations) setWeight(index epoch.Index, weight int64) (err error) {
 	return
 }
 
-func latestAttestation(attestations *memstorage.Storage[models.BlockID, *Attestation]) (latestAttestation *Attestation) {
+func latestAttestation(attestations *shrinkingmap.ShrinkingMap[models.BlockID, *Attestation]) (latestAttestation *Attestation) {
 	attestations.ForEach(func(blockID models.BlockID, attestation *Attestation) bool {
 		if attestation.Compare(latestAttestation) > 0 {
 			latestAttestation = attestation

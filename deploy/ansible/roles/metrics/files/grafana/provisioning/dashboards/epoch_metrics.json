@@ -24,7 +24,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 5,
+  "id": 6,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -50,24 +50,13 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "palette-classic"
+            "mode": "thresholds"
           },
           "custom": {
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "fillOpacity": 80,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineWidth": 1,
-            "scaleDistribution": {
-              "type": "linear"
-            }
+            "align": "auto",
+            "displayMode": "auto",
+            "inspect": false,
+            "minWidth": 50
           },
           "mappings": [],
           "thresholds": {
@@ -91,25 +80,14 @@
       },
       "id": 115,
       "options": {
-        "barRadius": 0,
-        "barWidth": 0.97,
-        "groupWidth": 0.7,
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
+        "footer": {
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
         },
-        "orientation": "auto",
-        "showValue": "auto",
-        "stacking": "none",
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        },
-        "xField": "Epoch Index",
-        "xTickLabelRotation": 0,
-        "xTickLabelSpacing": 0
+        "showHeader": true
       },
       "pluginVersion": "9.2.6",
       "repeat": "instance",
@@ -285,24 +263,6 @@
             "fields": {},
             "sort": [
               {
-                "desc": true,
-                "field": "epoch"
-              }
-            ]
-          }
-        },
-        {
-          "id": "limit",
-          "options": {
-            "limitField": 10
-          }
-        },
-        {
-          "id": "sortBy",
-          "options": {
-            "fields": {},
-            "sort": [
-              {
                 "field": "epoch"
               }
             ]
@@ -331,24 +291,24 @@
             },
             "renameByName": {
               "Value": "Epoch Index",
-              "Value #A (lastNotNull)": "Attached blocks",
-              "Value #B (lastNotNull)": "Accepted blocks",
-              "Value #C (lastNotNull)": "Orphaned blocks",
-              "Value #D (lastNotNull)": "Invalid blocks",
-              "Value #E (lastNotNull)": "Subjectively invalid blocks",
+              "Value #A (lastNotNull)": "Attached ",
+              "Value #B (lastNotNull)": "Accepted ",
+              "Value #C (lastNotNull)": "Orphaned ",
+              "Value #D (lastNotNull)": "Invalid ",
+              "Value #E (lastNotNull)": "Subj. inv.",
               "Value (lastNotNull)": "Attached blocks",
               "accepted_blocks": "Accepted Blocks",
               "accepted_blocks (lastNotNull)": "Accepted Blocka",
               "active_validators": "Active validators",
               "active_validators (lastNotNull)": "Active Validators",
-              "epoch": "Epoch Index",
+              "epoch": "EI",
               "transactions": "Accepted Transactions",
               "transactions (lastNotNull)": "Accepted Txs"
             }
           }
         }
       ],
-      "type": "barchart"
+      "type": "table"
     },
     {
       "datasource": {
@@ -359,24 +319,13 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "palette-classic"
+            "mode": "thresholds"
           },
           "custom": {
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "fillOpacity": 80,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineWidth": 1,
-            "scaleDistribution": {
-              "type": "linear"
-            }
+            "align": "auto",
+            "displayMode": "auto",
+            "inspect": false,
+            "minWidth": 50
           },
           "mappings": [],
           "thresholds": {
@@ -400,24 +349,15 @@
       },
       "id": 211,
       "options": {
-        "barRadius": 0,
-        "barWidth": 0.97,
-        "groupWidth": 0.7,
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
+        "footer": {
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
         },
-        "orientation": "auto",
-        "showValue": "auto",
-        "stacking": "none",
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        },
-        "xTickLabelRotation": 0,
-        "xTickLabelSpacing": 0
+        "showHeader": true,
+        "sortBy": []
       },
       "pluginVersion": "9.2.6",
       "repeat": "instance",
@@ -429,51 +369,51 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "epochs_total_transactions{instance=\"$instance\"}\n",
-          "format": "table",
-          "hide": false,
-          "legendFormat": "__auto",
-          "range": true,
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "editorMode": "code",
-          "expr": "epochs_invalid_transactions{instance=\"$instance\"}\n",
-          "format": "table",
-          "hide": false,
-          "legendFormat": "__auto",
-          "range": true,
-          "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "editorMode": "code",
-          "expr": "epochs_accepted_transactions{instance=\"$instance\"}\n",
-          "format": "table",
-          "hide": false,
-          "legendFormat": "__auto",
-          "range": true,
-          "refId": "C"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "editorMode": "code",
-          "expr": "epochs_orphaned_transactions{instance=\"$instance\"}\n",
+          "expr": "epochs_orphaned_attachments{instance=\"$instance\"}\n",
           "format": "table",
           "hide": false,
           "legendFormat": "__auto",
           "range": true,
           "refId": "E"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "epochs_total_attachments{instance=\"$instance\"}\n",
+          "format": "table",
+          "hide": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "epochs_rejected_attachments{instance=\"$instance\"}\n",
+          "format": "table",
+          "hide": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "F"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "epochs_accepted_attachments{instance=\"$instance\"}\n",
+          "format": "table",
+          "hide": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "G"
         }
       ],
       "title": "Transactions per epoch $instance",
@@ -539,7 +479,31 @@
               },
               "Value #E": {
                 "aggregations": [
-                  "firstNotNull"
+                  "lastNotNull"
+                ],
+                "operation": "aggregate"
+              },
+              "Value #F": {
+                "aggregations": [
+                  "lastNotNull"
+                ],
+                "operation": "aggregate"
+              },
+              "Value #G": {
+                "aggregations": [
+                  "lastNotNull"
+                ],
+                "operation": "aggregate"
+              },
+              "Value #H": {
+                "aggregations": [
+                  "lastNotNull"
+                ],
+                "operation": "aggregate"
+              },
+              "Value #I": {
+                "aggregations": [
+                  "lastNotNull"
                 ],
                 "operation": "aggregate"
               },
@@ -580,24 +544,6 @@
             "fields": {},
             "sort": [
               {
-                "desc": true,
-                "field": "epoch"
-              }
-            ]
-          }
-        },
-        {
-          "id": "limit",
-          "options": {
-            "limitField": 10
-          }
-        },
-        {
-          "id": "sortBy",
-          "options": {
-            "fields": {},
-            "sort": [
-              {
                 "field": "epoch"
               }
             ]
@@ -615,35 +561,42 @@
           "options": {
             "excludeByName": {},
             "indexByName": {
-              "Time": 0,
-              "Value": 7,
-              "__name__": 1,
-              "accepted_blocks": 2,
-              "active_validators": 4,
-              "instance": 5,
-              "job": 6,
-              "transactions": 3
+              "Value #A (lastNotNull)": 1,
+              "Value #B (lastNotNull)": 4,
+              "Value #C (lastNotNull)": 2,
+              "Value #D (lastNotNull)": 5,
+              "Value #E (lastNotNull)": 9,
+              "Value #F (lastNotNull)": 7,
+              "Value #G (lastNotNull)": 6,
+              "Value #H (lastNotNull)": 3,
+              "Value #I (lastNotNull)": 8,
+              "epoch": 0
             },
             "renameByName": {
               "Value": "Epoch Index",
-              "Value #A (lastNotNull)": "Total transactions",
-              "Value #B (lastNotNull)": "Invalid transactions",
-              "Value #C (lastNotNull)": "Accepted transactions",
-              "Value #D (lastNotNull)": "Orphaned transactions",
-              "Value #E (firstNotNull)": "Orphaned transactions",
+              "Value #A (lastNotNull)": "Tot. tr.",
+              "Value #B (lastNotNull)": "Inv. tr. ",
+              "Value #C (lastNotNull)": "Acc. tr.",
+              "Value #D (lastNotNull)": "Total att.",
+              "Value #E (firstNotNull)": "Orphaned attachments",
+              "Value #E (lastNotNull)": "Orph. att.",
+              "Value #F (lastNotNull)": "Rej. att.",
+              "Value #G (lastNotNull)": "Acc. att.",
+              "Value #H (lastNotNull)": "Rej. tr.",
+              "Value #I (lastNotNull)": "NC. att.",
               "Value (lastNotNull)": "Attached blocks",
               "accepted_blocks": "Accepted Blocks",
               "accepted_blocks (lastNotNull)": "Accepted Blocka",
               "active_validators": "Active validators",
               "active_validators (lastNotNull)": "Active Validators",
-              "epoch": "Epoch Index",
+              "epoch": "EI",
               "transactions": "Accepted Transactions",
               "transactions (lastNotNull)": "Accepted Txs"
             }
           }
         }
       ],
-      "type": "barchart"
+      "type": "table"
     },
     {
       "datasource": {
@@ -654,24 +607,13 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "palette-classic"
+            "mode": "thresholds"
           },
           "custom": {
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "fillOpacity": 65,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineWidth": 1,
-            "scaleDistribution": {
-              "type": "linear"
-            }
+            "align": "auto",
+            "displayMode": "auto",
+            "inspect": false,
+            "minWidth": 50
           },
           "mappings": [],
           "thresholds": {
@@ -696,21 +638,6 @@
                 "value": "EI"
               }
             ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Accepted blocks"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "semi-dark-yellow",
-                  "mode": "palette-classic"
-                }
-              }
-            ]
           }
         ]
       },
@@ -722,27 +649,16 @@
       },
       "id": 207,
       "options": {
-        "barRadius": 0,
-        "barWidth": 0.97,
-        "groupWidth": 0.7,
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
+        "footer": {
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
         },
-        "orientation": "auto",
-        "showValue": "auto",
-        "stacking": "none",
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        },
-        "xField": "Epoch Index",
-        "xTickLabelRotation": -45,
-        "xTickLabelSpacing": 0
+        "showHeader": true
       },
-      "pluginVersion": "9.2.4",
+      "pluginVersion": "9.2.6",
       "repeat": "instance",
       "repeatDirection": "v",
       "targets": [
@@ -887,24 +803,6 @@
             "fields": {},
             "sort": [
               {
-                "desc": true,
-                "field": "epoch"
-              }
-            ]
-          }
-        },
-        {
-          "id": "limit",
-          "options": {
-            "limitField": 10
-          }
-        },
-        {
-          "id": "sortBy",
-          "options": {
-            "fields": {},
-            "sort": [
-              {
                 "field": "epoch"
               }
             ]
@@ -933,26 +831,26 @@
             },
             "renameByName": {
               "Value": "Epoch Index",
-              "Value #A (lastNotNull)": "Conflicts created",
-              "Value #B (lastNotNull)": "Conflicts accepted",
-              "Value #C (lastNotNull)": "Conflicts rejected",
-              "Value #D (lastNotNull)": "Conflicts not conflicting ",
+              "Value #A (lastNotNull)": "Created",
+              "Value #B (lastNotNull)": "Accepted",
+              "Value #C (lastNotNull)": "Rejeced",
+              "Value #D (lastNotNull)": "Not Confl.",
               "Value (lastNotNull)": "Attached blocks",
               "accepted_blocks": "Accepted Blocks",
               "accepted_blocks (lastNotNull)": "Accepted Blocka",
               "active_validators": "Active validators",
               "active_validators (lastNotNull)": "Active Validators",
-              "epoch": "Epoch Index",
+              "epoch": "EI",
               "transactions": "Accepted Transactions",
               "transactions (lastNotNull)": "Accepted Txs"
             }
           }
         }
       ],
-      "type": "barchart"
+      "type": "table"
     }
   ],
-  "refresh": "5s",
+  "refresh": "10s",
   "schemaVersion": 37,
   "style": "dark",
   "tags": [],
@@ -960,7 +858,7 @@
     "list": [
       {
         "current": {
-          "selected": true,
+          "selected": false,
           "text": [
             "All"
           ],
@@ -1003,7 +901,7 @@
     ]
   },
   "time": {
-    "from": "now-15m",
+    "from": "now-30m",
     "to": "now"
   },
   "timepicker": {

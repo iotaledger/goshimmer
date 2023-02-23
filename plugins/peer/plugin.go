@@ -13,17 +13,15 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/hive.go/core/autopeering/peer"
-	"github.com/iotaledger/hive.go/core/autopeering/peer/service"
-	"github.com/iotaledger/hive.go/core/crypto/ed25519"
-	"github.com/iotaledger/hive.go/core/daemon"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/kvstore"
-	"github.com/iotaledger/hive.go/core/node"
-
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/protocol"
+	"github.com/iotaledger/hive.go/app/daemon"
+	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/autopeering/peer/service"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/kvstore"
 )
 
 // PluginName is the name of the Peer plugin.
@@ -50,11 +48,11 @@ type dependencies struct {
 func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, run)
 
-	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
-		if err := event.Container.Provide(configureLocalPeer); err != nil {
+	Plugin.Events.Init.Hook(func(e *node.InitEvent) {
+		if err := e.Container.Provide(configureLocalPeer); err != nil {
 			Plugin.Panic(err)
 		}
-	}))
+	})
 }
 
 func run(_ *node.Plugin) {

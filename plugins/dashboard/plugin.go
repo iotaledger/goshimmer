@@ -8,30 +8,28 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/autopeering/discover"
-	"github.com/iotaledger/hive.go/core/autopeering/peer"
-	"github.com/iotaledger/hive.go/core/autopeering/peer/service"
-	"github.com/iotaledger/hive.go/core/autopeering/selection"
-	"github.com/iotaledger/hive.go/core/daemon"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/logger"
-	"github.com/iotaledger/hive.go/core/node"
-	"github.com/labstack/echo"
-	"github.com/labstack/echo/middleware"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"github.com/pkg/errors"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/app/retainer"
 	"github.com/iotaledger/goshimmer/packages/core/latestblocktracker"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/network/p2p"
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
-
-	"github.com/iotaledger/goshimmer/packages/app/chat"
-	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/plugins/banner"
+	"github.com/iotaledger/hive.go/app/daemon"
+	"github.com/iotaledger/hive.go/autopeering/discover"
+	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/autopeering/peer/service"
+	"github.com/iotaledger/hive.go/autopeering/selection"
+	"github.com/iotaledger/hive.go/core/logger"
+	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 // TODO: mana visualization + metrics
@@ -61,7 +59,6 @@ type dependencies struct {
 	Discover   *discover.Protocol  `optional:"true"`
 	Selection  *selection.Protocol `optional:"true"`
 	P2PManager *p2p.Manager        `optional:"true"`
-	Chat       *chat.Chat          `optional:"true"`
 	Indexer    *indexer.Indexer
 }
 
@@ -72,22 +69,16 @@ func init() {
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(plugin.Name)
 
-	deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
+	deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Hook(func(block *blockgadget.Block) {
 		lastAcceptedBlock.Update(block.ModelsBlock)
-	}))
+	}, event.WithWorkerPool(plugin.WorkerPool))
 
-	deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockConfirmed.Attach(event.NewClosure(func(block *blockgadget.Block) {
+	deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockConfirmed.Hook(func(block *blockgadget.Block) {
 		lastConfirmedBlock.Update(block.ModelsBlock)
-	}))
+	}, event.WithWorkerPool(plugin.WorkerPool))
 
-	configureWebSocketWorkerPool()
-	configureLiveFeed()
-	configureChatLiveFeed()
 	configureVisualizer()
-	configureManaFeed()
 	configureServer()
-	configureConflictLiveFeed()
-	configureEpochLiveFeed()
 }
 
 func configureServer() {
@@ -114,31 +105,25 @@ func configureServer() {
 	setupRoutes(server)
 }
 
-func run(*node.Plugin) {
+func run(plugin *node.Plugin) {
 	// run block broker
-	runWebSocketStreams()
+	runWebSocketStreams(plugin)
 	// run the block live feed
-	runLiveFeed()
+	runLiveFeed(plugin)
 	// run the visualizer vertex feed
-	runVisualizer()
-	runManaFeed()
-	runConflictLiveFeed()
-	runEpochsLiveFeed()
-
-	if deps.Chat != nil {
-		runChatLiveFeed()
-	}
+	runVisualizer(plugin)
+	runManaFeed(plugin)
+	runConflictLiveFeed(plugin)
+	runEpochsLiveFeed(plugin)
 
 	log.Infof("Starting %s ...", PluginName)
-	if err := daemon.BackgroundWorker(PluginName, worker, shutdown.PriorityAnalysis); err != nil {
+	if err := daemon.BackgroundWorker(PluginName, worker, shutdown.PriorityProfiling); err != nil {
 		log.Panicf("Error starting as daemon: %s", err)
 	}
 }
 
 func worker(ctx context.Context) {
 	defer log.Infof("Stopping %s ... done", PluginName)
-
-	defer wsSendWorkerPool.Stop()
 
 	stopped := make(chan struct{})
 	go func() {
@@ -190,8 +175,6 @@ const (
 	MsgTypeManaMapOnline
 	// MsgManaDashboardAddress is the socket address of the dashboard to stream mana from.
 	MsgManaDashboardAddress
-	// MsgTypeChat defines a chat block.
-	MsgTypeChat
 	// MsgTypeRateSetterMetric defines rate setter metrics.
 	MsgTypeRateSetterMetric
 	// MsgTypeConflictsConflictSet defines a websocket message that contains a conflictSet update for the "conflicts" tab.

@@ -3,10 +3,11 @@ package typedkey
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/generics/constraints"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/pkg/errors"
+
+	"github.com/iotaledger/hive.go/constraints"
+	"github.com/iotaledger/hive.go/kvstore"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 type Marshalable[V any, VPtr constraints.MarshalablePtr[V]] struct {

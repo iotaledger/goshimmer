@@ -3,15 +3,15 @@ package warpsync
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/logger"
-	"github.com/iotaledger/hive.go/core/typeutils"
+	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/network/warpsync"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/core/logger"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 const minimumWindowSize = 10
@@ -29,8 +29,8 @@ type Manager struct {
 
 	log *logger.Logger
 
-	active  typeutils.AtomicBool
-	stopped typeutils.AtomicBool
+	active  atomic.Bool
+	stopped atomic.Bool
 
 	blockLoaderFunc    LoadBlockFunc
 	blockProcessorFunc ProcessBlockFunc
@@ -126,11 +126,11 @@ func (m *Manager) WarpRange(ctx context.Context, start, end epoch.Index, startEC
 
 // IsStopped returns true if the manager is stopped.
 func (m *Manager) IsStopped() bool {
-	return m.stopped.IsSet()
+	return m.stopped.Load()
 }
 
 // Stop stops the manager and closes all established connections.
 func (m *Manager) Stop() {
-	m.stopped.Set()
+	m.stopped.Store(false)
 	m.protocol.Stop()
 }

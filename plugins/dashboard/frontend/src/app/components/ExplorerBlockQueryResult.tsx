@@ -12,9 +12,7 @@ import * as dateformat from 'dateformat';
 import {Link} from 'react-router-dom';
 import {BasicPayload} from 'app/components/BasicPayload'
 import {TransactionPayload} from 'app/components/TransactionPayload'
-import {ChatPayload} from 'app/components/ChatPayload'
 import {getPayloadType, PayloadType} from 'app/misc/Payload'
-import {StatementPayload} from "app/components/StatemenetPayload";
 import {resolveBase58ConflictID} from "app/utils/conflict";
 
 interface Props {
@@ -59,13 +57,9 @@ export class ExplorerBlockQueryResult extends React.Component<Props, any> {
                     return <TransactionPayload/>
                 }
                 return <BasicPayload/>
-            case PayloadType.Statement:
-                return <StatementPayload/>
             case PayloadType.Data:
                 return <BasicPayload/>
             case PayloadType.Faucet:
-            case PayloadType.Chat:
-                return <ChatPayload/>
             default:
                 return <BasicPayload/>
         }

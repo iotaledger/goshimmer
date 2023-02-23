@@ -3,15 +3,14 @@ package sequencetracker
 import (
 	"testing"
 
-	"github.com/iotaledger/hive.go/core/debug"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
-
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/kvstore/mapdb"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/debug"
 )
 
 // TestSequenceTracker_TrackVotes tests the SequenceTracker's functionality regarding tracking sequence votes.
@@ -57,7 +56,7 @@ func TestSequenceTracker_TrackVotes(t *testing.T) {
 		tf.Markers.InheritStructureDetails("4,8", tf.Markers.StructureDetailsSet("2,7", "1,4"))
 	}
 
-	expectedVoters := map[string]*set.AdvancedSet[identity.ID]{
+	expectedVoters := map[string]*advancedset.AdvancedSet[identity.ID]{
 		"0,1": tf.Votes.ValidatorsSet(),
 		"0,2": tf.Votes.ValidatorsSet(),
 		"0,3": tf.Votes.ValidatorsSet(),
@@ -77,7 +76,7 @@ func TestSequenceTracker_TrackVotes(t *testing.T) {
 	{
 		tf.Instance.TrackVotes(markers.NewMarkers(markers.NewMarker(0, 3)), tf.Votes.Validator("A"), votes.MockedVotePower{VotePower: 0})
 
-		tf.ValidateStructureDetailsVoters(lo.MergeMaps(expectedVoters, map[string]*set.AdvancedSet[identity.ID]{
+		tf.ValidateStructureDetailsVoters(lo.MergeMaps(expectedVoters, map[string]*advancedset.AdvancedSet[identity.ID]{
 			"0,1": tf.Votes.ValidatorsSet("A"),
 			"0,2": tf.Votes.ValidatorsSet("A"),
 			"0,3": tf.Votes.ValidatorsSet("A"),
@@ -87,7 +86,7 @@ func TestSequenceTracker_TrackVotes(t *testing.T) {
 	{
 		tf.Instance.TrackVotes(markers.NewMarkers(markers.NewMarker(0, 4), markers.NewMarker(2, 6)), tf.Votes.Validator("A"), votes.MockedVotePower{VotePower: 1})
 
-		tf.ValidateStructureDetailsVoters(lo.MergeMaps(expectedVoters, map[string]*set.AdvancedSet[identity.ID]{
+		tf.ValidateStructureDetailsVoters(lo.MergeMaps(expectedVoters, map[string]*advancedset.AdvancedSet[identity.ID]{
 			"0,4": tf.Votes.ValidatorsSet("A"),
 			"1,2": tf.Votes.ValidatorsSet("A"),
 			"1,3": tf.Votes.ValidatorsSet("A"),
@@ -101,7 +100,7 @@ func TestSequenceTracker_TrackVotes(t *testing.T) {
 	{
 		tf.Instance.TrackVotes(markers.NewMarkers(markers.NewMarker(4, 8)), tf.Votes.Validator("A"), votes.MockedVotePower{VotePower: 2})
 
-		tf.ValidateStructureDetailsVoters(lo.MergeMaps(expectedVoters, map[string]*set.AdvancedSet[identity.ID]{
+		tf.ValidateStructureDetailsVoters(lo.MergeMaps(expectedVoters, map[string]*advancedset.AdvancedSet[identity.ID]{
 			"2,7": tf.Votes.ValidatorsSet("A"),
 			"4,8": tf.Votes.ValidatorsSet("A"),
 		}))
@@ -111,7 +110,7 @@ func TestSequenceTracker_TrackVotes(t *testing.T) {
 	{
 		tf.Instance.TrackVotes(markers.NewMarkers(markers.NewMarker(1, 5)), tf.Votes.Validator("B"), votes.MockedVotePower{VotePower: 3})
 
-		tf.ValidateStructureDetailsVoters(lo.MergeMaps(expectedVoters, map[string]*set.AdvancedSet[identity.ID]{
+		tf.ValidateStructureDetailsVoters(lo.MergeMaps(expectedVoters, map[string]*advancedset.AdvancedSet[identity.ID]{
 			"0,1": tf.Votes.ValidatorsSet("A", "B"),
 			"1,2": tf.Votes.ValidatorsSet("A", "B"),
 			"1,3": tf.Votes.ValidatorsSet("A", "B"),

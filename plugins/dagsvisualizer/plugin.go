@@ -5,17 +5,17 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/daemon"
-	"github.com/iotaledger/hive.go/core/logger"
-	"github.com/iotaledger/hive.go/core/node"
-	"github.com/labstack/echo"
-	"github.com/labstack/echo/middleware"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"github.com/pkg/errors"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/app/retainer"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/hive.go/app/daemon"
+	"github.com/iotaledger/hive.go/core/logger"
 )
 
 // PluginName is the name of the dags visualizer plugin.
@@ -57,11 +57,10 @@ func configureServer() {
 	server.Use(middleware.Recover())
 
 	setupRoutes(server)
-	setupVisualizer()
 }
 
 func run(plugin *node.Plugin) {
-	runVisualizer()
+	runVisualizer(plugin)
 
 	plugin.LogInfof("Starting %s ...", PluginName)
 	if err := daemon.BackgroundWorker(PluginName, worker, shutdown.PriorityDashboard); err != nil {

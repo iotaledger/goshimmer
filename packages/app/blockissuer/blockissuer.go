@@ -5,11 +5,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/workerpool"
-
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer/blockfactory"
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer/ratesetter"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
@@ -18,8 +13,13 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 // region Factory ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -33,10 +33,11 @@ type BlockIssuer struct {
 	protocol          *protocol.Protocol
 	identity          *identity.LocalIdentity
 	referenceProvider *blockfactory.ReferenceProvider
-	workerPool        *workerpool.UnboundedWorkerPool
+	workerPool        *workerpool.WorkerPool
 
-	optsBlockFactoryOptions    []options.Option[blockfactory.Factory]
-	optsIgnoreBootstrappedFlag bool
+	optsBlockFactoryOptions            []options.Option[blockfactory.Factory]
+	optsIgnoreBootstrappedFlag         bool
+	optsTimeSinceConfirmationThreshold time.Duration
 }
 
 // New creates a new block issuer.
@@ -46,10 +47,11 @@ func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opt
 		identity:   localIdentity,
 		protocol:   protocol,
 		workerPool: protocol.Workers.CreatePool("BlockIssuer", 2),
-		referenceProvider: blockfactory.NewReferenceProvider(protocol, func() epoch.Index {
-			return protocol.Engine().Storage.Settings.LatestCommitment().Index()
-		}),
 	}, opts, func(i *BlockIssuer) {
+		i.referenceProvider = blockfactory.NewReferenceProvider(protocol, i.optsTimeSinceConfirmationThreshold, func() epoch.Index {
+			return protocol.Engine().Storage.Settings.LatestCommitment().Index()
+		})
+
 		i.Factory = blockfactory.NewBlockFactory(
 			localIdentity,
 			func(blockID models.BlockID) (block *blockdag.Block, exists bool) {
@@ -70,6 +72,7 @@ func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opt
 }
 
 func (i *BlockIssuer) setupEvents() {
+	i.Events.Error.LinkTo(i.Factory.Events.Error)
 }
 
 // IssuePayload creates a new block including sequence number and tip selection, submits it to be processed and returns it.
@@ -117,24 +120,23 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeBooked(block *models.Block, max
 	}
 
 	// first subscribe to the transaction booked event
-	booked := make(chan *booker.Block, 1)
+	booked := make(chan *virtualvoting.Block, 1)
 	// exit is used to let the caller exit if for whatever
 	// reason the same transaction gets booked multiple times
 	exit := make(chan struct{})
 	defer close(exit)
 
-	defer event.AttachWithWorkerPool(i.protocol.Events.Engine.Tangle.Booker.BlockBooked, func(bookedBlock *booker.Block) {
-		if block.ID() != bookedBlock.ID() {
+	defer i.protocol.Events.Engine.Tangle.Booker.BlockBooked.Hook(func(evt *booker.BlockBookedEvent) {
+		if block.ID() != evt.Block.ID() {
 			return
 		}
 		select {
-		case booked <- bookedBlock:
+		case booked <- evt.Block:
 		case <-exit:
 		}
-	}, i.workerPool)()
+	}, event.WithWorkerPool(i.workerPool)).Unhook()
 
-	err := i.issueBlock(block)
-	if err != nil {
+	if err := i.issueBlock(block); err != nil {
 		return errors.Wrapf(err, "failed to issue block %s", block.ID().String())
 	}
 
@@ -158,7 +160,7 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeScheduled(block *models.Block, 
 	exit := make(chan struct{})
 	defer close(exit)
 
-	defer event.AttachWithWorkerPool(i.protocol.Events.CongestionControl.Scheduler.BlockScheduled, func(scheduledBlock *scheduler.Block) {
+	defer i.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Hook(func(scheduledBlock *scheduler.Block) {
 		if block.ID() != scheduledBlock.ID() {
 			return
 		}
@@ -166,10 +168,9 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeScheduled(block *models.Block, 
 		case scheduled <- scheduledBlock:
 		case <-exit:
 		}
-	}, i.workerPool)()
+	}, event.WithWorkerPool(i.workerPool)).Unhook()
 
-	err := i.issueBlock(block)
-	if err != nil {
+	if err := i.issueBlock(block); err != nil {
 		return errors.Wrapf(err, "failed to issue block %s", block.ID().String())
 	}
 
@@ -200,6 +201,13 @@ func WithRateSetter(rateSetter ratesetter.RateSetter) options.Option[BlockIssuer
 func WithIgnoreBootstrappedFlag(ignoreBootstrappedFlag bool) options.Option[BlockIssuer] {
 	return func(issuer *BlockIssuer) {
 		issuer.optsIgnoreBootstrappedFlag = ignoreBootstrappedFlag
+	}
+}
+
+// WithTimeSinceConfirmationThreshold returns an option that sets the time since confirmation threshold.
+func WithTimeSinceConfirmationThreshold(timeSinceConfirmationThreshold time.Duration) options.Option[BlockIssuer] {
+	return func(o *BlockIssuer) {
+		o.optsTimeSinceConfirmationThreshold = timeSinceConfirmationThreshold
 	}
 }
 

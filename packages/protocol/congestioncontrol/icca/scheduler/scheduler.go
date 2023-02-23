@@ -1,26 +1,25 @@
 package scheduler
 
 import (
+	"fmt"
 	"math"
 	"math/big"
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/typeutils"
-
 	"github.com/pkg/errors"
+	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/ds/shrinkingmap"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 const (
@@ -55,7 +54,7 @@ type Scheduler struct {
 	optsAcceptedBlockScheduleThreshold time.Duration
 	optsMaxDeficit                     *big.Rat
 
-	running        typeutils.AtomicBool
+	running        atomic.Bool
 	shutdownSignal chan struct{}
 }
 
@@ -81,14 +80,13 @@ func New(evictionState *eviction.State, isBlockAccepted func(models.BlockID) boo
 }
 
 func (s *Scheduler) setupEvents() {
-	event.Hook(s.Events.BlockScheduled, s.UpdateChildren)
-
-	event.Hook(s.evictionState.Events.EpochEvicted, s.evictEpoch)
+	s.Events.BlockScheduled.Hook(s.UpdateChildren)
+	s.evictionState.Events.EpochEvicted.Hook(s.evictEpoch)
 }
 
 // Start starts the scheduler.
 func (s *Scheduler) Start() {
-	if s.running.SetToIf(false, true) {
+	if s.running.CompareAndSwap(false, true) {
 		s.shutdownSignal = make(chan struct{}, 1)
 		// start the main loop
 		go s.mainLoop()
@@ -97,7 +95,7 @@ func (s *Scheduler) Start() {
 
 // IsRunning returns true if the scheduler has started.
 func (s *Scheduler) IsRunning() bool {
-	return s.running.IsSet()
+	return s.running.Load()
 }
 
 // Rate gets the rate of the scheduler.
@@ -203,7 +201,7 @@ func (s *Scheduler) GetAccessManaMap() map[identity.ID]int64 {
 // Shutdown shuts down the Scheduler.
 // Shutdown blocks until the scheduler has been shutdown successfully.
 func (s *Scheduler) Shutdown() {
-	if s.running.SetToIf(true, false) {
+	if s.running.CompareAndSwap(true, false) {
 		close(s.shutdownSignal)
 	}
 }
@@ -509,6 +507,7 @@ func (s *Scheduler) selectIssuer(start *IssuerQueue, manaMap map[identity.ID]int
 
 				continue
 			}
+
 			// compute how often the deficit needs to be incremented until the block can be scheduled
 			remainingDeficit := maxRat(new(big.Rat).Sub(big.NewRat(int64(block.Work()), 1), s.Deficit(q.IssuerID())), new(big.Rat))
 			// calculate how many rounds we need to skip to accumulate enough deficit.
@@ -603,7 +602,7 @@ func (s *Scheduler) GetOrRegisterBlock(virtualVotingBlock *virtualvoting.Block) 
 
 	blockStorage := s.blocks.Get(virtualVotingBlock.ID().Index(), true)
 
-	block, _ = blockStorage.RetrieveOrCreate(virtualVotingBlock.ID(), func() *Block {
+	block, _ = blockStorage.GetOrCreate(virtualVotingBlock.ID(), func() *Block {
 		return NewBlock(virtualVotingBlock)
 	})
 
@@ -630,6 +629,20 @@ func (s *Scheduler) getAccessMana(id identity.ID) int64 {
 func (s *Scheduler) evictEpoch(index epoch.Index) {
 	s.evictionMutex.Lock()
 	defer s.evictionMutex.Unlock()
+
+	// TODO: this can be implemented better, but usually there will not be a lot of blocks in the buffer anyway, so it's good enough for a quickfix
+	// A possible problem is that a block is stuck in the buffer, without ever being marked as ready.
+	// This situation should never occur, but we suspect it does happen sometimes and the following fix should remedy that.
+	// Probably it can be deleted once the original problem is fixed.
+	// If a block is marked as Ready, then it will be eventually removed by the scheduling loop.
+	for _, blockID := range s.buffer.IDs() {
+		if blockID.Index() == index {
+			if block, exists := s.block(blockID); exists {
+				s.buffer.Unsubmit(block)
+				fmt.Printf(">> Scheduler evicted block %s from the buffer when evicting epoch %s\n", blockID.String(), index.String())
+			}
+		}
+	}
 
 	s.blocks.Evict(index)
 }

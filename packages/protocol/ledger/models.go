@@ -3,15 +3,15 @@ package ledger
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/core/generics/model"
-	"github.com/iotaledger/hive.go/core/generics/orderedmap"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/stringify"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
-
+	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/ds/orderedmap"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/objectstorage/generic/model"
+	"github.com/iotaledger/hive.go/stringify"
 )
 
 // region TransactionMetadata //////////////////////////////////////////////////////////////////////////////////////////
@@ -57,7 +57,7 @@ func NewTransactionMetadata(txID utxo.TransactionID) (metadata *TransactionMetad
 }
 
 // ConflictIDs returns the conflicting ConflictIDs that the Transaction depends on.
-func (t *TransactionMetadata) ConflictIDs() (conflictIDs *set.AdvancedSet[utxo.TransactionID]) {
+func (t *TransactionMetadata) ConflictIDs() (conflictIDs *advancedset.AdvancedSet[utxo.TransactionID]) {
 	t.RLock()
 	defer t.RUnlock()
 
@@ -65,7 +65,7 @@ func (t *TransactionMetadata) ConflictIDs() (conflictIDs *set.AdvancedSet[utxo.T
 }
 
 // SetConflictIDs sets the conflicting ConflictIDs that this Transaction depends on.
-func (t *TransactionMetadata) SetConflictIDs(conflictIDs *set.AdvancedSet[utxo.TransactionID]) (modified bool) {
+func (t *TransactionMetadata) SetConflictIDs(conflictIDs *advancedset.AdvancedSet[utxo.TransactionID]) (modified bool) {
 	t.Lock()
 	defer t.Unlock()
 
@@ -216,7 +216,7 @@ type outputMetadata struct {
 	InclusionEpoch epoch.Index `serix:"2"`
 
 	// ConflictIDs contains the conflicting ConflictIDs that this Output depends on.
-	ConflictIDs *set.AdvancedSet[utxo.TransactionID] `serix:"3"`
+	ConflictIDs *advancedset.AdvancedSet[utxo.TransactionID] `serix:"3"`
 
 	// FirstConsumer contains the first Transaction that ever spent the Output.
 	FirstConsumer utxo.TransactionID `serix:"4"`
@@ -312,7 +312,7 @@ func (o *OutputMetadata) SetInclusionEpoch(inclusionEpoch epoch.Index) (updated 
 }
 
 // ConflictIDs returns the conflicting ConflictIDs that the Output depends on.
-func (o *OutputMetadata) ConflictIDs() (conflictIDs *set.AdvancedSet[utxo.TransactionID]) {
+func (o *OutputMetadata) ConflictIDs() (conflictIDs *advancedset.AdvancedSet[utxo.TransactionID]) {
 	o.RLock()
 	defer o.RUnlock()
 
@@ -320,7 +320,7 @@ func (o *OutputMetadata) ConflictIDs() (conflictIDs *set.AdvancedSet[utxo.Transa
 }
 
 // SetConflictIDs sets the conflicting ConflictIDs that this Transaction depends on.
-func (o *OutputMetadata) SetConflictIDs(conflictIDs *set.AdvancedSet[utxo.TransactionID]) (modified bool) {
+func (o *OutputMetadata) SetConflictIDs(conflictIDs *advancedset.AdvancedSet[utxo.TransactionID]) (modified bool) {
 	o.Lock()
 	defer o.Unlock()
 
@@ -429,7 +429,7 @@ func (o *OutputsMetadata) Get(id utxo.OutputID) (outputMetadata *OutputMetadata,
 
 // Add adds the given OutputMetadata object to the collection.
 func (o *OutputsMetadata) Add(output *OutputMetadata) (added bool) {
-	return o.Set(output.ID(), output)
+	return !lo.Return2(o.Set(output.ID(), output))
 }
 
 func (o *OutputsMetadata) Filter(predicate func(outputMetadata *OutputMetadata) bool) (filtered *OutputsMetadata) {
@@ -457,8 +457,8 @@ func (o *OutputsMetadata) IDs() (ids utxo.OutputIDs) {
 }
 
 // ConflictIDs returns a union of all ConflictIDs of the contained OutputMetadata objects.
-func (o *OutputsMetadata) ConflictIDs() (conflictIDs *set.AdvancedSet[utxo.TransactionID]) {
-	conflictIDs = set.NewAdvancedSet[utxo.TransactionID]()
+func (o *OutputsMetadata) ConflictIDs() (conflictIDs *advancedset.AdvancedSet[utxo.TransactionID]) {
+	conflictIDs = advancedset.NewAdvancedSet[utxo.TransactionID]()
 	_ = o.ForEach(func(outputMetadata *OutputMetadata) (err error) {
 		conflictIDs.AddAll(outputMetadata.ConflictIDs())
 		return nil

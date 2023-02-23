@@ -4,11 +4,10 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/iotaledger/hive.go/core/crypto/ed25519"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/set"
-
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -116,6 +115,6 @@ func WithBlock(alias string, block *Block) options.Option[TestFramework] {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func GenesisRootBlockProvider(index epoch.Index) *set.AdvancedSet[BlockID] {
-	return set.NewAdvancedSet(EmptyBlockID)
+func GenesisRootBlockProvider(index epoch.Index) *advancedset.AdvancedSet[BlockID] {
+	return advancedset.NewAdvancedSet(EmptyBlockID)
 }

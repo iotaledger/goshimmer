@@ -1,14 +1,14 @@
 package prunable
 
 import (
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/kvstore"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 type RootBlocks struct {
@@ -51,8 +51,8 @@ func (r *RootBlocks) Delete(blockID models.BlockID) (err error) {
 }
 
 // LoadAll loads all root blocks for an epoch index.
-func (r *RootBlocks) LoadAll(index epoch.Index) (solidEntryPoints *set.AdvancedSet[models.BlockID]) {
-	solidEntryPoints = set.NewAdvancedSet[models.BlockID]()
+func (r *RootBlocks) LoadAll(index epoch.Index) (solidEntryPoints *advancedset.AdvancedSet[models.BlockID]) {
+	solidEntryPoints = advancedset.NewAdvancedSet[models.BlockID]()
 	if err := r.Stream(index, func(id models.BlockID) error {
 		solidEntryPoints.Add(id)
 		return nil
@@ -63,7 +63,7 @@ func (r *RootBlocks) LoadAll(index epoch.Index) (solidEntryPoints *set.AdvancedS
 }
 
 // StoreAll stores all passed root blocks.
-func (r *RootBlocks) StoreAll(rootBlocks *set.AdvancedSet[models.BlockID]) (err error) {
+func (r *RootBlocks) StoreAll(rootBlocks *advancedset.AdvancedSet[models.BlockID]) (err error) {
 	for it := rootBlocks.Iterator(); it.HasNext(); {
 		if err := r.Store(it.Next()); err != nil {
 			return errors.Wrap(err, "failed to store rootblocks")

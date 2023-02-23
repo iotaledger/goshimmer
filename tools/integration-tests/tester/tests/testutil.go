@@ -7,11 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/crypto/ed25519"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -19,10 +14,15 @@ import (
 
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 var faucetPoWDifficulty = framework.PeerConfig().Faucet.PowDifficulty
@@ -389,9 +389,9 @@ func SendTransaction(t *testing.T, from *framework.Node, to *framework.Node, col
 // RequireBlocksAvailable asserts that all nodes have received BlockIDs in waitFor time, periodically checking each tick.
 // Optionally, a ConfirmationState can be specified, which then requires the blocks to reach this ConfirmationState.
 func RequireBlocksAvailable(t *testing.T, nodes []*framework.Node, blockIDs map[string]DataBlockSent, waitFor time.Duration, tick time.Duration, accepted ...bool) {
-	missing := make(map[identity.ID]*set.AdvancedSet[string], len(nodes))
+	missing := make(map[identity.ID]*advancedset.AdvancedSet[string], len(nodes))
 	for _, node := range nodes {
-		missing[node.ID()] = set.NewAdvancedSet[string]()
+		missing[node.ID()] = advancedset.NewAdvancedSet[string]()
 		for blockID := range blockIDs {
 			missing[node.ID()].Add(blockID)
 		}
@@ -439,9 +439,9 @@ func RequireBlocksAvailable(t *testing.T, nodes []*framework.Node, blockIDs map[
 
 // RequireBlocksOrphaned asserts that all nodes have received BlockIDs and marked them as orphaned in waitFor time, periodically checking each tick.
 func RequireBlocksOrphaned(t *testing.T, nodes []*framework.Node, blockIDs map[string]DataBlockSent, waitFor time.Duration, tick time.Duration) {
-	missing := make(map[identity.ID]*set.AdvancedSet[string], len(nodes))
+	missing := make(map[identity.ID]*advancedset.AdvancedSet[string], len(nodes))
 	for _, node := range nodes {
-		missing[node.ID()] = set.NewAdvancedSet[string]()
+		missing[node.ID()] = advancedset.NewAdvancedSet[string]()
 		for blockID := range blockIDs {
 			missing[node.ID()].Add(blockID)
 		}
@@ -612,10 +612,10 @@ func RequireConfirmationStateEqual(t *testing.T, nodes framework.Nodes, expected
 				// the confirmation state can change, so we should check all transactions every time
 				stateEqual, confirmationState := txMetadataStateEqual(t, node, txID, expInclState)
 				if !stateEqual {
-					t.Logf("Current ConfirmationState for txId %s is %s", txID, confirmationState)
+					t.Logf("Current ConfirmationState for txId %s is %s on %s", txID, confirmationState, node.Name())
 					return false
 				}
-				t.Logf("Current ConfirmationState for txId %s is %s", txID, confirmationState)
+				t.Logf("Current ConfirmationState for txId %s is %s on %s", txID, confirmationState, node.Name())
 
 			}
 		}

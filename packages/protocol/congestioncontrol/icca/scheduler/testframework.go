@@ -7,12 +7,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/hive.go/core/debug"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/workerpool"
-
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
@@ -21,10 +15,15 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/runtime/debug"
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 // region TestFramework //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -62,14 +61,14 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, optsScheduler 
 	test.Cleanup(func() {
 		t.Scheduler.Shutdown()
 		t.engine.Shutdown()
-		workers.Wait()
+		workers.WaitChildren()
 		t.storage.Shutdown()
 	})
 
 	t.Tangle = tangle.NewTestFramework(
 		test,
 		t.engine.Tangle,
-		virtualvoting.NewTestFramework(test, workers.CreateGroup("VirtualVotingTestFramework"), t.engine.Tangle.VirtualVoting),
+		booker.NewTestFramework(test, workers.CreateGroup("BookerTestFramework"), t.engine.Tangle.Booker),
 	)
 
 	t.Scheduler = New(t.Tangle.BlockDAG.Instance.EvictionState, t.mockAcceptance.IsBlockAccepted, t.ManaMap, t.TotalMana, optsScheduler...)
@@ -80,11 +79,11 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, optsScheduler 
 }
 
 func (t *TestFramework) setupEvents() {
-	event.AttachWithWorkerPool(t.mockAcceptance.BlockAcceptedEvent, t.Scheduler.HandleAcceptedBlock, t.workers.CreatePool("HandleAccepted", 2))
-	event.AttachWithWorkerPool(t.Tangle.Instance.Events.VirtualVoting.BlockTracked, t.Scheduler.AddBlock, t.workers.CreatePool("Add", 2))
-	event.AttachWithWorkerPool(t.Tangle.Instance.Events.BlockDAG.BlockOrphaned, t.Scheduler.HandleOrphanedBlock, t.workers.CreatePool("HandleOrphaned", 2))
+	t.mockAcceptance.BlockAcceptedEvent.Hook(t.Scheduler.HandleAcceptedBlock, event.WithWorkerPool(t.workers.CreatePool("HandleAccepted", 2)))
+	t.Tangle.Instance.Events.Booker.VirtualVoting.BlockTracked.Hook(t.Scheduler.AddBlock, event.WithWorkerPool(t.workers.CreatePool("Add", 2)))
+	t.Tangle.Instance.Events.BlockDAG.BlockOrphaned.Hook(t.Scheduler.HandleOrphanedBlock, event.WithWorkerPool(t.workers.CreatePool("HandleOrphaned", 2)))
 
-	event.Hook(t.Scheduler.Events.BlockScheduled, func(block *Block) {
+	t.Scheduler.Events.BlockScheduled.Hook(func(block *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("SCHEDULED: %s", block.ID())
 		}
@@ -92,14 +91,14 @@ func (t *TestFramework) setupEvents() {
 		atomic.AddUint32(&(t.scheduledBlocksCount), 1)
 	})
 
-	event.Hook(t.Scheduler.Events.BlockSkipped, func(block *Block) {
+	t.Scheduler.Events.BlockSkipped.Hook(func(block *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("BLOCK SKIPPED: %s", block.ID())
 		}
 		atomic.AddUint32(&(t.skippedBlocksCount), 1)
 	})
 
-	event.Hook(t.Scheduler.Events.BlockDropped, func(block *Block) {
+	t.Scheduler.Events.BlockDropped.Hook(func(block *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("BLOCK DROPPED: %s", block.ID())
 		}
@@ -138,12 +137,12 @@ func (t *TestFramework) Issuer(alias string) (issuerIdentity *identity.Identity)
 }
 
 func (t *TestFramework) CreateSchedulerBlock(opts ...options.Option[models.Block]) *Block {
-	blk := virtualvoting.NewBlock(booker.NewBlock(blockdag.NewBlock(models.NewBlock(opts...), blockdag.WithSolid(true)), booker.WithBooked(true), booker.WithStructureDetails(markers.NewStructureDetails())))
+	blk := virtualvoting.NewBlock(blockdag.NewBlock(models.NewBlock(opts...), blockdag.WithSolid(true)), virtualvoting.WithBooked(true), virtualvoting.WithStructureDetails(markers.NewStructureDetails()))
 	if len(blk.ParentsByType(models.StrongParentType)) == 0 {
 		parents := models.NewParentBlockIDs()
 		parents.AddStrong(models.EmptyBlockID)
 		opts = append(opts, models.WithParents(parents))
-		blk = virtualvoting.NewBlock(booker.NewBlock(blockdag.NewBlock(models.NewBlock(opts...), blockdag.WithSolid(true)), booker.WithBooked(true), booker.WithStructureDetails(markers.NewStructureDetails())))
+		blk = virtualvoting.NewBlock(blockdag.NewBlock(models.NewBlock(opts...), blockdag.WithSolid(true)), virtualvoting.WithBooked(true), virtualvoting.WithStructureDetails(markers.NewStructureDetails()))
 	}
 	if err := blk.DetermineID(); err != nil {
 		panic(errors.Wrap(err, "could not determine BlockID"))

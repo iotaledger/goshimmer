@@ -5,16 +5,10 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
-	"github.com/iotaledger/hive.go/core/daemon"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/workerpool"
-)
-
-var (
-	epochsLiveFeedWorkerPool      *workerpool.NonBlockingQueuedWorkerPool
-	epochsLiveFeedWorkerCount     = 1
-	epochsLiveFeedWorkerQueueSize = 50
+	"github.com/iotaledger/hive.go/app/daemon"
+	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 type EpochInfo struct {
@@ -22,24 +16,14 @@ type EpochInfo struct {
 	ID    string      `json:"id"`
 }
 
-func configureEpochLiveFeed() {
-	epochsLiveFeedWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
-		broadcastWsBlock(&wsblk{task.Param(0).(byte), task.Param(1)})
-		task.Return(nil)
-	}, workerpool.WorkerCount(epochsLiveFeedWorkerCount), workerpool.QueueSize(conflictsLiveFeedWorkerQueueSize))
-}
-
-func runEpochsLiveFeed() {
+func runEpochsLiveFeed(plugin *node.Plugin) {
 	if err := daemon.BackgroundWorker("Dashboard[EpochsLiveFeed]", func(ctx context.Context) {
-		defer epochsLiveFeedWorkerPool.Stop()
-
-		onEpochCommittedClosure := event.NewClosure(onEpochCommitted)
-		deps.Protocol.Engine().NotarizationManager.Events.EpochCommitted.Attach(onEpochCommittedClosure)
+		hook := deps.Protocol.Engine().NotarizationManager.Events.EpochCommitted.Hook(onEpochCommitted, event.WithWorkerPool(plugin.WorkerPool))
 
 		<-ctx.Done()
 
 		log.Info("Stopping Dashboard[EpochsLiveFeed] ...")
-		deps.Protocol.Engine().NotarizationManager.Events.EpochCommitted.Detach(onEpochCommittedClosure)
+		hook.Unhook()
 		log.Info("Stopping Dashboard[EpochsLiveFeed] ... done")
 	}, shutdown.PriorityDashboard); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
@@ -47,5 +31,5 @@ func runEpochsLiveFeed() {
 }
 
 func onEpochCommitted(e *notarization.EpochCommittedDetails) {
-	epochsLiveFeedWorkerPool.TrySubmit(MsgTypeEpochInfo, &EpochInfo{Index: e.Commitment.Index(), ID: e.Commitment.ID().Base58()})
+	broadcastWsBlock(&wsblk{MsgTypeEpochInfo, &EpochInfo{Index: e.Commitment.Index(), ID: e.Commitment.ID().Base58()}})
 }

@@ -5,15 +5,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/logger"
-	"github.com/iotaledger/hive.go/core/typeutils"
 	"github.com/pkg/errors"
 	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
+	"github.com/iotaledger/hive.go/core/logger"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 const (
@@ -32,7 +31,7 @@ type Spammer struct {
 	issuePayloadFunc IssuePayloadFunc
 	estimateFunc     EstimateFunc
 	log              *logger.Logger
-	running          typeutils.AtomicBool
+	running          atomic.Bool
 	shutdown         chan struct{}
 	wg               sync.WaitGroup
 	goroutinesCount  *atomic.Int32
@@ -52,7 +51,7 @@ func New(issuePayloadFunc IssuePayloadFunc, log *logger.Logger, estimateFunc Est
 // according to a inter block issuing function (IMIF).
 func (s *Spammer) Start(rate int, payloadSize uint64, timeUnit time.Duration, imif string) {
 	// only start if not yet running
-	if s.running.SetToIf(false, true) {
+	if s.running.CompareAndSwap(false, true) {
 		s.wg.Add(1)
 		go s.run(rate, payloadSize, timeUnit, imif)
 	}
@@ -65,7 +64,7 @@ func (s *Spammer) Shutdown() {
 }
 
 func (s *Spammer) signalShutdown() {
-	if s.running.SetToIf(true, false) {
+	if s.running.CompareAndSwap(true, false) {
 		s.shutdown <- struct{}{}
 	}
 }

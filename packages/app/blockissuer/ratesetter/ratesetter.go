@@ -8,9 +8,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer/ratesetter/deficit"
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer/ratesetter/disabled"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-
-	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 // The rate setter can be in one of three modes: aimd, deficit or disabled.

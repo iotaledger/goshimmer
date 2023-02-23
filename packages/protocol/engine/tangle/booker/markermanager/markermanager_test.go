@@ -7,16 +7,14 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/workerpool"
-
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/ds/set"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 // We create epochCount blocks, each in a different epoch and with a different marker, then we prune the markerManager and expect the mapping to be pruned accordingly.
@@ -28,7 +26,7 @@ func Test_PruneMarkerBlockMapping(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
 	tf := blockdag.NewDefaultTestFramework(t, workers.CreateGroup("BlockDAGTestFramework"))
 
-	event.Hook(tf.Instance.EvictionState.Events.EpochEvicted, markerManager.Evict)
+	tf.Instance.EvictionState.Events.EpochEvicted.Hook(markerManager.Evict)
 
 	// create a helper function that creates the blocks
 	createNewBlock := func(idx int, prefix string) (block *blockdag.Block, alias string) {
@@ -64,12 +62,12 @@ func Test_PruneMarkerBlockMapping(t *testing.T) {
 	validateBlockMarkerMappingPruning(t, markerBlockMapping, markerManager, 0)
 
 	tf.Instance.EvictionState.EvictUntil(epochCount / 2)
-	event.Loop.PendingTasksCounter.WaitIsZero()
+	workers.WaitChildren()
 
 	validateBlockMarkerMappingPruning(t, markerBlockMapping, markerManager, epochCount/2)
 
 	tf.Instance.EvictionState.EvictUntil(epochCount)
-	event.Loop.PendingTasksCounter.WaitIsZero()
+	workers.WaitChildren()
 
 	validateBlockMarkerMappingPruning(t, markerBlockMapping, markerManager, epochCount)
 
@@ -189,10 +187,10 @@ func Test_PruneSequences(t *testing.T) {
 				))
 			}
 
-			newStructureDetailsTmp, created := markerManager.SequenceManager.InheritStructureDetails([]*markers.StructureDetails{structureDetails})
+			newStructureDetailsTmp, created := markerManager.SequenceManager.InheritStructureDetails([]*markers.StructureDetails{structureDetails}, false)
 
 			// create another marker within the same sequence, so that in the next iteration a new sequence will be created
-			newStructureDetails, _ := markerManager.SequenceManager.InheritStructureDetails([]*markers.StructureDetails{newStructureDetailsTmp})
+			newStructureDetails, _ := markerManager.SequenceManager.InheritStructureDetails([]*markers.StructureDetails{newStructureDetailsTmp}, false)
 
 			assert.True(t, created, "expected to create a new sequence with sequence ID %d", expectedSequenceID)
 			assert.True(t, newStructureDetails.IsPastMarker(), "expected the new sequence details to be past marker")

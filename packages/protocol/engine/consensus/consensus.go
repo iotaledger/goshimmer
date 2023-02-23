@@ -1,15 +1,14 @@
 package consensus
 
 import (
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/workerpool"
-
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/conflictresolver"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/epochgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 // region Consensus ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -29,7 +28,7 @@ func New(workers *workerpool.Group, tangleInstance *tangle.Tangle, evictionState
 	return options.Apply(&Consensus{}, opts, func(c *Consensus) {
 		c.BlockGadget = blockgadget.New(workers.CreateGroup("BlockGadget"), tangleInstance, evictionState, totalWeightCallback, c.optsAcceptanceGadget...)
 		c.EpochGadget = epochgadget.New(workers.CreateGroup("EpochGadget"), tangleInstance, lastConfirmedEpoch, totalWeightCallback, c.optsEpochConfirmationGadget...)
-		c.ConflictResolver = conflictresolver.New(tangleInstance.Ledger.ConflictDAG, tangleInstance.VirtualVoting.ConflictVotersTotalWeight)
+		c.ConflictResolver = conflictresolver.New(tangleInstance.Ledger.ConflictDAG, tangleInstance.Booker.VirtualVoting.ConflictVotersTotalWeight)
 
 		c.Events = NewEvents()
 		c.Events.BlockGadget = c.BlockGadget.Events

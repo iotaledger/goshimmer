@@ -1,16 +1,12 @@
 package dashboard
 
 import (
-	"github.com/iotaledger/hive.go/core/generics/lo"
-
-	chatPkg "github.com/iotaledger/goshimmer/packages/app/chat"
 	"github.com/iotaledger/goshimmer/packages/app/faucet"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
-
-	"github.com/iotaledger/goshimmer/plugins/chat"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 // BasicPayload contains content title and bytes
@@ -98,13 +94,6 @@ func ProcessPayload(p payload.Payload) interface{} {
 		return BasicStringPayload{
 			ContentTitle: "address",
 			Content:      p.(*faucet.Payload).Address().Base58(),
-		}
-	case chatPkg.Type:
-		chatPayload := p.(*chatPkg.Payload)
-		return chat.Request{
-			From:  chatPayload.From(),
-			To:    chatPayload.To(),
-			Block: chatPayload.Block(),
 		}
 	default:
 		// unknown payload

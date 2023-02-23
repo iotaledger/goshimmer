@@ -5,15 +5,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/orderedmap"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/types"
-	"github.com/iotaledger/hive.go/core/workerpool"
-
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -33,6 +24,14 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/ds/orderedmap"
+	"github.com/iotaledger/hive.go/ds/types"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 // region Protocol /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -56,7 +55,6 @@ type Protocol struct {
 	optsSnapshotPath     string
 	optsPruningThreshold uint64
 
-	// optsSolidificationOptions []options.Option[solidification.Requester]
 	optsCongestionControlOptions      []options.Option[congestioncontrol.CongestionControl]
 	optsEngineOptions                 []options.Option[engine.Engine]
 	optsChainManagerOptions           []options.Option[chainmanager.Manager]
@@ -126,9 +124,9 @@ func (p *Protocol) initEngineManager() {
 		p.optsThroughputQuotaProvider,
 	)
 
-	event.AttachWithWorkerPool(p.Events.Engine.Consensus.EpochGadget.EpochConfirmed, func(epochIndex epoch.Index) {
+	p.Events.Engine.Consensus.EpochGadget.EpochConfirmed.Hook(func(epochIndex epoch.Index) {
 		p.Engine().Storage.PruneUntilEpoch(epochIndex - epoch.Index(p.optsPruningThreshold))
-	}, p.Workers.CreatePool("PruneEngine", 2))
+	}, event.WithWorkerPool(p.Workers.CreatePool("PruneEngine", 2)))
 
 	p.mainEngine = lo.PanicOnErr(p.engineManager.LoadActiveEngine())
 }
@@ -140,38 +138,38 @@ func (p *Protocol) initCongestionControl() {
 
 func (p *Protocol) initNetworkEvents() {
 	wpBlocks := p.Workers.CreatePool("NetworkEvents.Blocks") // Use max amount of workers for sending, receiving and requesting blocks
-	event.AttachWithWorkerPool(p.Events.Network.BlockRequestReceived, func(event *network.BlockRequestReceivedEvent) {
+	p.Events.Network.BlockRequestReceived.Hook(func(event *network.BlockRequestReceivedEvent) {
 		if block, exists := p.MainEngineInstance().Engine.Block(event.BlockID); exists {
 			p.networkProtocol.SendBlock(block, event.Source)
 		}
-	}, wpBlocks)
-	event.AttachWithWorkerPool(p.Events.Engine.BlockRequester.Tick, func(blockID models.BlockID) {
+	}, event.WithWorkerPool(wpBlocks))
+	p.Events.Engine.BlockRequester.Tick.Hook(func(blockID models.BlockID) {
 		p.networkProtocol.RequestBlock(blockID)
-	}, wpBlocks)
-	event.AttachWithWorkerPool(p.Events.CongestionControl.Scheduler.BlockScheduled, func(block *scheduler.Block) {
+	}, event.WithWorkerPool(wpBlocks))
+	p.Events.CongestionControl.Scheduler.BlockScheduled.Hook(func(block *scheduler.Block) {
 		p.networkProtocol.SendBlock(block.ModelsBlock)
-	}, wpBlocks)
-	event.AttachWithWorkerPool(p.Events.Network.BlockReceived, func(event *network.BlockReceivedEvent) {
+	}, event.WithWorkerPool(wpBlocks))
+	p.Events.Network.BlockReceived.Hook(func(event *network.BlockReceivedEvent) {
 		if err := p.ProcessBlock(event.Block, event.Source); err != nil {
 			p.Events.Error.Trigger(err)
 		}
-	}, wpBlocks)
+	}, event.WithWorkerPool(wpBlocks))
 
 	wpCommitments := p.Workers.CreatePool("NetworkEvents.EpochCommitments", 1) // Using just 1 worker to avoid contention
-	event.AttachWithWorkerPool(p.Events.Network.EpochCommitmentRequestReceived, func(event *network.EpochCommitmentRequestReceivedEvent) {
+	p.Events.Network.EpochCommitmentRequestReceived.Hook(func(event *network.EpochCommitmentRequestReceivedEvent) {
 		// when we receive a commitment request, do not look it up in the ChainManager but in the storage, else we might answer with commitments we did not issue ourselves and for which we cannot provide attestations
 		if requestedCommitment, err := p.Engine().Storage.Commitments.Load(event.CommitmentID.Index()); err == nil && requestedCommitment.ID() == event.CommitmentID {
 			p.networkProtocol.SendEpochCommitment(requestedCommitment, event.Source)
 		}
-	}, wpCommitments)
+	}, event.WithWorkerPool(wpCommitments))
 
 	wpAttestations := p.Workers.CreatePool("NetworkEvents.Attestations", 1) // Using just 1 worker to avoid contention
-	event.AttachWithWorkerPool(p.Events.Network.AttestationsRequestReceived, func(event *network.AttestationsRequestReceivedEvent) {
+	p.Events.Network.AttestationsRequestReceived.Hook(func(event *network.AttestationsRequestReceivedEvent) {
 		p.ProcessAttestationsRequest(event.Commitment, event.EndIndex, event.Source)
-	}, wpAttestations)
-	event.AttachWithWorkerPool(p.Events.Network.AttestationsReceived, func(event *network.AttestationsReceivedEvent) {
+	}, event.WithWorkerPool(wpAttestations))
+	p.Events.Network.AttestationsReceived.Hook(func(event *network.AttestationsReceivedEvent) {
 		p.ProcessAttestations(event.Commitment, event.BlockIDs, event.Attestations, event.Source)
-	}, wpAttestations)
+	}, event.WithWorkerPool(wpAttestations))
 }
 
 func (p *Protocol) initChainManager() {
@@ -180,66 +178,60 @@ func (p *Protocol) initChainManager() {
 
 	wp := p.Workers.CreatePool("ChainManager", 1) // Using just 1 worker to avoid contention
 
-	event.AttachWithWorkerPool(p.Events.Engine.NotarizationManager.EpochCommitted, func(details *notarization.EpochCommittedDetails) {
+	p.Events.Engine.NotarizationManager.EpochCommitted.Hook(func(details *notarization.EpochCommittedDetails) {
 		p.chainManager.ProcessCommitment(details.Commitment)
-	}, wp)
-	event.AttachWithWorkerPool(p.Events.Engine.Consensus.EpochGadget.EpochConfirmed, func(epochIndex epoch.Index) {
+	}, event.WithWorkerPool(wp))
+	p.Events.Engine.Consensus.EpochGadget.EpochConfirmed.Hook(func(epochIndex epoch.Index) {
 		p.chainManager.CommitmentRequester.EvictUntil(epochIndex)
-	}, wp)
-	event.AttachWithWorkerPool(p.Events.Engine.EvictionState.EpochEvicted, func(epochIndex epoch.Index) {
+	}, event.WithWorkerPool(wp))
+	p.Events.Engine.EvictionState.EpochEvicted.Hook(func(epochIndex epoch.Index) {
 		p.chainManager.Evict(epochIndex)
-	}, wp)
-	event.AttachWithWorkerPool(p.Events.ChainManager.ForkDetected, p.onForkDetected, wp)
-	event.AttachWithWorkerPool(p.Events.Network.EpochCommitmentReceived, func(event *network.EpochCommitmentReceivedEvent) {
+	}, event.WithWorkerPool(wp))
+	p.Events.ChainManager.ForkDetected.Hook(p.onForkDetected, event.WithWorkerPool(wp))
+	p.Events.Network.EpochCommitmentReceived.Hook(func(event *network.EpochCommitmentReceivedEvent) {
 		p.chainManager.ProcessCommitmentFromSource(event.Commitment, event.Source)
-	}, wp)
-	event.AttachWithWorkerPool(p.chainManager.CommitmentRequester.Events.Tick, func(commitmentID commitment.ID) {
+	}, event.WithWorkerPool(wp))
+	p.chainManager.CommitmentRequester.Events.Tick.Hook(func(commitmentID commitment.ID) {
 		// Check if we have the requested commitment in our storage before asking our peers for it.
 		// This can happen after we restart the node because the chain manager builds up the chain again.
-		if commitment, _ := p.Engine().Storage.Commitments.Load(commitmentID.Index()); commitment != nil {
-			if commitment.ID() == commitmentID {
+		if cm, _ := p.Engine().Storage.Commitments.Load(commitmentID.Index()); cm != nil {
+			if cm.ID() == commitmentID {
 				wp.Submit(func() {
-					p.chainManager.ProcessCommitment(commitment)
+					p.chainManager.ProcessCommitment(cm)
 				})
 				return
 			}
 		}
 
 		p.networkProtocol.RequestCommitment(commitmentID)
-	}, p.Workers.CreatePool("RequestCommitment", 2))
+	}, event.WithWorkerPool(p.Workers.CreatePool("RequestCommitment", 2)))
 }
 
 func (p *Protocol) initTipManager() {
-	p.TipManager = tipmanager.New(p.CongestionControl.Block, p.optsTipManagerOptions...)
+	p.TipManager = tipmanager.New(p.Workers.CreateGroup("TipManager"), p.CongestionControl.Block, p.optsTipManagerOptions...)
 	p.Events.TipManager = p.TipManager.Events
 
-	wp := p.Workers.CreatePool("TipManager", 1) // Using just 1 worker to avoid contention
+	wp := p.Workers.CreatePool("TipManagerAttach", 1) // Using just 1 worker to avoid contention
 
-	event.Hook(p.Events.Engine.Tangle.BlockDAG.BlockOrphaned, func(block *blockdag.Block) {
+	p.Events.Engine.Tangle.BlockDAG.BlockOrphaned.Hook(func(block *blockdag.Block) {
 		if schedulerBlock, exists := p.CongestionControl.Block(block.ID()); exists {
 			p.TipManager.DeleteTip(schedulerBlock)
 		}
 	})
-	event.Hook(p.Events.Engine.Tangle.BlockDAG.BlockUnorphaned, func(block *blockdag.Block) {
+	p.Events.Engine.Tangle.BlockDAG.BlockUnorphaned.Hook(func(block *blockdag.Block) {
 		if schedulerBlock, exists := p.CongestionControl.Block(block.ID()); exists {
 			p.TipManager.AddTip(schedulerBlock)
 		}
 	})
-	event.AttachWithWorkerPool(p.Events.CongestionControl.Scheduler.BlockScheduled, func(block *scheduler.Block) {
+	p.Events.CongestionControl.Scheduler.BlockScheduled.Hook(func(block *scheduler.Block) {
 		p.TipManager.AddTip(block)
-	}, wp)
-	event.AttachWithWorkerPool(p.Events.Engine.EvictionState.EpochEvicted, func(index epoch.Index) {
+	}, event.WithWorkerPool(wp))
+	p.Events.Engine.EvictionState.EpochEvicted.Hook(func(index epoch.Index) {
 		p.TipManager.EvictTSCCache(index)
-	}, wp)
-	event.AttachWithWorkerPool(p.Events.Engine.Consensus.BlockGadget.BlockAccepted, func(block *blockgadget.Block) {
+	}, event.WithWorkerPool(wp))
+	p.Events.Engine.Consensus.BlockGadget.BlockAccepted.Hook(func(block *blockgadget.Block) {
 		p.TipManager.RemoveStrongParents(block.ModelsBlock)
-	}, wp)
-	event.AttachWithWorkerPool(p.Events.Engine.NotarizationManager.EpochCommitted, func(details *notarization.EpochCommittedDetails) {
-		p.TipManager.PromoteFutureTips(details.Commitment)
-	}, wp)
-	event.AttachWithWorkerPool(p.Events.Engine.EvictionState.EpochEvicted, func(index epoch.Index) {
-		p.TipManager.Evict(index)
-	}, wp)
+	}, event.WithWorkerPool(wp))
 }
 
 func (p *Protocol) onForkDetected(fork *chainmanager.Fork) {
@@ -285,7 +277,7 @@ func (p *Protocol) switchEngines() {
 	// Stop current Scheduler
 	p.CongestionControl.Shutdown()
 
-	p.linkTo(p.mainEngine)
+	p.linkTo(p.candidateEngine)
 
 	// Save a reference to the current main engine and storage so that we can shut it down and prune it after switching
 	oldEngine := p.mainEngine
@@ -350,7 +342,7 @@ func (p *Protocol) ProcessAttestationsRequest(forkingPoint *commitment.Commitmen
 	}
 
 	blockIDs := models.NewBlockIDs()
-	attestations := orderedmap.New[epoch.Index, *set.AdvancedSet[*notarization.Attestation]]()
+	attestations := orderedmap.New[epoch.Index, *advancedset.AdvancedSet[*notarization.Attestation]]()
 	for i := forkingPoint.Index(); i <= endIndex; i++ {
 		attestationsForEpoch, err := mainEngine.Engine.NotarizationManager.Attestations.Get(i)
 		if err != nil {
@@ -358,7 +350,7 @@ func (p *Protocol) ProcessAttestationsRequest(forkingPoint *commitment.Commitmen
 			return
 		}
 
-		attestationsSet := set.NewAdvancedSet[*notarization.Attestation]()
+		attestationsSet := advancedset.NewAdvancedSet[*notarization.Attestation]()
 		if err := attestationsForEpoch.Stream(func(_ identity.ID, attestation *notarization.Attestation) bool {
 			attestationsSet.Add(attestation)
 			return true
@@ -381,7 +373,7 @@ func (p *Protocol) ProcessAttestationsRequest(forkingPoint *commitment.Commitmen
 	p.networkProtocol.SendAttestations(forkingPoint, blockIDs, attestations, src)
 }
 
-func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, blockIDs models.BlockIDs, attestations *orderedmap.OrderedMap[epoch.Index, *set.AdvancedSet[*notarization.Attestation]], source identity.ID) {
+func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, blockIDs models.BlockIDs, attestations *orderedmap.OrderedMap[epoch.Index, *advancedset.AdvancedSet[*notarization.Attestation]], source identity.ID) {
 	if attestations.Size() == 0 {
 		p.Events.Error.Trigger(errors.Errorf("received attestations from peer %s are empty", source.String()))
 		return
@@ -431,7 +423,7 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 			epochAttestations, epochExists := attestations.Get(epochIndex)
 			if !epochExists {
 				p.Events.Error.Trigger(errors.Errorf("attestations for epoch %d missing", epochIndex))
-				//TODO: ban source?
+				// TODO: ban source?
 				return
 			}
 			visitedIdentities := make(map[identity.ID]types.Empty)
@@ -451,7 +443,7 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 				issuerID := attestation.IssuerID()
 				if _, alreadyVisited := visitedIdentities[issuerID]; alreadyVisited {
 					p.Events.Error.Trigger(errors.Errorf("invalid attestation from source %s, issuerID %s contains multiple attestations", source, issuerID))
-					//TODO: ban source!
+					// TODO: ban source!
 					return
 				}
 
@@ -478,7 +470,7 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 			forkedEvent.Commitment.Index(),
 			forkedEventClaimedWeight,
 			forkedEventMainWeight))
-		//TODO: ban source?
+		// TODO: ban source?
 		return
 	}
 
@@ -500,19 +492,19 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 
 	// Attach the engine block requests to the protocol and detach as soon as we switch to that engine
 	wp := candidateEngine.Engine.Workers.CreatePool("CandidateBlockRequester", 2)
-	detachRequestBlocks := event.AttachWithWorkerPool(candidateEngine.Engine.Events.BlockRequester.Tick, func(blockID models.BlockID) {
+	detachRequestBlocks := candidateEngine.Engine.Events.BlockRequester.Tick.Hook(func(blockID models.BlockID) {
 		p.networkProtocol.RequestBlock(blockID)
-	}, wp)
+	}, event.WithWorkerPool(wp)).Unhook
 
 	// Attach epoch commitments to the chain manager and detach as soon as we switch to that engine
-	detachProcessCommitment := event.AttachWithWorkerPool(candidateEngine.Engine.Events.NotarizationManager.EpochCommitted, func(details *notarization.EpochCommittedDetails) {
+	detachProcessCommitment := candidateEngine.Engine.Events.NotarizationManager.EpochCommitted.Hook(func(details *notarization.EpochCommittedDetails) {
 		p.chainManager.ProcessCandidateCommitment(details.Commitment)
-	}, candidateEngine.Engine.Workers.CreatePool("ProcessCandidateCommitment", 2))
+	}, event.WithWorkerPool(candidateEngine.Engine.Workers.CreatePool("ProcessCandidateCommitment", 2))).Unhook
 
-	event.Hook(p.Events.MainEngineSwitched, func(_ *enginemanager.EngineInstance) {
+	p.Events.MainEngineSwitched.Hook(func(_ *enginemanager.EngineInstance) {
 		detachRequestBlocks()
 		detachProcessCommitment()
-	}, 1)
+	}, event.WithMaxTriggerCount(1))
 
 	// Add all the blocks from the forking point to the requester since those will not be passed to the engine by the protocol
 	candidateEngine.Engine.BlockRequester.StartTickers(blockIDs.Slice())
@@ -594,45 +586,39 @@ func WithSybilProtectionProvider(sybilProtectionProvider engine.ModuleProvider[s
 	}
 }
 
-func WithThroughputQuotaProvider(sybilProtectionProvider engine.ModuleProvider[throughputquota.ThroughputQuota]) options.Option[Protocol] {
+func WithThroughputQuotaProvider(throughputQuotaProvider engine.ModuleProvider[throughputquota.ThroughputQuota]) options.Option[Protocol] {
 	return func(n *Protocol) {
-		n.optsThroughputQuotaProvider = sybilProtectionProvider
+		n.optsThroughputQuotaProvider = throughputQuotaProvider
 	}
 }
 
 func WithCongestionControlOptions(opts ...options.Option[congestioncontrol.CongestionControl]) options.Option[Protocol] {
-	return func(e *Protocol) {
-		e.optsCongestionControlOptions = opts
+	return func(p *Protocol) {
+		p.optsCongestionControlOptions = append(p.optsCongestionControlOptions, opts...)
 	}
 }
 
 func WithTipManagerOptions(opts ...options.Option[tipmanager.TipManager]) options.Option[Protocol] {
 	return func(p *Protocol) {
-		p.optsTipManagerOptions = opts
+		p.optsTipManagerOptions = append(p.optsTipManagerOptions, opts...)
 	}
 }
 
-// func WithSolidificationOptions(opts ...options.Option[solidification.Requester]) options.Option[Protocol] {
-// 	return func(n *Protocol) {
-// 		n.optsSolidificationOptions = opts
-// 	}
-// }
-
 func WithEngineOptions(opts ...options.Option[engine.Engine]) options.Option[Protocol] {
-	return func(n *Protocol) {
-		n.optsEngineOptions = opts
+	return func(p *Protocol) {
+		p.optsEngineOptions = append(p.optsEngineOptions, opts...)
 	}
 }
 
 func WithChainManagerOptions(opts ...options.Option[chainmanager.Manager]) options.Option[Protocol] {
-	return func(n *Protocol) {
-		n.optsChainManagerOptions = opts
+	return func(p *Protocol) {
+		p.optsChainManagerOptions = append(p.optsChainManagerOptions, opts...)
 	}
 }
 
 func WithStorageDatabaseManagerOptions(opts ...options.Option[database.Manager]) options.Option[Protocol] {
 	return func(p *Protocol) {
-		p.optsStorageDatabaseManagerOptions = opts
+		p.optsStorageDatabaseManagerOptions = append(p.optsStorageDatabaseManagerOptions, opts...)
 	}
 }
 

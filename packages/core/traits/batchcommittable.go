@@ -3,10 +3,10 @@ package traits
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/hive.go/kvstore"
 )
 
 // BatchCommittable is a trait that stores the latest commitment and metadata about batched state transitions.

@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"encoding/binary"
 
-	"github.com/iotaledger/hive.go/core/generics/constraints"
-	"github.com/iotaledger/hive.go/core/kvstore"
+	"github.com/iotaledger/hive.go/constraints"
+	"github.com/iotaledger/hive.go/kvstore"
 )
 
 type Number[T constraints.Numeric] struct {

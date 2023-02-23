@@ -6,20 +6,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
 
-	"github.com/iotaledger/hive.go/core/crypto/ed25519"
-	"github.com/iotaledger/hive.go/core/debug"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/types"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
-	"github.com/iotaledger/hive.go/core/workerpool"
-
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
@@ -32,6 +24,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markermanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
 	"github.com/iotaledger/goshimmer/packages/protocol/enginemanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
@@ -41,6 +34,14 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/goshimmer/packages/storage/utils"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/debug"
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 func TestProtocol(t *testing.T) {
@@ -96,10 +97,10 @@ func TestProtocol(t *testing.T) {
 	protocol2.Run()
 	t.Cleanup(protocol2.Shutdown)
 
-	event.Hook(protocol2.Events.ChainManager.CommitmentMissing, func(id commitment.ID) {
+	protocol2.Events.ChainManager.CommitmentMissing.Hook(func(id commitment.ID) {
 		fmt.Println("MISSING", id)
 	})
-	event.Hook(protocol2.Events.ChainManager.MissingCommitmentReceived, func(id commitment.ID) {
+	protocol2.Events.ChainManager.MissingCommitmentReceived.Hook(func(id commitment.ID) {
 		fmt.Println("MISSING RECEIVED", id)
 	})
 
@@ -114,7 +115,7 @@ func TestProtocol(t *testing.T) {
 	tf1.BlockDAG.CreateBlock("A", models.WithStrongParents(tf1.BlockDAG.BlockIDs("Genesis")))
 	tf1.BlockDAG.IssueBlocks("A")
 
-	workers.Wait()
+	workers.WaitChildren()
 }
 
 func TestEngine_NonEmptyInitialValidators(t *testing.T) {
@@ -173,7 +174,7 @@ func TestEngine_NonEmptyInitialValidators(t *testing.T) {
 		"1.C": false,
 	})
 
-	workers.Wait()
+	workers.WaitChildren()
 }
 
 func TestEngine_BlocksForwardAndRollback(t *testing.T) {
@@ -452,7 +453,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		engine.WithTangleOptions(
 			tangle.WithBookerOptions(
 				booker.WithMarkerManagerOptions(
-					markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(1)),
+					markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(1)),
 				),
 			),
 		),
@@ -465,14 +466,14 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 	testDir := t.TempDir()
 	engine1Storage := storage.New(testDir, protocol.DatabaseVersion, database.WithDBProvider(database.NewDB))
 	t.Cleanup(func() {
-		workers.Wait()
+		workers.WaitChildren()
 		engine1Storage.Shutdown()
 	})
 
 	engine1 := engine.NewTestEngine(t, workers.CreateGroup("Engine1"), engine1Storage, dpos.NewProvider(), mana1.NewProvider(), engineOpts...)
 	tf := engine.NewTestFramework(t, workers.CreateGroup("EngineTestFramework1"), engine1)
 
-	event.Hook(tf.Instance.NotarizationManager.Events.Error, func(err error) {
+	tf.Instance.NotarizationManager.Events.Error.Hook(func(err error) {
 		t.Fatal(err.Error())
 	})
 
@@ -583,7 +584,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		require.False(t, tf2.Instance.LedgerState.UnspentOutputs.IDs.Has(tf.Ledger.OutputID("Tx5.0")))
 		require.False(t, tf2.Instance.LedgerState.UnspentOutputs.IDs.Has(tf.Ledger.OutputID("Tx5.1")))
 
-		workers.Wait()
+		workers.WaitChildren()
 	}
 
 	// ///////////////////////////////////////////////////////////
@@ -598,13 +599,13 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 
 		tf.Instance.Shutdown()
 		engine1Storage.Shutdown()
-		workers.Wait()
+		workers.WaitChildren()
 
 		fmt.Println("============================= Start Engine =============================")
 
 		engine3Storage := storage.New(testDir, protocol.DatabaseVersion, database.WithDBProvider(database.NewDB))
 		t.Cleanup(func() {
-			workers.Wait()
+			workers.WaitChildren()
 			engine3Storage.Shutdown()
 		})
 
@@ -624,7 +625,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		require.Equal(t, expectedBalanceByIDs, tf3.Instance.ThroughputQuota.BalanceByIDs())
 		require.Equal(t, expectedTotalBalance, tf3.Instance.ThroughputQuota.TotalBalance())
 
-		workers.Wait()
+		workers.WaitChildren()
 	}
 }
 
@@ -641,7 +642,7 @@ func TestEngine_ShutdownResume(t *testing.T) {
 	testDir := t.TempDir()
 	engine1Storage := storage.New(testDir, protocol.DatabaseVersion, database.WithDBProvider(database.NewDB))
 	t.Cleanup(func() {
-		workers.Wait()
+		workers.WaitChildren()
 		engine1Storage.Shutdown()
 	})
 
@@ -652,7 +653,7 @@ func TestEngine_ShutdownResume(t *testing.T) {
 		engine.WithTangleOptions(
 			tangle.WithBookerOptions(
 				booker.WithMarkerManagerOptions(
-					markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(1)),
+					markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(1)),
 				),
 			),
 		),
@@ -660,7 +661,7 @@ func TestEngine_ShutdownResume(t *testing.T) {
 
 	tf := engine.NewTestFramework(t, workers.CreateGroup("EngineTestFramework1"), engine1)
 
-	event.Hook(tf.Instance.NotarizationManager.Events.Error, func(err error) {
+	tf.Instance.NotarizationManager.Events.Error.Hook(func(err error) {
 		panic(err)
 	})
 
@@ -688,12 +689,12 @@ func TestEngine_ShutdownResume(t *testing.T) {
 	require.Equal(t, int64(100), tf.Instance.SybilProtection.Validators().TotalWeight())
 
 	tf.Instance.Shutdown()
-	workers.Wait()
+	workers.WaitChildren()
 	engine1Storage.Shutdown()
 
 	engine2Storage := storage.New(testDir, protocol.DatabaseVersion, database.WithDBProvider(database.NewDB))
 	t.Cleanup(func() {
-		workers.Wait()
+		workers.WaitChildren()
 		engine2Storage.Shutdown()
 	})
 
@@ -704,7 +705,7 @@ func TestEngine_ShutdownResume(t *testing.T) {
 		engine.WithTangleOptions(
 			tangle.WithBookerOptions(
 				booker.WithMarkerManagerOptions(
-					markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(1)),
+					markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(1)),
 				),
 			),
 		),
@@ -712,7 +713,7 @@ func TestEngine_ShutdownResume(t *testing.T) {
 
 	tf2 := engine.NewTestFramework(t, workers.CreateGroup("EngineTestFramework2"), engine2)
 	require.NoError(t, tf2.Instance.Initialize(""))
-	workers.Wait()
+	workers.WaitChildren()
 	tf2.AssertEpochState(0)
 }
 
@@ -729,7 +730,7 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 		engine.WithTangleOptions(
 			tangle.WithBookerOptions(
 				booker.WithMarkerManagerOptions(
-					markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(1)),
+					markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(1)),
 				),
 			),
 		),
@@ -843,17 +844,17 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 
 	assertBlockExistsOnNodes := func(id models.BlockID, nodes ...*mockednetwork.Node) {
 		for _, node := range nodes {
-			require.True(t, lo.Return2(node.EngineTestFramework.Instance.Block(id)))
+			require.True(t, lo.Return2(node.EngineTestFramework().Instance.Block(id)))
 		}
 	}
 
 	assertBlockMissingOnNodes := func(id models.BlockID, nodes ...*mockednetwork.Node) {
 		for _, node := range nodes {
-			require.False(t, lo.Return2(node.EngineTestFramework.Instance.Block(id)))
+			require.False(t, lo.Return2(node.EngineTestFramework().Instance.Block(id)))
 		}
 	}
 
-	genesisBlockID := node1.EngineTestFramework.BlockDAG.Block("Genesis")
+	genesisBlockID := node1.EngineTestFramework().BlockDAG.Block("Genesis")
 
 	// Issue blocks on Partition 1
 	{
@@ -987,9 +988,9 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 		wp := workers.CreatePool("Activity", 2)
 		for _, node := range []*mockednetwork.Node{node3, node4} {
 			nodeCount.Add(1)
-			event.AttachWithWorkerPool(node.Protocol.Events.MainEngineSwitched, func(_ *enginemanager.EngineInstance) {
+			node.Protocol.Events.MainEngineSwitched.Hook(func(_ *enginemanager.EngineInstance) {
 				nodeCount.Add(-1)
-			}, wp)
+			}, event.WithWorkerPool(wp))
 		}
 		require.Eventually(t, func() bool {
 			return nodeCount.Load() == 0
@@ -1005,5 +1006,143 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 		node1.AssertEqualChainsAtLeastAtEpoch(9, node2)
 		node1.AssertEqualChainsAtLeastAtEpoch(9, node3)
 		node1.AssertEqualChainsAtLeastAtEpoch(9, node4)
+	}
+}
+
+func TestEngine_GuavaConflict(t *testing.T) {
+	// debug.SetEnabled(true)
+	// defer debug.SetEnabled(false)
+
+	ledgerVM := new(devnetvm.VM)
+
+	epoch.GenesisTime = time.Now().Unix()
+
+	workers := workerpool.NewGroup(t.Name())
+	tf := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework"), dpos.NewProvider(), mana1.NewProvider(),
+		engine.WithTangleOptions(
+			tangle.WithBookerOptions(
+				booker.WithMarkerManagerOptions(
+					markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(3)),
+				),
+			),
+		))
+
+	tf.Instance.NotarizationManager.Events.Error.Hook(func(err error) {
+		panic(err)
+	})
+
+	tf.Tangle.VirtualVoting.CreateIdentity("A", 25, true)
+	tf.Tangle.VirtualVoting.CreateIdentity("B", 25, true)
+	tf.Tangle.VirtualVoting.CreateIdentity("C", 25, true)
+	tf.Tangle.VirtualVoting.CreateIdentity("D", 25, true)
+	tf.Tangle.VirtualVoting.CreateIdentity("Z", 0, true)
+
+	identitiesWeights := map[ed25519.PublicKey]uint64{
+		tf.Tangle.VirtualVoting.Identity("A").PublicKey(): 25,
+		tf.Tangle.VirtualVoting.Identity("B").PublicKey(): 25,
+		tf.Tangle.VirtualVoting.Identity("C").PublicKey(): 25,
+		tf.Tangle.VirtualVoting.Identity("D").PublicKey(): 25,
+		tf.Tangle.VirtualVoting.Identity("Z").PublicKey(): 0,
+	}
+
+	tempDir := utils.NewDirectory(t.TempDir())
+	snapshotcreator.CreateSnapshot(protocol.DatabaseVersion, tempDir.Path("genesis_snapshot.bin"), 1, make([]byte, 32), identitiesWeights, lo.Keys(identitiesWeights), ledgerVM)
+
+	require.NoError(t, tf.Instance.Initialize(tempDir.Path("genesis_snapshot.bin")))
+
+	require.Equal(t, int64(100), tf.Instance.SybilProtection.Validators().TotalWeight())
+
+	acceptedBlocks := make(map[string]bool)
+	{
+		tf.Tangle.BlockDAG.CreateBlock("Block1", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Genesis")), models.WithIssuer(tf.Tangle.VirtualVoting.Identity("A").PublicKey()))
+		tf.Tangle.BlockDAG.CreateBlock("Block2", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block1")), models.WithIssuer(tf.Tangle.VirtualVoting.Identity("B").PublicKey()))
+		tf.Tangle.BlockDAG.CreateBlock("Block3", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block2")), models.WithIssuer(tf.Tangle.VirtualVoting.Identity("C").PublicKey()))
+		tf.Tangle.BlockDAG.CreateBlock("Block4", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block3")), models.WithIssuer(tf.Tangle.VirtualVoting.Identity("D").PublicKey()))
+		tf.Tangle.BlockDAG.IssueBlocks("Block1", "Block2", "Block3", "Block4")
+	}
+	{
+		tf.Tangle.BlockDAG.CreateBlock("6LH", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block4")), models.WithPayload(tf.Tangle.Ledger.CreateTransaction("Tx1", 2, "Genesis")), models.WithIssuer(tf.Tangle.VirtualVoting.Identity("Z").PublicKey()))
+
+		tf.Tangle.BlockDAG.CreateBlock("6o", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("6LH")), models.WithPayload(tf.Tangle.Ledger.CreateTransaction("Tx2", 1, "Tx1.0")), models.WithIssuer(tf.Tangle.VirtualVoting.Identity("Z").PublicKey()))
+		tf.Tangle.BlockDAG.CreateBlock("Hx", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("6o")), models.WithWeakParents(tf.Tangle.BlockDAG.BlockIDs("6LH")), models.WithPayload(tf.Tangle.Ledger.CreateTransaction("Tx2*", 1, "Tx1.0")), models.WithIssuer(tf.Tangle.VirtualVoting.Identity("Z").PublicKey()))
+		tf.Tangle.BlockDAG.IssueBlocks("6LH", "6o", "Hx")
+
+		tf.Tangle.BlockDAG.CreateBlock("C3", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Hx")), models.WithLikedInsteadParents(tf.Tangle.BlockDAG.BlockIDs("Hx")), models.WithWeakParents(tf.Tangle.BlockDAG.BlockIDs("6LH")), models.WithPayload(tf.Tangle.Ledger.CreateTransaction("Tx3", 1, "Tx1.1")), models.WithIssuer(tf.Tangle.VirtualVoting.Identity("Z").PublicKey()))
+		tf.Tangle.BlockDAG.CreateBlock("3uF", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block1")), models.WithPayload(tf.Tangle.Ledger.CreateTransaction("Tx3*", 1, "Tx1.1")), models.WithIssuer(tf.Tangle.VirtualVoting.Identity("Z").PublicKey()))
+
+		tf.Tangle.BlockDAG.CreateBlock("Block5", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("C3")), models.WithIssuer(tf.Tangle.VirtualVoting.Identity("C").PublicKey()))
+		tf.Tangle.BlockDAG.CreateBlock("Block6", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block5")), models.WithIssuer(tf.Tangle.VirtualVoting.Identity("C").PublicKey()))
+
+		tf.Tangle.BlockDAG.CreateBlock("D1", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("3uF")), models.WithLikedInsteadParents(tf.Tangle.BlockDAG.BlockIDs("C3")), models.WithWeakParents(tf.Tangle.BlockDAG.BlockIDs("Block6")), models.WithPayload(tf.Tangle.Ledger.CreateTransaction("Tx4", 1, "Tx2.0", "Tx3.0")), models.WithIssuer(tf.Tangle.VirtualVoting.Identity("Z").PublicKey()))
+		tf.Tangle.BlockDAG.IssueBlocks("6LH", "6o", "Hx", "C3", "3uF", "Block5", "Block6", "D1")
+
+		tf.Acceptance.ValidateConflictAcceptance(map[string]confirmation.State{
+			"Tx2":  confirmation.Pending,
+			"Tx2*": confirmation.Pending,
+
+			"Tx3":  confirmation.Pending,
+			"Tx3*": confirmation.Pending,
+		})
+	}
+
+	{
+		tf.Tangle.BlockDAG.CreateBlock("Block7", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("D1")), models.WithIssuer(tf.Tangle.VirtualVoting.Identity("A").PublicKey()))
+		tf.Tangle.BlockDAG.CreateBlock("Block8", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block7")), models.WithIssuer(tf.Tangle.VirtualVoting.Identity("B").PublicKey()))
+		tf.Tangle.BlockDAG.CreateBlock("Block9", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block8")), models.WithIssuer(tf.Tangle.VirtualVoting.Identity("C").PublicKey()))
+		tf.Tangle.BlockDAG.CreateBlock("Block10", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block9")), models.WithIssuer(tf.Tangle.VirtualVoting.Identity("D").PublicKey()))
+
+		tf.Tangle.BlockDAG.IssueBlocks("Block7", "Block8", "Block9", "Block10")
+
+		tf.Acceptance.ValidateAcceptedBlocks(lo.MergeMaps(acceptedBlocks, map[string]bool{
+			"Block1":  true,
+			"Block2":  true,
+			"Block3":  true,
+			"Block4":  true,
+			"6LH":     true,
+			"6o":      true,
+			"Hx":      true,
+			"C3":      true,
+			"3uF":     true,
+			"Block5":  true,
+			"Block6":  true,
+			"D1":      true,
+			"Block7":  true,
+			"Block8":  true,
+			"Block9":  false,
+			"Block10": false,
+		}))
+
+		fmt.Println("============")
+		acceptedConflicts := make(map[string]confirmation.State)
+		tf.Acceptance.ValidateConflictAcceptance(lo.MergeMaps(acceptedConflicts, map[string]confirmation.State{
+			"Tx2":  confirmation.Accepted,
+			"Tx2*": confirmation.Rejected,
+
+			"Tx3":  confirmation.Accepted,
+			"Tx3*": confirmation.Rejected,
+		}))
+		tf.Tangle.Ledger.ConsumeTransactionMetadata(tf.Tangle.Ledger.Transaction("Tx1").ID(), func(txMetadata *ledger.TransactionMetadata) {
+			assert.True(t, txMetadata.ConfirmationState().IsAccepted(), "Tx1 should be accepted")
+		})
+
+		tf.Tangle.Ledger.ConsumeTransactionMetadata(tf.Tangle.Ledger.Transaction("Tx2").ID(), func(txMetadata *ledger.TransactionMetadata) {
+			assert.True(t, txMetadata.ConfirmationState().IsAccepted(), "Tx2 should be accepted")
+		})
+
+		tf.Tangle.Ledger.ConsumeTransactionMetadata(tf.Tangle.Ledger.Transaction("Tx2*").ID(), func(txMetadata *ledger.TransactionMetadata) {
+			assert.True(t, txMetadata.ConfirmationState().IsRejected(), "Tx2* should be rejected")
+		})
+
+		tf.Tangle.Ledger.ConsumeTransactionMetadata(tf.Tangle.Ledger.Transaction("Tx3").ID(), func(txMetadata *ledger.TransactionMetadata) {
+			assert.True(t, txMetadata.ConfirmationState().IsAccepted(), "Tx3 should be accepted")
+		})
+
+		tf.Tangle.Ledger.ConsumeTransactionMetadata(tf.Tangle.Ledger.Transaction("Tx3*").ID(), func(txMetadata *ledger.TransactionMetadata) {
+			assert.True(t, txMetadata.ConfirmationState().IsRejected(), "Tx3* should be rejected")
+		})
+
+		tf.Tangle.Ledger.ConsumeTransactionMetadata(tf.Tangle.Ledger.Transaction("Tx4").ID(), func(txMetadata *ledger.TransactionMetadata) {
+			assert.True(t, txMetadata.ConfirmationState().IsAccepted(), "Tx4 should be accepted")
+		})
 	}
 }

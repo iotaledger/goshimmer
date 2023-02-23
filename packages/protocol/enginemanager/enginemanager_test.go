@@ -7,17 +7,16 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/hive.go/core/crypto/ed25519"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/workerpool"
-
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 func TestEngineManager_ForkEngineAtEpoch(t *testing.T) {
@@ -177,6 +176,8 @@ func TestEngineManager_ForkEngineAtEpoch(t *testing.T) {
 		require.NotEqual(t, tf.Instance.Storage.Directory, tf2.Instance.Storage.Directory)
 
 		require.NoError(t, etf.EngineManager.SetActiveInstance(forkedEngine))
+
+		forkedEngine.Shutdown()
 
 		active, err := etf.EngineManager.LoadActiveEngine()
 		require.NoError(t, err)

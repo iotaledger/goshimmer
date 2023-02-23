@@ -6,21 +6,21 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotaledger/hive.go/core/bytesfilter"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/orderedmap"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/types"
-	"github.com/iotaledger/hive.go/core/workerpool"
-
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	nwmodels "github.com/iotaledger/goshimmer/packages/network/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/core/bytesfilter"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/ds/orderedmap"
+	"github.com/iotaledger/hive.go/ds/shrinkingmap"
+	dsTypes "github.com/iotaledger/hive.go/ds/types"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 const (
@@ -31,21 +31,21 @@ type Protocol struct {
 	Events *Events
 
 	network                   Endpoint
-	workerPool                *workerpool.UnboundedWorkerPool
+	workerPool                *workerpool.WorkerPool
 	duplicateBlockBytesFilter *bytesfilter.BytesFilter
 
-	requestedBlockHashes      *shrinkingmap.ShrinkingMap[types.Identifier, types.Empty]
+	requestedBlockHashes      *shrinkingmap.ShrinkingMap[types.Identifier, dsTypes.Empty]
 	requestedBlockHashesMutex sync.Mutex
 }
 
-func NewProtocol(network Endpoint, workerPool *workerpool.UnboundedWorkerPool, opts ...options.Option[Protocol]) (protocol *Protocol) {
+func NewProtocol(network Endpoint, workerPool *workerpool.WorkerPool, opts ...options.Option[Protocol]) (protocol *Protocol) {
 	return options.Apply(&Protocol{
 		Events: NewEvents(),
 
 		network:                   network,
 		workerPool:                workerPool,
 		duplicateBlockBytesFilter: bytesfilter.New(10000),
-		requestedBlockHashes:      shrinkingmap.New[types.Identifier, types.Empty](shrinkingmap.WithShrinkingThresholdCount(1000)),
+		requestedBlockHashes:      shrinkingmap.New[types.Identifier, dsTypes.Empty](shrinkingmap.WithShrinkingThresholdCount(1000)),
 	}, opts, func(p *Protocol) {
 		network.RegisterProtocol(protocolID, newPacket, p.handlePacket)
 	})
@@ -59,7 +59,7 @@ func (p *Protocol) SendBlock(block *models.Block, to ...identity.ID) {
 
 func (p *Protocol) RequestBlock(id models.BlockID, to ...identity.ID) {
 	p.requestedBlockHashesMutex.Lock()
-	p.requestedBlockHashes.Set(id.Identifier, types.Void)
+	p.requestedBlockHashes.Set(id.Identifier, dsTypes.Void)
 	p.requestedBlockHashesMutex.Unlock()
 
 	p.network.Send(&nwmodels.Packet{Body: &nwmodels.Packet_BlockRequest{BlockRequest: &nwmodels.BlockRequest{
@@ -73,7 +73,7 @@ func (p *Protocol) SendEpochCommitment(cm *commitment.Commitment, to ...identity
 	}}}, protocolID, to...)
 }
 
-func (p *Protocol) SendAttestations(cm *commitment.Commitment, blockIDs models.BlockIDs, attestations *orderedmap.OrderedMap[epoch.Index, *set.AdvancedSet[*notarization.Attestation]], to ...identity.ID) {
+func (p *Protocol) SendAttestations(cm *commitment.Commitment, blockIDs models.BlockIDs, attestations *orderedmap.OrderedMap[epoch.Index, *advancedset.AdvancedSet[*notarization.Attestation]], to ...identity.ID) {
 	p.network.Send(&nwmodels.Packet{Body: &nwmodels.Packet_Attestations{Attestations: &nwmodels.Attestations{
 		Commitment:   lo.PanicOnErr(cm.Bytes()),
 		Blocks:       lo.PanicOnErr(blockIDs.Bytes()),
@@ -233,7 +233,7 @@ func (p *Protocol) onAttestations(commitmentBytes []byte, blockIDBytes []byte, a
 		return
 	}
 
-	attestations := orderedmap.New[epoch.Index, *set.AdvancedSet[*notarization.Attestation]]()
+	attestations := orderedmap.New[epoch.Index, *advancedset.AdvancedSet[*notarization.Attestation]]()
 	if _, err := attestations.Decode(attestationsBytes); err != nil {
 		p.Events.Error.Trigger(&ErrorEvent{
 			Error:  errors.Wrap(err, "failed to deserialize attestations"),

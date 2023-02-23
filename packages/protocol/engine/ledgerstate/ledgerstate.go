@@ -4,7 +4,6 @@ import (
 	"io"
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -38,8 +37,8 @@ func New(storageInstance *storage.Storage, memPool *ledger.Ledger) (ledgerState 
 		storage: storageInstance,
 	}
 
-	event.Hook(ledgerState.MemPool.Events.TransactionAccepted, ledgerState.onTransactionAccepted)
-	event.Hook(ledgerState.MemPool.Events.TransactionInclusionUpdated, ledgerState.onTransactionInclusionUpdated)
+	ledgerState.MemPool.Events.TransactionAccepted.Hook(ledgerState.onTransactionAccepted)
+	ledgerState.MemPool.Events.TransactionInclusionUpdated.Hook(ledgerState.onTransactionInclusionUpdated)
 
 	return
 }

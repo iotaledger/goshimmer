@@ -1,8 +1,8 @@
 package collector
 
 import (
-	"github.com/iotaledger/hive.go/core/generics/constraints"
-	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/constraints"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 const singleValLabel = "value"

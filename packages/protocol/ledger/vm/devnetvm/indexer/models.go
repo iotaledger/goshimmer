@@ -1,10 +1,9 @@
 package indexer
 
 import (
-	"github.com/iotaledger/hive.go/core/generics/model"
-
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/hive.go/objectstorage/generic/model"
 )
 
 // region AddressOutputMapping /////////////////////////////////////////////////////////////////////////////////////////

@@ -8,21 +8,18 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"runtime"
 	"time"
 
 	"go.uber.org/dig"
 	"gopkg.in/src-d/go-git.v4"
 
-	"github.com/iotaledger/hive.go/core/autopeering/peer"
-	"github.com/iotaledger/hive.go/core/daemon"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/logger"
-	"github.com/iotaledger/hive.go/core/node"
-	"github.com/iotaledger/hive.go/core/workerpool"
-
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/node"
 	logger_plugin "github.com/iotaledger/goshimmer/plugins/logger"
+	"github.com/iotaledger/hive.go/app/daemon"
+	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/core/logger"
+	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 const (
@@ -43,7 +40,6 @@ var (
 	myID          string
 	myGitHead     string
 	myGitConflict string
-	workerPool    *workerpool.NonBlockingQueuedWorkerPool
 )
 
 type dependencies struct {
@@ -56,7 +52,7 @@ type dependencies struct {
 func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
 
-	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
+	Plugin.Events.Init.Hook(func(event *node.InitEvent) {
 		if err := event.Container.Provide(func() *RemoteLoggerConn {
 			remoteLogger, err := newRemoteLoggerConn(Parameters.RemoteLog.ServerAddress)
 			if err != nil {
@@ -67,7 +63,7 @@ func init() {
 		}); err != nil {
 			Plugin.Panic(err)
 		}
-	}))
+	})
 }
 
 func configure(_ *node.Plugin) {
@@ -80,12 +76,6 @@ func configure(_ *node.Plugin) {
 	}
 
 	getGitInfo()
-
-	workerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
-		deps.RemoteLogger.SendLogMsg(task.Param(levelIndex).(logger.Level), task.Param(nameIndex).(string), task.Param(blockIndex).(string))
-
-		task.Return(nil)
-	}, workerpool.WorkerCount(runtime.GOMAXPROCS(0)), workerpool.QueueSize(1000))
 }
 
 func run(plugin *node.Plugin) {
@@ -93,16 +83,13 @@ func run(plugin *node.Plugin) {
 		return
 	}
 
-	logEvent := event.NewClosure(func(event *logger.LogEvent) {
-		workerPool.TrySubmit(event.Level, event.Name, event.Msg)
-	})
-
 	if err := daemon.BackgroundWorker(PluginName, func(ctx context.Context) {
-		logger.Events.AnyMsg.Attach(logEvent)
+		hook := logger.Events.AnyMsg.Hook(func(logEvent *logger.LogEvent) {
+			deps.RemoteLogger.SendLogMsg(logEvent.Level, logEvent.Name, logEvent.Msg)
+		}, event.WithWorkerPool(plugin.WorkerPool))
 		<-ctx.Done()
 		plugin.LogInfof("Stopping %s ...", PluginName)
-		logger.Events.AnyMsg.Detach(logEvent)
-		workerPool.Stop()
+		hook.Unhook()
 		plugin.LogInfof("Stopping %s ... done", PluginName)
 	}, shutdown.PriorityRemoteLog); err != nil {
 		plugin.Panicf("Failed to start as daemon: %s", err)

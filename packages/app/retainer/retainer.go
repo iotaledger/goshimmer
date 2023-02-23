@@ -3,13 +3,6 @@ package retainer
 import (
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/kvstore"
-	"github.com/iotaledger/hive.go/core/syncutils"
-	"github.com/iotaledger/hive.go/core/workerpool"
-
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -20,10 +13,16 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/kvstore"
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 const epochInCache = 20
@@ -34,8 +33,8 @@ const (
 )
 
 type Retainer struct {
-	blockWorkerPool      *workerpool.UnboundedWorkerPool
-	commitmentWorkerPool *workerpool.UnboundedWorkerPool
+	blockWorkerPool      *workerpool.WorkerPool
+	commitmentWorkerPool *workerpool.WorkerPool
 	cachedMetadata       *memstorage.EpochStorage[models.BlockID, *cachedMetadata]
 	blockStorage         *database.PersistentEpochStorage[models.BlockID, BlockMetadata, *models.BlockID, *BlockMetadata]
 	commitmentStorage    *database.PersistentEpochStorage[commitment.ID, CommitmentDetails, *commitment.ID, *CommitmentDetails]
@@ -101,11 +100,11 @@ func (r *Retainer) CommitmentbyID(id commitment.ID) (c *CommitmentDetails, exist
 	return r.getCommitmentDetails(id.Index())
 }
 
-func (r *Retainer) LoadAllBlockMetadata(index epoch.Index) (ids *set.AdvancedSet[*BlockMetadata]) {
+func (r *Retainer) LoadAllBlockMetadata(index epoch.Index) (ids *advancedset.AdvancedSet[*BlockMetadata]) {
 	r.metadataEvictionLock.RLock(index)
 	defer r.metadataEvictionLock.RUnlock(index)
 
-	ids = set.NewAdvancedSet[*BlockMetadata]()
+	ids = advancedset.NewAdvancedSet[*BlockMetadata]()
 	r.StreamBlocksMetadata(index, func(id models.BlockID, metadata *BlockMetadata) {
 		ids.Add(metadata)
 	})
@@ -136,12 +135,12 @@ func (r *Retainer) DatabaseSize() int64 {
 }
 
 // BlockWorkerPool returns the block worker pool of the retainer.
-func (r *Retainer) BlockWorkerPool() *workerpool.UnboundedWorkerPool {
+func (r *Retainer) BlockWorkerPool() *workerpool.WorkerPool {
 	return r.blockWorkerPool
 }
 
 // CommitmentWorkerPool returns the commitment worker pool of the retainer.
-func (r *Retainer) CommitmentWorkerPool() *workerpool.UnboundedWorkerPool {
+func (r *Retainer) CommitmentWorkerPool() *workerpool.WorkerPool {
 	return r.commitmentWorkerPool
 }
 
@@ -151,11 +150,11 @@ func (r *Retainer) PruneUntilEpoch(epochIndex epoch.Index) {
 }
 
 func (r *Retainer) setupEvents() {
-	event.AttachWithWorkerPool(r.protocol.Events.Engine.Tangle.BlockDAG.BlockAttached, func(block *blockdag.Block) {
+	r.protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Hook(func(block *blockdag.Block) {
 		if cm := r.createOrGetCachedMetadata(block.ID()); cm != nil {
 			cm.setBlockDAGBlock(block)
 		}
-	}, r.blockWorkerPool)
+	}, event.WithWorkerPool(r.blockWorkerPool))
 
 	// TODO: missing blocks make the node fail due to empty strong parents
 	// r.protocol.Events.Engine.Tangle.BlockDAG.BlockMissing.AttachWithWorkerPool(event.NewClosure(func(block *blockdag.Block) {
@@ -163,50 +162,50 @@ func (r *Retainer) setupEvents() {
 	//	cm.setBlockDAGBlock(block)
 	// }))
 
-	event.AttachWithWorkerPool(r.protocol.Events.Engine.Tangle.BlockDAG.BlockSolid, func(block *blockdag.Block) {
+	r.protocol.Events.Engine.Tangle.BlockDAG.BlockSolid.Hook(func(block *blockdag.Block) {
 		if cm := r.createOrGetCachedMetadata(block.ID()); cm != nil {
 			cm.setBlockDAGBlock(block)
 		}
-	}, r.blockWorkerPool)
+	}, event.WithWorkerPool(r.blockWorkerPool))
 
-	event.AttachWithWorkerPool(r.protocol.Events.Engine.Tangle.Booker.BlockBooked, func(block *booker.Block) {
-		if cm := r.createOrGetCachedMetadata(block.ID()); cm != nil {
-			cm.setBookerBlock(block)
+	r.protocol.Events.Engine.Tangle.Booker.BlockBooked.Hook(func(evt *booker.BlockBookedEvent) {
+		if cm := r.createOrGetCachedMetadata(evt.Block.ID()); cm != nil {
+			cm.setBookerBlock(evt.Block)
 			cm.Lock()
-			cm.ConflictIDs = r.protocol.Engine().Tangle.Booker.BlockConflicts(block)
+			cm.ConflictIDs = evt.ConflictIDs
 			cm.Unlock()
 		}
-	}, r.blockWorkerPool)
+	}, event.WithWorkerPool(r.blockWorkerPool))
 
-	event.AttachWithWorkerPool(r.protocol.Events.Engine.Tangle.VirtualVoting.BlockTracked, func(block *virtualvoting.Block) {
+	r.protocol.Events.Engine.Tangle.Booker.VirtualVoting.BlockTracked.Hook(func(block *virtualvoting.Block) {
 		if cm := r.createOrGetCachedMetadata(block.ID()); cm != nil {
 			cm.setVirtualVotingBlock(block)
 		}
-	}, r.blockWorkerPool)
+	}, event.WithWorkerPool(r.blockWorkerPool))
 
 	congestionControl := func(block *scheduler.Block) {
 		if cm := r.createOrGetCachedMetadata(block.ID()); cm != nil {
 			cm.setSchedulerBlock(block)
 		}
 	}
-	event.AttachWithWorkerPool(r.protocol.Events.CongestionControl.Scheduler.BlockScheduled, congestionControl, r.blockWorkerPool)
-	event.AttachWithWorkerPool(r.protocol.Events.CongestionControl.Scheduler.BlockDropped, congestionControl, r.blockWorkerPool)
-	event.AttachWithWorkerPool(r.protocol.Events.CongestionControl.Scheduler.BlockSkipped, congestionControl, r.blockWorkerPool)
+	r.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Hook(congestionControl, event.WithWorkerPool(r.blockWorkerPool))
+	r.protocol.Events.CongestionControl.Scheduler.BlockDropped.Hook(congestionControl, event.WithWorkerPool(r.blockWorkerPool))
+	r.protocol.Events.CongestionControl.Scheduler.BlockSkipped.Hook(congestionControl, event.WithWorkerPool(r.blockWorkerPool))
 
-	event.AttachWithWorkerPool(r.protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted, func(block *blockgadget.Block) {
+	r.protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Hook(func(block *blockgadget.Block) {
 		cm := r.createOrGetCachedMetadata(block.ID())
 		cm.setAcceptanceBlock(block)
-	}, r.blockWorkerPool)
+	}, event.WithWorkerPool(r.blockWorkerPool))
 
-	event.AttachWithWorkerPool(r.protocol.Events.Engine.Consensus.BlockGadget.BlockConfirmed, func(block *blockgadget.Block) {
+	r.protocol.Events.Engine.Consensus.BlockGadget.BlockConfirmed.Hook(func(block *blockgadget.Block) {
 		if cm := r.createOrGetCachedMetadata(block.ID()); cm != nil {
 			cm.setConfirmationBlock(block)
 		}
-	}, r.blockWorkerPool)
+	}, event.WithWorkerPool(r.blockWorkerPool))
 
-	event.Hook(r.protocol.Events.Engine.EvictionState.EpochEvicted, r.storeAndEvictEpoch)
+	r.protocol.Events.Engine.EvictionState.EpochEvicted.Hook(r.storeAndEvictEpoch)
 
-	r.protocol.Engine().NotarizationManager.Events.EpochCommitted.AttachWithWorkerPool(event.NewClosure(func(e *notarization.EpochCommittedDetails) {
+	r.protocol.Engine().NotarizationManager.Events.EpochCommitted.Hook(func(e *notarization.EpochCommittedDetails) {
 		if e.Commitment.Index() < r.protocol.Engine().EvictionState.LastEvictedEpoch() {
 			return
 		}
@@ -241,7 +240,7 @@ func (r *Retainer) setupEvents() {
 			cd.setCommitment(e.Commitment, blockIDs, txIDs, createdOutputs, spentOutputs)
 			r.storeCommitmentDetails(cd)
 		}
-	}), r.commitmentWorkerPool)
+	}, event.WithWorkerPool(r.commitmentWorkerPool))
 }
 
 func (r *Retainer) createOrGetCachedMetadata(id models.BlockID) *cachedMetadata {
@@ -253,7 +252,7 @@ func (r *Retainer) createOrGetCachedMetadata(id models.BlockID) *cachedMetadata 
 	}
 
 	storage := r.cachedMetadata.Get(id.Index(), true)
-	cm, _ := storage.RetrieveOrCreate(id, newCachedMetadata)
+	cm, _ := storage.GetOrCreate(id, newCachedMetadata)
 	return cm
 }
 

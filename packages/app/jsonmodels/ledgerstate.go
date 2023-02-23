@@ -4,16 +4,16 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
-	"github.com/iotaledger/hive.go/core/typeutils"
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
 
+	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/typeutils"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 // region Address //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -59,7 +59,7 @@ func (o *Output) ToLedgerstateOutput() (devnetvm.Output, error) {
 		return nil, errors.Wrap(err, "failed to parse output type")
 	}
 	var id utxo.OutputID
-	if iErr := id.FromBase58(o.OutputID.Base58); err != nil {
+	if iErr := id.FromBase58(o.OutputID.Base58); iErr != nil {
 		return nil, errors.Wrap(iErr, "failed to parse outputID")
 	}
 
@@ -544,8 +544,8 @@ func NewConflictWeight(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.O
 		}(),
 		ConflictIDs: func() []string {
 			conflictIDs := make([]string, 0)
-			for it := conflict.ConflictSetIDs().Iterator(); it.HasNext(); {
-				conflictIDs = append(conflictIDs, it.Next().Base58())
+			for it := conflict.ConflictSets().Iterator(); it.HasNext(); {
+				conflictIDs = append(conflictIDs, it.Next().ID().Base58())
 			}
 
 			return conflictIDs
@@ -563,9 +563,9 @@ type ChildConflict struct {
 }
 
 // NewChildConflict returns a ChildConflict from the given ledger.ChildConflict.
-func NewChildConflict(childConflict *conflictdag.ChildConflict[utxo.TransactionID]) *ChildConflict {
+func NewChildConflict(childConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) *ChildConflict {
 	return &ChildConflict{
-		ConflictID: childConflict.ChildConflictID().Base58(),
+		ConflictID: childConflict.ID().Base58(),
 	}
 }
 

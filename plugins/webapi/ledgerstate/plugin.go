@@ -2,31 +2,32 @@ package ledgerstate
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/daemon"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/logger"
-	"github.com/iotaledger/hive.go/core/node"
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 	"github.com/pkg/errors"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
+	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-
-	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
+	"github.com/iotaledger/hive.go/app/daemon"
+	"github.com/iotaledger/hive.go/core/logger"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -61,8 +62,8 @@ var (
 	// doubleSpendFilterOnce ensures that doubleSpendFilter is a singleton.
 	doubleSpendFilterOnce sync.Once
 
-	// closure to be executed on transaction confirmation.
-	onTransactionAccepted *event.Closure[*ledger.TransactionEvent]
+	// Hook to the transaction confirmation event.
+	onTransactionAccepted *event.Hook[func(*ledger.TransactionEvent)]
 
 	log *logger.Logger
 )
@@ -102,15 +103,14 @@ func FilterRemove(txID utxo.TransactionID) {
 	}
 }
 
-func configure(_ *node.Plugin) {
-	filterEnabled = webapi.Parameters.EnableDSFilter
-	if filterEnabled {
+func configure(plugin *node.Plugin) {
+	if webapi.Parameters.EnableDSFilter {
 		doubleSpendFilter = Filter()
-		onTransactionAccepted = event.NewClosure(func(event *ledger.TransactionEvent) {
+		deps.Protocol.Events.Engine.Ledger.TransactionAccepted.Hook(func(event *ledger.TransactionEvent) {
 			doubleSpendFilter.Remove(event.Metadata.ID())
-		})
+		}, event.WithWorkerPool(plugin.WorkerPool))
 	}
-	deps.Protocol.Events.Engine.Ledger.TransactionAccepted.Attach(onTransactionAccepted)
+
 	log = logger.NewLogger(PluginName)
 }
 
@@ -154,7 +154,10 @@ func worker(ctx context.Context) {
 		}
 	}()
 	log.Infof("Stopping %s ...", PluginName)
-	deps.Protocol.Engine().Ledger.Events.TransactionAccepted.Detach(onTransactionAccepted)
+	if onTransactionAccepted != nil {
+		onTransactionAccepted.Unhook()
+		onTransactionAccepted = nil
+	}
 }
 
 func outputsOnAddress(address devnetvm.Address) (outputs devnetvm.Outputs) {
@@ -275,13 +278,12 @@ func GetConflict(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	if deps.Protocol.Engine().Ledger.ConflictDAG.Storage.CachedConflict(conflictID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-		err = c.JSON(http.StatusOK, jsonmodels.NewConflictWeight(conflict, conflict.ConfirmationState(), deps.Protocol.Engine().Tangle.VirtualVoting.ConflictVotersTotalWeight(conflictID)))
-	}) {
-		return
+	conflict, exists := deps.Protocol.Engine().Ledger.ConflictDAG.Conflict(conflictID)
+	if !exists {
+		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load Conflict with %s", conflictID)))
 	}
 
-	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load Conflict with %s", conflictID)))
+	return c.JSON(http.StatusOK, jsonmodels.NewConflictWeight(conflict, conflict.ConfirmationState(), deps.Protocol.Engine().Tangle.Booker.VirtualVoting.ConflictVotersTotalWeight(conflictID)))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -295,10 +297,12 @@ func GetConflictChildren(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	cachedChildConflicts := deps.Protocol.Engine().Ledger.ConflictDAG.Storage.CachedChildConflicts(conflictID)
-	defer cachedChildConflicts.Release()
+	conflict, exists := deps.Protocol.Engine().Ledger.ConflictDAG.Conflict(conflictID)
+	if !exists {
+		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load Conflict with %s", conflictID)))
+	}
 
-	return c.JSON(http.StatusOK, jsonmodels.NewGetConflictChildrenResponse(conflictID, cachedChildConflicts.Unwrap()))
+	return c.JSON(http.StatusOK, jsonmodels.NewGetConflictChildrenResponse(conflictID, conflict.Children()))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -312,22 +316,19 @@ func GetConflictConflicts(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	if deps.Protocol.Engine().Ledger.ConflictDAG.Storage.CachedConflict(conflictID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-		conflictIDsPerConflictID := make(map[utxo.OutputID][]utxo.TransactionID)
-		for it := conflict.ConflictSetIDs().Iterator(); it.HasNext(); {
-			conflictID := it.Next()
-			conflictIDsPerConflictID[conflictID] = make([]utxo.TransactionID, 0)
-			deps.Protocol.Engine().Ledger.ConflictDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.OutputID, utxo.TransactionID]) {
-				conflictIDsPerConflictID[conflictID] = append(conflictIDsPerConflictID[conflictID], conflictMember.ConflictID())
-			})
-		}
-
-		err = c.JSON(http.StatusOK, jsonmodels.NewGetConflictConflictsResponse(conflictID, conflictIDsPerConflictID))
-	}) {
-		return
+	conflict, exists := deps.Protocol.Engine().Ledger.ConflictDAG.Conflict(conflictID)
+	if !exists {
+		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load Conflict with %s", conflictID)))
+	}
+	conflictIDsPerConflictSet := make(map[utxo.OutputID][]utxo.TransactionID)
+	for it := conflict.ConflictSets().Iterator(); it.HasNext(); {
+		conflictSet := it.Next()
+		conflictIDsPerConflictSet[conflictSet.ID()] = lo.Map(conflictSet.Conflicts().Slice(), func(c *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) utxo.TransactionID {
+			return c.ID()
+		})
 	}
 
-	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load Conflict with %s", conflictID)))
+	return c.JSON(http.StatusOK, jsonmodels.NewGetConflictConflictsResponse(conflictID, conflictIDsPerConflictSet))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -341,7 +342,7 @@ func GetConflictVoters(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	voters := deps.Protocol.Engine().Tangle.VirtualVoting.ConflictVoters(conflictID)
+	voters := deps.Protocol.Engine().Tangle.Booker.VirtualVoting.ConflictVoters(conflictID)
 	defer voters.Detach()
 
 	return c.JSON(http.StatusOK, jsonmodels.NewGetConflictVotersResponse(conflictID, voters))
@@ -483,7 +484,7 @@ func GetTransactionAttachments(c echo.Context) (err error) {
 	}
 
 	blockIDs := models.NewBlockIDs()
-	_ = deps.Protocol.Engine().Tangle.Booker.GetAllAttachments(transactionID).ForEach(func(attachment *booker.Block) error {
+	_ = deps.Protocol.Engine().Tangle.Booker.GetAllAttachments(transactionID).ForEach(func(attachment *virtualvoting.Block) error {
 		blockIDs.Add(attachment.ID())
 		return nil
 	})
@@ -569,7 +570,7 @@ func PostTransaction(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, jsonmodels.PostTransactionResponse{Error: err.Error()})
 	}
 
-	return c.JSON(http.StatusOK, &jsonmodels.PostTransactionResponse{TransactionID: tx.ID().Base58()})
+	return c.JSON(http.StatusOK, &jsonmodels.PostTransactionResponse{TransactionID: tx.ID().Base58(), BlockID: block.ID().Base58()})
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

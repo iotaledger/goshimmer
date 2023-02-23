@@ -5,12 +5,14 @@ import (
 	"context"
 	"sort"
 
-	"github.com/iotaledger/hive.go/core/cerrors"
-	"github.com/iotaledger/hive.go/core/generics/orderedmap"
-	"github.com/iotaledger/hive.go/core/serix"
-	"github.com/iotaledger/hive.go/core/stringify"
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
+
+	"github.com/iotaledger/goshimmer/packages/core/cerrors"
+	"github.com/iotaledger/hive.go/ds/orderedmap"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/serializer/v2/serix"
+	"github.com/iotaledger/hive.go/stringify"
 )
 
 // region Color ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -147,7 +149,9 @@ func (c *ColoredBalances) Size() int {
 // Clone returns a copy of the ColoredBalances.
 func (c *ColoredBalances) Clone() *ColoredBalances {
 	copiedBalances := orderedmap.New[Color, uint64]()
-	c.Balances.ForEach(copiedBalances.Set)
+	c.Balances.ForEach(func(key Color, value uint64) bool {
+		return !lo.Return2(copiedBalances.Set(key, value))
+	})
 
 	return &ColoredBalances{
 		coloredBalancesInner{

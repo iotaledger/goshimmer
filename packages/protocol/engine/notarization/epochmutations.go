@@ -3,18 +3,18 @@ package notarization
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/generics/constraints"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/ads"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/constraints"
+	"github.com/iotaledger/hive.go/ds/shrinkingmap"
+	"github.com/iotaledger/hive.go/kvstore/mapdb"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 // EpochMutations is an in-memory data structure that enables the collection of mutations for uncommitted epochs.
@@ -24,10 +24,10 @@ type EpochMutations struct {
 	Events *EpochMutationsEvents
 
 	// acceptedBlocksByEpoch stores the accepted blocks per epoch.
-	acceptedBlocksByEpoch *memstorage.Storage[epoch.Index, *ads.Set[models.BlockID, *models.BlockID]]
+	acceptedBlocksByEpoch *shrinkingmap.ShrinkingMap[epoch.Index, *ads.Set[models.BlockID, *models.BlockID]]
 
 	// acceptedTransactionsByEpoch stores the accepted transactions per epoch.
-	acceptedTransactionsByEpoch *memstorage.Storage[epoch.Index, *ads.Set[utxo.TransactionID, *utxo.TransactionID]]
+	acceptedTransactionsByEpoch *shrinkingmap.ShrinkingMap[epoch.Index, *ads.Set[utxo.TransactionID, *utxo.TransactionID]]
 
 	// latestCommittedIndex stores the index of the latest committed epoch.
 	latestCommittedIndex epoch.Index
@@ -43,8 +43,8 @@ func NewEpochMutations(weights *sybilprotection.Weights, lastCommittedEpoch epoc
 	return &EpochMutations{
 		Events:                      NewEpochMutationsEvents(),
 		weights:                     weights,
-		acceptedBlocksByEpoch:       memstorage.New[epoch.Index, *ads.Set[models.BlockID, *models.BlockID]](),
-		acceptedTransactionsByEpoch: memstorage.New[epoch.Index, *ads.Set[utxo.TransactionID, *utxo.TransactionID]](),
+		acceptedBlocksByEpoch:       shrinkingmap.New[epoch.Index, *ads.Set[models.BlockID, *models.BlockID]](),
+		acceptedTransactionsByEpoch: shrinkingmap.New[epoch.Index, *ads.Set[utxo.TransactionID, *utxo.TransactionID]](),
 		latestCommittedIndex:        lastCommittedEpoch,
 	}
 }
@@ -141,7 +141,7 @@ func (m *EpochMutations) Evict(index epoch.Index) (acceptedBlocks *ads.Set[model
 // acceptedBlocks returns the set of accepted blocks for the given epoch.
 func (m *EpochMutations) acceptedBlocks(index epoch.Index, createIfMissing ...bool) *ads.Set[models.BlockID, *models.BlockID] {
 	if len(createIfMissing) > 0 && createIfMissing[0] {
-		return lo.Return1(m.acceptedBlocksByEpoch.RetrieveOrCreate(index, newSet[models.BlockID, *models.BlockID]))
+		return lo.Return1(m.acceptedBlocksByEpoch.GetOrCreate(index, newSet[models.BlockID, *models.BlockID]))
 	}
 
 	return lo.Return1(m.acceptedBlocksByEpoch.Get(index))
@@ -150,7 +150,7 @@ func (m *EpochMutations) acceptedBlocks(index epoch.Index, createIfMissing ...bo
 // acceptedTransactions returns the set of accepted transactions for the given epoch.
 func (m *EpochMutations) acceptedTransactions(index epoch.Index, createIfMissing ...bool) *ads.Set[utxo.TransactionID, *utxo.TransactionID] {
 	if len(createIfMissing) > 0 && createIfMissing[0] {
-		return lo.Return1(m.acceptedTransactionsByEpoch.RetrieveOrCreate(index, newSet[utxo.TransactionID]))
+		return lo.Return1(m.acceptedTransactionsByEpoch.GetOrCreate(index, newSet[utxo.TransactionID]))
 	}
 
 	return lo.Return1(m.acceptedTransactionsByEpoch.Get(index))

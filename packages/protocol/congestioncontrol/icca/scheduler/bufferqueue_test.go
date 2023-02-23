@@ -4,16 +4,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 // region Buffered Queue test /////////////////////////////////////////////////////////////////////////////////////////////
@@ -292,7 +291,7 @@ func newTestBlock(opts ...options.Option[models.Block]) *Block {
 	parents.AddStrong(models.EmptyBlockID)
 	opts = append(opts, models.WithParents(parents))
 
-	blk := NewBlock(virtualvoting.NewBlock(booker.NewBlock(blockdag.NewBlock(models.NewBlock(opts...)))))
+	blk := NewBlock(virtualvoting.NewBlock(blockdag.NewBlock(models.NewBlock(opts...))))
 	if err := blk.DetermineID(); err != nil {
 		panic(errors.Wrap(err, "could not determine BlockID"))
 	}

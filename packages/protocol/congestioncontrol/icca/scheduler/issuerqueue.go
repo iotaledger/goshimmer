@@ -4,13 +4,13 @@ import (
 	"container/heap"
 	"fmt"
 
-	"github.com/iotaledger/hive.go/core/generalheap"
-	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/timed"
 	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/ds/generalheap"
+	"github.com/iotaledger/hive.go/ds/shrinkingmap"
+	"github.com/iotaledger/hive.go/runtime/timed"
 )
 
 // region IssuerQueue /////////////////////////////////////////////////////////////////////////////////////////////

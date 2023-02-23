@@ -4,14 +4,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/identity"
 	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/app/remotemetrics"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/ds/advancedset"
 )
 
 var (
@@ -33,7 +33,7 @@ var (
 	initialConfirmedConflictCountDB uint64
 
 	// all active conflicts stored in this map, to avoid duplicated event triggers for conflict confirmation.
-	activeConflicts      *set.AdvancedSet[utxo.TransactionID]
+	activeConflicts      *advancedset.AdvancedSet[utxo.TransactionID]
 	activeConflictsMutex sync.Mutex
 )
 
@@ -99,13 +99,15 @@ func sendConflictMetrics() {
 	_ = deps.RemoteLogger.Send(record)
 }
 
-func updateMetricCounts(conflictID utxo.TransactionID, transactionID utxo.TransactionID) (oldestAttachment *booker.Block) {
+func updateMetricCounts(conflictID utxo.TransactionID, transactionID utxo.TransactionID) (oldestAttachment *virtualvoting.Block) {
 	oldestAttachment = deps.Protocol.Engine().Tangle.Booker.GetEarliestAttachment(transactionID)
-	deps.Protocol.Engine().Ledger.ConflictDAG.Utils.ForEachConflictingConflictID(conflictID, func(conflictingConflictID utxo.TransactionID) bool {
-		if conflictingConflictID != conflictID {
-			finalizedConflictCountDB.Inc()
-			activeConflicts.Delete(conflictingConflictID)
-		}
+	conflict, exists := deps.Protocol.Engine().Ledger.ConflictDAG.Conflict(conflictID)
+	if !exists {
+		return oldestAttachment
+	}
+	conflict.ForEachConflictingConflict(func(conflictingConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) bool {
+		finalizedConflictCountDB.Inc()
+		activeConflicts.Delete(conflictingConflict.ID())
 		return true
 	})
 	finalizedConflictCountDB.Inc()
@@ -117,9 +119,9 @@ func updateMetricCounts(conflictID utxo.TransactionID, transactionID utxo.Transa
 func measureInitialConflictCounts() {
 	activeConflictsMutex.Lock()
 	defer activeConflictsMutex.Unlock()
-	activeConflicts = set.NewAdvancedSet[utxo.TransactionID]()
+	activeConflicts = advancedset.NewAdvancedSet[utxo.TransactionID]()
 	conflictsToRemove := make([]utxo.TransactionID, 0)
-	deps.Protocol.Engine().Ledger.ConflictDAG.Utils.ForEachConflict(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	deps.Protocol.Engine().Ledger.ConflictDAG.ForEachConflict(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		switch conflict.ID() {
 		case utxo.EmptyTransactionID:
 			return
@@ -127,10 +129,8 @@ func measureInitialConflictCounts() {
 			initialConflictTotalCountDB++
 			activeConflicts.Add(conflict.ID())
 			if deps.Protocol.Engine().Ledger.ConflictDAG.ConfirmationState(utxo.NewTransactionIDs(conflict.ID())).IsAccepted() {
-				deps.Protocol.Engine().Ledger.ConflictDAG.Utils.ForEachConflictingConflictID(conflict.ID(), func(conflictingConflictID utxo.TransactionID) bool {
-					if conflictingConflictID != conflict.ID() {
-						initialFinalizedConflictCountDB++
-					}
+				conflict.ForEachConflictingConflict(func(conflictingConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) bool {
+					initialFinalizedConflictCountDB++
 					return true
 				})
 				initialFinalizedConflictCountDB++
@@ -142,10 +142,12 @@ func measureInitialConflictCounts() {
 
 	// remove finalized conflicts from the map in separate loop when all conflicting conflicts are known
 	for _, conflictID := range conflictsToRemove {
-		deps.Protocol.Engine().Ledger.ConflictDAG.Utils.ForEachConflictingConflictID(conflictID, func(conflictingConflictID utxo.TransactionID) bool {
-			if conflictingConflictID != conflictID {
-				activeConflicts.Delete(conflictingConflictID)
-			}
+		conflict, exists := deps.Protocol.Engine().Ledger.ConflictDAG.Conflict(conflictID)
+		if !exists {
+			continue
+		}
+		conflict.ForEachConflictingConflict(func(conflictingConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) bool {
+			activeConflicts.Delete(conflictingConflict.ID())
 			return true
 		})
 		activeConflicts.Delete(conflictID)

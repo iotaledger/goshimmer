@@ -3,13 +3,13 @@ package indexer
 import (
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/hive.go/core/cerrors"
-	"github.com/iotaledger/hive.go/core/generics/objectstorage"
-
+	"github.com/iotaledger/goshimmer/packages/core/cerrors"
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/hive.go/objectstorage"
+	"github.com/iotaledger/hive.go/objectstorage/generic"
 )
 
 // region Indexer //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -17,7 +17,7 @@ import (
 // Indexer is a component that indexes the Outputs of a ledgerFunc for easier lookups.
 type Indexer struct {
 	// addressOutputMappingStorage is an object storage used to persist AddressOutputMapping objects.
-	addressOutputMappingStorage *objectstorage.ObjectStorage[*AddressOutputMapping]
+	addressOutputMappingStorage *generic.ObjectStorage[*AddressOutputMapping]
 
 	// ledgerFunc contains the indexed Ledger.
 	ledgerFunc func() *ledger.Ledger
@@ -33,8 +33,8 @@ func New(ledgerFunc func() *ledger.Ledger, options ...Option) (i *Indexer) {
 		options:    newOptions(options...),
 	}
 
-	i.addressOutputMappingStorage = objectstorage.NewStructStorage[AddressOutputMapping](
-		objectstorage.NewStoreWithRealm(i.options.store, database.PrefixIndexer, PrefixAddressOutputMappingStorage),
+	i.addressOutputMappingStorage = generic.NewStructStorage[AddressOutputMapping](
+		generic.NewStoreWithRealm(i.options.store, database.PrefixIndexer, PrefixAddressOutputMappingStorage),
 		i.options.cacheTimeProvider.CacheTime(i.options.addressOutputMappingCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 		objectstorage.StoreOnCreation(true),
@@ -62,8 +62,8 @@ func (i *Indexer) RemoveAddressOutputMapping(address devnetvm.Address, outputID 
 }
 
 // CachedAddressOutputMappings retrieves all AddressOutputMappings for a particular address.
-func (i *Indexer) CachedAddressOutputMappings(address devnetvm.Address) (cachedAddressOutputMappings objectstorage.CachedObjects[*AddressOutputMapping]) {
-	i.addressOutputMappingStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*AddressOutputMapping]) bool {
+func (i *Indexer) CachedAddressOutputMappings(address devnetvm.Address) (cachedAddressOutputMappings generic.CachedObjects[*AddressOutputMapping]) {
+	i.addressOutputMappingStorage.ForEach(func(key []byte, cachedObject *generic.CachedObject[*AddressOutputMapping]) bool {
 		cachedAddressOutputMappings = append(cachedAddressOutputMappings, cachedObject)
 		return true
 	}, objectstorage.WithIteratorPrefix(address.Bytes()))

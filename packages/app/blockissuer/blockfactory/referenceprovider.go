@@ -1,12 +1,14 @@
 package blockfactory
 
 import (
-	"github.com/iotaledger/hive.go/core/generics/walker"
+	"fmt"
+	"time"
+
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
@@ -18,14 +20,16 @@ import (
 type ReferenceProvider struct {
 	protocol *protocol.Protocol
 
-	latestEpochIndexCallback func() epoch.Index
+	latestEpochIndexCallback       func() epoch.Index
+	timeSinceConfirmationThreshold time.Duration
 }
 
 // NewReferenceProvider creates a new ReferenceProvider instance.
-func NewReferenceProvider(protocol *protocol.Protocol, latestEpochIndexCallback func() epoch.Index) (newInstance *ReferenceProvider) {
+func NewReferenceProvider(protocol *protocol.Protocol, timeSinceConfirmationThreshold time.Duration, latestEpochIndexCallback func() epoch.Index) (newInstance *ReferenceProvider) {
 	return &ReferenceProvider{
-		protocol:                 protocol,
-		latestEpochIndexCallback: latestEpochIndexCallback,
+		protocol:                       protocol,
+		latestEpochIndexCallback:       latestEpochIndexCallback,
+		timeSinceConfirmationThreshold: timeSinceConfirmationThreshold,
 	}
 }
 
@@ -63,10 +67,47 @@ func (r *ReferenceProvider) References(payload payload.Payload, strongParents mo
 		return nil, errors.Errorf("none of the provided strong parents can be referenced. Strong parents provided: %+v.", strongParents)
 	}
 
+	// Uncensor pending conflicts
+	references[models.WeakParentType].AddAll(r.referencesToMissingConflicts(models.MaxParentsCount - len(references[models.WeakParentType])))
+
 	// Make sure that there's no duplicate between strong and weak parents.
 	references.RemoveDuplicatesFromWeak()
 
 	return references, nil
+}
+
+func (r *ReferenceProvider) referencesToMissingConflicts(amount int) (blockIDs models.BlockIDs) {
+	blockIDs = models.NewBlockIDs()
+	if amount == 0 {
+		return blockIDs
+	}
+
+	for it := r.protocol.TipManager.TipsConflictTracker.MissingConflicts(amount).Iterator(); it.HasNext(); {
+		conflictID := it.Next()
+
+		// TODO: make sure that timestamp monotonicity is not broken
+		// TODO: need to check of every parent instead of adjusting the block's issuing time
+		attachment, err := r.latestValidAttachment(conflictID)
+		if attachment == nil || err != nil {
+			// panic("first attachment should be valid")
+			continue
+		}
+
+		// TODO: use earliest instead? to avoid commitment monotonicity issue
+		// attachment := r.protocol.Engine().Tangle.GetLatestAttachment(it.Next())
+		// if attachment == nil {
+		// 	panic("attachment should not be nil")
+		// }
+
+		// Check commitment monotonicity for the attachment.
+		if attachment.Commitment().Index() > r.protocol.Engine().Storage.Settings.LatestCommitment().Index() {
+			continue
+		}
+
+		blockIDs.Add(attachment.ID())
+	}
+
+	return blockIDs
 }
 
 func (r *ReferenceProvider) weakParentsFromUnacceptedInputs(payload payload.Payload) (weakParents models.BlockIDs, err error) {
@@ -92,9 +133,8 @@ func (r *ReferenceProvider) weakParentsFromUnacceptedInputs(payload payload.Payl
 				continue
 			}
 
-			committableEpoch := r.latestEpochIndexCallback()
-
-			if latestAttachment.ID().Index() <= committableEpoch {
+			// do not add a block from an already committed epoch as weak parent
+			if latestAttachment.ID().Index() <= r.latestEpochIndexCallback() {
 				continue
 			}
 
@@ -122,9 +162,24 @@ func (r *ReferenceProvider) addedReferencesForBlock(blockID models.BlockID, excl
 
 	var err error
 	if addedReferences, err = r.addedReferencesForConflicts(blockConflicts, excludedConflictIDs); err != nil {
+		// Delete the tip if we could not pick it up.
 		if schedulerBlock, schedulerBlockExists := r.protocol.CongestionControl.Scheduler().Block(blockID); schedulerBlockExists {
 			r.protocol.TipManager.DeleteTip(schedulerBlock)
 		}
+		return nil, false
+	}
+
+	// We could not refer to any block to fix the opinion, so we add the tips' strong parents to the tip pool.
+	if addedReferences == nil {
+		if block, exists := r.protocol.Engine().Tangle.Booker.Block(blockID); exists {
+			block.ForEachParentByType(models.StrongParentType, func(parentBlockID models.BlockID) bool {
+				if schedulerBlock, schedulerBlockExists := r.protocol.CongestionControl.Scheduler().Block(parentBlockID); schedulerBlockExists {
+					r.protocol.TipManager.AddTipNonMonotonic(schedulerBlock)
+				}
+				return true
+			})
+		}
+		fmt.Println(">> could not fix opinion", blockID)
 		return nil, false
 	}
 
@@ -139,6 +194,12 @@ func (r *ReferenceProvider) addedReferencesForBlock(blockID models.BlockID, excl
 // addedReferencesForConflicts returns the references that are necessary to correct our opinion on the given conflicts.
 func (r *ReferenceProvider) addedReferencesForConflicts(conflictIDs utxo.TransactionIDs, excludedConflictIDs utxo.TransactionIDs) (referencesToAdd models.ParentBlockIDs, err error) {
 	referencesToAdd = models.NewParentBlockIDs()
+
+	// If any of the conflict is rejected we cannot pick up the block as a parent, and we delete it from the tipset.
+	if r.protocol.Engine().Tangle.Booker.Ledger.ConflictDAG.ConfirmationState(conflictIDs).IsRejected() {
+		return nil, errors.Errorf("the given conflicts are rejected: %s", conflictIDs)
+	}
+
 	for it := conflictIDs.Iterator(); it.HasNext(); {
 		conflictID := it.Next()
 
@@ -150,7 +211,12 @@ func (r *ReferenceProvider) addedReferencesForConflicts(conflictIDs utxo.Transac
 		if adjust, referencedBlk, referenceErr := r.adjustOpinion(conflictID, excludedConflictIDs); referenceErr != nil {
 			return nil, errors.Wrapf(referenceErr, "failed to create reference for %s", conflictID)
 		} else if adjust {
-			referencesToAdd.Add(models.ShallowLikeParentType, referencedBlk)
+			if referencedBlk != models.EmptyBlockID {
+				referencesToAdd.Add(models.ShallowLikeParentType, referencedBlk)
+			} else {
+				// We could not find a block that we could reference to fix this strong parent, but we don't want to delete the tip.
+				return nil, nil
+			}
 		}
 	}
 
@@ -158,45 +224,46 @@ func (r *ReferenceProvider) addedReferencesForConflicts(conflictIDs utxo.Transac
 }
 
 // adjustOpinion returns the reference that is necessary to correct our opinion on the given conflict.
-func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, excludedConflictIDs utxo.TransactionIDs) (adjust bool, blkID models.BlockID, err error) {
+func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, excludedConflictIDs utxo.TransactionIDs) (adjust bool, attachmentID models.BlockID, err error) {
 	engineInstance := r.protocol.Engine()
 
-	for w := walker.New[utxo.TransactionID](false).Push(conflictID); w.HasNext(); {
-		currentConflictID := w.Next()
+	likedConflictID, dislikedConflictIDs := engineInstance.Consensus.ConflictResolver.AdjustOpinion(conflictID)
 
-		if likedConflictID, dislikedConflictIDs := engineInstance.Consensus.ConflictResolver.LikedConflictMember(currentConflictID); !likedConflictID.IsEmpty() {
-			// only triggers in first iteration
-			if likedConflictID == conflictID {
-				return false, models.EmptyBlockID, nil
-			}
-
-			if blkID, err = r.firstValidAttachment(likedConflictID); err != nil {
-				continue
-			}
-
-			excludedConflictIDs.AddAll(engineInstance.Ledger.Utils.ConflictIDsInFutureCone(dislikedConflictIDs))
-
-			return true, blkID, nil
-		}
-
-		// only walk deeper if we don't like "something else"
-		engineInstance.Ledger.ConflictDAG.Storage.CachedConflict(currentConflictID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-			w.PushFront(conflict.Parents().Slice()...)
-		})
+	if likedConflictID.IsEmpty() {
+		panic("likedConflictID empty when trying to adjust opinion!")
 	}
 
-	return false, models.EmptyBlockID, errors.Errorf("failed to create dislike for %s", conflictID)
+	if likedConflictID == conflictID {
+		return false, models.EmptyBlockID, nil
+	}
+
+	attachment, err := r.latestValidAttachment(likedConflictID)
+	// TODO: make sure that timestamp monotonicity is held
+	if err != nil {
+		return false, models.EmptyBlockID, err
+	}
+
+	excludedConflictIDs.AddAll(engineInstance.Ledger.Utils.ConflictIDsInFutureCone(dislikedConflictIDs))
+
+	return true, attachment.ID(), nil
 }
 
-// firstValidAttachment returns the first valid attachment of the given transaction.
-func (r *ReferenceProvider) firstValidAttachment(txID utxo.TransactionID) (blockID models.BlockID, err error) {
-	block := r.protocol.Engine().Tangle.Booker.GetEarliestAttachment(txID)
-
-	if committableEpoch := r.latestEpochIndexCallback(); block.ID().Index() <= committableEpoch {
-		return models.EmptyBlockID, errors.Errorf("attachment of %s with %s is too far in the past as current committable epoch is %d", txID, block.ID(), committableEpoch)
+// latestValidAttachment returns the first valid attachment of the given transaction.
+func (r *ReferenceProvider) latestValidAttachment(txID utxo.TransactionID) (block *virtualvoting.Block, err error) {
+	block = r.protocol.Engine().Tangle.Booker.GetLatestAttachment(txID)
+	if block == nil {
+		return nil, errors.Errorf("could not obtain latest attachment for %s", txID)
 	}
 
-	return block.ID(), nil
+	if acceptedTime := r.protocol.Engine().Clock.AcceptedTime(); block.IssuingTime().Before(acceptedTime.Add(-r.timeSinceConfirmationThreshold)) {
+		return nil, errors.Errorf("attachment of %s with %s is too far in the past relative to AcceptedTime %s", txID, block.ID(), acceptedTime.String())
+	}
+
+	if committableEpoch := r.latestEpochIndexCallback(); block.ID().Index() <= committableEpoch {
+		return nil, errors.Errorf("attachment of %s with %s is too far in the past as current committable epoch is %d", txID, block.ID(), committableEpoch)
+	}
+
+	return block, nil
 }
 
 // payloadLiked checks if the payload of a Block is liked.
@@ -210,7 +277,11 @@ func (r *ReferenceProvider) payloadLiked(blockID models.BlockID) (liked bool) {
 	conflictIDs := engineInstance.Tangle.Booker.PayloadConflictIDs(block)
 
 	for it := conflictIDs.Iterator(); it.HasNext(); {
-		if !engineInstance.Consensus.ConflictResolver.ConflictLiked(it.Next()) {
+		conflict, exists := engineInstance.Ledger.ConflictDAG.Conflict(it.Next())
+		if !exists {
+			continue
+		}
+		if !engineInstance.Consensus.ConflictResolver.ConflictLiked(conflict) {
 			return false
 		}
 	}
