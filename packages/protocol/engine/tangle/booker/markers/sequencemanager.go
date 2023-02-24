@@ -46,7 +46,7 @@ func NewSequenceManager(opts ...options.Option[SequenceManager]) (m *SequenceMan
 func (s *SequenceManager) InheritStructureDetails(referencedStructureDetails []*StructureDetails, allParentsInPastEpoch bool) (inheritedStructureDetails *StructureDetails, newSequenceCreated bool) {
 	inheritedStructureDetails = s.mergeParentStructureDetails(referencedStructureDetails)
 
-	inheritedStructureDetails.SetPastMarkers(s.normalizeMarkers(inheritedStructureDetails.PastMarkers()))
+	inheritedStructureDetails.SetPastMarkers(inheritedStructureDetails.PastMarkers())
 
 	if inheritedStructureDetails.PastMarkers().Size() == 0 {
 		// call createSequence without any past markers just so the sequence is created for later use.
