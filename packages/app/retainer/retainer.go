@@ -224,12 +224,12 @@ func (r *Retainer) setupEvents() {
 				return true
 			})
 
-			_ = e.SpentOutputs(e.Commitment.Index(), func(owm *ledger.OutputWithMetadata) error {
+			_ = e.SpentOutputs(func(owm *ledger.OutputWithMetadata) error {
 				spentOutputs.Add(owm.ID())
 				return nil
 			})
 
-			_ = e.CreatedOutputs(e.Commitment.Index(), func(owm *ledger.OutputWithMetadata) error {
+			_ = e.CreatedOutputs(func(owm *ledger.OutputWithMetadata) error {
 				createdOutputs.Add(owm.ID())
 				return nil
 			})
