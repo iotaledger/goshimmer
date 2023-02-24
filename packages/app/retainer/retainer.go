@@ -274,10 +274,6 @@ func (r *Retainer) storeBlockMetadata(metas []*BlockMetadata) {
 }
 
 func (r *Retainer) storeCommitmentDetails(c *CommitmentDetails) {
-	if c == nil {
-		return
-	}
-
 	if err := r.commitmentStorage.Set(c.ID(), *c); err != nil {
 		panic(errors.Wrapf(err, "could not save %s to commitment storage", c.ID()))
 	}
