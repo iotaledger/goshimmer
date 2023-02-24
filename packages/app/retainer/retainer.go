@@ -32,6 +32,8 @@ const (
 )
 
 type Retainer struct {
+	Workers *workerpool.Group
+
 	blockWorkerPool      *workerpool.WorkerPool
 	commitmentWorkerPool *workerpool.WorkerPool
 	cachedMetadata       *memstorage.EpochStorage[models.BlockID, *cachedMetadata]
@@ -47,6 +49,7 @@ type Retainer struct {
 
 func NewRetainer(workers *workerpool.Group, protocol *protocol.Protocol, dbManager *database.Manager, opts ...options.Option[Retainer]) (r *Retainer) {
 	return options.Apply(&Retainer{
+		Workers:              workers,
 		blockWorkerPool:      workers.CreatePool("RetainerBlock", 2),
 		commitmentWorkerPool: workers.CreatePool("RetainerCommitment", 1),
 		cachedMetadata:       memstorage.NewEpochStorage[models.BlockID, *cachedMetadata](),
@@ -136,11 +139,6 @@ func (r *Retainer) DatabaseSize() int64 {
 // BlockWorkerPool returns the block worker pool of the retainer.
 func (r *Retainer) BlockWorkerPool() *workerpool.WorkerPool {
 	return r.blockWorkerPool
-}
-
-// CommitmentWorkerPool returns the commitment worker pool of the retainer.
-func (r *Retainer) CommitmentWorkerPool() *workerpool.WorkerPool {
-	return r.commitmentWorkerPool
 }
 
 // PruneUntilEpoch prunes storage epochs less than and equal to the given index.
