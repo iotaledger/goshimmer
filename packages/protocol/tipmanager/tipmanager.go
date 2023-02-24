@@ -107,6 +107,7 @@ func (t *TipManager) AddTipNonMonotonic(block *scheduler.Block) {
 
 	// Do not add a tip booked on a reject branch, we won't use it as a tip and it will otherwise remove parent tips.
 	blockConflictIDs := t.engine.Tangle.Booker.BlockConflicts(block.Block)
+	fmt.Println(block.ID(), "TipManager.AddTipNonMonotonic", blockConflictIDs)
 	if t.engine.Tangle.Booker.Ledger.ConflictDAG.ConfirmationState(blockConflictIDs).IsRejected() {
 		fmt.Println(">> Rejected tip", block.ID())
 		return

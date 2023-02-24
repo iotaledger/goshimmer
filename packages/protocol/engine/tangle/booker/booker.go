@@ -330,6 +330,7 @@ func (b *Booker) inheritConflictIDs(block *virtualvoting.Block) (inheritedConfli
 	}
 
 	newStructureDetails := b.markerManager.ProcessBlock(block, allParentsInPastEpochs, parentsStructureDetails, inheritedConflictIDs)
+	fmt.Println(block.ID(), "pastMarkersConflictIDs", pastMarkersConflictIDs, "inheritedConflictIDs", inheritedConflictIDs)
 
 	block.SetStructureDetails(newStructureDetails)
 
@@ -341,6 +342,8 @@ func (b *Booker) inheritConflictIDs(block *virtualvoting.Block) (inheritedConfli
 		subtractedConflictIDs := pastMarkersConflictIDs.Clone()
 		subtractedConflictIDs.DeleteAll(inheritedConflictIDs)
 		block.AddAllSubtractedConflictIDs(subtractedConflictIDs)
+
+		fmt.Println(block.ID(), "addedConflictIDs", addedConflictIDs, "subtractedConflictIDs", subtractedConflictIDs)
 	}
 
 	block.SetBooked()
@@ -377,7 +380,7 @@ func (b *Booker) determineBookingDetails(block *virtualvoting.Block) (parentsStr
 		fmt.Printf(">> %s self %s selfdisliked future cone %s\n", block.ID(), selfConflictID, selfFutureDislikedFuture)
 		inheritedConflictIDs.Add(selfConflictID)
 		// if a payload is a conflicting transaction, then remove any conflicting conflicts from supported conflicts
-		inheritedConflictIDs.DeleteAll(selfDislikedConflictIDs)
+		inheritedConflictIDs.DeleteAll(selfFutureDislikedFuture)
 	}
 
 	// set transactionConflictIDs at the end, so that if it contains conflicting conflicts,
@@ -477,6 +480,7 @@ func (b *Booker) blockBookingDetails(block *virtualvoting.Block) (pastMarkersCon
 	defer b.rUnlockBlockSequences(block)
 
 	pastMarkersConflictIDs = b.markerManager.ConflictIDsFromStructureDetails(block.StructureDetails())
+	fmt.Println(block.ID(), "blockBookingDetails", pastMarkersConflictIDs)
 
 	blockConflictIDs = utxo.NewTransactionIDs()
 	blockConflictIDs.AddAll(pastMarkersConflictIDs)
