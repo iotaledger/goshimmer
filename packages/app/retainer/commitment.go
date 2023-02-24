@@ -8,7 +8,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-
 	"github.com/iotaledger/hive.go/objectstorage/generic/model"
 	"github.com/iotaledger/hive.go/serializer/v2/serix"
 )

@@ -152,7 +152,6 @@ func TestRetainer_BlockMetadata_Evicted(t *testing.T) {
 	// Trigger eviction through commitment creation
 	tf.Engine.Instance.NotarizationManager.SetAcceptanceTime((epoch.IndexFromTime(time.Unix(epoch.GenesisTime, 0).Add(70*time.Second)) + 8).EndTime())
 	workers.WaitChildren()
-	retainer.BlockWorkerPool().PendingTasksCounter.WaitIsZero()
 
 	meta, exists := retainer.BlockMetadata(block.ID())
 	require.True(t, exists)

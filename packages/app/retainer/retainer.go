@@ -63,8 +63,7 @@ func NewRetainer(workers *workerpool.Group, protocol *protocol.Protocol, dbManag
 }
 
 func (r *Retainer) Shutdown() {
-	r.blockWorkerPool.Shutdown()
-	r.commitmentWorkerPool.Shutdown()
+	r.Workers.Shutdown()
 }
 
 func (r *Retainer) Block(blockID models.BlockID) (block *models.Block, exists bool) {
