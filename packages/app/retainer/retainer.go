@@ -14,7 +14,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/ds/advancedset"
@@ -207,36 +206,9 @@ func (r *Retainer) setupEvents() {
 			return
 		}
 
-		cd, _ := r.getCommitmentDetails(e.Commitment.Index())
-		if cd != nil {
-			var (
-				blockIDs       = make(models.BlockIDs)
-				txIDs          = utxo.NewTransactionIDs()
-				spentOutputs   = utxo.NewOutputIDs()
-				createdOutputs = utxo.NewOutputIDs()
-			)
-			_ = e.AcceptedBlocks.Stream(func(key models.BlockID) bool {
-				blockIDs.Add(key)
-				return true
-			})
-			_ = e.AcceptedTransactions.Stream(func(key utxo.TransactionID) bool {
-				txIDs.Add(key)
-				return true
-			})
-
-			_ = e.SpentOutputs(func(owm *ledger.OutputWithMetadata) error {
-				spentOutputs.Add(owm.ID())
-				return nil
-			})
-
-			_ = e.CreatedOutputs(func(owm *ledger.OutputWithMetadata) error {
-				createdOutputs.Add(owm.ID())
-				return nil
-			})
-
-			cd.setCommitment(e.Commitment, blockIDs, txIDs, createdOutputs, spentOutputs)
-			r.storeCommitmentDetails(cd)
-		}
+		cd := newCommitmentDetails()
+		cd.setCommitment(e)
+		r.storeCommitmentDetails(cd)
 	}, event.WithWorkerPool(r.commitmentWorkerPool))
 }
 

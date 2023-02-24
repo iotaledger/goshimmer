@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 
@@ -26,22 +28,40 @@ type commitmentDetailsModel struct {
 }
 
 func newCommitmentDetails() (c *CommitmentDetails) {
-	c = model.NewStorable[commitment.ID, CommitmentDetails](&commitmentDetailsModel{})
+	c = model.NewStorable[commitment.ID, CommitmentDetails](&commitmentDetailsModel{
+		AcceptedBlocks:       make(models.BlockIDs),
+		AcceptedTransactions: utxo.NewTransactionIDs(),
+		SpentOutputs:         utxo.NewOutputIDs(),
+		CreatedOutputs:       utxo.NewOutputIDs(),
+	})
 	c.SetID(commitment.ID{})
 
 	return c
 }
 
-func (c *CommitmentDetails) setCommitment(cm *commitment.Commitment, blocks models.BlockIDs,
-	txIDs utxo.TransactionIDs, created utxo.OutputIDs, spent utxo.OutputIDs) {
-	c.M.Commitment = cm
-	c.M.ID = cm.ID()
-	c.SetID(cm.ID())
+func (c *CommitmentDetails) setCommitment(e *notarization.EpochCommittedDetails) {
+	c.M.Commitment = e.Commitment
+	c.M.ID = e.Commitment.ID()
+	c.SetID(e.Commitment.ID())
 
-	c.M.AcceptedBlocks = blocks
-	c.M.AcceptedTransactions = txIDs
-	c.M.CreatedOutputs = created
-	c.M.SpentOutputs = spent
+	_ = e.AcceptedBlocks.Stream(func(key models.BlockID) bool {
+		c.M.AcceptedBlocks.Add(key)
+		return true
+	})
+	_ = e.AcceptedTransactions.Stream(func(key utxo.TransactionID) bool {
+		c.M.AcceptedTransactions.Add(key)
+		return true
+	})
+
+	_ = e.SpentOutputs(func(owm *ledger.OutputWithMetadata) error {
+		c.M.SpentOutputs.Add(owm.ID())
+		return nil
+	})
+
+	_ = e.CreatedOutputs(func(owm *ledger.OutputWithMetadata) error {
+		c.M.CreatedOutputs.Add(owm.ID())
+		return nil
+	})
 }
 
 func (c *CommitmentDetails) Encode() ([]byte, error) {
