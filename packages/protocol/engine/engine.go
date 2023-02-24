@@ -283,6 +283,10 @@ func (e *Engine) initTangle() {
 		}
 	}, event.WithWorkerPool(e.Workers.CreatePool("Tangle.Attach", 2)))
 
+	e.Events.NotarizationManager.EpochCommitted.Hook(func(evt *notarization.EpochCommittedDetails) {
+		e.Tangle.BlockDAG.PromoteFutureBlocksUntil(evt.Commitment.Index())
+	}, event.WithWorkerPool(e.Workers.CreatePool("Tangle.PromoteFutureBlocksUntil", 1)))
+
 	e.Events.Tangle.LinkTo(e.Tangle.Events)
 }
 

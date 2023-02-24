@@ -26,7 +26,6 @@ require (
 	github.com/jellydator/ttlcache/v2 v2.11.1
 	github.com/labstack/echo/v4 v4.10.0
 	github.com/libp2p/go-libp2p v0.25.1
-	github.com/magiconair/properties v1.8.6
 	github.com/mr-tron/base58 v1.2.0
 	github.com/multiformats/go-multiaddr v0.8.0
 	github.com/multiformats/go-varint v0.0.7
@@ -111,6 +110,7 @@ require (
 	github.com/libp2p/go-netroute v0.2.1 // indirect
 	github.com/libp2p/go-reuseport v0.2.0 // indirect
 	github.com/libp2p/go-yamux/v4 v4.0.0 // indirect
+	github.com/magiconair/properties v1.8.6 // indirect
 	github.com/marten-seemann/tcp v0.0.0-20210406111302-dfbc87cc63fd // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.16 // indirect

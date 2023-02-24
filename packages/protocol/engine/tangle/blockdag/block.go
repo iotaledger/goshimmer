@@ -21,6 +21,7 @@ type Block struct {
 	solid                bool
 	invalid              bool
 	orphaned             bool
+	future               bool
 	strongChildren       []*Block
 	weakChildren         []*Block
 	likedInsteadChildren []*Block
@@ -75,6 +76,27 @@ func (b *Block) IsInvalid() (isInvalid bool) {
 	defer b.mutex.RUnlock()
 
 	return b.invalid
+}
+
+// IsFuture returns true if the Block is a future Block (we haven't committed to its commitment epoch yet).
+func (b *Block) IsFuture() (isFuture bool) {
+	b.mutex.RLock()
+	defer b.mutex.RUnlock()
+
+	return b.future
+}
+
+// setFuture marks the Block as future block.
+func (b *Block) setFuture() (wasUpdated bool) {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+
+	if b.future {
+		return false
+	}
+
+	b.future = true
+	return true
 }
 
 // IsOrphaned returns true if the Block is orphaned (either due to being marked as orphaned itself or because it has
