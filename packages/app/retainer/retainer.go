@@ -98,7 +98,7 @@ func (r *Retainer) Commitment(index epoch.Index) (c *CommitmentDetails, exists b
 	return r.getCommitmentDetails(index)
 }
 
-func (r *Retainer) CommitmentbyID(id commitment.ID) (c *CommitmentDetails, exists bool) {
+func (r *Retainer) CommitmentByID(id commitment.ID) (c *CommitmentDetails, exists bool) {
 	return r.getCommitmentDetails(id.Index())
 }
 

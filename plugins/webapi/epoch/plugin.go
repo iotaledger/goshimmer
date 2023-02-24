@@ -87,7 +87,7 @@ func GetCommittedEpochByCommitment(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	cc, exist := deps.Retainer.CommitmentbyID(ID)
+	cc, exist := deps.Retainer.CommitmentByID(ID)
 	if !exist {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(errors.New("commitment not exists")))
 	}
