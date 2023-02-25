@@ -7,14 +7,15 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/stringify"
 )
 
 type Block struct {
 	booked                bool
+	subjectivelyInvalid   bool
 	structureDetails      *markers.StructureDetails
 	addedConflictIDs      utxo.TransactionIDs
 	subtractedConflictIDs utxo.TransactionIDs
-	subjectivelyInvalid   bool
 
 	*blockdag.Block
 }
@@ -136,6 +137,20 @@ func (b *Block) SetStructureDetails(structureDetails *markers.StructureDetails) 
 	defer b.Unlock()
 
 	b.structureDetails = structureDetails
+}
+
+func (b *Block) String() string {
+
+	builder := stringify.NewStructBuilder("VirtualVoting.Block", stringify.NewStructField("id", b.ID()))
+	builder.AddField(stringify.NewStructField("Booked", b.booked))
+	builder.AddField(stringify.NewStructField("SubjectivelyInvalid", b.subjectivelyInvalid))
+	builder.AddField(stringify.NewStructField("StructureDetails", b.structureDetails))
+	builder.AddField(stringify.NewStructField("AddedConflictIDs", b.addedConflictIDs))
+	builder.AddField(stringify.NewStructField("SubtractedConflictIDs", b.subtractedConflictIDs))
+
+	// builder.AddField(stringify.NewStructField("BlockDAG.Block", b.Block))
+
+	return builder.String()
 }
 
 // region Blocks ///////////////////////////////////////////////////////////////////////////////////////////////////////
