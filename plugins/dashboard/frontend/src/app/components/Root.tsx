@@ -21,6 +21,8 @@ import {Mana} from "app/components/Mana";
 import {ExplorerTransactionQueryResult} from "app/components/ExplorerTransactionQueryResult";
 import {ExplorerOutputQueryResult} from "app/components/ExplorerOutputQueryResult";
 import {ExplorerConflictQueryResult} from "app/components/ExplorerConflictQueryResult";
+import { EpochLiveFeed } from './EpochLiveFeed';
+import { ExplorerEpochQueryResult } from './ExplorerEpochQueryResult';
 
 interface Props {
     history: any;
@@ -75,6 +77,11 @@ export class Root extends React.Component<Props, any> {
                                 Conflicts
                             </Nav.Link>
                         </LinkContainer>
+                        <LinkContainer to="/epochs">
+                            <Nav.Link>
+                                Epoch
+                            </Nav.Link>
+                        </LinkContainer>
                         <LinkContainer to="/tips">
                             <Nav.Link>
                                 Tips
@@ -98,8 +105,10 @@ export class Root extends React.Component<Props, any> {
                     <Route exact path="/explorer/transaction/:id" component={ExplorerTransactionQueryResult}/>
                     <Route exact path="/explorer/output/:id" component={ExplorerOutputQueryResult}/>
                     <Route exact path="/explorer/conflict/:id" component={ExplorerConflictQueryResult}/>
+                    <Route exact path="/explorer/epoch/commitment/:commitment" component={ExplorerEpochQueryResult}/>
                     <Route exact path="/explorer/404/:search" component={Explorer404}/>
                     <Route exact path="/conflicts" component={Conflicts}/>
+                    <Route exact path="/epochs" component={EpochLiveFeed}/>
                     <Route exact path="/tips" component={Tips}/>
                     <Route exact path="/explorer" component={Explorer}/>
                     <Route exact path="/visualizer" component={Visualizer}/>

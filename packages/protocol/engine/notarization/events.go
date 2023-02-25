@@ -1,7 +1,10 @@
 package notarization
 
 import (
+	"github.com/iotaledger/goshimmer/packages/core/ads"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/runtime/event"
 )
@@ -36,10 +39,14 @@ var NewEpochMutationsEvents = event.CreateGroupConstructor(func() (self *EpochMu
 	}
 })
 
+type OutputsProvider func(callback func(*ledger.OutputWithMetadata) error) error
+
 // EpochCommittedDetails struct { contains the details of a committed epoch.
 type EpochCommittedDetails struct {
-	Commitment                *commitment.Commitment
-	AcceptedBlocksCount       int
-	AcceptedTransactionsCount int
-	ActiveValidatorsCount     int
+	Commitment            *commitment.Commitment
+	AcceptedBlocks        *ads.Set[models.BlockID, *models.BlockID]
+	AcceptedTransactions  *ads.Set[utxo.TransactionID, *utxo.TransactionID]
+	SpentOutputs          OutputsProvider
+	CreatedOutputs        OutputsProvider
+	ActiveValidatorsCount int
 }

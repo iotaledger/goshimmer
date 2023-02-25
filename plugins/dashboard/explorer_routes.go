@@ -17,6 +17,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
+
+	epochAPI "github.com/iotaledger/goshimmer/plugins/webapi/epoch"
 	ledgerstateAPI "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/lo"
@@ -213,6 +215,10 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/conflict/:conflictID/children", ledgerstateAPI.GetConflictChildren)
 	routeGroup.GET("/conflict/:conflictID/conflicts", ledgerstateAPI.GetConflictConflicts)
 	routeGroup.GET("/conflict/:conflictID/voters", ledgerstateAPI.GetConflictVoters)
+	routeGroup.GET("/epoch/:ei/blocks", epochAPI.GetBlocks)
+	routeGroup.GET("/epoch/commitment/:commitment", epochAPI.GetCommittedEpochByCommitment)
+	routeGroup.GET("/epoch/:ei/transactions", epochAPI.GetTransactions)
+	routeGroup.GET("/epoch/:ei/utxos", epochAPI.GetUTXOs)
 
 	routeGroup.GET("/search/:search", func(c echo.Context) error {
 		search := c.Param("search")

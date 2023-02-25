@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/hive.go/runtime/options"
@@ -204,10 +205,16 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 	}
 
 	m.Events.EpochCommitted.Trigger(&EpochCommittedDetails{
-		Commitment:                newCommitment,
-		AcceptedBlocksCount:       acceptedBlocks.Size(),
-		AcceptedTransactionsCount: acceptedTransactions.Size(),
-		ActiveValidatorsCount:     0,
+		Commitment:           newCommitment,
+		AcceptedBlocks:       acceptedBlocks,
+		AcceptedTransactions: acceptedTransactions,
+		SpentOutputs: func(callback func(*ledger.OutputWithMetadata) error) error {
+			return m.ledgerState.StateDiffs.StreamSpentOutputs(index, callback)
+		},
+		CreatedOutputs: func(callback func(*ledger.OutputWithMetadata) error) error {
+			return m.ledgerState.StateDiffs.StreamCreatedOutputs(index, callback)
+		},
+		ActiveValidatorsCount: 0,
 	})
 
 	return true

@@ -5,16 +5,20 @@ import (
 )
 
 type EpochInfo struct {
-	EI     uint64 `json:"Index"`
-	ECR    string `json:"RootsID"`
-	PrevEC string `json:"prevEC"`
+	ID               string `json:"id"`
+	Index            uint64 `json:"index"`
+	RootsID          string `json:"rootsID"`
+	PrevID           string `json:"prevID"`
+	CumulativeWeight int64  `json:"cumulativeWeight"`
 }
 
 func EpochInfoFromRecord(c *commitment.Commitment) *EpochInfo {
 	return &EpochInfo{
-		EI:     uint64(c.Index()),
-		ECR:    c.RootsID().Base58(),
-		PrevEC: c.PrevID().Base58(),
+		ID:               c.ID().Base58(),
+		Index:            uint64(c.Index()),
+		RootsID:          c.RootsID().Base58(),
+		PrevID:           c.PrevID().Base58(),
+		CumulativeWeight: c.CumulativeWeight(),
 	}
 }
 
@@ -37,12 +41,10 @@ type EpochUTXOsResponse struct {
 
 type EpochBlocksResponse struct {
 	Blocks []string `json:"blocks"`
+	Error  string   `json:"error,omitempty"`
 }
 
 type EpochTransactionsResponse struct {
 	Transactions []string `json:"transactions"`
-}
-
-type EpochPendingConflictCountResponse struct {
-	PendingConflictCount uint64 `json:"pendingConflictCount"`
+	Error        string   `json:"error,omitempty"`
 }
