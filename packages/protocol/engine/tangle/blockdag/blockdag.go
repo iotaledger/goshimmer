@@ -138,6 +138,30 @@ func (b *BlockDAG) SetOrphaned(block *Block, orphaned bool) (updated bool) {
 	return true
 }
 
+func (b *BlockDAG) PromoteFutureBlocksUntil(index epoch.Index) {
+	b.futureBlocksMutex.Lock()
+	defer b.futureBlocksMutex.Unlock()
+
+	for i := b.nextIndexToPromote; i <= index; i++ {
+		cm, err := b.commitmentFunc(i)
+		if err != nil {
+			panic(fmt.Sprintf("failed to load commitment for index %d: %s", i, err))
+		}
+		if storage := b.futureBlocks.Get(i, false); storage != nil {
+			if futureBlocks, exists := storage.Get(cm.ID()); exists {
+				_ = futureBlocks.ForEach(func(futureBlock *Block) (err error) {
+					fmt.Println("promoting future block", futureBlock.ID())
+					b.solidifier.Queue(futureBlock)
+					return nil
+				})
+			}
+		}
+		b.futureBlocks.Evict(i)
+	}
+
+	b.nextIndexToPromote = index + 1
+}
+
 // evictEpoch is used to evict Blocks from committed epochs from the BlockDAG.
 func (b *BlockDAG) evictEpoch(index epoch.Index) {
 	b.solidifier.EvictUntil(index)
@@ -145,26 +169,28 @@ func (b *BlockDAG) evictEpoch(index epoch.Index) {
 	b.evictionMutex.Lock()
 	defer b.evictionMutex.Unlock()
 
-	// We want to deal with the synchronous BlockSolid events in a separate goroutine.
-	b.workerPool.Submit(func() {
-		b.promoteFutureBlocksUntil(index)
-	})
-
 	b.memStorage.Evict(index)
 }
 
 func (b *BlockDAG) markSolid(block *Block) (err error) {
-	if err := b.checkParents(block); err != nil {
-		return err
+	// Future blocks already have passed these checks, as they are revisited again at a later point in time.
+	// It is important to note that this check only passes once for a specific future block, as it is not yet marked as
+	// such. The next time the block is added to the causal orderer and marked as solid (that is, when it got promoted),
+	// it will be marked solid straight away, without checking if it is still a future block: that's why this method
+	// must be only called at most twice for a any block.
+	if !block.IsFuture() {
+		if err := b.checkParents(block); err != nil {
+			return err
+		}
+
+		if b.isFutureBlock(block) {
+			return
+		}
 	}
 
+	// It is important to only set the block as solid when it was not "parked" as a future block.
+	// Future blocks are queued for solidification again when the epoch is committed.
 	block.setSolid()
-
-	if b.isFutureBlock(block) {
-		return
-	}
-
-	b.promoteFutureBlocksUntil(block.Commitment().Index())
 
 	b.Events.BlockSolid.Trigger(block)
 
@@ -177,42 +203,16 @@ func (b *BlockDAG) isFutureBlock(block *Block) (isFutureBlock bool) {
 
 	// If we are not able to load the commitment for the block, it means we haven't committed this epoch yet.
 	if _, err := b.commitmentFunc(block.Commitment().Index()); err != nil {
-		b.storeFutureBlock(block)
+		// We set the block as future block so that we can skip some checks when revisiting it later in markSolid via the solidifier.
+		block.setFuture()
+
+		lo.Return1(b.futureBlocks.Get(block.Commitment().Index(), true).GetOrCreate(block.Commitment().ID(), func() *advancedset.AdvancedSet[*Block] {
+			return advancedset.NewAdvancedSet[*Block]()
+		})).Add(block)
 		return true
 	}
 
 	return false
-}
-
-func (b *BlockDAG) storeFutureBlock(block *Block) {
-	lo.Return1(b.futureBlocks.Get(block.Commitment().Index(), true).GetOrCreate(block.Commitment().ID(), func() *advancedset.AdvancedSet[*Block] {
-		return advancedset.NewAdvancedSet[*Block]()
-	})).Add(block)
-}
-
-func (b *BlockDAG) promoteFutureBlocksUntil(index epoch.Index) {
-	b.futureBlocksMutex.Lock()
-	defer b.futureBlocksMutex.Unlock()
-
-	for i := b.nextIndexToPromote; i <= index; i++ {
-		cm, err := b.commitmentFunc(i)
-		if err != nil {
-			panic(fmt.Sprintf("failed to load commitment for index %d: %s", i, err))
-		}
-		if storage := b.futureBlocks.Get(i, false); storage != nil {
-			if blocksStorage, exists := storage.Get(cm.ID()); exists {
-				// Rely on the ordered nature of the underlying map: we need, in fact, to make sure we
-				// trigger the parents before the children.
-				_ = blocksStorage.ForEach(func(block *Block) (err error) {
-					b.Events.BlockSolid.Trigger(block)
-					return nil
-				})
-			}
-		}
-		b.futureBlocks.Evict(i)
-	}
-
-	b.nextIndexToPromote = index + 1
 }
 
 func (b *BlockDAG) checkParents(block *Block) (err error) {
@@ -237,7 +237,7 @@ func (b *BlockDAG) checkParents(block *Block) (err error) {
 }
 
 func (b *BlockDAG) markInvalid(block *Block, reason error) {
-	b.SetInvalid(block, reason)
+	b.SetInvalid(block, errors.Wrap(reason, "block marked as invalid in BlockDAG"))
 }
 
 // attach tries to attach the given Block to the BlockDAG.

@@ -168,7 +168,7 @@ func TestTipManager_TimeSinceConfirmation_Confirmed(t *testing.T) {
 		WithTipManagerOptions(WithTimeSinceConfirmationThreshold(5*time.Minute)),
 		WithEngineOptions(
 			engine.WithBootstrapThreshold(time.Since(time.Unix(epoch.GenesisTime, 0).Add(30*time.Second))),
-			engine.WithNotarizationManagerOptions(notarization.WithMinCommittableEpochAge(20*time.Minute)),
+			engine.WithNotarizationManagerOptions(notarization.WithMinCommittableEpochAge(20*6)),
 			engine.WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(10))))),
 		),
 	)
@@ -228,7 +228,7 @@ func TestTipManager_TimeSinceConfirmation_MultipleParents(t *testing.T) {
 		WithTipManagerOptions(WithTimeSinceConfirmationThreshold(5*time.Minute)),
 		WithEngineOptions(
 			engine.WithBootstrapThreshold(time.Since(time.Unix(epoch.GenesisTime, 0).Add(30*time.Second))),
-			engine.WithNotarizationManagerOptions(notarization.WithMinCommittableEpochAge(20*time.Minute)),
+			engine.WithNotarizationManagerOptions(notarization.WithMinCommittableEpochAge(20*6)),
 			engine.WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(10))))),
 		),
 	)
@@ -481,7 +481,7 @@ func TestTipManager_FutureTips(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
 	tf := NewTestFramework(t, workers.CreateGroup("TipManagerTestFramework"),
 		WithEngineOptions(
-			engine.WithNotarizationManagerOptions(notarization.WithMinCommittableEpochAge(10*time.Second)),
+			engine.WithNotarizationManagerOptions(notarization.WithMinCommittableEpochAge(1)),
 		),
 	)
 	tf.Engine.EvictionState.AddRootBlock(models.EmptyBlockID)

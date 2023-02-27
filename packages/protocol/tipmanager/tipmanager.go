@@ -175,13 +175,17 @@ func (t *TipManager) selectTips(count int) (parents models.BlockIDs) {
 	for {
 		tips := t.tips.RandomUniqueEntries(count)
 
-		// only add genesis if no tips are available
+		// We obtain up to 8 latest root blocks if there is no valid tip and we submit them to the TSC check as some
+		// could be old in case of a slow growing BlockDAG.
 		if len(tips) == 0 {
-			// TODO: possible to use latest accepted block instead
-			rootBlock := t.engine.EvictionState.LatestRootBlock()
-			fmt.Println("(time: ", time.Now(), ") selecting root block because tip pool empty:", rootBlock)
+			rootBlocks := t.engine.EvictionState.LatestRootBlocks()
 
-			return parents.Add(rootBlock)
+			for blockID := range rootBlocks {
+				if block, exist := t.schedulerBlockRetrieverFunc(blockID); exist {
+					tips = append(tips, block)
+				}
+			}
+			fmt.Println("(time: ", time.Now(), ") selecting root blocks because tip pool empty:", rootBlocks)
 		}
 
 		// at least one tip is returned

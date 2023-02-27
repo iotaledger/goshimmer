@@ -86,7 +86,7 @@ func PeerConfig() config.GoShimmer {
 	c.Protocol.GenesisTime = GenesisTime
 
 	c.Notarization.Enabled = true
-	c.Notarization.MinEpochCommittableAge = 60 * time.Second
+	c.Notarization.MinEpochCommittableAge = 6
 
 	c.BlockIssuer.Enabled = true
 	c.BlockIssuer.RateSetter.Mode = "disabled"
