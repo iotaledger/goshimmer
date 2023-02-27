@@ -88,7 +88,7 @@ func WithPeersSeedBase58(peersSeedBase58 []string) options.Option[Options] {
 func WithPeersPublicKeysBase58(peersPublicKeyBase58 []string) options.Option[Options] {
 	return func(m *Options) {
 		m.PeersPublicKey = make([]ed25519.PublicKey, len(peersPublicKeyBase58))
-		for _, pk := range peersPublicKeyBase58 {
+		for i, pk := range peersPublicKeyBase58 {
 			b, err := base58.Decode(pk)
 			if err != nil {
 				panic("failed to decode peer seed: " + err.Error())
@@ -97,7 +97,7 @@ func WithPeersPublicKeysBase58(peersPublicKeyBase58 []string) options.Option[Opt
 			if err != nil {
 				panic("failed to read public key from bytes: " + err.Error())
 			}
-			m.PeersPublicKey = append(m.PeersPublicKey, nodePublicKey)
+			m.PeersPublicKey[i] = nodePublicKey
 		}
 	}
 }
