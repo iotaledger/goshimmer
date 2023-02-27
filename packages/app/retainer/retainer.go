@@ -200,7 +200,7 @@ func (r *Retainer) setupEvents() {
 
 	r.protocol.Events.Engine.EvictionState.EpochEvicted.Hook(r.storeAndEvictEpoch, event.WithWorkerPool(r.blockWorkerPool))
 
-	r.protocol.Engine().NotarizationManager.Events.EpochCommitted.Hook(func(e *notarization.EpochCommittedDetails) {
+	r.protocol.Events.Engine.NotarizationManager.EpochCommitted.Hook(func(e *notarization.EpochCommittedDetails) {
 		if e.Commitment.Index() < r.protocol.Engine().EvictionState.LastEvictedEpoch() {
 			return
 		}

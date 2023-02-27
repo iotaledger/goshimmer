@@ -51,7 +51,7 @@ func configure(_ *node.Plugin) {
 	deps.Server.GET("epochs/:ei/transactions", GetTransactions)
 	// deps.Server.GET("epochs/:ei/voters-weight", getVotersWeight)
 
-	deps.Protocol.Engine().NotarizationManager.Events.EpochCommitted.Hook(func(e *notarization.EpochCommittedDetails) {
+	deps.Protocol.Events.Engine.NotarizationManager.EpochCommitted.Hook(func(e *notarization.EpochCommittedDetails) {
 		currentECLock.Lock()
 		defer currentECLock.Unlock()
 
