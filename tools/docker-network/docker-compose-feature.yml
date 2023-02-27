@@ -46,7 +46,7 @@ services:
       ${FEATURE_AUTOPEERING_CONFIG}
       ${COMMON_CONFIG}
       --node.seed=base58:6TjAFDutx39cVEW7wuXVPqJ7ZrvD7WVPvEG7tMpLNivb
-      --faucet.seed=FTbSrJ3D5XY9LyqpzHUzxhcHcn3sRhzBEcJb2jHmY9GB
+      --faucet.seed=7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih
       --node.enablePlugins=${COMMON_ENABLED},faucet
       --node.disablePlugins=${COMMON_DISABLED}
     volumes:
