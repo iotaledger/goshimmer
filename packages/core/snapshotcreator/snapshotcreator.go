@@ -29,10 +29,10 @@ import (
 
 // CreateSnapshot creates a new snapshot. Genesis is defined by genesisTokenAmount and seedBytes, it
 // is pledged to the node that is derived from the same seed. The amount to pledge to each node is defined by
-// nodesToPledge map (seedBytes->amount), the funds of each pledge is sent to the same seed.
+// nodesToPledge map (publicKey->amount), the funds of each pledge is sent to the same publicKey.
 // | Pledge      | Funds       |
 // | ----------- | ----------- |
-// | empty       | genesisSeed  |
+// | empty       | genesisSeed |
 // | node1       | node1       |
 // | node2       | node2       |.
 
