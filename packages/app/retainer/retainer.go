@@ -85,7 +85,7 @@ func (r *Retainer) BlockMetadata(blockID models.BlockID) (metadata *BlockMetadat
 
 		if metadata.M.Accepted && !metadata.M.Confirmed && blockID.Index() <= r.protocol.Engine().LastConfirmedEpoch() {
 			metadata.M.ConfirmedByEpoch = true
-			metadata.M.ConfirmedByEpochTime = blockID.Index().EndTime()
+			metadata.M.ConfirmedByEpochTime = r.protocol.EpochTimeProvider.EndTime(blockID.Index())
 		}
 	}
 

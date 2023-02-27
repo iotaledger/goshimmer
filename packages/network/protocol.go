@@ -30,6 +30,8 @@ const (
 type Protocol struct {
 	Events *Events
 
+	epochTimeProvider *epoch.TimeProvider
+
 	network                   Endpoint
 	workerPool                *workerpool.WorkerPool
 	duplicateBlockBytesFilter *bytesfilter.BytesFilter
@@ -38,12 +40,13 @@ type Protocol struct {
 	requestedBlockHashesMutex sync.Mutex
 }
 
-func NewProtocol(network Endpoint, workerPool *workerpool.WorkerPool, opts ...options.Option[Protocol]) (protocol *Protocol) {
+func NewProtocol(network Endpoint, workerPool *workerpool.WorkerPool, epochTimeProvider *epoch.TimeProvider, opts ...options.Option[Protocol]) (protocol *Protocol) {
 	return options.Apply(&Protocol{
 		Events: NewEvents(),
 
 		network:                   network,
 		workerPool:                workerPool,
+		epochTimeProvider:         epochTimeProvider,
 		duplicateBlockBytesFilter: bytesfilter.New(10000),
 		requestedBlockHashes:      shrinkingmap.New[types.Identifier, dsTypes.Empty](shrinkingmap.WithShrinkingThresholdCount(1000)),
 	}, opts, func(p *Protocol) {
@@ -145,7 +148,7 @@ func (p *Protocol) onBlock(blockData []byte, id identity.ID) {
 
 		return
 	}
-	err := block.DetermineID(blockIdentifier)
+	err := block.DetermineID(p.epochTimeProvider, blockIdentifier)
 	if err != nil {
 		p.Events.Error.Trigger(&ErrorEvent{
 			Error:  errors.Wrap(err, "error while determining received block's ID"),

@@ -12,7 +12,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/app/retainer"
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
 	"github.com/iotaledger/goshimmer/packages/node"
@@ -230,8 +229,8 @@ func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
 		if !reqValid {
 			return c.JSON(http.StatusBadRequest, searchResult{Error: "invalid timestamp range"})
 		}
-		startEpoch := epoch.IndexFromTime(startTimestamp)
-		endEpoch := epoch.IndexFromTime(endTimestamp)
+		startEpoch := deps.Protocol.EpochTimeProvider.IndexFromTime(startTimestamp)
+		endEpoch := deps.Protocol.EpochTimeProvider.IndexFromTime(endTimestamp)
 
 		var blocks []*tangleVertex
 		var txs []*utxoVertex

@@ -38,6 +38,7 @@ import (
 
 type Protocol struct {
 	Events            *Events
+	EpochTimeProvider *epoch.TimeProvider
 	CongestionControl *congestioncontrol.CongestionControl
 	TipManager        *tipmanager.TipManager
 	chainManager      *chainmanager.Manager
@@ -55,6 +56,7 @@ type Protocol struct {
 	optsSnapshotPath     string
 	optsPruningThreshold uint64
 
+	optsEpochTimeProviderOptions      []options.Option[epoch.TimeProvider]
 	optsCongestionControlOptions      []options.Option[congestioncontrol.CongestionControl]
 	optsEngineOptions                 []options.Option[engine.Engine]
 	optsChainManagerOptions           []options.Option[chainmanager.Manager]
@@ -75,6 +77,7 @@ func New(workers *workerpool.Group, dispatcher network.Endpoint, opts ...options
 		optsBaseDirectory:    "",
 		optsPruningThreshold: 6 * 60, // 1 hour given that epoch duration is 10 seconds
 	}, opts,
+		(*Protocol).initEpochTimeProvider,
 		(*Protocol).initNetworkEvents,
 		(*Protocol).initCongestionControl,
 		(*Protocol).initEngineManager,
@@ -91,7 +94,7 @@ func (p *Protocol) Run() {
 		panic(err)
 	}
 
-	p.networkProtocol = network.NewProtocol(p.dispatcher, p.Workers.CreatePool("NetworkProtocol")) // Use max amount of workers for networking
+	p.networkProtocol = network.NewProtocol(p.dispatcher, p.Workers.CreatePool("NetworkProtocol"), p.EpochTimeProvider) // Use max amount of workers for networking
 	p.Events.Network.LinkTo(p.networkProtocol.Events)
 }
 
@@ -113,6 +116,10 @@ func (p *Protocol) Shutdown() {
 	p.Workers.Shutdown()
 }
 
+func (p *Protocol) initEpochTimeProvider() {
+	p.EpochTimeProvider = epoch.NewTimeProvider(p.optsEpochTimeProviderOptions...)
+}
+
 func (p *Protocol) initEngineManager() {
 	p.engineManager = enginemanager.New(
 		p.Workers.CreateGroup("EngineManager"),
@@ -122,6 +129,7 @@ func (p *Protocol) initEngineManager() {
 		p.optsEngineOptions,
 		p.optsSybilProtectionProvider,
 		p.optsThroughputQuotaProvider,
+		p.EpochTimeProvider,
 	)
 
 	p.Events.Engine.Consensus.EpochGadget.EpochConfirmed.Hook(func(epochIndex epoch.Index) {
@@ -132,7 +140,7 @@ func (p *Protocol) initEngineManager() {
 }
 
 func (p *Protocol) initCongestionControl() {
-	p.CongestionControl = congestioncontrol.New(p.optsCongestionControlOptions...)
+	p.CongestionControl = congestioncontrol.New(p.EpochTimeProvider, p.optsCongestionControlOptions...)
 	p.Events.CongestionControl.LinkTo(p.CongestionControl.Events)
 }
 
@@ -208,7 +216,7 @@ func (p *Protocol) initChainManager() {
 }
 
 func (p *Protocol) initTipManager() {
-	p.TipManager = tipmanager.New(p.Workers.CreateGroup("TipManager"), p.CongestionControl.Block, p.optsTipManagerOptions...)
+	p.TipManager = tipmanager.New(p.Workers.CreateGroup("TipManager"), p.EpochTimeProvider, p.CongestionControl.Block, p.optsTipManagerOptions...)
 	p.Events.TipManager = p.TipManager.Events
 
 	wp := p.Workers.CreatePool("TipManagerAttach", 1) // Using just 1 worker to avoid contention
@@ -577,6 +585,12 @@ func WithPruningThreshold(pruningThreshold uint64) options.Option[Protocol] {
 func WithSnapshotPath(snapshot string) options.Option[Protocol] {
 	return func(n *Protocol) {
 		n.optsSnapshotPath = snapshot
+	}
+}
+
+func WithEpochTimeProviderOptions(opts ...options.Option[epoch.TimeProvider]) options.Option[Protocol] {
+	return func(p *Protocol) {
+		p.optsEpochTimeProviderOptions = append(p.optsEpochTimeProviderOptions, opts...)
 	}
 }
 

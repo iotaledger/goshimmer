@@ -279,7 +279,7 @@ func (b *Block) SetSignature(signature ed25519.Signature) {
 }
 
 // DetermineID calculates and sets the block's BlockID and size.
-func (b *Block) DetermineID(blockIdentifier ...types.Identifier) (err error) {
+func (b *Block) DetermineID(epochTimeProvider *epoch.TimeProvider, blockIdentifier ...types.Identifier) (err error) {
 	blkBytes, err := b.Bytes()
 	if err != nil {
 		return errors.Wrap(err, "failed to create block bytes")
@@ -287,10 +287,10 @@ func (b *Block) DetermineID(blockIdentifier ...types.Identifier) (err error) {
 	if len(blockIdentifier) > 0 {
 		b.SetID(BlockID{
 			Identifier: blockIdentifier[0],
-			EpochIndex: epoch.IndexFromTime(b.IssuingTime()),
+			EpochIndex: epochTimeProvider.IndexFromTime(b.IssuingTime()),
 		})
 	} else {
-		b.SetID(DetermineID(blkBytes, epoch.IndexFromTime(b.IssuingTime())))
+		b.SetID(DetermineID(blkBytes, epochTimeProvider.IndexFromTime(b.IssuingTime())))
 	}
 
 	return nil

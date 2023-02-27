@@ -3,7 +3,6 @@ package markermanager
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -29,23 +28,23 @@ func Test_PruneMarkerBlockMapping(t *testing.T) {
 	tf.Instance.EvictionState.Events.EpochEvicted.Hook(markerManager.Evict)
 
 	// create a helper function that creates the blocks
-	createNewBlock := func(idx int, prefix string) (block *blockdag.Block, alias string) {
+	createNewBlock := func(idx epoch.Index, prefix string) (block *blockdag.Block, alias string) {
 		alias = fmt.Sprintf("blk%s-%d", prefix, idx)
 		if idx == 1 {
 			return blockdag.NewBlock(tf.CreateBlock(
 				alias,
-				models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0)),
+				models.WithIssuingTime(tf.Instance.EpochTimeProvider.GenesisTime()),
 			)), alias
 		}
 		return blockdag.NewBlock(tf.CreateBlock(
 			alias,
 			models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk%s-%d", prefix, idx-1))),
-			models.WithIssuingTime(time.Unix(epoch.GenesisTime+int64(idx-1)*epoch.Duration, 0)),
+			models.WithIssuingTime(tf.Instance.EpochTimeProvider.StartTime(idx)),
 		)), alias
 	}
 
 	markerBlockMapping := make(map[markers.Marker]*blockdag.Block, epochCount)
-	for i := 1; i <= epochCount; i++ {
+	for i := epoch.Index(1); i <= epochCount; i++ {
 		blk, _ := createNewBlock(i, "")
 		markerBlockMapping[markers.NewMarker(1, markers.Index(i))] = blk
 		markerManager.addMarkerBlockMapping(markers.NewMarker(1, markers.Index(i)), blk)
@@ -87,29 +86,29 @@ func Test_BlockMarkerCeilingFloor(t *testing.T) {
 	tf := blockdag.NewDefaultTestFramework(t, workers.CreateGroup("BlockDAGTestFramework"))
 
 	// create a helper function that creates the blocks
-	createNewBlock := func(idx int, prefix string) (block *blockdag.Block) {
+	createNewBlock := func(idx epoch.Index, prefix string) (block *blockdag.Block) {
 		alias := fmt.Sprintf("blk%s-%d", prefix, idx)
 		if idx == 1 {
 			return blockdag.NewBlock(tf.CreateBlock(
 				alias,
-				models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0)),
+				models.WithIssuingTime(tf.Instance.EpochTimeProvider.GenesisTime()),
 			))
 		}
 		return blockdag.NewBlock(tf.CreateBlock(
 			alias,
 			models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk%s-%d", prefix, idx-1))),
-			models.WithIssuingTime(time.Unix(epoch.GenesisTime+int64(idx-1)*epoch.Duration, 0)),
+			models.WithIssuingTime(tf.Instance.EpochTimeProvider.StartTime(idx)),
 		))
 	}
 
 	markerBlockMapping := make(map[markers.Marker]*blockdag.Block, blockCount)
-	for i := 1; i <= blockCount; i++ {
+	for i := epoch.Index(1); i <= blockCount; i++ {
 		blk := createNewBlock(i, "")
 		markerBlockMapping[markers.NewMarker(1, markers.Index(i))] = blk
 		markerManager.addMarkerBlockMapping(markers.NewMarker(1, markers.Index(i)), blk)
 	}
 
-	for i := blockCount + markerGap; i <= 2*blockCount+markerGap; i++ {
+	for i := epoch.Index(blockCount + markerGap); i <= 2*blockCount+markerGap; i++ {
 		blk := createNewBlock(i-markerGap, "")
 		markerBlockMapping[markers.NewMarker(1, markers.Index(i))] = blk
 		markerManager.addMarkerBlockMapping(markers.NewMarker(1, markers.Index(i)), blk)

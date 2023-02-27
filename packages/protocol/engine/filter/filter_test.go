@@ -18,14 +18,16 @@ import (
 )
 
 type TestFramework struct {
-	Test   *testing.T
-	Filter *Filter
+	Test              *testing.T
+	EpochTimeProvider *epoch.TimeProvider
+	Filter            *Filter
 }
 
-func NewTestFramework(t *testing.T, optsFilter ...options.Option[Filter]) *TestFramework {
+func NewTestFramework(t *testing.T, epochTimeProvider *epoch.TimeProvider, optsFilter ...options.Option[Filter]) *TestFramework {
 	tf := &TestFramework{
-		Test:   t,
-		Filter: New(optsFilter...),
+		Test:              t,
+		EpochTimeProvider: epochTimeProvider,
+		Filter:            New(optsFilter...),
 	}
 
 	tf.Filter.Events.BlockAllowed.Hook(func(block *models.Block) {
@@ -40,7 +42,7 @@ func NewTestFramework(t *testing.T, optsFilter ...options.Option[Filter]) *TestF
 }
 
 func (t *TestFramework) processBlock(alias string, block *models.Block) {
-	require.NoError(t.Test, block.DetermineID())
+	require.NoError(t.Test, block.DetermineID(t.EpochTimeProvider))
 	block.ID().RegisterAlias(alias)
 	t.Filter.ProcessReceivedBlock(block, identity.NewID(ed25519.PublicKey{}))
 }
@@ -56,7 +58,7 @@ func (t *TestFramework) IssueUnsignedBlockAtTime(alias string, issuingTime time.
 func (t *TestFramework) IssueUnsignedBlockAtEpoch(alias string, index epoch.Index, committing epoch.Index) {
 	block := models.NewBlock(
 		models.WithStrongParents(models.NewBlockIDs(models.EmptyBlockID)),
-		models.WithIssuingTime(time.Unix(epoch.GenesisTime+int64(index-1)*epoch.Duration, 0)),
+		models.WithIssuingTime(t.EpochTimeProvider.StartTime(index)),
 		models.WithCommitment(commitment.New(committing, commitment.ID{}, types.Identifier{}, 0)),
 	)
 	t.processBlock(alias, block)
@@ -77,6 +79,7 @@ func TestFilter_WithMaxAllowedWallClockDrift(t *testing.T) {
 	allowedDrift := 3 * time.Second
 
 	tf := NewTestFramework(t,
+		epoch.NewTimeProvider(),
 		WithMaxAllowedWallClockDrift(allowedDrift),
 		WithSignatureValidation(false),
 	)
@@ -98,6 +101,7 @@ func TestFilter_WithMaxAllowedWallClockDrift(t *testing.T) {
 
 func TestFilter_WithSignatureValidation(t *testing.T) {
 	tf := NewTestFramework(t,
+		epoch.NewTimeProvider(),
 		WithSignatureValidation(true),
 	)
 
@@ -116,6 +120,7 @@ func TestFilter_WithSignatureValidation(t *testing.T) {
 
 func TestFilter_MinCommittableEpochAge(t *testing.T) {
 	tf := NewTestFramework(t,
+		epoch.NewTimeProvider(),
 		WithMinCommittableEpochAge(3),
 		WithSignatureValidation(false),
 	)

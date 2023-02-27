@@ -14,6 +14,7 @@ import (
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
 
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
@@ -166,7 +167,7 @@ func createSnapshot(snapshotInfo SnapshotInfo, startSynced bool) error {
 	storage := createTempStorage()
 	defer storage.Shutdown()
 
-	snapshotcreator.CreateSnapshotForIntegrationTest(storage, snapshotInfo.FilePath, snapshotInfo.GenesisTokenAmount, GenesisSeedBytes, nodesToPledgeMap, startSynced, new(devnetvm.VM))
+	snapshotcreator.CreateSnapshotForIntegrationTest(storage, snapshotInfo.FilePath, snapshotInfo.GenesisTokenAmount, GenesisSeedBytes, nodesToPledgeMap, startSynced, new(devnetvm.VM), epoch.NewTimeProvider(epoch.WithGenesisUnixTime(time.Now().Unix())))
 
 	return nil
 }

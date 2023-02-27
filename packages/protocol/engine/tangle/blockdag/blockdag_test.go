@@ -328,7 +328,7 @@ func TestBlockDAG_Attach_InvalidTimestamp(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
 	tf := NewDefaultTestFramework(t, workers.CreateGroup("BlockDAGTestFramework"))
 
-	now := time.Now()
+	now := tf.Instance.EpochTimeProvider.StartTime(10)
 	tf.CreateBlock("block1", models.WithIssuingTime(now.Add(-5*time.Second)))
 	tf.CreateBlock("block2", models.WithIssuingTime(now.Add(5*time.Second)))
 	tf.CreateBlock("block3", models.WithStrongParents(tf.BlockIDs("block1", "block2")), models.WithIssuingTime(now))
@@ -378,18 +378,18 @@ func TestBlockDAG_AttachInvalid(t *testing.T) {
 	tf := NewDefaultTestFramework(t, workers.CreateGroup("BlockDAGTestFramework"))
 
 	// create a helper function that creates the blocks
-	createNewBlock := func(idx int, prefix string) (block *models.Block, alias string) {
+	createNewBlock := func(idx epoch.Index, prefix string) (block *models.Block, alias string) {
 		alias = fmt.Sprintf("blk%s-%d", prefix, idx)
-		if idx == 0 {
+		if idx == 1 {
 			return tf.CreateBlock(
 				alias,
-				models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0)),
+				models.WithIssuingTime(tf.Instance.EpochTimeProvider.GenesisTime()),
 			), alias
 		}
 		return tf.CreateBlock(
 			alias,
 			models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk%s-%d", prefix, idx-1))),
-			models.WithIssuingTime(time.Unix(epoch.GenesisTime+int64(idx)*epoch.Duration, 0)),
+			models.WithIssuingTime(tf.Instance.EpochTimeProvider.StartTime(idx)),
 		), alias
 	}
 
@@ -407,7 +407,7 @@ func TestBlockDAG_AttachInvalid(t *testing.T) {
 	// Prepare blocks and their expected states.
 	for i := 0; i < epochCount; i++ {
 		var alias string
-		blocks[i], alias = createNewBlock(i, "")
+		blocks[i], alias = createNewBlock(epoch.Index(i+1), "")
 		if i > 50 {
 			expectedMissing[alias] = false
 			expectedInvalid[alias] = true
@@ -464,20 +464,20 @@ func TestBlockDAG_Prune(t *testing.T) {
 	tf := NewDefaultTestFramework(t, workers.CreateGroup("BlockDAGTestFramework"))
 
 	// create a helper function that creates the blocks
-	createNewBlock := func(idx int, prefix string) (block *models.Block, alias string) {
+	createNewBlock := func(idx epoch.Index, prefix string) (block *models.Block, alias string) {
 		alias = fmt.Sprintf("blk%s-%d", prefix, idx)
 
 		if idx == 1 {
 			return tf.CreateBlock(
 				alias,
-				models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0)),
+				models.WithIssuingTime(tf.Instance.EpochTimeProvider.GenesisTime()),
 			), alias
 		}
 
 		return tf.CreateBlock(
 			alias,
 			models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk%s-%d", prefix, idx-1))),
-			models.WithIssuingTime(time.Unix(epoch.GenesisTime+int64(idx-1)*epoch.Duration, 0)),
+			models.WithIssuingTime(tf.Instance.EpochTimeProvider.StartTime(idx)),
 		), alias
 	}
 
@@ -486,7 +486,7 @@ func TestBlockDAG_Prune(t *testing.T) {
 	expectedSolid := make(map[string]bool, epochCount)
 
 	// Attach solid blocks
-	for i := 1; i <= epochCount; i++ {
+	for i := epoch.Index(1); i <= epochCount; i++ {
 		block, alias := createNewBlock(i, "")
 
 		_, wasAttached, err := tf.Instance.Attach(block)
@@ -502,7 +502,7 @@ func TestBlockDAG_Prune(t *testing.T) {
 	}
 
 	// Attach a blocks that are not solid (skip the first one in the chain)
-	for i := 1; i <= epochCount; i++ {
+	for i := epoch.Index(1); i <= epochCount; i++ {
 		blk, alias := createNewBlock(i, "-orphan")
 
 		if i == 1 {

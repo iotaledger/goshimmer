@@ -4,6 +4,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -63,6 +64,7 @@ func NewTestFramework(test *testing.T, gadget *Gadget, tangleTF *tangle.TestFram
 
 func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, optsGadget ...options.Option[Gadget]) *TestFramework {
 	tangleTF := tangle.NewDefaultTestFramework(t, workers.CreateGroup("TangleTestFramework"),
+		epoch.NewTimeProvider(epoch.WithGenesisUnixTime(time.Now().Unix())),
 		tangle.WithBookerOptions(
 			booker.WithMarkerManagerOptions(
 				markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(3)),
@@ -74,6 +76,7 @@ func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, optsGadget
 		New(workers.CreateGroup("BlockGadget"),
 			tangleTF.Instance,
 			tangleTF.BlockDAG.Instance.EvictionState,
+			tangleTF.BlockDAG.Instance.EpochTimeProvider,
 			tangleTF.Votes.Validators.TotalWeight,
 			optsGadget...,
 		),

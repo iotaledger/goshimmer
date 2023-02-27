@@ -19,7 +19,8 @@ import (
 )
 
 type TestFramework struct {
-	MutationFactory *EpochMutations
+	MutationFactory   *EpochMutations
+	epochTimeProvider *epoch.TimeProvider
 
 	test               *testing.T
 	transactionsByID   map[string]*ledger.TransactionMetadata
@@ -31,9 +32,10 @@ type TestFramework struct {
 	sync.RWMutex
 }
 
-func NewTestFramework(test *testing.T) *TestFramework {
+func NewTestFramework(test *testing.T, epochTimeProvider *epoch.TimeProvider) *TestFramework {
 	tf := &TestFramework{
 		test:               test,
+		epochTimeProvider:  epochTimeProvider,
 		transactionsByID:   make(map[string]*ledger.TransactionMetadata),
 		issuersByID:        make(map[string]ed25519.PublicKey),
 		blocksByID:         make(map[string]*models.Block),
@@ -79,12 +81,12 @@ func (t *TestFramework) CreateBlock(alias string, index epoch.Index, blockOpts .
 	}
 
 	block = models.NewBlock(append([]options.Option[models.Block]{
-		models.WithIssuingTime(index.StartTime().Add(time.Duration(t.increaseEpochEntityCounter(index)) * time.Millisecond)),
+		models.WithIssuingTime(t.epochTimeProvider.StartTime(index).Add(time.Duration(t.increaseEpochEntityCounter(index)) * time.Millisecond)),
 		models.WithStrongParents(
 			models.NewBlockIDs(models.EmptyBlockID),
 		),
 	}, blockOpts...)...)
-	if err := block.DetermineID(); err != nil {
+	if err := block.DetermineID(t.epochTimeProvider); err != nil {
 		panic(err)
 	}
 

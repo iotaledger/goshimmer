@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
@@ -57,7 +59,7 @@ func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, optsBooker
 
 	return NewTestFramework(t, workers, New(
 		workers.CreateGroup("Booker"),
-		blockdag.NewTestBlockDAG(t, workers, eviction.NewState(storageInstance), blockdag.DefaultCommitmentFunc),
+		blockdag.NewTestBlockDAG(t, workers, eviction.NewState(storageInstance), epoch.NewTimeProvider(epoch.WithGenesisUnixTime(time.Now().Unix())), blockdag.DefaultCommitmentFunc),
 		ledger.NewTestLedger(t, workers.CreateGroup("Ledger")),
 		sybilprotection.NewWeightedSet(sybilprotection.NewWeights(mapdb.NewMapDB())),
 		optsBooker...,

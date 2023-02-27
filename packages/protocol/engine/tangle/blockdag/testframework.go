@@ -4,6 +4,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -51,9 +52,9 @@ func NewTestStorage(t *testing.T, workers *workerpool.Group, opts ...options.Opt
 	return s
 }
 
-func NewTestBlockDAG(t *testing.T, workers *workerpool.Group, evictionState *eviction.State, commitmentLoadFunc func(index epoch.Index) (commitment *commitment.Commitment, err error), optsBlockDAG ...options.Option[BlockDAG]) *BlockDAG {
+func NewTestBlockDAG(t *testing.T, workers *workerpool.Group, evictionState *eviction.State, epochTimeProvider *epoch.TimeProvider, commitmentLoadFunc func(index epoch.Index) (commitment *commitment.Commitment, err error), optsBlockDAG ...options.Option[BlockDAG]) *BlockDAG {
 	require.NotNil(t, evictionState)
-	return New(workers, evictionState, commitmentLoadFunc, optsBlockDAG...)
+	return New(workers, evictionState, epochTimeProvider, commitmentLoadFunc, optsBlockDAG...)
 }
 
 // NewTestFramework is the constructor of the TestFramework.
@@ -66,6 +67,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, blockDAG *Bloc
 		workerPool:     workers.CreatePool("IssueBlocks", 2),
 	}
 	t.ModelsTestFramework = models.NewTestFramework(
+		blockDAG.EpochTimeProvider,
 		models.WithBlock("Genesis", models.NewEmptyBlock(models.EmptyBlockID)),
 	)
 
@@ -76,7 +78,10 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, blockDAG *Bloc
 
 func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, optsBlockDAG ...options.Option[BlockDAG]) *TestFramework {
 	storageInstance := NewTestStorage(t, workers)
-	return NewTestFramework(t, workers.CreateGroup("BlockDAGTestFramework"), NewTestBlockDAG(t, workers.CreateGroup("BlockDAG"), eviction.NewState(storageInstance), DefaultCommitmentFunc, optsBlockDAG...))
+	return NewTestFramework(t,
+		workers.CreateGroup("BlockDAGTestFramework"),
+		NewTestBlockDAG(t, workers.CreateGroup("BlockDAG"), eviction.NewState(storageInstance), epoch.NewTimeProvider(epoch.WithGenesisUnixTime(time.Now().Unix())), DefaultCommitmentFunc, optsBlockDAG...),
+	)
 }
 
 // IssueBlocks stores the given Blocks in the Storage and triggers the processing by the BlockDAG.

@@ -43,7 +43,7 @@ type Node struct {
 	mutex sync.RWMutex
 }
 
-func NewNode(t *testing.T, keyPair ed25519.KeyPair, network *network.MockedNetwork, partition string, snapshotPath string, engineOpts ...options.Option[engine.Engine]) *Node {
+func NewNode(t *testing.T, keyPair ed25519.KeyPair, network *network.MockedNetwork, partition string, snapshotPath string, epochTimeProvider *epoch.TimeProvider, engineOpts ...options.Option[engine.Engine]) *Node {
 	id := identity.New(keyPair.PublicKey)
 
 	node := &Node{
@@ -58,6 +58,10 @@ func NewNode(t *testing.T, keyPair ed25519.KeyPair, network *network.MockedNetwo
 
 	node.Protocol = protocol.New(node.Workers.CreateGroup("Protocol"),
 		node.Endpoint,
+		protocol.WithEpochTimeProviderOptions(
+			epoch.WithEpochDuration(epochTimeProvider.Duration()),
+			epoch.WithGenesisUnixTime(epochTimeProvider.GenesisUnixTime()),
+		),
 		protocol.WithBaseDirectory(tempDir.Path()),
 		protocol.WithSnapshotPath(snapshotPath),
 		protocol.WithEngineOptions(engineOpts...),
@@ -251,7 +255,7 @@ func (n *Node) Wait() {
 func (n *Node) IssueBlockAtEpoch(alias string, epochIndex epoch.Index, parents ...models.BlockID) *models.Block {
 	tf := n.EngineTestFramework()
 
-	issuingTime := time.Unix(epoch.GenesisTime+int64(epochIndex-1)*epoch.Duration, 0)
+	issuingTime := time.Unix(tf.Instance.EpochTimeProvider.GenesisUnixTime()+int64(epochIndex-1)*tf.Instance.EpochTimeProvider.Duration(), 0)
 	require.True(n.Testing, issuingTime.Before(time.Now()), "issued block is in the current or future epoch")
 	tf.BlockDAG.CreateAndSignBlock(alias, &n.KeyPair,
 		models.WithStrongParents(models.NewBlockIDs(parents...)),

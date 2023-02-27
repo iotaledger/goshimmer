@@ -22,7 +22,11 @@ import (
 func TestEngineManager_ForkEngineAtEpoch(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
 
-	epoch.GenesisTime = time.Now().Unix() - epoch.Duration*10
+	epochDuration := int64(10)
+	epochTimeProvider := epoch.NewTimeProvider(
+		epoch.WithEpochDuration(epochDuration),
+		epoch.WithGenesisUnixTime(time.Now().Unix()-epochDuration*10),
+	)
 
 	identitiesMap := map[string]ed25519.PublicKey{
 		"A": identity.GenerateIdentity().PublicKey(),
@@ -38,14 +42,14 @@ func TestEngineManager_ForkEngineAtEpoch(t *testing.T) {
 		identity.New(identitiesMap["D"]).PublicKey(): 25,
 	}
 
-	etf := NewEngineManagerTestFramework(t, workers.CreateGroup("EngineManagerTestFramework"), identitiesWeights)
+	etf := NewEngineManagerTestFramework(t, workers.CreateGroup("EngineManagerTestFramework"), epochTimeProvider, identitiesWeights)
 
 	tf := engine.NewTestFramework(t, workers.CreateGroup("TestFramework"), etf.ActiveEngine.Engine)
 	tf.AssertEpochState(0)
 
 	acceptedBlocks := make(map[string]bool)
 
-	epoch1IssuingTime := time.Unix(epoch.GenesisTime, 0)
+	epoch1IssuingTime := epochTimeProvider.StartTime(1)
 
 	// Blocks in epoch 1
 	tf.BlockDAG.CreateBlock("1.A", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithIssuer(identitiesMap["A"]), models.WithIssuingTime(epoch1IssuingTime))
@@ -63,7 +67,7 @@ func TestEngineManager_ForkEngineAtEpoch(t *testing.T) {
 		"1.D": false,
 	}))
 
-	epoch2IssuingTime := time.Unix(epoch.GenesisTime+epoch.Duration, 0)
+	epoch2IssuingTime := epochTimeProvider.StartTime(2)
 
 	// Block in epoch 2, not accepting anything new.
 	tf.BlockDAG.CreateBlock("2.D", models.WithStrongParents(tf.BlockDAG.BlockIDs("1.D")), models.WithIssuer(identitiesMap["D"]), models.WithIssuingTime(epoch2IssuingTime))
@@ -79,7 +83,7 @@ func TestEngineManager_ForkEngineAtEpoch(t *testing.T) {
 		"11.A": false,
 	}))
 
-	require.Equal(t, epoch.IndexFromTime(tf.BlockDAG.Block("11.A").IssuingTime()), epoch.Index(11))
+	require.Equal(t, epochTimeProvider.IndexFromTime(tf.BlockDAG.Block("11.A").IssuingTime()), epoch.Index(11))
 
 	// Time hasn't advanced past epoch 1
 	require.Equal(t, tf.Instance.Storage.Settings.LatestCommitment().Index(), epoch.Index(0))

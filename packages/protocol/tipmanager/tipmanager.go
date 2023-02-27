@@ -52,7 +52,7 @@ type TipManager struct {
 }
 
 // New creates a new TipManager.
-func New(workers *workerpool.Group, schedulerBlockRetrieverFunc blockRetrieverFunc, opts ...options.Option[TipManager]) (t *TipManager) {
+func New(workers *workerpool.Group, epochTimeProvider *epoch.TimeProvider, schedulerBlockRetrieverFunc blockRetrieverFunc, opts ...options.Option[TipManager]) (t *TipManager) {
 	t = options.Apply(&TipManager{
 		Events: NewEvents(),
 
@@ -67,7 +67,7 @@ func New(workers *workerpool.Group, schedulerBlockRetrieverFunc blockRetrieverFu
 		optsWidth:                          0,
 	}, opts)
 
-	t.commitmentRecentBoundary = epoch.Index(int64(t.optsTimeSinceConfirmationThreshold.Seconds()) / epoch.Duration)
+	t.commitmentRecentBoundary = epoch.Index(int64(t.optsTimeSinceConfirmationThreshold.Seconds()) / epochTimeProvider.Duration())
 
 	return
 }

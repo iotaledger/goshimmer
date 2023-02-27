@@ -16,8 +16,9 @@ import (
 func Test(t *testing.T) {
 	storageDirectory := t.TempDir()
 
+	epochTimeProvider := epoch.NewTimeProvider()
 	emptyBlock := models.NewBlock(models.WithStrongParents(models.NewBlockIDs(models.EmptyBlockID)))
-	require.NoError(t, emptyBlock.DetermineID())
+	require.NoError(t, emptyBlock.DetermineID(epochTimeProvider))
 
 	storage := New(storageDirectory, 1)
 	storage.Settings.SetLatestStateMutationEpoch(10)

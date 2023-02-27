@@ -1,6 +1,7 @@
 package virtualvoting
 
 import (
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
@@ -96,8 +97,8 @@ func NewBlock(block *blockdag.Block, opts ...options.Option[Block]) (newBlock *B
 	}, opts)
 }
 
-func NewRootBlock(id models.BlockID, opts ...options.Option[models.Block]) *Block {
-	blockDAGBlock := blockdag.NewRootBlock(id, opts...)
+func NewRootBlock(id models.BlockID, epochTimeProvider *epoch.TimeProvider, opts ...options.Option[models.Block]) *Block {
+	blockDAGBlock := blockdag.NewRootBlock(id, epochTimeProvider, opts...)
 
 	genesisStructureDetails := markers.NewStructureDetails()
 	genesisStructureDetails.SetIsPastMarker(true)

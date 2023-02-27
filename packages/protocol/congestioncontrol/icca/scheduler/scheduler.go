@@ -37,6 +37,8 @@ var ErrNotRunning = errors.New("scheduler stopped")
 type Scheduler struct {
 	Events *Events
 
+	epochTimeProvider *epoch.TimeProvider
+
 	blocks        *memstorage.EpochStorage[models.BlockID, *Block]
 	bufferMutex   sync.RWMutex
 	buffer        *BufferQueue
@@ -59,11 +61,12 @@ type Scheduler struct {
 }
 
 // New returns a new Scheduler.
-func New(evictionState *eviction.State, isBlockAccepted func(models.BlockID) bool, accessManaMapRetrieverFunc func() map[identity.ID]int64, totalAccessManaRetrieveFunc func() int64, opts ...options.Option[Scheduler]) *Scheduler {
+func New(evictionState *eviction.State, epochTimeProvider *epoch.TimeProvider, isBlockAccepted func(models.BlockID) bool, accessManaMapRetrieverFunc func() map[identity.ID]int64, totalAccessManaRetrieveFunc func() int64, opts ...options.Option[Scheduler]) *Scheduler {
 	return options.Apply(&Scheduler{
 		Events: NewEvents(),
 
 		evictionState:               evictionState,
+		epochTimeProvider:           epochTimeProvider,
 		isBlockAcceptedFunc:         isBlockAccepted,
 		accessManaMapRetrieverFunc:  accessManaMapRetrieverFunc,
 		totalAccessManaRetrieveFunc: totalAccessManaRetrieveFunc,
@@ -397,7 +400,7 @@ func (s *Scheduler) ready(block *Block) {
 // block retrieves the Block with given id from the mem-storage.
 func (s *Scheduler) block(id models.BlockID) (block *Block, exists bool) {
 	if s.evictionState.IsRootBlock(id) {
-		return NewRootBlock(id), true
+		return NewRootBlock(id, s.epochTimeProvider), true
 	}
 
 	storage := s.blocks.Get(id.Index(), false)

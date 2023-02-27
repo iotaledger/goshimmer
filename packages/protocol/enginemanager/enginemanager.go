@@ -38,6 +38,7 @@ type EngineManager struct {
 	engineOptions           []options.Option[engine.Engine]
 	sybilProtectionProvider engine.ModuleProvider[sybilprotection.SybilProtection]
 	throughputQuotaProvider engine.ModuleProvider[throughputquota.ThroughputQuota]
+	epochTimeProvider       *epoch.TimeProvider
 
 	activeInstance *EngineInstance
 }
@@ -49,7 +50,8 @@ func New(
 	storageOptions []options.Option[database.Manager],
 	engineOptions []options.Option[engine.Engine],
 	sybilProtectionProvider engine.ModuleProvider[sybilprotection.SybilProtection],
-	throughputQuotaProvider engine.ModuleProvider[throughputquota.ThroughputQuota]) *EngineManager {
+	throughputQuotaProvider engine.ModuleProvider[throughputquota.ThroughputQuota],
+	epochTimeProvider *epoch.TimeProvider) *EngineManager {
 	return &EngineManager{
 		workers:                 workers,
 		directory:               utils.NewDirectory(dir),
@@ -58,6 +60,7 @@ func New(
 		engineOptions:           engineOptions,
 		sybilProtectionProvider: sybilProtectionProvider,
 		throughputQuotaProvider: throughputQuotaProvider,
+		epochTimeProvider:       epochTimeProvider,
 	}
 }
 
@@ -126,7 +129,7 @@ func (m *EngineManager) SetActiveInstance(instance *EngineInstance) error {
 
 func (m *EngineManager) loadEngineInstance(dirName string) *EngineInstance {
 	candidateStorage := storage.New(m.directory.Path(dirName), m.dbVersion, m.storageOptions...)
-	candidateEngine := engine.New(m.workers.CreateGroup(dirName), candidateStorage, m.sybilProtectionProvider, m.throughputQuotaProvider, m.engineOptions...)
+	candidateEngine := engine.New(m.workers.CreateGroup(dirName), candidateStorage, m.sybilProtectionProvider, m.throughputQuotaProvider, m.epochTimeProvider, m.engineOptions...)
 
 	return &EngineInstance{
 		Engine:  candidateEngine,

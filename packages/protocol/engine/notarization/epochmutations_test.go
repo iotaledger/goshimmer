@@ -13,7 +13,7 @@ import (
 )
 
 func TestMutationFactory(t *testing.T) {
-	tf := NewTestFramework(t)
+	tf := NewTestFramework(t, epoch.NewTimeProvider())
 
 	// create transactions
 	tf.CreateTransaction("tx1.1", 1)
@@ -69,13 +69,14 @@ func TestMutationFactory(t *testing.T) {
 }
 
 func TestMutationFactory_AddAcceptedBlock(t *testing.T) {
+	epochTimeProvider := epoch.NewTimeProvider()
 	mutationFactory := NewEpochMutations(sybilprotection.NewWeights(mapdb.NewMapDB()), 2)
 
 	block := models.NewBlock(
-		models.WithIssuingTime(epoch.Index(3).EndTime()),
+		models.WithIssuingTime(epochTimeProvider.EndTime(3)),
 		models.WithStrongParents(models.NewBlockIDs(models.EmptyBlockID)),
 	)
-	require.NoError(t, block.DetermineID())
+	require.NoError(t, block.DetermineID(epochTimeProvider))
 
 	require.NoError(t, mutationFactory.AddAcceptedBlock(block))
 	require.True(t, mutationFactory.acceptedBlocks(3).Has(block.ID()))

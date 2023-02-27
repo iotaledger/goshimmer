@@ -48,20 +48,23 @@ type BlockDAG struct {
 	// evictionMutex is a mutex that is used to synchronize the eviction of elements from the BlockDAG.
 	evictionMutex sync.RWMutex
 
+	EpochTimeProvider *epoch.TimeProvider
+
 	Workers    *workerpool.Group
 	workerPool *workerpool.WorkerPool
 }
 
 // New is the constructor for the BlockDAG and creates a new BlockDAG instance.
-func New(workers *workerpool.Group, evictionState *eviction.State, latestCommitmentFunc func(epoch.Index) (*commitment.Commitment, error), opts ...options.Option[BlockDAG]) (newBlockDAG *BlockDAG) {
+func New(workers *workerpool.Group, evictionState *eviction.State, epochTimeProvider *epoch.TimeProvider, latestCommitmentFunc func(epoch.Index) (*commitment.Commitment, error), opts ...options.Option[BlockDAG]) (newBlockDAG *BlockDAG) {
 	return options.Apply(&BlockDAG{
-		Events:         NewEvents(),
-		EvictionState:  evictionState,
-		memStorage:     memstorage.NewEpochStorage[models.BlockID, *Block](),
-		commitmentFunc: latestCommitmentFunc,
-		futureBlocks:   memstorage.NewEpochStorage[commitment.ID, *advancedset.AdvancedSet[*Block]](),
-		Workers:        workers,
-		workerPool:     workers.CreatePool("Solidifier", 2),
+		Events:            NewEvents(),
+		EvictionState:     evictionState,
+		EpochTimeProvider: epochTimeProvider,
+		memStorage:        memstorage.NewEpochStorage[models.BlockID, *Block](),
+		commitmentFunc:    latestCommitmentFunc,
+		futureBlocks:      memstorage.NewEpochStorage[commitment.ID, *advancedset.AdvancedSet[*Block]](),
+		Workers:           workers,
+		workerPool:        workers.CreatePool("Solidifier", 2),
 	}, opts, func(b *BlockDAG) {
 		b.solidifier = causalorder.New(
 			b.workerPool,
@@ -315,7 +318,7 @@ func (b *BlockDAG) registerChild(child *Block, parent models.Parent) {
 // block retrieves the Block with given id from the mem-storage.
 func (b *BlockDAG) block(id models.BlockID) (block *Block, exists bool) {
 	if b.EvictionState.IsRootBlock(id) {
-		return NewRootBlock(id), true
+		return NewRootBlock(id, b.EpochTimeProvider), true
 	}
 
 	storage := b.memStorage.Get(id.EpochIndex, false)

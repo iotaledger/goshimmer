@@ -20,6 +20,8 @@ import (
 func TestFactory_IssuePayload(t *testing.T) {
 	localIdentity := identity.GenerateLocalIdentity()
 
+	epochTimeProvider := epoch.NewTimeProvider()
+
 	ecRecord := commitment.New(1, commitment.NewID(1, []byte{90, 111}), types.NewIdentifier([]byte{123, 255}), 1)
 	confirmedEpochIndex := epoch.Index(25)
 	commitmentFunc := func() (*commitment.Commitment, epoch.Index, error) {
@@ -53,7 +55,7 @@ func TestFactory_IssuePayload(t *testing.T) {
 
 	pay := payload.NewGenericDataPayload([]byte("test"))
 
-	factory := NewBlockFactory(localIdentity, blockRetriever, tipSelectorFunc, referencesFunc, commitmentFunc)
+	factory := NewBlockFactory(localIdentity, epochTimeProvider, blockRetriever, tipSelectorFunc, referencesFunc, commitmentFunc)
 	createdBlock, err := factory.CreateBlock(pay, 2)
 	require.NoError(t, err)
 
@@ -80,7 +82,7 @@ func TestFactory_IssuePayload(t *testing.T) {
 	}
 	require.Equal(t, b, lo.PanicOnErr(deserializedBlock.Bytes()))
 
-	require.NoError(t, deserializedBlock.DetermineID())
+	require.NoError(t, deserializedBlock.DetermineID(epochTimeProvider))
 	require.Equal(t, createdBlock.ID(), deserializedBlock.ID())
 
 	signatureValid, err = deserializedBlock.VerifySignature()

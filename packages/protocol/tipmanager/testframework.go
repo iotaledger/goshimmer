@@ -54,7 +54,7 @@ type TestFramework struct {
 	optsEngineOptions     []options.Option[engine.Engine]
 }
 
-func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...options.Option[TestFramework]) (t *TestFramework) {
+func NewTestFramework(test *testing.T, workers *workerpool.Group, epochTimeProvider *epoch.TimeProvider, opts ...options.Option[TestFramework]) (t *TestFramework) {
 	return options.Apply(&TestFramework{
 		test:            test,
 		mockAcceptance:  blockgadget.NewMockAcceptanceGadget(),
@@ -62,7 +62,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...option
 	}, opts, func(t *TestFramework) {
 		storageInstance := blockdag.NewTestStorage(test, workers)
 		// set MinCommittableEpochAge to genesis so nothing is committed.
-		t.Engine = engine.New(workers.CreateGroup("Engine"), storageInstance, dpos.NewProvider(), mana1.NewProvider(), t.optsEngineOptions...)
+		t.Engine = engine.New(workers.CreateGroup("Engine"), storageInstance, dpos.NewProvider(), mana1.NewProvider(), epochTimeProvider, t.optsEngineOptions...)
 
 		test.Cleanup(func() {
 			t.Engine.Shutdown()
@@ -76,14 +76,14 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...option
 			booker.NewTestFramework(test, workers.CreateGroup("BookerTestFramework"), t.Engine.Tangle.Booker),
 		)
 
-		t.Instance = New(workers.CreateGroup("TipManager"), t.mockSchedulerBlock, t.optsTipManagerOptions...)
+		t.Instance = New(workers.CreateGroup("TipManager"), epochTimeProvider, t.mockSchedulerBlock, t.optsTipManagerOptions...)
 		t.Instance.LinkTo(t.Engine)
 
 		t.Instance.blockAcceptanceGadget = t.mockAcceptance
 
-		t.SetAcceptedTime(time.Unix(epoch.GenesisTime, 0))
+		t.SetAcceptedTime(epochTimeProvider.GenesisTime())
 
-		t.Tangle.BlockDAG.ModelsTestFramework.SetBlock("Genesis", models.NewEmptyBlock(models.EmptyBlockID, models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0))))
+		t.Tangle.BlockDAG.ModelsTestFramework.SetBlock("Genesis", models.NewEmptyBlock(models.EmptyBlockID, models.WithIssuingTime(epochTimeProvider.GenesisTime())))
 	}, (*TestFramework).createGenesis, (*TestFramework).setupEvents)
 }
 
@@ -134,7 +134,7 @@ func (t *TestFramework) createGenesis() {
 	block := scheduler.NewBlock(
 		virtualvoting.NewBlock(
 			blockdag.NewBlock(
-				models.NewEmptyBlock(models.EmptyBlockID, models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0))),
+				models.NewEmptyBlock(models.EmptyBlockID, models.WithIssuingTime(t.Tangle.Instance.BlockDAG.EpochTimeProvider.GenesisTime())),
 				blockdag.WithSolid(true),
 			),
 			virtualvoting.WithBooked(true),
@@ -214,7 +214,7 @@ func (t *TestFramework) FormCommitment(index epoch.Index, acceptedBlocksAliases 
 	for _, acceptedBlockAlias := range acceptedBlocksAliases {
 		acceptedBlock := t.Tangle.Booker.Block(acceptedBlockAlias)
 		adsBlocks.Add(acceptedBlock.ID())
-		adsAttestations.Set(acceptedBlock.IssuerID(), notarization.NewAttestation(acceptedBlock.ModelsBlock))
+		adsAttestations.Set(acceptedBlock.IssuerID(), notarization.NewAttestation(acceptedBlock.ModelsBlock, t.Engine.EpochTimeProvider))
 	}
 	return commitment.New(
 		index,

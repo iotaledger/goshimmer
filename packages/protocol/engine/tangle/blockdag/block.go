@@ -42,10 +42,10 @@ func NewBlock(data *models.Block, opts ...options.Option[Block]) (newBlock *Bloc
 	}, opts)
 }
 
-func NewRootBlock(id models.BlockID, opts ...options.Option[models.Block]) (rootBlock *Block) {
-	issuingTime := time.Unix(epoch.GenesisTime, 0)
+func NewRootBlock(id models.BlockID, epochTimeProvider *epoch.TimeProvider, opts ...options.Option[models.Block]) (rootBlock *Block) {
+	issuingTime := time.Unix(epochTimeProvider.GenesisUnixTime(), 0)
 	if id.Index() > 0 {
-		issuingTime = id.Index().EndTime()
+		issuingTime = epochTimeProvider.EndTime(id.Index())
 	}
 	return NewBlock(
 		models.NewEmptyBlock(id, append([]options.Option[models.Block]{models.WithIssuingTime(issuingTime)}, opts...)...),

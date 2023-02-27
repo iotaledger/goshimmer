@@ -3,6 +3,7 @@ package congestioncontrol
 import (
 	"sync"
 
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -13,15 +14,18 @@ import (
 type CongestionControl struct {
 	Events *Events
 
+	epochTimeProvider *epoch.TimeProvider
+
 	scheduler      *scheduler.Scheduler
 	schedulerMutex sync.RWMutex
 
 	optsSchedulerOptions []options.Option[scheduler.Scheduler]
 }
 
-func New(opts ...options.Option[CongestionControl]) *CongestionControl {
+func New(epochTimeProvider *epoch.TimeProvider, opts ...options.Option[CongestionControl]) *CongestionControl {
 	return options.Apply(&CongestionControl{
-		Events: NewEvents(),
+		Events:            NewEvents(),
+		epochTimeProvider: epochTimeProvider,
 	}, opts)
 }
 
@@ -42,6 +46,7 @@ func (c *CongestionControl) LinkTo(engine *engine.Engine) {
 
 	c.scheduler = scheduler.New(
 		engine.EvictionState,
+		c.epochTimeProvider,
 		engine.Consensus.BlockGadget.IsBlockAccepted,
 		engine.ThroughputQuota.BalanceByIDs,
 		engine.ThroughputQuota.TotalBalance,

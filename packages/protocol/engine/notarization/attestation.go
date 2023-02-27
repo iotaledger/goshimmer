@@ -22,16 +22,21 @@ type Attestation struct {
 	CommitmentID     commitment.ID     `serix:"2"`
 	BlockContentHash types.Identifier  `serix:"3"`
 	Signature        ed25519.Signature `serix:"4"`
+
+	id models.BlockID
 }
 
-func NewAttestation(block *models.Block) *Attestation {
-	return &Attestation{
-		block.IssuerPublicKey(),
-		block.IssuingTime(),
-		block.Commitment().ID(),
-		lo.PanicOnErr(block.ContentHash()),
-		block.Signature(),
+func NewAttestation(block *models.Block, epochTimeProvider *epoch.TimeProvider) *Attestation {
+	a := &Attestation{
+		IssuerPublicKey:  block.IssuerPublicKey(),
+		IssuingTime:      block.IssuingTime(),
+		CommitmentID:     block.Commitment().ID(),
+		BlockContentHash: lo.PanicOnErr(block.ContentHash()),
+		Signature:        block.Signature(),
 	}
+	a.id = models.NewBlockID(a.BlockContentHash, a.Signature, epochTimeProvider.IndexFromTime(a.IssuingTime))
+
+	return a
 }
 
 func (a *Attestation) Compare(other *Attestation) int {
@@ -52,7 +57,7 @@ func (a *Attestation) Compare(other *Attestation) int {
 }
 
 func (a *Attestation) ID() models.BlockID {
-	return models.NewBlockID(a.BlockContentHash, a.Signature, epoch.IndexFromTime(a.IssuingTime))
+	return a.id
 }
 
 func (a Attestation) Bytes() (bytes []byte, err error) {

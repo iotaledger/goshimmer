@@ -50,6 +50,7 @@ type Engine struct {
 	Consensus           *consensus.Consensus
 	TSCManager          *tsc.Manager
 	Clock               *clock.Clock
+	EpochTimeProvider   *epoch.TimeProvider
 
 	Workers *workerpool.Group
 
@@ -77,6 +78,7 @@ func New(
 	storageInstance *storage.Storage,
 	sybilProtection ModuleProvider[sybilprotection.SybilProtection],
 	throughputQuota ModuleProvider[throughputquota.ThroughputQuota],
+	epochTimeProvider *epoch.TimeProvider,
 	opts ...options.Option[Engine],
 ) (engine *Engine) {
 	return options.Apply(
@@ -96,7 +98,8 @@ func New(
 			e.Clock = clock.New()
 			e.SybilProtection = sybilProtection(e)
 			e.ThroughputQuota = throughputQuota(e)
-			e.NotarizationManager = notarization.NewManager(e.Storage, e.LedgerState, e.SybilProtection.Weights(), e.optsNotarizationManagerOptions...)
+			e.EpochTimeProvider = epochTimeProvider
+			e.NotarizationManager = notarization.NewManager(e.Storage, e.LedgerState, e.SybilProtection.Weights(), epochTimeProvider, e.optsNotarizationManagerOptions...)
 
 			e.Initializable = traits.NewInitializable(
 				e.Storage.Settings.TriggerInitialized,
@@ -238,8 +241,8 @@ func (e *Engine) Import(reader io.ReadSeeker) (err error) {
 	}
 
 	// We need to set the genesis time before we add the activity log as otherwise the calculation is based on the empty time value.
-	e.Clock.SetAcceptedTime(e.Storage.Settings.LatestCommitment().Index().EndTime())
-	e.Clock.SetConfirmedTime(e.Storage.Settings.LatestCommitment().Index().EndTime())
+	e.Clock.SetAcceptedTime(e.EpochTimeProvider.EndTime(e.Storage.Settings.LatestCommitment().Index()))
+	e.Clock.SetConfirmedTime(e.EpochTimeProvider.EndTime(e.Storage.Settings.LatestCommitment().Index()))
 
 	return
 }
@@ -275,7 +278,7 @@ func (e *Engine) initLedger() {
 }
 
 func (e *Engine) initTangle() {
-	e.Tangle = tangle.New(e.Workers.CreateGroup("Tangle"), e.Ledger, e.EvictionState, e.SybilProtection.Validators(), e.LastConfirmedEpoch, e.FirstUnacceptedMarker, e.Storage.Commitments.Load, e.optsTangleOptions...)
+	e.Tangle = tangle.New(e.Workers.CreateGroup("Tangle"), e.Ledger, e.EvictionState, e.EpochTimeProvider, e.SybilProtection.Validators(), e.LastConfirmedEpoch, e.FirstUnacceptedMarker, e.Storage.Commitments.Load, e.optsTangleOptions...)
 
 	e.Events.Filter.BlockAllowed.Hook(func(block *models.Block) {
 		if _, _, err := e.Tangle.BlockDAG.Attach(block); err != nil {
@@ -325,7 +328,7 @@ func (e *Engine) initClock() {
 		e.Clock.SetConfirmedTime(block.IssuingTime())
 	}, event.WithWorkerPool(wpConfirmed))
 	e.Events.Consensus.EpochGadget.EpochConfirmed.Hook(func(epochIndex epoch.Index) {
-		e.Clock.SetConfirmedTime(epochIndex.EndTime())
+		e.Clock.SetConfirmedTime(e.EpochTimeProvider.EndTime(epochIndex))
 	}, event.WithWorkerPool(wpConfirmed))
 }
 

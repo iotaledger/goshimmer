@@ -36,8 +36,8 @@ type TestFramework struct {
 	Acceptance    *blockgadget.TestFramework
 }
 
-func NewTestEngine(t *testing.T, workers *workerpool.Group, storage *storage.Storage, sybilProtection ModuleProvider[sybilprotection.SybilProtection], throughputQuota ModuleProvider[throughputquota.ThroughputQuota], opts ...options.Option[Engine]) *Engine {
-	e := New(workers.CreateGroup("Engine"), storage, sybilProtection, throughputQuota, opts...)
+func NewTestEngine(t *testing.T, workers *workerpool.Group, storage *storage.Storage, sybilProtection ModuleProvider[sybilprotection.SybilProtection], throughputQuota ModuleProvider[throughputquota.ThroughputQuota], epochTimeProvider *epoch.TimeProvider, opts ...options.Option[Engine]) *Engine {
+	e := New(workers.CreateGroup("Engine"), storage, sybilProtection, throughputQuota, epochTimeProvider, opts...)
 	t.Cleanup(e.Shutdown)
 	return e
 }
@@ -59,8 +59,8 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, engine *Engine
 	return t
 }
 
-func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, sybilProtection ModuleProvider[sybilprotection.SybilProtection], throughputQuota ModuleProvider[throughputquota.ThroughputQuota], optsEngine ...options.Option[Engine]) *TestFramework {
-	engine := NewTestEngine(t, workers.CreateGroup("Engine"), blockdag.NewTestStorage(t, workers, database.WithDBProvider(database.NewDB)), sybilProtection, throughputQuota, optsEngine...)
+func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, sybilProtection ModuleProvider[sybilprotection.SybilProtection], throughputQuota ModuleProvider[throughputquota.ThroughputQuota], epochTimeProvider *epoch.TimeProvider, optsEngine ...options.Option[Engine]) *TestFramework {
+	engine := NewTestEngine(t, workers.CreateGroup("Engine"), blockdag.NewTestStorage(t, workers, database.WithDBProvider(database.NewDB)), sybilProtection, throughputQuota, epochTimeProvider, optsEngine...)
 	t.Cleanup(engine.Shutdown)
 
 	return NewTestFramework(t, workers, engine)

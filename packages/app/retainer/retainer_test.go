@@ -141,7 +141,7 @@ func TestRetainer_BlockMetadata_Evicted(t *testing.T) {
 		retainer.Shutdown()
 	})
 
-	b := tf.Engine.BlockDAG.CreateBlock("A", models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0).Add(70*time.Second)))
+	b := tf.Engine.BlockDAG.CreateBlock("A", models.WithIssuingTime(tf.Instance.EpochTimeProvider.GenesisTime().Add(70*time.Second)))
 	tf.Engine.BlockDAG.IssueBlocks("A")
 
 	workers.WaitChildren()
@@ -150,7 +150,7 @@ func TestRetainer_BlockMetadata_Evicted(t *testing.T) {
 	require.True(t, exists)
 
 	// Trigger eviction through commitment creation
-	tf.Engine.Instance.NotarizationManager.SetAcceptanceTime((epoch.IndexFromTime(time.Unix(epoch.GenesisTime, 0).Add(70*time.Second)) + 8).EndTime())
+	tf.Engine.Instance.NotarizationManager.SetAcceptanceTime(tf.Instance.EpochTimeProvider.EndTime(tf.Instance.EpochTimeProvider.IndexFromTime(tf.Instance.EpochTimeProvider.GenesisTime().Add(70*time.Second)) + 8))
 	workers.WaitChildren()
 
 	meta, exists := retainer.BlockMetadata(block.ID())

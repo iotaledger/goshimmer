@@ -54,6 +54,7 @@ func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opt
 
 		i.Factory = blockfactory.NewBlockFactory(
 			localIdentity,
+			protocol.EpochTimeProvider,
 			func(blockID models.BlockID) (block *blockdag.Block, exists bool) {
 				return i.protocol.Engine().Tangle.BlockDAG.Block(blockID)
 			},

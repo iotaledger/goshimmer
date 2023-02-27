@@ -27,7 +27,7 @@ func TestScheduler_StartStop(t *testing.T) {
 		t.Skip("skipping test in short mode.")
 	}
 	workers := workerpool.NewGroup(t.Name())
-	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"))
+	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"), epochTimeProvider)
 	tf.Scheduler.Start()
 	// Multiple calls to start should not create problems
 	tf.Scheduler.Start()
@@ -42,11 +42,11 @@ func TestScheduler_StartStop(t *testing.T) {
 
 func TestScheduler_AddBlock(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"))
+	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"), epochTimeProvider)
 	tf.Scheduler.Start()
 
 	blk := virtualvoting.NewBlock(blockdag.NewBlock(models.NewBlock(models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Genesis"))), blockdag.WithSolid(true), blockdag.WithOrphaned(true)), virtualvoting.WithBooked(true), virtualvoting.WithStructureDetails(markers.NewStructureDetails()))
-	require.NoError(t, blk.DetermineID())
+	require.NoError(t, blk.DetermineID(epochTimeProvider))
 
 	tf.Scheduler.AddBlock(blk)
 
@@ -60,7 +60,7 @@ func TestScheduler_AddBlock(t *testing.T) {
 
 func TestScheduler_Submit(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"))
+	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"), epochTimeProvider)
 	tf.Scheduler.Start()
 
 	blk := tf.CreateSchedulerBlock(models.WithIssuer(selfNode.PublicKey()))
@@ -72,7 +72,7 @@ func TestScheduler_Submit(t *testing.T) {
 
 func TestScheduler_updateActiveNodeList(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"))
+	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"), epochTimeProvider)
 
 	tf.Scheduler.updateActiveIssuersList(map[identity.ID]int64{})
 	require.Equal(t, 0, tf.Scheduler.buffer.NumActiveIssuers())
@@ -125,7 +125,7 @@ func TestScheduler_updateActiveNodeList(t *testing.T) {
 
 func TestScheduler_Dropped(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"), WithMaxBufferSize(numBlocks/2))
+	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"), epochTimeProvider, WithMaxBufferSize(numBlocks/2))
 
 	tf.CreateIssuer("nomana", 0)
 	tf.CreateIssuer("other", 10) // Add a second issuer so that totalMana is not zero!
@@ -168,7 +168,7 @@ func TestScheduler_Dropped(t *testing.T) {
 
 func TestScheduler_Schedule(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"))
+	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"), epochTimeProvider)
 
 	tf.CreateIssuer("peer", 10)
 
@@ -197,7 +197,7 @@ func TestScheduler_Schedule(t *testing.T) {
 
 func TestScheduler_HandleOrphanedBlock_Ready(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"))
+	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"), epochTimeProvider)
 
 	tf.CreateIssuer("peer", 10)
 
@@ -229,7 +229,7 @@ func TestScheduler_HandleOrphanedBlock_Ready(t *testing.T) {
 
 func TestScheduler_HandleOrphanedBlock_Scheduled(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"))
+	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"), epochTimeProvider)
 
 	tf.CreateIssuer("peer", 10)
 
@@ -262,7 +262,7 @@ func TestScheduler_HandleOrphanedBlock_Scheduled(t *testing.T) {
 
 func TestScheduler_HandleOrphanedBlock_Unready(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"))
+	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"), epochTimeProvider)
 
 	tf.CreateIssuer("peer", 10)
 
@@ -292,7 +292,7 @@ func TestScheduler_HandleOrphanedBlock_Unready(t *testing.T) {
 
 func TestScheduler_SkipConfirmed(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"), WithAcceptedBlockScheduleThreshold(time.Minute))
+	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"), epochTimeProvider, WithAcceptedBlockScheduleThreshold(time.Minute))
 
 	tf.CreateIssuer("peer", 10)
 
@@ -395,7 +395,7 @@ func TestScheduler_SkipConfirmed(t *testing.T) {
 
 func TestScheduler_Time(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"))
+	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"), epochTimeProvider)
 
 	tf.CreateIssuer("peer", 10)
 
@@ -440,7 +440,7 @@ func TestScheduler_Issue(t *testing.T) {
 	defer debug.SetEnabled(false)
 
 	workers := workerpool.NewGroup(t.Name())
-	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"))
+	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"), epochTimeProvider)
 
 	tf.CreateIssuer("peer", 10)
 
@@ -491,7 +491,7 @@ func TestScheduler_Issue(t *testing.T) {
 
 func TestSchedulerFlow(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"))
+	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"), epochTimeProvider)
 
 	tf.CreateIssuer("peer", 10)
 	tf.CreateIssuer("self", 10)
@@ -542,7 +542,7 @@ func TestSchedulerParallelSubmit(t *testing.T) {
 	const totalBlkCount = 200
 
 	workers := workerpool.NewGroup(t.Name())
-	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"))
+	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"), epochTimeProvider)
 
 	tf.Scheduler.Events.Error.Hook(func(err error) {
 		require.Failf(t, "unexpected error", "error event triggered: %v", err)

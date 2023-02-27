@@ -13,14 +13,16 @@ import (
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
 
 type TestFramework struct {
-	blocksByAlias  map[string]*Block
-	sequenceNumber uint64
+	epochTimeProvider *epoch.TimeProvider
+	blocksByAlias     map[string]*Block
+	sequenceNumber    uint64
 }
 
 // NewTestFramework is the constructor of the TestFramework.
-func NewTestFramework(opts ...options.Option[TestFramework]) *TestFramework {
+func NewTestFramework(epochTimeProvider *epoch.TimeProvider, opts ...options.Option[TestFramework]) *TestFramework {
 	return options.Apply(&TestFramework{
-		blocksByAlias: make(map[string]*Block),
+		epochTimeProvider: epochTimeProvider,
+		blocksByAlias:     make(map[string]*Block),
 	}, opts)
 }
 
@@ -36,7 +38,7 @@ func (t *TestFramework) CreateBlock(alias string, opts ...options.Option[Block])
 		block.M.Parents.Add(StrongParentType, EmptyBlockID)
 	}
 
-	if err := block.DetermineID(); err != nil {
+	if err := block.DetermineID(t.epochTimeProvider); err != nil {
 		panic(err)
 	}
 	block.ID().RegisterAlias(alias)
@@ -62,7 +64,7 @@ func (t *TestFramework) CreateAndSignBlock(alias string, keyPair *ed25519.KeyPai
 		panic(err)
 	}
 
-	if err := block.DetermineID(); err != nil {
+	if err := block.DetermineID(t.epochTimeProvider); err != nil {
 		panic(err)
 	}
 	block.ID().RegisterAlias(alias)

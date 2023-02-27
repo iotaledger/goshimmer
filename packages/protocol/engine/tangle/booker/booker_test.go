@@ -704,14 +704,14 @@ func Test_Prune(t *testing.T) {
 	tf := NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"))
 
 	// create a helper function that creates the blocks
-	createNewBlock := func(idx int, prefix string) (block *models.Block, alias string) {
+	createNewBlock := func(idx epoch.Index, prefix string) (block *models.Block, alias string) {
 		alias = fmt.Sprintf("blk%s-%d", prefix, idx)
 		if idx == 1 {
 			fmt.Println("Creating genesis block")
 
 			return tf.BlockDAG.CreateBlock(
 				alias,
-				models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0)),
+				models.WithIssuingTime(tf.BlockDAG.Instance.EpochTimeProvider.GenesisTime()),
 				models.WithPayload(tf.Ledger.CreateTransaction(alias, 1, "Genesis")),
 			), alias
 		}
@@ -719,7 +719,7 @@ func Test_Prune(t *testing.T) {
 		return tf.BlockDAG.CreateBlock(
 			alias,
 			models.WithStrongParents(tf.BlockDAG.BlockIDs(parentAlias)),
-			models.WithIssuingTime(time.Unix(epoch.GenesisTime+int64(idx-1)*epoch.Duration, 0)),
+			models.WithIssuingTime(tf.BlockDAG.Instance.EpochTimeProvider.StartTime(idx)),
 			models.WithPayload(tf.Ledger.CreateTransaction(alias, 1, fmt.Sprintf("%s.0", parentAlias))),
 		), alias
 	}
@@ -730,7 +730,7 @@ func Test_Prune(t *testing.T) {
 	expectedBooked := make(map[string]bool, epochCount)
 
 	// Attach solid blocks
-	for i := 1; i <= epochCount; i++ {
+	for i := epoch.Index(1); i <= epochCount; i++ {
 		block, alias := createNewBlock(i, "")
 
 		_, wasAttached, err := tf.BlockDAG.Instance.Attach(block)
@@ -746,7 +746,7 @@ func Test_Prune(t *testing.T) {
 	_, wasAttached, err := tf.BlockDAG.Instance.Attach(tf.BlockDAG.CreateBlock(
 		"blk-1-reattachment",
 		models.WithStrongParents(tf.BlockDAG.BlockIDs(fmt.Sprintf("blk-%d", epochCount))),
-		models.WithIssuingTime(time.Unix(epoch.GenesisTime+int64(epochCount)*epoch.Duration, 0)),
+		models.WithIssuingTime(tf.BlockDAG.Instance.EpochTimeProvider.StartTime(epochCount)),
 		models.WithPayload(tf.Ledger.Transaction("blk-1")),
 	))
 	require.True(t, wasAttached, "block should be attached")
@@ -781,7 +781,7 @@ func Test_Prune(t *testing.T) {
 	_, wasAttached, err = tf.BlockDAG.Instance.Attach(tf.BlockDAG.CreateBlock(
 		"blk-0.5",
 		models.WithStrongParents(tf.BlockDAG.BlockIDs(fmt.Sprintf("blk-%d", epochCount))),
-		models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0)),
+		models.WithIssuingTime(tf.BlockDAG.Instance.EpochTimeProvider.GenesisTime()),
 	))
 	workers.WaitChildren()
 
@@ -896,7 +896,7 @@ func TestOTV_Track(t *testing.T) {
 	storageInstance := blockdag.NewTestStorage(t, workers)
 	tf := NewTestFramework(t, workers.CreateGroup("BookerTestFramework"),
 		New(workers.CreateGroup("Booker"),
-			blockdag.NewTestBlockDAG(t, workers.CreateGroup("BlockDAG"), eviction.NewState(storageInstance), storageInstance.Commitments.Load),
+			blockdag.NewTestBlockDAG(t, workers.CreateGroup("BlockDAG"), eviction.NewState(storageInstance), epoch.NewTimeProvider(epoch.WithGenesisUnixTime(time.Now().Unix())), storageInstance.Commitments.Load),
 			ledger.NewTestLedger(t, workers.CreateGroup("Ledger")),
 			sybilprotection.NewWeightedSet(sybilprotection.NewWeights(mapdb.NewMapDB())),
 			WithMarkerManagerOptions(

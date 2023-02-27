@@ -31,13 +31,14 @@ type Attestations struct {
 	bucketedStorage    func(index epoch.Index) kvstore.KVStore
 	weights            *sybilprotection.Weights
 	cachedAttestations *memstorage.EpochStorage[identity.ID, *shrinkingmap.ShrinkingMap[models.BlockID, *Attestation]]
+	epochTimeProvider  *epoch.TimeProvider
 	mutex              *syncutils.DAGMutex[epoch.Index]
 
 	traits.Initializable
 	traits.Committable
 }
 
-func NewAttestations(persistentStorage func(optRealm ...byte) kvstore.KVStore, bucketedStorage func(index epoch.Index) kvstore.KVStore, weights *sybilprotection.Weights) *Attestations {
+func NewAttestations(persistentStorage func(optRealm ...byte) kvstore.KVStore, bucketedStorage func(index epoch.Index) kvstore.KVStore, weights *sybilprotection.Weights, epochTimeProvider *epoch.TimeProvider) *Attestations {
 	return &Attestations{
 		Committable:        traits.NewCommittable(persistentStorage(), PrefixAttestationsLastCommittedEpoch),
 		Initializable:      traits.NewInitializable(),
@@ -45,12 +46,13 @@ func NewAttestations(persistentStorage func(optRealm ...byte) kvstore.KVStore, b
 		bucketedStorage:    bucketedStorage,
 		weights:            weights,
 		cachedAttestations: memstorage.NewEpochStorage[identity.ID, *shrinkingmap.ShrinkingMap[models.BlockID, *Attestation]](),
+		epochTimeProvider:  epochTimeProvider,
 		mutex:              syncutils.NewDAGMutex[epoch.Index](),
 	}
 }
 
 func (a *Attestations) Add(attestation *Attestation) (added bool, err error) {
-	epochIndex := epoch.IndexFromTime(attestation.IssuingTime)
+	epochIndex := a.epochTimeProvider.IndexFromTime(attestation.IssuingTime)
 
 	a.mutex.RLock(epochIndex)
 	defer a.mutex.RUnlock(epochIndex)
@@ -68,7 +70,7 @@ func (a *Attestations) Add(attestation *Attestation) (added bool, err error) {
 }
 
 func (a *Attestations) Delete(attestation *Attestation) (deleted bool, err error) {
-	epochIndex := epoch.IndexFromTime(attestation.IssuingTime)
+	epochIndex := a.epochTimeProvider.IndexFromTime(attestation.IssuingTime)
 
 	a.mutex.RLock(epochIndex)
 	defer a.mutex.RUnlock(epochIndex)

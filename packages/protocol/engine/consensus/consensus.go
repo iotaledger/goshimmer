@@ -26,7 +26,7 @@ type Consensus struct {
 
 func New(workers *workerpool.Group, tangleInstance *tangle.Tangle, evictionState *eviction.State, lastConfirmedEpoch epoch.Index, totalWeightCallback func() int64, opts ...options.Option[Consensus]) *Consensus {
 	return options.Apply(&Consensus{}, opts, func(c *Consensus) {
-		c.BlockGadget = blockgadget.New(workers.CreateGroup("BlockGadget"), tangleInstance, evictionState, totalWeightCallback, c.optsAcceptanceGadget...)
+		c.BlockGadget = blockgadget.New(workers.CreateGroup("BlockGadget"), tangleInstance, evictionState, tangleInstance.BlockDAG.EpochTimeProvider, totalWeightCallback, c.optsAcceptanceGadget...)
 		c.EpochGadget = epochgadget.New(workers.CreateGroup("EpochGadget"), tangleInstance, lastConfirmedEpoch, totalWeightCallback, c.optsEpochConfirmationGadget...)
 		c.ConflictResolver = conflictresolver.New(tangleInstance.Ledger.ConflictDAG, tangleInstance.Booker.VirtualVoting.ConflictVotersTotalWeight)
 

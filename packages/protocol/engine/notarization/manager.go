@@ -26,9 +26,10 @@ const (
 
 // Manager is the component that manages the epoch commitments.
 type Manager struct {
-	Events         *Events
-	EpochMutations *EpochMutations
-	Attestations   *Attestations
+	Events            *Events
+	EpochMutations    *EpochMutations
+	Attestations      *Attestations
+	EpochTimeProvider *epoch.TimeProvider
 
 	storage         *storage.Storage
 	ledgerState     *ledgerstate.LedgerState
@@ -43,14 +44,15 @@ type Manager struct {
 }
 
 // NewManager creates a new notarization Manager.
-func NewManager(storageInstance *storage.Storage, ledgerState *ledgerstate.LedgerState, weights *sybilprotection.Weights, opts ...options.Option[Manager]) (newManager *Manager) {
+func NewManager(storageInstance *storage.Storage, ledgerState *ledgerstate.LedgerState, weights *sybilprotection.Weights, epochTimeProvider *epoch.TimeProvider, opts ...options.Option[Manager]) (newManager *Manager) {
 	return options.Apply(&Manager{
 		Events:                     NewEvents(),
 		EpochMutations:             NewEpochMutations(weights, storageInstance.Settings.LatestCommitment().Index()),
-		Attestations:               NewAttestations(storageInstance.Permanent.Attestations, storageInstance.Prunable.Attestations, weights),
+		Attestations:               NewAttestations(storageInstance.Permanent.Attestations, storageInstance.Prunable.Attestations, weights, epochTimeProvider),
+		EpochTimeProvider:          epochTimeProvider,
 		storage:                    storageInstance,
 		ledgerState:                ledgerState,
-		acceptanceTime:             storageInstance.Settings.LatestCommitment().Index().EndTime(),
+		acceptanceTime:             epochTimeProvider.EndTime(storageInstance.Settings.LatestCommitment().Index()),
 		optsMinCommittableEpochAge: defaultMinEpochCommittableAge,
 	}, opts, func(m *Manager) {
 		m.Initializable = traits.NewInitializable(m.Attestations.TriggerInitialized)
@@ -74,7 +76,7 @@ func (m *Manager) SetAcceptanceTime(acceptanceTime time.Time) {
 	m.acceptanceTime = acceptanceTime
 	m.acceptanceTimeMutex.Unlock()
 
-	if index := epoch.IndexFromTime(acceptanceTime); index > m.storage.Settings.LatestCommitment().Index() {
+	if index := m.EpochTimeProvider.IndexFromTime(acceptanceTime); index > m.storage.Settings.LatestCommitment().Index() {
 		m.tryCommitEpochUntil(index)
 	}
 }
@@ -84,7 +86,7 @@ func (m *Manager) IsFullyCommitted() bool {
 	// If acceptance time is in epoch 10, then the latest committable index is 3 (with optsMinCommittableEpochAge=6), because there are 6 full epochs between epoch 10 and epoch 3.
 	// All epochs smaller than 4 are committable, so in order to check if epoch 3 is committed it's necessary to do m.optsMinCommittableEpochAge-1,
 	// otherwise we'd expect epoch 4 to be committed in order to be fully committed, which is impossible.
-	return m.storage.Settings.LatestCommitment().Index() >= epoch.IndexFromTime(m.AcceptanceTime())-m.optsMinCommittableEpochAge-1
+	return m.storage.Settings.LatestCommitment().Index() >= m.EpochTimeProvider.IndexFromTime(m.AcceptanceTime())-m.optsMinCommittableEpochAge-1
 }
 
 func (m *Manager) NotarizeAcceptedBlock(block *models.Block) (err error) {
@@ -92,7 +94,7 @@ func (m *Manager) NotarizeAcceptedBlock(block *models.Block) (err error) {
 		return errors.Wrap(err, "failed to add accepted block to epoch mutations")
 	}
 
-	if _, err = m.Attestations.Add(NewAttestation(block)); err != nil {
+	if _, err = m.Attestations.Add(NewAttestation(block, m.EpochTimeProvider)); err != nil {
 		return errors.Wrap(err, "failed to add block to attestations")
 	}
 
@@ -104,7 +106,7 @@ func (m *Manager) NotarizeOrphanedBlock(block *models.Block) (err error) {
 		return errors.Wrap(err, "failed to remove accepted block from epoch mutations")
 	}
 
-	if _, err = m.Attestations.Delete(NewAttestation(block)); err != nil {
+	if _, err = m.Attestations.Delete(NewAttestation(block, m.EpochTimeProvider)); err != nil {
 		return errors.Wrap(err, "failed to delete block from attestations")
 	}
 

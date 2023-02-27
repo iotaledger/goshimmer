@@ -25,6 +25,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
 	"github.com/iotaledger/hive.go/app/daemon"
 	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
@@ -56,10 +57,6 @@ func init() {
 func provide(n *p2p.Manager) (p *protocol.Protocol) {
 	cacheTimeProvider := database.NewCacheTimeProvider(DatabaseParameters.ForceCacheTime)
 
-	if Parameters.GenesisTime > 0 {
-		epoch.GenesisTime = Parameters.GenesisTime
-	}
-
 	var dbProvider database.DBProvider
 	if DatabaseParameters.InMemory {
 		dbProvider = database.NewMemDB
@@ -67,8 +64,14 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 		dbProvider = database.NewDB
 	}
 
+	var epochTimeOpts []options.Option[epoch.TimeProvider]
+	if Parameters.GenesisTime > 0 {
+		epochTimeOpts = append(epochTimeOpts, epoch.WithGenesisUnixTime(Parameters.GenesisTime))
+	}
+
 	p = protocol.New(workerpool.NewGroup("Protocol"),
 		n,
+		protocol.WithEpochTimeProviderOptions(epochTimeOpts...),
 		protocol.WithSybilProtectionProvider(
 			dpos.NewProvider(
 				dpos.WithActivityWindow(Parameters.ValidatorActivityWindow),
