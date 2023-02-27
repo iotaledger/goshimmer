@@ -1,4 +1,4 @@
-import { SlotStore } from 'app/stores/EpochStore';
+import { SlotStore } from 'app/stores/SlotStore';
 import {inject, observer} from "mobx-react";
 import NodeStore from 'app/stores/NodeStore';
 import * as React from 'react';

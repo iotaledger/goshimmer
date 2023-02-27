@@ -21,8 +21,8 @@ import {Mana} from "app/components/Mana";
 import {ExplorerTransactionQueryResult} from "app/components/ExplorerTransactionQueryResult";
 import {ExplorerOutputQueryResult} from "app/components/ExplorerOutputQueryResult";
 import {ExplorerConflictQueryResult} from "app/components/ExplorerConflictQueryResult";
-import { SlotLiveFeed } from './EpochLiveFeed';
-import { ExplorerSlotQueryResult } from './ExplorerEpochQueryResult';
+import { SlotLiveFeed } from './SlotLiveFeed';
+import { ExplorerSlotQueryResult } from './ExplorerSlotQueryResult';
 
 interface Props {
     history: any;

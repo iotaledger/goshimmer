@@ -11,7 +11,7 @@ import ExplorerStore from "app/stores/ExplorerStore";
 import FaucetStore from "app/stores/FaucetStore";
 import VisualizerStore from "app/stores/VisualizerStore";
 import ManaStore from "app/stores/ManaStore";
-import {SlotStore} from "app/stores/EpochStore";
+import {SlotStore} from "app/stores/SlotStore";
 import ConflictsStore from "app/stores/ConflictsStore";
 
 // prepare MobX stores
