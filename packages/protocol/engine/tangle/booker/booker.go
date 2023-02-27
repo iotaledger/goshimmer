@@ -358,9 +358,15 @@ func (b *Booker) inheritConflictIDs(block *virtualvoting.Block) (inheritedConfli
 		b.sequenceMutex.RUnlock(sequenceIDs...)
 	}
 
-	fmt.Println(block.ID(), "pastMarkersConflictIDs", pastMarkersConflictIDs, "inheritedConflictIDs", inheritedConflictIDs)
+	// fmt.Println(block.ID(), "pastMarkersConflictIDs", pastMarkersConflictIDs, "inheritedConflictIDs", inheritedConflictIDs)
 
 	block.SetStructureDetails(newStructureDetails)
+
+	// inherited: A, B, C
+	// pastMarkers: A
+	// ==
+	// added: B, C
+	// subtracted: nil
 
 	if !newStructureDetails.IsPastMarker() {
 		addedConflictIDs := inheritedConflictIDs.Clone()
@@ -371,7 +377,13 @@ func (b *Booker) inheritConflictIDs(block *virtualvoting.Block) (inheritedConfli
 		subtractedConflictIDs.DeleteAll(inheritedConflictIDs)
 		block.AddAllSubtractedConflictIDs(subtractedConflictIDs)
 
-		fmt.Println(block.ID(), "addedConflictIDs", addedConflictIDs, "subtractedConflictIDs", subtractedConflictIDs)
+		fmt.Println(block.ID(), block.StructureDetails().PastMarkers(), "pastMarkersConflictIDs", pastMarkersConflictIDs, "addedConflictIDs", addedConflictIDs, "subtractedConflictIDs", subtractedConflictIDs)
+		pastMarkersConflictIDs.ForEach(func(element utxo.TransactionID) (err error) {
+			if addedConflictIDs.Has(element) {
+				panic("WTF??")
+			}
+			return nil
+		})
 	}
 
 	block.SetBooked()
@@ -385,7 +397,9 @@ func (b *Booker) determineBookingConflictIDs(block *virtualvoting.Block) (parent
 
 	transactionConflictIDs := b.TransactionConflictIDs(block)
 
+	fmt.Println(">><<", block.ID())
 	parentsPastMarkersConflictIDs, strongParentsConflictIDs := b.collectStrongParentsConflictIDs(block)
+	fmt.Println("<<>>", block.ID())
 
 	weakPayloadConflictIDs := b.collectWeakParentsConflictIDs(block)
 
@@ -415,10 +429,8 @@ func (b *Booker) determineBookingConflictIDs(block *virtualvoting.Block) (parent
 	// it cannot be masked by like references and the block will be seen as subjectively invalid
 	inheritedConflictIDs.AddAll(transactionConflictIDs)
 
-	fmt.Printf(">> %s before %s | %s\n", block.ID(), parentsPastMarkersConflictIDs, inheritedConflictIDs)
 	unconfirmedParentsPast := b.Ledger.ConflictDAG.UnconfirmedConflicts(parentsPastMarkersConflictIDs)
 	unconfirmedInherited := b.Ledger.ConflictDAG.UnconfirmedConflicts(inheritedConflictIDs)
-	fmt.Printf(">> %s afterr %s | %s\n", block.ID(), unconfirmedParentsPast, unconfirmedInherited)
 
 	return unconfirmedParentsPast, unconfirmedInherited, nil
 }
@@ -527,23 +539,26 @@ func (b *Booker) blockBookingDetails(block *virtualvoting.Block) (pastMarkersCon
 	b.rLockBlockSequences(block)
 	defer b.rUnlockBlockSequences(block)
 
-	pastMarkersConflictIDs = b.markerManager.ConflictIDsFromStructureDetails(block.StructureDetails())
-	fmt.Println(block.ID(), "blockBookingDetails", pastMarkersConflictIDs)
+	pastMarkersConflictIDs = b.markerManager.ConflictIDsFromStructureDetails(block.ID(), block.StructureDetails())
+	// fmt.Println(block.ID(), "blockBookingDetails", pastMarkersConflictIDs)
 
 	blockConflictIDs = utxo.NewTransactionIDs()
 	blockConflictIDs.AddAll(pastMarkersConflictIDs)
 
-	if addedConflictIDs := block.AddedConflictIDs(); !addedConflictIDs.IsEmpty() {
+	addedConflictIDs := block.AddedConflictIDs()
+	if !addedConflictIDs.IsEmpty() {
 		blockConflictIDs.AddAll(addedConflictIDs)
 	}
 
 	// We always need to subtract all conflicts in the future cone of the SubtractedConflictIDs due to the fact that
 	// conflicts in the future cone can be propagated later. Specifically, through changing a marker mapping, the base
 	// of the block's conflicts changes, and thus it might implicitly "inherit" conflicts that were previously removed.
-	if subtractedConflictIDs := b.Ledger.Utils.ConflictIDsInFutureCone(block.SubtractedConflictIDs()); !subtractedConflictIDs.IsEmpty() {
+	subtractedConflictIDs := b.Ledger.Utils.ConflictIDsInFutureCone(block.SubtractedConflictIDs())
+	if !subtractedConflictIDs.IsEmpty() {
 		blockConflictIDs.DeleteAll(subtractedConflictIDs)
 	}
 
+	fmt.Println(block.ID(), "blockBookingDetails", pastMarkersConflictIDs, blockConflictIDs, "added", addedConflictIDs, "subtracted", subtractedConflictIDs)
 	return pastMarkersConflictIDs, blockConflictIDs
 }
 
