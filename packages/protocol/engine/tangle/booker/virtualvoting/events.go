@@ -2,8 +2,8 @@ package virtualvoting
 
 import (
 	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
-	"github.com/iotaledger/goshimmer/packages/core/votes/epochtracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
+	"github.com/iotaledger/goshimmer/packages/core/votes/slottracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/hive.go/runtime/event"
 )
@@ -13,7 +13,7 @@ type Events struct {
 
 	ConflictTracker *conflicttracker.Events[utxo.TransactionID]
 	SequenceTracker *sequencetracker.Events
-	SlotTracker     *epochtracker.Events
+	SlotTracker     *slottracker.Events
 
 	event.Group[Events, *Events]
 }
@@ -24,7 +24,7 @@ var NewEvents = event.CreateGroupConstructor(func() (newEvents *Events) {
 		BlockTracked:    event.New1[*Block](),
 		ConflictTracker: conflicttracker.NewEvents[utxo.TransactionID](),
 		SequenceTracker: sequencetracker.NewEvents(),
-		SlotTracker:     epochtracker.NewEvents(),
+		SlotTracker:     slottracker.NewEvents(),
 	}
 })
 

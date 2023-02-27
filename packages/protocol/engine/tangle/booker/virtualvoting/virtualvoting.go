@@ -3,8 +3,8 @@ package virtualvoting
 import (
 	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
-	"github.com/iotaledger/goshimmer/packages/core/votes/epochtracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
+	"github.com/iotaledger/goshimmer/packages/core/votes/slottracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
@@ -25,7 +25,7 @@ type VirtualVoting struct {
 
 	conflictTracker *conflicttracker.ConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower]
 	sequenceTracker *sequencetracker.SequenceTracker[BlockVotePower]
-	slotTracker     *epochtracker.SlotTracker
+	slotTracker     *slottracker.SlotTracker
 	evictionMutex   *syncutils.StarvingMutex
 
 	optsSequenceCutoffCallback func(markers.SequenceID) markers.Index
@@ -51,7 +51,7 @@ func New(workers *workerpool.Group, conflictDAG *conflictdag.ConflictDAG[utxo.Tr
 	}, opts, func(o *VirtualVoting) {
 		o.conflictTracker = conflicttracker.NewConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower](conflictDAG, validators)
 		o.sequenceTracker = sequencetracker.NewSequenceTracker[BlockVotePower](validators, sequenceManager.Sequence, o.optsSequenceCutoffCallback)
-		o.slotTracker = epochtracker.NewSlotTracker(o.optsSlotCutoffCallback)
+		o.slotTracker = slottracker.NewSlotTracker(o.optsSlotCutoffCallback)
 
 		o.Events = NewEvents()
 		o.Events.ConflictTracker = o.conflictTracker.Events
@@ -70,7 +70,7 @@ func (o *VirtualVoting) Track(block *Block, conflictIDs utxo.TransactionIDs) {
 		block.SetSubjectivelyInvalid(true)
 	} else {
 		o.sequenceTracker.TrackVotes(block.StructureDetails().PastMarkers(), block.IssuerID(), votePower)
-		o.slotTracker.TrackVotes(block.Commitment().Index(), block.IssuerID(), epochtracker.SlotVotePower{Index: block.ID().Index()})
+		o.slotTracker.TrackVotes(block.Commitment().Index(), block.IssuerID(), slottracker.SlotVotePower{Index: block.ID().Index()})
 	}
 
 	o.Events.BlockTracked.Trigger(block)

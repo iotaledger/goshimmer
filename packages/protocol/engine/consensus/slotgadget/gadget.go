@@ -1,10 +1,10 @@
-package epochgadget
+package slotgadget
 
 import (
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/core/slot"
-	"github.com/iotaledger/goshimmer/packages/core/votes/epochtracker"
+	"github.com/iotaledger/goshimmer/packages/core/votes/slottracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/event"
@@ -54,7 +54,7 @@ func (g *Gadget) setLastConfirmedSlot(i slot.Index) {
 }
 
 func (g *Gadget) setup() {
-	g.tangle.Booker.VirtualVoting.Events.SlotTracker.VotersUpdated.Hook(func(evt *epochtracker.VoterUpdatedEvent) {
+	g.tangle.Booker.VirtualVoting.Events.SlotTracker.VotersUpdated.Hook(func(evt *slottracker.VoterUpdatedEvent) {
 		g.refreshSlotConfirmation(evt.PrevLatestSlotIndex, evt.NewLatestSlotIndex)
 	}, event.WithWorkerPool(g.workers.CreatePool("Refresh", 2)))
 }

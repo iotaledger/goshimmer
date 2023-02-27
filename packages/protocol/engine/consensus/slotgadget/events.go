@@ -1,4 +1,4 @@
-package epochgadget
+package slotgadget
 
 import (
 	"github.com/iotaledger/goshimmer/packages/core/slot"

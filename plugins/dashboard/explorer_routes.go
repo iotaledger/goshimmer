@@ -18,8 +18,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 
-	slotAPI "github.com/iotaledger/goshimmer/plugins/webapi/epoch"
 	ledgerstateAPI "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
+	slotAPI "github.com/iotaledger/goshimmer/plugins/webapi/slot"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/lo"
 )

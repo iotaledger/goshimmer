@@ -1,4 +1,4 @@
-package epochtracker
+package slottracker
 
 import (
 	"testing"

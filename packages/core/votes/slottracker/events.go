@@ -1,4 +1,4 @@
-package epochtracker
+package slottracker
 
 import (
 	"github.com/iotaledger/goshimmer/packages/core/slot"

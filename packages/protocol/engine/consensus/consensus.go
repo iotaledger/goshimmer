@@ -4,7 +4,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/conflictresolver"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/epochgadget"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/slotgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/hive.go/runtime/options"
@@ -17,17 +17,17 @@ type Consensus struct {
 	Events *Events
 
 	BlockGadget      *blockgadget.Gadget
-	SlotGadget       *epochgadget.Gadget
+	SlotGadget       *slotgadget.Gadget
 	ConflictResolver *conflictresolver.ConflictResolver
 
 	optsAcceptanceGadget       []options.Option[blockgadget.Gadget]
-	optsSlotConfirmationGadget []options.Option[epochgadget.Gadget]
+	optsSlotConfirmationGadget []options.Option[slotgadget.Gadget]
 }
 
 func New(workers *workerpool.Group, tangleInstance *tangle.Tangle, evictionState *eviction.State, lastConfirmedSlot slot.Index, totalWeightCallback func() int64, opts ...options.Option[Consensus]) *Consensus {
 	return options.Apply(&Consensus{}, opts, func(c *Consensus) {
 		c.BlockGadget = blockgadget.New(workers.CreateGroup("BlockGadget"), tangleInstance, evictionState, tangleInstance.BlockDAG.SlotTimeProvider, totalWeightCallback, c.optsAcceptanceGadget...)
-		c.SlotGadget = epochgadget.New(workers.CreateGroup("SlotGadget"), tangleInstance, lastConfirmedSlot, totalWeightCallback, c.optsSlotConfirmationGadget...)
+		c.SlotGadget = slotgadget.New(workers.CreateGroup("SlotGadget"), tangleInstance, lastConfirmedSlot, totalWeightCallback, c.optsSlotConfirmationGadget...)
 		c.ConflictResolver = conflictresolver.New(tangleInstance.Ledger.ConflictDAG, tangleInstance.Booker.VirtualVoting.ConflictVotersTotalWeight)
 
 		c.Events = NewEvents()
@@ -46,7 +46,7 @@ func WithAcceptanceGadgetOptions(opts ...options.Option[blockgadget.Gadget]) opt
 	}
 }
 
-func WithSlotConfirmationGadgetOptions(opts ...options.Option[epochgadget.Gadget]) options.Option[Consensus] {
+func WithSlotConfirmationGadgetOptions(opts ...options.Option[slotgadget.Gadget]) options.Option[Consensus] {
 	return func(c *Consensus) {
 		c.optsSlotConfirmationGadget = opts
 	}

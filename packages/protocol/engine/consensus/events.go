@@ -2,13 +2,13 @@ package consensus
 
 import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/epochgadget"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/slotgadget"
 	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 type Events struct {
 	BlockGadget *blockgadget.Events
-	SlotGadget  *epochgadget.Events
+	SlotGadget  *slotgadget.Events
 
 	event.Group[Events, *Events]
 }
@@ -17,6 +17,6 @@ type Events struct {
 var NewEvents = event.CreateGroupConstructor(func() (newEvents *Events) {
 	return &Events{
 		BlockGadget: blockgadget.NewEvents(),
-		SlotGadget:  epochgadget.NewEvents(),
+		SlotGadget:  slotgadget.NewEvents(),
 	}
 })
