@@ -172,6 +172,8 @@ func (t *TipManager) selectTips(count int) (parents models.BlockIDs) {
 	defer t.mutex.Unlock()
 
 	parents = models.NewBlockIDs()
+	var lastTipDeletedTimeout <-chan time.Time
+	var timeoutOnce sync.Once
 	for {
 		tips := t.tips.RandomUniqueEntries(count)
 
@@ -193,18 +195,30 @@ func (t *TipManager) selectTips(count int) (parents models.BlockIDs) {
 			if err := t.isValidTip(tip); err == nil {
 				parents.Add(tip.ID())
 			} else {
+				select {
+				case <-lastTipDeletedTimeout:
+					panic(fmt.Sprintf("(time: %s) >> problem with selecting tip for too long, returning invalid tip root block: %s", time.Now().String(), tip.ID().String()))
+				default:
+				}
 				t.deleteTip(tip)
 
 				// DEBUG
 				fmt.Printf("(time: %s) cannot select tip due to error: %s\n", time.Now(), err)
 				if t.tips.Size() == 0 {
 					fmt.Println("(time: ", time.Now(), ") >> deleted last TIP because it doesn't pass checks!", tip.ID())
+					timeoutOnce.Do(func() {
+						lastTipDeletedTimeout = time.After(30 * time.Second)
+					})
 				}
 			}
 		}
 
 		if len(parents) > 0 {
 			return parents
+		}
+		select {
+		case <-time.After(2 * time.Second):
+			return
 		}
 	}
 }
