@@ -187,7 +187,6 @@ func (t *TipManager) selectTips(count int) (parents models.BlockIDs) {
 		fmt.Println("(time: ", time.Now(), ") selecting root blocks because tip pool empty:", rootBlocks)
 	}
 
-	// at least one tip is returned
 	for _, tip := range tips {
 		if err := t.isValidTip(tip); err == nil {
 			parents.Add(tip.ID())
