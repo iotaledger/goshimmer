@@ -282,7 +282,6 @@ func (n *Node) IssueActivity(duration time.Duration) {
 		fmt.Println(n.Name, "> Starting activity")
 		var counter int
 		for {
-
 			if tips := n.Protocol.TipManager.Tips(1); len(tips) > 0 {
 				if !n.issueActivityBlock(fmt.Sprintf("%s.%d", n.Name, counter), tips.Slice()...) {
 					fmt.Println(n.Name, "> Stopped activity due to block not being issued")
@@ -297,7 +296,6 @@ func (n *Node) IssueActivity(duration time.Duration) {
 			} else {
 				fmt.Println(n.Name, "> Skipped activity due lack of strong parents")
 			}
-
 		}
 	}()
 }
