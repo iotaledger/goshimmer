@@ -172,41 +172,37 @@ func (t *TipManager) selectTips(count int) (parents models.BlockIDs) {
 	defer t.mutex.Unlock()
 
 	parents = models.NewBlockIDs()
-	for {
-		tips := t.tips.RandomUniqueEntries(count)
+	tips := t.tips.RandomUniqueEntries(count)
 
-		// We obtain up to 8 latest root blocks if there is no valid tip and we submit them to the TSC check as some
-		// could be old in case of a slow growing BlockDAG.
-		if len(tips) == 0 {
-			rootBlocks := t.engine.EvictionState.LatestRootBlocks()
+	// We obtain up to 8 latest root blocks if there is no valid tip and we submit them to the TSC check as some
+	// could be old in case of a slow growing BlockDAG.
+	if len(tips) == 0 {
+		rootBlocks := t.engine.EvictionState.LatestRootBlocks()
 
-			for blockID := range rootBlocks {
-				if block, exist := t.schedulerBlockRetrieverFunc(blockID); exist {
-					tips = append(tips, block)
-				}
-			}
-			fmt.Println("(time: ", time.Now(), ") selecting root blocks because tip pool empty:", rootBlocks)
-		}
-
-		// at least one tip is returned
-		for _, tip := range tips {
-			if err := t.isValidTip(tip); err == nil {
-				parents.Add(tip.ID())
-			} else {
-				t.deleteTip(tip)
-
-				// DEBUG
-				fmt.Printf("(time: %s) cannot select tip due to error: %s\n", time.Now(), err)
-				if t.tips.Size() == 0 {
-					fmt.Println("(time: ", time.Now(), ") >> deleted last TIP because it doesn't pass checks!", tip.ID())
-				}
+		for blockID := range rootBlocks {
+			if block, exist := t.schedulerBlockRetrieverFunc(blockID); exist {
+				tips = append(tips, block)
 			}
 		}
+		fmt.Println("(time: ", time.Now(), ") selecting root blocks because tip pool empty:", rootBlocks)
+	}
 
-		if len(parents) > 0 {
-			return parents
+	// at least one tip is returned
+	for _, tip := range tips {
+		if err := t.isValidTip(tip); err == nil {
+			parents.Add(tip.ID())
+		} else {
+			t.deleteTip(tip)
+
+			// DEBUG
+			fmt.Printf("(time: %s) cannot select tip due to error: %s\n", time.Now(), err)
+			if t.tips.Size() == 0 {
+				fmt.Println("(time: ", time.Now(), ") >> deleted last TIP because it doesn't pass checks!", tip.ID())
+			}
 		}
 	}
+
+	return parents
 }
 
 // AllTips returns a list of all tips that are stored in the TipManger.
