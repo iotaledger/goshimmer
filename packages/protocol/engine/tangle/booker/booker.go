@@ -349,7 +349,6 @@ func (b *Booker) inheritConflictIDs(block *virtualvoting.Block) (inheritedConfli
 			return true
 		})
 		b.sequenceMutex.RLock(sequenceIDs...)
-		// fmt.Println(block.ID(), "PASTMARKERS", newStructureDetails.PastMarkers())
 		pastMarkersConflictIDs, inheritedConflictIDs, err = b.determineBookingConflictIDs(block)
 		if err != nil {
 			b.sequenceMutex.RUnlock(sequenceIDs...)
@@ -359,40 +358,18 @@ func (b *Booker) inheritConflictIDs(block *virtualvoting.Block) (inheritedConfli
 		b.sequenceMutex.RUnlock(sequenceIDs...)
 	}
 
-	// fmt.Println(block.ID(), "pastMarkersConflictIDs", pastMarkersConflictIDs, "inheritedConflictIDs", inheritedConflictIDs)
-
 	block.SetStructureDetails(newStructureDetails)
 
 	if !newStructureDetails.IsPastMarker() {
-		/*
-			addedConflictIDs := pastMarkersConflictIDs.Filter(func(conflictID utxo.TransactionID) bool {
-				return !newStructureDetailsConflictIDs.Has(conflictID)
-			})
-
-			subtractedConflictIDs := newStructureDetailsConflictIDs.Filter(func(conflictID utxo.TransactionID) bool {
-				return !pastMarkersConflictIDs.Has(conflictID)
-			})
-		*/
 		newStructureDetailsConflictIDs := b.markerManager.ConflictIDsFromStructureDetails(block.ID(), newStructureDetails)
 
 		addedConflictIDs := inheritedConflictIDs.Clone()
-		// addedConflictIDs.DeleteAll(pastMarkersConflictIDs)
 		addedConflictIDs.DeleteAll(newStructureDetailsConflictIDs)
 		block.AddAllAddedConflictIDs(addedConflictIDs)
 
 		subtractedConflictIDs := pastMarkersConflictIDs.Clone()
 		subtractedConflictIDs.DeleteAll(inheritedConflictIDs)
 		block.AddAllSubtractedConflictIDs(subtractedConflictIDs)
-
-		/*
-			fmt.Println(block.ID(), block.StructureDetails().PastMarkers(), "pastMarkersConflictIDs", pastMarkersConflictIDs, "addedConflictIDs", addedConflictIDs, "subtractedConflictIDs", subtractedConflictIDs)
-			pastMarkersConflictIDs.ForEach(func(element utxo.TransactionID) (err error) {
-				if addedConflictIDs.Has(element) {
-					panic("WTF??")
-				}
-				return nil
-			})
-		*/
 	}
 
 	block.SetBooked()
