@@ -18,7 +18,7 @@ type EpochInfo struct {
 
 func runEpochsLiveFeed(plugin *node.Plugin) {
 	if err := daemon.BackgroundWorker("Dashboard[EpochsLiveFeed]", func(ctx context.Context) {
-		hook := deps.Protocol.Engine().NotarizationManager.Events.EpochCommitted.Hook(onEpochCommitted, event.WithWorkerPool(plugin.WorkerPool))
+		hook := deps.Protocol.Events.Engine.NotarizationManager.EpochCommitted.Hook(onEpochCommitted, event.WithWorkerPool(plugin.WorkerPool))
 
 		<-ctx.Done()
 
