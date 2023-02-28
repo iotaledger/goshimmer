@@ -38,7 +38,7 @@ const (
 
 // Feature network.
 var nodesToPledge = []string{
-	"AZKt9NEbNb9TAk5SqVTfj3ANoBzrWLjR5YKxa2BCyi8X", // entrynode
+	// "AZKt9NEbNb9TAk5SqVTfj3ANoBzrWLjR5YKxa2BCyi8X", // entrynode
 	"BYpRNA5aCuyym8SRFbEATraY4yr9oyuXCsCFVcEM8Fm4", // bootstrap_01
 	"5UymiW32h2LM7UqVFf5W1f6iH2DxUqA85RnwP5QgyQYa", // vanilla_01
 	"HHPL5wTFjihv7sVHKXYbZkGcDbqq75h1LQntBhKs1saX", // node_01
@@ -55,19 +55,19 @@ var initialAttestations = []string{
 
 // Devnet
 // var nodesToPledge = []string{
-// 	"7Yr1tz7atYcbQUv5njuzoC5MiDsMmr3hqaWtAsgJfxxr", // entrynode
-// 	"AuQXPFmRu9nKNtUq3g1RLqVgSmxNrYeogt6uRwqYLGvK", // bootstrap_01
-// 	"D9SPFofAGhA5V9QRDngc1E8qG9bTrnATmpZMdoyRiBoW", // vanilla_01
-// 	"CfkVFzXRjJdshjgPpQAZ4fccZs2SyVPGkTc8LmtnbsT",  // node_01
-// 	"AQfLfcKpvt1nWn916ZGSBy7bRPkjEv5sN7fSZ2rFKoPh", // node_02
-// 	"9GLqh2VaDYUiKGn7kwV2EXsnU6Eiv7AEW73bXhfnX6FD", // node_03
-// 	"C3VeWTBAi12JHXKWTvYCxBRyVya6UpbdziiGZNqgh1sB", // node_04
-// 	"HGiFs4jR74yxDMCN8K1Z16QPdwchXokXzYhBLqKW2ssW", // node_05
-// 	"5heLsHxMRdTewXooaaDFGpAoj5c41ah5wTmpMukjdvi7", // faucet_01
+// 	//"7Yr1tz7atYcbQUv5njuzoC5MiDsMmr3hqaWtAsgJfxxr", // entrynode
+// 	"Gm7W191NDnqyF7KJycZqK7V6ENLwqxTwoKQN4SmpkB24", // bootstrap_01
+// 	"9DB3j9cWYSuEEtkvanrzqkzCQMdH1FGv3TawJdVbDxkd", // vanilla_01
+// 	"AheLpbhRs1XZsRF8t8VBwuyQh9mqPHXQvthV5rsHytDG", // node_01
+// 	"FZ28bSTidszUBn8TTCAT9X1nVMwFNnoYBmZ1xfafez2z", // node_02
+// 	"GT3UxryW4rA9RN9ojnMGmZgE2wP7psagQxgVdA4B9L1P", // node_03
+// 	"4pB5boPvvk2o5MbMySDhqsmC2CtUdXyotPPEpb7YQPD7", // node_04
+// 	"64wCsTZpmKjRVHtBKXiFojw7uw3GszumfvC4kHdWsHga", // node_05
+// 	"7DJYaCCnq9bPW2tnwC3BUEDMs6PLDC73NShduZzE4r9k", // faucet_01
 // }
 //
 // var initialAttestations = []string{
-//		"AuQXPFmRu9nKNtUq3g1RLqVgSmxNrYeogt6uRwqYLGvK", // bootstrap_01
+//		"Gm7W191NDnqyF7KJycZqK7V6ENLwqxTwoKQN4SmpkB24", // bootstrap_01
 // }
 
 // Docker network.

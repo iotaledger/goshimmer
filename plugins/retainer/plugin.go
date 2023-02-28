@@ -42,7 +42,7 @@ func init() {
 func configure(*node.Plugin) {
 	deps.Protocol.Events.Engine.Consensus.EpochGadget.EpochConfirmed.Hook(func(epochIndex epoch.Index) {
 		deps.Retainer.PruneUntilEpoch(epochIndex - epoch.Index(Parameters.PruningThreshold))
-	}, event.WithWorkerPool(deps.Retainer.WorkerPool()))
+	}, event.WithWorkerPool(deps.Retainer.BlockWorkerPool()))
 }
 
 func createRetainer(p *protocol.Protocol) *retainer.Retainer {

@@ -114,6 +114,7 @@ func run(plugin *node.Plugin) {
 	runVisualizer(plugin)
 	runManaFeed(plugin)
 	runConflictLiveFeed(plugin)
+	runEpochsLiveFeed(plugin)
 
 	log.Infof("Starting %s ...", PluginName)
 	if err := daemon.BackgroundWorker(PluginName, worker, shutdown.PriorityProfiling); err != nil {
@@ -180,6 +181,8 @@ const (
 	MsgTypeConflictsConflictSet
 	// MsgTypeConflictsConflict defines a websocket message that contains a conflict update for the "conflicts" tab.
 	MsgTypeConflictsConflict
+	// MsgTypeEpochInfo defines a websocket message that contains a conflict update for the "conflicts" tab.
+	MsgTypeEpochInfo
 )
 
 type wsblk struct {
