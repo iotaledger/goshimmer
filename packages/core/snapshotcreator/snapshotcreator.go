@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
-	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
@@ -52,14 +51,14 @@ func CreateSnapshot(opts ...options.Option[Options]) (err error) {
 		return errors.Wrap(err, "failed to set chainID")
 	}
 
-	engineInstance := engine.New(workers.CreateGroup("Engine"), s, dpos.NewProvider(), mana1.NewProvider(), engine.WithLedgerOptions(ledger.WithVM(opt.vm)))
+	engineInstance := engine.New(workers.CreateGroup("Engine"), s, dpos.NewProvider(), mana1.NewProvider(), opt.SlotTimeProvider, engine.WithLedgerOptions(ledger.WithVM(opt.vm)))
 	defer engineInstance.Shutdown()
 
 	err = opt.createGenesisOutput(engineInstance)
 	if err != nil {
 		return err
 	}
-	engineInstance.NotarizationManager.Attestations.SetLastCommittedEpoch(-1)
+	engineInstance.NotarizationManager.Attestations.SetLastCommittedSlot(-1)
 
 	i := 0
 	nodesToPledge, err := opt.createPledgeMap()
@@ -102,7 +101,7 @@ func CreateSnapshot(opts ...options.Option[Options]) (err error) {
 func (m *Options) attest(engineInstance *engine.Engine, nodePublicKey ed25519.PublicKey) error {
 	if _, err := engineInstance.NotarizationManager.Attestations.Add(&notarization.Attestation{
 		IssuerPublicKey: nodePublicKey,
-		IssuingTime:     time.Unix(slotTimeProvider.GenesisUnixTime()-1, 0),
+		IssuingTime:     time.Unix(m.SlotTimeProvider.GenesisUnixTime()-1, 0),
 	}); err != nil {
 		return err
 	}

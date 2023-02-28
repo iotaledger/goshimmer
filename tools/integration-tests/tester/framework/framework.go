@@ -148,6 +148,7 @@ func createSnapshot(snapshotInfo []options.Option[snapshotcreator.Options], star
 		snapshotcreator.WithVM(new(devnetvm.VM)),
 		snapshotcreator.WithAttestAll(startSynced),
 		snapshotcreator.WithGenesisSeed(GenesisSeedBytes),
+		snapshotcreator.WithSlotTimeProvider(slot.NewTimeProvider(slot.WithGenesisUnixTime(time.Now().Unix()))),
 	}
 	err := snapshotcreator.CreateSnapshot(
 		append(defaultOpts, snapshotInfo...)...,

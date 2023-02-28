@@ -43,6 +43,8 @@ func NewEngineManagerTestFramework(t *testing.T, workers *workerpool.Group, slot
 		snapshotcreator.WithPeersPublicKeys(lo.Keys(identitiesWeights)),
 		snapshotcreator.WithVM(ledgerVM),
 		snapshotcreator.WithPeersAmountsPledged(lo.Values(identitiesWeights)),
+		snapshotcreator.WithSlotTimeProvider(slotTimeProvider),
+		snapshotcreator.WithAttestAll(true),
 	)
 	require.NoError(t, err2)
 

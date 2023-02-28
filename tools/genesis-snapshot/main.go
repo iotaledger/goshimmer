@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/mr-tron/base58"
@@ -44,17 +43,13 @@ func main() {
 	opts = append(opts, parsedOpts...)
 	info := snapshotcreator.NewOptions(opts...)
 
-	//TODO: allow passing genesis time as param
-	slotTimeProvider := slot.NewTimeProvider(slot.WithGenesisUnixTime(time.Now().Unix()))
-
-
 	log.Printf("creating snapshot with config: %s... %s", configSelected, info.FilePath)
 	err := snapshotcreator.CreateSnapshot(opts...)
 	if err != nil {
 		panic(err)
 	}
 	if checkValidity {
-		diagnosticPrintSnapshotFromFile(info.FilePath)
+		diagnosticPrintSnapshotFromFile(info.FilePath, info.SlotTimeProvider)
 	}
 }
 
@@ -87,11 +82,11 @@ func createTempStorage() (s *storage.Storage) {
 	return storage.New(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), protocol.DatabaseVersion)
 }
 
-func diagnosticPrintSnapshotFromFile(filePath string) {
+func diagnosticPrintSnapshotFromFile(filePath string, provider *slot.TimeProvider) {
 	s := createTempStorage()
 	defer s.Shutdown()
 
-	e := engine.New(workerpool.NewGroup("Diagnostics"), s, dpos.NewProvider(), mana1.NewProvider(), slotTimeProvider)
+	e := engine.New(workerpool.NewGroup("Diagnostics"), s, dpos.NewProvider(), mana1.NewProvider(), provider)
 	defer e.Shutdown()
 
 	if err := e.Initialize(filePath); err != nil {

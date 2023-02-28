@@ -60,6 +60,9 @@ func TestProtocol(t *testing.T) {
 		identity.GenerateIdentity().PublicKey(): 100,
 	}
 	tempDir := utils.NewDirectory(t.TempDir())
+
+	protocol1 := protocol.New(workers.CreateGroup("Protocol1"), endpoint1, protocol.WithBaseDirectory(tempDir.Path()), protocol.WithSnapshotPath(tempDir.Path("snapshot.bin")), protocol.WithEngineOptions(engine.WithLedgerOptions(ledger.WithVM(ledgerVM))))
+
 	err := snapshotcreator.CreateSnapshot(
 		snapshotcreator.WithDatabaseVersion(protocol.DatabaseVersion),
 		snapshotcreator.WithFilePath(tempDir.Path("snapshot.bin")),
@@ -67,11 +70,9 @@ func TestProtocol(t *testing.T) {
 		snapshotcreator.WithGenesisSeed(make([]byte, 32)),
 		snapshotcreator.WithPledgeIDs(identitiesWeights),
 		snapshotcreator.WithVM(ledgerVM),
-		snapshotcreator.WithSlotTimeProvider(slotTimeProvider),
+		snapshotcreator.WithSlotTimeProvider(protocol1.SlotTimeProvider),
 	)
 	require.NoError(t, err)
-
-	protocol1 := protocol.New(workers.CreateGroup("Protocol1"), endpoint1, protocol.WithBaseDirectory(tempDir.Path()), protocol.WithSnapshotPath(tempDir.Path("snapshot.bin")), protocol.WithEngineOptions(engine.WithLedgerOptions(ledger.WithVM(ledgerVM))))
 
 	protocol1.Run()
 	t.Cleanup(protocol1.Shutdown)
