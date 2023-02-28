@@ -328,30 +328,32 @@ func (b *Booker) inheritConflictIDs(block *virtualvoting.Block) (inheritedConfli
 	strongParentsStructureDetails := b.determineStrongParentsStructureDetails(block)
 	newStructureDetails, newSequenceCreated := b.markerManager.SequenceManager.InheritStructureDetails(strongParentsStructureDetails, allParentsInPastEpochs)
 
-	var pastMarkersConflictIDs utxo.TransactionIDs
-	if newStructureDetails.IsPastMarker() {
-		b.sequenceMutex.Lock(newStructureDetails.PastMarkers().Marker().SequenceID())
+	pastMarkersConflictIDs, err := func() (pastMarkersConflictIDs *advancedset.AdvancedSet[utxo.TransactionID], err error) {
+		// Prevent race-condition by write-locking the sequence we are writing conflicts mapping to and read-locking
+		// sequences we are reading such mappings from.
+		if newStructureDetails.IsPastMarker() {
+			b.sequenceMutex.Lock(newStructureDetails.PastMarkers().Marker().SequenceID())
+			defer b.sequenceMutex.Unlock(newStructureDetails.PastMarkers().Marker().SequenceID())
+		} else {
+			sequenceIDs := make([]markers.SequenceID, 0)
+			newStructureDetails.PastMarkers().ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
+				sequenceIDs = append(sequenceIDs, sequenceID)
+				return true
+			})
+			b.sequenceMutex.RLock(sequenceIDs...)
+			defer b.sequenceMutex.RUnlock(sequenceIDs...)
+		}
+
 		pastMarkersConflictIDs, inheritedConflictIDs, err = b.determineBookingConflictIDs(block)
 		if err != nil {
-			b.sequenceMutex.Unlock(newStructureDetails.PastMarkers().Marker().SequenceID())
 			return nil, errors.Wrap(err, "failed to determine booking conflict IDs")
 		}
 		b.markerManager.ProcessBlock(block, newSequenceCreated, inheritedConflictIDs, newStructureDetails)
-		b.sequenceMutex.Unlock(newStructureDetails.PastMarkers().Marker().SequenceID())
-	} else {
-		sequenceIDs := make([]markers.SequenceID, 0)
-		newStructureDetails.PastMarkers().ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
-			sequenceIDs = append(sequenceIDs, sequenceID)
-			return true
-		})
-		b.sequenceMutex.RLock(sequenceIDs...)
-		pastMarkersConflictIDs, inheritedConflictIDs, err = b.determineBookingConflictIDs(block)
-		if err != nil {
-			b.sequenceMutex.RUnlock(sequenceIDs...)
-			return nil, errors.Wrap(err, "failed to determine booking conflict IDs")
-		}
-		b.markerManager.ProcessBlock(block, newSequenceCreated, inheritedConflictIDs, newStructureDetails)
-		b.sequenceMutex.RUnlock(sequenceIDs...)
+
+		return pastMarkersConflictIDs, nil
+	}()
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to inherit conflict IDs of block with %s", block.ID())
 	}
 
 	block.SetStructureDetails(newStructureDetails)
