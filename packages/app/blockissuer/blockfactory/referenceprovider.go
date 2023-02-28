@@ -225,7 +225,9 @@ func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, exclude
 	likedConflictID, dislikedConflictIDs := engineInstance.Consensus.ConflictResolver.AdjustOpinion(conflictID)
 
 	if likedConflictID.IsEmpty() {
-		panic("likedConflictID empty when trying to adjust opinion!")
+		return false, models.EmptyBlockID, errors.Errorf("likedConflictID empty when trying to adjust opinion for %s", conflictID)
+		// TODO: re-introduce this, as it should never happen, especially without conflict eviction
+		//panic("likedConflictID empty when trying to adjust opinion!")
 	}
 
 	if likedConflictID == conflictID {
