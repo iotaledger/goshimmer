@@ -18,8 +18,8 @@ type Commitment struct {
 }
 
 type commitment struct {
-	Index  slot.Index `serix:"0"`
-	PrevID ID         `serix:"1"`
+	Index            slot.Index       `serix:"0"`
+	PrevID           ID               `serix:"1"`
 	RootsID          types.Identifier `serix:"2"`
 	CumulativeWeight int64            `serix:"3"`
 }
