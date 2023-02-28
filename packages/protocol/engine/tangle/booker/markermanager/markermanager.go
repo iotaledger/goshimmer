@@ -7,7 +7,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/ds/set"
 	"github.com/iotaledger/hive.go/ds/shrinkingmap"
 	"github.com/iotaledger/hive.go/runtime/options"
@@ -137,7 +136,7 @@ func (m *MarkerManager[IndexedID, MappedEntity]) registerSequenceEviction(index 
 // region MarkerIndexConflictIDMapping /////////////////////////////////////////////////////////////////////////////////
 
 // ConflictIDsFromStructureDetails returns the ConflictIDs from StructureDetails.
-func (m *MarkerManager[IndexedID, MappedEntity]) ConflictIDsFromStructureDetails(blockID models.BlockID, structureDetails *markers.StructureDetails) (structureDetailsConflictIDs utxo.TransactionIDs) {
+func (m *MarkerManager[IndexedID, MappedEntity]) ConflictIDsFromStructureDetails(structureDetails *markers.StructureDetails) (structureDetailsConflictIDs utxo.TransactionIDs) {
 	structureDetailsConflictIDs = utxo.NewTransactionIDs()
 
 	structureDetails.PastMarkers().ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {

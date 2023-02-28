@@ -359,7 +359,7 @@ func (b *Booker) inheritConflictIDs(block *virtualvoting.Block) (inheritedConfli
 	block.SetStructureDetails(newStructureDetails)
 
 	if !newStructureDetails.IsPastMarker() {
-		newStructureDetailsConflictIDs := b.markerManager.ConflictIDsFromStructureDetails(block.ID(), newStructureDetails)
+		newStructureDetailsConflictIDs := b.markerManager.ConflictIDsFromStructureDetails(newStructureDetails)
 
 		addedConflictIDs := inheritedConflictIDs.Clone()
 		addedConflictIDs.DeleteAll(newStructureDetailsConflictIDs)
@@ -519,21 +519,19 @@ func (b *Booker) blockBookingDetails(block *virtualvoting.Block) (pastMarkersCon
 	b.rLockBlockSequences(block)
 	defer b.rUnlockBlockSequences(block)
 
-	pastMarkersConflictIDs = b.markerManager.ConflictIDsFromStructureDetails(block.ID(), block.StructureDetails())
+	pastMarkersConflictIDs = b.markerManager.ConflictIDsFromStructureDetails(block.StructureDetails())
 
 	blockConflictIDs = utxo.NewTransactionIDs()
 	blockConflictIDs.AddAll(pastMarkersConflictIDs)
 
-	addedConflictIDs := block.AddedConflictIDs()
-	if !addedConflictIDs.IsEmpty() {
+	if addedConflictIDs := block.AddedConflictIDs(); !addedConflictIDs.IsEmpty() {
 		blockConflictIDs.AddAll(addedConflictIDs)
 	}
 
 	// We always need to subtract all conflicts in the future cone of the SubtractedConflictIDs due to the fact that
 	// conflicts in the future cone can be propagated later. Specifically, through changing a marker mapping, the base
 	// of the block's conflicts changes, and thus it might implicitly "inherit" conflicts that were previously removed.
-	subtractedConflictIDs := b.Ledger.Utils.ConflictIDsInFutureCone(block.SubtractedConflictIDs())
-	if !subtractedConflictIDs.IsEmpty() {
+	if subtractedConflictIDs := b.Ledger.Utils.ConflictIDsInFutureCone(block.SubtractedConflictIDs()); !subtractedConflictIDs.IsEmpty() {
 		blockConflictIDs.DeleteAll(subtractedConflictIDs)
 	}
 
