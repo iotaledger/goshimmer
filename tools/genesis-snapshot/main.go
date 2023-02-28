@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/mr-tron/base58"
 	flag "github.com/spf13/pflag"
 
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
@@ -41,6 +43,10 @@ func main() {
 	}
 	opts = append(opts, parsedOpts...)
 	info := snapshotcreator.NewOptions(opts...)
+
+	//TODO: allow passing genesis time as param
+	slotTimeProvider := slot.NewTimeProvider(slot.WithGenesisUnixTime(time.Now().Unix()))
+
 
 	log.Printf("creating snapshot with config: %s... %s", configSelected, info.FilePath)
 	err := snapshotcreator.CreateSnapshot(opts...)
@@ -85,7 +91,7 @@ func diagnosticPrintSnapshotFromFile(filePath string) {
 	s := createTempStorage()
 	defer s.Shutdown()
 
-	e := engine.New(workerpool.NewGroup("Diagnostics"), s, dpos.NewProvider(), mana1.NewProvider())
+	e := engine.New(workerpool.NewGroup("Diagnostics"), s, dpos.NewProvider(), mana1.NewProvider(), slotTimeProvider)
 	defer e.Shutdown()
 
 	if err := e.Initialize(filePath); err != nil {

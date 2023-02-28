@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol"
@@ -43,7 +43,7 @@ type Node struct {
 	mutex sync.RWMutex
 }
 
-func NewNode(t *testing.T, keyPair ed25519.KeyPair, network *network.MockedNetwork, partition string, snapshotPath string, engineOpts ...options.Option[engine.Engine]) *Node {
+func NewNode(t *testing.T, keyPair ed25519.KeyPair, network *network.MockedNetwork, partition string, snapshotPath string, slotTimeProvider *slot.TimeProvider, engineOpts ...options.Option[engine.Engine]) *Node {
 	id := identity.New(keyPair.PublicKey)
 
 	node := &Node{
@@ -58,6 +58,10 @@ func NewNode(t *testing.T, keyPair ed25519.KeyPair, network *network.MockedNetwo
 
 	node.Protocol = protocol.New(node.Workers.CreateGroup("Protocol"),
 		node.Endpoint,
+		protocol.WithSlotTimeProviderOptions(
+			slot.WithSlotDuration(slotTimeProvider.Duration()),
+			slot.WithGenesisUnixTime(slotTimeProvider.GenesisUnixTime()),
+		),
 		protocol.WithBaseDirectory(tempDir.Path()),
 		protocol.WithSnapshotPath(snapshotPath),
 		protocol.WithEngineOptions(engineOpts...),
@@ -149,12 +153,12 @@ func (n *Node) HookLogging(includeMainEngine bool) {
 		fmt.Printf("%s > Network.AttestationsRequestReceived: from %s %s -> %d\n", n.Name, event.Source, event.Commitment.ID(), event.EndIndex)
 	})
 
-	events.Network.EpochCommitmentReceived.Hook(func(event *network.EpochCommitmentReceivedEvent) {
-		fmt.Printf("%s > Network.EpochCommitmentReceived: from %s %s\n", n.Name, event.Source, event.Commitment.ID())
+	events.Network.SlotCommitmentReceived.Hook(func(event *network.SlotCommitmentReceivedEvent) {
+		fmt.Printf("%s > Network.SlotCommitmentReceived: from %s %s\n", n.Name, event.Source, event.Commitment.ID())
 	})
 
-	events.Network.EpochCommitmentRequestReceived.Hook(func(event *network.EpochCommitmentRequestReceivedEvent) {
-		fmt.Printf("%s > Network.EpochCommitmentRequestReceived: from %s %s\n", n.Name, event.Source, event.CommitmentID)
+	events.Network.SlotCommitmentRequestReceived.Hook(func(event *network.SlotCommitmentRequestReceivedEvent) {
+		fmt.Printf("%s > Network.SlotCommitmentRequestReceived: from %s %s\n", n.Name, event.Source, event.CommitmentID)
 	})
 
 	events.Network.Error.Hook(func(event *network.ErrorEvent) {
@@ -227,8 +231,8 @@ func (n *Node) attachEngineLogs(instance *enginemanager.EngineInstance) {
 		fmt.Printf("%s > [%s] Engine.Error: %s\n", n.Name, engineName, err.Error())
 	})
 
-	events.NotarizationManager.EpochCommitted.Hook(func(details *notarization.EpochCommittedDetails) {
-		fmt.Printf("%s > [%s] NotarizationManager.EpochCommitted: %s %s\n", n.Name, engineName, details.Commitment.ID(), details.Commitment)
+	events.NotarizationManager.SlotCommitted.Hook(func(details *notarization.SlotCommittedDetails) {
+		fmt.Printf("%s > [%s] NotarizationManager.SlotCommitted: %s %s\n", n.Name, engineName, details.Commitment.ID(), details.Commitment)
 	})
 
 	events.Consensus.BlockGadget.BlockAccepted.Hook(func(block *blockgadget.Block) {
@@ -239,8 +243,8 @@ func (n *Node) attachEngineLogs(instance *enginemanager.EngineInstance) {
 		fmt.Printf("%s > [%s] Consensus.BlockGadget.BlockConfirmed: %s %s\n", n.Name, engineName, block.ID(), block.Commitment().ID())
 	})
 
-	events.Consensus.EpochGadget.EpochConfirmed.Hook(func(epochIndex epoch.Index) {
-		fmt.Printf("%s > [%s] Consensus.EpochGadget.EpochConfirmed: %s\n", n.Name, engineName, epochIndex)
+	events.Consensus.SlotGadget.SlotConfirmed.Hook(func(slotIndex slot.Index) {
+		fmt.Printf("%s > [%s] Consensus.SlotGadget.SlotConfirmed: %s\n", n.Name, engineName, slotIndex)
 	})
 }
 
@@ -248,11 +252,11 @@ func (n *Node) Wait() {
 	n.Workers.WaitChildren()
 }
 
-func (n *Node) IssueBlockAtEpoch(alias string, epochIndex epoch.Index, parents ...models.BlockID) *models.Block {
+func (n *Node) IssueBlockAtSlot(alias string, slotIndex slot.Index, parents ...models.BlockID) *models.Block {
 	tf := n.EngineTestFramework()
 
-	issuingTime := time.Unix(epoch.GenesisTime+int64(epochIndex-1)*epoch.Duration, 0)
-	require.True(n.Testing, issuingTime.Before(time.Now()), "issued block is in the current or future epoch")
+	issuingTime := time.Unix(tf.Instance.SlotTimeProvider.GenesisUnixTime()+int64(slotIndex-1)*tf.Instance.SlotTimeProvider.Duration(), 0)
+	require.True(n.Testing, issuingTime.Before(time.Now()), "issued block is in the current or future slot")
 	tf.BlockDAG.CreateAndSignBlock(alias, &n.KeyPair,
 		models.WithStrongParents(models.NewBlockIDs(parents...)),
 		models.WithIssuingTime(issuingTime),
@@ -261,7 +265,7 @@ func (n *Node) IssueBlockAtEpoch(alias string, epochIndex epoch.Index, parents .
 	tf.BlockDAG.IssueBlocks(alias)
 	fmt.Println(n.Name, alias, n.Workers)
 	block := tf.BlockDAG.Block(alias)
-	fmt.Printf("%s > IssueBlockAtEpoch: %s with %s\n", n.Name, block.ID(), block.Commitment().ID())
+	fmt.Printf("%s > IssueBlockAtSlot: %s with %s\n", n.Name, block.ID(), block.Commitment().ID())
 	return block
 }
 
@@ -282,16 +286,19 @@ func (n *Node) IssueActivity(duration time.Duration) {
 		fmt.Println(n.Name, "> Starting activity")
 		var counter int
 		for {
-			tips := n.Protocol.TipManager.Tips(1)
-			if !n.issueActivityBlock(fmt.Sprintf("%s.%d", n.Name, counter), tips.Slice()...) {
-				fmt.Println(n.Name, "> Stopped activity due to block not being issued")
-				return
-			}
-			counter++
-			time.Sleep(1 * time.Second)
-			if duration > 0 && time.Since(start) > duration {
-				fmt.Println(n.Name, "> Stopped activity after", time.Since(start))
-				return
+			if tips := n.Protocol.TipManager.Tips(1); len(tips) > 0 {
+				if !n.issueActivityBlock(fmt.Sprintf("%s.%d", n.Name, counter), tips.Slice()...) {
+					fmt.Println(n.Name, "> Stopped activity due to block not being issued")
+					return
+				}
+				counter++
+				time.Sleep(1 * time.Second)
+				if duration > 0 && time.Since(start) > duration {
+					fmt.Println(n.Name, "> Stopped activity after", time.Since(start))
+					return
+				}
+			} else {
+				fmt.Println(n.Name, "> Skipped activity due lack of strong parents")
 			}
 		}
 	}()
@@ -319,7 +326,7 @@ func (n *Node) ValidateAcceptedBlocks(expectedAcceptedBlocks map[models.BlockID]
 	}
 }
 
-func (n *Node) AssertEqualChainsAtLeastAtEpoch(index epoch.Index, other *Node) {
+func (n *Node) AssertEqualChainsAtLeastAtSlot(index slot.Index, other *Node) {
 	lastCommitment := n.Protocol.Engine().Storage.Settings.LatestCommitment()
 	otherLastCommitment := other.Protocol.Engine().Storage.Settings.LatestCommitment()
 

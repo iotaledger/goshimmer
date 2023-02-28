@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
@@ -27,7 +28,7 @@ type EngineManagerTestFramework struct {
 	ActiveEngine *enginemanager.EngineInstance
 }
 
-func NewEngineManagerTestFramework(t *testing.T, workers *workerpool.Group, identitiesWeights map[ed25519.PublicKey]uint64) *EngineManagerTestFramework {
+func NewEngineManagerTestFramework(t *testing.T, workers *workerpool.Group, slotTimeProvider *slot.TimeProvider, identitiesWeights map[ed25519.PublicKey]uint64) *EngineManagerTestFramework {
 	tf := &EngineManagerTestFramework{}
 
 	ledgerVM := new(devnetvm.VM)
@@ -53,7 +54,9 @@ func NewEngineManagerTestFramework(t *testing.T, workers *workerpool.Group, iden
 			engine.WithLedgerOptions(ledger.WithVM(ledgerVM)),
 		},
 		dpos.NewProvider(),
-		mana1.NewProvider())
+		mana1.NewProvider(),
+		slotTimeProvider,
+	)
 
 	var err error
 	tf.ActiveEngine, err = tf.EngineManager.LoadActiveEngine()

@@ -204,11 +204,11 @@ export class ExplorerBlockQueryResult extends React.Component<Props, any> {
                                         Time: {dateformat(new Date(blk.confirmationTime * 1000), "dd.mm.yyyy HH:MM:ss")}
                                     </ListGroup.Item>
                                     <ListGroup.Item>
-                                        Confirmation by epoch: {blk.confirmationByEpoch ? 'Yes' : 'No'}
+                                        Confirmation by slot: {blk.confirmationBySlot ? 'Yes' : 'No'}
                                     </ListGroup.Item>
                                     <ListGroup.Item>
-                                        Confirmation by epoch
-                                        time: {dateformat(new Date(blk.confirmationByEpochTime * 1000), "dd.mm.yyyy HH:MM:ss")}
+                                        Confirmation by slot
+                                        time: {dateformat(new Date(blk.confirmationBySlotTime * 1000), "dd.mm.yyyy HH:MM:ss")}
                                     </ListGroup.Item>
                                 </ListGroup>
                             </Col>
@@ -217,7 +217,7 @@ export class ExplorerBlockQueryResult extends React.Component<Props, any> {
                         {
                             <Row className={"mb-3"}>
                                 <Col>
-                                    <h5>Epoch Commitment</h5>
+                                    <h5>Slot Commitment</h5>
                                     <ListGroup>
                                         <ListGroup.Item>
                                             EC: {blk.ec}
@@ -239,7 +239,7 @@ export class ExplorerBlockQueryResult extends React.Component<Props, any> {
                                             </ListGroup>
                                         </ListGroup.Item>
                                         <ListGroup.Item>
-                                            LatestConfirmedEpoch: {blk.latestConfirmedEpoch}
+                                            LatestConfirmedSlot: {blk.latestConfirmedSlot}
                                         </ListGroup.Item>
                                     </ListGroup>
                                 </Col>

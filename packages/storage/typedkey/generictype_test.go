@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/hive.go/core/types"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 )
@@ -37,7 +37,7 @@ func Test(t *testing.T) {
 
 // Commitment is a somewhat complex type used to test the storable Type.
 type Commitment struct {
-	Index            epoch.Index
+	Index            slot.Index
 	PrevID           types.Identifier
 	RootsID          types.Identifier
 	CumulativeWeight int64

@@ -8,8 +8,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/causalorder"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markermanager"
@@ -38,7 +38,7 @@ type Booker struct {
 	VirtualVoting *virtualvoting.VirtualVoting
 	bookingOrder  *causalorder.CausalOrder[models.BlockID, *virtualvoting.Block]
 	attachments   *attachments
-	blocks        *memstorage.EpochStorage[models.BlockID, *virtualvoting.Block]
+	blocks        *memstorage.SlotStorage[models.BlockID, *virtualvoting.Block]
 	markerManager *markermanager.MarkerManager[models.BlockID, *virtualvoting.Block]
 	bookingMutex  *syncutils.DAGMutex[models.BlockID]
 	evictionMutex sync.RWMutex
@@ -55,7 +55,7 @@ func New(workers *workerpool.Group, blockDAG *blockdag.BlockDAG, ledger *ledger.
 	return options.Apply(&Booker{
 		Events:            NewEvents(),
 		attachments:       newAttachments(),
-		blocks:            memstorage.NewEpochStorage[models.BlockID, *virtualvoting.Block](),
+		blocks:            memstorage.NewSlotStorage[models.BlockID, *virtualvoting.Block](),
 		bookingMutex:      syncutils.NewDAGMutex[models.BlockID](),
 		optsMarkerManager: make([]options.Option[markermanager.MarkerManager[models.BlockID, *virtualvoting.Block]], 0),
 		optsVirtualVoting: make([]options.Option[virtualvoting.VirtualVoting], 0),
@@ -74,7 +74,7 @@ func New(workers *workerpool.Group, blockDAG *blockdag.BlockDAG, ledger *ledger.
 			causalorder.WithReferenceValidator[models.BlockID](isReferenceValid),
 		)
 
-		blockDAG.EvictionState.Events.EpochEvicted.Hook(b.evict)
+		blockDAG.EvictionState.Events.SlotEvicted.Hook(b.evict)
 
 		b.Events.VirtualVoting = b.VirtualVoting.Events
 		b.Events.MarkerManager = b.markerManager.Events
@@ -94,7 +94,7 @@ func (b *Booker) queue(block *virtualvoting.Block) (wasQueued bool, err error) {
 	b.evictionMutex.RLock()
 	defer b.evictionMutex.RUnlock()
 
-	if b.BlockDAG.EvictionState.InEvictedEpoch(block.ID()) {
+	if b.BlockDAG.EvictionState.InEvictedSlot(block.ID()) {
 		return false, nil
 	}
 
@@ -127,7 +127,7 @@ func (b *Booker) BlockBookingDetails(block *virtualvoting.Block) (pastMarkersCon
 
 // TransactionConflictIDs returns the ConflictIDs of the Transaction contained in the given Block including conflicts from the UTXO past cone.
 func (b *Booker) TransactionConflictIDs(block *virtualvoting.Block) (conflictIDs utxo.TransactionIDs) {
-	if b.BlockDAG.EvictionState.InEvictedEpoch(block.ID()) {
+	if b.BlockDAG.EvictionState.InEvictedSlot(block.ID()) {
 		return utxo.NewTransactionIDs()
 	}
 
@@ -149,7 +149,7 @@ func (b *Booker) TransactionConflictIDs(block *virtualvoting.Block) (conflictIDs
 func (b *Booker) PayloadConflictID(block *virtualvoting.Block) (conflictID utxo.TransactionID, conflictingConflictIDs utxo.TransactionIDs, isTransaction bool) {
 	conflictingConflictIDs = utxo.NewTransactionIDs()
 
-	if b.BlockDAG.EvictionState.InEvictedEpoch(block.ID()) {
+	if b.BlockDAG.EvictionState.InEvictedSlot(block.ID()) {
 		return conflictID, conflictingConflictIDs, false
 	}
 
@@ -222,15 +222,15 @@ func (b *Booker) GetAllAttachments(txID utxo.TransactionID) (attachments *advanc
 	return b.attachments.GetAttachmentBlocks(txID)
 }
 
-func (b *Booker) evict(epochIndex epoch.Index) {
-	b.bookingOrder.EvictUntil(epochIndex)
+func (b *Booker) evict(slotIndex slot.Index) {
+	b.bookingOrder.EvictUntil(slotIndex)
 
 	b.evictionMutex.Lock()
 	defer b.evictionMutex.Unlock()
 
-	b.attachments.Evict(epochIndex)
-	b.markerManager.Evict(epochIndex)
-	b.blocks.Evict(epochIndex)
+	b.attachments.Evict(slotIndex)
+	b.markerManager.Evict(slotIndex)
+	b.blocks.Evict(slotIndex)
 }
 
 func (b *Booker) isPayloadSolid(block *virtualvoting.Block) (isPayloadSolid bool, err error) {
@@ -255,7 +255,7 @@ func (b *Booker) isPayloadSolid(block *virtualvoting.Block) (isPayloadSolid bool
 // block retrieves the Block with given id from the mem-storage.
 func (b *Booker) block(id models.BlockID) (block *virtualvoting.Block, exists bool) {
 	if b.BlockDAG.EvictionState.IsRootBlock(id) {
-		return virtualvoting.NewRootBlock(id), true
+		return virtualvoting.NewRootBlock(id, b.BlockDAG.SlotTimeProvider), true
 	}
 
 	storage := b.blocks.Get(id.Index(), false)
@@ -281,8 +281,8 @@ func (b *Booker) book(block *virtualvoting.Block) (inheritingErr error) {
 		b.evictionMutex.RLock()
 		defer b.evictionMutex.RUnlock()
 
-		if b.BlockDAG.EvictionState.InEvictedEpoch(block.ID()) {
-			return nil, errors.Errorf("block with %s belongs to an evicted epoch", block.ID())
+		if b.BlockDAG.EvictionState.InEvictedSlot(block.ID()) {
+			return nil, errors.Errorf("block with %s belongs to an evicted slot", block.ID())
 		}
 
 		if inheritedConflictIDs, err = b.inheritConflictIDs(block); err != nil {
@@ -320,15 +320,15 @@ func (b *Booker) inheritConflictIDs(block *virtualvoting.Block) (inheritedConfli
 		return nil, errors.Wrap(err, "failed to inherit conflict IDs")
 	}
 
-	allParentsInPastEpochs := true
+	allParentsInPastSlots := true
 	for parentID := range block.ParentsByType(models.StrongParentType) {
 		if parentID.Index() >= block.ID().Index() {
-			allParentsInPastEpochs = false
+			allParentsInPastSlots = false
 			break
 		}
 	}
 
-	newStructureDetails := b.markerManager.ProcessBlock(block, allParentsInPastEpochs, parentsStructureDetails, inheritedConflictIDs)
+	newStructureDetails := b.markerManager.ProcessBlock(block, allParentsInPastSlots, parentsStructureDetails, inheritedConflictIDs)
 
 	block.SetStructureDetails(newStructureDetails)
 

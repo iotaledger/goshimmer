@@ -53,7 +53,7 @@ func NewSet[K any, KPtr constraints.MarshalablePtr[K]](store kvstore.KVStore) (n
 	return
 }
 
-// Root returns the root of the state sparse merkle tree at the latest committed epoch.
+// Root returns the root of the state sparse merkle tree at the latest committed slot.
 func (s *Set[K, KPtr]) Root() (root types.Identifier) {
 	if s == nil {
 		return types.Identifier{}

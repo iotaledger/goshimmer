@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -35,7 +35,7 @@ func TestReferenceProvider_References1(t *testing.T) {
 
 	workers.WaitChildren()
 
-	rp := NewReferenceProvider(tf.Instance, 30*time.Second, func() epoch.Index {
+	rp := NewReferenceProvider(tf.Instance, 30*time.Second, func() slot.Index {
 		return 0
 	})
 
@@ -61,7 +61,7 @@ func TestBlockFactory_PrepareLikedReferences_2(t *testing.T) {
 	tf.Engine.BlockDAG.IssueBlocks("Block0", "Block1", "Block2", "Block3", "Block4")
 	workers.WaitChildren()
 
-	rp := NewReferenceProvider(tf.Instance, tscThreshold, func() epoch.Index {
+	rp := NewReferenceProvider(tf.Instance, tscThreshold, func() slot.Index {
 		return 0
 	})
 
@@ -115,7 +115,7 @@ func TestBlockFactory_WeakReferencesConsumed(t *testing.T) {
 	tf.Engine.BlockDAG.IssueBlocks("Block1", "Block2", "Block3", "Block4")
 	workers.WaitChildren()
 
-	rp := NewReferenceProvider(tf.Instance, tscThreshold, func() epoch.Index {
+	rp := NewReferenceProvider(tf.Instance, tscThreshold, func() slot.Index {
 		return 0
 	})
 

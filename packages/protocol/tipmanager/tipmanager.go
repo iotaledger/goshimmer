@@ -7,8 +7,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
@@ -39,20 +39,20 @@ type TipManager struct {
 	workers                     *workerpool.Group
 	schedulerBlockRetrieverFunc blockRetrieverFunc
 
-	walkerCache *memstorage.EpochStorage[models.BlockID, types.Empty]
+	walkerCache *memstorage.SlotStorage[models.BlockID, types.Empty]
 
 	mutex               sync.RWMutex
 	tips                *randommap.RandomMap[models.BlockID, *scheduler.Block]
 	TipsConflictTracker *TipsConflictTracker
 
-	commitmentRecentBoundary epoch.Index
+	commitmentRecentBoundary slot.Index
 
 	optsTimeSinceConfirmationThreshold time.Duration
 	optsWidth                          int
 }
 
 // New creates a new TipManager.
-func New(workers *workerpool.Group, schedulerBlockRetrieverFunc blockRetrieverFunc, opts ...options.Option[TipManager]) (t *TipManager) {
+func New(workers *workerpool.Group, slotTimeProvider *slot.TimeProvider, schedulerBlockRetrieverFunc blockRetrieverFunc, opts ...options.Option[TipManager]) (t *TipManager) {
 	t = options.Apply(&TipManager{
 		Events: NewEvents(),
 
@@ -61,13 +61,13 @@ func New(workers *workerpool.Group, schedulerBlockRetrieverFunc blockRetrieverFu
 
 		tips: randommap.New[models.BlockID, *scheduler.Block](),
 
-		walkerCache: memstorage.NewEpochStorage[models.BlockID, types.Empty](),
+		walkerCache: memstorage.NewSlotStorage[models.BlockID, types.Empty](),
 
 		optsTimeSinceConfirmationThreshold: time.Minute,
 		optsWidth:                          0,
 	}, opts)
 
-	t.commitmentRecentBoundary = epoch.Index(int64(t.optsTimeSinceConfirmationThreshold.Seconds()) / epoch.Duration)
+	t.commitmentRecentBoundary = slot.Index(int64(t.optsTimeSinceConfirmationThreshold.Seconds()) / slotTimeProvider.Duration())
 
 	return
 }
@@ -76,7 +76,7 @@ func (t *TipManager) LinkTo(engine *engine.Engine) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	t.walkerCache = memstorage.NewEpochStorage[models.BlockID, types.Empty]()
+	t.walkerCache = memstorage.NewSlotStorage[models.BlockID, types.Empty]()
 	t.tips = randommap.New[models.BlockID, *scheduler.Block]()
 
 	t.engine = engine
@@ -116,7 +116,7 @@ func (t *TipManager) AddTipNonMonotonic(block *scheduler.Block) {
 	}
 }
 
-func (t *TipManager) EvictTSCCache(index epoch.Index) {
+func (t *TipManager) EvictTSCCache(index slot.Index) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
@@ -172,41 +172,36 @@ func (t *TipManager) selectTips(count int) (parents models.BlockIDs) {
 	defer t.mutex.Unlock()
 
 	parents = models.NewBlockIDs()
-	for {
-		tips := t.tips.RandomUniqueEntries(count)
+	tips := t.tips.RandomUniqueEntries(count)
 
-		// We obtain up to 8 latest root blocks if there is no valid tip and we submit them to the TSC check as some
-		// could be old in case of a slow growing BlockDAG.
-		if len(tips) == 0 {
-			rootBlocks := t.engine.EvictionState.LatestRootBlocks()
+	// We obtain up to 8 latest root blocks if there is no valid tip and we submit them to the TSC check as some
+	// could be old in case of a slow growing BlockDAG.
+	if len(tips) == 0 {
+		rootBlocks := t.engine.EvictionState.LatestRootBlocks()
 
-			for blockID := range rootBlocks {
-				if block, exist := t.schedulerBlockRetrieverFunc(blockID); exist {
-					tips = append(tips, block)
-				}
-			}
-			fmt.Println("(time: ", time.Now(), ") selecting root blocks because tip pool empty:", rootBlocks)
-		}
-
-		// at least one tip is returned
-		for _, tip := range tips {
-			if err := t.isValidTip(tip); err == nil {
-				parents.Add(tip.ID())
-			} else {
-				t.deleteTip(tip)
-
-				// DEBUG
-				fmt.Printf("(time: %s) cannot select tip due to error: %s\n", time.Now(), err)
-				if t.tips.Size() == 0 {
-					fmt.Println("(time: ", time.Now(), ") >> deleted last TIP because it doesn't pass checks!", tip.ID())
-				}
+		for blockID := range rootBlocks {
+			if block, exist := t.schedulerBlockRetrieverFunc(blockID); exist {
+				tips = append(tips, block)
 			}
 		}
+		fmt.Println("(time: ", time.Now(), ") selecting root blocks because tip pool empty:", rootBlocks)
+	}
 
-		if len(parents) > 0 {
-			return parents
+	for _, tip := range tips {
+		if err := t.isValidTip(tip); err == nil {
+			parents.Add(tip.ID())
+		} else {
+			t.deleteTip(tip)
+
+			// DEBUG
+			fmt.Printf("(time: %s) cannot select tip due to error: %s\n", time.Now(), err)
+			if t.tips.Size() == 0 {
+				fmt.Println("(time: ", time.Now(), ") >> deleted last TIP because it doesn't pass checks!", tip.ID())
+			}
 		}
 	}
+
+	return parents
 }
 
 // AllTips returns a list of all tips that are stored in the TipManger.

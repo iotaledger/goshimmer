@@ -10,7 +10,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/database"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	wp "github.com/iotaledger/goshimmer/packages/network/warpsync/proto"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -23,22 +23,22 @@ import (
 	"github.com/iotaledger/hive.go/lo"
 )
 
-type epochSyncStart struct {
-	ei          epoch.Index
-	ec          commitment.ID
+type slotSyncStart struct {
+	si          slot.Index
+	sc          commitment.ID
 	blocksCount int64
 }
 
-type epochSyncBlock struct {
-	ei    epoch.Index
-	ec    commitment.ID
+type slotSyncBlock struct {
+	si    slot.Index
+	sc    commitment.ID
 	block *models.Block
 	peer  *peer.Peer
 }
 
-type epochSyncEnd struct {
-	ei    epoch.Index
-	ec    commitment.ID
+type slotSyncEnd struct {
+	si    slot.Index
+	sc    commitment.ID
 	roots *commitment.Roots
 }
 
@@ -47,7 +47,7 @@ type blockReceived struct {
 	peer  *peer.Peer
 }
 
-func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC commitment.ID, ecChain map[epoch.Index]commitment.ID, validPeers *orderedmap.OrderedMap[identity.ID, *p2p.Neighbor]) (completedEpoch epoch.Index, err error) {
+func (m *Manager) syncRange(ctx context.Context, start, end slot.Index, startSC commitment.ID, ecChain map[slot.Index]commitment.ID, validPeers *orderedmap.OrderedMap[identity.ID, *p2p.Neighbor]) (completedSlot slot.Index, err error) {
 	startRange := start + 1
 	endRange := end - 1
 
@@ -57,20 +57,20 @@ func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC
 	eg, errCtx := errgroup.WithContext(ctx)
 	eg.SetLimit(m.concurrency)
 
-	epochProcessedChan := make(chan epoch.Index)
+	slotProcessedChan := make(chan slot.Index)
 	discardedPeers := advancedset.NewAdvancedSet[identity.ID]()
 
-	workerFunc := m.syncEpochFunc(errCtx, eg, validPeers, discardedPeers, ecChain, epochProcessedChan)
-	completedEpoch = m.queueSlidingEpochs(errCtx, startRange, endRange, workerFunc, epochProcessedChan)
+	workerFunc := m.syncSlotFunc(errCtx, eg, validPeers, discardedPeers, ecChain, slotProcessedChan)
+	completedSlot = m.queueSlidingSlots(errCtx, startRange, endRange, workerFunc, slotProcessedChan)
 
 	if err := eg.Wait(); err != nil {
-		return completedEpoch, errors.Wrapf(err, "sync failed for range %d-%d", start, end)
+		return completedSlot, errors.Wrapf(err, "sync failed for range %d-%d", start, end)
 	}
-	return completedEpoch, nil
+	return completedSlot, nil
 }
 
-func (m *Manager) syncEpochFunc(errCtx context.Context, eg *errgroup.Group, validPeers *orderedmap.OrderedMap[identity.ID, *p2p.Neighbor], discardedPeers *advancedset.AdvancedSet[identity.ID], ecChain map[epoch.Index]commitment.ID, epochProcessedChan chan epoch.Index) func(targetEpoch epoch.Index) {
-	return func(targetEpoch epoch.Index) {
+func (m *Manager) syncSlotFunc(errCtx context.Context, eg *errgroup.Group, validPeers *orderedmap.OrderedMap[identity.ID, *p2p.Neighbor], discardedPeers *advancedset.AdvancedSet[identity.ID], ecChain map[slot.Index]commitment.ID, slotProcessedChan chan slot.Index) func(targetSlot slot.Index) {
+	return func(targetSlot slot.Index) {
 		eg.Go(func() (err error) {
 			if !validPeers.ForEach(func(peerID identity.ID, neighbor *p2p.Neighbor) (success bool) {
 				if discardedPeers.Has(peerID) {
@@ -81,45 +81,45 @@ func (m *Manager) syncEpochFunc(errCtx context.Context, eg *errgroup.Group, vali
 				db, _ := database.NewMemDB("")
 				tangleTree := smt.NewSparseMerkleTree(db.NewStore(), db.NewStore(), lo.PanicOnErr(blake2b.New256(nil)))
 
-				epochChannels := m.startEpochSyncing(targetEpoch)
-				epochChannels.RLock()
+				slotChannels := m.startSlotSyncing(targetSlot)
+				slotChannels.RLock()
 
-				m.protocol.RequestEpochBlocks(targetEpoch, ecChain[targetEpoch], peerID)
+				m.protocol.RequestSlotBlocks(targetSlot, ecChain[targetSlot], peerID)
 
 				err = dataflow.New(
-					m.epochStartCommand,
-					m.epochBlockCommand,
-					m.epochEndCommand,
-					m.epochVerifyCommand,
-					m.epochProcessBlocksCommand,
+					m.slotStartCommand,
+					m.slotBlockCommand,
+					m.slotEndCommand,
+					m.slotVerifyCommand,
+					m.slotProcessBlocksCommand,
 				).WithTerminationCallback(func(params *syncingFlowParams) {
-					params.epochChannels.RUnlock()
-					m.endEpochSyncing(params.targetEpoch)
+					params.slotChannels.RUnlock()
+					m.endSlotSyncing(params.targetSlot)
 				}).WithSuccessCallback(func(params *syncingFlowParams) {
 					success = true
 					select {
 					case <-params.ctx.Done():
 						return
-					case epochProcessedChan <- params.targetEpoch:
+					case slotProcessedChan <- params.targetSlot:
 					}
-					m.log.Infow("synced epoch", "epoch", params.targetEpoch, "peer", params.neighbor)
+					m.log.Infow("synced slot", "slot", params.targetSlot, "peer", params.neighbor)
 				}).WithErrorCallback(func(flowErr error, params *syncingFlowParams) {
 					discardedPeers.Add(params.neighbor.ID())
-					m.log.Warnf("error while syncing epoch %d from peer %s: %s", params.targetEpoch, params.neighbor, flowErr)
+					m.log.Warnf("error while syncing slot %d from peer %s: %s", params.targetSlot, params.neighbor, flowErr)
 				}).Run(&syncingFlowParams{
-					ctx:           errCtx,
-					targetEpoch:   targetEpoch,
-					targetEC:      ecChain[targetEpoch],
-					targetPrevEC:  ecChain[targetEpoch-1],
-					epochChannels: epochChannels,
-					neighbor:      neighbor,
-					tangleTree:    tangleTree,
-					epochBlocks:   make(map[models.BlockID]*models.Block),
+					ctx:          errCtx,
+					targetSlot:   targetSlot,
+					targetEC:     ecChain[targetSlot],
+					targetPrevEC: ecChain[targetSlot-1],
+					slotChannels: slotChannels,
+					neighbor:     neighbor,
+					tangleTree:   tangleTree,
+					slotBlocks:   make(map[models.BlockID]*models.Block),
 				})
 
 				return !success
 			}) {
-				err = errors.Errorf("unable to sync epoch %d", targetEpoch)
+				err = errors.Errorf("unable to sync slot %d", targetSlot)
 			}
 
 			return
@@ -127,24 +127,24 @@ func (m *Manager) syncEpochFunc(errCtx context.Context, eg *errgroup.Group, vali
 	}
 }
 
-func (m *Manager) queueSlidingEpochs(errCtx context.Context, startRange, endRange epoch.Index, workerFunc func(epoch.Index), epochProcessedChan chan epoch.Index) (completedEpoch epoch.Index) {
-	processedEpochs := make(map[epoch.Index]types.Empty)
-	for ei := startRange; ei < startRange+epoch.Index(m.concurrency) && ei <= endRange; ei++ {
+func (m *Manager) queueSlidingSlots(errCtx context.Context, startRange, endRange slot.Index, workerFunc func(slot.Index), slotProcessedChan chan slot.Index) (completedSlot slot.Index) {
+	processedSlots := make(map[slot.Index]types.Empty)
+	for ei := startRange; ei < startRange+slot.Index(m.concurrency) && ei <= endRange; ei++ {
 		workerFunc(ei)
 	}
 
 	windowStart := startRange
 	for {
 		select {
-		case processedEpoch := <-epochProcessedChan:
-			processedEpochs[processedEpoch] = types.Void
+		case processedSlot := <-slotProcessedChan:
+			processedSlots[processedSlot] = types.Void
 			for {
-				if _, processed := processedEpochs[windowStart]; processed {
-					completedEpoch = windowStart
-					if completedEpoch == endRange {
+				if _, processed := processedSlots[windowStart]; processed {
+					completedSlot = windowStart
+					if completedSlot == endRange {
 						return
 					}
-					windowEnd := windowStart + epoch.Index(m.concurrency)
+					windowEnd := windowStart + slot.Index(m.concurrency)
 					if windowEnd <= endRange {
 						workerFunc(windowEnd)
 					}
@@ -159,14 +159,14 @@ func (m *Manager) queueSlidingEpochs(errCtx context.Context, startRange, endRang
 	}
 }
 
-func (m *Manager) startSyncing(startRange, endRange epoch.Index) {
+func (m *Manager) startSyncing(startRange, endRange slot.Index) {
 	m.syncingLock.Lock()
 	defer m.syncingLock.Unlock()
 
 	m.syncingInProgress = true
-	m.epochsChannels = make(map[epoch.Index]*epochChannels)
+	m.slotsChannels = make(map[slot.Index]*slotChannels)
 	for ei := startRange; ei <= endRange; ei++ {
-		m.epochsChannels[ei] = &epochChannels{}
+		m.slotsChannels[ei] = &slotChannels{}
 	}
 }
 
@@ -175,134 +175,134 @@ func (m *Manager) endSyncing() {
 	defer m.syncingLock.Unlock()
 
 	m.syncingInProgress = false
-	m.epochsChannels = nil
+	m.slotsChannels = nil
 }
 
-func (m *Manager) startEpochSyncing(ei epoch.Index) (epochChannels *epochChannels) {
+func (m *Manager) startSlotSyncing(ei slot.Index) (slotChannels *slotChannels) {
 	m.syncingLock.Lock()
 	defer m.syncingLock.Unlock()
 
-	epochChannels = m.epochsChannels[ei]
+	slotChannels = m.slotsChannels[ei]
 
-	epochChannels.Lock()
-	defer epochChannels.Unlock()
+	slotChannels.Lock()
+	defer slotChannels.Unlock()
 
-	epochChannels.startChan = make(chan *epochSyncStart, 1)
-	epochChannels.blockChan = make(chan *epochSyncBlock, 1)
-	epochChannels.endChan = make(chan *epochSyncEnd, 1)
-	epochChannels.stopChan = make(chan struct{})
-	epochChannels.active = true
+	slotChannels.startChan = make(chan *slotSyncStart, 1)
+	slotChannels.blockChan = make(chan *slotSyncBlock, 1)
+	slotChannels.endChan = make(chan *slotSyncEnd, 1)
+	slotChannels.stopChan = make(chan struct{})
+	slotChannels.active = true
 
 	return
 }
 
-func (m *Manager) endEpochSyncing(ei epoch.Index) {
+func (m *Manager) endSlotSyncing(ei slot.Index) {
 	m.syncingLock.Lock()
 	defer m.syncingLock.Unlock()
 
-	epochChannels := m.epochsChannels[ei]
+	slotChannels := m.slotsChannels[ei]
 
-	epochChannels.active = false
-	close(epochChannels.stopChan)
-	epochChannels.Lock()
-	defer epochChannels.Unlock()
+	slotChannels.active = false
+	close(slotChannels.stopChan)
+	slotChannels.Lock()
+	defer slotChannels.Unlock()
 
-	close(epochChannels.startChan)
-	close(epochChannels.blockChan)
-	close(epochChannels.endChan)
+	close(slotChannels.startChan)
+	close(slotChannels.blockChan)
+	close(slotChannels.endChan)
 }
 
-func (m *Manager) processEpochBlocksRequestPacket(packetEpochRequest *wp.Packet_EpochBlocksRequest, nbr *p2p.Neighbor) {
-	ei := epoch.Index(packetEpochRequest.EpochBlocksRequest.GetEI())
-	ec := new(commitment.Commitment)
-	if _, err := ec.FromBytes(packetEpochRequest.EpochBlocksRequest.GetEC()); err != nil {
-		m.log.Errorw("epoch blocks request rejected: unable to deserialize commitment", "err", err)
+func (m *Manager) processSlotBlocksRequestPacket(packetSlotRequest *wp.Packet_SlotBlocksRequest, nbr *p2p.Neighbor) {
+	si := slot.Index(packetSlotRequest.SlotBlocksRequest.GetSI())
+	sc := new(commitment.Commitment)
+	if _, err := sc.FromBytes(packetSlotRequest.SlotBlocksRequest.GetSC()); err != nil {
+		m.log.Errorw("slot blocks request rejected: unable to deserialize commitment", "err", err)
 		return
 	}
-	ecID := ec.ID()
+	scID := sc.ID()
 
-	// m.log.Debugw("received epoch blocks request", "peer", nbr.Peer.ID(), "Index", ei, "ID", ec)
+	// m.log.Debugw("received slot blocks request", "peer", nbr.Peer.ID(), "Index", ei, "ID", ec)
 
-	cm, _ := m.commitmentManager.Commitment(ecID)
+	cm, _ := m.commitmentManager.Commitment(scID)
 	if cm == nil {
-		m.log.Debugw("epoch blocks request rejected: unknown commitment", "peer", nbr.Peer.ID(), "Index", ei, "ID", ec)
+		m.log.Debugw("slot blocks request rejected: unknown commitment", "peer", nbr.Peer.ID(), "Index", si, "ID", sc)
 		return
 	}
 
 	chain := cm.Chain()
 	if chain == nil {
-		m.log.Debugw("epoch blocks request rejected: unknown chain", "peer", nbr.Peer.ID(), "Index", ei, "ID", ec)
+		m.log.Debugw("slot blocks request rejected: unknown chain", "peer", nbr.Peer.ID(), "Index", si, "ID", sc)
 		return
 	}
 
 	//blocksCount := chain.BlocksCount(ei)
 
-	//// Send epoch starter.
-	//m.protocol.SendEpochStarter(ei, ecID, blocksCount, nbr.ID())
-	//m.log.Debugw("sent epoch start", "peer", nbr.Peer.ID(), "Index", ei, "blocksCount", blocksCount)
+	//// Send slot starter.
+	//m.protocol.SendSlotStarter(ei, ecID, blocksCount, nbr.ID())
+	//m.log.Debugw("sent slot start", "peer", nbr.Peer.ID(), "Index", ei, "blocksCount", blocksCount)
 	//
-	//if err := chain.StreamEpochBlocks(ei, func(blocks []*models.Block) {
+	//if err := chain.StreamSlotBlocks(ei, func(blocks []*models.Block) {
 	//	m.protocol.SendBlocksBatch(ei, ecID, blocks, nbr.ID())
-	//	m.log.Debugw("sent epoch blocks batch", "peer", nbr.ID(), "Index", ei, "blocksLen", len(blocks))
+	//	m.log.Debugw("sent slot blocks batch", "peer", nbr.ID(), "Index", ei, "blocksLen", len(blocks))
 	//}, m.blockBatchSize); err != nil {
-	//	m.log.Errorw("epoch blocks request rejected: unable to stream blocks", "peer", nbr.Peer.ID(), "Index", ei, "ID", ec, "err", err)
+	//	m.log.Errorw("slot blocks request rejected: unable to stream blocks", "peer", nbr.Peer.ID(), "Index", ei, "ID", ec, "err", err)
 	//	return
 	//}
 
-	// Send epoch terminator.
-	// TODO: m.protocol.SendEpochEnd(ei, ec, commitment.Roots(), nbr.ID())
-	m.log.Debugw("sent epoch blocks end", "peer", nbr.ID(), "Index", ei, "ID", ecID.Base58())
+	// Send slot terminator.
+	// TODO: m.protocol.SendSlotEnd(ei, ec, commitment.Roots(), nbr.ID())
+	m.log.Debugw("sent slot blocks end", "peer", nbr.ID(), "Index", si, "ID", scID.Base58())
 }
 
-func (m *Manager) processEpochBlocksStartPacket(packetEpochBlocksStart *wp.Packet_EpochBlocksStart, nbr *p2p.Neighbor) {
-	epochBlocksStart := packetEpochBlocksStart.EpochBlocksStart
-	ei := epoch.Index(epochBlocksStart.GetEI())
+func (m *Manager) processSlotBlocksStartPacket(packetSlotBlocksStart *wp.Packet_SlotBlocksStart, nbr *p2p.Neighbor) {
+	slotBlocksStart := packetSlotBlocksStart.SlotBlocksStart
+	si := slot.Index(slotBlocksStart.GetSI())
 
-	epochChannels := m.getEpochChannels(ei)
-	if epochChannels == nil {
+	slotChannels := m.getSlotChannels(si)
+	if slotChannels == nil {
 		return
 	}
 
-	epochChannels.RLock()
-	defer epochChannels.RUnlock()
+	slotChannels.RLock()
+	defer slotChannels.RUnlock()
 
-	if !epochChannels.active {
+	if !slotChannels.active {
 		return
 	}
 
-	m.log.Debugw("received epoch blocks start", "peer", nbr.Peer.ID(), "Index", ei, "blocksCount", epochBlocksStart.GetBlocksCount())
+	m.log.Debugw("received slot blocks start", "peer", nbr.Peer.ID(), "Index", si, "blocksCount", slotBlocksStart.GetBlocksCount())
 
-	ec := new(commitment.Commitment)
-	if _, err := ec.FromBytes(epochBlocksStart.GetEC()); err != nil {
-		m.log.Errorw("received epoch blocks start: unable to deserialize commitment", "err", err)
+	sc := new(commitment.Commitment)
+	if _, err := sc.FromBytes(slotBlocksStart.GetSC()); err != nil {
+		m.log.Errorw("received slot blocks start: unable to deserialize commitment", "err", err)
 		return
 	}
 
-	epochChannels.startChan <- &epochSyncStart{
-		ei:          ei,
-		ec:          ec.ID(),
-		blocksCount: epochBlocksStart.GetBlocksCount(),
+	slotChannels.startChan <- &slotSyncStart{
+		si:          si,
+		sc:          sc.ID(),
+		blocksCount: slotBlocksStart.GetBlocksCount(),
 	}
 }
 
-func (m *Manager) processEpochBlocksBatchPacket(packetEpochBlocksBatch *wp.Packet_EpochBlocksBatch, nbr *p2p.Neighbor) {
-	epochBlocksBatch := packetEpochBlocksBatch.EpochBlocksBatch
-	ei := epoch.Index(epochBlocksBatch.GetEI())
+func (m *Manager) processSlotBlocksBatchPacket(packetSlotBlocksBatch *wp.Packet_SlotBlocksBatch, nbr *p2p.Neighbor) {
+	slotBlocksBatch := packetSlotBlocksBatch.SlotBlocksBatch
+	si := slot.Index(slotBlocksBatch.GetSI())
 
-	epochChannels := m.getEpochChannels(ei)
-	if epochChannels == nil {
+	slotChannels := m.getSlotChannels(si)
+	if slotChannels == nil {
 		return
 	}
 
-	epochChannels.RLock()
-	defer epochChannels.RUnlock()
+	slotChannels.RLock()
+	defer slotChannels.RUnlock()
 
-	if !epochChannels.active {
+	if !slotChannels.active {
 		return
 	}
 
-	blocksBytes := epochBlocksBatch.GetBlocks()
-	m.log.Debugw("received epoch blocks", "peer", nbr.Peer.ID(), "Index", ei, "blocksLen", len(blocksBytes))
+	blocksBytes := slotBlocksBatch.GetBlocks()
+	m.log.Debugw("received slot blocks", "peer", nbr.Peer.ID(), "Index", si, "blocksLen", len(blocksBytes))
 
 	for _, blockBytes := range blocksBytes {
 		block := new(models.Block)
@@ -311,18 +311,18 @@ func (m *Manager) processEpochBlocksBatchPacket(packetEpochBlocksBatch *wp.Packe
 			return
 		}
 
-		ec := new(commitment.Commitment)
-		if _, err := ec.FromBytes(epochBlocksBatch.GetEC()); err != nil {
+		sc := new(commitment.Commitment)
+		if _, err := sc.FromBytes(slotBlocksBatch.GetSC()); err != nil {
 			m.log.Errorw("failed to deserialize commitment", "peer", nbr.Peer.ID(), "err", err)
 			return
 		}
 
 		select {
-		case <-epochChannels.stopChan:
+		case <-slotChannels.stopChan:
 			return
-		case epochChannels.blockChan <- &epochSyncBlock{
-			ei:    ei,
-			ec:    ec.ID(),
+		case slotChannels.blockChan <- &slotSyncBlock{
+			si:    si,
+			sc:    sc.ID(),
 			peer:  nbr.Peer,
 			block: block,
 		}:
@@ -330,45 +330,45 @@ func (m *Manager) processEpochBlocksBatchPacket(packetEpochBlocksBatch *wp.Packe
 	}
 }
 
-func (m *Manager) processEpochBlocksEndPacket(packetEpochBlocksEnd *wp.Packet_EpochBlocksEnd, nbr *p2p.Neighbor) {
-	epochBlocksBatch := packetEpochBlocksEnd.EpochBlocksEnd
-	ei := epoch.Index(epochBlocksBatch.GetEI())
+func (m *Manager) processSlotBlocksEndPacket(packetSlotBlocksEnd *wp.Packet_SlotBlocksEnd, nbr *p2p.Neighbor) {
+	slotBlocksBatch := packetSlotBlocksEnd.SlotBlocksEnd
+	si := slot.Index(slotBlocksBatch.GetSI())
 
-	epochChannels := m.getEpochChannels(ei)
-	if epochChannels == nil {
+	slotChannels := m.getSlotChannels(si)
+	if slotChannels == nil {
 		return
 	}
 
-	epochChannels.RLock()
-	defer epochChannels.RUnlock()
+	slotChannels.RLock()
+	defer slotChannels.RUnlock()
 
-	if !epochChannels.active {
+	if !slotChannels.active {
 		return
 	}
 
-	m.log.Debugw("received epoch blocks end", "peer", nbr.Peer.ID(), "Index", ei)
+	m.log.Debugw("received slot blocks end", "peer", nbr.Peer.ID(), "Index", si)
 
-	ec := new(commitment.Commitment)
-	if _, err := ec.FromBytes(packetEpochBlocksEnd.EpochBlocksEnd.GetEC()); err != nil {
-		m.log.Errorw("received epoch blocks end: unable to deserialize commitment", "err", err)
+	sc := new(commitment.Commitment)
+	if _, err := sc.FromBytes(packetSlotBlocksEnd.SlotBlocksEnd.GetSC()); err != nil {
+		m.log.Errorw("received slot blocks end: unable to deserialize commitment", "err", err)
 		return
 	}
 
-	epochSyncEnd := &epochSyncEnd{
-		ei:    ei,
-		ec:    ec.ID(),
+	slotSyncEnd := &slotSyncEnd{
+		si:    si,
+		sc:    sc.ID(),
 		roots: new(commitment.Roots),
 	}
 
-	if _, err := epochSyncEnd.roots.FromBytes(packetEpochBlocksEnd.EpochBlocksEnd.GetRoots()); err != nil {
-		m.log.Errorw("received epoch blocks end: unable to deserialize roots", "err", err)
+	if _, err := slotSyncEnd.roots.FromBytes(packetSlotBlocksEnd.SlotBlocksEnd.GetRoots()); err != nil {
+		m.log.Errorw("received slot blocks end: unable to deserialize roots", "err", err)
 		return
 	}
 
-	epochChannels.endChan <- epochSyncEnd
+	slotChannels.endChan <- slotSyncEnd
 }
 
-func (m *Manager) getEpochChannels(ei epoch.Index) *epochChannels {
+func (m *Manager) getSlotChannels(ei slot.Index) *slotChannels {
 	m.syncingLock.RLock()
 	defer m.syncingLock.RUnlock()
 
@@ -376,5 +376,5 @@ func (m *Manager) getEpochChannels(ei epoch.Index) *epochChannels {
 		return nil
 	}
 
-	return m.epochsChannels[ei]
+	return m.slotsChannels[ei]
 }

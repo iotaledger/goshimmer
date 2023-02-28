@@ -9,7 +9,8 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/database"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
@@ -101,7 +102,7 @@ func CreateSnapshot(opts ...options.Option[Options]) (err error) {
 func (m *Options) attest(engineInstance *engine.Engine, nodePublicKey ed25519.PublicKey) error {
 	if _, err := engineInstance.NotarizationManager.Attestations.Add(&notarization.Attestation{
 		IssuerPublicKey: nodePublicKey,
-		IssuingTime:     time.Unix(epoch.GenesisTime-1, 0),
+		IssuingTime:     time.Unix(slotTimeProvider.GenesisUnixTime()-1, 0),
 	}); err != nil {
 		return err
 	}
@@ -157,7 +158,7 @@ func (m *Options) createPledgeMap() (nodesToPledge *orderedmap.OrderedMap[*ident
 
 var outputCounter uint16 = 1
 
-func createOutput(ledgerVM vm.VM, publicKey ed25519.PublicKey, tokenAmount uint64, pledgeID identity.ID, includedInEpoch epoch.Index) (output utxo.Output, outputMetadata *ledger.OutputMetadata, err error) {
+func createOutput(ledgerVM vm.VM, publicKey ed25519.PublicKey, tokenAmount uint64, pledgeID identity.ID, includedInSlot slot.Index) (output utxo.Output, outputMetadata *ledger.OutputMetadata, err error) {
 	switch ledgerVM.(type) {
 	case *ledger.MockedVM:
 		output = ledger.NewMockedOutput(utxo.EmptyTransactionID, outputCounter, tokenAmount)
@@ -178,7 +179,7 @@ func createOutput(ledgerVM vm.VM, publicKey ed25519.PublicKey, tokenAmount uint6
 	outputMetadata.SetConfirmationState(confirmation.Confirmed)
 	outputMetadata.SetAccessManaPledgeID(pledgeID)
 	outputMetadata.SetConsensusManaPledgeID(pledgeID)
-	outputMetadata.SetInclusionEpoch(includedInEpoch)
+	outputMetadata.SetInclusionSlot(includedInSlot)
 
 	return output, outputMetadata, nil
 }

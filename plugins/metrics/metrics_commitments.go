@@ -26,11 +26,11 @@ var CommitmentsMetrics = collector.NewCollection(commitmentsNamespace,
 	collector.WithMetric(collector.NewMetric(lastCommitment,
 		collector.WithType(collector.GaugeVec),
 		collector.WithHelp("Last commitment of the node."),
-		collector.WithLabels("epoch", "commitment"),
+		collector.WithLabels("slot", "commitment"),
 		collector.WithLabelValuesCollection(),
 		collector.WithInitFunc(func() {
 			deps.Collector.ResetMetric(commitmentsNamespace, lastCommitment)
-			deps.Protocol.Events.Engine.NotarizationManager.EpochCommitted.Hook(func(details *notarization.EpochCommittedDetails) {
+			deps.Protocol.Events.Engine.NotarizationManager.SlotCommitted.Hook(func(details *notarization.SlotCommittedDetails) {
 				deps.Collector.Update(commitmentsNamespace, lastCommitment, collector.MultiLabels(strconv.Itoa(int(details.Commitment.Index())), details.Commitment.ID().Base58()))
 			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
@@ -64,33 +64,33 @@ var CommitmentsMetrics = collector.NewCollection(commitmentsNamespace,
 	)),
 	collector.WithMetric(collector.NewMetric(acceptedBlocks,
 		collector.WithType(collector.GaugeVec),
-		collector.WithHelp("Number of accepted blocks by the node per epoch."),
-		collector.WithLabels("epoch"),
+		collector.WithHelp("Number of accepted blocks by the node per slot."),
+		collector.WithLabels("slot"),
 		collector.WithResetBeforeCollecting(true),
 		collector.WithInitFunc(func() {
-			deps.Protocol.Events.Engine.NotarizationManager.EpochCommitted.Hook(func(details *notarization.EpochCommittedDetails) {
+			deps.Protocol.Events.Engine.NotarizationManager.SlotCommitted.Hook(func(details *notarization.SlotCommittedDetails) {
 				deps.Collector.Update(commitmentsNamespace, acceptedBlocks, collector.MultiLabelsValues([]string{strconv.Itoa(int(details.Commitment.Index()))}, details.AcceptedBlocks.Size()))
 			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(transactions,
 		collector.WithType(collector.GaugeVec),
-		collector.WithHelp("Number of transactions by the node per epoch."),
-		collector.WithLabels("epoch"),
+		collector.WithHelp("Number of transactions by the node per slot."),
+		collector.WithLabels("slot"),
 		collector.WithResetBeforeCollecting(true),
 		collector.WithInitFunc(func() {
-			deps.Protocol.Events.Engine.NotarizationManager.EpochCommitted.Hook(func(details *notarization.EpochCommittedDetails) {
+			deps.Protocol.Events.Engine.NotarizationManager.SlotCommitted.Hook(func(details *notarization.SlotCommittedDetails) {
 				deps.Collector.Update(commitmentsNamespace, transactions, collector.MultiLabelsValues([]string{strconv.Itoa(int(details.Commitment.Index()))}, details.AcceptedTransactions.Size()))
 			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(validators,
 		collector.WithType(collector.GaugeVec),
-		collector.WithHelp("Number of active validators per epoch."),
-		collector.WithLabels("epoch"),
+		collector.WithHelp("Number of active validators per slot."),
+		collector.WithLabels("slot"),
 		collector.WithResetBeforeCollecting(true),
 		collector.WithInitFunc(func() {
-			deps.Protocol.Events.Engine.NotarizationManager.EpochCommitted.Hook(func(details *notarization.EpochCommittedDetails) {
+			deps.Protocol.Events.Engine.NotarizationManager.SlotCommitted.Hook(func(details *notarization.SlotCommittedDetails) {
 				deps.Collector.Update(commitmentsNamespace, validators, collector.MultiLabelsValues([]string{strconv.Itoa(int(details.Commitment.Index()))}, details.ActiveValidatorsCount))
 			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),

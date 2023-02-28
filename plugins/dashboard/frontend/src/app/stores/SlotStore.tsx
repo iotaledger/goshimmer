@@ -5,19 +5,19 @@ import {Link} from 'react-router-dom';
 
 const liveFeedSize = 100;
 
-export class EpochInfo {
+export class SlotInfo {
     index: number;
     id: string;
 }
 
-export class EpochStore {
-    @observable liveFeed: Array<EpochInfo> = [];
+export class SlotStore {
+    @observable liveFeed: Array<SlotInfo> = [];
 
     constructor() {
-        registerHandler(WSMsgType.EpochInfo, this.addLiveFeed);
+        registerHandler(WSMsgType.SlotInfo, this.addLiveFeed);
     }
 
-    @action addLiveFeed = async (info: EpochInfo) => {
+    @action addLiveFeed = async (info: SlotInfo) => {
         if (this.liveFeed.findIndex((t) => t.id == info.id) === -1) {
             if (this.liveFeed.length >= liveFeedSize) {
                 this.liveFeed.shift();
@@ -27,7 +27,7 @@ export class EpochStore {
     }
 
     @computed
-    get epochLiveFeed() {
+    get slotLiveFeed() {
         let feed = [];
         for (let i = this.liveFeed.length - 1; i >= 0; i--) {
             let info = this.liveFeed[i];
@@ -37,7 +37,7 @@ export class EpochStore {
                         {info.index}
                     </td>
                     <td>
-                        <Link to={`/explorer/epoch/commitment/${info.id}`}>
+                        <Link to={`/explorer/slot/commitment/${info.id}`}>
                             {info.id}
                         </Link>
                     </td>

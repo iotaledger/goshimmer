@@ -37,7 +37,7 @@ var (
 		71, 130, 88, 200, 46, 56, 243, 121, 216, 236, 70, 146, 234, 158, 206, 230,
 	}
 
-	// GenesisTime provides the genesis time for the tests, to start close to epoch 0.
+	// GenesisTime provides the genesis time for the tests, to start close to slot 0.
 	GenesisTime = time.Now().Add(-time.Minute).Unix()
 )
 
@@ -61,7 +61,7 @@ func PeerConfig() config.GoShimmer {
 
 	c.Image = "iotaledger/goshimmer"
 
-	c.DisabledPlugins = []string{"portcheck", "remotelogmetrics", "remotemetrics", "WebAPIEpochEndpoint", "ManaInitializer", "Warpsync"}
+	c.DisabledPlugins = []string{"portcheck", "remotelogmetrics", "remotemetrics", "WebAPISlotEndpoint", "ManaInitializer", "Warpsync"}
 
 	c.Network.Enabled = true
 
@@ -86,7 +86,7 @@ func PeerConfig() config.GoShimmer {
 	c.Protocol.GenesisTime = GenesisTime
 
 	c.Notarization.Enabled = true
-	c.Notarization.MinEpochCommittableAge = 6
+	c.Notarization.MinSlotCommittableAge = 6
 
 	c.BlockIssuer.Enabled = true
 	c.BlockIssuer.RateSetter.Mode = "disabled"
@@ -111,7 +111,7 @@ func EntryNodeConfig() config.GoShimmer {
 	c.DisabledPlugins = append(c.DisabledPlugins, "Metrics", "DashboardMetrics",
 		"manualpeering", "WebAPIDataEndpoint", "WebAPIFaucetRequestEndpoint", "WebAPIBlockEndpoint",
 		"WebAPIWeightProviderEndpoint", "WebAPIInfoEndpoint", "WebAPIRateSetterEndpoint", "WebAPISchedulerEndpoint", "WebAPIHealthzEndpoint",
-		"WebAPIManaEndpoint", "WebAPIEpochEndpoint", "remotelog", "remotelogmetrics", "DAGsVisualizer",
+		"WebAPIManaEndpoint", "WebAPISlotEndpoint", "remotelog", "remotelogmetrics", "DAGsVisualizer",
 		"WebAPILedgerstateEndpoint", "Warpsync", "retainer", "indexer", "WebAPIManaEndpoint")
 	c.P2P.Enabled = false
 	c.Activity.Enabled = false

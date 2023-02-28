@@ -2,7 +2,7 @@ package tangle
 
 import (
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
@@ -34,19 +34,20 @@ func New(
 	workers *workerpool.Group,
 	ledger *ledger.Ledger,
 	evictionState *eviction.State,
+	slotTimeProvider *slot.TimeProvider,
 	validators *sybilprotection.WeightedSet,
-	epochCutoffCallback func() epoch.Index,
+	slotCutoffCallback func() slot.Index,
 	sequenceCutoffCallback func(id markers.SequenceID) markers.Index,
-	commitmentFunc func(epoch.Index) (*commitment.Commitment, error),
+	commitmentFunc func(slot.Index) (*commitment.Commitment, error),
 	opts ...options.Option[Tangle],
 ) (newTangle *Tangle) {
 	return options.Apply(new(Tangle), opts, func(t *Tangle) {
 		t.Ledger = ledger
-		t.BlockDAG = blockdag.New(workers.CreateGroup("BlockDAG"), evictionState, commitmentFunc, t.optsBlockDAG...)
+		t.BlockDAG = blockdag.New(workers.CreateGroup("BlockDAG"), evictionState, slotTimeProvider, commitmentFunc, t.optsBlockDAG...)
 		t.Booker = booker.New(workers.CreateGroup("Booker"), t.BlockDAG, ledger, validators,
 			append(t.optsBooker,
 				booker.WithVirtualVotingOptions(
-					virtualvoting.WithEpochCutoffCallback(epochCutoffCallback),
+					virtualvoting.WithSlotCutoffCallback(slotCutoffCallback),
 					virtualvoting.WithSequenceCutoffCallback(sequenceCutoffCallback),
 				))...)
 

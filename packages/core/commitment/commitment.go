@@ -5,7 +5,7 @@ import (
 
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/hive.go/core/generics/model"
 	"github.com/iotaledger/hive.go/core/types"
 	"github.com/iotaledger/hive.go/lo"
@@ -18,13 +18,13 @@ type Commitment struct {
 }
 
 type commitment struct {
-	Index            epoch.Index      `serix:"0"`
+	Index            slot.Index       `serix:"0"`
 	PrevID           ID               `serix:"1"`
 	RootsID          types.Identifier `serix:"2"`
 	CumulativeWeight int64            `serix:"3"`
 }
 
-func New(index epoch.Index, prevID ID, rootsID types.Identifier, cumulativeWeight int64) (newCommitment *Commitment) {
+func New(index slot.Index, prevID ID, rootsID types.Identifier, cumulativeWeight int64) (newCommitment *Commitment) {
 	return model.NewImmutable[Commitment](&commitment{
 		Index:            index,
 		PrevID:           prevID,
@@ -47,7 +47,7 @@ func (c *Commitment) PrevID() (prevID ID) {
 	return c.M.PrevID
 }
 
-func (c *Commitment) Index() (index epoch.Index) {
+func (c *Commitment) Index() (index slot.Index) {
 	return c.M.Index
 }
 

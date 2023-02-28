@@ -38,7 +38,7 @@ func newCommitmentDetails() (c *CommitmentDetails) {
 	return c
 }
 
-func (c *CommitmentDetails) setCommitment(e *notarization.EpochCommittedDetails) {
+func (c *CommitmentDetails) setCommitment(e *notarization.SlotCommittedDetails) {
 	c.M.Commitment = e.Commitment
 	c.M.ID = e.Commitment.ID()
 	c.SetID(e.Commitment.ID())

@@ -25,7 +25,7 @@ import (
 )
 
 // TestSimpleDoubleSpend tests whether consensus is able to resolve a simple double spend in a partition.
-// We set the TSC and MinEpochCommittableAge threshold so that nodes do not commit and blocks are not orphaned due to TSC.
+// We set the TSC and MinSlotCommittableAge threshold so that nodes do not commit and blocks are not orphaned due to TSC.
 // TODO: update the description to fit the test
 // We spawn a network of 2 nodes containing 40% and 20% of consensus mana respectively,
 // let them both issue conflicting transactions, and assert that the transaction

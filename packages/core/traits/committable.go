@@ -1,40 +1,40 @@
 package traits
 
 import (
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/storage/typedkey"
 	"github.com/iotaledger/hive.go/kvstore"
 )
 
 // Committable is a trait that stores information about the latest commitment.
 type Committable interface {
-	// SetLastCommittedEpoch sets the last committed epoch.
-	SetLastCommittedEpoch(index epoch.Index)
+	// SetLastCommittedSlot sets the last committed slot.
+	SetLastCommittedSlot(index slot.Index)
 
-	// LastCommittedEpoch returns the last committed epoch.
-	LastCommittedEpoch() (index epoch.Index)
+	// LastCommittedSlot returns the last committed slot.
+	LastCommittedSlot() (index slot.Index)
 }
 
 // NewCommittable creates a new Committable trait.
 func NewCommittable(store kvstore.KVStore, keyBytes ...byte) (newCommittable Committable) {
 	return &committable{
-		lastCommittedEpoch: typedkey.NewGenericType[epoch.Index](store, keyBytes...),
+		lastCommittedSlot: typedkey.NewGenericType[slot.Index](store, keyBytes...),
 	}
 }
 
 // committable is the implementation of the Committable trait.
 type committable struct {
-	lastCommittedEpoch *typedkey.GenericType[epoch.Index]
+	lastCommittedSlot *typedkey.GenericType[slot.Index]
 }
 
-// SetLastCommittedEpoch sets the last committed epoch.
-func (c *committable) SetLastCommittedEpoch(index epoch.Index) {
-	if c.lastCommittedEpoch.Get() != index {
-		c.lastCommittedEpoch.Set(index)
+// SetLastCommittedSlot sets the last committed slot.
+func (c *committable) SetLastCommittedSlot(index slot.Index) {
+	if c.lastCommittedSlot.Get() != index {
+		c.lastCommittedSlot.Set(index)
 	}
 }
 
-// LastCommittedEpoch returns the last committed epoch.
-func (c *committable) LastCommittedEpoch() epoch.Index {
-	return c.lastCommittedEpoch.Get()
+// LastCommittedSlot returns the last committed slot.
+func (c *committable) LastCommittedSlot() slot.Index {
+	return c.lastCommittedSlot.Get()
 }

@@ -8,7 +8,7 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/types"
@@ -56,7 +56,7 @@ func (t *TestFramework) ProcessCommitmentFromOtherSource(alias string) (isSolid 
 }
 
 func (t *TestFramework) Chain(alias string) (chain *Chain) {
-	return t.Instance.Chain(t.EC(alias))
+	return t.Instance.Chain(t.SlotCommitment(alias))
 }
 
 func (t *TestFramework) commitment(alias string) (commitment *commitment.Commitment) {
@@ -72,7 +72,7 @@ func (t *TestFramework) commitment(alias string) (commitment *commitment.Commitm
 }
 
 func (t *TestFramework) ChainCommitment(alias string) *Commitment {
-	cm, created := t.Instance.Commitment(t.EC(alias))
+	cm, created := t.Instance.Commitment(t.SlotCommitment(alias))
 	require.False(t.test, created)
 
 	return cm
@@ -87,19 +87,19 @@ func (t *TestFramework) AssertEqualChainCommitments(commitments []*Commitment, a
 	require.EqualValues(t.test, commitments, chainCommitments)
 }
 
-func (t *TestFramework) EC(alias string) (epochCommitment commitment.ID) {
+func (t *TestFramework) SlotCommitment(alias string) commitment.ID {
 	return t.commitment(alias).ID()
 }
 
-func (t *TestFramework) EI(alias string) (index epoch.Index) {
+func (t *TestFramework) SlotIndex(alias string) slot.Index {
 	return t.commitment(alias).Index()
 }
 
-func (t *TestFramework) ECR(alias string) (ecr types.Identifier) {
+func (t *TestFramework) SlotCommitmentRoot(alias string) types.Identifier {
 	return t.commitment(alias).RootsID()
 }
 
-func (t *TestFramework) PrevEC(alias string) (prevEC commitment.ID) {
+func (t *TestFramework) PrevSlotCommitment(alias string) commitment.ID {
 	return t.commitment(alias).PrevID()
 }
 
@@ -125,7 +125,7 @@ func (t *TestFramework) AssertChainState(chains map[string]string) {
 		chain := t.Chain(commitmentAlias)
 
 		require.NotNil(t.test, chain)
-		require.Equal(t.test, t.EC(chainAlias), chain.ForkingPoint.ID())
+		require.Equal(t.test, t.SlotCommitment(chainAlias), chain.ForkingPoint.ID())
 	}
 
 	for chainAlias, commitmentAliases := range commitmentsByChainAlias {
@@ -133,16 +133,16 @@ func (t *TestFramework) AssertChainState(chains map[string]string) {
 		require.Equal(t.test, len(commitmentAliases), chain.Size())
 
 		for _, commitmentAlias := range commitmentAliases {
-			chainCommitment := chain.Commitment(t.EI(commitmentAlias))
+			chainCommitment := chain.Commitment(t.SlotIndex(commitmentAlias))
 
 			require.NotNil(t.test, chainCommitment)
-			require.EqualValues(t.test, t.EC(commitmentAlias), chainCommitment.ID())
+			require.EqualValues(t.test, t.SlotCommitment(commitmentAlias), chainCommitment.ID())
 			require.EqualValues(t.test, t.commitment(commitmentAlias), chainCommitment.Commitment())
 		}
 	}
 }
 
-func (t *TestFramework) previousCommitmentID(alias string) (previousCommitmentID commitment.ID, previousIndex epoch.Index) {
+func (t *TestFramework) previousCommitmentID(alias string) (previousCommitmentID commitment.ID, previousIndex slot.Index) {
 	if alias == "" {
 		return
 	}
