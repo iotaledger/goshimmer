@@ -349,6 +349,7 @@ func (b *Booker) inheritConflictIDs(block *virtualvoting.Block) (inheritedConfli
 			return true
 		})
 		b.sequenceMutex.RLock(sequenceIDs...)
+		// fmt.Println(block.ID(), "PASTMARKERS", newStructureDetails.PastMarkers())
 		pastMarkersConflictIDs, inheritedConflictIDs, err = b.determineBookingConflictIDs(block)
 		if err != nil {
 			b.sequenceMutex.RUnlock(sequenceIDs...)
@@ -361,12 +362,6 @@ func (b *Booker) inheritConflictIDs(block *virtualvoting.Block) (inheritedConfli
 	// fmt.Println(block.ID(), "pastMarkersConflictIDs", pastMarkersConflictIDs, "inheritedConflictIDs", inheritedConflictIDs)
 
 	block.SetStructureDetails(newStructureDetails)
-
-	// inherited: A, B, C
-	// pastMarkers: A
-	// ==
-	// added: B, C
-	// subtracted: nil
 
 	if !newStructureDetails.IsPastMarker() {
 		/*
@@ -411,9 +406,9 @@ func (b *Booker) determineBookingConflictIDs(block *virtualvoting.Block) (parent
 
 	transactionConflictIDs := b.TransactionConflictIDs(block)
 
-	fmt.Println(">><<", block.ID())
+	// fmt.Println(">><<", block.ID())
 	parentsPastMarkersConflictIDs, strongParentsConflictIDs := b.collectStrongParentsConflictIDs(block)
-	fmt.Println("<<>>", block.ID())
+	// fmt.Println("<<>>", block.ID())
 
 	weakPayloadConflictIDs := b.collectWeakParentsConflictIDs(block)
 
@@ -427,13 +422,13 @@ func (b *Booker) determineBookingConflictIDs(block *virtualvoting.Block) (parent
 	inheritedConflictIDs.AddAll(likedConflictIDs)
 
 	dislikedFutureCone := b.Ledger.Utils.ConflictIDsInFutureCone(dislikedConflictIDs)
-	fmt.Printf(">> %s disliked future cone %s\n", block.ID(), dislikedFutureCone)
+	// fmt.Printf(">> %s disliked future cone %s\n", block.ID(), dislikedFutureCone)
 	inheritedConflictIDs.DeleteAll(dislikedFutureCone)
 
 	// block always sets Like reference its own conflict, if its payload is a transaction, and it's conflicting
 	if selfConflictID, selfDislikedConflictIDs, isTransaction := b.PayloadConflictID(block); isTransaction && !selfConflictID.IsEmpty() {
 		selfFutureDislikedFuture := b.Ledger.Utils.ConflictIDsInFutureCone(selfDislikedConflictIDs)
-		fmt.Printf(">> %s self %s selfdisliked future cone %s\n", block.ID(), selfConflictID, selfFutureDislikedFuture)
+		// fmt.Printf(">> %s self %s selfdisliked future cone %s\n", block.ID(), selfConflictID, selfFutureDislikedFuture)
 		inheritedConflictIDs.Add(selfConflictID)
 		// if a payload is a conflicting transaction, then remove any conflicting conflicts from supported conflicts
 		inheritedConflictIDs.DeleteAll(selfFutureDislikedFuture)
@@ -572,7 +567,7 @@ func (b *Booker) blockBookingDetails(block *virtualvoting.Block) (pastMarkersCon
 		blockConflictIDs.DeleteAll(subtractedConflictIDs)
 	}
 
-	fmt.Println(block.ID(), "blockBookingDetails", pastMarkersConflictIDs, blockConflictIDs, "added", addedConflictIDs, "subtracted", subtractedConflictIDs)
+	// fmt.Println(block.ID(), "blockBookingDetails", pastMarkersConflictIDs, blockConflictIDs, "added", addedConflictIDs, "subtracted", subtractedConflictIDs)
 	return pastMarkersConflictIDs, blockConflictIDs
 }
 
@@ -717,7 +712,7 @@ func (b *Booker) propagateForkedConflict(block *virtualvoting.Block, addedConfli
 func (b *Booker) updateBlockConflicts(block *virtualvoting.Block, addedConflict utxo.TransactionID, parentConflicts utxo.TransactionIDs) (updated bool) {
 	_, conflictIDs := b.blockBookingDetails(block)
 
-	fmt.Printf(">> %s Adding %s to parents %s, parents has all %t\n", block.ID(), addedConflict, parentConflicts, conflictIDs.HasAll(parentConflicts))
+	// fmt.Printf(">> %s Adding %s to parents %s, parents has all %t\n", block.ID(), addedConflict, parentConflicts, conflictIDs.HasAll(parentConflicts))
 
 	// if a block does not already support all parent conflicts of a conflict A, then it cannot vote for a more specialize conflict of A
 	if !conflictIDs.HasAll(parentConflicts) {

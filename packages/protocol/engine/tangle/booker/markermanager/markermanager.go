@@ -1,8 +1,6 @@
 package markermanager
 
 import (
-	"fmt"
-
 	"github.com/emirpasic/gods/maps/treemap"
 	"github.com/emirpasic/gods/utils"
 
@@ -145,7 +143,7 @@ func (m *MarkerManager[IndexedID, MappedEntity]) ConflictIDsFromStructureDetails
 	structureDetails.PastMarkers().ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
 		marker := markers.NewMarker(sequenceID, index)
 		conflictIDs := m.ConflictIDs(marker)
-		fmt.Println(blockID, "ConflictIDsFromStructureDetails", marker, conflictIDs)
+		// fmt.Println(blockID, "ConflictIDsFromStructureDetails", marker, conflictIDs)
 		structureDetailsConflictIDs.AddAll(conflictIDs)
 		return true
 	})
@@ -165,7 +163,7 @@ func (m *MarkerManager[IndexedID, MappedEntity]) SetConflictIDs(marker markers.M
 		}
 	}
 
-	fmt.Println(marker, "SetConflictIDs", conflictIDs)
+	// fmt.Println(marker, "SetConflictIDs", conflictIDs)
 
 	m.setConflictIDMapping(marker, conflictIDs)
 
