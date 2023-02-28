@@ -389,13 +389,15 @@ func (b *Booker) inheritConflictIDs(block *virtualvoting.Block) (inheritedConfli
 		subtractedConflictIDs.DeleteAll(inheritedConflictIDs)
 		block.AddAllSubtractedConflictIDs(subtractedConflictIDs)
 
-		fmt.Println(block.ID(), block.StructureDetails().PastMarkers(), "pastMarkersConflictIDs", pastMarkersConflictIDs, "addedConflictIDs", addedConflictIDs, "subtractedConflictIDs", subtractedConflictIDs)
-		pastMarkersConflictIDs.ForEach(func(element utxo.TransactionID) (err error) {
-			if addedConflictIDs.Has(element) {
-				panic("WTF??")
-			}
-			return nil
-		})
+		/*
+			fmt.Println(block.ID(), block.StructureDetails().PastMarkers(), "pastMarkersConflictIDs", pastMarkersConflictIDs, "addedConflictIDs", addedConflictIDs, "subtractedConflictIDs", subtractedConflictIDs)
+			pastMarkersConflictIDs.ForEach(func(element utxo.TransactionID) (err error) {
+				if addedConflictIDs.Has(element) {
+					panic("WTF??")
+				}
+				return nil
+			})
+		*/
 	}
 
 	block.SetBooked()
