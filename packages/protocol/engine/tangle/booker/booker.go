@@ -369,8 +369,20 @@ func (b *Booker) inheritConflictIDs(block *virtualvoting.Block) (inheritedConfli
 	// subtracted: nil
 
 	if !newStructureDetails.IsPastMarker() {
+		/*
+			addedConflictIDs := pastMarkersConflictIDs.Filter(func(conflictID utxo.TransactionID) bool {
+				return !newStructureDetailsConflictIDs.Has(conflictID)
+			})
+
+			subtractedConflictIDs := newStructureDetailsConflictIDs.Filter(func(conflictID utxo.TransactionID) bool {
+				return !pastMarkersConflictIDs.Has(conflictID)
+			})
+		*/
+		newStructureDetailsConflictIDs := b.markerManager.ConflictIDsFromStructureDetails(block.ID(), newStructureDetails)
+
 		addedConflictIDs := inheritedConflictIDs.Clone()
-		addedConflictIDs.DeleteAll(pastMarkersConflictIDs)
+		// addedConflictIDs.DeleteAll(pastMarkersConflictIDs)
+		addedConflictIDs.DeleteAll(newStructureDetailsConflictIDs)
 		block.AddAllAddedConflictIDs(addedConflictIDs)
 
 		subtractedConflictIDs := pastMarkersConflictIDs.Clone()
