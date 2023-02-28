@@ -2,6 +2,7 @@ package mana
 
 import (
 	"context"
+	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"log"
 	"math"
 	"testing"
@@ -141,13 +142,15 @@ var (
 func TestManaApis(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
-	snapshotInfo := tests.EqualSnapshotDetails
+	snapshotOptions := tests.EqualSnapshotOptions
+	snapshotInfo := snapshotcreator.NewOptions(snapshotOptions...)
+
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
 		StartSynced: false,
 		Faucet:      true,
 		Autopeering: true, // we need to discover online peers
 		Activity:    true, // we need to issue regular activity blocks
-		Snapshot:    snapshotInfo,
+		Snapshot:    snapshotOptions,
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)

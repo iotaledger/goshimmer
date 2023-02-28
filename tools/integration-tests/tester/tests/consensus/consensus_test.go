@@ -6,6 +6,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
+	"github.com/iotaledger/hive.go/ds/bitmask"
+	"github.com/iotaledger/hive.go/lo"
+
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/require"
 
@@ -18,8 +22,6 @@ import (
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
-	"github.com/iotaledger/hive.go/ds/bitmask"
-	"github.com/iotaledger/hive.go/lo"
 )
 
 // TestSimpleDoubleSpend tests whether consensus is able to resolve a simple double spend in a partition.
@@ -35,8 +37,8 @@ func TestSimpleDoubleSpend(t *testing.T) {
 		numberOfConflictingTxs = 10
 	)
 
-	snapshotInfo := tests.ConsensusSnapshotDetails
-
+	snapshotOptions := tests.ConsensusSnapshotOptions
+	snapshotInfo := snapshotcreator.NewOptions(snapshotOptions...)
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), 4,
@@ -45,7 +47,7 @@ func TestSimpleDoubleSpend(t *testing.T) {
 			Faucet:      false,
 			Activity:    false,
 			Autopeering: false,
-			Snapshot:    snapshotInfo,
+			Snapshot:    snapshotOptions,
 		}, tests.CommonSnapshotConfigFunc(t, snapshotInfo, func(peerIndex int, isPeerMaster bool, conf config.GoShimmer) config.GoShimmer {
 			conf.UseNodeSeedAsWalletSeed = true
 			conf.ValidatorActivityWindow = 10 * time.Minute

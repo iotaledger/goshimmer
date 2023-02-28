@@ -14,9 +14,10 @@ import (
 	"github.com/iotaledger/hive.go/app/logger"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
+
+	"github.com/stretchr/testify/require"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -62,7 +63,17 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, ledgerVM vm.VM
 			WithEngineOptions(engine.WithLedgerOptions(ledger.WithVM(ledgerVM))),
 		)...)
 
-		snapshotcreator.CreateSnapshot(DatabaseVersion, tempDir.Path("snapshot.bin"), genesisTokenAmount, make([]byte, ed25519.SeedSize), identitiesWeights, lo.Keys(identitiesWeights), ledgerVM, t.Instance.SlotTimeProvider)
+		err := snapshotcreator.CreateSnapshot(
+			snapshotcreator.WithDatabaseVersion(DatabaseVersion),
+			snapshotcreator.WithVM(ledgerVM),
+			snapshotcreator.WithFilePath(tempDir.Path("snapshot.bin")),
+			snapshotcreator.WithGenesisTokenAmount(genesisTokenAmount),
+			snapshotcreator.WithGenesisSeed(make([]byte, ed25519.SeedSize)),
+			snapshotcreator.WithPledgeIDs(identitiesWeights),
+			snapshotcreator.WithAttestAll(true),
+			snapshotcreator.WithSlotTimeProvider(t.Instance.SlotTimeProvider),
+		)
+		require.NoError(test, err)
 
 		t.Engine = engine.NewTestFramework(t.test, t.workers.CreateGroup("EngineTestFramework"), t.Instance.Engine())
 	})

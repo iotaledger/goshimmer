@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/mr-tron/base58"
-
+	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
+	"github.com/iotaledger/hive.go/runtime/options"
+
+	"github.com/mr-tron/base58"
 )
 
 const (
@@ -50,7 +52,7 @@ type CreateNetworkConfig struct {
 	// Activity specifies whether nodes schedule activity blocks in regular intervals.
 	Activity bool
 	// Snapshot to be generated and rendered available for the network.
-	Snapshot SnapshotInfo
+	Snapshot []options.Option[snapshotcreator.Options]
 }
 
 // PeerConfig specifies the default config of a standard GoShimmer peer.
