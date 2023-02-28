@@ -38,7 +38,7 @@
       },
       "id": 63,
       "panels": [],
-      "title": "Epoch metrics",
+      "title": "Slot metrics",
       "type": "row"
     },
     {
@@ -99,7 +99,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "epochs_total_blocks{instance=\"$instance\"}\n",
+          "expr": "slots_total_blocks{instance=\"$instance\"}\n",
           "format": "table",
           "hide": false,
           "legendFormat": "__auto",
@@ -112,7 +112,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "epochs_accepted_blocks{instance=\"$instance\"}\n",
+          "expr": "slots_accepted_blocks{instance=\"$instance\"}\n",
           "format": "table",
           "hide": false,
           "legendFormat": "__auto",
@@ -125,7 +125,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "epochs_orphaned_blocks{instance=\"$instance\"}\n",
+          "expr": "slots_orphaned_blocks{instance=\"$instance\"}\n",
           "format": "table",
           "hide": false,
           "legendFormat": "__auto",
@@ -138,7 +138,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "epochs_invalid_blocks{instance=\"$instance\"}\n",
+          "expr": "slots_invalid_blocks{instance=\"$instance\"}\n",
           "format": "table",
           "hide": false,
           "legendFormat": "__auto",
@@ -151,7 +151,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "epochs_subjectively_invalid_blocks{instance=\"$instance\"}\n",
+          "expr": "slots_subjectively_invalid_blocks{instance=\"$instance\"}\n",
           "format": "table",
           "hide": false,
           "legendFormat": "__auto",
@@ -159,7 +159,7 @@
           "refId": "E"
         }
       ],
-      "title": "Blocks per epoch $instance",
+      "title": "Blocks per slot $instance",
       "transformations": [
         {
           "id": "groupBy",
@@ -183,7 +183,7 @@
                 ],
                 "operation": "aggregate"
               },
-              "Epoch Index": {
+              "Slot Index": {
                 "aggregations": [],
                 "operation": "groupby"
               },
@@ -241,7 +241,7 @@
                 ],
                 "operation": "aggregate"
               },
-              "epoch": {
+              "slot": {
                 "aggregations": [],
                 "operation": "groupby"
               },
@@ -263,7 +263,7 @@
             "fields": {},
             "sort": [
               {
-                "field": "epoch"
+                "field": "slot"
               }
             ]
           }
@@ -271,7 +271,7 @@
         {
           "id": "joinByField",
           "options": {
-            "byField": "epoch",
+            "byField": "slot",
             "mode": "outer"
           }
         },
@@ -290,7 +290,7 @@
               "transactions": 3
             },
             "renameByName": {
-              "Value": "Epoch Index",
+              "Value": "Slot Index",
               "Value #A (lastNotNull)": "Attached ",
               "Value #B (lastNotNull)": "Accepted ",
               "Value #C (lastNotNull)": "Orphaned ",
@@ -301,7 +301,7 @@
               "accepted_blocks (lastNotNull)": "Accepted Blocka",
               "active_validators": "Active validators",
               "active_validators (lastNotNull)": "Active Validators",
-              "epoch": "EI",
+              "slot": "EI",
               "transactions": "Accepted Transactions",
               "transactions (lastNotNull)": "Accepted Txs"
             }
@@ -369,7 +369,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "epochs_orphaned_attachments{instance=\"$instance\"}\n",
+          "expr": "slots_orphaned_attachments{instance=\"$instance\"}\n",
           "format": "table",
           "hide": false,
           "legendFormat": "__auto",
@@ -382,7 +382,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "epochs_total_attachments{instance=\"$instance\"}\n",
+          "expr": "slots_total_attachments{instance=\"$instance\"}\n",
           "format": "table",
           "hide": false,
           "legendFormat": "__auto",
@@ -395,7 +395,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "epochs_rejected_attachments{instance=\"$instance\"}\n",
+          "expr": "slots_rejected_attachments{instance=\"$instance\"}\n",
           "format": "table",
           "hide": false,
           "legendFormat": "__auto",
@@ -408,7 +408,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "epochs_accepted_attachments{instance=\"$instance\"}\n",
+          "expr": "slots_accepted_attachments{instance=\"$instance\"}\n",
           "format": "table",
           "hide": false,
           "legendFormat": "__auto",
@@ -416,7 +416,7 @@
           "refId": "G"
         }
       ],
-      "title": "Transactions per epoch $instance",
+      "title": "Transactions per slot $instance",
       "transformations": [
         {
           "id": "groupBy",
@@ -440,7 +440,7 @@
                 ],
                 "operation": "aggregate"
               },
-              "Epoch Index": {
+              "Slot Index": {
                 "aggregations": [],
                 "operation": "groupby"
               },
@@ -522,7 +522,7 @@
                 ],
                 "operation": "aggregate"
               },
-              "epoch": {
+              "slot": {
                 "aggregations": [],
                 "operation": "groupby"
               },
@@ -544,7 +544,7 @@
             "fields": {},
             "sort": [
               {
-                "field": "epoch"
+                "field": "slot"
               }
             ]
           }
@@ -552,7 +552,7 @@
         {
           "id": "joinByField",
           "options": {
-            "byField": "epoch",
+            "byField": "slot",
             "mode": "outer"
           }
         },
@@ -570,10 +570,10 @@
               "Value #G (lastNotNull)": 6,
               "Value #H (lastNotNull)": 3,
               "Value #I (lastNotNull)": 8,
-              "epoch": 0
+              "slot": 0
             },
             "renameByName": {
-              "Value": "Epoch Index",
+              "Value": "Slot Index",
               "Value #A (lastNotNull)": "Tot. tr.",
               "Value #B (lastNotNull)": "Inv. tr. ",
               "Value #C (lastNotNull)": "Acc. tr.",
@@ -589,7 +589,7 @@
               "accepted_blocks (lastNotNull)": "Accepted Blocka",
               "active_validators": "Active validators",
               "active_validators (lastNotNull)": "Active Validators",
-              "epoch": "EI",
+              "slot": "EI",
               "transactions": "Accepted Transactions",
               "transactions (lastNotNull)": "Accepted Txs"
             }
@@ -630,7 +630,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Epoch Index"
+              "options": "Slot Index"
             },
             "properties": [
               {
@@ -668,7 +668,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "epochs_created_conflicts{instance=\"$instance\"}\n",
+          "expr": "slots_created_conflicts{instance=\"$instance\"}\n",
           "format": "table",
           "legendFormat": "__auto",
           "range": true,
@@ -680,7 +680,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "epochs_accepted_conflicts{instance=\"$instance\"}\n",
+          "expr": "slots_accepted_conflicts{instance=\"$instance\"}\n",
           "format": "table",
           "hide": false,
           "legendFormat": "__auto",
@@ -693,7 +693,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "epochs_rejected_conflicts{instance=\"$instance\"}\n",
+          "expr": "slots_rejected_conflicts{instance=\"$instance\"}\n",
           "format": "table",
           "hide": false,
           "legendFormat": "__auto",
@@ -706,7 +706,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "epochs_not_conflicting_conflicts{instance=\"$instance\"}\n",
+          "expr": "slots_not_conflicting_conflicts{instance=\"$instance\"}\n",
           "format": "table",
           "hide": false,
           "legendFormat": "__auto",
@@ -714,7 +714,7 @@
           "refId": "D"
         }
       ],
-      "title": "Conflicts per epoch $instance",
+      "title": "Conflicts per slot $instance",
       "transformations": [
         {
           "id": "groupBy",
@@ -738,7 +738,7 @@
                 ],
                 "operation": "aggregate"
               },
-              "Epoch Index": {
+              "Slot Index": {
                 "aggregations": [],
                 "operation": "groupby"
               },
@@ -784,7 +784,7 @@
                 ],
                 "operation": "aggregate"
               },
-              "epoch": {
+              "slot": {
                 "aggregations": [],
                 "operation": "groupby"
               },
@@ -803,7 +803,7 @@
             "fields": {},
             "sort": [
               {
-                "field": "epoch"
+                "field": "slot"
               }
             ]
           }
@@ -811,7 +811,7 @@
         {
           "id": "joinByField",
           "options": {
-            "byField": "epoch",
+            "byField": "slot",
             "mode": "outer"
           }
         },
@@ -830,7 +830,7 @@
               "transactions": 3
             },
             "renameByName": {
-              "Value": "Epoch Index",
+              "Value": "Slot Index",
               "Value #A (lastNotNull)": "Created",
               "Value #B (lastNotNull)": "Accepted",
               "Value #C (lastNotNull)": "Rejeced",
@@ -840,7 +840,7 @@
               "accepted_blocks (lastNotNull)": "Accepted Blocka",
               "active_validators": "Active validators",
               "active_validators (lastNotNull)": "Active Validators",
-              "epoch": "EI",
+              "slot": "EI",
               "transactions": "Accepted Transactions",
               "transactions (lastNotNull)": "Accepted Txs"
             }
@@ -919,7 +919,7 @@
     ]
   },
   "timezone": "",
-  "title": "Global Epochs View",
+  "title": "Global Slots View",
   "uid": "9eivfEo4z",
   "version": 4,
   "weekStart": ""

@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/ds/advancedset"
@@ -26,9 +27,9 @@ func NewBlock(virtualVotingBlock *virtualvoting.Block, opts ...options.Option[Bl
 }
 
 // NewRootBlock creates a new root Block.
-func NewRootBlock(id models.BlockID) (rootBlock *Block) {
+func NewRootBlock(id models.BlockID, slotTimeProvider *slot.TimeProvider) (rootBlock *Block) {
 	return NewBlock(
-		virtualvoting.NewRootBlock(id),
+		virtualvoting.NewRootBlock(id, slotTimeProvider),
 		WithScheduled(true),
 		WithSkipped(false),
 		WithDiscarded(false),

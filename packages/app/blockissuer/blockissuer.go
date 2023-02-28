@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer/blockfactory"
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer/ratesetter"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
@@ -48,12 +48,13 @@ func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opt
 		protocol:   protocol,
 		workerPool: protocol.Workers.CreatePool("BlockIssuer", 2),
 	}, opts, func(i *BlockIssuer) {
-		i.referenceProvider = blockfactory.NewReferenceProvider(protocol, i.optsTimeSinceConfirmationThreshold, func() epoch.Index {
+		i.referenceProvider = blockfactory.NewReferenceProvider(protocol, i.optsTimeSinceConfirmationThreshold, func() slot.Index {
 			return protocol.Engine().Storage.Settings.LatestCommitment().Index()
 		})
 
 		i.Factory = blockfactory.NewBlockFactory(
 			localIdentity,
+			protocol.SlotTimeProvider,
 			func(blockID models.BlockID) (block *blockdag.Block, exists bool) {
 				return i.protocol.Engine().Tangle.BlockDAG.Block(blockID)
 			},
@@ -61,11 +62,11 @@ func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opt
 				return i.protocol.TipManager.Tips(countParents)
 			},
 			i.referenceProvider.References,
-			func() (ecRecord *commitment.Commitment, lastConfirmedEpochIndex epoch.Index, err error) {
+			func() (ecRecord *commitment.Commitment, lastConfirmedSlotIndex slot.Index, err error) {
 				latestCommitment := i.protocol.Engine().Storage.Settings.LatestCommitment()
-				confirmedEpochIndex := i.protocol.Engine().Storage.Settings.LatestConfirmedEpoch()
+				confirmedSlotIndex := i.protocol.Engine().Storage.Settings.LatestConfirmedSlot()
 
-				return latestCommitment, confirmedEpochIndex, nil
+				return latestCommitment, confirmedSlotIndex, nil
 			},
 			i.optsBlockFactoryOptions...)
 	}, (*BlockIssuer).setupEvents)

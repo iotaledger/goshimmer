@@ -37,8 +37,8 @@ This layer stores and communicates information. This layer contains the “distr
 ### Mana
 The reputation of a node is based on a virtual token called mana. This reputation, working as a Sybil protection mechanism, is important for issuing more transactions (see Module 3) and having a higher influence during the voting process (see Module 5).
 
-#### Epoch
-A time interval that is used for a certain type of consensus mana. At the end of each epoch a snapshot of the state of mana distribution in the network is taken. Since this tool employs the timestamp of blocks every node can reach consensus on an epoch's mana distribution eventually.
+#### Slot
+A time interval that is used for a certain type of consensus mana. At the end of each slot a snapshot of the state of mana distribution in the network is taken. Since this tool employs the timestamp of blocks every node can reach consensus on an slots's mana distribution eventually.
 
 ### Block
 The object that is gossiped between neighbors. All gossiped information is included in a block. The most basic unit of information of the IOTA Protocol. Each block has a type and size and contains data.

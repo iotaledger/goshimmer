@@ -4,7 +4,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 )
 
-type EpochInfo struct {
+type SlotInfo struct {
 	ID               string `json:"id"`
 	Index            uint64 `json:"index"`
 	RootsID          string `json:"rootsID"`
@@ -12,8 +12,8 @@ type EpochInfo struct {
 	CumulativeWeight int64  `json:"cumulativeWeight"`
 }
 
-func EpochInfoFromRecord(c *commitment.Commitment) *EpochInfo {
-	return &EpochInfo{
+func SlotInfoFromRecord(c *commitment.Commitment) *SlotInfo {
+	return &SlotInfo{
 		ID:               c.ID().Base58(),
 		Index:            uint64(c.Index()),
 		RootsID:          c.RootsID().Base58(),
@@ -22,29 +22,29 @@ func EpochInfoFromRecord(c *commitment.Commitment) *EpochInfo {
 	}
 }
 
-type EpochsResponse struct {
-	Epochs []*EpochInfo `json:"epochs"`
+type SlotsResponse struct {
+	Slots []*SlotInfo `json:"slots"`
 }
 
-type EpochVotersWeightResponse struct {
-	VotersWeight map[string]*NodeWeight `json:"ecrVoters"`
+type SlotVotersWeightResponse struct {
+	VotersWeight map[string]*NodeWeight `json:"voters"`
 }
 
 type NodeWeight struct {
 	Weights map[string]float64 `json:"weights"`
 }
 
-type EpochUTXOsResponse struct {
+type SlotUTXOsResponse struct {
 	SpentOutputs   []string `json:"spentOutputs"`
 	CreatedOutputs []string `json:"createdOutputs"`
 }
 
-type EpochBlocksResponse struct {
+type SlotBlocksResponse struct {
 	Blocks []string `json:"blocks"`
 	Error  string   `json:"error,omitempty"`
 }
 
-type EpochTransactionsResponse struct {
+type SlotTransactionsResponse struct {
 	Transactions []string `json:"transactions"`
 	Error        string   `json:"error,omitempty"`
 }

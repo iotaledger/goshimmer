@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/lo"
@@ -42,10 +42,10 @@ func NewBlock(data *models.Block, opts ...options.Option[Block]) (newBlock *Bloc
 	}, opts)
 }
 
-func NewRootBlock(id models.BlockID, opts ...options.Option[models.Block]) (rootBlock *Block) {
-	issuingTime := time.Unix(epoch.GenesisTime, 0)
+func NewRootBlock(id models.BlockID, slotTimeProvider *slot.TimeProvider, opts ...options.Option[models.Block]) (rootBlock *Block) {
+	issuingTime := time.Unix(slotTimeProvider.GenesisUnixTime(), 0)
 	if id.Index() > 0 {
-		issuingTime = id.Index().EndTime()
+		issuingTime = slotTimeProvider.EndTime(id.Index())
 	}
 	return NewBlock(
 		models.NewEmptyBlock(id, append([]options.Option[models.Block]{models.WithIssuingTime(issuingTime)}, opts...)...),
@@ -78,7 +78,7 @@ func (b *Block) IsInvalid() (isInvalid bool) {
 	return b.invalid
 }
 
-// IsFuture returns true if the Block is a future Block (we haven't committed to its commitment epoch yet).
+// IsFuture returns true if the Block is a future Block (we haven't committed to its commitment slot yet).
 func (b *Block) IsFuture() (isFuture bool) {
 	b.mutex.RLock()
 	defer b.mutex.RUnlock()

@@ -6,8 +6,8 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/node"
@@ -25,6 +25,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
 	"github.com/iotaledger/hive.go/app/daemon"
 	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
@@ -56,10 +57,6 @@ func init() {
 func provide(n *p2p.Manager) (p *protocol.Protocol) {
 	cacheTimeProvider := database.NewCacheTimeProvider(DatabaseParameters.ForceCacheTime)
 
-	if Parameters.GenesisTime > 0 {
-		epoch.GenesisTime = Parameters.GenesisTime
-	}
-
 	var dbProvider database.DBProvider
 	if DatabaseParameters.InMemory {
 		dbProvider = database.NewMemDB
@@ -67,8 +64,14 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 		dbProvider = database.NewDB
 	}
 
+	var slotTimeOpts []options.Option[slot.TimeProvider]
+	if Parameters.GenesisTime > 0 {
+		slotTimeOpts = append(slotTimeOpts, slot.WithGenesisUnixTime(Parameters.GenesisTime))
+	}
+
 	p = protocol.New(workerpool.NewGroup("Protocol"),
 		n,
+		protocol.WithSlotTimeProviderOptions(slotTimeOpts...),
 		protocol.WithSybilProtectionProvider(
 			dpos.NewProvider(
 				dpos.WithActivityWindow(Parameters.ValidatorActivityWindow),
@@ -76,12 +79,12 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 		),
 		protocol.WithEngineOptions(
 			engine.WithFilterOptions(
-				filter.WithMinCommittableEpochAge(epoch.Index(NotarizationParameters.MinEpochCommittableAge)),
+				filter.WithMinCommittableSlotAge(slot.Index(NotarizationParameters.MinSlotCommittableAge)),
 				filter.WithMaxAllowedWallClockDrift(Parameters.MaxAllowedClockDrift),
 				filter.WithSignatureValidation(true),
 			),
 			engine.WithNotarizationManagerOptions(
-				notarization.WithMinCommittableEpochAge(epoch.Index(NotarizationParameters.MinEpochCommittableAge)),
+				notarization.WithMinCommittableSlotAge(slot.Index(NotarizationParameters.MinSlotCommittableAge)),
 			),
 			engine.WithBootstrapThreshold(Parameters.BootstrapWindow),
 			engine.WithTSCManagerOptions(

@@ -5,7 +5,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/app/retainer"
 	"github.com/iotaledger/goshimmer/packages/core/database"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	protocolplugin "github.com/iotaledger/goshimmer/plugins/protocol"
@@ -40,8 +40,8 @@ func init() {
 }
 
 func configure(*node.Plugin) {
-	deps.Protocol.Events.Engine.Consensus.EpochGadget.EpochConfirmed.Hook(func(epochIndex epoch.Index) {
-		deps.Retainer.PruneUntilEpoch(epochIndex - epoch.Index(Parameters.PruningThreshold))
+	deps.Protocol.Events.Engine.Consensus.SlotGadget.SlotConfirmed.Hook(func(index slot.Index) {
+		deps.Retainer.PruneUntilSlot(index - slot.Index(Parameters.PruningThreshold))
 	}, event.WithWorkerPool(deps.Retainer.BlockWorkerPool()))
 }
 

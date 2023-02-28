@@ -6,7 +6,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/core/database"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
@@ -121,26 +121,26 @@ func New(workerPool *workerpool.WorkerPool, chainStorage *storage.Storage, opts 
 	return ledger
 }
 
-// SetTransactionInclusionEpoch sets the inclusion timestamp of a Transaction.
-func (l *Ledger) SetTransactionInclusionEpoch(id utxo.TransactionID, inclusionEpoch epoch.Index) {
+// SetTransactionInclusionSlot sets the inclusion timestamp of a Transaction.
+func (l *Ledger) SetTransactionInclusionSlot(id utxo.TransactionID, inclusionSlot slot.Index) {
 	l.Storage.CachedTransactionMetadata(id).Consume(func(metadata *TransactionMetadata) {
-		updated, previousInclusionEpoch := metadata.SetInclusionEpoch(inclusionEpoch)
+		updated, previousInclusionSlot := metadata.SetInclusionSlot(inclusionSlot)
 		if !updated {
 			return
 		}
 
 		for it := metadata.OutputIDs().Iterator(); it.HasNext(); {
 			l.Storage.CachedOutputMetadata(it.Next()).Consume(func(outputMetadata *OutputMetadata) {
-				outputMetadata.SetInclusionEpoch(inclusionEpoch)
+				outputMetadata.SetInclusionSlot(inclusionSlot)
 			})
 		}
 
-		if previousInclusionEpoch != 0 {
+		if previousInclusionSlot != 0 {
 			l.Events.TransactionInclusionUpdated.Trigger(&TransactionInclusionUpdatedEvent{
-				TransactionID:          id,
-				TransactionMetadata:    metadata,
-				InclusionEpoch:         inclusionEpoch,
-				PreviousInclusionEpoch: previousInclusionEpoch,
+				TransactionID:         id,
+				TransactionMetadata:   metadata,
+				InclusionSlot:         inclusionSlot,
+				PreviousInclusionSlot: previousInclusionSlot,
 			})
 		}
 
@@ -201,7 +201,7 @@ func (l *Ledger) triggerAcceptedEvent(txMetadata *TransactionMetadata) (triggere
 		return false
 	}
 
-	if txMetadata.InclusionEpoch() == 0 {
+	if txMetadata.InclusionSlot() == 0 {
 		return false
 	}
 
@@ -242,7 +242,7 @@ func (l *Ledger) triggerAcceptedEvent(txMetadata *TransactionMetadata) (triggere
 			outputMetadata.SetConfirmationState(confirmation.Accepted)
 			l.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
 				transactionEvent.CreatedOutputs = append(transactionEvent.CreatedOutputs, NewOutputWithMetadata(
-					outputMetadata.InclusionEpoch(),
+					outputMetadata.InclusionSlot(),
 					outputID,
 					output,
 					outputMetadata.ConsensusManaPledgeID(),
@@ -258,7 +258,7 @@ func (l *Ledger) triggerAcceptedEvent(txMetadata *TransactionMetadata) (triggere
 			l.Storage.CachedOutputMetadata(inputID).Consume(func(outputMetadata *OutputMetadata) {
 				l.Storage.CachedOutput(inputID).Consume(func(output utxo.Output) {
 					transactionEvent.SpentOutputs = append(transactionEvent.SpentOutputs, NewOutputWithMetadata(
-						outputMetadata.InclusionEpoch(),
+						outputMetadata.InclusionSlot(),
 						inputID,
 						output,
 						outputMetadata.ConsensusManaPledgeID(),

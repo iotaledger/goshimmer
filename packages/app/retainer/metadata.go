@@ -141,10 +141,10 @@ type blockMetadataModel struct {
 	AcceptedTime time.Time `serix:"24"`
 
 	// confirmation.Block
-	Confirmed            bool      `serix:"25"`
-	ConfirmedTime        time.Time `serix:"26"`
-	ConfirmedByEpoch     bool      `serix:"27"`
-	ConfirmedByEpochTime time.Time `serix:"28"`
+	Confirmed           bool      `serix:"25"`
+	ConfirmedTime       time.Time `serix:"26"`
+	ConfirmedBySlot     bool      `serix:"27"`
+	ConfirmedBySlotTime time.Time `serix:"28"`
 
 	Block *models.Block `serix:"29,optional"`
 }

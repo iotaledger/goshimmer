@@ -23,11 +23,11 @@ type Protocol struct {
 	log             *logger.Logger
 }
 
-func New(workerPool *workerpool.WorkerPool, networkEndpoing network.Endpoint, log *logger.Logger) (protocol *Protocol) {
+func New(workerPool *workerpool.WorkerPool, networkEndpoint network.Endpoint, log *logger.Logger) (protocol *Protocol) {
 	protocol = &Protocol{
 		Events:          NewEvents(),
 		workerPool:      workerPool,
-		networkEndpoint: networkEndpoing,
+		networkEndpoint: networkEndpoint,
 		log:             log,
 	}
 
@@ -43,14 +43,14 @@ func (p *Protocol) Stop() {
 func (p *Protocol) handlePacket(id identity.ID, packet proto.Message) error {
 	wpPacket := packet.(*wp.Packet)
 	switch packetBody := wpPacket.GetBody().(type) {
-	case *wp.Packet_EpochBlocksRequest:
-		submitTask(p.workerPool, p.processEpochBlocksRequestPacket, packetBody, id)
-	case *wp.Packet_EpochBlocksStart:
-		submitTask(p.workerPool, p.processEpochBlocksStartPacket, packetBody, id)
-	case *wp.Packet_EpochBlocksBatch:
-		submitTask(p.workerPool, p.processEpochBlocksBatchPacket, packetBody, id)
-	case *wp.Packet_EpochBlocksEnd:
-		submitTask(p.workerPool, p.processEpochBlocksEndPacket, packetBody, id)
+	case *wp.Packet_SlotBlocksRequest:
+		submitTask(p.workerPool, p.processSlotBlocksRequestPacket, packetBody, id)
+	case *wp.Packet_SlotBlocksStart:
+		submitTask(p.workerPool, p.processSlotBlocksStartPacket, packetBody, id)
+	case *wp.Packet_SlotBlocksBatch:
+		submitTask(p.workerPool, p.processSlotBlocksBatchPacket, packetBody, id)
+	case *wp.Packet_SlotBlocksEnd:
+		submitTask(p.workerPool, p.processSlotBlocksEndPacket, packetBody, id)
 	default:
 		return errors.Errorf("unsupported packet; packet=%+v, packetBody=%T-%+v", wpPacket, packetBody, packetBody)
 	}

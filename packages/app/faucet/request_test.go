@@ -56,7 +56,7 @@ func TestIsFaucetReq(t *testing.T) {
 		models.WithPayload(faucetRequest),
 		models.WithNonce(0),
 		models.WithSignature(ed25519.EmptySignature),
-		models.WithLatestConfirmedEpoch(0),
+		models.WithLatestConfirmedSlot(0),
 		models.WithCommitment(commitment.New(0, commitment.ID{}, types.Identifier{}, 0)),
 	)
 
@@ -68,7 +68,7 @@ func TestIsFaucetReq(t *testing.T) {
 		models.WithPayload(payload.NewGenericDataPayload([]byte("data"))),
 		models.WithNonce(0),
 		models.WithSignature(ed25519.EmptySignature),
-		models.WithLatestConfirmedEpoch(0),
+		models.WithLatestConfirmedSlot(0),
 		models.WithCommitment(commitment.New(0, commitment.ID{}, types.Identifier{}, 0)),
 	)
 

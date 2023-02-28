@@ -7,7 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	PrefixLastCommittedEpoch byte = iota
+	PrefixLastCommittedSlot byte = iota
 	PrefixWeights
 )
 
@@ -50,7 +50,7 @@ func NewSybilProtection(engineInstance *engine.Engine, opts ...options.Option[Sy
 	return options.Apply(
 		&SybilProtection{
 			Initializable:    traits.NewInitializable(),
-			BatchCommittable: traits.NewBatchCommittable(engineInstance.Storage.SybilProtection(), PrefixLastCommittedEpoch),
+			BatchCommittable: traits.NewBatchCommittable(engineInstance.Storage.SybilProtection(), PrefixLastCommittedSlot),
 
 			engine:            engineInstance,
 			workers:           engineInstance.Workers.CreateGroup("SybilProtection"),
@@ -83,14 +83,14 @@ func NewSybilProtection(engineInstance *engine.Engine, opts ...options.Option[Sy
 }
 
 func (s *SybilProtection) initializeLatestCommitment() {
-	s.SetLastCommittedEpoch(s.engine.Storage.Settings.LatestCommitment().Index())
+	s.SetLastCommittedSlot(s.engine.Storage.Settings.LatestCommitment().Index())
 }
 
 func (s *SybilProtection) initializeTotalWeight() {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	s.weights.UpdateTotalWeightEpoch(s.engine.Storage.Settings.LatestCommitment().Index())
+	s.weights.UpdateTotalWeightSlot(s.engine.Storage.Settings.LatestCommitment().Index())
 }
 
 func (s *SybilProtection) initializeActiveValidators() {
@@ -161,13 +161,13 @@ func (s *SybilProtection) RollbackSpentOutput(output *ledger.OutputWithMetadata)
 	return s.ApplyCreatedOutput(output)
 }
 
-func (s *SybilProtection) BeginBatchedStateTransition(newEpoch epoch.Index) (currentEpoch epoch.Index, err error) {
-	if currentEpoch, err = s.BatchCommittable.BeginBatchedStateTransition(newEpoch); err != nil {
+func (s *SybilProtection) BeginBatchedStateTransition(newSlot slot.Index) (currentSlot slot.Index, err error) {
+	if currentSlot, err = s.BatchCommittable.BeginBatchedStateTransition(newSlot); err != nil {
 		return 0, errors.Wrap(err, "failed to begin batched state transition")
 	}
 
-	if currentEpoch != newEpoch {
-		s.weightsBatch = sybilprotection.NewWeightsBatch(newEpoch)
+	if currentSlot != newSlot {
+		s.weightsBatch = sybilprotection.NewWeightsBatch(newSlot)
 	}
 
 	return

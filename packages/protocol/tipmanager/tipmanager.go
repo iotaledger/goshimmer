@@ -7,8 +7,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
@@ -39,20 +39,20 @@ type TipManager struct {
 	workers                     *workerpool.Group
 	schedulerBlockRetrieverFunc blockRetrieverFunc
 
-	walkerCache *memstorage.EpochStorage[models.BlockID, types.Empty]
+	walkerCache *memstorage.SlotStorage[models.BlockID, types.Empty]
 
 	mutex               sync.RWMutex
 	tips                *randommap.RandomMap[models.BlockID, *scheduler.Block]
 	TipsConflictTracker *TipsConflictTracker
 
-	commitmentRecentBoundary epoch.Index
+	commitmentRecentBoundary slot.Index
 
 	optsTimeSinceConfirmationThreshold time.Duration
 	optsWidth                          int
 }
 
 // New creates a new TipManager.
-func New(workers *workerpool.Group, schedulerBlockRetrieverFunc blockRetrieverFunc, opts ...options.Option[TipManager]) (t *TipManager) {
+func New(workers *workerpool.Group, slotTimeProvider *slot.TimeProvider, schedulerBlockRetrieverFunc blockRetrieverFunc, opts ...options.Option[TipManager]) (t *TipManager) {
 	t = options.Apply(&TipManager{
 		Events: NewEvents(),
 
@@ -61,13 +61,13 @@ func New(workers *workerpool.Group, schedulerBlockRetrieverFunc blockRetrieverFu
 
 		tips: randommap.New[models.BlockID, *scheduler.Block](),
 
-		walkerCache: memstorage.NewEpochStorage[models.BlockID, types.Empty](),
+		walkerCache: memstorage.NewSlotStorage[models.BlockID, types.Empty](),
 
 		optsTimeSinceConfirmationThreshold: time.Minute,
 		optsWidth:                          0,
 	}, opts)
 
-	t.commitmentRecentBoundary = epoch.Index(int64(t.optsTimeSinceConfirmationThreshold.Seconds()) / epoch.Duration)
+	t.commitmentRecentBoundary = slot.Index(int64(t.optsTimeSinceConfirmationThreshold.Seconds()) / slotTimeProvider.Duration())
 
 	return
 }
@@ -76,7 +76,7 @@ func (t *TipManager) LinkTo(engine *engine.Engine) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	t.walkerCache = memstorage.NewEpochStorage[models.BlockID, types.Empty]()
+	t.walkerCache = memstorage.NewSlotStorage[models.BlockID, types.Empty]()
 	t.tips = randommap.New[models.BlockID, *scheduler.Block]()
 
 	t.engine = engine
@@ -116,7 +116,7 @@ func (t *TipManager) AddTipNonMonotonic(block *scheduler.Block) {
 	}
 }
 
-func (t *TipManager) EvictTSCCache(index epoch.Index) {
+func (t *TipManager) EvictTSCCache(index slot.Index) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 

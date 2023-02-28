@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
@@ -13,7 +13,7 @@ import (
 )
 
 func TestMutationFactory(t *testing.T) {
-	tf := NewTestFramework(t)
+	tf := NewTestFramework(t, slot.NewTimeProvider())
 
 	// create transactions
 	tf.CreateTransaction("tx1.1", 1)
@@ -35,17 +35,17 @@ func TestMutationFactory(t *testing.T) {
 	tf.CreateBlock("3.1", 3, models.WithIssuer(tf.Issuer("Batman")))
 	tf.CreateBlock("3.2", 3, models.WithIssuer(tf.Issuer("Superman")))
 
-	// commit epoch 1 (empty)
+	// commit slot 1 (empty)
 	tf.AssertCommit(1, nil, nil, nil, 0)
 
-	// mutate epoch 1 (errors expected)
+	// mutate slot 1 (errors expected)
 	require.Error(t, tf.AddAcceptedBlock("1.1"))
 	require.Error(t, tf.RemoveAcceptedBlock("1.1"))
 	require.NoError(t, tf.UpdateTransactionInclusion("tx1.1", 3, 5))
 	require.Error(t, tf.UpdateTransactionInclusion("tx3.1", 2, 1))
 	tf.AssertCommit(1, nil, nil, nil, 0, true)
 
-	// mutate epoch 2
+	// mutate slot 2
 	require.NoError(t, tf.AddAcceptedBlock("2.1"))
 	require.NoError(t, tf.AddAcceptedBlock("2.2"))
 	require.NoError(t, tf.AddAcceptedBlock("2.3"))
@@ -53,29 +53,30 @@ func TestMutationFactory(t *testing.T) {
 	require.NoError(t, tf.AddAcceptedTransaction("tx2.2"))
 	require.NoError(t, tf.RemoveAcceptedTransaction("tx2.2"))
 
-	// mutate epoch 3
+	// mutate slot 3
 	require.NoError(t, tf.AddAcceptedBlock("3.1"))
 	require.NoError(t, tf.AddAcceptedBlock("3.2"))
 	require.NoError(t, tf.AddAcceptedTransaction("tx3.1"))
 	require.NoError(t, tf.UpdateTransactionInclusion("tx3.1", 3, 2))
 	require.NoError(t, tf.RemoveAcceptedBlock("3.2"))
 
-	// assert commitment of epoch 2
+	// assert commitment of slot 2
 	tf.AssertCommit(2, []string{"2.1", "2.2", "2.3"}, []string{"tx2.1", "tx3.1"}, []string{"Batman", "Robin", "Joker"}, 30, false)
 
-	// assert commitment of epoch 3
-	// The CW is 10 because the epoch mutation does not accumulate the weights, the notarization manager does.
+	// assert commitment of slot 3
+	// The CW is 10 because the slot mutation does not accumulate the weights, the notarization manager does.
 	tf.AssertCommit(3, []string{"3.1"}, []string{}, []string{"Batman"}, 10, false)
 }
 
 func TestMutationFactory_AddAcceptedBlock(t *testing.T) {
-	mutationFactory := NewEpochMutations(sybilprotection.NewWeights(mapdb.NewMapDB()), 2)
+	slotTimeProvider := slot.NewTimeProvider()
+	mutationFactory := NewSlotMutations(sybilprotection.NewWeights(mapdb.NewMapDB()), 2)
 
 	block := models.NewBlock(
-		models.WithIssuingTime(epoch.Index(3).EndTime()),
+		models.WithIssuingTime(slotTimeProvider.EndTime(3)),
 		models.WithStrongParents(models.NewBlockIDs(models.EmptyBlockID)),
 	)
-	require.NoError(t, block.DetermineID())
+	require.NoError(t, block.DetermineID(slotTimeProvider))
 
 	require.NoError(t, mutationFactory.AddAcceptedBlock(block))
 	require.True(t, mutationFactory.acceptedBlocks(3).Has(block.ID()))

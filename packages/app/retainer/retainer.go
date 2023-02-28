@@ -5,8 +5,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/database"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
@@ -35,13 +35,13 @@ type Retainer struct {
 
 	blockWorkerPool      *workerpool.WorkerPool
 	commitmentWorkerPool *workerpool.WorkerPool
-	cachedMetadata       *memstorage.EpochStorage[models.BlockID, *cachedMetadata]
-	blockStorage         *database.PersistentEpochStorage[models.BlockID, BlockMetadata, *models.BlockID, *BlockMetadata]
-	commitmentStorage    *database.PersistentEpochStorage[commitment.ID, CommitmentDetails, *commitment.ID, *CommitmentDetails]
+	cachedMetadata       *memstorage.SlotStorage[models.BlockID, *cachedMetadata]
+	blockStorage         *database.PersistentSlotStorage[models.BlockID, BlockMetadata, *models.BlockID, *BlockMetadata]
+	commitmentStorage    *database.PersistentSlotStorage[commitment.ID, CommitmentDetails, *commitment.ID, *CommitmentDetails]
 
 	dbManager            *database.Manager
 	protocol             *protocol.Protocol
-	metadataEvictionLock *syncutils.DAGMutex[epoch.Index]
+	metadataEvictionLock *syncutils.DAGMutex[slot.Index]
 
 	optsRealm kvstore.Realm
 }
@@ -51,14 +51,14 @@ func NewRetainer(workers *workerpool.Group, protocol *protocol.Protocol, dbManag
 		Workers:              workers,
 		blockWorkerPool:      workers.CreatePool("RetainerBlock", 2),
 		commitmentWorkerPool: workers.CreatePool("RetainerCommitment", 1),
-		cachedMetadata:       memstorage.NewEpochStorage[models.BlockID, *cachedMetadata](),
+		cachedMetadata:       memstorage.NewSlotStorage[models.BlockID, *cachedMetadata](),
 		protocol:             protocol,
 		dbManager:            dbManager,
 		optsRealm:            []byte("retainer"),
 	}, opts, (*Retainer).setupEvents, func(r *Retainer) {
-		r.blockStorage = database.NewPersistentEpochStorage[models.BlockID, BlockMetadata](dbManager, append(r.optsRealm, []byte{prefixBlockMetadataStorage}...))
-		r.commitmentStorage = database.NewPersistentEpochStorage[commitment.ID, CommitmentDetails](dbManager, append(r.optsRealm, []byte{prefixCommitmentDetailsStorage}...))
-		r.metadataEvictionLock = syncutils.NewDAGMutex[epoch.Index]()
+		r.blockStorage = database.NewPersistentSlotStorage[models.BlockID, BlockMetadata](dbManager, append(r.optsRealm, []byte{prefixBlockMetadataStorage}...))
+		r.commitmentStorage = database.NewPersistentSlotStorage[commitment.ID, CommitmentDetails](dbManager, append(r.optsRealm, []byte{prefixCommitmentDetailsStorage}...))
+		r.metadataEvictionLock = syncutils.NewDAGMutex[slot.Index]()
 	})
 }
 
@@ -83,16 +83,16 @@ func (r *Retainer) BlockMetadata(blockID models.BlockID) (metadata *BlockMetadat
 	if exists {
 		metadata.SetID(metadata.M.ID)
 
-		if metadata.M.Accepted && !metadata.M.Confirmed && blockID.Index() <= r.protocol.Engine().LastConfirmedEpoch() {
-			metadata.M.ConfirmedByEpoch = true
-			metadata.M.ConfirmedByEpochTime = blockID.Index().EndTime()
+		if metadata.M.Accepted && !metadata.M.Confirmed && blockID.Index() <= r.protocol.Engine().LastConfirmedSlot() {
+			metadata.M.ConfirmedBySlot = true
+			metadata.M.ConfirmedBySlotTime = r.protocol.SlotTimeProvider.EndTime(blockID.Index())
 		}
 	}
 
 	return metadata, exists
 }
 
-func (r *Retainer) Commitment(index epoch.Index) (c *CommitmentDetails, exists bool) {
+func (r *Retainer) Commitment(index slot.Index) (c *CommitmentDetails, exists bool) {
 	return r.getCommitmentDetails(index)
 }
 
@@ -100,7 +100,7 @@ func (r *Retainer) CommitmentByID(id commitment.ID) (c *CommitmentDetails, exist
 	return r.getCommitmentDetails(id.Index())
 }
 
-func (r *Retainer) LoadAllBlockMetadata(index epoch.Index) (ids *advancedset.AdvancedSet[*BlockMetadata]) {
+func (r *Retainer) LoadAllBlockMetadata(index slot.Index) (ids *advancedset.AdvancedSet[*BlockMetadata]) {
 	r.metadataEvictionLock.RLock(index)
 	defer r.metadataEvictionLock.RUnlock(index)
 
@@ -111,12 +111,12 @@ func (r *Retainer) LoadAllBlockMetadata(index epoch.Index) (ids *advancedset.Adv
 	return
 }
 
-func (r *Retainer) StreamBlocksMetadata(index epoch.Index, callback func(id models.BlockID, metadata *BlockMetadata)) {
+func (r *Retainer) StreamBlocksMetadata(index slot.Index, callback func(id models.BlockID, metadata *BlockMetadata)) {
 	r.metadataEvictionLock.RLock(index)
 	defer r.metadataEvictionLock.RUnlock(index)
 
-	if epochStorage := r.cachedMetadata.Get(index, false); epochStorage != nil {
-		epochStorage.ForEach(func(id models.BlockID, cachedMetadata *cachedMetadata) bool {
+	if slotStorage := r.cachedMetadata.Get(index, false); slotStorage != nil {
+		slotStorage.ForEach(func(id models.BlockID, cachedMetadata *cachedMetadata) bool {
 			callback(id, newBlockMetadata(cachedMetadata))
 			return true
 		})
@@ -139,9 +139,9 @@ func (r *Retainer) BlockWorkerPool() *workerpool.WorkerPool {
 	return r.blockWorkerPool
 }
 
-// PruneUntilEpoch prunes storage epochs less than and equal to the given index.
-func (r *Retainer) PruneUntilEpoch(epochIndex epoch.Index) {
-	r.dbManager.PruneUntilEpoch(epochIndex)
+// PruneUntilSlot prunes storage slots less than and equal to the given index.
+func (r *Retainer) PruneUntilSlot(index slot.Index) {
+	r.dbManager.PruneUntilSlot(index)
 }
 
 func (r *Retainer) setupEvents() {
@@ -198,10 +198,10 @@ func (r *Retainer) setupEvents() {
 		}
 	}, event.WithWorkerPool(r.blockWorkerPool))
 
-	r.protocol.Events.Engine.EvictionState.EpochEvicted.Hook(r.storeAndEvictEpoch, event.WithWorkerPool(r.blockWorkerPool))
+	r.protocol.Events.Engine.EvictionState.SlotEvicted.Hook(r.storeAndEvictSlot, event.WithWorkerPool(r.blockWorkerPool))
 
-	r.protocol.Events.Engine.NotarizationManager.EpochCommitted.Hook(func(e *notarization.EpochCommittedDetails) {
-		if e.Commitment.Index() < r.protocol.Engine().EvictionState.LastEvictedEpoch() {
+	r.protocol.Events.Engine.NotarizationManager.SlotCommitted.Hook(func(e *notarization.SlotCommittedDetails) {
+		if e.Commitment.Index() < r.protocol.Engine().EvictionState.LastEvictedSlot() {
 			return
 		}
 
@@ -215,7 +215,7 @@ func (r *Retainer) createOrGetCachedMetadata(id models.BlockID) *cachedMetadata 
 	r.metadataEvictionLock.RLock(id.Index())
 	defer r.metadataEvictionLock.RUnlock(id.Index())
 
-	if id.EpochIndex < r.protocol.Engine().EvictionState.LastEvictedEpoch() {
+	if id.SlotIndex < r.protocol.Engine().EvictionState.LastEvictedSlot() {
 		return nil
 	}
 
@@ -224,9 +224,9 @@ func (r *Retainer) createOrGetCachedMetadata(id models.BlockID) *cachedMetadata 
 	return cm
 }
 
-func (r *Retainer) storeAndEvictEpoch(epochIndex epoch.Index) {
+func (r *Retainer) storeAndEvictSlot(index slot.Index) {
 	// First we read the data from storage.
-	metas := r.createStorableBlockMetadata(epochIndex)
+	metas := r.createStorableBlockMetadata(index)
 
 	// Now we store it to disk (slow).
 	r.storeBlockMetadata(metas)
@@ -234,16 +234,16 @@ func (r *Retainer) storeAndEvictEpoch(epochIndex epoch.Index) {
 	// Once everything is stored to disk, we evict it from cache.
 	// Therefore, we make sure that we can always first try to read BlockMetadata from cache and if it's not in cache
 	// anymore it is already written to disk.
-	r.metadataEvictionLock.Lock(epochIndex)
-	r.cachedMetadata.Evict(epochIndex)
-	r.metadataEvictionLock.Unlock(epochIndex)
+	r.metadataEvictionLock.Lock(index)
+	r.cachedMetadata.Evict(index)
+	r.metadataEvictionLock.Unlock(index)
 }
 
-func (r *Retainer) createStorableBlockMetadata(epochIndex epoch.Index) (metas []*BlockMetadata) {
-	r.metadataEvictionLock.RLock(epochIndex)
-	defer r.metadataEvictionLock.RUnlock(epochIndex)
+func (r *Retainer) createStorableBlockMetadata(index slot.Index) (metas []*BlockMetadata) {
+	r.metadataEvictionLock.RLock(index)
+	defer r.metadataEvictionLock.RUnlock(index)
 
-	storage := r.cachedMetadata.Get(epochIndex)
+	storage := r.cachedMetadata.Get(index)
 	if storage == nil {
 		return metas
 	}
@@ -291,7 +291,7 @@ func (r *Retainer) blockMetadataFromCache(blockID models.BlockID) (storageExists
 	return true, newBlockMetadata(cm), exists
 }
 
-func (r *Retainer) getCommitmentDetails(index epoch.Index) (c *CommitmentDetails, exists bool) {
+func (r *Retainer) getCommitmentDetails(index slot.Index) (c *CommitmentDetails, exists bool) {
 	if index < 0 {
 		return
 	}
