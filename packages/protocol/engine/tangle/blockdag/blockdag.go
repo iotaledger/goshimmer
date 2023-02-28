@@ -43,6 +43,13 @@ type BlockDAG struct {
 
 	nextIndexToPromote epoch.Index
 
+	// The Queue always read-locks the eviction mutex of the solidifier, and then evaluates if the block is
+	// future thus read-locking the futureBlocks mutex. At the same time, when re-adding parked blocks,
+	// promoteFutureBlocksMethod write-locks the futureBlocks mutex, and then read-locks the eviction mutex
+	// of  the solidifer. As the locks are non-starving, and locks are interlocked in differnt orders a
+	// deadlock can occur only when an eviction is triggered while the above scenario unfolds.
+	solidifierMutex sync.RWMutex
+
 	futureBlocksMutex sync.RWMutex
 
 	// evictionMutex is a mutex that is used to synchronize the eviction of elements from the BlockDAG.
@@ -80,6 +87,9 @@ func New(workers *workerpool.Group, evictionState *eviction.State, latestCommitm
 func (b *BlockDAG) Attach(data *models.Block) (block *Block, wasAttached bool, err error) {
 	if block, wasAttached, err = b.attach(data); wasAttached {
 		b.Events.BlockAttached.Trigger(block)
+
+		b.solidifierMutex.RLock()
+		defer b.solidifierMutex.RUnlock()
 
 		b.solidifier.Queue(block)
 	}
@@ -139,6 +149,9 @@ func (b *BlockDAG) SetOrphaned(block *Block, orphaned bool) (updated bool) {
 }
 
 func (b *BlockDAG) PromoteFutureBlocksUntil(index epoch.Index) {
+	b.solidifierMutex.RLock()
+	defer b.solidifierMutex.RUnlock()
+
 	b.futureBlocksMutex.Lock()
 	defer b.futureBlocksMutex.Unlock()
 
@@ -150,7 +163,7 @@ func (b *BlockDAG) PromoteFutureBlocksUntil(index epoch.Index) {
 		if storage := b.futureBlocks.Get(i, false); storage != nil {
 			if futureBlocks, exists := storage.Get(cm.ID()); exists {
 				_ = futureBlocks.ForEach(func(futureBlock *Block) (err error) {
-					fmt.Println("promoting future block", futureBlock.ID())
+					// fmt.Println("promoting future block", futureBlock.ID())
 					b.solidifier.Queue(futureBlock)
 					return nil
 				})
@@ -164,6 +177,9 @@ func (b *BlockDAG) PromoteFutureBlocksUntil(index epoch.Index) {
 
 // evictEpoch is used to evict Blocks from committed epochs from the BlockDAG.
 func (b *BlockDAG) evictEpoch(index epoch.Index) {
+	b.solidifierMutex.Lock()
+	defer b.solidifierMutex.Unlock()
+
 	b.solidifier.EvictUntil(index)
 
 	b.evictionMutex.Lock()
