@@ -37,8 +37,8 @@ func Test(t *testing.T) {
 
 // Commitment is a somewhat complex type used to test the storable Type.
 type Commitment struct {
-	Index  slot.Index
-	PrevID types.Identifier
+	Index            slot.Index
+	PrevID           types.Identifier
 	RootsID          types.Identifier
 	CumulativeWeight int64
 }
