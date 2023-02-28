@@ -1,7 +1,7 @@
 package virtualvoting
 
 import (
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/epochtracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
@@ -25,11 +25,11 @@ type VirtualVoting struct {
 
 	conflictTracker *conflicttracker.ConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower]
 	sequenceTracker *sequencetracker.SequenceTracker[BlockVotePower]
-	epochTracker    *epochtracker.EpochTracker
+	slotTracker     *epochtracker.SlotTracker
 	evictionMutex   *syncutils.StarvingMutex
 
 	optsSequenceCutoffCallback func(markers.SequenceID) markers.Index
-	optsEpochCutoffCallback    func() epoch.Index
+	optsSlotCutoffCallback     func() slot.Index
 
 	Workers *workerpool.Group
 }
@@ -45,18 +45,18 @@ func New(workers *workerpool.Group, conflictDAG *conflictdag.ConflictDAG[utxo.Tr
 			return 1
 		},
 
-		optsEpochCutoffCallback: func() epoch.Index {
+		optsSlotCutoffCallback: func() slot.Index {
 			return 0
 		},
 	}, opts, func(o *VirtualVoting) {
 		o.conflictTracker = conflicttracker.NewConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower](conflictDAG, validators)
 		o.sequenceTracker = sequencetracker.NewSequenceTracker[BlockVotePower](validators, sequenceManager.Sequence, o.optsSequenceCutoffCallback)
-		o.epochTracker = epochtracker.NewEpochTracker(o.optsEpochCutoffCallback)
+		o.slotTracker = epochtracker.NewSlotTracker(o.optsSlotCutoffCallback)
 
 		o.Events = NewEvents()
 		o.Events.ConflictTracker = o.conflictTracker.Events
 		o.Events.SequenceTracker = o.sequenceTracker.Events
-		o.Events.EpochTracker = o.epochTracker.Events
+		o.Events.SlotTracker = o.slotTracker.Events
 	})
 }
 
@@ -70,7 +70,7 @@ func (o *VirtualVoting) Track(block *Block, conflictIDs utxo.TransactionIDs) {
 		block.SetSubjectivelyInvalid(true)
 	} else {
 		o.sequenceTracker.TrackVotes(block.StructureDetails().PastMarkers(), block.IssuerID(), votePower)
-		o.epochTracker.TrackVotes(block.Commitment().Index(), block.IssuerID(), epochtracker.EpochVotePower{Index: block.ID().Index()})
+		o.slotTracker.TrackVotes(block.Commitment().Index(), block.IssuerID(), epochtracker.SlotVotePower{Index: block.ID().Index()})
 	}
 
 	o.Events.BlockTracked.Trigger(block)
@@ -92,12 +92,12 @@ func (o *VirtualVoting) MarkerVotersTotalWeight(marker markers.Marker) (totalWei
 	return totalWeight
 }
 
-// EpochVotersTotalWeight retrieves the total weight of the Validators voting for a given epoch.
-func (o *VirtualVoting) EpochVotersTotalWeight(epochIndex epoch.Index) (totalWeight int64) {
+// SlotVotersTotalWeight retrieves the total weight of the Validators voting for a given slot.
+func (o *VirtualVoting) SlotVotersTotalWeight(slotIndex slot.Index) (totalWeight int64) {
 	o.evictionMutex.RLock()
 	defer o.evictionMutex.RUnlock()
 
-	_ = o.epochTracker.Voters(epochIndex).ForEach(func(id identity.ID) error {
+	_ = o.slotTracker.Voters(slotIndex).ForEach(func(id identity.ID) error {
 		if weight, exists := o.Validators.Get(id); exists {
 			totalWeight += weight.Value
 		}
@@ -138,11 +138,11 @@ func (o *VirtualVoting) EvictSequence(sequenceID markers.SequenceID) {
 	o.sequenceTracker.EvictSequence(sequenceID)
 }
 
-func (o *VirtualVoting) EvictEpochTracker(epochIndex epoch.Index) {
+func (o *VirtualVoting) EvictSlotTracker(slotIndex slot.Index) {
 	o.evictionMutex.Lock()
 	defer o.evictionMutex.Unlock()
 
-	o.epochTracker.EvictEpoch(epochIndex)
+	o.slotTracker.EvictSlot(slotIndex)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -173,9 +173,9 @@ func (o *VirtualVoting) ProcessForkedMarker(marker markers.Marker, forkedConflic
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithEpochCutoffCallback(epochCutoffCallback func() epoch.Index) options.Option[VirtualVoting] {
+func WithSlotCutoffCallback(slotCutoffCallback func() slot.Index) options.Option[VirtualVoting] {
 	return func(virtualVoting *VirtualVoting) {
-		virtualVoting.optsEpochCutoffCallback = epochCutoffCallback
+		virtualVoting.optsSlotCutoffCallback = slotCutoffCallback
 	}
 }
 

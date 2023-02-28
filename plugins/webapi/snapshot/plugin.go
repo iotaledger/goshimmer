@@ -51,8 +51,8 @@ func DumpCurrentLedger(c echo.Context) (err error) {
 	}
 	Plugin.LogInfo("Snapshot information: ")
 	Plugin.LogInfo("     Number of outputs: ", header.OutputWithMetadataCount)
-	Plugin.LogInfo("     FullEpochIndex: ", header.FullEpochIndex)
-	Plugin.LogInfo("     DiffEpochIndex: ", header.DiffEpochIndex)
+	Plugin.LogInfo("     FullSlotIndex: ", header.FullSlotIndex)
+	Plugin.LogInfo("     DiffSlotIndex: ", header.DiffSlotIndex)
 	Plugin.LogInfo("     LatestECRecord: ", header.LatestECRecord)
 
 	return c.Attachment(snapshotFileName, snapshotFileName)

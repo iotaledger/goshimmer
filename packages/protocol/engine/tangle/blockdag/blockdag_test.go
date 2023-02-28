@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/types"
 	"github.com/iotaledger/hive.go/ds/randommap"
@@ -328,7 +328,7 @@ func TestBlockDAG_Attach_InvalidTimestamp(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
 	tf := NewDefaultTestFramework(t, workers.CreateGroup("BlockDAGTestFramework"))
 
-	now := tf.Instance.EpochTimeProvider.StartTime(10)
+	now := tf.Instance.SlotTimeProvider.StartTime(10)
 	tf.CreateBlock("block1", models.WithIssuingTime(now.Add(-5*time.Second)))
 	tf.CreateBlock("block2", models.WithIssuingTime(now.Add(5*time.Second)))
 	tf.CreateBlock("block3", models.WithStrongParents(tf.BlockIDs("block1", "block2")), models.WithIssuingTime(now))
@@ -369,45 +369,45 @@ func TestBlockDAG_Attach_InvalidTimestamp(t *testing.T) {
 	}))
 }
 
-// This test prepares blocks across different epochs and tries to attach them in reverse order to a pruned BlockDAG.
-// At the end of the test only blocks from non-pruned epochs should be attached and marked as invalid.
+// This test prepares blocks across different slots and tries to attach them in reverse order to a pruned BlockDAG.
+// At the end of the test only blocks from non-pruned slots should be attached and marked as invalid.
 func TestBlockDAG_AttachInvalid(t *testing.T) {
-	const epochCount = 100
+	const slotCount = 100
 
 	workers := workerpool.NewGroup(t.Name())
 	tf := NewDefaultTestFramework(t, workers.CreateGroup("BlockDAGTestFramework"))
 
 	// create a helper function that creates the blocks
-	createNewBlock := func(idx epoch.Index, prefix string) (block *models.Block, alias string) {
+	createNewBlock := func(idx slot.Index, prefix string) (block *models.Block, alias string) {
 		alias = fmt.Sprintf("blk%s-%d", prefix, idx)
 		if idx == 1 {
 			return tf.CreateBlock(
 				alias,
-				models.WithIssuingTime(tf.Instance.EpochTimeProvider.GenesisTime()),
+				models.WithIssuingTime(tf.Instance.SlotTimeProvider.GenesisTime()),
 			), alias
 		}
 		return tf.CreateBlock(
 			alias,
 			models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk%s-%d", prefix, idx-1))),
-			models.WithIssuingTime(tf.Instance.EpochTimeProvider.StartTime(idx)),
+			models.WithIssuingTime(tf.Instance.SlotTimeProvider.StartTime(idx)),
 		), alias
 	}
 
 	// Prune BlockDAG.
-	tf.Instance.EvictionState.EvictUntil(epochCount / 2)
+	tf.Instance.EvictionState.EvictUntil(slotCount / 2)
 	workers.WaitChildren()
 
-	require.EqualValues(t, epochCount/2, tf.Instance.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch should be epochCount/2")
+	require.EqualValues(t, slotCount/2, tf.Instance.EvictionState.LastEvictedSlot(), "maxDroppedSlot should be slotCount/2")
 
-	blocks := make([]*models.Block, epochCount)
-	expectedMissing := make(map[string]bool, epochCount)
-	expectedInvalid := make(map[string]bool, epochCount)
-	expectedSolid := make(map[string]bool, epochCount)
+	blocks := make([]*models.Block, slotCount)
+	expectedMissing := make(map[string]bool, slotCount)
+	expectedInvalid := make(map[string]bool, slotCount)
+	expectedSolid := make(map[string]bool, slotCount)
 
 	// Prepare blocks and their expected states.
-	for i := 0; i < epochCount; i++ {
+	for i := 0; i < slotCount; i++ {
 		var alias string
-		blocks[i], alias = createNewBlock(epoch.Index(i+1), "")
+		blocks[i], alias = createNewBlock(slot.Index(i+1), "")
 		if i > 50 {
 			expectedMissing[alias] = false
 			expectedInvalid[alias] = true
@@ -423,19 +423,19 @@ func TestBlockDAG_AttachInvalid(t *testing.T) {
 	{
 		for i := len(blocks) - 11; i >= 0; i-- {
 			_, wasAttached, err := tf.Instance.Attach(blocks[i])
-			if blocks[i].ID().Index()-1 > tf.Instance.EvictionState.LastEvictedEpoch() {
+			if blocks[i].ID().Index()-1 > tf.Instance.EvictionState.LastEvictedSlot() {
 				require.True(t, wasAttached, "block should be attached")
 				require.NoError(t, err, "should not be able to attach a block after shutdown")
 				continue
 			}
 
 			require.False(t, wasAttached, "block should not be attached")
-			require.Error(t, err, "should not be able to attach a block to a pruned epoch")
+			require.Error(t, err, "should not be able to attach a block to a pruned slot")
 		}
 		workers.WaitChildren()
 
 		tf.AssertSolidCount(0, "should not have any solid blocks")
-		tf.AssertInvalidCount(epochCount/2-10, "should have invalid blocks")
+		tf.AssertInvalidCount(slotCount/2-10, "should have invalid blocks")
 	}
 
 	// Issue the second bunch of blocks. Those should be marked as invalid when the block attaches to a previously invalid block.
@@ -448,50 +448,50 @@ func TestBlockDAG_AttachInvalid(t *testing.T) {
 		workers.WaitChildren()
 
 		tf.AssertSolidCount(0, "should not have any solid blocks")
-		tf.AssertInvalidCount(epochCount/2, "should have invalid blocks")
+		tf.AssertInvalidCount(slotCount/2, "should have invalid blocks")
 		tf.AssertMissing(expectedMissing)
 		tf.AssertInvalid(expectedInvalid)
 		tf.AssertSolid(expectedSolid)
 	}
 }
 
-// This test creates two chains of blocks from the genesis (1 block per epoch in each chain). The first chain is solid, the second chain is not.
+// This test creates two chains of blocks from the genesis (1 block per slot in each chain). The first chain is solid, the second chain is not.
 // When evicting the BlockDAG, the first chain should be evicted but not marked as invalid by the causal order component, while the other should be marked as invalid.
 func TestBlockDAG_Prune(t *testing.T) {
-	const epochCount = 100
+	const slotCount = 100
 
 	workers := workerpool.NewGroup(t.Name())
 	tf := NewDefaultTestFramework(t, workers.CreateGroup("BlockDAGTestFramework"))
 
 	// create a helper function that creates the blocks
-	createNewBlock := func(idx epoch.Index, prefix string) (block *models.Block, alias string) {
+	createNewBlock := func(idx slot.Index, prefix string) (block *models.Block, alias string) {
 		alias = fmt.Sprintf("blk%s-%d", prefix, idx)
 
 		if idx == 1 {
 			return tf.CreateBlock(
 				alias,
-				models.WithIssuingTime(tf.Instance.EpochTimeProvider.GenesisTime()),
+				models.WithIssuingTime(tf.Instance.SlotTimeProvider.GenesisTime()),
 			), alias
 		}
 
 		return tf.CreateBlock(
 			alias,
 			models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk%s-%d", prefix, idx-1))),
-			models.WithIssuingTime(tf.Instance.EpochTimeProvider.StartTime(idx)),
+			models.WithIssuingTime(tf.Instance.SlotTimeProvider.StartTime(idx)),
 		), alias
 	}
 
-	expectedMissing := make(map[string]bool, epochCount)
-	expectedInvalid := make(map[string]bool, epochCount)
-	expectedSolid := make(map[string]bool, epochCount)
+	expectedMissing := make(map[string]bool, slotCount)
+	expectedInvalid := make(map[string]bool, slotCount)
+	expectedSolid := make(map[string]bool, slotCount)
 
 	// Attach solid blocks
-	for i := epoch.Index(1); i <= epochCount; i++ {
+	for i := slot.Index(1); i <= slotCount; i++ {
 		block, alias := createNewBlock(i, "")
 
 		_, wasAttached, err := tf.Instance.Attach(block)
 
-		if i >= epochCount/4 {
+		if i >= slotCount/4 {
 			expectedMissing[alias] = false
 			expectedInvalid[alias] = false
 			expectedSolid[alias] = true
@@ -502,7 +502,7 @@ func TestBlockDAG_Prune(t *testing.T) {
 	}
 
 	// Attach a blocks that are not solid (skip the first one in the chain)
-	for i := epoch.Index(1); i <= epochCount; i++ {
+	for i := slot.Index(1); i <= slotCount; i++ {
 		blk, alias := createNewBlock(i, "-orphan")
 
 		if i == 1 {
@@ -510,7 +510,7 @@ func TestBlockDAG_Prune(t *testing.T) {
 		}
 		_, wasAttached, err := tf.Instance.Attach(blk)
 
-		if i >= epochCount/2 {
+		if i >= slotCount/2 {
 			expectedMissing[alias] = false
 			expectedInvalid[alias] = true
 			expectedSolid[alias] = false
@@ -521,44 +521,44 @@ func TestBlockDAG_Prune(t *testing.T) {
 	}
 	workers.WaitChildren()
 
-	tf.AssertSolidCount(epochCount, "should have all solid blocks")
+	tf.AssertSolidCount(slotCount, "should have all solid blocks")
 
-	validateState(tf, 0, epochCount)
-	tf.Instance.EvictionState.EvictUntil(epochCount / 4)
+	validateState(tf, 0, slotCount)
+	tf.Instance.EvictionState.EvictUntil(slotCount / 4)
 	workers.WaitChildren()
-	require.EqualValues(t, epochCount/4, tf.Instance.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch should be epochCount/4")
+	require.EqualValues(t, slotCount/4, tf.Instance.EvictionState.LastEvictedSlot(), "maxDroppedSlot should be slotCount/4")
 
 	// All orphan blocks should be marked as invalid due to invalidity propagation.
-	tf.AssertInvalidCount(epochCount, "should have invalid blocks")
+	tf.AssertInvalidCount(slotCount, "should have invalid blocks")
 
-	tf.Instance.EvictionState.EvictUntil(epochCount / 10)
+	tf.Instance.EvictionState.EvictUntil(slotCount / 10)
 	workers.WaitChildren()
-	require.EqualValues(t, epochCount/4, tf.Instance.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch should be epochCount/4")
+	require.EqualValues(t, slotCount/4, tf.Instance.EvictionState.LastEvictedSlot(), "maxDroppedSlot should be slotCount/4")
 
-	tf.Instance.EvictionState.EvictUntil(epochCount / 2)
+	tf.Instance.EvictionState.EvictUntil(slotCount / 2)
 	workers.WaitChildren()
-	require.EqualValues(t, epochCount/2, tf.Instance.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch should be epochCount/2")
+	require.EqualValues(t, slotCount/2, tf.Instance.EvictionState.LastEvictedSlot(), "maxDroppedSlot should be slotCount/2")
 
-	validateState(tf, epochCount/2, epochCount)
+	validateState(tf, slotCount/2, slotCount)
 }
 
-func validateState(tf *TestFramework, maxDroppedEpoch, epochCount int) {
-	for i := 1; i <= maxDroppedEpoch; i++ {
+func validateState(tf *TestFramework, maxDroppedSlot, slotCount int) {
+	for i := 1; i <= maxDroppedSlot; i++ {
 		blkID := tf.Block(fmt.Sprintf("blk-%d", i)).ID()
 
 		_, exists := tf.Instance.Block(blkID)
 		require.False(tf.test, exists, "block %s should not be in the BlockDAG", blkID)
 
-		require.Nil(tf.test, tf.Instance.memStorage.Get(blkID.Index()), "epoch %s should not be in the memStorage", blkID.Index())
+		require.Nil(tf.test, tf.Instance.memStorage.Get(blkID.Index()), "slot %s should not be in the memStorage", blkID.Index())
 	}
 
-	for i := maxDroppedEpoch + 1; i <= epochCount; i++ {
+	for i := maxDroppedSlot + 1; i <= slotCount; i++ {
 		blkID := tf.Block(fmt.Sprintf("blk-%d", i)).ID()
 
 		_, exists := tf.Instance.Block(blkID)
 		require.True(tf.test, exists, "block %s should be in the BlockDAG", blkID)
 
-		require.NotNil(tf.test, tf.Instance.memStorage.Get(blkID.Index()), "epoch %s should be in the memStorage", blkID.Index())
+		require.NotNil(tf.test, tf.Instance.memStorage.Get(blkID.Index()), "slot %s should be in the memStorage", blkID.Index())
 	}
 }
 

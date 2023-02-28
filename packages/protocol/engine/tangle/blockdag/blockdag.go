@@ -8,8 +8,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/causalorder"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/ds/advancedset"
@@ -30,41 +30,41 @@ type BlockDAG struct {
 	EvictionState *eviction.State
 
 	// memStorage contains the in-memory storage of the BlockDAG.
-	memStorage *memstorage.EpochStorage[models.BlockID, *Block]
+	memStorage *memstorage.SlotStorage[models.BlockID, *Block]
 
 	// solidifier contains the solidifier instance used to determine the solidity of Blocks.
 	solidifier *causalorder.CausalOrder[models.BlockID, *Block]
 
-	// commitmentFunc is a function that returns the commitment corresponding to the given epoch index.
-	commitmentFunc func(index epoch.Index) (*commitment.Commitment, error)
+	// commitmentFunc is a function that returns the commitment corresponding to the given slot index.
+	commitmentFunc func(index slot.Index) (*commitment.Commitment, error)
 
 	// futureBlocks contains blocks with a commitment in the future, that should not be passed to the booker yet.
-	futureBlocks *memstorage.EpochStorage[commitment.ID, *advancedset.AdvancedSet[*Block]]
+	futureBlocks *memstorage.SlotStorage[commitment.ID, *advancedset.AdvancedSet[*Block]]
 
-	nextIndexToPromote epoch.Index
+	nextIndexToPromote slot.Index
 
 	futureBlocksMutex sync.RWMutex
 
 	// evictionMutex is a mutex that is used to synchronize the eviction of elements from the BlockDAG.
 	evictionMutex sync.RWMutex
 
-	EpochTimeProvider *epoch.TimeProvider
+	SlotTimeProvider *slot.TimeProvider
 
 	Workers    *workerpool.Group
 	workerPool *workerpool.WorkerPool
 }
 
 // New is the constructor for the BlockDAG and creates a new BlockDAG instance.
-func New(workers *workerpool.Group, evictionState *eviction.State, epochTimeProvider *epoch.TimeProvider, latestCommitmentFunc func(epoch.Index) (*commitment.Commitment, error), opts ...options.Option[BlockDAG]) (newBlockDAG *BlockDAG) {
+func New(workers *workerpool.Group, evictionState *eviction.State, slotTimeProvider *slot.TimeProvider, latestCommitmentFunc func(slot.Index) (*commitment.Commitment, error), opts ...options.Option[BlockDAG]) (newBlockDAG *BlockDAG) {
 	return options.Apply(&BlockDAG{
-		Events:            NewEvents(),
-		EvictionState:     evictionState,
-		EpochTimeProvider: epochTimeProvider,
-		memStorage:        memstorage.NewEpochStorage[models.BlockID, *Block](),
-		commitmentFunc:    latestCommitmentFunc,
-		futureBlocks:      memstorage.NewEpochStorage[commitment.ID, *advancedset.AdvancedSet[*Block]](),
-		Workers:           workers,
-		workerPool:        workers.CreatePool("Solidifier", 2),
+		Events:           NewEvents(),
+		EvictionState:    evictionState,
+		SlotTimeProvider: slotTimeProvider,
+		memStorage:       memstorage.NewSlotStorage[models.BlockID, *Block](),
+		commitmentFunc:   latestCommitmentFunc,
+		futureBlocks:     memstorage.NewSlotStorage[commitment.ID, *advancedset.AdvancedSet[*Block]](),
+		Workers:          workers,
+		workerPool:       workers.CreatePool("Solidifier", 2),
 	}, opts, func(b *BlockDAG) {
 		b.solidifier = causalorder.New(
 			b.workerPool,
@@ -75,7 +75,7 @@ func New(workers *workerpool.Group, evictionState *eviction.State, epochTimeProv
 			causalorder.WithReferenceValidator[models.BlockID](checkReference),
 		)
 
-		evictionState.Events.EpochEvicted.Hook(b.evictEpoch)
+		evictionState.Events.SlotEvicted.Hook(b.evictSlot)
 	})
 }
 
@@ -141,7 +141,7 @@ func (b *BlockDAG) SetOrphaned(block *Block, orphaned bool) (updated bool) {
 	return true
 }
 
-func (b *BlockDAG) PromoteFutureBlocksUntil(index epoch.Index) {
+func (b *BlockDAG) PromoteFutureBlocksUntil(index slot.Index) {
 	b.futureBlocksMutex.Lock()
 	defer b.futureBlocksMutex.Unlock()
 
@@ -165,8 +165,8 @@ func (b *BlockDAG) PromoteFutureBlocksUntil(index epoch.Index) {
 	b.nextIndexToPromote = index + 1
 }
 
-// evictEpoch is used to evict Blocks from committed epochs from the BlockDAG.
-func (b *BlockDAG) evictEpoch(index epoch.Index) {
+// evictSlot is used to evict Blocks from committed slots from the BlockDAG.
+func (b *BlockDAG) evictSlot(index slot.Index) {
 	b.solidifier.EvictUntil(index)
 
 	b.evictionMutex.Lock()
@@ -192,7 +192,7 @@ func (b *BlockDAG) markSolid(block *Block) (err error) {
 	}
 
 	// It is important to only set the block as solid when it was not "parked" as a future block.
-	// Future blocks are queued for solidification again when the epoch is committed.
+	// Future blocks are queued for solidification again when the slot is committed.
 	block.setSolid()
 
 	b.Events.BlockSolid.Trigger(block)
@@ -204,7 +204,7 @@ func (b *BlockDAG) isFutureBlock(block *Block) (isFutureBlock bool) {
 	b.futureBlocksMutex.RLock()
 	defer b.futureBlocksMutex.RUnlock()
 
-	// If we are not able to load the commitment for the block, it means we haven't committed this epoch yet.
+	// If we are not able to load the commitment for the block, it means we haven't committed this slot yet.
 	if _, err := b.commitmentFunc(block.Commitment().Index()); err != nil {
 		// We set the block as future block so that we can skip some checks when revisiting it later in markSolid via the solidifier.
 		block.setFuture()
@@ -252,7 +252,7 @@ func (b *BlockDAG) attach(data *models.Block) (block *Block, wasAttached bool, e
 		return
 	}
 
-	if block, wasAttached = b.memStorage.Get(data.ID().EpochIndex, true).GetOrCreate(data.ID(), func() *Block { return NewBlock(data) }); !wasAttached {
+	if block, wasAttached = b.memStorage.Get(data.ID().SlotIndex, true).GetOrCreate(data.ID(), func() *Block { return NewBlock(data) }); !wasAttached {
 		if wasAttached = block.update(data); !wasAttached {
 			return
 		}
@@ -267,9 +267,9 @@ func (b *BlockDAG) attach(data *models.Block) (block *Block, wasAttached bool, e
 	return
 }
 
-// canAttach determines if the Block can be attached (does not exist and addresses a recent epoch).
+// canAttach determines if the Block can be attached (does not exist and addresses a recent slot).
 func (b *BlockDAG) canAttach(data *models.Block) (block *Block, canAttach bool, err error) {
-	if b.EvictionState.InEvictedEpoch(data.ID()) && !b.EvictionState.IsRootBlock(data.ID()) {
+	if b.EvictionState.InEvictedSlot(data.ID()) && !b.EvictionState.IsRootBlock(data.ID()) {
 		return nil, false, errors.Errorf("block data with %s is too old (issued at: %s)", data.ID(), data.IssuingTime())
 	}
 
@@ -281,11 +281,11 @@ func (b *BlockDAG) canAttach(data *models.Block) (block *Block, canAttach bool, 
 	return b.canAttachToParents(storedBlock, data)
 }
 
-// canAttachToParents determines if the Block references parents in a non-pruned epoch. If a Block is found to violate
+// canAttachToParents determines if the Block references parents in a non-pruned slot. If a Block is found to violate
 // this condition but exists as a missing entry, we mark it as invalid.
 func (b *BlockDAG) canAttachToParents(storedBlock *Block, data *models.Block) (block *Block, canAttach bool, err error) {
 	for _, parentID := range data.Parents() {
-		if b.EvictionState.InEvictedEpoch(parentID) && !b.EvictionState.IsRootBlock(parentID) {
+		if b.EvictionState.InEvictedSlot(parentID) && !b.EvictionState.IsRootBlock(parentID) {
 			if storedBlock != nil {
 				b.SetInvalid(storedBlock, errors.Errorf("block with %s references too old parent %s", data.ID(), parentID))
 			}
@@ -318,10 +318,10 @@ func (b *BlockDAG) registerChild(child *Block, parent models.Parent) {
 // block retrieves the Block with given id from the mem-storage.
 func (b *BlockDAG) block(id models.BlockID) (block *Block, exists bool) {
 	if b.EvictionState.IsRootBlock(id) {
-		return NewRootBlock(id, b.EpochTimeProvider), true
+		return NewRootBlock(id, b.SlotTimeProvider), true
 	}
 
-	storage := b.memStorage.Get(id.EpochIndex, false)
+	storage := b.memStorage.Get(id.SlotIndex, false)
 	if storage == nil {
 		return nil, false
 	}

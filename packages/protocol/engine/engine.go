@@ -8,8 +8,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/eventticker"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
@@ -50,7 +50,7 @@ type Engine struct {
 	Consensus           *consensus.Consensus
 	TSCManager          *tsc.Manager
 	Clock               *clock.Clock
-	EpochTimeProvider   *epoch.TimeProvider
+	SlotTimeProvider    *slot.TimeProvider
 
 	Workers *workerpool.Group
 
@@ -78,7 +78,7 @@ func New(
 	storageInstance *storage.Storage,
 	sybilProtection ModuleProvider[sybilprotection.SybilProtection],
 	throughputQuota ModuleProvider[throughputquota.ThroughputQuota],
-	epochTimeProvider *epoch.TimeProvider,
+	slotTimeProvider *slot.TimeProvider,
 	opts ...options.Option[Engine],
 ) (engine *Engine) {
 	return options.Apply(
@@ -98,8 +98,8 @@ func New(
 			e.Clock = clock.New()
 			e.SybilProtection = sybilProtection(e)
 			e.ThroughputQuota = throughputQuota(e)
-			e.EpochTimeProvider = epochTimeProvider
-			e.NotarizationManager = notarization.NewManager(e.Storage, e.LedgerState, e.SybilProtection.Weights(), epochTimeProvider, e.optsNotarizationManagerOptions...)
+			e.SlotTimeProvider = slotTimeProvider
+			e.NotarizationManager = notarization.NewManager(e.Storage, e.LedgerState, e.SybilProtection.Weights(), slotTimeProvider, e.optsNotarizationManagerOptions...)
 
 			e.Initializable = traits.NewInitializable(
 				e.Storage.Settings.TriggerInitialized,
@@ -170,12 +170,12 @@ func (e *Engine) FirstUnacceptedMarker(sequenceID markers.SequenceID) markers.In
 	return e.Consensus.BlockGadget.FirstUnacceptedIndex(sequenceID)
 }
 
-func (e *Engine) LastConfirmedEpoch() epoch.Index {
+func (e *Engine) LastConfirmedSlot() slot.Index {
 	if e.Consensus == nil {
 		return 0
 	}
 
-	return e.Consensus.EpochGadget.LastConfirmedEpoch()
+	return e.Consensus.SlotGadget.LastConfirmedSlot()
 }
 
 func (e *Engine) IsBootstrapped() (isBootstrapped bool) {
@@ -209,14 +209,14 @@ func (e *Engine) Initialize(snapshot string) (err error) {
 	return
 }
 
-func (e *Engine) WriteSnapshot(filePath string, targetEpoch ...epoch.Index) (err error) {
-	if len(targetEpoch) == 0 {
-		targetEpoch = append(targetEpoch, e.Storage.Settings.LatestCommitment().Index())
+func (e *Engine) WriteSnapshot(filePath string, targetSlot ...slot.Index) (err error) {
+	if len(targetSlot) == 0 {
+		targetSlot = append(targetSlot, e.Storage.Settings.LatestCommitment().Index())
 	}
 
 	if fileHandle, err := os.Create(filePath); err != nil {
 		return errors.Wrap(err, "failed to create snapshot file")
-	} else if err = e.Export(fileHandle, targetEpoch[0]); err != nil {
+	} else if err = e.Export(fileHandle, targetSlot[0]); err != nil {
 		return errors.Wrap(err, "failed to write snapshot")
 	} else if err = fileHandle.Close(); err != nil {
 		return errors.Wrap(err, "failed to close snapshot file")
@@ -241,22 +241,22 @@ func (e *Engine) Import(reader io.ReadSeeker) (err error) {
 	}
 
 	// We need to set the genesis time before we add the activity log as otherwise the calculation is based on the empty time value.
-	e.Clock.SetAcceptedTime(e.EpochTimeProvider.EndTime(e.Storage.Settings.LatestCommitment().Index()))
-	e.Clock.SetConfirmedTime(e.EpochTimeProvider.EndTime(e.Storage.Settings.LatestCommitment().Index()))
+	e.Clock.SetAcceptedTime(e.SlotTimeProvider.EndTime(e.Storage.Settings.LatestCommitment().Index()))
+	e.Clock.SetConfirmedTime(e.SlotTimeProvider.EndTime(e.Storage.Settings.LatestCommitment().Index()))
 
 	return
 }
 
-func (e *Engine) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (err error) {
+func (e *Engine) Export(writer io.WriteSeeker, targetSlot slot.Index) (err error) {
 	if err = e.Storage.Settings.Export(writer); err != nil {
 		return errors.Wrap(err, "failed to export settings")
-	} else if err = e.Storage.Commitments.Export(writer, targetEpoch); err != nil {
+	} else if err = e.Storage.Commitments.Export(writer, targetSlot); err != nil {
 		return errors.Wrap(err, "failed to export commitments")
-	} else if err = e.LedgerState.Export(writer, targetEpoch); err != nil {
+	} else if err = e.LedgerState.Export(writer, targetSlot); err != nil {
 		return errors.Wrap(err, "failed to export ledger state")
-	} else if err = e.EvictionState.Export(writer, targetEpoch); err != nil {
+	} else if err = e.EvictionState.Export(writer, targetSlot); err != nil {
 		return errors.Wrap(err, "failed to export eviction state")
-	} else if err = e.NotarizationManager.Export(writer, targetEpoch); err != nil {
+	} else if err = e.NotarizationManager.Export(writer, targetSlot); err != nil {
 		return errors.Wrap(err, "failed to export notarization state")
 	}
 
@@ -278,7 +278,7 @@ func (e *Engine) initLedger() {
 }
 
 func (e *Engine) initTangle() {
-	e.Tangle = tangle.New(e.Workers.CreateGroup("Tangle"), e.Ledger, e.EvictionState, e.EpochTimeProvider, e.SybilProtection.Validators(), e.LastConfirmedEpoch, e.FirstUnacceptedMarker, e.Storage.Commitments.Load, e.optsTangleOptions...)
+	e.Tangle = tangle.New(e.Workers.CreateGroup("Tangle"), e.Ledger, e.EvictionState, e.SlotTimeProvider, e.SybilProtection.Validators(), e.LastConfirmedSlot, e.FirstUnacceptedMarker, e.Storage.Commitments.Load, e.optsTangleOptions...)
 
 	e.Events.Filter.BlockAllowed.Hook(func(block *models.Block) {
 		if _, _, err := e.Tangle.BlockDAG.Attach(block); err != nil {
@@ -286,7 +286,7 @@ func (e *Engine) initTangle() {
 		}
 	}, event.WithWorkerPool(e.Workers.CreatePool("Tangle.Attach", 2)))
 
-	e.Events.NotarizationManager.EpochCommitted.Hook(func(evt *notarization.EpochCommittedDetails) {
+	e.Events.NotarizationManager.SlotCommitted.Hook(func(evt *notarization.SlotCommittedDetails) {
 		e.Tangle.BlockDAG.PromoteFutureBlocksUntil(evt.Commitment.Index())
 	}, event.WithWorkerPool(e.Workers.CreatePool("Tangle.PromoteFutureBlocksUntil", 1)))
 
@@ -294,7 +294,7 @@ func (e *Engine) initTangle() {
 }
 
 func (e *Engine) initConsensus() {
-	e.Consensus = consensus.New(e.Workers.CreateGroup("Consensus"), e.Tangle, e.EvictionState, e.Storage.Permanent.Settings.LatestConfirmedEpoch(), func() (totalWeight int64) {
+	e.Consensus = consensus.New(e.Workers.CreateGroup("Consensus"), e.Tangle, e.EvictionState, e.Storage.Permanent.Settings.LatestConfirmedSlot(), func() (totalWeight int64) {
 		if zeroIdentityWeight, exists := e.SybilProtection.Weights().Get(identity.ID{}); exists {
 			totalWeight -= zeroIdentityWeight.Value
 		}
@@ -303,15 +303,15 @@ func (e *Engine) initConsensus() {
 	}, e.optsConsensusOptions...)
 	e.Events.Consensus.LinkTo(e.Consensus.Events)
 
-	e.Events.EvictionState.EpochEvicted.Hook(e.Consensus.BlockGadget.EvictUntil)
+	e.Events.EvictionState.SlotEvicted.Hook(e.Consensus.BlockGadget.EvictUntil)
 	e.Events.Consensus.BlockGadget.Error.Hook(e.Events.Error.Trigger)
-	e.Events.Consensus.EpochGadget.EpochConfirmed.Hook(func(epochIndex epoch.Index) {
-		err := e.Storage.Permanent.Settings.SetLatestConfirmedEpoch(epochIndex)
+	e.Events.Consensus.SlotGadget.SlotConfirmed.Hook(func(index slot.Index) {
+		err := e.Storage.Permanent.Settings.SetLatestConfirmedSlot(index)
 		if err != nil {
 			panic(err)
 		}
 
-		e.Tangle.Booker.VirtualVoting.EvictEpochTracker(epochIndex)
+		e.Tangle.Booker.VirtualVoting.EvictSlotTracker(index)
 	}, event.WithWorkerPool(e.Workers.CreatePool("Consensus", 1))) // Using just 1 worker to avoid contention
 }
 
@@ -327,8 +327,8 @@ func (e *Engine) initClock() {
 	e.Events.Consensus.BlockGadget.BlockConfirmed.Hook(func(block *blockgadget.Block) {
 		e.Clock.SetConfirmedTime(block.IssuingTime())
 	}, event.WithWorkerPool(wpConfirmed))
-	e.Events.Consensus.EpochGadget.EpochConfirmed.Hook(func(epochIndex epoch.Index) {
-		e.Clock.SetConfirmedTime(e.EpochTimeProvider.EndTime(epochIndex))
+	e.Events.Consensus.SlotGadget.SlotConfirmed.Hook(func(index slot.Index) {
+		e.Clock.SetConfirmedTime(e.SlotTimeProvider.EndTime(index))
 	}, event.WithWorkerPool(wpConfirmed))
 }
 
@@ -361,35 +361,35 @@ func (e *Engine) initBlockStorage() {
 
 func (e *Engine) initNotarizationManager() {
 	e.Events.NotarizationManager.LinkTo(e.NotarizationManager.Events)
-	e.Events.EpochMutations.LinkTo(e.NotarizationManager.EpochMutations.Events)
+	e.Events.SlotMutations.LinkTo(e.NotarizationManager.SlotMutations.Events)
 
 	wpBlocks := e.Workers.CreatePool("NotarizationManager.Blocks", 1)           // Using just 1 worker to avoid contention
 	wpCommitments := e.Workers.CreatePool("NotarizationManager.Commitments", 1) // Using just 1 worker to avoid contention
 
-	// EpochMutations must be hooked because inclusion might be added before transaction are added.
+	// SlotMutations must be hooked because inclusion might be added before transaction are added.
 	e.Ledger.Events.TransactionAccepted.Hook(func(event *ledger.TransactionEvent) {
-		if err := e.NotarizationManager.EpochMutations.AddAcceptedTransaction(event.Metadata); err != nil {
-			e.Events.Error.Trigger(errors.Wrapf(err, "failed to add accepted transaction %s to epoch", event.Metadata.ID()))
+		if err := e.NotarizationManager.SlotMutations.AddAcceptedTransaction(event.Metadata); err != nil {
+			e.Events.Error.Trigger(errors.Wrapf(err, "failed to add accepted transaction %s to slot", event.Metadata.ID()))
 		}
 	})
 	e.Ledger.Events.TransactionInclusionUpdated.Hook(func(event *ledger.TransactionInclusionUpdatedEvent) {
-		if err := e.NotarizationManager.EpochMutations.UpdateTransactionInclusion(event.TransactionID, event.PreviousInclusionEpoch, event.InclusionEpoch); err != nil {
-			e.Events.Error.Trigger(errors.Wrapf(err, "failed to update transaction inclusion time %s in epoch", event.TransactionID))
+		if err := e.NotarizationManager.SlotMutations.UpdateTransactionInclusion(event.TransactionID, event.PreviousInclusionSlot, event.InclusionSlot); err != nil {
+			e.Events.Error.Trigger(errors.Wrapf(err, "failed to update transaction inclusion time %s in slot", event.TransactionID))
 		}
 	})
 
 	e.Consensus.BlockGadget.Events.BlockAccepted.Hook(func(block *blockgadget.Block) {
 		if err := e.NotarizationManager.NotarizeAcceptedBlock(block.ModelsBlock); err != nil {
-			e.Events.Error.Trigger(errors.Wrapf(err, "failed to add accepted block %s to epoch", block.ID()))
+			e.Events.Error.Trigger(errors.Wrapf(err, "failed to add accepted block %s to slot", block.ID()))
 		}
 	}, event.WithWorkerPool(wpBlocks))
 	e.Tangle.Events.BlockDAG.BlockOrphaned.Hook(func(block *blockdag.Block) {
 		if err := e.NotarizationManager.NotarizeOrphanedBlock(block.ModelsBlock); err != nil {
-			e.Events.Error.Trigger(errors.Wrapf(err, "failed to remove orphaned block %s from epoch", block.ID()))
+			e.Events.Error.Trigger(errors.Wrapf(err, "failed to remove orphaned block %s from slot", block.ID()))
 		}
 	}, event.WithWorkerPool(wpBlocks))
 
-	// Epochs are committed whenever ATT advances, start committing only when bootstrapped.
+	// Slots are committed whenever ATT advances, start committing only when bootstrapped.
 	e.Clock.Events.AcceptanceTimeUpdated.Hook(func(event *clock.TimeUpdateEvent) {
 		e.NotarizationManager.SetAcceptanceTime(event.NewTime)
 	}, event.WithWorkerPool(wpCommitments))
@@ -415,7 +415,7 @@ func (e *Engine) initEvictionState() {
 	e.Events.Tangle.BlockDAG.BlockOrphaned.Hook(func(block *blockdag.Block) {
 		e.EvictionState.RemoveRootBlock(block.ID())
 	}, event.WithWorkerPool(wp))
-	e.NotarizationManager.Events.EpochCommitted.Hook(func(details *notarization.EpochCommittedDetails) {
+	e.NotarizationManager.Events.SlotCommitted.Hook(func(details *notarization.SlotCommittedDetails) {
 		e.EvictionState.EvictUntil(details.Commitment.Index())
 	}, event.WithWorkerPool(wp))
 }
@@ -424,7 +424,7 @@ func (e *Engine) initBlockRequester() {
 	e.BlockRequester = eventticker.New(e.optsBlockRequester...)
 	e.Events.BlockRequester.LinkTo(e.BlockRequester.Events)
 
-	e.Events.EvictionState.EpochEvicted.Hook(e.BlockRequester.EvictUntil)
+	e.Events.EvictionState.SlotEvicted.Hook(e.BlockRequester.EvictUntil)
 
 	// We need to hook to make sure that the request is created before the block arrives to avoid a race condition
 	// where we try to delete the request again before it is created. Thus, continuing to request forever.

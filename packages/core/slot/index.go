@@ -34,7 +34,7 @@ func (i Index) String() string {
 	return fmt.Sprintf("Index(%d)", i)
 }
 
-// Max returns the maximum of the two given epochs.
+// Max returns the maximum of the two given slots.
 func (i Index) Max(other Index) Index {
 	if i > other {
 		return i

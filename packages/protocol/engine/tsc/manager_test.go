@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -23,7 +23,7 @@ import (
 func TestOrphanageManager_orphanBeforeTSC(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
 	tf := NewTestFramework(t,
-		tangle.NewDefaultTestFramework(t, workers.CreateGroup("TangleTestFramework"), epoch.NewTimeProvider()),
+		tangle.NewDefaultTestFramework(t, workers.CreateGroup("TangleTestFramework"), slot.NewTimeProvider()),
 		WithTimeSinceConfirmationThreshold(30*time.Second),
 	)
 
@@ -41,7 +41,7 @@ func TestOrphanageManager_orphanBeforeTSC(t *testing.T) {
 func TestOrphanageManager_HandleTimeUpdate(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
 	tf := NewTestFramework(t,
-		tangle.NewDefaultTestFramework(t, workers.CreateGroup("TangleTestFramework"), epoch.NewTimeProvider()),
+		tangle.NewDefaultTestFramework(t, workers.CreateGroup("TangleTestFramework"), slot.NewTimeProvider()),
 		WithTimeSinceConfirmationThreshold(30*time.Second),
 	)
 

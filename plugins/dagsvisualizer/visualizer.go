@@ -229,14 +229,14 @@ func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
 		if !reqValid {
 			return c.JSON(http.StatusBadRequest, searchResult{Error: "invalid timestamp range"})
 		}
-		startEpoch := deps.Protocol.EpochTimeProvider.IndexFromTime(startTimestamp)
-		endEpoch := deps.Protocol.EpochTimeProvider.IndexFromTime(endTimestamp)
+		startSlot := deps.Protocol.SlotTimeProvider.IndexFromTime(startTimestamp)
+		endSlot := deps.Protocol.SlotTimeProvider.IndexFromTime(endTimestamp)
 
 		var blocks []*tangleVertex
 		var txs []*utxoVertex
 		var conflicts []*conflictVertex
 		conflictMap := utxo.NewTransactionIDs()
-		for i := startEpoch; i <= endEpoch; i++ {
+		for i := startSlot; i <= endSlot; i++ {
 			deps.Retainer.StreamBlocksMetadata(i, func(id models.BlockID, metadata *retainer.BlockMetadata) {
 				if metadata.M.Block.IssuingTime().After(startTimestamp) && metadata.M.Block.IssuingTime().Before(endTimestamp) {
 					tangleNode, utxoNode, blockConflicts := processMetadata(metadata, conflictMap)

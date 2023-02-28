@@ -43,7 +43,7 @@ func (f *Connector) UnspentOutputs(addresses ...address.Address) (unspentOutputs
 								ConfirmationStateReached: outputMetadata.ConfirmationState().IsAccepted(),
 								Spent:                    false,
 								Metadata: wallet.OutputMetadata{
-									Timestamp: f.protocol.EpochTimeProvider.EndTime(outputMetadata.InclusionEpoch()),
+									Timestamp: f.protocol.SlotTimeProvider.EndTime(outputMetadata.InclusionSlot()),
 								},
 							}
 

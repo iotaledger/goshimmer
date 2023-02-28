@@ -9,7 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/core/database"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
@@ -34,7 +34,7 @@ import (
 // | empty  | genesisSeed  |
 // | node1  | node1		   |
 // | node2  | node2        |.
-func CreateSnapshot(databaseVersion database.Version, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge map[ed25519.PublicKey]uint64, initialAttestations []ed25519.PublicKey, ledgerVM vm.VM, epochTimeProvider *epoch.TimeProvider) {
+func CreateSnapshot(databaseVersion database.Version, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge map[ed25519.PublicKey]uint64, initialAttestations []ed25519.PublicKey, ledgerVM vm.VM, slotTimeProvider *slot.TimeProvider) {
 	workers := workerpool.NewGroup("CreateSnapshot")
 	defer workers.Shutdown()
 
@@ -48,7 +48,7 @@ func CreateSnapshot(databaseVersion database.Version, snapshotFileName string, g
 		panic(err)
 	}
 
-	engineInstance := engine.New(workers.CreateGroup("Engine"), s, dpos.NewProvider(), mana1.NewProvider(), epochTimeProvider, engine.WithLedgerOptions(ledger.WithVM(ledgerVM)))
+	engineInstance := engine.New(workers.CreateGroup("Engine"), s, dpos.NewProvider(), mana1.NewProvider(), slotTimeProvider, engine.WithLedgerOptions(ledger.WithVM(ledgerVM)))
 	defer engineInstance.Shutdown()
 
 	// Create genesis output
@@ -60,7 +60,7 @@ func CreateSnapshot(databaseVersion database.Version, snapshotFileName string, g
 	}
 
 	// Create outputs for nodes
-	engineInstance.NotarizationManager.Attestations.SetLastCommittedEpoch(-1)
+	engineInstance.NotarizationManager.Attestations.SetLastCommittedSlot(-1)
 	for nodePublicKey, value := range nodesToPledge {
 		// send funds and pledge to ID
 		nodeID := identity.NewID(nodePublicKey)
@@ -73,7 +73,7 @@ func CreateSnapshot(databaseVersion database.Version, snapshotFileName string, g
 	for _, nodeID := range initialAttestations {
 		if _, err := engineInstance.NotarizationManager.Attestations.Add(&notarization.Attestation{
 			IssuerPublicKey: nodeID,
-			IssuingTime:     time.Unix(epochTimeProvider.GenesisUnixTime()-1, 0),
+			IssuingTime:     time.Unix(slotTimeProvider.GenesisUnixTime()-1, 0),
 		}); err != nil {
 			panic(err)
 		}
@@ -96,7 +96,7 @@ func CreateSnapshot(databaseVersion database.Version, snapshotFileName string, g
 // | empty       | genesisSeed  |
 // | node1       | node1       |
 // | node2       | node2       |.
-func CreateSnapshotForIntegrationTest(s *storage.Storage, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge *orderedmap.OrderedMap[identity.ID, uint64], startSynced bool, ledgerVM vm.VM, epochTimeProvider *epoch.TimeProvider) {
+func CreateSnapshotForIntegrationTest(s *storage.Storage, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge *orderedmap.OrderedMap[identity.ID, uint64], startSynced bool, ledgerVM vm.VM, slotTimeProvider *slot.TimeProvider) {
 	workers := workerpool.NewGroup("CreateSnapshot")
 	defer workers.Shutdown()
 
@@ -107,10 +107,10 @@ func CreateSnapshotForIntegrationTest(s *storage.Storage, snapshotFileName strin
 		panic(err)
 	}
 
-	engineInstance := engine.New(workers.CreateGroup("Engine"), s, dpos.NewProvider(), mana1.NewProvider(), epochTimeProvider, engine.WithLedgerOptions(ledger.WithVM(ledgerVM)))
+	engineInstance := engine.New(workers.CreateGroup("Engine"), s, dpos.NewProvider(), mana1.NewProvider(), slotTimeProvider, engine.WithLedgerOptions(ledger.WithVM(ledgerVM)))
 	defer engineInstance.Shutdown()
 
-	engineInstance.NotarizationManager.Attestations.SetLastCommittedEpoch(-1)
+	engineInstance.NotarizationManager.Attestations.SetLastCommittedSlot(-1)
 
 	if genesisTokenAmount > 0 {
 		// create faucet funds and do not pledge mana to any identity
@@ -134,7 +134,7 @@ func CreateSnapshotForIntegrationTest(s *storage.Storage, snapshotFileName strin
 			// Add attestation to commitment only for first peer, so that it can issue blocks and bootstraps the network.
 			if _, err := engineInstance.NotarizationManager.Attestations.Add(&notarization.Attestation{
 				IssuerPublicKey: nodePublicKey,
-				IssuingTime:     time.Unix(epochTimeProvider.GenesisUnixTime()-1, 0),
+				IssuingTime:     time.Unix(slotTimeProvider.GenesisUnixTime()-1, 0),
 			}); err != nil {
 				panic(err)
 			}
@@ -154,7 +154,7 @@ func CreateSnapshotForIntegrationTest(s *storage.Storage, snapshotFileName strin
 
 var outputCounter uint16 = 1
 
-func createOutput(ledgerVM vm.VM, publicKey ed25519.PublicKey, tokenAmount uint64, pledgeID identity.ID, includedInEpoch epoch.Index) (output utxo.Output, outputMetadata *ledger.OutputMetadata) {
+func createOutput(ledgerVM vm.VM, publicKey ed25519.PublicKey, tokenAmount uint64, pledgeID identity.ID, includedInSlot slot.Index) (output utxo.Output, outputMetadata *ledger.OutputMetadata) {
 	switch ledgerVM.(type) {
 	case *ledger.MockedVM:
 		output = ledger.NewMockedOutput(utxo.EmptyTransactionID, outputCounter, tokenAmount)
@@ -175,7 +175,7 @@ func createOutput(ledgerVM vm.VM, publicKey ed25519.PublicKey, tokenAmount uint6
 	outputMetadata.SetConfirmationState(confirmation.Confirmed)
 	outputMetadata.SetAccessManaPledgeID(pledgeID)
 	outputMetadata.SetConsensusManaPledgeID(pledgeID)
-	outputMetadata.SetInclusionEpoch(includedInEpoch)
+	outputMetadata.SetInclusionSlot(includedInSlot)
 
 	return output, outputMetadata
 }

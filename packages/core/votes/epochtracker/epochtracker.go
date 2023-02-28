@@ -1,7 +1,7 @@
 package epochtracker
 
 import (
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/core/votes/latestvotes"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/ds/advancedset"
@@ -9,68 +9,68 @@ import (
 	"github.com/iotaledger/hive.go/lo"
 )
 
-type EpochTracker struct {
+type SlotTracker struct {
 	Events *Events
 
-	votesPerIdentity *shrinkingmap.ShrinkingMap[identity.ID, *latestvotes.LatestVotes[epoch.Index, EpochVotePower]]
-	votersPerEpoch   *shrinkingmap.ShrinkingMap[epoch.Index, *advancedset.AdvancedSet[identity.ID]]
+	votesPerIdentity *shrinkingmap.ShrinkingMap[identity.ID, *latestvotes.LatestVotes[slot.Index, SlotVotePower]]
+	votersPerSlot    *shrinkingmap.ShrinkingMap[slot.Index, *advancedset.AdvancedSet[identity.ID]]
 
-	cutoffIndexCallback func() epoch.Index
+	cutoffIndexCallback func() slot.Index
 }
 
-func NewEpochTracker(cutoffIndexCallback func() epoch.Index) *EpochTracker {
-	return &EpochTracker{
-		votesPerIdentity: shrinkingmap.New[identity.ID, *latestvotes.LatestVotes[epoch.Index, EpochVotePower]](),
-		votersPerEpoch:   shrinkingmap.New[epoch.Index, *advancedset.AdvancedSet[identity.ID]](),
+func NewSlotTracker(cutoffIndexCallback func() slot.Index) *SlotTracker {
+	return &SlotTracker{
+		votesPerIdentity: shrinkingmap.New[identity.ID, *latestvotes.LatestVotes[slot.Index, SlotVotePower]](),
+		votersPerSlot:    shrinkingmap.New[slot.Index, *advancedset.AdvancedSet[identity.ID]](),
 
 		cutoffIndexCallback: cutoffIndexCallback,
 		Events:              NewEvents(),
 	}
 }
 
-func (c *EpochTracker) epochVoters(epochIndex epoch.Index) *advancedset.AdvancedSet[identity.ID] {
-	epochVoters, _ := c.votersPerEpoch.GetOrCreate(epochIndex, func() *advancedset.AdvancedSet[identity.ID] {
+func (c *SlotTracker) slotVoters(slotIndex slot.Index) *advancedset.AdvancedSet[identity.ID] {
+	slotVoters, _ := c.votersPerSlot.GetOrCreate(slotIndex, func() *advancedset.AdvancedSet[identity.ID] {
 		return advancedset.NewAdvancedSet[identity.ID]()
 	})
-	return epochVoters
+	return slotVoters
 }
 
-func (c *EpochTracker) TrackVotes(epochIndex epoch.Index, voterID identity.ID, power EpochVotePower) {
-	epochVoters := c.epochVoters(epochIndex)
-	if epochVoters.Has(voterID) {
-		// We already tracked the voter for this epoch, so no need to update anything
+func (c *SlotTracker) TrackVotes(slotIndex slot.Index, voterID identity.ID, power SlotVotePower) {
+	slotVoters := c.slotVoters(slotIndex)
+	if slotVoters.Has(voterID) {
+		// We already tracked the voter for this slot, so no need to update anything
 		return
 	}
 
-	votersVotes, _ := c.votesPerIdentity.GetOrCreate(voterID, func() *latestvotes.LatestVotes[epoch.Index, EpochVotePower] {
-		return latestvotes.NewLatestVotes[epoch.Index, EpochVotePower](voterID)
+	votersVotes, _ := c.votesPerIdentity.GetOrCreate(voterID, func() *latestvotes.LatestVotes[slot.Index, SlotVotePower] {
+		return latestvotes.NewLatestVotes[slot.Index, SlotVotePower](voterID)
 	})
 
-	updated, previousHighestIndex := votersVotes.Store(epochIndex, power)
-	if !updated || previousHighestIndex >= epochIndex {
+	updated, previousHighestIndex := votersVotes.Store(slotIndex, power)
+	if !updated || previousHighestIndex >= slotIndex {
 		return
 	}
 
-	for i := lo.Max(c.cutoffIndexCallback(), previousHighestIndex) + 1; i <= epochIndex; i++ {
-		c.epochVoters(i).Add(voterID)
+	for i := lo.Max(c.cutoffIndexCallback(), previousHighestIndex) + 1; i <= slotIndex; i++ {
+		c.slotVoters(i).Add(voterID)
 	}
 
 	c.Events.VotersUpdated.Trigger(&VoterUpdatedEvent{
-		Voter:                voterID,
-		NewLatestEpochIndex:  epochIndex,
-		PrevLatestEpochIndex: previousHighestIndex,
+		Voter:               voterID,
+		NewLatestSlotIndex:  slotIndex,
+		PrevLatestSlotIndex: previousHighestIndex,
 	})
 }
 
-func (c *EpochTracker) Voters(epochIndex epoch.Index) (voters *advancedset.AdvancedSet[identity.ID]) {
-	voters = advancedset.NewAdvancedSet[identity.ID]()
+func (c *SlotTracker) Voters(slotIndex slot.Index) *advancedset.AdvancedSet[identity.ID] {
+	voters := advancedset.NewAdvancedSet[identity.ID]()
 
-	epochVoters, exists := c.votersPerEpoch.Get(epochIndex)
+	slotVoters, exists := c.votersPerSlot.Get(slotIndex)
 	if !exists {
 		return voters
 	}
 
-	_ = epochVoters.ForEach(func(identityID identity.ID) error {
+	_ = slotVoters.ForEach(func(identityID identity.ID) error {
 		voters.Add(identityID)
 		return nil
 	})
@@ -78,8 +78,8 @@ func (c *EpochTracker) Voters(epochIndex epoch.Index) (voters *advancedset.Advan
 	return voters
 }
 
-func (c *EpochTracker) EvictEpoch(indexToEvict epoch.Index) {
-	identities, exists := c.votersPerEpoch.Get(indexToEvict)
+func (c *SlotTracker) EvictSlot(indexToEvict slot.Index) {
+	identities, exists := c.votersPerSlot.Get(indexToEvict)
 	if !exists {
 		return
 	}
@@ -103,16 +103,16 @@ func (c *EpochTracker) EvictEpoch(indexToEvict epoch.Index) {
 		c.votesPerIdentity.Delete(identity)
 	}
 
-	c.votersPerEpoch.Delete(indexToEvict)
+	c.votersPerSlot.Delete(indexToEvict)
 }
 
-// region EpochVotePower //////////////////////////////////////////////////////////////////////////////////////////////
+// region SlotVotePower //////////////////////////////////////////////////////////////////////////////////////////////
 
-type EpochVotePower struct {
-	Index epoch.Index
+type SlotVotePower struct {
+	Index slot.Index
 }
 
-func (p EpochVotePower) Compare(other EpochVotePower) int {
+func (p SlotVotePower) Compare(other SlotVotePower) int {
 	if p.Index-other.Index < 0 {
 		return -1
 	} else if p.Index-other.Index > 0 {

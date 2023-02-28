@@ -11,7 +11,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/ads"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
@@ -54,15 +54,15 @@ type TestFramework struct {
 	optsEngineOptions     []options.Option[engine.Engine]
 }
 
-func NewTestFramework(test *testing.T, workers *workerpool.Group, epochTimeProvider *epoch.TimeProvider, opts ...options.Option[TestFramework]) (t *TestFramework) {
+func NewTestFramework(test *testing.T, workers *workerpool.Group, slotTimeProvider *slot.TimeProvider, opts ...options.Option[TestFramework]) (t *TestFramework) {
 	return options.Apply(&TestFramework{
 		test:            test,
 		mockAcceptance:  blockgadget.NewMockAcceptanceGadget(),
 		scheduledBlocks: shrinkingmap.New[models.BlockID, *scheduler.Block](),
 	}, opts, func(t *TestFramework) {
 		storageInstance := blockdag.NewTestStorage(test, workers)
-		// set MinCommittableEpochAge to genesis so nothing is committed.
-		t.Engine = engine.New(workers.CreateGroup("Engine"), storageInstance, dpos.NewProvider(), mana1.NewProvider(), epochTimeProvider, t.optsEngineOptions...)
+		// set MinCommittableSlotAge to genesis so nothing is committed.
+		t.Engine = engine.New(workers.CreateGroup("Engine"), storageInstance, dpos.NewProvider(), mana1.NewProvider(), slotTimeProvider, t.optsEngineOptions...)
 
 		test.Cleanup(func() {
 			t.Engine.Shutdown()
@@ -76,14 +76,14 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, epochTimeProvi
 			booker.NewTestFramework(test, workers.CreateGroup("BookerTestFramework"), t.Engine.Tangle.Booker),
 		)
 
-		t.Instance = New(workers.CreateGroup("TipManager"), epochTimeProvider, t.mockSchedulerBlock, t.optsTipManagerOptions...)
+		t.Instance = New(workers.CreateGroup("TipManager"), slotTimeProvider, t.mockSchedulerBlock, t.optsTipManagerOptions...)
 		t.Instance.LinkTo(t.Engine)
 
 		t.Instance.blockAcceptanceGadget = t.mockAcceptance
 
-		t.SetAcceptedTime(epochTimeProvider.GenesisTime())
+		t.SetAcceptedTime(slotTimeProvider.GenesisTime())
 
-		t.Tangle.BlockDAG.ModelsTestFramework.SetBlock("Genesis", models.NewEmptyBlock(models.EmptyBlockID, models.WithIssuingTime(epochTimeProvider.GenesisTime())))
+		t.Tangle.BlockDAG.ModelsTestFramework.SetBlock("Genesis", models.NewEmptyBlock(models.EmptyBlockID, models.WithIssuingTime(slotTimeProvider.GenesisTime())))
 	}, (*TestFramework).createGenesis, (*TestFramework).setupEvents)
 }
 
@@ -101,7 +101,7 @@ func (t *TestFramework) setupEvents() {
 		t.Instance.AddTip(scheduledBlock)
 	})
 
-	t.Engine.Events.EvictionState.EpochEvicted.Hook(func(index epoch.Index) {
+	t.Engine.Events.EvictionState.SlotEvicted.Hook(func(index slot.Index) {
 		t.Instance.EvictTSCCache(index)
 	})
 
@@ -134,7 +134,7 @@ func (t *TestFramework) createGenesis() {
 	block := scheduler.NewBlock(
 		virtualvoting.NewBlock(
 			blockdag.NewBlock(
-				models.NewEmptyBlock(models.EmptyBlockID, models.WithIssuingTime(t.Tangle.Instance.BlockDAG.EpochTimeProvider.GenesisTime())),
+				models.NewEmptyBlock(models.EmptyBlockID, models.WithIssuingTime(t.Tangle.Instance.BlockDAG.SlotTimeProvider.GenesisTime())),
 				blockdag.WithSolid(true),
 			),
 			virtualvoting.WithBooked(true),
@@ -207,14 +207,14 @@ func (t *TestFramework) AssertTipCount(expectedTipCount int) {
 	require.Equal(t.test, expectedTipCount, t.Instance.TipCount(), "expected %d tip count but got %d", t.Instance.TipCount(), expectedTipCount)
 }
 
-func (t *TestFramework) FormCommitment(index epoch.Index, acceptedBlocksAliases []string, prevIndex epoch.Index) (cm *commitment.Commitment) {
-	// acceptedBlocksInEpoch := t.mockAcceptance.AcceptedBlocksInEpoch(index)
+func (t *TestFramework) FormCommitment(index slot.Index, acceptedBlocksAliases []string, prevIndex slot.Index) (cm *commitment.Commitment) {
+	// acceptedBlocksInSlot := t.mockAcceptance.AcceptedBlocksInSlot(index)
 	adsBlocks := ads.NewSet[models.BlockID](mapdb.NewMapDB())
 	adsAttestations := ads.NewMap[identity.ID, notarization.Attestation](mapdb.NewMapDB())
 	for _, acceptedBlockAlias := range acceptedBlocksAliases {
 		acceptedBlock := t.Tangle.Booker.Block(acceptedBlockAlias)
 		adsBlocks.Add(acceptedBlock.ID())
-		adsAttestations.Set(acceptedBlock.IssuerID(), notarization.NewAttestation(acceptedBlock.ModelsBlock, t.Engine.EpochTimeProvider))
+		adsAttestations.Set(acceptedBlock.IssuerID(), notarization.NewAttestation(acceptedBlock.ModelsBlock, t.Engine.SlotTimeProvider))
 	}
 	return commitment.New(
 		index,

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/identity"
@@ -26,7 +26,7 @@ type Attestation struct {
 	id models.BlockID
 }
 
-func NewAttestation(block *models.Block, epochTimeProvider *epoch.TimeProvider) *Attestation {
+func NewAttestation(block *models.Block, slotTimeProvider *slot.TimeProvider) *Attestation {
 	a := &Attestation{
 		IssuerPublicKey:  block.IssuerPublicKey(),
 		IssuingTime:      block.IssuingTime(),
@@ -34,7 +34,7 @@ func NewAttestation(block *models.Block, epochTimeProvider *epoch.TimeProvider) 
 		BlockContentHash: lo.PanicOnErr(block.ContentHash()),
 		Signature:        block.Signature(),
 	}
-	a.id = models.NewBlockID(a.BlockContentHash, a.Signature, epochTimeProvider.IndexFromTime(a.IssuingTime))
+	a.id = models.NewBlockID(a.BlockContentHash, a.Signature, slotTimeProvider.IndexFromTime(a.IssuingTime))
 
 	return a
 }

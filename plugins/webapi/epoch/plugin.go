@@ -12,22 +12,22 @@ import (
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/app/retainer"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 )
 
-// PluginName is the name of the web API epoch endpoint plugin.
-const PluginName = "WebAPIEpochEndpoint"
+// PluginName is the name of the web API slot endpoint plugin.
+const PluginName = "WebAPISlotEndpoint"
 
 var (
-	// Plugin is the plugin instance of the web API epoch endpoint plugin.
+	// Plugin is the plugin instance of the web API slot endpoint plugin.
 	Plugin *node.Plugin
 	deps   = new(dependencies)
 
-	currentEC     *commitment.Commitment
-	currentECLock sync.RWMutex
+	currentSlotCommitment     *commitment.Commitment
+	currentSlotCommitmentLock sync.RWMutex
 )
 
 type dependencies struct {
@@ -43,44 +43,44 @@ func init() {
 }
 
 func configure(_ *node.Plugin) {
-	deps.Server.GET("ec", GetCurrentEC)
-	deps.Server.GET("epochs/:ei", GetCommittedEpoch)
-	deps.Server.GET("epochs/commitment/:commitment", GetCommittedEpochByCommitment)
-	deps.Server.GET("epochs/:ei/utxos", GetUTXOs)
-	deps.Server.GET("epochs/:ei/blocks", GetBlocks)
-	deps.Server.GET("epochs/:ei/transactions", GetTransactions)
-	// deps.Server.GET("epochs/:ei/voters-weight", getVotersWeight)
+	deps.Server.GET("sc", GetCurrentSC)
+	deps.Server.GET("slots/:index", GetCommittedSlot)
+	deps.Server.GET("slots/commitment/:commitment", GetCommittedSlotByCommitment)
+	deps.Server.GET("slots/:index/utxos", GetUTXOs)
+	deps.Server.GET("slots/:index/blocks", GetBlocks)
+	deps.Server.GET("slots/:index/transactions", GetTransactions)
+	// deps.Server.GET("slots/:index/voters-weight", getVotersWeight)
 
-	deps.Protocol.Events.Engine.NotarizationManager.EpochCommitted.Hook(func(e *notarization.EpochCommittedDetails) {
-		currentECLock.Lock()
-		defer currentECLock.Unlock()
+	deps.Protocol.Events.Engine.NotarizationManager.SlotCommitted.Hook(func(e *notarization.SlotCommittedDetails) {
+		currentSlotCommitmentLock.Lock()
+		defer currentSlotCommitmentLock.Unlock()
 
-		currentEC = e.Commitment
+		currentSlotCommitment = e.Commitment
 	})
 }
 
-func GetCurrentEC(c echo.Context) error {
-	currentECLock.RLock()
-	defer currentECLock.RUnlock()
+func GetCurrentSC(c echo.Context) error {
+	currentSlotCommitmentLock.RLock()
+	defer currentSlotCommitmentLock.RUnlock()
 
-	return c.JSON(http.StatusOK, jsonmodels.EpochInfoFromRecord(currentEC))
+	return c.JSON(http.StatusOK, jsonmodels.SlotInfoFromRecord(currentSlotCommitment))
 }
 
-func GetCommittedEpoch(c echo.Context) error {
-	ei, err := getEI(c)
+func GetCommittedSlot(c echo.Context) error {
+	index, err := getIndex(c)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	cc, exist := deps.Retainer.Commitment(ei)
+	cc, exist := deps.Retainer.Commitment(index)
 	if !exist {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(errors.New("commitment not exists")))
 	}
 
-	return c.JSON(http.StatusOK, jsonmodels.EpochInfoFromRecord(cc.M.Commitment))
+	return c.JSON(http.StatusOK, jsonmodels.SlotInfoFromRecord(cc.M.Commitment))
 }
 
-func GetCommittedEpochByCommitment(c echo.Context) error {
+func GetCommittedSlotByCommitment(c echo.Context) error {
 	var ID commitment.ID
 	err := ID.FromBase58(c.Param("commitment"))
 	if err != nil {
@@ -92,16 +92,16 @@ func GetCommittedEpochByCommitment(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(errors.New("commitment not exists")))
 	}
 
-	return c.JSON(http.StatusOK, jsonmodels.EpochInfoFromRecord(cc.M.Commitment))
+	return c.JSON(http.StatusOK, jsonmodels.SlotInfoFromRecord(cc.M.Commitment))
 }
 
 func GetUTXOs(c echo.Context) error {
-	ei, err := getEI(c)
+	index, err := getIndex(c)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	cc, exist := deps.Retainer.Commitment(ei)
+	cc, exist := deps.Retainer.Commitment(index)
 	if !exist {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(errors.New("commitment not exists")))
 	}
@@ -117,30 +117,30 @@ func GetUTXOs(c echo.Context) error {
 		created = append(created, c.Base58())
 	}
 
-	return c.JSON(http.StatusOK, jsonmodels.EpochUTXOsResponse{SpentOutputs: spent, CreatedOutputs: created})
+	return c.JSON(http.StatusOK, jsonmodels.SlotUTXOsResponse{SpentOutputs: spent, CreatedOutputs: created})
 }
 
 func GetBlocks(c echo.Context) error {
-	ei, err := getEI(c)
+	index, err := getIndex(c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.EpochBlocksResponse{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, jsonmodels.SlotBlocksResponse{Error: err.Error()})
 	}
 
-	cc, exist := deps.Retainer.Commitment(ei)
+	cc, exist := deps.Retainer.Commitment(index)
 	if !exist {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(errors.New("commitment not exists")))
 	}
 
-	return c.JSON(http.StatusOK, jsonmodels.EpochBlocksResponse{Blocks: cc.M.AcceptedBlocks.Base58()})
+	return c.JSON(http.StatusOK, jsonmodels.SlotBlocksResponse{Blocks: cc.M.AcceptedBlocks.Base58()})
 }
 
 func GetTransactions(c echo.Context) error {
-	ei, err := getEI(c)
+	index, err := getIndex(c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.EpochBlocksResponse{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, jsonmodels.SlotBlocksResponse{Error: err.Error()})
 	}
 
-	cc, exist := deps.Retainer.Commitment(ei)
+	cc, exist := deps.Retainer.Commitment(index)
 	if !exist {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(errors.New("commitment not exists")))
 	}
@@ -150,22 +150,22 @@ func GetTransactions(c echo.Context) error {
 		txs = append(txs, t.Base58())
 	}
 
-	return c.JSON(http.StatusOK, jsonmodels.EpochTransactionsResponse{Transactions: txs})
+	return c.JSON(http.StatusOK, jsonmodels.SlotTransactionsResponse{Transactions: txs})
 }
 
-func getEI(c echo.Context) (epoch.Index, error) {
-	eiText := c.Param("ei")
-	eiNumber, err := strconv.Atoi(eiText)
+func getIndex(c echo.Context) (slot.Index, error) {
+	indexText := c.Param("index")
+	indexNumber, err := strconv.Atoi(indexText)
 	if err != nil {
 		return 0, errors.Wrap(err, "can't parse Index from URL param")
 	}
-	return epoch.Index(uint64(eiNumber)), nil
+	return slot.Index(uint64(indexNumber)), nil
 }
 
 // func getVotersWeight(c echo.Context) error {
-// 	ei, err := getEI(c)
+// 	ei, err := getIndex(c)
 // 	if err != nil {
-// 		return c.JSON(http.StatusBadRequest, jsonmodels.EpochBlocksResponse{Error: err.Error()})
+// 		return c.JSON(http.StatusBadRequest, jsonmodels.SlotBlocksResponse{Error: err.Error()})
 // 	}
 
 // 	cc, exist := deps.Retainer.Commitment(ei)
@@ -173,5 +173,5 @@ func getEI(c echo.Context) (epoch.Index, error) {
 // 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(errors.New("commitment not exists")))
 // 	}
 
-// 	return c.JSON(http.StatusOK, jsonmodels.EpochVotersWeightResponse{})
+// 	return c.JSON(http.StatusOK, jsonmodels.SlotVotersWeightResponse{})
 // }

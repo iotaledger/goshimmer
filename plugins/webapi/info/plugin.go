@@ -131,7 +131,7 @@ func getInfo(c echo.Context) error {
 		Bootstrapped:     deps.Protocol.Engine().IsBootstrapped(),
 		AcceptedBlockID:  lastAcceptedBlockID.Base58(),
 		ConfirmedBlockID: lastConfirmedBlockID.Base58(),
-		ConfirmedEpoch:   int64(deps.Protocol.Engine().LastConfirmedEpoch()),
+		ConfirmedSlot:    int64(deps.Protocol.Engine().LastConfirmedSlot()),
 
 		ATT:  tm.AcceptedTime().UnixNano(),
 		RATT: tm.RelativeAcceptedTime().UnixNano(),

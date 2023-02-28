@@ -134,13 +134,13 @@ func GetBlock(c echo.Context) (err error) {
 			}
 			return ""
 		}(),
-		CommitmentID:         blockMetadata.M.Block.Commitment().ID().Base58(),
-		EpochIndex:           uint64(blockMetadata.M.Block.Commitment().Index()),
-		CommitmentRootsID:    blockMetadata.M.Block.Commitment().RootsID().Base58(),
-		PrevCommitmentID:     blockMetadata.M.Block.Commitment().PrevID().Base58(),
-		Payload:              payloadBytes,
-		Signature:            blockMetadata.M.Block.Signature().String(),
-		LatestConfirmedEpoch: uint64(blockMetadata.M.Block.LatestConfirmedEpoch()),
+		CommitmentID:        blockMetadata.M.Block.Commitment().ID().Base58(),
+		SlotIndex:           uint64(blockMetadata.M.Block.Commitment().Index()),
+		CommitmentRootsID:   blockMetadata.M.Block.Commitment().RootsID().Base58(),
+		PrevCommitmentID:    blockMetadata.M.Block.Commitment().PrevID().Base58(),
+		Payload:             payloadBytes,
+		Signature:           blockMetadata.M.Block.Signature().String(),
+		LatestConfirmedSlot: uint64(blockMetadata.M.Block.LatestConfirmedSlot()),
 	})
 }
 

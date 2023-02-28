@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
@@ -64,7 +64,7 @@ func NewTestFramework(test *testing.T, gadget *Gadget, tangleTF *tangle.TestFram
 
 func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, optsGadget ...options.Option[Gadget]) *TestFramework {
 	tangleTF := tangle.NewDefaultTestFramework(t, workers.CreateGroup("TangleTestFramework"),
-		epoch.NewTimeProvider(epoch.WithGenesisUnixTime(time.Now().Unix())),
+		slot.NewTimeProvider(slot.WithGenesisUnixTime(time.Now().Unix())),
 		tangle.WithBookerOptions(
 			booker.WithMarkerManagerOptions(
 				markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(3)),
@@ -76,7 +76,7 @@ func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, optsGadget
 		New(workers.CreateGroup("BlockGadget"),
 			tangleTF.Instance,
 			tangleTF.BlockDAG.Instance.EvictionState,
-			tangleTF.BlockDAG.Instance.EpochTimeProvider,
+			tangleTF.BlockDAG.Instance.SlotTimeProvider,
 			tangleTF.Votes.Validators.TotalWeight,
 			optsGadget...,
 		),
@@ -236,7 +236,7 @@ func (m *MockAcceptanceGadget) FirstUnacceptedIndex(sequenceID markers.SequenceI
 	return 1
 }
 
-func (m *MockAcceptanceGadget) AcceptedBlocksInEpoch(index epoch.Index) (blocks models.BlockIDs) {
+func (m *MockAcceptanceGadget) AcceptedBlocksInSlot(index slot.Index) (blocks models.BlockIDs) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 

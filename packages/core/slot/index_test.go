@@ -7,20 +7,20 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestEpoch(t *testing.T) {
+func TestSlot(t *testing.T) {
 	timeProvider := NewTimeProvider()
 	genesisTime := timeProvider.GenesisTime()
 
 	{
-		endOfEpochTime := genesisTime.Add(time.Duration(timeProvider.Duration()) * time.Second).Add(-1)
+		endOfSlotTime := genesisTime.Add(time.Duration(timeProvider.Duration()) * time.Second).Add(-1)
 
-		assert.Equal(t, Index(1), timeProvider.IndexFromTime(endOfEpochTime))
-		assert.False(t, timeProvider.EndTime(Index(1)).Before(endOfEpochTime))
+		assert.Equal(t, Index(1), timeProvider.IndexFromTime(endOfSlotTime))
+		assert.False(t, timeProvider.EndTime(Index(1)).Before(endOfSlotTime))
 
-		startOfEpochTime := genesisTime.Add(time.Duration(timeProvider.Duration()) * time.Second)
+		startOfSlotTime := genesisTime.Add(time.Duration(timeProvider.Duration()) * time.Second)
 
-		assert.Equal(t, Index(2), timeProvider.IndexFromTime(startOfEpochTime))
-		assert.False(t, timeProvider.StartTime(Index(2)).After(startOfEpochTime))
+		assert.Equal(t, Index(2), timeProvider.IndexFromTime(startOfSlotTime))
+		assert.False(t, timeProvider.StartTime(Index(2)).After(startOfSlotTime))
 	}
 
 	{

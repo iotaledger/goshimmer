@@ -6,7 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/core/storable"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	PrefixLastCommittedEpoch byte = iota
+	PrefixLastCommittedSlot byte = iota
 	PrefixTotalBalance
 	PrefixQuotasByID
 )
@@ -45,7 +45,7 @@ type ThroughputQuota struct {
 // New creates a new ThroughputQuota manager.
 func New(engineInstance *engine.Engine, opts ...options.Option[ThroughputQuota]) (manaTracker *ThroughputQuota) {
 	return options.Apply(&ThroughputQuota{
-		BatchCommittable:    traits.NewBatchCommittable(engineInstance.Storage.ThroughputQuota(), PrefixLastCommittedEpoch),
+		BatchCommittable:    traits.NewBatchCommittable(engineInstance.Storage.ThroughputQuota(), PrefixLastCommittedSlot),
 		Initializable:       traits.NewInitializable(),
 		engine:              engineInstance,
 		workers:             engineInstance.Workers.CreateGroup("ThroughputQuota"),
@@ -73,7 +73,7 @@ func New(engineInstance *engine.Engine, opts ...options.Option[ThroughputQuota])
 
 		m.engine.SubscribeConstructed(func() {
 			m.engine.Storage.Settings.SubscribeInitialized(func() {
-				m.SetLastCommittedEpoch(m.engine.Storage.Settings.LatestCommitment().Index())
+				m.SetLastCommittedSlot(m.engine.Storage.Settings.LatestCommitment().Index())
 			})
 
 			m.engine.LedgerState.UnspentOutputs.Subscribe(m)
@@ -162,8 +162,8 @@ func (m *ThroughputQuota) RollbackSpentOutput(output *ledger.OutputWithMetadata)
 	return m.ApplyCreatedOutput(output)
 }
 
-func (m *ThroughputQuota) BeginBatchedStateTransition(targetEpoch epoch.Index) (currentEpoch epoch.Index, err error) {
-	return m.BatchCommittable.BeginBatchedStateTransition(targetEpoch)
+func (m *ThroughputQuota) BeginBatchedStateTransition(targetSlot slot.Index) (currentSlot slot.Index, err error) {
+	return m.BatchCommittable.BeginBatchedStateTransition(targetSlot)
 }
 
 func (m *ThroughputQuota) CommitBatchedStateTransition() (ctx context.Context) {

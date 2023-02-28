@@ -11,7 +11,7 @@ import (
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
@@ -98,10 +98,10 @@ func main() {
 	initialAttestationsSlice := createInitialAttestations()
 
 	//TODO: allow passing genesis time as param
-	epochTimeProvider := epoch.NewTimeProvider(epoch.WithGenesisUnixTime(time.Now().Unix()))
-	snapshotcreator.CreateSnapshot(protocol.DatabaseVersion, snapshotFileName, genesisTokenAmount, genesisSeed, manaDistribution, initialAttestationsSlice, new(devnetvm.VM), epochTimeProvider)
+	slotTimeProvider := slot.NewTimeProvider(slot.WithGenesisUnixTime(time.Now().Unix()))
+	snapshotcreator.CreateSnapshot(protocol.DatabaseVersion, snapshotFileName, genesisTokenAmount, genesisSeed, manaDistribution, initialAttestationsSlice, new(devnetvm.VM), slotTimeProvider)
 
-	diagnosticPrintSnapshotFromFile(snapshotFileName, epochTimeProvider)
+	diagnosticPrintSnapshotFromFile(snapshotFileName, slotTimeProvider)
 }
 
 func createTempStorage() (s *storage.Storage) {
@@ -155,11 +155,11 @@ func init() {
 	}
 }
 
-func diagnosticPrintSnapshotFromFile(filePath string, epochTimeProvider *epoch.TimeProvider) {
+func diagnosticPrintSnapshotFromFile(filePath string, slotTimeProvider *slot.TimeProvider) {
 	s := createTempStorage()
 	defer s.Shutdown()
 
-	e := engine.New(workerpool.NewGroup("Diagnostics"), s, dpos.NewProvider(), mana1.NewProvider(), epochTimeProvider)
+	e := engine.New(workerpool.NewGroup("Diagnostics"), s, dpos.NewProvider(), mana1.NewProvider(), slotTimeProvider)
 	defer e.Shutdown()
 
 	if err := e.Initialize(filePath); err != nil {

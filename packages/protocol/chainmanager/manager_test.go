@@ -28,8 +28,8 @@ func TestManager(t *testing.T) {
 	forkDetected := make(chan struct{}, 1)
 	tf.Instance.Events.ForkDetected.Hook(func(fork *Fork) {
 		// The ForkDetected event should only be triggered once and only if the fork is deep enough
-		require.Equal(t, fork.Commitment.ID(), tf.EC("7*"))
-		require.Equal(t, fork.ForkingPoint.ID(), tf.EC("4*"))
+		require.Equal(t, fork.Commitment.ID(), tf.SlotCommitment("7*"))
+		require.Equal(t, fork.ForkingPoint.ID(), tf.SlotCommitment("4*"))
 		forkDetected <- struct{}{}
 		close(forkDetected) // closing channel here so that we are sure no second event with the same data is triggered
 	})
@@ -138,7 +138,7 @@ func TestManager(t *testing.T) {
 	}
 
 	{
-		commitments, err := tf.Instance.Commitments(tf.EC("8*"), 9)
+		commitments, err := tf.Instance.Commitments(tf.SlotCommitment("8*"), 9)
 		require.NoError(t, err)
 		tf.AssertEqualChainCommitments(commitments,
 			"8*",
@@ -154,7 +154,7 @@ func TestManager(t *testing.T) {
 	}
 
 	{
-		commitments, err := tf.Instance.Commitments(tf.EC("8*"), 10)
+		commitments, err := tf.Instance.Commitments(tf.SlotCommitment("8*"), 10)
 		require.Error(t, err)
 		require.EqualValues(t, []*Commitment(nil), commitments)
 	}
@@ -190,8 +190,8 @@ func TestManagerForkDetectedAgain(t *testing.T) {
 
 	forkRedetected := make(chan struct{}, 1)
 	expectedForks := map[commitment.ID]types.Empty{
-		tf.EC("7*"): types.Void,
-		tf.EC("9*"): types.Void,
+		tf.SlotCommitment("7*"): types.Void,
+		tf.SlotCommitment("9*"): types.Void,
 	}
 	tf.Instance.Events.ForkDetected.Hook(func(fork *Fork) {
 		if _, has := expectedForks[fork.Commitment.ID()]; !has {
@@ -200,7 +200,7 @@ func TestManagerForkDetectedAgain(t *testing.T) {
 		t.Logf("fork detected at %s", fork.Commitment.ID())
 		delete(expectedForks, fork.Commitment.ID())
 
-		require.Equal(t, fork.ForkingPoint.ID(), tf.EC("4*"))
+		require.Equal(t, fork.ForkingPoint.ID(), tf.SlotCommitment("4*"))
 		if len(expectedForks) == 0 {
 			forkRedetected <- struct{}{}
 		}
@@ -220,7 +220,7 @@ func TestManagerForkDetectedAgain(t *testing.T) {
 	}
 
 	{
-		commitments, err := tf.Instance.Commitments(tf.EC("8*"), 9)
+		commitments, err := tf.Instance.Commitments(tf.SlotCommitment("8*"), 9)
 		require.NoError(t, err)
 		tf.AssertEqualChainCommitments(commitments,
 			"8*",

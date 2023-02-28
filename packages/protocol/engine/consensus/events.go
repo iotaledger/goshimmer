@@ -8,7 +8,7 @@ import (
 
 type Events struct {
 	BlockGadget *blockgadget.Events
-	EpochGadget *epochgadget.Events
+	SlotGadget  *epochgadget.Events
 
 	event.Group[Events, *Events]
 }
@@ -17,6 +17,6 @@ type Events struct {
 var NewEvents = event.CreateGroupConstructor(func() (newEvents *Events) {
 	return &Events{
 		BlockGadget: blockgadget.NewEvents(),
-		EpochGadget: epochgadget.NewEvents(),
+		SlotGadget:  epochgadget.NewEvents(),
 	}
 })

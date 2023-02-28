@@ -13,7 +13,7 @@ type Events struct {
 
 	ConflictTracker *conflicttracker.Events[utxo.TransactionID]
 	SequenceTracker *sequencetracker.Events
-	EpochTracker    *epochtracker.Events
+	SlotTracker     *epochtracker.Events
 
 	event.Group[Events, *Events]
 }
@@ -24,7 +24,7 @@ var NewEvents = event.CreateGroupConstructor(func() (newEvents *Events) {
 		BlockTracked:    event.New1[*Block](),
 		ConflictTracker: conflicttracker.NewEvents[utxo.TransactionID](),
 		SequenceTracker: sequencetracker.NewEvents(),
-		EpochTracker:    epochtracker.NewEvents(),
+		SlotTracker:     epochtracker.NewEvents(),
 	}
 })
 

@@ -1,7 +1,7 @@
 package consensus
 
 import (
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/conflictresolver"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/epochgadget"
@@ -17,22 +17,22 @@ type Consensus struct {
 	Events *Events
 
 	BlockGadget      *blockgadget.Gadget
-	EpochGadget      *epochgadget.Gadget
+	SlotGadget       *epochgadget.Gadget
 	ConflictResolver *conflictresolver.ConflictResolver
 
-	optsAcceptanceGadget        []options.Option[blockgadget.Gadget]
-	optsEpochConfirmationGadget []options.Option[epochgadget.Gadget]
+	optsAcceptanceGadget       []options.Option[blockgadget.Gadget]
+	optsSlotConfirmationGadget []options.Option[epochgadget.Gadget]
 }
 
-func New(workers *workerpool.Group, tangleInstance *tangle.Tangle, evictionState *eviction.State, lastConfirmedEpoch epoch.Index, totalWeightCallback func() int64, opts ...options.Option[Consensus]) *Consensus {
+func New(workers *workerpool.Group, tangleInstance *tangle.Tangle, evictionState *eviction.State, lastConfirmedSlot slot.Index, totalWeightCallback func() int64, opts ...options.Option[Consensus]) *Consensus {
 	return options.Apply(&Consensus{}, opts, func(c *Consensus) {
-		c.BlockGadget = blockgadget.New(workers.CreateGroup("BlockGadget"), tangleInstance, evictionState, tangleInstance.BlockDAG.EpochTimeProvider, totalWeightCallback, c.optsAcceptanceGadget...)
-		c.EpochGadget = epochgadget.New(workers.CreateGroup("EpochGadget"), tangleInstance, lastConfirmedEpoch, totalWeightCallback, c.optsEpochConfirmationGadget...)
+		c.BlockGadget = blockgadget.New(workers.CreateGroup("BlockGadget"), tangleInstance, evictionState, tangleInstance.BlockDAG.SlotTimeProvider, totalWeightCallback, c.optsAcceptanceGadget...)
+		c.SlotGadget = epochgadget.New(workers.CreateGroup("SlotGadget"), tangleInstance, lastConfirmedSlot, totalWeightCallback, c.optsSlotConfirmationGadget...)
 		c.ConflictResolver = conflictresolver.New(tangleInstance.Ledger.ConflictDAG, tangleInstance.Booker.VirtualVoting.ConflictVotersTotalWeight)
 
 		c.Events = NewEvents()
 		c.Events.BlockGadget = c.BlockGadget.Events
-		c.Events.EpochGadget = c.EpochGadget.Events
+		c.Events.SlotGadget = c.SlotGadget.Events
 	})
 }
 
@@ -46,9 +46,9 @@ func WithAcceptanceGadgetOptions(opts ...options.Option[blockgadget.Gadget]) opt
 	}
 }
 
-func WithEpochConfirmationGadgetOptions(opts ...options.Option[epochgadget.Gadget]) options.Option[Consensus] {
+func WithSlotConfirmationGadgetOptions(opts ...options.Option[epochgadget.Gadget]) options.Option[Consensus] {
 	return func(c *Consensus) {
-		c.optsEpochConfirmationGadget = opts
+		c.optsSlotConfirmationGadget = opts
 	}
 }
 

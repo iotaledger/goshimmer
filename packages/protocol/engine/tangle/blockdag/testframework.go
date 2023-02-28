@@ -10,7 +10,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/database"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
@@ -52,9 +52,9 @@ func NewTestStorage(t *testing.T, workers *workerpool.Group, opts ...options.Opt
 	return s
 }
 
-func NewTestBlockDAG(t *testing.T, workers *workerpool.Group, evictionState *eviction.State, epochTimeProvider *epoch.TimeProvider, commitmentLoadFunc func(index epoch.Index) (commitment *commitment.Commitment, err error), optsBlockDAG ...options.Option[BlockDAG]) *BlockDAG {
+func NewTestBlockDAG(t *testing.T, workers *workerpool.Group, evictionState *eviction.State, slotTimeProvider *slot.TimeProvider, commitmentLoadFunc func(index slot.Index) (commitment *commitment.Commitment, err error), optsBlockDAG ...options.Option[BlockDAG]) *BlockDAG {
 	require.NotNil(t, evictionState)
-	return New(workers, evictionState, epochTimeProvider, commitmentLoadFunc, optsBlockDAG...)
+	return New(workers, evictionState, slotTimeProvider, commitmentLoadFunc, optsBlockDAG...)
 }
 
 // NewTestFramework is the constructor of the TestFramework.
@@ -67,7 +67,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, blockDAG *Bloc
 		workerPool:     workers.CreatePool("IssueBlocks", 2),
 	}
 	t.ModelsTestFramework = models.NewTestFramework(
-		blockDAG.EpochTimeProvider,
+		blockDAG.SlotTimeProvider,
 		models.WithBlock("Genesis", models.NewEmptyBlock(models.EmptyBlockID)),
 	)
 
@@ -80,7 +80,7 @@ func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, optsBlockD
 	storageInstance := NewTestStorage(t, workers)
 	return NewTestFramework(t,
 		workers.CreateGroup("BlockDAGTestFramework"),
-		NewTestBlockDAG(t, workers.CreateGroup("BlockDAG"), eviction.NewState(storageInstance), epoch.NewTimeProvider(epoch.WithGenesisUnixTime(time.Now().Unix())), DefaultCommitmentFunc, optsBlockDAG...),
+		NewTestBlockDAG(t, workers.CreateGroup("BlockDAG"), eviction.NewState(storageInstance), slot.NewTimeProvider(slot.WithGenesisUnixTime(time.Now().Unix())), DefaultCommitmentFunc, optsBlockDAG...),
 	)
 }
 
@@ -242,7 +242,7 @@ func (t *TestFramework) setupEvents() {
 	})
 }
 
-func DefaultCommitmentFunc(index epoch.Index) (cm *commitment.Commitment, err error) {
+func DefaultCommitmentFunc(index slot.Index) (cm *commitment.Commitment, err error) {
 	return commitment.New(index, commitment.NewID(1, []byte{}), types.NewIdentifier([]byte{}), 0), nil
 }
 

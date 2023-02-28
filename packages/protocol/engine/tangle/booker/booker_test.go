@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
@@ -695,23 +695,23 @@ func TestMultiThreadedBookingAndForkingNested(t *testing.T) {
 	tf.checkNormalizedConflictIDsContained(expectedConflicts)
 }
 
-// This test creates two chains of blocks from the genesis (1 block per epoch in each chain). The first chain is solid, the second chain is not.
+// This test creates two chains of blocks from the genesis (1 block per slot in each chain). The first chain is solid, the second chain is not.
 // When pruning the BlockDAG, the first chain should be pruned but not marked as invalid by the causal order component, while the other should be marked as invalid.
 func Test_Prune(t *testing.T) {
-	const epochCount = 100
+	const slotCount = 100
 
 	workers := workerpool.NewGroup(t.Name())
 	tf := NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"))
 
 	// create a helper function that creates the blocks
-	createNewBlock := func(idx epoch.Index, prefix string) (block *models.Block, alias string) {
+	createNewBlock := func(idx slot.Index, prefix string) (block *models.Block, alias string) {
 		alias = fmt.Sprintf("blk%s-%d", prefix, idx)
 		if idx == 1 {
 			fmt.Println("Creating genesis block")
 
 			return tf.BlockDAG.CreateBlock(
 				alias,
-				models.WithIssuingTime(tf.BlockDAG.Instance.EpochTimeProvider.GenesisTime()),
+				models.WithIssuingTime(tf.BlockDAG.Instance.SlotTimeProvider.GenesisTime()),
 				models.WithPayload(tf.Ledger.CreateTransaction(alias, 1, "Genesis")),
 			), alias
 		}
@@ -719,25 +719,25 @@ func Test_Prune(t *testing.T) {
 		return tf.BlockDAG.CreateBlock(
 			alias,
 			models.WithStrongParents(tf.BlockDAG.BlockIDs(parentAlias)),
-			models.WithIssuingTime(tf.BlockDAG.Instance.EpochTimeProvider.StartTime(idx)),
+			models.WithIssuingTime(tf.BlockDAG.Instance.SlotTimeProvider.StartTime(idx)),
 			models.WithPayload(tf.Ledger.CreateTransaction(alias, 1, fmt.Sprintf("%s.0", parentAlias))),
 		), alias
 	}
 
-	require.EqualValues(t, 0, tf.BlockDAG.Instance.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch should be 0")
+	require.EqualValues(t, 0, tf.BlockDAG.Instance.EvictionState.LastEvictedSlot(), "maxDroppedSlot should be 0")
 
-	expectedInvalid := make(map[string]bool, epochCount)
-	expectedBooked := make(map[string]bool, epochCount)
+	expectedInvalid := make(map[string]bool, slotCount)
+	expectedBooked := make(map[string]bool, slotCount)
 
 	// Attach solid blocks
-	for i := epoch.Index(1); i <= epochCount; i++ {
+	for i := slot.Index(1); i <= slotCount; i++ {
 		block, alias := createNewBlock(i, "")
 
 		_, wasAttached, err := tf.BlockDAG.Instance.Attach(block)
 		require.True(t, wasAttached, "block should be attached")
 		require.NoError(t, err, "should not be able to attach a block after shutdown")
 
-		if i >= epochCount/4 {
+		if i >= slotCount/4 {
 			expectedInvalid[alias] = false
 			expectedBooked[alias] = true
 		}
@@ -745,8 +745,8 @@ func Test_Prune(t *testing.T) {
 
 	_, wasAttached, err := tf.BlockDAG.Instance.Attach(tf.BlockDAG.CreateBlock(
 		"blk-1-reattachment",
-		models.WithStrongParents(tf.BlockDAG.BlockIDs(fmt.Sprintf("blk-%d", epochCount))),
-		models.WithIssuingTime(tf.BlockDAG.Instance.EpochTimeProvider.StartTime(epochCount)),
+		models.WithStrongParents(tf.BlockDAG.BlockIDs(fmt.Sprintf("blk-%d", slotCount))),
+		models.WithIssuingTime(tf.BlockDAG.Instance.SlotTimeProvider.StartTime(slotCount)),
 		models.WithPayload(tf.Ledger.Transaction("blk-1")),
 	))
 	require.True(t, wasAttached, "block should be attached")
@@ -754,43 +754,43 @@ func Test_Prune(t *testing.T) {
 
 	workers.WaitChildren()
 
-	tf.AssertBookedCount(epochCount+1, "should have all solid blocks")
+	tf.AssertBookedCount(slotCount+1, "should have all solid blocks")
 
-	validateState(tf, 0, epochCount)
+	validateState(tf, 0, slotCount)
 
-	tf.BlockDAG.Instance.EvictionState.EvictUntil(epochCount / 4)
+	tf.BlockDAG.Instance.EvictionState.EvictUntil(slotCount / 4)
 	workers.WaitChildren()
 
-	require.EqualValues(t, epochCount/4, tf.BlockDAG.Instance.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/4")
+	require.EqualValues(t, slotCount/4, tf.BlockDAG.Instance.EvictionState.LastEvictedSlot(), "maxDroppedSlot of booker should be slotCount/4")
 
 	// All orphan blocks should be marked as invalid due to invalidity propagation.
 	tf.BlockDAG.AssertInvalidCount(0, "should have invalid blocks")
 
-	tf.BlockDAG.Instance.EvictionState.EvictUntil(epochCount / 10)
+	tf.BlockDAG.Instance.EvictionState.EvictUntil(slotCount / 10)
 	workers.WaitChildren()
 
-	require.EqualValues(t, epochCount/4, tf.BlockDAG.Instance.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/4")
+	require.EqualValues(t, slotCount/4, tf.BlockDAG.Instance.EvictionState.LastEvictedSlot(), "maxDroppedSlot of booker should be slotCount/4")
 
-	tf.BlockDAG.Instance.EvictionState.EvictUntil(epochCount / 2)
+	tf.BlockDAG.Instance.EvictionState.EvictUntil(slotCount / 2)
 	workers.WaitChildren()
 
-	require.EqualValues(t, epochCount/2, tf.BlockDAG.Instance.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/2")
+	require.EqualValues(t, slotCount/2, tf.BlockDAG.Instance.EvictionState.LastEvictedSlot(), "maxDroppedSlot of booker should be slotCount/2")
 
-	validateState(tf, epochCount/2, epochCount)
+	validateState(tf, slotCount/2, slotCount)
 
 	_, wasAttached, err = tf.BlockDAG.Instance.Attach(tf.BlockDAG.CreateBlock(
 		"blk-0.5",
-		models.WithStrongParents(tf.BlockDAG.BlockIDs(fmt.Sprintf("blk-%d", epochCount))),
-		models.WithIssuingTime(tf.BlockDAG.Instance.EpochTimeProvider.GenesisTime()),
+		models.WithStrongParents(tf.BlockDAG.BlockIDs(fmt.Sprintf("blk-%d", slotCount))),
+		models.WithIssuingTime(tf.BlockDAG.Instance.SlotTimeProvider.GenesisTime()),
 	))
 	workers.WaitChildren()
 
 	require.False(t, wasAttached, "block should not be attached")
-	require.Error(t, err, "should not be able to attach a block after eviction of an epoch")
+	require.Error(t, err, "should not be able to attach a block after eviction of an slot")
 }
 
-func validateState(tf *TestFramework, maxPrunedEpoch, epochCount int) {
-	for i := maxPrunedEpoch + 1; i <= epochCount; i++ {
+func validateState(tf *TestFramework, maxPrunedSlot, slotCount int) {
+	for i := maxPrunedSlot + 1; i <= slotCount; i++ {
 		alias := fmt.Sprintf("blk-%d", i)
 
 		_, exists := tf.Instance.Block(tf.BlockDAG.Block(alias).ID())
@@ -804,7 +804,7 @@ func validateState(tf *TestFramework, maxPrunedEpoch, epochCount int) {
 		}
 	}
 
-	for i := 1; i <= maxPrunedEpoch; i++ {
+	for i := 1; i <= maxPrunedSlot; i++ {
 		alias := fmt.Sprintf("blk-%d", i)
 		_, exists := tf.Instance.Block(tf.BlockDAG.Block(alias).ID())
 		require.False(tf.test, exists, "block should not be in the BlockDAG")
@@ -896,7 +896,7 @@ func TestOTV_Track(t *testing.T) {
 	storageInstance := blockdag.NewTestStorage(t, workers)
 	tf := NewTestFramework(t, workers.CreateGroup("BookerTestFramework"),
 		New(workers.CreateGroup("Booker"),
-			blockdag.NewTestBlockDAG(t, workers.CreateGroup("BlockDAG"), eviction.NewState(storageInstance), epoch.NewTimeProvider(epoch.WithGenesisUnixTime(time.Now().Unix())), storageInstance.Commitments.Load),
+			blockdag.NewTestBlockDAG(t, workers.CreateGroup("BlockDAG"), eviction.NewState(storageInstance), slot.NewTimeProvider(slot.WithGenesisUnixTime(time.Now().Unix())), storageInstance.Commitments.Load),
 			ledger.NewTestLedger(t, workers.CreateGroup("Ledger")),
 			sybilprotection.NewWeightedSet(sybilprotection.NewWeights(mapdb.NewMapDB())),
 			WithMarkerManagerOptions(

@@ -6,8 +6,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/causalorder"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
@@ -30,11 +30,11 @@ import (
 type Gadget struct {
 	Events *Events
 
-	tangle            *tangle.Tangle
-	blocks            *memstorage.EpochStorage[models.BlockID, *Block]
-	evictionState     *eviction.State
-	evictionMutex     sync.RWMutex
-	epochTimeProvider *epoch.TimeProvider
+	tangle           *tangle.Tangle
+	blocks           *memstorage.SlotStorage[models.BlockID, *Block]
+	evictionState    *eviction.State
+	evictionMutex    sync.RWMutex
+	slotTimeProvider *slot.TimeProvider
 
 	optsConflictAcceptanceThreshold float64
 
@@ -52,15 +52,15 @@ type Gadget struct {
 	workers *workerpool.Group
 }
 
-func New(workers *workerpool.Group, tangleInstance *tangle.Tangle, evictionState *eviction.State, epochTimeProvider *epoch.TimeProvider, totalWeightCallback func() int64, opts ...options.Option[Gadget]) (gadget *Gadget) {
+func New(workers *workerpool.Group, tangleInstance *tangle.Tangle, evictionState *eviction.State, slotTimeProvider *slot.TimeProvider, totalWeightCallback func() int64, opts ...options.Option[Gadget]) (gadget *Gadget) {
 	return options.Apply(&Gadget{
 		Events:                          NewEvents(),
 		workers:                         workers,
 		tangle:                          tangleInstance,
-		blocks:                          memstorage.NewEpochStorage[models.BlockID, *Block](),
+		blocks:                          memstorage.NewSlotStorage[models.BlockID, *Block](),
 		lastAcceptedMarker:              shrinkingmap.New[markers.SequenceID, markers.Index](),
 		evictionState:                   evictionState,
-		epochTimeProvider:               epochTimeProvider,
+		slotTimeProvider:                slotTimeProvider,
 		optsMarkerAcceptanceThreshold:   0.67,
 		optsMarkerConfirmationThreshold: 0.67,
 		optsConflictAcceptanceThreshold: 0.67,
@@ -71,15 +71,15 @@ func New(workers *workerpool.Group, tangleInstance *tangle.Tangle, evictionState
 		a.totalWeightCallback = totalWeightCallback
 		a.lastAcceptedMarker = shrinkingmap.New[markers.SequenceID, markers.Index]()
 		a.lastConfirmedMarker = shrinkingmap.New[markers.SequenceID, markers.Index]()
-		a.blocks = memstorage.NewEpochStorage[models.BlockID, *Block]()
+		a.blocks = memstorage.NewSlotStorage[models.BlockID, *Block]()
 
 		a.acceptanceOrder = causalorder.New(workers.CreatePool("AcceptanceOrder", 2), a.GetOrRegisterBlock, (*Block).IsAccepted, a.markAsAccepted, a.acceptanceFailed)
 		a.confirmationOrder = causalorder.New(workers.CreatePool("ConfirmationOrder", 2), func(id models.BlockID) (entity *Block, exists bool) {
 			a.evictionMutex.RLock()
 			defer a.evictionMutex.RUnlock()
 
-			if a.evictionState.InEvictedEpoch(id) {
-				return NewRootBlock(id, a.epochTimeProvider), true
+			if a.evictionState.InEvictedSlot(id) {
+				return NewRootBlock(id, a.slotTimeProvider), true
 			}
 
 			return a.getOrRegisterBlock(id)
@@ -232,7 +232,7 @@ func (a *Gadget) tryConfirmOrAccept(totalWeight int64, marker markers.Marker) (b
 	return
 }
 
-func (a *Gadget) EvictUntil(index epoch.Index) {
+func (a *Gadget) EvictUntil(index slot.Index) {
 	a.acceptanceOrder.EvictUntil(index)
 	a.confirmationOrder.EvictUntil(index)
 
@@ -240,7 +240,7 @@ func (a *Gadget) EvictUntil(index epoch.Index) {
 	defer a.evictionMutex.Unlock()
 
 	if evictedStorage := a.blocks.Evict(index); evictedStorage != nil {
-		a.Events.EpochClosed.Trigger(evictedStorage)
+		a.Events.SlotClosed.Trigger(evictedStorage)
 	}
 }
 
@@ -260,7 +260,7 @@ func (a *Gadget) setup() {
 
 func (a *Gadget) block(id models.BlockID) (block *Block, exists bool) {
 	if a.evictionState.IsRootBlock(id) {
-		return NewRootBlock(id, a.epochTimeProvider), true
+		return NewRootBlock(id, a.slotTimeProvider), true
 	}
 
 	storage := a.blocks.Get(id.Index(), false)
@@ -319,8 +319,8 @@ func (a *Gadget) propagateAcceptanceConfirmation(marker markers.Marker, confirme
 }
 
 func (a *Gadget) markAsAccepted(block *Block) (err error) {
-	if a.evictionState.InEvictedEpoch(block.ID()) {
-		return errors.Errorf("block with %s belongs to an evicted epoch", block.ID())
+	if a.evictionState.InEvictedSlot(block.ID()) {
+		return errors.Errorf("block with %s belongs to an evicted slot", block.ID())
 	}
 
 	if block.SetAccepted() {
@@ -333,7 +333,7 @@ func (a *Gadget) markAsAccepted(block *Block) (err error) {
 
 		// set ConfirmationState of payload (applicable only to transactions)
 		if tx, ok := block.Payload().(utxo.Transaction); ok {
-			a.tangle.Ledger.SetTransactionInclusionEpoch(tx.ID(), a.epochTimeProvider.IndexFromTime(block.IssuingTime()))
+			a.tangle.Ledger.SetTransactionInclusionSlot(tx.ID(), a.slotTimeProvider.IndexFromTime(block.IssuingTime()))
 		}
 	}
 
@@ -341,8 +341,8 @@ func (a *Gadget) markAsAccepted(block *Block) (err error) {
 }
 
 func (a *Gadget) markAsConfirmed(block *Block) (err error) {
-	if a.evictionState.InEvictedEpoch(block.ID()) {
-		return errors.Errorf("block with %s belongs to an evicted epoch", block.ID())
+	if a.evictionState.InEvictedSlot(block.ID()) {
+		return errors.Errorf("block with %s belongs to an evicted slot", block.ID())
 	}
 
 	if block.SetConfirmed() {
@@ -413,8 +413,8 @@ func (a *Gadget) getOrRegisterBlock(blockID models.BlockID) (block *Block, exist
 }
 
 func (a *Gadget) registerBlock(virtualVotingBlock *virtualvoting.Block) (block *Block, err error) {
-	if a.evictionState.InEvictedEpoch(virtualVotingBlock.ID()) {
-		return nil, errors.Errorf("block %s belongs to an evicted epoch", virtualVotingBlock.ID())
+	if a.evictionState.InEvictedSlot(virtualVotingBlock.ID()) {
+		return nil, errors.Errorf("block %s belongs to an evicted slot", virtualVotingBlock.ID())
 	}
 
 	blockStorage := a.blocks.Get(virtualVotingBlock.ID().Index(), true)

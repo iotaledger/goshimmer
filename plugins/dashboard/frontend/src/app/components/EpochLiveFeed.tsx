@@ -1,4 +1,4 @@
-import { EpochStore } from 'app/stores/EpochStore';
+import { SlotStore } from 'app/stores/EpochStore';
 import {inject, observer} from "mobx-react";
 import NodeStore from 'app/stores/NodeStore';
 import * as React from 'react';
@@ -8,18 +8,18 @@ import { Table } from 'react-bootstrap';
 interface Props {
     history: any;
     nodeStore?: NodeStore;
-    epochStore?: EpochStore;
+    slotStore?: SlotStore;
 }
 
 @inject("nodeStore")
-@inject("epochStore")
+@inject("slotStore")
 @observer
-export class EpochLiveFeed extends React.Component<Props, any> {
+export class SlotLiveFeed extends React.Component<Props, any> {
     render() {
-        let {epochLiveFeed} = this.props.epochStore;
+        let {slotLiveFeed} = this.props.slotStore;
         return (
             <Container>
-                <h3>Epochs</h3>
+                <h3>Slots</h3>
                 <Table bordered>
                     <thead>
                     <tr>
@@ -28,7 +28,7 @@ export class EpochLiveFeed extends React.Component<Props, any> {
                     </tr>
                     </thead>
                     <tbody>
-                    {epochLiveFeed}
+                    {slotLiveFeed}
                     </tbody>
                 </Table>
             </Container>

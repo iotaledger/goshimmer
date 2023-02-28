@@ -33,7 +33,7 @@ func NewEventMock(t *testing.T, notarizationManager *notarization.Manager) *Even
 	}
 
 	// attach all events
-	e.attached = append(e.attached, notarizationManager.Events.EpochCommitted.Hook(e.EpochCommittable).Unhook)
+	e.attached = append(e.attached, notarizationManager.Events.SlotCommitted.Hook(e.SlotCommittable).Unhook)
 	// event.Hook(notarizationManager.Events.ConsensusWeightsUpdated, e.ManaVectorUpdate)
 
 	return e
@@ -72,8 +72,8 @@ func (e *EventMock) AssertExpectations(t mock.TestingT) bool {
 	return e.Mock.AssertExpectations(t)
 }
 
-// EpochCommittable is the mocked EpochCommittable event.
-func (e *EventMock) EpochCommittable(details *notarization.EpochCommittedDetails) {
+// SlotCommittable is the mocked SlotCommittable event.
+func (e *EventMock) SlotCommittable(details *notarization.SlotCommittedDetails) {
 	e.Called(details.Commitment.Index())
 	atomic.AddUint64(&e.calledEvents, 1)
 }
@@ -81,7 +81,7 @@ func (e *EventMock) EpochCommittable(details *notarization.EpochCommittedDetails
 /*
 // ManaVectorUpdate is the mocked ManaVectorUpdate event.
 func (e *EventMock) ManaVectorUpdate(event *mana.ManaVectorUpdateEvent) {
-	e.Called(event.EI)
+	e.Called(event.SlotIndex)
 	atomic.AddUint64(&e.calledEvents, 1)
 }
 */

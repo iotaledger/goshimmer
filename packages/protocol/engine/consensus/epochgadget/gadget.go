@@ -3,7 +3,7 @@ package epochgadget
 import (
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/core/votes/epochtracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/hive.go/lo"
@@ -16,71 +16,71 @@ type Gadget struct {
 	Events *Events
 
 	tangle              *tangle.Tangle
-	lastConfirmedEpoch  epoch.Index
+	lastConfirmedSlot   slot.Index
 	totalWeightCallback func() int64
 
-	optsEpochConfirmationThreshold float64
+	optsSlotConfirmationThreshold float64
 
 	workers *workerpool.Group
 
 	sync.RWMutex
 }
 
-func New(workers *workerpool.Group, tangle *tangle.Tangle, lastConfirmedEpoch epoch.Index, totalWeightCallback func() int64, opts ...options.Option[Gadget]) (gadget *Gadget) {
+func New(workers *workerpool.Group, tangle *tangle.Tangle, lastConfirmedSlot slot.Index, totalWeightCallback func() int64, opts ...options.Option[Gadget]) (gadget *Gadget) {
 	return options.Apply(&Gadget{
-		workers:                        workers,
-		optsEpochConfirmationThreshold: 0.67,
+		workers:                       workers,
+		optsSlotConfirmationThreshold: 0.67,
 	}, opts, func(a *Gadget) {
 		a.Events = NewEvents()
 
 		a.tangle = tangle
-		a.lastConfirmedEpoch = lastConfirmedEpoch
+		a.lastConfirmedSlot = lastConfirmedSlot
 		a.totalWeightCallback = totalWeightCallback
 	}, (*Gadget).setup)
 }
 
-func (g *Gadget) LastConfirmedEpoch() epoch.Index {
+func (g *Gadget) LastConfirmedSlot() slot.Index {
 	g.RLock()
 	defer g.RUnlock()
 
-	return g.lastConfirmedEpoch
+	return g.lastConfirmedSlot
 }
 
-func (g *Gadget) setLastConfirmedEpoch(i epoch.Index) {
+func (g *Gadget) setLastConfirmedSlot(i slot.Index) {
 	g.Lock()
 	defer g.Unlock()
 
-	g.lastConfirmedEpoch = i
+	g.lastConfirmedSlot = i
 }
 
 func (g *Gadget) setup() {
-	g.tangle.Booker.VirtualVoting.Events.EpochTracker.VotersUpdated.Hook(func(evt *epochtracker.VoterUpdatedEvent) {
-		g.refreshEpochConfirmation(evt.PrevLatestEpochIndex, evt.NewLatestEpochIndex)
+	g.tangle.Booker.VirtualVoting.Events.SlotTracker.VotersUpdated.Hook(func(evt *epochtracker.VoterUpdatedEvent) {
+		g.refreshSlotConfirmation(evt.PrevLatestSlotIndex, evt.NewLatestSlotIndex)
 	}, event.WithWorkerPool(g.workers.CreatePool("Refresh", 2)))
 }
 
-func (g *Gadget) refreshEpochConfirmation(previousLatestEpochIndex epoch.Index, newLatestEpochIndex epoch.Index) {
+func (g *Gadget) refreshSlotConfirmation(previousLatestSlotIndex slot.Index, newLatestSlotIndex slot.Index) {
 	totalWeight := g.totalWeightCallback()
 
-	for i := lo.Max(g.LastConfirmedEpoch(), previousLatestEpochIndex) + 1; i <= newLatestEpochIndex; i++ {
-		if !IsThresholdReached(totalWeight, g.tangle.Booker.VirtualVoting.EpochVotersTotalWeight(i), g.optsEpochConfirmationThreshold) {
+	for i := lo.Max(g.LastConfirmedSlot(), previousLatestSlotIndex) + 1; i <= newLatestSlotIndex; i++ {
+		if !IsThresholdReached(totalWeight, g.tangle.Booker.VirtualVoting.SlotVotersTotalWeight(i), g.optsSlotConfirmationThreshold) {
 			break
 		}
 
-		// Lock here, so that EpochVotersTotalWeight is not inside the lock. Otherwise, it might cause a deadlock,
-		// because one thread owns write-lock on VirtualVoting lock and needs read lock on EpochGadget lock,
-		// while this method holds WriteLock on EpochGadget lock and is waiting for ReadLock on VirtualVoting.
-		g.setLastConfirmedEpoch(i)
+		// Lock here, so that SlotVotersTotalWeight is not inside the lock. Otherwise, it might cause a deadlock,
+		// because one thread owns write-lock on VirtualVoting lock and needs read lock on SlotGadget lock,
+		// while this method holds WriteLock on SlotGadget lock and is waiting for ReadLock on VirtualVoting.
+		g.setLastConfirmedSlot(i)
 
-		g.Events.EpochConfirmed.Trigger(i)
+		g.Events.SlotConfirmed.Trigger(i)
 	}
 }
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithEpochConfirmationThreshold(acceptanceThreshold float64) options.Option[Gadget] {
+func WithSlotConfirmationThreshold(acceptanceThreshold float64) options.Option[Gadget] {
 	return func(gadget *Gadget) {
-		gadget.optsEpochConfirmationThreshold = acceptanceThreshold
+		gadget.optsSlotConfirmationThreshold = acceptanceThreshold
 	}
 }
 

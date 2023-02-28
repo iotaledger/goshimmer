@@ -17,15 +17,15 @@ interface Props {
 
 @inject("explorerStore")
 @observer
-export class ExplorerEpochQueryResult extends React.Component<Props, any> {
+export class ExplorerSlotQueryResult extends React.Component<Props, any> {
     componentDidMount() {
         const id = this.props.match.params.commitment;
-        this.props.explorerStore.getEpochDetails(id);
+        this.props.explorerStore.getSlotDetails(id);
 
         const index = Number(id.split(':')[1]);
-        this.props.explorerStore.getEpochBlocks(index);
-        this.props.explorerStore.getEpochTransactions(index);
-        this.props.explorerStore.getEpochUTXOs(index);
+        this.props.explorerStore.getSlotBlocks(index);
+        this.props.explorerStore.getSlotTransactions(index);
+        this.props.explorerStore.getSlotUTXOs(index);
     }
 
     componentWillUnmount() {
@@ -34,33 +34,33 @@ export class ExplorerEpochQueryResult extends React.Component<Props, any> {
 
     render() {
         let {commitment} = this.props.match.params;
-        let { query_err, epochInfo,  epochBlocks, epochTransactions, epochUtxos } = this.props.explorerStore;
+        let { query_err, slotInfo,  slotBlocks, slotTransactions, slotUtxos } = this.props.explorerStore;
 
         if (query_err) {
             return (
                 <Container>
-                    <h4>Epoch not found - 404</h4>
+                    <h4>Slot not found - 404</h4>
                     <span>{commitment}</span>
                 </Container>
             );
         }
         return (
             <Container>
-                <h4>Epoch</h4>
-                {epochInfo && <ListGroup>
+                <h4>Slot</h4>
+                {slotInfo && <ListGroup>
                     <ListGroup.Item>ID: {commitment}</ListGroup.Item>
-                    <ListGroup.Item>Index: {epochInfo.index}</ListGroup.Item>
-                    <ListGroup.Item>RootsID: {epochInfo.rootsID}</ListGroup.Item>
-                    <ListGroup.Item>PrevEC: {epochInfo.prevID}</ListGroup.Item>
-                    <ListGroup.Item>Cumulative Weight: {epochInfo.cumulativeWeight}</ListGroup.Item>
+                    <ListGroup.Item>Index: {slotInfo.index}</ListGroup.Item>
+                    <ListGroup.Item>RootsID: {slotInfo.rootsID}</ListGroup.Item>
+                    <ListGroup.Item>PrevEC: {slotInfo.prevID}</ListGroup.Item>
+                    <ListGroup.Item>Cumulative Weight: {slotInfo.cumulativeWeight}</ListGroup.Item>
                      <ListGroup.Item>Blocks:
-                        {epochBlocks.blocks && <Card>
+                        {slotBlocks.blocks && <Card>
                         <Card.Body>
                             <Row className={"mb-3"}>
                                 <Col xs={12} style={{'max-height':'300px', 'overflow':'auto'}}>
                                     <Table>
                                         <tbody>
-                                        {epochBlocks.blocks.map((b,i) => <ListGroup.Item key={i}><a href={`/explorer/block/${b}`}>{b}</a></ListGroup.Item>)}
+                                        {slotBlocks.blocks.map((b,i) => <ListGroup.Item key={i}><a href={`/explorer/block/${b}`}>{b}</a></ListGroup.Item>)}
                                         </tbody>
                                     </Table>
                                 </Col>
@@ -69,13 +69,13 @@ export class ExplorerEpochQueryResult extends React.Component<Props, any> {
                         </Card>}
                     </ListGroup.Item>
                     <ListGroup.Item>Transactions:
-                        {epochTransactions.transactions && <Card>
+                        {slotTransactions.transactions && <Card>
                         <Card.Body>
                             <Row className={"mb-3"}>
                                 <Col xs={12} style={{'max-height':'300px', 'overflow':'auto'}}>
                                     <Table>
                                         <tbody>
-                                        {epochTransactions.transactions.map((t,i) => <ListGroup.Item key={i}><a href={`/explorer/transaction/${t}`}>{t}</a></ListGroup.Item>)}
+                                        {slotTransactions.transactions.map((t,i) => <ListGroup.Item key={i}><a href={`/explorer/transaction/${t}`}>{t}</a></ListGroup.Item>)}
                                         </tbody>
                                     </Table>
                                 </Col>
@@ -84,13 +84,13 @@ export class ExplorerEpochQueryResult extends React.Component<Props, any> {
                         </Card>}
                     </ListGroup.Item>
                     <ListGroup.Item> Created outputs:
-                        {epochUtxos.createdOutputs && <Card>
+                        {slotUtxos.createdOutputs && <Card>
                         <Card.Body>
                             <Row className={"mb-3"}>
                                 <Col xs={12} style={{'max-height':'300px', 'overflow':'auto'}}>
                                     <Table>
                                         <tbody>
-                                        {epochUtxos.createdOutputs.map((c,i) => <ListGroup.Item key={i}><a href={`/explorer/output/${c}`}>{c}</a></ListGroup.Item>)}
+                                        {slotUtxos.createdOutputs.map((c,i) => <ListGroup.Item key={i}><a href={`/explorer/output/${c}`}>{c}</a></ListGroup.Item>)}
                                         </tbody>
                                     </Table>
                                 </Col>
@@ -99,13 +99,13 @@ export class ExplorerEpochQueryResult extends React.Component<Props, any> {
                         </Card>}
                     </ListGroup.Item>
                     <ListGroup.Item> Spent outputs:
-                        {epochUtxos.spentOutputs && <Card>
+                        {slotUtxos.spentOutputs && <Card>
                         <Card.Body>
                             <Row className={"mb-3"}>
                                 <Col xs={12} style={{'max-height':'300px', 'overflow':'auto'}}>
                                     <Table>
                                         <tbody>
-                                        {epochUtxos.spentOutputs.map((s,i) => <ListGroup.Item key={i}><a href={`/explorer/output/${s}`}>{s}</a></ListGroup.Item>)}
+                                        {slotUtxos.spentOutputs.map((s,i) => <ListGroup.Item key={i}><a href={`/explorer/output/${s}`}>{s}</a></ListGroup.Item>)}
                                         </tbody>
                                     </Table>
                                 </Col>

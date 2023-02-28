@@ -1,7 +1,7 @@
 package epochtracker
 
 import (
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/runtime/event"
 )
@@ -20,7 +20,7 @@ var NewEvents = event.CreateGroupConstructor(func() (newEvents *Events) {
 })
 
 type VoterUpdatedEvent struct {
-	Voter                identity.ID
-	NewLatestEpochIndex  epoch.Index
-	PrevLatestEpochIndex epoch.Index
+	Voter               identity.ID
+	NewLatestSlotIndex  slot.Index
+	PrevLatestSlotIndex slot.Index
 }

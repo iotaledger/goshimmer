@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/identity"
@@ -18,16 +18,16 @@ import (
 )
 
 type TestFramework struct {
-	Test              *testing.T
-	EpochTimeProvider *epoch.TimeProvider
-	Filter            *Filter
+	Test             *testing.T
+	SlotTimeProvider *slot.TimeProvider
+	Filter           *Filter
 }
 
-func NewTestFramework(t *testing.T, epochTimeProvider *epoch.TimeProvider, optsFilter ...options.Option[Filter]) *TestFramework {
+func NewTestFramework(t *testing.T, slotTimeProvider *slot.TimeProvider, optsFilter ...options.Option[Filter]) *TestFramework {
 	tf := &TestFramework{
-		Test:              t,
-		EpochTimeProvider: epochTimeProvider,
-		Filter:            New(optsFilter...),
+		Test:             t,
+		SlotTimeProvider: slotTimeProvider,
+		Filter:           New(optsFilter...),
 	}
 
 	tf.Filter.Events.BlockAllowed.Hook(func(block *models.Block) {
@@ -42,7 +42,7 @@ func NewTestFramework(t *testing.T, epochTimeProvider *epoch.TimeProvider, optsF
 }
 
 func (t *TestFramework) processBlock(alias string, block *models.Block) {
-	require.NoError(t.Test, block.DetermineID(t.EpochTimeProvider))
+	require.NoError(t.Test, block.DetermineID(t.SlotTimeProvider))
 	block.ID().RegisterAlias(alias)
 	t.Filter.ProcessReceivedBlock(block, identity.NewID(ed25519.PublicKey{}))
 }
@@ -55,10 +55,10 @@ func (t *TestFramework) IssueUnsignedBlockAtTime(alias string, issuingTime time.
 	t.processBlock(alias, block)
 }
 
-func (t *TestFramework) IssueUnsignedBlockAtEpoch(alias string, index epoch.Index, committing epoch.Index) {
+func (t *TestFramework) IssueUnsignedBlockAtSlot(alias string, index slot.Index, committing slot.Index) {
 	block := models.NewBlock(
 		models.WithStrongParents(models.NewBlockIDs(models.EmptyBlockID)),
-		models.WithIssuingTime(t.EpochTimeProvider.StartTime(index)),
+		models.WithIssuingTime(t.SlotTimeProvider.StartTime(index)),
 		models.WithCommitment(commitment.New(committing, commitment.ID{}, types.Identifier{}, 0)),
 	)
 	t.processBlock(alias, block)
@@ -79,7 +79,7 @@ func TestFilter_WithMaxAllowedWallClockDrift(t *testing.T) {
 	allowedDrift := 3 * time.Second
 
 	tf := NewTestFramework(t,
-		epoch.NewTimeProvider(),
+		slot.NewTimeProvider(),
 		WithMaxAllowedWallClockDrift(allowedDrift),
 		WithSignatureValidation(false),
 	)
@@ -101,7 +101,7 @@ func TestFilter_WithMaxAllowedWallClockDrift(t *testing.T) {
 
 func TestFilter_WithSignatureValidation(t *testing.T) {
 	tf := NewTestFramework(t,
-		epoch.NewTimeProvider(),
+		slot.NewTimeProvider(),
 		WithSignatureValidation(true),
 	)
 
@@ -118,10 +118,10 @@ func TestFilter_WithSignatureValidation(t *testing.T) {
 	tf.IssueSigned("valid")
 }
 
-func TestFilter_MinCommittableEpochAge(t *testing.T) {
+func TestFilter_MinCommittableSlotAge(t *testing.T) {
 	tf := NewTestFramework(t,
-		epoch.NewTimeProvider(),
-		WithMinCommittableEpochAge(3),
+		slot.NewTimeProvider(),
+		WithMinCommittableSlotAge(3),
 		WithSignatureValidation(false),
 	)
 
@@ -134,11 +134,11 @@ func TestFilter_MinCommittableEpochAge(t *testing.T) {
 		require.True(t, errors.Is(event.Reason, ErrorCommitmentNotCommittable))
 	})
 
-	tf.IssueUnsignedBlockAtEpoch("valid-5", 5, 0)
-	tf.IssueUnsignedBlockAtEpoch("valid-4", 5, 1)
-	tf.IssueUnsignedBlockAtEpoch("valid-3", 5, 2)
-	tf.IssueUnsignedBlockAtEpoch("invalid-2", 5, 3)
-	tf.IssueUnsignedBlockAtEpoch("invalid-1", 5, 4)
-	tf.IssueUnsignedBlockAtEpoch("invalid-0", 5, 5)
-	tf.IssueUnsignedBlockAtEpoch("invalid+1", 5, 6)
+	tf.IssueUnsignedBlockAtSlot("valid-5", 5, 0)
+	tf.IssueUnsignedBlockAtSlot("valid-4", 5, 1)
+	tf.IssueUnsignedBlockAtSlot("valid-3", 5, 2)
+	tf.IssueUnsignedBlockAtSlot("invalid-2", 5, 3)
+	tf.IssueUnsignedBlockAtSlot("invalid-1", 5, 4)
+	tf.IssueUnsignedBlockAtSlot("invalid-0", 5, 5)
+	tf.IssueUnsignedBlockAtSlot("invalid+1", 5, 6)
 }

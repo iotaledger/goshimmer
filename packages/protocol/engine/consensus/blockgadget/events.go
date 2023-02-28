@@ -9,7 +9,7 @@ import (
 type Events struct {
 	BlockAccepted  *event.Event1[*Block]
 	BlockConfirmed *event.Event1[*Block]
-	EpochClosed    *event.Event1[*shrinkingmap.ShrinkingMap[models.BlockID, *Block]]
+	SlotClosed     *event.Event1[*shrinkingmap.ShrinkingMap[models.BlockID, *Block]]
 	Error          *event.Event1[error]
 
 	event.Group[Events, *Events]
@@ -20,7 +20,7 @@ var NewEvents = event.CreateGroupConstructor(func() (newEvents *Events) {
 	return &Events{
 		BlockAccepted:  event.New1[*Block](),
 		BlockConfirmed: event.New1[*Block](),
-		EpochClosed:    event.New1[*shrinkingmap.ShrinkingMap[models.BlockID, *Block]](),
+		SlotClosed:     event.New1[*shrinkingmap.ShrinkingMap[models.BlockID, *Block]](),
 		Error:          event.New1[error](),
 	}
 })

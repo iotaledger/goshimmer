@@ -229,7 +229,7 @@ func TestManaApis(t *testing.T) {
 	})
 
 	return
-	// TODO: fix the test when epoch commitments are fixed
+	// TODO: fix the test when slot commitments are fixed
 
 	// wait for cMna vector being updated
 	require.Eventually(t, func() bool {

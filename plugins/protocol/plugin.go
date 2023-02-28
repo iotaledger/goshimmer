@@ -6,8 +6,8 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/node"
@@ -64,14 +64,14 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 		dbProvider = database.NewDB
 	}
 
-	var epochTimeOpts []options.Option[epoch.TimeProvider]
+	var slotTimeOpts []options.Option[slot.TimeProvider]
 	if Parameters.GenesisTime > 0 {
-		epochTimeOpts = append(epochTimeOpts, epoch.WithGenesisUnixTime(Parameters.GenesisTime))
+		slotTimeOpts = append(slotTimeOpts, slot.WithGenesisUnixTime(Parameters.GenesisTime))
 	}
 
 	p = protocol.New(workerpool.NewGroup("Protocol"),
 		n,
-		protocol.WithEpochTimeProviderOptions(epochTimeOpts...),
+		protocol.WithSlotTimeProviderOptions(slotTimeOpts...),
 		protocol.WithSybilProtectionProvider(
 			dpos.NewProvider(
 				dpos.WithActivityWindow(Parameters.ValidatorActivityWindow),
@@ -79,12 +79,12 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 		),
 		protocol.WithEngineOptions(
 			engine.WithFilterOptions(
-				filter.WithMinCommittableEpochAge(epoch.Index(NotarizationParameters.MinEpochCommittableAge)),
+				filter.WithMinCommittableSlotAge(slot.Index(NotarizationParameters.MinSlotCommittableAge)),
 				filter.WithMaxAllowedWallClockDrift(Parameters.MaxAllowedClockDrift),
 				filter.WithSignatureValidation(true),
 			),
 			engine.WithNotarizationManagerOptions(
-				notarization.WithMinCommittableEpochAge(epoch.Index(NotarizationParameters.MinEpochCommittableAge)),
+				notarization.WithMinCommittableSlotAge(slot.Index(NotarizationParameters.MinSlotCommittableAge)),
 			),
 			engine.WithBootstrapThreshold(Parameters.BootstrapWindow),
 			engine.WithTSCManagerOptions(

@@ -11,7 +11,7 @@ type TimeProvider struct {
 	// genesisUnixTime is the time (Unix in seconds) of the genesis.
 	genesisUnixTime int64
 
-	// duration is the default epoch duration in seconds.
+	// duration is the default slot duration in seconds.
 	duration int64
 }
 
@@ -33,7 +33,7 @@ func (t *TimeProvider) GenesisTime() time.Time {
 	return time.Unix(t.genesisUnixTime, 0)
 }
 
-// Duration is the epoch duration in seconds.
+// Duration is the slot duration in seconds.
 func (t *TimeProvider) Duration() int64 {
 	return t.duration
 }
@@ -60,7 +60,7 @@ func (t *TimeProvider) StartTime(i Index) time.Time {
 // EndTime returns the latest possible timestamp for a slot. Anything with higher timestamp will belong to the next slot.
 func (t *TimeProvider) EndTime(i Index) time.Time {
 	endUnix := t.genesisUnixTime + int64(i)*t.duration
-	// we subtract 1 nanosecond from the next epoch to get the latest possible timestamp for epoch i
+	// we subtract 1 nanosecond from the next slot to get the latest possible timestamp for slot i
 	return time.Unix(endUnix, 0).Add(-1)
 }
 

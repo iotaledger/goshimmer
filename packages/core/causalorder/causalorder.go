@@ -5,8 +5,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/iotaledger/hive.go/runtime/syncutils"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
@@ -15,7 +15,7 @@ import (
 // region CausalOrderer ////////////////////////////////////////////////////////////////////////////////////////////////
 
 // CausalOrder represents an order where an Entity is ordered after its causal dependencies (parents) have been ordered.
-type CausalOrder[ID epoch.IndexedID, Entity OrderedEntity[ID]] struct {
+type CausalOrder[ID slot.IndexedID, Entity OrderedEntity[ID]] struct {
 	// entityProvider contains a function that provides the Entity that belongs to a given ID.
 	entityProvider func(id ID) (entity Entity, exists bool)
 
@@ -32,19 +32,19 @@ type CausalOrder[ID epoch.IndexedID, Entity OrderedEntity[ID]] struct {
 	checkReference func(child Entity, parent Entity) (err error)
 
 	// unorderedParentsCounter contains an in-memory storage that keeps track of the unordered parents of an Entity.
-	unorderedParentsCounter *memstorage.EpochStorage[ID, uint8]
+	unorderedParentsCounter *memstorage.SlotStorage[ID, uint8]
 
 	// unorderedParentsCounterMutex contains a mutex used to synchronize access to the unorderedParentsCounter.
 	unorderedParentsCounterMutex sync.Mutex
 
 	// unorderedChildren contains an in-memory storage of the pending children of an unordered Entity.
-	unorderedChildren *memstorage.EpochStorage[ID, []Entity]
+	unorderedChildren *memstorage.SlotStorage[ID, []Entity]
 
 	// unorderedChildrenMutex contains a mutex used to synchronize access to the unorderedChildren.
 	unorderedChildrenMutex sync.Mutex
 
-	// lastEvictedEpoch contains the last evicted epoch.
-	lastEvictedIndex epoch.Index
+	// lastEvictedIndex contains the last evicted slot.
+	lastEvictedIndex slot.Index
 
 	// evictionMutex contains the local manager used to orchestrate the eviction of old Entities.
 	evictionMutex sync.RWMutex
@@ -56,7 +56,7 @@ type CausalOrder[ID epoch.IndexedID, Entity OrderedEntity[ID]] struct {
 }
 
 // New returns a new CausalOrderer instance with the given parameters.
-func New[ID epoch.IndexedID, Entity OrderedEntity[ID]](
+func New[ID slot.IndexedID, Entity OrderedEntity[ID]](
 	workerPool *workerpool.WorkerPool,
 	entityProvider func(id ID) (entity Entity, exists bool),
 	isOrdered func(entity Entity) (isOrdered bool),
@@ -71,8 +71,8 @@ func New[ID epoch.IndexedID, Entity OrderedEntity[ID]](
 		orderedCallback:         orderedCallback,
 		evictionCallback:        evictionCallback,
 		checkReference:          checkReference[ID, Entity],
-		unorderedParentsCounter: memstorage.NewEpochStorage[ID, uint8](),
-		unorderedChildren:       memstorage.NewEpochStorage[ID, []Entity](),
+		unorderedParentsCounter: memstorage.NewSlotStorage[ID, uint8](),
+		unorderedChildren:       memstorage.NewSlotStorage[ID, []Entity](),
 		dagMutex:                syncutils.NewDAGMutex[ID](),
 	}, opts)
 }
@@ -85,8 +85,8 @@ func (c *CausalOrder[ID, Entity]) Queue(entity Entity) {
 	c.triggerOrderedIfReady(entity)
 }
 
-// EvictUntil removes all Entities that are older than the given epoch from the CausalOrderer.
-func (c *CausalOrder[ID, Entity]) EvictUntil(index epoch.Index) {
+// EvictUntil removes all Entities that are older than the given slot from the CausalOrder.
+func (c *CausalOrder[ID, Entity]) EvictUntil(index slot.Index) {
 	for _, evictedEntity := range c.evictUntil(index) {
 		c.evictionCallback(evictedEntity, errors.Errorf("entity evicted from %s", index))
 	}
@@ -104,7 +104,7 @@ func (c *CausalOrder[ID, Entity]) triggerOrderedIfReady(entity Entity) {
 	}
 
 	if c.lastEvictedIndex >= entity.ID().Index() {
-		c.evictionCallback(entity, errors.Errorf("entity %s below max evicted epoch", entity.ID()))
+		c.evictionCallback(entity, errors.Errorf("entity %s below max evicted slot", entity.ID()))
 
 		return
 	}
@@ -250,51 +250,51 @@ func (c *CausalOrder[ID, Entity]) entity(blockID ID) (entity Entity) {
 	return entity
 }
 
-// evictUntil evicts the given Epoch from the CausalOrder and returns the evicted Entities.
-func (c *CausalOrder[ID, Entity]) evictUntil(epochIndex epoch.Index) (evictedEntities map[ID]Entity) {
+// evictUntil evicts the given slot from the CausalOrder and returns the evicted Entities.
+func (c *CausalOrder[ID, Entity]) evictUntil(index slot.Index) (evictedEntities map[ID]Entity) {
 	c.evictionMutex.Lock()
 	defer c.evictionMutex.Unlock()
 
-	if epochIndex <= c.lastEvictedIndex {
+	if index <= c.lastEvictedIndex {
 		return
 	}
 
 	evictedEntities = make(map[ID]Entity)
-	for currentIndex := c.lastEvictedIndex + 1; currentIndex <= epochIndex; currentIndex++ {
-		c.evictEntitiesFromEpoch(currentIndex, func(id ID) {
+	for currentIndex := c.lastEvictedIndex + 1; currentIndex <= index; currentIndex++ {
+		c.evictEntitiesFromSlot(currentIndex, func(id ID) {
 			if _, exists := evictedEntities[id]; !exists {
 				evictedEntities[id] = c.entity(id)
 			}
 		})
 	}
-	c.lastEvictedIndex = epochIndex
+	c.lastEvictedIndex = index
 
 	return evictedEntities
 }
 
-// evictEntitiesFromEpoch evicts the Entities that belong to the given Epoch from the CausalOrder.
-func (c *CausalOrder[ID, Entity]) evictEntitiesFromEpoch(epochIndex epoch.Index, entityCallback func(id ID)) {
-	if childrenStorage := c.unorderedChildren.Get(epochIndex); childrenStorage != nil {
+// evictEntitiesFromSlot evicts the Entities that belong to the given slot from the CausalOrder.
+func (c *CausalOrder[ID, Entity]) evictEntitiesFromSlot(index slot.Index, entityCallback func(id ID)) {
+	if childrenStorage := c.unorderedChildren.Get(index); childrenStorage != nil {
 		childrenStorage.ForEachKey(func(id ID) bool {
 			entityCallback(id)
 
 			return true
 		})
-		c.unorderedChildren.Evict(epochIndex)
+		c.unorderedChildren.Evict(index)
 	}
 
-	if unorderedParentsCountStorage := c.unorderedParentsCounter.Get(epochIndex); unorderedParentsCountStorage != nil {
+	if unorderedParentsCountStorage := c.unorderedParentsCounter.Get(index); unorderedParentsCountStorage != nil {
 		unorderedParentsCountStorage.ForEachKey(func(id ID) bool {
 			entityCallback(id)
 
 			return true
 		})
-		c.unorderedParentsCounter.Evict(epochIndex)
+		c.unorderedParentsCounter.Evict(index)
 	}
 }
 
 // checkReference is the default function that checks if the given reference is valid.
-func checkReference[ID epoch.IndexedID, Entity OrderedEntity[ID]](entity Entity, parent Entity) (err error) {
+func checkReference[ID slot.IndexedID, Entity OrderedEntity[ID]](entity Entity, parent Entity) (err error) {
 	return
 }
 
@@ -303,7 +303,7 @@ func checkReference[ID epoch.IndexedID, Entity OrderedEntity[ID]](entity Entity,
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // WithReferenceValidator is an option that sets the ReferenceValidator of the CausalOrder.
-func WithReferenceValidator[ID epoch.IndexedID, Entity OrderedEntity[ID]](referenceValidator func(entity Entity, parent Entity) (err error)) options.Option[CausalOrder[ID, Entity]] {
+func WithReferenceValidator[ID slot.IndexedID, Entity OrderedEntity[ID]](referenceValidator func(entity Entity, parent Entity) (err error)) options.Option[CausalOrder[ID, Entity]] {
 	return func(causalOrder *CausalOrder[ID, Entity]) {
 		causalOrder.checkReference = referenceValidator
 	}
@@ -314,7 +314,7 @@ func WithReferenceValidator[ID epoch.IndexedID, Entity OrderedEntity[ID]](refere
 // region Types ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // OrderedEntity is an interface that represents an Entity that can be causally ordered.
-type OrderedEntity[ID epoch.IndexedID] interface {
+type OrderedEntity[ID slot.IndexedID] interface {
 	// ID returns the ID of the Entity.
 	ID() ID
 

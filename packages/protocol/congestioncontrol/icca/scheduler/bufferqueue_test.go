@@ -7,7 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -24,7 +24,7 @@ const (
 )
 
 var (
-	epochTimeProvider = epoch.NewTimeProvider()
+	slotTimeProvider  = slot.NewTimeProvider()
 	selfLocalIdentity = identity.GenerateLocalIdentity()
 	selfNode          = identity.New(selfLocalIdentity.PublicKey())
 	noManaIdentity    = identity.GenerateIdentity()
@@ -294,7 +294,7 @@ func newTestBlock(opts ...options.Option[models.Block]) *Block {
 	opts = append(opts, models.WithParents(parents))
 
 	blk := NewBlock(virtualvoting.NewBlock(blockdag.NewBlock(models.NewBlock(opts...))))
-	if err := blk.DetermineID(epochTimeProvider); err != nil {
+	if err := blk.DetermineID(slotTimeProvider); err != nil {
 		panic(errors.Wrap(err, "could not determine BlockID"))
 	}
 
