@@ -46,7 +46,7 @@ type BlockDAG struct {
 	// The Queue always read-locks the eviction mutex of the solidifier, and then evaluates if the block is
 	// future thus read-locking the futureBlocks mutex. At the same time, when re-adding parked blocks,
 	// promoteFutureBlocksMethod write-locks the futureBlocks mutex, and then read-locks the eviction mutex
-	// of  the solidifer. As the locks are non-starving, and locks are interlocked in differnt orders a
+	// of  the solidifer. As the locks are non-starving, and locks are interlocked in different orders a
 	// deadlock can occur only when an eviction is triggered while the above scenario unfolds.
 	solidifierMutex sync.RWMutex
 

@@ -140,15 +140,12 @@ func (b *Block) SetStructureDetails(structureDetails *markers.StructureDetails) 
 }
 
 func (b *Block) String() string {
-
 	builder := stringify.NewStructBuilder("VirtualVoting.Block", stringify.NewStructField("id", b.ID()))
 	builder.AddField(stringify.NewStructField("Booked", b.booked))
 	builder.AddField(stringify.NewStructField("SubjectivelyInvalid", b.subjectivelyInvalid))
 	builder.AddField(stringify.NewStructField("StructureDetails", b.structureDetails))
 	builder.AddField(stringify.NewStructField("AddedConflictIDs", b.addedConflictIDs))
 	builder.AddField(stringify.NewStructField("SubtractedConflictIDs", b.subtractedConflictIDs))
-
-	// builder.AddField(stringify.NewStructField("BlockDAG.Block", b.Block))
 
 	return builder.String()
 }

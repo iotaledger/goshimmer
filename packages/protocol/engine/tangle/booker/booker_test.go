@@ -1185,5 +1185,4 @@ func TestInheritancePrecedence(t *testing.T) {
 	fmt.Println("================================")
 	fmt.Println(tf.Block("EY4"))
 	fmt.Println(tf.Instance.BlockConflicts(tf.Block("EY4")))
-
 }
