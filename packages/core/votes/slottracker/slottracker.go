@@ -28,21 +28,21 @@ func NewSlotTracker(cutoffIndexCallback func() slot.Index) *SlotTracker {
 	}
 }
 
-func (c *SlotTracker) slotVoters(slotIndex slot.Index) *advancedset.AdvancedSet[identity.ID] {
-	slotVoters, _ := c.votersPerSlot.GetOrCreate(slotIndex, func() *advancedset.AdvancedSet[identity.ID] {
+func (s *SlotTracker) slotVoters(slotIndex slot.Index) *advancedset.AdvancedSet[identity.ID] {
+	slotVoters, _ := s.votersPerSlot.GetOrCreate(slotIndex, func() *advancedset.AdvancedSet[identity.ID] {
 		return advancedset.NewAdvancedSet[identity.ID]()
 	})
 	return slotVoters
 }
 
-func (c *SlotTracker) TrackVotes(slotIndex slot.Index, voterID identity.ID, power SlotVotePower) {
-	slotVoters := c.slotVoters(slotIndex)
+func (s *SlotTracker) TrackVotes(slotIndex slot.Index, voterID identity.ID, power SlotVotePower) {
+	slotVoters := s.slotVoters(slotIndex)
 	if slotVoters.Has(voterID) {
 		// We already tracked the voter for this slot, so no need to update anything
 		return
 	}
 
-	votersVotes, _ := c.votesPerIdentity.GetOrCreate(voterID, func() *latestvotes.LatestVotes[slot.Index, SlotVotePower] {
+	votersVotes, _ := s.votesPerIdentity.GetOrCreate(voterID, func() *latestvotes.LatestVotes[slot.Index, SlotVotePower] {
 		return latestvotes.NewLatestVotes[slot.Index, SlotVotePower](voterID)
 	})
 
@@ -51,21 +51,21 @@ func (c *SlotTracker) TrackVotes(slotIndex slot.Index, voterID identity.ID, powe
 		return
 	}
 
-	for i := lo.Max(c.cutoffIndexCallback(), previousHighestIndex) + 1; i <= slotIndex; i++ {
-		c.slotVoters(i).Add(voterID)
+	for i := lo.Max(s.cutoffIndexCallback(), previousHighestIndex) + 1; i <= slotIndex; i++ {
+		s.slotVoters(i).Add(voterID)
 	}
 
-	c.Events.VotersUpdated.Trigger(&VoterUpdatedEvent{
+	s.Events.VotersUpdated.Trigger(&VoterUpdatedEvent{
 		Voter:               voterID,
 		NewLatestSlotIndex:  slotIndex,
 		PrevLatestSlotIndex: previousHighestIndex,
 	})
 }
 
-func (c *SlotTracker) Voters(slotIndex slot.Index) *advancedset.AdvancedSet[identity.ID] {
+func (s *SlotTracker) Voters(slotIndex slot.Index) *advancedset.AdvancedSet[identity.ID] {
 	voters := advancedset.NewAdvancedSet[identity.ID]()
 
-	slotVoters, exists := c.votersPerSlot.Get(slotIndex)
+	slotVoters, exists := s.votersPerSlot.Get(slotIndex)
 	if !exists {
 		return voters
 	}
@@ -78,15 +78,15 @@ func (c *SlotTracker) Voters(slotIndex slot.Index) *advancedset.AdvancedSet[iden
 	return voters
 }
 
-func (c *SlotTracker) EvictSlot(indexToEvict slot.Index) {
-	identities, exists := c.votersPerSlot.Get(indexToEvict)
+func (s *SlotTracker) EvictSlot(indexToEvict slot.Index) {
+	identities, exists := s.votersPerSlot.Get(indexToEvict)
 	if !exists {
 		return
 	}
 
 	var identitiesToPrune []identity.ID
 	_ = identities.ForEach(func(identity identity.ID) error {
-		votesForIdentity, has := c.votesPerIdentity.Get(identity)
+		votesForIdentity, has := s.votesPerIdentity.Get(identity)
 		if !has {
 			return nil
 		}
@@ -100,10 +100,10 @@ func (c *SlotTracker) EvictSlot(indexToEvict slot.Index) {
 		return nil
 	})
 	for _, identity := range identitiesToPrune {
-		c.votesPerIdentity.Delete(identity)
+		s.votesPerIdentity.Delete(identity)
 	}
 
-	c.votersPerSlot.Delete(indexToEvict)
+	s.votersPerSlot.Delete(indexToEvict)
 }
 
 // region SlotVotePower //////////////////////////////////////////////////////////////////////////////////////////////
