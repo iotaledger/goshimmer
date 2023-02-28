@@ -329,8 +329,8 @@ func (b *Booker) inheritConflictIDs(block *virtualvoting.Block) (inheritedConfli
 	newStructureDetails, newSequenceCreated := b.markerManager.SequenceManager.InheritStructureDetails(strongParentsStructureDetails, allParentsInPastEpochs)
 
 	pastMarkersConflictIDs, err := func() (pastMarkersConflictIDs *advancedset.AdvancedSet[utxo.TransactionID], err error) {
-		// Prevent race-condition by write-locking the sequence we are writing conflicts mapping to and read-locking
-		// sequences we are reading such mappings from.
+		// Prevent race-condition by write-locking the sequence we are writing conflicts mapping to and,
+		// read-locking sequences we are sourcing such mappings from.
 		if newStructureDetails.IsPastMarker() {
 			b.sequenceMutex.Lock(newStructureDetails.PastMarkers().Marker().SequenceID())
 			defer b.sequenceMutex.Unlock(newStructureDetails.PastMarkers().Marker().SequenceID())

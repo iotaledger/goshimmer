@@ -140,9 +140,7 @@ func (m *MarkerManager[IndexedID, MappedEntity]) ConflictIDsFromStructureDetails
 	structureDetailsConflictIDs = utxo.NewTransactionIDs()
 
 	structureDetails.PastMarkers().ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
-		marker := markers.NewMarker(sequenceID, index)
-		conflictIDs := m.ConflictIDs(marker)
-		structureDetailsConflictIDs.AddAll(conflictIDs)
+		structureDetailsConflictIDs.AddAll(m.ConflictIDs(markers.NewMarker(sequenceID, index)))
 		return true
 	})
 
