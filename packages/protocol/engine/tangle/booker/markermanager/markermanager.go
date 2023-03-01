@@ -57,9 +57,7 @@ func NewMarkerManager[IndexedID slot.IndexedID, MappedEntity slot.IndexedEntity[
 
 // ProcessBlock returns the structure Details of a Block that are derived from the StructureDetails of its
 // strong and like parents.
-func (m *MarkerManager[IndexedID, MappedEntity]) ProcessBlock(block MappedEntity, allParentsInPastSlot bool, structureDetails []*markers.StructureDetails, conflictIDs utxo.TransactionIDs) (newStructureDetails *markers.StructureDetails) {
-	newStructureDetails, newSequenceCreated := m.SequenceManager.InheritStructureDetails(structureDetails, allParentsInPastSlot)
-
+func (m *MarkerManager[IndexedID, MappedEntity]) ProcessBlock(block MappedEntity, newSequenceCreated bool, conflictIDs utxo.TransactionIDs, newStructureDetails *markers.StructureDetails) {
 	if newStructureDetails.IsPastMarker() {
 		m.SequenceMutex.Lock(newStructureDetails.PastMarkers().Marker().SequenceID())
 		defer m.SequenceMutex.Unlock(newStructureDetails.PastMarkers().Marker().SequenceID())
@@ -80,8 +78,6 @@ func (m *MarkerManager[IndexedID, MappedEntity]) ProcessBlock(block MappedEntity
 		m.registerSequenceEviction(block.ID().Index(), sequenceID)
 		return true
 	})
-
-	return newStructureDetails
 }
 
 func (m *MarkerManager[IndexedID, MappedEntity]) Evict(index slot.Index) {
@@ -114,6 +110,9 @@ func (m *MarkerManager[IndexedID, MappedEntity]) evictMarkerBlockMapping(index s
 		m.markerBlockMappingEviction.Delete(index)
 
 		markerSet.ForEach(func(marker markers.Marker) {
+			m.SequenceMutex.Lock(marker.SequenceID())
+			defer m.SequenceMutex.Unlock(marker.SequenceID())
+
 			m.markerBlockMapping.Delete(marker)
 
 			if markerIndexBlockMapping, mappingExists := m.sequenceMarkersMapping.Get(marker.SequenceID()); mappingExists {
@@ -147,8 +146,7 @@ func (m *MarkerManager[IndexedID, MappedEntity]) ConflictIDsFromStructureDetails
 	structureDetailsConflictIDs = utxo.NewTransactionIDs()
 
 	structureDetails.PastMarkers().ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
-		conflictIDs := m.ConflictIDs(markers.NewMarker(sequenceID, index))
-		structureDetailsConflictIDs.AddAll(conflictIDs)
+		structureDetailsConflictIDs.AddAll(m.ConflictIDs(markers.NewMarker(sequenceID, index)))
 		return true
 	})
 
