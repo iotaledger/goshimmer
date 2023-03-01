@@ -8,7 +8,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
@@ -17,6 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/runtime/debug"
 	"github.com/iotaledger/hive.go/runtime/options"
@@ -59,7 +59,7 @@ func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, optsBooker
 
 	return NewTestFramework(t, workers, New(
 		workers.CreateGroup("Booker"),
-		blockdag.NewTestBlockDAG(t, workers, eviction.NewState(storageInstance), slot.NewTimeProvider(slot.WithGenesisUnixTime(time.Now().Unix())), blockdag.DefaultCommitmentFunc),
+		blockdag.NewTestBlockDAG(t, workers, eviction.NewState(storageInstance), slot.NewTimeProvider(time.Now().Unix(), 10), blockdag.DefaultCommitmentFunc),
 		ledger.NewTestLedger(t, workers.CreateGroup("Ledger")),
 		sybilprotection.NewWeightedSet(sybilprotection.NewWeights(mapdb.NewMapDB())),
 		optsBooker...,

@@ -1,9 +1,9 @@
 package traits
 
 import (
-	"github.com/iotaledger/goshimmer/packages/core/slot"
-	"github.com/iotaledger/goshimmer/packages/storage/typedkey"
+	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/kvstore"
+	"github.com/iotaledger/hive.go/kvstore/typedkey"
 )
 
 // Committable is a trait that stores information about the latest commitment.

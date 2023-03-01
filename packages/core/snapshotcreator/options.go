@@ -4,9 +4,9 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
-	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
-	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/runtime/options"
 
 	"github.com/mr-tron/base58/base58"
@@ -43,7 +43,7 @@ type Options struct {
 func NewOptions(opts ...options.Option[Options]) *Options {
 	return options.Apply(&Options{
 		FilePath:         "snapshot.bin",
-		SlotTimeProvider: slot.NewTimeProvider(slot.WithGenesisUnixTime(time.Now().Unix())),
+		SlotTimeProvider: slot.NewTimeProvider(time.Now().Unix(), 10),
 	}, opts)
 }
 

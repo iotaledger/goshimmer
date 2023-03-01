@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
 )
 
 func TestUnlockBlockFromBytes(t *testing.T) {

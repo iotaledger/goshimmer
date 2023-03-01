@@ -10,11 +10,11 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/database"
-	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
-	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/debug"
 	"github.com/iotaledger/hive.go/runtime/options"
@@ -80,7 +80,7 @@ func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, optsBlockD
 	storageInstance := NewTestStorage(t, workers)
 	return NewTestFramework(t,
 		workers.CreateGroup("BlockDAGTestFramework"),
-		NewTestBlockDAG(t, workers.CreateGroup("BlockDAG"), eviction.NewState(storageInstance), slot.NewTimeProvider(slot.WithGenesisUnixTime(time.Now().Unix())), DefaultCommitmentFunc, optsBlockDAG...),
+		NewTestBlockDAG(t, workers.CreateGroup("BlockDAG"), eviction.NewState(storageInstance), slot.NewTimeProvider(time.Now().Unix(), 10), DefaultCommitmentFunc, optsBlockDAG...),
 	)
 }
 

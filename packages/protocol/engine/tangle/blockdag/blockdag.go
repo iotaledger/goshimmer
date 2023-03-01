@@ -6,12 +6,12 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/goshimmer/packages/core/causalorder"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/memstorage"
-	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/core/causalorder"
+	"github.com/iotaledger/hive.go/core/memstorage"
+	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/ds/walker"
 	"github.com/iotaledger/hive.go/lo"
@@ -42,6 +42,13 @@ type BlockDAG struct {
 	futureBlocks *memstorage.SlotStorage[commitment.ID, *advancedset.AdvancedSet[*Block]]
 
 	nextIndexToPromote slot.Index
+
+	// The Queue always read-locks the eviction mutex of the solidifier, and then evaluates if the block is
+	// future thus read-locking the futureBlocks mutex. At the same time, when re-adding parked blocks,
+	// promoteFutureBlocksMethod write-locks the futureBlocks mutex, and then read-locks the eviction mutex
+	// of  the solidifer. As the locks are non-starving, and locks are interlocked in different orders a
+	// deadlock can occur only when an eviction is triggered while the above scenario unfolds.
+	solidifierMutex sync.RWMutex
 
 	futureBlocksMutex sync.RWMutex
 
@@ -83,6 +90,9 @@ func New(workers *workerpool.Group, evictionState *eviction.State, slotTimeProvi
 func (b *BlockDAG) Attach(data *models.Block) (block *Block, wasAttached bool, err error) {
 	if block, wasAttached, err = b.attach(data); wasAttached {
 		b.Events.BlockAttached.Trigger(block)
+
+		b.solidifierMutex.RLock()
+		defer b.solidifierMutex.RUnlock()
 
 		b.solidifier.Queue(block)
 	}
@@ -142,6 +152,8 @@ func (b *BlockDAG) SetOrphaned(block *Block, orphaned bool) (updated bool) {
 }
 
 func (b *BlockDAG) PromoteFutureBlocksUntil(index slot.Index) {
+	b.solidifierMutex.RLock()
+	defer b.solidifierMutex.RUnlock()
 	b.futureBlocksMutex.Lock()
 	defer b.futureBlocksMutex.Unlock()
 
@@ -153,7 +165,6 @@ func (b *BlockDAG) PromoteFutureBlocksUntil(index slot.Index) {
 		if storage := b.futureBlocks.Get(i, false); storage != nil {
 			if futureBlocks, exists := storage.Get(cm.ID()); exists {
 				_ = futureBlocks.ForEach(func(futureBlock *Block) (err error) {
-					fmt.Println("promoting future block", futureBlock.ID())
 					b.solidifier.Queue(futureBlock)
 					return nil
 				})
@@ -167,6 +178,8 @@ func (b *BlockDAG) PromoteFutureBlocksUntil(index slot.Index) {
 
 // evictSlot is used to evict Blocks from committed slots from the BlockDAG.
 func (b *BlockDAG) evictSlot(index slot.Index) {
+	b.solidifierMutex.Lock()
+	defer b.solidifierMutex.Unlock()
 	b.solidifier.EvictUntil(index)
 
 	b.evictionMutex.Lock()

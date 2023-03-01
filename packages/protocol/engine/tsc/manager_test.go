@@ -8,11 +8,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/ds/generalheap"
 	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/lo"
@@ -23,7 +23,7 @@ import (
 func TestOrphanageManager_orphanBeforeTSC(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
 	tf := NewTestFramework(t,
-		tangle.NewDefaultTestFramework(t, workers.CreateGroup("TangleTestFramework"), slot.NewTimeProvider()),
+		tangle.NewDefaultTestFramework(t, workers.CreateGroup("TangleTestFramework"), slot.NewTimeProvider(time.Now().Unix(), 10)),
 		WithTimeSinceConfirmationThreshold(30*time.Second),
 	)
 
@@ -41,7 +41,7 @@ func TestOrphanageManager_orphanBeforeTSC(t *testing.T) {
 func TestOrphanageManager_HandleTimeUpdate(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
 	tf := NewTestFramework(t,
-		tangle.NewDefaultTestFramework(t, workers.CreateGroup("TangleTestFramework"), slot.NewTimeProvider()),
+		tangle.NewDefaultTestFramework(t, workers.CreateGroup("TangleTestFramework"), slot.NewTimeProvider(time.Now().Add(-2*time.Hour).Unix(), 10)),
 		WithTimeSinceConfirmationThreshold(30*time.Second),
 	)
 

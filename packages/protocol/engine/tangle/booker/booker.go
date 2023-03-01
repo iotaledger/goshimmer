@@ -7,9 +7,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/goshimmer/packages/core/causalorder"
-	"github.com/iotaledger/goshimmer/packages/core/memstorage"
-	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markermanager"
@@ -19,6 +16,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/core/causalorder"
+	"github.com/iotaledger/hive.go/core/memstorage"
+	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/ds/walker"
 	"github.com/iotaledger/hive.go/lo"
@@ -41,6 +41,7 @@ type Booker struct {
 	blocks        *memstorage.SlotStorage[models.BlockID, *virtualvoting.Block]
 	markerManager *markermanager.MarkerManager[models.BlockID, *virtualvoting.Block]
 	bookingMutex  *syncutils.DAGMutex[models.BlockID]
+	sequenceMutex *syncutils.DAGMutex[markers.SequenceID]
 	evictionMutex sync.RWMutex
 
 	optsMarkerManager []options.Option[markermanager.MarkerManager[models.BlockID, *virtualvoting.Block]]
@@ -57,6 +58,7 @@ func New(workers *workerpool.Group, blockDAG *blockdag.BlockDAG, ledger *ledger.
 		attachments:       newAttachments(),
 		blocks:            memstorage.NewSlotStorage[models.BlockID, *virtualvoting.Block](),
 		bookingMutex:      syncutils.NewDAGMutex[models.BlockID](),
+		sequenceMutex:     syncutils.NewDAGMutex[markers.SequenceID](),
 		optsMarkerManager: make([]options.Option[markermanager.MarkerManager[models.BlockID, *virtualvoting.Block]], 0),
 		optsVirtualVoting: make([]options.Option[virtualvoting.VirtualVoting], 0),
 		Ledger:            ledger,
@@ -315,11 +317,6 @@ func (b *Booker) inheritConflictIDs(block *virtualvoting.Block) (inheritedConfli
 	b.bookingMutex.RLock(block.Parents()...)
 	defer b.bookingMutex.RUnlock(block.Parents()...)
 
-	parentsStructureDetails, pastMarkersConflictIDs, inheritedConflictIDs, err := b.determineBookingDetails(block)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to inherit conflict IDs")
-	}
-
 	allParentsInPastSlots := true
 	for parentID := range block.ParentsByType(models.StrongParentType) {
 		if parentID.Index() >= block.ID().Index() {
@@ -328,13 +325,44 @@ func (b *Booker) inheritConflictIDs(block *virtualvoting.Block) (inheritedConfli
 		}
 	}
 
-	newStructureDetails := b.markerManager.ProcessBlock(block, allParentsInPastSlots, parentsStructureDetails, inheritedConflictIDs)
+	strongParentsStructureDetails := b.determineStrongParentsStructureDetails(block)
+	newStructureDetails, newSequenceCreated := b.markerManager.SequenceManager.InheritStructureDetails(strongParentsStructureDetails, allParentsInPastSlots)
+
+	pastMarkersConflictIDs, err := func() (pastMarkersConflictIDs *advancedset.AdvancedSet[utxo.TransactionID], err error) {
+		// Prevent race-condition by write-locking the sequence we are writing conflicts mapping to and,
+		// read-locking sequences we are sourcing such mappings from.
+		if newStructureDetails.IsPastMarker() {
+			b.sequenceMutex.Lock(newStructureDetails.PastMarkers().Marker().SequenceID())
+			defer b.sequenceMutex.Unlock(newStructureDetails.PastMarkers().Marker().SequenceID())
+		} else {
+			sequenceIDs := make([]markers.SequenceID, 0)
+			newStructureDetails.PastMarkers().ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
+				sequenceIDs = append(sequenceIDs, sequenceID)
+				return true
+			})
+			b.sequenceMutex.RLock(sequenceIDs...)
+			defer b.sequenceMutex.RUnlock(sequenceIDs...)
+		}
+
+		pastMarkersConflictIDs, inheritedConflictIDs, err = b.determineBookingConflictIDs(block)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to determine booking conflict IDs")
+		}
+		b.markerManager.ProcessBlock(block, newSequenceCreated, inheritedConflictIDs, newStructureDetails)
+
+		return pastMarkersConflictIDs, nil
+	}()
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to inherit conflict IDs of block with %s", block.ID())
+	}
 
 	block.SetStructureDetails(newStructureDetails)
 
 	if !newStructureDetails.IsPastMarker() {
+		newStructureDetailsConflictIDs := b.markerManager.ConflictIDsFromStructureDetails(newStructureDetails)
+
 		addedConflictIDs := inheritedConflictIDs.Clone()
-		addedConflictIDs.DeleteAll(pastMarkersConflictIDs)
+		addedConflictIDs.DeleteAll(newStructureDetailsConflictIDs)
 		block.AddAllAddedConflictIDs(addedConflictIDs)
 
 		subtractedConflictIDs := pastMarkersConflictIDs.Clone()
@@ -348,16 +376,16 @@ func (b *Booker) inheritConflictIDs(block *virtualvoting.Block) (inheritedConfli
 }
 
 // determineBookingDetails determines the booking details of an unbooked Block.
-func (b *Booker) determineBookingDetails(block *virtualvoting.Block) (parentsStructureDetails []*markers.StructureDetails, parentsPastMarkersConflictIDs, inheritedConflictIDs utxo.TransactionIDs, err error) {
+func (b *Booker) determineBookingConflictIDs(block *virtualvoting.Block) (parentsPastMarkersConflictIDs, inheritedConflictIDs utxo.TransactionIDs, err error) {
 	inheritedConflictIDs = b.TransactionConflictIDs(block)
 
-	parentsStructureDetails, parentsPastMarkersConflictIDs, strongParentsConflictIDs := b.collectStrongParentsBookingDetails(block)
+	parentsPastMarkersConflictIDs, strongParentsConflictIDs := b.collectStrongParentsConflictIDs(block)
 
 	weakPayloadConflictIDs := b.collectWeakParentsConflictIDs(block)
 
 	likedConflictIDs, dislikedConflictIDs, shallowLikeErr := b.collectShallowLikedParentsConflictIDs(block)
 	if shallowLikeErr != nil {
-		return nil, nil, nil, errors.Wrapf(shallowLikeErr, "failed to collect shallow likes of %s", block.ID())
+		return nil, nil, errors.Wrapf(shallowLikeErr, "failed to collect shallow likes of %s", block.ID())
 	}
 
 	inheritedConflictIDs.AddAll(strongParentsConflictIDs)
@@ -373,12 +401,36 @@ func (b *Booker) determineBookingDetails(block *virtualvoting.Block) (parentsStr
 		inheritedConflictIDs.DeleteAll(b.Ledger.Utils.ConflictIDsInFutureCone(selfDislikedConflictIDs))
 	}
 
-	return parentsStructureDetails, b.Ledger.ConflictDAG.UnconfirmedConflicts(parentsPastMarkersConflictIDs), b.Ledger.ConflictDAG.UnconfirmedConflicts(inheritedConflictIDs), nil
+	unconfirmedParentsPast := b.Ledger.ConflictDAG.UnconfirmedConflicts(parentsPastMarkersConflictIDs)
+	unconfirmedInherited := b.Ledger.ConflictDAG.UnconfirmedConflicts(inheritedConflictIDs)
+
+	return unconfirmedParentsPast, unconfirmedInherited, nil
+}
+
+func (b *Booker) determineStrongParentsStructureDetails(block *virtualvoting.Block) (strongParentsStructureDetails []*markers.StructureDetails) {
+	strongParentsStructureDetails = make([]*markers.StructureDetails, 0)
+
+	block.ForEachParentByType(models.StrongParentType, func(parentBlockID models.BlockID) bool {
+		if b.BlockDAG.EvictionState.IsRootBlock(parentBlockID) {
+			return true
+		}
+
+		parentBlock, exists := b.block(parentBlockID)
+		if !exists {
+			// This should never happen.
+			panic(fmt.Sprintf("parent %s does not exist", parentBlockID))
+		}
+
+		strongParentsStructureDetails = append(strongParentsStructureDetails, parentBlock.StructureDetails())
+
+		return true
+	})
+
+	return
 }
 
 // collectStrongParentsBookingDetails returns the booking details of a Block's strong parents.
-func (b *Booker) collectStrongParentsBookingDetails(block *virtualvoting.Block) (parentsStructureDetails []*markers.StructureDetails, parentsPastMarkersConflictIDs, parentsConflictIDs utxo.TransactionIDs) {
-	parentsStructureDetails = make([]*markers.StructureDetails, 0)
+func (b *Booker) collectStrongParentsConflictIDs(block *virtualvoting.Block) (parentsPastMarkersConflictIDs, parentsConflictIDs utxo.TransactionIDs) {
 	parentsPastMarkersConflictIDs = utxo.NewTransactionIDs()
 	parentsConflictIDs = utxo.NewTransactionIDs()
 
@@ -394,7 +446,6 @@ func (b *Booker) collectStrongParentsBookingDetails(block *virtualvoting.Block) 
 		}
 
 		parentPastMarkersConflictIDs, parentConflictIDs := b.blockBookingDetails(parentBlock)
-		parentsStructureDetails = append(parentsStructureDetails, parentBlock.StructureDetails())
 		parentsPastMarkersConflictIDs.AddAll(parentPastMarkersConflictIDs)
 		parentsConflictIDs.AddAll(parentConflictIDs)
 

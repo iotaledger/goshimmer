@@ -6,7 +6,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/hive.go/core/generics/dataflow"
+	"github.com/iotaledger/hive.go/core/dataflow"
 )
 
 // region dataFlow /////////////////////////////////////////////////////////////////////////////////////////////////////

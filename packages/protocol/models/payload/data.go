@@ -4,7 +4,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payloadtype"
-	"github.com/iotaledger/hive.go/core/generics/model"
+	"github.com/iotaledger/hive.go/core/model"
 	"github.com/iotaledger/hive.go/serializer/v2/serix"
 )
 

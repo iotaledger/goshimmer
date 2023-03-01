@@ -9,7 +9,7 @@ import (
 	"go.dedis.ch/kyber/v3/sign/bdn"
 	"go.dedis.ch/kyber/v3/util/random"
 
-	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
 )
 
 func TestED25519Address(t *testing.T) {

@@ -2,12 +2,12 @@ package protocol
 
 import (
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/database"
-	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
@@ -24,7 +24,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
-	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/ds/orderedmap"
 	"github.com/iotaledger/hive.go/ds/types"
@@ -56,7 +57,9 @@ type Protocol struct {
 	optsSnapshotPath     string
 	optsPruningThreshold uint64
 
-	optsSlotTimeProviderOptions       []options.Option[slot.TimeProvider]
+	optsGenesisUnixTime int64
+	optsSlotDuration    int64
+
 	optsCongestionControlOptions      []options.Option[congestioncontrol.CongestionControl]
 	optsEngineOptions                 []options.Option[engine.Engine]
 	optsChainManagerOptions           []options.Option[chainmanager.Manager]
@@ -76,6 +79,8 @@ func New(workers *workerpool.Group, dispatcher network.Endpoint, opts ...options
 
 		optsBaseDirectory:    "",
 		optsPruningThreshold: 6 * 60, // 1 hour given that slot duration is 10 seconds
+		optsGenesisUnixTime:  time.Now().Unix(),
+		optsSlotDuration:     10,
 	}, opts,
 		(*Protocol).initSlotTimeProvider,
 		(*Protocol).initNetworkEvents,
@@ -117,7 +122,7 @@ func (p *Protocol) Shutdown() {
 }
 
 func (p *Protocol) initSlotTimeProvider() {
-	p.SlotTimeProvider = slot.NewTimeProvider(p.optsSlotTimeProviderOptions...)
+	p.SlotTimeProvider = slot.NewTimeProvider(p.optsGenesisUnixTime, p.optsSlotDuration)
 }
 
 func (p *Protocol) initEngineManager() {
@@ -588,9 +593,15 @@ func WithSnapshotPath(snapshot string) options.Option[Protocol] {
 	}
 }
 
-func WithSlotTimeProviderOptions(opts ...options.Option[slot.TimeProvider]) options.Option[Protocol] {
+func WithGenesisUnixTimestamp(genesisUnixTime int64) options.Option[Protocol] {
 	return func(p *Protocol) {
-		p.optsSlotTimeProviderOptions = append(p.optsSlotTimeProviderOptions, opts...)
+		p.optsGenesisUnixTime = genesisUnixTime
+	}
+}
+
+func WithSlotDuration(slotDuration int64) options.Option[Protocol] {
+	return func(p *Protocol) {
+		p.optsSlotDuration = slotDuration
 	}
 }
 
