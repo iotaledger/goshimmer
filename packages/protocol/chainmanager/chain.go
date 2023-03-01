@@ -3,7 +3,7 @@ package chainmanager
 import (
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/core/slot"
+	"github.com/iotaledger/hive.go/core/slot"
 )
 
 type Chain struct {

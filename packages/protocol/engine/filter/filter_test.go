@@ -9,11 +9,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/crypto/ed25519"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/runtime/options"
 )
 
@@ -79,7 +79,7 @@ func TestFilter_WithMaxAllowedWallClockDrift(t *testing.T) {
 	allowedDrift := 3 * time.Second
 
 	tf := NewTestFramework(t,
-		slot.NewTimeProvider(),
+		slot.NewTimeProvider(time.Now().Unix(), 10),
 		WithMaxAllowedWallClockDrift(allowedDrift),
 		WithSignatureValidation(false),
 	)
@@ -101,7 +101,7 @@ func TestFilter_WithMaxAllowedWallClockDrift(t *testing.T) {
 
 func TestFilter_WithSignatureValidation(t *testing.T) {
 	tf := NewTestFramework(t,
-		slot.NewTimeProvider(),
+		slot.NewTimeProvider(time.Now().Unix(), 10),
 		WithSignatureValidation(true),
 	)
 
@@ -120,7 +120,7 @@ func TestFilter_WithSignatureValidation(t *testing.T) {
 
 func TestFilter_MinCommittableSlotAge(t *testing.T) {
 	tf := NewTestFramework(t,
-		slot.NewTimeProvider(),
+		slot.NewTimeProvider(time.Now().Add(-5*time.Minute).Unix(), 10),
 		WithMinCommittableSlotAge(3),
 		WithSignatureValidation(false),
 	)

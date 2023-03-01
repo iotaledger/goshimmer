@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
@@ -18,7 +17,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/runtime/debug"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
@@ -27,7 +27,7 @@ func TestTipManager_DataBlockTips(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
 	tf := NewTestFramework(t,
 		workers.CreateGroup("TipManagerTestFramework"),
-		slot.NewTimeProvider(),
+		slot.NewTimeProvider(time.Now().Unix(), 10),
 	)
 
 	tipManager := tf.Instance
@@ -111,7 +111,7 @@ func TestTipManager_DataBlockTips(t *testing.T) {
 // Test based on packages/tangle/images/TSC_test_scenario.png except nothing is confirmed.
 func TestTipManager_TimeSinceConfirmation_Unconfirmed(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	slotTimeProvider := slot.NewTimeProvider()
+	slotTimeProvider := slot.NewTimeProvider(time.Now().Add(-5*time.Hour).Unix(), 10)
 	tf := NewTestFramework(t,
 		workers.CreateGroup("TipManagerTestFramework"),
 		slotTimeProvider,
@@ -170,7 +170,7 @@ func TestTipManager_TimeSinceConfirmation_Unconfirmed(t *testing.T) {
 // Test based on packages/tangle/images/TSC_test_scenario.png.
 func TestTipManager_TimeSinceConfirmation_Confirmed(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	slotTimeProvider := slot.NewTimeProvider()
+	slotTimeProvider := slot.NewTimeProvider(time.Now().Add(-5*time.Hour).Unix(), 10)
 	tf := NewTestFramework(t,
 		workers.CreateGroup("TipManagerTestFramework"),
 		slotTimeProvider,
@@ -233,7 +233,7 @@ func TestTipManager_TimeSinceConfirmation_Confirmed(t *testing.T) {
 // Test based on packages/tangle/images/TSC_test_scenario.png.
 func TestTipManager_TimeSinceConfirmation_MultipleParents(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	slotTimeProvider := slot.NewTimeProvider()
+	slotTimeProvider := slot.NewTimeProvider(time.Now().Add(-5*time.Hour).Unix(), 10)
 	tf := NewTestFramework(t,
 		workers.CreateGroup("TipManagerTestFramework"),
 		slotTimeProvider,
@@ -440,7 +440,7 @@ func issueBlocks(tf *TestFramework, blockPrefix string, blockCount int, parents 
 
 func TestTipManager_TimeSinceConfirmation_RootBlockParent(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	slotTimeProvider := slot.NewTimeProvider()
+	slotTimeProvider := slot.NewTimeProvider(time.Now().Add(-5*time.Hour).Unix(), 10)
 	tf := NewTestFramework(t,
 		workers.CreateGroup("TipManagerTestFramework"),
 		slotTimeProvider,
@@ -492,7 +492,7 @@ func TestTipManager_FutureTips(t *testing.T) {
 	defer debug.SetEnabled(false)
 
 	// MinimumCommittableAge will also be 10 seconds
-	slotTimeProvider := slot.NewTimeProvider(slot.WithGenesisUnixTime(time.Now().Add(-100 * time.Second).Unix()))
+	slotTimeProvider := slot.NewTimeProvider(time.Now().Add(-100*time.Second).Unix(), 10)
 	workers := workerpool.NewGroup(t.Name())
 	tf := NewTestFramework(t,
 		workers.CreateGroup("TipManagerTestFramework"),

@@ -2,18 +2,19 @@ package notarization
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/lo"
 )
 
 func TestMutationFactory(t *testing.T) {
-	tf := NewTestFramework(t, slot.NewTimeProvider())
+	tf := NewTestFramework(t, slot.NewTimeProvider(time.Now().Unix(), 10))
 
 	// create transactions
 	tf.CreateTransaction("tx1.1", 1)
@@ -69,7 +70,7 @@ func TestMutationFactory(t *testing.T) {
 }
 
 func TestMutationFactory_AddAcceptedBlock(t *testing.T) {
-	slotTimeProvider := slot.NewTimeProvider()
+	slotTimeProvider := slot.NewTimeProvider(time.Now().Unix(), 10)
 	mutationFactory := NewSlotMutations(sybilprotection.NewWeights(mapdb.NewMapDB()), 2)
 
 	block := models.NewBlock(

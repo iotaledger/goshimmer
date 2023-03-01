@@ -6,11 +6,11 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/goshimmer/packages/core/memstorage"
-	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/core/stream"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
+	"github.com/iotaledger/hive.go/core/memstorage"
+	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/ds/ringbuffer"
 	"github.com/iotaledger/hive.go/runtime/options"
 )
@@ -134,7 +134,7 @@ func (s *State) IsRootBlock(id models.BlockID) (has bool) {
 
 // LatestRootBlocks returns the latest root blocks.
 func (s *State) LatestRootBlocks() models.BlockIDs {
-	rootBlocks := s.latestRootBlocks.Get()
+	rootBlocks := s.latestRootBlocks.Elements()
 	if len(rootBlocks) == 0 {
 		return models.NewBlockIDs(models.EmptyBlockID)
 	}

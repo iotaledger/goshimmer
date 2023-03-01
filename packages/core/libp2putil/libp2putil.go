@@ -7,7 +7,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
 )
 
 // GetLibp2pIdentity returns libp2p Host option for Identity from local peer object.

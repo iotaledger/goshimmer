@@ -13,7 +13,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/core/database"
-	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol"
@@ -34,9 +33,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/goshimmer/packages/storage/utils"
-	"github.com/iotaledger/hive.go/core/crypto/ed25519"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/debug"
 	"github.com/iotaledger/hive.go/runtime/event"
@@ -142,9 +142,7 @@ func TestEngine_NonEmptyInitialValidators(t *testing.T) {
 
 	ledgerVM := new(devnetvm.VM)
 
-	slotTimeProvider := slot.NewTimeProvider(
-		slot.WithGenesisUnixTime(time.Now().Unix()),
-	)
+	slotTimeProvider := slot.NewTimeProvider(time.Now().Unix(), 10)
 	workers := workerpool.NewGroup(t.Name())
 	tf := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework"), dpos.NewProvider(), mana1.NewProvider(), slotTimeProvider, engine.WithLedgerOptions(ledger.WithVM(ledgerVM)))
 
@@ -212,10 +210,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 	ledgerVM := new(devnetvm.VM)
 
 	slotDuration := int64(10)
-	slotTimeProvider := slot.NewTimeProvider(
-		slot.WithSlotDuration(10),
-		slot.WithGenesisUnixTime(time.Now().Unix()-slotDuration*10),
-	)
+	slotTimeProvider := slot.NewTimeProvider(time.Now().Unix()-slotDuration*10, slotDuration)
 
 	fmt.Println("> GenesisUnixTime", slotTimeProvider.GenesisTime())
 
@@ -502,10 +497,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 	}
 
 	slotDuration := int64(10)
-	slotTimeProvider := slot.NewTimeProvider(
-		slot.WithSlotDuration(slotDuration),
-		slot.WithGenesisUnixTime(time.Now().Unix()-slotDuration*15),
-	)
+	slotTimeProvider := slot.NewTimeProvider(time.Now().Unix()-slotDuration*15, slotDuration)
 
 	workers := workerpool.NewGroup(t.Name())
 
@@ -690,10 +682,7 @@ func TestEngine_ShutdownResume(t *testing.T) {
 	ledgerVM := new(devnetvm.VM)
 
 	slotDuration := int64(10)
-	slotTimeProvider := slot.NewTimeProvider(
-		slot.WithSlotDuration(10),
-		slot.WithGenesisUnixTime(time.Now().Unix()-slotDuration*15),
-	)
+	slotTimeProvider := slot.NewTimeProvider(time.Now().Unix()-slotDuration*15, slotDuration)
 
 	workers := workerpool.NewGroup(t.Name())
 
@@ -806,10 +795,7 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 	}
 
 	slotDuration := int64(10)
-	slotTimeProvider := slot.NewTimeProvider(
-		slot.WithSlotDuration(10),
-		slot.WithGenesisUnixTime(time.Now().Unix()-slotDuration*10),
-	)
+	slotTimeProvider := slot.NewTimeProvider(time.Now().Unix()-slotDuration*10, slotDuration)
 
 	identitiesMap := map[string]ed25519.KeyPair{
 		"node1": ed25519.GenerateKeyPair(),
@@ -1097,9 +1083,7 @@ func TestEngine_GuavaConflict(t *testing.T) {
 
 	ledgerVM := new(devnetvm.VM)
 
-	slotTimeProvider := slot.NewTimeProvider(
-		slot.WithGenesisUnixTime(time.Now().Unix()),
-	)
+	slotTimeProvider := slot.NewTimeProvider(time.Now().Unix(), 10)
 
 	workers := workerpool.NewGroup(t.Name())
 	tf := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework"), dpos.NewProvider(), mana1.NewProvider(),

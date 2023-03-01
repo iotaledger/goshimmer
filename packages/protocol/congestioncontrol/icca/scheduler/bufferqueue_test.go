@@ -7,12 +7,12 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
-	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/runtime/options"
 )
 
@@ -24,7 +24,7 @@ const (
 )
 
 var (
-	slotTimeProvider  = slot.NewTimeProvider()
+	slotTimeProvider  = slot.NewTimeProvider(time.Now().Add(-5*time.Hour).Unix(), 10)
 	selfLocalIdentity = identity.GenerateLocalIdentity()
 	selfNode          = identity.New(selfLocalIdentity.PublicKey())
 	noManaIdentity    = identity.GenerateIdentity()

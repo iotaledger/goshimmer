@@ -3,10 +3,11 @@ package framework
 import (
 	"context"
 	"fmt"
-	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"log"
 	"sync"
 	"time"
+
+	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
@@ -18,7 +19,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/network/manualpeering"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
-	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/lo"
 )
 

@@ -197,7 +197,7 @@ curl --location --request DELETE 'http://localhost:8080/manualpeering/peers' \
 #### `RemoveManualPeers`
 
 ```go
-import "github.com/iotaledger/hive.go/core/crypto/ed25519"
+import "github.com/iotaledger/hive.go/crypto/ed25519"
 import "github.com/iotaledger/goshimmer/packages/manualpeering"
 
 publicKeysToRemove := []ed25519.PublicKey{publicKey1, publicKey2}

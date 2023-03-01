@@ -1,7 +1,7 @@
 package ratelimiter
 
 import (
-	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/runtime/event"
 )
 

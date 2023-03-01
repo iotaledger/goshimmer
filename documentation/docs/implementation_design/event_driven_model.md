@@ -64,7 +64,7 @@ The above explanation also allows a better understanding of why all handlers mus
 2. Next, a new event object needs to be created. We pass the handler caller as an argument, which is saved inside the object to be called when the event is triggered.
 
 ```go
-import "github.com/iotaledger/hive.go/core/events"
+import "github.com/iotaledger/hive.go/runtime/events"
 
 ThisEvent := events.NewEvent(singleArgCaller)
 ```

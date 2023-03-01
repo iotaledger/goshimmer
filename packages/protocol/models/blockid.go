@@ -12,10 +12,9 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotaledger/goshimmer/packages/core/slot"
-	"github.com/iotaledger/hive.go/core/crypto/ed25519"
-	"github.com/iotaledger/hive.go/core/types"
-	dsTypes "github.com/iotaledger/hive.go/ds/types"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/serializer/v2/byteutils"
 	"github.com/iotaledger/hive.go/serializer/v2/serix"
@@ -185,13 +184,13 @@ var (
 // region BlockIDs ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // BlockIDs is a set of BlockIDs where every BlockID is stored only once.
-type BlockIDs map[BlockID]dsTypes.Empty
+type BlockIDs map[BlockID]types.Empty
 
 // NewBlockIDs construct a new BlockID collection from the optional BlockIDs.
 func NewBlockIDs(blkIDs ...BlockID) BlockIDs {
 	m := make(BlockIDs)
 	for _, blkID := range blkIDs {
-		m[blkID] = dsTypes.Void
+		m[blkID] = types.Void
 	}
 
 	return m
@@ -234,7 +233,7 @@ func (m BlockIDs) Clone() (clonedBlockIDs BlockIDs) {
 
 // Add adds a BlockID to the collection and returns the collection to enable chaining.
 func (m BlockIDs) Add(blockID BlockID) BlockIDs {
-	m[blockID] = dsTypes.Void
+	m[blockID] = types.Void
 
 	return m
 }

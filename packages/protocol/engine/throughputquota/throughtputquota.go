@@ -2,7 +2,7 @@ package throughputquota
 
 import (
 	"github.com/iotaledger/goshimmer/packages/core/traits"
-	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/crypto/identity"
 )
 
 type ThroughputQuota interface {

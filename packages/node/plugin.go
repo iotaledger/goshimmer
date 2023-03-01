@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/logger"
+	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 

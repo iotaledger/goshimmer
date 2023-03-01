@@ -3,7 +3,7 @@ package manamodels
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/crypto/identity"
 )
 
 // ManaRetrievalFunc returns the mana value of a node with default weights.
