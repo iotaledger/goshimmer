@@ -61,6 +61,7 @@ services:
       - "6071:6061/tcp" # pprof
     networks:
       - goshimmer
+
   peer_nomana:
     image: docker-network-peer_master:latest
     stop_grace_period: 1m
@@ -80,13 +81,15 @@ services:
     depends_on:
       - peer_master
       - faucet
+
   peer_nomana2:
     image: docker-network-peer_master:latest
     stop_grace_period: 1m
     command: >
+      ${DOCKER_AUTOPEERING_CONFIG}
       ${COMMON_CONFIG}
-           --node.enablePlugins="webapitoolsendpoint",spammer,metrics
-           --node.disablePlugins=${COMMON_DISABLED}
+      --node.enablePlugins="webapitoolsendpoint",spammer,metrics
+      --node.disablePlugins=${COMMON_DISABLED}
     volumes:
       - ./docker-network.snapshot:/app/snapshot.bin
     ports:
@@ -95,7 +98,9 @@ services:
       - "6031:6061/tcp" # pprof
     networks:
       - goshimmer
-
+    depends_on:
+      - peer_master
+      - faucet
   faucet:
     image: docker-network-peer_master:latest
     stop_grace_period: 1m
