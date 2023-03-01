@@ -37,11 +37,6 @@ func NewReferenceProvider(protocol *protocol.Protocol, timeSinceConfirmationThre
 func (r *ReferenceProvider) References(payload payload.Payload, strongParents models.BlockIDs) (references models.ParentBlockIDs, err error) {
 	references = models.NewParentBlockIDs()
 
-	references[models.WeakParentType], err = r.weakParentsFromUnacceptedInputs(payload)
-	if err != nil {
-		return
-	}
-
 	excludedConflictIDs := utxo.NewTransactionIDs()
 
 	for strongParent := range strongParents {
@@ -67,8 +62,22 @@ func (r *ReferenceProvider) References(payload payload.Payload, strongParents mo
 		return nil, errors.Errorf("none of the provided strong parents can be referenced. Strong parents provided: %+v.", strongParents)
 	}
 
+	// This should be liked anyway, or at least it should be corrected by shallow like if we spend.
+	// If a node spends something it doesn't like, then the payload is invalid as well.
+	weakReferences, likeInsteadReferences, err := r.referencesFromUnacceptedInputs(payload, excludedConflictIDs)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to create references for unnaccepted inputs")
+	}
+
+	if len(weakReferences) > 0 {
+		references.AddAll(models.WeakParentType, weakReferences)
+	}
+	if len(likeInsteadReferences) > 0 {
+		references.AddAll(models.ShallowLikeParentType, likeInsteadReferences)
+	}
+
 	// Uncensor pending conflicts
-	references[models.WeakParentType].AddAll(r.referencesToMissingConflicts(models.MaxParentsCount - len(references[models.WeakParentType])))
+	references.AddAll(models.WeakParentType, r.referencesToMissingConflicts(models.MaxParentsCount-len(references[models.WeakParentType])))
 
 	// Make sure that there's no duplicate between strong and weak parents.
 	references.RemoveDuplicatesFromWeak()
@@ -99,24 +108,21 @@ func (r *ReferenceProvider) referencesToMissingConflicts(amount int) (blockIDs m
 		// 	panic("attachment should not be nil")
 		// }
 
-		// Check commitment monotonicity for the attachment.
-		if attachment.Commitment().Index() > r.protocol.Engine().Storage.Settings.LatestCommitment().Index() {
-			continue
-		}
-
 		blockIDs.Add(attachment.ID())
 	}
 
 	return blockIDs
 }
 
-func (r *ReferenceProvider) weakParentsFromUnacceptedInputs(payload payload.Payload) (weakParents models.BlockIDs, err error) {
+func (r *ReferenceProvider) referencesFromUnacceptedInputs(payload payload.Payload, excludedConflictIDs utxo.TransactionIDs) (weakParents models.BlockIDs, likeInsteadParents models.BlockIDs, err error) {
 	weakParents = models.NewBlockIDs()
+	likeInsteadParents = models.NewBlockIDs()
+
 	engineInstance := r.protocol.Engine()
 	// If the payload is a transaction we will weakly reference unconfirmed transactions it is consuming.
 	tx, isTx := payload.(utxo.Transaction)
 	if !isTx {
-		return weakParents, nil
+		return weakParents, likeInsteadParents, nil
 	}
 
 	referencedTransactions := engineInstance.Ledger.Utils.ReferencedTransactions(tx)
@@ -124,7 +130,7 @@ func (r *ReferenceProvider) weakParentsFromUnacceptedInputs(payload payload.Payl
 		referencedTransactionID := it.Next()
 
 		if len(weakParents) == models.MaxParentsCount {
-			return weakParents, nil
+			return weakParents, likeInsteadParents, nil
 		}
 
 		if !engineInstance.Ledger.Utils.TransactionConfirmationState(referencedTransactionID).IsAccepted() {
@@ -138,11 +144,34 @@ func (r *ReferenceProvider) weakParentsFromUnacceptedInputs(payload payload.Payl
 				continue
 			}
 
+			transactionConflictIDs := engineInstance.Tangle.Booker.TransactionConflictIDs(latestAttachment)
+			if transactionConflictIDs.IsEmpty() {
+				weakParents.Add(latestAttachment.ID())
+				continue
+			}
+
+			for conflictIterator := transactionConflictIDs.Iterator(); conflictIterator.HasNext(); {
+				transactionConflictID := conflictIterator.Next()
+				if excludedConflictIDs.Has(transactionConflictID) {
+					continue
+				}
+
+				if adjust, referencedBlk, referenceErr := r.adjustOpinion(transactionConflictID, excludedConflictIDs); referenceErr != nil {
+					return nil, nil, errors.Wrapf(referenceErr, "failed to correct opinion for weak parent with unaccepted output %s", referencedTransactionID)
+				} else if adjust {
+					if referencedBlk != models.EmptyBlockID {
+						likeInsteadParents.Add(referencedBlk)
+					} else {
+						return nil, nil, errors.Errorf("failed to correct opinion for weak parent with unaccepted output %s", referencedTransactionID)
+					}
+				}
+			}
+
 			weakParents.Add(latestAttachment.ID())
 		}
 	}
 
-	return weakParents, nil
+	return weakParents, likeInsteadParents, nil
 }
 
 // addedReferenceForBlock returns the reference that is necessary to correct our opinion on the given block.

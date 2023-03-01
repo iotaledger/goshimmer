@@ -1,6 +1,8 @@
 package virtualvoting
 
 import (
+	"fmt"
+
 	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
@@ -67,6 +69,7 @@ func (o *VirtualVoting) Track(block *Block, conflictIDs utxo.TransactionIDs) {
 	votePower := NewBlockVotePower(block.ID(), block.IssuingTime())
 
 	if _, invalid := o.conflictTracker.TrackVote(conflictIDs, block.IssuerID(), votePower); invalid {
+		fmt.Println("block is subjectively invalid", block.ID())
 		block.SetSubjectivelyInvalid(true)
 	} else {
 		o.sequenceTracker.TrackVotes(block.StructureDetails().PastMarkers(), block.IssuerID(), votePower)
