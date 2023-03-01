@@ -114,6 +114,9 @@ func (m *MarkerManager[IndexedID, MappedEntity]) evictMarkerBlockMapping(index s
 		m.markerBlockMappingEviction.Delete(index)
 
 		markerSet.ForEach(func(marker markers.Marker) {
+			m.SequenceMutex.Lock(marker.SequenceID())
+			defer m.SequenceMutex.Unlock(marker.SequenceID())
+
 			m.markerBlockMapping.Delete(marker)
 
 			if markerIndexBlockMapping, mappingExists := m.sequenceMarkersMapping.Get(marker.SequenceID()); mappingExists {
