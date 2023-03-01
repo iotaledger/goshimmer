@@ -5,13 +5,13 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
-	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markermanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/debug"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
@@ -490,7 +490,7 @@ func TestGadget_update_multipleSequences_onlyAcceptThenConfirm(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
 
 	tangleTF := tangle.NewDefaultTestFramework(t, workers.CreateGroup("TangleTestFramework"),
-		slot.NewTimeProvider(slot.WithGenesisUnixTime(time.Now().Unix())),
+		slot.NewTimeProvider(time.Now().Unix(), 10),
 		tangle.WithBookerOptions(
 			booker.WithMarkerManagerOptions(
 				markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(3)),

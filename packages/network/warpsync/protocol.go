@@ -6,8 +6,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/network"
 	wp "github.com/iotaledger/goshimmer/packages/network/warpsync/proto"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/logger"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 

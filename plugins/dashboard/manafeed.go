@@ -15,7 +15,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1/manamodels"
 	"github.com/iotaledger/hive.go/app/daemon"
 	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/lo"
 )
 

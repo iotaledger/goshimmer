@@ -6,7 +6,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/iotaledger/hive.go/lo"
 	"golang.org/x/crypto/blake2b"
-	"github.com/iotaledger/goshimmer/packages/core/slot"
+	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"

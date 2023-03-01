@@ -7,7 +7,7 @@ import (
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
-	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/lo"
 )
 

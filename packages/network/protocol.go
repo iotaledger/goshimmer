@@ -7,17 +7,16 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/slot"
 	nwmodels "github.com/iotaledger/goshimmer/packages/network/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/bytesfilter"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/ds/bytesfilter"
 	"github.com/iotaledger/hive.go/ds/orderedmap"
 	"github.com/iotaledger/hive.go/ds/shrinkingmap"
-	dsTypes "github.com/iotaledger/hive.go/ds/types"
+	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
@@ -36,7 +35,7 @@ type Protocol struct {
 	workerPool                *workerpool.WorkerPool
 	duplicateBlockBytesFilter *bytesfilter.BytesFilter
 
-	requestedBlockHashes      *shrinkingmap.ShrinkingMap[types.Identifier, dsTypes.Empty]
+	requestedBlockHashes      *shrinkingmap.ShrinkingMap[types.Identifier, types.Empty]
 	requestedBlockHashesMutex sync.Mutex
 }
 
@@ -48,7 +47,7 @@ func NewProtocol(network Endpoint, workerPool *workerpool.WorkerPool, slotTimePr
 		workerPool:                workerPool,
 		slotTimeProvider:          slotTimeProvider,
 		duplicateBlockBytesFilter: bytesfilter.New(10000),
-		requestedBlockHashes:      shrinkingmap.New[types.Identifier, dsTypes.Empty](shrinkingmap.WithShrinkingThresholdCount(1000)),
+		requestedBlockHashes:      shrinkingmap.New[types.Identifier, types.Empty](shrinkingmap.WithShrinkingThresholdCount(1000)),
 	}, opts, func(p *Protocol) {
 		network.RegisterProtocol(protocolID, newPacket, p.handlePacket)
 	})
@@ -62,7 +61,7 @@ func (p *Protocol) SendBlock(block *models.Block, to ...identity.ID) {
 
 func (p *Protocol) RequestBlock(id models.BlockID, to ...identity.ID) {
 	p.requestedBlockHashesMutex.Lock()
-	p.requestedBlockHashes.Set(id.Identifier, dsTypes.Void)
+	p.requestedBlockHashes.Set(id.Identifier, types.Void)
 	p.requestedBlockHashesMutex.Unlock()
 
 	p.network.Send(&nwmodels.Packet{Body: &nwmodels.Packet_BlockRequest{BlockRequest: &nwmodels.BlockRequest{

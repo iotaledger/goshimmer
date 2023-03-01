@@ -2,10 +2,11 @@ package mana
 
 import (
 	"context"
-	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"log"
 	"math"
 	"testing"
+
+	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/require"
@@ -13,7 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
-	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/lo"
 )
 

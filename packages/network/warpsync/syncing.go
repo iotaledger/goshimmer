@@ -2,10 +2,10 @@ package warpsync
 
 import (
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/slot"
 	wp "github.com/iotaledger/goshimmer/packages/network/warpsync/proto"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/lo"
 )
 

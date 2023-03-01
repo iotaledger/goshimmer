@@ -10,8 +10,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/hive.go/app/configuration"
 	appLogger "github.com/iotaledger/hive.go/app/logger"
-	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/iotaledger/hive.go/ds/types"
+	"github.com/iotaledger/hive.go/logger"
 )
 
 // region Spammer //////////////////////////////////////////////////////////////////////////////////////////////////////

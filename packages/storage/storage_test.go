@@ -3,20 +3,21 @@ package storage
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/lo"
 )
 
 func Test(t *testing.T) {
 	storageDirectory := t.TempDir()
 
-	slotTimeProvider := slot.NewTimeProvider()
+	slotTimeProvider := slot.NewTimeProvider(time.Now().Unix(), 10)
 	emptyBlock := models.NewBlock(models.WithStrongParents(models.NewBlockIDs(models.EmptyBlockID)))
 	require.NoError(t, emptyBlock.DetermineID(slotTimeProvider))
 

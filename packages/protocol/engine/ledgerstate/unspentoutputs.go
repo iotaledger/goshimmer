@@ -7,15 +7,14 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/goshimmer/packages/core/ads"
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
-	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/core/stream"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/hive.go/core/types"
-	dsTypes "github.com/iotaledger/hive.go/ds/types"
+	"github.com/iotaledger/hive.go/ads"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/kvstore"
 )
 
@@ -32,9 +31,9 @@ type UnspentOutputs struct {
 	IDs *ads.Set[utxo.OutputID, *utxo.OutputID]
 
 	memPool               *ledger.Ledger
-	consumers             map[UnspentOutputsConsumer]dsTypes.Empty
+	consumers             map[UnspentOutputsConsumer]types.Empty
 	consumersMutex        sync.RWMutex
-	batchConsumers        map[UnspentOutputsConsumer]dsTypes.Empty
+	batchConsumers        map[UnspentOutputsConsumer]types.Empty
 	batchCreatedOutputIDs utxo.OutputIDs
 	batchSpentOutputIDs   utxo.OutputIDs
 
@@ -53,7 +52,7 @@ func NewUnspentOutputs(store func(optRealm ...byte) kvstore.KVStore, memPool *le
 		BatchCommittable: traits.NewBatchCommittable(store(), PrefixUnspentOutputsLatestCommittedIndex),
 		IDs:              ads.NewSet[utxo.OutputID](store(PrefixUnspentOutputsIDs)),
 		memPool:          memPool,
-		consumers:        make(map[UnspentOutputsConsumer]dsTypes.Empty),
+		consumers:        make(map[UnspentOutputsConsumer]types.Empty),
 	}
 }
 
@@ -61,7 +60,7 @@ func (u *UnspentOutputs) Subscribe(consumer UnspentOutputsConsumer) {
 	u.consumersMutex.Lock()
 	defer u.consumersMutex.Unlock()
 
-	u.consumers[consumer] = dsTypes.Void
+	u.consumers[consumer] = types.Void
 }
 
 func (u *UnspentOutputs) Unsubscribe(consumer UnspentOutputsConsumer) {
@@ -86,7 +85,7 @@ func (u *UnspentOutputs) Begin(newSlot slot.Index) (lastCommittedSlot slot.Index
 
 	u.batchCreatedOutputIDs = utxo.NewOutputIDs()
 	u.batchSpentOutputIDs = utxo.NewOutputIDs()
-	u.batchConsumers = make(map[UnspentOutputsConsumer]dsTypes.Empty)
+	u.batchConsumers = make(map[UnspentOutputsConsumer]types.Empty)
 
 	if err = u.preparePendingConsumers(lastCommittedSlot, newSlot); err != nil {
 		return lastCommittedSlot, errors.Wrap(err, "failed to get pending state diff consumers")
@@ -113,7 +112,7 @@ func (u *UnspentOutputs) Commit() (ctx context.Context) {
 }
 
 func (u *UnspentOutputs) ApplyCreatedOutput(output *ledger.OutputWithMetadata) (err error) {
-	var targetConsumers map[UnspentOutputsConsumer]dsTypes.Empty
+	var targetConsumers map[UnspentOutputsConsumer]types.Empty
 	if !u.BatchedStateTransitionStarted() {
 		u.IDs.Add(output.Output().ID())
 
@@ -136,7 +135,7 @@ func (u *UnspentOutputs) ApplyCreatedOutput(output *ledger.OutputWithMetadata) (
 }
 
 func (u *UnspentOutputs) ApplySpentOutput(output *ledger.OutputWithMetadata) (err error) {
-	var targetConsumers map[UnspentOutputsConsumer]dsTypes.Empty
+	var targetConsumers map[UnspentOutputsConsumer]types.Empty
 	if !u.BatchedStateTransitionStarted() {
 		panic("cannot apply a spent output without a batched state transition")
 	} else {
@@ -244,14 +243,14 @@ func (u *UnspentOutputs) preparePendingConsumers(currentSlot, targetSlot slot.In
 		} else if consumerSlot != currentSlot && consumerSlot != targetSlot {
 			return errors.Errorf("consumer in unexpected slot: %d", consumerSlot)
 		} else if consumerSlot != targetSlot {
-			u.batchConsumers[consumer] = dsTypes.Void
+			u.batchConsumers[consumer] = types.Void
 		}
 	}
 
 	return
 }
 
-func (u *UnspentOutputs) notifyConsumers(consumer map[UnspentOutputsConsumer]dsTypes.Empty, output *ledger.OutputWithMetadata, callback func(self UnspentOutputsConsumer, output *ledger.OutputWithMetadata) (err error)) (err error) {
+func (u *UnspentOutputs) notifyConsumers(consumer map[UnspentOutputsConsumer]types.Empty, output *ledger.OutputWithMetadata, callback func(self UnspentOutputsConsumer, output *ledger.OutputWithMetadata) (err error)) (err error) {
 	for consumer := range consumer {
 		if err = callback(consumer, output); err != nil {
 			return errors.Wrap(err, "failed to apply changes to consumer")

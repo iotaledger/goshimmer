@@ -4,7 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/iotaledger/hive.go/core/ioutils"
+	"github.com/iotaledger/hive.go/runtime/ioutils"
 )
 
 // Directory represents a directory on the disk.

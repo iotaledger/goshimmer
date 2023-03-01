@@ -7,7 +7,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/node"
@@ -24,8 +23,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
 	"github.com/iotaledger/hive.go/app/daemon"
+	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/runtime/event"
-	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
@@ -64,14 +63,10 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 		dbProvider = database.NewDB
 	}
 
-	var slotTimeOpts []options.Option[slot.TimeProvider]
-	if Parameters.GenesisTime > 0 {
-		slotTimeOpts = append(slotTimeOpts, slot.WithGenesisUnixTime(Parameters.GenesisTime))
-	}
-
 	p = protocol.New(workerpool.NewGroup("Protocol"),
 		n,
-		protocol.WithSlotTimeProviderOptions(slotTimeOpts...),
+		protocol.WithGenesisUnixTimestamp(Parameters.GenesisTime),
+		protocol.WithSlotDuration(10),
 		protocol.WithSybilProtectionProvider(
 			dpos.NewProvider(
 				dpos.WithActivityWindow(Parameters.ValidatorActivityWindow),

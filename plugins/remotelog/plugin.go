@@ -18,7 +18,7 @@ import (
 	logger_plugin "github.com/iotaledger/goshimmer/plugins/logger"
 	"github.com/iotaledger/hive.go/app/daemon"
 	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/core/logger"
+	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/runtime/event"
 )
 

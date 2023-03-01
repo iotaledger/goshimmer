@@ -9,14 +9,14 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
-	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
 	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/goshimmer/packages/storage/utils"
-	"github.com/iotaledger/hive.go/core/ioutils"
+	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/ioutils"
 	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )

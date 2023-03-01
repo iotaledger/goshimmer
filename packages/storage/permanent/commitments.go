@@ -7,9 +7,9 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/core/storable"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
+	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/lo"
 )
 

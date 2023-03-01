@@ -9,9 +9,9 @@ import (
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/hive.go/core/types"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/ds/orderedmap"
+	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/serializer/v2"
 	"github.com/iotaledger/hive.go/serializer/v2/byteutils"

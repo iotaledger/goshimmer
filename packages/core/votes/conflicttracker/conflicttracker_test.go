@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/iotaledger/goshimmer/packages/core/votes"
-	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/lo"
 )

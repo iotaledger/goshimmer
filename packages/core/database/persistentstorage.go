@@ -1,8 +1,8 @@
 package database
 
 import (
-	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/hive.go/constraints"
+	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/kvstore"
 )
 
