@@ -349,9 +349,7 @@ func (b *Booker) inheritConflictIDs(block *virtualvoting.Block) (inheritedConfli
 
 // determineBookingDetails determines the booking details of an unbooked Block.
 func (b *Booker) determineBookingDetails(block *virtualvoting.Block) (parentsStructureDetails []*markers.StructureDetails, parentsPastMarkersConflictIDs, inheritedConflictIDs utxo.TransactionIDs, err error) {
-	inheritedConflictIDs = utxo.NewTransactionIDs()
-
-	transactionConflictIDs := b.TransactionConflictIDs(block)
+	inheritedConflictIDs = b.TransactionConflictIDs(block)
 
 	parentsStructureDetails, parentsPastMarkersConflictIDs, strongParentsConflictIDs := b.collectStrongParentsBookingDetails(block)
 
@@ -366,8 +364,6 @@ func (b *Booker) determineBookingDetails(block *virtualvoting.Block) (parentsStr
 	inheritedConflictIDs.AddAll(weakPayloadConflictIDs)
 	inheritedConflictIDs.AddAll(likedConflictIDs)
 
-	inheritedConflictIDs.AddAll(transactionConflictIDs)
-
 	inheritedConflictIDs.DeleteAll(b.Ledger.Utils.ConflictIDsInFutureCone(dislikedConflictIDs))
 
 	// block always sets Like reference its own conflict, if its payload is a transaction, and it's conflicting
@@ -376,9 +372,6 @@ func (b *Booker) determineBookingDetails(block *virtualvoting.Block) (parentsStr
 		// if a payload is a conflicting transaction, then remove any conflicting conflicts from supported conflicts
 		inheritedConflictIDs.DeleteAll(b.Ledger.Utils.ConflictIDsInFutureCone(selfDislikedConflictIDs))
 	}
-
-	// set transactionConflictIDs at the end, so that if it contains conflicting conflicts,
-	// it cannot be masked by like references and the block will be seen as subjectively invalid
 
 	return parentsStructureDetails, b.Ledger.ConflictDAG.UnconfirmedConflicts(parentsPastMarkersConflictIDs), b.Ledger.ConflictDAG.UnconfirmedConflicts(inheritedConflictIDs), nil
 }

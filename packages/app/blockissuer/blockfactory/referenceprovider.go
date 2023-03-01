@@ -69,18 +69,14 @@ func (r *ReferenceProvider) References(payload payload.Payload, strongParents mo
 		return nil, errors.Wrapf(err, "failed to create references for unnaccepted inputs")
 	}
 
-	if len(weakReferences) > 0 {
-		references.AddAll(models.WeakParentType, weakReferences)
-	}
-	if len(likeInsteadReferences) > 0 {
-		references.AddAll(models.ShallowLikeParentType, likeInsteadReferences)
-	}
+	references.AddAll(models.WeakParentType, weakReferences)
+	references.AddAll(models.ShallowLikeParentType, likeInsteadReferences)
 
-	// Uncensor pending conflicts
+	// Include censored, pending conflicts if there are free weak parent spots.
 	references.AddAll(models.WeakParentType, r.referencesToMissingConflicts(models.MaxParentsCount-len(references[models.WeakParentType])))
 
 	// Make sure that there's no duplicate between strong and weak parents.
-	references.RemoveDuplicatesFromWeak()
+	references.CleanupReferences()
 
 	return references, nil
 }
