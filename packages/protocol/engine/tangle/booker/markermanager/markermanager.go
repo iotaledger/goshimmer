@@ -4,7 +4,7 @@ import (
 	"github.com/emirpasic/gods/maps/treemap"
 	"github.com/emirpasic/gods/utils"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/hive.go/ds/set"
@@ -13,33 +13,33 @@ import (
 	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
-type MarkerManager[IndexedID epoch.IndexedID, MappedEntity epoch.IndexedEntity[IndexedID]] struct {
+type MarkerManager[IndexedID slot.IndexedID, MappedEntity slot.IndexedEntity[IndexedID]] struct {
 	Events                       *Events
 	SequenceManager              *markers.SequenceManager
 	markerIndexConflictIDMapping *shrinkingmap.ShrinkingMap[markers.SequenceID, *MarkerIndexConflictIDMapping]
 
 	markerBlockMapping         *shrinkingmap.ShrinkingMap[markers.Marker, MappedEntity]
 	sequenceMarkersMapping     *shrinkingmap.ShrinkingMap[markers.SequenceID, *treemap.Map]
-	markerBlockMappingEviction *shrinkingmap.ShrinkingMap[epoch.Index, set.Set[markers.Marker]]
+	markerBlockMappingEviction *shrinkingmap.ShrinkingMap[slot.Index, set.Set[markers.Marker]]
 
-	sequenceLastUsed *shrinkingmap.ShrinkingMap[markers.SequenceID, epoch.Index]
-	sequenceEviction *shrinkingmap.ShrinkingMap[epoch.Index, set.Set[markers.SequenceID]]
+	sequenceLastUsed *shrinkingmap.ShrinkingMap[markers.SequenceID, slot.Index]
+	sequenceEviction *shrinkingmap.ShrinkingMap[slot.Index, set.Set[markers.SequenceID]]
 
 	SequenceMutex *syncutils.DAGMutex[markers.SequenceID]
 
 	optsSequenceManager []options.Option[markers.SequenceManager]
 }
 
-func NewMarkerManager[IndexedID epoch.IndexedID, MappedEntity epoch.IndexedEntity[IndexedID]](opts ...options.Option[MarkerManager[IndexedID, MappedEntity]]) *MarkerManager[IndexedID, MappedEntity] {
+func NewMarkerManager[IndexedID slot.IndexedID, MappedEntity slot.IndexedEntity[IndexedID]](opts ...options.Option[MarkerManager[IndexedID, MappedEntity]]) *MarkerManager[IndexedID, MappedEntity] {
 	manager := options.Apply(&MarkerManager[IndexedID, MappedEntity]{
 		Events:                     NewEvents(),
 		markerBlockMapping:         shrinkingmap.New[markers.Marker, MappedEntity](),
 		sequenceMarkersMapping:     shrinkingmap.New[markers.SequenceID, *treemap.Map](),
-		markerBlockMappingEviction: shrinkingmap.New[epoch.Index, set.Set[markers.Marker]](),
+		markerBlockMappingEviction: shrinkingmap.New[slot.Index, set.Set[markers.Marker]](),
 
 		markerIndexConflictIDMapping: shrinkingmap.New[markers.SequenceID, *MarkerIndexConflictIDMapping](),
-		sequenceLastUsed:             shrinkingmap.New[markers.SequenceID, epoch.Index](),
-		sequenceEviction:             shrinkingmap.New[epoch.Index, set.Set[markers.SequenceID]](),
+		sequenceLastUsed:             shrinkingmap.New[markers.SequenceID, slot.Index](),
+		sequenceEviction:             shrinkingmap.New[slot.Index, set.Set[markers.SequenceID]](),
 
 		SequenceMutex: syncutils.NewDAGMutex[markers.SequenceID](),
 
@@ -48,7 +48,7 @@ func NewMarkerManager[IndexedID epoch.IndexedID, MappedEntity epoch.IndexedEntit
 	manager.SequenceManager = markers.NewSequenceManager(manager.optsSequenceManager...)
 
 	manager.SetConflictIDs(markers.NewMarker(0, 0), utxo.NewTransactionIDs())
-	manager.registerSequenceEviction(epoch.Index(0), markers.SequenceID(0))
+	manager.registerSequenceEviction(slot.Index(0), markers.SequenceID(0))
 
 	return manager
 }
@@ -80,17 +80,17 @@ func (m *MarkerManager[IndexedID, MappedEntity]) ProcessBlock(block MappedEntity
 	})
 }
 
-func (m *MarkerManager[IndexedID, MappedEntity]) Evict(epochIndex epoch.Index) {
-	m.evictMarkerBlockMapping(epochIndex)
-	m.evictSequences(epochIndex)
+func (m *MarkerManager[IndexedID, MappedEntity]) Evict(index slot.Index) {
+	m.evictMarkerBlockMapping(index)
+	m.evictSequences(index)
 }
 
-func (m *MarkerManager[IndexedID, MappedEntity]) evictSequences(epochIndex epoch.Index) {
-	if sequenceSet, sequenceSetExists := m.sequenceEviction.Get(epochIndex); sequenceSetExists {
-		m.sequenceEviction.Delete(epochIndex)
+func (m *MarkerManager[IndexedID, MappedEntity]) evictSequences(index slot.Index) {
+	if sequenceSet, sequenceSetExists := m.sequenceEviction.Get(index); sequenceSetExists {
+		m.sequenceEviction.Delete(index)
 
 		sequenceSet.ForEach(func(sequenceID markers.SequenceID) {
-			if lastUsed, exists := m.sequenceLastUsed.Get(sequenceID); exists && lastUsed <= epochIndex {
+			if lastUsed, exists := m.sequenceLastUsed.Get(sequenceID); exists && lastUsed <= index {
 				m.SequenceMutex.Lock(sequenceID)
 				defer m.SequenceMutex.Unlock(sequenceID)
 
@@ -105,9 +105,9 @@ func (m *MarkerManager[IndexedID, MappedEntity]) evictSequences(epochIndex epoch
 	}
 }
 
-func (m *MarkerManager[IndexedID, MappedEntity]) evictMarkerBlockMapping(epochIndex epoch.Index) {
-	if markerSet, exists := m.markerBlockMappingEviction.Get(epochIndex); exists {
-		m.markerBlockMappingEviction.Delete(epochIndex)
+func (m *MarkerManager[IndexedID, MappedEntity]) evictMarkerBlockMapping(index slot.Index) {
+	if markerSet, exists := m.markerBlockMappingEviction.Get(index); exists {
+		m.markerBlockMappingEviction.Delete(index)
 
 		markerSet.ForEach(func(marker markers.Marker) {
 			m.SequenceMutex.Lock(marker.SequenceID())
@@ -126,14 +126,14 @@ func (m *MarkerManager[IndexedID, MappedEntity]) evictMarkerBlockMapping(epochIn
 	}
 }
 
-func (m *MarkerManager[IndexedID, MappedEntity]) registerSequenceEviction(index epoch.Index, sequenceID markers.SequenceID) {
-	// add the sequence to the set of active sequences for the given epoch.Index. This is append-only (record of the past).
+func (m *MarkerManager[IndexedID, MappedEntity]) registerSequenceEviction(index slot.Index, sequenceID markers.SequenceID) {
+	// add the sequence to the set of active sequences for the given slot.Index. This is append-only (record of the past).
 	sequenceSet, _ := m.sequenceEviction.GetOrCreate(index, func() set.Set[markers.SequenceID] {
 		return set.New[markers.SequenceID](true)
 	})
 	sequenceSet.Add(sequenceID)
 
-	// update the epoch.Index in which the sequence was last used (it's a rolling state in the present)
+	// update the slot.Index in which the sequence was last used (it's a rolling state in the present)
 	m.sequenceLastUsed.Set(sequenceID, index)
 }
 
@@ -306,7 +306,7 @@ func (m *MarkerManager[IndexedID, MappedEntity]) addMarkerBlockMapping(marker ma
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithSequenceManagerOptions[IndexedID epoch.IndexedID, MappedEntity epoch.IndexedEntity[IndexedID]](opts ...options.Option[markers.SequenceManager]) options.Option[MarkerManager[IndexedID, MappedEntity]] {
+func WithSequenceManagerOptions[IndexedID slot.IndexedID, MappedEntity slot.IndexedEntity[IndexedID]](opts ...options.Option[markers.SequenceManager]) options.Option[MarkerManager[IndexedID, MappedEntity]] {
 	return func(b *MarkerManager[IndexedID, MappedEntity]) {
 		b.optsSequenceManager = opts
 	}

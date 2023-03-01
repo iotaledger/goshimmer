@@ -9,7 +9,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/ads"
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/core/stream"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
@@ -24,7 +24,7 @@ type UnspentOutputsConsumer interface {
 	ApplySpentOutput(output *ledger.OutputWithMetadata) (err error)
 	RollbackCreatedOutput(output *ledger.OutputWithMetadata) (err error)
 	RollbackSpentOutput(output *ledger.OutputWithMetadata) (err error)
-	BeginBatchedStateTransition(targetEpoch epoch.Index) (currentEpoch epoch.Index, err error)
+	BeginBatchedStateTransition(targetSlot slot.Index) (currentSlot slot.Index, err error)
 	CommitBatchedStateTransition() (ctx context.Context)
 }
 
@@ -75,12 +75,12 @@ func (u *UnspentOutputs) Root() types.Identifier {
 	return u.IDs.Root()
 }
 
-func (u *UnspentOutputs) Begin(newEpoch epoch.Index) (lastCommittedEpoch epoch.Index, err error) {
-	if lastCommittedEpoch, err = u.BeginBatchedStateTransition(newEpoch); err != nil {
+func (u *UnspentOutputs) Begin(newSlot slot.Index) (lastCommittedSlot slot.Index, err error) {
+	if lastCommittedSlot, err = u.BeginBatchedStateTransition(newSlot); err != nil {
 		return 0, errors.Wrap(err, "failed to begin batched state transition")
 	}
 
-	if lastCommittedEpoch == newEpoch {
+	if lastCommittedSlot == newSlot {
 		return
 	}
 
@@ -88,8 +88,8 @@ func (u *UnspentOutputs) Begin(newEpoch epoch.Index) (lastCommittedEpoch epoch.I
 	u.batchSpentOutputIDs = utxo.NewOutputIDs()
 	u.batchConsumers = make(map[UnspentOutputsConsumer]dsTypes.Empty)
 
-	if err = u.preparePendingConsumers(lastCommittedEpoch, newEpoch); err != nil {
-		return lastCommittedEpoch, errors.Wrap(err, "failed to get pending state diff consumers")
+	if err = u.preparePendingConsumers(lastCommittedSlot, newSlot); err != nil {
+		return lastCommittedSlot, errors.Wrap(err, "failed to get pending state diff consumers")
 	}
 
 	return
@@ -187,7 +187,7 @@ func (u *UnspentOutputs) Export(writer io.WriteSeeker) (err error) {
 	return
 }
 
-func (u *UnspentOutputs) Import(reader io.ReadSeeker, targetEpoch epoch.Index) (err error) {
+func (u *UnspentOutputs) Import(reader io.ReadSeeker, targetSlot slot.Index) (err error) {
 	outputWithMetadata := new(ledger.OutputWithMetadata)
 	if err = stream.ReadCollection(reader, func(i int) (err error) {
 		if err = stream.ReadSerializable(reader, outputWithMetadata); err != nil {
@@ -201,7 +201,7 @@ func (u *UnspentOutputs) Import(reader io.ReadSeeker, targetEpoch epoch.Index) (
 		return errors.Wrap(err, "failed to import unspent outputs")
 	}
 
-	u.SetLastCommittedEpoch(targetEpoch)
+	u.SetLastCommittedSlot(targetSlot)
 
 	u.TriggerInitialized()
 
@@ -236,14 +236,14 @@ func (u *UnspentOutputs) applyBatch(waitForConsumers *sync.WaitGroup, done func(
 	done()
 }
 
-func (u *UnspentOutputs) preparePendingConsumers(currentEpoch, targetEpoch epoch.Index) (err error) {
+func (u *UnspentOutputs) preparePendingConsumers(currentSlot, targetSlot slot.Index) (err error) {
 	for _, consumer := range u.Consumers() {
-		consumerEpoch, err := consumer.BeginBatchedStateTransition(targetEpoch)
+		consumerSlot, err := consumer.BeginBatchedStateTransition(targetSlot)
 		if err != nil {
 			return errors.Wrap(err, "failed to start consumer transaction")
-		} else if consumerEpoch != currentEpoch && consumerEpoch != targetEpoch {
-			return errors.Errorf("consumer in unexpected epoch: %d", consumerEpoch)
-		} else if consumerEpoch != targetEpoch {
+		} else if consumerSlot != currentSlot && consumerSlot != targetSlot {
+			return errors.Errorf("consumer in unexpected slot: %d", consumerSlot)
+		} else if consumerSlot != targetSlot {
 			u.batchConsumers[consumer] = dsTypes.Void
 		}
 	}
@@ -264,7 +264,7 @@ func (u *UnspentOutputs) notifyConsumers(consumer map[UnspentOutputsConsumer]dsT
 func (u *UnspentOutputs) outputWithMetadata(outputID utxo.OutputID) (outputWithMetadata *ledger.OutputWithMetadata, err error) {
 	if !u.memPool.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
 		if !u.memPool.Storage.CachedOutputMetadata(outputID).Consume(func(metadata *ledger.OutputMetadata) {
-			outputWithMetadata = ledger.NewOutputWithMetadata(metadata.InclusionEpoch(), outputID, output, metadata.ConsensusManaPledgeID(), metadata.AccessManaPledgeID())
+			outputWithMetadata = ledger.NewOutputWithMetadata(metadata.InclusionSlot(), outputID, output, metadata.ConsensusManaPledgeID(), metadata.AccessManaPledgeID())
 		}) {
 			err = errors.Wrap(err, "failed to load output metadata")
 		}
@@ -282,7 +282,7 @@ func (u *UnspentOutputs) importOutputIntoMemPoolStorage(output *ledger.OutputWit
 		newOutputMetadata.SetAccessManaPledgeID(output.AccessManaPledgeID())
 		newOutputMetadata.SetConsensusManaPledgeID(output.ConsensusManaPledgeID())
 		newOutputMetadata.SetConfirmationState(confirmation.Confirmed)
-		newOutputMetadata.SetInclusionEpoch(output.Index())
+		newOutputMetadata.SetInclusionSlot(output.Index())
 
 		return newOutputMetadata
 	}).Release()

@@ -77,7 +77,6 @@ func configure(plugin *node.Plugin) {
 		lastConfirmedBlock.Update(block.ModelsBlock)
 	}, event.WithWorkerPool(plugin.WorkerPool))
 
-	configureVisualizer()
 	configureServer()
 }
 
@@ -114,7 +113,7 @@ func run(plugin *node.Plugin) {
 	runVisualizer(plugin)
 	runManaFeed(plugin)
 	runConflictLiveFeed(plugin)
-	runEpochsLiveFeed(plugin)
+	runSlotsLiveFeed(plugin)
 
 	log.Infof("Starting %s ...", PluginName)
 	if err := daemon.BackgroundWorker(PluginName, worker, shutdown.PriorityProfiling); err != nil {
@@ -181,8 +180,8 @@ const (
 	MsgTypeConflictsConflictSet
 	// MsgTypeConflictsConflict defines a websocket message that contains a conflict update for the "conflicts" tab.
 	MsgTypeConflictsConflict
-	// MsgTypeEpochInfo defines a websocket message that contains a conflict update for the "conflicts" tab.
-	MsgTypeEpochInfo
+	// MsgTypeSlotInfo defines a websocket message that contains a conflict update for the "conflicts" tab.
+	MsgTypeSlotInfo
 )
 
 type wsblk struct {
@@ -215,7 +214,7 @@ type tangleTime struct {
 
 	AcceptedBlockID  string `json:"acceptedBlockID"`
 	ConfirmedBlockID string `json:"confirmedBlockID"`
-	ConfirmedEpoch   int64  `json:"confirmedEpoch"`
+	ConfirmedSlot    int64  `json:"confirmedSlot"`
 }
 
 type memmetrics struct {
@@ -327,7 +326,7 @@ func currentNodeStatus() *nodestatus {
 		Bootstrapped:     deps.Protocol.Engine().IsBootstrapped(),
 		AcceptedBlockID:  lastAcceptedBlock.BlockID().Base58(),
 		ConfirmedBlockID: lastConfirmedBlock.BlockID().Base58(),
-		ConfirmedEpoch:   int64(deps.Protocol.Engine().LastConfirmedEpoch()),
+		ConfirmedSlot:    int64(deps.Protocol.Engine().LastConfirmedSlot()),
 		ATT:              tm.AcceptedTime().UnixNano(),
 		RATT:             tm.RelativeAcceptedTime().UnixNano(),
 		CTT:              tm.ConfirmedTime().UnixNano(),

@@ -8,7 +8,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
@@ -19,16 +19,17 @@ import (
 )
 
 const (
-	defaultMinEpochCommittableAge = 6
+	defaultMinSlotCommittableAge = 6
 )
 
 // region Manager //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Manager is the component that manages the epoch commitments.
+// Manager is the component that manages the slot commitments.
 type Manager struct {
-	Events         *Events
-	EpochMutations *EpochMutations
-	Attestations   *Attestations
+	Events           *Events
+	SlotMutations    *SlotMutations
+	Attestations     *Attestations
+	SlotTimeProvider *slot.TimeProvider
 
 	storage         *storage.Storage
 	ledgerState     *ledgerstate.LedgerState
@@ -37,21 +38,22 @@ type Manager struct {
 	acceptanceTime      time.Time
 	acceptanceTimeMutex sync.RWMutex
 
-	optsMinCommittableEpochAge epoch.Index
+	optsMinCommittableSlotAge slot.Index
 
 	traits.Initializable
 }
 
 // NewManager creates a new notarization Manager.
-func NewManager(storageInstance *storage.Storage, ledgerState *ledgerstate.LedgerState, weights *sybilprotection.Weights, opts ...options.Option[Manager]) (newManager *Manager) {
+func NewManager(storageInstance *storage.Storage, ledgerState *ledgerstate.LedgerState, weights *sybilprotection.Weights, slotTimeProvider *slot.TimeProvider, opts ...options.Option[Manager]) *Manager {
 	return options.Apply(&Manager{
-		Events:                     NewEvents(),
-		EpochMutations:             NewEpochMutations(weights, storageInstance.Settings.LatestCommitment().Index()),
-		Attestations:               NewAttestations(storageInstance.Permanent.Attestations, storageInstance.Prunable.Attestations, weights),
-		storage:                    storageInstance,
-		ledgerState:                ledgerState,
-		acceptanceTime:             storageInstance.Settings.LatestCommitment().Index().EndTime(),
-		optsMinCommittableEpochAge: defaultMinEpochCommittableAge,
+		Events:                    NewEvents(),
+		SlotMutations:             NewSlotMutations(weights, storageInstance.Settings.LatestCommitment().Index()),
+		Attestations:              NewAttestations(storageInstance.Permanent.Attestations, storageInstance.Prunable.Attestations, weights, slotTimeProvider),
+		SlotTimeProvider:          slotTimeProvider,
+		storage:                   storageInstance,
+		ledgerState:               ledgerState,
+		acceptanceTime:            slotTimeProvider.EndTime(storageInstance.Settings.LatestCommitment().Index()),
+		optsMinCommittableSlotAge: defaultMinSlotCommittableAge,
 	}, opts, func(m *Manager) {
 		m.Initializable = traits.NewInitializable(m.Attestations.TriggerInitialized)
 	})
@@ -74,25 +76,25 @@ func (m *Manager) SetAcceptanceTime(acceptanceTime time.Time) {
 	m.acceptanceTime = acceptanceTime
 	m.acceptanceTimeMutex.Unlock()
 
-	if index := epoch.IndexFromTime(acceptanceTime); index > m.storage.Settings.LatestCommitment().Index() {
-		m.tryCommitEpochUntil(index)
+	if index := m.SlotTimeProvider.IndexFromTime(acceptanceTime); index > m.storage.Settings.LatestCommitment().Index() {
+		m.tryCommitSlotUntil(index)
 	}
 }
 
-// IsFullyCommitted returns if the Manager finished committing all pending epochs up to the current acceptance time.
+// IsFullyCommitted returns if the Manager finished committing all pending slots up to the current acceptance time.
 func (m *Manager) IsFullyCommitted() bool {
-	// If acceptance time is in epoch 10, then the latest committable index is 3 (with optsMinCommittableEpochAge=6), because there are 6 full epochs between epoch 10 and epoch 3.
-	// All epochs smaller than 4 are committable, so in order to check if epoch 3 is committed it's necessary to do m.optsMinCommittableEpochAge-1,
-	// otherwise we'd expect epoch 4 to be committed in order to be fully committed, which is impossible.
-	return m.storage.Settings.LatestCommitment().Index() >= epoch.IndexFromTime(m.AcceptanceTime())-m.optsMinCommittableEpochAge-1
+	// If acceptance time is in slot 10, then the latest committable index is 3 (with optsMinCommittableSlotAge=6), because there are 6 full slots between slot 10 and slot 3.
+	// All slots smaller than 4 are committable, so in order to check if slot 3 is committed it's necessary to do m.optsMinCommittableSlotAge-1,
+	// otherwise we'd expect slot 4 to be committed in order to be fully committed, which is impossible.
+	return m.storage.Settings.LatestCommitment().Index() >= m.SlotTimeProvider.IndexFromTime(m.AcceptanceTime())-m.optsMinCommittableSlotAge-1
 }
 
 func (m *Manager) NotarizeAcceptedBlock(block *models.Block) (err error) {
-	if err = m.EpochMutations.AddAcceptedBlock(block); err != nil {
-		return errors.Wrap(err, "failed to add accepted block to epoch mutations")
+	if err = m.SlotMutations.AddAcceptedBlock(block); err != nil {
+		return errors.Wrap(err, "failed to add accepted block to slot mutations")
 	}
 
-	if _, err = m.Attestations.Add(NewAttestation(block)); err != nil {
+	if _, err = m.Attestations.Add(NewAttestation(block, m.SlotTimeProvider)); err != nil {
 		return errors.Wrap(err, "failed to add block to attestations")
 	}
 
@@ -100,11 +102,11 @@ func (m *Manager) NotarizeAcceptedBlock(block *models.Block) (err error) {
 }
 
 func (m *Manager) NotarizeOrphanedBlock(block *models.Block) (err error) {
-	if err = m.EpochMutations.RemoveAcceptedBlock(block); err != nil {
-		return errors.Wrap(err, "failed to remove accepted block from epoch mutations")
+	if err = m.SlotMutations.RemoveAcceptedBlock(block); err != nil {
+		return errors.Wrap(err, "failed to remove accepted block from slot mutations")
 	}
 
-	if _, err = m.Attestations.Delete(NewAttestation(block)); err != nil {
+	if _, err = m.Attestations.Delete(NewAttestation(block, m.SlotTimeProvider)); err != nil {
 		return errors.Wrap(err, "failed to delete block from attestations")
 	}
 
@@ -124,23 +126,23 @@ func (m *Manager) Import(reader io.ReadSeeker) (err error) {
 	return
 }
 
-func (m *Manager) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (err error) {
+func (m *Manager) Export(writer io.WriteSeeker, targetSlot slot.Index) (err error) {
 	m.commitmentMutex.RLock()
 	defer m.commitmentMutex.RUnlock()
 
-	if err = m.Attestations.Export(writer, targetEpoch); err != nil {
+	if err = m.Attestations.Export(writer, targetSlot); err != nil {
 		return errors.Wrap(err, "failed to export attestations")
 	}
 
 	return
 }
 
-// MinCommittableEpochAge returns the minimum age of an epoch to be committable.
-func (m *Manager) MinCommittableEpochAge() epoch.Index {
-	return m.optsMinCommittableEpochAge
+// MinCommittableSlotAge returns the minimum age of a slot to be committable.
+func (m *Manager) MinCommittableSlotAge() slot.Index {
+	return m.optsMinCommittableSlotAge
 }
 
-func (m *Manager) tryCommitEpochUntil(acceptedBlockIndex epoch.Index) {
+func (m *Manager) tryCommitSlotUntil(acceptedBlockIndex slot.Index) {
 	for i := m.storage.Settings.LatestCommitment().Index() + 1; i <= acceptedBlockIndex; i++ {
 		if !m.isCommittable(i, acceptedBlockIndex) {
 			return
@@ -152,24 +154,24 @@ func (m *Manager) tryCommitEpochUntil(acceptedBlockIndex epoch.Index) {
 	}
 }
 
-func (m *Manager) isCommittable(index, acceptedBlockIndex epoch.Index) (isCommittable bool) {
-	return index < acceptedBlockIndex-m.optsMinCommittableEpochAge
+func (m *Manager) isCommittable(index, acceptedBlockIndex slot.Index) bool {
+	return index < acceptedBlockIndex-m.optsMinCommittableSlotAge
 }
 
-func (m *Manager) createCommitment(index epoch.Index) (success bool) {
+func (m *Manager) createCommitment(index slot.Index) (success bool) {
 	latestCommitment := m.storage.Settings.LatestCommitment()
 	if index != latestCommitment.Index()+1 {
-		m.Events.Error.Trigger(errors.Errorf("cannot create commitment for epoch %d, latest commitment is for epoch %d", index, latestCommitment.Index()))
+		m.Events.Error.Trigger(errors.Errorf("cannot create commitment for slot %d, latest commitment is for slot %d", index, latestCommitment.Index()))
 
 		return false
 	}
 
 	if err := m.ledgerState.ApplyStateDiff(index); err != nil {
-		m.Events.Error.Trigger(errors.Wrapf(err, "failed to apply state diff for epoch %d", index))
+		m.Events.Error.Trigger(errors.Wrapf(err, "failed to apply state diff for slot %d", index))
 		return false
 	}
 
-	acceptedBlocks, acceptedTransactions, err := m.EpochMutations.Evict(index)
+	acceptedBlocks, acceptedTransactions, err := m.SlotMutations.Evict(index)
 	if err != nil {
 		m.Events.Error.Trigger(errors.Wrap(err, "failed to commit mutations"))
 		return false
@@ -189,7 +191,7 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 			acceptedTransactions.Root(),
 			attestations.Root(),
 			m.ledgerState.UnspentOutputs.Root(),
-			m.EpochMutations.weights.Root(),
+			m.SlotMutations.weights.Root(),
 		).ID(),
 		m.storage.Settings.LatestCommitment().CumulativeWeight()+attestationsWeight,
 	)
@@ -204,7 +206,7 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 		return false
 	}
 
-	m.Events.EpochCommitted.Trigger(&EpochCommittedDetails{
+	m.Events.SlotCommitted.Trigger(&SlotCommittedDetails{
 		Commitment:           newCommitment,
 		AcceptedBlocks:       acceptedBlocks,
 		AcceptedTransactions: acceptedTransactions,
@@ -230,10 +232,10 @@ func (m *Manager) PerformLocked(perform func(m *Manager)) {
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// WithMinCommittableEpochAge specifies how old an epoch has to be for it to be committable.
-func WithMinCommittableEpochAge(age epoch.Index) options.Option[Manager] {
+// WithMinCommittableSlotAge specifies how old an slot has to be for it to be committable.
+func WithMinCommittableSlotAge(age slot.Index) options.Option[Manager] {
 	return func(manager *Manager) {
-		manager.optsMinCommittableEpochAge = age
+		manager.optsMinCommittableSlotAge = age
 	}
 }
 

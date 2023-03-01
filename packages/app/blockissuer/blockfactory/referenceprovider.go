@@ -6,7 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
@@ -20,15 +20,15 @@ import (
 type ReferenceProvider struct {
 	protocol *protocol.Protocol
 
-	latestEpochIndexCallback       func() epoch.Index
+	latestSlotIndexCallback        func() slot.Index
 	timeSinceConfirmationThreshold time.Duration
 }
 
 // NewReferenceProvider creates a new ReferenceProvider instance.
-func NewReferenceProvider(protocol *protocol.Protocol, timeSinceConfirmationThreshold time.Duration, latestEpochIndexCallback func() epoch.Index) (newInstance *ReferenceProvider) {
+func NewReferenceProvider(protocol *protocol.Protocol, timeSinceConfirmationThreshold time.Duration, latestSlotIndexCallback func() slot.Index) (newInstance *ReferenceProvider) {
 	return &ReferenceProvider{
 		protocol:                       protocol,
-		latestEpochIndexCallback:       latestEpochIndexCallback,
+		latestSlotIndexCallback:        latestSlotIndexCallback,
 		timeSinceConfirmationThreshold: timeSinceConfirmationThreshold,
 	}
 }
@@ -133,8 +133,8 @@ func (r *ReferenceProvider) weakParentsFromUnacceptedInputs(payload payload.Payl
 				continue
 			}
 
-			// do not add a block from an already committed epoch as weak parent
-			if latestAttachment.ID().Index() <= r.latestEpochIndexCallback() {
+			// do not add a block from an already committed slot as weak parent
+			if latestAttachment.ID().Index() <= r.latestSlotIndexCallback() {
 				continue
 			}
 
@@ -256,8 +256,8 @@ func (r *ReferenceProvider) latestValidAttachment(txID utxo.TransactionID) (bloc
 		return nil, errors.Errorf("attachment of %s with %s is too far in the past relative to AcceptedTime %s", txID, block.ID(), acceptedTime.String())
 	}
 
-	if committableEpoch := r.latestEpochIndexCallback(); block.ID().Index() <= committableEpoch {
-		return nil, errors.Errorf("attachment of %s with %s is too far in the past as current committable epoch is %d", txID, block.ID(), committableEpoch)
+	if committableSlot := r.latestSlotIndexCallback(); block.ID().Index() <= committableSlot {
+		return nil, errors.Errorf("attachment of %s with %s is too far in the past as current committable slot is %d", txID, block.ID(), committableSlot)
 	}
 
 	return block, nil

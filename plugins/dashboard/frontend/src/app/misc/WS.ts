@@ -14,7 +14,7 @@ export enum WSMsgType {
     RateSetter,
     ConflictSet,
     Conflict,
-    EpochInfo,
+    SlotInfo,
 }
 
 export interface WSBlock {

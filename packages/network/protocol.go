@@ -7,7 +7,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	nwmodels "github.com/iotaledger/goshimmer/packages/network/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -30,6 +30,8 @@ const (
 type Protocol struct {
 	Events *Events
 
+	slotTimeProvider *slot.TimeProvider
+
 	network                   Endpoint
 	workerPool                *workerpool.WorkerPool
 	duplicateBlockBytesFilter *bytesfilter.BytesFilter
@@ -38,12 +40,13 @@ type Protocol struct {
 	requestedBlockHashesMutex sync.Mutex
 }
 
-func NewProtocol(network Endpoint, workerPool *workerpool.WorkerPool, opts ...options.Option[Protocol]) (protocol *Protocol) {
+func NewProtocol(network Endpoint, workerPool *workerpool.WorkerPool, slotTimeProvider *slot.TimeProvider, opts ...options.Option[Protocol]) (protocol *Protocol) {
 	return options.Apply(&Protocol{
 		Events: NewEvents(),
 
 		network:                   network,
 		workerPool:                workerPool,
+		slotTimeProvider:          slotTimeProvider,
 		duplicateBlockBytesFilter: bytesfilter.New(10000),
 		requestedBlockHashes:      shrinkingmap.New[types.Identifier, dsTypes.Empty](shrinkingmap.WithShrinkingThresholdCount(1000)),
 	}, opts, func(p *Protocol) {
@@ -63,31 +66,31 @@ func (p *Protocol) RequestBlock(id models.BlockID, to ...identity.ID) {
 	p.requestedBlockHashesMutex.Unlock()
 
 	p.network.Send(&nwmodels.Packet{Body: &nwmodels.Packet_BlockRequest{BlockRequest: &nwmodels.BlockRequest{
-		Bytes: lo.PanicOnErr(id.Bytes()),
+		Id: lo.PanicOnErr(id.Bytes()),
 	}}}, protocolID, to...)
 }
 
-func (p *Protocol) SendEpochCommitment(cm *commitment.Commitment, to ...identity.ID) {
-	p.network.Send(&nwmodels.Packet{Body: &nwmodels.Packet_EpochCommitment{EpochCommitment: &nwmodels.EpochCommitment{
+func (p *Protocol) SendSlotCommitment(cm *commitment.Commitment, to ...identity.ID) {
+	p.network.Send(&nwmodels.Packet{Body: &nwmodels.Packet_SlotCommitment{SlotCommitment: &nwmodels.SlotCommitment{
 		Bytes: lo.PanicOnErr(cm.Bytes()),
 	}}}, protocolID, to...)
 }
 
-func (p *Protocol) SendAttestations(cm *commitment.Commitment, blockIDs models.BlockIDs, attestations *orderedmap.OrderedMap[epoch.Index, *advancedset.AdvancedSet[*notarization.Attestation]], to ...identity.ID) {
+func (p *Protocol) SendAttestations(cm *commitment.Commitment, blockIDs models.BlockIDs, attestations *orderedmap.OrderedMap[slot.Index, *advancedset.AdvancedSet[*notarization.Attestation]], to ...identity.ID) {
 	p.network.Send(&nwmodels.Packet{Body: &nwmodels.Packet_Attestations{Attestations: &nwmodels.Attestations{
 		Commitment:   lo.PanicOnErr(cm.Bytes()),
-		Blocks:       lo.PanicOnErr(blockIDs.Bytes()),
+		BlocksIds:    lo.PanicOnErr(blockIDs.Bytes()),
 		Attestations: lo.PanicOnErr(attestations.Encode()),
 	}}}, protocolID, to...)
 }
 
 func (p *Protocol) RequestCommitment(id commitment.ID, to ...identity.ID) {
-	p.network.Send(&nwmodels.Packet{Body: &nwmodels.Packet_EpochCommitmentRequest{EpochCommitmentRequest: &nwmodels.EpochCommitmentRequest{
-		Bytes: lo.PanicOnErr(id.Bytes()),
+	p.network.Send(&nwmodels.Packet{Body: &nwmodels.Packet_SlotCommitmentRequest{SlotCommitmentRequest: &nwmodels.SlotCommitmentRequest{
+		Id: lo.PanicOnErr(id.Bytes()),
 	}}}, protocolID, to...)
 }
 
-func (p *Protocol) RequestAttestations(cm *commitment.Commitment, endIndex epoch.Index, to ...identity.ID) {
+func (p *Protocol) RequestAttestations(cm *commitment.Commitment, endIndex slot.Index, to ...identity.ID) {
 	p.network.Send(&nwmodels.Packet{Body: &nwmodels.Packet_AttestationsRequest{AttestationsRequest: &nwmodels.AttestationsRequest{
 		Commitment: lo.PanicOnErr(cm.Bytes()),
 		EndIndex:   endIndex.Bytes(),
@@ -103,14 +106,14 @@ func (p *Protocol) handlePacket(nbr identity.ID, packet proto.Message) (err erro
 	case *nwmodels.Packet_Block:
 		p.workerPool.Submit(func() { p.onBlock(packetBody.Block.GetBytes(), nbr) })
 	case *nwmodels.Packet_BlockRequest:
-		p.workerPool.Submit(func() { p.onBlockRequest(packetBody.BlockRequest.GetBytes(), nbr) })
-	case *nwmodels.Packet_EpochCommitment:
-		p.workerPool.Submit(func() { p.onEpochCommitment(packetBody.EpochCommitment.GetBytes(), nbr) })
-	case *nwmodels.Packet_EpochCommitmentRequest:
-		p.workerPool.Submit(func() { p.onEpochCommitmentRequest(packetBody.EpochCommitmentRequest.GetBytes(), nbr) })
+		p.workerPool.Submit(func() { p.onBlockRequest(packetBody.BlockRequest.GetId(), nbr) })
+	case *nwmodels.Packet_SlotCommitment:
+		p.workerPool.Submit(func() { p.onSlotCommitment(packetBody.SlotCommitment.GetBytes(), nbr) })
+	case *nwmodels.Packet_SlotCommitmentRequest:
+		p.workerPool.Submit(func() { p.onSlotCommitmentRequest(packetBody.SlotCommitmentRequest.GetId(), nbr) })
 	case *nwmodels.Packet_Attestations:
 		p.workerPool.Submit(func() {
-			p.onAttestations(packetBody.Attestations.GetCommitment(), packetBody.Attestations.GetBlocks(), packetBody.Attestations.GetAttestations(), nbr)
+			p.onAttestations(packetBody.Attestations.GetCommitment(), packetBody.Attestations.GetBlocksIds(), packetBody.Attestations.GetAttestations(), nbr)
 		})
 	case *nwmodels.Packet_AttestationsRequest:
 		p.workerPool.Submit(func() {
@@ -145,7 +148,7 @@ func (p *Protocol) onBlock(blockData []byte, id identity.ID) {
 
 		return
 	}
-	err := block.DetermineID(blockIdentifier)
+	err := block.DetermineID(p.slotTimeProvider, blockIdentifier)
 	if err != nil {
 		p.Events.Error.Trigger(&ErrorEvent{
 			Error:  errors.Wrap(err, "error while determining received block's ID"),
@@ -178,35 +181,35 @@ func (p *Protocol) onBlockRequest(idBytes []byte, id identity.ID) {
 	})
 }
 
-func (p *Protocol) onEpochCommitment(commitmentBytes []byte, id identity.ID) {
+func (p *Protocol) onSlotCommitment(commitmentBytes []byte, id identity.ID) {
 	var receivedCommitment commitment.Commitment
 	if _, err := receivedCommitment.FromBytes(commitmentBytes); err != nil {
 		p.Events.Error.Trigger(&ErrorEvent{
-			Error:  errors.Wrap(err, "failed to deserialize epoch commitment"),
+			Error:  errors.Wrap(err, "failed to deserialize slot commitment"),
 			Source: id,
 		})
 
 		return
 	}
 
-	p.Events.EpochCommitmentReceived.Trigger(&EpochCommitmentReceivedEvent{
+	p.Events.SlotCommitmentReceived.Trigger(&SlotCommitmentReceivedEvent{
 		Commitment: &receivedCommitment,
 		Source:     id,
 	})
 }
 
-func (p *Protocol) onEpochCommitmentRequest(idBytes []byte, id identity.ID) {
+func (p *Protocol) onSlotCommitmentRequest(idBytes []byte, id identity.ID) {
 	var receivedCommitmentID commitment.ID
 	if _, err := receivedCommitmentID.FromBytes(idBytes); err != nil {
 		p.Events.Error.Trigger(&ErrorEvent{
-			Error:  errors.Wrap(err, "failed to deserialize epoch commitment request"),
+			Error:  errors.Wrap(err, "failed to deserialize slot commitment request"),
 			Source: id,
 		})
 
 		return
 	}
 
-	p.Events.EpochCommitmentRequestReceived.Trigger(&EpochCommitmentRequestReceivedEvent{
+	p.Events.SlotCommitmentRequestReceived.Trigger(&SlotCommitmentRequestReceivedEvent{
 		CommitmentID: receivedCommitmentID,
 		Source:       id,
 	})
@@ -233,7 +236,7 @@ func (p *Protocol) onAttestations(commitmentBytes []byte, blockIDBytes []byte, a
 		return
 	}
 
-	attestations := orderedmap.New[epoch.Index, *advancedset.AdvancedSet[*notarization.Attestation]]()
+	attestations := orderedmap.New[slot.Index, *advancedset.AdvancedSet[*notarization.Attestation]]()
 	if _, err := attestations.Decode(attestationsBytes); err != nil {
 		p.Events.Error.Trigger(&ErrorEvent{
 			Error:  errors.Wrap(err, "failed to deserialize attestations"),
@@ -251,7 +254,7 @@ func (p *Protocol) onAttestations(commitmentBytes []byte, blockIDBytes []byte, a
 	})
 }
 
-func (p *Protocol) onAttestationsRequest(commitmentBytes []byte, epochIndexBytes []byte, id identity.ID) {
+func (p *Protocol) onAttestationsRequest(commitmentBytes []byte, slotIndexBytes []byte, id identity.ID) {
 	cm := &commitment.Commitment{}
 	if _, err := cm.FromBytes(commitmentBytes); err != nil {
 		p.Events.Error.Trigger(&ErrorEvent{
@@ -262,10 +265,10 @@ func (p *Protocol) onAttestationsRequest(commitmentBytes []byte, epochIndexBytes
 		return
 	}
 
-	endEpochIndex, _, err := epoch.IndexFromBytes(epochIndexBytes)
+	endSlotIndex, _, err := slot.IndexFromBytes(slotIndexBytes)
 	if err != nil {
 		p.Events.Error.Trigger(&ErrorEvent{
-			Error:  errors.Wrap(err, "failed to deserialize end epoch index"),
+			Error:  errors.Wrap(err, "failed to deserialize end slot index"),
 			Source: id,
 		})
 
@@ -274,7 +277,7 @@ func (p *Protocol) onAttestationsRequest(commitmentBytes []byte, epochIndexBytes
 
 	p.Events.AttestationsRequestReceived.Trigger(&AttestationsRequestReceivedEvent{
 		Commitment: cm,
-		EndIndex:   endEpochIndex,
+		EndIndex:   endSlotIndex,
 		Source:     id,
 	})
 }

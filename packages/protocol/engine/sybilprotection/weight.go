@@ -3,18 +3,18 @@ package sybilprotection
 import (
 	"context"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/hive.go/serializer/v2/serix"
 )
 
-// Weight is a weight annotated with the epoch it was last updated in.
+// Weight is a weight annotated with the slot it was last updated in.
 type Weight struct {
-	Value      int64       `serix:"0"`
-	UpdateTime epoch.Index `serix:"1"`
+	Value      int64      `serix:"0"`
+	UpdateTime slot.Index `serix:"1"`
 }
 
 // NewWeight creates a new Weight instance.
-func NewWeight(value int64, updateTime epoch.Index) (newWeight *Weight) {
+func NewWeight(value int64, updateTime slot.Index) (newWeight *Weight) {
 	return &Weight{
 		Value:      value,
 		UpdateTime: updateTime,

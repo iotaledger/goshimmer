@@ -7,7 +7,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/database"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
@@ -38,6 +38,7 @@ import (
 
 type Protocol struct {
 	Events            *Events
+	SlotTimeProvider  *slot.TimeProvider
 	CongestionControl *congestioncontrol.CongestionControl
 	TipManager        *tipmanager.TipManager
 	chainManager      *chainmanager.Manager
@@ -55,6 +56,7 @@ type Protocol struct {
 	optsSnapshotPath     string
 	optsPruningThreshold uint64
 
+	optsSlotTimeProviderOptions       []options.Option[slot.TimeProvider]
 	optsCongestionControlOptions      []options.Option[congestioncontrol.CongestionControl]
 	optsEngineOptions                 []options.Option[engine.Engine]
 	optsChainManagerOptions           []options.Option[chainmanager.Manager]
@@ -73,8 +75,9 @@ func New(workers *workerpool.Group, dispatcher network.Endpoint, opts ...options
 		optsThroughputQuotaProvider: mana1.NewProvider(),
 
 		optsBaseDirectory:    "",
-		optsPruningThreshold: 6 * 60, // 1 hour given that epoch duration is 10 seconds
+		optsPruningThreshold: 6 * 60, // 1 hour given that slot duration is 10 seconds
 	}, opts,
+		(*Protocol).initSlotTimeProvider,
 		(*Protocol).initNetworkEvents,
 		(*Protocol).initCongestionControl,
 		(*Protocol).initEngineManager,
@@ -91,7 +94,7 @@ func (p *Protocol) Run() {
 		panic(err)
 	}
 
-	p.networkProtocol = network.NewProtocol(p.dispatcher, p.Workers.CreatePool("NetworkProtocol")) // Use max amount of workers for networking
+	p.networkProtocol = network.NewProtocol(p.dispatcher, p.Workers.CreatePool("NetworkProtocol"), p.SlotTimeProvider) // Use max amount of workers for networking
 	p.Events.Network.LinkTo(p.networkProtocol.Events)
 }
 
@@ -113,6 +116,10 @@ func (p *Protocol) Shutdown() {
 	p.Workers.Shutdown()
 }
 
+func (p *Protocol) initSlotTimeProvider() {
+	p.SlotTimeProvider = slot.NewTimeProvider(p.optsSlotTimeProviderOptions...)
+}
+
 func (p *Protocol) initEngineManager() {
 	p.engineManager = enginemanager.New(
 		p.Workers.CreateGroup("EngineManager"),
@@ -122,17 +129,18 @@ func (p *Protocol) initEngineManager() {
 		p.optsEngineOptions,
 		p.optsSybilProtectionProvider,
 		p.optsThroughputQuotaProvider,
+		p.SlotTimeProvider,
 	)
 
-	p.Events.Engine.Consensus.EpochGadget.EpochConfirmed.Hook(func(epochIndex epoch.Index) {
-		p.Engine().Storage.PruneUntilEpoch(epochIndex - epoch.Index(p.optsPruningThreshold))
+	p.Events.Engine.Consensus.SlotGadget.SlotConfirmed.Hook(func(index slot.Index) {
+		p.Engine().Storage.PruneUntilSlot(index - slot.Index(p.optsPruningThreshold))
 	}, event.WithWorkerPool(p.Workers.CreatePool("PruneEngine", 2)))
 
 	p.mainEngine = lo.PanicOnErr(p.engineManager.LoadActiveEngine())
 }
 
 func (p *Protocol) initCongestionControl() {
-	p.CongestionControl = congestioncontrol.New(p.optsCongestionControlOptions...)
+	p.CongestionControl = congestioncontrol.New(p.SlotTimeProvider, p.optsCongestionControlOptions...)
 	p.Events.CongestionControl.LinkTo(p.CongestionControl.Events)
 }
 
@@ -155,11 +163,11 @@ func (p *Protocol) initNetworkEvents() {
 		}
 	}, event.WithWorkerPool(wpBlocks))
 
-	wpCommitments := p.Workers.CreatePool("NetworkEvents.EpochCommitments", 1) // Using just 1 worker to avoid contention
-	p.Events.Network.EpochCommitmentRequestReceived.Hook(func(event *network.EpochCommitmentRequestReceivedEvent) {
+	wpCommitments := p.Workers.CreatePool("NetworkEvents.SlotCommitments", 1) // Using just 1 worker to avoid contention
+	p.Events.Network.SlotCommitmentRequestReceived.Hook(func(event *network.SlotCommitmentRequestReceivedEvent) {
 		// when we receive a commitment request, do not look it up in the ChainManager but in the storage, else we might answer with commitments we did not issue ourselves and for which we cannot provide attestations
 		if requestedCommitment, err := p.Engine().Storage.Commitments.Load(event.CommitmentID.Index()); err == nil && requestedCommitment.ID() == event.CommitmentID {
-			p.networkProtocol.SendEpochCommitment(requestedCommitment, event.Source)
+			p.networkProtocol.SendSlotCommitment(requestedCommitment, event.Source)
 		}
 	}, event.WithWorkerPool(wpCommitments))
 
@@ -178,17 +186,17 @@ func (p *Protocol) initChainManager() {
 
 	wp := p.Workers.CreatePool("ChainManager", 1) // Using just 1 worker to avoid contention
 
-	p.Events.Engine.NotarizationManager.EpochCommitted.Hook(func(details *notarization.EpochCommittedDetails) {
+	p.Events.Engine.NotarizationManager.SlotCommitted.Hook(func(details *notarization.SlotCommittedDetails) {
 		p.chainManager.ProcessCommitment(details.Commitment)
 	}, event.WithWorkerPool(wp))
-	p.Events.Engine.Consensus.EpochGadget.EpochConfirmed.Hook(func(epochIndex epoch.Index) {
-		p.chainManager.CommitmentRequester.EvictUntil(epochIndex)
+	p.Events.Engine.Consensus.SlotGadget.SlotConfirmed.Hook(func(index slot.Index) {
+		p.chainManager.CommitmentRequester.EvictUntil(index)
 	}, event.WithWorkerPool(wp))
-	p.Events.Engine.EvictionState.EpochEvicted.Hook(func(epochIndex epoch.Index) {
-		p.chainManager.Evict(epochIndex)
+	p.Events.Engine.EvictionState.SlotEvicted.Hook(func(index slot.Index) {
+		p.chainManager.Evict(index)
 	}, event.WithWorkerPool(wp))
 	p.Events.ChainManager.ForkDetected.Hook(p.onForkDetected, event.WithWorkerPool(wp))
-	p.Events.Network.EpochCommitmentReceived.Hook(func(event *network.EpochCommitmentReceivedEvent) {
+	p.Events.Network.SlotCommitmentReceived.Hook(func(event *network.SlotCommitmentReceivedEvent) {
 		p.chainManager.ProcessCommitmentFromSource(event.Commitment, event.Source)
 	}, event.WithWorkerPool(wp))
 	p.chainManager.CommitmentRequester.Events.Tick.Hook(func(commitmentID commitment.ID) {
@@ -208,7 +216,7 @@ func (p *Protocol) initChainManager() {
 }
 
 func (p *Protocol) initTipManager() {
-	p.TipManager = tipmanager.New(p.Workers.CreateGroup("TipManager"), p.CongestionControl.Block, p.optsTipManagerOptions...)
+	p.TipManager = tipmanager.New(p.Workers.CreateGroup("TipManager"), p.SlotTimeProvider, p.CongestionControl.Block, p.optsTipManagerOptions...)
 	p.Events.TipManager = p.TipManager.Events
 
 	wp := p.Workers.CreatePool("TipManagerAttach", 1) // Using just 1 worker to avoid contention
@@ -226,7 +234,7 @@ func (p *Protocol) initTipManager() {
 	p.Events.CongestionControl.Scheduler.BlockScheduled.Hook(func(block *scheduler.Block) {
 		p.TipManager.AddTip(block)
 	}, event.WithWorkerPool(wp))
-	p.Events.Engine.EvictionState.EpochEvicted.Hook(func(index epoch.Index) {
+	p.Events.Engine.EvictionState.SlotEvicted.Hook(func(index slot.Index) {
 		p.TipManager.EvictTSCCache(index)
 	}, event.WithWorkerPool(wp))
 	p.Events.Engine.Consensus.BlockGadget.BlockAccepted.Hook(func(block *blockgadget.Block) {
@@ -290,7 +298,7 @@ func (p *Protocol) switchEngines() {
 
 	p.Events.MainEngineSwitched.Trigger(p.MainEngineInstance())
 
-	// TODO: copy over old epochs from the old engine to the new one
+	// TODO: copy over old slots from the old engine to the new one
 
 	// Cleanup filesystem
 	if err := oldEngine.RemoveFromFilesystem(); err != nil {
@@ -332,40 +340,40 @@ func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) error {
 	return nil
 }
 
-func (p *Protocol) ProcessAttestationsRequest(forkingPoint *commitment.Commitment, endIndex epoch.Index, src identity.ID) {
+func (p *Protocol) ProcessAttestationsRequest(forkingPoint *commitment.Commitment, endIndex slot.Index, src identity.ID) {
 	mainEngine := p.MainEngineInstance()
 
-	if mainEngine.Engine.NotarizationManager.Attestations.LastCommittedEpoch() < endIndex {
+	if mainEngine.Engine.NotarizationManager.Attestations.LastCommittedSlot() < endIndex {
 		// Invalid request received from src
 		// TODO: ban peer?
 		return
 	}
 
 	blockIDs := models.NewBlockIDs()
-	attestations := orderedmap.New[epoch.Index, *advancedset.AdvancedSet[*notarization.Attestation]]()
+	attestations := orderedmap.New[slot.Index, *advancedset.AdvancedSet[*notarization.Attestation]]()
 	for i := forkingPoint.Index(); i <= endIndex; i++ {
-		attestationsForEpoch, err := mainEngine.Engine.NotarizationManager.Attestations.Get(i)
+		attestationsForSlot, err := mainEngine.Engine.NotarizationManager.Attestations.Get(i)
 		if err != nil {
-			p.Events.Error.Trigger(errors.Wrapf(err, "failed to get attestations for epoch %d upon request", i))
+			p.Events.Error.Trigger(errors.Wrapf(err, "failed to get attestations for slot %d upon request", i))
 			return
 		}
 
 		attestationsSet := advancedset.NewAdvancedSet[*notarization.Attestation]()
-		if err := attestationsForEpoch.Stream(func(_ identity.ID, attestation *notarization.Attestation) bool {
+		if err := attestationsForSlot.Stream(func(_ identity.ID, attestation *notarization.Attestation) bool {
 			attestationsSet.Add(attestation)
 			return true
 		}); err != nil {
-			p.Events.Error.Trigger(errors.Wrapf(err, "failed to stream attestations for epoch %d", i))
+			p.Events.Error.Trigger(errors.Wrapf(err, "failed to stream attestations for slot %d", i))
 			return
 		}
 
 		attestations.Set(i, attestationsSet)
 
-		if err := mainEngine.Engine.Storage.Blocks.ForEachBlockInEpoch(i, func(blockID models.BlockID) bool {
+		if err := mainEngine.Engine.Storage.Blocks.ForEachBlockInSlot(i, func(blockID models.BlockID) bool {
 			blockIDs.Add(blockID)
 			return true
 		}); err != nil {
-			p.Events.Error.Trigger(errors.Wrap(err, "failed to read blocks from epoch"))
+			p.Events.Error.Trigger(errors.Wrap(err, "failed to read blocks from slot"))
 			return
 		}
 	}
@@ -373,7 +381,7 @@ func (p *Protocol) ProcessAttestationsRequest(forkingPoint *commitment.Commitmen
 	p.networkProtocol.SendAttestations(forkingPoint, blockIDs, attestations, src)
 }
 
-func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, blockIDs models.BlockIDs, attestations *orderedmap.OrderedMap[epoch.Index, *advancedset.AdvancedSet[*notarization.Attestation]], source identity.ID) {
+func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, blockIDs models.BlockIDs, attestations *orderedmap.OrderedMap[slot.Index, *advancedset.AdvancedSet[*notarization.Attestation]], source identity.ID) {
 	if attestations.Size() == 0 {
 		p.Events.Error.Trigger(errors.Errorf("received attestations from peer %s are empty", source.String()))
 		return
@@ -419,15 +427,15 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 
 		// Get our cumulative weight at the snapshot target index and apply all the received attestations on stop while verifying the validity of each signature
 		calculatedCumulativeWeight = lo.PanicOnErr(mainEngine.Storage.Commitments.Load(snapshotTargetIndex)).CumulativeWeight()
-		for epochIndex := forkedEvent.ForkingPoint.Index(); epochIndex <= forkedEvent.Commitment.Index(); epochIndex++ {
-			epochAttestations, epochExists := attestations.Get(epochIndex)
-			if !epochExists {
-				p.Events.Error.Trigger(errors.Errorf("attestations for epoch %d missing", epochIndex))
+		for slotIndex := forkedEvent.ForkingPoint.Index(); slotIndex <= forkedEvent.Commitment.Index(); slotIndex++ {
+			slotAttestations, slotExists := attestations.Get(slotIndex)
+			if !slotExists {
+				p.Events.Error.Trigger(errors.Errorf("attestations for slot %d missing", slotIndex))
 				// TODO: ban source?
 				return
 			}
 			visitedIdentities := make(map[identity.ID]types.Empty)
-			for it := epochAttestations.Iterator(); it.HasNext(); {
+			for it := slotAttestations.Iterator(); it.HasNext(); {
 				attestation := it.Next()
 
 				if valid, err := attestation.VerifySignature(); !valid {
@@ -462,7 +470,7 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 	if calculatedCumulativeWeight <= weightAtForkedEventEnd {
 		forkedEventClaimedWeight := forkedEvent.Commitment.CumulativeWeight()
 		forkedEventMainWeight := lo.PanicOnErr(mainEngine.Engine.Storage.Commitments.Load(forkedEvent.Commitment.Index())).CumulativeWeight()
-		p.Events.Error.Trigger(errors.Errorf("fork at point %d does not accumulate enough weight at epoch %d calculated %d CW <= main chain %d CW. fork event detected at %d was %d CW > %d CW",
+		p.Events.Error.Trigger(errors.Errorf("fork at point %d does not accumulate enough weight at slot %d calculated %d CW <= main chain %d CW. fork event detected at %d was %d CW > %d CW",
 			forkedEvent.ForkingPoint.Index(),
 			forkedEvent.Commitment.Index(),
 			calculatedCumulativeWeight,
@@ -474,7 +482,7 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 		return
 	}
 
-	candidateEngine, err := p.engineManager.ForkEngineAtEpoch(snapshotTargetIndex)
+	candidateEngine, err := p.engineManager.ForkEngineAtSlot(snapshotTargetIndex)
 	if err != nil {
 		p.Events.Error.Trigger(errors.Wrap(err, "error creating new candidate engine"))
 		return
@@ -496,8 +504,8 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 		p.networkProtocol.RequestBlock(blockID)
 	}, event.WithWorkerPool(wp)).Unhook
 
-	// Attach epoch commitments to the chain manager and detach as soon as we switch to that engine
-	detachProcessCommitment := candidateEngine.Engine.Events.NotarizationManager.EpochCommitted.Hook(func(details *notarization.EpochCommittedDetails) {
+	// Attach slot commitments to the chain manager and detach as soon as we switch to that engine
+	detachProcessCommitment := candidateEngine.Engine.Events.NotarizationManager.SlotCommitted.Hook(func(details *notarization.SlotCommittedDetails) {
 		p.chainManager.ProcessCandidateCommitment(details.Commitment)
 	}, event.WithWorkerPool(candidateEngine.Engine.Workers.CreatePool("ProcessCandidateCommitment", 2))).Unhook
 
@@ -577,6 +585,12 @@ func WithPruningThreshold(pruningThreshold uint64) options.Option[Protocol] {
 func WithSnapshotPath(snapshot string) options.Option[Protocol] {
 	return func(n *Protocol) {
 		n.optsSnapshotPath = snapshot
+	}
+}
+
+func WithSlotTimeProviderOptions(opts ...options.Option[slot.TimeProvider]) options.Option[Protocol] {
+	return func(p *Protocol) {
+		p.optsSlotTimeProviderOptions = append(p.optsSlotTimeProviderOptions, opts...)
 	}
 }
 

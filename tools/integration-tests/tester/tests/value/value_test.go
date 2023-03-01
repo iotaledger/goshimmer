@@ -2,6 +2,7 @@ package value
 
 import (
 	"context"
+	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"log"
 	"testing"
 
@@ -25,16 +26,16 @@ import (
 func TestValueTransactionPersistence(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
-	snapshotInfo := tests.EqualSnapshotDetails
+	snapshotOptions := tests.EqualSnapshotOptions
+	snapshotInfo := snapshotcreator.NewOptions(snapshotOptions...)
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
 		StartSynced: false,
 		Faucet:      true,
 		Activity:    true, // we need to issue regular activity blocks
-		Snapshot:    snapshotInfo,
+		Snapshot:    snapshotOptions,
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
-
 	log.Println("Bootstrapping network...")
 	tests.BootstrapNetwork(t, n)
 	log.Println("Bootstrapping network... done")
@@ -119,16 +120,17 @@ func TestValueTransactionPersistence(t *testing.T) {
 func TestValueAliasPersistence(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
-	snapshotInfo := tests.EqualSnapshotDetails
+	snapshotOptions := tests.EqualSnapshotOptions
+	snapshotInfo := snapshotcreator.NewOptions(snapshotOptions...)
+
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
 		StartSynced: false,
 		Faucet:      true,
 		Activity:    true, // we need to issue regular activity blocks
-		Snapshot:    snapshotInfo,
+		Snapshot:    snapshotOptions,
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
-
 	log.Println("Bootstrapping network...")
 	tests.BootstrapNetwork(t, n)
 	log.Println("Bootstrapping network... done")
@@ -196,10 +198,10 @@ func TestValueAliasPersistence(t *testing.T) {
 		// it has been spent
 		require.NotEmpty(t, outputMetadata.FirstConsumer)
 
-		resp, err := peer.GetAddressUnspentOutputs(aliasID.Base58())
+		resp, err := peer.GetAddressOutputs(aliasID.Base58())
 		require.NoError(t, err)
 		// there should be no outputs
-		require.True(t, len(resp.Outputs) == 0)
+		require.True(t, len(resp.UnspentOutputs) == 0)
 	}
 }
 
@@ -207,11 +209,11 @@ func checkAliasOutputOnAllPeers(t *testing.T, peers []*framework.Node, aliasAddr
 	aliasOutputID := utxo.OutputID{}
 
 	for i, peer := range peers {
-		resp, err := peer.GetAddressUnspentOutputs(aliasAddr.Base58())
+		resp, err := peer.GetAddressOutputs(aliasAddr.Base58())
 		require.NoError(t, err)
 		// there should be only this output
-		require.True(t, len(resp.Outputs) == 1)
-		shouldBeAliasOutput, err := resp.Outputs[0].ToLedgerstateOutput()
+		require.True(t, len(resp.UnspentOutputs) == 1)
+		shouldBeAliasOutput, err := resp.UnspentOutputs[0].ToLedgerstateOutput()
 		require.NoError(t, err)
 		require.Equal(t, devnetvm.AliasOutputType, shouldBeAliasOutput.Type())
 		alias, ok := shouldBeAliasOutput.(*devnetvm.AliasOutput)

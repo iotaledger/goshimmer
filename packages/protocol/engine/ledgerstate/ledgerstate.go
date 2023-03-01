@@ -6,7 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/storage"
@@ -43,15 +43,15 @@ func New(storageInstance *storage.Storage, memPool *ledger.Ledger) (ledgerState 
 	return
 }
 
-// ApplyStateDiff applies the state diff of the given epoch to the ledger state.
-func (l *LedgerState) ApplyStateDiff(index epoch.Index) (err error) {
+// ApplyStateDiff applies the state diff of the given slot to the ledger state.
+func (l *LedgerState) ApplyStateDiff(index slot.Index) (err error) {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
-	lastCommittedEpoch, err := l.UnspentOutputs.Begin(index)
+	lastCommittedSlot, err := l.UnspentOutputs.Begin(index)
 	if err != nil {
 		return errors.Wrap(err, "failed to begin unspent outputs")
-	} else if lastCommittedEpoch == index {
+	} else if lastCommittedSlot == index {
 		return
 	}
 
@@ -84,33 +84,33 @@ func (l *LedgerState) Import(reader io.ReadSeeker) (err error) {
 
 	// Apply state diffs backwards.
 	if len(importedStateDiffs) != 0 {
-		var stateDiffEpoch epoch.Index
-		for _, stateDiffEpoch = range importedStateDiffs {
-			if err = l.rollbackStateDiff(stateDiffEpoch); err != nil {
-				return errors.Wrapf(err, "failed to apply state diff %d", stateDiffEpoch)
+		var stateDiffSlot slot.Index
+		for _, stateDiffSlot = range importedStateDiffs {
+			if err = l.rollbackStateDiff(stateDiffSlot); err != nil {
+				return errors.Wrapf(err, "failed to apply state diff %d", stateDiffSlot)
 			}
 
-			if err = l.StateDiffs.Delete(stateDiffEpoch); err != nil {
-				return errors.Wrapf(err, "failed to delete state diff %d", stateDiffEpoch)
+			if err = l.StateDiffs.Delete(stateDiffSlot); err != nil {
+				return errors.Wrapf(err, "failed to delete state diff %d", stateDiffSlot)
 			}
 		}
-		stateDiffEpoch-- // we rolled back epoch n to get to epoch n-1
+		stateDiffSlot-- // we rolled back slot n to get to slot n-1
 
-		targetEpochCommitment, errLoad := l.storage.Commitments.Load(stateDiffEpoch)
+		targetSlotCommitment, errLoad := l.storage.Commitments.Load(stateDiffSlot)
 		if errLoad != nil {
-			return errors.Wrapf(errLoad, "failed to load commitment for target epoch %d", stateDiffEpoch)
+			return errors.Wrapf(errLoad, "failed to load commitment for target slot %d", stateDiffSlot)
 		}
 
-		if err = l.storage.Settings.SetLatestCommitment(targetEpochCommitment); err != nil {
+		if err = l.storage.Settings.SetLatestCommitment(targetSlotCommitment); err != nil {
 			return errors.Wrap(err, "failed to set latest commitment")
 		}
 
-		if err = l.storage.Settings.SetLatestStateMutationEpoch(stateDiffEpoch); err != nil {
-			return errors.Wrap(err, "failed to set latest state mutation epoch")
+		if err = l.storage.Settings.SetLatestStateMutationSlot(stateDiffSlot); err != nil {
+			return errors.Wrap(err, "failed to set latest state mutation slot")
 		}
 
-		if err = l.storage.Settings.SetLatestConfirmedEpoch(stateDiffEpoch); err != nil {
-			return errors.Wrap(err, "failed to set latest confirmed epoch")
+		if err = l.storage.Settings.SetLatestConfirmedSlot(stateDiffSlot); err != nil {
+			return errors.Wrap(err, "failed to set latest confirmed slot")
 		}
 	}
 
@@ -120,7 +120,7 @@ func (l *LedgerState) Import(reader io.ReadSeeker) (err error) {
 }
 
 // Export exports the ledger state to the given writer.
-func (l *LedgerState) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (err error) {
+func (l *LedgerState) Export(writer io.WriteSeeker, targetSlot slot.Index) (err error) {
 	l.mutex.RLock()
 	defer l.mutex.RUnlock()
 
@@ -128,28 +128,28 @@ func (l *LedgerState) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (er
 		return errors.Wrap(err, "failed to export unspent outputs")
 	}
 
-	if err = l.StateDiffs.Export(writer, targetEpoch); err != nil {
+	if err = l.StateDiffs.Export(writer, targetSlot); err != nil {
 		return errors.Wrap(err, "failed to export state diffs")
 	}
 
 	return
 }
 
-// rollbackStateDiff rolls back the named stateDiff index to get to the previous epoch.
-func (l *LedgerState) rollbackStateDiff(index epoch.Index) (err error) {
-	targetEpoch := index - 1
-	lastCommittedEpoch, err := l.UnspentOutputs.Begin(targetEpoch)
+// rollbackStateDiff rolls back the named stateDiff index to get to the previous slot.
+func (l *LedgerState) rollbackStateDiff(index slot.Index) (err error) {
+	targetSlot := index - 1
+	lastCommittedSlot, err := l.UnspentOutputs.Begin(targetSlot)
 	if err != nil {
 		return errors.Wrap(err, "failed to begin unspent outputs")
-	} else if lastCommittedEpoch == targetEpoch {
+	} else if lastCommittedSlot == targetSlot {
 		return
 	}
 
-	if err = l.StateDiffs.StreamSpentOutputs(lastCommittedEpoch, l.UnspentOutputs.RollbackSpentOutput); err != nil {
+	if err = l.StateDiffs.StreamSpentOutputs(lastCommittedSlot, l.UnspentOutputs.RollbackSpentOutput); err != nil {
 		return errors.Wrap(err, "failed to apply created outputs")
 	}
 
-	if err = l.StateDiffs.StreamCreatedOutputs(lastCommittedEpoch, l.UnspentOutputs.RollbackCreatedOutput); err != nil {
+	if err = l.StateDiffs.StreamCreatedOutputs(lastCommittedSlot, l.UnspentOutputs.RollbackCreatedOutput); err != nil {
 		return errors.Wrap(err, "failed to apply spent outputs")
 	}
 
@@ -169,6 +169,6 @@ func (l *LedgerState) onTransactionAccepted(transactionEvent *ledger.Transaction
 // onTransactionInclusionUpdated is triggered when a transaction inclusion state is updated.
 func (l *LedgerState) onTransactionInclusionUpdated(inclusionUpdatedEvent *ledger.TransactionInclusionUpdatedEvent) {
 	if l.MemPool.ConflictDAG.ConfirmationState(inclusionUpdatedEvent.TransactionMetadata.ConflictIDs()).IsAccepted() {
-		l.StateDiffs.moveTransactionToOtherEpoch(inclusionUpdatedEvent.TransactionMetadata, inclusionUpdatedEvent.PreviousInclusionEpoch, inclusionUpdatedEvent.InclusionEpoch)
+		l.StateDiffs.moveTransactionToOtherSlot(inclusionUpdatedEvent.TransactionMetadata, inclusionUpdatedEvent.PreviousInclusionSlot, inclusionUpdatedEvent.InclusionSlot)
 	}
 }

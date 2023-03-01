@@ -9,7 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
@@ -38,6 +38,7 @@ type EngineManager struct {
 	engineOptions           []options.Option[engine.Engine]
 	sybilProtectionProvider engine.ModuleProvider[sybilprotection.SybilProtection]
 	throughputQuotaProvider engine.ModuleProvider[throughputquota.ThroughputQuota]
+	slotTimeProvider        *slot.TimeProvider
 
 	activeInstance *EngineInstance
 }
@@ -49,7 +50,8 @@ func New(
 	storageOptions []options.Option[database.Manager],
 	engineOptions []options.Option[engine.Engine],
 	sybilProtectionProvider engine.ModuleProvider[sybilprotection.SybilProtection],
-	throughputQuotaProvider engine.ModuleProvider[throughputquota.ThroughputQuota]) *EngineManager {
+	throughputQuotaProvider engine.ModuleProvider[throughputquota.ThroughputQuota],
+	slotTimeProvider *slot.TimeProvider) *EngineManager {
 	return &EngineManager{
 		workers:                 workers,
 		directory:               utils.NewDirectory(dir),
@@ -58,6 +60,7 @@ func New(
 		engineOptions:           engineOptions,
 		sybilProtectionProvider: sybilProtectionProvider,
 		throughputQuotaProvider: throughputQuotaProvider,
+		slotTimeProvider:        slotTimeProvider,
 	}
 }
 
@@ -126,7 +129,7 @@ func (m *EngineManager) SetActiveInstance(instance *EngineInstance) error {
 
 func (m *EngineManager) loadEngineInstance(dirName string) *EngineInstance {
 	candidateStorage := storage.New(m.directory.Path(dirName), m.dbVersion, m.storageOptions...)
-	candidateEngine := engine.New(m.workers.CreateGroup(dirName), candidateStorage, m.sybilProtectionProvider, m.throughputQuotaProvider, m.engineOptions...)
+	candidateEngine := engine.New(m.workers.CreateGroup(dirName), candidateStorage, m.sybilProtectionProvider, m.throughputQuotaProvider, m.slotTimeProvider, m.engineOptions...)
 
 	return &EngineInstance{
 		Engine:  candidateEngine,
@@ -139,7 +142,7 @@ func (m *EngineManager) newEngineInstance() *EngineInstance {
 	return m.loadEngineInstance(dirName)
 }
 
-func (m *EngineManager) ForkEngineAtEpoch(index epoch.Index) (*EngineInstance, error) {
+func (m *EngineManager) ForkEngineAtSlot(index slot.Index) (*EngineInstance, error) {
 	// Dump a snapshot at the target index
 	snapshotPath := filepath.Join(os.TempDir(), fmt.Sprintf("snapshot_%d_%s.bin", index, lo.PanicOnErr(uuid.NewUUID()).String()))
 	if err := m.activeInstance.Engine.WriteSnapshot(snapshotPath, index); err != nil {

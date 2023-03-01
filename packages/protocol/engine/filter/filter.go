@@ -5,14 +5,14 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 var (
-	ErrorCommitmentNotCommittable      = errors.New("a block cannot commit to an epoch that cannot objectively be committable yet")
+	ErrorCommitmentNotCommittable      = errors.New("a block cannot commit to an slot that cannot objectively be committable yet")
 	ErrorsBlockTimeTooFarAheadInFuture = errors.New("a block cannot be too far ahead in the future")
 	ErrorsInvalidSignature             = errors.New("block has invalid signature")
 	ErrorsSignatureValidationFailed    = errors.New("error validating block signature")
@@ -23,7 +23,7 @@ type Filter struct {
 	Events *Events
 
 	optsMaxAllowedWallClockDrift time.Duration
-	optsMinCommittableEpochAge   epoch.Index
+	optsMinCommittableSlotAge    slot.Index
 	optsSignatureValidation      bool
 }
 
@@ -37,11 +37,11 @@ func New(opts ...options.Option[Filter]) (inbox *Filter) {
 
 // ProcessReceivedBlock processes block from the given source.
 func (f *Filter) ProcessReceivedBlock(block *models.Block, source identity.ID) {
-	// Check if the block is trying to commit to an epoch that is not yet committable
-	if f.optsMinCommittableEpochAge > 0 && block.Commitment().Index() > block.ID().Index()-f.optsMinCommittableEpochAge {
+	// Check if the block is trying to commit to an slot that is not yet committable
+	if f.optsMinCommittableSlotAge > 0 && block.Commitment().Index() > block.ID().Index()-f.optsMinCommittableSlotAge {
 		f.Events.BlockFiltered.Trigger(&BlockFilteredEvent{
 			Block:  block,
-			Reason: errors.WithMessagef(ErrorCommitmentNotCommittable, "block at epoch %d committing to epoch %d", block.ID().Index(), block.Commitment().Index()),
+			Reason: errors.WithMessagef(ErrorCommitmentNotCommittable, "block at slot %d committing to slot %d", block.ID().Index(), block.Commitment().Index()),
 		})
 		return
 	}
@@ -78,10 +78,10 @@ func (f *Filter) ProcessReceivedBlock(block *models.Block, source identity.ID) {
 	f.Events.BlockAllowed.Trigger(block)
 }
 
-// WithMinCommittableEpochAge specifies how old an epoch has to be for it to be committable.
-func WithMinCommittableEpochAge(age epoch.Index) options.Option[Filter] {
+// WithMinCommittableSlotAge specifies how old a slot has to be for it to be committable.
+func WithMinCommittableSlotAge(age slot.Index) options.Option[Filter] {
 	return func(filter *Filter) {
-		filter.optsMinCommittableEpochAge = age
+		filter.optsMinCommittableSlotAge = age
 	}
 }
 

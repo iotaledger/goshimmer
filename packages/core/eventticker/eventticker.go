@@ -4,8 +4,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/hive.go/core/crypto"
 	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/iotaledger/hive.go/runtime/timed"
@@ -14,14 +14,14 @@ import (
 // region EventTicker //////////////////////////////////////////////////////////////////////////////////////////////////
 
 // EventTicker takes care of requesting blocks.
-type EventTicker[T epoch.IndexedID] struct {
+type EventTicker[T slot.IndexedID] struct {
 	Events *Events[T]
 
 	timedExecutor             *timed.Executor
-	scheduledTickers          *memstorage.EpochStorage[T, *timed.ScheduledTask]
+	scheduledTickers          *memstorage.SlotStorage[T, *timed.ScheduledTask]
 	scheduledTickerCount      int
 	scheduledTickerCountMutex sync.RWMutex
-	lastEvictedEpoch          epoch.Index
+	lastEvictedSlot           slot.Index
 	evictionMutex             sync.RWMutex
 
 	optsRetryInterval       time.Duration
@@ -30,12 +30,12 @@ type EventTicker[T epoch.IndexedID] struct {
 }
 
 // New creates a new block requester.
-func New[T epoch.IndexedID](opts ...options.Option[EventTicker[T]]) *EventTicker[T] {
+func New[T slot.IndexedID](opts ...options.Option[EventTicker[T]]) *EventTicker[T] {
 	return options.Apply(&EventTicker[T]{
 		Events: NewEvents[T](),
 
 		timedExecutor:    timed.NewExecutor(1),
-		scheduledTickers: memstorage.NewEpochStorage[T, *timed.ScheduledTask](),
+		scheduledTickers: memstorage.NewSlotStorage[T, *timed.ScheduledTask](),
 
 		optsRetryInterval:       10 * time.Second,
 		optsRetryJitter:         5 * time.Second,
@@ -66,7 +66,7 @@ func (r *EventTicker[T]) HasTicker(id T) bool {
 	r.evictionMutex.RLock()
 	defer r.evictionMutex.RUnlock()
 
-	if id.Index() <= r.lastEvictedEpoch {
+	if id.Index() <= r.lastEvictedSlot {
 		return false
 	}
 
@@ -84,15 +84,15 @@ func (r *EventTicker[T]) QueueSize() int {
 	return r.scheduledTickerCount
 }
 
-func (r *EventTicker[T]) EvictUntil(epochIndex epoch.Index) {
+func (r *EventTicker[T]) EvictUntil(index slot.Index) {
 	r.evictionMutex.Lock()
 	defer r.evictionMutex.Unlock()
 
-	if epochIndex <= r.lastEvictedEpoch {
+	if index <= r.lastEvictedSlot {
 		return
 	}
 
-	for currentIndex := r.lastEvictedEpoch + 1; currentIndex <= epochIndex; currentIndex++ {
+	for currentIndex := r.lastEvictedSlot + 1; currentIndex <= index; currentIndex++ {
 		if evictedStorage := r.scheduledTickers.Evict(currentIndex); evictedStorage != nil {
 			evictedStorage.ForEach(func(id T, scheduledTask *timed.ScheduledTask) bool {
 				scheduledTask.Cancel()
@@ -103,7 +103,7 @@ func (r *EventTicker[T]) EvictUntil(epochIndex epoch.Index) {
 			r.updateScheduledTickerCount(-evictedStorage.Size())
 		}
 	}
-	r.lastEvictedEpoch = epochIndex
+	r.lastEvictedSlot = index
 }
 
 func (r *EventTicker[T]) Shutdown() {
@@ -114,7 +114,7 @@ func (r *EventTicker[T]) addTickerToQueue(id T) (added bool) {
 	r.evictionMutex.RLock()
 	defer r.evictionMutex.RUnlock()
 
-	if id.Index() <= r.lastEvictedEpoch {
+	if id.Index() <= r.lastEvictedSlot {
 		return false
 	}
 
@@ -205,14 +205,14 @@ func (r *EventTicker[T]) updateScheduledTickerCount(diff int) {
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // RetryInterval creates an option which sets the retry interval to the given value.
-func RetryInterval[T epoch.IndexedID](interval time.Duration) options.Option[EventTicker[T]] {
+func RetryInterval[T slot.IndexedID](interval time.Duration) options.Option[EventTicker[T]] {
 	return func(requester *EventTicker[T]) {
 		requester.optsRetryInterval = interval
 	}
 }
 
 // RetryJitter creates an option which sets the retry jitter to the given value.
-func RetryJitter[T epoch.IndexedID](retryJitter time.Duration) options.Option[EventTicker[T]] {
+func RetryJitter[T slot.IndexedID](retryJitter time.Duration) options.Option[EventTicker[T]] {
 	return func(requester *EventTicker[T]) {
 		requester.optsRetryJitter = retryJitter
 	}
@@ -220,7 +220,7 @@ func RetryJitter[T epoch.IndexedID](retryJitter time.Duration) options.Option[Ev
 
 // MaxRequestThreshold creates an option which defines how often the EventTicker should try to request blocks before
 // canceling the request.
-func MaxRequestThreshold[T epoch.IndexedID](maxRequestThreshold int) options.Option[EventTicker[T]] {
+func MaxRequestThreshold[T slot.IndexedID](maxRequestThreshold int) options.Option[EventTicker[T]] {
 	return func(requester *EventTicker[T]) {
 		requester.optsMaxRequestThreshold = maxRequestThreshold
 	}

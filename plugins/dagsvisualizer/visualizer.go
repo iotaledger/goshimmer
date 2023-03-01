@@ -12,7 +12,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/app/retainer"
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
 	"github.com/iotaledger/goshimmer/packages/node"
@@ -230,14 +229,14 @@ func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
 		if !reqValid {
 			return c.JSON(http.StatusBadRequest, searchResult{Error: "invalid timestamp range"})
 		}
-		startEpoch := epoch.IndexFromTime(startTimestamp)
-		endEpoch := epoch.IndexFromTime(endTimestamp)
+		startSlot := deps.Protocol.SlotTimeProvider.IndexFromTime(startTimestamp)
+		endSlot := deps.Protocol.SlotTimeProvider.IndexFromTime(endTimestamp)
 
 		var blocks []*tangleVertex
 		var txs []*utxoVertex
 		var conflicts []*conflictVertex
 		conflictMap := utxo.NewTransactionIDs()
-		for i := startEpoch; i <= endEpoch; i++ {
+		for i := startSlot; i <= endSlot; i++ {
 			deps.Retainer.StreamBlocksMetadata(i, func(id models.BlockID, metadata *retainer.BlockMetadata) {
 				if metadata.M.Block.IssuingTime().After(startTimestamp) && metadata.M.Block.IssuingTime().Before(endTimestamp) {
 					tangleNode, utxoNode, blockConflicts := processMetadata(metadata, conflictMap)

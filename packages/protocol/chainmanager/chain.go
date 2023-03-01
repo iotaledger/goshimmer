@@ -3,14 +3,14 @@ package chainmanager
 import (
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 )
 
 type Chain struct {
 	ForkingPoint *Commitment
 
-	latestCommitmentIndex epoch.Index
-	commitmentsByIndex    map[epoch.Index]*Commitment
+	latestCommitmentIndex slot.Index
+	commitmentsByIndex    map[slot.Index]*Commitment
 
 	sync.RWMutex
 }
@@ -21,7 +21,7 @@ func NewChain(forkingPoint *Commitment) (fork *Chain) {
 	return &Chain{
 		ForkingPoint:          forkingPoint,
 		latestCommitmentIndex: forkingPointIndex,
-		commitmentsByIndex: map[epoch.Index]*Commitment{
+		commitmentsByIndex: map[slot.Index]*Commitment{
 			forkingPointIndex: forkingPoint,
 		},
 	}
@@ -34,7 +34,7 @@ func (c *Chain) IsSolid() (isSolid bool) {
 	return c.ForkingPoint.IsSolid()
 }
 
-func (c *Chain) Commitment(index epoch.Index) (commitment *Commitment) {
+func (c *Chain) Commitment(index slot.Index) (commitment *Commitment) {
 	c.RLock()
 	defer c.RUnlock()
 
@@ -67,7 +67,7 @@ func (c *Chain) addCommitment(commitment *Commitment) {
 	c.commitmentsByIndex[commitmentIndex] = commitment
 }
 
-func (c *Chain) dropCommitmentsAfter(index epoch.Index) {
+func (c *Chain) dropCommitmentsAfter(index slot.Index) {
 	c.Lock()
 	defer c.Unlock()
 

@@ -18,12 +18,15 @@ func getManaHandler(c echo.Context) error {
 	if err := c.Bind(&request); err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetManaResponse{Error: err.Error()})
 	}
-	ID, err := identity.DecodeIDBase58(request.IssuerID)
+
+	IDstr := request.IssuerID
+	if IDstr == "" {
+		IDstr = deps.Local.ID().EncodeBase58()
+	}
+
+	ID, err := identity.DecodeIDBase58(IDstr)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetManaResponse{Error: err.Error()})
-	}
-	if request.IssuerID == "" {
-		ID = deps.Local.ID()
 	}
 
 	accessMana, _ := deps.Protocol.Engine().ThroughputQuota.Balance(ID)

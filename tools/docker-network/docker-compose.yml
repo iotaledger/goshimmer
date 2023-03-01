@@ -9,25 +9,15 @@ services:
     build: *goshimmer_build
     stop_grace_period: 1m
     command: >
+      ${DOCKER_AUTOPEERING_CONFIG}
+      ${COMMON_CONFIG}
       --autoPeering.entryNodes=
       --node.seed=base58:8q491c3YWjbPwLmF2WD95YmCgh61j2kenCKHfGfByoWi
-      --node.overwriteStoredSeed=true
-      --node.enablePlugins="webapitoolsendpoint",spammer,metrics,WebAPIToolsBlockEndpoint,activity,snapshot
-      --node.disablePlugins=portcheck,ManaInitializer,RemoteLog
-      --config=/run/secrets/goshimmer.config.json
-      --node.peerDBDirectory=/app/peerdb
-      --database.directory=/app/db
-      --protocol.snapshot.path=./snapshot.bin
-      --metrics.bindAddress=0.0.0.0:9311
-      --metrics.processMetrics=true
-      --metrics.goMetrics=true
+      --node.enablePlugins=${COMMON_ENABLED},snapshot
+      --node.disablePlugins=${COMMON_DISABLED}
       --blockIssuer.ignoreBootstrappedFlag=true
-      --protocol.genesisTime=${GENESIS_TIME}
-      --profiling.bindAddress=0.0.0.0:6061
       --dashboard.dev=false
       --dashboard.devDashboardAddress=dashboard-dev-docker:9999
-    secrets:
-      - goshimmer.config.json
     volumes:
       - ./docker-network.snapshot:/app/snapshot.bin
     #      - peerdb:/app/peerdb
@@ -43,20 +33,12 @@ services:
     image: docker-network-peer_master:latest
     stop_grace_period: 1m
     command: >
-      --config=/run/secrets/goshimmer.config.json
-      --database.directory=/app/mainnetdb
-      --node.enablePlugins="webapi tools endpoint",spammer,metrics,activity
-      --node.disablePlugins=portcheck,ManaInitializer,RemoteLog
-      --node.overwriteStoredSeed=true
-      --protocol.snapshot.path=./snapshot.bin
-      --metrics.bindAddress=0.0.0.0:9311
-      --protocol.genesisTime=${GENESIS_TIME}
-      --metrics.processMetrics=true
-      --metrics.goMetrics=true
+      ${DOCKER_AUTOPEERING_CONFIG}
+      ${COMMON_CONFIG}
+      --node.enablePlugins=${COMMON_ENABLED}
+      --node.disablePlugins=${COMMON_DISABLED}
     deploy:
       replicas: ${GOSHIMMER_PEER_REPLICAS:-1}
-    secrets:
-      - goshimmer.config.json
     volumes:
       - ./docker-network.snapshot:/app/snapshot.bin
     networks:
@@ -66,21 +48,11 @@ services:
     image: docker-network-peer_master:latest
     stop_grace_period: 1m
     command: >
+      ${DOCKER_AUTOPEERING_CONFIG}
+      ${COMMON_CONFIG}
       --node.seed=base58:4ata8GcTRMJ5sSv2jQJWmSYYTHct748p3tXmCFYm7wjA
-      --node.overwriteStoredSeed=true
-      --node.enablePlugins="webapitoolsendpoint",activity,spammer,metrics
-      --node.disablePlugins=portcheck,ManaInitializer,RemoteLog
-      --config=/run/secrets/goshimmer.config.json
-      --node.peerDBDirectory=/app/peerdb
-      --database.directory=/app/db
-      --protocol.snapshot.path=./snapshot.bin
-      --metrics.bindAddress=0.0.0.0:9311
-      --metrics.processMetrics=true
-      --metrics.goMetrics=true
-      --protocol.genesisTime=${GENESIS_TIME}
-      --profiling.bindAddress=0.0.0.0:6061
-    secrets:
-      - goshimmer.config.json
+      --node.enablePlugins=${COMMON_ENABLED}
+      --node.disablePlugins=${COMMON_DISABLED}
     volumes:
       - ./docker-network.snapshot:/app/snapshot.bin
     ports:
@@ -89,26 +61,15 @@ services:
       - "6071:6061/tcp" # pprof
     networks:
       - goshimmer
+
   peer_nomana:
     image: docker-network-peer_master:latest
     stop_grace_period: 1m
     command: >
+      ${DOCKER_AUTOPEERING_CONFIG}
+      ${COMMON_CONFIG}
       --node.enablePlugins="webapitoolsendpoint",spammer,metrics
-      --node.disablePlugins=portcheck,ManaInitializer,RemoteLog
-      --node.peerDBDirectory=/app/peerdb
-      --database.directory=/app/db
-      --config=/run/secrets/goshimmer.config.json
-      --protocol.snapshot.path=./snapshot.bin
-      --metrics.bindAddress=0.0.0.0:9311
-      --metrics.bindAddress=0.0.0.0:9311
-      --protocol.genesisTime=${GENESIS_TIME}
-      --metrics.processMetrics=true
-      --metrics.goMetrics=true
-      --metrics.processMetrics=true
-      --metrics.goMetrics=true
-      --profiling.bindAddress=0.0.0.0:6061
-    secrets:
-      - goshimmer.config.json
+      --node.disablePlugins=${COMMON_DISABLED}
     volumes:
       - ./docker-network.snapshot:/app/snapshot.bin
     ports:
@@ -120,26 +81,15 @@ services:
     depends_on:
       - peer_master
       - faucet
+
   peer_nomana2:
     image: docker-network-peer_master:latest
     stop_grace_period: 1m
     command: >
+      ${DOCKER_AUTOPEERING_CONFIG}
+      ${COMMON_CONFIG}
       --node.enablePlugins="webapitoolsendpoint",spammer,metrics
-      --node.disablePlugins=portcheck,Firewall,ManaInitializer,RemoteLog,AnalysisClient
-      --node.peerDBDirectory=/app/peerdb
-      --database.directory=/app/db
-      --config=/run/secrets/goshimmer.config.json
-      --protocol.snapshot.path=./snapshot.bin
-      --metrics.bindAddress=0.0.0.0:9311
-      --metrics.bindAddress=0.0.0.0:9311
-      --protocol.genesisTime=${GENESIS_TIME}
-      --metrics.processMetrics=true
-      --metrics.goMetrics=true
-      --metrics.processMetrics=true
-      --metrics.goMetrics=true
-      --profiling.bindAddress=0.0.0.0:6061
-    secrets:
-      - goshimmer.config.json
+      --node.disablePlugins=${COMMON_DISABLED}
     volumes:
       - ./docker-network.snapshot:/app/snapshot.bin
     ports:
@@ -148,26 +98,19 @@ services:
       - "6031:6061/tcp" # pprof
     networks:
       - goshimmer
-
+    depends_on:
+      - peer_master
+      - faucet
   faucet:
     image: docker-network-peer_master:latest
     stop_grace_period: 1m
     command: >
+      ${DOCKER_AUTOPEERING_CONFIG}
+      ${COMMON_CONFIG}
       --faucet.seed=7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih
       --node.seed=base58:3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E
-      --node.overwriteStoredSeed=true
-      --node.enablePlugins="webAPIToolsEndpoint",faucet,activity,metrics,spammer,"WebAPIFaucetEndpoint"
-      --node.disablePlugins=portcheck,ManaInitializer,RemoteLog
-      --config=/run/secrets/goshimmer.config.json
-      --database.directory=/app/db
-      --protocol.snapshot.path=./snapshot.bin
-      --metrics.bindAddress=0.0.0.0:9311
-      --metrics.processMetrics=true
-      --metrics.goMetrics=true
-      --protocol.genesisTime=${GENESIS_TIME}
-      --profiling.bindAddress=0.0.0.0:6061
-    secrets:
-      - goshimmer.config.json
+      --node.enablePlugins=${COMMON_ENABLED},faucet
+      --node.disablePlugins=${COMMON_DISABLED}
     volumes:
       - ./docker-network.snapshot:/app/snapshot.bin
     ports:
@@ -228,7 +171,5 @@ volumes:
 secrets:
   goshimmer.block.snapshot.bin:
     file: ${SNAPSHOT_FILE:-./docker-network.snapshot}
-  goshimmer.config.json:
-    file: ${GOSHIMMER_CONFIG:-./config.docker.json}
   prometheus.yml:
     file: ${PROMETHEUS_CONFIG:-./prometheus.yml}

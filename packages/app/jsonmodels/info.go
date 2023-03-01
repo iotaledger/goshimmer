@@ -32,8 +32,8 @@ type InfoResponse struct {
 	Mana Mana `json:"mana,omitempty"`
 	// Scheduler is the scheduler.
 	Scheduler Scheduler `json:"scheduler"`
-	// LastCommittedEpoch contains information about the last committed epoch.
-	LastCommittedEpoch EpochInfo
+	// LastCommittedSlot contains information about the last committed slot.
+	LastCommittedSlot SlotInfo `json:"lastCommittedSlot"`
 	// RateSetter is the rate setter.
 	RateSetter RateSetter `json:"rateSetter"`
 	// error of the response
@@ -44,7 +44,7 @@ type InfoResponse struct {
 type TangleTime struct {
 	AcceptedBlockID  string `json:"blockID"`
 	ConfirmedBlockID string `json:"confirmedBlockID"`
-	ConfirmedEpoch   int64  `json:"confirmedEpoch"`
+	ConfirmedSlot    int64  `json:"confirmedSlot"`
 	ATT              int64  `json:"ATT"`
 	RATT             int64  `json:"RATT"`
 	CTT              int64  `json:"CTT"`

@@ -12,7 +12,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/database"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
@@ -141,7 +141,7 @@ func TestRetainer_BlockMetadata_Evicted(t *testing.T) {
 		retainer.Shutdown()
 	})
 
-	b := tf.Engine.BlockDAG.CreateBlock("A", models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0).Add(70*time.Second)))
+	b := tf.Engine.BlockDAG.CreateBlock("A", models.WithIssuingTime(tf.Instance.SlotTimeProvider.GenesisTime().Add(70*time.Second)))
 	tf.Engine.BlockDAG.IssueBlocks("A")
 
 	workers.WaitChildren()
@@ -150,7 +150,7 @@ func TestRetainer_BlockMetadata_Evicted(t *testing.T) {
 	require.True(t, exists)
 
 	// Trigger eviction through commitment creation
-	tf.Engine.Instance.NotarizationManager.SetAcceptanceTime((epoch.IndexFromTime(time.Unix(epoch.GenesisTime, 0).Add(70*time.Second)) + 8).EndTime())
+	tf.Engine.Instance.NotarizationManager.SetAcceptanceTime(tf.Instance.SlotTimeProvider.EndTime(tf.Instance.SlotTimeProvider.IndexFromTime(tf.Instance.SlotTimeProvider.GenesisTime().Add(70*time.Second)) + 8))
 	workers.WaitChildren()
 
 	meta, exists := retainer.BlockMetadata(block.ID())
@@ -272,7 +272,7 @@ func createCommitmentDetails() *CommitmentDetails {
 
 	var root types.Identifier
 	_ = root.FromRandomness()
-	cm := commitment.New(epoch.Index(4), id0, root, 500)
+	cm := commitment.New(slot.Index(4), id0, root, 500)
 
 	cd := newCommitmentDetails()
 	cd.SetID(id1)

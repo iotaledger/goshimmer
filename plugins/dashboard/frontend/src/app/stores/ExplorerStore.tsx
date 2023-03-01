@@ -6,8 +6,9 @@ import {
     Output,
     PayloadType,
     SigLockedSingleOutput,
-    Transaction,
-    TransactionPayload
+    TransactionPayload,
+    FaucetPayload,
+    Transaction
 } from "app/misc/Payload";
 import * as React from "react";
 import {Link} from 'react-router-dom';
@@ -41,8 +42,8 @@ export class Block {
     acceptanceTime: number;
     confirmation: boolean;
     confirmationTime: number;
-    confirmationByEpoch: boolean;
-    confirmationByEpochTime: number;
+    confirmationBySlot: boolean;
+    confirmationBySlotTime: number;
     payload_type: number;
     payload: any;
     rank: number;
@@ -55,7 +56,7 @@ export class Block {
     ecr: string;
     prevEC: string;
     cumulativeWeight: number;
-    latestConfirmedEpoch: number;
+    latestConfirmedSlot: number;
 }
 
 export class AddressResult {
@@ -144,7 +145,7 @@ class ConflictVoters {
     voters: Array<string>
 }
 
-class EpochInfo {
+class SlotInfo {
     id: string;
 	index: number;
 	rootsID: string;
@@ -152,15 +153,15 @@ class EpochInfo {
 	cumulativeWeight: number;
 }
 
-class EpochBlocks {
+class SlotBlocks {
     blocks: Array<string>;
 }
 
-class EpochTransactions {
+class SlotTransactions {
     transactions: Array<string>;
 }
 
-class EpochUTXOs {
+class SlotUTXOs {
     createdOutputs: Array<string>;
     spentOutputs: Array<string>;
 }
@@ -204,10 +205,10 @@ export class ExplorerStore {
     @observable conflictConflicts: ConflictConflicts = null;
     @observable conflictVoters: ConflictVoters = null;
     @observable tips: Tips = null;
-    @observable epochInfo: EpochInfo = new EpochInfo;
-    @observable epochBlocks: EpochBlocks = new EpochBlocks;
-    @observable epochTransactions: EpochTransactions = new EpochTransactions;
-    @observable epochUtxos: EpochUTXOs = new EpochUTXOs;
+    @observable slotInfo: SlotInfo = new SlotInfo;
+    @observable slotBlocks: SlotBlocks = new SlotBlocks;
+    @observable slotTransactions: SlotTransactions = new SlotTransactions;
+    @observable slotUtxos: SlotUTXOs = new SlotUTXOs;
 
     // loading
     @observable query_loading: boolean = false;
@@ -370,27 +371,27 @@ export class ExplorerStore {
     }
 
     @action
-    getEpochDetails = async (id: string) => {
-        const res = await this.fetchJson<never, EpochInfo>("get", `/api/epoch/commitment/${id}`)
-        this.epochInfo = res;
+    getSlotDetails = async (id: string) => {
+        const res = await this.fetchJson<never, SlotInfo>("get", `/api/slot/commitment/${id}`)
+        this.slotInfo = res;
     }
 
     @action
-    getEpochBlocks = async (index: number) => {
-        const res = await this.fetchJson<never, EpochBlocks>("get", `/api/epoch/${index}/blocks`)
-        this.epochBlocks = res;
+    getSlotBlocks = async (index: number) => {
+        const res = await this.fetchJson<never, SlotBlocks>("get", `/api/slot/${index}/blocks`)
+        this.slotBlocks = res;
     }
 
     @action
-    getEpochTransactions = async (index: number) => {
-       const res = await this.fetchJson<never, EpochTransactions>("get", `/api/epoch/${index}/transactions`)
-       this.epochTransactions = res;
+    getSlotTransactions = async (index: number) => {
+       const res = await this.fetchJson<never, SlotTransactions>("get", `/api/slot/${index}/transactions`)
+       this.slotTransactions = res;
     }
 
     @action
-    getEpochUTXOs = async (index: number) => {
-        const res = await this.fetchJson<never, EpochUTXOs>("get", `/api/epoch/${index}/utxos`)
-        this.epochUtxos = res;
+    getSlotUTXOs = async (index: number) => {
+        const res = await this.fetchJson<never, SlotUTXOs>("get", `/api/slot/${index}/utxos`)
+        this.slotUtxos = res;
     }
 
     @action
@@ -415,10 +416,10 @@ export class ExplorerStore {
         this.conflictChildren = null;
         this.conflictConflicts = null;
         this.tips = null;
-        this.epochBlocks = new EpochBlocks;
-        this.epochInfo = new EpochInfo;
-        this.epochTransactions = new EpochTransactions;
-        this.epochUtxos = new EpochUTXOs;
+        this.slotBlocks = new SlotBlocks;
+        this.slotInfo = new SlotInfo;
+        this.slotTransactions = new SlotTransactions;
+        this.slotUtxos = new SlotUTXOs;
     };
 
     @action
@@ -449,6 +450,7 @@ export class ExplorerStore {
                 this.payload = blk.payload as BasicPayload
                 break;
             case PayloadType.Faucet:
+                this.payload = blk.payload as FaucetPayload
             default:
                 this.payload = blk.payload as BasicPayload
                 break;

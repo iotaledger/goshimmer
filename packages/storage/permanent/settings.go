@@ -9,7 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/core/storable"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/hive.go/core/types"
@@ -30,11 +30,11 @@ func NewSettings(path string) (settings *Settings) {
 		Initializable: traits.NewInitializable(),
 
 		settingsModel: storable.InitStruct(&settingsModel{
-			SnapshotImported:         false,
-			LatestCommitment:         commitment.New(0, commitment.ID{}, types.Identifier{}, 0),
-			LatestStateMutationEpoch: 0,
-			LatestConfirmedEpoch:     0,
-			ChainID:                  commitment.ID{},
+			SnapshotImported:        false,
+			LatestCommitment:        commitment.New(0, commitment.ID{}, types.Identifier{}, 0),
+			LatestStateMutationSlot: 0,
+			LatestConfirmedSlot:     0,
+			ChainID:                 commitment.ID{},
 		}, path),
 	}
 }
@@ -79,41 +79,41 @@ func (c *Settings) SetLatestCommitment(latestCommitment *commitment.Commitment) 
 	return nil
 }
 
-func (c *Settings) LatestStateMutationEpoch() (latestStateMutationEpoch epoch.Index) {
+func (c *Settings) LatestStateMutationSlot() slot.Index {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
-	return c.settingsModel.LatestStateMutationEpoch
+	return c.settingsModel.LatestStateMutationSlot
 }
 
-func (c *Settings) SetLatestStateMutationEpoch(latestStateMutationEpoch epoch.Index) (err error) {
+func (c *Settings) SetLatestStateMutationSlot(latestStateMutationSlot slot.Index) (err error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	c.settingsModel.LatestStateMutationEpoch = latestStateMutationEpoch
+	c.settingsModel.LatestStateMutationSlot = latestStateMutationSlot
 
 	if err = c.ToFile(); err != nil {
-		return errors.Wrap(err, "failed to persist latest state mutation epoch")
+		return errors.Wrap(err, "failed to persist latest state mutation slot")
 	}
 
 	return nil
 }
 
-func (c *Settings) LatestConfirmedEpoch() (latestConfirmedEpoch epoch.Index) {
+func (c *Settings) LatestConfirmedSlot() slot.Index {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
-	return c.settingsModel.LatestConfirmedEpoch
+	return c.settingsModel.LatestConfirmedSlot
 }
 
-func (c *Settings) SetLatestConfirmedEpoch(latestConfirmedEpoch epoch.Index) (err error) {
+func (c *Settings) SetLatestConfirmedSlot(latestConfirmedSlot slot.Index) (err error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	c.settingsModel.LatestConfirmedEpoch = latestConfirmedEpoch
+	c.settingsModel.LatestConfirmedSlot = latestConfirmedSlot
 
 	if err = c.ToFile(); err != nil {
-		return errors.Wrap(err, "failed to persist latest confirmed epoch")
+		return errors.Wrap(err, "failed to persist latest confirmed slot")
 	}
 
 	return nil
@@ -203,11 +203,11 @@ func (c *Settings) tryImport(reader io.ReadSeeker) (err error) {
 // region settingsModel ////////////////////////////////////////////////////////////////////////////////////////////////
 
 type settingsModel struct {
-	SnapshotImported         bool                   `serix:"0"`
-	LatestCommitment         *commitment.Commitment `serix:"1"`
-	LatestStateMutationEpoch epoch.Index            `serix:"2"`
-	LatestConfirmedEpoch     epoch.Index            `serix:"3"`
-	ChainID                  commitment.ID          `serix:"4"`
+	SnapshotImported        bool                   `serix:"0"`
+	LatestCommitment        *commitment.Commitment `serix:"1"`
+	LatestStateMutationSlot slot.Index             `serix:"2"`
+	LatestConfirmedSlot     slot.Index             `serix:"3"`
+	ChainID                 commitment.ID          `serix:"4"`
 
 	storable.Struct[settingsModel, *settingsModel]
 }
