@@ -21,8 +21,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/libp2putil"
 	pp "github.com/iotaledger/goshimmer/packages/network/p2p/proto"
-	"github.com/iotaledger/hive.go/core/autopeering/peer"
-	"github.com/iotaledger/hive.go/core/autopeering/peer/service"
+	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/autopeering/peer/service"
 )
 
 const (

@@ -1,9 +1,10 @@
 package blockgadget
 
 import (
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 // region Block ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -99,8 +100,8 @@ func (b *Block) SetConfirmationQueued() (wasUpdated bool) {
 	return
 }
 
-func NewRootBlock(blockID models.BlockID) *Block {
-	virtualVotingBlock := virtualvoting.NewRootBlock(blockID)
+func NewRootBlock(blockID models.BlockID, slotTimeProvider *slot.TimeProvider) *Block {
+	virtualVotingBlock := virtualvoting.NewRootBlock(blockID, slotTimeProvider)
 
 	return NewBlock(virtualVotingBlock, WithAccepted(true), WithConfirmed(true))
 }

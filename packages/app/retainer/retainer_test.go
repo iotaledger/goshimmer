@@ -10,15 +10,17 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/database"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/serix"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
+	"github.com/iotaledger/hive.go/serializer/v2/serix"
 )
 
 func TestRetainer_BlockMetadata_Serialization(t *testing.T) {
@@ -33,6 +35,20 @@ func TestRetainer_BlockMetadata_Serialization(t *testing.T) {
 	require.Equal(t, len(serializedBytes), decodedBytes)
 
 	validateDeserialized(t, meta, metaDeserialized)
+}
+
+func TestRetainer_Commitment_Serialization(t *testing.T) {
+	cd := createCommitmentDetails()
+
+	serializedBytes, err := cd.Bytes()
+	require.NoError(t, err)
+
+	cdDeserialized := newCommitmentDetails()
+	decodedBytes, err := cdDeserialized.FromBytes(serializedBytes)
+	require.NoError(t, err)
+	require.Equal(t, len(serializedBytes), decodedBytes)
+
+	validateDeserializedCommitmentDetails(t, cd, cdDeserialized)
 }
 
 func TestRetainer_BlockMetadata_JSON(t *testing.T) {
@@ -74,7 +90,7 @@ func TestRetainer_BlockMetadata_NonEvicted(t *testing.T) {
 	b := tf.Engine.BlockDAG.CreateBlock("A")
 	tf.Engine.BlockDAG.IssueBlocks("A")
 
-	workers.Wait()
+	workers.WaitChildren()
 
 	block, exists := tf.Instance.CongestionControl.Block(b.ID())
 	require.True(t, exists)
@@ -104,7 +120,7 @@ func TestRetainer_BlockMetadata_NonEvicted(t *testing.T) {
 	require.EqualValues(t, pastMarkers, block.StructureDetails().PastMarkers())
 	require.Equal(t, meta.M.AddedConflictIDs, block.AddedConflictIDs())
 	require.Equal(t, meta.M.SubtractedConflictIDs, block.SubtractedConflictIDs())
-	require.Equal(t, meta.M.ConflictIDs, tf.Instance.Engine().Tangle.Booker.BlockConflicts(block.Block.Block))
+	require.Equal(t, meta.M.ConflictIDs, tf.Instance.Engine().Tangle.Booker.BlockConflicts(block.Block))
 
 	require.Equal(t, meta.M.Tracked, true)
 	require.Equal(t, meta.M.SubjectivelyInvalid, block.IsSubjectivelyInvalid())
@@ -125,18 +141,17 @@ func TestRetainer_BlockMetadata_Evicted(t *testing.T) {
 		retainer.Shutdown()
 	})
 
-	b := tf.Engine.BlockDAG.CreateBlock("A", models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0).Add(70*time.Second)))
+	b := tf.Engine.BlockDAG.CreateBlock("A", models.WithIssuingTime(tf.Instance.SlotTimeProvider.GenesisTime().Add(70*time.Second)))
 	tf.Engine.BlockDAG.IssueBlocks("A")
 
-	workers.Wait()
+	workers.WaitChildren()
 
 	block, exists := tf.Instance.CongestionControl.Block(b.ID())
 	require.True(t, exists)
 
 	// Trigger eviction through commitment creation
-	tf.Engine.Instance.NotarizationManager.SetAcceptanceTime((epoch.IndexFromTime(time.Unix(epoch.GenesisTime, 0).Add(70*time.Second)) + 8).EndTime())
-	workers.Wait()
-	retainer.WorkerPool().PendingTasksCounter.WaitIsZero()
+	tf.Engine.Instance.NotarizationManager.SetAcceptanceTime(tf.Instance.SlotTimeProvider.EndTime(tf.Instance.SlotTimeProvider.IndexFromTime(tf.Instance.SlotTimeProvider.GenesisTime().Add(70*time.Second)) + 8))
+	workers.WaitChildren()
 
 	meta, exists := retainer.BlockMetadata(block.ID())
 	require.True(t, exists)
@@ -162,7 +177,7 @@ func TestRetainer_BlockMetadata_Evicted(t *testing.T) {
 	require.EqualValues(t, pastMarkers, block.StructureDetails().PastMarkers())
 	require.Equal(t, meta.M.AddedConflictIDs, block.AddedConflictIDs())
 	require.Equal(t, meta.M.SubtractedConflictIDs, block.SubtractedConflictIDs())
-	require.Equal(t, meta.M.ConflictIDs, tf.Instance.Engine().Tangle.Booker.BlockConflicts(block.Block.Block))
+	require.Equal(t, meta.M.ConflictIDs, tf.Instance.Engine().Tangle.Booker.BlockConflicts(block.Block))
 	require.Equal(t, meta.M.Tracked, true)
 	require.Equal(t, meta.M.SubjectivelyInvalid, block.IsSubjectivelyInvalid())
 	// You cannot really test this as the scheduler might have scheduled the block after its metadata was retained.
@@ -197,6 +212,14 @@ func validateDeserialized(t *testing.T, meta *BlockMetadata, metaDeserialized *B
 	require.Equal(t, meta.M.SchedulerTime.Unix(), metaDeserialized.M.SchedulerTime.Unix())
 	require.Equal(t, meta.M.Accepted, metaDeserialized.M.Accepted)
 	require.Equal(t, meta.M.AcceptedTime.Unix(), metaDeserialized.M.AcceptedTime.Unix())
+}
+
+func validateDeserializedCommitmentDetails(t *testing.T, cd *CommitmentDetails, cdDeserialized *CommitmentDetails) {
+	require.Equal(t, cd.M.AcceptedBlocks, cdDeserialized.M.AcceptedBlocks)
+	require.Equal(t, cd.M.AcceptedTransactions, cdDeserialized.M.AcceptedTransactions)
+	require.Equal(t, cd.M.CreatedOutputs, cdDeserialized.M.CreatedOutputs)
+	require.Equal(t, cd.M.SpentOutputs, cdDeserialized.M.SpentOutputs)
+	require.EqualValues(t, cd.M.Commitment, cdDeserialized.M.Commitment)
 }
 
 func createBlockMetadata() *BlockMetadata {
@@ -240,6 +263,42 @@ func createBlockMetadata() *BlockMetadata {
 	meta.M.Accepted = true
 	meta.M.AcceptedTime = time.Now()
 	return meta
+}
+
+func createCommitmentDetails() *CommitmentDetails {
+	var id0, id1 commitment.ID
+	_ = id0.FromRandomness()
+	_ = id1.FromRandomness()
+
+	var root types.Identifier
+	_ = root.FromRandomness()
+	cm := commitment.New(slot.Index(4), id0, root, 500)
+
+	cd := newCommitmentDetails()
+	cd.SetID(id1)
+	cd.M.Commitment = cm
+
+	var blockID0 models.BlockID
+	_ = blockID0.FromRandomness()
+
+	cd.M.AcceptedBlocks = make(models.BlockIDs)
+	cd.M.AcceptedBlocks.Add(blockID0)
+
+	var txID utxo.TransactionID
+	_ = txID.FromRandomness()
+	cd.M.AcceptedTransactions = utxo.NewTransactionIDs()
+	cd.M.AcceptedTransactions.Add(txID)
+
+	var outputID0, outputID1 utxo.OutputID
+	_ = outputID0.FromRandomness()
+	_ = outputID1.FromRandomness()
+
+	cd.M.CreatedOutputs = utxo.NewOutputIDs()
+	cd.M.CreatedOutputs.Add(outputID0)
+	cd.M.SpentOutputs = utxo.NewOutputIDs()
+	cd.M.SpentOutputs.Add(outputID1)
+
+	return cd
 }
 
 func printPrettyJSON(t *testing.T, b []byte) {

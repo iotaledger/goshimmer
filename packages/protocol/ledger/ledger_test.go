@@ -12,7 +12,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 func TestLedger_BookInOrder(t *testing.T) {
@@ -452,7 +452,7 @@ func TestLedger_SolidifyAndForkMultiThreaded(t *testing.T) {
 
 	// Verify conflicts for all transactions in the layers.
 	{
-		workers.Wait()
+		workers.WaitChildren()
 		tf.AssertBooked(bookedAliases)
 
 		mappedConflicts := make(map[string][]string)
@@ -475,7 +475,7 @@ func TestLedger_SolidifyAndForkMultiThreaded(t *testing.T) {
 		tf.CreateTransaction("TX12", 10, "TX-0-0.0", "TX-0-1.0", "TX-0-2.0", "TX-0-3.0", "TX-0-4.0", "TX-0-5.0", "TX-0-6.0", "TX-0-7.0", "TX-0-8.0", "TX-0-9.0")
 		require.NoError(t, tf.IssueTransaction("TX12"))
 
-		workers.Wait()
+		workers.WaitChildren()
 
 		tf.AssertConflictIDs(map[string][]string{
 			"TX11": {"TX-1-0", "TX-1-1", "TX-1-2", "TX-1-3", "TX-1-4", "TX-1-5", "TX-1-6", "TX-1-7", "TX-1-8", "TX-1-9"},

@@ -4,27 +4,28 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markermanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/debug"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/runtime/debug"
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 // region TestFramework //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -63,9 +64,10 @@ func NewTestFramework(test *testing.T, gadget *Gadget, tangleTF *tangle.TestFram
 
 func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, optsGadget ...options.Option[Gadget]) *TestFramework {
 	tangleTF := tangle.NewDefaultTestFramework(t, workers.CreateGroup("TangleTestFramework"),
+		slot.NewTimeProvider(slot.WithGenesisUnixTime(time.Now().Unix())),
 		tangle.WithBookerOptions(
 			booker.WithMarkerManagerOptions(
-				markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(3)),
+				markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(3)),
 			),
 		),
 	)
@@ -74,6 +76,7 @@ func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, optsGadget
 		New(workers.CreateGroup("BlockGadget"),
 			tangleTF.Instance,
 			tangleTF.BlockDAG.Instance.EvictionState,
+			tangleTF.BlockDAG.Instance.SlotTimeProvider,
 			tangleTF.Votes.Validators.TotalWeight,
 			optsGadget...,
 		),
@@ -82,7 +85,7 @@ func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, optsGadget
 }
 
 func (t *TestFramework) setupEvents() {
-	event.Hook(t.Gadget.Events.BlockAccepted, func(metadata *Block) {
+	t.Gadget.Events.BlockAccepted.Hook(func(metadata *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("ACCEPTED: %s", metadata.ID())
 		}
@@ -90,7 +93,7 @@ func (t *TestFramework) setupEvents() {
 		atomic.AddUint32(&(t.acceptedBlocks), 1)
 	})
 
-	event.Hook(t.Gadget.Events.BlockConfirmed, func(metadata *Block) {
+	t.Gadget.Events.BlockConfirmed.Hook(func(metadata *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("CONFIRMED: %s", metadata.ID())
 		}
@@ -98,14 +101,14 @@ func (t *TestFramework) setupEvents() {
 		atomic.AddUint32(&(t.confirmedBlocks), 1)
 	})
 
-	event.Hook(t.Tangle.VirtualVoting.ConflictDAG.Instance.Events.ConflictAccepted, func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	t.Tangle.VirtualVoting.ConflictDAG.Instance.Events.ConflictAccepted.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		if debug.GetEnabled() {
 			t.test.Logf("CONFLICT ACCEPTED: %s", conflict.ID())
 		}
 		atomic.AddUint32(&(t.conflictsAccepted), 1)
 	})
 
-	event.Hook(t.Tangle.VirtualVoting.ConflictDAG.Instance.Events.ConflictRejected, func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	t.Tangle.VirtualVoting.ConflictDAG.Instance.Events.ConflictRejected.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		if debug.GetEnabled() {
 			t.test.Logf("CONFLICT REJECTED: %s", conflict.ID())
 		}
@@ -153,8 +156,8 @@ func (t *TestFramework) ValidateAcceptedMarker(expectedConflictIDs map[markers.M
 
 func (t *TestFramework) ValidateConflictAcceptance(expectedConflictIDs map[string]confirmation.State) {
 	for conflictIDAlias, conflictExpectedState := range expectedConflictIDs {
-		actualMarkerAccepted := t.Tangle.VirtualVoting.ConflictDAG.Instance.ConfirmationState(set.NewAdvancedSet(t.Tangle.Ledger.Transaction(conflictIDAlias).ID()))
-		require.Equal(t.test, conflictExpectedState, actualMarkerAccepted, "%s should be accepted=%t but is %t", conflictIDAlias, conflictExpectedState, actualMarkerAccepted)
+		actualMarkerAccepted := t.Tangle.VirtualVoting.ConflictDAG.Instance.ConfirmationState(advancedset.NewAdvancedSet(t.Tangle.Ledger.Transaction(conflictIDAlias).ID()))
+		require.Equal(t.test, conflictExpectedState, actualMarkerAccepted, "%s should be accepted=%s but is %s", conflictIDAlias, conflictExpectedState, actualMarkerAccepted)
 	}
 }
 
@@ -164,7 +167,7 @@ func (t *TestFramework) ValidateConflictAcceptance(expectedConflictIDs map[strin
 
 // MockAcceptanceGadget mocks ConfirmationOracle marking all blocks as confirmed.
 type MockAcceptanceGadget struct {
-	BlockAcceptedEvent *event.Linkable[*Block]
+	BlockAcceptedEvent *event.Event1[*Block]
 	AcceptedBlocks     models.BlockIDs
 	AcceptedMarkers    *markers.Markers
 
@@ -173,7 +176,7 @@ type MockAcceptanceGadget struct {
 
 func NewMockAcceptanceGadget() *MockAcceptanceGadget {
 	return &MockAcceptanceGadget{
-		BlockAcceptedEvent: event.NewLinkable[*Block](),
+		BlockAcceptedEvent: event.New1[*Block](),
 		AcceptedBlocks:     models.NewBlockIDs(),
 		AcceptedMarkers:    markers.NewMarkers(),
 	}
@@ -233,7 +236,7 @@ func (m *MockAcceptanceGadget) FirstUnacceptedIndex(sequenceID markers.SequenceI
 	return 1
 }
 
-func (m *MockAcceptanceGadget) AcceptedBlocksInEpoch(index epoch.Index) (blocks models.BlockIDs) {
+func (m *MockAcceptanceGadget) AcceptedBlocksInSlot(index slot.Index) (blocks models.BlockIDs) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 

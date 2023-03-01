@@ -7,17 +7,17 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/randommap"
-	"github.com/iotaledger/hive.go/core/types"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/ds/randommap"
+	"github.com/iotaledger/hive.go/ds/types"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 type acceptanceGadget interface {
@@ -39,20 +39,20 @@ type TipManager struct {
 	workers                     *workerpool.Group
 	schedulerBlockRetrieverFunc blockRetrieverFunc
 
-	walkerCache *memstorage.EpochStorage[models.BlockID, types.Empty]
+	walkerCache *memstorage.SlotStorage[models.BlockID, types.Empty]
 
 	mutex               sync.RWMutex
 	tips                *randommap.RandomMap[models.BlockID, *scheduler.Block]
 	TipsConflictTracker *TipsConflictTracker
 
-	commitmentRecentBoundary epoch.Index
+	commitmentRecentBoundary slot.Index
 
 	optsTimeSinceConfirmationThreshold time.Duration
 	optsWidth                          int
 }
 
 // New creates a new TipManager.
-func New(workers *workerpool.Group, schedulerBlockRetrieverFunc blockRetrieverFunc, opts ...options.Option[TipManager]) (t *TipManager) {
+func New(workers *workerpool.Group, slotTimeProvider *slot.TimeProvider, schedulerBlockRetrieverFunc blockRetrieverFunc, opts ...options.Option[TipManager]) (t *TipManager) {
 	t = options.Apply(&TipManager{
 		Events: NewEvents(),
 
@@ -61,13 +61,13 @@ func New(workers *workerpool.Group, schedulerBlockRetrieverFunc blockRetrieverFu
 
 		tips: randommap.New[models.BlockID, *scheduler.Block](),
 
-		walkerCache: memstorage.NewEpochStorage[models.BlockID, types.Empty](),
+		walkerCache: memstorage.NewSlotStorage[models.BlockID, types.Empty](),
 
 		optsTimeSinceConfirmationThreshold: time.Minute,
 		optsWidth:                          0,
 	}, opts)
 
-	t.commitmentRecentBoundary = epoch.Index(int64(t.optsTimeSinceConfirmationThreshold.Seconds()) / epoch.Duration)
+	t.commitmentRecentBoundary = slot.Index(int64(t.optsTimeSinceConfirmationThreshold.Seconds()) / slotTimeProvider.Duration())
 
 	return
 }
@@ -76,13 +76,15 @@ func (t *TipManager) LinkTo(engine *engine.Engine) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	t.walkerCache = memstorage.NewEpochStorage[models.BlockID, types.Empty]()
+	t.walkerCache = memstorage.NewSlotStorage[models.BlockID, types.Empty]()
 	t.tips = randommap.New[models.BlockID, *scheduler.Block]()
 
 	t.engine = engine
 	t.blockAcceptanceGadget = engine.Consensus.BlockGadget
-	t.TipsConflictTracker = NewTipsConflictTracker(t.workers, engine)
-	t.TipsConflictTracker.Setup()
+	if t.TipsConflictTracker != nil {
+		t.TipsConflictTracker.Cleanup()
+	}
+	t.TipsConflictTracker = NewTipsConflictTracker(t.workers.CreatePool("TipsConflictTracker", 1), engine)
 }
 
 func (t *TipManager) AddTip(block *scheduler.Block) {
@@ -104,7 +106,7 @@ func (t *TipManager) AddTipNonMonotonic(block *scheduler.Block) {
 	}
 
 	// Do not add a tip booked on a reject branch, we won't use it as a tip and it will otherwise remove parent tips.
-	blockConflictIDs := t.engine.Tangle.Booker.BlockConflicts(block.Block.Block)
+	blockConflictIDs := t.engine.Tangle.Booker.BlockConflicts(block.Block)
 	if t.engine.Tangle.Booker.Ledger.ConflictDAG.ConfirmationState(blockConflictIDs).IsRejected() {
 		return
 	}
@@ -114,7 +116,7 @@ func (t *TipManager) AddTipNonMonotonic(block *scheduler.Block) {
 	}
 }
 
-func (t *TipManager) EvictTSCCache(index epoch.Index) {
+func (t *TipManager) EvictTSCCache(index slot.Index) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
@@ -170,37 +172,36 @@ func (t *TipManager) selectTips(count int) (parents models.BlockIDs) {
 	defer t.mutex.Unlock()
 
 	parents = models.NewBlockIDs()
-	for {
-		tips := t.tips.RandomUniqueEntries(count)
+	tips := t.tips.RandomUniqueEntries(count)
 
-		// only add genesis if no tips are available
-		if len(tips) == 0 {
-			// TODO: possible to use latest accepted block instead
-			rootBlock := t.engine.EvictionState.LatestRootBlock()
-			fmt.Println("(time: ", time.Now(), ") selecting root block because tip pool empty:", rootBlock)
+	// We obtain up to 8 latest root blocks if there is no valid tip and we submit them to the TSC check as some
+	// could be old in case of a slow growing BlockDAG.
+	if len(tips) == 0 {
+		rootBlocks := t.engine.EvictionState.LatestRootBlocks()
 
-			return parents.Add(rootBlock)
-		}
-
-		// at least one tip is returned
-		for _, tip := range tips {
-			if err := t.isValidTip(tip); err == nil {
-				parents.Add(tip.ID())
-			} else {
-				t.deleteTip(tip)
-
-				// DEBUG
-				fmt.Printf("(time: %s) cannot select tip due to error: %s\n", time.Now(), err)
-				if t.tips.Size() == 0 {
-					fmt.Println("(time: ", time.Now(), ") >> deleted last TIP because it doesn't pass checks!", tip.ID())
-				}
+		for blockID := range rootBlocks {
+			if block, exist := t.schedulerBlockRetrieverFunc(blockID); exist {
+				tips = append(tips, block)
 			}
 		}
+		fmt.Println("(time: ", time.Now(), ") selecting root blocks because tip pool empty:", rootBlocks)
+	}
 
-		if len(parents) > 0 {
-			return parents
+	for _, tip := range tips {
+		if err := t.isValidTip(tip); err == nil {
+			parents.Add(tip.ID())
+		} else {
+			t.deleteTip(tip)
+
+			// DEBUG
+			fmt.Printf("(time: %s) cannot select tip due to error: %s\n", time.Now(), err)
+			if t.tips.Size() == 0 {
+				fmt.Println("(time: ", time.Now(), ") >> deleted last TIP because it doesn't pass checks!", tip.ID())
+			}
 		}
 	}
+
+	return parents
 }
 
 // AllTips returns a list of all tips that are stored in the TipManger.
@@ -276,7 +277,7 @@ func (t *TipManager) isFutureCommitment(block *scheduler.Block) (isUnknown bool)
 }
 
 func (t *TipManager) isValidTip(tip *scheduler.Block) (err error) {
-	if !t.isPastConeTimestampCorrect(tip.Block.Block) {
+	if !t.isPastConeTimestampCorrect(tip.Block) {
 		return errors.Errorf("cannot select tip due to TSC condition tip issuing time (%s), time (%s), min supported time (%s), block id (%s), tip pool size (%d), scheduled: (%t), orphaned: (%t), accepted: (%t)",
 			tip.IssuingTime(),
 			t.engine.Clock.AcceptedTime(),
@@ -292,7 +293,7 @@ func (t *TipManager) isValidTip(tip *scheduler.Block) (err error) {
 	return nil
 }
 
-func (t *TipManager) IsPastConeTimestampCorrect(block *booker.Block) (timestampValid bool) {
+func (t *TipManager) IsPastConeTimestampCorrect(block *virtualvoting.Block) (timestampValid bool) {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
 
@@ -307,7 +308,7 @@ func (t *TipManager) IsPastConeTimestampCorrect(block *booker.Block) (timestampV
 // This function is optimized through the use of markers and the following assumption:
 //
 //	If there's any unaccepted block >TSC threshold, then the oldest accepted block will be >TSC threshold, too.
-func (t *TipManager) isPastConeTimestampCorrect(block *booker.Block) (timestampValid bool) {
+func (t *TipManager) isPastConeTimestampCorrect(block *virtualvoting.Block) (timestampValid bool) {
 	minSupportedTimestamp := t.engine.Clock.AcceptedTime().Add(-t.optsTimeSinceConfirmationThreshold)
 
 	if !t.engine.IsBootstrapped() {
@@ -321,7 +322,7 @@ func (t *TipManager) isPastConeTimestampCorrect(block *booker.Block) (timestampV
 	return
 }
 
-func (t *TipManager) checkBlockRecursive(block *booker.Block, minSupportedTimestamp time.Time) (timestampValid bool) {
+func (t *TipManager) checkBlockRecursive(block *virtualvoting.Block, minSupportedTimestamp time.Time) (timestampValid bool) {
 	if storage := t.walkerCache.Get(block.ID().Index(), false); storage != nil {
 		if _, exists := storage.Get(block.ID()); exists {
 			return true
@@ -350,7 +351,7 @@ func (t *TipManager) checkBlockRecursive(block *booker.Block, minSupportedTimest
 			return false
 		}
 
-		if !t.checkBlockRecursive(parentBlock.Block.Block, minSupportedTimestamp) {
+		if !t.checkBlockRecursive(parentBlock.Block, minSupportedTimestamp) {
 			return false
 		}
 	}

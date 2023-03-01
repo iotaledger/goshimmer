@@ -9,9 +9,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 // region TestFramework //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -38,7 +37,7 @@ func NewTestFramework(test *testing.T, tangleTF *tangle.TestFramework, optsTSCMa
 	}
 
 	t.Manager = New(t.MockAcceptance.IsBlockAccepted, tangleTF.Instance, optsTSCManager...)
-	event.Hook(t.Tangle.Booker.Instance.Events.BlockBooked, func(event *booker.BlockBookedEvent) {
+	t.Tangle.Booker.Instance.Events.BlockBooked.Hook(func(event *booker.BlockBookedEvent) {
 		t.Manager.AddBlock(event.Block)
 	})
 
@@ -47,7 +46,7 @@ func NewTestFramework(test *testing.T, tangleTF *tangle.TestFramework, optsTSCMa
 
 func (t *TestFramework) AssertOrphaned(expectedState map[string]bool) {
 	for alias, expectedOrphanage := range expectedState {
-		t.Tangle.Booker.AssertBlock(alias, func(block *booker.Block) {
+		t.Tangle.Booker.AssertBlock(alias, func(block *virtualvoting.Block) {
 			require.Equal(t.test, expectedOrphanage, block.Block.IsOrphaned(), "block %s is incorrectly orphaned", block.ID())
 		})
 	}

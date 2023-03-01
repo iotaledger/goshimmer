@@ -15,9 +15,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/app/configuration"
 	"github.com/iotaledger/hive.go/app/logger"
-	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -68,7 +68,7 @@ func (tf *TestFramework) CreateBlock(issuer int) *models.Block {
 	parents := models.NewParentBlockIDs()
 	parents.AddStrong(models.EmptyBlockID)
 	blk := models.NewBlock(models.WithIssuer(tf.localIdentity[issuer].PublicKey()), models.WithParents(parents))
-	assert.NoError(tf.test, blk.DetermineID())
+	assert.NoError(tf.test, blk.DetermineID(tf.Protocol.Instance.SlotTimeProvider))
 	return blk
 }
 

@@ -4,23 +4,25 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
 
 type TestFramework struct {
-	blocksByAlias  map[string]*Block
-	sequenceNumber uint64
+	slotTimeProvider *slot.TimeProvider
+	blocksByAlias    map[string]*Block
+	sequenceNumber   uint64
 }
 
 // NewTestFramework is the constructor of the TestFramework.
-func NewTestFramework(opts ...options.Option[TestFramework]) *TestFramework {
+func NewTestFramework(slotTimeProvider *slot.TimeProvider, opts ...options.Option[TestFramework]) *TestFramework {
 	return options.Apply(&TestFramework{
-		blocksByAlias: make(map[string]*Block),
+		slotTimeProvider: slotTimeProvider,
+		blocksByAlias:    make(map[string]*Block),
 	}, opts)
 }
 
@@ -36,7 +38,7 @@ func (t *TestFramework) CreateBlock(alias string, opts ...options.Option[Block])
 		block.M.Parents.Add(StrongParentType, EmptyBlockID)
 	}
 
-	if err := block.DetermineID(); err != nil {
+	if err := block.DetermineID(t.slotTimeProvider); err != nil {
 		panic(err)
 	}
 	block.ID().RegisterAlias(alias)
@@ -62,7 +64,7 @@ func (t *TestFramework) CreateAndSignBlock(alias string, keyPair *ed25519.KeyPai
 		panic(err)
 	}
 
-	if err := block.DetermineID(); err != nil {
+	if err := block.DetermineID(t.slotTimeProvider); err != nil {
 		panic(err)
 	}
 	block.ID().RegisterAlias(alias)
@@ -115,6 +117,6 @@ func WithBlock(alias string, block *Block) options.Option[TestFramework] {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func GenesisRootBlockProvider(index epoch.Index) *set.AdvancedSet[BlockID] {
-	return set.NewAdvancedSet(EmptyBlockID)
+func GenesisRootBlockProvider(index slot.Index) *advancedset.AdvancedSet[BlockID] {
+	return advancedset.NewAdvancedSet(EmptyBlockID)
 }

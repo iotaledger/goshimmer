@@ -8,22 +8,24 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
-	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 func TestFactory_IssuePayload(t *testing.T) {
 	localIdentity := identity.GenerateLocalIdentity()
 
+	slotTimeProvider := slot.NewTimeProvider()
+
 	ecRecord := commitment.New(1, commitment.NewID(1, []byte{90, 111}), types.NewIdentifier([]byte{123, 255}), 1)
-	confirmedEpochIndex := epoch.Index(25)
-	commitmentFunc := func() (*commitment.Commitment, epoch.Index, error) {
-		return ecRecord, confirmedEpochIndex, nil
+	confirmedSlotIndex := slot.Index(25)
+	commitmentFunc := func() (*commitment.Commitment, slot.Index, error) {
+		return ecRecord, confirmedSlotIndex, nil
 	}
 
 	referencesFunc := func(payload payload.Payload, strongParents models.BlockIDs) (references models.ParentBlockIDs, err error) {
@@ -53,7 +55,7 @@ func TestFactory_IssuePayload(t *testing.T) {
 
 	pay := payload.NewGenericDataPayload([]byte("test"))
 
-	factory := NewBlockFactory(localIdentity, blockRetriever, tipSelectorFunc, referencesFunc, commitmentFunc)
+	factory := NewBlockFactory(localIdentity, slotTimeProvider, blockRetriever, tipSelectorFunc, referencesFunc, commitmentFunc)
 	createdBlock, err := factory.CreateBlock(pay, 2)
 	require.NoError(t, err)
 
@@ -66,7 +68,7 @@ func TestFactory_IssuePayload(t *testing.T) {
 	assert.Equal(t, ecRecord.Index(), createdBlock.Commitment().Index())
 	assert.Equal(t, ecRecord.RootsID(), createdBlock.Commitment().RootsID())
 	assert.Equal(t, ecRecord.PrevID(), createdBlock.Commitment().PrevID())
-	assert.Equal(t, confirmedEpochIndex, createdBlock.LatestConfirmedEpoch())
+	assert.Equal(t, confirmedSlotIndex, createdBlock.LatestConfirmedSlot())
 	assert.EqualValues(t, 0, createdBlock.Nonce())
 
 	signatureValid, err := createdBlock.VerifySignature()
@@ -80,7 +82,7 @@ func TestFactory_IssuePayload(t *testing.T) {
 	}
 	require.Equal(t, b, lo.PanicOnErr(deserializedBlock.Bytes()))
 
-	require.NoError(t, deserializedBlock.DetermineID())
+	require.NoError(t, deserializedBlock.DetermineID(slotTimeProvider))
 	require.Equal(t, createdBlock.ID(), deserializedBlock.ID())
 
 	signatureValid, err = deserializedBlock.VerifySignature()

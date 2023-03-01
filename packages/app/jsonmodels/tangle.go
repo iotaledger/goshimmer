@@ -18,11 +18,11 @@ type Block struct {
 	TransactionID        string   `json:"transactionID,omitempty"`
 	Payload              []byte   `json:"payload"`
 	CommitmentID         string   `json:"commitmentID"`
-	EpochIndex           uint64   `json:"epochIndex"`
+	SlotIndex            uint64   `json:"slotIndex"`
 	CommitmentRootsID    string   `json:"commitmentRootsID"`
 	PrevCommitmentID     string   `json:"PrevCommitmentID"`
 	Signature            string   `json:"signature"`
-	LatestConfirmedEpoch uint64   `json:"latestConfirmedEpoch"`
+	LatestConfirmedSlot  uint64   `json:"latestConfirmedSlot"`
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

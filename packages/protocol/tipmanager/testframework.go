@@ -11,7 +11,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/ads"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
@@ -22,18 +22,17 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/debug"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/ds/shrinkingmap"
+	"github.com/iotaledger/hive.go/kvstore/mapdb"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/debug"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 // region TestFramework //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -55,41 +54,41 @@ type TestFramework struct {
 	optsEngineOptions     []options.Option[engine.Engine]
 }
 
-func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...options.Option[TestFramework]) (t *TestFramework) {
+func NewTestFramework(test *testing.T, workers *workerpool.Group, slotTimeProvider *slot.TimeProvider, opts ...options.Option[TestFramework]) (t *TestFramework) {
 	return options.Apply(&TestFramework{
 		test:            test,
 		mockAcceptance:  blockgadget.NewMockAcceptanceGadget(),
 		scheduledBlocks: shrinkingmap.New[models.BlockID, *scheduler.Block](),
 	}, opts, func(t *TestFramework) {
 		storageInstance := blockdag.NewTestStorage(test, workers)
-		// set MinCommittableEpochAge to genesis so nothing is committed.
-		t.Engine = engine.New(workers.CreateGroup("Engine"), storageInstance, dpos.NewProvider(), mana1.NewProvider(), t.optsEngineOptions...)
+		// set MinCommittableSlotAge to genesis so nothing is committed.
+		t.Engine = engine.New(workers.CreateGroup("Engine"), storageInstance, dpos.NewProvider(), mana1.NewProvider(), slotTimeProvider, t.optsEngineOptions...)
 
 		test.Cleanup(func() {
 			t.Engine.Shutdown()
-			workers.Wait()
+			workers.WaitChildren()
 			storageInstance.Shutdown()
 		})
 
 		t.Tangle = tangle.NewTestFramework(
 			test,
 			t.Engine.Tangle,
-			virtualvoting.NewTestFramework(test, workers.CreateGroup("VirtualVotingTestFramework"), t.Engine.Tangle.VirtualVoting),
+			booker.NewTestFramework(test, workers.CreateGroup("BookerTestFramework"), t.Engine.Tangle.Booker),
 		)
 
-		t.Instance = New(workers.CreateGroup("TipManager"), t.mockSchedulerBlock, t.optsTipManagerOptions...)
+		t.Instance = New(workers.CreateGroup("TipManager"), slotTimeProvider, t.mockSchedulerBlock, t.optsTipManagerOptions...)
 		t.Instance.LinkTo(t.Engine)
 
 		t.Instance.blockAcceptanceGadget = t.mockAcceptance
 
-		t.SetAcceptedTime(time.Unix(epoch.GenesisTime, 0))
+		t.SetAcceptedTime(slotTimeProvider.GenesisTime())
 
-		t.Tangle.BlockDAG.ModelsTestFramework.SetBlock("Genesis", models.NewEmptyBlock(models.EmptyBlockID, models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0))))
+		t.Tangle.BlockDAG.ModelsTestFramework.SetBlock("Genesis", models.NewEmptyBlock(models.EmptyBlockID, models.WithIssuingTime(slotTimeProvider.GenesisTime())))
 	}, (*TestFramework).createGenesis, (*TestFramework).setupEvents)
 }
 
 func (t *TestFramework) setupEvents() {
-	event.Hook(t.Tangle.Instance.Events.VirtualVoting.BlockTracked, func(block *virtualvoting.Block) {
+	t.Tangle.Instance.Events.Booker.VirtualVoting.BlockTracked.Hook(func(block *virtualvoting.Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("SIMULATING SCHEDULED: %s", block.ID())
 		}
@@ -102,25 +101,25 @@ func (t *TestFramework) setupEvents() {
 		t.Instance.AddTip(scheduledBlock)
 	})
 
-	event.Hook(t.Engine.Events.EvictionState.EpochEvicted, func(index epoch.Index) {
+	t.Engine.Events.EvictionState.SlotEvicted.Hook(func(index slot.Index) {
 		t.Instance.EvictTSCCache(index)
 	})
 
-	event.Hook(t.Instance.Events.TipAdded, func(block *scheduler.Block) {
+	t.Instance.Events.TipAdded.Hook(func(block *scheduler.Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("TIP ADDED: %s", block.ID())
 		}
 		atomic.AddUint32(&(t.tipAdded), 1)
 	})
 
-	event.Hook(t.Instance.Events.TipRemoved, func(block *scheduler.Block) {
+	t.Instance.Events.TipRemoved.Hook(func(block *scheduler.Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("TIP REMOVED: %s", block.ID())
 		}
 		atomic.AddUint32(&(t.tipRemoved), 1)
 	})
 
-	event.Hook(t.mockAcceptance.BlockAcceptedEvent, func(block *blockgadget.Block) {
+	t.mockAcceptance.BlockAcceptedEvent.Hook(func(block *blockgadget.Block) {
 		require.NoError(t.test, t.Engine.NotarizationManager.NotarizeAcceptedBlock(block.ModelsBlock))
 	})
 }
@@ -134,14 +133,12 @@ func (t *TestFramework) createGenesis() {
 
 	block := scheduler.NewBlock(
 		virtualvoting.NewBlock(
-			booker.NewBlock(
-				blockdag.NewBlock(
-					models.NewEmptyBlock(models.EmptyBlockID, models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0))),
-					blockdag.WithSolid(true),
-				),
-				booker.WithBooked(true),
-				booker.WithStructureDetails(structureDetails),
+			blockdag.NewBlock(
+				models.NewEmptyBlock(models.EmptyBlockID, models.WithIssuingTime(t.Tangle.Instance.BlockDAG.SlotTimeProvider.GenesisTime())),
+				blockdag.WithSolid(true),
 			),
+			virtualvoting.WithBooked(true),
+			virtualvoting.WithStructureDetails(structureDetails),
 		),
 		scheduler.WithScheduled(true),
 	)
@@ -167,7 +164,7 @@ func (t *TestFramework) IssueBlocksAndSetAccepted(aliases ...string) {
 func (t *TestFramework) SetBlocksAccepted(aliases ...string) {
 	for _, alias := range aliases {
 		block := t.Tangle.Booker.Block(alias)
-		t.mockAcceptance.SetBlockAccepted(blockgadget.NewBlock(virtualvoting.NewBlock(block)))
+		t.mockAcceptance.SetBlockAccepted(blockgadget.NewBlock(block))
 	}
 }
 
@@ -184,7 +181,7 @@ func (t *TestFramework) AssertIsPastConeTimestampCorrect(blockAlias string, expe
 	if !exists {
 		panic(fmt.Sprintf("block with %s not found", blockAlias))
 	}
-	actual := t.Instance.IsPastConeTimestampCorrect(block.Block.Block)
+	actual := t.Instance.IsPastConeTimestampCorrect(block.Block)
 	require.Equal(t.test, expected, actual, "isPastConeTimestampCorrect: %s should be %t but is %t", blockAlias, expected, actual)
 }
 
@@ -210,14 +207,14 @@ func (t *TestFramework) AssertTipCount(expectedTipCount int) {
 	require.Equal(t.test, expectedTipCount, t.Instance.TipCount(), "expected %d tip count but got %d", t.Instance.TipCount(), expectedTipCount)
 }
 
-func (t *TestFramework) FormCommitment(index epoch.Index, acceptedBlocksAliases []string, prevIndex epoch.Index) (cm *commitment.Commitment) {
-	// acceptedBlocksInEpoch := t.mockAcceptance.AcceptedBlocksInEpoch(index)
+func (t *TestFramework) FormCommitment(index slot.Index, acceptedBlocksAliases []string, prevIndex slot.Index) (cm *commitment.Commitment) {
+	// acceptedBlocksInSlot := t.mockAcceptance.AcceptedBlocksInSlot(index)
 	adsBlocks := ads.NewSet[models.BlockID](mapdb.NewMapDB())
 	adsAttestations := ads.NewMap[identity.ID, notarization.Attestation](mapdb.NewMapDB())
 	for _, acceptedBlockAlias := range acceptedBlocksAliases {
 		acceptedBlock := t.Tangle.Booker.Block(acceptedBlockAlias)
 		adsBlocks.Add(acceptedBlock.ID())
-		adsAttestations.Set(acceptedBlock.IssuerID(), notarization.NewAttestation(acceptedBlock.ModelsBlock))
+		adsAttestations.Set(acceptedBlock.IssuerID(), notarization.NewAttestation(acceptedBlock.ModelsBlock, t.Engine.SlotTimeProvider))
 	}
 	return commitment.New(
 		index,

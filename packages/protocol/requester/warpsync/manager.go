@@ -3,14 +3,15 @@ package warpsync
 import (
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"go.uber.org/atomic"
+
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/network/warpsync"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/logger"
-	"github.com/iotaledger/hive.go/core/typeutils"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 const minimumWindowSize = 10
@@ -28,8 +29,8 @@ type Manager struct {
 
 	log *logger.Logger
 
-	active  typeutils.AtomicBool
-	stopped typeutils.AtomicBool
+	active  atomic.Bool
+	stopped atomic.Bool
 
 	blockLoaderFunc    LoadBlockFunc
 	blockProcessorFunc ProcessBlockFunc
@@ -42,18 +43,18 @@ type Manager struct {
 
 	syncingInProgress bool
 	syncingLock       sync.RWMutex
-	epochsChannels    map[epoch.Index]*epochChannels
+	slotsChannels     map[slot.Index]*slotChannels
 
-	successfulSyncEpoch epoch.Index
+	successfulSyncSlot slot.Index
 
 	sync.RWMutex
 }
 
-type epochChannels struct {
+type slotChannels struct {
 	sync.RWMutex
-	startChan chan *epochSyncStart
-	blockChan chan *epochSyncBlock
-	endChan   chan *epochSyncEnd
+	startChan chan *slotSyncStart
+	blockChan chan *slotSyncBlock
+	endChan   chan *slotSyncEnd
 	stopChan  chan struct{}
 	active    bool
 }
@@ -71,14 +72,14 @@ func NewManager(blockLoaderFunc LoadBlockFunc, blockProcessorFunc ProcessBlockFu
 	return m
 }
 
-// WithConcurrency allows to set how many epochs can be requested at once.
+// WithConcurrency allows to set how many slots can be requested at once.
 func WithConcurrency(concurrency int) options.Option[Manager] {
 	return func(m *Manager) {
 		m.concurrency = concurrency
 	}
 }
 
-// WithBlockBatchSize allows to set the size of the block batch returned as part of epoch blocks response.
+// WithBlockBatchSize allows to set the size of the block batch returned as part of slot blocks response.
 func WithBlockBatchSize(blockBatchSize int) options.Option[Manager] {
 	return func(m *Manager) {
 		m.blockBatchSize = blockBatchSize
@@ -86,7 +87,7 @@ func WithBlockBatchSize(blockBatchSize int) options.Option[Manager] {
 }
 
 /*
-func (m *Manager) WarpRange(ctx context.Context, start, end epoch.Index, startEC commitment.ID, endPrevEC commitment.ID) (err error) {
+func (m *Manager) WarpRange(ctx context.Context, start, end slot.Index, startEC commitment.ID, endPrevEC commitment.ID) (err error) {
 	if m.IsStopped() {
 		return errors.Errorf("warpsync manager is stopped")
 	}
@@ -100,8 +101,8 @@ func (m *Manager) WarpRange(ctx context.Context, start, end epoch.Index, startEC
 	defer m.Unlock()
 
 	// Skip warpsyncing if the requested range overlaps with a previous run.
-	if end-m.successfulSyncEpoch < minimumWindowSize {
-		m.log.Debugf("WarpRange: already synced to %d", m.successfulSyncEpoch)
+	if end-m.successfulSyncSlot < minimumWindowSize {
+		m.log.Debugf("WarpRange: already synced to %d", m.successfulSyncSlot)
 		return nil
 	}
 
@@ -110,14 +111,14 @@ func (m *Manager) WarpRange(ctx context.Context, start, end epoch.Index, startEC
 
 	m.log.Infof("warpsyncing range %d-%d on chain %s -> %s", start, end, startEC.Base58(), endPrevEC.Base58())
 
-	lowestProcessedEpoch, syncRangeErr := m.syncRange(ctx, start, end, startEC, ecChain, validPeers)
+	lowestProcessedSlot, syncRangeErr := m.syncRange(ctx, start, end, startEC, ecChain, validPeers)
 	if syncRangeErr != nil {
 		return errors.Wrapf(syncRangeErr, "failed to sync range %d-%d with peers %s", start, end, validPeers)
 	}
 
-	m.log.Infof("range %d-%d synced", start, lowestProcessedEpoch)
+	m.log.Infof("range %d-%d synced", start, lowestProcessedSlot)
 
-	m.successfulSyncEpoch = lowestProcessedEpoch + 1
+	m.successfulSyncSlot = lowestProcessedSlot + 1
 
 	return nil
 }
@@ -125,11 +126,11 @@ func (m *Manager) WarpRange(ctx context.Context, start, end epoch.Index, startEC
 
 // IsStopped returns true if the manager is stopped.
 func (m *Manager) IsStopped() bool {
-	return m.stopped.IsSet()
+	return m.stopped.Load()
 }
 
 // Stop stops the manager and closes all established connections.
 func (m *Manager) Stop() {
-	m.stopped.Set()
+	m.stopped.Store(false)
 	m.protocol.Stop()
 }

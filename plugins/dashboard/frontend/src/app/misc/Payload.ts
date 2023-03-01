@@ -37,7 +37,7 @@ export class Transaction {
 
 export class Input {
     type: string;
-    referencedOutputID: string;
+    referencedOutputID: OutputID;
     output: Output;
 }
 

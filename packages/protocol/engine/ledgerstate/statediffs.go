@@ -5,13 +5,13 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/core/stream"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/storage"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/kvstore"
+	"github.com/iotaledger/hive.go/kvstore"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 const (
@@ -34,7 +34,7 @@ func NewStateDiffs(storageInstance *storage.Storage, ledgerInstance *ledger.Ledg
 }
 
 func (s *StateDiffs) StoreSpentOutput(outputWithMetadata *ledger.OutputWithMetadata) (err error) {
-	if spentStorage, spentStorageErr := s.storage.LedgerStateDiffs(outputWithMetadata.SpentInEpoch()).WithExtendedRealm([]byte{spentOutputsPrefix}); spentStorageErr != nil {
+	if spentStorage, spentStorageErr := s.storage.LedgerStateDiffs(outputWithMetadata.SpentInSlot()).WithExtendedRealm([]byte{spentOutputsPrefix}); spentStorageErr != nil {
 		return errors.Wrapf(spentStorageErr, "failed to retrieve spent storage")
 	} else {
 		return spentStorage.Set(lo.PanicOnErr(outputWithMetadata.ID().Bytes()), lo.PanicOnErr(outputWithMetadata.Bytes()))
@@ -49,7 +49,7 @@ func (s *StateDiffs) StoreCreatedOutput(outputWithMetadata *ledger.OutputWithMet
 	}
 }
 
-func (s *StateDiffs) LoadSpentOutput(index epoch.Index, outputID utxo.OutputID) (outputWithMetadata *ledger.OutputWithMetadata, err error) {
+func (s *StateDiffs) LoadSpentOutput(index slot.Index, outputID utxo.OutputID) (outputWithMetadata *ledger.OutputWithMetadata, err error) {
 	store, err := s.storage.LedgerStateDiffs(index).WithExtendedRealm([]byte{spentOutputsPrefix})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to extend realm for storage")
@@ -57,7 +57,7 @@ func (s *StateDiffs) LoadSpentOutput(index epoch.Index, outputID utxo.OutputID) 
 	return s.get(store, outputID)
 }
 
-func (s *StateDiffs) LoadCreatedOutput(index epoch.Index, outputID utxo.OutputID) (outputWithMetadata *ledger.OutputWithMetadata, err error) {
+func (s *StateDiffs) LoadCreatedOutput(index slot.Index, outputID utxo.OutputID) (outputWithMetadata *ledger.OutputWithMetadata, err error) {
 	store, err := s.storage.LedgerStateDiffs(index).WithExtendedRealm([]byte{createdOutputsPrefix})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to extend realm for storage")
@@ -66,7 +66,7 @@ func (s *StateDiffs) LoadCreatedOutput(index epoch.Index, outputID utxo.OutputID
 	return s.get(store, outputID)
 }
 
-func (s *StateDiffs) DeleteSpentOutput(index epoch.Index, outputID utxo.OutputID) (err error) {
+func (s *StateDiffs) DeleteSpentOutput(index slot.Index, outputID utxo.OutputID) (err error) {
 	store, err := s.storage.LedgerStateDiffs(index).WithExtendedRealm([]byte{spentOutputsPrefix})
 	if err != nil {
 		return errors.Wrap(err, "failed to extend realm for storage")
@@ -75,7 +75,7 @@ func (s *StateDiffs) DeleteSpentOutput(index epoch.Index, outputID utxo.OutputID
 	return s.delete(store, outputID)
 }
 
-func (s *StateDiffs) DeleteCreatedOutput(index epoch.Index, outputID utxo.OutputID) (err error) {
+func (s *StateDiffs) DeleteCreatedOutput(index slot.Index, outputID utxo.OutputID) (err error) {
 	store, err := s.storage.LedgerStateDiffs(index).WithExtendedRealm([]byte{createdOutputsPrefix})
 	if err != nil {
 		return errors.Wrap(err, "failed to extend realm for storage")
@@ -84,7 +84,7 @@ func (s *StateDiffs) DeleteCreatedOutput(index epoch.Index, outputID utxo.Output
 	return s.delete(store, outputID)
 }
 
-func (s *StateDiffs) DeleteSpentOutputs(index epoch.Index, outputIDs utxo.OutputIDs) (err error) {
+func (s *StateDiffs) DeleteSpentOutputs(index slot.Index, outputIDs utxo.OutputIDs) (err error) {
 	for it := outputIDs.Iterator(); it.HasNext(); {
 		if err = s.DeleteSpentOutput(index, it.Next()); err != nil {
 			return
@@ -94,7 +94,7 @@ func (s *StateDiffs) DeleteSpentOutputs(index epoch.Index, outputIDs utxo.Output
 	return nil
 }
 
-func (s *StateDiffs) DeleteCreatedOutputs(index epoch.Index, outputIDs utxo.OutputIDs) (err error) {
+func (s *StateDiffs) DeleteCreatedOutputs(index slot.Index, outputIDs utxo.OutputIDs) (err error) {
 	for it := outputIDs.Iterator(); it.HasNext(); {
 		if err = s.DeleteCreatedOutput(index, it.Next()); err != nil {
 			return
@@ -104,7 +104,7 @@ func (s *StateDiffs) DeleteCreatedOutputs(index epoch.Index, outputIDs utxo.Outp
 	return nil
 }
 
-func (s *StateDiffs) StreamSpentOutputs(index epoch.Index, callback func(*ledger.OutputWithMetadata) error) (err error) {
+func (s *StateDiffs) StreamSpentOutputs(index slot.Index, callback func(*ledger.OutputWithMetadata) error) (err error) {
 	store, err := s.storage.LedgerStateDiffs(index).WithExtendedRealm([]byte{spentOutputsPrefix})
 	if err != nil {
 		return errors.Wrap(err, "failed to extend realm for storage")
@@ -113,7 +113,7 @@ func (s *StateDiffs) StreamSpentOutputs(index epoch.Index, callback func(*ledger
 	return s.stream(store, callback)
 }
 
-func (s *StateDiffs) StreamCreatedOutputs(index epoch.Index, callback func(*ledger.OutputWithMetadata) error) (err error) {
+func (s *StateDiffs) StreamCreatedOutputs(index slot.Index, callback func(*ledger.OutputWithMetadata) error) (err error) {
 	store, err := s.storage.LedgerStateDiffs(index).WithExtendedRealm([]byte{createdOutputsPrefix})
 	if err != nil {
 		return errors.Wrap(err, "failed to extend realm for storage")
@@ -122,19 +122,19 @@ func (s *StateDiffs) StreamCreatedOutputs(index epoch.Index, callback func(*ledg
 	return s.stream(store, callback)
 }
 
-func (s *StateDiffs) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (err error) {
-	if targetEpoch > s.storage.Settings.LatestCommitment().Index() {
-		return errors.Errorf("target epoch %d is not yet committed", targetEpoch)
+func (s *StateDiffs) Export(writer io.WriteSeeker, targetSlot slot.Index) (err error) {
+	if targetSlot > s.storage.Settings.LatestCommitment().Index() {
+		return errors.Errorf("target slot %d is not yet committed", targetSlot)
 	}
 
 	return stream.WriteCollection(writer, func() (elementsCount uint64, err error) {
-		for currentEpoch := s.storage.Settings.LatestCommitment().Index(); currentEpoch > targetEpoch; currentEpoch-- {
-			if err = stream.Write(writer, uint64(currentEpoch)); err != nil {
-				return 0, errors.Wrapf(err, "failed to write epoch %d", currentEpoch)
-			} else if err = s.exportOutputs(writer, currentEpoch, s.StreamCreatedOutputs); err != nil {
-				return 0, errors.Wrapf(err, "failed to export created outputs for epoch %d", currentEpoch)
-			} else if err = s.exportOutputs(writer, currentEpoch, s.StreamSpentOutputs); err != nil {
-				return 0, errors.Wrapf(err, "failed to export spent outputs for epoch %d", currentEpoch)
+		for currentSlot := s.storage.Settings.LatestCommitment().Index(); currentSlot > targetSlot; currentSlot-- {
+			if err = stream.Write(writer, uint64(currentSlot)); err != nil {
+				return 0, errors.Wrapf(err, "failed to write slot %d", currentSlot)
+			} else if err = s.exportOutputs(writer, currentSlot, s.StreamCreatedOutputs); err != nil {
+				return 0, errors.Wrapf(err, "failed to export created outputs for slot %d", currentSlot)
+			} else if err = s.exportOutputs(writer, currentSlot, s.StreamSpentOutputs); err != nil {
+				return 0, errors.Wrapf(err, "failed to export spent outputs for slot %d", currentSlot)
 			}
 
 			elementsCount++
@@ -144,18 +144,18 @@ func (s *StateDiffs) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (err
 	})
 }
 
-func (s *StateDiffs) Import(reader io.ReadSeeker) (importedEpochs []epoch.Index, err error) {
+func (s *StateDiffs) Import(reader io.ReadSeeker) (importedSlots []slot.Index, err error) {
 	if err = stream.ReadCollection(reader, func(i int) (err error) {
-		epochIndex, err := stream.Read[uint64](reader)
+		slotIndex, err := stream.Read[uint64](reader)
 		if err != nil {
-			return errors.Wrap(err, "failed to read epoch index")
+			return errors.Wrap(err, "failed to read slot index")
 		}
-		importedEpochs = append(importedEpochs, epoch.Index(epochIndex))
+		importedSlots = append(importedSlots, slot.Index(slotIndex))
 
 		if err = s.importOutputs(reader, s.StoreCreatedOutput); err != nil {
-			return errors.Wrapf(err, "failed to import created outputs for epoch %d", epochIndex)
+			return errors.Wrapf(err, "failed to import created outputs for slot %d", slotIndex)
 		} else if err = s.importOutputs(reader, s.StoreSpentOutput); err != nil {
-			return errors.Wrapf(err, "failed to import spent outputs for epoch %d", epochIndex)
+			return errors.Wrapf(err, "failed to import spent outputs for slot %d", slotIndex)
 		}
 
 		return
@@ -166,7 +166,7 @@ func (s *StateDiffs) Import(reader io.ReadSeeker) (importedEpochs []epoch.Index,
 	return
 }
 
-func (s *StateDiffs) Delete(index epoch.Index) (err error) {
+func (s *StateDiffs) Delete(index slot.Index) (err error) {
 	return s.storage.LedgerStateDiffs(index).Clear()
 }
 
@@ -183,9 +183,9 @@ func (s *StateDiffs) importOutputs(reader io.ReadSeeker, store func(*ledger.Outp
 	})
 }
 
-func (s *StateDiffs) exportOutputs(writer io.WriteSeeker, epoch epoch.Index, streamFunc func(index epoch.Index, callback func(*ledger.OutputWithMetadata) error) (err error)) (err error) {
+func (s *StateDiffs) exportOutputs(writer io.WriteSeeker, slot slot.Index, streamFunc func(index slot.Index, callback func(*ledger.OutputWithMetadata) error) (err error)) (err error) {
 	return stream.WriteCollection(writer, func() (elementsCount uint64, err error) {
-		if err = streamFunc(epoch, func(outputWithMetadata *ledger.OutputWithMetadata) (err error) {
+		if err = streamFunc(slot, func(outputWithMetadata *ledger.OutputWithMetadata) (err error) {
 			if err = stream.WriteSerializable(writer, outputWithMetadata); err != nil {
 				return errors.Wrap(err, "failed to write output")
 			}
@@ -262,7 +262,7 @@ func (s *StateDiffs) addAcceptedTransaction(metadata *ledger.TransactionMetadata
 func (s *StateDiffs) storeTransaction(transaction utxo.Transaction, metadata *ledger.TransactionMetadata) (err error) {
 	for it := s.ledger.Utils.ResolveInputs(transaction.Inputs()).Iterator(); it.HasNext(); {
 		inputWithMetadata := s.outputWithMetadata(it.Next())
-		inputWithMetadata.SetSpentInEpoch(metadata.InclusionEpoch())
+		inputWithMetadata.SetSpentInSlot(metadata.InclusionSlot())
 		if err = s.StoreSpentOutput(inputWithMetadata); err != nil {
 			return errors.Wrap(err, "failed to storeOutput spent output")
 		}
@@ -274,9 +274,9 @@ func (s *StateDiffs) storeTransaction(transaction utxo.Transaction, metadata *le
 		}
 	}
 
-	if metadata.InclusionEpoch() > s.storage.Settings.LatestStateMutationEpoch() {
-		if err = s.storage.Settings.SetLatestStateMutationEpoch(metadata.InclusionEpoch()); err != nil {
-			return errors.Wrap(err, "failed to update latest state mutation epoch")
+	if metadata.InclusionSlot() > s.storage.Settings.LatestStateMutationSlot() {
+		if err = s.storage.Settings.SetLatestStateMutationSlot(metadata.InclusionSlot()); err != nil {
+			return errors.Wrap(err, "failed to update latest state mutation slot")
 		}
 	}
 
@@ -286,30 +286,30 @@ func (s *StateDiffs) storeTransaction(transaction utxo.Transaction, metadata *le
 func (s *StateDiffs) outputWithMetadata(outputID utxo.OutputID) (outputWithMetadata *ledger.OutputWithMetadata) {
 	s.ledger.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
 		s.ledger.Storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledger.OutputMetadata) {
-			outputWithMetadata = ledger.NewOutputWithMetadata(outputMetadata.InclusionEpoch(), outputID, output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())
+			outputWithMetadata = ledger.NewOutputWithMetadata(outputMetadata.InclusionSlot(), outputID, output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())
 		})
 	})
 
 	return
 }
 
-func (s *StateDiffs) moveTransactionToOtherEpoch(txMeta *ledger.TransactionMetadata, oldEpoch, newEpoch epoch.Index) {
-	if oldEpoch <= s.storage.Settings.LatestCommitment().Index() || newEpoch <= s.storage.Settings.LatestCommitment().Index() {
-		s.ledger.Events.Error.Trigger(errors.Errorf("inclusion time of transaction changed for already committed epoch: previous Index %d, new Index %d", oldEpoch, newEpoch))
+func (s *StateDiffs) moveTransactionToOtherSlot(txMeta *ledger.TransactionMetadata, oldSlot, newSlot slot.Index) {
+	if oldSlot <= s.storage.Settings.LatestCommitment().Index() || newSlot <= s.storage.Settings.LatestCommitment().Index() {
+		s.ledger.Events.Error.Trigger(errors.Errorf("inclusion time of transaction changed for already committed slot: previous Index %d, new Index %d", oldSlot, newSlot))
 		return
 	}
 
 	s.ledger.Storage.CachedTransaction(txMeta.ID()).Consume(func(tx utxo.Transaction) {
-		if err := s.DeleteSpentOutputs(oldEpoch, s.ledger.Utils.ResolveInputs(tx.Inputs())); err != nil {
+		if err := s.DeleteSpentOutputs(oldSlot, s.ledger.Utils.ResolveInputs(tx.Inputs())); err != nil {
 			s.ledger.Events.Error.Trigger(errors.Wrapf(err, "failed to delete spent outputs of transaction %s", txMeta.ID()))
 		}
 
-		if err := s.DeleteCreatedOutputs(oldEpoch, txMeta.OutputIDs()); err != nil {
+		if err := s.DeleteCreatedOutputs(oldSlot, txMeta.OutputIDs()); err != nil {
 			s.ledger.Events.Error.Trigger(errors.Wrapf(err, "failed to delete created outputs of transaction %s", txMeta.ID()))
 		}
 
 		if err := s.storeTransaction(tx, txMeta); err != nil {
-			s.ledger.Events.Error.Trigger(errors.Wrapf(err, "failed to store transaction %s when moving from epoch %d to %d", txMeta.ID(), oldEpoch, newEpoch))
+			s.ledger.Events.Error.Trigger(errors.Wrapf(err, "failed to store transaction %s when moving from slot %d to %d", txMeta.ID(), oldSlot, newSlot))
 		}
 	})
 }

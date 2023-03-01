@@ -19,13 +19,13 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payloadtype"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/model"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/serix"
-	"github.com/iotaledger/hive.go/core/stringify"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/objectstorage/generic/model"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
+	"github.com/iotaledger/hive.go/serializer/v2/serix"
+	"github.com/iotaledger/hive.go/stringify"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -60,7 +60,7 @@ func NewTestLedger(t *testing.T, workers *workerpool.Group, optsLedger ...option
 	ledger := New(workers.CreatePool("Ledger", 2), storage, optsLedger...)
 
 	t.Cleanup(func() {
-		workers.Wait()
+		workers.WaitChildren()
 		ledger.Shutdown()
 		storage.Shutdown()
 	})
@@ -139,7 +139,7 @@ func (t *TestFramework) TransactionIDs(txAliases ...string) (txIDs utxo.Transact
 
 // ConflictIDs gets all conflictdag.ConflictIDs given by txAliases.
 // Panics if an alias doesn't exist.
-func (t *TestFramework) ConflictIDs(txAliases ...string) (conflictIDs *set.AdvancedSet[utxo.TransactionID]) {
+func (t *TestFramework) ConflictIDs(txAliases ...string) (conflictIDs *advancedset.AdvancedSet[utxo.TransactionID]) {
 	return t.ConflictDAG.ConflictIDs(txAliases...)
 }
 

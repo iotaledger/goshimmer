@@ -8,10 +8,10 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/storage/typedkey"
-	"github.com/iotaledger/hive.go/core/generics/constraints"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/kvstore"
+	"github.com/iotaledger/hive.go/constraints"
 	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/kvstore"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 const (
@@ -53,7 +53,7 @@ func NewSet[K any, KPtr constraints.MarshalablePtr[K]](store kvstore.KVStore) (n
 	return
 }
 
-// Root returns the root of the state sparse merkle tree at the latest committed epoch.
+// Root returns the root of the state sparse merkle tree at the latest committed slot.
 func (s *Set[K, KPtr]) Root() (root types.Identifier) {
 	if s == nil {
 		return types.Identifier{}

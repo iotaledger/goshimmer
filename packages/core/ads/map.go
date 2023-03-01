@@ -8,10 +8,10 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/storage/typedkey"
-	"github.com/iotaledger/hive.go/core/generics/constraints"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/kvstore"
+	"github.com/iotaledger/hive.go/constraints"
 	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/kvstore"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 type Map[K, V constraints.Serializable, KPtr constraints.MarshalablePtr[K], VPtr constraints.MarshalablePtr[V]] struct {
@@ -39,7 +39,7 @@ func NewMap[K, V constraints.Serializable, KPtr constraints.MarshalablePtr[K], V
 	return
 }
 
-// Root returns the root of the state sparse merkle tree at the latest committed epoch.
+// Root returns the root of the state sparse merkle tree at the latest committed slot.
 func (m *Map[K, V, KPtr, VPtr]) Root() (root types.Identifier) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()

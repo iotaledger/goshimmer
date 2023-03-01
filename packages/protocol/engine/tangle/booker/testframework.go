@@ -4,28 +4,35 @@ import (
 	"fmt"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/hive.go/core/debug"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/kvstore/mapdb"
+	"github.com/iotaledger/hive.go/runtime/debug"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
 
 type TestFramework struct {
-	test     *testing.T
-	Workers  *workerpool.Group
-	Instance *Booker
-	Ledger   *ledger.TestFramework
-	BlockDAG *blockdag.TestFramework
+	test          *testing.T
+	Workers       *workerpool.Group
+	Instance      *Booker
+	Ledger        *ledger.TestFramework
+	BlockDAG      *blockdag.TestFramework
+	ConflictDAG   *conflictdag.TestFramework
+	VirtualVoting *virtualvoting.TestFramework
 
 	bookedBlocks          int32
 	blockConflictsUpdated int32
@@ -34,12 +41,15 @@ type TestFramework struct {
 
 func NewTestFramework(test *testing.T, workers *workerpool.Group, instance *Booker) *TestFramework {
 	t := &TestFramework{
-		test:     test,
-		Workers:  workers,
-		Instance: instance,
-		BlockDAG: blockdag.NewTestFramework(test, workers.CreateGroup("BlockDAG"), instance.BlockDAG),
-		Ledger:   ledger.NewTestFramework(test, instance.Ledger),
+		test:          test,
+		Workers:       workers,
+		Instance:      instance,
+		BlockDAG:      blockdag.NewTestFramework(test, workers.CreateGroup("BlockDAG"), instance.BlockDAG),
+		ConflictDAG:   conflictdag.NewTestFramework(test, instance.Ledger.ConflictDAG),
+		Ledger:        ledger.NewTestFramework(test, instance.Ledger),
+		VirtualVoting: virtualvoting.NewTestFramework(test, workers.CreateGroup("VirtualVoting"), instance.VirtualVoting),
 	}
+
 	t.setupEvents()
 	return t
 }
@@ -49,8 +59,9 @@ func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, optsBooker
 
 	return NewTestFramework(t, workers, New(
 		workers.CreateGroup("Booker"),
-		blockdag.NewTestBlockDAG(t, workers, eviction.NewState(storageInstance), blockdag.DefaultCommitmentFunc),
+		blockdag.NewTestBlockDAG(t, workers, eviction.NewState(storageInstance), slot.NewTimeProvider(slot.WithGenesisUnixTime(time.Now().Unix())), blockdag.DefaultCommitmentFunc),
 		ledger.NewTestLedger(t, workers.CreateGroup("Ledger")),
+		sybilprotection.NewWeightedSet(sybilprotection.NewWeights(mapdb.NewMapDB())),
 		optsBooker...,
 	))
 }
@@ -67,7 +78,7 @@ func (t *TestFramework) PreventNewMarkers(prevent bool) {
 }
 
 // Block retrieves the Blocks that is associated with the given alias.
-func (t *TestFramework) Block(alias string) (block *Block) {
+func (t *TestFramework) Block(alias string) (block *virtualvoting.Block) {
 	block, ok := t.Instance.Block(t.BlockDAG.Block(alias).ID())
 	if !ok {
 		panic(fmt.Sprintf("Block alias %s not registered", alias))
@@ -76,7 +87,7 @@ func (t *TestFramework) Block(alias string) (block *Block) {
 	return block
 }
 
-func (t *TestFramework) AssertBlock(alias string, callback func(block *Block)) {
+func (t *TestFramework) AssertBlock(alias string, callback func(block *virtualvoting.Block)) {
 	block, exists := t.Instance.Block(t.Block(alias).ID())
 	require.True(t.test, exists, "Block %s not found", alias)
 	callback(block)
@@ -84,7 +95,7 @@ func (t *TestFramework) AssertBlock(alias string, callback func(block *Block)) {
 
 func (t *TestFramework) AssertBooked(expectedValues map[string]bool) {
 	for alias, isBooked := range expectedValues {
-		t.AssertBlock(alias, func(block *Block) {
+		t.AssertBlock(alias, func(block *virtualvoting.Block) {
 			require.Equal(t.test, isBooked, block.IsBooked(), "block %s has incorrect booked flag", alias)
 		})
 	}
@@ -103,7 +114,7 @@ func (t *TestFramework) AssertBlockConflictsUpdateCount(blockConflictsUpdateCoun
 }
 
 func (t *TestFramework) setupEvents() {
-	event.Hook(t.Instance.Events.BlockBooked, func(evt *BlockBookedEvent) {
+	t.Instance.Events.BlockBooked.Hook(func(evt *BlockBookedEvent) {
 		if debug.GetEnabled() {
 			t.test.Logf("BOOKED: %v, %v", evt.Block.ID(), evt.Block.StructureDetails().PastMarkers())
 		}
@@ -111,7 +122,7 @@ func (t *TestFramework) setupEvents() {
 		atomic.AddInt32(&(t.bookedBlocks), 1)
 	})
 
-	event.Hook(t.Instance.Events.BlockConflictAdded, func(evt *BlockConflictAddedEvent) {
+	t.Instance.Events.BlockConflictAdded.Hook(func(evt *BlockConflictAddedEvent) {
 		if debug.GetEnabled() {
 			t.test.Logf("BLOCK CONFLICT UPDATED: %s - %s", evt.Block.ID(), evt.ConflictID)
 		}
@@ -119,7 +130,7 @@ func (t *TestFramework) setupEvents() {
 		atomic.AddInt32(&(t.blockConflictsUpdated), 1)
 	})
 
-	event.Hook(t.Instance.Events.MarkerConflictAdded, func(evt *MarkerConflictAddedEvent) {
+	t.Instance.Events.MarkerConflictAdded.Hook(func(evt *MarkerConflictAddedEvent) {
 		if debug.GetEnabled() {
 			t.test.Logf("MARKER CONFLICT UPDATED: %v - %v", evt.Marker, evt.ConflictID)
 		}
@@ -127,7 +138,7 @@ func (t *TestFramework) setupEvents() {
 		atomic.AddInt32(&(t.markerConflictsAdded), 1)
 	})
 
-	event.Hook(t.Instance.Events.Error, func(err error) {
+	t.Instance.Events.Error.Hook(func(err error) {
 		t.test.Logf("ERROR: %s", err)
 	})
 }
@@ -136,7 +147,7 @@ func (t *TestFramework) checkConflictIDs(expectedConflictIDs map[string]utxo.Tra
 	for blockID, blockExpectedConflictIDs := range expectedConflictIDs {
 		block := t.Block(blockID)
 		require.NotNil(t.test, block)
-		require.NotNil(t.test, block.structureDetails)
+		require.NotNil(t.test, block.StructureDetails)
 		_, retrievedConflictIDs := t.Instance.blockBookingDetails(block)
 		require.True(t.test, blockExpectedConflictIDs.Equal(retrievedConflictIDs), "ConflictID of %s should be %s but is %s", blockID, blockExpectedConflictIDs, retrievedConflictIDs)
 	}

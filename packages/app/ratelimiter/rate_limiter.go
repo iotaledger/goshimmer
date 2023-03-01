@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ReneKroon/ttlcache/v2"
+	"github.com/jellydator/ttlcache/v2"
 	"github.com/paulbellamy/ratecounter"
 	"github.com/pkg/errors"
 	"go.uber.org/atomic"

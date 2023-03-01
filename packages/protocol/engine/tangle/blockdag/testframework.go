@@ -4,21 +4,21 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/database"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
-	"github.com/iotaledger/hive.go/core/debug"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/types"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/debug"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -38,7 +38,7 @@ type TestFramework struct {
 	orphanedBlocksMutex sync.Mutex
 
 	workers    *workerpool.Group
-	workerPool *workerpool.UnboundedWorkerPool
+	workerPool *workerpool.WorkerPool
 
 	*ModelsTestFramework
 }
@@ -46,15 +46,15 @@ type TestFramework struct {
 func NewTestStorage(t *testing.T, workers *workerpool.Group, opts ...options.Option[database.Manager]) *storage.Storage {
 	s := storage.New(t.TempDir(), 1, opts...)
 	t.Cleanup(func() {
-		workers.Wait()
+		workers.WaitChildren()
 		s.Shutdown()
 	})
 	return s
 }
 
-func NewTestBlockDAG(t *testing.T, workers *workerpool.Group, evictionState *eviction.State, commitmentLoadFunc func(index epoch.Index) (commitment *commitment.Commitment, err error), optsBlockDAG ...options.Option[BlockDAG]) *BlockDAG {
+func NewTestBlockDAG(t *testing.T, workers *workerpool.Group, evictionState *eviction.State, slotTimeProvider *slot.TimeProvider, commitmentLoadFunc func(index slot.Index) (commitment *commitment.Commitment, err error), optsBlockDAG ...options.Option[BlockDAG]) *BlockDAG {
 	require.NotNil(t, evictionState)
-	return New(workers, evictionState, commitmentLoadFunc, optsBlockDAG...)
+	return New(workers, evictionState, slotTimeProvider, commitmentLoadFunc, optsBlockDAG...)
 }
 
 // NewTestFramework is the constructor of the TestFramework.
@@ -67,6 +67,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, blockDAG *Bloc
 		workerPool:     workers.CreatePool("IssueBlocks", 2),
 	}
 	t.ModelsTestFramework = models.NewTestFramework(
+		blockDAG.SlotTimeProvider,
 		models.WithBlock("Genesis", models.NewEmptyBlock(models.EmptyBlockID)),
 	)
 
@@ -77,7 +78,10 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, blockDAG *Bloc
 
 func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, optsBlockDAG ...options.Option[BlockDAG]) *TestFramework {
 	storageInstance := NewTestStorage(t, workers)
-	return NewTestFramework(t, workers.CreateGroup("BlockDAGTestFramework"), NewTestBlockDAG(t, workers.CreateGroup("BlockDAG"), eviction.NewState(storageInstance), DefaultCommitmentFunc, optsBlockDAG...))
+	return NewTestFramework(t,
+		workers.CreateGroup("BlockDAGTestFramework"),
+		NewTestBlockDAG(t, workers.CreateGroup("BlockDAG"), eviction.NewState(storageInstance), slot.NewTimeProvider(slot.WithGenesisUnixTime(time.Now().Unix())), DefaultCommitmentFunc, optsBlockDAG...),
+	)
 }
 
 // IssueBlocks stores the given Blocks in the Storage and triggers the processing by the BlockDAG.
@@ -90,7 +94,7 @@ func (t *TestFramework) IssueBlocks(blockAliases ...string) *TestFramework {
 		})
 	}
 
-	t.workers.WaitAll()
+	t.workers.WaitParents()
 
 	return t
 }
@@ -180,42 +184,42 @@ func (t *TestFramework) AssertLikedInsteadChildren(m map[string][]string) {
 }
 
 func (t *TestFramework) setupEvents() {
-	event.Hook(t.Instance.Events.BlockSolid, func(metadata *Block) {
+	t.Instance.Events.BlockSolid.Hook(func(metadata *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("SOLID: %s", metadata.ID())
 		}
 		atomic.AddInt32(&(t.solidBlocks), 1)
 	})
 
-	event.Hook(t.Instance.Events.BlockMissing, func(metadata *Block) {
+	t.Instance.Events.BlockMissing.Hook(func(metadata *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("MISSING: %s", metadata.ID())
 		}
 		atomic.AddInt32(&(t.missingBlocks), 1)
 	})
 
-	event.Hook(t.Instance.Events.MissingBlockAttached, func(metadata *Block) {
+	t.Instance.Events.MissingBlockAttached.Hook(func(metadata *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("MISSING BLOCK STORED: %s", metadata.ID())
 		}
 		atomic.AddInt32(&(t.missingBlocks), -1)
 	})
 
-	event.Hook(t.Instance.Events.BlockInvalid, func(event *BlockInvalidEvent) {
+	t.Instance.Events.BlockInvalid.Hook(func(event *BlockInvalidEvent) {
 		if debug.GetEnabled() {
 			t.test.Logf("INVALID: %s (%s)", event.Block.ID(), event.Reason)
 		}
 		atomic.AddInt32(&(t.invalidBlocks), 1)
 	})
 
-	event.Hook(t.Instance.Events.BlockAttached, func(metadata *Block) {
+	t.Instance.Events.BlockAttached.Hook(func(metadata *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("ATTACHED: %s", metadata.ID())
 		}
 		atomic.AddInt32(&(t.attachedBlocks), 1)
 	})
 
-	event.Hook(t.Instance.Events.BlockOrphaned, func(metadata *Block) {
+	t.Instance.Events.BlockOrphaned.Hook(func(metadata *Block) {
 		t.orphanedBlocksMutex.Lock()
 		defer t.orphanedBlocksMutex.Unlock()
 
@@ -226,7 +230,7 @@ func (t *TestFramework) setupEvents() {
 		t.orphanedBlocks.Add(metadata.ID())
 	})
 
-	event.Hook(t.Instance.Events.BlockUnorphaned, func(metadata *Block) {
+	t.Instance.Events.BlockUnorphaned.Hook(func(metadata *Block) {
 		t.orphanedBlocksMutex.Lock()
 		defer t.orphanedBlocksMutex.Unlock()
 
@@ -238,7 +242,7 @@ func (t *TestFramework) setupEvents() {
 	})
 }
 
-func DefaultCommitmentFunc(index epoch.Index) (cm *commitment.Commitment, err error) {
+func DefaultCommitmentFunc(index slot.Index) (cm *commitment.Commitment, err error) {
 	return commitment.New(index, commitment.NewID(1, []byte{}), types.NewIdentifier([]byte{}), 0), nil
 }
 

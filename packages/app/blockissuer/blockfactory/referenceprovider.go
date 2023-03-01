@@ -6,9 +6,9 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
@@ -20,15 +20,15 @@ import (
 type ReferenceProvider struct {
 	protocol *protocol.Protocol
 
-	latestEpochIndexCallback       func() epoch.Index
+	latestSlotIndexCallback        func() slot.Index
 	timeSinceConfirmationThreshold time.Duration
 }
 
 // NewReferenceProvider creates a new ReferenceProvider instance.
-func NewReferenceProvider(protocol *protocol.Protocol, timeSinceConfirmationThreshold time.Duration, latestEpochIndexCallback func() epoch.Index) (newInstance *ReferenceProvider) {
+func NewReferenceProvider(protocol *protocol.Protocol, timeSinceConfirmationThreshold time.Duration, latestSlotIndexCallback func() slot.Index) (newInstance *ReferenceProvider) {
 	return &ReferenceProvider{
 		protocol:                       protocol,
-		latestEpochIndexCallback:       latestEpochIndexCallback,
+		latestSlotIndexCallback:        latestSlotIndexCallback,
 		timeSinceConfirmationThreshold: timeSinceConfirmationThreshold,
 	}
 }
@@ -133,8 +133,8 @@ func (r *ReferenceProvider) weakParentsFromUnacceptedInputs(payload payload.Payl
 				continue
 			}
 
-			// do not add a block from an already committed epoch as weak parent
-			if latestAttachment.ID().Index() <= r.latestEpochIndexCallback() {
+			// do not add a block from an already committed slot as weak parent
+			if latestAttachment.ID().Index() <= r.latestSlotIndexCallback() {
 				continue
 			}
 
@@ -195,11 +195,6 @@ func (r *ReferenceProvider) addedReferencesForBlock(blockID models.BlockID, excl
 func (r *ReferenceProvider) addedReferencesForConflicts(conflictIDs utxo.TransactionIDs, excludedConflictIDs utxo.TransactionIDs) (referencesToAdd models.ParentBlockIDs, err error) {
 	referencesToAdd = models.NewParentBlockIDs()
 
-	// If any of the conflict is rejected we cannot pick up the block as a parent, and we delete it from the tipset.
-	if r.protocol.Engine().Tangle.Booker.Ledger.ConflictDAG.ConfirmationState(conflictIDs).IsRejected() {
-		return nil, errors.Errorf("the given conflicts are rejected: %s", conflictIDs)
-	}
-
 	for it := conflictIDs.Iterator(); it.HasNext(); {
 		conflictID := it.Next()
 
@@ -249,7 +244,7 @@ func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, exclude
 }
 
 // latestValidAttachment returns the first valid attachment of the given transaction.
-func (r *ReferenceProvider) latestValidAttachment(txID utxo.TransactionID) (block *booker.Block, err error) {
+func (r *ReferenceProvider) latestValidAttachment(txID utxo.TransactionID) (block *virtualvoting.Block, err error) {
 	block = r.protocol.Engine().Tangle.Booker.GetLatestAttachment(txID)
 	if block == nil {
 		return nil, errors.Errorf("could not obtain latest attachment for %s", txID)
@@ -259,8 +254,8 @@ func (r *ReferenceProvider) latestValidAttachment(txID utxo.TransactionID) (bloc
 		return nil, errors.Errorf("attachment of %s with %s is too far in the past relative to AcceptedTime %s", txID, block.ID(), acceptedTime.String())
 	}
 
-	if committableEpoch := r.latestEpochIndexCallback(); block.ID().Index() <= committableEpoch {
-		return nil, errors.Errorf("attachment of %s with %s is too far in the past as current committable epoch is %d", txID, block.ID(), committableEpoch)
+	if committableSlot := r.latestSlotIndexCallback(); block.ID().Index() <= committableSlot {
+		return nil, errors.Errorf("attachment of %s with %s is too far in the past as current committable slot is %d", txID, block.ID(), committableSlot)
 	}
 
 	return block, nil
@@ -274,7 +269,7 @@ func (r *ReferenceProvider) payloadLiked(blockID models.BlockID) (liked bool) {
 	if !exists {
 		return false
 	}
-	conflictIDs := engineInstance.Tangle.Booker.PayloadConflictIDs(block)
+	conflictIDs := engineInstance.Tangle.Booker.TransactionConflictIDs(block)
 
 	for it := conflictIDs.Iterator(); it.HasNext(); {
 		conflict, exists := engineInstance.Ledger.ConflictDAG.Conflict(it.Next())

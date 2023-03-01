@@ -7,12 +7,12 @@ import (
 	"github.com/zyedidia/generic/cache"
 
 	"github.com/iotaledger/goshimmer/packages/core/ads"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/kvstore"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 const cacheSize = 1000
@@ -78,14 +78,14 @@ func (w *Weights) BatchUpdate(batch *WeightsBatch) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
-	direction := int64(lo.Compare(batch.TargetEpoch(), w.totalWeight.UpdateTime))
-	removedWeights := set.NewAdvancedSet[identity.ID]()
+	direction := int64(lo.Compare(batch.TargetSlot(), w.totalWeight.UpdateTime))
+	removedWeights := advancedset.NewAdvancedSet[identity.ID]()
 
 	batch.ForEach(func(id identity.ID, diff int64) {
 		oldWeight, exists := w.get(id)
 		if !exists {
 			oldWeight = NewWeight(0, -1)
-		} else if batch.TargetEpoch() == oldWeight.UpdateTime {
+		} else if batch.TargetSlot() == oldWeight.UpdateTime {
 			if oldWeight.Value == 0 {
 				removedWeights.Add(id)
 			}
@@ -100,7 +100,7 @@ func (w *Weights) BatchUpdate(batch *WeightsBatch) {
 		}
 
 		w.weightsCache.Remove(id)
-		w.weights.Set(id, NewWeight(newWeight, batch.TargetEpoch()))
+		w.weights.Set(id, NewWeight(newWeight, batch.TargetSlot()))
 	})
 
 	w.Events.WeightsUpdated.Trigger(batch)
@@ -113,7 +113,7 @@ func (w *Weights) BatchUpdate(batch *WeightsBatch) {
 	})
 
 	w.totalWeight.Value += direction * batch.TotalDiff()
-	w.totalWeight.UpdateTime = batch.TargetEpoch()
+	w.totalWeight.UpdateTime = batch.TargetSlot()
 
 	// TODO: mark as clean
 }
@@ -134,7 +134,7 @@ func (w *Weights) TotalWeight() (totalWeight int64) {
 	return w.totalWeight.Value
 }
 
-func (w *Weights) UpdateTotalWeightEpoch(index epoch.Index) {
+func (w *Weights) UpdateTotalWeightSlot(index slot.Index) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 

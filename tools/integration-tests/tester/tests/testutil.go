@@ -7,6 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
+	"github.com/iotaledger/hive.go/runtime/options"
+
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -20,9 +23,9 @@ import (
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 var faucetPoWDifficulty = framework.PeerConfig().Faucet.PowDifficulty
@@ -36,60 +39,61 @@ const (
 	shutdownGraceTime = time.Minute
 )
 
-// OrphanageSnapshotDetails defines info for orphanage test scenario.
-var OrphanageSnapshotDetails = framework.SnapshotInfo{
-	FilePath:           "/assets/dynamic_snapshots/orphanage_snapshot.bin",
-	GenesisTokenAmount: 0,
-	PeersSeedBase58: []string{
+// OrphanageSnapshotOptions defines snapshot options for orphanage test scenario.
+var OrphanageSnapshotOptions = []options.Option[snapshotcreator.Options]{
+	snapshotcreator.WithFilePath("/assets/dynamic_snapshots/orphanage_snapshot.bin"),
+	snapshotcreator.WithGenesisTokenAmount(0),
+	snapshotcreator.WithPeersSeedBase58([]string{
 		"3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E", // FZ6xmPZX
 		"GtKSdqanb4mokUBjAf9JZmsSqWzWjzzw57mRR56LjfBL", // H6jzPnLbjsh
 		"CmFVE14Yh9rqn2FrXD8s7ybRoRN5mUnqQxLAuD5HF2em", // JHxvcap7xhv
 		"DuJuWE3hisFrFK1HmrXkd9FSsNNWbw58JcQnKdBn6TdN", // 7rRpyEGU7Sf
-	},
-	PeersAmountsPledged: []uint64{2_500_000_000_000_000, 2_500_000_000_000_000, 2_500_000_000_000_000, 10},
+	}),
+	snapshotcreator.WithPeersAmountsPledged([]uint64{2_500_000_000_000_000, 2_500_000_000_000_000, 2_500_000_000_000_000, 10}),
 }
 
-// EqualSnapshotDetails defines info for equally distributed consensus mana.
-var EqualSnapshotDetails = framework.SnapshotInfo{
-	FilePath:           "/assets/dynamic_snapshots/equal_snapshot.bin",
-	GenesisTokenAmount: 2_500_000_000_000_000,
-	PeersSeedBase58: []string{
+// EqualSnapshotOptions defines snapshot options for equal test scenario.
+var EqualSnapshotOptions = []options.Option[snapshotcreator.Options]{
+	snapshotcreator.WithFilePath("/assets/dynamic_snapshots/equal_snapshot.bin"),
+	snapshotcreator.WithGenesisTokenAmount(2_500_000_000_000_000),
+	snapshotcreator.WithPeersSeedBase58([]string{
 		"GtKSdqanb4mokUBjAf9JZmsSqWzWjzzw57mRR56LjfBL", // H6jzPnLbjsh
 		"CmFVE14Yh9rqn2FrXD8s7ybRoRN5mUnqQxLAuD5HF2em", // JHxvcap7xhv
 		"DuJuWE3hisFrFK1HmrXkd9FSsNNWbw58JcQnKdBn6TdN", // 7rRpyEGU7Sf
 		"3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E", // FZ6xmPZX
-	},
-	PeersAmountsPledged: []uint64{2_500_000_000_000_000, 2_500_000_000_000_000, 2_500_000_000_000_000, 2_500_000_000_000_000},
+	}),
+	snapshotcreator.WithPeersAmountsPledged([]uint64{2_500_000_000_000_000, 2_500_000_000_000_000, 2_500_000_000_000_000, 2_500_000_000_000_000}),
+	snapshotcreator.WithInitialAttestationsBase58([]string{"B45CgJeL9rfigCNXdkReZoVmK4RJqw4E81zYuETA4zJC"}), // pk for seed GtKSdqanb4mokUBjAf9JZmsSqWzWjzzw57mRR56LjfBL
 }
 
-// ConsensusSnapshotDetails defines info for consensus integration test snapshot
-var ConsensusSnapshotDetails = framework.SnapshotInfo{
-	FilePath:           "/assets/dynamic_snapshots/consensus_snapshot.bin",
-	GenesisTokenAmount: 800_000, // pledged to peer 0
-	PeersSeedBase58: []string{
+var ConsensusSnapshotOptions = []options.Option[snapshotcreator.Options]{
+	snapshotcreator.WithFilePath("/assets/dynamic_snapshots/consensus_snapshot.bin"),
+	snapshotcreator.WithGenesisTokenAmount(800_000),
+	snapshotcreator.WithPeersSeedBase58([]string{
 		"Bk69VaYsRuiAaKn8hK6KxUj45X5dED3ueRtxfYnsh4Q8", // jnaC6ZyWuw
 		"HUH4rmxUxMZBBtHJ4QM5Ts6s8DP3HnFpChejntnCxto2", // iNvPFvkfSDp
 		"CmFVE14Yh9rqn2FrXD8s7ybRoRN5mUnqQxLAuD5HF2em", // JHxvcap7xhv
 		"DuJuWE3hisFrFK1HmrXkd9FSsNNWbw58JcQnKdBn6TdN", // 7rRpyEGU7Sf
-	},
-	PeersAmountsPledged: []uint64{1_600_000, 800_000, 800_000, 800_000, 800_000},
+	}),
+	snapshotcreator.WithPeersAmountsPledged([]uint64{1_600_000, 800_000, 800_000, 800_000, 800_000}),
+	snapshotcreator.WithInitialAttestationsBase58([]string{"3kwsHfLDb7ifuxLbyMZneXq3s5heRWnXKKGPAARJDaUE"}), // pk for seed Bk69VaYsRuiAaKn8hK6KxUj45X5dED3ueRtxfYnsh4Q8
 }
 
 // GetIdentSeed returns decoded seed bytes for the supplied SnapshotInfo and peer index
-func GetIdentSeed(t *testing.T, snapshotInfo framework.SnapshotInfo, peerIndex int) []byte {
-	seedBytes, err := base58.Decode(snapshotInfo.PeersSeedBase58[peerIndex])
+func GetIdentSeed(t *testing.T, snapshotOptions *snapshotcreator.Options, peerIndex int) []byte {
+	seedBytes, err := base58.Decode(snapshotOptions.PeersSeedBase58[peerIndex])
 	require.NoError(t, err)
 	return seedBytes
 }
 
 // CommonSnapshotConfigFunc returns a peer configuration altering function that uses the specified Snapshot information for all peers.
 // If a cfgFunc is provided, further manipulation of the base config for every peer is possible.
-func CommonSnapshotConfigFunc(t *testing.T, snaphotInfo framework.SnapshotInfo, cfgFunc ...framework.CfgAlterFunc) framework.CfgAlterFunc {
+func CommonSnapshotConfigFunc(t *testing.T, snapshotOptions *snapshotcreator.Options, cfgFunc ...framework.CfgAlterFunc) framework.CfgAlterFunc {
 	return func(peerIndex int, isPeerMaster bool, conf config.GoShimmer) config.GoShimmer {
-		conf.Protocol.Snapshot.Path = snaphotInfo.FilePath
+		conf.Protocol.Snapshot.Path = snapshotOptions.FilePath
 
-		require.Lessf(t, peerIndex, len(snaphotInfo.PeersSeedBase58), "index=%d out of range for peerSeeds=%d", peerIndex, len(snaphotInfo.PeersSeedBase58))
-		conf.Seed = GetIdentSeed(t, snaphotInfo, peerIndex)
+		require.Lessf(t, peerIndex, len(snapshotOptions.PeersSeedBase58), "index=%d out of range for peerSeeds=%d", peerIndex, len(snapshotOptions.PeersSeedBase58))
+		conf.Seed = GetIdentSeed(t, snapshotOptions, peerIndex)
 
 		if len(cfgFunc) > 0 {
 			conf = cfgFunc[0](peerIndex, isPeerMaster && peerIndex == 0, conf)
@@ -389,9 +393,9 @@ func SendTransaction(t *testing.T, from *framework.Node, to *framework.Node, col
 // RequireBlocksAvailable asserts that all nodes have received BlockIDs in waitFor time, periodically checking each tick.
 // Optionally, a ConfirmationState can be specified, which then requires the blocks to reach this ConfirmationState.
 func RequireBlocksAvailable(t *testing.T, nodes []*framework.Node, blockIDs map[string]DataBlockSent, waitFor time.Duration, tick time.Duration, accepted ...bool) {
-	missing := make(map[identity.ID]*set.AdvancedSet[string], len(nodes))
+	missing := make(map[identity.ID]*advancedset.AdvancedSet[string], len(nodes))
 	for _, node := range nodes {
-		missing[node.ID()] = set.NewAdvancedSet[string]()
+		missing[node.ID()] = advancedset.NewAdvancedSet[string]()
 		for blockID := range blockIDs {
 			missing[node.ID()].Add(blockID)
 		}
@@ -439,9 +443,9 @@ func RequireBlocksAvailable(t *testing.T, nodes []*framework.Node, blockIDs map[
 
 // RequireBlocksOrphaned asserts that all nodes have received BlockIDs and marked them as orphaned in waitFor time, periodically checking each tick.
 func RequireBlocksOrphaned(t *testing.T, nodes []*framework.Node, blockIDs map[string]DataBlockSent, waitFor time.Duration, tick time.Duration) {
-	missing := make(map[identity.ID]*set.AdvancedSet[string], len(nodes))
+	missing := make(map[identity.ID]*advancedset.AdvancedSet[string], len(nodes))
 	for _, node := range nodes {
-		missing[node.ID()] = set.NewAdvancedSet[string]()
+		missing[node.ID()] = advancedset.NewAdvancedSet[string]()
 		for blockID := range blockIDs {
 			missing[node.ID()].Add(blockID)
 		}
@@ -530,16 +534,6 @@ func RequireBalancesEqual(t *testing.T, nodes []*framework.Node, balancesByAddre
 	}
 }
 
-// RequireNoUnspentOutputs asserts that on all node the given addresses do not have any unspent outputs.
-func RequireNoUnspentOutputs(t *testing.T, nodes []*framework.Node, addresses ...devnetvm.Address) {
-	for _, node := range nodes {
-		for _, addr := range addresses {
-			unspent := AddressUnspentOutputs(t, node, addr, 1)
-			require.Empty(t, unspent, "address %s should not have any UTXOs", addr)
-		}
-	}
-}
-
 // ExpectedState is an expected state.
 // All fields are optional.
 type ExpectedState struct {
@@ -552,12 +546,6 @@ type ExpectedState struct {
 // True returns a pointer to a true bool.
 func True() *bool {
 	x := true
-	return &x
-}
-
-// False returns a pointer to a false bool.
-func False() *bool {
-	x := false
 	return &x
 }
 

@@ -7,22 +7,19 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 
 	"github.com/iotaledger/goshimmer/packages/app/collector"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/dashboardmetrics"
 	"github.com/iotaledger/hive.go/app/daemon"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 var (
 	// settings
-	wsSendWorkerCount     = 1
-	wsSendWorkerQueueSize = 250
-	wsSendWorkerPool      *workerpool.NonBlockingQueuedWorkerPool
 	webSocketWriteTimeout = 3 * time.Second
 
 	// clients
@@ -46,9 +43,9 @@ type wsclient struct {
 	exit chan struct{}
 }
 
-func configureWebSocketWorkerPool() {
-	wsSendWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
-		switch x := task.Param(0).(type) {
+func runWebSocketStreams(plugin *node.Plugin) {
+	process := func(msg interface{}) {
+		switch x := msg.(type) {
 		case uint64:
 			broadcastWsBlock(&wsblk{MsgTypeBPSMetric, x})
 			broadcastWsBlock(&wsblk{MsgTypeNodeStatus, currentNodeStatus()})
@@ -61,40 +58,35 @@ func configureWebSocketWorkerPool() {
 		case *rateSetterMetric:
 			broadcastWsBlock(&wsblk{MsgTypeRateSetterMetric, x})
 		}
-		task.Return(nil)
-	}, workerpool.WorkerCount(wsSendWorkerCount), workerpool.QueueSize(wsSendWorkerQueueSize))
-}
-
-func runWebSocketStreams() {
-	updateStatus := event.NewClosure(func(event *dashboardmetrics.AttachedBPSUpdatedEvent) {
-		wsSendWorkerPool.TrySubmit(event.BPS)
-	})
-	updateComponentCounterStatus := event.NewClosure(func(event *dashboardmetrics.ComponentCounterUpdatedEvent) {
-		componentStatus := event.ComponentStatus
-		updateStatus := &componentsmetric{
-			Store:      componentStatus[collector.Attached],
-			Solidifier: componentStatus[collector.Solidified],
-			Scheduler:  componentStatus[collector.Scheduled],
-			Booker:     componentStatus[collector.Booked],
-		}
-		wsSendWorkerPool.TrySubmit(updateStatus)
-	})
-	updateRateSetterMetrics := event.NewClosure(func(metric *dashboardmetrics.RateSetterMetric) {
-		wsSendWorkerPool.TrySubmit(&rateSetterMetric{
-			Size:     metric.Size,
-			Estimate: metric.Estimate.String(),
-			Rate:     metric.Rate,
-		})
-	})
+	}
 
 	if err := daemon.BackgroundWorker("Dashboard[StatusUpdate]", func(ctx context.Context) {
-		dashboardmetrics.Events.AttachedBPSUpdated.Attach(updateStatus)
-		dashboardmetrics.Events.ComponentCounterUpdated.Attach(updateComponentCounterStatus)
-		dashboardmetrics.Events.RateSetterUpdated.Attach(updateRateSetterMetrics)
+		unhook := lo.Batch(
+			dashboardmetrics.Events.AttachedBPSUpdated.Hook(func(event *dashboardmetrics.AttachedBPSUpdatedEvent) {
+				process(event.BPS)
+			}, event.WithWorkerPool(plugin.WorkerPool)).Unhook,
+
+			dashboardmetrics.Events.ComponentCounterUpdated.Hook(func(event *dashboardmetrics.ComponentCounterUpdatedEvent) {
+				componentStatus := event.ComponentStatus
+				process(&componentsmetric{
+					Store:      componentStatus[collector.Attached],
+					Solidifier: componentStatus[collector.Solidified],
+					Scheduler:  componentStatus[collector.Scheduled],
+					Booker:     componentStatus[collector.Booked],
+				})
+			}, event.WithWorkerPool(plugin.WorkerPool)).Unhook,
+
+			dashboardmetrics.Events.RateSetterUpdated.Hook(func(metric *dashboardmetrics.RateSetterMetric) {
+				process(&rateSetterMetric{
+					Size:     metric.Size,
+					Estimate: metric.Estimate.String(),
+					Rate:     metric.Rate,
+				})
+			}, event.WithWorkerPool(plugin.WorkerPool)).Unhook,
+		)
 		<-ctx.Done()
 		log.Info("Stopping Dashboard[StatusUpdate] ...")
-		dashboardmetrics.Events.AttachedBPSUpdated.Detach(updateStatus)
-		wsSendWorkerPool.Stop()
+		unhook()
 		log.Info("Stopping Dashboard[StatusUpdate] ... done")
 	}, shutdown.PriorityDashboard); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)

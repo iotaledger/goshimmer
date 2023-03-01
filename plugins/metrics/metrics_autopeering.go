@@ -5,8 +5,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/app/collector"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
-	"github.com/iotaledger/hive.go/core/autopeering/selection"
-	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/autopeering/selection"
+	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 const (
@@ -26,41 +26,40 @@ var AutopeeringMetrics = collector.NewCollection(autopeeringNamespace,
 		collector.WithType(collector.Counter),
 		collector.WithHelp("Number of dropped neighbors so far"),
 		collector.WithInitFunc(func() {
-			deps.P2Pmgr.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Attach(event.NewClosure(func(event *p2p.NeighborRemovedEvent) {
+			deps.P2Pmgr.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Hook(func(event *p2p.NeighborRemovedEvent) {
 				deps.Collector.Increment(autopeeringNamespace, neighborDropCount)
-			}))
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(connectionsCount,
 		collector.WithType(collector.Counter),
 		collector.WithHelp("Number of established neighbor connections so far"),
 		collector.WithInitFunc(func() {
-			deps.P2Pmgr.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborAdded.Attach(event.NewClosure(func(event *p2p.NeighborAddedEvent) {
+			deps.P2Pmgr.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborAdded.Hook(func(event *p2p.NeighborAddedEvent) {
 				deps.Collector.Increment(autopeeringNamespace, connectionsCount)
-			}))
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(neighborConnectionLifetimeSec,
 		collector.WithType(collector.Counter),
 		collector.WithHelp("Time since a neighbor connection establishment"),
 		collector.WithInitFunc(func() {
-			deps.P2Pmgr.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Attach(event.NewClosure(func(event *p2p.NeighborRemovedEvent) {
+			deps.P2Pmgr.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Hook(func(event *p2p.NeighborRemovedEvent) {
 				neighborConnectionsLifeTime := time.Since(event.Neighbor.ConnectionEstablished())
 				deps.Collector.Update(autopeeringNamespace, neighborConnectionLifetimeSec, collector.SingleValue(neighborConnectionsLifeTime.Seconds()))
-			}))
+			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
 	)),
 	collector.WithMetric(collector.NewMetric(distance,
 		collector.WithType(collector.Gauge),
 		collector.WithHelp("A relative distance between the node and the neighbor"),
 		collector.WithInitFunc(func() {
-			var onAutopeeringSelection = event.NewClosure(
-				func(event *selection.PeeringEvent) {
-					deps.Collector.Update(autopeeringNamespace, distance, collector.SingleValue(float64(event.Distance)))
-				})
+			var onAutopeeringSelection = func(event *selection.PeeringEvent) {
+				deps.Collector.Update(autopeeringNamespace, distance, collector.SingleValue(float64(event.Distance)))
+			}
 			if deps.Selection != nil {
-				deps.Selection.Events().IncomingPeering.Hook(onAutopeeringSelection)
-				deps.Selection.Events().OutgoingPeering.Hook(onAutopeeringSelection)
+				deps.Selection.Events().IncomingPeering.Hook(onAutopeeringSelection, event.WithWorkerPool(Plugin.WorkerPool))
+				deps.Selection.Events().OutgoingPeering.Hook(onAutopeeringSelection, event.WithWorkerPool(Plugin.WorkerPool))
 			}
 		}),
 	)),

@@ -2,36 +2,36 @@ package warpsync
 
 import (
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	wp "github.com/iotaledger/goshimmer/packages/network/warpsync/proto"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/lo"
 )
 
-func (p *Protocol) RequestEpochBlocks(ei epoch.Index, ec commitment.ID, to ...identity.ID) {
-	epochBlocksReq := &wp.EpochBlocksRequest{
-		EI: int64(ei),
-		EC: lo.PanicOnErr(ec.Bytes()),
+func (p *Protocol) RequestSlotBlocks(index slot.Index, sc commitment.ID, to ...identity.ID) {
+	slotBlocksReq := &wp.SlotBlocksRequest{
+		SI: int64(index),
+		SC: lo.PanicOnErr(sc.Bytes()),
 	}
-	packet := &wp.Packet{Body: &wp.Packet_EpochBlocksRequest{EpochBlocksRequest: epochBlocksReq}}
+	packet := &wp.Packet{Body: &wp.Packet_SlotBlocksRequest{SlotBlocksRequest: slotBlocksReq}}
 	p.networkEndpoint.Send(packet, protocolID, to...)
 
-	p.log.Debugw("sent epoch blocks request", "Index", ei, "EC", ec.Base58())
+	p.log.Debugw("sent slot blocks request", "Index", index, "SC", sc.Base58())
 }
 
-func (p *Protocol) SendEpochStarter(ei epoch.Index, ec commitment.ID, blocksCount int, to ...identity.ID) {
-	epochStartRes := &wp.EpochBlocksStart{
-		EI:          int64(ei),
-		EC:          lo.PanicOnErr(ec.Bytes()),
+func (p *Protocol) SendSlotStarter(index slot.Index, sc commitment.ID, blocksCount int, to ...identity.ID) {
+	slotStartRes := &wp.SlotBlocksStart{
+		SI:          int64(index),
+		SC:          lo.PanicOnErr(sc.Bytes()),
 		BlocksCount: int64(blocksCount),
 	}
-	packet := &wp.Packet{Body: &wp.Packet_EpochBlocksStart{EpochBlocksStart: epochStartRes}}
+	packet := &wp.Packet{Body: &wp.Packet_SlotBlocksStart{SlotBlocksStart: slotStartRes}}
 
 	p.networkEndpoint.Send(packet, protocolID, to...)
 }
 
-func (p *Protocol) SendBlocksBatch(ei epoch.Index, ec commitment.ID, blocks []*models.Block, to ...identity.ID) {
+func (p *Protocol) SendBlocksBatch(index slot.Index, sc commitment.ID, blocks []*models.Block, to ...identity.ID) {
 	blocksBytes := make([][]byte, len(blocks))
 
 	for i, block := range blocks {
@@ -43,61 +43,61 @@ func (p *Protocol) SendBlocksBatch(ei epoch.Index, ec commitment.ID, blocks []*m
 		blocksBytes[i] = blockBytes
 	}
 
-	blocksBatchRes := &wp.EpochBlocksBatch{
-		EI:     int64(ei),
-		EC:     lo.PanicOnErr(ec.Bytes()),
+	blocksBatchRes := &wp.SlotBlocksBatch{
+		SI:     int64(index),
+		SC:     lo.PanicOnErr(sc.Bytes()),
 		Blocks: blocksBytes,
 	}
-	packet := &wp.Packet{Body: &wp.Packet_EpochBlocksBatch{EpochBlocksBatch: blocksBatchRes}}
+	packet := &wp.Packet{Body: &wp.Packet_SlotBlocksBatch{SlotBlocksBatch: blocksBatchRes}}
 
 	p.networkEndpoint.Send(packet, protocolID, to...)
 }
 
-func (p *Protocol) SendEpochEnd(ei epoch.Index, ec commitment.ID, roots *commitment.Roots, to ...identity.ID) {
-	epochBlocksEnd := &wp.EpochBlocksEnd{
-		EI:    int64(ei),
-		EC:    lo.PanicOnErr(ec.Bytes()),
+func (p *Protocol) SendSlotEnd(index slot.Index, sc commitment.ID, roots *commitment.Roots, to ...identity.ID) {
+	slotBlocksEnd := &wp.SlotBlocksEnd{
+		SI:    int64(index),
+		SC:    lo.PanicOnErr(sc.Bytes()),
 		Roots: lo.PanicOnErr(roots.Bytes()),
 	}
-	packet := &wp.Packet{Body: &wp.Packet_EpochBlocksEnd{EpochBlocksEnd: epochBlocksEnd}}
+	packet := &wp.Packet{Body: &wp.Packet_SlotBlocksEnd{SlotBlocksEnd: slotBlocksEnd}}
 
 	p.networkEndpoint.Send(packet, protocolID, to...)
 }
 
-func (p *Protocol) processEpochBlocksRequestPacket(packetEpochRequest *wp.Packet_EpochBlocksRequest, id identity.ID) {
-	ei := epoch.Index(packetEpochRequest.EpochBlocksRequest.GetEI())
-	ec := new(commitment.Commitment)
-	if _, err := ec.FromBytes(packetEpochRequest.EpochBlocksRequest.GetEC()); err != nil {
-		p.log.Errorw("received epoch blocks request: unable to deserialize commitment", "peer", id, "Index", ei, "err", err)
+func (p *Protocol) processSlotBlocksRequestPacket(packetSlotRequest *wp.Packet_SlotBlocksRequest, id identity.ID) {
+	ei := slot.Index(packetSlotRequest.SlotBlocksRequest.GetSI())
+	sc := new(commitment.Commitment)
+	if _, err := sc.FromBytes(packetSlotRequest.SlotBlocksRequest.GetSC()); err != nil {
+		p.log.Errorw("received slot blocks request: unable to deserialize commitment", "peer", id, "Index", ei, "err", err)
 		return
 	}
 
-	p.log.Debugw("received epoch blocks request", "peer", id, "Index", ei, "EC", ec)
+	p.log.Debugw("received slot blocks request", "peer", id, "Index", ei, "SC", sc)
 
-	p.Events.EpochBlocksRequestReceived.Trigger(&EpochBlocksRequestReceivedEvent{
+	p.Events.SlotBlocksRequestReceived.Trigger(&SlotBlocksRequestReceivedEvent{
 		ID: id,
-		EI: ei,
+		SI: ei,
 	})
 }
 
-func (p *Protocol) processEpochBlocksStartPacket(packetEpochBlocksStart *wp.Packet_EpochBlocksStart, id identity.ID) {
-	epochBlocksStart := packetEpochBlocksStart.EpochBlocksStart
-	ei := epoch.Index(epochBlocksStart.GetEI())
+func (p *Protocol) processSlotBlocksStartPacket(packetSlotBlocksStart *wp.Packet_SlotBlocksStart, id identity.ID) {
+	slotBlocksStart := packetSlotBlocksStart.SlotBlocksStart
+	ei := slot.Index(slotBlocksStart.GetSI())
 
-	p.log.Debugw("received epoch blocks start", "peer", id, "Index", ei, "blocksCount", epochBlocksStart.GetBlocksCount())
+	p.log.Debugw("received slot blocks start", "peer", id, "Index", ei, "blocksCount", slotBlocksStart.GetBlocksCount())
 
-	p.Events.EpochBlocksStart.Trigger(&EpochBlocksStartEvent{
+	p.Events.SlotBlocksStart.Trigger(&SlotBlocksStartEvent{
 		ID: id,
-		EI: ei,
+		SI: ei,
 	})
 }
 
-func (p *Protocol) processEpochBlocksBatchPacket(packetEpochBlocksBatch *wp.Packet_EpochBlocksBatch, id identity.ID) {
-	epochBlocksBatch := packetEpochBlocksBatch.EpochBlocksBatch
-	ei := epoch.Index(epochBlocksBatch.GetEI())
+func (p *Protocol) processSlotBlocksBatchPacket(packetSlotBlocksBatch *wp.Packet_SlotBlocksBatch, id identity.ID) {
+	slotBlocksBatch := packetSlotBlocksBatch.SlotBlocksBatch
+	ei := slot.Index(slotBlocksBatch.GetSI())
 
-	blocksBytes := epochBlocksBatch.GetBlocks()
-	p.log.Debugw("received epoch blocks", "peer", id, "Index", ei, "blocksLen", len(blocksBytes))
+	blocksBytes := slotBlocksBatch.GetBlocks()
+	p.log.Debugw("received slot blocks", "peer", id, "Index", ei, "blocksLen", len(blocksBytes))
 
 	// TODO: TRIGGER UNPARSED BLOCK INSTEAD
 	// for _, blockBytes := range blocksBytes {
@@ -107,35 +107,35 @@ func (p *Protocol) processEpochBlocksBatchPacket(packetEpochBlocksBatch *wp.Pack
 	// 		return
 	// 	}
 	//
-	// 	p.Events.EpochBlock.Trigger(&EpochBlockEvent{
-	// 		EI:    ei,
+	// 	p.Events.SlotBlock.Trigger(&SlotBlockEvent{
+	// 		SlotIndex:    ei,
 	// 		Block: block,
 	// 	})
 	// }
 }
 
-func (p *Protocol) processEpochBlocksEndPacket(packetEpochBlocksEnd *wp.Packet_EpochBlocksEnd, id identity.ID) {
-	epochBlocksBatch := packetEpochBlocksEnd.EpochBlocksEnd
-	ei := epoch.Index(epochBlocksBatch.GetEI())
+func (p *Protocol) processSlotBlocksEndPacket(packetSlotBlocksEnd *wp.Packet_SlotBlocksEnd, id identity.ID) {
+	slotBlocksBatch := packetSlotBlocksEnd.SlotBlocksEnd
+	ei := slot.Index(slotBlocksBatch.GetSI())
 
-	ec := new(commitment.Commitment)
-	if _, err := ec.FromBytes(packetEpochBlocksEnd.EpochBlocksEnd.GetEC()); err != nil {
-		p.log.Errorw("received epoch blocks end: unable to deserialize commitment", "peer", id, "Index", ei, "err", err)
+	sc := new(commitment.Commitment)
+	if _, err := sc.FromBytes(packetSlotBlocksEnd.SlotBlocksEnd.GetSC()); err != nil {
+		p.log.Errorw("received slot blocks end: unable to deserialize commitment", "peer", id, "Index", ei, "err", err)
 		return
 	}
 
-	p.log.Debugw("received epoch blocks end", "peer", id, "Index", ei)
+	p.log.Debugw("received slot blocks end", "peer", id, "Index", ei)
 
-	eventToTrigger := &EpochBlocksEndEvent{
+	eventToTrigger := &SlotBlocksEndEvent{
 		ID:    id,
-		EI:    ei,
-		EC:    ec.ID(),
+		SI:    ei,
+		SC:    sc.ID(),
 		Roots: new(commitment.Roots),
 	}
-	if _, err := eventToTrigger.Roots.FromBytes(packetEpochBlocksEnd.EpochBlocksEnd.GetRoots()); err != nil {
-		p.log.Errorw("received epoch blocks end: unable to deserialize roots", "peer", id, "Index", ei, "err", err)
+	if _, err := eventToTrigger.Roots.FromBytes(packetSlotBlocksEnd.SlotBlocksEnd.GetRoots()); err != nil {
+		p.log.Errorw("received slot blocks end: unable to deserialize roots", "peer", id, "Index", ei, "err", err)
 		return
 	}
 
-	p.Events.EpochBlocksEnd.Trigger(eventToTrigger)
+	p.Events.SlotBlocksEnd.Trigger(eventToTrigger)
 }

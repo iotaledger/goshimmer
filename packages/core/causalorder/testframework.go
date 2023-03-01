@@ -8,10 +8,10 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/hive.go/core/debug"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
+	"github.com/iotaledger/hive.go/runtime/debug"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -85,7 +85,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...option
 			}),
 		)
 
-		t.CreateEntity("Genesis", WithOrdered(true), WithEpoch(0))
+		t.CreateEntity("Genesis", WithOrdered(true), WithSlot(0))
 	})
 }
 
@@ -141,8 +141,8 @@ func (t *TestFramework) EntityIDs(aliases ...string) (entityIDs []MockedEntityID
 	return
 }
 
-// EvictEpoch evicts all Entities that are older than the given epoch.
-func (t *TestFramework) EvictEpoch(index epoch.Index) {
+// EvictSlot evicts all Entities that are older than the given slot.
+func (t *TestFramework) EvictSlot(index slot.Index) {
 	t.CausalOrder.EvictUntil(index)
 }
 
@@ -181,7 +181,7 @@ func (t *TestFramework) AssertEvicted(aliases ...string) {
 // MockedEntityID is a mocked EntityID.
 type MockedEntityID struct {
 	id    int
-	index epoch.Index
+	index slot.Index
 	alias string
 }
 
@@ -193,8 +193,8 @@ func NewMockedEntityID(id int) MockedEntityID {
 	}
 }
 
-// Index returns the epoch.Index of the Entity.
-func (m MockedEntityID) Index() epoch.Index {
+// Index returns the slot.Index of the Entity.
+func (m MockedEntityID) Index() slot.Index {
 	return m.index
 }
 
@@ -309,8 +309,8 @@ func WithInvalid(invalid bool) options.Option[MockedOrderedEntity] {
 	}
 }
 
-// WithEpoch is an option that sets the epoch of the Entity.
-func WithEpoch(index epoch.Index) options.Option[MockedOrderedEntity] {
+// WithSlot is an option that sets the slot of the Entity.
+func WithSlot(index slot.Index) options.Option[MockedOrderedEntity] {
 	return func(entity *MockedOrderedEntity) {
 		entity.id.index = index
 	}

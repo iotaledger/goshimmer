@@ -5,12 +5,12 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/database"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/storage/permanent"
 	"github.com/iotaledger/goshimmer/packages/storage/prunable"
 	"github.com/iotaledger/goshimmer/packages/storage/utils"
-	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 // Storage is an abstraction around the storage layer of the node.
@@ -48,9 +48,9 @@ func New(directory string, version database.Version, opts ...options.Option[data
 	return newStorage
 }
 
-// PruneUntilEpoch prunes storage epochs less than and equal to the given index.
-func (s *Storage) PruneUntilEpoch(epochIndex epoch.Index) {
-	s.databaseManager.PruneUntilEpoch(epochIndex)
+// PruneUntilSlot prunes storage slots less than and equal to the given index.
+func (s *Storage) PruneUntilSlot(index slot.Index) {
+	s.databaseManager.PruneUntilSlot(index)
 }
 
 // PrunableDatabaseSize returns the size of the underlying prunable databases.

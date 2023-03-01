@@ -42,7 +42,7 @@ Assume we need to store data for some newly created object `A`. Then we need to 
 package example
 
 type Storage struct {
-	A                   *objectstorage.ObjectStorage
+	A                   *generic.ObjectStorage
 	...
 	shutdownOnce        sync.Once
 }
@@ -178,8 +178,8 @@ we can start using it for its sole purpose, to actually store and read the parti
   For example, this is how we can count the number of blocks.
   ```Go
   blockCount := 0
-  blockStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
-		cachedObject.Consume(func(object objectstorage.StorableObject) {
+  blockStorage.ForEach(func(key []byte, cachedObject generic.CachedObject) bool {
+		cachedObject.Consume(func(object generic.StorableObject) {
 			blockCount++
         })
   }

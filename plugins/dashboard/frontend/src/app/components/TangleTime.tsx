@@ -34,8 +34,8 @@ export default class TangleTime extends React.Component<Props, any> {
                                 </Link></div>
                             </div>
                             <div className={"row"}>
-                                <div className={"col-12"}>Last Confirmed Epoch:
-                                    {this.props.nodeStore.status.tangleTime.confirmedEpoch}
+                                <div className={"col-12"}>Last Confirmed Slot:
+                                    {this.props.nodeStore.status.tangleTime.confirmedSlot}
                                 </div>
                             </div>
                             <hr/>

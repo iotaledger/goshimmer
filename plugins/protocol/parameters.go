@@ -22,8 +22,8 @@ type ParametersDefinition struct {
 	Snapshot struct {
 		// Path is the path to the snapshot file.
 		Path string `default:"./snapshot.bin" usage:"the path of the snapshot file"`
-		// Depth defines how many epoch diffs are stored in the snapshot, starting from the full ledgerstate.
-		Depth int `default:"5" usage:"defines how many epoch diffs are stored in the snapshot, starting from the full ledgerstate"`
+		// Depth defines how many slot diffs are stored in the snapshot, starting from the full ledgerstate.
+		Depth int `default:"5" usage:"defines how many slot diffs are stored in the snapshot, starting from the full ledgerstate"`
 	}
 	// ForkDetectionMinimumDepth defines the minimum depth a fork has to have to be detected.
 	ForkDetectionMinimumDepth int64 `default:"3" usage:"the minimum depth a fork has to have to be detected"`
@@ -45,8 +45,8 @@ type SchedulerParametersDefinition struct {
 
 // NotarizationParametersDefinition contains the definition of the parameters used by the notarization plugin.
 type NotarizationParametersDefinition struct {
-	// MinEpochCommittableAge defines the min age of a committable epoch.
-	MinEpochCommittableAge time.Duration `default:"1m" usage:"min age of a committable epoch"`
+	// MinSlotCommittableAge defines the min age of a committable slot.
+	MinSlotCommittableAge int64 `default:"6" usage:"min age of a committable slot denoted in slots"`
 }
 
 // DatabaseParametersDefinition contains the definition of configuration parameters used by the storage layer.
@@ -58,8 +58,8 @@ type DatabaseParametersDefinition struct {
 	InMemory bool `default:"false" usage:"whether the database is only kept in memory and not persisted"`
 
 	MaxOpenDBs       int    `default:"10" usage:"maximum number of open database instances"`
-	PruningThreshold uint64 `default:"360" usage:"how many confirmed epochs should be retained"`
-	DBGranularity    int64  `default:"1" usage:"how many epochs should be contained in a single DB instance"`
+	PruningThreshold uint64 `default:"360" usage:"how many confirmed slots should be retained"`
+	DBGranularity    int64  `default:"1" usage:"how many slots should be contained in a single DB instance"`
 
 	// ForceCacheTime is a new global cache time in seconds for object storage.
 	ForceCacheTime time.Duration `default:"-1s" usage:"interval of time for which objects should remain in memory. Zero time means no caching, negative value means use defaults"`

@@ -7,16 +7,16 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
-	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/serix"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/serializer/v2/byteutils"
+	"github.com/iotaledger/hive.go/serializer/v2/serix"
 )
 
 // region Factory ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -24,6 +24,8 @@ import (
 // Factory acts as a factory to create new blocks.
 type Factory struct {
 	Events *Events
+
+	slotTimeProvider *slot.TimeProvider
 
 	// referenceProvider *ReferenceProvider
 	identity       *identity.LocalIdentity
@@ -37,14 +39,15 @@ type Factory struct {
 }
 
 // NewBlockFactory creates a new block factory.
-func NewBlockFactory(localIdentity *identity.LocalIdentity, blockRetriever func(blockID models.BlockID) (block *blockdag.Block, exists bool), tipSelector TipSelectorFunc, referencesFunc ReferencesFunc, commitmentFunc CommitmentFunc, opts ...options.Option[Factory]) *Factory {
+func NewBlockFactory(localIdentity *identity.LocalIdentity, slotTimeProvider *slot.TimeProvider, blockRetriever func(blockID models.BlockID) (block *blockdag.Block, exists bool), tipSelector TipSelectorFunc, referencesFunc ReferencesFunc, commitmentFunc CommitmentFunc, opts ...options.Option[Factory]) *Factory {
 	return options.Apply(&Factory{
-		Events:         newEvents(),
-		identity:       localIdentity,
-		blockRetriever: blockRetriever,
-		tipSelector:    tipSelector,
-		referencesFunc: referencesFunc,
-		commitmentFunc: commitmentFunc,
+		Events:           newEvents(),
+		identity:         localIdentity,
+		slotTimeProvider: slotTimeProvider,
+		blockRetriever:   blockRetriever,
+		tipSelector:      tipSelector,
+		referencesFunc:   referencesFunc,
+		commitmentFunc:   commitmentFunc,
 
 		optsTipSelectionTimeout:       10 * time.Second,
 		optsTipSelectionRetryInterval: 200 * time.Millisecond,
@@ -92,9 +95,9 @@ func (f *Factory) createBlockWithPayload(p payload.Payload, references models.Pa
 		}
 	}
 
-	epochCommitment, lastConfirmedEpochIndex, err := f.commitmentFunc()
+	slotCommitment, lastConfirmedSlotIndex, err := f.commitmentFunc()
 	if err != nil {
-		return nil, errors.Wrap(err, "cannot retrieve epoch commitment")
+		return nil, errors.Wrap(err, "cannot retrieve slot commitment")
 	}
 
 	block := models.NewBlock(
@@ -102,8 +105,8 @@ func (f *Factory) createBlockWithPayload(p payload.Payload, references models.Pa
 		models.WithIssuer(f.identity.PublicKey()),
 		models.WithIssuingTime(f.issuingTime(references)),
 		models.WithPayload(p),
-		models.WithLatestConfirmedEpoch(lastConfirmedEpochIndex),
-		models.WithCommitment(epochCommitment),
+		models.WithLatestConfirmedSlot(lastConfirmedSlotIndex),
+		models.WithCommitment(slotCommitment),
 		models.WithSignature(ed25519.EmptySignature), // placeholder will be set after signing
 	)
 
@@ -114,7 +117,7 @@ func (f *Factory) createBlockWithPayload(p payload.Payload, references models.Pa
 	}
 	block.SetSignature(signature)
 
-	if err = block.DetermineID(); err != nil {
+	if err = block.DetermineID(f.slotTimeProvider); err != nil {
 		return nil, errors.Wrap(err, "there is a problem with the block syntax")
 	}
 
@@ -242,8 +245,8 @@ func (f TipSelectorFunc) Tips(countParents int) (parents models.BlockIDs) {
 // ReferencesFunc is a function type that returns like references a given set of parents of a Block.
 type ReferencesFunc func(payload payload.Payload, strongParents models.BlockIDs) (references models.ParentBlockIDs, err error)
 
-// CommitmentFunc is a function type that returns the commitment of the latest committable epoch.
-type CommitmentFunc func() (ecRecord *commitment.Commitment, lastConfirmedEpochIndex epoch.Index, err error)
+// CommitmentFunc is a function type that returns the commitment of the latest committable slot.
+type CommitmentFunc func() (ecRecord *commitment.Commitment, lastConfirmedSlotIndex slot.Index, err error)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 

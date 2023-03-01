@@ -2,9 +2,9 @@ package prunable
 
 import (
 	"github.com/iotaledger/goshimmer/packages/core/database"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/kvstore"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
+	"github.com/iotaledger/hive.go/kvstore"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 const (
@@ -17,8 +17,8 @@ const (
 type Prunable struct {
 	Blocks           *Blocks
 	RootBlocks       *RootBlocks
-	Attestations     func(index epoch.Index) kvstore.KVStore
-	LedgerStateDiffs func(index epoch.Index) kvstore.KVStore
+	Attestations     func(index slot.Index) kvstore.KVStore
+	LedgerStateDiffs func(index slot.Index) kvstore.KVStore
 }
 
 func New(dbManager *database.Manager) (newPrunable *Prunable) {

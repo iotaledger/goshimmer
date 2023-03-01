@@ -9,16 +9,17 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotaledger/goshimmer/packages/core/cerrors"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payloadtype"
-	"github.com/iotaledger/hive.go/core/cerrors"
-	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/model"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/serix"
-	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/ds/types"
+	"github.com/iotaledger/hive.go/lo"
+	storableModel "github.com/iotaledger/hive.go/objectstorage/generic/model"
 	"github.com/iotaledger/hive.go/serializer/v2"
+	"github.com/iotaledger/hive.go/serializer/v2/serix"
 )
 
 // region TransactionType //////////////////////////////////////////////////////////////////////////////////////////////
@@ -145,7 +146,7 @@ func (t TransactionIDs) Base58s() (transactionIDs []string) {
 
 // Transaction represents a payload that executes a value transfer in the ledger state.
 type Transaction struct {
-	model.Storable[utxo.TransactionID, Transaction, *Transaction, transactionModel] `serix:"0"`
+	storableModel.Storable[utxo.TransactionID, Transaction, *Transaction, transactionModel] `serix:"0"`
 }
 
 type transactionModel struct {
@@ -178,7 +179,7 @@ func NewTransaction(essence *TransactionEssence, unlockBlocks UnlockBlocks) (tra
 		panic(fmt.Sprintf("in NewTransaction: Amount of UnlockBlocks (%d) does not match amount of Inputs (%d)", len(unlockBlocks), len(essence.Inputs())))
 	}
 
-	transaction = model.NewStorable[utxo.TransactionID, Transaction](&transactionModel{
+	transaction = storableModel.NewStorable[utxo.TransactionID, Transaction](&transactionModel{
 		Essence:      essence,
 		UnlockBlocks: unlockBlocks,
 	})

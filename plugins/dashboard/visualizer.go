@@ -7,27 +7,24 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 
 	"github.com/iotaledger/goshimmer/packages/app/retainer"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/app/daemon"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 var (
-	visualizerWorkerCount     = 1
-	visualizerWorkerQueueSize = 500
-	visualizerWorkerPool      *workerpool.NonBlockingQueuedWorkerPool
-
-	currentEpoch atomic.Int64
+	currentSlot atomic.Int64
 )
 
 // vertex defines a vertex in a DAG.
@@ -50,19 +47,6 @@ type history struct {
 	Vertices []vertex `json:"vertices"`
 }
 
-func configureVisualizer() {
-	visualizerWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
-		switch x := task.Param(0).(type) {
-		case *models.Block:
-			sendVertex(x, task.Param(1).(bool))
-		case *scheduler.Block:
-			sendTipInfo(x, task.Param(1).(bool))
-		}
-
-		task.Return(nil)
-	}, workerpool.WorkerCount(visualizerWorkerCount), workerpool.QueueSize(visualizerWorkerQueueSize))
-}
-
 func sendVertex(blk *models.Block, finalized bool) {
 	broadcastWsBlock(&wsblk{MsgTypeVertex, &vertex{
 		ID:              blk.ID().Base58(),
@@ -79,42 +63,28 @@ func sendTipInfo(block *scheduler.Block, isTip bool) {
 	}}, true)
 }
 
-func runVisualizer() {
-	processBlock := func(block *models.Block, accepted bool) {
-		visualizerWorkerPool.TrySubmit(block, accepted)
-		if block.ID().Index() > epoch.Index(currentEpoch.Load()) {
-			currentEpoch.Store(int64(block.ID().Index()))
-		}
-	}
-
-	notifyNewBlkStored := event.NewClosure(func(block *blockdag.Block) {
-		processBlock(block.ModelsBlock, false)
-	})
-
-	notifyNewBlkAccepted := event.NewClosure(func(block *blockgadget.Block) {
-		processBlock(block.ModelsBlock, block.IsAccepted())
-	})
-
-	notifyNewTip := event.NewClosure(func(block *scheduler.Block) {
-		visualizerWorkerPool.TrySubmit(block, true)
-	})
-
-	notifyDeletedTip := event.NewClosure(func(block *scheduler.Block) {
-		visualizerWorkerPool.TrySubmit(block, false)
-	})
-
+func runVisualizer(plugin *node.Plugin) {
 	if err := daemon.BackgroundWorker("Dashboard[Visualizer]", func(ctx context.Context) {
-		deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Attach(notifyNewBlkStored)
-		defer deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Detach(notifyNewBlkStored)
-		deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Attach(notifyNewBlkAccepted)
-		defer deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Detach(notifyNewBlkAccepted)
-		deps.Protocol.Events.TipManager.TipAdded.Attach(notifyNewTip)
-		defer deps.Protocol.Events.TipManager.TipAdded.Detach(notifyNewTip)
-		deps.Protocol.Events.TipManager.TipRemoved.Attach(notifyDeletedTip)
-		defer deps.Protocol.Events.TipManager.TipRemoved.Detach(notifyDeletedTip)
+		unhook := lo.Batch(
+			deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Hook(func(block *blockdag.Block) {
+				sendVertex(block.ModelsBlock, false)
+				if block.ID().Index() > slot.Index(currentSlot.Load()) {
+					currentSlot.Store(int64(block.ID().Index()))
+				}
+			}, event.WithWorkerPool(plugin.WorkerPool)).Unhook,
+			deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Hook(func(block *blockgadget.Block) {
+				sendVertex(block.ModelsBlock, block.IsAccepted())
+			}, event.WithWorkerPool(plugin.WorkerPool)).Unhook,
+			deps.Protocol.Events.TipManager.TipAdded.Hook(func(block *scheduler.Block) {
+				sendTipInfo(block, true)
+			}, event.WithWorkerPool(plugin.WorkerPool)).Unhook,
+			deps.Protocol.Events.TipManager.TipRemoved.Hook(func(block *scheduler.Block) {
+				sendTipInfo(block, false)
+			}, event.WithWorkerPool(plugin.WorkerPool)).Unhook,
+		)
 		<-ctx.Done()
 		log.Info("Stopping Dashboard[Visualizer] ...")
-		visualizerWorkerPool.Stop()
+		unhook()
 		log.Info("Stopping Dashboard[Visualizer] ... done")
 	}, shutdown.PriorityDashboard); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
@@ -125,9 +95,9 @@ func setupVisualizerRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/visualizer/history", func(c echo.Context) (err error) {
 		var res []vertex
 
-		start := epoch.Index(currentEpoch.Load())
-		for _, ei := range []epoch.Index{start - 1, start} {
-			blocks := deps.Retainer.LoadAll(ei)
+		start := slot.Index(currentSlot.Load())
+		for _, ei := range []slot.Index{start - 1, start} {
+			blocks := deps.Retainer.LoadAllBlockMetadata(ei)
 			_ = blocks.ForEach(func(element *retainer.BlockMetadata) (err error) {
 				res = append(res, vertex{
 					ID:              element.ID().Base58(),

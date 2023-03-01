@@ -11,26 +11,26 @@ import (
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/serix"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
 	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/serializer/v2/serix"
 )
 
 type ID struct {
-	EpochIndex epoch.Index      `serix:"0"`
+	SlotIndex  slot.Index       `serix:"0"`
 	Identifier types.Identifier `serix:"1"`
 }
 
-func NewID(index epoch.Index, idBytes []byte) (newCommitmentID ID) {
-	newCommitmentID.EpochIndex = index
+func NewID(index slot.Index, idBytes []byte) (newCommitmentID ID) {
+	newCommitmentID.SlotIndex = index
 	copy(newCommitmentID.Identifier[:], idBytes)
 
 	return
 }
 
-func (b ID) Index() epoch.Index {
-	return b.EpochIndex
+func (b ID) Index() slot.Index {
+	return b.SlotIndex
 }
 
 func (b ID) EncodeJSON() (any, error) {
@@ -57,27 +57,27 @@ func (b *ID) FromBase58(base58EncodedString string) (err error) {
 	if err != nil {
 		return errors.Wrap(err, "could not decode base58 encoded ID.Identifier")
 	}
-	epochIndex, err := strconv.ParseInt(s[1], 10, 64)
+	slotIndex, err := strconv.ParseInt(s[1], 10, 64)
 	if err != nil {
-		return errors.Wrap(err, "could not decode ID.EpochIndex from string")
+		return errors.Wrap(err, "could not decode ID.SlotIndex from string")
 	}
 
 	if _, err = serix.DefaultAPI.Decode(context.Background(), decodedBytes, &b.Identifier, serix.WithValidation()); err != nil {
 		return errors.Wrap(err, "failed to decode ID")
 	}
-	b.EpochIndex = epoch.Index(epochIndex)
+	b.SlotIndex = slot.Index(slotIndex)
 
 	return nil
 }
 
 // FromRandomness generates a random ID.
-func (b *ID) FromRandomness(optionalEpoch ...epoch.Index) (err error) {
+func (b *ID) FromRandomness(optionalSlot ...slot.Index) (err error) {
 	if err = b.Identifier.FromRandomness(); err != nil {
 		return errors.Wrap(err, "could not create Identifier from randomness")
 	}
 
-	if len(optionalEpoch) >= 1 {
-		b.EpochIndex = optionalEpoch[0]
+	if len(optionalSlot) >= 1 {
+		b.SlotIndex = optionalSlot[0]
 	}
 
 	return nil
@@ -92,7 +92,7 @@ func (b ID) Alias() (alias string) {
 		return existingAlias
 	}
 
-	return fmt.Sprintf("%d::%s", int(b.EpochIndex), b.Identifier.Base58())
+	return fmt.Sprintf("%d::%s", int(b.SlotIndex), b.Identifier.Base58())
 }
 
 // RegisterAlias allows to register a human-readable alias for the ID which will be used as a replacement for the
@@ -114,12 +114,12 @@ func (b ID) UnregisterAlias() {
 
 // Base58 returns a base58 encoded version of the ID.
 func (b ID) Base58() (base58Encoded string) {
-	return fmt.Sprintf("%s:%s", base58.Encode(b.Identifier[:]), strconv.FormatInt(int64(b.EpochIndex), 10))
+	return fmt.Sprintf("%s:%s", base58.Encode(b.Identifier[:]), strconv.FormatInt(int64(b.SlotIndex), 10))
 }
 
 // Length returns the byte length of a serialized ID.
 func (b ID) Length() int {
-	return types.IdentifierLength + b.EpochIndex.Length()
+	return types.IdentifierLength + b.SlotIndex.Length()
 }
 
 // Bytes returns a serialized version of the ID.

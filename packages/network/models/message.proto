@@ -8,8 +8,8 @@ message Packet {
   oneof body {
     Block block = 1;
     BlockRequest blockRequest = 2;
-    EpochCommitment epochCommitment = 3;
-    EpochCommitmentRequest epochCommitmentRequest = 4;
+    SlotCommitment slotCommitment = 3;
+    SlotCommitmentRequest slotCommitmentRequest = 4;
     Attestations attestations = 5;
     AttestationsRequest attestationsRequest = 6;
   }
@@ -20,20 +20,20 @@ message Block {
 }
 
 message BlockRequest {
+  bytes id = 1;
+}
+
+message SlotCommitment {
   bytes bytes = 1;
 }
 
-message EpochCommitment {
-  bytes bytes = 1;
-}
-
-message EpochCommitmentRequest {
-  bytes bytes = 1;
+message SlotCommitmentRequest {
+  bytes id = 1;
 }
 
 message Attestations {
   bytes commitment = 1;
-  bytes blocks = 2;
+  bytes blocks_ids = 2;
   bytes attestations = 3;
 }
 

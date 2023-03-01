@@ -9,13 +9,22 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/slot"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markermanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/kvstore/mapdb"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/debug"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 func TestScenario_1(t *testing.T) {
@@ -34,7 +43,7 @@ func TestScenario_1(t *testing.T) {
 
 	tf.BlockDAG.IssueBlocks("Block1", "Block2", "Block3", "Block4", "Block5", "Block6", "Block7", "Block8", "Block9")
 
-	workers.Wait()
+	workers.WaitChildren()
 
 	tf.checkConflictIDs(map[string]utxo.TransactionIDs{
 		"Block1": utxo.NewTransactionIDs(),
@@ -75,7 +84,7 @@ func TestScenario_2(t *testing.T) {
 	tf.BlockDAG.IssueBlocks("Block8")
 	tf.BlockDAG.IssueBlocks("Block9")
 
-	workers.Wait()
+	workers.WaitChildren()
 
 	tf.checkConflictIDs(map[string]utxo.TransactionIDs{
 		"Block0.5": tf.Ledger.TransactionIDs("TX8"),
@@ -139,7 +148,7 @@ func TestScenario_4(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
 	tf := NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"),
 		WithMarkerManagerOptions(
-			markermanager.WithSequenceManagerOptions[models.BlockID, *Block](markers.WithMaxPastMarkerDistance(3)),
+			markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(3)),
 		),
 	)
 
@@ -566,8 +575,6 @@ func TestMultiThreadedBookingAndForkingParallel(t *testing.T) {
 		}
 	}
 
-	rand.Seed(time.Now().UnixNano())
-
 	var wg sync.WaitGroup
 	for i := 0; i < len(blks); i++ {
 		wg.Add(1)
@@ -579,7 +586,7 @@ func TestMultiThreadedBookingAndForkingParallel(t *testing.T) {
 	}
 
 	wg.Wait()
-	workers.Wait()
+	workers.WaitChildren()
 
 	expectedConflicts := make(map[string]utxo.TransactionIDs)
 	for layer := 0; layer < layersNum; layer++ {
@@ -653,8 +660,6 @@ func TestMultiThreadedBookingAndForkingNested(t *testing.T) {
 		}
 	}
 
-	rand.Seed(time.Now().UnixNano())
-
 	var wg sync.WaitGroup
 	for i := 0; i < len(blks); i++ {
 		wg.Add(1)
@@ -665,7 +670,7 @@ func TestMultiThreadedBookingAndForkingNested(t *testing.T) {
 		}(i)
 	}
 	wg.Wait()
-	workers.Wait()
+	workers.WaitChildren()
 
 	expectedConflicts := make(map[string]utxo.TransactionIDs)
 	for layer := 0; layer < layersNum; layer++ {
@@ -690,23 +695,23 @@ func TestMultiThreadedBookingAndForkingNested(t *testing.T) {
 	tf.checkNormalizedConflictIDsContained(expectedConflicts)
 }
 
-// This test creates two chains of blocks from the genesis (1 block per epoch in each chain). The first chain is solid, the second chain is not.
+// This test creates two chains of blocks from the genesis (1 block per slot in each chain). The first chain is solid, the second chain is not.
 // When pruning the BlockDAG, the first chain should be pruned but not marked as invalid by the causal order component, while the other should be marked as invalid.
 func Test_Prune(t *testing.T) {
-	const epochCount = 100
+	const slotCount = 100
 
 	workers := workerpool.NewGroup(t.Name())
 	tf := NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"))
 
 	// create a helper function that creates the blocks
-	createNewBlock := func(idx int, prefix string) (block *models.Block, alias string) {
+	createNewBlock := func(idx slot.Index, prefix string) (block *models.Block, alias string) {
 		alias = fmt.Sprintf("blk%s-%d", prefix, idx)
 		if idx == 1 {
 			fmt.Println("Creating genesis block")
 
 			return tf.BlockDAG.CreateBlock(
 				alias,
-				models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0)),
+				models.WithIssuingTime(tf.BlockDAG.Instance.SlotTimeProvider.GenesisTime()),
 				models.WithPayload(tf.Ledger.CreateTransaction(alias, 1, "Genesis")),
 			), alias
 		}
@@ -714,25 +719,25 @@ func Test_Prune(t *testing.T) {
 		return tf.BlockDAG.CreateBlock(
 			alias,
 			models.WithStrongParents(tf.BlockDAG.BlockIDs(parentAlias)),
-			models.WithIssuingTime(time.Unix(epoch.GenesisTime+int64(idx-1)*epoch.Duration, 0)),
+			models.WithIssuingTime(tf.BlockDAG.Instance.SlotTimeProvider.StartTime(idx)),
 			models.WithPayload(tf.Ledger.CreateTransaction(alias, 1, fmt.Sprintf("%s.0", parentAlias))),
 		), alias
 	}
 
-	require.EqualValues(t, 0, tf.BlockDAG.Instance.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch should be 0")
+	require.EqualValues(t, 0, tf.BlockDAG.Instance.EvictionState.LastEvictedSlot(), "maxDroppedSlot should be 0")
 
-	expectedInvalid := make(map[string]bool, epochCount)
-	expectedBooked := make(map[string]bool, epochCount)
+	expectedInvalid := make(map[string]bool, slotCount)
+	expectedBooked := make(map[string]bool, slotCount)
 
 	// Attach solid blocks
-	for i := 1; i <= epochCount; i++ {
+	for i := slot.Index(1); i <= slotCount; i++ {
 		block, alias := createNewBlock(i, "")
 
 		_, wasAttached, err := tf.BlockDAG.Instance.Attach(block)
 		require.True(t, wasAttached, "block should be attached")
 		require.NoError(t, err, "should not be able to attach a block after shutdown")
 
-		if i >= epochCount/4 {
+		if i >= slotCount/4 {
 			expectedInvalid[alias] = false
 			expectedBooked[alias] = true
 		}
@@ -740,52 +745,52 @@ func Test_Prune(t *testing.T) {
 
 	_, wasAttached, err := tf.BlockDAG.Instance.Attach(tf.BlockDAG.CreateBlock(
 		"blk-1-reattachment",
-		models.WithStrongParents(tf.BlockDAG.BlockIDs(fmt.Sprintf("blk-%d", epochCount))),
-		models.WithIssuingTime(time.Unix(epoch.GenesisTime+int64(epochCount)*epoch.Duration, 0)),
+		models.WithStrongParents(tf.BlockDAG.BlockIDs(fmt.Sprintf("blk-%d", slotCount))),
+		models.WithIssuingTime(tf.BlockDAG.Instance.SlotTimeProvider.StartTime(slotCount)),
 		models.WithPayload(tf.Ledger.Transaction("blk-1")),
 	))
 	require.True(t, wasAttached, "block should be attached")
 	require.NoError(t, err, "should not be able to attach a block after shutdown")
 
-	workers.Wait()
+	workers.WaitChildren()
 
-	tf.AssertBookedCount(epochCount+1, "should have all solid blocks")
+	tf.AssertBookedCount(slotCount+1, "should have all solid blocks")
 
-	validateState(tf, 0, epochCount)
+	validateState(tf, 0, slotCount)
 
-	tf.BlockDAG.Instance.EvictionState.EvictUntil(epochCount / 4)
-	workers.Wait()
+	tf.BlockDAG.Instance.EvictionState.EvictUntil(slotCount / 4)
+	workers.WaitChildren()
 
-	require.EqualValues(t, epochCount/4, tf.BlockDAG.Instance.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/4")
+	require.EqualValues(t, slotCount/4, tf.BlockDAG.Instance.EvictionState.LastEvictedSlot(), "maxDroppedSlot of booker should be slotCount/4")
 
 	// All orphan blocks should be marked as invalid due to invalidity propagation.
 	tf.BlockDAG.AssertInvalidCount(0, "should have invalid blocks")
 
-	tf.BlockDAG.Instance.EvictionState.EvictUntil(epochCount / 10)
-	workers.Wait()
+	tf.BlockDAG.Instance.EvictionState.EvictUntil(slotCount / 10)
+	workers.WaitChildren()
 
-	require.EqualValues(t, epochCount/4, tf.BlockDAG.Instance.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/4")
+	require.EqualValues(t, slotCount/4, tf.BlockDAG.Instance.EvictionState.LastEvictedSlot(), "maxDroppedSlot of booker should be slotCount/4")
 
-	tf.BlockDAG.Instance.EvictionState.EvictUntil(epochCount / 2)
-	workers.Wait()
+	tf.BlockDAG.Instance.EvictionState.EvictUntil(slotCount / 2)
+	workers.WaitChildren()
 
-	require.EqualValues(t, epochCount/2, tf.BlockDAG.Instance.EvictionState.LastEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/2")
+	require.EqualValues(t, slotCount/2, tf.BlockDAG.Instance.EvictionState.LastEvictedSlot(), "maxDroppedSlot of booker should be slotCount/2")
 
-	validateState(tf, epochCount/2, epochCount)
+	validateState(tf, slotCount/2, slotCount)
 
 	_, wasAttached, err = tf.BlockDAG.Instance.Attach(tf.BlockDAG.CreateBlock(
 		"blk-0.5",
-		models.WithStrongParents(tf.BlockDAG.BlockIDs(fmt.Sprintf("blk-%d", epochCount))),
-		models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0)),
+		models.WithStrongParents(tf.BlockDAG.BlockIDs(fmt.Sprintf("blk-%d", slotCount))),
+		models.WithIssuingTime(tf.BlockDAG.Instance.SlotTimeProvider.GenesisTime()),
 	))
-	workers.Wait()
+	workers.WaitChildren()
 
 	require.False(t, wasAttached, "block should not be attached")
-	require.Error(t, err, "should not be able to attach a block after eviction of an epoch")
+	require.Error(t, err, "should not be able to attach a block after eviction of an slot")
 }
 
-func validateState(tf *TestFramework, maxPrunedEpoch, epochCount int) {
-	for i := maxPrunedEpoch + 1; i <= epochCount; i++ {
+func validateState(tf *TestFramework, maxPrunedSlot, slotCount int) {
+	for i := maxPrunedSlot + 1; i <= slotCount; i++ {
 		alias := fmt.Sprintf("blk-%d", i)
 
 		_, exists := tf.Instance.Block(tf.BlockDAG.Block(alias).ID())
@@ -799,7 +804,7 @@ func validateState(tf *TestFramework, maxPrunedEpoch, epochCount int) {
 		}
 	}
 
-	for i := 1; i <= maxPrunedEpoch; i++ {
+	for i := 1; i <= maxPrunedSlot; i++ {
 		alias := fmt.Sprintf("blk-%d", i)
 		_, exists := tf.Instance.Block(tf.BlockDAG.Block(alias).ID())
 		require.False(tf.test, exists, "block should not be in the BlockDAG")
@@ -875,4 +880,272 @@ func Test_BlockInvalid(t *testing.T) {
 		"Block8": true,
 		"Block9": false, // Block9 is not solid because it is invalid
 	})
+}
+
+func TestOTV_Track(t *testing.T) {
+	// TODO: extend this test to cover the following cases:
+	//  - when forking there is already a vote with higher power that should not be migrated
+	//  - a voter that supports a marker does not support all the forked conflict's parents
+	//  - test issuing votes out of order, votes have same time (possibly separate test case)
+
+	debug.SetEnabled(true)
+	defer debug.SetEnabled(false)
+
+	workers := workerpool.NewGroup(t.Name())
+
+	storageInstance := blockdag.NewTestStorage(t, workers)
+	tf := NewTestFramework(t, workers.CreateGroup("BookerTestFramework"),
+		New(workers.CreateGroup("Booker"),
+			blockdag.NewTestBlockDAG(t, workers.CreateGroup("BlockDAG"), eviction.NewState(storageInstance), slot.NewTimeProvider(slot.WithGenesisUnixTime(time.Now().Unix())), storageInstance.Commitments.Load),
+			ledger.NewTestLedger(t, workers.CreateGroup("Ledger")),
+			sybilprotection.NewWeightedSet(sybilprotection.NewWeights(mapdb.NewMapDB())),
+			WithMarkerManagerOptions(
+				markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](
+					markers.WithMaxPastMarkerDistance(3),
+				),
+			),
+		))
+
+	tf.VirtualVoting.CreateIdentity("A", 30)
+	tf.VirtualVoting.CreateIdentity("B", 15)
+	tf.VirtualVoting.CreateIdentity("C", 25)
+	tf.VirtualVoting.CreateIdentity("D", 20)
+	tf.VirtualVoting.CreateIdentity("E", 10)
+
+	initialMarkerVotes := make(map[markers.Marker]*advancedset.AdvancedSet[identity.ID])
+	initialConflictVotes := make(map[utxo.TransactionID]*advancedset.AdvancedSet[identity.ID])
+
+	// ISSUE Block1
+	tf.BlockDAG.CreateBlock("Block1", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithIssuer(tf.VirtualVoting.Identity("A").PublicKey()))
+	tf.BlockDAG.IssueBlocks("Block1")
+
+	tf.VirtualVoting.AssertBlockTracked(1)
+
+	tf.VirtualVoting.ValidateMarkerVoters(lo.MergeMaps(initialMarkerVotes, map[markers.Marker]*advancedset.AdvancedSet[identity.ID]{
+		markers.NewMarker(0, 1): tf.VirtualVoting.Votes.ValidatorsSet("A"),
+	}))
+
+	// ISSUE Block2
+	tf.BlockDAG.CreateBlock("Block2", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block1")), models.WithIssuer(tf.VirtualVoting.Identity("B").PublicKey()))
+	tf.BlockDAG.IssueBlocks("Block2")
+
+	tf.VirtualVoting.ValidateMarkerVoters(lo.MergeMaps(initialMarkerVotes, map[markers.Marker]*advancedset.AdvancedSet[identity.ID]{
+		markers.NewMarker(0, 1): tf.VirtualVoting.Votes.ValidatorsSet("A", "B"),
+		markers.NewMarker(0, 2): tf.VirtualVoting.Votes.ValidatorsSet("B"),
+	}))
+
+	// ISSUE Block3
+	tf.BlockDAG.CreateBlock("Block3", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block2")), models.WithIssuer(tf.VirtualVoting.Identity("C").PublicKey()))
+	tf.BlockDAG.IssueBlocks("Block3")
+
+	tf.VirtualVoting.ValidateMarkerVoters(lo.MergeMaps(initialMarkerVotes, map[markers.Marker]*advancedset.AdvancedSet[identity.ID]{
+		markers.NewMarker(0, 1): tf.VirtualVoting.Votes.ValidatorsSet("A", "B", "C"),
+		markers.NewMarker(0, 2): tf.VirtualVoting.Votes.ValidatorsSet("B", "C"),
+		markers.NewMarker(0, 3): tf.VirtualVoting.Votes.ValidatorsSet("C"),
+	}))
+
+	// ISSUE Block4
+	tf.BlockDAG.CreateBlock("Block4", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block3")), models.WithIssuer(tf.VirtualVoting.Identity("D").PublicKey()))
+
+	tf.BlockDAG.IssueBlocks("Block4")
+
+	tf.VirtualVoting.ValidateMarkerVoters(lo.MergeMaps(initialMarkerVotes, map[markers.Marker]*advancedset.AdvancedSet[identity.ID]{
+		markers.NewMarker(0, 1): tf.VirtualVoting.Votes.ValidatorsSet("A", "B", "C", "D"),
+		markers.NewMarker(0, 2): tf.VirtualVoting.Votes.ValidatorsSet("B", "C", "D"),
+		markers.NewMarker(0, 3): tf.VirtualVoting.Votes.ValidatorsSet("C", "D"),
+		markers.NewMarker(0, 4): tf.VirtualVoting.Votes.ValidatorsSet("D"),
+	}))
+	// ISSUE Block5
+	tf.BlockDAG.CreateBlock("Block5", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block4")), models.WithIssuer(tf.VirtualVoting.Identity("A").PublicKey()),
+		models.WithPayload(tf.Ledger.CreateTransaction("Tx1", 1, "Genesis")))
+	tf.BlockDAG.IssueBlocks("Block5")
+
+	tf.VirtualVoting.ValidateMarkerVoters(lo.MergeMaps(initialMarkerVotes, map[markers.Marker]*advancedset.AdvancedSet[identity.ID]{
+		markers.NewMarker(0, 1): tf.VirtualVoting.Votes.ValidatorsSet("A", "B", "C", "D"),
+		markers.NewMarker(0, 2): tf.VirtualVoting.Votes.ValidatorsSet("A", "B", "C", "D"),
+		markers.NewMarker(0, 3): tf.VirtualVoting.Votes.ValidatorsSet("A", "C", "D"),
+		markers.NewMarker(0, 4): tf.VirtualVoting.Votes.ValidatorsSet("A", "D"),
+		markers.NewMarker(0, 5): tf.VirtualVoting.Votes.ValidatorsSet("A"),
+	}))
+
+	// ISSUE Block6
+	tf.BlockDAG.CreateBlock("Block6", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block4")), models.WithIssuer(tf.VirtualVoting.Identity("E").PublicKey()),
+		models.WithPayload(tf.Ledger.CreateTransaction("Tx2", 1, "Genesis")))
+	tf.BlockDAG.IssueBlocks("Block6")
+
+	tf.VirtualVoting.ValidateMarkerVoters(lo.MergeMaps(initialMarkerVotes, map[markers.Marker]*advancedset.AdvancedSet[identity.ID]{
+		markers.NewMarker(0, 1): tf.VirtualVoting.Votes.ValidatorsSet("A", "B", "C", "D", "E"),
+		markers.NewMarker(0, 2): tf.VirtualVoting.Votes.ValidatorsSet("A", "B", "C", "D", "E"),
+		markers.NewMarker(0, 3): tf.VirtualVoting.Votes.ValidatorsSet("A", "C", "D", "E"),
+		markers.NewMarker(0, 4): tf.VirtualVoting.Votes.ValidatorsSet("A", "D", "E"),
+		markers.NewMarker(0, 5): tf.VirtualVoting.Votes.ValidatorsSet("A"),
+	}))
+
+	tf.VirtualVoting.ValidateConflictVoters(lo.MergeMaps(initialConflictVotes, map[utxo.TransactionID]*advancedset.AdvancedSet[identity.ID]{
+		tf.Ledger.Transaction("Tx1").ID(): tf.VirtualVoting.Votes.ValidatorsSet("A"),
+		tf.Ledger.Transaction("Tx2").ID(): tf.VirtualVoting.Votes.ValidatorsSet("E"),
+	}))
+
+	// ISSUE Block7
+	tf.BlockDAG.CreateBlock("Block7", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block5")), models.WithIssuer(tf.VirtualVoting.Identity("C").PublicKey()), models.WithPayload(tf.Ledger.CreateTransaction("Tx3", 1, "Tx1.0")))
+	tf.BlockDAG.IssueBlocks("Block7")
+
+	tf.VirtualVoting.ValidateMarkerVoters(lo.MergeMaps(initialMarkerVotes, map[markers.Marker]*advancedset.AdvancedSet[identity.ID]{
+		markers.NewMarker(0, 4): tf.VirtualVoting.Votes.ValidatorsSet("A", "C", "D", "E"),
+		markers.NewMarker(0, 5): tf.VirtualVoting.Votes.ValidatorsSet("A", "C"),
+		markers.NewMarker(0, 6): tf.VirtualVoting.Votes.ValidatorsSet("C"),
+	}))
+
+	tf.VirtualVoting.ValidateConflictVoters(lo.MergeMaps(initialConflictVotes, map[utxo.TransactionID]*advancedset.AdvancedSet[identity.ID]{
+		tf.Ledger.Transaction("Tx1").ID(): tf.VirtualVoting.Votes.ValidatorsSet("A", "C"),
+		tf.Ledger.Transaction("Tx2").ID(): tf.VirtualVoting.Votes.ValidatorsSet("E"),
+	}))
+
+	// ISSUE Block7.1
+	tf.BlockDAG.CreateBlock("Block7.1", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block7")), models.WithIssuer(tf.VirtualVoting.Identity("A").PublicKey()), models.WithIssuingTime(time.Now().Add(time.Minute*5)))
+	tf.BlockDAG.IssueBlocks("Block7.1")
+
+	tf.VirtualVoting.ValidateMarkerVoters(lo.MergeMaps(initialMarkerVotes, map[markers.Marker]*advancedset.AdvancedSet[identity.ID]{
+		markers.NewMarker(0, 6): tf.VirtualVoting.Votes.ValidatorsSet("A", "C"),
+		markers.NewMarker(0, 7): tf.VirtualVoting.Votes.ValidatorsSet("A"),
+	}))
+
+	// ISSUE Block7.2
+	tf.BlockDAG.CreateBlock("Block7.2", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block7.1")), models.WithLikedInsteadParents(tf.BlockDAG.BlockIDs("Block6")), models.WithIssuer(tf.VirtualVoting.Identity("C").PublicKey()), models.WithIssuingTime(time.Now().Add(time.Minute*5)))
+	tf.BlockDAG.IssueBlocks("Block7.2")
+
+	tf.VirtualVoting.ValidateMarkerVoters(lo.MergeMaps(initialMarkerVotes, map[markers.Marker]*advancedset.AdvancedSet[identity.ID]{
+		markers.NewMarker(0, 7): tf.VirtualVoting.Votes.ValidatorsSet("A", "C"),
+		markers.NewMarker(0, 8): tf.VirtualVoting.Votes.ValidatorsSet("C"),
+	}))
+
+	tf.VirtualVoting.ValidateConflictVoters(lo.MergeMaps(initialConflictVotes, map[utxo.TransactionID]*advancedset.AdvancedSet[identity.ID]{
+		tf.Ledger.Transaction("Tx1").ID(): tf.VirtualVoting.Votes.ValidatorsSet("A"),
+		tf.Ledger.Transaction("Tx2").ID(): tf.VirtualVoting.Votes.ValidatorsSet("E", "C"),
+	}))
+
+	// ISSUE Block8
+	tf.BlockDAG.CreateBlock("Block8", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block6")), models.WithIssuer(tf.VirtualVoting.Identity("D").PublicKey()))
+	tf.BlockDAG.IssueBlocks("Block8")
+
+	tf.VirtualVoting.ValidateMarkerVoters(lo.MergeMaps(initialMarkerVotes, map[markers.Marker]*advancedset.AdvancedSet[identity.ID]{}))
+
+	tf.VirtualVoting.ValidateConflictVoters(lo.MergeMaps(initialConflictVotes, map[utxo.TransactionID]*advancedset.AdvancedSet[identity.ID]{
+		tf.Ledger.Transaction("Tx2").ID(): tf.VirtualVoting.Votes.ValidatorsSet("C", "D", "E"),
+	}))
+
+	// ISSUE Block9
+	tf.BlockDAG.CreateBlock("Block9", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block8")), models.WithIssuer(tf.VirtualVoting.Identity("A").PublicKey()))
+	tf.BlockDAG.IssueBlocks("Block9")
+
+	tf.VirtualVoting.ValidateMarkerVoters(lo.MergeMaps(initialMarkerVotes, map[markers.Marker]*advancedset.AdvancedSet[identity.ID]{
+		markers.NewMarker(1, 5): tf.VirtualVoting.Votes.ValidatorsSet("A"),
+	}))
+
+	tf.VirtualVoting.ValidateConflictVoters(lo.MergeMaps(initialConflictVotes, map[utxo.TransactionID]*advancedset.AdvancedSet[identity.ID]{}))
+
+	// ISSUE Block10
+	tf.BlockDAG.CreateBlock("Block10", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block9")), models.WithIssuer(tf.VirtualVoting.Identity("B").PublicKey()))
+	tf.BlockDAG.IssueBlocks("Block10")
+
+	tf.VirtualVoting.ValidateMarkerVoters(lo.MergeMaps(initialMarkerVotes, map[markers.Marker]*advancedset.AdvancedSet[identity.ID]{
+		markers.NewMarker(0, 3): tf.VirtualVoting.Votes.ValidatorsSet("A", "B", "C", "D", "E"),
+		markers.NewMarker(0, 4): tf.VirtualVoting.Votes.ValidatorsSet("A", "B", "C", "D", "E"),
+		markers.NewMarker(1, 5): tf.VirtualVoting.Votes.ValidatorsSet("A", "B"),
+		markers.NewMarker(1, 6): tf.VirtualVoting.Votes.ValidatorsSet("B"),
+	}))
+
+	tf.VirtualVoting.ValidateConflictVoters(lo.MergeMaps(initialConflictVotes, map[utxo.TransactionID]*advancedset.AdvancedSet[identity.ID]{
+		tf.Ledger.Transaction("Tx2").ID(): tf.VirtualVoting.Votes.ValidatorsSet("B", "C", "D", "E"),
+	}))
+
+	// ISSUE Block11
+	tf.BlockDAG.CreateBlock("Block11", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block5")), models.WithIssuer(tf.VirtualVoting.Identity("A").PublicKey()), models.WithPayload(tf.Ledger.CreateTransaction("Tx4", 1, "Tx1.0")))
+	tf.BlockDAG.IssueBlocks("Block11")
+
+	tf.VirtualVoting.ValidateMarkerVoters(lo.MergeMaps(initialMarkerVotes, map[markers.Marker]*advancedset.AdvancedSet[identity.ID]{}))
+
+	tf.VirtualVoting.ValidateConflictVoters(lo.MergeMaps(initialConflictVotes, map[utxo.TransactionID]*advancedset.AdvancedSet[identity.ID]{
+		tf.Ledger.Transaction("Tx1").ID(): tf.VirtualVoting.Votes.ValidatorsSet("A"),
+		tf.Ledger.Transaction("Tx3").ID(): tf.VirtualVoting.Votes.ValidatorsSet("A"),
+		tf.Ledger.Transaction("Tx4").ID(): tf.VirtualVoting.Votes.ValidatorsSet(),
+	}))
+
+	// ISSUE Block12
+	tf.BlockDAG.CreateBlock("Block12", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block11")), models.WithIssuer(tf.VirtualVoting.Identity("D").PublicKey()))
+	tf.BlockDAG.IssueBlocks("Block12")
+
+	tf.VirtualVoting.ValidateMarkerVoters(lo.MergeMaps(initialMarkerVotes, map[markers.Marker]*advancedset.AdvancedSet[identity.ID]{
+		markers.NewMarker(0, 5): tf.VirtualVoting.Votes.ValidatorsSet("A", "C", "D"),
+	}))
+
+	tf.VirtualVoting.ValidateConflictVoters(lo.MergeMaps(initialConflictVotes, map[utxo.TransactionID]*advancedset.AdvancedSet[identity.ID]{
+		tf.Ledger.Transaction("Tx1").ID(): tf.VirtualVoting.Votes.ValidatorsSet("A", "D"),
+		tf.Ledger.Transaction("Tx2").ID(): tf.VirtualVoting.Votes.ValidatorsSet("B", "C", "E"),
+		tf.Ledger.Transaction("Tx4").ID(): tf.VirtualVoting.Votes.ValidatorsSet("D"),
+	}))
+
+	// ISSUE Block13
+	tf.BlockDAG.CreateBlock("Block13", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block12")), models.WithIssuer(tf.VirtualVoting.Identity("E").PublicKey()))
+	tf.BlockDAG.IssueBlocks("Block13")
+
+	tf.VirtualVoting.ValidateMarkerVoters(lo.MergeMaps(initialMarkerVotes, map[markers.Marker]*advancedset.AdvancedSet[identity.ID]{
+		markers.NewMarker(0, 5): tf.VirtualVoting.Votes.ValidatorsSet("A", "C", "D", "E"),
+		markers.NewMarker(2, 6): tf.VirtualVoting.Votes.ValidatorsSet("E"),
+	}))
+
+	tf.VirtualVoting.ValidateConflictVoters(lo.MergeMaps(initialConflictVotes, map[utxo.TransactionID]*advancedset.AdvancedSet[identity.ID]{
+		tf.Ledger.Transaction("Tx1").ID(): tf.VirtualVoting.Votes.ValidatorsSet("A", "D", "E"),
+		tf.Ledger.Transaction("Tx2").ID(): tf.VirtualVoting.Votes.ValidatorsSet("B", "C"),
+		tf.Ledger.Transaction("Tx4").ID(): tf.VirtualVoting.Votes.ValidatorsSet("D", "E"),
+	}))
+
+	// ISSUE Block14
+	tf.BlockDAG.CreateBlock("Block14", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block13")), models.WithIssuer(tf.VirtualVoting.Identity("B").PublicKey()))
+	tf.BlockDAG.IssueBlocks("Block14")
+
+	tf.VirtualVoting.ValidateMarkerVoters(lo.MergeMaps(initialMarkerVotes, map[markers.Marker]*advancedset.AdvancedSet[identity.ID]{
+		markers.NewMarker(0, 5): tf.VirtualVoting.Votes.ValidatorsSet("A", "B", "C", "D", "E"),
+		markers.NewMarker(2, 6): tf.VirtualVoting.Votes.ValidatorsSet("B", "E"),
+		markers.NewMarker(2, 7): tf.VirtualVoting.Votes.ValidatorsSet("B"),
+	}))
+
+	tf.VirtualVoting.ValidateConflictVoters(lo.MergeMaps(initialConflictVotes, map[utxo.TransactionID]*advancedset.AdvancedSet[identity.ID]{
+		tf.Ledger.Transaction("Tx1").ID(): tf.VirtualVoting.Votes.ValidatorsSet("A", "B", "D", "E"),
+		tf.Ledger.Transaction("Tx2").ID(): tf.VirtualVoting.Votes.ValidatorsSet("C"),
+		tf.Ledger.Transaction("Tx4").ID(): tf.VirtualVoting.Votes.ValidatorsSet("B", "D", "E"),
+	}))
+
+	// ISSUE Block15
+	tf.BlockDAG.CreateBlock("Block15", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block14")), models.WithIssuer(tf.VirtualVoting.Identity("A").PublicKey()), models.WithIssuingTime(time.Now().Add(time.Minute*6)))
+	tf.BlockDAG.IssueBlocks("Block15")
+
+	tf.VirtualVoting.ValidateMarkerVoters(lo.MergeMaps(initialMarkerVotes, map[markers.Marker]*advancedset.AdvancedSet[identity.ID]{
+		markers.NewMarker(0, 5): tf.VirtualVoting.Votes.ValidatorsSet("A", "B", "C", "D", "E"),
+		markers.NewMarker(2, 6): tf.VirtualVoting.Votes.ValidatorsSet("A", "B", "E"),
+		markers.NewMarker(2, 7): tf.VirtualVoting.Votes.ValidatorsSet("A", "B"),
+		markers.NewMarker(2, 8): tf.VirtualVoting.Votes.ValidatorsSet("A"),
+	}))
+
+	tf.VirtualVoting.ValidateConflictVoters(lo.MergeMaps(initialConflictVotes, map[utxo.TransactionID]*advancedset.AdvancedSet[identity.ID]{
+		tf.Ledger.Transaction("Tx3").ID(): tf.VirtualVoting.Votes.ValidatorsSet(),
+		tf.Ledger.Transaction("Tx4").ID(): tf.VirtualVoting.Votes.ValidatorsSet("A", "B", "D", "E"),
+	}))
+
+	// ISSUE Block16
+	tf.BlockDAG.CreateBlock("Block16", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block15")), models.WithIssuer(tf.VirtualVoting.Identity("C").PublicKey()), models.WithIssuingTime(time.Now().Add(time.Minute*6)))
+	tf.BlockDAG.IssueBlocks("Block16")
+
+	tf.VirtualVoting.ValidateMarkerVoters(lo.MergeMaps(initialMarkerVotes, map[markers.Marker]*advancedset.AdvancedSet[identity.ID]{
+		markers.NewMarker(2, 6): tf.VirtualVoting.Votes.ValidatorsSet("A", "B", "C", "E"),
+		markers.NewMarker(2, 7): tf.VirtualVoting.Votes.ValidatorsSet("A", "B", "C"),
+		markers.NewMarker(2, 8): tf.VirtualVoting.Votes.ValidatorsSet("A", "C"),
+		markers.NewMarker(2, 9): tf.VirtualVoting.Votes.ValidatorsSet("C"),
+	}))
+
+	tf.VirtualVoting.ValidateConflictVoters(lo.MergeMaps(initialConflictVotes, map[utxo.TransactionID]*advancedset.AdvancedSet[identity.ID]{
+		tf.Ledger.Transaction("Tx1").ID(): tf.VirtualVoting.Votes.ValidatorsSet("A", "B", "C", "D", "E"),
+		tf.Ledger.Transaction("Tx2").ID(): tf.VirtualVoting.Votes.ValidatorsSet(),
+		tf.Ledger.Transaction("Tx4").ID(): tf.VirtualVoting.Votes.ValidatorsSet("A", "B", "C", "D", "E"),
+	}))
 }
