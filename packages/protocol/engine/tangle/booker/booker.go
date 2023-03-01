@@ -399,7 +399,6 @@ func (b *Booker) determineBookingConflictIDs(block *virtualvoting.Block) (parent
 
 	// block always sets Like reference its own conflict, if its payload is a transaction, and it's conflicting
 	if selfConflictID, selfDislikedConflictIDs, isTransaction := b.PayloadConflictID(block); isTransaction && !selfConflictID.IsEmpty() {
-		selfFutureDislikedFuture := b.Ledger.Utils.ConflictIDsInFutureCone(selfDislikedConflictIDs)
 		inheritedConflictIDs.Add(selfConflictID)
 		// if a payload is a conflicting transaction, then remove any conflicting conflicts from supported conflicts
 		inheritedConflictIDs.DeleteAll(b.Ledger.Utils.ConflictIDsInFutureCone(selfDislikedConflictIDs))
