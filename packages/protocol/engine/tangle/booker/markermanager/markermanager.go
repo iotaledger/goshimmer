@@ -59,6 +59,9 @@ func NewMarkerManager[IndexedID epoch.IndexedID, MappedEntity epoch.IndexedEntit
 // strong and like parents.
 func (m *MarkerManager[IndexedID, MappedEntity]) ProcessBlock(block MappedEntity, newSequenceCreated bool, conflictIDs utxo.TransactionIDs, newStructureDetails *markers.StructureDetails) {
 	if newStructureDetails.IsPastMarker() {
+		m.SequenceMutex.Lock(newStructureDetails.PastMarkers().Marker().SequenceID())
+		defer m.SequenceMutex.Unlock(newStructureDetails.PastMarkers().Marker().SequenceID())
+
 		if newSequenceCreated {
 			m.SetConflictIDs(newStructureDetails.PastMarkers().Marker(), conflictIDs)
 		}
@@ -107,6 +110,9 @@ func (m *MarkerManager[IndexedID, MappedEntity]) evictMarkerBlockMapping(epochIn
 		m.markerBlockMappingEviction.Delete(epochIndex)
 
 		markerSet.ForEach(func(marker markers.Marker) {
+			m.SequenceMutex.Lock(marker.SequenceID())
+			defer m.SequenceMutex.Unlock(marker.SequenceID())
+
 			m.markerBlockMapping.Delete(marker)
 
 			if markerIndexBlockMapping, mappingExists := m.sequenceMarkersMapping.Get(marker.SequenceID()); mappingExists {
