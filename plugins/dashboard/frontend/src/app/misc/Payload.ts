@@ -1,7 +1,7 @@
 export enum PayloadType {
     Data = 0,
     Transaction = 1,
-    Faucet = 4,
+    Faucet = 3,
 }
 
 // BasicPayload
@@ -14,6 +14,13 @@ export class BasicPayload {
 export class TransactionPayload {
     txID: string;
     transaction: Transaction;
+}
+
+export class FaucetPayload {
+    address: string;
+    accessManaPledgeID: string;
+    consensusManaPledgeID: string;
+    nonce: number;
 }
 
 export class Transaction {

@@ -33,7 +33,7 @@ type InfoResponse struct {
 	// Scheduler is the scheduler.
 	Scheduler Scheduler `json:"scheduler"`
 	// LastCommittedSlot contains information about the last committed slot.
-	LastCommittedSlot SlotInfo
+	LastCommittedSlot SlotInfo `json:"lastCommittedSlot"`
 	// RateSetter is the rate setter.
 	RateSetter RateSetter `json:"rateSetter"`
 	// error of the response

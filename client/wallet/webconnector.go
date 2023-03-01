@@ -129,11 +129,11 @@ func (webConnector WebConnector) GetTransactionConfirmationState(txID utxo.Trans
 
 // GetUnspentAliasOutput returns the current unspent alias output that belongs to a given alias address.
 func (webConnector WebConnector) GetUnspentAliasOutput(addr *devnetvm.AliasAddress) (output *devnetvm.AliasOutput, err error) {
-	res, err := webConnector.client.GetAddressUnspentOutputs(addr.Base58())
+	res, err := webConnector.client.GetAddressOutputs(addr.Base58())
 	if err != nil {
 		return
 	}
-	for _, o := range res.Outputs {
+	for _, o := range res.UnspentOutputs {
 		if o.Type != devnetvm.AliasOutputType.String() {
 			continue
 		}

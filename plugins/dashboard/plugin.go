@@ -77,7 +77,6 @@ func configure(plugin *node.Plugin) {
 		lastConfirmedBlock.Update(block.ModelsBlock)
 	}, event.WithWorkerPool(plugin.WorkerPool))
 
-	configureVisualizer()
 	configureServer()
 }
 

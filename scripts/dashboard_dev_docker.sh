@@ -4,6 +4,8 @@
 # Run Docker network and set `--dashboard.dev=true` on any node you want to run the dashboard in dev mode.
 
 echo "::: Running /plugins/dashboard/frontend :::"
+rm -rf plugins/dashboard/frontend/build
+
 docker run -it --rm \
     -p 9999:9999 -u $(id -u ${USER}):$(id -g ${USER}) \
     --name="dashboard-dev-docker" \
