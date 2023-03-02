@@ -105,7 +105,7 @@ func (t *TestFramework) CreateConflict(conflictAlias string, parentConflictIDs u
 		}
 	}
 
-	t.Instance.CreateConflict(t.ConflictID(conflictAlias), parentConflictIDs, t.ConflictSetIDs(conflictSetAliases...))
+	t.Instance.CreateConflict(t.ConflictID(conflictAlias), parentConflictIDs, t.ConflictSetIDs(conflictSetAliases...), confirmation.Pending)
 }
 
 func (t *TestFramework) UpdateConflictingResources(conflictAlias string, conflictingResourcesAliases ...string) {

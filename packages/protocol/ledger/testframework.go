@@ -10,6 +10,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
@@ -89,6 +90,8 @@ func NewTestFramework(test *testing.T, instance *Ledger) *TestFramework {
 		t.Instance.Storage.OutputMetadataStorage.Store(genesisOutputMetadata).Release()
 
 		t.outputIDsByAlias["Genesis"] = genesisOutput.ID()
+		t.ConflictDAG.RegisterConflictIDAlias("Genesis", utxo.EmptyTransactionID)
+		t.ConflictDAG.RegisterConflictSetIDAlias("Genesis", genesisOutput.ID())
 		genesisOutput.ID().RegisterAlias("Genesis")
 	}
 	return t
@@ -173,9 +176,15 @@ func (t *TestFramework) CreateTransaction(txAlias string, outputCount uint16, in
 	return tx
 }
 
-// IssueTransaction issues the transaction given by txAlias.
-func (t *TestFramework) IssueTransaction(txAlias string) (err error) {
-	return t.Instance.StoreAndProcessTransaction(context.Background(), t.Transaction(txAlias))
+// IssueTransactions issues the transaction given by txAlias.
+func (t *TestFramework) IssueTransactions(txAliases ...string) (err error) {
+	for _, txAlias := range txAliases {
+		if err = t.Instance.StoreAndProcessTransaction(context.Background(), t.Transaction(txAlias)); err != nil {
+			return xerrors.Errorf("failed to issue transaction '%s': %w", txAlias, err)
+		}
+	}
+
+	return nil
 }
 
 // MockOutputFromTx creates an utxo.OutputID from a given MockedTransaction and outputIndex.
@@ -213,6 +222,18 @@ func (t *TestFramework) AssertConflictIDs(expectedConflicts map[string][]string)
 			require.Truef(t.test, expectedConflictIDs.Equal(outputMetadata.ConflictIDs()), "Output(%s): expected %s is not equal to actual %s", outputMetadata.ID(), expectedConflictIDs, outputMetadata.ConflictIDs())
 		})
 	}
+}
+
+// AssertBranchConfirmationState asserts the confirmation state of the given branch.
+func (t *TestFramework) AssertBranchConfirmationState(txAlias string, validator func(state confirmation.State) bool) {
+	require.True(t.test, validator(t.ConflictDAG.ConfirmationState(txAlias)))
+}
+
+// AssertTransactionConfirmationState asserts the confirmation state of the given transaction.
+func (t *TestFramework) AssertTransactionConfirmationState(txAlias string, validator func(state confirmation.State) bool) {
+	t.ConsumeTransactionMetadata(t.Transaction(txAlias).ID(), func(txMetadata *TransactionMetadata) {
+		require.True(t.test, validator(txMetadata.ConfirmationState()))
+	})
 }
 
 // AssertBooked asserts the booking status of all given transactions.
