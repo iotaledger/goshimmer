@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"sort"
 
-	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/hive.go/ds/set"
@@ -105,12 +104,7 @@ func (o *ConflictResolver) conflictPreferred(conflict *conflictdag.Conflict[utxo
 		return
 	}
 
-	switch conflict.ConfirmationState() {
-	case confirmation.Rejected:
-		preferred = false
-		return
-	case confirmation.Accepted:
-	case confirmation.Confirmed:
+	if conflict.ConfirmationState().IsAccepted() {
 		return
 	}
 
@@ -160,6 +154,7 @@ func (o *ConflictResolver) ForEachConnectedConflictingConflictInDescendingOrder(
 	conflictsOrderedByWeight := make([]*conflictdag.Conflict[utxo.TransactionID, utxo.OutputID], 0)
 
 	o.conflictDAG.ForEachConnectedConflictingConflictID(conflict, func(conflictingConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+		// TODO: possible race condition on weight function state because it's not locked
 		conflictWeights[conflictingConflict.ID()] = o.weightFunc(conflictingConflict.ID())
 		conflictsOrderedByWeight = append(conflictsOrderedByWeight, conflictingConflict)
 	})
