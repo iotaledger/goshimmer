@@ -564,10 +564,6 @@ func TestLedger_Aliases(t *testing.T) {
 	conflictID.RegisterAlias("Conflict1")
 }
 
-func checkConfirmationState(t *testing.T) {
-
-}
-
 func TestLedger_AcceptanceRaceCondition(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
 	defer workers.Shutdown()
@@ -579,15 +575,17 @@ func TestLedger_AcceptanceRaceCondition(t *testing.T) {
 	tf.CreateTransaction("TX2", 1, "TX1.0")
 
 	require.NoError(t, tf.IssueTransactions("TX1", "TX2"))
-
 	tf.Instance.SetTransactionInclusionSlot(tf.Transaction("TX1").ID(), 1)
 
-	requireConfirmationState(t, tf, "TX1", confirmation.State.IsAccepted)
+	tf.AssertTransactionConfirmationState("TX1", confirmation.State.IsAccepted)
 
 	require.NoError(t, tf.IssueTransactions("TX1*"))
 
-	requireConfirmationState(t, tf, "TX1", confirmation.State.IsAccepted)
-	requireConfirmationState(t, tf, "TX1*", confirmation.State.IsRejected)
+	tf.AssertTransactionConfirmationState("TX1", confirmation.State.IsAccepted)
+	tf.AssertBranchConfirmationState("TX1", confirmation.State.IsAccepted)
+
+	tf.AssertTransactionConfirmationState("TX1*", confirmation.State.IsRejected)
+	tf.AssertBranchConfirmationState("TX1*", confirmation.State.IsRejected)
 
 	tf.AssertConflictIDs(map[string][]string{
 		"TX1":  {},
@@ -602,13 +600,5 @@ func TestLedger_AcceptanceRaceCondition(t *testing.T) {
 
 	tf.AssertConflicts(map[string][]string{
 		"Genesis": {"TX1", "TX1*"},
-	})
-}
-
-func requireConfirmationState(t *testing.T, tf *TestFramework, txAlias string, validator func(state confirmation.State) bool) {
-	require.True(t, validator(tf.ConflictDAG.ConfirmationState(txAlias)))
-
-	tf.ConsumeTransactionMetadata(tf.Transaction(txAlias).ID(), func(txMetadata *TransactionMetadata) {
-		require.True(t, validator(txMetadata.ConfirmationState()))
 	})
 }

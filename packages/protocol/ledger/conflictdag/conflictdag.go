@@ -271,8 +271,6 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) rejectConflictsWithFutureC
 
 // ConfirmationState returns the ConfirmationState of the given ConflictIDs.
 func (c *ConflictDAG[ConflictIDType, ResourceIDType]) ConfirmationState(conflictIDs *advancedset.AdvancedSet[ConflictIDType]) (confirmationState confirmation.State) {
-	// TODO: simplify this method
-
 	// we are on master reality.
 	if conflictIDs.IsEmpty() {
 		return confirmation.Confirmed
@@ -283,9 +281,8 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) ConfirmationState(conflict
 
 	// we start with Confirmed because state is Aggregated to the lowest state.
 	confirmationState = confirmation.Confirmed
-	for it := conflictIDs.Iterator(); it.HasNext(); {
-		conflictID := it.Next()
-		if confirmationState = confirmationState.Aggregate(c.confirmationState(conflictID)); confirmationState.IsRejected() {
+	for conflictID := conflictIDs.Iterator(); conflictID.HasNext(); {
+		if confirmationState = confirmationState.Aggregate(c.confirmationState(conflictID.Next())); confirmationState.IsRejected() {
 			return confirmation.Rejected
 		}
 	}

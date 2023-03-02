@@ -224,6 +224,18 @@ func (t *TestFramework) AssertConflictIDs(expectedConflicts map[string][]string)
 	}
 }
 
+// AssertBranchConfirmationState asserts the confirmation state of the given branch.
+func (t *TestFramework) AssertBranchConfirmationState(txAlias string, validator func(state confirmation.State) bool) {
+	require.True(t.test, validator(t.ConflictDAG.ConfirmationState(txAlias)))
+}
+
+// AssertTransactionConfirmationState asserts the confirmation state of the given transaction.
+func (t *TestFramework) AssertTransactionConfirmationState(txAlias string, validator func(state confirmation.State) bool) {
+	t.ConsumeTransactionMetadata(t.Transaction(txAlias).ID(), func(txMetadata *TransactionMetadata) {
+		require.True(t.test, validator(txMetadata.ConfirmationState()))
+	})
+}
+
 // AssertBooked asserts the booking status of all given transactions.
 func (t *TestFramework) AssertBooked(expectedBookedMap map[string]bool) {
 	for txAlias, expectedBooked := range expectedBookedMap {
