@@ -144,7 +144,7 @@ func (b *booker) determineConflictDetails(txID utxo.TransactionID, inputsMetadat
 	return conflictingInputIDs, consumersToFork
 }
 
-// forkTransaction forks an existing Transaction.
+// forkTransaction forks an existing Transaction and returns the confirmation state of the resulting Branch.
 func (b *booker) forkTransaction(ctx context.Context, txID utxo.TransactionID, outputsSpentByConflictingTx utxo.OutputIDs) (confirmationState confirmation.State) {
 	b.ledger.Utils.WithTransactionAndMetadata(txID, func(tx utxo.Transaction, txMetadata *TransactionMetadata) {
 		b.ledger.mutex.Lock(txID)
