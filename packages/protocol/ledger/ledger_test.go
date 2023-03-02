@@ -35,9 +35,7 @@ func TestLedger_BookInOrder(t *testing.T) {
 	tf.CreateTransaction("TX8", 1, "TX7.0")
 
 	{
-		for _, txAlias := range []string{"G", "TX1", "TX1*", "TX2", "TX2*", "TX3", "TX3*", "TX4", "TX5", "TX6", "TX7", "TX8"} {
-			require.NoError(t, tf.IssueTransactions(txAlias))
-		}
+		require.NoError(t, tf.IssueTransactions("G", "TX1", "TX1*", "TX2", "TX2*", "TX3", "TX3*", "TX4", "TX5", "TX6", "TX7", "TX8"))
 
 		tf.AssertConflictIDs(map[string][]string{
 			"G":    {},
@@ -156,9 +154,7 @@ func TestLedger_SetConflictConfirmed(t *testing.T) {
 
 	// Mark A as Confirmed
 	{
-		for _, txAlias := range []string{"G", "TXA", "TXB", "TXC", "TXD", "TXH", "TXI"} {
-			require.NoError(t, tf.IssueTransactions(txAlias))
-		}
+		require.NoError(t, tf.IssueTransactions("G", "TXA", "TXB", "TXC", "TXD", "TXH", "TXI"))
 		require.True(t, tf.Instance.ConflictDAG.SetConflictAccepted(tf.Transaction("TXA").ID()))
 
 		tf.AssertConflictIDs(map[string][]string{
@@ -222,9 +218,7 @@ func TestLedger_SetConflictConfirmed(t *testing.T) {
 
 	// When creating the first transaction (F) of top layer it should be booked under the Pending parent C
 	{
-		for _, txAlias := range []string{"TXF"} {
-			require.NoError(t, tf.IssueTransactions(txAlias))
-		}
+		require.NoError(t, tf.IssueTransactions("TXF"))
 
 		tf.AssertConflictIDs(map[string][]string{
 			"G":   {},
@@ -257,9 +251,7 @@ func TestLedger_SetConflictConfirmed(t *testing.T) {
 
 	// When creating the conflicting TX (G) of the top layer conflicts F & G are spawned by the fork of G
 	{
-		for _, txAlias := range []string{"TXG"} {
-			require.NoError(t, tf.IssueTransactions(txAlias))
-		}
+		require.NoError(t, tf.IssueTransactions("TXG"))
 
 		tf.AssertConflictIDs(map[string][]string{
 			"G":   {},
@@ -299,9 +291,7 @@ func TestLedger_SetConflictConfirmed(t *testing.T) {
 
 	// TX L combines a child (G) of a Rejected conflict (C) and a pending conflict H, resulting in (G,H)
 	{
-		for _, txAlias := range []string{"TXL"} {
-			require.NoError(t, tf.IssueTransactions(txAlias))
-		}
+		require.NoError(t, tf.IssueTransactions("TXL"))
 
 		tf.AssertConflictIDs(map[string][]string{
 			"G":   {},
@@ -342,9 +332,7 @@ func TestLedger_SetConflictConfirmed(t *testing.T) {
 
 	// The new TX M should be now booked under G, as conflict H confirmed, just G because we don't propagate H further.
 	{
-		for _, txAlias := range []string{"TXM"} {
-			require.NoError(t, tf.IssueTransactions(txAlias))
-		}
+		require.NoError(t, tf.IssueTransactions("TXM"))
 
 		tf.AssertConflictIDs(map[string][]string{
 			"G":   {},
@@ -532,9 +520,7 @@ func TestLedger_ForkAlreadyConflictingTransaction(t *testing.T) {
 	tf.CreateTransaction("TX2", 1, "G.0")
 	tf.CreateTransaction("TX3", 1, "G.1")
 
-	for _, txAlias := range []string{"G", "TX1", "TX2", "TX3"} {
-		require.NoError(t, tf.IssueTransactions(txAlias))
-	}
+	require.NoError(t, tf.IssueTransactions("G", "TX1", "TX2", "TX3"))
 
 	tf.AssertConflictIDs(map[string][]string{
 		"G":   {},
@@ -564,10 +550,7 @@ func TestLedger_TransactionCausallyRelated(t *testing.T) {
 	tf.CreateTransaction("TX2", 1, "TX1.0")
 	tf.CreateTransaction("TX3", 1, "G.0", "TX2.0")
 
-	for _, txAlias := range []string{"G", "TX1", "TX2"} {
-		require.NoError(t, tf.IssueTransactions(txAlias))
-	}
-
+	require.NoError(t, tf.IssueTransactions("G", "TX1", "TX2"))
 	require.EqualError(t, tf.IssueTransactions("TX3"), "TransactionID(TX3) is trying to spend causally related Outputs: transaction invalid")
 }
 
