@@ -10,6 +10,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
@@ -173,9 +174,15 @@ func (t *TestFramework) CreateTransaction(txAlias string, outputCount uint16, in
 	return tx
 }
 
-// IssueTransaction issues the transaction given by txAlias.
-func (t *TestFramework) IssueTransaction(txAlias string) (err error) {
-	return t.Instance.StoreAndProcessTransaction(context.Background(), t.Transaction(txAlias))
+// IssueTransactions issues the transaction given by txAlias.
+func (t *TestFramework) IssueTransactions(txAliases ...string) (err error) {
+	for _, txAlias := range txAliases {
+		if err = t.Instance.StoreAndProcessTransaction(context.Background(), t.Transaction(txAlias)); err != nil {
+			return xerrors.Errorf("failed to issue transaction '%s': %w", txAlias, err)
+		}
+	}
+
+	return nil
 }
 
 // MockOutputFromTx creates an utxo.OutputID from a given MockedTransaction and outputIndex.

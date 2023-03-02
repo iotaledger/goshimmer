@@ -59,12 +59,11 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) conflictSet(resourceID Res
 }
 
 // CreateConflict creates a new Conflict in the ConflictDAG and returns true if the Conflict was created.
-func (c *ConflictDAG[ConflictIDType, ResourceIDType]) CreateConflict(id ConflictIDType, parentIDs *advancedset.AdvancedSet[ConflictIDType], conflictingResourceIDs *advancedset.AdvancedSet[ResourceIDType]) (created bool) {
+func (c *ConflictDAG[ConflictIDType, ResourceIDType]) CreateConflict(id ConflictIDType, parentIDs *advancedset.AdvancedSet[ConflictIDType], conflictingResourceIDs *advancedset.AdvancedSet[ResourceIDType], confirmationState confirmation.State) (created bool) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
 	conflictParents := advancedset.NewAdvancedSet[*Conflict[ConflictIDType, ResourceIDType]]()
-
 	for it := parentIDs.Iterator(); it.HasNext(); {
 		parentID := it.Next()
 		parent, exists := c.conflict(parentID)
@@ -76,7 +75,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) CreateConflict(id Conflict
 	}
 
 	conflict, created := c.conflicts.GetOrCreate(id, func() (newConflict *Conflict[ConflictIDType, ResourceIDType]) {
-		newConflict = NewConflict(id, parentIDs, advancedset.NewAdvancedSet[*ConflictSet[ConflictIDType, ResourceIDType]]())
+		newConflict = NewConflict(id, parentIDs, advancedset.NewAdvancedSet[*ConflictSet[ConflictIDType, ResourceIDType]](), confirmationState)
 
 		c.registerConflictWithConflictSet(newConflict, conflictingResourceIDs)
 
