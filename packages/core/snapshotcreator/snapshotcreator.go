@@ -47,11 +47,17 @@ func CreateSnapshot(opts ...options.Option[Options]) error {
 	if err := s.Commitments.Store(commitment.NewEmptyCommitment()); err != nil {
 		return errors.Wrap(err, "failed to store empty commitment")
 	}
+	if err := s.Settings.SetGenesisUnixTime(opt.GenesisUnixTime); err != nil {
+		return errors.Wrap(err, "failed to set the genesis time")
+	}
+	if err := s.Settings.SetSlotDuration(opt.SlotDuration); err != nil {
+		return errors.Wrap(err, "failed to set the slot duration")
+	}
 	if err := s.Settings.SetChainID(lo.PanicOnErr(s.Commitments.Load(0)).ID()); err != nil {
 		return errors.Wrap(err, "failed to set chainID")
 	}
 
-	engineInstance := engine.New(workers.CreateGroup("Engine"), s, dpos.NewProvider(), mana1.NewProvider(), opt.SlotTimeProvider, engine.WithLedgerOptions(ledger.WithVM(opt.vm)))
+	engineInstance := engine.New(workers.CreateGroup("Engine"), s, dpos.NewProvider(), mana1.NewProvider(), engine.WithLedgerOptions(ledger.WithVM(opt.vm)))
 	defer engineInstance.Shutdown()
 
 	if err := opt.createGenesisOutput(engineInstance); err != nil {

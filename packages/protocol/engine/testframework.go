@@ -36,8 +36,8 @@ type TestFramework struct {
 	Acceptance    *blockgadget.TestFramework
 }
 
-func NewTestEngine(t *testing.T, workers *workerpool.Group, storage *storage.Storage, sybilProtection ModuleProvider[sybilprotection.SybilProtection], throughputQuota ModuleProvider[throughputquota.ThroughputQuota], slotTimeProvider *slot.TimeProvider, opts ...options.Option[Engine]) *Engine {
-	e := New(workers.CreateGroup("Engine"), storage, sybilProtection, throughputQuota, slotTimeProvider, opts...)
+func NewTestEngine(t *testing.T, workers *workerpool.Group, storage *storage.Storage, sybilProtection ModuleProvider[sybilprotection.SybilProtection], throughputQuota ModuleProvider[throughputquota.ThroughputQuota], opts ...options.Option[Engine]) *Engine {
+	e := New(workers.CreateGroup("Engine"), storage, sybilProtection, throughputQuota, opts...)
 	t.Cleanup(e.Shutdown)
 	return e
 }
@@ -59,8 +59,8 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, engine *Engine
 	return t
 }
 
-func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, sybilProtection ModuleProvider[sybilprotection.SybilProtection], throughputQuota ModuleProvider[throughputquota.ThroughputQuota], slotTimeProvider *slot.TimeProvider, optsEngine ...options.Option[Engine]) *TestFramework {
-	engine := NewTestEngine(t, workers.CreateGroup("Engine"), blockdag.NewTestStorage(t, workers, database.WithDBProvider(database.NewDB)), sybilProtection, throughputQuota, slotTimeProvider, optsEngine...)
+func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, sybilProtection ModuleProvider[sybilprotection.SybilProtection], throughputQuota ModuleProvider[throughputquota.ThroughputQuota], optsEngine ...options.Option[Engine]) *TestFramework {
+	engine := NewTestEngine(t, workers.CreateGroup("Engine"), blockdag.NewTestStorage(t, workers, database.WithDBProvider(database.NewDB)), sybilProtection, throughputQuota, optsEngine...)
 	t.Cleanup(engine.Shutdown)
 
 	return NewTestFramework(t, workers, engine)
@@ -74,4 +74,8 @@ func (e *TestFramework) AssertSlotState(index slot.Index) {
 	// TODO: throughput quota is not updated with each slot, but with acceptance
 	// require.Equal(e.test, index, e.Engine.ThroughputQuota.(*mana1.ThroughputQuota).LastCommittedSlot(), "throughput quota last committed slot is not equal")
 	require.Equal(e.test, index, e.Instance.EvictionState.LastEvictedSlot(), "last evicted slot is not equal")
+}
+
+func (e *TestFramework) SlotTimeProvider() *slot.TimeProvider {
+	return e.Instance.SlotTimeProvider()
 }

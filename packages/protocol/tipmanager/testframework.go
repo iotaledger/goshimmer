@@ -52,25 +52,29 @@ type TestFramework struct {
 	tipAdded   uint32
 	tipRemoved uint32
 
+	optsGenesisUnixTime   int64
 	optsTipManagerOptions []options.Option[TipManager]
 	optsEngineOptions     []options.Option[engine.Engine]
 }
 
-func NewTestFramework(test *testing.T, workers *workerpool.Group, slotTimeProvider *slot.TimeProvider, opts ...options.Option[TestFramework]) (t *TestFramework) {
+func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...options.Option[TestFramework]) (t *TestFramework) {
 	return options.Apply(&TestFramework{
-		test:            test,
-		mockAcceptance:  blockgadget.NewMockAcceptanceGadget(),
-		scheduledBlocks: shrinkingmap.New[models.BlockID, *scheduler.Block](),
+		test:                test,
+		mockAcceptance:      blockgadget.NewMockAcceptanceGadget(),
+		scheduledBlocks:     shrinkingmap.New[models.BlockID, *scheduler.Block](),
+		optsGenesisUnixTime: time.Now().Unix(),
 	}, opts, func(t *TestFramework) {
 		tempDir := utils.NewDirectory(test.TempDir())
-		require.NoError(test, snapshotcreator.CreateSnapshot(snapshotcreator.WithDatabaseVersion(1),
+		err := snapshotcreator.CreateSnapshot(snapshotcreator.WithDatabaseVersion(1),
 			snapshotcreator.WithFilePath(tempDir.Path("genesis_snapshot.bin")),
-			snapshotcreator.WithSlotTimeProvider(slotTimeProvider),
-		))
+			snapshotcreator.WithGenesisUnixTime(t.optsGenesisUnixTime),
+			snapshotcreator.WithSlotDuration(10),
+		)
+		require.NoError(test, err)
 
 		storageInstance := blockdag.NewTestStorage(test, workers)
 
-		t.Engine = engine.New(workers.CreateGroup("Engine"), storageInstance, dpos.NewProvider(), mana1.NewProvider(), slotTimeProvider, t.optsEngineOptions...)
+		t.Engine = engine.New(workers.CreateGroup("Engine"), storageInstance, dpos.NewProvider(), mana1.NewProvider(), t.optsEngineOptions...)
 		require.NoError(test, t.Engine.Initialize(tempDir.Path("genesis_snapshot.bin")))
 
 		test.Cleanup(func() {
@@ -85,14 +89,14 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, slotTimeProvid
 			booker.NewTestFramework(test, workers.CreateGroup("BookerTestFramework"), t.Engine.Tangle.Booker),
 		)
 
-		t.Instance = New(workers.CreateGroup("TipManager"), slotTimeProvider, t.mockSchedulerBlock, t.optsTipManagerOptions...)
+		t.Instance = New(workers.CreateGroup("TipManager"), t.mockSchedulerBlock, t.optsTipManagerOptions...)
 		t.Instance.LinkTo(t.Engine)
 
 		t.Instance.blockAcceptanceGadget = t.mockAcceptance
 
-		t.SetAcceptedTime(slotTimeProvider.GenesisTime())
+		t.SetAcceptedTime(t.SlotTimeProvider().GenesisTime())
 
-		t.Tangle.BlockDAG.ModelsTestFramework.SetBlock("Genesis", models.NewEmptyBlock(models.EmptyBlockID, models.WithIssuingTime(slotTimeProvider.GenesisTime())))
+		t.Tangle.BlockDAG.ModelsTestFramework.SetBlock("Genesis", models.NewEmptyBlock(models.EmptyBlockID, models.WithIssuingTime(t.SlotTimeProvider().GenesisTime())))
 	}, (*TestFramework).createGenesis, (*TestFramework).setupEvents)
 }
 
@@ -143,7 +147,7 @@ func (t *TestFramework) createGenesis() {
 	block := scheduler.NewBlock(
 		virtualvoting.NewBlock(
 			blockdag.NewBlock(
-				models.NewEmptyBlock(models.EmptyBlockID, models.WithIssuingTime(t.Tangle.Instance.BlockDAG.SlotTimeProvider.GenesisTime())),
+				models.NewEmptyBlock(models.EmptyBlockID, models.WithIssuingTime(t.Tangle.Instance.BlockDAG.SlotTimeProvider().GenesisTime())),
 				blockdag.WithSolid(true),
 			),
 			virtualvoting.WithBooked(true),
@@ -163,6 +167,10 @@ func (t *TestFramework) mockSchedulerBlock(id models.BlockID) (block *scheduler.
 	defer t.scheduledBlocksMutex.RUnlock()
 
 	return t.scheduledBlocks.Get(id)
+}
+
+func (t *TestFramework) SlotTimeProvider() *slot.TimeProvider {
+	return t.Engine.SlotTimeProvider()
 }
 
 func (t *TestFramework) IssueBlocksAndSetAccepted(aliases ...string) {
@@ -242,6 +250,12 @@ func (t *TestFramework) FormCommitment(index slot.Index, acceptedBlocksAliases [
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func WithGenesisUnixTime(unixTime int64) options.Option[TestFramework] {
+	return func(tf *TestFramework) {
+		tf.optsGenesisUnixTime = unixTime
+	}
+}
 
 func WithTipManagerOptions(opts ...options.Option[TipManager]) options.Option[TestFramework] {
 	return func(tf *TestFramework) {

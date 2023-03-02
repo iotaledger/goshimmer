@@ -17,7 +17,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/runtime/debug"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
@@ -27,7 +26,6 @@ func TestTipManager_DataBlockTips(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
 	tf := NewTestFramework(t,
 		workers.CreateGroup("TipManagerTestFramework"),
-		slot.NewTimeProvider(time.Now().Unix(), 10),
 	)
 
 	tipManager := tf.Instance
@@ -111,13 +109,13 @@ func TestTipManager_DataBlockTips(t *testing.T) {
 // Test based on packages/tangle/images/TSC_test_scenario.png except nothing is confirmed.
 func TestTipManager_TimeSinceConfirmation_Unconfirmed(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	slotTimeProvider := slot.NewTimeProvider(time.Now().Add(-5*time.Hour).Unix(), 10)
+	genesisTime := time.Now().Add(-5 * time.Hour)
 	tf := NewTestFramework(t,
 		workers.CreateGroup("TipManagerTestFramework"),
-		slotTimeProvider,
+		WithGenesisUnixTime(genesisTime.Unix()),
 		WithTipManagerOptions(WithTimeSinceConfirmationThreshold(5*time.Minute)),
 		WithEngineOptions(
-			engine.WithBootstrapThreshold(time.Since(slotTimeProvider.GenesisTime().Add(-time.Hour))),
+			engine.WithBootstrapThreshold(time.Since(genesisTime.Add(-time.Hour))),
 			engine.WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(10))))),
 		),
 	)
@@ -170,13 +168,13 @@ func TestTipManager_TimeSinceConfirmation_Unconfirmed(t *testing.T) {
 // Test based on packages/tangle/images/TSC_test_scenario.png.
 func TestTipManager_TimeSinceConfirmation_Confirmed(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	slotTimeProvider := slot.NewTimeProvider(time.Now().Add(-5*time.Hour).Unix(), 10)
+	genesisTime := time.Now().Add(-5 * time.Hour)
 	tf := NewTestFramework(t,
 		workers.CreateGroup("TipManagerTestFramework"),
-		slotTimeProvider,
+		WithGenesisUnixTime(genesisTime.Unix()),
 		WithTipManagerOptions(WithTimeSinceConfirmationThreshold(5*time.Minute)),
 		WithEngineOptions(
-			engine.WithBootstrapThreshold(time.Since(slotTimeProvider.GenesisTime().Add(30*time.Second))),
+			engine.WithBootstrapThreshold(time.Since(genesisTime.Add(30*time.Second))),
 			engine.WithNotarizationManagerOptions(notarization.WithMinCommittableSlotAge(20*6)),
 			engine.WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(10))))),
 		),
@@ -233,13 +231,13 @@ func TestTipManager_TimeSinceConfirmation_Confirmed(t *testing.T) {
 // Test based on packages/tangle/images/TSC_test_scenario.png.
 func TestTipManager_TimeSinceConfirmation_MultipleParents(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	slotTimeProvider := slot.NewTimeProvider(time.Now().Add(-5*time.Hour).Unix(), 10)
+	genesisTime := time.Now().Add(-5 * time.Hour)
 	tf := NewTestFramework(t,
 		workers.CreateGroup("TipManagerTestFramework"),
-		slotTimeProvider,
+		WithGenesisUnixTime(genesisTime.Unix()),
 		WithTipManagerOptions(WithTimeSinceConfirmationThreshold(5*time.Minute)),
 		WithEngineOptions(
-			engine.WithBootstrapThreshold(time.Since(slotTimeProvider.GenesisTime().Add(30*time.Second))),
+			engine.WithBootstrapThreshold(time.Since(genesisTime.Add(30*time.Second))),
 			engine.WithNotarizationManagerOptions(notarization.WithMinCommittableSlotAge(20*6)),
 			engine.WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(10))))),
 		),
@@ -421,7 +419,7 @@ func createTestTangleTSC(tf *TestFramework) {
 }
 
 func issueBlocks(tf *TestFramework, blockPrefix string, blockCount int, parents []string, timestampOffset time.Duration) string {
-	now := tf.Engine.SlotTimeProvider().GenesisTime().Add(20 * time.Minute)
+	now := tf.SlotTimeProvider().GenesisTime().Add(20 * time.Minute)
 
 	blockAlias := fmt.Sprintf("%s_%d", blockPrefix, 0)
 
@@ -440,18 +438,18 @@ func issueBlocks(tf *TestFramework, blockPrefix string, blockCount int, parents 
 
 func TestTipManager_TimeSinceConfirmation_RootBlockParent(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	slotTimeProvider := slot.NewTimeProvider(time.Now().Add(-5*time.Hour).Unix(), 10)
+	genesisTime := time.Now().Add(-5 * time.Hour)
 	tf := NewTestFramework(t,
 		workers.CreateGroup("TipManagerTestFramework"),
-		slotTimeProvider,
+		WithGenesisUnixTime(genesisTime.Unix()),
 		WithEngineOptions(
-			engine.WithBootstrapThreshold(time.Since(slotTimeProvider.GenesisTime().Add(-time.Hour))),
+			engine.WithBootstrapThreshold(time.Since(genesisTime.Add(-time.Hour))),
 			engine.WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(10))))),
 		),
 		WithTipManagerOptions(WithTimeSinceConfirmationThreshold(30*time.Second)),
 	)
 
-	now := slotTimeProvider.GenesisTime().Add(5 * time.Minute)
+	now := tf.SlotTimeProvider().GenesisTime().Add(5 * time.Minute)
 
 	tf.Engine.EvictionState.AddRootBlock(models.EmptyBlockID)
 
@@ -492,11 +490,10 @@ func TestTipManager_FutureTips(t *testing.T) {
 	defer debug.SetEnabled(false)
 
 	// MinimumCommittableAge will also be 10 seconds
-	slotTimeProvider := slot.NewTimeProvider(time.Now().Add(-100*time.Second).Unix(), 10)
 	workers := workerpool.NewGroup(t.Name())
 	tf := NewTestFramework(t,
 		workers.CreateGroup("TipManagerTestFramework"),
-		slotTimeProvider,
+		WithGenesisUnixTime(time.Now().Add(-100*time.Second).Unix()),
 		WithEngineOptions(
 			engine.WithNotarizationManagerOptions(notarization.WithMinCommittableSlotAge(1)),
 		),
@@ -509,7 +506,7 @@ func TestTipManager_FutureTips(t *testing.T) {
 
 	// Let's add a few blocks to slot 1
 	{
-		blockTime := slotTimeProvider.GenesisTime().Add(5 * time.Second)
+		blockTime := tf.SlotTimeProvider().GenesisTime().Add(5 * time.Second)
 		tf.Tangle.BlockDAG.CreateBlock("Block1.1", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Genesis")), models.WithIssuingTime(blockTime))
 		tf.Tangle.BlockDAG.CreateBlock("Block1.2", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block1.1")), models.WithIssuingTime(blockTime))
 		tf.Tangle.BlockDAG.CreateBlock("Block1.3", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block1.2")), models.WithIssuingTime(blockTime))
@@ -528,7 +525,7 @@ func TestTipManager_FutureTips(t *testing.T) {
 
 	// Let's add a few blocks to slot 2
 	{
-		blockTime := slotTimeProvider.GenesisTime().Add(15 * time.Second)
+		blockTime := tf.SlotTimeProvider().GenesisTime().Add(15 * time.Second)
 		tf.Tangle.BlockDAG.CreateBlock("Block2.1", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block1.4")), models.WithIssuingTime(blockTime))
 
 		tf.Tangle.BlockDAG.IssueBlocks("Block2.1")
@@ -544,7 +541,7 @@ func TestTipManager_FutureTips(t *testing.T) {
 
 	// Let's add a few blocks to slot 3
 	{
-		blockTime := slotTimeProvider.GenesisTime().Add(25 * time.Second)
+		blockTime := tf.SlotTimeProvider().GenesisTime().Add(25 * time.Second)
 		tf.Tangle.BlockDAG.CreateBlock("Block3.1", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block2.1")), models.WithIssuingTime(blockTime))
 
 		tf.Tangle.BlockDAG.IssueBlocks("Block3.1")
@@ -564,7 +561,7 @@ func TestTipManager_FutureTips(t *testing.T) {
 
 	// Let's introduce a future tip, in slot 4
 	{
-		blockTime := slotTimeProvider.GenesisTime().Add(35 * time.Second)
+		blockTime := tf.SlotTimeProvider().GenesisTime().Add(35 * time.Second)
 		tf.Tangle.BlockDAG.CreateBlock("Block4.1", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block3.1")), models.WithIssuingTime(blockTime), models.WithCommitment(commitment2_1))
 		tf.Tangle.BlockDAG.CreateBlock("Block4.2", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block3.1")), models.WithIssuingTime(blockTime), models.WithCommitment(commitment2_2))
 		tf.Tangle.BlockDAG.CreateBlock("Block4.3", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Block3.1")), models.WithIssuingTime(blockTime), models.WithCommitment(commitment3_1))

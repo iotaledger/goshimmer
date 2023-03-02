@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"io"
 	"sync"
-	"time"
 
 	"github.com/pkg/errors"
 
@@ -34,8 +33,8 @@ func NewSettings(path string) (settings *Settings) {
 
 		settingsModel: storable.InitStruct(&settingsModel{
 			SnapshotImported:        false,
-			GenesisUnixTime:         time.Now().Unix(),
-			SlotDuration:            10,
+			GenesisUnixTime:         0,
+			SlotDuration:            0,
 			LatestCommitment:        commitment.New(0, commitment.ID{}, types.Identifier{}, 0),
 			LatestStateMutationSlot: 0,
 			LatestConfirmedSlot:     0,
@@ -43,13 +42,18 @@ func NewSettings(path string) (settings *Settings) {
 		}, path),
 	}
 
-	s.slotTimeProvider = slot.NewTimeProvider(s.settingsModel.GenesisUnixTime, s.settingsModel.SlotDuration)
+	s.updateSlotTimeProvider()
+
 	return s
 }
 
 func (s *Settings) SlotTimeProvider() *slot.TimeProvider {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
+
+	if s.settingsModel.SlotDuration == 0 || s.settingsModel.GenesisUnixTime == 0 {
+		panic("SlotTimeProvider not initialized yet")
+	}
 
 	return s.slotTimeProvider
 }
@@ -86,7 +90,7 @@ func (s *Settings) SetGenesisUnixTime(unixTime int64) (err error) {
 	defer s.mutex.Unlock()
 
 	s.settingsModel.GenesisUnixTime = unixTime
-	s.slotTimeProvider = slot.NewTimeProvider(s.settingsModel.GenesisUnixTime, s.settingsModel.SlotDuration)
+	s.updateSlotTimeProvider()
 
 	if err = s.ToFile(); err != nil {
 		return errors.Wrap(err, "failed to persist initialized flag")
@@ -107,7 +111,7 @@ func (s *Settings) SetSlotDuration(duration int64) (err error) {
 	defer s.mutex.Unlock()
 
 	s.settingsModel.SlotDuration = duration
-	s.slotTimeProvider = slot.NewTimeProvider(s.settingsModel.GenesisUnixTime, s.settingsModel.SlotDuration)
+	s.updateSlotTimeProvider()
 
 	if err = s.ToFile(); err != nil {
 		return errors.Wrap(err, "failed to persist initialized flag")
@@ -248,11 +252,17 @@ func (s *Settings) tryImport(reader io.ReadSeeker) (err error) {
 
 	s.settingsModel.SnapshotImported = true
 
+	s.updateSlotTimeProvider()
+
 	if err = s.settingsModel.ToFile(); err != nil {
 		return errors.Wrap(err, "failed to persist chain ID")
 	}
 
 	return
+}
+
+func (s *Settings) updateSlotTimeProvider() {
+	s.slotTimeProvider = slot.NewTimeProvider(s.settingsModel.GenesisUnixTime, s.settingsModel.SlotDuration)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -30,11 +30,11 @@ import (
 type Gadget struct {
 	Events *Events
 
-	tangle           *tangle.Tangle
-	blocks           *memstorage.SlotStorage[models.BlockID, *Block]
-	evictionState    *eviction.State
-	evictionMutex    sync.RWMutex
-	slotTimeProvider *slot.TimeProvider
+	tangle               *tangle.Tangle
+	blocks               *memstorage.SlotStorage[models.BlockID, *Block]
+	evictionState        *eviction.State
+	evictionMutex        sync.RWMutex
+	slotTimeProviderFunc func() *slot.TimeProvider
 
 	optsConflictAcceptanceThreshold float64
 
@@ -52,7 +52,7 @@ type Gadget struct {
 	workers *workerpool.Group
 }
 
-func New(workers *workerpool.Group, tangleInstance *tangle.Tangle, evictionState *eviction.State, slotTimeProvider *slot.TimeProvider, totalWeightCallback func() int64, opts ...options.Option[Gadget]) (gadget *Gadget) {
+func New(workers *workerpool.Group, tangleInstance *tangle.Tangle, evictionState *eviction.State, slotTimeProviderFunc func() *slot.TimeProvider, totalWeightCallback func() int64, opts ...options.Option[Gadget]) (gadget *Gadget) {
 	return options.Apply(&Gadget{
 		Events:                          NewEvents(),
 		workers:                         workers,
@@ -60,7 +60,7 @@ func New(workers *workerpool.Group, tangleInstance *tangle.Tangle, evictionState
 		blocks:                          memstorage.NewSlotStorage[models.BlockID, *Block](),
 		lastAcceptedMarker:              shrinkingmap.New[markers.SequenceID, markers.Index](),
 		evictionState:                   evictionState,
-		slotTimeProvider:                slotTimeProvider,
+		slotTimeProviderFunc:            slotTimeProviderFunc,
 		optsMarkerAcceptanceThreshold:   0.67,
 		optsMarkerConfirmationThreshold: 0.67,
 		optsConflictAcceptanceThreshold: 0.67,
@@ -79,7 +79,7 @@ func New(workers *workerpool.Group, tangleInstance *tangle.Tangle, evictionState
 			defer a.evictionMutex.RUnlock()
 
 			if a.evictionState.InEvictedSlot(id) {
-				return NewRootBlock(id, a.slotTimeProvider), true
+				return NewRootBlock(id, a.slotTimeProviderFunc()), true
 			}
 
 			return a.getOrRegisterBlock(id)
@@ -260,7 +260,7 @@ func (a *Gadget) setup() {
 
 func (a *Gadget) block(id models.BlockID) (block *Block, exists bool) {
 	if a.evictionState.IsRootBlock(id) {
-		return NewRootBlock(id, a.slotTimeProvider), true
+		return NewRootBlock(id, a.slotTimeProviderFunc()), true
 	}
 
 	storage := a.blocks.Get(id.Index(), false)
@@ -333,7 +333,7 @@ func (a *Gadget) markAsAccepted(block *Block) (err error) {
 
 		// set ConfirmationState of payload (applicable only to transactions)
 		if tx, ok := block.Payload().(utxo.Transaction); ok {
-			a.tangle.Ledger.SetTransactionInclusionSlot(tx.ID(), a.slotTimeProvider.IndexFromTime(block.IssuingTime()))
+			a.tangle.Ledger.SetTransactionInclusionSlot(tx.ID(), a.slotTimeProviderFunc().IndexFromTime(block.IssuingTime()))
 		}
 	}
 

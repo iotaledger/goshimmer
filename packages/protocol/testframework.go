@@ -2,7 +2,6 @@ package protocol
 
 import (
 	"testing"
-	"time"
 
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/network"
@@ -13,7 +12,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/storage/utils"
 	"github.com/iotaledger/hive.go/app/configuration"
 	"github.com/iotaledger/hive.go/app/logger"
-	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/runtime/options"
@@ -63,7 +61,6 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, ledgerVM vm.VM
 			snapshotcreator.WithGenesisSeed(make([]byte, ed25519.SeedSize)),
 			snapshotcreator.WithPledgeIDs(identitiesWeights),
 			snapshotcreator.WithAttestAll(true),
-			snapshotcreator.WithSlotTimeProvider(slot.NewTimeProvider(time.Now().Unix(), 10)),
 		))
 
 		t.Instance = New(workers.CreateGroup("Protocol"), t.Network.Join(identity.GenerateIdentity().ID()), append(t.optsProtocolOptions,

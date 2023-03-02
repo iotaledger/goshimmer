@@ -3,6 +3,7 @@ package scheduler
 import (
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -50,7 +51,7 @@ type TestFramework struct {
 	evictionState        *eviction.State
 }
 
-func NewTestFramework(test *testing.T, workers *workerpool.Group, slotTimeProvider *slot.TimeProvider, optsScheduler ...options.Option[Scheduler]) *TestFramework {
+func NewTestFramework(test *testing.T, workers *workerpool.Group, optsScheduler ...options.Option[Scheduler]) *TestFramework {
 	t := &TestFramework{
 		test:           test,
 		workers:        workers,
@@ -63,10 +64,11 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, slotTimeProvid
 	tempDir := utils.NewDirectory(test.TempDir())
 	require.NoError(test, snapshotcreator.CreateSnapshot(snapshotcreator.WithDatabaseVersion(1),
 		snapshotcreator.WithFilePath(tempDir.Path("genesis_snapshot.bin")),
-		snapshotcreator.WithSlotTimeProvider(slotTimeProvider),
+		snapshotcreator.WithGenesisUnixTime(time.Now().Add(-5*time.Hour).Unix()),
+		snapshotcreator.WithSlotDuration(10),
 	))
 
-	t.engine = engine.New(workers.CreateGroup("Engine"), t.storage, dpos.NewProvider(), mana1.NewProvider(), slotTimeProvider)
+	t.engine = engine.New(workers.CreateGroup("Engine"), t.storage, dpos.NewProvider(), mana1.NewProvider())
 	test.Cleanup(func() {
 		t.Scheduler.Shutdown()
 		t.engine.Shutdown()
@@ -82,7 +84,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, slotTimeProvid
 		booker.NewTestFramework(test, workers.CreateGroup("BookerTestFramework"), t.engine.Tangle.Booker),
 	)
 
-	t.Scheduler = New(t.Tangle.BlockDAG.Instance.EvictionState, slotTimeProvider, t.mockAcceptance.IsBlockAccepted, t.ManaMap, t.TotalMana, optsScheduler...)
+	t.Scheduler = New(t.Tangle.BlockDAG.Instance.EvictionState, t.engine.SlotTimeProvider(), t.mockAcceptance.IsBlockAccepted, t.ManaMap, t.TotalMana, optsScheduler...)
 
 	t.setupEvents()
 
@@ -115,6 +117,10 @@ func (t *TestFramework) setupEvents() {
 		}
 		atomic.AddUint32(&(t.droppedBlocksCount), 1)
 	})
+}
+
+func (t *TestFramework) SlotTimeProvider() *slot.TimeProvider {
+	return t.engine.SlotTimeProvider()
 }
 
 func (t *TestFramework) CreateIssuer(alias string, issuerMana int64) {
@@ -155,7 +161,7 @@ func (t *TestFramework) CreateSchedulerBlock(opts ...options.Option[models.Block
 		opts = append(opts, models.WithParents(parents))
 		blk = virtualvoting.NewBlock(blockdag.NewBlock(models.NewBlock(opts...), blockdag.WithSolid(true)), virtualvoting.WithBooked(true), virtualvoting.WithStructureDetails(markers.NewStructureDetails()))
 	}
-	if err := blk.DetermineID(t.Tangle.Instance.BlockDAG.SlotTimeProvider); err != nil {
+	if err := blk.DetermineID(t.SlotTimeProvider()); err != nil {
 		panic(errors.Wrap(err, "could not determine BlockID"))
 	}
 
