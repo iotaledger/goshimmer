@@ -36,4 +36,6 @@ func TestDependencyInjection(t *testing.T) {
 
 	require.NoError(t, logger.InitGlobalLogger(configuration.New()))
 	node.Run(node.Plugins(pluginA, pluginB))
+
+	node.Shutdown()
 }
