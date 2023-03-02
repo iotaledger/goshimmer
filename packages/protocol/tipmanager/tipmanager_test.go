@@ -267,7 +267,7 @@ func TestTipManager_TimeSinceConfirmation_MultipleParents(t *testing.T) {
 }
 
 func createTestTangleMultipleParents(tf *TestFramework) {
-	now := tf.Engine.SlotTimeProvider.GenesisTime().Add(20 * time.Minute)
+	now := tf.Engine.SlotTimeProvider().GenesisTime().Add(20 * time.Minute)
 
 	// SEQUENCE 0
 	{
@@ -292,7 +292,7 @@ func createTestTangleMultipleParents(tf *TestFramework) {
 }
 
 func createTestTangleTSC(tf *TestFramework) {
-	now := tf.Engine.SlotTimeProvider.GenesisTime().Add(20 * time.Minute)
+	now := tf.Engine.SlotTimeProvider().GenesisTime().Add(20 * time.Minute)
 
 	var lastBlockAlias string
 
@@ -421,7 +421,7 @@ func createTestTangleTSC(tf *TestFramework) {
 }
 
 func issueBlocks(tf *TestFramework, blockPrefix string, blockCount int, parents []string, timestampOffset time.Duration) string {
-	now := tf.Engine.SlotTimeProvider.GenesisTime().Add(20 * time.Minute)
+	now := tf.Engine.SlotTimeProvider().GenesisTime().Add(20 * time.Minute)
 
 	blockAlias := fmt.Sprintf("%s_%d", blockPrefix, 0)
 

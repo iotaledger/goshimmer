@@ -253,7 +253,7 @@ func (n *Node) Wait() {
 func (n *Node) IssueBlockAtSlot(alias string, slotIndex slot.Index, parents ...models.BlockID) *models.Block {
 	tf := n.EngineTestFramework()
 
-	issuingTime := time.Unix(tf.Instance.SlotTimeProvider.GenesisUnixTime()+int64(slotIndex-1)*tf.Instance.SlotTimeProvider.Duration(), 0)
+	issuingTime := time.Unix(tf.Instance.SlotTimeProvider().GenesisUnixTime()+int64(slotIndex-1)*tf.Instance.SlotTimeProvider().Duration(), 0)
 	require.True(n.Testing, issuingTime.Before(time.Now()), "issued block is in the current or future slot")
 	tf.BlockDAG.CreateAndSignBlock(alias, &n.KeyPair,
 		models.WithStrongParents(models.NewBlockIDs(parents...)),

@@ -50,7 +50,7 @@ type Engine struct {
 	Consensus           *consensus.Consensus
 	TSCManager          *tsc.Manager
 	Clock               *clock.Clock
-	SlotTimeProvider    *slot.TimeProvider
+	slotTimeProvider    *slot.TimeProvider
 
 	Workers *workerpool.Group
 
@@ -98,7 +98,7 @@ func New(
 			e.Clock = clock.New()
 			e.SybilProtection = sybilProtection(e)
 			e.ThroughputQuota = throughputQuota(e)
-			e.SlotTimeProvider = slotTimeProvider
+			e.slotTimeProvider = slotTimeProvider
 			e.NotarizationManager = notarization.NewManager(e.Storage, e.LedgerState, e.SybilProtection.Weights(), slotTimeProvider, e.optsNotarizationManagerOptions...)
 
 			e.Initializable = traits.NewInitializable(
@@ -197,6 +197,10 @@ func (e *Engine) IsSynced() (isBootstrapped bool) {
 	return e.IsBootstrapped() && time.Since(e.Clock.AcceptedTime()) < e.optsBootstrappedThreshold
 }
 
+func (e *Engine) SlotTimeProvider() *slot.TimeProvider {
+	return e.slotTimeProvider
+}
+
 func (e *Engine) Initialize(snapshot string) (err error) {
 	if !e.Storage.Settings.SnapshotImported() {
 		if err = e.readSnapshot(snapshot); err != nil {
@@ -241,8 +245,8 @@ func (e *Engine) Import(reader io.ReadSeeker) (err error) {
 	}
 
 	// We need to set the genesis time before we add the activity log as otherwise the calculation is based on the empty time value.
-	e.Clock.SetAcceptedTime(e.SlotTimeProvider.EndTime(e.Storage.Settings.LatestCommitment().Index()))
-	e.Clock.SetConfirmedTime(e.SlotTimeProvider.EndTime(e.Storage.Settings.LatestCommitment().Index()))
+	e.Clock.SetAcceptedTime(e.SlotTimeProvider().EndTime(e.Storage.Settings.LatestCommitment().Index()))
+	e.Clock.SetConfirmedTime(e.SlotTimeProvider().EndTime(e.Storage.Settings.LatestCommitment().Index()))
 
 	return
 }
@@ -278,7 +282,7 @@ func (e *Engine) initLedger() {
 }
 
 func (e *Engine) initTangle() {
-	e.Tangle = tangle.New(e.Workers.CreateGroup("Tangle"), e.Ledger, e.EvictionState, e.SlotTimeProvider, e.SybilProtection.Validators(), e.LastConfirmedSlot, e.FirstUnacceptedMarker, e.Storage.Commitments.Load, e.optsTangleOptions...)
+	e.Tangle = tangle.New(e.Workers.CreateGroup("Tangle"), e.Ledger, e.EvictionState, e.SlotTimeProvider(), e.SybilProtection.Validators(), e.LastConfirmedSlot, e.FirstUnacceptedMarker, e.Storage.Commitments.Load, e.optsTangleOptions...)
 
 	e.Events.Filter.BlockAllowed.Hook(func(block *models.Block) {
 		if _, _, err := e.Tangle.BlockDAG.Attach(block); err != nil {
@@ -328,7 +332,7 @@ func (e *Engine) initClock() {
 		e.Clock.SetConfirmedTime(block.IssuingTime())
 	}, event.WithWorkerPool(wpConfirmed))
 	e.Events.Consensus.SlotGadget.SlotConfirmed.Hook(func(index slot.Index) {
-		e.Clock.SetConfirmedTime(e.SlotTimeProvider.EndTime(index))
+		e.Clock.SetConfirmedTime(e.SlotTimeProvider().EndTime(index))
 	}, event.WithWorkerPool(wpConfirmed))
 }
 

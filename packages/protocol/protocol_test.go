@@ -70,7 +70,7 @@ func TestProtocol(t *testing.T) {
 		snapshotcreator.WithGenesisSeed(make([]byte, 32)),
 		snapshotcreator.WithPledgeIDs(identitiesWeights),
 		snapshotcreator.WithVM(ledgerVM),
-		snapshotcreator.WithSlotTimeProvider(protocol1.SlotTimeProvider),
+		snapshotcreator.WithSlotTimeProvider(protocol1.SlotTimeProvider()),
 	)
 	require.NoError(t, err)
 

@@ -214,7 +214,7 @@ func (t *TestFramework) FormCommitment(index slot.Index, acceptedBlocksAliases [
 	for _, acceptedBlockAlias := range acceptedBlocksAliases {
 		acceptedBlock := t.Tangle.Booker.Block(acceptedBlockAlias)
 		adsBlocks.Add(acceptedBlock.ID())
-		adsAttestations.Set(acceptedBlock.IssuerID(), notarization.NewAttestation(acceptedBlock.ModelsBlock, t.Engine.SlotTimeProvider))
+		adsAttestations.Set(acceptedBlock.IssuerID(), notarization.NewAttestation(acceptedBlock.ModelsBlock, t.Engine.SlotTimeProvider()))
 	}
 	return commitment.New(
 		index,

@@ -39,7 +39,7 @@ import (
 
 type Protocol struct {
 	Events            *Events
-	SlotTimeProvider  *slot.TimeProvider
+	slotTimeProvider  *slot.TimeProvider
 	CongestionControl *congestioncontrol.CongestionControl
 	TipManager        *tipmanager.TipManager
 	chainManager      *chainmanager.Manager
@@ -99,7 +99,7 @@ func (p *Protocol) Run() {
 		panic(err)
 	}
 
-	p.networkProtocol = network.NewProtocol(p.dispatcher, p.Workers.CreatePool("NetworkProtocol"), p.SlotTimeProvider) // Use max amount of workers for networking
+	p.networkProtocol = network.NewProtocol(p.dispatcher, p.Workers.CreatePool("NetworkProtocol"), p.SlotTimeProvider()) // Use max amount of workers for networking
 	p.Events.Network.LinkTo(p.networkProtocol.Events)
 }
 
@@ -122,7 +122,7 @@ func (p *Protocol) Shutdown() {
 }
 
 func (p *Protocol) initSlotTimeProvider() {
-	p.SlotTimeProvider = slot.NewTimeProvider(p.optsGenesisUnixTime, p.optsSlotDuration)
+	p.slotTimeProvider = slot.NewTimeProvider(p.optsGenesisUnixTime, p.optsSlotDuration)
 }
 
 func (p *Protocol) initEngineManager() {
@@ -134,7 +134,7 @@ func (p *Protocol) initEngineManager() {
 		p.optsEngineOptions,
 		p.optsSybilProtectionProvider,
 		p.optsThroughputQuotaProvider,
-		p.SlotTimeProvider,
+		p.SlotTimeProvider(),
 	)
 
 	p.Events.Engine.Consensus.SlotGadget.SlotConfirmed.Hook(func(index slot.Index) {
@@ -145,7 +145,7 @@ func (p *Protocol) initEngineManager() {
 }
 
 func (p *Protocol) initCongestionControl() {
-	p.CongestionControl = congestioncontrol.New(p.SlotTimeProvider, p.optsCongestionControlOptions...)
+	p.CongestionControl = congestioncontrol.New(p.SlotTimeProvider(), p.optsCongestionControlOptions...)
 	p.Events.CongestionControl.LinkTo(p.CongestionControl.Events)
 }
 
@@ -221,7 +221,7 @@ func (p *Protocol) initChainManager() {
 }
 
 func (p *Protocol) initTipManager() {
-	p.TipManager = tipmanager.New(p.Workers.CreateGroup("TipManager"), p.SlotTimeProvider, p.CongestionControl.Block, p.optsTipManagerOptions...)
+	p.TipManager = tipmanager.New(p.Workers.CreateGroup("TipManager"), p.SlotTimeProvider(), p.CongestionControl.Block, p.optsTipManagerOptions...)
 	p.Events.TipManager = p.TipManager.Events
 
 	wp := p.Workers.CreatePool("TipManagerAttach", 1) // Using just 1 worker to avoid contention
@@ -569,6 +569,10 @@ func (p *Protocol) linkTo(engineInstance *enginemanager.EngineInstance) {
 
 func (p *Protocol) Network() *network.Protocol {
 	return p.networkProtocol
+}
+
+func (p *Protocol) SlotTimeProvider() *slot.TimeProvider {
+	return p.slotTimeProvider
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

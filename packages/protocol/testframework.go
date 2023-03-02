@@ -71,7 +71,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, ledgerVM vm.VM
 			snapshotcreator.WithGenesisSeed(make([]byte, ed25519.SeedSize)),
 			snapshotcreator.WithPledgeIDs(identitiesWeights),
 			snapshotcreator.WithAttestAll(true),
-			snapshotcreator.WithSlotTimeProvider(t.Instance.SlotTimeProvider),
+			snapshotcreator.WithSlotTimeProvider(t.Instance.SlotTimeProvider()),
 		)
 		require.NoError(test, err)
 
