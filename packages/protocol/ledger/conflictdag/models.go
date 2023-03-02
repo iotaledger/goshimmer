@@ -22,13 +22,13 @@ type Conflict[ConflictIDType, ResourceIDType comparable] struct {
 	m sync.RWMutex
 }
 
-func NewConflict[ConflictIDType comparable, ResourceIDType comparable](id ConflictIDType, parents *advancedset.AdvancedSet[ConflictIDType], conflictSets *advancedset.AdvancedSet[*ConflictSet[ConflictIDType, ResourceIDType]]) (c *Conflict[ConflictIDType, ResourceIDType]) {
+func NewConflict[ConflictIDType comparable, ResourceIDType comparable](id ConflictIDType, parents *advancedset.AdvancedSet[ConflictIDType], conflictSets *advancedset.AdvancedSet[*ConflictSet[ConflictIDType, ResourceIDType]], confirmationState confirmation.State) (c *Conflict[ConflictIDType, ResourceIDType]) {
 	c = &Conflict[ConflictIDType, ResourceIDType]{
 		id:                id,
 		parents:           parents,
 		children:          advancedset.NewAdvancedSet[*Conflict[ConflictIDType, ResourceIDType]](),
 		conflictSets:      conflictSets,
-		confirmationState: confirmation.Pending,
+		confirmationState: confirmationState,
 	}
 
 	return c

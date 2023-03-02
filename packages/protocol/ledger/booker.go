@@ -6,6 +6,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/cerrors"
+	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/hive.go/core/dataflow"
@@ -94,11 +95,14 @@ func (b *booker) inheritConflictIDs(ctx context.Context, txID utxo.TransactionID
 		return parentConflictIDs
 	}
 
-	b.ledger.ConflictDAG.CreateConflict(txID, parentConflictIDs, conflictingInputIDs)
-
+	confirmationState := confirmation.Pending
 	for it := consumersToFork.Iterator(); it.HasNext(); {
-		b.forkTransaction(ctx, it.Next(), conflictingInputIDs)
+		if b.forkTransaction(ctx, it.Next(), conflictingInputIDs).IsAccepted() {
+			confirmationState = confirmation.Rejected
+		}
 	}
+
+	b.ledger.ConflictDAG.CreateConflict(txID, parentConflictIDs, conflictingInputIDs, confirmationState)
 
 	return advancedset.NewAdvancedSet(txID)
 }
@@ -140,15 +144,16 @@ func (b *booker) determineConflictDetails(txID utxo.TransactionID, inputsMetadat
 	return conflictingInputIDs, consumersToFork
 }
 
-// forkTransaction forks an existing Transaction.
-func (b *booker) forkTransaction(ctx context.Context, txID utxo.TransactionID, outputsSpentByConflictingTx utxo.OutputIDs) {
+// forkTransaction forks an existing Transaction and returns the confirmation state of the resulting Branch.
+func (b *booker) forkTransaction(ctx context.Context, txID utxo.TransactionID, outputsSpentByConflictingTx utxo.OutputIDs) (confirmationState confirmation.State) {
 	b.ledger.Utils.WithTransactionAndMetadata(txID, func(tx utxo.Transaction, txMetadata *TransactionMetadata) {
 		b.ledger.mutex.Lock(txID)
 
+		confirmationState = txMetadata.ConfirmationState()
 		conflictingInputs := b.ledger.Utils.ResolveInputs(tx.Inputs()).Intersect(outputsSpentByConflictingTx)
 		parentConflicts := txMetadata.ConflictIDs()
 
-		if !b.ledger.ConflictDAG.CreateConflict(txID, parentConflicts, conflictingInputs) {
+		if !b.ledger.ConflictDAG.CreateConflict(txID, parentConflicts, conflictingInputs, confirmationState) {
 			b.ledger.ConflictDAG.UpdateConflictingResources(txID, conflictingInputs)
 			b.ledger.mutex.Unlock(txID)
 			return
@@ -162,8 +167,12 @@ func (b *booker) forkTransaction(ctx context.Context, txID utxo.TransactionID, o
 		b.updateConflictsAfterFork(ctx, txMetadata, txID, parentConflicts)
 		b.ledger.mutex.Unlock(txID)
 
-		b.propagateForkedConflictToFutureCone(ctx, txMetadata.OutputIDs(), txID, parentConflicts)
+		if !confirmationState.IsAccepted() {
+			b.propagateForkedConflictToFutureCone(ctx, txMetadata.OutputIDs(), txID, parentConflicts)
+		}
 	})
+
+	return confirmationState
 }
 
 // propagateForkedConflictToFutureCone propagates a newly introduced Conflict to its future cone.
