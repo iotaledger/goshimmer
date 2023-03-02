@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/hive.go/core/types"
@@ -910,7 +911,7 @@ func createTestConflict(t *testing.T, conflictDAG *conflictdag.ConflictDAG[utxo.
 	if conflictMeta.ConflictID == utxo.EmptyTransactionID {
 		panic("a conflict must have its ID defined in its ConflictMeta")
 	}
-	newConflictCreated = conflictDAG.CreateConflict(conflictMeta.ConflictID, conflictMeta.ParentConflicts, conflictMeta.Conflicting)
+	newConflictCreated = conflictDAG.CreateConflict(conflictMeta.ConflictID, conflictMeta.ParentConflicts, conflictMeta.Conflicting, confirmation.Pending)
 	require.True(t, newConflictCreated)
 
 	conflictMeta.ConflictID.RegisterAlias(alias)

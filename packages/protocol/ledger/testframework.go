@@ -90,6 +90,8 @@ func NewTestFramework(test *testing.T, instance *Ledger) *TestFramework {
 		t.Instance.Storage.OutputMetadataStorage.Store(genesisOutputMetadata).Release()
 
 		t.outputIDsByAlias["Genesis"] = genesisOutput.ID()
+		t.ConflictDAG.RegisterConflictIDAlias("Genesis", utxo.EmptyTransactionID)
+		t.ConflictDAG.RegisterConflictSetIDAlias("Genesis", genesisOutput.ID())
 		genesisOutput.ID().RegisterAlias("Genesis")
 	}
 	return t

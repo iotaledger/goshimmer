@@ -551,7 +551,7 @@ func TestLedger_TransactionCausallyRelated(t *testing.T) {
 	tf.CreateTransaction("TX3", 1, "G.0", "TX2.0")
 
 	require.NoError(t, tf.IssueTransactions("G", "TX1", "TX2"))
-	require.EqualError(t, tf.IssueTransactions("TX3"), "TransactionID(TX3) is trying to spend causally related Outputs: transaction invalid")
+	require.EqualError(t, tf.IssueTransactions("TX3"), "failed to issue transaction 'TX3': TransactionID(TX3) is trying to spend causally related Outputs: transaction invalid")
 }
 
 func TestLedger_Aliases(t *testing.T) {
@@ -562,6 +562,10 @@ func TestLedger_Aliases(t *testing.T) {
 
 	transactionID.RegisterAlias("TX1")
 	conflictID.RegisterAlias("Conflict1")
+}
+
+func checkConfirmationState(t *testing.T) {
+
 }
 
 func TestLedger_AcceptanceRaceCondition(t *testing.T) {
@@ -578,33 +582,33 @@ func TestLedger_AcceptanceRaceCondition(t *testing.T) {
 
 	tf.Instance.SetTransactionInclusionSlot(tf.Transaction("TX1").ID(), 1)
 
-	tf.ConsumeTransactionMetadata(tf.Transaction("TX1").ID(), func(txMetadata *TransactionMetadata) {
-		require.True(t, txMetadata.ConfirmationState().IsAccepted())
-	})
+	requireConfirmationState(t, tf, "TX1", confirmation.State.IsAccepted)
 
 	require.NoError(t, tf.IssueTransactions("TX1*"))
 
-	tf.ConsumeTransactionMetadata(tf.Transaction("TX1*").ID(), func(txMetadata *TransactionMetadata) {
-		require.True(t, txMetadata.ConfirmationState().IsRejected())
+	requireConfirmationState(t, tf, "TX1", confirmation.State.IsAccepted)
+	requireConfirmationState(t, tf, "TX1*", confirmation.State.IsRejected)
+
+	tf.AssertConflictIDs(map[string][]string{
+		"TX1":  {},
+		"TX2":  {},
+		"TX1*": {"TX1*"},
 	})
 
-	/*
-		tf.Instance.Storage.CachedOutputMetadata(tf.Transaction("TX1").ID(), 0).SetConfirmed(true)
+	tf.AssertConflictDAG(map[string][]string{
+		"TX1":  {},
+		"TX1*": {},
+	})
 
-		tf.Instance.ConflictDAG.SetConflictAccepted(tf.Transaction("TX1").ID())
+	tf.AssertConflicts(map[string][]string{
+		"Genesis": {"TX1", "TX1*"},
+	})
+}
 
-		tf.AssertConflictIDs(map[string][]string{
-			"TX1": {},
-			"TX2": {},
-		})
+func requireConfirmationState(t *testing.T, tf *TestFramework, txAlias string, validator func(state confirmation.State) bool) {
+	require.True(t, validator(tf.ConflictDAG.ConfirmationState(txAlias)))
 
-		tf.AssertConflictDAG(map[string][]string{
-			"TX1": {},
-			"TX2": {},
-		})
-
-		tf.AssertConflicts(map[string][]string{
-			"G.0": {"TX1"},
-		})
-	*/
+	tf.ConsumeTransactionMetadata(tf.Transaction(txAlias).ID(), func(txMetadata *TransactionMetadata) {
+		require.True(t, validator(txMetadata.ConfirmationState()))
+	})
 }
