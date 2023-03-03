@@ -91,12 +91,11 @@ func New(
 			optsBootstrappedThreshold: 10 * time.Second,
 			optsSnapshotDepth:         5,
 		}, opts, func(e *Engine) {
+			e.Ledger = ledger.New(workers.CreatePool("Pool", 2), e.Storage, e.optsLedgerOptions...)
+			e.LedgerState = ledgerstate.New(storageInstance, e.Ledger)
 			e.Clock = clock(e)
 			e.SybilProtection = sybilProtection(e)
 			e.ThroughputQuota = throughputQuota(e)
-
-			e.Ledger = ledger.New(workers.CreatePool("Pool", 2), e.Storage, e.optsLedgerOptions...)
-			e.LedgerState = ledgerstate.New(storageInstance, e.Ledger)
 			e.SlotTimeProvider = slotTimeProvider
 			e.NotarizationManager = notarization.NewManager(e.Storage, e.LedgerState, e.SybilProtection.Weights(), slotTimeProvider, e.optsNotarizationManagerOptions...)
 
