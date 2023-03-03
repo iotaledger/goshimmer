@@ -40,10 +40,6 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) Conflict(conflictID Confli
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
-	return c.conflict(conflictID)
-}
-
-func (c *ConflictDAG[ConflictIDType, ResourceIDType]) conflict(conflictID ConflictIDType) (conflict *Conflict[ConflictIDType, ResourceIDType], exists bool) {
 	return c.conflicts.Get(conflictID)
 }
 
@@ -51,10 +47,6 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) ConflictSet(resourceID Res
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
-	return c.conflictSet(resourceID)
-}
-
-func (c *ConflictDAG[ConflictIDType, ResourceIDType]) conflictSet(resourceID ResourceIDType) (conflictSet *ConflictSet[ConflictIDType, ResourceIDType], exists bool) {
 	return c.conflictSets.Get(resourceID)
 }
 
@@ -66,7 +58,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) CreateConflict(id Conflict
 	conflictParents := advancedset.NewAdvancedSet[*Conflict[ConflictIDType, ResourceIDType]]()
 	for it := parentIDs.Iterator(); it.HasNext(); {
 		parentID := it.Next()
-		parent, exists := c.conflict(parentID)
+		parent, exists := c.conflicts.Get(parentID)
 		if !exists {
 			// if the parent does not exist it means that it has been evicted already. We can ignore it.
 			continue
@@ -104,7 +96,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) UpdateConflictParents(id C
 	defer c.mutex.Unlock()
 
 	var parentConflictIDs *advancedset.AdvancedSet[ConflictIDType]
-	conflict, exists := c.conflict(id)
+	conflict, exists := c.conflicts.Get(id)
 	if !exists {
 		return false
 	}
@@ -120,7 +112,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) UpdateConflictParents(id C
 	updated = true
 
 	// create child reference in new parent
-	if addedParent, parentExists := c.conflict(addedConflictID); parentExists {
+	if addedParent, parentExists := c.conflicts.Get(addedConflictID); parentExists {
 		addedParent.addChild(conflict)
 
 		if addedParent.ConfirmationState().IsRejected() && conflict.setConfirmationState(confirmation.Rejected) {
@@ -130,7 +122,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) UpdateConflictParents(id C
 
 	// remove child references in deleted parents
 	_ = removedConflictIDs.ForEach(func(conflictID ConflictIDType) (err error) {
-		if removedParent, removedParentExists := c.conflict(conflictID); removedParentExists {
+		if removedParent, removedParentExists := c.conflicts.Get(conflictID); removedParentExists {
 			removedParent.deleteChild(conflict)
 		}
 		return nil
@@ -153,7 +145,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) UpdateConflictingResources
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	conflict, exists := c.conflict(id)
+	conflict, exists := c.conflicts.Get(id)
 	if !exists {
 		return false
 	}
@@ -197,7 +189,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) SetConflictAccepted(confli
 
 	for confirmationWalker := advancedset.NewAdvancedSet(conflictID).Iterator(); confirmationWalker.HasNext(); {
 		currentConflictID := confirmationWalker.Next()
-		conflict, exists := c.conflict(currentConflictID)
+		conflict, exists := c.conflicts.Get(currentConflictID)
 		if !exists {
 			continue
 		}
@@ -318,7 +310,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) determineConflictsToAdd(co
 	for it := conflictIDs.Iterator(); it.HasNext(); {
 		currentConflictID := it.Next()
 
-		conflict, exists := c.conflict(currentConflictID)
+		conflict, exists := c.conflicts.Get(currentConflictID)
 		if !exists {
 			continue
 		}
@@ -340,7 +332,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) determineConflictsToRevoke
 	revokedConflicts = advancedset.NewAdvancedSet[ConflictIDType]()
 	subTractionWalker := walker.New[ConflictIDType]()
 	for it := addedConflicts.Iterator(); it.HasNext(); {
-		conflict, exists := c.conflict(it.Next())
+		conflict, exists := c.conflicts.Get(it.Next())
 		if !exists {
 			continue
 		}
@@ -361,7 +353,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) determineConflictsToRevoke
 
 		revokedConflicts.Add(currentConflictID)
 
-		currentConflict, exists := c.conflict(currentConflictID)
+		currentConflict, exists := c.conflicts.Get(currentConflictID)
 		if !exists {
 			continue
 		}
@@ -415,7 +407,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) registerConflictWithConfli
 
 // confirmationState returns the ConfirmationState of the Conflict with the given ConflictID.
 func (c *ConflictDAG[ConflictIDType, ResourceIDType]) confirmationState(conflictID ConflictIDType) (confirmationState confirmation.State) {
-	if conflict, exists := c.conflict(conflictID); exists {
+	if conflict, exists := c.conflicts.Get(conflictID); exists {
 		confirmationState = conflict.ConfirmationState()
 	}
 
@@ -466,7 +458,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) HandleOrphanedConflict(con
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	initialConflict, exists := c.conflict(conflictID)
+	initialConflict, exists := c.conflicts.Get(conflictID)
 	if !exists {
 		return
 	}
