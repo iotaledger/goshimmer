@@ -40,11 +40,6 @@ func NewProvider(opts ...options.Option[Clock]) module.Provider[*engine.Engine, 
 	})
 }
 
-// Events returns the Events of the Clock.
-func (c *Clock) Events() *clock.Events {
-	return c.events
-}
-
 // AcceptedTime returns the Time of the last accepted Block.
 func (c *Clock) AcceptedTime() (acceptedTime time.Time) {
 	return c.lastAccepted.Time()
@@ -65,20 +60,25 @@ func (c *Clock) RelativeConfirmedTime() (relativeConfirmedTime time.Time) {
 	return c.lastConfirmed.RelativeTime()
 }
 
+// Events returns the Events of the Clock.
+func (c *Clock) Events() *clock.Events {
+	return c.events
+}
+
 func (c *Clock) init() {
 	c.engine.HookConstructed(func() {
 		c.engine.Events.Clock.LinkTo(c.events)
 
 		workers := c.engine.Workers.CreateGroup("clock")
-		wpAccepted := event.WithWorkerPool(workers.CreatePool("setAcceptedTime", 1))
+		wpAccepted := event.WithWorkerPool(workers.CreatePool("SetAcceptedTime", 1))
 		wpConfirmed := event.WithWorkerPool(workers.CreatePool("setConfirmedTime", 1))
 
 		c.engine.LedgerState.HookInitialized(func() {
-			c.setAcceptedTime(c.engine.SlotTimeProvider.EndTime(c.engine.Storage.Settings.LatestCommitment().Index()))
+			c.SetAcceptedTime(c.engine.SlotTimeProvider.EndTime(c.engine.Storage.Settings.LatestCommitment().Index()))
 			c.setConfirmedTime(c.engine.SlotTimeProvider.EndTime(c.engine.Storage.Settings.LatestCommitment().Index()))
 
 			c.HookStopped(lo.Batch(
-				c.engine.Events.Consensus.BlockGadget.BlockAccepted.Hook(func(block *blockgadget.Block) { c.setAcceptedTime(block.IssuingTime()) }, wpAccepted).Unhook,
+				c.engine.Events.Consensus.BlockGadget.BlockAccepted.Hook(func(block *blockgadget.Block) { c.SetAcceptedTime(block.IssuingTime()) }, wpAccepted).Unhook,
 				c.engine.Events.Consensus.BlockGadget.BlockConfirmed.Hook(func(block *blockgadget.Block) { c.setConfirmedTime(block.IssuingTime()) }, wpConfirmed).Unhook,
 				c.engine.Events.Consensus.SlotGadget.SlotConfirmed.Hook(func(index slot.Index) { c.setConfirmedTime(c.engine.SlotTimeProvider.EndTime(index)) }, wpConfirmed).Unhook,
 			))
@@ -88,10 +88,10 @@ func (c *Clock) init() {
 	})
 }
 
-// setAcceptedTime sets the Time of the last accepted Block.
-func (c *Clock) setAcceptedTime(acceptedTime time.Time) (updated bool) {
+// SetAcceptedTime sets the Time of the last accepted Block.
+func (c *Clock) SetAcceptedTime(acceptedTime time.Time) {
 	now := time.Now()
-	if updated = c.lastAccepted.Update(now, acceptedTime); updated {
+	if updated := c.lastAccepted.Update(now, acceptedTime); updated {
 		c.events.AcceptanceTimeUpdated.Trigger(acceptedTime, now)
 	}
 
