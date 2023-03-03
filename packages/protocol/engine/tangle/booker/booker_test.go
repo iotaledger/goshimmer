@@ -1149,3 +1149,37 @@ func TestOTV_Track(t *testing.T) {
 		tf.Ledger.Transaction("Tx4").ID(): tf.VirtualVoting.Votes.ValidatorsSet("A", "B", "C", "D", "E"),
 	}))
 }
+
+func TestInheritancePrecedence(t *testing.T) {
+	workers := workerpool.NewGroup(t.Name())
+	tf := NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"))
+
+	tf.BlockDAG.CreateBlock("4GKL", models.WithPayload(tf.Ledger.CreateTransaction("CtS", 1, "Genesis")))
+	tf.BlockDAG.IssueBlocks("4GKL")
+
+	tf.BlockDAG.CreateBlock("Hu9", models.WithStrongParents(tf.BlockDAG.BlockIDs("4GKL")))
+	tf.BlockDAG.IssueBlocks("Hu9")
+
+	tf.BlockDAG.CreateBlock("AnTR", models.WithStrongParents(tf.BlockDAG.BlockIDs("4GKL")), models.WithPayload(tf.Ledger.CreateTransaction("4D5", 1, "Genesis")))
+	tf.BlockDAG.IssueBlocks("AnTR")
+
+	tf.BlockDAG.CreateBlock("Ecx", models.WithStrongParents(tf.BlockDAG.BlockIDs("AnTR", "Hu9")))
+	tf.BlockDAG.IssueBlocks("Ecx")
+
+	fmt.Println("================================")
+	fmt.Println(tf.Block("4GKL"))
+	fmt.Println(tf.Instance.BlockConflicts(tf.Block("4GKL")))
+
+	fmt.Println("================================")
+	fmt.Println(tf.Block("Hu9"))
+	fmt.Println(tf.Instance.BlockConflicts(tf.Block("Hu9")))
+
+	fmt.Println("================================")
+	fmt.Println(tf.Block("AnTR"))
+	fmt.Println(tf.Instance.BlockConflicts(tf.Block("AnTR")))
+
+	fmt.Println("================================")
+	fmt.Println(tf.Block("Ecx"))
+	fmt.Println(tf.Instance.BlockConflicts(tf.Block("Ecx")))
+
+}

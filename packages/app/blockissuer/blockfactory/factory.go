@@ -2,6 +2,8 @@ package blockfactory
 
 import (
 	"context"
+	"fmt"
+	"math/rand"
 	"time"
 
 	"github.com/pkg/errors"
@@ -87,9 +89,9 @@ func (f *Factory) createBlockWithPayload(p payload.Payload, references models.Pa
 	if payloadLen := len(payloadBytes); payloadLen > payload.MaxSize {
 		return nil, errors.Errorf("maximum payload size of %d bytes exceeded", payloadLen)
 	}
-
+	a := rand.Float64()
 	if references.IsEmpty() {
-		references, err = f.tryGetReferences(p, strongParentsCount)
+		references, err = f.tryGetReferences(p, strongParentsCount, a)
 		if err != nil {
 			return nil, errors.Wrap(err, "error while trying to get references")
 		}
@@ -120,12 +122,12 @@ func (f *Factory) createBlockWithPayload(p payload.Payload, references models.Pa
 	if err = block.DetermineID(f.slotTimeProvider); err != nil {
 		return nil, errors.Wrap(err, "there is a problem with the block syntax")
 	}
-
+	fmt.Println(a, "->", block.ID())
 	return block, nil
 }
 
-func (f *Factory) tryGetReferences(p payload.Payload, parentsCount int) (references models.ParentBlockIDs, err error) {
-	references, err = f.getReferences(p, parentsCount)
+func (f *Factory) tryGetReferences(p payload.Payload, parentsCount int, a float64) (references models.ParentBlockIDs, err error) {
+	references, err = f.getReferences(p, parentsCount, a)
 	if err == nil {
 		return references, nil
 	}
@@ -136,7 +138,7 @@ func (f *Factory) tryGetReferences(p payload.Payload, parentsCount int) (referen
 	for {
 		select {
 		case <-interval.C:
-			references, err = f.getReferences(p, parentsCount)
+			references, err = f.getReferences(p, parentsCount, a)
 			if err != nil {
 				f.Events.Error.Trigger(errors.Wrap(err, "could not get references"))
 				continue
@@ -149,13 +151,13 @@ func (f *Factory) tryGetReferences(p payload.Payload, parentsCount int) (referen
 	}
 }
 
-func (f *Factory) getReferences(p payload.Payload, parentsCount int) (references models.ParentBlockIDs, err error) {
+func (f *Factory) getReferences(p payload.Payload, parentsCount int, a float64) (references models.ParentBlockIDs, err error) {
 	strongParents := f.tips(p, parentsCount)
 	if len(strongParents) == 0 {
 		return nil, errors.Errorf("no strong parents were selected in tip selection")
 	}
 
-	references, err = f.referencesFunc(p, strongParents)
+	references, err = f.referencesFunc(p, strongParents, a)
 	// If none of the strong parents are possible references, we have to try again.
 	if err != nil {
 		return nil, errors.Wrap(err, "references could not be created")
@@ -238,7 +240,7 @@ func (f TipSelectorFunc) Tips(countParents int) (parents models.BlockIDs) {
 // region ReferencesFunc ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ReferencesFunc is a function type that returns like references a given set of parents of a Block.
-type ReferencesFunc func(payload payload.Payload, strongParents models.BlockIDs) (references models.ParentBlockIDs, err error)
+type ReferencesFunc func(payload payload.Payload, strongParents models.BlockIDs, a float64) (references models.ParentBlockIDs, err error)
 
 // CommitmentFunc is a function type that returns the commitment of the latest committable slot.
 type CommitmentFunc func() (ecRecord *commitment.Commitment, lastConfirmedSlotIndex slot.Index, err error)

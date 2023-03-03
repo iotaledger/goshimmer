@@ -676,8 +676,8 @@ func (b *Booker) updateBlockConflicts(block *virtualvoting.Block, addedConflict 
 		return false
 	}
 
+	fmt.Println("adding conflict to a block", block.ID(), addedConflict)
 	updated = block.AddConflictID(addedConflict)
-
 	return updated
 }
 
