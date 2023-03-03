@@ -212,7 +212,7 @@ func (e *Engine) SlotTimeProvider() *slot.TimeProvider {
 
 func (e *Engine) Initialize(snapshot ...string) (err error) {
 	if !e.Storage.Settings.SnapshotImported() {
-		if len(snapshot) == 0 || len(snapshot[0]) == 0 {
+		if len(snapshot) == 0 || snapshot[0] == "" {
 			panic("no snapshot path specified")
 		}
 		if err = e.readSnapshot(snapshot[0]); err != nil {
