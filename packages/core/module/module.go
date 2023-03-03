@@ -92,4 +92,5 @@ func (m *Module) init() {
 	m.stopped = event.New(event.WithMaxTriggerCount(1))
 }
 
+// code contract (make sure the type implements all required methods).
 var _ Interface = &Module{}

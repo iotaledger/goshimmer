@@ -16,5 +16,6 @@ type SybilProtection interface {
 	// Committable is a trait that stores information about the latest commitment.
 	traits.Committable
 
+	// Interface embeds the required methods of the module.Interface.
 	module.Interface
 }

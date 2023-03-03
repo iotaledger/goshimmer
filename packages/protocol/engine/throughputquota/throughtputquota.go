@@ -15,5 +15,6 @@ type ThroughputQuota interface {
 	// TotalBalance returns the total amount of throughput quota.
 	TotalBalance() (totalQuota int64)
 
+	// Interface embeds the required methods of the module.Interface.
 	module.Interface
 }
