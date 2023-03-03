@@ -84,7 +84,6 @@ func New(
 			Events:        NewEvents(),
 			Storage:       storageInstance,
 			EvictionState: eviction.NewState(storageInstance),
-			Initializable: traits.NewInitializable(),
 			Constructable: traits.NewConstructable(),
 			Stoppable:     traits.NewStoppable(),
 			Workers:       workers,
@@ -172,18 +171,10 @@ func (e *Engine) Block(id models.BlockID) (block *models.Block, exists bool) {
 }
 
 func (e *Engine) FirstUnacceptedMarker(sequenceID markers.SequenceID) markers.Index {
-	if e.Consensus == nil {
-		return 1
-	}
-
 	return e.Consensus.BlockGadget.FirstUnacceptedIndex(sequenceID)
 }
 
 func (e *Engine) LastConfirmedSlot() slot.Index {
-	if e.Consensus == nil {
-		return 0
-	}
-
 	return e.Consensus.SlotGadget.LastConfirmedSlot()
 }
 

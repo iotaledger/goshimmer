@@ -85,12 +85,13 @@ func New(workers *workerpool.Group, dispatcher network.Endpoint, opts ...options
 
 // Run runs the protocol.
 func (p *Protocol) Run() {
+	p.Events.Engine.LinkTo(p.mainEngine.Engine.Events)
+
 	if err := p.mainEngine.InitializeWithSnapshot(p.optsSnapshotPath); err != nil {
 		panic(err)
 	}
 
 	p.linkTo(p.mainEngine)
-
 	p.networkProtocol = network.NewProtocol(p.dispatcher, p.Workers.CreatePool("NetworkProtocol"), p.SlotTimeProvider()) // Use max amount of workers for networking
 	p.Events.Network.LinkTo(p.networkProtocol.Events)
 }
@@ -279,6 +280,7 @@ func (p *Protocol) switchEngines() {
 	// Stop current Scheduler
 	p.CongestionControl.Shutdown()
 
+	p.Events.Engine.LinkTo(p.candidateEngine.Engine.Events)
 	p.linkTo(p.candidateEngine)
 
 	// Save a reference to the current main engine and storage so that we can shut it down and prune it after switching
@@ -551,7 +553,6 @@ func (p *Protocol) ChainManager() (instance *chainmanager.Manager) {
 }
 
 func (p *Protocol) linkTo(engineInstance *enginemanager.EngineInstance) {
-	p.Events.Engine.LinkTo(engineInstance.Engine.Events)
 	p.TipManager.LinkTo(engineInstance.Engine)
 	p.CongestionControl.LinkTo(engineInstance.Engine)
 }
