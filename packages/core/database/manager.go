@@ -58,6 +58,7 @@ func NewManager(version Version, opts ...options.Option[Manager]) *Manager {
 
 		m.openDBs = cache.New[slot.Index, *dbInstance](m.optsMaxOpenDBs)
 		m.openDBs.SetEvictCallback(func(baseIndex slot.Index, db *dbInstance) {
+			fmt.Println("evicting DB instance for ", baseIndex)
 			err := db.instance.Close()
 			if err != nil {
 				panic(err)
@@ -288,6 +289,8 @@ func (m *Manager) getDBInstance(index slot.Index) (db *dbInstance) {
 	// check if exists again, as other goroutine might have created it in parallel
 	db, exists := m.openDBs.Get(baseIndex)
 	if !exists {
+		fmt.Println("opening DB instance for ", baseIndex)
+
 		db = m.createDBInstance(baseIndex)
 
 		// Remove the cached db size since we will open the db
