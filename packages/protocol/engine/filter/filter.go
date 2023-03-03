@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	ErrorCommitmentNotCommittable      = errors.New("a block cannot commit to an slot that cannot objectively be committable yet")
+	ErrorCommitmentNotCommittable      = errors.New("a block cannot commit to a slot that cannot objectively be committable yet")
 	ErrorsBlockTimeTooFarAheadInFuture = errors.New("a block cannot be too far ahead in the future")
 	ErrorsInvalidSignature             = errors.New("block has invalid signature")
 	ErrorsSignatureValidationFailed    = errors.New("error validating block signature")
@@ -37,8 +37,8 @@ func New(opts ...options.Option[Filter]) (inbox *Filter) {
 
 // ProcessReceivedBlock processes block from the given source.
 func (f *Filter) ProcessReceivedBlock(block *models.Block, source identity.ID) {
-	// Check if the block is trying to commit to an slot that is not yet committable
-	if f.optsMinCommittableSlotAge > 0 && block.Commitment().Index() > block.ID().Index()-f.optsMinCommittableSlotAge {
+	// Check if the block is trying to commit to a slot that is not yet committable
+	if f.optsMinCommittableSlotAge > 0 && block.Commitment().Index() > 0 && block.Commitment().Index() > block.ID().Index()-f.optsMinCommittableSlotAge {
 		f.Events.BlockFiltered.Trigger(&BlockFilteredEvent{
 			Block:  block,
 			Reason: errors.WithMessagef(ErrorCommitmentNotCommittable, "block at slot %d committing to slot %d", block.ID().Index(), block.Commitment().Index()),
