@@ -9,8 +9,7 @@ import (
 
 // Clock is a clock that is used to derive some Time parameters from the Tangle.
 type Clock struct {
-	Events *clock.Events
-
+	events        *clock.Events
 	lastAccepted  *timeUpdate
 	lastConfirmed *timeUpdate
 
@@ -20,11 +19,14 @@ type Clock struct {
 // New creates a new Clock with the given genesisTime.
 func New() *Clock {
 	return &Clock{
+		events:        clock.NewEvents(),
 		lastAccepted:  &timeUpdate{},
 		lastConfirmed: &timeUpdate{},
-
-		Events: clock.NewEvents(),
 	}
+}
+
+func (c *Clock) Events() *clock.Events {
+	return c.events
 }
 
 // AcceptedTime returns the Time of the last accepted Block.
@@ -36,10 +38,7 @@ func (c *Clock) AcceptedTime() (acceptedTime time.Time) {
 func (c *Clock) SetAcceptedTime(acceptedTime time.Time) (updated bool) {
 	now := time.Now()
 	if updated = c.lastAccepted.Update(now, acceptedTime); updated {
-		c.Events.AcceptanceTimeUpdated.Trigger(&clock.TimeUpdateEvent{
-			NewTime:    acceptedTime,
-			UpdateTime: now,
-		})
+		c.events.AcceptanceTimeUpdated.Trigger(acceptedTime, now)
 	}
 
 	return
@@ -59,10 +58,7 @@ func (c *Clock) ConfirmedTime() (confirmedTime time.Time) {
 func (c *Clock) SetConfirmedTime(confirmedTime time.Time) (updated bool) {
 	now := time.Now()
 	if updated = c.lastConfirmed.Update(now, confirmedTime); updated {
-		c.Events.ConfirmedTimeUpdated.Trigger(&clock.TimeUpdateEvent{
-			NewTime:    confirmedTime,
-			UpdateTime: now,
-		})
+		c.events.ConfirmedTimeUpdated.Trigger(confirmedTime, now)
 	}
 
 	return

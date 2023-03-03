@@ -10,7 +10,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
-	tangletime2 "github.com/iotaledger/goshimmer/packages/protocol/engine/clock/tangletime"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
@@ -40,6 +39,7 @@ import (
 type Engine struct {
 	Events              *Events
 	Storage             *storage.Storage
+	Clock               clock.Clock
 	SybilProtection     sybilprotection.SybilProtection
 	ThroughputQuota     throughputquota.ThroughputQuota
 	Ledger              *ledger.Ledger
@@ -51,7 +51,6 @@ type Engine struct {
 	Tangle              *tangle.Tangle
 	Consensus           *consensus.Consensus
 	TSCManager          *tsc.Manager
-	Clock               *tangletime2.Clock
 	SlotTimeProvider    *slot.TimeProvider
 
 	Workers *workerpool.Group
@@ -76,6 +75,7 @@ type Engine struct {
 func New(
 	workers *workerpool.Group,
 	storageInstance *storage.Storage,
+	clock module.Provider[*Engine, clock.Clock],
 	sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection],
 	throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota],
 	slotTimeProvider *slot.TimeProvider,
@@ -93,7 +93,7 @@ func New(
 		}, opts, func(e *Engine) {
 			e.Ledger = ledger.New(workers.CreatePool("Pool", 2), e.Storage, e.optsLedgerOptions...)
 			e.LedgerState = ledgerstate.New(storageInstance, e.Ledger)
-			e.Clock = tangletime2.New()
+			e.Clock = clock(e)
 			e.SybilProtection = sybilProtection(e)
 			e.ThroughputQuota = throughputQuota(e)
 			e.SlotTimeProvider = slotTimeProvider
