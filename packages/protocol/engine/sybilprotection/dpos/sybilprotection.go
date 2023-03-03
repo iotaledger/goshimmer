@@ -7,6 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
@@ -41,15 +42,14 @@ type SybilProtection struct {
 
 	optsActivityWindow time.Duration
 
-	traits.Initializable
 	traits.BatchCommittable
+	module.Module
 }
 
 // NewSybilProtection creates a new ProofOfStake instance.
 func NewSybilProtection(engineInstance *engine.Engine, opts ...options.Option[SybilProtection]) (proofOfStake *SybilProtection) {
 	return options.Apply(
 		&SybilProtection{
-			Initializable:    traits.NewInitializable(),
 			BatchCommittable: traits.NewBatchCommittable(engineInstance.Storage.SybilProtection(), PrefixLastCommittedSlot),
 
 			engine:            engineInstance,
@@ -113,8 +113,8 @@ func (s *SybilProtection) stopInactivityManager() {
 }
 
 // NewProvider returns a new sybil protection provider that uses the ProofOfStake module.
-func NewProvider(opts ...options.Option[SybilProtection]) engine.ModuleProvider[sybilprotection.SybilProtection] {
-	return engine.ProvideModule(func(e *engine.Engine) sybilprotection.SybilProtection {
+func NewProvider(opts ...options.Option[SybilProtection]) module.Provider[*engine.Engine, sybilprotection.SybilProtection] {
+	return module.Provide(func(e *engine.Engine) sybilprotection.SybilProtection {
 		return NewSybilProtection(e, opts...)
 	})
 }

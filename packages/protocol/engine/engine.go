@@ -8,6 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
@@ -76,8 +77,8 @@ type Engine struct {
 func New(
 	workers *workerpool.Group,
 	storageInstance *storage.Storage,
-	sybilProtection ModuleProvider[sybilprotection.SybilProtection],
-	throughputQuota ModuleProvider[throughputquota.ThroughputQuota],
+	sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection],
+	throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota],
 	slotTimeProvider *slot.TimeProvider,
 	opts ...options.Option[Engine],
 ) (engine *Engine) {
