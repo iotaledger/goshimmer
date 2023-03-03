@@ -377,9 +377,7 @@ func (b *Booker) inheritConflictIDs(block *virtualvoting.Block) (inheritedConfli
 
 // determineBookingDetails determines the booking details of an unbooked Block.
 func (b *Booker) determineBookingConflictIDs(block *virtualvoting.Block) (parentsPastMarkersConflictIDs, inheritedConflictIDs utxo.TransactionIDs, err error) {
-	inheritedConflictIDs = utxo.NewTransactionIDs()
-
-	transactionConflictIDs := b.TransactionConflictIDs(block)
+	inheritedConflictIDs = b.TransactionConflictIDs(block)
 
 	parentsPastMarkersConflictIDs, strongParentsConflictIDs := b.collectStrongParentsConflictIDs(block)
 
@@ -394,8 +392,7 @@ func (b *Booker) determineBookingConflictIDs(block *virtualvoting.Block) (parent
 	inheritedConflictIDs.AddAll(weakPayloadConflictIDs)
 	inheritedConflictIDs.AddAll(likedConflictIDs)
 
-	dislikedFutureCone := b.Ledger.Utils.ConflictIDsInFutureCone(dislikedConflictIDs)
-	inheritedConflictIDs.DeleteAll(dislikedFutureCone)
+	inheritedConflictIDs.DeleteAll(b.Ledger.Utils.ConflictIDsInFutureCone(dislikedConflictIDs))
 
 	// block always sets Like reference its own conflict, if its payload is a transaction, and it's conflicting
 	if selfConflictID, selfDislikedConflictIDs, isTransaction := b.PayloadConflictID(block); isTransaction && !selfConflictID.IsEmpty() {
@@ -403,10 +400,6 @@ func (b *Booker) determineBookingConflictIDs(block *virtualvoting.Block) (parent
 		// if a payload is a conflicting transaction, then remove any conflicting conflicts from supported conflicts
 		inheritedConflictIDs.DeleteAll(b.Ledger.Utils.ConflictIDsInFutureCone(selfDislikedConflictIDs))
 	}
-
-	// set transactionConflictIDs at the end, so that if it contains conflicting conflicts,
-	// it cannot be masked by like references and the block will be seen as subjectively invalid
-	inheritedConflictIDs.AddAll(transactionConflictIDs)
 
 	unconfirmedParentsPast := b.Ledger.ConflictDAG.UnconfirmedConflicts(parentsPastMarkersConflictIDs)
 	unconfirmedInherited := b.Ledger.ConflictDAG.UnconfirmedConflicts(inheritedConflictIDs)

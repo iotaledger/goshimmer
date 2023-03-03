@@ -1,6 +1,8 @@
 package conflictdag
 
 import (
+	"fmt"
+
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/ds/set"
@@ -348,6 +350,8 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) determineConflictsToRevoke
 		currentConflictID := subTractionWalker.Next()
 
 		if isInvalid = addedConflicts.Has(currentConflictID); isInvalid {
+			fmt.Println("block is subjectively invalid because of conflict", currentConflictID)
+
 			return revokedConflicts, true
 		}
 

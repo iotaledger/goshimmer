@@ -33,7 +33,7 @@ const (
 	// MaxBlockSize defines the maximum size of a block in bytes.
 	MaxBlockSize = 64 * 1024
 
-	// MaxBlockSize defines the maximum work of a block.
+	// MaxBlockWork defines the maximum work of a block.
 	MaxBlockWork = 1
 
 	// BlockIDLength defines the length of an BlockID.
