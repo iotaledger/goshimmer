@@ -94,8 +94,6 @@ func (c *Clock) SetAcceptedTime(acceptedTime time.Time) {
 	if updated := c.lastAccepted.Update(now, acceptedTime); updated {
 		c.events.AcceptanceTimeUpdated.Trigger(acceptedTime, now)
 	}
-
-	return
 }
 
 // setConfirmedTime sets the Time of the last confirmed Block.
