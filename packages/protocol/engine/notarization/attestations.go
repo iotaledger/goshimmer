@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/core/stream"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
@@ -34,14 +35,13 @@ type Attestations struct {
 	slotTimeProvider   *slot.TimeProvider
 	mutex              *syncutils.DAGMutex[slot.Index]
 
-	traits.Initializable
 	traits.Committable
+	module.Module
 }
 
 func NewAttestations(persistentStorage func(optRealm ...byte) kvstore.KVStore, bucketedStorage func(index slot.Index) kvstore.KVStore, weights *sybilprotection.Weights, slotTimeProvider *slot.TimeProvider) *Attestations {
 	return &Attestations{
 		Committable:        traits.NewCommittable(persistentStorage(), PrefixAttestationsLastCommittedSlot),
-		Initializable:      traits.NewInitializable(),
 		persistentStorage:  persistentStorage,
 		bucketedStorage:    bucketedStorage,
 		weights:            weights,
@@ -170,7 +170,7 @@ func (a *Attestations) Import(reader io.ReadSeeker) (err error) {
 
 	a.SetLastCommittedSlot(slot.Index(slotIndex))
 
-	a.TriggerInitialized()
+	a.Lifecycle().Initialized.Trigger()
 
 	return
 }

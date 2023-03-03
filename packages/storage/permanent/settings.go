@@ -9,8 +9,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/core/storable"
-	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/serializer/v2/serix"
@@ -22,13 +22,11 @@ type Settings struct {
 	*settingsModel
 	mutex sync.RWMutex
 
-	traits.Initializable
+	module.Module
 }
 
 func NewSettings(path string) (settings *Settings) {
 	return &Settings{
-		Initializable: traits.NewInitializable(),
-
 		settingsModel: storable.InitStruct(&settingsModel{
 			SnapshotImported:        false,
 			LatestCommitment:        commitment.New(0, commitment.ID{}, types.Identifier{}, 0),
@@ -164,7 +162,7 @@ func (c *Settings) Import(reader io.ReadSeeker) (err error) {
 		return errors.Wrap(err, "failed to import settings")
 	}
 
-	c.TriggerInitialized()
+	c.Lifecycle().Initialized.Trigger()
 
 	return
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/event"
 	"github.com/iotaledger/hive.go/runtime/options"
 )
@@ -55,7 +56,7 @@ func (c *CongestionControl) LinkTo(engine *engine.Engine) {
 	c.Events.Scheduler.LinkTo(c.scheduler.Events)
 
 	wp := engine.Workers.CreatePool("Scheduler", 2)
-	engine.SubscribeStopped(
+	engine.Lifecycle().Stopped.Hook(lo.Batch(
 		engine.Tangle.Events.Booker.VirtualVoting.BlockTracked.Hook(c.scheduler.AddBlock, event.WithWorkerPool(wp)).Unhook,
 		// event.AttachWithWorkerPool(engine.Tangle.Events.VirtualVoting.BlockTracked, func(block *virtualvoting.Block) {
 		//	registerBlock, err := c.scheduler.GetOrRegisterBlock(block)
@@ -66,7 +67,7 @@ func (c *CongestionControl) LinkTo(engine *engine.Engine) {
 		// }, wp)
 		engine.Tangle.Events.BlockDAG.BlockOrphaned.Hook(c.scheduler.HandleOrphanedBlock, event.WithWorkerPool(wp)).Unhook,
 		engine.Consensus.Events.BlockGadget.BlockAccepted.Hook(c.scheduler.HandleAcceptedBlock, event.WithWorkerPool(wp)).Unhook,
-	)
+	))
 
 	c.scheduler.Start()
 }

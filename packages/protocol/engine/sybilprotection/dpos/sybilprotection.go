@@ -62,18 +62,14 @@ func NewSybilProtection(engineInstance *engine.Engine, opts ...options.Option[Sy
 		}, opts, func(s *SybilProtection) {
 			s.validators = s.weights.NewWeightedSet()
 
-			s.engine.SubscribeConstructed(func() {
-				traits.SubscribeInitialized(map[traits.Initializable]func(){
-					s.engine.LedgerState:                      s.initializeTotalWeight,
-					s.engine.LedgerState.UnspentOutputs:       s.initializeLatestCommitment,
-					s.engine.NotarizationManager.Attestations: s.initializeActiveValidators,
-				})
+			s.engine.Lifecycle().Constructed.Hook(func() {
+				s.engine.LedgerState.Lifecycle().Initialized.Hook(s.initializeTotalWeight)
+				s.engine.LedgerState.UnspentOutputs.Lifecycle().Initialized.Hook(s.initializeLatestCommitment)
+				s.engine.NotarizationManager.Attestations.Lifecycle().Initialized.Hook(s.initializeActiveValidators)
 
 				s.engine.LedgerState.UnspentOutputs.Subscribe(s)
 
-				s.engine.SubscribeStopped(
-					s.stopInactivityManager,
-				)
+				s.engine.Lifecycle().Stopped.Hook(s.stopInactivityManager)
 
 				s.engine.Events.Tangle.BlockDAG.BlockSolid.Hook(func(block *blockdag.Block) {
 					s.markValidatorActive(block.IssuerID(), block.IssuingTime())
@@ -187,7 +183,7 @@ func (s *SybilProtection) CommitBatchedStateTransition() (ctx context.Context) {
 }
 
 func (s *SybilProtection) markValidatorActive(id identity.ID, activityTime time.Time) {
-	if s.engine.WasStopped() {
+	if s.engine.Lifecycle().Stopped.WasTriggered() {
 		return
 	}
 

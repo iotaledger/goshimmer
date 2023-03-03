@@ -9,7 +9,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/module"
-	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
@@ -29,6 +28,7 @@ import (
 	"github.com/iotaledger/hive.go/core/eventticker"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/event"
 	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
@@ -69,9 +69,7 @@ type Engine struct {
 	optsBlockRequester             []options.Option[eventticker.EventTicker[models.BlockID]]
 	optsFilter                     []options.Option[filter.Filter]
 
-	traits.Constructable
-	traits.Initializable
-	traits.Stoppable
+	module.Module
 }
 
 func New(
@@ -87,8 +85,6 @@ func New(
 			Events:        NewEvents(),
 			Storage:       storageInstance,
 			EvictionState: eviction.NewState(storageInstance),
-			Constructable: traits.NewConstructable(),
-			Stoppable:     traits.NewStoppable(),
 			Workers:       workers,
 
 			optsBootstrappedThreshold: 10 * time.Second,
@@ -102,12 +98,12 @@ func New(
 			e.SlotTimeProvider = slotTimeProvider
 			e.NotarizationManager = notarization.NewManager(e.Storage, e.LedgerState, e.SybilProtection.Weights(), slotTimeProvider, e.optsNotarizationManagerOptions...)
 
-			e.Initializable = traits.NewInitializable(
-				e.Storage.Settings.TriggerInitialized,
-				e.Storage.Commitments.TriggerInitialized,
-				e.LedgerState.TriggerInitialized,
-				e.NotarizationManager.TriggerInitialized,
-			)
+			e.Lifecycle().Initialized.Hook(lo.Batch(
+				e.Storage.Settings.Lifecycle().Initialized.Trigger,
+				e.Storage.Commitments.Lifecycle().Initialized.Trigger,
+				e.LedgerState.Lifecycle().Initialized.Trigger,
+				e.NotarizationManager.Lifecycle().Initialized.Trigger,
+			))
 		},
 
 		(*Engine).initLedger,
@@ -122,14 +118,15 @@ func New(
 		(*Engine).initBlockRequester,
 
 		func(e *Engine) {
-			e.TriggerConstructed()
+			e.Lifecycle().Constructed.Trigger()
 		},
 	)
 }
 
 func (e *Engine) Shutdown() {
-	if !e.WasStopped() {
-		e.TriggerStopped()
+	if !e.Lifecycle().Stopped.WasTriggered() {
+		e.Lifecycle().Stopped.Trigger()
+
 		e.BlockRequester.Shutdown()
 		e.Ledger.Shutdown()
 		e.Workers.Shutdown()
@@ -205,7 +202,7 @@ func (e *Engine) Initialize(snapshot string) (err error) {
 		}
 	}
 
-	e.TriggerInitialized()
+	e.Lifecycle().Initialized.Trigger()
 
 	return
 }
@@ -397,7 +394,7 @@ func (e *Engine) initNotarizationManager() {
 }
 
 func (e *Engine) initEvictionState() {
-	e.LedgerState.SubscribeInitialized(func() {
+	e.LedgerState.Lifecycle().Initialized.Hook(func() {
 		e.EvictionState.EvictUntil(e.Storage.Settings.LatestCommitment().Index())
 	})
 

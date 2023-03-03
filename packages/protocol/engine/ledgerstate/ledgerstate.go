@@ -6,7 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/goshimmer/packages/core/traits"
+	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/hive.go/core/slot"
@@ -21,7 +21,7 @@ type LedgerState struct {
 	storage *storage.Storage
 	mutex   sync.RWMutex
 
-	traits.Initializable
+	module.Module
 }
 
 // New creates a new ledger state.
@@ -32,10 +32,11 @@ func New(storageInstance *storage.Storage, memPool *ledger.Ledger) (ledgerState 
 		MemPool:        memPool,
 		UnspentOutputs: unspentOutputs,
 		StateDiffs:     NewStateDiffs(storageInstance, memPool),
-		Initializable:  traits.NewInitializable(unspentOutputs.TriggerInitialized),
 
 		storage: storageInstance,
 	}
+
+	ledgerState.Lifecycle().Initialized.Hook(unspentOutputs.Lifecycle().Initialized.Trigger)
 
 	ledgerState.MemPool.Events.TransactionAccepted.Hook(ledgerState.onTransactionAccepted)
 	ledgerState.MemPool.Events.TransactionInclusionUpdated.Hook(ledgerState.onTransactionInclusionUpdated)
@@ -114,7 +115,7 @@ func (l *LedgerState) Import(reader io.ReadSeeker) (err error) {
 		}
 	}
 
-	l.TriggerInitialized()
+	l.Lifecycle().Initialized.Trigger()
 
 	return
 }

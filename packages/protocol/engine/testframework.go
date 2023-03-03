@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
+	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
@@ -36,7 +37,7 @@ type TestFramework struct {
 	Acceptance    *blockgadget.TestFramework
 }
 
-func NewTestEngine(t *testing.T, workers *workerpool.Group, storage *storage.Storage, sybilProtection ModuleProvider[sybilprotection.SybilProtection], throughputQuota ModuleProvider[throughputquota.ThroughputQuota], slotTimeProvider *slot.TimeProvider, opts ...options.Option[Engine]) *Engine {
+func NewTestEngine(t *testing.T, workers *workerpool.Group, storage *storage.Storage, sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection], throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota], slotTimeProvider *slot.TimeProvider, opts ...options.Option[Engine]) *Engine {
 	e := New(workers.CreateGroup("Engine"), storage, sybilProtection, throughputQuota, slotTimeProvider, opts...)
 	t.Cleanup(e.Shutdown)
 	return e
@@ -59,7 +60,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, engine *Engine
 	return t
 }
 
-func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, sybilProtection ModuleProvider[sybilprotection.SybilProtection], throughputQuota ModuleProvider[throughputquota.ThroughputQuota], slotTimeProvider *slot.TimeProvider, optsEngine ...options.Option[Engine]) *TestFramework {
+func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection], throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota], slotTimeProvider *slot.TimeProvider, optsEngine ...options.Option[Engine]) *TestFramework {
 	engine := NewTestEngine(t, workers.CreateGroup("Engine"), blockdag.NewTestStorage(t, workers, database.WithDBProvider(database.NewDB)), sybilProtection, throughputQuota, slotTimeProvider, optsEngine...)
 	t.Cleanup(engine.Shutdown)
 

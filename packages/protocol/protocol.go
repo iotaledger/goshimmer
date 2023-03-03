@@ -8,6 +8,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/database"
+	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
@@ -65,8 +66,8 @@ type Protocol struct {
 	optsChainManagerOptions           []options.Option[chainmanager.Manager]
 	optsTipManagerOptions             []options.Option[tipmanager.TipManager]
 	optsStorageDatabaseManagerOptions []options.Option[database.Manager]
-	optsSybilProtectionProvider       engine.ModuleProvider[sybilprotection.SybilProtection]
-	optsThroughputQuotaProvider       engine.ModuleProvider[throughputquota.ThroughputQuota]
+	optsSybilProtectionProvider       module.Provider[*engine.Engine, sybilprotection.SybilProtection]
+	optsThroughputQuotaProvider       module.Provider[*engine.Engine, throughputquota.ThroughputQuota]
 }
 
 func New(workers *workerpool.Group, dispatcher network.Endpoint, opts ...options.Option[Protocol]) (protocol *Protocol) {
@@ -605,13 +606,13 @@ func WithSlotDuration(slotDuration int64) options.Option[Protocol] {
 	}
 }
 
-func WithSybilProtectionProvider(sybilProtectionProvider engine.ModuleProvider[sybilprotection.SybilProtection]) options.Option[Protocol] {
+func WithSybilProtectionProvider(sybilProtectionProvider module.Provider[*engine.Engine, sybilprotection.SybilProtection]) options.Option[Protocol] {
 	return func(n *Protocol) {
 		n.optsSybilProtectionProvider = sybilProtectionProvider
 	}
 }
 
-func WithThroughputQuotaProvider(throughputQuotaProvider engine.ModuleProvider[throughputquota.ThroughputQuota]) options.Option[Protocol] {
+func WithThroughputQuotaProvider(throughputQuotaProvider module.Provider[*engine.Engine, throughputquota.ThroughputQuota]) options.Option[Protocol] {
 	return func(n *Protocol) {
 		n.optsThroughputQuotaProvider = throughputQuotaProvider
 	}

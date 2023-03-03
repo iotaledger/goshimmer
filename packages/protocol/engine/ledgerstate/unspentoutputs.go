@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
+	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/core/stream"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
@@ -38,7 +39,7 @@ type UnspentOutputs struct {
 	batchSpentOutputIDs   utxo.OutputIDs
 
 	traits.BatchCommittable
-	traits.Initializable
+	module.Module
 }
 
 const (
@@ -48,7 +49,6 @@ const (
 
 func NewUnspentOutputs(store func(optRealm ...byte) kvstore.KVStore, memPool *ledger.Ledger) (unspentOutputs *UnspentOutputs) {
 	return &UnspentOutputs{
-		Initializable:    traits.NewInitializable(),
 		BatchCommittable: traits.NewBatchCommittable(store(), PrefixUnspentOutputsLatestCommittedIndex),
 		IDs:              ads.NewSet[utxo.OutputID](store(PrefixUnspentOutputsIDs)),
 		memPool:          memPool,
@@ -202,7 +202,7 @@ func (u *UnspentOutputs) Import(reader io.ReadSeeker, targetSlot slot.Index) (er
 
 	u.SetLastCommittedSlot(targetSlot)
 
-	u.TriggerInitialized()
+	u.Lifecycle().Initialized.Trigger()
 
 	return
 }

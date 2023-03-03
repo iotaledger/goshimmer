@@ -8,7 +8,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/traits"
+	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
@@ -40,7 +40,7 @@ type Manager struct {
 
 	optsMinCommittableSlotAge slot.Index
 
-	traits.Initializable
+	module.Module
 }
 
 // NewManager creates a new notarization Manager.
@@ -55,7 +55,7 @@ func NewManager(storageInstance *storage.Storage, ledgerState *ledgerstate.Ledge
 		acceptanceTime:            slotTimeProvider.EndTime(storageInstance.Settings.LatestCommitment().Index()),
 		optsMinCommittableSlotAge: defaultMinSlotCommittableAge,
 	}, opts, func(m *Manager) {
-		m.Initializable = traits.NewInitializable(m.Attestations.TriggerInitialized)
+		m.Lifecycle().Initialized.Hook(m.Attestations.Lifecycle().Initialized.Trigger)
 	})
 }
 
@@ -121,7 +121,7 @@ func (m *Manager) Import(reader io.ReadSeeker) (err error) {
 		return errors.Wrap(err, "failed to import attestations")
 	}
 
-	m.TriggerInitialized()
+	m.Lifecycle().Initialized.Trigger()
 
 	return
 }

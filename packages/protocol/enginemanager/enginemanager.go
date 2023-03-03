@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
+	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
@@ -36,8 +37,8 @@ type EngineManager struct {
 	workers        *workerpool.Group
 
 	engineOptions           []options.Option[engine.Engine]
-	sybilProtectionProvider engine.ModuleProvider[sybilprotection.SybilProtection]
-	throughputQuotaProvider engine.ModuleProvider[throughputquota.ThroughputQuota]
+	sybilProtectionProvider module.Provider[*engine.Engine, sybilprotection.SybilProtection]
+	throughputQuotaProvider module.Provider[*engine.Engine, throughputquota.ThroughputQuota]
 	slotTimeProvider        *slot.TimeProvider
 
 	activeInstance *EngineInstance
@@ -49,8 +50,8 @@ func New(
 	dbVersion database.Version,
 	storageOptions []options.Option[database.Manager],
 	engineOptions []options.Option[engine.Engine],
-	sybilProtectionProvider engine.ModuleProvider[sybilprotection.SybilProtection],
-	throughputQuotaProvider engine.ModuleProvider[throughputquota.ThroughputQuota],
+	sybilProtectionProvider module.Provider[*engine.Engine, sybilprotection.SybilProtection],
+	throughputQuotaProvider module.Provider[*engine.Engine, throughputquota.ThroughputQuota],
 	slotTimeProvider *slot.TimeProvider) *EngineManager {
 	return &EngineManager{
 		workers:                 workers,

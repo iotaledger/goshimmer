@@ -14,8 +14,8 @@ type LifecycleEvents struct {
 
 var NewLifecycleEvents = event.CreateGroupConstructor(func() (self *LifecycleEvents) {
 	return &LifecycleEvents{
-		Constructed: event.New(),
-		Initialized: event.New(),
-		Stopped:     event.New(),
+		Constructed: event.New(event.WithMaxTriggerCount(1)),
+		Initialized: event.New(event.WithMaxTriggerCount(1)),
+		Stopped:     event.New(event.WithMaxTriggerCount(1)),
 	}
 })
