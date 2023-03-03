@@ -202,7 +202,7 @@ func (u *UnspentOutputs) Import(reader io.ReadSeeker, targetSlot slot.Index) (er
 
 	u.SetLastCommittedSlot(targetSlot)
 
-	u.Lifecycle().Initialized.Trigger()
+	u.TriggerInitialized()
 
 	return
 }

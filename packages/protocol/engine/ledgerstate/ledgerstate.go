@@ -36,7 +36,7 @@ func New(storageInstance *storage.Storage, memPool *ledger.Ledger) (ledgerState 
 		storage: storageInstance,
 	}
 
-	ledgerState.Lifecycle().Initialized.Hook(unspentOutputs.Lifecycle().Initialized.Trigger)
+	ledgerState.HookInitialized(unspentOutputs.TriggerInitialized)
 
 	ledgerState.MemPool.Events.TransactionAccepted.Hook(ledgerState.onTransactionAccepted)
 	ledgerState.MemPool.Events.TransactionInclusionUpdated.Hook(ledgerState.onTransactionInclusionUpdated)
@@ -115,7 +115,7 @@ func (l *LedgerState) Import(reader io.ReadSeeker) (err error) {
 		}
 	}
 
-	l.Lifecycle().Initialized.Trigger()
+	l.TriggerInitialized()
 
 	return
 }

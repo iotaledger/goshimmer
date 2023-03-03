@@ -55,7 +55,7 @@ func NewManager(storageInstance *storage.Storage, ledgerState *ledgerstate.Ledge
 		acceptanceTime:            slotTimeProvider.EndTime(storageInstance.Settings.LatestCommitment().Index()),
 		optsMinCommittableSlotAge: defaultMinSlotCommittableAge,
 	}, opts, func(m *Manager) {
-		m.Lifecycle().Initialized.Hook(m.Attestations.Lifecycle().Initialized.Trigger)
+		m.HookInitialized(m.Attestations.TriggerInitialized)
 	})
 }
 
@@ -121,7 +121,7 @@ func (m *Manager) Import(reader io.ReadSeeker) (err error) {
 		return errors.Wrap(err, "failed to import attestations")
 	}
 
-	m.Lifecycle().Initialized.Trigger()
+	m.TriggerInitialized()
 
 	return
 }

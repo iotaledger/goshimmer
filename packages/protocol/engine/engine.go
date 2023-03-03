@@ -98,11 +98,11 @@ func New(
 			e.SlotTimeProvider = slotTimeProvider
 			e.NotarizationManager = notarization.NewManager(e.Storage, e.LedgerState, e.SybilProtection.Weights(), slotTimeProvider, e.optsNotarizationManagerOptions...)
 
-			e.Lifecycle().Initialized.Hook(lo.Batch(
-				e.Storage.Settings.Lifecycle().Initialized.Trigger,
-				e.Storage.Commitments.Lifecycle().Initialized.Trigger,
-				e.LedgerState.Lifecycle().Initialized.Trigger,
-				e.NotarizationManager.Lifecycle().Initialized.Trigger,
+			e.HookInitialized(lo.Batch(
+				e.Storage.Settings.TriggerInitialized,
+				e.Storage.Commitments.TriggerInitialized,
+				e.LedgerState.TriggerInitialized,
+				e.NotarizationManager.TriggerInitialized,
 			))
 		},
 
@@ -117,15 +117,13 @@ func New(
 		(*Engine).initEvictionState,
 		(*Engine).initBlockRequester,
 
-		func(e *Engine) {
-			e.Lifecycle().Constructed.Trigger()
-		},
+		(*Engine).TriggerConstructed,
 	)
 }
 
 func (e *Engine) Shutdown() {
-	if !e.Lifecycle().Stopped.WasTriggered() {
-		e.Lifecycle().Stopped.Trigger()
+	if !e.WasStopped() {
+		e.TriggerStopped()
 
 		e.BlockRequester.Shutdown()
 		e.Ledger.Shutdown()
@@ -202,7 +200,7 @@ func (e *Engine) Initialize(snapshot string) (err error) {
 		}
 	}
 
-	e.Lifecycle().Initialized.Trigger()
+	e.TriggerInitialized()
 
 	return
 }
@@ -394,7 +392,7 @@ func (e *Engine) initNotarizationManager() {
 }
 
 func (e *Engine) initEvictionState() {
-	e.LedgerState.Lifecycle().Initialized.Hook(func() {
+	e.LedgerState.HookInitialized(func() {
 		e.EvictionState.EvictUntil(e.Storage.Settings.LatestCommitment().Index())
 	})
 

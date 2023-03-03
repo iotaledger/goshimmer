@@ -102,7 +102,7 @@ func (c *Commitments) Import(reader io.ReadSeeker) (err error) {
 		}
 	}
 
-	c.Lifecycle().Initialized.Trigger()
+	c.TriggerInitialized()
 
 	return nil
 }

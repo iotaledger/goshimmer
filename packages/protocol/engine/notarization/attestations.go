@@ -170,7 +170,7 @@ func (a *Attestations) Import(reader io.ReadSeeker) (err error) {
 
 	a.SetLastCommittedSlot(slot.Index(slotIndex))
 
-	a.Lifecycle().Initialized.Trigger()
+	a.TriggerInitialized()
 
 	return
 }

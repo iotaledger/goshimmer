@@ -162,7 +162,7 @@ func (c *Settings) Import(reader io.ReadSeeker) (err error) {
 		return errors.Wrap(err, "failed to import settings")
 	}
 
-	c.Lifecycle().Initialized.Trigger()
+	c.TriggerInitialized()
 
 	return
 }
