@@ -39,7 +39,6 @@ import (
 type Engine struct {
 	Events              *Events
 	Storage             *storage.Storage
-	Clock               clock.Clock
 	SybilProtection     sybilprotection.SybilProtection
 	ThroughputQuota     throughputquota.ThroughputQuota
 	Ledger              *ledger.Ledger
@@ -51,6 +50,7 @@ type Engine struct {
 	Tangle              *tangle.Tangle
 	Consensus           *consensus.Consensus
 	TSCManager          *tsc.Manager
+	Clock               clock.Clock
 	SlotTimeProvider    *slot.TimeProvider
 
 	Workers *workerpool.Group
