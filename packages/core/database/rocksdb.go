@@ -25,6 +25,10 @@ func (db *rocksDB) NewStore() kvstore.KVStore {
 
 // Close closes a DB. It's crucial to call it to ensure all the pending updates make their way to disk.
 func (db *rocksDB) Close() error {
+	if err := db.RocksDB.Flush(); err != nil {
+		return err
+	}
+
 	return db.RocksDB.Close()
 }
 
