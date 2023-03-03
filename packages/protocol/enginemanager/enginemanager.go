@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
 	"github.com/iotaledger/goshimmer/packages/storage"
@@ -37,6 +38,7 @@ type EngineManager struct {
 	workers        *workerpool.Group
 
 	engineOptions           []options.Option[engine.Engine]
+	clockProvider           module.Provider[*engine.Engine, clock.Clock]
 	sybilProtectionProvider module.Provider[*engine.Engine, sybilprotection.SybilProtection]
 	throughputQuotaProvider module.Provider[*engine.Engine, throughputquota.ThroughputQuota]
 	slotTimeProvider        *slot.TimeProvider
@@ -50,6 +52,7 @@ func New(
 	dbVersion database.Version,
 	storageOptions []options.Option[database.Manager],
 	engineOptions []options.Option[engine.Engine],
+	clockProvider module.Provider[*engine.Engine, clock.Clock],
 	sybilProtectionProvider module.Provider[*engine.Engine, sybilprotection.SybilProtection],
 	throughputQuotaProvider module.Provider[*engine.Engine, throughputquota.ThroughputQuota],
 	slotTimeProvider *slot.TimeProvider) *EngineManager {
@@ -59,6 +62,7 @@ func New(
 		dbVersion:               dbVersion,
 		storageOptions:          storageOptions,
 		engineOptions:           engineOptions,
+		clockProvider:           clockProvider,
 		sybilProtectionProvider: sybilProtectionProvider,
 		throughputQuotaProvider: throughputQuotaProvider,
 		slotTimeProvider:        slotTimeProvider,
@@ -130,7 +134,7 @@ func (m *EngineManager) SetActiveInstance(instance *EngineInstance) error {
 
 func (m *EngineManager) loadEngineInstance(dirName string) *EngineInstance {
 	candidateStorage := storage.New(m.directory.Path(dirName), m.dbVersion, m.storageOptions...)
-	candidateEngine := engine.New(m.workers.CreateGroup(dirName), candidateStorage, m.sybilProtectionProvider, m.throughputQuotaProvider, m.slotTimeProvider, m.engineOptions...)
+	candidateEngine := engine.New(m.workers.CreateGroup(dirName), candidateStorage, m.clockProvider, m.sybilProtectionProvider, m.throughputQuotaProvider, m.slotTimeProvider, m.engineOptions...)
 
 	return &EngineInstance{
 		Engine:  candidateEngine,

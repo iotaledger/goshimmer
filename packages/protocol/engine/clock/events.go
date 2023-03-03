@@ -8,7 +8,7 @@ import (
 
 // Events is a collection of events that can be triggered by the Clock.
 type Events struct {
-	// AcceptanceTimeUpdated is an Event with the following signature func(newTime time.Time, now time.Time).
+	// AcceptanceTimeUpdated is an Event with the following callback signature func(newTime, now time.Time).
 	AcceptanceTimeUpdated *event.Event2[time.Time, time.Time]
 
 	// AcceptanceTimeUpdated is triggered when a Acceptance Tangle Time advances.
@@ -25,12 +25,3 @@ var NewEvents = event.CreateGroupConstructor(func() (newEvents *Events) {
 		AcceptanceTimeUpdated: event.New2[time.Time, time.Time](),
 	}
 })
-
-// TimeUpdateEvent represents an update of the clock.
-type TimeUpdateEvent struct {
-	// NewTime contains the time value that was set.
-	NewTime time.Time
-
-	// UpdateTime contains the wall clock time when the update occurred.
-	UpdateTime time.Time
-}

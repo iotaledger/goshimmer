@@ -91,11 +91,12 @@ func New(
 			optsBootstrappedThreshold: 10 * time.Second,
 			optsSnapshotDepth:         5,
 		}, opts, func(e *Engine) {
-			e.Ledger = ledger.New(workers.CreatePool("Pool", 2), e.Storage, e.optsLedgerOptions...)
-			e.LedgerState = ledgerstate.New(storageInstance, e.Ledger)
 			e.Clock = clock(e)
 			e.SybilProtection = sybilProtection(e)
 			e.ThroughputQuota = throughputQuota(e)
+
+			e.Ledger = ledger.New(workers.CreatePool("Pool", 2), e.Storage, e.optsLedgerOptions...)
+			e.LedgerState = ledgerstate.New(storageInstance, e.Ledger)
 			e.SlotTimeProvider = slotTimeProvider
 			e.NotarizationManager = notarization.NewManager(e.Storage, e.LedgerState, e.SybilProtection.Weights(), slotTimeProvider, e.optsNotarizationManagerOptions...)
 
@@ -110,7 +111,6 @@ func New(
 		(*Engine).initLedger,
 		(*Engine).initTangle,
 		(*Engine).initConsensus,
-		(*Engine).initClock,
 		(*Engine).initTSCManager,
 		(*Engine).initBlockStorage,
 		(*Engine).initNotarizationManager,
@@ -237,10 +237,6 @@ func (e *Engine) Import(reader io.ReadSeeker) (err error) {
 		return errors.Wrap(err, "failed to import notarization state")
 	}
 
-	// We need to set the genesis time before we add the activity log as otherwise the calculation is based on the empty time value.
-	e.Clock.SetAcceptedTime(e.SlotTimeProvider.EndTime(e.Storage.Settings.LatestCommitment().Index()))
-	e.Clock.SetConfirmedTime(e.SlotTimeProvider.EndTime(e.Storage.Settings.LatestCommitment().Index()))
-
 	return
 }
 
@@ -312,23 +308,6 @@ func (e *Engine) initConsensus() {
 	}, event.WithWorkerPool(e.Workers.CreatePool("Consensus", 1))) // Using just 1 worker to avoid contention
 }
 
-func (e *Engine) initClock() {
-	e.Events.Clock.LinkTo(e.Clock.Events)
-
-	wpAccepted := e.Workers.CreatePool("Clock.SetAcceptedTime", 1)   // Using just 1 worker to avoid contention
-	wpConfirmed := e.Workers.CreatePool("Clock.SetConfirmedTime", 1) // Using just 1 worker to avoid contention
-
-	e.Events.Consensus.BlockGadget.BlockAccepted.Hook(func(block *blockgadget.Block) {
-		e.Clock.SetAcceptedTime(block.IssuingTime())
-	}, event.WithWorkerPool(wpAccepted))
-	e.Events.Consensus.BlockGadget.BlockConfirmed.Hook(func(block *blockgadget.Block) {
-		e.Clock.SetConfirmedTime(block.IssuingTime())
-	}, event.WithWorkerPool(wpConfirmed))
-	e.Events.Consensus.SlotGadget.SlotConfirmed.Hook(func(index slot.Index) {
-		e.Clock.SetConfirmedTime(e.SlotTimeProvider.EndTime(index))
-	}, event.WithWorkerPool(wpConfirmed))
-}
-
 func (e *Engine) initTSCManager() {
 	e.TSCManager = tsc.New(e.Consensus.BlockGadget.IsBlockAccepted, e.Tangle, e.optsTSCManagerOptions...)
 
@@ -387,8 +366,8 @@ func (e *Engine) initNotarizationManager() {
 	}, event.WithWorkerPool(wpBlocks))
 
 	// Slots are committed whenever ATT advances, start committing only when bootstrapped.
-	e.Clock.Events.AcceptanceTimeUpdated.Hook(func(event *clock.TimeUpdateEvent) {
-		e.NotarizationManager.SetAcceptanceTime(event.NewTime)
+	e.Clock.Events().AcceptanceTimeUpdated.Hook(func(newTime, _ time.Time) {
+		e.NotarizationManager.SetAcceptanceTime(newTime)
 	}, event.WithWorkerPool(wpCommitments))
 }
 
