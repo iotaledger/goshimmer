@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
@@ -24,6 +25,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/storage/utils"
 	"github.com/iotaledger/hive.go/ads"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/crypto/identity"
@@ -60,9 +62,16 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, slotTimeProvid
 		mockAcceptance:  blockgadget.NewMockAcceptanceGadget(),
 		scheduledBlocks: shrinkingmap.New[models.BlockID, *scheduler.Block](),
 	}, opts, func(t *TestFramework) {
+		tempDir := utils.NewDirectory(test.TempDir())
+		require.NoError(test, snapshotcreator.CreateSnapshot(snapshotcreator.WithDatabaseVersion(1),
+			snapshotcreator.WithFilePath(tempDir.Path("genesis_snapshot.bin")),
+			snapshotcreator.WithSlotTimeProvider(slotTimeProvider),
+		))
+
 		storageInstance := blockdag.NewTestStorage(test, workers)
-		// set MinCommittableSlotAge to genesis so nothing is committed.
+
 		t.Engine = engine.New(workers.CreateGroup("Engine"), storageInstance, dpos.NewProvider(), mana1.NewProvider(), slotTimeProvider, t.optsEngineOptions...)
+		require.NoError(test, t.Engine.Initialize(tempDir.Path("genesis_snapshot.bin")))
 
 		test.Cleanup(func() {
 			t.Engine.Shutdown()

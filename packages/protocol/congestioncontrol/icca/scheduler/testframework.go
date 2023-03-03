@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
@@ -19,6 +20,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
+	"github.com/iotaledger/goshimmer/packages/storage/utils"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/runtime/debug"
@@ -58,6 +60,12 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, slotTimeProvid
 	}
 	t.storage = storage.New(test.TempDir(), 1)
 
+	tempDir := utils.NewDirectory(test.TempDir())
+	require.NoError(test, snapshotcreator.CreateSnapshot(snapshotcreator.WithDatabaseVersion(1),
+		snapshotcreator.WithFilePath(tempDir.Path("genesis_snapshot.bin")),
+		snapshotcreator.WithSlotTimeProvider(slotTimeProvider),
+	))
+
 	t.engine = engine.New(workers.CreateGroup("Engine"), t.storage, dpos.NewProvider(), mana1.NewProvider(), slotTimeProvider)
 	test.Cleanup(func() {
 		t.Scheduler.Shutdown()
@@ -65,6 +73,8 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, slotTimeProvid
 		workers.WaitChildren()
 		t.storage.Shutdown()
 	})
+
+	require.NoError(test, t.engine.Initialize(tempDir.Path("genesis_snapshot.bin")))
 
 	t.Tangle = tangle.NewTestFramework(
 		test,

@@ -201,9 +201,12 @@ func (e *Engine) SlotTimeProvider() *slot.TimeProvider {
 	return e.slotTimeProvider
 }
 
-func (e *Engine) Initialize(snapshot string) (err error) {
+func (e *Engine) Initialize(snapshot ...string) (err error) {
 	if !e.Storage.Settings.SnapshotImported() {
-		if err = e.readSnapshot(snapshot); err != nil {
+		if len(snapshot) == 0 || len(snapshot[0]) == 0 {
+			panic("no snapshot path specified")
+		}
+		if err = e.readSnapshot(snapshot[0]); err != nil {
 			return errors.Wrapf(err, "failed to read snapshot from file '%s'", snapshot)
 		}
 	}
