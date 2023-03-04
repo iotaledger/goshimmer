@@ -8,7 +8,7 @@ import (
 
 // Events is a collection of events that can be triggered by the Clock.
 type Events struct {
-	// AcceptanceTimeUpdated is an Event with the following callback signature func(newTime, now time.Time).
+	// AcceptanceTimeUpdated is an Event for callbacks of the type func(newTime, now time.Time).
 	AcceptanceTimeUpdated *event.Event2[time.Time, time.Time]
 
 	// AcceptanceTimeUpdated is triggered when a Acceptance Tangle Time advances.
