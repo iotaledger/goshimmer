@@ -75,9 +75,9 @@ type Engine struct {
 func New(
 	workers *workerpool.Group,
 	storageInstance *storage.Storage,
-	clock module.Provider[*Engine, clock.Clock],
-	sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection],
-	throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota],
+	clockProvider module.Provider[*Engine, clock.Clock],
+	sybilProtectionProvider module.Provider[*Engine, sybilprotection.SybilProtection],
+	throughputQuotaProvider module.Provider[*Engine, throughputquota.ThroughputQuota],
 	slotTimeProvider *slot.TimeProvider,
 	opts ...options.Option[Engine],
 ) (engine *Engine) {
@@ -93,9 +93,9 @@ func New(
 		}, opts, func(e *Engine) {
 			e.Ledger = ledger.New(workers.CreatePool("Pool", 2), e.Storage, e.optsLedgerOptions...)
 			e.LedgerState = ledgerstate.New(storageInstance, e.Ledger)
-			e.Clock = clock(e)
-			e.SybilProtection = sybilProtection(e)
-			e.ThroughputQuota = throughputQuota(e)
+			e.Clock = clockProvider(e)
+			e.SybilProtection = sybilProtectionProvider(e)
+			e.ThroughputQuota = throughputQuotaProvider(e)
 			e.SlotTimeProvider = slotTimeProvider
 			e.NotarizationManager = notarization.NewManager(e.Storage, e.LedgerState, e.SybilProtection.Weights(), slotTimeProvider, e.optsNotarizationManagerOptions...)
 

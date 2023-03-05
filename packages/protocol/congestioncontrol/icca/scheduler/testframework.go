@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/clockplugin"
+	clock "github.com/iotaledger/goshimmer/packages/protocol/engine/clock/module"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
@@ -59,7 +59,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, slotTimeProvid
 	}
 	t.storage = storage.New(test.TempDir(), 1)
 
-	t.engine = engine.New(workers.CreateGroup("Engine"), t.storage, clockplugin.Provide(), dpos.NewProvider(), mana1.NewProvider(), slotTimeProvider)
+	t.engine = engine.New(workers.CreateGroup("Engine"), t.storage, clock.Provide(), dpos.NewProvider(), mana1.NewProvider(), slotTimeProvider)
 	test.Cleanup(func() {
 		t.Scheduler.Shutdown()
 		t.engine.Shutdown()
