@@ -22,12 +22,12 @@ type Clock struct {
 // New creates a new Clock with the given options.
 func New(e *engine.Engine, opts ...options.Option[Clock]) *Clock {
 	return options.Apply(&Clock{
-		events:           clock.NewEvents(),
-		acceptanceTime:   &clock.AnchoredTime{},
-		confirmationTime: &clock.AnchoredTime{},
+		acceptanceTime:   clock.NewAnchoredTime(),
+		confirmationTime: clock.NewAnchoredTime(),
 	}, opts, func(c *Clock) {
 		e.HookConstructed(func() {
-			e.Events.Clock.LinkTo(c.events)
+			e.Events.Clock.AcceptanceTimeUpdated.LinkTo(c.acceptanceTime.OnUpdate)
+			e.Events.Clock.ConfirmedTimeUpdated.LinkTo(c.confirmationTime.OnUpdate)
 
 			async := event.WithWorkerPool(e.Workers.CreatePool("clock", 1))
 
@@ -62,11 +62,6 @@ func (c *Clock) AcceptanceTime() *clock.AnchoredTime {
 
 func (c *Clock) ConfirmationTime() *clock.AnchoredTime {
 	return c.confirmationTime
-}
-
-// Events returns the Events of the Clock.
-func (c *Clock) Events() *clock.Events {
-	return c.events
 }
 
 func (c *Clock) onBlockAccepted(block *blockgadget.Block) {

@@ -10,9 +10,6 @@ type Clock interface {
 
 	ConfirmationTime() *AnchoredTime
 
-	// Events returns a dictionary that contains all events that are triggered by the Clock.
-	Events() *Events
-
 	// Interface embeds the required methods of the module.Interface.
 	module.Interface
 }
