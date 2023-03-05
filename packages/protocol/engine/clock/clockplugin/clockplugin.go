@@ -37,7 +37,6 @@ func Provide(opts ...options.Option[ClockPlugin]) module.Provider[*engine.Engine
 				})
 
 				async := event.WithWorkerPool(e.Workers.CreatePool("clock", 1))
-
 				c.HookStopped(e.Events.Consensus.BlockGadget.BlockAccepted.Hook(func(block *blockgadget.Block) {
 					c.acceptanceTime.Set(block.IssuingTime())
 				}, async).Unhook)
@@ -49,9 +48,9 @@ func Provide(opts ...options.Option[ClockPlugin]) module.Provider[*engine.Engine
 				c.HookStopped(e.Events.Consensus.SlotGadget.SlotConfirmed.Hook(func(index slot.Index) {
 					c.confirmationTime.Set(e.SlotTimeProvider.EndTime(index))
 				}, async).Unhook)
-
-				e.HookStopped(c.TriggerStopped)
 			})
+
+			e.HookStopped(c.TriggerStopped)
 		}, (*ClockPlugin).TriggerConstructed)
 	})
 }
