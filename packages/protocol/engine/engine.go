@@ -182,7 +182,7 @@ func (e *Engine) IsBootstrapped() (isBootstrapped bool) {
 		return true
 	}
 
-	if isBootstrapped = time.Since(e.Clock.RelativeAcceptedTime()) < e.optsBootstrappedThreshold && e.NotarizationManager.IsFullyCommitted(); isBootstrapped {
+	if isBootstrapped = time.Since(e.Clock.AcceptanceTime().Now()) < e.optsBootstrappedThreshold && e.NotarizationManager.IsFullyCommitted(); isBootstrapped {
 		e.isBootstrapped = true
 	}
 
@@ -190,7 +190,7 @@ func (e *Engine) IsBootstrapped() (isBootstrapped bool) {
 }
 
 func (e *Engine) IsSynced() (isBootstrapped bool) {
-	return e.IsBootstrapped() && time.Since(e.Clock.AcceptedTime()) < e.optsBootstrappedThreshold
+	return e.IsBootstrapped() && time.Since(e.Clock.AcceptanceTime().Get()) < e.optsBootstrappedThreshold
 }
 
 func (e *Engine) Initialize(snapshot string) (err error) {
@@ -365,7 +365,7 @@ func (e *Engine) initNotarizationManager() {
 	}, event.WithWorkerPool(wpBlocks))
 
 	// Slots are committed whenever ATT advances, start committing only when bootstrapped.
-	e.Clock.Events().AcceptanceTimeUpdated.Hook(func(newTime, _ time.Time) {
+	e.Events.Clock.AcceptanceTimeUpdated.Hook(func(newTime, _ time.Time) {
 		e.NotarizationManager.SetAcceptanceTime(newTime)
 	}, event.WithWorkerPool(wpCommitments))
 }

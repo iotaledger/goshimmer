@@ -1,8 +1,6 @@
 package tangletime
 
 import (
-	"time"
-
 	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
@@ -14,9 +12,9 @@ import (
 
 // Clock is a module for the Engine that provides a notion of time.
 type Clock struct {
-	events        *clock.Events
-	lastAccepted  *timeUpdate
-	lastConfirmed *timeUpdate
+	events           *clock.Events
+	acceptanceTime   *clock.AnchoredTime
+	confirmationTime *clock.AnchoredTime
 
 	module.Module
 }
@@ -24,23 +22,24 @@ type Clock struct {
 // New creates a new Clock with the given options.
 func New(e *engine.Engine, opts ...options.Option[Clock]) *Clock {
 	return options.Apply(&Clock{
-		events:        clock.NewEvents(),
-		lastAccepted:  &timeUpdate{},
-		lastConfirmed: &timeUpdate{},
+		events:           clock.NewEvents(),
+		acceptanceTime:   &clock.AnchoredTime{},
+		confirmationTime: &clock.AnchoredTime{},
 	}, opts, func(c *Clock) {
 		e.HookConstructed(func() {
 			e.Events.Clock.LinkTo(c.events)
 
-			worker := event.WithWorkerPool(e.Workers.CreatePool("clock", 1))
-			c.HookStopped(e.Events.Consensus.BlockGadget.BlockAccepted.Hook(c.onBlockAccepted, worker).Unhook)
-			c.HookStopped(e.Events.Consensus.BlockGadget.BlockConfirmed.Hook(c.onBlockConfirmed, worker).Unhook)
+			async := event.WithWorkerPool(e.Workers.CreatePool("clock", 1))
+
+			c.HookStopped(e.Events.Consensus.BlockGadget.BlockAccepted.Hook(c.onBlockAccepted, async).Unhook)
+			c.HookStopped(e.Events.Consensus.BlockGadget.BlockConfirmed.Hook(c.onBlockConfirmed, async).Unhook)
 			c.HookStopped(e.Events.Consensus.SlotGadget.SlotConfirmed.Hook(func(index slot.Index) {
-				c.SetConfirmedTime(e.SlotTimeProvider.EndTime(index))
-			}, worker).Unhook)
+				c.confirmationTime.Set(e.SlotTimeProvider.EndTime(index))
+			}, async).Unhook)
 
 			e.LedgerState.HookInitialized(func() {
-				c.SetAcceptedTime(e.SlotTimeProvider.EndTime(e.Storage.Settings.LatestCommitment().Index()))
-				c.SetConfirmedTime(e.SlotTimeProvider.EndTime(e.Storage.Settings.LatestCommitment().Index()))
+				c.acceptanceTime.Set(e.SlotTimeProvider.EndTime(e.Storage.Settings.LatestCommitment().Index()))
+				c.confirmationTime.Set(e.SlotTimeProvider.EndTime(e.Storage.Settings.LatestCommitment().Index()))
 
 				c.TriggerInitialized()
 			})
@@ -57,38 +56,12 @@ func NewProvider(opts ...options.Option[Clock]) module.Provider[*engine.Engine, 
 	})
 }
 
-// AcceptedTime returns the Time of the last accepted Block.
-func (c *Clock) AcceptedTime() (acceptedTime time.Time) {
-	return c.lastAccepted.Time()
+func (c *Clock) AcceptanceTime() *clock.AnchoredTime {
+	return c.acceptanceTime
 }
 
-// RelativeAcceptedTime returns the real-Time adjusted version of the Time of the last accepted Block.
-func (c *Clock) RelativeAcceptedTime() (relativeAcceptedTime time.Time) {
-	return c.lastAccepted.RelativeTime()
-}
-
-// SetAcceptedTime sets the time of the last accepted Block.
-func (c *Clock) SetAcceptedTime(acceptedTime time.Time) {
-	if now := time.Now(); c.lastAccepted.Update(now, acceptedTime) {
-		c.events.AcceptanceTimeUpdated.Trigger(acceptedTime, now)
-	}
-}
-
-// ConfirmedTime returns the Time of the last confirmed Block.
-func (c *Clock) ConfirmedTime() (confirmedTime time.Time) {
-	return c.lastConfirmed.Time()
-}
-
-// RelativeConfirmedTime returns the real-Time adjusted version of the Time of the last confirmed Block.
-func (c *Clock) RelativeConfirmedTime() (relativeConfirmedTime time.Time) {
-	return c.lastConfirmed.RelativeTime()
-}
-
-// SetConfirmedTime sets the Time of the last confirmed Block.
-func (c *Clock) SetConfirmedTime(confirmedTime time.Time) {
-	if now := time.Now(); c.lastConfirmed.Update(now, confirmedTime) {
-		c.events.ConfirmedTimeUpdated.Trigger(confirmedTime, now)
-	}
+func (c *Clock) ConfirmationTime() *clock.AnchoredTime {
+	return c.confirmationTime
 }
 
 // Events returns the Events of the Clock.
@@ -97,11 +70,11 @@ func (c *Clock) Events() *clock.Events {
 }
 
 func (c *Clock) onBlockAccepted(block *blockgadget.Block) {
-	c.SetAcceptedTime(block.IssuingTime())
+	c.acceptanceTime.Set(block.IssuingTime())
 }
 
 func (c *Clock) onBlockConfirmed(block *blockgadget.Block) {
-	c.SetConfirmedTime(block.IssuingTime())
+	c.confirmationTime.Set(block.IssuingTime())
 }
 
 // code contract (make sure the type implements all required methods).

@@ -198,7 +198,7 @@ func (s *SybilProtection) markValidatorActive(id identity.ID, activityTime time.
 
 	s.lastActivities.Set(id, activityTime)
 
-	s.inactivityManager.ExecuteAfter(id, func() { s.markValidatorInactive(id) }, activityTime.Add(s.optsActivityWindow).Sub(s.engine.Clock.RelativeAcceptedTime()))
+	s.inactivityManager.ExecuteAfter(id, func() { s.markValidatorInactive(id) }, activityTime.Add(s.optsActivityWindow).Sub(s.engine.Clock.AcceptanceTime().Now()))
 }
 
 func (s *SybilProtection) markValidatorInactive(id identity.ID) {

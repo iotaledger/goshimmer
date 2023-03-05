@@ -174,7 +174,7 @@ func (t *TestFramework) SetMarkersAccepted(m ...markers.Marker) {
 }
 
 func (t *TestFramework) SetAcceptedTime(acceptedTime time.Time) {
-	t.Engine.Clock.SetAcceptedTime(acceptedTime)
+	t.Engine.Clock.AcceptanceTime().Set(acceptedTime)
 }
 
 func (t *TestFramework) AssertIsPastConeTimestampCorrect(blockAlias string, expected bool) {
