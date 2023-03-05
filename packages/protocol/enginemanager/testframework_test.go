@@ -9,7 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/tangletime"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/clockplugin"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
 	"github.com/iotaledger/goshimmer/packages/protocol/enginemanager"
@@ -56,7 +56,7 @@ func NewEngineManagerTestFramework(t *testing.T, workers *workerpool.Group, slot
 		[]options.Option[engine.Engine]{
 			engine.WithLedgerOptions(ledger.WithVM(ledgerVM)),
 		},
-		tangletime.NewProvider(),
+		clockplugin.Provide(),
 		dpos.NewProvider(),
 		mana1.NewProvider(),
 		slotTimeProvider,

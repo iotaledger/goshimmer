@@ -12,7 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/tangletime"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/clockplugin"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
@@ -63,7 +63,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, slotTimeProvid
 	}, opts, func(t *TestFramework) {
 		storageInstance := blockdag.NewTestStorage(test, workers)
 		// set MinCommittableSlotAge to genesis so nothing is committed.
-		t.Engine = engine.New(workers.CreateGroup("Engine"), storageInstance, tangletime.NewProvider(), dpos.NewProvider(), mana1.NewProvider(), slotTimeProvider, t.optsEngineOptions...)
+		t.Engine = engine.New(workers.CreateGroup("Engine"), storageInstance, clockplugin.Provide(), dpos.NewProvider(), mana1.NewProvider(), slotTimeProvider, t.optsEngineOptions...)
 
 		test.Cleanup(func() {
 			t.Engine.Shutdown()

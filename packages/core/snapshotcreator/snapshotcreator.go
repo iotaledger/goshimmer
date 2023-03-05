@@ -10,7 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/tangletime"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/clockplugin"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
@@ -52,7 +52,7 @@ func CreateSnapshot(opts ...options.Option[Options]) (err error) {
 		return errors.Wrap(err, "failed to set chainID")
 	}
 
-	engineInstance := engine.New(workers.CreateGroup("Engine"), s, tangletime.NewProvider(), dpos.NewProvider(), mana1.NewProvider(), opt.SlotTimeProvider, engine.WithLedgerOptions(ledger.WithVM(opt.vm)))
+	engineInstance := engine.New(workers.CreateGroup("Engine"), s, clockplugin.Provide(), dpos.NewProvider(), mana1.NewProvider(), opt.SlotTimeProvider, engine.WithLedgerOptions(ledger.WithVM(opt.vm)))
 	defer engineInstance.Shutdown()
 
 	err = opt.createGenesisOutput(engineInstance)

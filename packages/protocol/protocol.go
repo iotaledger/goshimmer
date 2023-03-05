@@ -15,7 +15,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/tangletime"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/clockplugin"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
@@ -78,7 +78,7 @@ func New(workers *workerpool.Group, dispatcher network.Endpoint, opts ...options
 		Events:                      NewEvents(),
 		Workers:                     workers,
 		dispatcher:                  dispatcher,
-		optsClockProvider:           tangletime.NewProvider(),
+		optsClockProvider:           clockplugin.Provide(),
 		optsSybilProtectionProvider: dpos.NewProvider(),
 		optsThroughputQuotaProvider: mana1.NewProvider(),
 
