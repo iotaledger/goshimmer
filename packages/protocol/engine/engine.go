@@ -305,7 +305,6 @@ func (e *Engine) setupConsensus() {
 }
 
 func (e *Engine) setupTSCManager() {
-	e.TSCManager = tsc.New(e.Consensus.BlockGadget.IsBlockAccepted, e.Tangle, e.optsTSCManagerOptions...)
 
 	// wp := e.Workers.CreatePool("TSCManager", 1) // Using just 1 worker to avoid contention
 
