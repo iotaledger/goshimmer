@@ -4,14 +4,13 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/module"
 )
 
-// Clock is a component that provides different notions of time for the Engine that are aligned with the two notions of
-// confirmation.
+// Clock is an engine module that provides different notions of time according to the different levels of finality.
 type Clock interface {
 	// Accepted returns a notion of time that is anchored to the latest accepted block.
-	Accepted() RelativeClock
+	Accepted() RelativeTime
 
 	// Confirmed returns a notion of time that is anchored to the latest confirmed block.
-	Confirmed() RelativeClock
+	Confirmed() RelativeTime
 
 	// Interface embeds the required methods of the module.Interface.
 	module.Interface

@@ -11,13 +11,13 @@ import (
 	"github.com/iotaledger/hive.go/runtime/options"
 )
 
-// Clock is a component that provides different notions of time for the Engine.
+// Clock implements the clock.Clock interface that sources its notion of time from accepted and confirmed blocks.
 type Clock struct {
-	// acceptedClock is a notion of time that is anchored to the latest accepted block.
-	acceptedClock *RelativeClock
+	// accepted contains a notion of time that is anchored to the latest accepted block.
+	accepted *RelativeTime
 
-	// confirmedClock is a notion of time that is anchored to the latest confirmed block.
-	confirmedClock *RelativeClock
+	// confirmed contains a notion of time that is anchored to the latest confirmed block.
+	confirmed *RelativeTime
 
 	// Module embeds the required methods of the module.Interface.
 	module.Module
@@ -27,32 +27,32 @@ type Clock struct {
 func NewProvider(opts ...options.Option[Clock]) module.Provider[*engine.Engine, clock.Clock] {
 	return module.Provide(func(e *engine.Engine) clock.Clock {
 		return options.Apply(&Clock{
-			acceptedClock:  NewRelativeClock(),
-			confirmedClock: NewRelativeClock(),
+			accepted:  NewRelativeTime(),
+			confirmed: NewRelativeTime(),
 		}, opts, func(c *Clock) {
 			e.HookConstructed(func() {
 				e.LedgerState.HookInitialized(func() {
-					c.acceptedClock.Set(e.SlotTimeProvider.EndTime(e.Storage.Settings.LatestCommitment().Index()))
-					c.confirmedClock.Set(e.SlotTimeProvider.EndTime(e.Storage.Settings.LatestCommitment().Index()))
+					c.accepted.Set(e.SlotTimeProvider.EndTime(e.Storage.Settings.LatestCommitment().Index()))
+					c.confirmed.Set(e.SlotTimeProvider.EndTime(e.Storage.Settings.LatestCommitment().Index()))
 
 					c.TriggerInitialized()
 				})
 
-				e.Events.Clock.AcceptedTimeUpdated.LinkTo(c.acceptedClock.OnAnchorUpdated)
-				e.Events.Clock.ConfirmedTimeUpdated.LinkTo(c.confirmedClock.OnAnchorUpdated)
+				e.Events.Clock.AcceptedTimeUpdated.LinkTo(c.accepted.OnUpdated)
+				e.Events.Clock.ConfirmedTimeUpdated.LinkTo(c.confirmed.OnUpdated)
 
 				async := event.WithWorkerPool(e.Workers.CreatePool("Clock", 1))
 				c.HookStopped(lo.Batch(
 					e.Events.Consensus.BlockGadget.BlockAccepted.Hook(func(block *blockgadget.Block) {
-						c.acceptedClock.Advance(block.IssuingTime())
+						c.accepted.Advance(block.IssuingTime())
 					}, async).Unhook,
 
 					e.Events.Consensus.BlockGadget.BlockConfirmed.Hook(func(block *blockgadget.Block) {
-						c.confirmedClock.Advance(block.IssuingTime())
+						c.confirmed.Advance(block.IssuingTime())
 					}, async).Unhook,
 
 					e.Events.Consensus.SlotGadget.SlotConfirmed.Hook(func(index slot.Index) {
-						c.confirmedClock.Advance(e.SlotTimeProvider.EndTime(index))
+						c.confirmed.Advance(e.SlotTimeProvider.EndTime(index))
 					}, async).Unhook,
 				))
 			})
@@ -63,11 +63,11 @@ func NewProvider(opts ...options.Option[Clock]) module.Provider[*engine.Engine, 
 }
 
 // Accepted returns a notion of time that is anchored to the latest accepted block.
-func (c *Clock) Accepted() clock.RelativeClock {
-	return c.acceptedClock
+func (c *Clock) Accepted() clock.RelativeTime {
+	return c.accepted
 }
 
 // Confirmed returns a notion of time that is anchored to the latest confirmed block.
-func (c *Clock) Confirmed() clock.RelativeClock {
-	return c.confirmedClock
+func (c *Clock) Confirmed() clock.RelativeTime {
+	return c.confirmed
 }
