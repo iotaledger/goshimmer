@@ -32,8 +32,8 @@ func NewProvider(opts ...options.Option[Clock]) module.Provider[*engine.Engine, 
 		}, opts, func(c *Clock) {
 			e.HookConstructed(func() {
 				e.LedgerState.HookInitialized(func() {
-					c.accepted.Set(e.SlotTimeProvider.EndTime(e.Storage.Settings.LatestCommitment().Index()))
-					c.confirmed.Set(e.SlotTimeProvider.EndTime(e.Storage.Settings.LatestCommitment().Index()))
+					c.accepted.Set(e.SlotTimeProvider().EndTime(e.Storage.Settings.LatestCommitment().Index()))
+					c.confirmed.Set(e.SlotTimeProvider().EndTime(e.Storage.Settings.LatestCommitment().Index()))
 
 					c.TriggerInitialized()
 				})
@@ -52,7 +52,7 @@ func NewProvider(opts ...options.Option[Clock]) module.Provider[*engine.Engine, 
 					}, async).Unhook,
 
 					e.Events.Consensus.SlotGadget.SlotConfirmed.Hook(func(index slot.Index) {
-						c.confirmed.Advance(e.SlotTimeProvider.EndTime(index))
+						c.confirmed.Advance(e.SlotTimeProvider().EndTime(index))
 					}, async).Unhook,
 				))
 			})
