@@ -2,6 +2,7 @@ package conflictdag
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/hive.go/ds/advancedset"
@@ -23,6 +24,8 @@ type ConflictDAG[ConflictIDType, ResourceIDType comparable] struct {
 
 	// mutex is a mutex that prevents that two processes simultaneously update the ConflictDAG.
 	mutex *syncutils.StarvingMutex
+
+	WeightsMutex sync.RWMutex
 
 	optsMergeToMaster bool
 }
