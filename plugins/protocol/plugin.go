@@ -65,8 +65,6 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 
 	p = protocol.New(workerpool.NewGroup("Protocol"),
 		n,
-		protocol.WithGenesisUnixTimestamp(Parameters.GenesisTime),
-		protocol.WithSlotDuration(10),
 		protocol.WithSybilProtectionProvider(
 			dpos.NewProvider(
 				dpos.WithActivityWindow(Parameters.ValidatorActivityWindow),

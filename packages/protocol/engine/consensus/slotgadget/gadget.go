@@ -46,7 +46,7 @@ func (g *Gadget) LastConfirmedSlot() slot.Index {
 	return g.lastConfirmedSlot
 }
 
-func (g *Gadget) setLastConfirmedSlot(i slot.Index) {
+func (g *Gadget) SetLastConfirmedSlot(i slot.Index) {
 	g.Lock()
 	defer g.Unlock()
 
@@ -70,7 +70,7 @@ func (g *Gadget) refreshSlotConfirmation(previousLatestSlotIndex slot.Index, new
 		// Lock here, so that SlotVotersTotalWeight is not inside the lock. Otherwise, it might cause a deadlock,
 		// because one thread owns write-lock on VirtualVoting lock and needs read lock on SlotGadget lock,
 		// while this method holds WriteLock on SlotGadget lock and is waiting for ReadLock on VirtualVoting.
-		g.setLastConfirmedSlot(i)
+		g.SetLastConfirmedSlot(i)
 
 		g.Events.SlotConfirmed.Trigger(i)
 	}

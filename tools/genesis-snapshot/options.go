@@ -6,7 +6,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
-	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/runtime/options"
 )
 
@@ -19,7 +18,8 @@ var BaseOptions = []options.Option[snapshotcreator.Options]{
 		71, 130, 88, 200, 46, 56, 243, 121, 216, 236, 70, 146, 234, 158, 206, 230,
 	}),
 	snapshotcreator.WithGenesisTokenAmount(1000000000000000),
-	snapshotcreator.WithSlotTimeProvider(slot.NewTimeProvider(time.Now().Unix(), 10)),
+	snapshotcreator.WithGenesisUnixTime(time.Now().Unix()),
+	snapshotcreator.WithSlotDuration(10),
 	snapshotcreator.WithFilePath("snapshot.bin"),
 }
 
