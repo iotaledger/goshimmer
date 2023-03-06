@@ -15,6 +15,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/realitiesledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 	"github.com/iotaledger/hive.go/runtime/options"
@@ -144,7 +145,7 @@ func createSnapshot(snapshotInfo []options.Option[snapshotcreator.Options], star
 	defaultOpts := []options.Option[snapshotcreator.Options]{
 		snapshotcreator.WithFilePath("/assets/snapshot.bin"),
 		snapshotcreator.WithDatabaseVersion(protocol.DatabaseVersion),
-		snapshotcreator.WithVM(new(devnetvm.VM)),
+		snapshotcreator.WithLedgerProvider(realitiesledger.NewProvider(realitiesledger.WithVM(new(devnetvm.VM)))),
 		snapshotcreator.WithAttestAll(startSynced),
 		snapshotcreator.WithGenesisSeed(GenesisSeedBytes),
 		snapshotcreator.WithGenesisUnixTime(time.Now().Unix()),

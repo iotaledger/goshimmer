@@ -41,7 +41,7 @@ type Engine struct {
 	Storage             *storage.Storage
 	SybilProtection     sybilprotection.SybilProtection
 	ThroughputQuota     throughputquota.ThroughputQuota
-	Ledger              *ledger.Ledger
+	Ledger              ledger.Ledger
 	LedgerState         *ledgerstate.LedgerState
 	Filter              *filter.Filter
 	EvictionState       *eviction.State
@@ -60,7 +60,6 @@ type Engine struct {
 	optsBootstrappedThreshold      time.Duration
 	optsEntryPointsDepth           int
 	optsSnapshotDepth              int
-	optsLedgerOptions              []options.Option[ledger.Ledger]
 	optsNotarizationManagerOptions []options.Option[notarization.Manager]
 	optsTangleOptions              []options.Option[tangle.Tangle]
 	optsConsensusOptions           []options.Option[consensus.Consensus]
@@ -74,6 +73,7 @@ type Engine struct {
 func New(
 	workers *workerpool.Group,
 	storageInstance *storage.Storage,
+	ledger module.Provider[*Engine, ledger.Ledger],
 	sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection],
 	throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota],
 	opts ...options.Option[Engine],
@@ -88,7 +88,7 @@ func New(
 			optsBootstrappedThreshold: 10 * time.Second,
 			optsSnapshotDepth:         5,
 		}, opts, func(e *Engine) {
-			e.Ledger = ledger.New(e.Workers.CreatePool("Pool", 2), e.Storage, e.optsLedgerOptions...)
+			e.Ledger = ledger(e)
 			e.LedgerState = ledgerstate.New(e.Storage, e.Ledger)
 			e.Clock = clock.New()
 			e.SybilProtection = sybilProtection(e)
@@ -117,7 +117,6 @@ func New(
 				},
 			))
 		},
-		(*Engine).setupLedger,
 		(*Engine).setupTangle,
 		(*Engine).setupConsensus,
 		(*Engine).setupClock,
@@ -274,10 +273,6 @@ func (e *Engine) setupFilter() {
 	}, event.WithWorkerPool(e.Workers.CreatePool("Filter", 2)))
 
 	e.Events.Filter.LinkTo(e.Filter.Events)
-}
-
-func (e *Engine) setupLedger() {
-	e.Events.Ledger.LinkTo(e.Ledger.Events)
 }
 
 func (e *Engine) setupTangle() {
@@ -479,12 +474,6 @@ func WithEntryPointsDepth(entryPointsDepth int) options.Option[Engine] {
 func WithTSCManagerOptions(opts ...options.Option[tsc.Manager]) options.Option[Engine] {
 	return func(e *Engine) {
 		e.optsTSCManagerOptions = append(e.optsTSCManagerOptions, opts...)
-	}
-}
-
-func WithLedgerOptions(opts ...options.Option[ledger.Ledger]) options.Option[Engine] {
-	return func(e *Engine) {
-		e.optsLedgerOptions = append(e.optsLedgerOptions, opts...)
 	}
 }
 

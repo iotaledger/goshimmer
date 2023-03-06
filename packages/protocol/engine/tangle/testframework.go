@@ -30,7 +30,7 @@ type TestFramework struct {
 	Votes         *votes.TestFramework
 }
 
-func NewTestTangle(t *testing.T, workers *workerpool.Group, slotTimeProvider *slot.TimeProvider, ledger *ledger.Ledger, validators *sybilprotection.WeightedSet, optsTangle ...options.Option[Tangle]) *Tangle {
+func NewTestTangle(t *testing.T, workers *workerpool.Group, slotTimeProvider *slot.TimeProvider, ledger ledger.Ledger, validators *sybilprotection.WeightedSet, optsTangle ...options.Option[Tangle]) *Tangle {
 	storageInstance := blockdag.NewTestStorage(t, workers)
 
 	tangle := New(workers, ledger, eviction.NewState(storageInstance),
@@ -62,10 +62,10 @@ func NewTestFramework(test *testing.T, tangle *Tangle, bookerTF *booker.TestFram
 	}
 }
 
-func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, slotTimeProvider *slot.TimeProvider, optsTangle ...options.Option[Tangle]) *TestFramework {
+func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, ledger ledger.Ledger, slotTimeProvider *slot.TimeProvider, optsTangle ...options.Option[Tangle]) *TestFramework {
 	tangle := NewTestTangle(t, workers.CreateGroup("Tangle"),
 		slotTimeProvider,
-		ledger.NewTestLedger(t, workers.CreateGroup("Ledger")),
+		ledger,
 		sybilprotection.NewWeightedSet(sybilprotection.NewWeights(mapdb.NewMapDB())),
 		optsTangle...,
 	)

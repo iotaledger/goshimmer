@@ -14,7 +14,7 @@ import (
 
 // LedgerState represents the state of the ledger.
 type LedgerState struct {
-	MemPool        *ledger.Ledger
+	MemPool        ledger.Ledger
 	UnspentOutputs *UnspentOutputs
 	StateDiffs     *StateDiffs
 
@@ -25,7 +25,7 @@ type LedgerState struct {
 }
 
 // New creates a new ledger state.
-func New(storageInstance *storage.Storage, memPool *ledger.Ledger) (ledgerState *LedgerState) {
+func New(storageInstance *storage.Storage, memPool ledger.Ledger) (ledgerState *LedgerState) {
 	unspentOutputs := NewUnspentOutputs(storageInstance.UnspentOutputIDs, memPool)
 
 	ledgerState = &LedgerState{
@@ -38,8 +38,8 @@ func New(storageInstance *storage.Storage, memPool *ledger.Ledger) (ledgerState 
 
 	ledgerState.HookInitialized(unspentOutputs.TriggerInitialized)
 
-	ledgerState.MemPool.Events.TransactionAccepted.Hook(ledgerState.onTransactionAccepted)
-	ledgerState.MemPool.Events.TransactionInclusionUpdated.Hook(ledgerState.onTransactionInclusionUpdated)
+	ledgerState.MemPool.Events().TransactionAccepted.Hook(ledgerState.onTransactionAccepted)
+	ledgerState.MemPool.Events().TransactionInclusionUpdated.Hook(ledgerState.onTransactionInclusionUpdated)
 
 	return
 }
@@ -169,7 +169,7 @@ func (l *LedgerState) onTransactionAccepted(transactionEvent *ledger.Transaction
 
 // onTransactionInclusionUpdated is triggered when a transaction inclusion state is updated.
 func (l *LedgerState) onTransactionInclusionUpdated(inclusionUpdatedEvent *ledger.TransactionInclusionUpdatedEvent) {
-	if l.MemPool.ConflictDAG.ConfirmationState(inclusionUpdatedEvent.TransactionMetadata.ConflictIDs()).IsAccepted() {
+	if l.MemPool.ConflictDAG().ConfirmationState(inclusionUpdatedEvent.TransactionMetadata.ConflictIDs()).IsAccepted() {
 		l.StateDiffs.moveTransactionToOtherSlot(inclusionUpdatedEvent.TransactionMetadata, inclusionUpdatedEvent.PreviousInclusionSlot, inclusionUpdatedEvent.InclusionSlot)
 	}
 }

@@ -37,8 +37,12 @@ type TestFramework struct {
 	Acceptance    *blockgadget.TestFramework
 }
 
-func NewTestEngine(t *testing.T, workers *workerpool.Group, storage *storage.Storage, sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection], throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota], opts ...options.Option[Engine]) *Engine {
-	e := New(workers.CreateGroup("Engine"), storage, sybilProtection, throughputQuota, opts...)
+func NewTestEngine(t *testing.T, workers *workerpool.Group, storage *storage.Storage,
+	ledger module.Provider[*Engine, ledger.Ledger],
+	sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection],
+	throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota],
+	opts ...options.Option[Engine]) *Engine {
+	e := New(workers.CreateGroup("Engine"), storage, ledger, sybilProtection, throughputQuota, opts...)
 	t.Cleanup(e.Shutdown)
 	return e
 }
@@ -60,8 +64,12 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, engine *Engine
 	return t
 }
 
-func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection], throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota], optsEngine ...options.Option[Engine]) *TestFramework {
-	engine := NewTestEngine(t, workers.CreateGroup("Engine"), blockdag.NewTestStorage(t, workers, database.WithDBProvider(database.NewDB)), sybilProtection, throughputQuota, optsEngine...)
+func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group,
+	ledger module.Provider[*Engine, ledger.Ledger],
+	sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection],
+	throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota],
+	optsEngine ...options.Option[Engine]) *TestFramework {
+	engine := NewTestEngine(t, workers.CreateGroup("Engine"), blockdag.NewTestStorage(t, workers, database.WithDBProvider(database.NewDB)), ledger, sybilProtection, throughputQuota, optsEngine...)
 	t.Cleanup(engine.Shutdown)
 
 	return NewTestFramework(t, workers, engine)

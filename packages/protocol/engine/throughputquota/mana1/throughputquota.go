@@ -182,7 +182,7 @@ func (m *ThroughputQuota) init() {
 	m.TriggerInitialized()
 
 	wp := m.workers.CreatePool("ThroughputQuota", 2)
-	m.engine.Ledger.Events.TransactionAccepted.Hook(func(event *ledger.TransactionEvent) {
+	m.engine.Ledger.Events().TransactionAccepted.Hook(func(event *ledger.TransactionEvent) {
 		m.quotaByIDMutex.Lock()
 		defer m.quotaByIDMutex.Unlock()
 		for _, createdOutput := range event.CreatedOutputs {
@@ -197,7 +197,7 @@ func (m *ThroughputQuota) init() {
 			}
 		}
 	}, event.WithWorkerPool(wp))
-	m.engine.Ledger.Events.TransactionOrphaned.Hook(func(event *ledger.TransactionEvent) {
+	m.engine.Ledger.Events().TransactionOrphaned.Hook(func(event *ledger.TransactionEvent) {
 		m.quotaByIDMutex.Lock()
 		defer m.quotaByIDMutex.Unlock()
 

@@ -19,6 +19,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/realitiesledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/goshimmer/packages/storage/utils"
@@ -61,14 +62,17 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, optsScheduler 
 	}
 	t.storage = storage.New(test.TempDir(), 1)
 
+	ledgerProvider := realitiesledger.NewProvider()
+
 	tempDir := utils.NewDirectory(test.TempDir())
 	require.NoError(test, snapshotcreator.CreateSnapshot(snapshotcreator.WithDatabaseVersion(1),
 		snapshotcreator.WithFilePath(tempDir.Path("genesis_snapshot.bin")),
 		snapshotcreator.WithGenesisUnixTime(time.Now().Add(-5*time.Hour).Unix()),
 		snapshotcreator.WithSlotDuration(10),
+		snapshotcreator.WithLedgerProvider(ledgerProvider),
 	))
 
-	t.engine = engine.New(workers.CreateGroup("Engine"), t.storage, dpos.NewProvider(), mana1.NewProvider())
+	t.engine = engine.New(workers.CreateGroup("Engine"), t.storage, ledgerProvider, dpos.NewProvider(), mana1.NewProvider())
 	test.Cleanup(func() {
 		t.Scheduler.Shutdown()
 		t.engine.Shutdown()

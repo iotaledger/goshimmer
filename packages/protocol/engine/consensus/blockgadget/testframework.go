@@ -62,8 +62,9 @@ func NewTestFramework(test *testing.T, gadget *Gadget, tangleTF *tangle.TestFram
 	return t
 }
 
-func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, optsGadget ...options.Option[Gadget]) *TestFramework {
+func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, ledger ledger.Ledger, optsGadget ...options.Option[Gadget]) *TestFramework {
 	tangleTF := tangle.NewDefaultTestFramework(t, workers.CreateGroup("TangleTestFramework"),
+		ledger,
 		slot.NewTimeProvider(time.Now().Unix(), 10),
 		tangle.WithBookerOptions(
 			booker.WithMarkerManagerOptions(

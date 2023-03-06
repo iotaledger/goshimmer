@@ -23,7 +23,7 @@ type Tangle struct {
 
 	BlockDAG *blockdag.BlockDAG
 	Booker   *booker.Booker
-	Ledger   *ledger.Ledger
+	Ledger   ledger.Ledger
 
 	optsBlockDAG []options.Option[blockdag.BlockDAG]
 	optsBooker   []options.Option[booker.Booker]
@@ -32,7 +32,7 @@ type Tangle struct {
 // New is the constructor for a new Tangle.
 func New(
 	workers *workerpool.Group,
-	ledger *ledger.Ledger,
+	ledger ledger.Ledger,
 	evictionState *eviction.State,
 	slotTimeProviderFunc func() *slot.TimeProvider,
 	validators *sybilprotection.WeightedSet,

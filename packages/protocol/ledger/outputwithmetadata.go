@@ -5,6 +5,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/mockedvm"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/objectstorage/generic/model"
@@ -110,7 +111,7 @@ func (o *OutputWithMetadata) IOTABalance() (balance uint64, exists bool) {
 	switch output := o.Output().(type) {
 	case devnetvm.Output:
 		return output.Balances().Get(devnetvm.ColorIOTA)
-	case *MockedOutput:
+	case *mockedvm.MockedOutput:
 		return output.M.Balance, true
 	default:
 		panic(fmt.Sprintf("unknown output type '%s'", output))

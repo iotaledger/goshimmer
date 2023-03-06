@@ -1,21 +1,22 @@
-package ledger
+package realitiesledger
 
 import (
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/cerrors"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/hive.go/core/dataflow"
 	"github.com/iotaledger/hive.go/ds/walker"
 )
 
-// validator is a Ledger component that bundles the API that is used to check the validity of a Transaction.
+// validator is a RealitiesLedger component that bundles the API that is used to check the validity of a Transaction.
 type validator struct {
-	ledger *Ledger
+	ledger *RealitiesLedger
 }
 
-// newValidator returns a new validator instance for the given Ledger.
-func newValidator(ledger *Ledger) *validator {
+// newValidator returns a new validator instance for the given RealitiesLedger.
+func newValidator(ledger *RealitiesLedger) *validator {
 	return &validator{
 		ledger: ledger,
 	}
@@ -24,13 +25,13 @@ func newValidator(ledger *Ledger) *validator {
 // checkSolidityCommand is a ChainedCommand that aborts the DataFlow if the Transaction is not solid.
 func (v *validator) checkSolidityCommand(params *dataFlowParams, next dataflow.Next[*dataFlowParams]) (err error) {
 	if params.InputIDs.IsEmpty() {
-		params.InputIDs = v.ledger.Utils.ResolveInputs(params.Transaction.Inputs())
+		params.InputIDs = v.ledger.utils.ResolveInputs(params.Transaction.Inputs())
 	}
 
-	cachedInputs := v.ledger.Storage.CachedOutputs(params.InputIDs)
+	cachedInputs := v.ledger.storage.CachedOutputs(params.InputIDs)
 	defer cachedInputs.Release()
 	if params.Inputs = utxo.NewOutputs(cachedInputs.Unwrap(true)...); params.Inputs.Size() != len(cachedInputs) {
-		return errors.WithMessagef(ErrTransactionUnsolid, "not all outputs of %s available", params.Transaction.ID())
+		return errors.WithMessagef(ledger.ErrTransactionUnsolid, "not all outputs of %s available", params.Transaction.ID())
 	}
 
 	return next(params)
@@ -39,16 +40,16 @@ func (v *validator) checkSolidityCommand(params *dataFlowParams, next dataflow.N
 // checkOutputsCausallyRelatedCommand is a ChainedCommand that aborts the DataFlow if the spent Outputs reference each
 // other.
 func (v *validator) checkOutputsCausallyRelatedCommand(params *dataFlowParams, next dataflow.Next[*dataFlowParams]) (err error) {
-	cachedOutputsMetadata := v.ledger.Storage.CachedOutputsMetadata(params.InputIDs)
+	cachedOutputsMetadata := v.ledger.storage.CachedOutputsMetadata(params.InputIDs)
 	defer cachedOutputsMetadata.Release()
 
-	params.InputsMetadata = NewOutputsMetadata(cachedOutputsMetadata.Unwrap(true)...)
+	params.InputsMetadata = ledger.NewOutputsMetadata(cachedOutputsMetadata.Unwrap(true)...)
 	if params.InputsMetadata.Size() != len(cachedOutputsMetadata) {
 		return errors.WithMessagef(cerrors.ErrFatal, "failed to retrieve the metadata of all inputs of %s", params.Transaction.ID())
 	}
 
 	if v.outputsCausallyRelated(params.InputsMetadata) {
-		return errors.WithMessagef(ErrTransactionInvalid, "%s is trying to spend causally related Outputs", params.Transaction.ID())
+		return errors.WithMessagef(ledger.ErrTransactionInvalid, "%s is trying to spend causally related Outputs", params.Transaction.ID())
 	}
 
 	return next(params)
@@ -59,7 +60,7 @@ func (v *validator) checkOutputsCausallyRelatedCommand(params *dataFlowParams, n
 func (v *validator) checkTransactionExecutionCommand(params *dataFlowParams, next dataflow.Next[*dataFlowParams]) (err error) {
 	utxoOutputs, err := v.ledger.optsVM.ExecuteTransaction(params.Transaction, params.Inputs)
 	if err != nil {
-		return errors.WithMessagef(ErrTransactionInvalid, "failed to execute transaction with %s: %s", params.Transaction.ID(), err.Error())
+		return errors.WithMessagef(ledger.ErrTransactionInvalid, "failed to execute transaction with %s: %s", params.Transaction.ID(), err.Error())
 	}
 
 	params.Outputs = utxo.NewOutputs(utxoOutputs...)
@@ -68,13 +69,13 @@ func (v *validator) checkTransactionExecutionCommand(params *dataFlowParams, nex
 }
 
 // outputsCausallyRelated returns true if the Outputs denoted by the given OutputsMetadata reference each other.
-func (v *validator) outputsCausallyRelated(outputsMetadata *OutputsMetadata) (related bool) {
-	spentOutputIDs := outputsMetadata.Filter((*OutputMetadata).IsSpent).IDs()
+func (v *validator) outputsCausallyRelated(outputsMetadata *ledger.OutputsMetadata) (related bool) {
+	spentOutputIDs := outputsMetadata.Filter((*ledger.OutputMetadata).IsSpent).IDs()
 	if spentOutputIDs.Size() == 0 {
 		return false
 	}
 
-	v.ledger.Utils.WalkConsumingTransactionMetadata(spentOutputIDs, func(txMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
+	v.ledger.utils.WalkConsumingTransactionMetadata(spentOutputIDs, func(txMetadata *ledger.TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
 		if !txMetadata.IsBooked() {
 			return
 		}

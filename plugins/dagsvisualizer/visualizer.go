@@ -94,7 +94,7 @@ func registerTangleEvents(plugin *node.Plugin) {
 			Type: BlkTypeTangleTxConfirmationState,
 			Data: &tangleTxConfirmationStateChanged{
 				ID:          attachmentBlock.ID().Base58(),
-				IsConfirmed: deps.Protocol.Engine().Ledger.Utils.TransactionConfirmationState(event.Metadata.ID()).IsAccepted(),
+				IsConfirmed: deps.Protocol.Engine().Ledger.Utils().TransactionConfirmationState(event.Metadata.ID()).IsAccepted(),
 			},
 		}
 		broadcastWsBlock(wsBlk)
@@ -118,7 +118,7 @@ func registerUTXOEvents(plugin *node.Plugin) {
 	deps.Protocol.Events.Engine.Tangle.Booker.BlockBooked.Hook(func(evt *booker.BlockBookedEvent) {
 		if evt.Block.Payload().Type() == devnetvm.TransactionType {
 			tx := evt.Block.Payload().(*devnetvm.Transaction)
-			deps.Protocol.Engine().Ledger.Storage.CachedTransactionMetadata(tx.ID()).Consume(func(txMetadata *ledger.TransactionMetadata) {
+			deps.Protocol.Engine().Ledger.Storage().CachedTransactionMetadata(tx.ID()).Consume(func(txMetadata *ledger.TransactionMetadata) {
 				wsBlk := &wsBlock{
 					Type: BlkTypeUTXOBooked,
 					Data: &utxoBooked{
@@ -150,7 +150,7 @@ func registerUTXOEvents(plugin *node.Plugin) {
 
 func registerConflictEvents(plugin *node.Plugin) {
 	conflictWeightChangedFunc := func(e *conflicttracker.VoterEvent[utxo.TransactionID]) {
-		conflictConfirmationState := deps.Protocol.Engine().Ledger.ConflictDAG.ConfirmationState(utxo.NewTransactionIDs(e.ConflictID))
+		conflictConfirmationState := deps.Protocol.Engine().Ledger.ConflictDAG().ConfirmationState(utxo.NewTransactionIDs(e.ConflictID))
 		wsBlk := &wsBlock{
 			Type: BlkTypeConflictWeightChanged,
 			Data: &conflictWeightChanged{
@@ -328,7 +328,7 @@ func newUTXOVertex(blkID models.BlockID, tx *devnetvm.Transaction) (ret *utxoVer
 	var confirmationState confirmation.State
 	var confirmedTime int64
 	var conflictIDs []string
-	deps.Protocol.Engine().Ledger.Storage.CachedTransactionMetadata(tx.ID()).Consume(func(txMetadata *ledger.TransactionMetadata) {
+	deps.Protocol.Engine().Ledger.Storage().CachedTransactionMetadata(tx.ID()).Consume(func(txMetadata *ledger.TransactionMetadata) {
 		confirmationState = txMetadata.ConfirmationState()
 		confirmedTime = txMetadata.ConfirmationStateTime().UnixNano()
 		conflictIDs = lo.Map(txMetadata.ConflictIDs().Slice(), utxo.TransactionID.Base58)
@@ -349,7 +349,7 @@ func newUTXOVertex(blkID models.BlockID, tx *devnetvm.Transaction) (ret *utxoVer
 }
 
 func newConflictVertex(conflictID utxo.TransactionID) (ret *conflictVertex) {
-	conflict, exists := deps.Protocol.Engine().Ledger.ConflictDAG.Conflict(conflictID)
+	conflict, exists := deps.Protocol.Engine().Ledger.ConflictDAG().Conflict(conflictID)
 	if !exists {
 		return
 	}
@@ -363,7 +363,7 @@ func newConflictVertex(conflictID utxo.TransactionID) (ret *conflictVertex) {
 			return conflict.ID()
 		})
 	}
-	confirmationState := deps.Protocol.Engine().Ledger.ConflictDAG.ConfirmationState(utxo.NewTransactionIDs(conflictID))
+	confirmationState := deps.Protocol.Engine().Ledger.ConflictDAG().ConfirmationState(utxo.NewTransactionIDs(conflictID))
 	ret = &conflictVertex{
 		ID:                conflictID.Base58(),
 		Parents:           lo.Map(conflict.Parents().Slice(), utxo.TransactionID.Base58),
