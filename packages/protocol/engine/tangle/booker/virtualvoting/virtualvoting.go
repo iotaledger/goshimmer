@@ -2,6 +2,7 @@ package virtualvoting
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
@@ -123,6 +124,14 @@ func (o *VirtualVoting) ConflictVoters(conflictID utxo.TransactionID) (voters *s
 func (o *VirtualVoting) ConflictVotersTotalWeight(conflictID utxo.TransactionID) (totalWeight int64) {
 	o.evictionMutex.RLock()
 	defer o.evictionMutex.RUnlock()
+
+	if conflict, exists := o.ConflictDAG.Conflict(conflictID); exists {
+		if conflict.ConfirmationState().IsAccepted() {
+			return math.MaxInt64
+		} else if conflict.ConfirmationState().IsRejected() {
+			return 0
+		}
+	}
 
 	_ = o.conflictTracker.Voters(conflictID).ForEach(func(id identity.ID) error {
 		if weight, exists := o.Validators.Get(id); exists {
