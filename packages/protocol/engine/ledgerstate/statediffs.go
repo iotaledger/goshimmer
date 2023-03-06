@@ -269,7 +269,7 @@ func (s *StateDiffs) storeTransaction(transaction utxo.Transaction, metadata *le
 	}
 
 	for it := metadata.OutputIDs().Iterator(); it.HasNext(); {
-		if err = s.StoreCreatedOutput(s.outputWithMetadata(it.Next())); err != nil {
+		if err = s.StoreCreatedOutput(s.outputWithMetadata(it.Next(), metadata.InclusionSlot())); err != nil {
 			return errors.Wrap(err, "failed to storeOutput created output")
 		}
 	}
@@ -283,10 +283,14 @@ func (s *StateDiffs) storeTransaction(transaction utxo.Transaction, metadata *le
 	return nil
 }
 
-func (s *StateDiffs) outputWithMetadata(outputID utxo.OutputID) (outputWithMetadata *ledger.OutputWithMetadata) {
+func (s *StateDiffs) outputWithMetadata(outputID utxo.OutputID, index ...slot.Index) (outputWithMetadata *ledger.OutputWithMetadata) {
 	s.ledger.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
 		s.ledger.Storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledger.OutputMetadata) {
-			outputWithMetadata = ledger.NewOutputWithMetadata(outputMetadata.InclusionSlot(), outputID, output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())
+			if len(index) > 0 {
+				outputWithMetadata = ledger.NewOutputWithMetadata(index[0], outputID, output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())
+			} else {
+				outputWithMetadata = ledger.NewOutputWithMetadata(outputMetadata.InclusionSlot(), outputID, output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())
+			}
 		})
 	})
 
