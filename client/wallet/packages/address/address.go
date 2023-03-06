@@ -1,10 +1,10 @@
 package address
 
 import (
-	"github.com/iotaledger/hive.go/core/stringify"
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/hive.go/stringify"
 )
 
 // Address represents an address in a wallet. It extends the normal address type with an index number that was used to

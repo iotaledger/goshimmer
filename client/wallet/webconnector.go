@@ -1,14 +1,14 @@
 package wallet
 
 import (
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
+	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 // WebConnector implements a connector that uses the web API to connect to a node to implement the required functions
@@ -129,11 +129,11 @@ func (webConnector WebConnector) GetTransactionConfirmationState(txID utxo.Trans
 
 // GetUnspentAliasOutput returns the current unspent alias output that belongs to a given alias address.
 func (webConnector WebConnector) GetUnspentAliasOutput(addr *devnetvm.AliasAddress) (output *devnetvm.AliasOutput, err error) {
-	res, err := webConnector.client.GetAddressUnspentOutputs(addr.Base58())
+	res, err := webConnector.client.GetAddressOutputs(addr.Base58())
 	if err != nil {
 		return
 	}
-	for _, o := range res.Outputs {
+	for _, o := range res.UnspentOutputs {
 		if o.Type != devnetvm.AliasOutputType.String() {
 			continue
 		}

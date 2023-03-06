@@ -3,7 +3,7 @@ package dpos
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 // WithActivityWindow sets the duration for which a validator is recognized as active after issuing a block.

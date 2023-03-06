@@ -3,13 +3,13 @@ package manualpeering
 import (
 	"net/http"
 
-	"github.com/iotaledger/hive.go/core/crypto/ed25519"
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/network/manualpeering"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
 )
 
 // RouteManualPeers defines the HTTP path for manualpeering peers endpoint.

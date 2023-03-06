@@ -6,19 +6,18 @@ import (
 
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/hive.go/app/daemon"
-	"github.com/iotaledger/hive.go/core/autopeering/peer"
-	"github.com/iotaledger/hive.go/core/autopeering/selection"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/logger"
-	"github.com/iotaledger/hive.go/core/timeutil"
-
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
+	"github.com/iotaledger/hive.go/app/daemon"
+	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/autopeering/selection"
+	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/timeutil"
 )
 
 // PluginName is the name of the metrics plugin.
@@ -50,9 +49,9 @@ func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
 }
 
-func run(_ *node.Plugin) {
+func run(plugin *node.Plugin) {
 	log.Infof("Starting %s ...", PluginName)
-	registerLocalMetrics()
+	registerLocalMetrics(plugin)
 	// create a background worker that update the metrics every second
 	if err := daemon.BackgroundWorker("Metrics Updater", func(ctx context.Context) {
 		// Do not block until the Ticker is shutdown because we might want to start multiple Tickers and we can
@@ -70,11 +69,11 @@ func run(_ *node.Plugin) {
 	}
 }
 
-func registerLocalMetrics() {
+func registerLocalMetrics(plugin *node.Plugin) {
 	// increase received BPS counter whenever we attached a block
-	deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Attach(event.NewClosure(func(block *blockdag.Block) {
+	deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Hook(func(block *blockdag.Block) {
 		blockCountPerComponentMutex.Lock()
 		defer blockCountPerComponentMutex.Unlock()
 		increaseReceivedBPSCounter()
-	}))
+	}, event.WithWorkerPool(plugin.WorkerPool))
 }

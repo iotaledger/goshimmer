@@ -5,14 +5,14 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/node"
-	"github.com/iotaledger/hive.go/core/logger"
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
+	"github.com/iotaledger/hive.go/logger"
 )
 
 const maxIssuedAwaitTime = 5 * time.Second
@@ -56,10 +56,14 @@ func broadcastData(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: "no data provided"})
 	}
 
-	if request.MaxEstimate > 0 && deps.BlockIssuer.Estimate().Milliseconds() > request.MaxEstimate {
-		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{
-			Error: fmt.Sprintf("issuance estimate greater than %d ms", request.MaxEstimate),
-		})
+	maxAwaitTime := maxIssuedAwaitTime
+	if request.MaxEstimate > 0 {
+		maxAwaitTime = time.Duration(request.MaxEstimate) * time.Millisecond
+		if deps.BlockIssuer.Estimate().Milliseconds() > request.MaxEstimate {
+			return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{
+				Error: fmt.Sprintf("issuance estimate greater than %d ms", request.MaxEstimate),
+			})
+		}
 	}
 
 	constructedBlock, err := deps.BlockIssuer.CreateBlock(payload.NewGenericDataPayload(request.Data))
@@ -68,7 +72,7 @@ func broadcastData(c echo.Context) error {
 	}
 
 	// await BlockScheduled event to be triggered.
-	err = deps.BlockIssuer.IssueBlockAndAwaitBlockToBeScheduled(constructedBlock, time.Duration(request.MaxEstimate)*time.Millisecond)
+	err = deps.BlockIssuer.IssueBlockAndAwaitBlockToBeScheduled(constructedBlock, maxAwaitTime)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, jsonmodels.DataResponse{Error: err.Error()})
 	}

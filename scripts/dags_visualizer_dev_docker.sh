@@ -3,6 +3,8 @@
 # Installs required dependencies and runs node's dashboard.
 
 echo "::: Running /plugins/dagsvisualizer/frontend :::"
+rm -rf plugins/dagsvisualizer/frontend/build
+
 docker run -it --rm \
     -p 3000:3000 -u $(id -u ${USER}):$(id -g ${USER}) \
     --name="dagsvisualizer-dev-docker" \

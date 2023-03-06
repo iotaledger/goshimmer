@@ -21,7 +21,7 @@ module.exports = {
     },
     output: {
         path: outPath,
-        publicPath: isProduction ? "/app" : "http://127.0.0.1:9090/",
+        publicPath: isProduction ? "/app" : "http://127.0.0.1:9999/",
         filename: isProduction ? '[contenthash].js' : '[hash].js',
         chunkFilename: isProduction ? '[name].[contenthash].js' : '[name].[hash].js'
     },

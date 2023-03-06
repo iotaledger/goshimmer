@@ -1,6 +1,6 @@
 package jsonmodels
 
-import "github.com/iotaledger/hive.go/core/crypto/ed25519"
+import "github.com/iotaledger/hive.go/crypto/ed25519"
 
 // PeerToRemove holds the data that uniquely identifies the peer to be removed, e.g. public key or ID.
 // Only public key is supported for now.

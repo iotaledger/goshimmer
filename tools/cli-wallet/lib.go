@@ -8,14 +8,14 @@ import (
 	"unsafe"
 
 	"github.com/capossele/asset-registry/pkg/registryservice"
-	"github.com/iotaledger/hive.go/core/bitmask"
-	"github.com/iotaledger/hive.go/core/crypto/ed25519"
-	"github.com/iotaledger/hive.go/core/marshalutil"
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/client/wallet"
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/ds/bitmask"
+	"github.com/iotaledger/hive.go/serializer/v2/marshalutil"
 )
 
 // Exit should be used inside panic intead of os.Exit(). This will allow to call deferred statements.

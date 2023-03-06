@@ -7,14 +7,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/timed"
-	"github.com/iotaledger/hive.go/core/workerpool"
-
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
@@ -22,10 +14,17 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/ds/shrinkingmap"
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/timed"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 const (
-	PrefixLastCommittedEpoch byte = iota
+	PrefixLastCommittedSlot byte = iota
 	PrefixWeights
 )
 
@@ -51,7 +50,7 @@ func NewSybilProtection(engineInstance *engine.Engine, opts ...options.Option[Sy
 	return options.Apply(
 		&SybilProtection{
 			Initializable:    traits.NewInitializable(),
-			BatchCommittable: traits.NewBatchCommittable(engineInstance.Storage.SybilProtection(), PrefixLastCommittedEpoch),
+			BatchCommittable: traits.NewBatchCommittable(engineInstance.Storage.SybilProtection(), PrefixLastCommittedSlot),
 
 			engine:            engineInstance,
 			workers:           engineInstance.Workers.CreateGroup("SybilProtection"),
@@ -76,22 +75,22 @@ func NewSybilProtection(engineInstance *engine.Engine, opts ...options.Option[Sy
 					s.stopInactivityManager,
 				)
 
-				event.AttachWithWorkerPool(s.engine.Events.Tangle.BlockDAG.BlockSolid, func(block *blockdag.Block) {
+				s.engine.Events.Tangle.BlockDAG.BlockSolid.Hook(func(block *blockdag.Block) {
 					s.markValidatorActive(block.IssuerID(), block.IssuingTime())
-				}, s.workers.CreatePool("SybilProtection", 2))
+				}, event.WithWorkerPool(s.workers.CreatePool("SybilProtection", 2)))
 			})
 		})
 }
 
 func (s *SybilProtection) initializeLatestCommitment() {
-	s.SetLastCommittedEpoch(s.engine.Storage.Settings.LatestCommitment().Index())
+	s.SetLastCommittedSlot(s.engine.Storage.Settings.LatestCommitment().Index())
 }
 
 func (s *SybilProtection) initializeTotalWeight() {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	s.weights.UpdateTotalWeightEpoch(s.engine.Storage.Settings.LatestCommitment().Index())
+	s.weights.UpdateTotalWeightSlot(s.engine.Storage.Settings.LatestCommitment().Index())
 }
 
 func (s *SybilProtection) initializeActiveValidators() {
@@ -162,13 +161,13 @@ func (s *SybilProtection) RollbackSpentOutput(output *ledger.OutputWithMetadata)
 	return s.ApplyCreatedOutput(output)
 }
 
-func (s *SybilProtection) BeginBatchedStateTransition(newEpoch epoch.Index) (currentEpoch epoch.Index, err error) {
-	if currentEpoch, err = s.BatchCommittable.BeginBatchedStateTransition(newEpoch); err != nil {
+func (s *SybilProtection) BeginBatchedStateTransition(newSlot slot.Index) (currentSlot slot.Index, err error) {
+	if currentSlot, err = s.BatchCommittable.BeginBatchedStateTransition(newSlot); err != nil {
 		return 0, errors.Wrap(err, "failed to begin batched state transition")
 	}
 
-	if currentEpoch != newEpoch {
-		s.weightsBatch = sybilprotection.NewWeightsBatch(newEpoch)
+	if currentSlot != newSlot {
+		s.weightsBatch = sybilprotection.NewWeightsBatch(newSlot)
 	}
 
 	return

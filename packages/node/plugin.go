@@ -1,12 +1,13 @@
 package node
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/logger"
+	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 const (
@@ -17,24 +18,25 @@ const (
 type Callback = func(plugin *Plugin)
 
 type Plugin struct {
-	Node    *Node
-	Name    string
-	Status  int
-	Events  *PluginEvents
-	log     *logger.Logger
-	logOnce sync.Once
-	deps    interface{}
-	wg      *sync.WaitGroup
+	Node       *Node
+	Name       string
+	Status     int
+	Events     *PluginEvents
+	log        *logger.Logger
+	logOnce    sync.Once
+	deps       interface{}
+	WorkerPool *workerpool.WorkerPool
 }
 
 // NewPlugin creates a new plugin with the given name, default status and callbacks.
 // The last specified callback is the mandatory run callback, while all other callbacks are configure callbacks.
 func NewPlugin(name string, deps interface{}, status int, callbacks ...Callback) *Plugin {
 	plugin := &Plugin{
-		Name:   name,
-		Status: status,
-		deps:   deps,
-		Events: newPluginEvents(),
+		Name:       name,
+		Status:     status,
+		deps:       deps,
+		Events:     newPluginEvents(),
+		WorkerPool: workerpool.New(fmt.Sprintf("Plugin-%s", name), 1),
 	}
 
 	AddPlugin(plugin)
@@ -43,10 +45,10 @@ func NewPlugin(name string, deps interface{}, status int, callbacks ...Callback)
 	case 0:
 		// plugin doesn't have any callbacks (i.e. plugins that execute stuff on init())
 	case 1:
-		plugin.Events.Run.Hook(event.NewClosure(func(event *RunEvent) { callbacks[0](event.Plugin) }))
+		plugin.Events.Run.Hook(func(event *RunEvent) { callbacks[0](event.Plugin) })
 	case 2:
-		plugin.Events.Configure.Hook(event.NewClosure(func(event *ConfigureEvent) { callbacks[0](event.Plugin) }))
-		plugin.Events.Run.Hook(event.NewClosure(func(event *RunEvent) { callbacks[1](event.Plugin) }))
+		plugin.Events.Configure.Hook(func(event *ConfigureEvent) { callbacks[0](event.Plugin) })
+		plugin.Events.Run.Hook(func(event *RunEvent) { callbacks[1](event.Plugin) })
 	default:
 		panic("too many callbacks in NewPlugin(...)")
 	}
@@ -85,8 +87,8 @@ func (p *Plugin) LogErrorf(format string, args ...interface{}) {
 	p.Logger().Errorf(format, args...)
 }
 
-// LogErrorfAndExit uses fmt.Sprintf to log a templated message, then calls os.Exit.
-func (p *Plugin) LogErrorfAndExit(format string, args ...interface{}) {
+// LogErrorfAndExitf uses fmt.Sprintf to log a templated message, then calls os.Exit.
+func (p *Plugin) LogErrorfAndExitf(format string, args ...interface{}) {
 	p.Logger().Errorf(format, args...)
 	p.Logger().Error("Exiting...")
 	os.Exit(1)
@@ -97,8 +99,8 @@ func (p *Plugin) LogFatalAndExit(args ...interface{}) {
 	p.Logger().Fatal(args...)
 }
 
-// LogFatalfAndExit uses fmt.Sprintf to log a templated message, then calls os.Exit.
-func (p *Plugin) LogFatalfAndExit(format string, args ...interface{}) {
+// LogFatalfAndExitf uses fmt.Sprintf to log a templated message, then calls os.Exit.
+func (p *Plugin) LogFatalfAndExitf(format string, args ...interface{}) {
 	p.Logger().Fatalf(format, args...)
 }
 

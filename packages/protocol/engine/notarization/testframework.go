@@ -5,43 +5,45 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/crypto/ed25519"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/kvstore/mapdb"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 type TestFramework struct {
-	MutationFactory *EpochMutations
+	MutationFactory  *SlotMutations
+	slotTimeProvider *slot.TimeProvider
 
-	test               *testing.T
-	transactionsByID   map[string]*ledger.TransactionMetadata
-	issuersByID        map[string]ed25519.PublicKey
-	weights            *sybilprotection.Weights
-	blocksByID         map[string]*models.Block
-	epochEntityCounter map[epoch.Index]int
+	test              *testing.T
+	transactionsByID  map[string]*ledger.TransactionMetadata
+	issuersByID       map[string]ed25519.PublicKey
+	weights           *sybilprotection.Weights
+	blocksByID        map[string]*models.Block
+	slotEntityCounter map[slot.Index]int
 
 	sync.RWMutex
 }
 
-func NewTestFramework(test *testing.T) *TestFramework {
+func NewTestFramework(test *testing.T, slotTimeProvider *slot.TimeProvider) *TestFramework {
 	tf := &TestFramework{
-		test:               test,
-		transactionsByID:   make(map[string]*ledger.TransactionMetadata),
-		issuersByID:        make(map[string]ed25519.PublicKey),
-		blocksByID:         make(map[string]*models.Block),
-		epochEntityCounter: make(map[epoch.Index]int),
+		test:              test,
+		slotTimeProvider:  slotTimeProvider,
+		transactionsByID:  make(map[string]*ledger.TransactionMetadata),
+		issuersByID:       make(map[string]ed25519.PublicKey),
+		blocksByID:        make(map[string]*models.Block),
+		slotEntityCounter: make(map[slot.Index]int),
 	}
 
 	tf.weights = sybilprotection.NewWeights(mapdb.NewMapDB())
-	tf.MutationFactory = NewEpochMutations(tf.weights, 0)
+	tf.MutationFactory = NewSlotMutations(tf.weights, 0)
 
 	return tf
 }
@@ -70,7 +72,7 @@ func (t *TestFramework) Issuer(alias string) (issuer ed25519.PublicKey) {
 	return t.issuersByID[alias]
 }
 
-func (t *TestFramework) CreateBlock(alias string, index epoch.Index, blockOpts ...options.Option[models.Block]) (block *models.Block) {
+func (t *TestFramework) CreateBlock(alias string, index slot.Index, blockOpts ...options.Option[models.Block]) (block *models.Block) {
 	t.Lock()
 	defer t.Unlock()
 
@@ -79,12 +81,12 @@ func (t *TestFramework) CreateBlock(alias string, index epoch.Index, blockOpts .
 	}
 
 	block = models.NewBlock(append([]options.Option[models.Block]{
-		models.WithIssuingTime(index.StartTime().Add(time.Duration(t.increaseEpochEntityCounter(index)) * time.Millisecond)),
+		models.WithIssuingTime(t.slotTimeProvider.StartTime(index).Add(time.Duration(t.increaseSlotEntityCounter(index)) * time.Millisecond)),
 		models.WithStrongParents(
 			models.NewBlockIDs(models.EmptyBlockID),
 		),
 	}, blockOpts...)...)
-	if err := block.DetermineID(); err != nil {
+	if err := block.DetermineID(t.slotTimeProvider); err != nil {
 		panic(err)
 	}
 
@@ -100,7 +102,7 @@ func (t *TestFramework) Block(alias string) (block *models.Block) {
 	return t.blocksByID[alias]
 }
 
-func (t *TestFramework) CreateTransaction(alias string, index epoch.Index) (metadata *ledger.TransactionMetadata) {
+func (t *TestFramework) CreateTransaction(alias string, index slot.Index) (metadata *ledger.TransactionMetadata) {
 	t.Lock()
 	defer t.Unlock()
 
@@ -111,7 +113,7 @@ func (t *TestFramework) CreateTransaction(alias string, index epoch.Index) (meta
 	var txID utxo.TransactionID
 	require.NoError(t.test, txID.FromRandomness())
 	metadata = ledger.NewTransactionMetadata(txID)
-	metadata.SetInclusionEpoch(index)
+	metadata.SetInclusionSlot(index)
 
 	t.transactionsByID[alias] = metadata
 
@@ -161,16 +163,16 @@ func (t *TestFramework) RemoveAcceptedTransaction(alias string) (err error) {
 	return t.MutationFactory.RemoveAcceptedTransaction(tx)
 }
 
-func (t *TestFramework) UpdateTransactionInclusion(alias string, oldEpoch, newEpoch epoch.Index) (err error) {
+func (t *TestFramework) UpdateTransactionInclusion(alias string, oldSlot, newSlot slot.Index) (err error) {
 	tx := t.Transaction(alias)
 	if tx == nil {
 		panic("transaction does not exist")
 	}
 
-	return t.MutationFactory.UpdateTransactionInclusion(tx.ID(), oldEpoch, newEpoch)
+	return t.MutationFactory.UpdateTransactionInclusion(tx.ID(), oldSlot, newSlot)
 }
 
-func (t *TestFramework) AssertCommit(index epoch.Index, expectedBlocks []string, expectedTransactions []string, expectedValidators []string, expectedCumulativeWeight int64, optShouldError ...bool) {
+func (t *TestFramework) AssertCommit(index slot.Index, expectedBlocks []string, expectedTransactions []string, expectedValidators []string, expectedCumulativeWeight int64, optShouldError ...bool) {
 	acceptedBlocks, acceptedTransactions, err := t.MutationFactory.Evict(index)
 	if len(optShouldError) > 0 && optShouldError[0] {
 		require.Error(t.test, err)
@@ -195,8 +197,8 @@ func (t *TestFramework) AssertCommit(index epoch.Index, expectedBlocks []string,
 	}
 }
 
-func (t *TestFramework) increaseEpochEntityCounter(index epoch.Index) (nextBlockCounter int) {
-	t.epochEntityCounter[index]++
+func (t *TestFramework) increaseSlotEntityCounter(index slot.Index) (nextBlockCounter int) {
+	t.slotEntityCounter[index]++
 
-	return t.epochEntityCounter[index]
+	return t.slotEntityCounter[index]
 }

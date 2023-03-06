@@ -6,9 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/bitmask"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
+	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
+	"github.com/iotaledger/hive.go/ds/bitmask"
+	"github.com/iotaledger/hive.go/lo"
+
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/require"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/sendoptions"
+	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
@@ -23,7 +25,7 @@ import (
 )
 
 // TestSimpleDoubleSpend tests whether consensus is able to resolve a simple double spend in a partition.
-// We set the TSC and MinEpochCommittableAge threshold so that nodes do not commit and blocks are not orphaned due to TSC.
+// We set the TSC and MinSlotCommittableAge threshold so that nodes do not commit and blocks are not orphaned due to TSC.
 // TODO: update the description to fit the test
 // We spawn a network of 2 nodes containing 40% and 20% of consensus mana respectively,
 // let them both issue conflicting transactions, and assert that the transaction
@@ -35,8 +37,8 @@ func TestSimpleDoubleSpend(t *testing.T) {
 		numberOfConflictingTxs = 10
 	)
 
-	snapshotInfo := tests.ConsensusSnapshotDetails
-
+	snapshotOptions := tests.ConsensusSnapshotOptions
+	snapshotInfo := snapshotcreator.NewOptions(snapshotOptions...)
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), 4,
@@ -45,7 +47,7 @@ func TestSimpleDoubleSpend(t *testing.T) {
 			Faucet:      false,
 			Activity:    false,
 			Autopeering: false,
-			Snapshot:    snapshotInfo,
+			Snapshot:    snapshotOptions,
 		}, tests.CommonSnapshotConfigFunc(t, snapshotInfo, func(peerIndex int, isPeerMaster bool, conf config.GoShimmer) config.GoShimmer {
 			conf.UseNodeSeedAsWalletSeed = true
 			conf.ValidatorActivityWindow = 10 * time.Minute
@@ -109,7 +111,9 @@ func TestSimpleDoubleSpend(t *testing.T) {
 
 	t.Logf("Sending %d data blocks to make ConfirmationState converge", dataBlocksAmount)
 	tests.SendDataBlocksWithDelay(t, n.Peers(), dataBlocksAmount, delayBetweenDataBlocks)
+	t.Logf("Sending %d data blocks to make ConfirmationState converge... done", dataBlocksAmount)
 
+	t.Logf("Waiting for conflicting transactions to be marked...")
 	// conflicting txs should have spawned conflicts
 	require.Eventually(t, func() bool {
 		res1, err := node1.GetTransactionMetadata(txs1[0].ID().Base58())
@@ -118,11 +122,15 @@ func TestSimpleDoubleSpend(t *testing.T) {
 		require.NoError(t, err)
 		return len(res1.ConflictIDs) > 0 && len(res2.ConflictIDs) > 0
 	}, tests.Timeout, tests.Tick)
+	t.Logf("Waiting for conflicting transactions to be marked... done")
 
+	t.Logf("Sending data blocks to resolve the conflict...")
 	// we issue blks on both nodes so the txs' ConfirmationState can change, given that they are dependent on their
 	// attachments' ConfirmationState. if blks would only be issued on node 2 or 1, they weight would never surpass 50%.
 	tests.SendDataBlocks(t, n.Peers(), 50)
+	t.Logf("Sending data blocks to resolve the conflict... done")
 
+	t.Logf("Making sure that conflicts are resolved...")
 	for i := 0; i < numberOfConflictingTxs; i++ {
 		tests.RequireConfirmationStateEqual(t, n.Peers(), tests.ExpectedTxsStates{
 			txs1[i].ID().Base58(): {
@@ -135,6 +143,8 @@ func TestSimpleDoubleSpend(t *testing.T) {
 			},
 		}, time.Minute, tests.Tick)
 	}
+	t.Logf("Making sure that conflicts are resolved... done")
+
 }
 
 func sendConflictingTx(t *testing.T, wallet *wallet.Wallet, targetAddr address.Address, actualGenesisTokenAmount uint64, node *framework.Node) *devnetvm.Transaction {

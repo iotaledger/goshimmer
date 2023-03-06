@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 type TestFramework struct {
@@ -26,7 +26,7 @@ func NewTestFramework(t *testing.T, opts ...options.Option[TestFramework]) (newF
 }
 
 func (t *TestFramework) InheritStructureDetails(alias string, inheritedStructureDetails []*StructureDetails) (structureDetails *StructureDetails, created bool) {
-	structureDetails, created = t.SequenceManager().InheritStructureDetails(inheritedStructureDetails)
+	structureDetails, created = t.SequenceManager().InheritStructureDetails(inheritedStructureDetails, false)
 	t.structureDetailsByAlias[alias] = structureDetails
 
 	return
@@ -42,7 +42,7 @@ func (t *TestFramework) StructureDetails(alias string) (structureDetails *Struct
 }
 
 func (t *TestFramework) StructureDetailsSet(aliases ...string) (structureDetailsSlice []*StructureDetails) {
-	structureDetailsSet := set.NewAdvancedSet[*StructureDetails]()
+	structureDetailsSet := advancedset.NewAdvancedSet[*StructureDetails]()
 	for _, alias := range aliases {
 		structureDetailsSet.Add(t.StructureDetails(alias))
 	}

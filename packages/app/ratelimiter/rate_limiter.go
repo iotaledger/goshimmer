@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ReneKroon/ttlcache/v2"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/logger"
+	"github.com/jellydator/ttlcache/v2"
 	"github.com/paulbellamy/ratecounter"
 	"github.com/pkg/errors"
 	"go.uber.org/atomic"
+
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/logger"
 )
 
 // RateLimit contains information about rate limit values such as time interval and the limit.

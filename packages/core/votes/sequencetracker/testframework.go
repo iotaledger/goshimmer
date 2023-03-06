@@ -4,15 +4,14 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/iotaledger/hive.go/core/debug"
-	"github.com/iotaledger/hive.go/core/generics/constraints"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
+	"github.com/iotaledger/hive.go/constraints"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/runtime/debug"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -36,15 +35,15 @@ func NewTestFramework[VotePowerType constraints.Comparable[VotePowerType]](test 
 		Markers:         markers.NewTestFramework(test, markers.WithSequenceManager(sequenceManager)),
 	}
 
-	event.Hook(t.Instance.Events.VotersUpdated, func(evt *VoterUpdatedEvent) {
+	t.Instance.Events.VotersUpdated.Hook(func(evt *VoterUpdatedEvent) {
 		if debug.GetEnabled() {
-			t.test.Logf("VOTER ADDED: %v", markers.NewMarker(evt.SequenceID, evt.NewMaxSupportedIndex))
+			t.test.Logf("VOTER ADDED: %v, %v", markers.NewMarker(evt.SequenceID, evt.NewMaxSupportedIndex), evt.Voter)
 		}
 	})
 	return t
 }
 
-func (t *TestFramework[VotePowerType]) ValidateStructureDetailsVoters(expectedVoters map[string]*set.AdvancedSet[identity.ID]) {
+func (t *TestFramework[VotePowerType]) ValidateStructureDetailsVoters(expectedVoters map[string]*advancedset.AdvancedSet[identity.ID]) {
 	for markerAlias, expectedVotersOfMarker := range expectedVoters {
 		// sanity check
 		assert.Equal(t.test, markerAlias, fmt.Sprintf("%d,%d", t.Markers.StructureDetails(markerAlias).PastMarkers().Marker().SequenceID(), t.Markers.StructureDetails(markerAlias).PastMarkers().Marker().Index()))

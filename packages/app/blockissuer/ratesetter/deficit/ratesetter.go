@@ -4,15 +4,14 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/atomic"
+
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/identity"
-
-	"go.uber.org/atomic"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 // region RateSetter ///////////////////////////////////////////////////////////////////////////////////////////////////

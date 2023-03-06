@@ -7,21 +7,19 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/typeutils"
-
 	"github.com/pkg/errors"
+	"go.uber.org/atomic"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/core/memstorage"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/ds/shrinkingmap"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 const (
@@ -39,7 +37,9 @@ var ErrNotRunning = errors.New("scheduler stopped")
 type Scheduler struct {
 	Events *Events
 
-	blocks        *memstorage.EpochStorage[models.BlockID, *Block]
+	slotTimeProvider *slot.TimeProvider
+
+	blocks        *memstorage.SlotStorage[models.BlockID, *Block]
 	bufferMutex   sync.RWMutex
 	buffer        *BufferQueue
 	deficitsMutex sync.RWMutex
@@ -56,22 +56,23 @@ type Scheduler struct {
 	optsAcceptedBlockScheduleThreshold time.Duration
 	optsMaxDeficit                     *big.Rat
 
-	running        typeutils.AtomicBool
+	running        atomic.Bool
 	shutdownSignal chan struct{}
 }
 
 // New returns a new Scheduler.
-func New(evictionState *eviction.State, isBlockAccepted func(models.BlockID) bool, accessManaMapRetrieverFunc func() map[identity.ID]int64, totalAccessManaRetrieveFunc func() int64, opts ...options.Option[Scheduler]) *Scheduler {
+func New(evictionState *eviction.State, slotTimeProvider *slot.TimeProvider, isBlockAccepted func(models.BlockID) bool, accessManaMapRetrieverFunc func() map[identity.ID]int64, totalAccessManaRetrieveFunc func() int64, opts ...options.Option[Scheduler]) *Scheduler {
 	return options.Apply(&Scheduler{
 		Events: NewEvents(),
 
 		evictionState:               evictionState,
+		slotTimeProvider:            slotTimeProvider,
 		isBlockAcceptedFunc:         isBlockAccepted,
 		accessManaMapRetrieverFunc:  accessManaMapRetrieverFunc,
 		totalAccessManaRetrieveFunc: totalAccessManaRetrieveFunc,
 
 		deficits:                           shrinkingmap.New[identity.ID, *big.Rat](),
-		blocks:                             memstorage.NewEpochStorage[models.BlockID, *Block](),
+		blocks:                             memstorage.NewSlotStorage[models.BlockID, *Block](),
 		optsMaxBufferSize:                  300,
 		optsAcceptedBlockScheduleThreshold: 5 * time.Minute,
 		optsRate:                           5 * time.Millisecond,      // measured in time per unit work
@@ -82,14 +83,13 @@ func New(evictionState *eviction.State, isBlockAccepted func(models.BlockID) boo
 }
 
 func (s *Scheduler) setupEvents() {
-	event.Hook(s.Events.BlockScheduled, s.UpdateChildren)
-
-	event.Hook(s.evictionState.Events.EpochEvicted, s.evictEpoch)
+	s.Events.BlockScheduled.Hook(s.UpdateChildren)
+	s.evictionState.Events.SlotEvicted.Hook(s.evictSlot)
 }
 
 // Start starts the scheduler.
 func (s *Scheduler) Start() {
-	if s.running.SetToIf(false, true) {
+	if s.running.CompareAndSwap(false, true) {
 		s.shutdownSignal = make(chan struct{}, 1)
 		// start the main loop
 		go s.mainLoop()
@@ -98,7 +98,7 @@ func (s *Scheduler) Start() {
 
 // IsRunning returns true if the scheduler has started.
 func (s *Scheduler) IsRunning() bool {
-	return s.running.IsSet()
+	return s.running.Load()
 }
 
 // Rate gets the rate of the scheduler.
@@ -204,7 +204,7 @@ func (s *Scheduler) GetAccessManaMap() map[identity.ID]int64 {
 // Shutdown shuts down the Scheduler.
 // Shutdown blocks until the scheduler has been shutdown successfully.
 func (s *Scheduler) Shutdown() {
-	if s.running.SetToIf(true, false) {
+	if s.running.CompareAndSwap(true, false) {
 		close(s.shutdownSignal)
 	}
 }
@@ -400,7 +400,7 @@ func (s *Scheduler) ready(block *Block) {
 // block retrieves the Block with given id from the mem-storage.
 func (s *Scheduler) block(id models.BlockID) (block *Block, exists bool) {
 	if s.evictionState.IsRootBlock(id) {
-		return NewRootBlock(id), true
+		return NewRootBlock(id, s.slotTimeProvider), true
 	}
 
 	storage := s.blocks.Get(id.Index(), false)
@@ -595,8 +595,8 @@ func (s *Scheduler) GetExcessDeficit(issuerID identity.ID) (deficitFloat float64
 }
 
 func (s *Scheduler) GetOrRegisterBlock(virtualVotingBlock *virtualvoting.Block) (block *Block, err error) {
-	if s.evictionState.InEvictedEpoch(virtualVotingBlock.ID()) {
-		return nil, errors.Errorf("block %s belongs to an evicted epoch", virtualVotingBlock.ID())
+	if s.evictionState.InEvictedSlot(virtualVotingBlock.ID()) {
+		return nil, errors.Errorf("block %s belongs to an evicted slot", virtualVotingBlock.ID())
 	}
 	block, exists := s.block(virtualVotingBlock.ID())
 	if exists {
@@ -605,7 +605,7 @@ func (s *Scheduler) GetOrRegisterBlock(virtualVotingBlock *virtualvoting.Block) 
 
 	blockStorage := s.blocks.Get(virtualVotingBlock.ID().Index(), true)
 
-	block, _ = blockStorage.RetrieveOrCreate(virtualVotingBlock.ID(), func() *Block {
+	block, _ = blockStorage.GetOrCreate(virtualVotingBlock.ID(), func() *Block {
 		return NewBlock(virtualVotingBlock)
 	})
 
@@ -629,7 +629,7 @@ func (s *Scheduler) getAccessMana(id identity.ID) int64 {
 	return mana
 }
 
-func (s *Scheduler) evictEpoch(index epoch.Index) {
+func (s *Scheduler) evictSlot(index slot.Index) {
 	s.evictionMutex.Lock()
 	defer s.evictionMutex.Unlock()
 
@@ -642,7 +642,7 @@ func (s *Scheduler) evictEpoch(index epoch.Index) {
 		if blockID.Index() == index {
 			if block, exists := s.block(blockID); exists {
 				s.buffer.Unsubmit(block)
-				fmt.Printf(">> Scheduler evicted block %s from the buffer when evicting epoch %s\n", blockID.String(), index.String())
+				fmt.Printf(">> Scheduler evicted block %s from the buffer when evicting slot %s\n", blockID.String(), index.String())
 			}
 		}
 	}

@@ -1,11 +1,11 @@
 package scheduler
 
 import (
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/set"
-
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 // region Block ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -27,9 +27,9 @@ func NewBlock(virtualVotingBlock *virtualvoting.Block, opts ...options.Option[Bl
 }
 
 // NewRootBlock creates a new root Block.
-func NewRootBlock(id models.BlockID) (rootBlock *Block) {
+func NewRootBlock(id models.BlockID, slotTimeProvider *slot.TimeProvider) (rootBlock *Block) {
 	return NewBlock(
-		virtualvoting.NewRootBlock(id),
+		virtualvoting.NewRootBlock(id, slotTimeProvider),
 		WithScheduled(true),
 		WithSkipped(false),
 		WithDiscarded(false),
@@ -126,11 +126,11 @@ func WithSkipped(skipped bool) options.Option[Block] {
 // region Blocks ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Blocks represents a collection of Block.
-type Blocks = *set.AdvancedSet[*Block]
+type Blocks = *advancedset.AdvancedSet[*Block]
 
 // NewBlocks returns a new Block collection with the given elements.
 func NewBlocks(blocks ...*Block) (newBlocks Blocks) {
-	return set.NewAdvancedSet(blocks...)
+	return advancedset.NewAdvancedSet(blocks...)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -5,16 +5,15 @@ import (
 	"context"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/byteutils"
-	"github.com/iotaledger/hive.go/core/crypto/ed25519"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/serix"
-	"github.com/iotaledger/hive.go/core/types"
-
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/ds/types"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/serializer/v2/byteutils"
+	"github.com/iotaledger/hive.go/serializer/v2/serix"
 )
 
 type Attestation struct {
@@ -23,16 +22,21 @@ type Attestation struct {
 	CommitmentID     commitment.ID     `serix:"2"`
 	BlockContentHash types.Identifier  `serix:"3"`
 	Signature        ed25519.Signature `serix:"4"`
+
+	id models.BlockID
 }
 
-func NewAttestation(block *models.Block) *Attestation {
-	return &Attestation{
-		block.IssuerPublicKey(),
-		block.IssuingTime(),
-		block.Commitment().ID(),
-		lo.PanicOnErr(block.ContentHash()),
-		block.Signature(),
+func NewAttestation(block *models.Block, slotTimeProvider *slot.TimeProvider) *Attestation {
+	a := &Attestation{
+		IssuerPublicKey:  block.IssuerPublicKey(),
+		IssuingTime:      block.IssuingTime(),
+		CommitmentID:     block.Commitment().ID(),
+		BlockContentHash: lo.PanicOnErr(block.ContentHash()),
+		Signature:        block.Signature(),
 	}
+	a.id = models.NewBlockID(a.BlockContentHash, a.Signature, slotTimeProvider.IndexFromTime(a.IssuingTime))
+
+	return a
 }
 
 func (a *Attestation) Compare(other *Attestation) int {
@@ -53,7 +57,7 @@ func (a *Attestation) Compare(other *Attestation) int {
 }
 
 func (a *Attestation) ID() models.BlockID {
-	return models.NewBlockID(a.BlockContentHash, a.Signature, epoch.IndexFromTime(a.IssuingTime))
+	return a.id
 }
 
 func (a Attestation) Bytes() (bytes []byte, err error) {

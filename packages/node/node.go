@@ -3,12 +3,11 @@ package node
 import (
 	"fmt"
 	"reflect"
-	"sync"
 
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/hive.go/app/daemon"
-	"github.com/iotaledger/hive.go/core/logger"
+	"github.com/iotaledger/hive.go/logger"
 )
 
 var (
@@ -19,7 +18,6 @@ var (
 )
 
 type Node struct {
-	wg            *sync.WaitGroup
 	loadedPlugins []*Plugin
 	Logger        *logger.Logger
 	options       *NodeOptions
@@ -28,7 +26,6 @@ type Node struct {
 
 func New(optionalOptions ...NodeOption) *Node {
 	node := &Node{
-		wg:            &sync.WaitGroup{},
 		loadedPlugins: make([]*Plugin, 0),
 		options:       newNodeOptions(optionalOptions),
 		depContainer:  dig.New(),
@@ -42,13 +39,6 @@ func New(optionalOptions ...NodeOption) *Node {
 
 	// configure the enabled plugins
 	node.configure(node.options.plugins...)
-
-	return node
-}
-
-func Start(optionalOptions ...NodeOption) *Node {
-	node := New(optionalOptions...)
-	node.Start()
 
 	return node
 }
@@ -99,7 +89,6 @@ func (node *Node) configure(plugins ...*Plugin) {
 			continue
 		}
 
-		plugin.wg = node.wg
 		plugin.Node = node
 
 		if plugin.deps != nil {
@@ -133,23 +122,11 @@ func (node *Node) populatePluginDependencies(plugin *Plugin) {
 	}
 }
 
-func (node *Node) Start() {
-	node.Logger.Info("Executing plugins...")
-
-	for _, plugin := range node.loadedPlugins {
-		plugin.Events.Run.Trigger(&RunEvent{plugin})
-
-		node.Logger.Infof("Starting Plugin: %s...", plugin.Name)
-	}
-
-	node.Logger.Info("Starting background workers ...")
-	daemon.Start()
-}
-
 func (node *Node) Run() {
 	node.Logger.Info("Executing plugins ...")
 
 	for _, plugin := range node.loadedPlugins {
+		plugin.WorkerPool.Start()
 		plugin.Events.Run.Trigger(&RunEvent{plugin})
 		node.Logger.Infof("Starting Plugin: %s ... done", plugin.Name)
 	}
@@ -158,7 +135,15 @@ func (node *Node) Run() {
 
 	daemon.Run()
 
+	for _, plugin := range node.loadedPlugins {
+		plugin.WorkerPool.Shutdown()
+	}
+
 	node.Logger.Info("Shutdown complete!")
+}
+
+func (node *Node) LoadedPlugins() []*Plugin {
+	return node.loadedPlugins
 }
 
 func AddPlugin(plugin *Plugin) {

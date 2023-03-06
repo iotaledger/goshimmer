@@ -2,15 +2,16 @@ package tangle
 
 import (
 	"testing"
-
-	"github.com/iotaledger/hive.go/core/workerpool"
+	"time"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 func Test(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	tf := NewDefaultTestFramework(t, workers.CreateGroup("LedgerTestFramework"))
+	tf := NewDefaultTestFramework(t, workers.CreateGroup("LedgerTestFramework"), slot.NewTimeProvider(time.Now().Unix(), 10))
 
 	tf.BlockDAG.CreateBlock("block1")
 	tf.BlockDAG.CreateBlock("block2", models.WithStrongParents(tf.BlockDAG.BlockIDs("block1")))

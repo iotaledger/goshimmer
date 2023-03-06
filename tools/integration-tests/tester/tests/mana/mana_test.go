@@ -6,14 +6,16 @@ import (
 	"math"
 	"testing"
 
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
+
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 var (
@@ -141,13 +143,15 @@ var (
 func TestManaApis(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
-	snapshotInfo := tests.EqualSnapshotDetails
+	snapshotOptions := tests.EqualSnapshotOptions
+	snapshotInfo := snapshotcreator.NewOptions(snapshotOptions...)
+
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
 		StartSynced: false,
 		Faucet:      true,
 		Autopeering: true, // we need to discover online peers
 		Activity:    true, // we need to issue regular activity blocks
-		Snapshot:    snapshotInfo,
+		Snapshot:    snapshotOptions,
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
@@ -229,7 +233,7 @@ func TestManaApis(t *testing.T) {
 	})
 
 	return
-	// TODO: fix the test when epoch commitments are fixed
+	// TODO: fix the test when slot commitments are fixed
 
 	// wait for cMna vector being updated
 	require.Eventually(t, func() bool {

@@ -1,14 +1,13 @@
 package remotemetrics
 
 import (
-	"github.com/iotaledger/hive.go/core/identity"
-
 	"github.com/iotaledger/goshimmer/packages/app/remotemetrics"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/crypto/identity"
 )
 
 func sendBlockSchedulerRecord(block *scheduler.Block, recordType string) {

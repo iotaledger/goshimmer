@@ -4,13 +4,12 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 	"github.com/mr-tron/base58"
 
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/identity"
-
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 // getManaHandler handles the request.
@@ -19,12 +18,15 @@ func getManaHandler(c echo.Context) error {
 	if err := c.Bind(&request); err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetManaResponse{Error: err.Error()})
 	}
-	ID, err := identity.DecodeIDBase58(request.IssuerID)
+
+	IDstr := request.IssuerID
+	if IDstr == "" {
+		IDstr = deps.Local.ID().EncodeBase58()
+	}
+
+	ID, err := identity.DecodeIDBase58(IDstr)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetManaResponse{Error: err.Error()})
-	}
-	if request.IssuerID == "" {
-		ID = deps.Local.ID()
 	}
 
 	accessMana, _ := deps.Protocol.Engine().ThroughputQuota.Balance(ID)

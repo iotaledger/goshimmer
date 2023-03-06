@@ -5,16 +5,15 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/walker"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/syncutils"
-
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/eventticker"
-	"github.com/iotaledger/goshimmer/packages/core/memstorage"
+	"github.com/iotaledger/hive.go/core/eventticker"
+	"github.com/iotaledger/hive.go/core/memstorage"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/ds/shrinkingmap"
+	"github.com/iotaledger/hive.go/ds/walker"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 var (
@@ -27,13 +26,13 @@ type Manager struct {
 	SnapshotCommitment  *Commitment
 	CommitmentRequester *eventticker.EventTicker[commitment.ID]
 
-	//TODO: change to memstorage.EpochStorage?
+	//TODO: change to memstorage.SlotStorage?
 	commitmentsByID      map[commitment.ID]*Commitment
 	commitmentsByIDMutex sync.Mutex
 
 	// This tracks the forkingPoints by the commitment that triggered the detection so we can clean up after eviction
-	forkingPointsByCommitments *memstorage.EpochStorage[commitment.ID, commitment.ID]
-	forksByForkingPoint        *memstorage.Storage[commitment.ID, *Fork]
+	forkingPointsByCommitments *memstorage.SlotStorage[commitment.ID, commitment.ID]
+	forksByForkingPoint        *shrinkingmap.ShrinkingMap[commitment.ID, *Fork]
 
 	evictionMutex sync.RWMutex
 
@@ -51,8 +50,8 @@ func NewManager(snapshot *commitment.Commitment, opts ...options.Option[Manager]
 
 		commitmentsByID:            make(map[commitment.ID]*Commitment),
 		commitmentEntityMutex:      syncutils.NewDAGMutex[commitment.ID](),
-		forkingPointsByCommitments: memstorage.NewEpochStorage[commitment.ID, commitment.ID](),
-		forksByForkingPoint:        memstorage.New[commitment.ID, *Fork](),
+		forkingPointsByCommitments: memstorage.NewSlotStorage[commitment.ID, commitment.ID](),
+		forksByForkingPoint:        shrinkingmap.New[commitment.ID, *Fork](),
 	}, opts, func(manager *Manager) {
 		manager.SnapshotCommitment, _ = manager.Commitment(snapshot.ID(), true)
 		manager.SnapshotCommitment.PublishCommitment(snapshot)
@@ -60,8 +59,8 @@ func NewManager(snapshot *commitment.Commitment, opts ...options.Option[Manager]
 		manager.SnapshotCommitment.publishChain(NewChain(manager.SnapshotCommitment))
 
 		manager.CommitmentRequester = eventticker.New(manager.optsCommitmentRequester...)
-		event.Hook(manager.Events.CommitmentMissing, manager.CommitmentRequester.StartTicker)
-		event.Hook(manager.Events.MissingCommitmentReceived, manager.CommitmentRequester.StopTicker)
+		manager.Events.CommitmentMissing.Hook(manager.CommitmentRequester.StartTicker)
+		manager.Events.MissingCommitmentReceived.Hook(manager.CommitmentRequester.StopTicker)
 
 		manager.commitmentsByID[manager.SnapshotCommitment.ID()] = manager.SnapshotCommitment
 	})
@@ -137,7 +136,7 @@ func (m *Manager) detectForks(commitment *Commitment, source identity.ID) {
 		return
 	}
 
-	// The forking point should be at least optsMinimumForkDepth epochs in the past w.r.t this commitment index.
+	// The forking point should be at least optsMinimumForkDepth slots in the past w.r.t this commitment index.
 	latestChainCommitment := commitment.Chain().LatestCommitment()
 	if int64(latestChainCommitment.ID().Index()-forkingPoint.ID().Index()) < m.optsMinimumForkDepth {
 		return
@@ -317,11 +316,11 @@ func (m *Manager) switchMainChainToCommitment(commitment *Commitment) error {
 	return nil
 }
 
-func (m *Manager) Evict(index epoch.Index) {
+func (m *Manager) Evict(index slot.Index) {
 	m.evictionMutex.Lock()
 	defer m.evictionMutex.Unlock()
 
-	// Forget about the forks that we detected at that epoch so that we can detect them again if they happen
+	// Forget about the forks that we detected at that slot so that we can detect them again if they happen
 	evictedForkDetections := m.forkingPointsByCommitments.Evict(index)
 	if evictedForkDetections != nil {
 		evictedForkDetections.ForEach(func(_, forkingPoint commitment.ID) bool {

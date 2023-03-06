@@ -5,11 +5,9 @@ import (
 	"math"
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/generics/options"
-
-	"github.com/iotaledger/hive.go/core/generics/walker"
-
-	"github.com/iotaledger/goshimmer/packages/core/memstorage"
+	"github.com/iotaledger/hive.go/ds/shrinkingmap"
+	"github.com/iotaledger/hive.go/ds/walker"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 // region SequenceManager //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -17,7 +15,7 @@ import (
 // SequenceManager is the managing entity for the Marker related business logic. It is stateful and automatically stores its
 // state in a memstorage.
 type SequenceManager struct {
-	sequences              *memstorage.Storage[SequenceID, *Sequence]
+	sequences              *shrinkingmap.ShrinkingMap[SequenceID, *Sequence]
 	sequenceIDCounter      SequenceID
 	sequenceIDCounterMutex sync.Mutex
 
@@ -31,7 +29,7 @@ type SequenceManager struct {
 func NewSequenceManager(opts ...options.Option[SequenceManager]) (m *SequenceManager) {
 	m = options.Apply(&SequenceManager{
 		optsMaxPastMarkerDistance: 30,
-		sequences:                 memstorage.New[SequenceID, *Sequence](),
+		sequences:                 shrinkingmap.New[SequenceID, *Sequence](),
 		optsIncreaseIndexCallback: func(SequenceID, Index) bool {
 			return true
 		},
@@ -45,10 +43,10 @@ func NewSequenceManager(opts ...options.Option[SequenceManager]) (m *SequenceMan
 // additional flag that indicates if a new Sequence was created. When attaching to one of the root blocks, a new
 // sequence is always created and the block is assigned Index(1), while Index(0) is a root index.
 // InheritStructureDetails inherits the structure details of the given parent StructureDetails.
-func (s *SequenceManager) InheritStructureDetails(referencedStructureDetails []*StructureDetails) (inheritedStructureDetails *StructureDetails, newSequenceCreated bool) {
+func (s *SequenceManager) InheritStructureDetails(referencedStructureDetails []*StructureDetails, allParentsInPastSlot bool) (inheritedStructureDetails *StructureDetails, newSequenceCreated bool) {
 	inheritedStructureDetails = s.mergeParentStructureDetails(referencedStructureDetails)
 
-	inheritedStructureDetails.SetPastMarkers(s.normalizeMarkers(inheritedStructureDetails.PastMarkers()))
+	inheritedStructureDetails.SetPastMarkers(inheritedStructureDetails.PastMarkers())
 
 	if inheritedStructureDetails.PastMarkers().Size() == 0 {
 		// call createSequence without any past markers just so the sequence is created for later use.
@@ -59,7 +57,7 @@ func (s *SequenceManager) InheritStructureDetails(referencedStructureDetails []*
 
 	assignedMarker, sequenceExtended := s.extendHighestAvailableSequence(inheritedStructureDetails.PastMarkers())
 	if !sequenceExtended && !newSequenceCreated {
-		newSequenceCreated, assignedMarker = s.createSequenceIfNecessary(inheritedStructureDetails)
+		newSequenceCreated, assignedMarker = s.createSequenceIfNecessary(inheritedStructureDetails, allParentsInPastSlot)
 	}
 
 	if !sequenceExtended && !newSequenceCreated {
@@ -192,8 +190,8 @@ func (s *SequenceManager) extendHighestAvailableSequence(referencedPastMarkers *
 
 // createSequenceIfNecessary is an internal utility function that creates a new Sequence if the distance to the last
 // past Marker is higher or equal than the configured threshold and returns the first Marker in that Sequence.
-func (s *SequenceManager) createSequenceIfNecessary(structureDetails *StructureDetails) (created bool, firstMarker Marker) {
-	if structureDetails.PastMarkerGap() < s.optsMaxPastMarkerDistance {
+func (s *SequenceManager) createSequenceIfNecessary(structureDetails *StructureDetails, allParentsInPastSlot bool) (created bool, firstMarker Marker) {
+	if !allParentsInPastSlot && structureDetails.PastMarkerGap() < s.optsMaxPastMarkerDistance {
 		return
 	}
 	return true, s.createSequence(structureDetails.PastMarkers())

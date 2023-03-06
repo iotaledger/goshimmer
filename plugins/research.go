@@ -2,7 +2,6 @@ package plugins
 
 import (
 	"github.com/iotaledger/goshimmer/packages/node"
-
 	"github.com/iotaledger/goshimmer/plugins/activity"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
 	"github.com/iotaledger/goshimmer/plugins/remotemetrics"

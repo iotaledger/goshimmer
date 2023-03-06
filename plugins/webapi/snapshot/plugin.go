@@ -4,12 +4,9 @@ package snapshot
 
 import (
 	"net/http"
-
 	"go.uber.org/dig"
-
 	"github.com/iotaledger/goshimmer/packages/node"
-	"github.com/labstack/echo"
-
+	"github.com/labstack/echo/v4"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 )
 
@@ -54,8 +51,8 @@ func DumpCurrentLedger(c echo.Context) (err error) {
 	}
 	Plugin.LogInfo("Snapshot information: ")
 	Plugin.LogInfo("     Number of outputs: ", header.OutputWithMetadataCount)
-	Plugin.LogInfo("     FullEpochIndex: ", header.FullEpochIndex)
-	Plugin.LogInfo("     DiffEpochIndex: ", header.DiffEpochIndex)
+	Plugin.LogInfo("     FullSlotIndex: ", header.FullSlotIndex)
+	Plugin.LogInfo("     DiffSlotIndex: ", header.DiffSlotIndex)
 	Plugin.LogInfo("     LatestECRecord: ", header.LatestECRecord)
 
 	return c.Attachment(snapshotFileName, snapshotFileName)

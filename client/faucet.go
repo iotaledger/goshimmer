@@ -4,13 +4,13 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/app/faucet"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/core/pow"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/hive.go/crypto/identity"
 )
 
 const (

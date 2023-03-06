@@ -3,15 +3,15 @@ package ledger
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/core/generics/model"
-	"github.com/iotaledger/hive.go/core/generics/orderedmap"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/stringify"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
-
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/ds/orderedmap"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/objectstorage/generic/model"
+	"github.com/iotaledger/hive.go/stringify"
 )
 
 // region TransactionMetadata //////////////////////////////////////////////////////////////////////////////////////////
@@ -31,8 +31,8 @@ type transactionMetadata struct {
 	// BookingTime contains the time the Transaction was Booked.
 	BookingTime time.Time `serix:"2"`
 
-	// InclusionEpoch contains the epoch of the earliest included attachment of this transaction in the tangle.
-	InclusionEpoch epoch.Index `serix:"3"`
+	// InclusionSlot contains the slot of the earliest included attachment of this transaction in the tangle.
+	InclusionSlot slot.Index `serix:"3"`
 
 	// OutputIDs contains the identifiers of the Outputs that the Transaction created.
 	OutputIDs utxo.OutputIDs `serix:"4"`
@@ -57,7 +57,7 @@ func NewTransactionMetadata(txID utxo.TransactionID) (metadata *TransactionMetad
 }
 
 // ConflictIDs returns the conflicting ConflictIDs that the Transaction depends on.
-func (t *TransactionMetadata) ConflictIDs() (conflictIDs *set.AdvancedSet[utxo.TransactionID]) {
+func (t *TransactionMetadata) ConflictIDs() *advancedset.AdvancedSet[utxo.TransactionID] {
 	t.RLock()
 	defer t.RUnlock()
 
@@ -65,7 +65,7 @@ func (t *TransactionMetadata) ConflictIDs() (conflictIDs *set.AdvancedSet[utxo.T
 }
 
 // SetConflictIDs sets the conflicting ConflictIDs that this Transaction depends on.
-func (t *TransactionMetadata) SetConflictIDs(conflictIDs *set.AdvancedSet[utxo.TransactionID]) (modified bool) {
+func (t *TransactionMetadata) SetConflictIDs(conflictIDs *advancedset.AdvancedSet[utxo.TransactionID]) (modified bool) {
 	t.Lock()
 	defer t.Unlock()
 
@@ -80,7 +80,7 @@ func (t *TransactionMetadata) SetConflictIDs(conflictIDs *set.AdvancedSet[utxo.T
 }
 
 // IsBooked returns a boolean flag indicating whether the Transaction has been booked.
-func (t *TransactionMetadata) IsBooked() (booked bool) {
+func (t *TransactionMetadata) IsBooked() bool {
 	t.RLock()
 	defer t.RUnlock()
 
@@ -107,37 +107,37 @@ func (t *TransactionMetadata) SetBooked(booked bool) (modified bool) {
 }
 
 // BookingTime returns the time when the Transaction was booked.
-func (t *TransactionMetadata) BookingTime() (bookingTime time.Time) {
+func (t *TransactionMetadata) BookingTime() time.Time {
 	t.RLock()
 	defer t.RUnlock()
 
 	return t.M.BookingTime
 }
 
-// SetInclusionEpoch sets the inclusion time of the Transaction.
-func (t *TransactionMetadata) SetInclusionEpoch(inclusionEpoch epoch.Index) (updated bool, previousInclusionEpoch epoch.Index) {
+// SetInclusionSlot sets the inclusion time of the Transaction.
+func (t *TransactionMetadata) SetInclusionSlot(inclusionSlot slot.Index) (updated bool, previousInclusionSlot slot.Index) {
 	t.Lock()
 	defer t.Unlock()
 
-	previousInclusionEpoch = t.M.InclusionEpoch
-	if updated = inclusionEpoch < previousInclusionEpoch || previousInclusionEpoch == 0; updated {
-		t.M.InclusionEpoch = inclusionEpoch
+	previousInclusionSlot = t.M.InclusionSlot
+	if updated = inclusionSlot < previousInclusionSlot || previousInclusionSlot == 0; updated {
+		t.M.InclusionSlot = inclusionSlot
 		t.SetModified()
 	}
 
 	return
 }
 
-// InclusionEpoch returns the inclusion time of the Transaction.
-func (t *TransactionMetadata) InclusionEpoch() (inclusionEpoch epoch.Index) {
+// InclusionSlot returns the inclusion time of the Transaction.
+func (t *TransactionMetadata) InclusionSlot() slot.Index {
 	t.RLock()
 	defer t.RUnlock()
 
-	return t.M.InclusionEpoch
+	return t.M.InclusionSlot
 }
 
 // OutputIDs returns the identifiers of the Outputs that the Transaction created.
-func (t *TransactionMetadata) OutputIDs() (outputIDs utxo.OutputIDs) {
+func (t *TransactionMetadata) OutputIDs() utxo.OutputIDs {
 	t.RLock()
 	defer t.RUnlock()
 
@@ -160,7 +160,7 @@ func (t *TransactionMetadata) SetOutputIDs(outputIDs utxo.OutputIDs) (modified b
 }
 
 // ConfirmationState returns the confirmation status of the Transaction.
-func (t *TransactionMetadata) ConfirmationState() (confirmationState confirmation.State) {
+func (t *TransactionMetadata) ConfirmationState() confirmation.State {
 	t.RLock()
 	defer t.RUnlock()
 
@@ -184,7 +184,7 @@ func (t *TransactionMetadata) SetConfirmationState(confirmationState confirmatio
 }
 
 // ConfirmationStateTime returns the last time the ConfirmationState was updated.
-func (t *TransactionMetadata) ConfirmationStateTime() (confirmationStateTime time.Time) {
+func (t *TransactionMetadata) ConfirmationStateTime() time.Time {
 	t.RLock()
 	defer t.RUnlock()
 
@@ -192,7 +192,7 @@ func (t *TransactionMetadata) ConfirmationStateTime() (confirmationStateTime tim
 }
 
 // IsConflicting returns true if the Transaction is conflicting with another Transaction (is a Conflict).
-func (t *TransactionMetadata) IsConflicting() (isConflicting bool) {
+func (t *TransactionMetadata) IsConflicting() bool {
 	return t.ConflictIDs().Is(t.ID())
 }
 
@@ -212,11 +212,11 @@ type outputMetadata struct {
 	// AccessManaPledgeID contains the identifier of the node that received the access mana pledge.
 	AccessManaPledgeID identity.ID `serix:"1"`
 
-	// InclusionEpoch contains the time when the Output was included in the ledger.
-	InclusionEpoch epoch.Index `serix:"2"`
+	// InclusionSlot contains the time when the Output was included in the ledger.
+	InclusionSlot slot.Index `serix:"2"`
 
 	// ConflictIDs contains the conflicting ConflictIDs that this Output depends on.
-	ConflictIDs *set.AdvancedSet[utxo.TransactionID] `serix:"3"`
+	ConflictIDs *advancedset.AdvancedSet[utxo.TransactionID] `serix:"3"`
 
 	// FirstConsumer contains the first Transaction that ever spent the Output.
 	FirstConsumer utxo.TransactionID `serix:"4"`
@@ -243,7 +243,7 @@ func NewOutputMetadata(outputID utxo.OutputID) (metadata *OutputMetadata) {
 }
 
 // ConsensusManaPledgeID returns the identifier of the node that received the consensus mana pledge.
-func (o *OutputMetadata) ConsensusManaPledgeID() (id identity.ID) {
+func (o *OutputMetadata) ConsensusManaPledgeID() identity.ID {
 	o.RLock()
 	defer o.RUnlock()
 
@@ -266,7 +266,7 @@ func (o *OutputMetadata) SetConsensusManaPledgeID(id identity.ID) (updated bool)
 }
 
 // AccessManaPledgeID returns the identifier of the node that received the access mana pledge.
-func (o *OutputMetadata) AccessManaPledgeID() (id identity.ID) {
+func (o *OutputMetadata) AccessManaPledgeID() identity.ID {
 	o.RLock()
 	defer o.RUnlock()
 
@@ -288,31 +288,31 @@ func (o *OutputMetadata) SetAccessManaPledgeID(id identity.ID) (updated bool) {
 	return true
 }
 
-// InclusionEpoch returns the creation epoch of the Output.
-func (o *OutputMetadata) InclusionEpoch() (inclusionEpoch epoch.Index) {
+// InclusionSlot returns the creation slot of the Output.
+func (o *OutputMetadata) InclusionSlot() slot.Index {
 	o.RLock()
 	defer o.RUnlock()
 
-	return o.M.InclusionEpoch
+	return o.M.InclusionSlot
 }
 
-// SetInclusionEpoch sets the creation epoch of the Output.
-func (o *OutputMetadata) SetInclusionEpoch(inclusionEpoch epoch.Index) (updated bool) {
+// SetInclusionSlot sets the creation slot of the Output.
+func (o *OutputMetadata) SetInclusionSlot(inclusionSlot slot.Index) (updated bool) {
 	o.Lock()
 	defer o.Unlock()
 
-	if o.M.InclusionEpoch == inclusionEpoch {
+	if o.M.InclusionSlot == inclusionSlot {
 		return false
 	}
 
-	o.M.InclusionEpoch = inclusionEpoch
+	o.M.InclusionSlot = inclusionSlot
 	o.SetModified()
 
 	return true
 }
 
 // ConflictIDs returns the conflicting ConflictIDs that the Output depends on.
-func (o *OutputMetadata) ConflictIDs() (conflictIDs *set.AdvancedSet[utxo.TransactionID]) {
+func (o *OutputMetadata) ConflictIDs() *advancedset.AdvancedSet[utxo.TransactionID] {
 	o.RLock()
 	defer o.RUnlock()
 
@@ -320,7 +320,7 @@ func (o *OutputMetadata) ConflictIDs() (conflictIDs *set.AdvancedSet[utxo.Transa
 }
 
 // SetConflictIDs sets the conflicting ConflictIDs that this Transaction depends on.
-func (o *OutputMetadata) SetConflictIDs(conflictIDs *set.AdvancedSet[utxo.TransactionID]) (modified bool) {
+func (o *OutputMetadata) SetConflictIDs(conflictIDs *advancedset.AdvancedSet[utxo.TransactionID]) (modified bool) {
 	o.Lock()
 	defer o.Unlock()
 
@@ -335,7 +335,7 @@ func (o *OutputMetadata) SetConflictIDs(conflictIDs *set.AdvancedSet[utxo.Transa
 }
 
 // FirstConsumer returns the first Transaction that ever spent the Output.
-func (o *OutputMetadata) FirstConsumer() (firstConsumer utxo.TransactionID) {
+func (o *OutputMetadata) FirstConsumer() utxo.TransactionID {
 	o.RLock()
 	defer o.RUnlock()
 
@@ -363,7 +363,7 @@ func (o *OutputMetadata) RegisterBookedConsumer(consumer utxo.TransactionID) (is
 }
 
 // ConfirmationState returns the confirmation state of the Output.
-func (o *OutputMetadata) ConfirmationState() (confirmationState confirmation.State) {
+func (o *OutputMetadata) ConfirmationState() confirmation.State {
 	o.RLock()
 	defer o.RUnlock()
 
@@ -387,7 +387,7 @@ func (o *OutputMetadata) SetConfirmationState(confirmationState confirmation.Sta
 }
 
 // ConfirmationStateTime returns the last time the ConfirmationState was updated.
-func (o *OutputMetadata) ConfirmationStateTime() (confirmationState time.Time) {
+func (o *OutputMetadata) ConfirmationStateTime() time.Time {
 	o.RLock()
 	defer o.RUnlock()
 
@@ -395,7 +395,7 @@ func (o *OutputMetadata) ConfirmationStateTime() (confirmationState time.Time) {
 }
 
 // IsSpent returns true if the Output has been spent.
-func (o *OutputMetadata) IsSpent() (isSpent bool) {
+func (o *OutputMetadata) IsSpent() bool {
 	o.RLock()
 	defer o.RUnlock()
 
@@ -429,7 +429,7 @@ func (o *OutputsMetadata) Get(id utxo.OutputID) (outputMetadata *OutputMetadata,
 
 // Add adds the given OutputMetadata object to the collection.
 func (o *OutputsMetadata) Add(output *OutputMetadata) (added bool) {
-	return o.Set(output.ID(), output)
+	return !lo.Return2(o.Set(output.ID(), output))
 }
 
 func (o *OutputsMetadata) Filter(predicate func(outputMetadata *OutputMetadata) bool) (filtered *OutputsMetadata) {
@@ -457,8 +457,8 @@ func (o *OutputsMetadata) IDs() (ids utxo.OutputIDs) {
 }
 
 // ConflictIDs returns a union of all ConflictIDs of the contained OutputMetadata objects.
-func (o *OutputsMetadata) ConflictIDs() (conflictIDs *set.AdvancedSet[utxo.TransactionID]) {
-	conflictIDs = set.NewAdvancedSet[utxo.TransactionID]()
+func (o *OutputsMetadata) ConflictIDs() *advancedset.AdvancedSet[utxo.TransactionID] {
+	conflictIDs := advancedset.NewAdvancedSet[utxo.TransactionID]()
 	_ = o.ForEach(func(outputMetadata *OutputMetadata) (err error) {
 		conflictIDs.AddAll(outputMetadata.ConflictIDs())
 		return nil
@@ -481,7 +481,7 @@ func (o *OutputsMetadata) ForEach(callback func(outputMetadata *OutputMetadata) 
 }
 
 // String returns a human-readable version of the OutputsMetadata.
-func (o *OutputsMetadata) String() (humanReadable string) {
+func (o *OutputsMetadata) String() string {
 	structBuilder := stringify.NewStructBuilder("OutputsMetadata")
 	_ = o.ForEach(func(outputMetadata *OutputMetadata) error {
 		structBuilder.AddField(stringify.NewStructField(outputMetadata.ID().String(), outputMetadata))
@@ -521,7 +521,7 @@ func (c *Consumer) TransactionID() (spendingTransaction utxo.TransactionID) {
 }
 
 // IsBooked returns a boolean flag that indicates whether the Consumer was completely booked.
-func (c *Consumer) IsBooked() (processed bool) {
+func (c *Consumer) IsBooked() bool {
 	c.RLock()
 	defer c.RUnlock()
 

@@ -3,23 +3,22 @@ package ledger
 import (
 	"fmt"
 
-	"github.com/iotaledger/hive.go/core/generics/model"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/stringify"
-
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/objectstorage/generic/model"
+	"github.com/iotaledger/hive.go/stringify"
 )
 
-// OutputWithMetadata represents an Output with its associated metadata fields that are needed for epoch management.
+// OutputWithMetadata represents an Output with its associated metadata fields that are needed for slot management.
 type OutputWithMetadata struct {
 	model.Storable[utxo.OutputID, OutputWithMetadata, *OutputWithMetadata, outputWithMetadataModel] `serix:"0"`
 }
 
 type outputWithMetadataModel struct {
-	Index                 epoch.Index   `serix:"0"`
-	SpentInEpoch          epoch.Index   `serix:"1"`
+	Index                 slot.Index    `serix:"0"`
+	SpentInSlot           slot.Index    `serix:"1"`
 	OutputID              utxo.OutputID `serix:"2"`
 	Output                utxo.Output   `serix:"3"`
 	ConsensusManaPledgeID identity.ID   `serix:"4"`
@@ -30,7 +29,7 @@ type outputWithMetadataModel struct {
 func (o *OutputWithMetadata) String() string {
 	structBuilder := stringify.NewStructBuilder("OutputWithMetadata")
 	structBuilder.AddField(stringify.NewStructField("Index", o.Index()))
-	structBuilder.AddField(stringify.NewStructField("SpentInEpoch", o.SpentInEpoch()))
+	structBuilder.AddField(stringify.NewStructField("SpentInSlot", o.SpentInSlot()))
 	structBuilder.AddField(stringify.NewStructField("OutputID", o.ID()))
 	structBuilder.AddField(stringify.NewStructField("Output", o.Output()))
 	structBuilder.AddField(stringify.NewStructField("ConsensusPledgeID", o.ConsensusManaPledgeID()))
@@ -40,7 +39,7 @@ func (o *OutputWithMetadata) String() string {
 }
 
 // NewOutputWithMetadata returns a new OutputWithMetadata object.
-func NewOutputWithMetadata(index epoch.Index, outputID utxo.OutputID, output utxo.Output, consensusManaPledgeID, accessManaPledgeID identity.ID) (o *OutputWithMetadata) {
+func NewOutputWithMetadata(index slot.Index, outputID utxo.OutputID, output utxo.Output, consensusManaPledgeID, accessManaPledgeID identity.ID) (o *OutputWithMetadata) {
 	o = model.NewStorable[utxo.OutputID, OutputWithMetadata](&outputWithMetadataModel{
 		Index:                 index,
 		OutputID:              outputID,
@@ -72,26 +71,26 @@ func (o *OutputWithMetadata) FromBytes(data []byte) (consumedBytes int, err erro
 }
 
 // Index returns the index of the output.
-func (o *OutputWithMetadata) Index() epoch.Index {
+func (o *OutputWithMetadata) Index() slot.Index {
 	o.RLock()
 	defer o.RUnlock()
 
 	return o.M.Index
 }
 
-func (o *OutputWithMetadata) SpentInEpoch() epoch.Index {
+func (o *OutputWithMetadata) SpentInSlot() slot.Index {
 	o.RLock()
 	defer o.RUnlock()
 
-	return o.M.SpentInEpoch
+	return o.M.SpentInSlot
 }
 
-// SetSpentInEpoch sets the index of the epoc the output was spent in.
-func (o *OutputWithMetadata) SetSpentInEpoch(index epoch.Index) {
+// SetSpentInSlot sets the index of the epoc the output was spent in.
+func (o *OutputWithMetadata) SetSpentInSlot(index slot.Index) {
 	o.Lock()
 	defer o.Unlock()
 
-	o.M.SpentInEpoch = index
+	o.M.SpentInSlot = index
 }
 
 // Output returns the Output field.

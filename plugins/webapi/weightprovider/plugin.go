@@ -3,13 +3,13 @@ package weightprovider
 import (
 	"net/http"
 
-	"github.com/iotaledger/goshimmer/packages/node"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 var (
@@ -38,7 +38,7 @@ func configure(_ *node.Plugin) {
 func getIssuersHandler(c echo.Context) (err error) {
 	activeValidatorsString := make([]string, 0)
 
-	_ = deps.Protocol.Engine().Tangle.VirtualVoting.Validators.ForEach(func(id identity.ID) error {
+	_ = deps.Protocol.Engine().Tangle.Booker.VirtualVoting.Validators.ForEach(func(id identity.ID) error {
 		activeValidatorsString = append(activeValidatorsString, id.String())
 		return nil
 	})
@@ -48,14 +48,14 @@ func getIssuersHandler(c echo.Context) (err error) {
 
 func getWeightsHandler(c echo.Context) (err error) {
 	weightsString := make(map[string]int64)
-	_ = deps.Protocol.Engine().Tangle.VirtualVoting.Validators.ForEach(func(id identity.ID) error {
+	_ = deps.Protocol.Engine().Tangle.Booker.VirtualVoting.Validators.ForEach(func(id identity.ID) error {
 		weightsString[id.String()] = lo.Return1(deps.Protocol.Engine().SybilProtection.Weights().Get(id)).Value
 		return nil
 	})
 
 	resp := Weights{
 		Weights:     weightsString,
-		TotalWeight: deps.Protocol.Engine().Tangle.VirtualVoting.Validators.TotalWeight(),
+		TotalWeight: deps.Protocol.Engine().Tangle.Booker.VirtualVoting.Validators.TotalWeight(),
 	}
 
 	return c.JSON(http.StatusOK, resp)

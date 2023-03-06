@@ -8,21 +8,24 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/hive.go/core/generalheap"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/timed"
-	"github.com/iotaledger/hive.go/core/types"
-	"github.com/iotaledger/hive.go/core/workerpool"
-
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/ds/generalheap"
+	"github.com/iotaledger/hive.go/ds/types"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/timed"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 func TestOrphanageManager_orphanBeforeTSC(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	tf := NewTestFramework(t, tangle.NewDefaultTestFramework(t, workers.CreateGroup("TangleTestFramework")), WithTimeSinceConfirmationThreshold(30*time.Second))
+	tf := NewTestFramework(t,
+		tangle.NewDefaultTestFramework(t, workers.CreateGroup("TangleTestFramework"), slot.NewTimeProvider(time.Now().Unix(), 10)),
+		WithTimeSinceConfirmationThreshold(30*time.Second),
+	)
 
 	now := time.Now()
 	for i := 0; i < 20; i++ {
@@ -37,7 +40,10 @@ func TestOrphanageManager_orphanBeforeTSC(t *testing.T) {
 
 func TestOrphanageManager_HandleTimeUpdate(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	tf := NewTestFramework(t, tangle.NewDefaultTestFramework(t, workers.CreateGroup("TangleTestFramework")), WithTimeSinceConfirmationThreshold(30*time.Second))
+	tf := NewTestFramework(t,
+		tangle.NewDefaultTestFramework(t, workers.CreateGroup("TangleTestFramework"), slot.NewTimeProvider(time.Now().Add(-2*time.Hour).Unix(), 10)),
+		WithTimeSinceConfirmationThreshold(30*time.Second),
+	)
 
 	createTestTangleOrphanage(tf)
 
@@ -59,11 +65,11 @@ func TestOrphanageManager_HandleTimeUpdate(t *testing.T) {
 	require.Equal(t, 27, tf.Manager.unacceptedBlocks.Len())
 
 	for blockID := range tf.MockAcceptance.AcceptedBlocks {
-		virtualVotingBlock, _ := tf.VirtualVoting.Instance.Block(blockID)
+		virtualVotingBlock, _ := tf.Booker.Instance.Block(blockID)
 		tf.Manager.HandleTimeUpdate(virtualVotingBlock.IssuingTime())
 	}
 
-	workers.Wait()
+	workers.WaitChildren()
 
 	tf.BlockDAG.AssertOrphanedCount(10, "expected %d orphaned blocks", 10)
 	tf.AssertOrphaned(map[string]bool{
@@ -124,12 +130,12 @@ func TestOrphanageManager_HandleTimeUpdate(t *testing.T) {
 		lo.MergeMaps(tf.MockAcceptance.AcceptedBlocks, newAcceptedBlocks)
 
 		for _, blockID := range newAcceptedBlocksInOrder {
-			virtualVotingBlock, _ := tf.VirtualVoting.Instance.Block(blockID)
+			virtualVotingBlock, _ := tf.Booker.Instance.Block(blockID)
 			tf.Manager.HandleTimeUpdate(virtualVotingBlock.IssuingTime())
-			tf.BlockDAG.Instance.SetOrphaned(virtualVotingBlock.Block.Block, false)
+			tf.BlockDAG.Instance.SetOrphaned(virtualVotingBlock.Block, false)
 		}
 
-		workers.Wait()
+		workers.WaitChildren()
 
 		tf.BlockDAG.AssertOrphanedCount(0, "expected %d orphaned blocks", 0)
 		tf.AssertOrphaned(map[string]bool{

@@ -7,10 +7,8 @@ import (
 	flag "github.com/spf13/pflag"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/hive.go/app/configuration"
-	"github.com/iotaledger/hive.go/core/generics/event"
-
 	"github.com/iotaledger/goshimmer/packages/node"
+	"github.com/iotaledger/hive.go/app/configuration"
 )
 
 // PluginName is the name of the config plugin.
@@ -34,7 +32,7 @@ func Init(container *dig.Container) {
 }
 
 func init() {
-	Plugin.Events.Init.Hook(event.NewClosure[*node.InitEvent](func(event *node.InitEvent) {
+	Plugin.Events.Init.Hook(func(event *node.InitEvent) {
 		if err := fetch(false); err != nil {
 			if !*skipConfigAvailable {
 				// we wanted a config file but it was not present
@@ -52,7 +50,7 @@ func init() {
 		}); err != nil {
 			panic(err)
 		}
-	}))
+	})
 }
 
 // fetch fetches config values from a configFilePath (or the current working dir if not set).

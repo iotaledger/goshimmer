@@ -3,38 +3,42 @@ package jsonmodels
 import (
 	"strconv"
 
-	"github.com/iotaledger/hive.go/core/identity"
-
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/ds/advancedset"
 )
 
 // region GetAddressResponse ///////////////////////////////////////////////////////////////////////////////////////////
 
 // GetAddressResponse represents the JSON model of a response from the GetAddress endpoint.
 type GetAddressResponse struct {
-	Address *Address  `json:"address"`
-	Outputs []*Output `json:"outputs"`
+	Address        *Address  `json:"address"`
+	SpentOutputs   []*Output `json:"spentOutputs"`
+	UnspentOutputs []*Output `json:"unspentOutputs"`
 }
 
 // NewGetAddressResponse returns a GetAddressResponse from the given details.
-func NewGetAddressResponse(address devnetvm.Address, outputs devnetvm.Outputs) *GetAddressResponse {
-	return &GetAddressResponse{
-		Address: NewAddress(address),
-		Outputs: func() (mappedOutputs []*Output) {
-			mappedOutputs = make([]*Output, 0)
-			for _, output := range outputs {
-				if output != nil {
-					mappedOutputs = append(mappedOutputs, NewOutput(output))
-				}
+func NewGetAddressResponse(address devnetvm.Address, spent, unspent devnetvm.Outputs) *GetAddressResponse {
+	mappedOutput := func(outputs devnetvm.Outputs) (mappedOutputs []*Output) {
+		mappedOutputs = make([]*Output, 0)
+		for _, output := range outputs {
+			if output != nil {
+				mappedOutputs = append(mappedOutputs, NewOutput(output))
 			}
+		}
 
-			return
-		}(),
+		return
+	}
+
+	return &GetAddressResponse{
+		Address:        NewAddress(address),
+		SpentOutputs:   mappedOutput(spent),
+		UnspentOutputs: mappedOutput(unspent),
 	}
 }
 
@@ -67,13 +71,13 @@ type GetConflictChildrenResponse struct {
 }
 
 // NewGetConflictChildrenResponse returns a GetConflictChildrenResponse from the given details.
-func NewGetConflictChildrenResponse(conflictID utxo.TransactionID, childConflicts []*conflictdag.ChildConflict[utxo.TransactionID]) *GetConflictChildrenResponse {
+func NewGetConflictChildrenResponse(conflictID utxo.TransactionID, childConflicts *advancedset.AdvancedSet[*conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]]) *GetConflictChildrenResponse {
 	return &GetConflictChildrenResponse{
 		ConflictID: conflictID.Base58(),
 		ChildConflicts: func() (mappedChildConflicts []*ChildConflict) {
 			mappedChildConflicts = make([]*ChildConflict, 0)
-			for _, childConflict := range childConflicts {
-				mappedChildConflicts = append(mappedChildConflicts, NewChildConflict(childConflict))
+			for it := childConflicts.Iterator(); it.HasNext(); {
+				mappedChildConflicts = append(mappedChildConflicts, NewChildConflict(it.Next()))
 			}
 
 			return
@@ -218,6 +222,7 @@ type PostTransactionRequest struct {
 // PostTransactionResponse is the HTTP response from sending transaction.
 type PostTransactionResponse struct {
 	TransactionID string `json:"transaction_id,omitempty"`
+	BlockID       string `json:"block_id,omitempty"`
 	Error         string `json:"error,omitempty"`
 }
 

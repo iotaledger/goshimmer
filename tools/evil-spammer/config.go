@@ -9,7 +9,8 @@ import (
 // Nodes used during the test, use at least two nodes to be able to doublespend.
 var (
 	// urls = []string{"http://bootstrap-01.feature.shimmer.iota.cafe:8080", "http://vanilla-01.feature.shimmer.iota.cafe:8080", "http://drng-01.feature.shimmer.iota.cafe:8080"}
-	urls = []string{"http://localhost:8080", "http://localhost:8090", "http://localhost:8070", "http://localhost:8040"}
+	//urls = []string{"http://localhost:8080", "http://localhost:8090", "http://localhost:8070", "http://localhost:8040"}
+	urls = []string{}
 )
 
 var (
@@ -26,7 +27,7 @@ var (
 		NSpend:                2,
 		Scenario:              evilwallet.Scenario1(),
 		DeepSpam:              false,
-		EnableRateSetter:      true,
+		EnableRateSetter:      false,
 	}
 	quickTestParams = QuickTestParams{
 		ClientURLs:            urls,
@@ -34,7 +35,7 @@ var (
 		Duration:              time.Second * 30,
 		TimeUnit:              time.Second,
 		DelayBetweenConflicts: 0,
-		EnableRateSetter:      true,
+		EnableRateSetter:      false,
 	}
 
 	commitmentsSpamParams = CommitmentsSpamParams{

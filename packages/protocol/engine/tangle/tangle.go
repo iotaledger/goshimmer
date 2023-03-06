@@ -1,17 +1,17 @@
 package tangle
 
 import (
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/workerpool"
-
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 // region Tangle ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -21,14 +21,12 @@ import (
 type Tangle struct {
 	Events *Events
 
-	BlockDAG      *blockdag.BlockDAG
-	Booker        *booker.Booker
-	VirtualVoting *virtualvoting.VirtualVoting
-	Ledger        *ledger.Ledger
+	BlockDAG *blockdag.BlockDAG
+	Booker   *booker.Booker
+	Ledger   *ledger.Ledger
 
-	optsBlockDAG      []options.Option[blockdag.BlockDAG]
-	optsBooker        []options.Option[booker.Booker]
-	optsVirtualVoting []options.Option[virtualvoting.VirtualVoting]
+	optsBlockDAG []options.Option[blockdag.BlockDAG]
+	optsBooker   []options.Option[booker.Booker]
 }
 
 // New is the constructor for a new Tangle.
@@ -36,28 +34,26 @@ func New(
 	workers *workerpool.Group,
 	ledger *ledger.Ledger,
 	evictionState *eviction.State,
+	slotTimeProvider *slot.TimeProvider,
 	validators *sybilprotection.WeightedSet,
-	epochCutoffCallback func() epoch.Index,
+	slotCutoffCallback func() slot.Index,
 	sequenceCutoffCallback func(id markers.SequenceID) markers.Index,
+	commitmentFunc func(slot.Index) (*commitment.Commitment, error),
 	opts ...options.Option[Tangle],
 ) (newTangle *Tangle) {
 	return options.Apply(new(Tangle), opts, func(t *Tangle) {
 		t.Ledger = ledger
-		t.BlockDAG = blockdag.New(workers.CreateGroup("BlockDAG"), evictionState, t.optsBlockDAG...)
-		t.Booker = booker.New(workers.CreateGroup("Booker"), t.BlockDAG, ledger, t.optsBooker...)
-		t.VirtualVoting = virtualvoting.New(workers.CreateGroup("VirtualVoting"),
-			t.Booker,
-			validators,
-			append(t.optsVirtualVoting,
-				virtualvoting.WithEpochCutoffCallback(epochCutoffCallback),
-				virtualvoting.WithSequenceCutoffCallback(sequenceCutoffCallback),
-			)...,
-		)
+		t.BlockDAG = blockdag.New(workers.CreateGroup("BlockDAG"), evictionState, slotTimeProvider, commitmentFunc, t.optsBlockDAG...)
+		t.Booker = booker.New(workers.CreateGroup("Booker"), t.BlockDAG, ledger, validators,
+			append(t.optsBooker,
+				booker.WithVirtualVotingOptions(
+					virtualvoting.WithSlotCutoffCallback(slotCutoffCallback),
+					virtualvoting.WithSequenceCutoffCallback(sequenceCutoffCallback),
+				))...)
 
 		t.Events = NewEvents()
 		t.Events.BlockDAG = t.BlockDAG.Events
 		t.Events.Booker = t.Booker.Events
-		t.Events.VirtualVoting = t.VirtualVoting.Events
 	})
 }
 
@@ -76,14 +72,6 @@ func WithBlockDAGOptions(opts ...options.Option[blockdag.BlockDAG]) options.Opti
 func WithBookerOptions(opts ...options.Option[booker.Booker]) options.Option[Tangle] {
 	return func(tangle *Tangle) {
 		tangle.optsBooker = opts
-	}
-}
-
-// WithVirtualVotingOptions returns an Option for the Tangle that allows to pass in Options for the virtual voting
-// mechanism.
-func WithVirtualVotingOptions(opts ...options.Option[virtualvoting.VirtualVoting]) options.Option[Tangle] {
-	return func(tangle *Tangle) {
-		tangle.optsVirtualVoting = opts
 	}
 }
 

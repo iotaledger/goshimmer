@@ -3,19 +3,18 @@ package node
 import (
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 var Events *NodeEvents
 
-//nolint:revive // will be replaces by app package anyway
 type NodeEvents struct {
-	AddPlugin *event.Event[*AddEvent]
+	AddPlugin *event.Event1[*AddEvent]
 }
 
 func newNodeEvents() *NodeEvents {
 	return &NodeEvents{
-		AddPlugin: event.New[*AddEvent](),
+		AddPlugin: event.New1[*AddEvent](),
 	}
 }
 
@@ -29,16 +28,16 @@ func init() {
 }
 
 type PluginEvents struct {
-	Init      *event.Event[*InitEvent]
-	Configure *event.Event[*ConfigureEvent]
-	Run       *event.Event[*RunEvent]
+	Init      *event.Event1[*InitEvent]
+	Configure *event.Event1[*ConfigureEvent]
+	Run       *event.Event1[*RunEvent]
 }
 
 func newPluginEvents() *PluginEvents {
 	return &PluginEvents{
-		Init:      event.New[*InitEvent](),
-		Configure: event.New[*ConfigureEvent](),
-		Run:       event.New[*RunEvent](),
+		Init:      event.New1[*InitEvent](),
+		Configure: event.New1[*ConfigureEvent](),
+		Run:       event.New1[*RunEvent](),
 	}
 }
 

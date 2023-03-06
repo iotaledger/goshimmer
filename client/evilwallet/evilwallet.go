@@ -6,13 +6,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/types"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/ds/types"
 )
 
 const (
@@ -32,7 +32,7 @@ const (
 )
 
 var (
-	defaultClientsURLs = []string{"http://localhost:8080", "http://localhost:8090"}
+	defaultClientsURLs = []string{}
 	faucetBalance      = devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{
 		devnetvm.ColorIOTA: uint64(faucetTokensPerRequest),
 	})
@@ -260,7 +260,7 @@ func (e *EvilWallet) splitOutputs(inputWallet, outputWallet *Wallet, splitNumber
 				if err = RateSetterSleep(clt, true); err != nil {
 					return
 				}
-				txID, err := clt.PostTransaction(tx)
+				txID, _, err := clt.PostTransaction(tx)
 				if err != nil {
 					return
 				}
@@ -345,7 +345,7 @@ func (e *EvilWallet) SendCustomConflicts(conflictsMaps []ConflictSlice) (err err
 				if err = RateSetterSleep(clt, true); err != nil {
 					return
 				}
-				_, _ = clt.PostTransaction(tx)
+				_, _, _ = clt.PostTransaction(tx)
 			}(clients[i], tx)
 		}
 		wg.Wait()

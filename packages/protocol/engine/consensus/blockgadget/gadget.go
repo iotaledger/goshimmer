@@ -5,23 +5,24 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/generics/walker"
-	"github.com/iotaledger/hive.go/core/workerpool"
-
-	"github.com/iotaledger/goshimmer/packages/core/causalorder"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/core/causalorder"
+	"github.com/iotaledger/hive.go/core/memstorage"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/ds/shrinkingmap"
+	"github.com/iotaledger/hive.go/ds/walker"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 // region Gadget ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -29,20 +30,21 @@ import (
 type Gadget struct {
 	Events *Events
 
-	tangle        *tangle.Tangle
-	blocks        *memstorage.EpochStorage[models.BlockID, *Block]
-	evictionState *eviction.State
-	evictionMutex sync.RWMutex
+	tangle           *tangle.Tangle
+	blocks           *memstorage.SlotStorage[models.BlockID, *Block]
+	evictionState    *eviction.State
+	evictionMutex    sync.RWMutex
+	slotTimeProvider *slot.TimeProvider
 
 	optsConflictAcceptanceThreshold float64
 
 	totalWeightCallback func() int64
 
-	lastAcceptedMarker              *memstorage.Storage[markers.SequenceID, markers.Index]
+	lastAcceptedMarker              *shrinkingmap.ShrinkingMap[markers.SequenceID, markers.Index]
 	lastAcceptedMarkerMutex         sync.Mutex
 	optsMarkerAcceptanceThreshold   float64
 	acceptanceOrder                 *causalorder.CausalOrder[models.BlockID, *Block]
-	lastConfirmedMarker             *memstorage.Storage[markers.SequenceID, markers.Index]
+	lastConfirmedMarker             *shrinkingmap.ShrinkingMap[markers.SequenceID, markers.Index]
 	lastConfirmedMarkerMutex        sync.Mutex
 	optsMarkerConfirmationThreshold float64
 	confirmationOrder               *causalorder.CausalOrder[models.BlockID, *Block]
@@ -50,14 +52,15 @@ type Gadget struct {
 	workers *workerpool.Group
 }
 
-func New(workers *workerpool.Group, tangleInstance *tangle.Tangle, evictionState *eviction.State, totalWeightCallback func() int64, opts ...options.Option[Gadget]) (gadget *Gadget) {
+func New(workers *workerpool.Group, tangleInstance *tangle.Tangle, evictionState *eviction.State, slotTimeProvider *slot.TimeProvider, totalWeightCallback func() int64, opts ...options.Option[Gadget]) (gadget *Gadget) {
 	return options.Apply(&Gadget{
 		Events:                          NewEvents(),
 		workers:                         workers,
 		tangle:                          tangleInstance,
-		blocks:                          memstorage.NewEpochStorage[models.BlockID, *Block](),
-		lastAcceptedMarker:              memstorage.New[markers.SequenceID, markers.Index](),
+		blocks:                          memstorage.NewSlotStorage[models.BlockID, *Block](),
+		lastAcceptedMarker:              shrinkingmap.New[markers.SequenceID, markers.Index](),
 		evictionState:                   evictionState,
+		slotTimeProvider:                slotTimeProvider,
 		optsMarkerAcceptanceThreshold:   0.67,
 		optsMarkerConfirmationThreshold: 0.67,
 		optsConflictAcceptanceThreshold: 0.67,
@@ -66,17 +69,17 @@ func New(workers *workerpool.Group, tangleInstance *tangle.Tangle, evictionState
 
 		a.tangle = tangleInstance
 		a.totalWeightCallback = totalWeightCallback
-		a.lastAcceptedMarker = memstorage.New[markers.SequenceID, markers.Index]()
-		a.lastConfirmedMarker = memstorage.New[markers.SequenceID, markers.Index]()
-		a.blocks = memstorage.NewEpochStorage[models.BlockID, *Block]()
+		a.lastAcceptedMarker = shrinkingmap.New[markers.SequenceID, markers.Index]()
+		a.lastConfirmedMarker = shrinkingmap.New[markers.SequenceID, markers.Index]()
+		a.blocks = memstorage.NewSlotStorage[models.BlockID, *Block]()
 
 		a.acceptanceOrder = causalorder.New(workers.CreatePool("AcceptanceOrder", 2), a.GetOrRegisterBlock, (*Block).IsAccepted, a.markAsAccepted, a.acceptanceFailed)
 		a.confirmationOrder = causalorder.New(workers.CreatePool("ConfirmationOrder", 2), func(id models.BlockID) (entity *Block, exists bool) {
 			a.evictionMutex.RLock()
 			defer a.evictionMutex.RUnlock()
 
-			if a.evictionState.InEvictedEpoch(id) {
-				return NewRootBlock(id), true
+			if a.evictionState.InEvictedSlot(id) {
+				return NewRootBlock(id, a.slotTimeProvider), true
 			}
 
 			return a.getOrRegisterBlock(id)
@@ -176,6 +179,10 @@ func (a *Gadget) RefreshSequence(sequenceID markers.SequenceID, newMaxSupportedI
 
 	totalWeight := a.totalWeightCallback()
 
+	if lastAcceptedIndex, exists := a.lastAcceptedMarker.Get(sequenceID); exists {
+		prevMaxSupportedIndex = lo.Max(prevMaxSupportedIndex, lastAcceptedIndex)
+	}
+
 	for markerIndex := prevMaxSupportedIndex; markerIndex <= newMaxSupportedIndex; markerIndex++ {
 		marker, markerExists := a.tangle.Booker.BlockCeiling(markers.NewMarker(sequenceID, markerIndex))
 		if !markerExists {
@@ -205,10 +212,10 @@ func (a *Gadget) RefreshSequence(sequenceID markers.SequenceID, newMaxSupportedI
 // Acceptance and Confirmation use the same threshold if confirmation is possible.
 // If there is not enough online weight to achieve confirmation, then acceptance condition is evaluated based on total active weight.
 func (a *Gadget) tryConfirmOrAccept(totalWeight int64, marker markers.Marker) (blocksToAccept, blocksToConfirm []*Block) {
-	markerTotalWeight := a.tangle.VirtualVoting.MarkerVotersTotalWeight(marker)
+	markerTotalWeight := a.tangle.Booker.VirtualVoting.MarkerVotersTotalWeight(marker)
 
 	// check if enough weight is online to confirm based on total weight
-	if IsThresholdReached(totalWeight, a.tangle.VirtualVoting.Validators.TotalWeight(), a.optsMarkerConfirmationThreshold) {
+	if IsThresholdReached(totalWeight, a.tangle.Booker.VirtualVoting.Validators.TotalWeight(), a.optsMarkerConfirmationThreshold) {
 		// check if marker weight has enough weight to be confirmed
 		if IsThresholdReached(totalWeight, markerTotalWeight, a.optsMarkerConfirmationThreshold) {
 			// need to mark outside 'if' statement, otherwise only the first condition would be executed due to lazy evaluation
@@ -218,14 +225,14 @@ func (a *Gadget) tryConfirmOrAccept(totalWeight int64, marker markers.Marker) (b
 				return a.propagateAcceptanceConfirmation(marker, true)
 			}
 		}
-	} else if IsThresholdReached(a.tangle.VirtualVoting.Validators.TotalWeight(), markerTotalWeight, a.optsMarkerAcceptanceThreshold) && a.setMarkerAccepted(marker) {
+	} else if IsThresholdReached(a.tangle.Booker.VirtualVoting.Validators.TotalWeight(), markerTotalWeight, a.optsMarkerAcceptanceThreshold) && a.setMarkerAccepted(marker) {
 		return a.propagateAcceptanceConfirmation(marker, false)
 	}
 
 	return
 }
 
-func (a *Gadget) EvictUntil(index epoch.Index) {
+func (a *Gadget) EvictUntil(index slot.Index) {
 	a.acceptanceOrder.EvictUntil(index)
 	a.confirmationOrder.EvictUntil(index)
 
@@ -233,25 +240,27 @@ func (a *Gadget) EvictUntil(index epoch.Index) {
 	defer a.evictionMutex.Unlock()
 
 	if evictedStorage := a.blocks.Evict(index); evictedStorage != nil {
-		a.Events.EpochClosed.Trigger(evictedStorage)
+		a.Events.SlotClosed.Trigger(evictedStorage)
 	}
 }
 
 func (a *Gadget) setup() {
 	wp := a.workers.CreatePool("Gadget", 2)
 
-	event.AttachWithWorkerPool(a.tangle.VirtualVoting.Events.SequenceTracker.VotersUpdated, func(evt *sequencetracker.VoterUpdatedEvent) {
+	a.tangle.Booker.VirtualVoting.Events.SequenceTracker.VotersUpdated.Hook(func(evt *sequencetracker.VoterUpdatedEvent) {
 		a.RefreshSequence(evt.SequenceID, evt.NewMaxSupportedIndex, evt.PrevMaxSupportedIndex)
-	}, wp)
-	event.AttachWithWorkerPool(a.tangle.VirtualVoting.Events.ConflictTracker.VoterAdded, func(evt *conflicttracker.VoterEvent[utxo.TransactionID]) {
+	}, event.WithWorkerPool(wp))
+
+	a.tangle.Booker.VirtualVoting.Events.ConflictTracker.VoterAdded.Hook(func(evt *conflicttracker.VoterEvent[utxo.TransactionID]) {
 		a.RefreshConflictAcceptance(evt.ConflictID)
-	}, wp)
-	event.AttachWithWorkerPool(a.tangle.Booker.Events.MarkerManager.SequenceEvicted, a.evictSequence, wp)
+	})
+
+	a.tangle.Booker.Events.MarkerManager.SequenceEvicted.Hook(a.evictSequence, event.WithWorkerPool(wp))
 }
 
 func (a *Gadget) block(id models.BlockID) (block *Block, exists bool) {
 	if a.evictionState.IsRootBlock(id) {
-		return NewRootBlock(id), true
+		return NewRootBlock(id, a.slotTimeProvider), true
 	}
 
 	storage := a.blocks.Get(id.Index(), false)
@@ -310,25 +319,21 @@ func (a *Gadget) propagateAcceptanceConfirmation(marker markers.Marker, confirme
 }
 
 func (a *Gadget) markAsAccepted(block *Block) (err error) {
-	if a.evictionState.IsRootBlock(block.ID()) {
-		return
-	}
-
-	if a.evictionState.InEvictedEpoch(block.ID()) {
-		return errors.Errorf("block with %s belongs to an evicted epoch", block.ID())
+	if a.evictionState.InEvictedSlot(block.ID()) {
+		return errors.Errorf("block with %s belongs to an evicted slot", block.ID())
 	}
 
 	if block.SetAccepted() {
 		// If block has been orphaned before acceptance, remove the flag from the block. Otherwise, remove the block from TimedHeap.
 		if block.IsOrphaned() {
-			a.tangle.BlockDAG.SetOrphaned(block.Block.Block.Block, false)
+			a.tangle.BlockDAG.SetOrphaned(block.Block.Block, false)
 		}
 
 		a.Events.BlockAccepted.Trigger(block)
 
 		// set ConfirmationState of payload (applicable only to transactions)
 		if tx, ok := block.Payload().(utxo.Transaction); ok {
-			a.tangle.Ledger.SetTransactionInclusionEpoch(tx.ID(), epoch.IndexFromTime(block.IssuingTime()))
+			a.tangle.Ledger.SetTransactionInclusionSlot(tx.ID(), a.slotTimeProvider.IndexFromTime(block.IssuingTime()))
 		}
 	}
 
@@ -336,8 +341,8 @@ func (a *Gadget) markAsAccepted(block *Block) (err error) {
 }
 
 func (a *Gadget) markAsConfirmed(block *Block) (err error) {
-	if a.evictionState.InEvictedEpoch(block.ID()) {
-		return errors.Errorf("block with %s belongs to an evicted epoch", block.ID())
+	if a.evictionState.InEvictedSlot(block.ID()) {
+		return errors.Errorf("block with %s belongs to an evicted slot", block.ID())
 	}
 
 	if block.SetConfirmed() {
@@ -348,6 +353,8 @@ func (a *Gadget) markAsConfirmed(block *Block) (err error) {
 }
 
 func (a *Gadget) setMarkerAccepted(marker markers.Marker) (wasUpdated bool) {
+	// This method can be called from multiple goroutines and we need to update the value atomically.
+	// However, when reading lastAcceptedMarker we don't need to lock because the storage is already locking.
 	a.lastAcceptedMarkerMutex.Lock()
 	defer a.lastAcceptedMarkerMutex.Unlock()
 
@@ -359,6 +366,8 @@ func (a *Gadget) setMarkerAccepted(marker markers.Marker) (wasUpdated bool) {
 }
 
 func (a *Gadget) setMarkerConfirmed(marker markers.Marker) (wasUpdated bool) {
+	// This method can be called from multiple goroutines and we need to update the value atomically.
+	// However, when reading lastConfirmedMarker we don't need to lock because the storage is already locking.
 	a.lastConfirmedMarkerMutex.Lock()
 	defer a.lastConfirmedMarkerMutex.Unlock()
 
@@ -381,19 +390,14 @@ func (a *Gadget) evictSequence(sequenceID markers.SequenceID) {
 	a.evictionMutex.Lock()
 	defer a.evictionMutex.Unlock()
 
-	if !a.lastAcceptedMarker.Delete(sequenceID) {
-		a.Events.Error.Trigger(errors.Errorf("could not evict last accepted marker of sequenceID=%s", sequenceID))
-	}
-
-	if !a.lastConfirmedMarker.Delete(sequenceID) {
-		a.Events.Error.Trigger(errors.Errorf("could not evict last confirmed marker of sequenceID=%s", sequenceID))
-	}
+	a.lastAcceptedMarker.Delete(sequenceID)
+	a.lastConfirmedMarker.Delete(sequenceID)
 }
 
 func (a *Gadget) getOrRegisterBlock(blockID models.BlockID) (block *Block, exists bool) {
 	block, exists = a.block(blockID)
 	if !exists {
-		virtualVotingBlock, virtualVotingBlockExists := a.tangle.VirtualVoting.Block(blockID)
+		virtualVotingBlock, virtualVotingBlockExists := a.tangle.Booker.Block(blockID)
 		if !virtualVotingBlockExists {
 			return nil, false
 		}
@@ -409,12 +413,12 @@ func (a *Gadget) getOrRegisterBlock(blockID models.BlockID) (block *Block, exist
 }
 
 func (a *Gadget) registerBlock(virtualVotingBlock *virtualvoting.Block) (block *Block, err error) {
-	if a.evictionState.InEvictedEpoch(virtualVotingBlock.ID()) {
-		return nil, errors.Errorf("block %s belongs to an evicted epoch", virtualVotingBlock.ID())
+	if a.evictionState.InEvictedSlot(virtualVotingBlock.ID()) {
+		return nil, errors.Errorf("block %s belongs to an evicted slot", virtualVotingBlock.ID())
 	}
 
 	blockStorage := a.blocks.Get(virtualVotingBlock.ID().Index(), true)
-	block, _ = blockStorage.RetrieveOrCreate(virtualVotingBlock.ID(), func() *Block {
+	block, _ = blockStorage.GetOrCreate(virtualVotingBlock.ID(), func() *Block {
 		return NewBlock(virtualVotingBlock)
 	})
 
@@ -426,39 +430,28 @@ func (a *Gadget) registerBlock(virtualVotingBlock *virtualvoting.Block) (block *
 // region Conflict Acceptance //////////////////////////////////////////////////////////////////////////////////////////
 
 func (a *Gadget) RefreshConflictAcceptance(conflictID utxo.TransactionID) {
-	conflictWeight := a.tangle.VirtualVoting.ConflictVotersTotalWeight(conflictID)
+	conflict, exists := a.tangle.Booker.Ledger.ConflictDAG.Conflict(conflictID)
+	if !exists {
+		return
+	}
 
-	if !IsThresholdReached(a.tangle.VirtualVoting.Validators.TotalWeight(), conflictWeight, a.optsConflictAcceptanceThreshold) {
+	conflictWeight := a.tangle.Booker.VirtualVoting.ConflictVotersTotalWeight(conflictID)
+
+	if !IsThresholdReached(a.tangle.Booker.VirtualVoting.Validators.TotalWeight(), conflictWeight, a.optsConflictAcceptanceThreshold) {
 		return
 	}
 
 	markAsAccepted := true
-	isOtherConflictAccepted := false
-	var otherAcceptedConflict utxo.TransactionID
 
-	a.tangle.Booker.Ledger.ConflictDAG.Utils.ForEachConflictingConflictID(conflictID, func(conflictingConflictID utxo.TransactionID) bool {
-		// check if another conflict is accepted, to evaluate reorg condition
-		if !isOtherConflictAccepted && a.tangle.Booker.Ledger.ConflictDAG.ConfirmationState(set.NewAdvancedSet(conflictingConflictID)).IsAccepted() {
-			isOtherConflictAccepted = true
-			otherAcceptedConflict = conflictingConflictID
-		}
-
-		conflictingConflictWeight := a.tangle.VirtualVoting.ConflictVotersTotalWeight(conflictingConflictID)
+	conflict.ForEachConflictingConflict(func(conflictingConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) bool {
+		conflictingConflictWeight := a.tangle.Booker.VirtualVoting.ConflictVotersTotalWeight(conflictingConflict.ID())
 
 		// if the conflict is less than 66% ahead, then don't mark as accepted
-		if !IsThresholdReached(a.tangle.VirtualVoting.Validators.TotalWeight(), conflictWeight-conflictingConflictWeight, a.optsConflictAcceptanceThreshold) {
+		if !IsThresholdReached(a.tangle.Booker.VirtualVoting.Validators.TotalWeight(), conflictWeight-conflictingConflictWeight, a.optsConflictAcceptanceThreshold) {
 			markAsAccepted = false
 		}
-
 		return markAsAccepted
 	})
-
-	// check if previously accepted conflict is different from the newly accepted one, then trigger the reorg
-	if markAsAccepted && isOtherConflictAccepted {
-		a.Events.Error.Trigger(errors.Errorf("conflictID %s needs to be reorg-ed, but functionality not implemented yet!", conflictID))
-		a.Events.Reorg.Trigger(otherAcceptedConflict)
-		return
-	}
 
 	if markAsAccepted {
 		a.tangle.Booker.Ledger.ConflictDAG.SetConflictAccepted(conflictID)

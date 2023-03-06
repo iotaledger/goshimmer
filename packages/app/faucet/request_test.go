@@ -6,15 +6,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/hive.go/core/crypto/ed25519"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/types"
-
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/ds/types"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 func TestRequest(t *testing.T) {
@@ -57,7 +56,7 @@ func TestIsFaucetReq(t *testing.T) {
 		models.WithPayload(faucetRequest),
 		models.WithNonce(0),
 		models.WithSignature(ed25519.EmptySignature),
-		models.WithLatestConfirmedEpoch(0),
+		models.WithLatestConfirmedSlot(0),
 		models.WithCommitment(commitment.New(0, commitment.ID{}, types.Identifier{}, 0)),
 	)
 
@@ -69,7 +68,7 @@ func TestIsFaucetReq(t *testing.T) {
 		models.WithPayload(payload.NewGenericDataPayload([]byte("data"))),
 		models.WithNonce(0),
 		models.WithSignature(ed25519.EmptySignature),
-		models.WithLatestConfirmedEpoch(0),
+		models.WithLatestConfirmedSlot(0),
 		models.WithCommitment(commitment.New(0, commitment.ID{}, types.Identifier{}, 0)),
 	)
 

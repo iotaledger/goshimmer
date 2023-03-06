@@ -1,18 +1,18 @@
 package prunable
 
 import (
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/kvstore"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 type RootBlocks struct {
-	Storage func(index epoch.Index) kvstore.KVStore
+	Storage func(index slot.Index) kvstore.KVStore
 }
 
 // NewRootBlocks creates a new RootBlocks instance.
@@ -50,20 +50,20 @@ func (r *RootBlocks) Delete(blockID models.BlockID) (err error) {
 	return nil
 }
 
-// LoadAll loads all root blocks for an epoch index.
-func (r *RootBlocks) LoadAll(index epoch.Index) (solidEntryPoints *set.AdvancedSet[models.BlockID]) {
-	solidEntryPoints = set.NewAdvancedSet[models.BlockID]()
+// LoadAll loads all root blocks for an slot index.
+func (r *RootBlocks) LoadAll(index slot.Index) (solidEntryPoints *advancedset.AdvancedSet[models.BlockID]) {
+	solidEntryPoints = advancedset.NewAdvancedSet[models.BlockID]()
 	if err := r.Stream(index, func(id models.BlockID) error {
 		solidEntryPoints.Add(id)
 		return nil
 	}); err != nil {
-		panic(errors.Wrapf(err, "failed to load all rootblocks for epoch %d", index))
+		panic(errors.Wrapf(err, "failed to load all rootblocks for slot %d", index))
 	}
 	return
 }
 
 // StoreAll stores all passed root blocks.
-func (r *RootBlocks) StoreAll(rootBlocks *set.AdvancedSet[models.BlockID]) (err error) {
+func (r *RootBlocks) StoreAll(rootBlocks *advancedset.AdvancedSet[models.BlockID]) (err error) {
 	for it := rootBlocks.Iterator(); it.HasNext(); {
 		if err := r.Store(it.Next()); err != nil {
 			return errors.Wrap(err, "failed to store rootblocks")
@@ -72,8 +72,8 @@ func (r *RootBlocks) StoreAll(rootBlocks *set.AdvancedSet[models.BlockID]) (err 
 	return nil
 }
 
-// Stream streams all root blocks for an epoch index.
-func (r *RootBlocks) Stream(index epoch.Index, processor func(models.BlockID) error) (err error) {
+// Stream streams all root blocks for an slot index.
+func (r *RootBlocks) Stream(index slot.Index, processor func(models.BlockID) error) (err error) {
 	if storageErr := r.Storage(index).Iterate([]byte{}, func(blockIDBytes kvstore.Key, _ kvstore.Value) bool {
 		blockID := new(models.BlockID)
 		if _, err = blockID.FromBytes(blockIDBytes); err != nil {

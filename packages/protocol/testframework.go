@@ -3,14 +3,6 @@ package protocol
 import (
 	"testing"
 
-	"github.com/iotaledger/hive.go/app/configuration"
-	"github.com/iotaledger/hive.go/app/logger"
-	"github.com/iotaledger/hive.go/core/crypto/ed25519"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/workerpool"
-
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
@@ -18,6 +10,14 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
 	"github.com/iotaledger/goshimmer/packages/storage/utils"
+	"github.com/iotaledger/hive.go/app/configuration"
+	"github.com/iotaledger/hive.go/app/logger"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
+
+	"github.com/stretchr/testify/require"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -57,13 +57,23 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, ledgerVM vm.VM
 			ed25519.GenerateKeyPair().PublicKey: 100,
 		}
 
-		snapshotcreator.CreateSnapshot(DatabaseVersion, tempDir.Path("snapshot.bin"), genesisTokenAmount, make([]byte, ed25519.SeedSize), identitiesWeights, lo.Keys(identitiesWeights), ledgerVM)
-
 		t.Instance = New(workers.CreateGroup("Protocol"), t.Network.Join(identity.GenerateIdentity().ID()), append(t.optsProtocolOptions,
 			WithSnapshotPath(tempDir.Path("snapshot.bin")),
 			WithBaseDirectory(tempDir.Path()),
 			WithEngineOptions(engine.WithLedgerOptions(ledger.WithVM(ledgerVM))),
 		)...)
+
+		err := snapshotcreator.CreateSnapshot(
+			snapshotcreator.WithDatabaseVersion(DatabaseVersion),
+			snapshotcreator.WithVM(ledgerVM),
+			snapshotcreator.WithFilePath(tempDir.Path("snapshot.bin")),
+			snapshotcreator.WithGenesisTokenAmount(genesisTokenAmount),
+			snapshotcreator.WithGenesisSeed(make([]byte, ed25519.SeedSize)),
+			snapshotcreator.WithPledgeIDs(identitiesWeights),
+			snapshotcreator.WithAttestAll(true),
+			snapshotcreator.WithSlotTimeProvider(t.Instance.SlotTimeProvider),
+		)
+		require.NoError(test, err)
 
 		t.Engine = engine.NewTestFramework(t.test, t.workers.CreateGroup("EngineTestFramework"), t.Instance.Engine())
 	})

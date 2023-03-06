@@ -6,12 +6,11 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/hive.go/core/generics/lo"
-
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/storable"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 type Commitments struct {
@@ -41,15 +40,15 @@ func NewCommitments(path string) (newCommitment *Commitments) {
 
 func (c *Commitments) Store(commitment *commitment.Commitment) (err error) {
 	if err = c.slice.Set(int(commitment.Index()), commitment); err != nil {
-		return errors.Wrapf(err, "failed to store commitment for epoch %d", commitment.Index())
+		return errors.Wrapf(err, "failed to store commitment for slot %d", commitment.Index())
 	}
 
 	return nil
 }
 
-func (c *Commitments) Load(index epoch.Index) (commitment *commitment.Commitment, err error) {
+func (c *Commitments) Load(index slot.Index) (commitment *commitment.Commitment, err error) {
 	if commitment, err = c.slice.Get(int(index)); err != nil {
-		return nil, errors.Wrapf(err, "failed to get commitment for epoch %d", index)
+		return nil, errors.Wrapf(err, "failed to get commitment for slot %d", index)
 	}
 
 	return commitment, nil
@@ -64,14 +63,14 @@ func (c *Commitments) FilePath() (filePath string) {
 	return c.filePath
 }
 
-func (c *Commitments) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (err error) {
-	if err = binary.Write(writer, binary.LittleEndian, int64(targetEpoch)); err != nil {
-		return errors.Wrap(err, "failed to write epoch boundary")
+func (c *Commitments) Export(writer io.WriteSeeker, targetSlot slot.Index) (err error) {
+	if err = binary.Write(writer, binary.LittleEndian, int64(targetSlot)); err != nil {
+		return errors.Wrap(err, "failed to write slot boundary")
 	}
 
-	for epochIndex := epoch.Index(0); epochIndex <= targetEpoch; epochIndex++ {
-		if err = binary.Write(writer, binary.LittleEndian, lo.PanicOnErr(lo.PanicOnErr(c.Load(epochIndex)).Bytes())); err != nil {
-			return errors.Wrapf(err, "failed to write commitment for epoch %d", epochIndex)
+	for slotIndex := slot.Index(0); slotIndex <= targetSlot; slotIndex++ {
+		if err = binary.Write(writer, binary.LittleEndian, lo.PanicOnErr(lo.PanicOnErr(c.Load(slotIndex)).Bytes())); err != nil {
+			return errors.Wrapf(err, "failed to write commitment for slot %d", slotIndex)
 		}
 	}
 
@@ -79,28 +78,28 @@ func (c *Commitments) Export(writer io.WriteSeeker, targetEpoch epoch.Index) (er
 }
 
 func (c *Commitments) Import(reader io.ReadSeeker) (err error) {
-	var epochBoundary int64
-	if err = binary.Read(reader, binary.LittleEndian, &epochBoundary); err != nil {
-		return errors.Wrap(err, "failed to read epoch boundary")
+	var slotBoundary int64
+	if err = binary.Read(reader, binary.LittleEndian, &slotBoundary); err != nil {
+		return errors.Wrap(err, "failed to read slot boundary")
 	}
 
 	commitmentSize := len(lo.PanicOnErr(commitment.NewEmptyCommitment().Bytes()))
 
-	for epochIndex := int64(0); epochIndex <= epochBoundary; epochIndex++ {
+	for slotIndex := int64(0); slotIndex <= slotBoundary; slotIndex++ {
 		commitmentBytes := make([]byte, commitmentSize)
 		if err = binary.Read(reader, binary.LittleEndian, commitmentBytes); err != nil {
-			return errors.Wrapf(err, "failed to read commitment bytes for epoch %d", epochIndex)
+			return errors.Wrapf(err, "failed to read commitment bytes for slot %d", slotIndex)
 		}
 
 		newCommitment := new(commitment.Commitment)
 		if consumedBytes, fromBytesErr := newCommitment.FromBytes(commitmentBytes); fromBytesErr != nil {
-			return errors.Wrapf(fromBytesErr, "failed to parse commitment of epoch %d", epochIndex)
+			return errors.Wrapf(fromBytesErr, "failed to parse commitment of slot %d", slotIndex)
 		} else if consumedBytes != commitmentSize {
-			return errors.Errorf("failed to read commitment of epoch %d: consumed bytes (%d) != expected bytes (%d)", epochIndex, consumedBytes, commitmentSize)
+			return errors.Errorf("failed to read commitment of slot %d: consumed bytes (%d) != expected bytes (%d)", slotIndex, consumedBytes, commitmentSize)
 		}
 
 		if err = c.Store(newCommitment); err != nil {
-			return errors.Wrapf(err, "failed to store commitment of epoch %d", epochIndex)
+			return errors.Wrapf(err, "failed to store commitment of slot %d", slotIndex)
 		}
 	}
 

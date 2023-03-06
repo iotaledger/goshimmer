@@ -13,17 +13,12 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gin-gonic/gin"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/dig"
-
-	"github.com/iotaledger/hive.go/app/daemon"
-	"github.com/iotaledger/hive.go/core/autopeering/peer"
-	"github.com/iotaledger/hive.go/core/autopeering/selection"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/logger"
 
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	"github.com/iotaledger/goshimmer/packages/app/collector"
@@ -33,6 +28,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
+	"github.com/iotaledger/hive.go/app/daemon"
+	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/autopeering/selection"
+	"github.com/iotaledger/hive.go/logger"
 )
 
 // PluginName is the name of the metrics collector plugin.
@@ -64,11 +63,11 @@ type dependencies struct {
 func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Disabled, configure, run)
 
-	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
+	Plugin.Events.Init.Hook(func(event *node.InitEvent) {
 		if err := event.Container.Provide(createCollector); err != nil {
 			Plugin.Panic(err)
 		}
-	}))
+	})
 }
 
 func configure(plugin *node.Plugin) {
@@ -90,10 +89,10 @@ func run(*node.Plugin) {
 	if err := daemon.BackgroundWorker("Prometheus exporter", func(ctx context.Context) {
 		log.Info("Starting Prometheus exporter ... done")
 
-		engine := gin.New()
-		engine.Use(gin.Recovery())
+		engine := echo.New()
+		engine.Use(middleware.Recover())
 
-		engine.GET("/metrics", func(c *gin.Context) {
+		engine.GET("/metrics", func(c echo.Context) error {
 			deps.Collector.Collect()
 
 			handler := promhttp.HandlerFor(
@@ -105,7 +104,9 @@ func run(*node.Plugin) {
 			if Parameters.PromhttpMetrics {
 				handler = promhttp.InstrumentMetricHandler(deps.Collector.Registry, handler)
 			}
-			handler.ServeHTTP(c.Writer, c.Request)
+			handler.ServeHTTP(c.Response().Writer, c.Request())
+
+			return nil
 		})
 		bindAddr := Parameters.BindAddress
 		server = &http.Server{Addr: bindAddr, Handler: engine, ReadTimeout: 5 * time.Second, WriteTimeout: 5 * time.Second}
@@ -129,7 +130,6 @@ func run(*node.Plugin) {
 			cancel()
 		}
 		log.Info("Stopping Prometheus exporter ... done")
-
 	}, shutdown.PriorityPrometheus); err != nil {
 		log.Panic(err)
 	}
@@ -149,7 +149,7 @@ func registerMetrics() {
 	deps.Collector.RegisterCollection(RateSetterMetrics)
 	deps.Collector.RegisterCollection(SchedulerMetrics)
 	deps.Collector.RegisterCollection(CommitmentsMetrics)
-	deps.Collector.RegisterCollection(EpochMetrics)
+	deps.Collector.RegisterCollection(SlotMetrics)
 	deps.Collector.RegisterCollection(WorkerPoolMetrics)
 
 }

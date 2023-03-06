@@ -3,15 +3,15 @@ package sybilprotection
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 type WeightedSet struct {
 	Weights             *Weights
-	weightUpdatesDetach func()
-	members             *set.AdvancedSet[identity.ID]
+	weightUpdatesDetach *event.Hook[func(*WeightsBatch)]
+	members             *advancedset.AdvancedSet[identity.ID]
 	membersMutex        sync.RWMutex
 	totalWeight         int64
 	totalWeightMutex    sync.RWMutex
@@ -20,9 +20,9 @@ type WeightedSet struct {
 func NewWeightedSet(weights *Weights, optMembers ...identity.ID) (newWeightedSet *WeightedSet) {
 	newWeightedSet = new(WeightedSet)
 	newWeightedSet.Weights = weights
-	newWeightedSet.members = set.NewAdvancedSet[identity.ID]()
+	newWeightedSet.members = advancedset.NewAdvancedSet[identity.ID]()
 
-	newWeightedSet.weightUpdatesDetach = event.Hook(weights.Events.WeightsUpdated, newWeightedSet.onWeightUpdated)
+	newWeightedSet.weightUpdatesDetach = weights.Events.WeightsUpdated.Hook(newWeightedSet.onWeightUpdated)
 
 	for _, member := range optMembers {
 		newWeightedSet.Add(member)
@@ -124,7 +124,7 @@ func (w *WeightedSet) TotalWeight() (totalWeight int64) {
 	return w.totalWeight
 }
 
-func (w *WeightedSet) Members() *set.AdvancedSet[identity.ID] {
+func (w *WeightedSet) Members() *advancedset.AdvancedSet[identity.ID] {
 	w.membersMutex.RLock()
 	defer w.membersMutex.RUnlock()
 
@@ -132,7 +132,7 @@ func (w *WeightedSet) Members() *set.AdvancedSet[identity.ID] {
 }
 
 func (w *WeightedSet) Detach() {
-	w.weightUpdatesDetach()
+	w.weightUpdatesDetach.Unhook()
 }
 
 func (w *WeightedSet) onWeightUpdated(updates *WeightsBatch) {

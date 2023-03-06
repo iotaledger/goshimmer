@@ -11,13 +11,12 @@ import (
 	"github.com/pkg/errors"
 	"github.com/zyedidia/generic/cache"
 
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
-	"github.com/iotaledger/hive.go/core/ioutils"
-	"github.com/iotaledger/hive.go/core/kvstore"
-
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/ds/shrinkingmap"
+	"github.com/iotaledger/hive.go/kvstore"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/ioutils"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 // region Manager //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -26,15 +25,15 @@ type Manager struct {
 	permanentStorage kvstore.KVStore
 	permanentBaseDir string
 
-	openDBs         *cache.Cache[epoch.Index, *dbInstance]
+	openDBs         *cache.Cache[slot.Index, *dbInstance]
 	bucketedBaseDir string
-	dbSizes         *shrinkingmap.ShrinkingMap[epoch.Index, int64]
+	dbSizes         *shrinkingmap.ShrinkingMap[slot.Index, int64]
 	openDBsMutex    sync.Mutex
 
-	maxPruned      epoch.Index
+	maxPruned      slot.Index
 	maxPrunedMutex sync.RWMutex
 
-	// The granularity of the DB instances (i.e. how many buckets/epochs are stored in one DB).
+	// The granularity of the DB instances (i.e. how many buckets/slots are stored in one DB).
 	optsGranularity int64
 	optsBaseDir     string
 	optsDBProvider  DBProvider
@@ -57,21 +56,21 @@ func NewManager(version Version, opts ...options.Option[Manager]) *Manager {
 		}
 		m.permanentStorage = db.NewStore()
 
-		m.openDBs = cache.New[epoch.Index, *dbInstance](m.optsMaxOpenDBs)
-		m.openDBs.SetEvictCallback(func(baseIndex epoch.Index, db *dbInstance) {
+		m.openDBs = cache.New[slot.Index, *dbInstance](m.optsMaxOpenDBs)
+		m.openDBs.SetEvictCallback(func(baseIndex slot.Index, db *dbInstance) {
 			err := db.instance.Close()
 			if err != nil {
 				panic(err)
 			}
 			size, err := dbPrunableDirectorySize(m.bucketedBaseDir, baseIndex)
 			if err != nil {
-				panic(err)
+				fmt.Fprintln(os.Stderr, err)
 			}
 
 			m.dbSizes.Set(baseIndex, size)
 		})
 
-		m.dbSizes = shrinkingmap.New[epoch.Index, int64]()
+		m.dbSizes = shrinkingmap.New[slot.Index, int64]()
 	})
 
 	if err := m.checkVersion(version); err != nil {
@@ -109,7 +108,7 @@ func (m *Manager) PermanentStorage() kvstore.KVStore {
 	return m.permanentStorage
 }
 
-func (m *Manager) RestoreFromDisk() (latestBucketIndex epoch.Index) {
+func (m *Manager) RestoreFromDisk() (latestBucketIndex slot.Index) {
 	dbInfos := getSortedDBInstancesFromDisk(m.bucketedBaseDir)
 
 	// TODO: what to do if dbInfos is empty? -> start with a fresh DB?
@@ -129,7 +128,7 @@ func (m *Manager) RestoreFromDisk() (latestBucketIndex epoch.Index) {
 	for _, dbInfo := range dbInfos {
 		dbIndex := dbInfo.baseIndex
 		var healthy bool
-		for bucketIndex := dbIndex + epoch.Index(m.optsGranularity) - 1; bucketIndex >= dbIndex; bucketIndex-- {
+		for bucketIndex := dbIndex + slot.Index(m.optsGranularity) - 1; bucketIndex >= dbIndex; bucketIndex-- {
 			bucket := m.getBucket(bucketIndex)
 			healthy = lo.PanicOnErr(bucket.Has(healthKey))
 			if healthy {
@@ -144,22 +143,22 @@ func (m *Manager) RestoreFromDisk() (latestBucketIndex epoch.Index) {
 	return 0
 }
 
-func (m *Manager) MaxPrunedEpoch() epoch.Index {
+func (m *Manager) MaxPrunedSlot() slot.Index {
 	m.maxPrunedMutex.RLock()
 	defer m.maxPrunedMutex.RUnlock()
 
 	return m.maxPruned
 }
 
-// IsTooOld checks if the Block associated with the given id is too old (in a pruned epoch).
-func (m *Manager) IsTooOld(index epoch.Index) (isTooOld bool) {
+// IsTooOld checks if the Block associated with the given id is too old (in a pruned slot).
+func (m *Manager) IsTooOld(index slot.Index) (isTooOld bool) {
 	m.maxPrunedMutex.RLock()
 	defer m.maxPrunedMutex.RUnlock()
 
 	return index <= m.maxPruned
 }
 
-func (m *Manager) Get(index epoch.Index, realm kvstore.Realm) kvstore.KVStore {
+func (m *Manager) Get(index slot.Index, realm kvstore.Realm) kvstore.KVStore {
 	if m.IsTooOld(index) {
 		return nil
 	}
@@ -173,7 +172,7 @@ func (m *Manager) Get(index epoch.Index, realm kvstore.Realm) kvstore.KVStore {
 	return withRealm
 }
 
-func (m *Manager) Flush(index epoch.Index) {
+func (m *Manager) Flush(index slot.Index) {
 	// Flushing works on DB level
 	db := m.getDBInstance(index)
 	err := db.store.Flush()
@@ -189,9 +188,9 @@ func (m *Manager) Flush(index epoch.Index) {
 	}
 }
 
-func (m *Manager) PruneUntilEpoch(index epoch.Index) {
-	var baseIndexToPrune epoch.Index
-	if m.computeDBBaseIndex(index)+epoch.Index(m.optsGranularity)-1 == index {
+func (m *Manager) PruneUntilSlot(index slot.Index) {
+	var baseIndexToPrune slot.Index
+	if m.computeDBBaseIndex(index)+slot.Index(m.optsGranularity)-1 == index {
 		// Upper bound of the DB instance should be pruned. So we can delete the entire DB file.
 		baseIndexToPrune = index
 	} else {
@@ -199,13 +198,13 @@ func (m *Manager) PruneUntilEpoch(index epoch.Index) {
 	}
 
 	currentPrunedIndex := m.setMaxPruned(baseIndexToPrune)
-	for currentPrunedIndex+epoch.Index(m.optsGranularity) <= baseIndexToPrune {
-		currentPrunedIndex += epoch.Index(m.optsGranularity)
+	for currentPrunedIndex+slot.Index(m.optsGranularity) <= baseIndexToPrune {
+		currentPrunedIndex += slot.Index(m.optsGranularity)
 		m.prune(currentPrunedIndex)
 	}
 }
 
-func (m *Manager) setMaxPruned(index epoch.Index) (previous epoch.Index) {
+func (m *Manager) setMaxPruned(index slot.Index) (previous slot.Index) {
 	m.maxPrunedMutex.Lock()
 	defer m.maxPrunedMutex.Unlock()
 
@@ -221,7 +220,7 @@ func (m *Manager) Shutdown() {
 	m.openDBsMutex.Lock()
 	defer m.openDBsMutex.Unlock()
 
-	m.openDBs.Each(func(index epoch.Index, db *dbInstance) {
+	m.openDBs.Each(func(index slot.Index, db *dbInstance) {
 		err := db.instance.Close()
 		if err != nil {
 			panic(err)
@@ -256,13 +255,13 @@ func (m *Manager) PrunableStorageSize() int64 {
 
 	// Sum up all the evicted databases
 	var sum int64
-	m.dbSizes.ForEach(func(index epoch.Index, i int64) bool {
+	m.dbSizes.ForEach(func(index slot.Index, i int64) bool {
 		sum += i
 		return true
 	})
 
 	// Add up all the open databases
-	m.openDBs.Each(func(key epoch.Index, val *dbInstance) {
+	m.openDBs.Each(func(key slot.Index, val *dbInstance) {
 		size, err := dbPrunableDirectorySize(m.bucketedBaseDir, key)
 		if err != nil {
 			fmt.Println("dbPrunableDirectorySize failed for", m.bucketedBaseDir, key, ":", err)
@@ -281,7 +280,7 @@ func (m *Manager) PrunableStorageSize() int64 {
 //	baseIndex 0 -> db 0
 //	baseIndex 1 -> db 0
 //	baseIndex 2 -> db 2
-func (m *Manager) getDBInstance(index epoch.Index) (db *dbInstance) {
+func (m *Manager) getDBInstance(index slot.Index) (db *dbInstance) {
 	baseIndex := m.computeDBBaseIndex(index)
 	m.openDBsMutex.Lock()
 	defer m.openDBsMutex.Unlock()
@@ -307,19 +306,19 @@ func (m *Manager) getDBInstance(index epoch.Index) (db *dbInstance) {
 //	baseIndex 1 -> db 0 / bucket 1
 //	baseIndex 2 -> db 2 / bucket 2
 //	baseIndex 3 -> db 2 / bucket 3
-func (m *Manager) getBucket(index epoch.Index) (bucket kvstore.KVStore) {
+func (m *Manager) getBucket(index slot.Index) (bucket kvstore.KVStore) {
 	_, bucket = m.getDBAndBucket(index)
 	return bucket
 }
 
-func (m *Manager) getDBAndBucket(index epoch.Index) (db *dbInstance, bucket kvstore.KVStore) {
+func (m *Manager) getDBAndBucket(index slot.Index) (db *dbInstance, bucket kvstore.KVStore) {
 	db = m.getDBInstance(index)
 	return db, m.createBucket(db, index)
 }
 
 // createDBInstance creates a new DB instance for the given baseIndex.
 // If a folder/DB for the given baseIndex already exists, it is opened.
-func (m *Manager) createDBInstance(index epoch.Index) (newDBInstance *dbInstance) {
+func (m *Manager) createDBInstance(index slot.Index) (newDBInstance *dbInstance) {
 	db, err := m.optsDBProvider(dbPathFromIndex(m.bucketedBaseDir, index))
 	if err != nil {
 		panic(err)
@@ -333,7 +332,7 @@ func (m *Manager) createDBInstance(index epoch.Index) (newDBInstance *dbInstance
 }
 
 // createBucket creates a new bucket for the given baseIndex. It uses the baseIndex as a realm on the underlying DB.
-func (m *Manager) createBucket(db *dbInstance, index epoch.Index) (bucket kvstore.KVStore) {
+func (m *Manager) createBucket(db *dbInstance, index slot.Index) (bucket kvstore.KVStore) {
 	bucket, err := db.store.WithExtendedRealm(indexToRealm(index))
 	if err != nil {
 		panic(err)
@@ -341,16 +340,16 @@ func (m *Manager) createBucket(db *dbInstance, index epoch.Index) (bucket kvstor
 	return bucket
 }
 
-func (m *Manager) computeDBBaseIndex(index epoch.Index) epoch.Index {
-	return index / epoch.Index(m.optsGranularity) * epoch.Index(m.optsGranularity)
+func (m *Manager) computeDBBaseIndex(index slot.Index) slot.Index {
+	return index / slot.Index(m.optsGranularity) * slot.Index(m.optsGranularity)
 }
 
-func (m *Manager) prune(index epoch.Index) {
+func (m *Manager) prune(index slot.Index) {
 	dbBaseIndex := m.computeDBBaseIndex(index)
 	m.removeDBInstance(dbBaseIndex)
 }
 
-func (m *Manager) removeDBInstance(dbBaseIndex epoch.Index) {
+func (m *Manager) removeDBInstance(dbBaseIndex slot.Index) {
 	m.openDBsMutex.Lock()
 	defer m.openDBsMutex.Unlock()
 
@@ -382,8 +381,8 @@ func (m *Manager) removeBucket(bucket kvstore.KVStore) {
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// WithGranularity sets the granularity of the DB instances (i.e. how many buckets/epochs are stored in one DB).
-// It thus also has an impact on how fine-grained buckets/epochs can be pruned.
+// WithGranularity sets the granularity of the DB instances (i.e. how many buckets/slots are stored in one DB).
+// It thus also has an impact on how fine-grained buckets/slots can be pruned.
 func WithGranularity(granularity int64) options.Option[Manager] {
 	return func(m *Manager) {
 		m.optsGranularity = granularity
@@ -419,7 +418,7 @@ func WithMaxOpenDBs(optsMaxOpenDBs int) options.Option[Manager] {
 type DBProvider func(dirname string) (DB, error)
 
 type dbInstance struct {
-	index    epoch.Index
+	index    slot.Index
 	instance DB              // actual DB instance on disk within folder index
 	store    kvstore.KVStore // KVStore that is used to access the DB instance
 }
@@ -433,7 +432,7 @@ var healthKey = []byte("bucket_health")
 var dbVersionKey = []byte("db_version")
 
 // indexToRealm converts an baseIndex to a realm with some shifting magic.
-func indexToRealm(index epoch.Index) kvstore.Realm {
+func indexToRealm(index slot.Index) kvstore.Realm {
 	return []byte{
 		byte(0xff & index),
 		byte(0xff & (index >> 8)),
@@ -446,12 +445,12 @@ func indexToRealm(index epoch.Index) kvstore.Realm {
 	}
 }
 
-func dbPathFromIndex(base string, index epoch.Index) string {
+func dbPathFromIndex(base string, index slot.Index) string {
 	return filepath.Join(base, strconv.FormatInt(int64(index), 10))
 }
 
 type dbInstanceFileInfo struct {
-	baseIndex epoch.Index
+	baseIndex slot.Index
 	path      string
 }
 
@@ -468,7 +467,7 @@ func getSortedDBInstancesFromDisk(baseDir string) (dbInfos []*dbInstanceFileInfo
 			return nil
 		}
 		return &dbInstanceFileInfo{
-			baseIndex: epoch.Index(atoi),
+			baseIndex: slot.Index(atoi),
 			path:      filepath.Join(baseDir, e.Name()),
 		}
 	})
@@ -481,7 +480,7 @@ func getSortedDBInstancesFromDisk(baseDir string) (dbInfos []*dbInstanceFileInfo
 	return dbInfos
 }
 
-func dbPrunableDirectorySize(base string, index epoch.Index) (int64, error) {
+func dbPrunableDirectorySize(base string, index slot.Index) (int64, error) {
 	return dbDirectorySize(dbPathFromIndex(base, index))
 }
 

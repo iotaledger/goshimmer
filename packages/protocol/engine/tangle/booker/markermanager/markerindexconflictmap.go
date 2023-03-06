@@ -4,10 +4,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/generics/thresholdmap"
-
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/hive.go/ds/thresholdmap"
 )
 
 type MarkerIndexConflictIDMapping struct {

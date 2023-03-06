@@ -3,15 +3,16 @@ package payload
 import (
 	"context"
 
-	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/pkg/errors"
+
+	"github.com/iotaledger/hive.go/serializer/v2/serix"
 )
 
 // MaxSize = MaxBlockSize -
 //
 //	                   (version(1) + parentsBlocksCount(1) + 3 * (parentsType(1) + parentsCount(1) + 8 * reference(40)) +
 //			      issuerPK(32) + issuanceTime(8) + seqNum(8) + payloadLength(4) +
-//			  + ECRecordI(8) + RootsID(32) + PrevID(32) + LatestConfirmedEpoch(8)
+//			  + ECRecordI(8) + RootsID(32) + PrevID(32) + LatestConfirmedSlot(8)
 //			  + nonce(8) + signature(64)
 //			      = MaxBlockSize - 1172 bytes = 64364
 const MaxSize = 65536 - 1172
@@ -28,13 +29,11 @@ type Payload interface {
 	String() string
 }
 
-// FromBytes unmarshals a Payload from a sequence of bytes.
-func FromBytes(data []byte) (payloadDecoded Payload, consumedBytes int, err error) {
-	payloadDecoded = Payload(nil)
-
-	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), data, &payloadDecoded, serix.WithValidation())
+// TypeFromBytes unmarshals a Payload from a sequence of bytes.
+func TypeFromBytes(data []byte) (payloadType Type, consumedBytes int, err error) {
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, &payloadType)
 	if err != nil {
-		err = errors.Wrap(err, "failed to parse Payload")
+		err = errors.Wrap(err, "failed to parse PayloadType")
 		return
 	}
 

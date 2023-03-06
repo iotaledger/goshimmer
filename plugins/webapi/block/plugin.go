@@ -4,16 +4,17 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/protocol"
-
-	"github.com/iotaledger/goshimmer/packages/node"
+	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo"
 	"github.com/pkg/errors"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
+	"github.com/iotaledger/goshimmer/packages/app/faucet"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/app/retainer"
+	"github.com/iotaledger/goshimmer/packages/node"
+	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
@@ -108,7 +109,7 @@ func GetReferences(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	parsedPayload, _, err := payload.FromBytes(request.PayloadBytes)
+	parsedPayload, _, err := payload.TypeFromBytes(request.PayloadBytes)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
@@ -160,13 +161,13 @@ func GetBlock(c echo.Context) (err error) {
 			}
 			return ""
 		}(),
-		CommitmentID:         blockMetadata.M.Block.Commitment().ID().Base58(),
-		EpochIndex:           uint64(blockMetadata.M.Block.Commitment().Index()),
-		CommitmentRootsID:    blockMetadata.M.Block.Commitment().RootsID().Base58(),
-		PrevCommitmentID:     blockMetadata.M.Block.Commitment().PrevID().Base58(),
-		Payload:              payloadBytes,
-		Signature:            blockMetadata.M.Block.Signature().String(),
-		LatestConfirmedEpoch: uint64(blockMetadata.M.Block.LatestConfirmedEpoch()),
+		CommitmentID:        blockMetadata.M.Block.Commitment().ID().Base58(),
+		SlotIndex:           uint64(blockMetadata.M.Block.Commitment().Index()),
+		CommitmentRootsID:   blockMetadata.M.Block.Commitment().RootsID().Base58(),
+		PrevCommitmentID:    blockMetadata.M.Block.Commitment().PrevID().Base58(),
+		Payload:             payloadBytes,
+		Signature:           blockMetadata.M.Block.Signature().String(),
+		LatestConfirmedSlot: uint64(blockMetadata.M.Block.LatestConfirmedSlot()),
 	})
 }
 
@@ -201,7 +202,7 @@ func PostPayload(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	parsedPayload, _, err := payload.FromBytes(request.Payload)
+	parsedPayload, err := payloadFromBytes(request.Payload)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
@@ -262,5 +263,42 @@ func blockIDFromContext(c echo.Context) (blockID models.BlockID, err error) {
 //
 //	return markers.SequenceID(sequenceIDInt), nil
 // }
+
+func payloadFromBytes(payloadBytes []byte) (parsedPayload payload.Payload, err error) {
+	dptype, _, err := payload.TypeFromBytes(payloadBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	switch dptype {
+	case payload.GenericDataPayloadType:
+		data := &payload.GenericDataPayload{}
+		_, err = data.FromBytes(payloadBytes)
+		if err != nil {
+			return nil, err
+		}
+		parsedPayload = data
+
+	case devnetvm.TransactionType:
+		tx := &devnetvm.Transaction{}
+		err = tx.FromBytes(payloadBytes)
+		if err != nil {
+			return nil, err
+		}
+		parsedPayload = tx
+
+	case faucet.RequestType:
+		req := &faucet.Payload{}
+		_, err = req.FromBytes(payloadBytes)
+		if err != nil {
+			return nil, err
+		}
+		parsedPayload = req
+	default:
+		return nil, errors.New("unknown payload type")
+	}
+
+	return parsedPayload, nil
+}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

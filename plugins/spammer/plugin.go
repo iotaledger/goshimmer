@@ -3,16 +3,15 @@ package spammer
 import (
 	"context"
 
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 	"go.uber.org/dig"
-
-	"github.com/iotaledger/hive.go/app/daemon"
-	"github.com/iotaledger/hive.go/core/logger"
 
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	"github.com/iotaledger/goshimmer/packages/app/spammer"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/node"
+	"github.com/iotaledger/hive.go/app/daemon"
+	"github.com/iotaledger/hive.go/logger"
 )
 
 var blockSpammer *spammer.Spammer

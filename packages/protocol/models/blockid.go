@@ -8,17 +8,17 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/byteutils"
-	"github.com/iotaledger/hive.go/core/crypto/ed25519"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/serix"
-	"github.com/iotaledger/hive.go/core/stringify"
-	"github.com/iotaledger/hive.go/core/types"
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/ds/types"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/serializer/v2/byteutils"
+	"github.com/iotaledger/hive.go/serializer/v2/serix"
+	"github.com/iotaledger/hive.go/stringify"
 )
 
 // region BlockID ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -28,21 +28,21 @@ const BlockIDContextKey = "blockID"
 // BlockID identifies a block via its BLAKE2b-256 hash of its bytes.
 type BlockID struct {
 	Identifier types.Identifier `serix:"0"`
-	EpochIndex epoch.Index      `serix:"1"`
+	SlotIndex  slot.Index       `serix:"1"`
 }
 
-func (b BlockID) Index() epoch.Index {
-	return b.EpochIndex
+func (b BlockID) Index() slot.Index {
+	return b.SlotIndex
 }
 
 // EmptyBlockID is an empty id.
 var EmptyBlockID BlockID
 
 // NewBlockID returns a new BlockID for the given data.
-func NewBlockID(contentHash types.Identifier, signature ed25519.Signature, epochIndex epoch.Index) BlockID {
+func NewBlockID(contentHash types.Identifier, signature ed25519.Signature, slotIndex slot.Index) BlockID {
 	return BlockID{
 		Identifier: blake2b.Sum256(byteutils.ConcatBytes(contentHash[:], signature[:])),
-		EpochIndex: epochIndex,
+		SlotIndex:  slotIndex,
 	}
 }
 
@@ -70,27 +70,27 @@ func (b *BlockID) FromBase58(base58EncodedString string) (err error) {
 	if err != nil {
 		return errors.Wrap(err, "could not decode base58 encoded BlockID.Identifier")
 	}
-	epochIndex, err := strconv.ParseInt(s[1], 10, 64)
+	slotIndex, err := strconv.ParseInt(s[1], 10, 64)
 	if err != nil {
-		return errors.Wrap(err, "could not decode BlockID.EpochIndex from string")
+		return errors.Wrap(err, "could not decode BlockID.SlotIndex from string")
 	}
 
 	if _, err = serix.DefaultAPI.Decode(context.Background(), decodedBytes, &b.Identifier, serix.WithValidation()); err != nil {
 		return errors.Wrap(err, "failed to decode BlockID")
 	}
-	b.EpochIndex = epoch.Index(epochIndex)
+	b.SlotIndex = slot.Index(slotIndex)
 
 	return nil
 }
 
 // FromRandomness generates a random BlockID.
-func (b *BlockID) FromRandomness(optionalEpoch ...epoch.Index) (err error) {
+func (b *BlockID) FromRandomness(optionalSlot ...slot.Index) (err error) {
 	if err = b.Identifier.FromRandomness(); err != nil {
 		return errors.Wrap(err, "could not create Identifier from randomness")
 	}
 
-	if len(optionalEpoch) >= 1 {
-		b.EpochIndex = optionalEpoch[0]
+	if len(optionalSlot) >= 1 {
+		b.SlotIndex = optionalSlot[0]
 	}
 
 	return nil
@@ -105,7 +105,7 @@ func (b BlockID) Alias() (alias string) {
 		return existingAlias
 	}
 
-	return fmt.Sprintf("%s, %d", b.Identifier, int(b.EpochIndex))
+	return fmt.Sprintf("%s, %d", b.Identifier, int(b.SlotIndex))
 }
 
 // RegisterAlias allows to register a human-readable alias for the BlockID which will be used as a replacement for the
@@ -127,7 +127,7 @@ func (b BlockID) UnregisterAlias() {
 
 // Base58 returns a base58 encoded version of the BlockID.
 func (b BlockID) Base58() (base58Encoded string) {
-	return fmt.Sprintf("%s:%s", base58.Encode(b.Identifier[:]), strconv.FormatInt(int64(b.EpochIndex), 10))
+	return fmt.Sprintf("%s:%s", base58.Encode(b.Identifier[:]), strconv.FormatInt(int64(b.SlotIndex), 10))
 }
 
 // Length returns the byte length of a serialized BlockID.

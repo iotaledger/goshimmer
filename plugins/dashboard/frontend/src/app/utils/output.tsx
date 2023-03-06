@@ -2,6 +2,7 @@ import {
     AliasOutput,
     ExtendedLockedOutput,
     Output,
+    OutputID,
     SigLockedColoredOutput,
     SigLockedSingleOutput
 } from "app/misc/Payload";
@@ -13,17 +14,19 @@ import {ExtendedLockedOutputComponent} from "app/components/ExtendedLockedOutput
 import {ExplorerOutput} from "app/stores/ExplorerStore";
 import {Base58EncodedColorIOTA, resolveColor} from "app/utils/color";
 import {ConfirmationState} from "app/utils/confirmation_state";
+import { Base58, ReadStream } from '@iota/util.js';
 
 export function outputToComponent(output: Output) {
+    const id = outputIDFromBase58(output.outputID.base58);
     switch (output.type) {
         case "SigLockedSingleOutputType":
-            return <SigLockedSingleOutputComponent output={output.output as SigLockedSingleOutput} id={output.outputID}/>;
+            return <SigLockedSingleOutputComponent output={output.output as SigLockedSingleOutput} id={id}/>;
         case "SigLockedColoredOutputType":
-            return <SigLockedColoredOutputComponent output={output.output as SigLockedColoredOutput} id={output.outputID}/>;
+            return <SigLockedColoredOutputComponent output={output.output as SigLockedColoredOutput} id={id}/>;
         case "AliasOutputType":
-            return <AliasOutputComponent output={output.output as AliasOutput} id={output.outputID}/>;
+            return <AliasOutputComponent output={output.output as AliasOutput} id={id}/>;
         case "ExtendedLockedOutputType":
-            return <ExtendedLockedOutputComponent output={output.output as ExtendedLockedOutput} id={output.outputID}/>;
+            return <ExtendedLockedOutputComponent output={output.output as ExtendedLockedOutput} id={id}/>;
         default:
             return;
     }
@@ -93,4 +96,15 @@ let extractBalanceInfo = (o: ExplorerOutput, result: Map<string, number>) => {
         }
         result.set(resolvedColor, balance + prevBalance);
     }
+}
+
+export function outputIDFromBase58(outputIDStr: string): OutputID {
+    const outputIDBytes = Base58.decode(outputIDStr);
+
+    const readStream = new ReadStream(outputIDBytes);
+    return {
+        base58: outputIDStr,
+        transactionID: Base58.encode(readStream.readBytes('TransactionID', 32)),
+        outputIndex: Number(readStream.readUInt16('Index')),
+    };
 }

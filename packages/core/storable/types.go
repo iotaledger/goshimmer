@@ -3,7 +3,7 @@ package storable
 import (
 	"encoding/binary"
 
-	"github.com/iotaledger/hive.go/core/generics/constraints"
+	"github.com/iotaledger/hive.go/constraints"
 )
 
 // StructConstraint is a constraint that is used to ensure that the given type is a valid Struct.

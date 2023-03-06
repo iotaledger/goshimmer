@@ -3,13 +3,13 @@ package latestvotes
 import (
 	"testing"
 
-	"github.com/iotaledger/hive.go/core/generics/constraints"
-	"github.com/iotaledger/hive.go/core/generics/thresholdmap"
-	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
+	"github.com/iotaledger/hive.go/constraints"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/ds/thresholdmap"
 )
 
 func TestLatestVotes(t *testing.T) {

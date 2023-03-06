@@ -2,8 +2,6 @@ package models
 
 import "fmt"
 
-// region Parent ///////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // ParentsType is a type that defines the type of the parent.
 type ParentsType uint8
 
@@ -90,7 +88,7 @@ func (p ParentBlockIDs) ForEach(callback func(parent Parent)) {
 	}
 }
 
-func (p ParentBlockIDs) RemoveDuplicatesFromWeak() {
+func (p ParentBlockIDs) CleanupReferences() {
 	for strongParent := range p[StrongParentType] {
 		delete(p[WeakParentType], strongParent)
 	}
@@ -101,6 +99,8 @@ func (p ParentBlockIDs) RemoveDuplicatesFromWeak() {
 	if len(p[WeakParentType]) == 0 {
 		delete(p, WeakParentType)
 	}
-}
 
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+	if len(p[ShallowLikeParentType]) == 0 {
+		delete(p, ShallowLikeParentType)
+	}
+}
