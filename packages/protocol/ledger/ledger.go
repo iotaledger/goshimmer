@@ -124,8 +124,7 @@ func New(workerPool *workerpool.WorkerPool, chainStorage *storage.Storage, opts 
 // SetTransactionInclusionSlot sets the inclusion timestamp of a Transaction.
 func (l *Ledger) SetTransactionInclusionSlot(id utxo.TransactionID, inclusionSlot slot.Index) {
 	l.Storage.CachedTransactionMetadata(id).Consume(func(metadata *TransactionMetadata) {
-		updated, previousInclusionSlot := metadata.SetInclusionSlot(inclusionSlot)
-		if !updated {
+		if metadata.InclusionSlot() != 0 && inclusionSlot > metadata.InclusionSlot() {
 			return
 		}
 
@@ -134,6 +133,8 @@ func (l *Ledger) SetTransactionInclusionSlot(id utxo.TransactionID, inclusionSlo
 				outputMetadata.SetInclusionSlot(inclusionSlot)
 			})
 		}
+
+		_, previousInclusionSlot := metadata.SetInclusionSlot(inclusionSlot)
 
 		if previousInclusionSlot != 0 {
 			l.Events.TransactionInclusionUpdated.Trigger(&TransactionInclusionUpdatedEvent{
@@ -240,6 +241,7 @@ func (l *Ledger) triggerAcceptedEvent(txMetadata *TransactionMetadata) (triggere
 		outputID := it.Next()
 		l.Storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *OutputMetadata) {
 			outputMetadata.SetConfirmationState(confirmation.Accepted)
+			outputMetadata.SetInclusionSlot(txMetadata.InclusionSlot())
 			l.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
 				transactionEvent.CreatedOutputs = append(transactionEvent.CreatedOutputs, NewOutputWithMetadata(
 					outputMetadata.InclusionSlot(),
