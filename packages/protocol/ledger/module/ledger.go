@@ -6,6 +6,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/core/database"
+	"github.com/iotaledger/goshimmer/packages/core/module"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
@@ -78,47 +80,52 @@ type Ledger struct {
 
 	// mutex is a DAGMutex that is used to make the Ledger thread safe.
 	mutex *syncutils.DAGMutex[utxo.TransactionID]
+
+	module.Module
 }
 
-// New returns a new Ledger from the given optionsLedger.
-func New(workerPool *workerpool.WorkerPool, chainStorage *storage.Storage, opts ...options.Option[Ledger]) (ledger *Ledger) {
-	ledger = options.Apply(&Ledger{
-		Events:                          NewEvents(),
-		ChainStorage:                    chainStorage,
-		workerPool:                      workerPool,
-		optsCacheTimeProvider:           database.NewCacheTimeProvider(0),
-		optsVM:                          NewMockedVM(),
-		optsTransactionCacheTime:        10 * time.Second,
-		optTransactionMetadataCacheTime: 10 * time.Second,
-		optsOutputCacheTime:             10 * time.Second,
-		optsOutputMetadataCacheTime:     10 * time.Second,
-		optsConsumerCacheTime:           10 * time.Second,
-		mutex:                           syncutils.NewDAGMutex[utxo.TransactionID](),
-	}, opts)
+func NewProvider(opts ...options.Option[Ledger]) module.Provider[*engine.Engine, *Ledger] {
+	return module.Provide(func(e *engine.Engine) *Ledger {
+		return options.Apply(&Ledger{
+			Events:                          NewEvents(),
+			optsCacheTimeProvider:           database.NewCacheTimeProvider(0),
+			optsVM:                          NewMockedVM(),
+			optsTransactionCacheTime:        10 * time.Second,
+			optTransactionMetadataCacheTime: 10 * time.Second,
+			optsOutputCacheTime:             10 * time.Second,
+			optsOutputMetadataCacheTime:     10 * time.Second,
+			optsConsumerCacheTime:           10 * time.Second,
+			mutex:                           syncutils.NewDAGMutex[utxo.TransactionID](),
+		}, opts, func(l *Ledger) {
+			l.ConflictDAG = conflictdag.New(l.optConflictDAG...)
+			l.Events.ConflictDAG = l.ConflictDAG.Events
 
-	ledger.ConflictDAG = conflictdag.New(ledger.optConflictDAG...)
+			l.validator = newValidator(l)
+			l.booker = newBooker(l)
+			l.dataFlow = newDataFlow(l)
+			l.Utils = newUtils(l)
 
-	ledger.Events.ConflictDAG = ledger.ConflictDAG.Events
+			e.HookConstructed(func() {
+				l.ChainStorage = e.Storage
+				l.workerPool = e.Workers.CreatePool("Ledger", 2)
+				l.Storage = newStorage(l, l.ChainStorage.UnspentOutputs)
 
-	ledger.Storage = newStorage(ledger, chainStorage.UnspentOutputs)
-	ledger.validator = newValidator(ledger)
-	ledger.booker = newBooker(ledger)
-	ledger.dataFlow = newDataFlow(ledger)
-	ledger.Utils = newUtils(ledger)
-
-	// TODO: revisit whether we should make the process of setting conflict and transaction as accepted/rejected atomic
-	ledger.ConflictDAG.Events.ConflictAccepted.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-		ledger.propagateAcceptanceToIncludedTransactions(conflict.ID())
-	}, event.WithWorkerPool(workerPool))
-	ledger.ConflictDAG.Events.ConflictRejected.Hook(ledger.propagatedRejectionToTransactions, event.WithWorkerPool(workerPool))
-	ledger.Events.TransactionBooked.Hook(func(event *TransactionBookedEvent) {
-		ledger.processConsumingTransactions(event.Outputs.IDs())
-	}, event.WithWorkerPool(workerPool))
-	ledger.Events.TransactionInvalid.Hook(func(event *TransactionInvalidEvent) {
-		ledger.PruneTransaction(event.TransactionID, true)
-	}, event.WithWorkerPool(workerPool))
-
-	return ledger
+				// TODO: revisit whether we should make the process of setting conflict and transaction as accepted/rejected atomic
+				l.ConflictDAG.Events.ConflictAccepted.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+					l.propagateAcceptanceToIncludedTransactions(conflict.ID())
+				}, event.WithWorkerPool(l.workerPool))
+				l.ConflictDAG.Events.ConflictRejected.Hook(l.propagatedRejectionToTransactions, event.WithWorkerPool(l.workerPool))
+				l.Events.TransactionBooked.Hook(func(event *TransactionBookedEvent) {
+					l.processConsumingTransactions(event.Outputs.IDs())
+				}, event.WithWorkerPool(l.workerPool))
+				l.Events.TransactionInvalid.Hook(func(event *TransactionInvalidEvent) {
+					l.PruneTransaction(event.TransactionID, true)
+				}, event.WithWorkerPool(l.workerPool))
+			})
+		},
+			(*Ledger).TriggerConstructed,
+		)
+	})
 }
 
 // SetTransactionInclusionSlot sets the inclusion timestamp of a Transaction.
