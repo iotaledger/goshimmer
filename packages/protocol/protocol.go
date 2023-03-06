@@ -2,7 +2,6 @@ package protocol
 
 import (
 	"sync"
-	"time"
 
 	"github.com/pkg/errors"
 
@@ -39,7 +38,6 @@ import (
 
 type Protocol struct {
 	Events            *Events
-	SlotTimeProvider  *slot.TimeProvider
 	CongestionControl *congestioncontrol.CongestionControl
 	TipManager        *tipmanager.TipManager
 	chainManager      *chainmanager.Manager
@@ -56,9 +54,6 @@ type Protocol struct {
 	optsBaseDirectory    string
 	optsSnapshotPath     string
 	optsPruningThreshold uint64
-
-	optsGenesisUnixTime int64
-	optsSlotDuration    int64
 
 	optsCongestionControlOptions      []options.Option[congestioncontrol.CongestionControl]
 	optsEngineOptions                 []options.Option[engine.Engine]
@@ -79,13 +74,10 @@ func New(workers *workerpool.Group, dispatcher network.Endpoint, opts ...options
 
 		optsBaseDirectory:    "",
 		optsPruningThreshold: 6 * 60, // 1 hour given that slot duration is 10 seconds
-		optsGenesisUnixTime:  time.Now().Unix(),
-		optsSlotDuration:     10,
 	}, opts,
-		(*Protocol).initSlotTimeProvider,
 		(*Protocol).initNetworkEvents,
-		(*Protocol).initCongestionControl,
 		(*Protocol).initEngineManager,
+		(*Protocol).initCongestionControl,
 		(*Protocol).initChainManager,
 		(*Protocol).initTipManager,
 	)
@@ -93,18 +85,21 @@ func New(workers *workerpool.Group, dispatcher network.Endpoint, opts ...options
 
 // Run runs the protocol.
 func (p *Protocol) Run() {
-	p.linkTo(p.mainEngine)
+	p.Events.Engine.LinkTo(p.mainEngine.Engine.Events)
 
 	if err := p.mainEngine.InitializeWithSnapshot(p.optsSnapshotPath); err != nil {
 		panic(err)
 	}
 
-	p.networkProtocol = network.NewProtocol(p.dispatcher, p.Workers.CreatePool("NetworkProtocol"), p.SlotTimeProvider) // Use max amount of workers for networking
+	p.linkTo(p.mainEngine)
+	p.networkProtocol = network.NewProtocol(p.dispatcher, p.Workers.CreatePool("NetworkProtocol"), p.SlotTimeProvider()) // Use max amount of workers for networking
 	p.Events.Network.LinkTo(p.networkProtocol.Events)
 }
 
 func (p *Protocol) Shutdown() {
-	p.networkProtocol.Unregister()
+	if p.networkProtocol != nil {
+		p.networkProtocol.Unregister()
+	}
 
 	p.CongestionControl.Shutdown()
 
@@ -121,10 +116,6 @@ func (p *Protocol) Shutdown() {
 	p.Workers.Shutdown()
 }
 
-func (p *Protocol) initSlotTimeProvider() {
-	p.SlotTimeProvider = slot.NewTimeProvider(p.optsGenesisUnixTime, p.optsSlotDuration)
-}
-
 func (p *Protocol) initEngineManager() {
 	p.engineManager = enginemanager.New(
 		p.Workers.CreateGroup("EngineManager"),
@@ -134,7 +125,6 @@ func (p *Protocol) initEngineManager() {
 		p.optsEngineOptions,
 		p.optsSybilProtectionProvider,
 		p.optsThroughputQuotaProvider,
-		p.SlotTimeProvider,
 	)
 
 	p.Events.Engine.Consensus.SlotGadget.SlotConfirmed.Hook(func(index slot.Index) {
@@ -145,7 +135,7 @@ func (p *Protocol) initEngineManager() {
 }
 
 func (p *Protocol) initCongestionControl() {
-	p.CongestionControl = congestioncontrol.New(p.SlotTimeProvider, p.optsCongestionControlOptions...)
+	p.CongestionControl = congestioncontrol.New(p.optsCongestionControlOptions...)
 	p.Events.CongestionControl.LinkTo(p.CongestionControl.Events)
 }
 
@@ -221,7 +211,7 @@ func (p *Protocol) initChainManager() {
 }
 
 func (p *Protocol) initTipManager() {
-	p.TipManager = tipmanager.New(p.Workers.CreateGroup("TipManager"), p.SlotTimeProvider, p.CongestionControl.Block, p.optsTipManagerOptions...)
+	p.TipManager = tipmanager.New(p.Workers.CreateGroup("TipManager"), p.CongestionControl.Block, p.optsTipManagerOptions...)
 	p.Events.TipManager = p.TipManager.Events
 
 	wp := p.Workers.CreatePool("TipManagerAttach", 1) // Using just 1 worker to avoid contention
@@ -290,6 +280,7 @@ func (p *Protocol) switchEngines() {
 	// Stop current Scheduler
 	p.CongestionControl.Shutdown()
 
+	p.Events.Engine.LinkTo(p.candidateEngine.Engine.Events)
 	p.linkTo(p.candidateEngine)
 
 	// Save a reference to the current main engine and storage so that we can shut it down and prune it after switching
@@ -562,13 +553,16 @@ func (p *Protocol) ChainManager() (instance *chainmanager.Manager) {
 }
 
 func (p *Protocol) linkTo(engineInstance *enginemanager.EngineInstance) {
-	p.Events.Engine.LinkTo(engineInstance.Engine.Events)
 	p.TipManager.LinkTo(engineInstance.Engine)
 	p.CongestionControl.LinkTo(engineInstance.Engine)
 }
 
 func (p *Protocol) Network() *network.Protocol {
 	return p.networkProtocol
+}
+
+func (p *Protocol) SlotTimeProvider() *slot.TimeProvider {
+	return p.Engine().SlotTimeProvider()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -590,18 +584,6 @@ func WithPruningThreshold(pruningThreshold uint64) options.Option[Protocol] {
 func WithSnapshotPath(snapshot string) options.Option[Protocol] {
 	return func(n *Protocol) {
 		n.optsSnapshotPath = snapshot
-	}
-}
-
-func WithGenesisUnixTimestamp(genesisUnixTime int64) options.Option[Protocol] {
-	return func(p *Protocol) {
-		p.optsGenesisUnixTime = genesisUnixTime
-	}
-}
-
-func WithSlotDuration(slotDuration int64) options.Option[Protocol] {
-	return func(p *Protocol) {
-		p.optsSlotDuration = slotDuration
 	}
 }
 

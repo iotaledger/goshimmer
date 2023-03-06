@@ -229,8 +229,8 @@ func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
 		if !reqValid {
 			return c.JSON(http.StatusBadRequest, searchResult{Error: "invalid timestamp range"})
 		}
-		startSlot := deps.Protocol.SlotTimeProvider.IndexFromTime(startTimestamp)
-		endSlot := deps.Protocol.SlotTimeProvider.IndexFromTime(endTimestamp)
+		startSlot := deps.Protocol.SlotTimeProvider().IndexFromTime(startTimestamp)
+		endSlot := deps.Protocol.SlotTimeProvider().IndexFromTime(endTimestamp)
 
 		var blocks []*tangleVertex
 		var txs []*utxoVertex

@@ -138,6 +138,18 @@ func (m *SlotMutations) Evict(index slot.Index) (acceptedBlocks *ads.Set[models.
 	return m.acceptedBlocks(index), m.acceptedTransactions(index), nil
 }
 
+func (m *SlotMutations) Reset(index slot.Index) {
+	m.evictionMutex.Lock()
+	defer m.evictionMutex.Unlock()
+
+	for i := m.latestCommittedIndex; i > index; i-- {
+		m.acceptedBlocksBySlot.Delete(i)
+		m.acceptedTransactionsBySlot.Delete(i)
+	}
+
+	m.latestCommittedIndex = index
+}
+
 // acceptedBlocks returns the set of accepted blocks for the given slot.
 func (m *SlotMutations) acceptedBlocks(index slot.Index, createIfMissing ...bool) *ads.Set[models.BlockID, *models.BlockID] {
 	if len(createIfMissing) > 0 && createIfMissing[0] {

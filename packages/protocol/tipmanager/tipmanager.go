@@ -52,7 +52,7 @@ type TipManager struct {
 }
 
 // New creates a new TipManager.
-func New(workers *workerpool.Group, slotTimeProvider *slot.TimeProvider, schedulerBlockRetrieverFunc blockRetrieverFunc, opts ...options.Option[TipManager]) (t *TipManager) {
+func New(workers *workerpool.Group, schedulerBlockRetrieverFunc blockRetrieverFunc, opts ...options.Option[TipManager]) (t *TipManager) {
 	t = options.Apply(&TipManager{
 		Events: NewEvents(),
 
@@ -67,14 +67,14 @@ func New(workers *workerpool.Group, slotTimeProvider *slot.TimeProvider, schedul
 		optsWidth:                          0,
 	}, opts)
 
-	t.commitmentRecentBoundary = slot.Index(int64(t.optsTimeSinceConfirmationThreshold.Seconds()) / slotTimeProvider.Duration())
-
 	return
 }
 
 func (t *TipManager) LinkTo(engine *engine.Engine) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
+
+	t.commitmentRecentBoundary = slot.Index(int64(t.optsTimeSinceConfirmationThreshold.Seconds()) / engine.SlotTimeProvider().Duration())
 
 	t.walkerCache = memstorage.NewSlotStorage[models.BlockID, types.Empty]()
 	t.tips = randommap.New[models.BlockID, *scheduler.Block]()

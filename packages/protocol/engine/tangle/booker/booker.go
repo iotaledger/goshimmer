@@ -257,7 +257,7 @@ func (b *Booker) isPayloadSolid(block *virtualvoting.Block) (isPayloadSolid bool
 // block retrieves the Block with given id from the mem-storage.
 func (b *Booker) block(id models.BlockID) (block *virtualvoting.Block, exists bool) {
 	if b.BlockDAG.EvictionState.IsRootBlock(id) {
-		return virtualvoting.NewRootBlock(id, b.BlockDAG.SlotTimeProvider), true
+		return virtualvoting.NewRootBlock(id, b.BlockDAG.SlotTimeProvider()), true
 	}
 
 	storage := b.blocks.Get(id.Index(), false)

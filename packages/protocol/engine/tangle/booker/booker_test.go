@@ -711,7 +711,7 @@ func Test_Prune(t *testing.T) {
 
 			return tf.BlockDAG.CreateBlock(
 				alias,
-				models.WithIssuingTime(tf.BlockDAG.Instance.SlotTimeProvider.GenesisTime()),
+				models.WithIssuingTime(tf.BlockDAG.Instance.SlotTimeProvider().GenesisTime()),
 				models.WithPayload(tf.Ledger.CreateTransaction(alias, 1, "Genesis")),
 			), alias
 		}
@@ -719,7 +719,7 @@ func Test_Prune(t *testing.T) {
 		return tf.BlockDAG.CreateBlock(
 			alias,
 			models.WithStrongParents(tf.BlockDAG.BlockIDs(parentAlias)),
-			models.WithIssuingTime(tf.BlockDAG.Instance.SlotTimeProvider.StartTime(idx)),
+			models.WithIssuingTime(tf.BlockDAG.Instance.SlotTimeProvider().StartTime(idx)),
 			models.WithPayload(tf.Ledger.CreateTransaction(alias, 1, fmt.Sprintf("%s.0", parentAlias))),
 		), alias
 	}
@@ -746,7 +746,7 @@ func Test_Prune(t *testing.T) {
 	_, wasAttached, err := tf.BlockDAG.Instance.Attach(tf.BlockDAG.CreateBlock(
 		"blk-1-reattachment",
 		models.WithStrongParents(tf.BlockDAG.BlockIDs(fmt.Sprintf("blk-%d", slotCount))),
-		models.WithIssuingTime(tf.BlockDAG.Instance.SlotTimeProvider.StartTime(slotCount)),
+		models.WithIssuingTime(tf.BlockDAG.Instance.SlotTimeProvider().StartTime(slotCount)),
 		models.WithPayload(tf.Ledger.Transaction("blk-1")),
 	))
 	require.True(t, wasAttached, "block should be attached")
@@ -781,7 +781,7 @@ func Test_Prune(t *testing.T) {
 	_, wasAttached, err = tf.BlockDAG.Instance.Attach(tf.BlockDAG.CreateBlock(
 		"blk-0.5",
 		models.WithStrongParents(tf.BlockDAG.BlockIDs(fmt.Sprintf("blk-%d", slotCount))),
-		models.WithIssuingTime(tf.BlockDAG.Instance.SlotTimeProvider.GenesisTime()),
+		models.WithIssuingTime(tf.BlockDAG.Instance.SlotTimeProvider().GenesisTime()),
 	))
 	workers.WaitChildren()
 

@@ -36,7 +36,7 @@ import (
 // | node1       | node1       |
 // | node2       | node2       |.
 
-func CreateSnapshot(opts ...options.Option[Options]) (err error) {
+func CreateSnapshot(opts ...options.Option[Options]) error {
 	opt := NewOptions(opts...)
 
 	workers := workerpool.NewGroup("CreateSnapshot")
@@ -44,18 +44,23 @@ func CreateSnapshot(opts ...options.Option[Options]) (err error) {
 	s := storage.New(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), opt.dataBaseVersion)
 	defer s.Shutdown()
 
-	if err = s.Commitments.Store(commitment.NewEmptyCommitment()); err != nil {
+	if err := s.Commitments.Store(commitment.NewEmptyCommitment()); err != nil {
 		return errors.Wrap(err, "failed to store empty commitment")
 	}
-	if err = s.Settings.SetChainID(lo.PanicOnErr(s.Commitments.Load(0)).ID()); err != nil {
+	if err := s.Settings.SetGenesisUnixTime(opt.GenesisUnixTime); err != nil {
+		return errors.Wrap(err, "failed to set the genesis time")
+	}
+	if err := s.Settings.SetSlotDuration(opt.SlotDuration); err != nil {
+		return errors.Wrap(err, "failed to set the slot duration")
+	}
+	if err := s.Settings.SetChainID(lo.PanicOnErr(s.Commitments.Load(0)).ID()); err != nil {
 		return errors.Wrap(err, "failed to set chainID")
 	}
 
-	engineInstance := engine.New(workers.CreateGroup("Engine"), s, dpos.NewProvider(), mana1.NewProvider(), opt.SlotTimeProvider, engine.WithLedgerOptions(ledger.WithVM(opt.vm)))
+	engineInstance := engine.New(workers.CreateGroup("Engine"), s, dpos.NewProvider(), mana1.NewProvider(), engine.WithLedgerOptions(ledger.WithVM(opt.vm)))
 	defer engineInstance.Shutdown()
 
-	err = opt.createGenesisOutput(engineInstance)
-	if err != nil {
+	if err := opt.createGenesisOutput(engineInstance); err != nil {
 		return err
 	}
 	engineInstance.NotarizationManager.Attestations.SetLastCommittedSlot(-1)
@@ -101,7 +106,7 @@ func CreateSnapshot(opts ...options.Option[Options]) (err error) {
 func (m *Options) attest(engineInstance *engine.Engine, nodePublicKey ed25519.PublicKey) error {
 	if _, err := engineInstance.NotarizationManager.Attestations.Add(&notarization.Attestation{
 		IssuerPublicKey: nodePublicKey,
-		IssuingTime:     time.Unix(m.SlotTimeProvider.GenesisUnixTime()-1, 0),
+		IssuingTime:     time.Unix(engineInstance.SlotTimeProvider().GenesisUnixTime()-1, 0),
 	}); err != nil {
 		return err
 	}
