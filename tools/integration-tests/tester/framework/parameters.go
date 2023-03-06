@@ -83,7 +83,6 @@ func PeerConfig() config.GoShimmer {
 
 	c.Protocol.Enabled = true
 	c.Protocol.Snapshot.Path = "" // snapshot path is set individually in each test
-	c.Protocol.GenesisTime = GenesisTime
 
 	c.Notarization.Enabled = true
 	c.Notarization.MinSlotCommittableAge = 6

@@ -41,7 +41,6 @@ type EngineManager struct {
 	clockProvider           module.Provider[*engine.Engine, clock.Clock]
 	sybilProtectionProvider module.Provider[*engine.Engine, sybilprotection.SybilProtection]
 	throughputQuotaProvider module.Provider[*engine.Engine, throughputquota.ThroughputQuota]
-	slotTimeProvider        *slot.TimeProvider
 
 	activeInstance *EngineInstance
 }
@@ -54,8 +53,7 @@ func New(
 	engineOptions []options.Option[engine.Engine],
 	clockProvider module.Provider[*engine.Engine, clock.Clock],
 	sybilProtectionProvider module.Provider[*engine.Engine, sybilprotection.SybilProtection],
-	throughputQuotaProvider module.Provider[*engine.Engine, throughputquota.ThroughputQuota],
-	slotTimeProvider *slot.TimeProvider) *EngineManager {
+	throughputQuotaProvider module.Provider[*engine.Engine, throughputquota.ThroughputQuota]) *EngineManager {
 	return &EngineManager{
 		workers:                 workers,
 		directory:               utils.NewDirectory(dir),
@@ -65,7 +63,6 @@ func New(
 		clockProvider:           clockProvider,
 		sybilProtectionProvider: sybilProtectionProvider,
 		throughputQuotaProvider: throughputQuotaProvider,
-		slotTimeProvider:        slotTimeProvider,
 	}
 }
 
@@ -134,7 +131,7 @@ func (m *EngineManager) SetActiveInstance(instance *EngineInstance) error {
 
 func (m *EngineManager) loadEngineInstance(dirName string) *EngineInstance {
 	candidateStorage := storage.New(m.directory.Path(dirName), m.dbVersion, m.storageOptions...)
-	candidateEngine := engine.New(m.workers.CreateGroup(dirName), candidateStorage, m.clockProvider, m.sybilProtectionProvider, m.throughputQuotaProvider, m.slotTimeProvider, m.engineOptions...)
+	candidateEngine := engine.New(m.workers.CreateGroup(dirName), candidateStorage, m.clockProvider, m.sybilProtectionProvider, m.throughputQuotaProvider, m.engineOptions...)
 
 	return &EngineInstance{
 		Engine:  candidateEngine,

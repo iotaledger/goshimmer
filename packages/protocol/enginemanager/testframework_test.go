@@ -2,6 +2,7 @@ package enginemanager_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -16,7 +17,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/storage/utils"
-	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/options"
@@ -29,14 +29,15 @@ type EngineManagerTestFramework struct {
 	ActiveEngine *enginemanager.EngineInstance
 }
 
-func NewEngineManagerTestFramework(t *testing.T, workers *workerpool.Group, slotTimeProvider *slot.TimeProvider, identitiesWeights map[ed25519.PublicKey]uint64) *EngineManagerTestFramework {
+func NewEngineManagerTestFramework(t *testing.T, workers *workerpool.Group, identitiesWeights map[ed25519.PublicKey]uint64) *EngineManagerTestFramework {
 	tf := &EngineManagerTestFramework{}
 
 	ledgerVM := new(devnetvm.VM)
 
 	snapshotPath := utils.NewDirectory(t.TempDir()).Path("snapshot.bin")
 
-	err2 := snapshotcreator.CreateSnapshot(
+	slotDuration := int64(10)
+	require.NoError(t, snapshotcreator.CreateSnapshot(
 		snapshotcreator.WithDatabaseVersion(protocol.DatabaseVersion),
 		snapshotcreator.WithFilePath(snapshotPath),
 		snapshotcreator.WithGenesisTokenAmount(1),
@@ -44,10 +45,10 @@ func NewEngineManagerTestFramework(t *testing.T, workers *workerpool.Group, slot
 		snapshotcreator.WithPeersPublicKeys(lo.Keys(identitiesWeights)),
 		snapshotcreator.WithVM(ledgerVM),
 		snapshotcreator.WithPeersAmountsPledged(lo.Values(identitiesWeights)),
-		snapshotcreator.WithSlotTimeProvider(slotTimeProvider),
 		snapshotcreator.WithAttestAll(true),
-	)
-	require.NoError(t, err2)
+		snapshotcreator.WithGenesisUnixTime(time.Now().Unix()-slotDuration*10),
+		snapshotcreator.WithSlotDuration(slotDuration),
+	))
 
 	tf.EngineManager = enginemanager.New(workers.CreateGroup("EngineManager"),
 		t.TempDir(),
@@ -59,7 +60,6 @@ func NewEngineManagerTestFramework(t *testing.T, workers *workerpool.Group, slot
 		blocktime.NewProvider(),
 		dpos.NewProvider(),
 		mana1.NewProvider(),
-		slotTimeProvider,
 	)
 
 	var err error

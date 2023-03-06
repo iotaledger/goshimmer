@@ -68,7 +68,7 @@ func (tf *TestFramework) CreateBlock(issuer int) *models.Block {
 	parents := models.NewParentBlockIDs()
 	parents.AddStrong(models.EmptyBlockID)
 	blk := models.NewBlock(models.WithIssuer(tf.localIdentity[issuer].PublicKey()), models.WithParents(parents))
-	assert.NoError(tf.test, blk.DetermineID(tf.Protocol.Instance.SlotTimeProvider))
+	assert.NoError(tf.test, blk.DetermineID(tf.Protocol.Instance.SlotTimeProvider()))
 	return blk
 }
 

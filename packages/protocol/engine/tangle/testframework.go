@@ -33,11 +33,18 @@ type TestFramework struct {
 func NewTestTangle(t *testing.T, workers *workerpool.Group, slotTimeProvider *slot.TimeProvider, ledger *ledger.Ledger, validators *sybilprotection.WeightedSet, optsTangle ...options.Option[Tangle]) *Tangle {
 	storageInstance := blockdag.NewTestStorage(t, workers)
 
-	tangle := New(workers, ledger, eviction.NewState(storageInstance), slotTimeProvider, validators, func() slot.Index {
-		return 0
-	}, func(id markers.SequenceID) markers.Index {
-		return 1
-	}, storageInstance.Commitments.Load,
+	tangle := New(workers, ledger, eviction.NewState(storageInstance),
+		func() *slot.TimeProvider {
+			return slotTimeProvider
+		},
+		validators,
+		func() slot.Index {
+			return 0
+		},
+		func(id markers.SequenceID) markers.Index {
+			return 1
+		},
+		storageInstance.Commitments.Load,
 		optsTangle...)
 
 	return tangle

@@ -16,8 +16,6 @@ type ParametersDefinition struct {
 	ValidatorActivityWindow time.Duration `default:"30s" usage:"define period of inactivity after which validator is removed from the set of active validators"`
 	// BootstrapWindow defines the time window in which the node considers itself as synced according to TangleTime.
 	BootstrapWindow time.Duration `default:"20s" usage:"the time window in which the node considers itself as bootstrapped according to Acceptance"`
-	// GenesisTime resets the genesis time to the specified value, Unix time in seconds.
-	GenesisTime int64 `default:"0" usage:"resets the genesis time to the specified value, unix time in seconds"`
 	// Snapshot contains snapshots related configuration parameters.
 	Snapshot struct {
 		// Path is the path to the snapshot file.

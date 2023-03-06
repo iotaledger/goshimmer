@@ -20,7 +20,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
-	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/options"
@@ -50,7 +49,7 @@ func main() {
 		panic(err)
 	}
 	if checkValidity {
-		diagnosticPrintSnapshotFromFile(info.FilePath, info.SlotTimeProvider)
+		diagnosticPrintSnapshotFromFile(info.FilePath)
 	}
 }
 
@@ -83,11 +82,11 @@ func createTempStorage() (s *storage.Storage) {
 	return storage.New(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), protocol.DatabaseVersion)
 }
 
-func diagnosticPrintSnapshotFromFile(filePath string, provider *slot.TimeProvider) {
+func diagnosticPrintSnapshotFromFile(filePath string) {
 	s := createTempStorage()
 	defer s.Shutdown()
 
-	e := engine.New(workerpool.NewGroup("Diagnostics"), s, blocktime.NewProvider(), dpos.NewProvider(), mana1.NewProvider(), provider)
+	e := engine.New(workerpool.NewGroup("Diagnostics"), s, blocktime.NewProvider(), dpos.NewProvider(), mana1.NewProvider())
 	defer e.Shutdown()
 
 	if err := e.Initialize(filePath); err != nil {

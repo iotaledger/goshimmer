@@ -13,16 +13,16 @@ import (
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
 
 type TestFramework struct {
-	slotTimeProvider *slot.TimeProvider
-	blocksByAlias    map[string]*Block
-	sequenceNumber   uint64
+	slotTimeProviderFunc func() *slot.TimeProvider
+	blocksByAlias        map[string]*Block
+	sequenceNumber       uint64
 }
 
 // NewTestFramework is the constructor of the TestFramework.
-func NewTestFramework(slotTimeProvider *slot.TimeProvider, opts ...options.Option[TestFramework]) *TestFramework {
+func NewTestFramework(slotTimeProviderFunc func() *slot.TimeProvider, opts ...options.Option[TestFramework]) *TestFramework {
 	return options.Apply(&TestFramework{
-		slotTimeProvider: slotTimeProvider,
-		blocksByAlias:    make(map[string]*Block),
+		slotTimeProviderFunc: slotTimeProviderFunc,
+		blocksByAlias:        make(map[string]*Block),
 	}, opts)
 }
 
@@ -38,7 +38,7 @@ func (t *TestFramework) CreateBlock(alias string, opts ...options.Option[Block])
 		block.M.Parents.Add(StrongParentType, EmptyBlockID)
 	}
 
-	if err := block.DetermineID(t.slotTimeProvider); err != nil {
+	if err := block.DetermineID(t.slotTimeProviderFunc()); err != nil {
 		panic(err)
 	}
 	block.ID().RegisterAlias(alias)
@@ -64,7 +64,7 @@ func (t *TestFramework) CreateAndSignBlock(alias string, keyPair *ed25519.KeyPai
 		panic(err)
 	}
 
-	if err := block.DetermineID(t.slotTimeProvider); err != nil {
+	if err := block.DetermineID(t.slotTimeProviderFunc()); err != nil {
 		panic(err)
 	}
 	block.ID().RegisterAlias(alias)

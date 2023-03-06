@@ -42,7 +42,7 @@ type Node struct {
 	mutex sync.RWMutex
 }
 
-func NewNode(t *testing.T, keyPair ed25519.KeyPair, network *network.MockedNetwork, partition string, snapshotPath string, slotTimeProvider *slot.TimeProvider, engineOpts ...options.Option[engine.Engine]) *Node {
+func NewNode(t *testing.T, keyPair ed25519.KeyPair, network *network.MockedNetwork, partition string, snapshotPath string, engineOpts ...options.Option[engine.Engine]) *Node {
 	id := identity.New(keyPair.PublicKey)
 
 	node := &Node{
@@ -57,8 +57,6 @@ func NewNode(t *testing.T, keyPair ed25519.KeyPair, network *network.MockedNetwo
 
 	node.Protocol = protocol.New(node.Workers.CreateGroup("Protocol"),
 		node.Endpoint,
-		protocol.WithGenesisUnixTimestamp(slotTimeProvider.GenesisUnixTime()),
-		protocol.WithSlotDuration(slotTimeProvider.Duration()),
 		protocol.WithBaseDirectory(tempDir.Path()),
 		protocol.WithSnapshotPath(snapshotPath),
 		protocol.WithEngineOptions(engineOpts...),
@@ -252,7 +250,7 @@ func (n *Node) Wait() {
 func (n *Node) IssueBlockAtSlot(alias string, slotIndex slot.Index, parents ...models.BlockID) *models.Block {
 	tf := n.EngineTestFramework()
 
-	issuingTime := time.Unix(tf.Instance.SlotTimeProvider.GenesisUnixTime()+int64(slotIndex-1)*tf.Instance.SlotTimeProvider.Duration(), 0)
+	issuingTime := time.Unix(tf.SlotTimeProvider().GenesisUnixTime()+int64(slotIndex-1)*tf.SlotTimeProvider().Duration(), 0)
 	require.True(n.Testing, issuingTime.Before(time.Now()), "issued block is in the current or future slot")
 	tf.BlockDAG.CreateAndSignBlock(alias, &n.KeyPair,
 		models.WithStrongParents(models.NewBlockIDs(parents...)),

@@ -85,7 +85,7 @@ func (r *Retainer) BlockMetadata(blockID models.BlockID) (metadata *BlockMetadat
 
 		if metadata.M.Accepted && !metadata.M.Confirmed && blockID.Index() <= r.protocol.Engine().LastConfirmedSlot() {
 			metadata.M.ConfirmedBySlot = true
-			metadata.M.ConfirmedBySlotTime = r.protocol.SlotTimeProvider.EndTime(blockID.Index())
+			metadata.M.ConfirmedBySlotTime = r.protocol.SlotTimeProvider().EndTime(blockID.Index())
 		}
 	}
 

@@ -51,7 +51,6 @@ type Engine struct {
 	Consensus           *consensus.Consensus
 	TSCManager          *tsc.Manager
 	Clock               clock.Clock
-	SlotTimeProvider    *slot.TimeProvider
 
 	Workers *workerpool.Group
 
@@ -78,7 +77,6 @@ func New(
 	clockProvider module.Provider[*Engine, clock.Clock],
 	sybilProtectionProvider module.Provider[*Engine, sybilprotection.SybilProtection],
 	throughputQuotaProvider module.Provider[*Engine, throughputquota.ThroughputQuota],
-	slotTimeProvider *slot.TimeProvider,
 	opts ...options.Option[Engine],
 ) (engine *Engine) {
 	return options.Apply(
@@ -91,32 +89,44 @@ func New(
 			optsBootstrappedThreshold: 10 * time.Second,
 			optsSnapshotDepth:         5,
 		}, opts, func(e *Engine) {
-			e.Ledger = ledger.New(workers.CreatePool("Pool", 2), e.Storage, e.optsLedgerOptions...)
-			e.LedgerState = ledgerstate.New(storageInstance, e.Ledger)
+			e.Ledger = ledger.New(e.Workers.CreatePool("Pool", 2), e.Storage, e.optsLedgerOptions...)
+			e.LedgerState = ledgerstate.New(e.Storage, e.Ledger)
 			e.Clock = clockProvider(e)
 			e.SybilProtection = sybilProtectionProvider(e)
 			e.ThroughputQuota = throughputQuotaProvider(e)
-			e.SlotTimeProvider = slotTimeProvider
-			e.NotarizationManager = notarization.NewManager(e.Storage, e.LedgerState, e.SybilProtection.Weights(), slotTimeProvider, e.optsNotarizationManagerOptions...)
+			e.NotarizationManager = notarization.NewManager(e.Storage, e.LedgerState, e.SybilProtection.Weights(), e.optsNotarizationManagerOptions...)
+			e.Tangle = tangle.New(e.Workers.CreateGroup("Tangle"), e.Ledger, e.EvictionState, e.SlotTimeProvider, e.SybilProtection.Validators(), e.LastConfirmedSlot, e.FirstUnacceptedMarker, e.Storage.Commitments.Load, e.optsTangleOptions...)
+			e.Consensus = consensus.New(e.Workers.CreateGroup("Consensus"), e.Tangle, e.EvictionState, e.Storage.Permanent.Settings.LatestConfirmedSlot(), func() (totalWeight int64) {
+				if zeroIdentityWeight, exists := e.SybilProtection.Weights().Get(identity.ID{}); exists {
+					totalWeight -= zeroIdentityWeight.Value
+				}
+
+				return totalWeight + e.SybilProtection.Weights().TotalWeight()
+			}, e.optsConsensusOptions...)
+			e.TSCManager = tsc.New(e.Consensus.BlockGadget.IsBlockAccepted, e.Tangle, e.optsTSCManagerOptions...)
+			e.Filter = filter.New(e.optsFilter...)
+			e.BlockRequester = eventticker.New(e.optsBlockRequester...)
 
 			e.HookInitialized(lo.Batch(
 				e.Storage.Settings.TriggerInitialized,
 				e.Storage.Commitments.TriggerInitialized,
 				e.LedgerState.TriggerInitialized,
 				e.NotarizationManager.TriggerInitialized,
+				func() {
+					// TODO: hack until consensus is made an engine module
+					e.Consensus.SlotGadget.SetLastConfirmedSlot(e.Storage.Permanent.Settings.LatestConfirmedSlot())
+				},
 			))
 		},
-
-		(*Engine).initLedger,
-		(*Engine).initTangle,
-		(*Engine).initConsensus,
-		(*Engine).initTSCManager,
-		(*Engine).initBlockStorage,
-		(*Engine).initNotarizationManager,
-		(*Engine).initFilter,
-		(*Engine).initEvictionState,
-		(*Engine).initBlockRequester,
-
+		(*Engine).setupLedger,
+		(*Engine).setupTangle,
+		(*Engine).setupConsensus,
+		(*Engine).setupTSCManager,
+		(*Engine).setupBlockStorage,
+		(*Engine).setupNotarizationManager,
+		(*Engine).setupFilter,
+		(*Engine).setupEvictionState,
+		(*Engine).setupBlockRequester,
 		(*Engine).TriggerConstructed,
 	)
 }
@@ -159,18 +169,10 @@ func (e *Engine) Block(id models.BlockID) (block *models.Block, exists bool) {
 }
 
 func (e *Engine) FirstUnacceptedMarker(sequenceID markers.SequenceID) markers.Index {
-	if e.Consensus == nil {
-		return 1
-	}
-
 	return e.Consensus.BlockGadget.FirstUnacceptedIndex(sequenceID)
 }
 
 func (e *Engine) LastConfirmedSlot() slot.Index {
-	if e.Consensus == nil {
-		return 0
-	}
-
 	return e.Consensus.SlotGadget.LastConfirmedSlot()
 }
 
@@ -193,9 +195,16 @@ func (e *Engine) IsSynced() (isBootstrapped bool) {
 	return e.IsBootstrapped() && time.Since(e.Clock.Accepted().Time()) < e.optsBootstrappedThreshold
 }
 
-func (e *Engine) Initialize(snapshot string) (err error) {
+func (e *Engine) SlotTimeProvider() *slot.TimeProvider {
+	return e.Storage.Settings.SlotTimeProvider()
+}
+
+func (e *Engine) Initialize(snapshot ...string) (err error) {
 	if !e.Storage.Settings.SnapshotImported() {
-		if err = e.readSnapshot(snapshot); err != nil {
+		if len(snapshot) == 0 || snapshot[0] == "" {
+			panic("no snapshot path specified")
+		}
+		if err = e.readSnapshot(snapshot[0]); err != nil {
 			return errors.Wrapf(err, "failed to read snapshot from file '%s'", snapshot)
 		}
 	}
@@ -255,23 +264,19 @@ func (e *Engine) Export(writer io.WriteSeeker, targetSlot slot.Index) (err error
 	return
 }
 
-func (e *Engine) initFilter() {
-	e.Filter = filter.New(e.optsFilter...)
-
-	e.Filter.Events.BlockFiltered.Hook(func(filteredEvent *filter.BlockFilteredEvent) {
+func (e *Engine) setupFilter() {
+	e.Events.Filter.BlockFiltered.Hook(func(filteredEvent *filter.BlockFilteredEvent) {
 		e.Events.Error.Trigger(errors.Wrapf(filteredEvent.Reason, "block (%s) filtered", filteredEvent.Block.ID()))
 	}, event.WithWorkerPool(e.Workers.CreatePool("Filter", 2)))
 
 	e.Events.Filter.LinkTo(e.Filter.Events)
 }
 
-func (e *Engine) initLedger() {
+func (e *Engine) setupLedger() {
 	e.Events.Ledger.LinkTo(e.Ledger.Events)
 }
 
-func (e *Engine) initTangle() {
-	e.Tangle = tangle.New(e.Workers.CreateGroup("Tangle"), e.Ledger, e.EvictionState, e.SlotTimeProvider, e.SybilProtection.Validators(), e.LastConfirmedSlot, e.FirstUnacceptedMarker, e.Storage.Commitments.Load, e.optsTangleOptions...)
-
+func (e *Engine) setupTangle() {
 	e.Events.Filter.BlockAllowed.Hook(func(block *models.Block) {
 		if _, _, err := e.Tangle.BlockDAG.Attach(block); err != nil {
 			e.Events.Error.Trigger(errors.Wrapf(err, "failed to attach block with %s (issuerID: %s)", block.ID(), block.IssuerID()))
@@ -285,17 +290,9 @@ func (e *Engine) initTangle() {
 	e.Events.Tangle.LinkTo(e.Tangle.Events)
 }
 
-func (e *Engine) initConsensus() {
-	e.Consensus = consensus.New(e.Workers.CreateGroup("Consensus"), e.Tangle, e.EvictionState, e.Storage.Permanent.Settings.LatestConfirmedSlot(), func() (totalWeight int64) {
-		if zeroIdentityWeight, exists := e.SybilProtection.Weights().Get(identity.ID{}); exists {
-			totalWeight -= zeroIdentityWeight.Value
-		}
-
-		return totalWeight + e.SybilProtection.Weights().TotalWeight()
-	}, e.optsConsensusOptions...)
+func (e *Engine) setupConsensus() {
 	e.Events.Consensus.LinkTo(e.Consensus.Events)
 
-	e.Events.EvictionState.SlotEvicted.Hook(e.Consensus.BlockGadget.EvictUntil)
 	e.Events.Consensus.BlockGadget.Error.Hook(e.Events.Error.Trigger)
 	e.Events.Consensus.SlotGadget.SlotConfirmed.Hook(func(index slot.Index) {
 		err := e.Storage.Permanent.Settings.SetLatestConfirmedSlot(index)
@@ -307,7 +304,7 @@ func (e *Engine) initConsensus() {
 	}, event.WithWorkerPool(e.Workers.CreatePool("Consensus", 1))) // Using just 1 worker to avoid contention
 }
 
-func (e *Engine) initTSCManager() {
+func (e *Engine) setupTSCManager() {
 	e.TSCManager = tsc.New(e.Consensus.BlockGadget.IsBlockAccepted, e.Tangle, e.optsTSCManagerOptions...)
 
 	// wp := e.Workers.CreatePool("TSCManager", 1) // Using just 1 worker to avoid contention
@@ -319,7 +316,7 @@ func (e *Engine) initTSCManager() {
 	// }, event.WithWorkerPool(wp))
 }
 
-func (e *Engine) initBlockStorage() {
+func (e *Engine) setupBlockStorage() {
 	wp := e.Workers.CreatePool("BlockStorage", 1) // Using just 1 worker to avoid contention
 
 	e.Events.Consensus.BlockGadget.BlockAccepted.Hook(func(block *blockgadget.Block) {
@@ -334,7 +331,7 @@ func (e *Engine) initBlockStorage() {
 	}, event.WithWorkerPool(wp))
 }
 
-func (e *Engine) initNotarizationManager() {
+func (e *Engine) setupNotarizationManager() {
 	e.Events.NotarizationManager.LinkTo(e.NotarizationManager.Events)
 	e.Events.SlotMutations.LinkTo(e.NotarizationManager.SlotMutations.Events)
 
@@ -342,23 +339,23 @@ func (e *Engine) initNotarizationManager() {
 	wpCommitments := e.Workers.CreatePool("NotarizationManager.Commitments", 1) // Using just 1 worker to avoid contention
 
 	// SlotMutations must be hooked because inclusion might be added before transaction are added.
-	e.Ledger.Events.TransactionAccepted.Hook(func(event *ledger.TransactionEvent) {
+	e.Events.Ledger.TransactionAccepted.Hook(func(event *ledger.TransactionEvent) {
 		if err := e.NotarizationManager.SlotMutations.AddAcceptedTransaction(event.Metadata); err != nil {
 			e.Events.Error.Trigger(errors.Wrapf(err, "failed to add accepted transaction %s to slot", event.Metadata.ID()))
 		}
 	})
-	e.Ledger.Events.TransactionInclusionUpdated.Hook(func(event *ledger.TransactionInclusionUpdatedEvent) {
+	e.Events.Ledger.TransactionInclusionUpdated.Hook(func(event *ledger.TransactionInclusionUpdatedEvent) {
 		if err := e.NotarizationManager.SlotMutations.UpdateTransactionInclusion(event.TransactionID, event.PreviousInclusionSlot, event.InclusionSlot); err != nil {
 			e.Events.Error.Trigger(errors.Wrapf(err, "failed to update transaction inclusion time %s in slot", event.TransactionID))
 		}
 	})
 
-	e.Consensus.BlockGadget.Events.BlockAccepted.Hook(func(block *blockgadget.Block) {
+	e.Events.Consensus.BlockGadget.BlockAccepted.Hook(func(block *blockgadget.Block) {
 		if err := e.NotarizationManager.NotarizeAcceptedBlock(block.ModelsBlock); err != nil {
 			e.Events.Error.Trigger(errors.Wrapf(err, "failed to add accepted block %s to slot", block.ID()))
 		}
 	}, event.WithWorkerPool(wpBlocks))
-	e.Tangle.Events.BlockDAG.BlockOrphaned.Hook(func(block *blockdag.Block) {
+	e.Events.Tangle.BlockDAG.BlockOrphaned.Hook(func(block *blockdag.Block) {
 		if err := e.NotarizationManager.NotarizeOrphanedBlock(block.ModelsBlock); err != nil {
 			e.Events.Error.Trigger(errors.Wrapf(err, "failed to remove orphaned block %s from slot", block.ID()))
 		}
@@ -368,7 +365,7 @@ func (e *Engine) initNotarizationManager() {
 	e.Events.Clock.AcceptedTimeUpdated.Hook(e.NotarizationManager.SetAcceptanceTime, event.WithWorkerPool(wpCommitments))
 }
 
-func (e *Engine) initEvictionState() {
+func (e *Engine) setupEvictionState() {
 	e.LedgerState.HookInitialized(func() {
 		e.EvictionState.EvictUntil(e.Storage.Settings.LatestCommitment().Index())
 	})
@@ -388,13 +385,12 @@ func (e *Engine) initEvictionState() {
 	e.Events.Tangle.BlockDAG.BlockOrphaned.Hook(func(block *blockdag.Block) {
 		e.EvictionState.RemoveRootBlock(block.ID())
 	}, event.WithWorkerPool(wp))
-	e.NotarizationManager.Events.SlotCommitted.Hook(func(details *notarization.SlotCommittedDetails) {
+	e.Events.NotarizationManager.SlotCommitted.Hook(func(details *notarization.SlotCommittedDetails) {
 		e.EvictionState.EvictUntil(details.Commitment.Index())
 	}, event.WithWorkerPool(wp))
 }
 
-func (e *Engine) initBlockRequester() {
-	e.BlockRequester = eventticker.New(e.optsBlockRequester...)
+func (e *Engine) setupBlockRequester() {
 	e.Events.BlockRequester.LinkTo(e.BlockRequester.Events)
 
 	e.Events.EvictionState.SlotEvicted.Hook(e.BlockRequester.EvictUntil)

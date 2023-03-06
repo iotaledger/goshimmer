@@ -26,10 +26,9 @@ const (
 
 // Manager is the component that manages the slot commitments.
 type Manager struct {
-	Events           *Events
-	SlotMutations    *SlotMutations
-	Attestations     *Attestations
-	SlotTimeProvider *slot.TimeProvider
+	Events        *Events
+	SlotMutations *SlotMutations
+	Attestations  *Attestations
 
 	storage         *storage.Storage
 	ledgerState     *ledgerstate.LedgerState
@@ -44,18 +43,21 @@ type Manager struct {
 }
 
 // NewManager creates a new notarization Manager.
-func NewManager(storageInstance *storage.Storage, ledgerState *ledgerstate.LedgerState, weights *sybilprotection.Weights, slotTimeProvider *slot.TimeProvider, opts ...options.Option[Manager]) *Manager {
+func NewManager(storageInstance *storage.Storage, ledgerState *ledgerstate.LedgerState, weights *sybilprotection.Weights, opts ...options.Option[Manager]) *Manager {
 	return options.Apply(&Manager{
 		Events:                    NewEvents(),
 		SlotMutations:             NewSlotMutations(weights, storageInstance.Settings.LatestCommitment().Index()),
-		Attestations:              NewAttestations(storageInstance.Permanent.Attestations, storageInstance.Prunable.Attestations, weights, slotTimeProvider),
-		SlotTimeProvider:          slotTimeProvider,
+		Attestations:              NewAttestations(storageInstance.Permanent.Attestations, storageInstance.Prunable.Attestations, weights, storageInstance.Settings.SlotTimeProvider),
 		storage:                   storageInstance,
 		ledgerState:               ledgerState,
-		acceptanceTime:            slotTimeProvider.EndTime(storageInstance.Settings.LatestCommitment().Index()),
 		optsMinCommittableSlotAge: defaultMinSlotCommittableAge,
 	}, opts, func(m *Manager) {
 		m.HookInitialized(m.Attestations.TriggerInitialized)
+
+		m.ledgerState.HookInitialized(func() {
+			m.SlotMutations.Reset(m.storage.Settings.LatestCommitment().Index())
+			m.acceptanceTime = m.storage.Settings.SlotTimeProvider().EndTime(m.storage.Settings.LatestCommitment().Index())
+		})
 	})
 }
 
@@ -76,7 +78,7 @@ func (m *Manager) SetAcceptanceTime(acceptanceTime time.Time) {
 	m.acceptanceTime = acceptanceTime
 	m.acceptanceTimeMutex.Unlock()
 
-	if index := m.SlotTimeProvider.IndexFromTime(acceptanceTime); index > m.storage.Settings.LatestCommitment().Index() {
+	if index := m.storage.Settings.SlotTimeProvider().IndexFromTime(acceptanceTime); index > m.storage.Settings.LatestCommitment().Index() {
 		m.tryCommitSlotUntil(index)
 	}
 }
@@ -86,7 +88,7 @@ func (m *Manager) IsFullyCommitted() bool {
 	// If acceptance time is in slot 10, then the latest committable index is 3 (with optsMinCommittableSlotAge=6), because there are 6 full slots between slot 10 and slot 3.
 	// All slots smaller than 4 are committable, so in order to check if slot 3 is committed it's necessary to do m.optsMinCommittableSlotAge-1,
 	// otherwise we'd expect slot 4 to be committed in order to be fully committed, which is impossible.
-	return m.storage.Settings.LatestCommitment().Index() >= m.SlotTimeProvider.IndexFromTime(m.AcceptanceTime())-m.optsMinCommittableSlotAge-1
+	return m.storage.Settings.LatestCommitment().Index() >= m.storage.Settings.SlotTimeProvider().IndexFromTime(m.AcceptanceTime())-m.optsMinCommittableSlotAge-1
 }
 
 func (m *Manager) NotarizeAcceptedBlock(block *models.Block) (err error) {
@@ -94,7 +96,7 @@ func (m *Manager) NotarizeAcceptedBlock(block *models.Block) (err error) {
 		return errors.Wrap(err, "failed to add accepted block to slot mutations")
 	}
 
-	if _, err = m.Attestations.Add(NewAttestation(block, m.SlotTimeProvider)); err != nil {
+	if _, err = m.Attestations.Add(NewAttestation(block, m.storage.Settings.SlotTimeProvider())); err != nil {
 		return errors.Wrap(err, "failed to add block to attestations")
 	}
 
@@ -106,7 +108,7 @@ func (m *Manager) NotarizeOrphanedBlock(block *models.Block) (err error) {
 		return errors.Wrap(err, "failed to remove accepted block from slot mutations")
 	}
 
-	if _, err = m.Attestations.Delete(NewAttestation(block, m.SlotTimeProvider)); err != nil {
+	if _, err = m.Attestations.Delete(NewAttestation(block, m.storage.Settings.SlotTimeProvider())); err != nil {
 		return errors.Wrap(err, "failed to delete block from attestations")
 	}
 
