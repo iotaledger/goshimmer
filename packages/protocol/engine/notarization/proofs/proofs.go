@@ -57,7 +57,7 @@ func (f *commitmentFactory) verifyRoot(proof CommitmentProof, key []byte, value 
 // ProofStateRoot returns the merkle proof for the outputID against the state root.
 func (f *commitmentFactory) ProofStateRoot(ei slot.Index, outID utxo.OutputID) (*CommitmentProof, error) {
 	key := outID.Bytes()
-	root, exists := f.commitmentTrees.Anchor(ei)
+	root, exists := f.commitmentTrees.Get(ei)
 	if !exists {
 		return nil, errors.Errorf("could not obtain commitment trees for slot %d", ei)
 	}

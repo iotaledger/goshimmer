@@ -12,7 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/blocktime"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
@@ -63,7 +63,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, slotTimeProvid
 	}, opts, func(t *TestFramework) {
 		storageInstance := blockdag.NewTestStorage(test, workers)
 		// set MinCommittableSlotAge to genesis so nothing is committed.
-		t.Engine = engine.New(workers.CreateGroup("Engine"), storageInstance, clock.Provide(), dpos.NewProvider(), mana1.NewProvider(), slotTimeProvider, t.optsEngineOptions...)
+		t.Engine = engine.New(workers.CreateGroup("Engine"), storageInstance, blocktime.NewProvider(), dpos.NewProvider(), mana1.NewProvider(), slotTimeProvider, t.optsEngineOptions...)
 
 		test.Cleanup(func() {
 			t.Engine.Shutdown()
@@ -174,7 +174,7 @@ func (t *TestFramework) SetMarkersAccepted(m ...markers.Marker) {
 }
 
 func (t *TestFramework) SetAcceptedTime(acceptedTime time.Time) {
-	t.Engine.Clock.Acceptance().(*clock.RelativeClock).Set(acceptedTime)
+	t.Engine.Clock.Accepted().(*blocktime.RelativeClock).Set(acceptedTime)
 }
 
 func (t *TestFramework) AssertIsPastConeTimestampCorrect(blockAlias string, expected bool) {
