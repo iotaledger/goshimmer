@@ -17,6 +17,7 @@ func TestStruct(t *testing.T) {
 	filePath := filepath.Join(t.TempDir(), "node.settings")
 
 	settings := NewSettings(filePath)
+	require.Equal(t, filePath, settings.FilePath())
 	require.Equal(t, uint64(123), settings.Number)
 
 	settings.Number = 3
@@ -24,6 +25,9 @@ func TestStruct(t *testing.T) {
 
 	restoredSettings := NewSettings(filePath)
 	require.Equal(t, settings.Number, restoredSettings.Number)
+
+	err := settings.ToFile(filePath)
+	require.NoError(t, err)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
