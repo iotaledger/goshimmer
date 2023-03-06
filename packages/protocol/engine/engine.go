@@ -365,7 +365,7 @@ func (e *Engine) initNotarizationManager() {
 	}, event.WithWorkerPool(wpBlocks))
 
 	// Slots are committed whenever ATT advances, start committing only when bootstrapped.
-	e.Events.Clock.AcceptanceTimeAnchorUpdated.Hook(e.NotarizationManager.SetAcceptanceTime, event.WithWorkerPool(wpCommitments))
+	e.Events.Clock.AcceptedTimeUpdated.Hook(e.NotarizationManager.SetAcceptanceTime, event.WithWorkerPool(wpCommitments))
 }
 
 func (e *Engine) initEvictionState() {

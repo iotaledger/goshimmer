@@ -203,7 +203,7 @@ func (n *Node) attachEngineLogs(instance *enginemanager.EngineInstance) {
 		fmt.Printf("%s > [%s] Tangle.VirtualVoting.SequenceTracker.VotersUpdated: %s %s %d -> %d\n", n.Name, engineName, event.Voter, event.SequenceID, event.PrevMaxSupportedIndex, event.NewMaxSupportedIndex)
 	})
 
-	events.Clock.AcceptanceTimeAnchorUpdated.Hook(func(newTime time.Time) {
+	events.Clock.AcceptedTimeUpdated.Hook(func(newTime time.Time) {
 		fmt.Printf("%s > [%s] Clock.AcceptanceTimeUpdated: %s\n", n.Name, engineName, newTime)
 	})
 
