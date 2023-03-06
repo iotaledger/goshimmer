@@ -14,6 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate/ondiskledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
@@ -78,7 +79,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...option
 
 		storageInstance := blockdag.NewTestStorage(test, workers)
 
-		t.Engine = engine.New(workers.CreateGroup("Engine"), storageInstance, ledgerProvider, dpos.NewProvider(), mana1.NewProvider(), t.optsEngineOptions...)
+		t.Engine = engine.New(workers.CreateGroup("Engine"), storageInstance, ledgerProvider, ondiskledgerstate.NewProvider(), dpos.NewProvider(), mana1.NewProvider(), t.optsEngineOptions...)
 		require.NoError(test, t.Engine.Initialize(tempDir.Path("genesis_snapshot.bin")))
 
 		test.Cleanup(func() {
@@ -244,7 +245,7 @@ func (t *TestFramework) FormCommitment(index slot.Index, acceptedBlocksAliases [
 			adsBlocks.Root(),
 			ads.NewSet[utxo.TransactionID](mapdb.NewMapDB()).Root(),
 			adsAttestations.Root(),
-			t.Engine.LedgerState.UnspentOutputs.Root(),
+			t.Engine.LedgerState.UnspentOutputs().IDs().Root(),
 			ads.NewMap[identity.ID, sybilprotection.Weight](mapdb.NewMapDB()).Root(),
 		).ID(),
 		0,

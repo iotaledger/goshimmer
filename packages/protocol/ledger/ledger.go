@@ -77,25 +77,25 @@ type Storage interface {
 	OutputMetadataStorage() *generic.ObjectStorage[*OutputMetadata]
 
 	// CachedOutput retrieves the CachedObject representing the named Output. The optional computeIfAbsentCallback can be
-	// used to dynamically Initialize a non-existing Output.
+	// used to dynamically Construct a non-existing Output.
 	CachedOutput(outputID utxo.OutputID, computeIfAbsentCallback ...func(outputID utxo.OutputID) utxo.Output) (cachedOutput *generic.CachedObject[utxo.Output])
 
 	// CachedOutputs retrieves the CachedObjects containing the named Outputs.
 	CachedOutputs(outputIDs utxo.OutputIDs) (cachedOutputs generic.CachedObjects[utxo.Output])
 
 	// CachedOutputMetadata retrieves the CachedObject representing the named OutputMetadata. The optional
-	// computeIfAbsentCallback can be used to dynamically Initialize a non-existing OutputMetadata.
+	// computeIfAbsentCallback can be used to dynamically Construct a non-existing OutputMetadata.
 	CachedOutputMetadata(outputID utxo.OutputID, computeIfAbsentCallback ...func(outputID utxo.OutputID) *OutputMetadata) (cachedOutputMetadata *generic.CachedObject[*OutputMetadata])
 
 	// CachedOutputsMetadata retrieves the CachedObjects containing the named OutputMetadata.
 	CachedOutputsMetadata(outputIDs utxo.OutputIDs) (cachedOutputsMetadata generic.CachedObjects[*OutputMetadata])
 
 	// CachedTransaction retrieves the CachedObject representing the named Transaction. The optional computeIfAbsentCallback
-	// can be used to dynamically Initialize a non-existing Transaction.
+	// can be used to dynamically Construct a non-existing Transaction.
 	CachedTransaction(transactionID utxo.TransactionID, computeIfAbsentCallback ...func(transactionID utxo.TransactionID) utxo.Transaction) (cachedTransaction *generic.CachedObject[utxo.Transaction])
 
 	// CachedTransactionMetadata retrieves the CachedObject representing the named TransactionMetadata. The optional
-	// computeIfAbsentCallback can be used to dynamically Initialize a non-existing TransactionMetadata.
+	// computeIfAbsentCallback can be used to dynamically Construct a non-existing TransactionMetadata.
 	CachedTransactionMetadata(transactionID utxo.TransactionID, computeIfAbsentCallback ...func(transactionID utxo.TransactionID) *TransactionMetadata) (cachedTransactionMetadata *generic.CachedObject[*TransactionMetadata])
 
 	// CachedConsumers retrieves the CachedObjects containing the named Consumers.

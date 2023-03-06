@@ -64,10 +64,10 @@ func NewSybilProtection(engineInstance *engine.Engine, opts ...options.Option[Sy
 
 			s.engine.HookConstructed(func() {
 				s.engine.LedgerState.HookInitialized(s.initializeTotalWeight)
-				s.engine.LedgerState.UnspentOutputs.HookInitialized(s.initializeLatestCommitment)
+				s.engine.LedgerState.UnspentOutputs().HookInitialized(s.initializeLatestCommitment)
 				s.engine.NotarizationManager.Attestations.HookInitialized(s.initializeActiveValidators)
 
-				s.engine.LedgerState.UnspentOutputs.Subscribe(s)
+				s.engine.LedgerState.UnspentOutputs().Subscribe(s)
 
 				s.engine.HookStopped(s.stopInactivityManager)
 

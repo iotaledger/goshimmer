@@ -42,7 +42,7 @@ type Engine struct {
 	SybilProtection     sybilprotection.SybilProtection
 	ThroughputQuota     throughputquota.ThroughputQuota
 	Ledger              ledger.Ledger
-	LedgerState         *ledgerstate.LedgerState
+	LedgerState         ledgerstate.LedgerState
 	Filter              *filter.Filter
 	EvictionState       *eviction.State
 	BlockRequester      *eventticker.EventTicker[models.BlockID]
@@ -74,6 +74,7 @@ func New(
 	workers *workerpool.Group,
 	storageInstance *storage.Storage,
 	ledger module.Provider[*Engine, ledger.Ledger],
+	ledgerState module.Provider[*Engine, ledgerstate.LedgerState],
 	sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection],
 	throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota],
 	opts ...options.Option[Engine],
@@ -89,7 +90,7 @@ func New(
 			optsSnapshotDepth:         5,
 		}, opts, func(e *Engine) {
 			e.Ledger = ledger(e)
-			e.LedgerState = ledgerstate.New(e.Storage, e.Ledger)
+			e.LedgerState = ledgerState(e)
 			e.Clock = clock.New()
 			e.SybilProtection = sybilProtection(e)
 			e.ThroughputQuota = throughputQuota(e)

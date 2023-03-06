@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
@@ -39,6 +40,7 @@ type EngineManager struct {
 
 	engineOptions           []options.Option[engine.Engine]
 	ledgerProvider          module.Provider[*engine.Engine, ledger.Ledger]
+	ledgerStateProvider     module.Provider[*engine.Engine, ledgerstate.LedgerState]
 	sybilProtectionProvider module.Provider[*engine.Engine, sybilprotection.SybilProtection]
 	throughputQuotaProvider module.Provider[*engine.Engine, throughputquota.ThroughputQuota]
 
@@ -52,6 +54,7 @@ func New(
 	storageOptions []options.Option[database.Manager],
 	engineOptions []options.Option[engine.Engine],
 	ledgerProvider module.Provider[*engine.Engine, ledger.Ledger],
+	ledgerStateProvider module.Provider[*engine.Engine, ledgerstate.LedgerState],
 	sybilProtectionProvider module.Provider[*engine.Engine, sybilprotection.SybilProtection],
 	throughputQuotaProvider module.Provider[*engine.Engine, throughputquota.ThroughputQuota]) *EngineManager {
 	return &EngineManager{
@@ -61,6 +64,7 @@ func New(
 		storageOptions:          storageOptions,
 		engineOptions:           engineOptions,
 		ledgerProvider:          ledgerProvider,
+		ledgerStateProvider:     ledgerStateProvider,
 		sybilProtectionProvider: sybilProtectionProvider,
 		throughputQuotaProvider: throughputQuotaProvider,
 	}
@@ -131,7 +135,13 @@ func (m *EngineManager) SetActiveInstance(instance *EngineInstance) error {
 
 func (m *EngineManager) loadEngineInstance(dirName string) *EngineInstance {
 	candidateStorage := storage.New(m.directory.Path(dirName), m.dbVersion, m.storageOptions...)
-	candidateEngine := engine.New(m.workers.CreateGroup(dirName), candidateStorage, m.ledgerProvider, m.sybilProtectionProvider, m.throughputQuotaProvider, m.engineOptions...)
+	candidateEngine := engine.New(m.workers.CreateGroup(dirName),
+		candidateStorage,
+		m.ledgerProvider,
+		m.ledgerStateProvider,
+		m.sybilProtectionProvider,
+		m.throughputQuotaProvider,
+		m.engineOptions...)
 
 	return &EngineInstance{
 		Engine:  candidateEngine,

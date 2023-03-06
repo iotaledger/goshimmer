@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate/ondiskledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
 	"github.com/iotaledger/goshimmer/packages/protocol/enginemanager"
@@ -55,6 +56,7 @@ func NewEngineManagerTestFramework(t *testing.T, workers *workerpool.Group, iden
 		[]options.Option[database.Manager]{},
 		[]options.Option[engine.Engine]{},
 		ledgerProvider,
+		ondiskledgerstate.NewProvider(),
 		dpos.NewProvider(),
 		mana1.NewProvider(),
 	)

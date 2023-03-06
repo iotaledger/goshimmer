@@ -1,4 +1,4 @@
-package ledgerstate
+package ondiskledgerstate
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/core/stream"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/hive.go/ads"
@@ -19,22 +20,13 @@ import (
 	"github.com/iotaledger/hive.go/kvstore"
 )
 
-type UnspentOutputsConsumer interface {
-	ApplyCreatedOutput(output *ledger.OutputWithMetadata) (err error)
-	ApplySpentOutput(output *ledger.OutputWithMetadata) (err error)
-	RollbackCreatedOutput(output *ledger.OutputWithMetadata) (err error)
-	RollbackSpentOutput(output *ledger.OutputWithMetadata) (err error)
-	BeginBatchedStateTransition(targetSlot slot.Index) (currentSlot slot.Index, err error)
-	CommitBatchedStateTransition() (ctx context.Context)
-}
-
 type UnspentOutputs struct {
-	IDs *ads.Set[utxo.OutputID, *utxo.OutputID]
+	ids *ads.Set[utxo.OutputID, *utxo.OutputID]
 
 	memPool               ledger.Ledger
-	consumers             map[UnspentOutputsConsumer]types.Empty
+	consumers             map[ledgerstate.UnspentOutputsConsumer]types.Empty
 	consumersMutex        sync.RWMutex
-	batchConsumers        map[UnspentOutputsConsumer]types.Empty
+	batchConsumers        map[ledgerstate.UnspentOutputsConsumer]types.Empty
 	batchCreatedOutputIDs utxo.OutputIDs
 	batchSpentOutputIDs   utxo.OutputIDs
 
@@ -50,28 +42,28 @@ const (
 func NewUnspentOutputs(store func(optRealm ...byte) kvstore.KVStore, memPool ledger.Ledger) (unspentOutputs *UnspentOutputs) {
 	return &UnspentOutputs{
 		BatchCommittable: traits.NewBatchCommittable(store(), PrefixUnspentOutputsLatestCommittedIndex),
-		IDs:              ads.NewSet[utxo.OutputID](store(PrefixUnspentOutputsIDs)),
+		ids:              ads.NewSet[utxo.OutputID](store(PrefixUnspentOutputsIDs)),
 		memPool:          memPool,
-		consumers:        make(map[UnspentOutputsConsumer]types.Empty),
+		consumers:        make(map[ledgerstate.UnspentOutputsConsumer]types.Empty),
 	}
 }
 
-func (u *UnspentOutputs) Subscribe(consumer UnspentOutputsConsumer) {
+func (u *UnspentOutputs) Subscribe(consumer ledgerstate.UnspentOutputsConsumer) {
 	u.consumersMutex.Lock()
 	defer u.consumersMutex.Unlock()
 
 	u.consumers[consumer] = types.Void
 }
 
-func (u *UnspentOutputs) Unsubscribe(consumer UnspentOutputsConsumer) {
+func (u *UnspentOutputs) Unsubscribe(consumer ledgerstate.UnspentOutputsConsumer) {
 	u.consumersMutex.Lock()
 	defer u.consumersMutex.Unlock()
 
 	delete(u.consumers, consumer)
 }
 
-func (u *UnspentOutputs) Root() types.Identifier {
-	return u.IDs.Root()
+func (u *UnspentOutputs) IDs() *ads.Set[utxo.OutputID, *utxo.OutputID] {
+	return u.ids
 }
 
 func (u *UnspentOutputs) Begin(newSlot slot.Index) (lastCommittedSlot slot.Index, err error) {
@@ -85,7 +77,7 @@ func (u *UnspentOutputs) Begin(newSlot slot.Index) (lastCommittedSlot slot.Index
 
 	u.batchCreatedOutputIDs = utxo.NewOutputIDs()
 	u.batchSpentOutputIDs = utxo.NewOutputIDs()
-	u.batchConsumers = make(map[UnspentOutputsConsumer]types.Empty)
+	u.batchConsumers = make(map[ledgerstate.UnspentOutputsConsumer]types.Empty)
 
 	if err = u.preparePendingConsumers(lastCommittedSlot, newSlot); err != nil {
 		return lastCommittedSlot, errors.Wrap(err, "failed to get pending state diff consumers")
@@ -112,9 +104,9 @@ func (u *UnspentOutputs) Commit() (ctx context.Context) {
 }
 
 func (u *UnspentOutputs) ApplyCreatedOutput(output *ledger.OutputWithMetadata) (err error) {
-	var targetConsumers map[UnspentOutputsConsumer]types.Empty
+	var targetConsumers map[ledgerstate.UnspentOutputsConsumer]types.Empty
 	if !u.BatchedStateTransitionStarted() {
-		u.IDs.Add(output.Output().ID())
+		u.ids.Add(output.Output().ID())
 
 		u.importOutputIntoMemPoolStorage(output)
 
@@ -127,7 +119,7 @@ func (u *UnspentOutputs) ApplyCreatedOutput(output *ledger.OutputWithMetadata) (
 		targetConsumers = u.batchConsumers
 	}
 
-	if err = u.notifyConsumers(targetConsumers, output, UnspentOutputsConsumer.ApplyCreatedOutput); err != nil {
+	if err = u.notifyConsumers(targetConsumers, output, ledgerstate.UnspentOutputsConsumer.ApplyCreatedOutput); err != nil {
 		return errors.Wrap(err, "failed to apply created output to consumers")
 	}
 
@@ -135,7 +127,7 @@ func (u *UnspentOutputs) ApplyCreatedOutput(output *ledger.OutputWithMetadata) (
 }
 
 func (u *UnspentOutputs) ApplySpentOutput(output *ledger.OutputWithMetadata) (err error) {
-	var targetConsumers map[UnspentOutputsConsumer]types.Empty
+	var targetConsumers map[ledgerstate.UnspentOutputsConsumer]types.Empty
 	if !u.BatchedStateTransitionStarted() {
 		panic("cannot apply a spent output without a batched state transition")
 	} else {
@@ -146,7 +138,7 @@ func (u *UnspentOutputs) ApplySpentOutput(output *ledger.OutputWithMetadata) (er
 		targetConsumers = u.batchConsumers
 	}
 
-	if err = u.notifyConsumers(targetConsumers, output, UnspentOutputsConsumer.ApplySpentOutput); err != nil {
+	if err = u.notifyConsumers(targetConsumers, output, ledgerstate.UnspentOutputsConsumer.ApplySpentOutput); err != nil {
 		return errors.Wrap(err, "failed to apply spent output to consumers")
 	}
 
@@ -164,7 +156,7 @@ func (u *UnspentOutputs) RollbackSpentOutput(output *ledger.OutputWithMetadata) 
 func (u *UnspentOutputs) Export(writer io.WriteSeeker) (err error) {
 	if err = stream.WriteCollection(writer, func() (elementsCount uint64, err error) {
 		var outputWithMetadata *ledger.OutputWithMetadata
-		if iterationErr := u.IDs.Stream(func(outputID utxo.OutputID) bool {
+		if iterationErr := u.ids.Stream(func(outputID utxo.OutputID) bool {
 			if outputWithMetadata, err = u.outputWithMetadata(outputID); err != nil {
 				err = errors.Wrap(err, "failed to load output with metadata")
 			} else if err = stream.WriteSerializable(writer, outputWithMetadata); err != nil {
@@ -207,7 +199,7 @@ func (u *UnspentOutputs) Import(reader io.ReadSeeker, targetSlot slot.Index) (er
 	return
 }
 
-func (u *UnspentOutputs) Consumers() (consumers []UnspentOutputsConsumer) {
+func (u *UnspentOutputs) Consumers() (consumers []ledgerstate.UnspentOutputsConsumer) {
 	u.consumersMutex.RLock()
 	defer u.consumersMutex.RUnlock()
 
@@ -221,11 +213,11 @@ func (u *UnspentOutputs) Consumers() (consumers []UnspentOutputsConsumer) {
 func (u *UnspentOutputs) applyBatch(waitForConsumers *sync.WaitGroup, done func()) {
 	for it := u.batchCreatedOutputIDs.Iterator(); it.HasNext(); {
 		output := it.Next()
-		u.IDs.Add(output)
+		u.ids.Add(output)
 	}
 	for it := u.batchSpentOutputIDs.Iterator(); it.HasNext(); {
 		output := it.Next()
-		u.IDs.Delete(output)
+		u.ids.Delete(output)
 	}
 
 	waitForConsumers.Wait()
@@ -250,7 +242,7 @@ func (u *UnspentOutputs) preparePendingConsumers(currentSlot, targetSlot slot.In
 	return
 }
 
-func (u *UnspentOutputs) notifyConsumers(consumer map[UnspentOutputsConsumer]types.Empty, output *ledger.OutputWithMetadata, callback func(self UnspentOutputsConsumer, output *ledger.OutputWithMetadata) (err error)) (err error) {
+func (u *UnspentOutputs) notifyConsumers(consumer map[ledgerstate.UnspentOutputsConsumer]types.Empty, output *ledger.OutputWithMetadata, callback func(self ledgerstate.UnspentOutputsConsumer, output *ledger.OutputWithMetadata) (err error)) (err error) {
 	for consumer := range consumer {
 		if err = callback(consumer, output); err != nil {
 			return errors.Wrap(err, "failed to apply changes to consumer")
@@ -288,3 +280,5 @@ func (u *UnspentOutputs) importOutputIntoMemPoolStorage(output *ledger.OutputWit
 
 	u.memPool.Events().OutputCreated.Trigger(output.ID())
 }
+
+var _ ledgerstate.UnspentOutputs = new(UnspentOutputs)

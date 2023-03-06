@@ -17,6 +17,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate/ondiskledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
@@ -169,7 +170,12 @@ func TestEngine_NonEmptyInitialValidators(t *testing.T) {
 	require.NoError(t, err)
 
 	workers := workerpool.NewGroup(t.Name())
-	tf := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework"), ledgerProvider, dpos.NewProvider(), mana1.NewProvider())
+	tf := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework"),
+		ledgerProvider,
+		ondiskledgerstate.NewProvider(),
+		dpos.NewProvider(),
+		mana1.NewProvider(),
+	)
 	require.NoError(t, tf.Instance.Initialize(tempDir.Path("genesis_snapshot.bin")))
 
 	tf.BlockDAG.CreateBlock("1.A", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithIssuer(identitiesMap["A"]))
@@ -238,7 +244,12 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 	require.NoError(t, err)
 
 	workers := workerpool.NewGroup(t.Name())
-	tf := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework"), ledgerProvider, dpos.NewProvider(), mana1.NewProvider())
+	tf := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework"),
+		ledgerProvider,
+		ondiskledgerstate.NewProvider(),
+		dpos.NewProvider(),
+		mana1.NewProvider(),
+	)
 	require.NoError(t, tf.Instance.Initialize(tempDir.Path("genesis_snapshot.bin")))
 
 	acceptedBlocks := make(map[string]bool)
@@ -304,7 +315,12 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 	{
 		require.NoError(t, tf.Instance.WriteSnapshot(tempDir.Path("snapshot_slot4.bin")))
 
-		tf2 := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework2"), ledgerProvider, dpos.NewProvider(), mana1.NewProvider())
+		tf2 := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework2"),
+			ledgerProvider,
+			ondiskledgerstate.NewProvider(),
+			dpos.NewProvider(),
+			mana1.NewProvider(),
+		)
 
 		require.NoError(t, tf2.Instance.Initialize(tempDir.Path("snapshot_slot4.bin")))
 
@@ -327,11 +343,11 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 			require.Equal(t, originalCommitment, importedCommitment)
 
 			// Check that StateDiffs have been cleared after snapshot import.
-			require.NoError(t, tf2.Instance.LedgerState.StateDiffs.StreamCreatedOutputs(slotIndex, func(*ledger.OutputWithMetadata) error {
+			require.NoError(t, tf2.Instance.LedgerState.StateDiffs().StreamCreatedOutputs(slotIndex, func(*ledger.OutputWithMetadata) error {
 				return errors.New("StateDiffs created should be empty after snapshot import")
 			}))
 
-			require.NoError(t, tf2.Instance.LedgerState.StateDiffs.StreamSpentOutputs(slotIndex, func(*ledger.OutputWithMetadata) error {
+			require.NoError(t, tf2.Instance.LedgerState.StateDiffs().StreamSpentOutputs(slotIndex, func(*ledger.OutputWithMetadata) error {
 				return errors.New("StateDiffs spent should be empty after snapshot import")
 			}))
 
@@ -346,10 +362,10 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 		}
 
 		// LedgerState
-		require.Equal(t, tf.Instance.LedgerState.UnspentOutputs.IDs.Size(), tf2.Instance.LedgerState.UnspentOutputs.IDs.Size())
-		require.Equal(t, tf.Instance.LedgerState.UnspentOutputs.IDs.Root(), tf2.Instance.LedgerState.UnspentOutputs.IDs.Root())
-		require.NoError(t, tf.Instance.LedgerState.UnspentOutputs.IDs.Stream(func(outputID utxo.OutputID) bool {
-			require.True(t, tf2.Instance.LedgerState.UnspentOutputs.IDs.Has(outputID))
+		require.Equal(t, tf.Instance.LedgerState.UnspentOutputs().IDs().Size(), tf2.Instance.LedgerState.UnspentOutputs().IDs().Size())
+		require.Equal(t, tf.Instance.LedgerState.UnspentOutputs().IDs().Root(), tf2.Instance.LedgerState.UnspentOutputs().IDs().Root())
+		require.NoError(t, tf.Instance.LedgerState.UnspentOutputs().IDs().Stream(func(outputID utxo.OutputID) bool {
+			require.True(t, tf2.Instance.LedgerState.UnspentOutputs().IDs().Has(outputID))
 			return true
 		}))
 
@@ -378,7 +394,12 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 	{
 		require.NoError(t, tf.Instance.WriteSnapshot(tempDir.Path("snapshot_slot1.bin"), 1))
 
-		tf3 := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework3"), ledgerProvider, dpos.NewProvider(), mana1.NewProvider())
+		tf3 := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework3"),
+			ledgerProvider,
+			ondiskledgerstate.NewProvider(),
+			dpos.NewProvider(),
+			mana1.NewProvider(),
+		)
 
 		require.NoError(t, tf3.Instance.Initialize(tempDir.Path("snapshot_slot1.bin")))
 
@@ -439,7 +460,12 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 	{
 		require.NoError(t, tf.Instance.WriteSnapshot(tempDir.Path("snapshot_slot2.bin"), 2))
 
-		tf4 := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework4"), ledgerProvider, dpos.NewProvider(), mana1.NewProvider())
+		tf4 := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework4"),
+			ledgerProvider,
+			ondiskledgerstate.NewProvider(),
+			dpos.NewProvider(),
+			mana1.NewProvider(),
+		)
 
 		require.NoError(t, tf4.Instance.Initialize(tempDir.Path("snapshot_slot2.bin")))
 
@@ -532,7 +558,13 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		engine1Storage.Shutdown()
 	})
 
-	engine1 := engine.NewTestEngine(t, workers.CreateGroup("Engine1"), engine1Storage, ledgerProvider, dpos.NewProvider(), mana1.NewProvider(), engineOpts...)
+	engine1 := engine.NewTestEngine(t, workers.CreateGroup("Engine1"), engine1Storage,
+		ledgerProvider,
+		ondiskledgerstate.NewProvider(),
+		dpos.NewProvider(),
+		mana1.NewProvider(),
+		engineOpts...,
+	)
 	tf := engine.NewTestFramework(t, workers.CreateGroup("EngineTestFramework1"), engine1)
 	require.NoError(t, tf.Instance.Initialize(tempDir.Path("genesis_snapshot.bin")))
 
@@ -615,16 +647,22 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 	{
 		require.NoError(t, tf.Instance.WriteSnapshot(tempDir.Path("snapshot_slot1.bin"), 1))
 
-		tf2 := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework2"), ledgerProvider, dpos.NewProvider(), mana1.NewProvider(), engineOpts...)
+		tf2 := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework2"),
+			ledgerProvider,
+			ondiskledgerstate.NewProvider(),
+			dpos.NewProvider(),
+			mana1.NewProvider(),
+			engineOpts...,
+		)
 		require.NoError(t, tf2.Instance.Initialize(tempDir.Path("snapshot_slot1.bin")))
 
 		require.Equal(t, slot.Index(1), tf2.Instance.Storage.Settings.LatestCommitment().Index())
 		tf2.AssertSlotState(1)
 
-		require.True(t, tf2.Instance.LedgerState.UnspentOutputs.IDs.Has(tf.Ledger.OutputID("Tx1.0")))
-		require.True(t, tf2.Instance.LedgerState.UnspentOutputs.IDs.Has(tf.Ledger.OutputID("Tx1.1")))
-		require.False(t, tf2.Instance.LedgerState.UnspentOutputs.IDs.Has(tf.Ledger.OutputID("Tx5.0")))
-		require.False(t, tf2.Instance.LedgerState.UnspentOutputs.IDs.Has(tf.Ledger.OutputID("Tx5.1")))
+		require.True(t, tf2.Instance.LedgerState.UnspentOutputs().IDs().Has(tf.Ledger.OutputID("Tx1.0")))
+		require.True(t, tf2.Instance.LedgerState.UnspentOutputs().IDs().Has(tf.Ledger.OutputID("Tx1.1")))
+		require.False(t, tf2.Instance.LedgerState.UnspentOutputs().IDs().Has(tf.Ledger.OutputID("Tx5.0")))
+		require.False(t, tf2.Instance.LedgerState.UnspentOutputs().IDs().Has(tf.Ledger.OutputID("Tx5.1")))
 
 		workers.WaitChildren()
 	}
@@ -651,17 +689,23 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 			engine3Storage.Shutdown()
 		})
 
-		engine3 := engine.NewTestEngine(t, workers.CreateGroup("Engine3"), engine3Storage, ledgerProvider, dpos.NewProvider(), mana1.NewProvider(), engineOpts...)
+		engine3 := engine.NewTestEngine(t, workers.CreateGroup("Engine3"), engine3Storage,
+			ledgerProvider,
+			ondiskledgerstate.NewProvider(),
+			dpos.NewProvider(),
+			mana1.NewProvider(),
+			engineOpts...,
+		)
 		tf3 := engine.NewTestFramework(t, workers.CreateGroup("EngineTestFramework3"), engine3)
 
 		require.NoError(t, tf3.Instance.Initialize())
 
 		tf3.AssertSlotState(5)
 
-		require.False(t, tf3.Instance.LedgerState.UnspentOutputs.IDs.Has(tf.Ledger.OutputID("Tx1.0")))
-		require.True(t, tf3.Instance.LedgerState.UnspentOutputs.IDs.Has(tf.Ledger.OutputID("Tx1.1")))
-		require.True(t, tf3.Instance.LedgerState.UnspentOutputs.IDs.Has(tf.Ledger.OutputID("Tx5.0")))
-		require.True(t, tf3.Instance.LedgerState.UnspentOutputs.IDs.Has(tf.Ledger.OutputID("Tx5.1")))
+		require.False(t, tf3.Instance.LedgerState.UnspentOutputs().IDs().Has(tf.Ledger.OutputID("Tx1.0")))
+		require.True(t, tf3.Instance.LedgerState.UnspentOutputs().IDs().Has(tf.Ledger.OutputID("Tx1.1")))
+		require.True(t, tf3.Instance.LedgerState.UnspentOutputs().IDs().Has(tf.Ledger.OutputID("Tx5.0")))
+		require.True(t, tf3.Instance.LedgerState.UnspentOutputs().IDs().Has(tf.Ledger.OutputID("Tx5.1")))
 
 		// ThroughputQuota
 		require.Equal(t, expectedBalanceByIDs, tf3.Instance.ThroughputQuota.BalanceByIDs())
@@ -720,6 +764,7 @@ func TestEngine_ShutdownResume(t *testing.T) {
 
 	engine1 := engine.NewTestEngine(t, workers.CreateGroup("Engine"), engine1Storage,
 		ledgerProvider,
+		ondiskledgerstate.NewProvider(),
 		dpos.NewProvider(),
 		mana1.NewProvider(),
 		engine.WithTangleOptions(
@@ -752,6 +797,7 @@ func TestEngine_ShutdownResume(t *testing.T) {
 
 	engine2 := engine.NewTestEngine(t, workers.CreateGroup("Engine2"), engine2Storage,
 		ledgerProvider,
+		ondiskledgerstate.NewProvider(),
 		dpos.NewProvider(),
 		mana1.NewProvider(),
 		engine.WithTangleOptions(
@@ -1106,6 +1152,7 @@ func TestEngine_GuavaConflict(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
 	tf := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework"),
 		ledgerProvider,
+		ondiskledgerstate.NewProvider(),
 		dpos.NewProvider(),
 		mana1.NewProvider(),
 		engine.WithTangleOptions(

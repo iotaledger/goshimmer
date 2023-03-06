@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate/ondiskledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
@@ -72,7 +73,14 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, optsScheduler 
 		snapshotcreator.WithLedgerProvider(ledgerProvider),
 	))
 
-	t.engine = engine.New(workers.CreateGroup("Engine"), t.storage, ledgerProvider, dpos.NewProvider(), mana1.NewProvider())
+	t.engine = engine.New(workers.CreateGroup("Engine"),
+		t.storage,
+		ledgerProvider,
+		ondiskledgerstate.NewProvider(),
+		dpos.NewProvider(),
+		mana1.NewProvider(),
+	)
+	
 	test.Cleanup(func() {
 		t.Scheduler.Shutdown()
 		t.engine.Shutdown()
