@@ -15,7 +15,7 @@ type ParametersDefinition struct {
 	// ValidatorActivityWindow is used to define period of inactivity after which validator is removed from the set of active validators.
 	ValidatorActivityWindow time.Duration `default:"30s" usage:"define period of inactivity after which validator is removed from the set of active validators"`
 	// BootstrapWindow defines the time window in which the node considers itself as synced according to TangleTime.
-	BootstrapWindow time.Duration `default:"20s" usage:"the time window in which the node considers itself as bootstrapped according to Acceptance"`
+	BootstrapWindow time.Duration `default:"20s" usage:"the time window in which the node considers itself as bootstrapped according to AcceptanceTime"`
 	// Snapshot contains snapshots related configuration parameters.
 	Snapshot struct {
 		// Path is the path to the snapshot file.

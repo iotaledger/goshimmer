@@ -14,7 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
-	clockModule "github.com/iotaledger/goshimmer/packages/protocol/engine/clock/blocktime"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/blocktime"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
@@ -73,7 +73,7 @@ func New(workers *workerpool.Group, dispatcher network.Endpoint, opts ...options
 		Events:                      NewEvents(),
 		Workers:                     workers,
 		dispatcher:                  dispatcher,
-		optsClockProvider:           clockModule.NewProvider(),
+		optsClockProvider:           blocktime.NewProvider(),
 		optsSybilProtectionProvider: dpos.NewProvider(),
 		optsThroughputQuotaProvider: mana1.NewProvider(),
 
@@ -427,7 +427,7 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 			}
 		}
 
-		// Anchor our cumulative weight at the snapshot target index and apply all the received attestations on stop while verifying the validity of each signature
+		// Get our cumulative weight at the snapshot target index and apply all the received attestations on stop while verifying the validity of each signature
 		calculatedCumulativeWeight = lo.PanicOnErr(mainEngine.Storage.Commitments.Load(snapshotTargetIndex)).CumulativeWeight()
 		for slotIndex := forkedEvent.ForkingPoint.Index(); slotIndex <= forkedEvent.Commitment.Index(); slotIndex++ {
 			slotAttestations, slotExists := attestations.Get(slotIndex)
