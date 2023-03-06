@@ -8,7 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/goshimmer/packages/core/traits"
+	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
@@ -28,6 +28,7 @@ import (
 	"github.com/iotaledger/hive.go/core/eventticker"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/event"
 	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
@@ -67,16 +68,14 @@ type Engine struct {
 	optsBlockRequester             []options.Option[eventticker.EventTicker[models.BlockID]]
 	optsFilter                     []options.Option[filter.Filter]
 
-	traits.Constructable
-	traits.Initializable
-	traits.Stoppable
+	module.Module
 }
 
 func New(
 	workers *workerpool.Group,
 	storageInstance *storage.Storage,
-	sybilProtection ModuleProvider[sybilprotection.SybilProtection],
-	throughputQuota ModuleProvider[throughputquota.ThroughputQuota],
+	sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection],
+	throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota],
 	opts ...options.Option[Engine],
 ) (engine *Engine) {
 	return options.Apply(
@@ -84,8 +83,6 @@ func New(
 			Events:        NewEvents(),
 			Storage:       storageInstance,
 			EvictionState: eviction.NewState(storageInstance),
-			Constructable: traits.NewConstructable(),
-			Stoppable:     traits.NewStoppable(),
 			Workers:       workers,
 
 			optsBootstrappedThreshold: 10 * time.Second,
@@ -109,7 +106,7 @@ func New(
 			e.Filter = filter.New(e.optsFilter...)
 			e.BlockRequester = eventticker.New(e.optsBlockRequester...)
 
-			e.Initializable = traits.NewInitializable(
+			e.HookInitialized(lo.Batch(
 				e.Storage.Settings.TriggerInitialized,
 				e.Storage.Commitments.TriggerInitialized,
 				e.LedgerState.TriggerInitialized,
@@ -118,7 +115,7 @@ func New(
 					// TODO: hack until consensus is made an engine module
 					e.Consensus.SlotGadget.SetLastConfirmedSlot(e.Storage.Permanent.Settings.LatestConfirmedSlot())
 				},
-			)
+			))
 		},
 		(*Engine).setupLedger,
 		(*Engine).setupTangle,
@@ -137,6 +134,7 @@ func New(
 func (e *Engine) Shutdown() {
 	if !e.WasStopped() {
 		e.TriggerStopped()
+
 		e.BlockRequester.Shutdown()
 		e.Ledger.Shutdown()
 		e.Workers.Shutdown()
@@ -390,7 +388,7 @@ func (e *Engine) setupNotarizationManager() {
 }
 
 func (e *Engine) setupEvictionState() {
-	e.LedgerState.SubscribeInitialized(func() {
+	e.LedgerState.HookInitialized(func() {
 		e.EvictionState.EvictUntil(e.Storage.Settings.LatestCommitment().Index())
 	})
 

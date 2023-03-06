@@ -9,8 +9,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/core/storable"
-	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/serializer/v2/serix"
@@ -24,13 +24,11 @@ type Settings struct {
 
 	slotTimeProvider *slot.TimeProvider
 
-	traits.Initializable
+	module.Module
 }
 
 func NewSettings(path string) (settings *Settings) {
 	s := &Settings{
-		Initializable: traits.NewInitializable(),
-
 		settingsModel: storable.InitStruct(&settingsModel{
 			SnapshotImported:        false,
 			GenesisUnixTime:         0,

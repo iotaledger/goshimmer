@@ -7,8 +7,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/core/storable"
-	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/lo"
 )
@@ -17,7 +17,7 @@ type Commitments struct {
 	slice    *storable.Slice[commitment.Commitment, *commitment.Commitment]
 	filePath string
 
-	traits.Initializable
+	module.Module
 }
 
 func NewCommitments(path string) (newCommitment *Commitments) {
@@ -32,9 +32,8 @@ func NewCommitments(path string) (newCommitment *Commitments) {
 	}
 
 	return &Commitments{
-		slice:         commitmentsSlice,
-		filePath:      path,
-		Initializable: traits.NewInitializable(),
+		slice:    commitmentsSlice,
+		filePath: path,
 	}
 }
 

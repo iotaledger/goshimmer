@@ -8,7 +8,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/traits"
+	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
@@ -39,7 +39,7 @@ type Manager struct {
 
 	optsMinCommittableSlotAge slot.Index
 
-	traits.Initializable
+	module.Module
 }
 
 // NewManager creates a new notarization Manager.
@@ -52,9 +52,9 @@ func NewManager(storageInstance *storage.Storage, ledgerState *ledgerstate.Ledge
 		ledgerState:               ledgerState,
 		optsMinCommittableSlotAge: defaultMinSlotCommittableAge,
 	}, opts, func(m *Manager) {
-		m.Initializable = traits.NewInitializable(m.Attestations.TriggerInitialized)
+		m.HookInitialized(m.Attestations.TriggerInitialized)
 
-		m.ledgerState.SubscribeInitialized(func() {
+		m.ledgerState.HookInitialized(func() {
 			m.SlotMutations.Reset(m.storage.Settings.LatestCommitment().Index())
 			m.acceptanceTime = m.storage.Settings.SlotTimeProvider().EndTime(m.storage.Settings.LatestCommitment().Index())
 		})
