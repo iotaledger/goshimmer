@@ -12,7 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	clock "github.com/iotaledger/goshimmer/packages/protocol/engine/clock/module"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
@@ -174,7 +174,7 @@ func (t *TestFramework) SetMarkersAccepted(m ...markers.Marker) {
 }
 
 func (t *TestFramework) SetAcceptedTime(acceptedTime time.Time) {
-	t.Engine.Clock.AcceptanceTime().Set(acceptedTime)
+	t.Engine.Clock.Acceptance().(*clock.RelativeClock).Set(acceptedTime)
 }
 
 func (t *TestFramework) AssertIsPastConeTimestampCorrect(blockAlias string, expected bool) {

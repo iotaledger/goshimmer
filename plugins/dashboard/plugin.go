@@ -327,10 +327,10 @@ func currentNodeStatus() *nodestatus {
 		AcceptedBlockID:  lastAcceptedBlock.BlockID().Base58(),
 		ConfirmedBlockID: lastConfirmedBlock.BlockID().Base58(),
 		ConfirmedSlot:    int64(deps.Protocol.Engine().LastConfirmedSlot()),
-		ATT:              tm.AcceptanceTime().Get().UnixNano(),
-		RATT:             tm.AcceptanceTime().Now().UnixNano(),
-		CTT:              tm.ConfirmationTime().Get().UnixNano(),
-		RCTT:             tm.ConfirmationTime().Now().UnixNano(),
+		ATT:              tm.Acceptance().Time().UnixNano(),
+		RATT:             tm.Acceptance().RelativeTime().UnixNano(),
+		CTT:              tm.Confirmation().Time().UnixNano(),
+		RCTT:             tm.Confirmation().RelativeTime().UnixNano(),
 	}
 
 	deficit, _ := deps.Protocol.CongestionControl.Scheduler().Deficit(deps.Local.ID()).Float64()

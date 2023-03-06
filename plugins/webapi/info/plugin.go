@@ -133,10 +133,10 @@ func getInfo(c echo.Context) error {
 		ConfirmedBlockID: lastConfirmedBlockID.Base58(),
 		ConfirmedSlot:    int64(deps.Protocol.Engine().LastConfirmedSlot()),
 
-		ATT:  tm.AcceptanceTime().Get().UnixNano(),
-		RATT: tm.AcceptanceTime().Now().UnixNano(),
-		CTT:  tm.ConfirmationTime().Get().UnixNano(),
-		RCTT: tm.ConfirmationTime().Now().UnixNano(),
+		ATT:  tm.Acceptance().Time().UnixNano(),
+		RATT: tm.Acceptance().RelativeTime().UnixNano(),
+		CTT:  tm.Confirmation().Time().UnixNano(),
+		RCTT: tm.Confirmation().RelativeTime().UnixNano(),
 	}
 
 	accessMana, _ := deps.Protocol.Engine().ThroughputQuota.Balance(deps.Local.ID())

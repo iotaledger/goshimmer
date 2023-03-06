@@ -276,7 +276,7 @@ func (r *ReferenceProvider) latestValidAttachment(txID utxo.TransactionID) (bloc
 		return nil, errors.Errorf("could not obtain latest attachment for %s", txID)
 	}
 
-	if acceptedTime := r.protocol.Engine().Clock.AcceptanceTime().Get(); block.IssuingTime().Before(acceptedTime.Add(-r.timeSinceConfirmationThreshold)) {
+	if acceptedTime := r.protocol.Engine().Clock.Acceptance().Time(); block.IssuingTime().Before(acceptedTime.Add(-r.timeSinceConfirmationThreshold)) {
 		return nil, errors.Errorf("attachment of %s with %s is too far in the past relative to AcceptedTime %s", txID, block.ID(), acceptedTime.String())
 	}
 
