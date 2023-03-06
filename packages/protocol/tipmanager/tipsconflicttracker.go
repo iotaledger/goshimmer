@@ -1,7 +1,6 @@
 package tipmanager
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
@@ -126,11 +125,6 @@ func (c *TipsConflictTracker) MissingConflicts(amount int) (missingConflicts utx
 
 		// We want to reintroduce only the pending conflict that is liked.
 		likedConflictID, dislikedConflictsInner := c.engine.Consensus.ConflictResolver.AdjustOpinion(conflictID)
-		if dislikedConflicts.Has(likedConflictID) {
-			fmt.Println("TipsConflictTracker liked conflict was disliked in previous iteration", likedConflictID)
-			return true
-		}
-
 		dislikedConflicts.AddAll(dislikedConflictsInner)
 
 		if missingConflicts.Add(likedConflictID) && missingConflicts.Size() == amount {

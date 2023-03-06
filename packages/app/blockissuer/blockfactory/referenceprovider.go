@@ -34,7 +34,7 @@ func NewReferenceProvider(protocol *protocol.Protocol, timeSinceConfirmationThre
 }
 
 // References is an implementation of ReferencesFunc.
-func (r *ReferenceProvider) References(payload payload.Payload, strongParents models.BlockIDs, a float64) (references models.ParentBlockIDs, err error) {
+func (r *ReferenceProvider) References(payload payload.Payload, strongParents models.BlockIDs) (references models.ParentBlockIDs, err error) {
 	references = models.NewParentBlockIDs()
 
 	excludedConflictIDs := utxo.NewTransactionIDs()
@@ -44,7 +44,7 @@ func (r *ReferenceProvider) References(payload payload.Payload, strongParents mo
 
 	for strongParent := range strongParents {
 		excludedConflictIDsCopy := excludedConflictIDs.Clone()
-		referencesToAdd, validStrongParent := r.addedReferencesForBlock(strongParent, excludedConflictIDsCopy, a)
+		referencesToAdd, validStrongParent := r.addedReferencesForBlock(strongParent, excludedConflictIDsCopy)
 		if !validStrongParent {
 			if !r.payloadLiked(strongParent) {
 				continue
@@ -67,7 +67,7 @@ func (r *ReferenceProvider) References(payload payload.Payload, strongParents mo
 
 	// This should be liked anyway, or at least it should be corrected by shallow like if we spend.
 	// If a node spends something it doesn't like, then the payload is invalid as well.
-	weakReferences, likeInsteadReferences, err := r.referencesFromUnacceptedInputs(payload, excludedConflictIDs, a)
+	weakReferences, likeInsteadReferences, err := r.referencesFromUnacceptedInputs(payload, excludedConflictIDs)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create references for unnaccepted inputs")
 	}
@@ -76,7 +76,7 @@ func (r *ReferenceProvider) References(payload payload.Payload, strongParents mo
 	references.AddAll(models.ShallowLikeParentType, likeInsteadReferences)
 
 	// Include censored, pending conflicts if there are free weak parent spots.
-	references.AddAll(models.WeakParentType, r.referencesToMissingConflicts(models.MaxParentsCount-len(references[models.WeakParentType]), a))
+	references.AddAll(models.WeakParentType, r.referencesToMissingConflicts(models.MaxParentsCount-len(references[models.WeakParentType])))
 
 	// Make sure that there's no duplicate between strong and weak parents.
 	references.CleanupReferences()
@@ -84,7 +84,7 @@ func (r *ReferenceProvider) References(payload payload.Payload, strongParents mo
 	return references, nil
 }
 
-func (r *ReferenceProvider) referencesToMissingConflicts(amount int, a float64) (blockIDs models.BlockIDs) {
+func (r *ReferenceProvider) referencesToMissingConflicts(amount int) (blockIDs models.BlockIDs) {
 	blockIDs = models.NewBlockIDs()
 	if amount == 0 {
 		return blockIDs
@@ -107,14 +107,13 @@ func (r *ReferenceProvider) referencesToMissingConflicts(amount int, a float64) 
 		// 	panic("attachment should not be nil")
 		// }
 
-		fmt.Println(a, ">> adding censored weak parent", attachment.ID())
 		blockIDs.Add(attachment.ID())
 	}
 
 	return blockIDs
 }
 
-func (r *ReferenceProvider) referencesFromUnacceptedInputs(payload payload.Payload, excludedConflictIDs utxo.TransactionIDs, a float64) (weakParents models.BlockIDs, likeInsteadParents models.BlockIDs, err error) {
+func (r *ReferenceProvider) referencesFromUnacceptedInputs(payload payload.Payload, excludedConflictIDs utxo.TransactionIDs) (weakParents models.BlockIDs, likeInsteadParents models.BlockIDs, err error) {
 	weakParents = models.NewBlockIDs()
 	likeInsteadParents = models.NewBlockIDs()
 
@@ -146,7 +145,6 @@ func (r *ReferenceProvider) referencesFromUnacceptedInputs(payload payload.Paylo
 
 			transactionConflictIDs := engineInstance.Tangle.Booker.TransactionConflictIDs(latestAttachment)
 			if transactionConflictIDs.IsEmpty() {
-				fmt.Println(a, ">> adding weak parent because it's not conflicting", latestAttachment.ID())
 				weakParents.Add(latestAttachment.ID())
 				continue
 			}
@@ -154,8 +152,6 @@ func (r *ReferenceProvider) referencesFromUnacceptedInputs(payload payload.Paylo
 			for conflictIterator := transactionConflictIDs.Iterator(); conflictIterator.HasNext(); {
 				transactionConflictID := conflictIterator.Next()
 				if excludedConflictIDs.Has(transactionConflictID) {
-					fmt.Println(a, ">> add weak parent without adjusting opinion because it's already corrected", latestAttachment.ID())
-
 					continue
 				}
 
@@ -163,13 +159,10 @@ func (r *ReferenceProvider) referencesFromUnacceptedInputs(payload payload.Paylo
 					return nil, nil, errors.Wrapf(referenceErr, "failed to correct opinion for weak parent with unaccepted output %s", referencedTransactionID)
 				} else if adjust {
 					if referencedBlk != models.EmptyBlockID {
-						fmt.Println(a, ">> add weak parent adjusting opinion with adjusting opinion", latestAttachment.ID(), referencedBlk)
 						likeInsteadParents.Add(referencedBlk)
 					} else {
 						return nil, nil, errors.Errorf("failed to correct opinion for weak parent with unaccepted output %s", referencedTransactionID)
 					}
-				} else {
-					fmt.Println(a, ">> add weak parent without adjusting opinion", latestAttachment.ID())
 				}
 			}
 
@@ -181,7 +174,7 @@ func (r *ReferenceProvider) referencesFromUnacceptedInputs(payload payload.Paylo
 }
 
 // addedReferenceForBlock returns the reference that is necessary to correct our opinion on the given block.
-func (r *ReferenceProvider) addedReferencesForBlock(blockID models.BlockID, excludedConflictIDs utxo.TransactionIDs, a float64) (addedReferences models.ParentBlockIDs, success bool) {
+func (r *ReferenceProvider) addedReferencesForBlock(blockID models.BlockID, excludedConflictIDs utxo.TransactionIDs) (addedReferences models.ParentBlockIDs, success bool) {
 	engineInstance := r.protocol.Engine()
 
 	block, exists := engineInstance.Tangle.Booker.Block(blockID)
@@ -192,20 +185,15 @@ func (r *ReferenceProvider) addedReferencesForBlock(blockID models.BlockID, excl
 
 	addedReferences = models.NewParentBlockIDs()
 	if blockConflicts.IsEmpty() {
-		fmt.Println(a, ">> strong parent does not have conflicts", block.ID())
 		return addedReferences, true
 	}
 
-	fmt.Println(a, ">> strong parent has conflicts", block.ID(), blockConflicts)
-
 	var err error
-	if addedReferences, err = r.addedReferencesForConflicts(blockConflicts, excludedConflictIDs, a); err != nil {
+	if addedReferences, err = r.addedReferencesForConflicts(blockConflicts, excludedConflictIDs); err != nil {
 		// Delete the tip if we could not pick it up.
 		if schedulerBlock, schedulerBlockExists := r.protocol.CongestionControl.Scheduler().Block(blockID); schedulerBlockExists {
 			r.protocol.TipManager.DeleteTip(schedulerBlock)
 		}
-		fmt.Println(a, ">> error while trying to correct strong parents", blockID, err)
-
 		return nil, false
 	}
 
@@ -219,7 +207,7 @@ func (r *ReferenceProvider) addedReferencesForBlock(blockID models.BlockID, excl
 				return true
 			})
 		}
-		fmt.Println(a, ">> could not fix opinion of strong parent", blockID)
+		fmt.Println(">> could not fix opinion", blockID)
 		return nil, false
 	}
 
@@ -228,13 +216,11 @@ func (r *ReferenceProvider) addedReferencesForBlock(blockID models.BlockID, excl
 		return nil, false
 	}
 
-	fmt.Println(a, ">> fixed references for strong parent", block.ID(), addedReferences)
-
 	return addedReferences, true
 }
 
 // addedReferencesForConflicts returns the references that are necessary to correct our opinion on the given conflicts.
-func (r *ReferenceProvider) addedReferencesForConflicts(conflictIDs utxo.TransactionIDs, excludedConflictIDs utxo.TransactionIDs, a float64) (referencesToAdd models.ParentBlockIDs, err error) {
+func (r *ReferenceProvider) addedReferencesForConflicts(conflictIDs utxo.TransactionIDs, excludedConflictIDs utxo.TransactionIDs) (referencesToAdd models.ParentBlockIDs, err error) {
 	referencesToAdd = models.NewParentBlockIDs()
 
 	for it := conflictIDs.Iterator(); it.HasNext(); {
@@ -249,15 +235,11 @@ func (r *ReferenceProvider) addedReferencesForConflicts(conflictIDs utxo.Transac
 			return nil, errors.Wrapf(referenceErr, "failed to create reference for %s", conflictID)
 		} else if adjust {
 			if referencedBlk != models.EmptyBlockID {
-				fmt.Println(a, ">> adjusting opinion of strong parent's conflict with ", conflictID, referencedBlk)
 				referencesToAdd.Add(models.ShallowLikeParentType, referencedBlk)
 			} else {
 				// We could not find a block that we could reference to fix this strong parent, but we don't want to delete the tip.
 				return nil, nil
 			}
-		} else {
-			fmt.Println(a, ">> strong parent liked, not adjusting")
-
 		}
 	}
 

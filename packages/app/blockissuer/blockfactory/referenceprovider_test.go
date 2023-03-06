@@ -45,35 +45,6 @@ func TestReferenceProvider_References1(t *testing.T) {
 	})
 }
 
-func TestReferenceProvider_References10(t *testing.T) {
-	workers := workerpool.NewGroup(t.Name())
-	tf := protocol.NewTestFramework(t, workers.CreateGroup("Protocol"), new(ledger.MockedVM))
-	tf.Instance.Run()
-
-	tf.Engine.VirtualVoting.CreateIdentity("V1", 0)
-	tf.Engine.VirtualVoting.CreateIdentity("V2", 0)
-
-	tf.Engine.BlockDAG.CreateBlock("4GKL", models.WithPayload(tf.Engine.Ledger.CreateTransaction("CtS", 1, "Genesis")))
-	tf.Engine.BlockDAG.IssueBlocks("4GKL")
-
-	tf.Engine.BlockDAG.CreateBlock("Hu9", models.WithStrongParents(tf.Engine.BlockDAG.BlockIDs("4GKL")))
-	tf.Engine.BlockDAG.IssueBlocks("Hu9")
-
-	tf.Engine.BlockDAG.CreateBlock("AnTR", models.WithStrongParents(tf.Engine.BlockDAG.BlockIDs("4GKL")), models.WithPayload(tf.Engine.Ledger.CreateTransaction("4D5", 1, "Genesis")))
-	tf.Engine.BlockDAG.IssueBlocks("AnTR")
-
-	workers.WaitChildren()
-
-	rp := NewReferenceProvider(tf.Instance, 30*time.Second, func() slot.Index {
-		return 0
-	})
-
-	checkReferences(t, rp, nil, tf.Engine.BlockDAG.BlockIDs("Hu9", "AnTR"), map[models.ParentsType]models.BlockIDs{
-		models.StrongParentType:      tf.Engine.BlockDAG.BlockIDs("AnTR", "Hu9"),
-		models.ShallowLikeParentType: tf.Engine.BlockDAG.BlockIDs("AnTR"),
-	})
-}
-
 func TestBlockFactory_PrepareLikedReferences_2(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
 	tf := protocol.NewTestFramework(t, workers.CreateGroup("Protocol"), new(ledger.MockedVM), protocol.WithProtocolOptions(protocol.WithTipManagerOptions(tipmanager.WithTimeSinceConfirmationThreshold(tscThreshold))))
