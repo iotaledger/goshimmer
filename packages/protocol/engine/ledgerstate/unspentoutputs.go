@@ -1,0 +1,30 @@
+package ledgerstate
+
+import (
+	"github.com/iotaledger/goshimmer/packages/core/module"
+	"github.com/iotaledger/goshimmer/packages/core/traits"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/hive.go/ads"
+)
+
+// UnspentOutputs is a submodule that provides access to the unspent outputs of the ledger state.
+type UnspentOutputs interface {
+	// IDs returns the IDs of the unspent outputs.
+	IDs() *ads.Set[utxo.OutputID, *utxo.OutputID]
+
+	// Subscribe subscribes to changes in the unspent outputs.
+	Subscribe(UnspentOutputsSubscriber)
+
+	// Unsubscribe unsubscribes from changes in the unspent outputs.
+	Unsubscribe(UnspentOutputsSubscriber)
+
+	// ApplyCreatedOutput applies the given output to the unspent outputs.
+	ApplyCreatedOutput(*ledger.OutputWithMetadata) error
+
+	// BatchCommittable embeds the required methods of the BatchCommittable trait.
+	traits.BatchCommittable
+
+	// Interface embeds the required methods of the module.Interface.
+	module.Interface
+}
