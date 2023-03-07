@@ -148,7 +148,7 @@ func (m *EngineManager) ForkEngineAtSlot(index slot.Index) (*EngineInstance, err
 	}
 
 	instance := m.newEngineInstance()
-	if err := instance.InitializeWithSnapshot(snapshotPath); err != nil {
+	if err := instance.Engine.Initialize(snapshotPath); err != nil {
 		instance.Shutdown()
 		_ = instance.RemoveFromFilesystem()
 		_ = os.Remove(snapshotPath)
@@ -164,10 +164,6 @@ func (m *EngineManager) ForkEngineAtSlot(index slot.Index) (*EngineInstance, err
 
 type EngineInstance struct {
 	Engine *engine.Engine
-}
-
-func (e *EngineInstance) InitializeWithSnapshot(snapshotPath string) error {
-	return e.Engine.Initialize(snapshotPath)
 }
 
 func (e *EngineInstance) Name() string {

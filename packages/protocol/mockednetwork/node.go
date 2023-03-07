@@ -97,13 +97,13 @@ func (n *Node) HookLogging(includeMainEngine bool) {
 	}
 
 	events.CandidateEngineActivated.Hook(func(candidateEngine *enginemanager.EngineInstance) {
-		fmt.Printf("%s > CandidateEngineActivated: latest commitment %s %s\n", n.Name, candidateEngine.Storage.Settings.LatestCommitment().ID(), candidateEngine.Storage.Settings.LatestCommitment())
+		fmt.Printf("%s > CandidateEngineActivated: latest commitment %s %s\n", n.Name, candidateEngine.Engine.Storage.Settings.LatestCommitment().ID(), candidateEngine.Engine.Storage.Settings.LatestCommitment())
 		fmt.Printf("==================\nACTIVATE %s\n==================\n", n.Name)
 		n.attachEngineLogs(candidateEngine)
 	})
 
 	events.MainEngineSwitched.Hook(func(engine *enginemanager.EngineInstance) {
-		fmt.Printf("%s > MainEngineSwitched: latest commitment %s %s\n", n.Name, engine.Storage.Settings.LatestCommitment().ID(), engine.Storage.Settings.LatestCommitment())
+		fmt.Printf("%s > MainEngineSwitched: latest commitment %s %s\n", n.Name, engine.Engine.Storage.Settings.LatestCommitment().ID(), engine.Engine.Storage.Settings.LatestCommitment())
 		fmt.Printf("================\nSWITCH %s\n================\n", n.Name)
 	})
 

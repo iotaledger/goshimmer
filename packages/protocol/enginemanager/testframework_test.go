@@ -66,7 +66,7 @@ func NewEngineManagerTestFramework(t *testing.T, workers *workerpool.Group, iden
 	tf.ActiveEngine, err = tf.EngineManager.LoadActiveEngine()
 	require.NoError(t, err)
 
-	require.NoError(t, tf.ActiveEngine.InitializeWithSnapshot(snapshotPath))
+	require.NoError(t, tf.ActiveEngine.Engine.Initialize(snapshotPath))
 
 	return tf
 }

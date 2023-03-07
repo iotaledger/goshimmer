@@ -92,7 +92,7 @@ func New(workers *workerpool.Group, dispatcher network.Endpoint, opts ...options
 func (p *Protocol) Run() {
 	p.Events.Engine.LinkTo(p.mainEngine.Engine.Events)
 
-	if err := p.mainEngine.InitializeWithSnapshot(p.optsSnapshotPath); err != nil {
+	if err := p.mainEngine.Engine.Initialize(p.optsSnapshotPath); err != nil {
 		panic(err)
 	}
 
