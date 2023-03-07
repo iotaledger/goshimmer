@@ -3,6 +3,7 @@ package engine
 import (
 	"io"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -138,6 +139,7 @@ func (e *Engine) Shutdown() {
 		e.BlockRequester.Shutdown()
 		e.Ledger.Shutdown()
 		e.Workers.Shutdown()
+		e.Storage.Shutdown()
 	}
 }
 
@@ -262,6 +264,15 @@ func (e *Engine) Export(writer io.WriteSeeker, targetSlot slot.Index) (err error
 	}
 
 	return
+}
+
+// RemoveFromFilesystem removes the directory of the engine from the filesystem.
+func (e *Engine) RemoveFromFilesystem() error {
+	return os.RemoveAll(e.Storage.Directory)
+}
+
+func (e *Engine) Name() string {
+	return filepath.Base(e.Storage.Directory)
 }
 
 func (e *Engine) setupFilter() {

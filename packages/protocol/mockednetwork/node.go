@@ -70,13 +70,13 @@ func NewNode(t *testing.T, keyPair ed25519.KeyPair, network *network.MockedNetwo
 	})
 
 	mainEngine := node.Protocol.MainEngineInstance()
-	node.tf = engine.NewTestFramework(t, node.Workers.CreateGroup(fmt.Sprintf("EngineTestFramework-%s", mainEngine.Name()[:8])), mainEngine.Engine)
+	node.tf = engine.NewTestFramework(t, node.Workers.CreateGroup(fmt.Sprintf("EngineTestFramework-%s", mainEngine.Engine.Name()[:8])), mainEngine.Engine)
 
 	node.Protocol.Events.CandidateEngineActivated.Hook(func(candidateEngine *enginemanager.EngineInstance) {
 		node.mutex.Lock()
 		defer node.mutex.Unlock()
 
-		node.tf = engine.NewTestFramework(node.Testing, node.Workers.CreateGroup(fmt.Sprintf("EngineTestFramework-%s", candidateEngine.Name()[:8])), candidateEngine.Engine)
+		node.tf = engine.NewTestFramework(node.Testing, node.Workers.CreateGroup(fmt.Sprintf("EngineTestFramework-%s", candidateEngine.Engine.Name()[:8])), candidateEngine.Engine)
 	})
 
 	return node
@@ -162,7 +162,7 @@ func (n *Node) HookLogging(includeMainEngine bool) {
 }
 
 func (n *Node) attachEngineLogs(instance *enginemanager.EngineInstance) {
-	engineName := fmt.Sprintf("%s - %s", lo.Cond(n.Protocol.Engine() != instance.Engine, "Candidate", "Main"), instance.Name()[:8])
+	engineName := fmt.Sprintf("%s - %s", lo.Cond(n.Protocol.Engine() != instance.Engine, "Candidate", "Main"), instance.Engine.Name()[:8])
 	events := instance.Engine.Events
 
 	events.Tangle.BlockDAG.BlockAttached.Hook(func(block *blockdag.Block) {

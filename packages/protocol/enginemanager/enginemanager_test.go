@@ -177,7 +177,7 @@ func TestEngineManager_ForkEngineAtSlot(t *testing.T) {
 
 		require.NoError(t, etf.EngineManager.SetActiveInstance(forkedEngine))
 
-		forkedEngine.Shutdown()
+		forkedEngine.Engine.Shutdown()
 
 		active, err := etf.EngineManager.LoadActiveEngine()
 		require.NoError(t, err)
