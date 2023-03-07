@@ -209,4 +209,4 @@ func (s *SybilProtection) markValidatorInactive(id identity.ID) {
 	s.validators.Delete(id)
 }
 
-var _ ledgerstate.UnspentOutputsConsumer = &SybilProtection{}
+var _ ledgerstate.UnspentOutputsSubscriber = &SybilProtection{}

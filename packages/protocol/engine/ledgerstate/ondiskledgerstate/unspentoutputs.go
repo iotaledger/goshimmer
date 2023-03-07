@@ -24,9 +24,9 @@ type UnspentOutputs struct {
 	ids *ads.Set[utxo.OutputID, *utxo.OutputID]
 
 	memPool               ledger.Ledger
-	consumers             map[ledgerstate.UnspentOutputsConsumer]types.Empty
+	consumers             map[ledgerstate.UnspentOutputsSubscriber]types.Empty
 	consumersMutex        sync.RWMutex
-	batchConsumers        map[ledgerstate.UnspentOutputsConsumer]types.Empty
+	batchConsumers        map[ledgerstate.UnspentOutputsSubscriber]types.Empty
 	batchCreatedOutputIDs utxo.OutputIDs
 	batchSpentOutputIDs   utxo.OutputIDs
 
@@ -44,18 +44,18 @@ func NewUnspentOutputs(store func(optRealm ...byte) kvstore.KVStore, memPool led
 		BatchCommittable: traits.NewBatchCommittable(store(), PrefixUnspentOutputsLatestCommittedIndex),
 		ids:              ads.NewSet[utxo.OutputID](store(PrefixUnspentOutputsIDs)),
 		memPool:          memPool,
-		consumers:        make(map[ledgerstate.UnspentOutputsConsumer]types.Empty),
+		consumers:        make(map[ledgerstate.UnspentOutputsSubscriber]types.Empty),
 	}
 }
 
-func (u *UnspentOutputs) Subscribe(consumer ledgerstate.UnspentOutputsConsumer) {
+func (u *UnspentOutputs) Subscribe(consumer ledgerstate.UnspentOutputsSubscriber) {
 	u.consumersMutex.Lock()
 	defer u.consumersMutex.Unlock()
 
 	u.consumers[consumer] = types.Void
 }
 
-func (u *UnspentOutputs) Unsubscribe(consumer ledgerstate.UnspentOutputsConsumer) {
+func (u *UnspentOutputs) Unsubscribe(consumer ledgerstate.UnspentOutputsSubscriber) {
 	u.consumersMutex.Lock()
 	defer u.consumersMutex.Unlock()
 
@@ -77,7 +77,7 @@ func (u *UnspentOutputs) Begin(newSlot slot.Index) (lastCommittedSlot slot.Index
 
 	u.batchCreatedOutputIDs = utxo.NewOutputIDs()
 	u.batchSpentOutputIDs = utxo.NewOutputIDs()
-	u.batchConsumers = make(map[ledgerstate.UnspentOutputsConsumer]types.Empty)
+	u.batchConsumers = make(map[ledgerstate.UnspentOutputsSubscriber]types.Empty)
 
 	if err = u.preparePendingConsumers(lastCommittedSlot, newSlot); err != nil {
 		return lastCommittedSlot, errors.Wrap(err, "failed to get pending state diff consumers")
@@ -104,7 +104,7 @@ func (u *UnspentOutputs) Commit() (ctx context.Context) {
 }
 
 func (u *UnspentOutputs) ApplyCreatedOutput(output *ledger.OutputWithMetadata) (err error) {
-	var targetConsumers map[ledgerstate.UnspentOutputsConsumer]types.Empty
+	var targetConsumers map[ledgerstate.UnspentOutputsSubscriber]types.Empty
 	if !u.BatchedStateTransitionStarted() {
 		u.ids.Add(output.Output().ID())
 
@@ -119,7 +119,7 @@ func (u *UnspentOutputs) ApplyCreatedOutput(output *ledger.OutputWithMetadata) (
 		targetConsumers = u.batchConsumers
 	}
 
-	if err = u.notifyConsumers(targetConsumers, output, ledgerstate.UnspentOutputsConsumer.ApplyCreatedOutput); err != nil {
+	if err = u.notifyConsumers(targetConsumers, output, ledgerstate.UnspentOutputsSubscriber.ApplyCreatedOutput); err != nil {
 		return errors.Wrap(err, "failed to apply created output to consumers")
 	}
 
@@ -127,7 +127,7 @@ func (u *UnspentOutputs) ApplyCreatedOutput(output *ledger.OutputWithMetadata) (
 }
 
 func (u *UnspentOutputs) ApplySpentOutput(output *ledger.OutputWithMetadata) (err error) {
-	var targetConsumers map[ledgerstate.UnspentOutputsConsumer]types.Empty
+	var targetConsumers map[ledgerstate.UnspentOutputsSubscriber]types.Empty
 	if !u.BatchedStateTransitionStarted() {
 		panic("cannot apply a spent output without a batched state transition")
 	} else {
@@ -138,7 +138,7 @@ func (u *UnspentOutputs) ApplySpentOutput(output *ledger.OutputWithMetadata) (er
 		targetConsumers = u.batchConsumers
 	}
 
-	if err = u.notifyConsumers(targetConsumers, output, ledgerstate.UnspentOutputsConsumer.ApplySpentOutput); err != nil {
+	if err = u.notifyConsumers(targetConsumers, output, ledgerstate.UnspentOutputsSubscriber.ApplySpentOutput); err != nil {
 		return errors.Wrap(err, "failed to apply spent output to consumers")
 	}
 
@@ -199,7 +199,7 @@ func (u *UnspentOutputs) Import(reader io.ReadSeeker, targetSlot slot.Index) (er
 	return
 }
 
-func (u *UnspentOutputs) Consumers() (consumers []ledgerstate.UnspentOutputsConsumer) {
+func (u *UnspentOutputs) Consumers() (consumers []ledgerstate.UnspentOutputsSubscriber) {
 	u.consumersMutex.RLock()
 	defer u.consumersMutex.RUnlock()
 
@@ -242,7 +242,7 @@ func (u *UnspentOutputs) preparePendingConsumers(currentSlot, targetSlot slot.In
 	return
 }
 
-func (u *UnspentOutputs) notifyConsumers(consumer map[ledgerstate.UnspentOutputsConsumer]types.Empty, output *ledger.OutputWithMetadata, callback func(self ledgerstate.UnspentOutputsConsumer, output *ledger.OutputWithMetadata) (err error)) (err error) {
+func (u *UnspentOutputs) notifyConsumers(consumer map[ledgerstate.UnspentOutputsSubscriber]types.Empty, output *ledger.OutputWithMetadata, callback func(self ledgerstate.UnspentOutputsSubscriber, output *ledger.OutputWithMetadata) (err error)) (err error) {
 	for consumer := range consumer {
 		if err = callback(consumer, output); err != nil {
 			return errors.Wrap(err, "failed to apply changes to consumer")
