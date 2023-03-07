@@ -1,6 +1,7 @@
 package blockgadget
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -283,6 +284,8 @@ func (a *Gadget) propagateAcceptanceConfirmation(marker markers.Marker, confirme
 		return
 	}
 
+	var otherParentsToAccept []models.BlockID
+
 	pastConeWalker := walker.New[*Block](false).Push(block)
 	for pastConeWalker.HasNext() {
 		walkerBlock := pastConeWalker.Next()
@@ -314,17 +317,25 @@ func (a *Gadget) propagateAcceptanceConfirmation(marker markers.Marker, confirme
 			}
 		}
 
-		for parentBlockID := range walkerBlock.ParentsByType(models.WeakParentType) {
-			parentBlock, parentExists := a.getOrRegisterBlock(parentBlockID)
-			if parentExists {
-				a.markAsAccepted(parentBlock)
-			}
-		}
+		// We don't want to disturb the monotonicity of the strong parents and propagate through the entire past cone.
+		// Therefore, we mark through the weak and shallow like parents as accepted/confirmed only later.
+		otherParentsToAccept = append(otherParentsToAccept, walkerBlock.ParentsByType(models.WeakParentType).Slice()...)
+		otherParentsToAccept = append(otherParentsToAccept, walkerBlock.ParentsByType(models.ShallowLikeParentType).Slice()...)
+	}
 
-		for parentBlockID := range walkerBlock.ParentsByType(models.ShallowLikeParentType) {
-			parentBlock, parentExists := a.getOrRegisterBlock(parentBlockID)
-			if parentExists {
-				a.markAsAccepted(parentBlock)
+	for _, parentBlockID := range otherParentsToAccept {
+		parentBlock, parentExists := a.getOrRegisterBlock(parentBlockID)
+		if parentExists {
+			if err := a.markAsAccepted(parentBlock); err != nil {
+				fmt.Println("error while marking weak parent ", parentBlockID, " as accepted: ", err)
+			}
+
+			fmt.Println("marked weak/like parent ", parentBlockID, " as accepted")
+			// We need to add these blocks to the causal orderer as well. However, since they break monotonicity, we can't stop
+			// walking prematurely.
+			blocksToAccept = append(blocksToAccept, parentBlock)
+			if confirmed {
+				blocksToConfirm = append(blocksToConfirm, parentBlock)
 			}
 		}
 	}
@@ -346,7 +357,7 @@ func (a *Gadget) markAsAccepted(block *Block) (err error) {
 		a.Events.BlockAccepted.Trigger(block)
 
 		// set ConfirmationState of payload (applicable only to transactions)
-		if tx, ok := block.Payload().(utxo.Transaction); ok {
+		if tx, ok := block.Transaction(); ok {
 			a.tangle.Ledger.SetTransactionInclusionSlot(tx.ID(), a.slotTimeProvider.IndexFromTime(block.IssuingTime()))
 		}
 	}

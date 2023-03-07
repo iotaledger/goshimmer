@@ -170,10 +170,8 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) trigger
 	for _, event := range eventsToTrigger {
 		switch event.Opinion {
 		case votes.Like:
-			fmt.Println("voter added", event.Voter, event.ConflictID)
 			c.Events.VoterAdded.Trigger(event)
 		case votes.Dislike:
-			fmt.Println("voter removed", event.Voter, event.ConflictID)
 			c.Events.VoterRemoved.Trigger(event)
 		}
 	}
