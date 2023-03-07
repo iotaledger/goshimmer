@@ -79,6 +79,7 @@ func New(workers *workerpool.Group, evictionState *eviction.State, slotTimeProvi
 			(*Block).IsSolid,
 			b.markSolid,
 			b.markInvalid,
+			(*Block).Parents,
 			causalorder.WithReferenceValidator[models.BlockID](checkReference),
 		)
 

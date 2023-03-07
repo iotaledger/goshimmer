@@ -73,7 +73,7 @@ func New(workers *workerpool.Group, tangleInstance *tangle.Tangle, evictionState
 		a.lastConfirmedMarker = shrinkingmap.New[markers.SequenceID, markers.Index]()
 		a.blocks = memstorage.NewSlotStorage[models.BlockID, *Block]()
 
-		a.acceptanceOrder = causalorder.New(workers.CreatePool("AcceptanceOrder", 2), a.GetOrRegisterBlock, (*Block).IsAccepted, a.markAsAccepted, a.acceptanceFailed)
+		a.acceptanceOrder = causalorder.New(workers.CreatePool("AcceptanceOrder", 2), a.GetOrRegisterBlock, (*Block).IsAccepted, a.markAsAccepted, a.acceptanceFailed, (*Block).StrongParents)
 		a.confirmationOrder = causalorder.New(workers.CreatePool("ConfirmationOrder", 2), func(id models.BlockID) (entity *Block, exists bool) {
 			a.evictionMutex.RLock()
 			defer a.evictionMutex.RUnlock()
@@ -83,7 +83,7 @@ func New(workers *workerpool.Group, tangleInstance *tangle.Tangle, evictionState
 			}
 
 			return a.getOrRegisterBlock(id)
-		}, (*Block).IsConfirmed, a.markAsConfirmed, a.confirmationFailed)
+		}, (*Block).IsConfirmed, a.markAsConfirmed, a.confirmationFailed, (*Block).StrongParents)
 	}, (*Gadget).setup)
 }
 
@@ -303,13 +303,6 @@ func (a *Gadget) propagateAcceptanceConfirmation(marker markers.Marker, confirme
 			continue
 		}
 
-		for parentBlockID := range walkerBlock.ParentsByType(models.WeakParentType) {
-			parentBlock, parentExists := a.getOrRegisterBlock(parentBlockID)
-			if parentExists {
-				a.markAsAccepted(parentBlock)
-			}
-		}
-
 		for parentBlockID := range walkerBlock.ParentsByType(models.StrongParentType) {
 			if !confirmed && a.isBlockAccepted(parentBlockID) || confirmed && a.isBlockConfirmed(parentBlockID) {
 				continue
@@ -318,6 +311,20 @@ func (a *Gadget) propagateAcceptanceConfirmation(marker markers.Marker, confirme
 			parentBlock, parentExists := a.getOrRegisterBlock(parentBlockID)
 			if parentExists {
 				pastConeWalker.Push(parentBlock)
+			}
+		}
+
+		for parentBlockID := range walkerBlock.ParentsByType(models.WeakParentType) {
+			parentBlock, parentExists := a.getOrRegisterBlock(parentBlockID)
+			if parentExists {
+				a.markAsAccepted(parentBlock)
+			}
+		}
+
+		for parentBlockID := range walkerBlock.ParentsByType(models.ShallowLikeParentType) {
+			parentBlock, parentExists := a.getOrRegisterBlock(parentBlockID)
+			if parentExists {
+				a.markAsAccepted(parentBlock)
 			}
 		}
 	}

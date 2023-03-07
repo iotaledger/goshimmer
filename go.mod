@@ -17,7 +17,7 @@ require (
 	github.com/iotaledger/hive.go/app v0.0.0-20230301135914-603c4dac79e1
 	github.com/iotaledger/hive.go/autopeering v0.0.0-20230301135914-603c4dac79e1
 	github.com/iotaledger/hive.go/constraints v0.0.0-20230301135914-603c4dac79e1
-	github.com/iotaledger/hive.go/core v1.0.0-rc.3.0.20230301135914-603c4dac79e1
+	github.com/iotaledger/hive.go/core v1.0.0-rc.3.0.20230307163144-1809be6dde56
 	github.com/iotaledger/hive.go/crypto v0.0.0-20230301135914-603c4dac79e1
 	github.com/iotaledger/hive.go/ds v0.0.0-20230301135914-603c4dac79e1
 	github.com/iotaledger/hive.go/kvstore v0.0.0-20230301135914-603c4dac79e1

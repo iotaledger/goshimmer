@@ -73,6 +73,7 @@ func New(workers *workerpool.Group, blockDAG *blockdag.BlockDAG, ledger *ledger.
 			(*virtualvoting.Block).IsBooked,
 			b.book,
 			b.markInvalid,
+			(*virtualvoting.Block).Parents,
 			causalorder.WithReferenceValidator[models.BlockID](isReferenceValid),
 		)
 
