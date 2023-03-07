@@ -313,22 +313,22 @@ func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) error {
 
 	isSolid, chain := p.chainManager.ProcessCommitmentFromSource(block.Commitment(), src)
 	if !isSolid {
-		return errors.Errorf("protocol ProcessBlock failed. chain is not solid: %s, latest commitment: %s, block ID: %s", block.Commitment().ID(), mainEngine.Storage.Settings.LatestCommitment().ID(), block.ID())
+		return errors.Errorf("protocol ProcessBlock failed. chain is not solid: %s, latest commitment: %s, block ID: %s", block.Commitment().ID(), mainEngine.Engine.Storage.Settings.LatestCommitment().ID(), block.ID())
 	}
 
 	processed := false
 
-	if mainChain := mainEngine.Storage.Settings.ChainID(); chain.ForkingPoint.ID() == mainChain || mainEngine.Engine.BlockRequester.HasTicker(block.ID()) {
+	if mainChain := mainEngine.Engine.Storage.Settings.ChainID(); chain.ForkingPoint.ID() == mainChain || mainEngine.Engine.BlockRequester.HasTicker(block.ID()) {
 		mainEngine.Engine.ProcessBlockFromPeer(block, src)
 		processed = true
 	}
 
 	if candidateEngine := p.CandidateEngineInstance(); candidateEngine != nil {
-		if candidateChain := candidateEngine.Storage.Settings.ChainID(); chain.ForkingPoint.ID() == candidateChain || candidateEngine.Engine.BlockRequester.HasTicker(block.ID()) {
+		if candidateChain := candidateEngine.Engine.Storage.Settings.ChainID(); chain.ForkingPoint.ID() == candidateChain || candidateEngine.Engine.BlockRequester.HasTicker(block.ID()) {
 			candidateEngine.Engine.ProcessBlockFromPeer(block, src)
 			if candidateEngine.Engine.IsBootstrapped() &&
-				candidateEngine.Storage.Settings.LatestCommitment().Index() >= mainEngine.Storage.Settings.LatestCommitment().Index() &&
-				candidateEngine.Storage.Settings.LatestCommitment().CumulativeWeight() > mainEngine.Storage.Settings.LatestCommitment().CumulativeWeight() {
+				candidateEngine.Engine.Storage.Settings.LatestCommitment().Index() >= mainEngine.Engine.Storage.Settings.LatestCommitment().Index() &&
+				candidateEngine.Engine.Storage.Settings.LatestCommitment().CumulativeWeight() > mainEngine.Engine.Storage.Settings.LatestCommitment().CumulativeWeight() {
 				p.switchEngines()
 			}
 			processed = true
@@ -404,7 +404,7 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 	var calculatedCumulativeWeight int64
 	mainEngine.Engine.NotarizationManager.PerformLocked(func(m *notarization.Manager) {
 		// Calculate the difference between the latest commitment ledger and the ledger at the snapshot target index
-		latestCommitment := mainEngine.Storage.Settings.LatestCommitment()
+		latestCommitment := mainEngine.Engine.Storage.Settings.LatestCommitment()
 		for i := latestCommitment.Index(); i >= snapshotTargetIndex; i-- {
 			if err := mainEngine.Engine.LedgerState.StateDiffs.StreamSpentOutputs(i, func(output *ledger.OutputWithMetadata) error {
 				if iotaBalance, balanceExists := output.IOTABalance(); balanceExists {
@@ -428,7 +428,7 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 		}
 
 		// Get our cumulative weight at the snapshot target index and apply all the received attestations on stop while verifying the validity of each signature
-		calculatedCumulativeWeight = lo.PanicOnErr(mainEngine.Storage.Commitments.Load(snapshotTargetIndex)).CumulativeWeight()
+		calculatedCumulativeWeight = lo.PanicOnErr(mainEngine.Engine.Storage.Commitments.Load(snapshotTargetIndex)).CumulativeWeight()
 		for slotIndex := forkedEvent.ForkingPoint.Index(); slotIndex <= forkedEvent.Commitment.Index(); slotIndex++ {
 			slotAttestations, slotExists := attestations.Get(slotIndex)
 			if !slotExists {
@@ -468,7 +468,7 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 	})
 
 	// Compare the calculated cumulative weight with ours to verify it is really higher
-	weightAtForkedEventEnd := lo.PanicOnErr(mainEngine.Storage.Commitments.Load(forkedEvent.Commitment.Index())).CumulativeWeight()
+	weightAtForkedEventEnd := lo.PanicOnErr(mainEngine.Engine.Storage.Commitments.Load(forkedEvent.Commitment.Index())).CumulativeWeight()
 	if calculatedCumulativeWeight <= weightAtForkedEventEnd {
 		forkedEventClaimedWeight := forkedEvent.Commitment.CumulativeWeight()
 		forkedEventMainWeight := lo.PanicOnErr(mainEngine.Engine.Storage.Commitments.Load(forkedEvent.Commitment.Index())).CumulativeWeight()

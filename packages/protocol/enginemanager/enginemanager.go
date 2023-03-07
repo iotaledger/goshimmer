@@ -98,7 +98,7 @@ func (m *EngineManager) LoadActiveEngine() (*EngineInstance, error) {
 }
 
 func (m *EngineManager) CleanupNonActive() error {
-	activeDir := filepath.Base(m.activeInstance.Storage.Directory)
+	activeDir := filepath.Base(m.activeInstance.Engine.Storage.Directory)
 
 	dirs, err := m.directory.SubDirs()
 	if err != nil {
@@ -123,19 +123,15 @@ func (m *EngineManager) SetActiveInstance(instance *EngineInstance) error {
 	m.activeInstance = instance
 
 	info := &engineInfo{
-		Name: filepath.Base(instance.Storage.Directory),
+		Name: filepath.Base(instance.Engine.Storage.Directory),
 	}
 
 	return ioutils.WriteJSONToFile(m.infoFilePath(), info, 0o644)
 }
 
 func (m *EngineManager) loadEngineInstance(dirName string) *EngineInstance {
-	candidateStorage := storage.New(m.directory.Path(dirName), m.dbVersion, m.storageOptions...)
-	candidateEngine := engine.New(m.workers.CreateGroup(dirName), candidateStorage, m.clockProvider, m.sybilProtectionProvider, m.throughputQuotaProvider, m.engineOptions...)
-
 	return &EngineInstance{
-		Engine:  candidateEngine,
-		Storage: candidateStorage,
+		Engine: engine.New(m.workers.CreateGroup(dirName), storage.New(m.directory.Path(dirName), m.dbVersion, m.storageOptions...), m.clockProvider, m.sybilProtectionProvider, m.throughputQuotaProvider, m.engineOptions...),
 	}
 }
 
@@ -167,8 +163,7 @@ func (m *EngineManager) ForkEngineAtSlot(index slot.Index) (*EngineInstance, err
 // region EngineInstance ////////////////////////////////////////////////////////////////////////////////////////////////
 
 type EngineInstance struct {
-	Engine  *engine.Engine
-	Storage *storage.Storage
+	Engine *engine.Engine
 }
 
 func (e *EngineInstance) InitializeWithSnapshot(snapshotPath string) error {
@@ -176,16 +171,16 @@ func (e *EngineInstance) InitializeWithSnapshot(snapshotPath string) error {
 }
 
 func (e *EngineInstance) Name() string {
-	return filepath.Base(e.Storage.Directory)
+	return filepath.Base(e.Engine.Storage.Directory)
 }
 
 func (e *EngineInstance) Shutdown() {
 	e.Engine.Shutdown()
-	e.Storage.Shutdown()
+	e.Engine.Storage.Shutdown()
 }
 
 func (e *EngineInstance) RemoveFromFilesystem() error {
-	return os.RemoveAll(e.Storage.Directory)
+	return os.RemoveAll(e.Engine.Storage.Directory)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
