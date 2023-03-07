@@ -26,7 +26,7 @@ import (
 type EngineManagerTestFramework struct {
 	EngineManager *enginemanager.EngineManager
 
-	ActiveEngine *enginemanager.EngineInstance
+	ActiveEngine *engine.Engine
 }
 
 func NewEngineManagerTestFramework(t *testing.T, workers *workerpool.Group, identitiesWeights map[ed25519.PublicKey]uint64) *EngineManagerTestFramework {
@@ -66,7 +66,7 @@ func NewEngineManagerTestFramework(t *testing.T, workers *workerpool.Group, iden
 	tf.ActiveEngine, err = tf.EngineManager.LoadActiveEngine()
 	require.NoError(t, err)
 
-	require.NoError(t, tf.ActiveEngine.Engine.Initialize(snapshotPath))
+	require.NoError(t, tf.ActiveEngine.Initialize(snapshotPath))
 
 	return tf
 }
