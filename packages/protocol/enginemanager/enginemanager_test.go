@@ -181,6 +181,6 @@ func TestEngineManager_ForkEngineAtSlot(t *testing.T) {
 
 		active, err := etf.EngineManager.LoadActiveEngine()
 		require.NoError(t, err)
-		require.Equal(t, active.Storage.Directory, forkedEngine.Storage.Directory)
+		require.Equal(t, active.Engine.Storage.Directory, forkedEngine.Engine.Storage.Directory)
 	}
 }
