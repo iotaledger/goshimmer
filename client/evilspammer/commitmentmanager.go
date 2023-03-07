@@ -2,20 +2,27 @@ package evilspammer
 
 import (
 	"crypto/sha256"
+	"math/rand"
+	"time"
+
 	"github.com/iotaledger/goshimmer/client/evilwallet"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/hive.go/core/slot"
+
 	"github.com/pkg/errors"
-	"math/rand"
 )
 
 type CommitmentManager struct {
 	CommitmentType  string
 	ParentRefsCount int
-	connector       evilwallet.Connector
+	GenesisTime     time.Time
+	SlotDuration    int64 // in seconds
+
+	connector evilwallet.Connector
 }
 
 func NewCommitmentManager() *CommitmentManager {
+	// todo get timeProvider (genesisTime, SlotDuration) from node config
 	return &CommitmentManager{
 		ParentRefsCount: 2,
 	}
@@ -30,28 +37,22 @@ func (c *CommitmentManager) SetCommitmentType(commitmentType string) {
 }
 
 // GenerateCommitment generates a commitment based on the commitment type provided in spam details.
-func (c *CommitmentManager) GenerateCommitment(clt evilwallet.Client) (*commitment.Commitment, epoch.Index, error) {
+func (c *CommitmentManager) GenerateCommitment(clt evilwallet.Client) (*commitment.Commitment, slot.Index, error) {
 	switch c.CommitmentType {
 	case "latest":
-		resp, err := clt.GetLatestCommitment()
+		comm, err := clt.GetLatestCommitment()
 		if err != nil {
 			return nil, 0, errors.Wrap(err, "failed to get latest commitment")
 		}
-		comm := commitment.NewEmptyCommitment()
-		_, err = comm.FromBytes(resp.Bytes)
+		index, err := clt.GetLatestConfirmedIndex()
 		if err != nil {
-			return nil, 0, errors.Wrap(err, "failed to parse commitment bytes")
+			return nil, 0, errors.Wrap(err, "failed to get latest confirmed index")
 		}
-		return comm, epoch.Index(resp.LatestConfirmedIndex), err
+		return comm, index, err
 	case "random":
-		resp, err := clt.GetLatestCommitment()
+		comm, err := clt.GetLatestCommitment()
 		if err != nil {
 			return nil, 0, errors.Wrap(err, "failed to get latest commitment")
-		}
-		comm := commitment.NewEmptyCommitment()
-		_, err = comm.FromBytes(resp.Bytes)
-		if err != nil {
-			return nil, 0, errors.Wrap(err, "failed to parse commitment bytes")
 		}
 		newCommitment := commitment.New(
 			comm.Index(),
@@ -59,7 +60,11 @@ func (c *CommitmentManager) GenerateCommitment(clt evilwallet.Client) (*commitme
 			randomRoot(),
 			comm.CumulativeWeight(),
 		)
-		return newCommitment, epoch.Index(resp.LatestConfirmedIndex), nil
+		index, err := clt.GetLatestConfirmedIndex()
+		if err != nil {
+			return nil, 0, errors.Wrap(err, "failed to get latest confirmed index")
+		}
+		return newCommitment, index, nil
 	case "invalid":
 		comm := commitment.NewEmptyCommitment()
 		newCommitment := commitment.New(
@@ -70,26 +75,21 @@ func (c *CommitmentManager) GenerateCommitment(clt evilwallet.Client) (*commitme
 		)
 		return newCommitment, 0, nil
 	case "second":
-		resp, err := clt.GetLatestCommitment()
+		comm, err := clt.GetLatestCommitment()
 		if err != nil {
 			return nil, 0, errors.Wrap(err, "failed to get latest commitment")
 		}
-		latestComm := commitment.NewEmptyCommitment()
-		_, err = latestComm.FromBytes(resp.Bytes)
-		latestEpoch := latestComm.ID().EpochIndex
+		latestEpoch := comm.ID().SlotIndex
 		second := int(latestEpoch) - 1
-		resp, err = clt.GetCommitment(second)
+		secondComm, err := clt.GetCommitment(second)
 		if err != nil {
 			return nil, 0, errors.Wrap(err, "failed to get oldest commitment")
 		}
-
-		secondComm := commitment.NewEmptyCommitment()
-		b := resp.Bytes
-		_, err = secondComm.FromBytes(b)
+		index, err := clt.GetLatestConfirmedIndex()
 		if err != nil {
-			return nil, 0, errors.Wrap(err, "failed to parse commitment bytes")
+			return nil, 0, errors.Wrap(err, "failed to get latest confirmed index")
 		}
-		return secondComm, epoch.Index(resp.LatestConfirmedIndex) - 1, nil
+		return secondComm, index - 1, nil
 	}
 	return nil, 0, nil
 }

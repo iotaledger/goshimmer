@@ -4,16 +4,16 @@ import (
 	"sync"
 	"time"
 
-
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
-
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/crypto/identity"
 )
 
 type ServersStatus []*wallet.ServerStatus
@@ -198,9 +198,11 @@ type Client interface {
 	// GetOutputSolidity checks if the transaction is solid.
 	GetOutputSolidity(outID string) (solid bool, err error)
 	// GetLatestCommitment returns the latest commitment and data needed to create a new block.
-	GetLatestCommitment() (commitment *jsonmodels.Commitment, err error)
+	GetLatestCommitment() (commitment *commitment.Commitment, err error)
 	// GetCommitment returns the commitment for a given epoch and data needed to create a new block.
-	GetCommitment(epochIndex int) (commitment *jsonmodels.Commitment, err error)
+	GetCommitment(epochIndex int) (commitment *commitment.Commitment, err error)
+	// GetLatestConfirmedIndex returns the latest confirmed index.
+	GetLatestConfirmedIndex() (index slot.Index, err error)
 	// GetReferences returns the references selected for a given payload.
 	GetReferences(payload []byte, parentsCount int) (refs models.ParentBlockIDs, err error)
 }
@@ -375,16 +377,32 @@ func (c *WebClient) GetOutputSolidity(outID string) (solid bool, err error) {
 	return
 }
 
-func (c *WebClient) GetLatestCommitment() (resp *jsonmodels.Commitment, err error) {
-	resp, err = c.api.GetLatestCommitment()
+func (c *WebClient) GetLatestCommitment() (comm *commitment.Commitment, err error) {
+	resp, err := c.api.GetLatestCommittedSlotInfo()
+	if err != nil {
+		return
+	}
+	comm, err = jsonmodels.CommitmentFromSlotInfo(resp)
 	if err != nil {
 		return
 	}
 	return
 }
 
-func (c *WebClient) GetCommitment(epochIndex int) (resp *jsonmodels.Commitment, err error) {
-	resp, err = c.api.GetCommitment(epochIndex)
+func (c *WebClient) GetCommitment(epochIndex int) (comm *commitment.Commitment, err error) {
+	resp, err := c.api.GetSlotInfo(epochIndex)
+	if err != nil {
+		return
+	}
+	comm, err = jsonmodels.CommitmentFromSlotInfo(resp)
+	if err != nil {
+		return
+	}
+	return
+}
+
+func (c *WebClient) GetLatestConfirmedIndex() (index slot.Index, err error) {
+	index, err = c.api.GetLatestConfirmedIndex()
 	if err != nil {
 		return
 	}

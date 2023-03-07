@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo"
 	"github.com/pkg/errors"
 	"go.uber.org/dig"
 
@@ -109,7 +108,7 @@ func GetReferences(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	parsedPayload, _, err := payload.TypeFromBytes(request.PayloadBytes)
+	parsedPayload, _, err := payload.FromBytes(request.PayloadBytes)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
@@ -227,7 +226,8 @@ func PostBlock(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
-	if err = parsedBlock.DetermineID(); err != nil {
+
+	if err = parsedBlock.DetermineID(deps.Protocol.SlotTimeProvider); err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 	err = deps.BlockIssuer.IssueBlockAndAwaitBlockToBeBooked(parsedBlock, time.Second)
@@ -265,12 +265,12 @@ func blockIDFromContext(c echo.Context) (blockID models.BlockID, err error) {
 // }
 
 func payloadFromBytes(payloadBytes []byte) (parsedPayload payload.Payload, err error) {
-	dptype, _, err := payload.TypeFromBytes(payloadBytes)
+	dp, _, err := payload.FromBytes(payloadBytes)
 	if err != nil {
 		return nil, err
 	}
 
-	switch dptype {
+	switch dp.Type() {
 	case payload.GenericDataPayloadType:
 		data := &payload.GenericDataPayload{}
 		_, err = data.FromBytes(payloadBytes)

@@ -1,9 +1,10 @@
 package evilspammer
 
 import (
-	"github.com/iotaledger/hive.go/core/crypto/ed25519"
-	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/mr-tron/base58"
+
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/crypto/identity"
 )
 
 type IdentityManager struct {

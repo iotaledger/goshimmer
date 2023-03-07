@@ -5,13 +5,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/client/evilwallet"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
 )
 
 func DataSpammingFunction(s *Spammer) {
@@ -92,7 +93,7 @@ func CommitmentsSpammingFunction(s *Spammer) {
 		models.WithIssuer(localID.PublicKey()),
 		models.WithIssuingTime(time.Now()),
 		models.WithPayload(p),
-		models.WithLatestConfirmedEpoch(latestConfIndex),
+		models.WithLatestConfirmedSlot(latestConfIndex),
 		models.WithCommitment(commitment),
 		models.WithSignature(ed25519.EmptySignature),
 	)
@@ -101,7 +102,8 @@ func CommitmentsSpammingFunction(s *Spammer) {
 		return
 	}
 	block.SetSignature(signature)
-	if err = block.DetermineID(); err != nil {
+	timeProvider := slot.NewTimeProvider(s.CommitmentManager.GenesisTime.Unix(), (s.CommitmentManager.SlotDuration))
+	if err = block.DetermineID(timeProvider); err != nil {
 		s.ErrCounter.CountError(ErrFailPrepareBlock)
 	}
 	blockBytes, err := block.Bytes()
