@@ -164,7 +164,7 @@ func (o *ConflictResolver) ForEachConnectedConflictingConflictInDescendingOrder(
 		conflictI := conflictsOrderedByWeight[i].ID()
 		conflictJ := conflictsOrderedByWeight[j].ID()
 		if conflictWeights[conflictI] == conflictWeights[conflictJ] {
-			fmt.Printf("%s has the same weight as %s (%d) - comparing bytes %d", conflictI, conflictJ, conflictWeights[conflictJ], bytes.Compare(lo.PanicOnErr(conflictI.Bytes()), lo.PanicOnErr(conflictJ.Bytes())))
+			fmt.Printf("%s has the same weight as %s (%d) - comparing bytes %d\n", conflictI, conflictJ, conflictWeights[conflictJ], bytes.Compare(lo.PanicOnErr(conflictI.Bytes()), lo.PanicOnErr(conflictJ.Bytes())))
 		}
 
 		return !(conflictWeights[conflictI] < conflictWeights[conflictJ] || (conflictWeights[conflictI] == conflictWeights[conflictJ] && bytes.Compare(lo.PanicOnErr(conflictI.Bytes()), lo.PanicOnErr(conflictJ.Bytes())) > 0))

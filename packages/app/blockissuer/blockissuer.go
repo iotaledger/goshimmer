@@ -40,7 +40,7 @@ type BlockIssuer struct {
 	optsIgnoreBootstrappedFlag         bool
 	optsTimeSinceConfirmationThreshold time.Duration
 
-	mutex sync.Mutex
+	Mutex sync.Mutex
 }
 
 // New creates a new block issuer.
@@ -85,8 +85,8 @@ func (i *BlockIssuer) IssuePayload(p payload.Payload, parentsCount ...int) (bloc
 		return nil, ErrNotBootstraped
 	}
 
-	i.mutex.Lock()
-	defer i.mutex.Unlock()
+	i.Mutex.Lock()
+	defer i.Mutex.Unlock()
 
 	block, err = i.Factory.CreateBlock(p, parentsCount...)
 	if err != nil {
