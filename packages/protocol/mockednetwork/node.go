@@ -19,7 +19,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
-	"github.com/iotaledger/goshimmer/packages/protocol/enginemanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage/utils"
 	"github.com/iotaledger/hive.go/core/slot"
@@ -70,13 +69,13 @@ func NewNode(t *testing.T, keyPair ed25519.KeyPair, network *network.MockedNetwo
 	})
 
 	mainEngine := node.Protocol.MainEngineInstance()
-	node.tf = engine.NewTestFramework(t, node.Workers.CreateGroup(fmt.Sprintf("EngineTestFramework-%s", mainEngine.Engine.Name()[:8])), mainEngine.Engine)
+	node.tf = engine.NewTestFramework(t, node.Workers.CreateGroup(fmt.Sprintf("EngineTestFramework-%s", mainEngine.Name()[:8])), mainEngine)
 
-	node.Protocol.Events.CandidateEngineActivated.Hook(func(candidateEngine *enginemanager.EngineInstance) {
+	node.Protocol.Events.CandidateEngineActivated.Hook(func(candidateEngine *engine.Engine) {
 		node.mutex.Lock()
 		defer node.mutex.Unlock()
 
-		node.tf = engine.NewTestFramework(node.Testing, node.Workers.CreateGroup(fmt.Sprintf("EngineTestFramework-%s", candidateEngine.Engine.Name()[:8])), candidateEngine.Engine)
+		node.tf = engine.NewTestFramework(node.Testing, node.Workers.CreateGroup(fmt.Sprintf("EngineTestFramework-%s", candidateEngine.Name()[:8])), candidateEngine)
 	})
 
 	return node
@@ -96,14 +95,14 @@ func (n *Node) HookLogging(includeMainEngine bool) {
 		n.attachEngineLogs(n.Protocol.MainEngineInstance())
 	}
 
-	events.CandidateEngineActivated.Hook(func(candidateEngine *enginemanager.EngineInstance) {
-		fmt.Printf("%s > CandidateEngineActivated: latest commitment %s %s\n", n.Name, candidateEngine.Engine.Storage.Settings.LatestCommitment().ID(), candidateEngine.Engine.Storage.Settings.LatestCommitment())
+	events.CandidateEngineActivated.Hook(func(candidateEngine *engine.Engine) {
+		fmt.Printf("%s > CandidateEngineActivated: latest commitment %s %s\n", n.Name, candidateEngine.Storage.Settings.LatestCommitment().ID(), candidateEngine.Storage.Settings.LatestCommitment())
 		fmt.Printf("==================\nACTIVATE %s\n==================\n", n.Name)
 		n.attachEngineLogs(candidateEngine)
 	})
 
-	events.MainEngineSwitched.Hook(func(engine *enginemanager.EngineInstance) {
-		fmt.Printf("%s > MainEngineSwitched: latest commitment %s %s\n", n.Name, engine.Engine.Storage.Settings.LatestCommitment().ID(), engine.Engine.Storage.Settings.LatestCommitment())
+	events.MainEngineSwitched.Hook(func(engine *engine.Engine) {
+		fmt.Printf("%s > MainEngineSwitched: latest commitment %s %s\n", n.Name, engine.Storage.Settings.LatestCommitment().ID(), engine.Storage.Settings.LatestCommitment())
 		fmt.Printf("================\nSWITCH %s\n================\n", n.Name)
 	})
 
@@ -161,9 +160,9 @@ func (n *Node) HookLogging(includeMainEngine bool) {
 	})
 }
 
-func (n *Node) attachEngineLogs(instance *enginemanager.EngineInstance) {
-	engineName := fmt.Sprintf("%s - %s", lo.Cond(n.Protocol.Engine() != instance.Engine, "Candidate", "Main"), instance.Engine.Name()[:8])
-	events := instance.Engine.Events
+func (n *Node) attachEngineLogs(instance *engine.Engine) {
+	engineName := fmt.Sprintf("%s - %s", lo.Cond(n.Protocol.Engine() != instance, "Candidate", "Main"), instance.Name()[:8])
+	events := instance.Events
 
 	events.Tangle.BlockDAG.BlockAttached.Hook(func(block *blockdag.Block) {
 		fmt.Printf("%s > [%s] BlockDAG.BlockAttached: %s\n", n.Name, engineName, block.ID())
