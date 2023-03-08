@@ -6,6 +6,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/stream"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
@@ -13,6 +14,7 @@ import (
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 const (
@@ -27,11 +29,13 @@ type StateDiffs struct {
 	ledger  ledger.Ledger
 }
 
-func NewStateDiffs(storageInstance *storage.Storage, ledgerInstance ledger.Ledger) (newLedgerStateDiffs *StateDiffs) {
-	return &StateDiffs{
-		storage: storageInstance,
-		ledger:  ledgerInstance,
-	}
+func NewStateDiffs(e *engine.Engine) *StateDiffs {
+	return options.Apply(new(StateDiffs), nil, func(s *StateDiffs) {
+		e.HookConstructed(func() {
+			s.storage = e.Storage
+			s.ledger = e.Ledger
+		})
+	})
 }
 
 func (s *StateDiffs) StoreSpentOutput(outputWithMetadata *ledger.OutputWithMetadata) (err error) {
