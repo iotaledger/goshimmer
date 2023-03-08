@@ -19,7 +19,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tsc"
-	ledgermodule "github.com/iotaledger/goshimmer/packages/protocol/ledger/realitiesledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/realitiesledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
 	"github.com/iotaledger/hive.go/app/daemon"
@@ -66,9 +66,9 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 	p = protocol.New(workerpool.NewGroup("Protocol"),
 		n,
 		protocol.WithLedgerProvider(
-			ledgermodule.NewProvider(
-				ledgermodule.WithVM(new(devnetvm.VM)),
-				ledgermodule.WithCacheTimeProvider(cacheTimeProvider),
+			realitiesledger.NewProvider(
+				realitiesledger.WithVM(new(devnetvm.VM)),
+				realitiesledger.WithCacheTimeProvider(cacheTimeProvider),
 			),
 		),
 		protocol.WithSybilProtectionProvider(
