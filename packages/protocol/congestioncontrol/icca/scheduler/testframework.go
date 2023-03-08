@@ -74,7 +74,8 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, optsScheduler 
 		snapshotcreator.WithLedgerProvider(ledgerProvider),
 	))
 
-	t.engine = engine.New(workers.CreateGroup("Engine"),
+	t.engine = engine.New(
+		workers.CreateGroup("Engine"),
 		t.storage,
 		blocktime.NewProvider(),
 		ledgerProvider,
@@ -82,7 +83,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, optsScheduler 
 		dpos.NewProvider(),
 		mana1.NewProvider(),
 	)
-	
+
 	test.Cleanup(func() {
 		t.Scheduler.Shutdown()
 		t.engine.Shutdown()
