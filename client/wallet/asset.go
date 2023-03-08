@@ -4,7 +4,7 @@ import (
 	"github.com/capossele/asset-registry/pkg/registry"
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 )
 
