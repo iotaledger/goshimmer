@@ -7,6 +7,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/module"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
@@ -37,8 +38,8 @@ type TestFramework struct {
 	Acceptance    *blockgadget.TestFramework
 }
 
-func NewTestEngine(t *testing.T, workers *workerpool.Group, storage *storage.Storage, sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection], throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota], opts ...options.Option[Engine]) *Engine {
-	e := New(workers.CreateGroup("Engine"), storage, sybilProtection, throughputQuota, opts...)
+func NewTestEngine(t *testing.T, workers *workerpool.Group, storage *storage.Storage, clock module.Provider[*Engine, clock.Clock], sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection], throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota], opts ...options.Option[Engine]) *Engine {
+	e := New(workers.CreateGroup("Engine"), storage, clock, sybilProtection, throughputQuota, opts...)
 	t.Cleanup(e.Shutdown)
 	return e
 }
@@ -60,8 +61,8 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, engine *Engine
 	return t
 }
 
-func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection], throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota], optsEngine ...options.Option[Engine]) *TestFramework {
-	engine := NewTestEngine(t, workers.CreateGroup("Engine"), blockdag.NewTestStorage(t, workers, database.WithDBProvider(database.NewDB)), sybilProtection, throughputQuota, optsEngine...)
+func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, clock module.Provider[*Engine, clock.Clock], sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection], throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota], optsEngine ...options.Option[Engine]) *TestFramework {
+	engine := NewTestEngine(t, workers.CreateGroup("Engine"), blockdag.NewTestStorage(t, workers, database.WithDBProvider(database.NewDB)), clock, sybilProtection, throughputQuota, optsEngine...)
 	t.Cleanup(engine.Shutdown)
 
 	return NewTestFramework(t, workers, engine)

@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/blocktime"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
@@ -85,7 +86,7 @@ func diagnosticPrintSnapshotFromFile(filePath string) {
 	s := createTempStorage()
 	defer s.Shutdown()
 
-	e := engine.New(workerpool.NewGroup("Diagnostics"), s, dpos.NewProvider(), mana1.NewProvider())
+	e := engine.New(workerpool.NewGroup("Diagnostics"), s, blocktime.NewProvider(), dpos.NewProvider(), mana1.NewProvider())
 	defer e.Shutdown()
 
 	if err := e.Initialize(filePath); err != nil {

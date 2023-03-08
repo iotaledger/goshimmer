@@ -50,7 +50,7 @@ type Engine struct {
 	Tangle              *tangle.Tangle
 	Consensus           *consensus.Consensus
 	TSCManager          *tsc.Manager
-	Clock               *clock.Clock
+	Clock               clock.Clock
 
 	Workers *workerpool.Group
 
@@ -74,8 +74,9 @@ type Engine struct {
 func New(
 	workers *workerpool.Group,
 	storageInstance *storage.Storage,
-	sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection],
-	throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota],
+	clockProvider module.Provider[*Engine, clock.Clock],
+	sybilProtectionProvider module.Provider[*Engine, sybilprotection.SybilProtection],
+	throughputQuotaProvider module.Provider[*Engine, throughputquota.ThroughputQuota],
 	opts ...options.Option[Engine],
 ) (engine *Engine) {
 	return options.Apply(
@@ -90,9 +91,9 @@ func New(
 		}, opts, func(e *Engine) {
 			e.Ledger = ledger.New(e.Workers.CreatePool("Pool", 2), e.Storage, e.optsLedgerOptions...)
 			e.LedgerState = ledgerstate.New(e.Storage, e.Ledger)
-			e.Clock = clock.New()
-			e.SybilProtection = sybilProtection(e)
-			e.ThroughputQuota = throughputQuota(e)
+			e.Clock = clockProvider(e)
+			e.SybilProtection = sybilProtectionProvider(e)
+			e.ThroughputQuota = throughputQuotaProvider(e)
 			e.NotarizationManager = notarization.NewManager(e.Storage, e.LedgerState, e.SybilProtection.Weights(), e.optsNotarizationManagerOptions...)
 			e.Tangle = tangle.New(e.Workers.CreateGroup("Tangle"), e.Ledger, e.EvictionState, e.SlotTimeProvider, e.SybilProtection.Validators(), e.LastConfirmedSlot, e.FirstUnacceptedMarker, e.Storage.Commitments.Load, e.optsTangleOptions...)
 			e.Consensus = consensus.New(e.Workers.CreateGroup("Consensus"), e.Tangle, e.EvictionState, e.Storage.Permanent.Settings.LatestConfirmedSlot(), func() (totalWeight int64) {
@@ -120,7 +121,6 @@ func New(
 		(*Engine).setupLedger,
 		(*Engine).setupTangle,
 		(*Engine).setupConsensus,
-		(*Engine).setupClock,
 		(*Engine).setupTSCManager,
 		(*Engine).setupBlockStorage,
 		(*Engine).setupNotarizationManager,
@@ -184,7 +184,7 @@ func (e *Engine) IsBootstrapped() (isBootstrapped bool) {
 		return true
 	}
 
-	if isBootstrapped = time.Since(e.Clock.RelativeAcceptedTime()) < e.optsBootstrappedThreshold && e.NotarizationManager.IsFullyCommitted(); isBootstrapped {
+	if isBootstrapped = time.Since(e.Clock.Accepted().RelativeTime()) < e.optsBootstrappedThreshold && e.NotarizationManager.IsFullyCommitted(); isBootstrapped {
 		e.isBootstrapped = true
 	}
 
@@ -192,7 +192,7 @@ func (e *Engine) IsBootstrapped() (isBootstrapped bool) {
 }
 
 func (e *Engine) IsSynced() (isBootstrapped bool) {
-	return e.IsBootstrapped() && time.Since(e.Clock.AcceptedTime()) < e.optsBootstrappedThreshold
+	return e.IsBootstrapped() && time.Since(e.Clock.Accepted().Time()) < e.optsBootstrappedThreshold
 }
 
 func (e *Engine) SlotTimeProvider() *slot.TimeProvider {
@@ -244,10 +244,6 @@ func (e *Engine) Import(reader io.ReadSeeker) (err error) {
 	} else if err = e.NotarizationManager.Import(reader); err != nil {
 		return errors.Wrap(err, "failed to import notarization state")
 	}
-
-	// We need to set the genesis time before we add the activity log as otherwise the calculation is based on the empty time value.
-	e.Clock.SetAcceptedTime(e.SlotTimeProvider().EndTime(e.Storage.Settings.LatestCommitment().Index()))
-	e.Clock.SetConfirmedTime(e.SlotTimeProvider().EndTime(e.Storage.Settings.LatestCommitment().Index()))
 
 	return
 }
@@ -308,23 +304,6 @@ func (e *Engine) setupConsensus() {
 	}, event.WithWorkerPool(e.Workers.CreatePool("Consensus", 1))) // Using just 1 worker to avoid contention
 }
 
-func (e *Engine) setupClock() {
-	e.Events.Clock.LinkTo(e.Clock.Events)
-
-	wpAccepted := e.Workers.CreatePool("Clock.SetAcceptedTime", 1)   // Using just 1 worker to avoid contention
-	wpConfirmed := e.Workers.CreatePool("Clock.SetConfirmedTime", 1) // Using just 1 worker to avoid contention
-
-	e.Events.Consensus.BlockGadget.BlockAccepted.Hook(func(block *blockgadget.Block) {
-		e.Clock.SetAcceptedTime(block.IssuingTime())
-	}, event.WithWorkerPool(wpAccepted))
-	e.Events.Consensus.BlockGadget.BlockConfirmed.Hook(func(block *blockgadget.Block) {
-		e.Clock.SetConfirmedTime(block.IssuingTime())
-	}, event.WithWorkerPool(wpConfirmed))
-	e.Events.Consensus.SlotGadget.SlotConfirmed.Hook(func(index slot.Index) {
-		e.Clock.SetConfirmedTime(e.SlotTimeProvider().EndTime(index))
-	}, event.WithWorkerPool(wpConfirmed))
-}
-
 func (e *Engine) setupTSCManager() {
 
 	// wp := e.Workers.CreatePool("TSCManager", 1) // Using just 1 worker to avoid contention
@@ -382,9 +361,7 @@ func (e *Engine) setupNotarizationManager() {
 	}, event.WithWorkerPool(wpBlocks))
 
 	// Slots are committed whenever ATT advances, start committing only when bootstrapped.
-	e.Events.Clock.AcceptanceTimeUpdated.Hook(func(event *clock.TimeUpdateEvent) {
-		e.NotarizationManager.SetAcceptanceTime(event.NewTime)
-	}, event.WithWorkerPool(wpCommitments))
+	e.Events.Clock.AcceptedTimeUpdated.Hook(e.NotarizationManager.SetAcceptanceTime, event.WithWorkerPool(wpCommitments))
 }
 
 func (e *Engine) setupEvictionState() {

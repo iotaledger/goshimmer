@@ -13,6 +13,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/blocktime"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
@@ -61,6 +63,7 @@ type Protocol struct {
 	optsChainManagerOptions           []options.Option[chainmanager.Manager]
 	optsTipManagerOptions             []options.Option[tipmanager.TipManager]
 	optsStorageDatabaseManagerOptions []options.Option[database.Manager]
+	optsClockProvider                 module.Provider[*engine.Engine, clock.Clock]
 	optsSybilProtectionProvider       module.Provider[*engine.Engine, sybilprotection.SybilProtection]
 	optsThroughputQuotaProvider       module.Provider[*engine.Engine, throughputquota.ThroughputQuota]
 }
@@ -70,6 +73,7 @@ func New(workers *workerpool.Group, dispatcher network.Endpoint, opts ...options
 		Events:                      NewEvents(),
 		Workers:                     workers,
 		dispatcher:                  dispatcher,
+		optsClockProvider:           blocktime.NewProvider(),
 		optsSybilProtectionProvider: dpos.NewProvider(),
 		optsThroughputQuotaProvider: mana1.NewProvider(),
 
@@ -124,6 +128,7 @@ func (p *Protocol) initEngineManager() {
 		DatabaseVersion,
 		p.optsStorageDatabaseManagerOptions,
 		p.optsEngineOptions,
+		p.optsClockProvider,
 		p.optsSybilProtectionProvider,
 		p.optsThroughputQuotaProvider,
 	)

@@ -10,6 +10,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/blocktime"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
@@ -68,7 +69,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, optsScheduler 
 		snapshotcreator.WithSlotDuration(10),
 	))
 
-	t.engine = engine.New(workers.CreateGroup("Engine"), t.storage, dpos.NewProvider(), mana1.NewProvider())
+	t.engine = engine.New(workers.CreateGroup("Engine"), t.storage, blocktime.NewProvider(), dpos.NewProvider(), mana1.NewProvider())
 	test.Cleanup(func() {
 		t.Scheduler.Shutdown()
 		t.engine.Shutdown()

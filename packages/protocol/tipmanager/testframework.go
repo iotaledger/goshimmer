@@ -13,6 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/blocktime"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
@@ -74,7 +75,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...option
 
 		storageInstance := blockdag.NewTestStorage(test, workers)
 
-		t.Engine = engine.New(workers.CreateGroup("Engine"), storageInstance, dpos.NewProvider(), mana1.NewProvider(), t.optsEngineOptions...)
+		t.Engine = engine.New(workers.CreateGroup("Engine"), storageInstance, blocktime.NewProvider(), dpos.NewProvider(), mana1.NewProvider(), t.optsEngineOptions...)
 		require.NoError(test, t.Engine.Initialize(tempDir.Path("genesis_snapshot.bin")))
 
 		test.Cleanup(func() {
@@ -190,7 +191,7 @@ func (t *TestFramework) SetMarkersAccepted(m ...markers.Marker) {
 }
 
 func (t *TestFramework) SetAcceptedTime(acceptedTime time.Time) {
-	t.Engine.Clock.SetAcceptedTime(acceptedTime)
+	t.Engine.Clock.Accepted().(*blocktime.RelativeTime).Set(acceptedTime)
 }
 
 func (t *TestFramework) AssertIsPastConeTimestampCorrect(blockAlias string, expected bool) {
