@@ -329,14 +329,11 @@ func (a *Gadget) propagateAcceptanceConfirmation(marker markers.Marker, confirme
 			if err := a.markAsAccepted(parentBlock, true); err != nil {
 				fmt.Println("error while marking weak/like parent ", parentBlockID, " as accepted: ", err)
 			}
-			fmt.Println("marked weak/like parent ", parentBlockID, " as accepted")
 
 			if confirmed {
 				if err := a.markAsAccepted(parentBlock, true); err != nil {
 					fmt.Println("error while marking weak/like parent ", parentBlockID, " as confirmed: ", err)
 				}
-				fmt.Println("marked weak/like parent ", parentBlockID, " as confirmed")
-
 			}
 		}
 	}
