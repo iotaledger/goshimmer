@@ -4,8 +4,8 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/app/collector"
-	"github.com/iotaledger/goshimmer/packages/protocol/mempool/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/mempool/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/utxo"
 	"github.com/iotaledger/hive.go/runtime/event"
 )
 

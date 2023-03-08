@@ -1,9 +1,9 @@
 package virtualvoting
 
 import (
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
-	"github.com/iotaledger/goshimmer/packages/protocol/mempool/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/ds/advancedset"

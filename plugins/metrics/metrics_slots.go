@@ -6,12 +6,12 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/app/collector"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
-	"github.com/iotaledger/goshimmer/packages/protocol/mempool"
-	"github.com/iotaledger/goshimmer/packages/protocol/mempool/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/mempool/utxo"
 	"github.com/iotaledger/hive.go/runtime/event"
 )
 

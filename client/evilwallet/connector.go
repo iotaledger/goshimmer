@@ -8,8 +8,8 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
-	"github.com/iotaledger/goshimmer/packages/protocol/mempool/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/mempool/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/crypto/identity"
 )

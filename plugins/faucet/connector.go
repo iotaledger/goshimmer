@@ -8,10 +8,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/mempool"
-	"github.com/iotaledger/goshimmer/packages/protocol/mempool/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/mempool/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/protocol/mempool/vm/devnetvm/indexer"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm/indexer"
 )
 
 type Connector struct {

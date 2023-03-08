@@ -2,8 +2,8 @@ package notarization
 
 import (
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/protocol/mempool"
-	"github.com/iotaledger/goshimmer/packages/protocol/mempool/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/ads"
 	"github.com/iotaledger/hive.go/runtime/event"

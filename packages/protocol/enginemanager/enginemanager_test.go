@@ -8,9 +8,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
-	"github.com/iotaledger/goshimmer/packages/protocol/mempool"
-	"github.com/iotaledger/goshimmer/packages/protocol/mempool/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/crypto/ed25519"

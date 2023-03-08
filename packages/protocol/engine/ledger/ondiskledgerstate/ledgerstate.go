@@ -9,7 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/options"

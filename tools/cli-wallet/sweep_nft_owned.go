@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/sweepnftownednftsoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/sweepnftownedoptions"
-	"github.com/iotaledger/goshimmer/packages/protocol/mempool/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 )
 
 func execSweepNFTOwnedFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {

@@ -11,8 +11,8 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/protocol/mempool/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/mempool/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/crypto/ed25519"

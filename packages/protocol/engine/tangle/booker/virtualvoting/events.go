@@ -4,7 +4,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/slottracker"
-	"github.com/iotaledger/goshimmer/packages/protocol/mempool/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/utxo"
 	"github.com/iotaledger/hive.go/runtime/event"
 )
 

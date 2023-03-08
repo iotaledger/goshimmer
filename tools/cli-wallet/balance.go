@@ -7,7 +7,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/iotaledger/goshimmer/client/wallet"
-	"github.com/iotaledger/goshimmer/packages/protocol/mempool/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 )
 
 func execBalanceCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {

@@ -3,8 +3,8 @@ package ledger
 import (
 	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
-	"github.com/iotaledger/goshimmer/packages/protocol/mempool"
-	"github.com/iotaledger/goshimmer/packages/protocol/mempool/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/utxo"
 	"github.com/iotaledger/hive.go/ads"
 )
 

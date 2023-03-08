@@ -9,7 +9,7 @@ import (
 	faucetpkg "github.com/iotaledger/goshimmer/packages/app/faucet"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/node"
-	"github.com/iotaledger/goshimmer/packages/protocol/mempool/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/plugins/faucet"
 	"github.com/iotaledger/hive.go/crypto/identity"
 )

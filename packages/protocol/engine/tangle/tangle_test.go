@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/realitiesledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
-	"github.com/iotaledger/goshimmer/packages/protocol/mempool/realitiesledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/runtime/workerpool"

@@ -4,8 +4,8 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
-	"github.com/iotaledger/goshimmer/packages/protocol/mempool/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/mempool/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 )
 
 // Output is a wallet specific representation of an output in the IOTA network.

@@ -5,8 +5,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/mempool"
-	"github.com/iotaledger/goshimmer/packages/protocol/mempool/vm/devnetvm/indexer"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/hive.go/runtime/event"
 )
 

@@ -3,8 +3,8 @@ package wallet
 import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
-	"github.com/iotaledger/goshimmer/packages/protocol/mempool/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/mempool/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 )
 
 // Connector represents an interface that defines how the wallet interacts with the network. A wallet can either be used

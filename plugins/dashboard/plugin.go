@@ -20,7 +20,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
-	"github.com/iotaledger/goshimmer/packages/protocol/mempool/vm/devnetvm/indexer"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/hive.go/app/daemon"

@@ -1,7 +1,7 @@
 package ledger
 
 import (
-	"github.com/iotaledger/goshimmer/packages/protocol/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
 	"github.com/iotaledger/hive.go/core/slot"
 )
 

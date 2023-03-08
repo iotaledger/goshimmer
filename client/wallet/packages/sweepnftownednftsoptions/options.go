@@ -3,7 +3,7 @@ package sweepnftownednftsoptions
 import (
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/mempool/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 )
 
 // SweepNFTOwnedNFTsOption is a function that provides an option.

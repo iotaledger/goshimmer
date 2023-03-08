@@ -2,8 +2,8 @@ package evilwallet
 
 import (
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/protocol/mempool/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/mempool/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 )
 
 // SplitBalanceEqually splits the balance equally between `splitNumber` outputs.

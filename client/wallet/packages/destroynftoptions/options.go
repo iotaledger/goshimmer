@@ -3,7 +3,7 @@ package destroynftoptions
 import (
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/mempool/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 )
 
 // DestroyNFTOption is a function that provides options.
