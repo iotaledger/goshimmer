@@ -76,7 +76,7 @@ func New(engineInstance *engine.Engine, opts ...options.Option[ThroughputQuota])
 				m.SetLastCommittedSlot(m.engine.Storage.Settings.LatestCommitment().Index())
 			})
 
-			m.engine.LedgerState.UnspentOutputs.Subscribe(m)
+			m.engine.LedgerState.UnspentOutputs().Subscribe(m)
 			m.engine.LedgerState.HookInitialized(m.init)
 		})
 	})
@@ -124,7 +124,7 @@ func (m *ThroughputQuota) applyCreatedOutput(output *ledger.OutputWithMetadata) 
 	if iotaBalance, exists := output.IOTABalance(); exists {
 		m.updateMana(output.AccessManaPledgeID(), int64(iotaBalance))
 
-		if !m.engine.LedgerState.UnspentOutputs.WasInitialized() {
+		if !m.engine.LedgerState.UnspentOutputs().WasInitialized() {
 			totalBalanceBytes, serializationErr := storable.SerializableInt64(m.updateTotalBalance(int64(iotaBalance))).Bytes()
 			if serializationErr != nil {
 				return errors.Wrapf(serializationErr, "failed to serialize total balance")
@@ -177,7 +177,7 @@ func (m *ThroughputQuota) CommitBatchedStateTransition() (ctx context.Context) {
 }
 
 func (m *ThroughputQuota) init() {
-	m.engine.LedgerState.UnspentOutputs.Unsubscribe(m)
+	m.engine.LedgerState.UnspentOutputs().Unsubscribe(m)
 
 	m.TriggerInitialized()
 

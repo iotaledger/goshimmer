@@ -16,6 +16,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/blocktime"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate/ondiskledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
@@ -67,6 +69,7 @@ type Protocol struct {
 
 	optsClockProvider           module.Provider[*engine.Engine, clock.Clock]
 	optsLedgerProvider          module.Provider[*engine.Engine, ledger.Ledger]
+	optsLedgerStateProvider     module.Provider[*engine.Engine, ledgerstate.LedgerState]
 	optsSybilProtectionProvider module.Provider[*engine.Engine, sybilprotection.SybilProtection]
 	optsThroughputQuotaProvider module.Provider[*engine.Engine, throughputquota.ThroughputQuota]
 }
@@ -78,6 +81,7 @@ func New(workers *workerpool.Group, dispatcher network.Endpoint, opts ...options
 		dispatcher:                  dispatcher,
 		optsClockProvider:           blocktime.NewProvider(),
 		optsLedgerProvider:          realitiesledger.NewProvider(),
+		optsLedgerStateProvider:     ondiskledgerstate.NewProvider(),
 		optsSybilProtectionProvider: dpos.NewProvider(),
 		optsThroughputQuotaProvider: mana1.NewProvider(),
 
@@ -134,6 +138,7 @@ func (p *Protocol) initEngineManager() {
 		p.optsEngineOptions,
 		p.optsClockProvider,
 		p.optsLedgerProvider,
+		p.optsLedgerStateProvider,
 		p.optsSybilProtectionProvider,
 		p.optsThroughputQuotaProvider,
 	)
@@ -411,7 +416,7 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 		// Calculate the difference between the latest commitment ledger and the ledger at the snapshot target index
 		latestCommitment := mainEngine.Storage.Settings.LatestCommitment()
 		for i := latestCommitment.Index(); i >= snapshotTargetIndex; i-- {
-			if err := mainEngine.LedgerState.StateDiffs.StreamSpentOutputs(i, func(output *ledger.OutputWithMetadata) error {
+			if err := mainEngine.LedgerState.StateDiffs().StreamSpentOutputs(i, func(output *ledger.OutputWithMetadata) error {
 				if iotaBalance, balanceExists := output.IOTABalance(); balanceExists {
 					wb.Update(output.ConsensusManaPledgeID(), int64(iotaBalance))
 				}
@@ -421,7 +426,7 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 				return
 			}
 
-			if err := mainEngine.LedgerState.StateDiffs.StreamCreatedOutputs(i, func(output *ledger.OutputWithMetadata) error {
+			if err := mainEngine.LedgerState.StateDiffs().StreamCreatedOutputs(i, func(output *ledger.OutputWithMetadata) error {
 				if iotaBalance, balanceExists := output.IOTABalance(); balanceExists {
 					wb.Update(output.ConsensusManaPledgeID(), -int64(iotaBalance))
 				}
@@ -601,6 +606,12 @@ func WithSnapshotPath(snapshot string) options.Option[Protocol] {
 func WithLedgerProvider(optsLedgerProvider module.Provider[*engine.Engine, ledger.Ledger]) options.Option[Protocol] {
 	return func(n *Protocol) {
 		n.optsLedgerProvider = optsLedgerProvider
+	}
+}
+
+func WithLedgerStateProvider(optsLedgerStateProvider module.Provider[*engine.Engine, ledgerstate.LedgerState]) options.Option[Protocol] {
+	return func(n *Protocol) {
+		n.optsLedgerStateProvider = optsLedgerStateProvider
 	}
 }
 

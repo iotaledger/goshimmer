@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
@@ -41,10 +42,11 @@ type TestFramework struct {
 func NewTestEngine(t *testing.T, workers *workerpool.Group, storage *storage.Storage,
 	clock module.Provider[*Engine, clock.Clock],
 	ledger module.Provider[*Engine, ledger.Ledger],
+	ledgerState module.Provider[*Engine, ledgerstate.LedgerState],
 	sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection],
 	throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota],
 	opts ...options.Option[Engine]) *Engine {
-	e := New(workers.CreateGroup("Engine"), storage, clock, ledger, sybilProtection, throughputQuota, opts...)
+	e := New(workers.CreateGroup("Engine"), storage, clock, ledger, ledgerState, sybilProtection, throughputQuota, opts...)
 	t.Cleanup(e.Shutdown)
 	return e
 }
@@ -69,10 +71,11 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, engine *Engine
 func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group,
 	clock module.Provider[*Engine, clock.Clock],
 	ledger module.Provider[*Engine, ledger.Ledger],
+	ledgerState module.Provider[*Engine, ledgerstate.LedgerState],
 	sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection],
 	throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota],
 	optsEngine ...options.Option[Engine]) *TestFramework {
-	engine := NewTestEngine(t, workers.CreateGroup("Engine"), blockdag.NewTestStorage(t, workers, database.WithDBProvider(database.NewDB)), clock, ledger, sybilProtection, throughputQuota, optsEngine...)
+	engine := NewTestEngine(t, workers.CreateGroup("Engine"), blockdag.NewTestStorage(t, workers, database.WithDBProvider(database.NewDB)), clock, ledger, ledgerState, sybilProtection, throughputQuota, optsEngine...)
 	t.Cleanup(engine.Shutdown)
 
 	return NewTestFramework(t, workers, engine)
@@ -81,7 +84,7 @@ func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group,
 func (e *TestFramework) AssertSlotState(index slot.Index) {
 	require.Equal(e.test, index, e.Instance.Storage.Settings.LatestCommitment().Index(), "last commitment index is not equal")
 	require.Equal(e.test, index, e.Instance.NotarizationManager.Attestations.LastCommittedSlot(), "notarization manager attestations last committed slot is not equal")
-	require.Equal(e.test, index, e.Instance.LedgerState.UnspentOutputs.LastCommittedSlot(), "ledger state unspent outputs last committed slot is not equal")
+	require.Equal(e.test, index, e.Instance.LedgerState.UnspentOutputs().LastCommittedSlot(), "ledger state unspent outputs last committed slot is not equal")
 	require.Equal(e.test, index, e.Instance.SybilProtection.LastCommittedSlot(), "sybil protection last committed slot is not equal")
 	// TODO: throughput quota is not updated with each slot, but with acceptance
 	// require.Equal(e.test, index, e.Engine.ThroughputQuota.(*mana1.ThroughputQuota).LastCommittedSlot(), "throughput quota last committed slot is not equal")

@@ -1,4 +1,4 @@
-package ledgerstate
+package ondiskledgerstate
 
 import (
 	"io"
@@ -6,6 +6,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/stream"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/storage"
@@ -313,5 +314,7 @@ func (s *StateDiffs) moveTransactionToOtherSlot(txMeta *ledger.TransactionMetada
 		}
 	})
 }
+
+var _ ledgerstate.StateDiffs = new(StateDiffs)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

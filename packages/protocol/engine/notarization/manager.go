@@ -31,7 +31,7 @@ type Manager struct {
 	Attestations  *Attestations
 
 	storage         *storage.Storage
-	ledgerState     *ledgerstate.LedgerState
+	ledgerState     ledgerstate.LedgerState
 	commitmentMutex sync.RWMutex
 
 	acceptanceTime      time.Time
@@ -43,7 +43,7 @@ type Manager struct {
 }
 
 // NewManager creates a new notarization Manager.
-func NewManager(storageInstance *storage.Storage, ledgerState *ledgerstate.LedgerState, weights *sybilprotection.Weights, opts ...options.Option[Manager]) *Manager {
+func NewManager(storageInstance *storage.Storage, ledgerState ledgerstate.LedgerState, weights *sybilprotection.Weights, opts ...options.Option[Manager]) *Manager {
 	return options.Apply(&Manager{
 		Events:                    NewEvents(),
 		SlotMutations:             NewSlotMutations(weights, storageInstance.Settings.LatestCommitment().Index()),
@@ -192,7 +192,7 @@ func (m *Manager) createCommitment(index slot.Index) (success bool) {
 			acceptedBlocks.Root(),
 			acceptedTransactions.Root(),
 			attestations.Root(),
-			m.ledgerState.UnspentOutputs.Root(),
+			m.ledgerState.UnspentOutputs().IDs().Root(),
 			m.SlotMutations.weights.Root(),
 		).ID(),
 		m.storage.Settings.LatestCommitment().CumulativeWeight()+attestationsWeight,
@@ -213,10 +213,10 @@ func (m *Manager) createCommitment(index slot.Index) (success bool) {
 		AcceptedBlocks:       acceptedBlocks,
 		AcceptedTransactions: acceptedTransactions,
 		SpentOutputs: func(callback func(*ledger.OutputWithMetadata) error) error {
-			return m.ledgerState.StateDiffs.StreamSpentOutputs(index, callback)
+			return m.ledgerState.StateDiffs().StreamSpentOutputs(index, callback)
 		},
 		CreatedOutputs: func(callback func(*ledger.OutputWithMetadata) error) error {
-			return m.ledgerState.StateDiffs.StreamCreatedOutputs(index, callback)
+			return m.ledgerState.StateDiffs().StreamCreatedOutputs(index, callback)
 		},
 		ActiveValidatorsCount: 0,
 	})

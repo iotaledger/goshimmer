@@ -14,6 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/blocktime"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate/ondiskledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
@@ -87,7 +88,14 @@ func diagnosticPrintSnapshotFromFile(filePath string, ledgerProvider module.Prov
 	s := createTempStorage()
 	defer s.Shutdown()
 
-	e := engine.New(workerpool.NewGroup("Diagnostics"), s, blocktime.NewProvider(), ledgerProvider, dpos.NewProvider(), mana1.NewProvider())
+	e := engine.New(workerpool.NewGroup("Diagnostics"),
+		s,
+		blocktime.NewProvider(),
+		ledgerProvider,
+		ondiskledgerstate.NewProvider(),
+		dpos.NewProvider(),
+		mana1.NewProvider(),
+	)
 	defer e.Shutdown()
 
 	if err := e.Initialize(filePath); err != nil {
@@ -130,14 +138,14 @@ func diagnosticPrintSnapshotFromFile(filePath string, ledgerProvider module.Prov
 
 	fmt.Println("--- Diffs ---")
 	fmt.Println("SpentOutputs: ")
-	if err := e.LedgerState.StateDiffs.StreamSpentOutputs(0, func(owm *ledger.OutputWithMetadata) error {
+	if err := e.LedgerState.StateDiffs().StreamSpentOutputs(0, func(owm *ledger.OutputWithMetadata) error {
 		fmt.Printf("%d: %+v\n", 0, owm)
 		return nil
 	}); err != nil {
 		panic(err)
 	}
 	fmt.Println("CreatedOutputs: ")
-	if err := e.LedgerState.StateDiffs.StreamCreatedOutputs(0, func(owm *ledger.OutputWithMetadata) error {
+	if err := e.LedgerState.StateDiffs().StreamCreatedOutputs(0, func(owm *ledger.OutputWithMetadata) error {
 		fmt.Printf("%d: %+v\n", 0, owm)
 		return nil
 	}); err != nil {

@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/blocktime"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate/ondiskledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
@@ -59,7 +60,14 @@ func CreateSnapshot(opts ...options.Option[Options]) error {
 		return errors.Wrap(err, "failed to set chainID")
 	}
 
-	engineInstance := engine.New(workers.CreateGroup("Engine"), s, blocktime.NewProvider(), opt.LedgerProvider, dpos.NewProvider(), mana1.NewProvider())
+	engineInstance := engine.New(workers.CreateGroup("Engine"),
+		s,
+		blocktime.NewProvider(),
+		opt.LedgerProvider,
+		ondiskledgerstate.NewProvider(),
+		dpos.NewProvider(),
+		mana1.NewProvider(),
+	)
 	defer engineInstance.Shutdown()
 
 	if err := opt.createGenesisOutput(engineInstance); err != nil {
@@ -80,7 +88,7 @@ func CreateSnapshot(opts ...options.Option[Options]) error {
 		if errOut != nil {
 			panic(errOut)
 		}
-		if err = engineInstance.LedgerState.UnspentOutputs.ApplyCreatedOutput(ledger.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
+		if err = engineInstance.LedgerState.UnspentOutputs().ApplyCreatedOutput(ledger.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
 			panic(err)
 		}
 
@@ -134,7 +142,7 @@ func (m *Options) createGenesisOutput(engineInstance *engine.Engine) error {
 		if err != nil {
 			return err
 		}
-		if err := engineInstance.LedgerState.UnspentOutputs.ApplyCreatedOutput(ledger.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
+		if err := engineInstance.LedgerState.UnspentOutputs().ApplyCreatedOutput(ledger.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
 			return err
 		}
 	}
