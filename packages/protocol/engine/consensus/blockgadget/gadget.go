@@ -74,7 +74,7 @@ func New(workers *workerpool.Group, tangleInstance *tangle.Tangle, evictionState
 		a.lastConfirmedMarker = shrinkingmap.New[markers.SequenceID, markers.Index]()
 		a.blocks = memstorage.NewSlotStorage[models.BlockID, *Block]()
 
-		a.acceptanceOrder = causalorder.New(workers.CreatePool("AcceptanceOrder", 2), a.GetOrRegisterBlock, (*Block).IsAccepted, a.markAsAccepted, a.acceptanceFailed, (*Block).StrongParents)
+		a.acceptanceOrder = causalorder.New(workers.CreatePool("AcceptanceOrder", 2), a.GetOrRegisterBlock, (*Block).IsStronglyAccepted, lo.Bind(false, a.markAsAccepted), a.acceptanceFailed, (*Block).StrongParents)
 		a.confirmationOrder = causalorder.New(workers.CreatePool("ConfirmationOrder", 2), func(id models.BlockID) (entity *Block, exists bool) {
 			a.evictionMutex.RLock()
 			defer a.evictionMutex.RUnlock()
@@ -84,7 +84,7 @@ func New(workers *workerpool.Group, tangleInstance *tangle.Tangle, evictionState
 			}
 
 			return a.getOrRegisterBlock(id)
-		}, (*Block).IsConfirmed, a.markAsConfirmed, a.confirmationFailed, (*Block).StrongParents)
+		}, (*Block).IsStronglyConfirmed, lo.Bind(false, a.markAsConfirmed), a.confirmationFailed, (*Block).StrongParents)
 	}, (*Gadget).setup)
 }
 
@@ -326,16 +326,17 @@ func (a *Gadget) propagateAcceptanceConfirmation(marker markers.Marker, confirme
 	for _, parentBlockID := range otherParentsToAccept {
 		parentBlock, parentExists := a.getOrRegisterBlock(parentBlockID)
 		if parentExists {
-			if err := a.markAsAccepted(parentBlock); err != nil {
-				fmt.Println("error while marking weak parent ", parentBlockID, " as accepted: ", err)
+			if err := a.markAsAccepted(parentBlock, true); err != nil {
+				fmt.Println("error while marking weak/like parent ", parentBlockID, " as accepted: ", err)
 			}
-
 			fmt.Println("marked weak/like parent ", parentBlockID, " as accepted")
-			// We need to add these blocks to the causal orderer as well. However, since they break monotonicity, we can't stop
-			// walking prematurely.
-			blocksToAccept = append(blocksToAccept, parentBlock)
+
 			if confirmed {
-				blocksToConfirm = append(blocksToConfirm, parentBlock)
+				if err := a.markAsAccepted(parentBlock, true); err != nil {
+					fmt.Println("error while marking weak/like parent ", parentBlockID, " as confirmed: ", err)
+				}
+				fmt.Println("marked weak/like parent ", parentBlockID, " as confirmed")
+
 			}
 		}
 	}
@@ -343,12 +344,12 @@ func (a *Gadget) propagateAcceptanceConfirmation(marker markers.Marker, confirme
 	return blocksToAccept, blocksToConfirm
 }
 
-func (a *Gadget) markAsAccepted(block *Block) (err error) {
+func (a *Gadget) markAsAccepted(block *Block, weakly bool) (err error) {
 	if a.evictionState.InEvictedSlot(block.ID()) {
 		return errors.Errorf("block with %s belongs to an evicted slot", block.ID())
 	}
 
-	if block.SetAccepted() {
+	if block.SetAccepted(weakly) {
 		// If block has been orphaned before acceptance, remove the flag from the block. Otherwise, remove the block from TimedHeap.
 		if block.IsOrphaned() {
 			a.tangle.BlockDAG.SetOrphaned(block.Block.Block, false)
@@ -365,12 +366,12 @@ func (a *Gadget) markAsAccepted(block *Block) (err error) {
 	return nil
 }
 
-func (a *Gadget) markAsConfirmed(block *Block) (err error) {
+func (a *Gadget) markAsConfirmed(block *Block, weakly bool) (err error) {
 	if a.evictionState.InEvictedSlot(block.ID()) {
 		return errors.Errorf("block with %s belongs to an evicted slot", block.ID())
 	}
 
-	if block.SetConfirmed() {
+	if block.SetConfirmed(weakly) {
 		a.Events.BlockConfirmed.Trigger(block)
 	}
 

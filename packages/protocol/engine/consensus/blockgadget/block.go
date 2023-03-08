@@ -12,7 +12,9 @@ import (
 // Block represents a Block annotated with OTV related metadata.
 type Block struct {
 	accepted           bool
+	weaklyAccepted     bool
 	confirmed          bool
+	weaklyConfirmed    bool
 	acceptanceQueued   bool
 	confirmationQueued bool
 
@@ -31,13 +33,28 @@ func (b *Block) IsAccepted() bool {
 	b.RLock()
 	defer b.RUnlock()
 
+	return b.accepted || b.weaklyAccepted
+}
+
+// IsStronglyAccepted returns true if the Block was accepted through strong children.
+func (b *Block) IsStronglyAccepted() bool {
+	b.RLock()
+	defer b.RUnlock()
+
 	return b.accepted
 }
 
 // SetAccepted sets the Block as accepted.
-func (b *Block) SetAccepted() (wasUpdated bool) {
+func (b *Block) SetAccepted(weakly bool) (wasUpdated bool) {
 	b.Lock()
 	defer b.Unlock()
+
+	if weakly {
+		if wasUpdated = !b.weaklyAccepted; wasUpdated {
+			b.weaklyAccepted = true
+		}
+		return
+	}
 
 	if wasUpdated = !b.accepted; wasUpdated {
 		b.accepted = true
@@ -50,18 +67,33 @@ func (b *Block) IsConfirmed() bool {
 	b.RLock()
 	defer b.RUnlock()
 
+	return b.confirmed || b.weaklyConfirmed
+}
+
+func (b *Block) IsStronglyConfirmed() bool {
+	b.RLock()
+	defer b.RUnlock()
+
 	return b.confirmed
 }
 
-func (b *Block) SetConfirmed() (wasUpdated bool) {
+func (b *Block) SetConfirmed(weakly bool) (wasUpdated bool) {
 	b.Lock()
 	defer b.Unlock()
+
+	if weakly {
+		if wasUpdated = !b.confirmed; wasUpdated {
+			b.confirmed = true
+		}
+
+		return wasUpdated && !b.confirmed
+	}
 
 	if wasUpdated = !b.confirmed; wasUpdated {
 		b.confirmed = true
 	}
 
-	return
+	return wasUpdated && !b.weaklyConfirmed
 }
 
 func (b *Block) IsAcceptanceQueued() bool {
