@@ -12,7 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/mockedvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/ds/walker"
@@ -91,8 +91,8 @@ func NewProvider(opts ...options.Option[RealitiesLedger]) module.Provider[*engin
 		l := New(opts...)
 
 		e.HookConstructed(func() {
-			l.Initialize(e.Workers.CreatePool("RealitiesLedger", 2), e.Storage)
-			e.Events.Ledger.LinkTo(l.events)
+			l.Initialize(e.Workers.CreatePool("MemPool", 2), e.Storage)
+			e.Events.MemPool.LinkTo(l.events)
 		})
 
 		return l
@@ -103,7 +103,7 @@ func New(opts ...options.Option[RealitiesLedger]) *RealitiesLedger {
 	return options.Apply(&RealitiesLedger{
 		events:                          mempool.NewEvents(),
 		optsCacheTimeProvider:           database.NewCacheTimeProvider(0),
-		optsVM:                          mockedvm.NewMockedVM(),
+		optsVM:                          new(devnetvm.VM),
 		optsTransactionCacheTime:        10 * time.Second,
 		optTransactionMetadataCacheTime: 10 * time.Second,
 		optsOutputCacheTime:             10 * time.Second,
@@ -127,17 +127,19 @@ func (l *RealitiesLedger) Initialize(workerPool *workerpool.WorkerPool, storage 
 
 	l.storage = newStorage(l, l.chainStorage.UnspentOutputs)
 
+	asyncOpt := event.WithWorkerPool(l.workerPool)
+
 	// TODO: revisit whether we should make the process of setting conflict and transaction as accepted/rejected atomic
 	l.conflictDAG.Events.ConflictAccepted.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		l.propagateAcceptanceToIncludedTransactions(conflict.ID())
-	}, event.WithWorkerPool(l.workerPool))
-	l.conflictDAG.Events.ConflictRejected.Hook(l.propagatedRejectionToTransactions, event.WithWorkerPool(l.workerPool))
+	}, asyncOpt)
+	l.conflictDAG.Events.ConflictRejected.Hook(l.propagatedRejectionToTransactions, asyncOpt)
 	l.events.TransactionBooked.Hook(func(event *mempool.TransactionBookedEvent) {
 		l.processConsumingTransactions(event.Outputs.IDs())
-	}, event.WithWorkerPool(l.workerPool))
+	}, asyncOpt)
 	l.events.TransactionInvalid.Hook(func(event *mempool.TransactionInvalidEvent) {
 		l.PruneTransaction(event.TransactionID, true)
-	}, event.WithWorkerPool(l.workerPool))
+	}, asyncOpt)
 
 	l.TriggerInitialized()
 }
@@ -212,8 +214,11 @@ func (l *RealitiesLedger) PruneTransaction(txID utxo.TransactionID, pruneFutureC
 
 // Shutdown shuts down the stateful elements of the RealitiesLedger (the Storage and the conflictDAG).
 func (l *RealitiesLedger) Shutdown() {
+	l.workerPool.Shutdown()
 	l.workerPool.PendingTasksCounter.WaitIsZero()
 	l.storage.Shutdown()
+
+	l.TriggerStopped()
 }
 
 // processTransaction tries to book a single Transaction.

@@ -17,7 +17,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/filter"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
@@ -43,7 +43,7 @@ type Node struct {
 	mutex sync.RWMutex
 }
 
-func NewNode(t *testing.T, keyPair ed25519.KeyPair, network *network.MockedNetwork, partition string, snapshotPath string, ledgerProvider module.Provider[*engine.Engine, mempool.MemPool], engineOpts ...options.Option[engine.Engine]) *Node {
+func NewNode(t *testing.T, keyPair ed25519.KeyPair, network *network.MockedNetwork, partition string, snapshotPath string, ledgerProvider module.Provider[*engine.Engine, ledger.Ledger], engineOpts ...options.Option[engine.Engine]) *Node {
 	id := identity.New(keyPair.PublicKey)
 
 	node := &Node{

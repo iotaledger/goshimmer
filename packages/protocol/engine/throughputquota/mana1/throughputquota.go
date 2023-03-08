@@ -76,8 +76,8 @@ func New(engineInstance *engine.Engine, opts ...options.Option[ThroughputQuota])
 				m.SetLastCommittedSlot(m.engine.Storage.Settings.LatestCommitment().Index())
 			})
 
-			m.engine.LedgerState.UnspentOutputs().Subscribe(m)
-			m.engine.LedgerState.HookInitialized(m.init)
+			m.engine.Ledger.UnspentOutputs().Subscribe(m)
+			m.engine.Ledger.HookInitialized(m.init)
 		})
 	})
 }
@@ -124,7 +124,7 @@ func (m *ThroughputQuota) applyCreatedOutput(output *mempool.OutputWithMetadata)
 	if iotaBalance, exists := output.IOTABalance(); exists {
 		m.updateMana(output.AccessManaPledgeID(), int64(iotaBalance))
 
-		if !m.engine.LedgerState.UnspentOutputs().WasInitialized() {
+		if !m.engine.Ledger.UnspentOutputs().WasInitialized() {
 			totalBalanceBytes, serializationErr := storable.SerializableInt64(m.updateTotalBalance(int64(iotaBalance))).Bytes()
 			if serializationErr != nil {
 				return errors.Wrapf(serializationErr, "failed to serialize total balance")
@@ -177,12 +177,12 @@ func (m *ThroughputQuota) CommitBatchedStateTransition() (ctx context.Context) {
 }
 
 func (m *ThroughputQuota) init() {
-	m.engine.LedgerState.UnspentOutputs().Unsubscribe(m)
+	m.engine.Ledger.UnspentOutputs().Unsubscribe(m)
 
 	m.TriggerInitialized()
 
 	wp := m.workers.CreatePool("ThroughputQuota", 2)
-	m.engine.Ledger.Events().TransactionAccepted.Hook(func(event *mempool.TransactionEvent) {
+	m.engine.Ledger.MemPool().Events().TransactionAccepted.Hook(func(event *mempool.TransactionEvent) {
 		m.quotaByIDMutex.Lock()
 		defer m.quotaByIDMutex.Unlock()
 		for _, createdOutput := range event.CreatedOutputs {
@@ -197,7 +197,7 @@ func (m *ThroughputQuota) init() {
 			}
 		}
 	}, event.WithWorkerPool(wp))
-	m.engine.Ledger.Events().TransactionOrphaned.Hook(func(event *mempool.TransactionEvent) {
+	m.engine.Ledger.MemPool().Events().TransactionOrphaned.Hook(func(event *mempool.TransactionEvent) {
 		m.quotaByIDMutex.Lock()
 		defer m.quotaByIDMutex.Unlock()
 

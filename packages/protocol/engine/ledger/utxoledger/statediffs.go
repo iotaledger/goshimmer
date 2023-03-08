@@ -26,14 +26,14 @@ const (
 
 type StateDiffs struct {
 	storage *storage.Storage
-	ledger  mempool.MemPool
+	memPool mempool.MemPool
 }
 
 func NewStateDiffs(e *engine.Engine) *StateDiffs {
 	return options.Apply(new(StateDiffs), nil, func(s *StateDiffs) {
 		e.HookConstructed(func() {
 			s.storage = e.Storage
-			s.ledger = e.Ledger
+			s.memPool = e.Ledger.MemPool()
 		})
 	})
 }
@@ -255,7 +255,7 @@ func (s *StateDiffs) delete(store kvstore.KVStore, outputID utxo.OutputID) (err 
 }
 
 func (s *StateDiffs) addAcceptedTransaction(metadata *mempool.TransactionMetadata) (err error) {
-	if !s.ledger.Storage().CachedTransaction(metadata.ID()).Consume(func(transaction utxo.Transaction) {
+	if !s.memPool.Storage().CachedTransaction(metadata.ID()).Consume(func(transaction utxo.Transaction) {
 		err = s.storeTransaction(transaction, metadata)
 	}) {
 		err = errors.Errorf("failed to get transaction %s from cache", metadata.ID())
@@ -265,7 +265,7 @@ func (s *StateDiffs) addAcceptedTransaction(metadata *mempool.TransactionMetadat
 }
 
 func (s *StateDiffs) storeTransaction(transaction utxo.Transaction, metadata *mempool.TransactionMetadata) (err error) {
-	for it := s.ledger.Utils().ResolveInputs(transaction.Inputs()).Iterator(); it.HasNext(); {
+	for it := s.memPool.Utils().ResolveInputs(transaction.Inputs()).Iterator(); it.HasNext(); {
 		inputWithMetadata := s.outputWithMetadata(it.Next())
 		inputWithMetadata.SetSpentInSlot(metadata.InclusionSlot())
 		if err = s.StoreSpentOutput(inputWithMetadata); err != nil {
@@ -289,8 +289,8 @@ func (s *StateDiffs) storeTransaction(transaction utxo.Transaction, metadata *me
 }
 
 func (s *StateDiffs) outputWithMetadata(outputID utxo.OutputID) (outputWithMetadata *mempool.OutputWithMetadata) {
-	s.ledger.Storage().CachedOutput(outputID).Consume(func(output utxo.Output) {
-		s.ledger.Storage().CachedOutputMetadata(outputID).Consume(func(outputMetadata *mempool.OutputMetadata) {
+	s.memPool.Storage().CachedOutput(outputID).Consume(func(output utxo.Output) {
+		s.memPool.Storage().CachedOutputMetadata(outputID).Consume(func(outputMetadata *mempool.OutputMetadata) {
 			outputWithMetadata = mempool.NewOutputWithMetadata(outputMetadata.InclusionSlot(), outputID, output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())
 		})
 	})
@@ -300,21 +300,21 @@ func (s *StateDiffs) outputWithMetadata(outputID utxo.OutputID) (outputWithMetad
 
 func (s *StateDiffs) moveTransactionToOtherSlot(txMeta *mempool.TransactionMetadata, oldSlot, newSlot slot.Index) {
 	if oldSlot <= s.storage.Settings.LatestCommitment().Index() || newSlot <= s.storage.Settings.LatestCommitment().Index() {
-		s.ledger.Events().Error.Trigger(errors.Errorf("inclusion time of transaction changed for already committed slot: previous Index %d, new Index %d", oldSlot, newSlot))
+		s.memPool.Events().Error.Trigger(errors.Errorf("inclusion time of transaction changed for already committed slot: previous Index %d, new Index %d", oldSlot, newSlot))
 		return
 	}
 
-	s.ledger.Storage().CachedTransaction(txMeta.ID()).Consume(func(tx utxo.Transaction) {
-		if err := s.DeleteSpentOutputs(oldSlot, s.ledger.Utils().ResolveInputs(tx.Inputs())); err != nil {
-			s.ledger.Events().Error.Trigger(errors.Wrapf(err, "failed to delete spent outputs of transaction %s", txMeta.ID()))
+	s.memPool.Storage().CachedTransaction(txMeta.ID()).Consume(func(tx utxo.Transaction) {
+		if err := s.DeleteSpentOutputs(oldSlot, s.memPool.Utils().ResolveInputs(tx.Inputs())); err != nil {
+			s.memPool.Events().Error.Trigger(errors.Wrapf(err, "failed to delete spent outputs of transaction %s", txMeta.ID()))
 		}
 
 		if err := s.DeleteCreatedOutputs(oldSlot, txMeta.OutputIDs()); err != nil {
-			s.ledger.Events().Error.Trigger(errors.Wrapf(err, "failed to delete created outputs of transaction %s", txMeta.ID()))
+			s.memPool.Events().Error.Trigger(errors.Wrapf(err, "failed to delete created outputs of transaction %s", txMeta.ID()))
 		}
 
 		if err := s.storeTransaction(tx, txMeta); err != nil {
-			s.ledger.Events().Error.Trigger(errors.Wrapf(err, "failed to store transaction %s when moving from slot %d to %d", txMeta.ID(), oldSlot, newSlot))
+			s.memPool.Events().Error.Trigger(errors.Wrapf(err, "failed to store transaction %s when moving from slot %d to %d", txMeta.ID(), oldSlot, newSlot))
 		}
 	})
 }

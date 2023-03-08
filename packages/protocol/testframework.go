@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/realitiesledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxoledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm"
 	"github.com/iotaledger/goshimmer/packages/storage/utils"
 	"github.com/iotaledger/hive.go/app/configuration"
@@ -53,7 +54,12 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, ledgerVM vm.VM
 			ed25519.GenerateKeyPair().PublicKey: 100,
 		}
 
-		ledgerProvider := realitiesledger.NewProvider(realitiesledger.WithVM(ledgerVM))
+		ledgerProvider := utxoledger.NewProvider(
+			utxoledger.WithMemPoolProvider(
+				realitiesledger.NewProvider(
+					realitiesledger.WithVM(ledgerVM)),
+			),
+		)
 
 		require.NoError(test, snapshotcreator.CreateSnapshot(
 			snapshotcreator.WithDatabaseVersion(DatabaseVersion),

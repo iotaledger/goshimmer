@@ -42,8 +42,7 @@ type Engine struct {
 	Storage             *storage.Storage
 	SybilProtection     sybilprotection.SybilProtection
 	ThroughputQuota     throughputquota.ThroughputQuota
-	Ledger              mempool.MemPool
-	LedgerState         ledger.Ledger
+	Ledger              ledger.Ledger
 	Filter              *filter.Filter
 	EvictionState       *eviction.State
 	BlockRequester      *eventticker.EventTicker[models.BlockID]
@@ -75,8 +74,7 @@ func New(
 	workers *workerpool.Group,
 	storageInstance *storage.Storage,
 	clockProvider module.Provider[*Engine, clock.Clock],
-	ledger module.Provider[*Engine, mempool.MemPool],
-	ledgerState module.Provider[*Engine, ledger.Ledger],
+	ledger module.Provider[*Engine, ledger.Ledger],
 	sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection],
 	throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota],
 	opts ...options.Option[Engine],
@@ -92,12 +90,11 @@ func New(
 			optsSnapshotDepth:         5,
 		}, opts, func(e *Engine) {
 			e.Ledger = ledger(e)
-			e.LedgerState = ledgerState(e)
 			e.Clock = clockProvider(e)
 			e.SybilProtection = sybilProtection(e)
 			e.ThroughputQuota = throughputQuota(e)
-			e.NotarizationManager = notarization.NewManager(e.Storage, e.LedgerState, e.SybilProtection.Weights(), e.optsNotarizationManagerOptions...)
-			e.Tangle = tangle.New(e.Workers.CreateGroup("Tangle"), e.Ledger, e.EvictionState, e.SlotTimeProvider, e.SybilProtection.Validators(), e.LastConfirmedSlot, e.FirstUnacceptedMarker, e.Storage.Commitments.Load, e.optsTangleOptions...)
+			e.NotarizationManager = notarization.NewManager(e.Storage, e.Ledger, e.SybilProtection.Weights(), e.optsNotarizationManagerOptions...)
+			e.Tangle = tangle.New(e.Workers.CreateGroup("Tangle"), e.Ledger.MemPool(), e.EvictionState, e.SlotTimeProvider, e.SybilProtection.Validators(), e.LastConfirmedSlot, e.FirstUnacceptedMarker, e.Storage.Commitments.Load, e.optsTangleOptions...)
 			e.Consensus = consensus.New(e.Workers.CreateGroup("Consensus"), e.Tangle, e.EvictionState, e.Storage.Permanent.Settings.LatestConfirmedSlot(), func() (totalWeight int64) {
 				if zeroIdentityWeight, exists := e.SybilProtection.Weights().Get(identity.ID{}); exists {
 					totalWeight -= zeroIdentityWeight.Value
@@ -112,7 +109,6 @@ func New(
 			e.HookInitialized(lo.Batch(
 				e.Storage.Settings.TriggerInitialized,
 				e.Storage.Commitments.TriggerInitialized,
-				e.LedgerState.TriggerInitialized,
 				e.NotarizationManager.TriggerInitialized,
 				func() {
 					// TODO: hack until consensus is made an engine module
@@ -137,7 +133,6 @@ func (e *Engine) Shutdown() {
 		e.TriggerStopped()
 
 		e.BlockRequester.Shutdown()
-		e.Ledger.Shutdown()
 		e.Workers.Shutdown()
 		e.Storage.Shutdown()
 	}
@@ -239,8 +234,8 @@ func (e *Engine) Import(reader io.ReadSeeker) (err error) {
 		return errors.Wrap(err, "failed to import commitments")
 	} else if err = e.Storage.Settings.SetChainID(e.Storage.Settings.LatestCommitment().ID()); err != nil {
 		return errors.Wrap(err, "failed to set chainID")
-	} else if err = e.LedgerState.Import(reader); err != nil {
-		return errors.Wrap(err, "failed to import ledger state")
+	} else if err = e.Ledger.Import(reader); err != nil {
+		return errors.Wrap(err, "failed to import ledger")
 	} else if err = e.EvictionState.Import(reader); err != nil {
 		return errors.Wrap(err, "failed to import eviction state")
 	} else if err = e.NotarizationManager.Import(reader); err != nil {
@@ -255,8 +250,8 @@ func (e *Engine) Export(writer io.WriteSeeker, targetSlot slot.Index) (err error
 		return errors.Wrap(err, "failed to export settings")
 	} else if err = e.Storage.Commitments.Export(writer, targetSlot); err != nil {
 		return errors.Wrap(err, "failed to export commitments")
-	} else if err = e.LedgerState.Export(writer, targetSlot); err != nil {
-		return errors.Wrap(err, "failed to export ledger state")
+	} else if err = e.Ledger.Export(writer, targetSlot); err != nil {
+		return errors.Wrap(err, "failed to export ledger")
 	} else if err = e.EvictionState.Export(writer, targetSlot); err != nil {
 		return errors.Wrap(err, "failed to export eviction state")
 	} else if err = e.NotarizationManager.Export(writer, targetSlot); err != nil {
@@ -345,12 +340,12 @@ func (e *Engine) setupNotarizationManager() {
 	wpCommitments := e.Workers.CreatePool("NotarizationManager.Commitments", 1) // Using just 1 worker to avoid contention
 
 	// SlotMutations must be hooked because inclusion might be added before transaction are added.
-	e.Events.Ledger.TransactionAccepted.Hook(func(event *mempool.TransactionEvent) {
+	e.Events.MemPool.TransactionAccepted.Hook(func(event *mempool.TransactionEvent) {
 		if err := e.NotarizationManager.SlotMutations.AddAcceptedTransaction(event.Metadata); err != nil {
 			e.Events.Error.Trigger(errors.Wrapf(err, "failed to add accepted transaction %s to slot", event.Metadata.ID()))
 		}
 	})
-	e.Events.Ledger.TransactionInclusionUpdated.Hook(func(event *mempool.TransactionInclusionUpdatedEvent) {
+	e.Events.MemPool.TransactionInclusionUpdated.Hook(func(event *mempool.TransactionInclusionUpdatedEvent) {
 		if err := e.NotarizationManager.SlotMutations.UpdateTransactionInclusion(event.TransactionID, event.PreviousInclusionSlot, event.InclusionSlot); err != nil {
 			e.Events.Error.Trigger(errors.Wrapf(err, "failed to update transaction inclusion time %s in slot", event.TransactionID))
 		}
@@ -372,7 +367,7 @@ func (e *Engine) setupNotarizationManager() {
 }
 
 func (e *Engine) setupEvictionState() {
-	e.LedgerState.HookInitialized(func() {
+	e.Ledger.HookInitialized(func() {
 		e.EvictionState.EvictUntil(e.Storage.Settings.LatestCommitment().Index())
 	})
 

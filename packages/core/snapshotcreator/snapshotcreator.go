@@ -13,7 +13,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/blocktime"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxoledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/mockedvm"
@@ -64,7 +63,6 @@ func CreateSnapshot(opts ...options.Option[Options]) error {
 		s,
 		blocktime.NewProvider(),
 		opt.LedgerProvider,
-		utxoledger.NewProvider(),
 		dpos.NewProvider(),
 		mana1.NewProvider(),
 	)
@@ -84,11 +82,11 @@ func CreateSnapshot(opts ...options.Option[Options]) error {
 	nodesToPledge.ForEach(func(nodeIdentity *identity.Identity, value uint64) bool {
 		nodePublicKey := nodeIdentity.PublicKey()
 		nodeID := nodeIdentity.ID()
-		output, outputMetadata, errOut := createOutput(engineInstance.Ledger.VM(), nodePublicKey, value, nodeID, 0)
+		output, outputMetadata, errOut := createOutput(engineInstance.Ledger.MemPool().VM(), nodePublicKey, value, nodeID, 0)
 		if errOut != nil {
 			panic(errOut)
 		}
-		if err = engineInstance.LedgerState.UnspentOutputs().ApplyCreatedOutput(mempool.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
+		if err = engineInstance.Ledger.UnspentOutputs().ApplyCreatedOutput(mempool.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
 			panic(err)
 		}
 
@@ -138,11 +136,11 @@ func (m *Options) createAttestationIfNotYetDone(engineInstance *engine.Engine) (
 
 func (m *Options) createGenesisOutput(engineInstance *engine.Engine) error {
 	if m.GenesisTokenAmount > 0 {
-		output, outputMetadata, err := createOutput(engineInstance.Ledger.VM(), seed.NewSeed(m.GenesisSeed).KeyPair(0).PublicKey, m.GenesisTokenAmount, identity.ID{}, 0)
+		output, outputMetadata, err := createOutput(engineInstance.Ledger.MemPool().VM(), seed.NewSeed(m.GenesisSeed).KeyPair(0).PublicKey, m.GenesisTokenAmount, identity.ID{}, 0)
 		if err != nil {
 			return err
 		}
-		if err := engineInstance.LedgerState.UnspentOutputs().ApplyCreatedOutput(mempool.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
+		if err := engineInstance.Ledger.UnspentOutputs().ApplyCreatedOutput(mempool.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
 			return err
 		}
 	}

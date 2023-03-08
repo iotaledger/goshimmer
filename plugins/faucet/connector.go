@@ -33,9 +33,9 @@ func (f *Connector) UnspentOutputs(addresses ...address.Address) (unspentOutputs
 
 	for _, addr := range addresses {
 		f.indexer.CachedAddressOutputMappings(addr.Address()).Consume(func(mapping *indexer.AddressOutputMapping) {
-			f.protocol.Engine().Ledger.Storage().CachedOutput(mapping.OutputID()).Consume(func(output utxo.Output) {
+			f.protocol.Engine().Ledger.MemPool().Storage().CachedOutput(mapping.OutputID()).Consume(func(output utxo.Output) {
 				if typedOutput, ok := output.(devnetvm.Output); ok {
-					f.protocol.Engine().Ledger.Storage().CachedOutputMetadata(typedOutput.ID()).Consume(func(outputMetadata *mempool.OutputMetadata) {
+					f.protocol.Engine().Ledger.MemPool().Storage().CachedOutputMetadata(typedOutput.ID()).Consume(func(outputMetadata *mempool.OutputMetadata) {
 						if !outputMetadata.IsSpent() {
 							walletOutput := &wallet.Output{
 								Address:                  addr,
@@ -80,7 +80,7 @@ func (f *Connector) RequestFaucetFunds(address address.Address, powTarget int) (
 }
 
 func (f *Connector) GetTransactionConfirmationState(txID utxo.TransactionID) (confirmationState confirmation.State, err error) {
-	f.protocol.Engine().Ledger.Storage().CachedTransactionMetadata(txID).Consume(func(tm *mempool.TransactionMetadata) {
+	f.protocol.Engine().Ledger.MemPool().Storage().CachedTransactionMetadata(txID).Consume(func(tm *mempool.TransactionMetadata) {
 		confirmationState = tm.ConfirmationState()
 	})
 	return

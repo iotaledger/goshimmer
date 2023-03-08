@@ -19,10 +19,12 @@ import (
 // UTXOLedger represents a ledger using the realities based mempool.
 type UTXOLedger struct {
 	engine         *engine.Engine
-	mempool        *realitiesledger.RealitiesLedger
+	memPool        mempool.MemPool
 	unspentOutputs *UnspentOutputs
 	stateDiffs     *StateDiffs
 	mutex          sync.RWMutex
+
+	optsMemPoolProvider module.Provider[*engine.Engine, mempool.MemPool]
 
 	module.Module
 }
@@ -30,16 +32,21 @@ type UTXOLedger struct {
 func NewProvider(opts ...options.Option[UTXOLedger]) module.Provider[*engine.Engine, ledger.Ledger] {
 	return module.Provide(func(e *engine.Engine) ledger.Ledger {
 		return options.Apply(&UTXOLedger{
-			engine:         e,
-			stateDiffs:     NewStateDiffs(e),
-			unspentOutputs: NewUnspentOutputs(e),
+			engine:              e,
+			stateDiffs:          NewStateDiffs(e),
+			unspentOutputs:      NewUnspentOutputs(e),
+			optsMemPoolProvider: realitiesledger.NewProvider(),
 		}, opts, func(l *UTXOLedger) {
+			l.memPool = l.optsMemPoolProvider(e)
+
 			e.HookConstructed(func() {
+				e.HookStopped(l.memPool.Shutdown)
+
 				l.HookInitialized(l.unspentOutputs.TriggerInitialized)
 
 				l.HookStopped(lo.Batch(
-					e.Events.Ledger.TransactionAccepted.Hook(l.onTransactionAccepted).Unhook,
-					e.Events.Ledger.TransactionInclusionUpdated.Hook(l.onTransactionInclusionUpdated).Unhook,
+					e.Events.MemPool.TransactionAccepted.Hook(l.onTransactionAccepted).Unhook,
+					e.Events.MemPool.TransactionInclusionUpdated.Hook(l.onTransactionInclusionUpdated).Unhook,
 				))
 			})
 
@@ -49,7 +56,7 @@ func NewProvider(opts ...options.Option[UTXOLedger]) module.Provider[*engine.Eng
 }
 
 func (l *UTXOLedger) MemPool() mempool.MemPool {
-	return l.mempool
+	return l.memPool
 }
 
 func (l *UTXOLedger) UnspentOutputs() ledger.UnspentOutputs {
@@ -175,7 +182,7 @@ func (l *UTXOLedger) rollbackStateDiff(index slot.Index) (err error) {
 	return
 }
 
-// onTransactionAccepted is triggered when a transaction is accepted by the mempool.
+// onTransactionAccepted is triggered when a transaction is accepted by the memPool.
 func (l *UTXOLedger) onTransactionAccepted(transactionEvent *mempool.TransactionEvent) {
 	if err := l.stateDiffs.addAcceptedTransaction(transactionEvent.Metadata); err != nil {
 		// TODO: handle error gracefully
@@ -185,9 +192,15 @@ func (l *UTXOLedger) onTransactionAccepted(transactionEvent *mempool.Transaction
 
 // onTransactionInclusionUpdated is triggered when a transaction inclusion state is updated.
 func (l *UTXOLedger) onTransactionInclusionUpdated(inclusionUpdatedEvent *mempool.TransactionInclusionUpdatedEvent) {
-	if l.engine.Ledger.ConflictDAG().ConfirmationState(inclusionUpdatedEvent.TransactionMetadata.ConflictIDs()).IsAccepted() {
+	if l.engine.Ledger.MemPool().ConflictDAG().ConfirmationState(inclusionUpdatedEvent.TransactionMetadata.ConflictIDs()).IsAccepted() {
 		l.stateDiffs.moveTransactionToOtherSlot(inclusionUpdatedEvent.TransactionMetadata, inclusionUpdatedEvent.PreviousInclusionSlot, inclusionUpdatedEvent.InclusionSlot)
 	}
 }
 
 var _ ledger.Ledger = new(UTXOLedger)
+
+func WithMemPoolProvider(provider module.Provider[*engine.Engine, mempool.MemPool]) options.Option[UTXOLedger] {
+	return func(u *UTXOLedger) {
+		u.optsMemPoolProvider = provider
+	}
+}

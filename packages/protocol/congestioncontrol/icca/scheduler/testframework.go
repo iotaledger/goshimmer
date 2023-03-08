@@ -15,6 +15,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/realitiesledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxoledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/mockedvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
@@ -64,7 +65,12 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, optsScheduler 
 	}
 	t.storage = storage.New(test.TempDir(), 1)
 
-	ledgerProvider := realitiesledger.NewProvider()
+	ledgerProvider := utxoledger.NewProvider(
+		utxoledger.WithMemPoolProvider(
+			realitiesledger.NewProvider(
+				realitiesledger.WithVM(new(mockedvm.MockedVM))),
+		),
+	)
 
 	tempDir := utils.NewDirectory(test.TempDir())
 	require.NoError(test, snapshotcreator.CreateSnapshot(snapshotcreator.WithDatabaseVersion(1),
@@ -79,7 +85,6 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, optsScheduler 
 		t.storage,
 		blocktime.NewProvider(),
 		ledgerProvider,
-		utxoledger.NewProvider(),
 		dpos.NewProvider(),
 		mana1.NewProvider(),
 	)

@@ -19,7 +19,7 @@ type Events struct {
 
 	EvictionState       *eviction.Events
 	Filter              *filter.Events
-	Ledger              *mempool.Events
+	MemPool             *mempool.Events
 	Tangle              *tangle.Events
 	Consensus           *consensus.Events
 	Clock               *clock.Events
@@ -37,7 +37,7 @@ var NewEvents = event.CreateGroupConstructor(func() (newEvents *Events) {
 		BlockProcessed:      event.New1[models.BlockID](),
 		EvictionState:       eviction.NewEvents(),
 		Filter:              filter.NewEvents(),
-		Ledger:              mempool.NewEvents(),
+		MemPool:             mempool.NewEvents(),
 		Tangle:              tangle.NewEvents(),
 		Consensus:           consensus.NewEvents(),
 		Clock:               clock.NewEvents(),

@@ -39,14 +39,14 @@ func provide(protocol *protocol.Protocol) (i *indexer.Indexer) {
 	// TODO: needs to consider switching of instance/ledger in the future
 	// TODO: load snapshot / attach to events from snapshot loading
 	i = indexer.New(func() mempool.MemPool {
-		return protocol.Engine().Ledger
+		return protocol.Engine().Ledger.MemPool()
 	})
 
 	return i
 }
 
 func configure(plugin *node.Plugin) {
-	deps.Protocol.Events.Engine.Ledger.OutputCreated.Hook(deps.Indexer.OnOutputCreated, event.WithWorkerPool(plugin.WorkerPool))
-	deps.Protocol.Events.Engine.Ledger.OutputSpent.Hook(deps.Indexer.OnOutputSpentRejected, event.WithWorkerPool(plugin.WorkerPool))
-	deps.Protocol.Events.Engine.Ledger.OutputRejected.Hook(deps.Indexer.OnOutputSpentRejected, event.WithWorkerPool(plugin.WorkerPool))
+	deps.Protocol.Events.Engine.MemPool.OutputCreated.Hook(deps.Indexer.OnOutputCreated, event.WithWorkerPool(plugin.WorkerPool))
+	deps.Protocol.Events.Engine.MemPool.OutputSpent.Hook(deps.Indexer.OnOutputSpentRejected, event.WithWorkerPool(plugin.WorkerPool))
+	deps.Protocol.Events.Engine.MemPool.OutputRejected.Hook(deps.Indexer.OnOutputSpentRejected, event.WithWorkerPool(plugin.WorkerPool))
 }

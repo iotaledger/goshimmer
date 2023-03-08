@@ -17,6 +17,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/filter"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/realitiesledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxoledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
@@ -66,9 +67,13 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 	p = protocol.New(workerpool.NewGroup("Protocol"),
 		n,
 		protocol.WithLedgerProvider(
-			realitiesledger.NewProvider(
-				realitiesledger.WithVM(new(devnetvm.VM)),
-				realitiesledger.WithCacheTimeProvider(cacheTimeProvider),
+			utxoledger.NewProvider(
+				utxoledger.WithMemPoolProvider(
+					realitiesledger.NewProvider(
+						realitiesledger.WithVM(new(devnetvm.VM)),
+						realitiesledger.WithCacheTimeProvider(cacheTimeProvider),
+					),
+				),
 			),
 		),
 		protocol.WithSybilProtectionProvider(

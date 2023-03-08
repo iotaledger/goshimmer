@@ -22,7 +22,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/realitiesledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxoledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/mockedvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
@@ -62,7 +61,7 @@ func TestProtocol(t *testing.T) {
 	}
 	tempDir := utils.NewDirectory(t.TempDir())
 
-	ledgerProvider := realitiesledger.NewProvider(realitiesledger.WithVM(new(devnetvm.VM)))
+	ledgerProvider := utxoledger.NewProvider()
 
 	err := snapshotcreator.CreateSnapshot(
 		snapshotcreator.WithDatabaseVersion(protocol.DatabaseVersion),
@@ -155,7 +154,7 @@ func TestEngine_NonEmptyInitialValidators(t *testing.T) {
 		identity.New(identitiesMap["D"]).PublicKey(): 10,
 	}
 
-	ledgerProvider := realitiesledger.NewProvider(realitiesledger.WithVM(new(devnetvm.VM)))
+	ledgerProvider := utxoledger.NewProvider()
 
 	tempDir := utils.NewDirectory(t.TempDir())
 	err := snapshotcreator.CreateSnapshot(
@@ -173,7 +172,6 @@ func TestEngine_NonEmptyInitialValidators(t *testing.T) {
 	tf := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework"),
 		blocktime.NewProvider(),
 		ledgerProvider,
-		utxoledger.NewProvider(),
 		dpos.NewProvider(),
 		mana1.NewProvider(),
 	)
@@ -230,7 +228,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 
 	slotDuration := int64(10)
 
-	ledgerProvider := realitiesledger.NewProvider(realitiesledger.WithVM(new(devnetvm.VM)))
+	ledgerProvider := utxoledger.NewProvider()
 
 	err := snapshotcreator.CreateSnapshot(
 		snapshotcreator.WithDatabaseVersion(protocol.DatabaseVersion),
@@ -248,7 +246,6 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 	tf := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework"),
 		blocktime.NewProvider(),
 		ledgerProvider,
-		utxoledger.NewProvider(),
 		dpos.NewProvider(),
 		mana1.NewProvider(),
 	)
@@ -320,7 +317,6 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 		tf2 := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework2"),
 			blocktime.NewProvider(),
 			ledgerProvider,
-			utxoledger.NewProvider(),
 			dpos.NewProvider(),
 			mana1.NewProvider(),
 		)
@@ -346,11 +342,11 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 			require.Equal(t, originalCommitment, importedCommitment)
 
 			// Check that StateDiffs have been cleared after snapshot import.
-			require.NoError(t, tf2.Instance.LedgerState.StateDiffs().StreamCreatedOutputs(slotIndex, func(*mempool.OutputWithMetadata) error {
+			require.NoError(t, tf2.Instance.Ledger.StateDiffs().StreamCreatedOutputs(slotIndex, func(*mempool.OutputWithMetadata) error {
 				return errors.New("StateDiffs created should be empty after snapshot import")
 			}))
 
-			require.NoError(t, tf2.Instance.LedgerState.StateDiffs().StreamSpentOutputs(slotIndex, func(*mempool.OutputWithMetadata) error {
+			require.NoError(t, tf2.Instance.Ledger.StateDiffs().StreamSpentOutputs(slotIndex, func(*mempool.OutputWithMetadata) error {
 				return errors.New("StateDiffs spent should be empty after snapshot import")
 			}))
 
@@ -365,10 +361,10 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 		}
 
 		// UTXOLedger
-		require.Equal(t, tf.Instance.LedgerState.UnspentOutputs().IDs().Size(), tf2.Instance.LedgerState.UnspentOutputs().IDs().Size())
-		require.Equal(t, tf.Instance.LedgerState.UnspentOutputs().IDs().Root(), tf2.Instance.LedgerState.UnspentOutputs().IDs().Root())
-		require.NoError(t, tf.Instance.LedgerState.UnspentOutputs().IDs().Stream(func(outputID utxo.OutputID) bool {
-			require.True(t, tf2.Instance.LedgerState.UnspentOutputs().IDs().Has(outputID))
+		require.Equal(t, tf.Instance.Ledger.UnspentOutputs().IDs().Size(), tf2.Instance.Ledger.UnspentOutputs().IDs().Size())
+		require.Equal(t, tf.Instance.Ledger.UnspentOutputs().IDs().Root(), tf2.Instance.Ledger.UnspentOutputs().IDs().Root())
+		require.NoError(t, tf.Instance.Ledger.UnspentOutputs().IDs().Stream(func(outputID utxo.OutputID) bool {
+			require.True(t, tf2.Instance.Ledger.UnspentOutputs().IDs().Has(outputID))
 			return true
 		}))
 
@@ -400,7 +396,6 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 		tf3 := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework3"),
 			blocktime.NewProvider(),
 			ledgerProvider,
-			utxoledger.NewProvider(),
 			dpos.NewProvider(),
 			mana1.NewProvider(),
 		)
@@ -467,7 +462,6 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 		tf4 := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework4"),
 			blocktime.NewProvider(),
 			ledgerProvider,
-			utxoledger.NewProvider(),
 			dpos.NewProvider(),
 			mana1.NewProvider(),
 		)
@@ -539,7 +533,12 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 	tempDir := utils.NewDirectory(t.TempDir())
 	slotDuration := int64(10)
 
-	ledgerProvider := realitiesledger.NewProvider(realitiesledger.WithVM(new(mockedvm.MockedVM)))
+	ledgerProvider := utxoledger.NewProvider(
+		utxoledger.WithMemPoolProvider(
+			realitiesledger.NewProvider(
+				realitiesledger.WithVM(new(mockedvm.MockedVM))),
+		),
+	)
 
 	err := snapshotcreator.CreateSnapshot(
 		snapshotcreator.WithDatabaseVersion(protocol.DatabaseVersion),
@@ -566,7 +565,6 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 	engine1 := engine.NewTestEngine(t, workers.CreateGroup("Engine1"), engine1Storage,
 		blocktime.NewProvider(),
 		ledgerProvider,
-		utxoledger.NewProvider(),
 		dpos.NewProvider(),
 		mana1.NewProvider(),
 		engineOpts...,
@@ -656,7 +654,6 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		tf2 := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework2"),
 			blocktime.NewProvider(),
 			ledgerProvider,
-			utxoledger.NewProvider(),
 			dpos.NewProvider(),
 			mana1.NewProvider(),
 			engineOpts...,
@@ -666,10 +663,10 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		require.Equal(t, slot.Index(1), tf2.Instance.Storage.Settings.LatestCommitment().Index())
 		tf2.AssertSlotState(1)
 
-		require.True(t, tf2.Instance.LedgerState.UnspentOutputs().IDs().Has(tf.Ledger.OutputID("Tx1.0")))
-		require.True(t, tf2.Instance.LedgerState.UnspentOutputs().IDs().Has(tf.Ledger.OutputID("Tx1.1")))
-		require.False(t, tf2.Instance.LedgerState.UnspentOutputs().IDs().Has(tf.Ledger.OutputID("Tx5.0")))
-		require.False(t, tf2.Instance.LedgerState.UnspentOutputs().IDs().Has(tf.Ledger.OutputID("Tx5.1")))
+		require.True(t, tf2.Instance.Ledger.UnspentOutputs().IDs().Has(tf.Ledger.OutputID("Tx1.0")))
+		require.True(t, tf2.Instance.Ledger.UnspentOutputs().IDs().Has(tf.Ledger.OutputID("Tx1.1")))
+		require.False(t, tf2.Instance.Ledger.UnspentOutputs().IDs().Has(tf.Ledger.OutputID("Tx5.0")))
+		require.False(t, tf2.Instance.Ledger.UnspentOutputs().IDs().Has(tf.Ledger.OutputID("Tx5.1")))
 
 		workers.WaitChildren()
 	}
@@ -699,7 +696,6 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		engine3 := engine.NewTestEngine(t, workers.CreateGroup("Engine3"), engine3Storage,
 			blocktime.NewProvider(),
 			ledgerProvider,
-			utxoledger.NewProvider(),
 			dpos.NewProvider(),
 			mana1.NewProvider(),
 			engineOpts...,
@@ -710,10 +706,10 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 
 		tf3.AssertSlotState(5)
 
-		require.False(t, tf3.Instance.LedgerState.UnspentOutputs().IDs().Has(tf.Ledger.OutputID("Tx1.0")))
-		require.True(t, tf3.Instance.LedgerState.UnspentOutputs().IDs().Has(tf.Ledger.OutputID("Tx1.1")))
-		require.True(t, tf3.Instance.LedgerState.UnspentOutputs().IDs().Has(tf.Ledger.OutputID("Tx5.0")))
-		require.True(t, tf3.Instance.LedgerState.UnspentOutputs().IDs().Has(tf.Ledger.OutputID("Tx5.1")))
+		require.False(t, tf3.Instance.Ledger.UnspentOutputs().IDs().Has(tf.Ledger.OutputID("Tx1.0")))
+		require.True(t, tf3.Instance.Ledger.UnspentOutputs().IDs().Has(tf.Ledger.OutputID("Tx1.1")))
+		require.True(t, tf3.Instance.Ledger.UnspentOutputs().IDs().Has(tf.Ledger.OutputID("Tx5.0")))
+		require.True(t, tf3.Instance.Ledger.UnspentOutputs().IDs().Has(tf.Ledger.OutputID("Tx5.1")))
 
 		// ThroughputQuota
 		require.Equal(t, expectedBalanceByIDs, tf3.Instance.ThroughputQuota.BalanceByIDs())
@@ -746,7 +742,7 @@ func TestEngine_ShutdownResume(t *testing.T) {
 	tempDir := utils.NewDirectory(t.TempDir())
 	slotDuration := int64(10)
 
-	ledgerProvider := realitiesledger.NewProvider(realitiesledger.WithVM(new(devnetvm.VM)))
+	ledgerProvider := utxoledger.NewProvider()
 
 	err := snapshotcreator.CreateSnapshot(
 		snapshotcreator.WithDatabaseVersion(protocol.DatabaseVersion),
@@ -773,7 +769,6 @@ func TestEngine_ShutdownResume(t *testing.T) {
 	engine1 := engine.NewTestEngine(t, workers.CreateGroup("Engine"), engine1Storage,
 		blocktime.NewProvider(),
 		ledgerProvider,
-		utxoledger.NewProvider(),
 		dpos.NewProvider(),
 		mana1.NewProvider(),
 		engine.WithTangleOptions(
@@ -807,7 +802,6 @@ func TestEngine_ShutdownResume(t *testing.T) {
 	engine2 := engine.NewTestEngine(t, workers.CreateGroup("Engine2"), engine2Storage,
 		blocktime.NewProvider(),
 		ledgerProvider,
-		utxoledger.NewProvider(),
 		dpos.NewProvider(),
 		mana1.NewProvider(),
 		engine.WithTangleOptions(
@@ -872,7 +866,7 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 	snapshot := snapshotsDir.Path("snapshot.bin")
 	slotDuration := int64(10)
 
-	ledgerProvider := realitiesledger.NewProvider(realitiesledger.WithVM(new(devnetvm.VM)))
+	ledgerProvider := utxoledger.NewProvider()
 
 	err := snapshotcreator.CreateSnapshot(
 		snapshotcreator.WithDatabaseVersion(protocol.DatabaseVersion),
@@ -1130,7 +1124,13 @@ func TestEngine_GuavaConflict(t *testing.T) {
 	// debug.SetEnabled(true)
 	// defer debug.SetEnabled(false)
 
-	ledgerProvider := realitiesledger.NewProvider(realitiesledger.WithVM(new(mockedvm.MockedVM)))
+	ledgerProvider := utxoledger.NewProvider(
+		utxoledger.WithMemPoolProvider(
+			realitiesledger.NewProvider(
+				realitiesledger.WithVM(new(mockedvm.MockedVM)),
+			),
+		),
+	)
 
 	identities := map[string]*identity.Identity{
 		"A": identity.GenerateIdentity(),
@@ -1163,7 +1163,6 @@ func TestEngine_GuavaConflict(t *testing.T) {
 	tf := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework"),
 		blocktime.NewProvider(),
 		ledgerProvider,
-		utxoledger.NewProvider(),
 		dpos.NewProvider(),
 		mana1.NewProvider(),
 		engine.WithTangleOptions(

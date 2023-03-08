@@ -47,7 +47,7 @@ func NewUnspentOutputs(e *engine.Engine) (unspentOutputs *UnspentOutputs) {
 		e.HookConstructed(func() {
 			u.BatchCommittable = traits.NewBatchCommittable(e.Storage.UnspentOutputIDs(), PrefixUnspentOutputsLatestCommittedIndex)
 			u.ids = ads.NewSet[utxo.OutputID](e.Storage.UnspentOutputIDs(PrefixUnspentOutputsIDs))
-			u.memPool = e.Ledger
+			u.memPool = e.Ledger.MemPool()
 		})
 	})
 }

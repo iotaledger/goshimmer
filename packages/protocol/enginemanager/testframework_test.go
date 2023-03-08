@@ -11,9 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/blocktime"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/realitiesledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxoledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
 	"github.com/iotaledger/goshimmer/packages/protocol/enginemanager"
@@ -33,7 +31,7 @@ type EngineManagerTestFramework struct {
 func NewEngineManagerTestFramework(t *testing.T, workers *workerpool.Group, identitiesWeights map[ed25519.PublicKey]uint64) *EngineManagerTestFramework {
 	tf := &EngineManagerTestFramework{}
 
-	ledgerProvider := realitiesledger.NewProvider(realitiesledger.WithVM(new(devnetvm.VM)))
+	ledgerProvider := utxoledger.NewProvider()
 
 	snapshotPath := utils.NewDirectory(t.TempDir()).Path("snapshot.bin")
 
@@ -58,7 +56,6 @@ func NewEngineManagerTestFramework(t *testing.T, workers *workerpool.Group, iden
 		[]options.Option[engine.Engine]{},
 		blocktime.NewProvider(),
 		ledgerProvider,
-		utxoledger.NewProvider(),
 		dpos.NewProvider(),
 		mana1.NewProvider(),
 	)

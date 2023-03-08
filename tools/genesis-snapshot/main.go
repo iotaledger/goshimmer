@@ -14,9 +14,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/blocktime"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxoledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
@@ -84,7 +84,7 @@ func createTempStorage() (s *storage.Storage) {
 	return storage.New(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), protocol.DatabaseVersion)
 }
 
-func diagnosticPrintSnapshotFromFile(filePath string, ledgerProvider module.Provider[*engine.Engine, mempool.MemPool]) {
+func diagnosticPrintSnapshotFromFile(filePath string, ledgerProvider module.Provider[*engine.Engine, ledger.Ledger]) {
 	s := createTempStorage()
 	defer s.Shutdown()
 
@@ -92,7 +92,6 @@ func diagnosticPrintSnapshotFromFile(filePath string, ledgerProvider module.Prov
 		s,
 		blocktime.NewProvider(),
 		ledgerProvider,
-		utxoledger.NewProvider(),
 		dpos.NewProvider(),
 		mana1.NewProvider(),
 	)
@@ -109,9 +108,9 @@ func diagnosticPrintSnapshotFromFile(filePath string, ledgerProvider module.Prov
 	fmt.Printf("%+v\n", lo.PanicOnErr(s.Commitments.Load(0)))
 
 	fmt.Println("--- Ledgerstate ---")
-	e.Ledger.Storage().ForEachOutputID(func(outputID utxo.OutputID) bool {
-		e.Ledger.Storage().CachedOutput(outputID).Consume(func(o utxo.Output) {
-			e.Ledger.Storage().CachedOutputMetadata(outputID).Consume(func(m *mempool.OutputMetadata) {
+	e.Ledger.MemPool().Storage().ForEachOutputID(func(outputID utxo.OutputID) bool {
+		e.Ledger.MemPool().Storage().CachedOutput(outputID).Consume(func(o utxo.Output) {
+			e.Ledger.MemPool().Storage().CachedOutputMetadata(outputID).Consume(func(m *mempool.OutputMetadata) {
 				fmt.Printf("%+v\n%#v\n", o, m)
 			})
 		})
@@ -138,14 +137,14 @@ func diagnosticPrintSnapshotFromFile(filePath string, ledgerProvider module.Prov
 
 	fmt.Println("--- Diffs ---")
 	fmt.Println("SpentOutputs: ")
-	if err := e.LedgerState.StateDiffs().StreamSpentOutputs(0, func(owm *mempool.OutputWithMetadata) error {
+	if err := e.Ledger.StateDiffs().StreamSpentOutputs(0, func(owm *mempool.OutputWithMetadata) error {
 		fmt.Printf("%d: %+v\n", 0, owm)
 		return nil
 	}); err != nil {
 		panic(err)
 	}
 	fmt.Println("CreatedOutputs: ")
-	if err := e.LedgerState.StateDiffs().StreamCreatedOutputs(0, func(owm *mempool.OutputWithMetadata) error {
+	if err := e.Ledger.StateDiffs().StreamCreatedOutputs(0, func(owm *mempool.OutputWithMetadata) error {
 		fmt.Printf("%d: %+v\n", 0, owm)
 		return nil
 	}); err != nil {
