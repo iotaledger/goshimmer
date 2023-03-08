@@ -202,7 +202,7 @@ func (n *Node) attachEngineLogs(instance *enginemanager.EngineInstance) {
 	})
 
 	events.Clock.AcceptedTimeUpdated.Hook(func(newTime time.Time) {
-		fmt.Printf("%s > [%s] Clock.AcceptanceTimeUpdated: %s\n", n.Name, engineName, newTime)
+		fmt.Printf("%s > [%s] Clock.AcceptedTimeUpdated: %s\n", n.Name, engineName, newTime)
 	})
 
 	events.Filter.BlockAllowed.Hook(func(block *models.Block) {
