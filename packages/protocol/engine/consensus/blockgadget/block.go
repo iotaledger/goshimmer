@@ -53,14 +53,17 @@ func (b *Block) SetAccepted(weakly bool) (wasUpdated bool) {
 		if wasUpdated = !b.weaklyAccepted; wasUpdated {
 			b.weaklyAccepted = true
 		}
-		return
+
+		// return true only if block was neither strongly and weakly accepted before
+		return wasUpdated && !b.accepted
 	}
 
 	if wasUpdated = !b.accepted; wasUpdated {
 		b.accepted = true
 	}
 
-	return
+	// return true only if block was neither strongly and weakly accepted before
+	return wasUpdated && !b.weaklyAccepted
 }
 
 func (b *Block) IsConfirmed() bool {
@@ -86,6 +89,7 @@ func (b *Block) SetConfirmed(weakly bool) (wasUpdated bool) {
 			b.confirmed = true
 		}
 
+		// return true only if block was neither strongly and weakly confirmed before
 		return wasUpdated && !b.confirmed
 	}
 
@@ -93,6 +97,7 @@ func (b *Block) SetConfirmed(weakly bool) (wasUpdated bool) {
 		b.confirmed = true
 	}
 
+	// return true only if block was neither strongly and weakly confirmed before
 	return wasUpdated && !b.weaklyConfirmed
 }
 
