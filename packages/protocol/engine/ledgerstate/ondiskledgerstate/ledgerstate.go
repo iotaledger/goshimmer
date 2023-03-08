@@ -10,44 +10,40 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 // LedgerState represents the state of the ledger.
 type LedgerState struct {
-	memPool        ledger.Ledger
+	engine         *engine.Engine
 	unspentOutputs *UnspentOutputs
 	stateDiffs     *StateDiffs
-
-	storage *storage.Storage
-	mutex   sync.RWMutex
+	mutex          sync.RWMutex
 
 	module.Module
 }
 
-func NewProvider() module.Provider[*engine.Engine, ledgerstate.LedgerState] {
+func NewProvider(opts ...options.Option[LedgerState]) module.Provider[*engine.Engine, ledgerstate.LedgerState] {
 	return module.Provide(func(e *engine.Engine) ledgerstate.LedgerState {
-		l := new(LedgerState)
-		e.HookConstructed(func() {
-			l.Construct(e.Storage, e.Ledger)
+		return options.Apply(&LedgerState{
+			engine:         e,
+			stateDiffs:     NewStateDiffs(e),
+			unspentOutputs: NewUnspentOutputs(e),
+		}, opts, func(l *LedgerState) {
+			e.HookConstructed(func() {
+				l.HookInitialized(l.unspentOutputs.TriggerInitialized)
 
-			e.HookInitialized(l.TriggerInitialized)
-		})
-		return l
+				l.HookStopped(lo.Batch(
+					e.Events.Ledger.TransactionAccepted.Hook(l.onTransactionAccepted).Unhook,
+					e.Events.Ledger.TransactionInclusionUpdated.Hook(l.onTransactionInclusionUpdated).Unhook,
+				))
+			})
+
+			e.HookStopped(l.TriggerStopped)
+		}, (*LedgerState).TriggerConstructed)
 	})
-}
-
-func (l *LedgerState) Construct(storageInstance *storage.Storage, memPool ledger.Ledger) {
-	l.storage = storageInstance
-	l.memPool = memPool
-	l.unspentOutputs = NewUnspentOutputs(storageInstance.UnspentOutputIDs, memPool)
-	l.stateDiffs = NewStateDiffs(storageInstance, memPool)
-
-	l.HookInitialized(l.unspentOutputs.TriggerInitialized)
-
-	l.memPool.Events().TransactionAccepted.Hook(l.onTransactionAccepted)
-	l.memPool.Events().TransactionInclusionUpdated.Hook(l.onTransactionInclusionUpdated)
 }
 
 func (l *LedgerState) UnspentOutputs() ledgerstate.UnspentOutputs {
@@ -88,7 +84,7 @@ func (l *LedgerState) Import(reader io.ReadSeeker) (err error) {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
-	if err = l.unspentOutputs.Import(reader, l.storage.Settings.LatestCommitment().Index()); err != nil {
+	if err = l.unspentOutputs.Import(reader, l.engine.Storage.Settings.LatestCommitment().Index()); err != nil {
 		return errors.Wrap(err, "failed to import unspent outputs")
 	}
 
@@ -111,20 +107,20 @@ func (l *LedgerState) Import(reader io.ReadSeeker) (err error) {
 		}
 		stateDiffSlot-- // we rolled back slot n to get to slot n-1
 
-		targetSlotCommitment, errLoad := l.storage.Commitments.Load(stateDiffSlot)
+		targetSlotCommitment, errLoad := l.engine.Storage.Commitments.Load(stateDiffSlot)
 		if errLoad != nil {
 			return errors.Wrapf(errLoad, "failed to load commitment for target slot %d", stateDiffSlot)
 		}
 
-		if err = l.storage.Settings.SetLatestCommitment(targetSlotCommitment); err != nil {
+		if err = l.engine.Storage.Settings.SetLatestCommitment(targetSlotCommitment); err != nil {
 			return errors.Wrap(err, "failed to set latest commitment")
 		}
 
-		if err = l.storage.Settings.SetLatestStateMutationSlot(stateDiffSlot); err != nil {
+		if err = l.engine.Storage.Settings.SetLatestStateMutationSlot(stateDiffSlot); err != nil {
 			return errors.Wrap(err, "failed to set latest state mutation slot")
 		}
 
-		if err = l.storage.Settings.SetLatestConfirmedSlot(stateDiffSlot); err != nil {
+		if err = l.engine.Storage.Settings.SetLatestConfirmedSlot(stateDiffSlot); err != nil {
 			return errors.Wrap(err, "failed to set latest confirmed slot")
 		}
 	}
@@ -183,7 +179,7 @@ func (l *LedgerState) onTransactionAccepted(transactionEvent *ledger.Transaction
 
 // onTransactionInclusionUpdated is triggered when a transaction inclusion state is updated.
 func (l *LedgerState) onTransactionInclusionUpdated(inclusionUpdatedEvent *ledger.TransactionInclusionUpdatedEvent) {
-	if l.memPool.ConflictDAG().ConfirmationState(inclusionUpdatedEvent.TransactionMetadata.ConflictIDs()).IsAccepted() {
+	if l.engine.Ledger.ConflictDAG().ConfirmationState(inclusionUpdatedEvent.TransactionMetadata.ConflictIDs()).IsAccepted() {
 		l.stateDiffs.moveTransactionToOtherSlot(inclusionUpdatedEvent.TransactionMetadata, inclusionUpdatedEvent.PreviousInclusionSlot, inclusionUpdatedEvent.InclusionSlot)
 	}
 }

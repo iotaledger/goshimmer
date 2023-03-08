@@ -11,13 +11,14 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/core/stream"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/hive.go/ads"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/ds/types"
-	"github.com/iotaledger/hive.go/kvstore"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 type UnspentOutputs struct {
@@ -39,13 +40,16 @@ const (
 	PrefixUnspentOutputsIDs
 )
 
-func NewUnspentOutputs(store func(optRealm ...byte) kvstore.KVStore, memPool ledger.Ledger) (unspentOutputs *UnspentOutputs) {
-	return &UnspentOutputs{
-		BatchCommittable: traits.NewBatchCommittable(store(), PrefixUnspentOutputsLatestCommittedIndex),
-		ids:              ads.NewSet[utxo.OutputID](store(PrefixUnspentOutputsIDs)),
-		memPool:          memPool,
-		consumers:        make(map[ledgerstate.UnspentOutputsSubscriber]types.Empty),
-	}
+func NewUnspentOutputs(e *engine.Engine) (unspentOutputs *UnspentOutputs) {
+	return options.Apply(&UnspentOutputs{
+		consumers: make(map[ledgerstate.UnspentOutputsSubscriber]types.Empty),
+	}, nil, func(u *UnspentOutputs) {
+		e.HookConstructed(func() {
+			u.BatchCommittable = traits.NewBatchCommittable(e.Storage.UnspentOutputIDs(), PrefixUnspentOutputsLatestCommittedIndex)
+			u.ids = ads.NewSet[utxo.OutputID](e.Storage.UnspentOutputIDs(PrefixUnspentOutputsIDs))
+			u.memPool = e.Ledger
+		})
+	})
 }
 
 func (u *UnspentOutputs) Subscribe(consumer ledgerstate.UnspentOutputsSubscriber) {
