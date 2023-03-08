@@ -38,7 +38,7 @@ func TestEngineManager_ForkEngineAtSlot(t *testing.T) {
 
 	etf := NewEngineManagerTestFramework(t, workers.CreateGroup("EngineManagerTestFramework"), identitiesWeights)
 
-	tf := engine.NewTestFramework(t, workers.CreateGroup("TestFramework"), etf.ActiveEngine.Engine)
+	tf := engine.NewTestFramework(t, workers.CreateGroup("TestFramework"), etf.ActiveEngine)
 	tf.AssertSlotState(0)
 
 	acceptedBlocks := make(map[string]bool)
@@ -104,7 +104,7 @@ func TestEngineManager_ForkEngineAtSlot(t *testing.T) {
 	require.NoError(t, err)
 
 	{
-		tf2 := engine.NewTestFramework(t, workers.CreateGroup("EngineTestFramework2"), forkedEngine.Engine)
+		tf2 := engine.NewTestFramework(t, workers.CreateGroup("EngineTestFramework2"), forkedEngine)
 
 		// Settings
 		// The ChainID of the new engine corresponds to the target slot of the imported snapshot.

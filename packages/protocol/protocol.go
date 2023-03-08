@@ -51,8 +51,8 @@ type Protocol struct {
 	networkProtocol *network.Protocol
 
 	activeEngineMutex sync.RWMutex
-	mainEngine        *enginemanager.EngineInstance
-	candidateEngine   *enginemanager.EngineInstance
+	mainEngine        *engine.Engine
+	candidateEngine   *engine.Engine
 
 	optsBaseDirectory    string
 	optsSnapshotPath     string
@@ -90,9 +90,9 @@ func New(workers *workerpool.Group, dispatcher network.Endpoint, opts ...options
 
 // Run runs the protocol.
 func (p *Protocol) Run() {
-	p.Events.Engine.LinkTo(p.mainEngine.Engine.Events)
+	p.Events.Engine.LinkTo(p.mainEngine.Events)
 
-	if err := p.mainEngine.InitializeWithSnapshot(p.optsSnapshotPath); err != nil {
+	if err := p.mainEngine.Initialize(p.optsSnapshotPath); err != nil {
 		panic(err)
 	}
 
@@ -148,7 +148,7 @@ func (p *Protocol) initCongestionControl() {
 func (p *Protocol) initNetworkEvents() {
 	wpBlocks := p.Workers.CreatePool("NetworkEvents.Blocks") // Use max amount of workers for sending, receiving and requesting blocks
 	p.Events.Network.BlockRequestReceived.Hook(func(event *network.BlockRequestReceivedEvent) {
-		if block, exists := p.MainEngineInstance().Engine.Block(event.BlockID); exists {
+		if block, exists := p.MainEngineInstance().Block(event.BlockID); exists {
 			p.networkProtocol.SendBlock(block, event.Source)
 		}
 	}, event.WithWorkerPool(wpBlocks))
@@ -271,7 +271,7 @@ func (p *Protocol) switchEngines() {
 	}
 
 	// Try to re-org the chain manager
-	if err := p.chainManager.SwitchMainChain(p.candidateEngine.Engine.Storage.Settings.LatestCommitment().ID()); err != nil {
+	if err := p.chainManager.SwitchMainChain(p.candidateEngine.Storage.Settings.LatestCommitment().ID()); err != nil {
 		p.activeEngineMutex.Unlock()
 		p.Events.Error.Trigger(errors.Wrap(err, "switching main chain failed"))
 		return
@@ -286,7 +286,7 @@ func (p *Protocol) switchEngines() {
 	// Stop current Scheduler
 	p.CongestionControl.Shutdown()
 
-	p.Events.Engine.LinkTo(p.candidateEngine.Engine.Events)
+	p.Events.Engine.LinkTo(p.candidateEngine.Events)
 	p.linkTo(p.candidateEngine)
 
 	// Save a reference to the current main engine and storage so that we can shut it down and prune it after switching
@@ -318,15 +318,15 @@ func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) error {
 
 	processed := false
 
-	if mainChain := mainEngine.Storage.Settings.ChainID(); chain.ForkingPoint.ID() == mainChain || mainEngine.Engine.BlockRequester.HasTicker(block.ID()) {
-		mainEngine.Engine.ProcessBlockFromPeer(block, src)
+	if mainChain := mainEngine.Storage.Settings.ChainID(); chain.ForkingPoint.ID() == mainChain || mainEngine.BlockRequester.HasTicker(block.ID()) {
+		mainEngine.ProcessBlockFromPeer(block, src)
 		processed = true
 	}
 
 	if candidateEngine := p.CandidateEngineInstance(); candidateEngine != nil {
-		if candidateChain := candidateEngine.Storage.Settings.ChainID(); chain.ForkingPoint.ID() == candidateChain || candidateEngine.Engine.BlockRequester.HasTicker(block.ID()) {
-			candidateEngine.Engine.ProcessBlockFromPeer(block, src)
-			if candidateEngine.Engine.IsBootstrapped() &&
+		if candidateChain := candidateEngine.Storage.Settings.ChainID(); chain.ForkingPoint.ID() == candidateChain || candidateEngine.BlockRequester.HasTicker(block.ID()) {
+			candidateEngine.ProcessBlockFromPeer(block, src)
+			if candidateEngine.IsBootstrapped() &&
 				candidateEngine.Storage.Settings.LatestCommitment().Index() >= mainEngine.Storage.Settings.LatestCommitment().Index() &&
 				candidateEngine.Storage.Settings.LatestCommitment().CumulativeWeight() > mainEngine.Storage.Settings.LatestCommitment().CumulativeWeight() {
 				p.switchEngines()
@@ -345,7 +345,7 @@ func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) error {
 func (p *Protocol) ProcessAttestationsRequest(forkingPoint *commitment.Commitment, endIndex slot.Index, src identity.ID) {
 	mainEngine := p.MainEngineInstance()
 
-	if mainEngine.Engine.NotarizationManager.Attestations.LastCommittedSlot() < endIndex {
+	if mainEngine.NotarizationManager.Attestations.LastCommittedSlot() < endIndex {
 		// Invalid request received from src
 		// TODO: ban peer?
 		return
@@ -354,7 +354,7 @@ func (p *Protocol) ProcessAttestationsRequest(forkingPoint *commitment.Commitmen
 	blockIDs := models.NewBlockIDs()
 	attestations := orderedmap.New[slot.Index, *advancedset.AdvancedSet[*notarization.Attestation]]()
 	for i := forkingPoint.Index(); i <= endIndex; i++ {
-		attestationsForSlot, err := mainEngine.Engine.NotarizationManager.Attestations.Get(i)
+		attestationsForSlot, err := mainEngine.NotarizationManager.Attestations.Get(i)
 		if err != nil {
 			p.Events.Error.Trigger(errors.Wrapf(err, "failed to get attestations for slot %d upon request", i))
 			return
@@ -371,7 +371,7 @@ func (p *Protocol) ProcessAttestationsRequest(forkingPoint *commitment.Commitmen
 
 		attestations.Set(i, attestationsSet)
 
-		if err := mainEngine.Engine.Storage.Blocks.ForEachBlockInSlot(i, func(blockID models.BlockID) bool {
+		if err := mainEngine.Storage.Blocks.ForEachBlockInSlot(i, func(blockID models.BlockID) bool {
 			blockIDs.Add(blockID)
 			return true
 		}); err != nil {
@@ -402,11 +402,11 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 	wb := sybilprotection.NewWeightsBatch(snapshotTargetIndex)
 
 	var calculatedCumulativeWeight int64
-	mainEngine.Engine.NotarizationManager.PerformLocked(func(m *notarization.Manager) {
+	mainEngine.NotarizationManager.PerformLocked(func(m *notarization.Manager) {
 		// Calculate the difference between the latest commitment ledger and the ledger at the snapshot target index
 		latestCommitment := mainEngine.Storage.Settings.LatestCommitment()
 		for i := latestCommitment.Index(); i >= snapshotTargetIndex; i-- {
-			if err := mainEngine.Engine.LedgerState.StateDiffs.StreamSpentOutputs(i, func(output *ledger.OutputWithMetadata) error {
+			if err := mainEngine.LedgerState.StateDiffs.StreamSpentOutputs(i, func(output *ledger.OutputWithMetadata) error {
 				if iotaBalance, balanceExists := output.IOTABalance(); balanceExists {
 					wb.Update(output.ConsensusManaPledgeID(), int64(iotaBalance))
 				}
@@ -416,7 +416,7 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 				return
 			}
 
-			if err := mainEngine.Engine.LedgerState.StateDiffs.StreamCreatedOutputs(i, func(output *ledger.OutputWithMetadata) error {
+			if err := mainEngine.LedgerState.StateDiffs.StreamCreatedOutputs(i, func(output *ledger.OutputWithMetadata) error {
 				if iotaBalance, balanceExists := output.IOTABalance(); balanceExists {
 					wb.Update(output.ConsensusManaPledgeID(), -int64(iotaBalance))
 				}
@@ -457,7 +457,7 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 					return
 				}
 
-				if weight, weightExists := mainEngine.Engine.SybilProtection.Weights().Get(issuerID); weightExists {
+				if weight, weightExists := mainEngine.SybilProtection.Weights().Get(issuerID); weightExists {
 					calculatedCumulativeWeight += weight.Value
 				}
 				calculatedCumulativeWeight += wb.Get(issuerID)
@@ -471,7 +471,7 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 	weightAtForkedEventEnd := lo.PanicOnErr(mainEngine.Storage.Commitments.Load(forkedEvent.Commitment.Index())).CumulativeWeight()
 	if calculatedCumulativeWeight <= weightAtForkedEventEnd {
 		forkedEventClaimedWeight := forkedEvent.Commitment.CumulativeWeight()
-		forkedEventMainWeight := lo.PanicOnErr(mainEngine.Engine.Storage.Commitments.Load(forkedEvent.Commitment.Index())).CumulativeWeight()
+		forkedEventMainWeight := lo.PanicOnErr(mainEngine.Storage.Commitments.Load(forkedEvent.Commitment.Index())).CumulativeWeight()
 		p.Events.Error.Trigger(errors.Errorf("fork at point %d does not accumulate enough weight at slot %d calculated %d CW <= main chain %d CW. fork event detected at %d was %d CW > %d CW",
 			forkedEvent.ForkingPoint.Index(),
 			forkedEvent.Commitment.Index(),
@@ -491,7 +491,7 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 	}
 
 	// Set the chain to the correct forking point
-	if err := candidateEngine.Engine.Storage.Settings.SetChainID(forkedEvent.ForkingPoint.ID()); err != nil {
+	if err := candidateEngine.Storage.Settings.SetChainID(forkedEvent.ForkingPoint.ID()); err != nil {
 		p.Events.Error.Trigger(errors.Wrap(err, "error setting the ChainID on the forked engine"))
 		candidateEngine.Shutdown()
 		if err := candidateEngine.RemoveFromFilesystem(); err != nil {
@@ -501,23 +501,23 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 	}
 
 	// Attach the engine block requests to the protocol and detach as soon as we switch to that engine
-	wp := candidateEngine.Engine.Workers.CreatePool("CandidateBlockRequester", 2)
-	detachRequestBlocks := candidateEngine.Engine.Events.BlockRequester.Tick.Hook(func(blockID models.BlockID) {
+	wp := candidateEngine.Workers.CreatePool("CandidateBlockRequester", 2)
+	detachRequestBlocks := candidateEngine.Events.BlockRequester.Tick.Hook(func(blockID models.BlockID) {
 		p.networkProtocol.RequestBlock(blockID)
 	}, event.WithWorkerPool(wp)).Unhook
 
 	// Attach slot commitments to the chain manager and detach as soon as we switch to that engine
-	detachProcessCommitment := candidateEngine.Engine.Events.NotarizationManager.SlotCommitted.Hook(func(details *notarization.SlotCommittedDetails) {
+	detachProcessCommitment := candidateEngine.Events.NotarizationManager.SlotCommitted.Hook(func(details *notarization.SlotCommittedDetails) {
 		p.chainManager.ProcessCandidateCommitment(details.Commitment)
-	}, event.WithWorkerPool(candidateEngine.Engine.Workers.CreatePool("ProcessCandidateCommitment", 2))).Unhook
+	}, event.WithWorkerPool(candidateEngine.Workers.CreatePool("ProcessCandidateCommitment", 2))).Unhook
 
-	p.Events.MainEngineSwitched.Hook(func(_ *enginemanager.EngineInstance) {
+	p.Events.MainEngineSwitched.Hook(func(_ *engine.Engine) {
 		detachRequestBlocks()
 		detachProcessCommitment()
 	}, event.WithMaxTriggerCount(1))
 
 	// Add all the blocks from the forking point to the requester since those will not be passed to the engine by the protocol
-	candidateEngine.Engine.BlockRequester.StartTickers(blockIDs.Slice())
+	candidateEngine.BlockRequester.StartTickers(blockIDs.Slice())
 
 	// Set the engine as the new candidate
 	p.activeEngineMutex.Lock()
@@ -537,17 +537,17 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 
 func (p *Protocol) Engine() *engine.Engine {
 	// This getter is for backwards compatibility, can be refactored out later on
-	return p.MainEngineInstance().Engine
+	return p.MainEngineInstance()
 }
 
-func (p *Protocol) MainEngineInstance() *enginemanager.EngineInstance {
+func (p *Protocol) MainEngineInstance() *engine.Engine {
 	p.activeEngineMutex.RLock()
 	defer p.activeEngineMutex.RUnlock()
 
 	return p.mainEngine
 }
 
-func (p *Protocol) CandidateEngineInstance() (instance *enginemanager.EngineInstance) {
+func (p *Protocol) CandidateEngineInstance() (instance *engine.Engine) {
 	p.activeEngineMutex.RLock()
 	defer p.activeEngineMutex.RUnlock()
 
@@ -558,9 +558,9 @@ func (p *Protocol) ChainManager() (instance *chainmanager.Manager) {
 	return p.chainManager
 }
 
-func (p *Protocol) linkTo(engineInstance *enginemanager.EngineInstance) {
-	p.TipManager.LinkTo(engineInstance.Engine)
-	p.CongestionControl.LinkTo(engineInstance.Engine)
+func (p *Protocol) linkTo(engineInstance *engine.Engine) {
+	p.TipManager.LinkTo(engineInstance)
+	p.CongestionControl.LinkTo(engineInstance)
 }
 
 func (p *Protocol) Network() *network.Protocol {

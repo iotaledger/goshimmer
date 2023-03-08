@@ -26,7 +26,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
-	"github.com/iotaledger/goshimmer/packages/protocol/enginemanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
@@ -1052,7 +1051,7 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 		wp := workers.CreatePool("Activity", 2)
 		for _, node := range []*mockednetwork.Node{node3, node4} {
 			nodeCount.Add(1)
-			node.Protocol.Events.MainEngineSwitched.Hook(func(_ *enginemanager.EngineInstance) {
+			node.Protocol.Events.MainEngineSwitched.Hook(func(_ *engine.Engine) {
 				nodeCount.Add(-1)
 			}, event.WithWorkerPool(wp))
 		}
