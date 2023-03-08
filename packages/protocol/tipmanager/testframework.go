@@ -17,7 +17,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/realitiesledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/ondiskledgerstate"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxoledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
@@ -80,7 +80,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...option
 
 		storageInstance := blockdag.NewTestStorage(test, workers)
 
-		t.Engine = engine.New(workers.CreateGroup("Engine"), storageInstance, blocktime.NewProvider(), ledgerProvider, ondiskledgerstate.NewProvider(), dpos.NewProvider(), mana1.NewProvider(), t.optsEngineOptions...)
+		t.Engine = engine.New(workers.CreateGroup("Engine"), storageInstance, blocktime.NewProvider(), ledgerProvider, utxoledger.NewProvider(), dpos.NewProvider(), mana1.NewProvider(), t.optsEngineOptions...)
 		require.NoError(test, t.Engine.Initialize(tempDir.Path("genesis_snapshot.bin")))
 
 		test.Cleanup(func() {

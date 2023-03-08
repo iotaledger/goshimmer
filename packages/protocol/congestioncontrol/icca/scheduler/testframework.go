@@ -14,7 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/realitiesledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/ondiskledgerstate"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxoledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
@@ -79,7 +79,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, optsScheduler 
 		t.storage,
 		blocktime.NewProvider(),
 		ledgerProvider,
-		ondiskledgerstate.NewProvider(),
+		utxoledger.NewProvider(),
 		dpos.NewProvider(),
 		mana1.NewProvider(),
 	)

@@ -12,7 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/blocktime"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/realitiesledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/ondiskledgerstate"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxoledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
@@ -58,7 +58,7 @@ func NewEngineManagerTestFramework(t *testing.T, workers *workerpool.Group, iden
 		[]options.Option[engine.Engine]{},
 		blocktime.NewProvider(),
 		ledgerProvider,
-		ondiskledgerstate.NewProvider(),
+		utxoledger.NewProvider(),
 		dpos.NewProvider(),
 		mana1.NewProvider(),
 	)

@@ -1,4 +1,4 @@
-package ondiskledgerstate
+package utxoledger
 
 import (
 	"context"

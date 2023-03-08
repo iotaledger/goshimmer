@@ -13,7 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/blocktime"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/ondiskledgerstate"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxoledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/mockedvm"
@@ -64,7 +64,7 @@ func CreateSnapshot(opts ...options.Option[Options]) error {
 		s,
 		blocktime.NewProvider(),
 		opt.LedgerProvider,
-		ondiskledgerstate.NewProvider(),
+		utxoledger.NewProvider(),
 		dpos.NewProvider(),
 		mana1.NewProvider(),
 	)

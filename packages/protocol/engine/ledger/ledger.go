@@ -4,11 +4,14 @@ import (
 	"io"
 
 	"github.com/iotaledger/goshimmer/packages/core/module"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
 	"github.com/iotaledger/hive.go/core/slot"
 )
 
 // Ledger is an engine module that provides access to the persistent ledger state.
 type Ledger interface {
+	MemPool() mempool.MemPool
+
 	// UnspentOutputs returns the unspent outputs of the ledger state.
 	UnspentOutputs() UnspentOutputs
 

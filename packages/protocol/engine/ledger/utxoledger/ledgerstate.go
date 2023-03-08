@@ -1,4 +1,4 @@
-package ondiskledgerstate
+package utxoledger
 
 import (
 	"io"
@@ -10,14 +10,16 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/realitiesledger"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/options"
 )
 
-// LedgerState represents the state of the ledger.
-type LedgerState struct {
+// UTXOLedger represents a ledger using the realities based mempool.
+type UTXOLedger struct {
 	engine         *engine.Engine
+	mempool        *realitiesledger.RealitiesLedger
 	unspentOutputs *UnspentOutputs
 	stateDiffs     *StateDiffs
 	mutex          sync.RWMutex
@@ -25,13 +27,13 @@ type LedgerState struct {
 	module.Module
 }
 
-func NewProvider(opts ...options.Option[LedgerState]) module.Provider[*engine.Engine, ledger.Ledger] {
+func NewProvider(opts ...options.Option[UTXOLedger]) module.Provider[*engine.Engine, ledger.Ledger] {
 	return module.Provide(func(e *engine.Engine) ledger.Ledger {
-		return options.Apply(&LedgerState{
+		return options.Apply(&UTXOLedger{
 			engine:         e,
 			stateDiffs:     NewStateDiffs(e),
 			unspentOutputs: NewUnspentOutputs(e),
-		}, opts, func(l *LedgerState) {
+		}, opts, func(l *UTXOLedger) {
 			e.HookConstructed(func() {
 				l.HookInitialized(l.unspentOutputs.TriggerInitialized)
 
@@ -42,20 +44,24 @@ func NewProvider(opts ...options.Option[LedgerState]) module.Provider[*engine.En
 			})
 
 			e.HookStopped(l.TriggerStopped)
-		}, (*LedgerState).TriggerConstructed)
+		}, (*UTXOLedger).TriggerConstructed)
 	})
 }
 
-func (l *LedgerState) UnspentOutputs() ledger.UnspentOutputs {
+func (l *UTXOLedger) MemPool() mempool.MemPool {
+	return l.mempool
+}
+
+func (l *UTXOLedger) UnspentOutputs() ledger.UnspentOutputs {
 	return l.unspentOutputs
 }
 
-func (l *LedgerState) StateDiffs() ledger.StateDiffs {
+func (l *UTXOLedger) StateDiffs() ledger.StateDiffs {
 	return l.stateDiffs
 }
 
 // ApplyStateDiff applies the state diff of the given slot to the ledger state.
-func (l *LedgerState) ApplyStateDiff(index slot.Index) (err error) {
+func (l *UTXOLedger) ApplyStateDiff(index slot.Index) (err error) {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
@@ -80,7 +86,7 @@ func (l *LedgerState) ApplyStateDiff(index slot.Index) (err error) {
 }
 
 // Import imports the ledger state from the given reader.
-func (l *LedgerState) Import(reader io.ReadSeeker) (err error) {
+func (l *UTXOLedger) Import(reader io.ReadSeeker) (err error) {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
@@ -131,7 +137,7 @@ func (l *LedgerState) Import(reader io.ReadSeeker) (err error) {
 }
 
 // Export exports the ledger state to the given writer.
-func (l *LedgerState) Export(writer io.WriteSeeker, targetSlot slot.Index) (err error) {
+func (l *UTXOLedger) Export(writer io.WriteSeeker, targetSlot slot.Index) (err error) {
 	l.mutex.RLock()
 	defer l.mutex.RUnlock()
 
@@ -147,7 +153,7 @@ func (l *LedgerState) Export(writer io.WriteSeeker, targetSlot slot.Index) (err 
 }
 
 // rollbackStateDiff rolls back the named stateDiff index to get to the previous slot.
-func (l *LedgerState) rollbackStateDiff(index slot.Index) (err error) {
+func (l *UTXOLedger) rollbackStateDiff(index slot.Index) (err error) {
 	targetSlot := index - 1
 	lastCommittedSlot, err := l.unspentOutputs.Begin(targetSlot)
 	if err != nil {
@@ -170,7 +176,7 @@ func (l *LedgerState) rollbackStateDiff(index slot.Index) (err error) {
 }
 
 // onTransactionAccepted is triggered when a transaction is accepted by the mempool.
-func (l *LedgerState) onTransactionAccepted(transactionEvent *mempool.TransactionEvent) {
+func (l *UTXOLedger) onTransactionAccepted(transactionEvent *mempool.TransactionEvent) {
 	if err := l.stateDiffs.addAcceptedTransaction(transactionEvent.Metadata); err != nil {
 		// TODO: handle error gracefully
 		panic(err)
@@ -178,10 +184,10 @@ func (l *LedgerState) onTransactionAccepted(transactionEvent *mempool.Transactio
 }
 
 // onTransactionInclusionUpdated is triggered when a transaction inclusion state is updated.
-func (l *LedgerState) onTransactionInclusionUpdated(inclusionUpdatedEvent *mempool.TransactionInclusionUpdatedEvent) {
+func (l *UTXOLedger) onTransactionInclusionUpdated(inclusionUpdatedEvent *mempool.TransactionInclusionUpdatedEvent) {
 	if l.engine.Ledger.ConflictDAG().ConfirmationState(inclusionUpdatedEvent.TransactionMetadata.ConflictIDs()).IsAccepted() {
 		l.stateDiffs.moveTransactionToOtherSlot(inclusionUpdatedEvent.TransactionMetadata, inclusionUpdatedEvent.PreviousInclusionSlot, inclusionUpdatedEvent.InclusionSlot)
 	}
 }
 
-var _ ledger.Ledger = new(LedgerState)
+var _ ledger.Ledger = new(UTXOLedger)

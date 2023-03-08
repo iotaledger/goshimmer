@@ -19,7 +19,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/realitiesledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/ondiskledgerstate"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxoledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
@@ -81,7 +81,7 @@ func New(workers *workerpool.Group, dispatcher network.Endpoint, opts ...options
 		dispatcher:                  dispatcher,
 		optsClockProvider:           blocktime.NewProvider(),
 		optsLedgerProvider:          realitiesledger.NewProvider(),
-		optsLedgerStateProvider:     ondiskledgerstate.NewProvider(),
+		optsLedgerStateProvider:     utxoledger.NewProvider(),
 		optsSybilProtectionProvider: dpos.NewProvider(),
 		optsThroughputQuotaProvider: mana1.NewProvider(),
 
