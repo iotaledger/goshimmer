@@ -20,14 +20,14 @@ type Indexer struct {
 	addressOutputMappingStorage *generic.ObjectStorage[*AddressOutputMapping]
 
 	// ledgerFunc contains the indexed Ledger.
-	ledgerFunc func() *ledger.Ledger
+	ledgerFunc func() ledger.Ledger
 
 	// options is a dictionary for configuration parameters of the Indexer.
 	options *options
 }
 
 // New returns a new Indexer instance with the given options.
-func New(ledgerFunc func() *ledger.Ledger, options ...Option) (i *Indexer) {
+func New(ledgerFunc func() ledger.Ledger, options ...Option) (i *Indexer) {
 	i = &Indexer{
 		ledgerFunc: ledgerFunc,
 		options:    newOptions(options...),
@@ -91,14 +91,14 @@ func (i *Indexer) Shutdown() {
 
 // OnOutputCreated adds Transaction outputs to the indexer upon booking.
 func (i *Indexer) OnOutputCreated(outputID utxo.OutputID) {
-	i.ledgerFunc().Storage.CachedOutput(outputID).Consume(func(o utxo.Output) {
+	i.ledgerFunc().Storage().CachedOutput(outputID).Consume(func(o utxo.Output) {
 		i.IndexOutput(o.(devnetvm.Output))
 	})
 }
 
 // OnOutputSpentRejected removes Transaction inputs from the indexer upon transaction acceptance.
 func (i *Indexer) OnOutputSpentRejected(outputID utxo.OutputID) {
-	i.ledgerFunc().Storage.CachedOutput(outputID).Consume(func(o utxo.Output) {
+	i.ledgerFunc().Storage().CachedOutput(outputID).Consume(func(o utxo.Output) {
 		i.updateOutput(o.(devnetvm.Output), i.RemoveAddressOutputMapping)
 	})
 }

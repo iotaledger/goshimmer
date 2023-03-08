@@ -27,8 +27,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/realitiesledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/mockedvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/mockednetwork"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
@@ -48,8 +50,6 @@ func TestProtocol(t *testing.T) {
 	debug.SetEnabled(true)
 	defer debug.SetEnabled(false)
 
-	ledgerVM := new(devnetvm.VM)
-
 	workers := workerpool.NewGroup(t.Name())
 
 	testNetwork := network.NewMockedNetwork()
@@ -61,17 +61,19 @@ func TestProtocol(t *testing.T) {
 	}
 	tempDir := utils.NewDirectory(t.TempDir())
 
+	ledgerProvider := realitiesledger.NewProvider(realitiesledger.WithVM(new(devnetvm.VM)))
+
 	err := snapshotcreator.CreateSnapshot(
 		snapshotcreator.WithDatabaseVersion(protocol.DatabaseVersion),
 		snapshotcreator.WithFilePath(tempDir.Path("snapshot.bin")),
 		snapshotcreator.WithGenesisTokenAmount(100),
 		snapshotcreator.WithGenesisSeed(make([]byte, 32)),
 		snapshotcreator.WithPledgeIDs(identitiesWeights),
-		snapshotcreator.WithVM(ledgerVM),
+		snapshotcreator.WithLedgerProvider(ledgerProvider),
 	)
 	require.NoError(t, err)
 
-	protocol1 := protocol.New(workers.CreateGroup("Protocol1"), endpoint1, protocol.WithBaseDirectory(tempDir.Path()), protocol.WithSnapshotPath(tempDir.Path("snapshot.bin")), protocol.WithEngineOptions(engine.WithLedgerOptions(ledger.WithVM(ledgerVM))))
+	protocol1 := protocol.New(workers.CreateGroup("Protocol1"), endpoint1, protocol.WithBaseDirectory(tempDir.Path()), protocol.WithSnapshotPath(tempDir.Path("snapshot.bin")), protocol.WithLedgerProvider(ledgerProvider))
 	protocol1.Run()
 	t.Cleanup(protocol1.Shutdown)
 
@@ -105,11 +107,11 @@ func TestProtocol(t *testing.T) {
 		snapshotcreator.WithGenesisTokenAmount(100),
 		snapshotcreator.WithGenesisSeed(make([]byte, 32)),
 		snapshotcreator.WithPledgeIDs(identitiesWeights),
-		snapshotcreator.WithVM(ledgerVM),
+		snapshotcreator.WithLedgerProvider(ledgerProvider),
 	)
 	require.NoError(t, err)
 
-	protocol2 := protocol.New(workers.CreateGroup("Protocol2"), endpoint2, protocol.WithBaseDirectory(tempDir2.Path()), protocol.WithSnapshotPath(tempDir2.Path("snapshot.bin")), protocol.WithEngineOptions(engine.WithLedgerOptions(ledger.WithVM(ledgerVM))))
+	protocol2 := protocol.New(workers.CreateGroup("Protocol2"), endpoint2, protocol.WithBaseDirectory(tempDir2.Path()), protocol.WithSnapshotPath(tempDir2.Path("snapshot.bin")), protocol.WithLedgerProvider(ledgerProvider))
 	protocol2.Run()
 	t.Cleanup(protocol2.Shutdown)
 
@@ -138,8 +140,6 @@ func TestEngine_NonEmptyInitialValidators(t *testing.T) {
 	debug.SetEnabled(true)
 	defer debug.SetEnabled(false)
 
-	ledgerVM := new(devnetvm.VM)
-
 	identitiesMap := map[string]ed25519.PublicKey{
 		"A": identity.GenerateIdentity().PublicKey(),
 		"B": identity.GenerateIdentity().PublicKey(),
@@ -154,6 +154,8 @@ func TestEngine_NonEmptyInitialValidators(t *testing.T) {
 		identity.New(identitiesMap["D"]).PublicKey(): 10,
 	}
 
+	ledgerProvider := realitiesledger.NewProvider(realitiesledger.WithVM(new(devnetvm.VM)))
+
 	tempDir := utils.NewDirectory(t.TempDir())
 	err := snapshotcreator.CreateSnapshot(
 		snapshotcreator.WithDatabaseVersion(protocol.DatabaseVersion),
@@ -161,13 +163,13 @@ func TestEngine_NonEmptyInitialValidators(t *testing.T) {
 		snapshotcreator.WithGenesisTokenAmount(1),
 		snapshotcreator.WithGenesisSeed(make([]byte, 32)),
 		snapshotcreator.WithPledgeIDs(identitiesWeights),
-		snapshotcreator.WithVM(ledgerVM),
+		snapshotcreator.WithLedgerProvider(ledgerProvider),
 		snapshotcreator.WithAttestAll(true),
 	)
 	require.NoError(t, err)
 
 	workers := workerpool.NewGroup(t.Name())
-	tf := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework"), blocktime.NewProvider(), dpos.NewProvider(), mana1.NewProvider(), engine.WithLedgerOptions(ledger.WithVM(ledgerVM)))
+	tf := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework"), blocktime.NewProvider(), ledgerProvider, dpos.NewProvider(), mana1.NewProvider(), engine.WithLedgerOptions(ledger.WithVM(ledgerVM)))
 	require.NoError(t, tf.Instance.Initialize(tempDir.Path("genesis_snapshot.bin")))
 
 	tf.BlockDAG.CreateBlock("1.A", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithIssuer(identitiesMap["A"]))
@@ -203,8 +205,6 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 	debug.SetEnabled(true)
 	defer debug.SetEnabled(false)
 
-	ledgerVM := new(devnetvm.VM)
-
 	identitiesMap := map[string]ed25519.PublicKey{
 		"A": identity.GenerateIdentity().PublicKey(),
 		"B": identity.GenerateIdentity().PublicKey(),
@@ -223,20 +223,22 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 
 	slotDuration := int64(10)
 
+	ledgerProvider := realitiesledger.NewProvider(realitiesledger.WithVM(new(devnetvm.VM)))
+
 	err := snapshotcreator.CreateSnapshot(
 		snapshotcreator.WithDatabaseVersion(protocol.DatabaseVersion),
 		snapshotcreator.WithFilePath(tempDir.Path("genesis_snapshot.bin")),
 		snapshotcreator.WithGenesisTokenAmount(1),
 		snapshotcreator.WithGenesisSeed(make([]byte, 32)),
 		snapshotcreator.WithPledgeIDs(identitiesWeights),
-		snapshotcreator.WithVM(ledgerVM),
+		snapshotcreator.WithLedgerProvider(ledgerProvider),
 		snapshotcreator.WithGenesisUnixTime(time.Now().Unix()-slotDuration*10),
 		snapshotcreator.WithSlotDuration(slotDuration),
 	)
 	require.NoError(t, err)
 
 	workers := workerpool.NewGroup(t.Name())
-	tf := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework"), blocktime.NewProvider(), dpos.NewProvider(), mana1.NewProvider(), engine.WithLedgerOptions(ledger.WithVM(ledgerVM)))
+	tf := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework"), blocktime.NewProvider(), ledgerProvider, dpos.NewProvider(), mana1.NewProvider(), engine.WithLedgerOptions(ledger.WithVM(ledgerVM)))
 	require.NoError(t, tf.Instance.Initialize(tempDir.Path("genesis_snapshot.bin")))
 
 	acceptedBlocks := make(map[string]bool)
@@ -302,7 +304,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 	{
 		require.NoError(t, tf.Instance.WriteSnapshot(tempDir.Path("snapshot_slot4.bin")))
 
-		tf2 := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework2"), blocktime.NewProvider(), dpos.NewProvider(), mana1.NewProvider(), engine.WithLedgerOptions(ledger.WithVM(ledgerVM)))
+		tf2 := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework2"), blocktime.NewProvider(), ledgerProvider, dpos.NewProvider(), mana1.NewProvider(), engine.WithLedgerOptions(ledger.WithVM(ledgerVM)))
 
 		require.NoError(t, tf2.Instance.Initialize(tempDir.Path("snapshot_slot4.bin")))
 
@@ -376,7 +378,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 	{
 		require.NoError(t, tf.Instance.WriteSnapshot(tempDir.Path("snapshot_slot1.bin"), 1))
 
-		tf3 := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework3"), blocktime.NewProvider(), dpos.NewProvider(), mana1.NewProvider(), engine.WithLedgerOptions(ledger.WithVM(ledgerVM)))
+		tf3 := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework3"), blocktime.NewProvider(), ledgerProvider, dpos.NewProvider(), mana1.NewProvider(), engine.WithLedgerOptions(ledger.WithVM(ledgerVM)))
 
 		require.NoError(t, tf3.Instance.Initialize(tempDir.Path("snapshot_slot1.bin")))
 
@@ -437,7 +439,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 	{
 		require.NoError(t, tf.Instance.WriteSnapshot(tempDir.Path("snapshot_slot2.bin"), 2))
 
-		tf4 := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework4"), blocktime.NewProvider(), dpos.NewProvider(), mana1.NewProvider(), engine.WithLedgerOptions(ledger.WithVM(ledgerVM)))
+		tf4 := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework4"), blocktime.NewProvider(), ledgerProvider, dpos.NewProvider(), mana1.NewProvider(), engine.WithLedgerOptions(ledger.WithVM(ledgerVM)))
 
 		require.NoError(t, tf4.Instance.Initialize(tempDir.Path("snapshot_slot2.bin")))
 
@@ -477,10 +479,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 	debug.SetEnabled(true)
 	defer debug.SetEnabled(false)
 
-	ledgerVM := new(ledger.MockedVM)
-
 	engineOpts := []options.Option[engine.Engine]{
-		engine.WithLedgerOptions(ledger.WithVM(ledgerVM)),
 		engine.WithTangleOptions(
 			tangle.WithBookerOptions(
 				booker.WithMarkerManagerOptions(
@@ -509,13 +508,15 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 	tempDir := utils.NewDirectory(t.TempDir())
 	slotDuration := int64(10)
 
+	ledgerProvider := realitiesledger.NewProvider(realitiesledger.WithVM(new(mockedvm.MockedVM)))
+
 	err := snapshotcreator.CreateSnapshot(
 		snapshotcreator.WithDatabaseVersion(protocol.DatabaseVersion),
 		snapshotcreator.WithFilePath(tempDir.Path("genesis_snapshot.bin")),
 		snapshotcreator.WithGenesisTokenAmount(1),
 		snapshotcreator.WithGenesisSeed(make([]byte, 32)),
 		snapshotcreator.WithPledgeIDs(identitiesWeights),
-		snapshotcreator.WithVM(ledgerVM),
+		snapshotcreator.WithLedgerProvider(ledgerProvider),
 		snapshotcreator.WithAttestAll(true),
 		snapshotcreator.WithGenesisUnixTime(time.Now().Unix()-slotDuration*15),
 		snapshotcreator.WithSlotDuration(slotDuration),
@@ -531,7 +532,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		engine1Storage.Shutdown()
 	})
 
-	engine1 := engine.NewTestEngine(t, workers.CreateGroup("Engine1"), engine1Storage, blocktime.NewProvider(), dpos.NewProvider(), mana1.NewProvider(), engineOpts...)
+	engine1 := engine.NewTestEngine(t, workers.CreateGroup("Engine1"), engine1Storage, blocktime.NewProvider(), ledgerProvider, dpos.NewProvider(), mana1.NewProvider(), engineOpts...)
 	tf := engine.NewTestFramework(t, workers.CreateGroup("EngineTestFramework1"), engine1)
 	require.NoError(t, tf.Instance.Initialize(tempDir.Path("genesis_snapshot.bin")))
 
@@ -614,7 +615,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 	{
 		require.NoError(t, tf.Instance.WriteSnapshot(tempDir.Path("snapshot_slot1.bin"), 1))
 
-		tf2 := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework2"), blocktime.NewProvider(), dpos.NewProvider(), mana1.NewProvider(), engineOpts...)
+		tf2 := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework2"), blocktime.NewProvider(), ledgerProvider, dpos.NewProvider(), mana1.NewProvider(), engineOpts...)
 		require.NoError(t, tf2.Instance.Initialize(tempDir.Path("snapshot_slot1.bin")))
 
 		require.Equal(t, slot.Index(1), tf2.Instance.Storage.Settings.LatestCommitment().Index())
@@ -650,7 +651,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 			engine3Storage.Shutdown()
 		})
 
-		engine3 := engine.NewTestEngine(t, workers.CreateGroup("Engine3"), engine3Storage, blocktime.NewProvider(), dpos.NewProvider(), mana1.NewProvider(), engineOpts...)
+		engine3 := engine.NewTestEngine(t, workers.CreateGroup("Engine3"), engine3Storage, blocktime.NewProvider(), ledgerProvider, dpos.NewProvider(), mana1.NewProvider(), engineOpts...)
 		tf3 := engine.NewTestFramework(t, workers.CreateGroup("EngineTestFramework3"), engine3)
 
 		require.NoError(t, tf3.Instance.Initialize())
@@ -674,8 +675,6 @@ func TestEngine_ShutdownResume(t *testing.T) {
 	debug.SetEnabled(true)
 	defer debug.SetEnabled(false)
 
-	ledgerVM := new(devnetvm.VM)
-
 	identitiesMap := map[string]ed25519.PublicKey{
 		"A": identity.GenerateIdentity().PublicKey(),
 		"B": identity.GenerateIdentity().PublicKey(),
@@ -695,13 +694,15 @@ func TestEngine_ShutdownResume(t *testing.T) {
 	tempDir := utils.NewDirectory(t.TempDir())
 	slotDuration := int64(10)
 
+	ledgerProvider := realitiesledger.NewProvider(realitiesledger.WithVM(new(devnetvm.VM)))
+
 	err := snapshotcreator.CreateSnapshot(
 		snapshotcreator.WithDatabaseVersion(protocol.DatabaseVersion),
 		snapshotcreator.WithFilePath(tempDir.Path("genesis_snapshot.bin")),
 		snapshotcreator.WithGenesisTokenAmount(1),
 		snapshotcreator.WithGenesisSeed(make([]byte, 32)),
 		snapshotcreator.WithPledgeIDs(identitiesWeights),
-		snapshotcreator.WithVM(ledgerVM),
+		snapshotcreator.WithLedgerProvider(ledgerProvider),
 		snapshotcreator.WithAttestAll(true),
 		snapshotcreator.WithGenesisUnixTime(time.Now().Unix()-slotDuration*15),
 		snapshotcreator.WithSlotDuration(slotDuration),
@@ -719,9 +720,9 @@ func TestEngine_ShutdownResume(t *testing.T) {
 
 	engine1 := engine.NewTestEngine(t, workers.CreateGroup("Engine"), engine1Storage,
 		blocktime.NewProvider(),
+		ledgerProvider,
 		dpos.NewProvider(),
 		mana1.NewProvider(),
-		engine.WithLedgerOptions(ledger.WithVM(ledgerVM)),
 		engine.WithTangleOptions(
 			tangle.WithBookerOptions(
 				booker.WithMarkerManagerOptions(
@@ -752,9 +753,9 @@ func TestEngine_ShutdownResume(t *testing.T) {
 
 	engine2 := engine.NewTestEngine(t, workers.CreateGroup("Engine2"), engine2Storage,
 		blocktime.NewProvider(),
+		ledgerProvider,
 		dpos.NewProvider(),
 		mana1.NewProvider(),
-		engine.WithLedgerOptions(ledger.WithVM(ledgerVM)),
 		engine.WithTangleOptions(
 			tangle.WithBookerOptions(
 				booker.WithMarkerManagerOptions(
@@ -773,13 +774,10 @@ func TestEngine_ShutdownResume(t *testing.T) {
 func TestProtocol_EngineSwitching(t *testing.T) {
 	testNetwork := network.NewMockedNetwork()
 
-	ledgerVM := new(devnetvm.VM)
-
 	engineOpts := []options.Option[engine.Engine]{
 		engine.WithNotarizationManagerOptions(
 			notarization.WithMinCommittableSlotAge(1),
 		),
-		engine.WithLedgerOptions(ledger.WithVM(ledgerVM)),
 		engine.WithTangleOptions(
 			tangle.WithBookerOptions(
 				booker.WithMarkerManagerOptions(
@@ -820,22 +818,24 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 	snapshot := snapshotsDir.Path("snapshot.bin")
 	slotDuration := int64(10)
 
+	ledgerProvider := realitiesledger.NewProvider(realitiesledger.WithVM(new(devnetvm.VM)))
+
 	err := snapshotcreator.CreateSnapshot(
 		snapshotcreator.WithDatabaseVersion(protocol.DatabaseVersion),
 		snapshotcreator.WithFilePath(snapshotsDir.Path("snapshot.bin")),
 		snapshotcreator.WithGenesisTokenAmount(0),
 		snapshotcreator.WithGenesisSeed(make([]byte, 32)),
 		snapshotcreator.WithPledgeIDs(allWeights),
-		snapshotcreator.WithVM(ledgerVM),
+		snapshotcreator.WithLedgerProvider(ledgerProvider),
 		snapshotcreator.WithGenesisUnixTime(time.Now().Unix()-slotDuration*10),
 		snapshotcreator.WithSlotDuration(slotDuration),
 	)
 	require.NoError(t, err)
 
-	node1 := mockednetwork.NewNode(t, identitiesMap["node1"], testNetwork, "P1", snapshot, engineOpts...)
-	node2 := mockednetwork.NewNode(t, identitiesMap["node2"], testNetwork, "P1", snapshot, engineOpts...)
-	node3 := mockednetwork.NewNode(t, identitiesMap["node3"], testNetwork, "P2", snapshot, engineOpts...)
-	node4 := mockednetwork.NewNode(t, identitiesMap["node4"], testNetwork, "P2", snapshot, engineOpts...)
+	node1 := mockednetwork.NewNode(t, identitiesMap["node1"], testNetwork, "P1", snapshot, ledgerProvider, engineOpts...)
+	node2 := mockednetwork.NewNode(t, identitiesMap["node2"], testNetwork, "P1", snapshot, ledgerProvider, engineOpts...)
+	node3 := mockednetwork.NewNode(t, identitiesMap["node3"], testNetwork, "P2", snapshot, ledgerProvider, engineOpts...)
+	node4 := mockednetwork.NewNode(t, identitiesMap["node4"], testNetwork, "P2", snapshot, ledgerProvider, engineOpts...)
 
 	node1.HookLogging(true)
 	node2.HookLogging(true)
@@ -1076,7 +1076,7 @@ func TestEngine_GuavaConflict(t *testing.T) {
 	// debug.SetEnabled(true)
 	// defer debug.SetEnabled(false)
 
-	ledgerVM := new(devnetvm.VM)
+	ledgerProvider := realitiesledger.NewProvider(realitiesledger.WithVM(new(mockedvm.MockedVM)))
 
 	identities := map[string]*identity.Identity{
 		"A": identity.GenerateIdentity(),
@@ -1101,12 +1101,16 @@ func TestEngine_GuavaConflict(t *testing.T) {
 		snapshotcreator.WithGenesisSeed(make([]byte, 32)),
 		snapshotcreator.WithPledgeIDs(identitiesWeights),
 		snapshotcreator.WithAttestAll(true),
-		snapshotcreator.WithVM(ledgerVM),
+		snapshotcreator.WithLedgerProvider(ledgerProvider),
 	)
 	require.NoError(t, err)
 
 	workers := workerpool.NewGroup(t.Name())
-	tf := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework"), blocktime.NewProvider(), dpos.NewProvider(), mana1.NewProvider(),
+	tf := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework"),
+		blocktime.NewProvider(), 
+		ledgerProvider,
+		dpos.NewProvider(),
+		mana1.NewProvider(),
 		engine.WithTangleOptions(
 			tangle.WithBookerOptions(
 				booker.WithMarkerManagerOptions(

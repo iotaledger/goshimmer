@@ -120,7 +120,7 @@ func onConflictCreated(c *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID
 		UpdatedTime: time.Now(),
 	}
 
-	deps.Protocol.Engine().Ledger.Storage.CachedTransaction(conflictID).Consume(func(transaction utxo.Transaction) {
+	deps.Protocol.Engine().Ledger.Storage().CachedTransaction(conflictID).Consume(func(transaction utxo.Transaction) {
 		if tx, ok := transaction.(*devnetvm.Transaction); ok {
 			b.IssuingTime = tx.Essence().Timestamp()
 		}
@@ -151,7 +151,7 @@ func onConflictCreated(c *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID
 		}
 
 		// update all existing conflicts with a possible new conflictSet membership
-		cs, exists := deps.Protocol.Engine().Ledger.ConflictDAG.ConflictSet(conflictSetID)
+		cs, exists := deps.Protocol.Engine().Ledger.ConflictDAG().ConflictSet(conflictSetID)
 		if !exists {
 			continue
 		}

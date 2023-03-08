@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/mockedvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
@@ -21,7 +21,7 @@ const tscThreshold = time.Minute
 
 func TestReferenceProvider_References1(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	tf := protocol.NewTestFramework(t, workers.CreateGroup("Protocol"), new(ledger.MockedVM))
+	tf := protocol.NewTestFramework(t, workers.CreateGroup("Protocol"), new(mockedvm.MockedVM))
 	tf.Instance.Run()
 
 	tf.Engine.VirtualVoting.CreateIdentity("V1", 10)
@@ -47,7 +47,7 @@ func TestReferenceProvider_References1(t *testing.T) {
 
 func TestBlockFactory_PrepareLikedReferences_2(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	tf := protocol.NewTestFramework(t, workers.CreateGroup("Protocol"), new(ledger.MockedVM), protocol.WithProtocolOptions(protocol.WithTipManagerOptions(tipmanager.WithTimeSinceConfirmationThreshold(tscThreshold))))
+	tf := protocol.NewTestFramework(t, workers.CreateGroup("Protocol"), new(mockedvm.MockedVM), protocol.WithProtocolOptions(protocol.WithTipManagerOptions(tipmanager.WithTimeSinceConfirmationThreshold(tscThreshold))))
 	tf.Instance.Run()
 
 	tf.Engine.VirtualVoting.CreateIdentity("V1", 10)
@@ -105,7 +105,7 @@ func TestBlockFactory_PrepareLikedReferences_2(t *testing.T) {
 // Tests if weak references are properly constructed from consumed outputs.
 func TestBlockFactory_WeakReferencesConsumed(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	tf := protocol.NewTestFramework(t, workers.CreateGroup("Protocol"), new(ledger.MockedVM), protocol.WithProtocolOptions(protocol.WithTipManagerOptions(tipmanager.WithTimeSinceConfirmationThreshold(tscThreshold))))
+	tf := protocol.NewTestFramework(t, workers.CreateGroup("Protocol"), new(mockedvm.MockedVM), protocol.WithProtocolOptions(protocol.WithTipManagerOptions(tipmanager.WithTimeSinceConfirmationThreshold(tscThreshold))))
 	tf.Instance.Run()
 
 	tf.Engine.BlockDAG.CreateBlock("Block1", models.WithPayload(tf.Engine.Ledger.CreateTransaction("TX1", 3, "Genesis")))

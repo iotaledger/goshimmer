@@ -1,4 +1,4 @@
-package ledger
+package realitiesledger_test
 
 import (
 	"fmt"
@@ -11,13 +11,15 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/realitiesledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 func TestLedger_BookInOrder(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	tf := NewDefaultTestFramework(t, workers.CreateGroup("LedgerTestFramework"))
+	tf := realitiesledger.NewDefaultTestFramework(t, workers.CreateGroup("LedgerTestFramework"))
 
 	tf.CreateTransaction("G", 3, "Genesis")
 	tf.CreateTransaction("TX1", 1, "G.0")
@@ -131,7 +133,7 @@ func TestLedger_BookInOrder(t *testing.T) {
 // See scenario at img/ledger_test_SetConflictConfirmed.png.
 func TestLedger_SetConflictConfirmed(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	tf := NewDefaultTestFramework(t, workers.CreateGroup("LedgerTestFramework"))
+	tf := realitiesledger.NewDefaultTestFramework(t, workers.CreateGroup("LedgerTestFramework"))
 
 	// Step 1: Bottom Layer
 	tf.CreateTransaction("G", 3, "Genesis")
@@ -155,7 +157,7 @@ func TestLedger_SetConflictConfirmed(t *testing.T) {
 	// Mark A as Confirmed
 	{
 		require.NoError(t, tf.IssueTransactions("G", "TXA", "TXB", "TXC", "TXD", "TXH", "TXI"))
-		require.True(t, tf.Instance.ConflictDAG.SetConflictAccepted(tf.Transaction("TXA").ID()))
+		require.True(t, tf.Instance.ConflictDAG().SetConflictAccepted(tf.Transaction("TXA").ID()))
 
 		tf.AssertConflictIDs(map[string][]string{
 			"G":   {},
@@ -176,12 +178,12 @@ func TestLedger_SetConflictConfirmed(t *testing.T) {
 			"TXI": {},
 		})
 
-		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXA")))
-		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXB")))
-		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXC")))
-		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXD")))
-		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXH")))
-		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXI")))
+		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXA")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXB")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXC")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXD")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXH")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXI")))
 	}
 
 	// When creating the middle layer the new transaction E should be booked only under its Pending parent C
@@ -208,12 +210,12 @@ func TestLedger_SetConflictConfirmed(t *testing.T) {
 			"TXI": {},
 		})
 
-		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXA")))
-		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXB")))
-		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXC")))
-		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXD")))
-		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXH")))
-		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXI")))
+		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXA")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXB")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXC")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXD")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXH")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXI")))
 	}
 
 	// When creating the first transaction (F) of top layer it should be booked under the Pending parent C
@@ -241,12 +243,12 @@ func TestLedger_SetConflictConfirmed(t *testing.T) {
 			"TXI": {},
 		})
 
-		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXA")))
-		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXB")))
-		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXC")))
-		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXD")))
-		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXH")))
-		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXI")))
+		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXA")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXB")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXC")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXD")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXH")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXI")))
 	}
 
 	// When creating the conflicting TX (G) of the top layer conflicts F & G are spawned by the fork of G
@@ -277,17 +279,17 @@ func TestLedger_SetConflictConfirmed(t *testing.T) {
 			"TXG": {"TXC"},
 		})
 
-		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXA")))
-		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXB")))
-		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXC")))
-		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXD")))
-		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXH")))
-		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXI")))
-		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXF")))
-		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXG")))
+		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXA")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXB")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXC")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXD")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXH")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXI")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXF")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXG")))
 	}
 
-	require.True(t, tf.Instance.ConflictDAG.SetConflictAccepted(tf.Transaction("TXD").ID()))
+	require.True(t, tf.Instance.ConflictDAG().SetConflictAccepted(tf.Transaction("TXD").ID()))
 
 	// TX L combines a child (G) of a Rejected conflict (C) and a pending conflict H, resulting in (G,H)
 	{
@@ -318,17 +320,17 @@ func TestLedger_SetConflictConfirmed(t *testing.T) {
 			"TXG": {"TXC"},
 		})
 
-		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXA")))
-		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXC")))
-		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXD")))
-		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXH")))
-		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXI")))
-		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXF")))
-		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXG")))
-		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXG", "TXH")))
+		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXA")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXC")))
+		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXD")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXH")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXI")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXF")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXG")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXG", "TXH")))
 	}
 
-	require.True(t, tf.Instance.ConflictDAG.SetConflictAccepted(tf.Transaction("TXH").ID()))
+	require.True(t, tf.Instance.ConflictDAG().SetConflictAccepted(tf.Transaction("TXH").ID()))
 
 	// The new TX M should be now booked under G, as conflict H confirmed, just G because we don't propagate H further.
 	{
@@ -360,21 +362,21 @@ func TestLedger_SetConflictConfirmed(t *testing.T) {
 			"TXG": {"TXC"},
 		})
 
-		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXA")))
-		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXB")))
-		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXC")))
-		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXD")))
-		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXH")))
-		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXI")))
-		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXF")))
-		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXG")))
-		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG.ConfirmationState(tf.ConflictIDs("TXG", "TXH")))
+		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXA")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXB")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXC")))
+		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXD")))
+		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXH")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXI")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXF")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXG")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXG", "TXH")))
 	}
 }
 
 func TestLedger_SolidifyAndForkMultiThreaded(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	tf := NewDefaultTestFramework(t, workers.CreateGroup("LedgerTestFramework"))
+	tf := realitiesledger.NewDefaultTestFramework(t, workers.CreateGroup("LedgerTestFramework"))
 
 	createdAliases := make([]string, 0)
 	bookedAliases := make(map[string]bool)
@@ -424,7 +426,7 @@ func TestLedger_SolidifyAndForkMultiThreaded(t *testing.T) {
 			go func(createdAlias string) {
 				defer wg.Done()
 				err := tf.IssueTransactions(createdAlias)
-				if err != nil && !errors.Is(err, ErrTransactionUnsolid) {
+				if err != nil && !errors.Is(err, ledger.ErrTransactionUnsolid) {
 					panic(err)
 				}
 			}(createdAlias)
@@ -513,7 +515,7 @@ func TestLedger_SolidifyAndForkMultiThreaded(t *testing.T) {
 
 func TestLedger_ForkAlreadyConflictingTransaction(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	tf := NewDefaultTestFramework(t, workers.CreateGroup("LedgerTestFramework"))
+	tf := realitiesledger.NewDefaultTestFramework(t, workers.CreateGroup("LedgerTestFramework"))
 
 	tf.CreateTransaction("G", 3, "Genesis")
 	tf.CreateTransaction("TX1", 1, "G.0", "G.1")
@@ -543,7 +545,7 @@ func TestLedger_ForkAlreadyConflictingTransaction(t *testing.T) {
 
 func TestLedger_TransactionCausallyRelated(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	tf := NewDefaultTestFramework(t, workers.CreateGroup("LedgerTestFramework"))
+	tf := realitiesledger.NewDefaultTestFramework(t, workers.CreateGroup("LedgerTestFramework"))
 
 	tf.CreateTransaction("G", 3, "Genesis")
 	tf.CreateTransaction("TX1", 1, "G.0")
@@ -568,7 +570,7 @@ func TestLedger_AcceptanceRaceCondition(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
 	defer workers.Shutdown()
 
-	tf := NewDefaultTestFramework(t, workers.CreateGroup("LedgerTestFramework"))
+	tf := realitiesledger.NewDefaultTestFramework(t, workers.CreateGroup("LedgerTestFramework"))
 
 	tf.CreateTransaction("TX1", 1, "Genesis")
 	tf.CreateTransaction("TX1*", 1, "Genesis")

@@ -23,10 +23,10 @@ const (
 
 type StateDiffs struct {
 	storage *storage.Storage
-	ledger  *ledger.Ledger
+	ledger  ledger.Ledger
 }
 
-func NewStateDiffs(storageInstance *storage.Storage, ledgerInstance *ledger.Ledger) (newLedgerStateDiffs *StateDiffs) {
+func NewStateDiffs(storageInstance *storage.Storage, ledgerInstance ledger.Ledger) (newLedgerStateDiffs *StateDiffs) {
 	return &StateDiffs{
 		storage: storageInstance,
 		ledger:  ledgerInstance,
@@ -250,7 +250,7 @@ func (s *StateDiffs) delete(store kvstore.KVStore, outputID utxo.OutputID) (err 
 }
 
 func (s *StateDiffs) addAcceptedTransaction(metadata *ledger.TransactionMetadata) (err error) {
-	if !s.ledger.Storage.CachedTransaction(metadata.ID()).Consume(func(transaction utxo.Transaction) {
+	if !s.ledger.Storage().CachedTransaction(metadata.ID()).Consume(func(transaction utxo.Transaction) {
 		err = s.storeTransaction(transaction, metadata)
 	}) {
 		err = errors.Errorf("failed to get transaction %s from cache", metadata.ID())
@@ -260,7 +260,7 @@ func (s *StateDiffs) addAcceptedTransaction(metadata *ledger.TransactionMetadata
 }
 
 func (s *StateDiffs) storeTransaction(transaction utxo.Transaction, metadata *ledger.TransactionMetadata) (err error) {
-	for it := s.ledger.Utils.ResolveInputs(transaction.Inputs()).Iterator(); it.HasNext(); {
+	for it := s.ledger.Utils().ResolveInputs(transaction.Inputs()).Iterator(); it.HasNext(); {
 		inputWithMetadata := s.outputWithMetadata(it.Next())
 		inputWithMetadata.SetSpentInSlot(metadata.InclusionSlot())
 		if err = s.StoreSpentOutput(inputWithMetadata); err != nil {
@@ -284,8 +284,8 @@ func (s *StateDiffs) storeTransaction(transaction utxo.Transaction, metadata *le
 }
 
 func (s *StateDiffs) outputWithMetadata(outputID utxo.OutputID) (outputWithMetadata *ledger.OutputWithMetadata) {
-	s.ledger.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
-		s.ledger.Storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledger.OutputMetadata) {
+	s.ledger.Storage().CachedOutput(outputID).Consume(func(output utxo.Output) {
+		s.ledger.Storage().CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledger.OutputMetadata) {
 			outputWithMetadata = ledger.NewOutputWithMetadata(outputMetadata.InclusionSlot(), outputID, output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())
 		})
 	})
@@ -295,21 +295,21 @@ func (s *StateDiffs) outputWithMetadata(outputID utxo.OutputID) (outputWithMetad
 
 func (s *StateDiffs) moveTransactionToOtherSlot(txMeta *ledger.TransactionMetadata, oldSlot, newSlot slot.Index) {
 	if oldSlot <= s.storage.Settings.LatestCommitment().Index() || newSlot <= s.storage.Settings.LatestCommitment().Index() {
-		s.ledger.Events.Error.Trigger(errors.Errorf("inclusion time of transaction changed for already committed slot: previous Index %d, new Index %d", oldSlot, newSlot))
+		s.ledger.Events().Error.Trigger(errors.Errorf("inclusion time of transaction changed for already committed slot: previous Index %d, new Index %d", oldSlot, newSlot))
 		return
 	}
 
-	s.ledger.Storage.CachedTransaction(txMeta.ID()).Consume(func(tx utxo.Transaction) {
-		if err := s.DeleteSpentOutputs(oldSlot, s.ledger.Utils.ResolveInputs(tx.Inputs())); err != nil {
-			s.ledger.Events.Error.Trigger(errors.Wrapf(err, "failed to delete spent outputs of transaction %s", txMeta.ID()))
+	s.ledger.Storage().CachedTransaction(txMeta.ID()).Consume(func(tx utxo.Transaction) {
+		if err := s.DeleteSpentOutputs(oldSlot, s.ledger.Utils().ResolveInputs(tx.Inputs())); err != nil {
+			s.ledger.Events().Error.Trigger(errors.Wrapf(err, "failed to delete spent outputs of transaction %s", txMeta.ID()))
 		}
 
 		if err := s.DeleteCreatedOutputs(oldSlot, txMeta.OutputIDs()); err != nil {
-			s.ledger.Events.Error.Trigger(errors.Wrapf(err, "failed to delete created outputs of transaction %s", txMeta.ID()))
+			s.ledger.Events().Error.Trigger(errors.Wrapf(err, "failed to delete created outputs of transaction %s", txMeta.ID()))
 		}
 
 		if err := s.storeTransaction(tx, txMeta); err != nil {
-			s.ledger.Events.Error.Trigger(errors.Wrapf(err, "failed to store transaction %s when moving from slot %d to %d", txMeta.ID(), oldSlot, newSlot))
+			s.ledger.Events().Error.Trigger(errors.Wrapf(err, "failed to store transaction %s when moving from slot %d to %d", txMeta.ID(), oldSlot, newSlot))
 		}
 	})
 }

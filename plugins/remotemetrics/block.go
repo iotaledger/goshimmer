@@ -72,7 +72,7 @@ func sendBlockSchedulerRecord(block *scheduler.Block, recordType string) {
 	// override block solidification data if block contains a transaction
 	if block.Payload().Type() == devnetvm.TransactionType {
 		transaction := block.Payload().(utxo.Transaction)
-		deps.Protocol.Engine().Ledger.Storage.CachedTransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
+		deps.Protocol.Engine().Ledger.Storage().CachedTransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
 			record.SolidTimestamp = transactionMetadata.BookingTime()
 			record.TransactionID = transaction.ID().Base58()
 			record.DeltaSolid = transactionMetadata.BookingTime().Sub(record.IssuedTimestamp).Nanoseconds()
@@ -132,7 +132,7 @@ func onBlockFinalized(block *models.Block) {
 
 	if block.Payload().Type() == devnetvm.TransactionType {
 		transaction := block.Payload().(utxo.Transaction)
-		deps.Protocol.Engine().Ledger.Storage.CachedTransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
+		deps.Protocol.Engine().Ledger.Storage().CachedTransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
 			record.SolidTimestamp = transactionMetadata.BookingTime()
 			record.TransactionID = transaction.ID().Base58()
 			record.DeltaSolid = transactionMetadata.BookingTime().Sub(record.IssuedTimestamp).Nanoseconds()

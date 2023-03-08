@@ -1,24 +1,25 @@
-package ledger
+package realitiesledger
 
 import (
 	"context"
 
 	"github.com/pkg/errors"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/hive.go/core/dataflow"
 )
 
 // region dataFlow /////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// dataFlow is a Ledger component that defines the data flow (how the different commands are chained together).
+// dataFlow is a RealitiesLedger component that defines the data flow (how the different commands are chained together).
 type dataFlow struct {
-	// ledger contains a reference to the Ledger that created the Utils.
-	ledger *Ledger
+	// ledger contains a reference to the RealitiesLedger that created the Utils.
+	ledger *RealitiesLedger
 }
 
-// newDataFlow returns a new dataFlow instance for the given Ledger.
-func newDataFlow(ledger *Ledger) *dataFlow {
+// newDataFlow returns a new dataFlow instance for the given RealitiesLedger.
+func newDataFlow(ledger *RealitiesLedger) *dataFlow {
 	return &dataFlow{
 		ledger,
 	}
@@ -27,7 +28,7 @@ func newDataFlow(ledger *Ledger) *dataFlow {
 // storeAndProcessTransaction returns a DataFlow that stores and processes a Transaction.
 func (d *dataFlow) storeAndProcessTransaction() (dataFlow *dataflow.DataFlow[*dataFlowParams]) {
 	return dataflow.New(
-		d.ledger.Storage.storeTransactionCommand,
+		d.ledger.storage.storeTransactionCommand,
 		d.processTransaction().ChainedCommand,
 	)
 }
@@ -52,12 +53,12 @@ func (d *dataFlow) checkTransaction() (dataFlow *dataflow.DataFlow[*dataFlowPara
 
 // handleError handles any kind of error that is encountered while processing the DataFlows.
 func (d *dataFlow) handleError(err error, params *dataFlowParams) {
-	if errors.Is(err, ErrTransactionUnsolid) {
+	if errors.Is(err, ledger.ErrTransactionUnsolid) {
 		return
 	}
 
-	if errors.Is(err, ErrTransactionInvalid) {
-		d.ledger.Events.TransactionInvalid.Trigger(&TransactionInvalidEvent{
+	if errors.Is(err, ledger.ErrTransactionInvalid) {
+		d.ledger.events.TransactionInvalid.Trigger(&ledger.TransactionInvalidEvent{
 			TransactionID: params.Transaction.ID(),
 			Reason:        err,
 			Context:       params.Context,
@@ -66,7 +67,7 @@ func (d *dataFlow) handleError(err error, params *dataFlowParams) {
 		return
 	}
 
-	d.ledger.Events.Error.Trigger(err)
+	d.ledger.events.Error.Trigger(err)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -82,7 +83,7 @@ type dataFlowParams struct {
 	Transaction utxo.Transaction
 
 	// TransactionMetadata contains the metadata of the Transaction that is being processed.
-	TransactionMetadata *TransactionMetadata
+	TransactionMetadata *ledger.TransactionMetadata
 
 	// InputIDs contains the list of OutputIDs that were referenced by the Inputs.
 	InputIDs utxo.OutputIDs
@@ -91,10 +92,10 @@ type dataFlowParams struct {
 	Inputs *utxo.Outputs
 
 	// InputsMetadata contains the metadata of the Outputs that were referenced as Inputs in the Transaction.
-	InputsMetadata *OutputsMetadata
+	InputsMetadata *ledger.OutputsMetadata
 
 	// Consumers contains the Consumers (references from the spent Outputs) that were created by the Transaction.
-	Consumers []*Consumer
+	Consumers []*ledger.Consumer
 
 	// Outputs contains the Outputs that were created by the Transaction.
 	Outputs *utxo.Outputs

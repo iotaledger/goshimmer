@@ -31,7 +31,7 @@ type UnspentOutputsConsumer interface {
 type UnspentOutputs struct {
 	IDs *ads.Set[utxo.OutputID, *utxo.OutputID]
 
-	memPool               *ledger.Ledger
+	memPool               ledger.Ledger
 	consumers             map[UnspentOutputsConsumer]types.Empty
 	consumersMutex        sync.RWMutex
 	batchConsumers        map[UnspentOutputsConsumer]types.Empty
@@ -47,7 +47,7 @@ const (
 	PrefixUnspentOutputsIDs
 )
 
-func NewUnspentOutputs(store func(optRealm ...byte) kvstore.KVStore, memPool *ledger.Ledger) (unspentOutputs *UnspentOutputs) {
+func NewUnspentOutputs(store func(optRealm ...byte) kvstore.KVStore, memPool ledger.Ledger) (unspentOutputs *UnspentOutputs) {
 	return &UnspentOutputs{
 		BatchCommittable: traits.NewBatchCommittable(store(), PrefixUnspentOutputsLatestCommittedIndex),
 		IDs:              ads.NewSet[utxo.OutputID](store(PrefixUnspentOutputsIDs)),
@@ -261,8 +261,8 @@ func (u *UnspentOutputs) notifyConsumers(consumer map[UnspentOutputsConsumer]typ
 }
 
 func (u *UnspentOutputs) outputWithMetadata(outputID utxo.OutputID) (outputWithMetadata *ledger.OutputWithMetadata, err error) {
-	if !u.memPool.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
-		if !u.memPool.Storage.CachedOutputMetadata(outputID).Consume(func(metadata *ledger.OutputMetadata) {
+	if !u.memPool.Storage().CachedOutput(outputID).Consume(func(output utxo.Output) {
+		if !u.memPool.Storage().CachedOutputMetadata(outputID).Consume(func(metadata *ledger.OutputMetadata) {
 			outputWithMetadata = ledger.NewOutputWithMetadata(metadata.InclusionSlot(), outputID, output, metadata.ConsensusManaPledgeID(), metadata.AccessManaPledgeID())
 		}) {
 			err = errors.Wrap(err, "failed to load output metadata")
@@ -275,8 +275,8 @@ func (u *UnspentOutputs) outputWithMetadata(outputID utxo.OutputID) (outputWithM
 }
 
 func (u *UnspentOutputs) importOutputIntoMemPoolStorage(output *ledger.OutputWithMetadata) {
-	u.memPool.Storage.CachedOutput(output.ID(), func(id utxo.OutputID) utxo.Output { return output.Output() }).Release()
-	u.memPool.Storage.CachedOutputMetadata(output.ID(), func(outputID utxo.OutputID) *ledger.OutputMetadata {
+	u.memPool.Storage().CachedOutput(output.ID(), func(id utxo.OutputID) utxo.Output { return output.Output() }).Release()
+	u.memPool.Storage().CachedOutputMetadata(output.ID(), func(outputID utxo.OutputID) *ledger.OutputMetadata {
 		newOutputMetadata := ledger.NewOutputMetadata(output.ID())
 		newOutputMetadata.SetAccessManaPledgeID(output.AccessManaPledgeID())
 		newOutputMetadata.SetConsensusManaPledgeID(output.ConsensusManaPledgeID())
@@ -286,5 +286,5 @@ func (u *UnspentOutputs) importOutputIntoMemPoolStorage(output *ledger.OutputWit
 		return newOutputMetadata
 	}).Release()
 
-	u.memPool.Events.OutputCreated.Trigger(output.ID())
+	u.memPool.Events().OutputCreated.Trigger(output.ID())
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/mr-tron/base58"
 	flag "github.com/spf13/pflag"
 
+	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
@@ -49,7 +50,7 @@ func main() {
 		panic(err)
 	}
 	if checkValidity {
-		diagnosticPrintSnapshotFromFile(info.FilePath)
+		diagnosticPrintSnapshotFromFile(info.FilePath, info.LedgerProvider)
 	}
 }
 
@@ -82,11 +83,11 @@ func createTempStorage() (s *storage.Storage) {
 	return storage.New(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), protocol.DatabaseVersion)
 }
 
-func diagnosticPrintSnapshotFromFile(filePath string) {
+func diagnosticPrintSnapshotFromFile(filePath string, ledgerProvider module.Provider[*engine.Engine, ledger.Ledger]) {
 	s := createTempStorage()
 	defer s.Shutdown()
 
-	e := engine.New(workerpool.NewGroup("Diagnostics"), s, blocktime.NewProvider(), dpos.NewProvider(), mana1.NewProvider())
+	e := engine.New(workerpool.NewGroup("Diagnostics"), s, blocktime.NewProvider(), ledgerProvider, dpos.NewProvider(), mana1.NewProvider())
 	defer e.Shutdown()
 
 	if err := e.Initialize(filePath); err != nil {
@@ -100,9 +101,9 @@ func diagnosticPrintSnapshotFromFile(filePath string) {
 	fmt.Printf("%+v\n", lo.PanicOnErr(s.Commitments.Load(0)))
 
 	fmt.Println("--- Ledgerstate ---")
-	e.Ledger.Storage.ForEachOutputID(func(outputID utxo.OutputID) bool {
-		e.Ledger.Storage.CachedOutput(outputID).Consume(func(o utxo.Output) {
-			e.Ledger.Storage.CachedOutputMetadata(outputID).Consume(func(m *ledger.OutputMetadata) {
+	e.Ledger.Storage().ForEachOutputID(func(outputID utxo.OutputID) bool {
+		e.Ledger.Storage().CachedOutput(outputID).Consume(func(o utxo.Output) {
+			e.Ledger.Storage().CachedOutputMetadata(outputID).Consume(func(m *ledger.OutputMetadata) {
 				fmt.Printf("%+v\n%#v\n", o, m)
 			})
 		})

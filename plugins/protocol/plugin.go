@@ -19,7 +19,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tsc"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	ledgermodule "github.com/iotaledger/goshimmer/packages/protocol/ledger/realitiesledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
 	"github.com/iotaledger/hive.go/app/daemon"
@@ -65,6 +65,12 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 
 	p = protocol.New(workerpool.NewGroup("Protocol"),
 		n,
+		protocol.WithLedgerProvider(
+			ledgermodule.NewProvider(
+				ledgermodule.WithVM(new(devnetvm.VM)),
+				ledgermodule.WithCacheTimeProvider(cacheTimeProvider),
+			),
+		),
 		protocol.WithSybilProtectionProvider(
 			dpos.NewProvider(
 				dpos.WithActivityWindow(Parameters.ValidatorActivityWindow),
@@ -82,10 +88,6 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 			engine.WithBootstrapThreshold(Parameters.BootstrapWindow),
 			engine.WithTSCManagerOptions(
 				tsc.WithTimeSinceConfirmationThreshold(Parameters.TimeSinceConfirmationThreshold),
-			),
-			engine.WithLedgerOptions(
-				ledger.WithVM(new(devnetvm.VM)),
-				ledger.WithCacheTimeProvider(cacheTimeProvider),
 			),
 			engine.WithSnapshotDepth(Parameters.Snapshot.Depth),
 		),

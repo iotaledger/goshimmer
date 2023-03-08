@@ -1,4 +1,4 @@
-package ledger
+package realitiesledger
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/cerrors"
 	"github.com/iotaledger/goshimmer/packages/core/database"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
 	"github.com/iotaledger/hive.go/core/dataflow"
@@ -22,70 +23,78 @@ import (
 
 // region storage //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Storage is a Ledger component that bundles the storage related API.
+// Storage is a RealitiesLedger component that bundles the storage related API.
 type Storage struct {
 	// transactionStorage is an object storage used to persist Transactions objects.
 	transactionStorage *generic.ObjectStorage[utxo.Transaction]
 
 	// transactionMetadataStorage is an object storage used to persist TransactionMetadata objects.
-	transactionMetadataStorage *generic.ObjectStorage[*TransactionMetadata]
+	transactionMetadataStorage *generic.ObjectStorage[*ledger.TransactionMetadata]
 
-	// OutputStorage is an object storage used to persist Output objects.
-	OutputStorage *generic.ObjectStorage[utxo.Output]
+	// outputStorage is an object storage used to persist Output objects.
+	outputStorage *generic.ObjectStorage[utxo.Output]
 
 	// OutputMetadataStorage is an object storage used to persist OutputMetadata objects.
-	OutputMetadataStorage *generic.ObjectStorage[*OutputMetadata]
+	outputMetadataStorage *generic.ObjectStorage[*ledger.OutputMetadata]
 
 	// consumerStorage is an object storage used to persist Consumer objects.
-	consumerStorage *generic.ObjectStorage[*Consumer]
+	consumerStorage *generic.ObjectStorage[*ledger.Consumer]
 
-	// ledger contains a reference to the Ledger that created the storage.
-	ledger *Ledger
+	// ledger contains a reference to the RealitiesLedger that created the storage.
+	ledger *RealitiesLedger
 
 	// shutdownOnce is used to ensure that the Shutdown routine is executed only a single time.
 	shutdownOnce sync.Once
 }
 
-// newStorage returns a new storage instance for the given Ledger.
-func newStorage(ledger *Ledger, baseStore kvstore.KVStore) (storage *Storage) {
+// newStorage returns a new storage instance for the given RealitiesLedger.
+func newStorage(l *RealitiesLedger, baseStore kvstore.KVStore) (storage *Storage) {
 	storage = &Storage{
 		transactionStorage: generic.NewInterfaceStorage[utxo.Transaction](
 			lo.PanicOnErr(baseStore.WithExtendedRealm([]byte{database.PrefixLedger, PrefixTransactionStorage})),
-			transactionFactory(ledger.optsVM),
-			ledger.optsCacheTimeProvider.CacheTime(ledger.optsTransactionCacheTime),
+			transactionFactory(l.optsVM),
+			l.optsCacheTimeProvider.CacheTime(l.optsTransactionCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 			objectstorage.StoreOnCreation(true),
 		),
-		transactionMetadataStorage: generic.NewStructStorage[TransactionMetadata](
+		transactionMetadataStorage: generic.NewStructStorage[ledger.TransactionMetadata](
 			lo.PanicOnErr(baseStore.WithExtendedRealm([]byte{database.PrefixLedger, PrefixTransactionMetadataStorage})),
-			ledger.optsCacheTimeProvider.CacheTime(ledger.optTransactionMetadataCacheTime),
+			l.optsCacheTimeProvider.CacheTime(l.optTransactionMetadataCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 		),
-		OutputStorage: generic.NewInterfaceStorage[utxo.Output](
+		outputStorage: generic.NewInterfaceStorage[utxo.Output](
 			lo.PanicOnErr(baseStore.WithExtendedRealm([]byte{database.PrefixLedger, PrefixOutputStorage})),
-			outputFactory(ledger.optsVM),
-			ledger.optsCacheTimeProvider.CacheTime(ledger.optsOutputCacheTime),
+			outputFactory(l.optsVM),
+			l.optsCacheTimeProvider.CacheTime(l.optsOutputCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 			objectstorage.StoreOnCreation(true),
 		),
-		OutputMetadataStorage: generic.NewStructStorage[OutputMetadata](
+		outputMetadataStorage: generic.NewStructStorage[ledger.OutputMetadata](
 			lo.PanicOnErr(baseStore.WithExtendedRealm([]byte{database.PrefixLedger, PrefixOutputMetadataStorage})),
-			ledger.optsCacheTimeProvider.CacheTime(ledger.optsOutputMetadataCacheTime),
+			l.optsCacheTimeProvider.CacheTime(l.optsOutputMetadataCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 		),
-		consumerStorage: generic.NewStructStorage[Consumer](
+		consumerStorage: generic.NewStructStorage[ledger.Consumer](
 			lo.PanicOnErr(baseStore.WithExtendedRealm([]byte{database.PrefixLedger, PrefixConsumerStorage})),
-			ledger.optsCacheTimeProvider.CacheTime(ledger.optsConsumerCacheTime),
+			l.optsCacheTimeProvider.CacheTime(l.optsConsumerCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
-			objectstorage.PartitionKey(new(Consumer).KeyPartitions()...),
+			objectstorage.PartitionKey(new(ledger.Consumer).KeyPartitions()...),
 		),
-		ledger: ledger,
+		ledger: l,
 	}
 	return storage
 }
 
+func (s *Storage) OutputStorage() *generic.ObjectStorage[utxo.Output] {
+	return s.outputStorage
+}
+
+func (s *Storage) OutputMetadataStorage() *generic.ObjectStorage[*ledger.OutputMetadata] {
+	return s.outputMetadataStorage
+}
+
 // CachedTransaction retrieves the CachedObject representing the named Transaction. The optional computeIfAbsentCallback
-// can be used to dynamically initialize a non-existing Transaction.
+// can be used to dynamically Initialize a non-existing Transaction.
 func (s *Storage) CachedTransaction(transactionID utxo.TransactionID, computeIfAbsentCallback ...func(transactionID utxo.TransactionID) utxo.Transaction) (cachedTransaction *generic.CachedObject[utxo.Transaction]) {
 	if len(computeIfAbsentCallback) >= 1 {
 		return s.transactionStorage.ComputeIfAbsent(lo.PanicOnErr(transactionID.Bytes()), func(key []byte) utxo.Transaction {
@@ -97,10 +106,10 @@ func (s *Storage) CachedTransaction(transactionID utxo.TransactionID, computeIfA
 }
 
 // CachedTransactionMetadata retrieves the CachedObject representing the named TransactionMetadata. The optional
-// computeIfAbsentCallback can be used to dynamically initialize a non-existing TransactionMetadata.
-func (s *Storage) CachedTransactionMetadata(transactionID utxo.TransactionID, computeIfAbsentCallback ...func(transactionID utxo.TransactionID) *TransactionMetadata) (cachedTransactionMetadata *generic.CachedObject[*TransactionMetadata]) {
+// computeIfAbsentCallback can be used to dynamically Initialize a non-existing TransactionMetadata.
+func (s *Storage) CachedTransactionMetadata(transactionID utxo.TransactionID, computeIfAbsentCallback ...func(transactionID utxo.TransactionID) *ledger.TransactionMetadata) (cachedTransactionMetadata *generic.CachedObject[*ledger.TransactionMetadata]) {
 	if len(computeIfAbsentCallback) >= 1 {
-		return s.transactionMetadataStorage.ComputeIfAbsent(lo.PanicOnErr(transactionID.Bytes()), func(key []byte) *TransactionMetadata {
+		return s.transactionMetadataStorage.ComputeIfAbsent(lo.PanicOnErr(transactionID.Bytes()), func(key []byte) *ledger.TransactionMetadata {
 			return computeIfAbsentCallback[0](transactionID)
 		})
 	}
@@ -109,15 +118,15 @@ func (s *Storage) CachedTransactionMetadata(transactionID utxo.TransactionID, co
 }
 
 // CachedOutput retrieves the CachedObject representing the named Output. The optional computeIfAbsentCallback can be
-// used to dynamically initialize a non-existing Output.
+// used to dynamically Initialize a non-existing Output.
 func (s *Storage) CachedOutput(outputID utxo.OutputID, computeIfAbsentCallback ...func(outputID utxo.OutputID) utxo.Output) (cachedOutput *generic.CachedObject[utxo.Output]) {
 	if len(computeIfAbsentCallback) >= 1 {
-		return s.OutputStorage.ComputeIfAbsent(lo.PanicOnErr(outputID.Bytes()), func(key []byte) utxo.Output {
+		return s.outputStorage.ComputeIfAbsent(lo.PanicOnErr(outputID.Bytes()), func(key []byte) utxo.Output {
 			return computeIfAbsentCallback[0](outputID)
 		})
 	}
 
-	return s.OutputStorage.Load(lo.PanicOnErr(outputID.Bytes()))
+	return s.outputStorage.Load(lo.PanicOnErr(outputID.Bytes()))
 }
 
 // CachedOutputs retrieves the CachedObjects containing the named Outputs.
@@ -131,20 +140,20 @@ func (s *Storage) CachedOutputs(outputIDs utxo.OutputIDs) (cachedOutputs generic
 }
 
 // CachedOutputMetadata retrieves the CachedObject representing the named OutputMetadata. The optional
-// computeIfAbsentCallback can be used to dynamically initialize a non-existing OutputMetadata.
-func (s *Storage) CachedOutputMetadata(outputID utxo.OutputID, computeIfAbsentCallback ...func(outputID utxo.OutputID) *OutputMetadata) (cachedOutputMetadata *generic.CachedObject[*OutputMetadata]) {
+// computeIfAbsentCallback can be used to dynamically Initialize a non-existing OutputMetadata.
+func (s *Storage) CachedOutputMetadata(outputID utxo.OutputID, computeIfAbsentCallback ...func(outputID utxo.OutputID) *ledger.OutputMetadata) (cachedOutputMetadata *generic.CachedObject[*ledger.OutputMetadata]) {
 	if len(computeIfAbsentCallback) >= 1 {
-		return s.OutputMetadataStorage.ComputeIfAbsent(lo.PanicOnErr(outputID.Bytes()), func(key []byte) *OutputMetadata {
+		return s.outputMetadataStorage.ComputeIfAbsent(lo.PanicOnErr(outputID.Bytes()), func(key []byte) *ledger.OutputMetadata {
 			return computeIfAbsentCallback[0](outputID)
 		})
 	}
 
-	return s.OutputMetadataStorage.Load(lo.PanicOnErr(outputID.Bytes()))
+	return s.outputMetadataStorage.Load(lo.PanicOnErr(outputID.Bytes()))
 }
 
 // CachedOutputsMetadata retrieves the CachedObjects containing the named OutputMetadata.
-func (s *Storage) CachedOutputsMetadata(outputIDs utxo.OutputIDs) (cachedOutputsMetadata generic.CachedObjects[*OutputMetadata]) {
-	cachedOutputsMetadata = make(generic.CachedObjects[*OutputMetadata], 0)
+func (s *Storage) CachedOutputsMetadata(outputIDs utxo.OutputIDs) (cachedOutputsMetadata generic.CachedObjects[*ledger.OutputMetadata]) {
+	cachedOutputsMetadata = make(generic.CachedObjects[*ledger.OutputMetadata], 0)
 	for it := outputIDs.Iterator(); it.HasNext(); {
 		cachedOutputsMetadata = append(cachedOutputsMetadata, s.CachedOutputMetadata(it.Next()))
 	}
@@ -153,10 +162,10 @@ func (s *Storage) CachedOutputsMetadata(outputIDs utxo.OutputIDs) (cachedOutputs
 }
 
 // CachedConsumer retrieves the CachedObject representing the named Consumer. The optional computeIfAbsentCallback can
-// be used to dynamically initialize a non-existing Consumer.
-func (s *Storage) CachedConsumer(outputID utxo.OutputID, txID utxo.TransactionID, computeIfAbsentCallback ...func(outputID utxo.OutputID, txID utxo.TransactionID) *Consumer) (cachedConsumer *generic.CachedObject[*Consumer]) {
+// be used to dynamically Initialize a non-existing Consumer.
+func (s *Storage) CachedConsumer(outputID utxo.OutputID, txID utxo.TransactionID, computeIfAbsentCallback ...func(outputID utxo.OutputID, txID utxo.TransactionID) *ledger.Consumer) (cachedConsumer *generic.CachedObject[*ledger.Consumer]) {
 	if len(computeIfAbsentCallback) >= 1 {
-		return s.consumerStorage.ComputeIfAbsent(byteutils.ConcatBytes(lo.PanicOnErr(outputID.Bytes()), lo.PanicOnErr(txID.Bytes())), func(key []byte) *Consumer {
+		return s.consumerStorage.ComputeIfAbsent(byteutils.ConcatBytes(lo.PanicOnErr(outputID.Bytes()), lo.PanicOnErr(txID.Bytes())), func(key []byte) *ledger.Consumer {
 			return computeIfAbsentCallback[0](outputID, txID)
 		})
 	}
@@ -165,9 +174,9 @@ func (s *Storage) CachedConsumer(outputID utxo.OutputID, txID utxo.TransactionID
 }
 
 // CachedConsumers retrieves the CachedObjects containing the named Consumers.
-func (s *Storage) CachedConsumers(outputID utxo.OutputID) (cachedConsumers generic.CachedObjects[*Consumer]) {
-	cachedConsumers = make(generic.CachedObjects[*Consumer], 0)
-	s.consumerStorage.ForEach(func(key []byte, cachedObject *generic.CachedObject[*Consumer]) bool {
+func (s *Storage) CachedConsumers(outputID utxo.OutputID) (cachedConsumers generic.CachedObjects[*ledger.Consumer]) {
+	cachedConsumers = make(generic.CachedObjects[*ledger.Consumer], 0)
+	s.consumerStorage.ForEach(func(key []byte, cachedObject *generic.CachedObject[*ledger.Consumer]) bool {
 		cachedConsumers = append(cachedConsumers, cachedObject)
 		return true
 	}, objectstorage.WithIteratorPrefix(lo.PanicOnErr(outputID.Bytes())))
@@ -176,7 +185,7 @@ func (s *Storage) CachedConsumers(outputID utxo.OutputID) (cachedConsumers gener
 }
 
 func (s *Storage) ForEachOutputID(callback func(utxo.OutputID) bool) {
-	s.OutputStorage.ForEach(func(key []byte, _ *generic.CachedObject[utxo.Output]) bool {
+	s.outputStorage.ForEach(func(key []byte, _ *generic.CachedObject[utxo.Output]) bool {
 		outputID := new(utxo.OutputID)
 		_ = lo.PanicOnErr(outputID.FromBytes(key))
 		return callback(*outputID)
@@ -188,8 +197,8 @@ func (s *Storage) Prune() (err error) {
 	for _, storagePrune := range []func() error{
 		s.transactionStorage.Prune,
 		s.transactionMetadataStorage.Prune,
-		s.OutputStorage.Prune,
-		s.OutputMetadataStorage.Prune,
+		s.outputStorage.Prune,
+		s.outputMetadataStorage.Prune,
 		s.consumerStorage.Prune,
 	} {
 		if err = storagePrune(); err != nil {
@@ -206,8 +215,8 @@ func (s *Storage) Shutdown() {
 	s.shutdownOnce.Do(func() {
 		s.transactionStorage.Shutdown()
 		s.transactionMetadataStorage.Shutdown()
-		s.OutputStorage.Shutdown()
-		s.OutputMetadataStorage.Shutdown()
+		s.outputStorage.Shutdown()
+		s.outputMetadataStorage.Shutdown()
 		s.consumerStorage.Shutdown()
 	})
 }
@@ -215,10 +224,10 @@ func (s *Storage) Shutdown() {
 // storeTransactionCommand is a ChainedCommand that stores a Transaction.
 func (s *Storage) storeTransactionCommand(params *dataFlowParams, next dataflow.Next[*dataFlowParams]) (err error) {
 	created := false
-	cachedTransactionMetadata := s.CachedTransactionMetadata(params.Transaction.ID(), func(txID utxo.TransactionID) *TransactionMetadata {
+	cachedTransactionMetadata := s.CachedTransactionMetadata(params.Transaction.ID(), func(txID utxo.TransactionID) *ledger.TransactionMetadata {
 		s.transactionStorage.Store(params.Transaction).Release()
 		created = true
-		return NewTransactionMetadata(txID)
+		return ledger.NewTransactionMetadata(txID)
 	})
 	defer cachedTransactionMetadata.Release()
 
@@ -229,16 +238,16 @@ func (s *Storage) storeTransactionCommand(params *dataFlowParams, next dataflow.
 			return nil
 		}
 
-		return errors.WithMessagef(ErrTransactionUnsolid, "%s is an unsolid reattachment", params.Transaction.ID())
+		return errors.WithMessagef(ledger.ErrTransactionUnsolid, "%s is an unsolid reattachment", params.Transaction.ID())
 	}
 
-	params.InputIDs = s.ledger.Utils.ResolveInputs(params.Transaction.Inputs())
+	params.InputIDs = s.ledger.Utils().ResolveInputs(params.Transaction.Inputs())
 
 	cachedConsumers := s.initConsumers(params.InputIDs, params.Transaction.ID())
 	defer cachedConsumers.Release()
 	params.Consumers = cachedConsumers.Unwrap(true)
 
-	s.ledger.Events.TransactionStored.Trigger(&TransactionStoredEvent{
+	s.ledger.events.TransactionStored.Trigger(&ledger.TransactionStoredEvent{
 		TransactionID: params.Transaction.ID(),
 	})
 
@@ -246,10 +255,10 @@ func (s *Storage) storeTransactionCommand(params *dataFlowParams, next dataflow.
 }
 
 // initConsumers creates the Consumers of a Transaction if they didn't exist before.
-func (s *Storage) initConsumers(outputIDs utxo.OutputIDs, txID utxo.TransactionID) (cachedConsumers generic.CachedObjects[*Consumer]) {
-	cachedConsumers = make(generic.CachedObjects[*Consumer], 0)
+func (s *Storage) initConsumers(outputIDs utxo.OutputIDs, txID utxo.TransactionID) (cachedConsumers generic.CachedObjects[*ledger.Consumer]) {
+	cachedConsumers = make(generic.CachedObjects[*ledger.Consumer], 0)
 	for it := outputIDs.Iterator(); it.HasNext(); {
-		cachedConsumers = append(cachedConsumers, s.CachedConsumer(it.Next(), txID, NewConsumer))
+		cachedConsumers = append(cachedConsumers, s.CachedConsumer(it.Next(), txID, ledger.NewConsumer))
 	}
 
 	return cachedConsumers
@@ -258,18 +267,18 @@ func (s *Storage) initConsumers(outputIDs utxo.OutputIDs, txID utxo.TransactionI
 // pruneTransaction removes a Transaction (and all of its dependencies) from the database.
 func (s *Storage) pruneTransaction(txID utxo.TransactionID, pruneFutureCone bool) {
 	for futureConeWalker := walker.New[utxo.TransactionID]().Push(txID); futureConeWalker.HasNext(); {
-		spentOutputsWithMetadata := make([]*OutputWithMetadata, 0)
+		spentOutputsWithMetadata := make([]*ledger.OutputWithMetadata, 0)
 
 		currentTxID := futureConeWalker.Next()
 
-		s.CachedTransactionMetadata(currentTxID).Consume(func(txMetadata *TransactionMetadata) {
+		s.CachedTransactionMetadata(currentTxID).Consume(func(txMetadata *ledger.TransactionMetadata) {
 			s.CachedTransaction(currentTxID).Consume(func(tx utxo.Transaction) {
-				for it := s.ledger.Utils.ResolveInputs(tx.Inputs()).Iterator(); it.HasNext(); {
+				for it := s.ledger.Utils().ResolveInputs(tx.Inputs()).Iterator(); it.HasNext(); {
 					inputID := it.Next()
 
 					s.CachedOutput(inputID).Consume(func(output utxo.Output) {
-						s.CachedOutputMetadata(inputID).Consume(func(outputMetadata *OutputMetadata) {
-							outputWithMetadata := NewOutputWithMetadata(outputMetadata.InclusionSlot(), outputMetadata.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())
+						s.CachedOutputMetadata(inputID).Consume(func(outputMetadata *ledger.OutputMetadata) {
+							outputWithMetadata := ledger.NewOutputWithMetadata(outputMetadata.InclusionSlot(), outputMetadata.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())
 							// TODO: we need to set the spent slot here
 							spentOutputsWithMetadata = append(spentOutputsWithMetadata, outputWithMetadata)
 						})
@@ -281,32 +290,32 @@ func (s *Storage) pruneTransaction(txID utxo.TransactionID, pruneFutureCone bool
 			})
 
 			createdOutputIDs := txMetadata.OutputIDs()
-			createdOutputsWithMetadata := make([]*OutputWithMetadata, 0, createdOutputIDs.Size())
+			createdOutputsWithMetadata := make([]*ledger.OutputWithMetadata, 0, createdOutputIDs.Size())
 			for it := createdOutputIDs.Iterator(); it.HasNext(); {
 				outputID := it.Next()
 				outputIDBytes := lo.PanicOnErr(outputID.Bytes())
 
 				s.CachedOutput(outputID).Consume(func(output utxo.Output) {
-					s.CachedOutputMetadata(outputID).Consume(func(outputMetadata *OutputMetadata) {
+					s.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledger.OutputMetadata) {
 						// TODO: inclusion slot is not set here
-						createdOutputsWithMetadata = append(createdOutputsWithMetadata, NewOutputWithMetadata(outputMetadata.InclusionSlot(), outputMetadata.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
+						createdOutputsWithMetadata = append(createdOutputsWithMetadata, ledger.NewOutputWithMetadata(outputMetadata.InclusionSlot(), outputMetadata.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
 					})
 				})
 
-				s.OutputStorage.Delete(outputIDBytes)
-				s.OutputMetadataStorage.Delete(outputIDBytes)
+				s.outputStorage.Delete(outputIDBytes)
+				s.outputMetadataStorage.Delete(outputIDBytes)
 			}
 
 			txMetadata.Delete()
 
-			s.ledger.Events.TransactionOrphaned.Trigger(&TransactionEvent{
+			s.ledger.events.TransactionOrphaned.Trigger(&ledger.TransactionEvent{
 				Metadata:       txMetadata,
 				CreatedOutputs: createdOutputsWithMetadata,
 				SpentOutputs:   spentOutputsWithMetadata,
 			})
 
 			if pruneFutureCone {
-				s.ledger.Utils.WalkConsumingTransactionID(createdOutputIDs, func(consumingTxID utxo.TransactionID, walker *walker.Walker[utxo.OutputID]) {
+				s.ledger.Utils().WalkConsumingTransactionID(createdOutputIDs, func(consumingTxID utxo.TransactionID, walker *walker.Walker[utxo.OutputID]) {
 					futureConeWalker.Push(consumingTxID)
 				})
 			}

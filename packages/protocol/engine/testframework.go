@@ -38,8 +38,13 @@ type TestFramework struct {
 	Acceptance    *blockgadget.TestFramework
 }
 
-func NewTestEngine(t *testing.T, workers *workerpool.Group, storage *storage.Storage, clock module.Provider[*Engine, clock.Clock], sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection], throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota], opts ...options.Option[Engine]) *Engine {
-	e := New(workers.CreateGroup("Engine"), storage, clock, sybilProtection, throughputQuota, opts...)
+func NewTestEngine(t *testing.T, workers *workerpool.Group, storage *storage.Storage,
+	clock module.Provider[*Engine, clock.Clock],
+	ledger module.Provider[*Engine, ledger.Ledger],
+	sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection],
+	throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota],
+	opts ...options.Option[Engine]) *Engine {
+	e := New(workers.CreateGroup("Engine"), storage, clock, ledger, sybilProtection, throughputQuota, opts...)
 	t.Cleanup(e.Shutdown)
 	return e
 }
@@ -61,8 +66,13 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, engine *Engine
 	return t
 }
 
-func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, clock module.Provider[*Engine, clock.Clock], sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection], throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota], optsEngine ...options.Option[Engine]) *TestFramework {
-	engine := NewTestEngine(t, workers.CreateGroup("Engine"), blockdag.NewTestStorage(t, workers, database.WithDBProvider(database.NewDB)), clock, sybilProtection, throughputQuota, optsEngine...)
+func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group,
+	clock module.Provider[*Engine, clock.Clock],
+	ledger module.Provider[*Engine, ledger.Ledger],
+	sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection],
+	throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota],
+	optsEngine ...options.Option[Engine]) *TestFramework {
+	engine := NewTestEngine(t, workers.CreateGroup("Engine"), blockdag.NewTestStorage(t, workers, database.WithDBProvider(database.NewDB)), clock, ledger, sybilProtection, throughputQuota, optsEngine...)
 	t.Cleanup(engine.Shutdown)
 
 	return NewTestFramework(t, workers, engine)

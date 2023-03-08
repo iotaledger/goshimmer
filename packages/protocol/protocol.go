@@ -24,6 +24,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
 	"github.com/iotaledger/goshimmer/packages/protocol/enginemanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/realitiesledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
 	"github.com/iotaledger/hive.go/core/slot"
@@ -63,9 +64,11 @@ type Protocol struct {
 	optsChainManagerOptions           []options.Option[chainmanager.Manager]
 	optsTipManagerOptions             []options.Option[tipmanager.TipManager]
 	optsStorageDatabaseManagerOptions []options.Option[database.Manager]
-	optsClockProvider                 module.Provider[*engine.Engine, clock.Clock]
-	optsSybilProtectionProvider       module.Provider[*engine.Engine, sybilprotection.SybilProtection]
-	optsThroughputQuotaProvider       module.Provider[*engine.Engine, throughputquota.ThroughputQuota]
+
+	optsClockProvider           module.Provider[*engine.Engine, clock.Clock]
+	optsLedgerProvider          module.Provider[*engine.Engine, ledger.Ledger]
+	optsSybilProtectionProvider module.Provider[*engine.Engine, sybilprotection.SybilProtection]
+	optsThroughputQuotaProvider module.Provider[*engine.Engine, throughputquota.ThroughputQuota]
 }
 
 func New(workers *workerpool.Group, dispatcher network.Endpoint, opts ...options.Option[Protocol]) (protocol *Protocol) {
@@ -74,6 +77,7 @@ func New(workers *workerpool.Group, dispatcher network.Endpoint, opts ...options
 		Workers:                     workers,
 		dispatcher:                  dispatcher,
 		optsClockProvider:           blocktime.NewProvider(),
+		optsLedgerProvider:          realitiesledger.NewProvider(),
 		optsSybilProtectionProvider: dpos.NewProvider(),
 		optsThroughputQuotaProvider: mana1.NewProvider(),
 
@@ -129,6 +133,7 @@ func (p *Protocol) initEngineManager() {
 		p.optsStorageDatabaseManagerOptions,
 		p.optsEngineOptions,
 		p.optsClockProvider,
+		p.optsLedgerProvider,
 		p.optsSybilProtectionProvider,
 		p.optsThroughputQuotaProvider,
 	)
@@ -590,6 +595,12 @@ func WithPruningThreshold(pruningThreshold uint64) options.Option[Protocol] {
 func WithSnapshotPath(snapshot string) options.Option[Protocol] {
 	return func(n *Protocol) {
 		n.optsSnapshotPath = snapshot
+	}
+}
+
+func WithLedgerProvider(optsLedgerProvider module.Provider[*engine.Engine, ledger.Ledger]) options.Option[Protocol] {
+	return func(n *Protocol) {
+		n.optsLedgerProvider = optsLedgerProvider
 	}
 }
 

@@ -115,7 +115,7 @@ func processTransactionPayload(p payload.Payload) (tp TransactionPayload) {
 	// add consumed inputs
 	for i, input := range tx.Essence().Inputs() {
 		refOutputID := input.(*devnetvm.UTXOInput).ReferencedOutputID()
-		deps.Protocol.Engine().Ledger.Storage.CachedOutput(refOutputID).Consume(func(output utxo.Output) {
+		deps.Protocol.Engine().Ledger.Storage().CachedOutput(refOutputID).Consume(func(output utxo.Output) {
 			if typedOutput, ok := output.(devnetvm.Output); ok {
 				tp.Transaction.Inputs[i].Output = jsonmodels.NewOutput(typedOutput)
 			}

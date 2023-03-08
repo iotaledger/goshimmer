@@ -38,7 +38,7 @@ func init() {
 func provide(protocol *protocol.Protocol) (i *indexer.Indexer) {
 	// TODO: needs to consider switching of instance/ledger in the future
 	// TODO: load snapshot / attach to events from snapshot loading
-	i = indexer.New(func() *ledger.Ledger {
+	i = indexer.New(func() ledger.Ledger {
 		return protocol.Engine().Ledger
 	})
 

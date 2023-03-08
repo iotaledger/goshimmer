@@ -42,7 +42,7 @@ type Engine struct {
 	Storage             *storage.Storage
 	SybilProtection     sybilprotection.SybilProtection
 	ThroughputQuota     throughputquota.ThroughputQuota
-	Ledger              *ledger.Ledger
+	Ledger              ledger.Ledger
 	LedgerState         *ledgerstate.LedgerState
 	Filter              *filter.Filter
 	EvictionState       *eviction.State
@@ -61,7 +61,6 @@ type Engine struct {
 	optsBootstrappedThreshold      time.Duration
 	optsEntryPointsDepth           int
 	optsSnapshotDepth              int
-	optsLedgerOptions              []options.Option[ledger.Ledger]
 	optsNotarizationManagerOptions []options.Option[notarization.Manager]
 	optsTangleOptions              []options.Option[tangle.Tangle]
 	optsConsensusOptions           []options.Option[consensus.Consensus]
@@ -76,8 +75,9 @@ func New(
 	workers *workerpool.Group,
 	storageInstance *storage.Storage,
 	clockProvider module.Provider[*Engine, clock.Clock],
-	sybilProtectionProvider module.Provider[*Engine, sybilprotection.SybilProtection],
-	throughputQuotaProvider module.Provider[*Engine, throughputquota.ThroughputQuota],
+	ledger module.Provider[*Engine, ledger.Ledger],
+	sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection],
+	throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota],
 	opts ...options.Option[Engine],
 ) (engine *Engine) {
 	return options.Apply(
@@ -90,11 +90,11 @@ func New(
 			optsBootstrappedThreshold: 10 * time.Second,
 			optsSnapshotDepth:         5,
 		}, opts, func(e *Engine) {
-			e.Ledger = ledger.New(e.Workers.CreatePool("Pool", 2), e.Storage, e.optsLedgerOptions...)
+			e.Ledger = ledger(e)
 			e.LedgerState = ledgerstate.New(e.Storage, e.Ledger)
 			e.Clock = clockProvider(e)
-			e.SybilProtection = sybilProtectionProvider(e)
-			e.ThroughputQuota = throughputQuotaProvider(e)
+			e.SybilProtection = sybilProtection(e)
+			e.ThroughputQuota = throughputQuota(e)
 			e.NotarizationManager = notarization.NewManager(e.Storage, e.LedgerState, e.SybilProtection.Weights(), e.optsNotarizationManagerOptions...)
 			e.Tangle = tangle.New(e.Workers.CreateGroup("Tangle"), e.Ledger, e.EvictionState, e.SlotTimeProvider, e.SybilProtection.Validators(), e.LastConfirmedSlot, e.FirstUnacceptedMarker, e.Storage.Commitments.Load, e.optsTangleOptions...)
 			e.Consensus = consensus.New(e.Workers.CreateGroup("Consensus"), e.Tangle, e.EvictionState, e.Storage.Permanent.Settings.LatestConfirmedSlot(), func() (totalWeight int64) {
@@ -119,7 +119,6 @@ func New(
 				},
 			))
 		},
-		(*Engine).setupLedger,
 		(*Engine).setupTangle,
 		(*Engine).setupConsensus,
 		(*Engine).setupTSCManager,
@@ -281,10 +280,6 @@ func (e *Engine) setupFilter() {
 	}, event.WithWorkerPool(e.Workers.CreatePool("Filter", 2)))
 
 	e.Events.Filter.LinkTo(e.Filter.Events)
-}
-
-func (e *Engine) setupLedger() {
-	e.Events.Ledger.LinkTo(e.Ledger.Events)
 }
 
 func (e *Engine) setupTangle() {
@@ -467,12 +462,6 @@ func WithEntryPointsDepth(entryPointsDepth int) options.Option[Engine] {
 func WithTSCManagerOptions(opts ...options.Option[tsc.Manager]) options.Option[Engine] {
 	return func(e *Engine) {
 		e.optsTSCManagerOptions = append(e.optsTSCManagerOptions, opts...)
-	}
-}
-
-func WithLedgerOptions(opts ...options.Option[ledger.Ledger]) options.Option[Engine] {
-	return func(e *Engine) {
-		e.optsLedgerOptions = append(e.optsLedgerOptions, opts...)
 	}
 }
 

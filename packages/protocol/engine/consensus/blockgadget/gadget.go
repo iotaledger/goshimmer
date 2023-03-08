@@ -430,7 +430,7 @@ func (a *Gadget) registerBlock(virtualVotingBlock *virtualvoting.Block) (block *
 // region Conflict Acceptance //////////////////////////////////////////////////////////////////////////////////////////
 
 func (a *Gadget) RefreshConflictAcceptance(conflictID utxo.TransactionID) {
-	conflict, exists := a.tangle.Booker.Ledger.ConflictDAG.Conflict(conflictID)
+	conflict, exists := a.tangle.Booker.Ledger.ConflictDAG().Conflict(conflictID)
 	if !exists {
 		return
 	}
@@ -454,7 +454,7 @@ func (a *Gadget) RefreshConflictAcceptance(conflictID utxo.TransactionID) {
 	})
 
 	if markAsAccepted {
-		a.tangle.Booker.Ledger.ConflictDAG.SetConflictAccepted(conflictID)
+		a.tangle.Booker.Ledger.ConflictDAG().SetConflictAccepted(conflictID)
 	}
 }
 

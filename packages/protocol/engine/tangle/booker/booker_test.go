@@ -1,4 +1,4 @@
-package booker
+package booker_test
 
 import (
 	"fmt"
@@ -12,10 +12,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markermanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/realitiesledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/slot"
@@ -29,7 +30,7 @@ import (
 
 func TestScenario_1(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	tf := NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"))
+	tf := booker.NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"), realitiesledger.NewTestLedger(t, workers.CreateGroup("RealitiesLedger")))
 
 	tf.BlockDAG.CreateBlock("Block1", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithPayload(tf.Ledger.CreateTransaction("TX1", 3, "Genesis")))
 	tf.BlockDAG.CreateBlock("Block2", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis", "Block1")), models.WithPayload(tf.Ledger.CreateTransaction("TX2", 1, "TX1.1", "TX1.2")))
@@ -45,7 +46,7 @@ func TestScenario_1(t *testing.T) {
 
 	workers.WaitChildren()
 
-	tf.checkConflictIDs(map[string]utxo.TransactionIDs{
+	tf.CheckConflictIDs(map[string]utxo.TransactionIDs{
 		"Block1": utxo.NewTransactionIDs(),
 		"Block3": utxo.NewTransactionIDs(),
 		"Block2": utxo.NewTransactionIDs(),
@@ -61,7 +62,7 @@ func TestScenario_1(t *testing.T) {
 
 func TestScenario_2(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	tf := NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"))
+	tf := booker.NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"), realitiesledger.NewTestLedger(t, workers.CreateGroup("RealitiesLedger")))
 
 	tf.BlockDAG.CreateBlock("Block1", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithPayload(tf.Ledger.CreateTransaction("TX1", 3, "Genesis")))
 	tf.BlockDAG.CreateBlock("Block2", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis", "Block1")), models.WithPayload(tf.Ledger.CreateTransaction("TX2", 1, "TX1.1", "TX1.2")))
@@ -86,7 +87,7 @@ func TestScenario_2(t *testing.T) {
 
 	workers.WaitChildren()
 
-	tf.checkConflictIDs(map[string]utxo.TransactionIDs{
+	tf.CheckConflictIDs(map[string]utxo.TransactionIDs{
 		"Block0.5": tf.Ledger.TransactionIDs("TX8"),
 		"Block1":   utxo.NewTransactionIDs(),
 		"Block2":   tf.Ledger.TransactionIDs("TX2"),
@@ -105,7 +106,7 @@ func TestScenario_2(t *testing.T) {
 func TestScenario_3(t *testing.T) {
 	t.Skip("Skip until we propagate conflicts through Markers again")
 	workers := workerpool.NewGroup(t.Name())
-	tf := NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"))
+	tf := booker.NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"), realitiesledger.NewTestLedger(t, workers.CreateGroup("RealitiesLedger")))
 
 	tf.BlockDAG.CreateBlock("Block1", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithPayload(tf.Ledger.CreateTransaction("TX1", 3, "Genesis")))
 	tf.BlockDAG.CreateBlock("Block2", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis", "Block1")), models.WithPayload(tf.Ledger.CreateTransaction("TX2", 1, "TX1.1", "TX1.2")))
@@ -126,7 +127,7 @@ func TestScenario_3(t *testing.T) {
 	tf.BlockDAG.IssueBlocks("Block8")
 	tf.BlockDAG.IssueBlocks("Block9")
 
-	tf.checkConflictIDs(map[string]utxo.TransactionIDs{
+	tf.CheckConflictIDs(map[string]utxo.TransactionIDs{
 		"Block1": utxo.NewTransactionIDs(),
 		"Block2": tf.Ledger.TransactionIDs("TX2"),
 		"Block3": tf.Ledger.TransactionIDs("TX2"),
@@ -146,8 +147,9 @@ func TestScenario_3(t *testing.T) {
 func TestScenario_4(t *testing.T) {
 	t.Skip("Skip until we propagate conflicts through Markers again")
 	workers := workerpool.NewGroup(t.Name())
-	tf := NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"),
-		WithMarkerManagerOptions(
+	tf := booker.NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"),
+		realitiesledger.NewTestLedger(t, workers.CreateGroup("RealitiesLedger")),
+		booker.WithMarkerManagerOptions(
 			markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(3)),
 		),
 	)
@@ -171,11 +173,11 @@ func TestScenario_4(t *testing.T) {
 			"Block0": markers.NewMarkers(markers.NewMarker(0, 2)),
 			"Block1": markers.NewMarkers(markers.NewMarker(0, 3)),
 		}))
-		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
+		tf.CheckBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
 			"Block0": {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
 			"Block1": {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
 		}))
-		tf.checkConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
+		tf.CheckConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
 			"Block0": utxo.NewTransactionIDs(),
 			"Block1": utxo.NewTransactionIDs(),
 		}))
@@ -189,10 +191,10 @@ func TestScenario_4(t *testing.T) {
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
 			"Block2": markers.NewMarkers(markers.NewMarker(0, 4)),
 		}))
-		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
+		tf.CheckBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
 			"Block2": {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
 		}))
-		tf.checkConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
+		tf.CheckConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
 			"Block2": utxo.NewTransactionIDs(),
 		}))
 	}
@@ -205,10 +207,10 @@ func TestScenario_4(t *testing.T) {
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
 			"Block3": markers.NewMarkers(markers.NewMarker(0, 1)),
 		}))
-		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
+		tf.CheckBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
 			"Block3": {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
 		}))
-		tf.checkConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
+		tf.CheckConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
 			"Block2": utxo.NewTransactionIDs(),
 			"Block3": utxo.NewTransactionIDs(),
 		}))
@@ -222,10 +224,10 @@ func TestScenario_4(t *testing.T) {
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
 			"Block4": markers.NewMarkers(markers.NewMarker(0, 1)),
 		}))
-		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
+		tf.CheckBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
 			"Block4": {tf.Ledger.TransactionIDs("TX4"), utxo.NewTransactionIDs()},
 		}))
-		tf.checkConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
+		tf.CheckConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
 			"Block1": tf.Ledger.TransactionIDs("TX1"),
 			"Block2": tf.Ledger.TransactionIDs("TX1"),
 			"Block4": tf.Ledger.TransactionIDs("TX4"),
@@ -240,10 +242,10 @@ func TestScenario_4(t *testing.T) {
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
 			"Block5": markers.NewMarkers(markers.NewMarker(1, 2)),
 		}))
-		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
+		tf.CheckBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
 			"Block5": {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
 		}))
-		tf.checkConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
+		tf.CheckConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
 			"Block5": tf.Ledger.TransactionIDs("TX4"),
 		}))
 	}
@@ -257,11 +259,11 @@ func TestScenario_4(t *testing.T) {
 			"Block6": markers.NewMarkers(markers.NewMarker(1, 3)),
 		}))
 
-		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
+		tf.CheckBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
 			"Block6": {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
 		}))
 
-		tf.checkConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
+		tf.CheckConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
 			"Block6": tf.Ledger.TransactionIDs("TX4"),
 		}))
 	}
@@ -275,11 +277,11 @@ func TestScenario_4(t *testing.T) {
 			"Block6.3": markers.NewMarkers(markers.NewMarker(1, 4)),
 		}))
 
-		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
+		tf.CheckBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
 			"Block6.3": {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
 		}))
 
-		tf.checkConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
+		tf.CheckConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
 			"Block6.3": tf.Ledger.TransactionIDs("TX4"),
 		}))
 	}
@@ -293,11 +295,11 @@ func TestScenario_4(t *testing.T) {
 			"Block6.6": markers.NewMarkers(markers.NewMarker(1, 3)),
 		}))
 
-		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
+		tf.CheckBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
 			"Block6.6": {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
 		}))
 
-		tf.checkConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
+		tf.CheckConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
 			"Block6.6": tf.Ledger.TransactionIDs("TX4"),
 		}))
 	}
@@ -311,11 +313,11 @@ func TestScenario_4(t *testing.T) {
 			"Block7": markers.NewMarkers(markers.NewMarker(1, 2), markers.NewMarker(0, 2)),
 		}))
 
-		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
+		tf.CheckBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
 			"Block7": {tf.Ledger.TransactionIDs("TX6"), utxo.NewTransactionIDs()},
 		}))
 
-		tf.checkConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
+		tf.CheckConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
 			"Block6":   tf.Ledger.TransactionIDs("TX4", "TX5"),
 			"Block6.3": tf.Ledger.TransactionIDs("TX4", "TX5"),
 			"Block6.6": tf.Ledger.TransactionIDs("TX4", "TX5"),
@@ -332,11 +334,11 @@ func TestScenario_4(t *testing.T) {
 			"Block7.3": markers.NewMarkers(markers.NewMarker(1, 2), markers.NewMarker(0, 2)),
 		}))
 
-		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
+		tf.CheckBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
 			"Block7.3": {tf.Ledger.TransactionIDs("TX6"), utxo.NewTransactionIDs()},
 		}))
 
-		tf.checkConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
+		tf.CheckConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
 			"Block7.3": tf.Ledger.TransactionIDs("TX4", "TX6"),
 		}))
 	}
@@ -350,11 +352,11 @@ func TestScenario_4(t *testing.T) {
 			"Block7.6": markers.NewMarkers(markers.NewMarker(2, 3)),
 		}))
 
-		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
+		tf.CheckBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
 			"Block7.6": {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
 		}))
 
-		tf.checkConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
+		tf.CheckConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
 			"Block7.6": tf.Ledger.TransactionIDs("TX4", "TX6"),
 		}))
 	}
@@ -367,12 +369,12 @@ func TestScenario_4(t *testing.T) {
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
 			"Block8": markers.NewMarkers(markers.NewMarker(0, 5)),
 		}))
-		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
+		tf.CheckBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
 			"Block3": {tf.Ledger.TransactionIDs("TX3"), utxo.NewTransactionIDs()},
 			"Block4": {tf.Ledger.TransactionIDs("TX3", "TX4"), utxo.NewTransactionIDs()},
 			"Block8": {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
 		}))
-		tf.checkConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
+		tf.CheckConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
 			"Block3":   tf.Ledger.TransactionIDs("TX3"),
 			"Block4":   tf.Ledger.TransactionIDs("TX3", "TX4"),
 			"Block5":   tf.Ledger.TransactionIDs("TX3", "TX4"),
@@ -390,7 +392,7 @@ func TestScenario_4(t *testing.T) {
 func TestFutureConePropagation(t *testing.T) {
 	t.Skip("Skip until we propagate conflicts through Markers again")
 	workers := workerpool.NewGroup(t.Name())
-	tf := NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"))
+	tf := booker.NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"), realitiesledger.NewTestLedger(t, workers.CreateGroup("RealitiesLedger")))
 
 	tf.BlockDAG.CreateBlock("Block0", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")))
 
@@ -435,7 +437,7 @@ func TestFutureConePropagation(t *testing.T) {
 			"Block8":  markers.NewMarkers(markers.NewMarker(0, 5)),
 			"Block9":  markers.NewMarkers(markers.NewMarker(0, 3)),
 		}))
-		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
+		tf.CheckBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
 			"Block1":  {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
 			"Block1*": {tf.Ledger.TransactionIDs("TX1*"), utxo.NewTransactionIDs()},
 			"Block2":  {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
@@ -446,7 +448,7 @@ func TestFutureConePropagation(t *testing.T) {
 			"Block8":  {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
 			"Block9":  {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
 		}))
-		tf.checkConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
+		tf.CheckConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
 			"Block1":  tf.Ledger.TransactionIDs("TX1"),
 			"Block1*": tf.Ledger.TransactionIDs("TX1*"),
 			"Block2":  tf.Ledger.TransactionIDs("TX1"),
@@ -466,12 +468,12 @@ func TestFutureConePropagation(t *testing.T) {
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
 			"Block2*": markers.NewMarkers(markers.NewMarker(0, 2)),
 		}))
-		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
+		tf.CheckBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
 			"Block2*": {tf.Ledger.TransactionIDs("TX2*"), utxo.NewTransactionIDs()},
 			"Block5":  {tf.Ledger.TransactionIDs("TX1*"), tf.Ledger.TransactionIDs("TX1")},
 			"Block6":  {tf.Ledger.TransactionIDs("TX1*"), tf.Ledger.TransactionIDs("TX1")},
 		}))
-		tf.checkConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
+		tf.CheckConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
 			"Block2":  tf.Ledger.TransactionIDs("TX1", "TX2"),
 			"Block2*": tf.Ledger.TransactionIDs("TX1", "TX2*"),
 			"Block3":  tf.Ledger.TransactionIDs("TX1*"), // does not change because of marker mapping
@@ -490,10 +492,10 @@ func TestFutureConePropagation(t *testing.T) {
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
 			"Block4": markers.NewMarkers(markers.NewMarker(0, 3)),
 		}))
-		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
+		tf.CheckBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
 			"Block4": {tf.Ledger.TransactionIDs("TX1*"), tf.Ledger.TransactionIDs("TX1", "TX2")},
 		}))
-		tf.checkConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
+		tf.CheckConflictIDs(lo.MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
 			"Block4": tf.Ledger.TransactionIDs("TX1*"),
 		}))
 	}
@@ -502,7 +504,7 @@ func TestFutureConePropagation(t *testing.T) {
 func TestWeakParent(t *testing.T) {
 	t.Skip("Skip until we propagate conflicts through Markers again")
 	workers := workerpool.NewGroup(t.Name())
-	tf := NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"))
+	tf := booker.NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"), realitiesledger.NewTestLedger(t, workers.CreateGroup("RealitiesLedger")))
 
 	tf.BlockDAG.CreateBlock("Block0", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")))
 
@@ -516,13 +518,13 @@ func TestWeakParent(t *testing.T) {
 		tf.BlockDAG.IssueBlocks("Block1*")
 		tf.BlockDAG.IssueBlocks("Block2")
 
-		tf.checkBlockMetadataDiffConflictIDs(map[string][]utxo.TransactionIDs{
+		tf.CheckBlockMetadataDiffConflictIDs(map[string][]utxo.TransactionIDs{
 			"Block0":  {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
 			"Block1":  {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
 			"Block1*": {tf.Ledger.TransactionIDs("TX1*"), utxo.NewTransactionIDs()},
 			"Block2":  {tf.Ledger.TransactionIDs("TX1"), utxo.NewTransactionIDs()},
 		})
-		tf.checkConflictIDs(map[string]utxo.TransactionIDs{
+		tf.CheckConflictIDs(map[string]utxo.TransactionIDs{
 			"Block0":  tf.Ledger.TransactionIDs(),
 			"Block1":  tf.Ledger.TransactionIDs("TX1"),
 			"Block1*": tf.Ledger.TransactionIDs("TX1*"),
@@ -536,7 +538,7 @@ func TestMultiThreadedBookingAndForkingParallel(t *testing.T) {
 	const widthSize = 8 // since we reference all blocks in the layer below, this is limited by the max parents
 
 	workers := workerpool.NewGroup(t.Name())
-	tf := NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"))
+	tf := booker.NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"), realitiesledger.NewTestLedger(t, workers.CreateGroup("RealitiesLedger")))
 
 	// Create base-layer outputs to double-spend
 	tf.BlockDAG.CreateBlock("Block.G", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithPayload(tf.Ledger.CreateTransaction("G", layersNum, "Genesis")))
@@ -613,7 +615,7 @@ func TestMultiThreadedBookingAndForkingParallel(t *testing.T) {
 		}
 	}
 
-	tf.checkConflictIDs(expectedConflicts)
+	tf.CheckConflictIDs(expectedConflicts)
 }
 
 func TestMultiThreadedBookingAndForkingNested(t *testing.T) {
@@ -621,7 +623,7 @@ func TestMultiThreadedBookingAndForkingNested(t *testing.T) {
 	const widthSize = 8 // since we reference all blocks in the layer below, this is limited by the max parents
 
 	workers := workerpool.NewGroup(t.Name())
-	tf := NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"))
+	tf := booker.NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"), realitiesledger.NewTestLedger(t, workers.CreateGroup("RealitiesLedger")))
 
 	// Create base-layer outputs to double-spend
 	tf.BlockDAG.CreateBlock("Block.G", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithPayload(tf.Ledger.CreateTransaction("G", widthSize, "Genesis")))
@@ -692,7 +694,7 @@ func TestMultiThreadedBookingAndForkingNested(t *testing.T) {
 		}
 	}
 
-	tf.checkNormalizedConflictIDsContained(expectedConflicts)
+	tf.CheckNormalizedConflictIDsContained(expectedConflicts)
 }
 
 // This test creates two chains of blocks from the genesis (1 block per slot in each chain). The first chain is solid, the second chain is not.
@@ -701,7 +703,7 @@ func Test_Prune(t *testing.T) {
 	const slotCount = 100
 
 	workers := workerpool.NewGroup(t.Name())
-	tf := NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"))
+	tf := booker.NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"), realitiesledger.NewTestLedger(t, workers.CreateGroup("RealitiesLedger")))
 
 	// create a helper function that creates the blocks
 	createNewBlock := func(idx slot.Index, prefix string) (block *models.Block, alias string) {
@@ -789,38 +791,38 @@ func Test_Prune(t *testing.T) {
 	require.Error(t, err, "should not be able to attach a block after eviction of an slot")
 }
 
-func validateState(tf *TestFramework, maxPrunedSlot, slotCount int) {
+func validateState(tf *booker.TestFramework, maxPrunedSlot, slotCount int) {
 	for i := maxPrunedSlot + 1; i <= slotCount; i++ {
 		alias := fmt.Sprintf("blk-%d", i)
 
 		_, exists := tf.Instance.Block(tf.BlockDAG.Block(alias).ID())
-		require.True(tf.test, exists, "block should be in the BlockDAG")
+		require.True(tf.Test, exists, "block should be in the BlockDAG")
 		if i == 1 {
-			blocks := tf.Instance.attachments.Get(tf.Ledger.Transaction(alias).ID())
-			require.Len(tf.test, blocks, 2, "transaction blk-0 should have 2 attachments")
+			blocks := tf.Instance.GetAllAttachments(tf.Ledger.Transaction(alias).ID())
+			require.Equal(tf.Test, 2, blocks.Size(), "transaction blk-0 should have 2 attachments")
 		} else {
-			blocks := tf.Instance.attachments.Get(tf.Ledger.Transaction(alias).ID())
-			require.Len(tf.test, blocks, 1, "transaction should have 1 attachment")
+			blocks := tf.Instance.GetAllAttachments(tf.Ledger.Transaction(alias).ID())
+			require.Equal(tf.Test, 1, blocks.Size(), "transaction should have 1 attachment")
 		}
 	}
 
 	for i := 1; i <= maxPrunedSlot; i++ {
 		alias := fmt.Sprintf("blk-%d", i)
 		_, exists := tf.Instance.Block(tf.BlockDAG.Block(alias).ID())
-		require.False(tf.test, exists, "block should not be in the BlockDAG")
+		require.False(tf.Test, exists, "block should not be in the BlockDAG")
 		if i == 1 {
-			blocks := tf.Instance.attachments.Get(tf.Ledger.Transaction(alias).ID())
-			require.Len(tf.test, blocks, 1, "transaction should have 1 attachment")
+			blocks := tf.Instance.GetAllAttachments(tf.Ledger.Transaction(alias).ID())
+			require.Equal(tf.Test, 1, blocks.Size(), "transaction should have 1 attachment")
 		} else {
-			blocks := tf.Instance.attachments.Get(tf.Ledger.Transaction(alias).ID())
-			require.Empty(tf.test, blocks, "transaction should have no attachments")
+			blocks := tf.Instance.GetAllAttachments(tf.Ledger.Transaction(alias).ID())
+			require.Equal(tf.Test, 0, blocks.Size(), "transaction should have no attachments")
 		}
 	}
 }
 
 func Test_BlockInvalid(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	tf := NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"))
+	tf := booker.NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"), realitiesledger.NewTestLedger(t, workers.CreateGroup("RealitiesLedger")))
 
 	tf.BlockDAG.CreateBlock("Block1", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")))
 	tf.BlockDAG.CreateBlock("Block2", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithLikedInsteadParents(tf.BlockDAG.BlockIDs("Block1")))
@@ -894,12 +896,12 @@ func TestOTV_Track(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
 
 	storageInstance := blockdag.NewTestStorage(t, workers)
-	tf := NewTestFramework(t, workers.CreateGroup("BookerTestFramework"),
-		New(workers.CreateGroup("Booker"),
+	tf := booker.NewTestFramework(t, workers.CreateGroup("BookerTestFramework"),
+		booker.New(workers.CreateGroup("Booker"),
 			blockdag.NewTestBlockDAG(t, workers.CreateGroup("BlockDAG"), eviction.NewState(storageInstance), slot.NewTimeProvider(time.Now().Unix(), 10), storageInstance.Commitments.Load),
-			ledger.NewTestLedger(t, workers.CreateGroup("Ledger")),
+			realitiesledger.NewTestLedger(t, workers.CreateGroup("RealitiesLedger")),
 			sybilprotection.NewWeightedSet(sybilprotection.NewWeights(mapdb.NewMapDB())),
-			WithMarkerManagerOptions(
+			booker.WithMarkerManagerOptions(
 				markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](
 					markers.WithMaxPastMarkerDistance(3),
 				),
