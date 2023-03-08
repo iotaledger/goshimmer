@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"sort"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool/utxo"
 	"github.com/iotaledger/hive.go/ds/set"
 	"github.com/iotaledger/hive.go/ds/walker"
 	"github.com/iotaledger/hive.go/lo"

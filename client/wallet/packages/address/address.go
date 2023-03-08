@@ -3,7 +3,7 @@ package address
 import (
 	"github.com/mr-tron/base58"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool/vm/devnetvm"
 	"github.com/iotaledger/hive.go/stringify"
 )
 

@@ -9,9 +9,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool/utxo"
 	"github.com/iotaledger/hive.go/runtime/event"
 )
 
@@ -142,7 +142,7 @@ var SlotMetrics = collector.NewCollection(slotNamespace,
 		collector.WithLabels(labelName),
 		collector.WithHelp("Number of rejected attachments by the node per slot."),
 		collector.WithInitFunc(func() {
-			deps.Protocol.Events.Engine.Ledger.TransactionRejected.Hook(func(transactionMetadata *ledger.TransactionMetadata) {
+			deps.Protocol.Events.Engine.Ledger.TransactionRejected.Hook(func(transactionMetadata *mempool.TransactionMetadata) {
 				for it := deps.Protocol.Engine().Tangle.Booker.GetAllAttachments(transactionMetadata.ID()).Iterator(); it.HasNext(); {
 					attachmentBlock := it.Next()
 					if !attachmentBlock.IsOrphaned() {
@@ -157,7 +157,7 @@ var SlotMetrics = collector.NewCollection(slotNamespace,
 		collector.WithLabels(labelName),
 		collector.WithHelp("Number of accepted attachments by the node per slot."),
 		collector.WithInitFunc(func() {
-			deps.Protocol.Events.Engine.Ledger.TransactionAccepted.Hook(func(transactionEvent *ledger.TransactionEvent) {
+			deps.Protocol.Events.Engine.Ledger.TransactionAccepted.Hook(func(transactionEvent *mempool.TransactionEvent) {
 				for it := deps.Protocol.Engine().Tangle.Booker.GetAllAttachments(transactionEvent.Metadata.ID()).Iterator(); it.HasNext(); {
 					attachmentBlock := it.Next()
 					if !attachmentBlock.IsOrphaned() {

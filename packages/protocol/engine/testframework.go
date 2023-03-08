@@ -16,7 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool"
 	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/runtime/options"
@@ -34,14 +34,14 @@ type TestFramework struct {
 	Tangle        *tangle.TestFramework
 	Booker        *booker.TestFramework
 	BlockDAG      *blockdag.TestFramework
-	Ledger        *ledger.TestFramework
+	Ledger        *mempool.TestFramework
 	VirtualVoting *virtualvoting.TestFramework
 	Acceptance    *blockgadget.TestFramework
 }
 
 func NewTestEngine(t *testing.T, workers *workerpool.Group, storage *storage.Storage,
 	clock module.Provider[*Engine, clock.Clock],
-	ledger module.Provider[*Engine, ledger.Ledger],
+	ledger module.Provider[*Engine, mempool.MemPool],
 	ledgerState module.Provider[*Engine, ledgerstate.LedgerState],
 	sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection],
 	throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota],
@@ -70,7 +70,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, engine *Engine
 
 func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group,
 	clock module.Provider[*Engine, clock.Clock],
-	ledger module.Provider[*Engine, ledger.Ledger],
+	ledger module.Provider[*Engine, mempool.MemPool],
 	ledgerState module.Provider[*Engine, ledgerstate.LedgerState],
 	sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection],
 	throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota],

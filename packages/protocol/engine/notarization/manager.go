@@ -11,7 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/hive.go/core/slot"
@@ -212,10 +212,10 @@ func (m *Manager) createCommitment(index slot.Index) (success bool) {
 		Commitment:           newCommitment,
 		AcceptedBlocks:       acceptedBlocks,
 		AcceptedTransactions: acceptedTransactions,
-		SpentOutputs: func(callback func(*ledger.OutputWithMetadata) error) error {
+		SpentOutputs: func(callback func(*mempool.OutputWithMetadata) error) error {
 			return m.ledgerState.StateDiffs().StreamSpentOutputs(index, callback)
 		},
-		CreatedOutputs: func(callback func(*ledger.OutputWithMetadata) error) error {
+		CreatedOutputs: func(callback func(*mempool.OutputWithMetadata) error) error {
 			return m.ledgerState.StateDiffs().StreamCreatedOutputs(index, callback)
 		},
 		ActiveValidatorsCount: 0,

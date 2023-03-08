@@ -2,8 +2,8 @@ package notarization
 
 import (
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/ads"
 	"github.com/iotaledger/hive.go/runtime/event"
@@ -39,7 +39,7 @@ var NewSlotMutationsEvents = event.CreateGroupConstructor(func() (self *SlotMuta
 	}
 })
 
-type OutputsProvider func(callback func(*ledger.OutputWithMetadata) error) error
+type OutputsProvider func(callback func(*mempool.OutputWithMetadata) error) error
 
 // SlotCommittedDetails struct { contains the details of a committed slot.
 type SlotCommittedDetails struct {

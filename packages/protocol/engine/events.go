@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/filter"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/eventticker"
 	"github.com/iotaledger/hive.go/runtime/event"
@@ -19,7 +19,7 @@ type Events struct {
 
 	EvictionState       *eviction.Events
 	Filter              *filter.Events
-	Ledger              *ledger.Events
+	Ledger              *mempool.Events
 	Tangle              *tangle.Events
 	Consensus           *consensus.Events
 	Clock               *clock.Events
@@ -37,7 +37,7 @@ var NewEvents = event.CreateGroupConstructor(func() (newEvents *Events) {
 		BlockProcessed:      event.New1[models.BlockID](),
 		EvictionState:       eviction.NewEvents(),
 		Filter:              filter.NewEvents(),
-		Ledger:              ledger.NewEvents(),
+		Ledger:              mempool.NewEvents(),
 		Tangle:              tangle.NewEvents(),
 		Consensus:           consensus.NewEvents(),
 		Clock:               clock.NewEvents(),

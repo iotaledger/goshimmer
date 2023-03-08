@@ -17,11 +17,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/app/daemon"
@@ -63,7 +63,7 @@ var (
 	doubleSpendFilterOnce sync.Once
 
 	// Hook to the transaction confirmation event.
-	onTransactionAccepted *event.Hook[func(*ledger.TransactionEvent)]
+	onTransactionAccepted *event.Hook[func(*mempool.TransactionEvent)]
 
 	log *logger.Logger
 )
@@ -106,7 +106,7 @@ func FilterRemove(txID utxo.TransactionID) {
 func configure(plugin *node.Plugin) {
 	if webapi.Parameters.EnableDSFilter {
 		doubleSpendFilter = Filter()
-		deps.Protocol.Events.Engine.Ledger.TransactionAccepted.Hook(func(event *ledger.TransactionEvent) {
+		deps.Protocol.Events.Engine.Ledger.TransactionAccepted.Hook(func(event *mempool.TransactionEvent) {
 			doubleSpendFilter.Remove(event.Metadata.ID())
 		}, event.WithWorkerPool(plugin.WorkerPool))
 	}
@@ -184,7 +184,7 @@ func GetAddress(c echo.Context) error {
 	outputs := outputsOnAddress(address)
 	spentOutputs, unspentOutputs := devnetvm.Outputs{}, devnetvm.Outputs{}
 	for _, output := range outputs {
-		deps.Protocol.Engine().Ledger.Storage().CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
+		deps.Protocol.Engine().Ledger.Storage().CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *mempool.OutputMetadata) {
 			if outputMetadata.IsSpent() {
 				spentOutputs = append(spentOutputs, output)
 				return
@@ -228,12 +228,12 @@ func PostAddressUnspentOutputs(c echo.Context) error {
 		res.UnspentOutputs[i].Outputs = make([]jsonmodels.WalletOutput, 0)
 
 		for _, output := range outputs.Filter(func(output devnetvm.Output) (isUnspent bool) {
-			deps.Protocol.Engine().Ledger.Storage().CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
+			deps.Protocol.Engine().Ledger.Storage().CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *mempool.OutputMetadata) {
 				isUnspent = !outputMetadata.IsSpent()
 			})
 			return
 		}) {
-			deps.Protocol.Engine().Ledger.Storage().CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
+			deps.Protocol.Engine().Ledger.Storage().CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *mempool.OutputMetadata) {
 				if !outputMetadata.IsSpent() {
 					deps.Protocol.Engine().Ledger.Storage().CachedOutput(output.ID()).Consume(func(ledgerOutput utxo.Output) {
 						var timestamp time.Time
@@ -405,7 +405,7 @@ func GetOutputMetadata(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	if !deps.Protocol.Engine().Ledger.Storage().CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledger.OutputMetadata) {
+	if !deps.Protocol.Engine().Ledger.Storage().CachedOutputMetadata(outputID).Consume(func(outputMetadata *mempool.OutputMetadata) {
 		confirmedConsumerID := deps.Protocol.Engine().Ledger.Utils().ConfirmedConsumer(outputID)
 
 		jsonOutputMetadata := jsonmodels.NewOutputMetadata(outputMetadata, confirmedConsumerID)
@@ -450,7 +450,7 @@ func GetTransactionMetadata(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	if !deps.Protocol.Engine().Ledger.Storage().CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
+	if !deps.Protocol.Engine().Ledger.Storage().CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *mempool.TransactionMetadata) {
 		err = c.JSON(http.StatusOK, jsonmodels.NewTransactionMetadata(transactionMetadata))
 	}) {
 		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load TransactionMetadata of Transaction with %s", transactionID)))

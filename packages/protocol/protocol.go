@@ -25,8 +25,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
 	"github.com/iotaledger/goshimmer/packages/protocol/enginemanager"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/realitiesledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool/realitiesledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
 	"github.com/iotaledger/hive.go/core/slot"
@@ -68,7 +68,7 @@ type Protocol struct {
 	optsStorageDatabaseManagerOptions []options.Option[database.Manager]
 
 	optsClockProvider           module.Provider[*engine.Engine, clock.Clock]
-	optsLedgerProvider          module.Provider[*engine.Engine, ledger.Ledger]
+	optsLedgerProvider          module.Provider[*engine.Engine, mempool.MemPool]
 	optsLedgerStateProvider     module.Provider[*engine.Engine, ledgerstate.LedgerState]
 	optsSybilProtectionProvider module.Provider[*engine.Engine, sybilprotection.SybilProtection]
 	optsThroughputQuotaProvider module.Provider[*engine.Engine, throughputquota.ThroughputQuota]
@@ -416,7 +416,7 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 		// Calculate the difference between the latest commitment ledger and the ledger at the snapshot target index
 		latestCommitment := mainEngine.Storage.Settings.LatestCommitment()
 		for i := latestCommitment.Index(); i >= snapshotTargetIndex; i-- {
-			if err := mainEngine.LedgerState.StateDiffs().StreamSpentOutputs(i, func(output *ledger.OutputWithMetadata) error {
+			if err := mainEngine.LedgerState.StateDiffs().StreamSpentOutputs(i, func(output *mempool.OutputWithMetadata) error {
 				if iotaBalance, balanceExists := output.IOTABalance(); balanceExists {
 					wb.Update(output.ConsensusManaPledgeID(), int64(iotaBalance))
 				}
@@ -426,7 +426,7 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 				return
 			}
 
-			if err := mainEngine.LedgerState.StateDiffs().StreamCreatedOutputs(i, func(output *ledger.OutputWithMetadata) error {
+			if err := mainEngine.LedgerState.StateDiffs().StreamCreatedOutputs(i, func(output *mempool.OutputWithMetadata) error {
 				if iotaBalance, balanceExists := output.IOTABalance(); balanceExists {
 					wb.Update(output.ConsensusManaPledgeID(), -int64(iotaBalance))
 				}
@@ -603,7 +603,7 @@ func WithSnapshotPath(snapshot string) options.Option[Protocol] {
 	}
 }
 
-func WithLedgerProvider(optsLedgerProvider module.Provider[*engine.Engine, ledger.Ledger]) options.Option[Protocol] {
+func WithLedgerProvider(optsLedgerProvider module.Provider[*engine.Engine, mempool.MemPool]) options.Option[Protocol] {
 	return func(n *Protocol) {
 		n.optsLedgerProvider = optsLedgerProvider
 	}

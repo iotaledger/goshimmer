@@ -6,7 +6,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/runtime/options"
 
@@ -41,7 +41,7 @@ type Options struct {
 
 	DataBaseVersion database.Version
 
-	LedgerProvider module.Provider[*engine.Engine, ledger.Ledger]
+	LedgerProvider module.Provider[*engine.Engine, mempool.MemPool]
 }
 
 func NewOptions(opts ...options.Option[Options]) *Options {
@@ -173,8 +173,8 @@ func WithDatabaseVersion(databaseVersion database.Version) options.Option[Option
 	}
 }
 
-// WithLedgerProvider sets the Ledger to use for the snapshot.
-func WithLedgerProvider(ledgerProvider module.Provider[*engine.Engine, ledger.Ledger]) options.Option[Options] {
+// WithLedgerProvider sets the MemPool to use for the snapshot.
+func WithLedgerProvider(ledgerProvider module.Provider[*engine.Engine, mempool.MemPool]) options.Option[Options] {
 	return func(m *Options) {
 		m.LedgerProvider = ledgerProvider
 	}

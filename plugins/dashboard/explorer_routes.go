@@ -12,10 +12,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/app/retainer"
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 
@@ -273,11 +273,11 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 	// get outputids by address
 	// deps.Indexer.CachedOutputsOnAddress(address).Consume(func(output ledgerstate.Output) {
 	deps.Indexer.CachedAddressOutputMappings(address).Consume(func(addressOutputMapping *indexer.AddressOutputMapping) {
-		var metaData *ledger.OutputMetadata
+		var metaData *mempool.OutputMetadata
 		var timestamp int64
 
 		// get output metadata + confirmation status from conflict of the output
-		deps.Protocol.Engine().Ledger.Storage().CachedOutputMetadata(addressOutputMapping.OutputID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
+		deps.Protocol.Engine().Ledger.Storage().CachedOutputMetadata(addressOutputMapping.OutputID()).Consume(func(outputMetadata *mempool.OutputMetadata) {
 			metaData = outputMetadata
 		})
 

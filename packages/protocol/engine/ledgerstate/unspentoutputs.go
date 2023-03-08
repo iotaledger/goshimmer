@@ -3,8 +3,8 @@ package ledgerstate
 import (
 	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool/utxo"
 	"github.com/iotaledger/hive.go/ads"
 )
 
@@ -20,7 +20,7 @@ type UnspentOutputs interface {
 	Unsubscribe(UnspentOutputsSubscriber)
 
 	// ApplyCreatedOutput applies the given output to the unspent outputs.
-	ApplyCreatedOutput(*ledger.OutputWithMetadata) error
+	ApplyCreatedOutput(*mempool.OutputWithMetadata) error
 
 	// BatchCommittable embeds the required methods of the BatchCommittable trait.
 	traits.BatchCommittable

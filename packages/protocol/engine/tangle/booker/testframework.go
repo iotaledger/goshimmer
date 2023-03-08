@@ -13,9 +13,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool/utxo"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/runtime/debug"
@@ -29,7 +29,7 @@ type TestFramework struct {
 	Test          *testing.T
 	Workers       *workerpool.Group
 	Instance      *Booker
-	Ledger        *ledger.TestFramework
+	Ledger        *mempool.TestFramework
 	BlockDAG      *blockdag.TestFramework
 	ConflictDAG   *conflictdag.TestFramework
 	VirtualVoting *virtualvoting.TestFramework
@@ -46,7 +46,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, instance *Book
 		Instance:      instance,
 		BlockDAG:      blockdag.NewTestFramework(test, workers.CreateGroup("BlockDAG"), instance.BlockDAG),
 		ConflictDAG:   conflictdag.NewTestFramework(test, instance.Ledger.ConflictDAG()),
-		Ledger:        ledger.NewTestFramework(test, instance.Ledger),
+		Ledger:        mempool.NewTestFramework(test, instance.Ledger),
 		VirtualVoting: virtualvoting.NewTestFramework(test, workers.CreateGroup("VirtualVoting"), instance.VirtualVoting),
 	}
 
@@ -54,7 +54,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, instance *Book
 	return t
 }
 
-func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, ledger ledger.Ledger, optsBooker ...options.Option[Booker]) *TestFramework {
+func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, ledger mempool.MemPool, optsBooker ...options.Option[Booker]) *TestFramework {
 	storageInstance := blockdag.NewTestStorage(t, workers)
 
 	return NewTestFramework(t, workers, New(

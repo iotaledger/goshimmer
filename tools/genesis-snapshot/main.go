@@ -18,8 +18,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/hive.go/crypto/identity"
@@ -84,7 +84,7 @@ func createTempStorage() (s *storage.Storage) {
 	return storage.New(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), protocol.DatabaseVersion)
 }
 
-func diagnosticPrintSnapshotFromFile(filePath string, ledgerProvider module.Provider[*engine.Engine, ledger.Ledger]) {
+func diagnosticPrintSnapshotFromFile(filePath string, ledgerProvider module.Provider[*engine.Engine, mempool.MemPool]) {
 	s := createTempStorage()
 	defer s.Shutdown()
 
@@ -111,7 +111,7 @@ func diagnosticPrintSnapshotFromFile(filePath string, ledgerProvider module.Prov
 	fmt.Println("--- Ledgerstate ---")
 	e.Ledger.Storage().ForEachOutputID(func(outputID utxo.OutputID) bool {
 		e.Ledger.Storage().CachedOutput(outputID).Consume(func(o utxo.Output) {
-			e.Ledger.Storage().CachedOutputMetadata(outputID).Consume(func(m *ledger.OutputMetadata) {
+			e.Ledger.Storage().CachedOutputMetadata(outputID).Consume(func(m *mempool.OutputMetadata) {
 				fmt.Printf("%+v\n%#v\n", o, m)
 			})
 		})
@@ -138,14 +138,14 @@ func diagnosticPrintSnapshotFromFile(filePath string, ledgerProvider module.Prov
 
 	fmt.Println("--- Diffs ---")
 	fmt.Println("SpentOutputs: ")
-	if err := e.LedgerState.StateDiffs().StreamSpentOutputs(0, func(owm *ledger.OutputWithMetadata) error {
+	if err := e.LedgerState.StateDiffs().StreamSpentOutputs(0, func(owm *mempool.OutputWithMetadata) error {
 		fmt.Printf("%d: %+v\n", 0, owm)
 		return nil
 	}); err != nil {
 		panic(err)
 	}
 	fmt.Println("CreatedOutputs: ")
-	if err := e.LedgerState.StateDiffs().StreamCreatedOutputs(0, func(owm *ledger.OutputWithMetadata) error {
+	if err := e.LedgerState.StateDiffs().StreamCreatedOutputs(0, func(owm *mempool.OutputWithMetadata) error {
 		fmt.Printf("%d: %+v\n", 0, owm)
 		return nil
 	}); err != nil {

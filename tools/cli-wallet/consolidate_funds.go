@@ -7,7 +7,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/consolidateoptions"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool/vm/devnetvm"
 )
 
 func execConsolidateFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {

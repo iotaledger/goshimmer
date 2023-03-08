@@ -15,8 +15,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/realitiesledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool/realitiesledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 	"github.com/iotaledger/hive.go/runtime/options"
 )

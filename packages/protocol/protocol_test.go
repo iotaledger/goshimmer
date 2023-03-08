@@ -27,11 +27,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/realitiesledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/mockedvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool/realitiesledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool/vm/mockedvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/mockednetwork"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
@@ -346,11 +346,11 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 			require.Equal(t, originalCommitment, importedCommitment)
 
 			// Check that StateDiffs have been cleared after snapshot import.
-			require.NoError(t, tf2.Instance.LedgerState.StateDiffs().StreamCreatedOutputs(slotIndex, func(*ledger.OutputWithMetadata) error {
+			require.NoError(t, tf2.Instance.LedgerState.StateDiffs().StreamCreatedOutputs(slotIndex, func(*mempool.OutputWithMetadata) error {
 				return errors.New("StateDiffs created should be empty after snapshot import")
 			}))
 
-			require.NoError(t, tf2.Instance.LedgerState.StateDiffs().StreamSpentOutputs(slotIndex, func(*ledger.OutputWithMetadata) error {
+			require.NoError(t, tf2.Instance.LedgerState.StateDiffs().StreamSpentOutputs(slotIndex, func(*mempool.OutputWithMetadata) error {
 				return errors.New("StateDiffs spent should be empty after snapshot import")
 			}))
 
@@ -1161,7 +1161,7 @@ func TestEngine_GuavaConflict(t *testing.T) {
 
 	workers := workerpool.NewGroup(t.Name())
 	tf := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework"),
-		blocktime.NewProvider(), 
+		blocktime.NewProvider(),
 		ledgerProvider,
 		ondiskledgerstate.NewProvider(),
 		dpos.NewProvider(),
@@ -1255,27 +1255,27 @@ func TestEngine_GuavaConflict(t *testing.T) {
 			"Tx3":  confirmation.Accepted,
 			"Tx3*": confirmation.Rejected,
 		}))
-		tf.Tangle.Ledger.ConsumeTransactionMetadata(tf.Tangle.Ledger.Transaction("Tx1").ID(), func(txMetadata *ledger.TransactionMetadata) {
+		tf.Tangle.Ledger.ConsumeTransactionMetadata(tf.Tangle.Ledger.Transaction("Tx1").ID(), func(txMetadata *mempool.TransactionMetadata) {
 			assert.True(t, txMetadata.ConfirmationState().IsAccepted(), "Tx1 should be accepted")
 		})
 
-		tf.Tangle.Ledger.ConsumeTransactionMetadata(tf.Tangle.Ledger.Transaction("Tx2").ID(), func(txMetadata *ledger.TransactionMetadata) {
+		tf.Tangle.Ledger.ConsumeTransactionMetadata(tf.Tangle.Ledger.Transaction("Tx2").ID(), func(txMetadata *mempool.TransactionMetadata) {
 			assert.True(t, txMetadata.ConfirmationState().IsAccepted(), "Tx2 should be accepted")
 		})
 
-		tf.Tangle.Ledger.ConsumeTransactionMetadata(tf.Tangle.Ledger.Transaction("Tx2*").ID(), func(txMetadata *ledger.TransactionMetadata) {
+		tf.Tangle.Ledger.ConsumeTransactionMetadata(tf.Tangle.Ledger.Transaction("Tx2*").ID(), func(txMetadata *mempool.TransactionMetadata) {
 			assert.True(t, txMetadata.ConfirmationState().IsRejected(), "Tx2* should be rejected")
 		})
 
-		tf.Tangle.Ledger.ConsumeTransactionMetadata(tf.Tangle.Ledger.Transaction("Tx3").ID(), func(txMetadata *ledger.TransactionMetadata) {
+		tf.Tangle.Ledger.ConsumeTransactionMetadata(tf.Tangle.Ledger.Transaction("Tx3").ID(), func(txMetadata *mempool.TransactionMetadata) {
 			assert.True(t, txMetadata.ConfirmationState().IsAccepted(), "Tx3 should be accepted")
 		})
 
-		tf.Tangle.Ledger.ConsumeTransactionMetadata(tf.Tangle.Ledger.Transaction("Tx3*").ID(), func(txMetadata *ledger.TransactionMetadata) {
+		tf.Tangle.Ledger.ConsumeTransactionMetadata(tf.Tangle.Ledger.Transaction("Tx3*").ID(), func(txMetadata *mempool.TransactionMetadata) {
 			assert.True(t, txMetadata.ConfirmationState().IsRejected(), "Tx3* should be rejected")
 		})
 
-		tf.Tangle.Ledger.ConsumeTransactionMetadata(tf.Tangle.Ledger.Transaction("Tx4").ID(), func(txMetadata *ledger.TransactionMetadata) {
+		tf.Tangle.Ledger.ConsumeTransactionMetadata(tf.Tangle.Ledger.Transaction("Tx4").ID(), func(txMetadata *mempool.TransactionMetadata) {
 			assert.True(t, txMetadata.ConfirmationState().IsAccepted(), "Tx4 should be accepted")
 		})
 	}

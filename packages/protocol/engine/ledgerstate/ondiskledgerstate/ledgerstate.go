@@ -9,7 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/options"
@@ -170,7 +170,7 @@ func (l *LedgerState) rollbackStateDiff(index slot.Index) (err error) {
 }
 
 // onTransactionAccepted is triggered when a transaction is accepted by the mempool.
-func (l *LedgerState) onTransactionAccepted(transactionEvent *ledger.TransactionEvent) {
+func (l *LedgerState) onTransactionAccepted(transactionEvent *mempool.TransactionEvent) {
 	if err := l.stateDiffs.addAcceptedTransaction(transactionEvent.Metadata); err != nil {
 		// TODO: handle error gracefully
 		panic(err)
@@ -178,7 +178,7 @@ func (l *LedgerState) onTransactionAccepted(transactionEvent *ledger.Transaction
 }
 
 // onTransactionInclusionUpdated is triggered when a transaction inclusion state is updated.
-func (l *LedgerState) onTransactionInclusionUpdated(inclusionUpdatedEvent *ledger.TransactionInclusionUpdatedEvent) {
+func (l *LedgerState) onTransactionInclusionUpdated(inclusionUpdatedEvent *mempool.TransactionInclusionUpdatedEvent) {
 	if l.engine.Ledger.ConflictDAG().ConfirmationState(inclusionUpdatedEvent.TransactionMetadata.ConflictIDs()).IsAccepted() {
 		l.stateDiffs.moveTransactionToOtherSlot(inclusionUpdatedEvent.TransactionMetadata, inclusionUpdatedEvent.PreviousInclusionSlot, inclusionUpdatedEvent.InclusionSlot)
 	}

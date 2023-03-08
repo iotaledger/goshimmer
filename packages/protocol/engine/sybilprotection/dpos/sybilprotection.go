@@ -14,7 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/ds/shrinkingmap"
@@ -125,7 +125,7 @@ func (s *SybilProtection) Weights() *sybilprotection.Weights {
 	return s.weights
 }
 
-func (s *SybilProtection) ApplyCreatedOutput(output *ledger.OutputWithMetadata) (err error) {
+func (s *SybilProtection) ApplyCreatedOutput(output *mempool.OutputWithMetadata) (err error) {
 	if iotaBalance, exists := output.IOTABalance(); exists {
 		if s.BatchedStateTransitionStarted() {
 			s.weightsBatch.Update(output.ConsensusManaPledgeID(), int64(iotaBalance))
@@ -137,7 +137,7 @@ func (s *SybilProtection) ApplyCreatedOutput(output *ledger.OutputWithMetadata) 
 	return
 }
 
-func (s *SybilProtection) ApplySpentOutput(output *ledger.OutputWithMetadata) (err error) {
+func (s *SybilProtection) ApplySpentOutput(output *mempool.OutputWithMetadata) (err error) {
 	if iotaBalance, exists := output.IOTABalance(); exists {
 		if s.BatchedStateTransitionStarted() {
 			s.weightsBatch.Update(output.ConsensusManaPledgeID(), -int64(iotaBalance))
@@ -149,11 +149,11 @@ func (s *SybilProtection) ApplySpentOutput(output *ledger.OutputWithMetadata) (e
 	return
 }
 
-func (s *SybilProtection) RollbackCreatedOutput(output *ledger.OutputWithMetadata) (err error) {
+func (s *SybilProtection) RollbackCreatedOutput(output *mempool.OutputWithMetadata) (err error) {
 	return s.ApplySpentOutput(output)
 }
 
-func (s *SybilProtection) RollbackSpentOutput(output *ledger.OutputWithMetadata) (err error) {
+func (s *SybilProtection) RollbackSpentOutput(output *mempool.OutputWithMetadata) (err error) {
 	return s.ApplyCreatedOutput(output)
 }
 

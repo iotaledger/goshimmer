@@ -8,8 +8,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/stream"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool/utxo"
 	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/kvstore"
@@ -26,7 +26,7 @@ const (
 
 type StateDiffs struct {
 	storage *storage.Storage
-	ledger  ledger.Ledger
+	ledger  mempool.MemPool
 }
 
 func NewStateDiffs(e *engine.Engine) *StateDiffs {
@@ -38,7 +38,7 @@ func NewStateDiffs(e *engine.Engine) *StateDiffs {
 	})
 }
 
-func (s *StateDiffs) StoreSpentOutput(outputWithMetadata *ledger.OutputWithMetadata) (err error) {
+func (s *StateDiffs) StoreSpentOutput(outputWithMetadata *mempool.OutputWithMetadata) (err error) {
 	if spentStorage, spentStorageErr := s.storage.LedgerStateDiffs(outputWithMetadata.SpentInSlot()).WithExtendedRealm([]byte{spentOutputsPrefix}); spentStorageErr != nil {
 		return errors.Wrapf(spentStorageErr, "failed to retrieve spent storage")
 	} else {
@@ -46,7 +46,7 @@ func (s *StateDiffs) StoreSpentOutput(outputWithMetadata *ledger.OutputWithMetad
 	}
 }
 
-func (s *StateDiffs) StoreCreatedOutput(outputWithMetadata *ledger.OutputWithMetadata) (err error) {
+func (s *StateDiffs) StoreCreatedOutput(outputWithMetadata *mempool.OutputWithMetadata) (err error) {
 	if createdStorage, createdStorageErr := s.storage.LedgerStateDiffs(outputWithMetadata.Index()).WithExtendedRealm([]byte{createdOutputsPrefix}); createdStorageErr != nil {
 		return errors.Wrapf(createdStorageErr, "failed to retrieve created storage")
 	} else {
@@ -54,7 +54,7 @@ func (s *StateDiffs) StoreCreatedOutput(outputWithMetadata *ledger.OutputWithMet
 	}
 }
 
-func (s *StateDiffs) LoadSpentOutput(index slot.Index, outputID utxo.OutputID) (outputWithMetadata *ledger.OutputWithMetadata, err error) {
+func (s *StateDiffs) LoadSpentOutput(index slot.Index, outputID utxo.OutputID) (outputWithMetadata *mempool.OutputWithMetadata, err error) {
 	store, err := s.storage.LedgerStateDiffs(index).WithExtendedRealm([]byte{spentOutputsPrefix})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to extend realm for storage")
@@ -62,7 +62,7 @@ func (s *StateDiffs) LoadSpentOutput(index slot.Index, outputID utxo.OutputID) (
 	return s.get(store, outputID)
 }
 
-func (s *StateDiffs) LoadCreatedOutput(index slot.Index, outputID utxo.OutputID) (outputWithMetadata *ledger.OutputWithMetadata, err error) {
+func (s *StateDiffs) LoadCreatedOutput(index slot.Index, outputID utxo.OutputID) (outputWithMetadata *mempool.OutputWithMetadata, err error) {
 	store, err := s.storage.LedgerStateDiffs(index).WithExtendedRealm([]byte{createdOutputsPrefix})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to extend realm for storage")
@@ -109,7 +109,7 @@ func (s *StateDiffs) DeleteCreatedOutputs(index slot.Index, outputIDs utxo.Outpu
 	return nil
 }
 
-func (s *StateDiffs) StreamSpentOutputs(index slot.Index, callback func(*ledger.OutputWithMetadata) error) (err error) {
+func (s *StateDiffs) StreamSpentOutputs(index slot.Index, callback func(*mempool.OutputWithMetadata) error) (err error) {
 	store, err := s.storage.LedgerStateDiffs(index).WithExtendedRealm([]byte{spentOutputsPrefix})
 	if err != nil {
 		return errors.Wrap(err, "failed to extend realm for storage")
@@ -118,7 +118,7 @@ func (s *StateDiffs) StreamSpentOutputs(index slot.Index, callback func(*ledger.
 	return s.stream(store, callback)
 }
 
-func (s *StateDiffs) StreamCreatedOutputs(index slot.Index, callback func(*ledger.OutputWithMetadata) error) (err error) {
+func (s *StateDiffs) StreamCreatedOutputs(index slot.Index, callback func(*mempool.OutputWithMetadata) error) (err error) {
 	store, err := s.storage.LedgerStateDiffs(index).WithExtendedRealm([]byte{createdOutputsPrefix})
 	if err != nil {
 		return errors.Wrap(err, "failed to extend realm for storage")
@@ -175,8 +175,8 @@ func (s *StateDiffs) Delete(index slot.Index) (err error) {
 	return s.storage.LedgerStateDiffs(index).Clear()
 }
 
-func (s *StateDiffs) importOutputs(reader io.ReadSeeker, store func(*ledger.OutputWithMetadata) error) (err error) {
-	output := new(ledger.OutputWithMetadata)
+func (s *StateDiffs) importOutputs(reader io.ReadSeeker, store func(*mempool.OutputWithMetadata) error) (err error) {
+	output := new(mempool.OutputWithMetadata)
 	return stream.ReadCollection(reader, func(i int) (err error) {
 		if err = stream.ReadSerializable(reader, output); err != nil {
 			return errors.Wrapf(err, "failed to read output %d", i)
@@ -188,9 +188,9 @@ func (s *StateDiffs) importOutputs(reader io.ReadSeeker, store func(*ledger.Outp
 	})
 }
 
-func (s *StateDiffs) exportOutputs(writer io.WriteSeeker, slot slot.Index, streamFunc func(index slot.Index, callback func(*ledger.OutputWithMetadata) error) (err error)) (err error) {
+func (s *StateDiffs) exportOutputs(writer io.WriteSeeker, slot slot.Index, streamFunc func(index slot.Index, callback func(*mempool.OutputWithMetadata) error) (err error)) (err error) {
 	return stream.WriteCollection(writer, func() (elementsCount uint64, err error) {
-		if err = streamFunc(slot, func(outputWithMetadata *ledger.OutputWithMetadata) (err error) {
+		if err = streamFunc(slot, func(outputWithMetadata *mempool.OutputWithMetadata) (err error) {
 			if err = stream.WriteSerializable(writer, outputWithMetadata); err != nil {
 				return errors.Wrap(err, "failed to write output")
 			}
@@ -206,7 +206,7 @@ func (s *StateDiffs) exportOutputs(writer io.WriteSeeker, slot slot.Index, strea
 	})
 }
 
-func (s *StateDiffs) get(store kvstore.KVStore, outputID utxo.OutputID) (outputWithMetadata *ledger.OutputWithMetadata, err error) {
+func (s *StateDiffs) get(store kvstore.KVStore, outputID utxo.OutputID) (outputWithMetadata *mempool.OutputWithMetadata, err error) {
 	outputWithMetadataBytes, err := store.Get(lo.PanicOnErr(outputID.Bytes()))
 	if err != nil {
 		if errors.Is(err, kvstore.ErrKeyNotFound) {
@@ -216,7 +216,7 @@ func (s *StateDiffs) get(store kvstore.KVStore, outputID utxo.OutputID) (outputW
 		return nil, errors.Wrapf(err, "failed to get block %s", outputID)
 	}
 
-	outputWithMetadata = new(ledger.OutputWithMetadata)
+	outputWithMetadata = new(mempool.OutputWithMetadata)
 	if _, err = outputWithMetadata.FromBytes(outputWithMetadataBytes); err != nil {
 		return nil, errors.Wrapf(err, "failed to parse output with metadata %s", outputID)
 	}
@@ -225,10 +225,10 @@ func (s *StateDiffs) get(store kvstore.KVStore, outputID utxo.OutputID) (outputW
 	return
 }
 
-func (s *StateDiffs) stream(store kvstore.KVStore, callback func(*ledger.OutputWithMetadata) error) (err error) {
+func (s *StateDiffs) stream(store kvstore.KVStore, callback func(*mempool.OutputWithMetadata) error) (err error) {
 	if iterationErr := store.Iterate([]byte{}, func(idBytes kvstore.Key, outputWithMetadataBytes kvstore.Value) bool {
 		outputID := new(utxo.OutputID)
-		outputWithMetadata := new(ledger.OutputWithMetadata)
+		outputWithMetadata := new(mempool.OutputWithMetadata)
 
 		if _, err = outputID.FromBytes(idBytes); err != nil {
 			err = errors.Wrapf(err, "failed to parse output ID %s", idBytes)
@@ -254,7 +254,7 @@ func (s *StateDiffs) delete(store kvstore.KVStore, outputID utxo.OutputID) (err 
 	return
 }
 
-func (s *StateDiffs) addAcceptedTransaction(metadata *ledger.TransactionMetadata) (err error) {
+func (s *StateDiffs) addAcceptedTransaction(metadata *mempool.TransactionMetadata) (err error) {
 	if !s.ledger.Storage().CachedTransaction(metadata.ID()).Consume(func(transaction utxo.Transaction) {
 		err = s.storeTransaction(transaction, metadata)
 	}) {
@@ -264,7 +264,7 @@ func (s *StateDiffs) addAcceptedTransaction(metadata *ledger.TransactionMetadata
 	return
 }
 
-func (s *StateDiffs) storeTransaction(transaction utxo.Transaction, metadata *ledger.TransactionMetadata) (err error) {
+func (s *StateDiffs) storeTransaction(transaction utxo.Transaction, metadata *mempool.TransactionMetadata) (err error) {
 	for it := s.ledger.Utils().ResolveInputs(transaction.Inputs()).Iterator(); it.HasNext(); {
 		inputWithMetadata := s.outputWithMetadata(it.Next())
 		inputWithMetadata.SetSpentInSlot(metadata.InclusionSlot())
@@ -288,17 +288,17 @@ func (s *StateDiffs) storeTransaction(transaction utxo.Transaction, metadata *le
 	return nil
 }
 
-func (s *StateDiffs) outputWithMetadata(outputID utxo.OutputID) (outputWithMetadata *ledger.OutputWithMetadata) {
+func (s *StateDiffs) outputWithMetadata(outputID utxo.OutputID) (outputWithMetadata *mempool.OutputWithMetadata) {
 	s.ledger.Storage().CachedOutput(outputID).Consume(func(output utxo.Output) {
-		s.ledger.Storage().CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledger.OutputMetadata) {
-			outputWithMetadata = ledger.NewOutputWithMetadata(outputMetadata.InclusionSlot(), outputID, output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())
+		s.ledger.Storage().CachedOutputMetadata(outputID).Consume(func(outputMetadata *mempool.OutputMetadata) {
+			outputWithMetadata = mempool.NewOutputWithMetadata(outputMetadata.InclusionSlot(), outputID, output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())
 		})
 	})
 
 	return
 }
 
-func (s *StateDiffs) moveTransactionToOtherSlot(txMeta *ledger.TransactionMetadata, oldSlot, newSlot slot.Index) {
+func (s *StateDiffs) moveTransactionToOtherSlot(txMeta *mempool.TransactionMetadata, oldSlot, newSlot slot.Index) {
 	if oldSlot <= s.storage.Settings.LatestCommitment().Index() || newSlot <= s.storage.Settings.LatestCommitment().Index() {
 		s.ledger.Events().Error.Trigger(errors.Errorf("inclusion time of transaction changed for already committed slot: previous Index %d, new Index %d", oldSlot, newSlot))
 		return

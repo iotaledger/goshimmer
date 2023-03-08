@@ -4,8 +4,8 @@ import (
 	"github.com/capossele/asset-registry/pkg/registry"
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool/vm/devnetvm"
 )
 
 // Asset represents a container for all the information regarding a colored coin.

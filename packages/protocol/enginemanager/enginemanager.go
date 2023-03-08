@@ -15,7 +15,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool"
 	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/goshimmer/packages/storage/utils"
 	"github.com/iotaledger/hive.go/core/slot"
@@ -41,7 +41,7 @@ type EngineManager struct {
 
 	engineOptions           []options.Option[engine.Engine]
 	clockProvider           module.Provider[*engine.Engine, clock.Clock]
-	ledgerProvider          module.Provider[*engine.Engine, ledger.Ledger]
+	ledgerProvider          module.Provider[*engine.Engine, mempool.MemPool]
 	ledgerStateProvider     module.Provider[*engine.Engine, ledgerstate.LedgerState]
 	sybilProtectionProvider module.Provider[*engine.Engine, sybilprotection.SybilProtection]
 	throughputQuotaProvider module.Provider[*engine.Engine, throughputquota.ThroughputQuota]
@@ -56,7 +56,7 @@ func New(
 	storageOptions []options.Option[database.Manager],
 	engineOptions []options.Option[engine.Engine],
 	clockProvider module.Provider[*engine.Engine, clock.Clock],
-	ledgerProvider module.Provider[*engine.Engine, ledger.Ledger],
+	ledgerProvider module.Provider[*engine.Engine, mempool.MemPool],
 	ledgerStateProvider module.Provider[*engine.Engine, ledgerstate.LedgerState],
 	sybilProtectionProvider module.Provider[*engine.Engine, sybilprotection.SybilProtection],
 	throughputQuotaProvider module.Provider[*engine.Engine, throughputquota.ThroughputQuota]) *EngineManager {

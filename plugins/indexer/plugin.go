@@ -5,8 +5,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool/vm/devnetvm/indexer"
 	"github.com/iotaledger/hive.go/runtime/event"
 )
 
@@ -38,7 +38,7 @@ func init() {
 func provide(protocol *protocol.Protocol) (i *indexer.Indexer) {
 	// TODO: needs to consider switching of instance/ledger in the future
 	// TODO: load snapshot / attach to events from snapshot loading
-	i = indexer.New(func() ledger.Ledger {
+	i = indexer.New(func() mempool.MemPool {
 		return protocol.Engine().Ledger
 	})
 

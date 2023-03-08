@@ -11,7 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/filter"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/mockedvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool/vm/mockedvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/app/configuration"
 	"github.com/iotaledger/hive.go/app/logger"

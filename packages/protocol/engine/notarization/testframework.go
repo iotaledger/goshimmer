@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -23,7 +23,7 @@ type TestFramework struct {
 	slotTimeProvider *slot.TimeProvider
 
 	test              *testing.T
-	transactionsByID  map[string]*ledger.TransactionMetadata
+	transactionsByID  map[string]*mempool.TransactionMetadata
 	issuersByID       map[string]ed25519.PublicKey
 	weights           *sybilprotection.Weights
 	blocksByID        map[string]*models.Block
@@ -36,7 +36,7 @@ func NewTestFramework(test *testing.T, slotTimeProvider *slot.TimeProvider) *Tes
 	tf := &TestFramework{
 		test:              test,
 		slotTimeProvider:  slotTimeProvider,
-		transactionsByID:  make(map[string]*ledger.TransactionMetadata),
+		transactionsByID:  make(map[string]*mempool.TransactionMetadata),
 		issuersByID:       make(map[string]ed25519.PublicKey),
 		blocksByID:        make(map[string]*models.Block),
 		slotEntityCounter: make(map[slot.Index]int),
@@ -102,7 +102,7 @@ func (t *TestFramework) Block(alias string) (block *models.Block) {
 	return t.blocksByID[alias]
 }
 
-func (t *TestFramework) CreateTransaction(alias string, index slot.Index) (metadata *ledger.TransactionMetadata) {
+func (t *TestFramework) CreateTransaction(alias string, index slot.Index) (metadata *mempool.TransactionMetadata) {
 	t.Lock()
 	defer t.Unlock()
 
@@ -112,7 +112,7 @@ func (t *TestFramework) CreateTransaction(alias string, index slot.Index) (metad
 
 	var txID utxo.TransactionID
 	require.NoError(t.test, txID.FromRandomness())
-	metadata = ledger.NewTransactionMetadata(txID)
+	metadata = mempool.NewTransactionMetadata(txID)
 	metadata.SetInclusionSlot(index)
 
 	t.transactionsByID[alias] = metadata
@@ -120,7 +120,7 @@ func (t *TestFramework) CreateTransaction(alias string, index slot.Index) (metad
 	return metadata
 }
 
-func (t *TestFramework) Transaction(alias string) *ledger.TransactionMetadata {
+func (t *TestFramework) Transaction(alias string) *mempool.TransactionMetadata {
 	t.RLock()
 	defer t.RUnlock()
 

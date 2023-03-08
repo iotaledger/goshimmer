@@ -12,9 +12,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markermanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/causalorder"
 	"github.com/iotaledger/hive.go/core/memstorage"
@@ -34,7 +34,7 @@ type Booker struct {
 	// Events contains the Events of Booker.
 	Events *Events
 
-	Ledger        ledger.Ledger
+	Ledger        mempool.MemPool
 	VirtualVoting *virtualvoting.VirtualVoting
 	bookingOrder  *causalorder.CausalOrder[models.BlockID, *virtualvoting.Block]
 	attachments   *attachments
@@ -52,7 +52,7 @@ type Booker struct {
 	BlockDAG *blockdag.BlockDAG
 }
 
-func New(workers *workerpool.Group, blockDAG *blockdag.BlockDAG, ledger ledger.Ledger, validators *sybilprotection.WeightedSet, opts ...options.Option[Booker]) (booker *Booker) {
+func New(workers *workerpool.Group, blockDAG *blockdag.BlockDAG, ledger mempool.MemPool, validators *sybilprotection.WeightedSet, opts ...options.Option[Booker]) (booker *Booker) {
 	return options.Apply(&Booker{
 		Events:            NewEvents(),
 		attachments:       newAttachments(),
@@ -140,7 +140,7 @@ func (b *Booker) TransactionConflictIDs(block *virtualvoting.Block) (conflictIDs
 		return
 	}
 
-	b.Ledger.Storage().CachedTransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
+	b.Ledger.Storage().CachedTransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *mempool.TransactionMetadata) {
 		conflictIDs.AddAll(transactionMetadata.ConflictIDs())
 	})
 
@@ -247,7 +247,7 @@ func (b *Booker) isPayloadSolid(block *virtualvoting.Block) (isPayloadSolid bool
 
 	if err = b.Ledger.StoreAndProcessTransaction(
 		models.BlockIDToContext(context.Background(), block.ID()), tx,
-	); errors.Is(err, ledger.ErrTransactionUnsolid) {
+	); errors.Is(err, mempool.ErrTransactionUnsolid) {
 		return false, nil
 	}
 
@@ -556,12 +556,12 @@ func (b *Booker) setupEvents() {
 
 		b.OrphanAttachment(block)
 	})
-	b.Ledger.Events().TransactionConflictIDUpdated.Hook(func(event *ledger.TransactionConflictIDUpdatedEvent) {
+	b.Ledger.Events().TransactionConflictIDUpdated.Hook(func(event *mempool.TransactionConflictIDUpdatedEvent) {
 		if err := b.PropagateForkedConflict(event.TransactionID, event.AddedConflictID, event.RemovedConflictIDs); err != nil {
 			b.Events.Error.Trigger(errors.Wrapf(err, "failed to propagate Conflict update of %s to BlockDAG", event.TransactionID))
 		}
 	})
-	b.Ledger.Events().TransactionBooked.Hook(func(e *ledger.TransactionBookedEvent) {
+	b.Ledger.Events().TransactionBooked.Hook(func(e *mempool.TransactionBookedEvent) {
 		contextBlockID := models.BlockIDFromContext(e.Context)
 
 		for _, block := range b.attachments.Get(e.TransactionID) {

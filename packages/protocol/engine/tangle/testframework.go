@@ -10,7 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/runtime/options"
@@ -25,12 +25,12 @@ type TestFramework struct {
 
 	VirtualVoting *virtualvoting.TestFramework
 	Booker        *booker.TestFramework
-	Ledger        *ledger.TestFramework
+	Ledger        *mempool.TestFramework
 	BlockDAG      *blockdag.TestFramework
 	Votes         *votes.TestFramework
 }
 
-func NewTestTangle(t *testing.T, workers *workerpool.Group, slotTimeProvider *slot.TimeProvider, ledger ledger.Ledger, validators *sybilprotection.WeightedSet, optsTangle ...options.Option[Tangle]) *Tangle {
+func NewTestTangle(t *testing.T, workers *workerpool.Group, slotTimeProvider *slot.TimeProvider, ledger mempool.MemPool, validators *sybilprotection.WeightedSet, optsTangle ...options.Option[Tangle]) *Tangle {
 	storageInstance := blockdag.NewTestStorage(t, workers)
 
 	tangle := New(workers, ledger, eviction.NewState(storageInstance),
@@ -62,7 +62,7 @@ func NewTestFramework(test *testing.T, tangle *Tangle, bookerTF *booker.TestFram
 	}
 }
 
-func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, ledger ledger.Ledger, slotTimeProvider *slot.TimeProvider, optsTangle ...options.Option[Tangle]) *TestFramework {
+func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, ledger mempool.MemPool, slotTimeProvider *slot.TimeProvider, optsTangle ...options.Option[Tangle]) *TestFramework {
 	tangle := NewTestTangle(t, workers.CreateGroup("Tangle"),
 		slotTimeProvider,
 		ledger,

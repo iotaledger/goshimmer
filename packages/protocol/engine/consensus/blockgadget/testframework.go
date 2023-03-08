@@ -16,9 +16,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markermanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/ds/advancedset"
@@ -36,7 +36,7 @@ type TestFramework struct {
 	Tangle        *tangle.TestFramework
 	VirtualVoting *virtualvoting.TestFramework
 	Booker        *booker.TestFramework
-	Ledger        *ledger.TestFramework
+	Ledger        *mempool.TestFramework
 	BlockDAG      *blockdag.TestFramework
 	Votes         *votes.TestFramework
 
@@ -62,7 +62,7 @@ func NewTestFramework(test *testing.T, gadget *Gadget, tangleTF *tangle.TestFram
 	return t
 }
 
-func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, ledger ledger.Ledger, optsGadget ...options.Option[Gadget]) *TestFramework {
+func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, ledger mempool.MemPool, optsGadget ...options.Option[Gadget]) *TestFramework {
 	tangleTF := tangle.NewDefaultTestFramework(t, workers.CreateGroup("TangleTestFramework"),
 		ledger,
 		slot.NewTimeProvider(time.Now().Unix(), 10),

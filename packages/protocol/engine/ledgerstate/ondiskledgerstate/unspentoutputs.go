@@ -13,8 +13,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool/utxo"
 	"github.com/iotaledger/hive.go/ads"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/ds/types"
@@ -24,7 +24,7 @@ import (
 type UnspentOutputs struct {
 	ids *ads.Set[utxo.OutputID, *utxo.OutputID]
 
-	memPool               ledger.Ledger
+	memPool               mempool.MemPool
 	consumers             map[ledgerstate.UnspentOutputsSubscriber]types.Empty
 	consumersMutex        sync.RWMutex
 	batchConsumers        map[ledgerstate.UnspentOutputsSubscriber]types.Empty
@@ -107,7 +107,7 @@ func (u *UnspentOutputs) Commit() (ctx context.Context) {
 	return ctx
 }
 
-func (u *UnspentOutputs) ApplyCreatedOutput(output *ledger.OutputWithMetadata) (err error) {
+func (u *UnspentOutputs) ApplyCreatedOutput(output *mempool.OutputWithMetadata) (err error) {
 	var targetConsumers map[ledgerstate.UnspentOutputsSubscriber]types.Empty
 	if !u.BatchedStateTransitionStarted() {
 		u.ids.Add(output.Output().ID())
@@ -130,7 +130,7 @@ func (u *UnspentOutputs) ApplyCreatedOutput(output *ledger.OutputWithMetadata) (
 	return
 }
 
-func (u *UnspentOutputs) ApplySpentOutput(output *ledger.OutputWithMetadata) (err error) {
+func (u *UnspentOutputs) ApplySpentOutput(output *mempool.OutputWithMetadata) (err error) {
 	var targetConsumers map[ledgerstate.UnspentOutputsSubscriber]types.Empty
 	if !u.BatchedStateTransitionStarted() {
 		panic("cannot apply a spent output without a batched state transition")
@@ -149,17 +149,17 @@ func (u *UnspentOutputs) ApplySpentOutput(output *ledger.OutputWithMetadata) (er
 	return
 }
 
-func (u *UnspentOutputs) RollbackCreatedOutput(output *ledger.OutputWithMetadata) (err error) {
+func (u *UnspentOutputs) RollbackCreatedOutput(output *mempool.OutputWithMetadata) (err error) {
 	return u.ApplySpentOutput(output)
 }
 
-func (u *UnspentOutputs) RollbackSpentOutput(output *ledger.OutputWithMetadata) (err error) {
+func (u *UnspentOutputs) RollbackSpentOutput(output *mempool.OutputWithMetadata) (err error) {
 	return u.ApplyCreatedOutput(output)
 }
 
 func (u *UnspentOutputs) Export(writer io.WriteSeeker) (err error) {
 	if err = stream.WriteCollection(writer, func() (elementsCount uint64, err error) {
-		var outputWithMetadata *ledger.OutputWithMetadata
+		var outputWithMetadata *mempool.OutputWithMetadata
 		if iterationErr := u.ids.Stream(func(outputID utxo.OutputID) bool {
 			if outputWithMetadata, err = u.outputWithMetadata(outputID); err != nil {
 				err = errors.Wrap(err, "failed to load output with metadata")
@@ -183,7 +183,7 @@ func (u *UnspentOutputs) Export(writer io.WriteSeeker) (err error) {
 }
 
 func (u *UnspentOutputs) Import(reader io.ReadSeeker, targetSlot slot.Index) (err error) {
-	outputWithMetadata := new(ledger.OutputWithMetadata)
+	outputWithMetadata := new(mempool.OutputWithMetadata)
 	if err = stream.ReadCollection(reader, func(i int) (err error) {
 		if err = stream.ReadSerializable(reader, outputWithMetadata); err != nil {
 			return errors.Wrap(err, "failed to read output with metadata")
@@ -246,7 +246,7 @@ func (u *UnspentOutputs) preparePendingConsumers(currentSlot, targetSlot slot.In
 	return
 }
 
-func (u *UnspentOutputs) notifyConsumers(consumer map[ledgerstate.UnspentOutputsSubscriber]types.Empty, output *ledger.OutputWithMetadata, callback func(self ledgerstate.UnspentOutputsSubscriber, output *ledger.OutputWithMetadata) (err error)) (err error) {
+func (u *UnspentOutputs) notifyConsumers(consumer map[ledgerstate.UnspentOutputsSubscriber]types.Empty, output *mempool.OutputWithMetadata, callback func(self ledgerstate.UnspentOutputsSubscriber, output *mempool.OutputWithMetadata) (err error)) (err error) {
 	for consumer := range consumer {
 		if err = callback(consumer, output); err != nil {
 			return errors.Wrap(err, "failed to apply changes to consumer")
@@ -256,10 +256,10 @@ func (u *UnspentOutputs) notifyConsumers(consumer map[ledgerstate.UnspentOutputs
 	return
 }
 
-func (u *UnspentOutputs) outputWithMetadata(outputID utxo.OutputID) (outputWithMetadata *ledger.OutputWithMetadata, err error) {
+func (u *UnspentOutputs) outputWithMetadata(outputID utxo.OutputID) (outputWithMetadata *mempool.OutputWithMetadata, err error) {
 	if !u.memPool.Storage().CachedOutput(outputID).Consume(func(output utxo.Output) {
-		if !u.memPool.Storage().CachedOutputMetadata(outputID).Consume(func(metadata *ledger.OutputMetadata) {
-			outputWithMetadata = ledger.NewOutputWithMetadata(metadata.InclusionSlot(), outputID, output, metadata.ConsensusManaPledgeID(), metadata.AccessManaPledgeID())
+		if !u.memPool.Storage().CachedOutputMetadata(outputID).Consume(func(metadata *mempool.OutputMetadata) {
+			outputWithMetadata = mempool.NewOutputWithMetadata(metadata.InclusionSlot(), outputID, output, metadata.ConsensusManaPledgeID(), metadata.AccessManaPledgeID())
 		}) {
 			err = errors.Wrap(err, "failed to load output metadata")
 		}
@@ -270,10 +270,10 @@ func (u *UnspentOutputs) outputWithMetadata(outputID utxo.OutputID) (outputWithM
 	return
 }
 
-func (u *UnspentOutputs) importOutputIntoMemPoolStorage(output *ledger.OutputWithMetadata) {
+func (u *UnspentOutputs) importOutputIntoMemPoolStorage(output *mempool.OutputWithMetadata) {
 	u.memPool.Storage().CachedOutput(output.ID(), func(id utxo.OutputID) utxo.Output { return output.Output() }).Release()
-	u.memPool.Storage().CachedOutputMetadata(output.ID(), func(outputID utxo.OutputID) *ledger.OutputMetadata {
-		newOutputMetadata := ledger.NewOutputMetadata(output.ID())
+	u.memPool.Storage().CachedOutputMetadata(output.ID(), func(outputID utxo.OutputID) *mempool.OutputMetadata {
+		newOutputMetadata := mempool.NewOutputMetadata(output.ID())
 		newOutputMetadata.SetAccessManaPledgeID(output.AccessManaPledgeID())
 		newOutputMetadata.SetConsensusManaPledgeID(output.ConsensusManaPledgeID())
 		newOutputMetadata.SetConfirmationState(confirmation.Confirmed)

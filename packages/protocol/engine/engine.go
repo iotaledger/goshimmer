@@ -23,7 +23,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tsc"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/hive.go/core/eventticker"
@@ -42,7 +42,7 @@ type Engine struct {
 	Storage             *storage.Storage
 	SybilProtection     sybilprotection.SybilProtection
 	ThroughputQuota     throughputquota.ThroughputQuota
-	Ledger              ledger.Ledger
+	Ledger              mempool.MemPool
 	LedgerState         ledgerstate.LedgerState
 	Filter              *filter.Filter
 	EvictionState       *eviction.State
@@ -75,7 +75,7 @@ func New(
 	workers *workerpool.Group,
 	storageInstance *storage.Storage,
 	clockProvider module.Provider[*Engine, clock.Clock],
-	ledger module.Provider[*Engine, ledger.Ledger],
+	ledger module.Provider[*Engine, mempool.MemPool],
 	ledgerState module.Provider[*Engine, ledgerstate.LedgerState],
 	sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection],
 	throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota],
@@ -345,12 +345,12 @@ func (e *Engine) setupNotarizationManager() {
 	wpCommitments := e.Workers.CreatePool("NotarizationManager.Commitments", 1) // Using just 1 worker to avoid contention
 
 	// SlotMutations must be hooked because inclusion might be added before transaction are added.
-	e.Events.Ledger.TransactionAccepted.Hook(func(event *ledger.TransactionEvent) {
+	e.Events.Ledger.TransactionAccepted.Hook(func(event *mempool.TransactionEvent) {
 		if err := e.NotarizationManager.SlotMutations.AddAcceptedTransaction(event.Metadata); err != nil {
 			e.Events.Error.Trigger(errors.Wrapf(err, "failed to add accepted transaction %s to slot", event.Metadata.ID()))
 		}
 	})
-	e.Events.Ledger.TransactionInclusionUpdated.Hook(func(event *ledger.TransactionInclusionUpdatedEvent) {
+	e.Events.Ledger.TransactionInclusionUpdated.Hook(func(event *mempool.TransactionInclusionUpdatedEvent) {
 		if err := e.NotarizationManager.SlotMutations.UpdateTransactionInclusion(event.TransactionID, event.PreviousInclusionSlot, event.InclusionSlot); err != nil {
 			e.Events.Error.Trigger(errors.Wrapf(err, "failed to update transaction inclusion time %s in slot", event.TransactionID))
 		}

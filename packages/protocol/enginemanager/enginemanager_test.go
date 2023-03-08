@@ -9,8 +9,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/mempool/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -127,11 +127,11 @@ func TestEngineManager_ForkEngineAtSlot(t *testing.T) {
 			require.Equal(t, originalCommitment, importedCommitment)
 
 			// Check that StateDiffs have been cleared after snapshot import.
-			require.NoError(t, tf2.Instance.LedgerState.StateDiffs().StreamCreatedOutputs(slotIndex, func(*ledger.OutputWithMetadata) error {
+			require.NoError(t, tf2.Instance.LedgerState.StateDiffs().StreamCreatedOutputs(slotIndex, func(*mempool.OutputWithMetadata) error {
 				return errors.New("StateDiffs created should be empty after snapshot import")
 			}))
 
-			require.NoError(t, tf2.Instance.LedgerState.StateDiffs().StreamSpentOutputs(slotIndex, func(*ledger.OutputWithMetadata) error {
+			require.NoError(t, tf2.Instance.LedgerState.StateDiffs().StreamSpentOutputs(slotIndex, func(*mempool.OutputWithMetadata) error {
 				return errors.New("StateDiffs spent should be empty after snapshot import")
 			}))
 
