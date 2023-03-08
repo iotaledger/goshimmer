@@ -7,7 +7,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/stream"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/mempool"
 	"github.com/iotaledger/goshimmer/packages/protocol/mempool/utxo"
 	"github.com/iotaledger/goshimmer/packages/storage"
@@ -319,6 +319,6 @@ func (s *StateDiffs) moveTransactionToOtherSlot(txMeta *mempool.TransactionMetad
 	})
 }
 
-var _ ledgerstate.StateDiffs = new(StateDiffs)
+var _ ledger.StateDiffs = new(StateDiffs)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

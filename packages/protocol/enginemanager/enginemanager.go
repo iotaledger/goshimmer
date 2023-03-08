@@ -12,7 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
 	"github.com/iotaledger/goshimmer/packages/protocol/mempool"
@@ -42,7 +42,7 @@ type EngineManager struct {
 	engineOptions           []options.Option[engine.Engine]
 	clockProvider           module.Provider[*engine.Engine, clock.Clock]
 	ledgerProvider          module.Provider[*engine.Engine, mempool.MemPool]
-	ledgerStateProvider     module.Provider[*engine.Engine, ledgerstate.LedgerState]
+	ledgerStateProvider     module.Provider[*engine.Engine, ledger.Ledger]
 	sybilProtectionProvider module.Provider[*engine.Engine, sybilprotection.SybilProtection]
 	throughputQuotaProvider module.Provider[*engine.Engine, throughputquota.ThroughputQuota]
 
@@ -57,7 +57,7 @@ func New(
 	engineOptions []options.Option[engine.Engine],
 	clockProvider module.Provider[*engine.Engine, clock.Clock],
 	ledgerProvider module.Provider[*engine.Engine, mempool.MemPool],
-	ledgerStateProvider module.Provider[*engine.Engine, ledgerstate.LedgerState],
+	ledgerStateProvider module.Provider[*engine.Engine, ledger.Ledger],
 	sybilProtectionProvider module.Provider[*engine.Engine, sybilprotection.SybilProtection],
 	throughputQuotaProvider module.Provider[*engine.Engine, throughputquota.ThroughputQuota]) *EngineManager {
 	return &EngineManager{

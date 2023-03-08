@@ -10,7 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
@@ -209,4 +209,4 @@ func (s *SybilProtection) markValidatorInactive(id identity.ID) {
 	s.validators.Delete(id)
 }
 
-var _ ledgerstate.UnspentOutputsSubscriber = &SybilProtection{}
+var _ ledger.UnspentOutputsSubscriber = &SybilProtection{}

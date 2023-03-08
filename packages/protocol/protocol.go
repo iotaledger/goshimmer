@@ -16,8 +16,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/blocktime"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate/ondiskledgerstate"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/ondiskledgerstate"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
@@ -69,7 +69,7 @@ type Protocol struct {
 
 	optsClockProvider           module.Provider[*engine.Engine, clock.Clock]
 	optsLedgerProvider          module.Provider[*engine.Engine, mempool.MemPool]
-	optsLedgerStateProvider     module.Provider[*engine.Engine, ledgerstate.LedgerState]
+	optsLedgerStateProvider     module.Provider[*engine.Engine, ledger.Ledger]
 	optsSybilProtectionProvider module.Provider[*engine.Engine, sybilprotection.SybilProtection]
 	optsThroughputQuotaProvider module.Provider[*engine.Engine, throughputquota.ThroughputQuota]
 }
@@ -609,7 +609,7 @@ func WithLedgerProvider(optsLedgerProvider module.Provider[*engine.Engine, mempo
 	}
 }
 
-func WithLedgerStateProvider(optsLedgerStateProvider module.Provider[*engine.Engine, ledgerstate.LedgerState]) options.Option[Protocol] {
+func WithLedgerStateProvider(optsLedgerStateProvider module.Provider[*engine.Engine, ledger.Ledger]) options.Option[Protocol] {
 	return func(n *Protocol) {
 		n.optsLedgerStateProvider = optsLedgerStateProvider
 	}

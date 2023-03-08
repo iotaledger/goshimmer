@@ -8,7 +8,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/mempool"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/lo"
@@ -25,8 +25,8 @@ type LedgerState struct {
 	module.Module
 }
 
-func NewProvider(opts ...options.Option[LedgerState]) module.Provider[*engine.Engine, ledgerstate.LedgerState] {
-	return module.Provide(func(e *engine.Engine) ledgerstate.LedgerState {
+func NewProvider(opts ...options.Option[LedgerState]) module.Provider[*engine.Engine, ledger.Ledger] {
+	return module.Provide(func(e *engine.Engine) ledger.Ledger {
 		return options.Apply(&LedgerState{
 			engine:         e,
 			stateDiffs:     NewStateDiffs(e),
@@ -46,11 +46,11 @@ func NewProvider(opts ...options.Option[LedgerState]) module.Provider[*engine.En
 	})
 }
 
-func (l *LedgerState) UnspentOutputs() ledgerstate.UnspentOutputs {
+func (l *LedgerState) UnspentOutputs() ledger.UnspentOutputs {
 	return l.unspentOutputs
 }
 
-func (l *LedgerState) StateDiffs() ledgerstate.StateDiffs {
+func (l *LedgerState) StateDiffs() ledger.StateDiffs {
 	return l.stateDiffs
 }
 
@@ -184,4 +184,4 @@ func (l *LedgerState) onTransactionInclusionUpdated(inclusionUpdatedEvent *mempo
 	}
 }
 
-var _ ledgerstate.LedgerState = new(LedgerState)
+var _ ledger.Ledger = new(LedgerState)

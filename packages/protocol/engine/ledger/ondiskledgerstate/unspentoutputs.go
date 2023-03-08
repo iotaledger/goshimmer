@@ -12,7 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/stream"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/mempool"
 	"github.com/iotaledger/goshimmer/packages/protocol/mempool/utxo"
 	"github.com/iotaledger/hive.go/ads"
@@ -25,9 +25,9 @@ type UnspentOutputs struct {
 	ids *ads.Set[utxo.OutputID, *utxo.OutputID]
 
 	memPool               mempool.MemPool
-	consumers             map[ledgerstate.UnspentOutputsSubscriber]types.Empty
+	consumers             map[ledger.UnspentOutputsSubscriber]types.Empty
 	consumersMutex        sync.RWMutex
-	batchConsumers        map[ledgerstate.UnspentOutputsSubscriber]types.Empty
+	batchConsumers        map[ledger.UnspentOutputsSubscriber]types.Empty
 	batchCreatedOutputIDs utxo.OutputIDs
 	batchSpentOutputIDs   utxo.OutputIDs
 
@@ -42,7 +42,7 @@ const (
 
 func NewUnspentOutputs(e *engine.Engine) (unspentOutputs *UnspentOutputs) {
 	return options.Apply(&UnspentOutputs{
-		consumers: make(map[ledgerstate.UnspentOutputsSubscriber]types.Empty),
+		consumers: make(map[ledger.UnspentOutputsSubscriber]types.Empty),
 	}, nil, func(u *UnspentOutputs) {
 		e.HookConstructed(func() {
 			u.BatchCommittable = traits.NewBatchCommittable(e.Storage.UnspentOutputIDs(), PrefixUnspentOutputsLatestCommittedIndex)
@@ -52,14 +52,14 @@ func NewUnspentOutputs(e *engine.Engine) (unspentOutputs *UnspentOutputs) {
 	})
 }
 
-func (u *UnspentOutputs) Subscribe(consumer ledgerstate.UnspentOutputsSubscriber) {
+func (u *UnspentOutputs) Subscribe(consumer ledger.UnspentOutputsSubscriber) {
 	u.consumersMutex.Lock()
 	defer u.consumersMutex.Unlock()
 
 	u.consumers[consumer] = types.Void
 }
 
-func (u *UnspentOutputs) Unsubscribe(consumer ledgerstate.UnspentOutputsSubscriber) {
+func (u *UnspentOutputs) Unsubscribe(consumer ledger.UnspentOutputsSubscriber) {
 	u.consumersMutex.Lock()
 	defer u.consumersMutex.Unlock()
 
@@ -81,7 +81,7 @@ func (u *UnspentOutputs) Begin(newSlot slot.Index) (lastCommittedSlot slot.Index
 
 	u.batchCreatedOutputIDs = utxo.NewOutputIDs()
 	u.batchSpentOutputIDs = utxo.NewOutputIDs()
-	u.batchConsumers = make(map[ledgerstate.UnspentOutputsSubscriber]types.Empty)
+	u.batchConsumers = make(map[ledger.UnspentOutputsSubscriber]types.Empty)
 
 	if err = u.preparePendingConsumers(lastCommittedSlot, newSlot); err != nil {
 		return lastCommittedSlot, errors.Wrap(err, "failed to get pending state diff consumers")
@@ -108,7 +108,7 @@ func (u *UnspentOutputs) Commit() (ctx context.Context) {
 }
 
 func (u *UnspentOutputs) ApplyCreatedOutput(output *mempool.OutputWithMetadata) (err error) {
-	var targetConsumers map[ledgerstate.UnspentOutputsSubscriber]types.Empty
+	var targetConsumers map[ledger.UnspentOutputsSubscriber]types.Empty
 	if !u.BatchedStateTransitionStarted() {
 		u.ids.Add(output.Output().ID())
 
@@ -123,7 +123,7 @@ func (u *UnspentOutputs) ApplyCreatedOutput(output *mempool.OutputWithMetadata) 
 		targetConsumers = u.batchConsumers
 	}
 
-	if err = u.notifyConsumers(targetConsumers, output, ledgerstate.UnspentOutputsSubscriber.ApplyCreatedOutput); err != nil {
+	if err = u.notifyConsumers(targetConsumers, output, ledger.UnspentOutputsSubscriber.ApplyCreatedOutput); err != nil {
 		return errors.Wrap(err, "failed to apply created output to consumers")
 	}
 
@@ -131,7 +131,7 @@ func (u *UnspentOutputs) ApplyCreatedOutput(output *mempool.OutputWithMetadata) 
 }
 
 func (u *UnspentOutputs) ApplySpentOutput(output *mempool.OutputWithMetadata) (err error) {
-	var targetConsumers map[ledgerstate.UnspentOutputsSubscriber]types.Empty
+	var targetConsumers map[ledger.UnspentOutputsSubscriber]types.Empty
 	if !u.BatchedStateTransitionStarted() {
 		panic("cannot apply a spent output without a batched state transition")
 	} else {
@@ -142,7 +142,7 @@ func (u *UnspentOutputs) ApplySpentOutput(output *mempool.OutputWithMetadata) (e
 		targetConsumers = u.batchConsumers
 	}
 
-	if err = u.notifyConsumers(targetConsumers, output, ledgerstate.UnspentOutputsSubscriber.ApplySpentOutput); err != nil {
+	if err = u.notifyConsumers(targetConsumers, output, ledger.UnspentOutputsSubscriber.ApplySpentOutput); err != nil {
 		return errors.Wrap(err, "failed to apply spent output to consumers")
 	}
 
@@ -203,7 +203,7 @@ func (u *UnspentOutputs) Import(reader io.ReadSeeker, targetSlot slot.Index) (er
 	return
 }
 
-func (u *UnspentOutputs) Consumers() (consumers []ledgerstate.UnspentOutputsSubscriber) {
+func (u *UnspentOutputs) Consumers() (consumers []ledger.UnspentOutputsSubscriber) {
 	u.consumersMutex.RLock()
 	defer u.consumersMutex.RUnlock()
 
@@ -246,7 +246,7 @@ func (u *UnspentOutputs) preparePendingConsumers(currentSlot, targetSlot slot.In
 	return
 }
 
-func (u *UnspentOutputs) notifyConsumers(consumer map[ledgerstate.UnspentOutputsSubscriber]types.Empty, output *mempool.OutputWithMetadata, callback func(self ledgerstate.UnspentOutputsSubscriber, output *mempool.OutputWithMetadata) (err error)) (err error) {
+func (u *UnspentOutputs) notifyConsumers(consumer map[ledger.UnspentOutputsSubscriber]types.Empty, output *mempool.OutputWithMetadata, callback func(self ledger.UnspentOutputsSubscriber, output *mempool.OutputWithMetadata) (err error)) (err error) {
 	for consumer := range consumer {
 		if err = callback(consumer, output); err != nil {
 			return errors.Wrap(err, "failed to apply changes to consumer")
@@ -285,4 +285,4 @@ func (u *UnspentOutputs) importOutputIntoMemPoolStorage(output *mempool.OutputWi
 	u.memPool.Events().OutputCreated.Trigger(output.ID())
 }
 
-var _ ledgerstate.UnspentOutputs = new(UnspentOutputs)
+var _ ledger.UnspentOutputs = new(UnspentOutputs)

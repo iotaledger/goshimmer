@@ -1,4 +1,4 @@
-package ledgerstate
+package ledger
 
 import (
 	"github.com/iotaledger/goshimmer/packages/core/module"

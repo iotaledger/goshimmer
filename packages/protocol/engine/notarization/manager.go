@@ -9,7 +9,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/module"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/mempool"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -31,7 +31,7 @@ type Manager struct {
 	Attestations  *Attestations
 
 	storage         *storage.Storage
-	ledgerState     ledgerstate.LedgerState
+	ledgerState     ledger.Ledger
 	commitmentMutex sync.RWMutex
 
 	acceptanceTime      time.Time
@@ -43,7 +43,7 @@ type Manager struct {
 }
 
 // NewManager creates a new notarization Manager.
-func NewManager(storageInstance *storage.Storage, ledgerState ledgerstate.LedgerState, weights *sybilprotection.Weights, opts ...options.Option[Manager]) *Manager {
+func NewManager(storageInstance *storage.Storage, ledgerState ledger.Ledger, weights *sybilprotection.Weights, opts ...options.Option[Manager]) *Manager {
 	return options.Apply(&Manager{
 		Events:                    NewEvents(),
 		SlotMutations:             NewSlotMutations(weights, storageInstance.Settings.LatestCommitment().Index()),

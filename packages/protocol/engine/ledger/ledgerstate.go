@@ -1,4 +1,4 @@
-package ledgerstate
+package ledger
 
 import (
 	"io"
@@ -7,8 +7,8 @@ import (
 	"github.com/iotaledger/hive.go/core/slot"
 )
 
-// LedgerState is an engine module that provides access to the persistent ledger state.
-type LedgerState interface {
+// Ledger is an engine module that provides access to the persistent ledger state.
+type Ledger interface {
 	// UnspentOutputs returns the unspent outputs of the ledger state.
 	UnspentOutputs() UnspentOutputs
 
