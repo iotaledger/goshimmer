@@ -89,6 +89,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) CreateConflict(id Conflict
 	})
 
 	if created {
+		fmt.Println("conflict created", conflict.ID(), conflict.ConfirmationState().String())
 		c.Events.ConflictCreated.Trigger(conflict)
 	}
 
@@ -205,6 +206,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) SetConflictAccepted(confli
 			}
 
 			modified = true
+			fmt.Println("conflict accepted", conflict.ID())
 			c.Events.ConflictAccepted.Trigger(conflict)
 		}
 
@@ -258,6 +260,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) rejectConflictsWithFutureC
 
 		modified = true
 
+		fmt.Println("conflict rejected", conflict.ID())
 		c.Events.ConflictRejected.Trigger(conflict)
 		rejectionWalker.PushAll(conflict.Children().Slice()...)
 	}

@@ -630,6 +630,8 @@ func (b *Booker) propagateToBlock(block *virtualvoting.Block, addedConflictID ut
 	b.bookingMutex.Lock(block.ID())
 	defer b.bookingMutex.Unlock(block.ID())
 
+	fmt.Println(">> propagateToBlock", block.ID(), addedConflictID)
+
 	updated, propagateFurther, forkErr := b.propagateForkedConflict(block, addedConflictID, removedConflictIDs)
 	if forkErr != nil {
 		return false, errors.Wrapf(forkErr, "failed to propagate forked ConflictID %s to future cone of %s", addedConflictID, block.ID())

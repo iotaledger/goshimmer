@@ -2,6 +2,7 @@ package ledger
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/pkg/errors"
 
@@ -158,6 +159,8 @@ func (b *booker) forkTransaction(ctx context.Context, txID utxo.TransactionID, o
 			b.ledger.mutex.Unlock(txID)
 			return
 		}
+
+		fmt.Println("conflict forked", txID)
 
 		b.ledger.Events.TransactionForked.Trigger(&TransactionForkedEvent{
 			TransactionID:   txID,
