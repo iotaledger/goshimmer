@@ -102,7 +102,7 @@ func CommitmentsSpammingFunction(s *Spammer) {
 		return
 	}
 	block.SetSignature(signature)
-	timeProvider := slot.NewTimeProvider(s.CommitmentManager.Params.GenesisTime.Unix(), s.CommitmentManager.Params.SlotDuration)
+	timeProvider := slot.NewTimeProvider(s.CommitmentManager.Params.GenesisTime.Unix(), int64(s.CommitmentManager.Params.SlotDuration.Seconds()))
 	if err = block.DetermineID(timeProvider); err != nil {
 		s.ErrCounter.CountError(ErrFailPrepareBlock)
 	}

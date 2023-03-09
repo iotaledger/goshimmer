@@ -15,14 +15,15 @@ type CommitmentsSpamParams struct {
 	TimeUnit       time.Duration
 	NetworkAlias   string
 	IdentityAlias  string
+	ForkAfter      int // optional, will be used only with CommitmentType = "Fork"
 }
 
 func CommitmentsSpam(params *CommitmentsSpamParams) {
 	identity.LoadConfig()
-	SpamCommitments(params.Rate, params.TimeUnit, params.Duration, params.NetworkAlias, params.IdentityAlias, params.CommitmentType)
+	SpamCommitments(params.Rate, params.ForkAfter, params.TimeUnit, params.Duration, params.NetworkAlias, params.IdentityAlias, params.CommitmentType)
 }
 
-func SpamCommitments(rate int, timeUnit, duration time.Duration, networkAlias, identityAlias, commitmentType string) {
+func SpamCommitments(rate, optionalForkAfter int, timeUnit, duration time.Duration, networkAlias, identityAlias, commitmentType string) {
 	privateKey := identity.LoadIdentity(networkAlias, identityAlias)
 	options := []evilspammer.Options{
 		evilspammer.WithSpamRate(rate, timeUnit),
@@ -30,6 +31,7 @@ func SpamCommitments(rate int, timeUnit, duration time.Duration, networkAlias, i
 		evilspammer.WithSpammingFunc(evilspammer.CommitmentsSpammingFunction),
 		evilspammer.WithIdentity(identityAlias, privateKey),
 		evilspammer.WithCommitmentType(commitmentType),
+		evilspammer.WithForkAfter(optionalForkAfter),
 	}
 	spammer := evilspammer.NewSpammer(options...)
 	spammer.Spam()

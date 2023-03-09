@@ -97,6 +97,7 @@ func (s *Spammer) BatchesPrepared() uint64 {
 func (s *Spammer) setup() {
 	s.Clients = s.EvilWallet.Connector()
 	s.CommitmentManager.SetConnector(s.Clients)
+	s.CommitmentManager.SetupTimeParams(s.Clients.GetClient())
 	s.setupSpamDetails()
 
 	s.State.spamTicker = s.initSpamTicker()

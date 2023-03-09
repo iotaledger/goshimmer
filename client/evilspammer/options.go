@@ -119,6 +119,13 @@ func WithCommitmentType(commitmentType string) Options {
 	}
 }
 
+// WithForkAfter provides after how many slots from the spammer setup should fork bee created, this option can be used with CommitmentType: fork.
+func WithForkAfter(forkingAfter int) Options {
+	return func(s *Spammer) {
+		s.CommitmentManager.SetForkAfter(forkingAfter)
+	}
+}
+
 type SpamDetails struct {
 	Rate           int
 	TimeUnit       time.Duration

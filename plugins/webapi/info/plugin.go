@@ -139,6 +139,11 @@ func getInfo(c echo.Context) error {
 		RCTT: tm.RelativeConfirmedTime().UnixNano(),
 	}
 
+	timeProvider := jsonmodels.TimeProvider{
+		GenesisTime:  deps.Protocol.Engine().SlotTimeProvider.GenesisTime(),
+		SlotDuration: time.Second * time.Duration(deps.Protocol.Engine().SlotTimeProvider.Duration()),
+	}
+
 	accessMana, _ := deps.Protocol.Engine().ThroughputQuota.Balance(deps.Local.ID())
 	consensusMana := lo.Return1(deps.Protocol.Engine().SybilProtection.Weights().Get(deps.Local.ID())).Value
 	nodeMana := jsonmodels.Mana{
@@ -159,6 +164,7 @@ func getInfo(c echo.Context) error {
 		Version:               banner.AppVersion,
 		NetworkVersion:        discovery.Parameters.NetworkVersion,
 		TangleTime:            tangleTime,
+		TimeProvider:          timeProvider,
 		IdentityID:            base58.Encode(lo.PanicOnErr(deps.Local.Identity.ID().Bytes())),
 		IdentityIDShort:       deps.Local.Identity.ID().String(),
 		PublicKey:             deps.Local.PublicKey().String(),

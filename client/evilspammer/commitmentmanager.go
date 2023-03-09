@@ -13,27 +13,27 @@ import (
 )
 
 type CommitmentManagerParams struct {
-	CommitmentType  string
-	ParentRefsCount int
-	GenesisTime     time.Time
-	SlotDuration    int64 // in seconds
+	CommitmentType    string
+	ParentRefsCount   int
+	GenesisTime       time.Time
+	SlotDuration      time.Duration
+	OptionalForkAfter int
 }
 type CommitmentManager struct {
 	Params            *CommitmentManagerParams
 	commitmentByIndex map[slot.Index]*commitment.Commitment
 	clockSync         *ClockSync
-	// todo get slot duration, genesis time, and request latest committed slot LCS
-	// todo need the genesis time to calculate the separate commitment chain
-	// todo need to specify the forking, "in 20 slots" from now
 
 	connector evilwallet.Connector
+	forkIndex slot.Index
 }
 
 func NewCommitmentManager() *CommitmentManager {
-	// todo get timeProvider (genesisTime, SlotDuration) from node config
 	return &CommitmentManager{
 		Params: &CommitmentManagerParams{
 			ParentRefsCount: 2,
+			GenesisTime:     time.Now(),
+			SlotDuration:    5 * time.Second,
 		},
 	}
 }
@@ -44,6 +44,25 @@ func (c *CommitmentManager) SetConnector(connector evilwallet.Connector) {
 
 func (c *CommitmentManager) SetCommitmentType(commitmentType string) {
 	c.Params.CommitmentType = commitmentType
+}
+
+func (c *CommitmentManager) SetForkAfter(forkAfter int) {
+	c.Params.OptionalForkAfter = forkAfter
+}
+
+// SetupForkingPoint sets the forking point for the commitment manager. It uses ForkAfter parameter so need to be called after params are read.
+func (c *CommitmentManager) SetupForkingPoint() {
+	c.forkIndex = c.clockSync.LatestCommittedSlotClock.Get() + slot.Index(c.Params.OptionalForkAfter)
+}
+
+// SetupTimeParams requests through API and sets the genesis time and slot duration for the commitment manager.
+func (c *CommitmentManager) SetupTimeParams(clt evilwallet.Client) {
+	genesisTime, slotDuration, err := clt.GetTimeProvider()
+	if err != nil {
+		panic(errors.Wrapf(err, "failed to get time provider for the committment manager setup"))
+	}
+	c.Params.GenesisTime = genesisTime
+	c.Params.SlotDuration = slotDuration
 }
 
 // GenerateCommitment generates a commitment based on the commitment type provided in spam details.

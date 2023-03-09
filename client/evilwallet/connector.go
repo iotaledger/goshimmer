@@ -207,6 +207,8 @@ type Client interface {
 	GetReferences(payload []byte, parentsCount int) (refs models.ParentBlockIDs, err error)
 	// GetLatestCommittedSlot returns the latest committed slot.
 	GetLatestCommittedSlot() (slot.Index, error)
+	// GetTimeProvider returns the time provider info such as genesis time and slot duration.
+	GetTimeProvider() (time.Time, time.Duration, error)
 }
 
 // WebClient contains a GoShimmer web API to interact with a node.
@@ -426,6 +428,16 @@ func (c *WebClient) GetLatestCommittedSlot() (slotIndex slot.Index, err error) {
 		return
 	}
 	return slot.Index(resp.Index), nil
+}
+
+func (c *WebClient) GetTimeProvider() (genesisTime time.Time, slotDuration time.Duration, err error) {
+	resp, err := c.api.Info()
+	if err != nil {
+		return
+	}
+	genesisTime = resp.TimeProvider.GenesisTime
+	slotDuration = resp.TimeProvider.SlotDuration
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
