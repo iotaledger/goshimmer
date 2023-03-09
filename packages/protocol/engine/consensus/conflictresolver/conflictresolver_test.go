@@ -825,7 +825,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 			o := New(tf.Instance, tt.test.WeightFunc)
 
 			for _, e := range tt.test.executions {
-				liked, conflictMembers := o.LikedConflictMember(tt.test.Scenario.ConflictID(e.conflictAlias))
+				liked, conflictMembers := o.likedConflictMember(tt.test.Scenario.ConflictID(e.conflictAlias))
 				e.wantLikedConflict(e.conflictAlias, liked, conflictMembers)
 			}
 		})

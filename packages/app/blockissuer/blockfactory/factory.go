@@ -2,6 +2,7 @@ package blockfactory
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
@@ -120,6 +121,8 @@ func (f *Factory) createBlockWithPayload(p payload.Payload, references models.Pa
 	if err = block.DetermineID(f.slotTimeProvider); err != nil {
 		return nil, errors.Wrap(err, "there is a problem with the block syntax")
 	}
+
+	fmt.Println(">> createBlockWithPayload", block.ID())
 
 	return block, nil
 }

@@ -166,6 +166,7 @@ func (b *BlockDAG) PromoteFutureBlocksUntil(index slot.Index) {
 		if storage := b.futureBlocks.Get(i, false); storage != nil {
 			if futureBlocks, exists := storage.Get(cm.ID()); exists {
 				_ = futureBlocks.ForEach(func(futureBlock *Block) (err error) {
+					fmt.Println(">> promoting future block", futureBlock.ID())
 					b.solidifier.Queue(futureBlock)
 					return nil
 				})

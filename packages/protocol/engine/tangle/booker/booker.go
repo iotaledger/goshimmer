@@ -634,9 +634,11 @@ func (b *Booker) propagateToBlock(block *virtualvoting.Block, addedConflictID ut
 
 	updated, propagateFurther, forkErr := b.propagateForkedConflict(block, addedConflictID, removedConflictIDs)
 	if forkErr != nil {
+		fmt.Println("\t>> propagateToBlock forkErr", block.ID(), addedConflictID)
 		return false, errors.Wrapf(forkErr, "failed to propagate forked ConflictID %s to future cone of %s", addedConflictID, block.ID())
 	}
 	if !updated {
+		fmt.Println("\t>> propagateToBlock !updated", block.ID(), addedConflictID)
 		return false, nil
 	}
 

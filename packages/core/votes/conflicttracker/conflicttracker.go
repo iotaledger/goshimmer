@@ -6,6 +6,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/constraints"
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/ds/advancedset"
@@ -29,7 +30,7 @@ func NewConflictTracker[ConflictIDType, ResourceIDType comparable, VotePowerType
 	}
 }
 
-func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) TrackVote(initialVote *advancedset.AdvancedSet[ConflictIDType], voterID identity.ID, power VotePowerType) (added, invalid bool) {
+func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) TrackVote(blockID models.BlockID, initialVote *advancedset.AdvancedSet[ConflictIDType], voterID identity.ID, power VotePowerType) (added, invalid bool) {
 	c.conflictDAG.WeightsMutex.RLock()
 	defer c.conflictDAG.WeightsMutex.RUnlock()
 
@@ -40,8 +41,8 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) TrackVo
 
 	defaultVote := votes.NewVote[ConflictIDType](voterID, power, votes.UndefinedOpinion)
 
-	eventsToTrigger := c.applyVotes(defaultVote.WithOpinion(votes.Dislike), revokedConflictIDs)
-	eventsToTrigger = append(eventsToTrigger, c.applyVotes(defaultVote.WithOpinion(votes.Like), addedConflictIDs)...)
+	eventsToTrigger := c.applyVotes(blockID, defaultVote.WithOpinion(votes.Dislike), revokedConflictIDs)
+	eventsToTrigger = append(eventsToTrigger, c.applyVotes(blockID, defaultVote.WithOpinion(votes.Like), addedConflictIDs)...)
 
 	c.triggerEvents(eventsToTrigger)
 
@@ -63,23 +64,27 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) AddSupp
 
 	// Do not track decided conflicts.
 	if !c.conflictPending(forkedConflictID) {
+		fmt.Println("\t>> propagateToBlock AddSupportToForkedConflict not pending", forkedConflictID)
 		return
 	}
 
 	// We need to make sure that the voter supports all the conflict's parents.
 	if !c.voterSupportsAllConflicts(voterID, parentConflictIDs) {
+		fmt.Println("\t>> propagateToBlock AddSupportToForkedConflict votersSupportsAllConflicts", forkedConflictID)
 		return
 	}
 
 	vote := votes.NewVote[ConflictIDType](voterID, power, votes.Like).WithConflictID(forkedConflictID)
 	votesObj, _ := c.votes.GetOrCreate(forkedConflictID, votes.NewVotes[ConflictIDType, VotePowerType])
-	if added, opinionChanged := votesObj.Add(vote); added && opinionChanged {
-		fmt.Println(">> addSupport", forkedConflictID, voterID)
+	added, opinionChanged := votesObj.Add(vote)
+	fmt.Println("\t>> propagateToBlock AddSupportToForkedConflict not added or opinion not changed", forkedConflictID, added, opinionChanged, voterID)
+	if added && opinionChanged {
+		//fmt.Println(">> addSupport", forkedConflictID, voterID)
 		c.Events.VoterAdded.Trigger(&VoterEvent[ConflictIDType]{Voter: voterID, ConflictID: forkedConflictID})
 	}
 }
 
-func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) applyVotes(defaultVote *votes.Vote[ConflictIDType, VotePowerType], conflictIDs *advancedset.AdvancedSet[ConflictIDType]) (collectedEvents []*VoterEvent[ConflictIDType]) {
+func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) applyVotes(blockID models.BlockID, defaultVote *votes.Vote[ConflictIDType, VotePowerType], conflictIDs *advancedset.AdvancedSet[ConflictIDType]) (collectedEvents []*VoterEvent[ConflictIDType]) {
 	for it := conflictIDs.Iterator(); it.HasNext(); {
 		conflictID := it.Next()
 
@@ -100,7 +105,7 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) applyVo
 		}
 
 		if added, opinionChanged := votesObj.Add(conflictVote); added && opinionChanged {
-			collectedEvents = append(collectedEvents, &VoterEvent[ConflictIDType]{Voter: conflictVote.Voter, ConflictID: conflictID, Opinion: conflictVote.Opinion})
+			collectedEvents = append(collectedEvents, &VoterEvent[ConflictIDType]{BlockID: blockID, Voter: conflictVote.Voter, ConflictID: conflictID, Opinion: conflictVote.Opinion})
 		}
 	}
 	return collectedEvents

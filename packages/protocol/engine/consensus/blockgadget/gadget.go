@@ -253,6 +253,7 @@ func (a *Gadget) setup() {
 	}, event.WithWorkerPool(wp))
 
 	a.tangle.Booker.VirtualVoting.Events.ConflictTracker.VoterAdded.Hook(func(evt *conflicttracker.VoterEvent[utxo.TransactionID]) {
+		fmt.Println(">> addSupport", evt.BlockID, evt.ConflictID, evt.Voter)
 		a.RefreshConflictAcceptance(evt.ConflictID)
 	})
 

@@ -44,6 +44,7 @@ func (o *ConflictResolver) LikedConflictMember(conflictID utxo.TransactionID) (l
 		dislikedConflicts.Add(conflictID)
 	}
 
+	// Try to find a liked conflict across the "flat" intersecting conflict set: we don't try to find a liked conflict on the parent conflicts.
 	conflict.ForEachConflictingConflict(func(conflictingConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) bool {
 		if likedConflict.IsEmpty() && o.ConflictLiked(conflictingConflict) {
 			likedConflict = conflictingConflict.ID()
@@ -78,6 +79,8 @@ func (o *ConflictResolver) AdjustOpinion(conflictID utxo.TransactionID) (likedCo
 			w.PushFront(conflict.Parents().Slice()...)
 		}
 	}
+
+	fmt.Println(">> AdjustOpinion liked", "handed in", conflictID, "liked", likedConflict)
 
 	return likedConflict, dislikedConflicts
 }
@@ -167,7 +170,9 @@ func (o *ConflictResolver) ForEachConnectedConflictingConflictInDescendingOrder(
 			fmt.Printf("%s has the same weight as %s (%d) - comparing bytes %d\n", conflictI, conflictJ, conflictWeights[conflictJ], bytes.Compare(lo.PanicOnErr(conflictI.Bytes()), lo.PanicOnErr(conflictJ.Bytes())))
 		}
 
-		return !(conflictWeights[conflictI] < conflictWeights[conflictJ] || (conflictWeights[conflictI] == conflictWeights[conflictJ] && bytes.Compare(lo.PanicOnErr(conflictI.Bytes()), lo.PanicOnErr(conflictJ.Bytes())) > 0))
+		return !(conflictWeights[conflictI] < conflictWeights[conflictJ] ||
+			(conflictWeights[conflictI] == conflictWeights[conflictJ] &&
+				bytes.Compare(lo.PanicOnErr(conflictI.Bytes()), lo.PanicOnErr(conflictJ.Bytes())) > 0))
 	})
 
 	for _, orderedConflictID := range conflictsOrderedByWeight {
