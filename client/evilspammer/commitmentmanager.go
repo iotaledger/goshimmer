@@ -12,11 +12,19 @@ import (
 	"github.com/pkg/errors"
 )
 
-type CommitmentManager struct {
+type CommitmentManagerParams struct {
 	CommitmentType  string
 	ParentRefsCount int
 	GenesisTime     time.Time
 	SlotDuration    int64 // in seconds
+}
+type CommitmentManager struct {
+	Params            *CommitmentManagerParams
+	commitmentByIndex map[slot.Index]*commitment.Commitment
+	clockSync         *ClockSync
+	// todo get slot duration, genesis time, and request latest committed slot LCS
+	// todo need the genesis time to calculate the separate commitment chain
+	// todo need to specify the forking, "in 20 slots" from now
 
 	connector evilwallet.Connector
 }
@@ -24,7 +32,9 @@ type CommitmentManager struct {
 func NewCommitmentManager() *CommitmentManager {
 	// todo get timeProvider (genesisTime, SlotDuration) from node config
 	return &CommitmentManager{
-		ParentRefsCount: 2,
+		Params: &CommitmentManagerParams{
+			ParentRefsCount: 2,
+		},
 	}
 }
 
@@ -33,12 +43,12 @@ func (c *CommitmentManager) SetConnector(connector evilwallet.Connector) {
 }
 
 func (c *CommitmentManager) SetCommitmentType(commitmentType string) {
-	c.CommitmentType = commitmentType
+	c.Params.CommitmentType = commitmentType
 }
 
 // GenerateCommitment generates a commitment based on the commitment type provided in spam details.
 func (c *CommitmentManager) GenerateCommitment(clt evilwallet.Client) (*commitment.Commitment, slot.Index, error) {
-	switch c.CommitmentType {
+	switch c.Params.CommitmentType {
 	case "latest":
 		comm, err := clt.GetLatestCommitment()
 		if err != nil {

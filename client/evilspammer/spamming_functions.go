@@ -78,7 +78,7 @@ func CommitmentsSpammingFunction(s *Spammer) {
 	if err != nil {
 		s.ErrCounter.CountError(ErrFailToPrepareBatch)
 	}
-	parents, err := clt.GetReferences(payloadBytes, s.CommitmentManager.ParentRefsCount)
+	parents, err := clt.GetReferences(payloadBytes, s.CommitmentManager.Params.ParentRefsCount)
 	if err != nil {
 		s.ErrCounter.CountError(ErrFailGetReferences)
 	}
@@ -102,7 +102,7 @@ func CommitmentsSpammingFunction(s *Spammer) {
 		return
 	}
 	block.SetSignature(signature)
-	timeProvider := slot.NewTimeProvider(s.CommitmentManager.GenesisTime.Unix(), (s.CommitmentManager.SlotDuration))
+	timeProvider := slot.NewTimeProvider(s.CommitmentManager.Params.GenesisTime.Unix(), s.CommitmentManager.Params.SlotDuration)
 	if err = block.DetermineID(timeProvider); err != nil {
 		s.ErrCounter.CountError(ErrFailPrepareBlock)
 	}

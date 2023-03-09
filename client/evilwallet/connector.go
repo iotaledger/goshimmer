@@ -205,6 +205,8 @@ type Client interface {
 	GetLatestConfirmedIndex() (index slot.Index, err error)
 	// GetReferences returns the references selected for a given payload.
 	GetReferences(payload []byte, parentsCount int) (refs models.ParentBlockIDs, err error)
+	// GetLatestCommittedSlot returns the latest committed slot.
+	GetLatestCommittedSlot() (slot.Index, error)
 }
 
 // WebClient contains a GoShimmer web API to interact with a node.
@@ -416,6 +418,14 @@ func (c *WebClient) GetReferences(payload []byte, parentsCount int) (blockIDs mo
 	}
 	blockIDs = resp.References()
 	return blockIDs, nil
+}
+
+func (c *WebClient) GetLatestCommittedSlot() (slotIndex slot.Index, err error) {
+	resp, err := c.api.GetLatestCommittedSlotInfo()
+	if err != nil {
+		return
+	}
+	return slot.Index(resp.Index), nil
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
