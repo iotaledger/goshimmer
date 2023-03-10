@@ -85,8 +85,8 @@ func (b *Block) SetConfirmed(weakly bool) (wasUpdated bool) {
 	defer b.Unlock()
 
 	if weakly {
-		if wasUpdated = !b.confirmed; wasUpdated {
-			b.confirmed = true
+		if wasUpdated = !b.weaklyConfirmed; wasUpdated {
+			b.weaklyConfirmed = true
 		}
 
 		// return true only if block was neither strongly and weakly confirmed before

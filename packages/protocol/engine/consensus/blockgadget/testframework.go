@@ -143,7 +143,7 @@ func (t *TestFramework) ValidateAcceptedBlocks(expectedAcceptedBlocks map[string
 
 func (t *TestFramework) ValidateConfirmedBlocks(expectedConfirmedBlocks map[string]bool) {
 	for blockID, blockExpectedConfirmed := range expectedConfirmedBlocks {
-		actualBlockConfirmed := t.Gadget.isBlockConfirmed(t.Tangle.BlockDAG.Block(blockID).ID())
+		actualBlockConfirmed := t.Gadget.IsBlockConfirmed(t.Tangle.BlockDAG.Block(blockID).ID())
 		require.Equal(t.test, blockExpectedConfirmed, actualBlockConfirmed, "Block %s should be confirmed=%t but is %t", blockID, blockExpectedConfirmed, actualBlockConfirmed)
 	}
 }

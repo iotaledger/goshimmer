@@ -108,15 +108,14 @@ func (a *Gadget) IsBlockAccepted(blockID models.BlockID) (accepted bool) {
 	a.evictionMutex.RLock()
 	defer a.evictionMutex.RUnlock()
 
-	return a.isBlockAccepted(blockID)
-}
-
-func (a *Gadget) isBlockAccepted(blockID models.BlockID) bool {
 	block, exists := a.block(blockID)
 	return exists && block.IsAccepted()
 }
 
-func (a *Gadget) isBlockConfirmed(blockID models.BlockID) bool {
+func (a *Gadget) IsBlockConfirmed(blockID models.BlockID) bool {
+	a.evictionMutex.RLock()
+	defer a.evictionMutex.RUnlock()
+
 	block, exists := a.block(blockID)
 	return exists && block.IsConfirmed()
 }
@@ -278,7 +277,7 @@ func (a *Gadget) propagateAcceptanceConfirmation(marker markers.Marker, confirme
 	}
 
 	block, blockExists := a.getOrRegisterBlock(bookerBlock.ID())
-	if !blockExists || block.IsAccepted() && !confirmed || block.IsConfirmed() && confirmed {
+	if !blockExists || block.IsStronglyAccepted() && !confirmed || block.IsStronglyConfirmed() && confirmed {
 		// this can happen when block was a root block and while processing this method, the root blocks method has already been replaced
 		return
 	}
@@ -304,14 +303,13 @@ func (a *Gadget) propagateAcceptanceConfirmation(marker markers.Marker, confirme
 		}
 
 		for parentBlockID := range walkerBlock.ParentsByType(models.StrongParentType) {
-			if !confirmed && a.isBlockAccepted(parentBlockID) || confirmed && a.isBlockConfirmed(parentBlockID) {
+			parentBlock, parentExists := a.getOrRegisterBlock(parentBlockID)
+
+			if !parentExists || !confirmed && parentBlock.IsStronglyAccepted() || confirmed && parentBlock.IsStronglyConfirmed() {
 				continue
 			}
 
-			parentBlock, parentExists := a.getOrRegisterBlock(parentBlockID)
-			if parentExists {
-				pastConeWalker.Push(parentBlock)
-			}
+			pastConeWalker.Push(parentBlock)
 		}
 
 		// Mark weak and shallow like parents as accepted/confirmed. Acceptance is not propagated past those parents,
