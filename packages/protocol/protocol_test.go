@@ -1112,7 +1112,7 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 	// Compare chains
 	{
 		waitOnAllNodes()
-		// Check that all nodes have at least an slot committed after we merged them at 8 and that they follow the same commitments
+		// Check that all nodes have at least a slot committed after we merged them at 8 and that they follow the same commitments
 		node1.AssertEqualChainsAtLeastAtSlot(9, node2)
 		node1.AssertEqualChainsAtLeastAtSlot(9, node3)
 		node1.AssertEqualChainsAtLeastAtSlot(9, node4)

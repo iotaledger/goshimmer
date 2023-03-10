@@ -234,7 +234,7 @@ func (m *Manager) PerformLocked(perform func(m *Manager)) {
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// WithMinCommittableSlotAge specifies how old an slot has to be for it to be committable.
+// WithMinCommittableSlotAge specifies how old a slot has to be for it to be committable.
 func WithMinCommittableSlotAge(age slot.Index) options.Option[Manager] {
 	return func(manager *Manager) {
 		manager.optsMinCommittableSlotAge = age
