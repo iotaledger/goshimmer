@@ -69,7 +69,7 @@ func (o *VirtualVoting) Track(block *Block, conflictIDs utxo.TransactionIDs) {
 
 	votePower := NewBlockVotePower(block.ID(), block.IssuingTime())
 
-	if _, invalid := o.conflictTracker.TrackVote(block.ID(), conflictIDs, block.IssuerID(), votePower); invalid {
+	if _, invalid := o.conflictTracker.TrackVote(conflictIDs, block.IssuerID(), votePower); invalid {
 		fmt.Println("block is subjectively invalid", block.ID())
 		block.SetSubjectivelyInvalid(true)
 	} else {
@@ -168,7 +168,6 @@ func (o *VirtualVoting) ProcessForkedBlock(block *Block, forkedConflictID utxo.T
 	// Do not apply votes of subjectively invalid blocks on forking. Votes of subjectively invalid blocks are also not counted
 	// when booking.
 	if block.IsSubjectivelyInvalid() {
-		fmt.Println("\t>> propagateToBlock ProcessForkedBlock subinvalid", block.ID(), forkedConflictID)
 		return
 	}
 

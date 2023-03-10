@@ -107,8 +107,6 @@ func (r *ReferenceProvider) referencesToMissingConflicts(amount int) (blockIDs m
 		// 	panic("attachment should not be nil")
 		// }
 
-		fmt.Println(">> rescuing", conflictID)
-
 		blockIDs.Add(attachment.ID())
 	}
 

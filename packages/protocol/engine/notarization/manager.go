@@ -1,7 +1,6 @@
 package notarization
 
 import (
-	"fmt"
 	"io"
 	"sync"
 	"time"
@@ -208,14 +207,6 @@ func (m *Manager) createCommitment(index slot.Index) (success bool) {
 		m.Events.Error.Trigger(errors.Wrap(err, "failed to store latest commitment"))
 		return false
 	}
-
-	fmt.Println("commitment created ", newCommitment.ID(), newCommitment.ID().Index(), commitment.NewRoots(
-		acceptedBlocks.Root(),
-		acceptedTransactions.Root(),
-		attestations.Root(),
-		m.ledgerState.UnspentOutputs.Root(),
-		m.SlotMutations.weights.Root(),
-	).String())
 
 	m.Events.SlotCommitted.Trigger(&SlotCommittedDetails{
 		Commitment:           newCommitment,

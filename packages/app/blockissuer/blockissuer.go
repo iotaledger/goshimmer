@@ -1,7 +1,6 @@
 package blockissuer
 
 import (
-	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -39,8 +38,6 @@ type BlockIssuer struct {
 	optsBlockFactoryOptions            []options.Option[blockfactory.Factory]
 	optsIgnoreBootstrappedFlag         bool
 	optsTimeSinceConfirmationThreshold time.Duration
-
-	Mutex sync.Mutex
 }
 
 // New creates a new block issuer.
@@ -85,16 +82,12 @@ func (i *BlockIssuer) IssuePayload(p payload.Payload, parentsCount ...int) (bloc
 		return nil, ErrNotBootstraped
 	}
 
-	i.Mutex.Lock()
-	defer i.Mutex.Unlock()
-
 	block, err = i.Factory.CreateBlock(p, parentsCount...)
 	if err != nil {
 		i.Events.Error.Trigger(errors.Wrap(err, "block could not be created"))
 		return block, err
 	}
-	// return block, i.issueBlock(block)
-	return block, i.IssueBlockAndAwaitBlockToBeTracked(block, 10*time.Second)
+	return block, i.issueBlock(block)
 }
 
 // IssuePayloadWithReferences creates a new block with the references submit.

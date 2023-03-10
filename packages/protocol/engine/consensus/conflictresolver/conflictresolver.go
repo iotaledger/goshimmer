@@ -2,7 +2,6 @@ package conflictresolver
 
 import (
 	"bytes"
-	"fmt"
 	"sort"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
@@ -79,8 +78,6 @@ func (o *ConflictResolver) AdjustOpinion(conflictID utxo.TransactionID) (likedCo
 			w.PushFront(conflict.Parents().Slice()...)
 		}
 	}
-
-	fmt.Println(">> AdjustOpinion liked", "handed in", conflictID, "liked", likedConflict)
 
 	return likedConflict, dislikedConflicts
 }
@@ -166,13 +163,8 @@ func (o *ConflictResolver) ForEachConnectedConflictingConflictInDescendingOrder(
 	sort.Slice(conflictsOrderedByWeight, func(i, j int) bool {
 		conflictI := conflictsOrderedByWeight[i].ID()
 		conflictJ := conflictsOrderedByWeight[j].ID()
-		if conflictWeights[conflictI] == conflictWeights[conflictJ] {
-			fmt.Printf("%s has the same weight as %s (%d) - comparing bytes %d\n", conflictI, conflictJ, conflictWeights[conflictJ], bytes.Compare(lo.PanicOnErr(conflictI.Bytes()), lo.PanicOnErr(conflictJ.Bytes())))
-		}
 
-		return !(conflictWeights[conflictI] < conflictWeights[conflictJ] ||
-			(conflictWeights[conflictI] == conflictWeights[conflictJ] &&
-				bytes.Compare(lo.PanicOnErr(conflictI.Bytes()), lo.PanicOnErr(conflictJ.Bytes())) > 0))
+		return !(conflictWeights[conflictI] < conflictWeights[conflictJ] || (conflictWeights[conflictI] == conflictWeights[conflictJ] && bytes.Compare(lo.PanicOnErr(conflictI.Bytes()), lo.PanicOnErr(conflictJ.Bytes())) > 0))
 	})
 
 	for _, orderedConflictID := range conflictsOrderedByWeight {

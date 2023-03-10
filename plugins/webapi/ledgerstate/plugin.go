@@ -544,8 +544,7 @@ func PostTransaction(c echo.Context) error {
 		}
 		time.Sleep(time.Until(tx.Essence().Timestamp()) + 1*time.Nanosecond)
 	}
-	deps.BlockIssuer.Mutex.Lock()
-	defer deps.BlockIssuer.Mutex.Unlock()
+
 	block, err := deps.BlockIssuer.CreateBlock(tx)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.PostTransactionResponse{Error: err.Error()})

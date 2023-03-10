@@ -1,7 +1,6 @@
 package ledgerstate
 
 import (
-	"fmt"
 	"io"
 
 	"github.com/pkg/errors"
@@ -270,11 +269,7 @@ func (s *StateDiffs) storeTransaction(transaction utxo.Transaction, metadata *le
 	}
 
 	for it := metadata.OutputIDs().Iterator(); it.HasNext(); {
-		outputWithMetadata := s.outputWithMetadata(it.Next())
-		if outputWithMetadata.Index() != metadata.InclusionSlot() {
-			fmt.Printf(">> metadata inclusion slot (%s) and stored slot (%s) are different for %s\n", metadata.InclusionSlot(), outputWithMetadata.Index(), outputWithMetadata.ID())
-		}
-		if err = s.StoreCreatedOutput(s.outputWithMetadata(outputWithMetadata.ID(), metadata.InclusionSlot())); err != nil {
+		if err = s.StoreCreatedOutput(s.outputWithMetadata(it.Next(), metadata.InclusionSlot())); err != nil {
 			return errors.Wrap(err, "failed to storeOutput created output")
 		}
 	}

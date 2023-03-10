@@ -288,7 +288,6 @@ func (m *Manager) getDBInstance(index slot.Index) (db *dbInstance) {
 	// check if exists again, as other goroutine might have created it in parallel
 	db, exists := m.openDBs.Get(baseIndex)
 	if !exists {
-
 		db = m.createDBInstance(baseIndex)
 
 		// Remove the cached db size since we will open the db
