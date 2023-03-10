@@ -1,7 +1,6 @@
 package blockgadget
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -284,8 +283,6 @@ func (a *Gadget) propagateAcceptanceConfirmation(marker markers.Marker, confirme
 		return
 	}
 
-	var otherParentsToAccept []models.BlockID
-
 	pastConeWalker := walker.New[*Block](false).Push(block)
 	for pastConeWalker.HasNext() {
 		walkerBlock := pastConeWalker.Next()
@@ -317,22 +314,18 @@ func (a *Gadget) propagateAcceptanceConfirmation(marker markers.Marker, confirme
 			}
 		}
 
-		// We don't want to disturb the monotonicity of the strong parents and propagate through the entire past cone.
-		// Therefore, we mark through the weak and shallow like parents as accepted/confirmed only later.
-		otherParentsToAccept = append(otherParentsToAccept, walkerBlock.ParentsByType(models.WeakParentType).Slice()...)
-		otherParentsToAccept = append(otherParentsToAccept, walkerBlock.ParentsByType(models.ShallowLikeParentType).Slice()...)
-	}
+		// Mark weak and shallow like parents as accepted/confirmed. Acceptance is not propagated past those parents,
+		// therefore acceptance monotonicity can be broken, and that's why those blocks are marked as (weakly) accepted here.
+		// If those blocks later become accepted through their strong children, BlockAcceptance will not be triggered again.
+		for _, parentBlockID := range append(walkerBlock.ParentsByType(models.WeakParentType).Slice(), walkerBlock.ParentsByType(models.ShallowLikeParentType).Slice()...) {
+			parentBlock, parentExists := a.getOrRegisterBlock(parentBlockID)
+			if parentExists {
+				// ignore the error, as it can only occur if parentBlock belongs to evictedEpoch, and here it will not affect
+				// acceptance or confirmation monotonicity
+				_ = a.markAsAccepted(parentBlock, true)
 
-	for _, parentBlockID := range otherParentsToAccept {
-		parentBlock, parentExists := a.getOrRegisterBlock(parentBlockID)
-		if parentExists {
-			if err := a.markAsAccepted(parentBlock, true); err != nil {
-				fmt.Println("error while marking weak/like parent ", parentBlockID, " as accepted: ", err)
-			}
-
-			if confirmed {
-				if err := a.markAsAccepted(parentBlock, true); err != nil {
-					fmt.Println("error while marking weak/like parent ", parentBlockID, " as confirmed: ", err)
+				if confirmed {
+					_ = a.markAsConfirmed(parentBlock, true)
 				}
 			}
 		}
