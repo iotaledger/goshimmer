@@ -34,7 +34,7 @@ func New(
 	workers *workerpool.Group,
 	ledger *ledger.Ledger,
 	evictionState *eviction.State,
-	slotTimeProvider *slot.TimeProvider,
+	slotTimeProviderFunc func() *slot.TimeProvider,
 	validators *sybilprotection.WeightedSet,
 	slotCutoffCallback func() slot.Index,
 	sequenceCutoffCallback func(id markers.SequenceID) markers.Index,
@@ -43,7 +43,7 @@ func New(
 ) (newTangle *Tangle) {
 	return options.Apply(new(Tangle), opts, func(t *Tangle) {
 		t.Ledger = ledger
-		t.BlockDAG = blockdag.New(workers.CreateGroup("BlockDAG"), evictionState, slotTimeProvider, commitmentFunc, t.optsBlockDAG...)
+		t.BlockDAG = blockdag.New(workers.CreateGroup("BlockDAG"), evictionState, slotTimeProviderFunc, commitmentFunc, t.optsBlockDAG...)
 		t.Booker = booker.New(workers.CreateGroup("Booker"), t.BlockDAG, ledger, validators,
 			append(t.optsBooker,
 				booker.WithVirtualVotingOptions(

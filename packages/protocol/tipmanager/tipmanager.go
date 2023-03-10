@@ -52,7 +52,7 @@ type TipManager struct {
 }
 
 // New creates a new TipManager.
-func New(workers *workerpool.Group, slotTimeProvider *slot.TimeProvider, schedulerBlockRetrieverFunc blockRetrieverFunc, opts ...options.Option[TipManager]) (t *TipManager) {
+func New(workers *workerpool.Group, schedulerBlockRetrieverFunc blockRetrieverFunc, opts ...options.Option[TipManager]) (t *TipManager) {
 	t = options.Apply(&TipManager{
 		Events: NewEvents(),
 
@@ -67,14 +67,14 @@ func New(workers *workerpool.Group, slotTimeProvider *slot.TimeProvider, schedul
 		optsWidth:                          0,
 	}, opts)
 
-	t.commitmentRecentBoundary = slot.Index(int64(t.optsTimeSinceConfirmationThreshold.Seconds()) / slotTimeProvider.Duration())
-
 	return
 }
 
 func (t *TipManager) LinkTo(engine *engine.Engine) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
+
+	t.commitmentRecentBoundary = slot.Index(int64(t.optsTimeSinceConfirmationThreshold.Seconds()) / engine.SlotTimeProvider().Duration())
 
 	t.walkerCache = memstorage.NewSlotStorage[models.BlockID, types.Empty]()
 	t.tips = randommap.New[models.BlockID, *scheduler.Block]()
@@ -280,8 +280,8 @@ func (t *TipManager) isValidTip(tip *scheduler.Block) (err error) {
 	if !t.isPastConeTimestampCorrect(tip.Block) {
 		return errors.Errorf("cannot select tip due to TSC condition tip issuing time (%s), time (%s), min supported time (%s), block id (%s), tip pool size (%d), scheduled: (%t), orphaned: (%t), accepted: (%t)",
 			tip.IssuingTime(),
-			t.engine.Clock.AcceptedTime(),
-			t.engine.Clock.AcceptedTime().Add(-t.optsTimeSinceConfirmationThreshold),
+			t.engine.Clock.Accepted().Time(),
+			t.engine.Clock.Accepted().Time().Add(-t.optsTimeSinceConfirmationThreshold),
 			tip.ID().Base58(),
 			t.tips.Size(),
 			tip.IsScheduled(),
@@ -309,7 +309,7 @@ func (t *TipManager) IsPastConeTimestampCorrect(block *virtualvoting.Block) (tim
 //
 //	If there's any unaccepted block >TSC threshold, then the oldest accepted block will be >TSC threshold, too.
 func (t *TipManager) isPastConeTimestampCorrect(block *virtualvoting.Block) (timestampValid bool) {
-	minSupportedTimestamp := t.engine.Clock.AcceptedTime().Add(-t.optsTimeSinceConfirmationThreshold)
+	minSupportedTimestamp := t.engine.Clock.Accepted().Time().Add(-t.optsTimeSinceConfirmationThreshold)
 
 	if !t.engine.IsBootstrapped() {
 		// If the node is not bootstrapped we do not have a valid timestamp to compare against.

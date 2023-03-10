@@ -26,7 +26,7 @@ import (
 type Factory struct {
 	Events *Events
 
-	slotTimeProvider *slot.TimeProvider
+	slotTimeProviderFunc func() *slot.TimeProvider
 
 	// referenceProvider *ReferenceProvider
 	identity       *identity.LocalIdentity
@@ -40,15 +40,15 @@ type Factory struct {
 }
 
 // NewBlockFactory creates a new block factory.
-func NewBlockFactory(localIdentity *identity.LocalIdentity, slotTimeProvider *slot.TimeProvider, blockRetriever func(blockID models.BlockID) (block *blockdag.Block, exists bool), tipSelector TipSelectorFunc, referencesFunc ReferencesFunc, commitmentFunc CommitmentFunc, opts ...options.Option[Factory]) *Factory {
+func NewBlockFactory(localIdentity *identity.LocalIdentity, slotTimeProviderFunc func() *slot.TimeProvider, blockRetriever func(blockID models.BlockID) (block *blockdag.Block, exists bool), tipSelector TipSelectorFunc, referencesFunc ReferencesFunc, commitmentFunc CommitmentFunc, opts ...options.Option[Factory]) *Factory {
 	return options.Apply(&Factory{
-		Events:           newEvents(),
-		identity:         localIdentity,
-		slotTimeProvider: slotTimeProvider,
-		blockRetriever:   blockRetriever,
-		tipSelector:      tipSelector,
-		referencesFunc:   referencesFunc,
-		commitmentFunc:   commitmentFunc,
+		Events:               newEvents(),
+		identity:             localIdentity,
+		slotTimeProviderFunc: slotTimeProviderFunc,
+		blockRetriever:       blockRetriever,
+		tipSelector:          tipSelector,
+		referencesFunc:       referencesFunc,
+		commitmentFunc:       commitmentFunc,
 
 		optsTipSelectionTimeout:       10 * time.Second,
 		optsTipSelectionRetryInterval: 200 * time.Millisecond,
@@ -118,7 +118,7 @@ func (f *Factory) createBlockWithPayload(p payload.Payload, references models.Pa
 	}
 	block.SetSignature(signature)
 
-	if err = block.DetermineID(f.slotTimeProvider); err != nil {
+	if err = block.DetermineID(f.slotTimeProviderFunc()); err != nil {
 		return nil, errors.Wrap(err, "there is a problem with the block syntax")
 	}
 

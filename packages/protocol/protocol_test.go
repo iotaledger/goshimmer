@@ -17,6 +17,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/blocktime"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
@@ -25,7 +26,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
-	"github.com/iotaledger/goshimmer/packages/protocol/enginemanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
@@ -61,8 +61,6 @@ func TestProtocol(t *testing.T) {
 	}
 	tempDir := utils.NewDirectory(t.TempDir())
 
-	protocol1 := protocol.New(workers.CreateGroup("Protocol1"), endpoint1, protocol.WithBaseDirectory(tempDir.Path()), protocol.WithSnapshotPath(tempDir.Path("snapshot.bin")), protocol.WithEngineOptions(engine.WithLedgerOptions(ledger.WithVM(ledgerVM))))
-
 	err := snapshotcreator.CreateSnapshot(
 		snapshotcreator.WithDatabaseVersion(protocol.DatabaseVersion),
 		snapshotcreator.WithFilePath(tempDir.Path("snapshot.bin")),
@@ -70,10 +68,10 @@ func TestProtocol(t *testing.T) {
 		snapshotcreator.WithGenesisSeed(make([]byte, 32)),
 		snapshotcreator.WithPledgeIDs(identitiesWeights),
 		snapshotcreator.WithVM(ledgerVM),
-		snapshotcreator.WithSlotTimeProvider(protocol1.SlotTimeProvider),
 	)
 	require.NoError(t, err)
 
+	protocol1 := protocol.New(workers.CreateGroup("Protocol1"), endpoint1, protocol.WithBaseDirectory(tempDir.Path()), protocol.WithSnapshotPath(tempDir.Path("snapshot.bin")), protocol.WithEngineOptions(engine.WithLedgerOptions(ledger.WithVM(ledgerVM))))
 	protocol1.Run()
 	t.Cleanup(protocol1.Shutdown)
 
@@ -142,10 +140,6 @@ func TestEngine_NonEmptyInitialValidators(t *testing.T) {
 
 	ledgerVM := new(devnetvm.VM)
 
-	slotTimeProvider := slot.NewTimeProvider(time.Now().Unix(), 10)
-	workers := workerpool.NewGroup(t.Name())
-	tf := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework"), dpos.NewProvider(), mana1.NewProvider(), slotTimeProvider, engine.WithLedgerOptions(ledger.WithVM(ledgerVM)))
-
 	identitiesMap := map[string]ed25519.PublicKey{
 		"A": identity.GenerateIdentity().PublicKey(),
 		"B": identity.GenerateIdentity().PublicKey(),
@@ -172,6 +166,8 @@ func TestEngine_NonEmptyInitialValidators(t *testing.T) {
 	)
 	require.NoError(t, err)
 
+	workers := workerpool.NewGroup(t.Name())
+	tf := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework"), blocktime.NewProvider(), dpos.NewProvider(), mana1.NewProvider(), engine.WithLedgerOptions(ledger.WithVM(ledgerVM)))
 	require.NoError(t, tf.Instance.Initialize(tempDir.Path("genesis_snapshot.bin")))
 
 	tf.BlockDAG.CreateBlock("1.A", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithIssuer(identitiesMap["A"]))
@@ -209,14 +205,6 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 
 	ledgerVM := new(devnetvm.VM)
 
-	slotDuration := int64(10)
-	slotTimeProvider := slot.NewTimeProvider(time.Now().Unix()-slotDuration*10, slotDuration)
-
-	fmt.Println("> GenesisUnixTime", slotTimeProvider.GenesisTime())
-
-	workers := workerpool.NewGroup(t.Name())
-	tf := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework"), dpos.NewProvider(), mana1.NewProvider(), slotTimeProvider, engine.WithLedgerOptions(ledger.WithVM(ledgerVM)))
-
 	identitiesMap := map[string]ed25519.PublicKey{
 		"A": identity.GenerateIdentity().PublicKey(),
 		"B": identity.GenerateIdentity().PublicKey(),
@@ -233,6 +221,8 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 
 	tempDir := utils.NewDirectory(t.TempDir())
 
+	slotDuration := int64(10)
+
 	err := snapshotcreator.CreateSnapshot(
 		snapshotcreator.WithDatabaseVersion(protocol.DatabaseVersion),
 		snapshotcreator.WithFilePath(tempDir.Path("genesis_snapshot.bin")),
@@ -240,14 +230,18 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 		snapshotcreator.WithGenesisSeed(make([]byte, 32)),
 		snapshotcreator.WithPledgeIDs(identitiesWeights),
 		snapshotcreator.WithVM(ledgerVM),
+		snapshotcreator.WithGenesisUnixTime(time.Now().Unix()-slotDuration*10),
+		snapshotcreator.WithSlotDuration(slotDuration),
 	)
 	require.NoError(t, err)
 
+	workers := workerpool.NewGroup(t.Name())
+	tf := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework"), blocktime.NewProvider(), dpos.NewProvider(), mana1.NewProvider(), engine.WithLedgerOptions(ledger.WithVM(ledgerVM)))
 	require.NoError(t, tf.Instance.Initialize(tempDir.Path("genesis_snapshot.bin")))
 
 	acceptedBlocks := make(map[string]bool)
 
-	slot1IssuingTime := slotTimeProvider.StartTime(1)
+	slot1IssuingTime := tf.SlotTimeProvider().StartTime(1)
 
 	// Blocks in slot 1
 	tf.BlockDAG.CreateBlock("1.A", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithIssuer(identitiesMap["A"]), models.WithIssuingTime(slot1IssuingTime))
@@ -265,7 +259,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 		"1.D": false,
 	}))
 
-	slot2IssuingTime := slotTimeProvider.StartTime(2)
+	slot2IssuingTime := tf.SlotTimeProvider().StartTime(2)
 
 	// Block in slot 2, not accepting anything new.
 	tf.BlockDAG.CreateBlock("2.D", models.WithStrongParents(tf.BlockDAG.BlockIDs("1.D")), models.WithIssuer(identitiesMap["D"]), models.WithIssuingTime(slot2IssuingTime))
@@ -281,7 +275,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 		"11.A": false,
 	}))
 
-	require.Equal(t, slotTimeProvider.IndexFromTime(tf.Booker.Block("11.A").IssuingTime()), slot.Index(11))
+	require.Equal(t, tf.SlotTimeProvider().IndexFromTime(tf.Booker.Block("11.A").IssuingTime()), slot.Index(11))
 
 	// Time hasn't advanced past slot 1
 	require.Equal(t, tf.Instance.Storage.Settings.LatestCommitment().Index(), slot.Index(0))
@@ -308,7 +302,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 	{
 		require.NoError(t, tf.Instance.WriteSnapshot(tempDir.Path("snapshot_slot4.bin")))
 
-		tf2 := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework2"), dpos.NewProvider(), mana1.NewProvider(), slotTimeProvider, engine.WithLedgerOptions(ledger.WithVM(ledgerVM)))
+		tf2 := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework2"), blocktime.NewProvider(), dpos.NewProvider(), mana1.NewProvider(), engine.WithLedgerOptions(ledger.WithVM(ledgerVM)))
 
 		require.NoError(t, tf2.Instance.Initialize(tempDir.Path("snapshot_slot4.bin")))
 
@@ -382,7 +376,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 	{
 		require.NoError(t, tf.Instance.WriteSnapshot(tempDir.Path("snapshot_slot1.bin"), 1))
 
-		tf3 := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework3"), dpos.NewProvider(), mana1.NewProvider(), slotTimeProvider, engine.WithLedgerOptions(ledger.WithVM(ledgerVM)))
+		tf3 := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework3"), blocktime.NewProvider(), dpos.NewProvider(), mana1.NewProvider(), engine.WithLedgerOptions(ledger.WithVM(ledgerVM)))
 
 		require.NoError(t, tf3.Instance.Initialize(tempDir.Path("snapshot_slot1.bin")))
 
@@ -443,7 +437,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 	{
 		require.NoError(t, tf.Instance.WriteSnapshot(tempDir.Path("snapshot_slot2.bin"), 2))
 
-		tf4 := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework4"), dpos.NewProvider(), mana1.NewProvider(), slotTimeProvider, engine.WithLedgerOptions(ledger.WithVM(ledgerVM)))
+		tf4 := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework4"), blocktime.NewProvider(), dpos.NewProvider(), mana1.NewProvider(), engine.WithLedgerOptions(ledger.WithVM(ledgerVM)))
 
 		require.NoError(t, tf4.Instance.Initialize(tempDir.Path("snapshot_slot2.bin")))
 
@@ -496,25 +490,6 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		),
 	}
 
-	slotDuration := int64(10)
-	slotTimeProvider := slot.NewTimeProvider(time.Now().Unix()-slotDuration*15, slotDuration)
-
-	workers := workerpool.NewGroup(t.Name())
-
-	testDir := t.TempDir()
-	engine1Storage := storage.New(testDir, protocol.DatabaseVersion, database.WithDBProvider(database.NewDB))
-	t.Cleanup(func() {
-		workers.WaitChildren()
-		engine1Storage.Shutdown()
-	})
-
-	engine1 := engine.NewTestEngine(t, workers.CreateGroup("Engine1"), engine1Storage, dpos.NewProvider(), mana1.NewProvider(), slotTimeProvider, engineOpts...)
-	tf := engine.NewTestFramework(t, workers.CreateGroup("EngineTestFramework1"), engine1)
-
-	tf.Instance.NotarizationManager.Events.Error.Hook(func(err error) {
-		t.Fatal(err.Error())
-	})
-
 	identitiesMap := map[string]ed25519.PublicKey{
 		"A": identity.GenerateIdentity().PublicKey(),
 		"B": identity.GenerateIdentity().PublicKey(),
@@ -530,7 +505,10 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		identity.New(identitiesMap["D"]).PublicKey(): 25,
 		identity.New(identitiesMap["Z"]).PublicKey(): 0,
 	}
+
 	tempDir := utils.NewDirectory(t.TempDir())
+	slotDuration := int64(10)
+
 	err := snapshotcreator.CreateSnapshot(
 		snapshotcreator.WithDatabaseVersion(protocol.DatabaseVersion),
 		snapshotcreator.WithFilePath(tempDir.Path("genesis_snapshot.bin")),
@@ -539,16 +517,33 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		snapshotcreator.WithPledgeIDs(identitiesWeights),
 		snapshotcreator.WithVM(ledgerVM),
 		snapshotcreator.WithAttestAll(true),
+		snapshotcreator.WithGenesisUnixTime(time.Now().Unix()-slotDuration*15),
+		snapshotcreator.WithSlotDuration(slotDuration),
 	)
 	require.NoError(t, err)
 
+	workers := workerpool.NewGroup(t.Name())
+
+	testDir := t.TempDir()
+	engine1Storage := storage.New(testDir, protocol.DatabaseVersion, database.WithDBProvider(database.NewDB))
+	t.Cleanup(func() {
+		workers.WaitChildren()
+		engine1Storage.Shutdown()
+	})
+
+	engine1 := engine.NewTestEngine(t, workers.CreateGroup("Engine1"), engine1Storage, blocktime.NewProvider(), dpos.NewProvider(), mana1.NewProvider(), engineOpts...)
+	tf := engine.NewTestFramework(t, workers.CreateGroup("EngineTestFramework1"), engine1)
 	require.NoError(t, tf.Instance.Initialize(tempDir.Path("genesis_snapshot.bin")))
+
+	tf.Instance.NotarizationManager.Events.Error.Hook(func(err error) {
+		t.Fatal(err.Error())
+	})
 
 	require.Equal(t, int64(100), tf.Instance.SybilProtection.Validators().TotalWeight())
 	require.Equal(t, int64(101), tf.Instance.ThroughputQuota.TotalBalance())
 
 	acceptedBlocks := make(map[string]bool)
-	slot1IssuingTime := slotTimeProvider.StartTime(1)
+	slot1IssuingTime := tf.SlotTimeProvider().StartTime(1)
 
 	{
 		tf.BlockDAG.CreateBlock("1.Z", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithPayload(tf.Ledger.CreateTransaction("Tx1", 2, "Genesis")), models.WithIssuer(identitiesMap["Z"]), models.WithIssuingTime(slot1IssuingTime))
@@ -580,7 +575,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 	// ///////////////////////////////////////////////////////////
 
 	{
-		slot11IssuingTime := slotTimeProvider.StartTime(11)
+		slot11IssuingTime := tf.SlotTimeProvider().StartTime(11)
 		tf.BlockDAG.CreateBlock("11.A", models.WithStrongParents(tf.BlockDAG.BlockIDs("1.D")), models.WithIssuer(identitiesMap["A"]), models.WithIssuingTime(slot11IssuingTime))
 		tf.BlockDAG.CreateBlock("11.B", models.WithStrongParents(tf.BlockDAG.BlockIDs("11.A")), models.WithIssuer(identitiesMap["B"]), models.WithIssuingTime(slot11IssuingTime))
 		tf.BlockDAG.CreateBlock("11.C", models.WithStrongParents(tf.BlockDAG.BlockIDs("11.B")), models.WithIssuer(identitiesMap["C"]), models.WithIssuingTime(slot11IssuingTime))
@@ -594,7 +589,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 	// ///////////////////////////////////////////////////////////
 
 	{
-		slot5IssuingTime := slotTimeProvider.StartTime(5)
+		slot5IssuingTime := tf.SlotTimeProvider().StartTime(5)
 		tf.BlockDAG.CreateBlock("5.Z", models.WithStrongParents(tf.BlockDAG.BlockIDs("1.D")), models.WithPayload(tf.Ledger.CreateTransaction("Tx5", 2, "Tx1.0")), models.WithIssuer(identitiesMap["Z"]), models.WithIssuingTime(slot5IssuingTime))
 	}
 
@@ -603,7 +598,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 	// ///////////////////////////////////////////////////////////
 
 	{
-		slot12IssuingTime := slotTimeProvider.StartTime(12)
+		slot12IssuingTime := tf.SlotTimeProvider().StartTime(12)
 		tf.BlockDAG.CreateBlock("12.A.2", models.WithStrongParents(tf.BlockDAG.BlockIDs("5.Z")), models.WithIssuer(identitiesMap["A"]), models.WithIssuingTime(slot12IssuingTime))
 		tf.BlockDAG.CreateBlock("12.B.2", models.WithStrongParents(tf.BlockDAG.BlockIDs("12.A.2")), models.WithIssuer(identitiesMap["B"]), models.WithIssuingTime(slot12IssuingTime))
 		tf.BlockDAG.CreateBlock("12.C.2", models.WithStrongParents(tf.BlockDAG.BlockIDs("12.B.2")), models.WithIssuer(identitiesMap["C"]), models.WithIssuingTime(slot12IssuingTime))
@@ -619,7 +614,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 	{
 		require.NoError(t, tf.Instance.WriteSnapshot(tempDir.Path("snapshot_slot1.bin"), 1))
 
-		tf2 := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework2"), dpos.NewProvider(), mana1.NewProvider(), slotTimeProvider, engineOpts...)
+		tf2 := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework2"), blocktime.NewProvider(), dpos.NewProvider(), mana1.NewProvider(), engineOpts...)
 		require.NoError(t, tf2.Instance.Initialize(tempDir.Path("snapshot_slot1.bin")))
 
 		require.Equal(t, slot.Index(1), tf2.Instance.Storage.Settings.LatestCommitment().Index())
@@ -655,10 +650,10 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 			engine3Storage.Shutdown()
 		})
 
-		engine3 := engine.NewTestEngine(t, workers.CreateGroup("Engine3"), engine3Storage, dpos.NewProvider(), mana1.NewProvider(), slotTimeProvider, engineOpts...)
+		engine3 := engine.NewTestEngine(t, workers.CreateGroup("Engine3"), engine3Storage, blocktime.NewProvider(), dpos.NewProvider(), mana1.NewProvider(), engineOpts...)
 		tf3 := engine.NewTestFramework(t, workers.CreateGroup("EngineTestFramework3"), engine3)
 
-		require.NoError(t, tf3.Instance.Initialize(""))
+		require.NoError(t, tf3.Instance.Initialize())
 
 		tf3.AssertSlotState(5)
 
@@ -681,38 +676,6 @@ func TestEngine_ShutdownResume(t *testing.T) {
 
 	ledgerVM := new(devnetvm.VM)
 
-	slotDuration := int64(10)
-	slotTimeProvider := slot.NewTimeProvider(time.Now().Unix()-slotDuration*15, slotDuration)
-
-	workers := workerpool.NewGroup(t.Name())
-
-	testDir := t.TempDir()
-	engine1Storage := storage.New(testDir, protocol.DatabaseVersion, database.WithDBProvider(database.NewDB))
-	t.Cleanup(func() {
-		workers.WaitChildren()
-		engine1Storage.Shutdown()
-	})
-
-	engine1 := engine.NewTestEngine(t, workers.CreateGroup("Engine"), engine1Storage,
-		dpos.NewProvider(),
-		mana1.NewProvider(),
-		slotTimeProvider,
-		engine.WithLedgerOptions(ledger.WithVM(ledgerVM)),
-		engine.WithTangleOptions(
-			tangle.WithBookerOptions(
-				booker.WithMarkerManagerOptions(
-					markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(1)),
-				),
-			),
-		),
-	)
-
-	tf := engine.NewTestFramework(t, workers.CreateGroup("EngineTestFramework1"), engine1)
-
-	tf.Instance.NotarizationManager.Events.Error.Hook(func(err error) {
-		panic(err)
-	})
-
 	identitiesMap := map[string]ed25519.PublicKey{
 		"A": identity.GenerateIdentity().PublicKey(),
 		"B": identity.GenerateIdentity().PublicKey(),
@@ -730,6 +693,8 @@ func TestEngine_ShutdownResume(t *testing.T) {
 	}
 
 	tempDir := utils.NewDirectory(t.TempDir())
+	slotDuration := int64(10)
+
 	err := snapshotcreator.CreateSnapshot(
 		snapshotcreator.WithDatabaseVersion(protocol.DatabaseVersion),
 		snapshotcreator.WithFilePath(tempDir.Path("genesis_snapshot.bin")),
@@ -738,10 +703,40 @@ func TestEngine_ShutdownResume(t *testing.T) {
 		snapshotcreator.WithPledgeIDs(identitiesWeights),
 		snapshotcreator.WithVM(ledgerVM),
 		snapshotcreator.WithAttestAll(true),
+		snapshotcreator.WithGenesisUnixTime(time.Now().Unix()-slotDuration*15),
+		snapshotcreator.WithSlotDuration(slotDuration),
 	)
 	require.NoError(t, err)
 
+	workers := workerpool.NewGroup(t.Name())
+
+	testDir := t.TempDir()
+	engine1Storage := storage.New(testDir, protocol.DatabaseVersion, database.WithDBProvider(database.NewDB))
+	t.Cleanup(func() {
+		workers.WaitChildren()
+		engine1Storage.Shutdown()
+	})
+
+	engine1 := engine.NewTestEngine(t, workers.CreateGroup("Engine"), engine1Storage,
+		blocktime.NewProvider(),
+		dpos.NewProvider(),
+		mana1.NewProvider(),
+		engine.WithLedgerOptions(ledger.WithVM(ledgerVM)),
+		engine.WithTangleOptions(
+			tangle.WithBookerOptions(
+				booker.WithMarkerManagerOptions(
+					markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(1)),
+				),
+			),
+		),
+	)
+
+	tf := engine.NewTestFramework(t, workers.CreateGroup("EngineTestFramework1"), engine1)
 	require.NoError(t, tf.Instance.Initialize(tempDir.Path("genesis_snapshot.bin")))
+
+	tf.Instance.NotarizationManager.Events.Error.Hook(func(err error) {
+		panic(err)
+	})
 
 	require.Equal(t, int64(100), tf.Instance.SybilProtection.Validators().TotalWeight())
 
@@ -756,9 +751,9 @@ func TestEngine_ShutdownResume(t *testing.T) {
 	})
 
 	engine2 := engine.NewTestEngine(t, workers.CreateGroup("Engine2"), engine2Storage,
+		blocktime.NewProvider(),
 		dpos.NewProvider(),
 		mana1.NewProvider(),
-		slotTimeProvider,
 		engine.WithLedgerOptions(ledger.WithVM(ledgerVM)),
 		engine.WithTangleOptions(
 			tangle.WithBookerOptions(
@@ -770,7 +765,7 @@ func TestEngine_ShutdownResume(t *testing.T) {
 	)
 
 	tf2 := engine.NewTestFramework(t, workers.CreateGroup("EngineTestFramework2"), engine2)
-	require.NoError(t, tf2.Instance.Initialize(""))
+	require.NoError(t, tf2.Instance.Initialize())
 	workers.WaitChildren()
 	tf2.AssertSlotState(0)
 }
@@ -793,9 +788,6 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 			),
 		),
 	}
-
-	slotDuration := int64(10)
-	slotTimeProvider := slot.NewTimeProvider(time.Now().Unix()-slotDuration*10, slotDuration)
 
 	identitiesMap := map[string]ed25519.KeyPair{
 		"node1": ed25519.GenerateKeyPair(),
@@ -826,6 +818,7 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 
 	snapshotsDir := utils.NewDirectory(t.TempDir())
 	snapshot := snapshotsDir.Path("snapshot.bin")
+	slotDuration := int64(10)
 
 	err := snapshotcreator.CreateSnapshot(
 		snapshotcreator.WithDatabaseVersion(protocol.DatabaseVersion),
@@ -834,13 +827,15 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 		snapshotcreator.WithGenesisSeed(make([]byte, 32)),
 		snapshotcreator.WithPledgeIDs(allWeights),
 		snapshotcreator.WithVM(ledgerVM),
+		snapshotcreator.WithGenesisUnixTime(time.Now().Unix()-slotDuration*10),
+		snapshotcreator.WithSlotDuration(slotDuration),
 	)
 	require.NoError(t, err)
 
-	node1 := mockednetwork.NewNode(t, identitiesMap["node1"], testNetwork, "P1", snapshot, slotTimeProvider, engineOpts...)
-	node2 := mockednetwork.NewNode(t, identitiesMap["node2"], testNetwork, "P1", snapshot, slotTimeProvider, engineOpts...)
-	node3 := mockednetwork.NewNode(t, identitiesMap["node3"], testNetwork, "P2", snapshot, slotTimeProvider, engineOpts...)
-	node4 := mockednetwork.NewNode(t, identitiesMap["node4"], testNetwork, "P2", snapshot, slotTimeProvider, engineOpts...)
+	node1 := mockednetwork.NewNode(t, identitiesMap["node1"], testNetwork, "P1", snapshot, engineOpts...)
+	node2 := mockednetwork.NewNode(t, identitiesMap["node2"], testNetwork, "P1", snapshot, engineOpts...)
+	node3 := mockednetwork.NewNode(t, identitiesMap["node3"], testNetwork, "P2", snapshot, engineOpts...)
+	node4 := mockednetwork.NewNode(t, identitiesMap["node4"], testNetwork, "P2", snapshot, engineOpts...)
 
 	node1.HookLogging(true)
 	node2.HookLogging(true)
@@ -1056,7 +1051,7 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 		wp := workers.CreatePool("Activity", 2)
 		for _, node := range []*mockednetwork.Node{node3, node4} {
 			nodeCount.Add(1)
-			node.Protocol.Events.MainEngineSwitched.Hook(func(_ *enginemanager.EngineInstance) {
+			node.Protocol.Events.MainEngineSwitched.Hook(func(_ *engine.Engine) {
 				nodeCount.Add(-1)
 			}, event.WithWorkerPool(wp))
 		}
@@ -1083,35 +1078,20 @@ func TestEngine_GuavaConflict(t *testing.T) {
 
 	ledgerVM := new(devnetvm.VM)
 
-	slotTimeProvider := slot.NewTimeProvider(time.Now().Unix(), 10)
-
-	workers := workerpool.NewGroup(t.Name())
-	tf := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework"), dpos.NewProvider(), mana1.NewProvider(),
-		slotTimeProvider,
-		engine.WithTangleOptions(
-			tangle.WithBookerOptions(
-				booker.WithMarkerManagerOptions(
-					markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(3)),
-				),
-			),
-		))
-
-	tf.Instance.NotarizationManager.Events.Error.Hook(func(err error) {
-		panic(err)
-	})
-
-	tf.Tangle.VirtualVoting.CreateIdentity("A", 25, true)
-	tf.Tangle.VirtualVoting.CreateIdentity("B", 25, true)
-	tf.Tangle.VirtualVoting.CreateIdentity("C", 25, true)
-	tf.Tangle.VirtualVoting.CreateIdentity("D", 25, true)
-	tf.Tangle.VirtualVoting.CreateIdentity("Z", 0, true)
+	identities := map[string]*identity.Identity{
+		"A": identity.GenerateIdentity(),
+		"B": identity.GenerateIdentity(),
+		"C": identity.GenerateIdentity(),
+		"D": identity.GenerateIdentity(),
+		"Z": identity.GenerateIdentity(),
+	}
 
 	identitiesWeights := map[ed25519.PublicKey]uint64{
-		tf.Tangle.VirtualVoting.Identity("A").PublicKey(): 25,
-		tf.Tangle.VirtualVoting.Identity("B").PublicKey(): 25,
-		tf.Tangle.VirtualVoting.Identity("C").PublicKey(): 25,
-		tf.Tangle.VirtualVoting.Identity("D").PublicKey(): 25,
-		tf.Tangle.VirtualVoting.Identity("Z").PublicKey(): 0,
+		identities["A"].PublicKey(): 25,
+		identities["B"].PublicKey(): 25,
+		identities["C"].PublicKey(): 25,
+		identities["D"].PublicKey(): 25,
+		identities["Z"].PublicKey(): 0,
 	}
 
 	tempDir := utils.NewDirectory(t.TempDir())
@@ -1125,7 +1105,25 @@ func TestEngine_GuavaConflict(t *testing.T) {
 	)
 	require.NoError(t, err)
 
+	workers := workerpool.NewGroup(t.Name())
+	tf := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework"), blocktime.NewProvider(), dpos.NewProvider(), mana1.NewProvider(),
+		engine.WithTangleOptions(
+			tangle.WithBookerOptions(
+				booker.WithMarkerManagerOptions(
+					markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(3)),
+				),
+			),
+		))
+
 	require.NoError(t, tf.Instance.Initialize(tempDir.Path("genesis_snapshot.bin")))
+
+	tf.Instance.NotarizationManager.Events.Error.Hook(func(err error) {
+		panic(err)
+	})
+
+	for alias, id := range identities {
+		tf.Tangle.VirtualVoting.RegisterIdentity(alias, id)
+	}
 
 	require.Equal(t, int64(100), tf.Instance.SybilProtection.Validators().TotalWeight())
 

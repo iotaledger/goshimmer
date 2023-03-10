@@ -55,7 +55,15 @@ func TestFactory_IssuePayload(t *testing.T) {
 
 	pay := payload.NewGenericDataPayload([]byte("test"))
 
-	factory := NewBlockFactory(localIdentity, slotTimeProvider, blockRetriever, tipSelectorFunc, referencesFunc, commitmentFunc)
+	factory := NewBlockFactory(localIdentity,
+		func() *slot.TimeProvider {
+			return slotTimeProvider
+		},
+		blockRetriever,
+		tipSelectorFunc,
+		referencesFunc,
+		commitmentFunc,
+	)
 	createdBlock, err := factory.CreateBlock(pay, 2)
 	require.NoError(t, err)
 

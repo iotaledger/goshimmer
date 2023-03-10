@@ -49,21 +49,11 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, ledgerVM vm.VM
 	}, opts, func(t *TestFramework) {
 		tempDir := utils.NewDirectory(test.TempDir())
 
-		test.Cleanup(func() {
-			t.Instance.Shutdown()
-		})
-
 		identitiesWeights := map[ed25519.PublicKey]uint64{
 			ed25519.GenerateKeyPair().PublicKey: 100,
 		}
 
-		t.Instance = New(workers.CreateGroup("Protocol"), t.Network.Join(identity.GenerateIdentity().ID()), append(t.optsProtocolOptions,
-			WithSnapshotPath(tempDir.Path("snapshot.bin")),
-			WithBaseDirectory(tempDir.Path()),
-			WithEngineOptions(engine.WithLedgerOptions(ledger.WithVM(ledgerVM))),
-		)...)
-
-		err := snapshotcreator.CreateSnapshot(
+		require.NoError(test, snapshotcreator.CreateSnapshot(
 			snapshotcreator.WithDatabaseVersion(DatabaseVersion),
 			snapshotcreator.WithVM(ledgerVM),
 			snapshotcreator.WithFilePath(tempDir.Path("snapshot.bin")),
@@ -71,9 +61,17 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, ledgerVM vm.VM
 			snapshotcreator.WithGenesisSeed(make([]byte, ed25519.SeedSize)),
 			snapshotcreator.WithPledgeIDs(identitiesWeights),
 			snapshotcreator.WithAttestAll(true),
-			snapshotcreator.WithSlotTimeProvider(t.Instance.SlotTimeProvider),
-		)
-		require.NoError(test, err)
+		))
+
+		t.Instance = New(workers.CreateGroup("Protocol"), t.Network.Join(identity.GenerateIdentity().ID()), append(t.optsProtocolOptions,
+			WithSnapshotPath(tempDir.Path("snapshot.bin")),
+			WithBaseDirectory(tempDir.Path()),
+			WithEngineOptions(engine.WithLedgerOptions(ledger.WithVM(ledgerVM))),
+		)...)
+
+		test.Cleanup(func() {
+			t.Instance.Shutdown()
+		})
 
 		t.Engine = engine.NewTestFramework(t.test, t.workers.CreateGroup("EngineTestFramework"), t.Instance.Engine())
 	})

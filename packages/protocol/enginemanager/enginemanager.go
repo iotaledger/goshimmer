@@ -9,7 +9,9 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
+	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
 	"github.com/iotaledger/goshimmer/packages/storage"
@@ -36,11 +38,11 @@ type EngineManager struct {
 	workers        *workerpool.Group
 
 	engineOptions           []options.Option[engine.Engine]
-	sybilProtectionProvider engine.ModuleProvider[sybilprotection.SybilProtection]
-	throughputQuotaProvider engine.ModuleProvider[throughputquota.ThroughputQuota]
-	slotTimeProvider        *slot.TimeProvider
+	clockProvider           module.Provider[*engine.Engine, clock.Clock]
+	sybilProtectionProvider module.Provider[*engine.Engine, sybilprotection.SybilProtection]
+	throughputQuotaProvider module.Provider[*engine.Engine, throughputquota.ThroughputQuota]
 
-	activeInstance *EngineInstance
+	activeInstance *engine.Engine
 }
 
 func New(
@@ -49,56 +51,56 @@ func New(
 	dbVersion database.Version,
 	storageOptions []options.Option[database.Manager],
 	engineOptions []options.Option[engine.Engine],
-	sybilProtectionProvider engine.ModuleProvider[sybilprotection.SybilProtection],
-	throughputQuotaProvider engine.ModuleProvider[throughputquota.ThroughputQuota],
-	slotTimeProvider *slot.TimeProvider) *EngineManager {
+	clockProvider module.Provider[*engine.Engine, clock.Clock],
+	sybilProtectionProvider module.Provider[*engine.Engine, sybilprotection.SybilProtection],
+	throughputQuotaProvider module.Provider[*engine.Engine, throughputquota.ThroughputQuota]) *EngineManager {
 	return &EngineManager{
 		workers:                 workers,
 		directory:               utils.NewDirectory(dir),
 		dbVersion:               dbVersion,
 		storageOptions:          storageOptions,
 		engineOptions:           engineOptions,
+		clockProvider:           clockProvider,
 		sybilProtectionProvider: sybilProtectionProvider,
 		throughputQuotaProvider: throughputQuotaProvider,
-		slotTimeProvider:        slotTimeProvider,
 	}
 }
 
-func (m *EngineManager) LoadActiveEngine() (*EngineInstance, error) {
+func (e *EngineManager) LoadActiveEngine() (*engine.Engine, error) {
 	info := &engineInfo{}
-	if err := ioutils.ReadJSONFromFile(m.infoFilePath(), info); err != nil {
+	if err := ioutils.ReadJSONFromFile(e.infoFilePath(), info); err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
 			return nil, fmt.Errorf("unable to read engine info file: %w", err)
 		}
 	}
 
 	if len(info.Name) > 0 {
-		if exists, isDirectory, err := ioutils.PathExists(m.directory.Path(info.Name)); err == nil && exists && isDirectory {
+		if exists, isDirectory, err := ioutils.PathExists(e.directory.Path(info.Name)); err == nil && exists && isDirectory {
 			// Load previous engine as active
-			m.activeInstance = m.loadEngineInstance(info.Name)
+			e.activeInstance = e.loadEngineInstance(info.Name)
 		}
 	}
 
-	if m.activeInstance == nil {
+	if e.activeInstance == nil {
 		// Start with a new instance and set to active
-		instance := m.newEngineInstance()
-		if err := m.SetActiveInstance(instance); err != nil {
+		instance := e.newEngineInstance()
+		if err := e.SetActiveInstance(instance); err != nil {
 			return nil, err
 		}
 	}
 
 	// Cleanup non-active instances
-	if err := m.CleanupNonActive(); err != nil {
+	if err := e.CleanupNonActive(); err != nil {
 		return nil, err
 	}
 
-	return m.activeInstance, nil
+	return e.activeInstance, nil
 }
 
-func (m *EngineManager) CleanupNonActive() error {
-	activeDir := filepath.Base(m.activeInstance.Storage.Directory)
+func (e *EngineManager) CleanupNonActive() error {
+	activeDir := filepath.Base(e.activeInstance.Storage.Directory)
 
-	dirs, err := m.directory.SubDirs()
+	dirs, err := e.directory.SubDirs()
 	if err != nil {
 		return err
 	}
@@ -106,51 +108,45 @@ func (m *EngineManager) CleanupNonActive() error {
 		if dir == activeDir {
 			continue
 		}
-		if err := m.directory.RemoveSubdir(dir); err != nil {
+		if err := e.directory.RemoveSubdir(dir); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (m *EngineManager) infoFilePath() string {
-	return m.directory.Path(engineInfoFile)
+func (e *EngineManager) infoFilePath() string {
+	return e.directory.Path(engineInfoFile)
 }
 
-func (m *EngineManager) SetActiveInstance(instance *EngineInstance) error {
-	m.activeInstance = instance
+func (e *EngineManager) SetActiveInstance(instance *engine.Engine) error {
+	e.activeInstance = instance
 
 	info := &engineInfo{
 		Name: filepath.Base(instance.Storage.Directory),
 	}
 
-	return ioutils.WriteJSONToFile(m.infoFilePath(), info, 0o644)
+	return ioutils.WriteJSONToFile(e.infoFilePath(), info, 0o644)
 }
 
-func (m *EngineManager) loadEngineInstance(dirName string) *EngineInstance {
-	candidateStorage := storage.New(m.directory.Path(dirName), m.dbVersion, m.storageOptions...)
-	candidateEngine := engine.New(m.workers.CreateGroup(dirName), candidateStorage, m.sybilProtectionProvider, m.throughputQuotaProvider, m.slotTimeProvider, m.engineOptions...)
-
-	return &EngineInstance{
-		Engine:  candidateEngine,
-		Storage: candidateStorage,
-	}
+func (e *EngineManager) loadEngineInstance(dirName string) *engine.Engine {
+	return engine.New(e.workers.CreateGroup(dirName), storage.New(e.directory.Path(dirName), e.dbVersion, e.storageOptions...), e.clockProvider, e.sybilProtectionProvider, e.throughputQuotaProvider, e.engineOptions...)
 }
 
-func (m *EngineManager) newEngineInstance() *EngineInstance {
+func (e *EngineManager) newEngineInstance() *engine.Engine {
 	dirName := lo.PanicOnErr(uuid.NewUUID()).String()
-	return m.loadEngineInstance(dirName)
+	return e.loadEngineInstance(dirName)
 }
 
-func (m *EngineManager) ForkEngineAtSlot(index slot.Index) (*EngineInstance, error) {
+func (e *EngineManager) ForkEngineAtSlot(index slot.Index) (*engine.Engine, error) {
 	// Dump a snapshot at the target index
 	snapshotPath := filepath.Join(os.TempDir(), fmt.Sprintf("snapshot_%d_%s.bin", index, lo.PanicOnErr(uuid.NewUUID()).String()))
-	if err := m.activeInstance.Engine.WriteSnapshot(snapshotPath, index); err != nil {
+	if err := e.activeInstance.WriteSnapshot(snapshotPath, index); err != nil {
 		return nil, errors.Wrapf(err, "error exporting snapshot for index %s", index)
 	}
 
-	instance := m.newEngineInstance()
-	if err := instance.InitializeWithSnapshot(snapshotPath); err != nil {
+	instance := e.newEngineInstance()
+	if err := instance.Initialize(snapshotPath); err != nil {
 		instance.Shutdown()
 		_ = instance.RemoveFromFilesystem()
 		_ = os.Remove(snapshotPath)
@@ -158,32 +154,6 @@ func (m *EngineManager) ForkEngineAtSlot(index slot.Index) (*EngineInstance, err
 	}
 
 	return instance, nil
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region EngineInstance ////////////////////////////////////////////////////////////////////////////////////////////////
-
-type EngineInstance struct {
-	Engine  *engine.Engine
-	Storage *storage.Storage
-}
-
-func (e *EngineInstance) InitializeWithSnapshot(snapshotPath string) error {
-	return e.Engine.Initialize(snapshotPath)
-}
-
-func (e *EngineInstance) Name() string {
-	return filepath.Base(e.Storage.Directory)
-}
-
-func (e *EngineInstance) Shutdown() {
-	e.Engine.Shutdown()
-	e.Storage.Shutdown()
-}
-
-func (e *EngineInstance) RemoveFromFilesystem() error {
-	return os.RemoveAll(e.Storage.Directory)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

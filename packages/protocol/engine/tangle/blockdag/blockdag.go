@@ -55,23 +55,23 @@ type BlockDAG struct {
 	// evictionMutex is a mutex that is used to synchronize the eviction of elements from the BlockDAG.
 	evictionMutex sync.RWMutex
 
-	SlotTimeProvider *slot.TimeProvider
+	slotTimeProviderFunc func() *slot.TimeProvider
 
 	Workers    *workerpool.Group
 	workerPool *workerpool.WorkerPool
 }
 
 // New is the constructor for the BlockDAG and creates a new BlockDAG instance.
-func New(workers *workerpool.Group, evictionState *eviction.State, slotTimeProvider *slot.TimeProvider, latestCommitmentFunc func(slot.Index) (*commitment.Commitment, error), opts ...options.Option[BlockDAG]) (newBlockDAG *BlockDAG) {
+func New(workers *workerpool.Group, evictionState *eviction.State, slotTimeProviderFunc func() *slot.TimeProvider, latestCommitmentFunc func(slot.Index) (*commitment.Commitment, error), opts ...options.Option[BlockDAG]) (newBlockDAG *BlockDAG) {
 	return options.Apply(&BlockDAG{
-		Events:           NewEvents(),
-		EvictionState:    evictionState,
-		SlotTimeProvider: slotTimeProvider,
-		memStorage:       memstorage.NewSlotStorage[models.BlockID, *Block](),
-		commitmentFunc:   latestCommitmentFunc,
-		futureBlocks:     memstorage.NewSlotStorage[commitment.ID, *advancedset.AdvancedSet[*Block]](),
-		Workers:          workers,
-		workerPool:       workers.CreatePool("Solidifier", 2),
+		Events:               NewEvents(),
+		EvictionState:        evictionState,
+		slotTimeProviderFunc: slotTimeProviderFunc,
+		memStorage:           memstorage.NewSlotStorage[models.BlockID, *Block](),
+		commitmentFunc:       latestCommitmentFunc,
+		futureBlocks:         memstorage.NewSlotStorage[commitment.ID, *advancedset.AdvancedSet[*Block]](),
+		Workers:              workers,
+		workerPool:           workers.CreatePool("Solidifier", 2),
 	}, opts, func(b *BlockDAG) {
 		b.solidifier = causalorder.New(
 			b.workerPool,
@@ -85,6 +85,10 @@ func New(workers *workerpool.Group, evictionState *eviction.State, slotTimeProvi
 
 		evictionState.Events.SlotEvicted.Hook(b.evictSlot)
 	})
+}
+
+func (b *BlockDAG) SlotTimeProvider() *slot.TimeProvider {
+	return b.slotTimeProviderFunc()
 }
 
 // Attach is used to attach new Blocks to the BlockDAG. It is the main function of the BlockDAG that triggers Events.
@@ -333,7 +337,7 @@ func (b *BlockDAG) registerChild(child *Block, parent models.Parent) {
 // block retrieves the Block with given id from the mem-storage.
 func (b *BlockDAG) block(id models.BlockID) (block *Block, exists bool) {
 	if b.EvictionState.IsRootBlock(id) {
-		return NewRootBlock(id, b.SlotTimeProvider), true
+		return NewRootBlock(id, b.slotTimeProviderFunc()), true
 	}
 
 	storage := b.memStorage.Get(id.SlotIndex, false)

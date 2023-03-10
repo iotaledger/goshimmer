@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/core/storable"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
@@ -38,15 +39,14 @@ type ThroughputQuota struct {
 	totalBalance        int64
 	totalBalanceMutex   sync.RWMutex
 
-	traits.Initializable
 	traits.BatchCommittable
+	module.Module
 }
 
 // New creates a new ThroughputQuota manager.
 func New(engineInstance *engine.Engine, opts ...options.Option[ThroughputQuota]) (manaTracker *ThroughputQuota) {
 	return options.Apply(&ThroughputQuota{
 		BatchCommittable:    traits.NewBatchCommittable(engineInstance.Storage.ThroughputQuota(), PrefixLastCommittedSlot),
-		Initializable:       traits.NewInitializable(),
 		engine:              engineInstance,
 		workers:             engineInstance.Workers.CreateGroup("ThroughputQuota"),
 		totalBalanceStorage: engineInstance.Storage.ThroughputQuota(PrefixTotalBalance),
@@ -71,20 +71,20 @@ func New(engineInstance *engine.Engine, opts ...options.Option[ThroughputQuota])
 			m.totalBalance = int64(*totalBalance)
 		}
 
-		m.engine.SubscribeConstructed(func() {
-			m.engine.Storage.Settings.SubscribeInitialized(func() {
+		m.engine.HookConstructed(func() {
+			m.engine.Storage.Settings.HookInitialized(func() {
 				m.SetLastCommittedSlot(m.engine.Storage.Settings.LatestCommitment().Index())
 			})
 
 			m.engine.LedgerState.UnspentOutputs.Subscribe(m)
-			m.engine.LedgerState.SubscribeInitialized(m.init)
+			m.engine.LedgerState.HookInitialized(m.init)
 		})
 	})
 }
 
 // NewProvider returns a new throughput quota provider that uses mana1.
-func NewProvider(opts ...options.Option[ThroughputQuota]) engine.ModuleProvider[throughputquota.ThroughputQuota] {
-	return engine.ProvideModule(func(e *engine.Engine) throughputquota.ThroughputQuota {
+func NewProvider(opts ...options.Option[ThroughputQuota]) module.Provider[*engine.Engine, throughputquota.ThroughputQuota] {
+	return module.Provide(func(e *engine.Engine) throughputquota.ThroughputQuota {
 		return New(e, opts...)
 	})
 }

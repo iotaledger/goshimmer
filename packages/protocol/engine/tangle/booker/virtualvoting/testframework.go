@@ -62,9 +62,13 @@ func (t *TestFramework) ValidatorsSet(aliases ...string) (validators *advancedse
 	return t.Votes.ValidatorsSet(aliases...)
 }
 
-func (t *TestFramework) CreateIdentity(alias string, weight int64, skipWeightUpdate ...bool) {
-	t.identitiesByAlias[alias] = identity.GenerateIdentity()
+func (t *TestFramework) RegisterIdentity(alias string, id *identity.Identity) {
+	t.identitiesByAlias[alias] = id
 	identity.RegisterIDAlias(t.identitiesByAlias[alias].ID(), alias)
+}
+
+func (t *TestFramework) CreateIdentity(alias string, weight int64, skipWeightUpdate ...bool) {
+	t.RegisterIdentity(alias, identity.GenerateIdentity())
 	t.Votes.CreateValidatorWithID(alias, t.identitiesByAlias[alias].ID(), weight, skipWeightUpdate...)
 }
 

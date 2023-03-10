@@ -3,11 +3,14 @@ package scheduler
 import (
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/blocktime"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
@@ -19,6 +22,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
+	"github.com/iotaledger/goshimmer/packages/storage/utils"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/runtime/debug"
@@ -48,7 +52,7 @@ type TestFramework struct {
 	evictionState        *eviction.State
 }
 
-func NewTestFramework(test *testing.T, workers *workerpool.Group, slotTimeProvider *slot.TimeProvider, optsScheduler ...options.Option[Scheduler]) *TestFramework {
+func NewTestFramework(test *testing.T, workers *workerpool.Group, optsScheduler ...options.Option[Scheduler]) *TestFramework {
 	t := &TestFramework{
 		test:           test,
 		workers:        workers,
@@ -58,7 +62,14 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, slotTimeProvid
 	}
 	t.storage = storage.New(test.TempDir(), 1)
 
-	t.engine = engine.New(workers.CreateGroup("Engine"), t.storage, dpos.NewProvider(), mana1.NewProvider(), slotTimeProvider)
+	tempDir := utils.NewDirectory(test.TempDir())
+	require.NoError(test, snapshotcreator.CreateSnapshot(snapshotcreator.WithDatabaseVersion(1),
+		snapshotcreator.WithFilePath(tempDir.Path("genesis_snapshot.bin")),
+		snapshotcreator.WithGenesisUnixTime(time.Now().Add(-5*time.Hour).Unix()),
+		snapshotcreator.WithSlotDuration(10),
+	))
+
+	t.engine = engine.New(workers.CreateGroup("Engine"), t.storage, blocktime.NewProvider(), dpos.NewProvider(), mana1.NewProvider())
 	test.Cleanup(func() {
 		t.Scheduler.Shutdown()
 		t.engine.Shutdown()
@@ -66,13 +77,15 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, slotTimeProvid
 		t.storage.Shutdown()
 	})
 
+	require.NoError(test, t.engine.Initialize(tempDir.Path("genesis_snapshot.bin")))
+
 	t.Tangle = tangle.NewTestFramework(
 		test,
 		t.engine.Tangle,
 		booker.NewTestFramework(test, workers.CreateGroup("BookerTestFramework"), t.engine.Tangle.Booker),
 	)
 
-	t.Scheduler = New(t.Tangle.BlockDAG.Instance.EvictionState, slotTimeProvider, t.mockAcceptance.IsBlockAccepted, t.ManaMap, t.TotalMana, optsScheduler...)
+	t.Scheduler = New(t.Tangle.BlockDAG.Instance.EvictionState, t.engine.SlotTimeProvider(), t.mockAcceptance.IsBlockAccepted, t.ManaMap, t.TotalMana, optsScheduler...)
 
 	t.setupEvents()
 
@@ -105,6 +118,10 @@ func (t *TestFramework) setupEvents() {
 		}
 		atomic.AddUint32(&(t.droppedBlocksCount), 1)
 	})
+}
+
+func (t *TestFramework) SlotTimeProvider() *slot.TimeProvider {
+	return t.engine.SlotTimeProvider()
 }
 
 func (t *TestFramework) CreateIssuer(alias string, issuerMana int64) {
@@ -145,7 +162,7 @@ func (t *TestFramework) CreateSchedulerBlock(opts ...options.Option[models.Block
 		opts = append(opts, models.WithParents(parents))
 		blk = virtualvoting.NewBlock(blockdag.NewBlock(models.NewBlock(opts...), blockdag.WithSolid(true)), virtualvoting.WithBooked(true), virtualvoting.WithStructureDetails(markers.NewStructureDetails()))
 	}
-	if err := blk.DetermineID(t.Tangle.Instance.BlockDAG.SlotTimeProvider); err != nil {
+	if err := blk.DetermineID(t.SlotTimeProvider()); err != nil {
 		panic(errors.Wrap(err, "could not determine BlockID"))
 	}
 

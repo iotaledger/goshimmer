@@ -5,7 +5,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
-	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/runtime/options"
 
@@ -33,8 +33,10 @@ type Options struct {
 	InitialAttestationsPublicKey []ed25519.PublicKey
 	// AttestAll indicates that all nodes will be included in the attestation.
 	AttestAll bool
-	// SlotTimeProvider provides the genesis time of the snapshot.
-	SlotTimeProvider *slot.TimeProvider
+	// GenesisUnixTime provides the genesis time of the snapshot.
+	GenesisUnixTime int64
+	// SlotDuration defines the duration in seconds of each slot.
+	SlotDuration int64
 
 	dataBaseVersion database.Version
 	vm              vm.VM
@@ -42,8 +44,11 @@ type Options struct {
 
 func NewOptions(opts ...options.Option[Options]) *Options {
 	return options.Apply(&Options{
-		FilePath:         "snapshot.bin",
-		SlotTimeProvider: slot.NewTimeProvider(time.Now().Unix(), 10),
+		FilePath:        "snapshot.bin",
+		dataBaseVersion: 1,
+		vm:              new(devnetvm.VM),
+		GenesisUnixTime: time.Now().Unix(),
+		SlotDuration:    10,
 	}, opts)
 }
 
@@ -174,10 +179,17 @@ func WithVM(vm vm.VM) options.Option[Options] {
 	}
 }
 
-// WithSlotTimeProvider sets the slot time provider to use for the snapshot.
-func WithSlotTimeProvider(provider *slot.TimeProvider) options.Option[Options] {
+// WithGenesisUnixTime provides the genesis time of the snapshot.
+func WithGenesisUnixTime(unixTime int64) options.Option[Options] {
 	return func(m *Options) {
-		m.SlotTimeProvider = provider
+		m.GenesisUnixTime = unixTime
+	}
+}
+
+// WithSlotDuration defines the duration in seconds of each slot.
+func WithSlotDuration(duration int64) options.Option[Options] {
+	return func(m *Options) {
+		m.SlotDuration = duration
 	}
 }
 

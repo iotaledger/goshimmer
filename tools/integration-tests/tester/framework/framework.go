@@ -17,7 +17,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
-	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/runtime/options"
 )
 
@@ -148,7 +147,8 @@ func createSnapshot(snapshotInfo []options.Option[snapshotcreator.Options], star
 		snapshotcreator.WithVM(new(devnetvm.VM)),
 		snapshotcreator.WithAttestAll(startSynced),
 		snapshotcreator.WithGenesisSeed(GenesisSeedBytes),
-		snapshotcreator.WithSlotTimeProvider(slot.NewTimeProvider(time.Now().Unix(), 10)),
+		snapshotcreator.WithGenesisUnixTime(time.Now().Unix()),
+		snapshotcreator.WithSlotDuration(10),
 	}
 	err := snapshotcreator.CreateSnapshot(
 		append(defaultOpts, snapshotInfo...)...,

@@ -33,13 +33,13 @@ func Test_PruneMarkerBlockMapping(t *testing.T) {
 		if idx == 1 {
 			return blockdag.NewBlock(tf.CreateBlock(
 				alias,
-				models.WithIssuingTime(tf.Instance.SlotTimeProvider.GenesisTime()),
+				models.WithIssuingTime(tf.Instance.SlotTimeProvider().GenesisTime()),
 			)), alias
 		}
 		return blockdag.NewBlock(tf.CreateBlock(
 			alias,
 			models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk%s-%d", prefix, idx-1))),
-			models.WithIssuingTime(tf.Instance.SlotTimeProvider.StartTime(idx)),
+			models.WithIssuingTime(tf.Instance.SlotTimeProvider().StartTime(idx)),
 		)), alias
 	}
 
@@ -91,13 +91,13 @@ func Test_BlockMarkerCeilingFloor(t *testing.T) {
 		if idx == 1 {
 			return blockdag.NewBlock(tf.CreateBlock(
 				alias,
-				models.WithIssuingTime(tf.Instance.SlotTimeProvider.GenesisTime()),
+				models.WithIssuingTime(tf.Instance.SlotTimeProvider().GenesisTime()),
 			))
 		}
 		return blockdag.NewBlock(tf.CreateBlock(
 			alias,
 			models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk%s-%d", prefix, idx-1))),
-			models.WithIssuingTime(tf.Instance.SlotTimeProvider.StartTime(idx)),
+			models.WithIssuingTime(tf.Instance.SlotTimeProvider().StartTime(idx)),
 		))
 	}
 

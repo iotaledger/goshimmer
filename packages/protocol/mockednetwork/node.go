@@ -14,13 +14,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/filter"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
-	"github.com/iotaledger/goshimmer/packages/protocol/enginemanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage/utils"
 	"github.com/iotaledger/hive.go/core/slot"
@@ -43,7 +41,7 @@ type Node struct {
 	mutex sync.RWMutex
 }
 
-func NewNode(t *testing.T, keyPair ed25519.KeyPair, network *network.MockedNetwork, partition string, snapshotPath string, slotTimeProvider *slot.TimeProvider, engineOpts ...options.Option[engine.Engine]) *Node {
+func NewNode(t *testing.T, keyPair ed25519.KeyPair, network *network.MockedNetwork, partition string, snapshotPath string, engineOpts ...options.Option[engine.Engine]) *Node {
 	id := identity.New(keyPair.PublicKey)
 
 	node := &Node{
@@ -58,8 +56,6 @@ func NewNode(t *testing.T, keyPair ed25519.KeyPair, network *network.MockedNetwo
 
 	node.Protocol = protocol.New(node.Workers.CreateGroup("Protocol"),
 		node.Endpoint,
-		protocol.WithGenesisUnixTimestamp(slotTimeProvider.GenesisUnixTime()),
-		protocol.WithSlotDuration(slotTimeProvider.Duration()),
 		protocol.WithBaseDirectory(tempDir.Path()),
 		protocol.WithSnapshotPath(snapshotPath),
 		protocol.WithEngineOptions(engineOpts...),
@@ -73,13 +69,13 @@ func NewNode(t *testing.T, keyPair ed25519.KeyPair, network *network.MockedNetwo
 	})
 
 	mainEngine := node.Protocol.MainEngineInstance()
-	node.tf = engine.NewTestFramework(t, node.Workers.CreateGroup(fmt.Sprintf("EngineTestFramework-%s", mainEngine.Name()[:8])), mainEngine.Engine)
+	node.tf = engine.NewTestFramework(t, node.Workers.CreateGroup(fmt.Sprintf("EngineTestFramework-%s", mainEngine.Name()[:8])), mainEngine)
 
-	node.Protocol.Events.CandidateEngineActivated.Hook(func(candidateEngine *enginemanager.EngineInstance) {
+	node.Protocol.Events.CandidateEngineActivated.Hook(func(candidateEngine *engine.Engine) {
 		node.mutex.Lock()
 		defer node.mutex.Unlock()
 
-		node.tf = engine.NewTestFramework(node.Testing, node.Workers.CreateGroup(fmt.Sprintf("EngineTestFramework-%s", candidateEngine.Name()[:8])), candidateEngine.Engine)
+		node.tf = engine.NewTestFramework(node.Testing, node.Workers.CreateGroup(fmt.Sprintf("EngineTestFramework-%s", candidateEngine.Name()[:8])), candidateEngine)
 	})
 
 	return node
@@ -99,13 +95,13 @@ func (n *Node) HookLogging(includeMainEngine bool) {
 		n.attachEngineLogs(n.Protocol.MainEngineInstance())
 	}
 
-	events.CandidateEngineActivated.Hook(func(candidateEngine *enginemanager.EngineInstance) {
+	events.CandidateEngineActivated.Hook(func(candidateEngine *engine.Engine) {
 		fmt.Printf("%s > CandidateEngineActivated: latest commitment %s %s\n", n.Name, candidateEngine.Storage.Settings.LatestCommitment().ID(), candidateEngine.Storage.Settings.LatestCommitment())
 		fmt.Printf("==================\nACTIVATE %s\n==================\n", n.Name)
 		n.attachEngineLogs(candidateEngine)
 	})
 
-	events.MainEngineSwitched.Hook(func(engine *enginemanager.EngineInstance) {
+	events.MainEngineSwitched.Hook(func(engine *engine.Engine) {
 		fmt.Printf("%s > MainEngineSwitched: latest commitment %s %s\n", n.Name, engine.Storage.Settings.LatestCommitment().ID(), engine.Storage.Settings.LatestCommitment())
 		fmt.Printf("================\nSWITCH %s\n================\n", n.Name)
 	})
@@ -164,9 +160,9 @@ func (n *Node) HookLogging(includeMainEngine bool) {
 	})
 }
 
-func (n *Node) attachEngineLogs(instance *enginemanager.EngineInstance) {
-	engineName := fmt.Sprintf("%s - %s", lo.Cond(n.Protocol.Engine() != instance.Engine, "Candidate", "Main"), instance.Name()[:8])
-	events := instance.Engine.Events
+func (n *Node) attachEngineLogs(instance *engine.Engine) {
+	engineName := fmt.Sprintf("%s - %s", lo.Cond(n.Protocol.Engine() != instance, "Candidate", "Main"), instance.Name()[:8])
+	events := instance.Events
 
 	events.Tangle.BlockDAG.BlockAttached.Hook(func(block *blockdag.Block) {
 		fmt.Printf("%s > [%s] BlockDAG.BlockAttached: %s\n", n.Name, engineName, block.ID())
@@ -204,8 +200,8 @@ func (n *Node) attachEngineLogs(instance *enginemanager.EngineInstance) {
 		fmt.Printf("%s > [%s] Tangle.VirtualVoting.SequenceTracker.VotersUpdated: %s %s %d -> %d\n", n.Name, engineName, event.Voter, event.SequenceID, event.PrevMaxSupportedIndex, event.NewMaxSupportedIndex)
 	})
 
-	events.Clock.AcceptanceTimeUpdated.Hook(func(event *clock.TimeUpdateEvent) {
-		fmt.Printf("%s > [%s] Clock.AcceptanceTimeUpdated: %s\n", n.Name, engineName, event.NewTime)
+	events.Clock.AcceptedTimeUpdated.Hook(func(newTime time.Time) {
+		fmt.Printf("%s > [%s] Clock.AcceptedTimeUpdated: %s\n", n.Name, engineName, newTime)
 	})
 
 	events.Filter.BlockAllowed.Hook(func(block *models.Block) {
@@ -253,7 +249,7 @@ func (n *Node) Wait() {
 func (n *Node) IssueBlockAtSlot(alias string, slotIndex slot.Index, parents ...models.BlockID) *models.Block {
 	tf := n.EngineTestFramework()
 
-	issuingTime := time.Unix(tf.Instance.SlotTimeProvider.GenesisUnixTime()+int64(slotIndex-1)*tf.Instance.SlotTimeProvider.Duration(), 0)
+	issuingTime := time.Unix(tf.SlotTimeProvider().GenesisUnixTime()+int64(slotIndex-1)*tf.SlotTimeProvider().Duration(), 0)
 	require.True(n.Testing, issuingTime.Before(time.Now()), "issued block is in the current or future slot")
 	tf.BlockDAG.CreateAndSignBlock(alias, &n.KeyPair,
 		models.WithStrongParents(models.NewBlockIDs(parents...)),

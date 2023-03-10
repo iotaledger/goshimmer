@@ -328,7 +328,7 @@ func TestBlockDAG_Attach_InvalidTimestamp(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
 	tf := NewDefaultTestFramework(t, workers.CreateGroup("BlockDAGTestFramework"))
 
-	now := tf.Instance.SlotTimeProvider.StartTime(10)
+	now := tf.Instance.SlotTimeProvider().StartTime(10)
 	tf.CreateBlock("block1", models.WithIssuingTime(now.Add(-5*time.Second)))
 	tf.CreateBlock("block2", models.WithIssuingTime(now.Add(5*time.Second)))
 	tf.CreateBlock("block3", models.WithStrongParents(tf.BlockIDs("block1", "block2")), models.WithIssuingTime(now))
@@ -383,13 +383,13 @@ func TestBlockDAG_AttachInvalid(t *testing.T) {
 		if idx == 1 {
 			return tf.CreateBlock(
 				alias,
-				models.WithIssuingTime(tf.Instance.SlotTimeProvider.GenesisTime()),
+				models.WithIssuingTime(tf.Instance.SlotTimeProvider().GenesisTime()),
 			), alias
 		}
 		return tf.CreateBlock(
 			alias,
 			models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk%s-%d", prefix, idx-1))),
-			models.WithIssuingTime(tf.Instance.SlotTimeProvider.StartTime(idx)),
+			models.WithIssuingTime(tf.Instance.SlotTimeProvider().StartTime(idx)),
 		), alias
 	}
 
@@ -470,14 +470,14 @@ func TestBlockDAG_Prune(t *testing.T) {
 		if idx == 1 {
 			return tf.CreateBlock(
 				alias,
-				models.WithIssuingTime(tf.Instance.SlotTimeProvider.GenesisTime()),
+				models.WithIssuingTime(tf.Instance.SlotTimeProvider().GenesisTime()),
 			), alias
 		}
 
 		return tf.CreateBlock(
 			alias,
 			models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk%s-%d", prefix, idx-1))),
-			models.WithIssuingTime(tf.Instance.SlotTimeProvider.StartTime(idx)),
+			models.WithIssuingTime(tf.Instance.SlotTimeProvider().StartTime(idx)),
 		), alias
 	}
 

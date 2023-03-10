@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/core/stream"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
@@ -27,32 +28,31 @@ const (
 )
 
 type Attestations struct {
-	persistentStorage  func(optRealm ...byte) kvstore.KVStore
-	bucketedStorage    func(index slot.Index) kvstore.KVStore
-	weights            *sybilprotection.Weights
-	cachedAttestations *memstorage.SlotStorage[identity.ID, *shrinkingmap.ShrinkingMap[models.BlockID, *Attestation]]
-	slotTimeProvider   *slot.TimeProvider
-	mutex              *syncutils.DAGMutex[slot.Index]
+	persistentStorage    func(optRealm ...byte) kvstore.KVStore
+	bucketedStorage      func(index slot.Index) kvstore.KVStore
+	weights              *sybilprotection.Weights
+	cachedAttestations   *memstorage.SlotStorage[identity.ID, *shrinkingmap.ShrinkingMap[models.BlockID, *Attestation]]
+	slotTimeProviderFunc func() *slot.TimeProvider
+	mutex                *syncutils.DAGMutex[slot.Index]
 
-	traits.Initializable
 	traits.Committable
+	module.Module
 }
 
-func NewAttestations(persistentStorage func(optRealm ...byte) kvstore.KVStore, bucketedStorage func(index slot.Index) kvstore.KVStore, weights *sybilprotection.Weights, slotTimeProvider *slot.TimeProvider) *Attestations {
+func NewAttestations(persistentStorage func(optRealm ...byte) kvstore.KVStore, bucketedStorage func(index slot.Index) kvstore.KVStore, weights *sybilprotection.Weights, slotTimeProviderFunc func() *slot.TimeProvider) *Attestations {
 	return &Attestations{
-		Committable:        traits.NewCommittable(persistentStorage(), PrefixAttestationsLastCommittedSlot),
-		Initializable:      traits.NewInitializable(),
-		persistentStorage:  persistentStorage,
-		bucketedStorage:    bucketedStorage,
-		weights:            weights,
-		cachedAttestations: memstorage.NewSlotStorage[identity.ID, *shrinkingmap.ShrinkingMap[models.BlockID, *Attestation]](),
-		slotTimeProvider:   slotTimeProvider,
-		mutex:              syncutils.NewDAGMutex[slot.Index](),
+		Committable:          traits.NewCommittable(persistentStorage(), PrefixAttestationsLastCommittedSlot),
+		persistentStorage:    persistentStorage,
+		bucketedStorage:      bucketedStorage,
+		weights:              weights,
+		cachedAttestations:   memstorage.NewSlotStorage[identity.ID, *shrinkingmap.ShrinkingMap[models.BlockID, *Attestation]](),
+		slotTimeProviderFunc: slotTimeProviderFunc,
+		mutex:                syncutils.NewDAGMutex[slot.Index](),
 	}
 }
 
 func (a *Attestations) Add(attestation *Attestation) (added bool, err error) {
-	slotIndex := a.slotTimeProvider.IndexFromTime(attestation.IssuingTime)
+	slotIndex := a.slotTimeProviderFunc().IndexFromTime(attestation.IssuingTime)
 
 	a.mutex.RLock(slotIndex)
 	defer a.mutex.RUnlock(slotIndex)
@@ -70,7 +70,7 @@ func (a *Attestations) Add(attestation *Attestation) (added bool, err error) {
 }
 
 func (a *Attestations) Delete(attestation *Attestation) (deleted bool, err error) {
-	slotIndex := a.slotTimeProvider.IndexFromTime(attestation.IssuingTime)
+	slotIndex := a.slotTimeProviderFunc().IndexFromTime(attestation.IssuingTime)
 
 	a.mutex.RLock(slotIndex)
 	defer a.mutex.RUnlock(slotIndex)
