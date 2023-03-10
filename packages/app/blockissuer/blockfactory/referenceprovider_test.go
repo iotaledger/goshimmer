@@ -27,10 +27,10 @@ func TestReferenceProvider_References1(t *testing.T) {
 	tf.Engine.VirtualVoting.CreateIdentity("V1", 10)
 	tf.Engine.VirtualVoting.CreateIdentity("V2", 20)
 
-	tf.Engine.BlockDAG.CreateBlock("Block1", models.WithPayload(tf.Engine.Ledger.CreateTransaction("TX1", 3, "Genesis")), models.WithIssuer(tf.Engine.VirtualVoting.Identity("V1").PublicKey()))
-	tf.Engine.BlockDAG.CreateBlock("Block2", models.WithPayload(tf.Engine.Ledger.CreateTransaction("TX2", 1, "TX1.0")), models.WithIssuer(tf.Engine.VirtualVoting.Identity("V1").PublicKey()))
-	tf.Engine.BlockDAG.CreateBlock("Block3", models.WithPayload(tf.Engine.Ledger.CreateTransaction("TX3", 1, "TX1.1")), models.WithIssuer(tf.Engine.VirtualVoting.Identity("V1").PublicKey()))
-	tf.Engine.BlockDAG.CreateBlock("Block4", models.WithPayload(tf.Engine.Ledger.CreateTransaction("TX4", 1, "TX1.0", "TX1.1")), models.WithIssuer(tf.Engine.VirtualVoting.Identity("V2").PublicKey()))
+	tf.Engine.BlockDAG.CreateBlock("Block1", models.WithPayload(tf.Engine.MemPool.CreateTransaction("TX1", 3, "Genesis")), models.WithIssuer(tf.Engine.VirtualVoting.Identity("V1").PublicKey()))
+	tf.Engine.BlockDAG.CreateBlock("Block2", models.WithPayload(tf.Engine.MemPool.CreateTransaction("TX2", 1, "TX1.0")), models.WithIssuer(tf.Engine.VirtualVoting.Identity("V1").PublicKey()))
+	tf.Engine.BlockDAG.CreateBlock("Block3", models.WithPayload(tf.Engine.MemPool.CreateTransaction("TX3", 1, "TX1.1")), models.WithIssuer(tf.Engine.VirtualVoting.Identity("V1").PublicKey()))
+	tf.Engine.BlockDAG.CreateBlock("Block4", models.WithPayload(tf.Engine.MemPool.CreateTransaction("TX4", 1, "TX1.0", "TX1.1")), models.WithIssuer(tf.Engine.VirtualVoting.Identity("V2").PublicKey()))
 	tf.Engine.BlockDAG.IssueBlocks("Block1", "Block2", "Block3", "Block4")
 
 	workers.WaitChildren()
@@ -53,11 +53,11 @@ func TestBlockFactory_PrepareLikedReferences_2(t *testing.T) {
 	tf.Engine.VirtualVoting.CreateIdentity("V1", 10)
 	tf.Engine.VirtualVoting.CreateIdentity("V2", 20)
 
-	tf.Engine.BlockDAG.CreateBlock("Block0", models.WithPayload(tf.Engine.Ledger.CreateTransaction("TX0", 2, "Genesis")), models.WithIssuer(tf.Engine.VirtualVoting.Identity("V1").PublicKey()))
-	tf.Engine.BlockDAG.CreateBlock("Block1", models.WithPayload(tf.Engine.Ledger.CreateTransaction("TX1", 1, "TX0.0")), models.WithIssuer(tf.Engine.VirtualVoting.Identity("V2").PublicKey()), models.WithIssuingTime(time.Now().Add(time.Minute)))
-	tf.Engine.BlockDAG.CreateBlock("Block2", models.WithPayload(tf.Engine.Ledger.CreateTransaction("TX2", 1, "TX0.1")), models.WithIssuer(tf.Engine.VirtualVoting.Identity("V2").PublicKey()))
-	tf.Engine.BlockDAG.CreateBlock("Block3", models.WithPayload(tf.Engine.Ledger.CreateTransaction("TX3", 1, "TX0.1")), models.WithIssuer(tf.Engine.VirtualVoting.Identity("V1").PublicKey()))
-	tf.Engine.BlockDAG.CreateBlock("Block4", models.WithPayload(tf.Engine.Ledger.CreateTransaction("TX4", 1, "TX0.0")), models.WithIssuer(tf.Engine.VirtualVoting.Identity("V1").PublicKey()))
+	tf.Engine.BlockDAG.CreateBlock("Block0", models.WithPayload(tf.Engine.MemPool.CreateTransaction("TX0", 2, "Genesis")), models.WithIssuer(tf.Engine.VirtualVoting.Identity("V1").PublicKey()))
+	tf.Engine.BlockDAG.CreateBlock("Block1", models.WithPayload(tf.Engine.MemPool.CreateTransaction("TX1", 1, "TX0.0")), models.WithIssuer(tf.Engine.VirtualVoting.Identity("V2").PublicKey()), models.WithIssuingTime(time.Now().Add(time.Minute)))
+	tf.Engine.BlockDAG.CreateBlock("Block2", models.WithPayload(tf.Engine.MemPool.CreateTransaction("TX2", 1, "TX0.1")), models.WithIssuer(tf.Engine.VirtualVoting.Identity("V2").PublicKey()))
+	tf.Engine.BlockDAG.CreateBlock("Block3", models.WithPayload(tf.Engine.MemPool.CreateTransaction("TX3", 1, "TX0.1")), models.WithIssuer(tf.Engine.VirtualVoting.Identity("V1").PublicKey()))
+	tf.Engine.BlockDAG.CreateBlock("Block4", models.WithPayload(tf.Engine.MemPool.CreateTransaction("TX4", 1, "TX0.0")), models.WithIssuer(tf.Engine.VirtualVoting.Identity("V1").PublicKey()))
 	tf.Engine.BlockDAG.IssueBlocks("Block0", "Block1", "Block2", "Block3", "Block4")
 	workers.WaitChildren()
 
@@ -91,7 +91,7 @@ func TestBlockFactory_PrepareLikedReferences_2(t *testing.T) {
 
 	// Add reattachment that is older than the original block and verify that it is selected with a like reference.
 	{
-		tf.Engine.BlockDAG.CreateBlock("Block5", models.WithPayload(tf.Engine.Ledger.Transaction("TX1")))
+		tf.Engine.BlockDAG.CreateBlock("Block5", models.WithPayload(tf.Engine.MemPool.Transaction("TX1")))
 		tf.Engine.BlockDAG.IssueBlocks("Block5")
 		workers.WaitChildren()
 
@@ -108,10 +108,10 @@ func TestBlockFactory_WeakReferencesConsumed(t *testing.T) {
 	tf := protocol.NewTestFramework(t, workers.CreateGroup("Protocol"), new(mockedvm.MockedVM), protocol.WithProtocolOptions(protocol.WithTipManagerOptions(tipmanager.WithTimeSinceConfirmationThreshold(tscThreshold))))
 	tf.Instance.Run()
 
-	tf.Engine.BlockDAG.CreateBlock("Block1", models.WithPayload(tf.Engine.Ledger.CreateTransaction("TX1", 3, "Genesis")))
-	tf.Engine.BlockDAG.CreateBlock("Block2", models.WithPayload(tf.Engine.Ledger.CreateTransaction("TX2", 1, "TX1.0")))
-	tf.Engine.BlockDAG.CreateBlock("Block3", models.WithPayload(tf.Engine.Ledger.CreateTransaction("TX3", 1, "TX1.1")))
-	tf.Engine.BlockDAG.CreateBlock("Block4", models.WithPayload(tf.Engine.Ledger.CreateTransaction("TX4", 1, "TX2.0", "TX3.0")))
+	tf.Engine.BlockDAG.CreateBlock("Block1", models.WithPayload(tf.Engine.MemPool.CreateTransaction("TX1", 3, "Genesis")))
+	tf.Engine.BlockDAG.CreateBlock("Block2", models.WithPayload(tf.Engine.MemPool.CreateTransaction("TX2", 1, "TX1.0")))
+	tf.Engine.BlockDAG.CreateBlock("Block3", models.WithPayload(tf.Engine.MemPool.CreateTransaction("TX3", 1, "TX1.1")))
+	tf.Engine.BlockDAG.CreateBlock("Block4", models.WithPayload(tf.Engine.MemPool.CreateTransaction("TX4", 1, "TX2.0", "TX3.0")))
 	tf.Engine.BlockDAG.IssueBlocks("Block1", "Block2", "Block3", "Block4")
 	workers.WaitChildren()
 
@@ -141,7 +141,7 @@ func TestBlockFactory_WeakReferencesConsumed(t *testing.T) {
 	}
 
 	// IssueBlock reattachment of TX3 (Block5) and make sure it is referenced in favor of Block3 (earliest attachment).
-	tf.Engine.BlockDAG.CreateBlock("Block5", models.WithPayload(tf.Engine.Ledger.Transaction("TX3")))
+	tf.Engine.BlockDAG.CreateBlock("Block5", models.WithPayload(tf.Engine.MemPool.Transaction("TX3")))
 	tf.Engine.BlockDAG.IssueBlocks("Block5")
 	workers.WaitChildren()
 
