@@ -30,7 +30,22 @@ func (c *Conflict[ConflictIDType, ResourceIDType]) IsPreferred() bool {
 	return c.PreferredInstead() == nil
 }
 
+func (c *Conflict[ConflictIDType, ResourceIDType]) determinePreferredInstead() *Conflict[ConflictIDType, ResourceIDType] {
+	for _, conflict := range c.conflictsWithHigherWeightsDesc() {
+		if conflict.IsPreferred() {
+			return conflict
+		}
+	}
+
+	return nil
+}
+
+func (c *Conflict[ConflictIDType, ResourceIDType]) conflictsWithHigherWeightsDesc() (conflicts []*Conflict[ConflictIDType, ResourceIDType]) {
+	return nil
+}
+
 func (c *Conflict[ConflictIDType, ResourceIDType]) isPreferred() bool {
+
 	// something is preferred if all conflicts from all of its conflict sets with a higher weight have their preferredInstead set to other conflicts
 	return c.PreferredInstead == nil
 }
