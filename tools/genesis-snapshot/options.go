@@ -5,21 +5,21 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
-	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxoledger"
 	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 var BaseOptions = []options.Option[snapshotcreator.Options]{
 	snapshotcreator.WithDatabaseVersion(protocol.DatabaseVersion),
-	snapshotcreator.WithVM(new(devnetvm.VM)),
+	snapshotcreator.WithLedgerProvider(utxoledger.NewProvider()),
 	// 7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih
 	snapshotcreator.WithGenesisSeed([]byte{
 		95, 76, 224, 164, 168, 80, 141, 174, 133, 77, 153, 100, 4, 202, 113, 104,
 		71, 130, 88, 200, 46, 56, 243, 121, 216, 236, 70, 146, 234, 158, 206, 230,
 	}),
 	snapshotcreator.WithGenesisTokenAmount(1000000000000000),
-	snapshotcreator.WithSlotTimeProvider(slot.NewTimeProvider(time.Now().Unix(), 10)),
+	snapshotcreator.WithGenesisUnixTime(time.Now().Unix()),
+	snapshotcreator.WithSlotDuration(10),
 	snapshotcreator.WithFilePath("snapshot.bin"),
 }
 

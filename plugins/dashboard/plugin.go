@@ -20,7 +20,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/hive.go/app/daemon"
@@ -327,10 +327,10 @@ func currentNodeStatus() *nodestatus {
 		AcceptedBlockID:  lastAcceptedBlock.BlockID().Base58(),
 		ConfirmedBlockID: lastConfirmedBlock.BlockID().Base58(),
 		ConfirmedSlot:    int64(deps.Protocol.Engine().LastConfirmedSlot()),
-		ATT:              tm.AcceptedTime().UnixNano(),
-		RATT:             tm.RelativeAcceptedTime().UnixNano(),
-		CTT:              tm.ConfirmedTime().UnixNano(),
-		RCTT:             tm.RelativeConfirmedTime().UnixNano(),
+		ATT:              tm.Accepted().Time().UnixNano(),
+		RATT:             tm.Accepted().RelativeTime().UnixNano(),
+		CTT:              tm.Confirmed().Time().UnixNano(),
+		RCTT:             tm.Confirmed().RelativeTime().UnixNano(),
 	}
 
 	deficit, _ := deps.Protocol.CongestionControl.Scheduler().Deficit(deps.Local.ID()).Float64()

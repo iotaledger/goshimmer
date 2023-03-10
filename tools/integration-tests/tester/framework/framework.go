@@ -15,9 +15,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxoledger"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
-	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/runtime/options"
 )
 
@@ -145,10 +144,11 @@ func createSnapshot(snapshotInfo []options.Option[snapshotcreator.Options], star
 	defaultOpts := []options.Option[snapshotcreator.Options]{
 		snapshotcreator.WithFilePath("/assets/snapshot.bin"),
 		snapshotcreator.WithDatabaseVersion(protocol.DatabaseVersion),
-		snapshotcreator.WithVM(new(devnetvm.VM)),
+		snapshotcreator.WithLedgerProvider(utxoledger.NewProvider()),
 		snapshotcreator.WithAttestAll(startSynced),
 		snapshotcreator.WithGenesisSeed(GenesisSeedBytes),
-		snapshotcreator.WithSlotTimeProvider(slot.NewTimeProvider(time.Now().Unix(), 10)),
+		snapshotcreator.WithGenesisUnixTime(time.Now().Unix()),
+		snapshotcreator.WithSlotDuration(10),
 	}
 	err := snapshotcreator.CreateSnapshot(
 		append(defaultOpts, snapshotInfo...)...,

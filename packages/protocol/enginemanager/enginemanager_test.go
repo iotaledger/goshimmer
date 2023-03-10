@@ -8,9 +8,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -21,9 +21,6 @@ import (
 
 func TestEngineManager_ForkEngineAtSlot(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-
-	slotDuration := int64(10)
-	slotTimeProvider := slot.NewTimeProvider(time.Now().Unix()-slotDuration*10, slotDuration)
 
 	identitiesMap := map[string]ed25519.PublicKey{
 		"A": identity.GenerateIdentity().PublicKey(),
@@ -39,14 +36,14 @@ func TestEngineManager_ForkEngineAtSlot(t *testing.T) {
 		identity.New(identitiesMap["D"]).PublicKey(): 25,
 	}
 
-	etf := NewEngineManagerTestFramework(t, workers.CreateGroup("EngineManagerTestFramework"), slotTimeProvider, identitiesWeights)
+	etf := NewEngineManagerTestFramework(t, workers.CreateGroup("EngineManagerTestFramework"), identitiesWeights)
 
-	tf := engine.NewTestFramework(t, workers.CreateGroup("TestFramework"), etf.ActiveEngine.Engine)
+	tf := engine.NewTestFramework(t, workers.CreateGroup("TestFramework"), etf.ActiveEngine)
 	tf.AssertSlotState(0)
 
 	acceptedBlocks := make(map[string]bool)
 
-	slot1IssuingTime := slotTimeProvider.StartTime(1)
+	slot1IssuingTime := tf.SlotTimeProvider().StartTime(1)
 
 	// Blocks in slot 1
 	tf.BlockDAG.CreateBlock("1.A", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithIssuer(identitiesMap["A"]), models.WithIssuingTime(slot1IssuingTime))
@@ -64,7 +61,7 @@ func TestEngineManager_ForkEngineAtSlot(t *testing.T) {
 		"1.D": false,
 	}))
 
-	slot2IssuingTime := slotTimeProvider.StartTime(2)
+	slot2IssuingTime := tf.SlotTimeProvider().StartTime(2)
 
 	// Block in slot 2, not accepting anything new.
 	tf.BlockDAG.CreateBlock("2.D", models.WithStrongParents(tf.BlockDAG.BlockIDs("1.D")), models.WithIssuer(identitiesMap["D"]), models.WithIssuingTime(slot2IssuingTime))
@@ -80,7 +77,7 @@ func TestEngineManager_ForkEngineAtSlot(t *testing.T) {
 		"11.A": false,
 	}))
 
-	require.Equal(t, slotTimeProvider.IndexFromTime(tf.BlockDAG.Block("11.A").IssuingTime()), slot.Index(11))
+	require.Equal(t, tf.SlotTimeProvider().IndexFromTime(tf.BlockDAG.Block("11.A").IssuingTime()), slot.Index(11))
 
 	// Time hasn't advanced past slot 1
 	require.Equal(t, tf.Instance.Storage.Settings.LatestCommitment().Index(), slot.Index(0))
@@ -107,11 +104,13 @@ func TestEngineManager_ForkEngineAtSlot(t *testing.T) {
 	require.NoError(t, err)
 
 	{
-		tf2 := engine.NewTestFramework(t, workers.CreateGroup("EngineTestFramework2"), forkedEngine.Engine)
+		tf2 := engine.NewTestFramework(t, workers.CreateGroup("EngineTestFramework2"), forkedEngine)
 
 		// Settings
 		// The ChainID of the new engine corresponds to the target slot of the imported snapshot.
 		require.Equal(t, lo.PanicOnErr(tf.Instance.Storage.Commitments.Load(4)).ID(), tf2.Instance.Storage.Settings.ChainID())
+		require.Equal(t, lo.PanicOnErr(tf.Instance.Storage.Commitments.Load(4)).ID(), lo.PanicOnErr(tf2.Instance.Storage.Commitments.Load(4)).ID())
+		require.Equal(t, lo.PanicOnErr(tf.Instance.NotarizationManager.Attestations.Get(4)).Root(), lo.PanicOnErr(tf2.Instance.NotarizationManager.Attestations.Get(4)).Root())
 		require.Equal(t, tf.Instance.Storage.Settings.LatestCommitment(), tf2.Instance.Storage.Settings.LatestCommitment())
 		require.Equal(t, tf.Instance.Storage.Settings.LatestConfirmedSlot(), tf2.Instance.Storage.Settings.LatestConfirmedSlot())
 		require.Equal(t, tf.Instance.Storage.Settings.LatestStateMutationSlot(), tf2.Instance.Storage.Settings.LatestStateMutationSlot())
@@ -128,11 +127,11 @@ func TestEngineManager_ForkEngineAtSlot(t *testing.T) {
 			require.Equal(t, originalCommitment, importedCommitment)
 
 			// Check that StateDiffs have been cleared after snapshot import.
-			require.NoError(t, tf2.Instance.LedgerState.StateDiffs.StreamCreatedOutputs(slotIndex, func(*ledger.OutputWithMetadata) error {
+			require.NoError(t, tf2.Instance.Ledger.StateDiffs().StreamCreatedOutputs(slotIndex, func(*mempool.OutputWithMetadata) error {
 				return errors.New("StateDiffs created should be empty after snapshot import")
 			}))
 
-			require.NoError(t, tf2.Instance.LedgerState.StateDiffs.StreamSpentOutputs(slotIndex, func(*ledger.OutputWithMetadata) error {
+			require.NoError(t, tf2.Instance.Ledger.StateDiffs().StreamSpentOutputs(slotIndex, func(*mempool.OutputWithMetadata) error {
 				return errors.New("StateDiffs spent should be empty after snapshot import")
 			}))
 
@@ -147,10 +146,10 @@ func TestEngineManager_ForkEngineAtSlot(t *testing.T) {
 		}
 
 		// LedgerState
-		require.Equal(t, tf.Instance.LedgerState.UnspentOutputs.IDs.Size(), tf2.Instance.LedgerState.UnspentOutputs.IDs.Size())
-		require.Equal(t, tf.Instance.LedgerState.UnspentOutputs.IDs.Root(), tf2.Instance.LedgerState.UnspentOutputs.IDs.Root())
-		require.NoError(t, tf.Instance.LedgerState.UnspentOutputs.IDs.Stream(func(outputID utxo.OutputID) bool {
-			require.True(t, tf2.Instance.LedgerState.UnspentOutputs.IDs.Has(outputID))
+		require.Equal(t, tf.Instance.Ledger.UnspentOutputs().IDs().Size(), tf2.Instance.Ledger.UnspentOutputs().IDs().Size())
+		require.Equal(t, tf.Instance.Ledger.UnspentOutputs().IDs().Root(), tf2.Instance.Ledger.UnspentOutputs().IDs().Root())
+		require.NoError(t, tf.Instance.Ledger.UnspentOutputs().IDs().Stream(func(outputID utxo.OutputID) bool {
+			require.True(t, tf2.Instance.Ledger.UnspentOutputs().IDs().Has(outputID))
 			return true
 		}))
 

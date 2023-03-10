@@ -16,11 +16,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/filter"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/realitiesledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxoledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tsc"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
 	"github.com/iotaledger/hive.go/app/daemon"
 	"github.com/iotaledger/hive.go/core/slot"
@@ -65,8 +66,16 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 
 	p = protocol.New(workerpool.NewGroup("Protocol"),
 		n,
-		protocol.WithGenesisUnixTimestamp(Parameters.GenesisTime),
-		protocol.WithSlotDuration(10),
+		protocol.WithLedgerProvider(
+			utxoledger.NewProvider(
+				utxoledger.WithMemPoolProvider(
+					realitiesledger.NewProvider(
+						realitiesledger.WithVM(new(devnetvm.VM)),
+						realitiesledger.WithCacheTimeProvider(cacheTimeProvider),
+					),
+				),
+			),
+		),
 		protocol.WithSybilProtectionProvider(
 			dpos.NewProvider(
 				dpos.WithActivityWindow(Parameters.ValidatorActivityWindow),
@@ -84,10 +93,6 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 			engine.WithBootstrapThreshold(Parameters.BootstrapWindow),
 			engine.WithTSCManagerOptions(
 				tsc.WithTimeSinceConfirmationThreshold(Parameters.TimeSinceConfirmationThreshold),
-			),
-			engine.WithLedgerOptions(
-				ledger.WithVM(new(devnetvm.VM)),
-				ledger.WithCacheTimeProvider(cacheTimeProvider),
 			),
 			engine.WithSnapshotDepth(Parameters.Snapshot.Depth),
 		),

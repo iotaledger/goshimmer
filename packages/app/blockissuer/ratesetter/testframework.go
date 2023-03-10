@@ -11,7 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/filter"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/mockedvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/app/configuration"
 	"github.com/iotaledger/hive.go/app/logger"
@@ -43,16 +43,17 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...option
 		optsRateSetter: rateSetterOpts,
 		optsNumIssuers: 1,
 	}, opts, func(t *TestFramework) {
-		p := protocol.NewTestFramework(t.test, workers.CreateGroup("Protocol"), new(ledger.MockedVM), protocol.WithProtocolOptions(
-			protocol.WithCongestionControlOptions(
-				congestioncontrol.WithSchedulerOptions(t.optsScheduler...),
-			),
-			protocol.WithEngineOptions(
-				engine.WithFilterOptions(
-					filter.WithSignatureValidation(false),
+		p := protocol.NewTestFramework(t.test, workers.CreateGroup("Protocol"), new(mockedvm.MockedVM),
+			protocol.WithProtocolOptions(
+				protocol.WithCongestionControlOptions(
+					congestioncontrol.WithSchedulerOptions(t.optsScheduler...),
 				),
-			),
-		))
+				protocol.WithEngineOptions(
+					engine.WithFilterOptions(
+						filter.WithSignatureValidation(false),
+					),
+				),
+			))
 		t.Protocol = p
 		p.Instance.Run()
 		for i := 0; i < t.optsNumIssuers; i++ {
@@ -68,7 +69,7 @@ func (tf *TestFramework) CreateBlock(issuer int) *models.Block {
 	parents := models.NewParentBlockIDs()
 	parents.AddStrong(models.EmptyBlockID)
 	blk := models.NewBlock(models.WithIssuer(tf.localIdentity[issuer].PublicKey()), models.WithParents(parents))
-	assert.NoError(tf.test, blk.DetermineID(tf.Protocol.Instance.SlotTimeProvider))
+	assert.NoError(tf.test, blk.DetermineID(tf.Protocol.Instance.SlotTimeProvider()))
 	return blk
 }
 

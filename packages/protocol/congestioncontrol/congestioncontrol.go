@@ -6,7 +6,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/event"
 	"github.com/iotaledger/hive.go/runtime/options"
 )
@@ -14,18 +14,15 @@ import (
 type CongestionControl struct {
 	Events *Events
 
-	slotTimeProvider *slot.TimeProvider
-
 	scheduler      *scheduler.Scheduler
 	schedulerMutex sync.RWMutex
 
 	optsSchedulerOptions []options.Option[scheduler.Scheduler]
 }
 
-func New(slotTimeProvider *slot.TimeProvider, opts ...options.Option[CongestionControl]) *CongestionControl {
+func New(opts ...options.Option[CongestionControl]) *CongestionControl {
 	return options.Apply(&CongestionControl{
-		Events:           NewEvents(),
-		slotTimeProvider: slotTimeProvider,
+		Events: NewEvents(),
 	}, opts)
 }
 
@@ -46,7 +43,7 @@ func (c *CongestionControl) LinkTo(engine *engine.Engine) {
 
 	c.scheduler = scheduler.New(
 		engine.EvictionState,
-		c.slotTimeProvider,
+		engine.SlotTimeProvider(),
 		engine.Consensus.BlockGadget.IsBlockAccepted,
 		engine.ThroughputQuota.BalanceByIDs,
 		engine.ThroughputQuota.TotalBalance,
@@ -55,7 +52,7 @@ func (c *CongestionControl) LinkTo(engine *engine.Engine) {
 	c.Events.Scheduler.LinkTo(c.scheduler.Events)
 
 	wp := engine.Workers.CreatePool("Scheduler", 2)
-	engine.SubscribeStopped(
+	engine.HookStopped(lo.Batch(
 		engine.Tangle.Events.Booker.VirtualVoting.BlockTracked.Hook(c.scheduler.AddBlock, event.WithWorkerPool(wp)).Unhook,
 		// event.AttachWithWorkerPool(engine.Tangle.Events.VirtualVoting.BlockTracked, func(block *virtualvoting.Block) {
 		//	registerBlock, err := c.scheduler.GetOrRegisterBlock(block)
@@ -66,7 +63,7 @@ func (c *CongestionControl) LinkTo(engine *engine.Engine) {
 		// }, wp)
 		engine.Tangle.Events.BlockDAG.BlockOrphaned.Hook(c.scheduler.HandleOrphanedBlock, event.WithWorkerPool(wp)).Unhook,
 		engine.Consensus.Events.BlockGadget.BlockAccepted.Hook(c.scheduler.HandleAcceptedBlock, event.WithWorkerPool(wp)).Unhook,
-	)
+	))
 
 	c.scheduler.Start()
 }

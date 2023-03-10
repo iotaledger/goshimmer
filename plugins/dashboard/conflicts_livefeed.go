@@ -9,9 +9,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/node"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 	"github.com/iotaledger/hive.go/app/daemon"
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/ds/advancedset"
@@ -98,9 +98,9 @@ func runConflictLiveFeed(plugin *node.Plugin) {
 		}
 
 		unhook := lo.Batch(
-			deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictCreated.Hook(onConflictCreated, event.WithWorkerPool(plugin.WorkerPool)).Unhook,
-			deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictAccepted.Hook(onConflictAccepted, event.WithWorkerPool(plugin.WorkerPool)).Unhook,
-			deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictRejected.Hook(onConflictRejected, event.WithWorkerPool(plugin.WorkerPool)).Unhook,
+			deps.Protocol.Events.Engine.Ledger.MemPool.ConflictDAG.ConflictCreated.Hook(onConflictCreated, event.WithWorkerPool(plugin.WorkerPool)).Unhook,
+			deps.Protocol.Events.Engine.Ledger.MemPool.ConflictDAG.ConflictAccepted.Hook(onConflictAccepted, event.WithWorkerPool(plugin.WorkerPool)).Unhook,
+			deps.Protocol.Events.Engine.Ledger.MemPool.ConflictDAG.ConflictRejected.Hook(onConflictRejected, event.WithWorkerPool(plugin.WorkerPool)).Unhook,
 		)
 
 		<-ctx.Done()
@@ -120,7 +120,7 @@ func onConflictCreated(c *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID
 		UpdatedTime: time.Now(),
 	}
 
-	deps.Protocol.Engine().Ledger.Storage.CachedTransaction(conflictID).Consume(func(transaction utxo.Transaction) {
+	deps.Protocol.Engine().Ledger.MemPool().Storage().CachedTransaction(conflictID).Consume(func(transaction utxo.Transaction) {
 		if tx, ok := transaction.(*devnetvm.Transaction); ok {
 			b.IssuingTime = tx.Essence().Timestamp()
 		}
@@ -151,7 +151,7 @@ func onConflictCreated(c *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID
 		}
 
 		// update all existing conflicts with a possible new conflictSet membership
-		cs, exists := deps.Protocol.Engine().Ledger.ConflictDAG.ConflictSet(conflictSetID)
+		cs, exists := deps.Protocol.Engine().Ledger.MemPool().ConflictDAG().ConflictSet(conflictSetID)
 		if !exists {
 			continue
 		}

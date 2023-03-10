@@ -6,9 +6,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/ds/set"
@@ -33,13 +33,13 @@ func Test_PruneMarkerBlockMapping(t *testing.T) {
 		if idx == 1 {
 			return blockdag.NewBlock(tf.CreateBlock(
 				alias,
-				models.WithIssuingTime(tf.Instance.SlotTimeProvider.GenesisTime()),
+				models.WithIssuingTime(tf.Instance.SlotTimeProvider().GenesisTime()),
 			)), alias
 		}
 		return blockdag.NewBlock(tf.CreateBlock(
 			alias,
 			models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk%s-%d", prefix, idx-1))),
-			models.WithIssuingTime(tf.Instance.SlotTimeProvider.StartTime(idx)),
+			models.WithIssuingTime(tf.Instance.SlotTimeProvider().StartTime(idx)),
 		)), alias
 	}
 
@@ -91,13 +91,13 @@ func Test_BlockMarkerCeilingFloor(t *testing.T) {
 		if idx == 1 {
 			return blockdag.NewBlock(tf.CreateBlock(
 				alias,
-				models.WithIssuingTime(tf.Instance.SlotTimeProvider.GenesisTime()),
+				models.WithIssuingTime(tf.Instance.SlotTimeProvider().GenesisTime()),
 			))
 		}
 		return blockdag.NewBlock(tf.CreateBlock(
 			alias,
 			models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk%s-%d", prefix, idx-1))),
-			models.WithIssuingTime(tf.Instance.SlotTimeProvider.StartTime(idx)),
+			models.WithIssuingTime(tf.Instance.SlotTimeProvider().StartTime(idx)),
 		))
 	}
 

@@ -133,10 +133,10 @@ func getInfo(c echo.Context) error {
 		ConfirmedBlockID: lastConfirmedBlockID.Base58(),
 		ConfirmedSlot:    int64(deps.Protocol.Engine().LastConfirmedSlot()),
 
-		ATT:  tm.AcceptedTime().UnixNano(),
-		RATT: tm.RelativeAcceptedTime().UnixNano(),
-		CTT:  tm.ConfirmedTime().UnixNano(),
-		RCTT: tm.RelativeConfirmedTime().UnixNano(),
+		ATT:  tm.Accepted().Time().UnixNano(),
+		RATT: tm.Accepted().RelativeTime().UnixNano(),
+		CTT:  tm.Confirmed().Time().UnixNano(),
+		RCTT: tm.Confirmed().RelativeTime().UnixNano(),
 	}
 
 	timeProvider := jsonmodels.TimeProvider{

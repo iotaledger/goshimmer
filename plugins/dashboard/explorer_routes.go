@@ -12,10 +12,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/app/retainer"
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 
@@ -273,28 +273,28 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 	// get outputids by address
 	// deps.Indexer.CachedOutputsOnAddress(address).Consume(func(output ledgerstate.Output) {
 	deps.Indexer.CachedAddressOutputMappings(address).Consume(func(addressOutputMapping *indexer.AddressOutputMapping) {
-		var metaData *ledger.OutputMetadata
+		var metaData *mempool.OutputMetadata
 		var timestamp int64
 
 		// get output metadata + confirmation status from conflict of the output
-		deps.Protocol.Engine().Ledger.Storage.CachedOutputMetadata(addressOutputMapping.OutputID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
+		deps.Protocol.Engine().Ledger.MemPool().Storage().CachedOutputMetadata(addressOutputMapping.OutputID()).Consume(func(outputMetadata *mempool.OutputMetadata) {
 			metaData = outputMetadata
 		})
 
 		var txID utxo.TransactionID
-		deps.Protocol.Engine().Ledger.Storage.CachedOutput(addressOutputMapping.OutputID()).Consume(func(output utxo.Output) {
+		deps.Protocol.Engine().Ledger.MemPool().Storage().CachedOutput(addressOutputMapping.OutputID()).Consume(func(output utxo.Output) {
 			if output, ok := output.(devnetvm.Output); ok {
 				// get the inclusion state info from the transaction that created this output
 				txID = output.ID().TransactionID
 
-				deps.Protocol.Engine().Ledger.Storage.CachedTransaction(txID).Consume(func(transaction utxo.Transaction) {
+				deps.Protocol.Engine().Ledger.MemPool().Storage().CachedTransaction(txID).Consume(func(transaction utxo.Transaction) {
 					if tx, ok := transaction.(*devnetvm.Transaction); ok {
 						timestamp = tx.Essence().Timestamp().Unix()
 					}
 				})
 
 				// obtain information about the consumer of the output being considered
-				confirmedConsumerID := deps.Protocol.Engine().Ledger.Utils.ConfirmedConsumer(output.ID())
+				confirmedConsumerID := deps.Protocol.Engine().Ledger.MemPool().Utils().ConfirmedConsumer(output.ID())
 
 				outputs = append(outputs, ExplorerOutput{
 					ID:                jsonmodels.NewOutputID(output.ID()),

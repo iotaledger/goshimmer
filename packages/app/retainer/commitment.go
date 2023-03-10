@@ -4,9 +4,9 @@ import (
 	"context"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/objectstorage/generic/model"
 	"github.com/iotaledger/hive.go/serializer/v2/serix"
@@ -52,12 +52,12 @@ func (c *CommitmentDetails) setCommitment(e *notarization.SlotCommittedDetails) 
 		return true
 	})
 
-	_ = e.SpentOutputs(func(owm *ledger.OutputWithMetadata) error {
+	_ = e.SpentOutputs(func(owm *mempool.OutputWithMetadata) error {
 		c.M.SpentOutputs.Add(owm.ID())
 		return nil
 	})
 
-	_ = e.CreatedOutputs(func(owm *ledger.OutputWithMetadata) error {
+	_ = e.CreatedOutputs(func(owm *mempool.OutputWithMetadata) error {
 		c.M.CreatedOutputs.Add(owm.ID())
 		return nil
 	})

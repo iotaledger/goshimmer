@@ -54,7 +54,7 @@ func NewTestStorage(t *testing.T, workers *workerpool.Group, opts ...options.Opt
 
 func NewTestBlockDAG(t *testing.T, workers *workerpool.Group, evictionState *eviction.State, slotTimeProvider *slot.TimeProvider, commitmentLoadFunc func(index slot.Index) (commitment *commitment.Commitment, err error), optsBlockDAG ...options.Option[BlockDAG]) *BlockDAG {
 	require.NotNil(t, evictionState)
-	return New(workers, evictionState, slotTimeProvider, commitmentLoadFunc, optsBlockDAG...)
+	return New(workers, evictionState, func() *slot.TimeProvider { return slotTimeProvider }, commitmentLoadFunc, optsBlockDAG...)
 }
 
 // NewTestFramework is the constructor of the TestFramework.

@@ -7,14 +7,14 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markermanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/causalorder"
 	"github.com/iotaledger/hive.go/core/memstorage"
@@ -34,7 +34,7 @@ type Booker struct {
 	// Events contains the Events of Booker.
 	Events *Events
 
-	Ledger        *ledger.Ledger
+	Ledger        mempool.MemPool
 	VirtualVoting *virtualvoting.VirtualVoting
 	bookingOrder  *causalorder.CausalOrder[models.BlockID, *virtualvoting.Block]
 	attachments   *attachments
@@ -52,7 +52,7 @@ type Booker struct {
 	BlockDAG *blockdag.BlockDAG
 }
 
-func New(workers *workerpool.Group, blockDAG *blockdag.BlockDAG, ledger *ledger.Ledger, validators *sybilprotection.WeightedSet, opts ...options.Option[Booker]) (booker *Booker) {
+func New(workers *workerpool.Group, blockDAG *blockdag.BlockDAG, ledger mempool.MemPool, validators *sybilprotection.WeightedSet, opts ...options.Option[Booker]) (booker *Booker) {
 	return options.Apply(&Booker{
 		Events:            NewEvents(),
 		attachments:       newAttachments(),
@@ -66,7 +66,7 @@ func New(workers *workerpool.Group, blockDAG *blockdag.BlockDAG, ledger *ledger.
 		BlockDAG:          blockDAG,
 	}, opts, func(b *Booker) {
 		b.markerManager = markermanager.NewMarkerManager(b.optsMarkerManager...)
-		b.VirtualVoting = virtualvoting.New(workers.CreateGroup("virtualvoting"), ledger.ConflictDAG, b.markerManager.SequenceManager, validators, b.optsVirtualVoting...)
+		b.VirtualVoting = virtualvoting.New(workers.CreateGroup("virtualvoting"), ledger.ConflictDAG(), b.markerManager.SequenceManager, validators, b.optsVirtualVoting...)
 		b.bookingOrder = causalorder.New(
 			workers.CreatePool("BookingOrder", 2),
 			b.Block,
@@ -140,7 +140,7 @@ func (b *Booker) TransactionConflictIDs(block *virtualvoting.Block) (conflictIDs
 		return
 	}
 
-	b.Ledger.Storage.CachedTransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
+	b.Ledger.Storage().CachedTransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *mempool.TransactionMetadata) {
 		conflictIDs.AddAll(transactionMetadata.ConflictIDs())
 	})
 
@@ -160,7 +160,7 @@ func (b *Booker) PayloadConflictID(block *virtualvoting.Block) (conflictID utxo.
 		return conflictID, conflictingConflictIDs, false
 	}
 
-	conflict, exists := b.Ledger.ConflictDAG.Conflict(transaction.ID())
+	conflict, exists := b.Ledger.ConflictDAG().Conflict(transaction.ID())
 	if !exists {
 		return utxo.EmptyTransactionID, conflictingConflictIDs, true
 	}
@@ -247,7 +247,7 @@ func (b *Booker) isPayloadSolid(block *virtualvoting.Block) (isPayloadSolid bool
 
 	if err = b.Ledger.StoreAndProcessTransaction(
 		models.BlockIDToContext(context.Background(), block.ID()), tx,
-	); errors.Is(err, ledger.ErrTransactionUnsolid) {
+	); errors.Is(err, mempool.ErrTransactionUnsolid) {
 		return false, nil
 	}
 
@@ -257,7 +257,7 @@ func (b *Booker) isPayloadSolid(block *virtualvoting.Block) (isPayloadSolid bool
 // block retrieves the Block with given id from the mem-storage.
 func (b *Booker) block(id models.BlockID) (block *virtualvoting.Block, exists bool) {
 	if b.BlockDAG.EvictionState.IsRootBlock(id) {
-		return virtualvoting.NewRootBlock(id, b.BlockDAG.SlotTimeProvider), true
+		return virtualvoting.NewRootBlock(id, b.BlockDAG.SlotTimeProvider()), true
 	}
 
 	storage := b.blocks.Get(id.Index(), false)
@@ -392,17 +392,17 @@ func (b *Booker) determineBookingConflictIDs(block *virtualvoting.Block) (parent
 	inheritedConflictIDs.AddAll(weakPayloadConflictIDs)
 	inheritedConflictIDs.AddAll(likedConflictIDs)
 
-	inheritedConflictIDs.DeleteAll(b.Ledger.Utils.ConflictIDsInFutureCone(dislikedConflictIDs))
+	inheritedConflictIDs.DeleteAll(b.Ledger.Utils().ConflictIDsInFutureCone(dislikedConflictIDs))
 
 	// block always sets Like reference its own conflict, if its payload is a transaction, and it's conflicting
 	if selfConflictID, selfDislikedConflictIDs, isTransaction := b.PayloadConflictID(block); isTransaction && !selfConflictID.IsEmpty() {
 		inheritedConflictIDs.Add(selfConflictID)
 		// if a payload is a conflicting transaction, then remove any conflicting conflicts from supported conflicts
-		inheritedConflictIDs.DeleteAll(b.Ledger.Utils.ConflictIDsInFutureCone(selfDislikedConflictIDs))
+		inheritedConflictIDs.DeleteAll(b.Ledger.Utils().ConflictIDsInFutureCone(selfDislikedConflictIDs))
 	}
 
-	unconfirmedParentsPast := b.Ledger.ConflictDAG.UnconfirmedConflicts(parentsPastMarkersConflictIDs)
-	unconfirmedInherited := b.Ledger.ConflictDAG.UnconfirmedConflicts(inheritedConflictIDs)
+	unconfirmedParentsPast := b.Ledger.ConflictDAG().UnconfirmedConflicts(parentsPastMarkersConflictIDs)
+	unconfirmedInherited := b.Ledger.ConflictDAG().UnconfirmedConflicts(inheritedConflictIDs)
 
 	return unconfirmedParentsPast, unconfirmedInherited, nil
 }
@@ -523,7 +523,7 @@ func (b *Booker) blockBookingDetails(block *virtualvoting.Block) (pastMarkersCon
 	// We always need to subtract all conflicts in the future cone of the SubtractedConflictIDs due to the fact that
 	// conflicts in the future cone can be propagated later. Specifically, through changing a marker mapping, the base
 	// of the block's conflicts changes, and thus it might implicitly "inherit" conflicts that were previously removed.
-	if subtractedConflictIDs := b.Ledger.Utils.ConflictIDsInFutureCone(block.SubtractedConflictIDs()); !subtractedConflictIDs.IsEmpty() {
+	if subtractedConflictIDs := b.Ledger.Utils().ConflictIDsInFutureCone(block.SubtractedConflictIDs()); !subtractedConflictIDs.IsEmpty() {
 		blockConflictIDs.DeleteAll(subtractedConflictIDs)
 	}
 
@@ -556,12 +556,12 @@ func (b *Booker) setupEvents() {
 
 		b.OrphanAttachment(block)
 	})
-	b.Ledger.Events.TransactionConflictIDUpdated.Hook(func(event *ledger.TransactionConflictIDUpdatedEvent) {
+	b.Ledger.Events().TransactionConflictIDUpdated.Hook(func(event *mempool.TransactionConflictIDUpdatedEvent) {
 		if err := b.PropagateForkedConflict(event.TransactionID, event.AddedConflictID, event.RemovedConflictIDs); err != nil {
 			b.Events.Error.Trigger(errors.Wrapf(err, "failed to propagate Conflict update of %s to BlockDAG", event.TransactionID))
 		}
 	})
-	b.Ledger.Events.TransactionBooked.Hook(func(e *ledger.TransactionBookedEvent) {
+	b.Ledger.Events().TransactionBooked.Hook(func(e *mempool.TransactionBookedEvent) {
 		contextBlockID := models.BlockIDFromContext(e.Context)
 
 		for _, block := range b.attachments.Get(e.TransactionID) {

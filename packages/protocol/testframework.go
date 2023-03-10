@@ -7,8 +7,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/realitiesledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxoledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm"
 	"github.com/iotaledger/goshimmer/packages/storage/utils"
 	"github.com/iotaledger/hive.go/app/configuration"
 	"github.com/iotaledger/hive.go/app/logger"
@@ -49,31 +50,36 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, ledgerVM vm.VM
 	}, opts, func(t *TestFramework) {
 		tempDir := utils.NewDirectory(test.TempDir())
 
-		test.Cleanup(func() {
-			t.Instance.Shutdown()
-		})
-
 		identitiesWeights := map[ed25519.PublicKey]uint64{
 			ed25519.GenerateKeyPair().PublicKey: 100,
 		}
 
-		t.Instance = New(workers.CreateGroup("Protocol"), t.Network.Join(identity.GenerateIdentity().ID()), append(t.optsProtocolOptions,
-			WithSnapshotPath(tempDir.Path("snapshot.bin")),
-			WithBaseDirectory(tempDir.Path()),
-			WithEngineOptions(engine.WithLedgerOptions(ledger.WithVM(ledgerVM))),
-		)...)
+		ledgerProvider := utxoledger.NewProvider(
+			utxoledger.WithMemPoolProvider(
+				realitiesledger.NewProvider(
+					realitiesledger.WithVM(ledgerVM)),
+			),
+		)
 
-		err := snapshotcreator.CreateSnapshot(
+		require.NoError(test, snapshotcreator.CreateSnapshot(
 			snapshotcreator.WithDatabaseVersion(DatabaseVersion),
-			snapshotcreator.WithVM(ledgerVM),
+			snapshotcreator.WithLedgerProvider(ledgerProvider),
 			snapshotcreator.WithFilePath(tempDir.Path("snapshot.bin")),
 			snapshotcreator.WithGenesisTokenAmount(genesisTokenAmount),
 			snapshotcreator.WithGenesisSeed(make([]byte, ed25519.SeedSize)),
 			snapshotcreator.WithPledgeIDs(identitiesWeights),
 			snapshotcreator.WithAttestAll(true),
-			snapshotcreator.WithSlotTimeProvider(t.Instance.SlotTimeProvider),
-		)
-		require.NoError(test, err)
+		))
+
+		t.Instance = New(workers.CreateGroup("Protocol"), t.Network.Join(identity.GenerateIdentity().ID()), append(t.optsProtocolOptions,
+			WithSnapshotPath(tempDir.Path("snapshot.bin")),
+			WithBaseDirectory(tempDir.Path()),
+			WithLedgerProvider(ledgerProvider),
+		)...)
+
+		test.Cleanup(func() {
+			t.Instance.Shutdown()
+		})
 
 		t.Engine = engine.NewTestFramework(t.test, t.workers.CreateGroup("EngineTestFramework"), t.Instance.Engine())
 	})

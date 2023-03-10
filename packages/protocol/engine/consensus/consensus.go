@@ -28,7 +28,7 @@ func New(workers *workerpool.Group, tangleInstance *tangle.Tangle, evictionState
 	return options.Apply(&Consensus{}, opts, func(c *Consensus) {
 		c.BlockGadget = blockgadget.New(workers.CreateGroup("BlockGadget"), tangleInstance, evictionState, tangleInstance.BlockDAG.SlotTimeProvider, totalWeightCallback, c.optsAcceptanceGadget...)
 		c.SlotGadget = slotgadget.New(workers.CreateGroup("SlotGadget"), tangleInstance, lastConfirmedSlot, totalWeightCallback, c.optsSlotConfirmationGadget...)
-		c.ConflictResolver = conflictresolver.New(tangleInstance.Ledger.ConflictDAG, tangleInstance.Booker.VirtualVoting.ConflictVotersTotalWeight)
+		c.ConflictResolver = conflictresolver.New(tangleInstance.Ledger.ConflictDAG(), tangleInstance.Booker.VirtualVoting.ConflictVotersTotalWeight)
 
 		c.Events = NewEvents()
 		c.Events.BlockGadget = c.BlockGadget.Events

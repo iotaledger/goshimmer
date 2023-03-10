@@ -10,9 +10,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/runtime/debug"
@@ -62,9 +62,13 @@ func (t *TestFramework) ValidatorsSet(aliases ...string) (validators *advancedse
 	return t.Votes.ValidatorsSet(aliases...)
 }
 
-func (t *TestFramework) CreateIdentity(alias string, weight int64, skipWeightUpdate ...bool) {
-	t.identitiesByAlias[alias] = identity.GenerateIdentity()
+func (t *TestFramework) RegisterIdentity(alias string, id *identity.Identity) {
+	t.identitiesByAlias[alias] = id
 	identity.RegisterIDAlias(t.identitiesByAlias[alias].ID(), alias)
+}
+
+func (t *TestFramework) CreateIdentity(alias string, weight int64, skipWeightUpdate ...bool) {
+	t.RegisterIdentity(alias, identity.GenerateIdentity())
 	t.Votes.CreateValidatorWithID(alias, t.identitiesByAlias[alias].ID(), weight, skipWeightUpdate...)
 }
 

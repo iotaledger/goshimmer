@@ -13,12 +13,6 @@ REPLICAS=${1:-1}
 GRAFANA=${2:-0}
 FEATURE=${3:-0}
 
-if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-  export GENESIS_TIME=$(date -d "$date -5 minutes" +%s)
-else
-  export GENESIS_TIME=$(date -v-5M +%s)
-fi
-
 DOCKER_COMPOSE_FILE=docker-compose.yml
 if [ $FEATURE -ne 0 ]
 then

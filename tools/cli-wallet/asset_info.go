@@ -7,7 +7,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/iotaledger/goshimmer/client/wallet"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 )
 
 func execAssetInfoCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {

@@ -2,13 +2,14 @@ package faucet
 
 import (
 	"context"
-	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"log"
 	"testing"
 
+	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
+
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )

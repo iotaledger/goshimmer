@@ -14,7 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/app/retainer"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 )
@@ -227,7 +227,7 @@ func PostBlock(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	if err = parsedBlock.DetermineID(deps.Protocol.SlotTimeProvider); err != nil {
+	if err = parsedBlock.DetermineID(deps.Protocol.SlotTimeProvider()); err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 	err = deps.BlockIssuer.IssueBlockAndAwaitBlockToBeBooked(parsedBlock, time.Second)

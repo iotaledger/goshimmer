@@ -7,13 +7,14 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/ds/shrinkingmap"
@@ -41,15 +42,14 @@ type SybilProtection struct {
 
 	optsActivityWindow time.Duration
 
-	traits.Initializable
 	traits.BatchCommittable
+	module.Module
 }
 
 // NewSybilProtection creates a new ProofOfStake instance.
 func NewSybilProtection(engineInstance *engine.Engine, opts ...options.Option[SybilProtection]) (proofOfStake *SybilProtection) {
 	return options.Apply(
 		&SybilProtection{
-			Initializable:    traits.NewInitializable(),
 			BatchCommittable: traits.NewBatchCommittable(engineInstance.Storage.SybilProtection(), PrefixLastCommittedSlot),
 
 			engine:            engineInstance,
@@ -62,18 +62,14 @@ func NewSybilProtection(engineInstance *engine.Engine, opts ...options.Option[Sy
 		}, opts, func(s *SybilProtection) {
 			s.validators = s.weights.NewWeightedSet()
 
-			s.engine.SubscribeConstructed(func() {
-				traits.SubscribeInitialized(map[traits.Initializable]func(){
-					s.engine.LedgerState:                      s.initializeTotalWeight,
-					s.engine.LedgerState.UnspentOutputs:       s.initializeLatestCommitment,
-					s.engine.NotarizationManager.Attestations: s.initializeActiveValidators,
-				})
+			s.engine.HookConstructed(func() {
+				s.engine.Ledger.HookInitialized(s.initializeTotalWeight)
+				s.engine.Ledger.UnspentOutputs().HookInitialized(s.initializeLatestCommitment)
+				s.engine.NotarizationManager.Attestations.HookInitialized(s.initializeActiveValidators)
 
-				s.engine.LedgerState.UnspentOutputs.Subscribe(s)
+				s.engine.Ledger.UnspentOutputs().Subscribe(s)
 
-				s.engine.SubscribeStopped(
-					s.stopInactivityManager,
-				)
+				s.engine.HookStopped(s.stopInactivityManager)
 
 				s.engine.Events.Tangle.BlockDAG.BlockSolid.Hook(func(block *blockdag.Block) {
 					s.markValidatorActive(block.IssuerID(), block.IssuingTime())
@@ -113,8 +109,8 @@ func (s *SybilProtection) stopInactivityManager() {
 }
 
 // NewProvider returns a new sybil protection provider that uses the ProofOfStake module.
-func NewProvider(opts ...options.Option[SybilProtection]) engine.ModuleProvider[sybilprotection.SybilProtection] {
-	return engine.ProvideModule(func(e *engine.Engine) sybilprotection.SybilProtection {
+func NewProvider(opts ...options.Option[SybilProtection]) module.Provider[*engine.Engine, sybilprotection.SybilProtection] {
+	return module.Provide(func(e *engine.Engine) sybilprotection.SybilProtection {
 		return NewSybilProtection(e, opts...)
 	})
 }
@@ -129,7 +125,7 @@ func (s *SybilProtection) Weights() *sybilprotection.Weights {
 	return s.weights
 }
 
-func (s *SybilProtection) ApplyCreatedOutput(output *ledger.OutputWithMetadata) (err error) {
+func (s *SybilProtection) ApplyCreatedOutput(output *mempool.OutputWithMetadata) (err error) {
 	if iotaBalance, exists := output.IOTABalance(); exists {
 		if s.BatchedStateTransitionStarted() {
 			s.weightsBatch.Update(output.ConsensusManaPledgeID(), int64(iotaBalance))
@@ -141,7 +137,7 @@ func (s *SybilProtection) ApplyCreatedOutput(output *ledger.OutputWithMetadata) 
 	return
 }
 
-func (s *SybilProtection) ApplySpentOutput(output *ledger.OutputWithMetadata) (err error) {
+func (s *SybilProtection) ApplySpentOutput(output *mempool.OutputWithMetadata) (err error) {
 	if iotaBalance, exists := output.IOTABalance(); exists {
 		if s.BatchedStateTransitionStarted() {
 			s.weightsBatch.Update(output.ConsensusManaPledgeID(), -int64(iotaBalance))
@@ -153,11 +149,11 @@ func (s *SybilProtection) ApplySpentOutput(output *ledger.OutputWithMetadata) (e
 	return
 }
 
-func (s *SybilProtection) RollbackCreatedOutput(output *ledger.OutputWithMetadata) (err error) {
+func (s *SybilProtection) RollbackCreatedOutput(output *mempool.OutputWithMetadata) (err error) {
 	return s.ApplySpentOutput(output)
 }
 
-func (s *SybilProtection) RollbackSpentOutput(output *ledger.OutputWithMetadata) (err error) {
+func (s *SybilProtection) RollbackSpentOutput(output *mempool.OutputWithMetadata) (err error) {
 	return s.ApplyCreatedOutput(output)
 }
 
@@ -202,7 +198,7 @@ func (s *SybilProtection) markValidatorActive(id identity.ID, activityTime time.
 
 	s.lastActivities.Set(id, activityTime)
 
-	s.inactivityManager.ExecuteAfter(id, func() { s.markValidatorInactive(id) }, activityTime.Add(s.optsActivityWindow).Sub(s.engine.Clock.RelativeAcceptedTime()))
+	s.inactivityManager.ExecuteAfter(id, func() { s.markValidatorInactive(id) }, activityTime.Add(s.optsActivityWindow).Sub(s.engine.Clock.Accepted().RelativeTime()))
 }
 
 func (s *SybilProtection) markValidatorInactive(id identity.ID) {
@@ -213,4 +209,4 @@ func (s *SybilProtection) markValidatorInactive(id identity.ID) {
 	s.validators.Delete(id)
 }
 
-var _ ledgerstate.UnspentOutputsConsumer = &SybilProtection{}
+var _ ledger.UnspentOutputsSubscriber = &SybilProtection{}
