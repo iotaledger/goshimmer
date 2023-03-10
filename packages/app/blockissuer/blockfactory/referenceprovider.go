@@ -39,8 +39,8 @@ func (r *ReferenceProvider) References(payload payload.Payload, strongParents mo
 
 	excludedConflictIDs := utxo.NewTransactionIDs()
 
-	r.protocol.Engine().Ledger.ConflictDAG.WeightsMutex.Lock()
-	defer r.protocol.Engine().Ledger.ConflictDAG.WeightsMutex.Unlock()
+	r.protocol.Engine().Ledger.MemPool().ConflictDAG().WeightsMutex.Lock()
+	defer r.protocol.Engine().Ledger.MemPool().ConflictDAG().WeightsMutex.Unlock()
 
 	for strongParent := range strongParents {
 		excludedConflictIDsCopy := excludedConflictIDs.Clone()

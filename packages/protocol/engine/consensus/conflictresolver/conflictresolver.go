@@ -28,8 +28,8 @@ func New(conflictDAG *conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID]
 	}
 }
 
-// LikedConflictMember returns the liked ConflictID across the members of its conflict sets.
-func (o *ConflictResolver) LikedConflictMember(conflictID utxo.TransactionID) (likedConflict utxo.TransactionID, dislikedConflicts utxo.TransactionIDs) {
+// likedConflictMember returns the liked ConflictID across the members of its conflict sets.
+func (o *ConflictResolver) likedConflictMember(conflictID utxo.TransactionID) (likedConflict utxo.TransactionID, dislikedConflicts utxo.TransactionIDs) {
 	dislikedConflicts = utxo.NewTransactionIDs()
 
 	conflict, exists := o.conflictDAG.Conflict(conflictID)
@@ -64,7 +64,7 @@ func (o *ConflictResolver) AdjustOpinion(conflictID utxo.TransactionID) (likedCo
 	for w := walker.New[utxo.TransactionID](false).Push(conflictID); w.HasNext(); {
 		currentConflictID := w.Next()
 
-		likedConflictID, dislikedConflictIDs := o.LikedConflictMember(currentConflictID)
+		likedConflictID, dislikedConflictIDs := o.likedConflictMember(currentConflictID)
 
 		dislikedConflicts.AddAll(dislikedConflictIDs)
 
