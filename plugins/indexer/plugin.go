@@ -46,7 +46,7 @@ func provide(protocol *protocol.Protocol) (i *indexer.Indexer) {
 }
 
 func configure(plugin *node.Plugin) {
-	deps.Protocol.Events.Engine.MemPool.OutputCreated.Hook(deps.Indexer.OnOutputCreated, event.WithWorkerPool(plugin.WorkerPool))
-	deps.Protocol.Events.Engine.MemPool.OutputSpent.Hook(deps.Indexer.OnOutputSpentRejected, event.WithWorkerPool(plugin.WorkerPool))
-	deps.Protocol.Events.Engine.MemPool.OutputRejected.Hook(deps.Indexer.OnOutputSpentRejected, event.WithWorkerPool(plugin.WorkerPool))
+	deps.Protocol.Events.Engine.Ledger.MemPool.OutputCreated.Hook(deps.Indexer.OnOutputCreated, event.WithWorkerPool(plugin.WorkerPool))
+	deps.Protocol.Events.Engine.Ledger.MemPool.OutputSpent.Hook(deps.Indexer.OnOutputSpentRejected, event.WithWorkerPool(plugin.WorkerPool))
+	deps.Protocol.Events.Engine.Ledger.MemPool.OutputRejected.Hook(deps.Indexer.OnOutputSpentRejected, event.WithWorkerPool(plugin.WorkerPool))
 }

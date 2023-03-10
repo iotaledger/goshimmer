@@ -98,9 +98,9 @@ func runConflictLiveFeed(plugin *node.Plugin) {
 		}
 
 		unhook := lo.Batch(
-			deps.Protocol.Events.Engine.MemPool.ConflictDAG.ConflictCreated.Hook(onConflictCreated, event.WithWorkerPool(plugin.WorkerPool)).Unhook,
-			deps.Protocol.Events.Engine.MemPool.ConflictDAG.ConflictAccepted.Hook(onConflictAccepted, event.WithWorkerPool(plugin.WorkerPool)).Unhook,
-			deps.Protocol.Events.Engine.MemPool.ConflictDAG.ConflictRejected.Hook(onConflictRejected, event.WithWorkerPool(plugin.WorkerPool)).Unhook,
+			deps.Protocol.Events.Engine.Ledger.MemPool.ConflictDAG.ConflictCreated.Hook(onConflictCreated, event.WithWorkerPool(plugin.WorkerPool)).Unhook,
+			deps.Protocol.Events.Engine.Ledger.MemPool.ConflictDAG.ConflictAccepted.Hook(onConflictAccepted, event.WithWorkerPool(plugin.WorkerPool)).Unhook,
+			deps.Protocol.Events.Engine.Ledger.MemPool.ConflictDAG.ConflictRejected.Hook(onConflictRejected, event.WithWorkerPool(plugin.WorkerPool)).Unhook,
 		)
 
 		<-ctx.Done()

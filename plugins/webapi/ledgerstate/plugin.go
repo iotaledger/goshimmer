@@ -106,7 +106,7 @@ func FilterRemove(txID utxo.TransactionID) {
 func configure(plugin *node.Plugin) {
 	if webapi.Parameters.EnableDSFilter {
 		doubleSpendFilter = Filter()
-		deps.Protocol.Events.Engine.MemPool.TransactionAccepted.Hook(func(event *mempool.TransactionEvent) {
+		deps.Protocol.Events.Engine.Ledger.MemPool.TransactionAccepted.Hook(func(event *mempool.TransactionEvent) {
 			doubleSpendFilter.Remove(event.Metadata.ID())
 		}, event.WithWorkerPool(plugin.WorkerPool))
 	}

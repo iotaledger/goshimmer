@@ -92,7 +92,6 @@ func NewProvider(opts ...options.Option[RealitiesLedger]) module.Provider[*engin
 
 		e.HookConstructed(func() {
 			l.Initialize(e.Workers.CreatePool("MemPool", 2), e.Storage)
-			e.Events.MemPool.LinkTo(l.events)
 		})
 
 		return l

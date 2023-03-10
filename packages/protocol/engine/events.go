@@ -5,7 +5,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/filter"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -19,7 +19,7 @@ type Events struct {
 
 	EvictionState       *eviction.Events
 	Filter              *filter.Events
-	MemPool             *mempool.Events
+	Ledger              *ledger.Events
 	Tangle              *tangle.Events
 	Consensus           *consensus.Events
 	Clock               *clock.Events
@@ -37,7 +37,7 @@ var NewEvents = event.CreateGroupConstructor(func() (newEvents *Events) {
 		BlockProcessed:      event.New1[models.BlockID](),
 		EvictionState:       eviction.NewEvents(),
 		Filter:              filter.NewEvents(),
-		MemPool:             mempool.NewEvents(),
+		Ledger:              ledger.NewEvents(),
 		Tangle:              tangle.NewEvents(),
 		Consensus:           consensus.NewEvents(),
 		Clock:               clock.NewEvents(),

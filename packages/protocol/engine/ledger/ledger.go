@@ -10,6 +10,10 @@ import (
 
 // Ledger is an engine module that provides access to the persistent ledger state.
 type Ledger interface {
+	// Events is a dictionary for Ledger related events.
+	Events() *Events
+
+	// MemPool returns the MemPool implementation used by this ledger.
 	MemPool() mempool.MemPool
 
 	// UnspentOutputs returns the unspent outputs of the ledger state.
