@@ -9,13 +9,14 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/runtime/options"
@@ -33,13 +34,25 @@ type TestFramework struct {
 	Tangle        *tangle.TestFramework
 	Booker        *booker.TestFramework
 	BlockDAG      *blockdag.TestFramework
-	Ledger        *ledger.TestFramework
+	MemPool       *mempool.TestFramework
 	VirtualVoting *virtualvoting.TestFramework
 	Acceptance    *blockgadget.TestFramework
 }
 
-func NewTestEngine(t *testing.T, workers *workerpool.Group, storage *storage.Storage, clock module.Provider[*Engine, clock.Clock], sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection], throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota], opts ...options.Option[Engine]) *Engine {
-	e := New(workers.CreateGroup("Engine"), storage, clock, sybilProtection, throughputQuota, opts...)
+func NewTestEngine(t *testing.T, workers *workerpool.Group, storage *storage.Storage,
+	clock module.Provider[*Engine, clock.Clock],
+	ledger module.Provider[*Engine, ledger.Ledger],
+	sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection],
+	throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota],
+	opts ...options.Option[Engine]) *Engine {
+	e := New(workers.CreateGroup("Engine"),
+		storage,
+		clock,
+		ledger,
+		sybilProtection,
+		throughputQuota,
+		opts...,
+	)
 	t.Cleanup(e.Shutdown)
 	return e
 }
@@ -55,14 +68,26 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, engine *Engine
 		t.Tangle,
 	)
 	t.Booker = t.Tangle.Booker
-	t.Ledger = t.Tangle.Ledger
+	t.MemPool = t.Tangle.MemPool
 	t.BlockDAG = t.Tangle.BlockDAG
 	t.VirtualVoting = t.Tangle.VirtualVoting
 	return t
 }
 
-func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, clock module.Provider[*Engine, clock.Clock], sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection], throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota], optsEngine ...options.Option[Engine]) *TestFramework {
-	engine := NewTestEngine(t, workers.CreateGroup("Engine"), blockdag.NewTestStorage(t, workers, database.WithDBProvider(database.NewDB)), clock, sybilProtection, throughputQuota, optsEngine...)
+func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group,
+	clock module.Provider[*Engine, clock.Clock],
+	ledger module.Provider[*Engine, ledger.Ledger],
+	sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection],
+	throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota],
+	optsEngine ...options.Option[Engine]) *TestFramework {
+	engine := NewTestEngine(t, workers.CreateGroup("Engine"),
+		blockdag.NewTestStorage(t, workers, database.WithDBProvider(database.NewDB)),
+		clock,
+		ledger,
+		sybilProtection,
+		throughputQuota,
+		optsEngine...,
+	)
 	t.Cleanup(engine.Shutdown)
 
 	return NewTestFramework(t, workers, engine)
@@ -71,7 +96,7 @@ func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, clock modu
 func (e *TestFramework) AssertSlotState(index slot.Index) {
 	require.Equal(e.test, index, e.Instance.Storage.Settings.LatestCommitment().Index(), "last commitment index is not equal")
 	require.Equal(e.test, index, e.Instance.NotarizationManager.Attestations.LastCommittedSlot(), "notarization manager attestations last committed slot is not equal")
-	require.Equal(e.test, index, e.Instance.LedgerState.UnspentOutputs.LastCommittedSlot(), "ledger state unspent outputs last committed slot is not equal")
+	require.Equal(e.test, index, e.Instance.Ledger.UnspentOutputs().LastCommittedSlot(), "ledger unspent outputs last committed slot is not equal")
 	require.Equal(e.test, index, e.Instance.SybilProtection.LastCommittedSlot(), "sybil protection last committed slot is not equal")
 	// TODO: throughput quota is not updated with each slot, but with acceptance
 	// require.Equal(e.test, index, e.Engine.ThroughputQuota.(*mana1.ThroughputQuota).LastCommittedSlot(), "throughput quota last committed slot is not equal")

@@ -11,13 +11,14 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/blocktime"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/mockedvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -42,7 +43,7 @@ func CreateSnapshot(opts ...options.Option[Options]) error {
 
 	workers := workerpool.NewGroup("CreateSnapshot")
 	defer workers.Shutdown()
-	s := storage.New(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), opt.dataBaseVersion)
+	s := storage.New(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), opt.DataBaseVersion)
 	defer s.Shutdown()
 
 	if err := s.Commitments.Store(commitment.NewEmptyCommitment()); err != nil {
@@ -58,7 +59,13 @@ func CreateSnapshot(opts ...options.Option[Options]) error {
 		return errors.Wrap(err, "failed to set chainID")
 	}
 
-	engineInstance := engine.New(workers.CreateGroup("Engine"), s, blocktime.NewProvider(), dpos.NewProvider(), mana1.NewProvider(), engine.WithLedgerOptions(ledger.WithVM(opt.vm)))
+	engineInstance := engine.New(workers.CreateGroup("Engine"),
+		s,
+		blocktime.NewProvider(),
+		opt.LedgerProvider,
+		dpos.NewProvider(),
+		mana1.NewProvider(),
+	)
 	defer engineInstance.Shutdown()
 
 	if err := opt.createGenesisOutput(engineInstance); err != nil {
@@ -75,11 +82,11 @@ func CreateSnapshot(opts ...options.Option[Options]) error {
 	nodesToPledge.ForEach(func(nodeIdentity *identity.Identity, value uint64) bool {
 		nodePublicKey := nodeIdentity.PublicKey()
 		nodeID := nodeIdentity.ID()
-		output, outputMetadata, errOut := createOutput(opt.vm, nodePublicKey, value, nodeID, 0)
+		output, outputMetadata, errOut := createOutput(engineInstance.Ledger.MemPool().VM(), nodePublicKey, value, nodeID, 0)
 		if errOut != nil {
 			panic(errOut)
 		}
-		if err = engineInstance.LedgerState.UnspentOutputs.ApplyCreatedOutput(ledger.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
+		if err = engineInstance.Ledger.UnspentOutputs().ApplyCreatedOutput(mempool.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
 			panic(err)
 		}
 
@@ -129,11 +136,11 @@ func (m *Options) createAttestationIfNotYetDone(engineInstance *engine.Engine) (
 
 func (m *Options) createGenesisOutput(engineInstance *engine.Engine) error {
 	if m.GenesisTokenAmount > 0 {
-		output, outputMetadata, err := createOutput(m.vm, seed.NewSeed(m.GenesisSeed).KeyPair(0).PublicKey, m.GenesisTokenAmount, identity.ID{}, 0)
+		output, outputMetadata, err := createOutput(engineInstance.Ledger.MemPool().VM(), seed.NewSeed(m.GenesisSeed).KeyPair(0).PublicKey, m.GenesisTokenAmount, identity.ID{}, 0)
 		if err != nil {
 			return err
 		}
-		if err := engineInstance.LedgerState.UnspentOutputs.ApplyCreatedOutput(ledger.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
+		if err := engineInstance.Ledger.UnspentOutputs().ApplyCreatedOutput(mempool.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())); err != nil {
 			return err
 		}
 	}
@@ -163,10 +170,10 @@ func (m *Options) createPledgeMap() (nodesToPledge *orderedmap.OrderedMap[*ident
 
 var outputCounter uint16 = 1
 
-func createOutput(ledgerVM vm.VM, publicKey ed25519.PublicKey, tokenAmount uint64, pledgeID identity.ID, includedInSlot slot.Index) (output utxo.Output, outputMetadata *ledger.OutputMetadata, err error) {
+func createOutput(ledgerVM vm.VM, publicKey ed25519.PublicKey, tokenAmount uint64, pledgeID identity.ID, includedInSlot slot.Index) (output utxo.Output, outputMetadata *mempool.OutputMetadata, err error) {
 	switch ledgerVM.(type) {
-	case *ledger.MockedVM:
-		output = ledger.NewMockedOutput(utxo.EmptyTransactionID, outputCounter, tokenAmount)
+	case *mockedvm.MockedVM:
+		output = mockedvm.NewMockedOutput(utxo.EmptyTransactionID, outputCounter, tokenAmount)
 
 	case *devnetvm.VM:
 		output = devnetvm.NewSigLockedColoredOutput(devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{
@@ -180,7 +187,7 @@ func createOutput(ledgerVM vm.VM, publicKey ed25519.PublicKey, tokenAmount uint6
 
 	outputCounter++
 
-	outputMetadata = ledger.NewOutputMetadata(output.ID())
+	outputMetadata = mempool.NewOutputMetadata(output.ID())
 	outputMetadata.SetConfirmationState(confirmation.Confirmed)
 	outputMetadata.SetAccessManaPledgeID(pledgeID)
 	outputMetadata.SetConsensusManaPledgeID(pledgeID)

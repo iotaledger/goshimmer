@@ -5,13 +5,13 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxoledger"
 	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 var BaseOptions = []options.Option[snapshotcreator.Options]{
 	snapshotcreator.WithDatabaseVersion(protocol.DatabaseVersion),
-	snapshotcreator.WithVM(new(devnetvm.VM)),
+	snapshotcreator.WithLedgerProvider(utxoledger.NewProvider()),
 	// 7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih
 	snapshotcreator.WithGenesisSeed([]byte{
 		95, 76, 224, 164, 168, 80, 141, 174, 133, 77, 153, 100, 4, 202, 113, 104,

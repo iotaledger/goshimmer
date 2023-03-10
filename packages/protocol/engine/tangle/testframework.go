@@ -5,12 +5,12 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/runtime/options"
@@ -25,15 +25,15 @@ type TestFramework struct {
 
 	VirtualVoting *virtualvoting.TestFramework
 	Booker        *booker.TestFramework
-	Ledger        *ledger.TestFramework
+	MemPool       *mempool.TestFramework
 	BlockDAG      *blockdag.TestFramework
 	Votes         *votes.TestFramework
 }
 
-func NewTestTangle(t *testing.T, workers *workerpool.Group, slotTimeProvider *slot.TimeProvider, ledger *ledger.Ledger, validators *sybilprotection.WeightedSet, optsTangle ...options.Option[Tangle]) *Tangle {
+func NewTestTangle(t *testing.T, workers *workerpool.Group, slotTimeProvider *slot.TimeProvider, memPool mempool.MemPool, validators *sybilprotection.WeightedSet, optsTangle ...options.Option[Tangle]) *Tangle {
 	storageInstance := blockdag.NewTestStorage(t, workers)
 
-	tangle := New(workers, ledger, eviction.NewState(storageInstance),
+	tangle := New(workers, memPool, eviction.NewState(storageInstance),
 		func() *slot.TimeProvider {
 			return slotTimeProvider
 		},
@@ -56,16 +56,16 @@ func NewTestFramework(test *testing.T, tangle *Tangle, bookerTF *booker.TestFram
 		Instance:      tangle,
 		Booker:        bookerTF,
 		VirtualVoting: bookerTF.VirtualVoting,
-		Ledger:        bookerTF.Ledger,
+		MemPool:       bookerTF.Ledger,
 		BlockDAG:      bookerTF.BlockDAG,
 		Votes:         bookerTF.VirtualVoting.Votes,
 	}
 }
 
-func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, slotTimeProvider *slot.TimeProvider, optsTangle ...options.Option[Tangle]) *TestFramework {
+func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, memPool mempool.MemPool, slotTimeProvider *slot.TimeProvider, optsTangle ...options.Option[Tangle]) *TestFramework {
 	tangle := NewTestTangle(t, workers.CreateGroup("Tangle"),
 		slotTimeProvider,
-		ledger.NewTestLedger(t, workers.CreateGroup("Ledger")),
+		memPool,
 		sybilprotection.NewWeightedSet(sybilprotection.NewWeights(mapdb.NewMapDB())),
 		optsTangle...,
 	)

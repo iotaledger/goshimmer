@@ -10,11 +10,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/ds/shrinkingmap"
@@ -63,11 +63,11 @@ func NewSybilProtection(engineInstance *engine.Engine, opts ...options.Option[Sy
 			s.validators = s.weights.NewWeightedSet()
 
 			s.engine.HookConstructed(func() {
-				s.engine.LedgerState.HookInitialized(s.initializeTotalWeight)
-				s.engine.LedgerState.UnspentOutputs.HookInitialized(s.initializeLatestCommitment)
+				s.engine.Ledger.HookInitialized(s.initializeTotalWeight)
+				s.engine.Ledger.UnspentOutputs().HookInitialized(s.initializeLatestCommitment)
 				s.engine.NotarizationManager.Attestations.HookInitialized(s.initializeActiveValidators)
 
-				s.engine.LedgerState.UnspentOutputs.Subscribe(s)
+				s.engine.Ledger.UnspentOutputs().Subscribe(s)
 
 				s.engine.HookStopped(s.stopInactivityManager)
 
@@ -125,7 +125,7 @@ func (s *SybilProtection) Weights() *sybilprotection.Weights {
 	return s.weights
 }
 
-func (s *SybilProtection) ApplyCreatedOutput(output *ledger.OutputWithMetadata) (err error) {
+func (s *SybilProtection) ApplyCreatedOutput(output *mempool.OutputWithMetadata) (err error) {
 	if iotaBalance, exists := output.IOTABalance(); exists {
 		if s.BatchedStateTransitionStarted() {
 			s.weightsBatch.Update(output.ConsensusManaPledgeID(), int64(iotaBalance))
@@ -137,7 +137,7 @@ func (s *SybilProtection) ApplyCreatedOutput(output *ledger.OutputWithMetadata) 
 	return
 }
 
-func (s *SybilProtection) ApplySpentOutput(output *ledger.OutputWithMetadata) (err error) {
+func (s *SybilProtection) ApplySpentOutput(output *mempool.OutputWithMetadata) (err error) {
 	if iotaBalance, exists := output.IOTABalance(); exists {
 		if s.BatchedStateTransitionStarted() {
 			s.weightsBatch.Update(output.ConsensusManaPledgeID(), -int64(iotaBalance))
@@ -149,11 +149,11 @@ func (s *SybilProtection) ApplySpentOutput(output *ledger.OutputWithMetadata) (e
 	return
 }
 
-func (s *SybilProtection) RollbackCreatedOutput(output *ledger.OutputWithMetadata) (err error) {
+func (s *SybilProtection) RollbackCreatedOutput(output *mempool.OutputWithMetadata) (err error) {
 	return s.ApplySpentOutput(output)
 }
 
-func (s *SybilProtection) RollbackSpentOutput(output *ledger.OutputWithMetadata) (err error) {
+func (s *SybilProtection) RollbackSpentOutput(output *mempool.OutputWithMetadata) (err error) {
 	return s.ApplyCreatedOutput(output)
 }
 
@@ -209,4 +209,4 @@ func (s *SybilProtection) markValidatorInactive(id identity.ID) {
 	s.validators.Delete(id)
 }
 
-var _ ledgerstate.UnspentOutputsConsumer = &SybilProtection{}
+var _ ledger.UnspentOutputsSubscriber = &SybilProtection{}

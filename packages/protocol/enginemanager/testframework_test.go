@@ -11,11 +11,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/blocktime"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxoledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
 	"github.com/iotaledger/goshimmer/packages/protocol/enginemanager"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/storage/utils"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/lo"
@@ -32,7 +31,7 @@ type EngineManagerTestFramework struct {
 func NewEngineManagerTestFramework(t *testing.T, workers *workerpool.Group, identitiesWeights map[ed25519.PublicKey]uint64) *EngineManagerTestFramework {
 	tf := &EngineManagerTestFramework{}
 
-	ledgerVM := new(devnetvm.VM)
+	ledgerProvider := utxoledger.NewProvider()
 
 	snapshotPath := utils.NewDirectory(t.TempDir()).Path("snapshot.bin")
 
@@ -43,7 +42,7 @@ func NewEngineManagerTestFramework(t *testing.T, workers *workerpool.Group, iden
 		snapshotcreator.WithGenesisTokenAmount(1),
 		snapshotcreator.WithGenesisSeed(make([]byte, 32)),
 		snapshotcreator.WithPeersPublicKeys(lo.Keys(identitiesWeights)),
-		snapshotcreator.WithVM(ledgerVM),
+		snapshotcreator.WithLedgerProvider(ledgerProvider),
 		snapshotcreator.WithPeersAmountsPledged(lo.Values(identitiesWeights)),
 		snapshotcreator.WithAttestAll(true),
 		snapshotcreator.WithGenesisUnixTime(time.Now().Unix()-slotDuration*10),
@@ -54,10 +53,9 @@ func NewEngineManagerTestFramework(t *testing.T, workers *workerpool.Group, iden
 		t.TempDir(),
 		protocol.DatabaseVersion,
 		[]options.Option[database.Manager]{},
-		[]options.Option[engine.Engine]{
-			engine.WithLedgerOptions(ledger.WithVM(ledgerVM)),
-		},
+		[]options.Option[engine.Engine]{},
 		blocktime.NewProvider(),
+		ledgerProvider,
 		dpos.NewProvider(),
 		mana1.NewProvider(),
 	)

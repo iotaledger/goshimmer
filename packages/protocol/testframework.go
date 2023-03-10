@@ -7,8 +7,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/realitiesledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxoledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm"
 	"github.com/iotaledger/goshimmer/packages/storage/utils"
 	"github.com/iotaledger/hive.go/app/configuration"
 	"github.com/iotaledger/hive.go/app/logger"
@@ -53,9 +54,16 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, ledgerVM vm.VM
 			ed25519.GenerateKeyPair().PublicKey: 100,
 		}
 
+		ledgerProvider := utxoledger.NewProvider(
+			utxoledger.WithMemPoolProvider(
+				realitiesledger.NewProvider(
+					realitiesledger.WithVM(ledgerVM)),
+			),
+		)
+
 		require.NoError(test, snapshotcreator.CreateSnapshot(
 			snapshotcreator.WithDatabaseVersion(DatabaseVersion),
-			snapshotcreator.WithVM(ledgerVM),
+			snapshotcreator.WithLedgerProvider(ledgerProvider),
 			snapshotcreator.WithFilePath(tempDir.Path("snapshot.bin")),
 			snapshotcreator.WithGenesisTokenAmount(genesisTokenAmount),
 			snapshotcreator.WithGenesisSeed(make([]byte, ed25519.SeedSize)),
@@ -66,7 +74,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, ledgerVM vm.VM
 		t.Instance = New(workers.CreateGroup("Protocol"), t.Network.Join(identity.GenerateIdentity().ID()), append(t.optsProtocolOptions,
 			WithSnapshotPath(tempDir.Path("snapshot.bin")),
 			WithBaseDirectory(tempDir.Path()),
-			WithEngineOptions(engine.WithLedgerOptions(ledger.WithVM(ledgerVM))),
+			WithLedgerProvider(ledgerProvider),
 		)...)
 
 		test.Cleanup(func() {

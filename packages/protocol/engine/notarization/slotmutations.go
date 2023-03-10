@@ -5,9 +5,9 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/ads"
 	"github.com/iotaledger/hive.go/constraints"
@@ -82,7 +82,7 @@ func (m *SlotMutations) RemoveAcceptedBlock(block *models.Block) (err error) {
 }
 
 // AddAcceptedTransaction adds the given transaction to the set of accepted transactions.
-func (m *SlotMutations) AddAcceptedTransaction(metadata *ledger.TransactionMetadata) (err error) {
+func (m *SlotMutations) AddAcceptedTransaction(metadata *mempool.TransactionMetadata) (err error) {
 	m.evictionMutex.RLock()
 	defer m.evictionMutex.RUnlock()
 
@@ -96,7 +96,7 @@ func (m *SlotMutations) AddAcceptedTransaction(metadata *ledger.TransactionMetad
 }
 
 // RemoveAcceptedTransaction removes the given transaction from the set of accepted transactions.
-func (m *SlotMutations) RemoveAcceptedTransaction(metadata *ledger.TransactionMetadata) (err error) {
+func (m *SlotMutations) RemoveAcceptedTransaction(metadata *mempool.TransactionMetadata) (err error) {
 	m.evictionMutex.RLock()
 	defer m.evictionMutex.RUnlock()
 

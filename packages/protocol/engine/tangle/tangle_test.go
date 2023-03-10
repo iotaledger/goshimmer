@@ -1,9 +1,11 @@
-package tangle
+package tangle_test
 
 import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/realitiesledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
@@ -11,7 +13,11 @@ import (
 
 func Test(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	tf := NewDefaultTestFramework(t, workers.CreateGroup("LedgerTestFramework"), slot.NewTimeProvider(time.Now().Unix(), 10))
+	tf := tangle.NewDefaultTestFramework(t,
+		workers.CreateGroup("LedgerTestFramework"),
+		realitiesledger.NewTestLedger(t, workers.CreateGroup("Ledger")),
+		slot.NewTimeProvider(time.Now().Unix(), 10),
+	)
 
 	tf.BlockDAG.CreateBlock("block1")
 	tf.BlockDAG.CreateBlock("block2", models.WithStrongParents(tf.BlockDAG.BlockIDs("block1")))

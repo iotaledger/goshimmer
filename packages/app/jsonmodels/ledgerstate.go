@@ -8,10 +8,10 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/typeutils"
 	"github.com/iotaledger/hive.go/lo"
 )
@@ -477,7 +477,7 @@ func NewOutputID(outputID utxo.OutputID) *OutputID {
 
 // region OutputMetadata ///////////////////////////////////////////////////////////////////////////////////////////////
 
-// OutputMetadata represents the JSON model of the ledger.OutputMetadata.
+// OutputMetadata represents the JSON model of the mempool.OutputMetadata.
 type OutputMetadata struct {
 	OutputID              *OutputID          `json:"outputID"`
 	ConflictIDs           []string           `json:"conflictIDs"`
@@ -487,8 +487,8 @@ type OutputMetadata struct {
 	ConfirmationStateTime int64              `json:"confirmationStateTime"`
 }
 
-// NewOutputMetadata returns the OutputMetadata from the given ledger.OutputMetadata.
-func NewOutputMetadata(outputMetadata *ledger.OutputMetadata, confirmedConsumerID utxo.TransactionID) *OutputMetadata {
+// NewOutputMetadata returns the OutputMetadata from the given mempool.OutputMetadata.
+func NewOutputMetadata(outputMetadata *mempool.OutputMetadata, confirmedConsumerID utxo.TransactionID) *OutputMetadata {
 	return &OutputMetadata{
 		OutputID: NewOutputID(outputMetadata.ID()),
 		ConflictIDs: lo.Map(lo.Map(outputMetadata.ConflictIDs().Slice(), func(t utxo.TransactionID) []byte {
@@ -505,14 +505,14 @@ func NewOutputMetadata(outputMetadata *ledger.OutputMetadata, confirmedConsumerI
 
 // region Consumer /////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Consumer represents the JSON model of a ledger.Consumer.
+// Consumer represents the JSON model of a mempool.Consumer.
 type Consumer struct {
 	TransactionID string `json:"transactionID"`
 	Booked        bool   `json:"booked"`
 }
 
-// NewConsumer returns a Consumer from the given ledger.Consumer.
-func NewConsumer(consumer *ledger.Consumer) *Consumer {
+// NewConsumer returns a Consumer from the given mempool.Consumer.
+func NewConsumer(consumer *mempool.Consumer) *Consumer {
 	return &Consumer{
 		TransactionID: consumer.TransactionID().Base58(),
 		Booked:        consumer.IsBooked(),
@@ -723,7 +723,7 @@ func NewUnlockBlock(unlockBlock devnetvm.UnlockBlock) *UnlockBlock {
 
 // region TransactionMetadata ///////////////////////////////////////////////////////////////////////////////////////////
 
-// TransactionMetadata represents the JSON model of the ledger.TransactionMetadata.
+// TransactionMetadata represents the JSON model of the mempool.TransactionMetadata.
 type TransactionMetadata struct {
 	TransactionID         string             `json:"transactionID"`
 	ConflictIDs           []string           `json:"conflictIDs"`
@@ -733,8 +733,8 @@ type TransactionMetadata struct {
 	ConfirmationStateTime int64              `json:"confirmationStateTime"`
 }
 
-// NewTransactionMetadata returns the TransactionMetadata from the given ledger.TransactionMetadata.
-func NewTransactionMetadata(transactionMetadata *ledger.TransactionMetadata) *TransactionMetadata {
+// NewTransactionMetadata returns the TransactionMetadata from the given mempool.TransactionMetadata.
+func NewTransactionMetadata(transactionMetadata *mempool.TransactionMetadata) *TransactionMetadata {
 	return &TransactionMetadata{
 		TransactionID:         transactionMetadata.ID().Base58(),
 		ConflictIDs:           lo.Map(lo.Map(transactionMetadata.ConflictIDs().Slice(), func(t utxo.TransactionID) []byte { return lo.PanicOnErr(t.Bytes()) }), base58.Encode),

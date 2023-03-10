@@ -3,7 +3,7 @@ package withdrawfromnftoptions
 import (
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 )
 
 // WithdrawFundsFromNFTOption is a function that provides an option.

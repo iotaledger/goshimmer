@@ -4,8 +4,9 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/core/module"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/runtime/options"
 
@@ -38,15 +39,15 @@ type Options struct {
 	// SlotDuration defines the duration in seconds of each slot.
 	SlotDuration int64
 
-	dataBaseVersion database.Version
-	vm              vm.VM
+	DataBaseVersion database.Version
+
+	LedgerProvider module.Provider[*engine.Engine, ledger.Ledger]
 }
 
 func NewOptions(opts ...options.Option[Options]) *Options {
 	return options.Apply(&Options{
 		FilePath:        "snapshot.bin",
-		dataBaseVersion: 1,
-		vm:              new(devnetvm.VM),
+		DataBaseVersion: 1,
 		GenesisUnixTime: time.Now().Unix(),
 		SlotDuration:    10,
 	}, opts)
@@ -168,14 +169,14 @@ func WithAttestAll(attestAll bool) options.Option[Options] {
 // WithDatabaseVersion sets the database version to use for the snapshot.
 func WithDatabaseVersion(databaseVersion database.Version) options.Option[Options] {
 	return func(m *Options) {
-		m.dataBaseVersion = databaseVersion
+		m.DataBaseVersion = databaseVersion
 	}
 }
 
-// WithVM sets the VM to use for the snapshot.
-func WithVM(vm vm.VM) options.Option[Options] {
+// WithLedgerProvider sets the MemPool to use for the snapshot.
+func WithLedgerProvider(ledgerProvider module.Provider[*engine.Engine, ledger.Ledger]) options.Option[Options] {
 	return func(m *Options) {
-		m.vm = vm
+		m.LedgerProvider = ledgerProvider
 	}
 }
 
