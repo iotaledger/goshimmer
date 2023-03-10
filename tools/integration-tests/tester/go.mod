@@ -8,7 +8,6 @@ require (
 	github.com/docker/docker v1.13.1
 	github.com/docker/go-connections v0.4.0
 	github.com/iotaledger/goshimmer v0.1.3
-	github.com/iotaledger/hive.go/core v1.0.0-rc.3.0.20230301135914-603c4dac79e1
 	github.com/iotaledger/hive.go/crypto v0.0.0-20230301135914-603c4dac79e1
 	github.com/iotaledger/hive.go/ds v0.0.0-20230301135914-603c4dac79e1
 	github.com/iotaledger/hive.go/lo v0.0.0-20230301135914-603c4dac79e1
@@ -69,6 +68,7 @@ require (
 	github.com/iotaledger/hive.go/app v0.0.0-20230301135914-603c4dac79e1 // indirect
 	github.com/iotaledger/hive.go/autopeering v0.0.0-20230301135914-603c4dac79e1 // indirect
 	github.com/iotaledger/hive.go/constraints v0.0.0-20230301135914-603c4dac79e1 // indirect
+	github.com/iotaledger/hive.go/core v1.0.0-rc.3.0.20230307163144-1809be6dde56 // indirect
 	github.com/iotaledger/hive.go/kvstore v0.0.0-20230301135914-603c4dac79e1 // indirect
 	github.com/iotaledger/hive.go/logger v0.0.0-20230301135914-603c4dac79e1 // indirect
 	github.com/iotaledger/hive.go/objectstorage v0.0.0-20230301135914-603c4dac79e1 // indirect

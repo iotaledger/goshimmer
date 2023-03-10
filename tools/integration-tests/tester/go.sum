@@ -369,8 +369,8 @@ github.com/iotaledger/hive.go/autopeering v0.0.0-20230301135914-603c4dac79e1 h1:
 github.com/iotaledger/hive.go/autopeering v0.0.0-20230301135914-603c4dac79e1/go.mod h1:I5cMPnjmbg7KV7U85d8kr0QDHt6uadXnv3ZOfIdT4j0=
 github.com/iotaledger/hive.go/constraints v0.0.0-20230301135914-603c4dac79e1 h1:T9NVHzjaCvCB5IgeKGl2p5SPW8cW5QBUfjyTc2pKvdA=
 github.com/iotaledger/hive.go/constraints v0.0.0-20230301135914-603c4dac79e1/go.mod h1:bvXXc6quBdERMMKnirr2+iQU4WnTz4KDbdHcusW9Ats=
-github.com/iotaledger/hive.go/core v1.0.0-rc.3.0.20230301135914-603c4dac79e1 h1:ECTQW4BfAEV7VCAbg3wBrMO2oC/UFAaHp7ZIBblnGlw=
-github.com/iotaledger/hive.go/core v1.0.0-rc.3.0.20230301135914-603c4dac79e1/go.mod h1:I3thdWnAURcG5irhI7RuB0EGNPbZZYJ6pwf28sXxlm8=
+github.com/iotaledger/hive.go/core v1.0.0-rc.3.0.20230307163144-1809be6dde56 h1:tCNIIgIxOfZNeFbTvmDWfKwg2Ocwk5jZ/mdMXVSNaaw=
+github.com/iotaledger/hive.go/core v1.0.0-rc.3.0.20230307163144-1809be6dde56/go.mod h1:I3thdWnAURcG5irhI7RuB0EGNPbZZYJ6pwf28sXxlm8=
 github.com/iotaledger/hive.go/crypto v0.0.0-20230301135914-603c4dac79e1 h1:j2vwiYapUzAwaaXRFBhQVbwdN6exnLwMKhGsELb593Q=
 github.com/iotaledger/hive.go/crypto v0.0.0-20230301135914-603c4dac79e1/go.mod h1:6DXYIrw/4DSsMxi4Fcvh1Q0FqPN+HnoWmpQcbz6GrqE=
 github.com/iotaledger/hive.go/ds v0.0.0-20230301135914-603c4dac79e1 h1:aG9ImIicpP3rSDPJIvXHq8qO7fLH4TPCNcGbddOol60=
