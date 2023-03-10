@@ -3,8 +3,8 @@ package dashboard
 import (
 	"github.com/iotaledger/goshimmer/packages/app/faucet"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 	"github.com/iotaledger/hive.go/lo"
 )
@@ -115,7 +115,7 @@ func processTransactionPayload(p payload.Payload) (tp TransactionPayload) {
 	// add consumed inputs
 	for i, input := range tx.Essence().Inputs() {
 		refOutputID := input.(*devnetvm.UTXOInput).ReferencedOutputID()
-		deps.Protocol.Engine().Ledger.Storage.CachedOutput(refOutputID).Consume(func(output utxo.Output) {
+		deps.Protocol.Engine().Ledger.MemPool().Storage().CachedOutput(refOutputID).Consume(func(output utxo.Output) {
 			if typedOutput, ok := output.(devnetvm.Output); ok {
 				tp.Transaction.Inputs[i].Output = jsonmodels.NewOutput(typedOutput)
 			}

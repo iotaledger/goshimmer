@@ -16,6 +16,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/blocktime"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxoledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
@@ -23,7 +26,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
 	"github.com/iotaledger/goshimmer/packages/protocol/enginemanager"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
 	"github.com/iotaledger/hive.go/core/slot"
@@ -63,9 +65,11 @@ type Protocol struct {
 	optsChainManagerOptions           []options.Option[chainmanager.Manager]
 	optsTipManagerOptions             []options.Option[tipmanager.TipManager]
 	optsStorageDatabaseManagerOptions []options.Option[database.Manager]
-	optsClockProvider                 module.Provider[*engine.Engine, clock.Clock]
-	optsSybilProtectionProvider       module.Provider[*engine.Engine, sybilprotection.SybilProtection]
-	optsThroughputQuotaProvider       module.Provider[*engine.Engine, throughputquota.ThroughputQuota]
+
+	optsClockProvider           module.Provider[*engine.Engine, clock.Clock]
+	optsLedgerProvider          module.Provider[*engine.Engine, ledger.Ledger]
+	optsSybilProtectionProvider module.Provider[*engine.Engine, sybilprotection.SybilProtection]
+	optsThroughputQuotaProvider module.Provider[*engine.Engine, throughputquota.ThroughputQuota]
 }
 
 func New(workers *workerpool.Group, dispatcher network.Endpoint, opts ...options.Option[Protocol]) (protocol *Protocol) {
@@ -74,6 +78,7 @@ func New(workers *workerpool.Group, dispatcher network.Endpoint, opts ...options
 		Workers:                     workers,
 		dispatcher:                  dispatcher,
 		optsClockProvider:           blocktime.NewProvider(),
+		optsLedgerProvider:          utxoledger.NewProvider(),
 		optsSybilProtectionProvider: dpos.NewProvider(),
 		optsThroughputQuotaProvider: mana1.NewProvider(),
 
@@ -129,6 +134,7 @@ func (p *Protocol) initEngineManager() {
 		p.optsStorageDatabaseManagerOptions,
 		p.optsEngineOptions,
 		p.optsClockProvider,
+		p.optsLedgerProvider,
 		p.optsSybilProtectionProvider,
 		p.optsThroughputQuotaProvider,
 	)
@@ -406,7 +412,7 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 		// Calculate the difference between the latest commitment ledger and the ledger at the snapshot target index
 		latestCommitment := mainEngine.Storage.Settings.LatestCommitment()
 		for i := latestCommitment.Index(); i >= snapshotTargetIndex; i-- {
-			if err := mainEngine.LedgerState.StateDiffs.StreamSpentOutputs(i, func(output *ledger.OutputWithMetadata) error {
+			if err := mainEngine.Ledger.StateDiffs().StreamSpentOutputs(i, func(output *mempool.OutputWithMetadata) error {
 				if iotaBalance, balanceExists := output.IOTABalance(); balanceExists {
 					wb.Update(output.ConsensusManaPledgeID(), int64(iotaBalance))
 				}
@@ -416,7 +422,7 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 				return
 			}
 
-			if err := mainEngine.LedgerState.StateDiffs.StreamCreatedOutputs(i, func(output *ledger.OutputWithMetadata) error {
+			if err := mainEngine.Ledger.StateDiffs().StreamCreatedOutputs(i, func(output *mempool.OutputWithMetadata) error {
 				if iotaBalance, balanceExists := output.IOTABalance(); balanceExists {
 					wb.Update(output.ConsensusManaPledgeID(), -int64(iotaBalance))
 				}
@@ -590,6 +596,12 @@ func WithPruningThreshold(pruningThreshold uint64) options.Option[Protocol] {
 func WithSnapshotPath(snapshot string) options.Option[Protocol] {
 	return func(n *Protocol) {
 		n.optsSnapshotPath = snapshot
+	}
+}
+
+func WithLedgerProvider(optsLedgerProvider module.Provider[*engine.Engine, ledger.Ledger]) options.Option[Protocol] {
+	return func(n *Protocol) {
+		n.optsLedgerProvider = optsLedgerProvider
 	}
 }
 

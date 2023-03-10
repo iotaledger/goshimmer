@@ -3,12 +3,12 @@ package tangle
 import (
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
@@ -23,7 +23,7 @@ type Tangle struct {
 
 	BlockDAG *blockdag.BlockDAG
 	Booker   *booker.Booker
-	Ledger   *ledger.Ledger
+	Ledger   mempool.MemPool
 
 	optsBlockDAG []options.Option[blockdag.BlockDAG]
 	optsBooker   []options.Option[booker.Booker]
@@ -32,7 +32,7 @@ type Tangle struct {
 // New is the constructor for a new Tangle.
 func New(
 	workers *workerpool.Group,
-	ledger *ledger.Ledger,
+	ledger mempool.MemPool,
 	evictionState *eviction.State,
 	slotTimeProviderFunc func() *slot.TimeProvider,
 	validators *sybilprotection.WeightedSet,

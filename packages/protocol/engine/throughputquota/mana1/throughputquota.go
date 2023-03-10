@@ -10,8 +10,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/storable"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/ds/shrinkingmap"
@@ -76,8 +76,8 @@ func New(engineInstance *engine.Engine, opts ...options.Option[ThroughputQuota])
 				m.SetLastCommittedSlot(m.engine.Storage.Settings.LatestCommitment().Index())
 			})
 
-			m.engine.LedgerState.UnspentOutputs.Subscribe(m)
-			m.engine.LedgerState.HookInitialized(m.init)
+			m.engine.Ledger.UnspentOutputs().Subscribe(m)
+			m.engine.Ledger.HookInitialized(m.init)
 		})
 	})
 }
@@ -113,18 +113,18 @@ func (m *ThroughputQuota) TotalBalance() (totalMana int64) {
 	return m.totalBalance
 }
 
-func (m *ThroughputQuota) ApplyCreatedOutput(output *ledger.OutputWithMetadata) (err error) {
+func (m *ThroughputQuota) ApplyCreatedOutput(output *mempool.OutputWithMetadata) (err error) {
 	m.quotaByIDMutex.Lock()
 	defer m.quotaByIDMutex.Unlock()
 
 	return m.applyCreatedOutput(output)
 }
 
-func (m *ThroughputQuota) applyCreatedOutput(output *ledger.OutputWithMetadata) (err error) {
+func (m *ThroughputQuota) applyCreatedOutput(output *mempool.OutputWithMetadata) (err error) {
 	if iotaBalance, exists := output.IOTABalance(); exists {
 		m.updateMana(output.AccessManaPledgeID(), int64(iotaBalance))
 
-		if !m.engine.LedgerState.UnspentOutputs.WasInitialized() {
+		if !m.engine.Ledger.UnspentOutputs().WasInitialized() {
 			totalBalanceBytes, serializationErr := storable.SerializableInt64(m.updateTotalBalance(int64(iotaBalance))).Bytes()
 			if serializationErr != nil {
 				return errors.Wrapf(serializationErr, "failed to serialize total balance")
@@ -139,14 +139,14 @@ func (m *ThroughputQuota) applyCreatedOutput(output *ledger.OutputWithMetadata) 
 	return
 }
 
-func (m *ThroughputQuota) ApplySpentOutput(output *ledger.OutputWithMetadata) (err error) {
+func (m *ThroughputQuota) ApplySpentOutput(output *mempool.OutputWithMetadata) (err error) {
 	m.quotaByIDMutex.Lock()
 	defer m.quotaByIDMutex.Unlock()
 
 	return m.applySpentOutput(output)
 }
 
-func (m *ThroughputQuota) applySpentOutput(output *ledger.OutputWithMetadata) (err error) {
+func (m *ThroughputQuota) applySpentOutput(output *mempool.OutputWithMetadata) (err error) {
 	if iotaBalance, exists := output.IOTABalance(); exists {
 		m.updateMana(output.AccessManaPledgeID(), -int64(iotaBalance))
 	}
@@ -154,11 +154,11 @@ func (m *ThroughputQuota) applySpentOutput(output *ledger.OutputWithMetadata) (e
 	return
 }
 
-func (m *ThroughputQuota) RollbackCreatedOutput(output *ledger.OutputWithMetadata) (err error) {
+func (m *ThroughputQuota) RollbackCreatedOutput(output *mempool.OutputWithMetadata) (err error) {
 	return m.ApplySpentOutput(output)
 }
 
-func (m *ThroughputQuota) RollbackSpentOutput(output *ledger.OutputWithMetadata) (err error) {
+func (m *ThroughputQuota) RollbackSpentOutput(output *mempool.OutputWithMetadata) (err error) {
 	return m.ApplyCreatedOutput(output)
 }
 
@@ -177,12 +177,12 @@ func (m *ThroughputQuota) CommitBatchedStateTransition() (ctx context.Context) {
 }
 
 func (m *ThroughputQuota) init() {
-	m.engine.LedgerState.UnspentOutputs.Unsubscribe(m)
+	m.engine.Ledger.UnspentOutputs().Unsubscribe(m)
 
 	m.TriggerInitialized()
 
 	wp := m.workers.CreatePool("ThroughputQuota", 2)
-	m.engine.Ledger.Events.TransactionAccepted.Hook(func(event *ledger.TransactionEvent) {
+	m.engine.Ledger.MemPool().Events().TransactionAccepted.Hook(func(event *mempool.TransactionEvent) {
 		m.quotaByIDMutex.Lock()
 		defer m.quotaByIDMutex.Unlock()
 		for _, createdOutput := range event.CreatedOutputs {
@@ -197,7 +197,7 @@ func (m *ThroughputQuota) init() {
 			}
 		}
 	}, event.WithWorkerPool(wp))
-	m.engine.Ledger.Events.TransactionOrphaned.Hook(func(event *ledger.TransactionEvent) {
+	m.engine.Ledger.MemPool().Events().TransactionOrphaned.Hook(func(event *mempool.TransactionEvent) {
 		m.quotaByIDMutex.Lock()
 		defer m.quotaByIDMutex.Unlock()
 

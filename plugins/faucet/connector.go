@@ -8,10 +8,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm/indexer"
 )
 
 type Connector struct {
@@ -33,9 +33,9 @@ func (f *Connector) UnspentOutputs(addresses ...address.Address) (unspentOutputs
 
 	for _, addr := range addresses {
 		f.indexer.CachedAddressOutputMappings(addr.Address()).Consume(func(mapping *indexer.AddressOutputMapping) {
-			f.protocol.Engine().Ledger.Storage.CachedOutput(mapping.OutputID()).Consume(func(output utxo.Output) {
+			f.protocol.Engine().Ledger.MemPool().Storage().CachedOutput(mapping.OutputID()).Consume(func(output utxo.Output) {
 				if typedOutput, ok := output.(devnetvm.Output); ok {
-					f.protocol.Engine().Ledger.Storage.CachedOutputMetadata(typedOutput.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
+					f.protocol.Engine().Ledger.MemPool().Storage().CachedOutputMetadata(typedOutput.ID()).Consume(func(outputMetadata *mempool.OutputMetadata) {
 						if !outputMetadata.IsSpent() {
 							walletOutput := &wallet.Output{
 								Address:                  addr,
@@ -80,7 +80,7 @@ func (f *Connector) RequestFaucetFunds(address address.Address, powTarget int) (
 }
 
 func (f *Connector) GetTransactionConfirmationState(txID utxo.TransactionID) (confirmationState confirmation.State, err error) {
-	f.protocol.Engine().Ledger.Storage.CachedTransactionMetadata(txID).Consume(func(tm *ledger.TransactionMetadata) {
+	f.protocol.Engine().Ledger.MemPool().Storage().CachedTransactionMetadata(txID).Consume(func(tm *mempool.TransactionMetadata) {
 		confirmationState = tm.ConfirmationState()
 	})
 	return

@@ -31,7 +31,7 @@ func NewProvider(opts ...options.Option[Clock]) module.Provider[*engine.Engine, 
 			confirmedTime: NewRelativeTime(),
 		}, opts, func(c *Clock) {
 			e.HookConstructed(func() {
-				e.LedgerState.HookInitialized(func() {
+				e.Ledger.HookInitialized(func() {
 					c.acceptedTime.Set(e.SlotTimeProvider().EndTime(e.Storage.Settings.LatestCommitment().Index()))
 					c.confirmedTime.Set(e.SlotTimeProvider().EndTime(e.Storage.Settings.LatestCommitment().Index()))
 

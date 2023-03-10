@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
 	"github.com/iotaledger/goshimmer/packages/storage"
@@ -39,6 +40,7 @@ type EngineManager struct {
 
 	engineOptions           []options.Option[engine.Engine]
 	clockProvider           module.Provider[*engine.Engine, clock.Clock]
+	ledgerProvider          module.Provider[*engine.Engine, ledger.Ledger]
 	sybilProtectionProvider module.Provider[*engine.Engine, sybilprotection.SybilProtection]
 	throughputQuotaProvider module.Provider[*engine.Engine, throughputquota.ThroughputQuota]
 
@@ -52,6 +54,7 @@ func New(
 	storageOptions []options.Option[database.Manager],
 	engineOptions []options.Option[engine.Engine],
 	clockProvider module.Provider[*engine.Engine, clock.Clock],
+	ledgerProvider module.Provider[*engine.Engine, ledger.Ledger],
 	sybilProtectionProvider module.Provider[*engine.Engine, sybilprotection.SybilProtection],
 	throughputQuotaProvider module.Provider[*engine.Engine, throughputquota.ThroughputQuota]) *EngineManager {
 	return &EngineManager{
@@ -61,6 +64,7 @@ func New(
 		storageOptions:          storageOptions,
 		engineOptions:           engineOptions,
 		clockProvider:           clockProvider,
+		ledgerProvider:          ledgerProvider,
 		sybilProtectionProvider: sybilProtectionProvider,
 		throughputQuotaProvider: throughputQuotaProvider,
 	}
@@ -130,7 +134,14 @@ func (e *EngineManager) SetActiveInstance(instance *engine.Engine) error {
 }
 
 func (e *EngineManager) loadEngineInstance(dirName string) *engine.Engine {
-	return engine.New(e.workers.CreateGroup(dirName), storage.New(e.directory.Path(dirName), e.dbVersion, e.storageOptions...), e.clockProvider, e.sybilProtectionProvider, e.throughputQuotaProvider, e.engineOptions...)
+	return engine.New(e.workers.CreateGroup(dirName),
+		storage.New(e.directory.Path(dirName), e.dbVersion, e.storageOptions...),
+		e.clockProvider,
+		e.ledgerProvider,
+		e.sybilProtectionProvider,
+		e.throughputQuotaProvider,
+		e.engineOptions...,
+	)
 }
 
 func (e *EngineManager) newEngineInstance() *engine.Engine {

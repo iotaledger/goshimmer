@@ -3,11 +3,11 @@ package jsonmodels
 import (
 	"strconv"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/ds/advancedset"
@@ -146,7 +146,7 @@ type GetOutputConsumersResponse struct {
 }
 
 // NewGetOutputConsumersResponse returns a GetOutputConsumersResponse from the given details.
-func NewGetOutputConsumersResponse(outputID utxo.OutputID, consumers []*ledger.Consumer) *GetOutputConsumersResponse {
+func NewGetOutputConsumersResponse(outputID utxo.OutputID, consumers []*mempool.Consumer) *GetOutputConsumersResponse {
 	return &GetOutputConsumersResponse{
 		OutputID: NewOutputID(outputID),
 		Consumers: func() []*Consumer {

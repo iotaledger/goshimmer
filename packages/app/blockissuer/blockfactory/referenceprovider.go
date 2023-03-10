@@ -7,8 +7,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 	"github.com/iotaledger/hive.go/core/slot"
@@ -121,7 +121,7 @@ func (r *ReferenceProvider) referencesFromUnacceptedInputs(payload payload.Paylo
 		return weakParents, likeInsteadParents, nil
 	}
 
-	referencedTransactions := engineInstance.Ledger.Utils.ReferencedTransactions(tx)
+	referencedTransactions := engineInstance.Ledger.MemPool().Utils().ReferencedTransactions(tx)
 	for it := referencedTransactions.Iterator(); it.HasNext(); {
 		referencedTransactionID := it.Next()
 
@@ -129,7 +129,7 @@ func (r *ReferenceProvider) referencesFromUnacceptedInputs(payload payload.Paylo
 			return weakParents, likeInsteadParents, nil
 		}
 
-		if !engineInstance.Ledger.Utils.TransactionConfirmationState(referencedTransactionID).IsAccepted() {
+		if !engineInstance.Ledger.MemPool().Utils().TransactionConfirmationState(referencedTransactionID).IsAccepted() {
 			latestAttachment := engineInstance.Tangle.Booker.GetLatestAttachment(referencedTransactionID)
 			if latestAttachment == nil {
 				continue
@@ -264,7 +264,7 @@ func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, exclude
 		return false, models.EmptyBlockID, err
 	}
 
-	excludedConflictIDs.AddAll(engineInstance.Ledger.Utils.ConflictIDsInFutureCone(dislikedConflictIDs))
+	excludedConflictIDs.AddAll(engineInstance.Ledger.MemPool().Utils().ConflictIDsInFutureCone(dislikedConflictIDs))
 
 	return true, attachment.ID(), nil
 }
@@ -298,7 +298,7 @@ func (r *ReferenceProvider) payloadLiked(blockID models.BlockID) (liked bool) {
 	conflictIDs := engineInstance.Tangle.Booker.TransactionConflictIDs(block)
 
 	for it := conflictIDs.Iterator(); it.HasNext(); {
-		conflict, exists := engineInstance.Ledger.ConflictDAG.Conflict(it.Next())
+		conflict, exists := engineInstance.Ledger.MemPool().ConflictDAG().Conflict(it.Next())
 		if !exists {
 			continue
 		}
