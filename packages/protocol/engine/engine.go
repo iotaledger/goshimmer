@@ -295,6 +295,8 @@ func (e *Engine) setupTangle() {
 func (e *Engine) setupConsensus() {
 	e.Events.Consensus.LinkTo(e.Consensus.Events)
 
+	// Using just 1 worker to avoid contention
+	wp := e.Workers.CreatePool("Consensus", 1)
 	e.Events.Consensus.BlockGadget.Error.Hook(e.Events.Error.Trigger)
 	e.Events.Consensus.SlotGadget.SlotConfirmed.Hook(func(index slot.Index) {
 		err := e.Storage.Permanent.Settings.SetLatestConfirmedSlot(index)
@@ -303,11 +305,11 @@ func (e *Engine) setupConsensus() {
 		}
 
 		e.Tangle.Booker.VirtualVoting.EvictSlotTracker(index)
-	}, event.WithWorkerPool(e.Workers.CreatePool("Consensus", 1))) // Using just 1 worker to avoid contention
+	}, event.WithWorkerPool(wp))
+	e.Events.EvictionState.SlotEvicted.Hook(e.Consensus.BlockGadget.EvictUntil, event.WithWorkerPool(wp))
 }
 
 func (e *Engine) setupTSCManager() {
-
 	// wp := e.Workers.CreatePool("TSCManager", 1) // Using just 1 worker to avoid contention
 
 	// TODO: enable TSC again
