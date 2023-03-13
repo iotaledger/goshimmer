@@ -74,9 +74,6 @@ services:
       --blockIssuer.ignoreBootstrappedFlag=false
       {% endif %}
       --protocol.bootstrapWindow=20s
-      {% if genesisTime|default(None) %}
-      --protocol.genesisTime={{ genesisTime }}
-      {% endif %}
       --metrics.goMetrics=true
       --metrics.processMetrics=true
       --profilingRecorder.outputPath=/profiles
