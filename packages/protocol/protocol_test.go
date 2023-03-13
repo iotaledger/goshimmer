@@ -238,6 +238,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 		snapshotcreator.WithLedgerProvider(ledgerProvider),
 		snapshotcreator.WithGenesisUnixTime(time.Now().Unix()-slotDuration*10),
 		snapshotcreator.WithSlotDuration(slotDuration),
+		snapshotcreator.WithAttestAll(true),
 	)
 	require.NoError(t, err)
 
