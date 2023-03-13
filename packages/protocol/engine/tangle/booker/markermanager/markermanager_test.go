@@ -155,7 +155,7 @@ func Test_BlockMarkerCeilingFloor(t *testing.T) {
 	assert.False(t, exists, "floor marker should not exist")
 }
 
-// We create sequences for an slot X, each slot contains sequences <X; X+5>.
+// We create sequences for a slot X, each slot contains sequences <X; X+5>.
 func Test_PruneSequences(t *testing.T) {
 	const slotCount = 5
 	const sequenceCount = 5

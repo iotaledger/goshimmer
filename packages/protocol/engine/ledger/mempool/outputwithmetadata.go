@@ -79,6 +79,14 @@ func (o *OutputWithMetadata) Index() slot.Index {
 	return o.M.Index
 }
 
+// SetIndex sets the index of the output.
+func (o *OutputWithMetadata) SetIndex(index slot.Index) {
+	o.Lock()
+	defer o.Unlock()
+
+	o.M.Index = index
+}
+
 func (o *OutputWithMetadata) SpentInSlot() slot.Index {
 	o.RLock()
 	defer o.RUnlock()

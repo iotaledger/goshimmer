@@ -7,6 +7,7 @@ scrape_configs:
           - faucet:9311
           - peer_master2:9311
           - peer_nomana:9311
+          - peer_nomana2:9311
     dns_sd_configs:
       - names:
           - 'peer_replica'

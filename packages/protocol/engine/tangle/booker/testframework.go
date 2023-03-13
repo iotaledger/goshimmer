@@ -47,7 +47,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, instance *Book
 		BlockDAG:      blockdag.NewTestFramework(test, workers.CreateGroup("BlockDAG"), instance.BlockDAG),
 		ConflictDAG:   conflictdag.NewTestFramework(test, instance.Ledger.ConflictDAG()),
 		Ledger:        mempool.NewTestFramework(test, instance.Ledger),
-		VirtualVoting: virtualvoting.NewTestFramework(test, workers.CreateGroup("VirtualVoting"), instance.VirtualVoting),
+		VirtualVoting: virtualvoting.NewTestFramework(test, instance.VirtualVoting),
 	}
 
 	t.setupEvents()

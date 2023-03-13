@@ -186,6 +186,11 @@ func (b *Block) Parents() (parents []BlockID) {
 	return
 }
 
+// StrongParents returns a copy of the strong parents of the block.
+func (b *Block) StrongParents() (strongParents []BlockID) {
+	return b.ParentsByType(StrongParentType).Slice()
+}
+
 // ForEachParentByType executes a consumer func for each strong parent.
 func (b *Block) ForEachParentByType(parentType ParentsType, consumer func(parentBlockID BlockID) bool) {
 	for parentID := range b.ParentsByType(parentType) {

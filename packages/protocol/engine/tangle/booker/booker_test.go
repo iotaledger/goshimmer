@@ -788,7 +788,7 @@ func Test_Prune(t *testing.T) {
 	workers.WaitChildren()
 
 	require.False(t, wasAttached, "block should not be attached")
-	require.Error(t, err, "should not be able to attach a block after eviction of an slot")
+	require.Error(t, err, "should not be able to attach a block after eviction of a slot")
 }
 
 func validateState(tf *booker.TestFramework, maxPrunedSlot, slotCount int) {

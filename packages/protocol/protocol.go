@@ -342,7 +342,7 @@ func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) error {
 	}
 
 	if !processed {
-		return errors.Errorf("block from source %s was not processed: %s", src, block.ID())
+		return errors.Errorf("block from source %s was not processed: %s; commits to: %s", src, block.ID(), block.Commitment().ID())
 	}
 
 	return nil

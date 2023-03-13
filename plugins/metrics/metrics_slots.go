@@ -38,7 +38,7 @@ var SlotMetrics = collector.NewCollection(slotNamespace,
 	collector.WithMetric(collector.NewMetric(totalBlocks,
 		collector.WithType(collector.CounterVec),
 		collector.WithLabels(labelName),
-		collector.WithHelp("Number of blocks seen by the node in an slot."),
+		collector.WithHelp("Number of blocks seen by the node in a slot."),
 		collector.WithInitFunc(func() {
 			deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Hook(func(block *blockdag.Block) {
 				eventSlot := int(block.ID().Index())
@@ -69,7 +69,7 @@ var SlotMetrics = collector.NewCollection(slotNamespace,
 
 	collector.WithMetric(collector.NewMetric(acceptedBlocksInSlot,
 		collector.WithType(collector.CounterVec),
-		collector.WithHelp("Number of accepted blocks in an slot."),
+		collector.WithHelp("Number of accepted blocks in a slot."),
 		collector.WithLabels(labelName),
 		collector.WithInitFunc(func() {
 			deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Hook(func(block *blockgadget.Block) {
@@ -81,7 +81,7 @@ var SlotMetrics = collector.NewCollection(slotNamespace,
 	collector.WithMetric(collector.NewMetric(orphanedBlocks,
 		collector.WithType(collector.CounterVec),
 		collector.WithLabels(labelName),
-		collector.WithHelp("Number of orphaned blocks in an slot."),
+		collector.WithHelp("Number of orphaned blocks in a slot."),
 		collector.WithInitFunc(func() {
 			deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockOrphaned.Hook(func(block *blockdag.Block) {
 				eventSlot := int(block.ID().Index())
@@ -92,7 +92,7 @@ var SlotMetrics = collector.NewCollection(slotNamespace,
 	collector.WithMetric(collector.NewMetric(invalidBlocks,
 		collector.WithType(collector.CounterVec),
 		collector.WithLabels(labelName),
-		collector.WithHelp("Number of invalid blocks in an slot slot."),
+		collector.WithHelp("Number of invalid blocks in a slot slot."),
 		collector.WithInitFunc(func() {
 			deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockInvalid.Hook(func(blockInvalidEvent *blockdag.BlockInvalidEvent) {
 				fmt.Println("block invalid", blockInvalidEvent.Block.ID(), blockInvalidEvent.Reason)
@@ -104,7 +104,7 @@ var SlotMetrics = collector.NewCollection(slotNamespace,
 	collector.WithMetric(collector.NewMetric(subjectivelyInvalidBlocks,
 		collector.WithType(collector.CounterVec),
 		collector.WithLabels(labelName),
-		collector.WithHelp("Number of invalid blocks in an slot slot."),
+		collector.WithHelp("Number of invalid blocks in a slot slot."),
 		collector.WithInitFunc(func() {
 			deps.Protocol.Events.Engine.Tangle.Booker.VirtualVoting.BlockTracked.Hook(func(block *virtualvoting.Block) {
 				if block.IsSubjectivelyInvalid() {
