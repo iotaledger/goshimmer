@@ -42,5 +42,4 @@ goshimmers:
     debugPorts: true
     remoteDebugging: true
     spammer: true
-    genesisTime: "{{ GENESIS_TIME }}"
     remoteLogs: false

@@ -124,6 +124,7 @@ func (a *attachments) Evict(slotIndex slot.Index) {
 
 			if attachmentsOfTX := a.storage(txID, false); attachmentsOfTX != nil && attachmentsOfTX.Delete(slotIndex) && attachmentsOfTX.Size() == 0 {
 				a.attachments.Delete(txID)
+				a.nonOrphanedCounter.Delete(txID)
 			}
 		})
 	}
