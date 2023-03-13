@@ -66,7 +66,7 @@ func New(workers *workerpool.Group, blockDAG *blockdag.BlockDAG, ledger mempool.
 		BlockDAG:          blockDAG,
 	}, opts, func(b *Booker) {
 		b.markerManager = markermanager.NewMarkerManager(b.optsMarkerManager...)
-		b.VirtualVoting = virtualvoting.New(workers.CreateGroup("virtualvoting"), ledger.ConflictDAG(), b.markerManager.SequenceManager, validators, b.optsVirtualVoting...)
+		b.VirtualVoting = virtualvoting.New(workers.CreateGroup("VirtualVoting"), ledger.ConflictDAG(), b.markerManager.SequenceManager, validators, b.optsVirtualVoting...)
 		b.bookingOrder = causalorder.New(
 			workers.CreatePool("BookingOrder", 2),
 			b.Block,
