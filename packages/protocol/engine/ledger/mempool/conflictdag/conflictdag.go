@@ -25,6 +25,10 @@ type ConflictDAG[ConflictIDType, ResourceIDType comparable] struct {
 	// mutex is a mutex that prevents that two processes simultaneously update the ConflictDAG.
 	mutex *syncutils.StarvingMutex
 
+	// WeightsMutex is a mutex that prevents updating conflict weights when creating references for a new block.
+	// It is used by different components, but it is placed here because it's easily accessible in all needed components.
+	// It serves more as a quick-fix, as eventually conflict tracking spread across multiple components
+	// (ConflictDAG, ConflictResolver, ConflictsTracker) will be refactored into a single component that handles locking nicely.
 	WeightsMutex sync.RWMutex
 
 	optsMergeToMaster bool
