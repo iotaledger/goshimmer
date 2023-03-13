@@ -44,7 +44,7 @@ func (c *CongestionControl) LinkTo(engine *engine.Engine) {
 	c.scheduler = scheduler.New(
 		engine.EvictionState,
 		engine.SlotTimeProvider(),
-		engine.Consensus.BlockGadget.IsBlockAccepted,
+		engine.Consensus.BlockGadget().IsBlockAccepted,
 		engine.ThroughputQuota.BalanceByIDs,
 		engine.ThroughputQuota.TotalBalance,
 		c.optsSchedulerOptions...,
@@ -62,7 +62,7 @@ func (c *CongestionControl) LinkTo(engine *engine.Engine) {
 		//	c.Events.Scheduler.BlockScheduled.Trigger(registerBlock)
 		// }, wp)
 		engine.Tangle.Events.BlockDAG.BlockOrphaned.Hook(c.scheduler.HandleOrphanedBlock, event.WithWorkerPool(wp)).Unhook,
-		engine.Consensus.Events.BlockGadget.BlockAccepted.Hook(c.scheduler.HandleAcceptedBlock, event.WithWorkerPool(wp)).Unhook,
+		engine.Consensus.Events().BlockGadget.BlockAccepted.Hook(c.scheduler.HandleAcceptedBlock, event.WithWorkerPool(wp)).Unhook,
 	))
 
 	c.scheduler.Start()

@@ -48,7 +48,7 @@ type Engine struct {
 	BlockRequester      *eventticker.EventTicker[models.BlockID]
 	NotarizationManager *notarization.Manager
 	Tangle              *tangle.Tangle
-	Consensus           *consensus.Consensus
+	Consensus           consensus.Consensus
 	TSCManager          *tsc.Manager
 	Clock               clock.Clock
 
@@ -77,6 +77,7 @@ func New(
 	ledger module.Provider[*Engine, ledger.Ledger],
 	sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection],
 	throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota],
+	consensus module.Provider[*Engine, consensus.Consensus],
 	opts ...options.Option[Engine],
 ) (engine *Engine) {
 	return options.Apply(
@@ -95,14 +96,8 @@ func New(
 			e.ThroughputQuota = throughputQuota(e)
 			e.NotarizationManager = notarization.NewManager(e.Storage, e.Ledger, e.SybilProtection.Weights(), e.optsNotarizationManagerOptions...)
 			e.Tangle = tangle.New(e.Workers.CreateGroup("Tangle"), e.Ledger.MemPool(), e.EvictionState, e.SlotTimeProvider, e.SybilProtection.Validators(), e.LastConfirmedSlot, e.FirstUnacceptedMarker, e.Storage.Commitments.Load, e.optsTangleOptions...)
-			e.Consensus = consensus.New(e.Workers.CreateGroup("Consensus"), e.Tangle, e.EvictionState, e.Storage.Permanent.Settings.LatestConfirmedSlot(), func() (totalWeight int64) {
-				if zeroIdentityWeight, exists := e.SybilProtection.Weights().Get(identity.ID{}); exists {
-					totalWeight -= zeroIdentityWeight.Value
-				}
-
-				return totalWeight + e.SybilProtection.Weights().TotalWeight()
-			}, e.optsConsensusOptions...)
-			e.TSCManager = tsc.New(e.Consensus.BlockGadget.IsBlockAccepted, e.Tangle, e.optsTSCManagerOptions...)
+			e.Consensus = consensus(e)
+			e.TSCManager = tsc.New(e.Consensus.BlockGadget().IsBlockAccepted, e.Tangle, e.optsTSCManagerOptions...)
 			e.Filter = filter.New(e.optsFilter...)
 			e.BlockRequester = eventticker.New(e.optsBlockRequester...)
 
@@ -110,14 +105,9 @@ func New(
 				e.Storage.Settings.TriggerInitialized,
 				e.Storage.Commitments.TriggerInitialized,
 				e.NotarizationManager.TriggerInitialized,
-				func() {
-					// TODO: hack until consensus is made an engine module
-					e.Consensus.SlotGadget.SetLastConfirmedSlot(e.Storage.Permanent.Settings.LatestConfirmedSlot())
-				},
 			))
 		},
 		(*Engine).setupTangle,
-		(*Engine).setupConsensus,
 		(*Engine).setupTSCManager,
 		(*Engine).setupBlockStorage,
 		(*Engine).setupNotarizationManager,
@@ -166,11 +156,11 @@ func (e *Engine) Block(id models.BlockID) (block *models.Block, exists bool) {
 }
 
 func (e *Engine) FirstUnacceptedMarker(sequenceID markers.SequenceID) markers.Index {
-	return e.Consensus.BlockGadget.FirstUnacceptedIndex(sequenceID)
+	return e.Consensus.BlockGadget().FirstUnacceptedIndex(sequenceID)
 }
 
 func (e *Engine) LastConfirmedSlot() slot.Index {
-	return e.Consensus.SlotGadget.LastConfirmedSlot()
+	return e.Consensus.SlotGadget().LastConfirmedSlot()
 }
 
 func (e *Engine) IsBootstrapped() (isBootstrapped bool) {
@@ -290,23 +280,6 @@ func (e *Engine) setupTangle() {
 	}, event.WithWorkerPool(e.Workers.CreatePool("Tangle.PromoteFutureBlocksUntil", 1)))
 
 	e.Events.Tangle.LinkTo(e.Tangle.Events)
-}
-
-func (e *Engine) setupConsensus() {
-	e.Events.Consensus.LinkTo(e.Consensus.Events)
-
-	// Using just 1 worker to avoid contention
-	wp := e.Workers.CreatePool("Consensus", 1)
-	e.Events.Consensus.BlockGadget.Error.Hook(e.Events.Error.Trigger)
-	e.Events.Consensus.SlotGadget.SlotConfirmed.Hook(func(index slot.Index) {
-		err := e.Storage.Permanent.Settings.SetLatestConfirmedSlot(index)
-		if err != nil {
-			panic(err)
-		}
-
-		e.Tangle.Booker.VirtualVoting.EvictSlotTracker(index)
-	}, event.WithWorkerPool(wp))
-	e.Events.EvictionState.SlotEvicted.Hook(e.Consensus.BlockGadget.EvictUntil, event.WithWorkerPool(wp))
 }
 
 func (e *Engine) setupTSCManager() {

@@ -15,6 +15,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/blocktime"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/tangleconsensus"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/realitiesledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxoledger"
@@ -48,7 +49,7 @@ type TestFramework struct {
 	Engine   *engine.Engine
 	Tangle   *tangle.TestFramework
 
-	mockAcceptance       *blockgadget.MockAcceptanceGadget
+	mockAcceptance       *blockgadget.MockBlockGadget
 	scheduledBlocks      *shrinkingmap.ShrinkingMap[models.BlockID, *scheduler.Block]
 	scheduledBlocksMutex sync.RWMutex
 
@@ -92,6 +93,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...option
 			ledgerProvider,
 			dpos.NewProvider(),
 			mana1.NewProvider(),
+			tangleconsensus.NewProvider(),
 			t.optsEngineOptions...,
 		)
 		require.NoError(test, t.Engine.Initialize(tempDir.Path("genesis_snapshot.bin")))
@@ -151,7 +153,7 @@ func (t *TestFramework) setupEvents() {
 		atomic.AddUint32(&(t.tipRemoved), 1)
 	})
 
-	t.mockAcceptance.BlockAcceptedEvent.Hook(func(block *blockgadget.Block) {
+	t.mockAcceptance.Events().BlockAccepted.Hook(func(block *blockgadget.Block) {
 		require.NoError(t.test, t.Engine.NotarizationManager.NotarizeAcceptedBlock(block.ModelsBlock))
 	})
 }

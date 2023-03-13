@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
@@ -43,6 +44,7 @@ type EngineManager struct {
 	ledgerProvider          module.Provider[*engine.Engine, ledger.Ledger]
 	sybilProtectionProvider module.Provider[*engine.Engine, sybilprotection.SybilProtection]
 	throughputQuotaProvider module.Provider[*engine.Engine, throughputquota.ThroughputQuota]
+	consensusProvider       module.Provider[*engine.Engine, consensus.Consensus]
 
 	activeInstance *engine.Engine
 }
@@ -56,7 +58,9 @@ func New(
 	clockProvider module.Provider[*engine.Engine, clock.Clock],
 	ledgerProvider module.Provider[*engine.Engine, ledger.Ledger],
 	sybilProtectionProvider module.Provider[*engine.Engine, sybilprotection.SybilProtection],
-	throughputQuotaProvider module.Provider[*engine.Engine, throughputquota.ThroughputQuota]) *EngineManager {
+	throughputQuotaProvider module.Provider[*engine.Engine, throughputquota.ThroughputQuota],
+	consensusProvider module.Provider[*engine.Engine, consensus.Consensus],
+) *EngineManager {
 	return &EngineManager{
 		workers:                 workers,
 		directory:               utils.NewDirectory(dir),
@@ -67,6 +71,7 @@ func New(
 		ledgerProvider:          ledgerProvider,
 		sybilProtectionProvider: sybilProtectionProvider,
 		throughputQuotaProvider: throughputQuotaProvider,
+		consensusProvider:       consensusProvider,
 	}
 }
 
@@ -140,6 +145,7 @@ func (e *EngineManager) loadEngineInstance(dirName string) *engine.Engine {
 		e.ledgerProvider,
 		e.sybilProtectionProvider,
 		e.throughputQuotaProvider,
+		e.consensusProvider,
 		e.engineOptions...,
 	)
 }

@@ -134,6 +134,19 @@ func (w *Weights) TotalWeight() (totalWeight int64) {
 	return w.totalWeight.Value
 }
 
+// TotalWeightWithoutZeroIdentity returns the total weight of all identities minus the zero identity.
+func (w *Weights) TotalWeightWithoutZeroIdentity() int64 {
+	w.mutex.RLock()
+	defer w.mutex.RUnlock()
+
+	var totalWeight int64
+	if zeroIdentityWeight, exists := w.get(identity.ID{}); exists {
+		totalWeight -= zeroIdentityWeight.Value
+	}
+
+	return totalWeight + w.totalWeight.Value
+}
+
 func (w *Weights) UpdateTotalWeightSlot(index slot.Index) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()

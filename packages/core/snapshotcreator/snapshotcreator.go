@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/blocktime"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/tangleconsensus"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm"
@@ -65,6 +66,7 @@ func CreateSnapshot(opts ...options.Option[Options]) error {
 		opt.LedgerProvider,
 		dpos.NewProvider(),
 		mana1.NewProvider(),
+		tangleconsensus.NewProvider(),
 	)
 	defer engineInstance.Shutdown()
 

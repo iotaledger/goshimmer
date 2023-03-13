@@ -15,7 +15,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/blocktime"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/tangleconsensus"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxoledger"
@@ -70,6 +72,7 @@ type Protocol struct {
 	optsLedgerProvider          module.Provider[*engine.Engine, ledger.Ledger]
 	optsSybilProtectionProvider module.Provider[*engine.Engine, sybilprotection.SybilProtection]
 	optsThroughputQuotaProvider module.Provider[*engine.Engine, throughputquota.ThroughputQuota]
+	optsConsensusProvider       module.Provider[*engine.Engine, consensus.Consensus]
 }
 
 func New(workers *workerpool.Group, dispatcher network.Endpoint, opts ...options.Option[Protocol]) (protocol *Protocol) {
@@ -81,6 +84,7 @@ func New(workers *workerpool.Group, dispatcher network.Endpoint, opts ...options
 		optsLedgerProvider:          utxoledger.NewProvider(),
 		optsSybilProtectionProvider: dpos.NewProvider(),
 		optsThroughputQuotaProvider: mana1.NewProvider(),
+		optsConsensusProvider:       tangleconsensus.NewProvider(),
 
 		optsBaseDirectory:    "",
 		optsPruningThreshold: 6 * 60, // 1 hour given that slot duration is 10 seconds
@@ -137,6 +141,7 @@ func (p *Protocol) initEngineManager() {
 		p.optsLedgerProvider,
 		p.optsSybilProtectionProvider,
 		p.optsThroughputQuotaProvider,
+		p.optsConsensusProvider,
 	)
 
 	p.Events.Engine.Consensus.SlotGadget.SlotConfirmed.Hook(func(index slot.Index) {
@@ -614,6 +619,12 @@ func WithSybilProtectionProvider(sybilProtectionProvider module.Provider[*engine
 func WithThroughputQuotaProvider(throughputQuotaProvider module.Provider[*engine.Engine, throughputquota.ThroughputQuota]) options.Option[Protocol] {
 	return func(n *Protocol) {
 		n.optsThroughputQuotaProvider = throughputQuotaProvider
+	}
+}
+
+func WithConsensusProvider(consensusProvider module.Provider[*engine.Engine, consensus.Consensus]) options.Option[Protocol] {
+	return func(n *Protocol) {
+		n.optsConsensusProvider = consensusProvider
 	}
 }
 

@@ -337,7 +337,7 @@ func TestScheduler_SkipConfirmed(t *testing.T) {
 		blkUnreadyConfirmedNew.ID(): types.Void,
 	})
 
-	tf.mockAcceptance.BlockAcceptedEvent.Trigger(blockgadget.NewBlock(blkUnreadyConfirmedNew.Block, blockgadget.WithAccepted(true)))
+	tf.mockAcceptance.Events().BlockAccepted.Trigger(blockgadget.NewBlock(blkUnreadyConfirmedNew.Block, blockgadget.WithAccepted(true)))
 
 	// make sure that the block was not unsubmitted
 	require.Equal(t, tf.Scheduler.buffer.IssuerQueue(tf.Issuer("peer").ID()).IDs()[0], blkUnreadyConfirmedNew.ID())
@@ -380,7 +380,7 @@ func TestScheduler_SkipConfirmed(t *testing.T) {
 		blkUnreadyConfirmedOld.ID(): types.Void,
 	})
 
-	tf.mockAcceptance.BlockAcceptedEvent.Trigger(blockgadget.NewBlock(blkUnreadyConfirmedOld.Block, blockgadget.WithAccepted(true)))
+	tf.mockAcceptance.Events().BlockAccepted.Trigger(blockgadget.NewBlock(blkUnreadyConfirmedOld.Block, blockgadget.WithAccepted(true)))
 
 	require.Eventually(t, func() bool {
 		select {
@@ -482,7 +482,7 @@ func TestScheduler_Issue(t *testing.T) {
 		lo.MergeMaps(tf.mockAcceptance.AcceptedBlocks, map[models.BlockID]types.Empty{
 			block.ID(): types.Void,
 		})
-		tf.mockAcceptance.BlockAcceptedEvent.Trigger(blockgadget.NewBlock(block.Block, blockgadget.WithAccepted(true)))
+		tf.mockAcceptance.Events().BlockAccepted.Trigger(blockgadget.NewBlock(block.Block, blockgadget.WithAccepted(true)))
 	}
 
 	tf.AssertBlocksSkipped(0)
