@@ -62,7 +62,6 @@ func NewProvider(opts ...options.Option[Gadget]) module.Provider[*engine.Engine,
 
 		e.HookInitialized(func() {
 			g.Initialize(e.SlotTimeProvider, e.SybilProtection.Weights().TotalWeightWithoutZeroIdentity)
-
 		})
 
 		return g
