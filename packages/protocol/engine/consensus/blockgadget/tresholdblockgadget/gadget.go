@@ -58,12 +58,11 @@ type Gadget struct {
 
 func NewProvider(opts ...options.Option[Gadget]) module.Provider[*engine.Engine, blockgadget.Gadget] {
 	return module.Provide(func(e *engine.Engine) blockgadget.Gadget {
-		g := New(e.Workers.CreateGroup("BlockGadget"), e.Tangle, e.EvictionState)
+		g := New(e.Workers.CreateGroup("BlockGadget"), e.Tangle, e.EvictionState, opts...)
 
 		e.HookInitialized(func() {
 			g.Initialize(e.SlotTimeProvider, e.SybilProtection.Weights().TotalWeightWithoutZeroIdentity)
 
-			e.Events.EvictionState.SlotEvicted.Hook(g.EvictUntil, event.WithWorkerPool(g.workers.CreatePool("Eviction", 1)))
 		})
 
 		return g
@@ -85,7 +84,21 @@ func New(workers *workerpool.Group, tangle *tangle.Tangle, evictionState *evicti
 		optsMarkerConfirmationThreshold: 0.67,
 		optsConflictAcceptanceThreshold: 0.67,
 	}, opts,
-		(*Gadget).setup,
+		func(g *Gadget) {
+			wp := g.workers.CreatePool("Gadget", 2)
+
+			g.tangle.Booker.VirtualVoting.Events.SequenceTracker.VotersUpdated.Hook(func(evt *sequencetracker.VoterUpdatedEvent) {
+				g.RefreshSequence(evt.SequenceID, evt.NewMaxSupportedIndex, evt.PrevMaxSupportedIndex)
+			}, event.WithWorkerPool(wp))
+
+			g.tangle.Booker.VirtualVoting.Events.ConflictTracker.VoterAdded.Hook(func(evt *conflicttracker.VoterEvent[utxo.TransactionID]) {
+				g.RefreshConflictAcceptance(evt.ConflictID)
+			})
+
+			g.tangle.Booker.Events.MarkerManager.SequenceEvicted.Hook(g.evictSequence, event.WithWorkerPool(wp))
+
+			g.evictionState.Events.SlotEvicted.Hook(g.EvictUntil, event.WithWorkerPool(g.workers.CreatePool("Eviction", 1)))
+		},
 		(*Gadget).TriggerConstructed,
 	)
 }
@@ -267,20 +280,6 @@ func (a *Gadget) EvictUntil(index slot.Index) {
 	if evictedStorage := a.blocks.Evict(index); evictedStorage != nil {
 		a.events.SlotClosed.Trigger(evictedStorage)
 	}
-}
-
-func (a *Gadget) setup() {
-	wp := a.workers.CreatePool("Gadget", 2)
-
-	a.tangle.Booker.VirtualVoting.Events.SequenceTracker.VotersUpdated.Hook(func(evt *sequencetracker.VoterUpdatedEvent) {
-		a.RefreshSequence(evt.SequenceID, evt.NewMaxSupportedIndex, evt.PrevMaxSupportedIndex)
-	}, event.WithWorkerPool(wp))
-
-	a.tangle.Booker.VirtualVoting.Events.ConflictTracker.VoterAdded.Hook(func(evt *conflicttracker.VoterEvent[utxo.TransactionID]) {
-		a.RefreshConflictAcceptance(evt.ConflictID)
-	})
-
-	a.tangle.Booker.Events.MarkerManager.SequenceEvicted.Hook(a.evictSequence, event.WithWorkerPool(wp))
 }
 
 func (a *Gadget) block(id models.BlockID) (block *blockgadget.Block, exists bool) {
