@@ -101,84 +101,84 @@ func New(workers *workerpool.Group, tangle *tangle.Tangle, evictionState *evicti
 	)
 }
 
-func (a *Gadget) Initialize(slotTimeProviderFunc func() *slot.TimeProvider, totalWeightCallback func() int64) {
-	a.slotTimeProviderFunc = slotTimeProviderFunc
-	a.totalWeightCallback = totalWeightCallback
+func (g *Gadget) Initialize(slotTimeProviderFunc func() *slot.TimeProvider, totalWeightCallback func() int64) {
+	g.slotTimeProviderFunc = slotTimeProviderFunc
+	g.totalWeightCallback = totalWeightCallback
 
-	a.acceptanceOrder = causalorder.New(a.workers.CreatePool("AcceptanceOrder", 2), a.GetOrRegisterBlock, (*blockgadget.Block).IsStronglyAccepted, lo.Bind(false, a.markAsAccepted), a.acceptanceFailed, (*blockgadget.Block).StrongParents)
-	a.confirmationOrder = causalorder.New(a.workers.CreatePool("ConfirmationOrder", 2), func(id models.BlockID) (entity *blockgadget.Block, exists bool) {
-		a.evictionMutex.RLock()
-		defer a.evictionMutex.RUnlock()
+	g.acceptanceOrder = causalorder.New(g.workers.CreatePool("AcceptanceOrder", 2), g.GetOrRegisterBlock, (*blockgadget.Block).IsStronglyAccepted, lo.Bind(false, g.markAsAccepted), g.acceptanceFailed, (*blockgadget.Block).StrongParents)
+	g.confirmationOrder = causalorder.New(g.workers.CreatePool("ConfirmationOrder", 2), func(id models.BlockID) (entity *blockgadget.Block, exists bool) {
+		g.evictionMutex.RLock()
+		defer g.evictionMutex.RUnlock()
 
-		if a.evictionState.InEvictedSlot(id) {
-			return blockgadget.NewRootBlock(id, a.slotTimeProviderFunc()), true
+		if g.evictionState.InEvictedSlot(id) {
+			return blockgadget.NewRootBlock(id, g.slotTimeProviderFunc()), true
 		}
 
-		return a.getOrRegisterBlock(id)
-	}, (*blockgadget.Block).IsStronglyConfirmed, lo.Bind(false, a.markAsConfirmed), a.confirmationFailed, (*blockgadget.Block).StrongParents)
+		return g.getOrRegisterBlock(id)
+	}, (*blockgadget.Block).IsStronglyConfirmed, lo.Bind(false, g.markAsConfirmed), g.confirmationFailed, (*blockgadget.Block).StrongParents)
 
-	a.evictionState.Events.SlotEvicted.Hook(a.EvictUntil, event.WithWorkerPool(a.workers.CreatePool("Eviction", 1)))
+	g.evictionState.Events.SlotEvicted.Hook(g.EvictUntil, event.WithWorkerPool(g.workers.CreatePool("Eviction", 1)))
 
-	a.TriggerInitialized()
+	g.TriggerInitialized()
 }
 
-func (a *Gadget) Events() *blockgadget.Events {
-	return a.events
+func (g *Gadget) Events() *blockgadget.Events {
+	return g.events
 }
 
 // IsMarkerAccepted returns whether the given marker is accepted.
-func (a *Gadget) IsMarkerAccepted(marker markers.Marker) (accepted bool) {
-	a.evictionMutex.RLock()
-	defer a.evictionMutex.RUnlock()
+func (g *Gadget) IsMarkerAccepted(marker markers.Marker) (accepted bool) {
+	g.evictionMutex.RLock()
+	defer g.evictionMutex.RUnlock()
 
-	return a.isMarkerAccepted(marker)
+	return g.isMarkerAccepted(marker)
 }
 
 // IsMarkerConfirmed returns whether the given marker is confirmed.
-func (a *Gadget) IsMarkerConfirmed(marker markers.Marker) (confirmed bool) {
-	a.evictionMutex.RLock()
-	defer a.evictionMutex.RUnlock()
+func (g *Gadget) IsMarkerConfirmed(marker markers.Marker) (confirmed bool) {
+	g.evictionMutex.RLock()
+	defer g.evictionMutex.RUnlock()
 
-	return a.isMarkerConfirmed(marker)
+	return g.isMarkerConfirmed(marker)
 }
 
 // IsBlockAccepted returns whether the given block is accepted.
-func (a *Gadget) IsBlockAccepted(blockID models.BlockID) (accepted bool) {
-	a.evictionMutex.RLock()
-	defer a.evictionMutex.RUnlock()
+func (g *Gadget) IsBlockAccepted(blockID models.BlockID) (accepted bool) {
+	g.evictionMutex.RLock()
+	defer g.evictionMutex.RUnlock()
 
-	block, exists := a.block(blockID)
+	block, exists := g.block(blockID)
 	return exists && block.IsAccepted()
 }
 
-func (a *Gadget) IsBlockConfirmed(blockID models.BlockID) bool {
-	a.evictionMutex.RLock()
-	defer a.evictionMutex.RUnlock()
+func (g *Gadget) IsBlockConfirmed(blockID models.BlockID) bool {
+	g.evictionMutex.RLock()
+	defer g.evictionMutex.RUnlock()
 
-	block, exists := a.block(blockID)
+	block, exists := g.block(blockID)
 	return exists && block.IsConfirmed()
 }
 
-func (a *Gadget) isMarkerAccepted(marker markers.Marker) bool {
+func (g *Gadget) isMarkerAccepted(marker markers.Marker) bool {
 	if marker.Index() == 0 {
 		return true
 	}
 
-	lastAcceptedIndex, exists := a.lastAcceptedMarker.Get(marker.SequenceID())
+	lastAcceptedIndex, exists := g.lastAcceptedMarker.Get(marker.SequenceID())
 	return exists && lastAcceptedIndex >= marker.Index()
 }
 
-func (a *Gadget) isMarkerConfirmed(marker markers.Marker) bool {
+func (g *Gadget) isMarkerConfirmed(marker markers.Marker) bool {
 	if marker.Index() == 0 {
 		return true
 	}
 
-	lastConfirmedIndex, exists := a.lastConfirmedMarker.Get(marker.SequenceID())
+	lastConfirmedIndex, exists := g.lastConfirmedMarker.Get(marker.SequenceID())
 	return exists && lastConfirmedIndex >= marker.Index()
 }
 
-func (a *Gadget) FirstUnacceptedIndex(sequenceID markers.SequenceID) (firstUnacceptedIndex markers.Index) {
-	lastAcceptedIndex, exists := a.lastAcceptedMarker.Get(sequenceID)
+func (g *Gadget) FirstUnacceptedIndex(sequenceID markers.SequenceID) (firstUnacceptedIndex markers.Index) {
+	lastAcceptedIndex, exists := g.lastAcceptedMarker.Get(sequenceID)
 	if !exists {
 		return 1
 	}
@@ -186,8 +186,8 @@ func (a *Gadget) FirstUnacceptedIndex(sequenceID markers.SequenceID) (firstUnacc
 	return lastAcceptedIndex + 1
 }
 
-func (a *Gadget) FirstUnconfirmedIndex(sequenceID markers.SequenceID) (firstUnconfirmedIndex markers.Index) {
-	lastConfirmedIndex, exists := a.lastConfirmedMarker.Get(sequenceID)
+func (g *Gadget) FirstUnconfirmedIndex(sequenceID markers.SequenceID) (firstUnconfirmedIndex markers.Index) {
+	lastConfirmedIndex, exists := g.lastConfirmedMarker.Get(sequenceID)
 	if !exists {
 		return 1
 	}
@@ -196,52 +196,52 @@ func (a *Gadget) FirstUnconfirmedIndex(sequenceID markers.SequenceID) (firstUnco
 }
 
 // Block retrieves a Block with metadata from the in-memory storage of the Gadget.
-func (a *Gadget) Block(id models.BlockID) (block *blockgadget.Block, exists bool) {
-	a.evictionMutex.RLock()
-	defer a.evictionMutex.RUnlock()
+func (g *Gadget) Block(id models.BlockID) (block *blockgadget.Block, exists bool) {
+	g.evictionMutex.RLock()
+	defer g.evictionMutex.RUnlock()
 
-	return a.block(id)
+	return g.block(id)
 }
 
-func (a *Gadget) GetOrRegisterBlock(blockID models.BlockID) (block *blockgadget.Block, exists bool) {
-	a.evictionMutex.RLock()
-	defer a.evictionMutex.RUnlock()
+func (g *Gadget) GetOrRegisterBlock(blockID models.BlockID) (block *blockgadget.Block, exists bool) {
+	g.evictionMutex.RLock()
+	defer g.evictionMutex.RUnlock()
 
-	return a.getOrRegisterBlock(blockID)
+	return g.getOrRegisterBlock(blockID)
 }
 
-func (a *Gadget) RefreshSequence(sequenceID markers.SequenceID, newMaxSupportedIndex, prevMaxSupportedIndex markers.Index) {
-	a.evictionMutex.RLock()
+func (g *Gadget) RefreshSequence(sequenceID markers.SequenceID, newMaxSupportedIndex, prevMaxSupportedIndex markers.Index) {
+	g.evictionMutex.RLock()
 
 	var acceptedBlocks, confirmedBlocks []*blockgadget.Block
 
-	totalWeight := a.totalWeightCallback()
+	totalWeight := g.totalWeightCallback()
 
-	if lastAcceptedIndex, exists := a.lastAcceptedMarker.Get(sequenceID); exists {
+	if lastAcceptedIndex, exists := g.lastAcceptedMarker.Get(sequenceID); exists {
 		prevMaxSupportedIndex = lo.Max(prevMaxSupportedIndex, lastAcceptedIndex)
 	}
 
 	for markerIndex := prevMaxSupportedIndex; markerIndex <= newMaxSupportedIndex; markerIndex++ {
-		marker, markerExists := a.tangle.Booker.BlockCeiling(markers.NewMarker(sequenceID, markerIndex))
+		marker, markerExists := g.tangle.Booker.BlockCeiling(markers.NewMarker(sequenceID, markerIndex))
 		if !markerExists {
 			break
 		}
 
-		blocksToAccept, blocksToConfirm := a.tryConfirmOrAccept(totalWeight, marker)
+		blocksToAccept, blocksToConfirm := g.tryConfirmOrAccept(totalWeight, marker)
 		acceptedBlocks = append(acceptedBlocks, blocksToAccept...)
 		confirmedBlocks = append(confirmedBlocks, blocksToConfirm...)
 
 		markerIndex = marker.Index()
 	}
 
-	a.evictionMutex.RUnlock()
+	g.evictionMutex.RUnlock()
 
 	// EVICTION
 	for _, block := range acceptedBlocks {
-		a.acceptanceOrder.Queue(block)
+		g.acceptanceOrder.Queue(block)
 	}
 	for _, block := range confirmedBlocks {
-		a.confirmationOrder.Queue(block)
+		g.confirmationOrder.Queue(block)
 	}
 }
 
@@ -249,45 +249,45 @@ func (a *Gadget) RefreshSequence(sequenceID markers.SequenceID, newMaxSupportedI
 // if the marker has accumulated enough witness weight to be both accepted and confirmed.
 // Acceptance and Confirmation use the same threshold if confirmation is possible.
 // If there is not enough online weight to achieve confirmation, then acceptance condition is evaluated based on total active weight.
-func (a *Gadget) tryConfirmOrAccept(totalWeight int64, marker markers.Marker) (blocksToAccept, blocksToConfirm []*blockgadget.Block) {
-	markerTotalWeight := a.tangle.Booker.VirtualVoting.MarkerVotersTotalWeight(marker)
+func (g *Gadget) tryConfirmOrAccept(totalWeight int64, marker markers.Marker) (blocksToAccept, blocksToConfirm []*blockgadget.Block) {
+	markerTotalWeight := g.tangle.Booker.VirtualVoting.MarkerVotersTotalWeight(marker)
 
 	// check if enough weight is online to confirm based on total weight
-	if IsThresholdReached(totalWeight, a.tangle.Booker.VirtualVoting.Validators.TotalWeight(), a.optsMarkerConfirmationThreshold) {
+	if IsThresholdReached(totalWeight, g.tangle.Booker.VirtualVoting.Validators.TotalWeight(), g.optsMarkerConfirmationThreshold) {
 		// check if marker weight has enough weight to be confirmed
-		if IsThresholdReached(totalWeight, markerTotalWeight, a.optsMarkerConfirmationThreshold) {
+		if IsThresholdReached(totalWeight, markerTotalWeight, g.optsMarkerConfirmationThreshold) {
 			// need to mark outside 'if' statement, otherwise only the first condition would be executed due to lazy evaluation
-			markerAccepted := a.setMarkerAccepted(marker)
-			markerConfirmed := a.setMarkerConfirmed(marker)
+			markerAccepted := g.setMarkerAccepted(marker)
+			markerConfirmed := g.setMarkerConfirmed(marker)
 			if markerAccepted || markerConfirmed {
-				return a.propagateAcceptanceConfirmation(marker, true)
+				return g.propagateAcceptanceConfirmation(marker, true)
 			}
 		}
-	} else if IsThresholdReached(a.tangle.Booker.VirtualVoting.Validators.TotalWeight(), markerTotalWeight, a.optsMarkerAcceptanceThreshold) && a.setMarkerAccepted(marker) {
-		return a.propagateAcceptanceConfirmation(marker, false)
+	} else if IsThresholdReached(g.tangle.Booker.VirtualVoting.Validators.TotalWeight(), markerTotalWeight, g.optsMarkerAcceptanceThreshold) && g.setMarkerAccepted(marker) {
+		return g.propagateAcceptanceConfirmation(marker, false)
 	}
 
 	return
 }
 
-func (a *Gadget) EvictUntil(index slot.Index) {
-	a.acceptanceOrder.EvictUntil(index)
-	a.confirmationOrder.EvictUntil(index)
+func (g *Gadget) EvictUntil(index slot.Index) {
+	g.acceptanceOrder.EvictUntil(index)
+	g.confirmationOrder.EvictUntil(index)
 
-	a.evictionMutex.Lock()
-	defer a.evictionMutex.Unlock()
+	g.evictionMutex.Lock()
+	defer g.evictionMutex.Unlock()
 
-	if evictedStorage := a.blocks.Evict(index); evictedStorage != nil {
-		a.events.SlotClosed.Trigger(evictedStorage)
+	if evictedStorage := g.blocks.Evict(index); evictedStorage != nil {
+		g.events.SlotClosed.Trigger(evictedStorage)
 	}
 }
 
-func (a *Gadget) block(id models.BlockID) (block *blockgadget.Block, exists bool) {
-	if a.evictionState.IsRootBlock(id) {
-		return blockgadget.NewRootBlock(id, a.slotTimeProviderFunc()), true
+func (g *Gadget) block(id models.BlockID) (block *blockgadget.Block, exists bool) {
+	if g.evictionState.IsRootBlock(id) {
+		return blockgadget.NewRootBlock(id, g.slotTimeProviderFunc()), true
 	}
 
-	storage := a.blocks.Get(id.Index(), false)
+	storage := g.blocks.Get(id.Index(), false)
 	if storage == nil {
 		return nil, false
 	}
@@ -295,13 +295,13 @@ func (a *Gadget) block(id models.BlockID) (block *blockgadget.Block, exists bool
 	return storage.Get(id)
 }
 
-func (a *Gadget) propagateAcceptanceConfirmation(marker markers.Marker, confirmed bool) (blocksToAccept, blocksToConfirm []*blockgadget.Block) {
-	bookerBlock, blockExists := a.tangle.Booker.BlockFromMarker(marker)
+func (g *Gadget) propagateAcceptanceConfirmation(marker markers.Marker, confirmed bool) (blocksToAccept, blocksToConfirm []*blockgadget.Block) {
+	bookerBlock, blockExists := g.tangle.Booker.BlockFromMarker(marker)
 	if !blockExists {
 		return
 	}
 
-	block, blockExists := a.getOrRegisterBlock(bookerBlock.ID())
+	block, blockExists := g.getOrRegisterBlock(bookerBlock.ID())
 	if !blockExists || block.IsStronglyAccepted() && !confirmed || block.IsStronglyConfirmed() && confirmed {
 		// this can happen when block was a root block and while processing this method, the root blocks method has already been replaced
 		return
@@ -328,7 +328,7 @@ func (a *Gadget) propagateAcceptanceConfirmation(marker markers.Marker, confirme
 		}
 
 		for parentBlockID := range walkerBlock.ParentsByType(models.StrongParentType) {
-			parentBlock, parentExists := a.getOrRegisterBlock(parentBlockID)
+			parentBlock, parentExists := g.getOrRegisterBlock(parentBlockID)
 
 			if !parentExists || !confirmed && parentBlock.IsStronglyAccepted() || confirmed && parentBlock.IsStronglyConfirmed() {
 				continue
@@ -341,14 +341,14 @@ func (a *Gadget) propagateAcceptanceConfirmation(marker markers.Marker, confirme
 		// therefore acceptance monotonicity can be broken, and that's why those blocks are marked as (weakly) accepted here.
 		// If those blocks later become accepted through their strong children, BlockAcceptance will not be triggered again.
 		for _, parentBlockID := range append(walkerBlock.ParentsByType(models.WeakParentType).Slice(), walkerBlock.ParentsByType(models.ShallowLikeParentType).Slice()...) {
-			parentBlock, parentExists := a.getOrRegisterBlock(parentBlockID)
+			parentBlock, parentExists := g.getOrRegisterBlock(parentBlockID)
 			if parentExists {
 				// ignore the error, as it can only occur if parentBlock belongs to evictedEpoch, and here it will not affect
 				// acceptance or confirmation monotonicity
-				_ = a.markAsAccepted(parentBlock, true)
+				_ = g.markAsAccepted(parentBlock, true)
 
 				if confirmed {
-					_ = a.markAsConfirmed(parentBlock, true)
+					_ = g.markAsConfirmed(parentBlock, true)
 				}
 			}
 		}
@@ -357,106 +357,106 @@ func (a *Gadget) propagateAcceptanceConfirmation(marker markers.Marker, confirme
 	return blocksToAccept, blocksToConfirm
 }
 
-func (a *Gadget) markAsAccepted(block *blockgadget.Block, weakly bool) (err error) {
-	if a.evictionState.InEvictedSlot(block.ID()) {
+func (g *Gadget) markAsAccepted(block *blockgadget.Block, weakly bool) (err error) {
+	if g.evictionState.InEvictedSlot(block.ID()) {
 		return errors.Errorf("block with %s belongs to an evicted slot", block.ID())
 	}
 
 	if block.SetAccepted(weakly) {
 		// If block has been orphaned before acceptance, remove the flag from the block. Otherwise, remove the block from TimedHeap.
 		if block.IsOrphaned() {
-			a.tangle.BlockDAG.SetOrphaned(block.Block.Block, false)
+			g.tangle.BlockDAG.SetOrphaned(block.Block.Block, false)
 		}
 
-		a.events.BlockAccepted.Trigger(block)
+		g.events.BlockAccepted.Trigger(block)
 
 		// set ConfirmationState of payload (applicable only to transactions)
 		if tx, ok := block.Transaction(); ok {
-			a.tangle.Ledger.SetTransactionInclusionSlot(tx.ID(), a.slotTimeProviderFunc().IndexFromTime(block.IssuingTime()))
+			g.tangle.Ledger.SetTransactionInclusionSlot(tx.ID(), g.slotTimeProviderFunc().IndexFromTime(block.IssuingTime()))
 		}
 	}
 
 	return nil
 }
 
-func (a *Gadget) markAsConfirmed(block *blockgadget.Block, weakly bool) (err error) {
-	if a.evictionState.InEvictedSlot(block.ID()) {
+func (g *Gadget) markAsConfirmed(block *blockgadget.Block, weakly bool) (err error) {
+	if g.evictionState.InEvictedSlot(block.ID()) {
 		return errors.Errorf("block with %s belongs to an evicted slot", block.ID())
 	}
 
 	if block.SetConfirmed(weakly) {
-		a.events.BlockConfirmed.Trigger(block)
+		g.events.BlockConfirmed.Trigger(block)
 	}
 
 	return nil
 }
 
-func (a *Gadget) setMarkerAccepted(marker markers.Marker) (wasUpdated bool) {
+func (g *Gadget) setMarkerAccepted(marker markers.Marker) (wasUpdated bool) {
 	// This method can be called from multiple goroutines and we need to update the value atomically.
 	// However, when reading lastAcceptedMarker we don't need to lock because the storage is already locking.
-	a.lastAcceptedMarkerMutex.Lock()
-	defer a.lastAcceptedMarkerMutex.Unlock()
+	g.lastAcceptedMarkerMutex.Lock()
+	defer g.lastAcceptedMarkerMutex.Unlock()
 
-	if index, exists := a.lastAcceptedMarker.Get(marker.SequenceID()); !exists || index < marker.Index() {
-		a.lastAcceptedMarker.Set(marker.SequenceID(), marker.Index())
+	if index, exists := g.lastAcceptedMarker.Get(marker.SequenceID()); !exists || index < marker.Index() {
+		g.lastAcceptedMarker.Set(marker.SequenceID(), marker.Index())
 		return true
 	}
 	return false
 }
 
-func (a *Gadget) setMarkerConfirmed(marker markers.Marker) (wasUpdated bool) {
+func (g *Gadget) setMarkerConfirmed(marker markers.Marker) (wasUpdated bool) {
 	// This method can be called from multiple goroutines and we need to update the value atomically.
 	// However, when reading lastConfirmedMarker we don't need to lock because the storage is already locking.
-	a.lastConfirmedMarkerMutex.Lock()
-	defer a.lastConfirmedMarkerMutex.Unlock()
+	g.lastConfirmedMarkerMutex.Lock()
+	defer g.lastConfirmedMarkerMutex.Unlock()
 
-	if index, exists := a.lastConfirmedMarker.Get(marker.SequenceID()); !exists || index < marker.Index() {
-		a.lastConfirmedMarker.Set(marker.SequenceID(), marker.Index())
+	if index, exists := g.lastConfirmedMarker.Get(marker.SequenceID()); !exists || index < marker.Index() {
+		g.lastConfirmedMarker.Set(marker.SequenceID(), marker.Index())
 		return true
 	}
 	return false
 }
 
-func (a *Gadget) acceptanceFailed(block *blockgadget.Block, err error) {
-	a.events.Error.Trigger(errors.Wrapf(err, "could not mark block %s as accepted", block.ID()))
+func (g *Gadget) acceptanceFailed(block *blockgadget.Block, err error) {
+	g.events.Error.Trigger(errors.Wrapf(err, "could not mark block %s as accepted", block.ID()))
 }
 
-func (a *Gadget) confirmationFailed(block *blockgadget.Block, err error) {
-	a.events.Error.Trigger(errors.Wrapf(err, "could not mark block %s as confirmed", block.ID()))
+func (g *Gadget) confirmationFailed(block *blockgadget.Block, err error) {
+	g.events.Error.Trigger(errors.Wrapf(err, "could not mark block %s as confirmed", block.ID()))
 }
 
-func (a *Gadget) evictSequence(sequenceID markers.SequenceID) {
-	a.evictionMutex.Lock()
-	defer a.evictionMutex.Unlock()
+func (g *Gadget) evictSequence(sequenceID markers.SequenceID) {
+	g.evictionMutex.Lock()
+	defer g.evictionMutex.Unlock()
 
-	a.lastAcceptedMarker.Delete(sequenceID)
-	a.lastConfirmedMarker.Delete(sequenceID)
+	g.lastAcceptedMarker.Delete(sequenceID)
+	g.lastConfirmedMarker.Delete(sequenceID)
 }
 
-func (a *Gadget) getOrRegisterBlock(blockID models.BlockID) (block *blockgadget.Block, exists bool) {
-	block, exists = a.block(blockID)
+func (g *Gadget) getOrRegisterBlock(blockID models.BlockID) (block *blockgadget.Block, exists bool) {
+	block, exists = g.block(blockID)
 	if !exists {
-		virtualVotingBlock, virtualVotingBlockExists := a.tangle.Booker.Block(blockID)
+		virtualVotingBlock, virtualVotingBlockExists := g.tangle.Booker.Block(blockID)
 		if !virtualVotingBlockExists {
 			return nil, false
 		}
 
 		var err error
-		block, err = a.registerBlock(virtualVotingBlock)
+		block, err = g.registerBlock(virtualVotingBlock)
 		if err != nil {
-			a.events.Error.Trigger(errors.Wrapf(err, "could not register block %s", blockID))
+			g.events.Error.Trigger(errors.Wrapf(err, "could not register block %s", blockID))
 			return nil, false
 		}
 	}
 	return block, true
 }
 
-func (a *Gadget) registerBlock(virtualVotingBlock *virtualvoting.Block) (block *blockgadget.Block, err error) {
-	if a.evictionState.InEvictedSlot(virtualVotingBlock.ID()) {
+func (g *Gadget) registerBlock(virtualVotingBlock *virtualvoting.Block) (block *blockgadget.Block, err error) {
+	if g.evictionState.InEvictedSlot(virtualVotingBlock.ID()) {
 		return nil, errors.Errorf("block %s belongs to an evicted slot", virtualVotingBlock.ID())
 	}
 
-	blockStorage := a.blocks.Get(virtualVotingBlock.ID().Index(), true)
+	blockStorage := g.blocks.Get(virtualVotingBlock.ID().Index(), true)
 	block, _ = blockStorage.GetOrCreate(virtualVotingBlock.ID(), func() *blockgadget.Block {
 		return blockgadget.NewBlock(virtualVotingBlock)
 	})
@@ -468,32 +468,32 @@ func (a *Gadget) registerBlock(virtualVotingBlock *virtualvoting.Block) (block *
 
 // region Conflict Acceptance //////////////////////////////////////////////////////////////////////////////////////////
 
-func (a *Gadget) RefreshConflictAcceptance(conflictID utxo.TransactionID) {
-	conflict, exists := a.tangle.Booker.Ledger.ConflictDAG().Conflict(conflictID)
+func (g *Gadget) RefreshConflictAcceptance(conflictID utxo.TransactionID) {
+	conflict, exists := g.tangle.Booker.Ledger.ConflictDAG().Conflict(conflictID)
 	if !exists {
 		return
 	}
 
-	conflictWeight := a.tangle.Booker.VirtualVoting.ConflictVotersTotalWeight(conflictID)
+	conflictWeight := g.tangle.Booker.VirtualVoting.ConflictVotersTotalWeight(conflictID)
 
-	if !IsThresholdReached(a.tangle.Booker.VirtualVoting.Validators.TotalWeight(), conflictWeight, a.optsConflictAcceptanceThreshold) {
+	if !IsThresholdReached(g.tangle.Booker.VirtualVoting.Validators.TotalWeight(), conflictWeight, g.optsConflictAcceptanceThreshold) {
 		return
 	}
 
 	markAsAccepted := true
 
 	conflict.ForEachConflictingConflict(func(conflictingConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) bool {
-		conflictingConflictWeight := a.tangle.Booker.VirtualVoting.ConflictVotersTotalWeight(conflictingConflict.ID())
+		conflictingConflictWeight := g.tangle.Booker.VirtualVoting.ConflictVotersTotalWeight(conflictingConflict.ID())
 
 		// if the conflict is less than 66% ahead, then don't mark as accepted
-		if !IsThresholdReached(a.tangle.Booker.VirtualVoting.Validators.TotalWeight(), conflictWeight-conflictingConflictWeight, a.optsConflictAcceptanceThreshold) {
+		if !IsThresholdReached(g.tangle.Booker.VirtualVoting.Validators.TotalWeight(), conflictWeight-conflictingConflictWeight, g.optsConflictAcceptanceThreshold) {
 			markAsAccepted = false
 		}
 		return markAsAccepted
 	})
 
 	if markAsAccepted {
-		a.tangle.Booker.Ledger.ConflictDAG().SetConflictAccepted(conflictID)
+		g.tangle.Booker.Ledger.ConflictDAG().SetConflictAccepted(conflictID)
 	}
 }
 
