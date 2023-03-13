@@ -81,7 +81,7 @@ func (t *TestFramework) Identity(alias string) (v *identity.Identity) {
 }
 
 func (t *TestFramework) Identities(aliases ...string) (identities *advancedset.AdvancedSet[*identity.Identity]) {
-	identities = advancedset.NewAdvancedSet[*identity.Identity]()
+	identities = advancedset.New[*identity.Identity]()
 	for _, alias := range aliases {
 		identities.Add(t.Identity(alias))
 	}

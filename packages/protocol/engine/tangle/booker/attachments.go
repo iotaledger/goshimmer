@@ -99,7 +99,7 @@ func (a *attachments) Get(txID utxo.TransactionID) (attachments []*virtualvoting
 }
 
 func (a *attachments) GetAttachmentBlocks(txID utxo.TransactionID) (attachments *advancedset.AdvancedSet[*virtualvoting.Block]) {
-	attachments = advancedset.NewAdvancedSet[*virtualvoting.Block]()
+	attachments = advancedset.New[*virtualvoting.Block]()
 
 	if txStorage := a.storage(txID, false); txStorage != nil {
 		txStorage.ForEach(func(_ slot.Index, blocks *shrinkingmap.ShrinkingMap[models.BlockID, *virtualvoting.Block]) bool {

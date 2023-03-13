@@ -51,7 +51,7 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) TrackVo
 func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) Voters(conflict ConflictIDType) (voters *advancedset.AdvancedSet[identity.ID]) {
 	votesObj, exists := c.votes.Get(conflict)
 	if !exists {
-		return advancedset.NewAdvancedSet[identity.ID]()
+		return advancedset.New[identity.ID]()
 	}
 
 	return votesObj.Voters()

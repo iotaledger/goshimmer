@@ -52,7 +52,7 @@ type SequenceIDs = *advancedset.AdvancedSet[SequenceID]
 
 // NewSequenceIDs creates a new collection of SequenceIDs.
 func NewSequenceIDs(sequenceIDs ...SequenceID) (result SequenceIDs) {
-	result = advancedset.NewAdvancedSet(sequenceIDs...)
+	result = advancedset.New(sequenceIDs...)
 
 	return
 }

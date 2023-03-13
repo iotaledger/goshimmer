@@ -158,7 +158,7 @@ type Blocks = *advancedset.AdvancedSet[*Block]
 
 // NewBlocks returns a new Block collection with the given elements.
 func NewBlocks(blocks ...*Block) (newBlocks Blocks) {
-	return advancedset.NewAdvancedSet(blocks...)
+	return advancedset.New(blocks...)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

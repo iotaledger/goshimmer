@@ -366,7 +366,7 @@ func (p *Protocol) ProcessAttestationsRequest(forkingPoint *commitment.Commitmen
 			return
 		}
 
-		attestationsSet := advancedset.NewAdvancedSet[*notarization.Attestation]()
+		attestationsSet := advancedset.New[*notarization.Attestation]()
 		if err := attestationsForSlot.Stream(func(_ identity.ID, attestation *notarization.Attestation) bool {
 			attestationsSet.Add(attestation)
 			return true

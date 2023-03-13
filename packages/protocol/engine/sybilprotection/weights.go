@@ -79,7 +79,7 @@ func (w *Weights) BatchUpdate(batch *WeightsBatch) {
 	defer w.mutex.Unlock()
 
 	direction := int64(lo.Compare(batch.TargetSlot(), w.totalWeight.UpdateTime))
-	removedWeights := advancedset.NewAdvancedSet[identity.ID]()
+	removedWeights := advancedset.New[identity.ID]()
 
 	batch.ForEach(func(id identity.ID, diff int64) {
 		oldWeight, exists := w.get(id)

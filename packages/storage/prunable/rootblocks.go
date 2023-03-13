@@ -52,7 +52,7 @@ func (r *RootBlocks) Delete(blockID models.BlockID) (err error) {
 
 // LoadAll loads all root blocks for a slot index.
 func (r *RootBlocks) LoadAll(index slot.Index) (solidEntryPoints *advancedset.AdvancedSet[models.BlockID]) {
-	solidEntryPoints = advancedset.NewAdvancedSet[models.BlockID]()
+	solidEntryPoints = advancedset.New[models.BlockID]()
 	if err := r.Stream(index, func(id models.BlockID) error {
 		solidEntryPoints.Add(id)
 		return nil

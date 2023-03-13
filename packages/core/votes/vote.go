@@ -96,7 +96,7 @@ func (v *Votes[ConflictIDType, VotePowerType]) Delete(vote *Vote[ConflictIDType,
 }
 
 func (v *Votes[ConflictIDType, VotePowerType]) Voters() (voters *advancedset.AdvancedSet[identity.ID]) {
-	voters = advancedset.NewAdvancedSet[identity.ID]()
+	voters = advancedset.New[identity.ID]()
 
 	v.m.RLock()
 	defer v.m.RUnlock()

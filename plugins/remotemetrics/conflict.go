@@ -119,7 +119,7 @@ func updateMetricCounts(conflictID utxo.TransactionID, transactionID utxo.Transa
 func measureInitialConflictCounts() {
 	activeConflictsMutex.Lock()
 	defer activeConflictsMutex.Unlock()
-	activeConflicts = advancedset.NewAdvancedSet[utxo.TransactionID]()
+	activeConflicts = advancedset.New[utxo.TransactionID]()
 	conflictsToRemove := make([]utxo.TransactionID, 0)
 	deps.Protocol.Engine().Ledger.MemPool().ConflictDAG().ForEachConflict(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		switch conflict.ID() {

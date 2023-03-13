@@ -64,7 +64,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) CreateConflict(id Conflict
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	conflictParents := advancedset.NewAdvancedSet[*Conflict[ConflictIDType, ResourceIDType]]()
+	conflictParents := advancedset.New[*Conflict[ConflictIDType, ResourceIDType]]()
 	for it := parentIDs.Iterator(); it.HasNext(); {
 		parentID := it.Next()
 		parent, exists := c.conflicts.Get(parentID)
@@ -76,7 +76,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) CreateConflict(id Conflict
 	}
 
 	conflict, created := c.conflicts.GetOrCreate(id, func() (newConflict *Conflict[ConflictIDType, ResourceIDType]) {
-		newConflict = NewConflict(id, parentIDs, advancedset.NewAdvancedSet[*ConflictSet[ConflictIDType, ResourceIDType]](), confirmationState)
+		newConflict = NewConflict(id, parentIDs, advancedset.New[*ConflictSet[ConflictIDType, ResourceIDType]](), confirmationState)
 
 		c.registerConflictWithConflictSet(newConflict, conflictingResourceIDs)
 
@@ -178,7 +178,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) UnconfirmedConflicts(confl
 		return conflictIDs.Clone()
 	}
 
-	pendingConflictIDs = advancedset.NewAdvancedSet[ConflictIDType]()
+	pendingConflictIDs = advancedset.New[ConflictIDType]()
 	for conflictWalker := conflictIDs.Iterator(); conflictWalker.HasNext(); {
 		if currentConflictID := conflictWalker.Next(); !c.confirmationState(currentConflictID).IsAccepted() {
 			pendingConflictIDs.Add(currentConflictID)
@@ -194,9 +194,9 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) SetConflictAccepted(confli
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	conflictsToReject := advancedset.NewAdvancedSet[*Conflict[ConflictIDType, ResourceIDType]]()
+	conflictsToReject := advancedset.New[*Conflict[ConflictIDType, ResourceIDType]]()
 
-	for confirmationWalker := advancedset.NewAdvancedSet(conflictID).Iterator(); confirmationWalker.HasNext(); {
+	for confirmationWalker := advancedset.New(conflictID).Iterator(); confirmationWalker.HasNext(); {
 		currentConflictID := confirmationWalker.Next()
 		conflict, exists := c.conflicts.Get(currentConflictID)
 		if !exists {
@@ -298,12 +298,12 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) DetermineVotes(conflictIDs
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
-	addedConflicts = advancedset.NewAdvancedSet[ConflictIDType]()
+	addedConflicts = advancedset.New[ConflictIDType]()
 	for it := conflictIDs.Iterator(); it.HasNext(); {
 		votedConflictID := it.Next()
 
 		// The starting conflicts should not be considered as having common Parents, hence we treat them separately.
-		conflictAddedConflicts, _ := c.determineConflictsToAdd(advancedset.NewAdvancedSet(votedConflictID))
+		conflictAddedConflicts, _ := c.determineConflictsToAdd(advancedset.New(votedConflictID))
 		addedConflicts.AddAll(conflictAddedConflicts)
 	}
 	revokedConflicts, isInvalid = c.determineConflictsToRevoke(addedConflicts)
@@ -314,7 +314,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) DetermineVotes(conflictIDs
 // determineConflictsToAdd iterates through the past cone of the given Conflicts and determines the ConflictIDs that
 // are affected by the Vote.
 func (c *ConflictDAG[ConflictIDType, ResourceIDType]) determineConflictsToAdd(conflictIDs *advancedset.AdvancedSet[ConflictIDType]) (addedConflicts *advancedset.AdvancedSet[ConflictIDType], allParentsAdded bool) {
-	addedConflicts = advancedset.NewAdvancedSet[ConflictIDType]()
+	addedConflicts = advancedset.New[ConflictIDType]()
 
 	for it := conflictIDs.Iterator(); it.HasNext(); {
 		currentConflictID := it.Next()
@@ -338,7 +338,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) determineConflictsToAdd(co
 // determineConflictsToRevoke determines which Conflicts of the conflicting future cone of the added Conflicts are affected
 // by the vote and if the vote is valid (not voting for conflicting Conflicts).
 func (c *ConflictDAG[ConflictIDType, ResourceIDType]) determineConflictsToRevoke(addedConflicts *advancedset.AdvancedSet[ConflictIDType]) (revokedConflicts *advancedset.AdvancedSet[ConflictIDType], isInvalid bool) {
-	revokedConflicts = advancedset.NewAdvancedSet[ConflictIDType]()
+	revokedConflicts = advancedset.New[ConflictIDType]()
 	subTractionWalker := walker.New[ConflictIDType]()
 	for it := addedConflicts.Iterator(); it.HasNext(); {
 		conflict, exists := c.conflicts.Get(it.Next())
@@ -474,7 +474,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) HandleOrphanedConflict(con
 		return
 	}
 
-	c.rejectConflictsWithFutureCone(advancedset.NewAdvancedSet(initialConflict))
+	c.rejectConflictsWithFutureCone(advancedset.New(initialConflict))
 
 	// iterate conflict's conflictSets. if only one conflict is pending, then mark it appropriately
 	for it := initialConflict.conflictSets.Iterator(); it.HasNext(); {
