@@ -96,8 +96,6 @@ func New(workers *workerpool.Group, tangle *tangle.Tangle, evictionState *evicti
 			})
 
 			g.tangle.Booker.Events.MarkerManager.SequenceEvicted.Hook(g.evictSequence, event.WithWorkerPool(wp))
-
-			g.evictionState.Events.SlotEvicted.Hook(g.EvictUntil, event.WithWorkerPool(g.workers.CreatePool("Eviction", 1)))
 		},
 		(*Gadget).TriggerConstructed,
 	)
@@ -118,6 +116,8 @@ func (a *Gadget) Initialize(slotTimeProviderFunc func() *slot.TimeProvider, tota
 
 		return a.getOrRegisterBlock(id)
 	}, (*blockgadget.Block).IsStronglyConfirmed, lo.Bind(false, a.markAsConfirmed), a.confirmationFailed, (*blockgadget.Block).StrongParents)
+
+	a.evictionState.Events.SlotEvicted.Hook(a.EvictUntil, event.WithWorkerPool(a.workers.CreatePool("Eviction", 1)))
 
 	a.TriggerInitialized()
 }
