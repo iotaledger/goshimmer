@@ -274,7 +274,10 @@ func (s *StateDiffs) storeTransaction(transaction utxo.Transaction, metadata *me
 	}
 
 	for it := metadata.OutputIDs().Iterator(); it.HasNext(); {
-		if err = s.StoreCreatedOutput(s.outputWithMetadata(it.Next(), metadata.InclusionSlot())); err != nil {
+		outputWithMetadata := s.outputWithMetadata(it.Next())
+		outputWithMetadata.SetIndex(metadata.InclusionSlot())
+
+		if err = s.StoreCreatedOutput(outputWithMetadata); err != nil {
 			return errors.Wrap(err, "failed to storeOutput created output")
 		}
 	}
@@ -288,14 +291,10 @@ func (s *StateDiffs) storeTransaction(transaction utxo.Transaction, metadata *me
 	return nil
 }
 
-func (s *StateDiffs) outputWithMetadata(outputID utxo.OutputID, index ...slot.Index) (outputWithMetadata *mempool.OutputWithMetadata) {
+func (s *StateDiffs) outputWithMetadata(outputID utxo.OutputID) (outputWithMetadata *mempool.OutputWithMetadata) {
 	s.memPool.Storage().CachedOutput(outputID).Consume(func(output utxo.Output) {
 		s.memPool.Storage().CachedOutputMetadata(outputID).Consume(func(outputMetadata *mempool.OutputMetadata) {
-			if len(index) > 0 {
-				outputWithMetadata = mempool.NewOutputWithMetadata(index[0], outputID, output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())
-			} else {
-				outputWithMetadata = mempool.NewOutputWithMetadata(outputMetadata.InclusionSlot(), outputID, output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())
-			}
+			outputWithMetadata = mempool.NewOutputWithMetadata(outputMetadata.InclusionSlot(), outputID, output, outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())
 		})
 	})
 
