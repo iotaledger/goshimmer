@@ -395,7 +395,7 @@ func SendTransaction(t *testing.T, from *framework.Node, to *framework.Node, col
 func RequireBlocksAvailable(t *testing.T, nodes []*framework.Node, blockIDs map[string]DataBlockSent, waitFor time.Duration, tick time.Duration, accepted ...bool) {
 	missing := make(map[identity.ID]*advancedset.AdvancedSet[string], len(nodes))
 	for _, node := range nodes {
-		missing[node.ID()] = advancedset.NewAdvancedSet[string]()
+		missing[node.ID()] = advancedset.New[string]()
 		for blockID := range blockIDs {
 			missing[node.ID()].Add(blockID)
 		}
@@ -445,7 +445,7 @@ func RequireBlocksAvailable(t *testing.T, nodes []*framework.Node, blockIDs map[
 func RequireBlocksOrphaned(t *testing.T, nodes []*framework.Node, blockIDs map[string]DataBlockSent, waitFor time.Duration, tick time.Duration) {
 	missing := make(map[identity.ID]*advancedset.AdvancedSet[string], len(nodes))
 	for _, node := range nodes {
-		missing[node.ID()] = advancedset.NewAdvancedSet[string]()
+		missing[node.ID()] = advancedset.New[string]()
 		for blockID := range blockIDs {
 			missing[node.ID()].Add(blockID)
 		}

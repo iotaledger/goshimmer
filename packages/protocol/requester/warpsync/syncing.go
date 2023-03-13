@@ -58,7 +58,7 @@ func (m *Manager) syncRange(ctx context.Context, start, end slot.Index, startSC 
 	eg.SetLimit(m.concurrency)
 
 	slotProcessedChan := make(chan slot.Index)
-	discardedPeers := advancedset.NewAdvancedSet[identity.ID]()
+	discardedPeers := advancedset.New[identity.ID]()
 
 	workerFunc := m.syncSlotFunc(errCtx, eg, validPeers, discardedPeers, ecChain, slotProcessedChan)
 	completedSlot = m.queueSlidingSlots(errCtx, startRange, endRange, workerFunc, slotProcessedChan)

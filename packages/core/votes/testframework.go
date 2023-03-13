@@ -51,7 +51,7 @@ func (t *TestFramework) Validator(alias string) (v identity.ID) {
 }
 
 func (t *TestFramework) ValidatorsSet(aliases ...string) (validators *advancedset.AdvancedSet[identity.ID]) {
-	validators = advancedset.NewAdvancedSet[identity.ID]()
+	validators = advancedset.New[identity.ID]()
 	for _, alias := range aliases {
 		validators.Add(t.Validator(alias))
 	}

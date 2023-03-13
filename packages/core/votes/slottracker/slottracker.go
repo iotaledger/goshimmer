@@ -30,7 +30,7 @@ func NewSlotTracker(cutoffIndexCallback func() slot.Index) *SlotTracker {
 
 func (s *SlotTracker) slotVoters(slotIndex slot.Index) *advancedset.AdvancedSet[identity.ID] {
 	slotVoters, _ := s.votersPerSlot.GetOrCreate(slotIndex, func() *advancedset.AdvancedSet[identity.ID] {
-		return advancedset.NewAdvancedSet[identity.ID]()
+		return advancedset.New[identity.ID]()
 	})
 	return slotVoters
 }
@@ -63,7 +63,7 @@ func (s *SlotTracker) TrackVotes(slotIndex slot.Index, voterID identity.ID, powe
 }
 
 func (s *SlotTracker) Voters(slotIndex slot.Index) *advancedset.AdvancedSet[identity.ID] {
-	voters := advancedset.NewAdvancedSet[identity.ID]()
+	voters := advancedset.New[identity.ID]()
 
 	slotVoters, exists := s.votersPerSlot.Get(slotIndex)
 	if !exists {

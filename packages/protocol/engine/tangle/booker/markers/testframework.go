@@ -42,7 +42,7 @@ func (t *TestFramework) StructureDetails(alias string) (structureDetails *Struct
 }
 
 func (t *TestFramework) StructureDetailsSet(aliases ...string) (structureDetailsSlice []*StructureDetails) {
-	structureDetailsSet := advancedset.NewAdvancedSet[*StructureDetails]()
+	structureDetailsSet := advancedset.New[*StructureDetails]()
 	for _, alias := range aliases {
 		structureDetailsSet.Add(t.StructureDetails(alias))
 	}

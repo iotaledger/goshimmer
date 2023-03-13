@@ -70,7 +70,7 @@ type TransactionIDs = *advancedset.AdvancedSet[TransactionID]
 
 // NewTransactionIDs returns a new TransactionID collection with the given elements.
 func NewTransactionIDs(ids ...TransactionID) (newTransactionIDs TransactionIDs) {
-	return advancedset.NewAdvancedSet(ids...)
+	return advancedset.New(ids...)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -198,7 +198,7 @@ type OutputIDs = *advancedset.AdvancedSet[OutputID]
 
 // NewOutputIDs returns a new OutputID collection with the given elements.
 func NewOutputIDs(ids ...OutputID) (newOutputIDs OutputIDs) {
-	return advancedset.NewAdvancedSet(ids...)
+	return advancedset.New(ids...)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

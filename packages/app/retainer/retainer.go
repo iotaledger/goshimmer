@@ -104,7 +104,7 @@ func (r *Retainer) LoadAllBlockMetadata(index slot.Index) (ids *advancedset.Adva
 	r.metadataEvictionLock.RLock(index)
 	defer r.metadataEvictionLock.RUnlock(index)
 
-	ids = advancedset.NewAdvancedSet[*BlockMetadata]()
+	ids = advancedset.New[*BlockMetadata]()
 	r.StreamBlocksMetadata(index, func(id models.BlockID, metadata *BlockMetadata) {
 		ids.Add(metadata)
 	})

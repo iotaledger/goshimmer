@@ -228,7 +228,7 @@ func (b *BlockDAG) isFutureBlock(block *Block) (isFutureBlock bool) {
 		block.setFuture()
 
 		lo.Return1(b.futureBlocks.Get(block.Commitment().Index(), true).GetOrCreate(block.Commitment().ID(), func() *advancedset.AdvancedSet[*Block] {
-			return advancedset.NewAdvancedSet[*Block]()
+			return advancedset.New[*Block]()
 		})).Add(block)
 		return true
 	}

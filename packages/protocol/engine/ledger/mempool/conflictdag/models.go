@@ -26,7 +26,7 @@ func NewConflict[ConflictIDType comparable, ResourceIDType comparable](id Confli
 	c = &Conflict[ConflictIDType, ResourceIDType]{
 		id:                id,
 		parents:           parents,
-		children:          advancedset.NewAdvancedSet[*Conflict[ConflictIDType, ResourceIDType]](),
+		children:          advancedset.New[*Conflict[ConflictIDType, ResourceIDType]](),
 		conflictSets:      conflictSets,
 		confirmationState: confirmationState,
 	}
@@ -150,7 +150,7 @@ type ConflictSet[ConflictIDType, ResourceIDType comparable] struct {
 func NewConflictSet[ConflictIDType comparable, ResourceIDType comparable](id ResourceIDType) (c *ConflictSet[ConflictIDType, ResourceIDType]) {
 	return &ConflictSet[ConflictIDType, ResourceIDType]{
 		id:        id,
-		conflicts: advancedset.NewAdvancedSet[*Conflict[ConflictIDType, ResourceIDType]](),
+		conflicts: advancedset.New[*Conflict[ConflictIDType, ResourceIDType]](),
 	}
 }
 
