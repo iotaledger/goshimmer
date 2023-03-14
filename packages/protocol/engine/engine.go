@@ -216,8 +216,6 @@ func (e *Engine) Import(reader io.ReadSeeker) (err error) {
 		return errors.Wrap(err, "failed to import settings")
 	} else if err = e.Storage.Commitments.Import(reader); err != nil {
 		return errors.Wrap(err, "failed to import commitments")
-	} else if err = e.Storage.Settings.SetChainID(e.Storage.Settings.LatestCommitment().ID()); err != nil {
-		return errors.Wrap(err, "failed to set chainID")
 	} else if err = e.Ledger.Import(reader); err != nil {
 		return errors.Wrap(err, "failed to import ledger")
 	} else if err = e.EvictionState.Import(reader); err != nil {
