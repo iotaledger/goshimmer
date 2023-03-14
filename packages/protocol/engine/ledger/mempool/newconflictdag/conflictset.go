@@ -6,34 +6,30 @@ import (
 	"github.com/iotaledger/hive.go/ds/advancedset"
 )
 
-type ConflictSet[ConflictIDType, ResourceIDType comparable] struct {
-	conflicts *advancedset.AdvancedSet[*Conflict[ConflictIDType, ResourceIDType]]
+type ConflictSet[ConflictID, ResourceID IDType] struct {
+	conflicts *advancedset.AdvancedSet[*Conflict[ConflictID, ResourceID]]
 
 	mutex sync.RWMutex
 }
 
-func (c *ConflictSet[ConflictIDType, ResourceIDType]) addConflict(conflict *Conflict[ConflictIDType, ResourceIDType]) (added bool) {
+func (c *ConflictSet[ConflictID, ResourceID]) RegisterConflict(newConflict *Conflict[ConflictID, ResourceID]) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	if added = c.conflicts.Add(conflict); added {
-		c.updatedConflictsWithHigherWeight(conflict)
+	if !c.conflicts.Add(newConflict) {
+		return
 	}
 
-	return added
-}
-
-func (c *ConflictSet[ConflictIDType, ResourceIDType]) updatedConflictsWithHigherWeight(conflict *Conflict[ConflictIDType, ResourceIDType]) {
-	existingConflictsWithHigherWeight := make([]*Conflict[ConflictIDType, ResourceIDType], 0)
-	_ = c.conflicts.ForEach(func(existingConflict *Conflict[ConflictIDType, ResourceIDType]) error {
-		if conflict.weight.Compare(existingConflict.weight) == 1 {
-			existingConflict.addConflictsWithHigherWeight(conflict)
-		} else if conflict.weight.Compare(existingConflict.weight) == -1 {
-			existingConflictsWithHigherWeight = append(existingConflictsWithHigherWeight, existingConflict)
+	lighterConflicts := make([]*Conflict[ConflictID, ResourceID], 0)
+	for _, existingConflict := range c.conflicts.Slice() {
+		if comparison := existingConflict.CompareTo(newConflict); comparison == Equal || comparison == Larger && newConflict.registerHeavierConflict(existingConflict) {
+			continue
 		}
 
-		return nil
-	})
+		lighterConflicts = append(lighterConflicts, existingConflict)
+	}
 
-	conflict.addConflictsWithHigherWeight(existingConflictsWithHigherWeight...)
+	for _, lighterConflict := range lighterConflicts {
+		lighterConflict.registerHeavierConflict(newConflict)
+	}
 }

@@ -1,81 +1,109 @@
 package newconflictdag
 
 import (
+	"bytes"
 	"sync"
 
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/ds/shrinkingmap"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/stringify"
 )
 
-type Conflict[ConflictIDType, ResourceIDType comparable] struct {
-	id                        ConflictIDType
-	parents                   *advancedset.AdvancedSet[ConflictIDType]
-	children                  *advancedset.AdvancedSet[*Conflict[ConflictIDType, ResourceIDType]]
-	conflictSets              *advancedset.AdvancedSet[*ConflictSet[ConflictIDType, ResourceIDType]]
-	conflictsWithHigherWeight *shrinkingmap.ShrinkingMap[ConflictIDType, *Conflict[ConflictIDType, ResourceIDType]]
-	weight                    Weight
-	preferredInstead          *Conflict[ConflictIDType, ResourceIDType]
+type Conflict[ConflictID, ResourceID IDType] struct {
+	OnWeightUpdated *event.Event1[*Conflict[ConflictID, ResourceID]]
+
+	id           ConflictID
+	parents      *advancedset.AdvancedSet[ConflictID]
+	children     *advancedset.AdvancedSet[*Conflict[ConflictID, ResourceID]]
+	conflictSets *advancedset.AdvancedSet[*ConflictSet[ConflictID, ResourceID]]
+	weight       *Weight
+
+	heavierConflicts *shrinkingmap.ShrinkingMap[ConflictID, *Conflict[ConflictID, ResourceID]]
+	preferredInstead *Conflict[ConflictID, ResourceID]
 
 	m sync.RWMutex
 }
 
-func NewConflict[ConflictIDType comparable, ResourceIDType comparable](id ConflictIDType, parents *advancedset.AdvancedSet[ConflictIDType], conflictSets *advancedset.AdvancedSet[*ConflictSet[ConflictIDType, ResourceIDType]], weight Weight) *Conflict[ConflictIDType, ResourceIDType] {
+func NewConflict[ConflictIDType, ResourceIDType IDType](id ConflictIDType, parents *advancedset.AdvancedSet[ConflictIDType], conflictSets *advancedset.AdvancedSet[*ConflictSet[ConflictIDType, ResourceIDType]], weight *Weight) *Conflict[ConflictIDType, ResourceIDType] {
 	c := &Conflict[ConflictIDType, ResourceIDType]{
-		id:                        id,
-		parents:                   parents,
-		children:                  advancedset.NewAdvancedSet[*Conflict[ConflictIDType, ResourceIDType]](),
-		conflictSets:              conflictSets,
-		conflictsWithHigherWeight: shrinkingmap.New[ConflictIDType, *Conflict[ConflictIDType, ResourceIDType]](),
-		weight:                    weight,
+		id:               id,
+		parents:          parents,
+		children:         advancedset.NewAdvancedSet[*Conflict[ConflictIDType, ResourceIDType]](),
+		conflictSets:     conflictSets,
+		heavierConflicts: shrinkingmap.New[ConflictIDType, *Conflict[ConflictIDType, ResourceIDType]](),
+		weight:           weight,
 	}
 
-	_ = c.conflictSets.ForEach(func(conflictSet *ConflictSet[ConflictIDType, ResourceIDType]) error {
-		conflictSet.addConflict(c)
-		return nil
-	})
+	for _, conflictSet := range conflictSets.Slice() {
+		conflictSet.RegisterConflict(c)
+	}
 
 	return c
 }
 
-func (c *Conflict[ConflictIDType, ResourceIDType]) addConflictsWithHigherWeight(conflicts ...*Conflict[ConflictIDType, ResourceIDType]) {
-	if len(conflicts) == 0 {
-		return
+func (c *Conflict[ConflictID, ResourceID]) registerHeavierConflict(heavierConflict *Conflict[ConflictID, ResourceID]) bool {
+	if heavierConflict.CompareTo(c) != Larger {
+		return false
 	}
 
 	c.m.Lock()
 	defer c.m.Unlock()
 
-	for _, conflict := range conflicts {
-		c.conflictsWithHigherWeight.Set(conflict.ID(), conflict)
+	if c.heavierConflicts.Set(heavierConflict.id, heavierConflict) {
+		_ = heavierConflict.OnWeightUpdated.Hook(c.onWeightUpdated)
+		// subscribe to events of the heavier conflicts
+
+		c.onWeightUpdated(heavierConflict)
 	}
 
-	// TODO: determine preferred instead
+	return true
 }
 
-func (c *Conflict[ConflictIDType, ResourceIDType]) PreferredInstead() *Conflict[ConflictIDType, ResourceIDType] {
+func (c *Conflict[ConflictID, ResourceID]) onWeightUpdated(heavierConflict *Conflict[ConflictID, ResourceID]) {
+	c.m.Lock()
+	defer c.m.Unlock()
+
+	if heavierConflict.IsPreferred() && heavierConflict.CompareTo(c.preferredInstead) == Larger {
+		c.preferredInstead = heavierConflict
+	}
+}
+
+func (c *Conflict[ConflictID, ResourceID]) CompareTo(other *Conflict[ConflictID, ResourceID]) int {
+	if c == other {
+		return Equal
+	}
+
+	if other == nil {
+		return Larger
+	}
+
+	if c == nil {
+		return Smaller
+	}
+
+	if result := c.weight.Compare(other.weight); result != Equal {
+		return result
+	}
+
+	return bytes.Compare(lo.PanicOnErr(c.id.Bytes()), lo.PanicOnErr(other.id.Bytes()))
+}
+
+func (c *Conflict[ConflictID, ResourceID]) PreferredInstead() *Conflict[ConflictID, ResourceID] {
+	c.m.RLock()
+	defer c.m.RUnlock()
+
 	return c.preferredInstead
 }
 
-func (c *Conflict[ConflictIDType, ResourceIDType]) IsPreferred() bool {
+func (c *Conflict[ConflictID, ResourceID]) IsPreferred() bool {
 	return c.PreferredInstead() == nil
 }
 
-func (c *Conflict[ConflictIDType, ResourceIDType]) determinePreferredInstead() *Conflict[ConflictIDType, ResourceIDType] {
-	for _, conflict := range c.conflictsWithHigherWeightsDesc() {
-		if conflict.IsPreferred() {
-			return conflict
-		}
-	}
-
-	return nil
-}
-
-func (c *Conflict[ConflictIDType, ResourceIDType]) conflictsWithHigherWeightsDesc() (conflicts []*Conflict[ConflictIDType, ResourceIDType]) {
-	return nil
-}
-
-func (c *Conflict[ConflictIDType, ResourceIDType]) isPreferred() bool {
-
-	// something is preferred if all conflicts from all of its conflict sets with a higher weight have their preferredInstead set to other conflicts
-	return c.PreferredInstead == nil
+func (c *Conflict[ConflictID, ResourceID]) String() string {
+	return stringify.Struct("Conflict",
+		stringify.NewStructField("id", c.id),
+		stringify.NewStructField("weight", c.weight),
+	)
 }

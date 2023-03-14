@@ -1,20 +1,25 @@
 package newconflictdag
 
 import (
-	"bytes"
-
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
-	"github.com/iotaledger/hive.go/ds/types"
+	"github.com/iotaledger/hive.go/stringify"
 )
 
 type Weight struct {
-	id                types.Identifier
 	cumulativeWeight  uint64
 	validatorWeights  *sybilprotection.WeightedSet
 	confirmationState ConfirmationState
 }
 
-func (w *Weight) Compare(other Weight) int {
+func NewWeight(cumulativeWeight uint64, validatorWeights *sybilprotection.WeightedSet, confirmationState ConfirmationState) *Weight {
+	return &Weight{
+		cumulativeWeight:  cumulativeWeight,
+		validatorWeights:  validatorWeights,
+		confirmationState: confirmationState,
+	}
+}
+
+func (w *Weight) Compare(other *Weight) int {
 	if result := w.compareConfirmationState(other); result != 0 {
 		return result
 	}
@@ -27,34 +32,32 @@ func (w *Weight) Compare(other Weight) int {
 		return result
 	}
 
-	return bytes.Compare(w.id.Bytes(), other.id.Bytes())
+	return 0
 }
 
-func (w *Weight) compareConfirmationState(other Weight) int {
-	if w.confirmationState == other.confirmationState {
-		return 0
-	}
+func (w *Weight) compareConfirmationState(other *Weight) int {
+	if w.confirmationState != other.confirmationState {
+		if w.confirmationState == Accepted {
+			return 1
+		}
 
-	if w.confirmationState == Accepted {
-		return 1
-	}
+		if other.confirmationState == Accepted {
+			return -1
+		}
 
-	if w.confirmationState == Rejected {
-		return -1
-	}
+		if w.confirmationState == Rejected {
+			return -1
+		}
 
-	if other.confirmationState == Accepted {
-		return -1
-	}
-
-	if other.confirmationState == Rejected {
-		return 1
+		if other.confirmationState == Rejected {
+			return 1
+		}
 	}
 
 	return 0
 }
 
-func (w *Weight) compareValidatorWeights(other Weight) int {
+func (w *Weight) compareValidatorWeights(other *Weight) int {
 	if w.validatorWeights == nil && other.validatorWeights == nil {
 		return 0
 	}
@@ -78,7 +81,7 @@ func (w *Weight) compareValidatorWeights(other Weight) int {
 	return 0
 }
 
-func (w *Weight) compareCumulativeWeight(other Weight) int {
+func (w *Weight) compareCumulativeWeight(other *Weight) int {
 	if w.cumulativeWeight < other.cumulativeWeight {
 		return -1
 	}
@@ -88,4 +91,11 @@ func (w *Weight) compareCumulativeWeight(other Weight) int {
 	}
 
 	return 0
+}
+
+func (w *Weight) String() string {
+	return stringify.Struct("Weight",
+		stringify.NewStructField("cumulativeWeight", w.cumulativeWeight),
+		stringify.NewStructField("confirmationState", w.confirmationState),
+	)
 }
