@@ -347,7 +347,6 @@ func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) error {
 	processed := false
 
 	if mainChain := mainEngine.Storage.Settings.ChainID(); chain.ForkingPoint.ID() == mainChain || mainEngine.BlockRequester.HasTicker(block.ID()) {
-		fmt.Println(">> processing block", block.ID())
 		mainEngine.ProcessBlockFromPeer(block, src)
 		processed = true
 	}
@@ -365,7 +364,6 @@ func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) error {
 	}
 
 	if !processed {
-		fmt.Println(">> NOT PROCESSED:", "Forking chain:", chain.ForkingPoint.ID(), "mainChain", mainEngine.Storage.Settings.ChainID())
 		return errors.Errorf("block from source %s was not processed: %s; commits to: %s", src, block.ID(), block.Commitment().ID())
 	}
 
