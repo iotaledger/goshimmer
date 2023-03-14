@@ -1,7 +1,6 @@
 package chainmanager
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -61,10 +60,7 @@ func NewManager(snapshot *commitment.Commitment, opts ...options.Option[Manager]
 
 		manager.CommitmentRequester = eventticker.New(manager.optsCommitmentRequester...)
 		manager.Events.CommitmentMissing.Hook(manager.CommitmentRequester.StartTicker)
-		manager.Events.MissingCommitmentReceived.Hook(func(id commitment.ID) {
-			fmt.Println("> MissingCommitmentReceived", id)
-			manager.CommitmentRequester.StopTicker(id)
-		})
+		manager.Events.MissingCommitmentReceived.Hook(manager.CommitmentRequester.StopTicker)
 
 		manager.commitmentsByID[manager.SnapshotCommitment.ID()] = manager.SnapshotCommitment
 	})

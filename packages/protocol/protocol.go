@@ -1,7 +1,6 @@
 package protocol
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -224,7 +223,6 @@ func (p *Protocol) initChainManager() {
 	}, event.WithWorkerPool(wp))
 	p.Events.ChainManager.ForkDetected.Hook(p.onForkDetected, event.WithWorkerPool(wp))
 	p.Events.Network.SlotCommitmentReceived.Hook(func(event *network.SlotCommitmentReceivedEvent) {
-		fmt.Println(">> CommitmentReceived", event)
 		p.chainManager.ProcessCommitmentFromSource(event.Commitment, event.Source)
 	}, event.WithWorkerPool(wp))
 	p.chainManager.CommitmentRequester.Events.Tick.Hook(func(commitmentID commitment.ID) {
@@ -239,7 +237,6 @@ func (p *Protocol) initChainManager() {
 			}
 		}
 
-		fmt.Println(">> CommitmentRequester.Events.Tick REQUESTING", commitmentID)
 		p.networkProtocol.RequestCommitment(commitmentID)
 	}, event.WithWorkerPool(p.Workers.CreatePool("RequestCommitment", 2)))
 }
