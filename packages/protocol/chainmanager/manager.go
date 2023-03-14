@@ -1,6 +1,7 @@
 package chainmanager
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -26,7 +27,7 @@ type Manager struct {
 	SnapshotCommitment  *Commitment
 	CommitmentRequester *eventticker.EventTicker[commitment.ID]
 
-	//TODO: change to memstorage.SlotStorage?
+	// TODO: change to memstorage.SlotStorage?
 	commitmentsByID      map[commitment.ID]*Commitment
 	commitmentsByIDMutex sync.Mutex
 
@@ -60,7 +61,10 @@ func NewManager(snapshot *commitment.Commitment, opts ...options.Option[Manager]
 
 		manager.CommitmentRequester = eventticker.New(manager.optsCommitmentRequester...)
 		manager.Events.CommitmentMissing.Hook(manager.CommitmentRequester.StartTicker)
-		manager.Events.MissingCommitmentReceived.Hook(manager.CommitmentRequester.StopTicker)
+		manager.Events.MissingCommitmentReceived.Hook(func(id commitment.ID) {
+			fmt.Println("> MissingCommitmentReceived", id)
+			manager.CommitmentRequester.StopTicker(id)
+		})
 
 		manager.commitmentsByID[manager.SnapshotCommitment.ID()] = manager.SnapshotCommitment
 	})
@@ -329,7 +333,7 @@ func (m *Manager) Evict(index slot.Index) {
 		})
 	}
 
-	//TODO: do we need to evict more stuff?
+	// TODO: do we need to evict more stuff?
 }
 
 func (m *Manager) registerChild(parent *Commitment, child *Commitment) (isSolid bool, chain *Chain, wasForked bool) {

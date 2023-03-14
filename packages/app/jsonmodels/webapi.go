@@ -253,3 +253,8 @@ type GetUnspentOutputResponse struct {
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// GetSnapshotRequest represents the JSON model of a GetSnapshot request.
+type GetSnapshotRequest struct {
+	SlotIndex uint64 `query:"index"`
+}

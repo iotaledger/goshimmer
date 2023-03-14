@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -223,6 +224,7 @@ func (p *Protocol) initChainManager() {
 	}, event.WithWorkerPool(wp))
 	p.Events.ChainManager.ForkDetected.Hook(p.onForkDetected, event.WithWorkerPool(wp))
 	p.Events.Network.SlotCommitmentReceived.Hook(func(event *network.SlotCommitmentReceivedEvent) {
+		fmt.Println(">> CommitmentReceived", event)
 		p.chainManager.ProcessCommitmentFromSource(event.Commitment, event.Source)
 	}, event.WithWorkerPool(wp))
 	p.chainManager.CommitmentRequester.Events.Tick.Hook(func(commitmentID commitment.ID) {
@@ -237,6 +239,7 @@ func (p *Protocol) initChainManager() {
 			}
 		}
 
+		fmt.Println(">> CommitmentRequester.Events.Tick REQUESTING", commitmentID)
 		p.networkProtocol.RequestCommitment(commitmentID)
 	}, event.WithWorkerPool(p.Workers.CreatePool("RequestCommitment", 2)))
 }
@@ -344,6 +347,7 @@ func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) error {
 	processed := false
 
 	if mainChain := mainEngine.Storage.Settings.ChainID(); chain.ForkingPoint.ID() == mainChain || mainEngine.BlockRequester.HasTicker(block.ID()) {
+		fmt.Println(">> processing block", block.ID())
 		mainEngine.ProcessBlockFromPeer(block, src)
 		processed = true
 	}
@@ -361,6 +365,7 @@ func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) error {
 	}
 
 	if !processed {
+		fmt.Println(">> NOT PROCESSED:", "Forking chain:", chain.ForkingPoint.ID(), "mainChain", mainEngine.Storage.Settings.ChainID())
 		return errors.Errorf("block from source %s was not processed: %s; commits to: %s", src, block.ID(), block.Commitment().ID())
 	}
 
