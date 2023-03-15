@@ -1,6 +1,7 @@
 package chainmanager
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -53,6 +54,7 @@ func NewManager(snapshot *commitment.Commitment, opts ...options.Option[Manager]
 		forkingPointsByCommitments: memstorage.NewSlotStorage[commitment.ID, commitment.ID](),
 		forksByForkingPoint:        shrinkingmap.New[commitment.ID, *Fork](),
 	}, opts, func(manager *Manager) {
+		fmt.Println("NewManager", snapshot)
 		manager.SnapshotCommitment, _ = manager.Commitment(snapshot.ID(), true)
 		manager.SnapshotCommitment.PublishCommitment(snapshot)
 		manager.SnapshotCommitment.SetSolid(true)
@@ -63,11 +65,14 @@ func NewManager(snapshot *commitment.Commitment, opts ...options.Option[Manager]
 		manager.Events.MissingCommitmentReceived.Hook(manager.CommitmentRequester.StopTicker)
 
 		manager.commitmentsByID[manager.SnapshotCommitment.ID()] = manager.SnapshotCommitment
+
+		// TODO: initialize entire chain until genesis from p.Engine().Storage.Commitments
 	})
 }
 
 func (m *Manager) processCommitment(commitment *commitment.Commitment) (isNew bool, isSolid bool, chainCommitment *Commitment) {
 	isNew, isSolid, _, chainCommitment = m.registerCommitment(commitment)
+	fmt.Println("processCommitment", commitment.ID(), isNew, isSolid, chainCommitment.Chain())
 	if !isNew || chainCommitment.Chain() == nil {
 		return
 	}

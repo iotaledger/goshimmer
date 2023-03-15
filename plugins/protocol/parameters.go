@@ -44,7 +44,7 @@ type SchedulerParametersDefinition struct {
 // NotarizationParametersDefinition contains the definition of the parameters used by the notarization plugin.
 type NotarizationParametersDefinition struct {
 	// MinSlotCommittableAge defines the min age of a committable slot.
-	MinSlotCommittableAge int64 `default:"6" usage:"min age of a committable slot denoted in slots"`
+	MinSlotCommittableAge int64 `default:"2" usage:"min age of a committable slot denoted in slots"`
 }
 
 // DatabaseParametersDefinition contains the definition of configuration parameters used by the storage layer.

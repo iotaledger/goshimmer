@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -302,6 +303,12 @@ func (p *Protocol) switchEngines() {
 		return
 	}
 
+	if err := p.candidateEngine.Storage.Settings.SetChainID(p.chainManager.SnapshotCommitment.Chain().ForkingPoint.ID()); err != nil {
+		p.activeEngineMutex.Unlock()
+		p.Events.Error.Trigger(errors.Wrap(err, "error setting chain ID"))
+		return
+	}
+
 	if err := p.engineManager.SetActiveInstance(p.candidateEngine); err != nil {
 		p.activeEngineMutex.Unlock()
 		p.Events.Error.Trigger(errors.Wrap(err, "error switching engines"))
@@ -335,8 +342,10 @@ func (p *Protocol) switchEngines() {
 
 func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) error {
 	mainEngine := p.MainEngineInstance()
+	fmt.Println(">>>>> processBlock", block.ID(), block.Commitment())
 
 	isSolid, chain := p.chainManager.ProcessCommitmentFromSource(block.Commitment(), src)
+	fmt.Println(">>>>> processBlock", isSolid, chain.ForkingPoint.ID(), "mainChain", mainEngine.Storage.Settings.ChainID())
 	if !isSolid {
 		return errors.Errorf("protocol ProcessBlock failed. chain is not solid: %s, latest commitment: %s, block ID: %s", block.Commitment().ID(), mainEngine.Storage.Settings.LatestCommitment().ID(), block.ID())
 	}
