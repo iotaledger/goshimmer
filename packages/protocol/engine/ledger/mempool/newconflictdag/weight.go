@@ -1,21 +1,46 @@
 package newconflictdag
 
 import (
+	"sync"
+
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
+	"github.com/iotaledger/hive.go/runtime/event"
 	"github.com/iotaledger/hive.go/stringify"
 )
 
 type Weight struct {
+	OnUpdate *event.Event
+
 	cumulativeWeight  uint64
 	validatorWeights  *sybilprotection.WeightedSet
 	confirmationState ConfirmationState
+
+	mutex sync.RWMutex
 }
 
 func NewWeight(cumulativeWeight uint64, validatorWeights *sybilprotection.WeightedSet, confirmationState ConfirmationState) *Weight {
 	return &Weight{
+		OnUpdate: event.New(),
+
 		cumulativeWeight:  cumulativeWeight,
 		validatorWeights:  validatorWeights,
 		confirmationState: confirmationState,
+	}
+}
+
+func (w *Weight) AddCumulativeWeight(delta uint64) {
+	if delta != 0 {
+		w.cumulativeWeight += delta
+
+		w.OnUpdate.Trigger()
+	}
+}
+
+func (w *Weight) RemoveCumulativeWeight(delta uint64) {
+	if delta != 0 {
+		w.cumulativeWeight -= delta
+
+		w.OnUpdate.Trigger()
 	}
 }
 
@@ -33,6 +58,13 @@ func (w *Weight) Compare(other *Weight) int {
 	}
 
 	return 0
+}
+
+func (w *Weight) String() string {
+	return stringify.Struct("Weight",
+		stringify.NewStructField("cumulativeWeight", w.cumulativeWeight),
+		stringify.NewStructField("confirmationState", w.confirmationState),
+	)
 }
 
 func (w *Weight) compareConfirmationState(other *Weight) int {
@@ -91,11 +123,4 @@ func (w *Weight) compareCumulativeWeight(other *Weight) int {
 	}
 
 	return 0
-}
-
-func (w *Weight) String() string {
-	return stringify.Struct("Weight",
-		stringify.NewStructField("cumulativeWeight", w.cumulativeWeight),
-		stringify.NewStructField("confirmationState", w.confirmationState),
-	)
 }
