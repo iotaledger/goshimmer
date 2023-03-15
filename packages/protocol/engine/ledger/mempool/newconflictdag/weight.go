@@ -29,6 +29,9 @@ func NewWeight(cumulativeWeight uint64, validatorWeights *sybilprotection.Weight
 }
 
 func (w *Weight) AddCumulativeWeight(delta uint64) {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
 	if delta != 0 {
 		w.cumulativeWeight += delta
 
@@ -37,8 +40,22 @@ func (w *Weight) AddCumulativeWeight(delta uint64) {
 }
 
 func (w *Weight) RemoveCumulativeWeight(delta uint64) {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
 	if delta != 0 {
 		w.cumulativeWeight -= delta
+
+		w.OnUpdate.Trigger()
+	}
+}
+
+func (w *Weight) SetConfirmationState(confirmationState ConfirmationState) {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
+	if w.confirmationState != confirmationState {
+		w.confirmationState = confirmationState
 
 		w.OnUpdate.Trigger()
 	}

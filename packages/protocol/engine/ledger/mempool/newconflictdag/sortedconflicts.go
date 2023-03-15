@@ -8,15 +8,15 @@ import (
 )
 
 type SortedConflicts[ConflictID, ResourceID IDType] struct {
-	conflictsByID    *shrinkingmap.ShrinkingMap[ConflictID, *SortedConflict[ConflictID, ResourceID]]
-	heaviestConflict *SortedConflict[ConflictID, ResourceID]
+	conflictsByID    *shrinkingmap.ShrinkingMap[ConflictID, *sortedConflict[ConflictID, ResourceID]]
+	heaviestConflict *sortedConflict[ConflictID, ResourceID]
 
 	mutex sync.RWMutex
 }
 
 func NewSortedConflicts[ConflictID, ResourceID IDType]() *SortedConflicts[ConflictID, ResourceID] {
 	return &SortedConflicts[ConflictID, ResourceID]{
-		conflictsByID: shrinkingmap.New[ConflictID, *SortedConflict[ConflictID, ResourceID]](),
+		conflictsByID: shrinkingmap.New[ConflictID, *sortedConflict[ConflictID, ResourceID]](),
 	}
 }
 
@@ -24,12 +24,12 @@ func (s *SortedConflicts[ConflictID, ResourceID]) Add(conflict *Conflict[Conflic
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	newConflict := NewSortedConflict(conflict)
+	newConflict := &sortedConflict[ConflictID, ResourceID]{value: conflict}
 	if !s.conflictsByID.Set(conflict.id, newConflict) {
 		return
 	}
 
-	conflict.OnWeightUpdated.Hook(s.onWeightUpdated)
+	conflict.OnWeightUpdated.Hook(s.onConflictWeightUpdated)
 
 	if s.heaviestConflict == nil {
 		s.heaviestConflict = newConflict
@@ -93,54 +93,45 @@ func (s *SortedConflicts[ConflictID, ResourceID]) String() string {
 	return structBuilder.String()
 }
 
-func (s *SortedConflicts[ConflictID, ResourceID]) onWeightUpdated(conflict *Conflict[ConflictID, ResourceID]) {
+func (s *SortedConflicts[ConflictID, ResourceID]) onConflictWeightUpdated(conflict *Conflict[ConflictID, ResourceID]) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	sortedConflict, exists := s.conflictsByID.Get(conflict.id)
-	if !exists || sortedConflict.value != conflict {
+	updatedConflict, exists := s.conflictsByID.Get(conflict.id)
+	if !exists || updatedConflict.value != conflict {
 		panic("the Conflict that was updated was not found in the SortedConflicts")
 	}
 
-	for currentConflict := sortedConflict.lighter; currentConflict != nil && currentConflict.value.CompareTo(sortedConflict.value) == Larger; currentConflict = currentConflict.lighter {
-		currentConflict.heavier = sortedConflict.heavier
-		if currentConflict.heavier != nil {
-			currentConflict.heavier.lighter = currentConflict
-		}
-
-		sortedConflict.lighter = currentConflict.lighter
-		if sortedConflict.lighter != nil {
-			sortedConflict.lighter.heavier = sortedConflict
-		}
-
-		currentConflict.lighter = sortedConflict
-		sortedConflict.heavier = currentConflict
+	for currentConflict := updatedConflict.heavier; currentConflict != nil && currentConflict.value.CompareTo(updatedConflict.value) == Smaller; currentConflict = updatedConflict.heavier {
+		s.swapConflicts(updatedConflict, currentConflict)
 	}
 
-	for currentConflict := sortedConflict.heavier; currentConflict != nil && currentConflict.value.CompareTo(sortedConflict.value) == Smaller; currentConflict = currentConflict.heavier {
-		currentConflict.lighter = sortedConflict.lighter
-		if currentConflict.lighter != nil {
-			currentConflict.lighter.heavier = currentConflict
-		}
-
-		sortedConflict.heavier = currentConflict.heavier
-		if sortedConflict.heavier != nil {
-			sortedConflict.heavier.lighter = sortedConflict
-		}
-
-		currentConflict.heavier = sortedConflict
-		sortedConflict.lighter = currentConflict
+	for lighterConflict := updatedConflict.lighter; lighterConflict != nil && lighterConflict.value.CompareTo(updatedConflict.value) == Larger; lighterConflict = updatedConflict.lighter {
+		s.swapConflicts(lighterConflict, updatedConflict)
 	}
 }
 
-type SortedConflict[ConflictID, ResourceID IDType] struct {
+// swapConflicts swaps the two given Conflicts in the SortedConflicts while assuming that the heavierConflict is heavier than the lighterConflict.
+func (s *SortedConflicts[ConflictID, ResourceID]) swapConflicts(heavierConflict *sortedConflict[ConflictID, ResourceID], lighterConflict *sortedConflict[ConflictID, ResourceID]) {
+	if heavierConflict.lighter != nil {
+		heavierConflict.lighter.heavier = lighterConflict
+	}
+	if lighterConflict.heavier != nil {
+		lighterConflict.heavier.lighter = heavierConflict
+	}
+
+	lighterConflict.lighter = heavierConflict.lighter
+	heavierConflict.heavier = lighterConflict.heavier
+	lighterConflict.heavier = heavierConflict
+	heavierConflict.lighter = lighterConflict
+
+	if s.heaviestConflict == lighterConflict {
+		s.heaviestConflict = heavierConflict
+	}
+}
+
+type sortedConflict[ConflictID, ResourceID IDType] struct {
 	value   *Conflict[ConflictID, ResourceID]
-	lighter *SortedConflict[ConflictID, ResourceID]
-	heavier *SortedConflict[ConflictID, ResourceID]
-}
-
-func NewSortedConflict[ConflictID, ResourceID IDType](conflict *Conflict[ConflictID, ResourceID]) *SortedConflict[ConflictID, ResourceID] {
-	return &SortedConflict[ConflictID, ResourceID]{
-		value: conflict,
-	}
+	lighter *sortedConflict[ConflictID, ResourceID]
+	heavier *sortedConflict[ConflictID, ResourceID]
 }
