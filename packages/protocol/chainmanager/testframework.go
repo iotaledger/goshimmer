@@ -28,7 +28,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 	snapshotCommitment := commitment.New(0, commitment.ID{}, types.Identifier{}, 0)
 
 	return options.Apply(&TestFramework{
-		Instance: NewManager(snapshotCommitment, snapshotCommitment),
+		Instance: NewManager(snapshotCommitment),
 
 		test: test,
 		commitmentsByAlias: map[string]*commitment.Commitment{

@@ -44,7 +44,7 @@ type Manager struct {
 	commitmentEntityMutex *syncutils.DAGMutex[commitment.ID]
 }
 
-func NewManager(snapshot *commitment.Commitment, genesisCommitment *commitment.Commitment, opts ...options.Option[Manager]) (manager *Manager) {
+func NewManager(genesisCommitment *commitment.Commitment, opts ...options.Option[Manager]) (manager *Manager) {
 	return options.Apply(&Manager{
 		Events:               NewEvents(),
 		optsMinimumForkDepth: 3,
@@ -54,7 +54,6 @@ func NewManager(snapshot *commitment.Commitment, genesisCommitment *commitment.C
 		forkingPointsByCommitments: memstorage.NewSlotStorage[commitment.ID, commitment.ID](),
 		forksByForkingPoint:        shrinkingmap.New[commitment.ID, *Fork](),
 	}, opts, func(manager *Manager) {
-		fmt.Println("NewManager", snapshot)
 		manager.SnapshotCommitment, _ = manager.Commitment(genesisCommitment.ID(), true)
 		manager.SnapshotCommitment.PublishCommitment(genesisCommitment)
 		manager.SnapshotCommitment.SetSolid(true)
