@@ -24,10 +24,11 @@ var (
 
 type Manager struct {
 	Events              *Events
-	RootCommitment      *Commitment
 	CommitmentRequester *eventticker.EventTicker[commitment.ID]
 
-	commitmentsByID *memstorage.SlotStorage[commitment.ID, *Commitment]
+	commitmentsByID     *memstorage.SlotStorage[commitment.ID, *Commitment]
+	rootCommitment      *Commitment
+	rootCommitmentMutex sync.RWMutex
 
 	// This tracks the forkingPoints by the commitment that triggered the detection so we can clean up after eviction
 	forkingPointsByCommitments *memstorage.SlotStorage[commitment.ID, commitment.ID]
@@ -53,16 +54,16 @@ func NewManager(genesisCommitment *commitment.Commitment, opts ...options.Option
 		forkingPointsByCommitments: memstorage.NewSlotStorage[commitment.ID, commitment.ID](),
 		forksByForkingPoint:        shrinkingmap.New[commitment.ID, *Fork](),
 	}, opts, func(manager *Manager) {
-		manager.RootCommitment, _ = manager.commitment(genesisCommitment.ID(), true)
-		manager.RootCommitment.PublishCommitment(genesisCommitment)
-		manager.RootCommitment.SetSolid(true)
-		manager.RootCommitment.publishChain(NewChain(manager.RootCommitment))
+		manager.rootCommitment, _ = manager.commitment(genesisCommitment.ID(), true)
+		manager.rootCommitment.PublishCommitment(genesisCommitment)
+		manager.rootCommitment.SetSolid(true)
+		manager.rootCommitment.publishChain(NewChain(manager.rootCommitment))
 
 		manager.CommitmentRequester = eventticker.New(manager.optsCommitmentRequester...)
 		manager.Events.CommitmentMissing.Hook(manager.CommitmentRequester.StartTicker)
 		manager.Events.MissingCommitmentReceived.Hook(manager.CommitmentRequester.StopTicker)
 
-		manager.commitmentsByID.Get(manager.RootCommitment.ID().Index(), true).Set(manager.RootCommitment.ID(), manager.RootCommitment)
+		manager.commitmentsByID.Get(manager.rootCommitment.ID().Index(), true).Set(manager.rootCommitment.ID(), manager.rootCommitment)
 	})
 }
 
@@ -218,7 +219,7 @@ func (m *Manager) forkingPointAgainstMainChain(commitment *Commitment) (*Commitm
 
 	var forkingCommitment *Commitment
 	// Walk all possible forks until we reach our main chain by jumping over each forking point
-	for chain := commitment.Chain(); chain != m.RootCommitment.Chain(); chain = commitment.Chain() {
+	for chain := commitment.Chain(); chain != m.rootCommitment.Chain(); chain = commitment.Chain() {
 		forkingCommitment = chain.ForkingPoint
 
 		if commitment, _ = m.commitment(forkingCommitment.Commitment().PrevID()); commitment == nil {
@@ -303,7 +304,7 @@ func (m *Manager) switchMainChainToCommitment(commitment *Commitment) error {
 	}
 
 	// Delete all commitments after newer than our new head if the chain was longer than the new one
-	snapshotChain := m.RootCommitment.Chain()
+	snapshotChain := m.rootCommitment.Chain()
 	snapshotChain.dropCommitmentsAfter(commitment.ID().Index())
 
 	// Separate the old main chain by removing it from the parent
@@ -333,6 +334,24 @@ func (m *Manager) Evict(index slot.Index) {
 	}
 
 	m.commitmentsByID.Evict(index)
+}
+
+// SetRootCommitment sets the root commitment of the manager.
+func (m *Manager) SetRootCommitment(commitment *commitment.Commitment) {
+	m.rootCommitmentMutex.Lock()
+	defer m.rootCommitmentMutex.Unlock()
+
+	storage := m.commitmentsByID.Get(commitment.Index())
+	if storage == nil {
+		panic(fmt.Sprint("we should always have commitment storage for confirmed index", commitment))
+	}
+
+	newRootCommitment, exists := storage.Get(commitment.ID())
+	if !exists {
+		panic(fmt.Sprint("we should always have the latest commitment ID we confirmed with", commitment))
+	}
+
+	m.rootCommitment = newRootCommitment
 }
 
 func (m *Manager) registerChild(parent *Commitment, child *Commitment) (isSolid bool, chain *Chain, wasForked bool) {

@@ -223,8 +223,6 @@ func (p *Protocol) initChainManager() {
 	}, event.WithWorkerPool(wp))
 	p.Events.Engine.Consensus.SlotGadget.SlotConfirmed.Hook(func(index slot.Index) {
 		p.chainManager.CommitmentRequester.EvictUntil(index)
-	}, event.WithWorkerPool(wp))
-	p.Events.Engine.Consensus.SlotGadget.SlotConfirmed.Hook(func(index slot.Index) {
 		p.chainManager.Evict(index)
 	}, event.WithWorkerPool(wp))
 	p.Events.ChainManager.ForkDetected.Hook(p.onForkDetected, event.WithWorkerPool(wp))
@@ -308,11 +306,14 @@ func (p *Protocol) switchEngines() {
 		return
 	}
 
+	// TODO: should we set the chain id of the candidate engine to genesis? Exactly like the main engine
+	/*
 	if err := p.candidateEngine.Storage.Settings.SetChainID(p.chainManager.RootCommitment.Chain().ForkingPoint.ID()); err != nil {
 		p.activeEngineMutex.Unlock()
 		p.Events.Error.Trigger(errors.Wrap(err, "error setting chain ID"))
 		return
 	}
+	*/
 
 	if err := p.engineManager.SetActiveInstance(p.candidateEngine); err != nil {
 		p.activeEngineMutex.Unlock()
