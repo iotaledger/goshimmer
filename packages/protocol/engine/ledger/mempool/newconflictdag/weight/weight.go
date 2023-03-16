@@ -168,7 +168,7 @@ func (w *Weight) String() string {
 	w.mutex.RLock()
 	defer w.mutex.RUnlock()
 
-	return stringify.Struct("weight.Weight",
+	return stringify.Struct("Weight",
 		stringify.NewStructField("Value", w.value),
 		stringify.NewStructField("Validators", w.validators),
 	)

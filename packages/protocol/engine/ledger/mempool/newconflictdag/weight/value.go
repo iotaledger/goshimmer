@@ -86,10 +86,10 @@ func (v Value) Compare(other Value) Comparison {
 
 // String returns a human-readable representation of the Value.
 func (v Value) String() string {
-	return stringify.Struct("weight.Value",
+	return stringify.Struct("Value",
 		stringify.NewStructField("CumulativeWeight", v.cumulativeWeight),
 		stringify.NewStructField("ValidatorsWeight", v.validatorsWeight),
-		stringify.NewStructField("State", v.acceptanceState),
+		stringify.NewStructField("AcceptanceState", v.acceptanceState),
 	)
 }
 
