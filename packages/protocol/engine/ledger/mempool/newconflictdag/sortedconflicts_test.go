@@ -19,12 +19,12 @@ import (
 func TestSortedConflict(t *testing.T) {
 	sortedConflicts := NewSortedConflicts[utxo.OutputID, utxo.OutputID]()
 
-	conflict1 := newConflict("conflict1", New(12, nil, acceptance.Rejected))
-	conflict2 := newConflict("conflict2", New(10, nil, acceptance.Pending))
-	conflict3 := newConflict("conflict3", New(1, nil, acceptance.Accepted))
-	conflict4 := newConflict("conflict4", New(11, nil, acceptance.Rejected))
-	conflict5 := newConflict("conflict5", New(11, nil, acceptance.Pending))
-	conflict6 := newConflict("conflict6", New(2, nil, acceptance.Accepted))
+	conflict1 := newConflict("conflict1", New().AddCumulativeWeight(12).SetAcceptanceState(acceptance.Rejected))
+	conflict2 := newConflict("conflict2", New().AddCumulativeWeight(10))
+	conflict3 := newConflict("conflict3", New().AddCumulativeWeight(1).SetAcceptanceState(acceptance.Accepted))
+	conflict4 := newConflict("conflict4", New().AddCumulativeWeight(11).SetAcceptanceState(acceptance.Rejected))
+	conflict5 := newConflict("conflict5", New().AddCumulativeWeight(11).SetAcceptanceState(acceptance.Pending))
+	conflict6 := newConflict("conflict6", New().AddCumulativeWeight(2).SetAcceptanceState(acceptance.Accepted))
 
 	sortedConflicts.Add(conflict1)
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict1")
@@ -46,36 +46,36 @@ func TestSortedConflict(t *testing.T) {
 
 	conflict2.Weight().AddCumulativeWeight(3)
 	require.Equal(t, int64(13), conflict2.Weight().Value().CumulativeWeight())
-	sortedConflicts.Wait()
+	sortedConflicts.WaitSortingDone()
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict6", "conflict3", "conflict2", "conflict5", "conflict1", "conflict4")
 
 	conflict2.Weight().RemoveCumulativeWeight(3)
 	require.Equal(t, int64(10), conflict2.Weight().Value().CumulativeWeight())
 
-	sortedConflicts.Wait()
+	sortedConflicts.WaitSortingDone()
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict6", "conflict3", "conflict5", "conflict2", "conflict1", "conflict4")
 
 	conflict5.Weight().SetAcceptanceState(acceptance.Accepted)
-	sortedConflicts.Wait()
+	sortedConflicts.WaitSortingDone()
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict5", "conflict6", "conflict3", "conflict2", "conflict1", "conflict4")
 }
 
 func TestSortedDecreaseHeaviest(t *testing.T) {
 	sortedConflicts := NewSortedConflicts[utxo.OutputID, utxo.OutputID]()
 
-	conflict1 := newConflict("conflict1", New(1, nil, acceptance.Accepted))
-	conflict2 := newConflict("conflict2", New(2, nil, acceptance.Pending))
+	conflict1 := newConflict("conflict1", New().AddCumulativeWeight(1).SetAcceptanceState(acceptance.Accepted))
+	conflict2 := newConflict("conflict2", New().AddCumulativeWeight(2).SetAcceptanceState(acceptance.Pending))
 
 	sortedConflicts.Add(conflict1)
-	sortedConflicts.Wait()
+	sortedConflicts.WaitSortingDone()
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict1")
 
 	sortedConflicts.Add(conflict2)
-	sortedConflicts.Wait()
+	sortedConflicts.WaitSortingDone()
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict1", "conflict2")
 
 	conflict1.Weight().SetAcceptanceState(acceptance.Pending)
-	sortedConflicts.Wait()
+	sortedConflicts.WaitSortingDone()
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict2", "conflict1")
 }
 
@@ -93,8 +93,8 @@ func TestSortedConflictParallel(t *testing.T) {
 	for i := 0; i < conflictCount; i++ {
 		alias := "conflict" + strconv.Itoa(i)
 
-		conflicts[alias] = newConflict(alias, New(0, nil, acceptance.Pending))
-		parallelConflicts[alias] = newConflict(alias, New(0, nil, acceptance.Pending))
+		conflicts[alias] = newConflict(alias, New())
+		parallelConflicts[alias] = newConflict(alias, New())
 
 		sortedConflicts.Add(conflicts[alias])
 		sortedParallelConflicts.Add(parallelConflicts[alias])
@@ -124,18 +124,18 @@ func TestSortedConflictParallel(t *testing.T) {
 		}(permutation)
 	}
 
-	sortedConflicts.Wait()
+	sortedConflicts.WaitSortingDone()
 
 	wg.Wait()
 
-	sortedParallelConflicts.Wait()
+	sortedParallelConflicts.WaitSortingDone()
 
 	originalSortingAfter := sortedConflicts.String()
 	parallelSortingAfter := sortedParallelConflicts.String()
 	require.Equal(t, originalSortingAfter, parallelSortingAfter)
 	require.NotEqualf(t, originalSortingBefore, originalSortingAfter, "original sorting should have changed")
 
-	sortedParallelConflicts1.Wait()
+	sortedParallelConflicts1.WaitSortingDone()
 
 	parallelSortingAfter = sortedParallelConflicts1.String()
 	require.Equal(t, originalSortingAfter, parallelSortingAfter)

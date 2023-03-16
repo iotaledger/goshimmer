@@ -11,35 +11,30 @@ import (
 )
 
 type SortedConflicts[ConflictID, ResourceID IDType] struct {
-	conflictsByID    *shrinkingmap.ShrinkingMap[ConflictID, *SortedConflictsElement[ConflictID, ResourceID]]
+	conflicts        *shrinkingmap.ShrinkingMap[ConflictID, *SortedConflictsElement[ConflictID, ResourceID]]
 	heaviestConflict *SortedConflictsElement[ConflictID, ResourceID]
 
-	updates       map[ConflictID]*SortedConflictsElement[ConflictID, ResourceID]
-	updatesMutex  sync.RWMutex
-	updatesSignal *sync.Cond
+	pendingUpdates        map[ConflictID]*SortedConflictsElement[ConflictID, ResourceID]
+	pendingUpdatesCounter *syncutils.Counter
+	pendingUpdatesSignal  *sync.Cond
+	pendingUpdatesMutex   sync.RWMutex
 
 	isShutdown atomic.Bool
-
-	pendingUpdatesCounter *syncutils.Counter
 
 	mutex sync.RWMutex
 }
 
 func NewSortedConflicts[ConflictID, ResourceID IDType]() *SortedConflicts[ConflictID, ResourceID] {
 	s := &SortedConflicts[ConflictID, ResourceID]{
-		conflictsByID:         shrinkingmap.New[ConflictID, *SortedConflictsElement[ConflictID, ResourceID]](),
-		updates:               make(map[ConflictID]*SortedConflictsElement[ConflictID, ResourceID]),
+		conflicts:             shrinkingmap.New[ConflictID, *SortedConflictsElement[ConflictID, ResourceID]](),
+		pendingUpdates:        make(map[ConflictID]*SortedConflictsElement[ConflictID, ResourceID]),
 		pendingUpdatesCounter: syncutils.NewCounter(),
 	}
-	s.updatesSignal = sync.NewCond(&s.updatesMutex)
+	s.pendingUpdatesSignal = sync.NewCond(&s.pendingUpdatesMutex)
 
 	go s.updateWorker()
 
 	return s
-}
-
-func (s *SortedConflicts[ConflictID, ResourceID]) Wait() {
-	s.pendingUpdatesCounter.WaitIsZero()
 }
 
 func (s *SortedConflicts[ConflictID, ResourceID]) Add(conflict *Conflict[ConflictID, ResourceID]) {
@@ -47,7 +42,7 @@ func (s *SortedConflicts[ConflictID, ResourceID]) Add(conflict *Conflict[Conflic
 	defer s.mutex.Unlock()
 
 	newSortedConflict := newSortedConflict[ConflictID, ResourceID](s, conflict)
-	if !s.conflictsByID.Set(conflict.id, newSortedConflict) {
+	if !s.conflicts.Set(conflict.id, newSortedConflict) {
 		return
 	}
 
@@ -103,12 +98,14 @@ func (s *SortedConflicts[ConflictID, ResourceID]) ForEach(callback func(*Conflic
 	return nil
 }
 
+func (s *SortedConflicts[ConflictID, ResourceID]) WaitSortingDone() {
+	s.pendingUpdatesCounter.WaitIsZero()
+}
+
 func (s *SortedConflicts[ConflictID, ResourceID]) String() string {
 	structBuilder := stringify.NewStructBuilder("SortedConflicts")
-
 	_ = s.ForEach(func(conflict *Conflict[ConflictID, ResourceID]) error {
 		structBuilder.AddField(stringify.NewStructField(conflict.id.String(), conflict))
-
 		return nil
 	})
 
@@ -127,7 +124,7 @@ func (s *SortedConflicts[ConflictID, ResourceID]) fixOrderOf(conflictID Conflict
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	updatedConflict, exists := s.conflictsByID.Get(conflictID)
+	updatedConflict, exists := s.conflicts.Get(conflictID)
 	if !exists {
 		panic("the Conflict that was updated was not found in the SortedConflicts")
 	}
@@ -161,32 +158,32 @@ func (s *SortedConflicts[ConflictID, ResourceID]) swapConflicts(heavierConflict 
 }
 
 func (s *SortedConflicts[ConflictID, ResourceID]) notifyUpdate(conflict *SortedConflictsElement[ConflictID, ResourceID]) {
-	s.updatesMutex.Lock()
-	defer s.updatesMutex.Unlock()
+	s.pendingUpdatesMutex.Lock()
+	defer s.pendingUpdatesMutex.Unlock()
 
-	if _, exists := s.updates[conflict.conflict.id]; exists {
+	if _, exists := s.pendingUpdates[conflict.conflict.id]; exists {
 		return
 	}
 
 	s.pendingUpdatesCounter.Increase()
 
-	s.updates[conflict.conflict.id] = conflict
+	s.pendingUpdates[conflict.conflict.id] = conflict
 
-	s.updatesSignal.Signal()
+	s.pendingUpdatesSignal.Signal()
 }
 
 // nextUpdate returns the next SortedConflictsElement that needs to be updated (or nil if the shutdown flag is set).
 func (s *SortedConflicts[ConflictID, ResourceID]) nextUpdate() *SortedConflictsElement[ConflictID, ResourceID] {
-	s.updatesMutex.Lock()
-	defer s.updatesMutex.Unlock()
+	s.pendingUpdatesMutex.Lock()
+	defer s.pendingUpdatesMutex.Unlock()
 
-	for !s.isShutdown.Load() && len(s.updates) == 0 {
-		s.updatesSignal.Wait()
+	for !s.isShutdown.Load() && len(s.pendingUpdates) == 0 {
+		s.pendingUpdatesSignal.Wait()
 	}
 
 	if !s.isShutdown.Load() {
-		for conflictID, conflict := range s.updates {
-			delete(s.updates, conflictID)
+		for conflictID, conflict := range s.pendingUpdates {
+			delete(s.pendingUpdates, conflictID)
 
 			s.pendingUpdatesCounter.Decrease()
 
