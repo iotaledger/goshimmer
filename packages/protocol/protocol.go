@@ -208,7 +208,12 @@ func (p *Protocol) initNetworkEvents() {
 }
 
 func (p *Protocol) initChainManager() {
-	p.chainManager = chainmanager.NewManager(p.Engine().Storage.Settings.LatestCommitment(), p.optsChainManagerOptions...)
+	genesisCommitment, err := p.Engine().Storage.Commitments.Load(0)
+	if err != nil {
+		panic(err)
+	}
+	p.chainManager = chainmanager.NewManager(genesisCommitment, p.optsChainManagerOptions...)
+
 	p.Events.ChainManager = p.chainManager.Events
 
 	wp := p.Workers.CreatePool("ChainManager", 1) // Using just 1 worker to avoid contention

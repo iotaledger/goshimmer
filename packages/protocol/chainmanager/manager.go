@@ -44,7 +44,7 @@ type Manager struct {
 	commitmentEntityMutex *syncutils.DAGMutex[commitment.ID]
 }
 
-func NewManager(snapshot *commitment.Commitment, opts ...options.Option[Manager]) (manager *Manager) {
+func NewManager(genesisCommitment *commitment.Commitment, opts ...options.Option[Manager]) (manager *Manager) {
 	return options.Apply(&Manager{
 		Events:               NewEvents(),
 		optsMinimumForkDepth: 3,
@@ -54,9 +54,8 @@ func NewManager(snapshot *commitment.Commitment, opts ...options.Option[Manager]
 		forkingPointsByCommitments: memstorage.NewSlotStorage[commitment.ID, commitment.ID](),
 		forksByForkingPoint:        shrinkingmap.New[commitment.ID, *Fork](),
 	}, opts, func(manager *Manager) {
-		fmt.Println("NewManager", snapshot)
-		manager.SnapshotCommitment, _ = manager.Commitment(snapshot.ID(), true)
-		manager.SnapshotCommitment.PublishCommitment(snapshot)
+		manager.SnapshotCommitment, _ = manager.Commitment(genesisCommitment.ID(), true)
+		manager.SnapshotCommitment.PublishCommitment(genesisCommitment)
 		manager.SnapshotCommitment.SetSolid(true)
 		manager.SnapshotCommitment.publishChain(NewChain(manager.SnapshotCommitment))
 
@@ -64,9 +63,7 @@ func NewManager(snapshot *commitment.Commitment, opts ...options.Option[Manager]
 		manager.Events.CommitmentMissing.Hook(manager.CommitmentRequester.StartTicker)
 		manager.Events.MissingCommitmentReceived.Hook(manager.CommitmentRequester.StopTicker)
 
-		manager.commitmentsByID[manager.SnapshotCommitment.ID()] = manager.SnapshotCommitment
-
-		// TODO: initialize entire chain until genesis from p.Engine().Storage.Commitments
+		manager.commitmentsByID[genesisCommitment.ID()] = manager.SnapshotCommitment
 	})
 }
 
