@@ -212,7 +212,18 @@ func (p *Protocol) initChainManager() {
 	if err != nil {
 		panic(err)
 	}
-	p.chainManager = chainmanager.NewManager(genesisCommitment, p.optsChainManagerOptions...)
+	p.chainManager = chainmanager.NewManager(p.Engine().Storage.Settings.LatestCommitment(), genesisCommitment, p.optsChainManagerOptions...)
+
+	// publish all commitments from the storage so we can correctly identify forking points.
+	/*
+		for slotIndex := slot.Index(0); slotIndex < p.Engine().Storage.Settings.LatestCommitment().ID().Index(); slotIndex++ {
+			commitment, err := p.Engine().Storage.Commitments.Load(slotIndex)
+			if err != nil {
+				panic(err)
+			}
+			fmt.Println(">> process commitment", commitment, lo.Return2(p.chainManager.ProcessCommitment(commitment)))
+		}
+	*/
 
 	p.Events.ChainManager = p.chainManager.Events
 
@@ -350,7 +361,9 @@ func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) error {
 	fmt.Println(">>>>> processBlock", block.ID(), block.Commitment())
 
 	isSolid, chain := p.chainManager.ProcessCommitmentFromSource(block.Commitment(), src)
-	fmt.Println(">>>>> processBlock", isSolid, chain.ForkingPoint.ID(), "mainChain", mainEngine.Storage.Settings.ChainID())
+	if chain != nil {
+		fmt.Println(">>>>> processBlock", isSolid, chain.ForkingPoint.ID(), "mainChain", mainEngine.Storage.Settings.ChainID())
+	}
 	if !isSolid {
 		return errors.Errorf("protocol ProcessBlock failed. chain is not solid: %s, latest commitment: %s, block ID: %s", block.Commitment().ID(), mainEngine.Storage.Settings.LatestCommitment().ID(), block.ID())
 	}
