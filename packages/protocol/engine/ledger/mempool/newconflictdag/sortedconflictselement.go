@@ -51,10 +51,10 @@ func (s *SortedConflictsElement[ConflictID, ResourceID]) setQueuedWeight(newWeig
 
 	s.queuedWeight = &newWeight
 
-	s.container.notifyUpdate(s)
+	s.container.queueUpdate(s)
 }
 
-func (s *SortedConflictsElement[ConflictID, ResourceID]) applyQueuedWeight() bool {
+func (s *SortedConflictsElement[ConflictID, ResourceID]) updateWeight() bool {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 

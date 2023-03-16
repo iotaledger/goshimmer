@@ -31,16 +31,6 @@ func (v Value) CumulativeWeight() int64 {
 	return v.cumulativeWeight
 }
 
-// ValidatorsWeight returns the weight of the validators.
-func (v Value) ValidatorsWeight() int64 {
-	return v.validatorsWeight
-}
-
-// AcceptanceState returns the acceptance state of the Value.
-func (v Value) AcceptanceState() acceptance.State {
-	return v.acceptanceState
-}
-
 // SetCumulativeWeight sets the cumulative weight of the Value and returns the new Value.
 func (v Value) SetCumulativeWeight(cumulativeWeight int64) Value {
 	v.cumulativeWeight = cumulativeWeight
@@ -62,11 +52,21 @@ func (v Value) RemoveCumulativeWeight(weight int64) Value {
 	return v
 }
 
+// ValidatorsWeight returns the weight of the validators.
+func (v Value) ValidatorsWeight() int64 {
+	return v.validatorsWeight
+}
+
 // SetValidatorsWeight sets the  weight of the validators and returns the new Value.
 func (v Value) SetValidatorsWeight(weight int64) Value {
 	v.validatorsWeight = weight
 
 	return v
+}
+
+// AcceptanceState returns the acceptance state of the Value.
+func (v Value) AcceptanceState() acceptance.State {
+	return v.acceptanceState
 }
 
 // SetAcceptanceState sets the acceptance state of the Value and returns the new Value.
