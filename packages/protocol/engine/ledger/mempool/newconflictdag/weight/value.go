@@ -17,15 +17,6 @@ type Value struct {
 	acceptanceState acceptance.State
 }
 
-// NewValue creates a new Value with the given parameters.
-func NewValue(cumulativeWeight int64, validatorsWeight int64, acceptanceState acceptance.State) Value {
-	return Value{
-		cumulativeWeight: cumulativeWeight,
-		validatorsWeight: validatorsWeight,
-		acceptanceState:  acceptanceState,
-	}
-}
-
 // CumulativeWeight returns the cumulative weight of the Value.
 func (v Value) CumulativeWeight() int64 {
 	return v.cumulativeWeight

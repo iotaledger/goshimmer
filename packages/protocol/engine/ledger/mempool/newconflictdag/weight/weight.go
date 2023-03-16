@@ -31,7 +31,6 @@ type Weight struct {
 func New() *Weight {
 	return &Weight{
 		OnUpdate: event.New1[Value](),
-		value:    NewValue(0, 0, acceptance.Pending),
 	}
 }
 
