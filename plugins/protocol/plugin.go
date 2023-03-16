@@ -19,7 +19,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/realitiesledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxoledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization/slotnotarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tsc"
 	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
@@ -81,14 +81,16 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 				dpos.WithActivityWindow(Parameters.ValidatorActivityWindow),
 			),
 		),
+		protocol.WithNotarizationProvider(
+			slotnotarization.NewProvider(
+				slotnotarization.WithMinCommittableSlotAge(slot.Index(NotarizationParameters.MinSlotCommittableAge)),
+			),
+		),
 		protocol.WithEngineOptions(
 			engine.WithFilterOptions(
 				filter.WithMinCommittableSlotAge(slot.Index(NotarizationParameters.MinSlotCommittableAge)),
 				filter.WithMaxAllowedWallClockDrift(Parameters.MaxAllowedClockDrift),
 				filter.WithSignatureValidation(true),
-			),
-			engine.WithNotarizationManagerOptions(
-				notarization.WithMinCommittableSlotAge(slot.Index(NotarizationParameters.MinSlotCommittableAge)),
 			),
 			engine.WithBootstrapThreshold(Parameters.BootstrapWindow),
 			engine.WithTSCManagerOptions(

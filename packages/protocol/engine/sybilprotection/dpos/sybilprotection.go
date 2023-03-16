@@ -65,7 +65,7 @@ func NewSybilProtection(engineInstance *engine.Engine, opts ...options.Option[Sy
 			s.engine.HookConstructed(func() {
 				s.engine.Ledger.HookInitialized(s.initializeTotalWeight)
 				s.engine.Ledger.UnspentOutputs().HookInitialized(s.initializeLatestCommitment)
-				s.engine.NotarizationManager.Attestations.HookInitialized(s.initializeActiveValidators)
+				s.engine.Notarization.Attestations().HookInitialized(s.initializeActiveValidators)
 
 				s.engine.Ledger.UnspentOutputs().Subscribe(s)
 
@@ -90,7 +90,7 @@ func (s *SybilProtection) initializeTotalWeight() {
 }
 
 func (s *SybilProtection) initializeActiveValidators() {
-	attestations, err := s.engine.NotarizationManager.Attestations.Get(s.engine.Storage.Settings.LatestCommitment().Index())
+	attestations, err := s.engine.Notarization.Attestations().Get(s.engine.Storage.Settings.LatestCommitment().Index())
 	if err != nil {
 		panic(err)
 	}
@@ -102,6 +102,8 @@ func (s *SybilProtection) initializeActiveValidators() {
 	}); err != nil {
 		panic(err)
 	}
+
+	s.TriggerInitialized()
 }
 
 func (s *SybilProtection) stopInactivityManager() {

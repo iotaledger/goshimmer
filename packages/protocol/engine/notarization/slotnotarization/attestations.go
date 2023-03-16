@@ -1,4 +1,4 @@
-package notarization
+package slotnotarization
 
 import (
 	"encoding/binary"
@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/core/stream"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/ads"
@@ -30,8 +31,8 @@ const (
 type Attestations struct {
 	persistentStorage    func(optRealm ...byte) kvstore.KVStore
 	bucketedStorage      func(index slot.Index) kvstore.KVStore
-	weights              *sybilprotection.Weights
-	cachedAttestations   *memstorage.SlotStorage[identity.ID, *shrinkingmap.ShrinkingMap[models.BlockID, *Attestation]]
+	weightsProviderFunc  func() *sybilprotection.Weights
+	cachedAttestations   *memstorage.SlotStorage[identity.ID, *shrinkingmap.ShrinkingMap[models.BlockID, *notarization.Attestation]]
 	slotTimeProviderFunc func() *slot.TimeProvider
 	mutex                *syncutils.DAGMutex[slot.Index]
 
@@ -39,19 +40,19 @@ type Attestations struct {
 	module.Module
 }
 
-func NewAttestations(persistentStorage func(optRealm ...byte) kvstore.KVStore, bucketedStorage func(index slot.Index) kvstore.KVStore, weights *sybilprotection.Weights, slotTimeProviderFunc func() *slot.TimeProvider) *Attestations {
+func NewAttestations(persistentStorage func(optRealm ...byte) kvstore.KVStore, bucketedStorage func(index slot.Index) kvstore.KVStore, weightsProviderFunc func() *sybilprotection.Weights, slotTimeProviderFunc func() *slot.TimeProvider) *Attestations {
 	return &Attestations{
 		Committable:          traits.NewCommittable(persistentStorage(), PrefixAttestationsLastCommittedSlot),
 		persistentStorage:    persistentStorage,
 		bucketedStorage:      bucketedStorage,
-		weights:              weights,
-		cachedAttestations:   memstorage.NewSlotStorage[identity.ID, *shrinkingmap.ShrinkingMap[models.BlockID, *Attestation]](),
+		weightsProviderFunc:  weightsProviderFunc,
+		cachedAttestations:   memstorage.NewSlotStorage[identity.ID, *shrinkingmap.ShrinkingMap[models.BlockID, *notarization.Attestation]](),
 		slotTimeProviderFunc: slotTimeProviderFunc,
 		mutex:                syncutils.NewDAGMutex[slot.Index](),
 	}
 }
 
-func (a *Attestations) Add(attestation *Attestation) (added bool, err error) {
+func (a *Attestations) Add(attestation *notarization.Attestation) (added bool, err error) {
 	slotIndex := a.slotTimeProviderFunc().IndexFromTime(attestation.IssuingTime)
 
 	a.mutex.RLock(slotIndex)
@@ -62,14 +63,14 @@ func (a *Attestations) Add(attestation *Attestation) (added bool, err error) {
 	}
 
 	slotStorage := a.cachedAttestations.Get(slotIndex, true)
-	issuerStorage, _ := slotStorage.GetOrCreate(attestation.IssuerID(), func() *shrinkingmap.ShrinkingMap[models.BlockID, *Attestation] {
-		return shrinkingmap.New[models.BlockID, *Attestation]()
+	issuerStorage, _ := slotStorage.GetOrCreate(attestation.IssuerID(), func() *shrinkingmap.ShrinkingMap[models.BlockID, *notarization.Attestation] {
+		return shrinkingmap.New[models.BlockID, *notarization.Attestation]()
 	})
 
 	return issuerStorage.Set(attestation.ID(), attestation), nil
 }
 
-func (a *Attestations) Delete(attestation *Attestation) (deleted bool, err error) {
+func (a *Attestations) Delete(attestation *notarization.Attestation) (deleted bool, err error) {
 	slotIndex := a.slotTimeProviderFunc().IndexFromTime(attestation.IssuingTime)
 
 	a.mutex.RLock(slotIndex)
@@ -92,7 +93,7 @@ func (a *Attestations) Delete(attestation *Attestation) (deleted bool, err error
 	return issuerStorage.Delete(attestation.ID()), nil
 }
 
-func (a *Attestations) Commit(index slot.Index) (attestations *ads.Map[identity.ID, Attestation, *identity.ID, *Attestation], weight int64, err error) {
+func (a *Attestations) Commit(index slot.Index) (attestations *ads.Map[identity.ID, notarization.Attestation, *identity.ID, *notarization.Attestation], weight int64, err error) {
 	a.mutex.Lock(index)
 	defer a.mutex.Unlock(index)
 
@@ -124,7 +125,7 @@ func (a *Attestations) Weight(index slot.Index) (weight int64, err error) {
 	return a.weight(index)
 }
 
-func (a *Attestations) Get(index slot.Index) (attestations *ads.Map[identity.ID, Attestation, *identity.ID, *Attestation], err error) {
+func (a *Attestations) Get(index slot.Index) (attestations *ads.Map[identity.ID, notarization.Attestation, *identity.ID, *notarization.Attestation], err error) {
 	a.mutex.RLock(index)
 	defer a.mutex.RUnlock(index)
 
@@ -151,7 +152,7 @@ func (a *Attestations) Import(reader io.ReadSeeker) (err error) {
 		return errors.Wrapf(err, "failed to import attestations for slot %d", slotIndex)
 	}
 
-	importedAttestation := new(Attestation)
+	importedAttestation := new(notarization.Attestation)
 	if err = stream.ReadCollection(reader, func(i int) (err error) {
 		if err = stream.ReadSerializable(reader, importedAttestation); err != nil {
 			return errors.Wrapf(err, "failed to read attestation %d", i)
@@ -192,7 +193,7 @@ func (a *Attestations) Export(writer io.WriteSeeker, targetSlot slot.Index) (err
 			return 0, errors.Wrapf(writeErr, "failed to export attestations for slot %d", targetSlot)
 		}
 
-		if streamErr := attestations.Stream(func(issuerID identity.ID, attestation *Attestation) bool {
+		if streamErr := attestations.Stream(func(issuerID identity.ID, attestation *notarization.Attestation) bool {
 			if writeErr = stream.WriteSerializable(writer, attestation); writeErr != nil {
 				writeErr = errors.Wrapf(writeErr, "failed to write attestation for issuer %s", issuerID)
 			} else {
@@ -208,15 +209,15 @@ func (a *Attestations) Export(writer io.WriteSeeker, targetSlot slot.Index) (err
 	})
 }
 
-func (a *Attestations) commit(index slot.Index) (attestations *ads.Map[identity.ID, Attestation, *identity.ID, *Attestation], weight int64, err error) {
+func (a *Attestations) commit(index slot.Index) (attestations *ads.Map[identity.ID, notarization.Attestation, *identity.ID, *notarization.Attestation], weight int64, err error) {
 	if attestations, err = a.attestations(index); err != nil {
 		return nil, 0, errors.Wrapf(err, "failed to get attestors for slot %d", index)
 	}
 
 	if cachedSlotStorage := a.cachedAttestations.Evict(index); cachedSlotStorage != nil {
-		cachedSlotStorage.ForEach(func(id identity.ID, attestationsOfID *shrinkingmap.ShrinkingMap[models.BlockID, *Attestation]) bool {
+		cachedSlotStorage.ForEach(func(id identity.ID, attestationsOfID *shrinkingmap.ShrinkingMap[models.BlockID, *notarization.Attestation]) bool {
 			if latestAttestation := latestAttestation(attestationsOfID); latestAttestation != nil {
-				if attestorWeight, exists := a.weights.Get(id); exists {
+				if attestorWeight, exists := a.weightsProviderFunc().Get(id); exists {
 					attestations.Set(id, latestAttestation)
 
 					weight += attestorWeight.Value
@@ -242,11 +243,11 @@ func (a *Attestations) flush(index slot.Index) (err error) {
 	return
 }
 
-func (a *Attestations) attestations(index slot.Index) (attestations *ads.Map[identity.ID, Attestation, *identity.ID, *Attestation], err error) {
+func (a *Attestations) attestations(index slot.Index) (attestations *ads.Map[identity.ID, notarization.Attestation, *identity.ID, *notarization.Attestation], err error) {
 	if attestationsStorage, err := a.bucketedStorage(index).WithExtendedRealm([]byte{PrefixAttestations}); err != nil {
 		return nil, errors.Wrapf(err, "failed to access storage for attestors of slot %d", index)
 	} else {
-		return ads.NewMap[identity.ID, Attestation](attestationsStorage), nil
+		return ads.NewMap[identity.ID, notarization.Attestation](attestationsStorage), nil
 	}
 }
 
@@ -273,8 +274,8 @@ func (a *Attestations) setWeight(index slot.Index, weight int64) (err error) {
 	return
 }
 
-func latestAttestation(attestations *shrinkingmap.ShrinkingMap[models.BlockID, *Attestation]) (latestAttestation *Attestation) {
-	attestations.ForEach(func(blockID models.BlockID, attestation *Attestation) bool {
+func latestAttestation(attestations *shrinkingmap.ShrinkingMap[models.BlockID, *notarization.Attestation]) (latestAttestation *notarization.Attestation) {
+	attestations.ForEach(func(blockID models.BlockID, attestation *notarization.Attestation) bool {
 		if attestation.Compare(latestAttestation) > 0 {
 			latestAttestation = attestation
 		}

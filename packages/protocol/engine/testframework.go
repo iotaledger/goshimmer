@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
@@ -45,6 +46,7 @@ func NewTestEngine(t *testing.T, workers *workerpool.Group, storage *storage.Sto
 	ledger module.Provider[*Engine, ledger.Ledger],
 	sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection],
 	throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota],
+	notarization module.Provider[*Engine, notarization.Notarization],
 	consensus module.Provider[*Engine, consensus.Consensus],
 	opts ...options.Option[Engine]) *Engine {
 	e := New(workers.CreateGroup("Engine"),
@@ -53,6 +55,7 @@ func NewTestEngine(t *testing.T, workers *workerpool.Group, storage *storage.Sto
 		ledger,
 		sybilProtection,
 		throughputQuota,
+		notarization,
 		consensus,
 		opts...,
 	)
@@ -82,6 +85,7 @@ func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group,
 	ledger module.Provider[*Engine, ledger.Ledger],
 	sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection],
 	throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota],
+	notarization module.Provider[*Engine, notarization.Notarization],
 	consensus module.Provider[*Engine, consensus.Consensus],
 	optsEngine ...options.Option[Engine]) *TestFramework {
 	engine := NewTestEngine(t, workers.CreateGroup("Engine"),
@@ -90,6 +94,7 @@ func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group,
 		ledger,
 		sybilProtection,
 		throughputQuota,
+		notarization,
 		consensus,
 		optsEngine...,
 	)
@@ -100,7 +105,7 @@ func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group,
 
 func (e *TestFramework) AssertSlotState(index slot.Index) {
 	require.Equal(e.test, index, e.Instance.Storage.Settings.LatestCommitment().Index(), "last commitment index is not equal")
-	require.Equal(e.test, index, e.Instance.NotarizationManager.Attestations.LastCommittedSlot(), "notarization manager attestations last committed slot is not equal")
+	require.Equal(e.test, index, e.Instance.Notarization.Attestations().LastCommittedSlot(), "notarization manager attestations last committed slot is not equal")
 	require.Equal(e.test, index, e.Instance.Ledger.UnspentOutputs().LastCommittedSlot(), "ledger unspent outputs last committed slot is not equal")
 	require.Equal(e.test, index, e.Instance.SybilProtection.LastCommittedSlot(), "sybil protection last committed slot is not equal")
 	// TODO: throughput quota is not updated with each slot, but with acceptance

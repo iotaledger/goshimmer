@@ -19,6 +19,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization/slotnotarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -95,6 +96,7 @@ func diagnosticPrintSnapshotFromFile(filePath string, ledgerProvider module.Prov
 		ledgerProvider,
 		dpos.NewProvider(),
 		mana1.NewProvider(),
+		slotnotarization.NewProvider(),
 		tangleconsensus.NewProvider(),
 	)
 	defer e.Shutdown()
@@ -129,7 +131,7 @@ func diagnosticPrintSnapshotFromFile(filePath string, ledgerProvider module.Prov
 	}
 
 	fmt.Println("--- ActivityLog ---")
-	if err := lo.PanicOnErr(e.NotarizationManager.Attestations.Get(0)).Stream(func(id identity.ID, attestation *notarization.Attestation) bool {
+	if err := lo.PanicOnErr(e.Notarization.Attestations().Get(0)).Stream(func(id identity.ID, attestation *notarization.Attestation) bool {
 		fmt.Printf("%d: %+v\n", 0, id)
 		fmt.Printf("Attestation: %+v\n", attestation)
 		return true

@@ -24,6 +24,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxoledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/mockedvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization/slotnotarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
@@ -174,6 +175,7 @@ func TestEngine_NonEmptyInitialValidators(t *testing.T) {
 		ledgerProvider,
 		dpos.NewProvider(),
 		mana1.NewProvider(),
+		slotnotarization.NewProvider(),
 		tangleconsensus.NewProvider(),
 	)
 	require.NoError(t, tf.Instance.Initialize(tempDir.Path("genesis_snapshot.bin")))
@@ -250,6 +252,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 		ledgerProvider,
 		dpos.NewProvider(),
 		mana1.NewProvider(),
+		slotnotarization.NewProvider(),
 		tangleconsensus.NewProvider(),
 	)
 	require.NoError(t, tf.Instance.Initialize(tempDir.Path("genesis_snapshot.bin")))
@@ -322,6 +325,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 			ledgerProvider,
 			dpos.NewProvider(),
 			mana1.NewProvider(),
+			slotnotarization.NewProvider(),
 			tangleconsensus.NewProvider(),
 		)
 
@@ -382,9 +386,9 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 		require.Equal(t, tf.Instance.ThroughputQuota.TotalBalance(), tf2.Instance.ThroughputQuota.TotalBalance())
 
 		// Attestations for the targetSlot only
-		require.Equal(t, lo.PanicOnErr(tf.Instance.NotarizationManager.Attestations.Get(4)).Root(), lo.PanicOnErr(tf2.Instance.NotarizationManager.Attestations.Get(4)).Root())
-		require.NoError(t, lo.PanicOnErr(tf.Instance.NotarizationManager.Attestations.Get(4)).Stream(func(key identity.ID, engine1Attestation *notarization.Attestation) bool {
-			engine2Attestations := lo.PanicOnErr(tf2.Instance.NotarizationManager.Attestations.Get(4))
+		require.Equal(t, lo.PanicOnErr(tf.Instance.Notarization.Attestations().Get(4)).Root(), lo.PanicOnErr(tf2.Instance.Notarization.Attestations().Get(4)).Root())
+		require.NoError(t, lo.PanicOnErr(tf.Instance.Notarization.Attestations().Get(4)).Stream(func(key identity.ID, engine1Attestation *notarization.Attestation) bool {
+			engine2Attestations := lo.PanicOnErr(tf2.Instance.Notarization.Attestations().Get(4))
 			engine2Attestation, exists := engine2Attestations.Get(key)
 			require.True(t, exists)
 			require.Equal(t, engine1Attestation, engine2Attestation)
@@ -402,6 +406,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 			ledgerProvider,
 			dpos.NewProvider(),
 			mana1.NewProvider(),
+			slotnotarization.NewProvider(),
 			tangleconsensus.NewProvider(),
 		)
 
@@ -412,12 +417,12 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 		tf3.AssertSlotState(1)
 
 		// Check that we only have attestations for slot 1.
-		require.Equal(t, lo.PanicOnErr(tf.Instance.NotarizationManager.Attestations.Get(1)).Root(), lo.PanicOnErr(tf3.Instance.NotarizationManager.Attestations.Get(1)).Root())
-		require.Error(t, lo.Return2(tf3.Instance.NotarizationManager.Attestations.Get(2)))
-		require.Error(t, lo.Return2(tf3.Instance.NotarizationManager.Attestations.Get(3)))
-		require.Error(t, lo.Return2(tf3.Instance.NotarizationManager.Attestations.Get(4)))
-		require.NoError(t, lo.PanicOnErr(tf.Instance.NotarizationManager.Attestations.Get(1)).Stream(func(key identity.ID, engine1Attestation *notarization.Attestation) bool {
-			engine2Attestations := lo.PanicOnErr(tf3.Instance.NotarizationManager.Attestations.Get(1))
+		require.Equal(t, lo.PanicOnErr(tf.Instance.Notarization.Attestations().Get(1)).Root(), lo.PanicOnErr(tf3.Instance.Notarization.Attestations().Get(1)).Root())
+		require.Error(t, lo.Return2(tf3.Instance.Notarization.Attestations().Get(2)))
+		require.Error(t, lo.Return2(tf3.Instance.Notarization.Attestations().Get(3)))
+		require.Error(t, lo.Return2(tf3.Instance.Notarization.Attestations().Get(4)))
+		require.NoError(t, lo.PanicOnErr(tf.Instance.Notarization.Attestations().Get(1)).Stream(func(key identity.ID, engine1Attestation *notarization.Attestation) bool {
+			engine2Attestations := lo.PanicOnErr(tf3.Instance.Notarization.Attestations().Get(1))
 			engine2Attestation, exists := engine2Attestations.Get(key)
 			require.True(t, exists)
 			require.Equal(t, engine1Attestation, engine2Attestation)
@@ -469,6 +474,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 			ledgerProvider,
 			dpos.NewProvider(),
 			mana1.NewProvider(),
+			slotnotarization.NewProvider(),
 			tangleconsensus.NewProvider(),
 		)
 
@@ -479,12 +485,12 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 		tf4.AssertSlotState(2)
 
 		// Check that we only have attestations for slot 2.
-		require.Nil(t, lo.Return2(tf4.Instance.NotarizationManager.Attestations.Get(1)))
-		require.NoError(t, lo.Return2(tf4.Instance.NotarizationManager.Attestations.Get(2)))
-		require.Error(t, lo.Return2(tf4.Instance.NotarizationManager.Attestations.Get(3)))
-		require.Error(t, lo.Return2(tf4.Instance.NotarizationManager.Attestations.Get(4)))
-		require.NoError(t, lo.PanicOnErr(tf.Instance.NotarizationManager.Attestations.Get(2)).Stream(func(key identity.ID, engine1Attestation *notarization.Attestation) bool {
-			engine2Attestations := lo.PanicOnErr(tf4.Instance.NotarizationManager.Attestations.Get(2))
+		require.Nil(t, lo.Return2(tf4.Instance.Notarization.Attestations().Get(1)))
+		require.NoError(t, lo.Return2(tf4.Instance.Notarization.Attestations().Get(2)))
+		require.Error(t, lo.Return2(tf4.Instance.Notarization.Attestations().Get(3)))
+		require.Error(t, lo.Return2(tf4.Instance.Notarization.Attestations().Get(4)))
+		require.NoError(t, lo.PanicOnErr(tf.Instance.Notarization.Attestations().Get(2)).Stream(func(key identity.ID, engine1Attestation *notarization.Attestation) bool {
+			engine2Attestations := lo.PanicOnErr(tf4.Instance.Notarization.Attestations().Get(2))
 			engine2Attestation, exists := engine2Attestations.Get(key)
 			require.True(t, exists)
 			require.Equal(t, engine1Attestation, engine2Attestation)
@@ -573,13 +579,14 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		ledgerProvider,
 		dpos.NewProvider(),
 		mana1.NewProvider(),
+		slotnotarization.NewProvider(),
 		tangleconsensus.NewProvider(),
 		engineOpts...,
 	)
 	tf := engine.NewTestFramework(t, workers.CreateGroup("EngineTestFramework1"), engine1)
 	require.NoError(t, tf.Instance.Initialize(tempDir.Path("genesis_snapshot.bin")))
 
-	tf.Instance.NotarizationManager.Events.Error.Hook(func(err error) {
+	tf.Instance.Events.Notarization.Error.Hook(func(err error) {
 		t.Fatal(err.Error())
 	})
 
@@ -663,6 +670,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 			ledgerProvider,
 			dpos.NewProvider(),
 			mana1.NewProvider(),
+			slotnotarization.NewProvider(),
 			tangleconsensus.NewProvider(),
 			engineOpts...,
 		)
@@ -706,6 +714,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 			ledgerProvider,
 			dpos.NewProvider(),
 			mana1.NewProvider(),
+			slotnotarization.NewProvider(),
 			tangleconsensus.NewProvider(),
 			engineOpts...,
 		)
@@ -780,6 +789,7 @@ func TestEngine_ShutdownResume(t *testing.T) {
 		ledgerProvider,
 		dpos.NewProvider(),
 		mana1.NewProvider(),
+		slotnotarization.NewProvider(),
 		tangleconsensus.NewProvider(),
 		engine.WithTangleOptions(
 			tangle.WithBookerOptions(
@@ -793,7 +803,7 @@ func TestEngine_ShutdownResume(t *testing.T) {
 	tf := engine.NewTestFramework(t, workers.CreateGroup("EngineTestFramework1"), engine1)
 	require.NoError(t, tf.Instance.Initialize(tempDir.Path("genesis_snapshot.bin")))
 
-	tf.Instance.NotarizationManager.Events.Error.Hook(func(err error) {
+	tf.Instance.Events.Notarization.Error.Hook(func(err error) {
 		panic(err)
 	})
 
@@ -814,6 +824,7 @@ func TestEngine_ShutdownResume(t *testing.T) {
 		ledgerProvider,
 		dpos.NewProvider(),
 		mana1.NewProvider(),
+		slotnotarization.NewProvider(),
 		tangleconsensus.NewProvider(),
 		engine.WithTangleOptions(
 			tangle.WithBookerOptions(
@@ -834,9 +845,6 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 	testNetwork := network.NewMockedNetwork()
 
 	engineOpts := []options.Option[engine.Engine]{
-		engine.WithNotarizationManagerOptions(
-			notarization.WithMinCommittableSlotAge(1),
-		),
 		engine.WithTangleOptions(
 			tangle.WithBookerOptions(
 				booker.WithMarkerManagerOptions(

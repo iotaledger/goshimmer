@@ -21,6 +21,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxoledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/mockedvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization/slotnotarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
@@ -57,9 +58,10 @@ type TestFramework struct {
 	tipAdded   uint32
 	tipRemoved uint32
 
-	optsGenesisUnixTime   int64
-	optsTipManagerOptions []options.Option[TipManager]
-	optsEngineOptions     []options.Option[engine.Engine]
+	optsGenesisUnixTime         int64
+	optsSlotNotarizationOptions []options.Option[slotnotarization.Manager]
+	optsTipManagerOptions       []options.Option[TipManager]
+	optsEngineOptions           []options.Option[engine.Engine]
 }
 
 func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...options.Option[TestFramework]) (t *TestFramework) {
@@ -93,6 +95,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...option
 			ledgerProvider,
 			dpos.NewProvider(),
 			mana1.NewProvider(),
+			slotnotarization.NewProvider(t.optsSlotNotarizationOptions...),
 			tangleconsensus.NewProvider(),
 			t.optsEngineOptions...,
 		)
@@ -154,7 +157,7 @@ func (t *TestFramework) setupEvents() {
 	})
 
 	t.mockAcceptance.Events().BlockAccepted.Hook(func(block *blockgadget.Block) {
-		require.NoError(t.test, t.Engine.NotarizationManager.NotarizeAcceptedBlock(block.ModelsBlock))
+		require.NoError(t.test, t.Engine.Notarization.NotarizeAcceptedBlock(block.ModelsBlock))
 	})
 }
 
@@ -281,6 +284,12 @@ func WithGenesisUnixTime(unixTime int64) options.Option[TestFramework] {
 func WithTipManagerOptions(opts ...options.Option[TipManager]) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
 		tf.optsTipManagerOptions = opts
+	}
+}
+
+func WithSlotNotarizationOptions(opts ...options.Option[slotnotarization.Manager]) options.Option[TestFramework] {
+	return func(tf *TestFramework) {
+		tf.optsSlotNotarizationOptions = opts
 	}
 }
 

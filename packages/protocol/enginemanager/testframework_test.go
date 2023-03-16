@@ -13,6 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/blocktime"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/tangleconsensus"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxoledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization/slotnotarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
 	"github.com/iotaledger/goshimmer/packages/protocol/enginemanager"
@@ -59,6 +60,7 @@ func NewEngineManagerTestFramework(t *testing.T, workers *workerpool.Group, iden
 		ledgerProvider,
 		dpos.NewProvider(),
 		mana1.NewProvider(),
+		slotnotarization.NewProvider(),
 		tangleconsensus.NewProvider(),
 	)
 

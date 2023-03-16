@@ -22,6 +22,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxoledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization/slotnotarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
@@ -72,6 +73,7 @@ type Protocol struct {
 	optsLedgerProvider          module.Provider[*engine.Engine, ledger.Ledger]
 	optsSybilProtectionProvider module.Provider[*engine.Engine, sybilprotection.SybilProtection]
 	optsThroughputQuotaProvider module.Provider[*engine.Engine, throughputquota.ThroughputQuota]
+	optsNotarizationProvider    module.Provider[*engine.Engine, notarization.Notarization]
 	optsConsensusProvider       module.Provider[*engine.Engine, consensus.Consensus]
 }
 
@@ -84,6 +86,7 @@ func New(workers *workerpool.Group, dispatcher network.Endpoint, opts ...options
 		optsLedgerProvider:          utxoledger.NewProvider(),
 		optsSybilProtectionProvider: dpos.NewProvider(),
 		optsThroughputQuotaProvider: mana1.NewProvider(),
+		optsNotarizationProvider:    slotnotarization.NewProvider(),
 		optsConsensusProvider:       tangleconsensus.NewProvider(),
 
 		optsBaseDirectory:    "",
@@ -141,6 +144,7 @@ func (p *Protocol) initEngineManager() {
 		p.optsLedgerProvider,
 		p.optsSybilProtectionProvider,
 		p.optsThroughputQuotaProvider,
+		p.optsNotarizationProvider,
 		p.optsConsensusProvider,
 	)
 
@@ -198,7 +202,7 @@ func (p *Protocol) initChainManager() {
 
 	wp := p.Workers.CreatePool("ChainManager", 1) // Using just 1 worker to avoid contention
 
-	p.Events.Engine.NotarizationManager.SlotCommitted.Hook(func(details *notarization.SlotCommittedDetails) {
+	p.Events.Engine.Notarization.SlotCommitted.Hook(func(details *notarization.SlotCommittedDetails) {
 		p.chainManager.ProcessCommitment(details.Commitment)
 	}, event.WithWorkerPool(wp))
 	p.Events.Engine.Consensus.SlotGadget.SlotConfirmed.Hook(func(index slot.Index) {
@@ -356,7 +360,7 @@ func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) error {
 func (p *Protocol) ProcessAttestationsRequest(forkingPoint *commitment.Commitment, endIndex slot.Index, src identity.ID) {
 	mainEngine := p.MainEngineInstance()
 
-	if mainEngine.NotarizationManager.Attestations.LastCommittedSlot() < endIndex {
+	if mainEngine.Notarization.Attestations().LastCommittedSlot() < endIndex {
 		// Invalid request received from src
 		// TODO: ban peer?
 		return
@@ -365,7 +369,7 @@ func (p *Protocol) ProcessAttestationsRequest(forkingPoint *commitment.Commitmen
 	blockIDs := models.NewBlockIDs()
 	attestations := orderedmap.New[slot.Index, *advancedset.AdvancedSet[*notarization.Attestation]]()
 	for i := forkingPoint.Index(); i <= endIndex; i++ {
-		attestationsForSlot, err := mainEngine.NotarizationManager.Attestations.Get(i)
+		attestationsForSlot, err := mainEngine.Notarization.Attestations().Get(i)
 		if err != nil {
 			p.Events.Error.Trigger(errors.Wrapf(err, "failed to get attestations for slot %d upon request", i))
 			return
@@ -413,7 +417,7 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 	wb := sybilprotection.NewWeightsBatch(snapshotTargetIndex)
 
 	var calculatedCumulativeWeight int64
-	mainEngine.NotarizationManager.PerformLocked(func(m *notarization.Manager) {
+	mainEngine.Notarization.PerformLocked(func(n notarization.Notarization) {
 		// Calculate the difference between the latest commitment ledger and the ledger at the snapshot target index
 		latestCommitment := mainEngine.Storage.Settings.LatestCommitment()
 		for i := latestCommitment.Index(); i >= snapshotTargetIndex; i-- {
@@ -518,7 +522,7 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 	}, event.WithWorkerPool(wp)).Unhook
 
 	// Attach slot commitments to the chain manager and detach as soon as we switch to that engine
-	detachProcessCommitment := candidateEngine.Events.NotarizationManager.SlotCommitted.Hook(func(details *notarization.SlotCommittedDetails) {
+	detachProcessCommitment := candidateEngine.Events.Notarization.SlotCommitted.Hook(func(details *notarization.SlotCommittedDetails) {
 		p.chainManager.ProcessCandidateCommitment(details.Commitment)
 	}, event.WithWorkerPool(candidateEngine.Workers.CreatePool("ProcessCandidateCommitment", 2))).Unhook
 
@@ -619,6 +623,12 @@ func WithSybilProtectionProvider(sybilProtectionProvider module.Provider[*engine
 func WithThroughputQuotaProvider(throughputQuotaProvider module.Provider[*engine.Engine, throughputquota.ThroughputQuota]) options.Option[Protocol] {
 	return func(n *Protocol) {
 		n.optsThroughputQuotaProvider = throughputQuotaProvider
+	}
+}
+
+func WithNotarizationProvider(notarizationProvider module.Provider[*engine.Engine, notarization.Notarization]) options.Option[Protocol] {
+	return func(n *Protocol) {
+		n.optsNotarizationProvider = notarizationProvider
 	}
 }
 

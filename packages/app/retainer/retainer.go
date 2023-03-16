@@ -200,7 +200,7 @@ func (r *Retainer) setupEvents() {
 
 	r.protocol.Events.Engine.EvictionState.SlotEvicted.Hook(r.storeAndEvictSlot, event.WithWorkerPool(r.blockWorkerPool))
 
-	r.protocol.Events.Engine.NotarizationManager.SlotCommitted.Hook(func(e *notarization.SlotCommittedDetails) {
+	r.protocol.Events.Engine.Notarization.SlotCommitted.Hook(func(e *notarization.SlotCommittedDetails) {
 		if e.Commitment.Index() < r.protocol.Engine().EvictionState.LastEvictedSlot() {
 			return
 		}
