@@ -3,6 +3,7 @@ package newconflictdag
 import (
 	"sync"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/weight"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 )
 
@@ -22,7 +23,7 @@ func (c *ConflictSet[ConflictID, ResourceID]) RegisterConflict(newConflict *Conf
 
 	lighterConflicts := make([]*Conflict[ConflictID, ResourceID], 0)
 	for _, existingConflict := range c.conflicts.Slice() {
-		if comparison := existingConflict.CompareTo(newConflict); comparison == Equal || comparison == Larger && newConflict.registerHeavierConflict(existingConflict) {
+		if comparison := existingConflict.CompareTo(newConflict); comparison == weight.Equal || comparison == weight.Heavier && newConflict.registerHeavierConflict(existingConflict) {
 			continue
 		}
 

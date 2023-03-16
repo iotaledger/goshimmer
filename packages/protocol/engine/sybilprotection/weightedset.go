@@ -9,6 +9,8 @@ import (
 )
 
 type WeightedSet struct {
+	OnTotalWeightUpdated *event.Event1[int64]
+
 	Weights             *Weights
 	weightUpdatesDetach *event.Hook[func(*WeightsBatch)]
 	members             *advancedset.AdvancedSet[identity.ID]
@@ -19,6 +21,7 @@ type WeightedSet struct {
 
 func NewWeightedSet(weights *Weights, optMembers ...identity.ID) (newWeightedSet *WeightedSet) {
 	newWeightedSet = new(WeightedSet)
+	newWeightedSet.OnTotalWeightUpdated = event.New1[int64]()
 	newWeightedSet.Weights = weights
 	newWeightedSet.members = advancedset.NewAdvancedSet[identity.ID]()
 
@@ -136,12 +139,25 @@ func (w *WeightedSet) Detach() {
 }
 
 func (w *WeightedSet) onWeightUpdated(updates *WeightsBatch) {
+	if newWeight, updated := w.updateWeights(updates); updated {
+		w.OnTotalWeightUpdated.Trigger(newWeight)
+	}
+}
+
+func (w *WeightedSet) updateWeights(updates *WeightsBatch) (newWeight int64, updated bool) {
 	w.totalWeightMutex.Lock()
 	defer w.totalWeightMutex.Unlock()
 
+	newWeight = w.totalWeight
 	updates.ForEach(func(id identity.ID, diff int64) {
 		if w.members.Has(id) {
-			w.totalWeight += diff
+			newWeight += diff
 		}
 	})
+
+	if updated = newWeight != w.totalWeight; updated {
+		w.totalWeight = newWeight
+	}
+
+	return
 }

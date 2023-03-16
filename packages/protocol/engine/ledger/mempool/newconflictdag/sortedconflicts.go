@@ -2,65 +2,87 @@ package newconflictdag
 
 import (
 	"sync"
+	"sync/atomic"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/weight"
 	"github.com/iotaledger/hive.go/ds/shrinkingmap"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 	"github.com/iotaledger/hive.go/stringify"
 )
 
 type SortedConflicts[ConflictID, ResourceID IDType] struct {
-	conflictsByID    *shrinkingmap.ShrinkingMap[ConflictID, *sortedConflict[ConflictID, ResourceID]]
-	heaviestConflict *sortedConflict[ConflictID, ResourceID]
+	conflictsByID    *shrinkingmap.ShrinkingMap[ConflictID, *SortedConflictsElement[ConflictID, ResourceID]]
+	heaviestConflict *SortedConflictsElement[ConflictID, ResourceID]
+
+	updates       map[ConflictID]*SortedConflictsElement[ConflictID, ResourceID]
+	updatesMutex  sync.RWMutex
+	updatesSignal *sync.Cond
+
+	isShutdown atomic.Bool
+
+	pendingUpdatesCounter *syncutils.Counter
 
 	mutex sync.RWMutex
 }
 
 func NewSortedConflicts[ConflictID, ResourceID IDType]() *SortedConflicts[ConflictID, ResourceID] {
-	return &SortedConflicts[ConflictID, ResourceID]{
-		conflictsByID: shrinkingmap.New[ConflictID, *sortedConflict[ConflictID, ResourceID]](),
+	s := &SortedConflicts[ConflictID, ResourceID]{
+		conflictsByID:         shrinkingmap.New[ConflictID, *SortedConflictsElement[ConflictID, ResourceID]](),
+		updates:               make(map[ConflictID]*SortedConflictsElement[ConflictID, ResourceID]),
+		pendingUpdatesCounter: syncutils.NewCounter(),
 	}
+	s.updatesSignal = sync.NewCond(&s.updatesMutex)
+
+	go s.updateWorker()
+
+	return s
+}
+
+func (s *SortedConflicts[ConflictID, ResourceID]) Wait() {
+	s.pendingUpdatesCounter.WaitIsZero()
 }
 
 func (s *SortedConflicts[ConflictID, ResourceID]) Add(conflict *Conflict[ConflictID, ResourceID]) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	newConflict := &sortedConflict[ConflictID, ResourceID]{value: conflict}
-	if !s.conflictsByID.Set(conflict.id, newConflict) {
+	newSortedConflict := newSortedConflict[ConflictID, ResourceID](s, conflict)
+	if !s.conflictsByID.Set(conflict.id, newSortedConflict) {
 		return
 	}
 
-	conflict.OnWeightUpdated.Hook(s.onConflictWeightUpdated)
+	go func() {}()
 
 	if s.heaviestConflict == nil {
-		s.heaviestConflict = newConflict
+		s.heaviestConflict = newSortedConflict
 		return
 	}
 
 	for currentConflict := s.heaviestConflict; ; {
-		comparison := newConflict.value.CompareTo(currentConflict.value)
-		if comparison == Equal {
+		comparison := newSortedConflict.Compare(currentConflict)
+		if comparison == weight.Equal {
 			panic("different Conflicts should never have the same weight")
 		}
 
-		if comparison == Larger {
+		if comparison == weight.Heavier {
 			if currentConflict.heavier != nil {
-				currentConflict.heavier.lighter = newConflict
+				currentConflict.heavier.lighter = newSortedConflict
 			}
 
-			newConflict.lighter = currentConflict
-			newConflict.heavier = currentConflict.heavier
-			currentConflict.heavier = newConflict
+			newSortedConflict.lighter = currentConflict
+			newSortedConflict.heavier = currentConflict.heavier
+			currentConflict.heavier = newSortedConflict
 
 			if currentConflict == s.heaviestConflict {
-				s.heaviestConflict = newConflict
+				s.heaviestConflict = newSortedConflict
 			}
 
 			break
 		}
 
 		if currentConflict.lighter == nil {
-			currentConflict.lighter = newConflict
-			newConflict.heavier = currentConflict
+			currentConflict.lighter = newSortedConflict
+			newSortedConflict.heavier = currentConflict
 			break
 		}
 
@@ -73,7 +95,7 @@ func (s *SortedConflicts[ConflictID, ResourceID]) ForEach(callback func(*Conflic
 	defer s.mutex.RUnlock()
 
 	for currentConflict := s.heaviestConflict; currentConflict != nil; currentConflict = currentConflict.lighter {
-		if err := callback(currentConflict.value); err != nil {
+		if err := callback(currentConflict.conflict); err != nil {
 			return err
 		}
 	}
@@ -93,26 +115,34 @@ func (s *SortedConflicts[ConflictID, ResourceID]) String() string {
 	return structBuilder.String()
 }
 
-func (s *SortedConflicts[ConflictID, ResourceID]) onConflictWeightUpdated(conflict *Conflict[ConflictID, ResourceID]) {
+func (s *SortedConflicts[ConflictID, ResourceID]) updateWorker() {
+	for conflict := s.nextUpdate(); conflict != nil; conflict = s.nextUpdate() {
+		if conflict.applyQueuedWeight() {
+			s.fixOrderOf(conflict.conflict.id)
+		}
+	}
+}
+
+func (s *SortedConflicts[ConflictID, ResourceID]) fixOrderOf(conflictID ConflictID) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	updatedConflict, exists := s.conflictsByID.Get(conflict.id)
-	if !exists || updatedConflict.value != conflict {
+	updatedConflict, exists := s.conflictsByID.Get(conflictID)
+	if !exists {
 		panic("the Conflict that was updated was not found in the SortedConflicts")
 	}
 
-	for currentConflict := updatedConflict.heavier; currentConflict != nil && currentConflict.value.CompareTo(updatedConflict.value) == Smaller; currentConflict = updatedConflict.heavier {
+	for currentConflict := updatedConflict.heavier; currentConflict != nil && currentConflict.Compare(updatedConflict) == weight.Lighter; currentConflict = updatedConflict.heavier {
 		s.swapConflicts(updatedConflict, currentConflict)
 	}
 
-	for lighterConflict := updatedConflict.lighter; lighterConflict != nil && lighterConflict.value.CompareTo(updatedConflict.value) == Larger; lighterConflict = updatedConflict.lighter {
+	for lighterConflict := updatedConflict.lighter; lighterConflict != nil && lighterConflict.Compare(updatedConflict) == weight.Heavier; lighterConflict = updatedConflict.lighter {
 		s.swapConflicts(lighterConflict, updatedConflict)
 	}
 }
 
 // swapConflicts swaps the two given Conflicts in the SortedConflicts while assuming that the heavierConflict is heavier than the lighterConflict.
-func (s *SortedConflicts[ConflictID, ResourceID]) swapConflicts(heavierConflict *sortedConflict[ConflictID, ResourceID], lighterConflict *sortedConflict[ConflictID, ResourceID]) {
+func (s *SortedConflicts[ConflictID, ResourceID]) swapConflicts(heavierConflict *SortedConflictsElement[ConflictID, ResourceID], lighterConflict *SortedConflictsElement[ConflictID, ResourceID]) {
 	if heavierConflict.lighter != nil {
 		heavierConflict.lighter.heavier = lighterConflict
 	}
@@ -130,8 +160,39 @@ func (s *SortedConflicts[ConflictID, ResourceID]) swapConflicts(heavierConflict 
 	}
 }
 
-type sortedConflict[ConflictID, ResourceID IDType] struct {
-	value   *Conflict[ConflictID, ResourceID]
-	lighter *sortedConflict[ConflictID, ResourceID]
-	heavier *sortedConflict[ConflictID, ResourceID]
+func (s *SortedConflicts[ConflictID, ResourceID]) notifyUpdate(conflict *SortedConflictsElement[ConflictID, ResourceID]) {
+	s.updatesMutex.Lock()
+	defer s.updatesMutex.Unlock()
+
+	if _, exists := s.updates[conflict.conflict.id]; exists {
+		return
+	}
+
+	s.pendingUpdatesCounter.Increase()
+
+	s.updates[conflict.conflict.id] = conflict
+
+	s.updatesSignal.Signal()
+}
+
+// nextUpdate returns the next SortedConflictsElement that needs to be updated (or nil if the shutdown flag is set).
+func (s *SortedConflicts[ConflictID, ResourceID]) nextUpdate() *SortedConflictsElement[ConflictID, ResourceID] {
+	s.updatesMutex.Lock()
+	defer s.updatesMutex.Unlock()
+
+	for !s.isShutdown.Load() && len(s.updates) == 0 {
+		s.updatesSignal.Wait()
+	}
+
+	if !s.isShutdown.Load() {
+		for conflictID, conflict := range s.updates {
+			delete(s.updates, conflictID)
+
+			s.pendingUpdatesCounter.Decrease()
+
+			return conflict
+		}
+	}
+
+	return nil
 }

@@ -1,13 +1,13 @@
-package newconflictdag
+package acceptance
 
 import (
 	"strconv"
 )
 
-// ConfirmationState is the confirmation state of an entity.
-type ConfirmationState uint8
+// State is the confirmation state of an entity.
+type State uint8
 
-func (c ConfirmationState) String() string {
+func (c State) String() string {
 	switch c {
 	case Pending:
 		return "Pending"
@@ -22,7 +22,7 @@ func (c ConfirmationState) String() string {
 
 const (
 	// Pending is the default confirmation state.
-	Pending ConfirmationState = iota
+	Pending State = iota
 
 	// Accepted is the state for accepted entities.
 	Accepted

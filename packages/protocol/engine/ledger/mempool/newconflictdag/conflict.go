@@ -4,22 +4,20 @@ import (
 	"bytes"
 	"sync"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/weight"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/ds/shrinkingmap"
 	"github.com/iotaledger/hive.go/lo"
-	"github.com/iotaledger/hive.go/runtime/event"
 	"github.com/iotaledger/hive.go/stringify"
 )
 
 type Conflict[ConflictID, ResourceID IDType] struct {
-	OnWeightUpdated *event.Event1[*Conflict[ConflictID, ResourceID]]
-
 	id              ConflictID
 	parents         *advancedset.AdvancedSet[ConflictID]
 	children        *advancedset.AdvancedSet[*Conflict[ConflictID, ResourceID]]
 	conflictSets    *advancedset.AdvancedSet[*ConflictSet[ConflictID, ResourceID]]
 	sortedConflicts *SortedConflicts[ConflictID, ResourceID]
-	weight          *Weight
+	weight          *weight.Weight
 
 	heavierConflicts *shrinkingmap.ShrinkingMap[ConflictID, *Conflict[ConflictID, ResourceID]]
 	preferredInstead *Conflict[ConflictID, ResourceID]
@@ -27,23 +25,19 @@ type Conflict[ConflictID, ResourceID IDType] struct {
 	m sync.RWMutex
 }
 
-func NewConflict[ConflictID, ResourceID IDType](id ConflictID, parents *advancedset.AdvancedSet[ConflictID], conflictSets *advancedset.AdvancedSet[*ConflictSet[ConflictID, ResourceID]], weight *Weight) *Conflict[ConflictID, ResourceID] {
+func NewConflict[ConflictID, ResourceID IDType](id ConflictID, parents *advancedset.AdvancedSet[ConflictID], conflictSets *advancedset.AdvancedSet[*ConflictSet[ConflictID, ResourceID]], initialWeight *weight.Weight) *Conflict[ConflictID, ResourceID] {
 	c := &Conflict[ConflictID, ResourceID]{
-		OnWeightUpdated: event.New1[*Conflict[ConflictID, ResourceID]](),
-
 		id:               id,
 		parents:          parents,
 		children:         advancedset.NewAdvancedSet[*Conflict[ConflictID, ResourceID]](),
 		conflictSets:     conflictSets,
 		heavierConflicts: shrinkingmap.New[ConflictID, *Conflict[ConflictID, ResourceID]](),
-		weight:           weight,
+		weight:           initialWeight,
 	}
 
 	for _, conflictSet := range conflictSets.Slice() {
 		conflictSet.RegisterConflict(c)
 	}
-
-	c.weight.OnUpdate.Hook(func() { c.OnWeightUpdated.Trigger(c) })
 
 	return c
 }
@@ -52,12 +46,12 @@ func (c *Conflict[ConflictID, ResourceID]) ID() ConflictID {
 	return c.id
 }
 
-func (c *Conflict[ConflictID, ResourceID]) Weight() *Weight {
+func (c *Conflict[ConflictID, ResourceID]) Weight() *weight.Weight {
 	return c.weight
 }
 
 func (c *Conflict[ConflictID, ResourceID]) registerHeavierConflict(heavierConflict *Conflict[ConflictID, ResourceID]) bool {
-	if heavierConflict.CompareTo(c) != Larger {
+	if heavierConflict.CompareTo(c) != weight.Heavier {
 		return false
 	}
 
@@ -65,38 +59,38 @@ func (c *Conflict[ConflictID, ResourceID]) registerHeavierConflict(heavierConfli
 	defer c.m.Unlock()
 
 	if c.heavierConflicts.Set(heavierConflict.id, heavierConflict) {
-		_ = heavierConflict.OnWeightUpdated.Hook(c.onWeightUpdated)
+		_ = heavierConflict.weight.OnUpdate.Hook(c.onWeightUpdated)
 		// subscribe to events of the heavier conflicts
 
-		c.onWeightUpdated(heavierConflict)
+		// c.onWeightUpdated(heavierConflict)
 	}
 
 	return true
 }
 
-func (c *Conflict[ConflictID, ResourceID]) onWeightUpdated(heavierConflict *Conflict[ConflictID, ResourceID]) {
-	c.m.Lock()
-	defer c.m.Unlock()
-
-	if heavierConflict.IsPreferred() && heavierConflict.CompareTo(c.preferredInstead) == Larger {
-		c.preferredInstead = heavierConflict
-	}
+func (c *Conflict[ConflictID, ResourceID]) onWeightUpdated(newWeight weight.Value) {
+	// c.m.Lock()
+	// defer c.m.Unlock()
+	//
+	// if heavierConflict.IsPreferred() && heavierConflict.CompareTo(c.preferredInstead) == weight.Heavier {
+	// 	c.preferredInstead = heavierConflict
+	// }
 }
 
 func (c *Conflict[ConflictID, ResourceID]) CompareTo(other *Conflict[ConflictID, ResourceID]) int {
 	if c == other {
-		return Equal
+		return weight.Equal
 	}
 
 	if other == nil {
-		return Larger
+		return weight.Heavier
 	}
 
 	if c == nil {
-		return Smaller
+		return weight.Lighter
 	}
 
-	if result := c.weight.Compare(other.weight); result != Equal {
+	if result := c.weight.Compare(other.weight); result != weight.Equal {
 		return result
 	}
 
