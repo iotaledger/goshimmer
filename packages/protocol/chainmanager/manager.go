@@ -69,6 +69,9 @@ func NewManager(genesisCommitment *commitment.Commitment, opts ...options.Option
 
 func (m *Manager) ProcessCommitmentFromSource(commitment *commitment.Commitment, source identity.ID) (isSolid bool, chain *Chain) {
 	_, isSolid, chainCommitment := m.processCommitment(commitment)
+	if chainCommitment == nil {
+		return false, nil
+	}
 
 	m.detectForks(chainCommitment, source)
 
@@ -77,11 +80,18 @@ func (m *Manager) ProcessCommitmentFromSource(commitment *commitment.Commitment,
 
 func (m *Manager) ProcessCandidateCommitment(commitment *commitment.Commitment) (isSolid bool, chain *Chain) {
 	_, isSolid, chainCommitment := m.processCommitment(commitment)
+	if chainCommitment == nil {
+		return false, nil
+	}
 	return isSolid, chainCommitment.Chain()
 }
 
 func (m *Manager) ProcessCommitment(commitment *commitment.Commitment) (isSolid bool, chain *Chain) {
 	isNew, isSolid, chainCommitment := m.processCommitment(commitment)
+
+	if chainCommitment == nil {
+		return false, nil
+	}
 
 	if !isNew {
 		if err := m.switchMainChainToCommitment(chainCommitment); err != nil {
@@ -173,7 +183,10 @@ func (m *Manager) SwitchMainChain(head commitment.ID) error {
 
 func (m *Manager) processCommitment(commitment *commitment.Commitment) (isNew bool, isSolid bool, chainCommitment *Commitment) {
 	if isBelowRootCommitment, isRootCommitment := m.evaluateAgainstRootCommitment(commitment); isBelowRootCommitment || isRootCommitment {
-		return false, isRootCommitment, nil
+		if isRootCommitment {
+			chainCommitment = m.rootCommitment
+		}
+		return false, isRootCommitment, chainCommitment
 	}
 
 	isNew, isSolid, _, chainCommitment = m.registerCommitment(commitment)
