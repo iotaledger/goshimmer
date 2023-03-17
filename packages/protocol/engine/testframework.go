@@ -34,7 +34,7 @@ type TestFramework struct {
 	Tangle        *tangle.TestFramework
 	Booker        *booker.TestFramework
 	BlockDAG      *blockdag.TestFramework
-	Ledger        *mempool.TestFramework
+	MemPool       *mempool.TestFramework
 	VirtualVoting *virtualvoting.TestFramework
 	Acceptance    *blockgadget.TestFramework
 }
@@ -68,7 +68,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, engine *Engine
 		t.Tangle,
 	)
 	t.Booker = t.Tangle.Booker
-	t.Ledger = t.Tangle.Ledger
+	t.MemPool = t.Tangle.MemPool
 	t.BlockDAG = t.Tangle.BlockDAG
 	t.VirtualVoting = t.Tangle.VirtualVoting
 	return t

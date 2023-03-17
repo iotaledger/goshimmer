@@ -49,7 +49,7 @@ func (s *SequenceTracker[VotePowerType]) TrackVotes(pastMarkers *markers.Markers
 }
 
 func (s *SequenceTracker[VotePowerType]) Voters(marker markers.Marker) (voters *advancedset.AdvancedSet[identity.ID]) {
-	voters = advancedset.NewAdvancedSet[identity.ID]()
+	voters = advancedset.New[identity.ID]()
 
 	votesObj, exists := s.votes.Get(marker.SequenceID())
 	if !exists {

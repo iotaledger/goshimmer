@@ -13,23 +13,23 @@ require (
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/websocket v1.4.2
-	github.com/iotaledger/hive.go/ads v0.0.0-20230301135914-603c4dac79e1
-	github.com/iotaledger/hive.go/app v0.0.0-20230301135914-603c4dac79e1
-	github.com/iotaledger/hive.go/autopeering v0.0.0-20230301135914-603c4dac79e1
-	github.com/iotaledger/hive.go/constraints v0.0.0-20230301135914-603c4dac79e1
-	github.com/iotaledger/hive.go/core v1.0.0-rc.3.0.20230301135914-603c4dac79e1
-	github.com/iotaledger/hive.go/crypto v0.0.0-20230301135914-603c4dac79e1
-	github.com/iotaledger/hive.go/ds v0.0.0-20230301135914-603c4dac79e1
-	github.com/iotaledger/hive.go/kvstore v0.0.0-20230301135914-603c4dac79e1
-	github.com/iotaledger/hive.go/lo v0.0.0-20230301135914-603c4dac79e1
-	github.com/iotaledger/hive.go/logger v0.0.0-20230301135914-603c4dac79e1
-	github.com/iotaledger/hive.go/objectstorage v0.0.0-20230301135914-603c4dac79e1
-	github.com/iotaledger/hive.go/runtime v0.0.0-20230301135914-603c4dac79e1
-	github.com/iotaledger/hive.go/serializer/v2 v2.0.0-rc.1.0.20230301135914-603c4dac79e1
-	github.com/iotaledger/hive.go/stringify v0.0.0-20230301135914-603c4dac79e1
+	github.com/iotaledger/hive.go/ads v0.0.0-20230313111946-a5673658f9fd
+	github.com/iotaledger/hive.go/app v0.0.0-20230313111946-a5673658f9fd
+	github.com/iotaledger/hive.go/autopeering v0.0.0-20230313111946-a5673658f9fd
+	github.com/iotaledger/hive.go/constraints v0.0.0-20230313111946-a5673658f9fd
+	github.com/iotaledger/hive.go/core v1.0.0-rc.3.0.20230313111946-a5673658f9fd
+	github.com/iotaledger/hive.go/crypto v0.0.0-20230313111946-a5673658f9fd
+	github.com/iotaledger/hive.go/ds v0.0.0-20230313111946-a5673658f9fd
+	github.com/iotaledger/hive.go/kvstore v0.0.0-20230313111946-a5673658f9fd
+	github.com/iotaledger/hive.go/lo v0.0.0-20230313111946-a5673658f9fd
+	github.com/iotaledger/hive.go/logger v0.0.0-20230313111946-a5673658f9fd
+	github.com/iotaledger/hive.go/objectstorage v0.0.0-20230313111946-a5673658f9fd
+	github.com/iotaledger/hive.go/runtime v0.0.0-20230313111946-a5673658f9fd
+	github.com/iotaledger/hive.go/serializer/v2 v2.0.0-rc.1.0.20230313111946-a5673658f9fd
+	github.com/iotaledger/hive.go/stringify v0.0.0-20230313111946-a5673658f9fd
 	github.com/jellydator/ttlcache/v2 v2.11.1
 	github.com/labstack/echo/v4 v4.10.0
-	github.com/libp2p/go-libp2p v0.26.1
+	github.com/libp2p/go-libp2p v0.26.2
 	github.com/mr-tron/base58 v1.2.0
 	github.com/multiformats/go-multiaddr v0.8.0
 	github.com/multiformats/go-varint v0.0.7
@@ -46,10 +46,10 @@ require (
 	go.dedis.ch/kyber/v3 v3.1.0
 	go.uber.org/atomic v1.10.0
 	go.uber.org/dig v1.16.1
-	golang.org/x/crypto v0.6.0
+	golang.org/x/crypto v0.7.0
 	golang.org/x/sync v0.1.0
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2
-	google.golang.org/protobuf v1.28.1
+	google.golang.org/protobuf v1.29.0
 	gopkg.in/src-d/go-git.v4 v4.13.1
 )
 
@@ -68,12 +68,12 @@ require (
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.1.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/elastic/gosigar v0.14.2 // indirect
-	github.com/ethereum/go-ethereum v1.11.2 // indirect
+	github.com/ethereum/go-ethereum v1.11.4 // indirect
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/flynn/noise v1.0.0 // indirect
 	github.com/francoispqt/gojay v1.2.13 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
-	github.com/getsentry/sentry-go v0.18.0 // indirect
+	github.com/getsentry/sentry-go v0.19.0 // indirect
 	github.com/go-ole/go-ole v1.2.1 // indirect
 	github.com/go-stack/stack v1.8.1 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0 // indirect
@@ -81,7 +81,7 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
 	github.com/golang/mock v1.6.0 // indirect
-	github.com/golang/protobuf v1.5.2 // indirect
+	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/gopacket v1.1.19 // indirect
 	github.com/google/pprof v0.0.0-20221203041831-ce31453925ec // indirect
@@ -95,7 +95,6 @@ require (
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/jbenet/go-temp-err-catcher v0.1.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
-	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
 	github.com/kevinburke/ssh_config v0.0.0-20190725054713-01f96b0aa0cd // indirect
 	github.com/klauspost/compress v1.16.0 // indirect
@@ -129,8 +128,6 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
-	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
-	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/multiformats/go-base32 v0.1.0 // indirect
 	github.com/multiformats/go-base36 v0.2.0 // indirect
 	github.com/multiformats/go-multiaddr-dns v0.3.1 // indirect
@@ -148,7 +145,7 @@ require (
 	github.com/petermattis/goid v0.0.0-20230222173705-8ff7bb262a50 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
-	github.com/prometheus/common v0.40.0 // indirect
+	github.com/prometheus/common v0.42.0 // indirect
 	github.com/prometheus/procfs v0.9.0 // indirect
 	github.com/quic-go/qpack v0.4.0 // indirect
 	github.com/quic-go/qtls-go1-19 v0.2.1 // indirect
@@ -178,16 +175,16 @@ require (
 	go.dedis.ch/fixbuf v1.0.3 // indirect
 	go.mongodb.org/mongo-driver v1.5.1 // indirect
 	go.uber.org/fx v1.18.2 // indirect
-	go.uber.org/multierr v1.9.0 // indirect
+	go.uber.org/multierr v1.10.0 // indirect
 	go.uber.org/zap v1.24.0 // indirect
-	golang.org/x/exp v0.0.0-20230224173230-c95f2b4c22f2 // indirect
-	golang.org/x/mod v0.7.0 // indirect
-	golang.org/x/net v0.7.0 // indirect
-	golang.org/x/sys v0.5.0 // indirect
-	golang.org/x/term v0.5.0 // indirect
-	golang.org/x/text v0.7.0 // indirect
+	golang.org/x/exp v0.0.0-20230310171629-522b1b587ee0 // indirect
+	golang.org/x/mod v0.8.0 // indirect
+	golang.org/x/net v0.8.0 // indirect
+	golang.org/x/sys v0.6.0 // indirect
+	golang.org/x/term v0.6.0 // indirect
+	golang.org/x/text v0.8.0 // indirect
 	golang.org/x/time v0.2.0 // indirect
-	golang.org/x/tools v0.3.0 // indirect
+	golang.org/x/tools v0.6.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/src-d/go-billy.v4 v4.3.2 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect

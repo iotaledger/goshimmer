@@ -106,7 +106,7 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 
 	// ISSUE Block5
 	tf.BlockDAG.CreateBlock("Block5", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block4")), models.WithIssuer(tf.VirtualVoting.Identity("A").PublicKey()),
-		models.WithPayload(tf.Ledger.CreateTransaction("Tx1", 1, "Genesis")))
+		models.WithPayload(tf.MemPool.CreateTransaction("Tx1", 1, "Genesis")))
 	tf.BlockDAG.IssueBlocks("Block5")
 
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
@@ -122,7 +122,7 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 
 	// ISSUE Block6
 	tf.BlockDAG.CreateBlock("Block6", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block4")), models.WithIssuer(tf.VirtualVoting.Identity("E").PublicKey()),
-		models.WithPayload(tf.Ledger.CreateTransaction("Tx2", 1, "Genesis")))
+		models.WithPayload(tf.MemPool.CreateTransaction("Tx2", 1, "Genesis")))
 	tf.BlockDAG.IssueBlocks("Block6")
 
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
@@ -141,7 +141,7 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 	}))
 
 	// ISSUE Block7
-	tf.BlockDAG.CreateBlock("Block7", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block5")), models.WithIssuer(tf.VirtualVoting.Identity("C").PublicKey()), models.WithPayload(tf.Ledger.CreateTransaction("Tx3", 1, "Tx1.0")))
+	tf.BlockDAG.CreateBlock("Block7", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block5")), models.WithIssuer(tf.VirtualVoting.Identity("C").PublicKey()), models.WithPayload(tf.MemPool.CreateTransaction("Tx3", 1, "Tx1.0")))
 	tf.BlockDAG.IssueBlocks("Block7")
 
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
@@ -231,7 +231,7 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 	}))
 
 	// ISSUE Block11
-	tf.BlockDAG.CreateBlock("Block11", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block5")), models.WithIssuer(tf.VirtualVoting.Identity("A").PublicKey()), models.WithPayload(tf.Ledger.CreateTransaction("Tx4", 1, "Tx1.0")))
+	tf.BlockDAG.CreateBlock("Block11", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block5")), models.WithIssuer(tf.VirtualVoting.Identity("A").PublicKey()), models.WithPayload(tf.MemPool.CreateTransaction("Tx4", 1, "Tx1.0")))
 	tf.BlockDAG.IssueBlocks("Block11")
 
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{

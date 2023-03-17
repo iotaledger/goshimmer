@@ -19,7 +19,7 @@ func getOnlineAccessHandler(c echo.Context) error {
 	manaMap := deps.Protocol.Engine().ThroughputQuota.BalanceByIDs()
 	var knownPeers *advancedset.AdvancedSet[identity.ID]
 	if deps.Discovery != nil {
-		knownPeers = advancedset.NewAdvancedSet[identity.ID](lo.Map(deps.Discovery.GetVerifiedPeers(), func(p *peer.Peer) identity.ID {
+		knownPeers = advancedset.New[identity.ID](lo.Map(deps.Discovery.GetVerifiedPeers(), func(p *peer.Peer) identity.ID {
 			return p.ID()
 		})...)
 	}

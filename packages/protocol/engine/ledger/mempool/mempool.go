@@ -17,8 +17,10 @@ type MemPool interface {
 	// Events is a dictionary for MemPool related events.
 	Events() *Events
 
+	// Storage provides access to the stored models inside the MemPool.
 	Storage() Storage
 
+	// Utils provides various helpers to access the MemPool.
 	Utils() Utils
 
 	// ConflictDAG is a reference to the ConflictDAG that is used by this MemPool.
@@ -37,8 +39,10 @@ type MemPool interface {
 	// CheckTransaction checks the validity of a Transaction.
 	CheckTransaction(ctx context.Context, tx utxo.Transaction) (err error)
 
+	// VM is the vm used for transaction validation.
 	VM() vm.VM
 
+	// Shutdown should be called when the module is stopped.
 	Shutdown()
 
 	module.Interface

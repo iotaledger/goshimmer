@@ -295,6 +295,8 @@ func (e *Engine) setupTangle() {
 func (e *Engine) setupConsensus() {
 	e.Events.Consensus.LinkTo(e.Consensus.Events)
 
+	// Using just 1 worker to avoid contention
+	wp := e.Workers.CreatePool("Consensus", 1)
 	e.Events.Consensus.BlockGadget.Error.Hook(e.Events.Error.Trigger)
 	e.Events.Consensus.SlotGadget.SlotConfirmed.Hook(func(index slot.Index) {
 		err := e.Storage.Permanent.Settings.SetLatestConfirmedSlot(index)
@@ -303,11 +305,11 @@ func (e *Engine) setupConsensus() {
 		}
 
 		e.Tangle.Booker.VirtualVoting.EvictSlotTracker(index)
-	}, event.WithWorkerPool(e.Workers.CreatePool("Consensus", 1))) // Using just 1 worker to avoid contention
+	}, event.WithWorkerPool(wp))
+	e.Events.EvictionState.SlotEvicted.Hook(e.Consensus.BlockGadget.EvictUntil, event.WithWorkerPool(wp))
 }
 
 func (e *Engine) setupTSCManager() {
-
 	// wp := e.Workers.CreatePool("TSCManager", 1) // Using just 1 worker to avoid contention
 
 	// TODO: enable TSC again
@@ -340,12 +342,12 @@ func (e *Engine) setupNotarizationManager() {
 	wpCommitments := e.Workers.CreatePool("NotarizationManager.Commitments", 1) // Using just 1 worker to avoid contention
 
 	// SlotMutations must be hooked because inclusion might be added before transaction are added.
-	e.Events.MemPool.TransactionAccepted.Hook(func(event *mempool.TransactionEvent) {
+	e.Events.Ledger.MemPool.TransactionAccepted.Hook(func(event *mempool.TransactionEvent) {
 		if err := e.NotarizationManager.SlotMutations.AddAcceptedTransaction(event.Metadata); err != nil {
 			e.Events.Error.Trigger(errors.Wrapf(err, "failed to add accepted transaction %s to slot", event.Metadata.ID()))
 		}
 	})
-	e.Events.MemPool.TransactionInclusionUpdated.Hook(func(event *mempool.TransactionInclusionUpdatedEvent) {
+	e.Events.Ledger.MemPool.TransactionInclusionUpdated.Hook(func(event *mempool.TransactionInclusionUpdatedEvent) {
 		if err := e.NotarizationManager.SlotMutations.UpdateTransactionInclusion(event.TransactionID, event.PreviousInclusionSlot, event.InclusionSlot); err != nil {
 			e.Events.Error.Trigger(errors.Wrapf(err, "failed to update transaction inclusion time %s in slot", event.TransactionID))
 		}

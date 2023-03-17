@@ -18,6 +18,7 @@ import (
 
 // UTXOLedger represents a ledger using the realities based mempool.
 type UTXOLedger struct {
+	events         *ledger.Events
 	engine         *engine.Engine
 	memPool        mempool.MemPool
 	unspentOutputs *UnspentOutputs
@@ -32,27 +33,34 @@ type UTXOLedger struct {
 func NewProvider(opts ...options.Option[UTXOLedger]) module.Provider[*engine.Engine, ledger.Ledger] {
 	return module.Provide(func(e *engine.Engine) ledger.Ledger {
 		return options.Apply(&UTXOLedger{
+			events:              ledger.NewEvents(),
 			engine:              e,
 			stateDiffs:          NewStateDiffs(e),
 			unspentOutputs:      NewUnspentOutputs(e),
 			optsMemPoolProvider: realitiesledger.NewProvider(),
 		}, opts, func(l *UTXOLedger) {
 			l.memPool = l.optsMemPoolProvider(e)
+			l.events.MemPool.LinkTo(l.memPool.Events())
 
 			e.HookConstructed(func() {
+				e.Events.Ledger.LinkTo(l.events)
 				e.HookStopped(l.memPool.Shutdown)
 
 				l.HookInitialized(l.unspentOutputs.TriggerInitialized)
 
 				l.HookStopped(lo.Batch(
-					e.Events.MemPool.TransactionAccepted.Hook(l.onTransactionAccepted).Unhook,
-					e.Events.MemPool.TransactionInclusionUpdated.Hook(l.onTransactionInclusionUpdated).Unhook,
+					e.Events.Ledger.MemPool.TransactionAccepted.Hook(l.onTransactionAccepted).Unhook,
+					e.Events.Ledger.MemPool.TransactionInclusionUpdated.Hook(l.onTransactionInclusionUpdated).Unhook,
 				))
 			})
 
 			e.HookStopped(l.TriggerStopped)
 		}, (*UTXOLedger).TriggerConstructed)
 	})
+}
+
+func (l *UTXOLedger) Events() *ledger.Events {
+	return l.events
 }
 
 func (l *UTXOLedger) MemPool() mempool.MemPool {

@@ -39,13 +39,13 @@ func NewTipsConflictTracker(workerPool *workerpool.WorkerPool, engineInstance *e
 }
 
 func (c *TipsConflictTracker) setup() {
-	c.engine.Events.MemPool.ConflictDAG.ConflictAccepted.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	c.engine.Events.Ledger.MemPool.ConflictDAG.ConflictAccepted.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		c.deleteConflict(conflict.ID())
 	}, event.WithWorkerPool(c.workerPool))
-	c.engine.Events.MemPool.ConflictDAG.ConflictRejected.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	c.engine.Events.Ledger.MemPool.ConflictDAG.ConflictRejected.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		c.deleteConflict(conflict.ID())
 	}, event.WithWorkerPool(c.workerPool))
-	c.engine.Events.MemPool.ConflictDAG.ConflictNotConflicting.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	c.engine.Events.Ledger.MemPool.ConflictDAG.ConflictNotConflicting.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		c.deleteConflict(conflict.ID())
 	}, event.WithWorkerPool(c.workerPool))
 }
@@ -63,7 +63,7 @@ func (c *TipsConflictTracker) AddTip(block *scheduler.Block, blockConflictIDs ut
 	for it := blockConflictIDs.Iterator(); it.HasNext(); {
 		conflict := it.Next()
 
-		if !c.engine.Ledger.MemPool().ConflictDAG().ConfirmationState(advancedset.NewAdvancedSet(conflict)).IsPending() {
+		if !c.engine.Ledger.MemPool().ConflictDAG().ConfirmationState(advancedset.New(conflict)).IsPending() {
 			continue
 		}
 
@@ -96,7 +96,7 @@ func (c *TipsConflictTracker) RemoveTip(block *scheduler.Block) {
 			continue
 		}
 
-		if !c.engine.Ledger.MemPool().ConflictDAG().ConfirmationState(advancedset.NewAdvancedSet(conflictID)).IsPending() {
+		if !c.engine.Ledger.MemPool().ConflictDAG().ConfirmationState(advancedset.New(conflictID)).IsPending() {
 			continue
 		}
 
@@ -118,7 +118,7 @@ func (c *TipsConflictTracker) MissingConflicts(amount int) (missingConflicts utx
 	c.censoredConflicts.ForEach(func(conflictID utxo.TransactionID, _ types.Empty) bool {
 		// TODO: this should not be necessary if ConflictAccepted/ConflictRejected events are fired appropriately
 		// If the conflict is not pending anymore or it clashes with a conflict we already introduced, we can remove it from the censored conflicts.
-		if !c.engine.Ledger.MemPool().ConflictDAG().ConfirmationState(advancedset.NewAdvancedSet(conflictID)).IsPending() || dislikedConflicts.Has(conflictID) {
+		if !c.engine.Ledger.MemPool().ConflictDAG().ConfirmationState(advancedset.New(conflictID)).IsPending() || dislikedConflicts.Has(conflictID) {
 			censoredConflictsToDelete.Add(conflictID)
 			return true
 		}

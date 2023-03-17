@@ -35,7 +35,7 @@ func (u *Utils) ConflictIDsInFutureCone(conflictIDs utxo.TransactionIDs) (confli
 
 		conflictIDsInFutureCone.Add(conflictID)
 
-		if u.ledger.conflictDAG.ConfirmationState(advancedset.NewAdvancedSet(conflictID)).IsAccepted() {
+		if u.ledger.conflictDAG.ConfirmationState(advancedset.New(conflictID)).IsAccepted() {
 			u.ledger.storage.CachedTransactionMetadata(conflictID).Consume(func(txMetadata *mempool.TransactionMetadata) {
 				u.WalkConsumingTransactionMetadata(txMetadata.OutputIDs(), func(consumingTxMetadata *mempool.TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
 					u.ledger.mutex.RLock(consumingTxMetadata.ID())
@@ -124,7 +124,7 @@ func (u *Utils) WithTransactionAndMetadata(txID utxo.TransactionID, callback fun
 
 // TransactionConflictIDs returns the ConflictIDs of the given TransactionID.
 func (u *Utils) TransactionConflictIDs(txID utxo.TransactionID) (conflictIDs *advancedset.AdvancedSet[utxo.TransactionID], err error) {
-	conflictIDs = advancedset.NewAdvancedSet[utxo.TransactionID]()
+	conflictIDs = advancedset.New[utxo.TransactionID]()
 	if !u.ledger.storage.CachedTransactionMetadata(txID).Consume(func(metadata *mempool.TransactionMetadata) {
 		conflictIDs = metadata.ConflictIDs()
 	}) {

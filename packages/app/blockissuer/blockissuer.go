@@ -151,6 +151,43 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeBooked(block *models.Block, max
 	}
 }
 
+// IssueBlockAndAwaitBlockToBeTracked awaits maxAwait for the given block to get tracked.
+func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeTracked(block *models.Block, maxAwait time.Duration) error {
+	if !i.optsIgnoreBootstrappedFlag && !i.protocol.Engine().IsBootstrapped() {
+		return ErrNotBootstraped
+	}
+
+	// first subscribe to the transaction booked event
+	booked := make(chan *virtualvoting.Block, 1)
+	// exit is used to let the caller exit if for whatever
+	// reason the same transaction gets booked multiple times
+	exit := make(chan struct{})
+	defer close(exit)
+
+	defer i.protocol.Events.Engine.Tangle.Booker.VirtualVoting.BlockTracked.Hook(func(evtBlock *virtualvoting.Block) {
+		if block.ID() != evtBlock.ID() {
+			return
+		}
+		select {
+		case booked <- evtBlock:
+		case <-exit:
+		}
+	}, event.WithWorkerPool(i.workerPool)).Unhook()
+
+	if err := i.issueBlock(block); err != nil {
+		return errors.Wrapf(err, "failed to issue block %s", block.ID().String())
+	}
+
+	timer := time.NewTimer(maxAwait)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return ErrBlockWasNotBookedInTime
+	case <-booked:
+		return nil
+	}
+}
+
 // IssueBlockAndAwaitBlockToBeScheduled awaits maxAwait for the given block to get issued.
 func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeScheduled(block *models.Block, maxAwait time.Duration) error {
 	if !i.optsIgnoreBootstrappedFlag && !i.protocol.Engine().IsBootstrapped() {

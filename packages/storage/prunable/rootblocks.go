@@ -50,9 +50,9 @@ func (r *RootBlocks) Delete(blockID models.BlockID) (err error) {
 	return nil
 }
 
-// LoadAll loads all root blocks for an slot index.
+// LoadAll loads all root blocks for a slot index.
 func (r *RootBlocks) LoadAll(index slot.Index) (solidEntryPoints *advancedset.AdvancedSet[models.BlockID]) {
-	solidEntryPoints = advancedset.NewAdvancedSet[models.BlockID]()
+	solidEntryPoints = advancedset.New[models.BlockID]()
 	if err := r.Stream(index, func(id models.BlockID) error {
 		solidEntryPoints.Add(id)
 		return nil
@@ -72,7 +72,7 @@ func (r *RootBlocks) StoreAll(rootBlocks *advancedset.AdvancedSet[models.BlockID
 	return nil
 }
 
-// Stream streams all root blocks for an slot index.
+// Stream streams all root blocks for a slot index.
 func (r *RootBlocks) Stream(index slot.Index, processor func(models.BlockID) error) (err error) {
 	if storageErr := r.Storage(index).Iterate([]byte{}, func(blockIDBytes kvstore.Key, _ kvstore.Value) bool {
 		blockID := new(models.BlockID)

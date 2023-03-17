@@ -23,7 +23,7 @@ func NewWeightedSet(weights *Weights, optMembers ...identity.ID) (newWeightedSet
 	newWeightedSet = new(WeightedSet)
 	newWeightedSet.OnTotalWeightUpdated = event.New1[int64]()
 	newWeightedSet.Weights = weights
-	newWeightedSet.members = advancedset.NewAdvancedSet[identity.ID]()
+	newWeightedSet.members = advancedset.New[identity.ID]()
 
 	newWeightedSet.weightUpdatesDetach = weights.Events.WeightsUpdated.Hook(newWeightedSet.onWeightUpdated)
 

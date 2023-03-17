@@ -36,7 +36,7 @@ type TestFramework struct {
 	Tangle        *tangle.TestFramework
 	VirtualVoting *virtualvoting.TestFramework
 	Booker        *booker.TestFramework
-	Ledger        *mempool.TestFramework
+	MemPool       *mempool.TestFramework
 	BlockDAG      *blockdag.TestFramework
 	Votes         *votes.TestFramework
 
@@ -53,7 +53,7 @@ func NewTestFramework(test *testing.T, gadget *Gadget, tangleTF *tangle.TestFram
 		Tangle:        tangleTF,
 		VirtualVoting: tangleTF.VirtualVoting,
 		Booker:        tangleTF.Booker,
-		Ledger:        tangleTF.Ledger,
+		MemPool:       tangleTF.MemPool,
 		BlockDAG:      tangleTF.BlockDAG,
 		Votes:         tangleTF.Votes,
 	}
@@ -143,7 +143,7 @@ func (t *TestFramework) ValidateAcceptedBlocks(expectedAcceptedBlocks map[string
 
 func (t *TestFramework) ValidateConfirmedBlocks(expectedConfirmedBlocks map[string]bool) {
 	for blockID, blockExpectedConfirmed := range expectedConfirmedBlocks {
-		actualBlockConfirmed := t.Gadget.isBlockConfirmed(t.Tangle.BlockDAG.Block(blockID).ID())
+		actualBlockConfirmed := t.Gadget.IsBlockConfirmed(t.Tangle.BlockDAG.Block(blockID).ID())
 		require.Equal(t.test, blockExpectedConfirmed, actualBlockConfirmed, "Block %s should be confirmed=%t but is %t", blockID, blockExpectedConfirmed, actualBlockConfirmed)
 	}
 }
@@ -157,7 +157,7 @@ func (t *TestFramework) ValidateAcceptedMarker(expectedConflictIDs map[markers.M
 
 func (t *TestFramework) ValidateConflictAcceptance(expectedConflictIDs map[string]confirmation.State) {
 	for conflictIDAlias, conflictExpectedState := range expectedConflictIDs {
-		actualMarkerAccepted := t.Tangle.VirtualVoting.ConflictDAG.Instance.ConfirmationState(advancedset.NewAdvancedSet(t.Tangle.Ledger.Transaction(conflictIDAlias).ID()))
+		actualMarkerAccepted := t.Tangle.VirtualVoting.ConflictDAG.Instance.ConfirmationState(advancedset.New(t.Tangle.MemPool.Transaction(conflictIDAlias).ID()))
 		require.Equal(t.test, conflictExpectedState, actualMarkerAccepted, "%s should be accepted=%s but is %s", conflictIDAlias, conflictExpectedState, actualMarkerAccepted)
 	}
 }

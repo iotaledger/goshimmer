@@ -92,7 +92,6 @@ func NewProvider(opts ...options.Option[RealitiesLedger]) module.Provider[*engin
 
 		e.HookConstructed(func() {
 			l.Initialize(e.Workers.CreatePool("MemPool", 2), e.Storage)
-			e.Events.MemPool.LinkTo(l.events)
 		})
 
 		return l
@@ -169,8 +168,7 @@ var _ mempool.MemPool = new(RealitiesLedger)
 // SetTransactionInclusionSlot sets the inclusion timestamp of a Transaction.
 func (l *RealitiesLedger) SetTransactionInclusionSlot(id utxo.TransactionID, inclusionSlot slot.Index) {
 	l.storage.CachedTransactionMetadata(id).Consume(func(metadata *mempool.TransactionMetadata) {
-		updated, previousInclusionSlot := metadata.SetInclusionSlot(inclusionSlot)
-		if !updated {
+		if metadata.InclusionSlot() != 0 && inclusionSlot > metadata.InclusionSlot() {
 			return
 		}
 
@@ -179,6 +177,8 @@ func (l *RealitiesLedger) SetTransactionInclusionSlot(id utxo.TransactionID, inc
 				outputMetadata.SetInclusionSlot(inclusionSlot)
 			})
 		}
+
+		_, previousInclusionSlot := metadata.SetInclusionSlot(inclusionSlot)
 
 		if previousInclusionSlot != 0 {
 			l.events.TransactionInclusionUpdated.Trigger(&mempool.TransactionInclusionUpdatedEvent{
@@ -288,6 +288,7 @@ func (l *RealitiesLedger) triggerAcceptedEvent(txMetadata *mempool.TransactionMe
 		outputID := it.Next()
 		l.storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *mempool.OutputMetadata) {
 			outputMetadata.SetConfirmationState(confirmation.Accepted)
+			outputMetadata.SetInclusionSlot(txMetadata.InclusionSlot())
 			l.storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
 				transactionEvent.CreatedOutputs = append(transactionEvent.CreatedOutputs, mempool.NewOutputWithMetadata(
 					outputMetadata.InclusionSlot(),

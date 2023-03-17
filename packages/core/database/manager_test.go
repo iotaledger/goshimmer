@@ -93,7 +93,7 @@ func TestManager_Get(t *testing.T) {
 	// Prune some stuff.
 	expectedFirstBucket := slot.Index(5) + 1
 	{
-		// Pruning an slot that is not dividable by granularity does not actually prune.
+		// Pruning a slot that is not dividable by granularity does not actually prune.
 		m.PruneUntilSlot(4)
 		assert.EqualValues(t, 2, m.maxPruned)
 

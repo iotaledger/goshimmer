@@ -118,5 +118,5 @@ func WithBlock(alias string, block *Block) options.Option[TestFramework] {
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 func GenesisRootBlockProvider(index slot.Index) *advancedset.AdvancedSet[BlockID] {
-	return advancedset.NewAdvancedSet(EmptyBlockID)
+	return advancedset.New(EmptyBlockID)
 }

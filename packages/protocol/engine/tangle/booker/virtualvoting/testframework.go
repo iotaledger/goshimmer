@@ -16,7 +16,6 @@ import (
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/runtime/debug"
-	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 type TestFramework struct {
@@ -32,7 +31,7 @@ type TestFramework struct {
 	SequenceTracker *sequencetracker.TestFramework[BlockVotePower]
 }
 
-func NewTestFramework(test *testing.T, workers *workerpool.Group, virtualVotingInstance *VirtualVoting) *TestFramework {
+func NewTestFramework(test *testing.T, virtualVotingInstance *VirtualVoting) *TestFramework {
 	t := &TestFramework{
 		test:              test,
 		Instance:          virtualVotingInstance,
@@ -82,7 +81,7 @@ func (t *TestFramework) Identity(alias string) (v *identity.Identity) {
 }
 
 func (t *TestFramework) Identities(aliases ...string) (identities *advancedset.AdvancedSet[*identity.Identity]) {
-	identities = advancedset.NewAdvancedSet[*identity.Identity]()
+	identities = advancedset.New[*identity.Identity]()
 	for _, alias := range aliases {
 		identities.Add(t.Identity(alias))
 	}

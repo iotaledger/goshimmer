@@ -105,7 +105,7 @@ func (b *booker) inheritConflictIDs(ctx context.Context, txID utxo.TransactionID
 
 	b.ledger.conflictDAG.CreateConflict(txID, parentConflictIDs, conflictingInputIDs, confirmationState)
 
-	return advancedset.NewAdvancedSet(txID)
+	return advancedset.New(txID)
 }
 
 // storeOutputs stores the Outputs in the RealitiesLedger.
