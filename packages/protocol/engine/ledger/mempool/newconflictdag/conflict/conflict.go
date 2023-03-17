@@ -1,4 +1,4 @@
-package newconflictdag
+package conflict
 
 import (
 	"bytes"
@@ -18,8 +18,8 @@ type Conflict[ConflictID, ResourceID IDType] struct {
 	id                   ConflictID
 	parents              *advancedset.AdvancedSet[ConflictID]
 	children             *advancedset.AdvancedSet[*Conflict[ConflictID, ResourceID]]
-	conflictSets         *advancedset.AdvancedSet[*ConflictSet[ConflictID, ResourceID]]
-	conflictingConflicts *SortedConflicts[ConflictID, ResourceID]
+	conflictSets         map[ResourceID]*Set[ConflictID, ResourceID]
+	conflictingConflicts *SortedSet[ConflictID, ResourceID]
 	weight               *weight.Weight
 
 	heavierConflicts *shrinkingmap.ShrinkingMap[ConflictID, *Conflict[ConflictID, ResourceID]]
@@ -28,7 +28,7 @@ type Conflict[ConflictID, ResourceID IDType] struct {
 	m sync.RWMutex
 }
 
-func NewConflict[ConflictID, ResourceID IDType](id ConflictID, parents *advancedset.AdvancedSet[ConflictID], conflictSets *advancedset.AdvancedSet[*ConflictSet[ConflictID, ResourceID]], initialWeight *weight.Weight) *Conflict[ConflictID, ResourceID] {
+func NewConflict[ConflictID, ResourceID IDType](id ConflictID, parents *advancedset.AdvancedSet[ConflictID], conflictSets map[ResourceID]*Set[ConflictID, ResourceID], initialWeight *weight.Weight) *Conflict[ConflictID, ResourceID] {
 	c := &Conflict[ConflictID, ResourceID]{
 		PreferredInsteadUpdated: event.New1[*Conflict[ConflictID, ResourceID]](),
 		id:                      id,
@@ -40,16 +40,16 @@ func NewConflict[ConflictID, ResourceID IDType](id ConflictID, parents *advanced
 	}
 	c.conflictingConflicts = NewSortedConflicts[ConflictID, ResourceID](c)
 
-	for _, conflictSet := range conflictSets.Slice() {
-		conflictSet.conflicts.ForEach(func(element *Conflict[ConflictID, ResourceID]) (err error) {
+	for _, conflictSet := range conflictSets {
+		_ = conflictSet.Members().ForEach(func(element *Conflict[ConflictID, ResourceID]) (err error) {
 			c.conflictingConflicts.Add(element)
 
 			return nil
 		})
 	}
 
-	for _, conflictSet := range conflictSets.Slice() {
-		conflictSet.RegisterConflict(c)
+	for _, conflictSet := range conflictSets {
+		conflictSet.Members().Add(c)
 	}
 
 	return c

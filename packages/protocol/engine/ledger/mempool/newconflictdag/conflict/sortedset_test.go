@@ -1,4 +1,4 @@
-package newconflictdag_test
+package conflict_test
 
 import (
 	"math/rand"
@@ -9,11 +9,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/blake2b"
 
-	. "github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/acceptance"
+	. "github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/conflict"
 	. "github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/weight"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
-	"github.com/iotaledger/hive.go/ds/advancedset"
 )
 
 func TestSortedConflict(t *testing.T) {
@@ -186,7 +185,7 @@ func generateRandomCumulativeWeightPermutation(delta int64) func(conflict *Confl
 	}
 }
 
-func assertSortedConflictsOrder[ConflictID, ResourceID IDType](t *testing.T, sortedConflicts *SortedConflicts[ConflictID, ResourceID], aliases ...string) {
+func assertSortedConflictsOrder[ConflictID, ResourceID IDType](t *testing.T, sortedConflicts *SortedSet[ConflictID, ResourceID], aliases ...string) {
 	require.NoError(t, sortedConflicts.ForEach(func(c *Conflict[ConflictID, ResourceID]) error {
 		currentAlias := aliases[0]
 		aliases = aliases[1:]
@@ -203,7 +202,7 @@ func newConflict(alias string, weight *Weight) *Conflict[utxo.OutputID, utxo.Out
 	return NewConflict[utxo.OutputID, utxo.OutputID](
 		outputID(alias),
 		nil,
-		advancedset.New[*ConflictSet[utxo.OutputID, utxo.OutputID]](),
+		nil,
 		weight,
 	)
 }
