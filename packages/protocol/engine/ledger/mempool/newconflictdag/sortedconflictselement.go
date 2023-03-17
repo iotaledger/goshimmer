@@ -10,24 +10,34 @@ import (
 )
 
 type SortedConflictsElement[ConflictID, ResourceID IDType] struct {
-	container     *SortedConflicts[ConflictID, ResourceID]
-	conflict      *Conflict[ConflictID, ResourceID]
-	currentWeight weight.Value
-	queuedWeight  *weight.Value
-	lighter       *SortedConflictsElement[ConflictID, ResourceID]
-	heavier       *SortedConflictsElement[ConflictID, ResourceID]
-	onUpdateHook  *event.Hook[func(weight.Value)]
-	mutex         sync.RWMutex
+	container              *SortedConflicts[ConflictID, ResourceID]
+	conflict               *Conflict[ConflictID, ResourceID]
+	currentWeight          weight.Value
+	queuedWeight           *weight.Value
+	lighter                *SortedConflictsElement[ConflictID, ResourceID]
+	heavier                *SortedConflictsElement[ConflictID, ResourceID]
+	onUpdateHook           *event.Hook[func(weight.Value)]
+	onPreferredUpdatedHook *event.Hook[func(*Conflict[ConflictID, ResourceID])]
+	mutex                  sync.RWMutex
 }
 
-func newSortedConflict[ConflictID, ResourceID IDType](container *SortedConflicts[ConflictID, ResourceID], conflict *Conflict[ConflictID, ResourceID]) *SortedConflictsElement[ConflictID, ResourceID] {
+func newSortedConflictElement[ConflictID, ResourceID IDType](container *SortedConflicts[ConflictID, ResourceID], conflict *Conflict[ConflictID, ResourceID]) *SortedConflictsElement[ConflictID, ResourceID] {
 	s := new(SortedConflictsElement[ConflictID, ResourceID])
 	s.container = container
 	s.conflict = conflict
-	s.onUpdateHook = conflict.Weight().OnUpdate.Hook(s.setQueuedWeight)
 	s.currentWeight = conflict.Weight().Value()
+	s.onUpdateHook = conflict.Weight().OnUpdate.Hook(s.setQueuedWeight)
+	s.onPreferredUpdatedHook = conflict.PreferredInsteadUpdated.Hook(s.onPreferredUpdated)
 
 	return s
+}
+
+func (s *SortedConflictsElement[ConflictID, ResourceID]) onPreferredUpdated(preferredInstead *Conflict[ConflictID, ResourceID]) {
+	if preferredInstead == s.conflict {
+		s.container.markConflictPreferred(s)
+	} else {
+		s.container.markConflictNotPreferred(s)
+	}
 }
 
 func (s *SortedConflictsElement[ConflictID, ResourceID]) CurrentWeight() weight.Value {

@@ -8,16 +8,19 @@ import (
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/ds/shrinkingmap"
 	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/event"
 	"github.com/iotaledger/hive.go/stringify"
 )
 
 type Conflict[ConflictID, ResourceID IDType] struct {
-	id              ConflictID
-	parents         *advancedset.AdvancedSet[ConflictID]
-	children        *advancedset.AdvancedSet[*Conflict[ConflictID, ResourceID]]
-	conflictSets    *advancedset.AdvancedSet[*ConflictSet[ConflictID, ResourceID]]
-	sortedConflicts *SortedConflicts[ConflictID, ResourceID]
-	weight          *weight.Weight
+	PreferredInsteadUpdated *event.Event1[*Conflict[ConflictID, ResourceID]]
+
+	id                   ConflictID
+	parents              *advancedset.AdvancedSet[ConflictID]
+	children             *advancedset.AdvancedSet[*Conflict[ConflictID, ResourceID]]
+	conflictSets         *advancedset.AdvancedSet[*ConflictSet[ConflictID, ResourceID]]
+	conflictingConflicts *SortedConflicts[ConflictID, ResourceID]
+	weight               *weight.Weight
 
 	heavierConflicts *shrinkingmap.ShrinkingMap[ConflictID, *Conflict[ConflictID, ResourceID]]
 	preferredInstead *Conflict[ConflictID, ResourceID]
@@ -101,11 +104,11 @@ func (c *Conflict[ConflictID, ResourceID]) PreferredInstead() *Conflict[Conflict
 	c.m.RLock()
 	defer c.m.RUnlock()
 
-	return c.preferredInstead
+	return c.conflictingConflicts.HeaviestPreferredConflict()
 }
 
 func (c *Conflict[ConflictID, ResourceID]) IsPreferred() bool {
-	return c.PreferredInstead() == nil
+	return c.PreferredInstead() == c
 }
 
 func (c *Conflict[ConflictID, ResourceID]) String() string {

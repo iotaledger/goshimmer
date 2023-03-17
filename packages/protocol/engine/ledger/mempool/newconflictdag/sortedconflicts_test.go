@@ -17,14 +17,14 @@ import (
 )
 
 func TestSortedConflict(t *testing.T) {
-	sortedConflicts := NewSortedConflicts[utxo.OutputID, utxo.OutputID]()
-
 	conflict1 := newConflict("conflict1", New().AddCumulativeWeight(12).SetAcceptanceState(acceptance.Rejected))
 	conflict2 := newConflict("conflict2", New().AddCumulativeWeight(10))
 	conflict3 := newConflict("conflict3", New().AddCumulativeWeight(1).SetAcceptanceState(acceptance.Accepted))
 	conflict4 := newConflict("conflict4", New().AddCumulativeWeight(11).SetAcceptanceState(acceptance.Rejected))
 	conflict5 := newConflict("conflict5", New().AddCumulativeWeight(11).SetAcceptanceState(acceptance.Pending))
 	conflict6 := newConflict("conflict6", New().AddCumulativeWeight(2).SetAcceptanceState(acceptance.Accepted))
+
+	sortedConflicts := NewSortedConflicts[utxo.OutputID, utxo.OutputID](conflict1)
 
 	sortedConflicts.Add(conflict1)
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict1")
@@ -61,10 +61,10 @@ func TestSortedConflict(t *testing.T) {
 }
 
 func TestSortedDecreaseHeaviest(t *testing.T) {
-	sortedConflicts := NewSortedConflicts[utxo.OutputID, utxo.OutputID]()
-
 	conflict1 := newConflict("conflict1", New().AddCumulativeWeight(1).SetAcceptanceState(acceptance.Accepted))
 	conflict2 := newConflict("conflict2", New().AddCumulativeWeight(2).SetAcceptanceState(acceptance.Pending))
+
+	sortedConflicts := NewSortedConflicts[utxo.OutputID, utxo.OutputID](conflict1)
 
 	sortedConflicts.Add(conflict1)
 	sortedConflicts.WaitSorted()
