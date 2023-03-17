@@ -258,3 +258,32 @@ func TestManagerForkDetectedAgain(t *testing.T) {
 		}
 	}, 1*time.Second, 10*time.Millisecond)
 }
+
+func TestEvaluateAgainstRootCommitment(t *testing.T) {
+	rootCommitment := commitment.New(1, commitment.NewID(1, []byte{9}), types.Identifier{}, 0)
+	m := &Manager{
+		rootCommitment: NewCommitment(rootCommitment.ID()),
+	}
+
+	m.rootCommitment.PublishCommitment(rootCommitment)
+
+	isBelow, isRootCommitment := m.evaluateAgainstRootCommitment(commitment.New(0, commitment.NewID(0, []byte{}), types.Identifier{}, 0))
+	require.True(t, isBelow, "commitment with index 0 should be below root commitment")
+	require.False(t, isRootCommitment, "commitment with index 0 should not be the root commitment")
+
+	isBelow, isRootCommitment = m.evaluateAgainstRootCommitment(rootCommitment)
+	require.False(t, isBelow, "commitment with index 1 should not be below root commitment")
+	require.True(t, isRootCommitment, "commitment with index 1 should be the root commitment")
+
+	isBelow, isRootCommitment = m.evaluateAgainstRootCommitment(commitment.New(1, commitment.NewID(1, []byte{1}), types.Identifier{}, 0))
+	require.False(t, isBelow, "commitment with index 1 should not be below root commitment")
+	require.False(t, isRootCommitment, "commitment with index 1 should be the root commitment")
+
+	isBelow, isRootCommitment = m.evaluateAgainstRootCommitment(commitment.New(1, commitment.NewID(1, []byte{9}), types.Identifier{}, 0))
+	require.False(t, isBelow, "commitment with index 1 should not be below root commitment")
+	require.True(t, isRootCommitment, "commitment with index 1 should be the root commitment")
+
+	isBelow, isRootCommitment = m.evaluateAgainstRootCommitment(commitment.New(2, commitment.NewID(2, []byte{}), types.Identifier{}, 0))
+	require.False(t, isBelow, "commitment with index 2 should not be below root commitment")
+	require.False(t, isRootCommitment, "commitment with index 2 should not be the root commitment")
+}

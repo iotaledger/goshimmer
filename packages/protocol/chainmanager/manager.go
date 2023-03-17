@@ -223,7 +223,7 @@ func (m *Manager) evaluateAgainstRootCommitment(commitment *commitment.Commitmen
 	defer m.rootCommitmentMutex.RUnlock()
 
 	isBelow = commitment.Index() < m.rootCommitment.Commitment().Index()
-	isRootCommitment = commitment == m.rootCommitment.Commitment()
+	isRootCommitment = commitment.Equals(m.rootCommitment.Commitment())
 
 	return
 }
