@@ -23,7 +23,7 @@ func TestSortedConflict(t *testing.T) {
 	conflict5 := newConflict("conflict5", New().AddCumulativeWeight(11).SetAcceptanceState(acceptance.Pending))
 	conflict6 := newConflict("conflict6", New().AddCumulativeWeight(2).SetAcceptanceState(acceptance.Accepted))
 
-	sortedConflicts := NewSortedConflicts[utxo.OutputID, utxo.OutputID](conflict1)
+	sortedConflicts := NewSortedSet[utxo.OutputID, utxo.OutputID](conflict1)
 
 	sortedConflicts.Add(conflict1)
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict1")
@@ -63,7 +63,7 @@ func TestSortedDecreaseHeaviest(t *testing.T) {
 	conflict1 := newConflict("conflict1", New().AddCumulativeWeight(1).SetAcceptanceState(acceptance.Accepted))
 	conflict2 := newConflict("conflict2", New().AddCumulativeWeight(2).SetAcceptanceState(acceptance.Pending))
 
-	sortedConflicts := NewSortedConflicts[utxo.OutputID, utxo.OutputID](conflict1)
+	sortedConflicts := NewSortedSet[utxo.OutputID, utxo.OutputID](conflict1)
 
 	sortedConflicts.Add(conflict1)
 	sortedConflicts.WaitSorted()
@@ -91,9 +91,9 @@ func TestSortedConflictParallel(t *testing.T) {
 		parallelConflicts[alias] = newConflict(alias, New())
 	}
 
-	sortedConflicts := NewSortedConflicts[utxo.OutputID, utxo.OutputID](conflicts["conflict0"])
-	sortedParallelConflicts := NewSortedConflicts[utxo.OutputID, utxo.OutputID](parallelConflicts["conflict0"])
-	sortedParallelConflicts1 := NewSortedConflicts[utxo.OutputID, utxo.OutputID](parallelConflicts["conflict0"])
+	sortedConflicts := NewSortedSet[utxo.OutputID, utxo.OutputID](conflicts["conflict0"])
+	sortedParallelConflicts := NewSortedSet[utxo.OutputID, utxo.OutputID](parallelConflicts["conflict0"])
+	sortedParallelConflicts1 := NewSortedSet[utxo.OutputID, utxo.OutputID](parallelConflicts["conflict0"])
 
 	for i := 0; i < conflictCount; i++ {
 		alias := "conflict" + strconv.Itoa(i)

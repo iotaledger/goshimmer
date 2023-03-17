@@ -1,8 +1,8 @@
 package conflict
 
-// IDType is the interface that defines the constraints for the ID of a conflict or a resource.
+// IDType is the constraint for the identifier of a conflict or a resource.
 type IDType interface {
-	// comparable is a built-in interface implemented by types that can be compared using the == operator.
+	// comparable is a built-in constraint that ensures that the type can be used as a map key.
 	comparable
 
 	// Bytes returns a serialized version of the ID.

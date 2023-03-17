@@ -38,7 +38,7 @@ func NewConflict[ConflictID, ResourceID IDType](id ConflictID, parents *advanced
 		heavierConflicts:        shrinkingmap.New[ConflictID, *Conflict[ConflictID, ResourceID]](),
 		weight:                  initialWeight,
 	}
-	c.conflictingConflicts = NewSortedConflicts[ConflictID, ResourceID](c)
+	c.conflictingConflicts = NewSortedSet[ConflictID, ResourceID](c)
 
 	for _, conflictSet := range conflictSets {
 		_ = conflictSet.Members().ForEach(func(element *Conflict[ConflictID, ResourceID]) (err error) {

@@ -86,7 +86,7 @@ func (s *sortedSetMember[ConflictID, ResourceID]) queueWeightUpdate(newWeight we
 	}
 
 	s.queuedWeight = &newWeight
-	s.sortedSet.notifyPendingUpdate(s)
+	s.sortedSet.notifyPendingWeightUpdate(s)
 }
 
 // weightUpdateApplied tries to apply a queued weight update to the sortedSetMember and returns true if successful.
@@ -107,8 +107,8 @@ func (s *sortedSetMember[ConflictID, ResourceID]) weightUpdateApplied() bool {
 // notifyPreferredInsteadUpdated notifies the sortedSet that the preferredInstead value of the Conflict was updated.
 func (s *sortedSetMember[ConflictID, ResourceID]) notifyPreferredInsteadUpdated(preferredInstead *Conflict[ConflictID, ResourceID]) {
 	if preferredInstead == s.Conflict {
-		s.sortedSet.notifyConflictPreferred(s)
+		s.sortedSet.notifyMemberPreferred(s)
 	} else {
-		s.sortedSet.notifyConflictNotPreferred(s)
+		s.sortedSet.notifyMemberNotPreferred(s)
 	}
 }
