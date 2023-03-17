@@ -47,8 +47,8 @@ func newSortedSetMember[ConflictID, ResourceID IDType](set *SortedSet[ConflictID
 		Conflict:      conflict,
 	}
 
-	s.onUpdateHook = conflict.Weight().OnUpdate.Hook(s.setQueuedWeight)
-	s.onPreferredUpdatedHook = conflict.PreferredInsteadUpdated.Hook(s.onPreferredUpdated)
+	s.onUpdateHook = conflict.Weight().OnUpdate.Hook(s.queueWeightUpdate)
+	s.onPreferredUpdatedHook = conflict.PreferredInsteadUpdated.Hook(s.notifyPreferredInsteadUpdated)
 
 	return s
 }
@@ -70,7 +70,14 @@ func (s *sortedSetMember[ConflictID, ResourceID]) Compare(other *sortedSetMember
 	return bytes.Compare(lo.PanicOnErr(s.id.Bytes()), lo.PanicOnErr(other.id.Bytes()))
 }
 
-func (s *sortedSetMember[ConflictID, ResourceID]) setQueuedWeight(newWeight weight.Value) {
+// Dispose cleans up the sortedSetMember.
+func (s *sortedSetMember[ConflictID, ResourceID]) Dispose() {
+	s.onUpdateHook.Unhook()
+	s.onPreferredUpdatedHook.Unhook()
+}
+
+// queueWeightUpdate queues a weight update for the sortedSetMember.
+func (s *sortedSetMember[ConflictID, ResourceID]) queueWeightUpdate(newWeight weight.Value) {
 	s.weightMutex.Lock()
 	defer s.weightMutex.Unlock()
 
@@ -79,11 +86,11 @@ func (s *sortedSetMember[ConflictID, ResourceID]) setQueuedWeight(newWeight weig
 	}
 
 	s.queuedWeight = &newWeight
-
-	s.sortedSet.queueUpdate(s)
+	s.sortedSet.notifyPendingUpdate(s)
 }
 
-func (s *sortedSetMember[ConflictID, ResourceID]) updateWeight() bool {
+// weightUpdateApplied tries to apply a queued weight update to the sortedSetMember and returns true if successful.
+func (s *sortedSetMember[ConflictID, ResourceID]) weightUpdateApplied() bool {
 	s.weightMutex.Lock()
 	defer s.weightMutex.Unlock()
 
@@ -97,10 +104,11 @@ func (s *sortedSetMember[ConflictID, ResourceID]) updateWeight() bool {
 	return true
 }
 
-func (s *sortedSetMember[ConflictID, ResourceID]) onPreferredUpdated(preferredInstead *Conflict[ConflictID, ResourceID]) {
+// notifyPreferredInsteadUpdated notifies the sortedSet that the preferredInstead value of the Conflict was updated.
+func (s *sortedSetMember[ConflictID, ResourceID]) notifyPreferredInsteadUpdated(preferredInstead *Conflict[ConflictID, ResourceID]) {
 	if preferredInstead == s.Conflict {
-		s.sortedSet.markConflictPreferred(s)
+		s.sortedSet.notifyConflictPreferred(s)
 	} else {
-		s.sortedSet.markConflictNotPreferred(s)
+		s.sortedSet.notifyConflictNotPreferred(s)
 	}
 }

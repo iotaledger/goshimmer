@@ -140,7 +140,7 @@ func (s *SortedSet[ConflictID, ResourceID]) String() string {
 	return structBuilder.String()
 }
 
-func (s *SortedSet[ConflictID, ResourceID]) queueUpdate(conflict *sortedSetMember[ConflictID, ResourceID]) {
+func (s *SortedSet[ConflictID, ResourceID]) notifyPendingUpdate(conflict *sortedSetMember[ConflictID, ResourceID]) {
 	s.pendingUpdatesMutex.Lock()
 	defer s.pendingUpdatesMutex.Unlock()
 
@@ -175,7 +175,7 @@ func (s *SortedSet[ConflictID, ResourceID]) nextConflictToUpdate() *sortedSetMem
 
 func (s *SortedSet[ConflictID, ResourceID]) updateWorker() {
 	for conflict := s.nextConflictToUpdate(); conflict != nil; conflict = s.nextConflictToUpdate() {
-		if conflict.updateWeight() {
+		if conflict.weightUpdateApplied() {
 			s.fixPosition(conflict)
 		}
 	}
@@ -229,7 +229,7 @@ func (s *SortedSet[ConflictID, ResourceID]) swapNeighbors(heavierConflict *sorte
 	}
 }
 
-func (s *SortedSet[ConflictID, ResourceID]) markConflictNotPreferred(member *sortedSetMember[ConflictID, ResourceID]) {
+func (s *SortedSet[ConflictID, ResourceID]) notifyConflictNotPreferred(member *sortedSetMember[ConflictID, ResourceID]) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -246,7 +246,7 @@ func (s *SortedSet[ConflictID, ResourceID]) markConflictNotPreferred(member *sor
 	s.HeaviestPreferredConflictUpdated.Trigger(s.heaviestPreferredMember.Conflict)
 }
 
-func (s *SortedSet[ConflictID, ResourceID]) markConflictPreferred(member *sortedSetMember[ConflictID, ResourceID]) {
+func (s *SortedSet[ConflictID, ResourceID]) notifyConflictPreferred(member *sortedSetMember[ConflictID, ResourceID]) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
