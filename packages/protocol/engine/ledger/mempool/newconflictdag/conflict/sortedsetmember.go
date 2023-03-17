@@ -36,22 +36,19 @@ type sortedSetMember[ConflictID, ResourceID IDType] struct {
 	onPreferredUpdatedHook *event.Hook[func(*Conflict[ConflictID, ResourceID])]
 
 	// Conflict is the wrapped Conflict.
-	Conflict *Conflict[ConflictID, ResourceID]
+	*Conflict[ConflictID, ResourceID]
 }
 
-// newSortedConflictElement creates a new sortedSetMember.
-func newSortedConflictElement[ConflictID, ResourceID IDType](
-	sortedSet *SortedSet[ConflictID, ResourceID],
-	wrappedConflict *Conflict[ConflictID, ResourceID],
-) *sortedSetMember[ConflictID, ResourceID] {
+// newSortedSetMember creates a new sortedSetMember.
+func newSortedSetMember[ConflictID, ResourceID IDType](set *SortedSet[ConflictID, ResourceID], conflict *Conflict[ConflictID, ResourceID]) *sortedSetMember[ConflictID, ResourceID] {
 	s := &sortedSetMember[ConflictID, ResourceID]{
-		sortedSet:     sortedSet,
-		currentWeight: wrappedConflict.Weight().Value(),
-		Conflict:      wrappedConflict,
+		sortedSet:     set,
+		currentWeight: conflict.Weight().Value(),
+		Conflict:      conflict,
 	}
 
-	s.onUpdateHook = wrappedConflict.Weight().OnUpdate.Hook(s.setQueuedWeight)
-	s.onPreferredUpdatedHook = wrappedConflict.PreferredInsteadUpdated.Hook(s.onPreferredUpdated)
+	s.onUpdateHook = conflict.Weight().OnUpdate.Hook(s.setQueuedWeight)
+	s.onPreferredUpdatedHook = conflict.PreferredInsteadUpdated.Hook(s.onPreferredUpdated)
 
 	return s
 }
@@ -70,7 +67,7 @@ func (s *sortedSetMember[ConflictID, ResourceID]) Compare(other *sortedSetMember
 		return result
 	}
 
-	return bytes.Compare(lo.PanicOnErr(s.Conflict.id.Bytes()), lo.PanicOnErr(other.Conflict.id.Bytes()))
+	return bytes.Compare(lo.PanicOnErr(s.id.Bytes()), lo.PanicOnErr(other.id.Bytes()))
 }
 
 func (s *sortedSetMember[ConflictID, ResourceID]) setQueuedWeight(newWeight weight.Value) {

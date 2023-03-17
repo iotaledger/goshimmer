@@ -21,7 +21,7 @@ func NewConflictSet[ConflictID, ResourceID IDType](id ResourceID) *Set[ConflictI
 	}
 }
 
-// ID returns the ID of the Resource that the Conflicts in this Set are conflicting over.
+// ID returns the identifier of the Resource that the Conflicts in this Set are conflicting over.
 func (c *Set[ConflictID, ResourceID]) ID() ResourceID {
 	return c.id
 }

@@ -14,10 +14,10 @@ import (
 type SortedSet[ConflictID, ResourceID IDType] struct {
 	HeaviestPreferredConflictUpdated *event.Event1[*Conflict[ConflictID, ResourceID]]
 
-	owner                     *Conflict[ConflictID, ResourceID]
-	conflicts                 *shrinkingmap.ShrinkingMap[ConflictID, *sortedSetMember[ConflictID, ResourceID]]
-	heaviestConflict          *sortedSetMember[ConflictID, ResourceID]
-	heaviestPreferredConflict *sortedSetMember[ConflictID, ResourceID]
+	owner                   *Conflict[ConflictID, ResourceID]
+	conflicts               *shrinkingmap.ShrinkingMap[ConflictID, *sortedSetMember[ConflictID, ResourceID]]
+	heaviestConflict        *sortedSetMember[ConflictID, ResourceID]
+	heaviestPreferredMember *sortedSetMember[ConflictID, ResourceID]
 
 	pendingUpdates        map[ConflictID]*sortedSetMember[ConflictID, ResourceID]
 	pendingUpdatesCounter *syncutils.Counter
@@ -50,11 +50,11 @@ func (s *SortedSet[ConflictID, ResourceID]) HeaviestPreferredConflict() *Conflic
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	if s.heaviestPreferredConflict == nil {
+	if s.heaviestPreferredMember == nil {
 		return nil
 	}
 
-	return s.heaviestPreferredConflict.Conflict
+	return s.heaviestPreferredMember.Conflict
 }
 
 func (s *SortedSet[ConflictID, ResourceID]) Add(conflict *Conflict[ConflictID, ResourceID]) {
@@ -62,15 +62,15 @@ func (s *SortedSet[ConflictID, ResourceID]) Add(conflict *Conflict[ConflictID, R
 	defer s.mutex.Unlock()
 
 	newSortedConflict, isNew := s.conflicts.GetOrCreate(conflict.id, func() *sortedSetMember[ConflictID, ResourceID] {
-		return newSortedConflictElement[ConflictID, ResourceID](s, conflict)
+		return newSortedSetMember[ConflictID, ResourceID](s, conflict)
 	})
 
 	if !isNew {
 		return
 	}
 
-	if conflict == s.owner || (conflict.IsPreferred() && newSortedConflict.Compare(s.heaviestPreferredConflict) == weight.Heavier) {
-		s.heaviestPreferredConflict = newSortedConflict
+	if conflict == s.owner || (conflict.IsPreferred() && newSortedConflict.Compare(s.heaviestPreferredMember) == weight.Heavier) {
+		s.heaviestPreferredMember = newSortedConflict
 
 		s.HeaviestPreferredConflictUpdated.Trigger(conflict)
 	}
@@ -144,9 +144,9 @@ func (s *SortedSet[ConflictID, ResourceID]) queueUpdate(conflict *sortedSetMembe
 	s.pendingUpdatesMutex.Lock()
 	defer s.pendingUpdatesMutex.Unlock()
 
-	if _, exists := s.pendingUpdates[conflict.Conflict.id]; !exists {
+	if _, exists := s.pendingUpdates[conflict.id]; !exists {
 		s.pendingUpdatesCounter.Increase()
-		s.pendingUpdates[conflict.Conflict.id] = conflict
+		s.pendingUpdates[conflict.id] = conflict
 		s.pendingUpdatesSignal.Signal()
 	}
 }
@@ -186,23 +186,23 @@ func (s *SortedSet[ConflictID, ResourceID]) fixPosition(updatedConflict *sortedS
 	defer s.mutex.Unlock()
 
 	// the updatedConflict needs to be moved up in the list
-	updatedConflictIsPreferred := (updatedConflict.Conflict == s.owner && updatedConflict == s.heaviestPreferredConflict) || updatedConflict.Conflict.IsPreferred()
+	updatedConflictIsPreferred := (updatedConflict.Conflict == s.owner && updatedConflict == s.heaviestPreferredMember) || updatedConflict.IsPreferred()
 	for currentConflict := updatedConflict.heavierMember; currentConflict != nil && currentConflict.Compare(updatedConflict) == weight.Lighter; currentConflict = updatedConflict.heavierMember {
 		s.swapNeighbors(updatedConflict, currentConflict)
 
-		if updatedConflictIsPreferred && currentConflict == s.heaviestPreferredConflict {
-			s.heaviestPreferredConflict = updatedConflict
+		if updatedConflictIsPreferred && currentConflict == s.heaviestPreferredMember {
+			s.heaviestPreferredMember = updatedConflict
 			s.HeaviestPreferredConflictUpdated.Trigger(updatedConflict.Conflict)
 		}
 	}
 
 	// the updatedConflict needs to be moved down in the list
-	updatedConflictIsHeaviestPreferredConflict := updatedConflict == s.heaviestPreferredConflict
+	updatedConflictIsHeaviestPreferredConflict := updatedConflict == s.heaviestPreferredMember
 	for lighterConflict := updatedConflict.lighterMember; lighterConflict != nil && lighterConflict.Compare(updatedConflict) == weight.Heavier; lighterConflict = updatedConflict.lighterMember {
 		s.swapNeighbors(lighterConflict, updatedConflict)
 
-		if updatedConflictIsHeaviestPreferredConflict && lighterConflict.Conflict.IsPreferred() {
-			s.heaviestPreferredConflict = lighterConflict
+		if updatedConflictIsHeaviestPreferredConflict && lighterConflict.IsPreferred() {
+			s.heaviestPreferredMember = lighterConflict
 			s.HeaviestPreferredConflictUpdated.Trigger(lighterConflict.Conflict)
 
 			updatedConflictIsHeaviestPreferredConflict = false
@@ -229,29 +229,29 @@ func (s *SortedSet[ConflictID, ResourceID]) swapNeighbors(heavierConflict *sorte
 	}
 }
 
-func (s *SortedSet[ConflictID, ResourceID]) markConflictNotPreferred(conflict *sortedSetMember[ConflictID, ResourceID]) {
+func (s *SortedSet[ConflictID, ResourceID]) markConflictNotPreferred(member *sortedSetMember[ConflictID, ResourceID]) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	if s.heaviestPreferredConflict != conflict {
+	if s.heaviestPreferredMember != member {
 		return
 	}
 
-	currentConflict := conflict.lighterMember
-	for currentConflict.Conflict != s.owner && !currentConflict.Conflict.IsPreferred() && currentConflict.Conflict.PreferredInstead() != conflict.Conflict {
+	currentConflict := member.lighterMember
+	for currentConflict.Conflict != s.owner && !currentConflict.IsPreferred() && currentConflict.PreferredInstead() != member.Conflict {
 		currentConflict = currentConflict.lighterMember
 	}
 
-	s.heaviestPreferredConflict = currentConflict
-	s.HeaviestPreferredConflictUpdated.Trigger(s.heaviestPreferredConflict.Conflict)
+	s.heaviestPreferredMember = currentConflict
+	s.HeaviestPreferredConflictUpdated.Trigger(s.heaviestPreferredMember.Conflict)
 }
 
-func (s *SortedSet[ConflictID, ResourceID]) markConflictPreferred(conflict *sortedSetMember[ConflictID, ResourceID]) {
+func (s *SortedSet[ConflictID, ResourceID]) markConflictPreferred(member *sortedSetMember[ConflictID, ResourceID]) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	if conflict.Compare(s.heaviestPreferredConflict) == weight.Heavier {
-		s.heaviestPreferredConflict = conflict
-		s.HeaviestPreferredConflictUpdated.Trigger(conflict.Conflict)
+	if member.Compare(s.heaviestPreferredMember) == weight.Heavier {
+		s.heaviestPreferredMember = member
+		s.HeaviestPreferredConflictUpdated.Trigger(member.Conflict)
 	}
 }
