@@ -39,6 +39,8 @@ func NewSortedConflicts[ConflictID, ResourceID IDType](owner *Conflict[ConflictI
 	}
 	s.pendingUpdatesSignal = sync.NewCond(&s.pendingUpdatesMutex)
 
+	s.Add(owner)
+
 	go s.updateWorker()
 
 	return s
@@ -59,12 +61,15 @@ func (s *SortedConflicts[ConflictID, ResourceID]) Add(conflict *Conflict[Conflic
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	newSortedConflict := newSortedConflictElement[ConflictID, ResourceID](s, conflict)
-	if !s.conflicts.Set(conflict.id, newSortedConflict) {
+	newSortedConflict, isNew := s.conflicts.GetOrCreate(conflict.id, func() *SortedConflictsElement[ConflictID, ResourceID] {
+		return newSortedConflictElement[ConflictID, ResourceID](s, conflict)
+	})
+
+	if !isNew {
 		return
 	}
 
-	if conflict.IsPreferred() && newSortedConflict.Compare(s.heaviestPreferredConflict) == weight.Heavier {
+	if conflict == s.owner || (conflict.IsPreferred() && newSortedConflict.Compare(s.heaviestPreferredConflict) == weight.Heavier) {
 		s.heaviestPreferredConflict = newSortedConflict
 
 		s.HeaviestPreferredConflictUpdated.Trigger(conflict)
@@ -181,12 +186,12 @@ func (s *SortedConflicts[ConflictID, ResourceID]) fixPosition(updatedConflict *S
 	defer s.mutex.Unlock()
 
 	// the updatedConflict needs to be moved up in the list
-	updatedConflictIsPreferred := updatedConflict.conflict.IsPreferred()
+	updatedConflictIsPreferred := (updatedConflict.conflict == s.owner && updatedConflict == s.heaviestPreferredConflict) || updatedConflict.conflict.IsPreferred()
 	for currentConflict := updatedConflict.heavier; currentConflict != nil && currentConflict.Compare(updatedConflict) == weight.Lighter; currentConflict = updatedConflict.heavier {
 		s.swapNeighbors(updatedConflict, currentConflict)
 
 		if updatedConflictIsPreferred && currentConflict == s.heaviestPreferredConflict {
-			s.heaviestConflict = updatedConflict
+			s.heaviestPreferredConflict = updatedConflict
 			s.HeaviestPreferredConflictUpdated.Trigger(updatedConflict.conflict)
 		}
 	}

@@ -30,12 +30,22 @@ type Conflict[ConflictID, ResourceID IDType] struct {
 
 func NewConflict[ConflictID, ResourceID IDType](id ConflictID, parents *advancedset.AdvancedSet[ConflictID], conflictSets *advancedset.AdvancedSet[*ConflictSet[ConflictID, ResourceID]], initialWeight *weight.Weight) *Conflict[ConflictID, ResourceID] {
 	c := &Conflict[ConflictID, ResourceID]{
-		id:               id,
-		parents:          parents,
-		children:         advancedset.New[*Conflict[ConflictID, ResourceID]](),
-		conflictSets:     conflictSets,
-		heavierConflicts: shrinkingmap.New[ConflictID, *Conflict[ConflictID, ResourceID]](),
-		weight:           initialWeight,
+		PreferredInsteadUpdated: event.New1[*Conflict[ConflictID, ResourceID]](),
+		id:                      id,
+		parents:                 parents,
+		children:                advancedset.New[*Conflict[ConflictID, ResourceID]](),
+		conflictSets:            conflictSets,
+		heavierConflicts:        shrinkingmap.New[ConflictID, *Conflict[ConflictID, ResourceID]](),
+		weight:                  initialWeight,
+	}
+	c.conflictingConflicts = NewSortedConflicts[ConflictID, ResourceID](c)
+
+	for _, conflictSet := range conflictSets.Slice() {
+		conflictSet.conflicts.ForEach(func(element *Conflict[ConflictID, ResourceID]) (err error) {
+			c.conflictingConflicts.Add(element)
+
+			return nil
+		})
 	}
 
 	for _, conflictSet := range conflictSets.Slice() {

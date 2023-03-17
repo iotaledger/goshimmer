@@ -83,18 +83,21 @@ func TestSortedConflictParallel(t *testing.T) {
 	const conflictCount = 1000
 	const updateCount = 100000
 
-	sortedConflicts := NewSortedConflicts[utxo.OutputID, utxo.OutputID]()
-	sortedParallelConflicts := NewSortedConflicts[utxo.OutputID, utxo.OutputID]()
-	sortedParallelConflicts1 := NewSortedConflicts[utxo.OutputID, utxo.OutputID]()
-
 	conflicts := make(map[string]*Conflict[utxo.OutputID, utxo.OutputID])
 	parallelConflicts := make(map[string]*Conflict[utxo.OutputID, utxo.OutputID])
-
 	for i := 0; i < conflictCount; i++ {
 		alias := "conflict" + strconv.Itoa(i)
 
 		conflicts[alias] = newConflict(alias, New())
 		parallelConflicts[alias] = newConflict(alias, New())
+	}
+
+	sortedConflicts := NewSortedConflicts[utxo.OutputID, utxo.OutputID](conflicts["conflict0"])
+	sortedParallelConflicts := NewSortedConflicts[utxo.OutputID, utxo.OutputID](parallelConflicts["conflict0"])
+	sortedParallelConflicts1 := NewSortedConflicts[utxo.OutputID, utxo.OutputID](parallelConflicts["conflict0"])
+
+	for i := 0; i < conflictCount; i++ {
+		alias := "conflict" + strconv.Itoa(i)
 
 		sortedConflicts.Add(conflicts[alias])
 		sortedParallelConflicts.Add(parallelConflicts[alias])
