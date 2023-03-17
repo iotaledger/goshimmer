@@ -46,8 +46,6 @@ func (s *SortedConflicts[ConflictID, ResourceID]) Add(conflict *Conflict[Conflic
 		return
 	}
 
-	go func() {}()
-
 	if s.heaviestConflict == nil {
 		s.heaviestConflict = newSortedConflict
 		return
