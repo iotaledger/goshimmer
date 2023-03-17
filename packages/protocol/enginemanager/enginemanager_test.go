@@ -107,7 +107,7 @@ func TestEngineManager_ForkEngineAtSlot(t *testing.T) {
 		tf2 := engine.NewTestFramework(t, workers.CreateGroup("EngineTestFramework2"), forkedEngine)
 
 		// Settings
-		// The ChainID of the new engine corresponds to the target slot of the imported snapshot.
+		// The ChainID of the new engine should correspond to genesis.
 		require.Equal(t, lo.PanicOnErr(tf.Instance.Storage.Commitments.Load(0)).ID(), tf2.Instance.Storage.Settings.ChainID())
 		require.Equal(t, lo.PanicOnErr(tf.Instance.Storage.Commitments.Load(4)).ID(), lo.PanicOnErr(tf2.Instance.Storage.Commitments.Load(4)).ID())
 		require.Equal(t, lo.PanicOnErr(tf.Instance.Notarization.Attestations().Get(4)).Root(), lo.PanicOnErr(tf2.Instance.Notarization.Attestations().Get(4)).Root())
