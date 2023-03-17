@@ -13,33 +13,78 @@ import (
 )
 
 type CommitmentManagerParams struct {
-	CommitmentType    string
-	ParentRefsCount   int
-	GenesisTime       time.Time
-	SlotDuration      time.Duration
+	CommitmentType  string
+	ValidClientURL  string
+	ParentRefsCount int
+	ClockResyncTime time.Duration
+	GenesisTime     time.Time
+	SlotDuration    time.Duration
+
 	OptionalForkAfter int
 }
 type CommitmentManager struct {
-	Params            *CommitmentManagerParams
-	commitmentByIndex map[slot.Index]*commitment.Commitment
-	clockSync         *ClockSync
+	Params *CommitmentManagerParams
+	// we store here only the valid commitments to not request them again through API
+	validChain map[slot.Index]*commitment.Commitment
+	// commitments used to spam
+	commitmentChain map[slot.Index]*commitment.Commitment
 
-	connector evilwallet.Connector
-	forkIndex slot.Index
+	initiationSlot  slot.Index
+	forkIndex       slot.Index
+	latestCommitted slot.Index
+
+	clockSync   *ClockSync
+	validClient evilwallet.Client
+
+	log Logger
 }
 
 func NewCommitmentManager() *CommitmentManager {
 	return &CommitmentManager{
 		Params: &CommitmentManagerParams{
 			ParentRefsCount: 2,
+			ClockResyncTime: 30 * time.Second,
 			GenesisTime:     time.Now(),
 			SlotDuration:    5 * time.Second,
 		},
+		validChain:      make(map[slot.Index]*commitment.Commitment),
+		commitmentChain: make(map[slot.Index]*commitment.Commitment),
 	}
 }
 
-func (c *CommitmentManager) SetConnector(connector evilwallet.Connector) {
-	c.connector = connector
+func (c *CommitmentManager) Setup(l Logger) {
+	c.log = l
+
+	c.log.Infof("Commitment Manager will be based on the valid client: %s", c.Params.ValidClientURL)
+	c.validClient = evilwallet.NewWebClient(c.Params.ValidClientURL)
+	c.setupTimeParams(c.validClient)
+
+	c.clockSync = NewClockSync(c.Params.SlotDuration, c.Params.ClockResyncTime, c.validClient)
+	c.clockSync.Start()
+
+	c.setupForkingPoint()
+	c.setupInitCommitment()
+}
+
+// SetupInitCommitment sets the initiation commitment which is the current valid commitment requested from validClient.
+func (c *CommitmentManager) setupInitCommitment() {
+	c.initiationSlot = c.clockSync.LatestCommittedSlotClock.Get()
+	comm, err := c.getValidCommitment(c.initiationSlot)
+	if err != nil {
+		panic(errors.Wrapf(err, "failed to get initiation commitment"))
+	}
+	c.commitmentChain[comm.Index()] = comm
+	c.latestCommitted = comm.Index()
+}
+
+// SetupTimeParams requests through API and sets the genesis time and slot duration for the commitment manager.
+func (c *CommitmentManager) setupTimeParams(clt evilwallet.Client) {
+	genesisTime, slotDuration, err := clt.GetTimeProvider()
+	if err != nil {
+		panic(errors.Wrapf(err, "failed to get time provider for the committment manager setup"))
+	}
+	c.Params.GenesisTime = genesisTime
+	c.Params.SlotDuration = slotDuration
 }
 
 func (c *CommitmentManager) SetCommitmentType(commitmentType string) {
@@ -51,23 +96,32 @@ func (c *CommitmentManager) SetForkAfter(forkAfter int) {
 }
 
 // SetupForkingPoint sets the forking point for the commitment manager. It uses ForkAfter parameter so need to be called after params are read.
-func (c *CommitmentManager) SetupForkingPoint() {
+func (c *CommitmentManager) setupForkingPoint() {
 	c.forkIndex = c.clockSync.LatestCommittedSlotClock.Get() + slot.Index(c.Params.OptionalForkAfter)
 }
 
-// SetupTimeParams requests through API and sets the genesis time and slot duration for the commitment manager.
-func (c *CommitmentManager) SetupTimeParams(clt evilwallet.Client) {
-	genesisTime, slotDuration, err := clt.GetTimeProvider()
-	if err != nil {
-		panic(errors.Wrapf(err, "failed to get time provider for the committment manager setup"))
+func (c *CommitmentManager) Shutdown() {
+	c.clockSync.Shutdown()
+}
+
+func (c *CommitmentManager) commit(comm *commitment.Commitment) {
+	c.commitmentChain[comm.Index()] = comm
+	if comm.Index() > c.latestCommitted {
+		if comm.Index()-c.latestCommitted != 1 {
+			panic("next committed slot is not sequential, lastCommitted: " + c.latestCommitted.String() + " nextCommitted: " + comm.Index().String())
+		}
+		c.latestCommitted = comm.Index()
 	}
-	c.Params.GenesisTime = genesisTime
-	c.Params.SlotDuration = slotDuration
+}
+
+func (c *CommitmentManager) getLatestCommitment() *commitment.Commitment {
+	return c.commitmentChain[c.latestCommitted]
 }
 
 // GenerateCommitment generates a commitment based on the commitment type provided in spam details.
 func (c *CommitmentManager) GenerateCommitment(clt evilwallet.Client) (*commitment.Commitment, slot.Index, error) {
 	switch c.Params.CommitmentType {
+	// todo refactor this to work with chainsA
 	case "latest":
 		comm, err := clt.GetLatestCommitment()
 		if err != nil {
@@ -94,33 +148,87 @@ func (c *CommitmentManager) GenerateCommitment(clt evilwallet.Client) (*commitme
 			return nil, 0, errors.Wrap(err, "failed to get latest confirmed index")
 		}
 		return newCommitment, index, nil
-	case "invalid":
-		comm := commitment.NewEmptyCommitment()
-		newCommitment := commitment.New(
-			0,
-			comm.PrevID(),
-			randomRoot(),
-			1000000000,
-		)
-		return newCommitment, 0, nil
-	case "second":
-		comm, err := clt.GetLatestCommitment()
-		if err != nil {
-			return nil, 0, errors.Wrap(err, "failed to get latest commitment")
+
+	case "fork":
+		// it should request time periodically, and be relative
+		slotIndex := c.clockSync.LatestCommittedSlotClock.Get()
+		// make sure chain is upto date to the forking point
+		uptoSlot := c.forkIndex
+		// get minimum
+		if slotIndex < c.forkIndex {
+			uptoSlot = slotIndex
 		}
-		latestEpoch := comm.ID().SlotIndex
-		second := int(latestEpoch) - 1
-		secondComm, err := clt.GetCommitment(second)
+		err := c.updateChainWithValidCommitment(uptoSlot)
 		if err != nil {
-			return nil, 0, errors.Wrap(err, "failed to get oldest commitment")
+			return nil, 0, errors.Wrap(err, "failed to update chain with valid commitment")
 		}
+		if c.isAfterForkPoint(slotIndex) {
+			c.updateForkedChain(slotIndex)
+		}
+		comm := c.getLatestCommitment()
 		index, err := clt.GetLatestConfirmedIndex()
 		if err != nil {
 			return nil, 0, errors.Wrap(err, "failed to get latest confirmed index")
 		}
-		return secondComm, index - 1, nil
+		return comm, index - 1, nil
 	}
 	return nil, 0, nil
+}
+
+func (c *CommitmentManager) isAfterForkPoint(slotIndex slot.Index) bool {
+	return c.forkIndex != 0 && slotIndex > c.forkIndex
+}
+
+// updateChainWithValidCommitment commits the chain up to the given slot with the valid commitments.
+func (c *CommitmentManager) updateChainWithValidCommitment(s slot.Index) error {
+	for i := c.latestCommitted + 1; i <= s; i++ {
+		comm, err := c.getValidCommitment(i)
+		if err != nil {
+			return errors.Wrapf(err, "failed to get valid commitment for slot %d", i)
+		}
+		c.commit(comm)
+	}
+	return nil
+}
+
+func (c *CommitmentManager) updateForkedChain(slotIndex slot.Index) {
+	for i := c.latestCommitted + 1; i <= slotIndex; i++ {
+		comm, err := c.getForkedCommitment(i)
+		if err != nil {
+			panic(errors.Wrapf(err, "failed to get forked commitment for slot %d", i))
+		}
+		c.commit(comm)
+	}
+}
+
+// getValidCommitment returns the valid commitment for the given slot if not exists it requests it from the node and update the validChain.
+func (c *CommitmentManager) getValidCommitment(slot slot.Index) (*commitment.Commitment, error) {
+	if comm, ok := c.validChain[slot]; ok {
+		return comm, nil
+	}
+	// if not requested before then get it from the node
+	comm, err := c.validClient.GetCommitment(int(slot))
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get commitment for slot %d", slot)
+	}
+	c.validChain[slot] = comm
+
+	return comm, nil
+}
+
+func (c *CommitmentManager) getForkedCommitment(slot slot.Index) (*commitment.Commitment, error) {
+	validComm, err := c.getValidCommitment(slot)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get valid commitment for slot %d", slot)
+	}
+	prevComm := c.commitmentChain[slot-1]
+	forkedComm := commitment.New(
+		validComm.Index(),
+		prevComm.ID(),
+		randomRoot(),
+		validComm.CumulativeWeight(),
+	)
+	return forkedComm, nil
 }
 
 func randomRoot() [32]byte {

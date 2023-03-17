@@ -140,8 +140,8 @@ func getInfo(c echo.Context) error {
 	}
 
 	timeProvider := jsonmodels.TimeProvider{
-		GenesisTime:  deps.Protocol.Engine().SlotTimeProvider.GenesisTime(),
-		SlotDuration: time.Second * time.Duration(deps.Protocol.Engine().SlotTimeProvider.Duration()),
+		GenesisTime:  deps.Protocol.Engine().SlotTimeProvider().GenesisTime(),
+		SlotDuration: time.Second * time.Duration(deps.Protocol.Engine().SlotTimeProvider().Duration()),
 	}
 
 	accessMana, _ := deps.Protocol.Engine().ThroughputQuota.Balance(deps.Local.ID())

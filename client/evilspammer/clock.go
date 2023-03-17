@@ -14,23 +14,25 @@ type ClockSync struct {
 	LatestCommittedSlotClock *SlotClock
 
 	syncTicker *time.Ticker
-	clientList []evilwallet.Client
+	clt        evilwallet.Client
 }
 
-func NewClockSync(slotDuration time.Duration, syncInterval time.Duration, clientList []evilwallet.Client) *ClockSync {
+func NewClockSync(slotDuration time.Duration, syncInterval time.Duration, clientList evilwallet.Client) *ClockSync {
 	updateTicker := time.NewTicker(syncInterval)
 	return &ClockSync{
 		LatestCommittedSlotClock: &SlotClock{slotDuration: slotDuration},
 
 		syncTicker: updateTicker,
-		clientList: clientList,
+		clt:        clientList,
 	}
 }
 
+// Start starts the clock synchronization in the background after the first sync is done..
 func (c *ClockSync) Start() {
+	c.Synchronize()
 	go func() {
 		for range c.syncTicker.C {
-			c.SynchronizeWith(c.clientList)
+			c.Synchronize()
 		}
 	}()
 }
@@ -39,37 +41,12 @@ func (c *ClockSync) Shutdown() {
 	c.syncTicker.Stop()
 }
 
-func (c *ClockSync) SynchronizeWith(nodes []evilwallet.Client) {
-	slotIndexes := make([]slot.Index, len(nodes))
-	for i, clt := range nodes {
-		si, err := clt.GetLatestCommittedSlot()
-		if err != nil {
-			return
-		}
-		slotIndexes[i] = si
+func (c *ClockSync) Synchronize() {
+	si, err := c.clt.GetLatestCommittedSlot()
+	if err != nil {
+		return
 	}
-	currentSlot := c.Choose(slotIndexes)
-	c.LatestCommittedSlotClock.Update(currentSlot)
-}
-
-// Choose returns the slot based on the majority of the nodes.
-func (c *ClockSync) Choose(slotIndexes []slot.Index) slot.Index {
-	if len(slotIndexes) == 1 {
-		return slotIndexes[0]
-	}
-	count := make(map[slot.Index]int)
-	for _, si := range slotIndexes {
-		count[si]++
-	}
-	var maxCount int
-	var maxSlot slot.Index
-	for si, v := range count {
-		if v > maxCount {
-			maxCount = v
-			maxSlot = si
-		}
-	}
-	return maxSlot
+	c.LatestCommittedSlotClock.Update(si)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////
