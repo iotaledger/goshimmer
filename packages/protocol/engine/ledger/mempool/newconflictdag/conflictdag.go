@@ -31,7 +31,7 @@ package newconflictdag
 // 	c.mutex.Lock()
 // 	defer c.mutex.Unlock()
 //
-// 	conflictParents := advancedset.NewAdvancedSet[*Conflict[ConflictIDType, ResourceIDType]]()
+// 	conflictParents := advancedset.New[*Conflict[ConflictIDType, ResourceIDType]]()
 // 	for it := parentIDs.Iterator(); it.HasNext(); {
 // 		parentID := it.Next()
 // 		parent, exists := c.conflicts.Get(parentID)

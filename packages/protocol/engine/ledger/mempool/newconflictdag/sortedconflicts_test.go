@@ -200,7 +200,7 @@ func newConflict(alias string, weight *Weight) *Conflict[utxo.OutputID, utxo.Out
 	return NewConflict[utxo.OutputID, utxo.OutputID](
 		outputID(alias),
 		nil,
-		advancedset.NewAdvancedSet[*ConflictSet[utxo.OutputID, utxo.OutputID]](),
+		advancedset.New[*ConflictSet[utxo.OutputID, utxo.OutputID]](),
 		weight,
 	)
 }

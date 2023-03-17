@@ -29,7 +29,7 @@ func NewConflict[ConflictID, ResourceID IDType](id ConflictID, parents *advanced
 	c := &Conflict[ConflictID, ResourceID]{
 		id:               id,
 		parents:          parents,
-		children:         advancedset.NewAdvancedSet[*Conflict[ConflictID, ResourceID]](),
+		children:         advancedset.New[*Conflict[ConflictID, ResourceID]](),
 		conflictSets:     conflictSets,
 		heavierConflicts: shrinkingmap.New[ConflictID, *Conflict[ConflictID, ResourceID]](),
 		weight:           initialWeight,
