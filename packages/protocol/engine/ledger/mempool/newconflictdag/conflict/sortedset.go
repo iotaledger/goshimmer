@@ -60,10 +60,81 @@ func NewSortedSet[ConflictID, ResourceID IDType](owner *Conflict[ConflictID, Res
 
 	s.Add(owner)
 
-	// TODO: move to WorkerPool
+	// TODO: move to WorkerPool so we are consistent with the rest of the codebase
 	go s.fixMemberPositionWorker()
 
 	return s
+}
+
+// Add adds the given Conflict to the SortedSet.
+func (s *SortedSet[ConflictID, ResourceID]) Add(conflict *Conflict[ConflictID, ResourceID]) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	newMember, isNew := s.members.GetOrCreate(conflict.id, func() *sortedSetMember[ConflictID, ResourceID] {
+		return newSortedSetMember[ConflictID, ResourceID](s, conflict)
+	})
+
+	if !isNew {
+		return
+	}
+
+	if conflict == s.owner {
+		s.heaviestMember = newMember
+		s.heaviestPreferredMember = newMember
+
+		return
+	}
+
+	if conflict.IsPreferred() && newMember.Compare(s.heaviestPreferredMember) == weight.Heavier {
+		s.heaviestPreferredMember = newMember
+
+		s.HeaviestPreferredMemberUpdated.Trigger(conflict)
+	}
+
+	for currentMember := s.heaviestMember; ; currentMember = currentMember.lighterMember {
+		comparison := newMember.Compare(currentMember)
+		if comparison == weight.Equal {
+			panic("different Conflicts should never have the same weight")
+		}
+
+		if comparison == weight.Heavier {
+			if currentMember.heavierMember != nil {
+				currentMember.heavierMember.lighterMember = newMember
+			}
+
+			newMember.lighterMember = currentMember
+			newMember.heavierMember = currentMember.heavierMember
+			currentMember.heavierMember = newMember
+
+			if currentMember == s.heaviestMember {
+				s.heaviestMember = newMember
+			}
+
+			break
+		}
+
+		if currentMember.lighterMember == nil {
+			currentMember.lighterMember = newMember
+			newMember.heavierMember = currentMember
+
+			break
+		}
+	}
+}
+
+// ForEach iterates over all Conflicts of the SortedSet and calls the given callback for each of them.
+func (s *SortedSet[ConflictID, ResourceID]) ForEach(callback func(*Conflict[ConflictID, ResourceID]) error) error {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	for currentMember := s.heaviestMember; currentMember != nil; currentMember = currentMember.lighterMember {
+		if err := callback(currentMember.Conflict); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // HeaviestConflict returns the heaviest Conflict of the SortedSet.
@@ -90,80 +161,11 @@ func (s *SortedSet[ConflictID, ResourceID]) HeaviestPreferredConflict() *Conflic
 	return s.heaviestPreferredMember.Conflict
 }
 
-// Add adds the given Conflict to the SortedSet.
-func (s *SortedSet[ConflictID, ResourceID]) Add(conflict *Conflict[ConflictID, ResourceID]) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	newMember, isNew := s.members.GetOrCreate(conflict.id, func() *sortedSetMember[ConflictID, ResourceID] {
-		return newSortedSetMember[ConflictID, ResourceID](s, conflict)
-	})
-
-	if !isNew {
-		return
-	}
-
-	if conflict == s.owner || (conflict.IsPreferred() && newMember.Compare(s.heaviestPreferredMember) == weight.Heavier) {
-		s.heaviestPreferredMember = newMember
-
-		s.HeaviestPreferredMemberUpdated.Trigger(conflict)
-	}
-
-	if s.heaviestMember == nil {
-		s.heaviestMember = newMember
-
-		return
-	}
-
-	for currentMember := s.heaviestMember; ; {
-		comparison := newMember.Compare(currentMember)
-		if comparison == weight.Equal {
-			panic("different Conflicts should never have the same weight")
-		}
-
-		if comparison == weight.Heavier {
-			if currentMember.heavierMember != nil {
-				currentMember.heavierMember.lighterMember = newMember
-			}
-
-			newMember.lighterMember = currentMember
-			newMember.heavierMember = currentMember.heavierMember
-			currentMember.heavierMember = newMember
-
-			if currentMember == s.heaviestMember {
-				s.heaviestMember = newMember
-			}
-
-			break
-		}
-
-		if currentMember.lighterMember == nil {
-			currentMember.lighterMember = newMember
-			newMember.heavierMember = currentMember
-			break
-		}
-
-		currentMember = currentMember.lighterMember
-	}
-}
-
-// ForEach iterates over all Conflicts of the SortedSet and calls the given callback for each of them.
-func (s *SortedSet[ConflictID, ResourceID]) ForEach(callback func(*Conflict[ConflictID, ResourceID]) error) error {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	for currentMember := s.heaviestMember; currentMember != nil; currentMember = currentMember.lighterMember {
-		if err := callback(currentMember.Conflict); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// WaitSorted waits until the SortedSet is sorted.
-func (s *SortedSet[ConflictID, ResourceID]) WaitSorted() {
+// WaitConsistent waits until the SortedSet is consistent.
+func (s *SortedSet[ConflictID, ResourceID]) WaitConsistent() {
 	s.pendingWeightUpdatesCounter.WaitIsZero()
+
+	// TODO: Wait until the last update has been applied (the counter becomes zero before "being done")
 }
 
 // String returns a human-readable representation of the SortedSet.
@@ -189,7 +191,34 @@ func (s *SortedSet[ConflictID, ResourceID]) notifyPendingWeightUpdate(member *so
 	}
 }
 
-// nextPendingWeightUpdate returns the next sortedSetMember that needs to be updated (or nil if the shutdown flag is set).
+// notifyPreferredInsteadUpdate notifies the SortedSet about a member that changed its preferred instead flag.
+func (s *SortedSet[ConflictID, ResourceID]) notifyPreferredInsteadUpdate(member *sortedSetMember[ConflictID, ResourceID], preferred bool) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if preferred {
+		if member.Compare(s.heaviestPreferredMember) == weight.Heavier {
+			s.heaviestPreferredMember = member
+			s.HeaviestPreferredMemberUpdated.Trigger(member.Conflict)
+		}
+
+		return
+	}
+
+	if s.heaviestPreferredMember != member {
+		return
+	}
+
+	currentMember := member.lighterMember
+	for currentMember.Conflict != s.owner && !currentMember.IsPreferred() && currentMember.PreferredInstead() != member.Conflict {
+		currentMember = currentMember.lighterMember
+	}
+
+	s.heaviestPreferredMember = currentMember
+	s.HeaviestPreferredMemberUpdated.Trigger(currentMember.Conflict)
+}
+
+// nextPendingWeightUpdate returns the next member that needs to be updated (or nil if the shutdown flag is set).
 func (s *SortedSet[ConflictID, ResourceID]) nextPendingWeightUpdate() *sortedSetMember[ConflictID, ResourceID] {
 	s.pendingWeightUpdatesMutex.Lock()
 	defer s.pendingWeightUpdatesMutex.Unlock()
@@ -264,34 +293,5 @@ func (s *SortedSet[ConflictID, ResourceID]) swapNeighbors(heavierMember, lighter
 
 	if s.heaviestMember == lighterMember {
 		s.heaviestMember = heavierMember
-	}
-}
-
-// notifyMemberNotPreferred notifies the SortedSet about a member that is not preferred anymore.
-func (s *SortedSet[ConflictID, ResourceID]) notifyMemberNotPreferred(member *sortedSetMember[ConflictID, ResourceID]) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	if s.heaviestPreferredMember != member {
-		return
-	}
-
-	currentMember := member.lighterMember
-	for currentMember.Conflict != s.owner && !currentMember.IsPreferred() && currentMember.PreferredInstead() != member.Conflict {
-		currentMember = currentMember.lighterMember
-	}
-
-	s.heaviestPreferredMember = currentMember
-	s.HeaviestPreferredMemberUpdated.Trigger(currentMember.Conflict)
-}
-
-// notifyMemberPreferred notifies the SortedSet about a member that is preferred.
-func (s *SortedSet[ConflictID, ResourceID]) notifyMemberPreferred(member *sortedSetMember[ConflictID, ResourceID]) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	if member.Compare(s.heaviestPreferredMember) == weight.Heavier {
-		s.heaviestPreferredMember = member
-		s.HeaviestPreferredMemberUpdated.Trigger(member.Conflict)
 	}
 }

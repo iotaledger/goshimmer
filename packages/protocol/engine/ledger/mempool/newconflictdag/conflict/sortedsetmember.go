@@ -48,7 +48,7 @@ func newSortedSetMember[ConflictID, ResourceID IDType](set *SortedSet[ConflictID
 	}
 
 	s.onUpdateHook = conflict.Weight().OnUpdate.Hook(s.queueWeightUpdate)
-	s.onPreferredUpdatedHook = conflict.PreferredInsteadUpdated.Hook(s.notifyPreferredInsteadUpdated)
+	s.onPreferredUpdatedHook = conflict.PreferredInsteadUpdated.Hook(s.notifyPreferredInsteadUpdate)
 
 	return s
 }
@@ -104,11 +104,7 @@ func (s *sortedSetMember[ConflictID, ResourceID]) weightUpdateApplied() bool {
 	return true
 }
 
-// notifyPreferredInsteadUpdated notifies the sortedSet that the preferredInstead value of the Conflict was updated.
-func (s *sortedSetMember[ConflictID, ResourceID]) notifyPreferredInsteadUpdated(preferredInstead *Conflict[ConflictID, ResourceID]) {
-	if preferredInstead == s.Conflict {
-		s.sortedSet.notifyMemberPreferred(s)
-	} else {
-		s.sortedSet.notifyMemberNotPreferred(s)
-	}
+// notifyPreferredInsteadUpdate notifies the sortedSet that the preferred instead flag of the Conflict was updated.
+func (s *sortedSetMember[ConflictID, ResourceID]) notifyPreferredInsteadUpdate(conflict *Conflict[ConflictID, ResourceID]) {
+	s.sortedSet.notifyPreferredInsteadUpdate(s, conflict == s.Conflict)
 }
