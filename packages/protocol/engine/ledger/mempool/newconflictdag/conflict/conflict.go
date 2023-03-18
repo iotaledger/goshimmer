@@ -24,7 +24,7 @@ type Conflict[ConflictID, ResourceID IDType] struct {
 	mutex sync.RWMutex
 }
 
-func NewConflict[ConflictID, ResourceID IDType](id ConflictID, parents *advancedset.AdvancedSet[ConflictID], conflictSets map[ResourceID]*Set[ConflictID, ResourceID], initialWeight *weight.Weight) *Conflict[ConflictID, ResourceID] {
+func New[ConflictID, ResourceID IDType](id ConflictID, parents *advancedset.AdvancedSet[ConflictID], conflictSets map[ResourceID]*Set[ConflictID, ResourceID], initialWeight *weight.Weight) *Conflict[ConflictID, ResourceID] {
 	c := &Conflict[ConflictID, ResourceID]{
 		PreferredInsteadUpdated: event.New1[*Conflict[ConflictID, ResourceID]](),
 		id:                      id,
@@ -35,6 +35,7 @@ func NewConflict[ConflictID, ResourceID IDType](id ConflictID, parents *advanced
 	}
 
 	c.conflictingConflicts = NewSortedSet[ConflictID, ResourceID](c)
+	c.conflictingConflicts.HeaviestPreferredMemberUpdated.Hook(c.PreferredInsteadUpdated.Trigger)
 
 	// add existing conflicts first, so we can correctly determine the preferred instead flag
 	for _, conflictSet := range conflictSets {
@@ -65,12 +66,12 @@ func (c *Conflict[ConflictID, ResourceID]) onWeightUpdated(newWeight weight.Valu
 	// c.m.Lock()
 	// defer c.m.Unlock()
 	//
-	// if heavierConflict.IsPreferred() && heavierConflict.CompareTo(c.preferredInstead) == weight.Heavier {
+	// if heavierConflict.IsPreferred() && heavierConflict.Compare(c.preferredInstead) == weight.Heavier {
 	// 	c.preferredInstead = heavierConflict
 	// }
 }
 
-func (c *Conflict[ConflictID, ResourceID]) CompareTo(other *Conflict[ConflictID, ResourceID]) int {
+func (c *Conflict[ConflictID, ResourceID]) Compare(other *Conflict[ConflictID, ResourceID]) int {
 	if c == other {
 		return weight.Equal
 	}

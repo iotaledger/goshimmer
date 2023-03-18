@@ -11,17 +11,17 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/acceptance"
 	. "github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/conflict"
-	. "github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/weight"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/weight"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 )
 
 func TestSortedConflict(t *testing.T) {
-	conflict1 := newConflict("conflict1", New().AddCumulativeWeight(12).SetAcceptanceState(acceptance.Rejected))
-	conflict2 := newConflict("conflict2", New().AddCumulativeWeight(10))
-	conflict3 := newConflict("conflict3", New().AddCumulativeWeight(1).SetAcceptanceState(acceptance.Accepted))
-	conflict4 := newConflict("conflict4", New().AddCumulativeWeight(11).SetAcceptanceState(acceptance.Rejected))
-	conflict5 := newConflict("conflict5", New().AddCumulativeWeight(11).SetAcceptanceState(acceptance.Pending))
-	conflict6 := newConflict("conflict6", New().AddCumulativeWeight(2).SetAcceptanceState(acceptance.Accepted))
+	conflict1 := newConflict("conflict1", weight.New().AddCumulativeWeight(12).SetAcceptanceState(acceptance.Rejected))
+	conflict2 := newConflict("conflict2", weight.New().AddCumulativeWeight(10))
+	conflict3 := newConflict("conflict3", weight.New().AddCumulativeWeight(1).SetAcceptanceState(acceptance.Accepted))
+	conflict4 := newConflict("conflict4", weight.New().AddCumulativeWeight(11).SetAcceptanceState(acceptance.Rejected))
+	conflict5 := newConflict("conflict5", weight.New().AddCumulativeWeight(11).SetAcceptanceState(acceptance.Pending))
+	conflict6 := newConflict("conflict6", weight.New().AddCumulativeWeight(2).SetAcceptanceState(acceptance.Accepted))
 
 	sortedConflicts := NewSortedSet[utxo.OutputID, utxo.OutputID](conflict1)
 
@@ -60,8 +60,8 @@ func TestSortedConflict(t *testing.T) {
 }
 
 func TestSortedDecreaseHeaviest(t *testing.T) {
-	conflict1 := newConflict("conflict1", New().AddCumulativeWeight(1).SetAcceptanceState(acceptance.Accepted))
-	conflict2 := newConflict("conflict2", New().AddCumulativeWeight(2).SetAcceptanceState(acceptance.Pending))
+	conflict1 := newConflict("conflict1", weight.New().AddCumulativeWeight(1).SetAcceptanceState(acceptance.Accepted))
+	conflict2 := newConflict("conflict2", weight.New().AddCumulativeWeight(2).SetAcceptanceState(acceptance.Pending))
 
 	sortedConflicts := NewSortedSet[utxo.OutputID, utxo.OutputID](conflict1)
 
@@ -87,8 +87,8 @@ func TestSortedConflictParallel(t *testing.T) {
 	for i := 0; i < conflictCount; i++ {
 		alias := "conflict" + strconv.Itoa(i)
 
-		conflicts[alias] = newConflict(alias, New())
-		parallelConflicts[alias] = newConflict(alias, New())
+		conflicts[alias] = newConflict(alias, weight.New())
+		parallelConflicts[alias] = newConflict(alias, weight.New())
 	}
 
 	sortedConflicts := NewSortedSet[utxo.OutputID, utxo.OutputID](conflicts["conflict0"])
@@ -198,8 +198,8 @@ func assertSortedConflictsOrder[ConflictID, ResourceID IDType](t *testing.T, sor
 	require.Empty(t, aliases)
 }
 
-func newConflict(alias string, weight *Weight) *Conflict[utxo.OutputID, utxo.OutputID] {
-	return NewConflict[utxo.OutputID, utxo.OutputID](
+func newConflict(alias string, weight *weight.Weight) *Conflict[utxo.OutputID, utxo.OutputID] {
+	return New[utxo.OutputID, utxo.OutputID](
 		outputID(alias),
 		nil,
 		nil,
