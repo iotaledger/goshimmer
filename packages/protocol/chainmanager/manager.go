@@ -106,6 +106,8 @@ func (m *Manager) Evict(index slot.Index) {
 	m.evictionMutex.Lock()
 	defer m.evictionMutex.Unlock()
 
+	fmt.Println(">> evicting", index)
+
 	// Forget about the forks that we detected at that slot so that we can detect them again if they happen
 	evictedForkDetections := m.forkingPointsByCommitments.Evict(index)
 	if evictedForkDetections != nil {
@@ -186,7 +188,7 @@ func (m *Manager) processCommitment(commitment *commitment.Commitment) (isNew bo
 		if isRootCommitment {
 			chainCommitment = m.rootCommitment
 		}
-		m.Events.MissingCommitmentReceived.Trigger(commitment.ID())
+		m.CommitmentRequester.StopTicker(commitment.ID())
 		return false, isRootCommitment, chainCommitment
 	}
 
