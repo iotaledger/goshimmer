@@ -2,6 +2,7 @@ package conflict
 
 import (
 	"bytes"
+	"fmt"
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/weight"
@@ -12,10 +13,13 @@ import (
 )
 
 type Conflict[ConflictID, ResourceID IDType] struct {
-	PreferredInsteadUpdated *event.Event1[*Conflict[ConflictID, ResourceID]]
+	// PreferredInsteadUpdated is triggered whenever preferred conflict is updated. It carries two values:
+	// the new preferred conflict and a set of conflicts visited
+	PreferredInsteadUpdated *event.Event2[*Conflict[ConflictID, ResourceID], TriggerContext[ConflictID]]
 
-	id                   ConflictID
-	parents              *advancedset.AdvancedSet[ConflictID]
+	id      ConflictID
+	parents *advancedset.AdvancedSet[ConflictID]
+
 	children             *advancedset.AdvancedSet[*Conflict[ConflictID, ResourceID]]
 	weight               *weight.Weight
 	conflictSets         map[ResourceID]*Set[ConflictID, ResourceID]
@@ -26,7 +30,7 @@ type Conflict[ConflictID, ResourceID IDType] struct {
 
 func New[ConflictID, ResourceID IDType](id ConflictID, parents *advancedset.AdvancedSet[ConflictID], conflictSets map[ResourceID]*Set[ConflictID, ResourceID], initialWeight *weight.Weight) *Conflict[ConflictID, ResourceID] {
 	c := &Conflict[ConflictID, ResourceID]{
-		PreferredInsteadUpdated: event.New1[*Conflict[ConflictID, ResourceID]](),
+		PreferredInsteadUpdated: event.New2[*Conflict[ConflictID, ResourceID], TriggerContext[ConflictID]](),
 		id:                      id,
 		parents:                 parents,
 		children:                advancedset.New[*Conflict[ConflictID, ResourceID]](),
@@ -35,7 +39,10 @@ func New[ConflictID, ResourceID IDType](id ConflictID, parents *advancedset.Adva
 	}
 
 	c.conflictingConflicts = NewSortedSet[ConflictID, ResourceID](c)
-	c.conflictingConflicts.HeaviestPreferredMemberUpdated.Hook(c.PreferredInsteadUpdated.Trigger)
+	c.conflictingConflicts.HeaviestPreferredMemberUpdated.Hook(func(eventConflict *Conflict[ConflictID, ResourceID], visitedConflicts TriggerContext[ConflictID]) {
+		fmt.Println(c.ID(), "prefers", eventConflict.ID())
+		c.PreferredInsteadUpdated.Trigger(eventConflict, visitedConflicts)
+	})
 
 	// add existing conflicts first, so we can correctly determine the preferred instead flag
 	for _, conflictSet := range conflictSets {
@@ -48,7 +55,7 @@ func New[ConflictID, ResourceID IDType](id ConflictID, parents *advancedset.Adva
 
 	// add ourselves to the other conflict sets once we are fully initialized
 	for _, conflictSet := range conflictSets {
-		conflictSet.Members().Add(c)
+		conflictSet.Add(c)
 	}
 
 	return c
@@ -107,4 +114,8 @@ func (c *Conflict[ConflictID, ResourceID]) String() string {
 		stringify.NewStructField("id", c.id),
 		stringify.NewStructField("weight", c.weight),
 	)
+}
+
+func (c *Conflict[ConflictID, ResourceID]) WaitConsistent() {
+	c.conflictingConflicts.WaitConsistent()
 }

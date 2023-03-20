@@ -25,7 +25,6 @@ func TestSortedConflict(t *testing.T) {
 
 	sortedConflicts := NewSortedSet[utxo.OutputID, utxo.OutputID](conflict1)
 
-	sortedConflicts.Add(conflict1)
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict1")
 
 	sortedConflicts.Add(conflict2)
@@ -199,12 +198,7 @@ func assertSortedConflictsOrder[ConflictID, ResourceID IDType](t *testing.T, sor
 }
 
 func newConflict(alias string, weight *weight.Weight) *Conflict[utxo.OutputID, utxo.OutputID] {
-	return New[utxo.OutputID, utxo.OutputID](
-		outputID(alias),
-		nil,
-		nil,
-		weight,
-	)
+	return New[utxo.OutputID, utxo.OutputID](outputID(alias), nil, nil, weight)
 }
 
 func outputID(alias string) utxo.OutputID {
