@@ -54,7 +54,7 @@ func NewManager(genesisCommitment *commitment.Commitment, opts ...options.Option
 		forkingPointsByCommitments: memstorage.NewSlotStorage[commitment.ID, commitment.ID](),
 		forksByForkingPoint:        shrinkingmap.New[commitment.ID, *Fork](),
 	}, opts, func(manager *Manager) {
-		manager.rootCommitment, _ = manager.commitment(genesisCommitment.ID(), true)
+		manager.rootCommitment, _ = manager.getOrCreateCommitment(genesisCommitment.ID())
 		manager.rootCommitment.PublishCommitment(genesisCommitment)
 		manager.rootCommitment.SetSolid(true)
 		manager.rootCommitment.publishChain(NewChain(manager.rootCommitment))
@@ -137,11 +137,11 @@ func (m *Manager) SetRootCommitment(commitment *commitment.Commitment) {
 }
 
 func (m *Manager) Chain(ec commitment.ID) (chain *Chain) {
-	if commitment, _ := m.commitment(ec, false); commitment != nil {
+	if commitment, exists := m.commitment(ec); exists {
 		return commitment.Chain()
 	}
 
-	return
+	return nil
 }
 
 func (m *Manager) Commitments(id commitment.ID, amount int) (commitments []*Commitment, err error) {
@@ -216,19 +216,20 @@ func (m *Manager) processCommitment(commitment *commitment.Commitment) (isNew bo
 	return
 }
 
-func (m *Manager) commitment(id commitment.ID, createIfAbsent ...bool) (commitment *Commitment, created bool) {
-	storage := m.commitmentsByID.Get(id.Index(), createIfAbsent...)
+func (m *Manager) getOrCreateCommitment(id commitment.ID) (commitment *Commitment, created bool) {
+	// TODO: check whether below root commitment?
+	return m.commitmentsByID.Get(id.Index(), true).GetOrCreate(id, func() *Commitment {
+		return NewCommitment(id)
+	})
+}
+
+func (m *Manager) commitment(id commitment.ID) (commitment *Commitment, exists bool) {
+	storage := m.commitmentsByID.Get(id.Index())
 	if storage == nil {
-		return
+		return nil, false
 	}
 
-	commitment, exists := storage.Get(id)
-	if created = !exists && len(createIfAbsent) >= 1 && createIfAbsent[0]; created {
-		commitment = NewCommitment(id)
-		storage.Set(id, commitment)
-	}
-
-	return
+	return storage.Get(id)
 }
 
 func (m *Manager) evaluateAgainstRootCommitment(commitment *commitment.Commitment) (isBelow, isRootCommitment bool) {
@@ -304,12 +305,12 @@ func (m *Manager) registerCommitment(commitment *commitment.Commitment) (isNew b
 	m.commitmentEntityMutex.Lock(commitment.PrevID())
 	defer m.commitmentEntityMutex.Unlock(commitment.PrevID())
 
-	parentCommitment, commitmentCreated := m.commitment(commitment.PrevID(), true)
+	parentCommitment, commitmentCreated := m.getOrCreateCommitment(commitment.PrevID())
 	if commitmentCreated {
 		m.Events.CommitmentMissing.Trigger(parentCommitment.ID())
 	}
 
-	chainCommitment, created := m.commitment(commitment.ID(), true)
+	chainCommitment, created := m.getOrCreateCommitment(commitment.ID())
 
 	if !chainCommitment.PublishCommitment(commitment) {
 		return false, chainCommitment.IsSolid(), false, chainCommitment

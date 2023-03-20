@@ -72,8 +72,8 @@ func (t *TestFramework) commitment(alias string) (commitment *commitment.Commitm
 }
 
 func (t *TestFramework) ChainCommitment(alias string) *Commitment {
-	cm, created := t.Instance.commitment(t.SlotCommitment(alias))
-	require.False(t.test, created)
+	cm, exists := t.Instance.commitment(t.SlotCommitment(alias))
+	require.True(t.test, exists)
 
 	return cm
 }
