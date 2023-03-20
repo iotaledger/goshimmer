@@ -15,6 +15,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization/slotnotarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/slot"
@@ -150,7 +151,7 @@ func TestRetainer_BlockMetadata_Evicted(t *testing.T) {
 	require.True(t, exists)
 
 	// Trigger eviction through commitment creation
-	tf.Engine.Instance.NotarizationManager.SetAcceptanceTime(tf.Instance.SlotTimeProvider().EndTime(tf.Instance.SlotTimeProvider().IndexFromTime(tf.Instance.SlotTimeProvider().GenesisTime().Add(70*time.Second)) + 8))
+	tf.Engine.Instance.Notarization.(*slotnotarization.Manager).SetAcceptanceTime(tf.Instance.SlotTimeProvider().EndTime(tf.Instance.SlotTimeProvider().IndexFromTime(tf.Instance.SlotTimeProvider().GenesisTime().Add(70*time.Second)) + 8))
 	workers.WaitChildren()
 
 	meta, exists := retainer.BlockMetadata(block.ID())

@@ -1,4 +1,4 @@
-package notarization
+package slotnotarization
 
 import (
 	"io"
@@ -9,12 +9,17 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/module"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/runtime/event"
 	"github.com/iotaledger/hive.go/runtime/options"
 )
 
@@ -26,9 +31,9 @@ const (
 
 // Manager is the component that manages the slot commitments.
 type Manager struct {
-	Events        *Events
-	SlotMutations *SlotMutations
-	Attestations  *Attestations
+	events        *notarization.Events
+	slotMutations *SlotMutations
+	attestations  *Attestations
 
 	storage         *storage.Storage
 	ledgerState     ledger.Ledger
@@ -42,23 +47,76 @@ type Manager struct {
 	module.Module
 }
 
-// NewManager creates a new notarization Manager.
-func NewManager(storageInstance *storage.Storage, ledgerState ledger.Ledger, weights *sybilprotection.Weights, opts ...options.Option[Manager]) *Manager {
-	return options.Apply(&Manager{
-		Events:                    NewEvents(),
-		SlotMutations:             NewSlotMutations(weights, storageInstance.Settings.LatestCommitment().Index()),
-		Attestations:              NewAttestations(storageInstance.Permanent.Attestations, storageInstance.Prunable.Attestations, weights, storageInstance.Settings.SlotTimeProvider),
-		storage:                   storageInstance,
-		ledgerState:               ledgerState,
-		optsMinCommittableSlotAge: defaultMinSlotCommittableAge,
-	}, opts, func(m *Manager) {
-		m.HookInitialized(m.Attestations.TriggerInitialized)
+func NewProvider(opts ...options.Option[Manager]) module.Provider[*engine.Engine, notarization.Notarization] {
+	return module.Provide(func(e *engine.Engine) notarization.Notarization {
+		return options.Apply(&Manager{
+			events:                    notarization.NewEvents(),
+			optsMinCommittableSlotAge: defaultMinSlotCommittableAge,
+		}, opts,
+			func(m *Manager) {
+				m.storage = e.Storage
+				m.ledgerState = e.Ledger
 
-		m.ledgerState.HookInitialized(func() {
-			m.SlotMutations.Reset(m.storage.Settings.LatestCommitment().Index())
-			m.acceptanceTime = m.storage.Settings.SlotTimeProvider().EndTime(m.storage.Settings.LatestCommitment().Index())
-		})
+				m.attestations = NewAttestations(e.Storage.Permanent.Attestations,
+					e.Storage.Prunable.Attestations,
+					func() *sybilprotection.Weights {
+						// Using a func here because at this point SybilProtection is not guaranteed to exist since the engine has not been constructed, but other modules already might want to use `Attestations()`
+						return e.SybilProtection.Weights()
+					}, e.SlotTimeProvider)
+
+				m.HookInitialized(m.attestations.TriggerInitialized)
+
+				e.HookConstructed(func() {
+					wpBlocks := e.Workers.CreatePool("NotarizationManager.Blocks", 1)           // Using just 1 worker to avoid contention
+					wpCommitments := e.Workers.CreatePool("NotarizationManager.Commitments", 1) // Using just 1 worker to avoid contention
+
+					// SlotMutations must be hooked because inclusion might be added before transaction are added.
+					e.Events.Ledger.MemPool.TransactionAccepted.Hook(func(event *mempool.TransactionEvent) {
+						if err := m.slotMutations.AddAcceptedTransaction(event.Metadata); err != nil {
+							e.Events.Error.Trigger(errors.Wrapf(err, "failed to add accepted transaction %s to slot", event.Metadata.ID()))
+						}
+					})
+					e.Events.Ledger.MemPool.TransactionInclusionUpdated.Hook(func(event *mempool.TransactionInclusionUpdatedEvent) {
+						if err := m.slotMutations.UpdateTransactionInclusion(event.TransactionID, event.PreviousInclusionSlot, event.InclusionSlot); err != nil {
+							e.Events.Error.Trigger(errors.Wrapf(err, "failed to update transaction inclusion time %s in slot", event.TransactionID))
+						}
+					})
+
+					e.Events.Consensus.BlockGadget.BlockAccepted.Hook(func(block *blockgadget.Block) {
+						if err := e.Notarization.NotarizeAcceptedBlock(block.ModelsBlock); err != nil {
+							e.Events.Error.Trigger(errors.Wrapf(err, "failed to add accepted block %s to slot", block.ID()))
+						}
+					}, event.WithWorkerPool(wpBlocks))
+					e.Events.Tangle.BlockDAG.BlockOrphaned.Hook(func(block *blockdag.Block) {
+						if err := e.Notarization.NotarizeOrphanedBlock(block.ModelsBlock); err != nil {
+							e.Events.Error.Trigger(errors.Wrapf(err, "failed to remove orphaned block %s from slot", block.ID()))
+						}
+					}, event.WithWorkerPool(wpBlocks))
+
+					// Slots are committed whenever ATT advances, start committing only when bootstrapped.
+					e.Events.Clock.AcceptedTimeUpdated.Hook(m.SetAcceptanceTime, event.WithWorkerPool(wpCommitments))
+
+					e.SybilProtection.HookInitialized(func() {
+						m.slotMutations = NewSlotMutations(e.SybilProtection.Weights(), e.Storage.Settings.LatestCommitment().Index())
+						m.acceptanceTime = e.SlotTimeProvider().EndTime(m.storage.Settings.LatestCommitment().Index())
+
+						m.events.AcceptedBlockRemoved.LinkTo(m.slotMutations.AcceptedBlockRemoved)
+						e.Events.Notarization.LinkTo(m.events)
+
+						m.TriggerInitialized()
+					})
+				})
+			},
+			(*Manager).TriggerConstructed)
 	})
+}
+
+func (m *Manager) Events() *notarization.Events {
+	return m.events
+}
+
+func (m *Manager) Attestations() notarization.Attestations {
+	return m.attestations
 }
 
 // AcceptanceTime returns the acceptance time of the Manager.
@@ -92,11 +150,11 @@ func (m *Manager) IsFullyCommitted() bool {
 }
 
 func (m *Manager) NotarizeAcceptedBlock(block *models.Block) (err error) {
-	if err = m.SlotMutations.AddAcceptedBlock(block); err != nil {
+	if err = m.slotMutations.AddAcceptedBlock(block); err != nil {
 		return errors.Wrap(err, "failed to add accepted block to slot mutations")
 	}
 
-	if _, err = m.Attestations.Add(NewAttestation(block, m.storage.Settings.SlotTimeProvider())); err != nil {
+	if _, err = m.attestations.Add(notarization.NewAttestation(block, m.storage.Settings.SlotTimeProvider())); err != nil {
 		return errors.Wrap(err, "failed to add block to attestations")
 	}
 
@@ -104,11 +162,11 @@ func (m *Manager) NotarizeAcceptedBlock(block *models.Block) (err error) {
 }
 
 func (m *Manager) NotarizeOrphanedBlock(block *models.Block) (err error) {
-	if err = m.SlotMutations.RemoveAcceptedBlock(block); err != nil {
+	if err = m.slotMutations.RemoveAcceptedBlock(block); err != nil {
 		return errors.Wrap(err, "failed to remove accepted block from slot mutations")
 	}
 
-	if _, err = m.Attestations.Delete(NewAttestation(block, m.storage.Settings.SlotTimeProvider())); err != nil {
+	if _, err = m.attestations.Delete(notarization.NewAttestation(block, m.storage.Settings.SlotTimeProvider())); err != nil {
 		return errors.Wrap(err, "failed to delete block from attestations")
 	}
 
@@ -119,7 +177,7 @@ func (m *Manager) Import(reader io.ReadSeeker) (err error) {
 	m.commitmentMutex.Lock()
 	defer m.commitmentMutex.Unlock()
 
-	if err = m.Attestations.Import(reader); err != nil {
+	if err = m.attestations.Import(reader); err != nil {
 		return errors.Wrap(err, "failed to import attestations")
 	}
 
@@ -132,7 +190,7 @@ func (m *Manager) Export(writer io.WriteSeeker, targetSlot slot.Index) (err erro
 	m.commitmentMutex.RLock()
 	defer m.commitmentMutex.RUnlock()
 
-	if err = m.Attestations.Export(writer, targetSlot); err != nil {
+	if err = m.attestations.Export(writer, targetSlot); err != nil {
 		return errors.Wrap(err, "failed to export attestations")
 	}
 
@@ -163,25 +221,25 @@ func (m *Manager) isCommittable(index, acceptedBlockIndex slot.Index) bool {
 func (m *Manager) createCommitment(index slot.Index) (success bool) {
 	latestCommitment := m.storage.Settings.LatestCommitment()
 	if index != latestCommitment.Index()+1 {
-		m.Events.Error.Trigger(errors.Errorf("cannot create commitment for slot %d, latest commitment is for slot %d", index, latestCommitment.Index()))
+		m.events.Error.Trigger(errors.Errorf("cannot create commitment for slot %d, latest commitment is for slot %d", index, latestCommitment.Index()))
 
 		return false
 	}
 
 	if err := m.ledgerState.ApplyStateDiff(index); err != nil {
-		m.Events.Error.Trigger(errors.Wrapf(err, "failed to apply state diff for slot %d", index))
+		m.events.Error.Trigger(errors.Wrapf(err, "failed to apply state diff for slot %d", index))
 		return false
 	}
 
-	acceptedBlocks, acceptedTransactions, err := m.SlotMutations.Evict(index)
+	acceptedBlocks, acceptedTransactions, err := m.slotMutations.Evict(index)
 	if err != nil {
-		m.Events.Error.Trigger(errors.Wrap(err, "failed to commit mutations"))
+		m.events.Error.Trigger(errors.Wrap(err, "failed to commit mutations"))
 		return false
 	}
 
-	attestations, attestationsWeight, err := m.Attestations.Commit(index)
+	attestations, attestationsWeight, err := m.attestations.Commit(index)
 	if err != nil {
-		m.Events.Error.Trigger(errors.Wrap(err, "failed to commit attestations"))
+		m.events.Error.Trigger(errors.Wrap(err, "failed to commit attestations"))
 		return false
 	}
 
@@ -193,22 +251,22 @@ func (m *Manager) createCommitment(index slot.Index) (success bool) {
 			acceptedTransactions.Root(),
 			attestations.Root(),
 			m.ledgerState.UnspentOutputs().IDs().Root(),
-			m.SlotMutations.weights.Root(),
+			m.slotMutations.weights.Root(),
 		).ID(),
 		m.storage.Settings.LatestCommitment().CumulativeWeight()+attestationsWeight,
 	)
 
 	if err = m.storage.Settings.SetLatestCommitment(newCommitment); err != nil {
-		m.Events.Error.Trigger(errors.Wrap(err, "failed to set latest commitment"))
+		m.events.Error.Trigger(errors.Wrap(err, "failed to set latest commitment"))
 		return false
 	}
 
 	if err = m.storage.Commitments.Store(newCommitment); err != nil {
-		m.Events.Error.Trigger(errors.Wrap(err, "failed to store latest commitment"))
+		m.events.Error.Trigger(errors.Wrap(err, "failed to store latest commitment"))
 		return false
 	}
 
-	m.Events.SlotCommitted.Trigger(&SlotCommittedDetails{
+	m.events.SlotCommitted.Trigger(&notarization.SlotCommittedDetails{
 		Commitment:           newCommitment,
 		AcceptedBlocks:       acceptedBlocks,
 		AcceptedTransactions: acceptedTransactions,
@@ -224,11 +282,13 @@ func (m *Manager) createCommitment(index slot.Index) (success bool) {
 	return true
 }
 
-func (m *Manager) PerformLocked(perform func(m *Manager)) {
+func (m *Manager) PerformLocked(perform func(m notarization.Notarization)) {
 	m.commitmentMutex.Lock()
 	defer m.commitmentMutex.Unlock()
 	perform(m)
 }
+
+var _ notarization.Notarization = new(Manager)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 

@@ -54,7 +54,7 @@ var SlotMetrics = collector.NewCollection(slotNamespace,
 
 			// initialize it once and remove committed slot from all metrics (as they will not change afterwards)
 			// in a single attachment instead of multiple ones
-			deps.Protocol.Events.Engine.NotarizationManager.SlotCommitted.Hook(func(details *notarization.SlotCommittedDetails) {
+			deps.Protocol.Events.Engine.Notarization.SlotCommitted.Hook(func(details *notarization.SlotCommittedDetails) {
 				slotToEvict := int(details.Commitment.Index()) - metricEvictionOffset
 
 				// need to remove metrics for old slots, otherwise they would be stored in memory and always exposed to Prometheus, forever

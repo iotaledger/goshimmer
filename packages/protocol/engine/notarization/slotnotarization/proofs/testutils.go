@@ -26,15 +26,14 @@ type EventMock struct {
 }
 
 // NewEventMock creates a new EventMock.
-func NewEventMock(t *testing.T, notarizationManager *notarization.Manager) *EventMock {
+func NewEventMock(t *testing.T, notarization notarization.Notarization) *EventMock {
 	e := &EventMock{
 		test:     t,
 		attached: make([]func(), 0),
 	}
 
 	// attach all events
-	e.attached = append(e.attached, notarizationManager.Events.SlotCommitted.Hook(e.SlotCommittable).Unhook)
-	// event.Hook(notarizationManager.Events.ConsensusWeightsUpdated, e.ManaVectorUpdate)
+	e.attached = append(e.attached, notarization.Events().SlotCommitted.Hook(e.SlotCommittable).Unhook)
 
 	return e
 }

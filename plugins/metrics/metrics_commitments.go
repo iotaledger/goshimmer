@@ -30,7 +30,7 @@ var CommitmentsMetrics = collector.NewCollection(commitmentsNamespace,
 		collector.WithLabelValuesCollection(),
 		collector.WithInitFunc(func() {
 			deps.Collector.ResetMetric(commitmentsNamespace, lastCommitment)
-			deps.Protocol.Events.Engine.NotarizationManager.SlotCommitted.Hook(func(details *notarization.SlotCommittedDetails) {
+			deps.Protocol.Events.Engine.Notarization.SlotCommitted.Hook(func(details *notarization.SlotCommittedDetails) {
 				deps.Collector.Update(commitmentsNamespace, lastCommitment, collector.MultiLabels(strconv.Itoa(int(details.Commitment.Index())), details.Commitment.ID().Base58()))
 			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
@@ -68,7 +68,7 @@ var CommitmentsMetrics = collector.NewCollection(commitmentsNamespace,
 		collector.WithLabels("slot"),
 		collector.WithResetBeforeCollecting(true),
 		collector.WithInitFunc(func() {
-			deps.Protocol.Events.Engine.NotarizationManager.SlotCommitted.Hook(func(details *notarization.SlotCommittedDetails) {
+			deps.Protocol.Events.Engine.Notarization.SlotCommitted.Hook(func(details *notarization.SlotCommittedDetails) {
 				deps.Collector.Update(commitmentsNamespace, acceptedBlocks, collector.MultiLabelsValues([]string{strconv.Itoa(int(details.Commitment.Index()))}, details.AcceptedBlocks.Size()))
 			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
@@ -79,7 +79,7 @@ var CommitmentsMetrics = collector.NewCollection(commitmentsNamespace,
 		collector.WithLabels("slot"),
 		collector.WithResetBeforeCollecting(true),
 		collector.WithInitFunc(func() {
-			deps.Protocol.Events.Engine.NotarizationManager.SlotCommitted.Hook(func(details *notarization.SlotCommittedDetails) {
+			deps.Protocol.Events.Engine.Notarization.SlotCommitted.Hook(func(details *notarization.SlotCommittedDetails) {
 				deps.Collector.Update(commitmentsNamespace, transactions, collector.MultiLabelsValues([]string{strconv.Itoa(int(details.Commitment.Index()))}, details.AcceptedTransactions.Size()))
 			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
@@ -90,7 +90,7 @@ var CommitmentsMetrics = collector.NewCollection(commitmentsNamespace,
 		collector.WithLabels("slot"),
 		collector.WithResetBeforeCollecting(true),
 		collector.WithInitFunc(func() {
-			deps.Protocol.Events.Engine.NotarizationManager.SlotCommitted.Hook(func(details *notarization.SlotCommittedDetails) {
+			deps.Protocol.Events.Engine.Notarization.SlotCommitted.Hook(func(details *notarization.SlotCommittedDetails) {
 				deps.Collector.Update(commitmentsNamespace, validators, collector.MultiLabelsValues([]string{strconv.Itoa(int(details.Commitment.Index()))}, details.ActiveValidatorsCount))
 			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),

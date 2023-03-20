@@ -1,4 +1,4 @@
-package notarization
+package slotnotarization
 
 import (
 	"sync"

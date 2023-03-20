@@ -18,7 +18,7 @@ type SlotInfo struct {
 
 func runSlotsLiveFeed(plugin *node.Plugin) {
 	if err := daemon.BackgroundWorker("Dashboard[SlotsLiveFeed]", func(ctx context.Context) {
-		hook := deps.Protocol.Events.Engine.NotarizationManager.SlotCommitted.Hook(onSlotCommitted, event.WithWorkerPool(plugin.WorkerPool))
+		hook := deps.Protocol.Events.Engine.Notarization.SlotCommitted.Hook(onSlotCommitted, event.WithWorkerPool(plugin.WorkerPool))
 
 		<-ctx.Done()
 

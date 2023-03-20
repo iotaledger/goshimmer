@@ -1,4 +1,4 @@
-package notarization
+package slotnotarization
 
 import (
 	"sync"
@@ -15,13 +15,14 @@ import (
 	"github.com/iotaledger/hive.go/ds/shrinkingmap"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 // SlotMutations is an in-memory data structure that enables the collection of mutations for uncommitted slots.
 type SlotMutations struct {
 	weights *sybilprotection.Weights
 
-	Events *SlotMutationsEvents
+	AcceptedBlockRemoved *event.Event1[models.BlockID]
 
 	// acceptedBlocksBySlot stores the accepted blocks per slot.
 	acceptedBlocksBySlot *shrinkingmap.ShrinkingMap[slot.Index, *ads.Set[models.BlockID, *models.BlockID]]
@@ -41,7 +42,7 @@ type SlotMutations struct {
 // NewSlotMutations creates a new SlotMutations instance.
 func NewSlotMutations(weights *sybilprotection.Weights, lastCommittedSlot slot.Index) (newMutationFactory *SlotMutations) {
 	return &SlotMutations{
-		Events:                     NewSlotMutationsEvents(),
+		AcceptedBlockRemoved:       event.New1[models.BlockID](),
 		weights:                    weights,
 		acceptedBlocksBySlot:       shrinkingmap.New[slot.Index, *ads.Set[models.BlockID, *models.BlockID]](),
 		acceptedTransactionsBySlot: shrinkingmap.New[slot.Index, *ads.Set[utxo.TransactionID, *utxo.TransactionID]](),
@@ -76,7 +77,7 @@ func (m *SlotMutations) RemoveAcceptedBlock(block *models.Block) (err error) {
 
 	m.acceptedBlocks(blockID.Index()).Delete(blockID)
 
-	m.Events.AcceptedBlockRemoved.Trigger(blockID)
+	m.AcceptedBlockRemoved.Trigger(blockID)
 
 	return
 }

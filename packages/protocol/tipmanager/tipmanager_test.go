@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization/slotnotarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markermanager"
@@ -173,9 +174,9 @@ func TestTipManager_TimeSinceConfirmation_Confirmed(t *testing.T) {
 		workers.CreateGroup("TipManagerTestFramework"),
 		WithGenesisUnixTime(genesisTime.Unix()),
 		WithTipManagerOptions(WithTimeSinceConfirmationThreshold(5*time.Minute)),
+		WithSlotNotarizationOptions(slotnotarization.WithMinCommittableSlotAge(20*6)),
 		WithEngineOptions(
 			engine.WithBootstrapThreshold(time.Since(genesisTime.Add(30*time.Second))),
-			engine.WithNotarizationManagerOptions(notarization.WithMinCommittableSlotAge(20*6)),
 			engine.WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(10))))),
 		),
 	)
@@ -236,9 +237,9 @@ func TestTipManager_TimeSinceConfirmation_MultipleParents(t *testing.T) {
 		workers.CreateGroup("TipManagerTestFramework"),
 		WithGenesisUnixTime(genesisTime.Unix()),
 		WithTipManagerOptions(WithTimeSinceConfirmationThreshold(5*time.Minute)),
+		WithSlotNotarizationOptions(slotnotarization.WithMinCommittableSlotAge(20*6)),
 		WithEngineOptions(
 			engine.WithBootstrapThreshold(time.Since(genesisTime.Add(30*time.Second))),
-			engine.WithNotarizationManagerOptions(notarization.WithMinCommittableSlotAge(20*6)),
 			engine.WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(10))))),
 		),
 	)
@@ -471,7 +472,7 @@ func TestTipManager_TimeSinceConfirmation_RootBlockParent(t *testing.T) {
 
 	tf.Tangle.BlockDAG.Instance.EvictionState.RemoveRootBlock(models.EmptyBlockID)
 
-	require.Eventually(t, tf.Engine.NotarizationManager.IsFullyCommitted, 1*time.Minute, 500*time.Millisecond)
+	require.Eventually(t, tf.Engine.Notarization.IsFullyCommitted, 1*time.Minute, 500*time.Millisecond)
 
 	tf.Engine.Workers.WaitParents()
 
@@ -494,13 +495,11 @@ func TestTipManager_FutureTips(t *testing.T) {
 	tf := NewTestFramework(t,
 		workers.CreateGroup("TipManagerTestFramework"),
 		WithGenesisUnixTime(time.Now().Add(-100*time.Second).Unix()),
-		WithEngineOptions(
-			engine.WithNotarizationManagerOptions(notarization.WithMinCommittableSlotAge(1)),
-		),
+		WithSlotNotarizationOptions(slotnotarization.WithMinCommittableSlotAge(1)),
 	)
 	tf.Engine.EvictionState.AddRootBlock(models.EmptyBlockID)
 
-	tf.Engine.Events.NotarizationManager.SlotCommitted.Hook(func(details *notarization.SlotCommittedDetails) {
+	tf.Engine.Events.Notarization.SlotCommitted.Hook(func(details *notarization.SlotCommittedDetails) {
 		fmt.Println(">>", details.Commitment.ID())
 	})
 
