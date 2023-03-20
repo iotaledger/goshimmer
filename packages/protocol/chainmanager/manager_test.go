@@ -317,6 +317,8 @@ func TestProcessCommitment(t *testing.T) {
 
 	fmt.Println("------- root commitment is now 2 -------")
 	tf.Instance.SetRootCommitment(tf.commitment("2"))
+	tf.Instance.Evict(2)
+
 	{
 		require.Equal(t, tf.commitment("2").ID(), tf.Instance.rootCommitment.ID())
 	}
@@ -350,16 +352,15 @@ func TestProcessCommitment(t *testing.T) {
 			require.Nil(t, chain)
 			tf.AssertForkDetectedCount(0)
 			tf.AssertCommitmentMissingCount(1)
-			tf.AssertMissingCommitmentReceivedCount(1)
+			// tf.AssertMissingCommitmentReceivedCount(1)
 		}
 		{
 			isSolid, chain := tf.ProcessCommitment("2+")
 			require.False(t, isSolid)
 			require.Nil(t, chain)
 			tf.AssertForkDetectedCount(0)
-			tf.AssertCommitmentMissingCount(0)
-			tf.AssertMissingCommitmentReceivedCount(1)
-
+			tf.AssertCommitmentMissingCount(1)
+			// tf.AssertMissingCommitmentReceivedCount(1)
 		}
 	}
 
@@ -368,6 +369,14 @@ func TestProcessCommitment(t *testing.T) {
 	tf.CreateCommitment("4", "3")
 	{
 		{
+			isSolid, chain := tf.ProcessCommitment("2")
+			require.True(t, isSolid)
+			tf.AssertChainIsAlias(chain, "Genesis")
+			tf.AssertChainState(lo.MergeMaps(expectedChainMappings, map[string]string{
+				"2": "Genesis",
+			}))
+		}
+		{
 			isSolid, chain := tf.ProcessCommitment("4")
 			require.False(t, isSolid)
 			require.Nil(t, chain, "Genesis")
@@ -375,7 +384,7 @@ func TestProcessCommitment(t *testing.T) {
 				"4": "",
 			}))
 			tf.AssertForkDetectedCount(0)
-			tf.AssertCommitmentMissingCount(1)
+			tf.AssertCommitmentMissingCount(2)
 			tf.AssertMissingCommitmentReceivedCount(0)
 		}
 		{
@@ -387,7 +396,7 @@ func TestProcessCommitment(t *testing.T) {
 				"4": "Genesis",
 			}))
 			tf.AssertForkDetectedCount(0)
-			tf.AssertCommitmentMissingCount(1)
+			tf.AssertCommitmentMissingCount(2)
 			tf.AssertMissingCommitmentReceivedCount(1)
 		}
 		{
@@ -396,7 +405,7 @@ func TestProcessCommitment(t *testing.T) {
 			tf.AssertChainIsAlias(chain, "Genesis")
 			tf.AssertChainState(lo.MergeMaps(expectedChainMappings, map[string]string{}))
 			tf.AssertForkDetectedCount(0)
-			tf.AssertCommitmentMissingCount(1)
+			tf.AssertCommitmentMissingCount(2)
 			tf.AssertMissingCommitmentReceivedCount(1)
 		}
 

@@ -1,6 +1,7 @@
 package chainmanager
 
 import (
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -68,6 +69,7 @@ func (t *TestFramework) CreateCommitment(alias string, prevAlias string) {
 }
 
 func (t *TestFramework) ProcessCommitment(alias string) (isSolid bool, chain *Chain) {
+	fmt.Println(">>> ProcessCommitment <<<", t.commitment(alias).ID())
 	return t.Instance.ProcessCommitment(t.commitment(alias))
 }
 

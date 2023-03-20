@@ -220,13 +220,22 @@ func (m *Manager) processCommitment(commitment *commitment.Commitment) (isNew bo
 }
 
 func (m *Manager) getOrCreateCommitment(id commitment.ID) (commitment *Commitment, created bool) {
-	// TODO: check whether below root commitment?
+	// TODO: we could remove this by shifting eviction to m.rootCommitment-1. As then the rootCommitment is still available in m.commitmentsByID
+	if m.rootCommitment != nil && m.rootCommitment.ID() == id {
+		return m.rootCommitment, false
+	}
+
 	return m.commitmentsByID.Get(id.Index(), true).GetOrCreate(id, func() *Commitment {
 		return NewCommitment(id)
 	})
 }
 
 func (m *Manager) commitment(id commitment.ID) (commitment *Commitment, exists bool) {
+	// TODO: we could remove this by shifting eviction to m.rootCommitment-1. As then the rootCommitment is still available in m.commitmentsByID
+	if m.rootCommitment.ID() == id {
+		return m.rootCommitment, true
+	}
+
 	storage := m.commitmentsByID.Get(id.Index())
 	if storage == nil {
 		return nil, false
