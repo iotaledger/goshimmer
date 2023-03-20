@@ -186,6 +186,7 @@ func (m *Manager) processCommitment(commitment *commitment.Commitment) (isNew bo
 		if isRootCommitment {
 			chainCommitment = m.rootCommitment
 		}
+		m.Events.MissingCommitmentReceived.Trigger(commitment.ID())
 		return false, isRootCommitment, chainCommitment
 	}
 

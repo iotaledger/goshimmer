@@ -325,36 +325,41 @@ func TestProcessCommitment(t *testing.T) {
 	tf.CreateCommitment("1*", "Genesis")
 	tf.CreateCommitment("2*", "1*")
 	tf.CreateCommitment("3*", "2*")
+	tf.CreateCommitment("4*", "3*")
 	tf.CreateCommitment("2+", "1")
 	{
 		{
 			isSolid, chain := tf.ProcessCommitment("1*")
 			require.False(t, isSolid)
 			require.Nil(t, chain)
-			tf.AssertCommitmentMissingCount(0)
 			tf.AssertForkDetectedCount(0)
+			tf.AssertCommitmentMissingCount(0)
+			tf.AssertMissingCommitmentReceivedCount(0)
 		}
 		{
 			isSolid, chain := tf.ProcessCommitment("2*")
 			require.False(t, isSolid)
 			require.Nil(t, chain)
-			tf.AssertCommitmentMissingCount(0)
 			tf.AssertForkDetectedCount(0)
+			tf.AssertCommitmentMissingCount(0)
+			tf.AssertMissingCommitmentReceivedCount(0)
 		}
 		{
-			// TODO: is this correct?
-			// isSolid, chain := tf.ProcessCommitment("3*")
-			// require.False(t, isSolid)
-			// require.Nil(t, chain)
-			// tf.AssertCommitmentMissingCount(0)
-			// tf.AssertForkDetectedCount(0)
+			isSolid, chain := tf.ProcessCommitment("3*")
+			require.False(t, isSolid)
+			require.Nil(t, chain)
+			tf.AssertForkDetectedCount(0)
+			tf.AssertCommitmentMissingCount(1)
+			tf.AssertMissingCommitmentReceivedCount(1)
 		}
 		{
 			isSolid, chain := tf.ProcessCommitment("2+")
 			require.False(t, isSolid)
 			require.Nil(t, chain)
-			tf.AssertCommitmentMissingCount(0)
 			tf.AssertForkDetectedCount(0)
+			tf.AssertCommitmentMissingCount(0)
+			tf.AssertMissingCommitmentReceivedCount(1)
+
 		}
 	}
 
