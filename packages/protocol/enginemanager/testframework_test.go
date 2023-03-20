@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/blocktime"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/tangleconsensus"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxoledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
@@ -58,6 +59,7 @@ func NewEngineManagerTestFramework(t *testing.T, workers *workerpool.Group, iden
 		ledgerProvider,
 		dpos.NewProvider(),
 		mana1.NewProvider(),
+		tangleconsensus.NewProvider(),
 	)
 
 	var err error

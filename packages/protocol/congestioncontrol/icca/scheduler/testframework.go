@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/blocktime"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/tangleconsensus"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/realitiesledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxoledger"
@@ -43,7 +44,7 @@ type TestFramework struct {
 
 	storage        *storage.Storage
 	engine         *engine.Engine
-	mockAcceptance *blockgadget.MockAcceptanceGadget
+	mockAcceptance *blockgadget.MockBlockGadget
 	issuersByAlias map[string]*identity.Identity
 	issuersMana    map[identity.ID]int64
 
@@ -87,6 +88,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, optsScheduler 
 		ledgerProvider,
 		dpos.NewProvider(),
 		mana1.NewProvider(),
+		tangleconsensus.NewProvider(),
 	)
 
 	test.Cleanup(func() {
@@ -112,7 +114,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, optsScheduler 
 }
 
 func (t *TestFramework) setupEvents() {
-	t.mockAcceptance.BlockAcceptedEvent.Hook(t.Scheduler.HandleAcceptedBlock, event.WithWorkerPool(t.workers.CreatePool("HandleAccepted", 2)))
+	t.mockAcceptance.Events().BlockAccepted.Hook(t.Scheduler.HandleAcceptedBlock, event.WithWorkerPool(t.workers.CreatePool("HandleAccepted", 2)))
 	t.Tangle.Instance.Events.Booker.VirtualVoting.BlockTracked.Hook(t.Scheduler.AddBlock, event.WithWorkerPool(t.workers.CreatePool("Add", 2)))
 	t.Tangle.Instance.Events.BlockDAG.BlockOrphaned.Hook(t.Scheduler.HandleOrphanedBlock, event.WithWorkerPool(t.workers.CreatePool("HandleOrphaned", 2)))
 

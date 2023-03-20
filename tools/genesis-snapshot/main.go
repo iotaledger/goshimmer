@@ -14,6 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/blocktime"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/tangleconsensus"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
@@ -94,6 +95,7 @@ func diagnosticPrintSnapshotFromFile(filePath string, ledgerProvider module.Prov
 		ledgerProvider,
 		dpos.NewProvider(),
 		mana1.NewProvider(),
+		tangleconsensus.NewProvider(),
 	)
 	defer e.Shutdown()
 

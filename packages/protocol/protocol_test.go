@@ -17,6 +17,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/blocktime"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/tangleconsensus"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/realitiesledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
@@ -173,6 +174,7 @@ func TestEngine_NonEmptyInitialValidators(t *testing.T) {
 		ledgerProvider,
 		dpos.NewProvider(),
 		mana1.NewProvider(),
+		tangleconsensus.NewProvider(),
 	)
 	require.NoError(t, tf.Instance.Initialize(tempDir.Path("genesis_snapshot.bin")))
 
@@ -248,6 +250,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 		ledgerProvider,
 		dpos.NewProvider(),
 		mana1.NewProvider(),
+		tangleconsensus.NewProvider(),
 	)
 	require.NoError(t, tf.Instance.Initialize(tempDir.Path("genesis_snapshot.bin")))
 
@@ -319,6 +322,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 			ledgerProvider,
 			dpos.NewProvider(),
 			mana1.NewProvider(),
+			tangleconsensus.NewProvider(),
 		)
 
 		require.NoError(t, tf2.Instance.Initialize(tempDir.Path("snapshot_slot4.bin")))
@@ -398,6 +402,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 			ledgerProvider,
 			dpos.NewProvider(),
 			mana1.NewProvider(),
+			tangleconsensus.NewProvider(),
 		)
 
 		require.NoError(t, tf3.Instance.Initialize(tempDir.Path("snapshot_slot1.bin")))
@@ -464,6 +469,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 			ledgerProvider,
 			dpos.NewProvider(),
 			mana1.NewProvider(),
+			tangleconsensus.NewProvider(),
 		)
 
 		require.NoError(t, tf4.Instance.Initialize(tempDir.Path("snapshot_slot2.bin")))
@@ -567,6 +573,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		ledgerProvider,
 		dpos.NewProvider(),
 		mana1.NewProvider(),
+		tangleconsensus.NewProvider(),
 		engineOpts...,
 	)
 	tf := engine.NewTestFramework(t, workers.CreateGroup("EngineTestFramework1"), engine1)
@@ -656,6 +663,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 			ledgerProvider,
 			dpos.NewProvider(),
 			mana1.NewProvider(),
+			tangleconsensus.NewProvider(),
 			engineOpts...,
 		)
 		require.NoError(t, tf2.Instance.Initialize(tempDir.Path("snapshot_slot1.bin")))
@@ -698,6 +706,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 			ledgerProvider,
 			dpos.NewProvider(),
 			mana1.NewProvider(),
+			tangleconsensus.NewProvider(),
 			engineOpts...,
 		)
 		tf3 := engine.NewTestFramework(t, workers.CreateGroup("EngineTestFramework3"), engine3)
@@ -771,6 +780,7 @@ func TestEngine_ShutdownResume(t *testing.T) {
 		ledgerProvider,
 		dpos.NewProvider(),
 		mana1.NewProvider(),
+		tangleconsensus.NewProvider(),
 		engine.WithTangleOptions(
 			tangle.WithBookerOptions(
 				booker.WithMarkerManagerOptions(
@@ -804,6 +814,7 @@ func TestEngine_ShutdownResume(t *testing.T) {
 		ledgerProvider,
 		dpos.NewProvider(),
 		mana1.NewProvider(),
+		tangleconsensus.NewProvider(),
 		engine.WithTangleOptions(
 			tangle.WithBookerOptions(
 				booker.WithMarkerManagerOptions(

@@ -1,4 +1,4 @@
-package blockgadget_test
+package tresholdblockgadget_test
 
 import (
 	"testing"
@@ -6,6 +6,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget/tresholdblockgadget"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/realitiesledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
@@ -16,8 +18,34 @@ import (
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/debug"
+	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
+
+func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, ledger mempool.MemPool, optsGadget ...options.Option[tresholdblockgadget.Gadget]) *blockgadget.TestFramework {
+	tangleTF := tangle.NewDefaultTestFramework(t, workers.CreateGroup("TangleTestFramework"),
+		ledger,
+		slot.NewTimeProvider(time.Now().Unix(), 10),
+		tangle.WithBookerOptions(
+			booker.WithMarkerManagerOptions(
+				markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(3)),
+			),
+		),
+	)
+
+	gadget := tresholdblockgadget.New(workers.CreateGroup("BlockGadget"),
+		tangleTF.Instance,
+		tangleTF.BlockDAG.Instance.EvictionState,
+		optsGadget...,
+	)
+
+	gadget.Initialize(tangleTF.BlockDAG.Instance.SlotTimeProvider, tangleTF.Votes.Validators.TotalWeight)
+
+	return blockgadget.NewTestFramework(t,
+		gadget,
+		tangleTF,
+	)
+}
 
 func TestGadget_update_conflictsStepwise(t *testing.T) {
 	debug.SetEnabled(true)
@@ -25,12 +53,12 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 
 	workers := workerpool.NewGroup(t.Name())
 
-	tf := blockgadget.NewDefaultTestFramework(t,
+	tf := NewDefaultTestFramework(t,
 		workers.CreateGroup("BlockGadgetTestFramework"),
 		realitiesledger.NewTestLedger(t, workers.CreateGroup("Ledger")),
-		blockgadget.WithConfirmationThreshold(0.5),
-		blockgadget.WithConflictAcceptanceThreshold(0.5),
-		blockgadget.WithMarkerAcceptanceThreshold(0.5),
+		tresholdblockgadget.WithConfirmationThreshold(0.5),
+		tresholdblockgadget.WithConflictAcceptanceThreshold(0.5),
+		tresholdblockgadget.WithMarkerAcceptanceThreshold(0.5),
 	)
 
 	tf.VirtualVoting.CreateIdentity("A", 30)
@@ -343,11 +371,11 @@ func TestGadget_update_multipleSequences(t *testing.T) {
 
 	workers := workerpool.NewGroup(t.Name())
 
-	tf := blockgadget.NewDefaultTestFramework(t,
+	tf := NewDefaultTestFramework(t,
 		workers.CreateGroup("BlockGadgetTestFramework"),
 		realitiesledger.NewTestLedger(t, workers.CreateGroup("Ledger")),
-		blockgadget.WithMarkerAcceptanceThreshold(0.66),
-		blockgadget.WithConfirmationThreshold(0.66),
+		tresholdblockgadget.WithMarkerAcceptanceThreshold(0.66),
+		tresholdblockgadget.WithConfirmationThreshold(0.66),
 	)
 
 	tf.VirtualVoting.CreateIdentity("A", 20)
@@ -503,19 +531,19 @@ func TestGadget_update_multipleSequences_onlyAcceptThenConfirm(t *testing.T) {
 		),
 	)
 
-	tf := blockgadget.NewTestFramework(t,
-		blockgadget.New(workers.CreateGroup("BlockGadget"),
-			tangleTF.Instance,
-			tangleTF.BlockDAG.Instance.EvictionState,
-			tangleTF.BlockDAG.Instance.SlotTimeProvider,
-			func() int64 {
-				return 100
-			},
-			blockgadget.WithMarkerAcceptanceThreshold(0.66),
-			blockgadget.WithConfirmationThreshold(0.66),
-		),
-		tangleTF,
+	gadget := tresholdblockgadget.New(workers.CreateGroup("BlockGadget"),
+		tangleTF.Instance,
+		tangleTF.BlockDAG.Instance.EvictionState,
+		tresholdblockgadget.WithMarkerAcceptanceThreshold(0.66),
+		tresholdblockgadget.WithConfirmationThreshold(0.66),
 	)
+
+	gadget.Initialize(tangleTF.BlockDAG.Instance.SlotTimeProvider,
+		func() int64 {
+			return 100
+		})
+
+	tf := blockgadget.NewTestFramework(t, gadget, tangleTF)
 
 	tf.VirtualVoting.CreateIdentity("A", 20)
 	tf.VirtualVoting.CreateIdentity("B", 30)
@@ -734,11 +762,11 @@ func TestGadget_unorphan(t *testing.T) {
 
 	workers := workerpool.NewGroup(t.Name())
 
-	tf := blockgadget.NewDefaultTestFramework(t,
+	tf := NewDefaultTestFramework(t,
 		workers.CreateGroup("BlockGadgetTestFramework"),
 		realitiesledger.NewTestLedger(t, workers.CreateGroup("Ledger")),
-		blockgadget.WithMarkerAcceptanceThreshold(0.66),
-		blockgadget.WithConfirmationThreshold(0.66),
+		tresholdblockgadget.WithMarkerAcceptanceThreshold(0.66),
+		tresholdblockgadget.WithConfirmationThreshold(0.66),
 	)
 
 	tf.VirtualVoting.CreateIdentity("A", 20)

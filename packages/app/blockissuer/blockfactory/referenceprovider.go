@@ -250,7 +250,7 @@ func (r *ReferenceProvider) addedReferencesForConflicts(conflictIDs utxo.Transac
 func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, excludedConflictIDs utxo.TransactionIDs) (adjust bool, attachmentID models.BlockID, err error) {
 	engineInstance := r.protocol.Engine()
 
-	likedConflictID, dislikedConflictIDs := engineInstance.Consensus.ConflictResolver.AdjustOpinion(conflictID)
+	likedConflictID, dislikedConflictIDs := engineInstance.Consensus.ConflictResolver().AdjustOpinion(conflictID)
 
 	if likedConflictID.IsEmpty() {
 		// TODO: make conflictset and conflict creation atomic to always prevent this.
@@ -305,7 +305,7 @@ func (r *ReferenceProvider) payloadLiked(blockID models.BlockID) (liked bool) {
 		if !exists {
 			continue
 		}
-		if !engineInstance.Consensus.ConflictResolver.ConflictLiked(conflict) {
+		if !engineInstance.Consensus.ConflictResolver().ConflictLiked(conflict) {
 			return false
 		}
 	}

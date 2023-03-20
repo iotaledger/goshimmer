@@ -18,7 +18,7 @@ import (
 type TestFramework struct {
 	test           *testing.T
 	Manager        *Manager
-	MockAcceptance *blockgadget.MockAcceptanceGadget
+	MockAcceptance *blockgadget.MockBlockGadget
 
 	Tangle        *tangle.TestFramework
 	BlockDAG      *blockdag.TestFramework

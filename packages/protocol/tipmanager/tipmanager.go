@@ -9,7 +9,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/memstorage"
@@ -20,12 +20,6 @@ import (
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
-type acceptanceGadget interface {
-	IsBlockAccepted(blockID models.BlockID) (accepted bool)
-	IsMarkerAccepted(marker markers.Marker) (accepted bool)
-	FirstUnacceptedIndex(sequenceID markers.SequenceID) (firstUnacceptedIndex markers.Index)
-}
-
 type blockRetrieverFunc func(id models.BlockID) (block *scheduler.Block, exists bool)
 
 // region TipManager ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -34,7 +28,7 @@ type TipManager struct {
 	Events *Events
 
 	engine                *engine.Engine
-	blockAcceptanceGadget acceptanceGadget
+	blockAcceptanceGadget blockgadget.Gadget
 
 	workers                     *workerpool.Group
 	schedulerBlockRetrieverFunc blockRetrieverFunc
@@ -80,7 +74,7 @@ func (t *TipManager) LinkTo(engine *engine.Engine) {
 	t.tips = randommap.New[models.BlockID, *scheduler.Block]()
 
 	t.engine = engine
-	t.blockAcceptanceGadget = engine.Consensus.BlockGadget
+	t.blockAcceptanceGadget = engine.Consensus.BlockGadget()
 	if t.TipsConflictTracker != nil {
 		t.TipsConflictTracker.Cleanup()
 	}
@@ -286,7 +280,7 @@ func (t *TipManager) isValidTip(tip *scheduler.Block) (err error) {
 			t.tips.Size(),
 			tip.IsScheduled(),
 			tip.IsOrphaned(),
-			t.engine.Consensus.BlockGadget.IsBlockAccepted(tip.ID()),
+			t.blockAcceptanceGadget.IsBlockAccepted(tip.ID()),
 		)
 	}
 

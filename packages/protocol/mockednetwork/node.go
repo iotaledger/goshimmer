@@ -318,7 +318,7 @@ func (n *Node) issueActivityBlock(alias string, parents ...models.BlockID) bool 
 
 func (n *Node) ValidateAcceptedBlocks(expectedAcceptedBlocks map[models.BlockID]bool) {
 	for blockID, blockExpectedAccepted := range expectedAcceptedBlocks {
-		actualBlockAccepted := n.Protocol.Engine().Consensus.BlockGadget.IsBlockAccepted(blockID)
+		actualBlockAccepted := n.Protocol.Engine().Consensus.BlockGadget().IsBlockAccepted(blockID)
 		require.Equal(n.Testing, blockExpectedAccepted, actualBlockAccepted, "Block %s should be accepted=%t but is %t", blockID, blockExpectedAccepted, actualBlockAccepted)
 	}
 }

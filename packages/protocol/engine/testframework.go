@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
@@ -44,6 +45,7 @@ func NewTestEngine(t *testing.T, workers *workerpool.Group, storage *storage.Sto
 	ledger module.Provider[*Engine, ledger.Ledger],
 	sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection],
 	throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota],
+	consensus module.Provider[*Engine, consensus.Consensus],
 	opts ...options.Option[Engine]) *Engine {
 	e := New(workers.CreateGroup("Engine"),
 		storage,
@@ -51,6 +53,7 @@ func NewTestEngine(t *testing.T, workers *workerpool.Group, storage *storage.Sto
 		ledger,
 		sybilProtection,
 		throughputQuota,
+		consensus,
 		opts...,
 	)
 	t.Cleanup(e.Shutdown)
@@ -64,7 +67,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, engine *Engine
 		Tangle:   tangle.NewTestFramework(test, engine.Tangle, booker.NewTestFramework(test, workers.CreateGroup("BookerTestFramework"), engine.Tangle.Booker)),
 	}
 	t.Acceptance = blockgadget.NewTestFramework(test,
-		engine.Consensus.BlockGadget,
+		engine.Consensus.BlockGadget(),
 		t.Tangle,
 	)
 	t.Booker = t.Tangle.Booker
@@ -79,6 +82,7 @@ func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group,
 	ledger module.Provider[*Engine, ledger.Ledger],
 	sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection],
 	throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota],
+	consensus module.Provider[*Engine, consensus.Consensus],
 	optsEngine ...options.Option[Engine]) *TestFramework {
 	engine := NewTestEngine(t, workers.CreateGroup("Engine"),
 		blockdag.NewTestStorage(t, workers, database.WithDBProvider(database.NewDB)),
@@ -86,6 +90,7 @@ func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group,
 		ledger,
 		sybilProtection,
 		throughputQuota,
+		consensus,
 		optsEngine...,
 	)
 	t.Cleanup(engine.Shutdown)
