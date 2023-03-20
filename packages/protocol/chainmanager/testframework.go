@@ -2,6 +2,7 @@ package chainmanager
 
 import (
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -21,6 +22,10 @@ type TestFramework struct {
 	test               *testing.T
 	commitmentsByAlias map[string]*commitment.Commitment
 
+	forkDetected              int32
+	commitmentMissing         int32
+	missingCommitmentReceived int32
+
 	sync.RWMutex
 }
 
@@ -34,7 +39,21 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		commitmentsByAlias: map[string]*commitment.Commitment{
 			"Genesis": snapshotCommitment,
 		},
-	}, opts)
+	}, opts, func(t *TestFramework) {
+		t.Instance.Events.ForkDetected.Hook(func(fork *Fork) {
+			t.test.Logf("ForkDetected: %s", fork)
+			atomic.AddInt32(&t.forkDetected, 1)
+		})
+		t.Instance.Events.CommitmentMissing.Hook(func(id commitment.ID) {
+			t.test.Logf("CommitmentMissing: %s", id)
+			atomic.AddInt32(&t.commitmentMissing, 1)
+		})
+
+		t.Instance.Events.MissingCommitmentReceived.Hook(func(id commitment.ID) {
+			t.test.Logf("MissingCommitmentReceived: %s", id)
+			atomic.AddInt32(&t.missingCommitmentReceived, 1)
+		})
+	})
 }
 
 func (t *TestFramework) CreateCommitment(alias string, prevAlias string) {
@@ -45,6 +64,7 @@ func (t *TestFramework) CreateCommitment(alias string, prevAlias string) {
 	randomECR := blake2b.Sum256([]byte(alias + prevAlias))
 
 	t.commitmentsByAlias[alias] = commitment.New(previousIndex+1, prevCommitmentID, randomECR, 0)
+	t.commitmentsByAlias[alias].ID().RegisterAlias(alias)
 }
 
 func (t *TestFramework) ProcessCommitment(alias string) (isSolid bool, chain *Chain) {
@@ -76,6 +96,18 @@ func (t *TestFramework) ChainCommitment(alias string) *Commitment {
 	require.True(t.test, exists)
 
 	return cm
+}
+
+func (t *TestFramework) AssertForkDetectedCount(expected int) {
+	require.EqualValues(t.test, expected, t.forkDetected)
+}
+
+func (t *TestFramework) AssertCommitmentMissingCount(expected int) {
+	require.EqualValues(t.test, expected, t.commitmentMissing)
+}
+
+func (t *TestFramework) AssertMissingCommitmentReceivedCount(expected int) {
+	require.EqualValues(t.test, expected, t.missingCommitmentReceived)
 }
 
 func (t *TestFramework) AssertEqualChainCommitments(commitments []*Commitment, aliases ...string) {

@@ -1,6 +1,7 @@
 package chainmanager
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -286,4 +287,113 @@ func TestEvaluateAgainstRootCommitment(t *testing.T) {
 	isBelow, isRootCommitment = m.evaluateAgainstRootCommitment(commitment.New(2, commitment.NewID(2, []byte{}), types.Identifier{}, 0))
 	require.False(t, isBelow, "commitment with index 2 should not be below root commitment")
 	require.False(t, isRootCommitment, "commitment with index 2 should not be the root commitment")
+}
+
+func TestProcessCommitment(t *testing.T) {
+	tf := NewTestFramework(t)
+	tf.CreateCommitment("1", "Genesis")
+	tf.CreateCommitment("2", "1")
+
+	expectedChainMappings := map[string]string{
+		"Genesis": "Genesis",
+	}
+
+	{
+		isSolid, chain := tf.ProcessCommitment("1")
+		require.True(t, isSolid)
+		tf.AssertChainIsAlias(chain, "Genesis")
+		tf.AssertChainState(lo.MergeMaps(expectedChainMappings, map[string]string{
+			"1": "Genesis",
+		}))
+	}
+	{
+		isSolid, chain := tf.ProcessCommitment("2")
+		require.True(t, isSolid)
+		tf.AssertChainIsAlias(chain, "Genesis")
+		tf.AssertChainState(lo.MergeMaps(expectedChainMappings, map[string]string{
+			"2": "Genesis",
+		}))
+	}
+
+	fmt.Println("------- root commitment is now 2 -------")
+	tf.Instance.SetRootCommitment(tf.commitment("2"))
+	{
+		require.Equal(t, tf.commitment("2").ID(), tf.Instance.rootCommitment.ID())
+	}
+
+	// Should not be processed after 2 becomes rootCommitment
+	tf.CreateCommitment("1*", "Genesis")
+	tf.CreateCommitment("2*", "1*")
+	tf.CreateCommitment("3*", "2*")
+	tf.CreateCommitment("2+", "1")
+	{
+		{
+			isSolid, chain := tf.ProcessCommitment("1*")
+			require.False(t, isSolid)
+			require.Nil(t, chain)
+			tf.AssertCommitmentMissingCount(0)
+			tf.AssertForkDetectedCount(0)
+		}
+		{
+			isSolid, chain := tf.ProcessCommitment("2*")
+			require.False(t, isSolid)
+			require.Nil(t, chain)
+			tf.AssertCommitmentMissingCount(0)
+			tf.AssertForkDetectedCount(0)
+		}
+		{
+			// TODO: is this correct?
+			// isSolid, chain := tf.ProcessCommitment("3*")
+			// require.False(t, isSolid)
+			// require.Nil(t, chain)
+			// tf.AssertCommitmentMissingCount(0)
+			// tf.AssertForkDetectedCount(0)
+		}
+		{
+			isSolid, chain := tf.ProcessCommitment("2+")
+			require.False(t, isSolid)
+			require.Nil(t, chain)
+			tf.AssertCommitmentMissingCount(0)
+			tf.AssertForkDetectedCount(0)
+		}
+	}
+
+	// Should be processed after 2 becomes rootCommitment
+	tf.CreateCommitment("3", "2")
+	tf.CreateCommitment("4", "3")
+	{
+		{
+			isSolid, chain := tf.ProcessCommitment("4")
+			require.False(t, isSolid)
+			require.Nil(t, chain, "Genesis")
+			tf.AssertChainState(lo.MergeMaps(expectedChainMappings, map[string]string{
+				"4": "",
+			}))
+			tf.AssertForkDetectedCount(0)
+			tf.AssertCommitmentMissingCount(1)
+			tf.AssertMissingCommitmentReceivedCount(0)
+		}
+		{
+			isSolid, chain := tf.ProcessCommitment("3")
+			require.True(t, isSolid)
+			tf.AssertChainIsAlias(chain, "Genesis")
+			tf.AssertChainState(lo.MergeMaps(expectedChainMappings, map[string]string{
+				"3": "Genesis",
+				"4": "Genesis",
+			}))
+			tf.AssertForkDetectedCount(0)
+			tf.AssertCommitmentMissingCount(1)
+			tf.AssertMissingCommitmentReceivedCount(1)
+		}
+		{
+			isSolid, chain := tf.ProcessCommitment("4")
+			require.True(t, isSolid)
+			tf.AssertChainIsAlias(chain, "Genesis")
+			tf.AssertChainState(lo.MergeMaps(expectedChainMappings, map[string]string{}))
+			tf.AssertForkDetectedCount(0)
+			tf.AssertCommitmentMissingCount(1)
+			tf.AssertMissingCommitmentReceivedCount(1)
+		}
+
+	}
 }
