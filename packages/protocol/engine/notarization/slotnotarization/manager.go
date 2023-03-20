@@ -67,7 +67,6 @@ func NewProvider(opts ...options.Option[Manager]) module.Provider[*engine.Engine
 				m.HookInitialized(m.attestations.TriggerInitialized)
 
 				e.HookConstructed(func() {
-
 					wpBlocks := e.Workers.CreatePool("NotarizationManager.Blocks", 1)           // Using just 1 worker to avoid contention
 					wpCommitments := e.Workers.CreatePool("NotarizationManager.Commitments", 1) // Using just 1 worker to avoid contention
 
