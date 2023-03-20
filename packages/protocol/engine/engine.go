@@ -103,7 +103,6 @@ func New(
 			e.HookInitialized(lo.Batch(
 				e.Storage.Settings.TriggerInitialized,
 				e.Storage.Commitments.TriggerInitialized,
-				e.Notarization.TriggerInitialized,
 			))
 		},
 		(*Engine).setupTangle,
