@@ -315,13 +315,12 @@ func (s *SortedSet[ConflictID, ResourceID]) fixMemberPosition(member *sortedSetM
 	defer s.mutex.Unlock()
 
 	preferredMember := member.PreferredInstead()
-	fmt.Println("member", member.ID(), "prefer exists", preferredMember == nil)
 
 	// the member needs to be moved up in the list
 	for currentMember := member.heavierMember; currentMember != nil && currentMember.Compare(member) == weight.Lighter; currentMember = member.heavierMember {
 		s.swapNeighbors(member, currentMember)
 
-		if currentMember.ID() == preferredMember.ID() {
+		if currentMember.Conflict == preferredMember {
 			s.heaviestPreferredMember = member
 			s.owner.SetPreferredInstead(member.Conflict)
 		}
@@ -329,13 +328,14 @@ func (s *SortedSet[ConflictID, ResourceID]) fixMemberPosition(member *sortedSetM
 
 	// the member needs to be moved down in the list
 	memberIsHeaviestPreferred := member == s.heaviestPreferredMember
+
 	for currentMember := member.lighterMember; currentMember != nil && currentMember.Compare(member) == weight.Heavier; currentMember = member.lighterMember {
 		s.swapNeighbors(currentMember, member)
-
-		if memberIsHeaviestPreferred && currentMember.IsPreferred() {
+		fmt.Println("currentMember", currentMember.ID(), "isPreferred", currentMember.IsPreferred(), currentMember.PreferredInstead().ID(), "member", member.ID())
+		if memberIsHeaviestPreferred && (currentMember.IsPreferred() || currentMember.PreferredInstead() == member.Conflict) {
 			s.heaviestPreferredMember = currentMember
 			s.owner.SetPreferredInstead(currentMember.Conflict)
-
+			fmt.Println("moving down", member.ID())
 			memberIsHeaviestPreferred = false
 		}
 	}

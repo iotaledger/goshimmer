@@ -3,7 +3,6 @@ package conflict_test
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -108,8 +107,8 @@ func assertPreferredInstead(t *testing.T, preferredInsteadMap map[*Conflict[utxo
 		conflict.WaitConsistent()
 	}
 
-	time.Sleep(5 * time.Second)
-	fmt.Println("sleep done")
+	//time.Sleep(5 * time.Second)
+	//fmt.Println("sleep done")
 	for conflict, preferredInsteadConflict := range preferredInsteadMap {
 		assert.Equalf(t, preferredInsteadConflict.ID(), conflict.PreferredInstead().ID(), "conflict %s should prefer %s instead of %s", conflict.ID(), preferredInsteadConflict.ID(), conflict.PreferredInstead().ID())
 		fmt.Println(conflict.ID(), "->", conflict.PreferredInstead().ID())
