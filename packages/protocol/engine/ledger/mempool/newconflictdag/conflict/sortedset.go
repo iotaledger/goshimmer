@@ -314,13 +314,15 @@ func (s *SortedSet[ConflictID, ResourceID]) fixMemberPosition(member *sortedSetM
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	preferredMember := member.PreferredInstead()
+	preferredConflict := member.PreferredInstead()
+	memberIsPreferred := member.IsPreferred()
 
 	// the member needs to be moved up in the list
 	for currentMember := member.heavierMember; currentMember != nil && currentMember.Compare(member) == weight.Lighter; currentMember = member.heavierMember {
+		fmt.Println(s.owner == nil, " -- swaps ", member == nil, "above", currentMember == nil, "preferredConflict", preferredConflict == nil)
 		s.swapNeighbors(member, currentMember)
 
-		if currentMember.Conflict == preferredMember {
+		if currentMember == s.heaviestPreferredMember && (currentMember.Conflict == preferredConflict || memberIsPreferred) {
 			s.heaviestPreferredMember = member
 			s.owner.SetPreferredInstead(member.Conflict)
 		}

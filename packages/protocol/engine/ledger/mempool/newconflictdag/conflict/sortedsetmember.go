@@ -2,6 +2,7 @@ package conflict
 
 import (
 	"bytes"
+	"fmt"
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/weight"
@@ -95,7 +96,7 @@ func (s *sortedSetMember[ConflictID, ResourceID]) Dispose() {
 func (s *sortedSetMember[ConflictID, ResourceID]) queueWeightUpdate(newWeight weight.Value) {
 	s.weightMutex.Lock()
 	defer s.weightMutex.Unlock()
-
+	fmt.Println(s.sortedSet.owner.ID(), "queues weight update of", s.ID())
 	if (s.queuedWeight == nil && s.currentWeight == newWeight) || (s.queuedWeight != nil && *s.queuedWeight == newWeight) {
 		return
 	}
@@ -124,7 +125,9 @@ func (s *sortedSetMember[ConflictID, ResourceID]) queuePreferredInsteadUpdate(co
 	s.weightMutex.Lock()
 	defer s.weightMutex.Unlock()
 
-	if (s.queuedPreferredInstead == nil && s.currentPreferredInstead == conflict) || (s.queuedPreferredInstead != nil && s.queuedPreferredInstead == conflict) {
+	if (s.queuedPreferredInstead == nil && s.currentPreferredInstead == conflict) ||
+		(s.queuedPreferredInstead != nil && s.queuedPreferredInstead == conflict) ||
+		s.sortedSet.owner == conflict {
 		return
 	}
 
