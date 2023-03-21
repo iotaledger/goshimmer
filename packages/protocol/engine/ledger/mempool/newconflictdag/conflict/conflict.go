@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 	"github.com/iotaledger/hive.go/stringify"
 )
 
@@ -29,7 +30,7 @@ type Conflict[ConflictID, ResourceID IDType] struct {
 	mutex sync.RWMutex
 }
 
-func New[ConflictID, ResourceID IDType](id ConflictID, parents *advancedset.AdvancedSet[ConflictID], conflictSets map[ResourceID]*Set[ConflictID, ResourceID], initialWeight *weight.Weight) *Conflict[ConflictID, ResourceID] {
+func New[ConflictID, ResourceID IDType](id ConflictID, parents *advancedset.AdvancedSet[ConflictID], conflictSets map[ResourceID]*Set[ConflictID, ResourceID], initialWeight *weight.Weight, pendingTasksCounter *syncutils.Counter) *Conflict[ConflictID, ResourceID] {
 	c := &Conflict[ConflictID, ResourceID]{
 		PreferredInsteadUpdated: event.New1[*Conflict[ConflictID, ResourceID]](),
 		id:                      id,
@@ -39,7 +40,7 @@ func New[ConflictID, ResourceID IDType](id ConflictID, parents *advancedset.Adva
 		weight:                  initialWeight,
 	}
 
-	c.conflictingConflicts = NewSortedSet[ConflictID, ResourceID](c)
+	c.conflictingConflicts = NewSortedSet[ConflictID, ResourceID](c, pendingTasksCounter)
 
 	// add existing conflicts first, so we can correctly determine the preferred instead flag
 	for _, conflictSet := range conflictSets {

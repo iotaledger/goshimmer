@@ -29,9 +29,6 @@ type SortedSet[ConflictID, ResourceID IDType] struct {
 	// pendingWeightUpdates is a collection of Conflicts that have a pending weight update.
 	pendingWeightUpdates *shrinkingmap.ShrinkingMap[ConflictID, *sortedSetMember[ConflictID, ResourceID]]
 
-	// pendingWeightUpdatesCounter is a counter that keeps track of the number of pending weight updates.
-	pendingWeightUpdatesCounter *syncutils.Counter
-
 	// pendingWeightUpdatesSignal is a signal that is used to notify the fixMemberPositionWorker about pending weight updates.
 	pendingWeightUpdatesSignal *sync.Cond
 
@@ -40,11 +37,12 @@ type SortedSet[ConflictID, ResourceID IDType] struct {
 
 	pendingPreferredInsteadUpdates *shrinkingmap.ShrinkingMap[ConflictID, *sortedSetMember[ConflictID, ResourceID]]
 
-	pendingPreferredInsteadCounter *syncutils.Counter
-
 	pendingPreferredInsteadSignal *sync.Cond
 
 	pendingPreferredInsteadMutex sync.RWMutex
+
+	// pendingUpdatesCounter is a counter that keeps track of the number of pending weight updates.
+	pendingUpdatesCounter *syncutils.Counter
 
 	// isShutdown is used to signal that the SortedSet is shutting down.
 	isShutdown atomic.Bool
@@ -54,14 +52,13 @@ type SortedSet[ConflictID, ResourceID IDType] struct {
 }
 
 // NewSortedSet creates a new SortedSet that is owned by the given Conflict.
-func NewSortedSet[ConflictID, ResourceID IDType](owner *Conflict[ConflictID, ResourceID]) *SortedSet[ConflictID, ResourceID] {
+func NewSortedSet[ConflictID, ResourceID IDType](owner *Conflict[ConflictID, ResourceID], pendingUpdatesCounter *syncutils.Counter) *SortedSet[ConflictID, ResourceID] {
 	s := &SortedSet[ConflictID, ResourceID]{
 		owner:                          owner,
 		members:                        shrinkingmap.New[ConflictID, *sortedSetMember[ConflictID, ResourceID]](),
 		pendingWeightUpdates:           shrinkingmap.New[ConflictID, *sortedSetMember[ConflictID, ResourceID]](),
-		pendingWeightUpdatesCounter:    syncutils.NewCounter(),
+		pendingUpdatesCounter:          pendingUpdatesCounter,
 		pendingPreferredInsteadUpdates: shrinkingmap.New[ConflictID, *sortedSetMember[ConflictID, ResourceID]](),
-		pendingPreferredInsteadCounter: syncutils.NewCounter(),
 	}
 	s.pendingWeightUpdatesSignal = sync.NewCond(&s.pendingWeightUpdatesMutex)
 	s.pendingPreferredInsteadSignal = sync.NewCond(&s.pendingPreferredInsteadMutex)
@@ -178,8 +175,7 @@ func (s *SortedSet[ConflictID, ResourceID]) HeaviestPreferredConflict() *Conflic
 
 // WaitConsistent waits until the SortedSet is consistent.
 func (s *SortedSet[ConflictID, ResourceID]) WaitConsistent() {
-	s.pendingWeightUpdatesCounter.WaitIsZero()
-	s.pendingPreferredInsteadCounter.WaitIsZero()
+	s.pendingUpdatesCounter.WaitIsZero()
 }
 
 // String returns a human-readable representation of the SortedSet.
@@ -199,7 +195,7 @@ func (s *SortedSet[ConflictID, ResourceID]) notifyPendingWeightUpdate(member *so
 	defer s.pendingWeightUpdatesMutex.Unlock()
 
 	if _, exists := s.pendingWeightUpdates.Get(member.id); !exists {
-		s.pendingWeightUpdatesCounter.Increase()
+		s.pendingUpdatesCounter.Increase()
 		s.pendingWeightUpdates.Set(member.id, member)
 		s.pendingWeightUpdatesSignal.Signal()
 	}
@@ -211,7 +207,7 @@ func (s *SortedSet[ConflictID, ResourceID]) notifyPendingPreferredInsteadUpdate(
 	defer s.pendingPreferredInsteadMutex.Unlock()
 
 	if _, exists := s.pendingPreferredInsteadUpdates.Get(member.id); !exists {
-		s.pendingPreferredInsteadCounter.Increase()
+		s.pendingUpdatesCounter.Increase()
 		s.pendingPreferredInsteadUpdates.Set(member.id, member)
 		s.pendingPreferredInsteadSignal.Signal()
 	}
@@ -241,7 +237,7 @@ func (s *SortedSet[ConflictID, ResourceID]) fixMemberPositionWorker() {
 		if member.weightUpdateApplied() {
 			s.fixMemberPosition(member)
 		}
-		s.pendingWeightUpdatesCounter.Decrease()
+		s.pendingUpdatesCounter.Decrease()
 	}
 }
 
@@ -269,7 +265,8 @@ func (s *SortedSet[ConflictID, ResourceID]) fixHeaviestPreferredMemberWorker() {
 		if member.preferredInsteadUpdateApplied() {
 			s.fixHeaviestPreferredMember(member)
 		}
-		s.pendingPreferredInsteadCounter.Decrease()
+
+		s.pendingUpdatesCounter.Decrease()
 	}
 }
 

@@ -13,17 +13,20 @@ import (
 	. "github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/conflict"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/weight"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 func TestSortedConflict(t *testing.T) {
-	conflict1 := newConflict("conflict1", weight.New().AddCumulativeWeight(12).SetAcceptanceState(acceptance.Rejected))
-	conflict2 := newConflict("conflict2", weight.New().AddCumulativeWeight(10))
-	conflict3 := newConflict("conflict3", weight.New().AddCumulativeWeight(1).SetAcceptanceState(acceptance.Accepted))
-	conflict4 := newConflict("conflict4", weight.New().AddCumulativeWeight(11).SetAcceptanceState(acceptance.Rejected))
-	conflict5 := newConflict("conflict5", weight.New().AddCumulativeWeight(11).SetAcceptanceState(acceptance.Pending))
-	conflict6 := newConflict("conflict6", weight.New().AddCumulativeWeight(2).SetAcceptanceState(acceptance.Accepted))
+	pendingTasksCounter := syncutils.NewCounter()
 
-	sortedConflicts := NewSortedSet[utxo.OutputID, utxo.OutputID](conflict1)
+	conflict1 := newConflict("conflict1", weight.New().AddCumulativeWeight(12).SetAcceptanceState(acceptance.Rejected), pendingTasksCounter)
+	conflict2 := newConflict("conflict2", weight.New().AddCumulativeWeight(10), pendingTasksCounter)
+	conflict3 := newConflict("conflict3", weight.New().AddCumulativeWeight(1).SetAcceptanceState(acceptance.Accepted), pendingTasksCounter)
+	conflict4 := newConflict("conflict4", weight.New().AddCumulativeWeight(11).SetAcceptanceState(acceptance.Rejected), pendingTasksCounter)
+	conflict5 := newConflict("conflict5", weight.New().AddCumulativeWeight(11).SetAcceptanceState(acceptance.Pending), pendingTasksCounter)
+	conflict6 := newConflict("conflict6", weight.New().AddCumulativeWeight(2).SetAcceptanceState(acceptance.Accepted), pendingTasksCounter)
+
+	sortedConflicts := NewSortedSet[utxo.OutputID, utxo.OutputID](conflict1, pendingTasksCounter)
 
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict1")
 
@@ -59,10 +62,12 @@ func TestSortedConflict(t *testing.T) {
 }
 
 func TestSortedDecreaseHeaviest(t *testing.T) {
-	conflict1 := newConflict("conflict1", weight.New().AddCumulativeWeight(1).SetAcceptanceState(acceptance.Accepted))
-	conflict2 := newConflict("conflict2", weight.New().AddCumulativeWeight(2).SetAcceptanceState(acceptance.Pending))
+	pendingTasksCounter := syncutils.NewCounter()
 
-	sortedConflicts := NewSortedSet[utxo.OutputID, utxo.OutputID](conflict1)
+	conflict1 := newConflict("conflict1", weight.New().AddCumulativeWeight(1).SetAcceptanceState(acceptance.Accepted), pendingTasksCounter)
+	conflict2 := newConflict("conflict2", weight.New().AddCumulativeWeight(2).SetAcceptanceState(acceptance.Pending), pendingTasksCounter)
+
+	sortedConflicts := NewSortedSet[utxo.OutputID, utxo.OutputID](conflict1, pendingTasksCounter)
 
 	sortedConflicts.Add(conflict1)
 	sortedConflicts.WaitConsistent()
@@ -78,6 +83,8 @@ func TestSortedDecreaseHeaviest(t *testing.T) {
 }
 
 func TestSortedConflictParallel(t *testing.T) {
+	pendingTasksCounter := syncutils.NewCounter()
+
 	const conflictCount = 1000
 	const updateCount = 100000
 
@@ -86,13 +93,13 @@ func TestSortedConflictParallel(t *testing.T) {
 	for i := 0; i < conflictCount; i++ {
 		alias := "conflict" + strconv.Itoa(i)
 
-		conflicts[alias] = newConflict(alias, weight.New())
-		parallelConflicts[alias] = newConflict(alias, weight.New())
+		conflicts[alias] = newConflict(alias, weight.New(), pendingTasksCounter)
+		parallelConflicts[alias] = newConflict(alias, weight.New(), pendingTasksCounter)
 	}
 
-	sortedConflicts := NewSortedSet[utxo.OutputID, utxo.OutputID](conflicts["conflict0"])
-	sortedParallelConflicts := NewSortedSet[utxo.OutputID, utxo.OutputID](parallelConflicts["conflict0"])
-	sortedParallelConflicts1 := NewSortedSet[utxo.OutputID, utxo.OutputID](parallelConflicts["conflict0"])
+	sortedConflicts := NewSortedSet[utxo.OutputID, utxo.OutputID](conflicts["conflict0"], pendingTasksCounter)
+	sortedParallelConflicts := NewSortedSet[utxo.OutputID, utxo.OutputID](parallelConflicts["conflict0"], pendingTasksCounter)
+	sortedParallelConflicts1 := NewSortedSet[utxo.OutputID, utxo.OutputID](parallelConflicts["conflict0"], pendingTasksCounter)
 
 	for i := 0; i < conflictCount; i++ {
 		alias := "conflict" + strconv.Itoa(i)
@@ -199,8 +206,8 @@ func assertSortedConflictsOrder[ConflictID, ResourceID IDType](t *testing.T, sor
 	require.Empty(t, aliases)
 }
 
-func newConflict(alias string, weight *weight.Weight) *Conflict[utxo.OutputID, utxo.OutputID] {
-	conflict := New[utxo.OutputID, utxo.OutputID](outputID(alias), nil, nil, weight)
+func newConflict(alias string, weight *weight.Weight, pendingTasksCounter *syncutils.Counter) *Conflict[utxo.OutputID, utxo.OutputID] {
+	conflict := New[utxo.OutputID, utxo.OutputID](outputID(alias), nil, nil, weight, pendingTasksCounter)
 	conflict.WaitConsistent()
 	return conflict
 }

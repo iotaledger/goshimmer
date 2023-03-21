@@ -13,9 +13,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/weight"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 func TestConflictSets(t *testing.T) {
+	pendingTasksCounter := syncutils.NewCounter()
+
 	red := NewConflictSet[utxo.OutputID, utxo.OutputID](outputID("red"))
 	blue := NewConflictSet[utxo.OutputID, utxo.OutputID](outputID("blue"))
 	green := NewConflictSet[utxo.OutputID, utxo.OutputID](outputID("green"))
@@ -28,6 +31,7 @@ func TestConflictSets(t *testing.T) {
 			red.ID(): red,
 		},
 		weight.New().AddCumulativeWeight(7).SetAcceptanceState(acceptance.Pending),
+		pendingTasksCounter,
 	)
 	fmt.Println("adding B...")
 	conflictB := New[utxo.OutputID, utxo.OutputID](
@@ -38,6 +42,7 @@ func TestConflictSets(t *testing.T) {
 			blue.ID(): blue,
 		},
 		weight.New().AddCumulativeWeight(3).SetAcceptanceState(acceptance.Pending),
+		pendingTasksCounter,
 	)
 	fmt.Println("adding C...")
 	conflictC := New[utxo.OutputID, utxo.OutputID](
@@ -48,6 +53,7 @@ func TestConflictSets(t *testing.T) {
 			blue.ID():  blue,
 		},
 		weight.New().AddCumulativeWeight(5).SetAcceptanceState(acceptance.Pending),
+		pendingTasksCounter,
 	)
 
 	fmt.Println("adding D...")
@@ -59,6 +65,7 @@ func TestConflictSets(t *testing.T) {
 			yellow.ID(): yellow,
 		},
 		weight.New().AddCumulativeWeight(7).SetAcceptanceState(acceptance.Pending),
+		pendingTasksCounter,
 	)
 
 	fmt.Println("adding E...")
@@ -70,6 +77,7 @@ func TestConflictSets(t *testing.T) {
 			yellow.ID(): yellow,
 		},
 		weight.New().AddCumulativeWeight(9).SetAcceptanceState(acceptance.Pending),
+		pendingTasksCounter,
 	)
 
 	preferredInsteadMap := map[*Conflict[utxo.OutputID, utxo.OutputID]]*Conflict[utxo.OutputID, utxo.OutputID]{
@@ -149,6 +157,7 @@ func TestConflictSets(t *testing.T) {
 			yellow.ID(): yellow,
 		},
 		weight.New().AddCumulativeWeight(19).SetAcceptanceState(acceptance.Pending),
+		pendingTasksCounter,
 	)
 
 	assertPreferredInstead(t, lo.MergeMaps(preferredInsteadMap, map[*Conflict[utxo.OutputID, utxo.OutputID]]*Conflict[utxo.OutputID, utxo.OutputID]{
@@ -159,8 +168,10 @@ func TestConflictSets(t *testing.T) {
 }
 
 func TestConflictParallel(t *testing.T) {
+	pendingTasksCounter := syncutils.NewCounter()
+
 	//sequentialConflicts := createConflicts()
-	parallelConflicts := createConflicts()
+	parallelConflicts := createConflicts(pendingTasksCounter)
 
 	const updateCount = 100000
 
@@ -211,7 +222,7 @@ func generateRandomConflictPermutation() func(conflict *Conflict[utxo.OutputID, 
 	}
 }
 
-func createConflicts() map[string]*Conflict[utxo.OutputID, utxo.OutputID] {
+func createConflicts(pendingTasksCounter *syncutils.Counter) map[string]*Conflict[utxo.OutputID, utxo.OutputID] {
 	red := NewConflictSet[utxo.OutputID, utxo.OutputID](outputID("red"))
 	blue := NewConflictSet[utxo.OutputID, utxo.OutputID](outputID("blue"))
 	green := NewConflictSet[utxo.OutputID, utxo.OutputID](outputID("green"))
@@ -224,6 +235,7 @@ func createConflicts() map[string]*Conflict[utxo.OutputID, utxo.OutputID] {
 			red.ID(): red,
 		},
 		weight.New().SetAcceptanceState(acceptance.Pending),
+		pendingTasksCounter,
 	)
 	fmt.Println("adding B...")
 	conflictB := New[utxo.OutputID, utxo.OutputID](
@@ -234,6 +246,7 @@ func createConflicts() map[string]*Conflict[utxo.OutputID, utxo.OutputID] {
 			blue.ID(): blue,
 		},
 		weight.New().SetAcceptanceState(acceptance.Pending),
+		pendingTasksCounter,
 	)
 	fmt.Println("adding C...")
 	conflictC := New[utxo.OutputID, utxo.OutputID](
@@ -244,6 +257,7 @@ func createConflicts() map[string]*Conflict[utxo.OutputID, utxo.OutputID] {
 			blue.ID():  blue,
 		},
 		weight.New().SetAcceptanceState(acceptance.Pending),
+		pendingTasksCounter,
 	)
 
 	fmt.Println("adding D...")
@@ -255,6 +269,7 @@ func createConflicts() map[string]*Conflict[utxo.OutputID, utxo.OutputID] {
 			yellow.ID(): yellow,
 		},
 		weight.New().SetAcceptanceState(acceptance.Pending),
+		pendingTasksCounter,
 	)
 
 	fmt.Println("adding E...")
@@ -266,6 +281,7 @@ func createConflicts() map[string]*Conflict[utxo.OutputID, utxo.OutputID] {
 			yellow.ID(): yellow,
 		},
 		weight.New().SetAcceptanceState(acceptance.Pending),
+		pendingTasksCounter,
 	)
 
 	return map[string]*Conflict[utxo.OutputID, utxo.OutputID]{
