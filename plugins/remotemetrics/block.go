@@ -87,7 +87,7 @@ func onTransactionAccepted(transactionEvent *mempool.TransactionEvent) {
 		return
 	}
 
-	earliestAttachment := deps.Protocol.Engine().Tangle.Booker.GetEarliestAttachment(transactionEvent.Metadata.ID())
+	earliestAttachment := deps.Protocol.Engine().Tangle.booker.GetEarliestAttachment(transactionEvent.Metadata.ID())
 
 	onBlockFinalized(earliestAttachment.ModelsBlock)
 }

@@ -13,7 +13,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/memstorage"
 	"github.com/iotaledger/hive.go/core/slot"
@@ -217,7 +216,7 @@ func (s *Scheduler) Block(id models.BlockID) (block *Block, exists bool) {
 	return s.block(id)
 }
 
-func (s *Scheduler) AddBlock(sourceBlock *virtualvoting.Block) {
+func (s *Scheduler) AddBlock(sourceBlock *booker.Block) {
 	s.evictionMutex.RLock()
 	defer s.evictionMutex.RUnlock()
 
@@ -594,7 +593,7 @@ func (s *Scheduler) GetExcessDeficit(issuerID identity.ID) (deficitFloat float64
 	return 0.0, errors.Errorf("Deficit for issuer %s does not exist", issuerID)
 }
 
-func (s *Scheduler) GetOrRegisterBlock(virtualVotingBlock *virtualvoting.Block) (block *Block, err error) {
+func (s *Scheduler) GetOrRegisterBlock(virtualVotingBlock *booker.Block) (block *Block, err error) {
 	if s.evictionState.InEvictedSlot(virtualVotingBlock.ID()) {
 		return nil, errors.Errorf("block %s belongs to an evicted slot", virtualVotingBlock.ID())
 	}

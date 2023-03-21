@@ -8,9 +8,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/realitiesledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/testtangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tsc"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/slot"
@@ -25,7 +25,7 @@ func TestOrphanageManager_orphanBeforeTSC(t *testing.T) {
 
 	workers := workerpool.NewGroup(t.Name())
 	tf := tsc.NewTestFramework(t,
-		tangle.NewDefaultTestFramework(t,
+		testtangle.NewDefaultTestFramework(t,
 			workers.CreateGroup("TangleTestFramework"),
 			realitiesledger.NewTestLedger(t, workers.CreateGroup("Ledger")),
 			slot.NewTimeProvider(time.Now().Unix(), 10),
@@ -37,7 +37,7 @@ func TestOrphanageManager_orphanBeforeTSC(t *testing.T) {
 	for i := 0; i < 20; i++ {
 		alias := fmt.Sprintf("blk-%d", i)
 		block := blockdag.NewBlock(tf.BlockDAG.CreateBlock(alias, models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithIssuingTime(now.Add(time.Duration(i)*time.Second))), blockdag.WithSolid(true))
-		tf.Manager.AddBlock(virtualvoting.NewBlock(block))
+		tf.Manager.AddBlock(booker.NewBlock(block))
 	}
 
 	tf.Manager.HandleTimeUpdate(now.Add(treshhold).Add(10 * time.Second))
@@ -47,7 +47,7 @@ func TestOrphanageManager_orphanBeforeTSC(t *testing.T) {
 func TestOrphanageManager_HandleTimeUpdate(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
 	tf := tsc.NewTestFramework(t,
-		tangle.NewDefaultTestFramework(t,
+		testtangle.NewDefaultTestFramework(t,
 			workers.CreateGroup("TangleTestFramework"),
 			realitiesledger.NewTestLedger(t, workers.CreateGroup("Ledger")),
 			slot.NewTimeProvider(time.Now().Add(-2*time.Hour).Unix(), 10),

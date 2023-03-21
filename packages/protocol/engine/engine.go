@@ -20,9 +20,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tsc"
+	"github.com/iotaledger/goshimmer/packages/protocol/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/hive.go/core/eventticker"
@@ -46,7 +46,7 @@ type Engine struct {
 	EvictionState   *eviction.State
 	BlockRequester  *eventticker.EventTicker[models.BlockID]
 	Notarization    notarization.Notarization
-	Tangle          *tangle.Tangle
+	Tangle          tangle.Tangle
 	Consensus       consensus.Consensus
 	TSCManager      *tsc.Manager
 	Clock           clock.Clock
@@ -59,7 +59,6 @@ type Engine struct {
 	optsBootstrappedThreshold time.Duration
 	optsEntryPointsDepth      int
 	optsSnapshotDepth         int
-	optsTangleOptions         []options.Option[tangle.Tangle]
 	optsConsensusOptions      []options.Option[consensus.Consensus]
 	optsTSCManagerOptions     []options.Option[tsc.Manager]
 	optsBlockRequester        []options.Option[eventticker.EventTicker[models.BlockID]]
@@ -76,6 +75,7 @@ func New(
 	sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection],
 	throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota],
 	notarization module.Provider[*Engine, notarization.Notarization],
+	tangle module.Provider[*Engine, tangle.Tangle],
 	consensus module.Provider[*Engine, consensus.Consensus],
 	opts ...options.Option[Engine],
 ) (engine *Engine) {
@@ -94,7 +94,8 @@ func New(
 			e.SybilProtection = sybilProtection(e)
 			e.ThroughputQuota = throughputQuota(e)
 			e.Notarization = notarization(e)
-			e.Tangle = tangle.New(e.Workers.CreateGroup("Tangle"), e.Ledger.MemPool(), e.EvictionState, e.SlotTimeProvider, e.SybilProtection.Validators(), e.LastConfirmedSlot, e.FirstUnacceptedMarker, e.Storage.Commitments.Load, e.optsTangleOptions...)
+			e.Tangle = tangle(e)
+			//tangle.New(e.Workers.CreateGroup("Tangle"), e.Ledger.MemPool(), e.EvictionState, e.SlotTimeProvider, e.SybilProtection.Validators(), e.LastConfirmedSlot, e.FirstUnacceptedMarker, e.Storage.Commitments.Load, e.optsTangleOptions...)
 			e.Consensus = consensus(e)
 			e.TSCManager = tsc.New(e.Consensus.BlockGadget().IsBlockAccepted, e.Tangle, e.optsTSCManagerOptions...)
 			e.Filter = filter.New(e.optsFilter...)
@@ -105,7 +106,6 @@ func New(
 				e.Storage.Commitments.TriggerInitialized,
 			))
 		},
-		(*Engine).setupTangle,
 		(*Engine).setupTSCManager,
 		(*Engine).setupBlockStorage,
 		(*Engine).setupFilter,
@@ -138,7 +138,7 @@ func (e *Engine) Block(id models.BlockID) (block *models.Block, exists bool) {
 		return
 	}
 
-	if cachedBlock, cachedBlockExists := e.Tangle.BlockDAG.Block(id); cachedBlockExists {
+	if cachedBlock, cachedBlockExists := e.Tangle.BlockDAG().Block(id); cachedBlockExists {
 		return cachedBlock.ModelsBlock, !cachedBlock.IsMissing()
 	}
 
@@ -265,20 +265,6 @@ func (e *Engine) setupFilter() {
 	e.Events.Filter.LinkTo(e.Filter.Events)
 }
 
-func (e *Engine) setupTangle() {
-	e.Events.Filter.BlockAllowed.Hook(func(block *models.Block) {
-		if _, _, err := e.Tangle.BlockDAG.Attach(block); err != nil {
-			e.Events.Error.Trigger(errors.Wrapf(err, "failed to attach block with %s (issuerID: %s)", block.ID(), block.IssuerID()))
-		}
-	}, event.WithWorkerPool(e.Workers.CreatePool("Tangle.Attach", 2)))
-
-	e.Events.Notarization.SlotCommitted.Hook(func(evt *notarization.SlotCommittedDetails) {
-		e.Tangle.BlockDAG.PromoteFutureBlocksUntil(evt.Commitment.Index())
-	}, event.WithWorkerPool(e.Workers.CreatePool("Tangle.PromoteFutureBlocksUntil", 1)))
-
-	e.Events.Tangle.LinkTo(e.Tangle.Events)
-}
-
 func (e *Engine) setupTSCManager() {
 	// wp := e.Workers.CreatePool("TSCManager", 1) // Using just 1 worker to avoid contention
 
@@ -372,12 +358,6 @@ func (e *Engine) readSnapshot(filePath string) (err error) {
 func WithBootstrapThreshold(threshold time.Duration) options.Option[Engine] {
 	return func(e *Engine) {
 		e.optsBootstrappedThreshold = threshold
-	}
-}
-
-func WithTangleOptions(opts ...options.Option[tangle.Tangle]) options.Option[Engine] {
-	return func(e *Engine) {
-		e.optsTangleOptions = append(e.optsTangleOptions, opts...)
 	}
 }
 

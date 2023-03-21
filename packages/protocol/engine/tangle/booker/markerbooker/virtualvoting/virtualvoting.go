@@ -10,7 +10,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/markers"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/runtime/options"
@@ -21,7 +22,7 @@ import (
 // region VirtualVoting ////////////////////////////////////////////////////////////////////////////////////////////////
 
 type VirtualVoting struct {
-	Events          *Events
+	events          *booker.VirtualVotingEvents
 	Validators      *sybilprotection.WeightedSet
 	ConflictDAG     *conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID]
 	SequenceManager *markers.SequenceManager
@@ -51,42 +52,48 @@ func New(workers *workerpool.Group, conflictDAG *conflictdag.ConflictDAG[utxo.Tr
 		optsSlotCutoffCallback: func() slot.Index {
 			return 0
 		},
-	}, opts, func(o *VirtualVoting) {
-		o.conflictTracker = conflicttracker.NewConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower](conflictDAG, validators)
-		o.sequenceTracker = sequencetracker.NewSequenceTracker[BlockVotePower](validators, sequenceManager.Sequence, o.optsSequenceCutoffCallback)
-		o.slotTracker = slottracker.NewSlotTracker(o.optsSlotCutoffCallback)
+	}, opts, func(v *VirtualVoting) {
+		v.conflictTracker = conflicttracker.NewConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower](conflictDAG, validators)
+		v.sequenceTracker = sequencetracker.NewSequenceTracker[BlockVotePower](validators, sequenceManager.Sequence, v.optsSequenceCutoffCallback)
+		v.slotTracker = slottracker.NewSlotTracker(v.optsSlotCutoffCallback)
 
-		o.Events = NewEvents()
-		o.Events.ConflictTracker = o.conflictTracker.Events
-		o.Events.SequenceTracker = o.sequenceTracker.Events
-		o.Events.SlotTracker = o.slotTracker.Events
+		v.events = booker.NewVirtualVotingEvents()
+		v.events.ConflictTracker.LinkTo(v.conflictTracker.Events)
+		v.events.SequenceTracker.LinkTo(v.sequenceTracker.Events)
+		v.events.SlotTracker.LinkTo(v.slotTracker.Events)
 	})
 }
 
-func (o *VirtualVoting) Track(block *Block, conflictIDs utxo.TransactionIDs) {
-	o.evictionMutex.RLock()
-	defer o.evictionMutex.RUnlock()
+var _ booker.VirtualVoting = new(VirtualVoting)
+
+func (v *VirtualVoting) Events() *booker.VirtualVotingEvents {
+	return v.events
+}
+
+func (v *VirtualVoting) Track(block *booker.Block, conflictIDs utxo.TransactionIDs) {
+	v.evictionMutex.RLock()
+	defer v.evictionMutex.RUnlock()
 
 	votePower := NewBlockVotePower(block.ID(), block.IssuingTime())
 
-	if _, invalid := o.conflictTracker.TrackVote(conflictIDs, block.IssuerID(), votePower); invalid {
+	if _, invalid := v.conflictTracker.TrackVote(conflictIDs, block.IssuerID(), votePower); invalid {
 		fmt.Println("block is subjectively invalid", block.ID())
 		block.SetSubjectivelyInvalid(true)
 	} else {
-		o.sequenceTracker.TrackVotes(block.StructureDetails().PastMarkers(), block.IssuerID(), votePower)
-		o.slotTracker.TrackVotes(block.Commitment().Index(), block.IssuerID(), slottracker.SlotVotePower{Index: block.ID().Index()})
+		v.sequenceTracker.TrackVotes(block.StructureDetails().PastMarkers(), block.IssuerID(), votePower)
+		v.slotTracker.TrackVotes(block.Commitment().Index(), block.IssuerID(), slottracker.SlotVotePower{Index: block.ID().Index()})
 	}
 
-	o.Events.BlockTracked.Trigger(block)
+	v.events.BlockTracked.Trigger(block)
 }
 
 // MarkerVotersTotalWeight retrieves Validators supporting a given marker.
-func (o *VirtualVoting) MarkerVotersTotalWeight(marker markers.Marker) (totalWeight int64) {
-	o.evictionMutex.RLock()
-	defer o.evictionMutex.RUnlock()
+func (v *VirtualVoting) MarkerVotersTotalWeight(marker markers.Marker) (totalWeight int64) {
+	v.evictionMutex.RLock()
+	defer v.evictionMutex.RUnlock()
 
-	_ = o.sequenceTracker.Voters(marker).ForEach(func(id identity.ID) error {
-		if weight, exists := o.Validators.Get(id); exists {
+	_ = v.sequenceTracker.Voters(marker).ForEach(func(id identity.ID) error {
+		if weight, exists := v.Validators.Get(id); exists {
 			totalWeight += weight.Value
 		}
 
@@ -97,12 +104,12 @@ func (o *VirtualVoting) MarkerVotersTotalWeight(marker markers.Marker) (totalWei
 }
 
 // SlotVotersTotalWeight retrieves the total weight of the Validators voting for a given slot.
-func (o *VirtualVoting) SlotVotersTotalWeight(slotIndex slot.Index) (totalWeight int64) {
-	o.evictionMutex.RLock()
-	defer o.evictionMutex.RUnlock()
+func (v *VirtualVoting) SlotVotersTotalWeight(slotIndex slot.Index) (totalWeight int64) {
+	v.evictionMutex.RLock()
+	defer v.evictionMutex.RUnlock()
 
-	_ = o.slotTracker.Voters(slotIndex).ForEach(func(id identity.ID) error {
-		if weight, exists := o.Validators.Get(id); exists {
+	_ = v.slotTracker.Voters(slotIndex).ForEach(func(id identity.ID) error {
+		if weight, exists := v.Validators.Get(id); exists {
 			totalWeight += weight.Value
 		}
 
@@ -113,19 +120,19 @@ func (o *VirtualVoting) SlotVotersTotalWeight(slotIndex slot.Index) (totalWeight
 }
 
 // ConflictVoters retrieves Validators voting for a given conflict.
-func (o *VirtualVoting) ConflictVoters(conflictID utxo.TransactionID) (voters *sybilprotection.WeightedSet) {
-	o.evictionMutex.RLock()
-	defer o.evictionMutex.RUnlock()
+func (v *VirtualVoting) ConflictVoters(conflictID utxo.TransactionID) (voters *sybilprotection.WeightedSet) {
+	v.evictionMutex.RLock()
+	defer v.evictionMutex.RUnlock()
 
-	return o.Validators.Weights.NewWeightedSet(o.conflictTracker.Voters(conflictID).Slice()...)
+	return v.Validators.Weights.NewWeightedSet(v.conflictTracker.Voters(conflictID).Slice()...)
 }
 
 // ConflictVotersTotalWeight retrieves the total weight of the Validators voting for a given conflict.
-func (o *VirtualVoting) ConflictVotersTotalWeight(conflictID utxo.TransactionID) (totalWeight int64) {
-	o.evictionMutex.RLock()
-	defer o.evictionMutex.RUnlock()
+func (v *VirtualVoting) ConflictVotersTotalWeight(conflictID utxo.TransactionID) (totalWeight int64) {
+	v.evictionMutex.RLock()
+	defer v.evictionMutex.RUnlock()
 
-	if conflict, exists := o.ConflictDAG.Conflict(conflictID); exists {
+	if conflict, exists := v.ConflictDAG.Conflict(conflictID); exists {
 		if conflict.ConfirmationState().IsAccepted() {
 			return math.MaxInt64
 		} else if conflict.ConfirmationState().IsRejected() {
@@ -133,8 +140,8 @@ func (o *VirtualVoting) ConflictVotersTotalWeight(conflictID utxo.TransactionID)
 		}
 	}
 
-	_ = o.conflictTracker.Voters(conflictID).ForEach(func(id identity.ID) error {
-		if weight, exists := o.Validators.Get(id); exists {
+	_ = v.conflictTracker.Voters(conflictID).ForEach(func(id identity.ID) error {
+		if weight, exists := v.Validators.Get(id); exists {
 			totalWeight += weight.Value
 		}
 
@@ -143,18 +150,18 @@ func (o *VirtualVoting) ConflictVotersTotalWeight(conflictID utxo.TransactionID)
 	return totalWeight
 }
 
-func (o *VirtualVoting) EvictSequence(sequenceID markers.SequenceID) {
-	o.evictionMutex.Lock()
-	defer o.evictionMutex.Unlock()
+func (v *VirtualVoting) EvictSequence(sequenceID markers.SequenceID) {
+	v.evictionMutex.Lock()
+	defer v.evictionMutex.Unlock()
 
-	o.sequenceTracker.EvictSequence(sequenceID)
+	v.sequenceTracker.EvictSequence(sequenceID)
 }
 
-func (o *VirtualVoting) EvictSlotTracker(slotIndex slot.Index) {
-	o.evictionMutex.Lock()
-	defer o.evictionMutex.Unlock()
+func (v *VirtualVoting) EvictSlotTracker(slotIndex slot.Index) {
+	v.evictionMutex.Lock()
+	defer v.evictionMutex.Unlock()
 
-	o.slotTracker.EvictSlot(slotIndex)
+	v.slotTracker.EvictSlot(slotIndex)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -162,7 +169,7 @@ func (o *VirtualVoting) EvictSlotTracker(slotIndex slot.Index) {
 // region Forking logic ////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ProcessForkedBlock updates the Conflict weight after an individually mapped Block was forked into a new Conflict.
-func (o *VirtualVoting) ProcessForkedBlock(block *Block, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
+func (v *VirtualVoting) ProcessForkedBlock(block *booker.Block, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
 	votePower := NewBlockVotePower(block.ID(), block.IssuingTime())
 
 	// Do not apply votes of subjectively invalid blocks on forking. Votes of subjectively invalid blocks are also not counted
@@ -171,13 +178,13 @@ func (o *VirtualVoting) ProcessForkedBlock(block *Block, forkedConflictID utxo.T
 		return
 	}
 
-	o.conflictTracker.AddSupportToForkedConflict(forkedConflictID, parentConflictIDs, block.IssuerID(), votePower)
+	v.conflictTracker.AddSupportToForkedConflict(forkedConflictID, parentConflictIDs, block.IssuerID(), votePower)
 }
 
-func (o *VirtualVoting) ProcessForkedMarker(marker markers.Marker, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
+func (v *VirtualVoting) ProcessForkedMarker(marker markers.Marker, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
 	// take everything in future cone because it was not conflicting before and move to new conflict.
-	for voterID, votePower := range o.sequenceTracker.VotersWithPower(marker) {
-		o.conflictTracker.AddSupportToForkedConflict(forkedConflictID, parentConflictIDs, voterID, votePower)
+	for voterID, votePower := range v.sequenceTracker.VotersWithPower(marker) {
+		v.conflictTracker.AddSupportToForkedConflict(forkedConflictID, parentConflictIDs, voterID, votePower)
 	}
 }
 

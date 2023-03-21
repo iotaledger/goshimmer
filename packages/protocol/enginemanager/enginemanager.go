@@ -16,6 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
 	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/goshimmer/packages/storage/utils"
@@ -46,6 +47,7 @@ type EngineManager struct {
 	sybilProtectionProvider module.Provider[*engine.Engine, sybilprotection.SybilProtection]
 	throughputQuotaProvider module.Provider[*engine.Engine, throughputquota.ThroughputQuota]
 	notarizationProvider    module.Provider[*engine.Engine, notarization.Notarization]
+	tangleProvider          module.Provider[*engine.Engine, tangle.Tangle]
 	consensusProvider       module.Provider[*engine.Engine, consensus.Consensus]
 
 	activeInstance *engine.Engine
@@ -62,6 +64,7 @@ func New(
 	sybilProtectionProvider module.Provider[*engine.Engine, sybilprotection.SybilProtection],
 	throughputQuotaProvider module.Provider[*engine.Engine, throughputquota.ThroughputQuota],
 	notarizationProvider module.Provider[*engine.Engine, notarization.Notarization],
+	tangleProvider module.Provider[*engine.Engine, tangle.Tangle],
 	consensusProvider module.Provider[*engine.Engine, consensus.Consensus],
 ) *EngineManager {
 	return &EngineManager{
@@ -75,6 +78,7 @@ func New(
 		sybilProtectionProvider: sybilProtectionProvider,
 		throughputQuotaProvider: throughputQuotaProvider,
 		notarizationProvider:    notarizationProvider,
+		tangleProvider:          tangleProvider,
 		consensusProvider:       consensusProvider,
 	}
 }
@@ -150,6 +154,7 @@ func (e *EngineManager) loadEngineInstance(dirName string) *engine.Engine {
 		e.sybilProtectionProvider,
 		e.throughputQuotaProvider,
 		e.notarizationProvider,
+		e.tangleProvider,
 		e.consensusProvider,
 		e.engineOptions...,
 	)

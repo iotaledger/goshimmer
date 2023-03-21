@@ -1,4 +1,4 @@
-package tsc
+package tsc_test
 
 import (
 	"testing"
@@ -9,7 +9,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markerbooker/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tsc"
 	"github.com/iotaledger/hive.go/runtime/options"
 )
 
@@ -17,7 +18,7 @@ import (
 
 type TestFramework struct {
 	test           *testing.T
-	Manager        *Manager
+	Manager        *tsc.Manager
 	MockAcceptance *blockgadget.MockBlockGadget
 
 	Tangle        *tangle.TestFramework
@@ -26,7 +27,7 @@ type TestFramework struct {
 	VirtualVoting *virtualvoting.TestFramework
 }
 
-func NewTestFramework(test *testing.T, tangleTF *tangle.TestFramework, optsTSCManager ...options.Option[Manager]) *TestFramework {
+func NewTestFramework(test *testing.T, tangleTF *tangle.TestFramework, optsTSCManager ...options.Option[tsc.Manager]) *TestFramework {
 	t := &TestFramework{
 		test:           test,
 		Tangle:         tangleTF,
@@ -36,8 +37,8 @@ func NewTestFramework(test *testing.T, tangleTF *tangle.TestFramework, optsTSCMa
 		MockAcceptance: blockgadget.NewMockAcceptanceGadget(),
 	}
 
-	t.Manager = New(t.MockAcceptance.IsBlockAccepted, tangleTF.Instance, optsTSCManager...)
-	t.Tangle.Booker.Instance.Events.BlockBooked.Hook(func(event *booker.BlockBookedEvent) {
+	t.Manager = tsc.New(t.MockAcceptance.IsBlockAccepted, tangleTF.Instance, optsTSCManager...)
+	t.Tangle.Booker.Instance.Events().BlockBooked.Hook(func(event *booker.BlockBookedEvent) {
 		t.Manager.AddBlock(event.Block)
 	})
 
@@ -46,7 +47,7 @@ func NewTestFramework(test *testing.T, tangleTF *tangle.TestFramework, optsTSCMa
 
 func (t *TestFramework) AssertOrphaned(expectedState map[string]bool) {
 	for alias, expectedOrphanage := range expectedState {
-		t.Tangle.Booker.AssertBlock(alias, func(block *virtualvoting.Block) {
+		t.Tangle.Booker.AssertBlock(alias, func(block *booker.Block) {
 			require.Equal(t.test, expectedOrphanage, block.Block.IsOrphaned(), "block %s is incorrectly orphaned", block.ID())
 		})
 	}

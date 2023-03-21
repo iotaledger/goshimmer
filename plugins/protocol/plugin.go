@@ -135,7 +135,7 @@ func configureLogging(plugin *node.Plugin) {
 	// 	Plugin.LogDebugf("Block %s booked", block.ID())
 	// }))
 	//
-	// deps.Protocol.Events.Engine.Tangle.VirtualVoting.BlockTracked.Attach(event.NewClosure(func(block *virtualvoting.Block) {
+	// deps.Protocol.Events.Engine.Tangle.VirtualVoting.BlockTracked.Attach(event.NewClosure(func(block *booker.Block) {
 	// 	Plugin.LogDebugf("Block %s tracked", block.ID())
 	// }))
 	//

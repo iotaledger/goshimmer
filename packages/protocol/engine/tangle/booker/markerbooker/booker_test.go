@@ -1,4 +1,4 @@
-package booker_test
+package markerbooker_test
 
 import (
 	"fmt"
@@ -14,10 +14,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag/inmemoryblockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markermanager"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markerbooker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markerbooker/markermanager"
+	"github.com/iotaledger/goshimmer/packages/protocol/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/crypto/identity"
@@ -30,7 +31,9 @@ import (
 
 func TestScenario_1(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	tf := booker.NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"), realitiesledger.NewTestLedger(t, workers.CreateGroup("RealitiesLedger")))
+	tf := markerbooker.NewDefaultTestFramework(t,
+		workers.CreateGroup("BookerTestFramework"),
+		realitiesledger.NewTestLedger(t, workers.CreateGroup("RealitiesLedger")))
 
 	tf.BlockDAG.CreateBlock("Block1", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithPayload(tf.Ledger.CreateTransaction("TX1", 3, "Genesis")))
 	tf.BlockDAG.CreateBlock("Block2", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis", "Block1")), models.WithPayload(tf.Ledger.CreateTransaction("TX2", 1, "TX1.1", "TX1.2")))
@@ -62,7 +65,7 @@ func TestScenario_1(t *testing.T) {
 
 func TestScenario_2(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	tf := booker.NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"), realitiesledger.NewTestLedger(t, workers.CreateGroup("RealitiesLedger")))
+	tf := markerbooker.NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"), realitiesledger.NewTestLedger(t, workers.CreateGroup("RealitiesLedger")))
 
 	tf.BlockDAG.CreateBlock("Block1", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithPayload(tf.Ledger.CreateTransaction("TX1", 3, "Genesis")))
 	tf.BlockDAG.CreateBlock("Block2", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis", "Block1")), models.WithPayload(tf.Ledger.CreateTransaction("TX2", 1, "TX1.1", "TX1.2")))
@@ -106,7 +109,7 @@ func TestScenario_2(t *testing.T) {
 func TestScenario_3(t *testing.T) {
 	t.Skip("Skip until we propagate conflicts through Markers again")
 	workers := workerpool.NewGroup(t.Name())
-	tf := booker.NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"), realitiesledger.NewTestLedger(t, workers.CreateGroup("RealitiesLedger")))
+	tf := markerbooker.NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"), realitiesledger.NewTestLedger(t, workers.CreateGroup("RealitiesLedger")))
 
 	tf.BlockDAG.CreateBlock("Block1", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithPayload(tf.Ledger.CreateTransaction("TX1", 3, "Genesis")))
 	tf.BlockDAG.CreateBlock("Block2", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis", "Block1")), models.WithPayload(tf.Ledger.CreateTransaction("TX2", 1, "TX1.1", "TX1.2")))
@@ -147,10 +150,10 @@ func TestScenario_3(t *testing.T) {
 func TestScenario_4(t *testing.T) {
 	t.Skip("Skip until we propagate conflicts through Markers again")
 	workers := workerpool.NewGroup(t.Name())
-	tf := booker.NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"),
+	tf := markerbooker.NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"),
 		realitiesledger.NewTestLedger(t, workers.CreateGroup("RealitiesLedger")),
-		booker.WithMarkerManagerOptions(
-			markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(3)),
+		markerbooker.WithMarkerManagerOptions(
+			markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(3)),
 		),
 	)
 
@@ -392,7 +395,7 @@ func TestScenario_4(t *testing.T) {
 func TestFutureConePropagation(t *testing.T) {
 	t.Skip("Skip until we propagate conflicts through Markers again")
 	workers := workerpool.NewGroup(t.Name())
-	tf := booker.NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"), realitiesledger.NewTestLedger(t, workers.CreateGroup("RealitiesLedger")))
+	tf := markerbooker.NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"), realitiesledger.NewTestLedger(t, workers.CreateGroup("RealitiesLedger")))
 
 	tf.BlockDAG.CreateBlock("Block0", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")))
 
@@ -504,7 +507,7 @@ func TestFutureConePropagation(t *testing.T) {
 func TestWeakParent(t *testing.T) {
 	t.Skip("Skip until we propagate conflicts through Markers again")
 	workers := workerpool.NewGroup(t.Name())
-	tf := booker.NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"), realitiesledger.NewTestLedger(t, workers.CreateGroup("RealitiesLedger")))
+	tf := markerbooker.NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"), realitiesledger.NewTestLedger(t, workers.CreateGroup("RealitiesLedger")))
 
 	tf.BlockDAG.CreateBlock("Block0", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")))
 
@@ -538,7 +541,7 @@ func TestMultiThreadedBookingAndForkingParallel(t *testing.T) {
 	const widthSize = 8 // since we reference all blocks in the layer below, this is limited by the max parents
 
 	workers := workerpool.NewGroup(t.Name())
-	tf := booker.NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"), realitiesledger.NewTestLedger(t, workers.CreateGroup("RealitiesLedger")))
+	tf := markerbooker.NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"), realitiesledger.NewTestLedger(t, workers.CreateGroup("RealitiesLedger")))
 
 	// Create base-layer outputs to double-spend
 	tf.BlockDAG.CreateBlock("Block.G", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithPayload(tf.Ledger.CreateTransaction("G", layersNum, "Genesis")))
@@ -623,7 +626,7 @@ func TestMultiThreadedBookingAndForkingNested(t *testing.T) {
 	const widthSize = 8 // since we reference all blocks in the layer below, this is limited by the max parents
 
 	workers := workerpool.NewGroup(t.Name())
-	tf := booker.NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"), realitiesledger.NewTestLedger(t, workers.CreateGroup("RealitiesLedger")))
+	tf := markerbooker.NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"), realitiesledger.NewTestLedger(t, workers.CreateGroup("RealitiesLedger")))
 
 	// Create base-layer outputs to double-spend
 	tf.BlockDAG.CreateBlock("Block.G", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithPayload(tf.Ledger.CreateTransaction("G", widthSize, "Genesis")))
@@ -703,7 +706,7 @@ func Test_Prune(t *testing.T) {
 	const slotCount = 100
 
 	workers := workerpool.NewGroup(t.Name())
-	tf := booker.NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"), realitiesledger.NewTestLedger(t, workers.CreateGroup("RealitiesLedger")))
+	tf := markerbooker.NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"), realitiesledger.NewTestLedger(t, workers.CreateGroup("RealitiesLedger")))
 
 	// create a helper function that creates the blocks
 	createNewBlock := func(idx slot.Index, prefix string) (block *models.Block, alias string) {
@@ -713,7 +716,7 @@ func Test_Prune(t *testing.T) {
 
 			return tf.BlockDAG.CreateBlock(
 				alias,
-				models.WithIssuingTime(tf.BlockDAG.Instance.SlotTimeProvider().GenesisTime()),
+				models.WithIssuingTime(tf.BlockDAG.SlotTimeProvider().GenesisTime()),
 				models.WithPayload(tf.Ledger.CreateTransaction(alias, 1, "Genesis")),
 			), alias
 		}
@@ -721,12 +724,12 @@ func Test_Prune(t *testing.T) {
 		return tf.BlockDAG.CreateBlock(
 			alias,
 			models.WithStrongParents(tf.BlockDAG.BlockIDs(parentAlias)),
-			models.WithIssuingTime(tf.BlockDAG.Instance.SlotTimeProvider().StartTime(idx)),
+			models.WithIssuingTime(tf.BlockDAG.SlotTimeProvider().StartTime(idx)),
 			models.WithPayload(tf.Ledger.CreateTransaction(alias, 1, fmt.Sprintf("%s.0", parentAlias))),
 		), alias
 	}
 
-	require.EqualValues(t, 0, tf.BlockDAG.Instance.EvictionState.LastEvictedSlot(), "maxDroppedSlot should be 0")
+	require.EqualValues(t, 0, tf.BlockDAG.Instance.(*inmemoryblockdag.BlockDAG).EvictionState().LastEvictedSlot(), "maxDroppedSlot should be 0")
 
 	expectedInvalid := make(map[string]bool, slotCount)
 	expectedBooked := make(map[string]bool, slotCount)
@@ -748,7 +751,7 @@ func Test_Prune(t *testing.T) {
 	_, wasAttached, err := tf.BlockDAG.Instance.Attach(tf.BlockDAG.CreateBlock(
 		"blk-1-reattachment",
 		models.WithStrongParents(tf.BlockDAG.BlockIDs(fmt.Sprintf("blk-%d", slotCount))),
-		models.WithIssuingTime(tf.BlockDAG.Instance.SlotTimeProvider().StartTime(slotCount)),
+		models.WithIssuingTime(tf.BlockDAG.SlotTimeProvider().StartTime(slotCount)),
 		models.WithPayload(tf.Ledger.Transaction("blk-1")),
 	))
 	require.True(t, wasAttached, "block should be attached")
@@ -760,30 +763,30 @@ func Test_Prune(t *testing.T) {
 
 	validateState(tf, 0, slotCount)
 
-	tf.BlockDAG.Instance.EvictionState.EvictUntil(slotCount / 4)
+	tf.BlockDAG.Instance.(*inmemoryblockdag.BlockDAG).EvictionState().EvictUntil(slotCount / 4)
 	workers.WaitChildren()
 
-	require.EqualValues(t, slotCount/4, tf.BlockDAG.Instance.EvictionState.LastEvictedSlot(), "maxDroppedSlot of booker should be slotCount/4")
+	require.EqualValues(t, slotCount/4, tf.BlockDAG.Instance.(*inmemoryblockdag.BlockDAG).EvictionState().LastEvictedSlot(), "maxDroppedSlot of booker should be slotCount/4")
 
 	// All orphan blocks should be marked as invalid due to invalidity propagation.
 	tf.BlockDAG.AssertInvalidCount(0, "should have invalid blocks")
 
-	tf.BlockDAG.Instance.EvictionState.EvictUntil(slotCount / 10)
+	tf.BlockDAG.Instance.(*inmemoryblockdag.BlockDAG).EvictionState().EvictUntil(slotCount / 10)
 	workers.WaitChildren()
 
-	require.EqualValues(t, slotCount/4, tf.BlockDAG.Instance.EvictionState.LastEvictedSlot(), "maxDroppedSlot of booker should be slotCount/4")
+	require.EqualValues(t, slotCount/4, tf.BlockDAG.Instance.(*inmemoryblockdag.BlockDAG).EvictionState().LastEvictedSlot(), "maxDroppedSlot of booker should be slotCount/4")
 
-	tf.BlockDAG.Instance.EvictionState.EvictUntil(slotCount / 2)
+	tf.BlockDAG.Instance.(*inmemoryblockdag.BlockDAG).EvictionState().EvictUntil(slotCount / 2)
 	workers.WaitChildren()
 
-	require.EqualValues(t, slotCount/2, tf.BlockDAG.Instance.EvictionState.LastEvictedSlot(), "maxDroppedSlot of booker should be slotCount/2")
+	require.EqualValues(t, slotCount/2, tf.BlockDAG.Instance.(*inmemoryblockdag.BlockDAG).EvictionState().LastEvictedSlot(), "maxDroppedSlot of booker should be slotCount/2")
 
 	validateState(tf, slotCount/2, slotCount)
 
 	_, wasAttached, err = tf.BlockDAG.Instance.Attach(tf.BlockDAG.CreateBlock(
 		"blk-0.5",
 		models.WithStrongParents(tf.BlockDAG.BlockIDs(fmt.Sprintf("blk-%d", slotCount))),
-		models.WithIssuingTime(tf.BlockDAG.Instance.SlotTimeProvider().GenesisTime()),
+		models.WithIssuingTime(tf.BlockDAG.SlotTimeProvider().GenesisTime()),
 	))
 	workers.WaitChildren()
 
@@ -822,7 +825,7 @@ func validateState(tf *booker.TestFramework, maxPrunedSlot, slotCount int) {
 
 func Test_BlockInvalid(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	tf := booker.NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"), realitiesledger.NewTestLedger(t, workers.CreateGroup("RealitiesLedger")))
+	tf := markerbooker.NewDefaultTestFramework(t, workers.CreateGroup("BookerTestFramework"), realitiesledger.NewTestLedger(t, workers.CreateGroup("RealitiesLedger")))
 
 	tf.BlockDAG.CreateBlock("Block1", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")))
 	tf.BlockDAG.CreateBlock("Block2", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithLikedInsteadParents(tf.BlockDAG.BlockIDs("Block1")))
@@ -896,17 +899,27 @@ func TestOTV_Track(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
 
 	storageInstance := blockdag.NewTestStorage(t, workers)
-	tf := booker.NewTestFramework(t, workers.CreateGroup("BookerTestFramework"),
-		booker.New(workers.CreateGroup("Booker"),
-			blockdag.NewTestBlockDAG(t, workers.CreateGroup("BlockDAG"), eviction.NewState(storageInstance), slot.NewTimeProvider(time.Now().Unix(), 10), storageInstance.Commitments.Load),
-			realitiesledger.NewTestLedger(t, workers.CreateGroup("RealitiesLedger")),
-			sybilprotection.NewWeightedSet(sybilprotection.NewWeights(mapdb.NewMapDB())),
-			booker.WithMarkerManagerOptions(
-				markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](
-					markers.WithMaxPastMarkerDistance(3),
-				),
+	evictionState := eviction.NewState(storageInstance)
+
+	slotTimeProviderFunc := func() *slot.TimeProvider {
+		return slot.NewTimeProvider(time.Now().Unix(), 10)
+	}
+	memPool := realitiesledger.NewTestLedger(t, workers.CreateGroup("RealitiesLedger"))
+
+	markerBooker := markerbooker.New(workers.CreateGroup("Booker"),
+		evictionState,
+		memPool,
+		sybilprotection.NewWeightedSet(sybilprotection.NewWeights(mapdb.NewMapDB())),
+		slotTimeProviderFunc,
+		markerbooker.WithMarkerManagerOptions(
+			markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](
+				markers.WithMaxPastMarkerDistance(3),
 			),
-		))
+		),
+	)
+	blockDAG := inmemoryblockdag.New(workers.CreateGroup("BlockDAG"), evictionState, slotTimeProviderFunc, blockdag.DefaultCommitmentFunc)
+
+	tf := booker.NewTestFramework(t, workers.CreateGroup("BookerTestFramework"), markerBooker, blockDAG, memPool, slotTimeProviderFunc)
 
 	tf.VirtualVoting.CreateIdentity("A", 30)
 	tf.VirtualVoting.CreateIdentity("B", 15)

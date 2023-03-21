@@ -1,11 +1,11 @@
-package tangle_test
+package inmemorytangle_test
 
 import (
 	"testing"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/realitiesledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/testtangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
@@ -13,7 +13,7 @@ import (
 
 func Test(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	tf := tangle.NewDefaultTestFramework(t,
+	tf := testtangle.NewDefaultTestFramework(t,
 		workers.CreateGroup("LedgerTestFramework"),
 		realitiesledger.NewTestLedger(t, workers.CreateGroup("Ledger")),
 		slot.NewTimeProvider(time.Now().Unix(), 10),

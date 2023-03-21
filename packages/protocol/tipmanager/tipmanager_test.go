@@ -12,11 +12,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization/slotnotarization"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markermanager"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markerbooker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markerbooker/markermanager"
+	"github.com/iotaledger/goshimmer/packages/protocol/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/runtime/debug"
@@ -114,10 +113,18 @@ func TestTipManager_TimeSinceConfirmation_Unconfirmed(t *testing.T) {
 	tf := NewTestFramework(t,
 		workers.CreateGroup("TipManagerTestFramework"),
 		WithGenesisUnixTime(genesisTime.Unix()),
-		WithTipManagerOptions(WithTimeSinceConfirmationThreshold(5*time.Minute)),
+		WithTipManagerOptions(
+			WithTimeSinceConfirmationThreshold(5*time.Minute),
+		),
+		WithBookerOptions(
+			markerbooker.WithMarkerManagerOptions(
+				markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](
+					markers.WithMaxPastMarkerDistance(10),
+				),
+			),
+		),
 		WithEngineOptions(
 			engine.WithBootstrapThreshold(time.Since(genesisTime.Add(-time.Hour))),
-			engine.WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(10))))),
 		),
 	)
 	tf.Engine.EvictionState.AddRootBlock(models.EmptyBlockID)
@@ -173,11 +180,21 @@ func TestTipManager_TimeSinceConfirmation_Confirmed(t *testing.T) {
 	tf := NewTestFramework(t,
 		workers.CreateGroup("TipManagerTestFramework"),
 		WithGenesisUnixTime(genesisTime.Unix()),
-		WithTipManagerOptions(WithTimeSinceConfirmationThreshold(5*time.Minute)),
-		WithSlotNotarizationOptions(slotnotarization.WithMinCommittableSlotAge(20*6)),
+		WithTipManagerOptions(
+			WithTimeSinceConfirmationThreshold(5*time.Minute),
+		),
+		WithSlotNotarizationOptions(
+			slotnotarization.WithMinCommittableSlotAge(20*6),
+		),
+		WithBookerOptions(
+			markerbooker.WithMarkerManagerOptions(
+				markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](
+					markers.WithMaxPastMarkerDistance(10),
+				),
+			),
+		),
 		WithEngineOptions(
 			engine.WithBootstrapThreshold(time.Since(genesisTime.Add(30*time.Second))),
-			engine.WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(10))))),
 		),
 	)
 	tf.Engine.EvictionState.AddRootBlock(models.EmptyBlockID)
@@ -236,11 +253,21 @@ func TestTipManager_TimeSinceConfirmation_MultipleParents(t *testing.T) {
 	tf := NewTestFramework(t,
 		workers.CreateGroup("TipManagerTestFramework"),
 		WithGenesisUnixTime(genesisTime.Unix()),
-		WithTipManagerOptions(WithTimeSinceConfirmationThreshold(5*time.Minute)),
-		WithSlotNotarizationOptions(slotnotarization.WithMinCommittableSlotAge(20*6)),
+		WithTipManagerOptions(
+			WithTimeSinceConfirmationThreshold(5*time.Minute),
+		),
+		WithSlotNotarizationOptions(
+			slotnotarization.WithMinCommittableSlotAge(20*6),
+		),
+		WithBookerOptions(
+			markerbooker.WithMarkerManagerOptions(
+				markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](
+					markers.WithMaxPastMarkerDistance(10),
+				),
+			),
+		),
 		WithEngineOptions(
 			engine.WithBootstrapThreshold(time.Since(genesisTime.Add(30*time.Second))),
-			engine.WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(10))))),
 		),
 	)
 	tf.Engine.EvictionState.AddRootBlock(models.EmptyBlockID)
@@ -443,11 +470,19 @@ func TestTipManager_TimeSinceConfirmation_RootBlockParent(t *testing.T) {
 	tf := NewTestFramework(t,
 		workers.CreateGroup("TipManagerTestFramework"),
 		WithGenesisUnixTime(genesisTime.Unix()),
+		WithBookerOptions(
+			markerbooker.WithMarkerManagerOptions(
+				markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](
+					markers.WithMaxPastMarkerDistance(10),
+				),
+			),
+		),
 		WithEngineOptions(
 			engine.WithBootstrapThreshold(time.Since(genesisTime.Add(-time.Hour))),
-			engine.WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(10))))),
 		),
-		WithTipManagerOptions(WithTimeSinceConfirmationThreshold(30*time.Second)),
+		WithTipManagerOptions(
+			WithTimeSinceConfirmationThreshold(30*time.Second),
+		),
 	)
 
 	now := tf.SlotTimeProvider().GenesisTime().Add(5 * time.Minute)
@@ -468,9 +503,9 @@ func TestTipManager_TimeSinceConfirmation_RootBlockParent(t *testing.T) {
 	tf.SetBlocksAccepted(acceptedBlockIDsAliases...)
 	tf.SetMarkersAccepted(acceptedMarkers...)
 	tf.SetAcceptedTime(now.Add(25 * time.Second))
-	tf.Tangle.BlockDAG.Instance.EvictionState.AddRootBlock(tf.Tangle.BlockDAG.Block("Block1").ID())
+	tf.Engine.EvictionState.AddRootBlock(tf.Tangle.BlockDAG.Block("Block1").ID())
 
-	tf.Tangle.BlockDAG.Instance.EvictionState.RemoveRootBlock(models.EmptyBlockID)
+	tf.Engine.EvictionState.RemoveRootBlock(models.EmptyBlockID)
 
 	require.Eventually(t, tf.Engine.Notarization.IsFullyCommitted, 1*time.Minute, 500*time.Millisecond)
 

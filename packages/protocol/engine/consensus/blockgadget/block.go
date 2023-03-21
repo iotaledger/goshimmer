@@ -1,7 +1,7 @@
 package blockgadget
 
 import (
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/runtime/options"
@@ -18,11 +18,11 @@ type Block struct {
 	acceptanceQueued   bool
 	confirmationQueued bool
 
-	*virtualvoting.Block
+	*booker.Block
 }
 
 // NewBlock creates a new Block with the given options.
-func NewBlock(virtualVotingBlock *virtualvoting.Block, opts ...options.Option[Block]) (newBlock *Block) {
+func NewBlock(virtualVotingBlock *booker.Block, opts ...options.Option[Block]) (newBlock *Block) {
 	return options.Apply(&Block{
 		Block: virtualVotingBlock,
 	}, opts)
@@ -138,7 +138,7 @@ func (b *Block) SetConfirmationQueued() (wasUpdated bool) {
 }
 
 func NewRootBlock(blockID models.BlockID, slotTimeProvider *slot.TimeProvider) *Block {
-	virtualVotingBlock := virtualvoting.NewRootBlock(blockID, slotTimeProvider)
+	virtualVotingBlock := booker.NewRootBlock(blockID, slotTimeProvider)
 
 	return NewBlock(virtualVotingBlock, WithAccepted(true), WithConfirmed(true))
 }

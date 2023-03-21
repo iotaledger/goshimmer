@@ -2,7 +2,7 @@ package blockgadget
 
 import (
 	"github.com/iotaledger/goshimmer/packages/core/module"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/protocol/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 

@@ -12,7 +12,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/markers"
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/runtime/debug"
@@ -124,7 +125,7 @@ func (t *TestFramework) AssertBlockTracked(blocksTracked uint32) {
 }
 
 func (t *TestFramework) setupEvents() {
-	t.Instance.Events.BlockTracked.Hook(func(metadata *Block) {
+	t.Instance.Events().BlockTracked.Hook(func(metadata *booker.Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("TRACKED: %s", metadata.ID())
 		}

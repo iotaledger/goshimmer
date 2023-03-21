@@ -9,8 +9,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/conflictresolver"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/slotgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/slotgadget/totalweightslotgadget"
-	"github.com/iotaledger/hive.go/core/slot"
-	"github.com/iotaledger/hive.go/runtime/event"
 	"github.com/iotaledger/hive.go/runtime/options"
 )
 
@@ -43,20 +41,11 @@ func NewProvider(opts ...options.Option[Consensus]) module.Provider[*engine.Engi
 			c.events.SlotGadget.LinkTo(c.slotGadget.Events())
 
 			e.HookConstructed(func() {
-				c.conflictResolver = conflictresolver.New(e.Ledger.MemPool().ConflictDAG(), e.Tangle.Booker.VirtualVoting.ConflictVotersTotalWeight)
+				c.conflictResolver = conflictresolver.New(e.Ledger.MemPool().ConflictDAG(), e.Tangle.Booker().VirtualVoting().ConflictVotersTotalWeight)
 
 				e.Events.Consensus.LinkTo(c.events)
 
 				e.Events.Consensus.BlockGadget.Error.Hook(e.Events.Error.Trigger)
-				e.Events.Consensus.SlotGadget.SlotConfirmed.Hook(func(index slot.Index) {
-					err := e.Storage.Permanent.Settings.SetLatestConfirmedSlot(index)
-					if err != nil {
-						panic(err)
-					}
-
-					//TODO: move this to the tangle when its modularized
-					e.Tangle.Booker.VirtualVoting.EvictSlotTracker(index)
-				}, event.WithWorkerPool(e.Workers.CreatePool("Consensus", 1))) // Using just 1 worker to avoid contention
 
 				e.HookInitialized(c.TriggerInitialized)
 			})
