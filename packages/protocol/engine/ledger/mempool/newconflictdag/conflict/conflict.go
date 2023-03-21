@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/reentrantmutex"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/weight"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/lo"
@@ -15,22 +16,36 @@ import (
 type Conflict[ConflictID, ResourceID IDType] struct {
 	// PreferredInsteadUpdated is triggered whenever preferred conflict is updated. It carries two values:
 	// the new preferred conflict and a set of conflicts visited
-	PreferredInsteadUpdated *event.Event2[*Conflict[ConflictID, ResourceID], TriggerContext[ConflictID]]
+	PreferredInsteadUpdated *event.Event2[*Conflict[ConflictID, ResourceID], reentrantmutex.ThreadID]
 
 	id      ConflictID
 	parents *advancedset.AdvancedSet[ConflictID]
 
 	children             *advancedset.AdvancedSet[*Conflict[ConflictID, ResourceID]]
 	weight               *weight.Weight
+	preferredInstead     *Conflict[ConflictID, ResourceID]
 	conflictSets         map[ResourceID]*Set[ConflictID, ResourceID]
 	conflictingConflicts *SortedSet[ConflictID, ResourceID]
 
 	mutex sync.RWMutex
 }
 
+func (c *Conflict[ConflictID, ResourceID]) PreferredInstead() *Conflict[ConflictID, ResourceID] {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	return c.preferredInstead
+}
+func (c *Conflict[ConflictID, ResourceID]) SetPreferredInstead(preferredInstead *Conflict[ConflictID, ResourceID]) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.preferredInstead = preferredInstead
+}
+
 func New[ConflictID, ResourceID IDType](id ConflictID, parents *advancedset.AdvancedSet[ConflictID], conflictSets map[ResourceID]*Set[ConflictID, ResourceID], initialWeight *weight.Weight) *Conflict[ConflictID, ResourceID] {
 	c := &Conflict[ConflictID, ResourceID]{
-		PreferredInsteadUpdated: event.New2[*Conflict[ConflictID, ResourceID], TriggerContext[ConflictID]](),
+		PreferredInsteadUpdated: event.New2[*Conflict[ConflictID, ResourceID], reentrantmutex.ThreadID](),
 		id:                      id,
 		parents:                 parents,
 		children:                advancedset.New[*Conflict[ConflictID, ResourceID]](),
@@ -39,9 +54,9 @@ func New[ConflictID, ResourceID IDType](id ConflictID, parents *advancedset.Adva
 	}
 
 	c.conflictingConflicts = NewSortedSet[ConflictID, ResourceID](c)
-	c.conflictingConflicts.HeaviestPreferredMemberUpdated.Hook(func(eventConflict *Conflict[ConflictID, ResourceID], visitedConflicts TriggerContext[ConflictID]) {
-		fmt.Println(c.ID(), "prefers", eventConflict.ID())
-		c.PreferredInsteadUpdated.Trigger(eventConflict, visitedConflicts)
+	c.conflictingConflicts.HeaviestPreferredMemberUpdated.Hook(func(eventConflict *Conflict[ConflictID, ResourceID], threadID reentrantmutex.ThreadID) {
+		fmt.Println(c.ID(), "prefers", eventConflict.ID(), threadID)
+		c.PreferredInsteadUpdated.Trigger(eventConflict, threadID)
 	})
 
 	// add existing conflicts first, so we can correctly determine the preferred instead flag
@@ -98,15 +113,12 @@ func (c *Conflict[ConflictID, ResourceID]) Compare(other *Conflict[ConflictID, R
 	return bytes.Compare(lo.PanicOnErr(c.id.Bytes()), lo.PanicOnErr(other.id.Bytes()))
 }
 
-func (c *Conflict[ConflictID, ResourceID]) PreferredInstead() *Conflict[ConflictID, ResourceID] {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-
-	return c.conflictingConflicts.HeaviestPreferredConflict()
+func (c *Conflict[ConflictID, ResourceID]) PreferredInstead(optThreadID ...reentrantmutex.ThreadID) *Conflict[ConflictID, ResourceID] {
+	return c.conflictingConflicts.HeaviestPreferredConflict(optThreadID...)
 }
 
-func (c *Conflict[ConflictID, ResourceID]) IsPreferred() bool {
-	return c.PreferredInstead() == c
+func (c *Conflict[ConflictID, ResourceID]) IsPreferred(optThreadID ...reentrantmutex.ThreadID) bool {
+	return c.PreferredInstead(optThreadID...) == c
 }
 
 func (c *Conflict[ConflictID, ResourceID]) String() string {

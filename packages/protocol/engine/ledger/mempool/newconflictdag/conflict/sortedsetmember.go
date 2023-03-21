@@ -2,11 +2,10 @@ package conflict
 
 import (
 	"bytes"
-	"fmt"
 	"sync"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/reentrantmutex"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/weight"
-	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/event"
 )
@@ -35,7 +34,7 @@ type sortedSetMember[ConflictID, ResourceID IDType] struct {
 	onUpdateHook *event.Hook[func(weight.Value)]
 
 	// onPreferredUpdatedHook is the hook that is triggered when the preferredInstead value of the Conflict is updated.
-	onPreferredUpdatedHook *event.Hook[func(*Conflict[ConflictID, ResourceID], TriggerContext[ConflictID])]
+	onPreferredUpdatedHook *event.Hook[func(*Conflict[ConflictID, ResourceID], reentrantmutex.ThreadID)]
 
 	// Conflict is the wrapped Conflict.
 	*Conflict[ConflictID, ResourceID]
@@ -53,8 +52,8 @@ func newSortedSetMember[ConflictID, ResourceID IDType](set *SortedSet[ConflictID
 
 	// do not attach to event from ourselves
 	if set.owner != conflict {
-		s.onPreferredUpdatedHook = conflict.PreferredInsteadUpdated.Hook(func(newPreferredConflict *Conflict[ConflictID, ResourceID], visitedConflicts TriggerContext[ConflictID]) {
-			s.notifyPreferredInsteadUpdate(newPreferredConflict, visitedConflicts)
+		s.onPreferredUpdatedHook = conflict.PreferredInsteadUpdated.Hook(func(newPreferredConflict *Conflict[ConflictID, ResourceID], threadID reentrantmutex.ThreadID) {
+			s.notifyPreferredInsteadUpdate(newPreferredConflict, threadID)
 		})
 	}
 
@@ -113,13 +112,6 @@ func (s *sortedSetMember[ConflictID, ResourceID]) weightUpdateApplied() bool {
 }
 
 // notifyPreferredInsteadUpdate notifies the sortedSet that the preferred instead flag of the Conflict was updated.
-func (s *sortedSetMember[ConflictID, ResourceID]) notifyPreferredInsteadUpdate(newPreferredConflict *Conflict[ConflictID, ResourceID], visitedConflicts TriggerContext[ConflictID]) {
-	if _, exists := visitedConflicts[s.sortedSet.owner.ID()]; !exists {
-		visitedConflicts[s.ID()] = types.Void
-		fmt.Println("notify", s.sortedSet.owner.ID(), "that", s.ID(), "prefers", newPreferredConflict.ID(), "with visited conflicts", visitedConflicts)
-
-		s.sortedSet.notifyPreferredInsteadUpdate(s, newPreferredConflict == s.Conflict, visitedConflicts)
-	} else {
-		fmt.Println("do not notify", s.sortedSet.owner.ID(), "that", s.ID(), "prefers", newPreferredConflict.ID(), "with visited conflicts", visitedConflicts)
-	}
+func (s *sortedSetMember[ConflictID, ResourceID]) notifyPreferredInsteadUpdate(newPreferredConflict *Conflict[ConflictID, ResourceID], threadID reentrantmutex.ThreadID) {
+	s.sortedSet.notifyPreferredInsteadUpdate(s, newPreferredConflict == s.Conflict, threadID)
 }
