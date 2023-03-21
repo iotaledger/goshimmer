@@ -42,6 +42,7 @@ type Manager struct {
 	optsMinimumForkDepth int64
 
 	commitmentEntityMutex *syncutils.DAGMutex[commitment.ID]
+	lastEvictedSlot       slot.Index
 }
 
 func NewManager(genesisCommitment *commitment.Commitment, opts ...options.Option[Manager]) (manager *Manager) {
@@ -53,17 +54,19 @@ func NewManager(genesisCommitment *commitment.Commitment, opts ...options.Option
 		commitmentEntityMutex:      syncutils.NewDAGMutex[commitment.ID](),
 		forkingPointsByCommitments: memstorage.NewSlotStorage[commitment.ID, commitment.ID](),
 		forksByForkingPoint:        shrinkingmap.New[commitment.ID, *Fork](),
-	}, opts, func(manager *Manager) {
-		manager.rootCommitment, _ = manager.getOrCreateCommitment(genesisCommitment.ID())
-		manager.rootCommitment.PublishCommitment(genesisCommitment)
-		manager.rootCommitment.SetSolid(true)
-		manager.rootCommitment.publishChain(NewChain(manager.rootCommitment))
+		lastEvictedSlot:            slot.Index(-1),
+	}, opts, func(m *Manager) {
+		m.rootCommitment, _ = m.getOrCreateCommitment(genesisCommitment.ID())
+		m.rootCommitment.PublishCommitment(genesisCommitment)
+		m.rootCommitment.SetSolid(true)
+		m.rootCommitment.publishChain(NewChain(m.rootCommitment))
 
-		manager.CommitmentRequester = eventticker.New(manager.optsCommitmentRequester...)
-		manager.Events.CommitmentMissing.Hook(manager.CommitmentRequester.StartTicker)
-		manager.Events.MissingCommitmentReceived.Hook(manager.CommitmentRequester.StopTicker)
+		m.CommitmentRequester = eventticker.New(m.optsCommitmentRequester...)
+		m.Events.CommitmentMissing.Hook(m.CommitmentRequester.StartTicker)
+		m.Events.MissingCommitmentReceived.Hook(m.CommitmentRequester.StopTicker)
+		m.Events.CommitmentBelowRoot.Hook(m.CommitmentRequester.StopTicker)
 
-		manager.commitmentsByID.Get(manager.rootCommitment.ID().Index(), true).Set(manager.rootCommitment.ID(), manager.rootCommitment)
+		m.commitmentsByID.Get(m.rootCommitment.ID().Index(), true).Set(m.rootCommitment.ID(), m.rootCommitment)
 	})
 }
 
@@ -102,10 +105,21 @@ func (m *Manager) ProcessCommitment(commitment *commitment.Commitment) (isSolid 
 	return isSolid, chainCommitment.Chain()
 }
 
-func (m *Manager) Evict(index slot.Index) {
+func (m *Manager) EvictUntil(index slot.Index) {
 	m.evictionMutex.Lock()
 	defer m.evictionMutex.Unlock()
 
+	if index <= m.lastEvictedSlot {
+		return
+	}
+
+	for currentIndex := m.lastEvictedSlot + 1; currentIndex <= index; currentIndex++ {
+		m.evict(currentIndex)
+	}
+	m.lastEvictedSlot = index
+}
+
+func (m *Manager) evict(index slot.Index) {
 	fmt.Println(">> evicting", index)
 
 	// Forget about the forks that we detected at that slot so that we can detect them again if they happen
@@ -187,8 +201,9 @@ func (m *Manager) processCommitment(commitment *commitment.Commitment) (isNew bo
 	if isBelowRootCommitment, isRootCommitment := m.evaluateAgainstRootCommitment(commitment); isBelowRootCommitment || isRootCommitment {
 		if isRootCommitment {
 			chainCommitment = m.rootCommitment
+		} else {
+			m.Events.CommitmentBelowRoot.Trigger(commitment.ID())
 		}
-		m.CommitmentRequester.StopTicker(commitment.ID())
 		return false, isRootCommitment, chainCommitment
 	}
 
@@ -220,22 +235,12 @@ func (m *Manager) processCommitment(commitment *commitment.Commitment) (isNew bo
 }
 
 func (m *Manager) getOrCreateCommitment(id commitment.ID) (commitment *Commitment, created bool) {
-	// TODO: we could remove this by shifting eviction to m.rootCommitment-1. As then the rootCommitment is still available in m.commitmentsByID
-	if m.rootCommitment != nil && m.rootCommitment.ID() == id {
-		return m.rootCommitment, false
-	}
-
 	return m.commitmentsByID.Get(id.Index(), true).GetOrCreate(id, func() *Commitment {
 		return NewCommitment(id)
 	})
 }
 
 func (m *Manager) commitment(id commitment.ID) (commitment *Commitment, exists bool) {
-	// TODO: we could remove this by shifting eviction to m.rootCommitment-1. As then the rootCommitment is still available in m.commitmentsByID
-	if m.rootCommitment.ID() == id {
-		return m.rootCommitment, true
-	}
-
 	storage := m.commitmentsByID.Get(id.Index())
 	if storage == nil {
 		return nil, false

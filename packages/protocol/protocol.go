@@ -228,7 +228,7 @@ func (p *Protocol) initChainManager() {
 			panic(fmt.Sprintln("could not load latest confirmed commitment", err))
 		}
 		p.chainManager.SetRootCommitment(newRootCommitment)
-		p.chainManager.Evict(index)
+		p.chainManager.EvictUntil(index - 1)
 	}, event.WithWorkerPool(wp))
 	p.Events.ChainManager.ForkDetected.Hook(p.onForkDetected, event.WithWorkerPool(wp))
 	p.Events.Network.SlotCommitmentReceived.Hook(func(event *network.SlotCommitmentReceivedEvent) {

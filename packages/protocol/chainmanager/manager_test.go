@@ -242,7 +242,7 @@ func TestManagerForkDetectedAgain(t *testing.T) {
 
 	// We now evict at 7 so that we forget about the fork we had before
 	{
-		tf.Instance.Evict(7)
+		tf.Instance.EvictUntil(7)
 	}
 
 	// Processing the next commitment should trigger the event again
@@ -317,7 +317,7 @@ func TestProcessCommitment(t *testing.T) {
 
 	fmt.Println("------- root commitment is now 2 -------")
 	tf.Instance.SetRootCommitment(tf.commitment("2"))
-	tf.Instance.Evict(2)
+	tf.Instance.EvictUntil(2 - 1)
 
 	{
 		require.Equal(t, tf.commitment("2").ID(), tf.Instance.rootCommitment.ID())
@@ -337,6 +337,7 @@ func TestProcessCommitment(t *testing.T) {
 			tf.AssertForkDetectedCount(0)
 			tf.AssertCommitmentMissingCount(0)
 			tf.AssertMissingCommitmentReceivedCount(0)
+			tf.AssertCommitmentBelowRootCount(1)
 		}
 		{
 			isSolid, chain := tf.ProcessCommitment("2*")
@@ -345,6 +346,7 @@ func TestProcessCommitment(t *testing.T) {
 			tf.AssertForkDetectedCount(0)
 			tf.AssertCommitmentMissingCount(0)
 			tf.AssertMissingCommitmentReceivedCount(0)
+			tf.AssertCommitmentBelowRootCount(2)
 		}
 		{
 			isSolid, chain := tf.ProcessCommitment("3*")
@@ -352,7 +354,8 @@ func TestProcessCommitment(t *testing.T) {
 			require.Nil(t, chain)
 			tf.AssertForkDetectedCount(0)
 			tf.AssertCommitmentMissingCount(1)
-			// tf.AssertMissingCommitmentReceivedCount(1)
+			tf.AssertMissingCommitmentReceivedCount(0)
+			tf.AssertCommitmentBelowRootCount(2)
 		}
 		{
 			isSolid, chain := tf.ProcessCommitment("2+")
@@ -360,7 +363,8 @@ func TestProcessCommitment(t *testing.T) {
 			require.Nil(t, chain)
 			tf.AssertForkDetectedCount(0)
 			tf.AssertCommitmentMissingCount(1)
-			// tf.AssertMissingCommitmentReceivedCount(1)
+			tf.AssertMissingCommitmentReceivedCount(0)
+			tf.AssertCommitmentBelowRootCount(3)
 		}
 	}
 
@@ -373,8 +377,14 @@ func TestProcessCommitment(t *testing.T) {
 			require.True(t, isSolid)
 			tf.AssertChainIsAlias(chain, "Genesis")
 			tf.AssertChainState(lo.MergeMaps(expectedChainMappings, map[string]string{
-				"2": "Genesis",
+				"Genesis": "evicted",
+				"1":       "evicted",
+				"2":       "Genesis",
 			}))
+			tf.AssertForkDetectedCount(0)
+			tf.AssertCommitmentMissingCount(1)
+			tf.AssertMissingCommitmentReceivedCount(0)
+			tf.AssertCommitmentBelowRootCount(3)
 		}
 		{
 			isSolid, chain := tf.ProcessCommitment("4")
@@ -386,6 +396,7 @@ func TestProcessCommitment(t *testing.T) {
 			tf.AssertForkDetectedCount(0)
 			tf.AssertCommitmentMissingCount(2)
 			tf.AssertMissingCommitmentReceivedCount(0)
+			tf.AssertCommitmentBelowRootCount(3)
 		}
 		{
 			isSolid, chain := tf.ProcessCommitment("3")
@@ -398,6 +409,7 @@ func TestProcessCommitment(t *testing.T) {
 			tf.AssertForkDetectedCount(0)
 			tf.AssertCommitmentMissingCount(2)
 			tf.AssertMissingCommitmentReceivedCount(1)
+			tf.AssertCommitmentBelowRootCount(3)
 		}
 		{
 			isSolid, chain := tf.ProcessCommitment("4")
@@ -407,6 +419,7 @@ func TestProcessCommitment(t *testing.T) {
 			tf.AssertForkDetectedCount(0)
 			tf.AssertCommitmentMissingCount(2)
 			tf.AssertMissingCommitmentReceivedCount(1)
+			tf.AssertCommitmentBelowRootCount(3)
 		}
 
 	}
