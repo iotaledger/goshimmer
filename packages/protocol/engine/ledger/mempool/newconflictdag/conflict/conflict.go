@@ -15,13 +15,14 @@ import (
 type Conflict[ConflictID, ResourceID IDType] struct {
 	// PreferredInsteadUpdated is triggered whenever preferred conflict is updated. It carries two values:
 	// the new preferred conflict and a set of conflicts visited
-	PreferredInsteadUpdated *event.Event2[*Conflict[ConflictID, ResourceID], TriggerContext[ConflictID]]
+	PreferredInsteadUpdated *event.Event1[*Conflict[ConflictID, ResourceID]]
 
 	id      ConflictID
 	parents *advancedset.AdvancedSet[ConflictID]
 
 	children             *advancedset.AdvancedSet[*Conflict[ConflictID, ResourceID]]
 	weight               *weight.Weight
+	preferredInstead     *Conflict[ConflictID, ResourceID]
 	conflictSets         map[ResourceID]*Set[ConflictID, ResourceID]
 	conflictingConflicts *SortedSet[ConflictID, ResourceID]
 
@@ -30,7 +31,7 @@ type Conflict[ConflictID, ResourceID IDType] struct {
 
 func New[ConflictID, ResourceID IDType](id ConflictID, parents *advancedset.AdvancedSet[ConflictID], conflictSets map[ResourceID]*Set[ConflictID, ResourceID], initialWeight *weight.Weight) *Conflict[ConflictID, ResourceID] {
 	c := &Conflict[ConflictID, ResourceID]{
-		PreferredInsteadUpdated: event.New2[*Conflict[ConflictID, ResourceID], TriggerContext[ConflictID]](),
+		PreferredInsteadUpdated: event.New1[*Conflict[ConflictID, ResourceID]](),
 		id:                      id,
 		parents:                 parents,
 		children:                advancedset.New[*Conflict[ConflictID, ResourceID]](),
@@ -39,10 +40,6 @@ func New[ConflictID, ResourceID IDType](id ConflictID, parents *advancedset.Adva
 	}
 
 	c.conflictingConflicts = NewSortedSet[ConflictID, ResourceID](c)
-	c.conflictingConflicts.HeaviestPreferredMemberUpdated.Hook(func(eventConflict *Conflict[ConflictID, ResourceID], visitedConflicts TriggerContext[ConflictID]) {
-		fmt.Println(c.ID(), "prefers", eventConflict.ID())
-		c.PreferredInsteadUpdated.Trigger(eventConflict, visitedConflicts)
-	})
 
 	// add existing conflicts first, so we can correctly determine the preferred instead flag
 	for _, conflictSet := range conflictSets {
@@ -69,15 +66,6 @@ func (c *Conflict[ConflictID, ResourceID]) Weight() *weight.Weight {
 	return c.weight
 }
 
-func (c *Conflict[ConflictID, ResourceID]) onWeightUpdated(newWeight weight.Value) {
-	// c.m.Lock()
-	// defer c.m.Unlock()
-	//
-	// if heavierConflict.IsPreferred() && heavierConflict.Compare(c.preferredInstead) == weight.Heavier {
-	// 	c.preferredInstead = heavierConflict
-	// }
-}
-
 func (c *Conflict[ConflictID, ResourceID]) Compare(other *Conflict[ConflictID, ResourceID]) int {
 	if c == other {
 		return weight.Equal
@@ -102,7 +90,21 @@ func (c *Conflict[ConflictID, ResourceID]) PreferredInstead() *Conflict[Conflict
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
-	return c.conflictingConflicts.HeaviestPreferredConflict()
+	return c.preferredInstead
+}
+func (c *Conflict[ConflictID, ResourceID]) SetPreferredInstead(preferredInstead *Conflict[ConflictID, ResourceID]) bool {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	if c.preferredInstead == preferredInstead {
+		return false
+	}
+	c.preferredInstead = preferredInstead
+
+	fmt.Println("conflict", c.ID(), "now prefers", preferredInstead.ID())
+	c.PreferredInsteadUpdated.Trigger(preferredInstead)
+
+	return true
 }
 
 func (c *Conflict[ConflictID, ResourceID]) IsPreferred() bool {

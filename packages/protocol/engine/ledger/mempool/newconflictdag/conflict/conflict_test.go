@@ -79,7 +79,7 @@ func TestConflictSets(t *testing.T) {
 		conflictE: conflictE,
 	}
 
-	//assertPreferredInstead(t, preferredInsteadMap)
+	assertPreferredInstead(t, preferredInsteadMap)
 
 	fmt.Println("set weight D=10...")
 
@@ -91,15 +91,15 @@ func TestConflictSets(t *testing.T) {
 		conflictE: conflictD,
 	}))
 
-	//fmt.Println("set weight D=0...")
-	//
-	//conflictD.Weight().SetCumulativeWeight(0)
-	//
-	//assertPreferredInstead(t, lo.MergeMaps(preferredInsteadMap, map[*Conflict[utxo.OutputID, utxo.OutputID]]*Conflict[utxo.OutputID, utxo.OutputID]{
-	//	conflictC: conflictC,
-	//	conflictD: conflictE,
-	//	conflictE: conflictE,
-	//}))
+	fmt.Println("set weight D=0...")
+
+	conflictD.Weight().SetCumulativeWeight(0)
+
+	assertPreferredInstead(t, lo.MergeMaps(preferredInsteadMap, map[*Conflict[utxo.OutputID, utxo.OutputID]]*Conflict[utxo.OutputID, utxo.OutputID]{
+		conflictC: conflictC,
+		conflictD: conflictE,
+		conflictE: conflictE,
+	}))
 }
 
 func assertPreferredInstead(t *testing.T, preferredInsteadMap map[*Conflict[utxo.OutputID, utxo.OutputID]]*Conflict[utxo.OutputID, utxo.OutputID]) {

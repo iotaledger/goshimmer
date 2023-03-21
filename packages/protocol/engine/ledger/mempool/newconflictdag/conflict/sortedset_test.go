@@ -185,6 +185,8 @@ func generateRandomCumulativeWeightPermutation(delta int64) func(conflict *Confl
 }
 
 func assertSortedConflictsOrder[ConflictID, ResourceID IDType](t *testing.T, sortedConflicts *SortedSet[ConflictID, ResourceID], aliases ...string) {
+	sortedConflicts.WaitConsistent()
+
 	require.NoError(t, sortedConflicts.ForEach(func(c *Conflict[ConflictID, ResourceID]) error {
 		currentAlias := aliases[0]
 		aliases = aliases[1:]
@@ -198,7 +200,9 @@ func assertSortedConflictsOrder[ConflictID, ResourceID IDType](t *testing.T, sor
 }
 
 func newConflict(alias string, weight *weight.Weight) *Conflict[utxo.OutputID, utxo.OutputID] {
-	return New[utxo.OutputID, utxo.OutputID](outputID(alias), nil, nil, weight)
+	conflict := New[utxo.OutputID, utxo.OutputID](outputID(alias), nil, nil, weight)
+	conflict.WaitConsistent()
+	return conflict
 }
 
 func outputID(alias string) utxo.OutputID {
