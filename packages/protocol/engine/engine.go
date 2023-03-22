@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -182,6 +183,7 @@ func (e *Engine) SlotTimeProvider() *slot.TimeProvider {
 
 func (e *Engine) Initialize(snapshot ...string) (err error) {
 	if !e.Storage.Settings.SnapshotImported() {
+		fmt.Println(">>>> importing snapshot...")
 		if len(snapshot) == 0 || snapshot[0] == "" {
 			panic("no snapshot path specified")
 		}

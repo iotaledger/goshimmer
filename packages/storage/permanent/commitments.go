@@ -2,6 +2,7 @@ package permanent
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
 
 	"github.com/pkg/errors"
@@ -101,6 +102,8 @@ func (c *Commitments) Import(reader io.ReadSeeker) (err error) {
 			return errors.Errorf("failed to read commitment of slot %d: consumed bytes (%d) != expected bytes (%d)", slotIndex, consumedBytes, commitmentSize)
 		}
 
+		fmt.Println(">>>>> commitmentBytes", commitmentBytes)
+		fmt.Println(">>>>> imported commitment", newCommitment)
 		if err = c.Store(newCommitment); err != nil {
 			return errors.Wrapf(err, "failed to store commitment of slot %d", slotIndex)
 		}

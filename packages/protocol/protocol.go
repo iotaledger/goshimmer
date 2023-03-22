@@ -208,12 +208,15 @@ func (p *Protocol) initNetworkEvents() {
 }
 
 func (p *Protocol) initChainManager() {
-	genesisCommitment, err := p.Engine().Storage.Commitments.Load(0)
-	if err != nil {
-		panic(err)
-	}
+	genesisCommitment := p.Engine().Storage.Settings.LatestCommitment()
 	fmt.Println(">>>>> genesiscommitment", genesisCommitment)
 	p.chainManager = chainmanager.NewManager(genesisCommitment, p.optsChainManagerOptions...)
+
+	p.Engine().HookInitialized(func() {
+		genesisCommitment := p.Engine().Storage.Settings.LatestCommitment()
+		fmt.Println(">>>>> genesiscommitment after engine initialized", genesisCommitment)
+		p.chainManager.InitRootCommitment(genesisCommitment)
+	})
 
 	p.Events.ChainManager = p.chainManager.Events
 
@@ -354,7 +357,7 @@ func (p *Protocol) switchEngines() {
 
 func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) error {
 	mainEngine := p.MainEngineInstance()
-	fmt.Println(">>>>> processBlock 1", block.ID(), block.Commitment())
+	fmt.Println(">>>>> processBlock 1", block.ID(), block.Commitment().ID())
 
 	isSolid, chain := p.chainManager.ProcessCommitmentFromSource(block.Commitment(), src)
 	if chain != nil {

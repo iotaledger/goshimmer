@@ -56,17 +56,10 @@ func NewManager(genesisCommitment *commitment.Commitment, opts ...options.Option
 		forksByForkingPoint:        shrinkingmap.New[commitment.ID, *Fork](),
 		lastEvictedSlot:            slot.Index(-1),
 	}, opts, func(m *Manager) {
-		m.rootCommitment, _ = m.getOrCreateCommitment(genesisCommitment.ID())
-		m.rootCommitment.PublishCommitment(genesisCommitment)
-		m.rootCommitment.SetSolid(true)
-		m.rootCommitment.publishChain(NewChain(m.rootCommitment))
-
 		m.CommitmentRequester = eventticker.New(m.optsCommitmentRequester...)
 		m.Events.CommitmentMissing.Hook(m.CommitmentRequester.StartTicker)
 		m.Events.MissingCommitmentReceived.Hook(m.CommitmentRequester.StopTicker)
 		m.Events.CommitmentBelowRoot.Hook(m.CommitmentRequester.StopTicker)
-
-		m.commitmentsByID.Get(m.rootCommitment.ID().Index(), true).Set(m.rootCommitment.ID(), m.rootCommitment)
 	})
 }
 
@@ -132,6 +125,16 @@ func (m *Manager) evict(index slot.Index) {
 	}
 
 	m.commitmentsByID.Evict(index)
+}
+
+func (m *Manager) InitRootCommitment(c *commitment.Commitment) {
+	m.rootCommitmentMutex.Lock()
+	defer m.rootCommitmentMutex.Unlock()
+
+	m.rootCommitment, _ = m.getOrCreateCommitment(c.ID())
+	m.rootCommitment.PublishCommitment(c)
+	m.rootCommitment.SetSolid(true)
+	m.rootCommitment.publishChain(NewChain(m.rootCommitment))
 }
 
 // SetRootCommitment sets the root commitment of the manager.
