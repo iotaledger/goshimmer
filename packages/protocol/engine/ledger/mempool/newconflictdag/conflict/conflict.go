@@ -38,7 +38,7 @@ func New[ConflictID, ResourceID IDType](id ConflictID, parents *advancedset.Adva
 		conflictSets:            conflictSets,
 		weight:                  initialWeight,
 	}
-
+	c.preferredInstead = c
 	c.conflictingConflicts = NewSortedSet[ConflictID, ResourceID](c, pendingTasksCounter)
 
 	// add existing conflicts first, so we can correctly determine the preferred instead flag

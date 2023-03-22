@@ -38,9 +38,6 @@ type sortedSetMember[ConflictID, ResourceID IDType] struct {
 	// onPreferredUpdatedHook is the hook that is triggered when the preferredInstead value of the Conflict is updated.
 	onPreferredUpdatedHook *event.Hook[func(*Conflict[ConflictID, ResourceID])]
 
-	eventLog      []string
-	eventLogMutex sync.Mutex
-
 	// Conflict is the wrapped Conflict.
 	*Conflict[ConflictID, ResourceID]
 }
@@ -66,20 +63,6 @@ func (s *sortedSetMember[ConflictID, ResourceID]) Weight() weight.Value {
 	defer s.weightMutex.RUnlock()
 
 	return s.currentWeight
-}
-
-func (s *sortedSetMember[ConflictID, ResourceID]) AppendEventLog(log string) {
-	s.weightMutex.Lock()
-	defer s.weightMutex.Unlock()
-
-	s.eventLog = append(s.eventLog, log)
-}
-
-func (s *sortedSetMember[ConflictID, ResourceID]) EventLog() []string {
-	s.weightMutex.Lock()
-	defer s.weightMutex.Unlock()
-
-	return s.eventLog
 }
 
 // Compare compares the sortedSetMember to another sortedSetMember.
@@ -130,6 +113,12 @@ func (s *sortedSetMember[ConflictID, ResourceID]) weightUpdateApplied() bool {
 		return false
 	}
 
+	if *s.queuedWeight == s.currentWeight {
+		s.queuedWeight = nil
+
+		return false
+	}
+
 	s.currentWeight = *s.queuedWeight
 	s.queuedWeight = nil
 
@@ -156,6 +145,12 @@ func (s *sortedSetMember[ConflictID, ResourceID]) preferredInsteadUpdateApplied(
 	defer s.preferredInsteadMutex.Unlock()
 
 	if s.queuedPreferredInstead == nil {
+		return false
+	}
+
+	if s.queuedPreferredInstead == s.currentPreferredInstead {
+		s.queuedPreferredInstead = nil
+
 		return false
 	}
 

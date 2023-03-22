@@ -1,7 +1,6 @@
 package conflict
 
 import (
-	"fmt"
 	"sync"
 	"sync/atomic"
 
@@ -62,7 +61,11 @@ func NewSortedSet[ConflictID, ResourceID IDType](owner *Conflict[ConflictID, Res
 	s.pendingWeightUpdatesSignal = sync.NewCond(&s.pendingWeightUpdatesMutex)
 	s.pendingPreferredInsteadSignal = sync.NewCond(&s.pendingPreferredInsteadMutex)
 
-	s.Add(owner)
+	newMember := newSortedSetMember[ConflictID, ResourceID](s, owner)
+	s.members.Set(owner.id, newMember)
+
+	s.heaviestMember = newMember
+	s.heaviestPreferredMember = newMember
 
 	// TODO: move to WorkerPool so we are consistent with the rest of the codebase
 	go s.fixMemberPositionWorker()
@@ -81,14 +84,6 @@ func (s *SortedSet[ConflictID, ResourceID]) Add(conflict *Conflict[ConflictID, R
 	})
 
 	if !isNew {
-		return
-	}
-
-	if conflict == s.owner {
-		s.heaviestMember = newMember
-		s.heaviestPreferredMember = newMember
-		s.owner.SetPreferredInstead(conflict)
-
 		return
 	}
 
@@ -143,17 +138,6 @@ func (s *SortedSet[ConflictID, ResourceID]) ForEach(callback func(*Conflict[Conf
 	return nil
 }
 
-// ForEach iterates over all Conflicts of the SortedSet and calls the given callback for each of them.
-func (s *SortedSet[ConflictID, ResourceID]) forEach(callback func(*Conflict[ConflictID, ResourceID]) error) error {
-	for currentMember := s.heaviestMember; currentMember != nil; currentMember = currentMember.lighterMember {
-		if err := callback(currentMember.Conflict); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 // HeaviestConflict returns the heaviest Conflict of the SortedSet.
 func (s *SortedSet[ConflictID, ResourceID]) HeaviestConflict() *Conflict[ConflictID, ResourceID] {
 	s.mutex.RLock()
@@ -180,21 +164,6 @@ func (s *SortedSet[ConflictID, ResourceID]) String() string {
 	)
 
 	_ = s.ForEach(func(conflict *Conflict[ConflictID, ResourceID]) error {
-		structBuilder.AddField(stringify.NewStructField(conflict.id.String(), conflict))
-		return nil
-	})
-
-	return structBuilder.String()
-}
-
-func (s *SortedSet[ConflictID, ResourceID]) string() string {
-	structBuilder := stringify.NewStructBuilder("SortedSet",
-		stringify.NewStructField("owner", s.owner.ID()),
-		stringify.NewStructField("heaviestMember", s.heaviestMember.ID()),
-		stringify.NewStructField("heaviestPreferredMember", s.heaviestPreferredMember.ID()),
-	)
-
-	_ = s.forEach(func(conflict *Conflict[ConflictID, ResourceID]) error {
 		structBuilder.AddField(stringify.NewStructField(conflict.id.String(), conflict))
 		return nil
 	})
@@ -247,10 +216,18 @@ func (s *SortedSet[ConflictID, ResourceID]) nextPendingWeightUpdate() *sortedSet
 // fixMemberPositionWorker is a worker that fixes the position of sortedSetMembers that need to be updated.
 func (s *SortedSet[ConflictID, ResourceID]) fixMemberPositionWorker() {
 	for member := s.nextPendingWeightUpdate(); member != nil; member = s.nextPendingWeightUpdate() {
-		if member.weightUpdateApplied() {
-			s.fixMemberPosition(member)
-		}
+		s.applyWeightUpdate(member)
+
 		s.pendingUpdatesCounter.Decrease()
+	}
+}
+
+func (s *SortedSet[ConflictID, ResourceID]) applyWeightUpdate(member *sortedSetMember[ConflictID, ResourceID]) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if member.weightUpdateApplied() {
+		s.fixMemberPosition(member)
 	}
 }
 
@@ -275,18 +252,22 @@ func (s *SortedSet[ConflictID, ResourceID]) nextPendingPreferredMemberUpdate() *
 // fixMemberPositionWorker is a worker that fixes the position of sortedSetMembers that need to be updated.
 func (s *SortedSet[ConflictID, ResourceID]) fixHeaviestPreferredMemberWorker() {
 	for member := s.nextPendingPreferredMemberUpdate(); member != nil; member = s.nextPendingPreferredMemberUpdate() {
-		if member.preferredInsteadUpdateApplied() {
-			s.fixHeaviestPreferredMember(member)
-		}
+		s.applyPreferredInsteadUpdate(member)
 
 		s.pendingUpdatesCounter.Decrease()
 	}
 }
 
-func (s *SortedSet[ConflictID, ResourceID]) fixHeaviestPreferredMember(member *sortedSetMember[ConflictID, ResourceID]) {
+func (s *SortedSet[ConflictID, ResourceID]) applyPreferredInsteadUpdate(member *sortedSetMember[ConflictID, ResourceID]) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
+	if member.preferredInsteadUpdateApplied() {
+		s.fixHeaviestPreferredMember(member)
+	}
+}
+
+func (s *SortedSet[ConflictID, ResourceID]) fixHeaviestPreferredMember(member *sortedSetMember[ConflictID, ResourceID]) {
 	if member.IsPreferred() {
 		if member.Compare(s.heaviestPreferredMember) == weight.Heavier {
 			s.heaviestPreferredMember = member
@@ -298,12 +279,6 @@ func (s *SortedSet[ConflictID, ResourceID]) fixHeaviestPreferredMember(member *s
 
 	if s.heaviestPreferredMember == member {
 		for currentMember := member; ; currentMember = currentMember.lighterMember {
-			if currentMember == nil {
-				fmt.Println("member", member.ID())
-				fmt.Println(s.string())
-				fmt.Println("member event log", member.EventLog())
-			}
-
 			isOwner := currentMember.Conflict == s.owner
 			preferred := currentMember.IsPreferred()
 			instead := currentMember.PreferredInstead()
@@ -321,33 +296,26 @@ func (s *SortedSet[ConflictID, ResourceID]) fixHeaviestPreferredMember(member *s
 
 // fixMemberPosition fixes the position of the given member in the SortedSet.
 func (s *SortedSet[ConflictID, ResourceID]) fixMemberPosition(member *sortedSetMember[ConflictID, ResourceID]) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
 	preferredConflict := member.PreferredInstead()
 	memberIsPreferred := member.IsPreferred()
 
 	// the member needs to be moved up in the list
 	for currentMember := member.heavierMember; currentMember != nil && currentMember.Compare(member) == weight.Lighter; currentMember = member.heavierMember {
 		s.swapNeighbors(member, currentMember)
-		member.AppendEventLog("moved up")
-		currentMember.AppendEventLog("swapped down")
 
-		if currentMember == s.heaviestPreferredMember && (preferredConflict == currentMember.Conflict || memberIsPreferred) {
+		if currentMember == s.heaviestPreferredMember && (preferredConflict == currentMember.Conflict || memberIsPreferred || member.Conflict == s.owner) {
 			s.heaviestPreferredMember = member
 			s.owner.SetPreferredInstead(member.Conflict)
 		}
 	}
 
-	// the member needs to be moved down in the list
 	memberIsHeaviestPreferred := member == s.heaviestPreferredMember
 
+	// the member needs to be moved down in the list
 	for currentMember := member.lighterMember; currentMember != nil && currentMember.Compare(member) == weight.Heavier; currentMember = member.lighterMember {
 		s.swapNeighbors(currentMember, member)
-		currentMember.AppendEventLog("swapped up")
-		member.AppendEventLog("moved down")
 
-		if memberIsHeaviestPreferred && (currentMember.IsPreferred() || currentMember.PreferredInstead() == member.Conflict) {
+		if memberIsHeaviestPreferred && (currentMember.IsPreferred() || currentMember.PreferredInstead() == member.Conflict || currentMember.Conflict == s.owner) {
 			s.heaviestPreferredMember = currentMember
 			s.owner.SetPreferredInstead(currentMember.Conflict)
 
