@@ -1,7 +1,6 @@
 package eviction
 
 import (
-	"fmt"
 	"io"
 	"sync"
 
@@ -116,8 +115,6 @@ func (s *State) AddRootBlock(id models.BlockID, commitmentID commitment.ID) {
 			panic(errors.Wrapf(err, "failed to store root block %s", id))
 		}
 	}
-
-	fmt.Println(">> add root block", id, commitmentID)
 
 	s.latestRootBlocks.Add(id)
 }

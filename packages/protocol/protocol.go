@@ -209,7 +209,6 @@ func (p *Protocol) initNetworkEvents() {
 
 func (p *Protocol) initChainManager() {
 	genesisCommitment := p.Engine().Storage.Settings.LatestCommitment()
-	fmt.Println(">>>>> genesiscommitment", genesisCommitment)
 	p.chainManager = chainmanager.NewManager(genesisCommitment, p.optsChainManagerOptions...)
 
 	p.Engine().HookInitialized(func() {
@@ -219,7 +218,6 @@ func (p *Protocol) initChainManager() {
 			panic(fmt.Sprintln("could not load earliest commitment after engine initialization", err))
 		}
 		p.Engine().Storage.Settings.SetChainID(rootCommitment.ID())
-		fmt.Println(">>>>> rootcommitment after engine initialized", rootCommitment)
 		p.chainManager.InitRootCommitment(rootCommitment)
 	})
 
@@ -362,12 +360,8 @@ func (p *Protocol) switchEngines() {
 
 func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) error {
 	mainEngine := p.MainEngineInstance()
-	fmt.Println(">>>>> processBlock 1", block.ID(), block.Commitment().ID())
 
 	isSolid, chain := p.chainManager.ProcessCommitmentFromSource(block.Commitment(), src)
-	if chain != nil {
-		fmt.Println(">>>>> processBlock 2", isSolid, chain.ForkingPoint.ID(), "mainChain", mainEngine.Storage.Settings.ChainID())
-	}
 	if !isSolid {
 		return errors.Errorf("protocol ProcessBlock failed. chain is not solid: %s, latest commitment: %s, block ID: %s", block.Commitment().ID(), mainEngine.Storage.Settings.LatestCommitment().ID(), block.ID())
 	}

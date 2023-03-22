@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -183,7 +182,6 @@ func (e *Engine) SlotTimeProvider() *slot.TimeProvider {
 
 func (e *Engine) Initialize(snapshot ...string) (err error) {
 	if !e.Storage.Settings.SnapshotImported() {
-		fmt.Println(">>>> importing snapshot...")
 		if len(snapshot) == 0 || snapshot[0] == "" {
 			panic("no snapshot path specified")
 		}
@@ -294,7 +292,6 @@ func (e *Engine) setupEvictionState() {
 			if parent.ID.Index() < block.ID().Index() {
 				block, exists := e.Block(parent.ID)
 				if !exists {
-					fmt.Println(">> could not find", parent.ID)
 					e.Events.Error.Trigger(errors.Errorf("cannot store root block (%s) because it is missing", parent.ID))
 					return
 				}

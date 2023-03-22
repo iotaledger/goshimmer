@@ -113,8 +113,6 @@ func (m *Manager) EvictUntil(index slot.Index) {
 }
 
 func (m *Manager) evict(index slot.Index) {
-	fmt.Println(">> evicting", index)
-
 	// Forget about the forks that we detected at that slot so that we can detect them again if they happen
 	evictedForkDetections := m.forkingPointsByCommitments.Evict(index)
 	if evictedForkDetections != nil {
@@ -211,7 +209,6 @@ func (m *Manager) processCommitment(commitment *commitment.Commitment) (isNew bo
 	}
 
 	isNew, isSolid, _, chainCommitment = m.registerCommitment(commitment)
-	fmt.Println("processCommitment", commitment.ID(), isNew, isSolid, chainCommitment.Chain())
 	if !isNew || chainCommitment.Chain() == nil {
 		return
 	}
