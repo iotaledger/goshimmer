@@ -119,7 +119,15 @@ func TestRateSetter_IssueBlocksAndAwaitScheduleMultipleIssuers_Disabled(t *testi
 
 	allBlocks := make(map[models.BlockID]*models.Block)
 
-	tf := NewTestFramework(t, workers.CreateGroup("RateSetterTestFramework"), WithRateSetterOptions(WithMode(DisabledMode)), WithSchedulerOptions(scheduler.WithRate(schedulerRate)), WithNumIssuers(numIssuers))
+	tf := NewTestFramework(t, workers.CreateGroup("RateSetterTestFramework"),
+		WithRateSetterOptions(
+			WithMode(DisabledMode),
+		),
+		WithSchedulerOptions(
+			scheduler.WithRate(schedulerRate),
+		),
+		WithNumIssuers(numIssuers),
+	)
 	defer tf.Shutdown()
 	blockScheduled := make(chan *models.Block, numBlocksPerIssuer*numIssuers)
 	tf.Protocol.Instance.CongestionControl.Scheduler().Events.BlockScheduled.Hook(func(block *scheduler.Block) {
