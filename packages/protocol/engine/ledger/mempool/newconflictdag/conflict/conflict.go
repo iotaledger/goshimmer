@@ -2,7 +2,6 @@ package conflict
 
 import (
 	"bytes"
-	"fmt"
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/weight"
@@ -100,9 +99,8 @@ func (c *Conflict[ConflictID, ResourceID]) SetPreferredInstead(preferredInstead 
 	if c.preferredInstead == preferredInstead {
 		return false
 	}
-	c.preferredInstead = preferredInstead
 
-	fmt.Println("conflict", c.ID(), "now prefers", preferredInstead.ID())
+	c.preferredInstead = preferredInstead
 	c.PreferredInsteadUpdated.Trigger(preferredInstead)
 
 	return true

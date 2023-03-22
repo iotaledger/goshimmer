@@ -17,154 +17,158 @@ import (
 )
 
 func TestConflictSets(t *testing.T) {
-	pendingTasksCounter := syncutils.NewCounter()
+	const iterations = 1000
 
-	red := NewConflictSet[utxo.OutputID, utxo.OutputID](outputID("red"))
-	blue := NewConflictSet[utxo.OutputID, utxo.OutputID](outputID("blue"))
-	green := NewConflictSet[utxo.OutputID, utxo.OutputID](outputID("green"))
-	yellow := NewConflictSet[utxo.OutputID, utxo.OutputID](outputID("yellow"))
-	fmt.Println("adding A...")
-	conflictA := New[utxo.OutputID, utxo.OutputID](
-		outputID("A"),
-		nil,
-		map[utxo.OutputID]*Set[utxo.OutputID, utxo.OutputID]{
-			red.ID(): red,
-		},
-		weight.New().AddCumulativeWeight(7).SetAcceptanceState(acceptance.Pending),
-		pendingTasksCounter,
-	)
-	fmt.Println("adding B...")
-	conflictB := New[utxo.OutputID, utxo.OutputID](
-		outputID("B"),
-		nil,
-		map[utxo.OutputID]*Set[utxo.OutputID, utxo.OutputID]{
-			red.ID():  red,
-			blue.ID(): blue,
-		},
-		weight.New().AddCumulativeWeight(3).SetAcceptanceState(acceptance.Pending),
-		pendingTasksCounter,
-	)
-	fmt.Println("adding C...")
-	conflictC := New[utxo.OutputID, utxo.OutputID](
-		outputID("C"),
-		nil,
-		map[utxo.OutputID]*Set[utxo.OutputID, utxo.OutputID]{
-			green.ID(): green,
-			blue.ID():  blue,
-		},
-		weight.New().AddCumulativeWeight(5).SetAcceptanceState(acceptance.Pending),
-		pendingTasksCounter,
-	)
+	for i := 0; i < iterations; i++ {
+		pendingTasksCounter := syncutils.NewCounter()
 
-	fmt.Println("adding D...")
-	conflictD := New[utxo.OutputID, utxo.OutputID](
-		outputID("D"),
-		nil,
-		map[utxo.OutputID]*Set[utxo.OutputID, utxo.OutputID]{
-			green.ID():  green,
-			yellow.ID(): yellow,
-		},
-		weight.New().AddCumulativeWeight(7).SetAcceptanceState(acceptance.Pending),
-		pendingTasksCounter,
-	)
+		red := NewConflictSet[utxo.OutputID, utxo.OutputID](outputID("red"))
+		blue := NewConflictSet[utxo.OutputID, utxo.OutputID](outputID("blue"))
+		green := NewConflictSet[utxo.OutputID, utxo.OutputID](outputID("green"))
+		yellow := NewConflictSet[utxo.OutputID, utxo.OutputID](outputID("yellow"))
+		fmt.Println("adding A...")
+		conflictA := New[utxo.OutputID, utxo.OutputID](
+			outputID("A"),
+			nil,
+			map[utxo.OutputID]*Set[utxo.OutputID, utxo.OutputID]{
+				red.ID(): red,
+			},
+			weight.New().AddCumulativeWeight(7).SetAcceptanceState(acceptance.Pending),
+			pendingTasksCounter,
+		)
+		fmt.Println("adding B...")
+		conflictB := New[utxo.OutputID, utxo.OutputID](
+			outputID("B"),
+			nil,
+			map[utxo.OutputID]*Set[utxo.OutputID, utxo.OutputID]{
+				red.ID():  red,
+				blue.ID(): blue,
+			},
+			weight.New().AddCumulativeWeight(3).SetAcceptanceState(acceptance.Pending),
+			pendingTasksCounter,
+		)
+		fmt.Println("adding C...")
+		conflictC := New[utxo.OutputID, utxo.OutputID](
+			outputID("C"),
+			nil,
+			map[utxo.OutputID]*Set[utxo.OutputID, utxo.OutputID]{
+				green.ID(): green,
+				blue.ID():  blue,
+			},
+			weight.New().AddCumulativeWeight(5).SetAcceptanceState(acceptance.Pending),
+			pendingTasksCounter,
+		)
 
-	fmt.Println("adding E...")
+		fmt.Println("adding D...")
+		conflictD := New[utxo.OutputID, utxo.OutputID](
+			outputID("D"),
+			nil,
+			map[utxo.OutputID]*Set[utxo.OutputID, utxo.OutputID]{
+				green.ID():  green,
+				yellow.ID(): yellow,
+			},
+			weight.New().AddCumulativeWeight(7).SetAcceptanceState(acceptance.Pending),
+			pendingTasksCounter,
+		)
 
-	conflictE := New[utxo.OutputID, utxo.OutputID](
-		outputID("E"),
-		nil,
-		map[utxo.OutputID]*Set[utxo.OutputID, utxo.OutputID]{
-			yellow.ID(): yellow,
-		},
-		weight.New().AddCumulativeWeight(9).SetAcceptanceState(acceptance.Pending),
-		pendingTasksCounter,
-	)
+		fmt.Println("adding E...")
 
-	preferredInsteadMap := map[*Conflict[utxo.OutputID, utxo.OutputID]]*Conflict[utxo.OutputID, utxo.OutputID]{
-		conflictA: conflictA,
-		conflictB: conflictA,
-		conflictC: conflictC,
-		conflictD: conflictE,
-		conflictE: conflictE,
+		conflictE := New[utxo.OutputID, utxo.OutputID](
+			outputID("E"),
+			nil,
+			map[utxo.OutputID]*Set[utxo.OutputID, utxo.OutputID]{
+				yellow.ID(): yellow,
+			},
+			weight.New().AddCumulativeWeight(9).SetAcceptanceState(acceptance.Pending),
+			pendingTasksCounter,
+		)
+
+		preferredInsteadMap := map[*Conflict[utxo.OutputID, utxo.OutputID]]*Conflict[utxo.OutputID, utxo.OutputID]{
+			conflictA: conflictA,
+			conflictB: conflictA,
+			conflictC: conflictC,
+			conflictD: conflictE,
+			conflictE: conflictE,
+		}
+
+		assertPreferredInstead(t, preferredInsteadMap)
+
+		fmt.Println("set weight D=10...")
+
+		conflictD.Weight().SetCumulativeWeight(10)
+
+		assertPreferredInstead(t, lo.MergeMaps(preferredInsteadMap, map[*Conflict[utxo.OutputID, utxo.OutputID]]*Conflict[utxo.OutputID, utxo.OutputID]{
+			conflictC: conflictD,
+			conflictD: conflictD,
+			conflictE: conflictD,
+		}))
+
+		fmt.Println("set weight D=0...")
+
+		conflictD.Weight().SetCumulativeWeight(0)
+
+		assertPreferredInstead(t, lo.MergeMaps(preferredInsteadMap, map[*Conflict[utxo.OutputID, utxo.OutputID]]*Conflict[utxo.OutputID, utxo.OutputID]{
+			conflictC: conflictC,
+			conflictD: conflictE,
+			conflictE: conflictE,
+		}))
+
+		fmt.Println("set weight C=8...")
+
+		conflictC.Weight().SetCumulativeWeight(8)
+
+		assertPreferredInstead(t, lo.MergeMaps(preferredInsteadMap, map[*Conflict[utxo.OutputID, utxo.OutputID]]*Conflict[utxo.OutputID, utxo.OutputID]{
+			conflictB: conflictC,
+		}))
+
+		fmt.Println("set weight C=8...")
+
+		conflictC.Weight().SetCumulativeWeight(8)
+
+		assertPreferredInstead(t, lo.MergeMaps(preferredInsteadMap, map[*Conflict[utxo.OutputID, utxo.OutputID]]*Conflict[utxo.OutputID, utxo.OutputID]{
+			conflictB: conflictC,
+		}))
+
+		fmt.Println("set weight D=3...")
+
+		conflictD.Weight().SetCumulativeWeight(3)
+
+		assertPreferredInstead(t, preferredInsteadMap)
+
+		fmt.Println("set weight E=1...")
+
+		conflictE.Weight().SetCumulativeWeight(1)
+
+		assertPreferredInstead(t, lo.MergeMaps(preferredInsteadMap, map[*Conflict[utxo.OutputID, utxo.OutputID]]*Conflict[utxo.OutputID, utxo.OutputID]{
+			conflictD: conflictC,
+		}))
+
+		fmt.Println("set weight E=9...")
+
+		conflictE.Weight().SetCumulativeWeight(9)
+
+		assertPreferredInstead(t, lo.MergeMaps(preferredInsteadMap, map[*Conflict[utxo.OutputID, utxo.OutputID]]*Conflict[utxo.OutputID, utxo.OutputID]{
+			conflictD: conflictE,
+		}))
+
+		fmt.Println("adding F...")
+
+		conflictF := New[utxo.OutputID, utxo.OutputID](
+			outputID("F"),
+			nil,
+			map[utxo.OutputID]*Set[utxo.OutputID, utxo.OutputID]{
+				yellow.ID(): yellow,
+			},
+			weight.New().AddCumulativeWeight(19).SetAcceptanceState(acceptance.Pending),
+			pendingTasksCounter,
+		)
+
+		assertPreferredInstead(t, lo.MergeMaps(preferredInsteadMap, map[*Conflict[utxo.OutputID, utxo.OutputID]]*Conflict[utxo.OutputID, utxo.OutputID]{
+			conflictD: conflictF,
+			conflictE: conflictF,
+			conflictF: conflictF,
+		}))
 	}
-
-	assertPreferredInstead(t, preferredInsteadMap)
-
-	fmt.Println("set weight D=10...")
-
-	conflictD.Weight().SetCumulativeWeight(10)
-
-	assertPreferredInstead(t, lo.MergeMaps(preferredInsteadMap, map[*Conflict[utxo.OutputID, utxo.OutputID]]*Conflict[utxo.OutputID, utxo.OutputID]{
-		conflictC: conflictD,
-		conflictD: conflictD,
-		conflictE: conflictD,
-	}))
-
-	fmt.Println("set weight D=0...")
-
-	conflictD.Weight().SetCumulativeWeight(0)
-
-	assertPreferredInstead(t, lo.MergeMaps(preferredInsteadMap, map[*Conflict[utxo.OutputID, utxo.OutputID]]*Conflict[utxo.OutputID, utxo.OutputID]{
-		conflictC: conflictC,
-		conflictD: conflictE,
-		conflictE: conflictE,
-	}))
-
-	fmt.Println("set weight C=8...")
-
-	conflictC.Weight().SetCumulativeWeight(8)
-
-	assertPreferredInstead(t, lo.MergeMaps(preferredInsteadMap, map[*Conflict[utxo.OutputID, utxo.OutputID]]*Conflict[utxo.OutputID, utxo.OutputID]{
-		conflictB: conflictC,
-	}))
-
-	fmt.Println("set weight C=8...")
-
-	conflictC.Weight().SetCumulativeWeight(8)
-
-	assertPreferredInstead(t, lo.MergeMaps(preferredInsteadMap, map[*Conflict[utxo.OutputID, utxo.OutputID]]*Conflict[utxo.OutputID, utxo.OutputID]{
-		conflictB: conflictC,
-	}))
-
-	fmt.Println("set weight D=3...")
-
-	conflictD.Weight().SetCumulativeWeight(3)
-
-	assertPreferredInstead(t, preferredInsteadMap)
-
-	fmt.Println("set weight E=1...")
-
-	conflictE.Weight().SetCumulativeWeight(1)
-
-	assertPreferredInstead(t, lo.MergeMaps(preferredInsteadMap, map[*Conflict[utxo.OutputID, utxo.OutputID]]*Conflict[utxo.OutputID, utxo.OutputID]{
-		conflictD: conflictC,
-	}))
-
-	fmt.Println("set weight E=9...")
-
-	conflictE.Weight().SetCumulativeWeight(9)
-
-	assertPreferredInstead(t, lo.MergeMaps(preferredInsteadMap, map[*Conflict[utxo.OutputID, utxo.OutputID]]*Conflict[utxo.OutputID, utxo.OutputID]{
-		conflictD: conflictE,
-	}))
-
-	fmt.Println("adding F...")
-
-	conflictF := New[utxo.OutputID, utxo.OutputID](
-		outputID("F"),
-		nil,
-		map[utxo.OutputID]*Set[utxo.OutputID, utxo.OutputID]{
-			yellow.ID(): yellow,
-		},
-		weight.New().AddCumulativeWeight(19).SetAcceptanceState(acceptance.Pending),
-		pendingTasksCounter,
-	)
-
-	assertPreferredInstead(t, lo.MergeMaps(preferredInsteadMap, map[*Conflict[utxo.OutputID, utxo.OutputID]]*Conflict[utxo.OutputID, utxo.OutputID]{
-		conflictD: conflictF,
-		conflictE: conflictF,
-		conflictF: conflictF,
-	}))
 }
 
 func TestConflictParallel(t *testing.T) {

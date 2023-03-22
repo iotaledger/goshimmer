@@ -1,8 +1,6 @@
 package conflict
 
 import (
-	"fmt"
-	"math/rand"
 	"sync"
 	"sync/atomic"
 
@@ -156,23 +154,6 @@ func (s *SortedSet[ConflictID, ResourceID]) HeaviestConflict() *Conflict[Conflic
 	return s.heaviestMember.Conflict
 }
 
-// HeaviestPreferredConflict returns the heaviest preferred Conflict of the SortedSet.
-func (s *SortedSet[ConflictID, ResourceID]) HeaviestPreferredConflict() *Conflict[ConflictID, ResourceID] {
-	a := rand.Float64()
-
-	fmt.Println("HeaviestPreferreConflict", s.owner.ID(), a)
-	defer fmt.Println("unlocked HeaviestPreferreConflict", s.owner.ID(), a)
-
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	if s.heaviestPreferredMember == nil {
-		return nil
-	}
-
-	return s.heaviestPreferredMember.Conflict
-}
-
 // WaitConsistent waits until the SortedSet is consistent.
 func (s *SortedSet[ConflictID, ResourceID]) WaitConsistent() {
 	s.pendingUpdatesCounter.WaitIsZero()
@@ -271,9 +252,6 @@ func (s *SortedSet[ConflictID, ResourceID]) fixHeaviestPreferredMemberWorker() {
 }
 
 func (s *SortedSet[ConflictID, ResourceID]) fixHeaviestPreferredMember(member *sortedSetMember[ConflictID, ResourceID]) {
-	fmt.Println("Write-Lock", s.owner.ID(), "fixHeaviestPreferredMember(", member.ID(), ")")
-	defer fmt.Println("Write-Unlock", s.owner.ID(), "fixHeaviestPreferredMember(", member.ID(), ")")
-
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -286,28 +264,20 @@ func (s *SortedSet[ConflictID, ResourceID]) fixHeaviestPreferredMember(member *s
 		return
 	}
 
-	if s.heaviestPreferredMember != member {
-		return
-	}
+	if s.heaviestPreferredMember == member {
+		for currentMember := member; ; currentMember = currentMember.lighterMember {
+			if currentMember.Conflict == s.owner || currentMember.IsPreferred() || currentMember.PreferredInstead() == member.Conflict {
+				s.heaviestPreferredMember = currentMember
+				s.owner.SetPreferredInstead(currentMember.Conflict)
 
-	currentMember := member.lighterMember
-	if currentMember == nil {
-		return
+				return
+			}
+		}
 	}
-
-	for currentMember.Conflict != s.owner && !currentMember.IsPreferred() && currentMember.PreferredInstead() != member.Conflict {
-		currentMember = currentMember.lighterMember
-	}
-
-	s.heaviestPreferredMember = currentMember
-	s.owner.SetPreferredInstead(currentMember.Conflict)
 }
 
 // fixMemberPosition fixes the position of the given member in the SortedSet.
 func (s *SortedSet[ConflictID, ResourceID]) fixMemberPosition(member *sortedSetMember[ConflictID, ResourceID]) {
-	fmt.Println("Write-Lock", s.owner.ID(), "fixMemberPosition(", member.ID(), ")")
-	defer fmt.Println("Write-Unlock", s.owner.ID(), "fixMemberPosition(", member.ID(), ")")
-
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -316,7 +286,6 @@ func (s *SortedSet[ConflictID, ResourceID]) fixMemberPosition(member *sortedSetM
 
 	// the member needs to be moved up in the list
 	for currentMember := member.heavierMember; currentMember != nil && currentMember.Compare(member) == weight.Lighter; currentMember = member.heavierMember {
-		fmt.Println(s.owner == nil, " -- swaps ", member == nil, "above", currentMember == nil, "preferredConflict", preferredConflict == nil)
 		s.swapNeighbors(member, currentMember)
 
 		if currentMember == s.heaviestPreferredMember && (currentMember.Conflict == preferredConflict || memberIsPreferred) {
@@ -330,11 +299,11 @@ func (s *SortedSet[ConflictID, ResourceID]) fixMemberPosition(member *sortedSetM
 
 	for currentMember := member.lighterMember; currentMember != nil && currentMember.Compare(member) == weight.Heavier; currentMember = member.lighterMember {
 		s.swapNeighbors(currentMember, member)
-		fmt.Println("currentMember", currentMember.ID(), "isPreferred", currentMember.IsPreferred(), currentMember.PreferredInstead().ID(), "member", member.ID())
+
 		if memberIsHeaviestPreferred && (currentMember.IsPreferred() || currentMember.PreferredInstead() == member.Conflict) {
 			s.heaviestPreferredMember = currentMember
 			s.owner.SetPreferredInstead(currentMember.Conflict)
-			fmt.Println("moving down", member.ID())
+
 			memberIsHeaviestPreferred = false
 		}
 	}
