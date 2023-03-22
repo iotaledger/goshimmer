@@ -56,11 +56,12 @@ func NewTestStorage(t *testing.T, workers *workerpool.Group, opts ...options.Opt
 // NewTestFramework is the constructor of the TestFramework.
 func NewTestFramework(test *testing.T, workers *workerpool.Group, blockDAG BlockDAG, slotTimeProviderFunc func() *slot.TimeProvider) *TestFramework {
 	t := &TestFramework{
-		Test:           test,
-		workers:        workers,
-		Instance:       blockDAG,
-		orphanedBlocks: models.NewBlockIDs(),
-		workerPool:     workers.CreatePool("IssueBlocks", 2),
+		Test:                 test,
+		workers:              workers,
+		Instance:             blockDAG,
+		orphanedBlocks:       models.NewBlockIDs(),
+		workerPool:           workers.CreatePool("IssueBlocks", 2),
+		slotTimeProviderFunc: slotTimeProviderFunc,
 	}
 	t.ModelsTestFramework = models.NewTestFramework(
 		slotTimeProviderFunc,

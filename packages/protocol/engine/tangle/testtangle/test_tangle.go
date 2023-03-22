@@ -88,10 +88,12 @@ func (t *TestTangle) SlotTimeProvider() *slot.TimeProvider {
 }
 
 func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, memPool mempool.MemPool, slotTimeProvider *slot.TimeProvider, optsBooker ...options.Option[markerbooker.Booker]) *tangle.TestFramework {
+	validators := sybilprotection.NewWeightedSet(sybilprotection.NewWeights(mapdb.NewMapDB()))
+
 	testTangle := NewTestTangle(t, workers.CreateGroup("Tangle"),
 		slotTimeProvider,
 		memPool,
-		sybilprotection.NewWeightedSet(sybilprotection.NewWeights(mapdb.NewMapDB())),
+		validators,
 		optsBooker...,
 	)
 
@@ -99,6 +101,7 @@ func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, memPool me
 		testTangle.booker,
 		testTangle.blockDAG,
 		testTangle.memPool,
+		validators,
 		testTangle.SlotTimeProvider,
 	))
 }

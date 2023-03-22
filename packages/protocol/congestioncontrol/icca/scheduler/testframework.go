@@ -107,7 +107,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, optsScheduler 
 	t.Tangle = tangle.NewTestFramework(
 		test,
 		t.engine.Tangle,
-		booker.NewTestFramework(test, workers.CreateGroup("BookerTestFramework"), t.engine.Tangle.Booker(), t.engine.Tangle.BlockDAG(), t.engine.Ledger.MemPool(), t.engine.SlotTimeProvider),
+		booker.NewTestFramework(test, workers.CreateGroup("BookerTestFramework"), t.engine.Tangle.Booker(), t.engine.Tangle.BlockDAG(), t.engine.Ledger.MemPool(), t.engine.SybilProtection.Validators(), t.engine.SlotTimeProvider),
 	)
 
 	t.Scheduler = New(t.Tangle.BlockDAG.Instance.(*inmemoryblockdag.BlockDAG).EvictionState(), t.engine.SlotTimeProvider(), t.mockAcceptance.IsBlockAccepted, t.ManaMap, t.TotalMana, optsScheduler...)

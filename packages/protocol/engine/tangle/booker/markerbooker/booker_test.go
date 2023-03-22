@@ -906,10 +906,12 @@ func TestOTV_Track(t *testing.T) {
 	}
 	memPool := realitiesledger.NewTestLedger(t, workers.CreateGroup("RealitiesLedger"))
 
+	validators := sybilprotection.NewWeightedSet(sybilprotection.NewWeights(mapdb.NewMapDB()))
+
 	markerBooker := markerbooker.New(workers.CreateGroup("Booker"),
 		evictionState,
 		memPool,
-		sybilprotection.NewWeightedSet(sybilprotection.NewWeights(mapdb.NewMapDB())),
+		validators,
 		slotTimeProviderFunc,
 		markerbooker.WithMarkerManagerOptions(
 			markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](
@@ -919,7 +921,7 @@ func TestOTV_Track(t *testing.T) {
 	)
 	blockDAG := inmemoryblockdag.New(workers.CreateGroup("BlockDAG"), evictionState, slotTimeProviderFunc, blockdag.DefaultCommitmentFunc)
 
-	tf := booker.NewTestFramework(t, workers.CreateGroup("BookerTestFramework"), markerBooker, blockDAG, memPool, slotTimeProviderFunc)
+	tf := booker.NewTestFramework(t, workers.CreateGroup("BookerTestFramework"), markerBooker, blockDAG, memPool, validators, slotTimeProviderFunc)
 
 	tf.VirtualVoting.CreateIdentity("A", 30)
 	tf.VirtualVoting.CreateIdentity("B", 15)
