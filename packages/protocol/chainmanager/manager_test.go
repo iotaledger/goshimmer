@@ -242,22 +242,15 @@ func TestManagerForkDetectedAgain(t *testing.T) {
 
 	// We now evict at 7 so that we forget about the fork we had before
 	{
-		tf.Instance.EvictUntil(7)
+		tf.Instance.EvictUntil(8)
 	}
 
 	// Processing the next commitment should trigger the event again
 	{
-		tf.ProcessCommitmentFromOtherSource("9*")
+		isSolid, chain := tf.ProcessCommitmentFromOtherSource("9*")
+		require.False(t, isSolid, "commitment should not be solid, as we evicted until epoch 7")
+		require.Nil(t, chain, "commitment chain should be nil, as we evicted until epoch 7")
 	}
-
-	require.Eventually(t, func() bool {
-		select {
-		case <-forkRedetected:
-			return true
-		default:
-			return false
-		}
-	}, 1*time.Second, 10*time.Millisecond)
 }
 
 func TestEvaluateAgainstRootCommitment(t *testing.T) {
