@@ -212,6 +212,7 @@ func (p *Protocol) initChainManager() {
 	if err != nil {
 		panic(err)
 	}
+	fmt.Println(">>>>> genesiscommitment", genesisCommitment)
 	p.chainManager = chainmanager.NewManager(genesisCommitment, p.optsChainManagerOptions...)
 
 	p.Events.ChainManager = p.chainManager.Events
@@ -353,11 +354,11 @@ func (p *Protocol) switchEngines() {
 
 func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) error {
 	mainEngine := p.MainEngineInstance()
-	fmt.Println(">>>>> processBlock", block.ID(), block.Commitment())
+	fmt.Println(">>>>> processBlock 1", block.ID(), block.Commitment())
 
 	isSolid, chain := p.chainManager.ProcessCommitmentFromSource(block.Commitment(), src)
 	if chain != nil {
-		fmt.Println(">>>>> processBlock", isSolid, chain.ForkingPoint.ID(), "mainChain", mainEngine.Storage.Settings.ChainID())
+		fmt.Println(">>>>> processBlock 2", isSolid, chain.ForkingPoint.ID(), "mainChain", mainEngine.Storage.Settings.ChainID())
 	}
 	if !isSolid {
 		return errors.Errorf("protocol ProcessBlock failed. chain is not solid: %s, latest commitment: %s, block ID: %s", block.Commitment().ID(), mainEngine.Storage.Settings.LatestCommitment().ID(), block.ID())
