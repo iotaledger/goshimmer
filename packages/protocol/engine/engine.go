@@ -94,7 +94,6 @@ func New(
 			e.ThroughputQuota = throughputQuota(e)
 			e.Notarization = notarization(e)
 			e.Tangle = tangle(e)
-			//tangle.New(e.Workers.CreateGroup("Tangle"), e.Ledger.MemPool(), e.EvictionState, e.SlotTimeProvider, e.SybilProtection.Validators(), e.LastConfirmedSlot, e.FirstUnacceptedMarker, e.Storage.Commitments.Load, e.optsTangleOptions...)
 			e.Consensus = consensus(e)
 			e.TSCManager = tsc.New(e.Consensus.BlockGadget().IsBlockAccepted, e.Tangle, e.optsTSCManagerOptions...)
 			e.Filter = filter.New(e.optsFilter...)
