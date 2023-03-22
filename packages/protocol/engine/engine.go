@@ -59,7 +59,6 @@ type Engine struct {
 	optsBootstrappedThreshold time.Duration
 	optsEntryPointsDepth      int
 	optsSnapshotDepth         int
-	optsConsensusOptions      []options.Option[consensus.Consensus]
 	optsTSCManagerOptions     []options.Option[tsc.Manager]
 	optsBlockRequester        []options.Option[eventticker.EventTicker[models.BlockID]]
 	optsFilter                []options.Option[filter.Filter]
@@ -358,12 +357,6 @@ func (e *Engine) readSnapshot(filePath string) (err error) {
 func WithBootstrapThreshold(threshold time.Duration) options.Option[Engine] {
 	return func(e *Engine) {
 		e.optsBootstrappedThreshold = threshold
-	}
-}
-
-func WithConsensusOptions(opts ...options.Option[consensus.Consensus]) options.Option[Engine] {
-	return func(e *Engine) {
-		e.optsConsensusOptions = append(e.optsConsensusOptions, opts...)
 	}
 }
 
