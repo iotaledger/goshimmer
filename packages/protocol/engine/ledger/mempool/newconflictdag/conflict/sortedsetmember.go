@@ -135,8 +135,8 @@ func (s *sortedSetMember[ConflictID, ResourceID]) weightUpdateApplied() bool {
 
 // queuePreferredInsteadUpdate notifies the sortedSet that the preferred instead flag of the Conflict was updated.
 func (s *sortedSetMember[ConflictID, ResourceID]) queuePreferredInsteadUpdate(conflict *Conflict[ConflictID, ResourceID]) {
-	s.weightMutex.Lock()
-	defer s.weightMutex.Unlock()
+	s.preferredInsteadMutex.Lock()
+	defer s.preferredInsteadMutex.Unlock()
 
 	if (s.queuedPreferredInstead == nil && s.currentPreferredInstead == conflict) || (s.queuedPreferredInstead != nil && s.queuedPreferredInstead == conflict) || s.sortedSet.owner == conflict {
 		return
