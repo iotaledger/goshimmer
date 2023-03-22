@@ -217,7 +217,9 @@ func (p *Protocol) initChainManager() {
 		if err != nil {
 			panic(fmt.Sprintln("could not load earliest commitment after engine initialization", err))
 		}
-		p.Engine().Storage.Settings.SetChainID(rootCommitment.ID())
+		if err := p.Engine().Storage.Settings.SetChainID(rootCommitment.ID()); err != nil {
+			panic(fmt.Sprintln("could not load set main engine's chain using", rootCommitment))
+		}
 		p.chainManager.InitRootCommitment(rootCommitment)
 	})
 

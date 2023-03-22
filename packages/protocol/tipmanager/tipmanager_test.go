@@ -467,7 +467,7 @@ func TestTipManager_TimeSinceConfirmation_RootBlockParent(t *testing.T) {
 	tf.SetBlocksAccepted(acceptedBlockIDsAliases...)
 	tf.SetMarkersAccepted(acceptedMarkers...)
 	tf.SetAcceptedTime(now.Add(25 * time.Second))
-	block :=tf.Tangle.BlockDAG.Block("Block1")
+	block := tf.Tangle.BlockDAG.Block("Block1")
 	tf.Engine.EvictionState.AddRootBlock(block.ID(), block.Commitment().ID())
 
 	tf.Engine.EvictionState.RemoveRootBlock(models.EmptyBlockID)

@@ -414,6 +414,5 @@ func TestProcessCommitment(t *testing.T) {
 			tf.AssertMissingCommitmentReceivedCount(1)
 			tf.AssertCommitmentBelowRootCount(3)
 		}
-
 	}
 }
