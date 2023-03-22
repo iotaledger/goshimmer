@@ -921,6 +921,8 @@ func TestOTV_Track(t *testing.T) {
 	)
 	blockDAG := inmemoryblockdag.New(workers.CreateGroup("BlockDAG"), evictionState, slotTimeProviderFunc, blockdag.DefaultCommitmentFunc)
 
+	markerBooker.Initialize(blockDAG)
+
 	tf := booker.NewTestFramework(t, workers.CreateGroup("BookerTestFramework"), markerBooker, blockDAG, memPool, validators, slotTimeProviderFunc)
 
 	tf.VirtualVoting.CreateIdentity("A", 30)

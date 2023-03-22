@@ -39,7 +39,7 @@ func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, memPool me
 		optsGadget...,
 	)
 
-	gadget.Initialize(tangleTF.Instance.(*testtangle.TestTangle).SlotTimeProvider(), tangleTF.Votes.Validators.TotalWeight)
+	gadget.Initialize(tangleTF.Instance.(*testtangle.TestTangle).SlotTimeProvider(), tangleTF.Votes.Validators, tangleTF.Votes.Validators.TotalWeight)
 
 	return blockgadget.NewTestFramework(t,
 		gadget,
@@ -539,6 +539,7 @@ func TestGadget_update_multipleSequences_onlyAcceptThenConfirm(t *testing.T) {
 	)
 
 	gadget.Initialize(tangleTF.Instance.(*testtangle.TestTangle).SlotTimeProvider(),
+		tangleTF.Instance.(*testtangle.TestTangle).Validators(),
 		func() int64 {
 			return 100
 		})

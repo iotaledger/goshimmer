@@ -326,25 +326,17 @@ func createTestTangleTSC(tf *TestFramework) {
 	{
 		tf.Tangle.BlockDAG.CreateBlock("Marker-0/1", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Genesis")), models.WithIssuingTime(now.Add(-9*time.Minute)))
 		tf.Tangle.BlockDAG.IssueBlocks("Marker-0/1")
-		tf.Tangle.Booker.PreventNewMarkers(true)
 		lastBlockAlias = issueBlocks(tf, "0/1-preTSC", 3, []string{"Marker-0/1"}, time.Minute*8)
 		lastBlockAlias = issueBlocks(tf, "0/1-postTSC", 3, []string{lastBlockAlias}, time.Minute)
-		tf.Tangle.Booker.PreventNewMarkers(false)
 		tf.Tangle.BlockDAG.CreateBlock("Marker-0/2", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs(lastBlockAlias)), models.WithIssuingTime(now))
 		tf.Tangle.BlockDAG.IssueBlocks("Marker-0/2")
-		tf.Tangle.Booker.PreventNewMarkers(true)
 		lastBlockAlias = issueBlocks(tf, "0/2", 5, []string{"Marker-0/2"}, 0)
-		tf.Tangle.Booker.PreventNewMarkers(false)
 		tf.Tangle.BlockDAG.CreateBlock("Marker-0/3", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs(lastBlockAlias)), models.WithIssuingTime(now))
 		tf.Tangle.BlockDAG.IssueBlocks("Marker-0/3")
-		tf.Tangle.Booker.PreventNewMarkers(true)
 		lastBlockAlias = issueBlocks(tf, "0/3", 5, []string{"Marker-0/3"}, 0)
-		tf.Tangle.Booker.PreventNewMarkers(false)
 		tf.Tangle.BlockDAG.CreateBlock("Marker-0/4", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs(lastBlockAlias)), models.WithIssuingTime(now))
 		tf.Tangle.BlockDAG.IssueBlocks("Marker-0/4")
-		tf.Tangle.Booker.PreventNewMarkers(true)
 		_ = issueBlocks(tf, "0/4", 5, []string{"Marker-0/4"}, 0)
-		tf.Tangle.Booker.PreventNewMarkers(false)
 
 		// issue block for test case #16
 		tf.Tangle.BlockDAG.CreateBlock("0/1-postTSC-direct_0", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Marker-0/1")), models.WithIssuingTime(now))
@@ -353,91 +345,63 @@ func createTestTangleTSC(tf *TestFramework) {
 
 	// SEQUENCE 1
 	{
-		tf.Tangle.Booker.PreventNewMarkers(true)
 		lastBlockAlias = issueBlocks(tf, "0/1-preTSCSeq1", 3, []string{"Marker-0/1"}, time.Minute*6)
 		lastBlockAlias = issueBlocks(tf, "0/1-postTSCSeq1", 6, []string{lastBlockAlias}, time.Minute*4)
-		tf.Tangle.Booker.PreventNewMarkers(false)
 		tf.Tangle.BlockDAG.CreateBlock("Marker-1/2", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs(lastBlockAlias)), models.WithIssuingTime(now.Add(-3*time.Minute)))
 		tf.Tangle.BlockDAG.IssueBlocks("Marker-1/2")
-		tf.Tangle.Booker.PreventNewMarkers(true)
 		lastBlockAlias = issueBlocks(tf, "1/2", 5, []string{"Marker-1/2"}, 0)
-		tf.Tangle.Booker.PreventNewMarkers(false)
 		tf.Tangle.BlockDAG.CreateBlock("Marker-1/3", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs(lastBlockAlias)), models.WithIssuingTime(now))
 		tf.Tangle.BlockDAG.IssueBlocks("Marker-1/3")
-		tf.Tangle.Booker.PreventNewMarkers(true)
 		_ = issueBlocks(tf, "1/3", 5, []string{"Marker-1/3"}, 0)
-		tf.Tangle.Booker.PreventNewMarkers(false)
 	}
 
 	// SEQUENCE 2
 	{
-		tf.Tangle.Booker.PreventNewMarkers(true)
 		lastBlockAlias = issueBlocks(tf, "0/1-preTSCSeq2", 3, []string{"Marker-0/1"}, time.Minute*6)
 		lastBlockAlias = issueBlocks(tf, "0/1-postTSCSeq2", 6, []string{lastBlockAlias}, time.Minute*4)
-		tf.Tangle.Booker.PreventNewMarkers(false)
 		tf.Tangle.BlockDAG.CreateBlock("Marker-2/2", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs(lastBlockAlias)), models.WithIssuingTime(now.Add(-3*time.Minute)))
 		tf.Tangle.BlockDAG.IssueBlocks("Marker-2/2")
-		tf.Tangle.Booker.PreventNewMarkers(true)
 		lastBlockAlias = issueBlocks(tf, "2/2", 5, []string{"Marker-2/2"}, 0)
-		tf.Tangle.Booker.PreventNewMarkers(false)
 		tf.Tangle.BlockDAG.CreateBlock("Marker-2/3", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs(lastBlockAlias)), models.WithIssuingTime(now))
 		tf.Tangle.BlockDAG.IssueBlocks("Marker-2/3")
-		tf.Tangle.Booker.PreventNewMarkers(true)
 		_ = issueBlocks(tf, "2/3", 5, []string{"Marker-2/3"}, 0)
-		tf.Tangle.Booker.PreventNewMarkers(false)
 	}
 
 	// SEQUENCE 2 + 0
 	{
 		tf.Tangle.BlockDAG.CreateBlock("Marker-2/5", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("0/4_4", "2/3_4")), models.WithIssuingTime(now))
 		tf.Tangle.BlockDAG.IssueBlocks("Marker-2/5")
-		tf.Tangle.Booker.PreventNewMarkers(true)
 		_ = issueBlocks(tf, "2/5", 5, []string{"Marker-2/5"}, 0)
-		tf.Tangle.Booker.PreventNewMarkers(false)
 	}
 
 	// SEQUENCE 3
 	{
-		tf.Tangle.Booker.PreventNewMarkers(true)
 		lastBlockAlias = issueBlocks(tf, "0/1-postTSCSeq3", 5, []string{"0/1-postTSCSeq2_0"}, 0)
-		tf.Tangle.Booker.PreventNewMarkers(false)
 		tf.Tangle.BlockDAG.CreateBlock("Marker-3/2", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs(lastBlockAlias)), models.WithIssuingTime(now))
 		tf.Tangle.BlockDAG.IssueBlocks("Marker-3/2")
-		tf.Tangle.Booker.PreventNewMarkers(true)
 		_ = issueBlocks(tf, "3/2", 5, []string{"Marker-3/2"}, 0)
-		tf.Tangle.Booker.PreventNewMarkers(false)
 	}
 
 	// SEQUENCE 2 + 0 (two past markers) -> SEQUENCE 4
 	{
-		tf.Tangle.Booker.PreventNewMarkers(true)
 		lastBlockAlias = issueBlocks(tf, "2/3+0/4", 5, []string{"0/4_4", "2/3_4"}, 0)
 		tf.Tangle.BlockDAG.CreateBlock("Marker-4/5", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs(lastBlockAlias)), models.WithIssuingTime(now))
 		tf.Tangle.BlockDAG.IssueBlocks("Marker-4/5")
-		tf.Tangle.Booker.PreventNewMarkers(false)
 	}
 	// SEQUENCE 5
 	{
-		tf.Tangle.Booker.PreventNewMarkers(true)
 		lastBlockAlias = issueBlocks(tf, "0/1-preTSCSeq5", 6, []string{"0/1-preTSCSeq2_2"}, time.Minute*6)
-		tf.Tangle.Booker.PreventNewMarkers(false)
 		tf.Tangle.BlockDAG.CreateBlock("Marker-5/2", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs(lastBlockAlias)), models.WithIssuingTime(now))
 		tf.Tangle.BlockDAG.IssueBlocks("Marker-5/2")
-		tf.Tangle.Booker.PreventNewMarkers(true)
 		_ = issueBlocks(tf, "5/2", 5, []string{"Marker-5/2"}, 0)
-		tf.Tangle.Booker.PreventNewMarkers(false)
 	}
 
 	// SEQUENCE 6
 	{
-		tf.Tangle.Booker.PreventNewMarkers(true)
 		lastBlockAlias = issueBlocks(tf, "0/1-postTSCSeq6", 6, []string{"0/1-preTSCSeq2_2"}, 0)
-		tf.Tangle.Booker.PreventNewMarkers(false)
 		tf.Tangle.BlockDAG.CreateBlock("Marker-6/2", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs(lastBlockAlias)), models.WithIssuingTime(now))
 		tf.Tangle.BlockDAG.IssueBlocks("Marker-6/2")
-		tf.Tangle.Booker.PreventNewMarkers(true)
 		_ = issueBlocks(tf, "6/2", 5, []string{"Marker-6/2"}, 0)
-		tf.Tangle.Booker.PreventNewMarkers(false)
 	}
 
 	// SEQUENCE 7 (without markers)

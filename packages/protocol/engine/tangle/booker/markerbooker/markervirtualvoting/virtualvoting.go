@@ -40,6 +40,7 @@ type VirtualVoting struct {
 
 func New(workers *workerpool.Group, conflictDAG *conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID], sequenceManager *markers.SequenceManager, validators *sybilprotection.WeightedSet, opts ...options.Option[VirtualVoting]) (newVirtualVoting *VirtualVoting) {
 	return options.Apply(&VirtualVoting{
+		events:          booker.NewVirtualVotingEvents(),
 		Validators:      validators,
 		Workers:         workers,
 		ConflictDAG:     conflictDAG,
@@ -57,7 +58,6 @@ func New(workers *workerpool.Group, conflictDAG *conflictdag.ConflictDAG[utxo.Tr
 		v.sequenceTracker = sequencetracker.NewSequenceTracker[booker.BlockVotePower](validators, sequenceManager.Sequence, v.optsSequenceCutoffCallback)
 		v.slotTracker = slottracker.NewSlotTracker(v.optsSlotCutoffCallback)
 
-		v.events = booker.NewVirtualVotingEvents()
 		v.events.ConflictTracker.LinkTo(v.conflictTracker.Events)
 		v.events.SequenceTracker.LinkTo(v.sequenceTracker.Events)
 		v.events.SlotTracker.LinkTo(v.slotTracker.Events)

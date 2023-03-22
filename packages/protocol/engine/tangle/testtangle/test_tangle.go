@@ -28,6 +28,7 @@ type TestTangle struct {
 	slotTimeProvider *slot.TimeProvider
 	memPool          mempool.MemPool
 	evictionState    *eviction.State
+	validators       *sybilprotection.WeightedSet
 
 	module.Module
 }
@@ -40,6 +41,7 @@ func NewTestTangle(t *testing.T, workers *workerpool.Group, slotTimeProvider *sl
 		slotTimeProvider: slotTimeProvider,
 		memPool:          memPool,
 		evictionState:    eviction.NewState(storageInstance),
+		validators:       validators,
 	}
 
 	testTangle.blockDAG = inmemoryblockdag.New(workers.CreateGroup("BlockDAG"), testTangle.evictionState, testTangle.SlotTimeProvider, storageInstance.Commitments.Load)
@@ -85,6 +87,10 @@ func (t *TestTangle) EvictionState() *eviction.State {
 
 func (t *TestTangle) SlotTimeProvider() *slot.TimeProvider {
 	return t.slotTimeProvider
+}
+
+func (t *TestTangle) Validators() *sybilprotection.WeightedSet {
+	return t.validators
 }
 
 func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, memPool mempool.MemPool, slotTimeProvider *slot.TimeProvider, optsBooker ...options.Option[markerbooker.Booker]) *tangle.TestFramework {

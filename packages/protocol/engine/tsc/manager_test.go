@@ -21,16 +21,16 @@ import (
 )
 
 func TestOrphanageManager_orphanBeforeTSC(t *testing.T) {
-	treshhold := 30 * time.Second
+	threshold := 30 * time.Second
 
 	workers := workerpool.NewGroup(t.Name())
-	tf := tsc.NewTestFramework(t,
+	tf := NewTestFramework(t,
 		testtangle.NewDefaultTestFramework(t,
 			workers.CreateGroup("TangleTestFramework"),
 			realitiesledger.NewTestLedger(t, workers.CreateGroup("Ledger")),
 			slot.NewTimeProvider(time.Now().Unix(), 10),
 		),
-		tsc.WithTimeSinceConfirmationThreshold(treshhold),
+		tsc.WithTimeSinceConfirmationThreshold(threshold),
 	)
 
 	now := time.Now()
@@ -40,13 +40,13 @@ func TestOrphanageManager_orphanBeforeTSC(t *testing.T) {
 		tf.Manager.AddBlock(booker.NewBlock(block))
 	}
 
-	tf.Manager.HandleTimeUpdate(now.Add(treshhold).Add(10 * time.Second))
+	tf.Manager.HandleTimeUpdate(now.Add(threshold).Add(10 * time.Second))
 	tf.BlockDAG.AssertOrphanedCount(11, "%d blocks should be orphaned", 1)
 }
 
 func TestOrphanageManager_HandleTimeUpdate(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	tf := tsc.NewTestFramework(t,
+	tf := NewTestFramework(t,
 		testtangle.NewDefaultTestFramework(t,
 			workers.CreateGroup("TangleTestFramework"),
 			realitiesledger.NewTestLedger(t, workers.CreateGroup("Ledger")),
@@ -169,7 +169,7 @@ func TestOrphanageManager_HandleTimeUpdate(t *testing.T) {
 	}
 }
 
-func createTestTangleOrphanage(tf *tsc.TestFramework) {
+func createTestTangleOrphanage(tf *TestFramework) {
 	// SEQUENCE 0
 	{
 		tf.BlockDAG.CreateBlock("Marker-0/1", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithIssuingTime(time.Now().Add(-6*time.Minute)))
@@ -185,7 +185,7 @@ func createTestTangleOrphanage(tf *tsc.TestFramework) {
 	}
 }
 
-func issueBlocks(tf *tsc.TestFramework, blkPrefix string, blkCount int, parents []string, timestampOffset time.Duration) string {
+func issueBlocks(tf *TestFramework, blkPrefix string, blkCount int, parents []string, timestampOffset time.Duration) string {
 	blkAlias := fmt.Sprintf("%s_%d", blkPrefix, 0)
 
 	tf.BlockDAG.CreateBlock(blkAlias, models.WithStrongParents(tf.BlockDAG.BlockIDs(parents...)), models.WithIssuingTime(time.Now().Add(-timestampOffset)))

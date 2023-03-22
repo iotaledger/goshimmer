@@ -47,14 +47,6 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, instance Booke
 	return t
 }
 
-func (t *TestFramework) PreventNewMarkers(prevent bool) {
-	panic("Do we need this?")
-	//callback := func(markers.SequenceID, markers.Index) bool {
-	//	return !prevent
-	//}
-	//t.Instance.markerManager.SequenceManager.SetIncreaseIndexCallback(callback)
-}
-
 // Block retrieves the Blocks that is associated with the given alias.
 func (t *TestFramework) Block(alias string) (block *Block) {
 	block, ok := t.Instance.Block(t.BlockDAG.Block(alias).ID())

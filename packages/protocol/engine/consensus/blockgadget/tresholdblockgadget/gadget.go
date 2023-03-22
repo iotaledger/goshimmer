@@ -14,6 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/markers"
@@ -44,6 +45,7 @@ type Gadget struct {
 	slotTimeProvider *slot.TimeProvider
 
 	workers             *workerpool.Group
+	validators          *sybilprotection.WeightedSet
 	totalWeightCallback func() int64
 
 	lastAcceptedMarker              *shrinkingmap.ShrinkingMap[markers.SequenceID, markers.Index]
@@ -65,7 +67,7 @@ func NewProvider(opts ...options.Option[Gadget]) module.Provider[*engine.Engine,
 		g := New(e.Workers.CreateGroup("BlockGadget"), e.Tangle.Booker(), e.Tangle.BlockDAG(), e.Ledger.MemPool(), e.EvictionState, opts...)
 
 		e.SybilProtection.HookInitialized(func() {
-			g.Initialize(e.SlotTimeProvider(), e.SybilProtection.Weights().TotalWeightWithoutZeroIdentity)
+			g.Initialize(e.SlotTimeProvider(), e.SybilProtection.Validators(), e.SybilProtection.Weights().TotalWeightWithoutZeroIdentity)
 		})
 
 		return g
@@ -106,8 +108,9 @@ func New(workers *workerpool.Group, booker booker.Booker, blockDAG blockdag.Bloc
 	)
 }
 
-func (g *Gadget) Initialize(slotTimeProvider *slot.TimeProvider, totalWeightCallback func() int64) {
+func (g *Gadget) Initialize(slotTimeProvider *slot.TimeProvider, validators *sybilprotection.WeightedSet, totalWeightCallback func() int64) {
 	g.slotTimeProvider = slotTimeProvider
+	g.validators = validators
 	g.totalWeightCallback = totalWeightCallback
 
 	g.acceptanceOrder = causalorder.New(g.workers.CreatePool("AcceptanceOrder", 2), g.GetOrRegisterBlock, (*blockgadget.Block).IsStronglyAccepted, lo.Bind(false, g.markAsAccepted), g.acceptanceFailed, (*blockgadget.Block).StrongParents)
@@ -258,7 +261,7 @@ func (g *Gadget) tryConfirmOrAccept(totalWeight int64, marker markers.Marker) (b
 	markerTotalWeight := g.booker.VirtualVoting().MarkerVotersTotalWeight(marker)
 
 	// check if enough weight is online to confirm based on total weight
-	if IsThresholdReached(totalWeight, g.totalWeightCallback(), g.optsMarkerConfirmationThreshold) {
+	if IsThresholdReached(totalWeight, g.validators.TotalWeight(), g.optsMarkerConfirmationThreshold) {
 		// check if marker weight has enough weight to be confirmed
 		if IsThresholdReached(totalWeight, markerTotalWeight, g.optsMarkerConfirmationThreshold) {
 			// need to mark outside 'if' statement, otherwise only the first condition would be executed due to lazy evaluation
@@ -268,7 +271,7 @@ func (g *Gadget) tryConfirmOrAccept(totalWeight int64, marker markers.Marker) (b
 				return g.propagateAcceptanceConfirmation(marker, true)
 			}
 		}
-	} else if IsThresholdReached(g.totalWeightCallback(), markerTotalWeight, g.optsMarkerAcceptanceThreshold) && g.setMarkerAccepted(marker) {
+	} else if IsThresholdReached(g.validators.TotalWeight(), markerTotalWeight, g.optsMarkerAcceptanceThreshold) && g.setMarkerAccepted(marker) {
 		return g.propagateAcceptanceConfirmation(marker, false)
 	}
 
