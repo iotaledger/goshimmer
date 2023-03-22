@@ -27,37 +27,41 @@ func TestSortedConflict(t *testing.T) {
 	conflict6 := newConflict("conflict6", weight.New().AddCumulativeWeight(2).SetAcceptanceState(acceptance.Accepted), pendingTasksCounter)
 
 	sortedConflicts := NewSortedSet[utxo.OutputID, utxo.OutputID](conflict1, pendingTasksCounter)
-
+	pendingTasksCounter.WaitIsZero()
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict1")
 
 	sortedConflicts.Add(conflict2)
+	pendingTasksCounter.WaitIsZero()
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict2", "conflict1")
 
 	sortedConflicts.Add(conflict3)
+	pendingTasksCounter.WaitIsZero()
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict3", "conflict2", "conflict1")
 
 	sortedConflicts.Add(conflict4)
+	pendingTasksCounter.WaitIsZero()
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict3", "conflict2", "conflict1", "conflict4")
 
 	sortedConflicts.Add(conflict5)
+	pendingTasksCounter.WaitIsZero()
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict3", "conflict5", "conflict2", "conflict1", "conflict4")
 
 	sortedConflicts.Add(conflict6)
+	pendingTasksCounter.WaitIsZero()
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict6", "conflict3", "conflict5", "conflict2", "conflict1", "conflict4")
 
 	conflict2.Weight().AddCumulativeWeight(3)
 	require.Equal(t, int64(13), conflict2.Weight().Value().CumulativeWeight())
-	sortedConflicts.WaitConsistent()
+	pendingTasksCounter.WaitIsZero()
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict6", "conflict3", "conflict2", "conflict5", "conflict1", "conflict4")
 
 	conflict2.Weight().RemoveCumulativeWeight(3)
 	require.Equal(t, int64(10), conflict2.Weight().Value().CumulativeWeight())
-
-	sortedConflicts.WaitConsistent()
+	pendingTasksCounter.WaitIsZero()
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict6", "conflict3", "conflict5", "conflict2", "conflict1", "conflict4")
 
 	conflict5.Weight().SetAcceptanceState(acceptance.Accepted)
-	sortedConflicts.WaitConsistent()
+	pendingTasksCounter.WaitIsZero()
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict5", "conflict6", "conflict3", "conflict2", "conflict1", "conflict4")
 }
 
@@ -70,15 +74,15 @@ func TestSortedDecreaseHeaviest(t *testing.T) {
 	sortedConflicts := NewSortedSet[utxo.OutputID, utxo.OutputID](conflict1, pendingTasksCounter)
 
 	sortedConflicts.Add(conflict1)
-	sortedConflicts.WaitConsistent()
+	pendingTasksCounter.WaitIsZero()
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict1")
 
 	sortedConflicts.Add(conflict2)
-	sortedConflicts.WaitConsistent()
+	pendingTasksCounter.WaitIsZero()
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict1", "conflict2")
 
 	conflict1.Weight().SetAcceptanceState(acceptance.Pending)
-	sortedConflicts.WaitConsistent()
+	pendingTasksCounter.WaitIsZero()
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict2", "conflict1")
 }
 
@@ -132,18 +136,16 @@ func TestSortedConflictParallel(t *testing.T) {
 		}(permutation)
 	}
 
-	sortedConflicts.WaitConsistent()
-
+	pendingTasksCounter.WaitIsZero()
 	wg.Wait()
-
-	sortedParallelConflicts.WaitConsistent()
+	pendingTasksCounter.WaitIsZero()
 
 	originalSortingAfter := sortedConflicts.String()
 	parallelSortingAfter := sortedParallelConflicts.String()
 	require.Equal(t, originalSortingAfter, parallelSortingAfter)
 	require.NotEqualf(t, originalSortingBefore, originalSortingAfter, "original sorting should have changed")
 
-	sortedParallelConflicts1.WaitConsistent()
+	pendingTasksCounter.WaitIsZero()
 
 	parallelSortingAfter = sortedParallelConflicts1.String()
 	require.Equal(t, originalSortingAfter, parallelSortingAfter)
@@ -192,8 +194,6 @@ func generateRandomCumulativeWeightPermutation(delta int64) func(conflict *Confl
 }
 
 func assertSortedConflictsOrder[ConflictID, ResourceID IDType](t *testing.T, sortedConflicts *SortedSet[ConflictID, ResourceID], aliases ...string) {
-	sortedConflicts.WaitConsistent()
-
 	require.NoError(t, sortedConflicts.ForEach(func(c *Conflict[ConflictID, ResourceID]) error {
 		currentAlias := aliases[0]
 		aliases = aliases[1:]
@@ -207,9 +207,7 @@ func assertSortedConflictsOrder[ConflictID, ResourceID IDType](t *testing.T, sor
 }
 
 func newConflict(alias string, weight *weight.Weight, pendingTasksCounter *syncutils.Counter) *Conflict[utxo.OutputID, utxo.OutputID] {
-	conflict := New[utxo.OutputID, utxo.OutputID](outputID(alias), nil, nil, weight, pendingTasksCounter)
-	conflict.WaitConsistent()
-	return conflict
+	return New[utxo.OutputID, utxo.OutputID](outputID(alias), nil, nil, weight, pendingTasksCounter)
 }
 
 func outputID(alias string) utxo.OutputID {

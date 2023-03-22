@@ -25,12 +25,18 @@ type sortedSetMember[ConflictID, ResourceID IDType] struct {
 
 	// queuedWeight is the weight that is queued to be applied to the Conflict.
 	queuedWeight *weight.Value
+
 	// weightMutex is used to protect the currentWeight and queuedWeight.
 	weightMutex sync.RWMutex
 
+	// currentPreferredInstead is the current preferredInstead value of the Conflict.
 	currentPreferredInstead *Conflict[ConflictID, ResourceID]
-	queuedPreferredInstead  *Conflict[ConflictID, ResourceID]
-	preferredInsteadMutex   sync.RWMutex
+
+	// queuedPreferredInstead is the preferredInstead value that is queued to be applied to the Conflict.
+	queuedPreferredInstead *Conflict[ConflictID, ResourceID]
+
+	// preferredMutex is used to protect the currentPreferredInstead and queuedPreferredInstead.
+	preferredInsteadMutex sync.RWMutex
 
 	// onUpdateHook is the hook that is triggered when the weight of the Conflict is updated.
 	onUpdateHook *event.Hook[func(weight.Value)]
@@ -74,6 +80,7 @@ func (s *sortedSetMember[ConflictID, ResourceID]) Compare(other *sortedSetMember
 	return bytes.Compare(lo.PanicOnErr(s.id.Bytes()), lo.PanicOnErr(other.id.Bytes()))
 }
 
+// PreferredInstead returns the current preferred instead value of the sortedSetMember.
 func (s *sortedSetMember[ConflictID, ResourceID]) PreferredInstead() *Conflict[ConflictID, ResourceID] {
 	s.preferredInsteadMutex.RLock()
 	defer s.preferredInsteadMutex.RUnlock()
@@ -81,6 +88,7 @@ func (s *sortedSetMember[ConflictID, ResourceID]) PreferredInstead() *Conflict[C
 	return s.currentPreferredInstead
 }
 
+// IsPreferred returns true if the sortedSetMember is preferred instead of its Conflicts.
 func (s *sortedSetMember[ConflictID, ResourceID]) IsPreferred() bool {
 	return s.PreferredInstead() == s.Conflict
 }
@@ -130,9 +138,7 @@ func (s *sortedSetMember[ConflictID, ResourceID]) queuePreferredInsteadUpdate(co
 	s.weightMutex.Lock()
 	defer s.weightMutex.Unlock()
 
-	if (s.queuedPreferredInstead == nil && s.currentPreferredInstead == conflict) ||
-		(s.queuedPreferredInstead != nil && s.queuedPreferredInstead == conflict) ||
-		s.sortedSet.owner == conflict {
+	if (s.queuedPreferredInstead == nil && s.currentPreferredInstead == conflict) || (s.queuedPreferredInstead != nil && s.queuedPreferredInstead == conflict) || s.sortedSet.owner == conflict {
 		return
 	}
 
@@ -140,6 +146,8 @@ func (s *sortedSetMember[ConflictID, ResourceID]) queuePreferredInsteadUpdate(co
 	s.sortedSet.notifyPendingPreferredInsteadUpdate(s)
 }
 
+// preferredInsteadUpdateApplied tries to apply a queued preferred instead update to the sortedSetMember and returns
+// true if successful.
 func (s *sortedSetMember[ConflictID, ResourceID]) preferredInsteadUpdateApplied() bool {
 	s.preferredInsteadMutex.Lock()
 	defer s.preferredInsteadMutex.Unlock()
