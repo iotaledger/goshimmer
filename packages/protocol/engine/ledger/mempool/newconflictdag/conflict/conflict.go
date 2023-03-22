@@ -66,6 +66,22 @@ func (c *Conflict[ConflictID, ResourceID]) Weight() *weight.Weight {
 	return c.weight
 }
 
+// ForEachConflictingConflict iterates over all conflicting Conflicts of the Conflict and calls the given callback for each of them.
+func (c *Conflict[ConflictID, ResourceID]) ForEachConflictingConflict(callback func(*Conflict[ConflictID, ResourceID]) error) error {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	for currentMember := c.conflictingConflicts.heaviestMember; currentMember != nil; currentMember = currentMember.lighterMember {
+		if currentMember.Conflict != c {
+			if err := callback(currentMember.Conflict); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
 func (c *Conflict[ConflictID, ResourceID]) Compare(other *Conflict[ConflictID, ResourceID]) int {
 	if c == other {
 		return weight.Equal

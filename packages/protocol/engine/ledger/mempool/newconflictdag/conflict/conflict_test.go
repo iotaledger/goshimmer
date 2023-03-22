@@ -3,15 +3,18 @@ package conflict_test
 import (
 	"fmt"
 	"math/rand"
+	"sort"
 	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/acceptance"
 	. "github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/conflict"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/weight"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
+	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
@@ -168,14 +171,21 @@ func TestConflictSets(t *testing.T) {
 			conflictE: conflictF,
 			conflictF: conflictF,
 		}))
+
+		assertCorrectOrder(t, conflictA, conflictB, conflictC, conflictD, conflictE, conflictF)
+
 	}
 }
 
 func TestConflictParallel(t *testing.T) {
-	pendingTasksCounter := syncutils.NewCounter()
+	sequentialPendingTasksCounter := syncutils.NewCounter()
+	parallelPendingTasksCounter := syncutils.NewCounter()
 
-	//sequentialConflicts := createConflicts()
-	parallelConflicts := createConflicts(pendingTasksCounter)
+	sequentialConflicts := createConflicts(sequentialPendingTasksCounter)
+	sequentialPendingTasksCounter.WaitIsZero()
+
+	parallelConflicts := createConflicts(parallelPendingTasksCounter)
+	parallelPendingTasksCounter.WaitIsZero()
 
 	const updateCount = 100000
 
@@ -188,7 +198,7 @@ func TestConflictParallel(t *testing.T) {
 	for _, permutation := range permutations {
 		targetAlias := lo.Keys(parallelConflicts)[rand.Intn(len(parallelConflicts))]
 
-		//permutation(sequentialConflicts[targetAlias])
+		permutation(sequentialConflicts[targetAlias])
 
 		wg.Add(1)
 		go func(permutation func(conflict *Conflict[utxo.OutputID, utxo.OutputID])) {
@@ -198,19 +208,46 @@ func TestConflictParallel(t *testing.T) {
 		}(permutation)
 	}
 
-	//lo.ForEach(lo.Keys(sequentialConflicts), func(conflictAlias string) {
-	//	sequentialConflicts[conflictAlias].WaitConsistent()
-	//})
+	sequentialPendingTasksCounter.WaitIsZero()
 
 	wg.Wait()
 
+	parallelPendingTasksCounter.WaitIsZero()
+
 	lo.ForEach(lo.Keys(parallelConflicts), func(conflictAlias string) {
-		parallelConflicts[conflictAlias].WaitConsistent()
+		assert.EqualValuesf(t, sequentialConflicts[conflictAlias].PreferredInstead().ID(), parallelConflicts[conflictAlias].PreferredInstead().ID(), "parallel conflict %s prefers %s, but sequential conflict prefers %s", conflictAlias, parallelConflicts[conflictAlias].PreferredInstead().ID(), sequentialConflicts[conflictAlias].PreferredInstead().ID())
 	})
 
-	//lo.ForEach(lo.Keys(parallelConflicts), func(conflictAlias string) {
-	//	assert.Equal(t, sequentialConflicts[conflictAlias].PreferredInstead(), parallelConflicts[conflictAlias].PreferredInstead(), "parallel conflict %s prefers %s, but sequential conflict prefers %s", conflictAlias, parallelConflicts[conflictAlias].PreferredInstead().ID(), sequentialConflicts[conflictAlias].PreferredInstead().ID())
-	//})
+	assertCorrectOrder(t, lo.Values(sequentialConflicts)...)
+	assertCorrectOrder(t, lo.Values(parallelConflicts)...)
+}
+
+func assertCorrectOrder(t *testing.T, conflicts ...*Conflict[utxo.OutputID, utxo.OutputID]) {
+	sort.Slice(conflicts, func(i, j int) bool {
+		return conflicts[i].Compare(conflicts[j]) == weight.Heavier
+	})
+
+	preferredConflicts := advancedset.New[*Conflict[utxo.OutputID, utxo.OutputID]]()
+	unPreferredConflicts := advancedset.New[*Conflict[utxo.OutputID, utxo.OutputID]]()
+
+	for _, conflict := range conflicts {
+		if !unPreferredConflicts.Has(conflict) {
+			preferredConflicts.Add(conflict)
+			conflict.ForEachConflictingConflict(func(conflictingConflict *Conflict[utxo.OutputID, utxo.OutputID]) error {
+				unPreferredConflicts.Add(conflictingConflict)
+				return nil
+			})
+		}
+	}
+
+	for _, conflict := range conflicts {
+		if preferredConflicts.Has(conflict) {
+			require.True(t, conflict.IsPreferred(), "conflict %s should be preferred", conflict.ID())
+		}
+		if unPreferredConflicts.Has(conflict) {
+			require.False(t, conflict.IsPreferred(), "conflict %s should be unPreferred", conflict.ID())
+		}
+	}
 }
 
 func generateRandomConflictPermutation() func(conflict *Conflict[utxo.OutputID, utxo.OutputID]) {
