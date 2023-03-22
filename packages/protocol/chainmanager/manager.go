@@ -289,9 +289,6 @@ func (m *Manager) detectForks(commitment *Commitment, source identity.ID) {
 		return
 	}
 
-	m.evictionMutex.Lock()
-	defer m.evictionMutex.Unlock()
-
 	// Do not trigger another event for the same forking point.
 	if m.forksByForkingPoint.Has(forkingPoint.ID()) {
 		return
