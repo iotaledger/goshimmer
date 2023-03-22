@@ -34,7 +34,6 @@ type Manager struct {
 	forkingPointsByCommitments *memstorage.SlotStorage[commitment.ID, commitment.ID]
 	forksByForkingPoint        *shrinkingmap.ShrinkingMap[commitment.ID, *Fork]
 
-	// TODO: this should be locked from all exported methods and it is currently not!
 	evictionMutex sync.RWMutex
 
 	optsCommitmentRequester []options.Option[eventticker.EventTicker[commitment.ID]]
@@ -64,6 +63,9 @@ func NewManager(genesisCommitment *commitment.Commitment, opts ...options.Option
 }
 
 func (m *Manager) ProcessCommitmentFromSource(commitment *commitment.Commitment, source identity.ID) (isSolid bool, chain *Chain) {
+	m.evictionMutex.RLock()
+	defer m.evictionMutex.RUnlock()
+
 	_, isSolid, chainCommitment := m.processCommitment(commitment)
 	if chainCommitment == nil {
 		return false, nil
@@ -75,6 +77,9 @@ func (m *Manager) ProcessCommitmentFromSource(commitment *commitment.Commitment,
 }
 
 func (m *Manager) ProcessCandidateCommitment(commitment *commitment.Commitment) (isSolid bool, chain *Chain) {
+	m.evictionMutex.RLock()
+	defer m.evictionMutex.RUnlock()
+
 	_, isSolid, chainCommitment := m.processCommitment(commitment)
 	if chainCommitment == nil {
 		return false, nil
@@ -83,6 +88,9 @@ func (m *Manager) ProcessCandidateCommitment(commitment *commitment.Commitment) 
 }
 
 func (m *Manager) ProcessCommitment(commitment *commitment.Commitment) (isSolid bool, chain *Chain) {
+	m.evictionMutex.RLock()
+	defer m.evictionMutex.RUnlock()
+
 	isNew, isSolid, chainCommitment := m.processCommitment(commitment)
 
 	if chainCommitment == nil {
@@ -112,20 +120,10 @@ func (m *Manager) EvictUntil(index slot.Index) {
 	m.lastEvictedSlot = index
 }
 
-func (m *Manager) evict(index slot.Index) {
-	// Forget about the forks that we detected at that slot so that we can detect them again if they happen
-	evictedForkDetections := m.forkingPointsByCommitments.Evict(index)
-	if evictedForkDetections != nil {
-		evictedForkDetections.ForEach(func(_, forkingPoint commitment.ID) bool {
-			m.forksByForkingPoint.Delete(forkingPoint)
-			return true
-		})
-	}
-
-	m.commitmentsByID.Evict(index)
-}
-
 func (m *Manager) InitRootCommitment(c *commitment.Commitment) {
+	m.evictionMutex.RLock()
+	defer m.evictionMutex.RUnlock()
+
 	m.rootCommitmentMutex.Lock()
 	defer m.rootCommitmentMutex.Unlock()
 
@@ -137,6 +135,9 @@ func (m *Manager) InitRootCommitment(c *commitment.Commitment) {
 
 // SetRootCommitment sets the root commitment of the manager.
 func (m *Manager) SetRootCommitment(commitment *commitment.Commitment) {
+	m.evictionMutex.RLock()
+	defer m.evictionMutex.RUnlock()
+
 	m.rootCommitmentMutex.Lock()
 	defer m.rootCommitmentMutex.Unlock()
 
@@ -154,6 +155,9 @@ func (m *Manager) SetRootCommitment(commitment *commitment.Commitment) {
 }
 
 func (m *Manager) Chain(ec commitment.ID) (chain *Chain) {
+	m.evictionMutex.RLock()
+	defer m.evictionMutex.RUnlock()
+
 	if commitment, exists := m.commitment(ec); exists {
 		return commitment.Chain()
 	}
@@ -190,6 +194,9 @@ func (m *Manager) ForkByForkingPoint(forkingPoint commitment.ID) (fork *Fork, ex
 }
 
 func (m *Manager) SwitchMainChain(head commitment.ID) error {
+	m.evictionMutex.RLock()
+	defer m.evictionMutex.RUnlock()
+
 	commitment, _ := m.commitment(head)
 	if commitment == nil {
 		return errors.Wrapf(ErrCommitmentUnknown, "unknown commitment %s", head)
@@ -232,6 +239,19 @@ func (m *Manager) processCommitment(commitment *commitment.Commitment) (isNew bo
 	}
 
 	return
+}
+
+func (m *Manager) evict(index slot.Index) {
+	// Forget about the forks that we detected at that slot so that we can detect them again if they happen
+	evictedForkDetections := m.forkingPointsByCommitments.Evict(index)
+	if evictedForkDetections != nil {
+		evictedForkDetections.ForEach(func(_, forkingPoint commitment.ID) bool {
+			m.forksByForkingPoint.Delete(forkingPoint)
+			return true
+		})
+	}
+
+	m.commitmentsByID.Evict(index)
 }
 
 func (m *Manager) getOrCreateCommitment(id commitment.ID) (commitment *Commitment, created bool) {
