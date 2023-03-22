@@ -1,6 +1,7 @@
 package conflict
 
 import (
+	"fmt"
 	"sync"
 	"sync/atomic"
 
@@ -142,6 +143,17 @@ func (s *SortedSet[ConflictID, ResourceID]) ForEach(callback func(*Conflict[Conf
 	return nil
 }
 
+// ForEach iterates over all Conflicts of the SortedSet and calls the given callback for each of them.
+func (s *SortedSet[ConflictID, ResourceID]) forEach(callback func(*Conflict[ConflictID, ResourceID]) error) error {
+	for currentMember := s.heaviestMember; currentMember != nil; currentMember = currentMember.lighterMember {
+		if err := callback(currentMember.Conflict); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // HeaviestConflict returns the heaviest Conflict of the SortedSet.
 func (s *SortedSet[ConflictID, ResourceID]) HeaviestConflict() *Conflict[ConflictID, ResourceID] {
 	s.mutex.RLock()
@@ -161,8 +173,28 @@ func (s *SortedSet[ConflictID, ResourceID]) WaitConsistent() {
 
 // String returns a human-readable representation of the SortedSet.
 func (s *SortedSet[ConflictID, ResourceID]) String() string {
-	structBuilder := stringify.NewStructBuilder("SortedSet")
+	structBuilder := stringify.NewStructBuilder("SortedSet",
+		stringify.NewStructField("owner", s.owner.ID()),
+		stringify.NewStructField("heaviestMember", s.heaviestMember.ID()),
+		stringify.NewStructField("heaviestPreferredMember", s.heaviestPreferredMember.ID()),
+	)
+
 	_ = s.ForEach(func(conflict *Conflict[ConflictID, ResourceID]) error {
+		structBuilder.AddField(stringify.NewStructField(conflict.id.String(), conflict))
+		return nil
+	})
+
+	return structBuilder.String()
+}
+
+func (s *SortedSet[ConflictID, ResourceID]) string() string {
+	structBuilder := stringify.NewStructBuilder("SortedSet",
+		stringify.NewStructField("owner", s.owner.ID()),
+		stringify.NewStructField("heaviestMember", s.heaviestMember.ID()),
+		stringify.NewStructField("heaviestPreferredMember", s.heaviestPreferredMember.ID()),
+	)
+
+	_ = s.forEach(func(conflict *Conflict[ConflictID, ResourceID]) error {
 		structBuilder.AddField(stringify.NewStructField(conflict.id.String(), conflict))
 		return nil
 	})
@@ -266,7 +298,18 @@ func (s *SortedSet[ConflictID, ResourceID]) fixHeaviestPreferredMember(member *s
 
 	if s.heaviestPreferredMember == member {
 		for currentMember := member; ; currentMember = currentMember.lighterMember {
-			if currentMember.Conflict == s.owner || currentMember.IsPreferred() || currentMember.PreferredInstead() == member.Conflict {
+			if currentMember == nil {
+				fmt.Println("member", member.ID())
+				fmt.Println(s.string())
+				fmt.Println("member event log", member.EventLog())
+			}
+
+			isOwner := currentMember.Conflict == s.owner
+			preferred := currentMember.IsPreferred()
+			instead := currentMember.PreferredInstead()
+			b := instead == member.Conflict
+
+			if isOwner || preferred || b {
 				s.heaviestPreferredMember = currentMember
 				s.owner.SetPreferredInstead(currentMember.Conflict)
 
@@ -287,8 +330,10 @@ func (s *SortedSet[ConflictID, ResourceID]) fixMemberPosition(member *sortedSetM
 	// the member needs to be moved up in the list
 	for currentMember := member.heavierMember; currentMember != nil && currentMember.Compare(member) == weight.Lighter; currentMember = member.heavierMember {
 		s.swapNeighbors(member, currentMember)
+		member.AppendEventLog("moved up")
+		currentMember.AppendEventLog("swapped down")
 
-		if currentMember == s.heaviestPreferredMember && (currentMember.Conflict == preferredConflict || memberIsPreferred) {
+		if currentMember == s.heaviestPreferredMember && (preferredConflict == currentMember.Conflict || memberIsPreferred) {
 			s.heaviestPreferredMember = member
 			s.owner.SetPreferredInstead(member.Conflict)
 		}
@@ -299,6 +344,8 @@ func (s *SortedSet[ConflictID, ResourceID]) fixMemberPosition(member *sortedSetM
 
 	for currentMember := member.lighterMember; currentMember != nil && currentMember.Compare(member) == weight.Heavier; currentMember = member.lighterMember {
 		s.swapNeighbors(currentMember, member)
+		currentMember.AppendEventLog("swapped up")
+		member.AppendEventLog("moved down")
 
 		if memberIsHeaviestPreferred && (currentMember.IsPreferred() || currentMember.PreferredInstead() == member.Conflict) {
 			s.heaviestPreferredMember = currentMember

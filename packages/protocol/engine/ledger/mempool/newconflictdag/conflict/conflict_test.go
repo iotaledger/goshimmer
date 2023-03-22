@@ -172,45 +172,47 @@ func TestConflictSets(t *testing.T) {
 }
 
 func TestConflictParallel(t *testing.T) {
-	pendingTasksCounter := syncutils.NewCounter()
+	for {
+		pendingTasksCounter := syncutils.NewCounter()
 
-	//sequentialConflicts := createConflicts()
-	parallelConflicts := createConflicts(pendingTasksCounter)
+		//sequentialConflicts := createConflicts()
+		parallelConflicts := createConflicts(pendingTasksCounter)
 
-	const updateCount = 100000
+		const updateCount = 100000
 
-	permutations := make([]func(conflict *Conflict[utxo.OutputID, utxo.OutputID]), 0)
-	for i := 0; i < updateCount; i++ {
-		permutations = append(permutations, generateRandomConflictPermutation())
+		permutations := make([]func(conflict *Conflict[utxo.OutputID, utxo.OutputID]), 0)
+		for i := 0; i < updateCount; i++ {
+			permutations = append(permutations, generateRandomConflictPermutation())
+		}
+
+		var wg sync.WaitGroup
+		for _, permutation := range permutations {
+			targetAlias := lo.Keys(parallelConflicts)[rand.Intn(len(parallelConflicts))]
+
+			//permutation(sequentialConflicts[targetAlias])
+
+			wg.Add(1)
+			go func(permutation func(conflict *Conflict[utxo.OutputID, utxo.OutputID])) {
+				permutation(parallelConflicts[targetAlias])
+
+				wg.Done()
+			}(permutation)
+		}
+
+		//lo.ForEach(lo.Keys(sequentialConflicts), func(conflictAlias string) {
+		//	sequentialConflicts[conflictAlias].WaitConsistent()
+		//})
+
+		wg.Wait()
+
+		lo.ForEach(lo.Keys(parallelConflicts), func(conflictAlias string) {
+			parallelConflicts[conflictAlias].WaitConsistent()
+		})
+
+		//lo.ForEach(lo.Keys(parallelConflicts), func(conflictAlias string) {
+		//	assert.Equal(t, sequentialConflicts[conflictAlias].PreferredInstead(), parallelConflicts[conflictAlias].PreferredInstead(), "parallel conflict %s prefers %s, but sequential conflict prefers %s", conflictAlias, parallelConflicts[conflictAlias].PreferredInstead().ID(), sequentialConflicts[conflictAlias].PreferredInstead().ID())
+		//})
 	}
-
-	var wg sync.WaitGroup
-	for _, permutation := range permutations {
-		targetAlias := lo.Keys(parallelConflicts)[rand.Intn(len(parallelConflicts))]
-
-		//permutation(sequentialConflicts[targetAlias])
-
-		wg.Add(1)
-		go func(permutation func(conflict *Conflict[utxo.OutputID, utxo.OutputID])) {
-			permutation(parallelConflicts[targetAlias])
-
-			wg.Done()
-		}(permutation)
-	}
-
-	//lo.ForEach(lo.Keys(sequentialConflicts), func(conflictAlias string) {
-	//	sequentialConflicts[conflictAlias].WaitConsistent()
-	//})
-
-	wg.Wait()
-
-	lo.ForEach(lo.Keys(parallelConflicts), func(conflictAlias string) {
-		parallelConflicts[conflictAlias].WaitConsistent()
-	})
-
-	//lo.ForEach(lo.Keys(parallelConflicts), func(conflictAlias string) {
-	//	assert.Equal(t, sequentialConflicts[conflictAlias].PreferredInstead(), parallelConflicts[conflictAlias].PreferredInstead(), "parallel conflict %s prefers %s, but sequential conflict prefers %s", conflictAlias, parallelConflicts[conflictAlias].PreferredInstead().ID(), sequentialConflicts[conflictAlias].PreferredInstead().ID())
-	//})
 }
 
 func generateRandomConflictPermutation() func(conflict *Conflict[utxo.OutputID, utxo.OutputID]) {
