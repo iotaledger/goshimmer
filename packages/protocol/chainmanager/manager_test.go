@@ -273,15 +273,15 @@ func TestEvaluateAgainstRootCommitment(t *testing.T) {
 	require.False(t, isRootCommitment, "commitment with index 0 should not be the root commitment")
 
 	isBelow, isRootCommitment = m.evaluateAgainstRootCommitment(rootCommitment)
-	require.False(t, isBelow, "commitment with index 1 should not be below root commitment")
+	require.True(t, isBelow, "commitment with index 1 should be below root commitment")
 	require.True(t, isRootCommitment, "commitment with index 1 should be the root commitment")
 
 	isBelow, isRootCommitment = m.evaluateAgainstRootCommitment(commitment.New(1, commitment.NewID(1, []byte{1}), types.Identifier{}, 0))
-	require.False(t, isBelow, "commitment with index 1 should not be below root commitment")
+	require.True(t, isBelow, "commitment with index 1 should be below root commitment")
 	require.False(t, isRootCommitment, "commitment with index 1 should be the root commitment")
 
 	isBelow, isRootCommitment = m.evaluateAgainstRootCommitment(commitment.New(1, commitment.NewID(1, []byte{9}), types.Identifier{}, 0))
-	require.False(t, isBelow, "commitment with index 1 should not be below root commitment")
+	require.True(t, isBelow, "commitment with index 1 should be below root commitment")
 	require.True(t, isRootCommitment, "commitment with index 1 should be the root commitment")
 
 	isBelow, isRootCommitment = m.evaluateAgainstRootCommitment(commitment.New(2, commitment.NewID(2, []byte{}), types.Identifier{}, 0))

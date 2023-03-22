@@ -41,6 +41,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 			"Genesis": snapshotCommitment,
 		},
 	}, opts, func(t *TestFramework) {
+		t.Instance.InitRootCommitment(snapshotCommitment)
 		t.Instance.Events.ForkDetected.Hook(func(fork *Fork) {
 			t.test.Logf("ForkDetected: %s", fork)
 			atomic.AddInt32(&t.forkDetected, 1)
