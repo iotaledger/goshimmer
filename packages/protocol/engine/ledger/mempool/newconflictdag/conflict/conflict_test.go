@@ -1,6 +1,7 @@
 package conflict_test
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
 	"sort"
@@ -173,7 +174,6 @@ func TestConflictSets(t *testing.T) {
 		}))
 
 		assertCorrectOrder(t, conflictA, conflictB, conflictC, conflictD, conflictE, conflictF)
-
 	}
 }
 
@@ -248,6 +248,18 @@ func assertCorrectOrder(t *testing.T, conflicts ...*Conflict[utxo.OutputID, utxo
 			require.False(t, conflict.IsPreferred(), "conflict %s should be unPreferred", conflict.ID())
 		}
 	}
+
+	_ = unPreferredConflicts.ForEach(func(unPreferredConflict *Conflict[utxo.OutputID, utxo.OutputID]) (err error) {
+		// iterating in descending order, so the first preferred conflict
+		_ = unPreferredConflict.ForEachConflictingConflict(func(conflictingConflict *Conflict[utxo.OutputID, utxo.OutputID]) error {
+			if conflictingConflict.IsPreferred() {
+				require.Equal(t, conflictingConflict, unPreferredConflict.PreferredInstead())
+				return errors.New("break the loop")
+			}
+			return nil
+		})
+		return nil
+	})
 }
 
 func generateRandomConflictPermutation() func(conflict *Conflict[utxo.OutputID, utxo.OutputID]) {
@@ -340,8 +352,6 @@ func assertPreferredInstead(t *testing.T, preferredInsteadMap map[*Conflict[utxo
 		conflict.WaitConsistent()
 	}
 
-	//time.Sleep(5 * time.Second)
-	//fmt.Println("sleep done")
 	for conflict, preferredInsteadConflict := range preferredInsteadMap {
 		assert.Equalf(t, preferredInsteadConflict.ID(), conflict.PreferredInstead().ID(), "conflict %s should prefer %s instead of %s", conflict.ID(), preferredInsteadConflict.ID(), conflict.PreferredInstead().ID())
 		fmt.Println(conflict.ID(), "->", conflict.PreferredInstead().ID())
