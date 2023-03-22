@@ -214,6 +214,7 @@ func (p *Protocol) initChainManager() {
 
 	p.Engine().HookInitialized(func() {
 		genesisCommitment := p.Engine().Storage.Settings.LatestCommitment()
+		p.Engine().Storage.Settings.SetChainID(genesisCommitment.ID())
 		fmt.Println(">>>>> genesiscommitment after engine initialized", genesisCommitment)
 		p.chainManager.InitRootCommitment(genesisCommitment)
 	})
