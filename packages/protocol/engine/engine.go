@@ -292,7 +292,13 @@ func (e *Engine) setupEvictionState() {
 			// TODO: ONLY ADD STRONG PARENTS AFTER NOT DOWNLOADING PAST WEAK ARROWS
 			// TODO: is this correct? could this lock acceptance in some extreme corner case? something like this happened, that confirmation is correctly advancing per block, but acceptance does not. I think it might have something to do with root blocks
 			if parent.ID.Index() < block.ID().Index() {
-				e.EvictionState.AddRootBlock(parent.ID)
+				block, exists := e.Block(parent.ID)
+				if !exists {
+					fmt.Println(">> could not find", parent.ID)
+					e.Events.Error.Trigger(errors.Errorf("cannot store root block (%s) because it is missing", parent.ID))
+					return
+				}
+				e.EvictionState.AddRootBlock(block.ID(), block.Commitment().ID())
 			}
 		})
 	}, event.WithWorkerPool(wp))

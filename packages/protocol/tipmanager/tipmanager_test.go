@@ -127,7 +127,7 @@ func TestTipManager_TimeSinceConfirmation_Unconfirmed(t *testing.T) {
 			engine.WithBootstrapThreshold(time.Since(genesisTime.Add(-time.Hour))),
 		),
 	)
-	tf.Engine.EvictionState.AddRootBlock(models.EmptyBlockID)
+	tf.Engine.EvictionState.AddRootBlock(models.EmptyBlockID, commitment.ID{})
 
 	createTestTangleTSC(tf)
 
@@ -197,7 +197,7 @@ func TestTipManager_TimeSinceConfirmation_Confirmed(t *testing.T) {
 			engine.WithBootstrapThreshold(time.Since(genesisTime.Add(30*time.Second))),
 		),
 	)
-	tf.Engine.EvictionState.AddRootBlock(models.EmptyBlockID)
+	tf.Engine.EvictionState.AddRootBlock(models.EmptyBlockID, commitment.ID{})
 	createTestTangleTSC(tf)
 
 	// case 0 - only one block can attach to genesis, so there should not be two subtangles starting from the genesis, but TSC allows using such tip.
@@ -270,7 +270,7 @@ func TestTipManager_TimeSinceConfirmation_MultipleParents(t *testing.T) {
 			engine.WithBootstrapThreshold(time.Since(genesisTime.Add(30*time.Second))),
 		),
 	)
-	tf.Engine.EvictionState.AddRootBlock(models.EmptyBlockID)
+	tf.Engine.EvictionState.AddRootBlock(models.EmptyBlockID, commitment.ID{})
 
 	createTestTangleMultipleParents(tf)
 
@@ -451,7 +451,7 @@ func TestTipManager_TimeSinceConfirmation_RootBlockParent(t *testing.T) {
 
 	now := tf.SlotTimeProvider().GenesisTime().Add(5 * time.Minute)
 
-	tf.Engine.EvictionState.AddRootBlock(models.EmptyBlockID)
+	tf.Engine.EvictionState.AddRootBlock(models.EmptyBlockID, commitment.ID{})
 
 	tf.Tangle.BlockDAG.CreateBlock("Block1", models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Genesis")), models.WithIssuingTime(now.Add(-50*time.Second)))
 	tf.Tangle.BlockDAG.IssueBlocks("Block1")
@@ -467,7 +467,8 @@ func TestTipManager_TimeSinceConfirmation_RootBlockParent(t *testing.T) {
 	tf.SetBlocksAccepted(acceptedBlockIDsAliases...)
 	tf.SetMarkersAccepted(acceptedMarkers...)
 	tf.SetAcceptedTime(now.Add(25 * time.Second))
-	tf.Engine.EvictionState.AddRootBlock(tf.Tangle.BlockDAG.Block("Block1").ID())
+	block :=tf.Tangle.BlockDAG.Block("Block1")
+	tf.Engine.EvictionState.AddRootBlock(block.ID(), block.Commitment().ID())
 
 	tf.Engine.EvictionState.RemoveRootBlock(models.EmptyBlockID)
 
@@ -496,7 +497,7 @@ func TestTipManager_FutureTips(t *testing.T) {
 		WithGenesisUnixTime(time.Now().Add(-100*time.Second).Unix()),
 		WithSlotNotarizationOptions(slotnotarization.WithMinCommittableSlotAge(1)),
 	)
-	tf.Engine.EvictionState.AddRootBlock(models.EmptyBlockID)
+	tf.Engine.EvictionState.AddRootBlock(models.EmptyBlockID, commitment.ID{})
 
 	tf.Engine.Events.Notarization.SlotCommitted.Hook(func(details *notarization.SlotCommittedDetails) {
 		fmt.Println(">>", details.Commitment.ID())

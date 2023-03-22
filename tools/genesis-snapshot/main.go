@@ -9,6 +9,7 @@ import (
 	"github.com/mr-tron/base58"
 	flag "github.com/spf13/pflag"
 
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/protocol"
@@ -126,8 +127,8 @@ func diagnosticPrintSnapshotFromFile(filePath string, ledgerProvider module.Prov
 	})
 
 	fmt.Println("--- SEPs ---")
-	if err := e.Storage.RootBlocks.Stream(0, func(blockID models.BlockID) (err error) {
-		fmt.Printf("%+v\n", blockID)
+	if err := e.Storage.RootBlocks.Stream(0, func(blockID models.BlockID, commitmentID commitment.ID) (err error) {
+		fmt.Printf("%+v %+v\n", blockID, commitmentID)
 
 		return
 	}); err != nil {

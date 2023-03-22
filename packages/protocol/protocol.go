@@ -213,10 +213,14 @@ func (p *Protocol) initChainManager() {
 	p.chainManager = chainmanager.NewManager(genesisCommitment, p.optsChainManagerOptions...)
 
 	p.Engine().HookInitialized(func() {
-		genesisCommitment := p.Engine().Storage.Settings.LatestCommitment()
-		p.Engine().Storage.Settings.SetChainID(genesisCommitment.ID())
-		fmt.Println(">>>>> genesiscommitment after engine initialized", genesisCommitment)
-		p.chainManager.InitRootCommitment(genesisCommitment)
+		earliestRootCommitment := p.Engine().EvictionState.EarliestRootCommitment()
+		rootCommitment, err := p.Engine().Storage.Commitments.Load(earliestRootCommitment.Index())
+		if err != nil {
+			panic(fmt.Sprintln("could not load earliest commitment after engine initialization", err))
+		}
+		p.Engine().Storage.Settings.SetChainID(rootCommitment.ID())
+		fmt.Println(">>>>> rootcommitment after engine initialized", rootCommitment)
+		p.chainManager.InitRootCommitment(rootCommitment)
 	})
 
 	p.Events.ChainManager = p.chainManager.Events

@@ -367,7 +367,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 			}))
 
 			// RootBlocks
-			require.NoError(t, tf.Instance.Storage.RootBlocks.Stream(slotIndex, func(rootBlock models.BlockID) error {
+			require.NoError(t, tf.Instance.Storage.RootBlocks.Stream(slotIndex, func(rootBlock models.BlockID, _ commitment.ID) error {
 				has, err := tf2.Instance.Storage.RootBlocks.Has(rootBlock)
 				require.NoError(t, err)
 				require.True(t, has)
@@ -442,7 +442,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 
 		// RootBlocks
 		for slotIndex := slot.Index(0); slotIndex <= 1; slotIndex++ {
-			require.NoError(t, tf.Instance.Storage.RootBlocks.Stream(slotIndex, func(rootBlock models.BlockID) error {
+			require.NoError(t, tf.Instance.Storage.RootBlocks.Stream(slotIndex, func(rootBlock models.BlockID, _ commitment.ID) error {
 				has, err := tf3.Instance.Storage.RootBlocks.Has(rootBlock)
 				require.NoError(t, err)
 				require.True(t, has)
@@ -512,7 +512,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 
 		// RootBlocks
 		for slotIndex := slot.Index(0); slotIndex <= 2; slotIndex++ {
-			require.NoError(t, tf.Instance.Storage.RootBlocks.Stream(slotIndex, func(rootBlock models.BlockID) error {
+			require.NoError(t, tf.Instance.Storage.RootBlocks.Stream(slotIndex, func(rootBlock models.BlockID, _ commitment.ID) error {
 				has, err := tf4.Instance.Storage.RootBlocks.Has(rootBlock)
 				require.NoError(t, err)
 				require.True(t, has)
