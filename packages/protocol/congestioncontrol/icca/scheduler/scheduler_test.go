@@ -10,7 +10,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markerbooker/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markerbooker/markervirtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/crypto/identity"
@@ -45,7 +45,7 @@ func TestScheduler_AddBlock(t *testing.T) {
 	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"))
 	tf.Scheduler.Start()
 
-	blk := virtualvoting.NewBlock(blockdag.NewBlock(models.NewBlock(models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Genesis"))), blockdag.WithSolid(true), blockdag.WithOrphaned(true)), virtualvoting.WithBooked(true), virtualvoting.WithStructureDetails(markers.NewStructureDetails()))
+	blk := markervirtualvoting.NewBlock(blockdag.NewBlock(models.NewBlock(models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Genesis"))), blockdag.WithSolid(true), blockdag.WithOrphaned(true)), markervirtualvoting.WithBooked(true), markervirtualvoting.WithStructureDetails(markers.NewStructureDetails()))
 	require.NoError(t, blk.DetermineID(tf.SlotTimeProvider()))
 
 	tf.Scheduler.AddBlock(blk)

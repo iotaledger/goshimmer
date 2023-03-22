@@ -17,7 +17,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markerbooker/markermanager"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markerbooker/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markerbooker/markervirtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/causalorder"
@@ -41,7 +41,7 @@ type Booker struct {
 	MemPool       mempool.MemPool
 	blockDAG      blockdag.BlockDAG
 	evictionState *eviction.State
-	virtualVoting *virtualvoting.VirtualVoting
+	virtualVoting *markervirtualvoting.VirtualVoting
 
 	bookingOrder  *causalorder.CausalOrder[models.BlockID, *booker.Block]
 	attachments   *attachments
@@ -52,7 +52,7 @@ type Booker struct {
 	evictionMutex sync.RWMutex
 
 	optsMarkerManager []options.Option[markermanager.MarkerManager[models.BlockID, *booker.Block]]
-	optsVirtualVoting []options.Option[virtualvoting.VirtualVoting]
+	optsVirtualVoting []options.Option[markervirtualvoting.VirtualVoting]
 
 	workers              *workerpool.Group
 	slotTimeProviderFunc func() *slot.TimeProvider
@@ -63,8 +63,8 @@ type Booker struct {
 func NewProvider(opts ...options.Option[Booker]) module.Provider[*engine.Engine, booker.Booker] {
 	return module.Provide(func(e *engine.Engine) booker.Booker {
 		b := New(e.Workers.CreateGroup("Booker"), e.EvictionState, e.Ledger.MemPool(), e.SybilProtection.Validators(), e.SlotTimeProvider, append(opts, WithVirtualVotingOptions(
-			virtualvoting.WithSlotCutoffCallback(e.LastConfirmedSlot),
-			virtualvoting.WithSequenceCutoffCallback(e.FirstUnacceptedMarker),
+			markervirtualvoting.WithSlotCutoffCallback(e.LastConfirmedSlot),
+			markervirtualvoting.WithSequenceCutoffCallback(e.FirstUnacceptedMarker),
 		))...)
 
 		e.Events.Consensus.SlotGadget.SlotConfirmed.Hook(func(index slot.Index) {
@@ -92,14 +92,14 @@ func New(workers *workerpool.Group, evictionState *eviction.State, memPool mempo
 		bookingMutex:         syncutils.NewDAGMutex[models.BlockID](),
 		sequenceMutex:        syncutils.NewDAGMutex[markers.SequenceID](),
 		optsMarkerManager:    make([]options.Option[markermanager.MarkerManager[models.BlockID, *booker.Block]], 0),
-		optsVirtualVoting:    make([]options.Option[virtualvoting.VirtualVoting], 0),
+		optsVirtualVoting:    make([]options.Option[markervirtualvoting.VirtualVoting], 0),
 		MemPool:              memPool,
 		evictionState:        evictionState,
 		workers:              workers,
 		slotTimeProviderFunc: slotTimeProviderFunc,
 	}, opts, func(b *Booker) {
 		b.markerManager = markermanager.NewMarkerManager(b.optsMarkerManager...)
-		b.virtualVoting = virtualvoting.New(workers.CreateGroup("VirtualVoting"), memPool.ConflictDAG(), b.markerManager.SequenceManager, validators, b.optsVirtualVoting...)
+		b.virtualVoting = markervirtualvoting.New(workers.CreateGroup("VirtualVoting"), memPool.ConflictDAG(), b.markerManager.SequenceManager, validators, b.optsVirtualVoting...)
 		b.bookingOrder = causalorder.New(
 			workers.CreatePool("BookingOrder", 2),
 			b.Block,
@@ -829,7 +829,7 @@ func WithMarkerManagerOptions(opts ...options.Option[markermanager.MarkerManager
 	}
 }
 
-func WithVirtualVotingOptions(opts ...options.Option[virtualvoting.VirtualVoting]) options.Option[Booker] {
+func WithVirtualVotingOptions(opts ...options.Option[markervirtualvoting.VirtualVoting]) options.Option[Booker] {
 	return func(b *Booker) {
 		b.optsVirtualVoting = append(b.optsVirtualVoting, opts...)
 	}

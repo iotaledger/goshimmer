@@ -22,17 +22,19 @@ func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, ledger mem
 	slotTimeProvider := slot.NewTimeProvider(time.Now().Unix(), 10)
 	blockDAG := inmemoryblockdag.NewTestBlockDAG(t, workers, evictionState, slotTimeProvider, blockdag.DefaultCommitmentFunc)
 
+	validators := sybilprotection.NewWeightedSet(sybilprotection.NewWeights(mapdb.NewMapDB()))
+
 	markerBooker := New(
 		workers.CreateGroup("Booker"),
 		evictionState,
 		ledger,
-		sybilprotection.NewWeightedSet(sybilprotection.NewWeights(mapdb.NewMapDB())),
+		validators,
 		blockDAG.SlotTimeProvider,
 		optsBooker...,
 	)
 	markerBooker.Initialize(blockDAG)
 
-	return booker.NewTestFramework(t, workers, markerBooker, blockDAG, ledger, func() *slot.TimeProvider {
+	return booker.NewTestFramework(t, workers, markerBooker, blockDAG, ledger, validators, func() *slot.TimeProvider {
 		return slotTimeProvider
 	})
 }

@@ -17,7 +17,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markerbooker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
 	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/hive.go/core/slot"
@@ -37,7 +36,7 @@ type TestFramework struct {
 	Booker        *booker.TestFramework
 	BlockDAG      *blockdag.TestFramework
 	MemPool       *mempool.TestFramework
-	VirtualVoting *virtualvoting.TestFramework
+	VirtualVoting *booker.VirtualVotingTestFramework
 	Acceptance    *blockgadget.TestFramework
 }
 
@@ -69,7 +68,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, engine *Engine
 	t := &TestFramework{
 		test:     test,
 		Instance: engine,
-		Booker:   booker.NewTestFramework(test, workers.CreateGroup("BookerTestFramework"), engine.Tangle.Booker(), engine.Tangle.BlockDAG(), engine.Ledger.MemPool(), engine.SlotTimeProvider),
+		Booker:   booker.NewTestFramework(test, workers.CreateGroup("BookerTestFramework"), engine.Tangle.Booker(), engine.Tangle.BlockDAG(), engine.Ledger.MemPool(), engine.SybilProtection.Validators(), engine.SlotTimeProvider),
 	}
 	t.Tangle = tangle.NewTestFramework(test, engine.Tangle, t.Booker)
 	t.Acceptance = blockgadget.NewTestFramework(test,

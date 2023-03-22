@@ -2,6 +2,8 @@ package booker
 
 import (
 	"github.com/iotaledger/goshimmer/packages/core/module"
+	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
+	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -26,6 +28,9 @@ type Booker interface {
 	// BlockConflicts returns the Conflict related details of the given Block.
 	BlockConflicts(block *Block) (blockConflictIDs utxo.TransactionIDs)
 
+	// BlockBookingDetails returns the Conflict and Marker related details of the given Block.
+	BlockBookingDetails(block *Block) (pastMarkersConflictIDs, blockConflictIDs utxo.TransactionIDs)
+
 	// TransactionConflictIDs returns the ConflictIDs of the Transaction contained in the given Block including conflicts from the UTXO past cone.
 	TransactionConflictIDs(block *Block) (conflictIDs utxo.TransactionIDs)
 
@@ -44,6 +49,12 @@ type Booker interface {
 
 type VirtualVoting interface {
 	Events() *VirtualVotingEvents
+
+	ConflictTracker() *conflicttracker.ConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower]
+
+	SequenceManager() *markers.SequenceManager
+
+	SequenceTracker() *sequencetracker.SequenceTracker[BlockVotePower]
 
 	// MarkerVotersTotalWeight retrieves Validators supporting a given marker.
 	MarkerVotersTotalWeight(marker markers.Marker) (totalWeight int64)

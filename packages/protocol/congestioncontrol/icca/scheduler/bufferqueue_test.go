@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markerbooker/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markerbooker/markervirtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 	"github.com/iotaledger/hive.go/core/slot"
@@ -293,7 +293,7 @@ func newTestBlock(opts ...options.Option[models.Block]) *Block {
 	parents.AddStrong(models.EmptyBlockID)
 	opts = append(opts, models.WithParents(parents))
 
-	blk := NewBlock(virtualvoting.NewBlock(blockdag.NewBlock(models.NewBlock(opts...))))
+	blk := NewBlock(markervirtualvoting.NewBlock(blockdag.NewBlock(models.NewBlock(opts...))))
 	if err := blk.DetermineID(slotTimeProvider); err != nil {
 		panic(errors.Wrap(err, "could not determine BlockID"))
 	}

@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/markers"
 	"github.com/iotaledger/hive.go/core/slot"
@@ -17,45 +18,42 @@ import (
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
-// region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
-
 type TestFramework struct {
-	Test        *testing.T
-	Workers     *workerpool.Group
-	Instance    Booker
-	Ledger      *mempool.TestFramework
-	BlockDAG    *blockdag.TestFramework
-	ConflictDAG *conflictdag.TestFramework
+	Test          *testing.T
+	Workers       *workerpool.Group
+	Instance      Booker
+	Ledger        *mempool.TestFramework
+	BlockDAG      *blockdag.TestFramework
+	ConflictDAG   *conflictdag.TestFramework
+	VirtualVoting *VirtualVotingTestFramework
 
 	bookedBlocks          int32
 	blockConflictsUpdated int32
 	markerConflictsAdded  int32
 }
 
-func NewTestFramework(test *testing.T, workers *workerpool.Group, instance Booker, blockDAG blockdag.BlockDAG, memPool mempool.MemPool, slotTimeProviderFunc func() *slot.TimeProvider) *TestFramework {
+func NewTestFramework(test *testing.T, workers *workerpool.Group, instance Booker, blockDAG blockdag.BlockDAG, memPool mempool.MemPool, validators *sybilprotection.WeightedSet, slotTimeProviderFunc func() *slot.TimeProvider) *TestFramework {
 	t := &TestFramework{
-		Test:        test,
-		Workers:     workers,
-		Instance:    instance,
-		BlockDAG:    blockdag.NewTestFramework(test, workers.CreateGroup("BlockDAG"), blockDAG, slotTimeProviderFunc),
-		ConflictDAG: conflictdag.NewTestFramework(test, memPool.ConflictDAG()),
-		Ledger:      mempool.NewTestFramework(test, memPool),
+		Test:          test,
+		Workers:       workers,
+		Instance:      instance,
+		BlockDAG:      blockdag.NewTestFramework(test, workers.CreateGroup("BlockDAG"), blockDAG, slotTimeProviderFunc),
+		ConflictDAG:   conflictdag.NewTestFramework(test, memPool.ConflictDAG()),
+		Ledger:        mempool.NewTestFramework(test, memPool),
+		VirtualVoting: NewVirtualVotingTestFramework(test, instance.VirtualVoting(), memPool, validators),
 	}
 
 	t.setupEvents()
 	return t
 }
 
-//func (t *TestFramework) SequenceManager() (sequenceManager *markers.SequenceManager) {
-//	return t.Instance.markerManager.SequenceManager
-//}
-
-//func (t *TestFramework) PreventNewMarkers(prevent bool) {
-//	callback := func(markers.SequenceID, markers.Index) bool {
-//		return !prevent
-//	}
-//	t.Instance.markerManager.SequenceManager.SetIncreaseIndexCallback(callback)
-//}
+func (t *TestFramework) PreventNewMarkers(prevent bool) {
+	panic("Do we need this?")
+	//callback := func(markers.SequenceID, markers.Index) bool {
+	//	return !prevent
+	//}
+	//t.Instance.markerManager.SequenceManager.SetIncreaseIndexCallback(callback)
+}
 
 // Block retrieves the Blocks that is associated with the given alias.
 func (t *TestFramework) Block(alias string) (block *Block) {
@@ -124,64 +122,64 @@ func (t *TestFramework) setupEvents() {
 }
 
 func (t *TestFramework) CheckConflictIDs(expectedConflictIDs map[string]utxo.TransactionIDs) {
-	//for blockID, blockExpectedConflictIDs := range expectedConflictIDs {
-	//	block := t.Block(blockID)
-	//	require.NotNil(t.Test, block)
-	//	require.NotNil(t.Test, block.StructureDetails)
-	//	_, retrievedConflictIDs := t.Instance.blockBookingDetails(block)
-	//	require.True(t.Test, blockExpectedConflictIDs.Equal(retrievedConflictIDs), "ConflictID of %s should be %s but is %s", blockID, blockExpectedConflictIDs, retrievedConflictIDs)
-	//}
+	for blockID, blockExpectedConflictIDs := range expectedConflictIDs {
+		block := t.Block(blockID)
+		require.NotNil(t.Test, block)
+		require.NotNil(t.Test, block.StructureDetails)
+		_, retrievedConflictIDs := t.Instance.BlockBookingDetails(block)
+		require.True(t.Test, blockExpectedConflictIDs.Equal(retrievedConflictIDs), "ConflictID of %s should be %s but is %s", blockID, blockExpectedConflictIDs, retrievedConflictIDs)
+	}
 }
 
 func (t *TestFramework) CheckMarkers(expectedMarkers map[string]*markers.Markers) {
-	//for blockAlias, expectedMarkersOfBlock := range expectedMarkers {
-	//	block := t.Block(blockAlias)
-	//	require.True(t.Test, expectedMarkersOfBlock.Equals(block.StructureDetails().PastMarkers()), "Markers of %s are wrong.\n"+
-	//		"Expected: %+v\nActual: %+v", blockAlias, expectedMarkersOfBlock, block.StructureDetails().PastMarkers())
-	//
-	//	// if we have only a single marker - check if the marker is mapped to this block (or its inherited past marker)
-	//	if expectedMarkersOfBlock.Size() == 1 {
-	//		expectedMarker := expectedMarkersOfBlock.Marker()
-	//
-	//		// Blocks attaching to Genesis can have 0,0 as a PastMarker, so do not check Markers -> Block.
-	//		if expectedMarker.SequenceID() == 0 && expectedMarker.Index() == 0 {
-	//			continue
-	//		}
-	//
-	//		mappedBlockIDOfMarker, exists := t.Instance.markerManager.BlockFromMarker(expectedMarker)
-	//		require.True(t.Test, exists, "Marker %s is not mapped to any block", expectedMarker)
-	//
-	//		if !block.StructureDetails().IsPastMarker() {
-	//			continue
-	//		}
-	//
-	//		require.Equal(t.Test, block.ID(), mappedBlockIDOfMarker.ID(), "Block with %s should be past marker %s", block.ID(), expectedMarker)
-	//		require.True(t.Test, block.StructureDetails().PastMarkers().Marker() == expectedMarker, "PastMarker of %s is wrong.\n"+
-	//			"Expected: %+v\nActual: %+v", block.ID(), expectedMarker, block.StructureDetails().PastMarkers().Marker())
-	//	}
-	//}
+	for blockAlias, expectedMarkersOfBlock := range expectedMarkers {
+		block := t.Block(blockAlias)
+		require.True(t.Test, expectedMarkersOfBlock.Equals(block.StructureDetails().PastMarkers()), "Markers of %s are wrong.\n"+
+			"Expected: %+v\nActual: %+v", blockAlias, expectedMarkersOfBlock, block.StructureDetails().PastMarkers())
+
+		// if we have only a single marker - check if the marker is mapped to this block (or its inherited past marker)
+		if expectedMarkersOfBlock.Size() == 1 {
+			expectedMarker := expectedMarkersOfBlock.Marker()
+
+			// Blocks attaching to Genesis can have 0,0 as a PastMarker, so do not check Markers -> Block.
+			if expectedMarker.SequenceID() == 0 && expectedMarker.Index() == 0 {
+				continue
+			}
+
+			mappedBlockIDOfMarker, exists := t.Instance.BlockFromMarker(expectedMarker)
+			require.True(t.Test, exists, "Marker %s is not mapped to any block", expectedMarker)
+
+			if !block.StructureDetails().IsPastMarker() {
+				continue
+			}
+
+			require.Equal(t.Test, block.ID(), mappedBlockIDOfMarker.ID(), "Block with %s should be past marker %s", block.ID(), expectedMarker)
+			require.True(t.Test, block.StructureDetails().PastMarkers().Marker() == expectedMarker, "PastMarker of %s is wrong.\n"+
+				"Expected: %+v\nActual: %+v", block.ID(), expectedMarker, block.StructureDetails().PastMarkers().Marker())
+		}
+	}
 }
 
 func (t *TestFramework) CheckNormalizedConflictIDsContained(expectedContainedConflictIDs map[string]utxo.TransactionIDs) {
-	//for blockAlias, blockExpectedConflictIDs := range expectedContainedConflictIDs {
-	//	_, retrievedConflictIDs := t.Instance.blockBookingDetails(t.Block(blockAlias))
-	//
-	//	normalizedRetrievedConflictIDs := retrievedConflictIDs.Clone()
-	//	for it := retrievedConflictIDs.Iterator(); it.HasNext(); {
-	//		conflict, exists := t.Ledger.Instance.ConflictDAG().Conflict(it.Next())
-	//		require.True(t.Test, exists, "conflict %s does not exist", conflict.ID())
-	//		normalizedRetrievedConflictIDs.DeleteAll(conflict.Parents())
-	//	}
-	//
-	//	normalizedExpectedConflictIDs := blockExpectedConflictIDs.Clone()
-	//	for it := blockExpectedConflictIDs.Iterator(); it.HasNext(); {
-	//		conflict, exists := t.Ledger.Instance.ConflictDAG().Conflict(it.Next())
-	//		require.True(t.Test, exists, "conflict %s does not exist", conflict.ID())
-	//		normalizedExpectedConflictIDs.DeleteAll(conflict.Parents())
-	//	}
-	//
-	//	require.True(t.Test, normalizedExpectedConflictIDs.Intersect(normalizedRetrievedConflictIDs).Size() == normalizedExpectedConflictIDs.Size(), "ConflictID of %s should be %s but is %s", blockAlias, normalizedExpectedConflictIDs, normalizedRetrievedConflictIDs)
-	//}
+	for blockAlias, blockExpectedConflictIDs := range expectedContainedConflictIDs {
+		_, retrievedConflictIDs := t.Instance.BlockBookingDetails(t.Block(blockAlias))
+
+		normalizedRetrievedConflictIDs := retrievedConflictIDs.Clone()
+		for it := retrievedConflictIDs.Iterator(); it.HasNext(); {
+			conflict, exists := t.Ledger.Instance.ConflictDAG().Conflict(it.Next())
+			require.True(t.Test, exists, "conflict %s does not exist", conflict.ID())
+			normalizedRetrievedConflictIDs.DeleteAll(conflict.Parents())
+		}
+
+		normalizedExpectedConflictIDs := blockExpectedConflictIDs.Clone()
+		for it := blockExpectedConflictIDs.Iterator(); it.HasNext(); {
+			conflict, exists := t.Ledger.Instance.ConflictDAG().Conflict(it.Next())
+			require.True(t.Test, exists, "conflict %s does not exist", conflict.ID())
+			normalizedExpectedConflictIDs.DeleteAll(conflict.Parents())
+		}
+
+		require.True(t.Test, normalizedExpectedConflictIDs.Intersect(normalizedRetrievedConflictIDs).Size() == normalizedExpectedConflictIDs.Size(), "ConflictID of %s should be %s but is %s", blockAlias, normalizedExpectedConflictIDs, normalizedRetrievedConflictIDs)
+	}
 }
 
 func (t *TestFramework) CheckBlockMetadataDiffConflictIDs(expectedDiffConflictIDs map[string][]utxo.TransactionIDs) {
@@ -191,5 +189,3 @@ func (t *TestFramework) CheckBlockMetadataDiffConflictIDs(expectedDiffConflictID
 		require.True(t.Test, expectedDiffConflictID[1].Equal(block.SubtractedConflictIDs()), "SubtractedConflictIDs of %s should be %s but is %s in the Metadata", blockAlias, expectedDiffConflictID[1], block.SubtractedConflictIDs())
 	}
 }
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

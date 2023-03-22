@@ -7,14 +7,13 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markerbooker/virtualvoting"
 )
 
 type TestFramework struct {
 	test     *testing.T
 	Instance Tangle
 
-	VirtualVoting *virtualvoting.TestFramework
+	VirtualVoting *booker.VirtualVotingTestFramework
 	Booker        *booker.TestFramework
 	MemPool       *mempool.TestFramework
 	BlockDAG      *blockdag.TestFramework
@@ -23,12 +22,12 @@ type TestFramework struct {
 
 func NewTestFramework(test *testing.T, tangle Tangle, bookerTF *booker.TestFramework) *TestFramework {
 	return &TestFramework{
-		test:     test,
-		Instance: tangle,
-		Booker:   bookerTF,
-		//VirtualVoting: bookerTF.VirtualVoting,
-		MemPool:  bookerTF.Ledger,
-		BlockDAG: bookerTF.BlockDAG,
-		//Votes:         bookerTF.VirtualVoting.Votes,
+		test:          test,
+		Instance:      tangle,
+		Booker:        bookerTF,
+		VirtualVoting: bookerTF.VirtualVoting,
+		MemPool:       bookerTF.Ledger,
+		BlockDAG:      bookerTF.BlockDAG,
+		Votes:         bookerTF.VirtualVoting.Votes,
 	}
 }

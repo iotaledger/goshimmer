@@ -1,4 +1,4 @@
-package virtualvoting
+package markervirtualvoting
 
 import (
 	"fmt"
@@ -25,10 +25,10 @@ type VirtualVoting struct {
 	events          *booker.VirtualVotingEvents
 	Validators      *sybilprotection.WeightedSet
 	ConflictDAG     *conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID]
-	SequenceManager *markers.SequenceManager
+	sequenceManager *markers.SequenceManager
 
-	conflictTracker *conflicttracker.ConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower]
-	sequenceTracker *sequencetracker.SequenceTracker[BlockVotePower]
+	conflictTracker *conflicttracker.ConflictTracker[utxo.TransactionID, utxo.OutputID, booker.BlockVotePower]
+	sequenceTracker *sequencetracker.SequenceTracker[booker.BlockVotePower]
 	slotTracker     *slottracker.SlotTracker
 	evictionMutex   *syncutils.StarvingMutex
 
@@ -43,7 +43,7 @@ func New(workers *workerpool.Group, conflictDAG *conflictdag.ConflictDAG[utxo.Tr
 		Validators:      validators,
 		Workers:         workers,
 		ConflictDAG:     conflictDAG,
-		SequenceManager: sequenceManager,
+		sequenceManager: sequenceManager,
 		evictionMutex:   syncutils.NewStarvingMutex(),
 		optsSequenceCutoffCallback: func(sequenceID markers.SequenceID) markers.Index {
 			return 1
@@ -53,8 +53,8 @@ func New(workers *workerpool.Group, conflictDAG *conflictdag.ConflictDAG[utxo.Tr
 			return 0
 		},
 	}, opts, func(v *VirtualVoting) {
-		v.conflictTracker = conflicttracker.NewConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower](conflictDAG, validators)
-		v.sequenceTracker = sequencetracker.NewSequenceTracker[BlockVotePower](validators, sequenceManager.Sequence, v.optsSequenceCutoffCallback)
+		v.conflictTracker = conflicttracker.NewConflictTracker[utxo.TransactionID, utxo.OutputID, booker.BlockVotePower](conflictDAG, validators)
+		v.sequenceTracker = sequencetracker.NewSequenceTracker[booker.BlockVotePower](validators, sequenceManager.Sequence, v.optsSequenceCutoffCallback)
 		v.slotTracker = slottracker.NewSlotTracker(v.optsSlotCutoffCallback)
 
 		v.events = booker.NewVirtualVotingEvents()
@@ -70,11 +70,23 @@ func (v *VirtualVoting) Events() *booker.VirtualVotingEvents {
 	return v.events
 }
 
+func (v *VirtualVoting) SequenceManager() *markers.SequenceManager {
+	return v.sequenceManager
+}
+
+func (v *VirtualVoting) ConflictTracker() *conflicttracker.ConflictTracker[utxo.TransactionID, utxo.OutputID, booker.BlockVotePower] {
+	return v.conflictTracker
+}
+
+func (v *VirtualVoting) SequenceTracker() *sequencetracker.SequenceTracker[booker.BlockVotePower] {
+	return v.sequenceTracker
+}
+
 func (v *VirtualVoting) Track(block *booker.Block, conflictIDs utxo.TransactionIDs) {
 	v.evictionMutex.RLock()
 	defer v.evictionMutex.RUnlock()
 
-	votePower := NewBlockVotePower(block.ID(), block.IssuingTime())
+	votePower := booker.NewBlockVotePower(block.ID(), block.IssuingTime())
 
 	if _, invalid := v.conflictTracker.TrackVote(conflictIDs, block.IssuerID(), votePower); invalid {
 		fmt.Println("block is subjectively invalid", block.ID())
@@ -170,7 +182,7 @@ func (v *VirtualVoting) EvictSlotTracker(slotIndex slot.Index) {
 
 // ProcessForkedBlock updates the Conflict weight after an individually mapped Block was forked into a new Conflict.
 func (v *VirtualVoting) ProcessForkedBlock(block *booker.Block, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
-	votePower := NewBlockVotePower(block.ID(), block.IssuingTime())
+	votePower := booker.NewBlockVotePower(block.ID(), block.IssuingTime())
 
 	// Do not apply votes of subjectively invalid blocks on forking. Votes of subjectively invalid blocks are also not counted
 	// when booking.

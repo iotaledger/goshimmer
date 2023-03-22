@@ -1,4 +1,4 @@
-package virtualvoting
+package booker
 
 import (
 	"time"
