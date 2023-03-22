@@ -1,7 +1,7 @@
 package jsonmodels
 
 import (
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/protocol/markers"
 )
 
 // region StructureDetails /////////////////////////////////////////////////////////////////////////////////////////////

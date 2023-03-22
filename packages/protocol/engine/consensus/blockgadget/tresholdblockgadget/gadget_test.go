@@ -9,11 +9,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget/tresholdblockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/realitiesledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markermanager"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markerbooker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markerbooker/markermanager"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/testtangle"
+	"github.com/iotaledger/goshimmer/packages/protocol/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/lo"
@@ -22,24 +22,24 @@ import (
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
-func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, ledger mempool.MemPool, optsGadget ...options.Option[tresholdblockgadget.Gadget]) *blockgadget.TestFramework {
-	tangleTF := tangle.NewDefaultTestFramework(t, workers.CreateGroup("TangleTestFramework"),
-		ledger,
+func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, memPool mempool.MemPool, optsGadget ...options.Option[tresholdblockgadget.Gadget]) *blockgadget.TestFramework {
+	tangleTF := testtangle.NewDefaultTestFramework(t, workers.CreateGroup("TangleTestFramework"),
+		memPool,
 		slot.NewTimeProvider(time.Now().Unix(), 10),
-		tangle.WithBookerOptions(
-			booker.WithMarkerManagerOptions(
-				markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(3)),
-			),
+		markerbooker.WithMarkerManagerOptions(
+			markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(3)),
 		),
 	)
 
 	gadget := tresholdblockgadget.New(workers.CreateGroup("BlockGadget"),
-		tangleTF.Instance,
-		tangleTF.BlockDAG.Instance.EvictionState,
+		tangleTF.Instance.Booker(),
+		tangleTF.Instance.BlockDAG(),
+		memPool,
+		tangleTF.Instance.(*testtangle.TestTangle).EvictionState(),
 		optsGadget...,
 	)
 
-	gadget.Initialize(tangleTF.BlockDAG.Instance.SlotTimeProvider, tangleTF.Votes.Validators.TotalWeight)
+	gadget.Initialize(tangleTF.Instance.(*testtangle.TestTangle).SlotTimeProvider(), tangleTF.Votes.Validators, tangleTF.Votes.Validators.TotalWeight)
 
 	return blockgadget.NewTestFramework(t,
 		gadget,
@@ -521,24 +521,25 @@ func TestGadget_update_multipleSequences_onlyAcceptThenConfirm(t *testing.T) {
 
 	workers := workerpool.NewGroup(t.Name())
 
-	tangleTF := tangle.NewDefaultTestFramework(t, workers.CreateGroup("TangleTestFramework"),
+	tangleTF := testtangle.NewDefaultTestFramework(t, workers.CreateGroup("TangleTestFramework"),
 		realitiesledger.NewTestLedger(t, workers.CreateGroup("Ledger")),
 		slot.NewTimeProvider(time.Now().Unix(), 10),
-		tangle.WithBookerOptions(
-			booker.WithMarkerManagerOptions(
-				markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(3)),
-			),
+		markerbooker.WithMarkerManagerOptions(
+			markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(3)),
 		),
 	)
 
 	gadget := tresholdblockgadget.New(workers.CreateGroup("BlockGadget"),
-		tangleTF.Instance,
-		tangleTF.BlockDAG.Instance.EvictionState,
+		tangleTF.Instance.Booker(),
+		tangleTF.Instance.BlockDAG(),
+		tangleTF.Instance.(*testtangle.TestTangle).MemPool(),
+		tangleTF.Instance.(*testtangle.TestTangle).EvictionState(),
 		tresholdblockgadget.WithMarkerAcceptanceThreshold(0.66),
 		tresholdblockgadget.WithConfirmationThreshold(0.66),
 	)
 
-	gadget.Initialize(tangleTF.BlockDAG.Instance.SlotTimeProvider,
+	gadget.Initialize(tangleTF.Instance.(*testtangle.TestTangle).SlotTimeProvider(),
+		tangleTF.Instance.(*testtangle.TestTangle).Validators(),
 		func() int64 {
 			return 100
 		})

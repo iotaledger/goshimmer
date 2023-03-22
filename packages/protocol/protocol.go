@@ -25,7 +25,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization/slotnotarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/inmemorytangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
 	"github.com/iotaledger/goshimmer/packages/protocol/enginemanager"
@@ -74,6 +76,7 @@ type Protocol struct {
 	optsSybilProtectionProvider module.Provider[*engine.Engine, sybilprotection.SybilProtection]
 	optsThroughputQuotaProvider module.Provider[*engine.Engine, throughputquota.ThroughputQuota]
 	optsNotarizationProvider    module.Provider[*engine.Engine, notarization.Notarization]
+	optsTangleProvider          module.Provider[*engine.Engine, tangle.Tangle]
 	optsConsensusProvider       module.Provider[*engine.Engine, consensus.Consensus]
 }
 
@@ -87,6 +90,7 @@ func New(workers *workerpool.Group, dispatcher network.Endpoint, opts ...options
 		optsSybilProtectionProvider: dpos.NewProvider(),
 		optsThroughputQuotaProvider: mana1.NewProvider(),
 		optsNotarizationProvider:    slotnotarization.NewProvider(),
+		optsTangleProvider:          inmemorytangle.NewProvider(),
 		optsConsensusProvider:       tangleconsensus.NewProvider(),
 
 		optsBaseDirectory:    "",
@@ -145,6 +149,7 @@ func (p *Protocol) initEngineManager() {
 		p.optsSybilProtectionProvider,
 		p.optsThroughputQuotaProvider,
 		p.optsNotarizationProvider,
+		p.optsTangleProvider,
 		p.optsConsensusProvider,
 	)
 
@@ -629,6 +634,12 @@ func WithThroughputQuotaProvider(throughputQuotaProvider module.Provider[*engine
 func WithNotarizationProvider(notarizationProvider module.Provider[*engine.Engine, notarization.Notarization]) options.Option[Protocol] {
 	return func(n *Protocol) {
 		n.optsNotarizationProvider = notarizationProvider
+	}
+}
+
+func WithTangleProvider(tangleProvider module.Provider[*engine.Engine, tangle.Tangle]) options.Option[Protocol] {
+	return func(n *Protocol) {
+		n.optsTangleProvider = tangleProvider
 	}
 }
 

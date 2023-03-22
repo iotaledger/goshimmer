@@ -27,9 +27,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markerbooker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/inmemorytangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
+	"github.com/iotaledger/goshimmer/packages/protocol/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage/utils"
 	"github.com/iotaledger/hive.go/ads"
@@ -61,6 +62,7 @@ type TestFramework struct {
 	optsGenesisUnixTime         int64
 	optsSlotNotarizationOptions []options.Option[slotnotarization.Manager]
 	optsTipManagerOptions       []options.Option[TipManager]
+	optsBookerOptions           []options.Option[markerbooker.Booker]
 	optsEngineOptions           []options.Option[engine.Engine]
 }
 
@@ -96,6 +98,9 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...option
 			dpos.NewProvider(),
 			mana1.NewProvider(),
 			slotnotarization.NewProvider(t.optsSlotNotarizationOptions...),
+			inmemorytangle.NewProvider(inmemorytangle.WithBookerProvider(
+				markerbooker.NewProvider(t.optsBookerOptions...),
+			)),
 			tangleconsensus.NewProvider(),
 			t.optsEngineOptions...,
 		)
@@ -110,7 +115,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...option
 		t.Tangle = tangle.NewTestFramework(
 			test,
 			t.Engine.Tangle,
-			booker.NewTestFramework(test, workers.CreateGroup("BookerTestFramework"), t.Engine.Tangle.Booker),
+			booker.NewTestFramework(test, workers.CreateGroup("BookerTestFramework"), t.Engine.Tangle.Booker().(*markerbooker.Booker), t.Engine.Tangle.BlockDAG(), t.Engine.Ledger.MemPool(), t.Engine.SybilProtection.Validators(), t.Engine.SlotTimeProvider),
 		)
 
 		t.Instance = New(workers.CreateGroup("TipManager"), t.mockSchedulerBlock, t.optsTipManagerOptions...)
@@ -125,7 +130,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...option
 }
 
 func (t *TestFramework) setupEvents() {
-	t.Tangle.Instance.Events.Booker.VirtualVoting.BlockTracked.Hook(func(block *virtualvoting.Block) {
+	t.Tangle.Instance.Events().Booker.VirtualVoting.BlockTracked.Hook(func(block *booker.Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("SIMULATING SCHEDULED: %s", block.ID())
 		}
@@ -169,13 +174,13 @@ func (t *TestFramework) createGenesis() {
 	structureDetails.SetPastMarkerGap(0)
 
 	block := scheduler.NewBlock(
-		virtualvoting.NewBlock(
+		booker.NewBlock(
 			blockdag.NewBlock(
-				models.NewEmptyBlock(models.EmptyBlockID, models.WithIssuingTime(t.Tangle.Instance.BlockDAG.SlotTimeProvider().GenesisTime())),
+				models.NewEmptyBlock(models.EmptyBlockID, models.WithIssuingTime(t.Engine.SlotTimeProvider().GenesisTime())),
 				blockdag.WithSolid(true),
 			),
-			virtualvoting.WithBooked(true),
-			virtualvoting.WithStructureDetails(structureDetails),
+			booker.WithBooked(true),
+			booker.WithStructureDetails(structureDetails),
 		),
 		scheduler.WithScheduled(true),
 	)
@@ -290,6 +295,12 @@ func WithTipManagerOptions(opts ...options.Option[TipManager]) options.Option[Te
 func WithSlotNotarizationOptions(opts ...options.Option[slotnotarization.Manager]) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
 		tf.optsSlotNotarizationOptions = opts
+	}
+}
+
+func WithBookerOptions(opts ...options.Option[markerbooker.Booker]) options.Option[TestFramework] {
+	return func(tf *TestFramework) {
+		tf.optsBookerOptions = opts
 	}
 }
 

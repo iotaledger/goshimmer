@@ -8,7 +8,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 	"github.com/iotaledger/hive.go/core/slot"
@@ -133,7 +133,7 @@ func (r *ReferenceProvider) referencesFromUnacceptedInputs(payload payload.Paylo
 		}
 
 		if !engineInstance.Ledger.MemPool().Utils().TransactionConfirmationState(referencedTransactionID).IsAccepted() {
-			latestAttachment := engineInstance.Tangle.Booker.GetLatestAttachment(referencedTransactionID)
+			latestAttachment := engineInstance.Tangle.Booker().GetLatestAttachment(referencedTransactionID)
 			if latestAttachment == nil {
 				continue
 			}
@@ -143,7 +143,7 @@ func (r *ReferenceProvider) referencesFromUnacceptedInputs(payload payload.Paylo
 				continue
 			}
 
-			transactionConflictIDs := engineInstance.Tangle.Booker.TransactionConflictIDs(latestAttachment)
+			transactionConflictIDs := engineInstance.Tangle.Booker().TransactionConflictIDs(latestAttachment)
 			if transactionConflictIDs.IsEmpty() {
 				weakParents.Add(latestAttachment.ID())
 				continue
@@ -177,11 +177,11 @@ func (r *ReferenceProvider) referencesFromUnacceptedInputs(payload payload.Paylo
 func (r *ReferenceProvider) addedReferencesForBlock(blockID models.BlockID, excludedConflictIDs utxo.TransactionIDs) (addedReferences models.ParentBlockIDs, success bool) {
 	engineInstance := r.protocol.Engine()
 
-	block, exists := engineInstance.Tangle.Booker.Block(blockID)
+	block, exists := engineInstance.Tangle.Booker().Block(blockID)
 	if !exists {
 		return nil, false
 	}
-	blockConflicts := engineInstance.Tangle.Booker.BlockConflicts(block)
+	blockConflicts := engineInstance.Tangle.Booker().BlockConflicts(block)
 
 	addedReferences = models.NewParentBlockIDs()
 	if blockConflicts.IsEmpty() {
@@ -199,7 +199,7 @@ func (r *ReferenceProvider) addedReferencesForBlock(blockID models.BlockID, excl
 
 	// We could not refer to any block to fix the opinion, so we add the tips' strong parents to the tip pool.
 	if addedReferences == nil {
-		if block, exists := r.protocol.Engine().Tangle.Booker.Block(blockID); exists {
+		if block, exists := r.protocol.Engine().Tangle.Booker().Block(blockID); exists {
 			block.ForEachParentByType(models.StrongParentType, func(parentBlockID models.BlockID) bool {
 				if schedulerBlock, schedulerBlockExists := r.protocol.CongestionControl.Scheduler().Block(parentBlockID); schedulerBlockExists {
 					r.protocol.TipManager.AddTipNonMonotonic(schedulerBlock)
@@ -273,8 +273,8 @@ func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, exclude
 }
 
 // latestValidAttachment returns the first valid attachment of the given transaction.
-func (r *ReferenceProvider) latestValidAttachment(txID utxo.TransactionID) (block *virtualvoting.Block, err error) {
-	block = r.protocol.Engine().Tangle.Booker.GetLatestAttachment(txID)
+func (r *ReferenceProvider) latestValidAttachment(txID utxo.TransactionID) (block *booker.Block, err error) {
+	block = r.protocol.Engine().Tangle.Booker().GetLatestAttachment(txID)
 	if block == nil {
 		return nil, errors.Errorf("could not obtain latest attachment for %s", txID)
 	}
@@ -294,11 +294,11 @@ func (r *ReferenceProvider) latestValidAttachment(txID utxo.TransactionID) (bloc
 func (r *ReferenceProvider) payloadLiked(blockID models.BlockID) (liked bool) {
 	engineInstance := r.protocol.Engine()
 
-	block, exists := engineInstance.Tangle.Booker.Block(blockID)
+	block, exists := engineInstance.Tangle.Booker().Block(blockID)
 	if !exists {
 		return false
 	}
-	conflictIDs := engineInstance.Tangle.Booker.TransactionConflictIDs(block)
+	conflictIDs := engineInstance.Tangle.Booker().TransactionConflictIDs(block)
 
 	for it := conflictIDs.Iterator(); it.HasNext(); {
 		conflict, exists := engineInstance.Ledger.MemPool().ConflictDAG().Conflict(it.Next())

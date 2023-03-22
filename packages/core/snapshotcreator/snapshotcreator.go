@@ -20,6 +20,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization/slotnotarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/inmemorytangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
 	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/hive.go/core/slot"
@@ -68,6 +69,7 @@ func CreateSnapshot(opts ...options.Option[Options]) error {
 		dpos.NewProvider(),
 		mana1.NewProvider(),
 		slotnotarization.NewProvider(),
+		inmemorytangle.NewProvider(),
 		tangleconsensus.NewProvider(),
 	)
 	defer engineInstance.Shutdown()

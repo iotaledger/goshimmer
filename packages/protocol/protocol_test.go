@@ -26,12 +26,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization/slotnotarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markermanager"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markerbooker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markerbooker/markermanager"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/inmemorytangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
+	"github.com/iotaledger/goshimmer/packages/protocol/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/mockednetwork"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
@@ -43,7 +43,6 @@ import (
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/debug"
 	"github.com/iotaledger/hive.go/runtime/event"
-	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
@@ -176,6 +175,7 @@ func TestEngine_NonEmptyInitialValidators(t *testing.T) {
 		dpos.NewProvider(),
 		mana1.NewProvider(),
 		slotnotarization.NewProvider(),
+		inmemorytangle.NewProvider(),
 		tangleconsensus.NewProvider(),
 	)
 	require.NoError(t, tf.Instance.Initialize(tempDir.Path("genesis_snapshot.bin")))
@@ -253,6 +253,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 		dpos.NewProvider(),
 		mana1.NewProvider(),
 		slotnotarization.NewProvider(),
+		inmemorytangle.NewProvider(),
 		tangleconsensus.NewProvider(),
 	)
 	require.NoError(t, tf.Instance.Initialize(tempDir.Path("genesis_snapshot.bin")))
@@ -326,6 +327,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 			dpos.NewProvider(),
 			mana1.NewProvider(),
 			slotnotarization.NewProvider(),
+			inmemorytangle.NewProvider(),
 			tangleconsensus.NewProvider(),
 		)
 
@@ -407,6 +409,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 			dpos.NewProvider(),
 			mana1.NewProvider(),
 			slotnotarization.NewProvider(),
+			inmemorytangle.NewProvider(),
 			tangleconsensus.NewProvider(),
 		)
 
@@ -475,6 +478,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 			dpos.NewProvider(),
 			mana1.NewProvider(),
 			slotnotarization.NewProvider(),
+			inmemorytangle.NewProvider(),
 			tangleconsensus.NewProvider(),
 		)
 
@@ -515,16 +519,6 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 	debug.SetEnabled(true)
 	defer debug.SetEnabled(false)
-
-	engineOpts := []options.Option[engine.Engine]{
-		engine.WithTangleOptions(
-			tangle.WithBookerOptions(
-				booker.WithMarkerManagerOptions(
-					markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(1)),
-				),
-			),
-		),
-	}
 
 	identitiesMap := map[string]ed25519.PublicKey{
 		"A": identity.GenerateIdentity().PublicKey(),
@@ -580,8 +574,16 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		dpos.NewProvider(),
 		mana1.NewProvider(),
 		slotnotarization.NewProvider(),
+		inmemorytangle.NewProvider(
+			inmemorytangle.WithBookerProvider(
+				markerbooker.NewProvider(
+					markerbooker.WithMarkerManagerOptions(
+						markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(1)),
+					),
+				),
+			),
+		),
 		tangleconsensus.NewProvider(),
-		engineOpts...,
 	)
 	tf := engine.NewTestFramework(t, workers.CreateGroup("EngineTestFramework1"), engine1)
 	require.NoError(t, tf.Instance.Initialize(tempDir.Path("genesis_snapshot.bin")))
@@ -671,8 +673,16 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 			dpos.NewProvider(),
 			mana1.NewProvider(),
 			slotnotarization.NewProvider(),
+			inmemorytangle.NewProvider(
+				inmemorytangle.WithBookerProvider(
+					markerbooker.NewProvider(
+						markerbooker.WithMarkerManagerOptions(
+							markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(1)),
+						),
+					),
+				),
+			),
 			tangleconsensus.NewProvider(),
-			engineOpts...,
 		)
 		require.NoError(t, tf2.Instance.Initialize(tempDir.Path("snapshot_slot1.bin")))
 
@@ -715,8 +725,16 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 			dpos.NewProvider(),
 			mana1.NewProvider(),
 			slotnotarization.NewProvider(),
+			inmemorytangle.NewProvider(
+				inmemorytangle.WithBookerProvider(
+					markerbooker.NewProvider(
+						markerbooker.WithMarkerManagerOptions(
+							markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(1)),
+						),
+					),
+				),
+			),
 			tangleconsensus.NewProvider(),
-			engineOpts...,
 		)
 		tf3 := engine.NewTestFramework(t, workers.CreateGroup("EngineTestFramework3"), engine3)
 
@@ -790,14 +808,16 @@ func TestEngine_ShutdownResume(t *testing.T) {
 		dpos.NewProvider(),
 		mana1.NewProvider(),
 		slotnotarization.NewProvider(),
-		tangleconsensus.NewProvider(),
-		engine.WithTangleOptions(
-			tangle.WithBookerOptions(
-				booker.WithMarkerManagerOptions(
-					markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(1)),
+		inmemorytangle.NewProvider(
+			inmemorytangle.WithBookerProvider(
+				markerbooker.NewProvider(
+					markerbooker.WithMarkerManagerOptions(
+						markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(1)),
+					),
 				),
 			),
 		),
+		tangleconsensus.NewProvider(),
 	)
 
 	tf := engine.NewTestFramework(t, workers.CreateGroup("EngineTestFramework1"), engine1)
@@ -825,14 +845,16 @@ func TestEngine_ShutdownResume(t *testing.T) {
 		dpos.NewProvider(),
 		mana1.NewProvider(),
 		slotnotarization.NewProvider(),
-		tangleconsensus.NewProvider(),
-		engine.WithTangleOptions(
-			tangle.WithBookerOptions(
-				booker.WithMarkerManagerOptions(
-					markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(1)),
+		inmemorytangle.NewProvider(
+			inmemorytangle.WithBookerProvider(
+				markerbooker.NewProvider(
+					markerbooker.WithMarkerManagerOptions(
+						markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(1)),
+					),
 				),
 			),
 		),
+		tangleconsensus.NewProvider(),
 	)
 
 	tf2 := engine.NewTestFramework(t, workers.CreateGroup("EngineTestFramework2"), engine2)
@@ -843,16 +865,6 @@ func TestEngine_ShutdownResume(t *testing.T) {
 
 func TestProtocol_EngineSwitching(t *testing.T) {
 	testNetwork := network.NewMockedNetwork()
-
-	engineOpts := []options.Option[engine.Engine]{
-		engine.WithTangleOptions(
-			tangle.WithBookerOptions(
-				booker.WithMarkerManagerOptions(
-					markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(1)),
-				),
-			),
-		),
-	}
 
 	identitiesMap := map[string]ed25519.KeyPair{
 		"node1": ed25519.GenerateKeyPair(),
@@ -899,10 +911,10 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	node1 := mockednetwork.NewNode(t, identitiesMap["node1"], testNetwork, "P1", snapshot, ledgerProvider, engineOpts...)
-	node2 := mockednetwork.NewNode(t, identitiesMap["node2"], testNetwork, "P1", snapshot, ledgerProvider, engineOpts...)
-	node3 := mockednetwork.NewNode(t, identitiesMap["node3"], testNetwork, "P2", snapshot, ledgerProvider, engineOpts...)
-	node4 := mockednetwork.NewNode(t, identitiesMap["node4"], testNetwork, "P2", snapshot, ledgerProvider, engineOpts...)
+	node1 := mockednetwork.NewNode(t, identitiesMap["node1"], testNetwork, "P1", snapshot, ledgerProvider)
+	node2 := mockednetwork.NewNode(t, identitiesMap["node2"], testNetwork, "P1", snapshot, ledgerProvider)
+	node3 := mockednetwork.NewNode(t, identitiesMap["node3"], testNetwork, "P2", snapshot, ledgerProvider)
+	node4 := mockednetwork.NewNode(t, identitiesMap["node4"], testNetwork, "P2", snapshot, ledgerProvider)
 
 	node1.HookLogging(true)
 	node2.HookLogging(true)

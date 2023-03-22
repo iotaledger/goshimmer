@@ -8,7 +8,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag/inmemoryblockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/ds/set"
@@ -23,9 +24,9 @@ func Test_PruneMarkerBlockMapping(t *testing.T) {
 	markerManager := NewMarkerManager[models.BlockID, *blockdag.Block]()
 
 	workers := workerpool.NewGroup(t.Name())
-	tf := blockdag.NewDefaultTestFramework(t, workers.CreateGroup("BlockDAGTestFramework"))
+	tf := inmemoryblockdag.NewDefaultTestFramework(t, workers.CreateGroup("BlockDAGTestFramework"))
 
-	tf.Instance.EvictionState.Events.SlotEvicted.Hook(markerManager.Evict)
+	tf.Instance.(*inmemoryblockdag.BlockDAG).EvictionState().Events.SlotEvicted.Hook(markerManager.Evict)
 
 	// create a helper function that creates the blocks
 	createNewBlock := func(idx slot.Index, prefix string) (block *blockdag.Block, alias string) {
@@ -33,13 +34,13 @@ func Test_PruneMarkerBlockMapping(t *testing.T) {
 		if idx == 1 {
 			return blockdag.NewBlock(tf.CreateBlock(
 				alias,
-				models.WithIssuingTime(tf.Instance.SlotTimeProvider().GenesisTime()),
+				models.WithIssuingTime(tf.SlotTimeProvider().GenesisTime()),
 			)), alias
 		}
 		return blockdag.NewBlock(tf.CreateBlock(
 			alias,
 			models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk%s-%d", prefix, idx-1))),
-			models.WithIssuingTime(tf.Instance.SlotTimeProvider().StartTime(idx)),
+			models.WithIssuingTime(tf.SlotTimeProvider().StartTime(idx)),
 		)), alias
 	}
 
@@ -60,12 +61,12 @@ func Test_PruneMarkerBlockMapping(t *testing.T) {
 
 	validateBlockMarkerMappingPruning(t, markerBlockMapping, markerManager, 0)
 
-	tf.Instance.EvictionState.EvictUntil(slotCount / 2)
+	tf.Instance.(*inmemoryblockdag.BlockDAG).EvictionState().EvictUntil(slotCount / 2)
 	workers.WaitChildren()
 
 	validateBlockMarkerMappingPruning(t, markerBlockMapping, markerManager, slotCount/2)
 
-	tf.Instance.EvictionState.EvictUntil(slotCount)
+	tf.Instance.(*inmemoryblockdag.BlockDAG).EvictionState().EvictUntil(slotCount)
 	workers.WaitChildren()
 
 	validateBlockMarkerMappingPruning(t, markerBlockMapping, markerManager, slotCount)
@@ -83,7 +84,7 @@ func Test_BlockMarkerCeilingFloor(t *testing.T) {
 	markerManager := NewMarkerManager[models.BlockID, *blockdag.Block]()
 
 	workers := workerpool.NewGroup(t.Name())
-	tf := blockdag.NewDefaultTestFramework(t, workers.CreateGroup("BlockDAGTestFramework"))
+	tf := inmemoryblockdag.NewDefaultTestFramework(t, workers.CreateGroup("BlockDAGTestFramework"))
 
 	// create a helper function that creates the blocks
 	createNewBlock := func(idx slot.Index, prefix string) (block *blockdag.Block) {
@@ -91,13 +92,13 @@ func Test_BlockMarkerCeilingFloor(t *testing.T) {
 		if idx == 1 {
 			return blockdag.NewBlock(tf.CreateBlock(
 				alias,
-				models.WithIssuingTime(tf.Instance.SlotTimeProvider().GenesisTime()),
+				models.WithIssuingTime(tf.SlotTimeProvider().GenesisTime()),
 			))
 		}
 		return blockdag.NewBlock(tf.CreateBlock(
 			alias,
 			models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk%s-%d", prefix, idx-1))),
-			models.WithIssuingTime(tf.Instance.SlotTimeProvider().StartTime(idx)),
+			models.WithIssuingTime(tf.SlotTimeProvider().StartTime(idx)),
 		))
 	}
 

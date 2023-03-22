@@ -16,8 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/ds/advancedset"
@@ -30,8 +29,7 @@ type TestFramework struct {
 	test          *testing.T
 	Gadget        Gadget
 	Tangle        *tangle.TestFramework
-	VirtualVoting *virtualvoting.TestFramework
-	Booker        *booker.TestFramework
+	VirtualVoting *booker.VirtualVotingTestFramework
 	MemPool       *mempool.TestFramework
 	BlockDAG      *blockdag.TestFramework
 	Votes         *votes.TestFramework
@@ -48,7 +46,6 @@ func NewTestFramework(test *testing.T, gadget Gadget, tangleTF *tangle.TestFrame
 		Gadget:        gadget,
 		Tangle:        tangleTF,
 		VirtualVoting: tangleTF.VirtualVoting,
-		Booker:        tangleTF.Booker,
 		MemPool:       tangleTF.MemPool,
 		BlockDAG:      tangleTF.BlockDAG,
 		Votes:         tangleTF.Votes,

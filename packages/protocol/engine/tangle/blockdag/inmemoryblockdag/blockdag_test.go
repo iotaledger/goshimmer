@@ -1,4 +1,4 @@
-package blockdag
+package inmemoryblockdag
 
 import (
 	"fmt"
@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/ds/randommap"
@@ -53,7 +54,7 @@ func TestBlockDAG_AttachBlock(t *testing.T) {
 			"block2": {},
 		})
 
-		tf.AssertBlock("block1", func(block *Block) {
+		tf.AssertBlock("block1", func(block *blockdag.Block) {
 			require.True(t, block.ModelsBlock.IssuingTime().IsZero(), "block should not be attached")
 		})
 	}
@@ -83,7 +84,7 @@ func TestBlockDAG_AttachBlock(t *testing.T) {
 			"block2": {},
 		})
 
-		tf.AssertBlock("block1", func(block *Block) {
+		tf.AssertBlock("block1", func(block *blockdag.Block) {
 			require.False(t, block.ModelsBlock.IssuingTime().IsZero(), "block should be attached")
 		})
 	}
@@ -121,7 +122,7 @@ func TestBlockDAG_AttachBlock(t *testing.T) {
 			"block4": {},
 		})
 
-		tf.AssertBlock("block3", func(block *Block) {
+		tf.AssertBlock("block3", func(block *blockdag.Block) {
 			require.True(t, block.ModelsBlock.IssuingTime().IsZero(), "block should not be attached")
 		})
 	}
@@ -163,7 +164,7 @@ func TestBlockDAG_AttachBlock(t *testing.T) {
 			"block5": {},
 		})
 
-		tf.AssertBlock("block3", func(block *Block) {
+		tf.AssertBlock("block3", func(block *blockdag.Block) {
 			require.True(t, block.ModelsBlock.IssuingTime().IsZero(), "block should not be attached")
 		})
 	}
@@ -205,7 +206,7 @@ func TestBlockDAG_AttachBlock(t *testing.T) {
 			"block5": {},
 		})
 
-		tf.AssertBlock("block3", func(block *Block) {
+		tf.AssertBlock("block3", func(block *blockdag.Block) {
 			require.False(t, block.ModelsBlock.IssuingTime().IsZero(), "block should be attached")
 		})
 	}
@@ -328,7 +329,7 @@ func TestBlockDAG_Attach_InvalidTimestamp(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
 	tf := NewDefaultTestFramework(t, workers.CreateGroup("BlockDAGTestFramework"))
 
-	now := tf.Instance.SlotTimeProvider().StartTime(10)
+	now := tf.Instance.(*BlockDAG).SlotTimeProvider().StartTime(10)
 	tf.CreateBlock("block1", models.WithIssuingTime(now.Add(-5*time.Second)))
 	tf.CreateBlock("block2", models.WithIssuingTime(now.Add(5*time.Second)))
 	tf.CreateBlock("block3", models.WithStrongParents(tf.BlockIDs("block1", "block2")), models.WithIssuingTime(now))
@@ -383,21 +384,21 @@ func TestBlockDAG_AttachInvalid(t *testing.T) {
 		if idx == 1 {
 			return tf.CreateBlock(
 				alias,
-				models.WithIssuingTime(tf.Instance.SlotTimeProvider().GenesisTime()),
+				models.WithIssuingTime(tf.Instance.(*BlockDAG).SlotTimeProvider().GenesisTime()),
 			), alias
 		}
 		return tf.CreateBlock(
 			alias,
 			models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk%s-%d", prefix, idx-1))),
-			models.WithIssuingTime(tf.Instance.SlotTimeProvider().StartTime(idx)),
+			models.WithIssuingTime(tf.Instance.(*BlockDAG).SlotTimeProvider().StartTime(idx)),
 		), alias
 	}
 
 	// Prune BlockDAG.
-	tf.Instance.EvictionState.EvictUntil(slotCount / 2)
+	tf.Instance.(*BlockDAG).evictionState.EvictUntil(slotCount / 2)
 	workers.WaitChildren()
 
-	require.EqualValues(t, slotCount/2, tf.Instance.EvictionState.LastEvictedSlot(), "maxDroppedSlot should be slotCount/2")
+	require.EqualValues(t, slotCount/2, tf.Instance.(*BlockDAG).evictionState.LastEvictedSlot(), "maxDroppedSlot should be slotCount/2")
 
 	blocks := make([]*models.Block, slotCount)
 	expectedMissing := make(map[string]bool, slotCount)
@@ -423,7 +424,7 @@ func TestBlockDAG_AttachInvalid(t *testing.T) {
 	{
 		for i := len(blocks) - 11; i >= 0; i-- {
 			_, wasAttached, err := tf.Instance.Attach(blocks[i])
-			if blocks[i].ID().Index()-1 > tf.Instance.EvictionState.LastEvictedSlot() {
+			if blocks[i].ID().Index()-1 > tf.Instance.(*BlockDAG).evictionState.LastEvictedSlot() {
 				require.True(t, wasAttached, "block should be attached")
 				require.NoError(t, err, "should not be able to attach a block after shutdown")
 				continue
@@ -470,14 +471,14 @@ func TestBlockDAG_Prune(t *testing.T) {
 		if idx == 1 {
 			return tf.CreateBlock(
 				alias,
-				models.WithIssuingTime(tf.Instance.SlotTimeProvider().GenesisTime()),
+				models.WithIssuingTime(tf.Instance.(*BlockDAG).SlotTimeProvider().GenesisTime()),
 			), alias
 		}
 
 		return tf.CreateBlock(
 			alias,
 			models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk%s-%d", prefix, idx-1))),
-			models.WithIssuingTime(tf.Instance.SlotTimeProvider().StartTime(idx)),
+			models.WithIssuingTime(tf.Instance.(*BlockDAG).SlotTimeProvider().StartTime(idx)),
 		), alias
 	}
 
@@ -524,41 +525,41 @@ func TestBlockDAG_Prune(t *testing.T) {
 	tf.AssertSolidCount(slotCount, "should have all solid blocks")
 
 	validateState(tf, 0, slotCount)
-	tf.Instance.EvictionState.EvictUntil(slotCount / 4)
+	tf.Instance.(*BlockDAG).evictionState.EvictUntil(slotCount / 4)
 	workers.WaitChildren()
-	require.EqualValues(t, slotCount/4, tf.Instance.EvictionState.LastEvictedSlot(), "maxDroppedSlot should be slotCount/4")
+	require.EqualValues(t, slotCount/4, tf.Instance.(*BlockDAG).evictionState.LastEvictedSlot(), "maxDroppedSlot should be slotCount/4")
 
 	// All orphan blocks should be marked as invalid due to invalidity propagation.
 	tf.AssertInvalidCount(slotCount, "should have invalid blocks")
 
-	tf.Instance.EvictionState.EvictUntil(slotCount / 10)
+	tf.Instance.(*BlockDAG).evictionState.EvictUntil(slotCount / 10)
 	workers.WaitChildren()
-	require.EqualValues(t, slotCount/4, tf.Instance.EvictionState.LastEvictedSlot(), "maxDroppedSlot should be slotCount/4")
+	require.EqualValues(t, slotCount/4, tf.Instance.(*BlockDAG).evictionState.LastEvictedSlot(), "maxDroppedSlot should be slotCount/4")
 
-	tf.Instance.EvictionState.EvictUntil(slotCount / 2)
+	tf.Instance.(*BlockDAG).evictionState.EvictUntil(slotCount / 2)
 	workers.WaitChildren()
-	require.EqualValues(t, slotCount/2, tf.Instance.EvictionState.LastEvictedSlot(), "maxDroppedSlot should be slotCount/2")
+	require.EqualValues(t, slotCount/2, tf.Instance.(*BlockDAG).evictionState.LastEvictedSlot(), "maxDroppedSlot should be slotCount/2")
 
 	validateState(tf, slotCount/2, slotCount)
 }
 
-func validateState(tf *TestFramework, maxDroppedSlot, slotCount int) {
+func validateState(tf *blockdag.TestFramework, maxDroppedSlot, slotCount int) {
 	for i := 1; i <= maxDroppedSlot; i++ {
 		blkID := tf.Block(fmt.Sprintf("blk-%d", i)).ID()
 
 		_, exists := tf.Instance.Block(blkID)
-		require.False(tf.test, exists, "block %s should not be in the BlockDAG", blkID)
+		require.False(tf.Test, exists, "block %s should not be in the BlockDAG", blkID)
 
-		require.Nil(tf.test, tf.Instance.memStorage.Get(blkID.Index()), "slot %s should not be in the memStorage", blkID.Index())
+		require.Nil(tf.Test, tf.Instance.(*BlockDAG).memStorage.Get(blkID.Index()), "slot %s should not be in the memStorage", blkID.Index())
 	}
 
 	for i := maxDroppedSlot + 1; i <= slotCount; i++ {
 		blkID := tf.Block(fmt.Sprintf("blk-%d", i)).ID()
 
 		_, exists := tf.Instance.Block(blkID)
-		require.True(tf.test, exists, "block %s should be in the BlockDAG", blkID)
+		require.True(tf.Test, exists, "block %s should be in the BlockDAG", blkID)
 
-		require.NotNil(tf.test, tf.Instance.memStorage.Get(blkID.Index()), "slot %s should be in the memStorage", blkID.Index())
+		require.NotNil(tf.Test, tf.Instance.(*BlockDAG).memStorage.Get(blkID.Index()), "slot %s should be in the memStorage", blkID.Index())
 	}
 }
 
@@ -607,7 +608,7 @@ func TestBlockDAG_MissingBlocks(t *testing.T) {
 		blocks[blk.ID()] = blk
 	}
 
-	tf.Instance.Events.BlockMissing.Hook(func(metadata *Block) {
+	tf.Instance.Events().BlockMissing.Hook(func(metadata *blockdag.Block) {
 		time.Sleep(storeDelay)
 
 		_, _, err := tf.Instance.Attach(blocks[metadata.ID()])

@@ -17,7 +17,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
 	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/hive.go/core/slot"
@@ -37,7 +36,7 @@ type TestFramework struct {
 	Booker        *booker.TestFramework
 	BlockDAG      *blockdag.TestFramework
 	MemPool       *mempool.TestFramework
-	VirtualVoting *virtualvoting.TestFramework
+	VirtualVoting *booker.VirtualVotingTestFramework
 	Acceptance    *blockgadget.TestFramework
 }
 
@@ -47,6 +46,7 @@ func NewTestEngine(t *testing.T, workers *workerpool.Group, storage *storage.Sto
 	sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection],
 	throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota],
 	notarization module.Provider[*Engine, notarization.Notarization],
+	tangle module.Provider[*Engine, tangle.Tangle],
 	consensus module.Provider[*Engine, consensus.Consensus],
 	opts ...options.Option[Engine]) *Engine {
 	e := New(workers.CreateGroup("Engine"),
@@ -56,6 +56,7 @@ func NewTestEngine(t *testing.T, workers *workerpool.Group, storage *storage.Sto
 		sybilProtection,
 		throughputQuota,
 		notarization,
+		tangle,
 		consensus,
 		opts...,
 	)
@@ -67,13 +68,13 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, engine *Engine
 	t := &TestFramework{
 		test:     test,
 		Instance: engine,
-		Tangle:   tangle.NewTestFramework(test, engine.Tangle, booker.NewTestFramework(test, workers.CreateGroup("BookerTestFramework"), engine.Tangle.Booker)),
+		Booker:   booker.NewTestFramework(test, workers.CreateGroup("BookerTestFramework"), engine.Tangle.Booker(), engine.Tangle.BlockDAG(), engine.Ledger.MemPool(), engine.SybilProtection.Validators(), engine.SlotTimeProvider),
 	}
+	t.Tangle = tangle.NewTestFramework(test, engine.Tangle, t.Booker)
 	t.Acceptance = blockgadget.NewTestFramework(test,
 		engine.Consensus.BlockGadget(),
 		t.Tangle,
 	)
-	t.Booker = t.Tangle.Booker
 	t.MemPool = t.Tangle.MemPool
 	t.BlockDAG = t.Tangle.BlockDAG
 	t.VirtualVoting = t.Tangle.VirtualVoting
@@ -86,6 +87,7 @@ func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group,
 	sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection],
 	throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota],
 	notarization module.Provider[*Engine, notarization.Notarization],
+	tangle module.Provider[*Engine, tangle.Tangle],
 	consensus module.Provider[*Engine, consensus.Consensus],
 	optsEngine ...options.Option[Engine]) *TestFramework {
 	engine := NewTestEngine(t, workers.CreateGroup("Engine"),
@@ -95,6 +97,7 @@ func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group,
 		sybilProtection,
 		throughputQuota,
 		notarization,
+		tangle,
 		consensus,
 		optsEngine...,
 	)
