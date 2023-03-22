@@ -55,7 +55,7 @@ func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opt
 			localIdentity,
 			protocol.SlotTimeProvider,
 			func(blockID models.BlockID) (block *blockdag.Block, exists bool) {
-				return i.protocol.Engine().Tangle.BlockDAG.Block(blockID)
+				return i.protocol.Engine().Tangle.BlockDAG().Block(blockID)
 			},
 			func(countParents int) (parents models.BlockIDs) {
 				return i.protocol.TipManager.Tips(countParents)

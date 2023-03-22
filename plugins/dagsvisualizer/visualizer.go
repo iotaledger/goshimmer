@@ -60,7 +60,7 @@ func registerTangleEvents(plugin *node.Plugin) {
 	}, event.WithWorkerPool(plugin.WorkerPool))
 
 	deps.Protocol.Events.Engine.Tangle.Booker.BlockBooked.Hook(func(evt *booker.BlockBookedEvent) {
-		conflictIDs := deps.Protocol.Engine().Tangle.booker.BlockConflicts(evt.Block)
+		conflictIDs := deps.Protocol.Engine().Tangle.Booker().BlockConflicts(evt.Block)
 
 		wsBlk := &wsBlock{
 			Type: BlkTypeTangleBooked,
@@ -88,7 +88,7 @@ func registerTangleEvents(plugin *node.Plugin) {
 	}, event.WithWorkerPool(plugin.WorkerPool))
 
 	deps.Protocol.Events.Engine.Ledger.MemPool.TransactionAccepted.Hook(func(event *mempool.TransactionEvent) {
-		attachmentBlock := deps.Protocol.Engine().Tangle.booker.GetEarliestAttachment(event.Metadata.ID())
+		attachmentBlock := deps.Protocol.Engine().Tangle.Booker().GetEarliestAttachment(event.Metadata.ID())
 
 		wsBlk := &wsBlock{
 			Type: BlkTypeTangleTxConfirmationState,
@@ -155,7 +155,7 @@ func registerConflictEvents(plugin *node.Plugin) {
 			Type: BlkTypeConflictWeightChanged,
 			Data: &conflictWeightChanged{
 				ID:                e.ConflictID.Base58(),
-				Weight:            deps.Protocol.Engine().Tangle.booker.VirtualVoting.ConflictVotersTotalWeight(e.ConflictID),
+				Weight:            deps.Protocol.Engine().Tangle.Booker().VirtualVoting().ConflictVotersTotalWeight(e.ConflictID),
 				ConfirmationState: conflictConfirmationState.String(),
 			},
 		}
@@ -370,7 +370,7 @@ func newConflictVertex(conflictID utxo.TransactionID) (ret *conflictVertex) {
 		Conflicts:         jsonmodels.NewGetConflictConflictsResponse(conflict.ID(), conflicts),
 		IsConfirmed:       confirmationState.IsAccepted(),
 		ConfirmationState: confirmationState.String(),
-		AW:                deps.Protocol.Engine().Tangle.booker.VirtualVoting.ConflictVotersTotalWeight(conflictID),
+		AW:                deps.Protocol.Engine().Tangle.Booker().VirtualVoting().ConflictVotersTotalWeight(conflictID),
 	}
 	return
 }

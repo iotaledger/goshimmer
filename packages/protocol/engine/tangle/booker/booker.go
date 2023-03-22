@@ -5,6 +5,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/slot"
@@ -61,6 +62,9 @@ type VirtualVoting interface {
 
 	// ConflictVotersTotalWeight retrieves the total weight of the Validators voting for a given conflict.
 	ConflictVotersTotalWeight(conflictID utxo.TransactionID) (totalWeight int64)
+
+	// ConflictVoters retrieves Validators voting for a given conflict.
+	ConflictVoters(conflictID utxo.TransactionID) (voters *sybilprotection.WeightedSet)
 
 	// SlotVotersTotalWeight retrieves the total weight of the Validators voting for a given slot.
 	SlotVotersTotalWeight(slotIndex slot.Index) (totalWeight int64)

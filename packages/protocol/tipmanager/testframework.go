@@ -115,7 +115,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...option
 		t.Tangle = tangle.NewTestFramework(
 			test,
 			t.Engine.Tangle,
-			markerbooker.NewTestFramework(test, workers.CreateGroup("BookerTestFramework"), t.Engine.Tangle.Booker().(*markerbooker.Booker)),
+			booker.NewTestFramework(test, workers.CreateGroup("BookerTestFramework"), t.Engine.Tangle.Booker().(*markerbooker.Booker), t.Engine.Tangle.BlockDAG(), t.Engine.Ledger.MemPool(), t.Engine.SybilProtection.Validators(), t.Engine.SlotTimeProvider),
 		)
 
 		t.Instance = New(workers.CreateGroup("TipManager"), t.mockSchedulerBlock, t.optsTipManagerOptions...)

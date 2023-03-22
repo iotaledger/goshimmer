@@ -251,7 +251,7 @@ func (r *Retainer) createStorableBlockMetadata(index slot.Index) (metas []*Block
 	storage.ForEach(func(blockID models.BlockID, cm *cachedMetadata) bool {
 		blockMetadata := newBlockMetadata(cm)
 		if cm.Booker != nil {
-			blockMetadata.M.ConflictIDs = r.protocol.Engine().Tangle.booker.BlockConflicts(cm.Booker.Block)
+			blockMetadata.M.ConflictIDs = r.protocol.Engine().Tangle.Booker().BlockConflicts(cm.Booker.Block)
 		} else {
 			blockMetadata.M.ConflictIDs = utxo.NewTransactionIDs()
 		}

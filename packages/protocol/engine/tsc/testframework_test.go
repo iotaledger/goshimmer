@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markerbooker/markervirtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tsc"
 	"github.com/iotaledger/hive.go/runtime/options"
 )
@@ -24,7 +23,7 @@ type TestFramework struct {
 	Tangle        *tangle.TestFramework
 	BlockDAG      *blockdag.TestFramework
 	Booker        *booker.TestFramework
-	VirtualVoting *markervirtualvoting.TestFramework
+	VirtualVoting *booker.VirtualVotingTestFramework
 }
 
 func NewTestFramework(test *testing.T, tangleTF *tangle.TestFramework, optsTSCManager ...options.Option[tsc.Manager]) *TestFramework {
