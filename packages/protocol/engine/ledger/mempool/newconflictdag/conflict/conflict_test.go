@@ -95,11 +95,13 @@ func TestConflictSets(t *testing.T) {
 			conflictE: conflictE,
 		}
 
+		pendingTasksCounter.WaitIsZero()
 		assertPreferredInstead(t, preferredInsteadMap)
 
 		fmt.Println("set weight D=10...")
 
 		conflictD.Weight().SetCumulativeWeight(10)
+		pendingTasksCounter.WaitIsZero()
 
 		assertPreferredInstead(t, lo.MergeMaps(preferredInsteadMap, map[*Conflict[utxo.OutputID, utxo.OutputID]]*Conflict[utxo.OutputID, utxo.OutputID]{
 			conflictC: conflictD,
@@ -110,6 +112,7 @@ func TestConflictSets(t *testing.T) {
 		fmt.Println("set weight D=0...")
 
 		conflictD.Weight().SetCumulativeWeight(0)
+		pendingTasksCounter.WaitIsZero()
 
 		assertPreferredInstead(t, lo.MergeMaps(preferredInsteadMap, map[*Conflict[utxo.OutputID, utxo.OutputID]]*Conflict[utxo.OutputID, utxo.OutputID]{
 			conflictC: conflictC,
@@ -120,6 +123,7 @@ func TestConflictSets(t *testing.T) {
 		fmt.Println("set weight C=8...")
 
 		conflictC.Weight().SetCumulativeWeight(8)
+		pendingTasksCounter.WaitIsZero()
 
 		assertPreferredInstead(t, lo.MergeMaps(preferredInsteadMap, map[*Conflict[utxo.OutputID, utxo.OutputID]]*Conflict[utxo.OutputID, utxo.OutputID]{
 			conflictB: conflictC,
@@ -128,6 +132,7 @@ func TestConflictSets(t *testing.T) {
 		fmt.Println("set weight C=8...")
 
 		conflictC.Weight().SetCumulativeWeight(8)
+		pendingTasksCounter.WaitIsZero()
 
 		assertPreferredInstead(t, lo.MergeMaps(preferredInsteadMap, map[*Conflict[utxo.OutputID, utxo.OutputID]]*Conflict[utxo.OutputID, utxo.OutputID]{
 			conflictB: conflictC,
@@ -136,12 +141,14 @@ func TestConflictSets(t *testing.T) {
 		fmt.Println("set weight D=3...")
 
 		conflictD.Weight().SetCumulativeWeight(3)
+		pendingTasksCounter.WaitIsZero()
 
 		assertPreferredInstead(t, preferredInsteadMap)
 
 		fmt.Println("set weight E=1...")
 
 		conflictE.Weight().SetCumulativeWeight(1)
+		pendingTasksCounter.WaitIsZero()
 
 		assertPreferredInstead(t, lo.MergeMaps(preferredInsteadMap, map[*Conflict[utxo.OutputID, utxo.OutputID]]*Conflict[utxo.OutputID, utxo.OutputID]{
 			conflictD: conflictC,
@@ -150,6 +157,7 @@ func TestConflictSets(t *testing.T) {
 		fmt.Println("set weight E=9...")
 
 		conflictE.Weight().SetCumulativeWeight(9)
+		pendingTasksCounter.WaitIsZero()
 
 		assertPreferredInstead(t, lo.MergeMaps(preferredInsteadMap, map[*Conflict[utxo.OutputID, utxo.OutputID]]*Conflict[utxo.OutputID, utxo.OutputID]{
 			conflictD: conflictE,
@@ -166,6 +174,8 @@ func TestConflictSets(t *testing.T) {
 			weight.New().AddCumulativeWeight(19).SetAcceptanceState(acceptance.Pending),
 			pendingTasksCounter,
 		)
+
+		pendingTasksCounter.WaitIsZero()
 
 		assertPreferredInstead(t, lo.MergeMaps(preferredInsteadMap, map[*Conflict[utxo.OutputID, utxo.OutputID]]*Conflict[utxo.OutputID, utxo.OutputID]{
 			conflictD: conflictF,
@@ -347,11 +357,6 @@ func createConflicts(pendingTasksCounter *syncutils.Counter) map[string]*Conflic
 }
 
 func assertPreferredInstead(t *testing.T, preferredInsteadMap map[*Conflict[utxo.OutputID, utxo.OutputID]]*Conflict[utxo.OutputID, utxo.OutputID]) {
-	// TODO: wait in a similar fashion as the workerpools so we always wait recusively in case one conflict modifies the others that we did wait for before
-	for conflict, _ := range preferredInsteadMap {
-		conflict.WaitConsistent()
-	}
-
 	for conflict, preferredInsteadConflict := range preferredInsteadMap {
 		assert.Equalf(t, preferredInsteadConflict.ID(), conflict.PreferredInstead().ID(), "conflict %s should prefer %s instead of %s", conflict.ID(), preferredInsteadConflict.ID(), conflict.PreferredInstead().ID())
 		fmt.Println(conflict.ID(), "->", conflict.PreferredInstead().ID())
