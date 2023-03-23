@@ -1236,9 +1236,10 @@ func TestProtocol_EngineFromSnapshot(t *testing.T) {
 	tf.BlockDAG.CreateBlock("2.B", models.WithStrongParents(tf.BlockDAG.BlockIDs("1.A")), models.WithIssuer(identitiesMap["B"]), models.WithIssuingTime(slot2IssuingTime))
 	tf.BlockDAG.CreateBlock("2.B*", models.WithStrongParents(tf.BlockDAG.BlockIDs("1.A*")), models.WithIssuer(identitiesMap["B"]), models.WithIssuingTime(slot2IssuingTime))
 	// Slot 3
-	tf.BlockDAG.CreateBlock("3.A", models.WithStrongParents(tf.BlockDAG.BlockIDs("2.B")), models.WithIssuer(identitiesMap["A"]), models.WithIssuingTime(slot3IssuingTime))
+	tf.BlockDAG.CreateBlock("3.A", models.WithStrongParents(tf.BlockDAG.BlockIDs("2.B", "2.B*")), models.WithIssuer(identitiesMap["A"]), models.WithIssuingTime(slot3IssuingTime))
 	// Slot 4
 	tf.BlockDAG.CreateBlock("4.B", models.WithStrongParents(tf.BlockDAG.BlockIDs("3.A")), models.WithIssuer(identitiesMap["B"]), models.WithIssuingTime(slot4IssuingTime))
+
 	tf.BlockDAG.IssueBlocks("1.A", "1.B", "1.A*", "2.B", "2.B*")
 
 	tf.Acceptance.ValidateAcceptedBlocks(map[string]bool{
@@ -1253,19 +1254,12 @@ func TestProtocol_EngineFromSnapshot(t *testing.T) {
 
 	tf.Acceptance.ValidateAcceptedBlocks(map[string]bool{
 		"2.B":  true,
-		"2.B*": false,
+		"2.B*": true,
 		"3.A":  true,
 		"4.B":  false,
 	})
 
-	rootBlocks := tf.BlockDAG.Blocks("1.A", "1.A*", "2.B")
-	var earliestCommitment commitment.ID
-	for _, rootBlock := range rootBlocks {
-		if earliestCommitment.Index() == 0 || rootBlock.Commitment().Index() < earliestCommitment.Index() {
-			earliestCommitment = rootBlock.Commitment().ID()
-		}
-	}
-
+	rootBlocks := tf.BlockDAG.Blocks("1.A", "1.A*")
 	tf.AssertRootBlocks(rootBlocks)
 
 	/*
