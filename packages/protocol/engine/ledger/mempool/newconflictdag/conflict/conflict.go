@@ -38,8 +38,19 @@ type Conflict[ConflictID, ResourceID IDType] struct {
 	// conflictingConflicts is the set of conflicts that directly conflict with the Conflict.
 	conflictingConflicts *SortedSet[ConflictID, ResourceID]
 
+	// parentsPreferredInstead is a set of preferred instead Conflicts from the parent Conflicts.
+	parentsPreferredInstead map[ConflictID]ConflictID
+
 	// RWMutex is used to synchronize access to the Conflict.
 	mutex sync.RWMutex
+}
+
+func (c *Conflict[ConflictID, ResourceID]) ParentsPreferredInstead() map[ConflictID]ConflictID {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	// copy the parentsPreferredInstead map to a new empty one and return the result
+	return lo.MergeMaps(make(map[ConflictID]ConflictID), c.parentsPreferredInstead)
 }
 
 // New creates a new Conflict.
@@ -62,6 +73,11 @@ func New[ConflictID, ResourceID IDType](id ConflictID, parents *advancedset.Adva
 
 			return nil
 		})
+	}
+
+	// add ourselves to the other conflict sets once we are fully initialized
+	for _, conflictSet := range conflictSets {
+		conflictSet.Add(c)
 	}
 
 	// add ourselves to the other conflict sets once we are fully initialized
@@ -100,9 +116,31 @@ func (c *Conflict[ConflictID, ResourceID]) SetPreferredInstead(preferredInstead 
 	}
 
 	c.preferredInstead = preferredInstead
+
 	c.PreferredInsteadUpdated.Trigger(preferredInstead)
 
+	_ = c.children.ForEach(func(child *Conflict[ConflictID, ResourceID]) (err error) {
+		child.SetParentPreferredInstead(c.ID(), preferredInstead.ID())
+		return nil
+	})
+
 	return true
+}
+
+func (c *Conflict[ConflictID, ResourceID]) SetParentPreferredInstead(parent, preferredInstead ConflictID) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	if parent != preferredInstead {
+		c.parentsPreferredInstead[parent] = preferredInstead
+	} else {
+		delete(c.parentsPreferredInstead, parent)
+	}
+
+	_ = c.children.ForEach(func(child *Conflict[ConflictID, ResourceID]) (err error) {
+		child.SetParentPreferredInstead(parent, preferredInstead)
+		return nil
+	})
 }
 
 // IsPreferred returns true if the Conflict is preferred instead of its conflicting Conflicts.
