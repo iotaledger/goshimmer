@@ -367,13 +367,16 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 			}))
 
 			// RootBlocks
-			require.NoError(t, tf.Instance.Storage.RootBlocks.Stream(slotIndex, func(rootBlock models.BlockID, _ commitment.ID) error {
-				has, err := tf2.Instance.Storage.RootBlocks.Has(rootBlock)
-				require.NoError(t, err)
-				require.True(t, has)
+			rootBlocks := tf.BlockDAG.Blocks("1.D", "2.D")
+			var earliestCommitment commitment.ID
+			for _, rootBlock := range rootBlocks {
+				if earliestCommitment.Index() == 0 || rootBlock.Commitment().Index() < earliestCommitment.Index() {
+					earliestCommitment = rootBlock.Commitment().ID()
+				}
+			}
 
-				return nil
-			}))
+			tf2.AssertRootBlocks(rootBlocks)
+			require.Equal(t, earliestCommitment, tf2.Instance.EvictionState.EarliestRootCommitment())
 		}
 
 		// UTXOLedger
@@ -441,15 +444,16 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 		}))
 
 		// RootBlocks
-		for slotIndex := slot.Index(0); slotIndex <= 1; slotIndex++ {
-			require.NoError(t, tf.Instance.Storage.RootBlocks.Stream(slotIndex, func(rootBlock models.BlockID, _ commitment.ID) error {
-				has, err := tf3.Instance.Storage.RootBlocks.Has(rootBlock)
-				require.NoError(t, err)
-				require.True(t, has)
-
-				return nil
-			}))
+		rootBlocks := tf.BlockDAG.Blocks("1.D")
+		var earliestCommitment commitment.ID
+		for _, rootBlock := range rootBlocks {
+			if earliestCommitment.Index() == 0 || rootBlock.Commitment().Index() < earliestCommitment.Index() {
+				earliestCommitment = rootBlock.Commitment().ID()
+			}
 		}
+
+		tf3.AssertRootBlocks(rootBlocks)
+		require.Equal(t, earliestCommitment, tf3.Instance.EvictionState.EarliestRootCommitment())
 
 		// Block in slot 2, not accepting anything new.
 		tf3.BlockDAG.CreateBlock("2.D", models.WithStrongParents(tf.BlockDAG.BlockIDs("1.D")), models.WithIssuer(identitiesMap["D"]), models.WithIssuingTime(slot2IssuingTime))
@@ -874,6 +878,12 @@ func TestEngine_ShutdownResume(t *testing.T) {
 	require.NoError(t, tf2.Instance.Initialize())
 	workers.WaitChildren()
 	tf2.AssertSlotState(0)
+
+	// TODO: extend this test to actually check if we have rootblocks, attestations, weights, etc.
+	// pretty much everything that we import from a snapshot we should populate from disk
+
+	// this fails
+	// require.Equal(t, int64(100), tf2.Instance.SybilProtection.Validators().TotalWeight())
 }
 
 func TestProtocol_EngineSwitching(t *testing.T) {
@@ -1162,4 +1172,302 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 		node1.AssertEqualChainsAtLeastAtSlot(9, node3)
 		node1.AssertEqualChainsAtLeastAtSlot(9, node4)
 	}
+}
+
+func TestProtocol_EngineFromSnapshot(t *testing.T) {
+	debug.SetEnabled(true)
+	defer debug.SetEnabled(false)
+
+	testNetwork := network.NewMockedNetwork()
+
+	identitiesMap := map[string]ed25519.PublicKey{
+		"A": identity.GenerateIdentity().PublicKey(),
+		"B": identity.GenerateIdentity().PublicKey(),
+	}
+
+	identitiesWeights := map[ed25519.PublicKey]uint64{
+		identity.New(identitiesMap["A"]).PublicKey(): 50,
+		identity.New(identitiesMap["B"]).PublicKey(): 50,
+	}
+
+	tempDir := utils.NewDirectory(t.TempDir())
+	slotDuration := int64(10)
+
+	snapshot := tempDir.Path("genesis_snapshot.bin")
+	err := snapshotcreator.CreateSnapshot(
+		snapshotcreator.WithDatabaseVersion(protocol.DatabaseVersion),
+		snapshotcreator.WithFilePath(snapshot),
+		snapshotcreator.WithGenesisTokenAmount(1),
+		snapshotcreator.WithGenesisSeed(make([]byte, 32)),
+		snapshotcreator.WithPledgeIDs(identitiesWeights),
+		snapshotcreator.WithLedgerProvider(utxoledger.NewProvider()),
+		snapshotcreator.WithAttestAll(true),
+		snapshotcreator.WithGenesisUnixTime(time.Now().Unix()-slotDuration*15),
+		snapshotcreator.WithSlotDuration(slotDuration),
+	)
+	require.NoError(t, err)
+
+	node1 := mockednetwork.NewNode(t, ed25519.GenerateKeyPair(), testNetwork, "P1", snapshot, utxoledger.NewProvider())
+
+	node1.Protocol.Events.Engine.Notarization.Error.Hook(func(err error) {
+		panic(err)
+	})
+
+	require.Equal(t, int64(100), node1.Protocol.Engine().SybilProtection.Validators().TotalWeight())
+
+	genesisCommitment := commitment.NewEmptyCommitment()
+
+	require.Equal(t, genesisCommitment.ID(), node1.Protocol.Engine().Storage.Settings.LatestCommitment().ID())
+	require.Equal(t, genesisCommitment.ID(), node1.Protocol.Engine().Storage.Settings.ChainID())
+	require.Equal(t, genesisCommitment.ID(), node1.Protocol.ChainManager().RootCommitment().ID())
+
+	tf := node1.EngineTestFramework()
+
+	slot1IssuingTime := tf.SlotTimeProvider().StartTime(1)
+	slot2IssuingTime := tf.SlotTimeProvider().StartTime(2)
+	slot3IssuingTime := tf.SlotTimeProvider().StartTime(3)
+	slot4IssuingTime := tf.SlotTimeProvider().StartTime(4)
+
+	// Slot 1
+	tf.BlockDAG.CreateBlock("1.A", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithIssuer(identitiesMap["A"]), models.WithIssuingTime(slot1IssuingTime))
+	tf.BlockDAG.CreateBlock("1.B", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithIssuer(identitiesMap["B"]), models.WithIssuingTime(slot1IssuingTime))
+	tf.BlockDAG.CreateBlock("1.A*", models.WithStrongParents(tf.BlockDAG.BlockIDs("1.B")), models.WithIssuer(identitiesMap["A"]), models.WithIssuingTime(slot1IssuingTime))
+	// Slot 2
+	tf.BlockDAG.CreateBlock("2.B", models.WithStrongParents(tf.BlockDAG.BlockIDs("1.A")), models.WithIssuer(identitiesMap["B"]), models.WithIssuingTime(slot2IssuingTime))
+	tf.BlockDAG.CreateBlock("2.B*", models.WithStrongParents(tf.BlockDAG.BlockIDs("1.A*")), models.WithIssuer(identitiesMap["B"]), models.WithIssuingTime(slot2IssuingTime))
+	// Slot 3
+	tf.BlockDAG.CreateBlock("3.A", models.WithStrongParents(tf.BlockDAG.BlockIDs("2.B")), models.WithIssuer(identitiesMap["A"]), models.WithIssuingTime(slot3IssuingTime))
+	// Slot 4
+	tf.BlockDAG.CreateBlock("4.B", models.WithStrongParents(tf.BlockDAG.BlockIDs("3.A")), models.WithIssuer(identitiesMap["B"]), models.WithIssuingTime(slot4IssuingTime))
+	tf.BlockDAG.IssueBlocks("1.A", "1.B", "1.A*", "2.B", "2.B*")
+
+	tf.Acceptance.ValidateAcceptedBlocks(map[string]bool{
+		"1.A":  true,
+		"1.B":  true,
+		"1.A*": true,
+		"2.B":  false,
+		"2.B*": false,
+	})
+
+	tf.BlockDAG.IssueBlocks("3.A", "4.B")
+
+	tf.Acceptance.ValidateAcceptedBlocks(map[string]bool{
+		"2.B":  true,
+		"2.B*": false,
+		"3.A":  true,
+		"4.B":  false,
+	})
+
+	rootBlocks := tf.BlockDAG.Blocks("1.A", "1.A*", "2.B")
+	var earliestCommitment commitment.ID
+	for _, rootBlock := range rootBlocks {
+		if earliestCommitment.Index() == 0 || rootBlock.Commitment().Index() < earliestCommitment.Index() {
+			earliestCommitment = rootBlock.Commitment().ID()
+		}
+	}
+
+	tf.AssertRootBlocks(rootBlocks)
+
+	/*
+
+		// Block in slot 2, not accepting anything new.
+		tf.BlockDAG.CreateBlock("2.D", models.WithStrongParents(tf.BlockDAG.BlockIDs("1.D")), models.WithIssuer(identitiesMap["D"]), models.WithIssuingTime(slot2IssuingTime))
+		tf.BlockDAG.IssueBlocks("2.D")
+
+		// Block in slot 11
+		tf.BlockDAG.CreateBlock("11.A", models.WithStrongParents(tf.BlockDAG.BlockIDs("2.D")), models.WithIssuer(identitiesMap["A"]))
+		tf.BlockDAG.IssueBlocks("11.A")
+
+		tf.Acceptance.ValidateAcceptedBlocks(lo.MergeMaps(acceptedBlocks, map[string]bool{
+			"1.C":  true,
+			"2.D":  false,
+			"11.A": false,
+		}))
+
+		require.Equal(t, tf.SlotTimeProvider().IndexFromTime(tf.Booker.Block("11.A").IssuingTime()), slot.Index(11))
+
+		// Time hasn't advanced past slot 1
+		require.Equal(t, tf.Instance.Storage.Settings.LatestCommitment().Index(), slot.Index(0))
+
+		tf.BlockDAG.CreateBlock("11.B", models.WithStrongParents(tf.BlockDAG.BlockIDs("11.A")), models.WithIssuer(identitiesMap["B"]))
+		tf.BlockDAG.CreateBlock("11.C", models.WithStrongParents(tf.BlockDAG.BlockIDs("11.B")), models.WithIssuer(identitiesMap["C"]))
+		tf.BlockDAG.IssueBlocks("11.B", "11.C")
+
+		// Some blocks got evicted, and we have to restart evaluating with a new map
+		acceptedBlocks = make(map[string]bool)
+		tf.Acceptance.ValidateAcceptedBlocks(lo.MergeMaps(acceptedBlocks, map[string]bool{
+			"2.D":  true,
+			"11.A": true,
+			"11.B": false,
+			"11.C": false,
+		}))
+
+		// Time has advanced to slot 10 because of A.5, rendering 10 - MinimumCommittableAge(6) = 4 slot committable
+		require.Eventually(t, func() bool {
+			return tf.Instance.Storage.Settings.LatestCommitment().Index() == slot.Index(4)
+		}, time.Second, 100*time.Millisecond)
+
+		// Dump snapshot for latest committable slot 4 and check engine equivalence
+		{
+			require.NoError(t, tf.Instance.WriteSnapshot(tempDir.Path("snapshot_slot4.bin")))
+
+			tf2 := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework2"),
+				blocktime.NewProvider(),
+				ledgerProvider,
+				blockfilter.NewProvider(),
+				dpos.NewProvider(),
+				mana1.NewProvider(),
+				slotnotarization.NewProvider(),
+				inmemorytangle.NewProvider(),
+				tangleconsensus.NewProvider(),
+			)
+
+			require.NoError(t, tf2.Instance.Initialize(tempDir.Path("snapshot_slot4.bin")))
+
+			// Settings
+			// The ChainID of the new engine should correspond to genesis.
+			require.Equal(t, lo.PanicOnErr(tf.Instance.Storage.Commitments.Load(0)).ID(), tf2.Instance.Storage.Settings.ChainID())
+			// We cache bytes here by getting ID so the next Equal doesn't fail.
+			require.Equal(t, tf.Instance.Storage.Settings.LatestCommitment().ID(), tf2.Instance.Storage.Settings.LatestCommitment().ID())
+			require.Equal(t, tf.Instance.Storage.Settings.LatestCommitment(), tf2.Instance.Storage.Settings.LatestCommitment())
+			require.Equal(t, tf.Instance.Storage.Settings.LatestConfirmedSlot(), tf2.Instance.Storage.Settings.LatestConfirmedSlot())
+			require.Equal(t, tf.Instance.Storage.Settings.LatestStateMutationSlot(), tf2.Instance.Storage.Settings.LatestStateMutationSlot())
+
+			tf2.AssertSlotState(4)
+
+			// Bucketed Storage
+			for slotIndex := slot.Index(0); slotIndex <= 4; slotIndex++ {
+				originalCommitment, err := tf.Instance.Storage.Commitments.Load(slotIndex)
+				require.NoError(t, err)
+				importedCommitment, err := tf2.Instance.Storage.Commitments.Load(slotIndex)
+				require.NoError(t, err)
+
+				require.Equal(t, originalCommitment, importedCommitment)
+
+				// Check that StateDiffs have been cleared after snapshot import.
+				require.NoError(t, tf2.Instance.Ledger.StateDiffs().StreamCreatedOutputs(slotIndex, func(*mempool.OutputWithMetadata) error {
+					return errors.New("StateDiffs created should be empty after snapshot import")
+				}))
+
+				require.NoError(t, tf2.Instance.Ledger.StateDiffs().StreamSpentOutputs(slotIndex, func(*mempool.OutputWithMetadata) error {
+					return errors.New("StateDiffs spent should be empty after snapshot import")
+				}))
+
+				// RootBlocks
+				rootBlocks := tf.BlockDAG.Blocks("1.D", "2.D")
+				var earliestCommitment commitment.ID
+				for _, rootBlock := range rootBlocks {
+					if earliestCommitment.Index() == 0 || rootBlock.Commitment().Index() < earliestCommitment.Index() {
+						earliestCommitment = rootBlock.Commitment().ID()
+					}
+				}
+
+				tf2.AssertRootBlocks(rootBlocks)
+				require.Equal(t, earliestCommitment, tf2.Instance.EvictionState.EarliestRootCommitment())
+			}
+
+			// UTXOLedger
+			require.Equal(t, tf.Instance.Ledger.UnspentOutputs().IDs().Size(), tf2.Instance.Ledger.UnspentOutputs().IDs().Size())
+			require.Equal(t, tf.Instance.Ledger.UnspentOutputs().IDs().Root(), tf2.Instance.Ledger.UnspentOutputs().IDs().Root())
+			require.NoError(t, tf.Instance.Ledger.UnspentOutputs().IDs().Stream(func(outputID utxo.OutputID) bool {
+				require.True(t, tf2.Instance.Ledger.UnspentOutputs().IDs().Has(outputID))
+				return true
+			}))
+
+			// SybilProtection
+			require.Equal(t, lo.PanicOnErr(tf.Instance.SybilProtection.Weights().Map()), lo.PanicOnErr(tf2.Instance.SybilProtection.Weights().Map()))
+			require.Equal(t, tf.Instance.SybilProtection.Weights().TotalWeight(), tf2.Instance.SybilProtection.Weights().TotalWeight())
+			require.Equal(t, tf.Instance.SybilProtection.Weights().Root(), tf2.Instance.SybilProtection.Weights().Root())
+
+			// ThroughputQuota
+			require.Equal(t, tf.Instance.ThroughputQuota.BalanceByIDs(), tf2.Instance.ThroughputQuota.BalanceByIDs())
+			require.Equal(t, tf.Instance.ThroughputQuota.TotalBalance(), tf2.Instance.ThroughputQuota.TotalBalance())
+
+			// Attestations for the targetSlot only
+			require.Equal(t, lo.PanicOnErr(tf.Instance.Notarization.Attestations().Get(4)).Root(), lo.PanicOnErr(tf2.Instance.Notarization.Attestations().Get(4)).Root())
+			require.NoError(t, lo.PanicOnErr(tf.Instance.Notarization.Attestations().Get(4)).Stream(func(key identity.ID, engine1Attestation *notarization.Attestation) bool {
+				engine2Attestations := lo.PanicOnErr(tf2.Instance.Notarization.Attestations().Get(4))
+				engine2Attestation, exists := engine2Attestations.Get(key)
+				require.True(t, exists)
+				require.Equal(t, engine1Attestation, engine2Attestation)
+
+				return true
+			}))
+		}
+
+		// Dump snapshot for slot 1 and check attestations equivalence
+		{
+			require.NoError(t, tf.Instance.WriteSnapshot(tempDir.Path("snapshot_slot1.bin"), 1))
+
+			tf3 := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework3"),
+				blocktime.NewProvider(),
+				ledgerProvider,
+				blockfilter.NewProvider(),
+				dpos.NewProvider(),
+				mana1.NewProvider(),
+				slotnotarization.NewProvider(),
+				inmemorytangle.NewProvider(),
+				tangleconsensus.NewProvider(),
+			)
+
+			require.NoError(t, tf3.Instance.Initialize(tempDir.Path("snapshot_slot1.bin")))
+
+			require.Equal(t, slot.Index(4), tf.Instance.Storage.Settings.LatestCommitment().Index())
+
+			tf3.AssertSlotState(1)
+
+			// Check that we only have attestations for slot 1.
+			require.Equal(t, lo.PanicOnErr(tf.Instance.Notarization.Attestations().Get(1)).Root(), lo.PanicOnErr(tf3.Instance.Notarization.Attestations().Get(1)).Root())
+			require.Error(t, lo.Return2(tf3.Instance.Notarization.Attestations().Get(2)))
+			require.Error(t, lo.Return2(tf3.Instance.Notarization.Attestations().Get(3)))
+			require.Error(t, lo.Return2(tf3.Instance.Notarization.Attestations().Get(4)))
+			require.NoError(t, lo.PanicOnErr(tf.Instance.Notarization.Attestations().Get(1)).Stream(func(key identity.ID, engine1Attestation *notarization.Attestation) bool {
+				engine2Attestations := lo.PanicOnErr(tf3.Instance.Notarization.Attestations().Get(1))
+				engine2Attestation, exists := engine2Attestations.Get(key)
+				require.True(t, exists)
+				require.Equal(t, engine1Attestation, engine2Attestation)
+
+				return true
+			}))
+
+			// RootBlocks
+			rootBlocks := tf.BlockDAG.Blocks("1.D")
+			var earliestCommitment commitment.ID
+			for _, rootBlock := range rootBlocks {
+				if earliestCommitment.Index() == 0 || rootBlock.Commitment().Index() < earliestCommitment.Index() {
+					earliestCommitment = rootBlock.Commitment().ID()
+				}
+			}
+
+			tf3.AssertRootBlocks(rootBlocks)
+			require.Equal(t, earliestCommitment, tf3.Instance.EvictionState.EarliestRootCommitment())
+
+			// Block in slot 2, not accepting anything new.
+			tf3.BlockDAG.CreateBlock("2.D", models.WithStrongParents(tf.BlockDAG.BlockIDs("1.D")), models.WithIssuer(identitiesMap["D"]), models.WithIssuingTime(slot2IssuingTime))
+			tf3.BlockDAG.IssueBlocks("2.D")
+
+			// Block in slot 11
+			tf3.BlockDAG.CreateBlock("11.A", models.WithStrongParents(tf3.BlockDAG.BlockIDs("2.D")), models.WithIssuer(identitiesMap["A"]))
+			tf3.BlockDAG.IssueBlocks("11.A")
+
+			tf3.BlockDAG.CreateBlock("11.B", models.WithStrongParents(tf3.BlockDAG.BlockIDs("11.A")), models.WithIssuer(identitiesMap["B"]))
+			tf3.BlockDAG.CreateBlock("11.C", models.WithStrongParents(tf3.BlockDAG.BlockIDs("11.B")), models.WithIssuer(identitiesMap["C"]))
+			tf3.BlockDAG.IssueBlocks("11.B", "11.C")
+
+			require.Equal(t, slot.Index(4), tf3.Instance.Storage.Settings.LatestCommitment().Index())
+
+			// Some blocks got evicted, and we have to restart evaluating with a new map
+			// acceptedBlocks = make(map[string]bool)
+			// tf3.Acceptance.ValidateAcceptedBlocks(lo.MergeMaps(acceptedBlocks, map[string]bool{
+			// 	"2.D":  true,
+			// 	"11.A": true,
+			// }))
+
+			// TODO: extend this test to actually check if we have rootblocks, attestations, weights, etc.
+			// pretty much everything that we import from a snapshot we should populate from disk
+
+			// this fails
+			// require.Equal(t, int64(100), tf2.Instance.SybilProtection.Validators().TotalWeight())
+		}
+	*/
 }

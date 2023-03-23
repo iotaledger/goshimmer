@@ -1,6 +1,7 @@
 package eviction
 
 import (
+	"fmt"
 	"io"
 	"sync"
 
@@ -50,6 +51,8 @@ func (s *State) EvictUntil(index slot.Index) {
 	defer s.triggerMutex.Unlock()
 
 	s.evictionMutex.Lock()
+
+	fmt.Println(">> evict", index)
 
 	lastEvictedSlot := s.lastEvictedSlot
 	if index <= lastEvictedSlot {
@@ -115,6 +118,8 @@ func (s *State) AddRootBlock(id models.BlockID, commitmentID commitment.ID) {
 			panic(errors.Wrapf(err, "failed to store root block %s", id))
 		}
 	}
+
+	fmt.Println(">> ADDING", id, commitmentID)
 
 	s.latestRootBlocks.Add(id)
 }

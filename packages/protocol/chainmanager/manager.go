@@ -133,6 +133,17 @@ func (m *Manager) EvictUntil(index slot.Index) {
 	m.lastEvictedSlot = index
 }
 
+// RootCommitment returns the root commitment of the manager.
+func (m *Manager) RootCommitment() (rootCommitment *commitment.Commitment) {
+	m.evictionMutex.RLock()
+	defer m.evictionMutex.RUnlock()
+
+	m.rootCommitmentMutex.RLock()
+	defer m.rootCommitmentMutex.RUnlock()
+
+	return m.rootCommitment.Commitment()
+}
+
 // SetRootCommitment sets the root commitment of the manager.
 func (m *Manager) SetRootCommitment(commitment *commitment.Commitment) {
 	m.evictionMutex.RLock()
