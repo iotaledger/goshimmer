@@ -34,14 +34,14 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 	snapshotCommitment := commitment.New(0, commitment.ID{}, types.Identifier{}, 0)
 
 	return options.Apply(&TestFramework{
-		Instance: NewManager(snapshotCommitment),
+		Instance: NewManager(),
 
 		test: test,
 		commitmentsByAlias: map[string]*commitment.Commitment{
 			"Genesis": snapshotCommitment,
 		},
 	}, opts, func(t *TestFramework) {
-		t.Instance.InitRootCommitment(snapshotCommitment)
+		t.Instance.Initialize(snapshotCommitment)
 		t.Instance.Events.ForkDetected.Hook(func(fork *Fork) {
 			t.test.Logf("ForkDetected: %s", fork)
 			atomic.AddInt32(&t.forkDetected, 1)
@@ -173,19 +173,6 @@ func (t *TestFramework) AssertChainState(chains map[string]string) {
 		require.NotNil(t.test, chain, "chain for commitment %s is nil", commitmentAlias)
 		require.Equal(t.test, t.SlotCommitment(chainAlias), chain.ForkingPoint.ID())
 	}
-
-	// for chainAlias, commitmentAliases := range commitmentsByChainAlias {
-	// 	chain := t.Chain(chainAlias)
-	// 	require.Equal(t.test, len(commitmentAliases), chain.Size(), "chain %s has wrong size", chainAlias)
-	//
-	// 	for _, commitmentAlias := range commitmentAliases {
-	// 		chainCommitment := chain.Commitment(t.SlotIndex(commitmentAlias))
-	//
-	// 		require.NotNil(t.test, chainCommitment)
-	// 		require.EqualValues(t.test, t.SlotCommitment(commitmentAlias), chainCommitment.ID())
-	// 		require.EqualValues(t.test, t.commitment(commitmentAlias), chainCommitment.Commitment())
-	// 	}
-	// }
 }
 
 func (t *TestFramework) previousCommitmentID(alias string) (previousCommitmentID commitment.ID, previousIndex slot.Index) {

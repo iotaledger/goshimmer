@@ -82,7 +82,7 @@ func (s *State) LastEvictedSlot() slot.Index {
 func (s *State) EarliestRootCommitment() (earliestCommitment commitment.ID) {
 	s.rootBlocks.ForEach(func(index slot.Index, storage *shrinkingmap.ShrinkingMap[models.BlockID, commitment.ID]) {
 		storage.ForEach(func(id models.BlockID, commitmentID commitment.ID) bool {
-			if commitmentID.Index() < earliestCommitment.Index() {
+			if commitmentID.Index() < earliestCommitment.Index() || earliestCommitment.Index() == 0 {
 				earliestCommitment = commitmentID
 			}
 

@@ -208,8 +208,7 @@ func (p *Protocol) initNetworkEvents() {
 }
 
 func (p *Protocol) initChainManager() {
-	genesisCommitment := p.Engine().Storage.Settings.LatestCommitment()
-	p.chainManager = chainmanager.NewManager(genesisCommitment, p.optsChainManagerOptions...)
+	p.chainManager = chainmanager.NewManager(p.optsChainManagerOptions...)
 
 	p.Engine().HookInitialized(func() {
 		earliestRootCommitment := p.Engine().EvictionState.EarliestRootCommitment()
@@ -220,7 +219,7 @@ func (p *Protocol) initChainManager() {
 		if err := p.Engine().Storage.Settings.SetChainID(rootCommitment.ID()); err != nil {
 			panic(fmt.Sprintln("could not load set main engine's chain using", rootCommitment))
 		}
-		p.chainManager.InitRootCommitment(rootCommitment)
+		p.chainManager.Initialize(rootCommitment)
 	})
 
 	p.Events.ChainManager = p.chainManager.Events

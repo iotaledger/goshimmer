@@ -44,7 +44,7 @@ type Manager struct {
 	lastEvictedSlot       slot.Index
 }
 
-func NewManager(genesisCommitment *commitment.Commitment, opts ...options.Option[Manager]) (manager *Manager) {
+func NewManager(opts ...options.Option[Manager]) (manager *Manager) {
 	return options.Apply(&Manager{
 		Events:               NewEvents(),
 		optsMinimumForkDepth: 3,
@@ -60,6 +60,19 @@ func NewManager(genesisCommitment *commitment.Commitment, opts ...options.Option
 		m.Events.MissingCommitmentReceived.Hook(m.CommitmentRequester.StopTicker)
 		m.Events.CommitmentBelowRoot.Hook(m.CommitmentRequester.StopTicker)
 	})
+}
+
+func (m *Manager) Initialize(c *commitment.Commitment) {
+	m.evictionMutex.RLock()
+	defer m.evictionMutex.RUnlock()
+
+	m.rootCommitmentMutex.Lock()
+	defer m.rootCommitmentMutex.Unlock()
+
+	m.rootCommitment, _ = m.getOrCreateCommitment(c.ID())
+	m.rootCommitment.PublishCommitment(c)
+	m.rootCommitment.SetSolid(true)
+	m.rootCommitment.publishChain(NewChain(m.rootCommitment))
 }
 
 func (m *Manager) ProcessCommitmentFromSource(commitment *commitment.Commitment, source identity.ID) (isSolid bool, chain *Chain) {
@@ -118,19 +131,6 @@ func (m *Manager) EvictUntil(index slot.Index) {
 		m.evict(currentIndex)
 	}
 	m.lastEvictedSlot = index
-}
-
-func (m *Manager) InitRootCommitment(c *commitment.Commitment) {
-	m.evictionMutex.RLock()
-	defer m.evictionMutex.RUnlock()
-
-	m.rootCommitmentMutex.Lock()
-	defer m.rootCommitmentMutex.Unlock()
-
-	m.rootCommitment, _ = m.getOrCreateCommitment(c.ID())
-	m.rootCommitment.PublishCommitment(c)
-	m.rootCommitment.SetSolid(true)
-	m.rootCommitment.publishChain(NewChain(m.rootCommitment))
 }
 
 // SetRootCommitment sets the root commitment of the manager.
