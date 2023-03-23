@@ -164,11 +164,11 @@ func (s *State) Export(writer io.WriteSeeker, evictedSlot slot.Index) (err error
 		for currentSlot := s.delayedBlockEvictionThreshold(evictedSlot) + 1; currentSlot <= evictedSlot; currentSlot++ {
 			if err = s.storage.RootBlocks.Stream(currentSlot, func(rootBlockID models.BlockID, commitmentID commitment.ID) (err error) {
 				if err = stream.WriteSerializable(writer, rootBlockID, models.BlockIDLength); err != nil {
-					return errors.Wrapf(err, "failed to write root block %s", rootBlockID)
+					return errors.Wrapf(err, "failed to write root block ID %s", rootBlockID)
 				}
 
 				if err = stream.WriteSerializable(writer, commitmentID, commitmentID.Length()); err != nil {
-					return errors.Wrapf(err, "failed to write root block %s", rootBlockID)
+					return errors.Wrapf(err, "failed to write root block's %s commitment %s", rootBlockID, commitmentID)
 				}
 
 				elementsCount++
@@ -193,7 +193,7 @@ func (s *State) Import(reader io.ReadSeeker) (err error) {
 			return errors.Wrapf(err, "failed to read root block id %d", i)
 		}
 		if err = stream.ReadSerializable(reader, &commitmentID, commitmentID.Length()); err != nil {
-			return errors.Wrapf(err, "failed to read root block id %d", i)
+			return errors.Wrapf(err, "failed to read root block's %s commitment id", rootBlockID)
 		}
 
 		s.AddRootBlock(rootBlockID, commitmentID)
