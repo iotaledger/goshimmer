@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -207,7 +208,25 @@ func (p *Protocol) initNetworkEvents() {
 }
 
 func (p *Protocol) initChainManager() {
-	p.chainManager = chainmanager.NewManager(p.Engine().Storage.Settings.LatestCommitment(), p.optsChainManagerOptions...)
+	p.chainManager = chainmanager.NewManager(p.optsChainManagerOptions...)
+
+	p.Engine().HookInitialized(func() {
+		// the earliestRootCommitment is used to make sure that the chainManager knows the earliest possible
+		// commitment that blocks we are solidifying will refer to. Failing to do do will prevent those blocks
+		// from being processed as their chain will be deemed unsolid.
+		earliestRootCommitment := p.Engine().EvictionState.EarliestRootCommitment()
+		rootCommitment, err := p.Engine().Storage.Commitments.Load(earliestRootCommitment.Index())
+		if err != nil {
+			panic(fmt.Sprintln("could not load earliest commitment after engine initialization", err))
+		}
+		// the rootCommitment is also the earliest point in the chain we can fork from. It is used to prevent
+		// solidifying and processing commitments that we won't be able to switch to.
+		if err := p.Engine().Storage.Settings.SetChainID(rootCommitment.ID()); err != nil {
+			panic(fmt.Sprintln("could not load set main engine's chain using", rootCommitment))
+		}
+		p.chainManager.Initialize(rootCommitment)
+	})
+
 	p.Events.ChainManager = p.chainManager.Events
 
 	wp := p.Workers.CreatePool("ChainManager", 1) // Using just 1 worker to avoid contention
@@ -217,9 +236,17 @@ func (p *Protocol) initChainManager() {
 	}, event.WithWorkerPool(wp))
 	p.Events.Engine.Consensus.SlotGadget.SlotConfirmed.Hook(func(index slot.Index) {
 		p.chainManager.CommitmentRequester.EvictUntil(index)
-	}, event.WithWorkerPool(wp))
-	p.Events.Engine.EvictionState.SlotEvicted.Hook(func(index slot.Index) {
-		p.chainManager.Evict(index)
+		newRootCommitment, err := p.Engine().Storage.Commitments.Load(index)
+		if err != nil {
+			panic(fmt.Sprintln("could not load latest confirmed commitment", err))
+		}
+		// it is essential that we set the rootCommitment before evicting the chainManager's state, this way
+		// we first specify the chain's cut-off point, and only then evict the state. It is also important to
+		// note that no multiple gouroutines should be allowed to perform this operation at once, hence the
+		// hooking worker pool should always have a single worker or these two calls should be protected by a lock.
+		p.chainManager.SetRootCommitment(newRootCommitment)
+		// we want to evict just below the height of our new root commitment.
+		p.chainManager.EvictUntil(index - 1)
 	}, event.WithWorkerPool(wp))
 	p.Events.ChainManager.ForkDetected.Hook(p.onForkDetected, event.WithWorkerPool(wp))
 	p.Events.Network.SlotCommitmentReceived.Hook(func(event *network.SlotCommitmentReceivedEvent) {

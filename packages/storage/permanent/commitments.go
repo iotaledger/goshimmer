@@ -68,7 +68,11 @@ func (c *Commitments) Export(writer io.WriteSeeker, targetSlot slot.Index) (err 
 	}
 
 	for slotIndex := slot.Index(0); slotIndex <= targetSlot; slotIndex++ {
-		if err = binary.Write(writer, binary.LittleEndian, lo.PanicOnErr(lo.PanicOnErr(c.Load(slotIndex)).Bytes())); err != nil {
+		commitment, err := c.Load(slotIndex)
+		if err != nil {
+			return errors.Wrapf(err, "failed to load commitment for slot %d", slotIndex)
+		}
+		if err = binary.Write(writer, binary.LittleEndian, lo.PanicOnErr(commitment.Bytes())); err != nil {
 			return errors.Wrapf(err, "failed to write commitment for slot %d", slotIndex)
 		}
 	}

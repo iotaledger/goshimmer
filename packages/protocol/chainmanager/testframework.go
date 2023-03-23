@@ -2,6 +2,7 @@ package chainmanager
 
 import (
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -21,6 +22,11 @@ type TestFramework struct {
 	test               *testing.T
 	commitmentsByAlias map[string]*commitment.Commitment
 
+	forkDetected              int32
+	commitmentMissing         int32
+	missingCommitmentReceived int32
+	commitmentBelowRoot       int32
+
 	sync.RWMutex
 }
 
@@ -28,13 +34,31 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 	snapshotCommitment := commitment.New(0, commitment.ID{}, types.Identifier{}, 0)
 
 	return options.Apply(&TestFramework{
-		Instance: NewManager(snapshotCommitment),
+		Instance: NewManager(),
 
 		test: test,
 		commitmentsByAlias: map[string]*commitment.Commitment{
 			"Genesis": snapshotCommitment,
 		},
-	}, opts)
+	}, opts, func(t *TestFramework) {
+		t.Instance.Initialize(snapshotCommitment)
+		t.Instance.Events.ForkDetected.Hook(func(fork *Fork) {
+			t.test.Logf("ForkDetected: %s", fork)
+			atomic.AddInt32(&t.forkDetected, 1)
+		})
+		t.Instance.Events.CommitmentMissing.Hook(func(id commitment.ID) {
+			t.test.Logf("CommitmentMissing: %s", id)
+			atomic.AddInt32(&t.commitmentMissing, 1)
+		})
+		t.Instance.Events.MissingCommitmentReceived.Hook(func(id commitment.ID) {
+			t.test.Logf("MissingCommitmentReceived: %s", id)
+			atomic.AddInt32(&t.missingCommitmentReceived, 1)
+		})
+		t.Instance.Events.CommitmentBelowRoot.Hook(func(id commitment.ID) {
+			t.test.Logf("CommitmentBelowRoot: %s", id)
+			atomic.AddInt32(&t.commitmentBelowRoot, 1)
+		})
+	})
 }
 
 func (t *TestFramework) CreateCommitment(alias string, prevAlias string) {
@@ -45,6 +69,7 @@ func (t *TestFramework) CreateCommitment(alias string, prevAlias string) {
 	randomECR := blake2b.Sum256([]byte(alias + prevAlias))
 
 	t.commitmentsByAlias[alias] = commitment.New(previousIndex+1, prevCommitmentID, randomECR, 0)
+	t.commitmentsByAlias[alias].ID().RegisterAlias(alias)
 }
 
 func (t *TestFramework) ProcessCommitment(alias string) (isSolid bool, chain *Chain) {
@@ -72,10 +97,26 @@ func (t *TestFramework) commitment(alias string) (commitment *commitment.Commitm
 }
 
 func (t *TestFramework) ChainCommitment(alias string) *Commitment {
-	cm, created := t.Instance.Commitment(t.SlotCommitment(alias))
-	require.False(t.test, created)
+	cm, exists := t.Instance.commitment(t.SlotCommitment(alias))
+	require.True(t.test, exists)
 
 	return cm
+}
+
+func (t *TestFramework) AssertForkDetectedCount(expected int) {
+	require.EqualValues(t.test, expected, t.forkDetected, "forkDetected count does not match")
+}
+
+func (t *TestFramework) AssertCommitmentMissingCount(expected int) {
+	require.EqualValues(t.test, expected, t.commitmentMissing, "commitmentMissing count does not match")
+}
+
+func (t *TestFramework) AssertMissingCommitmentReceivedCount(expected int) {
+	require.EqualValues(t.test, expected, t.missingCommitmentReceived, "missingCommitmentReceived count does not match")
+}
+
+func (t *TestFramework) AssertCommitmentBelowRootCount(expected int) {
+	require.EqualValues(t.test, expected, t.commitmentBelowRoot, "commitmentBelowRoot count does not match")
 }
 
 func (t *TestFramework) AssertEqualChainCommitments(commitments []*Commitment, aliases ...string) {
@@ -120,25 +161,17 @@ func (t *TestFramework) AssertChainState(chains map[string]string) {
 			require.Nil(t.test, t.Chain(commitmentAlias))
 			continue
 		}
+		if chainAlias == "evicted" {
+			_, exists := t.Instance.commitment(t.SlotCommitment(commitmentAlias))
+			require.False(t.test, exists, "commitment %s should be pruned", commitmentAlias)
+			continue
+		}
 		commitmentsByChainAlias[chainAlias] = append(commitmentsByChainAlias[chainAlias], commitmentAlias)
 
 		chain := t.Chain(commitmentAlias)
 
-		require.NotNil(t.test, chain)
+		require.NotNil(t.test, chain, "chain for commitment %s is nil", commitmentAlias)
 		require.Equal(t.test, t.SlotCommitment(chainAlias), chain.ForkingPoint.ID())
-	}
-
-	for chainAlias, commitmentAliases := range commitmentsByChainAlias {
-		chain := t.Chain(chainAlias)
-		require.Equal(t.test, len(commitmentAliases), chain.Size())
-
-		for _, commitmentAlias := range commitmentAliases {
-			chainCommitment := chain.Commitment(t.SlotIndex(commitmentAlias))
-
-			require.NotNil(t.test, chainCommitment)
-			require.EqualValues(t.test, t.SlotCommitment(commitmentAlias), chainCommitment.ID())
-			require.EqualValues(t.test, t.commitment(commitmentAlias), chainCommitment.Commitment())
-		}
 	}
 }
 

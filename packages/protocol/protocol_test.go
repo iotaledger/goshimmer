@@ -338,8 +338,10 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 		require.NoError(t, tf2.Instance.Initialize(tempDir.Path("snapshot_slot4.bin")))
 
 		// Settings
-		// The ChainID of the new engine corresponds to the target slot of the imported snapshot.
-		require.Equal(t, lo.PanicOnErr(tf.Instance.Storage.Commitments.Load(4)).ID(), tf2.Instance.Storage.Settings.ChainID())
+		// The ChainID of the new engine should correspond to genesis.
+		require.Equal(t, lo.PanicOnErr(tf.Instance.Storage.Commitments.Load(0)).ID(), tf2.Instance.Storage.Settings.ChainID())
+		// We cache bytes here by getting ID so the next Equal doesn't fail.
+		require.Equal(t, tf.Instance.Storage.Settings.LatestCommitment().ID(), tf2.Instance.Storage.Settings.LatestCommitment().ID())
 		require.Equal(t, tf.Instance.Storage.Settings.LatestCommitment(), tf2.Instance.Storage.Settings.LatestCommitment())
 		require.Equal(t, tf.Instance.Storage.Settings.LatestConfirmedSlot(), tf2.Instance.Storage.Settings.LatestConfirmedSlot())
 		require.Equal(t, tf.Instance.Storage.Settings.LatestStateMutationSlot(), tf2.Instance.Storage.Settings.LatestStateMutationSlot())
@@ -365,13 +367,16 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 			}))
 
 			// RootBlocks
-			require.NoError(t, tf.Instance.Storage.RootBlocks.Stream(slotIndex, func(rootBlock models.BlockID) error {
-				has, err := tf2.Instance.Storage.RootBlocks.Has(rootBlock)
-				require.NoError(t, err)
-				require.True(t, has)
+			rootBlocks := tf.BlockDAG.Blocks("1.D", "2.D")
+			var earliestCommitment commitment.ID
+			for _, rootBlock := range rootBlocks {
+				if earliestCommitment.Index() == 0 || rootBlock.Commitment().Index() < earliestCommitment.Index() {
+					earliestCommitment = rootBlock.Commitment().ID()
+				}
+			}
 
-				return nil
-			}))
+			tf2.AssertRootBlocks(rootBlocks)
+			require.Equal(t, earliestCommitment, tf2.Instance.EvictionState.EarliestRootCommitment())
 		}
 
 		// UTXOLedger
@@ -439,15 +444,16 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 		}))
 
 		// RootBlocks
-		for slotIndex := slot.Index(0); slotIndex <= 1; slotIndex++ {
-			require.NoError(t, tf.Instance.Storage.RootBlocks.Stream(slotIndex, func(rootBlock models.BlockID) error {
-				has, err := tf3.Instance.Storage.RootBlocks.Has(rootBlock)
-				require.NoError(t, err)
-				require.True(t, has)
-
-				return nil
-			}))
+		rootBlocks := tf.BlockDAG.Blocks("1.D")
+		var earliestCommitment commitment.ID
+		for _, rootBlock := range rootBlocks {
+			if earliestCommitment.Index() == 0 || rootBlock.Commitment().Index() < earliestCommitment.Index() {
+				earliestCommitment = rootBlock.Commitment().ID()
+			}
 		}
+
+		tf3.AssertRootBlocks(rootBlocks)
+		require.Equal(t, earliestCommitment, tf3.Instance.EvictionState.EarliestRootCommitment())
 
 		// Block in slot 2, not accepting anything new.
 		tf3.BlockDAG.CreateBlock("2.D", models.WithStrongParents(tf.BlockDAG.BlockIDs("1.D")), models.WithIssuer(identitiesMap["D"]), models.WithIssuingTime(slot2IssuingTime))
@@ -510,7 +516,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 
 		// RootBlocks
 		for slotIndex := slot.Index(0); slotIndex <= 2; slotIndex++ {
-			require.NoError(t, tf.Instance.Storage.RootBlocks.Stream(slotIndex, func(rootBlock models.BlockID) error {
+			require.NoError(t, tf.Instance.Storage.RootBlocks.Stream(slotIndex, func(rootBlock models.BlockID, _ commitment.ID) error {
 				has, err := tf4.Instance.Storage.RootBlocks.Has(rootBlock)
 				require.NoError(t, err)
 				require.True(t, has)
@@ -872,6 +878,12 @@ func TestEngine_ShutdownResume(t *testing.T) {
 	require.NoError(t, tf2.Instance.Initialize())
 	workers.WaitChildren()
 	tf2.AssertSlotState(0)
+
+	// TODO: extend this test to actually check if we have rootblocks, attestations, weights, etc.
+	// pretty much everything that we import from a snapshot we should populate from disk
+
+	// this fails
+	// require.Equal(t, int64(100), tf2.Instance.SybilProtection.Validators().TotalWeight())
 }
 
 func TestProtocol_EngineSwitching(t *testing.T) {
@@ -1160,4 +1172,167 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 		node1.AssertEqualChainsAtLeastAtSlot(9, node3)
 		node1.AssertEqualChainsAtLeastAtSlot(9, node4)
 	}
+}
+
+func TestProtocol_EngineFromSnapshot(t *testing.T) {
+	debug.SetEnabled(true)
+	defer debug.SetEnabled(false)
+
+	testNetwork := network.NewMockedNetwork()
+
+	identitiesMap := map[string]ed25519.PublicKey{
+		"A": identity.GenerateIdentity().PublicKey(),
+		"B": identity.GenerateIdentity().PublicKey(),
+	}
+
+	identitiesWeights := map[ed25519.PublicKey]uint64{
+		identity.New(identitiesMap["A"]).PublicKey(): 50,
+		identity.New(identitiesMap["B"]).PublicKey(): 50,
+	}
+
+	tempDir := utils.NewDirectory(t.TempDir())
+	slotDuration := int64(10)
+
+	snapshot := tempDir.Path("genesis_snapshot.bin")
+	err := snapshotcreator.CreateSnapshot(
+		snapshotcreator.WithDatabaseVersion(protocol.DatabaseVersion),
+		snapshotcreator.WithFilePath(snapshot),
+		snapshotcreator.WithGenesisTokenAmount(1),
+		snapshotcreator.WithGenesisSeed(make([]byte, 32)),
+		snapshotcreator.WithPledgeIDs(identitiesWeights),
+		snapshotcreator.WithLedgerProvider(utxoledger.NewProvider()),
+		snapshotcreator.WithAttestAll(true),
+		snapshotcreator.WithGenesisUnixTime(time.Now().Unix()-slotDuration*15),
+		snapshotcreator.WithSlotDuration(slotDuration),
+	)
+	require.NoError(t, err)
+
+	node1 := mockednetwork.NewNode(t, ed25519.GenerateKeyPair(), testNetwork, "P1", snapshot, utxoledger.NewProvider())
+
+	node1.Protocol.Events.Engine.Notarization.Error.Hook(func(err error) {
+		panic(err)
+	})
+
+	require.Equal(t, int64(100), node1.Protocol.Engine().SybilProtection.Validators().TotalWeight())
+
+	genesisCommitment := commitment.NewEmptyCommitment()
+
+	require.Equal(t, genesisCommitment.ID(), node1.Protocol.Engine().Storage.Settings.LatestCommitment().ID())
+	require.Equal(t, genesisCommitment.ID(), node1.Protocol.Engine().Storage.Settings.ChainID())
+	require.Equal(t, genesisCommitment.ID(), node1.Protocol.ChainManager().RootCommitment().ID())
+
+	tf := node1.EngineTestFramework()
+
+	slot1IssuingTime := tf.SlotTimeProvider().StartTime(1)
+	slot2IssuingTime := tf.SlotTimeProvider().StartTime(2)
+
+	// Slot 1
+	tf.BlockDAG.CreateBlock("1.A", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithIssuer(identitiesMap["A"]), models.WithIssuingTime(slot1IssuingTime), models.WithCommitment(tf.Instance.Storage.Settings.LatestCommitment()))
+	tf.BlockDAG.CreateBlock("1.B", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithIssuer(identitiesMap["B"]), models.WithIssuingTime(slot1IssuingTime), models.WithCommitment(tf.Instance.Storage.Settings.LatestCommitment()))
+	tf.BlockDAG.CreateBlock("1.A*", models.WithStrongParents(tf.BlockDAG.BlockIDs("1.B")), models.WithIssuer(identitiesMap["A"]), models.WithIssuingTime(slot1IssuingTime), models.WithCommitment(tf.Instance.Storage.Settings.LatestCommitment()))
+	// Slot 2
+	tf.BlockDAG.CreateBlock("2.B", models.WithStrongParents(tf.BlockDAG.BlockIDs("1.A")), models.WithIssuer(identitiesMap["B"]), models.WithIssuingTime(slot2IssuingTime), models.WithCommitment(tf.Instance.Storage.Settings.LatestCommitment()))
+	tf.BlockDAG.CreateBlock("2.B*", models.WithStrongParents(tf.BlockDAG.BlockIDs("1.A*")), models.WithIssuer(identitiesMap["B"]), models.WithIssuingTime(slot2IssuingTime), models.WithCommitment(tf.Instance.Storage.Settings.LatestCommitment()))
+
+	tf.BlockDAG.IssueBlocks("1.A", "1.B", "1.A*", "2.B", "2.B*")
+
+	tf.Acceptance.ValidateAcceptedBlocks(map[string]bool{
+		"1.A":  true,
+		"1.B":  true,
+		"1.A*": true,
+		"2.B":  false,
+		"2.B*": false,
+	})
+
+	slot3IssuingTime := tf.SlotTimeProvider().StartTime(3)
+	slot4IssuingTime := tf.SlotTimeProvider().StartTime(4)
+
+	// Slot 3
+	tf.BlockDAG.CreateBlock("3.A", models.WithStrongParents(tf.BlockDAG.BlockIDs("2.B", "2.B*")), models.WithIssuer(identitiesMap["A"]), models.WithIssuingTime(slot3IssuingTime), models.WithCommitment(tf.Instance.Storage.Settings.LatestCommitment()))
+	// Slot 4
+	tf.BlockDAG.CreateBlock("4.B", models.WithStrongParents(tf.BlockDAG.BlockIDs("3.A")), models.WithIssuer(identitiesMap["B"]), models.WithIssuingTime(slot4IssuingTime), models.WithCommitment(tf.Instance.Storage.Settings.LatestCommitment()))
+
+	tf.BlockDAG.IssueBlocks("3.A", "4.B")
+
+	tf.Acceptance.ValidateAcceptedBlocks(map[string]bool{
+		"2.B":  true,
+		"2.B*": true,
+		"3.A":  true,
+		"4.B":  false,
+	})
+
+	rootBlocks := tf.BlockDAG.Blocks("1.A", "1.A*")
+	tf.AssertRootBlocks(rootBlocks)
+
+	slot5IssuingTime := tf.SlotTimeProvider().StartTime(5)
+	slot6IssuingTime := tf.SlotTimeProvider().StartTime(6)
+	slot7IssuingTime := tf.SlotTimeProvider().StartTime(7)
+	slot8IssuingTime := tf.SlotTimeProvider().StartTime(8)
+
+	// Slot 5
+	tf.BlockDAG.CreateBlock("5.A", models.WithStrongParents(tf.BlockDAG.BlockIDs("4.B")), models.WithIssuer(identitiesMap["A"]), models.WithIssuingTime(slot5IssuingTime), models.WithCommitment(tf.Instance.Storage.Settings.LatestCommitment()))
+	// Slot 6
+	tf.BlockDAG.CreateBlock("6.B", models.WithStrongParents(tf.BlockDAG.BlockIDs("5.A")), models.WithIssuer(identitiesMap["B"]), models.WithIssuingTime(slot6IssuingTime), models.WithCommitment(tf.Instance.Storage.Settings.LatestCommitment()))
+	// Slot 7
+	tf.BlockDAG.CreateBlock("7.A", models.WithStrongParents(tf.BlockDAG.BlockIDs("6.B")), models.WithIssuer(identitiesMap["A"]), models.WithIssuingTime(slot7IssuingTime), models.WithCommitment(tf.Instance.Storage.Settings.LatestCommitment()))
+	// Slot 8
+	tf.BlockDAG.CreateBlock("8.B", models.WithStrongParents(tf.BlockDAG.BlockIDs("7.A")), models.WithIssuer(identitiesMap["B"]), models.WithIssuingTime(slot8IssuingTime), models.WithCommitment(tf.Instance.Storage.Settings.LatestCommitment()))
+
+	tf.BlockDAG.IssueBlocks("5.A", "6.B", "7.A", "8.B")
+
+	tf.Acceptance.ValidateAcceptedBlocks(map[string]bool{
+		"4.B": true,
+		"5.A": true,
+		"6.B": true,
+		"7.A": true,
+		"8.B": false,
+	})
+
+	// We evicted rootblocks of epoch 1, as the rootBlock delay is 4, and we are committing 5.
+	rootBlocks = tf.BlockDAG.Blocks("3.A", "2.B*", "2.B")
+	tf.AssertRootBlocks(rootBlocks)
+
+	// This node observed genesis, therefore its chainID is the genesis commitment
+	require.Equal(t, genesisCommitment.ID(), tf.Instance.Storage.Settings.ChainID())
+
+	slot9IssuingTime := tf.SlotTimeProvider().StartTime(9)
+	slot10IssuingTime := tf.SlotTimeProvider().StartTime(10)
+	slot11IssuingTime := tf.SlotTimeProvider().StartTime(11)
+	slot12IssuingTime := tf.SlotTimeProvider().StartTime(12)
+
+	// Slot 9
+	tf.BlockDAG.CreateBlock("9.A", models.WithStrongParents(tf.BlockDAG.BlockIDs("8.B")), models.WithIssuer(identitiesMap["A"]), models.WithIssuingTime(slot9IssuingTime), models.WithCommitment(tf.Instance.Storage.Settings.LatestCommitment()))
+	// Slot 10
+	tf.BlockDAG.CreateBlock("10.B", models.WithStrongParents(tf.BlockDAG.BlockIDs("9.A")), models.WithIssuer(identitiesMap["B"]), models.WithIssuingTime(slot10IssuingTime), models.WithCommitment(tf.Instance.Storage.Settings.LatestCommitment()))
+	// Slot 11
+	tf.BlockDAG.CreateBlock("11.A", models.WithStrongParents(tf.BlockDAG.BlockIDs("10.B")), models.WithIssuer(identitiesMap["A"]), models.WithIssuingTime(slot11IssuingTime), models.WithCommitment(tf.Instance.Storage.Settings.LatestCommitment()))
+	// Slot 12
+	tf.BlockDAG.CreateBlock("12.B", models.WithStrongParents(tf.BlockDAG.BlockIDs("11.A")), models.WithIssuer(identitiesMap["B"]), models.WithIssuingTime(slot12IssuingTime), models.WithCommitment(tf.Instance.Storage.Settings.LatestCommitment()))
+
+	tf.BlockDAG.IssueBlocks("9.A", "10.B", "11.A", "12.B")
+
+	tf.Acceptance.ValidateAcceptedBlocks(map[string]bool{
+		"8.B":  true,
+		"9.A":  true,
+		"10.B": true,
+		"11.A": true,
+		"12.B": false,
+	})
+
+	// We jumped ahaead 4 slots, so we evicted rootblocks up to epoch 7, as we confirmed until epoch 9.
+	rootBlocks = tf.BlockDAG.Blocks("7.A", "6.B", "8.B", "9.A")
+	tf.AssertRootBlocks(rootBlocks)
+
+	// Dump snapshot for latest epoch 9
+	snapshotPath := tempDir.Path("snapshot_slot9.bin")
+	require.NoError(t, tf.Instance.WriteSnapshot(snapshotPath, 9))
+
+	node2 := mockednetwork.NewNode(t, ed25519.GenerateKeyPair(), testNetwork, "P2", snapshotPath, utxoledger.NewProvider())
+	tf2 := node2.EngineTestFramework()
+
+	// This node did not observe genesis, therefore its chainID is the snapshot's rootBlocks earliest commitment
+	require.Equal(t, lo.PanicOnErr(tf.Instance.Storage.Commitments.Load(1)).ID(), tf2.Instance.Storage.Settings.ChainID())
+
+	// We have the same set of rootblocks on the node started from snapshot.
+	tf2.AssertRootBlocks(rootBlocks)
 }

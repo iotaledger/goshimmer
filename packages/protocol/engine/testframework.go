@@ -19,8 +19,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
@@ -50,7 +52,8 @@ func NewTestEngine(t *testing.T, workers *workerpool.Group, storage *storage.Sto
 	notarization module.Provider[*Engine, notarization.Notarization],
 	tangle module.Provider[*Engine, tangle.Tangle],
 	consensus module.Provider[*Engine, consensus.Consensus],
-	opts ...options.Option[Engine]) *Engine {
+	opts ...options.Option[Engine],
+) *Engine {
 	e := New(workers.CreateGroup("Engine"),
 		storage,
 		clock,
@@ -93,7 +96,8 @@ func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group,
 	notarization module.Provider[*Engine, notarization.Notarization],
 	tangle module.Provider[*Engine, tangle.Tangle],
 	consensus module.Provider[*Engine, consensus.Consensus],
-	optsEngine ...options.Option[Engine]) *TestFramework {
+	optsEngine ...options.Option[Engine],
+) *TestFramework {
 	engine := NewTestEngine(t, workers.CreateGroup("Engine"),
 		blockdag.NewTestStorage(t, workers, database.WithDBProvider(database.NewDB)),
 		clock,
@@ -119,6 +123,14 @@ func (e *TestFramework) AssertSlotState(index slot.Index) {
 	// TODO: throughput quota is not updated with each slot, but with acceptance
 	// require.Equal(e.test, index, e.Engine.ThroughputQuota.(*mana1.ThroughputQuota).LastCommittedSlot(), "throughput quota last committed slot is not equal")
 	require.Equal(e.test, index, e.Instance.EvictionState.LastEvictedSlot(), "last evicted slot is not equal")
+}
+
+func (e *TestFramework) AssertRootBlocks(rootBlocks []*models.Block) {
+	for _, rootBlock := range rootBlocks {
+		rootBlockID := rootBlock.ID()
+		require.True(e.test, e.Instance.EvictionState.IsRootBlock(rootBlockID), "root block is not in eviction state %s", rootBlockID)
+		require.True(e.test, lo.PanicOnErr(e.Instance.Storage.RootBlocks.Has(rootBlockID)), "root block is not in storage %s", rootBlockID)
+	}
 }
 
 func (e *TestFramework) SlotTimeProvider() *slot.TimeProvider {

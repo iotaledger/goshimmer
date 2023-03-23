@@ -13,7 +13,7 @@ services:
       ${COMMON_CONFIG}
       --autoPeering.entryNodes=
       --node.seed=base58:8q491c3YWjbPwLmF2WD95YmCgh61j2kenCKHfGfByoWi
-      --node.enablePlugins=${COMMON_ENABLED},snapshot
+      --node.enablePlugins=${COMMON_ENABLED},WebAPISnapshot
       --node.disablePlugins=${COMMON_DISABLED}
       --blockIssuer.ignoreBootstrappedFlag=true
       --dashboard.dev=false

@@ -216,6 +216,7 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/conflict/:conflictID/children", ledgerstateAPI.GetConflictChildren)
 	routeGroup.GET("/conflict/:conflictID/conflicts", ledgerstateAPI.GetConflictConflicts)
 	routeGroup.GET("/conflict/:conflictID/voters", ledgerstateAPI.GetConflictVoters)
+	routeGroup.GET("/slot/:index", slotAPI.GetCommittedSlot)
 	routeGroup.GET("/slot/:index/blocks", slotAPI.GetBlocks)
 	routeGroup.GET("/slot/commitment/:commitment", slotAPI.GetCommittedSlotByCommitment)
 	routeGroup.GET("/slot/:index/transactions", slotAPI.GetTransactions)

@@ -333,7 +333,12 @@ func currentNodeStatus() *nodestatus {
 		RCTT:             tm.Confirmed().RelativeTime().UnixNano(),
 	}
 
-	deficit, _ := deps.Protocol.CongestionControl.Scheduler().Deficit(deps.Local.ID()).Float64()
+	scheduler := deps.Protocol.CongestionControl.Scheduler()
+	if scheduler == nil {
+		return nil
+	}
+
+	deficit, _ := scheduler.Deficit(deps.Local.ID()).Float64()
 
 	status.Scheduler = schedulerMetric{
 		Running:           deps.Protocol.CongestionControl.Scheduler().IsRunning(),
