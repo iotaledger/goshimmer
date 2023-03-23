@@ -15,7 +15,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/filter"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/filter/blockfilter"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/realitiesledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxoledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
@@ -76,6 +76,13 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 				),
 			),
 		),
+		protocol.WithFilterProvider(
+			blockfilter.NewProvider(
+				blockfilter.WithMinCommittableSlotAge(slot.Index(NotarizationParameters.MinSlotCommittableAge)),
+				blockfilter.WithMaxAllowedWallClockDrift(Parameters.MaxAllowedClockDrift),
+				blockfilter.WithSignatureValidation(true),
+			),
+		),
 		protocol.WithSybilProtectionProvider(
 			dpos.NewProvider(
 				dpos.WithActivityWindow(Parameters.ValidatorActivityWindow),
@@ -87,11 +94,6 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 			),
 		),
 		protocol.WithEngineOptions(
-			engine.WithFilterOptions(
-				filter.WithMinCommittableSlotAge(slot.Index(NotarizationParameters.MinSlotCommittableAge)),
-				filter.WithMaxAllowedWallClockDrift(Parameters.MaxAllowedClockDrift),
-				filter.WithSignatureValidation(true),
-			),
 			engine.WithBootstrapThreshold(Parameters.BootstrapWindow),
 			engine.WithTSCManagerOptions(
 				tsc.WithTimeSinceConfirmationThreshold(Parameters.TimeSinceConfirmationThreshold),

@@ -42,7 +42,7 @@ type Engine struct {
 	SybilProtection sybilprotection.SybilProtection
 	ThroughputQuota throughputquota.ThroughputQuota
 	Ledger          ledger.Ledger
-	Filter          *filter.Filter
+	Filter          filter.Filter
 	EvictionState   *eviction.State
 	BlockRequester  *eventticker.EventTicker[models.BlockID]
 	Notarization    notarization.Notarization
@@ -61,7 +61,6 @@ type Engine struct {
 	optsSnapshotDepth         int
 	optsTSCManagerOptions     []options.Option[tsc.Manager]
 	optsBlockRequester        []options.Option[eventticker.EventTicker[models.BlockID]]
-	optsFilter                []options.Option[filter.Filter]
 
 	module.Module
 }
@@ -71,6 +70,7 @@ func New(
 	storageInstance *storage.Storage,
 	clockProvider module.Provider[*Engine, clock.Clock],
 	ledger module.Provider[*Engine, ledger.Ledger],
+	filter module.Provider[*Engine, filter.Filter],
 	sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection],
 	throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota],
 	notarization module.Provider[*Engine, notarization.Notarization],
@@ -96,7 +96,7 @@ func New(
 			e.Tangle = tangle(e)
 			e.Consensus = consensus(e)
 			e.TSCManager = tsc.New(e.Consensus.BlockGadget().IsBlockAccepted, e.Tangle, e.optsTSCManagerOptions...)
-			e.Filter = filter.New(e.optsFilter...)
+			e.Filter = filter(e)
 			e.BlockRequester = eventticker.New(e.optsBlockRequester...)
 
 			e.HookInitialized(lo.Batch(
@@ -106,7 +106,6 @@ func New(
 		},
 		(*Engine).setupTSCManager,
 		(*Engine).setupBlockStorage,
-		(*Engine).setupFilter,
 		(*Engine).setupEvictionState,
 		(*Engine).setupBlockRequester,
 		(*Engine).TriggerConstructed,
@@ -255,14 +254,6 @@ func (e *Engine) Name() string {
 	return filepath.Base(e.Storage.Directory)
 }
 
-func (e *Engine) setupFilter() {
-	e.Events.Filter.BlockFiltered.Hook(func(filteredEvent *filter.BlockFilteredEvent) {
-		e.Events.Error.Trigger(errors.Wrapf(filteredEvent.Reason, "block (%s) filtered", filteredEvent.Block.ID()))
-	}, event.WithWorkerPool(e.Workers.CreatePool("Filter", 2)))
-
-	e.Events.Filter.LinkTo(e.Filter.Events)
-}
-
 func (e *Engine) setupTSCManager() {
 	// wp := e.Workers.CreatePool("TSCManager", 1) // Using just 1 worker to avoid contention
 
@@ -368,12 +359,6 @@ func WithEntryPointsDepth(entryPointsDepth int) options.Option[Engine] {
 func WithTSCManagerOptions(opts ...options.Option[tsc.Manager]) options.Option[Engine] {
 	return func(e *Engine) {
 		e.optsTSCManagerOptions = append(e.optsTSCManagerOptions, opts...)
-	}
-}
-
-func WithFilterOptions(opts ...options.Option[filter.Filter]) options.Option[Engine] {
-	return func(e *Engine) {
-		e.optsFilter = append(e.optsFilter, opts...)
 	}
 }
 

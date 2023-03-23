@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/filter"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
@@ -43,6 +44,7 @@ type TestFramework struct {
 func NewTestEngine(t *testing.T, workers *workerpool.Group, storage *storage.Storage,
 	clock module.Provider[*Engine, clock.Clock],
 	ledger module.Provider[*Engine, ledger.Ledger],
+	filter module.Provider[*Engine, filter.Filter],
 	sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection],
 	throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota],
 	notarization module.Provider[*Engine, notarization.Notarization],
@@ -53,6 +55,7 @@ func NewTestEngine(t *testing.T, workers *workerpool.Group, storage *storage.Sto
 		storage,
 		clock,
 		ledger,
+		filter,
 		sybilProtection,
 		throughputQuota,
 		notarization,
@@ -84,6 +87,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, engine *Engine
 func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group,
 	clock module.Provider[*Engine, clock.Clock],
 	ledger module.Provider[*Engine, ledger.Ledger],
+	filter module.Provider[*Engine, filter.Filter],
 	sybilProtection module.Provider[*Engine, sybilprotection.SybilProtection],
 	throughputQuota module.Provider[*Engine, throughputquota.ThroughputQuota],
 	notarization module.Provider[*Engine, notarization.Notarization],
@@ -94,6 +98,7 @@ func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group,
 		blockdag.NewTestStorage(t, workers, database.WithDBProvider(database.NewDB)),
 		clock,
 		ledger,
+		filter,
 		sybilProtection,
 		throughputQuota,
 		notarization,

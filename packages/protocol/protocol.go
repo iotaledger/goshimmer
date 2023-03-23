@@ -18,6 +18,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/tangleconsensus"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/filter"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/filter/blockfilter"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxoledger"
@@ -73,6 +75,7 @@ type Protocol struct {
 
 	optsClockProvider           module.Provider[*engine.Engine, clock.Clock]
 	optsLedgerProvider          module.Provider[*engine.Engine, ledger.Ledger]
+	optsFilterProvider          module.Provider[*engine.Engine, filter.Filter]
 	optsSybilProtectionProvider module.Provider[*engine.Engine, sybilprotection.SybilProtection]
 	optsThroughputQuotaProvider module.Provider[*engine.Engine, throughputquota.ThroughputQuota]
 	optsNotarizationProvider    module.Provider[*engine.Engine, notarization.Notarization]
@@ -87,6 +90,7 @@ func New(workers *workerpool.Group, dispatcher network.Endpoint, opts ...options
 		dispatcher:                  dispatcher,
 		optsClockProvider:           blocktime.NewProvider(),
 		optsLedgerProvider:          utxoledger.NewProvider(),
+		optsFilterProvider:          blockfilter.NewProvider(),
 		optsSybilProtectionProvider: dpos.NewProvider(),
 		optsThroughputQuotaProvider: mana1.NewProvider(),
 		optsNotarizationProvider:    slotnotarization.NewProvider(),
@@ -146,6 +150,7 @@ func (p *Protocol) initEngineManager() {
 		p.optsEngineOptions,
 		p.optsClockProvider,
 		p.optsLedgerProvider,
+		p.optsFilterProvider,
 		p.optsSybilProtectionProvider,
 		p.optsThroughputQuotaProvider,
 		p.optsNotarizationProvider,
@@ -616,6 +621,12 @@ func WithSnapshotPath(snapshot string) options.Option[Protocol] {
 func WithLedgerProvider(optsLedgerProvider module.Provider[*engine.Engine, ledger.Ledger]) options.Option[Protocol] {
 	return func(n *Protocol) {
 		n.optsLedgerProvider = optsLedgerProvider
+	}
+}
+
+func WithFilterProvider(optsFilterProvider module.Provider[*engine.Engine, filter.Filter]) options.Option[Protocol] {
+	return func(n *Protocol) {
+		n.optsFilterProvider = optsFilterProvider
 	}
 }
 

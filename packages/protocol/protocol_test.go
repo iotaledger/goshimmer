@@ -18,6 +18,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/blocktime"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/tangleconsensus"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/filter/blockfilter"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/realitiesledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
@@ -172,6 +173,7 @@ func TestEngine_NonEmptyInitialValidators(t *testing.T) {
 	tf := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework"),
 		blocktime.NewProvider(),
 		ledgerProvider,
+		blockfilter.NewProvider(),
 		dpos.NewProvider(),
 		mana1.NewProvider(),
 		slotnotarization.NewProvider(),
@@ -250,6 +252,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 	tf := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework"),
 		blocktime.NewProvider(),
 		ledgerProvider,
+		blockfilter.NewProvider(),
 		dpos.NewProvider(),
 		mana1.NewProvider(),
 		slotnotarization.NewProvider(),
@@ -324,6 +327,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 		tf2 := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework2"),
 			blocktime.NewProvider(),
 			ledgerProvider,
+			blockfilter.NewProvider(),
 			dpos.NewProvider(),
 			mana1.NewProvider(),
 			slotnotarization.NewProvider(),
@@ -406,6 +410,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 		tf3 := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework3"),
 			blocktime.NewProvider(),
 			ledgerProvider,
+			blockfilter.NewProvider(),
 			dpos.NewProvider(),
 			mana1.NewProvider(),
 			slotnotarization.NewProvider(),
@@ -475,6 +480,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 		tf4 := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework4"),
 			blocktime.NewProvider(),
 			ledgerProvider,
+			blockfilter.NewProvider(),
 			dpos.NewProvider(),
 			mana1.NewProvider(),
 			slotnotarization.NewProvider(),
@@ -571,6 +577,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 	engine1 := engine.NewTestEngine(t, workers.CreateGroup("Engine1"), engine1Storage,
 		blocktime.NewProvider(),
 		ledgerProvider,
+		blockfilter.NewProvider(),
 		dpos.NewProvider(),
 		mana1.NewProvider(),
 		slotnotarization.NewProvider(),
@@ -670,6 +677,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		tf2 := engine.NewDefaultTestFramework(t, workers.CreateGroup("EngineTestFramework2"),
 			blocktime.NewProvider(),
 			ledgerProvider,
+			blockfilter.NewProvider(),
 			dpos.NewProvider(),
 			mana1.NewProvider(),
 			slotnotarization.NewProvider(),
@@ -722,6 +730,7 @@ func TestEngine_TransactionsForwardAndRollback(t *testing.T) {
 		engine3 := engine.NewTestEngine(t, workers.CreateGroup("Engine3"), engine3Storage,
 			blocktime.NewProvider(),
 			ledgerProvider,
+			blockfilter.NewProvider(),
 			dpos.NewProvider(),
 			mana1.NewProvider(),
 			slotnotarization.NewProvider(),
@@ -805,6 +814,7 @@ func TestEngine_ShutdownResume(t *testing.T) {
 	engine1 := engine.NewTestEngine(t, workers.CreateGroup("Engine"), engine1Storage,
 		blocktime.NewProvider(),
 		ledgerProvider,
+		blockfilter.NewProvider(),
 		dpos.NewProvider(),
 		mana1.NewProvider(),
 		slotnotarization.NewProvider(),
@@ -842,6 +852,7 @@ func TestEngine_ShutdownResume(t *testing.T) {
 	engine2 := engine.NewTestEngine(t, workers.CreateGroup("Engine2"), engine2Storage,
 		blocktime.NewProvider(),
 		ledgerProvider,
+		blockfilter.NewProvider(),
 		dpos.NewProvider(),
 		mana1.NewProvider(),
 		slotnotarization.NewProvider(),

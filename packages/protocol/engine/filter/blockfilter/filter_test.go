@@ -1,4 +1,4 @@
-package filter
+package blockfilter
 
 import (
 	"strings"
@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/filter"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -30,11 +31,11 @@ func NewTestFramework(t *testing.T, slotTimeProvider *slot.TimeProvider, optsFil
 		Filter:           New(optsFilter...),
 	}
 
-	tf.Filter.Events.BlockAllowed.Hook(func(block *models.Block) {
+	tf.Filter.Events().BlockAllowed.Hook(func(block *models.Block) {
 		t.Logf("BlockAllowed: %s", block.ID())
 	})
 
-	tf.Filter.Events.BlockFiltered.Hook(func(event *BlockFilteredEvent) {
+	tf.Filter.Events().BlockFiltered.Hook(func(event *filter.BlockFilteredEvent) {
 		t.Logf("BlockFiltered: %s - %s", event.Block.ID(), event.Reason)
 	})
 
@@ -84,11 +85,11 @@ func TestFilter_WithMaxAllowedWallClockDrift(t *testing.T) {
 		WithSignatureValidation(false),
 	)
 
-	tf.Filter.Events.BlockAllowed.Hook(func(block *models.Block) {
+	tf.Filter.Events().BlockAllowed.Hook(func(block *models.Block) {
 		require.NotEqual(t, "tooFarAheadFuture", block.ID().Alias())
 	})
 
-	tf.Filter.Events.BlockFiltered.Hook(func(event *BlockFilteredEvent) {
+	tf.Filter.Events().BlockFiltered.Hook(func(event *filter.BlockFilteredEvent) {
 		require.Equal(t, "tooFarAheadFuture", event.Block.ID().Alias())
 		require.True(t, errors.Is(event.Reason, ErrorsBlockTimeTooFarAheadInFuture))
 	})
@@ -105,11 +106,11 @@ func TestFilter_WithSignatureValidation(t *testing.T) {
 		WithSignatureValidation(true),
 	)
 
-	tf.Filter.Events.BlockAllowed.Hook(func(block *models.Block) {
+	tf.Filter.Events().BlockAllowed.Hook(func(block *models.Block) {
 		require.Equal(t, "valid", block.ID().Alias())
 	})
 
-	tf.Filter.Events.BlockFiltered.Hook(func(event *BlockFilteredEvent) {
+	tf.Filter.Events().BlockFiltered.Hook(func(event *filter.BlockFilteredEvent) {
 		require.Equal(t, "invalid", event.Block.ID().Alias())
 		require.True(t, errors.Is(event.Reason, ErrorsInvalidSignature))
 	})
@@ -125,11 +126,11 @@ func TestFilter_MinCommittableSlotAge(t *testing.T) {
 		WithSignatureValidation(false),
 	)
 
-	tf.Filter.Events.BlockAllowed.Hook(func(block *models.Block) {
+	tf.Filter.Events().BlockAllowed.Hook(func(block *models.Block) {
 		require.True(t, strings.HasPrefix(block.ID().Alias(), "valid"))
 	})
 
-	tf.Filter.Events.BlockFiltered.Hook(func(event *BlockFilteredEvent) {
+	tf.Filter.Events().BlockFiltered.Hook(func(event *filter.BlockFilteredEvent) {
 		require.True(t, strings.HasPrefix(event.Block.ID().Alias(), "invalid"))
 		require.True(t, errors.Is(event.Reason, ErrorCommitmentNotCommittable))
 	})

@@ -13,6 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/filter"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
@@ -44,6 +45,7 @@ type EngineManager struct {
 	engineOptions           []options.Option[engine.Engine]
 	clockProvider           module.Provider[*engine.Engine, clock.Clock]
 	ledgerProvider          module.Provider[*engine.Engine, ledger.Ledger]
+	filterProvider          module.Provider[*engine.Engine, filter.Filter]
 	sybilProtectionProvider module.Provider[*engine.Engine, sybilprotection.SybilProtection]
 	throughputQuotaProvider module.Provider[*engine.Engine, throughputquota.ThroughputQuota]
 	notarizationProvider    module.Provider[*engine.Engine, notarization.Notarization]
@@ -61,6 +63,7 @@ func New(
 	engineOptions []options.Option[engine.Engine],
 	clockProvider module.Provider[*engine.Engine, clock.Clock],
 	ledgerProvider module.Provider[*engine.Engine, ledger.Ledger],
+	filterProvider module.Provider[*engine.Engine, filter.Filter],
 	sybilProtectionProvider module.Provider[*engine.Engine, sybilprotection.SybilProtection],
 	throughputQuotaProvider module.Provider[*engine.Engine, throughputquota.ThroughputQuota],
 	notarizationProvider module.Provider[*engine.Engine, notarization.Notarization],
@@ -75,6 +78,7 @@ func New(
 		engineOptions:           engineOptions,
 		clockProvider:           clockProvider,
 		ledgerProvider:          ledgerProvider,
+		filterProvider:          filterProvider,
 		sybilProtectionProvider: sybilProtectionProvider,
 		throughputQuotaProvider: throughputQuotaProvider,
 		notarizationProvider:    notarizationProvider,
@@ -151,6 +155,7 @@ func (e *EngineManager) loadEngineInstance(dirName string) *engine.Engine {
 		storage.New(e.directory.Path(dirName), e.dbVersion, e.storageOptions...),
 		e.clockProvider,
 		e.ledgerProvider,
+		e.filterProvider,
 		e.sybilProtectionProvider,
 		e.throughputQuotaProvider,
 		e.notarizationProvider,

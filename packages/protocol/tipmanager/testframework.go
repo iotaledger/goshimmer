@@ -16,6 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/blocktime"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/tangleconsensus"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/filter/blockfilter"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/realitiesledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxoledger"
@@ -95,6 +96,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...option
 			storageInstance,
 			blocktime.NewProvider(),
 			ledgerProvider,
+			blockfilter.NewProvider(),
 			dpos.NewProvider(),
 			mana1.NewProvider(),
 			slotnotarization.NewProvider(t.optsSlotNotarizationOptions...),
