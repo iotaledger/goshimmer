@@ -35,7 +35,7 @@ type Conflict[ConflictID, ResourceID IDType] struct {
 	children *advancedset.AdvancedSet[*Conflict[ConflictID, ResourceID]]
 
 	// conflictSets is the set of conflict sets that contain the Conflict.
-	conflictSets map[ResourceID]*Set[ConflictID, ResourceID]
+	conflictSets *advancedset.AdvancedSet[*Set[ConflictID, ResourceID]]
 
 	// weight is the weight of the Conflict.
 	weight *weight.Weight
@@ -59,7 +59,7 @@ type Conflict[ConflictID, ResourceID IDType] struct {
 }
 
 // New creates a new Conflict.
-func New[ConflictID, ResourceID IDType](id ConflictID, parents *advancedset.AdvancedSet[*Conflict[ConflictID, ResourceID]], conflictSets map[ResourceID]*Set[ConflictID, ResourceID], initialWeight *weight.Weight, pendingTasksCounter *syncutils.Counter) *Conflict[ConflictID, ResourceID] {
+func New[ConflictID, ResourceID IDType](id ConflictID, parents *advancedset.AdvancedSet[*Conflict[ConflictID, ResourceID]], conflictSets *advancedset.AdvancedSet[*Set[ConflictID, ResourceID]], initialWeight *weight.Weight, pendingTasksCounter *syncutils.Counter) *Conflict[ConflictID, ResourceID] {
 	c := &Conflict[ConflictID, ResourceID]{
 		PreferredInsteadUpdated: event.New1[*Conflict[ConflictID, ResourceID]](),
 		LikedInsteadAdded:       event.New1[*Conflict[ConflictID, ResourceID]](),
@@ -82,23 +82,20 @@ func New[ConflictID, ResourceID IDType](id ConflictID, parents *advancedset.Adva
 		}
 	}
 
-	// add existing conflicts first, so we can correctly determine the preferred instead flag
-	for _, conflictSet := range conflictSets {
-		_ = conflictSet.Members().ForEach(func(element *Conflict[ConflictID, ResourceID]) (err error) {
-			c.conflictingConflicts.Add(element)
+	if conflictSets != nil {
+		// add existing conflicts first, so we can correctly determine the preferred instead flag
+		_ = conflictSets.ForEach(func(conflictSet *Set[ConflictID, ResourceID]) (err error) {
+			return conflictSet.Members().ForEach(func(element *Conflict[ConflictID, ResourceID]) (err error) {
+				c.conflictingConflicts.Add(element)
+				return nil
+			})
+		})
 
+		// add ourselves to the other conflict sets once we are fully initialized
+		_ = conflictSets.ForEach(func(conflictSet *Set[ConflictID, ResourceID]) (err error) {
+			conflictSet.Add(c)
 			return nil
 		})
-	}
-
-	// add ourselves to the other conflict sets once we are fully initialized
-	for _, conflictSet := range conflictSets {
-		conflictSet.Add(c)
-	}
-
-	// add ourselves to the other conflict sets once we are fully initialized
-	for _, conflictSet := range conflictSets {
-		conflictSet.Add(c)
 	}
 
 	return c
@@ -254,6 +251,10 @@ func (c *Conflict[ConflictID, ResourceID]) onParentAddedLikedInstead(parent *Con
 		return
 	}
 
+	if c.likedInstead.Delete(c.preferredInstead) {
+		c.LikedInsteadRemoved.Trigger(c.preferredInstead)
+	}
+
 	c.LikedInsteadAdded.Trigger(likedConflict)
 }
 
@@ -267,4 +268,10 @@ func (c *Conflict[ConflictID, ResourceID]) onParentRemovedLikedInstead(parent *C
 	}
 
 	c.LikedInsteadRemoved.Trigger(likedConflict)
+
+	if !c.isPreferred() && c.likedInstead.IsEmpty() {
+		c.likedInstead.Add(c.preferredInstead)
+
+		c.LikedInsteadAdded.Trigger(c.preferredInstead)
+	}
 }
