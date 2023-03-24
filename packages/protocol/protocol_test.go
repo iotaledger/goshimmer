@@ -1335,4 +1335,18 @@ func TestProtocol_EngineFromSnapshot(t *testing.T) {
 
 	// We have the same set of rootblocks on the node started from snapshot.
 	tf2.AssertRootBlocks(rootBlocks)
+
+	fmt.Println("Shutdown node2")
+	node2.Protocol.Shutdown()
+	fmt.Println("Shutdown node2 done")
+
+	node3 := mockednetwork.NewNodeFromDisk(t, node2.KeyPair, testNetwork, "P3", node2.BaseDir.Path())
+	tf3 := node3.EngineTestFramework()
+	fmt.Println(lo.PanicOnErr(tf.Instance.Storage.Commitments.Load(1)).ID(), tf3.Instance.Storage.Settings.ChainID())
+
+	fmt.Println(tf3.Instance.Storage.Settings)
+	// require.Equal(t, lo.PanicOnErr(tf.Instance.Storage.Commitments.Load(1)).ID(), tf3.Instance.Storage.Settings.ChainID())
+
+	// We have the same set of rootblocks on the node started from disk.
+	// tf2.AssertRootBlocks(rootBlocks)
 }

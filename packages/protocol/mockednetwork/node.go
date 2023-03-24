@@ -38,6 +38,7 @@ import (
 type Node struct {
 	Testing  *testing.T
 	Name     string
+	BaseDir  *utils.Directory
 	KeyPair  ed25519.KeyPair
 	Endpoint *network.MockedEndpoint
 	Workers  *workerpool.Group
@@ -54,15 +55,14 @@ func NewNode(t *testing.T, keyPair ed25519.KeyPair, network *network.MockedNetwo
 		Testing:  t,
 		Workers:  workerpool.NewGroup(id.ID().String()),
 		Name:     id.ID().String(),
+		BaseDir:  utils.NewDirectory(t.TempDir()),
 		KeyPair:  keyPair,
 		Endpoint: network.Join(id.ID(), partition),
 	}
 
-	tempDir := utils.NewDirectory(t.TempDir())
-
 	node.Protocol = protocol.New(node.Workers.CreateGroup("Protocol"),
 		node.Endpoint,
-		protocol.WithBaseDirectory(tempDir.Path()),
+		protocol.WithBaseDirectory(node.BaseDir.Path()),
 		protocol.WithSnapshotPath(snapshotPath),
 		protocol.WithLedgerProvider(ledgerProvider),
 		protocol.WithTangleProvider(
@@ -85,9 +85,63 @@ func NewNode(t *testing.T, keyPair ed25519.KeyPair, network *network.MockedNetwo
 	node.Protocol.Run()
 
 	t.Cleanup(func() {
-		fmt.Println(node.Name, "> shutdown")
-		node.Protocol.Shutdown()
-		fmt.Println(node.Name, "> shutdown done")
+		// fmt.Println(node.Name, "> shutdown")
+		// node.Protocol.Shutdown()
+		// fmt.Println(node.Name, "> shutdown done")
+	})
+
+	mainEngine := node.Protocol.MainEngineInstance()
+	node.tf = engine.NewTestFramework(t, node.Workers.CreateGroup(fmt.Sprintf("EngineTestFramework-%s", mainEngine.Name()[:8])), mainEngine)
+
+	node.Protocol.Events.CandidateEngineActivated.Hook(func(candidateEngine *engine.Engine) {
+		node.mutex.Lock()
+		defer node.mutex.Unlock()
+
+		node.tf = engine.NewTestFramework(node.Testing, node.Workers.CreateGroup(fmt.Sprintf("EngineTestFramework-%s", candidateEngine.Name()[:8])), candidateEngine)
+	})
+
+	return node
+}
+
+func NewNodeFromDisk(t *testing.T, keyPair ed25519.KeyPair, network *network.MockedNetwork, partition string, baseDir string) *Node {
+	id := identity.New(keyPair.PublicKey)
+
+	node := &Node{
+		Testing:  t,
+		Workers:  workerpool.NewGroup(id.ID().String()),
+		Name:     id.ID().String(),
+		BaseDir:  utils.NewDirectory(baseDir),
+		KeyPair:  keyPair,
+		Endpoint: network.Join(id.ID(), partition),
+	}
+
+	node.Protocol = protocol.New(node.Workers.CreateGroup("Protocol"),
+		node.Endpoint,
+		protocol.WithBaseDirectory(node.BaseDir.Path()),
+		protocol.WithSnapshotPath("snapshotPath"), // snapshotPath does not matter as we are starting from disk
+		protocol.WithTangleProvider(
+			inmemorytangle.NewProvider(
+				inmemorytangle.WithBookerProvider(
+					markerbooker.NewProvider(
+						markerbooker.WithMarkerManagerOptions(
+							markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(1)),
+						),
+					),
+				),
+			),
+		),
+		protocol.WithNotarizationProvider(
+			slotnotarization.NewProvider(
+				slotnotarization.WithMinCommittableSlotAge(1),
+			),
+		),
+	)
+	node.Protocol.Run()
+
+	t.Cleanup(func() {
+		// fmt.Println(node.Name, "> shutdown")
+		// node.Protocol.Shutdown()
+		// fmt.Println(node.Name, "> shutdown done")
 	})
 
 	mainEngine := node.Protocol.MainEngineInstance()

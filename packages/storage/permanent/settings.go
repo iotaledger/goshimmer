@@ -14,6 +14,7 @@ import (
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/serializer/v2/serix"
+	"github.com/iotaledger/hive.go/stringify"
 )
 
 // region Settings /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -226,6 +227,22 @@ func (s *Settings) Import(reader io.ReadSeeker) (err error) {
 	s.TriggerInitialized()
 
 	return
+}
+
+func (s *Settings) String() string {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	builder := stringify.NewStructBuilder("Settings", stringify.NewStructField("path", s.FilePath()))
+	builder.AddField(stringify.NewStructField("SnapshotImported", s.settingsModel.SnapshotImported))
+	builder.AddField(stringify.NewStructField("GenesisUnixTime", s.settingsModel.GenesisUnixTime))
+	builder.AddField(stringify.NewStructField("SlotDuration", s.settingsModel.SlotDuration))
+	builder.AddField(stringify.NewStructField("LatestCommitment", s.settingsModel.LatestCommitment))
+	builder.AddField(stringify.NewStructField("LatestStateMutationSlot", s.settingsModel.LatestStateMutationSlot))
+	builder.AddField(stringify.NewStructField("LatestConfirmedSlot", s.settingsModel.LatestConfirmedSlot))
+	builder.AddField(stringify.NewStructField("ChainID", s.settingsModel.ChainID))
+
+	return builder.String()
 }
 
 func (s *Settings) tryImport(reader io.ReadSeeker) (err error) {
