@@ -309,7 +309,6 @@ func TestLikedInsteadFromPreferredInstead(t *testing.T) {
 	require.False(t, conflictD.IsLiked())
 	require.Equal(t, 1, conflictD.LikedInstead().Size())
 	require.True(t, conflictD.LikedInstead().Has(conflictC))
-
 }
 
 func TestLikedInstead21(t *testing.T) {
