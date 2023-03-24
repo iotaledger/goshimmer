@@ -234,7 +234,7 @@ func (c *Conflict[ConflictID, ResourceID]) registerWithParent(parent *Conflict[C
 
 	parent.children.Add(c)
 
-	for conflicts := parent.likedInstead.Iterator(); conflicts.HasNext(); { // A, B
+	for conflicts := parent.likedInstead.Iterator(); conflicts.HasNext(); {
 		c.onParentAddedLikedInstead(parent, conflicts.Next())
 	}
 }
