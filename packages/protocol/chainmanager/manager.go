@@ -26,9 +26,8 @@ type Manager struct {
 	Events              *Events
 	CommitmentRequester *eventticker.EventTicker[commitment.ID]
 
-	commitmentsByID     *memstorage.SlotStorage[commitment.ID, *Commitment]
-	rootCommitment      *Commitment
-	rootCommitmentMutex sync.RWMutex
+	commitmentsByID *memstorage.SlotStorage[commitment.ID, *Commitment]
+	rootCommitment  *Commitment
 
 	// This tracks the forkingPoints by the commitment that triggered the detection so we can clean up after eviction
 	forkingPointsByCommitments *memstorage.SlotStorage[commitment.ID, commitment.ID]
@@ -63,11 +62,8 @@ func NewManager(opts ...options.Option[Manager]) (manager *Manager) {
 }
 
 func (m *Manager) Initialize(c *commitment.Commitment) {
-	m.evictionMutex.RLock()
-	defer m.evictionMutex.RUnlock()
-
-	m.rootCommitmentMutex.Lock()
-	defer m.rootCommitmentMutex.Unlock()
+	m.evictionMutex.Lock()
+	defer m.evictionMutex.Unlock()
 
 	m.rootCommitment, _ = m.getOrCreateCommitment(c.ID())
 	m.rootCommitment.PublishCommitment(c)
@@ -138,19 +134,13 @@ func (m *Manager) RootCommitment() (rootCommitment *commitment.Commitment) {
 	m.evictionMutex.RLock()
 	defer m.evictionMutex.RUnlock()
 
-	m.rootCommitmentMutex.RLock()
-	defer m.rootCommitmentMutex.RUnlock()
-
 	return m.rootCommitment.Commitment()
 }
 
 // SetRootCommitment sets the root commitment of the manager.
 func (m *Manager) SetRootCommitment(commitment *commitment.Commitment) {
-	m.evictionMutex.RLock()
-	defer m.evictionMutex.RUnlock()
-
-	m.rootCommitmentMutex.Lock()
-	defer m.rootCommitmentMutex.Unlock()
+	m.evictionMutex.Lock()
+	defer m.evictionMutex.Unlock()
 
 	storage := m.commitmentsByID.Get(commitment.Index())
 	if storage == nil {
@@ -285,9 +275,6 @@ func (m *Manager) commitment(id commitment.ID) (commitment *Commitment, exists b
 }
 
 func (m *Manager) evaluateAgainstRootCommitment(commitment *commitment.Commitment) (isBelow, isRootCommitment bool) {
-	m.rootCommitmentMutex.RLock()
-	defer m.rootCommitmentMutex.RUnlock()
-
 	isBelow = commitment.Index() <= m.rootCommitment.Commitment().Index()
 	isRootCommitment = commitment.Equals(m.rootCommitment.Commitment())
 
