@@ -38,7 +38,7 @@ func NewWeights(store kvstore.KVStore) (newWeights *Weights) {
 		totalWeight:  NewWeight(0, -1),
 	}
 
-	newWeights.weights.Stream(func(key identity.ID, value *Weight) bool {
+	newWeights.weights.Stream(func(_ identity.ID, value *Weight) bool {
 		newWeights.totalWeight.Value += value.Value
 		newWeights.totalWeight.UpdateTime = value.UpdateTime.Max(newWeights.totalWeight.UpdateTime)
 		return true
