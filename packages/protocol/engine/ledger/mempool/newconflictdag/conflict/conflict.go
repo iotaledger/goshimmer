@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"sync"
 
+	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/weight"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/ds/shrinkingmap"
@@ -51,42 +52,34 @@ type Conflict[ConflictID, ResourceID IDType] struct {
 	// conflictingConflicts is the set of conflicts that directly conflict with the Conflict.
 	conflictingConflicts *SortedSet[ConflictID, ResourceID]
 
-	// parentsPreferredInstead is a set of preferred instead Conflicts from the parent Conflicts.
-	parentsPreferredInstead map[ConflictID]ConflictID
-
 	// RWMutex is used to synchronize access to the Conflict.
 	mutex sync.RWMutex
-}
 
-func (c *Conflict[ConflictID, ResourceID]) ParentsPreferredInstead() map[ConflictID]ConflictID {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-
-	// copy the parentsPreferredInstead map to a new empty one and return the result
-	return lo.MergeMaps(make(map[ConflictID]ConflictID), c.parentsPreferredInstead)
+	module.Module
 }
 
 // New creates a new Conflict.
 func New[ConflictID, ResourceID IDType](id ConflictID, parents *advancedset.AdvancedSet[*Conflict[ConflictID, ResourceID]], conflictSets map[ResourceID]*Set[ConflictID, ResourceID], initialWeight *weight.Weight, pendingTasksCounter *syncutils.Counter) *Conflict[ConflictID, ResourceID] {
 	c := &Conflict[ConflictID, ResourceID]{
 		PreferredInsteadUpdated: event.New1[*Conflict[ConflictID, ResourceID]](),
+		LikedInsteadAdded:       event.New1[*Conflict[ConflictID, ResourceID]](),
+		LikedInsteadRemoved:     event.New1[*Conflict[ConflictID, ResourceID]](),
 		id:                      id,
 		parents:                 parents,
 		children:                advancedset.New[*Conflict[ConflictID, ResourceID]](),
 		conflictSets:            conflictSets,
 		weight:                  initialWeight,
+		likedInstead:            advancedset.New[*Conflict[ConflictID, ResourceID]](),
+		likedInsteadSources:     shrinkingmap.New[ConflictID, *advancedset.AdvancedSet[*Conflict[ConflictID, ResourceID]]](),
 	}
+
 	c.preferredInstead = c
 	c.conflictingConflicts = NewSortedSet[ConflictID, ResourceID](c, pendingTasksCounter)
 
 	if parents != nil {
-		_ = parents.ForEach(func(parent *Conflict[ConflictID, ResourceID]) (err error) {
-			parent.LikedInsteadAdded.Hook(func(likedInstead *Conflict[ConflictID, ResourceID]) {
-				c.onParentAddedLikedInstead(parent, likedInstead)
-			})
-
-			return nil
-		})
+		for it := parents.Iterator(); it.HasNext(); {
+			c.registerWithParent(it.Next())
+		}
 	}
 
 	// add existing conflicts first, so we can correctly determine the preferred instead flag
@@ -121,6 +114,20 @@ func (c *Conflict[ConflictID, ResourceID]) Weight() *weight.Weight {
 	return c.weight
 }
 
+func (c *Conflict[ConflictID, ResourceID]) LikedInstead() *advancedset.AdvancedSet[*Conflict[ConflictID, ResourceID]] {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	return c.likedInstead.Clone()
+}
+
+func (c *Conflict[ConflictID, ResourceID]) IsLiked() bool {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	return c.isPreferred() && c.likedInstead.IsEmpty()
+}
+
 // PreferredInstead returns the preferred instead value of the Conflict.
 func (c *Conflict[ConflictID, ResourceID]) PreferredInstead() *Conflict[ConflictID, ResourceID] {
 	c.mutex.RLock()
@@ -138,37 +145,35 @@ func (c *Conflict[ConflictID, ResourceID]) SetPreferredInstead(preferredInstead 
 		return false
 	}
 
+	previousPreferredInstead := c.preferredInstead
 	c.preferredInstead = preferredInstead
 
 	c.PreferredInsteadUpdated.Trigger(preferredInstead)
 
-	_ = c.children.ForEach(func(child *Conflict[ConflictID, ResourceID]) (err error) {
-		child.SetParentPreferredInstead(c.ID(), preferredInstead.ID())
-		return nil
-	})
+	if c.likedInstead.Delete(previousPreferredInstead) {
+		c.LikedInsteadRemoved.Trigger(previousPreferredInstead)
+	}
+
+	if !c.isPreferred() && c.likedInstead.IsEmpty() {
+		c.likedInstead.Add(preferredInstead)
+
+		c.LikedInsteadAdded.Trigger(preferredInstead)
+	}
 
 	return true
 }
 
-func (c *Conflict[ConflictID, ResourceID]) SetParentPreferredInstead(parent, preferredInstead ConflictID) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
+// IsPreferred returns true if the Conflict is preferred instead of its conflicting Conflicts.
+func (c *Conflict[ConflictID, ResourceID]) IsPreferred() bool {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
 
-	if parent != preferredInstead {
-		c.parentsPreferredInstead[parent] = preferredInstead
-	} else {
-		delete(c.parentsPreferredInstead, parent)
-	}
-
-	_ = c.children.ForEach(func(child *Conflict[ConflictID, ResourceID]) (err error) {
-		child.SetParentPreferredInstead(parent, preferredInstead)
-		return nil
-	})
+	return c.isPreferred()
 }
 
 // IsPreferred returns true if the Conflict is preferred instead of its conflicting Conflicts.
-func (c *Conflict[ConflictID, ResourceID]) IsPreferred() bool {
-	return c.PreferredInstead() == c
+func (c *Conflict[ConflictID, ResourceID]) isPreferred() bool {
+	return c.preferredInstead == c
 }
 
 // ForEachConflictingConflict iterates over all conflicting Conflicts of the Conflict and calls the given callback for each of them.
@@ -216,29 +221,36 @@ func (c *Conflict[ConflictID, ResourceID]) String() string {
 	)
 }
 
-func (c *Conflict[ConflictID, ResourceID]) LikedInstead() *advancedset.AdvancedSet[*Conflict[ConflictID, ResourceID]] {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
+func (c *Conflict[ConflictID, ResourceID]) registerWithParent(parent *Conflict[ConflictID, ResourceID]) {
+	parent.mutex.Lock()
+	defer parent.mutex.Unlock()
 
-	return c.likedInstead.Clone()
-}
+	parent.LikedInsteadRemoved.Hook(func(conflict *Conflict[ConflictID, ResourceID]) {
+		c.onParentRemovedLikedInstead(parent, conflict)
+	})
 
-func (c *Conflict[ConflictID, ResourceID]) IsLiked() bool {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
+	parent.LikedInsteadAdded.Hook(func(conflict *Conflict[ConflictID, ResourceID]) {
+		c.onParentAddedLikedInstead(parent, conflict)
+	})
 
-	return c.likedInstead.Size() == 0 && c.preferredInstead == c
+	parent.children.Add(c)
+
+	for conflicts := parent.likedInstead.Iterator(); conflicts.HasNext(); { // A, B
+		c.onParentAddedLikedInstead(parent, conflicts.Next())
+	}
 }
 
 func (c *Conflict[ConflictID, ResourceID]) onParentAddedLikedInstead(parent *Conflict[ConflictID, ResourceID], likedConflict *Conflict[ConflictID, ResourceID]) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	likedInsteadSources := lo.Return1(c.likedInsteadSources.GetOrCreate(likedConflict.ID(), func() *advancedset.AdvancedSet[*Conflict[ConflictID, ResourceID]] {
-		return advancedset.New[*Conflict[ConflictID, ResourceID]]()
-	}))
+	sources, sourcesExist := c.likedInsteadSources.Get(likedConflict.ID())
+	if !sourcesExist {
+		sources = advancedset.New[*Conflict[ConflictID, ResourceID]]()
+		c.likedInsteadSources.Set(likedConflict.ID(), sources)
+	}
 
-	if !likedInsteadSources.Add(parent) || !c.likedInstead.Add(likedConflict) {
+	if !sources.Add(parent) || !c.likedInstead.Add(likedConflict) {
 		return
 	}
 
@@ -249,12 +261,8 @@ func (c *Conflict[ConflictID, ResourceID]) onParentRemovedLikedInstead(parent *C
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	sources := lo.Return1(c.likedInsteadSources.Get(likedConflict.ID()))
-	if sources == nil || !sources.Delete(parent) || !sources.IsEmpty() {
-		return
-	}
-
-	if !c.likedInsteadSources.Delete(likedConflict.ID()) || !c.likedInstead.Delete(likedConflict) {
+	sources, sourcesExist := c.likedInsteadSources.Get(likedConflict.ID())
+	if !sourcesExist || !sources.Delete(parent) || !sources.IsEmpty() || !c.likedInsteadSources.Delete(likedConflict.ID()) || !c.likedInstead.Delete(likedConflict) {
 		return
 	}
 

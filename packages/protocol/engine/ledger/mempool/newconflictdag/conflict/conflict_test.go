@@ -232,6 +232,111 @@ func TestConflictParallel(t *testing.T) {
 	assertCorrectOrder(t, lo.Values(parallelConflicts)...)
 }
 
+func TestLikedInstead1(t *testing.T) {
+	pendingTasksCounter := syncutils.NewCounter()
+
+	masterBranch := New[utxo.OutputID, utxo.OutputID](outputID("M"), nil, nil, weight.New().SetAcceptanceState(acceptance.Accepted), pendingTasksCounter)
+	require.True(t, masterBranch.IsLiked())
+	require.True(t, masterBranch.LikedInstead().IsEmpty())
+
+	conflictSet1 := NewSet[utxo.OutputID, utxo.OutputID](outputID("O1"))
+
+	conflict1 := New[utxo.OutputID, utxo.OutputID](outputID("TxA"), advancedset.New(masterBranch), map[utxo.OutputID]*Set[utxo.OutputID, utxo.OutputID]{conflictSet1.ID(): conflictSet1}, weight.New().SetCumulativeWeight(6), pendingTasksCounter)
+	conflict2 := New[utxo.OutputID, utxo.OutputID](outputID("TxB"), advancedset.New(masterBranch), map[utxo.OutputID]*Set[utxo.OutputID, utxo.OutputID]{conflictSet1.ID(): conflictSet1}, weight.New().SetCumulativeWeight(3), pendingTasksCounter)
+
+	require.True(t, conflict1.IsPreferred())
+	require.True(t, conflict1.IsLiked())
+	require.True(t, conflict1.LikedInstead().Size() == 0)
+
+	require.False(t, conflict2.IsPreferred())
+	require.False(t, conflict2.IsLiked())
+	require.True(t, conflict2.LikedInstead().Size() == 1)
+	require.True(t, conflict2.LikedInstead().Has(conflict1))
+}
+
+func TestLikedInstead21(t *testing.T) {
+	pendingTasksCounter := syncutils.NewCounter()
+
+	masterBranch := New[utxo.OutputID, utxo.OutputID](outputID("M"), nil, nil, weight.New().SetAcceptanceState(acceptance.Accepted), pendingTasksCounter)
+	require.True(t, masterBranch.IsLiked())
+	require.True(t, masterBranch.LikedInstead().IsEmpty())
+
+	conflictSet1 := NewSet[utxo.OutputID, utxo.OutputID](outputID("O1"))
+	conflictA := New[utxo.OutputID, utxo.OutputID](outputID("TxA"), advancedset.New(masterBranch), map[utxo.OutputID]*Set[utxo.OutputID, utxo.OutputID]{conflictSet1.ID(): conflictSet1}, weight.New().SetCumulativeWeight(200), pendingTasksCounter)
+	conflictB := New[utxo.OutputID, utxo.OutputID](outputID("TxB"), advancedset.New(masterBranch), map[utxo.OutputID]*Set[utxo.OutputID, utxo.OutputID]{conflictSet1.ID(): conflictSet1}, weight.New().SetCumulativeWeight(100), pendingTasksCounter)
+
+	require.True(t, conflictA.IsPreferred())
+	require.True(t, conflictA.IsLiked())
+	require.True(t, conflictA.LikedInstead().Size() == 0)
+
+	require.False(t, conflictB.IsPreferred())
+	require.False(t, conflictB.IsLiked())
+	require.True(t, conflictB.LikedInstead().Size() == 1)
+	require.True(t, conflictB.LikedInstead().Has(conflictA))
+
+	conflictSet4 := NewSet[utxo.OutputID, utxo.OutputID](outputID("O4"))
+	conflictF := New[utxo.OutputID, utxo.OutputID](outputID("TxF"), advancedset.New(conflictA), map[utxo.OutputID]*Set[utxo.OutputID, utxo.OutputID]{conflictSet4.ID(): conflictSet4}, weight.New().SetCumulativeWeight(20), pendingTasksCounter)
+	conflictG := New[utxo.OutputID, utxo.OutputID](outputID("TxG"), advancedset.New(conflictA), map[utxo.OutputID]*Set[utxo.OutputID, utxo.OutputID]{conflictSet4.ID(): conflictSet4}, weight.New().SetCumulativeWeight(10), pendingTasksCounter)
+
+	require.True(t, conflictF.IsPreferred())
+	require.True(t, conflictF.IsLiked())
+	require.True(t, conflictF.LikedInstead().Size() == 0)
+
+	require.False(t, conflictG.IsPreferred())
+	require.False(t, conflictG.IsLiked())
+	require.True(t, conflictG.LikedInstead().Size() == 1)
+	require.True(t, conflictG.LikedInstead().Has(conflictF))
+
+	conflictSet2 := NewSet[utxo.OutputID, utxo.OutputID](outputID("O2"))
+	conflictC := New[utxo.OutputID, utxo.OutputID](outputID("TxC"), advancedset.New(masterBranch), map[utxo.OutputID]*Set[utxo.OutputID, utxo.OutputID]{conflictSet2.ID(): conflictSet2}, weight.New().SetCumulativeWeight(200), pendingTasksCounter)
+	conflictH := New[utxo.OutputID, utxo.OutputID](outputID("TxH"), advancedset.New(masterBranch, conflictA), map[utxo.OutputID]*Set[utxo.OutputID, utxo.OutputID]{conflictSet2.ID(): conflictSet2, conflictSet4.ID(): conflictSet4}, weight.New().SetCumulativeWeight(150), pendingTasksCounter)
+
+	require.True(t, conflictC.IsPreferred())
+	require.True(t, conflictC.IsLiked())
+	require.True(t, conflictC.LikedInstead().Size() == 0)
+
+	require.False(t, conflictH.IsPreferred())
+	require.False(t, conflictH.IsLiked())
+	require.True(t, conflictH.LikedInstead().Size() == 1)
+	require.True(t, conflictH.LikedInstead().Has(conflictC))
+
+	conflictSet3 := NewSet[utxo.OutputID, utxo.OutputID](outputID("O12"))
+	conflictI := New[utxo.OutputID, utxo.OutputID](outputID("TxI"), advancedset.New(conflictF), map[utxo.OutputID]*Set[utxo.OutputID, utxo.OutputID]{conflictSet3.ID(): conflictSet3}, weight.New().SetCumulativeWeight(5), pendingTasksCounter)
+	conflictJ := New[utxo.OutputID, utxo.OutputID](outputID("TxJ"), advancedset.New(conflictF), map[utxo.OutputID]*Set[utxo.OutputID, utxo.OutputID]{conflictSet3.ID(): conflictSet3}, weight.New().SetCumulativeWeight(15), pendingTasksCounter)
+
+	require.True(t, conflictJ.IsPreferred())
+	require.True(t, conflictJ.IsLiked())
+	require.True(t, conflictJ.LikedInstead().Size() == 0)
+
+	require.False(t, conflictI.IsPreferred())
+	require.False(t, conflictI.IsLiked())
+	require.True(t, conflictI.LikedInstead().Size() == 1)
+	require.True(t, conflictI.LikedInstead().Has(conflictJ))
+
+	conflictH.Weight().SetCumulativeWeight(250)
+
+	pendingTasksCounter.WaitIsZero()
+
+	require.True(t, conflictH.IsPreferred())
+	require.True(t, conflictH.IsLiked())
+	require.True(t, conflictH.LikedInstead().Size() == 0)
+
+	require.False(t, conflictF.IsPreferred())
+	require.False(t, conflictF.IsLiked())
+	require.True(t, conflictF.LikedInstead().Size() == 1)
+	require.True(t, conflictF.LikedInstead().Has(conflictH))
+
+	require.False(t, conflictG.IsPreferred())
+	require.False(t, conflictG.IsLiked())
+	require.True(t, conflictG.LikedInstead().Size() == 1)
+	require.True(t, conflictG.LikedInstead().Has(conflictH))
+
+	require.True(t, conflictJ.IsPreferred())
+	require.False(t, conflictJ.IsLiked())
+	require.True(t, conflictJ.LikedInstead().Size() == 1)
+	require.True(t, conflictJ.LikedInstead().Has(conflictH))
+}
+
 func assertCorrectOrder(t *testing.T, conflicts ...*Conflict[utxo.OutputID, utxo.OutputID]) {
 	sort.Slice(conflicts, func(i, j int) bool {
 		return conflicts[i].Compare(conflicts[j]) == weight.Heavier
