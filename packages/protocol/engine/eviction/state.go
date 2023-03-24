@@ -202,6 +202,17 @@ func (s *State) Import(reader io.ReadSeeker) (err error) {
 	})
 }
 
+// PopulateFromStorage populates the root blocks from the storage.
+func (s *State) PopulateFromStorage(latestCommitmentIndex slot.Index) {
+	for index := latestCommitmentIndex - s.delayedBlockEvictionThreshold(latestCommitmentIndex); index <= latestCommitmentIndex; index++ {
+		s.storage.RootBlocks.Stream(index, func(id models.BlockID, commitmentID commitment.ID) error {
+			s.AddRootBlock(id, commitmentID)
+
+			return nil
+		})
+	}
+}
+
 // delayedBlockEvictionThreshold returns the slot index that is the threshold for delayed rootblocks eviction.
 func (s *State) delayedBlockEvictionThreshold(index slot.Index) (threshold slot.Index) {
 	return (index - s.optsRootBlocksEvictionDelay - 1).Max(0)

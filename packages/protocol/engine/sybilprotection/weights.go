@@ -31,12 +31,20 @@ type Weights struct {
 
 // NewWeights creates a new Weights instance.
 func NewWeights(store kvstore.KVStore) (newWeights *Weights) {
-	return &Weights{
+	newWeights = &Weights{
 		Events:       NewEvents(),
 		weights:      ads.NewMap[identity.ID, Weight](store),
 		weightsCache: cache.New[identity.ID, *Weight](cacheSize),
 		totalWeight:  NewWeight(0, -1),
 	}
+
+	newWeights.weights.Stream(func(key identity.ID, value *Weight) bool {
+		newWeights.totalWeight.Value += value.Value
+		newWeights.totalWeight.UpdateTime = value.UpdateTime.Max(newWeights.totalWeight.UpdateTime)
+		return true
+	})
+
+	return
 }
 
 // NewWeightedSet creates a new WeightedSet instance, that maintains a correct and updated total weight of its members.

@@ -41,7 +41,7 @@ func NewSettings(path string) (settings *Settings) {
 		}, path),
 	}
 
-	s.updateSlotTimeProvider()
+	s.UpdateSlotTimeProvider()
 
 	return s
 }
@@ -89,7 +89,7 @@ func (s *Settings) SetGenesisUnixTime(unixTime int64) (err error) {
 	defer s.mutex.Unlock()
 
 	s.settingsModel.GenesisUnixTime = unixTime
-	s.updateSlotTimeProvider()
+	s.UpdateSlotTimeProvider()
 
 	if err = s.ToFile(); err != nil {
 		return errors.Wrap(err, "failed to persist initialized flag")
@@ -110,7 +110,7 @@ func (s *Settings) SetSlotDuration(duration int64) (err error) {
 	defer s.mutex.Unlock()
 
 	s.settingsModel.SlotDuration = duration
-	s.updateSlotTimeProvider()
+	s.UpdateSlotTimeProvider()
 
 	if err = s.ToFile(); err != nil {
 		return errors.Wrap(err, "failed to persist initialized flag")
@@ -267,7 +267,7 @@ func (s *Settings) tryImport(reader io.ReadSeeker) (err error) {
 
 	s.settingsModel.SnapshotImported = true
 
-	s.updateSlotTimeProvider()
+	s.UpdateSlotTimeProvider()
 
 	if err = s.settingsModel.ToFile(); err != nil {
 		return errors.Wrap(err, "failed to persist chain ID")
@@ -276,7 +276,7 @@ func (s *Settings) tryImport(reader io.ReadSeeker) (err error) {
 	return
 }
 
-func (s *Settings) updateSlotTimeProvider() {
+func (s *Settings) UpdateSlotTimeProvider() {
 	s.slotTimeProvider = slot.NewTimeProvider(s.settingsModel.GenesisUnixTime, s.settingsModel.SlotDuration)
 }
 
