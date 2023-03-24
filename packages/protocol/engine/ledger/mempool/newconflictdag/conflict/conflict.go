@@ -222,13 +222,15 @@ func (c *Conflict[ConflictID, ResourceID]) registerWithParent(parent *Conflict[C
 	parent.mutex.Lock()
 	defer parent.mutex.Unlock()
 
-	parent.LikedInsteadRemoved.Hook(func(conflict *Conflict[ConflictID, ResourceID]) {
-		c.onParentRemovedLikedInstead(parent, conflict)
-	})
+	c.HookStopped(lo.Batch(
+		parent.LikedInsteadRemoved.Hook(func(conflict *Conflict[ConflictID, ResourceID]) {
+			c.onParentRemovedLikedInstead(parent, conflict)
+		}).Unhook,
 
-	parent.LikedInsteadAdded.Hook(func(conflict *Conflict[ConflictID, ResourceID]) {
-		c.onParentAddedLikedInstead(parent, conflict)
-	})
+		parent.LikedInsteadAdded.Hook(func(conflict *Conflict[ConflictID, ResourceID]) {
+			c.onParentAddedLikedInstead(parent, conflict)
+		}).Unhook,
+	))
 
 	parent.children.Add(c)
 
