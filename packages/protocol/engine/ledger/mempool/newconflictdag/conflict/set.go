@@ -13,8 +13,8 @@ type Set[ConflictID, ResourceID IDType] struct {
 	members *advancedset.AdvancedSet[*Conflict[ConflictID, ResourceID]]
 }
 
-// NewConflictSet creates a new Set.
-func NewConflictSet[ConflictID, ResourceID IDType](id ResourceID) *Set[ConflictID, ResourceID] {
+// NewSet creates a new Set of Conflicts that are conflicting with each other over the given Resource.
+func NewSet[ConflictID, ResourceID IDType](id ResourceID) *Set[ConflictID, ResourceID] {
 	return &Set[ConflictID, ResourceID]{
 		id:      id,
 		members: advancedset.New[*Conflict[ConflictID, ResourceID]](),

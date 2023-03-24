@@ -26,10 +26,10 @@ func TestConflictSets(t *testing.T) {
 	for i := 0; i < iterations; i++ {
 		pendingTasksCounter := syncutils.NewCounter()
 
-		red := NewConflictSet[utxo.OutputID, utxo.OutputID](outputID("red"))
-		blue := NewConflictSet[utxo.OutputID, utxo.OutputID](outputID("blue"))
-		green := NewConflictSet[utxo.OutputID, utxo.OutputID](outputID("green"))
-		yellow := NewConflictSet[utxo.OutputID, utxo.OutputID](outputID("yellow"))
+		red := NewSet[utxo.OutputID, utxo.OutputID](outputID("red"))
+		blue := NewSet[utxo.OutputID, utxo.OutputID](outputID("blue"))
+		green := NewSet[utxo.OutputID, utxo.OutputID](outputID("green"))
+		yellow := NewSet[utxo.OutputID, utxo.OutputID](outputID("yellow"))
 		fmt.Println("adding A...")
 		conflictA := New[utxo.OutputID, utxo.OutputID](
 			outputID("A"),
@@ -286,10 +286,10 @@ func generateRandomConflictPermutation() func(conflict *Conflict[utxo.OutputID, 
 }
 
 func createConflicts(pendingTasksCounter *syncutils.Counter) map[string]*Conflict[utxo.OutputID, utxo.OutputID] {
-	red := NewConflictSet[utxo.OutputID, utxo.OutputID](outputID("red"))
-	blue := NewConflictSet[utxo.OutputID, utxo.OutputID](outputID("blue"))
-	green := NewConflictSet[utxo.OutputID, utxo.OutputID](outputID("green"))
-	yellow := NewConflictSet[utxo.OutputID, utxo.OutputID](outputID("yellow"))
+	red := NewSet[utxo.OutputID, utxo.OutputID](outputID("red"))
+	blue := NewSet[utxo.OutputID, utxo.OutputID](outputID("blue"))
+	green := NewSet[utxo.OutputID, utxo.OutputID](outputID("green"))
+	yellow := NewSet[utxo.OutputID, utxo.OutputID](outputID("yellow"))
 	fmt.Println("adding A...")
 	conflictA := New[utxo.OutputID, utxo.OutputID](
 		outputID("A"),
@@ -359,6 +359,5 @@ func createConflicts(pendingTasksCounter *syncutils.Counter) map[string]*Conflic
 func assertPreferredInstead(t *testing.T, preferredInsteadMap map[*Conflict[utxo.OutputID, utxo.OutputID]]*Conflict[utxo.OutputID, utxo.OutputID]) {
 	for conflict, preferredInsteadConflict := range preferredInsteadMap {
 		assert.Equalf(t, preferredInsteadConflict.ID(), conflict.PreferredInstead().ID(), "conflict %s should prefer %s instead of %s", conflict.ID(), preferredInsteadConflict.ID(), conflict.PreferredInstead().ID())
-		fmt.Println(conflict.ID(), "->", conflict.PreferredInstead().ID())
 	}
 }
