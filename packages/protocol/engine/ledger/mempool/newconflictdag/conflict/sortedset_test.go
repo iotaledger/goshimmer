@@ -17,77 +17,77 @@ import (
 )
 
 func TestSortedConflict(t *testing.T) {
-	pendingTasksCounter := syncutils.NewCounter()
+	pendingTasks := syncutils.NewCounter()
 
-	conflict1 := newConflict("conflict1", weight.New().AddCumulativeWeight(12).SetAcceptanceState(acceptance.Rejected), pendingTasksCounter)
-	conflict2 := newConflict("conflict2", weight.New().AddCumulativeWeight(10), pendingTasksCounter)
-	conflict3 := newConflict("conflict3", weight.New().AddCumulativeWeight(1).SetAcceptanceState(acceptance.Accepted), pendingTasksCounter)
-	conflict4 := newConflict("conflict4", weight.New().AddCumulativeWeight(11).SetAcceptanceState(acceptance.Rejected), pendingTasksCounter)
-	conflict5 := newConflict("conflict5", weight.New().AddCumulativeWeight(11).SetAcceptanceState(acceptance.Pending), pendingTasksCounter)
-	conflict6 := newConflict("conflict6", weight.New().AddCumulativeWeight(2).SetAcceptanceState(acceptance.Accepted), pendingTasksCounter)
+	conflict1 := newConflict("conflict1", weight.New().AddCumulativeWeight(12).SetAcceptanceState(acceptance.Rejected), pendingTasks)
+	conflict2 := newConflict("conflict2", weight.New().AddCumulativeWeight(10), pendingTasks)
+	conflict3 := newConflict("conflict3", weight.New().AddCumulativeWeight(1).SetAcceptanceState(acceptance.Accepted), pendingTasks)
+	conflict4 := newConflict("conflict4", weight.New().AddCumulativeWeight(11).SetAcceptanceState(acceptance.Rejected), pendingTasks)
+	conflict5 := newConflict("conflict5", weight.New().AddCumulativeWeight(11).SetAcceptanceState(acceptance.Pending), pendingTasks)
+	conflict6 := newConflict("conflict6", weight.New().AddCumulativeWeight(2).SetAcceptanceState(acceptance.Accepted), pendingTasks)
 
-	sortedConflicts := NewSortedSet[utxo.OutputID, utxo.OutputID](conflict1, pendingTasksCounter)
-	pendingTasksCounter.WaitIsZero()
+	sortedConflicts := NewSortedSet[utxo.OutputID, utxo.OutputID](conflict1, pendingTasks)
+	pendingTasks.WaitIsZero()
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict1")
 
 	sortedConflicts.Add(conflict2)
-	pendingTasksCounter.WaitIsZero()
+	pendingTasks.WaitIsZero()
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict2", "conflict1")
 
 	sortedConflicts.Add(conflict3)
-	pendingTasksCounter.WaitIsZero()
+	pendingTasks.WaitIsZero()
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict3", "conflict2", "conflict1")
 
 	sortedConflicts.Add(conflict4)
-	pendingTasksCounter.WaitIsZero()
+	pendingTasks.WaitIsZero()
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict3", "conflict2", "conflict1", "conflict4")
 
 	sortedConflicts.Add(conflict5)
-	pendingTasksCounter.WaitIsZero()
+	pendingTasks.WaitIsZero()
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict3", "conflict5", "conflict2", "conflict1", "conflict4")
 
 	sortedConflicts.Add(conflict6)
-	pendingTasksCounter.WaitIsZero()
+	pendingTasks.WaitIsZero()
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict6", "conflict3", "conflict5", "conflict2", "conflict1", "conflict4")
 
 	conflict2.Weight().AddCumulativeWeight(3)
 	require.Equal(t, int64(13), conflict2.Weight().Value().CumulativeWeight())
-	pendingTasksCounter.WaitIsZero()
+	pendingTasks.WaitIsZero()
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict6", "conflict3", "conflict2", "conflict5", "conflict1", "conflict4")
 
 	conflict2.Weight().RemoveCumulativeWeight(3)
 	require.Equal(t, int64(10), conflict2.Weight().Value().CumulativeWeight())
-	pendingTasksCounter.WaitIsZero()
+	pendingTasks.WaitIsZero()
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict6", "conflict3", "conflict5", "conflict2", "conflict1", "conflict4")
 
 	conflict5.Weight().SetAcceptanceState(acceptance.Accepted)
-	pendingTasksCounter.WaitIsZero()
+	pendingTasks.WaitIsZero()
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict5", "conflict6", "conflict3", "conflict2", "conflict1", "conflict4")
 }
 
 func TestSortedDecreaseHeaviest(t *testing.T) {
-	pendingTasksCounter := syncutils.NewCounter()
+	pendingTasks := syncutils.NewCounter()
 
-	conflict1 := newConflict("conflict1", weight.New().AddCumulativeWeight(1).SetAcceptanceState(acceptance.Accepted), pendingTasksCounter)
-	conflict2 := newConflict("conflict2", weight.New().AddCumulativeWeight(2).SetAcceptanceState(acceptance.Pending), pendingTasksCounter)
+	conflict1 := newConflict("conflict1", weight.New().AddCumulativeWeight(1).SetAcceptanceState(acceptance.Accepted), pendingTasks)
+	conflict2 := newConflict("conflict2", weight.New().AddCumulativeWeight(2).SetAcceptanceState(acceptance.Pending), pendingTasks)
 
-	sortedConflicts := NewSortedSet[utxo.OutputID, utxo.OutputID](conflict1, pendingTasksCounter)
+	sortedConflicts := NewSortedSet[utxo.OutputID, utxo.OutputID](conflict1, pendingTasks)
 
 	sortedConflicts.Add(conflict1)
-	pendingTasksCounter.WaitIsZero()
+	pendingTasks.WaitIsZero()
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict1")
 
 	sortedConflicts.Add(conflict2)
-	pendingTasksCounter.WaitIsZero()
+	pendingTasks.WaitIsZero()
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict1", "conflict2")
 
 	conflict1.Weight().SetAcceptanceState(acceptance.Pending)
-	pendingTasksCounter.WaitIsZero()
+	pendingTasks.WaitIsZero()
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict2", "conflict1")
 }
 
 func TestSortedConflictParallel(t *testing.T) {
-	pendingTasksCounter := syncutils.NewCounter()
+	pendingTasks := syncutils.NewCounter()
 
 	const conflictCount = 1000
 	const updateCount = 100000
@@ -97,13 +97,13 @@ func TestSortedConflictParallel(t *testing.T) {
 	for i := 0; i < conflictCount; i++ {
 		alias := "conflict" + strconv.Itoa(i)
 
-		conflicts[alias] = newConflict(alias, weight.New(), pendingTasksCounter)
-		parallelConflicts[alias] = newConflict(alias, weight.New(), pendingTasksCounter)
+		conflicts[alias] = newConflict(alias, weight.New(), pendingTasks)
+		parallelConflicts[alias] = newConflict(alias, weight.New(), pendingTasks)
 	}
 
-	sortedConflicts := NewSortedSet[utxo.OutputID, utxo.OutputID](conflicts["conflict0"], pendingTasksCounter)
-	sortedParallelConflicts := NewSortedSet[utxo.OutputID, utxo.OutputID](parallelConflicts["conflict0"], pendingTasksCounter)
-	sortedParallelConflicts1 := NewSortedSet[utxo.OutputID, utxo.OutputID](parallelConflicts["conflict0"], pendingTasksCounter)
+	sortedConflicts := NewSortedSet[utxo.OutputID, utxo.OutputID](conflicts["conflict0"], pendingTasks)
+	sortedParallelConflicts := NewSortedSet[utxo.OutputID, utxo.OutputID](parallelConflicts["conflict0"], pendingTasks)
+	sortedParallelConflicts1 := NewSortedSet[utxo.OutputID, utxo.OutputID](parallelConflicts["conflict0"], pendingTasks)
 
 	for i := 0; i < conflictCount; i++ {
 		alias := "conflict" + strconv.Itoa(i)
@@ -136,16 +136,16 @@ func TestSortedConflictParallel(t *testing.T) {
 		}(permutation)
 	}
 
-	pendingTasksCounter.WaitIsZero()
+	pendingTasks.WaitIsZero()
 	wg.Wait()
-	pendingTasksCounter.WaitIsZero()
+	pendingTasks.WaitIsZero()
 
 	originalSortingAfter := sortedConflicts.String()
 	parallelSortingAfter := sortedParallelConflicts.String()
 	require.Equal(t, originalSortingAfter, parallelSortingAfter)
 	require.NotEqualf(t, originalSortingBefore, originalSortingAfter, "original sorting should have changed")
 
-	pendingTasksCounter.WaitIsZero()
+	pendingTasks.WaitIsZero()
 
 	parallelSortingAfter = sortedParallelConflicts1.String()
 	require.Equal(t, originalSortingAfter, parallelSortingAfter)
@@ -160,21 +160,6 @@ func generateRandomWeightPermutation() func(conflict *Conflict[utxo.OutputID, ut
 		// return generateRandomConfirmationStatePermutation()
 		return func(conflict *Conflict[utxo.OutputID, utxo.OutputID]) {
 
-		}
-	}
-}
-
-func generateRandomConfirmationStatePermutation() func(conflict *Conflict[utxo.OutputID, utxo.OutputID]) {
-	updateType := rand.Intn(3)
-
-	return func(conflict *Conflict[utxo.OutputID, utxo.OutputID]) {
-		switch updateType {
-		case 0:
-			conflict.Weight().SetAcceptanceState(acceptance.Pending)
-		case 1:
-			conflict.Weight().SetAcceptanceState(acceptance.Accepted)
-		case 2:
-			conflict.Weight().SetAcceptanceState(acceptance.Rejected)
 		}
 	}
 }

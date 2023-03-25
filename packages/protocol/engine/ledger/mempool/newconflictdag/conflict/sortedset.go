@@ -28,7 +28,7 @@ type SortedSet[ConflictID, ResourceID IDType] struct {
 	pendingWeightUpdates *shrinkingmap.ShrinkingMap[ConflictID, *sortedSetMember[ConflictID, ResourceID]]
 
 	// pendingWeightUpdatesSignal is a signal that is used to notify the fixMemberPositionWorker about pending weight
-	//updates.
+	// updates.
 	pendingWeightUpdatesSignal *sync.Cond
 
 	// pendingWeightUpdatesMutex is a mutex that is used to synchronize access to the pendingWeightUpdates.
@@ -38,7 +38,7 @@ type SortedSet[ConflictID, ResourceID IDType] struct {
 	pendingPreferredInsteadUpdates *shrinkingmap.ShrinkingMap[ConflictID, *sortedSetMember[ConflictID, ResourceID]]
 
 	// pendingPreferredInsteadSignal is a signal that is used to notify the fixPreferredInsteadWorker about pending
-	//preferred instead updates.
+	// preferred instead updates.
 	pendingPreferredInsteadSignal *sync.Cond
 
 	// pendingPreferredInsteadMutex is a mutex that is used to synchronize access to the pendingPreferredInsteadUpdates.
@@ -124,7 +124,7 @@ func (s *SortedSet[ConflictID, ResourceID]) Add(conflict *Conflict[ConflictID, R
 	if newMember.IsPreferred() && newMember.Compare(s.heaviestPreferredMember) == weight.Heavier {
 		s.heaviestPreferredMember = newMember
 
-		s.owner.SetPreferredInstead(conflict)
+		s.owner.setPreferredInstead(conflict)
 	}
 }
 
@@ -218,7 +218,7 @@ func (s *SortedSet[ConflictID, ResourceID]) fixMemberPosition(member *sortedSetM
 
 		if currentMember == s.heaviestPreferredMember && (preferredConflict == currentMember.Conflict || memberIsPreferred || member.Conflict == s.owner) {
 			s.heaviestPreferredMember = member
-			s.owner.SetPreferredInstead(member.Conflict)
+			s.owner.setPreferredInstead(member.Conflict)
 		}
 	}
 
@@ -228,7 +228,7 @@ func (s *SortedSet[ConflictID, ResourceID]) fixMemberPosition(member *sortedSetM
 
 		if member == s.heaviestPreferredMember && (currentMember.IsPreferred() || currentMember.PreferredInstead() == member.Conflict || currentMember.Conflict == s.owner) {
 			s.heaviestPreferredMember = currentMember
-			s.owner.SetPreferredInstead(currentMember.Conflict)
+			s.owner.setPreferredInstead(currentMember.Conflict)
 		}
 	}
 }
@@ -287,7 +287,7 @@ func (s *SortedSet[ConflictID, ResourceID]) fixHeaviestPreferredMember(member *s
 	if member.IsPreferred() {
 		if member.Compare(s.heaviestPreferredMember) == weight.Heavier {
 			s.heaviestPreferredMember = member
-			s.owner.SetPreferredInstead(member.Conflict)
+			s.owner.setPreferredInstead(member.Conflict)
 		}
 
 		return
@@ -297,7 +297,7 @@ func (s *SortedSet[ConflictID, ResourceID]) fixHeaviestPreferredMember(member *s
 		for currentMember := member; ; currentMember = currentMember.lighterMember {
 			if currentMember.Conflict == s.owner || currentMember.IsPreferred() || currentMember.PreferredInstead() == member.Conflict {
 				s.heaviestPreferredMember = currentMember
-				s.owner.SetPreferredInstead(currentMember.Conflict)
+				s.owner.setPreferredInstead(currentMember.Conflict)
 
 				return
 			}
