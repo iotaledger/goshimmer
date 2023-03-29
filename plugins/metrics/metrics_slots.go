@@ -11,7 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/hive.go/runtime/event"
 )
 
@@ -54,7 +54,7 @@ var SlotMetrics = collector.NewCollection(slotNamespace,
 
 			// initialize it once and remove committed slot from all metrics (as they will not change afterwards)
 			// in a single attachment instead of multiple ones
-			deps.Protocol.Events.Engine.NotarizationManager.SlotCommitted.Hook(func(details *notarization.SlotCommittedDetails) {
+			deps.Protocol.Events.Engine.Notarization.SlotCommitted.Hook(func(details *notarization.SlotCommittedDetails) {
 				slotToEvict := int(details.Commitment.Index()) - metricEvictionOffset
 
 				// need to remove metrics for old slots, otherwise they would be stored in memory and always exposed to Prometheus, forever
@@ -106,7 +106,7 @@ var SlotMetrics = collector.NewCollection(slotNamespace,
 		collector.WithLabels(labelName),
 		collector.WithHelp("Number of invalid blocks in a slot slot."),
 		collector.WithInitFunc(func() {
-			deps.Protocol.Events.Engine.Tangle.Booker.VirtualVoting.BlockTracked.Hook(func(block *virtualvoting.Block) {
+			deps.Protocol.Events.Engine.Tangle.Booker.VirtualVoting.BlockTracked.Hook(func(block *booker.Block) {
 				if block.IsSubjectivelyInvalid() {
 					eventSlot := int(block.ID().Index())
 					deps.Collector.Increment(slotNamespace, subjectivelyInvalidBlocks, strconv.Itoa(eventSlot))
@@ -120,7 +120,7 @@ var SlotMetrics = collector.NewCollection(slotNamespace,
 		collector.WithLabels(labelName),
 		collector.WithHelp("Number of transaction attachments by the node per slot."),
 		collector.WithInitFunc(func() {
-			deps.Protocol.Events.Engine.Tangle.Booker.AttachmentCreated.Hook(func(block *virtualvoting.Block) {
+			deps.Protocol.Events.Engine.Tangle.Booker.AttachmentCreated.Hook(func(block *booker.Block) {
 				eventSlot := int(block.ID().Index())
 				deps.Collector.Increment(slotNamespace, totalAttachments, strconv.Itoa(eventSlot))
 			}, event.WithWorkerPool(Plugin.WorkerPool))
@@ -131,7 +131,7 @@ var SlotMetrics = collector.NewCollection(slotNamespace,
 		collector.WithLabels(labelName),
 		collector.WithHelp("Number of orphaned attachments by the node per slot."),
 		collector.WithInitFunc(func() {
-			deps.Protocol.Events.Engine.Tangle.Booker.AttachmentOrphaned.Hook(func(block *virtualvoting.Block) {
+			deps.Protocol.Events.Engine.Tangle.Booker.AttachmentOrphaned.Hook(func(block *booker.Block) {
 				eventSlot := int(block.ID().Index())
 				deps.Collector.Increment(slotNamespace, orphanedAttachments, strconv.Itoa(eventSlot))
 			}, event.WithWorkerPool(Plugin.WorkerPool))
@@ -143,7 +143,7 @@ var SlotMetrics = collector.NewCollection(slotNamespace,
 		collector.WithHelp("Number of rejected attachments by the node per slot."),
 		collector.WithInitFunc(func() {
 			deps.Protocol.Events.Engine.Ledger.MemPool.TransactionRejected.Hook(func(transactionMetadata *mempool.TransactionMetadata) {
-				for it := deps.Protocol.Engine().Tangle.Booker.GetAllAttachments(transactionMetadata.ID()).Iterator(); it.HasNext(); {
+				for it := deps.Protocol.Engine().Tangle.Booker().GetAllAttachments(transactionMetadata.ID()).Iterator(); it.HasNext(); {
 					attachmentBlock := it.Next()
 					if !attachmentBlock.IsOrphaned() {
 						deps.Collector.Increment(slotNamespace, rejectedAttachments, strconv.Itoa(int(attachmentBlock.ID().Index())))
@@ -158,7 +158,7 @@ var SlotMetrics = collector.NewCollection(slotNamespace,
 		collector.WithHelp("Number of accepted attachments by the node per slot."),
 		collector.WithInitFunc(func() {
 			deps.Protocol.Events.Engine.Ledger.MemPool.TransactionAccepted.Hook(func(transactionEvent *mempool.TransactionEvent) {
-				for it := deps.Protocol.Engine().Tangle.Booker.GetAllAttachments(transactionEvent.Metadata.ID()).Iterator(); it.HasNext(); {
+				for it := deps.Protocol.Engine().Tangle.Booker().GetAllAttachments(transactionEvent.Metadata.ID()).Iterator(); it.HasNext(); {
 					attachmentBlock := it.Next()
 					if !attachmentBlock.IsOrphaned() {
 						deps.Collector.Increment(slotNamespace, acceptedAttachments, strconv.Itoa(int(attachmentBlock.ID().Index())))
@@ -173,7 +173,7 @@ var SlotMetrics = collector.NewCollection(slotNamespace,
 		collector.WithHelp("Number of conflicts created per slot."),
 		collector.WithInitFunc(func() {
 			deps.Protocol.Events.Engine.Ledger.MemPool.ConflictDAG.ConflictCreated.Hook(func(conflictCreated *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-				for it := deps.Protocol.Engine().Tangle.Booker.GetAllAttachments(conflictCreated.ID()).Iterator(); it.HasNext(); {
+				for it := deps.Protocol.Engine().Tangle.Booker().GetAllAttachments(conflictCreated.ID()).Iterator(); it.HasNext(); {
 					deps.Collector.Increment(slotNamespace, createdConflicts, strconv.Itoa(int(it.Next().ID().Index())))
 				}
 			}, event.WithWorkerPool(Plugin.WorkerPool))
@@ -185,7 +185,7 @@ var SlotMetrics = collector.NewCollection(slotNamespace,
 		collector.WithHelp("Number of conflicts accepted per slot."),
 		collector.WithInitFunc(func() {
 			deps.Protocol.Events.Engine.Ledger.MemPool.ConflictDAG.ConflictAccepted.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-				for it := deps.Protocol.Engine().Tangle.Booker.GetAllAttachments(conflict.ID()).Iterator(); it.HasNext(); {
+				for it := deps.Protocol.Engine().Tangle.Booker().GetAllAttachments(conflict.ID()).Iterator(); it.HasNext(); {
 					deps.Collector.Increment(slotNamespace, acceptedConflicts, strconv.Itoa(int(it.Next().ID().Index())))
 				}
 			}, event.WithWorkerPool(Plugin.WorkerPool))
@@ -197,7 +197,7 @@ var SlotMetrics = collector.NewCollection(slotNamespace,
 		collector.WithHelp("Number of conflicts rejected per slot."),
 		collector.WithInitFunc(func() {
 			deps.Protocol.Events.Engine.Ledger.MemPool.ConflictDAG.ConflictRejected.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-				for it := deps.Protocol.Engine().Tangle.Booker.GetAllAttachments(conflict.ID()).Iterator(); it.HasNext(); {
+				for it := deps.Protocol.Engine().Tangle.Booker().GetAllAttachments(conflict.ID()).Iterator(); it.HasNext(); {
 					deps.Collector.Increment(slotNamespace, rejectedConflicts, strconv.Itoa(int(it.Next().ID().Index())))
 				}
 			}, event.WithWorkerPool(Plugin.WorkerPool))
@@ -209,7 +209,7 @@ var SlotMetrics = collector.NewCollection(slotNamespace,
 		collector.WithHelp("Number of conflicts rejected per slot."),
 		collector.WithInitFunc(func() {
 			deps.Protocol.Events.Engine.Ledger.MemPool.ConflictDAG.ConflictNotConflicting.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-				for it := deps.Protocol.Engine().Tangle.Booker.GetAllAttachments(conflict.ID()).Iterator(); it.HasNext(); {
+				for it := deps.Protocol.Engine().Tangle.Booker().GetAllAttachments(conflict.ID()).Iterator(); it.HasNext(); {
 					deps.Collector.Increment(slotNamespace, notConflictingConflicts, strconv.Itoa(int(it.Next().ID().Index())))
 				}
 			}, event.WithWorkerPool(Plugin.WorkerPool))

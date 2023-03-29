@@ -12,7 +12,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/memstorage"
 	"github.com/iotaledger/hive.go/core/slot"
@@ -172,7 +171,7 @@ func (r *Retainer) setupEvents() {
 		}
 	}, event.WithWorkerPool(r.blockWorkerPool))
 
-	r.protocol.Events.Engine.Tangle.Booker.VirtualVoting.BlockTracked.Hook(func(block *virtualvoting.Block) {
+	r.protocol.Events.Engine.Tangle.Booker.VirtualVoting.BlockTracked.Hook(func(block *booker.Block) {
 		if cm := r.createOrGetCachedMetadata(block.ID()); cm != nil {
 			cm.setVirtualVotingBlock(block)
 		}
@@ -200,7 +199,7 @@ func (r *Retainer) setupEvents() {
 
 	r.protocol.Events.Engine.EvictionState.SlotEvicted.Hook(r.storeAndEvictSlot, event.WithWorkerPool(r.blockWorkerPool))
 
-	r.protocol.Events.Engine.NotarizationManager.SlotCommitted.Hook(func(e *notarization.SlotCommittedDetails) {
+	r.protocol.Events.Engine.Notarization.SlotCommitted.Hook(func(e *notarization.SlotCommittedDetails) {
 		if e.Commitment.Index() < r.protocol.Engine().EvictionState.LastEvictedSlot() {
 			return
 		}
@@ -252,7 +251,7 @@ func (r *Retainer) createStorableBlockMetadata(index slot.Index) (metas []*Block
 	storage.ForEach(func(blockID models.BlockID, cm *cachedMetadata) bool {
 		blockMetadata := newBlockMetadata(cm)
 		if cm.Booker != nil {
-			blockMetadata.M.ConflictIDs = r.protocol.Engine().Tangle.Booker.BlockConflicts(cm.Booker.Block)
+			blockMetadata.M.ConflictIDs = r.protocol.Engine().Tangle.Booker().BlockConflicts(cm.Booker.Block)
 		} else {
 			blockMetadata.M.ConflictIDs = utxo.NewTransactionIDs()
 		}

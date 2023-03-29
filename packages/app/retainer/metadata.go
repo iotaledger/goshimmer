@@ -9,8 +9,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/objectstorage/generic/model"
@@ -21,10 +21,10 @@ import (
 
 type cachedMetadata struct {
 	BlockDAG *blockWithTime[*blockdag.Block]
-	Booker   *blockWithTime[*virtualvoting.Block]
+	Booker   *blockWithTime[*booker.Block]
 	// calculated property
 	ConflictIDs   utxo.TransactionIDs
-	VirtualVoting *blockWithTime[*virtualvoting.Block]
+	VirtualVoting *blockWithTime[*booker.Block]
 	Scheduler     *blockWithTime[*scheduler.Block]
 	Acceptance    *blockWithTime[*blockgadget.Block]
 	Confirmation  *blockWithTime[*blockgadget.Block]
@@ -42,13 +42,13 @@ func (c *cachedMetadata) setBlockDAGBlock(block *blockdag.Block) {
 	c.BlockDAG = newBlockWithTime(block)
 }
 
-func (c *cachedMetadata) setBookerBlock(block *virtualvoting.Block) {
+func (c *cachedMetadata) setBookerBlock(block *booker.Block) {
 	c.Lock()
 	defer c.Unlock()
 	c.Booker = newBlockWithTime(block)
 }
 
-func (c *cachedMetadata) setVirtualVotingBlock(block *virtualvoting.Block) {
+func (c *cachedMetadata) setVirtualVotingBlock(block *booker.Block) {
 	c.Lock()
 	defer c.Unlock()
 	c.VirtualVoting = newBlockWithTime(block)
@@ -225,7 +225,7 @@ func copyFromBlockDAGBlock(blockWithTime *blockWithTime[*blockdag.Block], blockM
 	blockMetadata.M.Block = blockWithTime.Block.ModelsBlock
 }
 
-func copyFromBookerBlock(blockWithTime *blockWithTime[*virtualvoting.Block], blockMetadata *BlockMetadata) {
+func copyFromBookerBlock(blockWithTime *blockWithTime[*booker.Block], blockMetadata *BlockMetadata) {
 	block := blockWithTime.Block
 
 	blockMetadata.M.Booked = block.IsBooked()
@@ -248,7 +248,7 @@ func copyFromBookerBlock(blockWithTime *blockWithTime[*virtualvoting.Block], blo
 	blockMetadata.M.BookedTime = blockWithTime.Time
 }
 
-func copyFromVirtualVotingBlock(blockWithTime *blockWithTime[*virtualvoting.Block], blockMetadata *BlockMetadata) {
+func copyFromVirtualVotingBlock(blockWithTime *blockWithTime[*booker.Block], blockMetadata *BlockMetadata) {
 	block := blockWithTime.Block
 
 	blockMetadata.M.Tracked = true

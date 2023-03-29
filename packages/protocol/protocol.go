@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -15,14 +16,21 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/blocktime"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/tangleconsensus"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/filter"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/filter/blockfilter"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxoledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization/slotnotarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/inmemorytangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
 	"github.com/iotaledger/goshimmer/packages/protocol/enginemanager"
@@ -68,8 +76,12 @@ type Protocol struct {
 
 	optsClockProvider           module.Provider[*engine.Engine, clock.Clock]
 	optsLedgerProvider          module.Provider[*engine.Engine, ledger.Ledger]
+	optsFilterProvider          module.Provider[*engine.Engine, filter.Filter]
 	optsSybilProtectionProvider module.Provider[*engine.Engine, sybilprotection.SybilProtection]
 	optsThroughputQuotaProvider module.Provider[*engine.Engine, throughputquota.ThroughputQuota]
+	optsNotarizationProvider    module.Provider[*engine.Engine, notarization.Notarization]
+	optsTangleProvider          module.Provider[*engine.Engine, tangle.Tangle]
+	optsConsensusProvider       module.Provider[*engine.Engine, consensus.Consensus]
 }
 
 func New(workers *workerpool.Group, dispatcher network.Endpoint, opts ...options.Option[Protocol]) (protocol *Protocol) {
@@ -79,8 +91,12 @@ func New(workers *workerpool.Group, dispatcher network.Endpoint, opts ...options
 		dispatcher:                  dispatcher,
 		optsClockProvider:           blocktime.NewProvider(),
 		optsLedgerProvider:          utxoledger.NewProvider(),
+		optsFilterProvider:          blockfilter.NewProvider(),
 		optsSybilProtectionProvider: dpos.NewProvider(),
 		optsThroughputQuotaProvider: mana1.NewProvider(),
+		optsNotarizationProvider:    slotnotarization.NewProvider(),
+		optsTangleProvider:          inmemorytangle.NewProvider(),
+		optsConsensusProvider:       tangleconsensus.NewProvider(),
 
 		optsBaseDirectory:    "",
 		optsPruningThreshold: 6 * 60, // 1 hour given that slot duration is 10 seconds
@@ -135,8 +151,12 @@ func (p *Protocol) initEngineManager() {
 		p.optsEngineOptions,
 		p.optsClockProvider,
 		p.optsLedgerProvider,
+		p.optsFilterProvider,
 		p.optsSybilProtectionProvider,
 		p.optsThroughputQuotaProvider,
+		p.optsNotarizationProvider,
+		p.optsTangleProvider,
+		p.optsConsensusProvider,
 	)
 
 	p.Events.Engine.Consensus.SlotGadget.SlotConfirmed.Hook(func(index slot.Index) {
@@ -188,19 +208,45 @@ func (p *Protocol) initNetworkEvents() {
 }
 
 func (p *Protocol) initChainManager() {
-	p.chainManager = chainmanager.NewManager(p.Engine().Storage.Settings.LatestCommitment(), p.optsChainManagerOptions...)
+	p.chainManager = chainmanager.NewManager(p.optsChainManagerOptions...)
+
+	p.Engine().HookInitialized(func() {
+		// the earliestRootCommitment is used to make sure that the chainManager knows the earliest possible
+		// commitment that blocks we are solidifying will refer to. Failing to do do will prevent those blocks
+		// from being processed as their chain will be deemed unsolid.
+		earliestRootCommitment := p.Engine().EvictionState.EarliestRootCommitment()
+		rootCommitment, err := p.Engine().Storage.Commitments.Load(earliestRootCommitment.Index())
+		if err != nil {
+			panic(fmt.Sprintln("could not load earliest commitment after engine initialization", err))
+		}
+		// the rootCommitment is also the earliest point in the chain we can fork from. It is used to prevent
+		// solidifying and processing commitments that we won't be able to switch to.
+		if err := p.Engine().Storage.Settings.SetChainID(rootCommitment.ID()); err != nil {
+			panic(fmt.Sprintln("could not load set main engine's chain using", rootCommitment))
+		}
+		p.chainManager.Initialize(rootCommitment)
+	})
+
 	p.Events.ChainManager = p.chainManager.Events
 
 	wp := p.Workers.CreatePool("ChainManager", 1) // Using just 1 worker to avoid contention
 
-	p.Events.Engine.NotarizationManager.SlotCommitted.Hook(func(details *notarization.SlotCommittedDetails) {
+	p.Events.Engine.Notarization.SlotCommitted.Hook(func(details *notarization.SlotCommittedDetails) {
 		p.chainManager.ProcessCommitment(details.Commitment)
 	}, event.WithWorkerPool(wp))
 	p.Events.Engine.Consensus.SlotGadget.SlotConfirmed.Hook(func(index slot.Index) {
 		p.chainManager.CommitmentRequester.EvictUntil(index)
-	}, event.WithWorkerPool(wp))
-	p.Events.Engine.EvictionState.SlotEvicted.Hook(func(index slot.Index) {
-		p.chainManager.Evict(index)
+		newRootCommitment, err := p.Engine().Storage.Commitments.Load(index)
+		if err != nil {
+			panic(fmt.Sprintln("could not load latest confirmed commitment", err))
+		}
+		// it is essential that we set the rootCommitment before evicting the chainManager's state, this way
+		// we first specify the chain's cut-off point, and only then evict the state. It is also important to
+		// note that no multiple gouroutines should be allowed to perform this operation at once, hence the
+		// hooking worker pool should always have a single worker or these two calls should be protected by a lock.
+		p.chainManager.SetRootCommitment(newRootCommitment)
+		// we want to evict just below the height of our new root commitment.
+		p.chainManager.EvictUntil(index - 1)
 	}, event.WithWorkerPool(wp))
 	p.Events.ChainManager.ForkDetected.Hook(p.onForkDetected, event.WithWorkerPool(wp))
 	p.Events.Network.SlotCommitmentReceived.Hook(func(event *network.SlotCommitmentReceivedEvent) {
@@ -351,7 +397,7 @@ func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) error {
 func (p *Protocol) ProcessAttestationsRequest(forkingPoint *commitment.Commitment, endIndex slot.Index, src identity.ID) {
 	mainEngine := p.MainEngineInstance()
 
-	if mainEngine.NotarizationManager.Attestations.LastCommittedSlot() < endIndex {
+	if mainEngine.Notarization.Attestations().LastCommittedSlot() < endIndex {
 		// Invalid request received from src
 		// TODO: ban peer?
 		return
@@ -360,7 +406,7 @@ func (p *Protocol) ProcessAttestationsRequest(forkingPoint *commitment.Commitmen
 	blockIDs := models.NewBlockIDs()
 	attestations := orderedmap.New[slot.Index, *advancedset.AdvancedSet[*notarization.Attestation]]()
 	for i := forkingPoint.Index(); i <= endIndex; i++ {
-		attestationsForSlot, err := mainEngine.NotarizationManager.Attestations.Get(i)
+		attestationsForSlot, err := mainEngine.Notarization.Attestations().Get(i)
 		if err != nil {
 			p.Events.Error.Trigger(errors.Wrapf(err, "failed to get attestations for slot %d upon request", i))
 			return
@@ -408,7 +454,7 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 	wb := sybilprotection.NewWeightsBatch(snapshotTargetIndex)
 
 	var calculatedCumulativeWeight int64
-	mainEngine.NotarizationManager.PerformLocked(func(m *notarization.Manager) {
+	mainEngine.Notarization.PerformLocked(func(n notarization.Notarization) {
 		// Calculate the difference between the latest commitment ledger and the ledger at the snapshot target index
 		latestCommitment := mainEngine.Storage.Settings.LatestCommitment()
 		for i := latestCommitment.Index(); i >= snapshotTargetIndex; i-- {
@@ -513,7 +559,7 @@ func (p *Protocol) ProcessAttestations(forkingPoint *commitment.Commitment, bloc
 	}, event.WithWorkerPool(wp)).Unhook
 
 	// Attach slot commitments to the chain manager and detach as soon as we switch to that engine
-	detachProcessCommitment := candidateEngine.Events.NotarizationManager.SlotCommitted.Hook(func(details *notarization.SlotCommittedDetails) {
+	detachProcessCommitment := candidateEngine.Events.Notarization.SlotCommitted.Hook(func(details *notarization.SlotCommittedDetails) {
 		p.chainManager.ProcessCandidateCommitment(details.Commitment)
 	}, event.WithWorkerPool(candidateEngine.Workers.CreatePool("ProcessCandidateCommitment", 2))).Unhook
 
@@ -605,6 +651,12 @@ func WithLedgerProvider(optsLedgerProvider module.Provider[*engine.Engine, ledge
 	}
 }
 
+func WithFilterProvider(optsFilterProvider module.Provider[*engine.Engine, filter.Filter]) options.Option[Protocol] {
+	return func(n *Protocol) {
+		n.optsFilterProvider = optsFilterProvider
+	}
+}
+
 func WithSybilProtectionProvider(sybilProtectionProvider module.Provider[*engine.Engine, sybilprotection.SybilProtection]) options.Option[Protocol] {
 	return func(n *Protocol) {
 		n.optsSybilProtectionProvider = sybilProtectionProvider
@@ -614,6 +666,24 @@ func WithSybilProtectionProvider(sybilProtectionProvider module.Provider[*engine
 func WithThroughputQuotaProvider(throughputQuotaProvider module.Provider[*engine.Engine, throughputquota.ThroughputQuota]) options.Option[Protocol] {
 	return func(n *Protocol) {
 		n.optsThroughputQuotaProvider = throughputQuotaProvider
+	}
+}
+
+func WithNotarizationProvider(notarizationProvider module.Provider[*engine.Engine, notarization.Notarization]) options.Option[Protocol] {
+	return func(n *Protocol) {
+		n.optsNotarizationProvider = notarizationProvider
+	}
+}
+
+func WithTangleProvider(tangleProvider module.Provider[*engine.Engine, tangle.Tangle]) options.Option[Protocol] {
+	return func(n *Protocol) {
+		n.optsTangleProvider = tangleProvider
+	}
+}
+
+func WithConsensusProvider(consensusProvider module.Provider[*engine.Engine, consensus.Consensus]) options.Option[Protocol] {
+	return func(n *Protocol) {
+		n.optsConsensusProvider = consensusProvider
 	}
 }
 

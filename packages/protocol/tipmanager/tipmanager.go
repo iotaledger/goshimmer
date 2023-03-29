@@ -9,8 +9,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/memstorage"
 	"github.com/iotaledger/hive.go/core/slot"
@@ -20,12 +20,6 @@ import (
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
-type acceptanceGadget interface {
-	IsBlockAccepted(blockID models.BlockID) (accepted bool)
-	IsMarkerAccepted(marker markers.Marker) (accepted bool)
-	FirstUnacceptedIndex(sequenceID markers.SequenceID) (firstUnacceptedIndex markers.Index)
-}
-
 type blockRetrieverFunc func(id models.BlockID) (block *scheduler.Block, exists bool)
 
 // region TipManager ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -34,7 +28,7 @@ type TipManager struct {
 	Events *Events
 
 	engine                *engine.Engine
-	blockAcceptanceGadget acceptanceGadget
+	blockAcceptanceGadget blockgadget.Gadget
 
 	workers                     *workerpool.Group
 	schedulerBlockRetrieverFunc blockRetrieverFunc
@@ -80,7 +74,7 @@ func (t *TipManager) LinkTo(engine *engine.Engine) {
 	t.tips = randommap.New[models.BlockID, *scheduler.Block]()
 
 	t.engine = engine
-	t.blockAcceptanceGadget = engine.Consensus.BlockGadget
+	t.blockAcceptanceGadget = engine.Consensus.BlockGadget()
 	if t.TipsConflictTracker != nil {
 		t.TipsConflictTracker.Cleanup()
 	}
@@ -106,8 +100,8 @@ func (t *TipManager) AddTipNonMonotonic(block *scheduler.Block) {
 	}
 
 	// Do not add a tip booked on a reject branch, we won't use it as a tip and it will otherwise remove parent tips.
-	blockConflictIDs := t.engine.Tangle.Booker.BlockConflicts(block.Block)
-	if t.engine.Tangle.Booker.Ledger.ConflictDAG().ConfirmationState(blockConflictIDs).IsRejected() {
+	blockConflictIDs := t.engine.Tangle.Booker().BlockConflicts(block.Block)
+	if t.engine.Ledger.MemPool().ConflictDAG().ConfirmationState(blockConflictIDs).IsRejected() {
 		return
 	}
 
@@ -286,14 +280,14 @@ func (t *TipManager) isValidTip(tip *scheduler.Block) (err error) {
 			t.tips.Size(),
 			tip.IsScheduled(),
 			tip.IsOrphaned(),
-			t.engine.Consensus.BlockGadget.IsBlockAccepted(tip.ID()),
+			t.blockAcceptanceGadget.IsBlockAccepted(tip.ID()),
 		)
 	}
 
 	return nil
 }
 
-func (t *TipManager) IsPastConeTimestampCorrect(block *virtualvoting.Block) (timestampValid bool) {
+func (t *TipManager) IsPastConeTimestampCorrect(block *booker.Block) (timestampValid bool) {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
 
@@ -308,7 +302,7 @@ func (t *TipManager) IsPastConeTimestampCorrect(block *virtualvoting.Block) (tim
 // This function is optimized through the use of markers and the following assumption:
 //
 //	If there's any unaccepted block >TSC threshold, then the oldest accepted block will be >TSC threshold, too.
-func (t *TipManager) isPastConeTimestampCorrect(block *virtualvoting.Block) (timestampValid bool) {
+func (t *TipManager) isPastConeTimestampCorrect(block *booker.Block) (timestampValid bool) {
 	minSupportedTimestamp := t.engine.Clock.Accepted().Time().Add(-t.optsTimeSinceConfirmationThreshold)
 
 	if !t.engine.IsBootstrapped() {
@@ -322,7 +316,7 @@ func (t *TipManager) isPastConeTimestampCorrect(block *virtualvoting.Block) (tim
 	return
 }
 
-func (t *TipManager) checkBlockRecursive(block *virtualvoting.Block, minSupportedTimestamp time.Time) (timestampValid bool) {
+func (t *TipManager) checkBlockRecursive(block *booker.Block, minSupportedTimestamp time.Time) (timestampValid bool) {
 	if storage := t.walkerCache.Get(block.ID().Index(), false); storage != nil {
 		if _, exists := storage.Get(block.ID()); exists {
 			return true

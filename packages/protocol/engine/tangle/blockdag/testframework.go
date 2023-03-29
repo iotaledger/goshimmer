@@ -4,7 +4,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -26,9 +25,9 @@ import (
 // TestFramework implements a framework for conveniently issuing blocks in a BlockDAG as part of unit tests in a
 // simplified way.
 type TestFramework struct {
-	Instance *BlockDAG
+	Instance BlockDAG
 
-	test                *testing.T
+	Test                *testing.T
 	evictionState       *eviction.State
 	solidBlocks         int32
 	missingBlocks       int32
@@ -36,6 +35,8 @@ type TestFramework struct {
 	attachedBlocks      int32
 	orphanedBlocks      models.BlockIDs
 	orphanedBlocksMutex sync.Mutex
+
+	slotTimeProviderFunc func() *slot.TimeProvider
 
 	workers    *workerpool.Group
 	workerPool *workerpool.WorkerPool
@@ -52,22 +53,18 @@ func NewTestStorage(t *testing.T, workers *workerpool.Group, opts ...options.Opt
 	return s
 }
 
-func NewTestBlockDAG(t *testing.T, workers *workerpool.Group, evictionState *eviction.State, slotTimeProvider *slot.TimeProvider, commitmentLoadFunc func(index slot.Index) (commitment *commitment.Commitment, err error), optsBlockDAG ...options.Option[BlockDAG]) *BlockDAG {
-	require.NotNil(t, evictionState)
-	return New(workers, evictionState, func() *slot.TimeProvider { return slotTimeProvider }, commitmentLoadFunc, optsBlockDAG...)
-}
-
 // NewTestFramework is the constructor of the TestFramework.
-func NewTestFramework(test *testing.T, workers *workerpool.Group, blockDAG *BlockDAG) *TestFramework {
+func NewTestFramework(test *testing.T, workers *workerpool.Group, blockDAG BlockDAG, slotTimeProviderFunc func() *slot.TimeProvider) *TestFramework {
 	t := &TestFramework{
-		test:           test,
-		workers:        workers,
-		Instance:       blockDAG,
-		orphanedBlocks: models.NewBlockIDs(),
-		workerPool:     workers.CreatePool("IssueBlocks", 2),
+		Test:                 test,
+		workers:              workers,
+		Instance:             blockDAG,
+		orphanedBlocks:       models.NewBlockIDs(),
+		workerPool:           workers.CreatePool("IssueBlocks", 2),
+		slotTimeProviderFunc: slotTimeProviderFunc,
 	}
 	t.ModelsTestFramework = models.NewTestFramework(
-		blockDAG.SlotTimeProvider,
+		slotTimeProviderFunc,
 		models.WithBlock("Genesis", models.NewEmptyBlock(models.EmptyBlockID)),
 	)
 
@@ -76,12 +73,8 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, blockDAG *Bloc
 	return t
 }
 
-func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, optsBlockDAG ...options.Option[BlockDAG]) *TestFramework {
-	storageInstance := NewTestStorage(t, workers)
-	return NewTestFramework(t,
-		workers.CreateGroup("BlockDAGTestFramework"),
-		NewTestBlockDAG(t, workers.CreateGroup("BlockDAG"), eviction.NewState(storageInstance), slot.NewTimeProvider(time.Now().Unix(), 10), DefaultCommitmentFunc, optsBlockDAG...),
-	)
+func (t *TestFramework) SlotTimeProvider() *slot.TimeProvider {
+	return t.slotTimeProviderFunc()
 }
 
 // IssueBlocks stores the given Blocks in the Storage and triggers the processing by the BlockDAG.
@@ -102,7 +95,7 @@ func (t *TestFramework) IssueBlocks(blockAliases ...string) *TestFramework {
 func (t *TestFramework) AssertMissing(expectedValues map[string]bool) {
 	for alias, isMissing := range expectedValues {
 		t.AssertBlock(alias, func(block *Block) {
-			require.Equal(t.test, isMissing, block.IsMissing(), "block %s has incorrect missing flag", alias)
+			require.Equal(t.Test, isMissing, block.IsMissing(), "block %s has incorrect missing flag", alias)
 		})
 	}
 }
@@ -110,7 +103,7 @@ func (t *TestFramework) AssertMissing(expectedValues map[string]bool) {
 func (t *TestFramework) AssertInvalid(expectedValues map[string]bool) {
 	for alias, isInvalid := range expectedValues {
 		t.AssertBlock(alias, func(block *Block) {
-			require.Equal(t.test, isInvalid, block.IsInvalid(), "block %s has incorrect invalid flag", alias)
+			require.Equal(t.Test, isInvalid, block.IsInvalid(), "block %s has incorrect invalid flag", alias)
 		})
 	}
 }
@@ -118,7 +111,7 @@ func (t *TestFramework) AssertInvalid(expectedValues map[string]bool) {
 func (t *TestFramework) AssertSolid(expectedValues map[string]bool) {
 	for alias, isSolid := range expectedValues {
 		t.AssertBlock(alias, func(block *Block) {
-			require.Equal(t.test, isSolid, block.IsSolid(), "block %s has incorrect solid flag", alias)
+			require.Equal(t.Test, isSolid, block.IsSolid(), "block %s has incorrect solid flag", alias)
 		})
 	}
 }
@@ -127,42 +120,42 @@ func (t *TestFramework) AssertOrphanedBlocks(orphanedBlocks models.BlockIDs, msg
 	t.orphanedBlocksMutex.Lock()
 	defer t.orphanedBlocksMutex.Unlock()
 
-	require.EqualValues(t.test, orphanedBlocks, t.orphanedBlocks, msgAndArgs...)
+	require.EqualValues(t.Test, orphanedBlocks, t.orphanedBlocks, msgAndArgs...)
 }
 
 func (t *TestFramework) AssertSolidCount(solidCount int32, msgAndArgs ...interface{}) {
-	require.EqualValues(t.test, solidCount, atomic.LoadInt32(&(t.solidBlocks)), msgAndArgs...)
+	require.EqualValues(t.Test, solidCount, atomic.LoadInt32(&(t.solidBlocks)), msgAndArgs...)
 }
 
 func (t *TestFramework) AssertInvalidCount(invalidCount int32, msgAndArgs ...interface{}) {
-	require.EqualValues(t.test, invalidCount, atomic.LoadInt32(&(t.invalidBlocks)), msgAndArgs...)
+	require.EqualValues(t.Test, invalidCount, atomic.LoadInt32(&(t.invalidBlocks)), msgAndArgs...)
 }
 
 func (t *TestFramework) AssertMissingCount(missingCount int32, msgAndArgs ...interface{}) {
-	require.EqualValues(t.test, missingCount, atomic.LoadInt32(&(t.missingBlocks)), msgAndArgs...)
+	require.EqualValues(t.Test, missingCount, atomic.LoadInt32(&(t.missingBlocks)), msgAndArgs...)
 }
 
 func (t *TestFramework) AssertStoredCount(storedCount int32, msgAndArgs ...interface{}) {
-	require.EqualValues(t.test, storedCount, atomic.LoadInt32(&(t.attachedBlocks)), msgAndArgs...)
+	require.EqualValues(t.Test, storedCount, atomic.LoadInt32(&(t.attachedBlocks)), msgAndArgs...)
 }
 
 func (t *TestFramework) AssertOrphanedCount(storedCount int32, msgAndArgs ...interface{}) {
 	t.orphanedBlocksMutex.Lock()
 	defer t.orphanedBlocksMutex.Unlock()
 
-	require.EqualValues(t.test, storedCount, len(t.orphanedBlocks), msgAndArgs...)
+	require.EqualValues(t.Test, storedCount, len(t.orphanedBlocks), msgAndArgs...)
 }
 
 func (t *TestFramework) AssertBlock(alias string, callback func(block *Block)) {
 	block, exists := t.Instance.Block(t.Block(alias).ID())
-	require.True(t.test, exists, "Block %s not found", alias)
+	require.True(t.Test, exists, "Block %s not found", alias)
 	callback(block)
 }
 
 func (t *TestFramework) AssertStrongChildren(m map[string][]string) {
 	for alias, children := range m {
 		t.AssertBlock(alias, func(block *Block) {
-			require.Equal(t.test, t.BlockIDs(children...), models.NewBlockIDs(lo.Map(block.strongChildren, (*Block).ID)...))
+			require.Equal(t.Test, t.BlockIDs(children...), models.NewBlockIDs(lo.Map(block.strongChildren, (*Block).ID)...))
 		})
 	}
 }
@@ -170,7 +163,7 @@ func (t *TestFramework) AssertStrongChildren(m map[string][]string) {
 func (t *TestFramework) AssertWeakChildren(m map[string][]string) {
 	for alias, children := range m {
 		t.AssertBlock(alias, func(block *Block) {
-			require.Equal(t.test, t.BlockIDs(children...), models.NewBlockIDs(lo.Map(block.weakChildren, (*Block).ID)...))
+			require.Equal(t.Test, t.BlockIDs(children...), models.NewBlockIDs(lo.Map(block.weakChildren, (*Block).ID)...))
 		})
 	}
 }
@@ -178,64 +171,64 @@ func (t *TestFramework) AssertWeakChildren(m map[string][]string) {
 func (t *TestFramework) AssertLikedInsteadChildren(m map[string][]string) {
 	for alias, children := range m {
 		t.AssertBlock(alias, func(block *Block) {
-			require.Equal(t.test, t.BlockIDs(children...), models.NewBlockIDs(lo.Map(block.likedInsteadChildren, (*Block).ID)...))
+			require.Equal(t.Test, t.BlockIDs(children...), models.NewBlockIDs(lo.Map(block.likedInsteadChildren, (*Block).ID)...))
 		})
 	}
 }
 
 func (t *TestFramework) setupEvents() {
-	t.Instance.Events.BlockSolid.Hook(func(metadata *Block) {
+	t.Instance.Events().BlockSolid.Hook(func(metadata *Block) {
 		if debug.GetEnabled() {
-			t.test.Logf("SOLID: %s", metadata.ID())
+			t.Test.Logf("SOLID: %s", metadata.ID())
 		}
 		atomic.AddInt32(&(t.solidBlocks), 1)
 	})
 
-	t.Instance.Events.BlockMissing.Hook(func(metadata *Block) {
+	t.Instance.Events().BlockMissing.Hook(func(metadata *Block) {
 		if debug.GetEnabled() {
-			t.test.Logf("MISSING: %s", metadata.ID())
+			t.Test.Logf("MISSING: %s", metadata.ID())
 		}
 		atomic.AddInt32(&(t.missingBlocks), 1)
 	})
 
-	t.Instance.Events.MissingBlockAttached.Hook(func(metadata *Block) {
+	t.Instance.Events().MissingBlockAttached.Hook(func(metadata *Block) {
 		if debug.GetEnabled() {
-			t.test.Logf("MISSING BLOCK STORED: %s", metadata.ID())
+			t.Test.Logf("MISSING BLOCK STORED: %s", metadata.ID())
 		}
 		atomic.AddInt32(&(t.missingBlocks), -1)
 	})
 
-	t.Instance.Events.BlockInvalid.Hook(func(event *BlockInvalidEvent) {
+	t.Instance.Events().BlockInvalid.Hook(func(event *BlockInvalidEvent) {
 		if debug.GetEnabled() {
-			t.test.Logf("INVALID: %s (%s)", event.Block.ID(), event.Reason)
+			t.Test.Logf("INVALID: %s (%s)", event.Block.ID(), event.Reason)
 		}
 		atomic.AddInt32(&(t.invalidBlocks), 1)
 	})
 
-	t.Instance.Events.BlockAttached.Hook(func(metadata *Block) {
+	t.Instance.Events().BlockAttached.Hook(func(metadata *Block) {
 		if debug.GetEnabled() {
-			t.test.Logf("ATTACHED: %s", metadata.ID())
+			t.Test.Logf("ATTACHED: %s", metadata.ID())
 		}
 		atomic.AddInt32(&(t.attachedBlocks), 1)
 	})
 
-	t.Instance.Events.BlockOrphaned.Hook(func(metadata *Block) {
+	t.Instance.Events().BlockOrphaned.Hook(func(metadata *Block) {
 		t.orphanedBlocksMutex.Lock()
 		defer t.orphanedBlocksMutex.Unlock()
 
 		if debug.GetEnabled() {
-			t.test.Logf("ORPHANED: %s", metadata.ID())
+			t.Test.Logf("ORPHANED: %s", metadata.ID())
 		}
 
 		t.orphanedBlocks.Add(metadata.ID())
 	})
 
-	t.Instance.Events.BlockUnorphaned.Hook(func(metadata *Block) {
+	t.Instance.Events().BlockUnorphaned.Hook(func(metadata *Block) {
 		t.orphanedBlocksMutex.Lock()
 		defer t.orphanedBlocksMutex.Unlock()
 
 		if debug.GetEnabled() {
-			t.test.Logf("UNORPHANED: %s", metadata.ID())
+			t.Test.Logf("UNORPHANED: %s", metadata.ID())
 		}
 
 		t.orphanedBlocks.Remove(metadata.ID())

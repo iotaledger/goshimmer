@@ -15,11 +15,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/filter"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/filter/blockfilter"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/realitiesledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxoledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization/slotnotarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tsc"
 	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
@@ -76,20 +76,24 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 				),
 			),
 		),
+		protocol.WithFilterProvider(
+			blockfilter.NewProvider(
+				blockfilter.WithMinCommittableSlotAge(slot.Index(NotarizationParameters.MinSlotCommittableAge)),
+				blockfilter.WithMaxAllowedWallClockDrift(Parameters.MaxAllowedClockDrift),
+				blockfilter.WithSignatureValidation(true),
+			),
+		),
 		protocol.WithSybilProtectionProvider(
 			dpos.NewProvider(
 				dpos.WithActivityWindow(Parameters.ValidatorActivityWindow),
 			),
 		),
+		protocol.WithNotarizationProvider(
+			slotnotarization.NewProvider(
+				slotnotarization.WithMinCommittableSlotAge(slot.Index(NotarizationParameters.MinSlotCommittableAge)),
+			),
+		),
 		protocol.WithEngineOptions(
-			engine.WithFilterOptions(
-				filter.WithMinCommittableSlotAge(slot.Index(NotarizationParameters.MinSlotCommittableAge)),
-				filter.WithMaxAllowedWallClockDrift(Parameters.MaxAllowedClockDrift),
-				filter.WithSignatureValidation(true),
-			),
-			engine.WithNotarizationManagerOptions(
-				notarization.WithMinCommittableSlotAge(slot.Index(NotarizationParameters.MinSlotCommittableAge)),
-			),
 			engine.WithBootstrapThreshold(Parameters.BootstrapWindow),
 			engine.WithTSCManagerOptions(
 				tsc.WithTimeSinceConfirmationThreshold(Parameters.TimeSinceConfirmationThreshold),
@@ -133,7 +137,7 @@ func configureLogging(plugin *node.Plugin) {
 	// 	Plugin.LogDebugf("Block %s booked", block.ID())
 	// }))
 	//
-	// deps.Protocol.Events.Engine.Tangle.VirtualVoting.BlockTracked.Attach(event.NewClosure(func(block *virtualvoting.Block) {
+	// deps.Protocol.Events.Engine.Tangle.VirtualVoting.BlockTracked.Attach(event.NewClosure(func(block *booker.Block) {
 	// 	Plugin.LogDebugf("Block %s tracked", block.ID())
 	// }))
 	//

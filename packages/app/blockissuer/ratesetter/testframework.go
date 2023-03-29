@@ -9,8 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/filter"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/filter/blockfilter"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/mockedvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/app/configuration"
@@ -45,13 +44,13 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...option
 	}, opts, func(t *TestFramework) {
 		p := protocol.NewTestFramework(t.test, workers.CreateGroup("Protocol"), new(mockedvm.MockedVM),
 			protocol.WithProtocolOptions(
+				protocol.WithFilterProvider(
+					blockfilter.NewProvider(
+						blockfilter.WithSignatureValidation(false),
+					),
+				),
 				protocol.WithCongestionControlOptions(
 					congestioncontrol.WithSchedulerOptions(t.optsScheduler...),
-				),
-				protocol.WithEngineOptions(
-					engine.WithFilterOptions(
-						filter.WithSignatureValidation(false),
-					),
 				),
 			))
 		t.Protocol = p

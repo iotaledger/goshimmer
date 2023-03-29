@@ -7,7 +7,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/ds/generalheap"
 	"github.com/iotaledger/hive.go/runtime/options"
@@ -19,7 +19,7 @@ import (
 // Manager is a manager that tracks orphaned blocks.
 type Manager struct {
 	unacceptedBlocks generalheap.Heap[timed.HeapKey, *blockdag.Block]
-	tangle           *tangle.Tangle
+	tangle           tangle.Tangle
 	isBlockAccepted  func(models.BlockID) bool
 
 	optsTimeSinceConfirmationThreshold time.Duration
@@ -28,7 +28,7 @@ type Manager struct {
 }
 
 // New returns a new instance of Manager.
-func New(isBlockAccepted func(models.BlockID) bool, tangle *tangle.Tangle, opts ...options.Option[Manager]) *Manager {
+func New(isBlockAccepted func(models.BlockID) bool, tangle tangle.Tangle, opts ...options.Option[Manager]) *Manager {
 	return options.Apply(&Manager{
 		isBlockAccepted:                    isBlockAccepted,
 		tangle:                             tangle,
@@ -43,7 +43,7 @@ func (o *Manager) HandleTimeUpdate(newTime time.Time) {
 	o.orphanBeforeTSC(newTime.Add(-o.optsTimeSinceConfirmationThreshold))
 }
 
-func (o *Manager) AddBlock(block *virtualvoting.Block) {
+func (o *Manager) AddBlock(block *booker.Block) {
 	o.Lock()
 	defer o.Unlock()
 
@@ -61,7 +61,7 @@ func (o *Manager) orphanBeforeTSC(minAllowedTime time.Time) {
 		blockToOrphan := o.unacceptedBlocks[0].Value
 		heap.Pop(&o.unacceptedBlocks)
 		if !o.isBlockAccepted(blockToOrphan.ID()) {
-			o.tangle.BlockDAG.SetOrphaned(blockToOrphan, true)
+			o.tangle.BlockDAG().SetOrphaned(blockToOrphan, true)
 		}
 	}
 }

@@ -49,3 +49,6 @@ config.json
 .env
 .vscode
 
+# dynamic docker-network snapshot
+tools/docker-network/docker-network.snapshot
+

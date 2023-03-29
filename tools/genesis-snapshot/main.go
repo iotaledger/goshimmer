@@ -9,16 +9,21 @@ import (
 	"github.com/mr-tron/base58"
 	flag "github.com/spf13/pflag"
 
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/blocktime"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/tangleconsensus"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/filter/blockfilter"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization/slotnotarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/inmemorytangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
@@ -92,8 +97,12 @@ func diagnosticPrintSnapshotFromFile(filePath string, ledgerProvider module.Prov
 		s,
 		blocktime.NewProvider(),
 		ledgerProvider,
+		blockfilter.NewProvider(),
 		dpos.NewProvider(),
 		mana1.NewProvider(),
+		slotnotarization.NewProvider(),
+		inmemorytangle.NewProvider(),
+		tangleconsensus.NewProvider(),
 	)
 	defer e.Shutdown()
 
@@ -118,8 +127,8 @@ func diagnosticPrintSnapshotFromFile(filePath string, ledgerProvider module.Prov
 	})
 
 	fmt.Println("--- SEPs ---")
-	if err := e.Storage.RootBlocks.Stream(0, func(blockID models.BlockID) (err error) {
-		fmt.Printf("%+v\n", blockID)
+	if err := e.Storage.RootBlocks.Stream(0, func(blockID models.BlockID, commitmentID commitment.ID) (err error) {
+		fmt.Printf("%+v %+v\n", blockID, commitmentID)
 
 		return
 	}); err != nil {
@@ -127,7 +136,7 @@ func diagnosticPrintSnapshotFromFile(filePath string, ledgerProvider module.Prov
 	}
 
 	fmt.Println("--- ActivityLog ---")
-	if err := lo.PanicOnErr(e.NotarizationManager.Attestations.Get(0)).Stream(func(id identity.ID, attestation *notarization.Attestation) bool {
+	if err := lo.PanicOnErr(e.Notarization.Attestations().Get(0)).Stream(func(id identity.ID, attestation *notarization.Attestation) bool {
 		fmt.Printf("%d: %+v\n", 0, id)
 		fmt.Printf("Attestation: %+v\n", attestation)
 		return true

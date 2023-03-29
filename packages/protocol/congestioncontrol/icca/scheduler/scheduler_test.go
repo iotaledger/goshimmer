@@ -10,8 +10,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/ds/types"
@@ -45,7 +45,7 @@ func TestScheduler_AddBlock(t *testing.T) {
 	tf := NewTestFramework(t, workers.CreateGroup("SchedulerTestFramework"))
 	tf.Scheduler.Start()
 
-	blk := virtualvoting.NewBlock(blockdag.NewBlock(models.NewBlock(models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Genesis"))), blockdag.WithSolid(true), blockdag.WithOrphaned(true)), virtualvoting.WithBooked(true), virtualvoting.WithStructureDetails(markers.NewStructureDetails()))
+	blk := booker.NewBlock(blockdag.NewBlock(models.NewBlock(models.WithStrongParents(tf.Tangle.BlockDAG.BlockIDs("Genesis"))), blockdag.WithSolid(true), blockdag.WithOrphaned(true)), booker.WithBooked(true), booker.WithStructureDetails(markers.NewStructureDetails()))
 	require.NoError(t, blk.DetermineID(tf.SlotTimeProvider()))
 
 	tf.Scheduler.AddBlock(blk)
@@ -337,7 +337,7 @@ func TestScheduler_SkipConfirmed(t *testing.T) {
 		blkUnreadyConfirmedNew.ID(): types.Void,
 	})
 
-	tf.mockAcceptance.BlockAcceptedEvent.Trigger(blockgadget.NewBlock(blkUnreadyConfirmedNew.Block, blockgadget.WithAccepted(true)))
+	tf.mockAcceptance.Events().BlockAccepted.Trigger(blockgadget.NewBlock(blkUnreadyConfirmedNew.Block, blockgadget.WithAccepted(true)))
 
 	// make sure that the block was not unsubmitted
 	require.Equal(t, tf.Scheduler.buffer.IssuerQueue(tf.Issuer("peer").ID()).IDs()[0], blkUnreadyConfirmedNew.ID())
@@ -380,7 +380,7 @@ func TestScheduler_SkipConfirmed(t *testing.T) {
 		blkUnreadyConfirmedOld.ID(): types.Void,
 	})
 
-	tf.mockAcceptance.BlockAcceptedEvent.Trigger(blockgadget.NewBlock(blkUnreadyConfirmedOld.Block, blockgadget.WithAccepted(true)))
+	tf.mockAcceptance.Events().BlockAccepted.Trigger(blockgadget.NewBlock(blkUnreadyConfirmedOld.Block, blockgadget.WithAccepted(true)))
 
 	require.Eventually(t, func() bool {
 		select {
@@ -461,7 +461,7 @@ func TestScheduler_Issue(t *testing.T) {
 	for i := 0; i < numBlocks; i++ {
 		block := tf.Tangle.BlockDAG.CreateBlock(fmt.Sprintf("blk-%d", i), models.WithIssuer(tf.Issuer("peer").PublicKey()), models.WithStrongParents(models.NewBlockIDs(tf.Tangle.BlockDAG.Block("Genesis").ID())))
 		ids.Add(block.ID())
-		_, _, err := tf.Tangle.Instance.BlockDAG.Attach(block)
+		_, _, err := tf.Tangle.Instance.BlockDAG().Attach(block)
 		require.NoError(t, err)
 	}
 
@@ -482,7 +482,7 @@ func TestScheduler_Issue(t *testing.T) {
 		lo.MergeMaps(tf.mockAcceptance.AcceptedBlocks, map[models.BlockID]types.Empty{
 			block.ID(): types.Void,
 		})
-		tf.mockAcceptance.BlockAcceptedEvent.Trigger(blockgadget.NewBlock(block.Block, blockgadget.WithAccepted(true)))
+		tf.mockAcceptance.Events().BlockAccepted.Trigger(blockgadget.NewBlock(block.Block, blockgadget.WithAccepted(true)))
 	}
 
 	tf.AssertBlocksSkipped(0)

@@ -1,6 +1,7 @@
 package chainmanager
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -23,12 +24,11 @@ var (
 
 type Manager struct {
 	Events              *Events
-	SnapshotCommitment  *Commitment
 	CommitmentRequester *eventticker.EventTicker[commitment.ID]
 
-	//TODO: change to memstorage.SlotStorage?
-	commitmentsByID      map[commitment.ID]*Commitment
-	commitmentsByIDMutex sync.Mutex
+	commitmentsByID     *memstorage.SlotStorage[commitment.ID, *Commitment]
+	rootCommitment      *Commitment
+	rootCommitmentMutex sync.RWMutex
 
 	// This tracks the forkingPoints by the commitment that triggered the detection so we can clean up after eviction
 	forkingPointsByCommitments *memstorage.SlotStorage[commitment.ID, commitment.ID]
@@ -41,32 +41,195 @@ type Manager struct {
 	optsMinimumForkDepth int64
 
 	commitmentEntityMutex *syncutils.DAGMutex[commitment.ID]
+	lastEvictedSlot       slot.Index
 }
 
-func NewManager(snapshot *commitment.Commitment, opts ...options.Option[Manager]) (manager *Manager) {
+func NewManager(opts ...options.Option[Manager]) (manager *Manager) {
 	return options.Apply(&Manager{
 		Events:               NewEvents(),
 		optsMinimumForkDepth: 3,
 
-		commitmentsByID:            make(map[commitment.ID]*Commitment),
+		commitmentsByID:            memstorage.NewSlotStorage[commitment.ID, *Commitment](),
 		commitmentEntityMutex:      syncutils.NewDAGMutex[commitment.ID](),
 		forkingPointsByCommitments: memstorage.NewSlotStorage[commitment.ID, commitment.ID](),
 		forksByForkingPoint:        shrinkingmap.New[commitment.ID, *Fork](),
-	}, opts, func(manager *Manager) {
-		manager.SnapshotCommitment, _ = manager.Commitment(snapshot.ID(), true)
-		manager.SnapshotCommitment.PublishCommitment(snapshot)
-		manager.SnapshotCommitment.SetSolid(true)
-		manager.SnapshotCommitment.publishChain(NewChain(manager.SnapshotCommitment))
-
-		manager.CommitmentRequester = eventticker.New(manager.optsCommitmentRequester...)
-		manager.Events.CommitmentMissing.Hook(manager.CommitmentRequester.StartTicker)
-		manager.Events.MissingCommitmentReceived.Hook(manager.CommitmentRequester.StopTicker)
-
-		manager.commitmentsByID[manager.SnapshotCommitment.ID()] = manager.SnapshotCommitment
+		lastEvictedSlot:            slot.Index(-1),
+	}, opts, func(m *Manager) {
+		m.CommitmentRequester = eventticker.New(m.optsCommitmentRequester...)
+		m.Events.CommitmentMissing.Hook(m.CommitmentRequester.StartTicker)
+		m.Events.MissingCommitmentReceived.Hook(m.CommitmentRequester.StopTicker)
+		m.Events.CommitmentBelowRoot.Hook(m.CommitmentRequester.StopTicker)
 	})
 }
 
+func (m *Manager) Initialize(c *commitment.Commitment) {
+	m.evictionMutex.RLock()
+	defer m.evictionMutex.RUnlock()
+
+	m.rootCommitmentMutex.Lock()
+	defer m.rootCommitmentMutex.Unlock()
+
+	m.rootCommitment, _ = m.getOrCreateCommitment(c.ID())
+	m.rootCommitment.PublishCommitment(c)
+	m.rootCommitment.SetSolid(true)
+	m.rootCommitment.publishChain(NewChain(m.rootCommitment))
+}
+
+func (m *Manager) ProcessCommitmentFromSource(commitment *commitment.Commitment, source identity.ID) (isSolid bool, chain *Chain) {
+	m.evictionMutex.RLock()
+	defer m.evictionMutex.RUnlock()
+
+	_, isSolid, chainCommitment := m.processCommitment(commitment)
+	if chainCommitment == nil {
+		return false, nil
+	}
+
+	m.detectForks(chainCommitment, source)
+
+	return isSolid, chainCommitment.Chain()
+}
+
+func (m *Manager) ProcessCandidateCommitment(commitment *commitment.Commitment) (isSolid bool, chain *Chain) {
+	m.evictionMutex.RLock()
+	defer m.evictionMutex.RUnlock()
+
+	_, isSolid, chainCommitment := m.processCommitment(commitment)
+	if chainCommitment == nil {
+		return false, nil
+	}
+	return isSolid, chainCommitment.Chain()
+}
+
+func (m *Manager) ProcessCommitment(commitment *commitment.Commitment) (isSolid bool, chain *Chain) {
+	m.evictionMutex.RLock()
+	defer m.evictionMutex.RUnlock()
+
+	isNew, isSolid, chainCommitment := m.processCommitment(commitment)
+
+	if chainCommitment == nil {
+		return false, nil
+	}
+
+	if !isNew {
+		if err := m.switchMainChainToCommitment(chainCommitment); err != nil {
+			panic(err)
+		}
+	}
+
+	return isSolid, chainCommitment.Chain()
+}
+
+func (m *Manager) EvictUntil(index slot.Index) {
+	m.evictionMutex.Lock()
+	defer m.evictionMutex.Unlock()
+
+	if index <= m.lastEvictedSlot {
+		return
+	}
+
+	for currentIndex := m.lastEvictedSlot + 1; currentIndex <= index; currentIndex++ {
+		m.evict(currentIndex)
+	}
+	m.lastEvictedSlot = index
+}
+
+// RootCommitment returns the root commitment of the manager.
+func (m *Manager) RootCommitment() (rootCommitment *commitment.Commitment) {
+	m.evictionMutex.RLock()
+	defer m.evictionMutex.RUnlock()
+
+	m.rootCommitmentMutex.RLock()
+	defer m.rootCommitmentMutex.RUnlock()
+
+	return m.rootCommitment.Commitment()
+}
+
+// SetRootCommitment sets the root commitment of the manager.
+func (m *Manager) SetRootCommitment(commitment *commitment.Commitment) {
+	m.evictionMutex.RLock()
+	defer m.evictionMutex.RUnlock()
+
+	m.rootCommitmentMutex.Lock()
+	defer m.rootCommitmentMutex.Unlock()
+
+	storage := m.commitmentsByID.Get(commitment.Index())
+	if storage == nil {
+		panic(fmt.Sprint("we should always have commitment storage for confirmed index", commitment))
+	}
+
+	newRootCommitment, exists := storage.Get(commitment.ID())
+	if !exists {
+		panic(fmt.Sprint("we should always have the latest commitment ID we confirmed with", commitment))
+	}
+
+	if commitment.Index() <= m.rootCommitment.Commitment().Index() {
+		panic(fmt.Sprint("we should never set the root commitment to a commitment that is below the current root commitment", commitment, m.rootCommitment.Commitment()))
+	}
+
+	m.rootCommitment = newRootCommitment
+}
+
+func (m *Manager) Chain(ec commitment.ID) (chain *Chain) {
+	m.evictionMutex.RLock()
+	defer m.evictionMutex.RUnlock()
+
+	if commitment, exists := m.commitment(ec); exists {
+		return commitment.Chain()
+	}
+
+	return nil
+}
+
+func (m *Manager) Commitments(id commitment.ID, amount int) (commitments []*Commitment, err error) {
+	m.evictionMutex.RLock()
+	defer m.evictionMutex.RUnlock()
+
+	commitments = make([]*Commitment, amount)
+
+	for i := 0; i < amount; i++ {
+		currentCommitment, _ := m.commitment(id)
+		if currentCommitment == nil {
+			return nil, errors.Wrap(ErrCommitmentUnknown, "not all commitments in the given range are known")
+		}
+
+		commitments[i] = currentCommitment
+
+		id = currentCommitment.Commitment().PrevID()
+	}
+
+	return
+}
+
+// ForkByForkingPoint returns the fork generated by a peer for the given forking point.
+func (m *Manager) ForkByForkingPoint(forkingPoint commitment.ID) (fork *Fork, exists bool) {
+	m.evictionMutex.RLock()
+	defer m.evictionMutex.RUnlock()
+
+	return m.forksByForkingPoint.Get(forkingPoint)
+}
+
+func (m *Manager) SwitchMainChain(head commitment.ID) error {
+	m.evictionMutex.RLock()
+	defer m.evictionMutex.RUnlock()
+
+	commitment, _ := m.commitment(head)
+	if commitment == nil {
+		return errors.Wrapf(ErrCommitmentUnknown, "unknown commitment %s", head)
+	}
+
+	return m.switchMainChainToCommitment(commitment)
+}
+
 func (m *Manager) processCommitment(commitment *commitment.Commitment) (isNew bool, isSolid bool, chainCommitment *Commitment) {
+	if isBelowRootCommitment, isRootCommitment := m.evaluateAgainstRootCommitment(commitment); isBelowRootCommitment || isRootCommitment {
+		if isRootCommitment {
+			chainCommitment = m.rootCommitment
+		} else {
+			m.Events.CommitmentBelowRoot.Trigger(commitment.ID())
+		}
+		return false, isRootCommitment, chainCommitment
+	}
+
 	isNew, isSolid, _, chainCommitment = m.registerCommitment(commitment)
 	if !isNew || chainCommitment.Chain() == nil {
 		return
@@ -93,29 +256,42 @@ func (m *Manager) processCommitment(commitment *commitment.Commitment) (isNew bo
 	return
 }
 
-func (m *Manager) ProcessCommitmentFromSource(commitment *commitment.Commitment, source identity.ID) (isSolid bool, chain *Chain) {
-	_, isSolid, chainCommitment := m.processCommitment(commitment)
-
-	m.detectForks(chainCommitment, source)
-
-	return isSolid, chainCommitment.Chain()
-}
-
-func (m *Manager) ProcessCandidateCommitment(commitment *commitment.Commitment) (isSolid bool, chain *Chain) {
-	_, isSolid, chainCommitment := m.processCommitment(commitment)
-	return isSolid, chainCommitment.Chain()
-}
-
-func (m *Manager) ProcessCommitment(commitment *commitment.Commitment) (isSolid bool, chain *Chain) {
-	isNew, isSolid, chainCommitment := m.processCommitment(commitment)
-
-	if !isNew {
-		if err := m.switchMainChainToCommitment(chainCommitment); err != nil {
-			panic(err)
-		}
+func (m *Manager) evict(index slot.Index) {
+	// Forget about the forks that we detected at that slot so that we can detect them again if they happen
+	evictedForkDetections := m.forkingPointsByCommitments.Evict(index)
+	if evictedForkDetections != nil {
+		evictedForkDetections.ForEach(func(_, forkingPoint commitment.ID) bool {
+			m.forksByForkingPoint.Delete(forkingPoint)
+			return true
+		})
 	}
 
-	return isSolid, chainCommitment.Chain()
+	m.commitmentsByID.Evict(index)
+}
+
+func (m *Manager) getOrCreateCommitment(id commitment.ID) (commitment *Commitment, created bool) {
+	return m.commitmentsByID.Get(id.Index(), true).GetOrCreate(id, func() *Commitment {
+		return NewCommitment(id)
+	})
+}
+
+func (m *Manager) commitment(id commitment.ID) (commitment *Commitment, exists bool) {
+	storage := m.commitmentsByID.Get(id.Index())
+	if storage == nil {
+		return nil, false
+	}
+
+	return storage.Get(id)
+}
+
+func (m *Manager) evaluateAgainstRootCommitment(commitment *commitment.Commitment) (isBelow, isRootCommitment bool) {
+	m.rootCommitmentMutex.RLock()
+	defer m.rootCommitmentMutex.RUnlock()
+
+	isBelow = commitment.Index() <= m.rootCommitment.Commitment().Index()
+	isRootCommitment = commitment.Equals(m.rootCommitment.Commitment())
+
+	return
 }
 
 func (m *Manager) detectForks(commitment *Commitment, source identity.ID) {
@@ -127,9 +303,6 @@ func (m *Manager) detectForks(commitment *Commitment, source identity.ID) {
 	if forkingPoint == nil {
 		return
 	}
-
-	m.evictionMutex.Lock()
-	defer m.evictionMutex.Unlock()
 
 	// Do not trigger another event for the same forking point.
 	if m.forksByForkingPoint.Has(forkingPoint.ID()) {
@@ -155,6 +328,24 @@ func (m *Manager) detectForks(commitment *Commitment, source identity.ID) {
 	m.Events.ForkDetected.Trigger(fork)
 }
 
+func (m *Manager) forkingPointAgainstMainChain(commitment *Commitment) (*Commitment, error) {
+	if !commitment.IsSolid() || commitment.Chain() == nil {
+		return nil, errors.Wrapf(ErrCommitmentNotSolid, "commitment %s is not solid", commitment)
+	}
+
+	var forkingCommitment *Commitment
+	// Walk all possible forks until we reach our main chain by jumping over each forking point
+	for chain := commitment.Chain(); chain != m.rootCommitment.Chain(); chain = commitment.Chain() {
+		forkingCommitment = chain.ForkingPoint
+
+		if commitment, _ = m.commitment(forkingCommitment.Commitment().PrevID()); commitment == nil {
+			return nil, errors.Wrapf(ErrCommitmentUnknown, "unknown parent of solid commitment %s", forkingCommitment.Commitment().ID())
+		}
+	}
+
+	return forkingCommitment, nil
+}
+
 func (m *Manager) registerCommitment(commitment *commitment.Commitment) (isNew bool, isSolid bool, wasForked bool, chainCommitment *Commitment) {
 	m.commitmentEntityMutex.Lock(commitment.ID())
 	defer m.commitmentEntityMutex.Unlock(commitment.ID())
@@ -163,12 +354,12 @@ func (m *Manager) registerCommitment(commitment *commitment.Commitment) (isNew b
 	m.commitmentEntityMutex.Lock(commitment.PrevID())
 	defer m.commitmentEntityMutex.Unlock(commitment.PrevID())
 
-	parentCommitment, commitmentCreated := m.Commitment(commitment.PrevID(), true)
+	parentCommitment, commitmentCreated := m.getOrCreateCommitment(commitment.PrevID())
 	if commitmentCreated {
 		m.Events.CommitmentMissing.Trigger(parentCommitment.ID())
 	}
 
-	chainCommitment, created := m.Commitment(commitment.ID(), true)
+	chainCommitment, created := m.getOrCreateCommitment(commitment.ID())
 
 	if !chainCommitment.PublishCommitment(commitment) {
 		return false, chainCommitment.IsSolid(), false, chainCommitment
@@ -182,82 +373,6 @@ func (m *Manager) registerCommitment(commitment *commitment.Commitment) (isNew b
 	return true, isSolid, wasForked, chainCommitment
 }
 
-func (m *Manager) Chain(ec commitment.ID) (chain *Chain) {
-	if commitment, _ := m.Commitment(ec, false); commitment != nil {
-		return commitment.Chain()
-	}
-
-	return
-}
-
-func (m *Manager) Commitment(id commitment.ID, createIfAbsent ...bool) (commitment *Commitment, created bool) {
-	m.commitmentsByIDMutex.Lock()
-	defer m.commitmentsByIDMutex.Unlock()
-
-	commitment, exists := m.commitmentsByID[id]
-	if created = !exists && len(createIfAbsent) >= 1 && createIfAbsent[0]; created {
-		commitment = NewCommitment(id)
-		m.commitmentsByID[id] = commitment
-	}
-
-	return
-}
-
-func (m *Manager) Commitments(id commitment.ID, amount int) (commitments []*Commitment, err error) {
-	m.commitmentsByIDMutex.Lock()
-	defer m.commitmentsByIDMutex.Unlock()
-
-	commitments = make([]*Commitment, amount)
-
-	for i := 0; i < amount; i++ {
-		currentCommitment, exists := m.commitmentsByID[id]
-		if !exists {
-			return nil, errors.Wrap(ErrCommitmentUnknown, "not all commitments in the given range are known")
-		}
-
-		commitments[i] = currentCommitment
-
-		id = currentCommitment.Commitment().PrevID()
-	}
-
-	return
-}
-
-func (m *Manager) forkingPointAgainstMainChain(commitment *Commitment) (*Commitment, error) {
-	if !commitment.IsSolid() || commitment.Chain() == nil {
-		return nil, errors.Wrapf(ErrCommitmentNotSolid, "commitment %s is not solid", commitment)
-	}
-
-	var forkingCommitment *Commitment
-	// Walk all possible forks until we reach our main chain by jumping over each forking point
-	for chain := commitment.Chain(); chain != m.SnapshotCommitment.Chain(); chain = commitment.Chain() {
-		forkingCommitment = chain.ForkingPoint
-
-		if commitment, _ = m.Commitment(forkingCommitment.Commitment().PrevID()); commitment == nil {
-			return nil, errors.Wrapf(ErrCommitmentUnknown, "unknown parent of solid commitment %s", forkingCommitment.Commitment().ID())
-		}
-	}
-
-	return forkingCommitment, nil
-}
-
-// ForkByForkingPoint returns the fork generated by a peer for the given forking point.
-func (m *Manager) ForkByForkingPoint(forkingPoint commitment.ID) (fork *Fork, exists bool) {
-	m.evictionMutex.RLock()
-	defer m.evictionMutex.RUnlock()
-
-	return m.forksByForkingPoint.Get(forkingPoint)
-}
-
-func (m *Manager) SwitchMainChain(head commitment.ID) error {
-	commitment, _ := m.Commitment(head)
-	if commitment == nil {
-		return errors.Wrapf(ErrCommitmentUnknown, "unknown commitment %s", head)
-	}
-
-	return m.switchMainChainToCommitment(commitment)
-}
-
 func (m *Manager) switchMainChainToCommitment(commitment *Commitment) error {
 	forkingPoint, err := m.forkingPointAgainstMainChain(commitment)
 	if err != nil {
@@ -269,7 +384,7 @@ func (m *Manager) switchMainChainToCommitment(commitment *Commitment) error {
 		return nil
 	}
 
-	parentCommitment, _ := m.Commitment(forkingPoint.Commitment().PrevID())
+	parentCommitment, _ := m.commitment(forkingPoint.Commitment().PrevID())
 	if parentCommitment == nil {
 		return errors.Wrapf(ErrCommitmentUnknown, "unknown parent of solid commitment %s", forkingPoint.ID())
 	}
@@ -279,7 +394,7 @@ func (m *Manager) switchMainChainToCommitment(commitment *Commitment) error {
 
 	// For each forking point coming out of the main chain we need to reorg the children
 	for fp := commitment.Chain().ForkingPoint; ; {
-		fpParent, _ := m.Commitment(fp.Commitment().PrevID())
+		fpParent, _ := m.commitment(fp.Commitment().PrevID())
 
 		mainChild := fpParent.mainChild()
 		newChildChain := NewChain(mainChild)
@@ -300,7 +415,7 @@ func (m *Manager) switchMainChainToCommitment(commitment *Commitment) error {
 	}
 
 	// Delete all commitments after newer than our new head if the chain was longer than the new one
-	snapshotChain := m.SnapshotCommitment.Chain()
+	snapshotChain := m.rootCommitment.Chain()
 	snapshotChain.dropCommitmentsAfter(commitment.ID().Index())
 
 	// Separate the old main chain by removing it from the parent
@@ -314,22 +429,6 @@ func (m *Manager) switchMainChainToCommitment(commitment *Commitment) error {
 	}
 
 	return nil
-}
-
-func (m *Manager) Evict(index slot.Index) {
-	m.evictionMutex.Lock()
-	defer m.evictionMutex.Unlock()
-
-	// Forget about the forks that we detected at that slot so that we can detect them again if they happen
-	evictedForkDetections := m.forkingPointsByCommitments.Evict(index)
-	if evictedForkDetections != nil {
-		evictedForkDetections.ForEach(func(_, forkingPoint commitment.ID) bool {
-			m.forksByForkingPoint.Delete(forkingPoint)
-			return true
-		})
-	}
-
-	//TODO: do we need to evict more stuff?
 }
 
 func (m *Manager) registerChild(parent *Commitment, child *Commitment) (isSolid bool, chain *Chain, wasForked bool) {
@@ -379,7 +478,9 @@ func (m *Manager) deleteAllChildrenFromCache(child *Commitment) (childrenToUpdat
 	m.commitmentEntityMutex.Lock(child.ID())
 	defer m.commitmentEntityMutex.Unlock(child.ID())
 
-	delete(m.commitmentsByID, child.ID())
+	if storage := m.commitmentsByID.Get(child.ID().Index()); storage != nil {
+		storage.Delete(child.ID())
+	}
 
 	return child.Children()
 }

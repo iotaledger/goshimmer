@@ -12,7 +12,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 	"github.com/iotaledger/hive.go/core/slot"
@@ -56,7 +55,7 @@ func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opt
 			localIdentity,
 			protocol.SlotTimeProvider,
 			func(blockID models.BlockID) (block *blockdag.Block, exists bool) {
-				return i.protocol.Engine().Tangle.BlockDAG.Block(blockID)
+				return i.protocol.Engine().Tangle.BlockDAG().Block(blockID)
 			},
 			func(countParents int) (parents models.BlockIDs) {
 				return i.protocol.TipManager.Tips(countParents)
@@ -121,7 +120,7 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeBooked(block *models.Block, max
 	}
 
 	// first subscribe to the transaction booked event
-	booked := make(chan *virtualvoting.Block, 1)
+	booked := make(chan *booker.Block, 1)
 	// exit is used to let the caller exit if for whatever
 	// reason the same transaction gets booked multiple times
 	exit := make(chan struct{})
@@ -158,13 +157,13 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeTracked(block *models.Block, ma
 	}
 
 	// first subscribe to the transaction booked event
-	booked := make(chan *virtualvoting.Block, 1)
+	booked := make(chan *booker.Block, 1)
 	// exit is used to let the caller exit if for whatever
 	// reason the same transaction gets booked multiple times
 	exit := make(chan struct{})
 	defer close(exit)
 
-	defer i.protocol.Events.Engine.Tangle.Booker.VirtualVoting.BlockTracked.Hook(func(evtBlock *virtualvoting.Block) {
+	defer i.protocol.Events.Engine.Tangle.Booker.VirtualVoting.BlockTracked.Hook(func(evtBlock *booker.Block) {
 		if block.ID() != evtBlock.ID() {
 			return
 		}
