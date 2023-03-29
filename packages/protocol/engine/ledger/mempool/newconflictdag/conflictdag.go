@@ -4,8 +4,10 @@ import (
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/conflict"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/weight"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/ds/shrinkingmap"
+	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/event"
 	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
@@ -40,19 +42,28 @@ func New[ConflictID, ResourceID conflict.IDType]() *ConflictDAG[ConflictID, Reso
 }
 
 // CreateConflict creates a new Conflict that is conflicting over the given ResourceIDs and that has the given parents.
-func (c *ConflictDAG[ConflictID, ResourceID]) CreateConflict(id ConflictID, parentIDs []ConflictID, resourceIDs []ResourceID) bool {
+func (c *ConflictDAG[ConflictID, ResourceID]) CreateConflict(id ConflictID, parentIDs []ConflictID, resourceIDs []ResourceID, initialWeight *weight.Weight) *conflict.Conflict[ConflictID, ResourceID] {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
-	newConflict, newConflictCreated := c.conflictsByID.GetOrCreate(id, func() *conflict.Conflict[ConflictID, ResourceID] {
-		return conflict.New[ConflictID, ResourceID](id, c.Conflicts(parentIDs...), c.ConflictSets(resourceIDs...), nil, c.pendingTasks)
-	})
-
-	if newConflictCreated {
-		c.ConflictCreated.Trigger(newConflict)
+	conflictSets := advancedset.New[*conflict.Set[ConflictID, ResourceID]]()
+	for _, resourceID := range resourceIDs {
+		conflictSets.Add(lo.Return1(c.conflictSetsByID.GetOrCreate(resourceID, func() *conflict.Set[ConflictID, ResourceID] {
+			return conflict.NewSet[ConflictID, ResourceID](resourceID)
+		})))
 	}
 
-	return newConflictCreated
+	createdConflict, isNew := c.conflictsByID.GetOrCreate(id, func() *conflict.Conflict[ConflictID, ResourceID] {
+		return conflict.New[ConflictID, ResourceID](id, c.Conflicts(parentIDs...), conflictSets, initialWeight, c.pendingTasks)
+	})
+
+	if !isNew {
+		panic("tried to create a Conflict that already exists")
+	}
+
+	c.ConflictCreated.Trigger(createdConflict)
+
+	return createdConflict
 }
 
 // Conflicts returns the Conflicts that are associated with the given ConflictIDs.
@@ -79,4 +90,39 @@ func (c *ConflictDAG[ConflictID, ResourceID]) ConflictSets(ids ...ResourceID) *a
 	}
 
 	return conflictSets
+}
+
+// LikedInstead returns the ConflictIDs of the Conflicts that are liked instead of the Conflicts.
+func (c *ConflictDAG[ConflictID, ResourceID]) LikedInstead(conflictIDs ...ConflictID) *advancedset.AdvancedSet[ConflictID] {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.pendingTasks.WaitIsZero()
+
+	likedInstead := advancedset.New[ConflictID]()
+	for _, conflictID := range conflictIDs {
+		// TODO: discuss if it is okay to not find a conflict
+		if existingConflict, exists := c.conflictsByID.Get(conflictID); exists {
+			if largestConflict := c.largestConflict(existingConflict.LikedInstead()); largestConflict != nil {
+				likedInstead.Add(largestConflict.ID())
+			}
+		}
+	}
+
+	return likedInstead
+}
+
+// largestConflict returns the largest Conflict from the given Conflicts.
+func (c *ConflictDAG[ConflictID, ResourceID]) largestConflict(conflicts *advancedset.AdvancedSet[*conflict.Conflict[ConflictID, ResourceID]]) *conflict.Conflict[ConflictID, ResourceID] {
+	var largestConflict *conflict.Conflict[ConflictID, ResourceID]
+
+	_ = conflicts.ForEach(func(conflict *conflict.Conflict[ConflictID, ResourceID]) (err error) {
+		if conflict.Compare(largestConflict) == weight.Heavier {
+			largestConflict = conflict
+		}
+
+		return nil
+	})
+
+	return largestConflict
 }
