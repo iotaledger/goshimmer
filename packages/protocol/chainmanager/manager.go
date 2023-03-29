@@ -162,7 +162,7 @@ func (m *Manager) SetRootCommitment(commitment *commitment.Commitment) {
 		panic(fmt.Sprint("we should always have the latest commitment ID we confirmed with", commitment))
 	}
 
-	if commitment.Index() < m.rootCommitment.Commitment().Index() {
+	if commitment.Index() <= m.rootCommitment.Commitment().Index() && commitment.ID() != m.rootCommitment.Commitment().ID() {
 		panic(fmt.Sprint("we should never set the root commitment to a commitment that is below the current root commitment", commitment, m.rootCommitment.Commitment()))
 	}
 
