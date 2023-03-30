@@ -112,6 +112,14 @@ func (c *Conflict[ConflictID, ResourceID]) ID() ConflictID {
 	return c.id
 }
 
+// Parents returns the set of parents of the Conflict.
+func (c *Conflict[ConflictID, ResourceID]) Parents() *advancedset.AdvancedSet[*Conflict[ConflictID, ResourceID]] {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	return c.parents.Clone()
+}
+
 // IsLiked returns true if the Conflict is liked instead of other conflicting Conflicts.
 func (c *Conflict[ConflictID, ResourceID]) IsLiked() bool {
 	c.mutex.RLock()
