@@ -9,7 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/app/remotemetrics"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 )
@@ -99,8 +99,8 @@ func sendConflictMetrics() {
 	_ = deps.RemoteLogger.Send(record)
 }
 
-func updateMetricCounts(conflictID utxo.TransactionID, transactionID utxo.TransactionID) (oldestAttachment *virtualvoting.Block) {
-	oldestAttachment = deps.Protocol.Engine().Tangle.Booker.GetEarliestAttachment(transactionID)
+func updateMetricCounts(conflictID utxo.TransactionID, transactionID utxo.TransactionID) (oldestAttachment *booker.Block) {
+	oldestAttachment = deps.Protocol.Engine().Tangle.Booker().GetEarliestAttachment(transactionID)
 	conflict, exists := deps.Protocol.Engine().Ledger.MemPool().ConflictDAG().Conflict(conflictID)
 	if !exists {
 		return oldestAttachment
@@ -119,7 +119,7 @@ func updateMetricCounts(conflictID utxo.TransactionID, transactionID utxo.Transa
 func measureInitialConflictCounts() {
 	activeConflictsMutex.Lock()
 	defer activeConflictsMutex.Unlock()
-	activeConflicts = advancedset.NewAdvancedSet[utxo.TransactionID]()
+	activeConflicts = advancedset.New[utxo.TransactionID]()
 	conflictsToRemove := make([]utxo.TransactionID, 0)
 	deps.Protocol.Engine().Ledger.MemPool().ConflictDAG().ForEachConflict(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		switch conflict.ID() {

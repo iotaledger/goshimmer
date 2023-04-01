@@ -19,15 +19,19 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/filter"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization/slotnotarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markerbooker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markerbooker/markermanager"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/inmemorytangle"
+	"github.com/iotaledger/goshimmer/packages/protocol/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage/utils"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/lo"
-	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
@@ -43,7 +47,7 @@ type Node struct {
 	mutex sync.RWMutex
 }
 
-func NewNode(t *testing.T, keyPair ed25519.KeyPair, network *network.MockedNetwork, partition string, snapshotPath string, ledgerProvider module.Provider[*engine.Engine, ledger.Ledger], engineOpts ...options.Option[engine.Engine]) *Node {
+func NewNode(t *testing.T, keyPair ed25519.KeyPair, network *network.MockedNetwork, partition string, snapshotPath string, ledgerProvider module.Provider[*engine.Engine, ledger.Ledger]) *Node {
 	id := identity.New(keyPair.PublicKey)
 
 	node := &Node{
@@ -61,7 +65,22 @@ func NewNode(t *testing.T, keyPair ed25519.KeyPair, network *network.MockedNetwo
 		protocol.WithBaseDirectory(tempDir.Path()),
 		protocol.WithSnapshotPath(snapshotPath),
 		protocol.WithLedgerProvider(ledgerProvider),
-		protocol.WithEngineOptions(engineOpts...),
+		protocol.WithTangleProvider(
+			inmemorytangle.NewProvider(
+				inmemorytangle.WithBookerProvider(
+					markerbooker.NewProvider(
+						markerbooker.WithMarkerManagerOptions(
+							markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(1)),
+						),
+					),
+				),
+			),
+		),
+		protocol.WithNotarizationProvider(
+			slotnotarization.NewProvider(
+				slotnotarization.WithMinCommittableSlotAge(1),
+			),
+		),
 	)
 	node.Protocol.Run()
 
@@ -228,7 +247,7 @@ func (n *Node) attachEngineLogs(instance *engine.Engine) {
 		fmt.Printf("%s > [%s] Engine.Error: %s\n", n.Name, engineName, err.Error())
 	})
 
-	events.NotarizationManager.SlotCommitted.Hook(func(details *notarization.SlotCommittedDetails) {
+	events.Notarization.SlotCommitted.Hook(func(details *notarization.SlotCommittedDetails) {
 		fmt.Printf("%s > [%s] NotarizationManager.SlotCommitted: %s %s\n", n.Name, engineName, details.Commitment.ID(), details.Commitment)
 	})
 
@@ -318,7 +337,7 @@ func (n *Node) issueActivityBlock(alias string, parents ...models.BlockID) bool 
 
 func (n *Node) ValidateAcceptedBlocks(expectedAcceptedBlocks map[models.BlockID]bool) {
 	for blockID, blockExpectedAccepted := range expectedAcceptedBlocks {
-		actualBlockAccepted := n.Protocol.Engine().Consensus.BlockGadget.IsBlockAccepted(blockID)
+		actualBlockAccepted := n.Protocol.Engine().Consensus.BlockGadget().IsBlockAccepted(blockID)
 		require.Equal(n.Testing, blockExpectedAccepted, actualBlockAccepted, "Block %s should be accepted=%t but is %t", blockID, blockExpectedAccepted, actualBlockAccepted)
 	}
 }

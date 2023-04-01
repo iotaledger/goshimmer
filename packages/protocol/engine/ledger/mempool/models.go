@@ -458,7 +458,7 @@ func (o *OutputsMetadata) IDs() (ids utxo.OutputIDs) {
 
 // ConflictIDs returns a union of all ConflictIDs of the contained OutputMetadata objects.
 func (o *OutputsMetadata) ConflictIDs() *advancedset.AdvancedSet[utxo.TransactionID] {
-	conflictIDs := advancedset.NewAdvancedSet[utxo.TransactionID]()
+	conflictIDs := advancedset.New[utxo.TransactionID]()
 	_ = o.ForEach(func(outputMetadata *OutputMetadata) (err error) {
 		conflictIDs.AddAll(outputMetadata.ConflictIDs())
 		return nil

@@ -20,7 +20,7 @@ type WeightedSet struct {
 func NewWeightedSet(weights *Weights, optMembers ...identity.ID) (newWeightedSet *WeightedSet) {
 	newWeightedSet = new(WeightedSet)
 	newWeightedSet.Weights = weights
-	newWeightedSet.members = advancedset.NewAdvancedSet[identity.ID]()
+	newWeightedSet.members = advancedset.New[identity.ID]()
 
 	newWeightedSet.weightUpdatesDetach = weights.Events.WeightsUpdated.Hook(newWeightedSet.onWeightUpdated)
 

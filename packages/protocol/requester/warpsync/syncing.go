@@ -58,7 +58,7 @@ func (m *Manager) syncRange(ctx context.Context, start, end slot.Index, startSC 
 	eg.SetLimit(m.concurrency)
 
 	slotProcessedChan := make(chan slot.Index)
-	discardedPeers := advancedset.NewAdvancedSet[identity.ID]()
+	discardedPeers := advancedset.New[identity.ID]()
 
 	workerFunc := m.syncSlotFunc(errCtx, eg, validPeers, discardedPeers, ecChain, slotProcessedChan)
 	completedSlot = m.queueSlidingSlots(errCtx, startRange, endRange, workerFunc, slotProcessedChan)
@@ -223,19 +223,19 @@ func (m *Manager) processSlotBlocksRequestPacket(packetSlotRequest *wp.Packet_Sl
 
 	// m.log.Debugw("received slot blocks request", "peer", nbr.Peer.ID(), "Index", ei, "ID", ec)
 
-	cm, _ := m.commitmentManager.Commitment(scID)
-	if cm == nil {
-		m.log.Debugw("slot blocks request rejected: unknown commitment", "peer", nbr.Peer.ID(), "Index", si, "ID", sc)
-		return
-	}
+	// cm, _ := m.commitmentManager.commitment(scID)
+	// if cm == nil {
+	// 	m.log.Debugw("slot blocks request rejected: unknown commitment", "peer", nbr.Peer.ID(), "Index", si, "ID", sc)
+	// 	return
+	// }
 
-	chain := cm.Chain()
-	if chain == nil {
-		m.log.Debugw("slot blocks request rejected: unknown chain", "peer", nbr.Peer.ID(), "Index", si, "ID", sc)
-		return
-	}
+	// chain := cm.Chain()
+	// if chain == nil {
+	// 	m.log.Debugw("slot blocks request rejected: unknown chain", "peer", nbr.Peer.ID(), "Index", si, "ID", sc)
+	// 	return
+	// }
 
-	//blocksCount := chain.BlocksCount(ei)
+	// blocksCount := chain.BlocksCount(ei)
 
 	//// Send slot starter.
 	//m.protocol.SendSlotStarter(ei, ecID, blocksCount, nbr.ID())

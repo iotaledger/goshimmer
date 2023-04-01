@@ -14,7 +14,7 @@ import (
 	"github.com/iotaledger/hive.go/lo"
 )
 
-// syncingFlowParams is a container for parameters to be used in the warpsyncing of an slot.
+// syncingFlowParams is a container for parameters to be used in the warpsyncing of a slot.
 type syncingFlowParams struct {
 	ctx            context.Context
 	targetSlot     slot.Index

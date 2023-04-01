@@ -5,7 +5,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/votes/latestvotes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/protocol/markers"
 	"github.com/iotaledger/hive.go/constraints"
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/ds/advancedset"
@@ -49,7 +49,7 @@ func (s *SequenceTracker[VotePowerType]) TrackVotes(pastMarkers *markers.Markers
 }
 
 func (s *SequenceTracker[VotePowerType]) Voters(marker markers.Marker) (voters *advancedset.AdvancedSet[identity.ID]) {
-	voters = advancedset.NewAdvancedSet[identity.ID]()
+	voters = advancedset.New[identity.ID]()
 
 	votesObj, exists := s.votes.Get(marker.SequenceID())
 	if !exists {

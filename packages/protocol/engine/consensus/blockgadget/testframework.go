@@ -4,11 +4,11 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
+	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
@@ -16,26 +16,20 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markermanager"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/runtime/debug"
-	"github.com/iotaledger/hive.go/runtime/event"
-	"github.com/iotaledger/hive.go/runtime/options"
-	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 // region TestFramework //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type TestFramework struct {
 	test          *testing.T
-	Gadget        *Gadget
+	Gadget        Gadget
 	Tangle        *tangle.TestFramework
-	VirtualVoting *virtualvoting.TestFramework
-	Booker        *booker.TestFramework
+	VirtualVoting *booker.VirtualVotingTestFramework
 	MemPool       *mempool.TestFramework
 	BlockDAG      *blockdag.TestFramework
 	Votes         *votes.TestFramework
@@ -46,13 +40,12 @@ type TestFramework struct {
 	conflictsRejected uint32
 }
 
-func NewTestFramework(test *testing.T, gadget *Gadget, tangleTF *tangle.TestFramework) *TestFramework {
+func NewTestFramework(test *testing.T, gadget Gadget, tangleTF *tangle.TestFramework) *TestFramework {
 	t := &TestFramework{
 		test:          test,
 		Gadget:        gadget,
 		Tangle:        tangleTF,
 		VirtualVoting: tangleTF.VirtualVoting,
-		Booker:        tangleTF.Booker,
 		MemPool:       tangleTF.MemPool,
 		BlockDAG:      tangleTF.BlockDAG,
 		Votes:         tangleTF.Votes,
@@ -62,31 +55,8 @@ func NewTestFramework(test *testing.T, gadget *Gadget, tangleTF *tangle.TestFram
 	return t
 }
 
-func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, ledger mempool.MemPool, optsGadget ...options.Option[Gadget]) *TestFramework {
-	tangleTF := tangle.NewDefaultTestFramework(t, workers.CreateGroup("TangleTestFramework"),
-		ledger,
-		slot.NewTimeProvider(time.Now().Unix(), 10),
-		tangle.WithBookerOptions(
-			booker.WithMarkerManagerOptions(
-				markermanager.WithSequenceManagerOptions[models.BlockID, *virtualvoting.Block](markers.WithMaxPastMarkerDistance(3)),
-			),
-		),
-	)
-
-	return NewTestFramework(t,
-		New(workers.CreateGroup("BlockGadget"),
-			tangleTF.Instance,
-			tangleTF.BlockDAG.Instance.EvictionState,
-			tangleTF.BlockDAG.Instance.SlotTimeProvider,
-			tangleTF.Votes.Validators.TotalWeight,
-			optsGadget...,
-		),
-		tangleTF,
-	)
-}
-
 func (t *TestFramework) setupEvents() {
-	t.Gadget.Events.BlockAccepted.Hook(func(metadata *Block) {
+	t.Gadget.Events().BlockAccepted.Hook(func(metadata *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("ACCEPTED: %s", metadata.ID())
 		}
@@ -94,7 +64,7 @@ func (t *TestFramework) setupEvents() {
 		atomic.AddUint32(&(t.acceptedBlocks), 1)
 	})
 
-	t.Gadget.Events.BlockConfirmed.Hook(func(metadata *Block) {
+	t.Gadget.Events().BlockConfirmed.Hook(func(metadata *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("CONFIRMED: %s", metadata.ID())
 		}
@@ -143,7 +113,7 @@ func (t *TestFramework) ValidateAcceptedBlocks(expectedAcceptedBlocks map[string
 
 func (t *TestFramework) ValidateConfirmedBlocks(expectedConfirmedBlocks map[string]bool) {
 	for blockID, blockExpectedConfirmed := range expectedConfirmedBlocks {
-		actualBlockConfirmed := t.Gadget.isBlockConfirmed(t.Tangle.BlockDAG.Block(blockID).ID())
+		actualBlockConfirmed := t.Gadget.IsBlockConfirmed(t.Tangle.BlockDAG.Block(blockID).ID())
 		require.Equal(t.test, blockExpectedConfirmed, actualBlockConfirmed, "Block %s should be confirmed=%t but is %t", blockID, blockExpectedConfirmed, actualBlockConfirmed)
 	}
 }
@@ -157,7 +127,7 @@ func (t *TestFramework) ValidateAcceptedMarker(expectedConflictIDs map[markers.M
 
 func (t *TestFramework) ValidateConflictAcceptance(expectedConflictIDs map[string]confirmation.State) {
 	for conflictIDAlias, conflictExpectedState := range expectedConflictIDs {
-		actualMarkerAccepted := t.Tangle.VirtualVoting.ConflictDAG.Instance.ConfirmationState(advancedset.NewAdvancedSet(t.Tangle.MemPool.Transaction(conflictIDAlias).ID()))
+		actualMarkerAccepted := t.Tangle.VirtualVoting.ConflictDAG.Instance.ConfirmationState(advancedset.New(t.Tangle.MemPool.Transaction(conflictIDAlias).ID()))
 		require.Equal(t.test, conflictExpectedState, actualMarkerAccepted, "%s should be accepted=%s but is %s", conflictIDAlias, conflictExpectedState, actualMarkerAccepted)
 	}
 }
@@ -166,32 +136,48 @@ func (t *TestFramework) ValidateConflictAcceptance(expectedConflictIDs map[strin
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// MockAcceptanceGadget mocks ConfirmationOracle marking all blocks as confirmed.
-type MockAcceptanceGadget struct {
-	BlockAcceptedEvent *event.Event1[*Block]
-	AcceptedBlocks     models.BlockIDs
-	AcceptedMarkers    *markers.Markers
+// MockBlockGadget mocks a block gadget marking all blocks as confirmed.
+type MockBlockGadget struct {
+	events          *Events
+	AcceptedBlocks  models.BlockIDs
+	AcceptedMarkers *markers.Markers
 
 	mutex sync.RWMutex
+
+	module.Module
 }
 
-func NewMockAcceptanceGadget() *MockAcceptanceGadget {
-	return &MockAcceptanceGadget{
-		BlockAcceptedEvent: event.New1[*Block](),
-		AcceptedBlocks:     models.NewBlockIDs(),
-		AcceptedMarkers:    markers.NewMarkers(),
+var _ Gadget = new(MockBlockGadget)
+
+func NewMockAcceptanceGadget() *MockBlockGadget {
+	g := &MockBlockGadget{
+		events:          NewEvents(),
+		AcceptedBlocks:  models.NewBlockIDs(),
+		AcceptedMarkers: markers.NewMarkers(),
 	}
+	g.TriggerConstructed()
+	g.TriggerInitialized()
+	return g
 }
 
-func (m *MockAcceptanceGadget) SetBlockAccepted(block *Block) {
+func (m *MockBlockGadget) Events() *Events {
+	return m.events
+}
+
+func (m *MockBlockGadget) IsBlockConfirmed(blockID models.BlockID) bool {
+	// If a block is accepted, then it is automatically confirmed
+	return m.IsBlockAccepted(blockID)
+}
+
+func (m *MockBlockGadget) SetBlockAccepted(block *Block) {
 	m.mutex.Lock()
 	m.AcceptedBlocks.Add(block.ID())
 	m.mutex.Unlock()
 
-	m.BlockAcceptedEvent.Trigger(block)
+	m.events.BlockAccepted.Trigger(block)
 }
 
-func (m *MockAcceptanceGadget) SetMarkersAccepted(markers ...markers.Marker) {
+func (m *MockBlockGadget) SetMarkersAccepted(markers ...markers.Marker) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
@@ -201,14 +187,14 @@ func (m *MockAcceptanceGadget) SetMarkersAccepted(markers ...markers.Marker) {
 }
 
 // IsBlockAccepted mocks its interface function returning that all blocks are confirmed.
-func (m *MockAcceptanceGadget) IsBlockAccepted(blockID models.BlockID) bool {
+func (m *MockBlockGadget) IsBlockAccepted(blockID models.BlockID) bool {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
 	return m.AcceptedBlocks.Contains(blockID)
 }
 
-func (m *MockAcceptanceGadget) IsMarkerAccepted(marker markers.Marker) (accepted bool) {
+func (m *MockBlockGadget) IsMarkerAccepted(marker markers.Marker) (accepted bool) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
@@ -226,7 +212,7 @@ func (m *MockAcceptanceGadget) IsMarkerAccepted(marker markers.Marker) (accepted
 	return marker.Index() <= acceptedIndex
 }
 
-func (m *MockAcceptanceGadget) FirstUnacceptedIndex(sequenceID markers.SequenceID) (firstUnacceptedIndex markers.Index) {
+func (m *MockBlockGadget) FirstUnacceptedIndex(sequenceID markers.SequenceID) (firstUnacceptedIndex markers.Index) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
@@ -237,7 +223,7 @@ func (m *MockAcceptanceGadget) FirstUnacceptedIndex(sequenceID markers.SequenceI
 	return 1
 }
 
-func (m *MockAcceptanceGadget) AcceptedBlocksInSlot(index slot.Index) (blocks models.BlockIDs) {
+func (m *MockBlockGadget) AcceptedBlocksInSlot(index slot.Index) (blocks models.BlockIDs) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 

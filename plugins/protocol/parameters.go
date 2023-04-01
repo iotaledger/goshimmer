@@ -34,7 +34,7 @@ type SchedulerParametersDefinition struct {
 	// MaxBufferSize defines the maximum buffer size (in number of blocks).
 	MaxBufferSize int `default:"10000" usage:"maximum buffer size (in number of blocks)"` // 300 blocks
 	// Rate defines the frequency to schedule a block.
-	Rate time.Duration `default:"1ms" usage:"block scheduling interval [time duration string]"` // 1000 blocks per second
+	Rate time.Duration `default:"5ms" usage:"block scheduling interval [time duration string]"` // 200 blocks per second
 	// ConfirmedBlockThreshold time threshold after which confirmed blocks are not scheduled [time duration string]
 	ConfirmedBlockThreshold time.Duration `default:"1m" usage:"time threshold after which confirmed blocks are not scheduled [time duration string]"`
 	// MaxDeficit defines the maximum defict a node can build up.

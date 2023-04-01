@@ -79,7 +79,7 @@ func (w *Weights) BatchUpdate(batch *WeightsBatch) {
 	defer w.mutex.Unlock()
 
 	direction := int64(lo.Compare(batch.TargetSlot(), w.totalWeight.UpdateTime))
-	removedWeights := advancedset.NewAdvancedSet[identity.ID]()
+	removedWeights := advancedset.New[identity.ID]()
 
 	batch.ForEach(func(id identity.ID, diff int64) {
 		oldWeight, exists := w.get(id)
@@ -132,6 +132,19 @@ func (w *Weights) TotalWeight() (totalWeight int64) {
 	defer w.mutex.RUnlock()
 
 	return w.totalWeight.Value
+}
+
+// TotalWeightWithoutZeroIdentity returns the total weight of all identities minus the zero identity.
+func (w *Weights) TotalWeightWithoutZeroIdentity() int64 {
+	w.mutex.RLock()
+	defer w.mutex.RUnlock()
+
+	var totalWeight int64
+	if zeroIdentityWeight, exists := w.get(identity.ID{}); exists {
+		totalWeight -= zeroIdentityWeight.Value
+	}
+
+	return totalWeight + w.totalWeight.Value
 }
 
 func (w *Weights) UpdateTotalWeightSlot(index slot.Index) {

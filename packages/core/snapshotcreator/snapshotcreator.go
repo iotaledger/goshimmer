@@ -11,13 +11,17 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/blocktime"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/tangleconsensus"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/filter/blockfilter"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/mockedvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization/slotnotarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/inmemorytangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
 	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/hive.go/core/slot"
@@ -63,15 +67,19 @@ func CreateSnapshot(opts ...options.Option[Options]) error {
 		s,
 		blocktime.NewProvider(),
 		opt.LedgerProvider,
+		blockfilter.NewProvider(),
 		dpos.NewProvider(),
 		mana1.NewProvider(),
+		slotnotarization.NewProvider(),
+		inmemorytangle.NewProvider(),
+		tangleconsensus.NewProvider(),
 	)
 	defer engineInstance.Shutdown()
 
 	if err := opt.createGenesisOutput(engineInstance); err != nil {
 		return err
 	}
-	engineInstance.NotarizationManager.Attestations.SetLastCommittedSlot(-1)
+	engineInstance.Notarization.Attestations().SetLastCommittedSlot(-1)
 
 	i := 0
 	nodesToPledge, err := opt.createPledgeMap()
@@ -102,7 +110,7 @@ func CreateSnapshot(opts ...options.Option[Options]) error {
 	if err != nil {
 		return err
 	}
-	if _, _, err = engineInstance.NotarizationManager.Attestations.Commit(0); err != nil {
+	if _, _, err = engineInstance.Notarization.Attestations().(*slotnotarization.Attestations).Commit(0); err != nil {
 		return err
 	}
 	if err := engineInstance.WriteSnapshot(opt.FilePath); err != nil {
@@ -112,7 +120,7 @@ func CreateSnapshot(opts ...options.Option[Options]) error {
 }
 
 func (m *Options) attest(engineInstance *engine.Engine, nodePublicKey ed25519.PublicKey) error {
-	if _, err := engineInstance.NotarizationManager.Attestations.Add(&notarization.Attestation{
+	if _, err := engineInstance.Notarization.Attestations().(*slotnotarization.Attestations).Add(&notarization.Attestation{
 		IssuerPublicKey: nodePublicKey,
 		IssuingTime:     time.Unix(engineInstance.SlotTimeProvider().GenesisUnixTime()-1, 0),
 	}); err != nil {

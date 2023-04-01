@@ -274,7 +274,10 @@ func (s *StateDiffs) storeTransaction(transaction utxo.Transaction, metadata *me
 	}
 
 	for it := metadata.OutputIDs().Iterator(); it.HasNext(); {
-		if err = s.StoreCreatedOutput(s.outputWithMetadata(it.Next())); err != nil {
+		outputWithMetadata := s.outputWithMetadata(it.Next())
+		outputWithMetadata.SetIndex(metadata.InclusionSlot())
+
+		if err = s.StoreCreatedOutput(outputWithMetadata); err != nil {
 			return errors.Wrap(err, "failed to storeOutput created output")
 		}
 	}

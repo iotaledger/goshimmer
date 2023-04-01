@@ -86,8 +86,8 @@ func (b *Block) IsFuture() (isFuture bool) {
 	return b.future
 }
 
-// setFuture marks the Block as future block.
-func (b *Block) setFuture() (wasUpdated bool) {
+// SetFuture marks the Block as future block.
+func (b *Block) SetFuture() (wasUpdated bool) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 
@@ -151,8 +151,8 @@ func (b *Block) LikedInsteadChildren() []*Block {
 	return lo.CopySlice(b.likedInsteadChildren)
 }
 
-// setSolid marks the Block as solid.
-func (b *Block) setSolid() (wasUpdated bool) {
+// SetSolid marks the Block as solid.
+func (b *Block) SetSolid() (wasUpdated bool) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 
@@ -163,8 +163,8 @@ func (b *Block) setSolid() (wasUpdated bool) {
 	return
 }
 
-// setInvalid marks the Block as invalid.
-func (b *Block) setInvalid() (wasUpdated bool) {
+// SetInvalid marks the Block as invalid.
+func (b *Block) SetInvalid() (wasUpdated bool) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 
@@ -177,8 +177,8 @@ func (b *Block) setInvalid() (wasUpdated bool) {
 	return true
 }
 
-// setOrphaned sets the orphaned flag of the Block.
-func (b *Block) setOrphaned(orphaned bool) (wasUpdated bool) {
+// SetOrphaned sets the orphaned flag of the Block.
+func (b *Block) SetOrphaned(orphaned bool) (wasUpdated bool) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 
@@ -190,8 +190,8 @@ func (b *Block) setOrphaned(orphaned bool) (wasUpdated bool) {
 	return true
 }
 
-// appendChild adds a child of the corresponding type to the Block.
-func (b *Block) appendChild(child *Block, childType models.ParentsType) {
+// AppendChild adds a child of the corresponding type to the Block.
+func (b *Block) AppendChild(child *Block, childType models.ParentsType) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 
@@ -205,8 +205,8 @@ func (b *Block) appendChild(child *Block, childType models.ParentsType) {
 	}
 }
 
-// update publishes the given Block data to the underlying Block and marks it as no longer missing.
-func (b *Block) update(data *models.Block) (wasPublished bool) {
+// Update publishes the given Block data to the underlying Block and marks it as no longer missing.
+func (b *Block) Update(data *models.Block) (wasPublished bool) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 

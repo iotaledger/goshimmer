@@ -23,7 +23,7 @@ var ConflictMetrics = collector.NewCollection(conflictNamespace,
 		collector.WithHelp("Time since transaction issuance to the conflict acceptance"),
 		collector.WithInitFunc(func() {
 			deps.Protocol.Events.Engine.Ledger.MemPool.ConflictDAG.ConflictAccepted.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-				firstAttachment := deps.Protocol.Engine().Tangle.Booker.GetEarliestAttachment(conflict.ID())
+				firstAttachment := deps.Protocol.Engine().Tangle.Booker().GetEarliestAttachment(conflict.ID())
 				timeSinceIssuance := time.Since(firstAttachment.IssuingTime()).Milliseconds()
 				timeIssuanceSeconds := float64(timeSinceIssuance) / 1000
 				deps.Collector.Update(conflictNamespace, resolutionTime, collector.SingleValue(timeIssuanceSeconds))

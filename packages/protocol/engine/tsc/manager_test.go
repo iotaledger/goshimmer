@@ -8,9 +8,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/realitiesledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/testtangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tsc"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/slot"
@@ -21,33 +21,33 @@ import (
 )
 
 func TestOrphanageManager_orphanBeforeTSC(t *testing.T) {
-	treshhold := 30 * time.Second
+	threshold := 30 * time.Second
 
 	workers := workerpool.NewGroup(t.Name())
-	tf := tsc.NewTestFramework(t,
-		tangle.NewDefaultTestFramework(t,
+	tf := NewTestFramework(t,
+		testtangle.NewDefaultTestFramework(t,
 			workers.CreateGroup("TangleTestFramework"),
 			realitiesledger.NewTestLedger(t, workers.CreateGroup("Ledger")),
 			slot.NewTimeProvider(time.Now().Unix(), 10),
 		),
-		tsc.WithTimeSinceConfirmationThreshold(treshhold),
+		tsc.WithTimeSinceConfirmationThreshold(threshold),
 	)
 
 	now := time.Now()
 	for i := 0; i < 20; i++ {
 		alias := fmt.Sprintf("blk-%d", i)
 		block := blockdag.NewBlock(tf.BlockDAG.CreateBlock(alias, models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithIssuingTime(now.Add(time.Duration(i)*time.Second))), blockdag.WithSolid(true))
-		tf.Manager.AddBlock(virtualvoting.NewBlock(block))
+		tf.Manager.AddBlock(booker.NewBlock(block))
 	}
 
-	tf.Manager.HandleTimeUpdate(now.Add(treshhold).Add(10 * time.Second))
+	tf.Manager.HandleTimeUpdate(now.Add(threshold).Add(10 * time.Second))
 	tf.BlockDAG.AssertOrphanedCount(11, "%d blocks should be orphaned", 1)
 }
 
 func TestOrphanageManager_HandleTimeUpdate(t *testing.T) {
 	workers := workerpool.NewGroup(t.Name())
-	tf := tsc.NewTestFramework(t,
-		tangle.NewDefaultTestFramework(t,
+	tf := NewTestFramework(t,
+		testtangle.NewDefaultTestFramework(t,
 			workers.CreateGroup("TangleTestFramework"),
 			realitiesledger.NewTestLedger(t, workers.CreateGroup("Ledger")),
 			slot.NewTimeProvider(time.Now().Add(-2*time.Hour).Unix(), 10),
@@ -169,7 +169,7 @@ func TestOrphanageManager_HandleTimeUpdate(t *testing.T) {
 	}
 }
 
-func createTestTangleOrphanage(tf *tsc.TestFramework) {
+func createTestTangleOrphanage(tf *TestFramework) {
 	// SEQUENCE 0
 	{
 		tf.BlockDAG.CreateBlock("Marker-0/1", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithIssuingTime(time.Now().Add(-6*time.Minute)))
@@ -185,7 +185,7 @@ func createTestTangleOrphanage(tf *tsc.TestFramework) {
 	}
 }
 
-func issueBlocks(tf *tsc.TestFramework, blkPrefix string, blkCount int, parents []string, timestampOffset time.Duration) string {
+func issueBlocks(tf *TestFramework, blkPrefix string, blkCount int, parents []string, timestampOffset time.Duration) string {
 	blkAlias := fmt.Sprintf("%s_%d", blkPrefix, 0)
 
 	tf.BlockDAG.CreateBlock(blkAlias, models.WithStrongParents(tf.BlockDAG.BlockIDs(parents...)), models.WithIssuingTime(time.Now().Add(-timestampOffset)))

@@ -58,3 +58,8 @@ func (c *Commitment) RootsID() (rootsID types.Identifier) {
 func (c *Commitment) CumulativeWeight() (cumulativeWeight int64) {
 	return c.M.CumulativeWeight
 }
+
+func (c *Commitment) Equals(other *Commitment) bool {
+	return c.ID() == other.ID() && c.PrevID() == other.PrevID() && c.Index() == other.Index() &&
+		c.RootsID() == other.RootsID() && c.CumulativeWeight() == other.CumulativeWeight()
+}

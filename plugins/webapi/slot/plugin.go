@@ -54,7 +54,7 @@ func configure(_ *node.Plugin) {
 	deps.Server.GET("latest-confirmed-index", GetLatestConfirmedIndex)
 	// deps.Server.GET("slots/:index/voters-weight", getVotersWeight)
 
-	deps.Protocol.Events.Engine.NotarizationManager.SlotCommitted.Hook(func(e *notarization.SlotCommittedDetails) {
+	deps.Protocol.Events.Engine.Notarization.SlotCommitted.Hook(func(e *notarization.SlotCommittedDetails) {
 		currentSlotCommitmentLock.Lock()
 		defer currentSlotCommitmentLock.Unlock()
 

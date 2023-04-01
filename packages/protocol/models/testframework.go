@@ -91,6 +91,16 @@ func (t *TestFramework) Block(alias string) (block *Block) {
 	return
 }
 
+// Blocks retrieves the Blocks that are associated with the give aliases.
+func (t *TestFramework) Blocks(aliases ...string) (blocks []*Block) {
+	blocks = make([]*Block, len(aliases))
+	for i, alias := range aliases {
+		blocks[i] = t.Block(alias)
+	}
+
+	return
+}
+
 // BlockIDs retrieves the Blocks that are associated with the given aliases.
 func (t *TestFramework) BlockIDs(aliases ...string) (blockIDs BlockIDs) {
 	blockIDs = NewBlockIDs()
@@ -118,5 +128,5 @@ func WithBlock(alias string, block *Block) options.Option[TestFramework] {
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 func GenesisRootBlockProvider(index slot.Index) *advancedset.AdvancedSet[BlockID] {
-	return advancedset.NewAdvancedSet(EmptyBlockID)
+	return advancedset.New(EmptyBlockID)
 }

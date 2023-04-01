@@ -15,19 +15,23 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/blocktime"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/tangleconsensus"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/filter/blockfilter"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/realitiesledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxoledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/mockedvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization/slotnotarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markerbooker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/inmemorytangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
+	"github.com/iotaledger/goshimmer/packages/protocol/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage/utils"
 	"github.com/iotaledger/hive.go/ads"
@@ -48,7 +52,7 @@ type TestFramework struct {
 	Engine   *engine.Engine
 	Tangle   *tangle.TestFramework
 
-	mockAcceptance       *blockgadget.MockAcceptanceGadget
+	mockAcceptance       *blockgadget.MockBlockGadget
 	scheduledBlocks      *shrinkingmap.ShrinkingMap[models.BlockID, *scheduler.Block]
 	scheduledBlocksMutex sync.RWMutex
 
@@ -56,9 +60,11 @@ type TestFramework struct {
 	tipAdded   uint32
 	tipRemoved uint32
 
-	optsGenesisUnixTime   int64
-	optsTipManagerOptions []options.Option[TipManager]
-	optsEngineOptions     []options.Option[engine.Engine]
+	optsGenesisUnixTime         int64
+	optsSlotNotarizationOptions []options.Option[slotnotarization.Manager]
+	optsTipManagerOptions       []options.Option[TipManager]
+	optsBookerOptions           []options.Option[markerbooker.Booker]
+	optsEngineOptions           []options.Option[engine.Engine]
 }
 
 func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...options.Option[TestFramework]) (t *TestFramework) {
@@ -90,8 +96,14 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...option
 			storageInstance,
 			blocktime.NewProvider(),
 			ledgerProvider,
+			blockfilter.NewProvider(),
 			dpos.NewProvider(),
 			mana1.NewProvider(),
+			slotnotarization.NewProvider(t.optsSlotNotarizationOptions...),
+			inmemorytangle.NewProvider(inmemorytangle.WithBookerProvider(
+				markerbooker.NewProvider(t.optsBookerOptions...),
+			)),
+			tangleconsensus.NewProvider(),
 			t.optsEngineOptions...,
 		)
 		require.NoError(test, t.Engine.Initialize(tempDir.Path("genesis_snapshot.bin")))
@@ -105,7 +117,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...option
 		t.Tangle = tangle.NewTestFramework(
 			test,
 			t.Engine.Tangle,
-			booker.NewTestFramework(test, workers.CreateGroup("BookerTestFramework"), t.Engine.Tangle.Booker),
+			booker.NewTestFramework(test, workers.CreateGroup("BookerTestFramework"), t.Engine.Tangle.Booker().(*markerbooker.Booker), t.Engine.Tangle.BlockDAG(), t.Engine.Ledger.MemPool(), t.Engine.SybilProtection.Validators(), t.Engine.SlotTimeProvider),
 		)
 
 		t.Instance = New(workers.CreateGroup("TipManager"), t.mockSchedulerBlock, t.optsTipManagerOptions...)
@@ -120,7 +132,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...option
 }
 
 func (t *TestFramework) setupEvents() {
-	t.Tangle.Instance.Events.Booker.VirtualVoting.BlockTracked.Hook(func(block *virtualvoting.Block) {
+	t.Tangle.Instance.Events().Booker.VirtualVoting.BlockTracked.Hook(func(block *booker.Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("SIMULATING SCHEDULED: %s", block.ID())
 		}
@@ -151,8 +163,8 @@ func (t *TestFramework) setupEvents() {
 		atomic.AddUint32(&(t.tipRemoved), 1)
 	})
 
-	t.mockAcceptance.BlockAcceptedEvent.Hook(func(block *blockgadget.Block) {
-		require.NoError(t.test, t.Engine.NotarizationManager.NotarizeAcceptedBlock(block.ModelsBlock))
+	t.mockAcceptance.Events().BlockAccepted.Hook(func(block *blockgadget.Block) {
+		require.NoError(t.test, t.Engine.Notarization.NotarizeAcceptedBlock(block.ModelsBlock))
 	})
 }
 
@@ -164,13 +176,13 @@ func (t *TestFramework) createGenesis() {
 	structureDetails.SetPastMarkerGap(0)
 
 	block := scheduler.NewBlock(
-		virtualvoting.NewBlock(
+		booker.NewBlock(
 			blockdag.NewBlock(
-				models.NewEmptyBlock(models.EmptyBlockID, models.WithIssuingTime(t.Tangle.Instance.BlockDAG.SlotTimeProvider().GenesisTime())),
+				models.NewEmptyBlock(models.EmptyBlockID, models.WithIssuingTime(t.Engine.SlotTimeProvider().GenesisTime())),
 				blockdag.WithSolid(true),
 			),
-			virtualvoting.WithBooked(true),
-			virtualvoting.WithStructureDetails(structureDetails),
+			booker.WithBooked(true),
+			booker.WithStructureDetails(structureDetails),
 		),
 		scheduler.WithScheduled(true),
 	)
@@ -279,6 +291,18 @@ func WithGenesisUnixTime(unixTime int64) options.Option[TestFramework] {
 func WithTipManagerOptions(opts ...options.Option[TipManager]) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
 		tf.optsTipManagerOptions = opts
+	}
+}
+
+func WithSlotNotarizationOptions(opts ...options.Option[slotnotarization.Manager]) options.Option[TestFramework] {
+	return func(tf *TestFramework) {
+		tf.optsSlotNotarizationOptions = opts
+	}
+}
+
+func WithBookerOptions(opts ...options.Option[markerbooker.Booker]) options.Option[TestFramework] {
+	return func(tf *TestFramework) {
+		tf.optsBookerOptions = opts
 	}
 }
 

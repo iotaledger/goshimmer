@@ -8,9 +8,9 @@ type SpammerResponse struct {
 
 // SpammerRequest contains the parameters of a spammer request.
 type SpammerRequest struct {
-	Cmd         string `json:"cmd"`
-	IMIF        string `json:"imif"`
-	Rate        int    `json:"rate"`
-	Unit        string `json:"unit"`
-	PayloadSize uint64 `json:"payloadSize"`
+	Cmd         string `query:"cmd"`
+	IMIF        string `query:"imif"`
+	Rate        int    `query:"rate"`
+	Unit        string `query:"unit"`
+	PayloadSize uint64 `query:"payloadSize"`
 }

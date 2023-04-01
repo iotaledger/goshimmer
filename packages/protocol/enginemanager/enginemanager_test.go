@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
@@ -107,10 +108,12 @@ func TestEngineManager_ForkEngineAtSlot(t *testing.T) {
 		tf2 := engine.NewTestFramework(t, workers.CreateGroup("EngineTestFramework2"), forkedEngine)
 
 		// Settings
-		// The ChainID of the new engine corresponds to the target slot of the imported snapshot.
-		require.Equal(t, lo.PanicOnErr(tf.Instance.Storage.Commitments.Load(4)).ID(), tf2.Instance.Storage.Settings.ChainID())
+		// The ChainID of the new engine should correspond to genesis.
+		require.Equal(t, lo.PanicOnErr(tf.Instance.Storage.Commitments.Load(0)).ID(), tf2.Instance.Storage.Settings.ChainID())
 		require.Equal(t, lo.PanicOnErr(tf.Instance.Storage.Commitments.Load(4)).ID(), lo.PanicOnErr(tf2.Instance.Storage.Commitments.Load(4)).ID())
-		require.Equal(t, lo.PanicOnErr(tf.Instance.NotarizationManager.Attestations.Get(4)).Root(), lo.PanicOnErr(tf2.Instance.NotarizationManager.Attestations.Get(4)).Root())
+		require.Equal(t, lo.PanicOnErr(tf.Instance.Notarization.Attestations().Get(4)).Root(), lo.PanicOnErr(tf2.Instance.Notarization.Attestations().Get(4)).Root())
+		// We cache bytes here by getting ID so the next Equal doesn't fail.
+		require.Equal(t, tf.Instance.Storage.Settings.LatestCommitment().ID(), tf2.Instance.Storage.Settings.LatestCommitment().ID())
 		require.Equal(t, tf.Instance.Storage.Settings.LatestCommitment(), tf2.Instance.Storage.Settings.LatestCommitment())
 		require.Equal(t, tf.Instance.Storage.Settings.LatestConfirmedSlot(), tf2.Instance.Storage.Settings.LatestConfirmedSlot())
 		require.Equal(t, tf.Instance.Storage.Settings.LatestStateMutationSlot(), tf2.Instance.Storage.Settings.LatestStateMutationSlot())
@@ -136,7 +139,7 @@ func TestEngineManager_ForkEngineAtSlot(t *testing.T) {
 			}))
 
 			// RootBlocks
-			require.NoError(t, tf.Instance.Storage.RootBlocks.Stream(slotIndex, func(rootBlock models.BlockID) error {
+			require.NoError(t, tf.Instance.Storage.RootBlocks.Stream(slotIndex, func(rootBlock models.BlockID, _ commitment.ID) error {
 				has, err := tf2.Instance.Storage.RootBlocks.Has(rootBlock)
 				require.NoError(t, err)
 				require.True(t, has)
@@ -163,9 +166,9 @@ func TestEngineManager_ForkEngineAtSlot(t *testing.T) {
 		require.Equal(t, tf.Instance.ThroughputQuota.TotalBalance(), tf2.Instance.ThroughputQuota.TotalBalance())
 
 		// Attestations for the targetSlot only
-		require.Equal(t, lo.PanicOnErr(tf.Instance.NotarizationManager.Attestations.Get(4)).Root(), lo.PanicOnErr(tf2.Instance.NotarizationManager.Attestations.Get(4)).Root())
-		require.NoError(t, lo.PanicOnErr(tf.Instance.NotarizationManager.Attestations.Get(4)).Stream(func(key identity.ID, engine1Attestation *notarization.Attestation) bool {
-			engine2Attestations := lo.PanicOnErr(tf2.Instance.NotarizationManager.Attestations.Get(4))
+		require.Equal(t, lo.PanicOnErr(tf.Instance.Notarization.Attestations().Get(4)).Root(), lo.PanicOnErr(tf2.Instance.Notarization.Attestations().Get(4)).Root())
+		require.NoError(t, lo.PanicOnErr(tf.Instance.Notarization.Attestations().Get(4)).Stream(func(key identity.ID, engine1Attestation *notarization.Attestation) bool {
+			engine2Attestations := lo.PanicOnErr(tf2.Instance.Notarization.Attestations().Get(4))
 			engine2Attestation, exists := engine2Attestations.Get(key)
 			require.True(t, exists)
 			require.Equal(t, engine1Attestation, engine2Attestation)

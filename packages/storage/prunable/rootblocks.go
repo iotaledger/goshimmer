@@ -3,10 +3,10 @@ package prunable
 import (
 	"github.com/pkg/errors"
 
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/slot"
-	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/lo"
 )
@@ -23,9 +23,9 @@ func NewRootBlocks(databaseInstance *database.Manager, storagePrefix byte) (newR
 }
 
 // Store stores the given blockID as a root block.
-func (r *RootBlocks) Store(id models.BlockID) (err error) {
-	if err = r.Storage(id.Index()).Set(lo.PanicOnErr(id.Bytes()), []byte{1}); err != nil {
-		return errors.Wrapf(err, "failed to store solid entry point block %s", id)
+func (r *RootBlocks) Store(id models.BlockID, commitmentID commitment.ID) (err error) {
+	if err = r.Storage(id.Index()).Set(lo.PanicOnErr(id.Bytes()), lo.PanicOnErr(commitmentID.Bytes())); err != nil {
+		return errors.Wrapf(err, "failed to store solid entry point block %s with commitment %s", id, commitmentID)
 	}
 
 	return nil
@@ -50,36 +50,17 @@ func (r *RootBlocks) Delete(blockID models.BlockID) (err error) {
 	return nil
 }
 
-// LoadAll loads all root blocks for an slot index.
-func (r *RootBlocks) LoadAll(index slot.Index) (solidEntryPoints *advancedset.AdvancedSet[models.BlockID]) {
-	solidEntryPoints = advancedset.NewAdvancedSet[models.BlockID]()
-	if err := r.Stream(index, func(id models.BlockID) error {
-		solidEntryPoints.Add(id)
-		return nil
-	}); err != nil {
-		panic(errors.Wrapf(err, "failed to load all rootblocks for slot %d", index))
-	}
-	return
-}
-
-// StoreAll stores all passed root blocks.
-func (r *RootBlocks) StoreAll(rootBlocks *advancedset.AdvancedSet[models.BlockID]) (err error) {
-	for it := rootBlocks.Iterator(); it.HasNext(); {
-		if err := r.Store(it.Next()); err != nil {
-			return errors.Wrap(err, "failed to store rootblocks")
-		}
-	}
-	return nil
-}
-
-// Stream streams all root blocks for an slot index.
-func (r *RootBlocks) Stream(index slot.Index, processor func(models.BlockID) error) (err error) {
-	if storageErr := r.Storage(index).Iterate([]byte{}, func(blockIDBytes kvstore.Key, _ kvstore.Value) bool {
-		blockID := new(models.BlockID)
-		if _, err = blockID.FromBytes(blockIDBytes); err != nil {
+// Stream streams all root blocks for a slot index.
+func (r *RootBlocks) Stream(index slot.Index, processor func(id models.BlockID, commitmentID commitment.ID) error) (err error) {
+	if storageErr := r.Storage(index).Iterate([]byte{}, func(blockIDBytes kvstore.Key, commitmentIDBytes kvstore.Value) bool {
+		id := new(models.BlockID)
+		commitmentID := new(commitment.ID)
+		if _, err = id.FromBytes(blockIDBytes); err != nil {
 			err = errors.Wrapf(err, "failed to parse blockID %s", blockIDBytes)
-		} else if err = processor(*blockID); err != nil {
-			err = errors.Wrapf(err, "failed to process root block %s", blockID)
+		} else if _, err = commitmentID.FromBytes(commitmentIDBytes); err != nil {
+			err = errors.Wrapf(err, "failed to parse commitmentID %s", commitmentIDBytes)
+		} else if err = processor(*id, *commitmentID); err != nil {
+			err = errors.Wrapf(err, "failed to process root block %s with commitment %s", *id, *commitmentID)
 		}
 
 		return err == nil
