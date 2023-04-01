@@ -338,8 +338,10 @@ func (n *Node) IssueBlock(alias string, parents ...models.BlockID) *models.Block
 	return tf.BlockDAG.Block(alias)
 }
 
-func (n *Node) IssueActivity(duration time.Duration) {
+func (n *Node) IssueActivity(duration time.Duration, wg *sync.WaitGroup) {
 	go func() {
+		defer wg.Done()
+
 		start := time.Now()
 		fmt.Println(n.Name, "> Starting activity")
 		var counter int
