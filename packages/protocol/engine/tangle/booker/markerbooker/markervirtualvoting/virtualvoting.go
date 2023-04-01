@@ -40,7 +40,7 @@ func New(workers *workerpool.Group, conflictDAG *conflictdag.ConflictDAG[utxo.Tr
 
 	newVirtualVoting.events.ConflictTracker.LinkTo(newVirtualVoting.conflictTracker.Events)
 
-	return 
+	return
 }
 
 var _ booker.VirtualVoting = new(VirtualVoting)

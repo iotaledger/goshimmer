@@ -92,7 +92,6 @@ func (s *SequenceTracker[VotePowerType]) VotersWithPower(marker markers.Marker) 
 	return
 }
 
-
 func (s *SequenceTracker[VotePowerType]) addVoteToMarker(marker markers.Marker, voter identity.ID, power VotePowerType, walk *walker.Walker[markers.Marker]) {
 	// We don't add the voter and abort if the marker is already accepted/confirmed. This prevents walking too much in the sequence DAG.
 	// However, it might lead to inaccuracies when creating a new conflict once a conflict arrives, and we copy over the

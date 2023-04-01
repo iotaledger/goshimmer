@@ -17,8 +17,8 @@ import (
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
 
 type TestFramework[VotePowerType constraints.Comparable[VotePowerType]] struct {
-	test            *testing.T
-	Instance        *SequenceTracker[VotePowerType]
+	test     *testing.T
+	Instance *SequenceTracker[VotePowerType]
 
 	Votes   *votes.TestFramework
 	Markers *markers.TestFramework
@@ -27,10 +27,10 @@ type TestFramework[VotePowerType constraints.Comparable[VotePowerType]] struct {
 // NewTestFramework is the constructor of the TestFramework.
 func NewTestFramework[VotePowerType constraints.Comparable[VotePowerType]](test *testing.T, votesTF *votes.TestFramework, sequenceTracker *SequenceTracker[VotePowerType], sequenceManager *markers.SequenceManager) *TestFramework[VotePowerType] {
 	t := &TestFramework[VotePowerType]{
-		test:            test,
-		Votes:           votesTF,
-		Instance:        sequenceTracker,
-		Markers:         markers.NewTestFramework(test, markers.WithSequenceManager(sequenceManager)),
+		test:     test,
+		Votes:    votesTF,
+		Instance: sequenceTracker,
+		Markers:  markers.NewTestFramework(test, markers.WithSequenceManager(sequenceManager)),
 	}
 
 	t.Instance.Events.VotersUpdated.Hook(func(evt *VoterUpdatedEvent) {

@@ -37,7 +37,7 @@ type TestFramework struct {
 	bookedBlocks          int32
 	blockConflictsUpdated int32
 	markerConflictsAdded  int32
-	trackedBlocks     uint32
+	trackedBlocks         uint32
 }
 
 func NewTestFramework(test *testing.T, workers *workerpool.Group, instance Booker, blockDAG blockdag.BlockDAG, memPool mempool.MemPool, validators *sybilprotection.WeightedSet, slotTimeProviderFunc func() *slot.TimeProvider) *TestFramework {
