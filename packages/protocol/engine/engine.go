@@ -307,7 +307,6 @@ func (e *Engine) setupEvictionState() {
 	e.Events.Notarization.SlotCommitted.Hook(func(details *notarization.SlotCommittedDetails) {
 		e.ProcessingMutex.Lock()
 		defer e.ProcessingMutex.Unlock()
-		
 		e.EvictionState.EvictUntil(details.Commitment.Index())
 	}, event.WithWorkerPool(wp))
 }
