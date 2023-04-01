@@ -122,7 +122,6 @@ func (s *Spammer) setup() {
 	if s.ErrCounter == nil {
 		s.ErrCounter = NewErrorCount()
 	}
-
 }
 
 func (s *Spammer) setupSpamDetails() {

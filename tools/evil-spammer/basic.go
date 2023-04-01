@@ -79,7 +79,6 @@ func CustomSpam(params *CustomSpamParams) {
 			wg.Add(1)
 			go func(i int) {
 				defer wg.Done()
-
 			}(i)
 
 		default:

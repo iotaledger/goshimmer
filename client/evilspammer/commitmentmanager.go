@@ -81,7 +81,7 @@ func (c *CommitmentManager) setupInitCommitment() {
 func (c *CommitmentManager) setupTimeParams(clt evilwallet.Client) {
 	genesisTime, slotDuration, err := clt.GetTimeProvider()
 	if err != nil {
-		panic(errors.Wrapf(err, "failed to get time provider for the committment manager setup"))
+		panic(errors.Wrapf(err, "failed to get time provider for the commitment manager setup"))
 	}
 	c.Params.GenesisTime = genesisTime
 	c.Params.SlotDuration = slotDuration
