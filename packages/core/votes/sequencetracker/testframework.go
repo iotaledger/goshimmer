@@ -19,7 +19,6 @@ import (
 type TestFramework[VotePowerType constraints.Comparable[VotePowerType]] struct {
 	test            *testing.T
 	Instance        *SequenceTracker[VotePowerType]
-	SequenceManager *markers.SequenceManager
 
 	Votes   *votes.TestFramework
 	Markers *markers.TestFramework
@@ -31,7 +30,6 @@ func NewTestFramework[VotePowerType constraints.Comparable[VotePowerType]](test 
 		test:            test,
 		Votes:           votesTF,
 		Instance:        sequenceTracker,
-		SequenceManager: sequenceManager,
 		Markers:         markers.NewTestFramework(test, markers.WithSequenceManager(sequenceManager)),
 	}
 

@@ -5,8 +5,11 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/goshimmer/packages/core/votes"
+	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
@@ -14,22 +17,27 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/markers"
 	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/runtime/debug"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 type TestFramework struct {
-	Test          *testing.T
-	Workers       *workerpool.Group
-	Instance      Booker
-	Ledger        *mempool.TestFramework
-	BlockDAG      *blockdag.TestFramework
-	ConflictDAG   *conflictdag.TestFramework
-	VirtualVoting *VirtualVotingTestFramework
+	Test            *testing.T
+	Workers         *workerpool.Group
+	Instance        Booker
+	Ledger          *mempool.TestFramework
+	BlockDAG        *blockdag.TestFramework
+	ConflictDAG     *conflictdag.TestFramework
+	VirtualVoting   *VirtualVotingTestFramework
+	SequenceTracker *sequencetracker.TestFramework[BlockVotePower]
+	Votes           *votes.TestFramework
 
 	bookedBlocks          int32
 	blockConflictsUpdated int32
 	markerConflictsAdded  int32
+	trackedBlocks     uint32
 }
 
 func NewTestFramework(test *testing.T, workers *workerpool.Group, instance Booker, blockDAG blockdag.BlockDAG, memPool mempool.MemPool, validators *sybilprotection.WeightedSet, slotTimeProviderFunc func() *slot.TimeProvider) *TestFramework {
@@ -42,6 +50,14 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, instance Booke
 		Ledger:        mempool.NewTestFramework(test, memPool),
 		VirtualVoting: NewVirtualVotingTestFramework(test, instance.VirtualVoting(), memPool, validators),
 	}
+
+	t.Votes = votes.NewTestFramework(test, validators)
+
+	t.SequenceTracker = sequencetracker.NewTestFramework(test,
+		t.Votes,
+		t.Instance.SequenceTracker(),
+		t.Instance.SequenceManager(),
+	)
 
 	t.setupEvents()
 	return t
@@ -110,6 +126,14 @@ func (t *TestFramework) setupEvents() {
 
 	t.Instance.Events().Error.Hook(func(err error) {
 		t.Test.Logf("ERROR: %s", err)
+	})
+
+	t.Instance.Events().BlockTracked.Hook(func(metadata *Block) {
+		if debug.GetEnabled() {
+			t.Test.Logf("TRACKED: %s", metadata.ID())
+		}
+
+		atomic.AddUint32(&(t.trackedBlocks), 1)
 	})
 }
 
@@ -180,4 +204,16 @@ func (t *TestFramework) CheckBlockMetadataDiffConflictIDs(expectedDiffConflictID
 		require.True(t.Test, expectedDiffConflictID[0].Equal(block.AddedConflictIDs()), "AddConflictIDs of %s should be %s but is %s in the Metadata", blockAlias, expectedDiffConflictID[0], block.AddedConflictIDs())
 		require.True(t.Test, expectedDiffConflictID[1].Equal(block.SubtractedConflictIDs()), "SubtractedConflictIDs of %s should be %s but is %s in the Metadata", blockAlias, expectedDiffConflictID[1], block.SubtractedConflictIDs())
 	}
+}
+
+func (t *TestFramework) ValidateMarkerVoters(expectedVoters map[markers.Marker]*advancedset.AdvancedSet[identity.ID]) {
+	for marker, expectedVotersOfMarker := range expectedVoters {
+		voters := t.Instance.SequenceTracker().Voters(marker)
+
+		assert.True(t.Test, expectedVotersOfMarker.Equal(voters), "marker %s expected %d voters but got %d", marker, expectedVotersOfMarker.Size(), voters.Size())
+	}
+}
+
+func (t *TestFramework) AssertBlockTracked(blocksTracked uint32) {
+	assert.Equal(t.Test, blocksTracked, atomic.LoadUint32(&t.trackedBlocks), "expected %d blocks to be tracked but got %d", blocksTracked, atomic.LoadUint32(&t.trackedBlocks))
 }

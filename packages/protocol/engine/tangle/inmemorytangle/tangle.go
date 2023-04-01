@@ -33,7 +33,10 @@ func NewProvider(opts ...options.Option[Tangle]) module.Provider[*engine.Engine,
 			events: tangle.NewEvents(),
 
 			optsBlockDAGProvider: inmemoryblockdag.NewProvider(),
-			optsBookerProvider:   markerbooker.NewProvider(),
+			optsBookerProvider: markerbooker.NewProvider(
+				markerbooker.WithSlotCutoffCallback(e.LastConfirmedSlot),
+				markerbooker.WithSequenceCutoffCallback(e.FirstUnacceptedMarker),
+			),
 		},
 			opts,
 			func(t *Tangle) {
