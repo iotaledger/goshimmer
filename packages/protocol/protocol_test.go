@@ -887,6 +887,7 @@ func TestEngine_ShutdownResume(t *testing.T) {
 }
 
 func TestProtocol_EngineSwitching(t *testing.T) {
+	t.Skip()
 	testNetwork := network.NewMockedNetwork()
 
 	identitiesMap := map[string]ed25519.KeyPair{

@@ -20,13 +20,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markerbooker/markervirtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/causalorder"
+	"github.com/iotaledger/hive.go/core/causalordersync"
 	"github.com/iotaledger/hive.go/core/memstorage"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/ds/walker"
 	"github.com/iotaledger/hive.go/lo"
-	"github.com/iotaledger/hive.go/runtime/event"
 	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/iotaledger/hive.go/runtime/syncutils"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
@@ -43,7 +42,7 @@ type Booker struct {
 	evictionState *eviction.State
 	virtualVoting *markervirtualvoting.VirtualVoting
 
-	bookingOrder  *causalorder.CausalOrder[models.BlockID, *booker.Block]
+	bookingOrder  *causalordersync.CausalOrder[models.BlockID, *booker.Block]
 	attachments   *attachments
 	blocks        *memstorage.SlotStorage[models.BlockID, *booker.Block]
 	markerManager *markermanager.MarkerManager[models.BlockID, *booker.Block]
@@ -74,7 +73,7 @@ func NewProvider(opts ...options.Option[Booker]) module.Provider[*engine.Engine,
 			}
 
 			b.virtualVoting.EvictSlotTracker(index)
-		}, event.WithWorkerPool(e.Workers.CreatePool("Eviction", 1))) // Using just 1 worker to avoid contention
+		} /*, event.WithWorkerPool(e.Workers.CreatePool("Eviction", 1))*/) // Using just 1 worker to avoid contention
 
 		e.HookConstructed(func() {
 			b.Initialize(e.Tangle.BlockDAG())
@@ -100,14 +99,14 @@ func New(workers *workerpool.Group, evictionState *eviction.State, memPool mempo
 	}, opts, func(b *Booker) {
 		b.markerManager = markermanager.NewMarkerManager(b.optsMarkerManager...)
 		b.virtualVoting = markervirtualvoting.New(workers.CreateGroup("VirtualVoting"), memPool.ConflictDAG(), b.markerManager.SequenceManager, validators, b.optsVirtualVoting...)
-		b.bookingOrder = causalorder.New(
+		b.bookingOrder = causalordersync.New(
 			workers.CreatePool("BookingOrder", 2),
 			b.Block,
 			(*booker.Block).IsBooked,
 			b.book,
 			b.markInvalid,
 			(*booker.Block).Parents,
-			causalorder.WithReferenceValidator[models.BlockID](isReferenceValid),
+			causalordersync.WithReferenceValidator[models.BlockID](isReferenceValid),
 		)
 
 		b.evictionState.Events.SlotEvicted.Hook(b.evict)
@@ -146,19 +145,14 @@ func (b *Booker) Initialize(blockDAG blockdag.BlockDAG) {
 				b.bookingOrder.Queue(block)
 			}
 		}
-	}, event.WithWorkerPool(b.workers.CreatePool("Booker", 2)))
+	} /*, event.WithWorkerPool(b.workers.CreatePool("Booker", 2))*/)
 
 	b.events.SequenceEvicted.Hook(func(sequenceID markers.SequenceID) {
 		b.virtualVoting.EvictSequence(sequenceID)
-	}, event.WithWorkerPool(b.workers.CreatePool("VirtualVoting Sequence Eviction", 1)))
+	} /*, event.WithWorkerPool(b.workers.CreatePool("VirtualVoting Sequence Eviction", 1))*/)
 
 	b.TriggerInitialized()
 }
-
-/*
-
-
- */
 
 var _ booker.Booker = new(Booker)
 
@@ -188,7 +182,6 @@ func (b *Booker) queue(block *booker.Block) (wasQueued bool, err error) {
 	}
 
 	b.blocks.Get(block.ID().Index(), true).Set(block.ID(), block)
-
 	return b.isPayloadSolid(block)
 }
 
@@ -196,7 +189,6 @@ func (b *Booker) queue(block *booker.Block) (wasQueued bool, err error) {
 func (b *Booker) Block(id models.BlockID) (block *booker.Block, exists bool) {
 	b.evictionMutex.RLock()
 	defer b.evictionMutex.RUnlock()
-
 	return b.block(id)
 }
 
@@ -349,6 +341,7 @@ func (b *Booker) block(id models.BlockID) (block *booker.Block, exists bool) {
 
 	storage := b.blocks.Get(id.Index(), false)
 	if storage == nil {
+		fmt.Println("block already evicted", id)
 		return nil, false
 	}
 
@@ -381,17 +374,17 @@ func (b *Booker) book(block *booker.Block) (inheritingErr error) {
 		return
 	}
 
-	inheritedConflitIDs, inheritingErr := tryInheritConflictIDs()
+	inheritedConflictIDs, inheritingErr := tryInheritConflictIDs()
 	if inheritingErr != nil {
 		return inheritingErr
 	}
 
 	b.events.BlockBooked.Trigger(&booker.BlockBookedEvent{
 		Block:       block,
-		ConflictIDs: inheritedConflitIDs,
+		ConflictIDs: inheritedConflictIDs,
 	})
 
-	b.virtualVoting.Track(block, inheritedConflitIDs)
+	b.virtualVoting.Track(block, inheritedConflictIDs)
 
 	return nil
 }

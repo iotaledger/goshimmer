@@ -361,7 +361,12 @@ func (p *Protocol) switchEngines() {
 }
 
 func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) error {
+	// TODO: lock this method
+
 	mainEngine := p.MainEngineInstance()
+
+	mainEngine.ProcessingMutex.Lock()
+	defer mainEngine.ProcessingMutex.Unlock()
 
 	isSolid, chain := p.chainManager.ProcessCommitmentFromSource(block.Commitment(), src)
 	if !isSolid {

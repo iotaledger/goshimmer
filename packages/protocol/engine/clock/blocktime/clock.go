@@ -7,7 +7,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/lo"
-	"github.com/iotaledger/hive.go/runtime/event"
 	"github.com/iotaledger/hive.go/runtime/options"
 )
 
@@ -41,21 +40,21 @@ func NewProvider(opts ...options.Option[Clock]) module.Provider[*engine.Engine, 
 				e.Events.Clock.AcceptedTimeUpdated.LinkTo(c.acceptedTime.OnUpdated)
 				e.Events.Clock.ConfirmedTimeUpdated.LinkTo(c.confirmedTime.OnUpdated)
 
-				asyncOpt := event.WithWorkerPool(e.Workers.CreatePool("Clock", 1))
+				//asyncOpt := event.WithWorkerPool(e.Workers.CreatePool("Clock", 1))
 				c.HookStopped(lo.Batch(
 					e.Events.Consensus.BlockGadget.BlockAccepted.Hook(func(block *blockgadget.Block) {
 						c.acceptedTime.Advance(block.IssuingTime())
-					}, asyncOpt).Unhook,
+					} /*, asyncOpt*/).Unhook,
 
 					e.Events.Consensus.BlockGadget.BlockConfirmed.Hook(func(block *blockgadget.Block) {
 						c.acceptedTime.Advance(block.IssuingTime())
 						c.confirmedTime.Advance(block.IssuingTime())
-					}, asyncOpt).Unhook,
+					} /*, asyncOpt*/).Unhook,
 
 					e.Events.Consensus.SlotGadget.SlotConfirmed.Hook(func(index slot.Index) {
 						c.acceptedTime.Advance(e.SlotTimeProvider().EndTime(index))
 						c.confirmedTime.Advance(e.SlotTimeProvider().EndTime(index))
-					}, asyncOpt).Unhook,
+					} /*, asyncOpt*/).Unhook,
 				))
 			})
 

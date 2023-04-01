@@ -19,7 +19,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/hive.go/core/slot"
-	"github.com/iotaledger/hive.go/runtime/event"
 	"github.com/iotaledger/hive.go/runtime/options"
 )
 
@@ -67,8 +66,8 @@ func NewProvider(opts ...options.Option[Manager]) module.Provider[*engine.Engine
 				m.HookInitialized(m.attestations.TriggerInitialized)
 
 				e.HookConstructed(func() {
-					wpBlocks := e.Workers.CreatePool("NotarizationManager.Blocks", 1)           // Using just 1 worker to avoid contention
-					wpCommitments := e.Workers.CreatePool("NotarizationManager.Commitments", 1) // Using just 1 worker to avoid contention
+					//wpBlocks := e.Workers.CreatePool("NotarizationManager.Blocks", 1)           // Using just 1 worker to avoid contention
+					//wpCommitments := e.Workers.CreatePool("NotarizationManager.Commitments", 1) // Using just 1 worker to avoid contention
 
 					// SlotMutations must be hooked because inclusion might be added before transaction are added.
 					e.Events.Ledger.MemPool.TransactionAccepted.Hook(func(event *mempool.TransactionEvent) {
@@ -86,15 +85,15 @@ func NewProvider(opts ...options.Option[Manager]) module.Provider[*engine.Engine
 						if err := e.Notarization.NotarizeAcceptedBlock(block.ModelsBlock); err != nil {
 							e.Events.Error.Trigger(errors.Wrapf(err, "failed to add accepted block %s to slot", block.ID()))
 						}
-					}, event.WithWorkerPool(wpBlocks))
+					} /*, event.WithWorkerPool(wpBlocks)*/)
 					e.Events.Tangle.BlockDAG.BlockOrphaned.Hook(func(block *blockdag.Block) {
 						if err := e.Notarization.NotarizeOrphanedBlock(block.ModelsBlock); err != nil {
 							e.Events.Error.Trigger(errors.Wrapf(err, "failed to remove orphaned block %s from slot", block.ID()))
 						}
-					}, event.WithWorkerPool(wpBlocks))
+					} /*, event.WithWorkerPool(wpBlocks)*/)
 
 					// Slots are committed whenever ATT advances, start committing only when bootstrapped.
-					e.Events.Clock.AcceptedTimeUpdated.Hook(m.SetAcceptanceTime, event.WithWorkerPool(wpCommitments))
+					e.Events.Clock.AcceptedTimeUpdated.Hook(m.SetAcceptanceTime /*, event.WithWorkerPool(wpCommitments)*/)
 
 					e.SybilProtection.HookInitialized(func() {
 						m.slotMutations = NewSlotMutations(e.SybilProtection.Weights(), e.Storage.Settings.LatestCommitment().Index())

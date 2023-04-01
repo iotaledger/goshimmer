@@ -62,6 +62,8 @@ type Engine struct {
 	optsTSCManagerOptions     []options.Option[tsc.Manager]
 	optsBlockRequester        []options.Option[eventticker.EventTicker[models.BlockID]]
 
+	ProcessingMutex sync.Mutex
+
 	module.Module
 }
 
@@ -263,18 +265,18 @@ func (e *Engine) setupTSCManager() {
 }
 
 func (e *Engine) setupBlockStorage() {
-	wp := e.Workers.CreatePool("BlockStorage", 1) // Using just 1 worker to avoid contention
+	//wp := e.Workers.CreatePool("BlockStorage", 1) // Using just 1 worker to avoid contention
 
 	e.Events.Consensus.BlockGadget.BlockAccepted.Hook(func(block *blockgadget.Block) {
 		if err := e.Storage.Blocks.Store(block.ModelsBlock); err != nil {
 			e.Events.Error.Trigger(errors.Wrapf(err, "failed to store block with %s", block.ID()))
 		}
-	}, event.WithWorkerPool(wp))
+	} /*, event.WithWorkerPool(wp)*/)
 	e.Events.Tangle.BlockDAG.BlockOrphaned.Hook(func(block *blockdag.Block) {
 		if err := e.Storage.Blocks.Delete(block.ID()); err != nil {
 			e.Events.Error.Trigger(errors.Wrapf(err, "failed to delete block with %s", block.ID()))
 		}
-	}, event.WithWorkerPool(wp))
+	} /*, event.WithWorkerPool(wp)*/)
 }
 
 func (e *Engine) setupEvictionState() {
@@ -303,6 +305,9 @@ func (e *Engine) setupEvictionState() {
 		e.EvictionState.RemoveRootBlock(block.ID())
 	}, event.WithWorkerPool(wp))
 	e.Events.Notarization.SlotCommitted.Hook(func(details *notarization.SlotCommittedDetails) {
+		e.ProcessingMutex.Lock()
+		defer e.ProcessingMutex.Unlock()
+		
 		e.EvictionState.EvictUntil(details.Commitment.Index())
 	}, event.WithWorkerPool(wp))
 }
@@ -320,7 +325,7 @@ func (e *Engine) setupBlockRequester() {
 	})
 	e.Events.Tangle.BlockDAG.MissingBlockAttached.Hook(func(block *blockdag.Block) {
 		e.BlockRequester.StopTicker(block.ID())
-	}, event.WithWorkerPool(e.Workers.CreatePool("BlockRequester", 1))) // Using just 1 worker to avoid contention
+	} /*, event.WithWorkerPool(e.Workers.CreatePool("BlockRequester", 1))*/) // Using just 1 worker to avoid contention
 }
 
 func (e *Engine) readSnapshot(filePath string) (err error) {

@@ -13,13 +13,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/causalorder"
+	"github.com/iotaledger/hive.go/core/causalordersync"
 	"github.com/iotaledger/hive.go/core/memstorage"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/ds/walker"
 	"github.com/iotaledger/hive.go/lo"
-	"github.com/iotaledger/hive.go/runtime/event"
 	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
@@ -38,7 +37,7 @@ type BlockDAG struct {
 	memStorage *memstorage.SlotStorage[models.BlockID, *blockdag.Block]
 
 	// solidifier contains the solidifier instance used to determine the solidity of Blocks.
-	solidifier *causalorder.CausalOrder[models.BlockID, *blockdag.Block]
+	solidifier *causalordersync.CausalOrder[models.BlockID, *blockdag.Block]
 
 	// commitmentFunc is a function that returns the commitment corresponding to the given slot index.
 	commitmentFunc func(index slot.Index) (*commitment.Commitment, error)
@@ -77,11 +76,11 @@ func NewProvider(opts ...options.Option[BlockDAG]) module.Provider[*engine.Engin
 				if _, _, err := b.Attach(block); err != nil {
 					e.Events.Error.Trigger(errors.Wrapf(err, "failed to attach block with %s (issuerID: %s)", block.ID(), block.IssuerID()))
 				}
-			}, event.WithWorkerPool(e.Workers.CreatePool("Tangle.Attach", 2)))
+			} /*, event.WithWorkerPool(e.Workers.CreatePool("Tangle.Attach", 2))*/)
 
 			e.Events.Notarization.SlotCommitted.Hook(func(evt *notarization.SlotCommittedDetails) {
 				b.PromoteFutureBlocksUntil(evt.Commitment.Index())
-			}, event.WithWorkerPool(e.Workers.CreatePool("Tangle.PromoteFutureBlocksUntil", 1)))
+			} /*, event.WithWorkerPool(e.Workers.CreatePool("Tangle.PromoteFutureBlocksUntil", 1))*/)
 
 			b.TriggerInitialized()
 		})
@@ -100,20 +99,22 @@ func New(workers *workerpool.Group, evictionState *eviction.State, slotTimeProvi
 		commitmentFunc:       latestCommitmentFunc,
 		futureBlocks:         memstorage.NewSlotStorage[commitment.ID, *advancedset.AdvancedSet[*blockdag.Block]](),
 		Workers:              workers,
-		workerPool:           workers.CreatePool("Solidifier", 2),
+		// do not use workerpool to make sure things run synchronously
+		//workerPool:           workers.CreatePool("Solidifier", 2),
+
 	}, opts,
 		func(b *BlockDAG) {
-			b.solidifier = causalorder.New(
+			b.solidifier = causalordersync.New(
 				b.workerPool,
 				b.Block,
 				(*blockdag.Block).IsSolid,
 				b.markSolid,
 				b.markInvalid,
 				(*blockdag.Block).Parents,
-				causalorder.WithReferenceValidator[models.BlockID](checkReference),
+				causalordersync.WithReferenceValidator[models.BlockID](checkReference),
 			)
 
-			evictionState.Events.SlotEvicted.Hook(b.evictSlot, event.WithWorkerPool(b.workerPool))
+			evictionState.Events.SlotEvicted.Hook(b.evictSlot /*, event.WithWorkerPool(b.workerPool)*/)
 		},
 		(*BlockDAG).TriggerConstructed,
 		(*BlockDAG).TriggerInitialized,
@@ -139,8 +140,8 @@ func (b *BlockDAG) Attach(data *models.Block) (block *blockdag.Block, wasAttache
 	if block, wasAttached, err = b.attach(data); wasAttached {
 		b.events.BlockAttached.Trigger(block)
 
-		b.solidifierMutex.RLock()
-		defer b.solidifierMutex.RUnlock()
+		//b.solidifierMutex.RLock()
+		//defer b.solidifierMutex.RUnlock()
 
 		b.solidifier.Queue(block)
 	}
@@ -200,10 +201,10 @@ func (b *BlockDAG) SetOrphaned(block *blockdag.Block, orphaned bool) (updated bo
 }
 
 func (b *BlockDAG) PromoteFutureBlocksUntil(index slot.Index) {
-	b.solidifierMutex.RLock()
-	defer b.solidifierMutex.RUnlock()
-	b.futureBlocksMutex.Lock()
-	defer b.futureBlocksMutex.Unlock()
+	//b.solidifierMutex.RLock()
+	//defer b.solidifierMutex.RUnlock()
+	//b.futureBlocksMutex.Lock()
+	//defer b.futureBlocksMutex.Unlock()
 
 	for i := b.nextIndexToPromote; i <= index; i++ {
 		cm, err := b.commitmentFunc(i)
@@ -226,8 +227,8 @@ func (b *BlockDAG) PromoteFutureBlocksUntil(index slot.Index) {
 
 // evictSlot is used to evict Blocks from committed slots from the BlockDAG.
 func (b *BlockDAG) evictSlot(index slot.Index) {
-	b.solidifierMutex.Lock()
-	defer b.solidifierMutex.Unlock()
+	//b.solidifierMutex.Lock()
+	//defer b.solidifierMutex.Unlock()
 	b.solidifier.EvictUntil(index)
 
 	b.evictionMutex.Lock()

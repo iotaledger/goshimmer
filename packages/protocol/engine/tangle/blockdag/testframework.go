@@ -1,6 +1,7 @@
 package blockdag
 
 import (
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -81,10 +82,10 @@ func (t *TestFramework) SlotTimeProvider() *slot.TimeProvider {
 func (t *TestFramework) IssueBlocks(blockAliases ...string) *TestFramework {
 	for _, alias := range blockAliases {
 		currentBlock := t.ModelsTestFramework.Block(alias)
-
-		t.workerPool.Submit(func() {
-			_, _, _ = t.Instance.Attach(currentBlock)
-		})
+		fmt.Println("issue", alias)
+		//t.workerPool.Submit(func() {
+		_, _, _ = t.Instance.Attach(currentBlock)
+		//})
 	}
 
 	t.workers.WaitParents()
