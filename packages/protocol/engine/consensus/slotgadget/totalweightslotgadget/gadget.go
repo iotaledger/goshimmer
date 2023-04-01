@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/lo"
-	"github.com/iotaledger/hive.go/runtime/event"
 	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
@@ -37,13 +36,13 @@ func NewProvider(opts ...options.Option[Gadget]) module.Provider[*engine.Engine,
 			optsSlotConfirmationThreshold: 0.67,
 		}, opts, func(g *Gadget) {
 			e.HookConstructed(func() {
-				g.workers = e.Workers.CreateGroup("SlotGadget")
+				//g.workers = e.Workers.CreateGroup("SlotGadget")
 				g.tangle = e.Tangle
 				g.totalWeightCallback = e.SybilProtection.Weights().TotalWeightWithoutZeroIdentity
 
 				e.Events.Tangle.Booker.VirtualVoting.SlotTracker.VotersUpdated.Hook(func(evt *slottracker.VoterUpdatedEvent) {
 					g.refreshSlotConfirmation(evt.PrevLatestSlotIndex, evt.NewLatestSlotIndex)
-				}, event.WithWorkerPool(g.workers.CreatePool("Refresh", 2)))
+				} /*, event.WithWorkerPool(g.workers.CreatePool("Refresh", 2))*/)
 
 				e.HookInitialized(func() {
 					g.lastConfirmedSlot = e.Storage.Permanent.Settings.LatestConfirmedSlot()
