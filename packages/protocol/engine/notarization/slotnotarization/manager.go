@@ -98,7 +98,6 @@ func NewProvider(opts ...options.Option[Manager]) module.Provider[*engine.Engine
 
 					e.SybilProtection.HookInitialized(func() {
 						m.slotMutations = NewSlotMutations(e.SybilProtection.Weights(), e.Storage.Settings.LatestCommitment().Index())
-						// m.SetAcceptanceTime(e.SlotTimeProvider().EndTime(m.storage.Settings.LatestCommitment().Index()))
 
 						m.events.AcceptedBlockRemoved.LinkTo(m.slotMutations.AcceptedBlockRemoved)
 						e.Events.Notarization.LinkTo(m.events)

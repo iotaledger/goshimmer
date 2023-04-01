@@ -1345,17 +1345,4 @@ func TestProtocol_EngineFromSnapshot(t *testing.T) {
 	fmt.Println(lo.PanicOnErr(tf.Instance.Storage.Commitments.Load(1)).ID(), tf3.Instance.Storage.Settings.ChainID())
 
 	fmt.Println(tf3.Instance.Storage.Settings)
-
-// Settings file
-// Commitments
-// Ledger -> UnspentOutputs -> ids
-// Ledger -> StateDiffs
-// EvictionState -> rootBlocks
-// EvictionState -> latestRootBlocks
-// Notarization -> Attestations // we have to set the last committed slot
-
-	// require.Equal(t, lo.PanicOnErr(tf.Instance.Storage.Commitments.Load(1)).ID(), tf3.Instance.Storage.Settings.ChainID())
-
-	// We have the same set of rootblocks on the node started from disk.
-	// tf2.AssertRootBlocks(rootBlocks)
 }

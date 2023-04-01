@@ -84,12 +84,6 @@ func NewNode(t *testing.T, keyPair ed25519.KeyPair, network *network.MockedNetwo
 	)
 	node.Protocol.Run()
 
-	t.Cleanup(func() {
-		// fmt.Println(node.Name, "> shutdown")
-		// node.Protocol.Shutdown()
-		// fmt.Println(node.Name, "> shutdown done")
-	})
-
 	mainEngine := node.Protocol.MainEngineInstance()
 	node.tf = engine.NewTestFramework(t, node.Workers.CreateGroup(fmt.Sprintf("EngineTestFramework-%s", mainEngine.Name()[:8])), mainEngine)
 
@@ -137,12 +131,6 @@ func NewNodeFromDisk(t *testing.T, keyPair ed25519.KeyPair, network *network.Moc
 		),
 	)
 	node.Protocol.Run()
-
-	t.Cleanup(func() {
-		// fmt.Println(node.Name, "> shutdown")
-		// node.Protocol.Shutdown()
-		// fmt.Println(node.Name, "> shutdown done")
-	})
 
 	mainEngine := node.Protocol.MainEngineInstance()
 	node.tf = engine.NewTestFramework(t, node.Workers.CreateGroup(fmt.Sprintf("EngineTestFramework-%s", mainEngine.Name()[:8])), mainEngine)
