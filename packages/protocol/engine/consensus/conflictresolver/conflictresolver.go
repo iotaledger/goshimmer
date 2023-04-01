@@ -82,66 +82,50 @@ func (o *ConflictResolver) AdjustOpinion(conflictID utxo.TransactionID) (likedCo
 	return likedConflict, dislikedConflicts
 }
 
-// ConflictLiked returns whether the conflict is the winner across all conflict sets (it is in the liked reality).
 func (o *ConflictResolver) ConflictLiked(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) (conflictLiked bool) {
-	conflictLiked = true
 	if conflict.ID().IsEmpty() {
-		return
+		return true
 	}
-
-	for likeWalker := walker.New[*conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]]().Push(conflict); likeWalker.HasNext(); {
-		if conflictLiked = conflictLiked && o.conflictPreferred(likeWalker.Next(), likeWalker); !conflictLiked {
-			return
+	conflicts := []*conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]{conflict}
+	for i := 0; i < len(conflicts); i++ {
+		currConflict := conflicts[i]
+		if currConflict.ID().IsEmpty() || currConflict.ConfirmationState().IsAccepted() {
+			continue
 		}
-	}
 
-	return
-}
-
-// conflictPreferred returns whether the conflict is the winner across its conflict sets.
-func (o *ConflictResolver) conflictPreferred(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID], likeWalker *walker.Walker[*conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]]) (preferred bool) {
-	preferred = true
-	if conflict.ID().IsEmpty() {
-		return
-	}
-
-	if conflict.ConfirmationState().IsAccepted() {
-		return
-	}
-
-	if preferred = !o.dislikedConnectedConflictingConflicts(conflict).Has(conflict.ID()); preferred {
-		for it := conflict.Parents().Iterator(); it.HasNext(); {
-			parentConflict, exists := o.conflictDAG.Conflict(it.Next())
-			if !exists {
-				continue
+		dislikedConflicts := o.dislikedConnectedConflictingConflicts(currConflict)
+		if !dislikedConflicts.Has(currConflict.ID()) {
+			for it := currConflict.Parents().Iterator(); it.HasNext(); {
+				parentConflict, exists := o.conflictDAG.Conflict(it.Next())
+				if !exists {
+					continue
+				}
+				conflicts = append(conflicts, parentConflict)
 			}
-			likeWalker.Push(parentConflict)
+		} else {
+			return false
 		}
 	}
-
-	return
+	return true
 }
 
 func (o *ConflictResolver) dislikedConnectedConflictingConflicts(currentConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) (dislikedConflicts set.Set[utxo.TransactionID]) {
 	dislikedConflicts = set.New[utxo.TransactionID]()
-
 	o.ForEachConnectedConflictingConflictInDescendingOrder(currentConflict, func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		if dislikedConflicts.Has(conflict.ID()) {
 			return
 		}
 
-		rejectionWalker := walker.New[*conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]]()
+		rejectedConflicts := []*conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]{}
 		conflict.ForEachConflictingConflict(func(conflictingConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) bool {
-			rejectionWalker.Push(conflictingConflict)
+			rejectedConflicts = append(rejectedConflicts, conflictingConflict)
 			return true
 		})
 
-		for rejectionWalker.HasNext() {
-			rejectedConflict := rejectionWalker.Next()
-
+		for i := 0; i < len(rejectedConflicts); i++ {
+			rejectedConflict := rejectedConflicts[i]
 			dislikedConflicts.Add(rejectedConflict.ID())
-
-			rejectionWalker.PushAll(rejectedConflict.Children().Slice()...)
+			rejectedConflicts = append(rejectedConflicts, rejectedConflict.Children().Slice()...)
 		}
 	})
 
