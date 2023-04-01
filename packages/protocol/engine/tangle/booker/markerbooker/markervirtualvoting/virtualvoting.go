@@ -170,8 +170,8 @@ func (v *VirtualVoting) EvictSequence(sequenceID markers.SequenceID) {
 }
 
 func (v *VirtualVoting) EvictSlotTracker(slotIndex slot.Index) {
-	v.evictionMutex.Lock()
-	defer v.evictionMutex.Unlock()
+	//v.evictionMutex.Lock()
+	//defer v.evictionMutex.Unlock()
 
 	v.slotTracker.EvictSlot(slotIndex)
 }
