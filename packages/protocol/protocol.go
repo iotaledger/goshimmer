@@ -361,8 +361,6 @@ func (p *Protocol) switchEngines() {
 }
 
 func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) error {
-	// TODO: lock this method
-
 	mainEngine := p.MainEngineInstance()
 
 	mainEngine.ProcessingMutex.Lock()

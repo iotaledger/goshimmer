@@ -151,6 +151,13 @@ func (t *TipManager) removeStrongParents(block *models.Block) {
 
 // Tips returns count number of tips, maximum MaxParentsCount.
 func (t *TipManager) Tips(countParents int) (parents models.BlockIDs) {
+	t.mutex.RLock()
+	engine := t.engine
+	t.mutex.RUnlock()
+
+	engine.ProcessingMutex.Lock()
+	defer engine.ProcessingMutex.Unlock()
+
 	if countParents > models.MaxParentsCount {
 		countParents = models.MaxParentsCount
 	}
