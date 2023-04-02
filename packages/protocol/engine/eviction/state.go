@@ -1,6 +1,7 @@
 package eviction
 
 import (
+	"fmt"
 	"io"
 	"sync"
 
@@ -106,10 +107,12 @@ func (s *State) AddRootBlock(id models.BlockID, commitmentID commitment.ID) {
 	s.evictionMutex.RLock()
 	defer s.evictionMutex.RUnlock()
 
+	fmt.Println("AddRootBlock", id, s.lastEvictedSlot, s.delayedBlockEvictionThreshold(s.lastEvictedSlot))
 	if id.Index() <= s.delayedBlockEvictionThreshold(s.lastEvictedSlot) {
 		return
 	}
 
+	fmt.Println("block added")
 	if s.rootBlocks.Get(id.Index(), true).Set(id, commitmentID) {
 		if err := s.storage.RootBlocks.Store(id, commitmentID); err != nil {
 			panic(errors.Wrapf(err, "failed to store root block %s", id))
@@ -204,7 +207,9 @@ func (s *State) Import(reader io.ReadSeeker) (err error) {
 
 // PopulateFromStorage populates the root blocks from the storage.
 func (s *State) PopulateFromStorage(latestCommitmentIndex slot.Index) {
+	fmt.Println("PopulateFromStorage", latestCommitmentIndex, s.delayedBlockEvictionThreshold(latestCommitmentIndex))
 	for index := latestCommitmentIndex - s.delayedBlockEvictionThreshold(latestCommitmentIndex); index <= latestCommitmentIndex; index++ {
+		fmt.Println("PopulateFromStorage", index)
 		_ = s.storage.RootBlocks.Stream(index, func(id models.BlockID, commitmentID commitment.ID) error {
 			s.AddRootBlock(id, commitmentID)
 

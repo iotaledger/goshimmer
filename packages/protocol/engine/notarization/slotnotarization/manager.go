@@ -118,7 +118,7 @@ func (m *Manager) Attestations() notarization.Attestations {
 	return m.attestations
 }
 
-// TryCommitUntil sets the acceptance time of the Manager.
+// TryCommitUntil tries to create slot commitments until the new provided acceptance time.
 func (m *Manager) TryCommitUntil(acceptanceTime time.Time) {
 	m.commitmentMutex.Lock()
 	defer m.commitmentMutex.Unlock()

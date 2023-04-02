@@ -1324,7 +1324,7 @@ func TestProtocol_EngineFromSnapshot(t *testing.T) {
 		"12.B": false,
 	})
 
-	// We jumped ahaead 4 slots, so we evicted rootblocks up to epoch 7, as we confirmed until epoch 9.
+	// We jumped ahead 4 slots, so we evicted rootblocks up to epoch 6, as we confirmed until epoch 9.
 	rootBlocks = tf.BlockDAG.Blocks("7.A", "6.B", "8.B", "9.A")
 	tf.AssertRootBlocks(rootBlocks)
 
@@ -1332,6 +1332,7 @@ func TestProtocol_EngineFromSnapshot(t *testing.T) {
 	snapshotPath := tempDir.Path("snapshot_slot9.bin")
 	require.NoError(t, tf.Instance.WriteSnapshot(snapshotPath, 9))
 
+	fmt.Println("======= Node 2 ========")
 	node2 := mockednetwork.NewNode(t, ed25519.GenerateKeyPair(), testNetwork, "P2", snapshotPath, utxoledger.NewProvider())
 	tf2 := node2.EngineTestFramework()
 
@@ -1340,14 +1341,30 @@ func TestProtocol_EngineFromSnapshot(t *testing.T) {
 
 	// We have the same set of rootblocks on the node started from snapshot.
 	tf2.AssertRootBlocks(rootBlocks)
+	// TODO: assert root commitment
 
-	fmt.Println("Shutdown node2")
+	fmt.Println(tf2.Instance.Storage.Settings)
+	for i := 0; i < 10; i++ {
+		tf2.Instance.Storage.RootBlocks.Stream(slot.Index(i), func(id models.BlockID, commitmentID commitment.ID) error {
+			fmt.Println(id, commitmentID)
+			return nil
+		})
+	}
+
 	node2.Protocol.Shutdown()
-	fmt.Println("Shutdown node2 done")
 
+	fmt.Println("======= Node 3 ========")
 	node3 := mockednetwork.NewNodeFromDisk(t, node2.KeyPair, testNetwork, "P3", node2.BaseDir.Path())
 	tf3 := node3.EngineTestFramework()
-	fmt.Println(lo.PanicOnErr(tf.Instance.Storage.Commitments.Load(1)).ID(), tf3.Instance.Storage.Settings.ChainID())
 
 	fmt.Println(tf3.Instance.Storage.Settings)
+	for i := 0; i < 10; i++ {
+		tf3.Instance.Storage.RootBlocks.Stream(slot.Index(i), func(id models.BlockID, commitmentID commitment.ID) error {
+			fmt.Println(id, commitmentID)
+			return nil
+		})
+	}
+
+	tf3.AssertRootBlocks(rootBlocks)
+	require.Equal(t, lo.PanicOnErr(tf.Instance.Storage.Commitments.Load(1)).ID(), tf3.Instance.Storage.Settings.ChainID())
 }

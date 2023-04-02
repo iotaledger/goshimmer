@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
 	"github.com/iotaledger/goshimmer/packages/network"
@@ -64,6 +65,7 @@ func NewNode(t *testing.T, keyPair ed25519.KeyPair, network *network.MockedNetwo
 		node.Endpoint,
 		protocol.WithBaseDirectory(node.BaseDir.Path()),
 		protocol.WithSnapshotPath(snapshotPath),
+		protocol.WithStorageDatabaseManagerOptions(database.WithDBProvider(database.NewDB)),
 		protocol.WithLedgerProvider(ledgerProvider),
 		protocol.WithTangleProvider(
 			inmemorytangle.NewProvider(
@@ -112,7 +114,7 @@ func NewNodeFromDisk(t *testing.T, keyPair ed25519.KeyPair, network *network.Moc
 	node.Protocol = protocol.New(node.Workers.CreateGroup("Protocol"),
 		node.Endpoint,
 		protocol.WithBaseDirectory(node.BaseDir.Path()),
-		protocol.WithSnapshotPath("snapshotPath"), // snapshotPath does not matter as we are starting from disk
+		protocol.WithStorageDatabaseManagerOptions(database.WithDBProvider(database.NewDB)),
 		protocol.WithTangleProvider(
 			inmemorytangle.NewProvider(
 				inmemorytangle.WithBookerProvider(
