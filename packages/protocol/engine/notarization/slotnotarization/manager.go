@@ -53,9 +53,6 @@ func NewProvider(opts ...options.Option[Manager]) module.Provider[*engine.Engine
 			optsMinCommittableSlotAge: defaultMinSlotCommittableAge,
 		}, opts,
 			func(m *Manager) {
-				m.storage = e.Storage
-				m.ledgerState = e.Ledger
-
 				m.attestations = NewAttestations(e.Storage.Permanent.Attestations,
 					e.Storage.Prunable.Attestations,
 					func() *sybilprotection.Weights {
@@ -66,6 +63,9 @@ func NewProvider(opts ...options.Option[Manager]) module.Provider[*engine.Engine
 				m.HookInitialized(m.attestations.TriggerInitialized)
 
 				e.HookConstructed(func() {
+					m.storage = e.Storage
+					m.ledgerState = e.Ledger
+
 					//wpBlocks := e.Workers.CreatePool("NotarizationManager.Blocks", 1)           // Using just 1 worker to avoid contention
 					//wpCommitments := e.Workers.CreatePool("NotarizationManager.Commitments", 1) // Using just 1 worker to avoid contention
 
