@@ -235,8 +235,10 @@ func (p *Protocol) initChainManager() {
 		p.chainManager.ProcessCommitment(details.Commitment)
 	}, event.WithWorkerPool(wp))
 	p.Events.Engine.Consensus.SlotGadget.SlotConfirmed.Hook(func(index slot.Index) {
-		p.chainManager.CommitmentRequester.EvictUntil(index)
-		newRootCommitment, err := p.Engine().Storage.Commitments.Load(index)
+		// TODO: make the delay parametrized
+		rootCommitmentIndex := slot.Index(1).Max(index - 6*5)
+		p.chainManager.CommitmentRequester.EvictUntil(rootCommitmentIndex)
+		newRootCommitment, err := p.Engine().Storage.Commitments.Load(rootCommitmentIndex)
 		if err != nil {
 			panic(fmt.Sprintln("could not load latest confirmed commitment", err))
 		}
@@ -246,7 +248,7 @@ func (p *Protocol) initChainManager() {
 		// hooking worker pool should always have a single worker or these two calls should be protected by a lock.
 		p.chainManager.SetRootCommitment(newRootCommitment)
 		// we want to evict just below the height of our new root commitment.
-		p.chainManager.EvictUntil(index - 1)
+		p.chainManager.EvictUntil(rootCommitmentIndex - 1)
 	}, event.WithWorkerPool(wp))
 	p.Events.ChainManager.ForkDetected.Hook(p.onForkDetected, event.WithWorkerPool(wp))
 	p.Events.Network.SlotCommitmentReceived.Hook(func(event *network.SlotCommitmentReceivedEvent) {
@@ -368,6 +370,10 @@ func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) error {
 
 	isSolid, chain := p.chainManager.ProcessCommitmentFromSource(block.Commitment(), src)
 	if !isSolid {
+		if block.Commitment().PrevID() == mainEngine.Storage.Settings.LatestCommitment().ID() {
+			return nil
+		}
+
 		return errors.Errorf("protocol ProcessBlock failed. chain is not solid: %s, latest commitment: %s, block ID: %s", block.Commitment().ID(), mainEngine.Storage.Settings.LatestCommitment().ID(), block.ID())
 	}
 
