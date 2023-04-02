@@ -47,11 +47,10 @@ func NewProvider(opts ...options.Option[Consensus]) module.Provider[*engine.Engi
 
 				e.Events.Consensus.BlockGadget.Error.Hook(e.Events.Error.Trigger)
 
+				c.TriggerConstructed()
 				e.HookInitialized(c.TriggerInitialized)
 			})
-		},
-			(*Consensus).TriggerConstructed,
-		)
+		})
 	})
 }
 
