@@ -106,7 +106,7 @@ var SlotMetrics = collector.NewCollection(slotNamespace,
 		collector.WithLabels(labelName),
 		collector.WithHelp("Number of invalid blocks in a slot slot."),
 		collector.WithInitFunc(func() {
-			deps.Protocol.Events.Engine.Tangle.Booker.VirtualVoting.BlockTracked.Hook(func(block *booker.Block) {
+			deps.Protocol.Events.Engine.Tangle.Booker.BlockTracked.Hook(func(block *booker.Block) {
 				if block.IsSubjectivelyInvalid() {
 					eventSlot := int(block.ID().Index())
 					deps.Collector.Increment(slotNamespace, subjectivelyInvalidBlocks, strconv.Itoa(eventSlot))
