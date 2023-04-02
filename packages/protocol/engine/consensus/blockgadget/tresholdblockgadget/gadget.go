@@ -64,54 +64,52 @@ type Gadget struct {
 
 func NewProvider(opts ...options.Option[Gadget]) module.Provider[*engine.Engine, blockgadget.Gadget] {
 	return module.Provide(func(e *engine.Engine) blockgadget.Gadget {
-		g := New(e.Workers.CreateGroup("BlockGadget"), e.Tangle.Booker(), e.Tangle.BlockDAG(), e.Ledger.MemPool(), e.EvictionState, opts...)
+		g := New(opts...)
 
-		e.SybilProtection.HookInitialized(func() {
-			g.Initialize(e.SlotTimeProvider(), e.SybilProtection.Validators(), e.SybilProtection.Weights().TotalWeightWithoutZeroIdentity)
+		e.HookConstructed(func() {
+			e.SybilProtection.HookInitialized(func() {
+				g.Initialize(e.Workers.CreateGroup("BlockGadget"), e.Tangle.Booker(), e.Tangle.BlockDAG(), e.Ledger.MemPool(), e.EvictionState, e.SlotTimeProvider(), e.SybilProtection.Validators(), e.SybilProtection.Weights().TotalWeightWithoutZeroIdentity)
+			})
 		})
 
 		return g
 	})
 }
 
-func New(workers *workerpool.Group, booker booker.Booker, blockDAG blockdag.BlockDAG, memPool mempool.MemPool, evictionState *eviction.State, opts ...options.Option[Gadget]) *Gadget {
+func New(opts ...options.Option[Gadget]) *Gadget {
 	return options.Apply(&Gadget{
 		events:              blockgadget.NewEvents(),
 		blocks:              memstorage.NewSlotStorage[models.BlockID, *blockgadget.Block](),
 		lastAcceptedMarker:  shrinkingmap.New[markers.SequenceID, markers.Index](),
 		lastConfirmedMarker: shrinkingmap.New[markers.SequenceID, markers.Index](),
 
-		workers:       workers,
-		booker:        booker,
-		blockDAG:      blockDAG,
-		memPool:       memPool,
-		evictionState: evictionState,
-
 		optsMarkerAcceptanceThreshold:   0.67,
 		optsMarkerConfirmationThreshold: 0.67,
 		optsConflictAcceptanceThreshold: 0.67,
-	}, opts,
-		func(g *Gadget) {
-			wp := g.workers.CreatePool("Gadget", 2)
-
-			g.booker.Events().VirtualVoting.SequenceTracker.VotersUpdated.Hook(func(evt *sequencetracker.VoterUpdatedEvent) {
-				g.RefreshSequence(evt.SequenceID, evt.NewMaxSupportedIndex, evt.PrevMaxSupportedIndex)
-			}, event.WithWorkerPool(wp))
-
-			g.booker.Events().VirtualVoting.ConflictTracker.VoterAdded.Hook(func(evt *conflicttracker.VoterEvent[utxo.TransactionID]) {
-				g.RefreshConflictAcceptance(evt.ConflictID)
-			})
-
-			g.booker.Events().SequenceEvicted.Hook(g.evictSequence, event.WithWorkerPool(wp))
-		},
-		(*Gadget).TriggerConstructed,
-	)
+	}, opts)
 }
 
-func (g *Gadget) Initialize(slotTimeProvider *slot.TimeProvider, validators *sybilprotection.WeightedSet, totalWeightCallback func() int64) {
+func (g *Gadget) Initialize(workers *workerpool.Group, booker booker.Booker, blockDAG blockdag.BlockDAG, memPool mempool.MemPool, evictionState *eviction.State, slotTimeProvider *slot.TimeProvider, validators *sybilprotection.WeightedSet, totalWeightCallback func() int64) {
+	g.workers = workers
+	g.booker = booker
+	g.blockDAG = blockDAG
+	g.memPool = memPool
+	g.evictionState = evictionState
 	g.slotTimeProvider = slotTimeProvider
 	g.validators = validators
 	g.totalWeightCallback = totalWeightCallback
+
+	wp := g.workers.CreatePool("Gadget", 2)
+
+	g.booker.Events().VirtualVoting.SequenceTracker.VotersUpdated.Hook(func(evt *sequencetracker.VoterUpdatedEvent) {
+		g.RefreshSequence(evt.SequenceID, evt.NewMaxSupportedIndex, evt.PrevMaxSupportedIndex)
+	}, event.WithWorkerPool(wp))
+
+	g.booker.Events().VirtualVoting.ConflictTracker.VoterAdded.Hook(func(evt *conflicttracker.VoterEvent[utxo.TransactionID]) {
+		g.RefreshConflictAcceptance(evt.ConflictID)
+	})
+
+	g.booker.Events().SequenceEvicted.Hook(g.evictSequence, event.WithWorkerPool(wp))
 
 	g.acceptanceOrder = causalorder.New(g.workers.CreatePool("AcceptanceOrder", 2), g.GetOrRegisterBlock, (*blockgadget.Block).IsStronglyAccepted, lo.Bind(false, g.markAsAccepted), g.acceptanceFailed, (*blockgadget.Block).StrongParents)
 	g.confirmationOrder = causalorder.New(g.workers.CreatePool("ConfirmationOrder", 2), func(id models.BlockID) (entity *blockgadget.Block, exists bool) {
@@ -127,6 +125,7 @@ func (g *Gadget) Initialize(slotTimeProvider *slot.TimeProvider, validators *syb
 
 	g.evictionState.Events.SlotEvicted.Hook(g.EvictUntil, event.WithWorkerPool(g.workers.CreatePool("Eviction", 1)))
 
+	g.TriggerConstructed()
 	g.TriggerInitialized()
 }
 
@@ -400,7 +399,7 @@ func (g *Gadget) markAsConfirmed(block *blockgadget.Block, weakly bool) (err err
 }
 
 func (g *Gadget) setMarkerAccepted(marker markers.Marker) (wasUpdated bool) {
-	// This method can be called from multiple goroutines and we need to update the value atomically.
+	// This method can be called from multiple goroutines, and we need to update the value atomically.
 	// However, when reading lastAcceptedMarker we don't need to lock because the storage is already locking.
 	g.lastAcceptedMarkerMutex.Lock()
 	defer g.lastAcceptedMarkerMutex.Unlock()
@@ -413,7 +412,7 @@ func (g *Gadget) setMarkerAccepted(marker markers.Marker) (wasUpdated bool) {
 }
 
 func (g *Gadget) setMarkerConfirmed(marker markers.Marker) (wasUpdated bool) {
-	// This method can be called from multiple goroutines and we need to update the value atomically.
+	// This method can be called from multiple goroutines, and we need to update the value atomically.
 	// However, when reading lastConfirmedMarker we don't need to lock because the storage is already locking.
 	g.lastConfirmedMarkerMutex.Lock()
 	defer g.lastConfirmedMarkerMutex.Unlock()
