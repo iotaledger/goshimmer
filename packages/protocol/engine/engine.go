@@ -190,6 +190,17 @@ func (e *Engine) Initialize(snapshot ...string) (err error) {
 		if err = e.readSnapshot(snapshot[0]); err != nil {
 			return errors.Wrapf(err, "failed to read snapshot from file '%s'", snapshot)
 		}
+	} else {
+		e.Storage.Settings.UpdateSlotTimeProvider()
+		e.Storage.Settings.TriggerInitialized()
+		e.Storage.Commitments.TriggerInitialized()
+		e.Ledger.TriggerInitialized()
+		e.EvictionState.PopulateFromStorage(e.Storage.Settings.LatestCommitment().Index())
+
+		e.Notarization.Attestations().SetLastCommittedSlot(e.Storage.Settings.LatestCommitment().Index())
+		e.Notarization.Attestations().TriggerInitialized()
+
+		e.Notarization.TriggerInitialized()
 	}
 
 	e.TriggerInitialized()

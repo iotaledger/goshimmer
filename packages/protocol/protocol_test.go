@@ -3,6 +3,7 @@ package protocol_test
 import (
 	"errors"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -1139,12 +1140,16 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 		fmt.Println("\n=========================\nMerged network partitions\n=========================")
 	}
 
+	wg := &sync.WaitGroup{}
+
 	// Issue blocks after merging the networks
 	{
-		node1.IssueActivity(25 * time.Second)
-		node2.IssueActivity(25 * time.Second)
-		node3.IssueActivity(25 * time.Second)
-		node4.IssueActivity(25 * time.Second)
+		wg.Add(4)
+
+		node1.IssueActivity(25*time.Second, wg)
+		node2.IssueActivity(25*time.Second, wg)
+		node3.IssueActivity(25*time.Second, wg)
+		node4.IssueActivity(25*time.Second, wg)
 	}
 
 	// Wait for the engine to eventually switch on each node
@@ -1162,7 +1167,7 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 		}, 30*time.Second, 100*time.Millisecond, "not all nodes switched main engine")
 	}
 
-	time.Sleep(6 * time.Second)
+	wg.Wait()
 
 	// Compare chains
 	{
@@ -1335,4 +1340,14 @@ func TestProtocol_EngineFromSnapshot(t *testing.T) {
 
 	// We have the same set of rootblocks on the node started from snapshot.
 	tf2.AssertRootBlocks(rootBlocks)
+
+	fmt.Println("Shutdown node2")
+	node2.Protocol.Shutdown()
+	fmt.Println("Shutdown node2 done")
+
+	node3 := mockednetwork.NewNodeFromDisk(t, node2.KeyPair, testNetwork, "P3", node2.BaseDir.Path())
+	tf3 := node3.EngineTestFramework()
+	fmt.Println(lo.PanicOnErr(tf.Instance.Storage.Commitments.Load(1)).ID(), tf3.Instance.Storage.Settings.ChainID())
+
+	fmt.Println(tf3.Instance.Storage.Settings)
 }
