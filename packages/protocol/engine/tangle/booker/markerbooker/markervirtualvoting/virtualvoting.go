@@ -54,7 +54,7 @@ func (v *VirtualVoting) ConflictTracker() *conflicttracker.ConflictTracker[utxo.
 }
 
 func (v *VirtualVoting) Track(block *booker.Block, conflictIDs utxo.TransactionIDs, votePower booker.BlockVotePower) (invalid bool) {
-	if _, invalid := v.conflictTracker.TrackVote(conflictIDs, block.IssuerID(), votePower); invalid {
+	if _, invalid = v.conflictTracker.TrackVote(conflictIDs, block.IssuerID(), votePower); invalid {
 		fmt.Println("block is subjectively invalid", block.ID())
 		block.SetSubjectivelyInvalid(true)
 

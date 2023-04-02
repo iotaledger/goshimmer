@@ -468,12 +468,11 @@ func (b *Booker) book(block *booker.Block) (inheritingErr error) {
 		ConflictIDs: inheritedConflitIDs,
 	})
 
-	// TODO; if subjective invalid does not track votes
 	votePower := booker.NewBlockVotePower(block.ID(), block.IssuingTime())
-	b.virtualVoting.Track(block, inheritedConflitIDs, votePower)
-
-	b.sequenceTracker.TrackVotes(block.StructureDetails().PastMarkers(), block.IssuerID(), votePower)
-	b.slotTracker.TrackVotes(block.Commitment().Index(), block.IssuerID(), slottracker.SlotVotePower{Index: block.ID().Index()})
+	if invalid := b.virtualVoting.Track(block, inheritedConflitIDs, votePower); !invalid {
+		b.sequenceTracker.TrackVotes(block.StructureDetails().PastMarkers(), block.IssuerID(), votePower)
+		b.slotTracker.TrackVotes(block.Commitment().Index(), block.IssuerID(), slottracker.SlotVotePower{Index: block.ID().Index()})
+	}
 
 	b.events.BlockTracked.Trigger(block)
 
