@@ -164,25 +164,21 @@ func (b *Booker) VirtualVoting() booker.VirtualVoting {
 	return b.virtualVoting
 }
 
-// Queue checks if payload is solid and then adds the block to a Booker's CausalOrder.
+// Queue adds a new Block to the booking queue.
 func (b *Booker) Queue(block *booker.Block) (wasQueued bool, err error) {
-	if wasQueued, err = b.queue(block); wasQueued {
-		b.bookingOrder.Queue(block)
-	}
-
-	return
-}
-
-func (b *Booker) queue(block *booker.Block) (wasQueued bool, err error) {
-	b.evictionMutex.Lock()
-	defer b.evictionMutex.Unlock()
-
-	if b.evictionState.InEvictedSlot(block.ID()) {
+	if !b.storeNewBlock(block) {
 		return false, nil
 	}
 
-	b.blocks.Get(block.ID().Index(), true).Set(block.ID(), block)
-	return b.isPayloadSolid(block)
+	if transaction, isTransaction := block.Payload().(utxo.Transaction); isTransaction {
+		if err := b.MemPool.StoreAndProcessTransaction(models.BlockIDToContext(context.Background(), block.ID()), transaction); err != nil {
+			return false, lo.Cond(errors.Is(err, mempool.ErrTransactionUnsolid), nil, err)
+		}
+	}
+
+	b.bookingOrder.Queue(block)
+
+	return true, nil
 }
 
 // Block retrieves a Block with metadata from the in-memory storage of the Booker.
@@ -303,6 +299,22 @@ func (b *Booker) GetAllAttachments(txID utxo.TransactionID) (attachments *advanc
 	return b.attachments.GetAttachmentBlocks(txID)
 }
 
+// storeNewBlock tries to store a new Block in the in-memory storage of the Booker and returns if the Block was stored.
+func (b *Booker) storeNewBlock(block *booker.Block) bool {
+	b.evictionMutex.Lock()
+	defer b.evictionMutex.Unlock()
+
+	if b.evictionState.InEvictedSlot(block.ID()) || !b.blocks.Get(block.ID().Index(), true).Set(block.ID(), block) {
+		return false
+	}
+
+	if transaction, isTransaction := block.Payload().(utxo.Transaction); isTransaction && b.attachments.Store(transaction.ID(), block) {
+		b.events.AttachmentCreated.Trigger(block)
+	}
+
+	return true
+}
+
 func (b *Booker) evict(slotIndex slot.Index) {
 	b.bookingOrder.EvictUntil(slotIndex)
 
@@ -312,25 +324,6 @@ func (b *Booker) evict(slotIndex slot.Index) {
 	b.attachments.Evict(slotIndex)
 	b.markerManager.Evict(slotIndex)
 	b.blocks.Evict(slotIndex)
-}
-
-func (b *Booker) isPayloadSolid(block *booker.Block) (isPayloadSolid bool, err error) {
-	tx, isTx := block.Transaction()
-	if !isTx {
-		return true, nil
-	}
-
-	if b.attachments.Store(tx.ID(), block) {
-		b.events.AttachmentCreated.Trigger(block)
-	}
-
-	if err = b.MemPool.StoreAndProcessTransaction(
-		models.BlockIDToContext(context.Background(), block.ID()), tx,
-	); errors.Is(err, mempool.ErrTransactionUnsolid) {
-		return false, nil
-	}
-
-	return err == nil, err
 }
 
 // block retrieves the Block with given id from the mem-storage.
