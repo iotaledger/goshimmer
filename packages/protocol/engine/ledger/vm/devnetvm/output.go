@@ -1268,13 +1268,13 @@ func (a *AliasOutput) checkBasicValidity() error {
 	if a.stateAddress == nil {
 		return errors.New("aliasOutput: state address must not be nil")
 	}
-	if a.IsOrigin() && a.stateIndex != 0 {
+	if a.isOrigin && a.stateIndex != 0 {
 		return errors.New("aliasOutput: origin must have stateIndex == 0")
 	}
 	// a.aliasAddress is not set if the output is origin. It is only set after the output has been included in a tx, and
 	// its outputID is known. To cover this edge case, TransactionFromMarshalUtil() performs the two checks below after
 	// the ID has been set.
-	if a.GetStateAddress().Equals(&a.aliasAddress) {
+	if a.stateAddress.Equals(&a.aliasAddress) {
 		return errors.New("state address cannot be the output's own alias address")
 	}
 	if a.GetGoverningAddress().Equals(&a.aliasAddress) {
