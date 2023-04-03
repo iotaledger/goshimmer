@@ -34,8 +34,8 @@ func (t *LatestBlockTracker) Update(block *models.Block) {
 
 // BlockID returns the ID of the latest seen Block.
 func (t *LatestBlockTracker) BlockID() (blockID models.BlockID) {
-	t.mutex.RLock()
-	defer t.mutex.RUnlock()
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
 
 	return t.blockID
 }

@@ -46,8 +46,8 @@ func (t Type) Bytes() (bytes []byte) {
 
 // String returns a human-readable version of the Type for debug purposes.
 func (t Type) String() string {
-	typeRegisterMutex.RLock()
-	defer typeRegisterMutex.RUnlock()
+	typeRegisterMutex.Lock()
+	defer typeRegisterMutex.Unlock()
 
 	if typeName, exists := typeRegister[t]; exists {
 		return typeName + "(" + strconv.FormatUint(uint64(t), 10) + ")"

@@ -38,8 +38,8 @@ func NewRootBlock(id models.BlockID, slotTimeProvider *slot.TimeProvider) (rootB
 
 // IsScheduled returns true if the Block is scheduled.
 func (b *Block) IsScheduled() bool {
-	b.RLock()
-	defer b.RUnlock()
+	b.Lock()
+	defer b.Unlock()
 
 	return b.scheduled
 }
@@ -58,8 +58,8 @@ func (b *Block) SetScheduled() (wasUpdated bool) {
 
 // IsDropped returns true if the Block is dropped.
 func (b *Block) IsDropped() bool {
-	b.RLock()
-	defer b.RUnlock()
+	b.Lock()
+	defer b.Unlock()
 
 	return b.dropped
 }
@@ -78,8 +78,8 @@ func (b *Block) SetDropped() (wasUpdated bool) {
 
 // IsSkipped returns true if the Block is skipped.
 func (b *Block) IsSkipped() bool {
-	b.RLock()
-	defer b.RUnlock()
+	b.Lock()
+	defer b.Unlock()
 
 	return b.skipped
 }

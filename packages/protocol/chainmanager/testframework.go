@@ -85,8 +85,8 @@ func (t *TestFramework) Chain(alias string) (chain *Chain) {
 }
 
 func (t *TestFramework) commitment(alias string) (commitment *commitment.Commitment) {
-	t.RLock()
-	defer t.RUnlock()
+	t.Lock()
+	defer t.Unlock()
 
 	commitment, exists := t.commitmentsByAlias[alias]
 	if !exists {

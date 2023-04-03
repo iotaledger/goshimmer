@@ -144,16 +144,16 @@ func (m *Manager) RestoreFromDisk() (latestBucketIndex slot.Index) {
 }
 
 func (m *Manager) MaxPrunedSlot() slot.Index {
-	m.maxPrunedMutex.RLock()
-	defer m.maxPrunedMutex.RUnlock()
+	m.maxPrunedMutex.Lock()
+	defer m.maxPrunedMutex.Unlock()
 
 	return m.maxPruned
 }
 
 // IsTooOld checks if the Block associated with the given id is too old (in a pruned slot).
 func (m *Manager) IsTooOld(index slot.Index) (isTooOld bool) {
-	m.maxPrunedMutex.RLock()
-	defer m.maxPrunedMutex.RUnlock()
+	m.maxPrunedMutex.Lock()
+	defer m.maxPrunedMutex.Unlock()
 
 	return index <= m.maxPruned
 }

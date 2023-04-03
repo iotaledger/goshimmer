@@ -58,8 +58,8 @@ func NewTransactionMetadata(txID utxo.TransactionID) (metadata *TransactionMetad
 
 // ConflictIDs returns the conflicting ConflictIDs that the Transaction depends on.
 func (t *TransactionMetadata) ConflictIDs() *advancedset.AdvancedSet[utxo.TransactionID] {
-	t.RLock()
-	defer t.RUnlock()
+	t.Lock()
+	defer t.Unlock()
 
 	return t.M.ConflictIDs.Clone()
 }
@@ -81,8 +81,8 @@ func (t *TransactionMetadata) SetConflictIDs(conflictIDs *advancedset.AdvancedSe
 
 // IsBooked returns a boolean flag indicating whether the Transaction has been booked.
 func (t *TransactionMetadata) IsBooked() bool {
-	t.RLock()
-	defer t.RUnlock()
+	t.Lock()
+	defer t.Unlock()
 
 	return t.M.Booked
 }
@@ -108,8 +108,8 @@ func (t *TransactionMetadata) SetBooked(booked bool) (modified bool) {
 
 // BookingTime returns the time when the Transaction was booked.
 func (t *TransactionMetadata) BookingTime() time.Time {
-	t.RLock()
-	defer t.RUnlock()
+	t.Lock()
+	defer t.Unlock()
 
 	return t.M.BookingTime
 }
@@ -130,16 +130,16 @@ func (t *TransactionMetadata) SetInclusionSlot(inclusionSlot slot.Index) (update
 
 // InclusionSlot returns the inclusion time of the Transaction.
 func (t *TransactionMetadata) InclusionSlot() slot.Index {
-	t.RLock()
-	defer t.RUnlock()
+	t.Lock()
+	defer t.Unlock()
 
 	return t.M.InclusionSlot
 }
 
 // OutputIDs returns the identifiers of the Outputs that the Transaction created.
 func (t *TransactionMetadata) OutputIDs() utxo.OutputIDs {
-	t.RLock()
-	defer t.RUnlock()
+	t.Lock()
+	defer t.Unlock()
 
 	return t.M.OutputIDs.Clone()
 }
@@ -161,8 +161,8 @@ func (t *TransactionMetadata) SetOutputIDs(outputIDs utxo.OutputIDs) (modified b
 
 // ConfirmationState returns the confirmation status of the Transaction.
 func (t *TransactionMetadata) ConfirmationState() confirmation.State {
-	t.RLock()
-	defer t.RUnlock()
+	t.Lock()
+	defer t.Unlock()
 
 	return t.M.ConfirmationState
 }
@@ -185,8 +185,8 @@ func (t *TransactionMetadata) SetConfirmationState(confirmationState confirmatio
 
 // ConfirmationStateTime returns the last time the ConfirmationState was updated.
 func (t *TransactionMetadata) ConfirmationStateTime() time.Time {
-	t.RLock()
-	defer t.RUnlock()
+	t.Lock()
+	defer t.Unlock()
 
 	return t.M.ConfirmationStateTime
 }
@@ -244,8 +244,8 @@ func NewOutputMetadata(outputID utxo.OutputID) (metadata *OutputMetadata) {
 
 // ConsensusManaPledgeID returns the identifier of the node that received the consensus mana pledge.
 func (o *OutputMetadata) ConsensusManaPledgeID() identity.ID {
-	o.RLock()
-	defer o.RUnlock()
+	o.Lock()
+	defer o.Unlock()
 
 	return o.M.ConsensusManaPledgeID
 }
@@ -267,8 +267,8 @@ func (o *OutputMetadata) SetConsensusManaPledgeID(id identity.ID) (updated bool)
 
 // AccessManaPledgeID returns the identifier of the node that received the access mana pledge.
 func (o *OutputMetadata) AccessManaPledgeID() identity.ID {
-	o.RLock()
-	defer o.RUnlock()
+	o.Lock()
+	defer o.Unlock()
 
 	return o.M.AccessManaPledgeID
 }
@@ -290,8 +290,8 @@ func (o *OutputMetadata) SetAccessManaPledgeID(id identity.ID) (updated bool) {
 
 // InclusionSlot returns the creation slot of the Output.
 func (o *OutputMetadata) InclusionSlot() slot.Index {
-	o.RLock()
-	defer o.RUnlock()
+	o.Lock()
+	defer o.Unlock()
 
 	return o.M.InclusionSlot
 }
@@ -313,8 +313,8 @@ func (o *OutputMetadata) SetInclusionSlot(inclusionSlot slot.Index) (updated boo
 
 // ConflictIDs returns the conflicting ConflictIDs that the Output depends on.
 func (o *OutputMetadata) ConflictIDs() *advancedset.AdvancedSet[utxo.TransactionID] {
-	o.RLock()
-	defer o.RUnlock()
+	o.Lock()
+	defer o.Unlock()
 
 	return o.M.ConflictIDs.Clone()
 }
@@ -336,8 +336,8 @@ func (o *OutputMetadata) SetConflictIDs(conflictIDs *advancedset.AdvancedSet[utx
 
 // FirstConsumer returns the first Transaction that ever spent the Output.
 func (o *OutputMetadata) FirstConsumer() utxo.TransactionID {
-	o.RLock()
-	defer o.RUnlock()
+	o.Lock()
+	defer o.Unlock()
 
 	return o.M.FirstConsumer
 }
@@ -364,8 +364,8 @@ func (o *OutputMetadata) RegisterBookedConsumer(consumer utxo.TransactionID) (is
 
 // ConfirmationState returns the confirmation state of the Output.
 func (o *OutputMetadata) ConfirmationState() confirmation.State {
-	o.RLock()
-	defer o.RUnlock()
+	o.Lock()
+	defer o.Unlock()
 
 	return o.M.ConfirmationState
 }
@@ -388,16 +388,16 @@ func (o *OutputMetadata) SetConfirmationState(confirmationState confirmation.Sta
 
 // ConfirmationStateTime returns the last time the ConfirmationState was updated.
 func (o *OutputMetadata) ConfirmationStateTime() time.Time {
-	o.RLock()
-	defer o.RUnlock()
+	o.Lock()
+	defer o.Unlock()
 
 	return o.M.ConfirmationStateTime
 }
 
 // IsSpent returns true if the Output has been spent.
 func (o *OutputMetadata) IsSpent() bool {
-	o.RLock()
-	defer o.RUnlock()
+	o.Lock()
+	defer o.Unlock()
 
 	return o.M.FirstConsumer != utxo.EmptyTransactionID
 }
@@ -522,8 +522,8 @@ func (c *Consumer) TransactionID() (spendingTransaction utxo.TransactionID) {
 
 // IsBooked returns a boolean flag that indicates whether the Consumer was completely booked.
 func (c *Consumer) IsBooked() bool {
-	c.RLock()
-	defer c.RUnlock()
+	c.Lock()
+	defer c.Unlock()
 
 	return c.M.Booked
 }

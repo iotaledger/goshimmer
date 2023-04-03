@@ -75,8 +75,8 @@ func NewTestFramework(test *testing.T, instance MemPool) *TestFramework {
 // Transaction gets the created MockedTransaction by the given alias.
 // Panics if it doesn't exist.
 func (t *TestFramework) Transaction(txAlias string) (tx *mockedvm.MockedTransaction) {
-	t.transactionsByAliasMutex.RLock()
-	defer t.transactionsByAliasMutex.RUnlock()
+	t.transactionsByAliasMutex.Lock()
+	defer t.transactionsByAliasMutex.Unlock()
 
 	tx, exists := t.transactionsByAlias[txAlias]
 	if !exists {
@@ -89,8 +89,8 @@ func (t *TestFramework) Transaction(txAlias string) (tx *mockedvm.MockedTransact
 // OutputID gets the created utxo.OutputID by the given alias.
 // Panics if it doesn't exist.
 func (t *TestFramework) OutputID(alias string) (outputID utxo.OutputID) {
-	t.outputIDsByAliasMutex.RLock()
-	defer t.outputIDsByAliasMutex.RUnlock()
+	t.outputIDsByAliasMutex.Lock()
+	defer t.outputIDsByAliasMutex.Unlock()
 
 	outputID, exists := t.outputIDsByAlias[alias]
 	if !exists {

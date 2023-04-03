@@ -28,29 +28,29 @@ func NewChain(forkingPoint *Commitment) (fork *Chain) {
 }
 
 func (c *Chain) IsSolid() (isSolid bool) {
-	c.RLock()
-	defer c.RUnlock()
+	c.Lock()
+	defer c.Unlock()
 
 	return c.ForkingPoint.IsSolid()
 }
 
 func (c *Chain) Commitment(index slot.Index) (commitment *Commitment) {
-	c.RLock()
-	defer c.RUnlock()
+	c.Lock()
+	defer c.Unlock()
 
 	return c.commitmentsByIndex[index]
 }
 
 func (c *Chain) Size() int {
-	c.RLock()
-	defer c.RUnlock()
+	c.Lock()
+	defer c.Unlock()
 
 	return len(c.commitmentsByIndex)
 }
 
 func (c *Chain) LatestCommitment() *Commitment {
-	c.RLock()
-	defer c.RUnlock()
+	c.Lock()
+	defer c.Unlock()
 
 	return c.commitmentsByIndex[c.latestCommitmentIndex]
 }

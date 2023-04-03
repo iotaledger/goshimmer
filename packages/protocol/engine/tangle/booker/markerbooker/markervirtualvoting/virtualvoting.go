@@ -101,8 +101,8 @@ func (v *VirtualVoting) Track(block *booker.Block, conflictIDs utxo.TransactionI
 
 // MarkerVotersTotalWeight retrieves Validators supporting a given marker.
 func (v *VirtualVoting) MarkerVotersTotalWeight(marker markers.Marker) (totalWeight int64) {
-	v.evictionMutex.RLock()
-	defer v.evictionMutex.RUnlock()
+	//v.evictionMutex.Lock()
+	//defer v.evictionMutex.Unlock()
 
 	_ = v.sequenceTracker.Voters(marker).ForEach(func(id identity.ID) error {
 		if weight, exists := v.Validators.Get(id); exists {
@@ -117,8 +117,8 @@ func (v *VirtualVoting) MarkerVotersTotalWeight(marker markers.Marker) (totalWei
 
 // SlotVotersTotalWeight retrieves the total weight of the Validators voting for a given slot.
 func (v *VirtualVoting) SlotVotersTotalWeight(slotIndex slot.Index) (totalWeight int64) {
-	v.evictionMutex.RLock()
-	defer v.evictionMutex.RUnlock()
+	//v.evictionMutex.Lock()
+	//defer v.evictionMutex.Unlock()
 
 	_ = v.slotTracker.Voters(slotIndex).ForEach(func(id identity.ID) error {
 		if weight, exists := v.Validators.Get(id); exists {
@@ -133,8 +133,8 @@ func (v *VirtualVoting) SlotVotersTotalWeight(slotIndex slot.Index) (totalWeight
 
 // ConflictVoters retrieves Validators voting for a given conflict.
 func (v *VirtualVoting) ConflictVoters(conflictID utxo.TransactionID) (voters *sybilprotection.WeightedSet) {
-	v.evictionMutex.RLock()
-	defer v.evictionMutex.RUnlock()
+	v.evictionMutex.Lock()
+	defer v.evictionMutex.Unlock()
 
 	return v.Validators.Weights.NewWeightedSet(v.conflictTracker.Voters(conflictID).Slice()...)
 }

@@ -194,8 +194,8 @@ func (t *TestFramework) createGenesis() {
 }
 
 func (t *TestFramework) mockSchedulerBlock(id models.BlockID) (block *scheduler.Block, exists bool) {
-	t.scheduledBlocksMutex.RLock()
-	defer t.scheduledBlocksMutex.RUnlock()
+	t.scheduledBlocksMutex.Lock()
+	defer t.scheduledBlocksMutex.Unlock()
 
 	return t.scheduledBlocks.Get(id)
 }

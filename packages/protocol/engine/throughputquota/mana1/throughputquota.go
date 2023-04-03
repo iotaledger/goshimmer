@@ -89,24 +89,24 @@ func NewProvider(opts ...options.Option[ThroughputQuota]) module.Provider[*engin
 
 // Balance returns the balance of the given identity.
 func (m *ThroughputQuota) Balance(id identity.ID) (mana int64, exists bool) {
-	m.quotaByIDMutex.RLock()
-	defer m.quotaByIDMutex.RUnlock()
+	m.quotaByIDMutex.Lock()
+	defer m.quotaByIDMutex.Unlock()
 
 	return m.quotaByIDCache.Get(id)
 }
 
 // BalanceByIDs returns the balances of all known identities.
 func (m *ThroughputQuota) BalanceByIDs() (manaByID map[identity.ID]int64) {
-	m.quotaByIDMutex.RLock()
-	defer m.quotaByIDMutex.RUnlock()
+	m.quotaByIDMutex.Lock()
+	defer m.quotaByIDMutex.Unlock()
 
 	return m.quotaByIDCache.AsMap()
 }
 
 // TotalBalance returns the total amount of throughput quota.
 func (m *ThroughputQuota) TotalBalance() (totalMana int64) {
-	m.totalBalanceMutex.RLock()
-	defer m.totalBalanceMutex.RUnlock()
+	m.totalBalanceMutex.Lock()
+	defer m.totalBalanceMutex.Unlock()
 
 	return m.totalBalance
 }

@@ -26,8 +26,8 @@ func New(opts ...options.Option[CongestionControl]) *CongestionControl {
 }
 
 func (c *CongestionControl) Shutdown() {
-	c.schedulerMutex.RLock()
-	defer c.schedulerMutex.RUnlock()
+	c.schedulerMutex.Lock()
+	defer c.schedulerMutex.Unlock()
 
 	c.scheduler.Shutdown()
 }
@@ -61,15 +61,15 @@ func (c *CongestionControl) LinkTo(engine *engine.Engine) {
 }
 
 func (c *CongestionControl) Scheduler() *scheduler.Scheduler {
-	c.schedulerMutex.RLock()
-	defer c.schedulerMutex.RUnlock()
+	c.schedulerMutex.Lock()
+	defer c.schedulerMutex.Unlock()
 
 	return c.scheduler
 }
 
 func (c *CongestionControl) Block(id models.BlockID) (block *scheduler.Block, exists bool) {
-	c.schedulerMutex.RLock()
-	defer c.schedulerMutex.RUnlock()
+	c.schedulerMutex.Lock()
+	defer c.schedulerMutex.Unlock()
 
 	return c.scheduler.Block(id)
 }

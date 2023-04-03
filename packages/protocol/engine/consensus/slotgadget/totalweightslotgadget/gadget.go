@@ -60,8 +60,8 @@ func (g *Gadget) Events() *slotgadget.Events {
 }
 
 func (g *Gadget) LastConfirmedSlot() slot.Index {
-	g.mutex.RLock()
-	defer g.mutex.RUnlock()
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
 
 	return g.lastConfirmedSlot
 }

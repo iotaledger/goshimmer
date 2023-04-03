@@ -177,8 +177,8 @@ func newBlockMetadata(cm *cachedMetadata) (b *BlockMetadata) {
 		return b
 	}
 
-	cm.RLock()
-	defer cm.RUnlock()
+	cm.Lock()
+	defer cm.Unlock()
 
 	b = model.NewStorable[models.BlockID, BlockMetadata](&blockMetadataModel{})
 

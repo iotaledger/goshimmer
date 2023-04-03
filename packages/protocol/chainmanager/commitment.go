@@ -49,29 +49,29 @@ func (c *Commitment) ObjectStorageKey() (key []byte) {
 }
 
 func (c *Commitment) Commitment() (commitment *commitment.Commitment) {
-	c.RLock()
-	defer c.RUnlock()
+	c.Lock()
+	defer c.Unlock()
 
 	return c.M.Commitment
 }
 
 func (c *Commitment) Children() []*Commitment {
-	c.RLock()
-	defer c.RUnlock()
+	c.Lock()
+	defer c.Unlock()
 
 	return lo.Values(c.children)
 }
 
 func (c *Commitment) Chain() (chain *Chain) {
-	c.RLock()
-	defer c.RUnlock()
+	c.Lock()
+	defer c.Unlock()
 
 	return c.chain
 }
 
 func (c *Commitment) IsSolid() (isSolid bool) {
-	c.RLock()
-	defer c.RUnlock()
+	c.Lock()
+	defer c.Unlock()
 
 	return c.solid
 }
@@ -134,8 +134,8 @@ func (c *Commitment) deleteChild(child *Commitment) {
 }
 
 func (c *Commitment) mainChild() *Commitment {
-	c.RLock()
-	defer c.RUnlock()
+	c.Lock()
+	defer c.Unlock()
 
 	return c.children[c.mainChildID]
 }

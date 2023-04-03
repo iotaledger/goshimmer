@@ -153,8 +153,8 @@ func WithOnlyConnectedPeers() GetPeersOption {
 // GetPeers returns the list of known peers.
 func (m *Manager) GetPeers(opts ...GetPeersOption) []*KnownPeer {
 	conf := BuildGetPeersConfig(opts)
-	m.knownPeersMutex.RLock()
-	defer m.knownPeersMutex.RUnlock()
+	m.knownPeersMutex.Lock()
+	defer m.knownPeersMutex.Unlock()
 	peers := make([]*KnownPeer, 0, len(m.knownPeers))
 	for _, kp := range m.knownPeers {
 		connStatus := kp.getConnStatus()
@@ -244,8 +244,8 @@ func (m *Manager) addPeer(p *KnownPeerToAdd) error {
 	if !m.isStarted.Load() {
 		return errors.New("manual peering manager hasn't been started yet")
 	}
-	m.stopMutex.RLock()
-	defer m.stopMutex.RUnlock()
+	m.stopMutex.Lock()
+	defer m.stopMutex.Unlock()
 	if m.isStopped {
 		return errors.New("manual peering manager was stopped")
 	}
@@ -360,8 +360,8 @@ func (m *Manager) onGossipNeighborAdded(neighbor *p2p.Neighbor) {
 }
 
 func (m *Manager) changeNeighborStatus(neighbor *p2p.Neighbor, connStatus ConnectionStatus) {
-	m.knownPeersMutex.RLock()
-	defer m.knownPeersMutex.RUnlock()
+	m.knownPeersMutex.Lock()
+	defer m.knownPeersMutex.Unlock()
 	kp, exists := m.knownPeers[neighbor.ID()]
 	if !exists {
 		return

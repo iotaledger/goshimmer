@@ -188,15 +188,15 @@ func (m *MockBlockGadget) SetMarkersAccepted(markers ...markers.Marker) {
 
 // IsBlockAccepted mocks its interface function returning that all blocks are confirmed.
 func (m *MockBlockGadget) IsBlockAccepted(blockID models.BlockID) bool {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	return m.AcceptedBlocks.Contains(blockID)
 }
 
 func (m *MockBlockGadget) IsMarkerAccepted(marker markers.Marker) (accepted bool) {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	if marker.Index() == 0 {
 		return true
@@ -213,8 +213,8 @@ func (m *MockBlockGadget) IsMarkerAccepted(marker markers.Marker) (accepted bool
 }
 
 func (m *MockBlockGadget) FirstUnacceptedIndex(sequenceID markers.SequenceID) (firstUnacceptedIndex markers.Index) {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	acceptedIndex, exists := m.AcceptedMarkers.Get(sequenceID)
 	if exists {
@@ -224,8 +224,8 @@ func (m *MockBlockGadget) FirstUnacceptedIndex(sequenceID markers.SequenceID) (f
 }
 
 func (m *MockBlockGadget) AcceptedBlocksInSlot(index slot.Index) (blocks models.BlockIDs) {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	blocks = models.NewBlockIDs()
 	for _, block := range m.AcceptedBlocks.Slice() {

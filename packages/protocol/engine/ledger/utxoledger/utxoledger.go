@@ -153,8 +153,8 @@ func (l *UTXOLedger) Import(reader io.ReadSeeker) (err error) {
 
 // Export exports the ledger state to the given writer.
 func (l *UTXOLedger) Export(writer io.WriteSeeker, targetSlot slot.Index) (err error) {
-	l.mutex.RLock()
-	defer l.mutex.RUnlock()
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
 
 	if err = l.unspentOutputs.Export(writer); err != nil {
 		return errors.Wrap(err, "failed to export unspent outputs")

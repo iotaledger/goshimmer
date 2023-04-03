@@ -85,8 +85,8 @@ func (b *ID) FromRandomness(optionalSlot ...slot.Index) (err error) {
 
 // Alias returns the human-readable alias of the ID (or the base58 encoded bytes if no alias was set).
 func (b ID) Alias() (alias string) {
-	_IDAliasesMutex.RLock()
-	defer _IDAliasesMutex.RUnlock()
+	_IDAliasesMutex.Lock()
+	defer _IDAliasesMutex.Unlock()
 
 	if existingAlias, exists := _IDAliases[b]; exists {
 		return existingAlias

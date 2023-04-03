@@ -72,8 +72,8 @@ func (s *State) EvictUntil(index slot.Index) {
 
 // LastEvictedSlot returns the last evicted slot.
 func (s *State) LastEvictedSlot() slot.Index {
-	s.evictionMutex.RLock()
-	defer s.evictionMutex.RUnlock()
+	s.evictionMutex.Lock()
+	defer s.evictionMutex.Unlock()
 
 	return s.lastEvictedSlot
 }
@@ -95,16 +95,16 @@ func (s *State) EarliestRootCommitment() (earliestCommitment commitment.ID) {
 
 // InEvictedSlot checks if the Block associated with the given id is too old (in a pruned slot).
 func (s *State) InEvictedSlot(id models.BlockID) bool {
-	s.evictionMutex.RLock()
-	defer s.evictionMutex.RUnlock()
+	s.evictionMutex.Lock()
+	defer s.evictionMutex.Unlock()
 
 	return id.Index() <= s.lastEvictedSlot
 }
 
 // AddRootBlock inserts a solid entry point to the seps map.
 func (s *State) AddRootBlock(id models.BlockID, commitmentID commitment.ID) {
-	s.evictionMutex.RLock()
-	defer s.evictionMutex.RUnlock()
+	s.evictionMutex.Lock()
+	defer s.evictionMutex.Unlock()
 
 	if id.Index() <= s.delayedBlockEvictionThreshold(s.lastEvictedSlot) {
 		return
@@ -121,8 +121,8 @@ func (s *State) AddRootBlock(id models.BlockID, commitmentID commitment.ID) {
 
 // RemoveRootBlock removes a solid entry points from the map.
 func (s *State) RemoveRootBlock(id models.BlockID) {
-	s.evictionMutex.RLock()
-	defer s.evictionMutex.RUnlock()
+	s.evictionMutex.Lock()
+	defer s.evictionMutex.Unlock()
 
 	if rootBlocks := s.rootBlocks.Get(id.Index()); rootBlocks != nil && rootBlocks.Delete(id) {
 		if err := s.storage.RootBlocks.Delete(id); err != nil {
@@ -137,8 +137,8 @@ func (s *State) IsRootBlock(id models.BlockID) (has bool) {
 		return true
 	}
 
-	s.evictionMutex.RLock()
-	defer s.evictionMutex.RUnlock()
+	s.evictionMutex.Lock()
+	defer s.evictionMutex.Unlock()
 
 	if id.Index() <= s.delayedBlockEvictionThreshold(s.lastEvictedSlot) || id.Index() > s.lastEvictedSlot {
 		return false

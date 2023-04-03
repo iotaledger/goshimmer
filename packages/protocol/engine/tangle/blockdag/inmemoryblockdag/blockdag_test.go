@@ -294,8 +294,8 @@ func TestBlockDAG_AttachBlockTwice_1(t *testing.T) {
 	workers.WaitChildren()
 
 	require.Eventually(t, func() bool {
-		startMutex.RLock()
-		defer startMutex.RUnlock()
+		startMutex.Lock()
+		defer startMutex.Unlock()
 
 		return started == 2
 	}, time.Second*10, time.Millisecond*10)

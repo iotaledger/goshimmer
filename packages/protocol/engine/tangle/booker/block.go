@@ -47,8 +47,8 @@ func (b *Block) AddConflictID(conflictID utxo.TransactionID) (modified bool) {
 
 // AddedConflictIDs returns the ConflictIDs of the added Conflicts of the Block.
 func (b *Block) AddedConflictIDs() utxo.TransactionIDs {
-	b.RLock()
-	defer b.RUnlock()
+	b.Lock()
+	defer b.Unlock()
 
 	return b.addedConflictIDs.Clone()
 }
@@ -66,15 +66,15 @@ func (b *Block) AddAllSubtractedConflictIDs(subtractedConflictIDs utxo.Transacti
 
 // SubtractedConflictIDs returns the ConflictIDs of the subtracted Conflicts of the Block.
 func (b *Block) SubtractedConflictIDs() utxo.TransactionIDs {
-	b.RLock()
-	defer b.RUnlock()
+	b.Lock()
+	defer b.Unlock()
 
 	return b.subtractedConflictIDs.Clone()
 }
 
 func (b *Block) IsSubjectivelyInvalid() bool {
-	b.RLock()
-	defer b.RUnlock()
+	b.Lock()
+	defer b.Unlock()
 
 	return b.subjectivelyInvalid
 }
@@ -109,8 +109,8 @@ func NewRootBlock(id models.BlockID, slotTimeProvider *slot.TimeProvider, opts .
 }
 
 func (b *Block) IsBooked() (isBooked bool) {
-	b.RLock()
-	defer b.RUnlock()
+	b.Lock()
+	defer b.Unlock()
 
 	return b.booked
 }
@@ -127,8 +127,8 @@ func (b *Block) SetBooked() (wasUpdated bool) {
 }
 
 func (b *Block) StructureDetails() *markers.StructureDetails {
-	b.RLock()
-	defer b.RUnlock()
+	b.Lock()
+	defer b.Unlock()
 
 	return b.structureDetails
 }

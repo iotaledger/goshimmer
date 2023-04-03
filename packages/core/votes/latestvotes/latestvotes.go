@@ -34,16 +34,16 @@ func (l *LatestVotes[EntityIndex, VotePowerType]) ForEach(iterator func(node *th
 
 // Voter returns the Voter for the LatestVotes.
 func (l *LatestVotes[EntityIndex, VotePowerType]) Voter() identity.ID {
-	l.m.RLock()
-	defer l.m.RUnlock()
+	l.m.Lock()
+	defer l.m.Unlock()
 
 	return l.voter
 }
 
 // Power returns the power of the vote for the given Index.
 func (l *LatestVotes[EntityIndex, VotePowerType]) Power(index EntityIndex) (power VotePowerType, exists bool) {
-	l.m.RLock()
-	defer l.m.RUnlock()
+	l.m.Lock()
+	defer l.m.Unlock()
 
 	return l.t.Get(index)
 }

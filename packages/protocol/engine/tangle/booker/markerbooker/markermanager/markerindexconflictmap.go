@@ -23,8 +23,8 @@ func NewMarkerIndexConflictIDMapping() (m *MarkerIndexConflictIDMapping) {
 
 // ConflictIDs returns the ConflictID that is associated to the given marker Index.
 func (m *MarkerIndexConflictIDMapping) ConflictIDs(markerIndex markers.Index) (conflictIDs utxo.TransactionIDs) {
-	m.RLock()
-	defer m.RUnlock()
+	m.Lock()
+	defer m.Unlock()
 
 	value, exists := m.t.Get(markerIndex)
 	if !exists {
@@ -53,8 +53,8 @@ func (m *MarkerIndexConflictIDMapping) DeleteConflictID(index markers.Index) {
 // Floor returns the largest Index that is <= the given Index which has a mapped ConflictID (and a boolean value
 // indicating if it exists).
 func (m *MarkerIndexConflictIDMapping) Floor(index markers.Index) (marker markers.Index, conflictIDs utxo.TransactionIDs, exists bool) {
-	m.RLock()
-	defer m.RUnlock()
+	m.Lock()
+	defer m.Unlock()
 
 	if untypedIndex, untypedConflictIDs, exists := m.t.Floor(index); exists {
 		return untypedIndex, untypedConflictIDs, true
@@ -66,8 +66,8 @@ func (m *MarkerIndexConflictIDMapping) Floor(index markers.Index) (marker marker
 // Ceiling returns the smallest Index that is >= the given Index which has a mapped ConflictID (and a boolean value
 // indicating if it exists).
 func (m *MarkerIndexConflictIDMapping) Ceiling(index markers.Index) (marker markers.Index, conflictIDs utxo.TransactionIDs, exists bool) {
-	m.RLock()
-	defer m.RUnlock()
+	m.Lock()
+	defer m.Unlock()
 
 	if untypedIndex, untypedConflictIDs, exists := m.t.Ceiling(index); exists {
 		return untypedIndex, untypedConflictIDs, true

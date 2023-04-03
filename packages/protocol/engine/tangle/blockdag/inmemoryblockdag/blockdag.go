@@ -140,8 +140,8 @@ func (b *BlockDAG) Attach(data *models.Block) (block *blockdag.Block, wasAttache
 	if block, wasAttached, err = b.attach(data); wasAttached {
 		b.events.BlockAttached.Trigger(block)
 
-		//b.solidifierMutex.RLock()
-		//defer b.solidifierMutex.RUnlock()
+		//b.solidifierMutex.Lock()
+		//defer b.solidifierMutex.Unlock()
 
 		b.solidifier.Queue(block)
 	}
@@ -151,8 +151,8 @@ func (b *BlockDAG) Attach(data *models.Block) (block *blockdag.Block, wasAttache
 
 // Block retrieves a Block with metadata from the in-memory storage of the BlockDAG.
 func (b *BlockDAG) Block(id models.BlockID) (block *blockdag.Block, exists bool) {
-	b.evictionMutex.RLock()
-	defer b.evictionMutex.RUnlock()
+	b.evictionMutex.Lock()
+	defer b.evictionMutex.Unlock()
 
 	return b.block(id)
 }
@@ -201,8 +201,8 @@ func (b *BlockDAG) SetOrphaned(block *blockdag.Block, orphaned bool) (updated bo
 }
 
 func (b *BlockDAG) PromoteFutureBlocksUntil(index slot.Index) {
-	//b.solidifierMutex.RLock()
-	//defer b.solidifierMutex.RUnlock()
+	//b.solidifierMutex.Lock()
+	//defer b.solidifierMutex.Unlock()
 	//b.futureBlocksMutex.Lock()
 	//defer b.futureBlocksMutex.Unlock()
 
@@ -263,8 +263,8 @@ func (b *BlockDAG) markSolid(block *blockdag.Block) (err error) {
 }
 
 func (b *BlockDAG) isFutureBlock(block *blockdag.Block) (isFutureBlock bool) {
-	b.futureBlocksMutex.RLock()
-	defer b.futureBlocksMutex.RUnlock()
+	b.futureBlocksMutex.Lock()
+	defer b.futureBlocksMutex.Unlock()
 
 	// If we are not able to load the commitment for the block, it means we haven't committed this slot yet.
 	if _, err := b.commitmentFunc(block.Commitment().Index()); err != nil {
@@ -307,8 +307,8 @@ func (b *BlockDAG) markInvalid(block *blockdag.Block, reason error) {
 
 // attach tries to attach the given Block to the BlockDAG.
 func (b *BlockDAG) attach(data *models.Block) (block *blockdag.Block, wasAttached bool, err error) {
-	b.evictionMutex.RLock()
-	defer b.evictionMutex.RUnlock()
+	b.evictionMutex.Lock()
+	defer b.evictionMutex.Unlock()
 
 	if block, wasAttached, err = b.canAttach(data); !wasAttached {
 		return

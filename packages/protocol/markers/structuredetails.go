@@ -26,8 +26,8 @@ func NewStructureDetails() (s *StructureDetails) {
 }
 
 func (s *StructureDetails) Rank() (rank uint64) {
-	s.RLock()
-	defer s.RUnlock()
+	s.Lock()
+	defer s.Unlock()
 
 	return s.rank
 }
@@ -40,8 +40,8 @@ func (s *StructureDetails) SetRank(rank uint64) {
 }
 
 func (s *StructureDetails) PastMarkerGap() (pastMarkerGap uint64) {
-	s.RLock()
-	defer s.RUnlock()
+	s.Lock()
+	defer s.Unlock()
 
 	return s.pastMarkerGap
 }
@@ -54,8 +54,8 @@ func (s *StructureDetails) SetPastMarkerGap(pastMarkerGap uint64) {
 }
 
 func (s *StructureDetails) IsPastMarker() (isPastMarker bool) {
-	s.RLock()
-	defer s.RUnlock()
+	s.Lock()
+	defer s.Unlock()
 
 	return s.isPastMarker
 }
@@ -68,8 +68,8 @@ func (s *StructureDetails) SetIsPastMarker(isPastMarker bool) {
 }
 
 func (s *StructureDetails) PastMarkers() (pastMarkers *Markers) {
-	s.RLock()
-	defer s.RUnlock()
+	s.Lock()
+	defer s.Unlock()
 
 	return s.pastMarkers
 }

@@ -98,8 +98,8 @@ func (v *Votes[ConflictIDType, VotePowerType]) Delete(vote *Vote[ConflictIDType,
 func (v *Votes[ConflictIDType, VotePowerType]) Voters() (voters *advancedset.AdvancedSet[identity.ID]) {
 	voters = advancedset.New[identity.ID]()
 
-	v.m.RLock()
-	defer v.m.RUnlock()
+	v.m.Lock()
+	defer v.m.Unlock()
 
 	v.o.ForEach(func(id identity.ID, vote *Vote[ConflictIDType, VotePowerType]) bool {
 		if vote.Opinion == Like {
@@ -112,8 +112,8 @@ func (v *Votes[ConflictIDType, VotePowerType]) Voters() (voters *advancedset.Adv
 }
 
 func (v *Votes[ConflictIDType, VotePowerType]) Vote(voter identity.ID) (vote *Vote[ConflictIDType, VotePowerType], exists bool) {
-	v.m.RLock()
-	defer v.m.RUnlock()
+	v.m.Lock()
+	defer v.m.Unlock()
 
 	return v.o.Get(voter)
 }

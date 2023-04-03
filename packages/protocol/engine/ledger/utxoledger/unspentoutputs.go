@@ -204,8 +204,8 @@ func (u *UnspentOutputs) Import(reader io.ReadSeeker, targetSlot slot.Index) (er
 }
 
 func (u *UnspentOutputs) Consumers() (consumers []ledger.UnspentOutputsSubscriber) {
-	u.consumersMutex.RLock()
-	defer u.consumersMutex.RUnlock()
+	u.consumersMutex.Lock()
+	defer u.consumersMutex.Unlock()
 
 	for consumer := range u.consumers {
 		consumers = append(consumers, consumer)

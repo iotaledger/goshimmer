@@ -31,16 +31,16 @@ func NewRelativeTime() *RelativeTime {
 
 // Time returns the original time value.
 func (c *RelativeTime) Time() time.Time {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
 	return c.time
 }
 
 // RelativeTime returns the time value after it has advanced with the system clock.
 func (c *RelativeTime) RelativeTime() time.Time {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
 	return c.time.Add(time.Since(c.timeUpdateOffset))
 }

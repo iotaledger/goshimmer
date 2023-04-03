@@ -173,8 +173,8 @@ func (m *Manager) Import(reader io.ReadSeeker) (err error) {
 }
 
 func (m *Manager) Export(writer io.WriteSeeker, targetSlot slot.Index) (err error) {
-	m.commitmentMutex.RLock()
-	defer m.commitmentMutex.RUnlock()
+	m.commitmentMutex.Lock()
+	defer m.commitmentMutex.Unlock()
 
 	if err = m.attestations.Export(writer, targetSlot); err != nil {
 		return errors.Wrap(err, "failed to export attestations")

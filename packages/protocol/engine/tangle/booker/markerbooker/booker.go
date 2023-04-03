@@ -174,8 +174,8 @@ func (b *Booker) Queue(block *booker.Block) (wasQueued bool, err error) {
 }
 
 func (b *Booker) queue(block *booker.Block) (wasQueued bool, err error) {
-	b.evictionMutex.RLock()
-	defer b.evictionMutex.RUnlock()
+	b.evictionMutex.Lock()
+	defer b.evictionMutex.Unlock()
 
 	if b.evictionState.InEvictedSlot(block.ID()) {
 		return false, nil
@@ -187,8 +187,8 @@ func (b *Booker) queue(block *booker.Block) (wasQueued bool, err error) {
 
 // Block retrieves a Block with metadata from the in-memory storage of the Booker.
 func (b *Booker) Block(id models.BlockID) (block *booker.Block, exists bool) {
-	b.evictionMutex.RLock()
-	defer b.evictionMutex.RUnlock()
+	b.evictionMutex.Lock()
+	defer b.evictionMutex.Unlock()
 	return b.block(id)
 }
 
@@ -200,8 +200,8 @@ func (b *Booker) BlockConflicts(block *booker.Block) (blockConflictIDs utxo.Tran
 
 // BlockBookingDetails returns the Conflict and Marker related details of the given Block.
 func (b *Booker) BlockBookingDetails(block *booker.Block) (pastMarkersConflictIDs, blockConflictIDs utxo.TransactionIDs) {
-	b.evictionMutex.RLock()
-	defer b.evictionMutex.RUnlock()
+	b.evictionMutex.Lock()
+	defer b.evictionMutex.Unlock()
 
 	return b.blockBookingDetails(block)
 }
@@ -254,16 +254,16 @@ func (b *Booker) PayloadConflictID(block *booker.Block) (conflictID utxo.Transac
 
 // Sequence retrieves a Sequence by its ID.
 func (b *Booker) Sequence(id markers.SequenceID) (sequence *markers.Sequence, exists bool) {
-	b.evictionMutex.RLock()
-	defer b.evictionMutex.RUnlock()
+	b.evictionMutex.Lock()
+	defer b.evictionMutex.Unlock()
 
 	return b.markerManager.SequenceManager.Sequence(id)
 }
 
 // BlockFromMarker retrieves the Block of the given Marker.
 func (b *Booker) BlockFromMarker(marker markers.Marker) (block *booker.Block, exists bool) {
-	b.evictionMutex.RLock()
-	defer b.evictionMutex.RUnlock()
+	b.evictionMutex.Lock()
+	defer b.evictionMutex.Unlock()
 	if marker.Index() == 0 {
 		panic(fmt.Sprintf("cannot retrieve block for Marker with Index(0) - %#v", marker))
 	}
@@ -273,16 +273,16 @@ func (b *Booker) BlockFromMarker(marker markers.Marker) (block *booker.Block, ex
 
 // BlockCeiling returns the smallest Index that is >= the given Marker and a boolean value indicating if it exists.
 func (b *Booker) BlockCeiling(marker markers.Marker) (ceilingMarker markers.Marker, exists bool) {
-	b.evictionMutex.RLock()
-	defer b.evictionMutex.RUnlock()
+	b.evictionMutex.Lock()
+	defer b.evictionMutex.Unlock()
 
 	return b.markerManager.BlockCeiling(marker)
 }
 
 // BlockFloor returns the largest Index that is <= the given Marker and a boolean value indicating if it exists.
 func (b *Booker) BlockFloor(marker markers.Marker) (floorMarker markers.Marker, exists bool) {
-	b.evictionMutex.RLock()
-	defer b.evictionMutex.RUnlock()
+	b.evictionMutex.Lock()
+	defer b.evictionMutex.Unlock()
 
 	return b.markerManager.BlockFloor(marker)
 }
@@ -360,8 +360,8 @@ func (b *Booker) book(block *booker.Block) (inheritingErr error) {
 	}
 
 	tryInheritConflictIDs := func() (inheritedConflictIDs utxo.TransactionIDs, err error) {
-		b.evictionMutex.RLock()
-		defer b.evictionMutex.RUnlock()
+		b.evictionMutex.Lock()
+		defer b.evictionMutex.Unlock()
 
 		if b.evictionState.InEvictedSlot(block.ID()) {
 			return nil, errors.Errorf("block with %s belongs to an evicted slot", block.ID())

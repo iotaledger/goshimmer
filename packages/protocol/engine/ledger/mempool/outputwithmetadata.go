@@ -73,8 +73,8 @@ func (o *OutputWithMetadata) FromBytes(data []byte) (consumedBytes int, err erro
 
 // Index returns the index of the output.
 func (o *OutputWithMetadata) Index() slot.Index {
-	o.RLock()
-	defer o.RUnlock()
+	o.Lock()
+	defer o.Unlock()
 
 	return o.M.Index
 }
@@ -88,8 +88,8 @@ func (o *OutputWithMetadata) SetIndex(index slot.Index) {
 }
 
 func (o *OutputWithMetadata) SpentInSlot() slot.Index {
-	o.RLock()
-	defer o.RUnlock()
+	o.Lock()
+	defer o.Unlock()
 
 	return o.M.SpentInSlot
 }
@@ -104,8 +104,8 @@ func (o *OutputWithMetadata) SetSpentInSlot(index slot.Index) {
 
 // Output returns the Output field.
 func (o *OutputWithMetadata) Output() (output utxo.Output) {
-	o.RLock()
-	defer o.RUnlock()
+	o.Lock()
+	defer o.Unlock()
 
 	return o.M.Output
 }
@@ -113,10 +113,10 @@ func (o *OutputWithMetadata) Output() (output utxo.Output) {
 // IOTABalance returns the IOTA balance of the Output.
 // TODO: don't make the ledger depend on devnetvm
 func (o *OutputWithMetadata) IOTABalance() (balance uint64, exists bool) {
-	o.RLock()
-	defer o.RUnlock()
+	o.Lock()
+	defer o.Unlock()
 
-	switch output := o.Output().(type) {
+	switch output := o.M.Output.(type) {
 	case devnetvm.Output:
 		return output.Balances().Get(devnetvm.ColorIOTA)
 	case *mockedvm.MockedOutput:
@@ -137,8 +137,8 @@ func (o *OutputWithMetadata) SetOutput(output utxo.Output) {
 
 // ConsensusManaPledgeID returns the consensus pledge id of the output.
 func (o *OutputWithMetadata) ConsensusManaPledgeID() (consensusPledgeID identity.ID) {
-	o.RLock()
-	defer o.RUnlock()
+	o.Lock()
+	defer o.Unlock()
 
 	return o.M.ConsensusManaPledgeID
 }
@@ -153,8 +153,8 @@ func (o *OutputWithMetadata) SetConsensusManaPledgeID(consensusPledgeID identity
 
 // AccessManaPledgeID returns the access pledge id of the output.
 func (o *OutputWithMetadata) AccessManaPledgeID() (consensusPledgeID identity.ID) {
-	o.RLock()
-	defer o.RUnlock()
+	o.Lock()
+	defer o.Unlock()
 
 	return o.M.AccessManaPledgeID
 }

@@ -151,9 +151,9 @@ func (t *TipManager) removeStrongParents(block *models.Block) {
 
 // Tips returns count number of tips, maximum MaxParentsCount.
 func (t *TipManager) Tips(countParents int) (parents models.BlockIDs) {
-	t.mutex.RLock()
+	t.mutex.Lock()
 	engine := t.engine
-	t.mutex.RUnlock()
+	t.mutex.Unlock()
 
 	engine.ProcessingMutex.Lock()
 	defer engine.ProcessingMutex.Unlock()
@@ -207,8 +207,8 @@ func (t *TipManager) selectTips(count int) (parents models.BlockIDs) {
 
 // AllTips returns a list of all tips that are stored in the TipManger.
 func (t *TipManager) AllTips() (allTips []*scheduler.Block) {
-	t.mutex.RLock()
-	defer t.mutex.RUnlock()
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
 
 	allTips = make([]*scheduler.Block, 0, t.tips.Size())
 	t.tips.ForEach(func(_ models.BlockID, value *scheduler.Block) bool {
@@ -221,8 +221,8 @@ func (t *TipManager) AllTips() (allTips []*scheduler.Block) {
 
 // TipCount the amount of tips.
 func (t *TipManager) TipCount() int {
-	t.mutex.RLock()
-	defer t.mutex.RUnlock()
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
 
 	return t.tips.Size()
 }
@@ -295,8 +295,8 @@ func (t *TipManager) isValidTip(tip *scheduler.Block) (err error) {
 }
 
 func (t *TipManager) IsPastConeTimestampCorrect(block *booker.Block) (timestampValid bool) {
-	t.mutex.RLock()
-	defer t.mutex.RUnlock()
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
 
 	return t.isPastConeTimestampCorrect(block)
 }

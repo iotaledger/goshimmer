@@ -868,8 +868,8 @@ func (a *AliasOutput) SetBalances(balances map[Color]uint64) error {
 
 // GetAliasAddress calculates new ID if it is a minting output. Otherwise it takes stored value.
 func (a *AliasOutput) GetAliasAddress() *AliasAddress {
-	a.mutex.RLock()
-	defer a.mutex.RUnlock()
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
 	if a.aliasAddress.IsNil() {
 		return NewAliasAddress(lo.PanicOnErr(a.ID().Bytes()))
 	}
@@ -885,8 +885,8 @@ func (a *AliasOutput) SetAliasAddress(addr *AliasAddress) {
 
 // IsOrigin returns true if it starts the chain.
 func (a *AliasOutput) IsOrigin() bool {
-	a.mutex.RLock()
-	defer a.mutex.RUnlock()
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
 	return a.isOrigin
 }
 
@@ -897,8 +897,8 @@ func (a *AliasOutput) SetIsOrigin(isOrigin bool) {
 
 // IsDelegated returns true if the output is delegated.
 func (a *AliasOutput) IsDelegated() bool {
-	a.mutex.RLock()
-	defer a.mutex.RUnlock()
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
 	return a.isDelegated
 }
 
@@ -909,15 +909,15 @@ func (a *AliasOutput) SetIsDelegated(isDelegated bool) {
 
 // IsSelfGoverned returns if governing address is not set which means that stateAddress is same as governingAddress.
 func (a *AliasOutput) IsSelfGoverned() bool {
-	a.mutex.RLock()
-	defer a.mutex.RUnlock()
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
 	return a.governingAddress == nil
 }
 
 // GetStateAddress return state controlling address.
 func (a *AliasOutput) GetStateAddress() Address {
-	a.mutex.RLock()
-	defer a.mutex.RUnlock()
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
 	return a.stateAddress
 }
 
@@ -946,12 +946,12 @@ func (a *AliasOutput) SetGoverningAddress(addr Address) {
 // GetGoverningAddress return governing address. If self-governed, it is the same as state controlling address.
 func (a *AliasOutput) GetGoverningAddress() Address {
 	if a.IsSelfGoverned() {
-		a.mutex.RLock()
-		defer a.mutex.RUnlock()
+		a.mutex.Lock()
+		defer a.mutex.Unlock()
 		return a.stateAddress
 	}
-	a.mutex.RLock()
-	defer a.mutex.RUnlock()
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
 	return a.governingAddress
 }
 
@@ -967,8 +967,8 @@ func (a *AliasOutput) SetStateData(data []byte) error {
 
 // GetStateData gets the state data.
 func (a *AliasOutput) GetStateData() []byte {
-	a.mutex.RLock()
-	defer a.mutex.RUnlock()
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
 	return a.stateData
 }
 
@@ -984,8 +984,8 @@ func (a *AliasOutput) SetGovernanceMetadata(data []byte) error {
 
 // GetGovernanceMetadata gets the governance metadata.
 func (a *AliasOutput) GetGovernanceMetadata() []byte {
-	a.mutex.RLock()
-	defer a.mutex.RUnlock()
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
 	return a.governanceMetadata
 }
 
@@ -996,8 +996,8 @@ func (a *AliasOutput) SetStateIndex(index uint32) {
 
 // GetIsGovernanceUpdated returns if the output was unlocked for governance in the transaction.
 func (a *AliasOutput) GetIsGovernanceUpdated() bool {
-	a.mutex.RLock()
-	defer a.mutex.RUnlock()
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
 	return a.isGovernanceUpdate
 }
 
@@ -1008,15 +1008,15 @@ func (a *AliasOutput) SetIsGovernanceUpdated(i bool) {
 
 // GetStateIndex returns the state index.
 func (a *AliasOutput) GetStateIndex() uint32 {
-	a.mutex.RLock()
-	defer a.mutex.RUnlock()
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
 	return a.stateIndex
 }
 
 // GetImmutableData gets the state data.
 func (a *AliasOutput) GetImmutableData() []byte {
-	a.mutex.RLock()
-	defer a.mutex.RUnlock()
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
 	return a.immutableData
 }
 
@@ -1042,8 +1042,8 @@ func (a *AliasOutput) SetDelegationTimelock(timelock time.Time) error {
 // DelegationTimelock returns the delegation timelock. If the output is not delegated, or delegation timelock is
 // not set, it returns the zero time object.
 func (a *AliasOutput) DelegationTimelock() time.Time {
-	a.mutex.RLock()
-	defer a.mutex.RUnlock()
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
 	if !a.isDelegated {
 		return time.Time{}
 	}
@@ -1052,8 +1052,8 @@ func (a *AliasOutput) DelegationTimelock() time.Time {
 
 // DelegationTimeLockedNow determines if the alias output is delegation timelocked at a given time.
 func (a *AliasOutput) DelegationTimeLockedNow(nowis time.Time) bool {
-	a.mutex.RLock()
-	defer a.mutex.RUnlock()
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
 	if !a.isDelegated || a.delegationTimelock.IsZero() {
 		return false
 	}
@@ -1062,8 +1062,8 @@ func (a *AliasOutput) DelegationTimeLockedNow(nowis time.Time) bool {
 
 // Clone clones the structure.
 func (a *AliasOutput) Clone() Output {
-	a.mutex.RLock()
-	defer a.mutex.RUnlock()
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
 	return a.clone()
 }
 
@@ -1095,8 +1095,8 @@ func (a *AliasOutput) clone() *AliasOutput {
 
 // ID is the ID of the output.
 func (a *AliasOutput) ID() utxo.OutputID {
-	a.outputIDMutex.RLock()
-	defer a.outputIDMutex.RUnlock()
+	a.outputIDMutex.Lock()
+	defer a.outputIDMutex.Unlock()
 
 	return a.outputID
 }
@@ -1116,8 +1116,8 @@ func (a *AliasOutput) Type() OutputType {
 
 // Balances return colored balances of the output.
 func (a *AliasOutput) Balances() *ColoredBalances {
-	a.mutex.RLock()
-	defer a.mutex.RUnlock()
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
 	return a.balances
 }
 
@@ -1776,8 +1776,8 @@ func (o *ExtendedLockedOutput) compressFlags() bitmask.BitMask {
 
 // ID returns the identifier of the Output that is used to address the Output in the UTXODAG.
 func (o *ExtendedLockedOutput) ID() utxo.OutputID {
-	o.idMutex.RLock()
-	defer o.idMutex.RUnlock()
+	o.idMutex.Lock()
+	defer o.idMutex.Unlock()
 
 	return o.id
 }

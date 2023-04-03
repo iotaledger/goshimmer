@@ -113,16 +113,16 @@ func (s *Sequence) ReferencingSequences() SequenceIDs {
 
 // LowestIndex returns the Index of the very first Marker in the Sequence.
 func (s *Sequence) LowestIndex() Index {
-	s.RLock()
-	defer s.RUnlock()
+	s.Lock()
+	defer s.Unlock()
 
 	return s.lowestIndex
 }
 
 // HighestIndex returns the Index of the latest Marker in the Sequence.
 func (s *Sequence) HighestIndex() Index {
-	s.RLock()
-	defer s.RUnlock()
+	s.Lock()
+	defer s.Unlock()
 
 	return s.highestIndex
 }

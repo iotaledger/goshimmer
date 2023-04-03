@@ -145,8 +145,8 @@ func (o OutputID) RegisterAlias(alias string) {
 
 // Alias returns the human-readable alias of the OutputID (or the base58 encoded bytes of no alias was set).
 func (o OutputID) Alias() (alias string) {
-	_outputIDAliasesMutex.RLock()
-	defer _outputIDAliasesMutex.RUnlock()
+	_outputIDAliasesMutex.Lock()
+	defer _outputIDAliasesMutex.Unlock()
 
 	if existingAlias, exists := _outputIDAliases[o]; exists {
 		return existingAlias

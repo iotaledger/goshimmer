@@ -143,8 +143,8 @@ func (m *Manager) AddInbound(ctx context.Context, p *peer.Peer, group NeighborsG
 
 // GetNeighbor returns the neighbor by its id.
 func (m *Manager) GetNeighbor(id identity.ID) (*Neighbor, error) {
-	m.neighborsMutex.RLock()
-	defer m.neighborsMutex.RUnlock()
+	m.neighborsMutex.Lock()
+	defer m.neighborsMutex.Unlock()
 	nbr, ok := m.neighbors[id]
 	if !ok {
 		return nil, ErrUnknownNeighbor
@@ -178,8 +178,8 @@ func (m *Manager) Send(packet proto.Message, protocolID string, to ...identity.I
 
 // AllNeighbors returns all the neighbors that are currently connected.
 func (m *Manager) AllNeighbors() []*Neighbor {
-	m.neighborsMutex.RLock()
-	defer m.neighborsMutex.RUnlock()
+	m.neighborsMutex.Lock()
+	defer m.neighborsMutex.Unlock()
 	result := make([]*Neighbor, 0, len(m.neighbors))
 	for _, n := range m.neighbors {
 		result = append(result, n)
@@ -204,8 +204,8 @@ func (m *Manager) GetNeighborsByID(ids []identity.ID) []*Neighbor {
 		return result
 	}
 
-	m.neighborsMutex.RLock()
-	defer m.neighborsMutex.RUnlock()
+	m.neighborsMutex.Lock()
+	defer m.neighborsMutex.Unlock()
 	for _, id := range ids {
 		if n, ok := m.neighbors[id]; ok {
 			result = append(result, n)
@@ -216,8 +216,8 @@ func (m *Manager) GetNeighborsByID(ids []identity.ID) []*Neighbor {
 
 // getNeighborWithGroup returns neighbor by ID and group.
 func (m *Manager) getNeighborWithGroup(id identity.ID, group NeighborsGroup) (*Neighbor, error) {
-	m.neighborsMutex.RLock()
-	defer m.neighborsMutex.RUnlock()
+	m.neighborsMutex.Lock()
+	defer m.neighborsMutex.Unlock()
 	nbr, ok := m.neighbors[id]
 	if !ok || nbr.Group != group {
 		return nil, ErrUnknownNeighbor
@@ -232,8 +232,8 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 	if p.ID() == m.local.ID() {
 		return errors.WithStack(ErrLoopbackNeighbor)
 	}
-	m.stopMutex.RLock()
-	defer m.stopMutex.RUnlock()
+	m.stopMutex.Lock()
+	defer m.stopMutex.Unlock()
 	if m.isStopped {
 		return ErrNotRunning
 	}
@@ -248,8 +248,8 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 
 	// create and add the neighbor
 	nbr := NewNeighbor(p, group, streams, m.log, func(nbr *Neighbor, protocol protocol.ID, packet proto.Message) {
-		m.registeredProtocolsMutex.RLock()
-		defer m.registeredProtocolsMutex.RUnlock()
+		m.registeredProtocolsMutex.Lock()
+		defer m.registeredProtocolsMutex.Unlock()
 
 		protocolHandler, isRegistered := m.registeredProtocols[protocol]
 		if !isRegistered {
@@ -279,8 +279,8 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 }
 
 func (m *Manager) neighborExists(id identity.ID) bool {
-	m.neighborsMutex.RLock()
-	defer m.neighborsMutex.RUnlock()
+	m.neighborsMutex.Lock()
+	defer m.neighborsMutex.Unlock()
 	_, exists := m.neighbors[id]
 	return exists
 }

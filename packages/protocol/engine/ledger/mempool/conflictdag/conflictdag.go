@@ -46,15 +46,15 @@ func New[ConflictIDType, ResourceIDType comparable](opts ...options.Option[Confl
 }
 
 func (c *ConflictDAG[ConflictIDType, ResourceIDType]) Conflict(conflictID ConflictIDType) (conflict *Conflict[ConflictIDType, ResourceIDType], exists bool) {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
 	return c.conflicts.Get(conflictID)
 }
 
 func (c *ConflictDAG[ConflictIDType, ResourceIDType]) ConflictSet(resourceID ResourceIDType) (conflictSet *ConflictSet[ConflictIDType, ResourceIDType], exists bool) {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
 	return c.conflictSets.Get(resourceID)
 }
@@ -171,8 +171,8 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) UpdateConflictingResources
 // UnconfirmedConflicts takes a set of ConflictIDs and removes all the Accepted/Confirmed Conflicts (leaving only the
 // pending or rejected ones behind).
 func (c *ConflictDAG[ConflictIDType, ResourceIDType]) UnconfirmedConflicts(conflictIDs *advancedset.AdvancedSet[ConflictIDType]) (pendingConflictIDs *advancedset.AdvancedSet[ConflictIDType]) {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
 	if !c.optsMergeToMaster {
 		return conflictIDs.Clone()
@@ -262,8 +262,8 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) ConfirmationState(conflict
 		return confirmation.Confirmed
 	}
 
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
 	// we start with Confirmed because state is Aggregated to the lowest state.
 	confirmationState = confirmation.Confirmed
@@ -280,8 +280,8 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) ConfirmationState(conflict
 // computes the conflicts that will receive additional weight, the ones that will see their weight revoked, and if the
 // result constitutes an overall valid state transition.
 func (c *ConflictDAG[ConflictIDType, ResourceIDType]) DetermineVotes(conflictIDs *advancedset.AdvancedSet[ConflictIDType]) (addedConflicts, revokedConflicts *advancedset.AdvancedSet[ConflictIDType], isInvalid bool) {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
 	addedConflicts = advancedset.New[ConflictIDType]()
 	for it := conflictIDs.Iterator(); it.HasNext(); {
@@ -413,9 +413,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) confirmationState(conflict
 // ForEachConnectedConflictingConflictID executes the callback for each Conflict that is directly or indirectly connected to
 // the named Conflict through a chain of intersecting conflicts.
 func (c *ConflictDAG[ConflictIDType, ResourceIDType]) ForEachConnectedConflictingConflictID(rootConflict *Conflict[ConflictIDType, ResourceIDType], callback func(conflictingConflict *Conflict[ConflictIDType, ResourceIDType])) {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-
+	c.mutex.Lock()
 	traversedConflicts := set.New[*Conflict[ConflictIDType, ResourceIDType]]()
 	conflictSetsWalker := walker.New[*ConflictSet[ConflictIDType, ResourceIDType]]()
 
@@ -435,14 +433,15 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) ForEachConnectedConflictin
 			processConflictAndQueueConflictSets(conflict)
 		}
 	}
+	c.mutex.Unlock()
 
 	traversedConflicts.ForEach(callback)
 }
 
 // ForEachConflict iterates over every existing Conflict in the entire Storage.
 func (c *ConflictDAG[ConflictIDType, ResourceIDType]) ForEachConflict(consumer func(conflict *Conflict[ConflictIDType, ResourceIDType])) {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
 	c.conflicts.ForEach(func(c2 ConflictIDType, conflict *Conflict[ConflictIDType, ResourceIDType]) bool {
 		consumer(conflict)

@@ -40,8 +40,8 @@ func (c *Conflict[ConflictIDType, ResourceIDType]) ID() ConflictIDType {
 
 // Parents returns the parent ConflictIDs that this Conflict depends on.
 func (c *Conflict[ConflictIDType, ResourceIDType]) Parents() (parents *advancedset.AdvancedSet[ConflictIDType]) {
-	c.m.RLock()
-	defer c.m.RUnlock()
+	c.m.Lock()
+	defer c.m.Unlock()
 
 	return c.parents.Clone()
 }
@@ -56,15 +56,15 @@ func (c *Conflict[ConflictIDType, ResourceIDType]) setParents(parents *advanceds
 
 // ConflictSets returns the identifiers of the conflict sets that this Conflict is part of.
 func (c *Conflict[ConflictIDType, ResourceIDType]) ConflictSets() (conflictSets *advancedset.AdvancedSet[*ConflictSet[ConflictIDType, ResourceIDType]]) {
-	c.m.RLock()
-	defer c.m.RUnlock()
+	c.m.Lock()
+	defer c.m.Unlock()
 
 	return c.conflictSets.Clone()
 }
 
 func (c *Conflict[ConflictIDType, ResourceIDType]) Children() (children *advancedset.AdvancedSet[*Conflict[ConflictIDType, ResourceIDType]]) {
-	c.m.RLock()
-	defer c.m.RUnlock()
+	c.m.Lock()
+	defer c.m.Unlock()
 
 	return c.children.Clone()
 }
@@ -79,8 +79,8 @@ func (c *Conflict[ConflictIDType, ResourceIDType]) addConflictSet(conflictSet *C
 
 // ConfirmationState returns the ConfirmationState of the Conflict.
 func (c *Conflict[ConflictIDType, ResourceIDType]) ConfirmationState() (confirmationState confirmation.State) {
-	c.m.RLock()
-	defer c.m.RUnlock()
+	c.m.Lock()
+	defer c.m.Unlock()
 
 	return c.confirmationState
 }
@@ -159,8 +159,8 @@ func (c *ConflictSet[ConflictIDType, ResourceIDType]) ID() (id ResourceIDType) {
 }
 
 func (c *ConflictSet[ConflictIDType, ResourceIDType]) Conflicts() *advancedset.AdvancedSet[*Conflict[ConflictIDType, ResourceIDType]] {
-	c.m.RLock()
-	defer c.m.RUnlock()
+	c.m.Lock()
+	defer c.m.Unlock()
 
 	return c.conflicts.Clone()
 }

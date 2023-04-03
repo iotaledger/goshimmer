@@ -146,8 +146,8 @@ func NewNodeFromDisk(t *testing.T, keyPair ed25519.KeyPair, network *network.Moc
 }
 
 func (n *Node) EngineTestFramework() *engine.TestFramework {
-	n.mutex.RLock()
-	defer n.mutex.RUnlock()
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
 
 	return n.tf
 }

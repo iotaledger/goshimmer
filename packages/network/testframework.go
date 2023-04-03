@@ -110,8 +110,8 @@ func (m *MockedEndpoint) UnregisterProtocol(protocolID string) {
 }
 
 func (m *MockedEndpoint) Send(packet proto.Message, protocolID string, to ...identity.ID) {
-	m.network.dispatchersMutex.RLock()
-	defer m.network.dispatchersMutex.RUnlock()
+	m.network.dispatchersMutex.Lock()
+	defer m.network.dispatchersMutex.Unlock()
 
 	if len(to) == 0 {
 		to = lo.Keys(m.network.dispatchersByPartition[m.partition])
@@ -133,8 +133,8 @@ func (m *MockedEndpoint) Send(packet proto.Message, protocolID string, to ...ide
 }
 
 func (m *MockedEndpoint) handler(protocolID string) (handler func(identity.ID, proto.Message) error, exists bool) {
-	m.handlersMutex.RLock()
-	defer m.handlersMutex.RUnlock()
+	m.handlersMutex.Lock()
+	defer m.handlersMutex.Unlock()
 
 	handler, exists = m.handlers[protocolID]
 

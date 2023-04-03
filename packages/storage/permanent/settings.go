@@ -47,8 +47,8 @@ func NewSettings(path string) (settings *Settings) {
 }
 
 func (s *Settings) SlotTimeProvider() *slot.TimeProvider {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
 	if s.settingsModel.SlotDuration == 0 || s.settingsModel.GenesisUnixTime == 0 {
 		panic("SlotTimeProvider not initialized yet")
@@ -58,8 +58,8 @@ func (s *Settings) SlotTimeProvider() *slot.TimeProvider {
 }
 
 func (s *Settings) SnapshotImported() (initialized bool) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
 	return s.settingsModel.SnapshotImported
 }
@@ -78,8 +78,8 @@ func (s *Settings) SetSnapshotImported(initialized bool) (err error) {
 }
 
 func (s *Settings) GenesisUnixTime() int64 {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
 	return s.settingsModel.GenesisUnixTime
 }
@@ -99,8 +99,8 @@ func (s *Settings) SetGenesisUnixTime(unixTime int64) (err error) {
 }
 
 func (s *Settings) SlotDuration() int64 {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
 	return s.settingsModel.SlotDuration
 }
@@ -120,8 +120,8 @@ func (s *Settings) SetSlotDuration(duration int64) (err error) {
 }
 
 func (s *Settings) LatestCommitment() (latestCommitment *commitment.Commitment) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
 	return s.settingsModel.LatestCommitment
 }
@@ -140,8 +140,8 @@ func (s *Settings) SetLatestCommitment(latestCommitment *commitment.Commitment) 
 }
 
 func (s *Settings) LatestStateMutationSlot() slot.Index {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
 	return s.settingsModel.LatestStateMutationSlot
 }
@@ -160,8 +160,8 @@ func (s *Settings) SetLatestStateMutationSlot(latestStateMutationSlot slot.Index
 }
 
 func (s *Settings) LatestConfirmedSlot() slot.Index {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
 	return s.settingsModel.LatestConfirmedSlot
 }
@@ -180,8 +180,8 @@ func (s *Settings) SetLatestConfirmedSlot(latestConfirmedSlot slot.Index) (err e
 }
 
 func (s *Settings) ChainID() commitment.ID {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
 	return s.settingsModel.ChainID
 }
@@ -200,8 +200,8 @@ func (s *Settings) SetChainID(id commitment.ID) (err error) {
 }
 
 func (s *Settings) Export(writer io.WriteSeeker) (err error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
 	settingsBytes, err := s.Bytes()
 	if err != nil {
@@ -230,8 +230,8 @@ func (s *Settings) Import(reader io.ReadSeeker) (err error) {
 }
 
 func (s *Settings) String() string {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
 	builder := stringify.NewStructBuilder("Settings", stringify.NewStructField("path", s.FilePath()))
 	builder.AddField(stringify.NewStructField("SnapshotImported", s.settingsModel.SnapshotImported))

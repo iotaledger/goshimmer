@@ -32,8 +32,8 @@ func NewWeightedSet(weights *Weights, optMembers ...identity.ID) (newWeightedSet
 }
 
 func (w *WeightedSet) Add(id identity.ID) (added bool) {
-	w.Weights.mutex.RLock()
-	defer w.Weights.mutex.RUnlock()
+	w.Weights.mutex.Lock()
+	defer w.Weights.mutex.Unlock()
 
 	w.membersMutex.Lock()
 	defer w.membersMutex.Unlock()
@@ -51,8 +51,8 @@ func (w *WeightedSet) Add(id identity.ID) (added bool) {
 }
 
 func (w *WeightedSet) Delete(id identity.ID) (removed bool) {
-	w.Weights.mutex.RLock()
-	defer w.Weights.mutex.RUnlock()
+	w.Weights.mutex.Lock()
+	defer w.Weights.mutex.Unlock()
 
 	w.membersMutex.Lock()
 	defer w.membersMutex.Unlock()
@@ -70,8 +70,8 @@ func (w *WeightedSet) Delete(id identity.ID) (removed bool) {
 }
 
 func (w *WeightedSet) Get(id identity.ID) (weight *Weight, exists bool) {
-	w.membersMutex.RLock()
-	defer w.membersMutex.RUnlock()
+	w.membersMutex.Lock()
+	defer w.membersMutex.Unlock()
 
 	if !w.members.Has(id) {
 		return nil, false
@@ -85,8 +85,8 @@ func (w *WeightedSet) Get(id identity.ID) (weight *Weight, exists bool) {
 }
 
 func (w *WeightedSet) Has(id identity.ID) (has bool) {
-	w.membersMutex.RLock()
-	defer w.membersMutex.RUnlock()
+	w.membersMutex.Lock()
+	defer w.membersMutex.Unlock()
 
 	return w.members.Has(id)
 }
@@ -118,15 +118,15 @@ func (w *WeightedSet) ForEachWeighted(callback func(id identity.ID, weight int64
 }
 
 func (w *WeightedSet) TotalWeight() (totalWeight int64) {
-	w.totalWeightMutex.RLock()
-	defer w.totalWeightMutex.RUnlock()
+	w.totalWeightMutex.Lock()
+	defer w.totalWeightMutex.Unlock()
 
 	return w.totalWeight
 }
 
 func (w *WeightedSet) Members() *advancedset.AdvancedSet[identity.ID] {
-	w.membersMutex.RLock()
-	defer w.membersMutex.RUnlock()
+	w.membersMutex.Lock()
+	defer w.membersMutex.Unlock()
 
 	return w.members
 }

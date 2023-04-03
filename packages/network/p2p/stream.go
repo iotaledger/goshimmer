@@ -40,8 +40,8 @@ var (
 )
 
 func (m *Manager) dialPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeerOption) (map[protocol.ID]*PacketsStream, error) {
-	m.registeredProtocolsMutex.RLock()
-	defer m.registeredProtocolsMutex.RUnlock()
+	m.registeredProtocolsMutex.Lock()
+	defer m.registeredProtocolsMutex.Unlock()
 
 	conf := buildConnectPeerConfig(opts)
 	p2pEndpoint := p.Services().Get(service.P2PKey)
@@ -89,8 +89,8 @@ func (m *Manager) dialPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeer
 }
 
 func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeerOption) (map[protocol.ID]*PacketsStream, error) {
-	m.registeredProtocolsMutex.RLock()
-	defer m.registeredProtocolsMutex.RUnlock()
+	m.registeredProtocolsMutex.Lock()
+	defer m.registeredProtocolsMutex.Unlock()
 
 	p2pEndpoint := p.Services().Get(service.P2PKey)
 	if p2pEndpoint == nil {
@@ -113,9 +113,9 @@ func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPe
 		defer m.removeAcceptMatcher(am, protocolID)
 
 		m.log.Debugw("waiting for incoming stream", "id", am.Peer.ID(), "proto", protocolID)
-		am.StreamChMutex.RLock()
+		am.StreamChMutex.Lock()
 		streamCh := am.StreamCh[protocolID]
-		am.StreamChMutex.RUnlock()
+		am.StreamChMutex.Unlock()
 		select {
 		case ps := <-streamCh:
 			if ps.Protocol() != protocolID {
@@ -192,8 +192,8 @@ func (m *Manager) initiateStream(ctx context.Context, libp2pID libp2ppeer.ID, pr
 }
 
 func (m *Manager) handleStream(stream network.Stream) {
-	m.registeredProtocolsMutex.RLock()
-	defer m.registeredProtocolsMutex.RUnlock()
+	m.registeredProtocolsMutex.Lock()
+	defer m.registeredProtocolsMutex.Unlock()
 
 	protocolID := stream.Protocol()
 	protocolHandler, registered := m.registeredProtocols[protocolID]
@@ -210,8 +210,8 @@ func (m *Manager) handleStream(stream network.Stream) {
 	}
 	am := m.matchNewStream(stream)
 	if am != nil {
-		am.StreamChMutex.RLock()
-		defer am.StreamChMutex.RUnlock()
+		am.StreamChMutex.Lock()
+		defer am.StreamChMutex.Unlock()
 		streamCh := am.StreamCh[protocolID]
 
 		select {
@@ -293,8 +293,8 @@ func (m *Manager) removeAcceptMatcher(am *AcceptMatcher, protocolID protocol.ID)
 }
 
 func (m *Manager) matchNewStream(stream network.Stream) *AcceptMatcher {
-	m.acceptMutex.RLock()
-	defer m.acceptMutex.RUnlock()
+	m.acceptMutex.Lock()
+	defer m.acceptMutex.Unlock()
 	am := m.acceptMap[stream.Conn().RemotePeer()]
 	return am
 }

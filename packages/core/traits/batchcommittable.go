@@ -76,8 +76,8 @@ func (b *batchCommittable) FinalizeBatchedStateTransition() {
 
 // BatchedStateTransitionStarted returns true if a batched state transition is currently in progress.
 func (b *batchCommittable) BatchedStateTransitionStarted() bool {
-	b.batchSlotMutex.RLock()
-	defer b.batchSlotMutex.RUnlock()
+	b.batchSlotMutex.Lock()
+	defer b.batchSlotMutex.Unlock()
 
 	return b.batchSlot != 0
 }

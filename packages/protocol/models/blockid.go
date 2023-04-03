@@ -98,8 +98,8 @@ func (b *BlockID) FromRandomness(optionalSlot ...slot.Index) (err error) {
 
 // Alias returns the human-readable alias of the BlockID (or the base58 encoded bytes if no alias was set).
 func (b BlockID) Alias() (alias string) {
-	_BlockIDAliasesMutex.RLock()
-	defer _BlockIDAliasesMutex.RUnlock()
+	_BlockIDAliasesMutex.Lock()
+	defer _BlockIDAliasesMutex.Unlock()
 
 	if existingAlias, exists := _BlockIDAliases[b]; exists {
 		return existingAlias

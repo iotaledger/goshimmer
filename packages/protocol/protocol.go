@@ -131,8 +131,8 @@ func (p *Protocol) Shutdown() {
 
 	p.chainManager.CommitmentRequester.Shutdown()
 
-	p.activeEngineMutex.RLock()
-	defer p.activeEngineMutex.RUnlock()
+	p.activeEngineMutex.Lock()
+	defer p.activeEngineMutex.Unlock()
 
 	p.mainEngine.Shutdown()
 	if p.candidateEngine != nil {
@@ -602,15 +602,15 @@ func (p *Protocol) Engine() *engine.Engine {
 }
 
 func (p *Protocol) MainEngineInstance() *engine.Engine {
-	p.activeEngineMutex.RLock()
-	defer p.activeEngineMutex.RUnlock()
+	p.activeEngineMutex.Lock()
+	defer p.activeEngineMutex.Unlock()
 
 	return p.mainEngine
 }
 
 func (p *Protocol) CandidateEngineInstance() (instance *engine.Engine) {
-	p.activeEngineMutex.RLock()
-	defer p.activeEngineMutex.RUnlock()
+	p.activeEngineMutex.Lock()
+	defer p.activeEngineMutex.Unlock()
 
 	return p.candidateEngine
 }

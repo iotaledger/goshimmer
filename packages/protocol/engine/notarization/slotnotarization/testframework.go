@@ -66,8 +66,8 @@ func (t *TestFramework) CreateIssuer(alias string, issuerWeight ...int64) (issue
 }
 
 func (t *TestFramework) Issuer(alias string) (issuer ed25519.PublicKey) {
-	t.RLock()
-	defer t.RUnlock()
+	t.Lock()
+	defer t.Unlock()
 
 	return t.issuersByID[alias]
 }
@@ -96,8 +96,8 @@ func (t *TestFramework) CreateBlock(alias string, index slot.Index, blockOpts ..
 }
 
 func (t *TestFramework) Block(alias string) (block *models.Block) {
-	t.RLock()
-	defer t.RUnlock()
+	t.Lock()
+	defer t.Unlock()
 
 	return t.blocksByID[alias]
 }
@@ -121,8 +121,8 @@ func (t *TestFramework) CreateTransaction(alias string, index slot.Index) (metad
 }
 
 func (t *TestFramework) Transaction(alias string) *mempool.TransactionMetadata {
-	t.RLock()
-	defer t.RUnlock()
+	t.Lock()
+	defer t.Unlock()
 
 	return t.transactionsByID[alias]
 }
