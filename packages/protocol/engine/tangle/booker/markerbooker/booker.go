@@ -185,6 +185,7 @@ func (b *Booker) Queue(block *booker.Block) (wasQueued bool, err error) {
 func (b *Booker) Block(id models.BlockID) (block *booker.Block, exists bool) {
 	b.evictionMutex.Lock()
 	defer b.evictionMutex.Unlock()
+
 	return b.block(id)
 }
 
@@ -553,7 +554,7 @@ func (b *Booker) collectShallowLikedParentsConflictIDs(block *booker.Block) (col
 	collectedDislikedConflictIDs = utxo.NewTransactionIDs()
 
 	block.ForEachParentByType(models.ShallowLikeParentType, func(parentBlockID models.BlockID) bool {
-		parentBlock, exists := b.Block(parentBlockID)
+		parentBlock, exists := b.block(parentBlockID)
 		if !exists {
 			panic(fmt.Sprintf("parent %s does not exist", parentBlockID))
 		}
