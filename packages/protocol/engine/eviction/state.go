@@ -78,8 +78,8 @@ func (s *State) LastEvictedSlot() slot.Index {
 	return s.lastEvictedSlot
 }
 
-// EarliestRootCommitment returns the earliest commitment across all rootblocks.
-func (s *State) EarliestRootCommitment() (earliestCommitment commitment.ID) {
+// EarliestRootCommitmentID returns the earliest commitment that rootblocks are committing to across all rootblocks.
+func (s *State) EarliestRootCommitmentID() (earliestCommitment commitment.ID) {
 	s.rootBlocks.ForEach(func(index slot.Index, storage *shrinkingmap.ShrinkingMap[models.BlockID, commitment.ID]) {
 		storage.ForEach(func(id models.BlockID, commitmentID commitment.ID) bool {
 			if commitmentID.Index() < earliestCommitment.Index() || earliestCommitment.Index() == 0 {

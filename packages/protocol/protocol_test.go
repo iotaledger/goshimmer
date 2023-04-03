@@ -377,7 +377,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 			}
 
 			tf2.AssertRootBlocks(rootBlocks)
-			require.Equal(t, earliestCommitment, tf2.Instance.EvictionState.EarliestRootCommitment())
+			require.Equal(t, earliestCommitment, tf2.Instance.EvictionState.EarliestRootCommitmentID())
 		}
 
 		// UTXOLedger
@@ -454,7 +454,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 		}
 
 		tf3.AssertRootBlocks(rootBlocks)
-		require.Equal(t, earliestCommitment, tf3.Instance.EvictionState.EarliestRootCommitment())
+		require.Equal(t, earliestCommitment, tf3.Instance.EvictionState.EarliestRootCommitmentID())
 
 		// Block in slot 2, not accepting anything new.
 		tf3.BlockDAG.CreateBlock("2.D", models.WithStrongParents(tf.BlockDAG.BlockIDs("1.D")), models.WithIssuer(identitiesMap["D"]), models.WithIssuingTime(slot2IssuingTime))
