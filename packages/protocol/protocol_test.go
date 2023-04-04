@@ -1179,7 +1179,7 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 	}
 }
 
-func TestProtocol_EngineFromSnapshot(t *testing.T) {
+func TestProtocol_EngineFromSnapshotAndDisk(t *testing.T) {
 	debug.SetEnabled(true)
 	defer debug.SetEnabled(false)
 

@@ -134,7 +134,7 @@ func (m *Manager) RootCommitment() (rootCommitment *Commitment) {
 	m.evictionMutex.RLock()
 	defer m.evictionMutex.RUnlock()
 
-	return m.rootCommitment.Commitment()
+	return m.rootCommitment
 }
 
 // SetRootCommitment sets the root commitment of the manager.
