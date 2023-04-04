@@ -29,10 +29,10 @@ func TestConflictDAG_CreateConflict(t *testing.T) {
 	require.Panics(t, func() { conflictDAG.CreateConflict(NewTestID("conflict3"), []TestID{}, []TestID{}, weight.New()) })
 	require.Panics(t, func() { conflictDAG.CreateConflict(NewTestID("conflict4"), []TestID{}, []TestID{}, weight.New()) })
 
-	require.True(t, conflictDAG.Conflicts(conflictID1).Has(conflict1))
-	require.True(t, conflictDAG.Conflicts(conflictID2).Has(conflict2))
-	require.True(t, conflictDAG.Conflicts(conflictID3).Has(conflict3))
-	require.True(t, conflictDAG.Conflicts(conflictID4).Has(conflict4))
+	require.Contains(t, conflictDAG.Conflicts(conflictID1), conflict1)
+	require.Contains(t, conflictDAG.Conflicts(conflictID2), conflict2)
+	require.Contains(t, conflictDAG.Conflicts(conflictID3), conflict3)
+	require.Contains(t, conflictDAG.Conflicts(conflictID4), conflict4)
 
 	conflict1.Parents().Equal(advancedset.New[*conflict.Conflict[TestID, TestID]]())
 	conflict2.Parents().Equal(advancedset.New[*conflict.Conflict[TestID, TestID]]())

@@ -48,9 +48,9 @@ func (c *ConflictDAG[ConflictID, ResourceID]) CreateConflict(id ConflictID, pare
 
 	parents := c.Conflicts(parentIDs...)
 
-	conflictSets := advancedset.New[*conflict.Set[ConflictID, ResourceID]]()
+	conflictSets := make([]*conflict.Set[ConflictID, ResourceID], 0)
 	for _, resourceID := range resourceIDs {
-		conflictSets.Add(lo.Return1(c.conflictSetsByID.GetOrCreate(resourceID, func() *conflict.Set[ConflictID, ResourceID] {
+		conflictSets = append(conflictSets, lo.Return1(c.conflictSetsByID.GetOrCreate(resourceID, func() *conflict.Set[ConflictID, ResourceID] {
 			return conflict.NewSet[ConflictID, ResourceID](resourceID)
 		})))
 	}
@@ -69,12 +69,12 @@ func (c *ConflictDAG[ConflictID, ResourceID]) CreateConflict(id ConflictID, pare
 }
 
 // Conflicts returns the Conflicts that are associated with the given ConflictIDs.
-func (c *ConflictDAG[ConflictID, ResourceID]) Conflicts(ids ...ConflictID) *advancedset.AdvancedSet[*conflict.Conflict[ConflictID, ResourceID]] {
-	conflicts := advancedset.New[*conflict.Conflict[ConflictID, ResourceID]]()
+func (c *ConflictDAG[ConflictID, ResourceID]) Conflicts(ids ...ConflictID) []*conflict.Conflict[ConflictID, ResourceID] {
+	conflicts := make([]*conflict.Conflict[ConflictID, ResourceID], 0)
 	for _, id := range ids {
 		// TODO: check if it's okay to ignore non-existing conflicts
 		if existingConflict, exists := c.conflictsByID.Get(id); exists {
-			conflicts.Add(existingConflict)
+			conflicts = append(conflicts, existingConflict)
 		}
 	}
 
