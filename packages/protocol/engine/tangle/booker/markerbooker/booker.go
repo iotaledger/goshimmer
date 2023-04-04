@@ -535,7 +535,7 @@ func (b *Booker) collectWeakParentsConflictIDs(block *booker.Block) (transaction
 	transactionConflictIDs = utxo.NewTransactionIDs()
 
 	block.ForEachParentByType(models.WeakParentType, func(parentBlockID models.BlockID) bool {
-		parentBlock, exists := b.Block(parentBlockID)
+		parentBlock, exists := b.block(parentBlockID)
 		if !exists {
 			panic(fmt.Sprintf("parent %s does not exist", parentBlockID))
 		}

@@ -219,7 +219,7 @@ func (g *Gadget) GetOrRegisterBlock(blockID models.BlockID) (block *blockgadget.
 func (g *Gadget) RefreshSequence(sequenceID markers.SequenceID, newMaxSupportedIndex, prevMaxSupportedIndex markers.Index) {
 	g.evictionMutex.Lock()
 
-	var acceptedBlocks, confirmedBlocks []*blockgadget.Block
+	var acceptedBlocks, confirmedBlocks, individuallyAcceptedBlocks, individuallyConfirmedBlocks []*blockgadget.Block
 
 	totalWeight := g.totalWeightCallback()
 
@@ -233,14 +233,23 @@ func (g *Gadget) RefreshSequence(sequenceID markers.SequenceID, newMaxSupportedI
 			break
 		}
 
-		blocksToAccept, blocksToConfirm := g.tryConfirmOrAccept(totalWeight, marker)
+		blocksToAccept, blocksToConfirm, individualToAccept, individualToConfirm := g.tryConfirmOrAccept(totalWeight, marker)
 		acceptedBlocks = append(acceptedBlocks, blocksToAccept...)
 		confirmedBlocks = append(confirmedBlocks, blocksToConfirm...)
+		individuallyAcceptedBlocks = append(individuallyAcceptedBlocks, individualToAccept...)
+		individuallyConfirmedBlocks = append(individuallyConfirmedBlocks, individualToConfirm...)
 
 		markerIndex = marker.Index()
 	}
 
 	g.evictionMutex.Unlock()
+
+	for _, block := range individuallyAcceptedBlocks {
+		_ = g.markAsAccepted(block, true)
+	}
+	for _, block := range individuallyAcceptedBlocks {
+		_ = g.markAsConfirmed(block, true)
+	}
 
 	// EVICTION
 	for _, block := range acceptedBlocks {
@@ -255,7 +264,7 @@ func (g *Gadget) RefreshSequence(sequenceID markers.SequenceID, newMaxSupportedI
 // if the marker has accumulated enough witness weight to be both accepted and confirmed.
 // Acceptance and Confirmation use the same threshold if confirmation is possible.
 // If there is not enough online weight to achieve confirmation, then acceptance condition is evaluated based on total active weight.
-func (g *Gadget) tryConfirmOrAccept(totalWeight int64, marker markers.Marker) (blocksToAccept, blocksToConfirm []*blockgadget.Block) {
+func (g *Gadget) tryConfirmOrAccept(totalWeight int64, marker markers.Marker) (blocksToAccept, blocksToConfirm, individualToAccept, individualToConfirm []*blockgadget.Block) {
 	markerTotalWeight := g.booker.VirtualVoting().MarkerVotersTotalWeight(marker)
 
 	// check if enough weight is online to confirm based on total weight
@@ -301,7 +310,7 @@ func (g *Gadget) block(id models.BlockID) (block *blockgadget.Block, exists bool
 	return storage.Get(id)
 }
 
-func (g *Gadget) propagateAcceptanceConfirmation(marker markers.Marker, confirmed bool) (blocksToAccept, blocksToConfirm []*blockgadget.Block) {
+func (g *Gadget) propagateAcceptanceConfirmation(marker markers.Marker, confirmed bool) (blocksToAccept, blocksToConfirm, individualToAccept, individualToConfirm []*blockgadget.Block) {
 	bookerBlock, blockExists := g.booker.BlockFromMarker(marker)
 	if !blockExists {
 		return
@@ -351,16 +360,16 @@ func (g *Gadget) propagateAcceptanceConfirmation(marker markers.Marker, confirme
 			if parentExists {
 				// ignore the error, as it can only occur if parentBlock belongs to evictedEpoch, and here it will not affect
 				// acceptance or confirmation monotonicity
-				_ = g.markAsAccepted(parentBlock, true)
+				individualToAccept = append(individualToAccept, parentBlock)
 
 				if confirmed {
-					_ = g.markAsConfirmed(parentBlock, true)
+					individualToConfirm = append(individualToConfirm, parentBlock)
 				}
 			}
 		}
 	}
 
-	return blocksToAccept, blocksToConfirm
+	return blocksToAccept, blocksToConfirm, individualToAccept, individualToConfirm
 }
 
 func (g *Gadget) markAsAccepted(block *blockgadget.Block, weakly bool) (err error) {
