@@ -312,8 +312,8 @@ func (b *Booker) BlockFloor(marker markers.Marker) (floorMarker markers.Marker, 
 
 // MarkerVotersTotalWeight retrieves Validators supporting a given marker.
 func (b *Booker) MarkerVotersTotalWeight(marker markers.Marker) (totalWeight int64) {
-	b.sequenceEvictionMutex.Lock()
-	defer b.sequenceEvictionMutex.Unlock()
+	//b.sequenceEvictionMutex.Lock()
+	//defer b.sequenceEvictionMutex.Unlock()
 
 	_ = b.sequenceTracker.Voters(marker).ForEach(func(id identity.ID) error {
 		if weight, exists := b.validators.Get(id); exists {
@@ -328,8 +328,8 @@ func (b *Booker) MarkerVotersTotalWeight(marker markers.Marker) (totalWeight int
 
 // SlotVotersTotalWeight retrieves the total weight of the Validators voting for a given slot.
 func (b *Booker) SlotVotersTotalWeight(slotIndex slot.Index) (totalWeight int64) {
-	b.sequenceEvictionMutex.Lock()
-	defer b.sequenceEvictionMutex.Unlock()
+	//b.sequenceEvictionMutex.Lock()
+	//defer b.sequenceEvictionMutex.Unlock()
 
 	_ = b.slotTracker.Voters(slotIndex).ForEach(func(id identity.ID) error {
 		if weight, exists := b.validators.Get(id); exists {
@@ -385,15 +385,15 @@ func (b *Booker) ProcessForkedMarker(marker markers.Marker, forkedConflictID utx
 }
 
 func (b *Booker) EvictSequence(sequenceID markers.SequenceID) {
-	b.evictionMutex.Lock()
-	defer b.evictionMutex.Unlock()
+	b.sequenceEvictionMutex.Lock()
+	defer b.sequenceEvictionMutex.Unlock()
 
 	b.sequenceTracker.EvictSequence(sequenceID)
 }
 
 func (b *Booker) EvictSlotTracker(slotIndex slot.Index) {
-	b.evictionMutex.Lock()
-	defer b.evictionMutex.Unlock()
+	b.sequenceEvictionMutex.Lock()
+	defer b.sequenceEvictionMutex.Unlock()
 
 	b.slotTracker.EvictSlot(slotIndex)
 }
