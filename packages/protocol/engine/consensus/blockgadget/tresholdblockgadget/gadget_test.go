@@ -75,8 +75,6 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 	tf.BlockDAG.CreateBlock("Block1", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithIssuer(tf.VirtualVoting.Identity("A").PublicKey()))
 	tf.BlockDAG.IssueBlocks("Block1")
 
-	tf.VirtualVoting.AssertBlockTracked(1)
-
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
 		"Block1": false,
 	}))
@@ -89,7 +87,6 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 	// ISSUE Block2
 	tf.BlockDAG.CreateBlock("Block2", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block1")), models.WithIssuer(tf.VirtualVoting.Identity("B").PublicKey()))
 	tf.BlockDAG.IssueBlocks("Block2")
-	tf.VirtualVoting.AssertBlockTracked(2)
 
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
 		"Block2": false,
@@ -103,7 +100,6 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 	// ISSUE Block3
 	tf.BlockDAG.CreateBlock("Block3", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block2")), models.WithIssuer(tf.VirtualVoting.Identity("C").PublicKey()))
 	tf.BlockDAG.IssueBlocks("Block3")
-	tf.VirtualVoting.AssertBlockTracked(3)
 
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
 		"Block1": true,
@@ -119,7 +115,6 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 	// ISSUE Block4
 	tf.BlockDAG.CreateBlock("Block4", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block3")), models.WithIssuer(tf.VirtualVoting.Identity("D").PublicKey()))
 	tf.BlockDAG.IssueBlocks("Block4")
-	tf.VirtualVoting.AssertBlockTracked(4)
 
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
 		"Block2": true,

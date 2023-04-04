@@ -132,7 +132,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, opts ...option
 }
 
 func (t *TestFramework) setupEvents() {
-	t.Tangle.Instance.Events().Booker.VirtualVoting.BlockTracked.Hook(func(block *booker.Block) {
+	t.Tangle.Instance.Events().Booker.BlockTracked.Hook(func(block *booker.Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("SIMULATING SCHEDULED: %s", block.ID())
 		}
