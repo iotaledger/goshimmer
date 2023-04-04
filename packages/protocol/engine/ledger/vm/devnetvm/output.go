@@ -870,9 +870,16 @@ func (a *AliasOutput) SetBalances(balances map[Color]uint64) error {
 func (a *AliasOutput) GetAliasAddress() *AliasAddress {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
+
+	return a.getAliasAddress()
+}
+
+// getAliasAddress calculates new ID if it is a minting output. Otherwise it takes stored value.
+func (a *AliasOutput) getAliasAddress() *AliasAddress {
 	if a.aliasAddress.IsNil() {
 		return NewAliasAddress(lo.PanicOnErr(a.ID().Bytes()))
 	}
+
 	return &a.aliasAddress
 }
 
@@ -911,6 +918,12 @@ func (a *AliasOutput) SetIsDelegated(isDelegated bool) {
 func (a *AliasOutput) IsSelfGoverned() bool {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
+
+	return a.isSelfGoverned()
+}
+
+// isSelfGoverned returns if governing address is not set which means that stateAddress is same as governingAddress.
+func (a *AliasOutput) isSelfGoverned() bool {
 	return a.governingAddress == nil
 }
 
@@ -945,13 +958,18 @@ func (a *AliasOutput) SetGoverningAddress(addr Address) {
 
 // GetGoverningAddress return governing address. If self-governed, it is the same as state controlling address.
 func (a *AliasOutput) GetGoverningAddress() Address {
-	if a.IsSelfGoverned() {
-		a.mutex.Lock()
-		defer a.mutex.Unlock()
-		return a.stateAddress
-	}
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
+
+	return a.getGoverningAddress()
+}
+
+// getGoverningAddress return governing address. If self-governed, it is the same as state controlling address.
+func (a *AliasOutput) getGoverningAddress() Address {
+	if a.isSelfGoverned() {
+		return a.stateAddress
+	}
+
 	return a.governingAddress
 }
 
@@ -1064,6 +1082,7 @@ func (a *AliasOutput) DelegationTimeLockedNow(nowis time.Time) bool {
 func (a *AliasOutput) Clone() Output {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
+
 	return a.clone()
 }
 
@@ -1072,7 +1091,7 @@ func (a *AliasOutput) clone() *AliasOutput {
 	ret := &AliasOutput{
 		outputID:           a.outputID,
 		balances:           a.balances.Clone(),
-		aliasAddress:       *a.GetAliasAddress(),
+		aliasAddress:       *a.getAliasAddress(),
 		stateAddress:       a.stateAddress.Clone(),
 		stateIndex:         a.stateIndex,
 		stateData:          make([]byte, len(a.stateData)),
@@ -1249,7 +1268,7 @@ func (a *AliasOutput) UpdateMintingColor() Output {
 		delete(coloredBalances, ColorMint)
 		coloredBalances[Color(blake2b.Sum256(lo.PanicOnErr(a.ID().Bytes())))] = mintedCoins
 	}
-	updatedOutput := a.clone()
+	updatedOutput := a.Clone().(*AliasOutput)
 	_ = updatedOutput.SetBalances(coloredBalances)
 	updatedOutput.SetID(a.ID())
 
@@ -1277,7 +1296,7 @@ func (a *AliasOutput) checkBasicValidity() error {
 	if a.stateAddress.Equals(&a.aliasAddress) {
 		return errors.New("state address cannot be the output's own alias address")
 	}
-	if a.GetGoverningAddress().Equals(&a.aliasAddress) {
+	if a.getGoverningAddress().Equals(&a.aliasAddress) {
 		return errors.New("governing address cannot be the output's own alias address")
 	}
 	if len(a.stateData) > MaxOutputPayloadSize {
