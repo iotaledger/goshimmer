@@ -183,7 +183,6 @@ func (m *Manager) initiateStream(ctx context.Context, libp2pID libp2ppeer.ID, pr
 }
 
 func (m *Manager) handleStream(stream network.Stream) {
-
 	protocolID := stream.Protocol()
 	protocolHandler, registered := m.RegisteredProtocol(protocolID)
 	if !registered {

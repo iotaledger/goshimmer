@@ -247,7 +247,8 @@ func (g *Gadget) RefreshSequence(sequenceID markers.SequenceID, newMaxSupportedI
 	for _, block := range individuallyAcceptedBlocks {
 		_ = g.markAsAccepted(block, true)
 	}
-	for _, block := range individuallyAcceptedBlocks {
+
+	for _, block := range individuallyConfirmedBlocks {
 		_ = g.markAsConfirmed(block, true)
 	}
 
