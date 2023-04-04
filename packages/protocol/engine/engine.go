@@ -305,7 +305,9 @@ func (e *Engine) setupEvictionState() {
 			if parent.ID.Index() < block.ID().Index() {
 				block, exists := e.Block(parent.ID)
 				if !exists {
-					e.Events.Error.Trigger(errors.Errorf("cannot store root block (%s) because it is missing", parent.ID))
+					if parent.ID != models.EmptyBlockID {
+						e.Events.Error.Trigger(errors.Errorf("cannot store root block (%s) because it is missing", parent.ID))
+					}
 					return
 				}
 				e.EvictionState.AddRootBlock(block.ID(), block.Commitment().ID())
