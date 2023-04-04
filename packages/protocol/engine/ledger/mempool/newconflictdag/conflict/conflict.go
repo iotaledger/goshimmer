@@ -69,7 +69,7 @@ func New[ConflictID, ResourceID IDType](id ConflictID, parents *advancedset.Adva
 		id:                  id,
 		parents:             parents,
 		children:            advancedset.New[*Conflict[ConflictID, ResourceID]](),
-		conflictSets:        conflictSets,
+		conflictSets:        advancedset.New[*Set[ConflictID, ResourceID]](),
 		weight:              initialWeight,
 		likedInstead:        advancedset.New[*Conflict[ConflictID, ResourceID]](),
 		likedInsteadSources: shrinkingmap.New[ConflictID, *advancedset.AdvancedSet[*Conflict[ConflictID, ResourceID]]](),
@@ -86,23 +86,7 @@ func New[ConflictID, ResourceID IDType](id ConflictID, parents *advancedset.Adva
 		})
 	}
 
-	if conflictSets != nil {
-		// add existing conflicts first, so we can determine our own preferred instead value
-		_ = conflictSets.ForEach(func(conflictSet *Set[ConflictID, ResourceID]) (err error) {
-			return conflictSet.Members().ForEach(func(element *Conflict[ConflictID, ResourceID]) (err error) {
-				c.conflictingConflicts.Add(element)
-
-				return nil
-			})
-		})
-
-		// add ourselves to the other conflict sets once we are fully initialized
-		_ = conflictSets.ForEach(func(conflictSet *Set[ConflictID, ResourceID]) (err error) {
-			conflictSet.Add(c)
-
-			return nil
-		})
-	}
+	c.RegisterWithConflictSets(conflictSets.Slice())
 
 	return c
 }
@@ -155,6 +139,22 @@ func (c *Conflict[ConflictID, ResourceID]) PreferredInstead() *Conflict[Conflict
 // Weight returns the weight of the Conflict.
 func (c *Conflict[ConflictID, ResourceID]) Weight() *weight.Weight {
 	return c.weight
+}
+
+// RegisterWithConflictSets registers the Conflict with the given ConflictSets.
+func (c *Conflict[ConflictID, ResourceID]) RegisterWithConflictSets(conflictSets []*Set[ConflictID, ResourceID]) {
+	for _, conflictSet := range conflictSets {
+		if c.conflictSets.Add(conflictSet) {
+			// add existing first, so we can determine our own status in respect to the existing conflicts
+			_ = conflictSet.Members().ForEach(func(conflict *Conflict[ConflictID, ResourceID]) (err error) {
+				c.conflictingConflicts.Add(conflict)
+				return nil
+			})
+
+			// add ourselves to the other conflict sets once we are fully initialized
+			conflictSet.Add(c)
+		}
+	}
 }
 
 // Compare compares the Conflict to the given other Conflict.
