@@ -70,9 +70,7 @@ func NewSybilProtection(engineInstance *engine.Engine, opts ...options.Option[Sy
 
 				s.engine.HookStopped(s.stopInactivityManager)
 
-				s.engine.Events.Tangle.BlockDAG.BlockSolid.Hook(func(block *blockdag.Block) {
-					// TODO: this should happen at block attached, to avoid inconsistencies in case this event is
-					//  processed after calculating votes and acceptance (in case a validator BECOMES active after period of inactivity)
+				s.engine.Events.Tangle.BlockDAG.BlockAttached.Hook(func(block *blockdag.Block) {
 					s.markValidatorActive(block.IssuerID(), block.IssuingTime())
 				} /*, event.WithWorkerPool(s.workers.CreatePool("SybilProtection", 2))*/)
 			})
