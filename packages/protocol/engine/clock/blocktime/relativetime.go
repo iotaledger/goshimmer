@@ -48,6 +48,17 @@ func (c *RelativeTime) RelativeTime() time.Time {
 // Set sets the time value if the given time is larger than the current time (resetting monotonicity of the relative
 // time).
 func (c *RelativeTime) Set(newTime time.Time) (updated bool) {
+	if c.set(newTime) {
+		c.OnUpdated.Trigger(c.time)
+		return true
+	}
+
+	return false
+}
+
+// Set sets the time value if the given time is larger than the current time (resetting monotonicity of the relative
+// time).
+func (c *RelativeTime) set(newTime time.Time) (updated bool) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -58,14 +69,21 @@ func (c *RelativeTime) Set(newTime time.Time) (updated bool) {
 	c.timeUpdateOffset = time.Now()
 	c.time = newTime
 
-	c.OnUpdated.Trigger(c.time)
-
 	return true
 }
 
 // Advance advances the time value if the given time is larger than the current time (maintaining monotonicity of the
 // relative time).
 func (c *RelativeTime) Advance(newTime time.Time) (updated bool) {
+	if c.advance(newTime) {
+		c.OnUpdated.Trigger(c.time)
+		return true
+	}
+
+	return false
+}
+
+func (c *RelativeTime) advance(newTime time.Time) (updated bool) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -75,8 +93,6 @@ func (c *RelativeTime) Advance(newTime time.Time) (updated bool) {
 
 	c.timeUpdateOffset = c.determineTimeUpdateOffset(newTime)
 	c.time = newTime
-
-	c.OnUpdated.Trigger(c.time)
 
 	return true
 }
