@@ -2,6 +2,7 @@ package eviction
 
 import (
 	"io"
+	"math"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -80,9 +81,10 @@ func (s *State) LastEvictedSlot() slot.Index {
 
 // EarliestRootCommitmentID returns the earliest commitment that rootblocks are committing to across all rootblocks.
 func (s *State) EarliestRootCommitmentID() (earliestCommitment commitment.ID) {
+	earliestCommitment.SlotIndex = math.MaxInt64
 	s.rootBlocks.ForEach(func(index slot.Index, storage *shrinkingmap.ShrinkingMap[models.BlockID, commitment.ID]) {
 		storage.ForEach(func(id models.BlockID, commitmentID commitment.ID) bool {
-			if commitmentID.Index() < earliestCommitment.Index() || earliestCommitment.Index() == 0 {
+			if commitmentID.Index() < earliestCommitment.Index() {
 				earliestCommitment = commitmentID
 			}
 
@@ -90,7 +92,11 @@ func (s *State) EarliestRootCommitmentID() (earliestCommitment commitment.ID) {
 		})
 	})
 
-	return
+	if earliestCommitment.Index() == math.MaxInt64 {
+		return commitment.NewEmptyCommitment().ID()
+	}
+
+	return earliestCommitment
 }
 
 // InEvictedSlot checks if the Block associated with the given id is too old (in a pruned slot).
