@@ -8,6 +8,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/module"
+	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
+	"github.com/iotaledger/goshimmer/packages/core/votes/slottracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
@@ -23,6 +25,7 @@ import (
 	"github.com/iotaledger/hive.go/core/causalorder"
 	"github.com/iotaledger/hive.go/core/memstorage"
 	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/ds/walker"
 	"github.com/iotaledger/hive.go/lo"
@@ -38,21 +41,27 @@ type Booker struct {
 	// Events contains the Events of Booker.
 	events *booker.Events
 
-	MemPool       mempool.MemPool
-	blockDAG      blockdag.BlockDAG
-	evictionState *eviction.State
-	virtualVoting *markervirtualvoting.VirtualVoting
+	MemPool         mempool.MemPool
+	blockDAG        blockdag.BlockDAG
+	evictionState   *eviction.State
+	validators      *sybilprotection.WeightedSet
+	sequenceTracker *sequencetracker.SequenceTracker[booker.BlockVotePower]
+	slotTracker     *slottracker.SlotTracker
+	virtualVoting   *markervirtualvoting.VirtualVoting
 
-	bookingOrder  *causalorder.CausalOrder[models.BlockID, *booker.Block]
-	attachments   *attachments
-	blocks        *memstorage.SlotStorage[models.BlockID, *booker.Block]
-	markerManager *markermanager.MarkerManager[models.BlockID, *booker.Block]
-	bookingMutex  *syncutils.DAGMutex[models.BlockID]
-	sequenceMutex *syncutils.DAGMutex[markers.SequenceID]
-	evictionMutex sync.RWMutex
+	bookingOrder          *causalorder.CausalOrder[models.BlockID, *booker.Block]
+	attachments           *attachments
+	blocks                *memstorage.SlotStorage[models.BlockID, *booker.Block]
+	markerManager         *markermanager.MarkerManager[models.BlockID, *booker.Block]
+	bookingMutex          *syncutils.DAGMutex[models.BlockID]
+	sequenceMutex         *syncutils.DAGMutex[markers.SequenceID]
+	evictionMutex         sync.RWMutex
+	sequenceEvictionMutex *syncutils.StarvingMutex
 
 	optsMarkerManager []options.Option[markermanager.MarkerManager[models.BlockID, *booker.Block]]
-	optsVirtualVoting []options.Option[markervirtualvoting.VirtualVoting]
+
+	optsSequenceCutoffCallback func(markers.SequenceID) markers.Index
+	optsSlotCutoffCallback     func() slot.Index
 
 	workers              *workerpool.Group
 	slotTimeProviderFunc func() *slot.TimeProvider
@@ -62,10 +71,7 @@ type Booker struct {
 
 func NewProvider(opts ...options.Option[Booker]) module.Provider[*engine.Engine, booker.Booker] {
 	return module.Provide(func(e *engine.Engine) booker.Booker {
-		b := New(e.Workers.CreateGroup("Booker"), e.EvictionState, e.Ledger.MemPool(), e.SybilProtection.Validators(), e.SlotTimeProvider, append(opts, WithVirtualVotingOptions(
-			markervirtualvoting.WithSlotCutoffCallback(e.LastConfirmedSlot),
-			markervirtualvoting.WithSequenceCutoffCallback(e.FirstUnacceptedMarker),
-		))...)
+		b := New(e.Workers.CreateGroup("Booker"), e.EvictionState, e.Ledger.MemPool(), e.SybilProtection.Validators(), e.SlotTimeProvider, opts...)
 
 		e.Events.Consensus.SlotGadget.SlotConfirmed.Hook(func(index slot.Index) {
 			err := e.Storage.Permanent.Settings.SetLatestConfirmedSlot(index)
@@ -73,7 +79,7 @@ func NewProvider(opts ...options.Option[Booker]) module.Provider[*engine.Engine,
 				panic(err)
 			}
 
-			b.virtualVoting.EvictSlotTracker(index)
+			b.EvictSlotTracker(index)
 		}, event.WithWorkerPool(e.Workers.CreatePool("Eviction", 1))) // Using just 1 worker to avoid contention
 
 		e.HookConstructed(func() {
@@ -86,20 +92,30 @@ func NewProvider(opts ...options.Option[Booker]) module.Provider[*engine.Engine,
 
 func New(workers *workerpool.Group, evictionState *eviction.State, memPool mempool.MemPool, validators *sybilprotection.WeightedSet, slotTimeProviderFunc func() *slot.TimeProvider, opts ...options.Option[Booker]) *Booker {
 	return options.Apply(&Booker{
-		events:               booker.NewEvents(),
-		attachments:          newAttachments(),
-		blocks:               memstorage.NewSlotStorage[models.BlockID, *booker.Block](),
-		bookingMutex:         syncutils.NewDAGMutex[models.BlockID](),
-		sequenceMutex:        syncutils.NewDAGMutex[markers.SequenceID](),
-		optsMarkerManager:    make([]options.Option[markermanager.MarkerManager[models.BlockID, *booker.Block]], 0),
-		optsVirtualVoting:    make([]options.Option[markervirtualvoting.VirtualVoting], 0),
+		events:                booker.NewEvents(),
+		attachments:           newAttachments(),
+		blocks:                memstorage.NewSlotStorage[models.BlockID, *booker.Block](),
+		bookingMutex:          syncutils.NewDAGMutex[models.BlockID](),
+		sequenceMutex:         syncutils.NewDAGMutex[markers.SequenceID](),
+		sequenceEvictionMutex: syncutils.NewStarvingMutex(),
+		validators:            validators,
+		optsMarkerManager:     make([]options.Option[markermanager.MarkerManager[models.BlockID, *booker.Block]], 0),
+		optsSequenceCutoffCallback: func(sequenceID markers.SequenceID) markers.Index {
+			return 1
+		},
+
+		optsSlotCutoffCallback: func() slot.Index {
+			return 0
+		},
 		MemPool:              memPool,
 		evictionState:        evictionState,
 		workers:              workers,
 		slotTimeProviderFunc: slotTimeProviderFunc,
 	}, opts, func(b *Booker) {
 		b.markerManager = markermanager.NewMarkerManager(b.optsMarkerManager...)
-		b.virtualVoting = markervirtualvoting.New(workers.CreateGroup("VirtualVoting"), memPool.ConflictDAG(), b.markerManager.SequenceManager, validators, b.optsVirtualVoting...)
+		b.sequenceTracker = sequencetracker.NewSequenceTracker[booker.BlockVotePower](validators, b.markerManager.SequenceManager.Sequence, b.optsSequenceCutoffCallback)
+		b.slotTracker = slottracker.NewSlotTracker(b.optsSlotCutoffCallback)
+		b.virtualVoting = markervirtualvoting.New(workers.CreateGroup("VirtualVoting"), memPool.ConflictDAG(), b.markerManager.SequenceManager, validators)
 		b.bookingOrder = causalorder.New(
 			workers.CreatePool("BookingOrder", 2),
 			b.Block,
@@ -114,6 +130,8 @@ func New(workers *workerpool.Group, evictionState *eviction.State, memPool mempo
 
 		b.events.VirtualVoting.LinkTo(b.virtualVoting.Events())
 		b.events.SequenceEvicted.LinkTo(b.markerManager.Events.SequenceEvicted)
+		b.events.SequenceTracker.LinkTo(b.sequenceTracker.Events)
+		b.events.SlotTracker.LinkTo(b.slotTracker.Events)
 	}, (*Booker).TriggerConstructed)
 }
 
@@ -149,16 +167,11 @@ func (b *Booker) Initialize(blockDAG blockdag.BlockDAG) {
 	}, event.WithWorkerPool(b.workers.CreatePool("Booker", 2)))
 
 	b.events.SequenceEvicted.Hook(func(sequenceID markers.SequenceID) {
-		b.virtualVoting.EvictSequence(sequenceID)
+		b.EvictSequence(sequenceID)
 	}, event.WithWorkerPool(b.workers.CreatePool("VirtualVoting Sequence Eviction", 1)))
 
 	b.TriggerInitialized()
 }
-
-/*
-
-
- */
 
 var _ booker.Booker = new(Booker)
 
@@ -168,6 +181,14 @@ func (b *Booker) Events() *booker.Events {
 
 func (b *Booker) VirtualVoting() booker.VirtualVoting {
 	return b.virtualVoting
+}
+
+func (b *Booker) SequenceTracker() *sequencetracker.SequenceTracker[booker.BlockVotePower] {
+	return b.sequenceTracker
+}
+
+func (b *Booker) SequenceManager() *markers.SequenceManager {
+	return b.markerManager.SequenceManager
 }
 
 // Queue checks if payload is solid and then adds the block to a Booker's CausalOrder.
@@ -295,6 +316,38 @@ func (b *Booker) BlockFloor(marker markers.Marker) (floorMarker markers.Marker, 
 	return b.markerManager.BlockFloor(marker)
 }
 
+// MarkerVotersTotalWeight retrieves Validators supporting a given marker.
+func (b *Booker) MarkerVotersTotalWeight(marker markers.Marker) (totalWeight int64) {
+	b.sequenceEvictionMutex.RLock()
+	defer b.sequenceEvictionMutex.RUnlock()
+
+	_ = b.sequenceTracker.Voters(marker).ForEach(func(id identity.ID) error {
+		if weight, exists := b.validators.Get(id); exists {
+			totalWeight += weight.Value
+		}
+
+		return nil
+	})
+
+	return totalWeight
+}
+
+// SlotVotersTotalWeight retrieves the total weight of the Validators voting for a given slot.
+func (b *Booker) SlotVotersTotalWeight(slotIndex slot.Index) (totalWeight int64) {
+	b.sequenceEvictionMutex.RLock()
+	defer b.sequenceEvictionMutex.RUnlock()
+
+	_ = b.slotTracker.Voters(slotIndex).ForEach(func(id identity.ID) error {
+		if weight, exists := b.validators.Get(id); exists {
+			totalWeight += weight.Value
+		}
+
+		return nil
+	})
+
+	return totalWeight
+}
+
 // GetEarliestAttachment returns the earliest attachment for a given transaction ID.
 // returnOrphaned parameter specifies whether the returned attachment may be orphaned.
 func (b *Booker) GetEarliestAttachment(txID utxo.TransactionID) (attachment *booker.Block) {
@@ -309,6 +362,30 @@ func (b *Booker) GetLatestAttachment(txID utxo.TransactionID) (attachment *booke
 
 func (b *Booker) GetAllAttachments(txID utxo.TransactionID) (attachments *advancedset.AdvancedSet[*booker.Block]) {
 	return b.attachments.GetAttachmentBlocks(txID)
+}
+
+func (b *Booker) ProcessForkedMarker(marker markers.Marker, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
+	b.sequenceEvictionMutex.RLock()
+	defer b.sequenceEvictionMutex.RUnlock()
+
+	// take everything in future cone because it was not conflicting before and move to new conflict.
+	for voterID, votePower := range b.sequenceTracker.VotersWithPower(marker) {
+		b.virtualVoting.ConflictTracker().AddSupportToForkedConflict(forkedConflictID, parentConflictIDs, voterID, votePower)
+	}
+}
+
+func (b *Booker) EvictSequence(sequenceID markers.SequenceID) {
+	b.evictionMutex.Lock()
+	defer b.evictionMutex.Unlock()
+
+	b.sequenceTracker.EvictSequence(sequenceID)
+}
+
+func (b *Booker) EvictSlotTracker(slotIndex slot.Index) {
+	b.evictionMutex.Lock()
+	defer b.evictionMutex.Unlock()
+
+	b.slotTracker.EvictSlot(slotIndex)
 }
 
 func (b *Booker) evict(slotIndex slot.Index) {
@@ -391,7 +468,13 @@ func (b *Booker) book(block *booker.Block) (inheritingErr error) {
 		ConflictIDs: inheritedConflitIDs,
 	})
 
-	b.virtualVoting.Track(block, inheritedConflitIDs)
+	votePower := booker.NewBlockVotePower(block.ID(), block.IssuingTime())
+	if invalid := b.virtualVoting.Track(block, inheritedConflitIDs, votePower); !invalid {
+		b.sequenceTracker.TrackVotes(block.StructureDetails().PastMarkers(), block.IssuerID(), votePower)
+		b.slotTracker.TrackVotes(block.Commitment().Index(), block.IssuerID(), slottracker.SlotVotePower{Index: block.ID().Index()})
+	}
+
+	b.events.BlockTracked.Trigger(block)
 
 	return nil
 }
@@ -777,7 +860,7 @@ func (b *Booker) forkSingleMarker(currentMarker markers.Marker, newConflictID ut
 		ParentConflictIDs: removedConflictIDs,
 	})
 
-	b.virtualVoting.ProcessForkedMarker(currentMarker, newConflictID, removedConflictIDs)
+	b.ProcessForkedMarker(currentMarker, newConflictID, removedConflictIDs)
 
 	// propagate updates to later ConflictID mappings of the same sequence.
 	b.markerManager.ForEachConflictIDMapping(currentMarker.SequenceID(), currentMarker.Index(), func(mappedMarker markers.Marker, _ utxo.TransactionIDs) {
@@ -829,9 +912,15 @@ func WithMarkerManagerOptions(opts ...options.Option[markermanager.MarkerManager
 	}
 }
 
-func WithVirtualVotingOptions(opts ...options.Option[markervirtualvoting.VirtualVoting]) options.Option[Booker] {
+func WithSlotCutoffCallback(slotCutoffCallback func() slot.Index) options.Option[Booker] {
 	return func(b *Booker) {
-		b.optsVirtualVoting = append(b.optsVirtualVoting, opts...)
+		b.optsSlotCutoffCallback = slotCutoffCallback
+	}
+}
+
+func WithSequenceCutoffCallback(sequenceCutoffCallback func(id markers.SequenceID) markers.Index) options.Option[Booker] {
+	return func(b *Booker) {
+		b.optsSequenceCutoffCallback = sequenceCutoffCallback
 	}
 }
 

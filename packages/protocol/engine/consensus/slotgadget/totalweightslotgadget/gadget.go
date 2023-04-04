@@ -41,7 +41,7 @@ func NewProvider(opts ...options.Option[Gadget]) module.Provider[*engine.Engine,
 				g.tangle = e.Tangle
 				g.totalWeightCallback = e.SybilProtection.Weights().TotalWeightWithoutZeroIdentity
 
-				e.Events.Tangle.Booker.VirtualVoting.SlotTracker.VotersUpdated.Hook(func(evt *slottracker.VoterUpdatedEvent) {
+				e.Events.Tangle.Booker.SlotTracker.VotersUpdated.Hook(func(evt *slottracker.VoterUpdatedEvent) {
 					g.refreshSlotConfirmation(evt.PrevLatestSlotIndex, evt.NewLatestSlotIndex)
 				}, event.WithWorkerPool(g.workers.CreatePool("Refresh", 2)))
 
@@ -78,7 +78,7 @@ func (g *Gadget) refreshSlotConfirmation(previousLatestSlotIndex slot.Index, new
 	totalWeight := g.totalWeightCallback()
 
 	for i := lo.Max(g.LastConfirmedSlot(), previousLatestSlotIndex) + 1; i <= newLatestSlotIndex; i++ {
-		if !IsThresholdReached(totalWeight, g.tangle.Booker().VirtualVoting().SlotVotersTotalWeight(i), g.optsSlotConfirmationThreshold) {
+		if !IsThresholdReached(totalWeight, g.tangle.Booker().SlotVotersTotalWeight(i), g.optsSlotConfirmationThreshold) {
 			break
 		}
 

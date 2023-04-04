@@ -273,7 +273,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 	tf.BlockDAG.CreateBlock("1.D", models.WithStrongParents(tf.BlockDAG.BlockIDs("1.C")), models.WithIssuer(identitiesMap["D"]), models.WithIssuingTime(slot1IssuingTime))
 	tf.BlockDAG.IssueBlocks("1.A", "1.B", "1.C", "1.D")
 
-	tf.VirtualVoting.AssertBlockTracked(4)
+	tf.Booker.AssertBlockTracked(4)
 
 	tf.Acceptance.ValidateAcceptedBlocks(lo.MergeMaps(acceptedBlocks, map[string]bool{
 		"1.A": true,

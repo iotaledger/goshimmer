@@ -130,7 +130,7 @@ func (m *Manager) EvictUntil(index slot.Index) {
 }
 
 // RootCommitment returns the root commitment of the manager.
-func (m *Manager) RootCommitment() (rootCommitment *commitment.Commitment) {
+func (m *Manager) RootCommitment() (rootCommitment *Commitment) {
 	m.evictionMutex.RLock()
 	defer m.evictionMutex.RUnlock()
 
@@ -322,7 +322,7 @@ func (m *Manager) forkingPointAgainstMainChain(commitment *Commitment) (*Commitm
 
 	var forkingCommitment *Commitment
 	// Walk all possible forks until we reach our main chain by jumping over each forking point
-	for chain := commitment.Chain(); chain != m.rootCommitment.Chain(); chain = commitment.Chain() {
+	for chain := commitment.Chain(); chain != m.RootCommitment().Chain(); chain = commitment.Chain() {
 		forkingCommitment = chain.ForkingPoint
 
 		if commitment, _ = m.commitment(forkingCommitment.Commitment().PrevID()); commitment == nil {
