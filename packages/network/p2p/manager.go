@@ -12,6 +12,7 @@ import (
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/logger"
 )
 
@@ -85,12 +86,12 @@ func NewManager(libp2pHost host.Host, local *peer.Local, log *logger.Logger) *Ma
 // Stop stops the manager and closes all established connections.
 func (m *Manager) Stop() {
 	m.stopMutex.Lock()
-	defer m.stopMutex.Unlock()
-
 	if m.isStopped {
 		return
 	}
 	m.isStopped = true
+	m.stopMutex.Unlock()
+
 	m.dropAllNeighbors()
 }
 
@@ -214,6 +215,21 @@ func (m *Manager) GetNeighborsByID(ids []identity.ID) []*Neighbor {
 	return result
 }
 
+func (m *Manager) RegisteredProtocols() map[protocol.ID]*ProtocolHandler {
+	m.registeredProtocolsMutex.Lock()
+	defer m.registeredProtocolsMutex.Unlock()
+
+	return lo.MergeMaps(map[protocol.ID]*ProtocolHandler{}, m.registeredProtocols)
+}
+
+func (m *Manager) RegisteredProtocol(protocolID protocol.ID) (*ProtocolHandler, bool) {
+	m.registeredProtocolsMutex.Lock()
+	defer m.registeredProtocolsMutex.Unlock()
+
+	protocolHandler, exists := m.registeredProtocols[protocolID]
+	return protocolHandler, exists
+}
+
 // getNeighborWithGroup returns neighbor by ID and group.
 func (m *Manager) getNeighborWithGroup(id identity.ID, group NeighborsGroup) (*Neighbor, error) {
 	m.neighborsMutex.Lock()
@@ -233,10 +249,11 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 		return errors.WithStack(ErrLoopbackNeighbor)
 	}
 	m.stopMutex.Lock()
-	defer m.stopMutex.Unlock()
 	if m.isStopped {
 		return ErrNotRunning
 	}
+	m.stopMutex.Unlock()
+
 	if m.neighborExists(p.ID()) {
 		return errors.WithStack(ErrDuplicateNeighbor)
 	}
@@ -248,10 +265,7 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 
 	// create and add the neighbor
 	nbr := NewNeighbor(p, group, streams, m.log, func(nbr *Neighbor, protocol protocol.ID, packet proto.Message) {
-		m.registeredProtocolsMutex.Lock()
-		defer m.registeredProtocolsMutex.Unlock()
-
-		protocolHandler, isRegistered := m.registeredProtocols[protocol]
+		protocolHandler, isRegistered := m.RegisteredProtocol(protocol)
 		if !isRegistered {
 			nbr.Log.Errorw("Can't handle packet as the protocol is not registered", "protocol", protocol, "err", err)
 		}

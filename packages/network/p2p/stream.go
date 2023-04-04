@@ -40,9 +40,6 @@ var (
 )
 
 func (m *Manager) dialPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeerOption) (map[protocol.ID]*PacketsStream, error) {
-	m.registeredProtocolsMutex.Lock()
-	defer m.registeredProtocolsMutex.Unlock()
-
 	conf := buildConnectPeerConfig(opts)
 	p2pEndpoint := p.Services().Get(service.P2PKey)
 	if p2pEndpoint == nil {
@@ -67,8 +64,8 @@ func (m *Manager) dialPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeer
 	}
 
 	streams := make(map[protocol.ID]*PacketsStream)
-	for protocolID := range m.registeredProtocols {
-		stream, err := m.initiateStream(ctx, libp2pID, protocolID)
+	for protocolID, protocol := range m.RegisteredProtocols() {
+		stream, err := m.initiateStream(ctx, libp2pID, protocolID, protocol)
 		if err != nil {
 			m.log.Errorf("dial %s / %s failed for proto %s: %w", address, p.ID(), protocolID, err)
 			continue
@@ -89,9 +86,6 @@ func (m *Manager) dialPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeer
 }
 
 func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeerOption) (map[protocol.ID]*PacketsStream, error) {
-	m.registeredProtocolsMutex.Lock()
-	defer m.registeredProtocolsMutex.Unlock()
-
 	p2pEndpoint := p.Services().Get(service.P2PKey)
 	if p2pEndpoint == nil {
 		return nil, ErrNoP2P
@@ -134,8 +128,9 @@ func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPe
 	}
 
 	var acceptWG sync.WaitGroup
-	streamsChan := make(chan *PacketsStream, len(m.registeredProtocols))
-	for protocolID := range m.registeredProtocols {
+	registeredProtocols := m.RegisteredProtocols()
+	streamsChan := make(chan *PacketsStream, len(registeredProtocols))
+	for protocolID := range registeredProtocols {
 		acceptWG.Add(1)
 		go func(protocolID protocol.ID) {
 			defer acceptWG.Done()
@@ -173,11 +168,7 @@ func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPe
 	return streams, nil
 }
 
-func (m *Manager) initiateStream(ctx context.Context, libp2pID libp2ppeer.ID, protocolID protocol.ID) (*PacketsStream, error) {
-	protocolHandler, registered := m.registeredProtocols[protocolID]
-	if !registered {
-		return nil, errors.Errorf("cannot initiate stream protocol %s is not registered", protocolID)
-	}
+func (m *Manager) initiateStream(ctx context.Context, libp2pID libp2ppeer.ID, protocolID protocol.ID, protocolHandler *ProtocolHandler) (*PacketsStream, error) {
 	stream, err := m.GetP2PHost().NewStream(ctx, libp2pID, protocolID)
 	if err != nil {
 		return nil, err
@@ -192,11 +183,9 @@ func (m *Manager) initiateStream(ctx context.Context, libp2pID libp2ppeer.ID, pr
 }
 
 func (m *Manager) handleStream(stream network.Stream) {
-	m.registeredProtocolsMutex.Lock()
-	defer m.registeredProtocolsMutex.Unlock()
 
 	protocolID := stream.Protocol()
-	protocolHandler, registered := m.registeredProtocols[protocolID]
+	protocolHandler, registered := m.RegisteredProtocol(protocolID)
 	if !registered {
 		m.log.Errorf("cannot accept stream: protocol %s is not registered", protocolID)
 		m.closeStream(stream)
