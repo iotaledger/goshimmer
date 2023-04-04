@@ -60,14 +60,14 @@ type Conflict[ConflictID, ResourceID IDType] struct {
 }
 
 // New creates a new Conflict.
-func New[ConflictID, ResourceID IDType](id ConflictID, parents *advancedset.AdvancedSet[*Conflict[ConflictID, ResourceID]], conflictSets *advancedset.AdvancedSet[*Set[ConflictID, ResourceID]], initialWeight *weight.Weight, pendingTasksCounter *syncutils.Counter) *Conflict[ConflictID, ResourceID] {
+func New[ConflictID, ResourceID IDType](id ConflictID, parents []*Conflict[ConflictID, ResourceID], conflictSets []*Set[ConflictID, ResourceID], initialWeight *weight.Weight, pendingTasksCounter *syncutils.Counter) *Conflict[ConflictID, ResourceID] {
 	c := &Conflict[ConflictID, ResourceID]{
 		PreferredInsteadUpdated: event.New1[*Conflict[ConflictID, ResourceID]](),
 		LikedInsteadAdded:       event.New1[*Conflict[ConflictID, ResourceID]](),
 		LikedInsteadRemoved:     event.New1[*Conflict[ConflictID, ResourceID]](),
 
 		id:                  id,
-		parents:             parents,
+		parents:             advancedset.New[*Conflict[ConflictID, ResourceID]](),
 		children:            advancedset.New[*Conflict[ConflictID, ResourceID]](),
 		conflictSets:        advancedset.New[*Set[ConflictID, ResourceID]](),
 		weight:              initialWeight,
@@ -78,15 +78,8 @@ func New[ConflictID, ResourceID IDType](id ConflictID, parents *advancedset.Adva
 	c.preferredInstead = c
 	c.conflictingConflicts = NewSortedSet[ConflictID, ResourceID](c, pendingTasksCounter)
 
-	if parents != nil {
-		_ = parents.ForEach(func(parent *Conflict[ConflictID, ResourceID]) (err error) {
-			c.registerWithParent(parent)
-
-			return nil
-		})
-	}
-
-	c.RegisterWithConflictSets(conflictSets.Slice())
+	c.RegisterWithConflictSets(conflictSets...)
+	c.RegisterWithParents(parents...)
 
 	return c
 }
@@ -142,7 +135,7 @@ func (c *Conflict[ConflictID, ResourceID]) Weight() *weight.Weight {
 }
 
 // RegisterWithConflictSets registers the Conflict with the given ConflictSets.
-func (c *Conflict[ConflictID, ResourceID]) RegisterWithConflictSets(conflictSets []*Set[ConflictID, ResourceID]) {
+func (c *Conflict[ConflictID, ResourceID]) RegisterWithConflictSets(conflictSets ...*Set[ConflictID, ResourceID]) {
 	for _, conflictSet := range conflictSets {
 		if c.conflictSets.Add(conflictSet) {
 			// add existing first, so we can determine our own status in respect to the existing conflicts
@@ -153,6 +146,14 @@ func (c *Conflict[ConflictID, ResourceID]) RegisterWithConflictSets(conflictSets
 
 			// add ourselves to the other conflict sets once we are fully initialized
 			conflictSet.Add(c)
+		}
+	}
+}
+
+func (c *Conflict[ConflictID, ResourceID]) RegisterWithParents(parents ...*Conflict[ConflictID, ResourceID]) {
+	for _, parent := range parents {
+		if c.parents.Add(parent) {
+			c.registerWithParent(parent)
 		}
 	}
 }

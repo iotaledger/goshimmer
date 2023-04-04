@@ -10,7 +10,6 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/acceptance"
-	. "github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/conflict"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/weight"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/hive.go/runtime/syncutils"
@@ -26,7 +25,7 @@ func TestSortedConflict(t *testing.T) {
 	conflict5 := newConflict("conflict5", weight.New().AddCumulativeWeight(11).SetAcceptanceState(acceptance.Pending), pendingTasks)
 	conflict6 := newConflict("conflict6", weight.New().AddCumulativeWeight(2).SetAcceptanceState(acceptance.Accepted), pendingTasks)
 
-	sortedConflicts := NewSortedSet[utxo.OutputID, utxo.OutputID](conflict1, pendingTasks)
+	sortedConflicts := NewSortedConflictSet(conflict1, pendingTasks)
 	pendingTasks.WaitIsZero()
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict1")
 
@@ -71,7 +70,7 @@ func TestSortedDecreaseHeaviest(t *testing.T) {
 	conflict1 := newConflict("conflict1", weight.New().AddCumulativeWeight(1).SetAcceptanceState(acceptance.Accepted), pendingTasks)
 	conflict2 := newConflict("conflict2", weight.New().AddCumulativeWeight(2).SetAcceptanceState(acceptance.Pending), pendingTasks)
 
-	sortedConflicts := NewSortedSet[utxo.OutputID, utxo.OutputID](conflict1, pendingTasks)
+	sortedConflicts := NewSortedConflictSet(conflict1, pendingTasks)
 
 	sortedConflicts.Add(conflict1)
 	pendingTasks.WaitIsZero()
@@ -92,8 +91,8 @@ func TestSortedConflictParallel(t *testing.T) {
 	const conflictCount = 1000
 	const updateCount = 100000
 
-	conflicts := make(map[string]*Conflict[utxo.OutputID, utxo.OutputID])
-	parallelConflicts := make(map[string]*Conflict[utxo.OutputID, utxo.OutputID])
+	conflicts := make(map[string]Conflict)
+	parallelConflicts := make(map[string]Conflict)
 	for i := 0; i < conflictCount; i++ {
 		alias := "conflict" + strconv.Itoa(i)
 
@@ -101,9 +100,9 @@ func TestSortedConflictParallel(t *testing.T) {
 		parallelConflicts[alias] = newConflict(alias, weight.New(), pendingTasks)
 	}
 
-	sortedConflicts := NewSortedSet[utxo.OutputID, utxo.OutputID](conflicts["conflict0"], pendingTasks)
-	sortedParallelConflicts := NewSortedSet[utxo.OutputID, utxo.OutputID](parallelConflicts["conflict0"], pendingTasks)
-	sortedParallelConflicts1 := NewSortedSet[utxo.OutputID, utxo.OutputID](parallelConflicts["conflict0"], pendingTasks)
+	sortedConflicts := NewSortedConflictSet(conflicts["conflict0"], pendingTasks)
+	sortedParallelConflicts := NewSortedConflictSet(parallelConflicts["conflict0"], pendingTasks)
+	sortedParallelConflicts1 := NewSortedConflictSet(parallelConflicts["conflict0"], pendingTasks)
 
 	for i := 0; i < conflictCount; i++ {
 		alias := "conflict" + strconv.Itoa(i)
@@ -117,7 +116,7 @@ func TestSortedConflictParallel(t *testing.T) {
 	parallelSortingBefore := sortedParallelConflicts.String()
 	require.Equal(t, originalSortingBefore, parallelSortingBefore)
 
-	permutations := make([]func(conflict *Conflict[utxo.OutputID, utxo.OutputID]), 0)
+	permutations := make([]func(conflict Conflict), 0)
 	for i := 0; i < updateCount; i++ {
 		permutations = append(permutations, generateRandomWeightPermutation())
 	}
@@ -129,7 +128,7 @@ func TestSortedConflictParallel(t *testing.T) {
 		permutation(conflicts[targetAlias])
 
 		wg.Add(1)
-		go func(permutation func(conflict *Conflict[utxo.OutputID, utxo.OutputID])) {
+		go func(permutation func(conflict Conflict)) {
 			permutation(parallelConflicts[targetAlias])
 
 			wg.Done()
@@ -152,22 +151,22 @@ func TestSortedConflictParallel(t *testing.T) {
 	require.NotEqualf(t, originalSortingBefore, originalSortingAfter, "original sorting should have changed")
 }
 
-func generateRandomWeightPermutation() func(conflict *Conflict[utxo.OutputID, utxo.OutputID]) {
+func generateRandomWeightPermutation() func(conflict Conflict) {
 	switch rand.Intn(2) {
 	case 0:
 		return generateRandomCumulativeWeightPermutation(int64(rand.Intn(100)))
 	default:
 		// return generateRandomConfirmationStatePermutation()
-		return func(conflict *Conflict[utxo.OutputID, utxo.OutputID]) {
+		return func(conflict Conflict) {
 
 		}
 	}
 }
 
-func generateRandomCumulativeWeightPermutation(delta int64) func(conflict *Conflict[utxo.OutputID, utxo.OutputID]) {
+func generateRandomCumulativeWeightPermutation(delta int64) func(conflict Conflict) {
 	updateType := rand.Intn(100)
 
-	return func(conflict *Conflict[utxo.OutputID, utxo.OutputID]) {
+	return func(conflict Conflict) {
 		if updateType%2 == 0 {
 			conflict.Weight().AddCumulativeWeight(delta)
 		} else {
@@ -178,8 +177,8 @@ func generateRandomCumulativeWeightPermutation(delta int64) func(conflict *Confl
 	}
 }
 
-func assertSortedConflictsOrder[ConflictID, ResourceID IDType](t *testing.T, sortedConflicts *SortedSet[ConflictID, ResourceID], aliases ...string) {
-	require.NoError(t, sortedConflicts.ForEach(func(c *Conflict[ConflictID, ResourceID]) error {
+func assertSortedConflictsOrder(t *testing.T, sortedConflicts SortedConflictSet, aliases ...string) {
+	require.NoError(t, sortedConflicts.ForEach(func(c Conflict) error {
 		currentAlias := aliases[0]
 		aliases = aliases[1:]
 
@@ -191,16 +190,16 @@ func assertSortedConflictsOrder[ConflictID, ResourceID IDType](t *testing.T, sor
 	require.Empty(t, aliases)
 }
 
-func newConflict(alias string, weight *weight.Weight, pendingTasksCounter *syncutils.Counter) *Conflict[utxo.OutputID, utxo.OutputID] {
-	return New[utxo.OutputID, utxo.OutputID](outputID(alias), nil, nil, weight, pendingTasksCounter)
+func newConflict(alias string, weight *weight.Weight, pendingTasksCounter *syncutils.Counter) Conflict {
+	return NewConflict(id(alias), nil, nil, weight, pendingTasksCounter)
 }
 
-func outputID(alias string) utxo.OutputID {
-	outputID := utxo.OutputID{
+func id(alias string) utxo.OutputID {
+	conflictID := utxo.OutputID{
 		TransactionID: utxo.TransactionID{Identifier: blake2b.Sum256([]byte(alias))},
 		Index:         0,
 	}
-	outputID.RegisterAlias(alias)
+	conflictID.RegisterAlias(alias)
 
-	return outputID
+	return conflictID
 }
