@@ -101,7 +101,7 @@ func (g *Gadget) Initialize(workers *workerpool.Group, booker booker.Booker, blo
 
 	wp := g.workers.CreatePool("Gadget", 2)
 
-	g.booker.Events().VirtualVoting.SequenceTracker.VotersUpdated.Hook(func(evt *sequencetracker.VoterUpdatedEvent) {
+	g.booker.Events().SequenceTracker.VotersUpdated.Hook(func(evt *sequencetracker.VoterUpdatedEvent) {
 		g.RefreshSequence(evt.SequenceID, evt.NewMaxSupportedIndex, evt.PrevMaxSupportedIndex)
 	}, event.WithWorkerPool(wp))
 
@@ -257,7 +257,7 @@ func (g *Gadget) RefreshSequence(sequenceID markers.SequenceID, newMaxSupportedI
 // Acceptance and Confirmation use the same threshold if confirmation is possible.
 // If there is not enough online weight to achieve confirmation, then acceptance condition is evaluated based on total active weight.
 func (g *Gadget) tryConfirmOrAccept(totalWeight int64, marker markers.Marker) (blocksToAccept, blocksToConfirm []*blockgadget.Block) {
-	markerTotalWeight := g.booker.VirtualVoting().MarkerVotersTotalWeight(marker)
+	markerTotalWeight := g.booker.MarkerVotersTotalWeight(marker)
 
 	// check if enough weight is online to confirm based on total weight
 	if IsThresholdReached(totalWeight, g.validators.TotalWeight(), g.optsMarkerConfirmationThreshold) {

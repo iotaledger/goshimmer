@@ -121,7 +121,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, optsScheduler 
 
 func (t *TestFramework) setupEvents() {
 	t.mockAcceptance.Events().BlockAccepted.Hook(t.Scheduler.HandleAcceptedBlock, event.WithWorkerPool(t.workers.CreatePool("HandleAccepted", 2)))
-	t.Tangle.Instance.Events().Booker.VirtualVoting.BlockTracked.Hook(t.Scheduler.AddBlock, event.WithWorkerPool(t.workers.CreatePool("Add", 2)))
+	t.Tangle.Instance.Events().Booker.BlockTracked.Hook(t.Scheduler.AddBlock, event.WithWorkerPool(t.workers.CreatePool("Add", 2)))
 	t.Tangle.Instance.Events().BlockDAG.BlockOrphaned.Hook(t.Scheduler.HandleOrphanedBlock, event.WithWorkerPool(t.workers.CreatePool("HandleOrphaned", 2)))
 
 	t.Scheduler.Events.BlockScheduled.Hook(func(block *Block) {
