@@ -133,21 +133,10 @@ func (c *CommitmentManager) GenerateCommitment(clt evilwallet.Client) (*commitme
 		}
 		return comm, index, err
 	case "random":
-		comm, err := clt.GetLatestCommitment()
-		if err != nil {
-			return nil, 0, errors.Wrap(err, "failed to get latest commitment")
-		}
-		newCommitment := commitment.New(
-			comm.Index(),
-			comm.PrevID(),
-			randomRoot(),
-			comm.CumulativeWeight(),
-		)
-		index, err := clt.GetLatestConfirmedIndex()
-		if err != nil {
-			return nil, 0, errors.Wrap(err, "failed to get latest confirmed index")
-		}
-		return newCommitment, index, nil
+		slotIndex := c.clockSync.LatestCommittedSlotClock.Get()
+		newCommitment := randomCommittmentChain(slotIndex)
+
+		return newCommitment, slotIndex - 10, nil
 
 	case "fork":
 		// it should request time periodically, and be relative
@@ -229,6 +218,22 @@ func (c *CommitmentManager) getForkedCommitment(slot slot.Index) (*commitment.Co
 		validComm.CumulativeWeight(),
 	)
 	return forkedComm, nil
+}
+
+func randomCommittmentChain(currSlot slot.Index) *commitment.Commitment {
+	chain := make([]*commitment.Commitment, currSlot+1)
+	chain[0] = commitment.NewEmptyCommitment()
+	for i := slot.Index(0); i < currSlot-1; i++ {
+		prevComm := chain[i]
+		newCommitment := commitment.New(
+			i,
+			prevComm.ID(),
+			randomRoot(),
+			100,
+		)
+		chain[i+1] = newCommitment
+	}
+	return chain[currSlot-1]
 }
 
 func randomRoot() [32]byte {
