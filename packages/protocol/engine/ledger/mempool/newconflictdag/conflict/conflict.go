@@ -135,8 +135,8 @@ func (c *Conflict[ConflictID, ResourceID]) Weight() *weight.Weight {
 }
 
 // RegisterWithConflictSets registers the Conflict with the given ConflictSets.
-func (c *Conflict[ConflictID, ResourceID]) RegisterWithConflictSets(conflictSets ...*Set[ConflictID, ResourceID]) []*Set[ConflictID, ResourceID] {
-	joinedConflictSets := make([]*Set[ConflictID, ResourceID], 0)
+func (c *Conflict[ConflictID, ResourceID]) RegisterWithConflictSets(conflictSets ...*Set[ConflictID, ResourceID]) map[ResourceID]*Set[ConflictID, ResourceID] {
+	joinedConflictSets := make(map[ResourceID]*Set[ConflictID, ResourceID], 0)
 	for _, conflictSet := range conflictSets {
 		if c.conflictSets.Add(conflictSet) {
 			// add existing first, so we can determine our own status in respect to the existing conflicts
@@ -148,7 +148,7 @@ func (c *Conflict[ConflictID, ResourceID]) RegisterWithConflictSets(conflictSets
 			// add ourselves to the other conflict sets once we are fully initialized
 			conflictSet.Add(c)
 
-			joinedConflictSets = append(joinedConflictSets, conflictSet)
+			joinedConflictSets[conflictSet.ID()] = conflictSet
 		}
 	}
 
