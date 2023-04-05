@@ -54,11 +54,11 @@ func NewRetainer(workers *workerpool.Group, protocol *protocol.Protocol, dbManag
 		protocol:             protocol,
 		dbManager:            dbManager,
 		optsRealm:            []byte("retainer"),
-	}, opts, (*Retainer).setupEvents, func(r *Retainer) {
+	}, opts, func(r *Retainer) {
 		r.blockStorage = database.NewPersistentSlotStorage[models.BlockID, BlockMetadata](dbManager, append(r.optsRealm, []byte{prefixBlockMetadataStorage}...))
 		r.commitmentStorage = database.NewPersistentSlotStorage[commitment.ID, CommitmentDetails](dbManager, append(r.optsRealm, []byte{prefixCommitmentDetailsStorage}...))
 		r.metadataEvictionLock = syncutils.NewDAGMutex[slot.Index]()
-	})
+	}, (*Retainer).setupEvents)
 }
 
 func (r *Retainer) Shutdown() {
