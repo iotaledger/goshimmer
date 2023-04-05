@@ -178,15 +178,19 @@ func (c *Conflict[ConflictID, ResourceID]) UpdateParents(addedParent *Conflict[C
 		c.mutex.Lock()
 		defer c.mutex.Unlock()
 
-		if updated = c.parents.Add(addedParent); !updated {
-			return false
-		}
-
 		for _, removedParent := range removedParents {
 			if c.parents.Delete(removedParent) {
 				removedParent.UnregisterChild(c.id)
+
+				updated = true
 			}
 		}
+
+		if !c.parents.Add(addedParent) {
+			return false
+		}
+
+		updated = true
 
 		return addedParent.RegisterChild(c)
 	}(); isRejected {
