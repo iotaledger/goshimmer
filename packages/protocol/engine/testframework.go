@@ -1,6 +1,8 @@
 package engine
 
 import (
+	"bytes"
+	"io"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -135,4 +137,25 @@ func (e *TestFramework) AssertRootBlocks(rootBlocks []*models.Block) {
 
 func (e *TestFramework) SlotTimeProvider() *slot.TimeProvider {
 	return e.Instance.SlotTimeProvider()
+}
+
+func (e *TestFramework) ExportBytes(export func(io.WriteSeeker, slot.Index) error, targetIndex slot.Index) []byte {
+	w := new(WriteSeekerBuffer)
+	require.NoError(e.test, export(w, targetIndex))
+	return w.Bytes()
+}
+
+type WriteSeekerBuffer struct {
+	bytes.Buffer
+	position int64
+}
+
+func (wsb *WriteSeekerBuffer) Write(p []byte) (n int, err error) {
+	n, err = wsb.Buffer.Write(p)
+	wsb.position += int64(n)
+	return n, err
+}
+
+func (wsb *WriteSeekerBuffer) Seek(offset int64, whence int) (int64, error) {
+	return 0, nil
 }

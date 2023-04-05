@@ -39,8 +39,7 @@ type Manager struct {
 	ledgerState     ledger.Ledger
 	commitmentMutex sync.RWMutex
 
-	acceptanceTime      time.Time
-	acceptanceTimeMutex sync.RWMutex
+	acceptedTimeFunc func() time.Time
 
 	optsMinCommittableSlotAge slot.Index
 
@@ -66,6 +65,7 @@ func NewProvider(opts ...options.Option[Manager]) module.Provider[*engine.Engine
 				e.HookConstructed(func() {
 					m.storage = e.Storage
 					m.ledgerState = e.Ledger
+					m.acceptedTimeFunc = e.Clock.Accepted().Time
 
 					wpBlocks := e.Workers.CreatePool("NotarizationManager.Blocks", 1)           // Using just 1 worker to avoid contention
 					wpCommitments := e.Workers.CreatePool("NotarizationManager.Commitments", 1) // Using just 1 worker to avoid contention
@@ -94,11 +94,10 @@ func NewProvider(opts ...options.Option[Manager]) module.Provider[*engine.Engine
 					}, event.WithWorkerPool(wpBlocks))
 
 					// Slots are committed whenever ATT advances, start committing only when bootstrapped.
-					e.Events.Clock.AcceptedTimeUpdated.Hook(m.SetAcceptanceTime, event.WithWorkerPool(wpCommitments))
+					e.Events.Clock.AcceptedTimeUpdated.Hook(m.TryCommitUntil, event.WithWorkerPool(wpCommitments))
 
 					e.SybilProtection.HookInitialized(func() {
 						m.slotMutations = NewSlotMutations(e.SybilProtection.Weights(), e.Storage.Settings.LatestCommitment().Index())
-						m.acceptanceTime = e.SlotTimeProvider().EndTime(m.storage.Settings.LatestCommitment().Index())
 
 						m.events.AcceptedBlockRemoved.LinkTo(m.slotMutations.AcceptedBlockRemoved)
 						e.Events.Notarization.LinkTo(m.events)
@@ -119,22 +118,10 @@ func (m *Manager) Attestations() notarization.Attestations {
 	return m.attestations
 }
 
-// AcceptanceTime returns the acceptance time of the Manager.
-func (m *Manager) AcceptanceTime() time.Time {
-	m.acceptanceTimeMutex.RLock()
-	defer m.acceptanceTimeMutex.RUnlock()
-
-	return m.acceptanceTime
-}
-
-// SetAcceptanceTime sets the acceptance time of the Manager.
-func (m *Manager) SetAcceptanceTime(acceptanceTime time.Time) {
+// TryCommitUntil tries to create slot commitments until the new provided acceptance time.
+func (m *Manager) TryCommitUntil(acceptanceTime time.Time) {
 	m.commitmentMutex.Lock()
 	defer m.commitmentMutex.Unlock()
-
-	m.acceptanceTimeMutex.Lock()
-	m.acceptanceTime = acceptanceTime
-	m.acceptanceTimeMutex.Unlock()
 
 	if index := m.storage.Settings.SlotTimeProvider().IndexFromTime(acceptanceTime); index > m.storage.Settings.LatestCommitment().Index() {
 		m.tryCommitSlotUntil(index)
@@ -146,7 +133,7 @@ func (m *Manager) IsFullyCommitted() bool {
 	// If acceptance time is in slot 10, then the latest committable index is 3 (with optsMinCommittableSlotAge=6), because there are 6 full slots between slot 10 and slot 3.
 	// All slots smaller than 4 are committable, so in order to check if slot 3 is committed it's necessary to do m.optsMinCommittableSlotAge-1,
 	// otherwise we'd expect slot 4 to be committed in order to be fully committed, which is impossible.
-	return m.storage.Settings.LatestCommitment().Index() >= m.storage.Settings.SlotTimeProvider().IndexFromTime(m.AcceptanceTime())-m.optsMinCommittableSlotAge-1
+	return m.storage.Settings.LatestCommitment().Index() >= m.storage.Settings.SlotTimeProvider().IndexFromTime(m.acceptedTimeFunc())-m.optsMinCommittableSlotAge-1
 }
 
 func (m *Manager) NotarizeAcceptedBlock(block *models.Block) (err error) {
