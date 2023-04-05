@@ -83,25 +83,23 @@ func (c *ConflictDAG[ConflictID, ResourceID]) AddConflictSets(conflictID Conflic
 	return addedConflictSets
 }
 
-func (c *ConflictDAG[ConflictID, ResourceID]) UpdateConflictParents(conflictID ConflictID, addedParent ConflictID, removedParents ...ConflictID) (parentsUpdated bool) {
+func (c *ConflictDAG[ConflictID, ResourceID]) UpdateConflictParents(conflictID ConflictID, addedParentID ConflictID, removedParentIDs ...ConflictID) (parentsUpdated bool) {
 	var updatedConflict, addedParentConflict *conflict.Conflict[ConflictID, ResourceID]
 	var removedParentConflicts []*conflict.Conflict[ConflictID, ResourceID]
 
-	parentsUpdated = func() (success bool) {
+	if parentsUpdated = func() (success bool) {
 		c.mutex.RLock()
 		defer c.mutex.RUnlock()
 
-		if updatedConflict, success := c.conflictsByID.Get(conflictID); success {
-			if addedParentConflict, success = c.Conflicts(addedParent)[addedParent]; success {
-				removedParentConflicts = lo.Values(c.Conflicts(removedParents...))
+		if updatedConflict, success = c.conflictsByID.Get(conflictID); success {
+			if addedParentConflict, success = c.Conflicts(addedParentID)[addedParentID]; success {
+				removedParentConflicts = lo.Values(c.Conflicts(removedParentIDs...))
 				success = updatedConflict.UpdateParents(addedParentConflict, removedParentConflicts...)
 			}
 		}
 
 		return success
-	}()
-
-	if parentsUpdated {
+	}(); parentsUpdated {
 		c.ConflictParentsUpdated.Trigger(updatedConflict, addedParentConflict, removedParentConflicts)
 	}
 
