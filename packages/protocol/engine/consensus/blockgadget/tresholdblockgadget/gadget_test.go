@@ -31,15 +31,15 @@ func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, memPool me
 		),
 	)
 
-	gadget := tresholdblockgadget.New(workers.CreateGroup("BlockGadget"),
-		tangleTF.Instance.Booker(),
-		tangleTF.Instance.BlockDAG(),
-		memPool,
-		tangleTF.Instance.(*testtangle.TestTangle).EvictionState(),
+	gadget := tresholdblockgadget.New(
 		optsGadget...,
 	)
 
-	gadget.Initialize(tangleTF.Instance.(*testtangle.TestTangle).SlotTimeProvider(), tangleTF.Votes.Validators, tangleTF.Votes.Validators.TotalWeight)
+	gadget.Initialize(workers.CreateGroup("BlockGadget"),
+		tangleTF.Instance.Booker(),
+		tangleTF.Instance.BlockDAG(),
+		memPool,
+		tangleTF.Instance.(*testtangle.TestTangle).EvictionState(), tangleTF.Instance.(*testtangle.TestTangle).SlotTimeProvider(), tangleTF.Votes.Validators, tangleTF.Votes.Validators.TotalWeight)
 
 	return blockgadget.NewTestFramework(t,
 		gadget,
@@ -524,16 +524,17 @@ func TestGadget_update_multipleSequences_onlyAcceptThenConfirm(t *testing.T) {
 		),
 	)
 
-	gadget := tresholdblockgadget.New(workers.CreateGroup("BlockGadget"),
-		tangleTF.Instance.Booker(),
-		tangleTF.Instance.BlockDAG(),
-		tangleTF.Instance.(*testtangle.TestTangle).MemPool(),
-		tangleTF.Instance.(*testtangle.TestTangle).EvictionState(),
+	gadget := tresholdblockgadget.New(
 		tresholdblockgadget.WithMarkerAcceptanceThreshold(0.66),
 		tresholdblockgadget.WithConfirmationThreshold(0.66),
 	)
 
-	gadget.Initialize(tangleTF.Instance.(*testtangle.TestTangle).SlotTimeProvider(),
+	gadget.Initialize(workers.CreateGroup("BlockGadget"),
+		tangleTF.Instance.Booker(),
+		tangleTF.Instance.BlockDAG(),
+		tangleTF.Instance.(*testtangle.TestTangle).MemPool(),
+		tangleTF.Instance.(*testtangle.TestTangle).EvictionState(),
+		tangleTF.Instance.(*testtangle.TestTangle).SlotTimeProvider(),
 		tangleTF.Instance.(*testtangle.TestTangle).Validators(),
 		func() int64 {
 			return 100
