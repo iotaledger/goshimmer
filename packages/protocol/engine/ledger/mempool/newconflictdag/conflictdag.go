@@ -50,7 +50,7 @@ func (c *ConflictDAG[ConflictID, ResourceID]) CreateConflict(id ConflictID, pare
 	defer c.mutex.RUnlock()
 
 	parents := lo.Values(c.Conflicts(parentIDs...))
-	conflictSets := c.ConflictSets(resourceIDs...)
+	conflictSets := lo.Values(c.ConflictSets(resourceIDs...))
 
 	createdConflict, isNew := c.conflictsByID.GetOrCreate(id, func() *conflict.Conflict[ConflictID, ResourceID] {
 		return conflict.New[ConflictID, ResourceID](id, parents, conflictSets, initialWeight, c.pendingTasks)
@@ -71,7 +71,7 @@ func (c *ConflictDAG[ConflictID, ResourceID]) AddConflictSets(conflictID Conflic
 	defer c.mutex.RUnlock()
 
 	if currentConflict, exists := c.conflictsByID.Get(conflictID); exists {
-		if addedConflictSets = currentConflict.RegisterWithConflictSets(c.ConflictSets(resourceIDs...)...); len(addedConflictSets) > 0 {
+		if addedConflictSets = currentConflict.RegisterWithConflictSets(lo.Values(c.ConflictSets(resourceIDs...))...); len(addedConflictSets) > 0 {
 			c.ConflictingResourcesAdded.Trigger(conflictID, addedConflictSets)
 		}
 	}
