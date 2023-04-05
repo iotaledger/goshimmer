@@ -11,11 +11,19 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/conflict"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/weight"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
+
+type Conflict = *conflict.Conflict[utxo.OutputID, utxo.OutputID]
+
+type Conflicts = []Conflict
+
+var NewConflict = conflict.New[utxo.OutputID, utxo.OutputID]
 
 func TestConflictSets(t *testing.T) {
 	pendingTasks := syncutils.NewCounter()

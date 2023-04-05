@@ -10,10 +10,15 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/conflict"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/weight"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
+
+type SortedConflictSet = *conflict.SortedSet[utxo.OutputID, utxo.OutputID]
+
+var NewSortedConflictSet = conflict.NewSortedSet[utxo.OutputID, utxo.OutputID]
 
 func TestSortedConflict(t *testing.T) {
 	pendingTasks := syncutils.NewCounter()

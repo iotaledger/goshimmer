@@ -17,6 +17,9 @@ type ConflictDAG[ConflictID, ResourceID conflict.IDType] struct {
 	// ConflictCreated is triggered when a new Conflict is created.
 	ConflictCreated *event.Event1[*conflict.Conflict[ConflictID, ResourceID]]
 
+	// ConflictingResourcesAdded is triggered when the Conflict is added to a new ConflictSet.
+	ConflictingResourcesAdded *event.Event2[ConflictID, []*conflict.Set[ConflictID, ResourceID]]
+
 	// conflictsByID is a mapping of ConflictIDs to Conflicts.
 	conflictsByID *shrinkingmap.ShrinkingMap[ConflictID, *conflict.Conflict[ConflictID, ResourceID]]
 
@@ -33,10 +36,11 @@ type ConflictDAG[ConflictID, ResourceID conflict.IDType] struct {
 // New creates a new ConflictDAG.
 func New[ConflictID, ResourceID conflict.IDType]() *ConflictDAG[ConflictID, ResourceID] {
 	return &ConflictDAG[ConflictID, ResourceID]{
-		ConflictCreated:  event.New1[*conflict.Conflict[ConflictID, ResourceID]](),
-		conflictsByID:    shrinkingmap.New[ConflictID, *conflict.Conflict[ConflictID, ResourceID]](),
-		conflictSetsByID: shrinkingmap.New[ResourceID, *conflict.Set[ConflictID, ResourceID]](),
-		pendingTasks:     syncutils.NewCounter(),
+		ConflictCreated:           event.New1[*conflict.Conflict[ConflictID, ResourceID]](),
+		ConflictingResourcesAdded: event.New2[ConflictID, []*conflict.Set[ConflictID, ResourceID]](),
+		conflictsByID:             shrinkingmap.New[ConflictID, *conflict.Conflict[ConflictID, ResourceID]](),
+		conflictSetsByID:          shrinkingmap.New[ResourceID, *conflict.Set[ConflictID, ResourceID]](),
+		pendingTasks:              syncutils.NewCounter(),
 	}
 }
 
@@ -59,6 +63,22 @@ func (c *ConflictDAG[ConflictID, ResourceID]) CreateConflict(id ConflictID, pare
 	c.ConflictCreated.Trigger(createdConflict)
 
 	return createdConflict
+}
+
+// JoinConflictSets adds the Conflict to the given ConflictSets and returns true if the conflict membership was modified during this operation.
+func (c *ConflictDAG[ConflictID, ResourceID]) JoinConflictSets(conflictID ConflictID, resourceIDs ...ResourceID) (updated bool) {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	if currentConflict, exists := c.conflictsByID.Get(conflictID); exists {
+		if newConflictSets := currentConflict.RegisterWithConflictSets(c.ConflictSets(resourceIDs...)...); len(newConflictSets) > 0 {
+			c.ConflictingResourcesAdded.Trigger(conflictID, newConflictSets)
+
+			return true
+		}
+	}
+
+	return false
 }
 
 // LikedInstead returns the ConflictIDs of the Conflicts that are liked instead of the Conflicts.
