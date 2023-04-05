@@ -47,13 +47,7 @@ func (c *ConflictDAG[ConflictID, ResourceID]) CreateConflict(id ConflictID, pare
 	defer c.mutex.RUnlock()
 
 	parents := c.Conflicts(parentIDs...)
-
-	conflictSets := make([]*conflict.Set[ConflictID, ResourceID], 0)
-	for _, resourceID := range resourceIDs {
-		conflictSets = append(conflictSets, lo.Return1(c.conflictSetsByID.GetOrCreate(resourceID, func() *conflict.Set[ConflictID, ResourceID] {
-			return conflict.NewSet[ConflictID, ResourceID](resourceID)
-		})))
-	}
+	conflictSets := c.ConflictSets(resourceIDs...)
 
 	createdConflict, isNew := c.conflictsByID.GetOrCreate(id, func() *conflict.Conflict[ConflictID, ResourceID] {
 		return conflict.New[ConflictID, ResourceID](id, parents, conflictSets, initialWeight, c.pendingTasks)
@@ -72,7 +66,6 @@ func (c *ConflictDAG[ConflictID, ResourceID]) CreateConflict(id ConflictID, pare
 func (c *ConflictDAG[ConflictID, ResourceID]) Conflicts(ids ...ConflictID) []*conflict.Conflict[ConflictID, ResourceID] {
 	conflicts := make([]*conflict.Conflict[ConflictID, ResourceID], 0)
 	for _, id := range ids {
-		// TODO: check if it's okay to ignore non-existing conflicts
 		if existingConflict, exists := c.conflictsByID.Get(id); exists {
 			conflicts = append(conflicts, existingConflict)
 		}
@@ -82,13 +75,12 @@ func (c *ConflictDAG[ConflictID, ResourceID]) Conflicts(ids ...ConflictID) []*co
 }
 
 // ConflictSets returns the ConflictSets that are associated with the given ResourceIDs.
-func (c *ConflictDAG[ConflictID, ResourceID]) ConflictSets(ids ...ResourceID) *advancedset.AdvancedSet[*conflict.Set[ConflictID, ResourceID]] {
-	conflictSets := advancedset.New[*conflict.Set[ConflictID, ResourceID]]()
-	for _, id := range ids {
-		// TODO: check if it's okay to ignore non-existing conflictSets
-		if existingConflictSet, exists := c.conflictSetsByID.Get(id); exists {
-			conflictSets.Add(existingConflictSet)
-		}
+func (c *ConflictDAG[ConflictID, ResourceID]) ConflictSets(resourceIDs ...ResourceID) []*conflict.Set[ConflictID, ResourceID] {
+	conflictSets := make([]*conflict.Set[ConflictID, ResourceID], 0)
+	for _, resourceID := range resourceIDs {
+		conflictSets = append(conflictSets, lo.Return1(c.conflictSetsByID.GetOrCreate(resourceID, func() *conflict.Set[ConflictID, ResourceID] {
+			return conflict.NewSet[ConflictID, ResourceID](resourceID)
+		})))
 	}
 
 	return conflictSets
@@ -103,7 +95,6 @@ func (c *ConflictDAG[ConflictID, ResourceID]) LikedInstead(conflictIDs ...Confli
 
 	likedInstead := advancedset.New[ConflictID]()
 	for _, conflictID := range conflictIDs {
-		// TODO: discuss if it is okay to not find a conflict
 		if existingConflict, exists := c.conflictsByID.Get(conflictID); exists {
 			if largestConflict := c.largestConflict(existingConflict.LikedInstead()); largestConflict != nil {
 				likedInstead.Add(largestConflict.ID())
