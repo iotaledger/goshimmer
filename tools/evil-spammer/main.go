@@ -153,27 +153,24 @@ func parseQuickTestFlags() {
 }
 
 func parseCommitmentsSpamFlags() {
-	urls := optionFlagSet.String("urls", "", "API urls for clients used in test separated with commas")
-	commitmentType := optionFlagSet.String("type", commitmentsSpamParams.CommitmentType, "Type of commitment spam. Possible values: 'latest' - valid commitment spam, 'oldest' - oldest possible spam")
+	commitmentType := optionFlagSet.String("type", commitmentsSpamParams.CommitmentType, "Type of commitment spam. Possible values: 'latest' - valid commitment spam, 'random' - completley new, invalid cahin, 'fork' - forked chain, combine with 'forkAfter' parameter.")
 	rate := optionFlagSet.Int("rate", commitmentsSpamParams.Rate, "Commitment spam rate")
 	duration := optionFlagSet.Duration("duration", commitmentsSpamParams.Duration, "Duration of the spam. Format: decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.\n Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.")
 	timeUnit := optionFlagSet.Duration("tu", commitmentsSpamParams.TimeUnit, "Time unit for the spamming rate. Format: decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.\n Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.")
 	networkAlias := optionFlagSet.String("network", commitmentsSpamParams.NetworkAlias, "Network alias for the test. Check your keys-config.json file for possible values.")
-	identityAlias := optionFlagSet.String("identity", commitmentsSpamParams.IdentityAlias, "Identity alias for the node identity and its private keys. Check your keys-config.json file for possible values.")
+	identityAlias := optionFlagSet.String("spammerAlias", commitmentsSpamParams.SpammerAlias, "Identity alias for the node identity and its private keys that will be used to spam. Check your keys-config.json file for possible values.")
+	validAlias := optionFlagSet.String("validAlias", commitmentsSpamParams.ValidAlias, "Identity alias for the honest node and its private keys, will be used to request valid committment and block data. Check your keys-config.json file for possible values.")
 	forkAfter := optionFlagSet.Int("forkAfter", commitmentsSpamParams.Rate, "Indicates how many slots after spammer startup should fork be placed in the created commitment chain. Works only for 'fork' commitment spam type.")
 
 	parseOptionFlagSet(optionFlagSet)
 
-	if *urls != "" {
-		parsedUrls := parseCommaSepString(*urls)
-		commitmentsSpamParams.ClientURLs = parsedUrls
-	}
 	commitmentsSpamParams.CommitmentType = *commitmentType
 	commitmentsSpamParams.Rate = *rate
 	commitmentsSpamParams.Duration = *duration
 	commitmentsSpamParams.TimeUnit = *timeUnit
 	commitmentsSpamParams.NetworkAlias = *networkAlias
-	commitmentsSpamParams.IdentityAlias = *identityAlias
+	commitmentsSpamParams.SpammerAlias = *identityAlias
+	commitmentsSpamParams.ValidAlias = *validAlias
 	commitmentsSpamParams.ForkAfter = *forkAfter
 }
 

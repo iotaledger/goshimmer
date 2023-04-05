@@ -1,6 +1,7 @@
 package evilspammer
 
 import (
+	"fmt"
 	"math/rand"
 	"sync"
 	"time"
@@ -113,6 +114,7 @@ func CommitmentsSpammingFunction(s *Spammer) {
 
 	blkID, err := clt.PostBlock(blockBytes)
 	if err != nil {
+		fmt.Println(err)
 		s.ErrCounter.CountError(ErrFailSendDataBlock)
 	}
 

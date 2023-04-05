@@ -6,28 +6,41 @@ import (
 	"os"
 )
 
-type Identities map[string]string
 type Params map[string]Identities
+type Identities map[string]privKeyURLPair
+type privKeyURLPair [2]string
 
 var Config = Params{}
 
 var identityConfigJSON = `{
-	"docker": {
-	  "peer_master": "8q491c3YWjbPwLmF2WD95YmCgh61j2kenCKHfGfByoWi",
-	  "peer_master2": "4ata8GcTRMJ5sSv2jQJWmSYYTHct748p3tXmCFYm7wjA",
-	  "faucet": "3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E"
-	}
+  "docker": {
+    "peer_master": [
+      "8q491c3YWjbPwLmF2WD95YmCgh61j2kenCKHfGfByoWi",
+      "http://localhost:8080"
+    ],
+    "peer_master2": [
+      "4ata8GcTRMJ5sSv2jQJWmSYYTHct748p3tXmCFYm7wjA",
+      "http://localhost:8070"
+    ],
+    "faucet": [
+      "3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E",
+      "http://localhost:8090"
+    ]
+  }
 }`
 
-func LoadIdentity(networkName, alias string) string {
+func LoadIdentity(networkName, alias string) (privKey, url string) {
 	fmt.Println("Loading identity", alias, "for network", networkName)
 	if networkIdentities, exists := Config[networkName]; exists {
-		if privateKey, ok := networkIdentities[alias]; ok {
-			return privateKey
+		if keyURLPair, ok := networkIdentities[alias]; ok {
+			privateKey := keyURLPair[0]
+			urlAPI := keyURLPair[1]
+			fmt.Println("Loaded identity", alias, "API url:", url, "for network", networkName, "...DONE")
+			return privateKey, urlAPI
 		}
-		return ""
+		return "", ""
 	}
-	return ""
+	return "", ""
 }
 
 func LoadConfig() Params {

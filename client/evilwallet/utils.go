@@ -76,9 +76,9 @@ func SignBlock(block *models.Block, localID *identity.LocalIdentity) (ed25519.Si
 	if err != nil {
 		return ed25519.EmptySignature, errors.Wrap(err, "failed to encode block issuing time")
 	}
-	b, err := block.Commitment().Bytes()
+	commitmentIDBytes, err := block.Commitment().ID().Bytes()
 	if err != nil {
 		return ed25519.EmptySignature, errors.Wrap(err, "failed to encode block commitment")
 	}
-	return localID.Sign(byteutils.ConcatBytes(issuingTimeBytes, b, contentHash[:])), nil
+	return localID.Sign(byteutils.ConcatBytes(issuingTimeBytes, commitmentIDBytes, contentHash[:])), nil
 }

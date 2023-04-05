@@ -116,9 +116,9 @@ func WithNumberOfSpends(n int) Options {
 
 // region Spammer Commitment options ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithClientURLs(clientURLs []string) Options {
+func WithClientURL(clientURL string) Options {
 	return func(s *Spammer) {
-		s.Clients = evilwallet.NewWebClients(clientURLs)
+		s.Clients = evilwallet.NewWebClients([]string{clientURL})
 	}
 }
 
