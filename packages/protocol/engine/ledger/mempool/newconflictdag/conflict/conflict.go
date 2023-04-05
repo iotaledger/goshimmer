@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/core/module"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/weight"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/ds/shrinkingmap"
@@ -16,6 +17,10 @@ import (
 
 // Conflict is a conflict that is part of a Conflict DAG.
 type Conflict[ConflictID, ResourceID IDType] struct {
+	Accepted *event.Event
+
+	Rejected *event.Event
+
 	// PreferredInsteadUpdated is triggered when the preferred instead value of the Conflict is updated.
 	PreferredInsteadUpdated *event.Event1[*Conflict[ConflictID, ResourceID]]
 
@@ -31,8 +36,8 @@ type Conflict[ConflictID, ResourceID IDType] struct {
 	// parents is the set of parents of the Conflict.
 	parents *advancedset.AdvancedSet[*Conflict[ConflictID, ResourceID]]
 
-	// children is the set of children of the Conflict.
-	children *advancedset.AdvancedSet[*Conflict[ConflictID, ResourceID]]
+	// childUnhooks is a mapping of children to their unhook functions.
+	childUnhooks *shrinkingmap.ShrinkingMap[ConflictID, func()]
 
 	// conflictSets is the set of conflict sets that contain the Conflict.
 	conflictSets *advancedset.AdvancedSet[*Set[ConflictID, ResourceID]]
@@ -62,13 +67,15 @@ type Conflict[ConflictID, ResourceID IDType] struct {
 // New creates a new Conflict.
 func New[ConflictID, ResourceID IDType](id ConflictID, parents []*Conflict[ConflictID, ResourceID], conflictSets []*Set[ConflictID, ResourceID], initialWeight *weight.Weight, pendingTasksCounter *syncutils.Counter) *Conflict[ConflictID, ResourceID] {
 	c := &Conflict[ConflictID, ResourceID]{
+		Accepted:                event.New(),
+		Rejected:                event.New(),
 		PreferredInsteadUpdated: event.New1[*Conflict[ConflictID, ResourceID]](),
 		LikedInsteadAdded:       event.New1[*Conflict[ConflictID, ResourceID]](),
 		LikedInsteadRemoved:     event.New1[*Conflict[ConflictID, ResourceID]](),
 
 		id:                  id,
 		parents:             advancedset.New[*Conflict[ConflictID, ResourceID]](),
-		children:            advancedset.New[*Conflict[ConflictID, ResourceID]](),
+		childUnhooks:        shrinkingmap.New[ConflictID, func()](),
 		conflictSets:        advancedset.New[*Set[ConflictID, ResourceID]](),
 		weight:              initialWeight,
 		likedInstead:        advancedset.New[*Conflict[ConflictID, ResourceID]](),
@@ -95,6 +102,42 @@ func (c *Conflict[ConflictID, ResourceID]) Parents() *advancedset.AdvancedSet[*C
 	defer c.mutex.RUnlock()
 
 	return c.parents.Clone()
+}
+
+func (c *Conflict[ConflictID, ResourceID]) UnhookChild(conflictID ConflictID) {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	if unhookFunc, exists := c.childUnhooks.Get(conflictID); exists {
+		unhookFunc()
+
+		c.childUnhooks.Delete(conflictID)
+	}
+}
+
+func (c *Conflict[ConflictID, ResourceID]) UpdateParents(addedParent *Conflict[ConflictID, ResourceID], removedParents ...*Conflict[ConflictID, ResourceID]) {
+	if c.updatedParentsRejected(addedParent, removedParents...) {
+		c.Rejected.Trigger()
+	}
+}
+
+func (c *Conflict[ConflictID, ResourceID]) updatedParentsRejected(addedParent *Conflict[ConflictID, ResourceID], removedParents ...*Conflict[ConflictID, ResourceID]) bool {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	if !c.parents.Add(addedParent) {
+		return false
+	}
+
+	triggerRejected := c.registerParentAndCheckRejected(addedParent)
+
+	for _, removedParent := range removedParents {
+		if c.parents.Delete(removedParent) {
+			removedParent.UnhookChild(c.id)
+		}
+	}
+
+	return triggerRejected
 }
 
 // IsLiked returns true if the Conflict is liked instead of other conflicting Conflicts.
@@ -129,6 +172,48 @@ func (c *Conflict[ConflictID, ResourceID]) PreferredInstead() *Conflict[Conflict
 	return c.preferredInstead
 }
 
+func (c *Conflict[ConflictID, ResourceID]) IsPending() bool {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	return c.weight.Value().AcceptanceState() == acceptance.Pending
+}
+
+func (c *Conflict[ConflictID, ResourceID]) IsAccepted() bool {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	return c.isAccepted()
+}
+
+func (c *Conflict[ConflictID, ResourceID]) SetAccepted() (updated bool) {
+	if updated = c.setAccepted(); updated {
+		c.Accepted.Trigger()
+	}
+
+	return updated
+}
+
+func (c *Conflict[ConflictID, ResourceID]) IsRejected() bool {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	return c.isRejected()
+}
+
+// SetRejected sets the Conflict as rejected.
+func (c *Conflict[ConflictID, ResourceID]) SetRejected() (updated bool) {
+	c.mutex.Lock()
+	updated = c.setRejected()
+	c.mutex.Unlock()
+
+	if updated {
+		c.Rejected.Trigger()
+	}
+
+	return updated
+}
+
 // Weight returns the weight of the Conflict.
 func (c *Conflict[ConflictID, ResourceID]) Weight() *weight.Weight {
 	return c.weight
@@ -141,13 +226,15 @@ func (c *Conflict[ConflictID, ResourceID]) RegisterWithConflictSets(conflictSets
 		if c.conflictSets.Add(conflictSet) {
 			// add existing first, so we can determine our own status in respect to the existing conflicts
 			_ = conflictSet.Members().ForEach(func(conflict *Conflict[ConflictID, ResourceID]) (err error) {
-				c.conflictingConflicts.Add(conflict)
+				c.addConflictingConflict(conflict)
+
 				return nil
 			})
 
 			// add ourselves to the other conflict sets once we are fully initialized
 			conflictSet.Add(c)
 
+			// add the conflict set to the joined conflict sets
 			joinedConflictSets[conflictSet.ID()] = conflictSet
 		}
 	}
@@ -157,8 +244,8 @@ func (c *Conflict[ConflictID, ResourceID]) RegisterWithConflictSets(conflictSets
 
 func (c *Conflict[ConflictID, ResourceID]) RegisterWithParents(parents ...*Conflict[ConflictID, ResourceID]) {
 	for _, parent := range parents {
-		if c.parents.Add(parent) {
-			c.registerWithParent(parent)
+		if c.parents.Add(parent) && c.registerParentAndCheckRejected(parent) {
+			c.Rejected.Trigger()
 		}
 	}
 }
@@ -208,12 +295,60 @@ func (c *Conflict[ConflictID, ResourceID]) String() string {
 	)
 }
 
-// registerWithParent registers the Conflict as a child of the given parent Conflict.
-func (c *Conflict[ConflictID, ResourceID]) registerWithParent(parent *Conflict[ConflictID, ResourceID]) {
+func (c *Conflict[ConflictID, ResourceID]) isAccepted() bool {
+	return c.weight.AcceptanceState() == acceptance.Accepted
+}
+
+func (c *Conflict[ConflictID, ResourceID]) setAccepted() (updated bool) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	if c.isAccepted() {
+		return false
+	}
+
+	_ = c.parents.ForEach(func(parent *Conflict[ConflictID, ResourceID]) (err error) {
+		parent.SetAccepted()
+		return nil
+	})
+
+	c.weight.SetAcceptanceState(acceptance.Accepted)
+
+	return true
+}
+
+func (c *Conflict[ConflictID, ResourceID]) isRejected() bool {
+	return c.weight.Value().AcceptanceState() == acceptance.Rejected
+}
+
+// setRejected sets the Conflict as rejected (without locking).
+func (c *Conflict[ConflictID, ResourceID]) setRejected() (updated bool) {
+	if c.isRejected() {
+		return false
+	}
+
+	c.weight.SetAcceptanceState(acceptance.Rejected)
+
+	return true
+}
+
+// IsPreferred returns true if the Conflict is preferred instead of its conflicting Conflicts.
+func (c *Conflict[ConflictID, ResourceID]) isPreferred() bool {
+	return c.preferredInstead == c
+}
+
+// registerParentAndCheckRejected registers the Conflict as a child of the given parent Conflict.
+func (c *Conflict[ConflictID, ResourceID]) registerParentAndCheckRejected(parent *Conflict[ConflictID, ResourceID]) (triggerRejected bool) {
 	parent.mutex.Lock()
 	defer parent.mutex.Unlock()
 
-	c.HookStopped(lo.Batch(
+	parent.childUnhooks.Set(c.ID(), lo.Batch(
+		parent.Rejected.Hook(func() {
+			if c.SetRejected() {
+				c.Rejected.Trigger()
+			}
+		}).Unhook,
+
 		parent.LikedInsteadRemoved.Hook(func(conflict *Conflict[ConflictID, ResourceID]) {
 			c.onParentRemovedLikedInstead(parent, conflict)
 		}).Unhook,
@@ -227,12 +362,19 @@ func (c *Conflict[ConflictID, ResourceID]) registerWithParent(parent *Conflict[C
 		c.onParentAddedLikedInstead(parent, conflicts.Next())
 	}
 
-	parent.children.Add(c)
+	return parent.isRejected() && c.setRejected()
 }
 
-// IsPreferred returns true if the Conflict is preferred instead of its conflicting Conflicts.
-func (c *Conflict[ConflictID, ResourceID]) isPreferred() bool {
-	return c.preferredInstead == c
+func (c *Conflict[ConflictID, ResourceID]) addConflictingConflict(conflict *Conflict[ConflictID, ResourceID]) (added bool) {
+	if added = c.conflictingConflicts.Add(conflict); added {
+		c.HookStopped(conflict.Accepted.Hook(func() { c.SetRejected() }).Unhook)
+
+		if conflict.IsAccepted() {
+			c.SetRejected()
+		}
+	}
+
+	return added
 }
 
 // setPreferredInstead sets the preferred instead value of the Conflict.

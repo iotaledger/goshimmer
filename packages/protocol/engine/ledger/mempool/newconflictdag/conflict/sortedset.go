@@ -80,7 +80,7 @@ func NewSortedSet[ConflictID, ResourceID IDType](owner *Conflict[ConflictID, Res
 }
 
 // Add adds the given Conflict to the SortedSet.
-func (s *SortedSet[ConflictID, ResourceID]) Add(conflict *Conflict[ConflictID, ResourceID]) {
+func (s *SortedSet[ConflictID, ResourceID]) Add(conflict *Conflict[ConflictID, ResourceID]) bool {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -88,7 +88,7 @@ func (s *SortedSet[ConflictID, ResourceID]) Add(conflict *Conflict[ConflictID, R
 		return newSortedSetMember[ConflictID, ResourceID](s, conflict)
 	})
 	if !isNew {
-		return
+		return false
 	}
 
 	for currentMember := s.heaviestMember; ; currentMember = currentMember.lighterMember {
@@ -126,6 +126,8 @@ func (s *SortedSet[ConflictID, ResourceID]) Add(conflict *Conflict[ConflictID, R
 
 		s.owner.setPreferredInstead(conflict)
 	}
+
+	return true
 }
 
 // ForEach iterates over all Conflicts of the SortedSet and calls the given callback for each of them.

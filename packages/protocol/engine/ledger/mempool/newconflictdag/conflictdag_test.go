@@ -32,10 +32,10 @@ func TestConflictDAG_CreateConflict(t *testing.T) {
 	require.Panics(t, func() { conflictDAG.CreateConflict(NewTestID("conflict3"), []TestID{}, []TestID{}, weight.New()) })
 	require.Panics(t, func() { conflictDAG.CreateConflict(NewTestID("conflict4"), []TestID{}, []TestID{}, weight.New()) })
 
-	require.Contains(t, conflictDAG.Conflicts(conflictID1), conflict1)
-	require.Contains(t, conflictDAG.Conflicts(conflictID2), conflict2)
-	require.Contains(t, conflictDAG.Conflicts(conflictID3), conflict3)
-	require.Contains(t, conflictDAG.Conflicts(conflictID4), conflict4)
+	require.Contains(t, conflictDAG.Conflicts(conflictID1), conflict1.ID())
+	require.Contains(t, conflictDAG.Conflicts(conflictID2), conflict2.ID())
+	require.Contains(t, conflictDAG.Conflicts(conflictID3), conflict3.ID())
+	require.Contains(t, conflictDAG.Conflicts(conflictID4), conflict4.ID())
 
 	conflict1.Parents().Equal(advancedset.New[*conflict.Conflict[TestID, TestID]]())
 	conflict2.Parents().Equal(advancedset.New[*conflict.Conflict[TestID, TestID]]())
@@ -52,18 +52,19 @@ func TestConflictDAG_LikedInstead(t *testing.T) {
 	resourceID2 := NewTestID("resource2")
 
 	conflictDAG := New[TestID, TestID]()
-	conflictDAG.CreateConflict(conflictID1, []TestID{}, []TestID{resourceID1}, weight.New().SetCumulativeWeight(5))
+	conflict1 := conflictDAG.CreateConflict(conflictID1, []TestID{}, []TestID{resourceID1}, weight.New().SetCumulativeWeight(5))
 	conflictDAG.CreateConflict(conflictID2, []TestID{}, []TestID{resourceID1}, weight.New().SetCumulativeWeight(1))
 
 	require.Panics(t, func() { conflictDAG.CreateConflict(NewTestID("conflict1"), []TestID{}, []TestID{}, weight.New()) })
 	require.Panics(t, func() { conflictDAG.CreateConflict(NewTestID("conflict2"), []TestID{}, []TestID{}, weight.New()) })
 
-	require.Equal(t, conflictDAG.LikedInstead(conflictID1, conflictID2), []TestID{conflictID1})
+	require.Equal(t, 1, len(conflictDAG.LikedInstead(conflictID1, conflictID2)))
+	require.Contains(t, conflictDAG.LikedInstead(conflictID1, conflictID2), conflictID1)
 
 	conflictDAG.CreateConflict(conflictID3, []TestID{conflictID1}, []TestID{resourceID2}, weight.New().SetCumulativeWeight(0))
-	conflictDAG.CreateConflict(conflictID4, []TestID{conflictID1}, []TestID{resourceID2}, weight.New().SetCumulativeWeight(1))
+	conflict4 := conflictDAG.CreateConflict(conflictID4, []TestID{conflictID1}, []TestID{resourceID2}, weight.New().SetCumulativeWeight(1))
 
-	require.Equal(t, conflictDAG.LikedInstead(conflictID1, conflictID2, conflictID3, conflictID4), []TestID{conflictID1, conflictID4})
+	requireConflicts(t, conflictDAG.LikedInstead(conflictID1, conflictID2, conflictID3, conflictID4), conflict1, conflict4)
 }
 
 type TestID struct {
@@ -81,4 +82,11 @@ func NewTestID(alias string) TestID {
 
 func (id TestID) String() string {
 	return strings.Replace(id.TransactionID.String(), "TransactionID(", "TestID(", 1)
+}
+
+func requireConflicts(t *testing.T, conflicts map[TestID]*conflict.Conflict[TestID, TestID], expectedConflicts ...*conflict.Conflict[TestID, TestID]) {
+	require.Equal(t, len(expectedConflicts), len(conflicts))
+	for _, expectedConflict := range expectedConflicts {
+		require.Equal(t, conflicts[expectedConflict.ID()], expectedConflict)
+	}
 }

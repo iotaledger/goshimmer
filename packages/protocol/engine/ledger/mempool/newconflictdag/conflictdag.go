@@ -20,6 +20,9 @@ type ConflictDAG[ConflictID, ResourceID conflict.IDType] struct {
 	// ConflictingResourcesAdded is triggered when the Conflict is added to a new ConflictSet.
 	ConflictingResourcesAdded *event.Event2[ConflictID, map[ResourceID]*conflict.Set[ConflictID, ResourceID]]
 
+	// ConflictParentsUpdated is triggered when the parents of a Conflict are updated.
+	ConflictParentsUpdated *event.Event3[*conflict.Conflict[ConflictID, ResourceID], *conflict.Conflict[ConflictID, ResourceID], []*conflict.Conflict[ConflictID, ResourceID]]
+
 	// conflictsByID is a mapping of ConflictIDs to Conflicts.
 	conflictsByID *shrinkingmap.ShrinkingMap[ConflictID, *conflict.Conflict[ConflictID, ResourceID]]
 
@@ -38,6 +41,7 @@ func New[ConflictID, ResourceID conflict.IDType]() *ConflictDAG[ConflictID, Reso
 	return &ConflictDAG[ConflictID, ResourceID]{
 		ConflictCreated:           event.New1[*conflict.Conflict[ConflictID, ResourceID]](),
 		ConflictingResourcesAdded: event.New2[ConflictID, map[ResourceID]*conflict.Set[ConflictID, ResourceID]](),
+		ConflictParentsUpdated:    event.New3[*conflict.Conflict[ConflictID, ResourceID], *conflict.Conflict[ConflictID, ResourceID], []*conflict.Conflict[ConflictID, ResourceID]](),
 		conflictsByID:             shrinkingmap.New[ConflictID, *conflict.Conflict[ConflictID, ResourceID]](),
 		conflictSetsByID:          shrinkingmap.New[ResourceID, *conflict.Set[ConflictID, ResourceID]](),
 		pendingTasks:              syncutils.NewCounter(),
@@ -79,18 +83,43 @@ func (c *ConflictDAG[ConflictID, ResourceID]) AddConflictSets(conflictID Conflic
 	return addedConflictSets
 }
 
+func (c *ConflictDAG[ConflictID, ResourceID]) UpdateConflictParents(conflictID ConflictID, addedParent ConflictID, removedParents ...ConflictID) (parentsUpdated bool) {
+	var updatedConflict, addedParentConflict *conflict.Conflict[ConflictID, ResourceID]
+	var removedParentConflicts []*conflict.Conflict[ConflictID, ResourceID]
+
+	parentsUpdated = func() (success bool) {
+		c.mutex.RLock()
+		defer c.mutex.RUnlock()
+
+		if updatedConflict, success := c.conflictsByID.Get(conflictID); success {
+			if addedParentConflict, success = c.Conflicts(addedParent)[addedParent]; success {
+				removedParentConflicts = lo.Values(c.Conflicts(removedParents...))
+				success = updatedConflict.UpdateParents(addedParentConflict, removedParentConflicts...)
+			}
+		}
+
+		return success
+	}()
+
+	if parentsUpdated {
+		c.ConflictParentsUpdated.Trigger(updatedConflict, addedParentConflict, removedParentConflicts)
+	}
+
+	return parentsUpdated
+}
+
 // LikedInstead returns the ConflictIDs of the Conflicts that are liked instead of the Conflicts.
-func (c *ConflictDAG[ConflictID, ResourceID]) LikedInstead(conflictIDs ...ConflictID) []ConflictID {
+func (c *ConflictDAG[ConflictID, ResourceID]) LikedInstead(conflictIDs ...ConflictID) map[ConflictID]*conflict.Conflict[ConflictID, ResourceID] {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
 	c.pendingTasks.WaitIsZero()
 
-	likedInstead := make([]ConflictID, 0)
+	likedInstead := make(map[ConflictID]*conflict.Conflict[ConflictID, ResourceID])
 	for _, conflictID := range conflictIDs {
 		if currentConflict, exists := c.conflictsByID.Get(conflictID); exists {
 			if largestConflict := largestConflict(currentConflict.LikedInstead()); largestConflict != nil {
-				likedInstead = append(likedInstead, largestConflict.ID())
+				likedInstead[largestConflict.ID()] = largestConflict
 			}
 		}
 	}

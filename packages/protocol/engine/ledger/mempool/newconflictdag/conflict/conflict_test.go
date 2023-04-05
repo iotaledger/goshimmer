@@ -25,6 +25,65 @@ type Conflicts = []Conflict
 
 var NewConflict = conflict.New[utxo.OutputID, utxo.OutputID]
 
+func TestConflict_SetRejected(t *testing.T) {
+	pendingTasks := syncutils.NewCounter()
+
+	conflict1 := NewConflict(id("Conflict1"), nil, nil, weight.New(), pendingTasks)
+	conflict2 := NewConflict(id("Conflict2"), Conflicts{conflict1}, nil, weight.New(), pendingTasks)
+	conflict3 := NewConflict(id("Conflict3"), Conflicts{conflict2}, nil, weight.New(), pendingTasks)
+
+	conflict1.SetRejected()
+	require.True(t, conflict1.IsRejected())
+	require.True(t, conflict2.IsRejected())
+	require.True(t, conflict3.IsRejected())
+
+	conflict4 := NewConflict(id("Conflict4"), Conflicts{conflict1}, nil, weight.New(), pendingTasks)
+	require.True(t, conflict4.IsRejected())
+}
+
+func TestConflict_UpdateParents(t *testing.T) {
+	pendingTasks := syncutils.NewCounter()
+
+	conflict1 := NewConflict(id("Conflict1"), nil, nil, weight.New(), pendingTasks)
+	conflict2 := NewConflict(id("Conflict2"), nil, nil, weight.New(), pendingTasks)
+	conflict3 := NewConflict(id("Conflict3"), Conflicts{conflict1, conflict2}, nil, weight.New(), pendingTasks)
+
+	require.True(t, conflict3.Parents().Has(conflict1))
+	require.True(t, conflict3.Parents().Has(conflict2))
+}
+
+func TestConflict_SetAccepted(t *testing.T) {
+	pendingTasks := syncutils.NewCounter()
+
+	{
+		conflictSet1 := NewConflictSet(id("ConflictSet1"))
+		conflictSet2 := NewConflictSet(id("ConflictSet2"))
+
+		conflict1 := NewConflict(id("Conflict1"), nil, ConflictSets{conflictSet1}, weight.New(), pendingTasks)
+		conflict2 := NewConflict(id("Conflict2"), nil, ConflictSets{conflictSet1, conflictSet2}, weight.New(), pendingTasks)
+		conflict3 := NewConflict(id("Conflict3"), nil, ConflictSets{conflictSet2}, weight.New(), pendingTasks)
+
+		conflict1.SetAccepted()
+		require.True(t, conflict1.IsAccepted())
+		require.True(t, conflict2.IsRejected())
+		require.True(t, conflict3.IsPending())
+	}
+
+	{
+		conflictSet1 := NewConflictSet(id("ConflictSet1"))
+		conflictSet2 := NewConflictSet(id("ConflictSet2"))
+
+		conflict1 := NewConflict(id("Conflict1"), nil, ConflictSets{conflictSet1}, weight.New(), pendingTasks)
+		conflict2 := NewConflict(id("Conflict2"), nil, ConflictSets{conflictSet1, conflictSet2}, weight.New(), pendingTasks)
+		conflict3 := NewConflict(id("Conflict3"), nil, ConflictSets{conflictSet2}, weight.New(), pendingTasks)
+
+		conflict2.SetAccepted()
+		require.True(t, conflict1.IsRejected())
+		require.True(t, conflict2.IsAccepted())
+		require.True(t, conflict3.IsRejected())
+	}
+}
+
 func TestConflictSets(t *testing.T) {
 	pendingTasks := syncutils.NewCounter()
 
