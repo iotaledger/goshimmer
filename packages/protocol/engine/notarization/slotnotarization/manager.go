@@ -50,7 +50,6 @@ func NewProvider(opts ...options.Option[Manager]) module.Provider[*engine.Engine
 	return module.Provide(func(e *engine.Engine) notarization.Notarization {
 		return options.Apply(&Manager{
 			events:                    notarization.NewEvents(),
-			acceptedTimeFunc:          e.Clock.Accepted().Time,
 			optsMinCommittableSlotAge: defaultMinSlotCommittableAge,
 		}, opts,
 			func(m *Manager) {
@@ -66,6 +65,7 @@ func NewProvider(opts ...options.Option[Manager]) module.Provider[*engine.Engine
 				e.HookConstructed(func() {
 					m.storage = e.Storage
 					m.ledgerState = e.Ledger
+					m.acceptedTimeFunc = e.Clock.Accepted().Time
 
 					wpBlocks := e.Workers.CreatePool("NotarizationManager.Blocks", 1)           // Using just 1 worker to avoid contention
 					wpCommitments := e.Workers.CreatePool("NotarizationManager.Commitments", 1) // Using just 1 worker to avoid contention
