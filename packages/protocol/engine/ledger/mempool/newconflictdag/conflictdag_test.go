@@ -55,10 +55,10 @@ func TestConflictDAG_LikedInstead(t *testing.T) {
 	require.Panics(t, func() { conflictDAG.CreateConflict(NewTestID("conflict1"), []TestID{}, []TestID{}, weight.New()) })
 	require.Panics(t, func() { conflictDAG.CreateConflict(NewTestID("conflict2"), []TestID{}, []TestID{}, weight.New()) })
 
-	require.True(t, conflictDAG.LikedInstead(conflictID1, conflictID2).Equal(advancedset.New[TestID](conflictID1)))
+	require.Equal(t, conflictDAG.LikedInstead(conflictID1, conflictID2), []TestID{conflictID1})
 
 	conflictDAG.CreateConflict(conflictID3, []TestID{conflictID1}, []TestID{resourceID2}, weight.New().SetCumulativeWeight(0))
 	conflictDAG.CreateConflict(conflictID4, []TestID{conflictID1}, []TestID{resourceID2}, weight.New().SetCumulativeWeight(1))
 
-	require.True(t, conflictDAG.LikedInstead(conflictID1, conflictID2, conflictID3, conflictID4).Equal(advancedset.New[TestID](conflictID1, conflictID4)))
+	require.Equal(t, conflictDAG.LikedInstead(conflictID1, conflictID2, conflictID3, conflictID4), []TestID{conflictID1, conflictID4})
 }

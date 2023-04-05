@@ -5,7 +5,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/conflict"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/weight"
-	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/ds/shrinkingmap"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/event"
@@ -62,6 +61,25 @@ func (c *ConflictDAG[ConflictID, ResourceID]) CreateConflict(id ConflictID, pare
 	return createdConflict
 }
 
+// LikedInstead returns the ConflictIDs of the Conflicts that are liked instead of the Conflicts.
+func (c *ConflictDAG[ConflictID, ResourceID]) LikedInstead(conflictIDs ...ConflictID) []ConflictID {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.pendingTasks.WaitIsZero()
+
+	likedInstead := make([]ConflictID, 0)
+	for _, conflictID := range conflictIDs {
+		if currentConflict, exists := c.conflictsByID.Get(conflictID); exists {
+			if largestConflict := largestConflict(currentConflict.LikedInstead()); largestConflict != nil {
+				likedInstead = append(likedInstead, largestConflict.ID())
+			}
+		}
+	}
+
+	return likedInstead
+}
+
 // Conflicts returns the Conflicts that are associated with the given ConflictIDs.
 func (c *ConflictDAG[ConflictID, ResourceID]) Conflicts(ids ...ConflictID) []*conflict.Conflict[ConflictID, ResourceID] {
 	conflicts := make([]*conflict.Conflict[ConflictID, ResourceID], 0)
@@ -84,38 +102,4 @@ func (c *ConflictDAG[ConflictID, ResourceID]) ConflictSets(resourceIDs ...Resour
 	}
 
 	return conflictSets
-}
-
-// LikedInstead returns the ConflictIDs of the Conflicts that are liked instead of the Conflicts.
-func (c *ConflictDAG[ConflictID, ResourceID]) LikedInstead(conflictIDs ...ConflictID) *advancedset.AdvancedSet[ConflictID] {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	c.pendingTasks.WaitIsZero()
-
-	likedInstead := advancedset.New[ConflictID]()
-	for _, conflictID := range conflictIDs {
-		if existingConflict, exists := c.conflictsByID.Get(conflictID); exists {
-			if largestConflict := c.largestConflict(existingConflict.LikedInstead()); largestConflict != nil {
-				likedInstead.Add(largestConflict.ID())
-			}
-		}
-	}
-
-	return likedInstead
-}
-
-// largestConflict returns the largest Conflict from the given Conflicts.
-func (c *ConflictDAG[ConflictID, ResourceID]) largestConflict(conflicts *advancedset.AdvancedSet[*conflict.Conflict[ConflictID, ResourceID]]) *conflict.Conflict[ConflictID, ResourceID] {
-	var largestConflict *conflict.Conflict[ConflictID, ResourceID]
-
-	_ = conflicts.ForEach(func(conflict *conflict.Conflict[ConflictID, ResourceID]) (err error) {
-		if conflict.Compare(largestConflict) == weight.Heavier {
-			largestConflict = conflict
-		}
-
-		return nil
-	})
-
-	return largestConflict
 }
