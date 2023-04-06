@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
-	"sync"
 
 	"github.com/iotaledger/hive.go/ds/thresholdmap"
 	"github.com/iotaledger/hive.go/runtime/syncutils"

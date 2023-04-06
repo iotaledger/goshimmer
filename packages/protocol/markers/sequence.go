@@ -3,7 +3,6 @@ package markers
 import (
 	"context"
 	"strconv"
-	"sync"
 
 	"github.com/pkg/errors"
 

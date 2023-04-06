@@ -2,7 +2,6 @@ package network
 
 import (
 	"fmt"
-	"sync"
 
 	"google.golang.org/protobuf/proto"
 

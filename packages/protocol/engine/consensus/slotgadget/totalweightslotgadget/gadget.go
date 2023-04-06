@@ -1,8 +1,6 @@
 package totalweightslotgadget
 
 import (
-	"sync"
-
 	"github.com/iotaledger/goshimmer/packages/core/votes/slottracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/slotgadget"

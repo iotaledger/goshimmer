@@ -2,7 +2,6 @@ package mana1
 
 import (
 	"context"
-	"sync"
 
 	"github.com/pkg/errors"
 

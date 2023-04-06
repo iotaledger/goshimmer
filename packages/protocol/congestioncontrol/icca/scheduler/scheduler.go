@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-	"sync"
 	"time"
 
 	"github.com/pkg/errors"
