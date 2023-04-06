@@ -134,7 +134,7 @@ func (c *CommitmentManager) GenerateCommitment(clt evilwallet.Client) (*commitme
 		return comm, index, err
 	case "random":
 		slotIndex := c.clockSync.LatestCommittedSlotClock.Get()
-		newCommitment := randomCommittmentChain(slotIndex)
+		newCommitment := randomCommitmentChain(slotIndex)
 
 		return newCommitment, slotIndex - 10, nil
 
@@ -220,7 +220,7 @@ func (c *CommitmentManager) getForkedCommitment(slot slot.Index) (*commitment.Co
 	return forkedComm, nil
 }
 
-func randomCommittmentChain(currSlot slot.Index) *commitment.Commitment {
+func randomCommitmentChain(currSlot slot.Index) *commitment.Commitment {
 	chain := make([]*commitment.Commitment, currSlot+1)
 	chain[0] = commitment.NewEmptyCommitment()
 	for i := slot.Index(0); i < currSlot-1; i++ {
