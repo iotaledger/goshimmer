@@ -128,17 +128,13 @@ func (w *Weight) AcceptanceState() acceptance.State {
 	return w.value.AcceptanceState()
 }
 
-// SetAcceptanceState sets the acceptance state of the weight and returns the Weight (for chaining).
-func (w *Weight) SetAcceptanceState(acceptanceState acceptance.State) *Weight {
-	w.mutex.Lock()
-	defer w.mutex.Unlock()
-
-	if w.value.AcceptanceState() != acceptanceState {
-		w.value = w.value.SetAcceptanceState(acceptanceState)
+// SetAcceptanceState sets the acceptance state of the weight and returns the previous acceptance state.
+func (w *Weight) SetAcceptanceState(acceptanceState acceptance.State) (previousState acceptance.State) {
+	if previousState = w.setAcceptanceState(acceptanceState); previousState != acceptanceState {
 		w.OnUpdate.Trigger(w.value)
 	}
 
-	return w
+	return previousState
 }
 
 // Value returns an immutable copy of the Weight.
@@ -181,4 +177,16 @@ func (w *Weight) updateValidatorsWeight(weight int64) {
 
 		w.OnUpdate.Trigger(w.value)
 	}
+}
+
+// setAcceptanceState sets the acceptance state of the weight and returns the previous acceptance state.
+func (w *Weight) setAcceptanceState(acceptanceState acceptance.State) (previousState acceptance.State) {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
+	if previousState = w.value.AcceptanceState(); previousState != acceptanceState {
+		w.value = w.value.SetAcceptanceState(acceptanceState)
+	}
+
+	return previousState
 }

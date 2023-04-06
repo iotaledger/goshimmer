@@ -67,7 +67,7 @@ func NewSortedSet[ConflictID, ResourceID IDType](owner *Conflict[ConflictID, Res
 	s.pendingPreferredInsteadSignal = sync.NewCond(&s.pendingPreferredInsteadMutex)
 
 	newMember := newSortedSetMember[ConflictID, ResourceID](s, owner)
-	s.members.Set(owner.id, newMember)
+	s.members.Set(owner.ID, newMember)
 
 	s.heaviestMember = newMember
 	s.heaviestPreferredMember = newMember
@@ -84,7 +84,7 @@ func (s *SortedSet[ConflictID, ResourceID]) Add(conflict *Conflict[ConflictID, R
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	newMember, isNew := s.members.GetOrCreate(conflict.id, func() *sortedSetMember[ConflictID, ResourceID] {
+	newMember, isNew := s.members.GetOrCreate(conflict.ID, func() *sortedSetMember[ConflictID, ResourceID] {
 		return newSortedSetMember[ConflictID, ResourceID](s, conflict)
 	})
 	if !isNew {
@@ -147,13 +147,13 @@ func (s *SortedSet[ConflictID, ResourceID]) ForEach(callback func(*Conflict[Conf
 // String returns a human-readable representation of the SortedSet.
 func (s *SortedSet[ConflictID, ResourceID]) String() string {
 	structBuilder := stringify.NewStructBuilder("SortedSet",
-		stringify.NewStructField("owner", s.owner.ID()),
-		stringify.NewStructField("heaviestMember", s.heaviestMember.ID()),
-		stringify.NewStructField("heaviestPreferredMember", s.heaviestPreferredMember.ID()),
+		stringify.NewStructField("owner", s.owner.ID),
+		stringify.NewStructField("heaviestMember", s.heaviestMember.ID),
+		stringify.NewStructField("heaviestPreferredMember", s.heaviestPreferredMember.ID),
 	)
 
 	_ = s.ForEach(func(conflict *Conflict[ConflictID, ResourceID]) error {
-		structBuilder.AddField(stringify.NewStructField(conflict.id.String(), conflict))
+		structBuilder.AddField(stringify.NewStructField(conflict.ID.String(), conflict))
 		return nil
 	})
 
@@ -165,9 +165,9 @@ func (s *SortedSet[ConflictID, ResourceID]) notifyPendingWeightUpdate(member *so
 	s.pendingWeightUpdatesMutex.Lock()
 	defer s.pendingWeightUpdatesMutex.Unlock()
 
-	if _, exists := s.pendingWeightUpdates.Get(member.id); !exists {
+	if _, exists := s.pendingWeightUpdates.Get(member.ID); !exists {
 		s.pendingUpdatesCounter.Increase()
-		s.pendingWeightUpdates.Set(member.id, member)
+		s.pendingWeightUpdates.Set(member.ID, member)
 		s.pendingWeightUpdatesSignal.Signal()
 	}
 }
@@ -240,9 +240,9 @@ func (s *SortedSet[ConflictID, ResourceID]) notifyPendingPreferredInsteadUpdate(
 	s.pendingPreferredInsteadMutex.Lock()
 	defer s.pendingPreferredInsteadMutex.Unlock()
 
-	if _, exists := s.pendingPreferredInsteadUpdates.Get(member.id); !exists {
+	if _, exists := s.pendingPreferredInsteadUpdates.Get(member.ID); !exists {
 		s.pendingUpdatesCounter.Increase()
-		s.pendingPreferredInsteadUpdates.Set(member.id, member)
+		s.pendingPreferredInsteadUpdates.Set(member.ID, member)
 		s.pendingPreferredInsteadSignal.Signal()
 	}
 }

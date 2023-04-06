@@ -32,13 +32,13 @@ func TestConflict_SetRejected(t *testing.T) {
 	conflict2 := NewConflict(id("Conflict2"), Conflicts{conflict1}, nil, weight.New(), pendingTasks)
 	conflict3 := NewConflict(id("Conflict3"), Conflicts{conflict2}, nil, weight.New(), pendingTasks)
 
-	conflict1.SetRejected()
-	require.True(t, conflict1.IsRejected())
-	require.True(t, conflict2.IsRejected())
-	require.True(t, conflict3.IsRejected())
+	conflict1.SetAcceptanceState(acceptance.Rejected)
+	require.True(t, conflict1.AcceptanceState().IsRejected())
+	require.True(t, conflict2.AcceptanceState().IsRejected())
+	require.True(t, conflict3.AcceptanceState().IsRejected())
 
 	conflict4 := NewConflict(id("Conflict4"), Conflicts{conflict1}, nil, weight.New(), pendingTasks)
-	require.True(t, conflict4.IsRejected())
+	require.True(t, conflict4.AcceptanceState().IsRejected())
 }
 
 func TestConflict_UpdateParents(t *testing.T) {
@@ -48,8 +48,8 @@ func TestConflict_UpdateParents(t *testing.T) {
 	conflict2 := NewConflict(id("Conflict2"), nil, nil, weight.New(), pendingTasks)
 	conflict3 := NewConflict(id("Conflict3"), Conflicts{conflict1, conflict2}, nil, weight.New(), pendingTasks)
 
-	require.True(t, conflict3.Parents().Has(conflict1))
-	require.True(t, conflict3.Parents().Has(conflict2))
+	require.True(t, conflict3.Parents.Has(conflict1))
+	require.True(t, conflict3.Parents.Has(conflict2))
 }
 
 func TestConflict_SetAccepted(t *testing.T) {
@@ -63,10 +63,10 @@ func TestConflict_SetAccepted(t *testing.T) {
 		conflict2 := NewConflict(id("Conflict2"), nil, ConflictSets{conflictSet1, conflictSet2}, weight.New(), pendingTasks)
 		conflict3 := NewConflict(id("Conflict3"), nil, ConflictSets{conflictSet2}, weight.New(), pendingTasks)
 
-		conflict1.SetAccepted()
-		require.True(t, conflict1.IsAccepted())
-		require.True(t, conflict2.IsRejected())
-		require.True(t, conflict3.IsPending())
+		conflict1.SetAcceptanceState(acceptance.Accepted)
+		require.True(t, conflict1.AcceptanceState().IsAccepted())
+		require.True(t, conflict2.AcceptanceState().IsRejected())
+		require.True(t, conflict3.AcceptanceState().IsPending())
 	}
 
 	{
@@ -77,10 +77,10 @@ func TestConflict_SetAccepted(t *testing.T) {
 		conflict2 := NewConflict(id("Conflict2"), nil, ConflictSets{conflictSet1, conflictSet2}, weight.New(), pendingTasks)
 		conflict3 := NewConflict(id("Conflict3"), nil, ConflictSets{conflictSet2}, weight.New(), pendingTasks)
 
-		conflict2.SetAccepted()
-		require.True(t, conflict1.IsRejected())
-		require.True(t, conflict2.IsAccepted())
-		require.True(t, conflict3.IsRejected())
+		conflict2.SetAcceptanceState(acceptance.Accepted)
+		require.True(t, conflict1.AcceptanceState().IsRejected())
+		require.True(t, conflict2.AcceptanceState().IsAccepted())
+		require.True(t, conflict3.AcceptanceState().IsRejected())
 	}
 }
 
@@ -92,11 +92,11 @@ func TestConflictSets(t *testing.T) {
 	green := NewConflictSet(id("green"))
 	yellow := NewConflictSet(id("yellow"))
 
-	conflictA := NewConflict(id("A"), nil, ConflictSets{red}, weight.New().AddCumulativeWeight(7).SetAcceptanceState(acceptance.Pending), pendingTasks)
-	conflictB := NewConflict(id("B"), nil, ConflictSets{red, blue}, weight.New().AddCumulativeWeight(3).SetAcceptanceState(acceptance.Pending), pendingTasks)
-	conflictC := NewConflict(id("C"), nil, ConflictSets{blue, green}, weight.New().AddCumulativeWeight(5).SetAcceptanceState(acceptance.Pending), pendingTasks)
-	conflictD := NewConflict(id("D"), nil, ConflictSets{green, yellow}, weight.New().AddCumulativeWeight(7).SetAcceptanceState(acceptance.Pending), pendingTasks)
-	conflictE := NewConflict(id("E"), nil, ConflictSets{yellow}, weight.New().AddCumulativeWeight(9).SetAcceptanceState(acceptance.Pending), pendingTasks)
+	conflictA := NewConflict(id("A"), nil, ConflictSets{red}, weight.New().AddCumulativeWeight(7), pendingTasks)
+	conflictB := NewConflict(id("B"), nil, ConflictSets{red, blue}, weight.New().AddCumulativeWeight(3), pendingTasks)
+	conflictC := NewConflict(id("C"), nil, ConflictSets{blue, green}, weight.New().AddCumulativeWeight(5), pendingTasks)
+	conflictD := NewConflict(id("D"), nil, ConflictSets{green, yellow}, weight.New().AddCumulativeWeight(7), pendingTasks)
+	conflictE := NewConflict(id("E"), nil, ConflictSets{yellow}, weight.New().AddCumulativeWeight(9), pendingTasks)
 
 	preferredInsteadMap := map[Conflict]Conflict{
 		conflictA: conflictA,
@@ -160,7 +160,7 @@ func TestConflictSets(t *testing.T) {
 		conflictD: conflictE,
 	}))
 
-	conflictF := NewConflict(id("F"), nil, ConflictSets{yellow}, weight.New().AddCumulativeWeight(19).SetAcceptanceState(acceptance.Pending), pendingTasks)
+	conflictF := NewConflict(id("F"), nil, ConflictSets{yellow}, weight.New().AddCumulativeWeight(19), pendingTasks)
 
 	pendingTasks.WaitIsZero()
 
@@ -211,7 +211,7 @@ func TestConflictParallel(t *testing.T) {
 	parallelPendingTasks.WaitIsZero()
 
 	lo.ForEach(lo.Keys(parallelConflicts), func(conflictAlias string) {
-		assert.EqualValuesf(t, sequentialConflicts[conflictAlias].PreferredInstead().ID(), parallelConflicts[conflictAlias].PreferredInstead().ID(), "parallel conflict %s prefers %s, but sequential conflict prefers %s", conflictAlias, parallelConflicts[conflictAlias].PreferredInstead().ID(), sequentialConflicts[conflictAlias].PreferredInstead().ID())
+		assert.EqualValuesf(t, sequentialConflicts[conflictAlias].PreferredInstead().ID, parallelConflicts[conflictAlias].PreferredInstead().ID, "parallel conflict %s prefers %s, but sequential conflict prefers %s", conflictAlias, parallelConflicts[conflictAlias].PreferredInstead().ID, sequentialConflicts[conflictAlias].PreferredInstead().ID)
 	})
 
 	assertCorrectOrder(t, lo.Values(sequentialConflicts)...)
@@ -221,7 +221,7 @@ func TestConflictParallel(t *testing.T) {
 func TestLikedInstead1(t *testing.T) {
 	pendingTasks := syncutils.NewCounter()
 
-	masterBranch := NewConflict(id("M"), nil, nil, weight.New().SetAcceptanceState(acceptance.Accepted), pendingTasks)
+	masterBranch := NewConflict(id("M"), nil, nil, weight.New(), pendingTasks)
 	require.True(t, masterBranch.IsLiked())
 	require.True(t, masterBranch.LikedInstead().IsEmpty())
 
@@ -243,7 +243,7 @@ func TestLikedInstead1(t *testing.T) {
 func TestLikedInsteadFromPreferredInstead(t *testing.T) {
 	pendingTasks := syncutils.NewCounter()
 
-	masterBranch := NewConflict(id("M"), nil, nil, weight.New().SetAcceptanceState(acceptance.Accepted), pendingTasks)
+	masterBranch := NewConflict(id("M"), nil, nil, weight.New(), pendingTasks)
 	require.True(t, masterBranch.IsLiked())
 	require.True(t, masterBranch.LikedInstead().IsEmpty())
 
@@ -315,7 +315,7 @@ func TestLikedInsteadFromPreferredInstead(t *testing.T) {
 func TestLikedInstead21(t *testing.T) {
 	pendingTasks := syncutils.NewCounter()
 
-	masterBranch := NewConflict(id("M"), nil, nil, weight.New().SetAcceptanceState(acceptance.Accepted), pendingTasks)
+	masterBranch := NewConflict(id("M"), nil, nil, weight.New(), pendingTasks)
 	require.True(t, masterBranch.IsLiked())
 	require.True(t, masterBranch.LikedInstead().IsEmpty())
 
@@ -415,10 +415,10 @@ func assertCorrectOrder(t *testing.T, conflicts ...Conflict) {
 
 	for _, conflict := range conflicts {
 		if preferredConflicts.Has(conflict) {
-			require.True(t, conflict.IsPreferred(), "conflict %s should be preferred", conflict.ID())
+			require.True(t, conflict.IsPreferred(), "conflict %s should be preferred", conflict.ID)
 		}
 		if unPreferredConflicts.Has(conflict) {
-			require.False(t, conflict.IsPreferred(), "conflict %s should be unPreferred", conflict.ID())
+			require.False(t, conflict.IsPreferred(), "conflict %s should be unPreferred", conflict.ID)
 		}
 	}
 
@@ -454,11 +454,11 @@ func createConflicts(pendingTasks *syncutils.Counter) map[string]Conflict {
 	green := NewConflictSet(id("green"))
 	yellow := NewConflictSet(id("yellow"))
 
-	conflictA := NewConflict(id("A"), nil, ConflictSets{red}, weight.New().SetAcceptanceState(acceptance.Pending), pendingTasks)
-	conflictB := NewConflict(id("B"), nil, ConflictSets{red, blue}, weight.New().SetAcceptanceState(acceptance.Pending), pendingTasks)
-	conflictC := NewConflict(id("C"), nil, ConflictSets{green, blue}, weight.New().SetAcceptanceState(acceptance.Pending), pendingTasks)
-	conflictD := NewConflict(id("D"), nil, ConflictSets{green, yellow}, weight.New().SetAcceptanceState(acceptance.Pending), pendingTasks)
-	conflictE := NewConflict(id("E"), nil, ConflictSets{yellow}, weight.New().SetAcceptanceState(acceptance.Pending), pendingTasks)
+	conflictA := NewConflict(id("A"), nil, ConflictSets{red}, weight.New(), pendingTasks)
+	conflictB := NewConflict(id("B"), nil, ConflictSets{red, blue}, weight.New(), pendingTasks)
+	conflictC := NewConflict(id("C"), nil, ConflictSets{green, blue}, weight.New(), pendingTasks)
+	conflictD := NewConflict(id("D"), nil, ConflictSets{green, yellow}, weight.New(), pendingTasks)
+	conflictE := NewConflict(id("E"), nil, ConflictSets{yellow}, weight.New(), pendingTasks)
 
 	return map[string]Conflict{
 		"conflictA": conflictA,
@@ -471,6 +471,6 @@ func createConflicts(pendingTasks *syncutils.Counter) map[string]Conflict {
 
 func assertPreferredInstead(t *testing.T, preferredInsteadMap map[Conflict]Conflict) {
 	for conflict, preferredInsteadConflict := range preferredInsteadMap {
-		assert.Equalf(t, preferredInsteadConflict.ID(), conflict.PreferredInstead().ID(), "conflict %s should prefer %s instead of %s", conflict.ID(), preferredInsteadConflict.ID(), conflict.PreferredInstead().ID())
+		assert.Equalf(t, preferredInsteadConflict.ID, conflict.PreferredInstead().ID, "conflict %s should prefer %s instead of %s", conflict.ID, preferredInsteadConflict.ID, conflict.PreferredInstead().ID)
 	}
 }

@@ -32,10 +32,10 @@ func TestConflictDAG_CreateConflict(t *testing.T) {
 	require.Panics(t, func() { conflictDAG.CreateConflict(NewTestID("conflict3"), []TestID{}, []TestID{}, weight.New()) })
 	require.Panics(t, func() { conflictDAG.CreateConflict(NewTestID("conflict4"), []TestID{}, []TestID{}, weight.New()) })
 
-	require.Contains(t, conflictDAG.Conflicts(conflictID1), conflict1.ID())
-	require.Contains(t, conflictDAG.Conflicts(conflictID2), conflict2.ID())
-	require.Contains(t, conflictDAG.Conflicts(conflictID3), conflict3.ID())
-	require.Contains(t, conflictDAG.Conflicts(conflictID4), conflict4.ID())
+	require.Contains(t, conflictDAG.Conflicts(conflictID1), conflict1.ID)
+	require.Contains(t, conflictDAG.Conflicts(conflictID2), conflict2.ID)
+	require.Contains(t, conflictDAG.Conflicts(conflictID3), conflict3.ID)
+	require.Contains(t, conflictDAG.Conflicts(conflictID4), conflict4.ID)
 
 	conflict1.Parents().Equal(advancedset.New[*conflict.Conflict[TestID, TestID]]())
 	conflict2.Parents().Equal(advancedset.New[*conflict.Conflict[TestID, TestID]]())
@@ -87,6 +87,6 @@ func (id TestID) String() string {
 func requireConflicts(t *testing.T, conflicts map[TestID]*conflict.Conflict[TestID, TestID], expectedConflicts ...*conflict.Conflict[TestID, TestID]) {
 	require.Equal(t, len(expectedConflicts), len(conflicts))
 	for _, expectedConflict := range expectedConflicts {
-		require.Equal(t, conflicts[expectedConflict.ID()], expectedConflict)
+		require.Equal(t, conflicts[expectedConflict.ID], expectedConflict)
 	}
 }

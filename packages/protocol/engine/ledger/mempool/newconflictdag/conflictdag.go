@@ -18,7 +18,7 @@ type ConflictDAG[ConflictID, ResourceID conflict.IDType] struct {
 	ConflictCreated *event.Event1[*conflict.Conflict[ConflictID, ResourceID]]
 
 	// ConflictingResourcesAdded is triggered when the Conflict is added to a new ConflictSet.
-	ConflictingResourcesAdded *event.Event2[ConflictID, map[ResourceID]*conflict.Set[ConflictID, ResourceID]]
+	ConflictingResourcesAdded *event.Event2[*conflict.Conflict[ConflictID, ResourceID], map[ResourceID]*conflict.Set[ConflictID, ResourceID]]
 
 	// ConflictParentsUpdated is triggered when the parents of a Conflict are updated.
 	ConflictParentsUpdated *event.Event3[*conflict.Conflict[ConflictID, ResourceID], *conflict.Conflict[ConflictID, ResourceID], []*conflict.Conflict[ConflictID, ResourceID]]
@@ -40,7 +40,7 @@ type ConflictDAG[ConflictID, ResourceID conflict.IDType] struct {
 func New[ConflictID, ResourceID conflict.IDType]() *ConflictDAG[ConflictID, ResourceID] {
 	return &ConflictDAG[ConflictID, ResourceID]{
 		ConflictCreated:           event.New1[*conflict.Conflict[ConflictID, ResourceID]](),
-		ConflictingResourcesAdded: event.New2[ConflictID, map[ResourceID]*conflict.Set[ConflictID, ResourceID]](),
+		ConflictingResourcesAdded: event.New2[*conflict.Conflict[ConflictID, ResourceID], map[ResourceID]*conflict.Set[ConflictID, ResourceID]](),
 		ConflictParentsUpdated:    event.New3[*conflict.Conflict[ConflictID, ResourceID], *conflict.Conflict[ConflictID, ResourceID], []*conflict.Conflict[ConflictID, ResourceID]](),
 		conflictsByID:             shrinkingmap.New[ConflictID, *conflict.Conflict[ConflictID, ResourceID]](),
 		conflictSetsByID:          shrinkingmap.New[ResourceID, *conflict.Set[ConflictID, ResourceID]](),
@@ -50,19 +50,21 @@ func New[ConflictID, ResourceID conflict.IDType]() *ConflictDAG[ConflictID, Reso
 
 // CreateConflict creates a new Conflict that is conflicting over the given ResourceIDs and that has the given parents.
 func (c *ConflictDAG[ConflictID, ResourceID]) CreateConflict(id ConflictID, parentIDs []ConflictID, resourceIDs []ResourceID, initialWeight *weight.Weight) *conflict.Conflict[ConflictID, ResourceID] {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
+	createdConflict := func() *conflict.Conflict[ConflictID, ResourceID] {
+		c.mutex.RLock()
+		defer c.mutex.RUnlock()
 
-	parents := lo.Values(c.Conflicts(parentIDs...))
-	conflictSets := lo.Values(c.ConflictSets(resourceIDs...))
+		parents := lo.Values(c.Conflicts(parentIDs...))
+		conflictSets := lo.Values(c.ConflictSets(resourceIDs...))
 
-	createdConflict, isNew := c.conflictsByID.GetOrCreate(id, func() *conflict.Conflict[ConflictID, ResourceID] {
-		return conflict.New[ConflictID, ResourceID](id, parents, conflictSets, initialWeight, c.pendingTasks)
-	})
+		if createdConflict, isNew := c.conflictsByID.GetOrCreate(id, func() *conflict.Conflict[ConflictID, ResourceID] {
+			return conflict.New[ConflictID, ResourceID](id, parents, conflictSets, initialWeight, c.pendingTasks)
+		}); isNew {
+			return createdConflict
+		}
 
-	if !isNew {
-		panic("tried to create a Conflict that already exists")
-	}
+		panic("tried to re-create an already existing conflict")
+	}()
 
 	c.ConflictCreated.Trigger(createdConflict)
 
@@ -70,40 +72,47 @@ func (c *ConflictDAG[ConflictID, ResourceID]) CreateConflict(id ConflictID, pare
 }
 
 // AddConflictSets adds the Conflict to the given ConflictSets and returns true if the conflict membership was modified during this operation.
-func (c *ConflictDAG[ConflictID, ResourceID]) AddConflictSets(conflictID ConflictID, resourceIDs ...ResourceID) (addedConflictSets map[ResourceID]*conflict.Set[ConflictID, ResourceID]) {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-
-	if currentConflict, exists := c.conflictsByID.Get(conflictID); exists {
-		if addedConflictSets = currentConflict.AddConflictSets(lo.Values(c.ConflictSets(resourceIDs...))...); len(addedConflictSets) > 0 {
-			c.ConflictingResourcesAdded.Trigger(conflictID, addedConflictSets)
-		}
-	}
-
-	return addedConflictSets
-}
-
-func (c *ConflictDAG[ConflictID, ResourceID]) UpdateConflictParents(conflictID ConflictID, addedParentID ConflictID, removedParentIDs ...ConflictID) (parentsUpdated bool) {
-	var updatedConflict, addedParentConflict *conflict.Conflict[ConflictID, ResourceID]
-	var removedParentConflicts []*conflict.Conflict[ConflictID, ResourceID]
-
-	if parentsUpdated = func() (success bool) {
+func (c *ConflictDAG[ConflictID, ResourceID]) AddConflictSets(conflictID ConflictID, resourceIDs ...ResourceID) (addedSets map[ResourceID]*conflict.Set[ConflictID, ResourceID]) {
+	currentConflict, addedSets := func() (*conflict.Conflict[ConflictID, ResourceID], map[ResourceID]*conflict.Set[ConflictID, ResourceID]) {
 		c.mutex.RLock()
 		defer c.mutex.RUnlock()
 
-		if updatedConflict, success = c.conflictsByID.Get(conflictID); success {
-			if addedParentConflict, success = c.Conflicts(addedParentID)[addedParentID]; success {
-				removedParentConflicts = lo.Values(c.Conflicts(removedParentIDs...))
-				success = updatedConflict.UpdateParents(addedParentConflict, removedParentConflicts...)
-			}
+		currentConflict, exists := c.conflictsByID.Get(conflictID)
+		if !exists {
+			return nil, nil
 		}
 
-		return success
-	}(); parentsUpdated {
-		c.ConflictParentsUpdated.Trigger(updatedConflict, addedParentConflict, removedParentConflicts)
+		return currentConflict, currentConflict.AddConflictSets(lo.Values(c.ConflictSets(resourceIDs...))...)
+	}()
+
+	if len(addedSets) > 0 {
+		c.ConflictingResourcesAdded.Trigger(currentConflict, addedSets)
 	}
 
-	return parentsUpdated
+	return addedSets
+}
+
+func (c *ConflictDAG[ConflictID, ResourceID]) UpdateConflictParents(conflictID ConflictID, addedParentID ConflictID, removedParentIDs ...ConflictID) bool {
+	currentConflict, addedParent, removedParents, updated := func() (*conflict.Conflict[ConflictID, ResourceID], *conflict.Conflict[ConflictID, ResourceID], []*conflict.Conflict[ConflictID, ResourceID], bool) {
+		c.mutex.RLock()
+		defer c.mutex.RUnlock()
+
+		currentConflict, currentConflictExists := c.conflictsByID.Get(conflictID)
+		addedParent, addedParentExists := c.Conflicts(addedParentID)[addedParentID]
+		removedParents := lo.Values(c.Conflicts(removedParentIDs...))
+
+		if !currentConflictExists || !addedParentExists {
+			return nil, nil, nil, false
+		}
+
+		return currentConflict, addedParent, removedParents, currentConflict.UpdateParents(addedParent, removedParents...)
+	}()
+
+	if updated {
+		c.ConflictParentsUpdated.Trigger(currentConflict, addedParent, removedParents)
+	}
+
+	return updated
 }
 
 // LikedInstead returns the ConflictIDs of the Conflicts that are liked instead of the Conflicts.
@@ -117,7 +126,7 @@ func (c *ConflictDAG[ConflictID, ResourceID]) LikedInstead(conflictIDs ...Confli
 	for _, conflictID := range conflictIDs {
 		if currentConflict, exists := c.conflictsByID.Get(conflictID); exists {
 			if largestConflict := largestConflict(currentConflict.LikedInstead()); largestConflict != nil {
-				likedInstead[largestConflict.ID()] = largestConflict
+				likedInstead[largestConflict.ID] = largestConflict
 			}
 		}
 	}

@@ -18,6 +18,18 @@ const (
 // State represents the acceptance state of an entity.
 type State uint8
 
+func (c State) IsPending() bool {
+	return c == Pending
+}
+
+func (c State) IsAccepted() bool {
+	return c == Accepted
+}
+
+func (c State) IsRejected() bool {
+	return c == Rejected
+}
+
 // String returns a human-readable representation of the State.
 func (c State) String() string {
 	switch c {

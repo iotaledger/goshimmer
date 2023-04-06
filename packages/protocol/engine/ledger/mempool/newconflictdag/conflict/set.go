@@ -6,8 +6,8 @@ import (
 
 // Set represents a set of Conflicts that are conflicting with each other over a common Resource.
 type Set[ConflictID, ResourceID IDType] struct {
-	// id is the ID of the Resource that the Conflicts in this Set are conflicting over.
-	id ResourceID
+	// ID is the ID of the Resource that the Conflicts in this Set are conflicting over.
+	ID ResourceID
 
 	// members is the set of Conflicts that are conflicting over the shared resource.
 	members *advancedset.AdvancedSet[*Conflict[ConflictID, ResourceID]]
@@ -16,14 +16,9 @@ type Set[ConflictID, ResourceID IDType] struct {
 // NewSet creates a new Set of Conflicts that are conflicting with each other over the given Resource.
 func NewSet[ConflictID, ResourceID IDType](id ResourceID) *Set[ConflictID, ResourceID] {
 	return &Set[ConflictID, ResourceID]{
-		id:      id,
+		ID:      id,
 		members: advancedset.New[*Conflict[ConflictID, ResourceID]](),
 	}
-}
-
-// ID returns the identifier of the Resource that the Conflicts in this Set are conflicting over.
-func (c *Set[ConflictID, ResourceID]) ID() ResourceID {
-	return c.id
 }
 
 // Members returns the Conflicts that are conflicting over the shared resource.
@@ -33,26 +28,12 @@ func (c *Set[ConflictID, ResourceID]) Members() *advancedset.AdvancedSet[*Confli
 
 // Add adds a newMember to the conflict set and all existing members of the set.
 func (c *Set[ConflictID, ResourceID]) Add(newMember *Conflict[ConflictID, ResourceID]) {
-	addConflictingConflict := func(c *Conflict[ConflictID, ResourceID], conflict *Conflict[ConflictID, ResourceID]) (added bool) {
-		if added = c.conflictingConflicts.Add(conflict); added {
-			c.HookStopped(conflict.Accepted.Hook(func() { c.SetRejected() }).Unhook)
-
-			if conflict.IsAccepted() {
-				c.SetRejected()
-			}
-		}
-
-		return added
-	}
-
-	_ = c.Members().ForEach(func(conflict *Conflict[ConflictID, ResourceID]) (err error) {
-		addConflictingConflict(newMember, conflict)
-		addConflictingConflict(conflict, newMember)
-
-		return nil
-	})
-
 	if c.members.Add(newMember) {
+		_ = c.Members().ForEach(func(conflict *Conflict[ConflictID, ResourceID]) (err error) {
+			newMember.addConflictingConflict(conflict)
+			conflict.addConflictingConflict(newMember)
 
+			return nil
+		})
 	}
 }

@@ -77,7 +77,7 @@ func (s *sortedSetMember[ConflictID, ResourceID]) Compare(other *sortedSetMember
 		return result
 	}
 
-	return bytes.Compare(lo.PanicOnErr(s.id.Bytes()), lo.PanicOnErr(other.id.Bytes()))
+	return bytes.Compare(lo.PanicOnErr(s.ID.Bytes()), lo.PanicOnErr(other.ID.Bytes()))
 }
 
 // PreferredInstead returns the current preferred instead value of the sortedSetMember.

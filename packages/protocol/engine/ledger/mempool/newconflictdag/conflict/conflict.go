@@ -17,9 +17,7 @@ import (
 
 // Conflict is a conflict that is part of a Conflict DAG.
 type Conflict[ConflictID, ResourceID IDType] struct {
-	Accepted *event.Event
-
-	Rejected *event.Event
+	AcceptanceStateUpdated *event.Event2[acceptance.State, acceptance.State]
 
 	// PreferredInsteadUpdated is triggered when the preferred instead value of the Conflict is updated.
 	PreferredInsteadUpdated *event.Event1[*Conflict[ConflictID, ResourceID]]
@@ -30,11 +28,11 @@ type Conflict[ConflictID, ResourceID IDType] struct {
 	// LikedInsteadRemoved is triggered when a liked instead reference is removed from the Conflict.
 	LikedInsteadRemoved *event.Event1[*Conflict[ConflictID, ResourceID]]
 
-	// id is the identifier of the Conflict.
-	id ConflictID
+	// ID is the identifier of the Conflict.
+	ID ConflictID
 
 	// parents is the set of parents of the Conflict.
-	parents *advancedset.AdvancedSet[*Conflict[ConflictID, ResourceID]]
+	Parents *advancedset.AdvancedSet[*Conflict[ConflictID, ResourceID]]
 
 	// childUnhooks is a mapping of children to their unhook functions.
 	childUnhooks *shrinkingmap.ShrinkingMap[ConflictID, func()]
@@ -67,14 +65,13 @@ type Conflict[ConflictID, ResourceID IDType] struct {
 // New creates a new Conflict.
 func New[ConflictID, ResourceID IDType](id ConflictID, parents []*Conflict[ConflictID, ResourceID], conflictSets []*Set[ConflictID, ResourceID], initialWeight *weight.Weight, pendingTasksCounter *syncutils.Counter) *Conflict[ConflictID, ResourceID] {
 	c := &Conflict[ConflictID, ResourceID]{
-		Accepted:                event.New(),
-		Rejected:                event.New(),
+		AcceptanceStateUpdated:  event.New2[acceptance.State, acceptance.State](),
 		PreferredInsteadUpdated: event.New1[*Conflict[ConflictID, ResourceID]](),
 		LikedInsteadAdded:       event.New1[*Conflict[ConflictID, ResourceID]](),
 		LikedInsteadRemoved:     event.New1[*Conflict[ConflictID, ResourceID]](),
 
-		id:                  id,
-		parents:             advancedset.New[*Conflict[ConflictID, ResourceID]](),
+		ID:                  id,
+		Parents:             advancedset.New[*Conflict[ConflictID, ResourceID]](),
 		childUnhooks:        shrinkingmap.New[ConflictID, func()](),
 		conflictSets:        advancedset.New[*Set[ConflictID, ResourceID]](),
 		weight:              initialWeight,
@@ -94,112 +91,122 @@ func New[ConflictID, ResourceID IDType](id ConflictID, parents []*Conflict[Confl
 	return c
 }
 
-// ID returns the identifier of the Conflict.
-func (c *Conflict[ConflictID, ResourceID]) ID() ConflictID {
-	return c.id
-}
+func (c *Conflict[ConflictID, ResourceID]) addConflictingConflict(conflict *Conflict[ConflictID, ResourceID]) (added bool) {
+	if added = c.conflictingConflicts.Add(conflict); added {
+		c.HookStopped(conflict.AcceptanceStateUpdated.Hook(func(_, newState acceptance.State) {
+			if newState.IsAccepted() {
+				c.SetAcceptanceState(acceptance.Rejected)
+			}
+		}).Unhook)
 
-// Parents returns the set of parents of the Conflict.
-func (c *Conflict[ConflictID, ResourceID]) Parents() *advancedset.AdvancedSet[*Conflict[ConflictID, ResourceID]] {
-	return c.parents
+		if conflict.AcceptanceState().IsAccepted() {
+			c.SetAcceptanceState(acceptance.Rejected)
+		}
+	}
+
+	return added
 }
 
 // AddConflictSets registers the Conflict with the given ConflictSets.
 func (c *Conflict[ConflictID, ResourceID]) AddConflictSets(conflictSets ...*Set[ConflictID, ResourceID]) (addedConflictSets map[ResourceID]*Set[ConflictID, ResourceID]) {
 	addedConflictSets = make(map[ResourceID]*Set[ConflictID, ResourceID], 0)
-
 	for _, conflictSet := range conflictSets {
 		if c.conflictSets.Add(conflictSet) {
 			conflictSet.Add(c)
 
-			addedConflictSets[conflictSet.ID()] = conflictSet
+			addedConflictSets[conflictSet.ID] = conflictSet
 		}
 	}
 
 	return addedConflictSets
 }
 
+func (c *Conflict[ConflictID, ResourceID]) addLikedInsteadReference(source, reference *Conflict[ConflictID, ResourceID]) {
+	// retrieve sources for the reference
+	sources := lo.Return1(c.likedInsteadSources.GetOrCreate(reference.ID, func() *advancedset.AdvancedSet[*Conflict[ConflictID, ResourceID]] {
+		return advancedset.New[*Conflict[ConflictID, ResourceID]]()
+	}))
+
+	// abort if the reference did already exist
+	if !sources.Add(source) || !c.likedInstead.Add(reference) {
+		return
+	}
+
+	// remove the "preferred instead reference" if the parent has a "more general liked instead reference"
+	if c.likedInstead.Delete(c.preferredInstead) {
+		c.LikedInsteadRemoved.Trigger(c.preferredInstead)
+	}
+
+	c.LikedInsteadAdded.Trigger(reference)
+}
+
+func (c *Conflict[ConflictID, ResourceID]) removeLikedInsteadReference(source, reference *Conflict[ConflictID, ResourceID]) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	if sources, sourcesExist := c.likedInsteadSources.Get(reference.ID); !sourcesExist || !sources.Delete(source) || !sources.IsEmpty() || !c.likedInsteadSources.Delete(reference.ID) || !c.likedInstead.Delete(reference) {
+		return
+	}
+
+	c.LikedInsteadRemoved.Trigger(reference)
+
+	if !c.isPreferred() && c.likedInstead.IsEmpty() {
+		c.likedInstead.Add(c.preferredInstead)
+
+		c.LikedInsteadAdded.Trigger(c.preferredInstead)
+	}
+}
+
+func (c *Conflict[ConflictID, ResourceID]) registerChild(child *Conflict[ConflictID, ResourceID]) acceptance.State {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.childUnhooks.Set(child.ID, lo.Batch(
+		c.AcceptanceStateUpdated.Hook(func(_, newState acceptance.State) {
+			if newState.IsRejected() {
+				child.SetAcceptanceState(newState)
+			}
+		}).Unhook,
+
+		c.LikedInsteadRemoved.Hook(func(reference *Conflict[ConflictID, ResourceID]) {
+			child.removeLikedInsteadReference(c, reference)
+		}).Unhook,
+
+		c.LikedInsteadAdded.Hook(func(conflict *Conflict[ConflictID, ResourceID]) {
+			child.mutex.Lock()
+			defer child.mutex.Unlock()
+
+			child.addLikedInsteadReference(c, conflict)
+		}).Unhook,
+	))
+
+	for conflicts := c.likedInstead.Iterator(); conflicts.HasNext(); {
+		child.addLikedInsteadReference(c, conflicts.Next())
+	}
+
+	return c.weight.Value().AcceptanceState()
+}
+
 func (c *Conflict[ConflictID, ResourceID]) UpdateParents(addedParent *Conflict[ConflictID, ResourceID], removedParents ...*Conflict[ConflictID, ResourceID]) (updated bool) {
-	onParentAddedLikedInstead := func(likedInstead *Conflict[ConflictID, ResourceID]) {
-		sources, sourcesExist := c.likedInsteadSources.Get(likedInstead.ID())
-		if !sourcesExist {
-			sources = advancedset.New[*Conflict[ConflictID, ResourceID]]()
-			c.likedInsteadSources.Set(likedInstead.ID(), sources)
-		}
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
-		if !sources.Add(addedParent) || !c.likedInstead.Add(likedInstead) {
-			return
+	for _, removedParent := range removedParents {
+		if c.Parents.Delete(removedParent) {
+			removedParent.unregisterChild(c.ID)
+			updated = true
 		}
-
-		if c.likedInstead.Delete(c.preferredInstead) {
-			c.LikedInsteadRemoved.Trigger(c.preferredInstead)
-		}
-
-		c.LikedInsteadAdded.Trigger(likedInstead)
 	}
 
-	if func() bool {
-		c.mutex.Lock()
-		defer c.mutex.Unlock()
-
-		for _, removedParent := range removedParents {
-			if c.parents.Delete(removedParent) {
-				removedParent.unregisterChild(c.id)
-
-				updated = true
-			}
-		}
-
-		if !c.parents.Add(addedParent) {
-			return false
-		}
-
-		updated = true
-
-		return func() bool {
-			addedParent.mutex.Lock()
-			defer addedParent.mutex.Unlock()
-
-			addedParent.childUnhooks.Set(c.ID(), lo.Batch(
-				addedParent.Rejected.Hook(func() { c.SetRejected() }).Unhook,
-
-				addedParent.LikedInsteadRemoved.Hook(func(conflict *Conflict[ConflictID, ResourceID]) {
-					c.mutex.Lock()
-					defer c.mutex.Unlock()
-
-					sources, sourcesExist := c.likedInsteadSources.Get(conflict.ID())
-					if !sourcesExist || !sources.Delete(addedParent) || !sources.IsEmpty() || !c.likedInsteadSources.Delete(conflict.ID()) || !c.likedInstead.Delete(conflict) {
-						return
-					}
-
-					c.LikedInsteadRemoved.Trigger(conflict)
-
-					if !c.isPreferred() && c.likedInstead.IsEmpty() {
-						c.likedInstead.Add(c.preferredInstead)
-
-						c.LikedInsteadAdded.Trigger(c.preferredInstead)
-					}
-				}).Unhook,
-
-				addedParent.LikedInsteadAdded.Hook(func(conflict *Conflict[ConflictID, ResourceID]) {
-					c.mutex.Lock()
-					defer c.mutex.Unlock()
-
-					onParentAddedLikedInstead(conflict)
-				}).Unhook,
-			))
-
-			for conflicts := addedParent.likedInstead.Iterator(); conflicts.HasNext(); {
-				onParentAddedLikedInstead(conflicts.Next())
-			}
-
-			return addedParent.weight.Value().AcceptanceState() == acceptance.Rejected && c.setRejected()
-		}()
-	}() {
-		c.Rejected.Trigger()
+	if !c.Parents.Add(addedParent) {
+		return updated
 	}
 
-	return updated
+	if addedParent.registerChild(c) == acceptance.Rejected {
+		c.SetAcceptanceState(acceptance.Rejected)
+	}
+
+	return true
 }
 
 // IsLiked returns true if the Conflict is liked instead of other conflicting Conflicts.
@@ -218,62 +225,23 @@ func (c *Conflict[ConflictID, ResourceID]) IsPreferred() bool {
 	return c.isPreferred()
 }
 
-func (c *Conflict[ConflictID, ResourceID]) IsPending() bool {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-
-	return c.weight.Value().AcceptanceState() == acceptance.Pending
+func (c *Conflict[ConflictID, ResourceID]) AcceptanceState() acceptance.State {
+	return c.weight.Value().AcceptanceState()
 }
 
-func (c *Conflict[ConflictID, ResourceID]) IsAccepted() bool {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-
-	return c.weight.AcceptanceState() == acceptance.Accepted
-}
-
-func (c *Conflict[ConflictID, ResourceID]) SetAccepted() (accepted bool) {
-	if accepted = func() bool {
-		c.mutex.Lock()
-		defer c.mutex.Unlock()
-
-		if c.weight.AcceptanceState() == acceptance.Accepted {
-			return false
-		}
-
-		_ = c.parents.ForEach(func(parent *Conflict[ConflictID, ResourceID]) (err error) {
-			parent.SetAccepted()
+func (c *Conflict[ConflictID, ResourceID]) SetAcceptanceState(newState acceptance.State) (previousState acceptance.State) {
+	if newState == acceptance.Accepted {
+		_ = c.Parents.ForEach(func(parent *Conflict[ConflictID, ResourceID]) (err error) {
+			parent.SetAcceptanceState(acceptance.Accepted)
 			return nil
 		})
-
-		c.weight.SetAcceptanceState(acceptance.Accepted)
-
-		return true
-	}(); accepted {
-		c.Accepted.Trigger()
 	}
 
-	return accepted
-}
-
-func (c *Conflict[ConflictID, ResourceID]) IsRejected() bool {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-
-	return c.weight.Value().AcceptanceState() == acceptance.Rejected
-}
-
-// SetRejected sets the Conflict as rejected.
-func (c *Conflict[ConflictID, ResourceID]) SetRejected() (updated bool) {
-	c.mutex.Lock()
-	updated = c.setRejected()
-	c.mutex.Unlock()
-
-	if updated {
-		c.Rejected.Trigger()
+	if previousState = c.weight.SetAcceptanceState(newState); previousState != newState {
+		c.AcceptanceStateUpdated.Trigger(previousState, newState)
 	}
 
-	return updated
+	return previousState
 }
 
 // Weight returns the weight of the Conflict.
@@ -315,7 +283,7 @@ func (c *Conflict[ConflictID, ResourceID]) Compare(other *Conflict[ConflictID, R
 		return result
 	}
 
-	return bytes.Compare(lo.PanicOnErr(c.id.Bytes()), lo.PanicOnErr(other.id.Bytes()))
+	return bytes.Compare(lo.PanicOnErr(c.ID.Bytes()), lo.PanicOnErr(other.ID.Bytes()))
 }
 
 // ForEachConflictingConflict iterates over all conflicting Conflicts of the Conflict and calls the given callback for each of them.
@@ -337,20 +305,9 @@ func (c *Conflict[ConflictID, ResourceID]) ForEachConflictingConflict(callback f
 // String returns a human-readable representation of the Conflict.
 func (c *Conflict[ConflictID, ResourceID]) String() string {
 	return stringify.Struct("Conflict",
-		stringify.NewStructField("id", c.id),
+		stringify.NewStructField("id", c.ID),
 		stringify.NewStructField("weight", c.weight),
 	)
-}
-
-// setRejected sets the Conflict as rejected (without locking).
-func (c *Conflict[ConflictID, ResourceID]) setRejected() (updated bool) {
-	if c.weight.Value().AcceptanceState() == acceptance.Rejected {
-		return false
-	}
-
-	c.weight.SetAcceptanceState(acceptance.Rejected)
-
-	return true
 }
 
 // IsPreferred returns true if the Conflict is preferred instead of its conflicting Conflicts.
