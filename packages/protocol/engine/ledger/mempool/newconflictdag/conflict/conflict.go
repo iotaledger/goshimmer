@@ -161,30 +161,24 @@ func (c *Conflict[ConflictID, ResourceID]) UpdateParents(addedParent *Conflict[C
 			defer addedParent.mutex.Unlock()
 
 			addedParent.childUnhooks.Set(c.ID(), lo.Batch(
-				addedParent.Rejected.Hook(func() {
-					if c.SetRejected() {
-						c.Rejected.Trigger()
-					}
-				}).Unhook,
+				addedParent.Rejected.Hook(func() { c.SetRejected() }).Unhook,
 
 				addedParent.LikedInsteadRemoved.Hook(func(conflict *Conflict[ConflictID, ResourceID]) {
-					func(parent *Conflict[ConflictID, ResourceID], likedConflict *Conflict[ConflictID, ResourceID]) {
-						c.mutex.Lock()
-						defer c.mutex.Unlock()
+					c.mutex.Lock()
+					defer c.mutex.Unlock()
 
-						sources, sourcesExist := c.likedInsteadSources.Get(likedConflict.ID())
-						if !sourcesExist || !sources.Delete(parent) || !sources.IsEmpty() || !c.likedInsteadSources.Delete(likedConflict.ID()) || !c.likedInstead.Delete(likedConflict) {
-							return
-						}
+					sources, sourcesExist := c.likedInsteadSources.Get(conflict.ID())
+					if !sourcesExist || !sources.Delete(addedParent) || !sources.IsEmpty() || !c.likedInsteadSources.Delete(conflict.ID()) || !c.likedInstead.Delete(conflict) {
+						return
+					}
 
-						c.LikedInsteadRemoved.Trigger(likedConflict)
+					c.LikedInsteadRemoved.Trigger(conflict)
 
-						if !c.isPreferred() && c.likedInstead.IsEmpty() {
-							c.likedInstead.Add(c.preferredInstead)
+					if !c.isPreferred() && c.likedInstead.IsEmpty() {
+						c.likedInstead.Add(c.preferredInstead)
 
-							c.LikedInsteadAdded.Trigger(c.preferredInstead)
-						}
-					}(addedParent, conflict)
+						c.LikedInsteadAdded.Trigger(c.preferredInstead)
+					}
 				}).Unhook,
 
 				addedParent.LikedInsteadAdded.Hook(func(conflict *Conflict[ConflictID, ResourceID]) {
@@ -373,18 +367,6 @@ func (c *Conflict[ConflictID, ResourceID]) unregisterChild(conflictID ConflictID
 
 		unhookFunc()
 	}
-}
-
-func (c *Conflict[ConflictID, ResourceID]) addConflictingConflict(conflict *Conflict[ConflictID, ResourceID]) (added bool) {
-	if added = c.conflictingConflicts.Add(conflict); added {
-		c.HookStopped(conflict.Accepted.Hook(func() { c.SetRejected() }).Unhook)
-
-		if conflict.IsAccepted() {
-			c.SetRejected()
-		}
-	}
-
-	return added
 }
 
 // setPreferredInstead sets the preferred instead value of the Conflict.

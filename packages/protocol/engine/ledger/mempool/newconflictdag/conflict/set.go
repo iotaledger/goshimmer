@@ -33,9 +33,21 @@ func (c *Set[ConflictID, ResourceID]) Members() *advancedset.AdvancedSet[*Confli
 
 // Add adds a newMember to the conflict set and all existing members of the set.
 func (c *Set[ConflictID, ResourceID]) Add(newMember *Conflict[ConflictID, ResourceID]) {
+	addConflictingConflict := func(c *Conflict[ConflictID, ResourceID], conflict *Conflict[ConflictID, ResourceID]) (added bool) {
+		if added = c.conflictingConflicts.Add(conflict); added {
+			c.HookStopped(conflict.Accepted.Hook(func() { c.SetRejected() }).Unhook)
+
+			if conflict.IsAccepted() {
+				c.SetRejected()
+			}
+		}
+
+		return added
+	}
+
 	_ = c.Members().ForEach(func(conflict *Conflict[ConflictID, ResourceID]) (err error) {
-		newMember.addConflictingConflict(conflict)
-		conflict.addConflictingConflict(newMember)
+		addConflictingConflict(newMember, conflict)
+		addConflictingConflict(conflict, newMember)
 
 		return nil
 	})
