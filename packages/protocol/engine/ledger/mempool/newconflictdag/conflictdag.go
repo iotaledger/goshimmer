@@ -75,7 +75,7 @@ func (c *ConflictDAG[ConflictID, ResourceID]) AddConflictSets(conflictID Conflic
 	defer c.mutex.RUnlock()
 
 	if currentConflict, exists := c.conflictsByID.Get(conflictID); exists {
-		if addedConflictSets = currentConflict.RegisterWithConflictSets(lo.Values(c.ConflictSets(resourceIDs...))...); len(addedConflictSets) > 0 {
+		if addedConflictSets = currentConflict.AddConflictSets(lo.Values(c.ConflictSets(resourceIDs...))...); len(addedConflictSets) > 0 {
 			c.ConflictingResourcesAdded.Trigger(conflictID, addedConflictSets)
 		}
 	}
