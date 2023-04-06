@@ -377,7 +377,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 			}
 
 			tf2.AssertRootBlocks(rootBlocks)
-			require.Equal(t, earliestCommitment, tf2.Instance.EvictionState.EarliestRootCommitment())
+			require.Equal(t, earliestCommitment, tf2.Instance.EvictionState.EarliestRootCommitmentID())
 		}
 
 		// UTXOLedger
@@ -454,7 +454,7 @@ func TestEngine_BlocksForwardAndRollback(t *testing.T) {
 		}
 
 		tf3.AssertRootBlocks(rootBlocks)
-		require.Equal(t, earliestCommitment, tf3.Instance.EvictionState.EarliestRootCommitment())
+		require.Equal(t, earliestCommitment, tf3.Instance.EvictionState.EarliestRootCommitmentID())
 
 		// Block in slot 2, not accepting anything new.
 		tf3.BlockDAG.CreateBlock("2.D", models.WithStrongParents(tf.BlockDAG.BlockIDs("1.D")), models.WithIssuer(identitiesMap["D"]), models.WithIssuingTime(slot2IssuingTime))
@@ -1179,7 +1179,7 @@ func TestProtocol_EngineSwitching(t *testing.T) {
 	}
 }
 
-func TestProtocol_EngineFromSnapshot(t *testing.T) {
+func TestProtocol_EngineFromSnapshotAndDisk(t *testing.T) {
 	debug.SetEnabled(true)
 	defer debug.SetEnabled(false)
 
@@ -1324,7 +1324,7 @@ func TestProtocol_EngineFromSnapshot(t *testing.T) {
 		"12.B": false,
 	})
 
-	// We jumped ahaead 4 slots, so we evicted rootblocks up to epoch 7, as we confirmed until epoch 9.
+	// We jumped ahead 4 slots, so we evicted rootblocks up to epoch 6, as we confirmed until epoch 9.
 	rootBlocks = tf.BlockDAG.Blocks("7.A", "6.B", "8.B", "9.A")
 	tf.AssertRootBlocks(rootBlocks)
 
@@ -1335,19 +1335,28 @@ func TestProtocol_EngineFromSnapshot(t *testing.T) {
 	node2 := mockednetwork.NewNode(t, ed25519.GenerateKeyPair(), testNetwork, "P2", snapshotPath, utxoledger.NewProvider())
 	tf2 := node2.EngineTestFramework()
 
-	// This node did not observe genesis, therefore its chainID is the snapshot's rootBlocks earliest commitment
-	require.Equal(t, lo.PanicOnErr(tf.Instance.Storage.Commitments.Load(1)).ID(), tf2.Instance.Storage.Settings.ChainID())
-
 	// We have the same set of rootblocks on the node started from snapshot.
 	tf2.AssertRootBlocks(rootBlocks)
 
-	fmt.Println("Shutdown node2")
+	// This node did not observe genesis, therefore its chainID is the snapshot's rootBlocks earliest commitment
+	require.Equal(t, lo.PanicOnErr(tf.Instance.Storage.Commitments.Load(1)).ID(), tf2.Instance.Storage.Settings.ChainID())
+
+	require.Equal(t, tf.SlotTimeProvider().GenesisUnixTime(), tf2.SlotTimeProvider().GenesisUnixTime())
+	require.Equal(t, tf.ExportBytes(tf.Instance.Storage.Commitments.Export, 9), tf2.ExportBytes(tf2.Instance.Storage.Commitments.Export, 9))
+	require.Equal(t, tf.ExportBytes(tf.Instance.Ledger.Export, 9), tf2.ExportBytes(tf2.Instance.Ledger.Export, 9))
+	require.Equal(t, tf.ExportBytes(tf.Instance.Notarization.Export, 9), tf2.ExportBytes(tf2.Instance.Notarization.Export, 9))
+
 	node2.Protocol.Shutdown()
-	fmt.Println("Shutdown node2 done")
 
 	node3 := mockednetwork.NewNodeFromDisk(t, node2.KeyPair, testNetwork, "P3", node2.BaseDir.Path())
 	tf3 := node3.EngineTestFramework()
-	fmt.Println(lo.PanicOnErr(tf.Instance.Storage.Commitments.Load(1)).ID(), tf3.Instance.Storage.Settings.ChainID())
 
-	fmt.Println(tf3.Instance.Storage.Settings)
+	// Node3 should have the same state as node2.
+	tf3.AssertRootBlocks(rootBlocks)
+	require.Equal(t, lo.PanicOnErr(tf.Instance.Storage.Commitments.Load(1)).ID(), tf3.Instance.Storage.Settings.ChainID())
+
+	require.Equal(t, tf.SlotTimeProvider().GenesisUnixTime(), tf3.SlotTimeProvider().GenesisUnixTime())
+	require.Equal(t, tf.ExportBytes(tf.Instance.Storage.Commitments.Export, 9), tf3.ExportBytes(tf3.Instance.Storage.Commitments.Export, 9))
+	require.Equal(t, tf.ExportBytes(tf.Instance.Ledger.Export, 9), tf3.ExportBytes(tf3.Instance.Ledger.Export, 9))
+	require.Equal(t, tf.ExportBytes(tf.Instance.Notarization.Export, 9), tf3.ExportBytes(tf3.Instance.Notarization.Export, 9))
 }

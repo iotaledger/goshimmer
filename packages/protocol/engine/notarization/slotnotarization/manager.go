@@ -8,7 +8,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger"
@@ -19,6 +18,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/runtime/module"
 	"github.com/iotaledger/hive.go/runtime/options"
 )
 
@@ -65,6 +65,7 @@ func NewProvider(opts ...options.Option[Manager]) module.Provider[*engine.Engine
 				e.HookConstructed(func() {
 					m.storage = e.Storage
 					m.ledgerState = e.Ledger
+					m.acceptedTimeFunc = e.Clock.Accepted().Time
 
 					//wpBlocks := e.Workers.CreatePool("NotarizationManager.Blocks", 1)           // Using just 1 worker to avoid contention
 					//wpCommitments := e.Workers.CreatePool("NotarizationManager.Commitments", 1) // Using just 1 worker to avoid contention
@@ -117,7 +118,7 @@ func (m *Manager) Attestations() notarization.Attestations {
 	return m.attestations
 }
 
-// TryCommitUntil sets the acceptance time of the Manager.
+// TryCommitUntil tries to create slot commitments until the new provided acceptance time.
 func (m *Manager) TryCommitUntil(acceptanceTime time.Time) {
 	m.commitmentMutex.Lock()
 	defer m.commitmentMutex.Unlock()

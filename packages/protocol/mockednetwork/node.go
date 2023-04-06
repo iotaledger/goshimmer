@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/core/module"
+	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol"
@@ -32,6 +32,7 @@ import (
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/module"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
@@ -64,6 +65,7 @@ func NewNode(t *testing.T, keyPair ed25519.KeyPair, network *network.MockedNetwo
 		node.Endpoint,
 		protocol.WithBaseDirectory(node.BaseDir.Path()),
 		protocol.WithSnapshotPath(snapshotPath),
+		protocol.WithStorageDatabaseManagerOptions(database.WithDBProvider(database.NewDB)),
 		protocol.WithLedgerProvider(ledgerProvider),
 		protocol.WithTangleProvider(
 			inmemorytangle.NewProvider(
@@ -112,7 +114,7 @@ func NewNodeFromDisk(t *testing.T, keyPair ed25519.KeyPair, network *network.Moc
 	node.Protocol = protocol.New(node.Workers.CreateGroup("Protocol"),
 		node.Endpoint,
 		protocol.WithBaseDirectory(node.BaseDir.Path()),
-		protocol.WithSnapshotPath("snapshotPath"), // snapshotPath does not matter as we are starting from disk
+		protocol.WithStorageDatabaseManagerOptions(database.WithDBProvider(database.NewDB)),
 		protocol.WithTangleProvider(
 			inmemorytangle.NewProvider(
 				inmemorytangle.WithBookerProvider(
