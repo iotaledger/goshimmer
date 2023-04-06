@@ -13,6 +13,7 @@ import (
 	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 const cacheSize = 1000
@@ -26,7 +27,7 @@ type Weights struct {
 	weightsCache *cache.Cache[identity.ID, *Weight]
 	cacheMutex   sync.Mutex
 	totalWeight  *Weight
-	mutex        sync.RWMutex
+	mutex        syncutils.RWMutexFake
 }
 
 // NewWeights creates a new Weights instance.
@@ -56,8 +57,8 @@ func (w *Weights) NewWeightedSet(members ...identity.ID) (newWeightedSet *Weight
 
 // Get returns the weight of the given identity.
 func (w *Weights) Get(id identity.ID) (weight *Weight, exists bool) {
-	w.mutex.Lock()
-	defer w.mutex.Unlock()
+	w.mutex.RLock()
+	defer w.mutex.RUnlock()
 
 	return w.get(id)
 }
@@ -130,24 +131,24 @@ func (w *Weights) BatchUpdate(batch *WeightsBatch) {
 
 // ForEach iterates over all weights and calls the given callback for each of them.
 func (w *Weights) ForEach(callback func(id identity.ID, weight *Weight) bool) (err error) {
-	w.mutex.Lock()
-	defer w.mutex.Unlock()
+	w.mutex.RLock()
+	defer w.mutex.RUnlock()
 
 	return w.weights.Stream(callback)
 }
 
 // TotalWeight returns the total weight of all identities.
 func (w *Weights) TotalWeight() (totalWeight int64) {
-	w.mutex.Lock()
-	defer w.mutex.Unlock()
+	w.mutex.RLock()
+	defer w.mutex.RUnlock()
 
 	return w.totalWeight.Value
 }
 
 // TotalWeightWithoutZeroIdentity returns the total weight of all identities minus the zero identity.
 func (w *Weights) TotalWeightWithoutZeroIdentity() int64 {
-	w.mutex.Lock()
-	defer w.mutex.Unlock()
+	w.mutex.RLock()
+	defer w.mutex.RUnlock()
 
 	var totalWeight int64
 	if zeroIdentityWeight, exists := w.get(identity.ID{}); exists {
@@ -166,8 +167,8 @@ func (w *Weights) UpdateTotalWeightSlot(index slot.Index) {
 
 // Root returns the root of the merkle tree of the stored weights.
 func (w *Weights) Root() (root types.Identifier) {
-	w.mutex.Lock()
-	defer w.mutex.Unlock()
+	w.mutex.RLock()
+	defer w.mutex.RUnlock()
 
 	return w.weights.Root()
 }

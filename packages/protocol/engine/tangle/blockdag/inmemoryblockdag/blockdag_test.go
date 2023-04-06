@@ -2,7 +2,6 @@ package inmemoryblockdag
 
 import (
 	"fmt"
-	"sync"
 	"testing"
 	"time"
 
@@ -16,6 +15,7 @@ import (
 	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
@@ -271,7 +271,7 @@ func TestBlockDAG_AttachBlockTwice_1(t *testing.T) {
 		err1         error
 		err2         error
 		started      uint8
-		startMutex   sync.RWMutex
+		startMutex   syncutils.RWMutexFake
 	)
 
 	loop := workers.CreatePool("Loop", 2)
@@ -294,8 +294,8 @@ func TestBlockDAG_AttachBlockTwice_1(t *testing.T) {
 	workers.WaitChildren()
 
 	require.Eventually(t, func() bool {
-		startMutex.Lock()
-		defer startMutex.Unlock()
+		startMutex.RLock()
+		defer startMutex.RUnlock()
 
 		return started == 2
 	}, time.Second*10, time.Millisecond*10)

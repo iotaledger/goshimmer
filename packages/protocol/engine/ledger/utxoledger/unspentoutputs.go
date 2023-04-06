@@ -19,6 +19,7 @@ import (
 	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/runtime/module"
 	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 type UnspentOutputs struct {
@@ -26,7 +27,7 @@ type UnspentOutputs struct {
 
 	memPool               mempool.MemPool
 	consumers             map[ledger.UnspentOutputsSubscriber]types.Empty
-	consumersMutex        sync.RWMutex
+	consumersMutex        syncutils.RWMutexFake
 	batchConsumers        map[ledger.UnspentOutputsSubscriber]types.Empty
 	batchCreatedOutputIDs utxo.OutputIDs
 	batchSpentOutputIDs   utxo.OutputIDs
@@ -204,8 +205,8 @@ func (u *UnspentOutputs) Import(reader io.ReadSeeker, targetSlot slot.Index) (er
 }
 
 func (u *UnspentOutputs) Consumers() (consumers []ledger.UnspentOutputsSubscriber) {
-	u.consumersMutex.Lock()
-	defer u.consumersMutex.Unlock()
+	u.consumersMutex.RLock()
+	defer u.consumersMutex.RUnlock()
 
 	for consumer := range u.consumers {
 		consumers = append(consumers, consumer)

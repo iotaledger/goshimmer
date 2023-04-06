@@ -1,7 +1,6 @@
 package blockgadget
 
 import (
-	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -21,6 +20,7 @@ import (
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/runtime/debug"
 	"github.com/iotaledger/hive.go/runtime/module"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 // region TestFramework //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -142,7 +142,7 @@ type MockBlockGadget struct {
 	AcceptedBlocks  models.BlockIDs
 	AcceptedMarkers *markers.Markers
 
-	mutex sync.RWMutex
+	mutex syncutils.RWMutexFake
 
 	module.Module
 }
@@ -188,15 +188,15 @@ func (m *MockBlockGadget) SetMarkersAccepted(markers ...markers.Marker) {
 
 // IsBlockAccepted mocks its interface function returning that all blocks are confirmed.
 func (m *MockBlockGadget) IsBlockAccepted(blockID models.BlockID) bool {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 
 	return m.AcceptedBlocks.Contains(blockID)
 }
 
 func (m *MockBlockGadget) IsMarkerAccepted(marker markers.Marker) (accepted bool) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 
 	if marker.Index() == 0 {
 		return true
@@ -213,8 +213,8 @@ func (m *MockBlockGadget) IsMarkerAccepted(marker markers.Marker) (accepted bool
 }
 
 func (m *MockBlockGadget) FirstUnacceptedIndex(sequenceID markers.SequenceID) (firstUnacceptedIndex markers.Index) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 
 	acceptedIndex, exists := m.AcceptedMarkers.Get(sequenceID)
 	if exists {
@@ -224,8 +224,8 @@ func (m *MockBlockGadget) FirstUnacceptedIndex(sequenceID markers.SequenceID) (f
 }
 
 func (m *MockBlockGadget) AcceptedBlocksInSlot(index slot.Index) (blocks models.BlockIDs) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 
 	blocks = models.NewBlockIDs()
 	for _, block := range m.AcceptedBlocks.Slice() {

@@ -1,10 +1,9 @@
 package conflictdag
 
 import (
-	"sync"
-
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 // region Conflict /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -19,7 +18,7 @@ type Conflict[ConflictIDType, ResourceIDType comparable] struct {
 
 	confirmationState confirmation.State
 
-	m sync.RWMutex
+	m syncutils.RWMutexFake
 }
 
 func NewConflict[ConflictIDType comparable, ResourceIDType comparable](id ConflictIDType, parents *advancedset.AdvancedSet[ConflictIDType], conflictSets *advancedset.AdvancedSet[*ConflictSet[ConflictIDType, ResourceIDType]], confirmationState confirmation.State) (c *Conflict[ConflictIDType, ResourceIDType]) {
@@ -40,8 +39,8 @@ func (c *Conflict[ConflictIDType, ResourceIDType]) ID() ConflictIDType {
 
 // Parents returns the parent ConflictIDs that this Conflict depends on.
 func (c *Conflict[ConflictIDType, ResourceIDType]) Parents() (parents *advancedset.AdvancedSet[ConflictIDType]) {
-	c.m.Lock()
-	defer c.m.Unlock()
+	c.m.RLock()
+	defer c.m.RUnlock()
 
 	return c.parents.Clone()
 }
@@ -56,15 +55,15 @@ func (c *Conflict[ConflictIDType, ResourceIDType]) setParents(parents *advanceds
 
 // ConflictSets returns the identifiers of the conflict sets that this Conflict is part of.
 func (c *Conflict[ConflictIDType, ResourceIDType]) ConflictSets() (conflictSets *advancedset.AdvancedSet[*ConflictSet[ConflictIDType, ResourceIDType]]) {
-	c.m.Lock()
-	defer c.m.Unlock()
+	c.m.RLock()
+	defer c.m.RUnlock()
 
 	return c.conflictSets.Clone()
 }
 
 func (c *Conflict[ConflictIDType, ResourceIDType]) Children() (children *advancedset.AdvancedSet[*Conflict[ConflictIDType, ResourceIDType]]) {
-	c.m.Lock()
-	defer c.m.Unlock()
+	c.m.RLock()
+	defer c.m.RUnlock()
 
 	return c.children.Clone()
 }
@@ -79,8 +78,8 @@ func (c *Conflict[ConflictIDType, ResourceIDType]) addConflictSet(conflictSet *C
 
 // ConfirmationState returns the ConfirmationState of the Conflict.
 func (c *Conflict[ConflictIDType, ResourceIDType]) ConfirmationState() (confirmationState confirmation.State) {
-	c.m.Lock()
-	defer c.m.Unlock()
+	c.m.RLock()
+	defer c.m.RUnlock()
 
 	return c.confirmationState
 }
@@ -144,7 +143,7 @@ type ConflictSet[ConflictIDType, ResourceIDType comparable] struct {
 	id        ResourceIDType
 	conflicts *advancedset.AdvancedSet[*Conflict[ConflictIDType, ResourceIDType]]
 
-	m sync.RWMutex
+	m syncutils.RWMutexFake
 }
 
 func NewConflictSet[ConflictIDType comparable, ResourceIDType comparable](id ResourceIDType) (c *ConflictSet[ConflictIDType, ResourceIDType]) {
@@ -159,8 +158,8 @@ func (c *ConflictSet[ConflictIDType, ResourceIDType]) ID() (id ResourceIDType) {
 }
 
 func (c *ConflictSet[ConflictIDType, ResourceIDType]) Conflicts() *advancedset.AdvancedSet[*Conflict[ConflictIDType, ResourceIDType]] {
-	c.m.Lock()
-	defer c.m.Unlock()
+	c.m.RLock()
+	defer c.m.RUnlock()
 
 	return c.conflicts.Clone()
 }

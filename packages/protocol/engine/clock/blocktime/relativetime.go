@@ -1,10 +1,10 @@
 package blocktime
 
 import (
-	"sync"
 	"time"
 
 	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 // RelativeTime is a time value that monotonically advances with the system clock.
@@ -19,7 +19,7 @@ type RelativeTime struct {
 	timeUpdateOffset time.Time
 
 	// mutex is used to synchronize access to the time value.
-	mutex sync.RWMutex
+	mutex syncutils.RWMutexFake
 }
 
 // NewRelativeTime creates a new RelativeTime.
@@ -31,16 +31,16 @@ func NewRelativeTime() *RelativeTime {
 
 // Time returns the original time value.
 func (c *RelativeTime) Time() time.Time {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
 
 	return c.time
 }
 
 // RelativeTime returns the time value after it has advanced with the system clock.
 func (c *RelativeTime) RelativeTime() time.Time {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
 
 	return c.time.Add(time.Since(c.timeUpdateOffset))
 }

@@ -1,20 +1,19 @@
 package congestioncontrol
 
 import (
-	"sync"
-
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 type CongestionControl struct {
 	Events *Events
 
 	scheduler      *scheduler.Scheduler
-	schedulerMutex sync.RWMutex
+	schedulerMutex syncutils.RWMutexFake
 
 	optsSchedulerOptions []options.Option[scheduler.Scheduler]
 }
@@ -26,8 +25,8 @@ func New(opts ...options.Option[CongestionControl]) *CongestionControl {
 }
 
 func (c *CongestionControl) Shutdown() {
-	c.schedulerMutex.Lock()
-	defer c.schedulerMutex.Unlock()
+	c.schedulerMutex.RLock()
+	defer c.schedulerMutex.RUnlock()
 
 	c.scheduler.Shutdown()
 }
@@ -61,15 +60,15 @@ func (c *CongestionControl) LinkTo(engine *engine.Engine) {
 }
 
 func (c *CongestionControl) Scheduler() *scheduler.Scheduler {
-	c.schedulerMutex.Lock()
-	defer c.schedulerMutex.Unlock()
+	c.schedulerMutex.RLock()
+	defer c.schedulerMutex.RUnlock()
 
 	return c.scheduler
 }
 
 func (c *CongestionControl) Block(id models.BlockID) (block *scheduler.Block, exists bool) {
-	c.schedulerMutex.Lock()
-	defer c.schedulerMutex.Unlock()
+	c.schedulerMutex.RLock()
+	defer c.schedulerMutex.RUnlock()
 
 	return c.scheduler.Block(id)
 }

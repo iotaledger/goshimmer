@@ -2,7 +2,6 @@ package utxoledger
 
 import (
 	"io"
-	"sync"
 
 	"github.com/pkg/errors"
 
@@ -14,6 +13,7 @@ import (
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/module"
 	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 // UTXOLedger represents a ledger using the realities based mempool.
@@ -23,7 +23,7 @@ type UTXOLedger struct {
 	memPool        mempool.MemPool
 	unspentOutputs *UnspentOutputs
 	stateDiffs     *StateDiffs
-	mutex          sync.RWMutex
+	mutex          syncutils.RWMutexFake
 
 	optsMemPoolProvider module.Provider[*engine.Engine, mempool.MemPool]
 
@@ -153,8 +153,8 @@ func (l *UTXOLedger) Import(reader io.ReadSeeker) (err error) {
 
 // Export exports the ledger state to the given writer.
 func (l *UTXOLedger) Export(writer io.WriteSeeker, targetSlot slot.Index) (err error) {
-	l.mutex.Lock()
-	defer l.mutex.Unlock()
+	l.mutex.RLock()
+	defer l.mutex.RUnlock()
 
 	if err = l.unspentOutputs.Export(writer); err != nil {
 		return errors.Wrap(err, "failed to export unspent outputs")

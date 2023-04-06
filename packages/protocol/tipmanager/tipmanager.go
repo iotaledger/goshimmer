@@ -2,7 +2,6 @@ package tipmanager
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -17,6 +16,7 @@ import (
 	"github.com/iotaledger/hive.go/ds/randommap"
 	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
@@ -35,7 +35,7 @@ type TipManager struct {
 
 	walkerCache *memstorage.SlotStorage[models.BlockID, types.Empty]
 
-	mutex               sync.RWMutex
+	mutex               syncutils.RWMutexFake
 	tips                *randommap.RandomMap[models.BlockID, *scheduler.Block]
 	TipsConflictTracker *TipsConflictTracker
 
@@ -209,8 +209,8 @@ func (t *TipManager) selectTips(count int) (parents models.BlockIDs) {
 
 // AllTips returns a list of all tips that are stored in the TipManger.
 func (t *TipManager) AllTips() (allTips []*scheduler.Block) {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
 
 	allTips = make([]*scheduler.Block, 0, t.tips.Size())
 	t.tips.ForEach(func(_ models.BlockID, value *scheduler.Block) bool {
@@ -223,8 +223,8 @@ func (t *TipManager) AllTips() (allTips []*scheduler.Block) {
 
 // TipCount the amount of tips.
 func (t *TipManager) TipCount() int {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
 
 	return t.tips.Size()
 }
@@ -297,8 +297,8 @@ func (t *TipManager) isValidTip(tip *scheduler.Block) (err error) {
 }
 
 func (t *TipManager) IsPastConeTimestampCorrect(block *booker.Block) (timestampValid bool) {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
 
 	return t.isPastConeTimestampCorrect(block)
 }

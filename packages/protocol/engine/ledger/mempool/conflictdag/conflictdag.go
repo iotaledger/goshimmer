@@ -2,7 +2,6 @@ package conflictdag
 
 import (
 	"fmt"
-	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/hive.go/ds/advancedset"
@@ -29,7 +28,7 @@ type ConflictDAG[ConflictIDType, ResourceIDType comparable] struct {
 	// It is used by different components, but it is placed here because it's easily accessible in all needed components.
 	// It serves more as a quick-fix, as eventually conflict tracking spread across multiple components
 	// (ConflictDAG, ConflictResolver, ConflictsTracker) will be refactored into a single component that handles locking nicely.
-	WeightsMutex sync.RWMutex
+	WeightsMutex syncutils.RWMutexFake
 
 	optsMergeToMaster bool
 }

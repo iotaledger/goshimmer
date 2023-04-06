@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/iotaledger/hive.go/ds/thresholdmap"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 	"github.com/iotaledger/hive.go/serializer/v2/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 )
@@ -61,7 +62,7 @@ type Markers struct {
 	markers      map[SequenceID]Index
 	highestIndex Index
 	lowestIndex  Index
-	mutex        sync.RWMutex
+	mutex        syncutils.RWMutexFake
 }
 
 // NewMarkers creates a new collection of Markers.
@@ -79,8 +80,8 @@ func NewMarkers(markers ...Marker) (m *Markers) {
 
 // Marker type casts the Markers to a Marker if it contains only 1 element.
 func (m *Markers) Marker() (marker Marker) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 
 	switch len(m.markers) {
 	case 0:
@@ -98,8 +99,8 @@ func (m *Markers) Marker() (marker Marker) {
 
 // Get returns the Index of the Marker with the given Sequence and a flag that indicates if the Marker exists.
 func (m *Markers) Get(sequenceID SequenceID) (index Index, exists bool) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 
 	index, exists = m.markers[sequenceID]
 	return
@@ -228,24 +229,24 @@ func (m *Markers) Merge(markers *Markers) {
 
 // LowestIndex returns the lowest Index of all Markers in the collection.
 func (m *Markers) LowestIndex() (lowestIndex Index) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 
 	return m.lowestIndex
 }
 
 // HighestIndex returns the highest Index of all Markers in the collection.
 func (m *Markers) HighestIndex() (highestIndex Index) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 
 	return m.highestIndex
 }
 
 // Size returns the amount of Markers in the collection.
 func (m *Markers) Size() (size int) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 
 	return len(m.markers)
 }
@@ -272,8 +273,8 @@ func (m *Markers) Equals(other *Markers) (equals bool) {
 
 // Clone creates a deep copy of the Markers.
 func (m *Markers) Clone() (cloned *Markers) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 
 	cloned = NewMarkers()
 	for sequenceID, index := range m.markers {
@@ -295,7 +296,7 @@ func (m *Markers) String() string {
 // reference a given Marker in a Sequence.
 type ReferencingMarkers struct {
 	referencingIndexesBySequence map[SequenceID]*thresholdmap.ThresholdMap[uint64, Index] `serix:"0,lengthPrefixType=uint32"`
-	sync.RWMutex
+	syncutils.RWMutexFake
 }
 
 // NewReferencingMarkers is the constructor for the ReferencingMarkers.
@@ -321,8 +322,8 @@ func (r *ReferencingMarkers) Add(index Index, referencingMarker Marker) {
 
 // Get returns the Markers of child Sequences that reference the given Index.
 func (r *ReferencingMarkers) Get(index Index) (referencingMarkers *Markers) {
-	r.Lock()
-	defer r.Unlock()
+	r.RLock()
+	defer r.RUnlock()
 
 	referencingMarkers = NewMarkers()
 	for sequenceID, thresholdMap := range r.referencingIndexesBySequence {
@@ -336,8 +337,8 @@ func (r *ReferencingMarkers) Get(index Index) (referencingMarkers *Markers) {
 
 // GetSequenceIDs returns the SequenceIDs of child Sequences.
 func (r *ReferencingMarkers) GetSequenceIDs() (referencingSequenceIDs SequenceIDs) {
-	r.Lock()
-	defer r.Unlock()
+	r.RLock()
+	defer r.RUnlock()
 
 	referencingSequenceIDs = NewSequenceIDs()
 	for sequenceID := range r.referencingIndexesBySequence {
@@ -349,8 +350,8 @@ func (r *ReferencingMarkers) GetSequenceIDs() (referencingSequenceIDs SequenceID
 
 // String returns a human-readable version of the ReferencingMarkers.
 func (r *ReferencingMarkers) String() (humanReadableReferencingMarkers string) {
-	r.Lock()
-	defer r.Unlock()
+	r.RLock()
+	defer r.RUnlock()
 
 	indexes := make([]Index, 0)
 	referencingMarkersByReferencingIndex := make(map[Index]*Markers)
@@ -412,7 +413,7 @@ func (r *ReferencingMarkers) String() (humanReadableReferencingMarkers string) {
 // of its parent Sequences in the Sequence DAG.
 type ReferencedMarkers struct {
 	referencedIndexesBySequence map[SequenceID]*thresholdmap.ThresholdMap[uint64, Index] `serix:"0,lengthPrefixType=uint32"`
-	sync.RWMutex
+	syncutils.RWMutexFake
 }
 
 // NewReferencedMarkers is the constructor for the ReferencedMarkers.
@@ -459,8 +460,8 @@ func (r *ReferencedMarkers) Delete(id SequenceID) {
 
 // Get returns the Markers of parent Sequences that were referenced by the given Index.
 func (r *ReferencedMarkers) Get(index Index) (referencedMarkers *Markers) {
-	r.Lock()
-	defer r.Unlock()
+	r.RLock()
+	defer r.RUnlock()
 
 	referencedMarkers = NewMarkers()
 	for sequenceID, thresholdMap := range r.referencedIndexesBySequence {
@@ -474,8 +475,8 @@ func (r *ReferencedMarkers) Get(index Index) (referencedMarkers *Markers) {
 
 // String returns a human-readable version of the ReferencedMarkers.
 func (r *ReferencedMarkers) String() (humanReadableReferencedMarkers string) {
-	r.Lock()
-	defer r.Unlock()
+	r.RLock()
+	defer r.RUnlock()
 
 	indexes := make([]Index, 0)
 	referencedMarkersByReferencingIndex := make(map[Index]*Markers)

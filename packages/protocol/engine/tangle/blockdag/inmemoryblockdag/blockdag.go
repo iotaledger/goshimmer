@@ -20,6 +20,7 @@ import (
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/module"
 	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
@@ -54,10 +55,10 @@ type BlockDAG struct {
 	// deadlock can occur only when an eviction is triggered while the above scenario unfolds.
 	solidifierMutex sync.RWMutex
 
-	futureBlocksMutex sync.RWMutex
+	futureBlocksMutex syncutils.RWMutexFake
 
 	// evictionMutex is a mutex that is used to synchronize the eviction of elements from the BlockDAG.
-	evictionMutex sync.RWMutex
+	evictionMutex syncutils.RWMutexFake
 
 	slotTimeProviderFunc func() *slot.TimeProvider
 
@@ -151,8 +152,8 @@ func (b *BlockDAG) Attach(data *models.Block) (block *blockdag.Block, wasAttache
 
 // Block retrieves a Block with metadata from the in-memory storage of the BlockDAG.
 func (b *BlockDAG) Block(id models.BlockID) (block *blockdag.Block, exists bool) {
-	b.evictionMutex.Lock()
-	defer b.evictionMutex.Unlock()
+	b.evictionMutex.RLock()
+	defer b.evictionMutex.RUnlock()
 
 	return b.block(id)
 }
@@ -263,8 +264,8 @@ func (b *BlockDAG) markSolid(block *blockdag.Block) (err error) {
 }
 
 func (b *BlockDAG) isFutureBlock(block *blockdag.Block) (isFutureBlock bool) {
-	b.futureBlocksMutex.Lock()
-	defer b.futureBlocksMutex.Unlock()
+	b.futureBlocksMutex.RLock()
+	defer b.futureBlocksMutex.RUnlock()
 
 	// If we are not able to load the commitment for the block, it means we haven't committed this slot yet.
 	if _, err := b.commitmentFunc(block.Commitment().Index()); err != nil {
@@ -307,8 +308,8 @@ func (b *BlockDAG) markInvalid(block *blockdag.Block, reason error) {
 
 // attach tries to attach the given Block to the BlockDAG.
 func (b *BlockDAG) attach(data *models.Block) (block *blockdag.Block, wasAttached bool, err error) {
-	b.evictionMutex.Lock()
-	defer b.evictionMutex.Unlock()
+	b.evictionMutex.RLock()
+	defer b.evictionMutex.RUnlock()
 
 	if block, wasAttached, err = b.canAttach(data); !wasAttached {
 		return

@@ -2,7 +2,6 @@ package p2p
 
 import (
 	"context"
-	"sync"
 
 	"github.com/libp2p/go-libp2p/core/host"
 	libp2ppeer "github.com/libp2p/go-libp2p/core/peer"
@@ -14,6 +13,7 @@ import (
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 // ConnectPeerOption defines an option for the DialPeer and AcceptPeer methods.
@@ -51,19 +51,19 @@ type Manager struct {
 	local      *peer.Local
 	libp2pHost host.Host
 
-	acceptMutex sync.RWMutex
+	acceptMutex syncutils.RWMutexFake
 	acceptMap   map[libp2ppeer.ID]*AcceptMatcher
 
 	log                 *logger.Logger
 	neighborGroupEvents map[NeighborsGroup]*NeighborGroupEvents
 
-	stopMutex sync.RWMutex
+	stopMutex syncutils.RWMutexFake
 	isStopped bool
 
 	neighbors      map[identity.ID]*Neighbor
-	neighborsMutex sync.RWMutex
+	neighborsMutex syncutils.RWMutexFake
 
-	registeredProtocolsMutex sync.RWMutex
+	registeredProtocolsMutex syncutils.RWMutexFake
 	registeredProtocols      map[protocol.ID]*ProtocolHandler
 }
 
@@ -144,8 +144,8 @@ func (m *Manager) AddInbound(ctx context.Context, p *peer.Peer, group NeighborsG
 
 // GetNeighbor returns the neighbor by its id.
 func (m *Manager) GetNeighbor(id identity.ID) (*Neighbor, error) {
-	m.neighborsMutex.Lock()
-	defer m.neighborsMutex.Unlock()
+	m.neighborsMutex.RLock()
+	defer m.neighborsMutex.RUnlock()
 	nbr, ok := m.neighbors[id]
 	if !ok {
 		return nil, ErrUnknownNeighbor
@@ -179,8 +179,8 @@ func (m *Manager) Send(packet proto.Message, protocolID string, to ...identity.I
 
 // AllNeighbors returns all the neighbors that are currently connected.
 func (m *Manager) AllNeighbors() []*Neighbor {
-	m.neighborsMutex.Lock()
-	defer m.neighborsMutex.Unlock()
+	m.neighborsMutex.RLock()
+	defer m.neighborsMutex.RUnlock()
 	result := make([]*Neighbor, 0, len(m.neighbors))
 	for _, n := range m.neighbors {
 		result = append(result, n)
@@ -205,8 +205,8 @@ func (m *Manager) GetNeighborsByID(ids []identity.ID) []*Neighbor {
 		return result
 	}
 
-	m.neighborsMutex.Lock()
-	defer m.neighborsMutex.Unlock()
+	m.neighborsMutex.RLock()
+	defer m.neighborsMutex.RUnlock()
 	for _, id := range ids {
 		if n, ok := m.neighbors[id]; ok {
 			result = append(result, n)
@@ -216,15 +216,15 @@ func (m *Manager) GetNeighborsByID(ids []identity.ID) []*Neighbor {
 }
 
 func (m *Manager) RegisteredProtocols() map[protocol.ID]*ProtocolHandler {
-	m.registeredProtocolsMutex.Lock()
-	defer m.registeredProtocolsMutex.Unlock()
+	m.registeredProtocolsMutex.RLock()
+	defer m.registeredProtocolsMutex.RUnlock()
 
 	return lo.MergeMaps(map[protocol.ID]*ProtocolHandler{}, m.registeredProtocols)
 }
 
 func (m *Manager) RegisteredProtocol(protocolID protocol.ID) (*ProtocolHandler, bool) {
-	m.registeredProtocolsMutex.Lock()
-	defer m.registeredProtocolsMutex.Unlock()
+	m.registeredProtocolsMutex.RLock()
+	defer m.registeredProtocolsMutex.RUnlock()
 
 	protocolHandler, exists := m.registeredProtocols[protocolID]
 	return protocolHandler, exists
@@ -232,8 +232,8 @@ func (m *Manager) RegisteredProtocol(protocolID protocol.ID) (*ProtocolHandler, 
 
 // getNeighborWithGroup returns neighbor by ID and group.
 func (m *Manager) getNeighborWithGroup(id identity.ID, group NeighborsGroup) (*Neighbor, error) {
-	m.neighborsMutex.Lock()
-	defer m.neighborsMutex.Unlock()
+	m.neighborsMutex.RLock()
+	defer m.neighborsMutex.RUnlock()
 	nbr, ok := m.neighbors[id]
 	if !ok || nbr.Group != group {
 		return nil, ErrUnknownNeighbor
@@ -248,11 +248,11 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 	if p.ID() == m.local.ID() {
 		return errors.WithStack(ErrLoopbackNeighbor)
 	}
-	m.stopMutex.Lock()
+	m.stopMutex.RLock()
 	if m.isStopped {
 		return ErrNotRunning
 	}
-	m.stopMutex.Unlock()
+	m.stopMutex.RUnlock()
 
 	if m.neighborExists(p.ID()) {
 		return errors.WithStack(ErrDuplicateNeighbor)
@@ -293,8 +293,8 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 }
 
 func (m *Manager) neighborExists(id identity.ID) bool {
-	m.neighborsMutex.Lock()
-	defer m.neighborsMutex.Unlock()
+	m.neighborsMutex.RLock()
+	defer m.neighborsMutex.RUnlock()
 	_, exists := m.neighbors[id]
 	return exists
 }

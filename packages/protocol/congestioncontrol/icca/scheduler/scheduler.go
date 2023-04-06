@@ -20,6 +20,7 @@ import (
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/ds/shrinkingmap"
 	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 const (
@@ -40,12 +41,12 @@ type Scheduler struct {
 	slotTimeProvider *slot.TimeProvider
 
 	blocks        *memstorage.SlotStorage[models.BlockID, *Block]
-	bufferMutex   sync.RWMutex
+	bufferMutex   syncutils.RWMutexFake
 	buffer        *BufferQueue
-	deficitsMutex sync.RWMutex
+	deficitsMutex syncutils.RWMutexFake
 	deficits      *shrinkingmap.ShrinkingMap[identity.ID, *big.Rat]
 	evictionState *eviction.State
-	evictionMutex sync.RWMutex
+	evictionMutex syncutils.RWMutexFake
 
 	totalAccessManaRetrieveFunc func() int64
 	accessManaMapRetrieverFunc  func() map[identity.ID]int64
@@ -113,10 +114,10 @@ func (s *Scheduler) IsUncongested() bool {
 
 // IssuerQueueSize returns the size of the IssuerIDs queue in number of blocks.
 func (s *Scheduler) IssuerQueueSize(issuerID identity.ID) int {
-	s.evictionMutex.Lock()
-	defer s.evictionMutex.Unlock()
-	s.bufferMutex.Lock()
-	defer s.bufferMutex.Unlock()
+	s.evictionMutex.RLock()
+	defer s.evictionMutex.RUnlock()
+	s.bufferMutex.RLock()
+	defer s.bufferMutex.RUnlock()
 
 	issuerQueue := s.buffer.IssuerQueue(issuerID)
 	if issuerQueue == nil {
@@ -128,10 +129,10 @@ func (s *Scheduler) IssuerQueueSize(issuerID identity.ID) int {
 
 // IssuerQueueSizes returns the size for each issuer queue.
 func (s *Scheduler) IssuerQueueSizes() map[identity.ID]int {
-	s.evictionMutex.Lock()
-	defer s.evictionMutex.Unlock()
-	s.bufferMutex.Lock()
-	defer s.bufferMutex.Unlock()
+	s.evictionMutex.RLock()
+	defer s.evictionMutex.RUnlock()
+	s.bufferMutex.RLock()
+	defer s.bufferMutex.RUnlock()
 
 	queueSizes := make(map[identity.ID]int)
 	for _, issuerID := range s.buffer.IssuerIDs() {
@@ -143,40 +144,40 @@ func (s *Scheduler) IssuerQueueSizes() map[identity.ID]int {
 
 // MaxBufferSize returns the max size of the buffer.
 func (s *Scheduler) MaxBufferSize() int {
-	s.evictionMutex.Lock()
-	defer s.evictionMutex.Unlock()
-	s.bufferMutex.Lock()
-	defer s.bufferMutex.Unlock()
+	s.evictionMutex.RLock()
+	defer s.evictionMutex.RUnlock()
+	s.bufferMutex.RLock()
+	defer s.bufferMutex.RUnlock()
 
 	return s.buffer.MaxSize()
 }
 
 // BufferSize returns the number of blocks in the buffer.
 func (s *Scheduler) BufferSize() int {
-	s.evictionMutex.Lock()
-	defer s.evictionMutex.Unlock()
-	s.bufferMutex.Lock()
-	defer s.bufferMutex.Unlock()
+	s.evictionMutex.RLock()
+	defer s.evictionMutex.RUnlock()
+	s.bufferMutex.RLock()
+	defer s.bufferMutex.RUnlock()
 
 	return s.buffer.Size()
 }
 
 // ReadyBlocksCount returns the number of blocks that are ready to be scheduled.
 func (s *Scheduler) ReadyBlocksCount() int {
-	s.evictionMutex.Lock()
-	defer s.evictionMutex.Unlock()
-	s.bufferMutex.Lock()
-	defer s.bufferMutex.Unlock()
+	s.evictionMutex.RLock()
+	defer s.evictionMutex.RUnlock()
+	s.bufferMutex.RLock()
+	defer s.bufferMutex.RUnlock()
 
 	return s.buffer.ReadyBlocksCount()
 }
 
 // TotalBlocksCount returns the size of the buffer in number of blocks.
 func (s *Scheduler) TotalBlocksCount() int {
-	s.evictionMutex.Lock()
-	defer s.evictionMutex.Unlock()
-	s.bufferMutex.Lock()
-	defer s.bufferMutex.Unlock()
+	s.evictionMutex.RLock()
+	defer s.evictionMutex.RUnlock()
+	s.bufferMutex.RLock()
+	defer s.bufferMutex.RUnlock()
 
 	return s.buffer.TotalBlocksCount()
 }
@@ -186,8 +187,8 @@ func (s *Scheduler) Quanta(issuerID identity.ID) *big.Rat {
 }
 
 func (s *Scheduler) Deficit(issuerID identity.ID) *big.Rat {
-	s.deficitsMutex.Lock()
-	defer s.deficitsMutex.Unlock()
+	s.deficitsMutex.RLock()
+	defer s.deficitsMutex.RUnlock()
 
 	deficit, exists := s.deficits.Get(issuerID)
 	if !exists {
@@ -211,15 +212,15 @@ func (s *Scheduler) Shutdown() {
 
 // Block retrieves the Block with given id from the mem-storage.
 func (s *Scheduler) Block(id models.BlockID) (block *Block, exists bool) {
-	s.evictionMutex.Lock()
-	defer s.evictionMutex.Unlock()
+	s.evictionMutex.RLock()
+	defer s.evictionMutex.RUnlock()
 
 	return s.block(id)
 }
 
 func (s *Scheduler) AddBlock(sourceBlock *booker.Block) {
-	s.evictionMutex.Lock()
-	defer s.evictionMutex.Unlock()
+	s.evictionMutex.RLock()
+	defer s.evictionMutex.RUnlock()
 
 	block, _ := s.GetOrRegisterBlock(sourceBlock)
 
@@ -240,8 +241,8 @@ func (s *Scheduler) AddBlock(sourceBlock *booker.Block) {
 }
 
 func (s *Scheduler) HandleOrphanedBlock(orphanedBlock *blockdag.Block) {
-	s.evictionMutex.Lock()
-	defer s.evictionMutex.Unlock()
+	s.evictionMutex.RLock()
+	defer s.evictionMutex.RUnlock()
 	block, exists := s.block(orphanedBlock.ID())
 	if !exists || block.IsDropped() || block.IsSkipped() || block.IsScheduled() {
 		return
@@ -254,8 +255,8 @@ func (s *Scheduler) HandleOrphanedBlock(orphanedBlock *blockdag.Block) {
 }
 
 func (s *Scheduler) HandleAcceptedBlock(acceptedBlock *blockgadget.Block) {
-	s.evictionMutex.Lock()
-	defer s.evictionMutex.Unlock()
+	s.evictionMutex.RLock()
+	defer s.evictionMutex.RUnlock()
 
 	block, err := s.GetOrRegisterBlock(acceptedBlock.Block)
 	if err != nil {
@@ -279,8 +280,8 @@ func (s *Scheduler) HandleAcceptedBlock(acceptedBlock *blockgadget.Block) {
 // UpdateChildren iterates over the direct children of the given blockID and
 // tries to mark them as ready.
 func (s *Scheduler) UpdateChildren(block *Block) {
-	s.evictionMutex.Lock()
-	defer s.evictionMutex.Unlock()
+	s.evictionMutex.RLock()
+	defer s.evictionMutex.RUnlock()
 	s.updateChildren(block)
 }
 
@@ -440,8 +441,8 @@ loop:
 }
 
 func (s *Scheduler) schedule() *Block {
-	s.evictionMutex.Lock()
-	defer s.evictionMutex.Unlock()
+	s.evictionMutex.RLock()
+	defer s.evictionMutex.RUnlock()
 	s.bufferMutex.Lock()
 	defer s.bufferMutex.Unlock()
 
@@ -579,12 +580,12 @@ func (s *Scheduler) updateDeficit(issuerID identity.ID, d *big.Rat) {
 }
 
 func (s *Scheduler) GetExcessDeficit(issuerID identity.ID) (deficitFloat float64, err error) {
-	s.evictionMutex.Lock()
-	defer s.evictionMutex.Unlock()
-	s.bufferMutex.Lock()
-	defer s.bufferMutex.Unlock()
-	s.deficitsMutex.Lock()
-	defer s.deficitsMutex.Unlock()
+	s.evictionMutex.RLock()
+	defer s.evictionMutex.RUnlock()
+	s.bufferMutex.RLock()
+	defer s.bufferMutex.RUnlock()
+	s.deficitsMutex.RLock()
+	defer s.deficitsMutex.RUnlock()
 
 	if deficit, exists := s.deficits.Get(issuerID); exists {
 		deficitFloat, _ = deficit.Float64()

@@ -1,12 +1,11 @@
 package votes
 
 import (
-	"sync"
-
 	"github.com/iotaledger/hive.go/constraints"
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/ds/orderedmap"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 type Vote[ConflictIDType comparable, VotePowerType constraints.Comparable[VotePowerType]] struct {
@@ -60,7 +59,7 @@ func (v *Vote[ConflictIDType, VotePowerType]) WithVotePower(power VotePowerType)
 type Votes[ConflictIDType comparable, VotePowerType constraints.Comparable[VotePowerType]] struct {
 	o orderedmap.OrderedMap[identity.ID, *Vote[ConflictIDType, VotePowerType]]
 
-	m sync.RWMutex
+	m syncutils.RWMutexFake
 }
 
 func NewVotes[ConflictIDType comparable, VotePowerType constraints.Comparable[VotePowerType]]() *Votes[ConflictIDType, VotePowerType] {
@@ -98,8 +97,8 @@ func (v *Votes[ConflictIDType, VotePowerType]) Delete(vote *Vote[ConflictIDType,
 func (v *Votes[ConflictIDType, VotePowerType]) Voters() (voters *advancedset.AdvancedSet[identity.ID]) {
 	voters = advancedset.New[identity.ID]()
 
-	v.m.Lock()
-	defer v.m.Unlock()
+	v.m.RLock()
+	defer v.m.RUnlock()
 
 	v.o.ForEach(func(id identity.ID, vote *Vote[ConflictIDType, VotePowerType]) bool {
 		if vote.Opinion == Like {
@@ -112,8 +111,8 @@ func (v *Votes[ConflictIDType, VotePowerType]) Voters() (voters *advancedset.Adv
 }
 
 func (v *Votes[ConflictIDType, VotePowerType]) Vote(voter identity.ID) (vote *Vote[ConflictIDType, VotePowerType], exists bool) {
-	v.m.Lock()
-	defer v.m.Unlock()
+	v.m.RLock()
+	defer v.m.RUnlock()
 
 	return v.o.Get(voter)
 }

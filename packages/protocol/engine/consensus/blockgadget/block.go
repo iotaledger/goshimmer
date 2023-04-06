@@ -30,16 +30,16 @@ func NewBlock(virtualVotingBlock *booker.Block, opts ...options.Option[Block]) (
 
 // IsAccepted returns true if the Block was accepted.
 func (b *Block) IsAccepted() bool {
-	b.Lock()
-	defer b.Unlock()
+	b.RLock()
+	defer b.RUnlock()
 
 	return b.accepted || b.weaklyAccepted
 }
 
 // IsStronglyAccepted returns true if the Block was accepted through strong children.
 func (b *Block) IsStronglyAccepted() bool {
-	b.Lock()
-	defer b.Unlock()
+	b.RLock()
+	defer b.RUnlock()
 
 	return b.accepted
 }
@@ -67,15 +67,15 @@ func (b *Block) SetAccepted(weakly bool) (wasUpdated bool) {
 }
 
 func (b *Block) IsConfirmed() bool {
-	b.Lock()
-	defer b.Unlock()
+	b.RLock()
+	defer b.RUnlock()
 
 	return b.confirmed || b.weaklyConfirmed
 }
 
 func (b *Block) IsStronglyConfirmed() bool {
-	b.Lock()
-	defer b.Unlock()
+	b.RLock()
+	defer b.RUnlock()
 
 	return b.confirmed
 }
@@ -102,8 +102,8 @@ func (b *Block) SetConfirmed(weakly bool) (wasUpdated bool) {
 }
 
 func (b *Block) IsAcceptanceQueued() bool {
-	b.Lock()
-	defer b.Unlock()
+	b.RLock()
+	defer b.RUnlock()
 
 	return b.acceptanceQueued
 }
@@ -120,8 +120,8 @@ func (b *Block) SetAcceptanceQueued() (wasUpdated bool) {
 }
 
 func (b *Block) IsConfirmationQueued() bool {
-	b.Lock()
-	defer b.Unlock()
+	b.RLock()
+	defer b.RUnlock()
 
 	return b.confirmationQueued
 }

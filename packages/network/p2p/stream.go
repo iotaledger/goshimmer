@@ -23,6 +23,7 @@ import (
 	pp "github.com/iotaledger/goshimmer/packages/network/p2p/proto"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 const (
@@ -107,9 +108,9 @@ func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPe
 		defer m.removeAcceptMatcher(am, protocolID)
 
 		m.log.Debugw("waiting for incoming stream", "id", am.Peer.ID(), "proto", protocolID)
-		am.StreamChMutex.Lock()
+		am.StreamChMutex.RLock()
 		streamCh := am.StreamCh[protocolID]
-		am.StreamChMutex.Unlock()
+		am.StreamChMutex.RUnlock()
 		select {
 		case ps := <-streamCh:
 			if ps.Protocol() != protocolID {
@@ -198,8 +199,8 @@ func (m *Manager) handleStream(stream network.Stream) {
 	}
 	am := m.matchNewStream(stream)
 	if am != nil {
-		am.StreamChMutex.Lock()
-		defer am.StreamChMutex.Unlock()
+		am.StreamChMutex.RLock()
+		defer am.StreamChMutex.RUnlock()
 		streamCh := am.StreamCh[protocolID]
 
 		select {
@@ -220,7 +221,7 @@ func (m *Manager) handleStream(stream network.Stream) {
 type AcceptMatcher struct {
 	Peer          *peer.Peer // connecting peer
 	Libp2pID      libp2ppeer.ID
-	StreamChMutex sync.RWMutex
+	StreamChMutex syncutils.RWMutexFake
 	StreamCh      map[protocol.ID]chan *PacketsStream
 	Ctx           context.Context
 	CtxCancel     context.CancelFunc
@@ -281,8 +282,8 @@ func (m *Manager) removeAcceptMatcher(am *AcceptMatcher, protocolID protocol.ID)
 }
 
 func (m *Manager) matchNewStream(stream network.Stream) *AcceptMatcher {
-	m.acceptMutex.Lock()
-	defer m.acceptMutex.Unlock()
+	m.acceptMutex.RLock()
+	defer m.acceptMutex.RUnlock()
 	am := m.acceptMap[stream.Conn().RemotePeer()]
 	return am
 }

@@ -23,10 +23,10 @@ require (
 	github.com/iotaledger/hive.go/kvstore v0.0.0-20230406084657-747278ebc1f6
 	github.com/iotaledger/hive.go/lo v0.0.0-20230406084657-747278ebc1f6
 	github.com/iotaledger/hive.go/logger v0.0.0-20230401135606-70e06cde28d5
-	github.com/iotaledger/hive.go/objectstorage v0.0.0-20230401135606-70e06cde28d5
-	github.com/iotaledger/hive.go/runtime v0.0.0-20230406084657-747278ebc1f6
+	github.com/iotaledger/hive.go/objectstorage v0.0.0-20230406131704-13f9cf48829e
+	github.com/iotaledger/hive.go/runtime v0.0.0-20230406134647-9662ec76fb21
 	github.com/iotaledger/hive.go/serializer/v2 v2.0.0-rc.1.0.20230401135606-70e06cde28d5
-	github.com/iotaledger/hive.go/stringify v0.0.0-20230401135606-70e06cde28d5
+	github.com/iotaledger/hive.go/stringify v0.0.0-20230406084657-747278ebc1f6
 	github.com/jellydator/ttlcache/v2 v2.11.1
 	github.com/labstack/echo/v4 v4.10.0
 	github.com/libp2p/go-libp2p v0.26.2

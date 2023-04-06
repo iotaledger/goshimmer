@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/module"
 	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
@@ -22,7 +23,7 @@ type Gadget struct {
 	lastConfirmedSlot   slot.Index
 	totalWeightCallback func() int64
 
-	mutex sync.RWMutex
+	mutex syncutils.RWMutexFake
 
 	optsSlotConfirmationThreshold float64
 
@@ -60,8 +61,8 @@ func (g *Gadget) Events() *slotgadget.Events {
 }
 
 func (g *Gadget) LastConfirmedSlot() slot.Index {
-	g.mutex.Lock()
-	defer g.mutex.Unlock()
+	g.mutex.RLock()
+	defer g.mutex.RUnlock()
 
 	return g.lastConfirmedSlot
 }

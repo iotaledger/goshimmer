@@ -18,6 +18,7 @@ import (
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/module"
 	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 const (
@@ -32,10 +33,10 @@ type ThroughputQuota struct {
 	//workers             *workerpool.Group
 	quotaByIDStorage    *kvstore.TypedStore[identity.ID, storable.SerializableInt64, *identity.ID, *storable.SerializableInt64]
 	quotaByIDCache      *shrinkingmap.ShrinkingMap[identity.ID, int64]
-	quotaByIDMutex      sync.RWMutex // TODO: replace this lock with DAG mutex so each entity is individually locked
+	quotaByIDMutex      syncutils.RWMutexFake // TODO: replace this lock with DAG mutex so each entity is individually locked
 	totalBalanceStorage kvstore.KVStore
 	totalBalance        int64
-	totalBalanceMutex   sync.RWMutex
+	totalBalanceMutex   syncutils.RWMutexFake
 
 	traits.BatchCommittable
 	module.Module
@@ -89,24 +90,24 @@ func NewProvider(opts ...options.Option[ThroughputQuota]) module.Provider[*engin
 
 // Balance returns the balance of the given identity.
 func (m *ThroughputQuota) Balance(id identity.ID) (mana int64, exists bool) {
-	m.quotaByIDMutex.Lock()
-	defer m.quotaByIDMutex.Unlock()
+	m.quotaByIDMutex.RLock()
+	defer m.quotaByIDMutex.RUnlock()
 
 	return m.quotaByIDCache.Get(id)
 }
 
 // BalanceByIDs returns the balances of all known identities.
 func (m *ThroughputQuota) BalanceByIDs() (manaByID map[identity.ID]int64) {
-	m.quotaByIDMutex.Lock()
-	defer m.quotaByIDMutex.Unlock()
+	m.quotaByIDMutex.RLock()
+	defer m.quotaByIDMutex.RUnlock()
 
 	return m.quotaByIDCache.AsMap()
 }
 
 // TotalBalance returns the total amount of throughput quota.
 func (m *ThroughputQuota) TotalBalance() (totalMana int64) {
-	m.totalBalanceMutex.Lock()
-	defer m.totalBalanceMutex.Unlock()
+	m.totalBalanceMutex.RLock()
+	defer m.totalBalanceMutex.RUnlock()
 
 	return m.totalBalance
 }

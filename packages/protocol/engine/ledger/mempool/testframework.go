@@ -15,6 +15,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/mockedvm"
 	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -35,7 +36,7 @@ type TestFramework struct {
 	transactionsByAlias map[string]*mockedvm.MockedTransaction
 
 	// transactionsByAliasMutex contains a mutex that is used to synchronize parallel access to the transactionsByAlias.
-	transactionsByAliasMutex sync.RWMutex
+	transactionsByAliasMutex syncutils.RWMutexFake
 
 	// outputIDsByAlias contains a dictionary that maps a human-readable alias to an OutputID.
 	outputIDsByAlias map[string]utxo.OutputID
@@ -75,8 +76,8 @@ func NewTestFramework(test *testing.T, instance MemPool) *TestFramework {
 // Transaction gets the created MockedTransaction by the given alias.
 // Panics if it doesn't exist.
 func (t *TestFramework) Transaction(txAlias string) (tx *mockedvm.MockedTransaction) {
-	t.transactionsByAliasMutex.Lock()
-	defer t.transactionsByAliasMutex.Unlock()
+	t.transactionsByAliasMutex.RLock()
+	defer t.transactionsByAliasMutex.RUnlock()
 
 	tx, exists := t.transactionsByAlias[txAlias]
 	if !exists {
@@ -89,8 +90,8 @@ func (t *TestFramework) Transaction(txAlias string) (tx *mockedvm.MockedTransact
 // OutputID gets the created utxo.OutputID by the given alias.
 // Panics if it doesn't exist.
 func (t *TestFramework) OutputID(alias string) (outputID utxo.OutputID) {
-	t.outputIDsByAliasMutex.Lock()
-	defer t.outputIDsByAliasMutex.Unlock()
+	t.outputIDsByAliasMutex.RLock()
+	defer t.outputIDsByAliasMutex.RUnlock()
 
 	outputID, exists := t.outputIDsByAlias[alias]
 	if !exists {

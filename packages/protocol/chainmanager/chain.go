@@ -1,9 +1,8 @@
 package chainmanager
 
 import (
-	"sync"
-
 	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 type Chain struct {
@@ -12,7 +11,7 @@ type Chain struct {
 	latestCommitmentIndex slot.Index
 	commitmentsByIndex    map[slot.Index]*Commitment
 
-	sync.RWMutex
+	syncutils.RWMutexFake
 }
 
 func NewChain(forkingPoint *Commitment) (fork *Chain) {
@@ -28,29 +27,29 @@ func NewChain(forkingPoint *Commitment) (fork *Chain) {
 }
 
 func (c *Chain) IsSolid() (isSolid bool) {
-	c.Lock()
-	defer c.Unlock()
+	c.RLock()
+	defer c.RUnlock()
 
 	return c.ForkingPoint.IsSolid()
 }
 
 func (c *Chain) Commitment(index slot.Index) (commitment *Commitment) {
-	c.Lock()
-	defer c.Unlock()
+	c.RLock()
+	defer c.RUnlock()
 
 	return c.commitmentsByIndex[index]
 }
 
 func (c *Chain) Size() int {
-	c.Lock()
-	defer c.Unlock()
+	c.RLock()
+	defer c.RUnlock()
 
 	return len(c.commitmentsByIndex)
 }
 
 func (c *Chain) LatestCommitment() *Commitment {
-	c.Lock()
-	defer c.Unlock()
+	c.RLock()
+	defer c.RUnlock()
 
 	return c.commitmentsByIndex[c.latestCommitmentIndex]
 }

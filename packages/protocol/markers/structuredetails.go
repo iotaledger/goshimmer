@@ -2,7 +2,8 @@ package markers
 
 import (
 	"fmt"
-	"sync"
+
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 // region StructureDetails /////////////////////////////////////////////////////////////////////////////////////////////
@@ -15,7 +16,7 @@ type StructureDetails struct {
 	isPastMarker  bool
 	pastMarkers   *Markers
 
-	sync.RWMutex
+	syncutils.RWMutexFake
 }
 
 // NewStructureDetails creates an empty StructureDetails object.
@@ -26,8 +27,8 @@ func NewStructureDetails() (s *StructureDetails) {
 }
 
 func (s *StructureDetails) Rank() (rank uint64) {
-	s.Lock()
-	defer s.Unlock()
+	s.RLock()
+	defer s.RUnlock()
 
 	return s.rank
 }
@@ -40,8 +41,8 @@ func (s *StructureDetails) SetRank(rank uint64) {
 }
 
 func (s *StructureDetails) PastMarkerGap() (pastMarkerGap uint64) {
-	s.Lock()
-	defer s.Unlock()
+	s.RLock()
+	defer s.RUnlock()
 
 	return s.pastMarkerGap
 }
@@ -54,8 +55,8 @@ func (s *StructureDetails) SetPastMarkerGap(pastMarkerGap uint64) {
 }
 
 func (s *StructureDetails) IsPastMarker() (isPastMarker bool) {
-	s.Lock()
-	defer s.Unlock()
+	s.RLock()
+	defer s.RUnlock()
 
 	return s.isPastMarker
 }
@@ -68,8 +69,8 @@ func (s *StructureDetails) SetIsPastMarker(isPastMarker bool) {
 }
 
 func (s *StructureDetails) PastMarkers() (pastMarkers *Markers) {
-	s.Lock()
-	defer s.Unlock()
+	s.RLock()
+	defer s.RUnlock()
 
 	return s.pastMarkers
 }

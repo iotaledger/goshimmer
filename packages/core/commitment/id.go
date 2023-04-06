@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
@@ -14,6 +13,7 @@ import (
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 	"github.com/iotaledger/hive.go/serializer/v2/serix"
 )
 
@@ -85,8 +85,8 @@ func (b *ID) FromRandomness(optionalSlot ...slot.Index) (err error) {
 
 // Alias returns the human-readable alias of the ID (or the base58 encoded bytes if no alias was set).
 func (b ID) Alias() (alias string) {
-	_IDAliasesMutex.Lock()
-	defer _IDAliasesMutex.Unlock()
+	_IDAliasesMutex.RLock()
+	defer _IDAliasesMutex.RUnlock()
 
 	if existingAlias, exists := _IDAliases[b]; exists {
 		return existingAlias
@@ -144,5 +144,5 @@ var (
 	_IDAliases = make(map[ID]string)
 
 	// _IDAliasesMutex is the mutex that is used to synchronize access to the previous map.
-	_IDAliasesMutex = sync.RWMutex{}
+	_IDAliasesMutex = syncutils.RWMutexFake{}
 )

@@ -211,12 +211,12 @@ func (b *Block) IssuerPublicKey() ed25519.PublicKey {
 }
 
 func (b *Block) IssuerID() (issuerID identity.ID) {
-	b.Lock()
+	b.RLock()
 	if b.issuerID != nil {
-		defer b.Unlock()
+		defer b.RUnlock()
 		return *b.issuerID
 	}
-	b.Unlock()
+	b.RUnlock()
 
 	b.Lock()
 	defer b.Unlock()

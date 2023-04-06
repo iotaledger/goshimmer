@@ -8,6 +8,7 @@ import (
 
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 // region MockedNetwork ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -16,7 +17,7 @@ const mainPartition = "main"
 
 type MockedNetwork struct {
 	dispatchersByPartition map[string]map[identity.ID]*MockedEndpoint
-	dispatchersMutex       sync.RWMutex
+	dispatchersMutex       syncutils.RWMutexFake
 }
 
 func NewMockedNetwork() (mockedNetwork *MockedNetwork) {
@@ -83,7 +84,7 @@ type MockedEndpoint struct {
 	network       *MockedNetwork
 	partition     string
 	handlers      map[string]func(identity.ID, proto.Message) error
-	handlersMutex sync.RWMutex
+	handlersMutex syncutils.RWMutexFake
 }
 
 func NewMockedEndpoint(id identity.ID, network *MockedNetwork, partition string) (newMockedNetwork *MockedEndpoint) {
@@ -110,8 +111,8 @@ func (m *MockedEndpoint) UnregisterProtocol(protocolID string) {
 }
 
 func (m *MockedEndpoint) Send(packet proto.Message, protocolID string, to ...identity.ID) {
-	m.network.dispatchersMutex.Lock()
-	defer m.network.dispatchersMutex.Unlock()
+	m.network.dispatchersMutex.RLock()
+	defer m.network.dispatchersMutex.RUnlock()
 
 	if len(to) == 0 {
 		to = lo.Keys(m.network.dispatchersByPartition[m.partition])
@@ -133,8 +134,8 @@ func (m *MockedEndpoint) Send(packet proto.Message, protocolID string, to ...ide
 }
 
 func (m *MockedEndpoint) handler(protocolID string) (handler func(identity.ID, proto.Message) error, exists bool) {
-	m.handlersMutex.Lock()
-	defer m.handlersMutex.Unlock()
+	m.handlersMutex.RLock()
+	defer m.handlersMutex.RUnlock()
 
 	handler, exists = m.handlers[protocolID]
 

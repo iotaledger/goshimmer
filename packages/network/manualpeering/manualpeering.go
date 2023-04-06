@@ -17,6 +17,7 @@ import (
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
@@ -71,10 +72,10 @@ type Manager struct {
 	startOnce         sync.Once
 	isStarted         atomic.Bool
 	stopOnce          sync.Once
-	stopMutex         sync.RWMutex
+	stopMutex         syncutils.RWMutexFake
 	isStopped         bool
 	reconnectInterval time.Duration
-	knownPeersMutex   sync.RWMutex
+	knownPeersMutex   syncutils.RWMutexFake
 	knownPeers        map[identity.ID]*knownPeer
 	workerPool        *workerpool.WorkerPool
 
@@ -153,8 +154,8 @@ func WithOnlyConnectedPeers() GetPeersOption {
 // GetPeers returns the list of known peers.
 func (m *Manager) GetPeers(opts ...GetPeersOption) []*KnownPeer {
 	conf := BuildGetPeersConfig(opts)
-	m.knownPeersMutex.Lock()
-	defer m.knownPeersMutex.Unlock()
+	m.knownPeersMutex.RLock()
+	defer m.knownPeersMutex.RUnlock()
 	peers := make([]*KnownPeer, 0, len(m.knownPeers))
 	for _, kp := range m.knownPeers {
 		connStatus := kp.getConnStatus()
@@ -244,8 +245,8 @@ func (m *Manager) addPeer(p *KnownPeerToAdd) error {
 	if !m.isStarted.Load() {
 		return errors.New("manual peering manager hasn't been started yet")
 	}
-	m.stopMutex.Lock()
-	defer m.stopMutex.Unlock()
+	m.stopMutex.RLock()
+	defer m.stopMutex.RUnlock()
 	if m.isStopped {
 		return errors.New("manual peering manager was stopped")
 	}
@@ -360,8 +361,8 @@ func (m *Manager) onGossipNeighborAdded(neighbor *p2p.Neighbor) {
 }
 
 func (m *Manager) changeNeighborStatus(neighbor *p2p.Neighbor, connStatus ConnectionStatus) {
-	m.knownPeersMutex.Lock()
-	defer m.knownPeersMutex.Unlock()
+	m.knownPeersMutex.RLock()
+	defer m.knownPeersMutex.RUnlock()
 	kp, exists := m.knownPeers[neighbor.ID()]
 	if !exists {
 		return

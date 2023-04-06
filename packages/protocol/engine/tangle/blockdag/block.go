@@ -2,7 +2,6 @@ package blockdag
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -10,6 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 	"github.com/iotaledger/hive.go/stringify"
 )
 
@@ -25,7 +25,7 @@ type Block struct {
 	strongChildren       []*Block
 	weakChildren         []*Block
 	likedInsteadChildren []*Block
-	mutex                sync.RWMutex
+	mutex                syncutils.RWMutexFake
 
 	*ModelsBlock
 }
@@ -56,32 +56,32 @@ func NewRootBlock(id models.BlockID, slotTimeProvider *slot.TimeProvider, opts .
 
 // IsMissing returns a flag that indicates if the underlying Block data hasn't been stored, yet.
 func (b *Block) IsMissing() (isMissing bool) {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
+	b.mutex.RLock()
+	defer b.mutex.RUnlock()
 
 	return b.missing
 }
 
 // IsSolid returns true if the Block is solid (the entire causal history is known).
 func (b *Block) IsSolid() (isSolid bool) {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
+	b.mutex.RLock()
+	defer b.mutex.RUnlock()
 
 	return b.solid
 }
 
 // IsInvalid returns true if the Block was marked as invalid.
 func (b *Block) IsInvalid() (isInvalid bool) {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
+	b.mutex.RLock()
+	defer b.mutex.RUnlock()
 
 	return b.invalid
 }
 
 // IsFuture returns true if the Block is a future Block (we haven't committed to its commitment slot yet).
 func (b *Block) IsFuture() (isFuture bool) {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
+	b.mutex.RLock()
+	defer b.mutex.RUnlock()
 
 	return b.future
 }
@@ -102,16 +102,16 @@ func (b *Block) SetFuture() (wasUpdated bool) {
 // IsOrphaned returns true if the Block is orphaned (either due to being marked as orphaned itself or because it has
 // orphaned Blocks in its past cone).
 func (b *Block) IsOrphaned() (isOrphaned bool) {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
+	b.mutex.RLock()
+	defer b.mutex.RUnlock()
 
 	return b.orphaned
 }
 
 // Children returns the children of the Block.
 func (b *Block) Children() (children []*Block) {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
+	b.mutex.RLock()
+	defer b.mutex.RUnlock()
 
 	seenBlockIDs := make(map[models.BlockID]types.Empty)
 	for _, parentsByType := range [][]*Block{
@@ -131,22 +131,22 @@ func (b *Block) Children() (children []*Block) {
 }
 
 func (b *Block) StrongChildren() []*Block {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
+	b.mutex.RLock()
+	defer b.mutex.RUnlock()
 
 	return lo.CopySlice(b.strongChildren)
 }
 
 func (b *Block) WeakChildren() []*Block {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
+	b.mutex.RLock()
+	defer b.mutex.RUnlock()
 
 	return lo.CopySlice(b.weakChildren)
 }
 
 func (b *Block) LikedInsteadChildren() []*Block {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
+	b.mutex.RLock()
+	defer b.mutex.RUnlock()
 
 	return lo.CopySlice(b.likedInsteadChildren)
 }
@@ -221,8 +221,8 @@ func (b *Block) Update(data *models.Block) (wasPublished bool) {
 }
 
 func (b *Block) String() string {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
+	b.mutex.RLock()
+	defer b.mutex.RUnlock()
 
 	builder := stringify.NewStructBuilder("BlockDAG.Block", stringify.NewStructField("id", b.ID()))
 	builder.AddField(stringify.NewStructField("Missing", b.missing))

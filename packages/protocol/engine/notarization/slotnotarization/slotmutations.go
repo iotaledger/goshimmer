@@ -1,8 +1,6 @@
 package slotnotarization
 
 import (
-	"sync"
-
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
@@ -16,6 +14,7 @@ import (
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 // SlotMutations is an in-memory data structure that enables the collection of mutations for uncommitted slots.
@@ -33,7 +32,7 @@ type SlotMutations struct {
 	// latestCommittedIndex stores the index of the latest committed slot.
 	latestCommittedIndex slot.Index
 
-	evictionMutex sync.RWMutex
+	evictionMutex syncutils.RWMutexFake
 
 	// lastCommittedSlotCumulativeWeight stores the cumulative weight of the last committed slot
 	lastCommittedSlotCumulativeWeight uint64
@@ -52,8 +51,8 @@ func NewSlotMutations(weights *sybilprotection.Weights, lastCommittedSlot slot.I
 
 // AddAcceptedBlock adds the given block to the set of accepted blocks.
 func (m *SlotMutations) AddAcceptedBlock(block *models.Block) (err error) {
-	m.evictionMutex.Lock()
-	defer m.evictionMutex.Unlock()
+	m.evictionMutex.RLock()
+	defer m.evictionMutex.RUnlock()
 
 	blockID := block.ID()
 	if blockID.Index() <= m.latestCommittedIndex {
@@ -67,8 +66,8 @@ func (m *SlotMutations) AddAcceptedBlock(block *models.Block) (err error) {
 
 // RemoveAcceptedBlock removes the given block from the set of accepted blocks.
 func (m *SlotMutations) RemoveAcceptedBlock(block *models.Block) (err error) {
-	m.evictionMutex.Lock()
-	defer m.evictionMutex.Unlock()
+	m.evictionMutex.RLock()
+	defer m.evictionMutex.RUnlock()
 
 	blockID := block.ID()
 	if blockID.Index() <= m.latestCommittedIndex {
@@ -84,8 +83,8 @@ func (m *SlotMutations) RemoveAcceptedBlock(block *models.Block) (err error) {
 
 // AddAcceptedTransaction adds the given transaction to the set of accepted transactions.
 func (m *SlotMutations) AddAcceptedTransaction(metadata *mempool.TransactionMetadata) (err error) {
-	m.evictionMutex.Lock()
-	defer m.evictionMutex.Unlock()
+	m.evictionMutex.RLock()
+	defer m.evictionMutex.RUnlock()
 
 	if metadata.InclusionSlot() <= m.latestCommittedIndex {
 		return errors.Errorf("transaction %s accepted with issuing time %s in already committed slot %d", metadata.ID(), metadata.InclusionSlot(), metadata.InclusionSlot())
@@ -98,8 +97,8 @@ func (m *SlotMutations) AddAcceptedTransaction(metadata *mempool.TransactionMeta
 
 // RemoveAcceptedTransaction removes the given transaction from the set of accepted transactions.
 func (m *SlotMutations) RemoveAcceptedTransaction(metadata *mempool.TransactionMetadata) (err error) {
-	m.evictionMutex.Lock()
-	defer m.evictionMutex.Unlock()
+	m.evictionMutex.RLock()
+	defer m.evictionMutex.RUnlock()
 
 	if metadata.InclusionSlot() <= m.latestCommittedIndex {
 		return errors.Errorf("transaction %s accepted with issuing time %s in already committed slot %d", metadata.ID(), metadata.InclusionSlot(), metadata.InclusionSlot())
@@ -112,8 +111,8 @@ func (m *SlotMutations) RemoveAcceptedTransaction(metadata *mempool.TransactionM
 
 // UpdateTransactionInclusion moves a transaction from a later slot to the given slot.
 func (m *SlotMutations) UpdateTransactionInclusion(txID utxo.TransactionID, oldSlot, newSlot slot.Index) (err error) {
-	m.evictionMutex.Lock()
-	defer m.evictionMutex.Unlock()
+	m.evictionMutex.RLock()
+	defer m.evictionMutex.RUnlock()
 
 	if oldSlot <= m.latestCommittedIndex || newSlot <= m.latestCommittedIndex {
 		return errors.Errorf("inclusion time of transaction changed for already committed slot: previous Index %d, new Index %d", oldSlot, newSlot)

@@ -1,7 +1,6 @@
 package slotnotarization
 
 import (
-	"sync"
 	"testing"
 	"time"
 
@@ -16,6 +15,7 @@ import (
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 type TestFramework struct {
@@ -29,7 +29,7 @@ type TestFramework struct {
 	blocksByID        map[string]*models.Block
 	slotEntityCounter map[slot.Index]int
 
-	sync.RWMutex
+	syncutils.RWMutexFake
 }
 
 func NewTestFramework(test *testing.T, slotTimeProvider *slot.TimeProvider) *TestFramework {
@@ -66,8 +66,8 @@ func (t *TestFramework) CreateIssuer(alias string, issuerWeight ...int64) (issue
 }
 
 func (t *TestFramework) Issuer(alias string) (issuer ed25519.PublicKey) {
-	t.Lock()
-	defer t.Unlock()
+	t.RLock()
+	defer t.RUnlock()
 
 	return t.issuersByID[alias]
 }
@@ -96,8 +96,8 @@ func (t *TestFramework) CreateBlock(alias string, index slot.Index, blockOpts ..
 }
 
 func (t *TestFramework) Block(alias string) (block *models.Block) {
-	t.Lock()
-	defer t.Unlock()
+	t.RLock()
+	defer t.RUnlock()
 
 	return t.blocksByID[alias]
 }
@@ -121,8 +121,8 @@ func (t *TestFramework) CreateTransaction(alias string, index slot.Index) (metad
 }
 
 func (t *TestFramework) Transaction(alias string) *mempool.TransactionMetadata {
-	t.Lock()
-	defer t.Unlock()
+	t.RLock()
+	defer t.RUnlock()
 
 	return t.transactionsByID[alias]
 }

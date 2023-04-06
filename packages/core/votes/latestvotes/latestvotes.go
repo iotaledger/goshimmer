@@ -1,11 +1,10 @@
 package latestvotes
 
 import (
-	"sync"
-
 	"github.com/iotaledger/hive.go/constraints"
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/ds/thresholdmap"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 // LatestVotes keeps track of the most up-to-date for a certain Voter casted on a specific Index.
@@ -16,7 +15,7 @@ type LatestVotes[EntityIndex constraints.Integer, VotePowerType constraints.Comp
 	voter identity.ID
 	t     *thresholdmap.ThresholdMap[EntityIndex, VotePowerType]
 
-	m sync.RWMutex
+	m syncutils.RWMutexFake
 }
 
 // NewLatestVotes creates a new NewLatestVotes instance associated with the given details.
@@ -34,16 +33,16 @@ func (l *LatestVotes[EntityIndex, VotePowerType]) ForEach(iterator func(node *th
 
 // Voter returns the Voter for the LatestVotes.
 func (l *LatestVotes[EntityIndex, VotePowerType]) Voter() identity.ID {
-	l.m.Lock()
-	defer l.m.Unlock()
+	l.m.RLock()
+	defer l.m.RUnlock()
 
 	return l.voter
 }
 
 // Power returns the power of the vote for the given Index.
 func (l *LatestVotes[EntityIndex, VotePowerType]) Power(index EntityIndex) (power VotePowerType, exists bool) {
-	l.m.Lock()
-	defer l.m.Unlock()
+	l.m.RLock()
+	defer l.m.RUnlock()
 
 	return l.t.Get(index)
 }

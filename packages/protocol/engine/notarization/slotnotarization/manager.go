@@ -2,7 +2,6 @@ package slotnotarization
 
 import (
 	"io"
-	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -20,6 +19,7 @@ import (
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/runtime/module"
 	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 const (
@@ -36,7 +36,7 @@ type Manager struct {
 
 	storage         *storage.Storage
 	ledgerState     ledger.Ledger
-	commitmentMutex sync.RWMutex
+	commitmentMutex syncutils.RWMutexFake
 
 	acceptedTimeFunc func() time.Time
 
@@ -174,8 +174,8 @@ func (m *Manager) Import(reader io.ReadSeeker) (err error) {
 }
 
 func (m *Manager) Export(writer io.WriteSeeker, targetSlot slot.Index) (err error) {
-	m.commitmentMutex.Lock()
-	defer m.commitmentMutex.Unlock()
+	m.commitmentMutex.RLock()
+	defer m.commitmentMutex.RUnlock()
 
 	if err = m.attestations.Export(writer, targetSlot); err != nil {
 		return errors.Wrap(err, "failed to export attestations")

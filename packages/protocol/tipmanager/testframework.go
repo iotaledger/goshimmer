@@ -2,7 +2,6 @@ package tipmanager
 
 import (
 	"fmt"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -42,6 +41,7 @@ import (
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/debug"
 	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
@@ -54,7 +54,7 @@ type TestFramework struct {
 
 	mockAcceptance       *blockgadget.MockBlockGadget
 	scheduledBlocks      *shrinkingmap.ShrinkingMap[models.BlockID, *scheduler.Block]
-	scheduledBlocksMutex sync.RWMutex
+	scheduledBlocksMutex syncutils.RWMutexFake
 
 	test       *testing.T
 	tipAdded   uint32
@@ -194,8 +194,8 @@ func (t *TestFramework) createGenesis() {
 }
 
 func (t *TestFramework) mockSchedulerBlock(id models.BlockID) (block *scheduler.Block, exists bool) {
-	t.scheduledBlocksMutex.Lock()
-	defer t.scheduledBlocksMutex.Unlock()
+	t.scheduledBlocksMutex.RLock()
+	defer t.scheduledBlocksMutex.RUnlock()
 
 	return t.scheduledBlocks.Get(id)
 }

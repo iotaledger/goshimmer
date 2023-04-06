@@ -30,8 +30,8 @@ func NewConflictTracker[ConflictIDType, ResourceIDType comparable, VotePowerType
 }
 
 func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) TrackVote(initialVote *advancedset.AdvancedSet[ConflictIDType], voterID identity.ID, power VotePowerType) (added, invalid bool) {
-	c.conflictDAG.WeightsMutex.Lock()
-	defer c.conflictDAG.WeightsMutex.Unlock()
+	c.conflictDAG.WeightsMutex.RLock()
+	defer c.conflictDAG.WeightsMutex.RUnlock()
 
 	addedConflictIDs, revokedConflictIDs, invalid := c.conflictDAG.DetermineVotes(initialVote)
 	if invalid {
@@ -58,8 +58,8 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) Voters(
 }
 
 func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) AddSupportToForkedConflict(forkedConflictID ConflictIDType, parentConflictIDs *advancedset.AdvancedSet[ConflictIDType], voterID identity.ID, power VotePowerType) {
-	c.conflictDAG.WeightsMutex.Lock()
-	defer c.conflictDAG.WeightsMutex.Unlock()
+	c.conflictDAG.WeightsMutex.RLock()
+	defer c.conflictDAG.WeightsMutex.RUnlock()
 
 	// Do not track decided conflicts.
 	if !c.conflictPending(forkedConflictID) {

@@ -26,6 +26,7 @@ import (
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/module"
 	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
@@ -40,7 +41,7 @@ type Gadget struct {
 
 	blocks           *memstorage.SlotStorage[models.BlockID, *blockgadget.Block]
 	evictionState    *eviction.State
-	evictionMutex    sync.RWMutex
+	evictionMutex    syncutils.RWMutexFake
 	slotTimeProvider *slot.TimeProvider
 
 	workers             *workerpool.Group
@@ -112,8 +113,8 @@ func (g *Gadget) Initialize(workers *workerpool.Group, booker booker.Booker, blo
 
 	g.acceptanceOrder = causalordersync.New(g.workers.CreatePool("AcceptanceOrder", 2), g.GetOrRegisterBlock, (*blockgadget.Block).IsStronglyAccepted, lo.Bind(false, g.markAsAccepted), g.acceptanceFailed, (*blockgadget.Block).StrongParents)
 	g.confirmationOrder = causalordersync.New(g.workers.CreatePool("ConfirmationOrder", 2), func(id models.BlockID) (entity *blockgadget.Block, exists bool) {
-		g.evictionMutex.Lock()
-		defer g.evictionMutex.Unlock()
+		g.evictionMutex.RLock()
+		defer g.evictionMutex.RUnlock()
 
 		if g.evictionState.InEvictedSlot(id) {
 			return blockgadget.NewRootBlock(id, g.slotTimeProvider), true
@@ -134,32 +135,32 @@ func (g *Gadget) Events() *blockgadget.Events {
 
 // IsMarkerAccepted returns whether the given marker is accepted.
 func (g *Gadget) IsMarkerAccepted(marker markers.Marker) (accepted bool) {
-	g.evictionMutex.Lock()
-	defer g.evictionMutex.Unlock()
+	g.evictionMutex.RLock()
+	defer g.evictionMutex.RUnlock()
 
 	return g.isMarkerAccepted(marker)
 }
 
 // IsMarkerConfirmed returns whether the given marker is confirmed.
 func (g *Gadget) IsMarkerConfirmed(marker markers.Marker) (confirmed bool) {
-	g.evictionMutex.Lock()
-	defer g.evictionMutex.Unlock()
+	g.evictionMutex.RLock()
+	defer g.evictionMutex.RUnlock()
 
 	return g.isMarkerConfirmed(marker)
 }
 
 // IsBlockAccepted returns whether the given block is accepted.
 func (g *Gadget) IsBlockAccepted(blockID models.BlockID) (accepted bool) {
-	g.evictionMutex.Lock()
-	defer g.evictionMutex.Unlock()
+	g.evictionMutex.RLock()
+	defer g.evictionMutex.RUnlock()
 
 	block, exists := g.block(blockID)
 	return exists && block.IsAccepted()
 }
 
 func (g *Gadget) IsBlockConfirmed(blockID models.BlockID) bool {
-	g.evictionMutex.Lock()
-	defer g.evictionMutex.Unlock()
+	g.evictionMutex.RLock()
+	defer g.evictionMutex.RUnlock()
 
 	block, exists := g.block(blockID)
 	return exists && block.IsConfirmed()
@@ -203,21 +204,21 @@ func (g *Gadget) FirstUnconfirmedIndex(sequenceID markers.SequenceID) (firstUnco
 
 // Block retrieves a Block with metadata from the in-memory storage of the Gadget.
 func (g *Gadget) Block(id models.BlockID) (block *blockgadget.Block, exists bool) {
-	g.evictionMutex.Lock()
-	defer g.evictionMutex.Unlock()
+	g.evictionMutex.RLock()
+	defer g.evictionMutex.RUnlock()
 
 	return g.block(id)
 }
 
 func (g *Gadget) GetOrRegisterBlock(blockID models.BlockID) (block *blockgadget.Block, exists bool) {
-	g.evictionMutex.Lock()
-	defer g.evictionMutex.Unlock()
+	g.evictionMutex.RLock()
+	defer g.evictionMutex.RUnlock()
 
 	return g.getOrRegisterBlock(blockID)
 }
 
 func (g *Gadget) RefreshSequence(sequenceID markers.SequenceID, newMaxSupportedIndex, prevMaxSupportedIndex markers.Index) {
-	g.evictionMutex.Lock()
+	g.evictionMutex.RLock()
 
 	var acceptedBlocks, confirmedBlocks, individuallyAcceptedBlocks, individuallyConfirmedBlocks []*blockgadget.Block
 
@@ -242,7 +243,7 @@ func (g *Gadget) RefreshSequence(sequenceID markers.SequenceID, newMaxSupportedI
 		markerIndex = marker.Index()
 	}
 
-	g.evictionMutex.Unlock()
+	g.evictionMutex.RUnlock()
 
 	for _, block := range individuallyAcceptedBlocks {
 		_ = g.markAsAccepted(block, true)

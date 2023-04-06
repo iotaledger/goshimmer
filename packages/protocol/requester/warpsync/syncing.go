@@ -82,7 +82,7 @@ func (m *Manager) syncSlotFunc(errCtx context.Context, eg *errgroup.Group, valid
 				tangleTree := smt.NewSparseMerkleTree(db.NewStore(), db.NewStore(), lo.PanicOnErr(blake2b.New256(nil)))
 
 				slotChannels := m.startSlotSyncing(targetSlot)
-				slotChannels.Lock()
+				slotChannels.RLock()
 
 				m.protocol.RequestSlotBlocks(targetSlot, ecChain[targetSlot], peerID)
 
@@ -93,7 +93,7 @@ func (m *Manager) syncSlotFunc(errCtx context.Context, eg *errgroup.Group, valid
 					m.slotVerifyCommand,
 					m.slotProcessBlocksCommand,
 				).WithTerminationCallback(func(params *syncingFlowParams) {
-					params.slotChannels.Unlock()
+					params.slotChannels.RUnlock()
 					m.endSlotSyncing(params.targetSlot)
 				}).WithSuccessCallback(func(params *syncingFlowParams) {
 					success = true
@@ -263,8 +263,8 @@ func (m *Manager) processSlotBlocksStartPacket(packetSlotBlocksStart *wp.Packet_
 		return
 	}
 
-	slotChannels.Lock()
-	defer slotChannels.Unlock()
+	slotChannels.RLock()
+	defer slotChannels.RUnlock()
 
 	if !slotChannels.active {
 		return
@@ -294,8 +294,8 @@ func (m *Manager) processSlotBlocksBatchPacket(packetSlotBlocksBatch *wp.Packet_
 		return
 	}
 
-	slotChannels.Lock()
-	defer slotChannels.Unlock()
+	slotChannels.RLock()
+	defer slotChannels.RUnlock()
 
 	if !slotChannels.active {
 		return
@@ -339,8 +339,8 @@ func (m *Manager) processSlotBlocksEndPacket(packetSlotBlocksEnd *wp.Packet_Slot
 		return
 	}
 
-	slotChannels.Lock()
-	defer slotChannels.Unlock()
+	slotChannels.RLock()
+	defer slotChannels.RUnlock()
 
 	if !slotChannels.active {
 		return
@@ -369,8 +369,8 @@ func (m *Manager) processSlotBlocksEndPacket(packetSlotBlocksEnd *wp.Packet_Slot
 }
 
 func (m *Manager) getSlotChannels(ei slot.Index) *slotChannels {
-	m.syncingLock.Lock()
-	defer m.syncingLock.Unlock()
+	m.syncingLock.RLock()
+	defer m.syncingLock.RUnlock()
 
 	if !m.syncingInProgress {
 		return nil
