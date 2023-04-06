@@ -293,6 +293,11 @@ func (p *Protocol) initTipManager() {
 		p.TipManager.EvictTSCCache(index)
 	}, event.WithWorkerPool(wp))
 	p.Events.Engine.Consensus.BlockGadget.BlockAccepted.Hook(func(block *blockgadget.Block) {
+		// If we accept a block weakly that means that it might not have a strong future cone. If we remove its parents
+		// from the tippool, a portion of the tangle might loose (strong) connection to the tips.
+		if !block.IsStronglyAccepted() {
+			return
+		}
 		p.TipManager.RemoveStrongParents(block.ModelsBlock)
 	}, event.WithWorkerPool(wp))
 }
