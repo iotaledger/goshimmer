@@ -120,6 +120,24 @@ func (c *Conflict[ConflictID, ResourceID]) AddConflictSets(conflictSets ...*Set[
 }
 
 func (c *Conflict[ConflictID, ResourceID]) UpdateParents(addedParent *Conflict[ConflictID, ResourceID], removedParents ...*Conflict[ConflictID, ResourceID]) (updated bool) {
+	onParentAddedLikedInstead := func(likedInstead *Conflict[ConflictID, ResourceID]) {
+		sources, sourcesExist := c.likedInsteadSources.Get(likedInstead.ID())
+		if !sourcesExist {
+			sources = advancedset.New[*Conflict[ConflictID, ResourceID]]()
+			c.likedInsteadSources.Set(likedInstead.ID(), sources)
+		}
+
+		if !sources.Add(addedParent) || !c.likedInstead.Add(likedInstead) {
+			return
+		}
+
+		if c.likedInstead.Delete(c.preferredInstead) {
+			c.LikedInsteadRemoved.Trigger(c.preferredInstead)
+		}
+
+		c.LikedInsteadAdded.Trigger(likedInstead)
+	}
+
 	if func() bool {
 		c.mutex.Lock()
 		defer c.mutex.Unlock()
@@ -150,19 +168,35 @@ func (c *Conflict[ConflictID, ResourceID]) UpdateParents(addedParent *Conflict[C
 				}).Unhook,
 
 				addedParent.LikedInsteadRemoved.Hook(func(conflict *Conflict[ConflictID, ResourceID]) {
-					c.onParentRemovedLikedInstead(addedParent, conflict)
+					func(parent *Conflict[ConflictID, ResourceID], likedConflict *Conflict[ConflictID, ResourceID]) {
+						c.mutex.Lock()
+						defer c.mutex.Unlock()
+
+						sources, sourcesExist := c.likedInsteadSources.Get(likedConflict.ID())
+						if !sourcesExist || !sources.Delete(parent) || !sources.IsEmpty() || !c.likedInsteadSources.Delete(likedConflict.ID()) || !c.likedInstead.Delete(likedConflict) {
+							return
+						}
+
+						c.LikedInsteadRemoved.Trigger(likedConflict)
+
+						if !c.isPreferred() && c.likedInstead.IsEmpty() {
+							c.likedInstead.Add(c.preferredInstead)
+
+							c.LikedInsteadAdded.Trigger(c.preferredInstead)
+						}
+					}(addedParent, conflict)
 				}).Unhook,
 
 				addedParent.LikedInsteadAdded.Hook(func(conflict *Conflict[ConflictID, ResourceID]) {
 					c.mutex.Lock()
 					defer c.mutex.Unlock()
 
-					c.onParentAddedLikedInstead(addedParent, conflict)
+					onParentAddedLikedInstead(conflict)
 				}).Unhook,
 			))
 
 			for conflicts := addedParent.likedInstead.Iterator(); conflicts.HasNext(); {
-				c.onParentAddedLikedInstead(addedParent, conflicts.Next())
+				onParentAddedLikedInstead(conflicts.Next())
 			}
 
 			return addedParent.weight.Value().AcceptanceState() == acceptance.Rejected && c.setRejected()
@@ -378,42 +412,4 @@ func (c *Conflict[ConflictID, ResourceID]) setPreferredInstead(preferredInstead 
 	}
 
 	return true
-}
-
-// onParentAddedLikedInstead is called when a parent Conflict adds a liked instead Conflict.
-func (c *Conflict[ConflictID, ResourceID]) onParentAddedLikedInstead(parent *Conflict[ConflictID, ResourceID], likedConflict *Conflict[ConflictID, ResourceID]) {
-	sources, sourcesExist := c.likedInsteadSources.Get(likedConflict.ID())
-	if !sourcesExist {
-		sources = advancedset.New[*Conflict[ConflictID, ResourceID]]()
-		c.likedInsteadSources.Set(likedConflict.ID(), sources)
-	}
-
-	if !sources.Add(parent) || !c.likedInstead.Add(likedConflict) {
-		return
-	}
-
-	if c.likedInstead.Delete(c.preferredInstead) {
-		c.LikedInsteadRemoved.Trigger(c.preferredInstead)
-	}
-
-	c.LikedInsteadAdded.Trigger(likedConflict)
-}
-
-// onParentRemovedLikedInstead is called when a parent Conflict removes a liked instead Conflict.
-func (c *Conflict[ConflictID, ResourceID]) onParentRemovedLikedInstead(parent *Conflict[ConflictID, ResourceID], likedConflict *Conflict[ConflictID, ResourceID]) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	sources, sourcesExist := c.likedInsteadSources.Get(likedConflict.ID())
-	if !sourcesExist || !sources.Delete(parent) || !sources.IsEmpty() || !c.likedInsteadSources.Delete(likedConflict.ID()) || !c.likedInstead.Delete(likedConflict) {
-		return
-	}
-
-	c.LikedInsteadRemoved.Trigger(likedConflict)
-
-	if !c.isPreferred() && c.likedInstead.IsEmpty() {
-		c.likedInstead.Add(c.preferredInstead)
-
-		c.LikedInsteadAdded.Trigger(c.preferredInstead)
-	}
 }
