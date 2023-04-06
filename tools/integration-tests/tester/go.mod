@@ -68,7 +68,7 @@ require (
 	github.com/iotaledger/hive.go/app v0.0.0-20230406084657-747278ebc1f6 // indirect
 	github.com/iotaledger/hive.go/autopeering v0.0.0-20230406084657-747278ebc1f6 // indirect
 	github.com/iotaledger/hive.go/constraints v0.0.0-20230406084657-747278ebc1f6 // indirect
-	github.com/iotaledger/hive.go/core v1.0.0-rc.3.0.20230406084657-747278ebc1f6 // indirect
+	github.com/iotaledger/hive.go/core v1.0.0-rc.3.0.20230401135606-70e06cde28d5 // indirect
 	github.com/iotaledger/hive.go/kvstore v0.0.0-20230406084657-747278ebc1f6 // indirect
 	github.com/iotaledger/hive.go/logger v0.0.0-20230406084657-747278ebc1f6 // indirect
 	github.com/iotaledger/hive.go/objectstorage v0.0.0-20230406084657-747278ebc1f6 // indirect
@@ -171,7 +171,7 @@ require (
 	golang.org/x/mod v0.8.0 // indirect
 	golang.org/x/net v0.8.0 // indirect
 	golang.org/x/sys v0.7.0 // indirect
-	golang.org/x/text v0.8.0 // indirect
+	golang.org/x/text v0.9.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools v0.6.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
