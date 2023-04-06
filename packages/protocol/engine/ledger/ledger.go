@@ -3,9 +3,9 @@ package ledger
 import (
 	"io"
 
-	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
 	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/runtime/module"
 )
 
 // Ledger is an engine module that provides access to the persistent ledger state.
