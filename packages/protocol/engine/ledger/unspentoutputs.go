@@ -1,11 +1,11 @@
 package ledger
 
 import (
-	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/hive.go/ads"
+	"github.com/iotaledger/hive.go/runtime/module"
 )
 
 // UnspentOutputs is a submodule that provides access to the unspent outputs of the ledger state.
