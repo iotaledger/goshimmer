@@ -8,10 +8,6 @@ require (
 	github.com/docker/docker v20.10.24+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/iotaledger/goshimmer v0.1.3
-	github.com/iotaledger/hive.go/crypto v0.0.0-20230404221932-29255e3843c3
-	github.com/iotaledger/hive.go/ds v0.0.0-20230404221932-29255e3843c3
-	github.com/iotaledger/hive.go/lo v0.0.0-20230404221932-29255e3843c3
-	github.com/iotaledger/hive.go/runtime v0.0.0-20230404221932-29255e3843c3
 	github.com/iotaledger/hive.go/crypto v0.0.0-20230406084657-747278ebc1f6
 	github.com/iotaledger/hive.go/ds v0.0.0-20230406084657-747278ebc1f6
 	github.com/iotaledger/hive.go/lo v0.0.0-20230406084657-747278ebc1f6
@@ -68,16 +64,6 @@ require (
 	github.com/huin/goupnp v1.0.3 // indirect
 	github.com/iancoleman/orderedmap v0.2.0 // indirect
 	github.com/iotaledger/grocksdb v1.7.5-0.20230220105546-5162e18885c7 // indirect
-	github.com/iotaledger/hive.go/ads v0.0.0-20230404221932-29255e3843c3 // indirect
-	github.com/iotaledger/hive.go/app v0.0.0-20230404221932-29255e3843c3 // indirect
-	github.com/iotaledger/hive.go/autopeering v0.0.0-20230404221932-29255e3843c3 // indirect
-	github.com/iotaledger/hive.go/constraints v0.0.0-20230404221932-29255e3843c3 // indirect
-	github.com/iotaledger/hive.go/core v1.0.0-rc.3.0.20230404221932-29255e3843c3 // indirect
-	github.com/iotaledger/hive.go/kvstore v0.0.0-20230404221932-29255e3843c3 // indirect
-	github.com/iotaledger/hive.go/logger v0.0.0-20230404221932-29255e3843c3 // indirect
-	github.com/iotaledger/hive.go/objectstorage v0.0.0-20230404221932-29255e3843c3 // indirect
-	github.com/iotaledger/hive.go/serializer/v2 v2.0.0-rc.1.0.20230404221932-29255e3843c3 // indirect
-	github.com/iotaledger/hive.go/stringify v0.0.0-20230404221932-29255e3843c3 // indirect
 	github.com/iotaledger/hive.go/ads v0.0.0-20230406084657-747278ebc1f6 // indirect
 	github.com/iotaledger/hive.go/app v0.0.0-20230406084657-747278ebc1f6 // indirect
 	github.com/iotaledger/hive.go/autopeering v0.0.0-20230406084657-747278ebc1f6 // indirect
