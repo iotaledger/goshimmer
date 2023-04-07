@@ -346,7 +346,7 @@ func (c *Conflict[ConflictID, ResourceID]) removeLikedInsteadReference(source, r
 func (c *Conflict[ConflictID, ResourceID]) setPreferredInstead(preferredInstead *Conflict[ConflictID, ResourceID]) (previousPreferredInstead *Conflict[ConflictID, ResourceID]) {
 	// to prevent deadlocks, we lock per sub-task (we usually lock likedInsteadMutex before preferredInsteadMutex).
 
-	preferredInsteadUpdated := func() bool {
+	if func() bool {
 		c.preferredInsteadMutex.Lock()
 		defer c.preferredInsteadMutex.Unlock()
 
@@ -358,9 +358,7 @@ func (c *Conflict[ConflictID, ResourceID]) setPreferredInstead(preferredInstead 
 		c.PreferredInsteadUpdated.Trigger(preferredInstead)
 
 		return true
-	}()
-
-	if preferredInsteadUpdated {
+	}() {
 		c.likedInsteadMutex.Lock()
 		defer c.likedInsteadMutex.Unlock()
 
