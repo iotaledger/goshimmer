@@ -1,7 +1,6 @@
 package tangleconsensus
 
 import (
-	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
@@ -9,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/conflictresolver"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/slotgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/slotgadget/totalweightslotgadget"
+	"github.com/iotaledger/hive.go/runtime/module"
 	"github.com/iotaledger/hive.go/runtime/options"
 )
 
@@ -47,11 +47,10 @@ func NewProvider(opts ...options.Option[Consensus]) module.Provider[*engine.Engi
 
 				e.Events.Consensus.BlockGadget.Error.Hook(e.Events.Error.Trigger)
 
+				c.TriggerConstructed()
 				e.HookInitialized(c.TriggerInitialized)
 			})
-		},
-			(*Consensus).TriggerConstructed,
-		)
+		})
 	})
 }
 

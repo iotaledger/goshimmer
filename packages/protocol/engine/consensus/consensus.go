@@ -1,10 +1,10 @@
 package consensus
 
 import (
-	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/conflictresolver"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/slotgadget"
+	"github.com/iotaledger/hive.go/runtime/module"
 )
 
 type Consensus interface {

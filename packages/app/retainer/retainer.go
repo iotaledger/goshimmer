@@ -54,11 +54,11 @@ func NewRetainer(workers *workerpool.Group, protocol *protocol.Protocol, dbManag
 		protocol:             protocol,
 		dbManager:            dbManager,
 		optsRealm:            []byte("retainer"),
-	}, opts, (*Retainer).setupEvents, func(r *Retainer) {
+	}, opts, func(r *Retainer) {
 		r.blockStorage = database.NewPersistentSlotStorage[models.BlockID, BlockMetadata](dbManager, append(r.optsRealm, []byte{prefixBlockMetadataStorage}...))
 		r.commitmentStorage = database.NewPersistentSlotStorage[commitment.ID, CommitmentDetails](dbManager, append(r.optsRealm, []byte{prefixCommitmentDetailsStorage}...))
 		r.metadataEvictionLock = syncutils.NewDAGMutex[slot.Index]()
-	})
+	}, (*Retainer).setupEvents)
 }
 
 func (r *Retainer) Shutdown() {
@@ -171,7 +171,7 @@ func (r *Retainer) setupEvents() {
 		}
 	}, event.WithWorkerPool(r.blockWorkerPool))
 
-	r.protocol.Events.Engine.Tangle.Booker.VirtualVoting.BlockTracked.Hook(func(block *booker.Block) {
+	r.protocol.Events.Engine.Tangle.Booker.BlockTracked.Hook(func(block *booker.Block) {
 		if cm := r.createOrGetCachedMetadata(block.ID()); cm != nil {
 			cm.setVirtualVotingBlock(block)
 		}

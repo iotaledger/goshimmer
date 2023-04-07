@@ -1,13 +1,13 @@
 package inmemorytangle
 
 import (
-	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag/inmemoryblockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markerbooker"
+	"github.com/iotaledger/hive.go/runtime/module"
 	"github.com/iotaledger/hive.go/runtime/options"
 )
 
@@ -33,7 +33,10 @@ func NewProvider(opts ...options.Option[Tangle]) module.Provider[*engine.Engine,
 			events: tangle.NewEvents(),
 
 			optsBlockDAGProvider: inmemoryblockdag.NewProvider(),
-			optsBookerProvider:   markerbooker.NewProvider(),
+			optsBookerProvider: markerbooker.NewProvider(
+				markerbooker.WithSlotCutoffCallback(e.LastConfirmedSlot),
+				markerbooker.WithSequenceCutoffCallback(e.FirstUnacceptedMarker),
+			),
 		},
 			opts,
 			func(t *Tangle) {

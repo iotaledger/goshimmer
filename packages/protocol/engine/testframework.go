@@ -1,12 +1,13 @@
 package engine
 
 import (
+	"bytes"
+	"io"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
-	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
@@ -23,6 +24,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/module"
 	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
@@ -135,4 +137,25 @@ func (e *TestFramework) AssertRootBlocks(rootBlocks []*models.Block) {
 
 func (e *TestFramework) SlotTimeProvider() *slot.TimeProvider {
 	return e.Instance.SlotTimeProvider()
+}
+
+func (e *TestFramework) ExportBytes(export func(io.WriteSeeker, slot.Index) error, targetIndex slot.Index) []byte {
+	w := new(WriteSeekerBuffer)
+	require.NoError(e.test, export(w, targetIndex))
+	return w.Bytes()
+}
+
+type WriteSeekerBuffer struct {
+	bytes.Buffer
+	position int64
+}
+
+func (wsb *WriteSeekerBuffer) Write(p []byte) (n int, err error) {
+	n, err = wsb.Buffer.Write(p)
+	wsb.position += int64(n)
+	return n, err
+}
+
+func (wsb *WriteSeekerBuffer) Seek(offset int64, whence int) (int64, error) {
+	return 0, nil
 }

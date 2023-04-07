@@ -76,7 +76,7 @@ func newFaucet() *Faucet {
 func configure(plugin *node.Plugin) {
 	targetPoWDifficulty = Parameters.PowDifficulty
 
-	deps.Protocol.Events.Engine.Tangle.Booker.VirtualVoting.BlockTracked.Hook(onBlockProcessed, event.WithWorkerPool(plugin.WorkerPool))
+	deps.Protocol.Events.Engine.Tangle.Booker.BlockTracked.Hook(onBlockProcessed, event.WithWorkerPool(plugin.WorkerPool))
 }
 
 func run(plugin *node.Plugin) {

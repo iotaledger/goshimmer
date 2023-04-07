@@ -20,7 +20,7 @@ func TestSequenceTracker_TrackVotes(t *testing.T) {
 	votesTF := votes.NewTestFramework(t, sybilprotection.NewWeights(mapdb.NewMapDB()).NewWeightedSet())
 	sequenceManager := markers.NewSequenceManager()
 	sequenceTracker := NewSequenceTracker[votes.MockedVotePower](votesTF.Validators, sequenceManager.Sequence, func(sequenceID markers.SequenceID) markers.Index { return 1 })
-	tf := NewTestFramework[votes.MockedVotePower](t, votesTF, sequenceTracker, sequenceManager)
+	tf := NewTestFramework(t, votesTF, sequenceTracker, sequenceManager)
 
 	tf.Votes.CreateValidator("A", 1)
 	tf.Votes.CreateValidator("B", 1)

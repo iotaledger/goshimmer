@@ -3,7 +3,6 @@ package testtangle
 import (
 	"testing"
 
-	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
@@ -12,10 +11,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag/inmemoryblockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markerbooker"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markerbooker/markervirtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/markers"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
+	"github.com/iotaledger/hive.go/runtime/module"
 	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
@@ -46,14 +45,14 @@ func NewTestTangle(t *testing.T, workers *workerpool.Group, slotTimeProvider *sl
 
 	testTangle.blockDAG = inmemoryblockdag.New(workers.CreateGroup("BlockDAG"), testTangle.evictionState, testTangle.SlotTimeProvider, storageInstance.Commitments.Load)
 	testTangle.booker = markerbooker.New(workers.CreateGroup("Booker"), testTangle.evictionState, memPool, validators, testTangle.SlotTimeProvider,
-		append([]options.Option[markerbooker.Booker]{markerbooker.WithVirtualVotingOptions(
-			markervirtualvoting.WithSlotCutoffCallback(func() slot.Index {
+		append([]options.Option[markerbooker.Booker]{
+			markerbooker.WithSlotCutoffCallback(func() slot.Index {
 				return 0
 			}),
-			markervirtualvoting.WithSequenceCutoffCallback(func(id markers.SequenceID) markers.Index {
+			markerbooker.WithSequenceCutoffCallback(func(id markers.SequenceID) markers.Index {
 				return 1
 			}),
-		)}, optsBooker...)...,
+		}, optsBooker...)...,
 	)
 	testTangle.booker.Initialize(testTangle.blockDAG)
 

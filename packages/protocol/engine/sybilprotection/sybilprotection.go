@@ -1,8 +1,8 @@
 package sybilprotection
 
 import (
-	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
+	"github.com/iotaledger/hive.go/runtime/module"
 )
 
 // SybilProtection is the minimal interface for the SybilProtection component of the IOTA protocol.

@@ -1,7 +1,6 @@
 package booker
 
 import (
-	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
@@ -10,6 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/runtime/module"
 )
 
 type Booker interface {
@@ -43,6 +43,16 @@ type Booker interface {
 	// returnOrphaned parameter specifies whether the returned attachment may be orphaned.
 	GetLatestAttachment(txID utxo.TransactionID) (attachment *Block)
 
+	SequenceManager() *markers.SequenceManager
+
+	SequenceTracker() *sequencetracker.SequenceTracker[BlockVotePower]
+
+	// MarkerVotersTotalWeight retrieves Validators supporting a given marker.
+	MarkerVotersTotalWeight(marker markers.Marker) (totalWeight int64)
+
+	// SlotVotersTotalWeight retrieves the total weight of the Validators voting for a given slot.
+	SlotVotersTotalWeight(slotIndex slot.Index) (totalWeight int64)
+
 	GetAllAttachments(txID utxo.TransactionID) (attachments *advancedset.AdvancedSet[*Block])
 
 	module.Interface
@@ -53,19 +63,9 @@ type VirtualVoting interface {
 
 	ConflictTracker() *conflicttracker.ConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower]
 
-	SequenceManager() *markers.SequenceManager
-
-	SequenceTracker() *sequencetracker.SequenceTracker[BlockVotePower]
-
-	// MarkerVotersTotalWeight retrieves Validators supporting a given marker.
-	MarkerVotersTotalWeight(marker markers.Marker) (totalWeight int64)
-
 	// ConflictVotersTotalWeight retrieves the total weight of the Validators voting for a given conflict.
 	ConflictVotersTotalWeight(conflictID utxo.TransactionID) (totalWeight int64)
 
 	// ConflictVoters retrieves Validators voting for a given conflict.
 	ConflictVoters(conflictID utxo.TransactionID) (voters *sybilprotection.WeightedSet)
-
-	// SlotVotersTotalWeight retrieves the total weight of the Validators voting for a given slot.
-	SlotVotersTotalWeight(slotIndex slot.Index) (totalWeight int64)
 }

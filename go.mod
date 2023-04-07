@@ -27,6 +27,20 @@ require (
 	github.com/iotaledger/hive.go/runtime v0.0.0-20230404221932-29255e3843c3
 	github.com/iotaledger/hive.go/serializer/v2 v2.0.0-rc.1.0.20230404221932-29255e3843c3
 	github.com/iotaledger/hive.go/stringify v0.0.0-20230404221932-29255e3843c3
+	github.com/iotaledger/hive.go/ads v0.0.0-20230406084657-747278ebc1f6
+	github.com/iotaledger/hive.go/app v0.0.0-20230406084657-747278ebc1f6
+	github.com/iotaledger/hive.go/autopeering v0.0.0-20230406084657-747278ebc1f6
+	github.com/iotaledger/hive.go/constraints v0.0.0-20230406084657-747278ebc1f6
+	github.com/iotaledger/hive.go/core v1.0.0-rc.3.0.20230406084657-747278ebc1f6
+	github.com/iotaledger/hive.go/crypto v0.0.0-20230406084657-747278ebc1f6
+	github.com/iotaledger/hive.go/ds v0.0.0-20230406084657-747278ebc1f6
+	github.com/iotaledger/hive.go/kvstore v0.0.0-20230406084657-747278ebc1f6
+	github.com/iotaledger/hive.go/lo v0.0.0-20230406084657-747278ebc1f6
+	github.com/iotaledger/hive.go/logger v0.0.0-20230406084657-747278ebc1f6
+	github.com/iotaledger/hive.go/objectstorage v0.0.0-20230406084657-747278ebc1f6
+	github.com/iotaledger/hive.go/runtime v0.0.0-20230406084657-747278ebc1f6
+	github.com/iotaledger/hive.go/serializer/v2 v2.0.0-rc.1.0.20230406084657-747278ebc1f6
+	github.com/iotaledger/hive.go/stringify v0.0.0-20230406084657-747278ebc1f6
 	github.com/jellydator/ttlcache/v2 v2.11.1
 	github.com/labstack/echo/v4 v4.10.0
 	github.com/libp2p/go-libp2p v0.26.2

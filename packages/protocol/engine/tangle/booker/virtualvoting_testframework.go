@@ -2,22 +2,18 @@ package booker
 
 import (
 	"fmt"
-	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
-	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
-	"github.com/iotaledger/goshimmer/packages/protocol/markers"
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/ds/advancedset"
-	"github.com/iotaledger/hive.go/runtime/debug"
 )
 
 type VirtualVotingTestFramework struct {
@@ -25,12 +21,10 @@ type VirtualVotingTestFramework struct {
 
 	test              *testing.T
 	identitiesByAlias map[string]*identity.Identity
-	trackedBlocks     uint32
 
 	ConflictDAG     *conflictdag.TestFramework
 	Votes           *votes.TestFramework
 	ConflictTracker *conflicttracker.TestFramework[BlockVotePower]
-	SequenceTracker *sequencetracker.TestFramework[BlockVotePower]
 }
 
 func NewVirtualVotingTestFramework(test *testing.T, virtualVotingInstance VirtualVoting, memPool mempool.MemPool, validators *sybilprotection.WeightedSet) *VirtualVotingTestFramework {
@@ -50,12 +44,6 @@ func NewVirtualVotingTestFramework(test *testing.T, virtualVotingInstance Virtua
 		virtualVotingInstance.ConflictTracker(),
 	)
 
-	t.SequenceTracker = sequencetracker.NewTestFramework(test,
-		t.Votes,
-		virtualVotingInstance.SequenceTracker(),
-		virtualVotingInstance.SequenceManager(),
-	)
-	t.setupEvents()
 	return t
 }
 
@@ -105,34 +93,12 @@ func (t *VirtualVotingTestFramework) ValidatorsWithWeights(aliases ...string) ma
 	return weights
 }
 
-func (t *VirtualVotingTestFramework) ValidateMarkerVoters(expectedVoters map[markers.Marker]*advancedset.AdvancedSet[identity.ID]) {
-	for marker, expectedVotersOfMarker := range expectedVoters {
-		voters := t.SequenceTracker.Instance.Voters(marker)
-
-		assert.True(t.test, expectedVotersOfMarker.Equal(voters), "marker %s expected %d voters but got %d", marker, expectedVotersOfMarker.Size(), voters.Size())
-	}
-}
-
 func (t *VirtualVotingTestFramework) ValidateConflictVoters(expectedVoters map[utxo.TransactionID]*advancedset.AdvancedSet[identity.ID]) {
 	for conflictID, expectedVotersOfMarker := range expectedVoters {
 		voters := t.ConflictTracker.Instance.Voters(conflictID)
 
 		assert.True(t.test, expectedVotersOfMarker.Equal(voters), "conflict %s expected %d voters but got %d", conflictID, expectedVotersOfMarker.Size(), voters.Size())
 	}
-}
-
-func (t *VirtualVotingTestFramework) AssertBlockTracked(blocksTracked uint32) {
-	assert.Equal(t.test, blocksTracked, atomic.LoadUint32(&t.trackedBlocks), "expected %d blocks to be tracked but got %d", blocksTracked, atomic.LoadUint32(&t.trackedBlocks))
-}
-
-func (t *VirtualVotingTestFramework) setupEvents() {
-	t.Instance.Events().BlockTracked.Hook(func(metadata *Block) {
-		if debug.GetEnabled() {
-			t.test.Logf("TRACKED: %s", metadata.ID())
-		}
-
-		atomic.AddUint32(&(t.trackedBlocks), 1)
-	})
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

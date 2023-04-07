@@ -31,15 +31,15 @@ func NewDefaultTestFramework(t *testing.T, workers *workerpool.Group, memPool me
 		),
 	)
 
-	gadget := tresholdblockgadget.New(workers.CreateGroup("BlockGadget"),
-		tangleTF.Instance.Booker(),
-		tangleTF.Instance.BlockDAG(),
-		memPool,
-		tangleTF.Instance.(*testtangle.TestTangle).EvictionState(),
+	gadget := tresholdblockgadget.New(
 		optsGadget...,
 	)
 
-	gadget.Initialize(tangleTF.Instance.(*testtangle.TestTangle).SlotTimeProvider(), tangleTF.Votes.Validators, tangleTF.Votes.Validators.TotalWeight)
+	gadget.Initialize(workers.CreateGroup("BlockGadget"),
+		tangleTF.Instance.Booker(),
+		tangleTF.Instance.BlockDAG(),
+		memPool,
+		tangleTF.Instance.(*testtangle.TestTangle).EvictionState(), tangleTF.Instance.(*testtangle.TestTangle).SlotTimeProvider(), tangleTF.Votes.Validators, tangleTF.Votes.Validators.TotalWeight)
 
 	return blockgadget.NewTestFramework(t,
 		gadget,
@@ -75,8 +75,6 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 	tf.BlockDAG.CreateBlock("Block1", models.WithStrongParents(tf.BlockDAG.BlockIDs("Genesis")), models.WithIssuer(tf.VirtualVoting.Identity("A").PublicKey()))
 	tf.BlockDAG.IssueBlocks("Block1")
 
-	tf.VirtualVoting.AssertBlockTracked(1)
-
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
 		"Block1": false,
 	}))
@@ -89,7 +87,6 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 	// ISSUE Block2
 	tf.BlockDAG.CreateBlock("Block2", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block1")), models.WithIssuer(tf.VirtualVoting.Identity("B").PublicKey()))
 	tf.BlockDAG.IssueBlocks("Block2")
-	tf.VirtualVoting.AssertBlockTracked(2)
 
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
 		"Block2": false,
@@ -103,7 +100,6 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 	// ISSUE Block3
 	tf.BlockDAG.CreateBlock("Block3", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block2")), models.WithIssuer(tf.VirtualVoting.Identity("C").PublicKey()))
 	tf.BlockDAG.IssueBlocks("Block3")
-	tf.VirtualVoting.AssertBlockTracked(3)
 
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
 		"Block1": true,
@@ -119,7 +115,6 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 	// ISSUE Block4
 	tf.BlockDAG.CreateBlock("Block4", models.WithStrongParents(tf.BlockDAG.BlockIDs("Block3")), models.WithIssuer(tf.VirtualVoting.Identity("D").PublicKey()))
 	tf.BlockDAG.IssueBlocks("Block4")
-	tf.VirtualVoting.AssertBlockTracked(4)
 
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
 		"Block2": true,
@@ -529,16 +524,17 @@ func TestGadget_update_multipleSequences_onlyAcceptThenConfirm(t *testing.T) {
 		),
 	)
 
-	gadget := tresholdblockgadget.New(workers.CreateGroup("BlockGadget"),
-		tangleTF.Instance.Booker(),
-		tangleTF.Instance.BlockDAG(),
-		tangleTF.Instance.(*testtangle.TestTangle).MemPool(),
-		tangleTF.Instance.(*testtangle.TestTangle).EvictionState(),
+	gadget := tresholdblockgadget.New(
 		tresholdblockgadget.WithMarkerAcceptanceThreshold(0.66),
 		tresholdblockgadget.WithConfirmationThreshold(0.66),
 	)
 
-	gadget.Initialize(tangleTF.Instance.(*testtangle.TestTangle).SlotTimeProvider(),
+	gadget.Initialize(workers.CreateGroup("BlockGadget"),
+		tangleTF.Instance.Booker(),
+		tangleTF.Instance.BlockDAG(),
+		tangleTF.Instance.(*testtangle.TestTangle).MemPool(),
+		tangleTF.Instance.(*testtangle.TestTangle).EvictionState(),
+		tangleTF.Instance.(*testtangle.TestTangle).SlotTimeProvider(),
 		tangleTF.Instance.(*testtangle.TestTangle).Validators(),
 		func() int64 {
 			return 100

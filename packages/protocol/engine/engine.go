@@ -9,7 +9,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
@@ -30,6 +29,7 @@ import (
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/module"
 	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
@@ -188,6 +188,17 @@ func (e *Engine) Initialize(snapshot ...string) (err error) {
 		if err = e.readSnapshot(snapshot[0]); err != nil {
 			return errors.Wrapf(err, "failed to read snapshot from file '%s'", snapshot)
 		}
+	} else {
+		e.Storage.Settings.UpdateSlotTimeProvider()
+		e.Storage.Settings.TriggerInitialized()
+		e.Storage.Commitments.TriggerInitialized()
+		e.Ledger.TriggerInitialized()
+		e.EvictionState.PopulateFromStorage(e.Storage.Settings.LatestCommitment().Index())
+
+		e.Notarization.Attestations().SetLastCommittedSlot(e.Storage.Settings.LatestCommitment().Index())
+		e.Notarization.Attestations().TriggerInitialized()
+
+		e.Notarization.TriggerInitialized()
 	}
 
 	e.TriggerInitialized()

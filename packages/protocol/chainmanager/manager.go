@@ -26,9 +26,8 @@ type Manager struct {
 	Events              *Events
 	CommitmentRequester *eventticker.EventTicker[commitment.ID]
 
-	commitmentsByID     *memstorage.SlotStorage[commitment.ID, *Commitment]
-	rootCommitment      *Commitment
-	rootCommitmentMutex sync.RWMutex
+	commitmentsByID *memstorage.SlotStorage[commitment.ID, *Commitment]
+	rootCommitment  *Commitment
 
 	// This tracks the forkingPoints by the commitment that triggered the detection so we can clean up after eviction
 	forkingPointsByCommitments *memstorage.SlotStorage[commitment.ID, commitment.ID]
@@ -63,11 +62,8 @@ func NewManager(opts ...options.Option[Manager]) (manager *Manager) {
 }
 
 func (m *Manager) Initialize(c *commitment.Commitment) {
-	m.evictionMutex.RLock()
-	defer m.evictionMutex.RUnlock()
-
-	m.rootCommitmentMutex.Lock()
-	defer m.rootCommitmentMutex.Unlock()
+	m.evictionMutex.Lock()
+	defer m.evictionMutex.Unlock()
 
 	m.rootCommitment, _ = m.getOrCreateCommitment(c.ID())
 	m.rootCommitment.PublishCommitment(c)
@@ -134,23 +130,17 @@ func (m *Manager) EvictUntil(index slot.Index) {
 }
 
 // RootCommitment returns the root commitment of the manager.
-func (m *Manager) RootCommitment() (rootCommitment *commitment.Commitment) {
+func (m *Manager) RootCommitment() (rootCommitment *Commitment) {
 	m.evictionMutex.RLock()
 	defer m.evictionMutex.RUnlock()
 
-	m.rootCommitmentMutex.RLock()
-	defer m.rootCommitmentMutex.RUnlock()
-
-	return m.rootCommitment.Commitment()
+	return m.rootCommitment
 }
 
 // SetRootCommitment sets the root commitment of the manager.
 func (m *Manager) SetRootCommitment(commitment *commitment.Commitment) {
-	m.evictionMutex.RLock()
-	defer m.evictionMutex.RUnlock()
-
-	m.rootCommitmentMutex.Lock()
-	defer m.rootCommitmentMutex.Unlock()
+	m.evictionMutex.Lock()
+	defer m.evictionMutex.Unlock()
 
 	storage := m.commitmentsByID.Get(commitment.Index())
 	if storage == nil {
@@ -285,9 +275,6 @@ func (m *Manager) commitment(id commitment.ID) (commitment *Commitment, exists b
 }
 
 func (m *Manager) evaluateAgainstRootCommitment(commitment *commitment.Commitment) (isBelow, isRootCommitment bool) {
-	m.rootCommitmentMutex.RLock()
-	defer m.rootCommitmentMutex.RUnlock()
-
 	isBelow = commitment.Index() <= m.rootCommitment.Commitment().Index()
 	isRootCommitment = commitment.Equals(m.rootCommitment.Commitment())
 
@@ -335,7 +322,7 @@ func (m *Manager) forkingPointAgainstMainChain(commitment *Commitment) (*Commitm
 
 	var forkingCommitment *Commitment
 	// Walk all possible forks until we reach our main chain by jumping over each forking point
-	for chain := commitment.Chain(); chain != m.rootCommitment.Chain(); chain = commitment.Chain() {
+	for chain := commitment.Chain(); chain != m.RootCommitment().Chain(); chain = commitment.Chain() {
 		forkingCommitment = chain.ForkingPoint
 
 		if commitment, _ = m.commitment(forkingCommitment.Commitment().PrevID()); commitment == nil {

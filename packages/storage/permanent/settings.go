@@ -9,11 +9,12 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/module"
 	"github.com/iotaledger/goshimmer/packages/core/storable"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/ds/types"
+	"github.com/iotaledger/hive.go/runtime/module"
 	"github.com/iotaledger/hive.go/serializer/v2/serix"
+	"github.com/iotaledger/hive.go/stringify"
 )
 
 // region Settings /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -40,7 +41,7 @@ func NewSettings(path string) (settings *Settings) {
 		}, path),
 	}
 
-	s.updateSlotTimeProvider()
+	s.UpdateSlotTimeProvider()
 
 	return s
 }
@@ -88,7 +89,7 @@ func (s *Settings) SetGenesisUnixTime(unixTime int64) (err error) {
 	defer s.mutex.Unlock()
 
 	s.settingsModel.GenesisUnixTime = unixTime
-	s.updateSlotTimeProvider()
+	s.UpdateSlotTimeProvider()
 
 	if err = s.ToFile(); err != nil {
 		return errors.Wrap(err, "failed to persist initialized flag")
@@ -109,7 +110,7 @@ func (s *Settings) SetSlotDuration(duration int64) (err error) {
 	defer s.mutex.Unlock()
 
 	s.settingsModel.SlotDuration = duration
-	s.updateSlotTimeProvider()
+	s.UpdateSlotTimeProvider()
 
 	if err = s.ToFile(); err != nil {
 		return errors.Wrap(err, "failed to persist initialized flag")
@@ -228,6 +229,22 @@ func (s *Settings) Import(reader io.ReadSeeker) (err error) {
 	return
 }
 
+func (s *Settings) String() string {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	builder := stringify.NewStructBuilder("Settings", stringify.NewStructField("path", s.FilePath()))
+	builder.AddField(stringify.NewStructField("SnapshotImported", s.settingsModel.SnapshotImported))
+	builder.AddField(stringify.NewStructField("GenesisUnixTime", s.settingsModel.GenesisUnixTime))
+	builder.AddField(stringify.NewStructField("SlotDuration", s.settingsModel.SlotDuration))
+	builder.AddField(stringify.NewStructField("LatestCommitment", s.settingsModel.LatestCommitment))
+	builder.AddField(stringify.NewStructField("LatestStateMutationSlot", s.settingsModel.LatestStateMutationSlot))
+	builder.AddField(stringify.NewStructField("LatestConfirmedSlot", s.settingsModel.LatestConfirmedSlot))
+	builder.AddField(stringify.NewStructField("ChainID", s.settingsModel.ChainID))
+
+	return builder.String()
+}
+
 func (s *Settings) tryImport(reader io.ReadSeeker) (err error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -250,7 +267,7 @@ func (s *Settings) tryImport(reader io.ReadSeeker) (err error) {
 
 	s.settingsModel.SnapshotImported = true
 
-	s.updateSlotTimeProvider()
+	s.UpdateSlotTimeProvider()
 
 	if err = s.settingsModel.ToFile(); err != nil {
 		return errors.Wrap(err, "failed to persist chain ID")
@@ -259,7 +276,7 @@ func (s *Settings) tryImport(reader io.ReadSeeker) (err error) {
 	return
 }
 
-func (s *Settings) updateSlotTimeProvider() {
+func (s *Settings) UpdateSlotTimeProvider() {
 	s.slotTimeProvider = slot.NewTimeProvider(s.settingsModel.GenesisUnixTime, s.settingsModel.SlotDuration)
 }
 

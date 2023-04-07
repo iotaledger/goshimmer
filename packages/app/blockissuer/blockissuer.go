@@ -163,7 +163,7 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeTracked(block *models.Block, ma
 	exit := make(chan struct{})
 	defer close(exit)
 
-	defer i.protocol.Events.Engine.Tangle.Booker.VirtualVoting.BlockTracked.Hook(func(evtBlock *booker.Block) {
+	defer i.protocol.Events.Engine.Tangle.Booker.BlockTracked.Hook(func(evtBlock *booker.Block) {
 		if block.ID() != evtBlock.ID() {
 			return
 		}

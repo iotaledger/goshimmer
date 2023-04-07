@@ -175,7 +175,7 @@ func (d *DockerContainer) CreateContainer(ctx context.Context, name string, cont
 		hostConfig = hostConfigs[0]
 	}
 
-	resp, err := d.client.ContainerCreate(ctx, containerConfig, hostConfig, nil, name)
+	resp, err := d.client.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, name)
 	if err != nil {
 		return err
 	}
