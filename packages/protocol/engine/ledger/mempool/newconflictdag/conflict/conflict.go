@@ -367,7 +367,7 @@ func (c *Conflict[ConflictID, ResourceID]) setPreferredInstead(preferredInstead 
 			c.LikedInsteadRemoved.Trigger(previousPreferredInstead)
 		}
 
-		if !c.isPreferred() && c.likedInstead.IsEmpty() {
+		if !c.IsPreferred() && c.likedInstead.IsEmpty() {
 			c.likedInstead.Add(preferredInstead)
 
 			// trigger within the scope of the lock to ensure the correct queueing order
