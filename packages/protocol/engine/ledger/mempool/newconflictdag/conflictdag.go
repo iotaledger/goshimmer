@@ -1,10 +1,12 @@
 package newconflictdag
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/conflict"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/weight"
+	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/ds/shrinkingmap"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/event"
@@ -71,9 +73,9 @@ func (c *ConflictDAG[ConflictID, ResourceID]) CreateConflict(id ConflictID, pare
 	return createdConflict
 }
 
-// AddConflictSets adds the Conflict to the given ConflictSets and returns true if the conflict membership was modified during this operation.
-func (c *ConflictDAG[ConflictID, ResourceID]) AddConflictSets(conflictID ConflictID, resourceIDs ...ResourceID) (addedSets map[ResourceID]*conflict.Set[ConflictID, ResourceID]) {
-	currentConflict, addedSets := func() (*conflict.Conflict[ConflictID, ResourceID], map[ResourceID]*conflict.Set[ConflictID, ResourceID]) {
+// JoinConflictSets adds the Conflict to the given ConflictSets and returns true if the conflict membership was modified during this operation.
+func (c *ConflictDAG[ConflictID, ResourceID]) JoinConflictSets(conflictID ConflictID, resourceIDs ...ResourceID) (joinedConflictSets map[ResourceID]*conflict.Set[ConflictID, ResourceID]) {
+	currentConflict, joinedConflictSets := func() (*conflict.Conflict[ConflictID, ResourceID], map[ResourceID]*conflict.Set[ConflictID, ResourceID]) {
 		c.mutex.RLock()
 		defer c.mutex.RUnlock()
 
@@ -82,14 +84,14 @@ func (c *ConflictDAG[ConflictID, ResourceID]) AddConflictSets(conflictID Conflic
 			return nil, nil
 		}
 
-		return currentConflict, currentConflict.AddConflictSets(lo.Values(c.ConflictSets(resourceIDs...))...)
+		return currentConflict, currentConflict.JoinConflictSets(lo.Values(c.ConflictSets(resourceIDs...))...)
 	}()
 
-	if len(addedSets) > 0 {
-		c.ConflictingResourcesAdded.Trigger(currentConflict, addedSets)
+	if len(joinedConflictSets) > 0 {
+		c.ConflictingResourcesAdded.Trigger(currentConflict, joinedConflictSets)
 	}
 
-	return addedSets
+	return joinedConflictSets
 }
 
 func (c *ConflictDAG[ConflictID, ResourceID]) UpdateConflictParents(conflictID ConflictID, addedParentID ConflictID, removedParentIDs ...ConflictID) bool {
@@ -156,4 +158,31 @@ func (c *ConflictDAG[ConflictID, ResourceID]) ConflictSets(resourceIDs ...Resour
 	}
 
 	return conflictSets
+}
+
+func (c *ConflictDAG[ConflictID, ResourceID]) CastVotes(conflictIDs ...ConflictID) {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	conflictsToAdd := c.determineConflictsToAdd(advancedset.New[*conflict.Conflict[ConflictID, ResourceID]](lo.Values(c.Conflicts(conflictIDs...))...))
+
+	if false {
+		fmt.Println(conflictsToAdd)
+	}
+
+	// revokedConflicts, isInvalid = c.determineConflictsToRevoke(conflictsToAdd)
+}
+
+// determineConflictsToAdd iterates through the past cone of the given Conflicts and determines the ConflictIDs that
+// are affected by the Vote.
+func (c *ConflictDAG[ConflictID, ResourceID]) determineConflictsToAdd(conflictIDs *advancedset.AdvancedSet[*conflict.Conflict[ConflictID, ResourceID]]) (addedConflicts *advancedset.AdvancedSet[*conflict.Conflict[ConflictID, ResourceID]]) {
+	addedConflicts = advancedset.New[*conflict.Conflict[ConflictID, ResourceID]]()
+	for it := conflictIDs.Iterator(); it.HasNext(); {
+		currentConflict := it.Next()
+
+		addedConflicts.AddAll(c.determineConflictsToAdd(currentConflict.Parents))
+		addedConflicts.Add(currentConflict)
+	}
+
+	return
 }

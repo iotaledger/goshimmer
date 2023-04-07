@@ -37,10 +37,10 @@ func TestConflictDAG_CreateConflict(t *testing.T) {
 	require.Contains(t, conflictDAG.Conflicts(conflictID3), conflict3.ID)
 	require.Contains(t, conflictDAG.Conflicts(conflictID4), conflict4.ID)
 
-	conflict1.Parents().Equal(advancedset.New[*conflict.Conflict[TestID, TestID]]())
-	conflict2.Parents().Equal(advancedset.New[*conflict.Conflict[TestID, TestID]]())
-	conflict3.Parents().Equal(advancedset.New[*conflict.Conflict[TestID, TestID]](conflict1))
-	conflict4.Parents().Equal(advancedset.New[*conflict.Conflict[TestID, TestID]](conflict2))
+	require.True(t, conflict1.Parents.Equal(advancedset.New[*conflict.Conflict[TestID, TestID]]()))
+	require.True(t, conflict2.Parents.Equal(advancedset.New[*conflict.Conflict[TestID, TestID]]()))
+	require.True(t, conflict3.Parents.Equal(advancedset.New[*conflict.Conflict[TestID, TestID]](conflict1)))
+	require.True(t, conflict4.Parents.Equal(advancedset.New[*conflict.Conflict[TestID, TestID]](conflict1)))
 }
 
 func TestConflictDAG_LikedInstead(t *testing.T) {

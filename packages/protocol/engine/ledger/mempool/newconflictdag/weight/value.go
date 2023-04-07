@@ -96,13 +96,13 @@ func (v Value) String() string {
 // compareConfirmationState compares the confirmation state of the Value to the confirmation state of the other Value.
 func (v Value) compareConfirmationState(other Value) int {
 	switch {
-	case v.acceptanceState == acceptance.Accepted && other.acceptanceState != acceptance.Accepted:
+	case v.acceptanceState.IsAccepted() && !other.acceptanceState.IsAccepted():
 		return Heavier
-	case other.acceptanceState == acceptance.Rejected && v.acceptanceState != acceptance.Rejected:
+	case other.acceptanceState.IsRejected() && !v.acceptanceState.IsRejected():
 		return Heavier
-	case other.acceptanceState == acceptance.Accepted && v.acceptanceState != acceptance.Accepted:
+	case other.acceptanceState.IsAccepted() && !v.acceptanceState.IsAccepted():
 		return Lighter
-	case v.acceptanceState == acceptance.Rejected && other.acceptanceState != acceptance.Rejected:
+	case v.acceptanceState.IsRejected() && !other.acceptanceState.IsRejected():
 		return Lighter
 	default:
 		return Equal

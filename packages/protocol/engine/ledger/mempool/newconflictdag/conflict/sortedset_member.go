@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"sync"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/weight"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/event"
@@ -29,19 +30,21 @@ type sortedSetMember[ConflictID, ResourceID IDType] struct {
 	// weightMutex is used to protect the currentWeight and queuedWeight.
 	weightMutex sync.RWMutex
 
-	// currentPreferredInstead is the current preferredInstead value of the Conflict.
+	// currentPreferredInstead is the current PreferredInstead value of the Conflict.
 	currentPreferredInstead *Conflict[ConflictID, ResourceID]
 
-	// queuedPreferredInstead is the preferredInstead value that is queued to be applied to the Conflict.
+	// queuedPreferredInstead is the PreferredInstead value that is queued to be applied to the Conflict.
 	queuedPreferredInstead *Conflict[ConflictID, ResourceID]
 
 	// preferredMutex is used to protect the currentPreferredInstead and queuedPreferredInstead.
 	preferredInsteadMutex sync.RWMutex
 
+	onAcceptanceStateUpdatedHook *event.Hook[func(acceptance.State, acceptance.State)]
+
 	// onUpdateHook is the hook that is triggered when the weight of the Conflict is updated.
 	onUpdateHook *event.Hook[func(weight.Value)]
 
-	// onPreferredUpdatedHook is the hook that is triggered when the preferredInstead value of the Conflict is updated.
+	// onPreferredUpdatedHook is the hook that is triggered when the PreferredInstead value of the Conflict is updated.
 	onPreferredUpdatedHook *event.Hook[func(*Conflict[ConflictID, ResourceID])]
 
 	// Conflict is the wrapped Conflict.
@@ -52,12 +55,16 @@ type sortedSetMember[ConflictID, ResourceID IDType] struct {
 func newSortedSetMember[ConflictID, ResourceID IDType](set *SortedSet[ConflictID, ResourceID], conflict *Conflict[ConflictID, ResourceID]) *sortedSetMember[ConflictID, ResourceID] {
 	s := &sortedSetMember[ConflictID, ResourceID]{
 		sortedSet:               set,
-		currentWeight:           conflict.Weight().Value(),
+		currentWeight:           conflict.Weight.Value(),
 		currentPreferredInstead: conflict.PreferredInstead(),
 		Conflict:                conflict,
 	}
 
-	s.onUpdateHook = conflict.Weight().OnUpdate.Hook(s.queueWeightUpdate)
+	if conflict != set.owner {
+		s.onAcceptanceStateUpdatedHook = conflict.AcceptanceStateUpdated.Hook(s.onAcceptanceStateUpdated)
+	}
+
+	s.onUpdateHook = conflict.Weight.OnUpdate.Hook(s.queueWeightUpdate)
 	s.onPreferredUpdatedHook = conflict.PreferredInsteadUpdated.Hook(s.queuePreferredInsteadUpdate)
 
 	return s
@@ -95,8 +102,18 @@ func (s *sortedSetMember[ConflictID, ResourceID]) IsPreferred() bool {
 
 // Dispose cleans up the sortedSetMember.
 func (s *sortedSetMember[ConflictID, ResourceID]) Dispose() {
+	if s.onAcceptanceStateUpdatedHook != nil {
+		s.onAcceptanceStateUpdatedHook.Unhook()
+	}
+
 	s.onUpdateHook.Unhook()
 	s.onPreferredUpdatedHook.Unhook()
+}
+
+func (s *sortedSetMember[ConflictID, ResourceID]) onAcceptanceStateUpdated(_, newState acceptance.State) {
+	if newState.IsAccepted() {
+		s.sortedSet.owner.SetAcceptanceState(acceptance.Rejected)
+	}
 }
 
 // queueWeightUpdate queues a weight update for the sortedSetMember.

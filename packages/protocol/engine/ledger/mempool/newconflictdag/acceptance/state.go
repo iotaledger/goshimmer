@@ -18,14 +18,17 @@ const (
 // State represents the acceptance state of an entity.
 type State uint8
 
+// IsPending returns true if the State is Pending.
 func (c State) IsPending() bool {
 	return c == Pending
 }
 
+// IsAccepted returns true if the State is Accepted.
 func (c State) IsAccepted() bool {
 	return c == Accepted
 }
 
+// IsRejected returns true if the State is Rejected.
 func (c State) IsRejected() bool {
 	return c == Rejected
 }

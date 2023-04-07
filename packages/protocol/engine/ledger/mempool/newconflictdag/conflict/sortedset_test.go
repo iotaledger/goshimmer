@@ -1,4 +1,4 @@
-package conflict_test
+package conflict
 
 import (
 	"math/rand"
@@ -10,15 +10,14 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/acceptance"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/conflict"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/weight"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
-type SortedConflictSet = *conflict.SortedSet[utxo.OutputID, utxo.OutputID]
+type SortedConflictSet = *SortedSet[utxo.OutputID, utxo.OutputID]
 
-var NewSortedConflictSet = conflict.NewSortedSet[utxo.OutputID, utxo.OutputID]
+var NewSortedConflictSet = NewSortedSet[utxo.OutputID, utxo.OutputID]
 
 func TestSortedConflict(t *testing.T) {
 	pendingTasks := syncutils.NewCounter()
@@ -58,17 +57,17 @@ func TestSortedConflict(t *testing.T) {
 	pendingTasks.WaitIsZero()
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict6", "conflict3", "conflict5", "conflict2", "conflict1", "conflict4")
 
-	conflict2.Weight().AddCumulativeWeight(3)
-	require.Equal(t, int64(13), conflict2.Weight().Value().CumulativeWeight())
+	conflict2.Weight.AddCumulativeWeight(3)
+	require.Equal(t, int64(13), conflict2.Weight.Value().CumulativeWeight())
 	pendingTasks.WaitIsZero()
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict6", "conflict3", "conflict2", "conflict5", "conflict1", "conflict4")
 
-	conflict2.Weight().RemoveCumulativeWeight(3)
-	require.Equal(t, int64(10), conflict2.Weight().Value().CumulativeWeight())
+	conflict2.Weight.RemoveCumulativeWeight(3)
+	require.Equal(t, int64(10), conflict2.Weight.Value().CumulativeWeight())
 	pendingTasks.WaitIsZero()
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict6", "conflict3", "conflict5", "conflict2", "conflict1", "conflict4")
 
-	conflict5.Weight().SetAcceptanceState(acceptance.Accepted)
+	conflict5.Weight.SetAcceptanceState(acceptance.Accepted)
 	pendingTasks.WaitIsZero()
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict5", "conflict6", "conflict3", "conflict2", "conflict1", "conflict4")
 }
@@ -90,7 +89,7 @@ func TestSortedDecreaseHeaviest(t *testing.T) {
 	pendingTasks.WaitIsZero()
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict1", "conflict2")
 
-	conflict1.Weight().SetAcceptanceState(acceptance.Pending)
+	conflict1.Weight.SetAcceptanceState(acceptance.Pending)
 	pendingTasks.WaitIsZero()
 	assertSortedConflictsOrder(t, sortedConflicts, "conflict2", "conflict1")
 }
@@ -101,8 +100,8 @@ func TestSortedConflictParallel(t *testing.T) {
 	const conflictCount = 1000
 	const updateCount = 100000
 
-	conflicts := make(map[string]Conflict)
-	parallelConflicts := make(map[string]Conflict)
+	conflicts := make(map[string]TestConflict)
+	parallelConflicts := make(map[string]TestConflict)
 	for i := 0; i < conflictCount; i++ {
 		alias := "conflict" + strconv.Itoa(i)
 
@@ -126,7 +125,7 @@ func TestSortedConflictParallel(t *testing.T) {
 	parallelSortingBefore := sortedParallelConflicts.String()
 	require.Equal(t, originalSortingBefore, parallelSortingBefore)
 
-	permutations := make([]func(conflict Conflict), 0)
+	permutations := make([]func(conflict TestConflict), 0)
 	for i := 0; i < updateCount; i++ {
 		permutations = append(permutations, generateRandomWeightPermutation())
 	}
@@ -138,7 +137,7 @@ func TestSortedConflictParallel(t *testing.T) {
 		permutation(conflicts[targetAlias])
 
 		wg.Add(1)
-		go func(permutation func(conflict Conflict)) {
+		go func(permutation func(conflict TestConflict)) {
 			permutation(parallelConflicts[targetAlias])
 
 			wg.Done()
@@ -161,34 +160,34 @@ func TestSortedConflictParallel(t *testing.T) {
 	require.NotEqualf(t, originalSortingBefore, originalSortingAfter, "original sorting should have changed")
 }
 
-func generateRandomWeightPermutation() func(conflict Conflict) {
+func generateRandomWeightPermutation() func(conflict TestConflict) {
 	switch rand.Intn(2) {
 	case 0:
 		return generateRandomCumulativeWeightPermutation(int64(rand.Intn(100)))
 	default:
 		// return generateRandomConfirmationStatePermutation()
-		return func(conflict Conflict) {
+		return func(conflict TestConflict) {
 
 		}
 	}
 }
 
-func generateRandomCumulativeWeightPermutation(delta int64) func(conflict Conflict) {
+func generateRandomCumulativeWeightPermutation(delta int64) func(conflict TestConflict) {
 	updateType := rand.Intn(100)
 
-	return func(conflict Conflict) {
+	return func(conflict TestConflict) {
 		if updateType%2 == 0 {
-			conflict.Weight().AddCumulativeWeight(delta)
+			conflict.Weight.AddCumulativeWeight(delta)
 		} else {
-			conflict.Weight().RemoveCumulativeWeight(delta)
+			conflict.Weight.RemoveCumulativeWeight(delta)
 		}
 
-		conflict.Weight().AddCumulativeWeight(delta)
+		conflict.Weight.AddCumulativeWeight(delta)
 	}
 }
 
 func assertSortedConflictsOrder(t *testing.T, sortedConflicts SortedConflictSet, aliases ...string) {
-	require.NoError(t, sortedConflicts.ForEach(func(c Conflict) error {
+	require.NoError(t, sortedConflicts.ForEach(func(c TestConflict) error {
 		currentAlias := aliases[0]
 		aliases = aliases[1:]
 
@@ -200,8 +199,8 @@ func assertSortedConflictsOrder(t *testing.T, sortedConflicts SortedConflictSet,
 	require.Empty(t, aliases)
 }
 
-func newConflict(alias string, weight *weight.Weight, pendingTasksCounter *syncutils.Counter) Conflict {
-	return NewConflict(id(alias), nil, nil, weight, pendingTasksCounter)
+func newConflict(alias string, weight *weight.Weight, pendingTasksCounter *syncutils.Counter) TestConflict {
+	return NewTestConflict(id(alias), nil, nil, weight, pendingTasksCounter)
 }
 
 func id(alias string) utxo.OutputID {

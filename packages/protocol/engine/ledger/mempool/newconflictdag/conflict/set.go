@@ -1,6 +1,8 @@
 package conflict
 
 import (
+	"sync"
+
 	"github.com/iotaledger/hive.go/ds/advancedset"
 )
 
@@ -11,6 +13,8 @@ type Set[ConflictID, ResourceID IDType] struct {
 
 	// members is the set of Conflicts that are conflicting over the shared resource.
 	members *advancedset.AdvancedSet[*Conflict[ConflictID, ResourceID]]
+
+	mutex sync.RWMutex
 }
 
 // NewSet creates a new Set of Conflicts that are conflicting with each other over the given Resource.
@@ -21,19 +25,16 @@ func NewSet[ConflictID, ResourceID IDType](id ResourceID) *Set[ConflictID, Resou
 	}
 }
 
-// Members returns the Conflicts that are conflicting over the shared resource.
-func (c *Set[ConflictID, ResourceID]) Members() *advancedset.AdvancedSet[*Conflict[ConflictID, ResourceID]] {
-	return c.members
-}
-
 // Add adds a newMember to the conflict set and all existing members of the set.
-func (c *Set[ConflictID, ResourceID]) Add(newMember *Conflict[ConflictID, ResourceID]) {
-	if c.members.Add(newMember) {
-		_ = c.Members().ForEach(func(conflict *Conflict[ConflictID, ResourceID]) (err error) {
-			newMember.addConflictingConflict(conflict)
-			conflict.addConflictingConflict(newMember)
+func (c *Set[ConflictID, ResourceID]) Add(addedConflict *Conflict[ConflictID, ResourceID]) (otherMembers []*Conflict[ConflictID, ResourceID]) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
-			return nil
-		})
+	otherMembers = c.members.Slice()
+
+	if !c.members.Add(addedConflict) {
+		return nil
 	}
+
+	return otherMembers
 }

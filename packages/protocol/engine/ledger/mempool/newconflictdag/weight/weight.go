@@ -1,6 +1,7 @@
 package weight
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/acceptance"
@@ -185,6 +186,7 @@ func (w *Weight) setAcceptanceState(acceptanceState acceptance.State) (previousS
 	defer w.mutex.Unlock()
 
 	if previousState = w.value.AcceptanceState(); previousState != acceptanceState {
+		fmt.Println("setAcceptanceState", acceptanceState)
 		w.value = w.value.SetAcceptanceState(acceptanceState)
 	}
 
