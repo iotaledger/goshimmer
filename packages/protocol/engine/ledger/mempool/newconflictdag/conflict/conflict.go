@@ -169,7 +169,7 @@ func (c *Conflict[ConflictID, ResourceID]) IsPreferred() bool {
 	c.preferredInsteadMutex.RLock()
 	defer c.preferredInsteadMutex.RUnlock()
 
-	return c.isPreferred()
+	return c.preferredInstead == c
 }
 
 // PreferredInstead returns the preferred instead value of the Conflict.
@@ -302,9 +302,7 @@ func (c *Conflict[ConflictID, ResourceID]) addLikedInsteadReference(source, refe
 	defer c.likedInsteadMutex.Unlock()
 
 	// retrieve sources for the reference
-	sources := lo.Return1(c.likedInsteadSources.GetOrCreate(reference.ID, func() *advancedset.AdvancedSet[*Conflict[ConflictID, ResourceID]] {
-		return advancedset.New[*Conflict[ConflictID, ResourceID]]()
-	}))
+	sources := lo.Return1(c.likedInsteadSources.GetOrCreate(reference.ID, lo.NoVariadic(advancedset.New[*Conflict[ConflictID, ResourceID]])))
 
 	// abort if the reference did already exist
 	if !sources.Add(source) || !c.likedInstead.Add(reference) {
@@ -344,24 +342,21 @@ func (c *Conflict[ConflictID, ResourceID]) removeLikedInsteadReference(source, r
 
 // setPreferredInstead sets the preferred instead value of the Conflict.
 func (c *Conflict[ConflictID, ResourceID]) setPreferredInstead(preferredInstead *Conflict[ConflictID, ResourceID]) (previousPreferredInstead *Conflict[ConflictID, ResourceID]) {
-	// to prevent deadlocks, we lock per sub-task (we usually lock likedInsteadMutex before preferredInsteadMutex).
+	c.likedInsteadMutex.Lock()
+	defer c.likedInsteadMutex.Unlock()
 
-	if func() bool {
+	if func() (updated bool) {
 		c.preferredInsteadMutex.Lock()
 		defer c.preferredInsteadMutex.Unlock()
 
-		if previousPreferredInstead = c.preferredInstead; previousPreferredInstead == preferredInstead {
-			return false
+		if previousPreferredInstead, updated = c.preferredInstead, previousPreferredInstead != preferredInstead; updated {
+			c.preferredInstead = preferredInstead
+
+			c.PreferredInsteadUpdated.Trigger(preferredInstead)
 		}
 
-		c.preferredInstead = preferredInstead
-		c.PreferredInsteadUpdated.Trigger(preferredInstead)
-
-		return true
+		return updated
 	}() {
-		c.likedInsteadMutex.Lock()
-		defer c.likedInsteadMutex.Unlock()
-
 		if c.likedInstead.Delete(previousPreferredInstead) {
 			// trigger within the scope of the lock to ensure the correct queueing order
 			c.LikedInsteadRemoved.Trigger(previousPreferredInstead)
@@ -376,9 +371,4 @@ func (c *Conflict[ConflictID, ResourceID]) setPreferredInstead(preferredInstead 
 	}
 
 	return previousPreferredInstead
-}
-
-// isPreferred returns true if the Conflict is preferred instead of its conflicting Conflicts.
-func (c *Conflict[ConflictID, ResourceID]) isPreferred() bool {
-	return c.preferredInstead == c
 }

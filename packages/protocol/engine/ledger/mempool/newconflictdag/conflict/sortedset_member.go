@@ -41,8 +41,8 @@ type sortedSetMember[ConflictID, ResourceID IDType] struct {
 
 	onAcceptanceStateUpdatedHook *event.Hook[func(acceptance.State, acceptance.State)]
 
-	// onUpdateHook is the hook that is triggered when the weight of the Conflict is updated.
-	onUpdateHook *event.Hook[func(weight.Value)]
+	// onWeightUpdatedHook is the hook that is triggered when the weight of the Conflict is updated.
+	onWeightUpdatedHook *event.Hook[func(weight.Value)]
 
 	// onPreferredUpdatedHook is the hook that is triggered when the PreferredInstead value of the Conflict is updated.
 	onPreferredUpdatedHook *event.Hook[func(*Conflict[ConflictID, ResourceID])]
@@ -64,7 +64,7 @@ func newSortedSetMember[ConflictID, ResourceID IDType](set *SortedSet[ConflictID
 		s.onAcceptanceStateUpdatedHook = conflict.AcceptanceStateUpdated.Hook(s.onAcceptanceStateUpdated)
 	}
 
-	s.onUpdateHook = conflict.Weight.OnUpdate.Hook(s.queueWeightUpdate)
+	s.onWeightUpdatedHook = conflict.Weight.OnUpdate.Hook(s.queueWeightUpdate)
 	s.onPreferredUpdatedHook = conflict.PreferredInsteadUpdated.Hook(s.queuePreferredInsteadUpdate)
 
 	return s
@@ -106,7 +106,7 @@ func (s *sortedSetMember[ConflictID, ResourceID]) Dispose() {
 		s.onAcceptanceStateUpdatedHook.Unhook()
 	}
 
-	s.onUpdateHook.Unhook()
+	s.onWeightUpdatedHook.Unhook()
 	s.onPreferredUpdatedHook.Unhook()
 }
 
