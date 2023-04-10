@@ -1,8 +1,9 @@
 package newconflictdag
 
 import (
-	"fmt"
 	"sync"
+
+	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/conflict"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/weight"
@@ -160,29 +161,39 @@ func (c *ConflictDAG[ConflictID, ResourceID]) ConflictSets(resourceIDs ...Resour
 	return conflictSets
 }
 
-func (c *ConflictDAG[ConflictID, ResourceID]) CastVotes(conflictIDs ...ConflictID) {
+// CastVotes applies the given votes to the ConflictDAG.
+func (c *ConflictDAG[ConflictID, ResourceID]) CastVotes(conflictIDs ...ConflictID) error {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
-	conflictsToAdd := c.determineConflictsToAdd(advancedset.New[*conflict.Conflict[ConflictID, ResourceID]](lo.Values(c.Conflicts(conflictIDs...))...))
+	votesToAdd := advancedset.New[*conflict.Conflict[ConflictID, ResourceID]]()
+	votesToRevoke := advancedset.New[*conflict.Conflict[ConflictID, ResourceID]]()
 
-	if false {
-		fmt.Println(conflictsToAdd)
+	collectRevokedVote := func(currentConflict *conflict.Conflict[ConflictID, ResourceID]) error {
+		if votesToRevoke.Add(currentConflict) && votesToAdd.Has(currentConflict) {
+			return xerrors.Errorf("applied conflicting votes for %s", currentConflict.ID)
+		}
+
+		return nil
 	}
 
-	// revokedConflicts, isInvalid = c.determineConflictsToRevoke(conflictsToAdd)
-}
+	collectAddedVote := func(currentConflict *conflict.Conflict[ConflictID, ResourceID]) error {
+		if votesToAdd.Add(currentConflict) {
+			return currentConflict.ConflictingConflicts.ForEach(collectRevokedVote)
+		}
 
-// determineConflictsToAdd iterates through the past cone of the given Conflicts and determines the ConflictIDs that
-// are affected by the Vote.
-func (c *ConflictDAG[ConflictID, ResourceID]) determineConflictsToAdd(conflictIDs *advancedset.AdvancedSet[*conflict.Conflict[ConflictID, ResourceID]]) (addedConflicts *advancedset.AdvancedSet[*conflict.Conflict[ConflictID, ResourceID]]) {
-	addedConflicts = advancedset.New[*conflict.Conflict[ConflictID, ResourceID]]()
-	for it := conflictIDs.Iterator(); it.HasNext(); {
-		currentConflict := it.Next()
-
-		addedConflicts.AddAll(c.determineConflictsToAdd(currentConflict.Parents))
-		addedConflicts.Add(currentConflict)
+		return nil
 	}
 
-	return
+	if err := walkPastCone(collectAddedVote, lo.Values(c.Conflicts(conflictIDs...))...); err != nil {
+		return xerrors.Errorf("failed to collect added votes: %w", err)
+	}
+
+	if err := walkFutureCone(collectRevokedVote, votesToRevoke.Slice()...); err != nil {
+		return xerrors.Errorf("failed to collect revoked votes: %w", err)
+	}
+
+	// TODO: APPLY VOTES ACCORDING TO VOTE POWER
+
+	return nil
 }
