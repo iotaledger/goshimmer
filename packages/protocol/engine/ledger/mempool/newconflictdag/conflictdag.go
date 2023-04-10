@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/weight"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/ds/shrinkingmap"
+	"github.com/iotaledger/hive.go/ds/walker"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/event"
 	"github.com/iotaledger/hive.go/runtime/syncutils"
@@ -166,31 +167,52 @@ func (c *ConflictDAG[ConflictID, ResourceID]) CastVotes(conflictIDs ...ConflictI
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
-	votesToAdd := advancedset.New[*conflict.Conflict[ConflictID, ResourceID]]()
-	votesToRevoke := advancedset.New[*conflict.Conflict[ConflictID, ResourceID]]()
+	supportedConflicts := advancedset.New[*conflict.Conflict[ConflictID, ResourceID]]()
+	revokedConflicts := advancedset.New[*conflict.Conflict[ConflictID, ResourceID]]()
 
-	collectRevokedVote := func(currentConflict *conflict.Conflict[ConflictID, ResourceID]) error {
-		if votesToRevoke.Add(currentConflict) && votesToAdd.Has(currentConflict) {
-			return xerrors.Errorf("applied conflicting votes for %s", currentConflict.ID)
+	supportedWalker := walker.New[*conflict.Conflict[ConflictID, ResourceID]]().PushAll(lo.Values(c.Conflicts(conflictIDs...))...)
+	revokedWalker := walker.New[*conflict.Conflict[ConflictID, ResourceID]]()
+
+	revokeConflict := func(revokedConflict *conflict.Conflict[ConflictID, ResourceID]) error {
+		if revokedConflicts.Add(revokedConflict) {
+			if supportedConflicts.Has(revokedConflict) {
+				return xerrors.Errorf("applied conflicting votes (%s is supported and revoked)", revokedConflict.ID)
+			}
+
+			revokedWalker.PushAll(revokedConflict.Children.Slice()...)
 		}
 
 		return nil
 	}
 
-	collectAddedVote := func(currentConflict *conflict.Conflict[ConflictID, ResourceID]) error {
-		if votesToAdd.Add(currentConflict) {
-			return currentConflict.ConflictingConflicts.ForEach(collectRevokedVote)
+	supportConflict := func(supportedConflict *conflict.Conflict[ConflictID, ResourceID]) error {
+		if supportedConflicts.Add(supportedConflict) {
+			if err := supportedConflict.ConflictingConflicts.ForEach(func(revokedConflict *conflict.Conflict[ConflictID, ResourceID]) error {
+				if revokedConflict == supportedConflict {
+					return nil
+				}
+
+				return revokeConflict(revokedConflict)
+			}); err != nil {
+				return xerrors.Errorf("failed to collect conflicting conflicts: %w", err)
+			}
+
+			supportedWalker.PushAll(supportedConflict.Parents.Slice()...)
 		}
 
 		return nil
 	}
 
-	if err := walkPastCone(collectAddedVote, lo.Values(c.Conflicts(conflictIDs...))...); err != nil {
-		return xerrors.Errorf("failed to collect added votes: %w", err)
+	for supportedWalker.HasNext() {
+		if err := supportConflict(supportedWalker.Next()); err != nil {
+			return xerrors.Errorf("failed to collect supported conflicts: %w", err)
+		}
 	}
 
-	if err := walkFutureCone(collectRevokedVote, votesToRevoke.Slice()...); err != nil {
-		return xerrors.Errorf("failed to collect revoked votes: %w", err)
+	for revokedWalker.HasNext() {
+		if err := revokeConflict(revokedWalker.Next()); err != nil {
+			return xerrors.Errorf("failed to collect revoked conflicts: %w", err)
+		}
 	}
 
 	// TODO: APPLY VOTES ACCORDING TO VOTE POWER
