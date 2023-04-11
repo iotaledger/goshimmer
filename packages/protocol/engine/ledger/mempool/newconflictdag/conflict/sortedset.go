@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/weight"
 	"github.com/iotaledger/hive.go/constraints"
 	"github.com/iotaledger/hive.go/ds/shrinkingmap"
+	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/syncutils"
 	"github.com/iotaledger/hive.go/stringify"
 )
@@ -132,11 +133,15 @@ func (s *SortedSet[ConflictID, ResourceID, VotePower]) Add(conflict *Conflict[Co
 }
 
 // ForEach iterates over all Conflicts of the SortedSet and calls the given callback for each of them.
-func (s *SortedSet[ConflictID, ResourceID, VotePower]) ForEach(callback func(*Conflict[ConflictID, ResourceID, VotePower]) error) error {
+func (s *SortedSet[ConflictID, ResourceID, VotePower]) ForEach(callback func(*Conflict[ConflictID, ResourceID, VotePower]) error, optIncludeOwner ...bool) error {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
 	for currentMember := s.heaviestMember; currentMember != nil; currentMember = currentMember.lighterMember {
+		if !lo.First(optIncludeOwner) && currentMember.Conflict == s.owner {
+			continue
+		}
+
 		if err := callback(currentMember.Conflict); err != nil {
 			return err
 		}
@@ -156,7 +161,7 @@ func (s *SortedSet[ConflictID, ResourceID, VotePower]) String() string {
 	_ = s.ForEach(func(conflict *Conflict[ConflictID, ResourceID, VotePower]) error {
 		structBuilder.AddField(stringify.NewStructField(conflict.ID.String(), conflict))
 		return nil
-	})
+	}, true)
 
 	return structBuilder.String()
 }

@@ -20,18 +20,6 @@ import (
 
 // Conflict is a conflict that is part of a Conflict DAG.
 type Conflict[ConflictID, ResourceID IDType, VotePower constraints.Comparable[VotePower]] struct {
-	// AcceptanceStateUpdated is triggered when the AcceptanceState of the Conflict is updated.
-	AcceptanceStateUpdated *event.Event2[acceptance.State, acceptance.State]
-
-	// PreferredInsteadUpdated is triggered when the preferred instead value of the Conflict is updated.
-	PreferredInsteadUpdated *event.Event1[*Conflict[ConflictID, ResourceID, VotePower]]
-
-	// LikedInsteadAdded is triggered when a liked instead reference is added to the Conflict.
-	LikedInsteadAdded *event.Event1[*Conflict[ConflictID, ResourceID, VotePower]]
-
-	// LikedInsteadRemoved is triggered when a liked instead reference is removed from the Conflict.
-	LikedInsteadRemoved *event.Event1[*Conflict[ConflictID, ResourceID, VotePower]]
-
 	// ID is the identifier of the Conflict.
 	ID ConflictID
 
@@ -48,7 +36,19 @@ type Conflict[ConflictID, ResourceID IDType, VotePower constraints.Comparable[Vo
 	Weight *weight.Weight
 
 	// LatestVotes is the set of the latest votes of the Conflict.
-	LatestVotes shrinkingmap.ShrinkingMap[identity.ID, *vote.Vote[VotePower]]
+	LatestVotes *shrinkingmap.ShrinkingMap[identity.ID, *vote.Vote[VotePower]]
+
+	// AcceptanceStateUpdated is triggered when the AcceptanceState of the Conflict is updated.
+	AcceptanceStateUpdated *event.Event2[acceptance.State, acceptance.State]
+
+	// PreferredInsteadUpdated is triggered when the preferred instead value of the Conflict is updated.
+	PreferredInsteadUpdated *event.Event1[*Conflict[ConflictID, ResourceID, VotePower]]
+
+	// LikedInsteadAdded is triggered when a liked instead reference is added to the Conflict.
+	LikedInsteadAdded *event.Event1[*Conflict[ConflictID, ResourceID, VotePower]]
+
+	// LikedInsteadRemoved is triggered when a liked instead reference is removed from the Conflict.
+	LikedInsteadRemoved *event.Event1[*Conflict[ConflictID, ResourceID, VotePower]]
 
 	// childUnhookMethods is a mapping of children to their unhook functions.
 	childUnhookMethods *shrinkingmap.ShrinkingMap[ConflictID, func()]
@@ -86,6 +86,7 @@ func New[ConflictID, ResourceID IDType, VotePower constraints.Comparable[VotePow
 		Parents:                 advancedset.New[*Conflict[ConflictID, ResourceID, VotePower]](),
 		Children:                advancedset.New[*Conflict[ConflictID, ResourceID, VotePower]](),
 		Weight:                  initialWeight,
+		LatestVotes:             shrinkingmap.New[identity.ID, *vote.Vote[VotePower]](),
 
 		childUnhookMethods:  shrinkingmap.New[ConflictID, func()](),
 		likedInstead:        advancedset.New[*Conflict[ConflictID, ResourceID, VotePower]](),
@@ -129,7 +130,7 @@ func (c *Conflict[ConflictID, ResourceID, VotePower]) ApplyVote(vote *vote.Vote[
 	c.LatestVotes.Set(vote.Voter, vote)
 
 	// abort if the vote does not change the opinion of the validator
-	if latestVote.IsLiked() != vote.IsLiked() {
+	if exists && latestVote.IsLiked() != vote.IsLiked() {
 		return
 	}
 
@@ -416,7 +417,7 @@ func (c *Conflict[ConflictID, ResourceID, VotePower]) setPreferredInstead(prefer
 }
 
 func (c *Conflict[ConflictID, ResourceID, VotePower]) isValidatorRelevant(id identity.ID) bool {
-	validatorWeight, exists := c.Weight.Validators.Get(id)
+	validatorWeight, exists := c.Weight.Validators.Weights.Get(id)
 
 	return exists && validatorWeight.Value > 0
 }

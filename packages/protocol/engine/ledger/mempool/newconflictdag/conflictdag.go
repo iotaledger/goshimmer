@@ -185,8 +185,25 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) CastVotes(vote *vote.Vo
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
-	supportedConflicts := advancedset.New[*conflict.Conflict[ConflictID, ResourceID, VotePower]]()
-	revokedConflicts := advancedset.New[*conflict.Conflict[ConflictID, ResourceID, VotePower]]()
+	supportedConflicts, revokedConflicts, err := c.determineVotes(conflictIDs...)
+	if err != nil {
+		return xerrors.Errorf("failed to determine votes: %w", err)
+	}
+
+	for supportedConflict := supportedConflicts.Iterator(); supportedConflict.HasNext(); {
+		supportedConflict.Next().ApplyVote(vote)
+	}
+
+	for revokedConflict := revokedConflicts.Iterator(); revokedConflict.HasNext(); {
+		revokedConflict.Next().ApplyVote(vote.WithLiked(false))
+	}
+
+	return nil
+}
+
+func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) determineVotes(conflictIDs ...ConflictID) (supportedConflicts, revokedConflicts *advancedset.AdvancedSet[*conflict.Conflict[ConflictID, ResourceID, VotePower]], err error) {
+	supportedConflicts = advancedset.New[*conflict.Conflict[ConflictID, ResourceID, VotePower]]()
+	revokedConflicts = advancedset.New[*conflict.Conflict[ConflictID, ResourceID, VotePower]]()
 
 	revokedWalker := walker.New[*conflict.Conflict[ConflictID, ResourceID, VotePower]]()
 	revokeConflict := func(revokedConflict *conflict.Conflict[ConflictID, ResourceID, VotePower]) error {
@@ -201,16 +218,10 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) CastVotes(vote *vote.Vo
 		return nil
 	}
 
-	supportedWalker := walker.New[*conflict.Conflict[ConflictID, ResourceID, VotePower]]().PushAll(lo.Values(c.Conflicts(conflictIDs...))...)
+	supportedWalker := walker.New[*conflict.Conflict[ConflictID, ResourceID, VotePower]]()
 	supportConflict := func(supportedConflict *conflict.Conflict[ConflictID, ResourceID, VotePower]) error {
 		if supportedConflicts.Add(supportedConflict) {
-			if err := supportedConflict.ConflictingConflicts.ForEach(func(revokedConflict *conflict.Conflict[ConflictID, ResourceID, VotePower]) error {
-				if revokedConflict == supportedConflict {
-					return nil
-				}
-
-				return revokeConflict(revokedConflict)
-			}); err != nil {
+			if err := supportedConflict.ConflictingConflicts.ForEach(revokeConflict); err != nil {
 				return xerrors.Errorf("failed to collect conflicting conflicts: %w", err)
 			}
 
@@ -220,25 +231,17 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) CastVotes(vote *vote.Vo
 		return nil
 	}
 
-	for supportedWalker.HasNext() {
+	for supportedWalker.PushAll(lo.Values(c.Conflicts(conflictIDs...))...); supportedWalker.HasNext(); {
 		if err := supportConflict(supportedWalker.Next()); err != nil {
-			return xerrors.Errorf("failed to collect supported conflicts: %w", err)
+			return nil, nil, xerrors.Errorf("failed to collect supported conflicts: %w", err)
 		}
 	}
 
 	for revokedWalker.HasNext() {
 		if err := revokeConflict(revokedWalker.Next()); err != nil {
-			return xerrors.Errorf("failed to collect revoked conflicts: %w", err)
+			return nil, nil, xerrors.Errorf("failed to collect revoked conflicts: %w", err)
 		}
 	}
 
-	for supportedConflict := supportedConflicts.Iterator(); supportedConflict.HasNext(); {
-		supportedConflict.Next().ApplyVote(vote)
-	}
-
-	for revokedConflict := revokedConflicts.Iterator(); revokedConflict.HasNext(); {
-		revokedConflict.Next().ApplyVote(vote.WithLiked(false))
-	}
-
-	return nil
+	return supportedConflicts, revokedConflicts, nil
 }

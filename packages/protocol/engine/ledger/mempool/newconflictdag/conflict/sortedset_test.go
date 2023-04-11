@@ -200,7 +200,7 @@ func assertSortedConflictsOrder(t *testing.T, sortedConflicts SortedConflictSet,
 		require.Equal(t, "OutputID("+currentAlias+")", c.ID.String())
 
 		return nil
-	}))
+	}, true))
 
 	require.Empty(t, aliases)
 }

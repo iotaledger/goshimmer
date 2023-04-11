@@ -423,7 +423,7 @@ func assertCorrectOrder(t *testing.T, conflicts ...TestConflict) {
 				}
 
 				return nil
-			})
+			}, true)
 		}
 	}
 
@@ -446,7 +446,7 @@ func assertCorrectOrder(t *testing.T, conflicts ...TestConflict) {
 			}
 
 			return nil
-		})
+		}, true)
 	})
 }
 
