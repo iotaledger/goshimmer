@@ -37,15 +37,41 @@ func TestConflictDAG_UpdateConflictParents(t *testing.T) {
 
 	conflictDAG := New[TestID, TestID, vote.MockedPower](weights.TotalWeight)
 	conflicts := map[string]*conflict.Conflict[TestID, TestID, vote.MockedPower]{
-		"1":   conflictDAG.CreateConflict(conflictIDs["1"], []TestID{}, []TestID{resourceIDs["1"]}, weight.New(weights).SetCumulativeWeight(5)),
-		"2":   conflictDAG.CreateConflict(conflictIDs["2"], []TestID{}, []TestID{resourceIDs["2"]}, weight.New(weights).SetCumulativeWeight(5)),
-		"3":   conflictDAG.CreateConflict(conflictIDs["3"], []TestID{conflictIDs["1"], conflictIDs["2"]}, []TestID{resourceIDs["3"]}, weight.New(weights).SetCumulativeWeight(5)),
-		"2.5": conflictDAG.CreateConflict(conflictIDs["2.5"], []TestID{conflictIDs["1"], conflictIDs["2"]}, []TestID{resourceIDs["2.5"]}, weight.New(weights).SetCumulativeWeight(5)),
+		"1": conflictDAG.CreateConflict(conflictIDs["1"], []TestID{}, []TestID{resourceIDs["1"]}, weight.New(weights).SetCumulativeWeight(5)),
+		"2": conflictDAG.CreateConflict(conflictIDs["2"], []TestID{}, []TestID{resourceIDs["2"]}, weight.New(weights).SetCumulativeWeight(5)),
+		"3": conflictDAG.CreateConflict(conflictIDs["3"], []TestID{conflictIDs["1"], conflictIDs["2"]}, []TestID{resourceIDs["3"]}, weight.New(weights).SetCumulativeWeight(5)),
 	}
+
+	fmt.Println(conflicts["1"].Children)
+	require.Equal(t, 1, conflicts["1"].Children.Size())
+	require.True(t, conflicts["1"].Children.Has(conflicts["3"]))
+
+	require.Equal(t, 1, conflicts["2"].Children.Size())
+	require.True(t, conflicts["2"].Children.Has(conflicts["3"]))
+
+	require.Equal(t, 2, conflicts["3"].Parents.Size())
+	require.True(t, conflicts["3"].Parents.Has(conflicts["1"]))
+	require.True(t, conflicts["3"].Parents.Has(conflicts["2"]))
+
+	conflicts["2.5"] = conflictDAG.CreateConflict(conflictIDs["2.5"], []TestID{conflictIDs["1"], conflictIDs["2"]}, []TestID{resourceIDs["2.5"]}, weight.New(weights).SetCumulativeWeight(5))
 
 	conflictDAG.UpdateConflictParents(conflictIDs["3"], conflictIDs["2.5"], conflictIDs["1"], conflictIDs["2"])
 
-	fmt.Println(len(conflicts))
+	require.Equal(t, 1, conflicts["1"].Children.Size())
+	require.True(t, conflicts["1"].Children.Has(conflicts["2.5"]))
+
+	require.Equal(t, 1, conflicts["2"].Children.Size())
+	require.True(t, conflicts["2"].Children.Has(conflicts["2.5"]))
+
+	require.Equal(t, 1, conflicts["3"].Parents.Size())
+	require.True(t, conflicts["3"].Parents.Has(conflicts["2.5"]))
+
+	require.Equal(t, 2, conflicts["2.5"].Parents.Size())
+	require.True(t, conflicts["2.5"].Parents.Has(conflicts["1"]))
+	require.True(t, conflicts["2.5"].Parents.Has(conflicts["2"]))
+
+	require.Equal(t, 1, conflicts["2.5"].Children.Size())
+	require.True(t, conflicts["2.5"].Children.Has(conflicts["3"]))
 }
 
 func TestConflictDAG_JoinConflictSets(t *testing.T) {
@@ -270,7 +296,7 @@ func NewTestID(alias string) TestID {
 }
 
 func (id TestID) String() string {
-	return strings.Replace(id.TransactionID.String(), "TransactionID(", "TestID(", 1)
+	return strings.Replace(id.TransactionID.String(), "TransactionID", "TestID", 1)
 }
 
 func requireConflicts(t *testing.T, conflicts map[TestID]*conflict.Conflict[TestID, TestID, vote.MockedPower], expectedConflicts ...*conflict.Conflict[TestID, TestID, vote.MockedPower]) {
