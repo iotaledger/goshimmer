@@ -120,12 +120,16 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) UpdateConflictParents(c
 		defer c.mutex.RUnlock()
 
 		currentConflict, currentConflictExists := c.conflictsByID.Get(conflictID)
-		addedParent, addedParentExists := c.Conflicts(addedParentID)[addedParentID]
-		removedParents := lo.Values(c.Conflicts(removedParentIDs...))
-
-		if !currentConflictExists || !addedParentExists {
+		if !currentConflictExists {
 			return nil, nil, nil, false
 		}
+
+		addedParent, addedParentExists := c.Conflicts(addedParentID)[addedParentID]
+		if !addedParentExists {
+			return nil, nil, nil, false
+		}
+
+		removedParents := lo.Values(c.Conflicts(removedParentIDs...))
 
 		return currentConflict, addedParent, removedParents, currentConflict.UpdateParents(addedParent, removedParents...)
 	}()
@@ -238,8 +242,8 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) determineVotes(conflict
 	}
 
 	for revokedWalker.HasNext() {
-		if err := revokeConflict(revokedWalker.Next()); err != nil {
-			return nil, nil, xerrors.Errorf("failed to collect revoked conflicts: %w", err)
+		if revokedConflict := revokedWalker.Next(); revokedConflicts.Add(revokedConflict) {
+			revokedWalker.PushAll(revokedConflict.Children.Slice()...)
 		}
 	}
 

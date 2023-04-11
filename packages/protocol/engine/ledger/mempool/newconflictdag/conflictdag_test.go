@@ -1,6 +1,7 @@
 package newconflictdag
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -16,6 +17,60 @@ import (
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 )
+
+func TestConflictDAG_UpdateConflictParents(t *testing.T) {
+	weights := sybilprotection.NewWeights(mapdb.NewMapDB())
+
+	conflictIDs := map[string]TestID{
+		"1":   NewTestID("conflict1"),
+		"2":   NewTestID("conflict2"),
+		"2.5": NewTestID("conflict2.5"),
+		"3":   NewTestID("conflict3"),
+	}
+
+	resourceIDs := map[string]TestID{
+		"1":   NewTestID("resource1"),
+		"2":   NewTestID("resource2"),
+		"2.5": NewTestID("resource2.5"),
+		"3":   NewTestID("resource3"),
+	}
+
+	conflictDAG := New[TestID, TestID, vote.MockedPower](weights.TotalWeight)
+	conflicts := map[string]*conflict.Conflict[TestID, TestID, vote.MockedPower]{
+		"1":   conflictDAG.CreateConflict(conflictIDs["1"], []TestID{}, []TestID{resourceIDs["1"]}, weight.New(weights).SetCumulativeWeight(5)),
+		"2":   conflictDAG.CreateConflict(conflictIDs["2"], []TestID{}, []TestID{resourceIDs["2"]}, weight.New(weights).SetCumulativeWeight(5)),
+		"3":   conflictDAG.CreateConflict(conflictIDs["3"], []TestID{conflictIDs["1"], conflictIDs["2"]}, []TestID{resourceIDs["3"]}, weight.New(weights).SetCumulativeWeight(5)),
+		"2.5": conflictDAG.CreateConflict(conflictIDs["2.5"], []TestID{conflictIDs["1"], conflictIDs["2"]}, []TestID{resourceIDs["2.5"]}, weight.New(weights).SetCumulativeWeight(5)),
+	}
+
+	conflictDAG.UpdateConflictParents(conflictIDs["3"], conflictIDs["2.5"], conflictIDs["1"], conflictIDs["2"])
+
+	fmt.Println(len(conflicts))
+}
+
+func TestConflictDAG_JoinConflictSets(t *testing.T) {
+	weights := sybilprotection.NewWeights(mapdb.NewMapDB())
+
+	conflictID1 := NewTestID("conflict1")
+	conflictID2 := NewTestID("conflict2")
+	conflictID3 := NewTestID("conflict3")
+	resourceID1 := NewTestID("resource1")
+	resourceID2 := NewTestID("resource2")
+
+	conflictDAG := New[TestID, TestID, vote.MockedPower](weights.TotalWeight)
+	conflict1 := conflictDAG.CreateConflict(conflictID1, []TestID{}, []TestID{resourceID1}, weight.New(weights).SetCumulativeWeight(5))
+	conflict2 := conflictDAG.CreateConflict(conflictID2, []TestID{}, []TestID{resourceID1}, weight.New(weights).SetCumulativeWeight(1))
+
+	require.Nil(t, conflictDAG.JoinConflictSets(conflictID3, resourceID2))
+
+	conflict3 := conflictDAG.CreateConflict(conflictID3, []TestID{}, []TestID{resourceID2}, weight.New(weights).SetCumulativeWeight(1))
+
+	conflictDAG.JoinConflictSets(conflictID1, resourceID2)
+
+	likedInstead := conflictDAG.LikedInstead(conflict1.ID, conflict2.ID, conflict3.ID)
+	require.Contains(t, likedInstead, conflict1.ID)
+	require.Equal(t, 1, len(likedInstead))
+}
 
 func TestConflictDAG_CastVotes(t *testing.T) {
 	nodesByIdentity := map[string]identity.ID{
@@ -54,15 +109,15 @@ func TestConflictDAG_CastVotes(t *testing.T) {
 
 	require.NoError(t, conflictDAG.CastVotes(vote.NewVote(nodesByIdentity["nodeID1"], vote.MockedPower{
 		VotePower: 10,
-	}).WithLiked(true), conflictID2))
+	}), conflictID2))
 
 	require.NoError(t, conflictDAG.CastVotes(vote.NewVote(nodesByIdentity["nodeID2"], vote.MockedPower{
 		VotePower: 10,
-	}).WithLiked(true), conflictID2))
+	}), conflictID2))
 
 	require.NoError(t, conflictDAG.CastVotes(vote.NewVote(nodesByIdentity["nodeID3"], vote.MockedPower{
 		VotePower: 10,
-	}).WithLiked(true), conflictID2))
+	}), conflictID2))
 
 	require.Contains(t, conflictDAG.LikedInstead(conflictID1), conflictID2)
 
@@ -70,6 +125,10 @@ func TestConflictDAG_CastVotes(t *testing.T) {
 	require.True(t, conflict2.AcceptanceState().IsAccepted())
 	require.True(t, conflict3.AcceptanceState().IsRejected())
 	require.True(t, conflict4.AcceptanceState().IsRejected())
+
+	require.Error(t, conflictDAG.CastVotes(vote.NewVote(nodesByIdentity["nodeID3"], vote.MockedPower{
+		VotePower: 10,
+	}), conflictID1, conflictID2))
 }
 
 func TestConflictDAG_CastVotes1(t *testing.T) {
@@ -109,15 +168,15 @@ func TestConflictDAG_CastVotes1(t *testing.T) {
 
 	require.NoError(t, conflictDAG.CastVotes(vote.NewVote(nodesByIdentity["nodeID1"], vote.MockedPower{
 		VotePower: 10,
-	}).WithLiked(true), conflictID3))
+	}), conflictID3))
 
 	require.NoError(t, conflictDAG.CastVotes(vote.NewVote(nodesByIdentity["nodeID2"], vote.MockedPower{
 		VotePower: 10,
-	}).WithLiked(true), conflictID3))
+	}), conflictID3))
 
 	require.NoError(t, conflictDAG.CastVotes(vote.NewVote(nodesByIdentity["nodeID3"], vote.MockedPower{
 		VotePower: 10,
-	}).WithLiked(true), conflictID3))
+	}), conflictID3))
 
 	require.Equal(t, 0, len(conflictDAG.LikedInstead(conflictID1)))
 
